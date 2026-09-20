@@ -66,6 +66,19 @@ starts. Decisions and evidence: `docs/DECISIONS.md`.
 - DPI at 125% and 150%, multi-monitor, the tray icon's appearance, autostart, and the remaining animation states (look, scooter, walk, talk, hello) reviewed individually.
 - All numbers are for the Body without the Core, the input window or the model chip; re-measure at every milestone.
 
+## Commitments added by Joshua (2026-09-20)
+
+1. **Speech bubble long-reply behavior.** Screenshot from Joshua: a long reply mid-paging starts mid-sentence
+   ("bill that holds up to 3 gallons of...") and ends mid-sentence ("...for a water"), so neither the start nor the
+   end is readable at once. Fix in M3: page whole pages, not single lines; never leave a sentence cut at either end
+   of a page; show a page indicator; wheel and keys to move; and long answers open in the Panel with only the gist
+   in the bubble. Also give the text equal padding top and bottom and point the tail at Aang.
+2. **Click into Aang and type, with keyboard shortcuts.** M3: click Aang (or the global hotkey) to open the input
+   box; Enter sends, Esc stops or dismisses, Up recalls the last message, Ctrl+Enter for a new line, and shortcuts
+   for the model chip and saving. Shortcut list is written into this file when built.
+3. **Retire the Rainmeter Aang.** Condition: items 1 and 2 work, plus autostart of Core and Body (pulled forward
+   from M5 so retirement is not blocked). Then the skin is deactivated and the old scripts kept in git history.
+
 ## What Aang is
 - The chibi pixel-art pet on Joshua's desktop, playful and in character, with no AI slop.
 - Understands the way Joshua actually writes (lowercase, typos, dropped apostrophes, vague references).

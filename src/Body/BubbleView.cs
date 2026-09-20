@@ -4,18 +4,25 @@ using System.Drawing.Drawing2D;
 namespace Aang.Body;
 
 /// <summary>
-/// The speech bubble. Layout rules that make streaming feel steady:
-///  - wrapping is greedy left to right, so text arriving at the end never re-wraps earlier lines;
-///  - the bubble grows upward from a fixed bottom edge and eases toward its target height;
-///  - once it hits the line cap it scrolls to the newest lines.
-/// Geometry and colours match the existing Rainmeter Aang so the look carries over.
+/// The speech bubble.
+///  - Wrapping is greedy left to right, so text arriving at the end never re-wraps earlier lines.
+///  - The bubble and its tail are ONE continuous outline (an earlier version drew the tail as a separate
+///    shape over the bubble and it visibly did not line up).
+///  - While text streams it follows the newest lines. A finished reply that does not fit is split into whole
+///    pages that break after a sentence where possible, never leave a one-line orphan page, and advance at
+///    reading pace, on click, on the mouse wheel, or with the keyboard.
+/// Geometry and colours follow the original Rainmeter Aang so the look carries over.
 /// </summary>
 sealed class BubbleView : IDisposable
 {
-    public const int Left = 6, Right = 262, Bottom = 124, MaxLines = 6, LineH = 16, TextX = 20, PadTop = 10;
-    public const int MinH = 54, MaxH = 118, MaxTextW = 232;
+    public const int Left = 6, Right = 262, Bottom = 124, LineH = 16, TextX = 20, Pad = 11;
+    public const int MaxLines = 6, PagedLines = 5;       // a paged bubble spends one row on the page indicator
+    public const int MinH = 54, MaxH = 118, MaxTextW = 232, Radius = 14;
+    // Tail: base on the bubble's right edge, tip aimed at Aang's face.
+    const int TailBaseTop = Bottom - 40, TailBaseBottom = Bottom - 18, TailTipX = 320, TailTipY = 152;
 
     readonly Font font = new("Bahnschrift", 11f, FontStyle.Regular, GraphicsUnit.Point);
+    readonly Font small = new("Bahnschrift", 8.5f, FontStyle.Regular, GraphicsUnit.Point);
     readonly Bitmap measureBmp = new(1, 1);
     readonly Graphics measure;
     readonly Dictionary<string, float> widths = new();
@@ -23,20 +30,25 @@ sealed class BubbleView : IDisposable
     readonly Color fillC = Color.FromArgb(244, 14, 8, 30);
     readonly Color strokeC = Color.FromArgb(235, 255, 196, 60);
     readonly Color textC = Color.FromArgb(255, 240, 244, 255);
+    readonly Color dimC = Color.FromArgb(200, 178, 170, 215);
 
     string text = "";
     List<string> lines = new();
+    List<List<string>> pages = new();
+    int page;
+    bool streaming;
     float shownH, targetH;
     DateTime hideAt = DateTime.MaxValue;
-    int first;                                  // index of the first visible line
-    DateTime scrollAt = DateTime.MaxValue;      // when to page down next (finished long replies only)
-    const int StartReadingMs = 3000, PerLineMs = 1500;
+    DateTime pageAt = DateTime.MaxValue;
+    string receipt = "";
 
-    public int FirstVisible => first;
     public bool Visible { get; private set; }
     public bool Dots { get; private set; }
     public string Text => text;
     public IReadOnlyList<string> Lines => lines;
+    public int PageIndex => page;
+    public int PageCount => Math.Max(1, pages.Count);
+    public bool Paged => !streaming && pages.Count > 1;
     public bool Animating => Visible && (Dots || Math.Abs(shownH - targetH) > 0.4f);
 
     public BubbleView()
@@ -87,76 +99,162 @@ sealed class BubbleView : IDisposable
         return result;
     }
 
+    static readonly System.Text.RegularExpressions.Regex SentenceBreak = new(@"(?<=[.!?])\s+|\n+");
+    public static List<string> SplitSentences(string t) =>
+        SentenceBreak.Split(t.Replace("\r", "")).Select(s => s.Trim()).Where(s => s.Length > 0).ToList();
+
+    /// <summary>
+    /// Split a finished reply into pages of whole sentences. Sentences are packed greedily and each page is
+    /// wrapped on its own, so a page never ends mid-sentence unless a single sentence is longer than a page.
+    /// The last page is never a single stranded line when the previous page can give up its last sentence.
+    /// </summary>
+    public List<List<string>> BuildPages(string text, int perPage)
+    {
+        var pages = new List<List<string>>();
+        var pageSentences = new List<List<string>>();
+        var cur = new List<string>();
+        var curText = "";
+
+        void Flush()
+        {
+            if (curText.Length == 0) return;
+            pages.Add(Wrap(curText));
+            pageSentences.Add(cur);
+            cur = new(); curText = "";
+        }
+
+        foreach (var s in SplitSentences(text))
+        {
+            var candidate = curText.Length == 0 ? s : curText + " " + s;
+            if (Wrap(candidate).Count <= perPage) { curText = candidate; cur.Add(s); continue; }
+            Flush();
+            var alone = Wrap(s);
+            if (alone.Count <= perPage) { curText = s; cur.Add(s); continue; }
+            for (int i = 0; i < alone.Count; i += perPage)          // one sentence longer than a page: split by lines
+            {
+                pages.Add(alone.Skip(i).Take(perPage).ToList());
+                pageSentences.Add(new List<string> { string.Join(' ', alone.Skip(i).Take(perPage)) });
+            }
+        }
+        Flush();
+
+        if (pages.Count >= 2 && pages[^1].Count == 1 && pageSentences[^2].Count >= 2)
+        {
+            var moved = pageSentences[^2][^1];
+            var merged = Wrap(moved + " " + string.Join(' ', pages[^1]));
+            if (merged.Count <= perPage)
+            {
+                pageSentences[^2].RemoveAt(pageSentences[^2].Count - 1);
+                pages[^2] = Wrap(string.Join(' ', pageSentences[^2]));
+                pages[^1] = merged;
+            }
+        }
+        return pages;
+    }
+
+    static int ReadMs(IReadOnlyList<string> pageLines)
+    {
+        var words = pageLines.Sum(l => l.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length);
+        return Math.Clamp(1400 + words * 300, 3000, 10000);
+    }
+
+    IReadOnlyList<string> PageLinesOf(int p) => pages[p];
     public void Show(string t, bool stream, int holdMs)
     {
-        Dots = false;
+        Dots = false; receipt = "";
         text = t;
         lines = Wrap(t);
-        var shown = Math.Min(lines.Count, MaxLines);
-        targetH = Math.Clamp(shown * LineH + 22, MinH, MaxH);
-        if (!Visible) shownH = targetH * 0.55f;
+        streaming = stream;
         Visible = true;
-        var overflow = Math.Max(0, lines.Count - MaxLines);
+
         if (stream)
         {
-            // Streaming: follow the newest lines so the text being written is always in view.
-            first = overflow;
-            scrollAt = DateTime.MaxValue;
+            pages = new(); page = 0;
+            targetH = Math.Clamp(Math.Min(lines.Count, MaxLines) * LineH + 2 * Pad, MinH, MaxH);
+            hideAt = DateTime.MaxValue; pageAt = DateTime.MaxValue;
+        }
+        else if (lines.Count <= MaxLines)
+        {
+            pages = new() { lines }; page = 0;
+            targetH = Math.Clamp(lines.Count * LineH + 2 * Pad, MinH, MaxH);
+            pageAt = DateTime.MaxValue;
+            hideAt = holdMs <= 0 ? DateTime.MaxValue : DateTime.UtcNow.AddMilliseconds(holdMs);
         }
         else
         {
-            // Finished: start at the top so the reply is read from its first word, then page down at
-            // reading pace. (An earlier version stayed on the tail and showed a reply starting mid-sentence.)
-            first = 0;
-            scrollAt = overflow > 0 ? DateTime.UtcNow.AddMilliseconds(StartReadingMs) : DateTime.MaxValue;
+            pages = BuildPages(t, PagedLines); page = 0;
+            targetH = MaxH;                                       // constant height so paging does not jump around
+            pageAt = DateTime.UtcNow.AddMilliseconds(ReadMs(PageLinesOf(0)));
+            var total = Enumerable.Range(0, pages.Count).Sum(p => ReadMs(PageLinesOf(p)));
+            hideAt = holdMs <= 0 ? DateTime.MaxValue : DateTime.UtcNow.AddMilliseconds(total + 4000);
         }
-        hideAt = (stream || holdMs <= 0) ? DateTime.MaxValue : DateTime.UtcNow.AddMilliseconds(holdMs + overflow * PerLineMs);
+        if (shownH <= 0) shownH = targetH * 0.55f;
     }
 
-    public void ShowDots()
+    /// <summary>Thinking dots, with an optional short receipt line such as "checking the weather".</summary>
+    public void ShowDots(string? receiptLine = null)
     {
-        text = ""; lines = new(); Dots = true;
-        targetH = MinH;
-        if (!Visible) shownH = targetH * 0.55f;
+        text = ""; lines = new(); pages = new(); page = 0; streaming = false;
+        Dots = true; receipt = receiptLine ?? "";
+        targetH = receipt.Length > 0 ? MinH + 6 : MinH;
+        if (!Visible || shownH <= 0) shownH = targetH * 0.55f;
         Visible = true;
-        hideAt = DateTime.MaxValue;
+        hideAt = DateTime.MaxValue; pageAt = DateTime.MaxValue;
     }
 
-    public void Clear() { Visible = false; Dots = false; text = ""; lines = new(); hideAt = DateTime.MaxValue; first = 0; scrollAt = DateTime.MaxValue; }
-
-    /// <summary>Mouse wheel: the reader takes over paging and the bubble stays up a little longer.</summary>
-    public void Scroll(int lineDelta)
+    public void Clear()
     {
-        var max = Math.Max(0, lines.Count - MaxLines);
-        first = Math.Clamp(first + lineDelta, 0, max);
-        scrollAt = DateTime.MaxValue;
-        if (hideAt != DateTime.MaxValue) hideAt = DateTime.UtcNow.AddSeconds(8);
+        Visible = false; Dots = false; streaming = false; text = ""; receipt = "";
+        lines = new(); pages = new(); page = 0; hideAt = DateTime.MaxValue; pageAt = DateTime.MaxValue; shownH = 0;
     }
 
-    /// <summary>Advance animation and expiry. Returns true if anything visible changed.</summary>
+    /// <summary>Move to another page (wheel, keys). Returns false if there was nowhere to go.</summary>
+    public bool Page(int delta)
+    {
+        if (!Paged) return false;
+        var next = Math.Clamp(page + delta, 0, pages.Count - 1);
+        if (next == page) return false;
+        page = next;
+        pageAt = DateTime.MaxValue;                                // the reader took over
+        if (hideAt != DateTime.MaxValue) hideAt = DateTime.UtcNow.AddSeconds(12);
+        return true;
+    }
+
+    /// <summary>Click: next page if there is one. Returns false when already on the last page (caller dismisses).</summary>
+    public bool Advance() => Page(1);
+
+    public bool Contains(float x, float y) => Visible && x >= Left && x <= Right + (TailTipX - Right) && y >= Bottom - Math.Max(shownH, MinH * 0.5f) && y <= Bottom;
+
+    /// <summary>Advance animation, paging and expiry. Returns true if anything visible changed.</summary>
     public bool Update(DateTime now)
     {
         var changed = false;
         if (Visible && now >= hideAt) { Clear(); return true; }
         if (Visible && Math.Abs(shownH - targetH) > 0.4f) { shownH += (targetH - shownH) * 0.4f; changed = true; }
         else if (Visible && shownH != targetH) { shownH = targetH; changed = true; }
-        if (Visible && !Dots && now >= scrollAt && first < Math.Max(0, lines.Count - MaxLines))
+        if (Visible && Paged && now >= pageAt && page < pages.Count - 1)
         {
-            first++; changed = true;
-            scrollAt = first < Math.Max(0, lines.Count - MaxLines) ? now.AddMilliseconds(PerLineMs) : DateTime.MaxValue;
+            page++; changed = true;
+            pageAt = page < pages.Count - 1 ? now.AddMilliseconds(ReadMs(PageLinesOf(page))) : DateTime.MaxValue;
         }
         if (Visible && Dots) changed = true;
         return changed;
     }
 
-    static GraphicsPath RoundRect(RectangleF r, float radius)
+    /// <summary>The bubble and its tail as a single closed outline: no seam, nothing to misalign.</summary>
+    public static GraphicsPath Outline(float top)
     {
-        var d = radius * 2;
+        var r = Radius; var d = r * 2f;
         var p = new GraphicsPath();
-        p.AddArc(r.Left, r.Top, d, d, 180, 90);
-        p.AddArc(r.Right - d, r.Top, d, d, 270, 90);
-        p.AddArc(r.Right - d, r.Bottom - d, d, d, 0, 90);
-        p.AddArc(r.Left, r.Bottom - d, d, d, 90, 90);
+        p.StartFigure();
+        p.AddArc(Left, top, d, d, 180, 90);                                   // top-left
+        p.AddArc(Right - d, top, d, d, 270, 90);                              // top-right
+        p.AddLine(Right, top + r, Right, TailBaseTop);
+        p.AddLine(Right, TailBaseTop, TailTipX, TailTipY);                    // tail out to the tip ...
+        p.AddLine(TailTipX, TailTipY, Right, TailBaseBottom);                 // ... and back to the edge
+        p.AddLine(Right, TailBaseBottom, Right, Bottom - r);
+        p.AddArc(Right - d, Bottom - d, d, d, 0, 90);                         // bottom-right
+        p.AddArc(Left, Bottom - d, d, d, 90, 90);                             // bottom-left
         p.CloseFigure();
         return p;
     }
@@ -165,45 +263,53 @@ sealed class BubbleView : IDisposable
     {
         if (!Visible) return;
         var h = Math.Max(shownH, MinH * 0.5f);
-        var rect = new RectangleF(Left, Bottom - h, Right - Left, h);
+        var top = Bottom - h;
 
         var old = g.SmoothingMode;
         g.SmoothingMode = SmoothingMode.AntiAlias;
-        using var path = RoundRect(rect, 14);
+        using var path = Outline(top);
         using var fill = new SolidBrush(fillC);
         using var pen = new Pen(strokeC, 1.8f) { LineJoin = LineJoin.Round };
         g.FillPath(fill, path);
         g.DrawPath(pen, path);
-
-        var tail = new[] { new PointF(254, 88), new PointF(306, 114), new PointF(254, 112) };
-        g.FillPolygon(fill, tail);
-        g.DrawPolygon(pen, tail);
-        using (var seam = new Pen(Color.FromArgb(255, 14, 8, 30), 3f)) g.DrawLine(seam, 255, 89, 255, 111);
         g.SmoothingMode = old;
 
         if (Dots)
         {
-            using var dot = new SolidBrush(textC);
+            var dotsY = receipt.Length > 0 ? Bottom - 34 : Bottom - 26;
             for (int i = 0; i < 3; i++)
             {
                 var phase = (tick / 4 + i) % 3;
-                var a = phase == 0 ? 255 : 110;
-                using var b = new SolidBrush(Color.FromArgb(a, textC));
-                g.FillEllipse(b, TextX + i * 14, Bottom - 24 - (phase == 0 ? 3 : 0), 7, 7);
+                using var b = new SolidBrush(Color.FromArgb(phase == 0 ? 255 : 110, textC));
+                g.FillEllipse(b, TextX + i * 14, dotsY - (phase == 0 ? 3 : 0), 7, 7);
+            }
+            if (receipt.Length > 0)
+            {
+                using var rb = new SolidBrush(dimC);
+                g.DrawString(receipt + "...", small, rb, TextX, Bottom - 22, StringFormat.GenericTypographic);
             }
             return;
         }
 
         g.SetClip(path);
         using var tb = new SolidBrush(textC);
-        for (int i = 0; i < Math.Min(lines.Count - first, MaxLines); i++)
+        IEnumerable<string> shown;
+        if (streaming) shown = lines.Skip(Math.Max(0, lines.Count - MaxLines)).Take(MaxLines);
+        else if (pages.Count > 0) shown = PageLinesOf(page);
+        else shown = lines;
+        int row = 0;
+        foreach (var line in shown)
+            g.DrawString(line, font, tb, TextX, top + Pad + row++ * LineH, StringFormat.GenericTypographic);
+
+        if (Paged)
         {
-            var y = rect.Top + PadTop + i * LineH;
-            g.DrawString(lines[first + i], font, tb, TextX, y, StringFormat.GenericTypographic);
+            using var db = new SolidBrush(dimC);
+            var label = $"{page + 1}/{pages.Count}" + (page < pages.Count - 1 ? "  click for more" : "");
+            g.DrawString(label, small, db, TextX, Bottom - Pad - 8, StringFormat.GenericTypographic);
         }
         g.ResetClip();
     }
 
-    public void Dispose() { font.Dispose(); measure.Dispose(); measureBmp.Dispose(); }
+    public void Dispose() { font.Dispose(); small.Dispose(); measure.Dispose(); measureBmp.Dispose(); }
 }
 

@@ -294,8 +294,7 @@ sealed class PetWindow : Form
     {
         base.OnMouseWheel(e);
         if (!bubble.Visible) return;
-        bubble.Scroll(e.Delta > 0 ? -1 : 1);
-        dirty = true;
+        if (bubble.Page(e.Delta > 0 ? -1 : 1)) dirty = true;
     }
 
     protected override void OnMouseUp(MouseEventArgs e)
@@ -308,6 +307,12 @@ sealed class PetWindow : Form
         {
             cfg.X = Location.X; cfg.Y = Location.Y; cfg.Save();
             _ = link.SendAsync(new { t = "moved", x = Location.X, y = Location.Y });
+        }
+        else if (bubble.Visible && bubble.Contains(e.X / scale, e.Y / scale))
+        {
+            // A click on the bubble: next page, or dismiss when there is nothing more to read.
+            if (!bubble.Advance()) { bubble.Clear(); if (anim.State == "talk") anim.Play("idle"); }
+            dirty = true;
         }
         else
         {
