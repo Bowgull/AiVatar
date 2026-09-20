@@ -1,0 +1,32 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>AangSpike</title>
+<style>html,body{margin:0;background:transparent;overflow:hidden}canvas{display:block}</style></head>
+<body><canvas id="c" width="470" height="310"></canvas>
+<script>
+// Stand-in for the real pixel-art loop: a bobbing sprite plus a bubble, redrawn at 30 fps.
+// It exists only so CPU/RAM are measured under a realistic animation load.
+const c = document.getElementById('c'), g = c.getContext('2d');
+const SPR = { x: 330, y: 160, w: 60, h: 110 }, BUB = { x: 5, y: 5, w: 257, h: 120 };
+let t = 0, last = 0;
+const FPS = Number(new URLSearchParams(location.search).get('fps')) || 30, STEP = 1000 / FPS - 2;
+function draw(now) {
+  requestAnimationFrame(draw);
+  if (now - last < STEP) return;
+  last = now; t++;
+  g.clearRect(0, 0, 470, 310);
+  g.fillStyle = 'rgba(13,10,30,0.94)'; g.strokeStyle = '#e8a33a'; g.lineWidth = 2;
+  g.beginPath(); g.roundRect(BUB.x, BUB.y, BUB.w, BUB.h, 12); g.fill(); g.stroke();
+  g.fillStyle = '#fff'; g.font = '14px sans-serif'; g.fillText('spike bubble ' + (t % 100), 20, 40);
+  const bob = Math.round(Math.sin(t / 8) * 3);
+  g.fillStyle = '#e9c9a8'; g.fillRect(SPR.x + 8, SPR.y + bob, 44, 44);
+  g.fillStyle = '#e8b93a'; g.fillRect(SPR.x, SPR.y + 44 + bob, 60, 66);
+  g.fillStyle = '#7a4b9a'; g.fillRect(SPR.x - 4, SPR.y + 112, 68, 10);
+}
+requestAnimationFrame(draw);
+const inBox = (b, x, y) => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h;
+let over = false;
+window.addEventListener('mousemove', e => {
+  const o = inBox(SPR, e.clientX, e.clientY) || inBox(BUB, e.clientX, e.clientY);
+  if (o !== over) { over = o; window.spike.hit(o); }
+});
+</script></body></html>
