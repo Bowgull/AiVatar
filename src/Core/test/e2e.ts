@@ -1,7 +1,7 @@
 // Full stack: real Core + real Claude + the real Body on screen over the game, photographed at each moment.
 //   npm run e2e        (needs the Body built in Release, and Body not already running)
 import { WebSocket } from 'ws';
-import { spawn } from 'node:child_process';
+import { spawn, execSync } from 'node:child_process';
 import { DatabaseSync } from 'node:sqlite';
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync } from 'node:fs';
 import os from 'node:os';
@@ -11,6 +11,7 @@ import { Core } from '../src/core.ts';
 const repo = path.resolve(import.meta.dirname, '..', '..', '..');
 const bodyExe = path.join(repo, 'src', 'Body', 'bin', 'Release', 'net10.0-windows', 'Aang.exe');
 const capture = path.join(repo, 'tools', 'measure', 'Capture.ps1');
+const keysPs = path.join(repo, 'tools', 'measure', 'Keys.ps1');
 const outDir = path.join(repo, 'tests', 'out', 'e2e');
 mkdirSync(outDir, { recursive: true });
 if (!existsSync(bodyExe)) { console.error('Build the Body first: ' + bodyExe); process.exit(2); }
@@ -35,6 +36,19 @@ async function snap(name: string) {
   const file = path.join(outDir, name + '.png'); const r = reply();
   cap.stdin.write(`snap ${file} Aang Body\n`);
   check('snapshot ' + name, (await r).startsWith('ok'));
+}
+
+// a real keyboard and mouse, so the last leg (Joshua typing) is tested too, not simulated over the socket
+const keys = spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', keysPs, '-Serve'], { stdio: ['pipe', 'pipe', 'inherit'] });
+let kbuf = ''; const kwait: ((l: string) => void)[] = [];
+keys.stdout.on('data', d => { kbuf += d; let i; while ((i = kbuf.indexOf('\n')) >= 0) { const line = kbuf.slice(0, i).trim(); kbuf = kbuf.slice(i + 1); kwait.shift()?.(line); } });
+const ask = (line: string) => new Promise<string>(r => { kwait.push(r); keys.stdin.write(line + '\n'); });
+kwait.push(() => {});
+
+// the Body may already be running (it starts with Windows now); these tests start their own
+if (execSync('tasklist /FI "IMAGENAME eq Aang.exe" /NH', { encoding: 'utf8' }).includes('Aang.exe')) {
+  console.error('An Aang.exe is already running. Quit it from the tray first; this test will not kill it.');
+  process.exit(3);
 }
 
 const logFile = path.join(process.env.APPDATA ?? '', 'Aang', 'body.log');
@@ -87,6 +101,31 @@ const log = existsSync(logFile) ? readFileSync(logFile, 'utf8').slice(logBefore)
 check('Body log shows the Core connection', /core connected/.test(log));
 check('Body log shows no exceptions', !/(exception|failed|fatal)/i.test(log), log.split('\n').filter(l => /(exception|failed|fatal)/i.test(l)).join(' | '));
 
+// ---- the real last leg: click Aang, type with a real keyboard, read the answer off the screen
+const rect = (await ask('rect Aang Body')).split(' ').map(Number);
+const [L, T] = rect;
+const beforeTyped = inbox.length;
+await ask(`click ${L + 360} ${T + 110 + 215}`);                       // click Aang himself
+const fg = await ask('fg');
+check('clicking Aang opens the input box over the desktop', /Aang Input/.test(fg), fg);
+await snap('04_typed_a_box_open');
+await ask('send what day is it{ENTER}');
+const typed = await (async () => { const d = Date.now() + 60000; while (Date.now() < d) { const m = inbox.slice(beforeTyped).find(x => x.t === 'bubble' && x.stream === false && x.id?.startsWith('u')); if (m) return m; await sleep(50); } return null; })();
+check('a question typed by hand reaches Claude and comes back as a reply', !!typed && typed.text.length > 0, JSON.stringify(typed?.text));
+await sleep(600); await snap('04_typed_b_answer');
+const submitted = core.lastSubmitText;
+check('the Core received exactly what was typed', submitted === 'what day is it', JSON.stringify(submitted));
+
+// rate that reply from the bubble; the Core must write it down
+const ratings = path.join(dataDir, 'ratings.jsonl');
+await ask(`move ${L + 120} ${T + 110 + 105}`); await sleep(300);
+await snap('05_rate_a_hover');
+await ask(`click ${L + 218} ${T + 110 + 69}`);                        // the "good" button
+await sleep(500); await snap('05_rate_b_rated');
+const rated = existsSync(ratings) ? readFileSync(ratings, 'utf8').trim().split('\n').map(l => JSON.parse(l)) : [];
+check('the rating is written next to the turn it is about', rated.length === 1 && rated[0].value === 'up' && rated[0].reply === typed?.text, JSON.stringify(rated[0]?.value) + ' ' + JSON.stringify(rated[0]?.user));
+
+keys.stdin.write('quit\n');
 cap.stdin.write('quit\n'); client.close(); body.kill(); await core.stop();
 console.log(`\n${results.filter(Boolean).length}/${results.length} e2e checks passed; screenshots in ${outDir}`);
 process.exit(results.every(Boolean) ? 0 : 1);

@@ -56,6 +56,8 @@ export class Core {
   private active: Turn | null = null;
   private readonly systemPrompt: string;
   private readonly toolServer;
+  /** Test hook: the text of the most recent accepted submit. */
+  lastSubmitText = '';
   /** Test/observation hook: called with every finished turn. */
   onTurn: (r: TurnRecord) => void = () => {};
 
@@ -154,6 +156,7 @@ export class Core {
           break;
         }
         const mode: Mode = m.mode === 'quick' || m.mode === 'smart' || m.mode === 'deep' ? m.mode : 'auto';
+        this.lastSubmitText = text.slice(0, MAX_TEXT);
         this.submit({ id, text: text.slice(0, MAX_TEXT), mode, once: m.once === true, socket: ws });
         break;
       }
