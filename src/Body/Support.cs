@@ -67,7 +67,9 @@ sealed class Config
     public string CoreDir { get; set; } = "";
     public string NodePath { get; set; } = "";
     /// <summary>Whether the usage numbers are open next to the gauge in the input box.</summary>
-    public bool ShowUsage { get; set; }
+    public bool ShowUsage { get; set; }
+    /// <summary>Master mute: Aang never speaks up on his own until it is switched off.</summary>
+    public bool Muted { get; set; }
 
     public static Config Load()
     {

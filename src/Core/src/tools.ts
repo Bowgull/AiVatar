@@ -2,6 +2,9 @@
 import { tool, createSdkMcpServer } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
 import type { Memory } from './memory.ts';
+import type { HookTracker } from './hooks.ts';
+import type { Reminders } from './reminders.ts';
+import { describeWhen, dueAt } from './reminders.ts';
 
 const TZ = 'America/Toronto';
 const LAT = 43.65, LON = -79.38; // Toronto, from Joshua's profile
@@ -36,12 +39,17 @@ export const TOOL_LABELS: Record<string, string> = {
   get_time: 'checking the time',
   get_weather: 'checking the weather',
   search_memory: 'looking through our history',
+  claude_code_status: 'checking on Claude Code',
+  set_reminder: 'setting a reminder',
+  list_reminders: 'checking your reminders',
+  cancel_reminder: 'cancelling that reminder',
 };
 export const toolLabel = (fullName: string): string => TOOL_LABELS[fullName.replace(/^mcp__aang__/, '')] ?? 'working';
 
-export const TOOL_NAMES = ['mcp__aang__get_time', 'mcp__aang__get_weather', 'mcp__aang__search_memory'];
+export const TOOL_NAMES = ['mcp__aang__get_time', 'mcp__aang__get_weather', 'mcp__aang__search_memory',
+  'mcp__aang__claude_code_status', 'mcp__aang__set_reminder', 'mcp__aang__list_reminders', 'mcp__aang__cancel_reminder'];
 
-export function makeToolServer(memory: Memory) {
+export function makeToolServer(memory: Memory, hooks?: HookTracker, reminders?: Reminders) {
   const ok = (text: string) => ({ content: [{ type: 'text' as const, text }] });
   const fail = (text: string) => ({ content: [{ type: 'text' as const, text }], isError: true });
 
@@ -64,6 +72,34 @@ export function makeToolServer(memory: Memory) {
           const gap = 'Note: many of Aang\'s own older replies are not kept, so results may show only what Joshua said.';
           if (!hits.length) return ok(`Nothing found in past conversations for that. ${gap}`);
           return ok(hits.map(h => `${h.ts} ${h.who}: ${h.text}`).join('\n') + `\n${gap}`);
+        }),
+      tool('claude_code_status', 'What Joshua\'s Claude Code sessions are doing right now: working, waiting for him, or idle. Use for any question about Claude Code, his coding sessions, or whether something finished.', {},
+        async () => ok(hooks ? hooks.status() : 'Session tracking is not running, so there is nothing to report.')),
+      tool('set_reminder', 'Remind Joshua about something later. Give either in_minutes or at (an ISO timestamp); call get_time first if he named a clock time.',
+        { text: z.string().describe('what to remind him about, in his own words'),
+          in_minutes: z.number().optional().describe('how many minutes from now'),
+          at: z.string().optional().describe('ISO timestamp for when it is due') },
+        async ({ text, in_minutes, at }) => {
+          if (!reminders) return fail('Reminders are not running right now.');
+          const when = dueAt(in_minutes, at);
+          if (when === null) return fail('That time did not make sense. Ask him when he wants it, within the next month.');
+          const r = reminders.add(text, when);
+          if (!r) return fail('That reminder was empty, or he already has the maximum number set.');
+          return ok(`Reminder set: "${r.text}" ${describeWhen(r.at)}.`);
+        }),
+      tool('list_reminders', 'The reminders Joshua has set that have not gone off yet.', {},
+        async () => {
+          if (!reminders) return fail('Reminders are not running right now.');
+          const live = reminders.list();
+          if (!live.length) return ok('No reminders are set.');
+          return ok(live.map(r => `${r.text} - ${describeWhen(r.at)}`).join('\n'));
+        }),
+      tool('cancel_reminder', 'Cancel a reminder Joshua set, matched by a few words of its text.',
+        { which: z.string().describe('a few words from the reminder to cancel') },
+        async ({ which }) => {
+          if (!reminders) return fail('Reminders are not running right now.');
+          const gone = reminders.cancel(which);
+          return gone ? ok(`Cancelled: "${gone.text}".`) : fail('No reminder matched that.');
         }),
     ],
   });

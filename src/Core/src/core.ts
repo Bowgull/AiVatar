@@ -13,6 +13,8 @@ import { QuotaPolicy } from './quota.ts';
 import { MODELS, pickLane } from './route.ts';
 import type { Lane as LaneName } from './route.ts';
 import { TOOL_NAMES, makeToolServer } from './tools.ts';
+import { HookServer, HookTracker } from './hooks.ts';
+import { Reminders } from './reminders.ts';
 import { buildSystemPrompt, lint, stripReasoning } from './voice.ts';
 
 export interface CoreConfig {
@@ -56,6 +58,14 @@ export class Core {
   private active: Turn | null = null;
   private readonly systemPrompt: string;
   private readonly toolServer;
+  readonly hooks = new HookTracker();
+  readonly reminders: Reminders;
+  private hookServer: HookServer | null = null;
+  /** Aang is visible but silent: the Body is in quiet mode (the game has focus), or Joshua muted him. */
+  private bodyQuiet = false;
+  private muted = false;
+  /** Unprompted messages that arrived while he was quiet or muted, oldest first. */
+  private readonly pending: string[] = [];
   /** Test hook: the text of the most recent accepted submit. */
   lastSubmitText = '';
   /** Test/observation hook: called with every finished turn. */
@@ -65,7 +75,8 @@ export class Core {
     this.cfg = cfg;
     this.memory = new Memory(cfg.dataDir);
     this.systemPrompt = buildSystemPrompt(this.memory.profile(), this.memory.learned());
-    this.toolServer = makeToolServer(this.memory);
+    this.reminders = new Reminders(cfg.stateDir);
+    this.toolServer = makeToolServer(this.memory, this.hooks, this.reminders);
   }
 
   // ------------------------------------------------------------------ lifecycle
@@ -77,11 +88,21 @@ export class Core {
       this.wss.once('error', reject);
     });
     this.wss!.on('connection', ws => this.onConnection(ws));
+    this.hookServer = new HookServer(this.cfg.port + 1, ev => {
+      const said = this.hooks.handle(ev);
+      if (said) this.announce(said.text);
+    });
+    try { await this.hookServer.start(); }
+    catch (e) { console.error('hook endpoint could not start:', (e as Error).message); this.hookServer = null; }
+    this.reminders.onDue = r => this.announce(`Reminder: ${r.text}`);
+    this.reminders.start();
     console.log(`core listening on ws://127.0.0.1:${this.cfg.port}/body`);
     if (this.cfg.warm !== false) this.warm();
   }
 
   async stop(): Promise<void> {
+    this.reminders.stop();
+    await this.hookServer?.stop(); this.hookServer = null;
     for (const l of this.lanes.values()) l.close();
     this.memory.close();
     if (!this.wss) return;
@@ -162,8 +183,10 @@ export class Core {
       }
       case 'stop': void this.stopActive(m.id); break;
       case 'rate': this.rate(m.id, m.value); break;
+      case 'presence': this.setSilent(m.quiet === true, this.muted); break;
+      case 'mute': this.setSilent(this.bodyQuiet, m.on === true); break;
       case 'saving': this.policy.setSaving(m.on); { const q = this.quotaMessage(); if (q) this.broadcast(q); } break;
-      default: break; // presence, poked, moved, pong: nothing to do yet
+      default: break; // poked, moved, pong: nothing to do yet
     }
   }
 
@@ -285,6 +308,32 @@ export class Core {
       appendFileSync(path.join(this.cfg.stateDir, 'ratings.jsonl'), JSON.stringify({ ts: new Date().toISOString(), id, value, lane: turn?.lane, user: turn?.user, reply: turn?.reply }) + '\n');
     } catch { /* ratings are best effort */ }
   }
+
+  /**
+   * Say something Joshua did not ask for. Only session status and reminders ever come through here, and only
+   * when he can actually see it: while he is in the game or has muted Aang they wait, and are delivered in
+   * order the moment he is back.
+   */
+  announce(text: string): void {
+    if (this.bodyQuiet || this.muted) {
+      this.pending.push(text);
+      while (this.pending.length > 5) this.pending.shift();
+      return;
+    }
+    this.broadcast({ t: 'bubble', text, stream: false, proactive: true });
+  }
+
+  private setSilent(quiet: boolean, muted: boolean): void {
+    const was = this.bodyQuiet || this.muted;
+    this.bodyQuiet = quiet; this.muted = muted;
+    if (!was || quiet || muted) return;
+    const held = this.pending.splice(0);
+    // One after another, with a gap, so they do not overwrite each other in the bubble.
+    held.forEach((text, i) => setTimeout(() => this.broadcast({ t: 'bubble', text, stream: false, proactive: true }), i * 6000).unref?.());
+  }
+
+  /** What is waiting to be said (tests and diagnostics). */
+  get pendingCount(): number { return this.pending.length; }
 
   private record(r: TurnRecord): void {
     this.recent.set(r.id, { lane: r.lane, user: r.user, reply: r.reply });

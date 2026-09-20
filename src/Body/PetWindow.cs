@@ -30,7 +30,7 @@ sealed class PetWindow : Form
     CoreSupervisor? supervisor;
     bool noCore;
     ToolStripMenuItem coreItem = null!, autostartItem = null!;
-    ToolStripMenuItem quietItem = null!, showItem = null!, modelItems = null!;
+    ToolStripMenuItem quietItem = null!, showItem = null!, modelItems = null!, muteItem = null!;
 
     string? heldText;               // latest proactive message waiting for quiet mode to end
     string foreground = "";
@@ -118,7 +118,13 @@ sealed class PetWindow : Form
         input.UsageShownChanged += on => { cfg.ShowUsage = on; cfg.Save(); };
         input.ConsentAccepted += AllowOnce;
         input.ConsentDeclined += DeclineConsent;
-        link.ConnectionChanged += up => { if (up && saving) _ = link.SendAsync(new { t = "saving", on = true }); };
+        link.ConnectionChanged += up =>
+        {
+            if (!up) return;
+            if (saving) _ = link.SendAsync(new { t = "saving", on = true });
+            _ = link.SendAsync(new { t = "mute", on = cfg.Muted });
+            _ = link.SendAsync(new { t = "presence", quiet, foreground });      // so it knows to hold unprompted messages
+        };
         PushStatus();
         input.PageRequested += d => { if (d > 0 && bubble.More) ExpandBubble(); else if (bubble.Scroll(d * 6)) dirty = true; };
         BuildTray();
@@ -171,6 +177,7 @@ sealed class PetWindow : Form
                     break;
                 case "bubble":
                     var text = Str(m, "text") ?? "";
+                    if (Bool(m, "proactive") && cfg.Muted) break;
                     if (Bool(m, "proactive") && quiet) { heldText = text; break; }
                     Wake();
                     ExitExpanded(collapse: false);
@@ -693,6 +700,8 @@ sealed class PetWindow : Form
         talk.Click += (_, _) => OpenInput();
         quietItem = new ToolStripMenuItem("Quiet mode: auto");
         quietItem.Click += (_, _) => { forcedQuiet = forcedQuiet switch { null => true, true => false, false => null }; ApplyQuiet(); };
+        muteItem = new ToolStripMenuItem("Mute (nothing unprompted)") { Checked = cfg.Muted };
+        muteItem.Click += (_, _) => SetMuted(!cfg.Muted);
         var quit = new ToolStripMenuItem("Quit Aang");
         quit.Click += (_, _) => { tray.Visible = false; Application.Exit(); };
         var modelMenu = new ToolStripMenuItem("Model");
@@ -710,12 +719,21 @@ sealed class PetWindow : Form
         autostartItem = new ToolStripMenuItem("Start with Windows");
         autostartItem.Click += (_, _) => Autostart.Set(!Autostart.IsOn());
         menu.Opening += (_, _) => autostartItem.Checked = Autostart.IsOn();
-        menu.Items.AddRange(new ToolStripItem[] { talk, show, modelMenu, savingItem, quietItem, new ToolStripSeparator(), coreItem, autostartItem, new ToolStripSeparator(), quit });
+        menu.Items.AddRange(new ToolStripItem[] { talk, show, modelMenu, savingItem, quietItem, muteItem, new ToolStripSeparator(), coreItem, autostartItem, new ToolStripSeparator(), quit });
         tray.ContextMenuStrip = menu;
         tray.Text = "Aang";
         tray.Icon = MakeIcon();
         tray.Visible = true;
         tray.DoubleClick += (_, _) => ToggleVisible();
+    }
+
+    /// <summary>Master mute. Nothing unprompted gets through; anything held is delivered when it is turned off.</summary>
+    void SetMuted(bool on)
+    {
+        cfg.Muted = on; cfg.Save();
+        muteItem.Checked = on;
+        _ = link.SendAsync(new { t = "mute", on });
+        Note(on ? "Muted. Nothing unprompted." : "Unmuted.");
     }
 
     void UpdateModeMenu()
