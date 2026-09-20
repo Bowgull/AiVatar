@@ -1,4 +1,4 @@
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 
 namespace Aang.Body;
 
@@ -36,6 +36,28 @@ static class Win32
     [DllImport("kernel32.dll")] public static extern bool CloseHandle(IntPtr h);
     public const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
 
+    [DllImport("user32.dll")] public static extern short GetAsyncKeyState(int vk);
+    [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
+    [DllImport("user32.dll")] public static extern bool BringWindowToTop(IntPtr h);
+    [DllImport("user32.dll")] public static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool attach);
+    [DllImport("kernel32.dll")] public static extern uint GetCurrentThreadId();
+
+    /// <summary>
+    /// Windows only lets the foreground process hand focus over. Joining the foreground thread's input queue for
+    /// the moment of the call is the standard way to take (and later give back) focus reliably, for example from
+    /// a game to the input box and back again.
+    /// </summary>
+    public static void ForceForeground(IntPtr target)
+    {
+        if (target == IntPtr.Zero) return;
+        var fg = GetForegroundWindow();
+        var fgThread = fg == IntPtr.Zero ? 0 : GetWindowThreadProcessId(fg, out _);
+        var me = GetCurrentThreadId();
+        var attached = fgThread != 0 && fgThread != me && AttachThreadInput(me, fgThread, true);
+        try { BringWindowToTop(target); SetForegroundWindow(target); }
+        finally { if (attached) AttachThreadInput(me, fgThread, false); }
+    }
+
     [DllImport("gdi32.dll")] public static extern IntPtr CreateCompatibleDC(IntPtr dc);
     [DllImport("gdi32.dll")] public static extern IntPtr CreateDIBSection(IntPtr dc, ref BITMAPINFO bi, uint usage, out IntPtr bits, IntPtr section, uint offset);
     [DllImport("gdi32.dll")] public static extern IntPtr SelectObject(IntPtr dc, IntPtr obj);
@@ -43,3 +65,4 @@ static class Win32
     [DllImport("gdi32.dll")] public static extern bool DeleteDC(IntPtr dc);
     [DllImport("gdi32.dll")] public static extern bool BitBlt(IntPtr dst, int x, int y, int w, int h, IntPtr src, int sx, int sy, int rop);
 }
+

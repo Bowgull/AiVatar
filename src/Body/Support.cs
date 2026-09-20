@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 
 namespace Aang.Body;
 
@@ -31,6 +31,8 @@ sealed class Config
 {
     public int? X { get; set; }
     public int? Y { get; set; }
+    /// <summary>2 = the window is 110 px taller (room for an expanded bubble); older saved positions are shifted once.</summary>
+    public int LayoutVersion { get; set; }
     /// <summary>Process-name prefixes that put Aang into quiet mode while they hold focus.</summary>
     public string[] QuietProcessPrefixes { get; set; } = { "Wow" };
     /// <summary>Global show/hide hotkey. If it is taken by another program the fallbacks are tried in order.</summary>
@@ -53,3 +55,4 @@ sealed class Config
         catch (Exception e) { Log.Write("config save failed: " + e.Message); }
     }
 }
+

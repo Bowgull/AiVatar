@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Text.Json;
@@ -12,8 +12,8 @@ namespace Aang.Body;
 /// </summary>
 sealed class PetWindow : Form
 {
-    public const int W = 470, H = 310;
-    const int HotkeyId = 0xA46;
+    public const int W = 470, H = 310, Extra = 110;   // Extra: room above the old window so a bubble can grow to 12 lines
+    const int HotkeyId = 0xA46, EscId = 0xA47;
     static readonly TimeSpan WakeFor = TimeSpan.FromSeconds(4);
 
     readonly Config cfg = Config.Load();
@@ -37,6 +37,14 @@ sealed class PetWindow : Form
     Point dragStart, startLoc;
     int tick;
 
+    readonly InputWindow input;
+    readonly InputHistory history = new(Paths.File("input-history.json"));
+    readonly System.Windows.Forms.Timer ackTimer = new() { Interval = 4000 };
+    readonly System.Windows.Forms.Timer awayTimer = new() { Interval = 30 };
+    string? currentId;
+    bool working, acked, escRegistered, thumbDrag, mouseWasDown;
+    int idCounter;
+
     protected override CreateParams CreateParams
     {
         get
@@ -52,7 +60,7 @@ sealed class PetWindow : Form
     {
         scale = DeviceDpi / 96f;
         pw = (int)Math.Round(W * scale);
-        ph = (int)Math.Round(H * scale);
+        ph = (int)Math.Round((H + Extra) * scale);
 
         Text = "Aang Body";
         FormBorderStyle = FormBorderStyle.None;
@@ -61,6 +69,13 @@ sealed class PetWindow : Form
         TopMost = true;
         AutoScaleMode = AutoScaleMode.None;
         Size = new Size(pw, ph);
+        // The window grew taller by Extra so a bubble can expand upward. Keep the sprite where it was by moving
+        // the saved top edge up by the same amount, once.
+        if (cfg.LayoutVersion < 2)
+        {
+            if (cfg.Y is int oldY) cfg.Y = oldY - (int)Math.Round(Extra * scale);
+            cfg.LayoutVersion = 2; cfg.Save();
+        }
         Location = cfg is { X: not null, Y: not null } ? Clamp(new Point(cfg.X.Value, cfg.Y.Value)) : DefaultPos();
 
         // Test/diagnostic flag: --quiet=never or --quiet=always overrides the WoW-focus detection.
@@ -77,6 +92,13 @@ sealed class PetWindow : Form
         link.Message += m => { if (IsHandleCreated) BeginInvoke(() => OnCore(m)); };
         timer.Tick += (_, _) => Tick();
         fgTimer.Tick += (_, _) => PollForeground();
+        ackTimer.Tick += (_, _) => AckTimeout();
+        awayTimer.Tick += (_, _) => WatchForClickAway();
+
+        input = new InputWindow(scale, history);
+        input.Submitted += Submit;
+        input.StopRequested += StopReply;
+        input.PageRequested += d => { if (d > 0 && bubble.More) ExpandBubble(); else if (bubble.Scroll(d * 6)) dirty = true; };
         BuildTray();
     }
 
@@ -122,13 +144,31 @@ sealed class PetWindow : Form
                     var text = Str(m, "text") ?? "";
                     if (Bool(m, "proactive") && quiet) { heldText = text; break; }
                     Wake();
+                    ExitExpanded(collapse: false);
                     ShowBubble(text, Bool(m, "stream"));
+                    if (!Bool(m, "stream")) { working = false; input.Working = false; ackTimer.Stop(); }
                     break;
                 case "bubble.dots":
                     Wake(); bubble.ShowDots(); anim.Play("think"); dirty = true;
                     break;
                 case "bubble.clear":
+                    ExitExpanded(collapse: false);
                     bubble.Clear(); dirty = true;
+                    break;
+                case "ack":
+                    acked = true; ackTimer.Stop();
+                    break;
+                case "tool":
+                    if (working && Str(m, "phase") == "start") { bubble.ShowDots(Str(m, "label")); dirty = true; }
+                    break;
+                case "queued":
+                    if (working) { bubble.ShowDots($"waiting, number {(m.TryGetProperty("position", out var pos) ? pos.GetInt32() : 1)} in line"); dirty = true; }
+                    break;
+                case "error":
+                    ShowError(Str(m, "message") ?? "Something went wrong.", Str(m, "next") ?? "");
+                    break;
+                case "consent":
+                    ShowError("That needs a bigger model, and saving quota is on.", "The model chip is coming next.");
                     break;
                 case "quiet":
                     forcedQuiet = Bool(m, "on"); ApplyQuiet();
@@ -241,7 +281,7 @@ sealed class PetWindow : Form
             }
 
             if (changed || dirty) Render();
-            timer.Interval = bubble.Animating ? 33 : (!animate ? 250 : Math.Clamp(anim.FrameMs, 33, 200));
+            timer.Interval = bubble.Animating ? 33 : (!animate ? (bubble.More ? 250 : 250) : Math.Clamp(anim.FrameMs, 33, 200));
         }
         catch (Exception e) { Log.Write("tick failed: " + e); }
     }
@@ -254,6 +294,7 @@ sealed class PetWindow : Form
             surface.Clear();
             g.ResetTransform();
             g.ScaleTransform(scale, scale);
+            g.TranslateTransform(0, Extra);
             g.InterpolationMode = InterpolationMode.NearestNeighbor;
             g.PixelOffsetMode = PixelOffsetMode.Half;
 
@@ -266,13 +307,22 @@ sealed class PetWindow : Form
         catch (Exception e) { Log.Write("render failed: " + e); }
     }
 
-    // ------------------------------------------------------------------ input
+    // ------------------------------------------------------------------ mouse
+
+    /// <summary>Window pixels to bubble coordinates (unscaled, minus the headroom above the old window).</summary>
+    PointF BubblePoint(Point p) => new(p.X / scale, p.Y / scale - Extra);
 
     protected override void OnMouseDown(MouseEventArgs e)
     {
         base.OnMouseDown(e);
-        Log.Write($"mouse down {e.Button} at {e.Location} (foreground {foreground})");
         if (e.Button != MouseButtons.Left) return;
+        var bp = BubblePoint(e.Location);
+        if (bubble.Expanded && bubble.CanScroll && (bubble.HitThumb(bp.X, bp.Y) || bubble.HitTrack(bp.X, bp.Y)))
+        {
+            thumbDrag = true; Capture = true;                    // dragging the scrollbar
+            if (bubble.ScrollToY(bp.Y)) dirty = true;
+            return;
+        }
         dragging = true; moved = false;
         dragStart = Cursor.Position; startLoc = Location;
         Capture = true;
@@ -281,6 +331,7 @@ sealed class PetWindow : Form
     protected override void OnMouseMove(MouseEventArgs e)
     {
         base.OnMouseMove(e);
+        if (thumbDrag) { if (bubble.ScrollToY(BubblePoint(e.Location).Y)) dirty = true; return; }
         if (!dragging) return;
         var c = Cursor.Position;
         int dx = c.X - dragStart.X, dy = c.Y - dragStart.Y;
@@ -293,32 +344,136 @@ sealed class PetWindow : Form
     protected override void OnMouseWheel(MouseEventArgs e)
     {
         base.OnMouseWheel(e);
-        if (!bubble.Visible) return;
-        if (bubble.Page(e.Delta > 0 ? -1 : 1)) dirty = true;
+        if (bubble.Expanded && bubble.Scroll(e.Delta > 0 ? -2 : 2)) dirty = true;
     }
 
     protected override void OnMouseUp(MouseEventArgs e)
     {
         base.OnMouseUp(e);
-        Log.Write($"mouse up moved={moved} dragging={dragging} at {Location}");
+        if (thumbDrag) { thumbDrag = false; Capture = false; return; }
         if (!dragging) return;
         dragging = false; Capture = false;
         if (moved)
         {
             cfg.X = Location.X; cfg.Y = Location.Y; cfg.Save();
             _ = link.SendAsync(new { t = "moved", x = Location.X, y = Location.Y });
+            return;
         }
-        else if (bubble.Visible && bubble.Contains(e.X / scale, e.Y / scale))
+
+        var bp = BubblePoint(e.Location);
+        if (bubble.Visible && bubble.Contains(bp.X, bp.Y))
         {
-            // A click on the bubble: next page, or dismiss when there is nothing more to read.
-            if (!bubble.Advance()) { bubble.Clear(); if (anim.State == "talk") anim.Play("idle"); }
+            if (bubble.More) ExpandBubble();                      // "...v": grow it to read the rest
+            else if (bubble.Expanded) { /* clicking inside the open bubble does nothing; Esc or a click outside closes it */ }
+            else if (working) StopReply();                        // clicking the bubble while Aang is thinking stops it
+            else { bubble.Clear(); if (anim.State == "talk") anim.Play("idle"); }
             dirty = true;
         }
         else
         {
+            // A click on Aang himself opens the box to type to him.
             Wake(); anim.Play("look"); dirty = true;
             _ = link.SendAsync(new { t = "poked" });
+            OpenInput();
         }
+    }
+
+    // ------------------------------------------------------------------ expanded bubble
+
+    void ExpandBubble()
+    {
+        if (!bubble.Expand()) return;
+        EnterExpandedMode();
+        dirty = true;
+    }
+
+    // While the bubble is expanded, Esc closes it. RegisterHotKey swallows the key so the game does not also open
+    // its own menu, and a light poll of the mouse button spots a click outside the bubble. Both exist only while
+    // expanded, and neither is a global hook.
+    void EnterExpandedMode()
+    {
+        if (!escRegistered) escRegistered = Win32.RegisterHotKey(Handle, EscId, Win32.MOD_NOREPEAT, 0x1B);
+        mouseWasDown = false;
+        awayTimer.Start();
+    }
+
+    void ExitExpanded(bool collapse)
+    {
+        if (escRegistered) { Win32.UnregisterHotKey(Handle, EscId); escRegistered = false; }
+        awayTimer.Stop();
+        if (collapse && bubble.Collapse()) dirty = true;
+    }
+
+    void WatchForClickAway()
+    {
+        if (!bubble.Expanded) { ExitExpanded(false); return; }
+        var down = (Win32.GetAsyncKeyState(0x01) & 0x8000) != 0 || (Win32.GetAsyncKeyState(0x02) & 0x8000) != 0;
+        if (down && !mouseWasDown)
+        {
+            var c = Cursor.Position;
+            var r = new Rectangle(
+                Location.X + (int)(BubbleView.Left * scale), Location.Y + (int)((bubble.CurrentTop + Extra) * scale),
+                (int)((BubbleView.Right - BubbleView.Left) * scale), (int)((BubbleView.Bottom - bubble.CurrentTop) * scale));
+            if (!r.Contains(c)) ExitExpanded(true);
+        }
+        mouseWasDown = down;
+    }
+
+    // ------------------------------------------------------------------ typing to Aang
+
+    void OpenInput()
+    {
+        if (!Visible) Show();
+        var prev = Win32.GetForegroundWindow();
+        if (prev == Handle || prev == input.Handle) prev = IntPtr.Zero;
+        input.Working = working;
+        input.Open(new Point(Location.X, Location.Y + (int)(Extra * scale)), prev);
+        Wake(); dirty = true;
+    }
+
+    void ToggleInput()
+    {
+        if (input.Visible) input.Close(true); else OpenInput();
+    }
+
+    void Submit(string text)
+    {
+        var id = $"u{++idCounter}";
+        currentId = id; working = true; acked = false; input.Working = true;
+        // Instant feedback first, before any network: Aang reacts the moment Enter is pressed.
+        Wake(); ExitExpanded(collapse: false);
+        bubble.ShowDots(); anim.Play("think"); dirty = true;
+
+        if (!link.IsConnected)
+        {
+            ShowError("I can't reach my brain right now.", "It reconnects on its own. Try again in a few seconds.");
+            return;
+        }
+        _ = link.SendAsync(new { t = "submit", id, text, mode = "auto" });
+        ackTimer.Stop(); ackTimer.Start();                        // if the Core never acknowledges, say so
+    }
+
+    void AckTimeout()
+    {
+        ackTimer.Stop();
+        if (working && !acked) ShowError("My brain did not answer.", "Try again in a moment.");
+    }
+
+    /// <summary>Never an empty bubble: say what failed and what to do.</summary>
+    void ShowError(string message, string next)
+    {
+        working = false; input.Working = false; ackTimer.Stop();
+        Wake(); ExitExpanded(collapse: false);
+        bubble.Show((message + " " + next).Trim(), false, 12000);
+        anim.Play("talk"); dirty = true;
+    }
+
+    void StopReply()
+    {
+        _ = link.SendAsync(new { t = "stop", id = currentId });
+        working = false; input.Working = false; ackTimer.Stop();
+        ExitExpanded(collapse: false);
+        bubble.Clear(); anim.Play("idle"); dirty = true;
     }
 
     // ------------------------------------------------------------------ hotkey
@@ -393,7 +548,10 @@ sealed class PetWindow : Form
                 m.Result = (IntPtr)1;
                 return;
             case Win32.WM_HOTKEY when (int)m.WParam == HotkeyId:
-                ToggleVisible();
+                ToggleInput();                          // the hotkey opens (or closes) the box to type to Aang
+                return;
+            case Win32.WM_HOTKEY when (int)m.WParam == EscId:
+                ExitExpanded(collapse: true);           // Esc while the bubble is expanded
                 return;
         }
         base.WndProc(ref m);
@@ -407,11 +565,13 @@ sealed class PetWindow : Form
         showItem = new ToolStripMenuItem("Show or hide");
         var show = showItem;
         show.Click += (_, _) => ToggleVisible();
+        var talk = new ToolStripMenuItem("Talk to Aang");
+        talk.Click += (_, _) => OpenInput();
         quietItem = new ToolStripMenuItem("Quiet mode: auto");
         quietItem.Click += (_, _) => { forcedQuiet = forcedQuiet switch { null => true, true => false, false => null }; ApplyQuiet(); };
         var quit = new ToolStripMenuItem("Quit Aang");
         quit.Click += (_, _) => { tray.Visible = false; Application.Exit(); };
-        menu.Items.AddRange(new ToolStripItem[] { show, quietItem, new ToolStripSeparator(), quit });
+        menu.Items.AddRange(new ToolStripItem[] { talk, show, quietItem, new ToolStripSeparator(), quit });
         tray.ContextMenuStrip = menu;
         tray.Text = "Aang";
         tray.Icon = MakeIcon();
@@ -435,10 +595,14 @@ sealed class PetWindow : Form
 
     protected override void OnFormClosing(FormClosingEventArgs e)
     {
-        timer.Stop(); fgTimer.Stop();
+        timer.Stop(); fgTimer.Stop(); ackTimer.Stop(); awayTimer.Stop();
         if (hotkeyOk) Win32.UnregisterHotKey(Handle, HotkeyId);
+        if (escRegistered) Win32.UnregisterHotKey(Handle, EscId);
+        input.Dispose();
         tray.Visible = false; tray.Dispose();
         link.Dispose();
         base.OnFormClosing(e);
     }
 }
+
+

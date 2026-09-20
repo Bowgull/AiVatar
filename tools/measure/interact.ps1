@@ -61,7 +61,7 @@ Check 'window appears' ($h -ne [IntPtr]::Zero)
 Start-Sleep -Milliseconds 800
 $r0 = Rect $h
 "before drag : " + [M]::Who()
-$sx = $r0.L + 360; $sy = $r0.T + 215
+$sx = $r0.L + 360; $sy = $r0.T + 325
 
 # only ever press on a pixel Windows says belongs to the Body
 $owner = [M]::Pid([M]::At($sx, $sy))
@@ -86,10 +86,7 @@ $combo = (Get-Content $log | Where-Object { $_ -match 'hotkey registered: (.+)$'
 "hotkey in use: '$combo'"
 function KeyCodes([string]$c) { $codes = @(); foreach ($part in ($c -split '\+')) { switch -Regex ($part.Trim().ToLower()) { '^ctrl$' { $codes += 0x11 } '^alt$' { $codes += 0x12 } '^shift$' { $codes += 0x10 } '^win$' { $codes += 0x5B } '^space$' { $codes += 0x20 } '^home$' { $codes += 0x24 } '^f(\d+)$' { $codes += (0x6F + [int]$Matches[1]) } '^[a-z0-9]$' { $codes += [int][char]$part.Trim().ToUpper() } } }; $codes }
 function Hotkey { $k = KeyCodes $combo; foreach ($c in $k) { [M]::keybd_event([byte]$c, 0, 0, [UIntPtr]::Zero) }; Start-Sleep -Milliseconds 60; [array]::Reverse($k); foreach ($c in $k) { [M]::keybd_event([byte]$c, 0, 2, [UIntPtr]::Zero) }; Start-Sleep -Milliseconds 500 }
-Hotkey; $hidden = ([M]::Find($title, $true) -eq [IntPtr]::Zero)
-Check "hotkey $combo hides Aang" $hidden
-Hotkey; $shown = ([M]::Find($title, $true) -ne [IntPtr]::Zero)
-Check "hotkey $combo shows Aang again" $shown
+# the hotkey now opens the input box (covered by tests/fakecore/typing.mjs); drag is covered by tests/fakecore/drag.mjs when WoW holds mouse capture here
 
 # ---- remembered position
 Stop-Process -Id $p1.Id -Force; Start-Sleep -Milliseconds 500

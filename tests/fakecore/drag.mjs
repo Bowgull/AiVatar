@@ -1,0 +1,22 @@
+// Drag probe: real mouse press-move-release on Aang, with WoW in front. Reports the window movement.
+import { spawn } from 'node:child_process';
+import path from 'node:path';
+const root = path.resolve(import.meta.dirname, '..', '..');
+const bodyExe = path.join(root, 'src', 'Body', 'bin', 'Release', 'net10.0-windows', 'Aang.exe');
+const keysPs = path.join(root, 'tools', 'measure', 'Keys.ps1');
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const k = spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', keysPs, '-Serve'], { stdio: ['pipe', 'pipe', 'inherit'] });
+let buf = ''; const w = [];
+k.stdout.on('data', d => { buf += d; let i; while ((i = buf.indexOf('\n')) >= 0) { const l = buf.slice(0, i).trim(); buf = buf.slice(i + 1); w.shift()?.(l); } });
+const ask = line => new Promise(r => { w.push(r); k.stdin.write(line + '\n'); });
+w.push(() => {}); await sleep(1500);
+const body = spawn(bodyExe, ['--quiet=never'], { stdio: 'ignore' });
+await sleep(2500);
+const r0 = (await ask('rect Aang Body')).split(' ').map(Number);
+console.log('fg', await ask('focus WowB'));
+await ask(`drag ${r0[0] + 360} ${r0[1] + 325} -300 -200`);
+const r1 = (await ask('rect Aang Body')).split(' ').map(Number);
+console.log('moved', r1[0] - r0[0], r1[1] - r0[1], 'fg', await ask('fg'));
+const ok = r1[0] - r0[0] === -300 && r1[1] - r0[1] === -200;
+k.stdin.write('quit\n'); body.kill();
+process.exit(ok ? 0 : 1);

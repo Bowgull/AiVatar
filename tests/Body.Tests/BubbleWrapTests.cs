@@ -1,12 +1,12 @@
-﻿using System.Drawing.Drawing2D;
+using System.Drawing.Drawing2D;
 using Aang.Body;
 using Xunit;
 
 namespace Aang.Body.Tests;
 
 /// <summary>
-/// Bubble behavior is a promise, so it is tested, not eyeballed: streaming never re-wraps finished lines, pages
-/// never cut a sentence when they can avoid it, and the outline is one closed shape.
+/// Bubble behavior is a promise, so it is tested, not eyeballed: streaming never re-wraps finished lines, a long
+/// reply fills the bubble and waits with an arrow, clicking grows it, and the outline is one closed shape.
 /// </summary>
 public class BubbleWrapTests
 {
@@ -15,11 +15,13 @@ public class BubbleWrapTests
         "seconds, which is roughly half of what spawning a fresh process for every message was costing, " +
         "and it stays warm between turns so the cache keeps paying off.";
 
-    // The real pelican answer from the end-to-end run: 8 lines, which used to show mid-sentence at both ends.
+    // ~8 lines, from the real end-to-end run.
     const string Long =
         "Pelicans have a pouch under their bill that holds up to 3 gallons of water and fish. " +
         "They're built to dive-bomb from high up and scoop whole schools of fish in one go. " +
         "They can live 25 years or more, which is pretty long for a water bird.";
+
+    static string VeryLong => string.Join(' ', Enumerable.Range(1, 40).Select(i => $"Sentence number {i} keeps going for a while."));
 
     [Fact]
     public void Appending_text_never_rewraps_completed_lines()
@@ -51,85 +53,124 @@ public class BubbleWrapTests
     }
 
     [Fact]
-    public void Pages_hold_whole_sentences_even_when_sentences_span_several_lines()
+    public void A_short_reply_has_no_arrow_and_cannot_be_expanded()
     {
-        // The screenshot that exposed the flaw: each sentence is ~2.5 lines, so no LINE ends with a period.
-        var text = string.Join(' ', Enumerable.Range(1, 14).Select(i => $"Line {i} of a deliberately long answer to check scrolling."));
         using var b = new BubbleView();
-        var pages = b.BuildPages(text, 5);
-        Assert.True(pages.Count >= 3);
-        Assert.All(pages, p => Assert.InRange(p.Count, 1, 5));
-        Assert.All(pages, p => Assert.EndsWith(".", p[^1]));            // never a page that ends mid-sentence
-        Assert.All(pages, p => Assert.StartsWith("Line ", p[0]));         // and never one that starts mid-sentence
-        var rejoined = string.Join(' ', pages.SelectMany(p => p));
-        Assert.Equal(text, rejoined);                                     // nothing lost or duplicated
+        b.Show("short reply", stream: false, holdMs: 10_000);
+        Assert.False(b.More);
+        Assert.False(b.Expand());
     }
 
     [Fact]
-    public void A_sentence_longer_than_a_page_is_split_by_lines_and_the_last_page_is_not_an_orphan()
+    public void A_long_reply_fills_the_bubble_from_the_top_and_shows_the_arrow()
     {
         using var b = new BubbleView();
-        var huge = "start " + string.Join(' ', Enumerable.Repeat("word", 120)) + ".";
-        var pages = b.BuildPages(huge, 5);
-        Assert.True(pages.Count >= 2);
-        Assert.Equal(huge, string.Join(' ', pages.SelectMany(p => p)));
-
-        var text = "First sentence goes here and runs on for a bit so it fills more than one line of the bubble. " +
-                   "Second sentence is also fairly long and fills another line or two of space in the bubble as well. " +
-                   "Third one.";
-        var p2 = b.BuildPages(text, 4);
-        Assert.True(p2[^1].Count >= 2 || p2.Count == 1, "no single-line orphan at the end");
-    }
-    [Fact]
-    public void A_finished_long_reply_is_paged_from_the_top_with_a_constant_height()
-    {
-        using var b = new BubbleView();
-        b.Show(Long, stream: false, holdMs: 3_600_000);
-        Assert.True(b.Paged);
-        Assert.Equal(0, b.PageIndex);
-        Assert.True(b.PageCount >= 2);
-        Assert.Contains("Pelicans", b.Lines[0]);
+        b.Show(Long, stream: false, holdMs: 10_000);
+        Assert.True(b.More);
+        Assert.False(b.Expanded);
+        Assert.Equal(BubbleView.CollapsedLines, b.VisibleLineCount);
+        Assert.Contains("Pelicans", b.Lines[0]);                   // starts at the first word
     }
 
     [Fact]
-    public void Pages_advance_at_reading_pace_stop_at_the_end_and_wheel_takes_over()
+    public void The_last_visible_line_ends_in_an_ellipsis_and_leaves_room_for_the_arrow()
     {
         using var b = new BubbleView();
-        b.Show(Long, stream: false, holdMs: 3_600_000);
-        var t = DateTime.UtcNow;
-        b.Update(t.AddSeconds(1));
-        Assert.Equal(0, b.PageIndex);                              // still reading page one
-        b.Update(t.AddSeconds(12));
-        Assert.Equal(1, b.PageIndex);                              // then it moves on
-        for (int i = 1; i <= 3; i++) b.Update(t.AddSeconds(12 + i * 2));   // stay inside the hold time
-        Assert.Equal(b.PageCount - 1, b.PageIndex);                // and stops at the last page
-
-        Assert.True(b.Page(-1)); Assert.Equal(b.PageCount - 2, b.PageIndex);
-        Assert.False(b.Page(-99 * 0));                              // delta 0 goes nowhere
-        b.Page(-99); Assert.Equal(0, b.PageIndex);
-        Assert.False(b.Page(-1), "clamped at the first page");
+        b.Show(Long, stream: false, holdMs: 10_000);
+        var e = b.Ellipsize(b.Lines[BubbleView.CollapsedLines - 1]);
+        Assert.EndsWith("...", e);
+        using var bmp = new Bitmap(1, 1);
+        using var g = Graphics.FromImage(bmp);
+        using var font = new Font("Bahnschrift", 11f, FontStyle.Regular, GraphicsUnit.Point);
+        Assert.True(g.MeasureString(e, font, PointF.Empty, StringFormat.GenericTypographic).Width <= BubbleView.MaxTextW - 20,
+            "the shortened line must leave room for the arrow");
     }
 
     [Fact]
-    public void Clicking_advances_and_reports_when_there_is_nothing_left_so_the_caller_can_dismiss()
+    public void Nothing_turns_the_page_by_itself()
     {
         using var b = new BubbleView();
-        b.Show(Long, stream: false, holdMs: 3_600_000);
-        while (b.Advance()) { }
-        Assert.Equal(b.PageCount - 1, b.PageIndex);
-        Assert.False(b.Advance());
-
-        b.Show("short reply", stream: false, holdMs: 3_600_000);
-        Assert.False(b.Paged);
-        Assert.False(b.Advance(), "a single page dismisses on click");
+        b.Show(Long, stream: false, holdMs: 10_000);
+        var before = b.VisibleLineCount;
+        b.Update(DateTime.UtcNow.AddSeconds(20));                   // still inside the long idle hold
+        Assert.True(b.Visible);
+        Assert.True(b.More);
+        Assert.False(b.Expanded);
+        Assert.Equal(before, b.VisibleLineCount);
+        Assert.Equal(0, b.ScrollLine);
     }
 
     [Fact]
-    public void A_streaming_reply_is_not_paged_and_follows_the_newest_lines()
+    public void A_waiting_reply_goes_away_only_after_a_long_idle_time()
+    {
+        using var b = new BubbleView();
+        b.Show(Long, stream: false, holdMs: 5_000);                  // the caller's short hold is extended for long replies
+        b.Update(DateTime.UtcNow.AddSeconds(30));
+        Assert.True(b.Visible);
+        b.Update(DateTime.UtcNow.AddMinutes(2));
+        Assert.False(b.Visible);
+    }
+
+    [Fact]
+    public void Expanding_shows_everything_that_fits_and_collapsing_restores_the_small_bubble()
+    {
+        using var b = new BubbleView();
+        b.Show(Long, stream: false, holdMs: 10_000);
+        Assert.True(b.Expand());
+        Assert.True(b.Expanded);
+        Assert.False(b.More);                                        // the arrow is gone once expanded
+        Assert.Equal(Math.Min(b.Lines.Count, BubbleView.ExpandedLines), b.VisibleLineCount);
+        Assert.False(b.CanScroll, "an 8-line reply fits in 12 lines: no scrollbar");
+
+        Assert.True(b.Collapse());
+        Assert.False(b.Expanded);
+        Assert.True(b.More);
+        Assert.False(b.Collapse(), "already collapsed");
+    }
+
+    [Fact]
+    public void A_reply_longer_than_twelve_lines_scrolls_and_the_scroll_is_clamped()
+    {
+        using var b = new BubbleView();
+        b.Show(VeryLong, stream: false, holdMs: 10_000);
+        Assert.True(b.Lines.Count > BubbleView.ExpandedLines);
+        Assert.True(b.Expand());
+        Assert.True(b.CanScroll);
+        Assert.Equal(0, b.ScrollLine);
+        Assert.True(b.Scroll(3)); Assert.Equal(3, b.ScrollLine);
+        b.Scroll(-99); Assert.Equal(0, b.ScrollLine);
+        b.Scroll(9999); Assert.Equal(b.Lines.Count - BubbleView.ExpandedLines, b.ScrollLine);
+        Assert.False(b.Scroll(1), "at the end");
+    }
+
+    [Fact]
+    public void The_scrollbar_thumb_tracks_the_position_and_dragging_it_scrolls()
+    {
+        using var b = new BubbleView();
+        b.Show(VeryLong, stream: false, holdMs: 10_000);
+        b.Expand();
+        for (int i = 0; i < 40; i++) b.Update(DateTime.UtcNow);       // let the height settle
+        var top = b.Thumb;
+        Assert.True(top.Height >= 24 && top.Height < b.Track.Height, "the thumb is a fraction of the track");
+        b.Scroll(9999);
+        Assert.True(b.Thumb.Y > top.Y, "the thumb moves down as we scroll");
+        Assert.True(b.Thumb.Bottom <= b.Track.Bottom + 0.5f);
+
+        b.ScrollToY(b.Track.Y);                                       // drag to the very top
+        Assert.Equal(0, b.ScrollLine);
+        b.ScrollToY(b.Track.Bottom);                                  // and to the very bottom
+        Assert.Equal(b.Lines.Count - BubbleView.ExpandedLines, b.ScrollLine);
+        Assert.True(b.HitThumb(b.Thumb.X + 2, b.Thumb.Y + 5));
+        Assert.False(b.HitThumb(10, 10));
+    }
+
+    [Fact]
+    public void A_streaming_reply_is_never_collapsed_with_an_arrow()
     {
         using var b = new BubbleView();
         b.Show(Long, stream: true, holdMs: 0);
-        Assert.False(b.Paged);
+        Assert.False(b.More);
+        Assert.False(b.Expand());
     }
 
     [Fact]
@@ -139,9 +180,9 @@ public class BubbleWrapTests
         // PathPointType.Start is 0, so count points whose type bits are 0: exactly one start means one figure.
         Assert.Equal(1, path.PathTypes.Count(t => (t & 0x07) == 0));
         Assert.True((path.PathTypes[^1] & (byte)PathPointType.CloseSubpath) != 0, "the figure must be closed");
-        var b = path.GetBounds();
-        Assert.True(b.Right > BubbleView.Right + 30, "the tail must extend past the bubble edge");
-        Assert.True(b.Left <= BubbleView.Left + 1);
+        var bounds = path.GetBounds();
+        Assert.True(bounds.Right > BubbleView.Right + 30, "the tail must extend past the bubble edge");
+        Assert.True(bounds.Left <= BubbleView.Left + 1);
     }
 
     [Fact]
@@ -152,5 +193,3 @@ public class BubbleWrapTests
         Assert.Single(bubble.Wrap(""));
     }
 }
-
-

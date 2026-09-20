@@ -73,7 +73,7 @@ $r = New-Object U+RECT; [void][U]::GetWindowRect($h, [ref]$r)
 "styles (initial)         : " + (Styles $h)
 "foreground after launch  : '" + [U]::Title([U]::GetForegroundWindow()) + "'  (unchanged=" + ([U]::GetForegroundWindow() -eq $fg0) + ")"
 
-$spr = @(($r.L + 360), ($r.T + 215)); $bub = @(($r.L + 100), ($r.T + 60)); $clr = @(($r.L + 100), ($r.T + 200))
+$spr = @(($r.L + 360), ($r.T + 325)); $bub = @(($r.L + 100), ($r.T + 170)); $clr = @(($r.L + 100), ($r.T + 310))
 function Ours([int]$x, [int]$y) { $hh = [U]::At($x, $y); $pid2 = [U]::Pid($hh); return ((Get-Tree $proc.Id) -contains [int]$pid2) }
 
 "`n--- hit tests (true = OUR window would receive the click) ---"

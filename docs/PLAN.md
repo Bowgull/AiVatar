@@ -11,7 +11,8 @@ starts. Decisions and evidence: `docs/DECISIONS.md`.
 | M0 Foundations | Layout, protocol v1 (`docs/PROTOCOL.md`), 3 unit tests, measurement tooling: done. Core process not started (M2). |
 | M1 Body renders Aang | Functionally complete. Gate results below. |
 | M2 Core talks | Built and gated (below). Not yet reachable by Joshua: the Body has no input box until M3. |
-| M3-M5 | Not started. |
+| M3 Chat feels right | M3a (bubble) and M3b (input box, hotkey, click Aang, history, arrow/expand/scroll) built and gated: 27/27 real-input checks (tests/fakecore/typing.mjs), 18/18 Body unit tests. Remaining: model chip, saving toggle, quota meter and consent UI, rating, autostart, retire Rainmeter. |
+| M4-M5 | Not started. |
 
 **M2 gate, measured against real Claude (Core in `src/Core`, TypeScript, pinned Agent SDK 0.3.278):**
 
@@ -68,14 +69,14 @@ starts. Decisions and evidence: `docs/DECISIONS.md`.
 
 ## Commitments added by Joshua (2026-09-20)
 
-1. **Speech bubble long-reply behavior.** Screenshot from Joshua: a long reply mid-paging starts mid-sentence
-   ("bill that holds up to 3 gallons of...") and ends mid-sentence ("...for a water"), so neither the start nor the
-   end is readable at once. Fix in M3: page whole pages, not single lines; never leave a sentence cut at either end
-   of a page; show a page indicator; wheel and keys to move; and long answers open in the Panel with only the gist
-   in the bubble. Also give the text equal padding top and bottom and point the tail at Aang.
+1. **Speech bubble long-reply behavior.** Screenshot from Joshua: a long reply was cut mid-sentence and the tail
+   was misaligned. Built (M3b), per Joshua's Zelda/N64 idea: the bubble fills 6 lines and cuts anywhere with
+   "..." and a bobbing down-arrow; clicking it grows the bubble upward to ~12 lines with a scrollbar (wheel, drag,
+   click track); it waits for the click (no auto-advance); Esc or a click outside closes it (Esc is swallowed
+   while open so WoW's menu does not appear). Bubble and tail are one continuous outline. Verified by screenshots.
 2. **Click into Aang and type, with keyboard shortcuts.** M3: click Aang (or the global hotkey) to open the input
    box; Enter sends, Esc stops or dismisses, Up recalls the last message, Ctrl+Enter for a new line, and shortcuts
-   for the model chip and saving. Shortcut list is written into this file when built.
+   for the model chip and saving. Shortcuts (built): Ctrl+Shift+Space open the box; Enter send; Ctrl/Shift+Enter new line; Esc stop the reply, else close; Up/Down recall; wheel scrolls an expanded bubble; Esc or click outside collapses it. Chip and saving shortcuts come with M3c.
 3. **Retire the Rainmeter Aang.** Condition: items 1 and 2 work, plus autostart of Core and Body (pulled forward
    from M5 so retirement is not blocked). Then the skin is deactivated and the old scripts kept in git history.
 
