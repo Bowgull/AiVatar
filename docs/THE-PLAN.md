@@ -3,7 +3,8 @@
 > **Naming.** *AiVatar* is the project and the repo. *Aang* is the character who lives in it:
 > the sprite, the voice, the name Joshua talks to. Code, config and the protocol keep saying Aang.
 
-The complete end-product picture, 2026-09-20. Supersedes PLAN-V2.md. Every claim is either something
+The complete end-product picture and the evidence behind it, 2026-09-20. The ordered build plan lives in
+[ROADMAP.md](ROADMAP.md); this is the why. Every claim is either something
 Joshua said, or measured on this machine, or cited. Where evidence killed an idea, the idea is listed as
 dead with the reason, because the dead ends are half the value of this document.
 
@@ -193,19 +194,7 @@ streaming site.** Netflix's ToS forbids automated access.
 
 ## 5. Build order
 
-| | Why it is here |
-|---|---|
-| **0. Off-machine backup** | Everything lives on a rented VM that recycles every 4 hours. Doing now. |
-| **1. Close the trifecta** | I opened it this afternoon. Isolate web fetching before anything builds on it. |
-| **2. Session resume + catch-up memory** | Six restarts a day currently wipe his memory of the conversation. This is why he feels thin. |
-| **3. Memory proper** | Memory tool, semantic recall wired back, remember/forget, sycophancy guards. |
-| **4. Daily regressions** | Open an app/file/URL as real actions, trust tiers, clipboard. From FEATURES.md. |
-| **5. Perception tier 1-2** | Window title always-on, scoped UIA on relevance. |
-| **6. Anime and watching** | Simkl + extension + Watchmode. Sits after 3 because it is a memory problem. |
-| **7. Bounded background jobs** | Subagents. |
-| **8. Panel as real UI** | MCP Apps. Unlocks memory review and the trust list too. |
-| **9. Mark rings and edge summon** | Needs 5 for accurate rectangles. The charm payoff. |
-| **10. Vision fallback, proactive cap, crash recovery** | The finishing. |
+Moved to [ROADMAP.md](ROADMAP.md), which reconciles it with the A-L list and the new gaps.
 
 ## 6. Not doing, and why
 
