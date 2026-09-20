@@ -82,6 +82,14 @@ demand in their own window and are not resident, so the always-on part stays aro
   "awful and get things wrong constantly". Published guidance agrees small models hallucinate more.
   `embeddinggemma` stays for recall and cache, where it measured well.
 
+### Measured while building the Core (2026-09-20)
+- Set `ENABLE_CLAUDEAI_MCP_SERVERS=false` for every lane: the account's claude.ai connectors otherwise load into each
+  session (context per turn 16k tokens with them, 2.7k without).
+- Extended thinking is disabled on the Quick lane only: median first token 444-479 ms versus 1,369-1,719 ms with
+  adaptive thinking. Smart and Deep keep it. The cost is an intermittent leak of reasoning text, handled by a sanitizer.
+- The bundled SDK binary (226 MB) authenticates with the desktop login, so the Core pins its own Claude binary instead of
+  depending on the desktop app's version-numbered path.
+
 ### Policy facts and risks
 - Anthropic's June 15 move of `claude -p` / Agent SDK to a separate monthly credit is **paused, not
   cancelled** ([source](https://www.digitalapplied.com/blog/anthropic-claude-credit-overhaul-june-15-2026)).

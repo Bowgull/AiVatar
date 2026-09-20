@@ -10,7 +10,35 @@ starts. Decisions and evidence: `docs/DECISIONS.md`.
 |---|---|
 | M0 Foundations | Layout, protocol v1 (`docs/PROTOCOL.md`), 3 unit tests, measurement tooling: done. Core process not started (M2). |
 | M1 Body renders Aang | Functionally complete. Gate results below. |
-| M2-M5 | Not started. |
+| M2 Core talks | Built and gated (below). Not yet reachable by Joshua: the Body has no input box until M3. |
+| M3-M5 | Not started. |
+
+**M2 gate, measured against real Claude (Core in `src/Core`, TypeScript, pinned Agent SDK 0.3.278):**
+
+| Gate | Result |
+|---|---|
+| Acknowledge within 100 ms | 1-2 ms |
+| Plain Quick chat, first token within 800 ms | median 464 ms (min 444, max 497) with extended thinking disabled; 1,369 ms with it on |
+| Tool turn (two model round trips) | first text about 1.4 s |
+| Stop | bubble clears in 5-6 ms and the Core answers normally afterwards |
+| Queue | second message reported as queued, answered in order |
+| Live quota | real `rate_limit_event` numbers reach the Body (five-hour 15%, week 2% at test time) |
+| Saving quota | opt-in only; bigger model needs consent, `once` grants a single turn |
+| Grounding | time and weather come from tools and match them; memory answers state exactly what was and was not found; Aang says it cannot see itself |
+| Voice lint | 0 of 10 live replies flagged |
+| Context per turn | 2.0-5.7k tokens (26k with SDK defaults, 16k with the claude.ai connectors loaded) |
+| Full stack on screen | 14 of 14 end-to-end checks with the real Body, reviewed by eye |
+| Unit tests | 39 Core, 6 Body |
+
+**Found and fixed while gating (each by a real run, not by reading code):**
+- Private reasoning leaked into the bubble twice (`<thinking>` block, then invented `<system-warning>` text with mismatched tags). The sanitizer is now a state machine tested character by character as a stream. The leak is intermittent (about 1-2 in 12 turns, mostly the first plain turn after a tool call). An early belief that my own prompt sentence caused it did not survive a rerun, so prompt wording is not treated as a fix.
+- `search_memory` ranked by recency, so stopwords buried the real match, and it could recall replies from the retired local models ("Taj Mahal is the tallest mountain"). It now ranks by relevance and excludes those replies.
+- A malformed `submit` threw inside the message handler; `Core.stop()` hung while any client was connected. Both fixed and tested.
+- A finished long reply showed its tail, starting mid-sentence. It now starts at the top and pages down.
+- The live test wrote into Joshua's real memory; it now works on a copy.
+- Aang claimed to see the screen and to have seen how it animates; the prompt, an example that taught this, and the linter were corrected.
+
+**Not done, deliberately or not yet:** no fast-path commands (Claude handles everything, including typos, in about 0.5-1.5 s; actions come later); no full agent lane with web tools yet; semantic recall (embeddings) not ported, only full-text search; supervisor and autostart are M5.
 
 **M1 gate, measured on the real Body with WoW running:**
 

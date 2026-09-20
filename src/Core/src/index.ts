@@ -1,0 +1,18 @@
+import os from 'node:os';
+import path from 'node:path';
+import { Core } from './core.ts';
+
+const home = os.homedir();
+const core = new Core({
+  port: Number(process.env.AANG_PORT ?? 47831),
+  dataDir: process.env.AANG_DATA_DIR ?? path.join(home, 'Documents', 'Aang'),
+  stateDir: process.env.AANG_STATE_DIR ?? path.join(process.env.APPDATA ?? path.join(home, 'AppData', 'Roaming'), 'Aang'),
+  claudeExecutable: process.env.AANG_CLAUDE_EXE || undefined,
+  warm: process.env.AANG_WARM !== '0',
+});
+
+process.on('unhandledRejection', e => console.error('unhandled rejection:', e));
+process.on('uncaughtException', e => console.error('uncaught exception:', e));
+process.on('SIGINT', async () => { await core.stop(); process.exit(0); });
+
+await core.start();

@@ -1,4 +1,4 @@
-using System.Drawing;
+﻿using System.Drawing;
 using System.Drawing.Drawing2D;
 
 namespace Aang.Body;
@@ -28,7 +28,11 @@ sealed class BubbleView : IDisposable
     List<string> lines = new();
     float shownH, targetH;
     DateTime hideAt = DateTime.MaxValue;
+    int first;                                  // index of the first visible line
+    DateTime scrollAt = DateTime.MaxValue;      // when to page down next (finished long replies only)
+    const int StartReadingMs = 3000, PerLineMs = 1500;
 
+    public int FirstVisible => first;
     public bool Visible { get; private set; }
     public bool Dots { get; private set; }
     public string Text => text;
@@ -92,7 +96,21 @@ sealed class BubbleView : IDisposable
         targetH = Math.Clamp(shown * LineH + 22, MinH, MaxH);
         if (!Visible) shownH = targetH * 0.55f;
         Visible = true;
-        hideAt = (stream || holdMs <= 0) ? DateTime.MaxValue : DateTime.UtcNow.AddMilliseconds(holdMs);
+        var overflow = Math.Max(0, lines.Count - MaxLines);
+        if (stream)
+        {
+            // Streaming: follow the newest lines so the text being written is always in view.
+            first = overflow;
+            scrollAt = DateTime.MaxValue;
+        }
+        else
+        {
+            // Finished: start at the top so the reply is read from its first word, then page down at
+            // reading pace. (An earlier version stayed on the tail and showed a reply starting mid-sentence.)
+            first = 0;
+            scrollAt = overflow > 0 ? DateTime.UtcNow.AddMilliseconds(StartReadingMs) : DateTime.MaxValue;
+        }
+        hideAt = (stream || holdMs <= 0) ? DateTime.MaxValue : DateTime.UtcNow.AddMilliseconds(holdMs + overflow * PerLineMs);
     }
 
     public void ShowDots()
@@ -104,7 +122,16 @@ sealed class BubbleView : IDisposable
         hideAt = DateTime.MaxValue;
     }
 
-    public void Clear() { Visible = false; Dots = false; text = ""; lines = new(); hideAt = DateTime.MaxValue; }
+    public void Clear() { Visible = false; Dots = false; text = ""; lines = new(); hideAt = DateTime.MaxValue; first = 0; scrollAt = DateTime.MaxValue; }
+
+    /// <summary>Mouse wheel: the reader takes over paging and the bubble stays up a little longer.</summary>
+    public void Scroll(int lineDelta)
+    {
+        var max = Math.Max(0, lines.Count - MaxLines);
+        first = Math.Clamp(first + lineDelta, 0, max);
+        scrollAt = DateTime.MaxValue;
+        if (hideAt != DateTime.MaxValue) hideAt = DateTime.UtcNow.AddSeconds(8);
+    }
 
     /// <summary>Advance animation and expiry. Returns true if anything visible changed.</summary>
     public bool Update(DateTime now)
@@ -113,6 +140,11 @@ sealed class BubbleView : IDisposable
         if (Visible && now >= hideAt) { Clear(); return true; }
         if (Visible && Math.Abs(shownH - targetH) > 0.4f) { shownH += (targetH - shownH) * 0.4f; changed = true; }
         else if (Visible && shownH != targetH) { shownH = targetH; changed = true; }
+        if (Visible && !Dots && now >= scrollAt && first < Math.Max(0, lines.Count - MaxLines))
+        {
+            first++; changed = true;
+            scrollAt = first < Math.Max(0, lines.Count - MaxLines) ? now.AddMilliseconds(PerLineMs) : DateTime.MaxValue;
+        }
         if (Visible && Dots) changed = true;
         return changed;
     }
@@ -164,8 +196,7 @@ sealed class BubbleView : IDisposable
 
         g.SetClip(path);
         using var tb = new SolidBrush(textC);
-        var first = Math.Max(0, lines.Count - MaxLines);
-        for (int i = 0; i < Math.Min(lines.Count, MaxLines); i++)
+        for (int i = 0; i < Math.Min(lines.Count - first, MaxLines); i++)
         {
             var y = rect.Top + PadTop + i * LineH;
             g.DrawString(lines[first + i], font, tb, TextX, y, StringFormat.GenericTypographic);
@@ -175,3 +206,4 @@ sealed class BubbleView : IDisposable
 
     public void Dispose() { font.Dispose(); measure.Dispose(); measureBmp.Dispose(); }
 }
+

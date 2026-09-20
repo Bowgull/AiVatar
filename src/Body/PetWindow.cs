@@ -290,6 +290,14 @@ sealed class PetWindow : Form
         surface.Present(Handle, Location);
     }
 
+    protected override void OnMouseWheel(MouseEventArgs e)
+    {
+        base.OnMouseWheel(e);
+        if (!bubble.Visible) return;
+        bubble.Scroll(e.Delta > 0 ? -1 : 1);
+        dirty = true;
+    }
+
     protected override void OnMouseUp(MouseEventArgs e)
     {
         base.OnMouseUp(e);

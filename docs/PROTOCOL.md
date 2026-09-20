@@ -26,5 +26,26 @@ Core is down (drag, poke, tray); it must never block on the link.
 | `moved` | `x`, `y` | The window was dragged to a new position. |
 | `pong` | none | Reply to `ping`. |
 
-Later milestones add `submit`, `chip`, `quota`, `stop`, `queue` and attachment messages; this file is
-updated in the same commit as any protocol change.
+## Added in M2 (chat)
+
+Body (or any client) to Core:
+
+| `t` | Fields | Meaning |
+|---|---|---|
+| `submit` | `id`, `text`, `mode` (auto, quick, smart, deep; default auto), `once` (bool) | Ask Aang something. `once` grants a single bigger-model turn while saving quota is on. |
+| `stop` | `id` (optional) | Interrupt the running turn. |
+| `saving` | `on` (bool) | Turn quota saving on or off (the 50% opt-in). |
+
+Core to Body:
+
+| `t` | Fields | Meaning |
+|---|---|---|
+| `ack` | `id` | Sent immediately on `submit`, before any model work. Target: within 100 ms. |
+| `queued` | `id`, `position` | The message waits behind a running turn. |
+| `tool` | `id`, `name`, `phase` (start, done), `label` | A short receipt line such as "checking the weather". |
+| `bubble` | adds `id`, `who` (label such as "Quick") | Streamed reply text; the final message has `stream: false`. |
+| `quota` | `five`, `week` (0-1), `fiveResetsAt`, `weekResetsAt` (epoch s), `level` (ok, warn, offer, saving) | Live account-level usage from the stream. |
+| `consent` | `id`, `wanted` | Saving is on and a bigger model was requested; resubmit with `once: true` to allow it. |
+| `error` | `id`, `message`, `next` | What failed, why, and what to do. Never an empty bubble. |
+
+This file is updated in the same commit as any protocol change.

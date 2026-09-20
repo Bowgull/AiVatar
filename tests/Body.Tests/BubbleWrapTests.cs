@@ -1,4 +1,4 @@
-using Aang.Body;
+﻿using Aang.Body;
 using Xunit;
 
 namespace Aang.Body.Tests;
@@ -49,6 +49,50 @@ public class BubbleWrapTests
         }
     }
 
+    // A reply of ~8 lines: the real pelican answer that showed up starting mid-sentence.
+    const string Long =
+        "Pelicans have a massive throat pouch they use to scoop up fish, not to store them like people think. " +
+        "They're one of the heaviest flying birds, and some can weigh up to 15 kilos. " +
+        "They're super social and hunt in groups, herding fish together before diving.";
+
+    [Fact]
+    public void A_finished_long_reply_starts_at_the_top_and_pages_down()
+    {
+        using var b = new BubbleView();
+        b.Show(Long, stream: false, holdMs: 3_600_000);   // held for an hour so simulated time cannot expire it
+        Assert.True(b.Lines.Count > BubbleView.MaxLines, "test text must overflow the bubble");
+        Assert.Equal(0, b.FirstVisible);
+
+        var t = DateTime.UtcNow;
+        b.Update(t.AddSeconds(1));
+        Assert.Equal(0, b.FirstVisible);                     // still reading the first page
+        b.Update(t.AddSeconds(3.2));
+        Assert.Equal(1, b.FirstVisible);                     // then it pages down a line at a time
+        for (int i = 1; i < 20; i++) b.Update(t.AddSeconds(3.2 + i * 1.6));
+        Assert.Equal(b.Lines.Count - BubbleView.MaxLines, b.FirstVisible);   // and stops at the end
+    }
+
+    [Fact]
+    public void A_streaming_reply_follows_the_newest_lines()
+    {
+        using var b = new BubbleView();
+        b.Show(Long, stream: true, holdMs: 0);
+        Assert.Equal(b.Lines.Count - BubbleView.MaxLines, b.FirstVisible);
+    }
+
+    [Fact]
+    public void The_mouse_wheel_takes_over_from_auto_paging_and_is_clamped()
+    {
+        using var b = new BubbleView();
+        b.Show(Long, stream: false, holdMs: 3_600_000);
+        b.Scroll(1);
+        Assert.Equal(1, b.FirstVisible);
+        b.Update(DateTime.UtcNow.AddSeconds(5));             // auto paging must not fight the reader (still inside the 8 s the wheel grants)
+        Assert.Equal(1, b.FirstVisible);
+        b.Scroll(-99); Assert.Equal(0, b.FirstVisible);
+        b.Scroll(99); Assert.Equal(b.Lines.Count - BubbleView.MaxLines, b.FirstVisible);
+    }
+
     [Fact]
     public void Explicit_newlines_start_new_lines_and_empty_text_is_safe()
     {
@@ -57,3 +101,4 @@ public class BubbleWrapTests
         Assert.Single(bubble.Wrap(""));
     }
 }
+
