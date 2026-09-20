@@ -13,3 +13,26 @@ export async function requireNoBody(ms = 10000) {
 // synthetic mouse input from mouse_event never reaches any other window. Aang receives no WM_LBUTTONDOWN
 // at all. Verified not to be an Aang bug: the identical click works with Notepad or WoW focused.
 // So: click tests must put a real application in front first (the suites all call `focus WowB`).
+
+/**
+ * Put a real window in front before any click test. WoW is the realistic case, but when it is not running
+ * the foreground falls to "ShadowStreamer - Frame Generator", and synthetic clicks then reach nothing at
+ * all (see the note above). A throwaway Notepad stands in so the suites behave the same either way.
+ * Returns the foreground title.
+ */
+export async function ensureForeground(ask) {
+  const wow = await ask('focus WowB');
+  if (/world of warcraft/i.test(wow)) return wow;
+  const { spawn } = await import('node:child_process');
+  if (!/notepad/i.test(await ask('fg'))) {
+    spawn('notepad.exe', [], { stdio: 'ignore', detached: true }).unref();
+    await new Promise(r => setTimeout(r, 2500));
+  }
+  return ask('focus notepad');
+}
+
+/** Close the stand-in window, if we opened one. */
+export async function releaseForeground() {
+  const { execSync } = await import('node:child_process');
+  try { execSync('taskkill /IM notepad.exe /F', { stdio: 'ignore' }); } catch { /* none running */ }
+}

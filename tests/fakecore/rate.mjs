@@ -1,7 +1,7 @@
 ﻿// Copy and rate replies, for real: real hotkey, real keystrokes, real clicks, real mouse wheel, with WoW in front.
 // A fake Core records what the Body sends and plays replies back, and screenshots are taken at each step.
 //   node typing.mjs
-import { requireNoBody } from './guard.mjs';
+import { requireNoBody, ensureForeground, releaseForeground } from './guard.mjs';
 import { WebSocketServer } from 'ws';
 import { spawn } from 'node:child_process';
 import { execSync } from 'node:child_process';
@@ -51,7 +51,7 @@ const [L, T] = rect;
 const spriteXY = [L + 360, T + 110 + 215];                       // a pixel on Aang himself
 
 // ---- copy and rate a reply
-await keys.ask('focus WowB');
+await ensureForeground(keys.ask);
 const REPLY = 'The chibi is the small pixel Aang on your desktop.';
 send({ t: 'bubble', text: REPLY, stream: false, id: 'r1' });
 await sleep(700);

@@ -120,6 +120,28 @@ export class Lane {
     this.wake?.();
   }
 
+  /**
+   * Send one message and wait for the whole answer. Used by the web lane, which is asked a question by a
+   * tool call and has to hand back a string rather than stream to the bubble.
+   */
+  ask(text: string, timeoutMs = 90_000): Promise<{ ok: boolean; text: string }> {
+    return new Promise(resolve => {
+      const previous = this.listener;
+      let done = false;
+      const finish = (r: { ok: boolean; text: string }) => {
+        if (done) return;
+        done = true; clearTimeout(timer); this.listener = previous; resolve(r);
+      };
+      const timer = setTimeout(() => finish({ ok: false, text: 'That lookup took too long.' }), timeoutMs);
+      timer.unref?.();
+      this.listener = e => {
+        if (e.t === 'result') finish({ ok: e.ok, text: e.text });
+        else if (e.t === 'error') finish({ ok: false, text: e.message });
+      };
+      this.send(text);
+    });
+  }
+
   async interrupt(): Promise<void> {
     try { await this.q?.interrupt(); } catch { /* nothing running */ }
   }

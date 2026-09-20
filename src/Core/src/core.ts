@@ -12,7 +12,7 @@ import { Memory } from './memory.ts';
 import { QuotaPolicy } from './quota.ts';
 import { MODELS, pickLane } from './route.ts';
 import type { Lane as LaneName } from './route.ts';
-import { READ_ONLY_BUILTINS, TOOL_NAMES, describeCall, makeToolServer } from './tools.ts';
+import { READ_ONLY_BUILTINS, TOOL_NAMES, WEB_PROMPT, WEB_TOOLS, describeCall, makeToolServer, reachesNetwork } from './tools.ts';
 import { HookServer, HookTracker } from './hooks.ts';
 import { Reminders } from './reminders.ts';
 import { SessionStore } from './sessions.ts';
@@ -84,7 +84,7 @@ export class Core {
     this.systemPrompt = buildSystemPrompt(this.memory.profile(), this.memory.learned());
     this.reminders = new Reminders(cfg.stateDir);
     this.sessions = new SessionStore(cfg.stateDir);
-    this.toolServer = makeToolServer(this.memory, this.hooks, this.reminders);
+    this.toolServer = makeToolServer(this.memory, this.hooks, this.reminders, q => this.lookUpWeb(q));
   }
 
   // ------------------------------------------------------------------ lifecycle
@@ -113,6 +113,7 @@ export class Core {
     if (this.permission) this.answerPermission(this.permission.id, false);
     this.reminders.stop();
     await this.hookServer?.stop(); this.hookServer = null;
+    this.webLane?.close(); this.webLane = null;
     for (const l of this.lanes.values()) l.close();
     this.memory.close();
     if (!this.wss) return;
@@ -126,6 +127,24 @@ export class Core {
   /** Number of connected windows (the Body, plus any test client). */
   get clientCount(): number { return this.wss ? this.wss.clients.size : 0; }
 
+  /**
+   * The only way out to the internet. A separate session with web tools and nothing else: no files, no
+   * shell, no permission callback, and its own conversation. Whatever a page says stays in here; the
+   * session that holds Joshua's files only ever sees the few sentences that come back.
+   */
+  private webLane: Lane | null = null;
+  private lookUpWeb(question: string): Promise<string> {
+    if (!this.webLane) {
+      this.webLane = new Lane({
+        name: 'web', model: MODELS.quick.model, systemPrompt: WEB_PROMPT,
+        mcpServer: this.toolServer, allowedTools: WEB_TOOLS,
+        claudeExecutable: this.cfg.claudeExecutable, thinking: { type: 'disabled' },
+      });
+      this.webLane.onEvent(() => {});
+    }
+    return this.webLane.ask(question).then(r => r.text || 'Nothing came back from that lookup.');
+  }
+
   private lane(name: LaneName): Lane {
     let l = this.lanes.get(name);
     if (l) return l;
@@ -133,6 +152,8 @@ export class Core {
       name, model: MODELS[name].model, systemPrompt: this.systemPrompt, mcpServer: this.toolServer,
       // Aang's own tools and the read-only built-ins run freely; anything that changes the machine
       // comes back through askPermission and waits for Joshua.
+      // No web tools here at all: the web is reachable only through look_up_web, which runs in a
+      // separate session that has no files and no shell.
       allowedTools: [...TOOL_NAMES, ...READ_ONLY_BUILTINS],
       askPermission: (tool, input) => this.askPermission(tool, input),
       claudeExecutable: this.cfg.claudeExecutable,
@@ -359,6 +380,18 @@ export class Core {
    * because the safe default when nobody is there to say yes is not to do it.
    */
   private askPermission(tool: string, input: Record<string, unknown>): Promise<boolean> {
+    // Belt and braces: if the main session ever reaches for a web tool directly, refuse it outright
+    // rather than asking Joshua. Untrusted page content must not enter the session that holds his files.
+    if (WEB_TOOLS.includes(tool)) {
+      console.log('refused ' + tool + ' in the main session; look_up_web is the only way out');
+      return Promise.resolve(false);
+    }
+    // ...and the shell is a way out too. Refused before Joshua is ever asked, so a poisoned page cannot
+    // turn itself into a yes/no prompt he might wave through.
+    if (tool === 'Bash' && reachesNetwork(String(input?.command ?? ''))) {
+      console.log('refused a shell command that reaches the network; look_up_web is the only way out');
+      return Promise.resolve(false);
+    }
     if (!this.wss || this.wss.clients.size === 0) return Promise.resolve(false);
     if (this.permission) return Promise.resolve(false);
     const id = `perm${++this.permissionSeq}`;

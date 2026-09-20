@@ -176,11 +176,20 @@ sealed class BubbleView : IDisposable
     }
 
     /// <summary>Thinking dots, with an optional short receipt line such as "checking the weather".</summary>
+    /// <summary>
+    /// Waiting on Claude. With no receipt there is nothing to read, so no box is drawn at all: the think
+    /// animation already has the dots over his head and the glow, and an empty speech bubble is something
+    /// no game with dialogue would ever put on screen. Zelda, Stardew and Animal Crossing all emote above
+    /// the character and only open the box once there are words for it. With a receipt ("searching the
+    /// web") there ARE words, so the box opens for them.
+    /// </summary>
     public void ShowDots(string? receiptLine = null)
     {
         text = ""; lines = new(); streaming = false; expanded = false; scroll = 0;
         Dots = true; receipt = receiptLine ?? "";
-        targetH = receipt.Length > 0 ? MinH + 6 : MinH;
+        Tools = false; Asking = false; Rating = 0;
+        if (receipt.Length == 0) { Visible = false; hideAt = DateTime.MaxValue; return; }
+        targetH = MinH + 6;
         if (!Visible || shownH <= 0) shownH = targetH * 0.55f;
         Visible = true;
         hideAt = DateTime.MaxValue;
@@ -312,7 +321,7 @@ sealed class BubbleView : IDisposable
         {
             g.SmoothingMode = old;
             // centre the dots in the bubble rather than letting them sit low in it
-            var dotsY = receipt.Length > 0 ? Bottom - 34 : (int)((top + Bottom) / 2 - 3);
+            var dotsY = (int)((top + Bottom) / 2 - 12);
             for (int i = 0; i < 3; i++)
             {
                 var phase = (tick / 4 + i) % 3;
@@ -323,7 +332,7 @@ sealed class BubbleView : IDisposable
             {
                 using var small = new Font("Bahnschrift", 8.5f, FontStyle.Regular, GraphicsUnit.Point);
                 using var rb = new SolidBrush(dimC);
-                g.DrawString(receipt + "...", small, rb, TextX, Bottom - 22, StringFormat.GenericTypographic);
+                g.DrawString(receipt + "...", small, rb, TextX, (Bottom + top) / 2 - 2, StringFormat.GenericTypographic);
             }
             return;
         }

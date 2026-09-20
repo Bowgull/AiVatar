@@ -1,7 +1,7 @@
 ﻿// Typing to Aang, for real: real hotkey, real keystrokes, real clicks, real mouse wheel, with WoW in front.
 // A fake Core records what the Body sends and plays replies back, and screenshots are taken at each step.
 //   node typing.mjs
-import { requireNoBody } from './guard.mjs';
+import { requireNoBody, ensureForeground, releaseForeground } from './guard.mjs';
 import { WebSocketServer } from 'ws';
 import { spawn } from 'node:child_process';
 import { mkdirSync, existsSync, rmSync, readFileSync } from 'node:fs';
@@ -50,12 +50,12 @@ const [L, T] = rect;
 const spriteXY = [L + 360, T + 110 + 215];                       // a pixel on Aang himself
 
 // ---- the model chip, saving, quota strip, consent and the ONE global hotkey (Ctrl+NumLock), with WoW in front
-const wowFg = await keys.ask('focus WowB');
+const wowFg = await ensureForeground(keys.ask);
 const hasWow = /world of warcraft/i.test(wowFg);
 // With WoW closed the game cannot be the 'window that had focus'; use whatever really does, so the same checks still mean something.
 const before = hasWow ? wowFg : await keys.ask('fg');
 const bubbleXY = [L + 120, T + 110 + 100];
-const openBox = async () => { await keys.ask('focus WowB'); await keys.ask(`click ${spriteXY[0]} ${spriteXY[1]}`); await sleep(200); };
+const openBox = async () => { await ensureForeground(keys.ask); await keys.ask(`click ${spriteXY[0]} ${spriteXY[1]}`); await sleep(200); };
 const cfgMode = () => { try { return JSON.parse(readFileSync(path.join(process.env.APPDATA, 'Aang', 'body.json'), 'utf8').replace(/^﻿/, '')).Mode; } catch { return null; } };
 const answer = async s => { send({ t: 'bubble', text: 'ok', stream: false, id: s?.id }); await sleep(250); };
 const quota = (week, five, level) => send({ t: 'quota', five, week, fiveResetsAt: 0, weekResetsAt: 0, level });
@@ -118,7 +118,7 @@ quota(0.34, 0.12, 'ok');
 
 // the one global hotkey
 const rectBefore = await keys.ask('rect Aang Body');
-await keys.ask('focus WowB');
+await ensureForeground(keys.ask);
 await keys.ask('hotkey Ctrl+NumLock'); await sleep(400);
 check('Ctrl+NumLock hides Aang', (await keys.ask('rect Aang Body')) === 'none');
 const fgH = await keys.ask('fg');

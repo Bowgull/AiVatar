@@ -1,7 +1,7 @@
 ﻿// Typing to Aang, for real: real hotkey, real keystrokes, real clicks, real mouse wheel, with WoW in front.
 // A fake Core records what the Body sends and plays replies back, and screenshots are taken at each step.
 //   node typing.mjs
-import { requireNoBody } from './guard.mjs';
+import { requireNoBody, ensureForeground, releaseForeground } from './guard.mjs';
 import { WebSocketServer } from 'ws';
 import { spawn } from 'node:child_process';
 import { mkdirSync, existsSync, rmSync } from 'node:fs';
@@ -48,11 +48,11 @@ await sleep(1500);
 const rect = (await keys.ask('rect Aang Body')).split(' ').map(Number);
 const [L, T] = rect;
 const spriteXY = [L + 360, T + 110 + 215];                       // a pixel on Aang himself
-const openBox = async () => { await keys.ask('focus WowB'); await keys.ask('click ' + spriteXY[0] + ' ' + spriteXY[1]); };
+const openBox = async () => { await ensureForeground(keys.ask); await keys.ask('click ' + spriteXY[0] + ' ' + spriteXY[1]); };
 const bubbleXY = [L + 120, T + 110 + 100];                        // inside the bubble when it is showing
 
 // ---- WoW in front, as in real use
-const wowFg = await keys.ask('focus WowB');
+const wowFg = await ensureForeground(keys.ask);
 console.log(`      foreground before: '${wowFg}'`);
 const hasWow = /world of warcraft/i.test(wowFg);
 // With WoW closed the game cannot be the 'window that had focus'; use whatever really does, so the same checks still mean something.
@@ -125,7 +125,7 @@ await sleep(300); await snap('06_after_stop');
 await keys.ask('send {ESC}');                                    // close the box if it is still open
 
 // 8. clicking Aang himself opens the box
-await keys.ask('focus WowB');
+await ensureForeground(keys.ask);
 await keys.ask(`click ${spriteXY[0]} ${spriteXY[1]}`);
 fg = await keys.ask('fg');
 check('clicking Aang opens the input box', /Aang Input/.test(fg), `foreground '${fg}'`);
