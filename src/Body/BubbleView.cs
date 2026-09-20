@@ -311,7 +311,8 @@ sealed class BubbleView : IDisposable
         if (Dots)
         {
             g.SmoothingMode = old;
-            var dotsY = receipt.Length > 0 ? Bottom - 34 : Bottom - 26;
+            // centre the dots in the bubble rather than letting them sit low in it
+            var dotsY = receipt.Length > 0 ? Bottom - 34 : (int)((top + Bottom) / 2 - 3);
             for (int i = 0; i < 3; i++)
             {
                 var phase = (tick / 4 + i) % 3;
@@ -331,11 +332,17 @@ sealed class BubbleView : IDisposable
         using var tb = new SolidBrush(textC);
         var first = streaming ? Math.Max(0, lines.Count - CollapsedLines) : expanded ? scroll : 0;
         var count = streaming ? Math.Min(lines.Count, CollapsedLines) : VisibleLineCount;
+        // A short reply does not fill the minimum bubble height, so the leftover space is split above and
+        // below instead of all falling underneath the text. Joshua asked for even padding; the MinH clamp
+        // had quietly reintroduced 11px above and 27px below on a one-liner.
+        var rows = count + (asking ? 1 : 0);
+        var slack = Math.Max(0f, (Bottom - top) - 2 * Pad - rows * LineH);
+        var textTop = top + Pad + slack / 2f;
         for (int i = 0; i < count && first + i < lines.Count; i++)
         {
             var line = lines[first + i];
             if (More && i == count - 1) line = Ellipsize(line);            // "..." on the last visible line
-            g.DrawString(line, font, tb, TextX, top + Pad + i * LineH, StringFormat.GenericTypographic);
+            g.DrawString(line, font, tb, TextX, textTop + i * LineH, StringFormat.GenericTypographic);
         }
         g.ResetClip();
 

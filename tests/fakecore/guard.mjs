@@ -7,3 +7,9 @@ export async function requireNoBody(ms = 10000) {
   while (running() && Date.now() < end) await new Promise(r => setTimeout(r, 300));
   if (running()) { console.error('An Aang.exe is already running. Quit it from the tray first; the test will not kill it.'); process.exit(3); }
 }
+
+// Known environment limitation, found 2026-09-20: this is a Shadow cloud PC, and when Shadow's own
+// "ShadowStreamer - Frame Generator" window holds focus (which happens whenever no other app does),
+// synthetic mouse input from mouse_event never reaches any other window. Aang receives no WM_LBUTTONDOWN
+// at all. Verified not to be an Aang bug: the identical click works with Notepad or WoW focused.
+// So: click tests must put a real application in front first (the suites all call `focus WowB`).

@@ -15,6 +15,7 @@ import type { Lane as LaneName } from './route.ts';
 import { READ_ONLY_BUILTINS, TOOL_NAMES, describeCall, makeToolServer } from './tools.ts';
 import { HookServer, HookTracker } from './hooks.ts';
 import { Reminders } from './reminders.ts';
+import { SessionStore } from './sessions.ts';
 import { buildSystemPrompt, lint, stripReasoning } from './voice.ts';
 
 export interface CoreConfig {
@@ -61,6 +62,8 @@ export class Core {
   private readonly toolServer;
   readonly hooks = new HookTracker();
   readonly reminders: Reminders;
+  /** Which Claude session each lane is in, so six reboots a day do not read as amnesia. */
+  readonly sessions: SessionStore;
   private hookServer: HookServer | null = null;
   /** Aang is visible but silent: the Body is in quiet mode (the game has focus), or Joshua muted him. */
   private bodyQuiet = false;
@@ -80,6 +83,7 @@ export class Core {
     this.memory = new Memory(cfg.dataDir);
     this.systemPrompt = buildSystemPrompt(this.memory.profile(), this.memory.learned());
     this.reminders = new Reminders(cfg.stateDir);
+    this.sessions = new SessionStore(cfg.stateDir);
     this.toolServer = makeToolServer(this.memory, this.hooks, this.reminders);
   }
 
@@ -100,7 +104,8 @@ export class Core {
     catch (e) { console.error('hook endpoint could not start:', (e as Error).message); this.hookServer = null; }
     this.reminders.onDue = r => this.announce(`Reminder: ${r.text}`);
     this.reminders.start();
-    console.log(`core listening on ws://127.0.0.1:${this.cfg.port}/body`);
+    const resumable = Object.entries(this.sessions.all()).map(([l, r]) => `${l}=${r.id.slice(0, 8)}`).join(' ');
+    console.log(`core listening on ws://127.0.0.1:${this.cfg.port}/body${resumable ? '  resuming ' + resumable : '  (no session to resume)'}`);
     if (this.cfg.warm !== false) this.warm();
   }
 
@@ -134,6 +139,9 @@ export class Core {
       // Measured on the warm Quick lane: first token 1369 ms with thinking, 444 ms without. Chat does not
       // need it; Smart and Deep keep it because they are chosen for work that does.
       thinking: name === 'quick' ? { type: 'disabled' } : undefined,
+      resumeId: this.sessions.get(name),
+      onSession: id => this.sessions.set(name, id),
+      onResumeFailed: id => { console.log(`lane ${name}: could not resume ${id}, starting fresh`); this.sessions.clear(name); },
     });
     l.onEvent(e => this.onLaneEvent(name, e));
     this.lanes.set(name, l);

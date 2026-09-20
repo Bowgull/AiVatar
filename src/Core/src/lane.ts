@@ -29,6 +29,12 @@ export interface LaneOptions {
   claudeExecutable?: string;
   /** Extended thinking: `{ type: 'disabled' }` trades depth for first-token speed on the chat lane. */
   thinking?: { type: 'disabled' } | { type: 'adaptive' };
+  /** A session id from a previous run of the Core, so a restart continues the same conversation. */
+  resumeId?: string;
+  /** Called whenever the lane learns its session id, so it can be written to disk. */
+  onSession?: (id: string) => void;
+  /** Called when a resume was refused, so the stored id can be dropped before it wedges anything. */
+  onResumeFailed?: (id: string) => void;
 }
 
 export class Lane {
@@ -46,8 +52,16 @@ export class Lane {
   private resetNextText = false;
   private text = '';
   private starting = false;
+  /** The id this process was started with, if it was a resume. Kept for the life of the process. */
+  private startedWithResume: string | undefined;
+  /** True once this process has produced a good result, so we know the resume was actually accepted. */
+  private resumeProved = false;
+  /** One replay per message, so a bad resume cannot loop. */
+  private replayed = false;
+  /** The message we were carrying when a resume failed, so it is re-sent rather than swallowed. */
+  private pendingText: string | null = null;
 
-  constructor(opts: LaneOptions) { this.opts = opts; this.name = opts.name; }
+  constructor(opts: LaneOptions) { this.opts = opts; this.name = opts.name; this.sessionId = opts.resumeId; }
 
   onEvent(cb: (e: LaneEvent) => void): void { this.listener = cb; }
   get running(): boolean { return this.q !== null; }
@@ -56,6 +70,8 @@ export class Lane {
   start(): void {
     if (this.q || this.starting || this.closed) return;
     this.starting = true;
+    this.startedWithResume = this.sessionId;
+    this.resumeProved = false;
     const self = this;
     async function* prompts(): AsyncGenerator<SDKUserMessage> {
       while (!self.closed) {
@@ -97,6 +113,8 @@ export class Lane {
 
   send(text: string): void {
     if (!this.q) this.start();
+    this.pendingText = text;
+    this.replayed = false;
     this.sentAt = Date.now(); this.firstTokenAt = null; this.toolsUsed = []; this.text = ''; this.resetNextText = false;
     this.inbox.push({ type: 'user', message: { role: 'user', content: text }, parent_tool_use_id: null } as SDKUserMessage);
     this.wake?.();
@@ -115,7 +133,11 @@ export class Lane {
   private async pump(q: Query): Promise<void> {
     try {
       for await (const m of q as AsyncIterable<any>) {
-        if (m.session_id) this.sessionId = m.session_id;
+        if (m.session_id && m.session_id !== this.sessionId) {
+          this.sessionId = m.session_id;
+          this.opts.onSession?.(m.session_id);
+        }
+        if (this.startedWithResume && this.sessionId) this.opts.onSession?.(this.sessionId);
         if (process.env.AANG_TRACE) console.log(`[lane ${this.name}] +${Date.now() - this.sentAt}ms ${m.type}${m.subtype ? '/' + m.subtype : ''}${m.event ? ' ' + m.event.type : ''}`);
         switch (m.type) {
           case 'rate_limit_event': {
@@ -145,6 +167,22 @@ export class Lane {
             break;
           }
           case 'result': {
+            // A dead session id does not throw: the SDK comes back with an error result before Claude
+            // ever speaks. Seen as result/error_during_execution +1.1s after start, with a stale id.
+            if (m.subtype !== 'success' && this.startedWithResume && !this.resumeProved && !this.replayed) {
+              const dead = this.startedWithResume;
+              this.replayed = true;
+              this.startedWithResume = undefined;
+              this.sessionId = undefined;
+              this.opts.onResumeFailed?.(dead);
+              try { this.q?.close(); } catch { /* already gone */ }
+              this.q = null; this.starting = false;
+              const replay = this.pendingText;
+              this.pendingText = null;
+              if (replay !== null && !this.closed) { this.send(replay); return; }
+            }
+            this.resumeProved = true;
+            this.pendingText = null;              // delivered; nothing left to replay
             const u = m.usage ?? {};
             this.listener({
               t: 'result',
@@ -161,9 +199,24 @@ export class Lane {
         }
       }
     } catch (e) {
+      // A resume that never produced a single message is a dead session id: the transcript was pruned,
+      // or written by a different install. Drop it and start the conversation again rather than
+      // failing every turn from here on.
+      const staleResume = this.resumeProved ? undefined : this.startedWithResume;
+      if (this.q === q) this.q = null;
+      this.starting = false;
+      if (staleResume && !this.replayed) {
+        this.replayed = true;
+        this.opts.onResumeFailed?.(staleResume);
+        this.sessionId = undefined;
+        this.startedWithResume = undefined;
+        const replay = this.pendingText;
+        this.pendingText = null;
+        if (replay !== null && !this.closed) { this.send(replay); return; }
+      }
       this.listener({ t: 'error', message: (e as Error).message });
+      return;
     } finally {
-      // The process ended. Drop it so the next message starts a fresh one that resumes this conversation.
       if (this.q === q) this.q = null;
       this.starting = false;
     }

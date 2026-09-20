@@ -104,12 +104,14 @@ Each phase lists what it closes from A-L, what is new, and the gate it has to pa
 - [ ] Auto-push on every commit; nothing uncommitted survives a Shadow shutdown otherwise
 - [ ] Checkpoint on Shadow's 15-minute warning, and every N minutes regardless (hard shutdown means
       `WM_ENDSESSION` is not guaranteed)
-- [ ] **Session resume**: save the SDK session id, resume on Core start, so six reboots a day stop
-      wiping the conversation
+- [x] **Session resume**: save the SDK session id, resume on Core start, so six reboots a day stop
+      wiping the conversation (**done 2026-09-20**, 12/12 in tests/fakecore/resume.mjs with a real SIGKILL)
 - [ ] SQLite WAL checkpointing so a hard kill cannot corrupt the memory
 - [ ] **Hidden stays hidden.** Audit every path that can re-show him. Clippy's real failure, and
       OpenAI's live bug.
 **Gate:** kill the VM mid-conversation; on restart Aang picks up where he left off and loses nothing.
+**Gate result:** passed. Told him a fact, killed the Core with SIGKILL, restarted: same session id, and he
+repeated the fact with its detail. A poisoned session id recovers silently and still answers.
 
 ### P1 - Close the hole I opened
 *Closes: L1, L3*
