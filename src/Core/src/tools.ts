@@ -74,6 +74,9 @@ export const READ_ONLY_BUILTINS = ['Read', 'Glob', 'Grep'];
  */
 export const WEB_TOOLS = ['WebSearch', 'WebFetch'];
 
+/** Tools that run a command. On Windows the SDK uses PowerShell, not Bash, so both must be guarded. */
+export const SHELL_TOOLS = ['Bash', 'PowerShell'];
+
 /**
  * The shell is a way out to the internet too. Blocking WebFetch but leaving curl reachable would be
  * theatre: the first thing the model reached for, when WebFetch was gone, was `curl -s`. Anything that
@@ -109,18 +112,24 @@ export function describeCall(tool: string, input: Record<string, unknown>): stri
   const s = (k: string) => typeof input?.[k] === 'string' ? String(input[k]) : '';
   const short = (v: string, n = 90) => v.length > n ? v.slice(0, n) + '...' : v;
   switch (tool) {
-    case 'Bash': {
+    // On Windows the shell tool is PowerShell, not Bash. Missing it meant the question read "use
+    // PowerShell" with no command in it - Joshua would have been approving something he could not see.
+    case 'Bash': case 'PowerShell': {
       // a leading `cd somewhere &&` is scaffolding, not the thing he is agreeing to
       const cmd = s('command').replace(/^\s*cd\s+[^&]+&&\s*/i, '').trim();
       return `run ${short(cmd, 70)}`;
     }
     case 'Write': return `write to ${short(s('file_path'), 60)}`;
-    case 'Edit': return `change ${short(s('file_path'), 60)}`;
+    case 'Edit': case 'NotebookEdit': return `change ${short(s('file_path') || s('notebook_path'), 60)}`;
     case 'WebSearch': return `search the web for ${short(s('query'), 60)}`;
     case 'WebFetch': return `read ${short(s('url'), 60)}`;
     case 'Read': return `read ${short(s('file_path'), 60)}`;
     case 'Glob': case 'Grep': return `look through your files`;
-    default: return `use ${tool}`;
+    // Anything unknown: show whatever looks like the thing being done, never a bare tool name.
+    default: {
+      const detail = s('command') || s('file_path') || s('path') || s('url') || s('query');
+      return detail ? `use ${tool}: ${short(detail, 60)}` : `use ${tool}`;
+    }
   }
 }
 

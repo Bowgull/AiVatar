@@ -22,6 +22,7 @@ public class K {
   [DllImport("user32.dll")] static extern bool EnumWindows(EW f, IntPtr p);
   [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr h);
   [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out R r);
+  [DllImport("user32.dll")] public static extern bool MoveWindow(IntPtr h, int x, int y, int w, int ht, bool repaint);
   delegate bool EW(IntPtr h, IntPtr p);
   [StructLayout(LayoutKind.Sequential)] public struct R { public int L, T, Rr, B; }
   public static string Title(IntPtr h) { var sb = new StringBuilder(256); GetWindowText(h, sb, 256); return sb.ToString(); }
@@ -49,6 +50,7 @@ while ($null -ne ($line = [Console]::In.ReadLine())) {
       'move'   { $a = $rest -split ' '; [void][K]::SetCursorPos([int]$a[0], [int]$a[1]); Start-Sleep -Milliseconds 250; $r = 'ok' }
       'wheel'  { $a = $rest -split ' '; [void][K]::SetCursorPos([int]$a[1], [int]$a[2]); Start-Sleep -Milliseconds 120; [K]::mouse_event(0x0800, 0, 0, [int]$a[0], [UIntPtr]::Zero); Start-Sleep -Milliseconds 250; $r = "ok" }
       'rect'   { $r = [K]::Rect($rest) }
+      'movewin'   { $a = $rest -split ' '; $p = Get-Process $a[0] -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1; if ($p) { [void][K]::MoveWindow($p.MainWindowHandle, [int]$a[1], [int]$a[2], [int]$a[3], [int]$a[4], $true); $r = "ok" } else { $r = "no such process" } }
       'pid'    { $r = $(if (Get-Process $rest -ErrorAction SilentlyContinue) { "1" } else { "0" }) }
       default  { $r = "bad-command" }
     }

@@ -165,6 +165,7 @@ await openBox();
 await keys.ask('send anyone there?{ENTER}'); await sleep(600);
 await snap('13_no_core_error');
 
+await releaseForeground();
 keys.p.stdin.write('quit\n'); cap.p.stdin.write('quit\n'); body.kill(); wss.close();
 console.log(`\n${results.filter(Boolean).length}/${results.length} typing checks passed; screenshots in ${outDir}`);
 process.exit(results.every(Boolean) ? 0 : 1);

@@ -171,6 +171,7 @@ sock.close(); await sleep(3000);
 const again = inbox.find(m => m.t === 'saving');
 check('after a reconnect the Body re-sends "saving on" to the Core', again?.on === true, JSON.stringify(again));
 
+await releaseForeground();
 keys.p.stdin.write('quit\n'); cap.p.stdin.write('quit\n'); body.kill(); wss.close();
 console.log(`\n${results.filter(Boolean).length}/${results.length} chip checks passed; screenshots in ${outDir}`);
 process.exit(results.every(Boolean) ? 0 : 1);

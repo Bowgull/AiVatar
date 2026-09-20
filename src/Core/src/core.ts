@@ -12,7 +12,7 @@ import { Memory } from './memory.ts';
 import { QuotaPolicy } from './quota.ts';
 import { MODELS, pickLane } from './route.ts';
 import type { Lane as LaneName } from './route.ts';
-import { READ_ONLY_BUILTINS, TOOL_NAMES, WEB_PROMPT, WEB_TOOLS, describeCall, makeToolServer, reachesNetwork } from './tools.ts';
+import { READ_ONLY_BUILTINS, TOOL_NAMES, SHELL_TOOLS, WEB_PROMPT, WEB_TOOLS, describeCall, makeToolServer, reachesNetwork } from './tools.ts';
 import { HookServer, HookTracker } from './hooks.ts';
 import { Reminders } from './reminders.ts';
 import { SessionStore } from './sessions.ts';
@@ -59,7 +59,9 @@ export class Core {
   private readonly recent = new Map<string, { lane: LaneName; user: string; reply: string }>();
   private active: Turn | null = null;
   private readonly systemPrompt: string;
-  private readonly toolServer;
+  /** Built fresh per lane: one in-process MCP server cannot serve two live queries. Sharing it made
+   *  Aang's own tools fail with "the aang server failed to connect" the moment a second lane started. */
+  private tools() { return makeToolServer(this.memory, this.hooks, this.reminders, q => this.lookUpWeb(q)); }
   readonly hooks = new HookTracker();
   readonly reminders: Reminders;
   /** Which Claude session each lane is in, so six reboots a day do not read as amnesia. */
@@ -84,7 +86,6 @@ export class Core {
     this.systemPrompt = buildSystemPrompt(this.memory.profile(), this.memory.learned());
     this.reminders = new Reminders(cfg.stateDir);
     this.sessions = new SessionStore(cfg.stateDir);
-    this.toolServer = makeToolServer(this.memory, this.hooks, this.reminders, q => this.lookUpWeb(q));
   }
 
   // ------------------------------------------------------------------ lifecycle
@@ -136,8 +137,10 @@ export class Core {
   private lookUpWeb(question: string): Promise<string> {
     if (!this.webLane) {
       this.webLane = new Lane({
+        // No MCP server: it must not be able to call look_up_web (which would recurse into itself), and
+        // sharing one in-process server across two live queries broke the connection outright.
         name: 'web', model: MODELS.quick.model, systemPrompt: WEB_PROMPT,
-        mcpServer: this.toolServer, allowedTools: WEB_TOOLS,
+        allowedTools: WEB_TOOLS,
         claudeExecutable: this.cfg.claudeExecutable, thinking: { type: 'disabled' },
       });
       this.webLane.onEvent(() => {});
@@ -149,12 +152,16 @@ export class Core {
     let l = this.lanes.get(name);
     if (l) return l;
     l = new Lane({
-      name, model: MODELS[name].model, systemPrompt: this.systemPrompt, mcpServer: this.toolServer,
+      name, model: MODELS[name].model, systemPrompt: this.systemPrompt, mcpServer: this.tools(),
       // Aang's own tools and the read-only built-ins run freely; anything that changes the machine
       // comes back through askPermission and waits for Joshua.
       // No web tools here at all: the web is reachable only through look_up_web, which runs in a
       // separate session that has no files and no shell.
+      // They have to be DISALLOWED, not merely left out of allowedTools. Left out, the model still sees
+      // them, reaches for WebFetch first, gets refused and gives up instead of using look_up_web.
+      // Measured on 2026-09-20, not guessed.
       allowedTools: [...TOOL_NAMES, ...READ_ONLY_BUILTINS],
+      disallowedTools: WEB_TOOLS,
       askPermission: (tool, input) => this.askPermission(tool, input),
       claudeExecutable: this.cfg.claudeExecutable,
       // Measured on the warm Quick lane: first token 1369 ms with thinking, 444 ms without. Chat does not
@@ -388,7 +395,7 @@ export class Core {
     }
     // ...and the shell is a way out too. Refused before Joshua is ever asked, so a poisoned page cannot
     // turn itself into a yes/no prompt he might wave through.
-    if (tool === 'Bash' && reachesNetwork(String(input?.command ?? ''))) {
+    if (SHELL_TOOLS.includes(tool) && reachesNetwork(String(input?.command ?? ''))) {
       console.log('refused a shell command that reaches the network; look_up_web is the only way out');
       return Promise.resolve(false);
     }

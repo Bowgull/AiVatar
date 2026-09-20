@@ -78,6 +78,7 @@ check('none of that closed the bubble or opened the input box', (await keys.ask(
 send({ t: 'bubble', text: 'Timer done.', stream: false, proactive: true }); await sleep(600);
 await keys.ask(`move ${L + 120} ${T + 110 + 105}`); await sleep(300);
 await snap('06_proactive_no_tools');
+await releaseForeground();
 keys.p.stdin.write('quit\n'); cap.p.stdin.write('quit\n'); body.kill(); wss.close();
 console.log(`\n${results.filter(Boolean).length}/${results.length} rate checks passed; screenshots in ${outDir}`);
 process.exit(results.every(Boolean) ? 0 : 1);

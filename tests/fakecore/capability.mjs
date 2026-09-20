@@ -58,7 +58,8 @@ let from = inbox.length;
 say('c1', 'search the web and tell me the headline anthropic has on their news page right now');
 const web = await answer('c1');
 console.log(`      web -> ${JSON.stringify(web?.text)}`);
-check('he can search the web', !!web && toolsUsed(from).some(n => /WebSearch|WebFetch/.test(n)), toolsUsed(from).join(', ') || 'no tools used');
+check('he can reach the web, through the isolated lane', !!web && toolsUsed(from).some(n => /look_up_web/.test(n)) && !toolsUsed(from).some(n => /^Web/.test(n)), toolsUsed(from).join(', ') || 'no tools used');
+check('and the web answer is real, not a refusal', !!web && !/didn't fetch|could not|can't reach|declined/i.test(web.text), JSON.stringify(web?.text?.slice(0, 90)));
 await sleep(600); await snap('01_web_answer');
 
 // 2. reading a file: something only a real read can produce

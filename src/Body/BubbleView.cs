@@ -26,7 +26,10 @@ sealed class BubbleView : IDisposable
     // Scrollbar: a slim track in the right margin inside the outline.
     const int TrackX = 253, TrackW = 6;
 
-    readonly Font font = new("Bahnschrift", 11f, FontStyle.Regular, GraphicsUnit.Point);
+    // Pixel units, not points. The bubble is drawn into a surface that is already scaled by the DPI factor,
+    // and a point-sized font is scaled by the DPI again on top of that: at 200% the text came out 4x and
+    // the lines overlapped. These are the 96-dpi pixel equivalents of 11pt / 8.5pt / 9pt.
+    readonly Font font = new("Bahnschrift", 14.667f, FontStyle.Regular, GraphicsUnit.Pixel);
     readonly Bitmap measureBmp = new(1, 1);
     readonly Graphics measure;
     readonly Dictionary<string, float> widths = new();
@@ -330,7 +333,7 @@ sealed class BubbleView : IDisposable
             }
             if (receipt.Length > 0)
             {
-                using var small = new Font("Bahnschrift", 8.5f, FontStyle.Regular, GraphicsUnit.Point);
+                using var small = new Font("Bahnschrift", 11.333f, FontStyle.Regular, GraphicsUnit.Pixel);
                 using var rb = new SolidBrush(dimC);
                 g.DrawString(receipt + "...", small, rb, TextX, (Bottom + top) / 2 - 2, StringFormat.GenericTypographic);
             }
@@ -380,7 +383,7 @@ sealed class BubbleView : IDisposable
     void DrawChoices(Graphics g)
     {
         g.SmoothingMode = SmoothingMode.AntiAlias;
-        using var f = new Font("Bahnschrift", 9f, FontStyle.Bold, GraphicsUnit.Point);
+        using var f = new Font("Bahnschrift", 12f, FontStyle.Bold, GraphicsUnit.Pixel);
         for (int i = 0; i < 2; i++)
         {
             var r = ChoiceRect(i);

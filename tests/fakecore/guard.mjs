@@ -28,6 +28,10 @@ export async function ensureForeground(ask) {
     spawn('notepad.exe', [], { stdio: 'ignore', detached: true }).unref();
     await new Promise(r => setTimeout(r, 2500));
   }
+  // Shove it into the top-left corner. Left where Windows puts it, the stand-in window sits over Aang and
+  // swallows the very clicks the test is trying to make - which is exactly what broke the chip and rate
+  // suites once this helper was introduced.
+  await ask('movewin notepad 0 0 420 300');
   return ask('focus notepad');
 }
 

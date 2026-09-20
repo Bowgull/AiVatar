@@ -1,0 +1,14 @@
+import { WebSocket } from 'ws';
+import { execSync } from 'node:child_process';
+import path from 'node:path';
+const root = path.resolve(import.meta.dirname, '..', '..');
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const shot = name => execSync(`powershell -NoProfile -ExecutionPolicy Bypass -File "${path.join(import.meta.dirname,'shot-dpi.ps1')}" -X 0 -Y 0 -W 2560 -H 1600 -Out "${path.join(root,'tests','out','live',name+'.png')}"`, { stdio: 'inherit' });
+const c = new WebSocket('ws://127.0.0.1:47831/body'); const inbox=[];
+c.on('message',d=>inbox.push(JSON.parse(String(d)))); await new Promise(r=>c.once('open',r));
+c.send(JSON.stringify({ t:'submit', id:'d1', text:'hey aang, quick one: whats 12 times 12', mode:'auto' }));
+const d=Date.now()+90000; let m;
+while(Date.now()<d && !(m=inbox.find(x=>x.t==='bubble'&&x.stream===false&&x.id==='d1'))) await sleep(60);
+await sleep(700); shot('dpi_full');
+console.log('reply:', JSON.stringify(m?.text));
+c.close(); process.exit(0);

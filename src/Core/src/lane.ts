@@ -18,9 +18,14 @@ export interface LaneOptions {
   name: string;
   model: string;
   systemPrompt: string;
-  mcpServer: unknown;
+  /** Aang's own in-process tools. The web lane gets none: it must not be able to call look_up_web,
+   *  which would recurse, and sharing one server across two live queries breaks it. */
+  mcpServer?: unknown;
   /** Tools that run without asking: Aang's own, plus the read-only built-ins. */
   allowedTools: string[];
+  /** Tools taken out of the model's context entirely. Not the same as leaving them out of allowedTools,
+   *  which only makes them ask: the model still sees those and will reach for them first. */
+  disallowedTools?: string[];
   /**
    * Asked before a tool that changes something runs. Resolve true to let it, false to refuse.
    * Passing nothing at all means no tool ever needs permission, which is not how this is used.
@@ -89,8 +94,9 @@ export class Lane {
         settingSources: [],
         includePartialMessages: true,
         maxTurns: 8, // a chat turn never needs more than a few tool round trips; bound any runaway loop
-        mcpServers: { aang: this.opts.mcpServer as never },
+        ...(this.opts.mcpServer ? { mcpServers: { aang: this.opts.mcpServer as never } } : {}),
         allowedTools: this.opts.allowedTools,
+        ...(this.opts.disallowedTools?.length ? { disallowedTools: this.opts.disallowedTools } : {}),
         // Anything not in allowedTools (Bash, Write, Edit, ...) comes through canUseTool, which asks Joshua
         // in the bubble and waits for his answer.
         permissionMode: 'default',
