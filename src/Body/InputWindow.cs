@@ -12,7 +12,7 @@ namespace Aang.Body;
 /// </summary>
 sealed class InputWindow : Form
 {
-    public const int LineH = 19, Pad = 8, MaxLinesShown = 4, BaseW = 256;
+    public const int LineH = 19, Pad = 8, MaxLinesShown = 4, BaseW = 256, StripH = 20;
 
     readonly TextBox box = new();
     readonly InputHistory history;
@@ -24,6 +24,23 @@ sealed class InputWindow : Form
     public event Action? StopRequested;
     public event Action? Dismissed;
     public event Action<int>? PageRequested;
+    public event Action<string>? ModeChosen;          // "auto" | "quick" | "smart" | "deep" | "next"
+    public event Action? SavingToggled;
+    public event Action? ConsentAccepted;
+    public event Action? ConsentDeclined;
+
+    // What the strip under the text shows. Set by the Body whenever the Core reports something.
+    string mode = "auto"; bool saving, hasQuota, consent; double week, five; string level = "ok"; string consentWanted = "";
+    Rectangle chipRect, savingRect;
+    readonly Font stripFont = new("Bahnschrift", 8.5f, FontStyle.Regular, GraphicsUnit.Point);
+
+    public void SetStatus(string mode, bool saving, bool hasQuota, double week, double five, string level)
+    {
+        this.mode = mode; this.saving = saving; this.hasQuota = hasQuota; this.week = week; this.five = five; this.level = level;
+        Invalidate();
+    }
+    public void SetConsent(bool pending, string wanted = "") { consent = pending; consentWanted = wanted; Invalidate(); }
+    public bool ConsentPending => consent;
 
     /// <summary>True while a reply is running: Esc then stops it instead of closing the box.</summary>
     [System.ComponentModel.Browsable(false)]
@@ -47,7 +64,7 @@ sealed class InputWindow : Form
         ShowInTaskbar = false; TopMost = true;
         AutoScaleMode = AutoScaleMode.None;
         BackColor = Color.FromArgb(16, 10, 34);
-        Padding = new Padding((int)(Pad * scale), (int)(7 * scale), (int)(Pad * scale), (int)(6 * scale));
+        Padding = new Padding((int)(Pad * scale), (int)(7 * scale), (int)(Pad * scale), (int)((6 + StripH) * scale));
         Size = new Size((int)(BaseW * scale), Fit(1));
 
         box.Multiline = true; box.WordWrap = true; box.BorderStyle = BorderStyle.None;
@@ -60,7 +77,7 @@ sealed class InputWindow : Form
         Grow();
     }
 
-    int Fit(int lines) => (int)((lines * LineH + 13) * scale);
+    int Fit(int lines) => (int)((lines * LineH + 13 + StripH) * scale);
 
     void Grow()
     {
@@ -87,6 +104,67 @@ sealed class InputWindow : Form
         using var p = Rounded(new Rectangle(1, 1, Width - 3, Height - 3), (int)(10 * scale));
         using var pen = new Pen(Color.FromArgb(235, 90, 220, 255), 1.8f);
         e.Graphics.DrawPath(pen, p);
+        PaintStrip(e.Graphics);
+    }
+
+    static Color LevelColor(string level) => level switch
+    {
+        "saving" => Color.FromArgb(120, 230, 150), "offer" => Color.FromArgb(255, 120, 110), "warn" => Color.FromArgb(255, 200, 90),
+        _ => Color.FromArgb(150, 165, 190),
+    };
+
+    // The chip row: [Auto v]  [saving]                       week 34% · 5h 12%
+    void PaintStrip(Graphics g)
+    {
+        g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+        var y = Height - (int)(StripH * scale) - (int)(2 * scale);
+        var h = (int)((StripH - 3) * scale);
+        int x = (int)(Pad * scale);
+        using var line = new Pen(Color.FromArgb(70, 90, 220, 255));
+        g.DrawLine(line, x, y - (int)(2 * scale), Width - x, y - (int)(2 * scale));
+
+        if (consent)
+        {
+            using var b = new SolidBrush(Color.FromArgb(255, 200, 90));
+            g.DrawString($"Allow {consentWanted} once?  Enter = yes   Esc = no", stripFont, b, x, y + 1);
+            chipRect = savingRect = Rectangle.Empty; return;
+        }
+
+        chipRect = Pill(g, x, y, h, ModelChip.Label(mode) + " ▾", Color.FromArgb(90, 220, 255), false);
+        x = chipRect.Right + (int)(6 * scale);
+        savingRect = Rectangle.Empty;
+        if (saving) { savingRect = Pill(g, x, y, h, "saving quota", Color.FromArgb(120, 230, 150), true); }
+        else if (level == "offer") { savingRect = Pill(g, x, y, h, "save quota?", Color.FromArgb(255, 120, 110), false); }
+
+        if (hasQuota)
+        {
+            var t = $"week {ModelChip.Percent(week)} · 5h {ModelChip.Percent(five)}";
+            var sz = TextRenderer.MeasureText(g, t, stripFont, Size.Empty, TextFormatFlags.NoPadding);
+            using var b = new SolidBrush(LevelColor(level));
+            g.DrawString(t, stripFont, b, Width - (int)(Pad * scale) - sz.Width, y + 1);
+        }
+    }
+
+    Rectangle Pill(Graphics g, int x, int y, int h, string text, Color c, bool filled)
+    {
+        var w = TextRenderer.MeasureText(g, text, stripFont, Size.Empty, TextFormatFlags.NoPadding).Width + (int)(12 * scale);
+        var r = new Rectangle(x, y, w, h);
+        using var path = Rounded(r, h / 2);
+        if (filled) { using var f = new SolidBrush(Color.FromArgb(50, c)); g.FillPath(f, path); }
+        using var pen = new Pen(Color.FromArgb(200, c), 1.2f);
+        g.DrawPath(pen, path);
+        using var b = new SolidBrush(c);
+        g.DrawString(text, stripFont, b, x + 6 * scale, y + 1);
+        return r;
+    }
+
+    protected override void OnMouseDown(MouseEventArgs e)
+    {
+        base.OnMouseDown(e);
+        if (e.Button != MouseButtons.Left) return;
+        if (chipRect.Contains(e.Location)) ModeChosen?.Invoke("next");
+        else if (savingRect.Contains(e.Location)) SavingToggled?.Invoke();
+        box.Focus();
     }
 
     /// <summary>Show the box just below the bubble and take keyboard focus, remembering who had it.</summary>
@@ -128,8 +206,12 @@ sealed class InputWindow : Form
     {
         switch (keyData)
         {
+            case Keys.Enter when consent && box.Text.Trim().Length == 0:
+                ConsentAccepted?.Invoke(); return true;
             case Keys.Enter:
                 Send(); return true;
+            case Keys.Escape when consent:
+                ConsentDeclined?.Invoke(); Close(true); Dismissed?.Invoke(); return true;
             case Keys.Control | Keys.Enter:
             case Keys.Shift | Keys.Enter:
                 box.SelectedText = Environment.NewLine; return true;

@@ -1,4 +1,4 @@
-// Typing to Aang, for real: real hotkey, real keystrokes, real clicks, real mouse wheel, with WoW in front.
+﻿// Typing to Aang, for real: real hotkey, real keystrokes, real clicks, real mouse wheel, with WoW in front.
 // A fake Core records what the Body sends and plays replies back, and screenshots are taken at each step.
 //   node typing.mjs
 import { WebSocketServer } from 'ws';
@@ -46,6 +46,7 @@ await sleep(1500);
 const rect = (await keys.ask('rect Aang Body')).split(' ').map(Number);
 const [L, T] = rect;
 const spriteXY = [L + 360, T + 110 + 215];                       // a pixel on Aang himself
+const openBox = async () => { await keys.ask('focus WowB'); await keys.ask('click ' + spriteXY[0] + ' ' + spriteXY[1]); };
 const bubbleXY = [L + 120, T + 110 + 100];                        // inside the bubble when it is showing
 
 // ---- WoW in front, as in real use
@@ -54,9 +55,9 @@ console.log(`      foreground before: '${wowFg}'`);
 const hasWow = /world of warcraft/i.test(wowFg);
 
 // 1. hotkey opens the box and takes focus
-await keys.ask('hotkey Ctrl+Shift+Space');
+await openBox();
 let fg = await keys.ask('fg');
-check('hotkey opens the input box and it takes focus', /Aang Input/.test(fg), `foreground '${fg}'`);
+check('clicking Aang opens the input box and it takes focus', /Aang Input/.test(fg), `foreground '${fg}'`);
 await snap('01_input_open');
 
 // 2. type + Enter sends, gives focus back, and shows Aang thinking at once
@@ -78,7 +79,7 @@ send({ t: 'bubble', text: 'Quick answer: it works.', stream: false, id: s1.id })
 
 // 4. Up recalls the last message
 inbox.length = 0;
-await keys.ask('hotkey Ctrl+Shift+Space');
+await openBox();
 await keys.ask('send {UP}{ENTER}');
 const s2 = await waitFor(() => submits()[0]);
 check('Up recalls the previous message', s2?.text === 'hello there', JSON.stringify(s2?.text));
@@ -86,7 +87,7 @@ send({ t: 'bubble', text: 'ok', stream: false, id: s2?.id }); await sleep(300);
 
 // 5. Ctrl+Enter is a new line, plain Enter sends
 inbox.length = 0;
-await keys.ask('hotkey Ctrl+Shift+Space');
+await openBox();
 await keys.ask('send first line^{ENTER}second line');
 await sleep(300); await snap('05_two_line_input');
 await keys.ask('send {ENTER}');
@@ -96,7 +97,7 @@ send({ t: 'bubble', text: 'ok', stream: false, id: s3?.id }); await sleep(300);
 
 // 6. empty Enter does nothing; Esc closes and returns focus
 inbox.length = 0;
-await keys.ask('hotkey Ctrl+Shift+Space');
+await openBox();
 await keys.ask('send {ENTER}');
 await sleep(500);
 check('an empty Enter sends nothing', submits().length === 0);
@@ -108,11 +109,11 @@ check('Esc closes the box and gives focus back', hasWow ? /world of warcraft/i.t
 
 // 7. Esc while a reply is running stops it
 inbox.length = 0;
-await keys.ask('hotkey Ctrl+Shift+Space');
+await openBox();
 await keys.ask('send a slow question{ENTER}');
 const s4 = await waitFor(() => submits()[0]);
 await sleep(300);                                                // the Core never answers: the reply is "running"
-await keys.ask('hotkey Ctrl+Shift+Space');
+await openBox();
 await keys.ask('send {ESC}');
 const stop = await waitFor(() => inbox.find(m => m.t === 'stop'));
 check('Esc while a reply is running sends stop', !!stop && stop.id === s4?.id, JSON.stringify(stop));
@@ -156,10 +157,11 @@ np.kill(); spawn('taskkill', ['/IM', 'notepad.exe', '/F'], { stdio: 'ignore' });
 
 // 11. no Core at all: an error, never an empty bubble
 send({ t: 'bubble.clear' }); sock.close(); await sleep(2200);
-await keys.ask('hotkey Ctrl+Shift+Space');
+await openBox();
 await keys.ask('send anyone there?{ENTER}'); await sleep(600);
 await snap('13_no_core_error');
 
 keys.p.stdin.write('quit\n'); cap.p.stdin.write('quit\n'); body.kill(); wss.close();
 console.log(`\n${results.filter(Boolean).length}/${results.length} typing checks passed; screenshots in ${outDir}`);
 process.exit(results.every(Boolean) ? 0 : 1);
+

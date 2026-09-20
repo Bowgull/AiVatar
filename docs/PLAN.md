@@ -11,7 +11,7 @@ starts. Decisions and evidence: `docs/DECISIONS.md`.
 | M0 Foundations | Layout, protocol v1 (`docs/PROTOCOL.md`), 3 unit tests, measurement tooling: done. Core process not started (M2). |
 | M1 Body renders Aang | Functionally complete. Gate results below. |
 | M2 Core talks | Built and gated (below). Not yet reachable by Joshua: the Body has no input box until M3. |
-| M3 Chat feels right | M3a (bubble) and M3b (input box, hotkey, click Aang, history, arrow/expand/scroll) built and gated: 27/27 real-input checks (tests/fakecore/typing.mjs), 18/18 Body unit tests. Remaining: model chip, saving toggle, quota meter and consent UI, rating, autostart, retire Rainmeter. |
+| M3 Chat feels right | M3a (bubble) and M3b (input box, hotkey, click Aang, history, arrow/expand/scroll) built and gated: 27/27 real-input checks (tests/fakecore/typing.mjs), 18/18 Body unit tests. M3c built and gated: model chip, saving pill, week/5h meter with 40/50% colours, consent prompt, reconnect re-sends saving; 23/23 real-input checks (tests/fakecore/chip.mjs). Remaining: reply rating, autostart, retire Rainmeter. |
 | M4-M5 | Not started. |
 
 **M2 gate, measured against real Claude (Core in `src/Core`, TypeScript, pinned Agent SDK 0.3.278):**
@@ -76,7 +76,7 @@ starts. Decisions and evidence: `docs/DECISIONS.md`.
    while open so WoW's menu does not appear). Bubble and tail are one continuous outline. Verified by screenshots.
 2. **Click into Aang and type, with keyboard shortcuts.** M3: click Aang (or the global hotkey) to open the input
    box; Enter sends, Esc stops or dismisses, Up recalls the last message, Ctrl+Enter for a new line, and shortcuts
-   for the model chip and saving. Shortcuts (built): Ctrl+Shift+Space open the box; Enter send; Ctrl/Shift+Enter new line; Esc stop the reply, else close; Up/Down recall; wheel scrolls an expanded bubble; Esc or click outside collapses it. Chip and saving shortcuts come with M3c.
+   for the model chip and saving. Keys (built, per Joshua: ONE global hotkey): Ctrl+NumLock hides or reveals Aang. Everything else works while the box has focus or by mouse: click Aang to type; Enter send; Ctrl/Shift+Enter new line; Esc stop the reply, else close; Up/Down recall; click the chip to cycle Auto/Quick/Smart/Deep; click the saving pill; wheel scrolls an expanded bubble; Esc or click outside collapses it; on the consent prompt Enter allows once, Esc skips.
 3. **Retire the Rainmeter Aang.** Condition: items 1 and 2 work, plus autostart of Core and Body (pulled forward
    from M5 so retirement is not blocked). Then the skin is deactivated and the old scripts kept in git history.
 

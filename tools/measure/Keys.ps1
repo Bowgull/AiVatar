@@ -30,7 +30,7 @@ public class K {
     EnumWindows((h, l) => { if (!IsWindowVisible(h)) return true; var t = Title(h); if (t.IndexOf(part, StringComparison.OrdinalIgnoreCase) >= 0) { R r; GetWindowRect(h, out r); o = r.L + " " + r.T + " " + r.Rr + " " + r.B; return false; } return true; }, IntPtr.Zero); return o; }
 }
 '@
-function KeyCodes([string]$c) { $codes = @(); foreach ($part in ($c -split '\+')) { switch -Regex ($part.Trim().ToLower()) { '^ctrl$' { $codes += 0x11 } '^alt$' { $codes += 0x12 } '^shift$' { $codes += 0x10 } '^win$' { $codes += 0x5B } '^space$' { $codes += 0x20 } '^home$' { $codes += 0x24 } '^esc$' { $codes += 0x1B } '^f(\d+)$' { $codes += (0x6F + [int]$Matches[1]) } '^[a-z0-9]$' { $codes += [int][char]$part.Trim().ToUpper() } } }; $codes }
+function KeyCodes([string]$c) { $codes = @(); foreach ($part in ($c -split '\+')) { switch -Regex ($part.Trim().ToLower()) { '^ctrl$' { $codes += 0x11 } '^alt$' { $codes += 0x12 } '^shift$' { $codes += 0x10 } '^win$' { $codes += 0x5B } '^space$' { $codes += 0x20 } '^home$' { $codes += 0x24 } '^numlock$' { $codes += 0x90 } '^esc$' { $codes += 0x1B } '^f(\d+)$' { $codes += (0x6F + [int]$Matches[1]) } '^[a-z0-9]$' { $codes += [int][char]$part.Trim().ToUpper() } } }; $codes }
 function Press([string]$combo) { $k = KeyCodes $combo; foreach ($c in $k) { [K]::keybd_event([byte]$c, 0, 0, [UIntPtr]::Zero) }; Start-Sleep -Milliseconds 60; [array]::Reverse($k); foreach ($c in $k) { [K]::keybd_event([byte]$c, 0, 2, [UIntPtr]::Zero) } }
 
 if (-not $Serve) { "run with -Serve"; exit 1 }

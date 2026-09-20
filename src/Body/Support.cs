@@ -31,12 +31,15 @@ sealed class Config
 {
     public int? X { get; set; }
     public int? Y { get; set; }
-    /// <summary>2 = the window is 110 px taller (room for an expanded bubble); older saved positions are shifted once.</summary>
+    /// <summary>2 = the window is 110 px taller (room for an expanded bubble; saved positions shifted once). 3 = the hotkey is Ctrl+NumLock.</summary>
     public int LayoutVersion { get; set; }
     /// <summary>Process-name prefixes that put Aang into quiet mode while they hold focus.</summary>
     public string[] QuietProcessPrefixes { get; set; } = { "Wow" };
-    /// <summary>Global show/hide hotkey. If it is taken by another program the fallbacks are tried in order.</summary>
-    public string Hotkey { get; set; } = "Ctrl+Shift+Space";
+    /// <summary>The only global hotkey: hides or reveals Aang. If another program owns it the tray says so; no other key is picked.</summary>
+    public string Hotkey { get; set; } = "Ctrl+NumLock";
+    /// <summary>The model chip (auto, quick, smart, deep) and whether quota saving is on; both survive restarts.</summary>
+    public string Mode { get; set; } = "auto";
+    public bool Saving { get; set; }
 
     public static Config Load()
     {

@@ -27,7 +27,7 @@ sealed class PetWindow : Form
     readonly System.Windows.Forms.Timer timer = new() { Interval = 50 };
     readonly System.Windows.Forms.Timer fgTimer = new() { Interval = 500 };
     readonly NotifyIcon tray = new();
-    ToolStripMenuItem quietItem = null!, showItem = null!;
+    ToolStripMenuItem quietItem = null!, showItem = null!, modelItems = null!;
 
     string? heldText;               // latest proactive message waiting for quiet mode to end
     string foreground = "";
@@ -44,6 +44,14 @@ sealed class PetWindow : Form
     string? currentId;
     bool working, acked, escRegistered, thumbDrag, mouseWasDown;
     int idCounter;
+
+    // model chip + quota + consent
+    string mode = "auto";
+    bool saving, hasQuota;
+    double weekUse, fiveUse;
+    string level = "ok";
+    string? lastText, consentText;
+    string consentWanted = "", pendingMode = "smart";
 
     protected override CreateParams CreateParams
     {
@@ -76,6 +84,7 @@ sealed class PetWindow : Form
             if (cfg.Y is int oldY) cfg.Y = oldY - (int)Math.Round(Extra * scale);
             cfg.LayoutVersion = 2; cfg.Save();
         }
+        if (cfg.LayoutVersion < 3) { cfg.Hotkey = "Ctrl+NumLock"; cfg.LayoutVersion = 3; cfg.Save(); }
         Location = cfg is { X: not null, Y: not null } ? Clamp(new Point(cfg.X.Value, cfg.Y.Value)) : DefaultPos();
 
         // Test/diagnostic flag: --quiet=never or --quiet=always overrides the WoW-focus detection.
@@ -98,6 +107,13 @@ sealed class PetWindow : Form
         input = new InputWindow(scale, history);
         input.Submitted += Submit;
         input.StopRequested += StopReply;
+        mode = ModelChip.Normalize(cfg.Mode); saving = cfg.Saving;
+        input.ModeChosen += m => SetMode(m == "next" ? ModelChip.Next(mode) : m);
+        input.SavingToggled += () => SetSaving(!saving);
+        input.ConsentAccepted += AllowOnce;
+        input.ConsentDeclined += DeclineConsent;
+        link.ConnectionChanged += up => { if (up && saving) _ = link.SendAsync(new { t = "saving", on = true }); };
+        PushStatus();
         input.PageRequested += d => { if (d > 0 && bubble.More) ExpandBubble(); else if (bubble.Scroll(d * 6)) dirty = true; };
         BuildTray();
     }
@@ -168,7 +184,15 @@ sealed class PetWindow : Form
                     ShowError(Str(m, "message") ?? "Something went wrong.", Str(m, "next") ?? "");
                     break;
                 case "consent":
-                    ShowError("That needs a bigger model, and saving quota is on.", "The model chip is coming next.");
+                    OnConsent(Str(m, "wanted") ?? "smart");
+                    break;
+                case "quota":
+                    hasQuota = true;
+                    weekUse = Num(m, "week"); fiveUse = Num(m, "five");
+                    level = Str(m, "level") ?? ModelChip.LevelFor(weekUse, saving);
+                    saving = level == "saving";
+                    if (cfg.Saving != saving) { cfg.Saving = saving; cfg.Save(); }
+                    PushStatus();
                     break;
                 case "quiet":
                     forcedQuiet = Bool(m, "on"); ApplyQuiet();
@@ -182,6 +206,7 @@ sealed class PetWindow : Form
     }
 
     static string? Str(JsonElement m, string name) => m.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
+    static double Num(JsonElement m, string name) => m.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetDouble() : 0;
     static bool Bool(JsonElement m, string name) => m.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.True;
 
     void Wake() => wakeUntil = DateTime.UtcNow + WakeFor;
@@ -363,7 +388,8 @@ sealed class PetWindow : Form
         var bp = BubblePoint(e.Location);
         if (bubble.Visible && bubble.Contains(bp.X, bp.Y))
         {
-            if (bubble.More) ExpandBubble();                      // "...v": grow it to read the rest
+            if (consentText != null) AllowOnce();
+            else if (bubble.More) ExpandBubble();                      // "...v": grow it to read the rest
             else if (bubble.Expanded) { /* clicking inside the open bubble does nothing; Esc or a click outside closes it */ }
             else if (working) StopReply();                        // clicking the bubble while Aang is thinking stops it
             else { bubble.Clear(); if (anim.State == "talk") anim.Play("idle"); }
@@ -431,11 +457,6 @@ sealed class PetWindow : Form
         Wake(); dirty = true;
     }
 
-    void ToggleInput()
-    {
-        if (input.Visible) input.Close(true); else OpenInput();
-    }
-
     void Submit(string text)
     {
         var id = $"u{++idCounter}";
@@ -449,7 +470,8 @@ sealed class PetWindow : Form
             ShowError("I can't reach my brain right now.", "It reconnects on its own. Try again in a few seconds.");
             return;
         }
-        _ = link.SendAsync(new { t = "submit", id, text, mode = "auto" });
+        lastText = text; consentText = null; input.SetConsent(false);
+        _ = link.SendAsync(new { t = "submit", id, text, mode });
         ackTimer.Stop(); ackTimer.Start();                        // if the Core never acknowledges, say so
     }
 
@@ -476,16 +498,75 @@ sealed class PetWindow : Form
         bubble.Clear(); anim.Play("idle"); dirty = true;
     }
 
+    // ------------------------------------------------------------------ model chip, quota, consent
+
+    void PushStatus() => input.SetStatus(mode, saving, hasQuota, weekUse, fiveUse, saving ? "saving" : level);
+
+    void SetMode(string m)
+    {
+        mode = ModelChip.Normalize(m);
+        cfg.Mode = mode; cfg.Save();
+        PushStatus(); UpdateModeMenu();
+        Note("Model: " + ModelChip.Label(mode));
+    }
+
+    void SetSaving(bool on)
+    {
+        saving = on; cfg.Saving = on; cfg.Save();
+        _ = link.SendAsync(new { t = "saving", on });
+        if (!on) level = ModelChip.LevelFor(weekUse, false);
+        PushStatus();
+        Note(on ? "Saving quota: on" : "Saving quota: off");
+    }
+
+    /// <summary>A short line from Aang for a hotkey or chip change. Never interrupts a running reply.</summary>
+    void Note(string text)
+    {
+        if (working || consentText != null) return;
+        Wake(); ExitExpanded(collapse: false);
+        bubble.Show(text, false, 1800);
+        dirty = true;
+    }
+
+    void OnConsent(string wanted)
+    {
+        consentWanted = ModelChip.Label(wanted); consentText = lastText; pendingMode = ModelChip.Normalize(wanted);
+        working = false; input.Working = false; ackTimer.Stop();
+        Wake(); ExitExpanded(collapse: false);
+        bubble.Show($"{consentWanted} costs more of your week and saving quota is on. Click here or press Enter to allow it once, Esc to skip.", false, 60000);
+        anim.Play("talk"); dirty = true;
+        input.SetConsent(true, consentWanted);
+        OpenInput();
+    }
+
+    void AllowOnce()
+    {
+        if (consentText == null) return;
+        var text = consentText; consentText = null; input.SetConsent(false);
+        var id = $"u{++idCounter}";
+        currentId = id; working = true; acked = false; input.Working = true;
+        Wake(); bubble.ShowDots(); anim.Play("think"); dirty = true;
+        input.Close(true);
+        _ = link.SendAsync(new { t = "submit", id, text, mode = pendingMode, once = true });
+        ackTimer.Stop(); ackTimer.Start();
+    }
+
+    void DeclineConsent()
+    {
+        if (consentText == null) return;
+        consentText = null; input.SetConsent(false);
+        bubble.Clear(); anim.Play("idle"); dirty = true;
+    }
+
     // ------------------------------------------------------------------ hotkey
 
-    static readonly string[] HotkeyFallbacks = { "Ctrl+Alt+Q", "Ctrl+Alt+J", "Win+Shift+A", "Ctrl+Alt+Home" };
     string activeHotkey = "";
 
     /// <summary>Try the configured hotkey, then the fallbacks. Another program may already own a combination
     /// (Ctrl+Alt+A and Ctrl+Alt+Space are taken on this machine), so the result is logged and shown in the tray.</summary>
     bool RegisterHotkey()
     {
-        foreach (var combo in new[] { cfg.Hotkey }.Concat(HotkeyFallbacks).Distinct())
+        foreach (var combo in new[] { cfg.Hotkey })
         {
             if (!TryParseHotkey(combo, out var mods, out var vk)) { Log.Write("hotkey not understood: " + combo); continue; }
             if (Win32.RegisterHotKey(Handle, HotkeyId, mods | Win32.MOD_NOREPEAT, vk))
@@ -513,6 +594,7 @@ sealed class PetWindow : Form
                 case "win": mods |= 0x8; break;
                 case "space": vk = 0x20; break;
                 case "home": vk = 0x24; break;
+                case "numlock": vk = 0x90; break;
                 case var f when f.Length is 2 or 3 && f[0] == 'f' && int.TryParse(f.AsSpan(1), out var n) && n is >= 1 and <= 24: vk = (uint)(0x6F + n); break;
                 case var c when c.Length == 1 && char.IsLetterOrDigit(c[0]): vk = char.ToUpperInvariant(c[0]); break;
                 default: return false;
@@ -548,7 +630,7 @@ sealed class PetWindow : Form
                 m.Result = (IntPtr)1;
                 return;
             case Win32.WM_HOTKEY when (int)m.WParam == HotkeyId:
-                ToggleInput();                          // the hotkey opens (or closes) the box to type to Aang
+                ToggleVisible();                        // the one global hotkey: hide or reveal Aang
                 return;
             case Win32.WM_HOTKEY when (int)m.WParam == EscId:
                 ExitExpanded(collapse: true);           // Esc while the bubble is expanded
@@ -571,12 +653,28 @@ sealed class PetWindow : Form
         quietItem.Click += (_, _) => { forcedQuiet = forcedQuiet switch { null => true, true => false, false => null }; ApplyQuiet(); };
         var quit = new ToolStripMenuItem("Quit Aang");
         quit.Click += (_, _) => { tray.Visible = false; Application.Exit(); };
-        menu.Items.AddRange(new ToolStripItem[] { talk, show, quietItem, new ToolStripSeparator(), quit });
+        var modelMenu = new ToolStripMenuItem("Model");
+        foreach (var md in ModelChip.Modes)
+        {
+            var item = new ToolStripMenuItem(ModelChip.Describe(md)) { Tag = md };
+            item.Click += (_, _) => SetMode(md);
+            modelMenu.DropDownItems.Add(item);
+        }
+        modelItems = modelMenu;
+        var savingItem = new ToolStripMenuItem("Save quota");
+        savingItem.Click += (_, _) => SetSaving(!saving);
+        modelMenu.DropDownOpening += (_, _) => { UpdateModeMenu(); savingItem.Checked = saving; };
+        menu.Items.AddRange(new ToolStripItem[] { talk, show, modelMenu, savingItem, quietItem, new ToolStripSeparator(), quit });
         tray.ContextMenuStrip = menu;
         tray.Text = "Aang";
         tray.Icon = MakeIcon();
         tray.Visible = true;
         tray.DoubleClick += (_, _) => ToggleVisible();
+    }
+
+    void UpdateModeMenu()
+    {
+        foreach (ToolStripMenuItem i in modelItems.DropDownItems) i.Checked = (string?)i.Tag == mode;
     }
 
     void UpdateQuietMenu() =>
