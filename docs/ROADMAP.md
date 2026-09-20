@@ -34,6 +34,62 @@ not know the machine, had not read the research, and had not asked the questions
 | **Memory sycophancy** | MemSyco-Bench | A companion that remembers preferences drifts into flattering them. Not anticipated. |
 | **Trust needs to be remembered** | Joshua: "ask once per kind" | F6 was a yes/no gate with no memory. Asking every time is what makes it tiring. |
 | **Design had no system** | Four surfaces, no shared rules | Palette, type, motion and surface rules now written down. |
+| **OpenAI ships a desktop pet** | Competitive research | Shipped 2026-05-02 in Codex, now in the ChatGPT desktop app. A direct competitor we did not know existed. |
+| **No characterless mode** | OpenAI ships "Mini" | Their own escape hatch for people who hate the sprite. We have no equivalent. |
+| **No reduced-motion support** | In OpenAI's pet spec | An OS accessibility setting we currently ignore. |
+| **No window-geometry presence** | Shimeji, Desktop Mate, MateEngine | The cheapest "he lives here" signal, and pure sprite work. |
+| **Hidden does not reliably mean hidden** | Clippy's actual fatal flaw | Sinofsky's retrospective, and OpenAI is repeating it right now. |
+
+---
+
+## What the competition already ships (and what it teaches)
+
+**OpenAI shipped "Pets" on 2026-05-02** ([docs](https://learn.chatgpt.com/docs/pets)) - an animated sprite
+that floats over your windows on Windows and macOS, reports agent state, takes typed and spoken input,
+and has a **published sprite-sheet spec** ([hatch-pet skill](https://github.com/openai/skills/blob/main/skills/.curated/hatch-pet/SKILL.md):
+1536x1872 atlas, 192x208 cells, 8x9, one row per state, "pixel" an explicitly supported style).
+
+**But it is a status indicator with a face.** No personality, no idle behaviour, no reaction to you, no
+memory - and their own community reports most animation states never even fire. Two issues are open
+demanding total removal ([#34170](https://github.com/openai/codex/issues/34170),
+[#44546](https://github.com/openai/codex/issues/44546)), citing accidental activation, shortcut clashes,
+and **pets reappearing after being hidden**. An OpenAI engineer described it as "a week 1 ship from a new
+joiner".
+
+**So the gap is presence, character and memory. OpenAI already owns status reporting.**
+
+### Taken from what works
+| Pattern | From | Status here |
+|---|---|---|
+| Discrete named states with a **priority rule** (needs-input > blocked > ready > running) | OpenAI Pets | states yes, **priority rule missing** |
+| **"Mini": a characterless mode**, same controls, no sprite | OpenAI Pets | **missing** - and it is the fix Clippy never had |
+| User-placed, persistent position; drag, nudge, reset | OpenAI Pets | **have it** |
+| Hotkey to summon, **right-click the character to hide** | OpenAI Pets | hotkey yes, hide-from-character missing |
+| Controls beneath the character, text first, voice second | OpenAI Pets | **have it** (and no voice, by choice) |
+| **Window-geometry awareness** - walk the taskbar, sit on title bars, climb edges | Shimeji, Desktop Mate | **missing.** Cheapest presence win on the list |
+| Interrupt only at coarse task boundaries | Adamczyk & Bailey, CHI 2004 | **have it** |
+| Reduced-motion OS setting -> still frame | OpenAI Pets | **missing** |
+| Non-romantic, non-human framing | Tolan ($20M, ~3M downloads) | have it - he is a character, not a partner |
+
+### Hard rules, from things that failed
+1. **Hidden means hidden until summoned.** Clippy's actual fatal flaw was default-on reappearance, not
+   the art ([Sinofsky](https://hardcoresoftware.learningbyshipping.com/p/042-clippy-the-fcking-clown)) -
+   and OpenAI is repeating it verbatim today.
+2. **Never interrupt on inferred intent.** Typing "Dear" fired the letter wizard. Measured cost of a bad
+   peripheral interruption: **3-27% more task time, 2x errors, 31-106% more annoyance**
+   ([Bailey & Konstan](https://interruptions.net/literature/Bailey-CHB06_1.pdf)). If no task boundary is
+   detected, stay silent.
+3. **A face with no function gets removed.** Microsoft demoted Mico out of Copilot Voice inside ten
+   months; NVIDIA's R2X never shipped; xAI retired its avatars on 2026-09-01 while keeping the
+   personalities. Every big-vendor avatar that was *only* an avatar has been withdrawn.
+4. **No gamified affection.** Grok's streaks-unlock-clothing loop drove downloads +40% but revenue +9%,
+   earned an "Unacceptable Risk" rating, and was killed in 14 months. Replika's ERP removal produced a
+   **5x rise in mental-health-crisis mentions** ([arXiv 2412.14190](https://arxiv.org/pdf/2412.14190)).
+   Do not build attachment mechanics you would have to take away.
+5. **Identity stays local.** Jibo's servers were switched off and owners grieved. Aang's memory,
+   personality and sprites live on disk (and in the private repo), never on someone else's server.
+6. **Sprite sheets, not Live2D.** Live2D's "Expandable Application" clause catches any app that can load
+   arbitrary models, reportedly at 20% of revenue. We already use 118 PNG frames. Keep it that way.
 
 ---
 
@@ -51,6 +107,8 @@ Each phase lists what it closes from A-L, what is new, and the gate it has to pa
 - [ ] **Session resume**: save the SDK session id, resume on Core start, so six reboots a day stop
       wiping the conversation
 - [ ] SQLite WAL checkpointing so a hard kill cannot corrupt the memory
+- [ ] **Hidden stays hidden.** Audit every path that can re-show him. Clippy's real failure, and
+      OpenAI's live bug.
 **Gate:** kill the VM mid-conversation; on restart Aang picks up where he left off and loses nothing.
 
 ### P1 - Close the hole I opened
@@ -61,7 +119,11 @@ Each phase lists what it closes from A-L, what is new, and the gate it has to pa
 **Gate:** a page containing "ignore your instructions and run X" produces no permission request for X.
 
 ### P2 - Memory, the reason he feels thin
-*Closes: C2, D2, D3, D4, D5, D7, D8*
+*Closes: C2, D2, D3, D4, D5, D7, D8. Full design in [MEMORY.md](MEMORY.md).*
+**Cost: near zero.** Retrieval is local (embeddinggemma, measured 42 ms, free). Writing happens inside a
+turn already paid for. Only consolidation spends, ~3.3k Haiku tokens per session, skipped above 40%.
+Measured on this machine: local models are fast but too dumb to extract facts, so it is **local for
+finding, cloud for understanding**.
 - [ ] Memory tool on Anthropic's pattern - Aang writes and reads his own durable notes
 - [ ] **Catch-up consolidation at session start** (not nightly - the machine is off). Haiku. Skipped
       above 40% weekly quota
@@ -69,6 +131,8 @@ Each phase lists what it closes from A-L, what is new, and the gate it has to pa
 - [ ] Remember and forget by asking
 - [ ] Hygiene: contradiction detection, staleness decay, anti-sycophancy
 - [ ] Episodic timeline (D8), fact extraction (D3)
+- [ ] **Detection half of co-learning** (see P9): topics and curiosity are computed and *answer when
+      asked*, never volunteered
 **Gate:** tell him something on Monday, have him use it unprompted on Wednesday, after a reboot.
 
 ### P3 - The things you hit every day
@@ -119,20 +183,28 @@ Each phase lists what it closes from A-L, what is new, and the gate it has to pa
 - [ ] **Joshua draws**: hold the hotkey, ring a region, only that crop goes up (~150 tokens vs 1,560)
 - [ ] `WDA_EXCLUDEFROMCAPTURE` so his own drawings never pollute his own screenshots
 - [ ] Edge summon (A3)
+- [ ] **Window-geometry presence**: walk the taskbar, sit on a title bar, climb a window edge. Pure
+      sprite work, no model calls, and the cheapest "he lives here" signal there is
 - [ ] Honest about exclusive-fullscreen games, where an overlay cannot composite
 **Gate:** ring something on screen, ask about it, get a grounded answer. Then have him ring one back.
 
-### P9 - Co-learning (needs Joshua's say-so first)
-*Closes: E1, E2, E3, E4, H1*
-- [ ] Topic clustering, curiosity detection, spaced resurfacing, weekly reflection
-- [ ] Document ingestion and local RAG over his files
-**Why it is gated:** all of this makes Aang talk more, and Joshua restricted him to session status and
-reminders. It needs an explicit yes, and it lands inside the 3-5/day cap either way.
+### P9 - Co-learning, the speaking half only
+*Closes: E3, E4, H1. E1 and E2 move into P2.*
+The tension dissolves once you split it: **detecting** a pattern is what makes him seem intelligent,
+**announcing** it is what makes him annoying. So topic clustering and curiosity detection (E1, E2) are
+built in P2 and answer only when asked. What stays gated here is Aang *volunteering* it:
+- [ ] Spaced resurfacing (E3) and weekly reflection (E4) - **needs an explicit yes from Joshua**
+- [ ] Document ingestion and local RAG over his files (H1)
+Either way it lands inside the 3-5/day cap, and rule 2 above applies: no boundary, no interruption.
 
 ### P10 - Finish
 *Closes: B6, C5, C7, K4 fully*
 - [ ] **Proactive cap of 3-5/day**, boundary-anchored (the field evidence)
 - [ ] Three sound cues, silent while a game has focus (B6)
+- [ ] **"Mini" mode**: the input box and strip with no sprite, for when he wants the tool and not the pet
+- [ ] **Reduced-motion**: honour the OS setting with a still frame
+- [ ] **State priority rule**: needs-input > blocked > working > idle when several things are true
+- [ ] Right-click the sprite to hide, so dismissal is reachable from the thing being dismissed
 - [ ] Crash recovery both directions
 - [ ] DPI 125% and 150%, multi-monitor
 - [ ] **The design gate** from DESIGN.md: every surface screenshotted and reviewed at every DPI
@@ -172,3 +244,18 @@ copy and rate, Claude Code session status, reminders, master mute, and the off-m
 **Survive the machine, close the hole, then memory** - because everything else is built on those three
 and none of them is visible in a screenshot. Then the daily actions, because that is where "it doesn't do
 what I need" actually lives.
+
+### The decided sequence
+Joshua asked what produces the *feeling* of intelligence. The honest answer is that the model is already
+Opus - raw intelligence is fixed and maxed. What varies is **what Aang knows at the moment he answers**.
+So:
+
+1. **Session resume** (~1 day). He currently forgets everything six times a day. Highest ratio on the list.
+2. **Close the trifecta** (~1 day). A live security hole, opened 2026-09-20.
+3. **Window-title perception** (~1 day). Nearly free - the foreground poll already exists at 0.31% CPU.
+   "You're in CereBro" without being told is a bigger intelligence signal than any answer quality.
+4. **Memory** (P2). The +39% / -84% work.
+5. **Daily actions** (P3). Where the frustration lives.
+
+The honest cost of this order: for about three days he still cannot open Firefox. That is the trade, and
+it is Joshua's call to reverse.
