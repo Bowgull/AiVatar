@@ -1,0 +1,8 @@
+#!/bin/sh
+# Push every commit straight to GitHub. This machine is a Shadow cloud PC that shuts down hard every
+# four hours; a commit that only exists locally can be lost with it. Runs in the background so a commit
+# never waits on the network, and logs the outcome so a failed push is visible rather than silent.
+log="$(git rev-parse --git-dir)/autopush.log"
+( git push -q origin HEAD >/dev/null 2>&1 \
+    && echo "$(date '+%F %T') pushed $(git rev-parse --short HEAD)" >>"$log" \
+    || echo "$(date '+%F %T') PUSH FAILED for $(git rev-parse --short HEAD)" >>"$log" ) &
