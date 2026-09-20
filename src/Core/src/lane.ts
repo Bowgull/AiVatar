@@ -19,9 +19,13 @@ export interface LaneOptions {
   model: string;
   systemPrompt: string;
   mcpServer: unknown;
+  /** Tools that run without asking: Aang's own, plus the read-only built-ins. */
   allowedTools: string[];
-  /** Built-in tools to expose. Empty for the lean chat lane. */
-  builtinTools: string[];
+  /**
+   * Asked before a tool that changes something runs. Resolve true to let it, false to refuse.
+   * Passing nothing at all means no tool ever needs permission, which is not how this is used.
+   */
+  askPermission?: (tool: string, input: Record<string, unknown>) => Promise<boolean>;
   claudeExecutable?: string;
   /** Extended thinking: `{ type: 'disabled' }` trades depth for first-token speed on the chat lane. */
   thinking?: { type: 'disabled' } | { type: 'adaptive' };
@@ -64,12 +68,22 @@ export class Lane {
       options: {
         model: this.opts.model,
         systemPrompt: this.opts.systemPrompt,
-        tools: this.opts.builtinTools,
+        // Note: never pass `tools: []`. An empty array switches every built-in off, which is how Aang
+        // ended up telling Joshua he had no internet and could not touch the machine.
         settingSources: [],
         includePartialMessages: true,
         maxTurns: 8, // a chat turn never needs more than a few tool round trips; bound any runaway loop
         mcpServers: { aang: this.opts.mcpServer as never },
         allowedTools: this.opts.allowedTools,
+        // Anything not in allowedTools (Bash, Write, Edit, ...) comes through canUseTool, which asks Joshua
+        // in the bubble and waits for his answer.
+        permissionMode: 'default',
+        ...(this.opts.askPermission ? {
+          canUseTool: async (tool: string, input: Record<string, unknown>) =>
+            (await this.opts.askPermission!(tool, input))
+              ? { behavior: 'allow' as const, updatedInput: input }
+              : { behavior: 'deny' as const, message: 'Joshua said no to that.' },
+        } : {}),
         resume: this.sessionId,
         // Account-level claude.ai connectors (Drive, Gmail, ...) otherwise load into every session:
         // measured 16k tokens per turn with them, 2.7k without.

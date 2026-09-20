@@ -27,7 +27,7 @@ const questions = [
 const TAGGY = /<\/?[a-z][a-z0-9_-]*[^>]*>/i;
 
 async function run(label: string, systemPrompt: string) {
-  const lane = new Lane({ name: label, model: 'claude-haiku-4-5-20251001', systemPrompt, mcpServer: server, allowedTools: TOOL_NAMES, builtinTools: [], thinking: { type: 'disabled' } });
+  const lane = new Lane({ name: label, model: 'claude-haiku-4-5-20251001', systemPrompt, mcpServer: server, allowedTools: TOOL_NAMES,  thinking: { type: 'disabled' } });
   let resolve!: (e: Extract<LaneEvent, { t: 'result' }>) => void;
   lane.onEvent(e => { if (e.t === 'result') resolve(e); });
   const once = (text: string) => new Promise<Extract<LaneEvent, { t: 'result' }>>(r => { resolve = r; lane.send(text); });

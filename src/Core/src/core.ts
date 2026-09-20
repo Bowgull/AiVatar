@@ -12,7 +12,7 @@ import { Memory } from './memory.ts';
 import { QuotaPolicy } from './quota.ts';
 import { MODELS, pickLane } from './route.ts';
 import type { Lane as LaneName } from './route.ts';
-import { TOOL_NAMES, makeToolServer } from './tools.ts';
+import { READ_ONLY_BUILTINS, TOOL_NAMES, describeCall, makeToolServer } from './tools.ts';
 import { HookServer, HookTracker } from './hooks.ts';
 import { Reminders } from './reminders.ts';
 import { buildSystemPrompt, lint, stripReasoning } from './voice.ts';
@@ -45,7 +45,8 @@ export interface TurnRecord {
 
 const FLUSH_MS = 40;            // batch streamed text into ~40 ms paints
 const TURN_TIMEOUT_MS = 120_000;
-const MAX_TEXT = 8000;          // a chat message this long is a paste; cap it rather than trust the sender
+const MAX_TEXT = 8000;
+const PERMISSION_TIMEOUT_MS = 120_000;   // he may be in the game; wait, but never for ever          // a chat message this long is a paste; cap it rather than trust the sender
 
 export class Core {
   readonly cfg: CoreConfig;
@@ -66,6 +67,9 @@ export class Core {
   private muted = false;
   /** Unprompted messages that arrived while he was quiet or muted, oldest first. */
   private readonly pending: string[] = [];
+  /** The one permission question outstanding, if any. */
+  private permission: { id: string; resolve: (ok: boolean) => void; timer: NodeJS.Timeout } | null = null;
+  private permissionSeq = 0;
   /** Test hook: the text of the most recent accepted submit. */
   lastSubmitText = '';
   /** Test/observation hook: called with every finished turn. */
@@ -101,6 +105,7 @@ export class Core {
   }
 
   async stop(): Promise<void> {
+    if (this.permission) this.answerPermission(this.permission.id, false);
     this.reminders.stop();
     await this.hookServer?.stop(); this.hookServer = null;
     for (const l of this.lanes.values()) l.close();
@@ -121,7 +126,11 @@ export class Core {
     if (l) return l;
     l = new Lane({
       name, model: MODELS[name].model, systemPrompt: this.systemPrompt, mcpServer: this.toolServer,
-      allowedTools: TOOL_NAMES, builtinTools: [], claudeExecutable: this.cfg.claudeExecutable,
+      // Aang's own tools and the read-only built-ins run freely; anything that changes the machine
+      // comes back through askPermission and waits for Joshua.
+      allowedTools: [...TOOL_NAMES, ...READ_ONLY_BUILTINS],
+      askPermission: (tool, input) => this.askPermission(tool, input),
+      claudeExecutable: this.cfg.claudeExecutable,
       // Measured on the warm Quick lane: first token 1369 ms with thinking, 444 ms without. Chat does not
       // need it; Smart and Deep keep it because they are chosen for work that does.
       thinking: name === 'quick' ? { type: 'disabled' } : undefined,
@@ -184,6 +193,7 @@ export class Core {
       case 'stop': void this.stopActive(m.id); break;
       case 'rate': this.rate(m.id, m.value); break;
       case 'presence': this.setSilent(m.quiet === true, this.muted); break;
+      case 'permission.reply': this.answerPermission(m.id, m.allow === true); break;
       case 'mute': this.setSilent(this.bodyQuiet, m.on === true); break;
       case 'saving': this.policy.setSaving(m.on); { const q = this.quotaMessage(); if (q) this.broadcast(q); } break;
       default: break; // poked, moved, pong: nothing to do yet
@@ -334,6 +344,32 @@ export class Core {
 
   /** What is waiting to be said (tests and diagnostics). */
   get pendingCount(): number { return this.pending.length; }
+
+  /**
+   * A tool wants to change something. Aang never decides that himself: the question goes to the bubble and
+   * this waits for a yes or a no. No Body, no answer, or a second question while one is open all mean no,
+   * because the safe default when nobody is there to say yes is not to do it.
+   */
+  private askPermission(tool: string, input: Record<string, unknown>): Promise<boolean> {
+    if (!this.wss || this.wss.clients.size === 0) return Promise.resolve(false);
+    if (this.permission) return Promise.resolve(false);
+    const id = `perm${++this.permissionSeq}`;
+    const question = describeCall(tool, input);
+    return new Promise<boolean>(resolve => {
+      const timer = setTimeout(() => this.answerPermission(id, false), PERMISSION_TIMEOUT_MS);
+      timer.unref?.();
+      this.permission = { id, resolve, timer };
+      this.broadcast({ t: 'permission', id, tool, question });
+    });
+  }
+
+  private answerPermission(id: string, allow: boolean): void {
+    const p = this.permission;
+    if (!p || p.id !== id) return;
+    clearTimeout(p.timer);
+    this.permission = null;
+    p.resolve(allow);
+  }
 
   private record(r: TurnRecord): void {
     this.recent.set(r.id, { lane: r.lane, user: r.user, reply: r.reply });

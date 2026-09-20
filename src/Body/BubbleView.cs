@@ -53,10 +53,26 @@ sealed class BubbleView : IDisposable
     /// <summary>1 = good, -1 = not good, 0 = not rated.</summary>
     public int Rating { get; set; }
     public DateTime CopiedUntil { get; set; }
+    /// <summary>A question that needs a yes or a no before anything happens. Buttons show only for this.</summary>
+    public bool Asking
+    {
+        get => asking;
+        set { if (asking == value) return; asking = value; targetH = HeightFor(Math.Min(lines.Count, CollapsedLines)); }
+    }
+    bool asking;
+    public const int ChoiceW = 52, ChoiceH = 20;
+    /// <summary>0 = Yes, 1 = No.</summary>
+    public RectangleF ChoiceRect(int i) => new(Right - 12 - (2 - i) * (ChoiceW + 6), Bottom - Pad - ChoiceH + 2, ChoiceW, ChoiceH);
+    public int HitChoice(float x, float y)
+    {
+        if (!Asking || !Visible) return -1;
+        for (int i = 0; i < 2; i++) { var r = ChoiceRect(i); r.Inflate(3, 3); if (r.Contains(x, y)) return i; }
+        return -1;
+    }
     public const int ToolW = 20, ToolH = 17;
     /// <summary>0 = copy, 1 = good, 2 = not good.</summary>
     public RectangleF ToolRect(int i) => new(Right - 8 - (3 - i) * (ToolW + 3), CurrentTop - ToolH / 2f - 1, ToolW, ToolH);
-    public bool ToolsShown => Tools && Visible && !Dots && !streaming;
+    public bool ToolsShown => Tools && Visible && !Dots && !streaming && !Asking;
     public int HitTool(float x, float y)
     {
         if (!ToolsShown) return -1;
@@ -138,14 +154,14 @@ sealed class BubbleView : IDisposable
         return l.TrimEnd(',', ';', ':', ' ') + "...";
     }
 
-    float HeightFor(int lineCount) => Math.Clamp(lineCount * LineH + 2 * Pad, MinH, ExpandedMaxH);
+    float HeightFor(int lineCount) => Math.Clamp((lineCount + (asking ? 1 : 0)) * LineH + 2 * Pad, MinH, ExpandedMaxH);
 
     public void Show(string t, bool stream, int holdMs)
     {
         Dots = false; receipt = "";
         text = t;
         lines = Wrap(t);
-        streaming = stream; expanded = false; scroll = 0;
+        streaming = stream; expanded = false; scroll = 0; Tools = false; Rating = 0; CopiedUntil = default; Asking = false;
         Visible = true;
         targetH = HeightFor(Math.Min(lines.Count, CollapsedLines));
         if (shownH <= 0) shownH = targetH * 0.55f;
@@ -172,7 +188,7 @@ sealed class BubbleView : IDisposable
 
     public void Clear()
     {
-        Visible = false; Dots = false; streaming = false; expanded = false; scroll = 0; Tools = false; Hover = false; Rating = 0;
+        Visible = false; Dots = false; streaming = false; expanded = false; scroll = 0; Tools = false; Hover = false; Rating = 0; Asking = false;
         text = ""; receipt = ""; lines = new(); hideAt = DateTime.MaxValue; shownH = 0;
     }
 
@@ -338,8 +354,28 @@ sealed class BubbleView : IDisposable
             var t = Track; var b = Thumb;
             FillRound(g, tk, t); FillRound(g, th, b);
         }
+        if (Asking) DrawChoices(g);
         if (ToolsShown && Hover) DrawTools(g);
         g.SmoothingMode = old;
+    }
+
+    static readonly string[] ChoiceText = { "yes", "no" };
+
+    void DrawChoices(Graphics g)
+    {
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        using var f = new Font("Bahnschrift", 9f, FontStyle.Bold, GraphicsUnit.Point);
+        for (int i = 0; i < 2; i++)
+        {
+            var r = ChoiceRect(i);
+            var c = i == 0 ? Color.FromArgb(120, 230, 150) : Color.FromArgb(255, 130, 120);
+            using var path = RoundRect(r, ChoiceH / 2f);
+            using (var bg = new SolidBrush(Color.FromArgb(45, c))) g.FillPath(bg, path);
+            using (var pen = new Pen(c, 1.5f)) g.DrawPath(pen, path);
+            using var tb = new SolidBrush(c);
+            var sz = g.MeasureString(ChoiceText[i], f);
+            g.DrawString(ChoiceText[i], f, tb, r.X + (r.Width - sz.Width) / 2, r.Y + (r.Height - sz.Height) / 2 + 1);
+        }
     }
 
     void DrawTools(Graphics g)

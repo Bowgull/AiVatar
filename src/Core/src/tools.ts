@@ -43,11 +43,46 @@ export const TOOL_LABELS: Record<string, string> = {
   set_reminder: 'setting a reminder',
   list_reminders: 'checking your reminders',
   cancel_reminder: 'cancelling that reminder',
+  WebSearch: 'searching the web',
+  WebFetch: 'reading that page',
+  Read: 'reading that file',
+  Glob: 'looking through your files',
+  Grep: 'searching your files',
+  Bash: 'running that',
+  Write: 'writing that file',
+  Edit: 'editing that file',
 };
 export const toolLabel = (fullName: string): string => TOOL_LABELS[fullName.replace(/^mcp__aang__/, '')] ?? 'working';
 
 export const TOOL_NAMES = ['mcp__aang__get_time', 'mcp__aang__get_weather', 'mcp__aang__search_memory',
   'mcp__aang__claude_code_status', 'mcp__aang__set_reminder', 'mcp__aang__list_reminders', 'mcp__aang__cancel_reminder'];
+
+/**
+ * Built-in tools Aang may use without asking. All of them only look: they search, fetch and read, and none
+ * of them changes anything on the machine. Bash, Write and Edit are deliberately absent, so they fall through
+ * to canUseTool and Joshua gets a yes/no in the bubble first.
+ */
+export const READ_ONLY_BUILTINS = ['WebSearch', 'WebFetch', 'Read', 'Glob', 'Grep'];
+
+/** A short, plain sentence describing a tool call, for the receipt line and the permission question. */
+export function describeCall(tool: string, input: Record<string, unknown>): string {
+  const s = (k: string) => typeof input?.[k] === 'string' ? String(input[k]) : '';
+  const short = (v: string, n = 90) => v.length > n ? v.slice(0, n) + '...' : v;
+  switch (tool) {
+    case 'Bash': {
+      // a leading `cd somewhere &&` is scaffolding, not the thing he is agreeing to
+      const cmd = s('command').replace(/^s*cds+[^&]+&&s*/i, '').trim();
+      return `run ${short(cmd, 70)}`;
+    }
+    case 'Write': return `write to ${short(s('file_path'), 60)}`;
+    case 'Edit': return `change ${short(s('file_path'), 60)}`;
+    case 'WebSearch': return `search the web for ${short(s('query'), 60)}`;
+    case 'WebFetch': return `read ${short(s('url'), 60)}`;
+    case 'Read': return `read ${short(s('file_path'), 60)}`;
+    case 'Glob': case 'Grep': return `look through your files`;
+    default: return `use ${tool}`;
+  }
+}
 
 export function makeToolServer(memory: Memory, hooks?: HookTracker, reminders?: Reminders) {
   const ok = (text: string) => ({ content: [{ type: 'text' as const, text }] });

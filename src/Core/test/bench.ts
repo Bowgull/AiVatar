@@ -14,7 +14,7 @@ const prompt = buildSystemPrompt(mem.profile(), mem.learned());
 const questions = ['hey', 'how are you doing', 'whats a good name for a pelican', 'i had a rough week', 'do you like your window', 'say something short'];
 
 async function run(label: string, thinking?: { type: 'disabled' }) {
-  const lane = new Lane({ name: label, model: 'claude-haiku-4-5-20251001', systemPrompt: prompt, mcpServer: server, allowedTools: TOOL_NAMES, builtinTools: [], thinking });
+  const lane = new Lane({ name: label, model: 'claude-haiku-4-5-20251001', systemPrompt: prompt, mcpServer: server, allowedTools: TOOL_NAMES,  thinking });
   let resolve!: (e: Extract<LaneEvent, { t: 'result' }>) => void;
   lane.onEvent(e => { if (e.t === 'result') resolve(e); });
   const once = (text: string) => new Promise<Extract<LaneEvent, { t: 'result' }>>(r => { resolve = r; lane.send(text); });

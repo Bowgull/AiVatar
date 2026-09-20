@@ -117,19 +117,19 @@ await keys.ask('send {ESC}');
 quota(0.34, 0.12, 'ok');
 
 // the one global hotkey
-const before = await keys.ask('rect Aang Body');
+const rectBefore = await keys.ask('rect Aang Body');
 await keys.ask('focus WowB');
 await keys.ask('hotkey Ctrl+NumLock'); await sleep(400);
 check('Ctrl+NumLock hides Aang', (await keys.ask('rect Aang Body')) === 'none');
 const fgH = await keys.ask('fg');
 check('hiding left focus on the game', hasWow ? /world of warcraft/i.test(fgH) : true, fgH);
 await keys.ask('hotkey Ctrl+NumLock'); await sleep(500);
-check('Ctrl+NumLock reveals Aang in the same place', (await keys.ask('rect Aang Body')) === before, before);
+check('Ctrl+NumLock reveals Aang in the same place', (await keys.ask('rect Aang Body')) === rectBefore, rectBefore);
 // the old hotkeys are gone: they do nothing now
 inbox.length = 0;
 for (const combo of ['Ctrl+Shift+Space', 'Ctrl+Shift+H', 'Ctrl+Shift+M', 'Ctrl+Shift+Q']) await keys.ask(`hotkey ${combo}`);
 await sleep(400);
-check('the old global hotkeys no longer do anything', (await keys.ask('rect Aang Input')) === 'none' && (await keys.ask('rect Aang Body')) === before && !inbox.some(m => m.t === 'saving'));
+check('the old global hotkeys no longer do anything', (await keys.ask('rect Aang Input')) === 'none' && (await keys.ask('rect Aang Body')) === rectBefore && !inbox.some(m => m.t === 'saving'));
 
 // consent: saving is on and a bigger model was asked for
 await openBox(); await clickChip(); await clickChip(); await keys.ask('send {ESC}');       // Smart

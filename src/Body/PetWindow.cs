@@ -53,7 +53,7 @@ sealed class PetWindow : Form
     bool saving, hasQuota;
     double weekUse, fiveUse;
     string level = "ok";
-    string? lastText, consentText, replyId;
+    string? lastText, consentText, replyId, permissionId;
     string consentWanted = "", pendingMode = "smart";
 
     protected override CreateParams CreateParams
@@ -184,6 +184,7 @@ sealed class PetWindow : Form
                     ShowBubble(text, Bool(m, "stream"));
                     if (!Bool(m, "stream") && !Bool(m, "proactive") && Str(m, "id") is { Length: > 0 } rid) { replyId = rid; bubble.Tools = true; bubble.Rating = 0; }
                     if (!Bool(m, "stream")) { working = false; input.Working = false; ackTimer.Stop(); }
+                    permissionId = null;
                     break;
                 case "bubble.dots":
                     Wake(); bubble.ShowDots(); anim.Play("think"); dirty = true;
@@ -206,6 +207,9 @@ sealed class PetWindow : Form
                     break;
                 case "consent":
                     OnConsent(Str(m, "wanted") ?? "smart");
+                    break;
+                case "permission":
+                    OnPermission(Str(m, "id") ?? "", Str(m, "question") ?? "do that");
                     break;
                 case "quota":
                     hasQuota = true;
@@ -419,6 +423,8 @@ sealed class PetWindow : Form
         }
 
         var bp = BubblePoint(e.Location);
+        var choice = bubble.HitChoice(bp.X, bp.Y);
+        if (choice >= 0) { AnswerPermission(choice == 0); dirty = true; return; }
         var tool = bubble.HitTool(bp.X, bp.Y);
         if (tool >= 0) { UseTool(tool); dirty = true; return; }
         if (bubble.Visible && bubble.Contains(bp.X, bp.Y))
@@ -577,6 +583,27 @@ sealed class PetWindow : Form
         _ = link.SendAsync(new { t = "rate", id = replyId, value = bubble.Rating == 1 ? "up" : bubble.Rating == -1 ? "down" : "none" });
     }
 
+    /// <summary>Aang wants to change something on the machine. He does not do it until Joshua says yes.</summary>
+    void OnPermission(string id, string question)
+    {
+        permissionId = id;
+        Wake(); ExitExpanded(collapse: false);
+        bubble.Show("Can I " + question + "?", false, 120000);
+        bubble.Asking = true;
+        anim.Play("look"); dirty = true;
+    }
+
+    void AnswerPermission(bool allow)
+    {
+        if (permissionId == null) return;
+        _ = link.SendAsync(new { t = "permission.reply", id = permissionId, allow });
+        permissionId = null;
+        bubble.Asking = false;
+        if (allow) { bubble.ShowDots(); anim.Play("think"); }
+        else { bubble.Show("Alright, skipping that.", false, 2500); }
+        dirty = true;
+    }
+
     void OnConsent(string wanted)
     {
         consentWanted = ModelChip.Label(wanted); consentText = lastText; pendingMode = ModelChip.Normalize(wanted);
@@ -611,23 +638,43 @@ sealed class PetWindow : Form
 
     string activeHotkey = "";
 
-    /// <summary>Try the configured hotkey, then the fallbacks. Another program may already own a combination
-    /// (Ctrl+Alt+A and Ctrl+Alt+Space are taken on this machine), so the result is logged and shown in the tray.</summary>
+    /// <summary>Take the one global hotkey. Another program may already own a combination, so the result is
+    /// logged, shown in the tray, and changeable by pressing a different key (see AskForHotkey).</summary>
     bool RegisterHotkey()
     {
-        foreach (var combo in new[] { cfg.Hotkey })
+        if (activeHotkey.Length > 0) { Win32.UnregisterHotKey(Handle, HotkeyId); activeHotkey = ""; }
+        var combo = cfg.Hotkey;
+        if (!TryParseHotkey(combo, out var mods, out var vk)) { Log.Write("hotkey not understood: " + combo); return false; }
+        if (!Win32.RegisterHotKey(Handle, HotkeyId, mods | Win32.MOD_NOREPEAT, vk))
         {
-            if (!TryParseHotkey(combo, out var mods, out var vk)) { Log.Write("hotkey not understood: " + combo); continue; }
-            if (Win32.RegisterHotKey(Handle, HotkeyId, mods | Win32.MOD_NOREPEAT, vk))
-            {
-                activeHotkey = combo;
-                Log.Write("hotkey registered: " + combo);
-                return true;
-            }
             Log.Write("hotkey unavailable (taken by another program): " + combo);
+            return false;
         }
-        activeHotkey = "";
-        return false;
+        activeHotkey = combo;
+        Log.Write("hotkey registered: " + combo);
+        return true;
+    }
+
+    /// <summary>Let him press the key he wants. What the keyboard really sends is the only thing worth trusting.</summary>
+    void AskForHotkey()
+    {
+        using var box = new HotkeyBox(scale, activeHotkey);
+        box.TryRegister = combo =>
+        {
+            var previous = cfg.Hotkey;
+            cfg.Hotkey = combo;
+            if (RegisterHotkey()) { cfg.Save(); return true; }
+            cfg.Hotkey = previous;
+            hotkeyOk = RegisterHotkey();            // put the old one back
+            return false;
+        };
+        Win32.ForceForeground(box.Handle);
+        if (box.ShowDialog() == DialogResult.OK && box.Combo.Length > 0)
+        {
+            hotkeyOk = true;
+            UpdateTrayText();
+            Note("Hide and show: " + box.Combo);
+        }
     }
 
     static bool TryParseHotkey(string text, out uint mods, out uint vk)
@@ -642,6 +689,15 @@ sealed class PetWindow : Form
                 case "shift": mods |= 0x4; break;
                 case "win": mods |= 0x8; break;
                 case "space": vk = 0x20; break;
+                case "scrolllock": vk = 0x91; break;
+                case "pause": vk = 0x13; break;
+                case "insert": vk = 0x2D; break;
+                case "delete": vk = 0x2E; break;
+                case "end": vk = 0x23; break;
+                case "pageup": vk = 0x21; break;
+                case "pagedown": vk = 0x22; break;
+                case "menu": vk = 0x5D; break;
+                case var np when np.StartsWith("numpad") && np.Length == 7 && char.IsDigit(np[6]): vk = (uint)(0x60 + (np[6] - '0')); break;
                 case "home": vk = 0x24; break;
                 case "numlock": vk = 0x90; break;
                 case var f when f.Length is 2 or 3 && f[0] == 'f' && int.TryParse(f.AsSpan(1), out var n) && n is >= 1 and <= 24: vk = (uint)(0x6F + n); break;
@@ -649,12 +705,14 @@ sealed class PetWindow : Form
                 default: return false;
             }
         }
-        return vk != 0 && mods != 0;
+        // A lock or function key needs no modifier; a bare letter would swallow normal typing, so it still does.
+        var standalone = vk == 0x90 || vk == 0x91 || vk == 0x13 || (vk >= 0x70 && vk <= 0x87);
+        return vk != 0 && (mods != 0 || standalone);
     }
 
     void UpdateTrayText()
     {
-        var hk = activeHotkey.Length > 0 ? activeHotkey : "no hotkey available";
+        var hk = activeHotkey.Length > 0 ? activeHotkey : "no key set - right click to set one";
         showItem.Text = $"Show or hide  ({hk})";
         tray.Text = activeHotkey.Length > 0 ? $"Aang ({activeHotkey})" : "Aang";
     }
@@ -696,6 +754,8 @@ sealed class PetWindow : Form
         showItem = new ToolStripMenuItem("Show or hide");
         var show = showItem;
         show.Click += (_, _) => ToggleVisible();
+        var hotkeyItem = new ToolStripMenuItem("Set the hide and show key...");
+        hotkeyItem.Click += (_, _) => AskForHotkey();
         var talk = new ToolStripMenuItem("Talk to Aang");
         talk.Click += (_, _) => OpenInput();
         quietItem = new ToolStripMenuItem("Quiet mode: auto");
@@ -719,7 +779,7 @@ sealed class PetWindow : Form
         autostartItem = new ToolStripMenuItem("Start with Windows");
         autostartItem.Click += (_, _) => Autostart.Set(!Autostart.IsOn());
         menu.Opening += (_, _) => autostartItem.Checked = Autostart.IsOn();
-        menu.Items.AddRange(new ToolStripItem[] { talk, show, modelMenu, savingItem, quietItem, muteItem, new ToolStripSeparator(), coreItem, autostartItem, new ToolStripSeparator(), quit });
+        menu.Items.AddRange(new ToolStripItem[] { talk, show, hotkeyItem, modelMenu, savingItem, quietItem, muteItem, new ToolStripSeparator(), coreItem, autostartItem, new ToolStripSeparator(), quit });
         tray.ContextMenuStrip = menu;
         tray.Text = "Aang";
         tray.Icon = MakeIcon();
