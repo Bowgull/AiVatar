@@ -1,4 +1,5 @@
 // Drag probe: real mouse press-move-release on Aang, with WoW in front. Reports the window movement.
+import { requireNoBody } from './guard.mjs';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 const root = path.resolve(import.meta.dirname, '..', '..');
@@ -10,7 +11,8 @@ let buf = ''; const w = [];
 k.stdout.on('data', d => { buf += d; let i; while ((i = buf.indexOf('\n')) >= 0) { const l = buf.slice(0, i).trim(); buf = buf.slice(i + 1); w.shift()?.(l); } });
 const ask = line => new Promise(r => { w.push(r); k.stdin.write(line + '\n'); });
 w.push(() => {}); await sleep(1500);
-const body = spawn(bodyExe, ['--quiet=never'], { stdio: 'ignore' });
+await requireNoBody();
+const body = spawn(bodyExe, ['--quiet=never', '--no-core'], { stdio: 'ignore' });
 await sleep(2500);
 const r0 = (await ask('rect Aang Body')).split(' ').map(Number);
 console.log('fg', await ask('focus WowB'));

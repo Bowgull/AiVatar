@@ -227,7 +227,8 @@ sealed class InputWindow : Form
     protected override void OnDeactivate(EventArgs e)
     {
         base.OnDeactivate(e);
-        if (Visible && !closing) { Hide(); Dismissed?.Invoke(); }
+        // Hide after the click that caused this has been delivered; hiding inside the deactivation swallowed it.
+        BeginInvoke(() => { if (Visible && !closing && ActiveForm != this) { Hide(); Dismissed?.Invoke(); } });
     }
 
     bool OnFirstLine => box.GetLineFromCharIndex(box.SelectionStart) == 0;

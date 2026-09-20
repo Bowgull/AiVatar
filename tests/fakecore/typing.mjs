@@ -1,6 +1,7 @@
 ﻿// Typing to Aang, for real: real hotkey, real keystrokes, real clicks, real mouse wheel, with WoW in front.
 // A fake Core records what the Body sends and plays replies back, and screenshots are taken at each step.
 //   node typing.mjs
+import { requireNoBody } from './guard.mjs';
 import { WebSocketServer } from 'ws';
 import { spawn } from 'node:child_process';
 import { mkdirSync, existsSync, rmSync } from 'node:fs';
@@ -39,7 +40,8 @@ const send = o => sock.send(JSON.stringify(o));
 const submits = () => inbox.filter(m => m.t === 'submit');
 const waitFor = async (f, ms = 3000) => { const d = Date.now() + ms; while (Date.now() < d) { const r = f(); if (r) return r; await sleep(20); } return null; };
 
-const body = spawn(bodyExe, ['--quiet=never'], { stdio: 'ignore' });
+await requireNoBody();
+const body = spawn(bodyExe, ['--quiet=never', '--no-core'], { stdio: 'ignore' });
 await Promise.race([connected, sleep(20000)]);
 check('Body connected', !!sock);
 await sleep(1500);

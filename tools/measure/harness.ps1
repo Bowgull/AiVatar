@@ -60,7 +60,7 @@ $fg0 = [U]::GetForegroundWindow()
 $orig = New-Object U+POINT; [void][U]::GetCursorPos([ref]$orig)
 
 $sw = [Diagnostics.Stopwatch]::StartNew()
-if ($ArgLine) { $proc = Start-Process -FilePath $Exe -ArgumentList $ArgLine -PassThru } else { $proc = Start-Process -FilePath $Exe -PassThru }
+$al = ("--no-core " + $ArgLine).Trim(); $proc = Start-Process -FilePath $Exe -ArgumentList $al -PassThru
 $h = [IntPtr]::Zero
 while ($sw.Elapsed.TotalSeconds -lt 25) { $h = [U]::FindTitle($Title); if ($h -ne [IntPtr]::Zero) { break }; Start-Sleep -Milliseconds 100 }
 if ($h -eq [IntPtr]::Zero) { "WINDOW NEVER APPEARED (title '$Title')"; Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue; exit 2 }

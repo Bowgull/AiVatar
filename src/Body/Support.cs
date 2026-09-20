@@ -2,6 +2,27 @@
 
 namespace Aang.Body;
 
+static class Autostart
+{
+    const string Key = @"Software\Microsoft\Windows\CurrentVersion\Run", Name = "Aang";
+    public static bool IsOn()
+    {
+        try { using var k = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(Key); return k?.GetValue(Name) is string v && v.Length > 0; }
+        catch { return false; }
+    }
+    public static void Set(bool on)
+    {
+        try
+        {
+            using var k = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(Key, writable: true);
+            if (k == null) return;
+            if (on) k.SetValue(Name, "\"" + Environment.ProcessPath + "\"");
+            else k.DeleteValue(Name, throwOnMissingValue: false);
+        }
+        catch (Exception e) { Log.Write("autostart change failed: " + e.Message); }
+    }
+}
+
 static class Paths
 {
     public static readonly string Dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Aang");
@@ -40,6 +61,11 @@ sealed class Config
     /// <summary>The model chip (auto, quick, smart, deep) and whether quota saving is on; both survive restarts.</summary>
     public string Mode { get; set; } = "auto";
     public bool Saving { get; set; }
+    /// <summary>Start with Windows was switched on the first time Aang ran; after that the tray toggle decides.</summary>
+    public bool AutostartAsked { get; set; }
+    /// <summary>Optional overrides for where the Core lives and which node runs it (normally found automatically).</summary>
+    public string CoreDir { get; set; } = "";
+    public string NodePath { get; set; } = "";
     /// <summary>Whether the usage numbers are open next to the gauge in the input box.</summary>
     public bool ShowUsage { get; set; }
 

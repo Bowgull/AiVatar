@@ -1,6 +1,7 @@
 // End-to-end check of the Body over the real protocol. A fake Core drives it and a persistent capture
 // process photographs the composited desktop (so the Body is seen over the game) at every step.
 //   node scenario.mjs [outDir]
+import { requireNoBody } from './guard.mjs';
 import { WebSocketServer } from 'ws';
 import { spawn } from 'node:child_process';
 import { mkdirSync, existsSync } from 'node:fs';
@@ -37,7 +38,8 @@ let ws = null; const inbox = [];
 const hello = new Promise(res => wss.on('connection', s => { ws = s; s.on('message', m => { const j = JSON.parse(String(m)); inbox.push(j); if (j.t === 'hello') res(j); }); }));
 const send = o => ws.send(JSON.stringify(o));
 
-const body = spawn(bodyExe, [], { stdio: 'ignore' });
+await requireNoBody();
+const body = spawn(bodyExe, ['--no-core'], { stdio: 'ignore' });
 const h = await Promise.race([hello, sleep(20000).then(() => null)]);
 check('Body connected and said hello', !!h && h.v === 1, h ? `pid ${h.pid}` : 'timeout');
 if (!h) { body.kill(); cap.kill(); wss.close(); process.exit(1); }

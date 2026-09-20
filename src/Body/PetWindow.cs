@@ -27,6 +27,9 @@ sealed class PetWindow : Form
     readonly System.Windows.Forms.Timer timer = new() { Interval = 50 };
     readonly System.Windows.Forms.Timer fgTimer = new() { Interval = 500 };
     readonly NotifyIcon tray = new();
+    CoreSupervisor? supervisor;
+    bool noCore;
+    ToolStripMenuItem coreItem = null!, autostartItem = null!;
     ToolStripMenuItem quietItem = null!, showItem = null!, modelItems = null!;
 
     string? heldText;               // latest proactive message waiting for quiet mode to end
@@ -92,6 +95,7 @@ sealed class PetWindow : Form
         {
             if (a.Equals("--quiet=never", StringComparison.OrdinalIgnoreCase)) forcedQuiet = false;
             else if (a.Equals("--quiet=always", StringComparison.OrdinalIgnoreCase)) forcedQuiet = true;
+            else if (a.Equals("--no-core", StringComparison.OrdinalIgnoreCase)) noCore = true;   // tests: do not start the Core or touch autostart
         }
 
         sprites = new SpriteBank(Path.Combine(AppContext.BaseDirectory, "assets", "aang", "frames"));
@@ -139,6 +143,13 @@ sealed class PetWindow : Form
         Render();
         timer.Start(); fgTimer.Start(); PollForeground(); ApplyQuiet();
         link.Start();
+        if (!noCore)
+        {
+            if (!cfg.AutostartAsked) { Autostart.Set(true); cfg.AutostartAsked = true; cfg.Save(); }   // first run: start with Windows
+            supervisor = new CoreSupervisor(47831, cfg.CoreDir, cfg.NodePath);
+            supervisor.StatusChanged += st => { if (IsHandleCreated) BeginInvoke(() => coreItem.Text = "Core: " + st); };
+            supervisor.Start();
+        }
         hotkeyOk = RegisterHotkey();
         UpdateTrayText();
         anim.Play("hello");
@@ -666,7 +677,11 @@ sealed class PetWindow : Form
         var savingItem = new ToolStripMenuItem("Save quota");
         savingItem.Click += (_, _) => SetSaving(!saving);
         modelMenu.DropDownOpening += (_, _) => { UpdateModeMenu(); savingItem.Checked = saving; };
-        menu.Items.AddRange(new ToolStripItem[] { talk, show, modelMenu, savingItem, quietItem, new ToolStripSeparator(), quit });
+        coreItem = new ToolStripMenuItem("Core: starting") { Enabled = false };
+        autostartItem = new ToolStripMenuItem("Start with Windows");
+        autostartItem.Click += (_, _) => Autostart.Set(!Autostart.IsOn());
+        menu.Opening += (_, _) => autostartItem.Checked = Autostart.IsOn();
+        menu.Items.AddRange(new ToolStripItem[] { talk, show, modelMenu, savingItem, quietItem, new ToolStripSeparator(), coreItem, autostartItem, new ToolStripSeparator(), quit });
         tray.ContextMenuStrip = menu;
         tray.Text = "Aang";
         tray.Icon = MakeIcon();
@@ -699,6 +714,7 @@ sealed class PetWindow : Form
         if (hotkeyOk) Win32.UnregisterHotKey(Handle, HotkeyId);
         if (escRegistered) Win32.UnregisterHotKey(Handle, EscId);
         input.Dispose();
+        supervisor?.Dispose();
         tray.Visible = false; tray.Dispose();
         link.Dispose();
         base.OnFormClosing(e);

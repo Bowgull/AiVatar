@@ -55,7 +55,7 @@ function Wait-Window([bool]$visible = $true) { for ($i = 0; $i -lt 60; $i++) { $
 function Rect($h) { $r = New-Object M+R; [void][M]::GetWindowRect($h, [ref]$r); $r }
 
 $orig = New-Object M+P; [void][M]::GetCursorPos([ref]$orig)
-$p1 = Start-Process -FilePath $Exe -ArgumentList '--quiet=never' -PassThru
+$p1 = Start-Process -FilePath $Exe -ArgumentList '--quiet=never','--no-core' -PassThru
 $h = Wait-Window
 Check 'window appears' ($h -ne [IntPtr]::Zero)
 Start-Sleep -Milliseconds 800
@@ -90,7 +90,7 @@ function Hotkey { $k = KeyCodes $combo; foreach ($c in $k) { [M]::keybd_event([b
 
 # ---- remembered position
 Stop-Process -Id $p1.Id -Force; Start-Sleep -Milliseconds 500
-$p2 = Start-Process -FilePath $Exe -ArgumentList '--quiet=never' -PassThru
+$p2 = Start-Process -FilePath $Exe -ArgumentList '--quiet=never','--no-core' -PassThru
 $h2 = Wait-Window; Start-Sleep -Milliseconds 600
 $r2 = Rect $h2
 Check 'position is remembered after a restart' (($r2.L -eq $r1.L) -and ($r2.T -eq $r1.T)) ("now {0},{1} expected {2},{3}" -f $r2.L, $r2.T, $r1.L, $r1.T)
