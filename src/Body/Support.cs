@@ -40,6 +40,8 @@ sealed class Config
     /// <summary>The model chip (auto, quick, smart, deep) and whether quota saving is on; both survive restarts.</summary>
     public string Mode { get; set; } = "auto";
     public bool Saving { get; set; }
+    /// <summary>Whether the usage numbers are open next to the gauge in the input box.</summary>
+    public bool ShowUsage { get; set; }
 
     public static Config Load()
     {

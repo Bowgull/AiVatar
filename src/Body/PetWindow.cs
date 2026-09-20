@@ -110,6 +110,8 @@ sealed class PetWindow : Form
         mode = ModelChip.Normalize(cfg.Mode); saving = cfg.Saving;
         input.ModeChosen += m => SetMode(m == "next" ? ModelChip.Next(mode) : m);
         input.SavingToggled += () => SetSaving(!saving);
+        input.SetUsageShown(cfg.ShowUsage);
+        input.UsageShownChanged += on => { cfg.ShowUsage = on; cfg.Save(); };
         input.ConsentAccepted += AllowOnce;
         input.ConsentDeclined += DeclineConsent;
         link.ConnectionChanged += up => { if (up && saving) _ = link.SendAsync(new { t = "saving", on = true }); };

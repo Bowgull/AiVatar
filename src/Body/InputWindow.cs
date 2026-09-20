@@ -31,7 +31,10 @@ sealed class InputWindow : Form
 
     // What the strip under the text shows. Set by the Body whenever the Core reports something.
     string mode = "auto"; bool saving, hasQuota, consent; double week, five; string level = "ok"; string consentWanted = "";
-    Rectangle chipRect, savingRect;
+    Rectangle chipRect, savingRect, usageRect;
+    bool showUsage;
+    public event Action<bool>? UsageShownChanged;
+    public void SetUsageShown(bool on) { showUsage = on; Invalidate(); }
     readonly Font stripFont = new("Bahnschrift", 8.5f, FontStyle.Regular, GraphicsUnit.Point);
 
     public void SetStatus(string mode, bool saving, bool hasQuota, double week, double five, string level)
@@ -136,12 +139,39 @@ sealed class InputWindow : Form
         if (saving) { savingRect = Pill(g, x, y, h, "saving quota", Color.FromArgb(120, 230, 150), true); }
         else if (level == "offer") { savingRect = Pill(g, x, y, h, "save quota?", Color.FromArgb(255, 120, 110), false); }
 
+        usageRect = Rectangle.Empty;
         if (hasQuota)
         {
-            var t = $"week {ModelChip.Percent(week)} · 5h {ModelChip.Percent(five)}";
-            var sz = TextRenderer.MeasureText(g, t, stripFont, Size.Empty, TextFormatFlags.NoPadding);
-            using var b = new SolidBrush(LevelColor(level));
-            g.DrawString(t, stripFont, b, Width - (int)(Pad * scale) - sz.Width, y + 1);
+            // A small gauge: filled to the week's usage, coloured by the 40% / 50% rule, ticks at 40 and 50.
+            // The numbers stay hidden until it is clicked.
+            var c = LevelColor(level);
+            int gw = (int)(34 * scale), gh = (int)(11 * scale);
+            var gx = Width - (int)(Pad * scale) - gw; var gy = y + (h - gh) / 2;
+            var gr = new Rectangle(gx, gy, gw, gh);
+            using (var path = Rounded(gr, gh / 2))
+            {
+                using var back = new SolidBrush(Color.FromArgb(40, c)); g.FillPath(back, path);
+                var fill = (int)Math.Round(gw * Math.Clamp(week, 0, 1));
+                if (fill > 0)
+                {
+                    var old = g.Clip; g.SetClip(new Rectangle(gx, gy, fill, gh));
+                    using var fb = new SolidBrush(Color.FromArgb(200, c)); g.FillPath(fb, path);
+                    g.Clip = old;
+                }
+                using var pen = new Pen(Color.FromArgb(210, c), 1.2f); g.DrawPath(pen, path);
+            }
+            using (var tick = new Pen(Color.FromArgb(160, 16, 10, 34), 1f))
+                foreach (var at in new[] { 0.4, 0.5 }) { var tx = gx + (int)(gw * at); g.DrawLine(tick, tx, gy + 2, tx, gy + gh - 2); }
+            usageRect = Rectangle.Inflate(gr, (int)(3 * scale), (int)(3 * scale));
+            if (showUsage)
+            {
+                var t = $"week {ModelChip.Percent(week)} · 5h {ModelChip.Percent(five)}";
+                var sz = TextRenderer.MeasureText(g, t, stripFont, Size.Empty, TextFormatFlags.NoPadding);
+                using var b = new SolidBrush(c);
+                var tx = gx - (int)(6 * scale) - sz.Width;
+                g.DrawString(t, stripFont, b, tx, y + 1);
+                usageRect = Rectangle.Union(usageRect, new Rectangle(tx, y, sz.Width, h));
+            }
         }
     }
 
@@ -163,6 +193,7 @@ sealed class InputWindow : Form
         base.OnMouseDown(e);
         if (e.Button != MouseButtons.Left) return;
         if (chipRect.Contains(e.Location)) ModeChosen?.Invoke("next");
+        else if (usageRect.Contains(e.Location)) { showUsage = !showUsage; UsageShownChanged?.Invoke(showUsage); Invalidate(); }
         else if (savingRect.Contains(e.Location)) SavingToggled?.Invoke();
         box.Focus();
     }

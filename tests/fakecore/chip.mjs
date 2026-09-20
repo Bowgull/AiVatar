@@ -71,6 +71,13 @@ quota(0.34, 0.12, 'ok');
 await sleep(300);
 await openBox(); await sleep(300);
 await snap('01_strip_auto_ok');
+const cfgUsage = () => { try { return JSON.parse(readFileSync(path.join(process.env.APPDATA, 'Aang', 'body.json'), 'utf8').replace(/^﻿/, '')).ShowUsage; } catch { return null; } };
+const clickGauge = async () => { const r = await inputRect(); await keys.ask(`click ${r[2] - 25} ${r[3] - 12}`); await sleep(200); };
+check('usage numbers start hidden', cfgUsage() !== true, String(cfgUsage()));
+await clickGauge(); await snap('01b_usage_open');
+check('clicking the gauge opens the numbers (remembered)', cfgUsage() === true, String(cfgUsage()));
+await clickGauge();
+check('clicking it again hides them', cfgUsage() === false, String(cfgUsage()));
 
 // clicking the chip cycles Auto > Quick > Smart > Deep > Auto
 await clickChip(); await clickChip(); await sleep(200);
