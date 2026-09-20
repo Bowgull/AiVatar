@@ -1,0 +1,431 @@
+using System.Diagnostics;
+using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Text.Json;
+
+namespace Aang.Body;
+
+/// <summary>
+/// The always-on pet window: a per-pixel-alpha layered window that draws pre-rendered sprite frames and
+/// the speech bubble on the CPU. It never takes focus, passes clicks through transparent pixels (Windows
+/// does that itself), goes quiet while WoW has focus, and keeps working when the Core is not running.
+/// </summary>
+sealed class PetWindow : Form
+{
+    public const int W = 470, H = 310;
+    const int HotkeyId = 0xA46;
+    static readonly TimeSpan WakeFor = TimeSpan.FromSeconds(4);
+
+    readonly Config cfg = Config.Load();
+    readonly float scale;
+    readonly int pw, ph;
+    readonly LayeredSurface surface;
+    readonly SpriteBank sprites;
+    readonly Anim anim = new();
+    readonly BubbleView bubble = new();
+    readonly CoreLink link = new(new Uri("ws://127.0.0.1:47831/body"));
+    readonly System.Windows.Forms.Timer timer = new() { Interval = 50 };
+    readonly System.Windows.Forms.Timer fgTimer = new() { Interval = 500 };
+    readonly NotifyIcon tray = new();
+    ToolStripMenuItem quietItem = null!, showItem = null!;
+
+    string? heldText;               // latest proactive message waiting for quiet mode to end
+    string foreground = "";
+    bool dirty = true, quiet, autoQuiet, dragging, moved, hotkeyOk, bubbleWasVisible, wasAnimating = true;
+    bool? forcedQuiet;
+    DateTime wakeUntil = DateTime.MinValue;
+    Point dragStart, startLoc;
+    int tick;
+
+    protected override CreateParams CreateParams
+    {
+        get
+        {
+            var cp = base.CreateParams;
+            cp.ExStyle |= Win32.WS_EX_LAYERED | Win32.WS_EX_TOPMOST | Win32.WS_EX_TOOLWINDOW | Win32.WS_EX_NOACTIVATE;
+            return cp;
+        }
+    }
+    protected override bool ShowWithoutActivation => true;
+
+    public PetWindow(string[] args)
+    {
+        scale = DeviceDpi / 96f;
+        pw = (int)Math.Round(W * scale);
+        ph = (int)Math.Round(H * scale);
+
+        Text = "Aang Body";
+        FormBorderStyle = FormBorderStyle.None;
+        StartPosition = FormStartPosition.Manual;
+        ShowInTaskbar = false;
+        TopMost = true;
+        AutoScaleMode = AutoScaleMode.None;
+        Size = new Size(pw, ph);
+        Location = cfg is { X: not null, Y: not null } ? Clamp(new Point(cfg.X.Value, cfg.Y.Value)) : DefaultPos();
+
+        // Test/diagnostic flag: --quiet=never or --quiet=always overrides the WoW-focus detection.
+        foreach (var a in args)
+        {
+            if (a.Equals("--quiet=never", StringComparison.OrdinalIgnoreCase)) forcedQuiet = false;
+            else if (a.Equals("--quiet=always", StringComparison.OrdinalIgnoreCase)) forcedQuiet = true;
+        }
+
+        sprites = new SpriteBank(Path.Combine(AppContext.BaseDirectory, "assets", "aang", "frames"));
+        if (!sprites.HasAssets) throw new FileNotFoundException("Sprite frames are missing next to the executable.");
+        surface = new LayeredSurface(pw, ph);
+
+        link.Message += m => { if (IsHandleCreated) BeginInvoke(() => OnCore(m)); };
+        timer.Tick += (_, _) => Tick();
+        fgTimer.Tick += (_, _) => PollForeground();
+        BuildTray();
+    }
+
+    Point DefaultPos()
+    {
+        var wa = Screen.PrimaryScreen!.WorkingArea;
+        return new Point(wa.Right - pw - 12, wa.Bottom - ph);
+    }
+
+    Point Clamp(Point p)
+    {
+        var r = new Rectangle(p, new Size(pw, ph));
+        foreach (var s in Screen.AllScreens) if (s.WorkingArea.IntersectsWith(r)) return p;
+        return DefaultPos();
+    }
+
+    protected override void OnShown(EventArgs e)
+    {
+        base.OnShown(e);
+        Render();
+        timer.Start(); fgTimer.Start(); PollForeground(); ApplyQuiet();
+        link.Start();
+        hotkeyOk = RegisterHotkey();
+        UpdateTrayText();
+        anim.Play("hello");
+        Log.Write($"shown at {Location} {pw}x{ph} scale {scale:0.00}");
+    }
+
+    // ------------------------------------------------------------------ Core messages
+
+    void OnCore(JsonElement m)
+    {
+        try
+        {
+            if (!m.TryGetProperty("t", out var tp)) return;
+            switch (tp.GetString())
+            {
+                case "state":
+                    Wake();
+                    anim.Play(Str(m, "state") ?? "idle"); dirty = true;
+                    break;
+                case "bubble":
+                    var text = Str(m, "text") ?? "";
+                    if (Bool(m, "proactive") && quiet) { heldText = text; break; }
+                    Wake();
+                    ShowBubble(text, Bool(m, "stream"));
+                    break;
+                case "bubble.dots":
+                    Wake(); bubble.ShowDots(); anim.Play("think"); dirty = true;
+                    break;
+                case "bubble.clear":
+                    bubble.Clear(); dirty = true;
+                    break;
+                case "quiet":
+                    forcedQuiet = Bool(m, "on"); ApplyQuiet();
+                    break;
+                case "ping":
+                    _ = link.SendAsync(new { t = "pong" });
+                    break;
+            }
+        }
+        catch (Exception e) { Log.Write("core message failed: " + e.Message); }
+    }
+
+    static string? Str(JsonElement m, string name) => m.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
+    static bool Bool(JsonElement m, string name) => m.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.True;
+
+    void Wake() => wakeUntil = DateTime.UtcNow + WakeFor;
+
+    void ShowBubble(string text, bool stream)
+    {
+        var hold = stream ? 0 : Math.Clamp(2500 + 45 * text.Length, 3000, 20000);
+        bubble.Show(text, stream, hold);
+        if (anim.State is "idle" or "think") anim.Play("talk");
+        dirty = true;
+    }
+
+    // ------------------------------------------------------------------ quiet mode
+
+    void PollForeground()
+    {
+        foreground = ForegroundName();
+        var wow = cfg.QuietProcessPrefixes.Any(p => foreground.StartsWith(p, StringComparison.OrdinalIgnoreCase));
+        if (wow != autoQuiet) { autoQuiet = wow; ApplyQuiet(); }
+    }
+
+    // The foreground window almost never changes, so the process name is looked up only when it does.
+    // System.Diagnostics.Process.ProcessName snapshots every process on the machine, which measured as
+    // a ~1.4% CPU floor when polled twice a second; QueryFullProcessImageName is a single cheap call.
+    IntPtr lastForegroundHwnd;
+    string lastForegroundName = "";
+
+    string ForegroundName()
+    {
+        try
+        {
+            var h = Win32.GetForegroundWindow();
+            if (h == lastForegroundHwnd) return lastForegroundName;
+            lastForegroundHwnd = h;
+            lastForegroundName = "";
+            if (h == IntPtr.Zero) return "";
+            Win32.GetWindowThreadProcessId(h, out var pid);
+            if (pid == Environment.ProcessId) return "";
+            var proc = Win32.OpenProcess(Win32.PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
+            if (proc == IntPtr.Zero) return "";
+            try
+            {
+                var sb = new System.Text.StringBuilder(512);
+                uint size = (uint)sb.Capacity;
+                if (Win32.QueryFullProcessImageName(proc, 0, sb, ref size))
+                    lastForegroundName = Path.GetFileNameWithoutExtension(sb.ToString());
+            }
+            finally { Win32.CloseHandle(proc); }
+            return lastForegroundName;
+        }
+        catch { return ""; }
+    }
+
+    void ApplyQuiet()
+    {
+        var q = forcedQuiet ?? autoQuiet;
+        UpdateQuietMenu();
+        if (q == quiet) return;
+        quiet = q;
+        Log.Write($"quiet={quiet} foreground={foreground}");
+        anim.Play("idle");
+        if (!quiet && heldText != null) { ShowBubble(heldText, false); heldText = null; }
+        dirty = true;
+        _ = link.SendAsync(new { t = "presence", quiet, foreground });
+    }
+
+    // ------------------------------------------------------------------ frame loop
+
+    void Tick()
+    {
+        try
+        {
+            var now = DateTime.UtcNow;
+            tick++;
+            var changed = bubble.Update(now);
+
+            if (bubbleWasVisible && !bubble.Visible)
+            {
+                bubbleWasVisible = false;
+                if (anim.State == "talk") { anim.Play("idle"); changed = true; }
+            }
+            if (bubble.Visible) bubbleWasVisible = true;
+
+            // Quiet mode freezes the idle loop; anything Joshua triggers (a reply, a poke) wakes it briefly.
+            var animate = !quiet || bubble.Visible || now < wakeUntil;
+            if (animate)
+            {
+                if (anim.Tick(now, sprites.Count(anim.State), out var finished)) changed = true;
+                if (finished) { anim.Play(bubble.Visible && !bubble.Dots ? "talk" : "idle"); changed = true; }
+                wasAnimating = true;
+            }
+            else if (wasAnimating)
+            {
+                wasAnimating = false;
+                anim.Play("idle");
+                changed = true;
+            }
+
+            if (changed || dirty) Render();
+            timer.Interval = bubble.Animating ? 33 : (!animate ? 250 : Math.Clamp(anim.FrameMs, 33, 200));
+        }
+        catch (Exception e) { Log.Write("tick failed: " + e); }
+    }
+
+    void Render()
+    {
+        try
+        {
+            var g = surface.G;
+            surface.Clear();
+            g.ResetTransform();
+            g.ScaleTransform(scale, scale);
+            g.InterpolationMode = InterpolationMode.NearestNeighbor;
+            g.PixelOffsetMode = PixelOffsetMode.Half;
+
+            bubble.Draw(g, tick);
+            g.DrawImage(sprites.Frame(anim.State, anim.Frame), new Rectangle(246, 86, 224, 224));
+
+            surface.Present(Handle, Location);
+            dirty = false;
+        }
+        catch (Exception e) { Log.Write("render failed: " + e); }
+    }
+
+    // ------------------------------------------------------------------ input
+
+    protected override void OnMouseDown(MouseEventArgs e)
+    {
+        base.OnMouseDown(e);
+        Log.Write($"mouse down {e.Button} at {e.Location} (foreground {foreground})");
+        if (e.Button != MouseButtons.Left) return;
+        dragging = true; moved = false;
+        dragStart = Cursor.Position; startLoc = Location;
+        Capture = true;
+    }
+
+    protected override void OnMouseMove(MouseEventArgs e)
+    {
+        base.OnMouseMove(e);
+        if (!dragging) return;
+        var c = Cursor.Position;
+        int dx = c.X - dragStart.X, dy = c.Y - dragStart.Y;
+        if (!moved && Math.Abs(dx) + Math.Abs(dy) < 4) return;
+        moved = true;
+        Location = new Point(startLoc.X + dx, startLoc.Y + dy);
+        surface.Present(Handle, Location);
+    }
+
+    protected override void OnMouseUp(MouseEventArgs e)
+    {
+        base.OnMouseUp(e);
+        Log.Write($"mouse up moved={moved} dragging={dragging} at {Location}");
+        if (!dragging) return;
+        dragging = false; Capture = false;
+        if (moved)
+        {
+            cfg.X = Location.X; cfg.Y = Location.Y; cfg.Save();
+            _ = link.SendAsync(new { t = "moved", x = Location.X, y = Location.Y });
+        }
+        else
+        {
+            Wake(); anim.Play("look"); dirty = true;
+            _ = link.SendAsync(new { t = "poked" });
+        }
+    }
+
+    // ------------------------------------------------------------------ hotkey
+
+    static readonly string[] HotkeyFallbacks = { "Ctrl+Alt+Q", "Ctrl+Alt+J", "Win+Shift+A", "Ctrl+Alt+Home" };
+    string activeHotkey = "";
+
+    /// <summary>Try the configured hotkey, then the fallbacks. Another program may already own a combination
+    /// (Ctrl+Alt+A and Ctrl+Alt+Space are taken on this machine), so the result is logged and shown in the tray.</summary>
+    bool RegisterHotkey()
+    {
+        foreach (var combo in new[] { cfg.Hotkey }.Concat(HotkeyFallbacks).Distinct())
+        {
+            if (!TryParseHotkey(combo, out var mods, out var vk)) { Log.Write("hotkey not understood: " + combo); continue; }
+            if (Win32.RegisterHotKey(Handle, HotkeyId, mods | Win32.MOD_NOREPEAT, vk))
+            {
+                activeHotkey = combo;
+                Log.Write("hotkey registered: " + combo);
+                return true;
+            }
+            Log.Write("hotkey unavailable (taken by another program): " + combo);
+        }
+        activeHotkey = "";
+        return false;
+    }
+
+    static bool TryParseHotkey(string text, out uint mods, out uint vk)
+    {
+        mods = 0; vk = 0;
+        foreach (var part in text.Split('+', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+        {
+            switch (part.ToLowerInvariant())
+            {
+                case "ctrl": case "control": mods |= 0x2; break;
+                case "alt": mods |= 0x1; break;
+                case "shift": mods |= 0x4; break;
+                case "win": mods |= 0x8; break;
+                case "space": vk = 0x20; break;
+                case "home": vk = 0x24; break;
+                case var f when f.Length is 2 or 3 && f[0] == 'f' && int.TryParse(f.AsSpan(1), out var n) && n is >= 1 and <= 24: vk = (uint)(0x6F + n); break;
+                case var c when c.Length == 1 && char.IsLetterOrDigit(c[0]): vk = char.ToUpperInvariant(c[0]); break;
+                default: return false;
+            }
+        }
+        return vk != 0 && mods != 0;
+    }
+
+    void UpdateTrayText()
+    {
+        var hk = activeHotkey.Length > 0 ? activeHotkey : "no hotkey available";
+        showItem.Text = $"Show or hide  ({hk})";
+        tray.Text = activeHotkey.Length > 0 ? $"Aang ({activeHotkey})" : "Aang";
+    }
+
+    void ToggleVisible()
+    {
+        if (Visible) { Hide(); return; }
+        Show(); dirty = true; Render();
+    }
+
+    protected override void WndProc(ref Message m)
+    {
+        switch (m.Msg)
+        {
+            // Screenshot tools call PrintWindow, which sends WM_PRINT. A layered window fed by
+            // UpdateLayeredWindow never paints, so answer with the same pixels we push to the screen.
+            case Win32.WM_PRINT:
+            case Win32.WM_PRINTCLIENT:
+                Win32.BitBlt(m.WParam, 0, 0, pw, ph, surface.Dc, 0, 0, Win32.SRCCOPY);
+                return;
+            case Win32.WM_ERASEBKGND:
+                m.Result = (IntPtr)1;
+                return;
+            case Win32.WM_HOTKEY when (int)m.WParam == HotkeyId:
+                ToggleVisible();
+                return;
+        }
+        base.WndProc(ref m);
+    }
+
+    // ------------------------------------------------------------------ tray
+
+    void BuildTray()
+    {
+        var menu = new ContextMenuStrip();
+        showItem = new ToolStripMenuItem("Show or hide");
+        var show = showItem;
+        show.Click += (_, _) => ToggleVisible();
+        quietItem = new ToolStripMenuItem("Quiet mode: auto");
+        quietItem.Click += (_, _) => { forcedQuiet = forcedQuiet switch { null => true, true => false, false => null }; ApplyQuiet(); };
+        var quit = new ToolStripMenuItem("Quit Aang");
+        quit.Click += (_, _) => { tray.Visible = false; Application.Exit(); };
+        menu.Items.AddRange(new ToolStripItem[] { show, quietItem, new ToolStripSeparator(), quit });
+        tray.ContextMenuStrip = menu;
+        tray.Text = "Aang";
+        tray.Icon = MakeIcon();
+        tray.Visible = true;
+        tray.DoubleClick += (_, _) => ToggleVisible();
+    }
+
+    void UpdateQuietMenu() =>
+        quietItem.Text = "Quiet mode: " + (forcedQuiet switch { null => "auto (quiet while WoW has focus)", true => "always", false => "never" });
+
+    Icon MakeIcon()
+    {
+        using var bmp = new Bitmap(32, 32);
+        using (var g = Graphics.FromImage(bmp))
+        {
+            g.InterpolationMode = InterpolationMode.NearestNeighbor;
+            g.DrawImage(sprites.Frame("idle", 0), new Rectangle(0, 0, 32, 32));
+        }
+        return Icon.FromHandle(bmp.GetHicon());
+    }
+
+    protected override void OnFormClosing(FormClosingEventArgs e)
+    {
+        timer.Stop(); fgTimer.Stop();
+        if (hotkeyOk) Win32.UnregisterHotKey(Handle, HotkeyId);
+        tray.Visible = false; tray.Dispose();
+        link.Dispose();
+        base.OnFormClosing(e);
+    }
+}

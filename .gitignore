@@ -4,4 +4,6 @@ obj/
 *.user
 .vs/
 dist/
+tests/out/
+tests/fakecore/node_modules/
 

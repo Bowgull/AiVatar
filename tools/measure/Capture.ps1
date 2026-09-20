@@ -19,7 +19,9 @@ param(
   [int]$Frames = 1,
   [int]$Fps = 4,
   [string]$Window = '',
-  [int]$MaxDim = 1400
+  [int]$MaxDim = 1400,
+  [switch]$Serve,
+  [string]$CropTitle = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -139,6 +141,43 @@ function Save-Scaled([System.Drawing.Bitmap]$bmp, [string]$path, [int]$maxDim) {
 }
 
 $vb = [System.Windows.Forms.SystemInformation]::VirtualScreen
+
+# Capture the composited desktop and crop to a window (plus a margin) so the result shows the window
+# exactly as it looks over the game. Full resolution, no scaling.
+function Snap([string]$path, [string]$title, [int]$margin = 24) {
+  $b = [AangCap]::Screen($vb.X, $vb.Y, $vb.Width, $vb.Height)
+  try {
+    $img = $b
+    if ($title) {
+      $ov = [AangCap]::Overlays($title)
+      if ($ov.Count -gt 0) {
+        $r = $ov[0].R
+        $x = [Math]::Max(0, $r.Left - $vb.X - $margin); $y = [Math]::Max(0, $r.Top - $vb.Y - $margin)
+        $w = [Math]::Min($b.Width - $x, ($r.Right - $r.Left) + 2 * $margin); $h = [Math]::Min($b.Height - $y, ($r.Bottom - $r.Top) + 2 * $margin)
+        $img = $b.Clone((New-Object System.Drawing.Rectangle $x, $y, $w, $h), $b.PixelFormat)
+      } else { return "no-window" }
+    }
+    $img.Save($path, [System.Drawing.Imaging.ImageFormat]::Png)
+    if (-not [object]::ReferenceEquals($img, $b)) { $img.Dispose() }
+    return "ok"
+  } finally { $b.Dispose() }
+}
+
+# Long-lived mode: a test driver keeps this process open and sends one line per shot
+# ("snap <out.png> [window title]"), so a screenshot costs ~200 ms instead of a PowerShell start-up.
+if ($Serve) {
+  [Console]::Out.WriteLine("ready"); [Console]::Out.Flush()
+  while ($null -ne ($line = [Console]::In.ReadLine())) {
+    if ($line -eq 'quit') { break }
+    if ($line -match '^snap\s+(\S+)(?:\s+(.+))?$') {
+      $res = Snap $Matches[1] ($Matches[2]) 24
+      [Console]::Out.WriteLine("$res $($Matches[1])"); [Console]::Out.Flush()
+    } else { [Console]::Out.WriteLine("bad-command"); [Console]::Out.Flush() }
+  }
+  exit 0
+}
+
+if ($CropTitle) { $res = Snap $Out $CropTitle 24; Write-Output "$res $Out"; exit 0 }
 
 if ($Window) {
   $ov = [AangCap]::Overlays($Window)

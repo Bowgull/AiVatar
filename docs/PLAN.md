@@ -4,6 +4,40 @@ Goal: a finished desktop companion that feels good to chat with, never freezes, 
 to run beside WoW. Not a first version. Each milestone ends with a gate that must pass before the next
 starts. Decisions and evidence: `docs/DECISIONS.md`.
 
+## Status (2026-09-20)
+
+| Milestone | State |
+|---|---|
+| M0 Foundations | Layout, protocol v1 (`docs/PROTOCOL.md`), 3 unit tests, measurement tooling: done. Core process not started (M2). |
+| M1 Body renders Aang | Functionally complete. Gate results below. |
+| M2-M5 | Not started. |
+
+**M1 gate, measured on the real Body with WoW running:**
+
+| Gate | Result |
+|---|---|
+| Idle CPU <= 1% | 0.92% of one core with the idle loop animating at 6 fps; 0.31% floor when frozen (quiet) |
+| Memory <= 150 MB | 20 MB private, 60 MB working set, 1 process |
+| Startup <= 2 s | 0.4 s |
+| Never steals focus | WoW stayed the foreground window in every run |
+| Click-through | Sprite pixel catches; transparent pixels and a hidden bubble's area pass through to the game |
+| Streaming steadiness | Automated test: earlier lines never re-wrap as text arrives |
+| Ten animation states | All ten captured over live WoW; idle, think, talk, nap, zip and spin reviewed by eye |
+| Quiet mode | A proactive message is held while quiet and delivered when quiet ends (reviewed by eye) |
+| Drag, remembered position, single instance | Passed with real mouse input, including with WoW verifiably in front |
+| Hotkey | Passed with real key input, but only after a fix (see below) |
+| Protocol | Hello, ping/pong, presence, and unknown messages ignored: 21 of 21 scenario checks |
+
+**Found and fixed while gating:**
+- The foreground-process lookup used `Process.ProcessName`, which snapshots every process; it cost ~1.1% CPU when polled twice a second. Replaced with a cached `QueryFullProcessImageName`.
+- Ctrl+Alt+A and Ctrl+Alt+Space are already taken by other programs here, so the hotkey silently failed. It is now configurable with a fallback list, defaults to Ctrl+Shift+Space, and the tray shows the one in use.
+- My own test read "foreground WoW" while Notepad was really in front; the test now records the foreground window and mouse-capture state.
+
+**Not yet verified (do not assume):**
+- One drag test failed once (window did not move, no mouse events logged) while WoW was on a loading screen. Three later runs passed, including with WoW verifiably in front and no mouse capture. The cause is unconfirmed.
+- DPI at 125% and 150%, multi-monitor, the tray icon's appearance, autostart, and the remaining animation states (look, scooter, walk, talk, hello) reviewed individually.
+- All numbers are for the Body without the Core, the input window or the model chip; re-measure at every milestone.
+
 ## What Aang is
 - The chibi pixel-art pet on Joshua's desktop, playful and in character, with no AI slop.
 - Understands the way Joshua actually writes (lowercase, typos, dropped apostrophes, vague references).
@@ -59,6 +93,39 @@ plus a real session where status appears and clears correctly.
 **M5 Reliability and retirement.** Supervisor, autostart, crash recovery, backup to a signed-in
 destination, packaging. Gate: kill Core mid-reply and kill Body mid-animation; both recover without
 losing the conversation. Only then retire the Rainmeter Aang.
+
+## Chat: feel targets and features (part of M3; each target is measured, not assumed)
+
+Evidence: [streaming UX guidance](https://redis.io/blog/streaming-llm-responses/) (under 0.1 s feels
+instant, keep first token near 800 ms, batch paints, typing indicator during the wait),
+[chat UI guidance](https://www.setproduct.com/blog/ai-chat-interface-ui-design) (stop button by the
+composer and hidden when done, auto-scroll only near the bottom, "jump to latest"), and
+[chat UI features](https://www.uxpin.com/studio/blog/chat-user-interface-design/) (edit and resend, retry,
+queued messages). The Agent SDK exposes streamed text and tool events, queued messages, interruption and
+image input, so none of this needs a workaround.
+
+Feel targets (M3 gate):
+- Ack within 100 ms of Enter: Aang reacts and the bubble outline appears with the thinking dots.
+- First token within 800 ms of send on the Quick lane, measured from stream event timestamps.
+- Text paints in 30-60 ms batches; earlier lines never re-wrap (automated test on line positions).
+- The bubble grows smoothly to a fixed number of lines, then scrolls; auto-scroll only within 100 px of
+  the bottom, otherwise a "jump to latest" control.
+- Hold time scales with reply length and pauses while the pointer is over the bubble or Joshua is typing.
+- Tool use shows as a short receipt line ("checking the weather") from the streamed tool events, then
+  clears.
+
+Functionality, in priority order:
+1. Stop: Esc or a button interrupts the turn within 500 ms.
+2. Queue: typing while Aang answers queues the message in order, with edit and remove.
+3. Edit last message and resend; retry an answer, optionally on a bigger model ("ask Smart instead").
+4. Paste or drag a screenshot or file onto Aang.
+5. Search past conversations by words or meaning (the SQLite memory already supports both).
+6. Long answers open in the Panel (markdown, code with copy, links); the bubble shows the gist plus a chip.
+7. Slash commands in the input box: /model, /save, /forget, /mute.
+8. Copy, rate (feeds the voice eval) and pin as a guide.
+
+Deliberately left out: generic suggested-follow-up chips (they are slop), voice (declined), and any
+always-on screen watching. Chips appear only when there is a real choice to make.
 
 ## Voice and eval track (runs alongside M2-M3)
 - **V0** Golden set of ~60 messages in Joshua's real style with expected intent and expected behavior,
