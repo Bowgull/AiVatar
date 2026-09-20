@@ -1,5 +1,8 @@
 # Aang: the whole thing
 
+> **Naming.** *AiVatar* is the project and the repo. *Aang* is the character who lives in it:
+> the sprite, the voice, the name Joshua talks to. Code, config and the protocol keep saying Aang.
+
 The complete end-product picture, 2026-09-20. Supersedes PLAN-V2.md. Every claim is either something
 Joshua said, or measured on this machine, or cited. Where evidence killed an idea, the idea is listed as
 dead with the reason, because the dead ends are half the value of this document.

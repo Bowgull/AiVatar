@@ -1,5 +1,8 @@
 # AiVatar: look, feel and the drawing layer
 
+> **Naming.** *AiVatar* is the project and the repo. *Aang* is the character who lives in it:
+> the sprite, the voice, the name Joshua talks to. Code, config and the protocol keep saying Aang.
+
 The design half of [THE-PLAN.md](THE-PLAN.md). What it looks like, how it moves, how it sounds, and how
 the drawing layer works in both directions. Written 2026-09-20.
 
