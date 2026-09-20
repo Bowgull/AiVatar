@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, readFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { WebSocket } from 'ws';
@@ -40,4 +40,18 @@ test('garbage from a client never crashes the Core', async () => {
   await pong; // hello with no quota yet sends nothing; the point is that we got here alive
   c.close();
   await core.stop();
+});
+
+test('a rating is written to ratings.jsonl and a malformed one is ignored', async () => {
+  const state = tmp();
+  const core = new Core({ port: 47974, dataDir: tmp(), stateDir: state, warm: false });
+  await core.start();
+  const c = new WebSocket('ws://127.0.0.1:47974/body');
+  await new Promise<void>(r => c.once('open', () => r()));
+  for (const m of [{ t: 'rate', id: 'u1', value: 'up' }, { t: 'rate', id: 'u2', value: 'sideways' }, { t: 'rate', value: 'up' }, { t: 'rate', id: 'u3', value: 'none' }]) c.send(JSON.stringify(m));
+  await new Promise(r => setTimeout(r, 300));
+  c.close();
+  await core.stop();
+  const lines = readFileSync(path.join(state, 'ratings.jsonl'), 'utf8').trim().split('\n').map(l => JSON.parse(l));
+  assert.deepEqual(lines.map(l => [l.id, l.value]), [['u1', 'up'], ['u3', 'none']]);
 });

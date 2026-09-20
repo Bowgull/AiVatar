@@ -35,6 +35,7 @@ Body (or any client) to Core:
 | `submit` | `id`, `text`, `mode` (auto, quick, smart, deep; default auto), `once` (bool) | Ask Aang something. `once` grants a single bigger-model turn while saving quota is on. |
 | `stop` | `id` (optional) | Interrupt the running turn. |
 | `saving` | `on` (bool) | Turn quota saving on or off (the 50% opt-in). |
+| `rate` | `id`, `value` (up, down, none) | Joshua rated a reply. The Core appends it, with the turn it is about, to `ratings.jsonl` for the voice review. |
 
 Core to Body:
 

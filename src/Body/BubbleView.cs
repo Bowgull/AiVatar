@@ -47,6 +47,22 @@ sealed class BubbleView : IDisposable
     string receipt = "";
 
     public bool Visible { get; private set; }
+    /// <summary>A finished reply from Claude can be copied and rated: three small buttons straddle the top edge while the mouse is over the bubble.</summary>
+    public bool Tools { get; set; }
+    public bool Hover { get; set; }
+    /// <summary>1 = good, -1 = not good, 0 = not rated.</summary>
+    public int Rating { get; set; }
+    public DateTime CopiedUntil { get; set; }
+    public const int ToolW = 20, ToolH = 17;
+    /// <summary>0 = copy, 1 = good, 2 = not good.</summary>
+    public RectangleF ToolRect(int i) => new(Right - 8 - (3 - i) * (ToolW + 3), CurrentTop - ToolH / 2f - 1, ToolW, ToolH);
+    public bool ToolsShown => Tools && Visible && !Dots && !streaming;
+    public int HitTool(float x, float y)
+    {
+        if (!ToolsShown) return -1;
+        for (int i = 0; i < 3; i++) { var r = ToolRect(i); r.Inflate(2, 2); if (r.Contains(x, y)) return i; }
+        return -1;
+    }
     public bool Dots { get; private set; }
     public string Text => text;
     public IReadOnlyList<string> Lines => lines;
@@ -156,7 +172,7 @@ sealed class BubbleView : IDisposable
 
     public void Clear()
     {
-        Visible = false; Dots = false; streaming = false; expanded = false; scroll = 0;
+        Visible = false; Dots = false; streaming = false; expanded = false; scroll = 0; Tools = false; Hover = false; Rating = 0;
         text = ""; receipt = ""; lines = new(); hideAt = DateTime.MaxValue; shownH = 0;
     }
 
@@ -235,7 +251,9 @@ sealed class BubbleView : IDisposable
     public bool Update(DateTime now)
     {
         var changed = false;
+        if (Hover && ToolsShown && hideAt != DateTime.MaxValue && hideAt < now.AddSeconds(2)) hideAt = now.AddSeconds(2);   // do not vanish under the mouse
         if (Visible && now >= hideAt) { Clear(); return true; }
+        if (CopiedUntil != default && now >= CopiedUntil) { CopiedUntil = default; changed = true; }
         if (Visible && Math.Abs(shownH - targetH) > 0.4f) { shownH += (targetH - shownH) * 0.4f; changed = true; }
         else if (Visible && shownH != targetH) { shownH = targetH; changed = true; }
         if (Visible && Dots) changed = true;
@@ -320,7 +338,38 @@ sealed class BubbleView : IDisposable
             var t = Track; var b = Thumb;
             FillRound(g, tk, t); FillRound(g, th, b);
         }
+        if (ToolsShown && Hover) DrawTools(g);
         g.SmoothingMode = old;
+    }
+
+    void DrawTools(Graphics g)
+    {
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        for (int i = 0; i < 3; i++)
+        {
+            var r = ToolRect(i);
+            var on = (i == 1 && Rating == 1) || (i == 2 && Rating == -1);
+            var copied = i == 0 && CopiedUntil != default;
+            var c = i == 1 ? Color.FromArgb(120, 230, 150) : i == 2 ? Color.FromArgb(255, 130, 120) : Color.FromArgb(150, 220, 255);
+            using var path = RoundRect(r, 6);
+            using (var bg = new SolidBrush(on || copied ? Color.FromArgb(230, c) : Color.FromArgb(240, 16, 10, 34))) g.FillPath(bg, path);
+            using (var pen = new Pen(c, 1.4f)) g.DrawPath(pen, path);
+            var ink = on || copied ? Color.FromArgb(16, 10, 34) : c;
+            using var ip = new Pen(ink, 1.7f) { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round };
+            float cx = r.X + r.Width / 2, cy = r.Y + r.Height / 2;
+            if (i == 0 && copied) g.DrawLines(ip, new[] { new PointF(cx - 4, cy), new PointF(cx - 1, cy + 3), new PointF(cx + 4, cy - 3) });
+            else if (i == 0) { g.DrawRectangle(ip, cx - 4, cy - 4, 6, 7); g.DrawLines(ip, new[] { new PointF(cx + 2, cy + 4), new PointF(cx + 4, cy + 4), new PointF(cx + 4, cy - 2) }); }
+            else if (i == 1) g.DrawLines(ip, new[] { new PointF(cx - 4, cy), new PointF(cx - 1, cy + 3), new PointF(cx + 4, cy - 3) });
+            else { g.DrawLine(ip, cx - 3, cy - 3, cx + 3, cy + 3); g.DrawLine(ip, cx + 3, cy - 3, cx - 3, cy + 3); }
+        }
+    }
+
+    static GraphicsPath RoundRect(RectangleF r, float rad)
+    {
+        var d = rad * 2; var p = new GraphicsPath();
+        p.AddArc(r.X, r.Y, d, d, 180, 90); p.AddArc(r.Right - d, r.Y, d, d, 270, 90);
+        p.AddArc(r.Right - d, r.Bottom - d, d, d, 0, 90); p.AddArc(r.X, r.Bottom - d, d, d, 90, 90);
+        p.CloseFigure(); return p;
     }
 
     static void FillRound(Graphics g, Brush br, RectangleF r)

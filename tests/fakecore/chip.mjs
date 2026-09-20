@@ -52,6 +52,8 @@ const spriteXY = [L + 360, T + 110 + 215];                       // a pixel on A
 // ---- the model chip, saving, quota strip, consent and the ONE global hotkey (Ctrl+NumLock), with WoW in front
 const wowFg = await keys.ask('focus WowB');
 const hasWow = /world of warcraft/i.test(wowFg);
+// With WoW closed the game cannot be the 'window that had focus'; use whatever really does, so the same checks still mean something.
+const before = hasWow ? wowFg : await keys.ask('fg');
 const bubbleXY = [L + 120, T + 110 + 100];
 const openBox = async () => { await keys.ask('focus WowB'); await keys.ask(`click ${spriteXY[0]} ${spriteXY[1]}`); await sleep(200); };
 const cfgMode = () => { try { return JSON.parse(readFileSync(path.join(process.env.APPDATA, 'Aang', 'body.json'), 'utf8').replace(/^﻿/, '')).Mode; } catch { return null; } };

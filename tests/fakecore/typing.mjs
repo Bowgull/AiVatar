@@ -55,6 +55,8 @@ const bubbleXY = [L + 120, T + 110 + 100];                        // inside the 
 const wowFg = await keys.ask('focus WowB');
 console.log(`      foreground before: '${wowFg}'`);
 const hasWow = /world of warcraft/i.test(wowFg);
+// With WoW closed the game cannot be the 'window that had focus'; use whatever really does, so the same checks still mean something.
+const before = hasWow ? wowFg : await keys.ask('fg');
 
 // 1. hotkey opens the box and takes focus
 await openBox();
@@ -70,7 +72,7 @@ const s1 = await waitFor(() => submits()[0]);
 check('Enter sends the text to the Core', s1?.text === 'hello there', JSON.stringify(s1?.text));
 check('the submit carries an id and a mode', !!s1?.id && s1?.mode === 'auto');
 fg = await keys.ask('fg');
-check('focus went back to where it was (the game)', hasWow ? /world of warcraft/i.test(fg) : fg === wowFg, `foreground '${fg}'`);
+check('focus went back to where it was (the game)', hasWow ? /world of warcraft/i.test(fg) : fg === before, `foreground '${fg}'`);
 await snap('02_thinking_immediately');
 
 // 3. the Core answers; receipt, stream and final all show

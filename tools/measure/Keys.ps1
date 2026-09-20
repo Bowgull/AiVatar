@@ -46,6 +46,7 @@ while ($null -ne ($line = [Console]::In.ReadLine())) {
       'send'   { [System.Windows.Forms.SendKeys]::SendWait($rest); Start-Sleep -Milliseconds 250; $r = "ok" }
       'click'  { $xy = $rest -split ' '; [void][K]::SetCursorPos([int]$xy[0], [int]$xy[1]); Start-Sleep -Milliseconds 120; [K]::mouse_event(0x0002, 0, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 60; [K]::mouse_event(0x0004, 0, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 300; $r = "ok" }
       'drag'   { $a = $rest -split ' '; $x = [int]$a[0]; $y = [int]$a[1]; $dx = [int]$a[2]; $dy = [int]$a[3]; [void][K]::SetCursorPos($x, $y); Start-Sleep -Milliseconds 150; [K]::mouse_event(0x0002, 0, 0, 0, [UIntPtr]::Zero); for ($i = 1; $i -le 12; $i++) { [void][K]::SetCursorPos($x + [int]($dx * $i / 12), $y + [int]($dy * $i / 12)); Start-Sleep -Milliseconds 25 }; [K]::mouse_event(0x0004, 0, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 300; $r = "ok" }
+      'move'   { $a = $rest -split ' '; [void][K]::SetCursorPos([int]$a[0], [int]$a[1]); Start-Sleep -Milliseconds 250; $r = 'ok' }
       'wheel'  { $a = $rest -split ' '; [void][K]::SetCursorPos([int]$a[1], [int]$a[2]); Start-Sleep -Milliseconds 120; [K]::mouse_event(0x0800, 0, 0, [int]$a[0], [UIntPtr]::Zero); Start-Sleep -Milliseconds 250; $r = "ok" }
       'rect'   { $r = [K]::Rect($rest) }
       'pid'    { $r = $(if (Get-Process $rest -ErrorAction SilentlyContinue) { "1" } else { "0" }) }

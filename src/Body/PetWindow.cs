@@ -53,7 +53,7 @@ sealed class PetWindow : Form
     bool saving, hasQuota;
     double weekUse, fiveUse;
     string level = "ok";
-    string? lastText, consentText;
+    string? lastText, consentText, replyId;
     string consentWanted = "", pendingMode = "smart";
 
     protected override CreateParams CreateParams
@@ -175,6 +175,7 @@ sealed class PetWindow : Form
                     Wake();
                     ExitExpanded(collapse: false);
                     ShowBubble(text, Bool(m, "stream"));
+                    if (!Bool(m, "stream") && !Bool(m, "proactive") && Str(m, "id") is { Length: > 0 } rid) { replyId = rid; bubble.Tools = true; bubble.Rating = 0; }
                     if (!Bool(m, "stream")) { working = false; input.Working = false; ackTimer.Stop(); }
                     break;
                 case "bubble.dots":
@@ -370,6 +371,12 @@ sealed class PetWindow : Form
     {
         base.OnMouseMove(e);
         if (thumbDrag) { if (bubble.ScrollToY(BubblePoint(e.Location).Y)) dirty = true; return; }
+        if (!dragging)
+        {
+            var hp = BubblePoint(e.Location);
+            var over = bubble.Visible && (bubble.Contains(hp.X, hp.Y) || bubble.HitTool(hp.X, hp.Y) >= 0);
+            if (over != bubble.Hover) { bubble.Hover = over; dirty = true; }
+        }
         if (!dragging) return;
         var c = Cursor.Position;
         int dx = c.X - dragStart.X, dy = c.Y - dragStart.Y;
@@ -377,6 +384,12 @@ sealed class PetWindow : Form
         moved = true;
         Location = new Point(startLoc.X + dx, startLoc.Y + dy);
         surface.Present(Handle, Location);
+    }
+
+    protected override void OnMouseLeave(EventArgs e)
+    {
+        base.OnMouseLeave(e);
+        if (bubble.Hover) { bubble.Hover = false; dirty = true; }
     }
 
     protected override void OnMouseWheel(MouseEventArgs e)
@@ -399,6 +412,8 @@ sealed class PetWindow : Form
         }
 
         var bp = BubblePoint(e.Location);
+        var tool = bubble.HitTool(bp.X, bp.Y);
+        if (tool >= 0) { UseTool(tool); dirty = true; return; }
         if (bubble.Visible && bubble.Contains(bp.X, bp.Y))
         {
             if (consentText != null) AllowOnce();
@@ -539,6 +554,20 @@ sealed class PetWindow : Form
         Wake(); ExitExpanded(collapse: false);
         bubble.Show(text, false, 1800);
         dirty = true;
+    }
+
+    /// <summary>Copy the reply, or rate it. Clicking a rating again takes it back. Ratings feed the voice review.</summary>
+    void UseTool(int tool)
+    {
+        if (tool == 0)
+        {
+            try { Clipboard.SetDataObject(bubble.Text, true, 5, 60); bubble.CopiedUntil = DateTime.UtcNow.AddMilliseconds(1200); }
+            catch (Exception e) { Log.Write("copy failed: " + e.Message); }
+            return;
+        }
+        var want = tool == 1 ? 1 : -1;
+        bubble.Rating = bubble.Rating == want ? 0 : want;
+        _ = link.SendAsync(new { t = "rate", id = replyId, value = bubble.Rating == 1 ? "up" : bubble.Rating == -1 ? "down" : "none" });
     }
 
     void OnConsent(string wanted)

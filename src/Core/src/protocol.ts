@@ -25,7 +25,8 @@ export type FromBody =
   | { t: 'pong' }
   | { t: 'submit'; id: string; text: string; mode?: Mode; once?: boolean }
   | { t: 'stop'; id?: string }
-  | { t: 'saving'; on: boolean };
+  | { t: 'saving'; on: boolean }
+  | { t: 'rate'; id: string; value: 'up' | 'down' | 'none' };
 
 export function parseFromBody(raw: string): FromBody | null {
   try {

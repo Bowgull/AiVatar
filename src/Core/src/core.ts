@@ -52,6 +52,7 @@ export class Core {
   private wss: WebSocketServer | null = null;
   private readonly lanes = new Map<LaneName, Lane>();
   private readonly queue: Submission[] = [];
+  private readonly recent = new Map<string, { lane: LaneName; user: string; reply: string }>();
   private active: Turn | null = null;
   private readonly systemPrompt: string;
   private readonly toolServer;
@@ -157,6 +158,7 @@ export class Core {
         break;
       }
       case 'stop': void this.stopActive(m.id); break;
+      case 'rate': this.rate(m.id, m.value); break;
       case 'saving': this.policy.setSaving(m.on); { const q = this.quotaMessage(); if (q) this.broadcast(q); } break;
       default: break; // presence, poked, moved, pong: nothing to do yet
     }
@@ -271,7 +273,19 @@ export class Core {
     this.finishTurn(turn);
   }
 
+  /** Joshua's rating of a reply, kept next to the turn it is about so voice changes can be judged on his taste. */
+  private rate(id: unknown, value: unknown): void {
+    if (typeof id !== 'string' || !id || (value !== 'up' && value !== 'down' && value !== 'none')) return;
+    const turn = this.recent.get(id);
+    try {
+      mkdirSync(this.cfg.stateDir, { recursive: true });
+      appendFileSync(path.join(this.cfg.stateDir, 'ratings.jsonl'), JSON.stringify({ ts: new Date().toISOString(), id, value, lane: turn?.lane, user: turn?.user, reply: turn?.reply }) + '\n');
+    } catch { /* ratings are best effort */ }
+  }
+
   private record(r: TurnRecord): void {
+    this.recent.set(r.id, { lane: r.lane, user: r.user, reply: r.reply });
+    if (this.recent.size > 60) this.recent.delete(this.recent.keys().next().value as string);
     try {
       mkdirSync(this.cfg.stateDir, { recursive: true });
       appendFileSync(path.join(this.cfg.stateDir, 'turns.jsonl'), JSON.stringify(r) + '\n');
