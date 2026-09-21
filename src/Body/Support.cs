@@ -123,6 +123,12 @@ sealed class Config
     public bool Muted { get; set; }
     /// <summary>Let Aang see the title of the window in front, so he knows which app Joshua is in.</summary>
     public bool SeeActiveWindow { get; set; } = true;
+    /// <summary>Docked to a screen edge: "left", "right", "top", "bottom" or empty; where along it (0 to 1); on which monitor.</summary>
+    public string DockEdge { get; set; } = "";
+    public double DockFrac { get; set; } = 0.5;
+    public string DockMonitor { get; set; } = "";
+    /// <summary>The one-time explanation of docking has been shown.</summary>
+    public bool DockHinted { get; set; }
 
     public static Config Load()
     {
