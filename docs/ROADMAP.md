@@ -235,7 +235,19 @@ Third-party memory services (privacy). Reddit feed. WoW combat-log analysis (his
    while fine, orange from 40%, red from 50%, green while saving. The pill labels were shortened to "saving" and
    "save?" so everything fits on one strip. Checked at 100% and 200%. Not built: the 150 ms crossfade between modes
    (it changes instantly), and the reveal-on-hover states.
-   Still to do: H edge docking, the two-width bubble and smoothed streaming, the Panel. Older live suites had hard-coded click positions that moved; those constants were updated, not re-run.
+   **Edge docking built 2026-09-21 (ninth pass):** drag him within 24 px of the left, right or top edge (or use
+   the tray's "Dock to an edge", which also has the bottom) and he tucks there with only his head and shoulders
+   showing (56 px), turned to face the screen by an exact 90 or 180 degree turn: `RotateFlip` moves pixels and changes
+   none, and the sprite is otherwise untouched. A click on his head, the hotkey, or anything that needs an answer (a
+   yes/no question, a consent question) brings him out fully; about a second after the mouse leaves he tucks back,
+   never while the box is open, he is working, a bubble is showing, or he is being dragged. A message that arrives
+   while he is tucked does not pop a bubble over your work: he peeks further out (90 px) with a gold dot and it is
+   there when you click him. His place is kept as (monitor, edge, fraction) and survives a restart; the first time,
+   he says how to bring him back. Geometry is pure (`Docking`) and checked without a screen by `Aang.exe
+   --selftest-dock` (26 checks, including that the rotation maths matches `RotateFlip` and that no pixel value
+   changes); on the real Body all four edges pass 16 numeric checks (`tests/fakecore/visual-dock.mjs`). Not built:
+   recomputing on a DPI change while running (a restart does), and the 150 ms crossfades.
+   Still to do: the two-width bubble and smoothed streaming, the Panel. Older live suites had hard-coded click positions that moved; those constants were updated, not re-run.
 9. **The rest, in this order**: N memory depth, L watching and #anime, M drawing, O finish and the design gate.
 
 Retired and never to be built: C, E, P, and the iMessage half of F.

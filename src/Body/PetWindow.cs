@@ -128,6 +128,12 @@ sealed class PetWindow : Form
         if (!sprites.HasAssets) throw new FileNotFoundException("Sprite frames are missing next to the executable.");
         surface = new LayeredSurface(pw, ph);
 
+        // Docking: find the sprite's visible pixels once, and start docked if he was left at an edge.
+        try { art = Docking.ArtBox(sprites.Frame("idle", 0)); } catch (Exception e) { Log.Write("art box failed: " + e.Message); }
+        foreach (var a in args) if (a.StartsWith("--dock=", StringComparison.OrdinalIgnoreCase)) cfg.DockEdge = a[7..];      // test flag
+        dock = Docking.Parse(cfg.DockEdge);
+        if (dock != DockEdge.None) { dockFrac = Math.Clamp(cfg.DockFrac, 0.04, 0.96); peeking = true; Location = PeekPos(); LogArt("start"); }
+
         link.Message += m => { if (IsHandleCreated) BeginInvoke(() => OnCore(m)); };
         timer.Tick += (_, _) => Tick();
         fgTimer.Tick += (_, _) => PollForeground();
@@ -207,6 +213,9 @@ sealed class PetWindow : Form
                 case "bubble":
                     var text = Str(m, "text") ?? "";
                     if (Bool(m, "proactive") && (cfg.Muted || hiddenByUser)) break;
+                    // Tucked at the edge: he does not pop a bubble over your work. He peeks a little further out with a dot,
+                    // and the message is there when you click him.
+                    if (peeking) { heldText = text; badge = true; SlideTo(PeekPos()); dirty = true; break; }
                     // "asked": news he asked for (a Claude job he started) comes through even while the game has focus.
                     if (Bool(m, "proactive") && quiet && !Bool(m, "asked")) { heldText = text; break; }
                     Wake();
@@ -387,7 +396,7 @@ sealed class PetWindow : Form
         quiet = q;
         Log.Write($"quiet={quiet} foreground={foreground}");
         anim.Play("idle");
-        if (!quiet && heldText != null) { ShowBubble(heldText, false); heldText = null; }
+        if (!quiet && !peeking && heldText != null) { ShowBubble(heldText, false); heldText = null; }
         dirty = true;
         _ = link.SendAsync(new { t = "presence", quiet, foreground, title = foregroundTitle, watching = cfg.SeeActiveWindow, hwnd = foregroundHwnd });
     }
@@ -401,6 +410,8 @@ sealed class PetWindow : Form
             var now = DateTime.UtcNow;
             tick++;
             var changed = bubble.Update(now);
+            if (StepSlide(now)) changed = true;
+            WatchDock(now);
 
             if (bubbleWasVisible && !bubble.Visible)
             {
@@ -425,7 +436,7 @@ sealed class PetWindow : Form
             }
 
             if (changed || dirty) Render();
-            timer.Interval = bubble.Animating ? 33 : (!animate ? (bubble.More ? 250 : 250) : Math.Clamp(anim.FrameMs, 33, 200));
+            timer.Interval = slideStart != DateTime.MinValue ? 16 : bubble.Animating ? 33 : (!animate ? (bubble.More ? 250 : 250) : Math.Clamp(anim.FrameMs, 33, 200));
         }
         catch (Exception e) { Log.Write("tick failed: " + e); }
     }
@@ -442,8 +453,12 @@ sealed class PetWindow : Form
             g.InterpolationMode = InterpolationMode.NearestNeighbor;
             g.PixelOffsetMode = PixelOffsetMode.Half;
 
-            bubble.Draw(g, tick);
-            g.DrawImage(sprites.Frame(anim.State, anim.Frame), new Rectangle(246, 86, 224, 224));
+            if (dock != DockEdge.None && peeking && slideStart == DateTime.MinValue) DrawPeeking(g);        // tucked at the edge
+            else
+            {
+                bubble.Draw(g, tick);
+                g.DrawImage(sprites.Frame(anim.State, anim.Frame), new Rectangle(246, 86, 224, 224));
+            }
 
             surface.Present(Handle, Location);
             dirty = false;
@@ -509,12 +524,8 @@ sealed class PetWindow : Form
         if (thumbDrag) { thumbDrag = false; Capture = false; return; }
         if (!dragging) return;
         dragging = false; Capture = false;
-        if (moved)
-        {
-            cfg.X = Location.X; cfg.Y = Location.Y; cfg.Save();
-            _ = link.SendAsync(new { t = "moved", x = Location.X, y = Location.Y });
-            return;
-        }
+        if (moved) { AfterDrag(); return; }
+        if (dock != DockEdge.None && peeking) { Reveal(); return; }              // a click on his head brings him out
 
         var bp = BubblePoint(e.Location);
         var choice = bubble.HitChoice(bp.X, bp.Y);
@@ -597,6 +608,7 @@ sealed class PetWindow : Form
     bool OpenInput(bool userAsked = false)
     {
         if (hiddenByUser && !userAsked) { Log.Write("input box suppressed: hidden by Joshua"); return false; }
+        if (peeking && userAsked) { Reveal(thenType: true); return true; }         // docked: bring him out first, then open the box
         if (!Visible) { hiddenByUser = false; Show(); }
         var prev = Win32.GetForegroundWindow();
         if (prev == Handle || prev == input.Handle) prev = IntPtr.Zero;
@@ -774,6 +786,7 @@ sealed class PetWindow : Form
             return;
         }
         permissionId = id;
+        if (peeking) Reveal();                                    // a question cannot be answered by a head at the edge
         Wake(); ExitExpanded(collapse: false);
         // Say what "yes" commits to before he gives it. Agreeing once and then being asked again is
         // what makes people stop reading these; agreeing once and quietly getting more than you meant is
@@ -800,6 +813,7 @@ sealed class PetWindow : Form
     {
         if (hiddenByUser) { Log.Write("consent question dropped: hidden by Joshua"); return; }
         consentWanted = ModelChip.Label(wanted); consentText = lastText; pendingMode = ModelChip.Normalize(wanted);
+        if (peeking) Reveal();
         working = false; input.Working = false; ackTimer.Stop();
         Wake(); ExitExpanded(collapse: false);
         bubble.Show($"{consentWanted} costs more of your week and saving quota is on. Click here or press Enter to allow it once, Esc to skip.", false, 60000);
@@ -934,6 +948,7 @@ sealed class PetWindow : Form
                 m.Result = (IntPtr)1;
                 return;
             case Win32.WM_HOTKEY when (int)m.WParam == HotkeyId:
+                if (dock != DockEdge.None && peeking) { Reveal(thenType: true); return; }      // docked: bring him out and open the box
                 ToggleVisible();                        // the one global hotkey: hide or reveal Aang
                 return;
             case Win32.WM_HOTKEY when (int)m.WParam == EscId:
@@ -941,6 +956,161 @@ sealed class PetWindow : Form
                 return;
         }
         base.WndProc(ref m);
+    }
+
+    // ------------------------------------------------------------------ docking to a screen edge
+
+    DockEdge dock = DockEdge.None;
+    double dockFrac = 0.5;
+    bool peeking, badge;                                   // peeking: tucked at the edge with only his head showing; badge: he has something to say
+    Rectangle art = new(70, 60, 88, 150);                  // the sprite's visible pixels within its frame, measured from a real frame at start
+    Point slideFrom, slideTo;
+    DateTime slideStart = DateTime.MinValue, engagedAt = DateTime.UtcNow;
+    const int SlideMs = 170;
+    bool inputAfterSlide;
+    string? dockHint;
+
+    Screen DockScreen() => Screen.AllScreens.FirstOrDefault(s => s.DeviceName == cfg.DockMonitor) ?? Screen.FromRectangle(Docking.OnScreen(Location, art, Extra, scale));
+    Point PeekPos() => Docking.PeekWindow(dock, dockFrac, DockScreen().WorkingArea, art, Extra, scale, badge ? Docking.PeekMorePx : Docking.PeekPx);
+    Point StandPos() => Docking.StandWindow(dock, dockFrac, DockScreen().WorkingArea, art, Extra, scale);
+
+    void SlideTo(Point to) { slideFrom = Location; slideTo = to; slideStart = DateTime.UtcNow; timer.Interval = 16; dirty = true; }
+
+    /// <summary>Advance a slide in progress, one ease-out (nothing bounces). True if he moved.</summary>
+    bool StepSlide(DateTime now)
+    {
+        if (slideStart == DateTime.MinValue) return false;
+        var t = Math.Clamp((now - slideStart).TotalMilliseconds / SlideMs, 0, 1);
+        var e = 1 - Math.Pow(1 - t, 3);
+        Location = new Point((int)Math.Round(slideFrom.X + (slideTo.X - slideFrom.X) * e), (int)Math.Round(slideFrom.Y + (slideTo.Y - slideFrom.Y) * e));
+        if (t >= 1) { slideStart = DateTime.MinValue; OnSlideDone(); }
+        return true;
+    }
+
+    /// <summary>Where his art is on screen right now, in the log, so a test can check docking by numbers.</summary>
+    void LogArt(string why)
+    {
+        var r = Docking.OnScreen(Location, Docking.Rotated(art, peeking ? dock : DockEdge.None), Extra, scale);
+        Log.Write($"artrect {why} {r.X},{r.Y},{r.Width},{r.Height}");
+    }
+
+    void OnSlideDone()
+    {
+        LogArt(peeking ? "peek" : "out");
+        if (peeking) return;
+        engagedAt = DateTime.UtcNow;
+        if (dockHint != null) { ShowBubble(dockHint, false); dockHint = null; }
+        else if (heldText != null && !quiet) { ShowBubble(heldText, false); heldText = null; }
+        if (inputAfterSlide) { inputAfterSlide = false; OpenInput(userAsked: true); }
+    }
+
+    /// <summary>Dock at an edge. The first time, he stands out once to say how to bring him back, then tucks away by himself.</summary>
+    void DockTo(DockEdge edge, double frac, Screen screen)
+    {
+        dock = edge; dockFrac = frac; badge = false;
+        cfg.DockEdge = Docking.Name(edge); cfg.DockFrac = frac; cfg.DockMonitor = screen.DeviceName;
+        input.Close(false); ExitExpanded(collapse: false); bubble.Clear(); anim.Play("idle");
+        if (!cfg.DockHinted)
+        {
+            cfg.DockHinted = true;
+            dockHint = $"Docked. Click my head{(activeHotkey.Length > 0 ? $", or press {activeHotkey}," : "")} to bring me out. The tray menu has Come back.";
+        }
+        cfg.Save();
+        Log.Write($"docked {edge} at {frac:0.00} on {screen.DeviceName}");
+        peeking = dockHint == null;
+        engagedAt = DateTime.UtcNow;
+        SlideTo(peeking ? PeekPos() : StandPos());
+        dirty = true;
+    }
+
+    /// <summary>Bring him out. Clicking his head, the hotkey and anything that needs an answer all come here.</summary>
+    void Reveal(bool thenType = false)
+    {
+        if (dock == DockEdge.None || !peeking) { if (thenType) OpenInput(userAsked: true); return; }
+        peeking = false; badge = false; inputAfterSlide = thenType; engagedAt = DateTime.UtcNow;
+        SlideTo(StandPos()); Wake();
+    }
+
+    void Peek() { if (dock == DockEdge.None || peeking) return; peeking = true; SlideTo(PeekPos()); dirty = true; }
+
+    /// <summary>Leave the edge. From the tray he walks out to stand at the edge; after a drag he stays where he was dropped.</summary>
+    void Undock(bool moveToStand)
+    {
+        if (dock == DockEdge.None) return;
+        var target = moveToStand ? StandPos() : Location;
+        dock = DockEdge.None; peeking = false; badge = false; cfg.DockEdge = "";
+        cfg.X = target.X; cfg.Y = target.Y; cfg.Save();
+        if (moveToStand) SlideTo(target);
+        Log.Write("undocked"); dirty = true;
+    }
+
+    /// <summary>
+    /// After a drag: within 24 px of the left, right or top edge he docks there; the bottom only if he was already
+    /// docked there (he normally stands on the taskbar, so snapping to it would tuck him away by accident).
+    /// </summary>
+    void AfterDrag()
+    {
+        var turned = peeking ? dock : DockEdge.None;
+        var artRect = Docking.OnScreen(Location, Docking.Rotated(art, turned), Extra, scale);
+        var screen = Screen.FromPoint(Cursor.Position);
+        var edge = Docking.Nearest(artRect, screen.WorkingArea, (int)(Docking.SnapPx * scale), allowBottom: dock == DockEdge.Bottom);
+        if (edge != DockEdge.None) { DockTo(edge, Docking.Fraction(edge, artRect, screen.WorkingArea), screen); return; }
+        if (dock != DockEdge.None) { peeking = false; badge = false; dock = DockEdge.None; cfg.DockEdge = ""; }
+        cfg.X = Location.X; cfg.Y = Location.Y; cfg.Save();
+        _ = link.SendAsync(new { t = "moved", x = Location.X, y = Location.Y });
+    }
+
+    void DockFromTray(DockEdge e)
+    {
+        var artRect = Docking.OnScreen(Location, Docking.Rotated(art, peeking ? dock : DockEdge.None), Extra, scale);
+        var screen = Screen.FromPoint(new Point(artRect.Left + artRect.Width / 2, artRect.Top + artRect.Height / 2));
+        DockTo(e, Docking.Fraction(e, artRect, screen.WorkingArea), screen);
+    }
+
+    /// <summary>Is the mouse on him or on his bubble?</summary>
+    bool OverMe()
+    {
+        var c = Cursor.Position;
+        var me = Docking.OnScreen(Location, art, Extra, scale); me.Inflate((int)(14 * scale), (int)(14 * scale));
+        if (me.Contains(c)) return true;
+        if (!bubble.Visible) return false;
+        return new Rectangle(Location.X + (int)(BubbleView.Left * scale), Location.Y + (int)((bubble.CurrentTop + Extra) * scale),
+            (int)((BubbleView.Right - BubbleView.Left) * scale), (int)((BubbleView.Bottom - bubble.CurrentTop) * scale)).Contains(c);
+    }
+
+    /// <summary>
+    /// Tuck away again about a second after the mouse leaves him, but never while there is something to read or answer,
+    /// while the box is open, while he is working, or while he is being dragged.
+    /// </summary>
+    void WatchDock(DateTime now)
+    {
+        if (dock == DockEdge.None || peeking || slideStart != DateTime.MinValue) return;
+        var engaged = input.Visible || working || bubble.Visible || bubble.Expanded || dragging || thumbDrag || permissionId != null || consentText != null || OverMe();
+        if (engaged) engagedAt = now;
+        else if ((now - engagedAt).TotalMilliseconds > 1000) Peek();
+    }
+
+    /// <summary>What is drawn while he is tucked at the edge: only him, turned to face the screen, and a dot if he has something to say.</summary>
+    void DrawPeeking(Graphics g)
+    {
+        using (var rot = (Bitmap)sprites.Frame(anim.State, anim.Frame).Clone())
+        {
+            rot.RotateFlip(Docking.Rotation(dock));                       // an exact turn: pixels move, none change
+            g.DrawImage(rot, new Rectangle(Docking.SpriteX, Docking.SpriteY, Docking.Frame, Docking.Frame));
+        }
+        if (!badge) return;
+        var r = Docking.Rotated(art, dock);
+        float cx = Docking.SpriteX + r.X + r.Width / 2f, cy = Docking.SpriteY + r.Y + r.Height / 2f;
+        var pt = dock switch
+        {
+            DockEdge.Bottom => new PointF(cx + 30, Docking.SpriteY + r.Y + 12),
+            DockEdge.Top => new PointF(cx + 30, Docking.SpriteY + r.Bottom - 12),
+            DockEdge.Right => new PointF(Docking.SpriteX + r.X + 12, cy - 30),
+            _ => new PointF(Docking.SpriteX + r.Right - 12, cy - 30),
+        };
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        using (var halo = new SolidBrush(Theme.WithAlpha(Theme.Ink, 230))) g.FillEllipse(halo, pt.X - 9, pt.Y - 9, 18, 18);
+        using (var dot = new SolidBrush(Theme.Gold)) g.FillEllipse(dot, pt.X - 6, pt.Y - 6, 12, 12);
     }
 
     // ------------------------------------------------------------------ tray
@@ -955,6 +1125,18 @@ sealed class PetWindow : Form
         hotkeyItem.Click += (_, _) => AskForHotkey();
         var talk = new ToolStripMenuItem("Talk to Aang");
         talk.Click += (_, _) => OpenInput(userAsked: true);
+        // Docking: tuck him against an edge with only his head showing. Dragging him within 24 px of the left, right or
+        // top edge does the same; the bottom is here because he normally stands there.
+        var dockMenu = new ToolStripMenuItem("Dock to an edge");
+        foreach (var edge in new[] { DockEdge.Left, DockEdge.Right, DockEdge.Top, DockEdge.Bottom })
+        {
+            var item = new ToolStripMenuItem(edge.ToString()) { Tag = edge };
+            item.Click += (_, _) => DockFromTray(edge);
+            dockMenu.DropDownItems.Add(item);
+        }
+        var comeBack = new ToolStripMenuItem("Come back (undock)");
+        comeBack.Click += (_, _) => Undock(moveToStand: true);
+        menu.Opening += (_, _) => comeBack.Enabled = dock != DockEdge.None;
         quietItem = new ToolStripMenuItem("Quiet mode: auto");
         quietItem.Click += (_, _) => { forcedQuiet = forcedQuiet switch { null => true, true => false, false => null }; ApplyQuiet(); };
         seeWindowItem = new ToolStripMenuItem("Let him see which app I'm in") { Checked = cfg.SeeActiveWindow };
@@ -985,7 +1167,7 @@ sealed class PetWindow : Form
         autostartItem = new ToolStripMenuItem("Start with Windows");
         autostartItem.Click += (_, _) => Autostart.Set(!Autostart.IsOn());
         menu.Opening += (_, _) => autostartItem.Checked = Autostart.IsOn();
-        menu.Items.AddRange(new ToolStripItem[] { talk, show, hotkeyItem, modelMenu, savingItem, quietItem, seeWindowItem, muteItem, new ToolStripSeparator(), coreItem, autostartItem, new ToolStripSeparator(), quit });
+        menu.Items.AddRange(new ToolStripItem[] { talk, show, dockMenu, comeBack, hotkeyItem, modelMenu, savingItem, quietItem, seeWindowItem, muteItem, new ToolStripSeparator(), coreItem, autostartItem, new ToolStripSeparator(), quit });
         tray.ContextMenuStrip = menu;
         tray.Text = "Aang";
         tray.Icon = MakeIcon();
