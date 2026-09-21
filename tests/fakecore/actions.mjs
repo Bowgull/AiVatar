@@ -62,7 +62,7 @@ const ask = async (id, text, clickYes = false) => {
     if (q) {
       const r = (await keys.ask('rect Aang Body')).split(' ').map(Number);
       // the yes button: BubbleView.ChoiceRect(0), centred, anchored to the bubble's bottom edge
-      await keys.ask(`click ${r[0] + 160} ${r[1] + 110 + 105}`);
+      await keys.ask(`click ${r[0] + 130} ${r[1] + 168 + 98}`);
     }
   }
   const m = await waitFor(() => inbox.find(x => x.t === 'bubble' && x.stream === false && x.id === id));

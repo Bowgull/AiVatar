@@ -47,14 +47,14 @@ check('Body connected', !!sock);
 await sleep(1500);
 const rect = (await keys.ask('rect Aang Body')).split(' ').map(Number);
 const [L, T] = rect;
-const spriteXY = [L + 360, T + 110 + 215];                       // a pixel on Aang himself
+const spriteXY = [L + 360, T + 168 + 215];                       // a pixel on Aang himself
 
 // ---- the model chip, saving, quota strip, consent and the ONE global hotkey (Ctrl+NumLock), with WoW in front
 const wowFg = await ensureForeground(keys.ask);
 const hasWow = /world of warcraft/i.test(wowFg);
 // With WoW closed the game cannot be the 'window that had focus'; use whatever really does, so the same checks still mean something.
 const before = hasWow ? wowFg : await keys.ask('fg');
-const bubbleXY = [L + 120, T + 110 + 100];
+const bubbleXY = [L + 120, T + 168 + 100];
 const openBox = async () => { await ensureForeground(keys.ask); await keys.ask(`click ${spriteXY[0]} ${spriteXY[1]}`); await sleep(200); };
 const cfgMode = () => { try { return JSON.parse(readFileSync(path.join(process.env.AANG_BODY_DIR, 'body.json'), 'utf8').replace(/^﻿/, '')).Mode; } catch { return null; } };
 const answer = async s => { send({ t: 'bubble', text: 'ok', stream: false, id: s?.id }); await sleep(250); };

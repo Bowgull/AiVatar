@@ -208,7 +208,17 @@ Third-party memory services (privacy). Reddit feed. WoW combat-log analysis (his
    positions and raw keystrokes (still off), and acting in a browser is deliberately ask-every-time. Q2 UI Automation hands. Q3 generalised delegation
    (Claude in Chrome, self-improvement sessions, Spotify). K background jobs fold in here.
 7. **I, email and outreach**, after his one-time Google sign-in; morning brief and calendar on the same auth.
-8. **The look**: B2 Clean Gold tokens and buttons, H docking, modes and bars, J the Panel.
+8. **The look**: B2 Clean Gold tokens and buttons, H docking, modes and bars, J the Panel. **B2 built 2026-09-21
+   (sixth pass):** `Theme.cs` is the one token set (gold `#FFC43C` = Aang and the main thing to press; orange careful;
+   red no or over; green good; plum the quiet alternative) and the bubble, the input box and the strip under it all
+   draw from it. Before, the bubble was gold while the input and the chip were still cyan. The bubble text is 15 px on
+   a 21 px line (was 14.7 on 16), radius 12, a 2 px gold outline over a soft dark halo so it holds on bright ground;
+   Yes and No are weighted buttons (28 px tall with a lip and a catch-light: gold Yes, plum No; were 20 px green and
+   red pills). The window grew taller (headroom 110 to 168) with a one-time saved-position shift so the sprite does
+   not move; the sprite is untouched. `--dpi=` draws at any scale for screenshots; `tests/fakecore/visual.mjs`
+   captures every state with a pretend Core (no model) and clicks the new buttons. Checked at 100, 150 and 200%.
+   Still to do: H edge docking, the mode unit frames, the usage bars, the two-width bubble and smoothed streaming,
+   the Panel. Older live suites had hard-coded click positions that moved; those constants were updated, not re-run.
 9. **The rest, in this order**: N memory depth, L watching and #anime, M drawing, O finish and the design gate.
 
 Retired and never to be built: C, E, P, and the iMessage half of F.

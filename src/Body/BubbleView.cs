@@ -16,11 +16,13 @@ namespace Aang.Body;
 /// </summary>
 sealed class BubbleView : IDisposable
 {
-    public const int Left = 6, Right = 262, Bottom = 124, LineH = 16, TextX = 20, Pad = 11;
+    // Clean Gold: 15 px text on a 21 px line (it was 14.7 on 16, which read cramped), radius 12, 12 px padding.
+    // The bubble grows UP from Bottom, so PetWindow.Extra must cover ExpandedMaxH - Bottom (see there).
+    public const int Left = 6, Right = 262, Bottom = 124, LineH = 21, TextX = 20, Pad = 12;
     public const int CollapsedLines = 6, ExpandedLines = 12;
-    public const int MinH = 54, MaxTextW = 232, Radius = 14;
-    public const int CollapsedH = CollapsedLines * LineH + 2 * Pad;     // 118
-    public const int ExpandedMaxH = ExpandedLines * LineH + 2 * Pad;    // 214
+    public const int MinH = 58, MaxTextW = 232, Radius = Theme.Radius;
+    public const int CollapsedH = CollapsedLines * LineH + 2 * Pad;     // 150
+    public const int ExpandedMaxH = ExpandedLines * LineH + 2 * Pad;    // 276
     // Tail: base on the bubble's right edge, tip aimed at Aang's face.
     const int TailBaseTop = Bottom - 40, TailBaseBottom = Bottom - 18, TailTipX = 320, TailTipY = 152;
     // Scrollbar: a slim track in the right margin inside the outline.
@@ -29,20 +31,20 @@ sealed class BubbleView : IDisposable
     // Pixel units, not points. The bubble is drawn into a surface that is already scaled by the DPI factor,
     // and a point-sized font is scaled by the DPI again on top of that: at 200% the text came out 4x and
     // the lines overlapped. These are the 96-dpi pixel equivalents of 11pt / 8.5pt / 9pt.
-    readonly Font font = new("Bahnschrift", 14.667f, FontStyle.Regular, GraphicsUnit.Pixel);
+    readonly Font font = new(Theme.Face, Theme.BodyPx, FontStyle.Regular, GraphicsUnit.Pixel);
     readonly Bitmap measureBmp = new(1, 1);
     readonly Graphics measure;
     readonly Dictionary<string, float> widths = new();
     readonly float spaceW, ellipsisW;
-    readonly Color fillC = Color.FromArgb(244, 14, 8, 30);
-    readonly Color strokeC = Color.FromArgb(235, 255, 196, 60);
-    readonly Color textC = Color.FromArgb(255, 240, 244, 255);
-    readonly Color dimC = Color.FromArgb(200, 178, 170, 215);
-    readonly Color gripC = Color.FromArgb(200, 178, 120, 255);      // the drag-handle purple from the original skin
-    readonly Color trackC = Color.FromArgb(150, 44, 24, 92);
+    readonly Color fillC = Theme.InkFill;
+    readonly Color strokeC = Theme.WithAlpha(Theme.Gold, 240);
+    readonly Color textC = Theme.Text;
+    readonly Color dimC = Theme.WithAlpha(Theme.Secondary, 210);
+    readonly Color gripC = Theme.WithAlpha(Theme.PlumEdge, 220);    // the scrollbar thumb
+    readonly Color trackC = Theme.WithAlpha(Theme.Plum, 150);
     /// <summary>Claude's brand terracotta, lightened to read on the ink: the colour of anything that is Claude.</summary>
-    readonly Color linkC = Color.FromArgb(255, 0xE8, 0x8A, 0x6A);
-    readonly Font bold = new("Bahnschrift SemiBold", 14.667f, FontStyle.Regular, GraphicsUnit.Pixel);
+    readonly Color linkC = Theme.Claude;
+    readonly Font bold = new(Theme.FaceBold, Theme.BodyPx, FontStyle.Regular, GraphicsUnit.Pixel);
     /// <summary>A word in the text to mark as a link (e.g. "Claude"), or empty.</summary>
     public string Link { get; set; } = "";
 
@@ -68,13 +70,14 @@ sealed class BubbleView : IDisposable
         set { if (asking == value) return; asking = value; targetH = HeightFor(Math.Min(lines.Count, CollapsedLines)); }
     }
     bool asking;
-    public const int ChoiceW = 52, ChoiceH = 20;
+    // Weighted buttons: 28 px tall (they were 20, small for a decision that grants a permission) and a row of their own.
+    public const int ChoiceW = 68, ChoiceH = 28, AskRow = ChoiceH + 8;
     /// <summary>0 = Yes, 1 = No.</summary>
-    public RectangleF ChoiceRect(int i) => new(Right - 12 - (2 - i) * (ChoiceW + 6), Bottom - Pad - ChoiceH + 2, ChoiceW, ChoiceH);
+    public RectangleF ChoiceRect(int i) => new(Right - 14 - (2 - i) * (ChoiceW + 8), Bottom - Pad - ChoiceH, ChoiceW, ChoiceH);
     public int HitChoice(float x, float y)
     {
         if (!Asking || !Visible) return -1;
-        for (int i = 0; i < 2; i++) { var r = ChoiceRect(i); r.Inflate(3, 3); if (r.Contains(x, y)) return i; }
+        for (int i = 0; i < 2; i++) { var r = ChoiceRect(i); r.Inflate(4, 4); if (r.Contains(x, y)) return i; }
         return -1;
     }
     public const int ToolW = 20, ToolH = 17;
@@ -163,7 +166,7 @@ sealed class BubbleView : IDisposable
         return l.TrimEnd(',', ';', ':', '.', ' ') + "...";
     }
 
-    float HeightFor(int lineCount) => Math.Clamp((lineCount + (asking ? 1 : 0)) * LineH + 2 * Pad, MinH, ExpandedMaxH);
+    float HeightFor(int lineCount) => Math.Clamp(lineCount * LineH + (asking ? AskRow : 0) + 2 * Pad, MinH, ExpandedMaxH + AskRow);
 
     public void Show(string t, bool stream, int holdMs)
     {
@@ -322,8 +325,10 @@ sealed class BubbleView : IDisposable
         g.SmoothingMode = SmoothingMode.AntiAlias;
         using var path = Outline(top);
         using var fill = new SolidBrush(fillC);
-        using var pen = new Pen(strokeC, 1.8f) { LineJoin = LineJoin.Round };
+        using var halo = new Pen(Theme.Halo, Theme.HaloStroke) { LineJoin = LineJoin.Round };
+        using var pen = new Pen(strokeC, Theme.Stroke) { LineJoin = LineJoin.Round };
         g.FillPath(fill, path);
+        g.DrawPath(halo, path);                 // a dark edge under the gold, so it holds on a bright snowfield as well as a dark forest
         g.DrawPath(pen, path);
 
         if (Dots)
@@ -339,7 +344,7 @@ sealed class BubbleView : IDisposable
             }
             if (receipt.Length > 0)
             {
-                using var small = new Font("Bahnschrift", 11.333f, FontStyle.Regular, GraphicsUnit.Pixel);
+                using var small = new Font(Theme.Face, Theme.ReceiptPx, FontStyle.Regular, GraphicsUnit.Pixel);
                 using var rb = new SolidBrush(dimC);
                 g.DrawString(receipt + "...", small, rb, TextX, (Bottom + top) / 2 - 2, StringFormat.GenericTypographic);
             }
@@ -353,8 +358,8 @@ sealed class BubbleView : IDisposable
         // A short reply does not fill the minimum bubble height, so the leftover space is split above and
         // below instead of all falling underneath the text. Joshua asked for even padding; the MinH clamp
         // had quietly reintroduced 11px above and 27px below on a one-liner.
-        var rows = count + (asking ? 1 : 0);
-        var slack = Math.Max(0f, (Bottom - top) - 2 * Pad - rows * LineH);
+        var used = count * LineH + (asking ? AskRow : 0);
+        var slack = Math.Max(0f, (Bottom - top) - 2 * Pad - used);
         var textTop = top + Pad + slack / 2f;
         // Only the first "Claude" in the message is the link: every mention marked at once reads as noise.
         int linkLine = -1;
@@ -363,7 +368,7 @@ sealed class BubbleView : IDisposable
         {
             var line = lines[first + i];
             if (More && i == count - 1) line = Ellipsize(line);            // "..." on the last visible line
-            float y = textTop + i * LineH;
+            float y = textTop + i * LineH + 2;               // a 15 px face sits in the upper part of a 21 px line; nudge it to the middle
             int at = first + i == linkLine ? line.IndexOf(Link, StringComparison.Ordinal) : -1;
             if (at < 0) { g.DrawString(line, font, tb, TextX, y, StringFormat.GenericTypographic); continue; }
             // The linked word - "Claude", the app his job runs in - is drawn in Claude's own colour and underlined,
@@ -373,7 +378,7 @@ sealed class BubbleView : IDisposable
             if (before.Length > 0) g.DrawString(before, font, tb, TextX, y, StringFormat.GenericTypographic);
             using (var lb = new SolidBrush(linkC)) g.DrawString(Link, bold, lb, x, y, StringFormat.GenericTypographic);
             float lw = Width(Link) + 1;
-            using (var up = new Pen(linkC, 1.2f)) g.DrawLine(up, x, y + LineH - 2, x + lw, y + LineH - 2);
+            using (var up = new Pen(linkC, 1.2f)) g.DrawLine(up, x, y + 17, x + lw, y + 17);
             var after = line[(at + Link.Length)..];
             // The gap is added by hand and the space itself dropped: drawing " on" after adding a space doubled it.
             if (after.Length > 0) g.DrawString(after.TrimStart(' '), font, tb, x + lw + (after.StartsWith(' ') ? spaceW : 0), y, StringFormat.GenericTypographic);
@@ -400,22 +405,33 @@ sealed class BubbleView : IDisposable
         g.SmoothingMode = old;
     }
 
-    static readonly string[] ChoiceText = { "yes", "no" };
+    static readonly string[] ChoiceText = { "Yes", "No" };
 
+    /// <summary>
+    /// A weighted button: a solid face with a lip under it and a catch-light along its top edge, so it reads as
+    /// something to press rather than a label with an outline. Yes is gold (the main thing); No is plum (the quiet
+    /// alternative). Neither is green or red: those colours mean "good" and "bad", and declining is not bad.
+    /// </summary>
     void DrawChoices(Graphics g)
     {
         g.SmoothingMode = SmoothingMode.AntiAlias;
-        using var f = new Font("Bahnschrift", 12f, FontStyle.Bold, GraphicsUnit.Pixel);
+        using var f = new Font(Theme.FaceBold, Theme.ButtonPx, FontStyle.Regular, GraphicsUnit.Pixel);
         for (int i = 0; i < 2; i++)
         {
             var r = ChoiceRect(i);
-            var c = i == 0 ? Color.FromArgb(120, 230, 150) : Color.FromArgb(255, 130, 120);
-            using var path = RoundRect(r, ChoiceH / 2f);
-            using (var bg = new SolidBrush(Color.FromArgb(45, c))) g.FillPath(bg, path);
-            using (var pen = new Pen(c, 1.5f)) g.DrawPath(pen, path);
-            using var tb = new SolidBrush(c);
-            var sz = g.MeasureString(ChoiceText[i], f);
-            g.DrawString(ChoiceText[i], f, tb, r.X + (r.Width - sz.Width) / 2, r.Y + (r.Height - sz.Height) / 2 + 1);
+            var yes = i == 0;
+            var face = new RectangleF(r.X, r.Y, r.Width, r.Height - Theme.Lip);
+            using (var lipPath = RoundRect(r, 9)) using (var lip = new SolidBrush(yes ? Theme.GoldDeep : Theme.PlumDeep)) g.FillPath(lip, lipPath);
+            using (var facePath = RoundRect(face, 9))
+            {
+                using (var fb = new SolidBrush(yes ? Theme.Gold : Theme.Plum)) g.FillPath(fb, facePath);
+                if (!yes) using (var edge = new Pen(Theme.PlumEdge, 1.2f)) g.DrawPath(edge, facePath);
+            }
+            using (var light = new Pen(Theme.WithAlpha(yes ? Theme.GoldLight : Theme.PlumEdge, 170), 1f))
+                g.DrawLine(light, face.X + 9, face.Y + 1.5f, face.Right - 9, face.Y + 1.5f);
+            using var tb = new SolidBrush(yes ? Theme.Ink : Theme.Text);
+            var sz = g.MeasureString(ChoiceText[i], f, PointF.Empty, StringFormat.GenericTypographic);
+            g.DrawString(ChoiceText[i], f, tb, face.X + (face.Width - sz.Width) / 2, face.Y + (face.Height - sz.Height) / 2, StringFormat.GenericTypographic);
         }
     }
 
@@ -427,11 +443,11 @@ sealed class BubbleView : IDisposable
             var r = ToolRect(i);
             var on = (i == 1 && Rating == 1) || (i == 2 && Rating == -1);
             var copied = i == 0 && CopiedUntil != default;
-            var c = i == 1 ? Color.FromArgb(120, 230, 150) : i == 2 ? Color.FromArgb(255, 130, 120) : Color.FromArgb(150, 220, 255);
+            var c = i == 1 ? Theme.Green : i == 2 ? Theme.Red : Theme.Gold;
             using var path = RoundRect(r, 6);
-            using (var bg = new SolidBrush(on || copied ? Color.FromArgb(230, c) : Color.FromArgb(240, 16, 10, 34))) g.FillPath(bg, path);
+            using (var bg = new SolidBrush(on || copied ? Theme.WithAlpha(c, 230) : Theme.WithAlpha(Theme.Ink, 240))) g.FillPath(bg, path);
             using (var pen = new Pen(c, 1.4f)) g.DrawPath(pen, path);
-            var ink = on || copied ? Color.FromArgb(16, 10, 34) : c;
+            var ink = on || copied ? Theme.Ink : c;
             using var ip = new Pen(ink, 1.7f) { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round };
             float cx = r.X + r.Width / 2, cy = r.Y + r.Height / 2;
             if (i == 0 && copied) g.DrawLines(ip, new[] { new PointF(cx - 4, cy), new PointF(cx - 1, cy + 3), new PointF(cx + 4, cy - 3) });
