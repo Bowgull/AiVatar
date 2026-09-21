@@ -539,6 +539,9 @@ sealed class PetWindow : Form
     protected override void OnMouseUp(MouseEventArgs e)
     {
         base.OnMouseUp(e);
+        // A right-click on Aang is the same menu as the tray icon (Panel, Talk, Model, Dock...), where he is.
+        if (e.Button == MouseButtons.Right) { tray.ContextMenuStrip?.Show(new Point(Cursor.Position.X - 34, Cursor.Position.Y), ToolStripDropDownDirection.Left); return; }   // to his left: he is drawn above a menu that opens under him
+
         if (thumbDrag) { thumbDrag = false; Capture = false; return; }
         if (!dragging) return;
         dragging = false; Capture = false;
