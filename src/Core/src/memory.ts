@@ -17,7 +17,9 @@ export class Memory {
       const file = path.join(dataDir, 'aang.db');
       if (existsSync(file)) {
         this.db = new DatabaseSync(file);
-        this.db.exec('PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 3000;');
+        // WAL with FULL sync: a hard Shadow shutdown is a power cut, and FULL is what makes a committed
+        // turn survive one. Writes here are a few per conversation, so the cost is nothing.
+        this.db.exec('PRAGMA journal_mode = WAL; PRAGMA synchronous = FULL; PRAGMA busy_timeout = 3000;');
       }
     } catch (e) {
       console.error('memory: could not open aang.db, running without it:', (e as Error).message);
@@ -77,5 +79,8 @@ export class Memory {
     }
   }
 
-  close(): void { try { this.db?.close(); } catch { /* ignore */ } }
+  /** Fold the WAL back into the database so it cannot grow without bound across long sessions. */
+  checkpoint(): void { try { this.db?.exec('PRAGMA wal_checkpoint(TRUNCATE);'); } catch { /* busy: next time */ } }
+
+  close(): void { this.checkpoint(); try { this.db?.close(); } catch { /* ignore */ } }
 }

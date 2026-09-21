@@ -36,7 +36,7 @@ sealed class InputHistory
         if (items.Count == 0 || items[^1] != text) items.Add(text);
         while (items.Count > Max) items.RemoveAt(0);
         Reset();
-        try { if (file != null) File.WriteAllText(file, JsonSerializer.Serialize(items)); }
+        try { if (file != null) Atomic.Write(file, JsonSerializer.Serialize(items)); }
         catch (Exception e) { Log.Write("history save failed: " + e.Message); }
     }
 

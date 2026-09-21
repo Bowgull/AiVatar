@@ -101,14 +101,18 @@ Each phase lists what it closes from A-L, what is new, and the gate it has to pa
 ### P0 - Survive the machine
 *Closes: D6, K3, part of K4*
 - [x] Private GitHub repo, all history pushed (**done 2026-09-20**)
-- [ ] Auto-push on every commit; nothing uncommitted survives a Shadow shutdown otherwise
-- [ ] Checkpoint on Shadow's 15-minute warning, and every N minutes regardless (hard shutdown means
-      `WM_ENDSESSION` is not guaranteed)
+- [x] Auto-push on every commit (**done 2026-09-20**, tools/git-hooks/post-commit; verified a commit reached GitHub)
+- [x] Checkpoint every 5 minutes regardless (**done**). Shadow's 15-minute warning is not exposed to a
+      process, so nothing waits for it: atomic writes and FULL sync make a warning unnecessary.
 - [x] **Session resume**: save the SDK session id, resume on Core start, so six reboots a day stop
       wiping the conversation (**done 2026-09-20**, 12/12 in tests/fakecore/resume.mjs with a real SIGKILL)
-- [ ] SQLite WAL checkpointing so a hard kill cannot corrupt the memory
-- [ ] **Hidden stays hidden.** Audit every path that can re-show him. Clippy's real failure, and
-      OpenAI's live bug.
+- [x] SQLite WAL + `synchronous = FULL`, and **every state file written atomically** (**done**). Measured
+      with 25 random SIGKILLs: writing in place left reminders.json unreadable **6-14 times out of 25**;
+      after the fix, 0 unreadable, 0 damaged databases, 0 losses (src/Core/test/hardkill.test.ts)
+- [x] **Hidden stays hidden** (**done**). A consent question called OpenInput, which called Show() - he
+      un-hid himself, exactly Clippy's failure. Unprompted messages, animation changes, consent, thinking
+      and permission questions are all suppressed while hidden; a permission he cannot see is answered no
+      at once. 10/10 in tests/fakecore/hidden.mjs.
 **Gate:** kill the VM mid-conversation; on restart Aang picks up where he left off and loses nothing.
 **Gate result:** passed. Told him a fact, killed the Core with SIGKILL, restarted: same session id, and he
 repeated the fact with its detail. A poisoned session id recovers silently and still answers.

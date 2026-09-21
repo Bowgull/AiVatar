@@ -2,7 +2,8 @@
 //
 // They are written to disk the moment they are made, so a restart (or a power cut, which has happened here)
 // never loses one, and anything that came due while the Core was down is delivered as soon as it is back.
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { writeFileAtomic } from './atomic.ts';
 import path from 'node:path';
 
 export interface Reminder {
@@ -62,8 +63,7 @@ export class Reminders {
 
   private save(): void {
     try {
-      mkdirSync(path.dirname(this.file), { recursive: true });
-      writeFileSync(this.file, JSON.stringify(this.items, null, 2));
+      writeFileAtomic(this.file, JSON.stringify(this.items, null, 2));
     } catch { /* best effort */ }
   }
 

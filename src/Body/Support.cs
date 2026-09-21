@@ -23,6 +23,22 @@ static class Autostart
     }
 }
 
+/// <summary>
+/// Write a file so it is always either the old version or the new one, never half of each. This machine is a
+/// Shadow cloud PC that shuts down hard every four hours; writing body.json in place could leave it truncated,
+/// and Config.Load treats an unreadable file as a fresh install - losing position, model, hotkey and mute.
+/// </summary>
+static class Atomic
+{
+    public static void Write(string path, string text)
+    {
+        var tmp = path + ".tmp";
+        using (var f = new FileStream(tmp, FileMode.Create, FileAccess.Write, FileShare.None))
+        using (var w = new StreamWriter(f)) { w.Write(text); w.Flush(); f.Flush(flushToDisk: true); }
+        File.Move(tmp, path, overwrite: true);
+    }
+}
+
 static class Paths
 {
     public static readonly string Dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Aang");
@@ -84,7 +100,7 @@ sealed class Config
 
     public void Save()
     {
-        try { System.IO.File.WriteAllText(Paths.File("body.json"), JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true })); }
+        try { Atomic.Write(Paths.File("body.json"), JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true })); }
         catch (Exception e) { Log.Write("config save failed: " + e.Message); }
     }
 }

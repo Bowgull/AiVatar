@@ -46,6 +46,14 @@ sealed class PetWindow : Form
     readonly System.Windows.Forms.Timer awayTimer = new() { Interval = 30 };
     string? currentId;
     bool working, acked, escRegistered, thumbDrag, mouseWasDown;
+    /// <summary>
+    /// Joshua hid him, so he stays hidden until Joshua asks for him back. Clippy's real failure was not the
+    /// art, it was coming back by itself after being dismissed, and OpenAI's pet has the same bug open today.
+    /// Nothing below may call Show() while this is set.
+    /// </summary>
+    bool hiddenByUser;
+    /// <summary>Test flag (--set-hotkey): open the key chooser as soon as the window is up.</summary>
+    bool openHotkeyBox;
     int idCounter;
 
     // model chip + quota + consent
@@ -96,6 +104,7 @@ sealed class PetWindow : Form
             if (a.Equals("--quiet=never", StringComparison.OrdinalIgnoreCase)) forcedQuiet = false;
             else if (a.Equals("--quiet=always", StringComparison.OrdinalIgnoreCase)) forcedQuiet = true;
             else if (a.Equals("--no-core", StringComparison.OrdinalIgnoreCase)) noCore = true;   // tests: do not start the Core or touch autostart
+            else if (a.Equals("--set-hotkey", StringComparison.OrdinalIgnoreCase)) openHotkeyBox = true;  // tests: open the key chooser at start
         }
 
         sprites = new SpriteBank(Path.Combine(AppContext.BaseDirectory, "assets", "aang", "frames"));
@@ -160,6 +169,7 @@ sealed class PetWindow : Form
         UpdateTrayText();
         anim.Play("hello");
         Log.Write($"shown at {Location} {pw}x{ph} scale {scale:0.00}");
+        if (openHotkeyBox) BeginInvoke(AskForHotkey);
     }
 
     // ------------------------------------------------------------------ Core messages
@@ -177,7 +187,7 @@ sealed class PetWindow : Form
                     break;
                 case "bubble":
                     var text = Str(m, "text") ?? "";
-                    if (Bool(m, "proactive") && cfg.Muted) break;
+                    if (Bool(m, "proactive") && (cfg.Muted || hiddenByUser)) break;
                     if (Bool(m, "proactive") && quiet) { heldText = text; break; }
                     Wake();
                     ExitExpanded(collapse: false);
@@ -441,7 +451,7 @@ sealed class PetWindow : Form
             // A click on Aang himself opens the box to type to him.
             Wake(); anim.Play("look"); dirty = true;
             _ = link.SendAsync(new { t = "poked" });
-            OpenInput();
+            OpenInput(userAsked: true);
         }
     }
 
@@ -488,14 +498,20 @@ sealed class PetWindow : Form
 
     // ------------------------------------------------------------------ typing to Aang
 
-    void OpenInput()
+    /// <param name="userAsked">
+    /// True only when Joshua did something that means "come back": the tray item, or clicking Aang. A
+    /// consent or permission question must never bring a hidden pet back on screen.
+    /// </param>
+    bool OpenInput(bool userAsked = false)
     {
-        if (!Visible) Show();
+        if (hiddenByUser && !userAsked) { Log.Write("input box suppressed: hidden by Joshua"); return false; }
+        if (!Visible) { hiddenByUser = false; Show(); }
         var prev = Win32.GetForegroundWindow();
         if (prev == Handle || prev == input.Handle) prev = IntPtr.Zero;
         input.Working = working;
         input.Open(new Point(Location.X, Location.Y + (int)(Extra * scale)), prev);
         Wake(); dirty = true;
+        return true;
     }
 
     void Submit(string text)
@@ -586,6 +602,14 @@ sealed class PetWindow : Form
     /// <summary>Aang wants to change something on the machine. He does not do it until Joshua says yes.</summary>
     void OnPermission(string id, string question)
     {
+        if (hiddenByUser)
+        {
+            // He cannot see it, so he cannot agree to it. No is the safe answer, and it is immediate
+            // rather than leaving the Core waiting two minutes for a prompt nobody will ever see.
+            Log.Write("permission refused: hidden by Joshua");
+            _ = link.SendAsync(new { t = "permission.reply", id, allow = false });
+            return;
+        }
         permissionId = id;
         Wake(); ExitExpanded(collapse: false);
         bubble.Show("Can I " + question + "?", false, 120000);
@@ -606,6 +630,7 @@ sealed class PetWindow : Form
 
     void OnConsent(string wanted)
     {
+        if (hiddenByUser) { Log.Write("consent question dropped: hidden by Joshua"); return; }
         consentWanted = ModelChip.Label(wanted); consentText = lastText; pendingMode = ModelChip.Normalize(wanted);
         working = false; input.Working = false; ackTimer.Stop();
         Wake(); ExitExpanded(collapse: false);
@@ -668,7 +693,10 @@ sealed class PetWindow : Form
             hotkeyOk = RegisterHotkey();            // put the old one back
             return false;
         };
-        Win32.ForceForeground(box.Handle);
+        // Taking focus has to happen once the window is actually on screen. Doing it before ShowDialog
+        // forces the handle to exist but the window is not visible yet, so the keys went to whatever was
+        // in front and the chooser sat there ignoring them.
+        box.Shown += (_, _) => Win32.ForceForeground(box.Handle);
         if (box.ShowDialog() == DialogResult.OK && box.Combo.Length > 0)
         {
             hotkeyOk = true;
@@ -719,7 +747,8 @@ sealed class PetWindow : Form
 
     void ToggleVisible()
     {
-        if (Visible) { Hide(); return; }
+        if (Visible) { hiddenByUser = true; input.Close(true); Hide(); Log.Write("hidden by Joshua"); return; }
+        hiddenByUser = false;
         Show(); dirty = true; Render();
     }
 
@@ -757,7 +786,7 @@ sealed class PetWindow : Form
         var hotkeyItem = new ToolStripMenuItem("Set the hide and show key...");
         hotkeyItem.Click += (_, _) => AskForHotkey();
         var talk = new ToolStripMenuItem("Talk to Aang");
-        talk.Click += (_, _) => OpenInput();
+        talk.Click += (_, _) => OpenInput(userAsked: true);
         quietItem = new ToolStripMenuItem("Quiet mode: auto");
         quietItem.Click += (_, _) => { forcedQuiet = forcedQuiet switch { null => true, true => false, false => null }; ApplyQuiet(); };
         muteItem = new ToolStripMenuItem("Mute (nothing unprompted)") { Checked = cfg.Muted };

@@ -67,6 +67,7 @@ export class Core {
   /** Which Claude session each lane is in, so six reboots a day do not read as amnesia. */
   readonly sessions: SessionStore;
   private hookServer: HookServer | null = null;
+  private checkpointTimer: NodeJS.Timeout | null = null;
   /** Aang is visible but silent: the Body is in quiet mode (the game has focus), or Joshua muted him. */
   private bodyQuiet = false;
   private muted = false;
@@ -103,6 +104,10 @@ export class Core {
     });
     try { await this.hookServer.start(); }
     catch (e) { console.error('hook endpoint could not start:', (e as Error).message); this.hookServer = null; }
+    // Fold the memory journal back into the database every few minutes; a Shadow session runs four
+    // hours and ends with a hard shutdown, so do not leave it all for a clean stop that may never come.
+    this.checkpointTimer = setInterval(() => this.memory.checkpoint(), 5 * 60_000);
+    this.checkpointTimer.unref?.();
     this.reminders.onDue = r => this.announce(`Reminder: ${r.text}`);
     this.reminders.start();
     const resumable = Object.entries(this.sessions.all()).map(([l, r]) => `${l}=${r.id.slice(0, 8)}`).join(' ');
@@ -112,6 +117,7 @@ export class Core {
 
   async stop(): Promise<void> {
     if (this.permission) this.answerPermission(this.permission.id, false);
+    if (this.checkpointTimer) clearInterval(this.checkpointTimer);
     this.reminders.stop();
     await this.hookServer?.stop(); this.hookServer = null;
     this.webLane?.close(); this.webLane = null;

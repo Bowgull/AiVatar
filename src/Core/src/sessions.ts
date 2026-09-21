@@ -5,7 +5,8 @@
 // forgets the conversation every time, which reads as amnesia rather than as a restart. The SDK keeps
 // the transcripts under ~/.claude/projects and the Shadow disk persists, so all we have to remember is
 // the id.
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { writeFileAtomic } from './atomic.ts';
 import path from 'node:path';
 
 export interface SessionRecord {
@@ -48,11 +49,7 @@ export class SessionStore {
 
   private save(): void {
     try {
-      mkdirSync(path.dirname(this.file), { recursive: true });
-      // write-then-rename, because a hard shutdown mid-write is a real event on this machine
-      const tmp = this.file + '.tmp';
-      writeFileSync(tmp, JSON.stringify(this.data, null, 2));
-      renameSync(tmp, this.file);
+      writeFileAtomic(this.file, JSON.stringify(this.data, null, 2));
     } catch { /* best effort: losing the id costs memory, not correctness */ }
   }
 
