@@ -50,6 +50,33 @@ export class Memory {
 
   get available(): boolean { return this.db !== null; }
 
+  // ---------------------------------------------------------------- bookkeeping
+
+  /** A small key/value corner of the database, used to remember how far consolidation has got. */
+  getMeta(key: string): string | null {
+    try { const r = this.db?.prepare("SELECT v FROM meta WHERE k = ?").get(key) as any; return r ? String(r.v) : null; }
+    catch { return null; }
+  }
+  setMeta(key: string, value: string): void {
+    try { this.db?.prepare("INSERT INTO meta (k, v) VALUES (?,?) ON CONFLICT(k) DO UPDATE SET v = excluded.v").run(key, value); }
+    catch { /* best effort */ }
+  }
+
+  /**
+   * The most recent turns after this id, in the order they happened.
+   * Most recent, not the first ones found: with no marker and 500 turns of history, taking the first 60
+   * meant reading the oldest conversations on this machine and doing it again at every restart.
+   */
+  turnsAfter(id: number, limit = 60): { id: number; role: string; text: string }[] {
+    if (!this.db) return [];
+    try {
+      const rows = this.db.prepare(
+        "SELECT id, role, text FROM turns WHERE id > ? AND NOT (role = 'aang' AND tier LIKE 'local%') ORDER BY id DESC LIMIT ?",
+      ).all(id, limit) as any[];
+      return rows.reverse();
+    } catch { return []; }
+  }
+
   // ---------------------------------------------------------------- facts
 
   /**

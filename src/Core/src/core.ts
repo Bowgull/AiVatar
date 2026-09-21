@@ -17,6 +17,7 @@ import { HookServer, HookTracker } from './hooks.ts';
 import { Reminders } from './reminders.ts';
 import { SessionStore } from './sessions.ts';
 import { ActivityLog } from './activity.ts';
+import { consolidate } from './consolidate.ts';
 import { buildSystemPrompt, lint, stripReasoning } from './voice.ts';
 
 export interface CoreConfig {
@@ -26,6 +27,8 @@ export interface CoreConfig {
   claudeExecutable?: string;
   /** Send a silent first message at start so the first real one does not pay for process start-up. */
   warm?: boolean;
+  /** Read the last session and write down what mattered. Off in tests that do not want the call. */
+  consolidate?: boolean;
 }
 
 interface Submission { id: string; text: string; mode: Mode; once: boolean; socket: WebSocket }
@@ -125,6 +128,9 @@ export class Core {
     void this.memory.backfill().then(n => {
       if (n) console.log(`memory: embedded ${n} older turns (${JSON.stringify(this.memory.coverage())})`);
     });
+    // Catch up on the last session. Deliberately after a pause: Joshua may already be typing, and this
+    // must never make his first message wait.
+    if (this.cfg.consolidate !== false) setTimeout(() => void this.catchUp(), 20_000).unref?.();
     if (this.cfg.warm !== false) this.warm();
   }
 
@@ -165,6 +171,28 @@ export class Core {
       this.webLane.onEvent(() => {});
     }
     return this.webLane.ask(question).then(r => r.text || 'Nothing came back from that lookup.');
+  }
+
+  /**
+   * Read what happened since the last catch-up and write down what is worth keeping. Runs on the
+   * cheapest model, once per session, and not at all once the week is past 40%.
+   */
+  async catchUp(): Promise<void> {
+    try {
+      const r = await consolidate(this.memory, async prompt => {
+        const lane = new Lane({
+          name: 'consolidate', model: MODELS.quick.model, systemPrompt:
+            'You summarise a conversation into durable facts. You answer with JSON and nothing else.',
+          allowedTools: [], claudeExecutable: this.cfg.claudeExecutable, thinking: { type: 'disabled' },
+        });
+        lane.onEvent(() => {});
+        try { return (await lane.ask(prompt, 120_000)).text; } finally { lane.close(); }
+      }, { weekUsed: this.policy.last?.week ?? 0 });
+      if (r.skipped) console.log(`memory: catch-up skipped (${r.skipped})`);
+      else console.log(`memory: caught up on ${r.considered} turns, kept ${r.kept.length}` +
+        (r.replaced.length ? `, replaced ${r.replaced.length}` : '') +
+        (r.kept.length ? `: ${r.kept.map(k => JSON.stringify(k)).join(', ')}` : ''));
+    } catch (e) { console.error('memory: catch-up failed:', (e as Error).message); }
   }
 
   private lane(name: LaneName): Lane {

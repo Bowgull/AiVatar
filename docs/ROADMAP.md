@@ -132,7 +132,7 @@ answered the actual question and then said: "The file also has lines posing as a
 them and ran nothing. You did not approve any of that, and the notes are not fine, so someone put those
 lines in the file."
 
-### P2 - Memory, the reason he feels thin
+### P2 - Memory, the reason he feels thin  **[DONE]**
 *Closes: C2, D2, D3, D4, D5, D7, D8. Full design in [MEMORY.md](MEMORY.md).*
 **Cost: near zero.** Retrieval is local (embeddinggemma, measured 42 ms, free). Writing happens inside a
 turn already paid for. Only consolidation spends, ~3.3k Haiku tokens per session, skipped above 40%.
@@ -150,7 +150,11 @@ finding, cloud for understanding**.
       being held; facts nobody confirms for 120 days stop being put in front of him but stay findable;
       and the prompt now says remembering is something he DOES, because he was saying "I will remember
       that" and writing nothing down
-- [ ] Catch-up consolidation at session start (the remaining piece of P2)
+- [x] **Catch-up consolidation at session start** (**done 2026-09-20**). Not nightly - this machine is
+      off overnight - so it reads the last session when the next one starts, on the cheapest model, once,
+      and not at all once the week is past 40%. 7/7 live: from a passing mention it kept "Joshua is
+      working on a sygnalist rewrite and plans to remove the old parser" and "his brother Mark is
+      visiting next month", left the weather out, and the next restart read 2 turns rather than 60.
 - [ ] Episodic timeline (D8), fact extraction (D3)
 - [ ] **Detection half of co-learning** (see P9): topics and curiosity are computed and *answer when
       asked*, never volunteered

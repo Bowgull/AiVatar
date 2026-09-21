@@ -23,20 +23,29 @@ export async function requireNoBody(ms = 10000) {
 export async function ensureForeground(ask) {
   const wow = await ask('focus WowB');
   if (/world of warcraft/i.test(wow)) return wow;
+
+  // Whatever is already in front will do, as long as it is a real window. Opening one is a last resort:
+  // a stand-in Notepad is clutter on Joshua's desktop, and if focus slips the test types into it.
+  const current = await ask('fg');
+  if (current && !/ShadowStreamer|^Aang/i.test(current)) return current;
+
   const { spawn } = await import('node:child_process');
-  if (!/notepad/i.test(await ask('fg'))) {
-    spawn('notepad.exe', [], { stdio: 'ignore', detached: true }).unref();
-    await new Promise(r => setTimeout(r, 2500));
-  }
-  // Shove it into the top-left corner. Left where Windows puts it, the stand-in window sits over Aang and
-  // swallows the very clicks the test is trying to make - which is exactly what broke the chip and rate
-  // suites once this helper was introduced.
+  spawn('notepad.exe', [], { stdio: 'ignore', detached: true }).unref();
+  await new Promise(r => setTimeout(r, 2500));
+  openedStandIn = true;
+  // Out of Aang's way: left where Windows puts it, the stand-in covers him and swallows the very clicks
+  // the test is trying to make.
   await ask('movewin notepad 0 0 420 300');
   return ask('focus notepad');
 }
 
-/** Close the stand-in window, if we opened one. */
+/** True only when this run opened the stand-in, so nothing the user opened is ever closed. */
+let openedStandIn = false;
+
+/** Close the stand-in window, if this run opened one. */
 export async function releaseForeground() {
+  if (!openedStandIn) return;
+  openedStandIn = false;
   const { execSync } = await import('node:child_process');
   try { execSync('taskkill /IM notepad.exe /F', { stdio: 'ignore' }); } catch { /* none running */ }
 }
