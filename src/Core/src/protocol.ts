@@ -34,6 +34,9 @@ export type ToBody =
   | { t: 'hush.reply'; text: string }
   /** An email draft waiting for his tap (or its new state), for Discord. `id` is the draft; the buttons carry its hash. */
   | { t: 'mail.card'; id: string; content: string; buttons: { id: string; label: string; style: 'primary' | 'secondary' | 'success' | 'danger' }[] }
+  /** Everything the Panel shows, worked out without the model. `notice`: something to say at the top (a draft that would not send). */
+  | { t: 'panel.reply'; facts: { id: number; text: string; seen: string; times: number }[]; trust: { kind: string; example: string; since: string }[]; actions: string;
+      drafts: { id: string; hash: string; to: string[]; subject: string; body: string; status: string; newTo: string[] }[]; mail: boolean; notice?: string }
   /** The morning brief, worked out without the model. */
   | { t: 'brief.reply'; text: string }
   /** Something only the desktop can do to its windows. Sent only after Joshua has agreed to it. */
@@ -68,6 +71,9 @@ export type FromBody =
   /** A button on an email draft card. The Core acts only if the hash is the wording on the card. */
   | { t: 'mail.act'; id: string; hash: string; action: 'send' | 'save' | 'discard' }
   | { t: 'brief' }
+  /** The Panel opened or refreshed; and its Forget button on one remembered fact. */
+  | { t: 'panel' }
+  | { t: 'forget.fact'; id: number }
   /** A picture of his window: base64 JPEG, and how much of it is black (protected video comes out black). */
   | { t: 'look'; id: string; ok: boolean; data?: string | null; w?: number; h?: number; black?: number; error?: string | null };
 

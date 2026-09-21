@@ -195,6 +195,21 @@ export class Core {
     const r = await svc.act(id, hash, action);
     this.actions.add({ tool: 'mail', did: `${action === 'send' ? 'sent' : action === 'save' ? 'saved as a Gmail draft' : 'discarded'} an email draft${r.draft ? ` to ${r.draft.to.join(', ').slice(0, 80)}` : ''}`, ok: !r.note, note: r.note });
     if (r.draft) this.send(ws, this.cardOf({ ...r.draft, ...(r.note ? { note: r.note } : {}) }));
+    if (this.kindOfSocket(ws) === 'desktop') this.send(ws, this.panelData(r.note || undefined));       // the Panel shows it too
+  }
+
+  /** Everything the Panel shows, without the model: what he knows, what he may do unasked, what he did, and drafts waiting. */
+  private panelData(notice?: string): ToBody {
+    const svc = this.mail();
+    return {
+      t: 'panel.reply',
+      facts: this.memory.list(200).map(f => ({ id: f.id, text: f.text, seen: f.lastSeen, times: f.timesSeen })),
+      trust: this.trust.list().map(r => ({ kind: r.kind, example: r.example, since: r.since })),
+      actions: this.actions.text(40),
+      drafts: (svc?.store.open() ?? []).map(d => ({ id: d.id, hash: d.hash, to: d.to, subject: d.subject, body: d.body, status: d.status, newTo: d.newTo })),
+      mail: svc !== null,
+      ...(notice ? { notice } : {}),
+    };
   }
 
   private async briefFor(ws: WebSocket): Promise<void> {
@@ -732,11 +747,22 @@ export class Core {
         const said = this.revokeText(String(m.kind ?? ''));
         this.actions.add({ tool: 'revoke', did: `took back a permission: ${String(m.kind ?? '').slice(0, 60)}`, ok: /^Done/.test(said), note: /^Done/.test(said) ? '' : said });
         this.send(ws, { t: 'trust.reply', items: this.trust.list().map(r => ({ kind: r.kind, example: r.example, since: r.since })) });
+        if (this.kindOfSocket(ws) === 'desktop') this.send(ws, this.panelData());
         break;
       }
       case 'hush': this.send(ws, { t: 'hush.reply', text: this.hush(Number(m.minutes)) }); break;
+      case 'panel': this.send(ws, this.panelData()); break;
+      case 'forget.fact': {
+        const gone = typeof m.id === 'number' ? this.memory.forgetId(m.id) : null;
+        if (gone) {
+          this.undo.push(`forgetting "${gone.text}"`, () => { this.memory.remember(gone.text); return `Brought back: "${gone.text}".`; });
+          this.actions.add({ tool: 'forget', did: `forgot "${gone.text.slice(0, 70)}"`, ok: true, note: '' });
+        }
+        this.send(ws, this.panelData());
+        break;
+      }
       case 'mail.act':
-        if (this.kindOfSocket(ws) === 'discord' && typeof m.id === 'string' && typeof m.hash === 'string' && (m.action === 'send' || m.action === 'save' || m.action === 'discard'))
+        if (typeof m.id === 'string' && typeof m.hash === 'string' && (m.action === 'send' || m.action === 'save' || m.action === 'discard'))
           void this.mailAct(ws, m.id, m.hash, m.action).catch(e => console.error('mail action failed:', (e as Error).message));
         break;
       case 'brief': void this.briefFor(ws).catch(e => console.error('brief failed:', (e as Error).message)); break;

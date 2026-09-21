@@ -132,6 +132,18 @@ export class Memory {
     return null;
   }
 
+  /** Forget exactly one fact by its id: what the Forget button on a row in the Panel means. */
+  forgetId(id: number): Fact | null {
+    if (!this.db) return null;
+    let f: Fact | undefined;
+    try { const r = this.db.prepare('SELECT id, text, ts, last_seen, times_seen, source FROM facts WHERE id = ?').get(id) as any; f = r ? toFact(r) : undefined; } catch { return null; }
+    if (!f) return null;
+    try { this.db.prepare('DELETE FROM facts WHERE id = ?').run(id); } catch { return null; }
+    const list = this.forgotten(); list.push(f.text);                    // so the catch-up does not learn it straight back
+    this.setMeta('forgotten', JSON.stringify(list.slice(-200)));
+    return f;
+  }
+
   /** Forget a fact, by a few words of it. Deleted outright: "forget that" has to mean forget. */
   /**
    * Delete every fact that matches, superseded ones included, and return what went.
