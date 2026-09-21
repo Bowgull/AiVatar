@@ -177,6 +177,16 @@ Third-party memory services (privacy). Reddit feed. WoW combat-log analysis (his
    status, Shadow-cap warning. F′3 photos in and things out to his phone. F′4 #job-inbox: paste a link, get a
    fit verdict card.
    **Built 2026-09-21, second pass:** #job-inbox vetting (paste a link, a private smart-lane question with his criteria text inside it, a verdict card with Open / Approve / Skip); the sweep/apply split in the skill ("Handoff with Aang" section, `shortlist.json`); #job-digest cards from the shortlist; **Apply approved** on the deck, which sends only approved jobs to a Claude session under the cap (5 a day, `cap 8 today` up to the hard maximum 8, enforced in `jobs.ts`); one line per job in #applied ("sent", not "confirmed"); files and photos sent from his phone saved to `Documents\AangInbox` (no programs, 25 MB cap); and no Aang message can ping anyone. Still open: CAPTCHA and knockout relay to his phone, essay drafts to #drafts, and reading photos with vision.
+   **G′ handoff completed 2026-09-21 (seventh pass):** free-text answers now go through his phone. A session writes
+   `drafts.json`; each draft is a card in #drafts with "Approve these words" and Skip; replying to a card with his own
+   wording replaces it and needs approving again; only approved words are written to `answers-approved.json`, the one
+   place an apply session may take an essay or free-text answer from (withdrawn the moment he changes or undoes it).
+   Results come back the same way: the session writes `applied.json`; "submitted" (with the confirmation) goes to
+   #applied and the job's card, "stuck" (a CAPTCHA, an account step, an unapproved answer) is loud and goes to
+   #needs-you; each is told once, and everything handed to a session counts against the daily cap. The skill's
+   "Handoff with Aang" section says exactly what to write. The "Job Hunt" sidebar group now exists in the Claude Code
+   tab. Not built: solving a CAPTCHA from the phone (it needs him at the PC), and moving Aang's sessions into that
+   group automatically.
 4. **G′, the job hunt.** Sweep, cards with Open / Apply / Skip, apply on approval (cap 5, hard max 8), CAPTCHA and
    knockout relay, drafts for free-text answers, #applied, the Job Hunt sidebar group. Runs on a schedule when
    he buys Always On.

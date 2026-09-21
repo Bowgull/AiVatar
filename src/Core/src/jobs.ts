@@ -11,13 +11,16 @@ import { writeFileAtomic } from './atomic.ts';
 export const DAILY_CAP = 5, HARD_MAX = 8;
 
 export type Verdict = 'apply' | 'maybe' | 'skip';
-export type Status = 'new' | 'approved' | 'skipped' | 'sent';
+/** new -> approved -> sent (handed to a Claude session) -> applied (it submitted) or stuck (it needs him). */
+export type Status = 'new' | 'approved' | 'skipped' | 'sent' | 'applied' | 'stuck';
 export interface Card {
   id: string; url: string; title: string; company: string; location: string; salary: string;
   verdict: Verdict; reason: string; status: Status; at: string;
   /** where the card is on Discord, so a button press can edit it */
   channelId?: string; messageId?: string;
   sentOn?: string;
+  /** what the apply session reported back, once it has */
+  result?: string;
 }
 
 // ------------------------------------------------------------------ untrusted text
@@ -99,11 +102,13 @@ export function renderCard(c: Card): { content: string; buttons: CardButton[] } 
   ].filter(Boolean);
   if (c.status === 'approved') lines.push('Approved. It goes out when you tap Apply approved.');
   if (c.status === 'skipped') lines.push('Skipped.');
-  if (c.status === 'sent') lines.push(`Sent to apply on ${c.sentOn ?? 'today'}. Check #applied for the result.`);
+  if (c.status === 'sent') lines.push(`Sent to apply on ${c.sentOn ?? 'today'}. The result appears here and in #applied.`);
+  if (c.status === 'applied') lines.push(`Applied${c.result ? `: ${c.result}` : '.'}`);
+  if (c.status === 'stuck') lines.push(`Needs you${c.result ? `: ${c.result}` : '.'}`);
   const open: CardButton = { id: `job:open:${c.id}`, label: 'Open', style: 'secondary', url: c.url };
   const buttons: CardButton[] =
     c.status === 'new' ? [open, { id: `job:ok:${c.id}`, label: 'Approve', style: 'success' }, { id: `job:no:${c.id}`, label: 'Skip', style: 'danger' }]
-    : c.status === 'sent' ? [open]
+    : c.status === 'sent' || c.status === 'applied' || c.status === 'stuck' ? [open]
     : [open, { id: `job:new:${c.id}`, label: 'Undo', style: 'secondary' }];
   return { content: lines.join('\n'), buttons };
 }
@@ -130,13 +135,22 @@ export class Jobs {
     this.cards.push(card); this.seen.push(c.url); this.save(); return card;
   }
   get(id: string) { return this.cards.find(c => c.id === id) ?? null; }
-  setStatus(id: string, status: Status): Card | null { const c = this.get(id); if (!c || c.status === 'sent') return c; c.status = status; this.save(); return c; }
+  /** Once a job has been handed to a session it is out of his hands here: only a result can change it. */
+  setStatus(id: string, status: Status): Card | null { const c = this.get(id); if (!c || c.status === 'sent' || c.status === 'applied' || c.status === 'stuck') return c; c.status = status; this.save(); return c; }
+  byUrl(url: string) { return this.cards.find(c => c.url === url) ?? null; }
+  /** What the apply session said happened. Returns the card if this changed anything. */
+  recordResult(url: string, status: 'applied' | 'stuck', note: string): Card | null {
+    const c = this.byUrl(url); if (!c) return null;
+    if (c.status === status && c.result === note) return null;
+    c.status = status; c.result = note; this.save(); return c;
+  }
   approved() { return this.cards.filter(c => c.status === 'approved'); }
 
   /** Today's limit: 5, or what he raised it to (never above 8). It goes back to 5 tomorrow. */
   cap(now = new Date()): number { return this.capToday.day === today(now) ? this.capToday.cap : DAILY_CAP; }
   raiseCap(n: number, now = new Date()): number { const cap = Math.max(DAILY_CAP, Math.min(HARD_MAX, Math.floor(n))); this.capToday = { day: today(now), cap }; this.save(); return cap; }
-  sentToday(now = new Date()): number { return this.cards.filter(c => c.status === 'sent' && c.sentOn === today(now)).length; }
+  /** Everything handed to a session today counts against the cap, whatever came of it. */
+  sentToday(now = new Date()): number { return this.cards.filter(c => (c.status === 'sent' || c.status === 'applied' || c.status === 'stuck') && c.sentOn === today(now)).length; }
   left(now = new Date()): number { return Math.max(0, this.cap(now) - this.sentToday(now)); }
 
   /** Take the approved jobs that fit under today's cap, oldest first, and mark them sent. */
@@ -149,14 +163,98 @@ export class Jobs {
   }
 }
 
+// ------------------------------------------------------------------ answers he must approve, and what came of an application
+
+/**
+ * A free-text answer (an essay, "why us", a salary figure) drafted for him. It is a statement made in his name, so it
+ * is never used until he approves the exact words. The sweep or apply session writes drafts.json; Aang shows each
+ * one in #drafts; approved ones are written to answers-approved.json, which is the only place an apply session may
+ * take a free-text answer from.
+ */
+export interface Draft { id: string; company: string; title: string; url: string; question: string; text: string; status: 'new' | 'approved' | 'skipped'; channelId?: string; messageId?: string; edited?: boolean }
+
+const hash = (s: string) => { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0; return h.toString(36); };
+
+export function readDraftsFile(file: string): Omit<Draft, 'status'>[] {
+  try {
+    const raw = JSON.parse(readFileSync(file, 'utf8'));
+    const list = Array.isArray(raw) ? raw : Array.isArray(raw?.drafts) ? raw.drafts : [];
+    const out: Omit<Draft, 'status'>[] = [];
+    for (const e of list) {
+      const question = cleanField(e?.question, 300), text = String(e?.draft ?? e?.answer ?? e?.text ?? '').replace(/\r/g, '').replace(/@(everyone|here)/gi, '@​$1').replace(/<@[!&]?\d+>/g, '').trim().slice(0, 3000);
+      if (!question || !text) continue;
+      const url = safeUrl(e?.url ?? e?.link) ?? '';
+      const company = cleanField(e?.company, 80), title = cleanField(e?.title ?? e?.role, 100);
+      out.push({ id: hash(`${url}|${company}|${question}`), company, title, url, question, text });
+    }
+    return out.slice(0, 20);
+  } catch { return []; }
+}
+
+export function renderDraft(d: Draft): { content: string; buttons: CardButton[] } {
+  const who = [d.title, d.company].filter(Boolean).join(' at ') || 'a job';
+  const head = `**Answer to approve** for ${who}\n**Question:** ${d.question}`;
+  const foot = d.status === 'approved' ? '\nApproved. The application can use exactly these words.'
+    : d.status === 'skipped' ? '\nSkipped. It will not be used.'
+    : '\nReply to this message with your own wording to change it, then tap Approve.';
+  const room = 1900 - head.length - foot.length - 12;
+  const body = d.text.length > room ? d.text.slice(0, Math.max(0, room - 3)) + '...' : d.text;
+  const content = `${head}\n${d.edited ? '**Your wording:**' : '**Draft:**'}\n${body}${foot}`;
+  const buttons: CardButton[] = d.status === 'new'
+    ? [{ id: `draft:ok:${d.id}`, label: 'Approve these words', style: 'success' }, { id: `draft:no:${d.id}`, label: 'Skip', style: 'danger' }]
+    : [{ id: `draft:new:${d.id}`, label: 'Undo', style: 'secondary' }];
+  return { content, buttons };
+}
+
+export class Drafts {
+  items: Draft[] = [];
+  private readonly file: string;
+  constructor(dir: string) {
+    this.file = path.join(dir, 'drafts-state.json');
+    try { if (existsSync(this.file)) { const r = JSON.parse(readFileSync(this.file, 'utf8')); if (Array.isArray(r)) this.items = r; } } catch { /* start empty */ }
+  }
+  save() { try { writeFileAtomic(this.file, JSON.stringify(this.items.slice(-200), null, 2)); } catch { /* best effort */ } }
+  get(id: string) { return this.items.find(d => d.id === id) ?? null; }
+  byMessage(messageId: string) { return this.items.find(d => d.messageId === messageId) ?? null; }
+  has(id: string) { return this.items.some(d => d.id === id); }
+  add(d: Omit<Draft, 'status'>): Draft { const x: Draft = { ...d, status: 'new' }; this.items.push(x); this.save(); return x; }
+  setStatus(id: string, status: Draft['status']): Draft | null { const d = this.get(id); if (!d) return null; d.status = status; this.save(); return d; }
+  /** His own wording replaces the draft. Approval is needed again: what was approved is not what is now here. */
+  rewrite(id: string, text: string): Draft | null {
+    const d = this.get(id); if (!d) return null;
+    d.text = text.replace(/\r/g, '').replace(/@(everyone|here)/gi, '@​$1').trim().slice(0, 3000); d.edited = true; d.status = 'new'; this.save(); return d;
+  }
+  /** The file an apply session reads: only what he has approved, word for word. */
+  approvedForExport() { return this.items.filter(d => d.status === 'approved').map(d => ({ company: d.company, title: d.title, url: d.url, question: d.question, answer: d.text })); }
+}
+
+export interface AppliedEntry { url: string; title: string; company: string; status: 'applied' | 'stuck'; note: string }
+/** What the apply session reports for each job: submitted (with the confirmation it saw), or stuck (with why). */
+export function readAppliedFile(file: string): AppliedEntry[] {
+  try {
+    const raw = JSON.parse(readFileSync(file, 'utf8'));
+    const list = Array.isArray(raw) ? raw : Array.isArray(raw?.applied) ? raw.applied : [];
+    const out: AppliedEntry[] = [];
+    for (const e of list) {
+      const url = safeUrl(e?.url ?? e?.link); if (!url) continue;
+      const s = String(e?.status ?? '').toLowerCase();
+      const status: 'applied' | 'stuck' | null = /^(submitted|applied|done|success)/.test(s) ? 'applied' : /^(stuck|needs|blocked|failed|error|captcha)/.test(s) ? 'stuck' : null;
+      if (!status) continue;
+      out.push({ url, title: cleanField(e?.title, 100), company: cleanField(e?.company, 80), status, note: cleanField(e?.note ?? e?.confirmation ?? e?.reason, 200) });
+    }
+    return out.slice(0, 50);
+  } catch { return []; }
+}
+
 /** The apply request: only the approved links, and the rules that matter, said again so they cannot be skipped. */
 export function applyPrompt(cards: Card[]): string {
   const list = cards.map((c, i) => `${i + 1}. ${c.title} at ${c.company}: ${c.url}`).join('\n');
   return [
     `Apply to these ${cards.length} approved jobs using my job-hunt skill, and only these:`,
     list,
-    `Stop and tell me at any CAPTCHA, account or password step, salary, essay or free-text question, years-of-experience or work-authorization question, and any legal declaration. Do not answer those yourself.`,
-    `Log each result in the pipeline file, then start a session summary: what was submitted, what needs me.`,
+    `Stop and tell me at any CAPTCHA, account or password step, salary, essay or free-text question, years-of-experience or work-authorization question, and any legal declaration. Do not answer those yourself, with ONE exception: if my approved answers in answers-approved.json (in my job-hunt data folder) has an entry for that exact job and question, use those exact words, unchanged. Anything not in that file is not approved.`,
+    `If a question needs a written answer I have not approved, write a draft to drafts.json in my job-hunt data folder as described in the "Handoff with Aang" section of the skill, and stop on that job.`,
+    `Log each result in the pipeline file and in applied.json in my job-hunt data folder (one entry per job: url, title, company, status "submitted" or "stuck", and the confirmation you saw or why you stopped). Then give me a session summary: what was submitted, what needs me.`,
   ].join('\n');
 }
 

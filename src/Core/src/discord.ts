@@ -14,12 +14,12 @@ import { writeFileAtomic } from './atomic.ts';
 import { Budget, LAYOUT, LISTEN_CHANNELS, NEEDED, FORBIDDEN, chunkMessage, kindOf, newPairing, tryPair } from './discord-logic.ts';
 import type { Pairing } from './discord-logic.ts';
 import { Grocery, looksLikeRecipe, parseListCommand, parseRecipe } from './lists.ts';
-import { Jobs, SWEEP_REQUEST, applyPrompt, extractUrls, fileStamp, parseVerdict, readShortlist, renderCard, vetPrompt } from './jobs.ts';
+import { Drafts, Jobs, SWEEP_REQUEST, applyPrompt, extractUrls, fileStamp, parseVerdict, readAppliedFile, readDraftsFile, readShortlist, renderCard, renderDraft, vetPrompt } from './jobs.ts';
 import type { Card } from './jobs.ts';
 import { attachmentProblem, safeAttachmentName } from './phone.ts';
 
 export interface Attachment { name: string; url: string; size: number }
-export interface Incoming { id: string; channelId: string; channelName: string; authorId: string; isBot: boolean; content: string; createdAt: number; attachments?: Attachment[] }
+export interface Incoming { id: string; channelId: string; channelName: string; authorId: string; isBot: boolean; content: string; createdAt: number; attachments?: Attachment[]; /** the message this one replies to */ replyTo?: string }
 /** With `url` it is a link button that opens the page and needs no answer from us. */
 export interface Button { id: string; label: string; style: 'primary' | 'secondary' | 'success' | 'danger'; url?: string }
 export interface OutMsg { content?: string; silent?: boolean; buttons?: Button[]; files?: { name: string; data: Buffer }[] }
@@ -83,6 +83,8 @@ export interface AdapterOpts {
   budget?: Budget; now?: () => Date; log?: (s: string) => void; typingMs?: number;
   /** where a sweep leaves its shortlist, and Joshua's job criteria (for vetting a pasted link) */
   shortlistFile?: string; criteriaFile?: string;
+  /** drafts.json (answers waiting for approval), answers-approved.json (what he approved) and applied.json (what came of each application) */
+  draftsFile?: string; answersFile?: string; appliedFile?: string;
   /** where files sent from his phone are saved (outside the git-backed data folder) */
   inboxDir?: string;
   /** how often the shortlist is checked; 0 turns the timer off (tests call scanShortlist themselves) */
@@ -106,11 +108,15 @@ export class DiscordAdapter {
     this.budget = opts.budget ?? new Budget();
     this.grocery = new Grocery(dir);
     this.jobs = new Jobs(dir);
+    this.drafts = new Drafts(dir);
   }
   private readonly grocery: Grocery;
   readonly jobs: Jobs;
+  readonly drafts: Drafts;
   private scanTimer: ReturnType<typeof setInterval> | null = null;
   private lastShortlist = 0;
+  private lastDrafts = 0;
+  private lastApplied = 0;
   /** Links being vetted: request id -> the link and the channel to answer in. */
   private readonly vetting = new Map<string, { url: string; channelId: string }>();
   private get stateFile() { return path.join(this.dir, 'discord.json'); }
@@ -136,9 +142,12 @@ export class DiscordAdapter {
     } else {
       await this.ensureDeck();
       await this.catchUp();
-      this.lastShortlist = this.opts.shortlistFile ? fileStamp(this.opts.shortlistFile) : 0;   // only what changes after this start is news
-      if (this.opts.shortlistFile && this.opts.scanMs !== 0) {
-        this.scanTimer = setInterval(() => { void this.scanShortlist().catch(e => this.log('discord: shortlist scan failed: ' + (e as Error).message)); }, this.opts.scanMs ?? 60_000);
+      // Only what changes after this start is news.
+      this.lastShortlist = this.opts.shortlistFile ? fileStamp(this.opts.shortlistFile) : 0;
+      this.lastDrafts = this.opts.draftsFile ? fileStamp(this.opts.draftsFile) : 0;
+      this.lastApplied = this.opts.appliedFile ? fileStamp(this.opts.appliedFile) : 0;
+      if ((this.opts.shortlistFile || this.opts.draftsFile || this.opts.appliedFile) && this.opts.scanMs !== 0) {
+        this.scanTimer = setInterval(() => { void this.scanAll().catch(e => this.log('discord: job files scan failed: ' + (e as Error).message)); }, this.opts.scanMs ?? 60_000);
         this.scanTimer.unref?.();
       }
     }
@@ -203,6 +212,7 @@ export class DiscordAdapter {
     if (!text) return;
     if (/^(stop|\/stop)$/i.test(text)) { this.link.stop(); await this.gw.send(m.channelId, { content: 'Stopped.' }); return; }
 
+    if (m.channelName === 'drafts') { await this.draftReply(m, text); return; }          // #drafts is for changing drafts, never for chat
     if (await this.file(m.channelId, m.channelName, text)) return;
     if (await this.jobTalk(m.channelId, m.channelName, text)) return;
     this.ask('d' + m.id, m.channelId, text);
@@ -326,6 +336,86 @@ export class DiscordAdapter {
     }
     if (fresh.length) await this.say('job-digest', `${fresh.length} new job${fresh.length > 1 ? 's' : ''} from the sweep. Approve the ones you want, then tap Apply approved in #aang.`, false);
     return fresh.length;
+  }
+
+  /** Everything the job sessions leave behind, checked together. */
+  async scanAll(): Promise<void> {
+    await this.scanShortlist();
+    await this.scanDrafts();
+    await this.scanApplied();
+  }
+
+  // ---------------------------------------------------------------- answers he must approve
+
+  /** New drafted answers become cards in #drafts, each with Approve and Skip. Nothing is used until he approves it. */
+  async scanDrafts(): Promise<number> {
+    const file = this.opts.draftsFile; const where = this.state.channels['drafts'];
+    if (!file || !where) return 0;
+    const stamp = fileStamp(file);
+    if (!stamp || stamp === this.lastDrafts) return 0;
+    this.lastDrafts = stamp;
+    const fresh = readDraftsFile(file).filter(d => !this.drafts.has(d.id));
+    for (const d of fresh) {
+      const draft = this.drafts.add(d);
+      const view = renderDraft(draft);
+      draft.channelId = where;
+      draft.messageId = await this.gw.send(where, { content: view.content, buttons: view.buttons, silent: true });
+      this.drafts.save();
+    }
+    if (fresh.length) await this.say('drafts', `${fresh.length} answer${fresh.length > 1 ? 's need' : ' needs'} your approval. Nothing goes out in your name until you tap Approve.`, false);
+    return fresh.length;
+  }
+
+  private async redrawDraft(d: { channelId?: string; messageId?: string } & Parameters<typeof renderDraft>[0]): Promise<void> {
+    if (!d.channelId || !d.messageId) return;
+    const view = renderDraft(d);
+    try { await this.gw.edit(d.channelId, d.messageId, { content: view.content, buttons: view.buttons }); } catch { /* the card was deleted */ }
+  }
+
+  /** Only approved wording is ever written where an apply session can read it, and it is rewritten after every change. */
+  private exportAnswers(): void {
+    if (!this.opts.answersFile) return;
+    try { writeFileAtomic(this.opts.answersFile, JSON.stringify(this.drafts.approvedForExport(), null, 2)); } catch (e) { this.log('discord: could not write the approved answers: ' + (e as Error).message); }
+  }
+
+  /** A reply to a draft in #drafts is his own wording for it. It needs approving again. */
+  private async draftReply(m: Incoming, text: string): Promise<void> {
+    const target = m.replyTo ? this.drafts.byMessage(m.replyTo) : null;
+    if (!target) { await this.gw.send(m.channelId, { content: 'Reply directly to the draft you want to change, so I know which one it is.' }); return; }
+    if (!text) return;
+    const d = this.drafts.rewrite(target.id, text);
+    if (!d) return;
+    this.exportAnswers();
+    await this.redrawDraft(d);
+    await this.gw.send(m.channelId, { content: 'Changed to your wording. Tap Approve when it reads right.' });
+  }
+
+  // ---------------------------------------------------------------- what came of each application
+
+  /** The apply session's own report: submitted (with the confirmation it saw) or stuck (with why). */
+  async scanApplied(): Promise<number> {
+    const file = this.opts.appliedFile;
+    if (!file) return 0;
+    const stamp = fileStamp(file);
+    if (!stamp || stamp === this.lastApplied) return 0;
+    this.lastApplied = stamp;
+    let news = 0;
+    for (const e of readAppliedFile(file)) {
+      const key = `result:${e.url}|${e.status}|${e.note}`;
+      if (this.jobs.seen.includes(key)) continue;
+      this.jobs.seen.push(key); news++;
+      const card = this.jobs.recordResult(e.url, e.status, e.note);
+      if (card) await this.redrawCard(card);
+      const label = e.title || card?.title || 'A job', at = e.company || card?.company || '';
+      const line = `${label}${at ? ' at ' + at : ''}\n${e.url}${e.note ? '\n' + e.note : ''}`;
+      if (e.status === 'applied') { await this.say('applied', `Submitted: ${line}`, true); }
+      else {
+        await this.say('applied', `Stuck: ${line}`, true);
+        await this.say('needs-you', `Need input on the job hunt: ${label}${at ? ' at ' + at : ''}. ${e.note || 'It stopped and needs you.'}`, false);
+      }
+    }
+    if (news) this.jobs.save();
+    return news;
   }
 
   /** "Apply approved": the approved jobs that fit under today's cap go to a Claude session, and nothing else does. */
@@ -506,6 +596,13 @@ export class DiscordAdapter {
       else if (b.customId === 'deck:log') { this.replyTo.actions.push(b.channelId); this.link.actions(); }
       else if (b.customId === 'deck:perms') { this.trustCard = null; this.replyTo.trust.push(b.channelId); this.link.trust(); }
       else if (b.customId === 'deck:stop') { this.link.stop(); await this.gw.send(b.channelId, { content: 'Stopped.' }); }
+      return;
+    }
+    const dr = /^draft:(ok|no|new):([a-z0-9]+)$/.exec(b.customId);
+    if (dr) {
+      await b.keep();
+      const d = this.drafts.setStatus(dr[2]!, dr[1] === 'ok' ? 'approved' : dr[1] === 'no' ? 'skipped' : 'new');
+      if (d) { this.exportAnswers(); await this.redrawDraft(d); }
       return;
     }
     const rev = /^trust:rev:(\d+)$/.exec(b.customId);
