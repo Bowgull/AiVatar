@@ -1,4 +1,4 @@
-# AiVatar: the one build plan
+﻿# AiVatar: the one build plan
 
 > **Naming.** *AiVatar* is the project and the repo. *Aang* is the character who lives in it.
 
@@ -104,35 +104,35 @@ This is one plan of record. It merges the ROADMAP's open items (P0 to P4 are don
    out to be a 2017 Intel MacBook Pro stuck on macOS Ventura (unpatched since 2025) with 8 GB soldered RAM, which
    confirms it. Their text below is kept only as history.
 2. **The phone channel is Discord** (his reasons: persistence and better-looking cards), not iMessage or
-   Telegram. Phase **F** is rewritten as **F′** below. Built 2026-09-21 and waiting on his token and pairing.
+   Telegram. Phase **F** is rewritten as **Fâ€²** below. Built 2026-09-21 and waiting on his token and pairing.
 3. **The Shadow limit stands.** Lite ends every session at 4 hours and shuts down 30 minutes after the last
    input, even with work running, and its terms forbid working around that. Discord holds his messages while
    Shadow is off, so requests queue and get answered at the next start. A job hunt that runs *while he is
    away* needs Shadow's Always On add-on (Pro only; he would buy it at a good price, quote pending from Shadow
-   support). Phase G is rewritten as **G′** on that basis.
+   support). Phase G is rewritten as **Gâ€²** on that basis.
 
 ### Order and dependencies (current)
 
 | Phase | Name | Size | Depends on | Status |
 |---|---|---|---|---|
 | A | Close out what is built: full suite, commit, one real job-hunt run, wire files.ts + Hands.cs | S | nothing | **in progress** |
-| F′ | Discord: pair, live test, then capture filing, lists, job cards, #needs-you, drafts channel | M | A | **paired and live; next pieces open** |
+| Fâ€² | Discord: pair, live test, then capture filing, lists, job cards, #needs-you, drafts channel | M | A | **paired and live; next pieces open** |
 | D | Persona spec, linter and eval (Discord replaces iMessage in its channel rules) | S to M | nothing | open |
 | B | Clean Gold foundations and the missing safety basics | M to L | A | open |
-| G′ | Job hunt split: sweep → Discord digest cards → approve by button → apply (cap 5, max 8), on Shadow | M to L | A, F′ | open |
+| Gâ€² | Job hunt split: sweep â†’ Discord digest cards â†’ approve by button â†’ apply (cap 5, max 8), on Shadow | M to L | A, Fâ€² | open |
 | H | Clean Gold part 2: docking, mode frame, bars, bubble | L | B | open |
-| I | Email: Gmail read in an isolated lane, drafts to #drafts, send only on his button | M | F′, B | open |
+| I | Email: Gmail read in an isolated lane, drafts to #drafts, send only on his button | M | Fâ€², B | open |
 | J | The Panel, card stack and review surfaces | L | B, H | open |
-| K | Background jobs, generalised | M | G′ | open |
-| L | Watching (Simkl), #anime | M | F′ | open |
+| K | Background jobs, generalised | M | Gâ€² | open |
+| L | Watching (Simkl), #anime | M | Fâ€² | open |
 | M | Drawing layer and window presence | L | H | open |
 | N | Memory depth and co-learning | M | A | open |
 | O | Finish and design gate | M | everything shipped | open |
-| — | Shadow Always On: get a quote; if bought, G′ runs while he is away | — | his call | waiting on Shadow |
+| â€” | Shadow Always On: get a quote; if bought, Gâ€² runs while he is away | â€” | his call | waiting on Shadow |
 | ~~C, E, P~~ | ~~Mac host, Core to Mac, Mac-native Body~~ | | | **retired** |
 
-**Critical path now: A → F′ → G′.** A closes what is built. F′ gives him a phone channel. G′ turns the job hunt
-into digest cards he approves from Discord. D and B can run alongside. If he buys Always On, G′'s sweep runs on
+**Critical path now: A â†’ Fâ€² â†’ Gâ€².** A closes what is built. Fâ€² gives him a phone channel. Gâ€² turns the job hunt
+into digest cards he approves from Discord. D and B can run alongside. If he buys Always On, Gâ€²'s sweep runs on
 a schedule while he is out with no other change.
 
 ### Final build path (2026-09-21, replaces the order table above where they differ)
@@ -146,21 +146,21 @@ this thread. None of these were in the plan before today:
 
 | # | Missing | Why it matters | Goes in |
 |---|---|---|---|
-| 1 | **Send things to his phone**: "show me my screen", a file, a screenshot, a result, as an attachment in Discord | The gym use case: look at the PC and get a file from it while away | F′3 |
-| 2 | **Photos and files in from his phone**: a photo of a recipe, receipt or handwritten list into #capture | Discord makes this free; only text is handled | F′3 |
-| 3 | **A command deck**: one pinned message of buttons (Status, Quota, Hush, Job hunt now, Stop) | Tapping beats typing on a phone; Discord buttons are already built | F′2 |
-| 4 | **Quota and status on the phone** ("how much of my week is left") | The Body gets it; Discord ignores it | F′2 |
-| 5 | **CAPTCHA and knockout relay**: the job-hunt session stops, a screenshot goes to #needs-you, he solves it or answers | He asked for this on day one; G′ only said "stop" | G′ |
-| 6 | **Essay and free-text answers drafted, never sent unseen**: draft to #drafts with Approve, Edit, Skip | His rule: nothing goes out without a shown draft | G′ |
+| 1 | **Send things to his phone**: "show me my screen", a file, a screenshot, a result, as an attachment in Discord | The gym use case: look at the PC and get a file from it while away | Fâ€²3 |
+| 2 | **Photos and files in from his phone**: a photo of a recipe, receipt or handwritten list into #capture | Discord makes this free; only text is handled | Fâ€²3 |
+| 3 | **A command deck**: one pinned message of buttons (Status, Quota, Hush, Job hunt now, Stop) | Tapping beats typing on a phone; Discord buttons are already built | Fâ€²2 |
+| 4 | **Quota and status on the phone** ("how much of my week is left") | The Body gets it; Discord ignores it | Fâ€²2 |
+| 5 | **CAPTCHA and knockout relay**: the job-hunt session stops, a screenshot goes to #needs-you, he solves it or answers | He asked for this on day one; Gâ€² only said "stop" | Gâ€² |
+| 6 | **Essay and free-text answers drafted, never sent unseen**: draft to #drafts with Approve, Edit, Skip | His rule: nothing goes out without a shown draft | Gâ€² |
 | 7 | **Outreach drafts** (recruiters, networking) to #drafts, sent by him | He listed outreach in the server plan; no phase had it | I |
 | 8 | **File operations**: move, copy, rename, delete to the Recycle Bin, all with undo. Only write and edit exist | "Tidy my Downloads" is the obvious next ask | Q1 |
 | 9 | **Clipboard write**: put text on his clipboard | Only reading exists | Q1 |
 | 10 | **UI Automation hands**: press a named button, fill a named field, in an app he has approved. The old "mouse and keyboard automation" was dropped at 19.5%, but that number was for pixel-guessing vision agents. Windows UI Automation acts on real controls by name, the same interface the screen reader already uses | This is the biggest single power gap: he can read any window but cannot act in one | Q2 |
 | 11 | **Delegating to Claude Code, generalised**: browsing tasks through Claude in Chrome (which replaces the dropped CDP idea), and "Aang, add X to yourself" as a session on this repo, never auto-merged | Uses the strongest agent available for open-ended work | Q3 |
 | 12 | **Music by name** (Spotify) beyond the media keys | "Play something" | Q3 |
-| 13 | **Repeating and scheduled things**: "every Monday", the morning brief, a scheduled job sweep | Reminders are one-shot | G′, I |
+| 13 | **Repeating and scheduled things**: "every Monday", the morning brief, a scheduled job sweep | Reminders are one-shot | Gâ€², I |
 | 14 | **Activity log, permissions review and Hush before more power** | Every power above needs to be seen, revoked and stopped | B1, before Q2 |
-| 15 | **Shadow session awareness**: Discord tells him when Shadow is about to hit its 4-hour cap | The one thing Lite does that costs him work | F′2 |
+| 15 | **Shadow session awareness**: Discord tells him when Shadow is about to hit its 4-hour cap | The one thing Lite does that costs him work | Fâ€²2 |
 
 **Kept dropped, and why.** Voice (declined twice). Always-on screen or audio capture (the category died).
 Third-party memory services (privacy). Reddit feed. WoW combat-log analysis (his deferral).
@@ -170,10 +170,10 @@ Third-party memory services (privacy). Reddit feed. WoW combat-log analysis (his
 1. **Close A.** Wire files and windows (done 2026-09-21, 8 tests), test them live with the real model, run the
    full live suite while he is away from WoW, one real job-hunt run, confirm autostart after a reboot, commit.
 2. **D, the persona spec and linter, small and first**, because Discord is where the voice is most visible.
-3. **Finish F′.** F′1 #capture filing and the grocery list with check-off buttons. F′2 command deck, quota and
-   status, Shadow-cap warning. F′3 photos in and things out to his phone. F′4 #job-inbox: paste a link, get a
+3. **Finish Fâ€².** Fâ€²1 #capture filing and the grocery list with check-off buttons. Fâ€²2 command deck, quota and
+   status, Shadow-cap warning. Fâ€²3 photos in and things out to his phone. Fâ€²4 #job-inbox: paste a link, get a
    fit verdict card.
-4. **G′, the job hunt.** Sweep, cards with Open / Apply / Skip, apply on approval (cap 5, hard max 8), CAPTCHA and
+4. **Gâ€², the job hunt.** Sweep, cards with Open / Apply / Skip, apply on approval (cap 5, hard max 8), CAPTCHA and
    knockout relay, drafts for free-text answers, #applied, the Job Hunt sidebar group. Runs on a schedule when
    he buys Always On.
 5. **B1, the safety basics**: activity log ("what did you just do"), undo across all powers, permissions review
@@ -186,7 +186,7 @@ Third-party memory services (privacy). Reddit feed. WoW combat-log analysis (his
 
 Retired and never to be built: C, E, P, and the iMessage half of F.
 
-### Phase F′: Discord (replaces F)
+### Phase Fâ€²: Discord (replaces F)
 
 **What.** Built 2026-09-21: `discord-logic.ts`, `discord.ts`, `discord-gateway.ts` (discord.js 14.27), wired
 into the Core only when `%APPDATA%\Aang\discord.token` exists, set up with `tools/discord-setup.cmd` (hidden token
@@ -222,7 +222,7 @@ question during WoW left the desktop untouched.
 
 ### Phase B: Clean Gold foundations and the missing safety basics
 
-**What.** Build the token file first (colours, type ramp, motion): gold `#FFC43C`, orange `#FF8040` for warnings, red `#FF5A4A`, body `#E8E4F0`, secondary `#C9C2DA`, Segoe UI Variable, and 40 ms press, 140 ms hover, 200 ms release. Then the weighted button system: solid face, 3 px lip, 1 px catch-light, 28 px icon buttons at 32 px pitch. Then the **permission prompt rebuilt** to his trust rules, with a gold one-time button, a plum "Not now", and the persistent "Always for <kind>" row set apart with a lock and a 600 ms arming delay. It has no key binding, and Enter and Esc work only while Aang's input has focus; always-ask kinds get no "Always" row at all. Make the sprite and bubble non-activating everywhere except the opened input. Add the bubble legibility fixes (15 px body, 21 to 22 px line height, 2 px outline with a dark halo, radius 10 to 12). Add **game-aware quiet**: badge-only while a window covering the monitor has focus, with delivery on alt-tab. Add **Hush** ("30 min" or "until I call you") and Esc-to-stop. Then add the missing basics: an **activity log** ("Opened Chrome", "Ran git status, exit 0", "Remembered: ..."), with "what did you just do?" answered from it; **undo** for memory writes, reminder dismissals, file writes and skips; a **permissions review** with revoke and last-used time (tray list first, Panel later); a **"Remembered: X · Undo"** toast; and **distinct error states** for offline, API error, quota out with reset time, denied, and failed command with exit code. The one global hotkey stays Ctrl+NumLock. **Why.** Every later remote action needs a log, an undo and a kill switch, and the prompt is where a stray keystroke could grant a standing capability. **Done when.** StyleLab renders and real-overlay screenshots at 100, 125, 150 and 200% DPI match Clean Gold. A WASD burst over the overlay grants nothing and lands nothing in Aang. Hush survives a reply arriving. "What did you just do" lists the last five actions. Undo reverts a memory write and a file write. Each error state is screenshotted.
+**What.** Build the token file first (colours, type ramp, motion): gold `#FFC43C`, orange `#FF8040` for warnings, red `#FF5A4A`, body `#E8E4F0`, secondary `#C9C2DA`, Segoe UI Variable, and 40 ms press, 140 ms hover, 200 ms release. Then the weighted button system: solid face, 3 px lip, 1 px catch-light, 28 px icon buttons at 32 px pitch. Then the **permission prompt rebuilt** to his trust rules, with a gold one-time button, a plum "Not now", and the persistent "Always for <kind>" row set apart with a lock and a 600 ms arming delay. It has no key binding, and Enter and Esc work only while Aang's input has focus; always-ask kinds get no "Always" row at all. Make the sprite and bubble non-activating everywhere except the opened input. Add the bubble legibility fixes (15 px body, 21 to 22 px line height, 2 px outline with a dark halo, radius 10 to 12). Add **game-aware quiet**: badge-only while a window covering the monitor has focus, with delivery on alt-tab. Add **Hush** ("30 min" or "until I call you") and Esc-to-stop. Then add the missing basics: an **activity log** ("Opened Chrome", "Ran git status, exit 0", "Remembered: ..."), with "what did you just do?" answered from it; **undo** for memory writes, reminder dismissals, file writes and skips; a **permissions review** with revoke and last-used time (tray list first, Panel later); a **"Remembered: X Â· Undo"** toast; and **distinct error states** for offline, API error, quota out with reset time, denied, and failed command with exit code. The one global hotkey stays Ctrl+NumLock. **Why.** Every later remote action needs a log, an undo and a kill switch, and the prompt is where a stray keystroke could grant a standing capability. **Done when.** StyleLab renders and real-overlay screenshots at 100, 125, 150 and 200% DPI match Clean Gold. A WASD burst over the overlay grants nothing and lands nothing in Aang. Hush survives a reply arriving. "What did you just do" lists the last five actions. Undo reverts a memory write and a file write. Each error state is screenshotted.
 
 ### Phase C: prepare the Mac host
 
@@ -523,3 +523,4 @@ So:
 
 The honest cost of this order: for about three days he still cannot open Firefox. That is the trade, and
 it is Joshua's call to reverse.
+
