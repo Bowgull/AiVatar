@@ -181,7 +181,13 @@ Third-party memory services (privacy). Reddit feed. WoW combat-log analysis (his
    knockout relay, drafts for free-text answers, #applied, the Job Hunt sidebar group. Runs on a schedule when
    he buys Always On.
 5. **B1, the safety basics**: activity log ("what did you just do"), undo across all powers, permissions review
-   with revoke, Hush. This is the gate for stage 6.
+   with revoke, Hush. This is the gate for stage 6. **Built 2026-09-21, third pass:** every acting tool is written to
+   `actions.jsonl` with what really happened (a failure says why) and a silent receipt goes to #log; "what did you
+   just do" is answered from that record, free; `undo_last` puts back the last file change, remembered or forgotten
+   fact, or reminder (file copies also persist across restarts); `my_permissions` and `revoke_permission` plus a
+   Permissions card in Discord with a "Take back" button per item; Hush (deck button, or "hush 30", "unhush") holds
+   everything unprompted, even what he asked to hear, and delivers it when it ends. The Body's tray review and a
+   distinct-error-states pass are still open. Live: receipts, Activity, Permissions and Hush all checked in Discord.
 6. **The power track.** Q1 file operations and clipboard write. Q2 UI Automation hands. Q3 generalised delegation
    (Claude in Chrome, self-improvement sessions, Spotify). K background jobs fold in here.
 7. **I, email and outreach**, after his one-time Google sign-in; morning brief and calendar on the same auth.

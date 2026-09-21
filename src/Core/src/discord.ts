@@ -57,6 +57,10 @@ export interface CoreLink {
   permission(id: string, allow: boolean): void;
   stop(): void;
   status(): void;
+  actions(): void;
+  trust(): void;
+  revoke(kind: string): void;
+  hush(minutes: number): void;
   onEvent(cb: (m: any) => void): void;
 }
 
@@ -68,6 +72,9 @@ export const DECK: Button[] = [
   { id: 'deck:job', label: 'Job hunt now', style: 'primary' },
   { id: 'deck:apply', label: 'Apply approved', style: 'success' },
   { id: 'deck:stop', label: 'Stop', style: 'danger' },
+  { id: 'deck:hush', label: 'Hush 1 h', style: 'secondary' },
+  { id: 'deck:log', label: 'Activity', style: 'secondary' },
+  { id: 'deck:perms', label: 'Permissions', style: 'secondary' },
 ];
 export const DECK_TEXT = 'Aang: command deck. Tap a button. Status is free, it does not use your Claude quota. Job hunt now sweeps and screens only; nothing is applied to until you approve it.';
 export const JOB_REQUEST = SWEEP_REQUEST;
@@ -235,6 +242,7 @@ export class DiscordAdapter {
       await this.gw.send(channelId, { content: n > set ? `The most I will send in a day is ${set}. Today's limit is ${set}.` : `Today's apply limit is ${set}. It goes back to 5 tomorrow.` });
       return true;
     }
+    if (await this.controls(channelId, text)) return true;
     if (channelName !== 'job-inbox') return false;
     const urls = extractUrls(text);
     if (!urls.length) return false;
@@ -245,6 +253,38 @@ export class DiscordAdapter {
       this.ask(id, channelId, vetPrompt(url, this.criteria()), { ephemeral: true, mode: 'smart' });
     }
     return true;
+  }
+
+  // ---------------------------------------------------------------- controls, answered by the Core with no model
+
+  /** Where the answer to each kind of request goes, in the order they were asked. */
+  private readonly replyTo = { actions: [] as string[], hush: [] as string[], trust: [] as string[] };
+  private trustKinds: string[] = [];
+  private trustCard: { channelId: string; messageId: string } | null = null;
+
+  /** "hush 30", "unhush", "what did you do", "what can you do without asking": free, and instant. */
+  private async controls(channelId: string, text: string): Promise<boolean> {
+    let m: RegExpExecArray | null;
+    if (/^(?:unhush|un-hush|end hush|hush off|stop hush(?:ing)?)[.!]?$/i.test(text)) { this.replyTo.hush.push(channelId); this.link.hush(0); return true; }
+    if ((m = /^(?:hush|quiet)(?:\s+(?:for\s+)?(?:(?:an?\s+)?(hour)|(\d{1,3})\s*(m|min|mins|minutes?|h|hr|hrs|hours?)?))?[.!]?$/i.exec(text))) {
+      const minutes = m[1] ? 60 : m[2] ? Number(m[2]) * (/^h/i.test(m[3] ?? '') ? 60 : 1) : 60;
+      this.replyTo.hush.push(channelId); this.link.hush(minutes); return true;
+    }
+    if (/^what (?:have you|did you)(?: just)? (?:do|done)(?: today)?\??$/i.test(text)) { this.replyTo.actions.push(channelId); this.link.actions(); return true; }
+    if (/^(?:what can you do without asking|what (?:have i|am i) (?:allowed|let you)|(?:show|list) (?:your |my )?permissions)\??$/i.test(text)) { this.trustCard = null; this.replyTo.trust.push(channelId); this.link.trust(); return true; }
+    return false;
+  }
+
+  private async showTrust(channelId: string, items: { kind: string; example: string; since: string }[]): Promise<void> {
+    this.trustKinds = items.map(i => i.kind);
+    const content = items.length
+      ? 'What I may do without asking each time. Tap one to take it back:\n' + items.map(i => `- ${i.kind}${i.since ? ` (since ${i.since})` : ''}${i.example ? `, e.g. "${i.example}"` : ''}`).join('\n')
+      : 'I am not allowed to do anything without asking. I ask before each kind of thing.';
+    const buttons: Button[] = items.slice(0, 25).map((i, n) => ({ id: `trust:rev:${n}`, label: `Take back: ${i.kind}`.slice(0, 80), style: 'danger' as const }));
+    if (this.trustCard && this.trustCard.channelId === channelId) {
+      try { await this.gw.edit(channelId, this.trustCard.messageId, { content: content.slice(0, 1900), buttons }); return; } catch { /* deleted: post a new one */ }
+    }
+    this.trustCard = { channelId, messageId: await this.gw.send(channelId, { content: content.slice(0, 1900), buttons }) };
   }
 
   private criteria(): string {
@@ -403,6 +443,23 @@ export class DiscordAdapter {
       }
       return;
     }
+    if (ev?.t === 'action' && typeof ev.text === 'string') { await this.say('log', ev.text, true); return; }
+    if (ev?.t === 'actions.reply' && typeof ev.text === 'string') {
+      const channelId = this.replyTo.actions.shift() ?? this.state.channels['aang'];
+      if (channelId) await this.gw.send(channelId, { content: ('What I did, newest last:\n' + ev.text).slice(0, 1900) });
+      return;
+    }
+    if (ev?.t === 'trust.reply' && Array.isArray(ev.items)) {
+      // Asked for: a fresh card where he asked. After a revoke there is no request: the card he pressed is updated.
+      const channelId = this.replyTo.trust.shift() ?? this.trustCard?.channelId ?? this.state.channels['aang'];
+      if (channelId) await this.showTrust(channelId, ev.items);
+      return;
+    }
+    if (ev?.t === 'hush.reply' && typeof ev.text === 'string') {
+      const channelId = this.replyTo.hush.shift() ?? this.state.channels['aang'];
+      if (channelId) await this.gw.send(channelId, { content: ev.text });
+      return;
+    }
     if (ev?.t === 'status.reply' && typeof ev.text === 'string') {
       const channelId = this.statusFor.shift() ?? this.state.channels['aang'];
       if (channelId) await this.gw.send(channelId, { content: ev.text });
@@ -445,7 +502,17 @@ export class DiscordAdapter {
       if (b.customId === 'deck:status') { this.statusFor.push(b.channelId); this.link.status(); }
       else if (b.customId === 'deck:job') this.ask('deck' + ++this.deckSeq, b.channelId, JOB_REQUEST);
       else if (b.customId === 'deck:apply') await this.applyApproved(b.channelId);
+      else if (b.customId === 'deck:hush') { this.replyTo.hush.push(b.channelId); this.link.hush(60); }
+      else if (b.customId === 'deck:log') { this.replyTo.actions.push(b.channelId); this.link.actions(); }
+      else if (b.customId === 'deck:perms') { this.trustCard = null; this.replyTo.trust.push(b.channelId); this.link.trust(); }
       else if (b.customId === 'deck:stop') { this.link.stop(); await this.gw.send(b.channelId, { content: 'Stopped.' }); }
+      return;
+    }
+    const rev = /^trust:rev:(\d+)$/.exec(b.customId);
+    if (rev) {
+      await b.keep();
+      const kind = this.trustKinds[Number(rev[1])];
+      if (kind) { this.trustCard = { channelId: b.channelId, messageId: this.trustCard?.messageId ?? '' }; this.link.revoke(kind); }
       return;
     }
     const job = /^job:(ok|no|new):(\d+)$/.exec(b.customId);
