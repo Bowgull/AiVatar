@@ -12,7 +12,7 @@ namespace Aang.Body;
 /// </summary>
 sealed class InputWindow : Form
 {
-    public const int LineH = 19, Pad = 8, MaxLinesShown = 4, BaseW = 256, StripH = 20;
+    public const int LineH = 21, Pad = 10, MaxLinesShown = 4, BaseW = 256, StripH = 22;
 
     readonly TextBox box = new();
     readonly InputHistory history;
@@ -35,7 +35,9 @@ sealed class InputWindow : Form
     bool showUsage;
     public event Action<bool>? UsageShownChanged;
     public void SetUsageShown(bool on) { showUsage = on; Invalidate(); }
-    readonly Font stripFont = new("Bahnschrift", 8.5f, FontStyle.Regular, GraphicsUnit.Point);
+    // Pixels, like the bubble (it was 8.5 pt, about 11 px, hard to read at a glance), scaled by hand in the constructor:
+    // this is a real control, not the pre-scaled surface the bubble draws to.
+    readonly Font stripFont;
 
     public void SetStatus(string mode, bool saving, bool hasQuota, double week, double five, string level)
     {
@@ -61,26 +63,29 @@ sealed class InputWindow : Form
     public InputWindow(float scale, InputHistory history)
     {
         this.scale = scale; this.history = history;
+        stripFont = new Font(Theme.Face, Theme.StripPx * scale, FontStyle.Regular, GraphicsUnit.Pixel);
         Text = "Aang Input";
         FormBorderStyle = FormBorderStyle.None;
         StartPosition = FormStartPosition.Manual;
         ShowInTaskbar = false; TopMost = true;
         AutoScaleMode = AutoScaleMode.None;
-        BackColor = Color.FromArgb(16, 10, 34);
-        Padding = new Padding((int)(Pad * scale), (int)(7 * scale), (int)(Pad * scale), (int)((6 + StripH) * scale));
+        BackColor = Theme.Ink;
+        Padding = new Padding((int)(Pad * scale), (int)(8 * scale), (int)(Pad * scale), (int)((7 + StripH) * scale));
         Size = new Size((int)(BaseW * scale), Fit(1));
 
         box.Multiline = true; box.WordWrap = true; box.BorderStyle = BorderStyle.None;
         box.ScrollBars = ScrollBars.None; box.AcceptsReturn = false; box.AcceptsTab = false;
-        box.BackColor = BackColor; box.ForeColor = Color.FromArgb(240, 244, 255);
-        box.Font = new Font("Bahnschrift", 11f, FontStyle.Regular, GraphicsUnit.Point);
+        box.BackColor = BackColor; box.ForeColor = Theme.Text;
+        // 15 px, the same as the bubble's text, scaled by hand: this is a real control, so it is not on the
+        // pre-scaled surface the bubble draws to.
+        box.Font = new Font(Theme.Face, Theme.BodyPx * scale, FontStyle.Regular, GraphicsUnit.Pixel);
         box.Dock = DockStyle.Fill;
         box.TextChanged += (_, _) => Grow();
         Controls.Add(box);
         Grow();
     }
 
-    int Fit(int lines) => (int)((lines * LineH + 13 + StripH) * scale);
+    int Fit(int lines) => (int)((lines * LineH + 15 + StripH) * scale);
 
     void Grow()
     {
@@ -105,15 +110,19 @@ sealed class InputWindow : Form
         base.OnPaint(e);
         e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
         using var p = Rounded(new Rectangle(1, 1, Width - 3, Height - 3), (int)(10 * scale));
-        using var pen = new Pen(Color.FromArgb(235, 90, 220, 255), 1.8f);
+        // Gold, like the bubble he answers in (it was cyan: two colour languages on one screen).
+        using var halo = new Pen(Theme.Halo, Theme.HaloStroke * scale) { LineJoin = LineJoin.Round };
+        using var pen = new Pen(Theme.WithAlpha(Theme.Gold, 240), Theme.Stroke * scale) { LineJoin = LineJoin.Round };
+        e.Graphics.DrawPath(halo, p);
         e.Graphics.DrawPath(pen, p);
         PaintStrip(e.Graphics);
     }
 
+    // Quota levels: the same colours as everywhere. Gold is Aang; orange means careful; red means over; green means saving.
     static Color LevelColor(string level) => level switch
     {
-        "saving" => Color.FromArgb(120, 230, 150), "offer" => Color.FromArgb(255, 120, 110), "warn" => Color.FromArgb(255, 200, 90),
-        _ => Color.FromArgb(150, 165, 190),
+        "saving" => Theme.Green, "offer" => Theme.Red, "warn" => Theme.Orange,
+        _ => Theme.Secondary,
     };
 
     // The chip row: [Auto v]  [saving]                       week 34% · 5h 12%
@@ -123,21 +132,21 @@ sealed class InputWindow : Form
         var y = Height - (int)(StripH * scale) - (int)(2 * scale);
         var h = (int)((StripH - 3) * scale);
         int x = (int)(Pad * scale);
-        using var line = new Pen(Color.FromArgb(70, 90, 220, 255));
+        using var line = new Pen(Theme.WithAlpha(Theme.Gold, 60));
         g.DrawLine(line, x, y - (int)(2 * scale), Width - x, y - (int)(2 * scale));
 
         if (consent)
         {
-            using var b = new SolidBrush(Color.FromArgb(255, 200, 90));
+            using var b = new SolidBrush(Theme.Orange);
             g.DrawString($"Allow {consentWanted} once?  Enter = yes   Esc = no", stripFont, b, x, y + 1);
             chipRect = savingRect = Rectangle.Empty; return;
         }
 
-        chipRect = Pill(g, x, y, h, ModelChip.Label(mode) + " ▾", Color.FromArgb(90, 220, 255), false);
+        chipRect = Pill(g, x, y, h, ModelChip.Label(mode) + " ▾", Theme.Gold, true);
         x = chipRect.Right + (int)(6 * scale);
         savingRect = Rectangle.Empty;
-        if (saving) { savingRect = Pill(g, x, y, h, "saving quota", Color.FromArgb(120, 230, 150), true); }
-        else if (level == "offer") { savingRect = Pill(g, x, y, h, "save quota?", Color.FromArgb(255, 120, 110), false); }
+        if (saving) { savingRect = Pill(g, x, y, h, "saving quota", Theme.Green, true); }
+        else if (level == "offer") { savingRect = Pill(g, x, y, h, "save quota?", Theme.Red, false); }
 
         usageRect = Rectangle.Empty;
         if (hasQuota)
@@ -177,14 +186,15 @@ sealed class InputWindow : Form
 
     Rectangle Pill(Graphics g, int x, int y, int h, string text, Color c, bool filled)
     {
-        var w = TextRenderer.MeasureText(g, text, stripFont, Size.Empty, TextFormatFlags.NoPadding).Width + (int)(12 * scale);
+        var scaled = stripFont;
+        var w = TextRenderer.MeasureText(g, text, scaled, Size.Empty, TextFormatFlags.NoPadding).Width + (int)(14 * scale);
         var r = new Rectangle(x, y, w, h);
         using var path = Rounded(r, h / 2);
-        if (filled) { using var f = new SolidBrush(Color.FromArgb(50, c)); g.FillPath(f, path); }
-        using var pen = new Pen(Color.FromArgb(200, c), 1.2f);
+        if (filled) { using var f = new SolidBrush(Theme.WithAlpha(c, 46)); g.FillPath(f, path); }
+        using var pen = new Pen(Theme.WithAlpha(c, 210), 1.3f);
         g.DrawPath(pen, path);
         using var b = new SolidBrush(c);
-        g.DrawString(text, stripFont, b, x + 6 * scale, y + 1);
+        g.DrawString(text, scaled, b, x + 7 * scale, y + (h - scaled.Height) / 2f);
         return r;
     }
 

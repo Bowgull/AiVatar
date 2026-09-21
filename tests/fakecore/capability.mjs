@@ -48,7 +48,7 @@ await sleep(2500);
 const rect = (await keys.ask('rect Aang Body')).split(' ').map(Number);
 const [L, T] = rect;
 // yes/no sit on their own row at the bottom right of the bubble (BubbleView.ChoiceRect)
-const choiceXY = i => [L + Math.round(262 - 12 - (2 - i) * (52 + 6) + 52 / 2), T + 110 + Math.round(124 - 11 - 20 + 2 + 10)];
+const choiceXY = i => [L + Math.round(262 - 14 - (2 - i) * (68 + 8) + 68 / 2), T + 168 + Math.round(124 - 12 - 28 + 14)];
 const waitFor = async (f, ms = 90000) => { const d = Date.now() + ms; while (Date.now() < d) { const r = f(); if (r) return r; await sleep(60); } return null; };
 const answer = id => waitFor(() => inbox.find(m => m.t === 'bubble' && m.stream === false && m.id === id));
 const toolsUsed = from => inbox.slice(from).filter(m => m.t === 'tool').map(m => m.name);

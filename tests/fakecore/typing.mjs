@@ -47,9 +47,9 @@ check('Body connected', !!sock);
 await sleep(1500);
 const rect = (await keys.ask('rect Aang Body')).split(' ').map(Number);
 const [L, T] = rect;
-const spriteXY = [L + 360, T + 110 + 215];                       // a pixel on Aang himself
+const spriteXY = [L + 360, T + 168 + 215];                       // a pixel on Aang himself
 const openBox = async () => { await ensureForeground(keys.ask); await keys.ask('click ' + spriteXY[0] + ' ' + spriteXY[1]); };
-const bubbleXY = [L + 120, T + 110 + 100];                        // inside the bubble when it is showing
+const bubbleXY = [L + 120, T + 168 + 100];                        // inside the bubble when it is showing
 
 // ---- WoW in front, as in real use
 const wowFg = await ensureForeground(keys.ask);

@@ -12,7 +12,9 @@ namespace Aang.Body;
 /// </summary>
 sealed class PetWindow : Form
 {
-    public const int W = 470, H = 310, Extra = 110;   // Extra: room above the old window so a bubble can grow to 12 lines
+    // Extra: room above the old window so a bubble can grow to 12 lines. A full one reaches ExpandedMaxH (276) - Bottom
+    // (124) = 152 above the old top; the copy/rate buttons stand another ~10 above that edge. 168 covers both.
+    public const int W = 470, H = 310, Extra = 168;
     const int HotkeyId = 0xA46, EscId = 0xA47;
     static readonly TimeSpan WakeFor = TimeSpan.FromSeconds(4);
 
@@ -84,6 +86,8 @@ sealed class PetWindow : Form
     public PetWindow(string[] args)
     {
         scale = DeviceDpi / 96f;
+        // Test flag: --dpi=150 draws at 150% on any desktop, so every scale can be looked at without changing Windows.
+        foreach (var a in args) if (a.StartsWith("--dpi=", StringComparison.OrdinalIgnoreCase) && int.TryParse(a[6..], out var d) && d is >= 96 and <= 400) scale = d / 96f;
         pw = (int)Math.Round(W * scale);
         ph = (int)Math.Round((H + Extra) * scale);
 
@@ -98,10 +102,17 @@ sealed class PetWindow : Form
         // the saved top edge up by the same amount, once.
         if (cfg.LayoutVersion < 2)
         {
-            if (cfg.Y is int oldY) cfg.Y = oldY - (int)Math.Round(Extra * scale);
+            if (cfg.Y is int oldY) cfg.Y = oldY - (int)Math.Round(110 * scale);
             cfg.LayoutVersion = 2; cfg.Save();
         }
         if (cfg.LayoutVersion < 3) { cfg.Hotkey = "Ctrl+NumLock"; cfg.LayoutVersion = 3; cfg.Save(); }
+        // Version 4 (Clean Gold): the window grew taller again, 110 to 160, for the roomier bubble. Same trick: the saved
+        // top edge moves up by what was added, once, so the sprite, which stands at the bottom, does not move.
+        if (cfg.LayoutVersion < 4)
+        {
+            if (cfg.Y is int oldY4) cfg.Y = oldY4 - (int)Math.Round((Extra - 110) * scale);
+            cfg.LayoutVersion = 4; cfg.Save();
+        }
         Location = cfg is { X: not null, Y: not null } ? Clamp(new Point(cfg.X.Value, cfg.Y.Value)) : DefaultPos();
 
         // Test/diagnostic flag: --quiet=never or --quiet=always overrides the WoW-focus detection.

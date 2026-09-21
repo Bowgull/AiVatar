@@ -48,7 +48,7 @@ check('Body connected', !!sock);
 await sleep(1500);
 const rect = (await keys.ask('rect Aang Body')).split(' ').map(Number);
 const [L, T] = rect;
-const spriteXY = [L + 360, T + 110 + 215];                       // a pixel on Aang himself
+const spriteXY = [L + 360, T + 168 + 215];                       // a pixel on Aang himself
 
 // ---- copy and rate a reply
 await ensureForeground(keys.ask);
@@ -56,9 +56,9 @@ const REPLY = 'The chibi is the small pixel Aang on your desktop.';
 send({ t: 'bubble', text: REPLY, stream: false, id: 'r1' });
 await sleep(700);
 await snap('01_no_hover');
-await keys.ask(`move ${L + 120} ${T + 110 + 105}`); await sleep(300);
+await keys.ask(`move ${L + 120} ${T + 168 + 105}`); await sleep(300);
 await snap('02_hover_tools');
-const toolXY = i => [L + 218 + (i - 1) * 23, T + 110 + 69];         // copy, good, not good (centres)
+const toolXY = i => [L + 218 + (i - 1) * 23, T + 168 + 57];         // copy, good, not good (centres)
 const rated = () => inbox.filter(m => m.t === 'rate');
 inbox.length = 0;
 await keys.ask(`click ${toolXY(1)[0]} ${toolXY(1)[1]}`); await sleep(300);
@@ -76,7 +76,7 @@ check('the copy button puts the reply text on the clipboard', clip === REPLY, cl
 check('none of that closed the bubble or opened the input box', (await keys.ask('rect Aang Input')) === 'none');
 // a proactive message (or one without an id) is not rateable
 send({ t: 'bubble', text: 'Timer done.', stream: false, proactive: true }); await sleep(600);
-await keys.ask(`move ${L + 120} ${T + 110 + 105}`); await sleep(300);
+await keys.ask(`move ${L + 120} ${T + 168 + 105}`); await sleep(300);
 await snap('06_proactive_no_tools');
 await releaseForeground();
 keys.p.stdin.write('quit\n'); cap.p.stdin.write('quit\n'); body.kill(); wss.close();
