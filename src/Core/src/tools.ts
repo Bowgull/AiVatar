@@ -46,6 +46,7 @@ export const TOOL_LABELS: Record<string, string> = {
   read_window: 'reading your window',
   look_at_window: 'looking at your window',
   start_claude: 'starting Claude on it',
+  my_abilities: 'checking what I can do',
   write_file: 'writing that file',
   edit_file: 'editing that file',
   undo_file_change: 'putting that back',
@@ -80,7 +81,25 @@ export const TOOL_NAMES = ['mcp__aang__get_time', 'mcp__aang__get_weather', 'mcp
   'mcp__aang__remember', 'mcp__aang__forget', 'mcp__aang__what_you_know',
   'mcp__aang__open', 'mcp__aang__read_clipboard', 'mcp__aang__run', 'mcp__aang__read_window', 'mcp__aang__look_at_window', 'mcp__aang__start_claude',
   'mcp__aang__write_file', 'mcp__aang__edit_file', 'mcp__aang__undo_file_change',
-  'mcp__aang__close_app', 'mcp__aang__force_quit', 'mcp__aang__arrange_window', 'mcp__aang__media_key'];
+  'mcp__aang__close_app', 'mcp__aang__force_quit', 'mcp__aang__arrange_window', 'mcp__aang__media_key', 'mcp__aang__my_abilities'];
+
+/**
+ * What he can honestly say he can do. A tool result, not prompt text: a long "here is what you can do" block in the
+ * system prompt made the Quick lane stop calling remember (measured 2026-09-21: the memory suite fell from 11/11
+ * to 8/11), and a fact he states should come from a tool this turn anyway.
+ */
+export const ABILITIES = [
+  'What you can really do, and the limits. Tell him in a sentence or two from this; do not read it out as a list.',
+  '- Look things up on the web (look_up_web).',
+  '- Run commands such as git, builds, tests and listings. Each kind of program is asked about once; installing, deleting or anything that reaches the internet asks every time.',
+  '- Open apps, files, folders and links. Read and search his files.',
+  '- Write and change files: the old version is kept, so "undo that" works. Never his settings, memory or Windows.',
+  '- Close apps, move and resize windows, and press media keys. Force quit an app: that always asks first.',
+  '- Read what is in the window he is in, and look at it. Read his clipboard.',
+  '- Set reminders. Remember things about him and search what he has told you.',
+  '- Start longer jobs in Claude Code, above all his job hunt.',
+  'You cannot: send email or messages, click or type inside other apps, install software, or use his accounts. If he asks for one of those, say it is not something you can do yet.',
+].join('\n');
 
 /**
  * The SDK's own file-writing tools, taken away like the shell: write_file and edit_file replace them, and unlike
@@ -309,6 +328,8 @@ export function makeToolServer(
           name: z.string().optional().describe('a short name he would recognise, e.g. "job hunt"'),
         },
         async ({ task, where, name }) => ok(startClaude ? await startClaude(task, where, name) : 'Starting Claude sessions is not available right now.')),
+      tool('my_abilities', 'What you can and cannot do. Call it whenever he asks what you can do, what you are able to do, or whether you can do something you are unsure about.', {},
+        async () => ok(ABILITIES)),
       tool('write_file', 'Create a file or replace one whole, with the text you give. For a small change to an existing file use edit_file instead. Give the full path starting with the drive. The old version is kept, so undo_file_change can put it back. You cannot write to Windows, program folders, or your own settings and memory.',
         { file: z.string().describe('full path, e.g. C:\\Users\\Shadow\\Documents\\notes.txt'), content: z.string().describe('the whole new content of the file') },
         async ({ file, content }) => {

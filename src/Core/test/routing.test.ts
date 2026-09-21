@@ -55,6 +55,23 @@ test('a question asked on the desktop is answered there only', async () => {
   await done();
 });
 
+test('"where" means the desktop as a whole: a second desktop window (the Body) sees what the first one asked', async () => {
+  const { core, desk, phone, done } = await setup(47989);
+  const body = await client(47989);                                // the Body, next to a client that submits
+  await wait(100);
+  desk.c.send(JSON.stringify({ t: 'submit', id: 'b9', text: 'open paint' }));
+  await wait(100);
+  const asked = core.askPermission('mcp__aang__open', { what: 'paint' });
+  await wait(100);
+  assert.equal(body.of('permission').length, 1, 'the Body shows the question');
+  assert.equal(desk.of('permission').length, 1);
+  assert.equal(phone.of('permission').length, 0, 'Discord does not');
+  body.c.send(JSON.stringify({ t: 'permission.reply', id: body.of('permission')[0].id, allow: false }));
+  assert.equal(await asked, false);
+  body.c.close();
+  await done();
+});
+
 test('a yes/no question goes where the request came from', async () => {
   const { core, desk, phone, done } = await setup(47993);
   phone.c.send(JSON.stringify({ t: 'submit', id: 'd2', text: 'read my screen' }));
