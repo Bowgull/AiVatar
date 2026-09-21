@@ -19,14 +19,20 @@ export const MAX_CHARS = 12_000;
 export const QUOTA_CEILING = 0.40;
 
 export const PROMPT = [
-  'Read this conversation between Joshua and Aang and write down what is worth knowing next week.',
+  'Read what Joshua said to Aang (his assistant) and write down what is worth knowing next week. Only his side',
+  'is shown, with the odd question Aang asked him for context.',
   '',
   'Keep only durable things about Joshua: his projects, the people around him, his preferences, decisions',
   'he made, how he likes things done, what he is working towards. One short plain sentence each, written',
   'about him in the third person, understandable on its own a month from now.',
   '',
-  'Leave out: anything about Aang or about how Joshua uses him, observations about his habits with the',
-  'assistant, his file paths and machine setup, questions he asked, the weather, the time, and anything',
+  'Only what JOSHUA said or plainly confirmed. Never anything that only Aang said: Aang guesses and gets things',
+  'wrong, and his claims are not facts about Joshua. If Aang said something and Joshua did not agree with it',
+  'in his own words, leave it out. Joshua asking for something done a certain way once ("open it in chrome")',
+  'is a request, not a standing preference.',
+  '',
+  'Leave out: anything about Aang, his tools, permissions or how Joshua uses him, observations about his habits',
+  'with the assistant, his file paths and machine setup, questions he asked, the weather, the time, and anything',
   'that will not still be true next week. If in doubt, leave it out: a wrong or pointless thing kept is',
   'worse than a right one missed, because he will be told it later as if it mattered.',
   '',
@@ -39,6 +45,15 @@ export interface ConsolidateResult {
   considered: number;
   kept: string[];
   replaced: string[];
+  /** Facts the model offered that he had asked to forget, and were therefore not kept. */
+  skippedForgotten?: number;
+}
+
+/** The question in one of Aang's replies, if it ends in one - context for Joshua's answer, but no claims. */
+export function askedOnly(reply: string): string {
+  const sentences = (reply ?? '').trim().split(/(?<=[.!?])\s+/);
+  const last = sentences[sentences.length - 1] ?? '';
+  return last.endsWith('?') && last.length <= 200 ? last : '';
 }
 
 /** Pull the JSON array out of a model reply, tolerating a stray sentence around it. */
@@ -81,9 +96,15 @@ export async function consolidate(
   if (!turns.length) return { ...out, skipped: 'nothing new since last time' };
   out.considered = turns.length;
 
+  // Only Joshua's words, and Aang's only where he asked something Joshua then answered. Found 2026-09-21: the
+  // catch-up read a conversation where Aang wrongly said "your default browser is Chrome" and kept it as a fact
+  // about Joshua - two runs in three even with the prompt forbidding it. What Aang never says here, the model
+  // cannot mistake for Joshua.
   let transcript = '';
   for (const t of turns) {
-    const line = `${t.role === 'user' ? 'Joshua' : 'Aang'}: ${t.text}\n`;
+    const text = t.role === 'user' ? t.text : askedOnly(t.text);
+    if (!text) continue;
+    const line = `${t.role === 'user' ? 'Joshua' : 'Aang asked'}: ${text}\n`;
     if (transcript.length + line.length > MAX_CHARS) break;
     transcript += line;
   }
@@ -95,6 +116,9 @@ export async function consolidate(
   const already = known ? `\n\nAlready known - do not write these again, however they are worded. Only write one if it has changed, as the new version:\n${known}` : '';
   const reply = await ask(`${PROMPT}${already}\n\n<conversation>\n${transcript}</conversation>`);
   for (const fact of parseFacts(reply)) {
+    // Something he asked to forget stays forgotten, even though the old conversation still mentions it.
+    // Only here: if he tells Aang again himself, the remember tool still keeps it.
+    if (memory.wasForgotten(fact)) { out.skippedForgotten = (out.skippedForgotten ?? 0) + 1; continue; }
     const { fact: saved, replaced } = memory.remember(fact, 'consolidate', opts.now);
     if (saved) out.kept.push(saved.text);
     if (replaced) out.replaced.push(replaced.text);

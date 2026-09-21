@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Reads the text of one window through UI Automation, prints JSON, and exits.
+
+    It is its own process on purpose. Measured 2026-09-20: TextPattern.GetVisibleRanges raised an
+    AccessViolationException in Notepad and in the Claude app, which .NET cannot catch - inside the Body it
+    would have killed Aang. Out here a crash or a hang in some other app's accessibility code costs one read.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>AangReader</AssemblyName>
+    <RootNamespace>Aang.Reader</RootNamespace>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <TieredPGO>true</TieredPGO>
+  </PropertyGroup>
+</Project>

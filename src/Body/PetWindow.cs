@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Text.Json;
@@ -35,6 +35,8 @@ sealed class PetWindow : Form
     string? heldText;               // latest proactive message waiting for quiet mode to end
     string foreground = "";
     string foregroundTitle = "";
+    /// <summary>The handle of the window he is in, for the Core to read what is in it. Never one of Aang's own.</summary>
+    long foregroundHwnd;
     string sentWindow = "";
     DateTime windowSentAt = DateTime.MinValue;
     bool dirty = true, quiet, autoQuiet, dragging, moved, hotkeyOk, bubbleWasVisible, wasAnimating = true;
@@ -136,7 +138,7 @@ sealed class PetWindow : Form
             if (saving) _ = link.SendAsync(new { t = "saving", on = true });
             _ = link.SendAsync(new { t = "mute", on = cfg.Muted });
             sentWindow = "";                                                       // resend after a reconnect
-            _ = link.SendAsync(new { t = "presence", quiet, foreground, title = foregroundTitle, watching = cfg.SeeActiveWindow });
+            _ = link.SendAsync(new { t = "presence", quiet, foreground, title = foregroundTitle, watching = cfg.SeeActiveWindow, hwnd = foregroundHwnd });
         };
         PushStatus();
         input.PageRequested += d => { if (d > 0 && bubble.More) ExpandBubble(); else if (bubble.Scroll(d * 6)) dirty = true; };
@@ -229,6 +231,9 @@ sealed class PetWindow : Form
                 case "clipboard.request":
                     SendClipboard(Str(m, "id") ?? "");
                     break;
+                case "look.request":
+                    SendLook(Str(m, "id") ?? "");
+                    break;
                 case "quota":
                     hasQuota = true;
                     weekUse = Num(m, "week"); fiveUse = Num(m, "five");
@@ -268,6 +273,7 @@ sealed class PetWindow : Form
     {
         foreground = ForegroundName();
         foregroundTitle = cfg.SeeActiveWindow ? ForegroundTitle() : "";
+        if (!cfg.SeeActiveWindow) foregroundHwnd = 0;
         var wow = cfg.QuietProcessPrefixes.Any(p => foreground.StartsWith(p, StringComparison.OrdinalIgnoreCase));
         if (wow != autoQuiet) { autoQuiet = wow; ApplyQuiet(); }
         ReportWindow();
@@ -282,10 +288,10 @@ sealed class PetWindow : Form
     void ReportWindow()
     {
         var now = DateTime.UtcNow;
-        var key = foreground + "\u0000" + foregroundTitle;
+        var key = foreground + "\u0000" + foregroundTitle + "\u0000" + foregroundHwnd;
         if (key == sentWindow || now - windowSentAt < TimeSpan.FromMilliseconds(500)) return;
         sentWindow = key; windowSentAt = now;
-        _ = link.SendAsync(new { t = "presence", quiet, foreground, title = foregroundTitle, watching = cfg.SeeActiveWindow });
+        _ = link.SendAsync(new { t = "presence", quiet, foreground, title = foregroundTitle, watching = cfg.SeeActiveWindow, hwnd = foregroundHwnd });
     }
 
     /// <summary>The foreground window's title. Read every poll, because it changes without the window
@@ -298,6 +304,7 @@ sealed class PetWindow : Form
             if (h == IntPtr.Zero) return "";
             Win32.GetWindowThreadProcessId(h, out var pid);
             if (pid == Environment.ProcessId) return "";      // never report Aang's own windows
+            foregroundHwnd = h.ToInt64();
             var sb = new System.Text.StringBuilder(256);
             return Win32.GetWindowText(h, sb, sb.Capacity) > 0 ? sb.ToString() : "";
         }
@@ -346,7 +353,7 @@ sealed class PetWindow : Form
         anim.Play("idle");
         if (!quiet && heldText != null) { ShowBubble(heldText, false); heldText = null; }
         dirty = true;
-        _ = link.SendAsync(new { t = "presence", quiet, foreground, title = foregroundTitle, watching = cfg.SeeActiveWindow });
+        _ = link.SendAsync(new { t = "presence", quiet, foreground, title = foregroundTitle, watching = cfg.SeeActiveWindow, hwnd = foregroundHwnd });
     }
 
     // ------------------------------------------------------------------ frame loop
@@ -650,6 +657,25 @@ sealed class PetWindow : Form
         try { if (Clipboard.ContainsText()) text = Clipboard.GetText(); }
         catch (Exception e) { Log.Write("clipboard read failed: " + e.Message); }
         _ = link.SendAsync(new { t = "clipboard", id, text });
+    }
+
+    /// <summary>
+    /// A picture of the window Joshua is in, asked for by the Core only after he has agreed to it. Taken
+    /// here because the Body owns the desktop and knows which windows are Aang's own, to leave them out.
+    /// </summary>
+    void SendLook(string id)
+    {
+        if (!cfg.SeeActiveWindow || foregroundHwnd == 0)
+        {
+            _ = link.SendAsync(new { t = "look", id, ok = false, error = "seeing his windows is turned off" });
+            return;
+        }
+        var shot = Look.Capture(new IntPtr(foregroundHwnd), new[] { Handle, input.IsHandleCreated ? input.Handle : IntPtr.Zero });
+        if (shot.Error != null) Log.Write("look failed: " + shot.Error);
+        // Tests only: keep a copy of exactly what was sent, to check by eye that Aang is not in it.
+        if (shot.Jpeg != null && Environment.GetEnvironmentVariable("AANG_LOOK_SAVE") is { Length: > 0 } save)
+            try { File.WriteAllBytes(save, Convert.FromBase64String(shot.Jpeg)); } catch (Exception e) { Log.Write("look save failed: " + e.Message); }
+        _ = link.SendAsync(new { t = "look", id, ok = shot.Jpeg != null, data = shot.Jpeg, w = shot.Width, h = shot.Height, black = shot.Black, error = shot.Error });
     }
 
     /// <summary>Aang wants to change something on the machine. He does not do it until Joshua says yes.</summary>

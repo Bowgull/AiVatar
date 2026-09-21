@@ -1,6 +1,8 @@
 ﻿# Persistent keyboard/mouse/focus driver for end-to-end tests. Reads one command per line, prints one reply.
 #   fg                         title of the foreground window
-#   focus <process>            bring that process's main window to the front (e.g. WowB, notepad)
+#   focus <process>            bring that process's main window to the front (e.g. WowB)
+#   focustitle <exact title>   bring the window with exactly this title to the front
+#   movetitle <x> <y> <w> <h> <exact title>   move and size the window with exactly this title
 #   hotkey <Ctrl+Shift+Space>  press a key combination
 #   send <SendKeys text>       type into whatever has focus, e.g.  hello{ENTER}   ^{ENTER}   {ESC}   {UP}   {PGDN}
 #   click <x> <y>              left click at screen coordinates
@@ -27,6 +29,8 @@ public class K {
   [StructLayout(LayoutKind.Sequential)] public struct R { public int L, T, Rr, B; }
   public static string Title(IntPtr h) { var sb = new StringBuilder(256); GetWindowText(h, sb, 256); return sb.ToString(); }
   public static string Fg() { return Title(GetForegroundWindow()); }
+  public static IntPtr Exact(string title) { IntPtr o = IntPtr.Zero;
+    EnumWindows((h, l) => { if (IsWindowVisible(h) && Title(h) == title) { o = h; return false; } return true; }, IntPtr.Zero); return o; }
   public static string Rect(string part) { string o = "none";
     EnumWindows((h, l) => { if (!IsWindowVisible(h)) return true; var t = Title(h); if (t.IndexOf(part, StringComparison.OrdinalIgnoreCase) >= 0) { R r; GetWindowRect(h, out r); o = r.L + " " + r.T + " " + r.Rr + " " + r.B; return false; } return true; }, IntPtr.Zero); return o; }
 }
@@ -42,6 +46,8 @@ while ($null -ne ($line = [Console]::In.ReadLine())) {
     switch ($cmd) {
       'quit'   { exit 0 }
       'fg'     { $r = [K]::Fg() }
+      'focustitle' { $h = [K]::Exact($rest); if ($h -ne [IntPtr]::Zero) { [K]::SwitchToThisWindow($h, $true); Start-Sleep -Milliseconds 900; $r = [K]::Fg() } else { $r = 'no such window' } }
+      'movetitle' { $a = $rest -split ' ', 5; $h = [K]::Exact($a[4]); if ($h -ne [IntPtr]::Zero) { [void][K]::MoveWindow($h, [int]$a[0], [int]$a[1], [int]$a[2], [int]$a[3], $true); $r = 'ok' } else { $r = 'no such window' } }
       'focus'  { $p = Get-Process $rest -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1; if ($p) { [K]::SwitchToThisWindow($p.MainWindowHandle, $true); Start-Sleep -Milliseconds 900; $r = [K]::Fg() } else { $r = "no such process" } }
       'hotkey' { Press $rest; Start-Sleep -Milliseconds 350; $r = "ok" }
       'send'   { [System.Windows.Forms.SendKeys]::SendWait($rest); Start-Sleep -Milliseconds 250; $r = "ok" }

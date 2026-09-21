@@ -43,6 +43,8 @@ export const TOOL_LABELS: Record<string, string> = {
   search_memory: 'looking through our history',
   claude_code_status: 'checking on Claude Code',
   what_im_doing: 'checking what you are in',
+  read_window: 'reading your window',
+  look_at_window: 'looking at your window',
   remember: 'writing that down',
   forget: 'forgetting that',
   what_you_know: 'checking what I know about you',
@@ -68,7 +70,7 @@ export const TOOL_NAMES = ['mcp__aang__get_time', 'mcp__aang__get_weather', 'mcp
   'mcp__aang__claude_code_status', 'mcp__aang__set_reminder', 'mcp__aang__list_reminders', 'mcp__aang__cancel_reminder',
   'mcp__aang__look_up_web', 'mcp__aang__what_im_doing',
   'mcp__aang__remember', 'mcp__aang__forget', 'mcp__aang__what_you_know',
-  'mcp__aang__open', 'mcp__aang__read_clipboard', 'mcp__aang__run'];
+  'mcp__aang__open', 'mcp__aang__read_clipboard', 'mcp__aang__run', 'mcp__aang__read_window', 'mcp__aang__look_at_window'];
 
 /**
  * Built-in tools Aang may use without asking. All of them only look: they search, fetch and read, and none
@@ -166,8 +168,10 @@ export function describeCall(tool: string, input: Record<string, unknown>): stri
     case 'WebFetch': return `read ${short(s('url'), 60)}`;
     case 'Read': return `read ${short(s('file_path'), 60)}`;
     case 'Glob': case 'Grep': return `look through your files`;
-    case 'mcp__aang__open': return `open ${short(s('what'), 60)}`;
+    case 'mcp__aang__open': return s('with') ? `open ${short(s('what'), 50)} in ${s('with')}` : `open ${short(s('what'), 60)}`;
     case 'mcp__aang__read_clipboard': return 'read what you have copied';
+    case 'mcp__aang__read_window': return `read what is in ${short(s('app'), 60)}`;
+    case 'mcp__aang__look_at_window': return `take a picture of ${short(s('app'), 60)}`;
     case 'mcp__aang__run': return `run ${short(s('command'), 70)}`;
     // Anything unknown: show whatever looks like the thing being done, never a bare tool name.
     default: {
@@ -180,9 +184,11 @@ export function describeCall(tool: string, input: Record<string, unknown>): stri
 export function makeToolServer(
   memory: Memory, hooks?: HookTracker, reminders?: Reminders,
   lookUpWeb?: (q: string) => Promise<string>, activity?: ActivityLog,
-  openThing?: (what: string) => Promise<{ ok: boolean; detail: string }>,
+  openThing?: (what: string, withApp?: string) => Promise<{ ok: boolean; detail: string }>,
   readClipboard?: () => Promise<string | null>,
   runIt?: (command: string) => Promise<{ ok: boolean; output: string }>,
+  readScreen?: () => Promise<string>,
+  lookAtScreen?: () => Promise<{ text: string; image?: { data: string; mimeType: string } }>,
 ) {
   const ok = (text: string) => ({ content: [{ type: 'text' as const, text }] });
   const fail = (text: string) => ({ content: [{ type: 'text' as const, text }], isError: true });
@@ -225,6 +231,7 @@ export function makeToolServer(
         { which: z.string().describe('a few words of the fact to remove') },
         async ({ which }) => {
           const gone = memory.forget(which);
+          console.log(`memory: forget ${JSON.stringify(which)} removed ${gone.length}: ${JSON.stringify(gone.map(f => f.text))}`);
           return gone.length
             ? ok(`Forgotten (${gone.length}): ${gone.map(f => `"${f.text}"`).join('; ')}. Tell him plainly what you forgot.`)
             : fail('Nothing matched that. Check what_you_know for what is there.');
@@ -235,18 +242,21 @@ export function makeToolServer(
           if (!facts.length) return ok('Nothing is kept about him right now.');
           return ok(facts.map(f => `- ${f.text}${f.timesSeen > 1 ? ` (confirmed ${f.timesSeen} times)` : ''}`).join('\n'));
         }),
-      tool('open', 'Open an app, a file, a folder or a link on Joshua\'s computer, the way double-clicking it would. Use for "open X", "launch X", "show me X", "put X up". One thing per call.',
-        { what: z.string().describe('an app name like "firefox", a full path, or an https link') },
-        async ({ what }) => {
+      tool('open', 'Open an app, a file, a folder or a link on Joshua\'s computer. Use for "open X", "launch X", "show me X", "put X up". Apps are found the way the Start menu finds them, so a plain name like "chrome", "spotify" or "discord" works. When he names the app to open something IN - "on youtube in chrome", "open this file in notepad" - put that app in `with`; without it a link goes to his default browser. What comes back says exactly what opened and in which app: repeat that, never assume. If it says an app is not installed, that was checked; otherwise never claim an app is missing. One thing per call.',
+        {
+          what: z.string().describe('an app name like "chrome", a full path, or a link like https://www.youtube.com/results?search_query=...'),
+          with: z.string().optional().describe('the app to open it in, when he named one: "chrome", "firefox", "notepad", "vlc"'),
+        },
+        async ({ what, with: withApp }) => {
           if (!openThing) return fail('Opening things is not available right now.');
-          const r = await openThing(what);
+          const r = await openThing(what, withApp);
           return r.ok ? ok(r.detail) : fail(r.detail);
         }),
       tool('read_clipboard', 'What Joshua has copied. Use when he says "this", "what I just copied", "have a look at this" and there is nothing else to go on.', {},
         async () => {
           if (!readClipboard) return fail('The clipboard is not available right now.');
           const text = await readClipboard();
-          if (text === null) return fail('Declined in the bubble, so the clipboard was not read.');
+          if (text === null) return fail('The clipboard was not read: he said no, did not answer, or it holds no text.');
           return text.trim() ? ok(text) : ok('The clipboard is empty.');
         }),
       tool('run', 'Run a command on Joshua\'s computer and get its output. This is the only way to run anything. Use it for git, builds, tests, listing things - real commands. Not for opening apps, files or links: use open. Not for anything on the internet: use look_up_web. It starts in his home folder (' + os.homedir() + '), so give full paths or use git -C <folder>.',
@@ -255,6 +265,16 @@ export function makeToolServer(
           if (!runIt) return fail('Running commands is not available right now.');
           const r = await runIt(command);
           return r.ok ? ok(r.output) : fail(r.output);
+        }),
+      tool('read_window', 'Read what is IN the window Joshua has in front of him: the page he is reading, the code or text in his editor, the chat, the folder listing. Use when he asks about the content - "what does this say", "explain this", "what am I looking at", "summarise this page", "is this right". It reads text, not pictures; for which app he is in, what_im_doing is enough.', {},
+        async () => ok(readScreen ? await readScreen() : 'Reading windows is not available right now.')),
+      tool('look_at_window', 'Take a picture of the window Joshua is in and look at it. Costs far more than read_window, so use it only when words cannot answer: read_window came back empty (a game, a drawing, a canvas), or he asks how something LOOKS - a layout, a chart, a colour, an image, "does this look right".', {},
+        async () => {
+          if (!lookAtScreen) return fail('Looking at windows is not available right now.');
+          const r = await lookAtScreen();
+          return r.image
+            ? { content: [{ type: 'image' as const, data: r.image.data, mimeType: r.image.mimeType }, { type: 'text' as const, text: r.text }] }
+            : ok(r.text);
         }),
       tool('what_im_doing', 'Which application window Joshua has in front of him right now, and which ones just before, from their titles. Use when he says "this", "here", "what I am looking at", or asks which app he is in. It only reads the window title, never what is inside the window. NOT for questions about Claude Code sessions or agents: use claude_code_status for those.', {},
         async () => ok(activity ? activity.summary() : 'Window tracking is not running.')),

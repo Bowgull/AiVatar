@@ -87,6 +87,15 @@ public class BubbleWrapTests
     }
 
     [Fact]
+    public void A_sentence_cut_at_its_full_stop_gets_three_dots_not_four()
+    {
+        using var b = new BubbleView();
+        b.Show(Long, stream: false, holdMs: 10_000);
+        Assert.Equal("so I can't tell you the scene...", b.Ellipsize("so I can't tell you the scene."));
+        Assert.Equal("wait, really?...", b.Ellipsize("wait, really?"));
+    }
+
+    [Fact]
     public void Nothing_turns_the_page_by_itself()
     {
         using var b = new BubbleView();

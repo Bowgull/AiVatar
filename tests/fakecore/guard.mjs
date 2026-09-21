@@ -58,7 +58,7 @@ const requireSqlite = () => req('node:sqlite');
 /**
  * Put a real window in front before any click test. WoW is the realistic case, but when it is not running
  * the foreground falls to "ShadowStreamer - Frame Generator", and synthetic clicks then reach nothing at
- * all (see the note above). A throwaway Notepad stands in so the suites behave the same either way.
+ * all (see the note above). A throwaway window of our own stands in so the suites behave the same either way.
  * Returns the foreground title.
  */
 export async function ensureForeground(ask) {
@@ -72,20 +72,28 @@ export async function ensureForeground(ask) {
   // that took it went away mid-test (typing and chip failed on "New notification" in two full runs).
   // And never an app where stray keystrokes would do something: on 2026-09-20 the test typed with the Claude
   // app in front, one slipped focus away from sending test text into Joshua's own chat.
-  if (current && !/ShadowStreamer|^Aang|New notification|Windows Input Experience|^Claude$|Spotify|Discord|Firefox/i.test(current)) return current;
+  // Aang's OWN windows only: a bare "^Aang" also matched this run's "Aang test stand-in", so every click opened
+  // another stand-in, and a late one stole focus from the input box (typing failed twice, 2026-09-21).
+  if (current && !/ShadowStreamer|^Aang (Body|Input|Hotkey)|New notification|Windows Input Experience|^Claude$|Spotify|Discord|Firefox/i.test(current)) return current;
+  // Already have one from earlier in this run: bring it back rather than opening another.
+  if (standIn && (await ask(`focustitle ${STAND_IN}`)) === STAND_IN) return STAND_IN;
 
+  // Our own window, never Notepad: see tools/measure/StandIn.ps1 for what Notepad did to Joshua's desktop.
   const { spawn } = await import('node:child_process');
-  spawn('notepad.exe', [], { stdio: 'ignore', detached: true }).unref();
+  const { fileURLToPath } = await import('node:url');
+  const script = fileURLToPath(new URL('../../tools/measure/StandIn.ps1', import.meta.url));
+  const child = spawn('powershell.exe', ['-NoProfile', '-STA', '-ExecutionPolicy', 'Bypass', '-File', script, '-Title', STAND_IN], { stdio: 'ignore', windowsHide: false });
+  standIn = child.pid ?? null;
   await new Promise(r => setTimeout(r, 2500));
-  openedStandIn = true;
-  // Out of Aang's way: left where Windows puts it, the stand-in covers him and swallows the very clicks
+  // Out of Aang's way (top left): left where Windows puts it, it covers him and swallows the very clicks
   // the test is trying to make.
-  await ask('movewin notepad 0 0 420 300');
-  return ask('focus notepad');
+  await ask(`movetitle 0 0 420 300 ${STAND_IN}`);
+  return ask(`focustitle ${STAND_IN}`);
 }
 
-/** True only when this run opened the stand-in, so nothing the user opened is ever closed. */
-let openedStandIn = false;
+const STAND_IN = 'Aang test stand-in';
+/** The process id of the stand-in this run started, so exactly that and nothing else is ever closed. */
+let standIn = null;
 
 /**
  * Close the Explorer windows a test opened on its own temp folders, and only those. actions.mjs and
@@ -99,8 +107,10 @@ export function closeTestFolders(...prefixes) {
 
 /** Close the stand-in window, if this run opened one. */
 export async function releaseForeground() {
-  if (!openedStandIn) return;
-  openedStandIn = false;
-  const { execSync } = await import('node:child_process');
-  try { execSync('taskkill /IM notepad.exe /F', { stdio: 'ignore' }); } catch { /* none running */ }
+  if (!standIn) return;
+  const pid = standIn;
+  standIn = null;
+  // By process id, and only the one this run started. It used to be "taskkill /IM notepad.exe", which
+  // closed every Notepad on the machine, Joshua's included.
+  try { execSync(`taskkill /PID ${pid} /T /F`, { stdio: 'ignore' }); } catch { /* already gone */ }
 }

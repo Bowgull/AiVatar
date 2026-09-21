@@ -7,10 +7,10 @@
 import { closeSync, fsyncSync, mkdirSync, openSync, renameSync, writeSync } from 'node:fs';
 import path from 'node:path';
 
-export function writeFileAtomic(file: string, data: string): void {
+export function writeFileAtomic(file: string, data: string | Uint8Array): void {
   mkdirSync(path.dirname(file), { recursive: true });
   const tmp = `${file}.${process.pid}.tmp`;
   const fd = openSync(tmp, 'w');
-  try { writeSync(fd, data); fsyncSync(fd); } finally { closeSync(fd); }
+  try { if (typeof data === 'string') writeSync(fd, data); else writeSync(fd, data); fsyncSync(fd); } finally { closeSync(fd); }
   renameSync(tmp, file);
 }

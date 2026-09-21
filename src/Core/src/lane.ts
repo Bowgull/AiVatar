@@ -108,12 +108,15 @@ export class Lane {
           canUseTool: async (tool: string, input: Record<string, unknown>) =>
             (await this.opts.askPermission!(tool, input))
               ? { behavior: 'allow' as const, updatedInput: input }
-              : { behavior: 'deny' as const, message: 'Declined in the bubble.' },
+              : { behavior: 'deny' as const, message: 'Not allowed: either a safety rule stopped it or Joshua said no. Do not tell him he declined unless he did.' },
         } : {}),
         resume: this.sessionId,
         // Account-level claude.ai connectors (Drive, Gmail, ...) otherwise load into every session:
         // measured 16k tokens per turn with them, 2.7k without.
-        env: { ...process.env, ENABLE_CLAUDEAI_MCP_SERVERS: 'false' },
+        // ENABLE_TOOL_SEARCH=false: load his ~20 small tools up front. By default the engine hides them behind a
+        // ToolSearch step, so every turn began with a lookup round trip, and on 2026-09-21 one session looked five
+        // times and never reached a tool: it could not remember, search or forget anything.
+        env: { ...process.env, ENABLE_CLAUDEAI_MCP_SERVERS: 'false', ENABLE_TOOL_SEARCH: 'false' },
         ...(this.opts.thinking ? { thinking: this.opts.thinking as never } : {}),
         ...(this.opts.claudeExecutable ? { pathToClaudeCodeExecutable: this.opts.claudeExecutable } : {}),
       },

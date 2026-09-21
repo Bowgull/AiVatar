@@ -145,19 +145,23 @@ await keys.ask('send {ESC}'); await sleep(500);
 await snap('10_collapsed_by_esc');
 check('Esc while expanded did not reach the game (no other window took focus)', hasWow ? /world of warcraft/i.test(await keys.ask('fg')) : true);
 
-// 10. clicking outside closes the expanded bubble (checked against a throwaway Notepad, never the game)
+// 10. clicking outside closes the expanded bubble (checked against a throwaway window of our own, never the
+// game and never Notepad: "rect Notepad" could find Joshua's Notepad and click into it, and the cleanup
+// killed every Notepad on the machine)
 await keys.ask(`click ${bubbleXY[0]} ${bubbleXY[1]}`); await sleep(500);
 await snap('11_expanded_again');
-const np = spawn('notepad.exe', [], { stdio: 'ignore' });
+const standInTitle = 'Aang test click-away';
+const np = spawn('powershell.exe', ['-NoProfile', '-STA', '-ExecutionPolicy', 'Bypass', '-File',
+  path.join(root, 'tools', 'measure', 'StandIn.ps1'), '-Title', standInTitle], { stdio: 'ignore' });
 await sleep(2500);
-const npRect = (await keys.ask('rect Notepad')).split(' ').map(Number);
+const npRect = (await keys.ask(`rect ${standInTitle}`)).split(' ').map(Number);
 if (npRect.length === 4 && !Number.isNaN(npRect[0])) {
   const cx = Math.round((npRect[0] + npRect[2]) / 2), cy = Math.round((npRect[1] + npRect[3]) / 2);
   const inside = cx > L + 300 || cy < T + 100;                  // not on top of Aang
   if (inside) { await keys.ask(`click ${cx} ${cy}`); await sleep(500); await snap('12_after_click_away'); check('clicking outside the bubble closes it', true, '(see 12_after_click_away)'); }
   else check('clicking outside the bubble closes it', false, 'no safe outside point found');
-} else check('clicking outside the bubble closes it', false, 'Notepad window not found');
-np.kill(); spawn('taskkill', ['/IM', 'notepad.exe', '/F'], { stdio: 'ignore' });
+} else check('clicking outside the bubble closes it', false, 'stand-in window not found');
+spawn('taskkill', ['/PID', String(np.pid), '/T', '/F'], { stdio: 'ignore' });
 
 // 11. no Core at all: an error, never an empty bubble
 send({ t: 'bubble.clear' }); sock.close(); await sleep(2200);

@@ -16,6 +16,8 @@ export interface Activity {
   title: string;
   /** When this became the foreground window. */
   at: number;
+  /** The window's handle, for reading what is in it (screen.ts). 0 when the Body did not say. */
+  hwnd?: number;
 }
 
 const MAX_ENTRIES = 50;
@@ -34,15 +36,15 @@ export class ActivityLog {
   /** False when Joshua has switched this off in the tray; nothing is recorded or reported. */
   watching = true;
 
-  record(process: string, title: string, at = Date.now()): void {
+  record(process: string, title: string, at = Date.now(), hwnd = 0): void {
     if (!this.watching) return;
     const p = (process ?? '').trim();
     const t = (title ?? '').trim().slice(0, MAX_TITLE);
     if (!p && !t) return;
     if (/^aang$/i.test(p) || OWN_WINDOW.test(t) || NOISE.test(p) || NOISE.test(t)) return;
     const last = this.entries[this.entries.length - 1];
-    if (last && last.process === p && last.title === t) return;   // same window, nothing changed
-    this.entries.push({ process: p, title: t, at });
+    if (last && last.process === p && last.title === t) { if (hwnd) last.hwnd = hwnd; return; }   // same window, nothing changed
+    this.entries.push({ process: p, title: t, at, hwnd });
     if (this.entries.length > MAX_ENTRIES) this.entries.shift();
   }
 

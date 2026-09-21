@@ -154,7 +154,8 @@ sealed class BubbleView : IDisposable
             var cut = l.LastIndexOf(' ');
             l = cut > 0 ? l[..cut] : l[..^1];
         }
-        return l.TrimEnd(',', ';', ':', ' ') + "...";
+        // A full stop goes too: a sentence that ended right at the cut read "the scene...." (2026-09-21).
+        return l.TrimEnd(',', ';', ':', '.', ' ') + "...";
     }
 
     float HeightFor(int lineCount) => Math.Clamp((lineCount + (asking ? 1 : 0)) * LineH + 2 * Pad, MinH, ExpandedMaxH);

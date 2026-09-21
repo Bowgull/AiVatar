@@ -49,6 +49,33 @@ test('the same turns are never read twice', async () => {
   m.close();
 });
 
+test('only his words are read: Aang\'s claims never reach it, his questions do', async () => {
+  const m = new Memory(freshDb());
+  m.saveTurn('open youtube in chrome', 'Opened it. YouTube links open in your default browser, which is Chrome.', 'test');
+  m.saveTurn('dana', 'Nice. Is she older or younger?', 'test');
+  const model = replying('[]');
+  await consolidate(m, model.ask);
+  assert.doesNotMatch(model.prompt(), /default browser, which is Chrome/, 'his false claim is not shown as if it were a fact');
+  assert.match(model.prompt(), /Joshua: open youtube in chrome/);
+  assert.match(model.prompt(), /Aang asked: Is she older or younger\?/, 'a question stays, for context');
+  m.close();
+});
+
+test('what he asked to forget is not learned straight back from the old conversation', async () => {
+  const m = new Memory(freshDb());
+  m.saveTurn('we raid wednesdays at eight now', 'Got it.', 'test');
+  m.remember('His raid group raids on Wednesdays at 8pm');
+  m.forget('raid nights');
+  m.remember('His sister is called Dana');
+  const r = await consolidate(m, replying('["His raid group raids on Wednesdays at 8pm.", "His sister Dana is moving to Montreal."]').ask);
+  assert.deepEqual(r.kept, ['His sister Dana is moving to Montreal.'], 'the raid fact stays forgotten');
+  assert.equal(r.skippedForgotten, 1);
+  assert.equal(m.list().some(f => /raid/i.test(f.text)), false);
+  // but if he tells Aang again himself, it is kept
+  assert.ok(m.remember('His raid group raids on Thursdays now').fact);
+  m.close();
+});
+
 test('a marker left past the newest turn does not stop it for good', async () => {
   const m = new Memory(freshDb());
   m.setMeta('last_consolidated_turn', '616');           // turns were deleted; their ids come round again

@@ -152,7 +152,28 @@ export class Memory {
     if (!hits.length && stems.length) hits = all.filter(f => stems.some(s => f.text.toLowerCase().includes(s)));
     try { for (const h of hits) this.db.prepare('DELETE FROM facts WHERE id = ?').run(h.id); }
     catch { return []; }
+    if (hits.length) {
+      // Remember what was forgotten, so the catch-up does not learn it straight back from the same
+      // conversation. It did, on 2026-09-21: it had read "we raid wednesdays at eight" before the forget and
+      // saved it again just after.
+      const list = this.forgotten();
+      list.push(...hits.map(h => h.text));
+      this.setMeta('forgotten', JSON.stringify(list.slice(-200)));
+    }
     return hits;
+  }
+
+  /** The texts of facts Joshua asked to have forgotten, newest last. */
+  forgotten(): string[] {
+    try { const v = JSON.parse(this.getMeta('forgotten') ?? '[]'); return Array.isArray(v) ? v.filter(x => typeof x === 'string') : []; }
+    catch { return []; }
+  }
+
+  /** True if this reads as one of the facts he asked to forget: two or more of the same significant words. */
+  wasForgotten(text: string): boolean {
+    const stems = (t: string) => new Set(t.toLowerCase().split(/[^a-z0-9']+/).filter(w => w.length > 3 && !SKIP.has(w) && !FORGET_STOP.has(w)).map(w => w.slice(0, 4)));
+    const mine = stems(text);
+    return this.forgotten().some(f => { let n = 0; for (const s of stems(f)) if (mine.has(s)) n++; return n >= 2; });
   }
 
   /** Everything he currently holds, newest confirmation first. Retired facts are not included. */

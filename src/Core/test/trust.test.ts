@@ -1,10 +1,10 @@
 ﻿import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { TrustStore, kindOf, programOf } from '../src/trust.ts';
-import { classify, resolve } from '../src/open.ts';
+import { classify, findApp, openedText, resolve } from '../src/open.ts';
 import { isLauncher, tidyPaths } from '../src/tools.ts';
 
 const tmp = () => mkdtempSync(path.join(os.tmpdir(), 'aang-trust-'));
@@ -80,9 +80,42 @@ test('what to open is worked out from what he said', () => {
   assert.equal(classify('firefox'), 'app');
   assert.equal(classify('https://anthropic.com'), 'link');
   assert.equal(classify('C:/Users/Shadow/Documents'), 'path');
-  assert.deepEqual(resolve('firefox'), { target: 'firefox.exe', kind: 'app' });
-  assert.deepEqual(resolve('spotify'), { target: 'spotify.exe', kind: 'app' });
-  assert.deepEqual(resolve('https://example.com'), { target: 'https://example.com', kind: 'link' });
+  assert.equal(classify('youtube.com/watch?v=1'), 'link', 'a link he did not type https:// for');
+  assert.deepEqual(resolve('https://example.com'), { target: 'https://example.com', kind: 'link', app: undefined });
+  assert.equal((resolve('www.youtube.com') as any).target, 'https://www.youtube.com');
+});
+
+// Against the apps really installed here. It used to resolve "chrome" to a bare chrome.exe, which is not on
+// PATH, so opening Chrome by name could never work (2026-09-21) - and this test asserted exactly that.
+const installed = (p: string) => existsSync(p);
+test('installed apps are found the way the Start menu finds them', { skip: !installed('C:/Program Files/Google/Chrome/Application/chrome.exe') && 'Chrome not installed here' }, () => {
+  assert.match(findApp('chrome')!.target, /Google\\Chrome\\Application\\chrome\.exe$/i, 'from App Paths, not PATH');
+  assert.match(findApp('Google Chrome')!.target, /chrome/i);
+  assert.equal(findApp('chrome')!.name, 'Chrome');
+});
+
+test('a name that looks like a website is the app when the app is installed', { skip: !existsSync('C:/ProgramData/Microsoft/Windows/Start Menu/Programs/Battle.net') && 'Battle.net not installed here' }, () => {
+  assert.equal((resolve('battle.net') as any).kind, 'app');
+  assert.equal((resolve('www.youtube.com') as any).kind, 'link');
+});
+
+test('an app only the Start menu knows is found too', { skip: !existsSync(path.join(process.env.APPDATA ?? '', 'Spotify', 'Spotify.exe')) && 'Spotify not installed here' }, () => {
+  assert.match(findApp('spotify')!.target, /spotify/i);
+});
+
+test('a link can be opened in a named app, and that app is checked for, not assumed', { skip: !installed('C:/Program Files/Google/Chrome/Application/chrome.exe') && 'Chrome not installed here' }, () => {
+  const r = resolve('https://www.youtube.com/results?search_query=foo+fighters+live+wembley', 'chrome') as any;
+  assert.equal(r.kind, 'link');
+  assert.equal(r.app.name, 'Chrome');
+  assert.equal(openedText(r), 'Opened https://www.youtube.com/results?search_query=foo+fighters+live+wembley in Chrome.');
+  assert.match((resolve('https://example.com', 'definitely-not-a-browser-xyz') as any).error, /not installed/);
+  assert.match((resolve('definitely-not-an-app-xyz') as any).error, /not installed.*Start menu/);
+});
+
+test('a link with no app named says which browser it really went to', () => {
+  const text = openedText({ target: 'https://example.com', kind: 'link' });
+  assert.match(text, /in \S+.*default browser/);
+  assert.doesNotMatch(text, /undefined/);
 });
 
 test('a link that is not a web link, and a path that is not there, are refused with a reason', () => {

@@ -93,6 +93,8 @@ export function kindOf(tool: string, input: Record<string, unknown>): { kind: st
       return { kind: 'open apps', says: 'open apps' };
     }
     case 'mcp__aang__read_clipboard': return { kind: 'read clipboard', says: 'read your clipboard' };
+    case 'mcp__aang__read_window': return { kind: 'read windows', says: 'read what is in your windows' };
+    case 'mcp__aang__look_at_window': return { kind: 'look at windows', says: 'take pictures of the window you are in' };
     default: return null;                 // writing and editing files always ask
   }
 }

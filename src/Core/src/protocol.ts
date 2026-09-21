@@ -17,11 +17,12 @@ export type ToBody =
   | { t: 'consent'; id: string; wanted: Mode }
   | { t: 'permission'; id: string; tool: string; question: string; remembers?: string }
   | { t: 'clipboard.request'; id: string }
+  | { t: 'look.request'; id: string }
   | { t: 'error'; id?: string; message: string; next: string };
 
 export type FromBody =
   | { t: 'hello'; v: number; pid?: number }
-  | { t: 'presence'; quiet: boolean; foreground: string; title?: string; watching?: boolean }
+  | { t: 'presence'; quiet: boolean; foreground: string; title?: string; watching?: boolean; hwnd?: number }
   | { t: 'poked' }
   | { t: 'moved'; x: number; y: number }
   | { t: 'pong' }
@@ -31,7 +32,9 @@ export type FromBody =
   | { t: 'rate'; id: string; value: 'up' | 'down' | 'none' }
   | { t: 'mute'; on: boolean }
   | { t: 'permission.reply'; id: string; allow: boolean }
-  | { t: 'clipboard'; id: string; text: string | null };
+  | { t: 'clipboard'; id: string; text: string | null }
+  /** A picture of his window: base64 JPEG, and how much of it is black (protected video comes out black). */
+  | { t: 'look'; id: string; ok: boolean; data?: string | null; w?: number; h?: number; black?: number; error?: string | null };
 
 export function parseFromBody(raw: string): FromBody | null {
   try {
