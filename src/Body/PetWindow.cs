@@ -33,6 +33,7 @@ sealed class PetWindow : Form
     ToolStripMenuItem quietItem = null!, showItem = null!, modelItems = null!, muteItem = null!, seeWindowItem = null!;
 
     string? heldText;               // latest proactive message waiting for quiet mode to end
+    string? bubbleFocus;            // the window a click on the bubble brings forward (a Claude session), if any
     string foreground = "";
     string foregroundTitle = "";
     /// <summary>The handle of the window he is in, for the Core to read what is in it. Never one of Aang's own.</summary>
@@ -137,7 +138,7 @@ sealed class PetWindow : Form
             if (!up) return;
             if (saving) _ = link.SendAsync(new { t = "saving", on = true });
             _ = link.SendAsync(new { t = "mute", on = cfg.Muted });
-            sentWindow = "";                                                       // resend after a reconnect
+            sentWindow = ""; sentDesk = null;                                      // resend after a reconnect
             _ = link.SendAsync(new { t = "presence", quiet, foreground, title = foregroundTitle, watching = cfg.SeeActiveWindow, hwnd = foregroundHwnd });
         };
         PushStatus();
@@ -195,10 +196,13 @@ sealed class PetWindow : Form
                 case "bubble":
                     var text = Str(m, "text") ?? "";
                     if (Bool(m, "proactive") && (cfg.Muted || hiddenByUser)) break;
-                    if (Bool(m, "proactive") && quiet) { heldText = text; break; }
+                    // "asked": news he asked for (a Claude job he started) comes through even while the game has focus.
+                    if (Bool(m, "proactive") && quiet && !Bool(m, "asked")) { heldText = text; break; }
                     Wake();
                     ExitExpanded(collapse: false);
                     ShowBubble(text, Bool(m, "stream"));
+                    bubbleFocus = Str(m, "focus");
+                    bubble.Link = bubbleFocus != null ? Str(m, "link") ?? "" : "";
                     if (!Bool(m, "stream") && !Bool(m, "proactive") && Str(m, "id") is { Length: > 0 } rid) { replyId = rid; bubble.Tools = true; bubble.Rating = 0; }
                     if (!Bool(m, "stream")) { working = false; input.Working = false; ackTimer.Stop(); }
                     permissionId = null;
@@ -277,6 +281,23 @@ sealed class PetWindow : Form
         var wow = cfg.QuietProcessPrefixes.Any(p => foreground.StartsWith(p, StringComparison.OrdinalIgnoreCase));
         if (wow != autoQuiet) { autoQuiet = wow; ApplyQuiet(); }
         ReportWindow();
+        ReportDesk();
+    }
+
+    /// <summary>
+    /// Whether Joshua is at this PC: any key or mouse input in the last five minutes. The Core uses it to say
+    /// things he did not ask for in one place only - the bubble while he is here, Discord while he is not.
+    /// Sent when it changes, and again after a reconnect.
+    /// </summary>
+    static readonly TimeSpan AwayAfter = TimeSpan.FromMinutes(5);
+    bool? sentDesk;
+    void ReportDesk()
+    {
+        var active = Win32.IdleFor() < AwayAfter;
+        if (active == sentDesk) return;
+        sentDesk = active;
+        Log.Write($"at desk={active}");
+        _ = link.SendAsync(new { t = "desk", active });
     }
 
     /// <summary>
@@ -488,6 +509,14 @@ sealed class PetWindow : Form
         if (bubble.Visible && bubble.Contains(bp.X, bp.Y))
         {
             if (consentText != null) AllowOnce();
+            else if (bubbleFocus != null)
+            {
+                // "Need input in Claude": take him straight to that session's window.
+                var r = Hands.Arrange(bubbleFocus, "front");
+                Log.Write($"bubble link -> {bubbleFocus}: {r.Detail}");
+                if (!r.Ok) { ShowBubble("That Claude window is closed now.", false); bubbleFocus = null; bubble.Link = ""; }
+                else { bubble.Clear(); bubbleFocus = null; if (anim.State == "talk") anim.Play("idle"); }
+            }
             else if (bubble.More) ExpandBubble();                      // "...v": grow it to read the rest
             else if (bubble.Expanded) { /* clicking inside the open bubble does nothing; Esc or a click outside closes it */ }
             else if (working) StopReply();                        // clicking the bubble while Aang is thinking stops it

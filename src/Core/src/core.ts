@@ -2,7 +2,7 @@
 // streams replies, enforces the voice linter and grounding rule, and applies Joshua's quota rule.
 import { WebSocketServer } from 'ws';
 import type { WebSocket } from 'ws';
-import { appendFileSync, mkdirSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { parseFromBody } from './protocol.ts';
@@ -19,6 +19,8 @@ import { Reminders } from './reminders.ts';
 import { SessionStore } from './sessions.ts';
 import { ActivityLog, describe } from './activity.ts';
 import { clearReadCache, looksVisual, readWindow } from './screen.ts';
+import { CLAUDE_WINDOW, folderFor, isFrom, newsFor, openInClaude } from './claude.ts';
+import type { Launched } from './claude.ts';
 import { consolidate } from './consolidate.ts';
 import { TrustStore, kindOf } from './trust.ts';
 import { launch, openedText, resolve as resolveOpen } from './open.ts';
@@ -79,6 +81,7 @@ export class Core {
     return makeToolServer(
       this.memory, this.hooks, this.reminders, q => this.lookUpWeb(q), this.activity,
       (what, withApp) => this.open(what, withApp), () => this.readClipboard(), cmd => this.run(cmd), () => this.readScreen(), () => this.lookAtScreen(),
+      (task, where, name) => this.startClaude(task, where, name),
     );
   }
 
@@ -123,13 +126,13 @@ export class Core {
     const where = describe(cur);
     if (!cur.hwnd) return { text: `He is in ${where}, but its window cannot be reached to take a picture of, so you cannot see what is on it. Say so; do not guess from the title.` };
     if (!await this.askPermission('mcp__aang__look_at_window', { app: where })) return { text: this.whyNot() + ' You did not look.' };
-    if (!this.wss || this.wss.clients.size === 0 || this.looking) return { text: 'The picture could not be taken right now.' };
+    if (this.clientsOf('desktop').length === 0 || this.looking) return { text: 'The picture could not be taken right now.' };
     const id = `look${++this.lookSeq}`;
     const m: any = await new Promise(resolve => {
       const timer = setTimeout(() => { this.looking = null; resolve({ ok: false, error: 'the Body did not answer' }); }, 10_000);
       timer.unref?.();
       this.looking = { id, resolve, timer };
-      this.broadcast({ t: 'look.request', id });
+      this.sendTo('desktop', { t: 'look.request', id });
     });
     this.tainted = true;                         // a picture of a page can carry words meant for you, too
     if (!m.ok || !m.data) return { text: `He is in ${where}, but the picture could not be taken: ${m.error ?? 'no reason given'}.` };
@@ -171,14 +174,14 @@ export class Core {
   private clipboardSeq = 0;
   private async readClipboard(): Promise<string | null> {
     if (!await this.askPermission('mcp__aang__read_clipboard', {})) return null;
-    if (!this.wss || this.wss.clients.size === 0) return null;
+    if (this.clientsOf('desktop').length === 0) return null;
     if (this.clipboard) return null;
     const id = `clip${++this.clipboardSeq}`;
     return new Promise<string | null>(resolve => {
       const timer = setTimeout(() => { this.clipboard = null; resolve(null); }, 10_000);
       timer.unref?.();
       this.clipboard = { id, resolve, timer };
-      this.broadcast({ t: 'clipboard.request', id });
+      this.sendTo('desktop', { t: 'clipboard.request', id });
     });
   }
   readonly hooks = new HookTracker();
@@ -228,6 +231,15 @@ export class Core {
     this.wss!.on('connection', ws => this.onConnection(ws));
     this.hookServer = new HookServer(this.cfg.port + 1, ev => {
       const said = this.hooks.handle(ev);
+      // A session Aang started for Joshua gets its own, fuller news, with a way straight to it.
+      const mine = this.launched.find(l => isFrom(l, ev));
+      if (mine) {
+        mine.sessionId ??= String(ev?.session_id ?? '') || null;
+        if (ev?.hook_event_name === 'SessionEnd') { this.launched.splice(this.launched.indexOf(mine), 1); return; }
+        const news = newsFor(mine, ev);
+        if (news) this.announce(news, { asked: true, focus: CLAUDE_WINDOW });
+        return;
+      }
       if (said) this.announce(said.text);
     });
     try { await this.hookServer.start(); }
@@ -374,6 +386,25 @@ export class Core {
     for (const c of this.wss.clients) this.send(c, msg);
   }
 
+  // One message, one place (Joshua, 2026-09-21): "aang never ever needs to double reply". A reply goes back only
+  // to where he asked; anything Aang says on his own goes to the desktop while he is at it, and to Discord when
+  // he is not. Each connection says what it is in its hello; the desktop Body is the default.
+  private readonly clientKind = new WeakMap<WebSocket, 'desktop' | 'discord'>();
+  /** Whether he has used this PC in the last few minutes, as the Body last said. */
+  private atDesk = true;
+  private clientsOf(kind: 'desktop' | 'discord'): WebSocket[] {
+    return this.wss ? [...this.wss.clients].filter(c => c.readyState === c.OPEN && (this.clientKind.get(c) ?? 'desktop') === kind) : [];
+  }
+  /** Where something he did not just ask for should go right now: 'desktop', 'discord' or nowhere. */
+  whereHeIs(): 'desktop' | 'discord' | null {
+    const desk = this.clientsOf('desktop').length > 0, phone = this.clientsOf('discord').length > 0;
+    if (phone && (!desk || !this.atDesk)) return 'discord';
+    return desk ? 'desktop' : null;
+  }
+  private sendTo(kind: 'desktop' | 'discord', msg: ToBody): void { for (const c of this.clientsOf(kind)) this.send(c, msg); }
+  /** Everything about one turn goes only to the connection it came from. */
+  private toTurn(sub: Submission, msg: ToBody): void { this.send(sub.socket, msg); }
+
   private quotaMessage(): ToBody | null {
     const q = this.policy.last;
     if (!q) return null;
@@ -382,7 +413,12 @@ export class Core {
 
   private onBody(ws: WebSocket, m: FromBody): void {
     switch (m.t) {
-      case 'hello': { const q = this.quotaMessage(); if (q) this.send(ws, q); break; }
+      case 'hello': {
+        this.clientKind.set(ws, m.client === 'discord' ? 'discord' : 'desktop');
+        const q = this.quotaMessage(); if (q) this.send(ws, q);
+        break;
+      }
+      case 'desk': this.atDesk = m.active !== false; break;
       case 'submit': {
         const id = typeof m.id === 'string' && m.id ? m.id : undefined;
         const text = typeof m.text === 'string' ? m.text.trim() : '';
@@ -443,8 +479,8 @@ export class Core {
   }
 
   private begin(sub: Submission, lane: LaneName, ackMs: number): void {
-    this.broadcast({ t: 'bubble.dots' });
-    this.broadcast({ t: 'state', state: 'think' });
+    this.toTurn(sub, { t: 'bubble.dots' });
+    this.toTurn(sub, { t: 'state', state: 'think' });
     const turn: Turn = { sub, lane, buf: '', flush: null, stopped: false, startedAt: Date.now(), ackMs, watchdog: null };
     turn.watchdog = setTimeout(() => this.fail(turn, 'That took too long and I gave up waiting.', 'Try again, or ask something shorter.'), TURN_TIMEOUT_MS);
     this.active = turn;
@@ -487,7 +523,7 @@ export class Core {
 
   private fail(turn: Turn, message: string, next: string): void {
     if (this.active !== turn) return;
-    if (turn.sub) this.broadcast({ t: 'error', id: turn.sub.id, message, next });
+    if (turn.sub) this.toTurn(turn.sub, { t: 'error', id: turn.sub.id, message, next });
     void this.lanes.get(turn.lane)?.interrupt();
     this.finishTurn(turn);
   }
@@ -498,8 +534,8 @@ export class Core {
     t.stopped = true;
     if (t.flush) { clearTimeout(t.flush); t.flush = null; }
     // Clear the bubble immediately; the model may take a moment to acknowledge the interrupt.
-    this.broadcast({ t: 'bubble.clear' });
-    this.broadcast({ t: 'state', state: 'idle' });
+    this.toTurn(t.sub, { t: 'bubble.clear' });
+    this.toTurn(t.sub, { t: 'state', state: 'idle' });
     await this.lanes.get(t.lane)?.interrupt();
     setTimeout(() => { if (this.active === t) this.finishTurn(t); }, 1500);
   }
@@ -508,8 +544,8 @@ export class Core {
     if (e.t === 'quota') {
       const notice = this.policy.update(e.quota);
       const q = this.quotaMessage(); if (q) this.broadcast(q);
-      if (notice === 'warn') this.broadcast({ t: 'bubble', text: `You've used ${Math.round(e.quota.week * 100)}% of your week.`, stream: false, proactive: true });
-      if (notice === 'offer') this.broadcast({ t: 'bubble', text: `You're at ${Math.round(e.quota.week * 100)}% of your week. Want me to save quota? I'd stay on Quick and skip background work.`, stream: false, proactive: true });
+      if (notice === 'warn') this.announce(`You've used ${Math.round(e.quota.week * 100)}% of your week.`);
+      if (notice === 'offer') this.announce(`You're at ${Math.round(e.quota.week * 100)}% of your week. Want me to save quota? I'd stay on Quick and skip background work.`);
       return;
     }
     const turn = this.active;
@@ -517,7 +553,7 @@ export class Core {
     const sub = turn.sub;
 
     if (e.t === 'tool') {
-      if (sub && e.phase === 'start') this.broadcast({ t: 'tool', id: sub.id, name: e.name, phase: 'start', label: e.label });
+      if (sub && e.phase === 'start') this.toTurn(sub, { t: 'tool', id: sub.id, name: e.name, phase: 'start', label: e.label });
       turn.buf = '';
       return;
     }
@@ -528,7 +564,7 @@ export class Core {
         turn.flush = null;
         // Hide reasoning even mid-stream; while the model is still "thinking aloud" the bubble keeps its dots.
         const visible = stripReasoning(turn.buf);
-        if (!turn.stopped && visible) this.broadcast({ t: 'bubble', text: visible, stream: true, id: sub.id, who: MODELS[turn.lane].label });
+        if (!turn.stopped && visible) this.toTurn(sub, { t: 'bubble', text: visible, stream: true, id: sub.id, who: MODELS[turn.lane].label });
       }, FLUSH_MS);
       return;
     }
@@ -542,7 +578,7 @@ export class Core {
     const linted = lint(e.text, e.tools, sub.text);
     if (!linted.cleaned) { this.fail(turn, 'I got nothing back for that.', 'Ask again in a different way.'); return; }
     if (turn.flush) { clearTimeout(turn.flush); turn.flush = null; }
-    this.broadcast({ t: 'bubble', text: linted.cleaned, stream: false, id: sub.id, who: MODELS[turn.lane].label });
+    this.toTurn(sub, { t: 'bubble', text: linted.cleaned, stream: false, id: sub.id, who: MODELS[turn.lane].label });
     this.memory.saveTurn(sub.text, linted.cleaned, 'claude-' + turn.lane);
     this.record({
       ts: new Date().toISOString(), id: sub.id, lane: turn.lane, user: sub.text, reply: linted.cleaned,
@@ -566,13 +602,43 @@ export class Core {
    * when he can actually see it: while he is in the game or has muted Aang they wait, and are delivered in
    * order the moment he is back.
    */
-  announce(text: string): void {
-    if (this.bodyQuiet || this.muted) {
+  announce(text: string, opts: { asked?: boolean; focus?: string } = {}): void {
+    const msg: ToBody = { t: 'bubble', text, stream: false, proactive: true, asked: opts.asked === true, ...(opts.focus ? { focus: opts.focus, link: 'Claude' } : {}) };
+    // Away from the PC: Discord, and only Discord. It keeps its own quiet hours, which make it silent, not lost.
+    if (this.whereHeIs() === 'discord') { this.sendTo('discord', msg); return; }
+    // Something he asked Aang to watch for (a job he started) is said even while he is in the game - Joshua's
+    // rule, 2026-09-21: "only when I asked for it". Mute still holds everything.
+    if (this.muted || (this.bodyQuiet && !opts.asked)) {
       this.pending.push(text);
       while (this.pending.length > 5) this.pending.shift();
       return;
     }
-    this.broadcast({ t: 'bubble', text, stream: false, proactive: true });
+    this.sendTo('desktop', msg);
+  }
+
+  /** Claude Code sessions Aang opened in the Claude app for Joshua, newest last. */
+  private readonly launched: Launched[] = [];
+
+  /** Open a new session in the Claude app's Code tab with the request typed in, and follow it. */
+  private async startClaude(task: string, where?: string, name?: string): Promise<string> {
+    const cwd = folderFor(where);
+    const label = (name ?? '').trim() || (/job/i.test(`${where} ${task}`) ? 'job hunt' : 'task');
+    if (!existsSync(cwd)) return `It did not start: the folder ${cwd} does not exist.`;
+    if (!await this.askPermission('mcp__aang__start_claude', { task, name: label })) return this.whyNot() + ' No session was started.';
+    const l = openInClaude(task, { name: label, cwd });
+    if ('error' in l) return `It did not start: ${l.error}`;
+    // One followed session per folder: a new job hunt replaces the old one's watch.
+    for (let i = this.launched.length - 1; i >= 0; i--) if (this.launched[i]!.cwd.toLowerCase() === cwd.toLowerCase()) this.launched.splice(i, 1);
+    this.launched.push(l);
+    // Nothing is heard until he presses Enter (and confirms the folder, the first time). Say so once if he
+    // has not, in case the app opened behind the game.
+    const check = setTimeout(() => {
+      if (this.launched.includes(l) && !l.sessionId) {
+        this.announce(`The ${l.name} is ready in Claude with the request typed in. Press Enter there to start it.`, { asked: true, focus: CLAUDE_WINDOW });
+      }
+    }, 90_000);
+    check.unref?.();
+    return `Opened a new Claude Code session in the Claude app for the ${label}, with his request already typed in. It has NOT started: he presses Enter in Claude to send it (and confirms the folder the first time). After that you will be told when Claude needs him or when it is done. Tell him that in one short sentence.`;
   }
 
   private setSilent(quiet: boolean, muted: boolean): void {
@@ -581,7 +647,7 @@ export class Core {
     if (!was || quiet || muted) return;
     const held = this.pending.splice(0);
     // One after another, with a gap, so they do not overwrite each other in the bubble.
-    held.forEach((text, i) => setTimeout(() => this.broadcast({ t: 'bubble', text, stream: false, proactive: true }), i * 6000).unref?.());
+    held.forEach((text, i) => setTimeout(() => this.sendTo('desktop', { t: 'bubble', text, stream: false, proactive: true }), i * 6000).unref?.());
   }
 
   /** What is waiting to be said (tests and diagnostics). */
@@ -621,7 +687,10 @@ export class Core {
     if (kind && this.trust.allowed(kind.kind) && !(this.tainted && acts)) return Promise.resolve(true);
     if (kind && this.tainted && acts && this.trust.allowed(kind.kind)) console.log(`asking again for "${kind.kind}": this turn has read outside content`);
 
-    if (!this.wss || this.wss.clients.size === 0) return this.refuse('it needs his yes and his screen is not connected to ask him');
+    // Asked where he asked for the thing; with no turn behind it, wherever he is.
+    const turnSocket = this.active?.sub?.socket;
+    const askAt = turnSocket && turnSocket.readyState === turnSocket.OPEN ? [turnSocket] : (() => { const w = this.whereHeIs(); return w ? this.clientsOf(w) : []; })();
+    if (askAt.length === 0) return this.refuse('it needs his yes and there is nowhere to ask him');
     if (this.permission) return this.refuse('another question is already waiting for his answer in the bubble');
     this.refused = '';
     const id = `perm${++this.permissionSeq}`;
@@ -640,7 +709,7 @@ export class Core {
         },
         timer,
       };
-      this.broadcast({ t: 'permission', id, tool, question, remembers: kind?.says });
+      for (const c of askAt) this.send(c, { t: 'permission', id, tool, question, remembers: kind?.says });
     });
   }
 

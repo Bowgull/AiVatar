@@ -95,6 +95,7 @@ export function kindOf(tool: string, input: Record<string, unknown>): { kind: st
     case 'mcp__aang__read_clipboard': return { kind: 'read clipboard', says: 'read your clipboard' };
     case 'mcp__aang__read_window': return { kind: 'read windows', says: 'read what is in your windows' };
     case 'mcp__aang__look_at_window': return { kind: 'look at windows', says: 'take pictures of the window you are in' };
+    case 'mcp__aang__start_claude': return { kind: 'start Claude sessions', says: 'start Claude sessions for you' };
     default: return null;                 // writing and editing files always ask
   }
 }
