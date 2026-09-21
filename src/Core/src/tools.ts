@@ -46,6 +46,13 @@ export const TOOL_LABELS: Record<string, string> = {
   read_window: 'reading your window',
   look_at_window: 'looking at your window',
   start_claude: 'starting Claude on it',
+  write_file: 'writing that file',
+  edit_file: 'editing that file',
+  undo_file_change: 'putting that back',
+  close_app: 'closing that',
+  force_quit: 'force-quitting that',
+  arrange_window: 'moving that window',
+  media_key: 'pressing that key',
   remember: 'writing that down',
   forget: 'forgetting that',
   what_you_know: 'checking what I know about you',
@@ -71,7 +78,23 @@ export const TOOL_NAMES = ['mcp__aang__get_time', 'mcp__aang__get_weather', 'mcp
   'mcp__aang__claude_code_status', 'mcp__aang__set_reminder', 'mcp__aang__list_reminders', 'mcp__aang__cancel_reminder',
   'mcp__aang__look_up_web', 'mcp__aang__what_im_doing',
   'mcp__aang__remember', 'mcp__aang__forget', 'mcp__aang__what_you_know',
-  'mcp__aang__open', 'mcp__aang__read_clipboard', 'mcp__aang__run', 'mcp__aang__read_window', 'mcp__aang__look_at_window', 'mcp__aang__start_claude'];
+  'mcp__aang__open', 'mcp__aang__read_clipboard', 'mcp__aang__run', 'mcp__aang__read_window', 'mcp__aang__look_at_window', 'mcp__aang__start_claude',
+  'mcp__aang__write_file', 'mcp__aang__edit_file', 'mcp__aang__undo_file_change',
+  'mcp__aang__close_app', 'mcp__aang__force_quit', 'mcp__aang__arrange_window', 'mcp__aang__media_key'];
+
+/**
+ * The SDK's own file-writing tools, taken away like the shell: write_file and edit_file replace them, and unlike
+ * them keep the old version for undo and refuse Aang's own settings, memory and Windows.
+ */
+export const BUILTIN_WRITE = ['Write', 'Edit', 'NotebookEdit'];
+
+/** What a tool that changes files or windows hands to the Core. */
+export interface Doers {
+  writeFile(file: string, content: string): Promise<{ ok: boolean; detail: string }>;
+  editFile(file: string, oldText: string, newText: string): Promise<{ ok: boolean; detail: string }>;
+  undoFile(file?: string): Promise<{ ok: boolean; detail: string }>;
+  hands(action: 'close' | 'forcequit' | 'arrange' | 'media', what: string, how?: string): Promise<{ ok: boolean; detail: string }>;
+}
 
 /**
  * Built-in tools Aang may use without asking. All of them only look: they search, fetch and read, and none
@@ -175,6 +198,13 @@ export function describeCall(tool: string, input: Record<string, unknown>): stri
     case 'mcp__aang__look_at_window': return `take a picture of ${short(s('app'), 60)}`;
     case 'mcp__aang__start_claude': return `start Claude on the ${short(s('name') || 'task', 40)}`;
     case 'mcp__aang__run': return `run ${short(s('command'), 70)}`;
+    case 'mcp__aang__write_file': return `write to ${short(s('file'), 60)}`;
+    case 'mcp__aang__edit_file': return `change ${short(s('file'), 60)}`;
+    case 'mcp__aang__undo_file_change': return s('file') ? `undo my last change to ${short(s('file'), 60)}` : 'undo my last file change';
+    case 'mcp__aang__close_app': return `close ${short(s('what'), 60)}`;
+    case 'mcp__aang__force_quit': return `FORCE QUIT ${short(s('what'), 60)} (anything unsaved in it is lost)`;
+    case 'mcp__aang__arrange_window': return `${s('how')} ${short(s('what'), 50)}`;
+    case 'mcp__aang__media_key': return `press ${s('key')}`;
     // Anything unknown: show whatever looks like the thing being done, never a bare tool name.
     default: {
       const detail = s('command') || s('file_path') || s('path') || s('url') || s('query');
@@ -192,6 +222,7 @@ export function makeToolServer(
   readScreen?: () => Promise<string>,
   lookAtScreen?: () => Promise<{ text: string; image?: { data: string; mimeType: string } }>,
   startClaude?: (task: string, where?: string, name?: string) => Promise<string>,
+  doers?: Doers,
 ) {
   const ok = (text: string) => ({ content: [{ type: 'text' as const, text }] });
   const fail = (text: string) => ({ content: [{ type: 'text' as const, text }], isError: true });
@@ -278,6 +309,55 @@ export function makeToolServer(
           name: z.string().optional().describe('a short name he would recognise, e.g. "job hunt"'),
         },
         async ({ task, where, name }) => ok(startClaude ? await startClaude(task, where, name) : 'Starting Claude sessions is not available right now.')),
+      tool('write_file', 'Create a file or replace one whole, with the text you give. For a small change to an existing file use edit_file instead. Give the full path starting with the drive. The old version is kept, so undo_file_change can put it back. You cannot write to Windows, program folders, or your own settings and memory.',
+        { file: z.string().describe('full path, e.g. C:\\Users\\Shadow\\Documents\\notes.txt'), content: z.string().describe('the whole new content of the file') },
+        async ({ file, content }) => {
+          if (!doers) return fail('Writing files is not available right now.');
+          const r = await doers.writeFile(file, content);
+          return r.ok ? ok(r.detail) : fail(r.detail);
+        }),
+      tool('edit_file', 'Change one exact piece of text in an existing file. old_text must appear in the file exactly once, so copy enough of it to be unique; read the file first. The old version is kept for undo_file_change.',
+        { file: z.string().describe('full path'), old_text: z.string().describe('the exact text to replace, appearing once'), new_text: z.string().describe('what to put there') },
+        async ({ file, old_text, new_text }) => {
+          if (!doers) return fail('Editing files is not available right now.');
+          const r = await doers.editFile(file, old_text, new_text);
+          return r.ok ? ok(r.detail) : fail(r.detail);
+        }),
+      tool('undo_file_change', 'Put a file back to how it was before your last change to it. Use when he says "undo that", "put it back" or "that was wrong". With no file it undoes the most recent change to any file. Only undoes changes you made with write_file or edit_file.',
+        { file: z.string().optional().describe('full path, if he named the file') },
+        async ({ file }) => {
+          if (!doers) return fail('Undo is not available right now.');
+          const r = await doers.undoFile(file);
+          return r.ok ? ok(r.detail) : fail(r.detail);
+        }),
+      tool('close_app', 'Ask an app or window to close, the polite way, as if he clicked the X. Use for "close chrome", "shut spotify". If the app asks to save something, that question is his to answer: say so. Name the app ("chrome") or a piece of its window title.',
+        { what: z.string().describe('the app name or part of a window title') },
+        async ({ what }) => {
+          if (!doers) return fail('Closing apps is not available right now.');
+          const r = await doers.hands('close', what);
+          return r.ok ? ok(r.detail) : fail(r.detail);
+        }),
+      tool('force_quit', 'End an app immediately, losing anything unsaved in it. ONLY when he asks to force quit, or an app is frozen and close_app did nothing. CALL IT DIRECTLY when he asks: it shows him its own yes/no question, every time, so never ask "are you sure?" in words first, and never assume the app is already closed - the tool checks.',
+        { what: z.string().describe('the app name or part of a window title') },
+        async ({ what }) => {
+          if (!doers) return fail('Force quit is not available right now.');
+          const r = await doers.hands('forcequit', what);
+          return r.ok ? ok(r.detail) : fail(r.detail);
+        }),
+      tool('arrange_window', 'Move or resize one of his windows: minimise, maximise, restore, bring to the front, or snap to the left or right half of the screen.',
+        { what: z.string().describe('the app name or part of a window title'), how: z.enum(['minimise', 'maximise', 'restore', 'front', 'left', 'right']) },
+        async ({ what, how }) => {
+          if (!doers) return fail('Arranging windows is not available right now.');
+          const r = await doers.hands('arrange', what, how);
+          return r.ok ? ok(r.detail) : fail(r.detail);
+        }),
+      tool('media_key', 'Press a media key, so whatever is playing (Spotify, a browser tab) answers: play or pause, next, previous, volume up or down, mute. Use for "pause the music", "skip", "turn it down".',
+        { key: z.enum(['playpause', 'next', 'previous', 'stop', 'volumeup', 'volumedown', 'mute']) },
+        async ({ key }) => {
+          if (!doers) return fail('Media keys are not available right now.');
+          const r = await doers.hands('media', key);
+          return r.ok ? ok(r.detail) : fail(r.detail);
+        }),
       tool('look_at_window', 'Take a picture of the window Joshua is in and look at it. Costs far more than read_window, so use it only when words cannot answer: read_window came back empty (a game, a drawing, a canvas), or he asks how something LOOKS - a layout, a chart, a colour, an image, "does this look right".', {},
         async () => {
           if (!lookAtScreen) return fail('Looking at windows is not available right now.');

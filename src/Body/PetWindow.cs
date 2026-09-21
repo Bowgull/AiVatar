@@ -238,6 +238,9 @@ sealed class PetWindow : Form
                 case "look.request":
                     SendLook(Str(m, "id") ?? "");
                     break;
+                case "hands.request":
+                    RunHands(Str(m, "id") ?? "", Str(m, "action") ?? "", Str(m, "what") ?? "", Str(m, "how") ?? "");
+                    break;
                 case "quota":
                     hasQuota = true;
                     weekUse = Num(m, "week"); fiveUse = Num(m, "five");
@@ -674,6 +677,32 @@ sealed class PetWindow : Form
         var want = tool == 1 ? 1 : -1;
         bubble.Rating = bubble.Rating == want ? 0 : want;
         _ = link.SendAsync(new { t = "rate", id = replyId, value = bubble.Rating == 1 ? "up" : bubble.Rating == -1 ? "down" : "none" });
+    }
+
+    /// <summary>
+    /// Closing, moving and force-quitting windows, and the media keys. Only ever asked for by the Core after
+    /// Joshua agreed to that kind of thing. Run off the UI thread: closing waits for the app to answer.
+    /// </summary>
+    void RunHands(string id, string action, string what, string how)
+    {
+        _ = Task.Run(() =>
+        {
+            Hands.Result r;
+            try
+            {
+                r = action switch
+                {
+                    "close" => Hands.Close(what),
+                    "forcequit" => Hands.ForceQuit(what),
+                    "arrange" => Hands.Arrange(what, how),
+                    "media" => Hands.Media(what),
+                    _ => new(false, $"I do not know how to {action}."),
+                };
+            }
+            catch (Exception e) { Log.Write("hands failed: " + e.Message); r = new(false, "That failed: " + e.Message); }
+            Log.Write($"hands {action} '{what}' {how} -> {r.Ok}");
+            _ = link.SendAsync(new { t = "hands", id, ok = r.Ok, detail = r.Detail });
+        });
     }
 
     /// <summary>
