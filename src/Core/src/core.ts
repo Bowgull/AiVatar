@@ -40,7 +40,7 @@ export interface CoreConfig {
   consolidate?: boolean;
 }
 
-interface Submission { id: string; text: string; mode: Mode; once: boolean; socket: WebSocket }
+interface Submission { id: string; text: string; mode: Mode; once: boolean; socket: WebSocket; ephemeral?: boolean }
 interface Turn {
   sub: Submission | null;      // null for the silent warm-up turn
   lane: LaneName;
@@ -518,7 +518,7 @@ export class Core {
         }
         const mode: Mode = m.mode === 'quick' || m.mode === 'smart' || m.mode === 'deep' ? m.mode : 'auto';
         this.lastSubmitText = text.slice(0, MAX_TEXT);
-        this.submit({ id, text: text.slice(0, MAX_TEXT), mode, once: m.once === true, socket: ws });
+        this.submit({ id, text: text.slice(0, MAX_TEXT), mode, once: m.once === true, socket: ws, ...(m.ephemeral === true ? { ephemeral: true } : {}) });
         break;
       }
       case 'stop': void this.stopActive(m.id); break;
@@ -674,7 +674,7 @@ export class Core {
     if (!linted.cleaned) { this.fail(turn, 'I got nothing back for that.', 'Ask again in a different way.'); return; }
     if (turn.flush) { clearTimeout(turn.flush); turn.flush = null; }
     this.toTurn(sub, { t: 'bubble', text: linted.cleaned, stream: false, id: sub.id, who: MODELS[turn.lane].label });
-    this.memory.saveTurn(sub.text, linted.cleaned, 'claude-' + turn.lane);
+    if (!sub.ephemeral) this.memory.saveTurn(sub.text, linted.cleaned, 'claude-' + turn.lane);
     this.record({
       ts: new Date().toISOString(), id: sub.id, lane: turn.lane, user: sub.text, reply: linted.cleaned,
       ms: e.ms, ttftMs: e.ttftMs, ackMs: turn.ackMs, ctxTokens: e.ctxTokens, tools: e.tools, fixed: linted.fixed, flags: linted.flags,

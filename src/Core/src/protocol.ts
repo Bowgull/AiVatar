@@ -39,7 +39,8 @@ export type FromBody =
   | { t: 'poked' }
   | { t: 'moved'; x: number; y: number }
   | { t: 'pong' }
-  | { t: 'submit'; id: string; text: string; mode?: Mode; once?: boolean }
+  /** `ephemeral`: a job Aang set himself (vetting a link). Not kept in memory, since Joshua did not say it. */
+  | { t: 'submit'; id: string; text: string; mode?: Mode; once?: boolean; ephemeral?: boolean }
   | { t: 'stop'; id?: string }
   | { t: 'saving'; on: boolean }
   | { t: 'rate'; id: string; value: 'up' | 'down' | 'none' }

@@ -45,7 +45,7 @@ export const LAYOUT: CategoryDef[] = [
 ];
 
 /** Channels whose messages are things Joshua says to Aang. */
-export const LISTEN_CHANNELS = ['aang', 'capture', 'lists'] as const;
+export const LISTEN_CHANNELS = ['aang', 'capture', 'lists', 'job-inbox'] as const;
 
 /** The permissions Aang needs, by the names discord.js uses. Anything outside this is reported, not assumed. */
 export const NEEDED = ['ViewChannel', 'ManageChannels', 'SendMessages', 'SendMessagesInThreads', 'CreatePublicThreads',

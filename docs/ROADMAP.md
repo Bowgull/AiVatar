@@ -176,6 +176,7 @@ Third-party memory services (privacy). Reddit feed. WoW combat-log analysis (his
    all parsed in code so they cost no quota. Original wording, kept: F′1 #capture filing and the grocery list with check-off buttons. F′2 command deck, quota and
    status, Shadow-cap warning. F′3 photos in and things out to his phone. F′4 #job-inbox: paste a link, get a
    fit verdict card.
+   **Built 2026-09-21, second pass:** #job-inbox vetting (paste a link, a private smart-lane question with his criteria text inside it, a verdict card with Open / Approve / Skip); the sweep/apply split in the skill ("Handoff with Aang" section, `shortlist.json`); #job-digest cards from the shortlist; **Apply approved** on the deck, which sends only approved jobs to a Claude session under the cap (5 a day, `cap 8 today` up to the hard maximum 8, enforced in `jobs.ts`); one line per job in #applied ("sent", not "confirmed"); files and photos sent from his phone saved to `Documents\AangInbox` (no programs, 25 MB cap); and no Aang message can ping anyone. Still open: CAPTCHA and knockout relay to his phone, essay drafts to #drafts, and reading photos with vision.
 4. **G′, the job hunt.** Sweep, cards with Open / Apply / Skip, apply on approval (cap 5, hard max 8), CAPTCHA and
    knockout relay, drafts for free-text answers, #applied, the Job Hunt sidebar group. Runs on a schedule when
    he buys Always On.
