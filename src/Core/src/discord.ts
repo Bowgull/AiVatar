@@ -25,6 +25,8 @@ export interface Button { id: string; label: string; style: 'primary' | 'seconda
 export interface OutMsg { content?: string; silent?: boolean; buttons?: Button[]; files?: { name: string; data: Buffer }[] }
 export interface ButtonPress {
   customId: string; userId: string; channelId: string;
+  /** the message the button is on */
+  messageId?: string;
   /** Answer a one-off question: the message is updated and its buttons removed. */
   ack: (note: string) => Promise<void>;
   /** Acknowledge a press and leave the message as it is: for buttons that stay (the command deck). */
@@ -61,10 +63,12 @@ export interface CoreLink {
   trust(): void;
   revoke(kind: string): void;
   hush(minutes: number): void;
+  mailAct(id: string, hash: string, action: 'send' | 'save' | 'discard'): void;
+  brief(): void;
   onEvent(cb: (m: any) => void): void;
 }
 
-export interface State { ownerId: string | null; channels: Record<string, string>; lastSeen: Record<string, string>; deckId?: string; recipes?: Record<string, string[]> }
+export interface State { ownerId: string | null; channels: Record<string, string>; lastSeen: Record<string, string>; deckId?: string; recipes?: Record<string, string[]>; /** email draft id -> where its card is, so a change edits the card in place */ mail?: Record<string, { c: string; m: string }> }
 
 /** The pinned buttons in #aang. Status costs nothing; the job hunt goes through Aang like anything he types. */
 export const DECK: Button[] = [
@@ -126,7 +130,7 @@ export class DiscordAdapter {
   private now() { return (this.opts.now ?? (() => new Date()))(); }
 
   async start(): Promise<void> {
-    try { const s = JSON.parse(readFileSync(this.stateFile, 'utf8')); this.state = { ownerId: s.ownerId ?? null, channels: s.channels ?? {}, lastSeen: s.lastSeen ?? {}, ...(s.deckId ? { deckId: s.deckId } : {}), ...(s.recipes ? { recipes: s.recipes } : {}) }; }
+    try { const s = JSON.parse(readFileSync(this.stateFile, 'utf8')); this.state = { ownerId: s.ownerId ?? null, channels: s.channels ?? {}, lastSeen: s.lastSeen ?? {}, ...(s.deckId ? { deckId: s.deckId } : {}), ...(s.recipes ? { recipes: s.recipes } : {}), ...(s.mail ? { mail: s.mail } : {}) }; }
     catch { /* first run */ }
     this.gw.onMessage(m => { void this.handle(m).catch(e => this.log('discord: message failed: ' + (e as Error).message)); });
     this.gw.onButton(b => { void this.press(b).catch(e => this.log('discord: button failed: ' + (e as Error).message)); });
@@ -268,7 +272,7 @@ export class DiscordAdapter {
   // ---------------------------------------------------------------- controls, answered by the Core with no model
 
   /** Where the answer to each kind of request goes, in the order they were asked. */
-  private readonly replyTo = { actions: [] as string[], hush: [] as string[], trust: [] as string[] };
+  private readonly replyTo = { actions: [] as string[], hush: [] as string[], trust: [] as string[], brief: [] as string[] };
   private trustKinds: string[] = [];
   private trustCard: { channelId: string; messageId: string } | null = null;
 
@@ -280,6 +284,7 @@ export class DiscordAdapter {
       const minutes = m[1] ? 60 : m[2] ? Number(m[2]) * (/^h/i.test(m[3] ?? '') ? 60 : 1) : 60;
       this.replyTo.hush.push(channelId); this.link.hush(minutes); return true;
     }
+    if (/^(?:(?:my |the )?(?:morning )?(?:brief|briefing)|what'?s on today|what is on today|(?:my )?agenda(?: today)?)\??[.!]?$/i.test(text)) { this.replyTo.brief.push(channelId); this.link.brief(); return true; }
     if (/^what (?:have you|did you)(?: just)? (?:do|done)(?: today)?\??$/i.test(text)) { this.replyTo.actions.push(channelId); this.link.actions(); return true; }
     if (/^(?:what can you do without asking|what (?:have i|am i) (?:allowed|let you)|(?:show|list) (?:your |my )?permissions)\??$/i.test(text)) { this.trustCard = null; this.replyTo.trust.push(channelId); this.link.trust(); return true; }
     return false;
@@ -545,6 +550,12 @@ export class DiscordAdapter {
       if (channelId) await this.showTrust(channelId, ev.items);
       return;
     }
+    if (ev?.t === 'brief.reply' && typeof ev.text === 'string') {
+      const channelId = this.replyTo.brief.shift() ?? this.state.channels['aang'];
+      if (channelId) await this.gw.send(channelId, { content: ev.text.slice(0, 1900) });
+      return;
+    }
+    if (ev?.t === 'mail.card' && typeof ev.id === 'string' && typeof ev.content === 'string') { await this.mailCard(ev.id, ev.content, Array.isArray(ev.buttons) ? ev.buttons : []); return; }
     if (ev?.t === 'hush.reply' && typeof ev.text === 'string') {
       const channelId = this.replyTo.hush.shift() ?? this.state.channels['aang'];
       if (channelId) await this.gw.send(channelId, { content: ev.text });
@@ -581,6 +592,17 @@ export class DiscordAdapter {
     }
   }
 
+  /** An email draft card: the first time it goes to #drafts, every later change edits that same message. */
+  private async mailCard(id: string, content: string, buttons: Button[]): Promise<void> {
+    const at = this.state.mail?.[id];
+    if (at) { try { await this.gw.edit(at.c, at.m, { content, buttons }); return; } catch { /* the card was deleted: post it again */ } }
+    const where = this.state.channels['drafts']; if (!where) return;
+    const m = await this.gw.send(where, { content, buttons });
+    this.state.mail = { ...(this.state.mail ?? {}), [id]: { c: where, m } };
+    const ids = Object.keys(this.state.mail); for (const k of ids.slice(0, Math.max(0, ids.length - 60))) delete this.state.mail[k];
+    this.save();
+  }
+
   /** Channels waiting for a status answer, in the order they asked. */
   private readonly statusFor: string[] = [];
   private deckSeq = 0;
@@ -596,6 +618,14 @@ export class DiscordAdapter {
       else if (b.customId === 'deck:log') { this.replyTo.actions.push(b.channelId); this.link.actions(); }
       else if (b.customId === 'deck:perms') { this.trustCard = null; this.replyTo.trust.push(b.channelId); this.link.trust(); }
       else if (b.customId === 'deck:stop') { this.link.stop(); await this.gw.send(b.channelId, { content: 'Stopped.' }); }
+      return;
+    }
+    const ml = /^mail:(send|save|discard):([a-f0-9]+):([a-f0-9]+)$/.exec(b.customId);
+    if (ml) {
+      await b.keep();
+      // The card is remembered by where it is, in case the press came from a card posted before a restart.
+      if (b.messageId && !this.state.mail?.[ml[2]!]) { this.state.mail = { ...(this.state.mail ?? {}), [ml[2]!]: { c: b.channelId, m: b.messageId } }; this.save(); }
+      this.link.mailAct(ml[2]!, ml[3]!, ml[1] as 'send' | 'save' | 'discard');
       return;
     }
     const dr = /^draft:(ok|no|new):([a-z0-9]+)$/.exec(b.customId);

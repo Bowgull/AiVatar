@@ -34,6 +34,10 @@ import { runCommand } from './run.ts';
 import { buildSystemPrompt, lint, stripReasoning } from './voice.ts';
 import { MAX_SEND_BYTES, clock, mimeOf, statusText, whyNotSend } from './phone.ts';
 import { ActionLog, UndoStack, formatAction } from './actionlog.ts';
+import { Google } from './google.ts';
+import type { Fetch } from './google.ts';
+import { MailService, MailStore, renderMailCard } from './mail.ts';
+import type { DraftInput, MailDraft } from './mail.ts';
 
 export interface CoreConfig {
   port: number;
@@ -102,6 +106,10 @@ export class Core {
       undoFile: file => this.changeFile('mcp__aang__undo_file_change', { file: file ?? '' }, () => undoLast(file)),
       hands: (action, what, how) => this.hands(action, what, how),
       phone: (what, note) => this.sendToPhone(what, note),
+      mailInbox: (query, max) => this.mailRead('mcp__aang__mail_inbox', { query: query ?? '' }, m => m.inbox(query || 'in:inbox', max ?? 10)),
+      mailRead: id => this.mailRead('mcp__aang__mail_read', { id }, m => m.read(id)),
+      calendar: days => this.mailRead('mcp__aang__calendar_today', { days: days ?? 1 }, m => m.agenda(days ?? 1)),
+      mailDraft: input => this.mailDraft(input),
       listFolder: dir => this.listFolderSafe(dir),
       uiList: app => this.uiList(app),
       uiPress: (app, name) => this.uiAct('press', app, name),
@@ -128,6 +136,70 @@ export class Core {
     const r = doIt();
     if (r.ok && r.undo) { const undo = r.undo; this.undo.push(describeCall(tool, input), () => undo()); }
     return { ok: r.ok, detail: r.detail };
+  }
+
+  // ------------------------------------------------------------------ email and calendar
+
+  private mailSvc: MailService | null = null;
+  /** Replaced by tests so no real request is made. */
+  googleFetch: Fetch | undefined;
+  /** Null until he has signed in with tools\google-setup.cmd; checked each time, so signing in needs no restart. */
+  mail(): MailService | null {
+    if (this.mailSvc) return this.mailSvc;
+    const g = new Google(path.join(this.cfg.stateDir, 'google.json'), this.googleFetch);
+    if (!g.connected) return null;
+    return (this.mailSvc = new MailService(g, new MailStore(path.join(this.cfg.stateDir, 'mail.json'))));
+  }
+  private static readonly NO_GOOGLE = 'Google is not connected yet. Joshua signs in once by double-clicking tools\\google-setup.cmd.';
+
+  /** Reading mail or the calendar: asked once, and whatever comes back is other people's words, so the turn is marked. */
+  private async mailRead(tool: string, input: Record<string, unknown>, run: (m: MailService) => Promise<string>): Promise<{ ok: boolean; detail: string }> {
+    const svc = this.mail(); if (!svc) return { ok: false, detail: Core.NO_GOOGLE };
+    if (!await this.askPermission(tool, input)) return { ok: false, detail: this.whyNot() + ' Nothing was read.' };
+    this.tainted = true;
+    return { ok: true, detail: await run(svc) };
+  }
+
+  private cardOf(d: MailDraft): ToBody { const v = renderMailCard(d); return { t: 'mail.card', id: d.id, content: v.content, buttons: v.buttons }; }
+
+  /**
+   * A draft, never a send. Where he asked for it decides where he approves it: a card with buttons in Discord, or a
+   * yes/no in the bubble that shows the whole email. Either way the only thing that sends is MailService.act, which
+   * needs the hash of exactly what he was shown.
+   */
+  private async mailDraft(input: DraftInput): Promise<{ ok: boolean; detail: string }> {
+    const svc = this.mail(); if (!svc) return { ok: false, detail: Core.NO_GOOGLE };
+    const r = await svc.propose(input);
+    if (!r.ok) return { ok: false, detail: `No draft was made: ${r.why}` };
+    for (const old of r.replaced) this.sendTo('discord', this.cardOf(old));
+    const d = r.draft;
+    const turnSocket = this.active?.sub?.socket;
+    const where = turnSocket && turnSocket.readyState === turnSocket.OPEN ? this.kindOfSocket(turnSocket) : this.whereHeIs();
+    if (where === 'discord' && this.clientsOf('discord').length) {
+      this.sendTo('discord', this.cardOf(d));
+      return { ok: true, detail: `The draft to ${d.to.join(', ')} is in #drafts on his Discord with Send, Save as Gmail draft and Discard buttons. It is NOT sent. Tell him it is waiting there, in one short sentence; do not repeat the draft.` };
+    }
+    if (where === 'desktop') {
+      const said = await this.askPermission('mcp__aang__mail_send', { to: d.to.join(', '), subject: d.subject, body: d.body, fresh: d.newTo.join(', ') });
+      if (!said) { await svc.act(d.id, d.hash, 'discard'); return { ok: true, detail: `He did not approve it, so the draft was discarded and nothing was sent. ${this.whyNot()}` }; }
+      let a = await svc.act(d.id, d.hash, 'send');
+      if (a.draft?.status === 'confirm') a = await svc.act(d.id, d.hash, 'send');          // the question already named the new address
+      return a.draft?.status === 'sent' ? { ok: true, detail: `Sent to ${d.to.join(', ')}.` } : { ok: false, detail: a.note || 'It was not sent.' };
+    }
+    return { ok: true, detail: 'The draft is kept but there is nowhere to show it to him right now, so it was NOT sent. Say so.' };
+  }
+
+  /** A button on a draft card in Discord, or the brief he asked for. Both come from the Discord connection. */
+  private async mailAct(ws: WebSocket, id: string, hash: string, action: 'send' | 'save' | 'discard'): Promise<void> {
+    const svc = this.mail(); if (!svc) return;
+    const r = await svc.act(id, hash, action);
+    this.actions.add({ tool: 'mail', did: `${action === 'send' ? 'sent' : action === 'save' ? 'saved as a Gmail draft' : 'discarded'} an email draft${r.draft ? ` to ${r.draft.to.join(', ').slice(0, 80)}` : ''}`, ok: !r.note, note: r.note });
+    if (r.draft) this.send(ws, this.cardOf({ ...r.draft, ...(r.note ? { note: r.note } : {}) }));
+  }
+
+  private async briefFor(ws: WebSocket): Promise<void> {
+    const svc = this.mail();
+    this.send(ws, { t: 'brief.reply', text: svc ? await svc.brief() : Core.NO_GOOGLE });
   }
 
   // ------------------------------------------------------------------ acting inside apps (UI Automation)
@@ -420,6 +492,7 @@ export class Core {
   readonly trust: TrustStore;
   private hookServer: HookServer | null = null;
   private checkpointTimer: NodeJS.Timeout | null = null;
+  private briefTimer: NodeJS.Timeout | null = null;
   /** Aang is visible but silent: the Body is in quiet mode (the game has focus), or Joshua muted him. */
   private bodyQuiet = false;
   private muted = false;
@@ -478,6 +551,9 @@ export class Core {
     emptyOldTrash();                                   // whatever has sat in Aang's trash for 30 days goes for good
     this.reminders.onDue = r => this.announce(`Reminder: ${r.text}`);
     this.reminders.start();
+    // Once a day, after 7:00 Toronto time, the morning brief is posted on its own (no model, no quota). Only when signed in.
+    this.briefTimer = setInterval(() => { void this.mail()?.dailyBrief().then(t => { if (t) this.announce(t); }).catch(() => { /* tried again in ten minutes */ }); }, 10 * 60_000);
+    this.briefTimer.unref?.();
     const resumable = Object.entries(this.sessions.all()).map(([l, r]) => `${l}=${r.id.slice(0, 8)}`).join(' ');
     console.log(`core listening on ws://127.0.0.1:${this.cfg.port}/body${resumable ? '  resuming ' + resumable : '  (no session to resume)'}`);
     // Give the turns that never had a vector one, in the background. 148 of 466 were embedded by the
@@ -494,6 +570,7 @@ export class Core {
   async stop(): Promise<void> {
     if (this.permission) this.answerPermission(this.permission.id, false);
     if (this.checkpointTimer) clearInterval(this.checkpointTimer);
+    if (this.briefTimer) clearInterval(this.briefTimer);
     this.reminders.stop();
     await this.hookServer?.stop(); this.hookServer = null;
     this.webLane?.close(); this.webLane = null;
@@ -658,6 +735,11 @@ export class Core {
         break;
       }
       case 'hush': this.send(ws, { t: 'hush.reply', text: this.hush(Number(m.minutes)) }); break;
+      case 'mail.act':
+        if (this.kindOfSocket(ws) === 'discord' && typeof m.id === 'string' && typeof m.hash === 'string' && (m.action === 'send' || m.action === 'save' || m.action === 'discard'))
+          void this.mailAct(ws, m.id, m.hash, m.action).catch(e => console.error('mail action failed:', (e as Error).message));
+        break;
+      case 'brief': void this.briefFor(ws).catch(e => console.error('brief failed:', (e as Error).message)); break;
       case 'submit': {
         const id = typeof m.id === 'string' && m.id ? m.id : undefined;
         const text = typeof m.text === 'string' ? m.text.trim() : '';
@@ -929,7 +1011,7 @@ export class Core {
     const kind = kindOf(tool, input);
     // Reading is not acting: the read tools stay trusted after a page was read. Anything that does
     // something asks again once outside content is in the turn.
-    const acts = tool !== 'mcp__aang__read_window' && tool !== 'mcp__aang__read_clipboard' && tool !== 'mcp__aang__look_at_window';
+    const acts = !['mcp__aang__read_window', 'mcp__aang__read_clipboard', 'mcp__aang__look_at_window', 'mcp__aang__mail_inbox', 'mcp__aang__mail_read', 'mcp__aang__calendar_today'].includes(tool);
     if (kind && this.trust.allowed(kind.kind) && !(this.tainted && acts)) return Promise.resolve(true);
     if (kind && this.tainted && acts && this.trust.allowed(kind.kind)) console.log(`asking again for "${kind.kind}": this turn has read outside content`);
 
