@@ -109,6 +109,11 @@ Each phase lists what it closes from A-L, what is new, and the gate it has to pa
 - [x] SQLite WAL + `synchronous = FULL`, and **every state file written atomically** (**done**). Measured
       with 25 random SIGKILLs: writing in place left reminders.json unreadable **6-14 times out of 25**;
       after the fix, 0 unreadable, 0 damaged databases, 0 losses (src/Core/test/hardkill.test.ts)
+- [x] **Start with Windows, for real** (**fixed 2026-09-20**). The Shell-Core event log showed Windows had
+      never once started Aang at login - seven logins, every other entry started, Aang skipped, though the
+      Run value was there. Autostart is now a shortcut in the Startup folder, which is what demonstrably
+      works on this machine (Ollama and Rainmeter start from it), and the old Run value is migrated away.
+      Confirmed only by the next reboot's event log and body.log
 - [x] **Hidden stays hidden** (**done**). A consent question called OpenInput, which called Show() - he
       un-hid himself, exactly Clippy's failure. Unprompted messages, animation changes, consent, thinking
       and permission questions are all suppressed while hidden; a permission he cannot see is answered no
@@ -140,8 +145,6 @@ Measured on this machine: local models are fast but too dumb to extract facts, s
 finding, cloud for understanding**.
 - [x] Memory tool - Aang writes and reads his own durable notes (**done 2026-09-20**), plus forget and
       a list of what he holds
-- [ ] **Catch-up consolidation at session start** (not nightly - the machine is off). Haiku. Skipped
-      above 40% weekly quota
 - [x] Semantic recall wired in (**done**): embeddinggemma locally, 42 ms, free. It found "the chibi keeps
       freezing when I alt tab" from "desktop pet hangs when switching windows" - no shared words. The
       turns that never had a vector are backfilled in the background: **148 of 466 became 458 of 480**
@@ -162,10 +165,33 @@ finding, cloud for understanding**.
 
 ### P3 - The things you hit every day
 *Closes: B2, F1, F2, F4, F6, G1*
-- [ ] Open an app, a file, a folder, a URL as first-class actions - not a raw bash prompt
-- [ ] **Trust tiers: ask once per kind, then remembered** (Joshua's answer)
-- [ ] Clipboard read
+- [x] Open an app, a file, a folder, a URL as first-class actions - not a raw bash prompt (**done 2026-09-20**).
+      One `open` tool; links other than http(s) and paths that do not exist are refused before he asks
+- [x] **Trust tiers: ask once per kind, then remembered** (**done**). Kinds are coarse: open apps, open files,
+      open links, read the clipboard, and shell commands per program (git, dotnet...). Delete, install,
+      registry, shutdown and network commands are never remembered: they ask every time
+- [x] Clipboard read (**done**), asked for by the Core and read by the Body, only when he calls for it
+- [x] **Found while building it:** the SDK never asks permission for its built-in PowerShell tool on this
+      machine - `canUseTool` is not called - so he ran `git` with no question at all. The built-in shells
+      are now removed from his tools entirely and every command goes through his own `run` tool, which
+      does go through the gate. Also found: the web lane could see the shell and asked to use curl; it
+      now holds the web tools and nothing else
 **Gate:** "open firefox" works in one step with no scary command prompt, and never asks twice.
+**Gate result:** passed in tests/fakecore/actions.mjs: paint opened after one yes, calculator opened with
+no question, the permission bubble says "Yes means I can open apps from now on", a declined request is
+reported plainly rather than retried.
+- [x] **Tests never touch his real memory** (**fixed 2026-09-20**). Six suites started a Core with the
+      default data folder, so test conversations went into Joshua's real history and consolidation made
+      "facts" of them (a raid group called "the Bleeding Edge" that does not exist). Every suite now runs
+      on a copy (`isolatedEnv` in tests/fakecore/guard.mjs); 414 test turns and 13 invented facts were
+      removed from the real database, with a backup kept beside it. The same was true of the Body: tests
+      deleted and rewrote Joshua's real body.json and left "saving" on, which stalled every later turn
+      behind a consent question. The Body now honours AANG_BODY_DIR, and importing guard.mjs points the
+      whole test process - including a Core the Body starts by itself - at throwaway folders
+- [x] Commands start in his home folder, where a terminal would. They started in the data folder, which
+      only worked because that folder happens to be a git repository on this machine
+- [x] Consolidation is told what he already knows, so a fact mentioned again is not kept twice in other
+      words; and a marker left past the newest turn (after turns were deleted) no longer stops it for good
 
 ### P4 - Knowing what is on screen
 *Closes: F5, part of F3*

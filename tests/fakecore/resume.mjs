@@ -1,7 +1,7 @@
-// The one that matters on this machine: the Shadow VM reboots ~6x a day, so the Core restarts.
+﻿// The one that matters on this machine: the Shadow VM reboots ~6x a day, so the Core restarts.
 // Aang must carry the conversation across that, not start over. Real Core, real Claude, real Body.
 //   node resume.mjs
-import { requireNoBody } from './guard.mjs';
+import { requireNoBody, isolatedEnv } from './guard.mjs';
 import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { WebSocket } from 'ws';
@@ -29,7 +29,7 @@ const sessionsFile = path.join(stateDir, 'sessions.json');
 const startCore = () => {
   const c = spawn(process.execPath, ['--no-warnings', 'src/index.ts'], {
     cwd: path.join(root, 'src', 'Core'), stdio: ['ignore', 'pipe', 'pipe'],
-    env: { ...process.env, AANG_STATE_DIR: stateDir, AANG_WARM: '0' },
+    env: isolatedEnv({ AANG_STATE_DIR: stateDir, AANG_WARM: '0' }),
   });
   c.stdout.on('data', d => process.stdout.write('      core: ' + d));
   c.stderr.on('data', d => process.stdout.write('      core!: ' + d));
@@ -100,3 +100,4 @@ await sleep(600); await snap('04_after_dead_id');
 cap.stdin.write('quit\n'); c.close(); body.kill(); core.kill();
 console.log(`\n${results.filter(Boolean).length}/${results.length} resume checks passed; screenshots in ${outDir}`);
 process.exit(results.every(Boolean) ? 0 : 1);
+

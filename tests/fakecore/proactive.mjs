@@ -1,7 +1,7 @@
 // The unprompted side, for real: the real Core and the real Body, hook events posted the way Claude Code
 // posts them, and a reminder that actually goes off. Mute and quiet are checked by eye and by message.
 //   node proactive.mjs
-import { requireNoBody } from './guard.mjs';
+import { requireNoBody, isolatedEnv } from './guard.mjs';
 import { spawn } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, existsSync } from 'node:fs';
 import { WebSocket } from 'ws';
@@ -18,7 +18,7 @@ const results = [];
 const check = (name, ok, detail = '') => { results.push(ok); console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? '  ' + detail : ''}`); };
 
 // a clean Body: no saved mute or position from an earlier run
-for (const f of ['body.json', 'input-history.json']) { const p = path.join(process.env.APPDATA, 'Aang', f); if (existsSync(p)) rmSync(p); }
+for (const f of ['body.json', 'input-history.json']) { const p = path.join(process.env.AANG_BODY_DIR, f); if (existsSync(p)) rmSync(p); }
 
 const cap = spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', capture, '-Serve'], { stdio: ['pipe', 'pipe', 'inherit'] });
 let buf = ''; const waiters = [];
@@ -31,7 +31,7 @@ const snap = async name => check('snapshot ' + name, (await capAsk(`snap ${path.
 const stateDir = mkdtempSync(path.join(os.tmpdir(), 'aang-pro-'));
 const core = spawn(process.execPath, ['--no-warnings', 'src/index.ts'], {
   cwd: path.join(root, 'src', 'Core'), stdio: ['ignore', 'pipe', 'pipe'],
-  env: { ...process.env, AANG_STATE_DIR: stateDir, AANG_WARM: '0' },
+  env: isolatedEnv({ AANG_STATE_DIR: stateDir, AANG_WARM: '0' }),
 });
 core.stdout.on('data', d => process.stdout.write('      core: ' + d));
 core.stderr.on('data', d => process.stdout.write('      core!: ' + d));
@@ -107,3 +107,4 @@ await sleep(600); await snap('06_status_answer');
 cap.stdin.write('quit\n'); spy.close(); body.kill(); core.kill();
 console.log(`\n${results.filter(Boolean).length}/${results.length} proactive checks passed; screenshots in ${outDir}`);
 process.exit(results.every(Boolean) ? 0 : 1);
+

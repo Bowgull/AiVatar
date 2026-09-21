@@ -3,6 +3,7 @@
 import { WebSocketServer } from 'ws';
 import type { WebSocket } from 'ws';
 import { appendFileSync, mkdirSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { parseFromBody } from './protocol.ts';
 import type { FromBody, Mode, ToBody } from './protocol.ts';
@@ -12,12 +13,15 @@ import { Memory } from './memory.ts';
 import { QuotaPolicy } from './quota.ts';
 import { MODELS, pickLane } from './route.ts';
 import type { Lane as LaneName } from './route.ts';
-import { READ_ONLY_BUILTINS, TOOL_NAMES, SHELL_TOOLS, WEB_PROMPT, WEB_TOOLS, describeCall, makeToolServer, reachesNetwork } from './tools.ts';
+import { READ_ONLY_BUILTINS, TOOL_NAMES, BUILTIN_SHELL, SHELL_TOOLS, WEB_PROMPT, WEB_TOOLS, describeCall, isLauncher, makeToolServer, reachesNetwork } from './tools.ts';
 import { HookServer, HookTracker } from './hooks.ts';
 import { Reminders } from './reminders.ts';
 import { SessionStore } from './sessions.ts';
 import { ActivityLog } from './activity.ts';
 import { consolidate } from './consolidate.ts';
+import { TrustStore, kindOf } from './trust.ts';
+import { launch, resolve as resolveOpen } from './open.ts';
+import { runCommand } from './run.ts';
 import { buildSystemPrompt, lint, stripReasoning } from './voice.ts';
 
 export interface CoreConfig {
@@ -65,13 +69,53 @@ export class Core {
   private readonly systemPrompt: string;
   /** Built fresh per lane: one in-process MCP server cannot serve two live queries. Sharing it made
    *  Aang's own tools fail with "the aang server failed to connect" the moment a second lane started. */
-  private tools() { return makeToolServer(this.memory, this.hooks, this.reminders, q => this.lookUpWeb(q), this.activity); }
+  private tools() {
+    return makeToolServer(
+      this.memory, this.hooks, this.reminders, q => this.lookUpWeb(q), this.activity,
+      what => this.open(what), () => this.readClipboard(), cmd => this.run(cmd),
+    );
+  }
+
+  /** The only way to a command line, and it always goes through the gate. */
+  private async run(command: string): Promise<{ ok: boolean; output: string }> {
+    if (!await this.askPermission('mcp__aang__run', { command })) return { ok: false, output: 'Declined in the bubble, so it did not run.' };
+    // His home folder, where a terminal opens. It used to be the data folder, which only worked because that
+    // folder happens to be a git repository on this machine.
+    return runCommand(command, os.homedir());
+  }
+
+  /** Open something for him, once he has agreed to that kind of thing. */
+  private async open(what: string): Promise<{ ok: boolean; detail: string }> {
+    const r = resolveOpen(what);
+    if ('error' in r) return { ok: false, detail: r.error };
+    if (!await this.askPermission('mcp__aang__open', { what })) return { ok: false, detail: 'Declined in the bubble, so nothing was opened.' };
+    const done = await launch(r.target, r.kind);
+    return done.ok ? { ok: true, detail: `Opened ${r.target}.` } : { ok: false, detail: `That would not open: ${done.detail}` };
+  }
+
+  /** Ask the Body for the clipboard: Node cannot read it, and the Body already owns the desktop. */
+  private clipboard: { id: string; resolve: (t: string | null) => void; timer: NodeJS.Timeout } | null = null;
+  private clipboardSeq = 0;
+  private async readClipboard(): Promise<string | null> {
+    if (!await this.askPermission('mcp__aang__read_clipboard', {})) return null;
+    if (!this.wss || this.wss.clients.size === 0) return null;
+    if (this.clipboard) return null;
+    const id = `clip${++this.clipboardSeq}`;
+    return new Promise<string | null>(resolve => {
+      const timer = setTimeout(() => { this.clipboard = null; resolve(null); }, 10_000);
+      timer.unref?.();
+      this.clipboard = { id, resolve, timer };
+      this.broadcast({ t: 'clipboard.request', id });
+    });
+  }
   readonly hooks = new HookTracker();
   /** Which window Joshua is in. Memory only, never written to disk. */
   readonly activity = new ActivityLog();
   readonly reminders: Reminders;
   /** Which Claude session each lane is in, so six reboots a day do not read as amnesia. */
   readonly sessions: SessionStore;
+  /** What Aang may do without asking again. */
+  readonly trust: TrustStore;
   private hookServer: HookServer | null = null;
   private checkpointTimer: NodeJS.Timeout | null = null;
   /** Aang is visible but silent: the Body is in quiet mode (the game has focus), or Joshua muted him. */
@@ -90,14 +134,14 @@ export class Core {
   constructor(cfg: CoreConfig) {
     this.cfg = cfg;
     this.memory = new Memory(cfg.dataDir);
-    // What he already knows about Joshua goes in the prompt, so he starts the conversation knowing it
-    // rather than having to go and look. Only the fresh, often-confirmed ones: a belief nobody has
-    // mentioned in months should not quietly colour every answer.
-    const standing = this.memory.standing().map(f => '- ' + f.text).join('\n');
-    this.systemPrompt = buildSystemPrompt(this.memory.profile(), this.memory.learned())
-      + (standing ? `\n\n<known>\nWhat you already know about Joshua. Treat it as true unless he says otherwise, and\nuse remember/forget to keep it current.\n${standing}\n</known>` : '');
+    // What he knows about Joshua is NOT in the system prompt: that is fixed for the life of a session, so a
+    // forgotten fact stayed in front of him. Found 2026-09-20: he read it there after a forget, decided "the
+    // forget didn't stick" and repeated it, and telling him the block was a snapshot fixed it one run in two.
+    // It travels with the messages instead - see withKnown.
+    this.systemPrompt = buildSystemPrompt(this.memory.profile(), this.memory.learned());
     this.reminders = new Reminders(cfg.stateDir);
     this.sessions = new SessionStore(cfg.stateDir);
+    this.trust = new TrustStore(cfg.stateDir);
   }
 
   // ------------------------------------------------------------------ lifecycle
@@ -165,7 +209,10 @@ export class Core {
         // No MCP server: it must not be able to call look_up_web (which would recurse into itself), and
         // sharing one in-process server across two live queries broke the connection outright.
         name: 'web', model: MODELS.quick.model, systemPrompt: WEB_PROMPT,
-        allowedTools: WEB_TOOLS,
+        // Web tools and nothing else. Allowing them was not enough: the shell was still visible to this lane,
+        // and a test reply showed it asking to run curl. A lane that reads untrusted pages must not be able
+        // to see a shell at all, and canUseTool is not a reliable gate for the shell on this machine.
+        allowedTools: WEB_TOOLS, onlyTools: WEB_TOOLS,
         claudeExecutable: this.cfg.claudeExecutable, thinking: { type: 'disabled' },
       });
       this.webLane.onEvent(() => {});
@@ -183,7 +230,7 @@ export class Core {
         const lane = new Lane({
           name: 'consolidate', model: MODELS.quick.model, systemPrompt:
             'You summarise a conversation into durable facts. You answer with JSON and nothing else.',
-          allowedTools: [], claudeExecutable: this.cfg.claudeExecutable, thinking: { type: 'disabled' },
+          allowedTools: [], onlyTools: [], claudeExecutable: this.cfg.claudeExecutable, thinking: { type: 'disabled' },
         });
         lane.onEvent(() => {});
         try { return (await lane.ask(prompt, 120_000)).text; } finally { lane.close(); }
@@ -208,7 +255,7 @@ export class Core {
       // them, reaches for WebFetch first, gets refused and gives up instead of using look_up_web.
       // Measured on 2026-09-20, not guessed.
       allowedTools: [...TOOL_NAMES, ...READ_ONLY_BUILTINS],
-      disallowedTools: WEB_TOOLS,
+      disallowedTools: [...WEB_TOOLS, ...BUILTIN_SHELL],
       askPermission: (tool, input) => this.askPermission(tool, input),
       claudeExecutable: this.cfg.claudeExecutable,
       // Measured on the warm Quick lane: first token 1369 ms with thinking, 444 ms without. Chat does not
@@ -283,6 +330,11 @@ export class Core {
         break;
       }
       case 'permission.reply': this.answerPermission(m.id, m.allow === true); break;
+      case 'clipboard': {
+        const c = this.clipboard;
+        if (c && c.id === m.id) { clearTimeout(c.timer); this.clipboard = null; c.resolve(typeof m.text === 'string' ? m.text : null); }
+        break;
+      }
       case 'mute': this.setSilent(this.bodyQuiet, m.on === true); break;
       case 'saving': this.policy.setSaving(m.on); { const q = this.quotaMessage(); if (q) this.broadcast(q); } break;
       default: break; // poked, moved, pong: nothing to do yet
@@ -315,7 +367,24 @@ export class Core {
     const turn: Turn = { sub, lane, buf: '', flush: null, stopped: false, startedAt: Date.now(), ackMs, watchdog: null };
     turn.watchdog = setTimeout(() => this.fail(turn, 'That took too long and I gave up waiting.', 'Try again, or ask something shorter.'), TURN_TIMEOUT_MS);
     this.active = turn;
-    this.lane(lane).send(sub.text);
+    this.lane(lane).send(this.withKnown(lane, sub.text));
+  }
+
+  /** The fact list each lane was last shown, so it is sent again only when it has changed. */
+  private shownFacts = new Map<LaneName, string>();
+
+  /**
+   * Put what he currently knows about Joshua in front of a message: on the first turn a lane takes after the
+   * Core starts, and again whenever the list has changed (remember, forget, consolidation). The newest list is
+   * then always the latest thing in the conversation, and it costs nothing on the turns where nothing changed.
+   * Only the fresh, confirmed facts: a belief nobody has mentioned in months should not colour every answer.
+   */
+  private withKnown(lane: LaneName, text: string): string {
+    const list = this.memory.standing().map(f => '- ' + f.text).join('\n');
+    const shown = this.shownFacts.get(lane);
+    this.shownFacts.set(lane, list);
+    if (shown === list || (shown === undefined && !list)) return text;
+    return `<known>\nWhat you know about Joshua right now. It replaces any earlier <known> in this conversation: a fact that is not here was forgotten or replaced, so do not bring it up.\n${list || '(nothing kept right now)'}\n</known>\n\n${text}`;
   }
 
   private next(): void {
@@ -448,10 +517,22 @@ export class Core {
     }
     // ...and the shell is a way out too. Refused before Joshua is ever asked, so a poisoned page cannot
     // turn itself into a yes/no prompt he might wave through.
-    if (SHELL_TOOLS.includes(tool) && reachesNetwork(String(input?.command ?? ''))) {
+    // Launching through the shell turns a plain "can I open Paint?" into a command line he has to read
+    // and judge. It has its own tool; the shell is refused so the model reaches for that instead.
+    const isShell = SHELL_TOOLS.includes(tool) || tool === 'mcp__aang__run';
+    if (isShell && isLauncher(String(input?.command ?? ''))) {
+      console.log('refused a shell launch; open is the tool for that');
+      return Promise.resolve(false);
+    }
+    if (isShell && reachesNetwork(String(input?.command ?? ''))) {
       console.log('refused a shell command that reaches the network; look_up_web is the only way out');
       return Promise.resolve(false);
     }
+    // Joshua's rule: ask once per kind, then trust it. Being asked the same thing every time is what
+    // makes a prompt tiring, and a tiring prompt gets waved through without being read.
+    const kind = kindOf(tool, input);
+    if (kind && this.trust.allowed(kind.kind)) return Promise.resolve(true);
+
     if (!this.wss || this.wss.clients.size === 0) return Promise.resolve(false);
     if (this.permission) return Promise.resolve(false);
     const id = `perm${++this.permissionSeq}`;
@@ -459,8 +540,17 @@ export class Core {
     return new Promise<boolean>(resolve => {
       const timer = setTimeout(() => this.answerPermission(id, false), PERMISSION_TIMEOUT_MS);
       timer.unref?.();
-      this.permission = { id, resolve, timer };
-      this.broadcast({ t: 'permission', id, tool, question });
+      this.permission = {
+        id,
+        resolve: allowed => {
+          // Yes means yes to this kind of thing from now on, which is what he asked for, and the
+          // question says so before he answers.
+          if (allowed && kind) this.trust.allow(kind.kind, question);
+          resolve(allowed);
+        },
+        timer,
+      };
+      this.broadcast({ t: 'permission', id, tool, question, remembers: kind?.says });
     });
   }
 
@@ -482,4 +572,8 @@ export class Core {
     this.onTurn(r);
   }
 }
+
+
+
+
 

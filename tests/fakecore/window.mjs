@@ -1,6 +1,6 @@
 // Does Aang know which app Joshua is in? Real Body, real Core, real Claude, real window switching.
 //   node window.mjs
-import { requireNoBody, releaseForeground } from './guard.mjs';
+import { requireNoBody, releaseForeground, isolatedEnv, closeTestFolders } from './guard.mjs';
 import { spawn, execSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync } from 'node:fs';
 import { WebSocket } from 'ws';
@@ -35,7 +35,7 @@ await requireNoBody();
 const stateDir = mkdtempSync(path.join(os.tmpdir(), 'aang-win-'));
 const core = spawn(process.execPath, ['--no-warnings', 'src/index.ts'], {
   cwd: path.join(root, 'src', 'Core'), stdio: ['ignore', 'pipe', 'pipe'],
-  env: { ...process.env, AANG_STATE_DIR: stateDir, AANG_WARM: '0' },
+  env: isolatedEnv({ AANG_STATE_DIR: stateDir, AANG_WARM: '0' }),
 });
 core.stderr.on('data', d => process.stdout.write('      core!: ' + d));
 await sleep(6000);
@@ -122,6 +122,8 @@ await keys.ask('focus explorer');
 await keys.ask('send %{F4}');
 await sleep(800);
 await releaseForeground();
+closeTestFolders('raid-night-plan-', 'grocery-list-');
 keys.p.stdin.write('quit\n'); cap.p.stdin.write('quit\n'); c.close(); core.kill();
 console.log(`\n${results.filter(Boolean).length}/${results.length} window checks passed; screenshots in ${outDir}`);
 process.exit(results.every(Boolean) ? 0 : 1);
+

@@ -53,9 +53,22 @@ test('forget means forget', () => {
   const m = new Memory(copyDb());
   m.remember('He is allergic to penicillin');
   const gone = m.forget('penicillin');
-  assert.match(gone?.text ?? '', /penicillin/);
+  assert.match(gone[0]?.text ?? '', /penicillin/);
   assert.equal(m.list().some(f => /penicillin/.test(f.text)), false);
-  assert.equal(m.forget('penicillin'), null, 'and it stays forgotten');
+  assert.deepEqual(m.forget('penicillin'), [], 'and it stays forgotten');
+  m.close();
+});
+
+test('forget everything about something removes all of it, the superseded versions too', () => {
+  const m = new Memory(copyDb());
+  m.remember('His raid group is called the Night Owls');
+  m.remember('His raid night is Tuesday');
+  m.remember('His raid night is Wednesday');                // Tuesday retired, but still in the table
+  m.remember('His sister is called Dana');
+  const gone = m.forget('everything about my raid nights').map(f => f.text).sort();
+  assert.deepEqual(gone, ['His raid group is called the Night Owls', 'His raid night is Tuesday', 'His raid night is Wednesday']);
+  assert.equal(m.list().some(f => /raid/i.test(f.text)), false, 'none left to be told back to him');
+  assert.ok(m.list().some(f => /Dana/.test(f.text)), 'and nothing unrelated went with it');
   m.close();
 });
 
@@ -126,5 +139,17 @@ test('coverage reports how much of the history can be recalled by meaning', () =
   assert.ok(c.turns > 0);
   assert.ok(c.embedded >= 0 && c.embedded <= c.turns);
   console.log(`      real history: ${c.embedded} of ${c.turns} turns embedded`);
+  m.close();
+});
+
+test('a fact that was superseded and is true again comes back rather than crashing', () => {
+  const m = new Memory(copyDb());
+  m.remember('His raid night is Tuesday');
+  m.remember('His raid night is Wednesday');          // Tuesday retired
+  const back = m.remember('His raid night is Tuesday'); // true again
+  assert.equal(back.fact?.text, 'His raid night is Tuesday', 'no UNIQUE crash, it came back');
+  assert.equal(back.replaced?.text, 'His raid night is Wednesday', 'and what it contradicts is retired');
+  const held = m.list().filter(f => /raid night/.test(f.text)).map(f => f.text);
+  assert.deepEqual(held, ['His raid night is Tuesday']);
   m.close();
 });

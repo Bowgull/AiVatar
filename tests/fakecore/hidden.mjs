@@ -15,7 +15,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const results = [];
 const check = (name, ok, detail = '') => { results.push(ok); console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? '  ' + detail : ''}`); };
 
-for (const f of ['body.json', 'input-history.json']) { const p = path.join(process.env.APPDATA, 'Aang', f); if (existsSync(p)) rmSync(p); }
+for (const f of ['body.json', 'input-history.json']) { const p = path.join(process.env.AANG_BODY_DIR, f); if (existsSync(p)) rmSync(p); }
 
 function server(cmd, args) {
   const p = spawn(cmd, args, { stdio: ['pipe', 'pipe', 'inherit'] });

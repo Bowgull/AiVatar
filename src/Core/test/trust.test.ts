@@ -1,0 +1,113 @@
+﻿import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { TrustStore, kindOf, programOf } from '../src/trust.ts';
+import { classify, resolve } from '../src/open.ts';
+import { isLauncher, tidyPaths } from '../src/tools.ts';
+
+const tmp = () => mkdtempSync(path.join(os.tmpdir(), 'aang-trust-'));
+
+test('agreeing once is remembered, and survives a restart', () => {
+  const dir = tmp();
+  const t = new TrustStore(dir);
+  assert.equal(t.allowed('run git'), false);
+  t.allow('run git', 'run git status --short');
+  assert.equal(t.allowed('run git'), true);
+  assert.equal(new TrustStore(dir).allowed('run git'), true, 'still trusted after a restart');
+});
+
+test('agreeing to one program says nothing about another', () => {
+  const t = new TrustStore(tmp());
+  t.allow('run git', 'run git status');
+  assert.equal(t.allowed('run dotnet'), false, 'yes to git is not yes to everything');
+});
+
+test('he can take it back, one kind or all of it', () => {
+  const dir = tmp();
+  const t = new TrustStore(dir);
+  t.allow('run git', 'x'); t.allow('open apps', 'y');
+  assert.equal(t.revoke('run git'), true);
+  assert.equal(t.allowed('run git'), false);
+  assert.equal(t.allowed('open apps'), true);
+  t.revokeAll();
+  assert.deepEqual(t.list(), []);
+  assert.deepEqual(new TrustStore(dir).list(), [], 'and it stays revoked');
+});
+
+test('an unreadable trust file trusts nothing', () => {
+  const dir = tmp();
+  writeFileSync(path.join(dir, 'trust.json'), '{ broken');
+  const t = new TrustStore(dir);
+  assert.deepEqual(t.list(), [], 'the safe direction is to ask again');
+});
+
+test('the program is the first word, whatever is wrapped round it', () => {
+  assert.equal(programOf('git status --short'), 'git');
+  assert.equal(programOf('cd C:/work && git rev-parse HEAD'), 'git');
+  assert.equal(programOf('"C:/Program Files/Git/bin/git.exe" log'), 'git');
+  assert.equal(programOf('dotnet.exe build'), 'dotnet');
+  assert.equal(programOf(''), '');
+});
+
+test('deleting and installing are never trusted in advance, however often he says yes', () => {
+  for (const command of ['rm -rf build', 'del /f file', 'rmdir /s x', 'winget install thing', 'npm install left-pad',
+                         'pip install requests', 'reg add HKLM\\x', 'shutdown /s', 'curl http://x']) {
+    assert.equal(kindOf('Bash', { command }), null, `${command} must ask every time`);
+  }
+});
+
+test('ordinary commands are trusted by program', () => {
+  assert.deepEqual(kindOf('PowerShell', { command: 'git status' })?.kind, 'run git');
+  assert.deepEqual(kindOf('Bash', { command: 'dotnet build' })?.kind, 'run dotnet');
+  assert.match(kindOf('Bash', { command: 'git status' })?.says ?? '', /run git commands/);
+});
+
+test('opening is trusted in three coarse kinds', () => {
+  assert.equal(kindOf('mcp__aang__open', { what: 'firefox' })?.kind, 'open apps');
+  assert.equal(kindOf('mcp__aang__open', { what: 'https://example.com' })?.kind, 'open links');
+  assert.equal(kindOf('mcp__aang__open', { what: 'C:/Users/Shadow/notes.txt' })?.kind, 'open files');
+  assert.equal(kindOf('mcp__aang__read_clipboard', {})?.kind, 'read clipboard');
+});
+
+test('writing and editing files always ask', () => {
+  assert.equal(kindOf('Write', { file_path: 'x' }), null);
+  assert.equal(kindOf('Edit', { file_path: 'x' }), null);
+});
+
+test('what to open is worked out from what he said', () => {
+  assert.equal(classify('firefox'), 'app');
+  assert.equal(classify('https://anthropic.com'), 'link');
+  assert.equal(classify('C:/Users/Shadow/Documents'), 'path');
+  assert.deepEqual(resolve('firefox'), { target: 'firefox.exe', kind: 'app' });
+  assert.deepEqual(resolve('spotify'), { target: 'spotify.exe', kind: 'app' });
+  assert.deepEqual(resolve('https://example.com'), { target: 'https://example.com', kind: 'link' });
+});
+
+test('a link that is not a web link, and a path that is not there, are refused with a reason', () => {
+  assert.match((resolve('file:///C:/secrets') as any).error, /http/);
+  assert.match((resolve('javascript:alert(1)') as any).error ?? '', /http|not a link/);
+  assert.match((resolve('C:/definitely/not/here.txt') as any).error, /nothing at/);
+  assert.match((resolve('  ') as any).error, /Nothing to open/);
+});
+
+test('launching through the shell is recognised, so open gets used instead', () => {
+  for (const c of ['mspaint.exe', 'start notepad', 'explorer C:/Users', 'Invoke-Item "C:/x"', 'ii C:/x',
+                   'cmd /c start https://example.com', 'C:/Windows/notepad.exe']) {
+    assert.equal(isLauncher(c), true, `${c} is a launch`);
+  }
+  for (const c of ['git status --short', 'dotnet build', 'npm test', 'explorerthing --x',
+                   'git log --oneline | head -3', 'node script.js']) {
+    assert.equal(isLauncher(c), false, `${c} is a real command`);
+  }
+});
+
+
+test('long paths in a question are trimmed to the part that means something', () => {
+  assert.equal(tidyPaths('dotnet build C:/Users/Shadow/Documents/AangApp/src/Body/Body.csproj -c Release'), 'dotnet build …/Body/Body.csproj -c Release');
+  assert.equal(tidyPaths('git status --short'), 'git status --short', 'no path, nothing changed');
+  assert.equal(tidyPaths('open C:/Users/Shadow/AppData/Local/Temp/open-me-x'), 'open …/Temp/open-me-x');
+  assert.equal(tidyPaths('cat src/Core/x.ts'), 'cat src/Core/x.ts', 'a short relative path is left alone');
+});
+

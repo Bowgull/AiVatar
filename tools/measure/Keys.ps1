@@ -1,4 +1,4 @@
-# Persistent keyboard/mouse/focus driver for end-to-end tests. Reads one command per line, prints one reply.
+﻿# Persistent keyboard/mouse/focus driver for end-to-end tests. Reads one command per line, prints one reply.
 #   fg                         title of the foreground window
 #   focus <process>            bring that process's main window to the front (e.g. WowB, notepad)
 #   hotkey <Ctrl+Shift+Space>  press a key combination
@@ -49,6 +49,7 @@ while ($null -ne ($line = [Console]::In.ReadLine())) {
       'drag'   { $a = $rest -split ' '; $x = [int]$a[0]; $y = [int]$a[1]; $dx = [int]$a[2]; $dy = [int]$a[3]; [void][K]::SetCursorPos($x, $y); Start-Sleep -Milliseconds 150; [K]::mouse_event(0x0002, 0, 0, 0, [UIntPtr]::Zero); for ($i = 1; $i -le 12; $i++) { [void][K]::SetCursorPos($x + [int]($dx * $i / 12), $y + [int]($dy * $i / 12)); Start-Sleep -Milliseconds 25 }; [K]::mouse_event(0x0004, 0, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 300; $r = "ok" }
       'move'   { $a = $rest -split ' '; [void][K]::SetCursorPos([int]$a[0], [int]$a[1]); Start-Sleep -Milliseconds 250; $r = 'ok' }
       'wheel'  { $a = $rest -split ' '; [void][K]::SetCursorPos([int]$a[1], [int]$a[2]); Start-Sleep -Milliseconds 120; [K]::mouse_event(0x0800, 0, 0, [int]$a[0], [UIntPtr]::Zero); Start-Sleep -Milliseconds 250; $r = "ok" }
+      'setclip' { Start-Process powershell -ArgumentList '-STA','-NoProfile','-Command',("Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Clipboard]::SetText('$rest')") -Wait -WindowStyle Hidden; $r = 'ok' }
       'rect'   { $r = [K]::Rect($rest) }
       'movewin'   { $a = $rest -split ' '; $p = Get-Process $a[0] -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1; if ($p) { [void][K]::MoveWindow($p.MainWindowHandle, [int]$a[1], [int]$a[2], [int]$a[3], [int]$a[4], $true); $r = "ok" } else { $r = "no such process" } }
       'pid'    { $r = $(if (Get-Process $rest -ErrorAction SilentlyContinue) { "1" } else { "0" }) }

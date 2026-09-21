@@ -12,11 +12,11 @@ mkdirSync(outDir, { recursive: true });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const results = [];
 const check = (name, ok, detail = '') => { results.push(ok); console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? '  ' + detail : ''}`); };
-const cfgFile = path.join(process.env.APPDATA, 'Aang', 'body.json');
-const logFile = path.join(process.env.APPDATA, 'Aang', 'body.log');
+const cfgFile = path.join(process.env.AANG_BODY_DIR, 'body.json');
+const logFile = path.join(process.env.AANG_BODY_DIR, 'body.log');
 const hotkeyInConfig = () => { try { return JSON.parse(readFileSync(cfgFile, 'utf8').replace(/^﻿/, '')).Hotkey; } catch { return null; } };
 
-for (const f of ['body.json', 'input-history.json']) { const p = path.join(process.env.APPDATA, 'Aang', f); if (existsSync(p)) rmSync(p); }
+for (const f of ['body.json', 'input-history.json']) { const p = path.join(process.env.AANG_BODY_DIR, f); if (existsSync(p)) rmSync(p); }
 
 function server(cmd, args) {
   const p = spawn(cmd, args, { stdio: ['pipe', 'pipe', 'inherit'] });

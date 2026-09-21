@@ -1,4 +1,4 @@
-// A lane is one persistent Claude session (one process, one model) that stays warm between messages.
+﻿// A lane is one persistent Claude session (one process, one model) that stays warm between messages.
 // Messages queue in order; text streams out as it is generated. If the process dies the next message
 // restarts it and resumes the same conversation.
 import { query } from '@anthropic-ai/claude-agent-sdk';
@@ -26,6 +26,9 @@ export interface LaneOptions {
   /** Tools taken out of the model's context entirely. Not the same as leaving them out of allowedTools,
    *  which only makes them ask: the model still sees those and will reach for them first. */
   disallowedTools?: string[];
+  /** The ONLY built-in tools this lane can see. Anything not listed does not exist for it: stronger than
+   *  disallowing, and used for lanes that read untrusted content or should have no tools at all. */
+  onlyTools?: string[];
   /**
    * Asked before a tool that changes something runs. Resolve true to let it, false to refuse.
    * Passing nothing at all means no tool ever needs permission, which is not how this is used.
@@ -97,6 +100,7 @@ export class Lane {
         ...(this.opts.mcpServer ? { mcpServers: { aang: this.opts.mcpServer as never } } : {}),
         allowedTools: this.opts.allowedTools,
         ...(this.opts.disallowedTools?.length ? { disallowedTools: this.opts.disallowedTools } : {}),
+        ...(this.opts.onlyTools ? { tools: this.opts.onlyTools } : {}),
         // Anything not in allowedTools (Bash, Write, Edit, ...) comes through canUseTool, which asks Joshua
         // in the bubble and waits for his answer.
         permissionMode: 'default',
@@ -104,7 +108,7 @@ export class Lane {
           canUseTool: async (tool: string, input: Record<string, unknown>) =>
             (await this.opts.askPermission!(tool, input))
               ? { behavior: 'allow' as const, updatedInput: input }
-              : { behavior: 'deny' as const, message: 'Joshua said no to that.' },
+              : { behavior: 'deny' as const, message: 'Declined in the bubble.' },
         } : {}),
         resume: this.sessionId,
         // Account-level claude.ai connectors (Drive, Gmail, ...) otherwise load into every session:
@@ -250,3 +254,7 @@ export class Lane {
     }
   }
 }
+
+
+
+

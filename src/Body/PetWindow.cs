@@ -165,6 +165,7 @@ sealed class PetWindow : Form
         if (!noCore)
         {
             if (!cfg.AutostartAsked) { Autostart.Set(true); cfg.AutostartAsked = true; cfg.Save(); }   // first run: start with Windows
+            else Autostart.Migrate();
             supervisor = new CoreSupervisor(47831, cfg.CoreDir, cfg.NodePath);
             supervisor.StatusChanged += st => { if (IsHandleCreated) BeginInvoke(() => coreItem.Text = "Core: " + st); };
             supervisor.Start();
@@ -223,7 +224,10 @@ sealed class PetWindow : Form
                     OnConsent(Str(m, "wanted") ?? "smart");
                     break;
                 case "permission":
-                    OnPermission(Str(m, "id") ?? "", Str(m, "question") ?? "do that");
+                    OnPermission(Str(m, "id") ?? "", Str(m, "question") ?? "do that", Str(m, "remembers"));
+                    break;
+                case "clipboard.request":
+                    SendClipboard(Str(m, "id") ?? "");
                     break;
                 case "quota":
                     hasQuota = true;
@@ -636,8 +640,20 @@ sealed class PetWindow : Form
         _ = link.SendAsync(new { t = "rate", id = replyId, value = bubble.Rating == 1 ? "up" : bubble.Rating == -1 ? "down" : "none" });
     }
 
+    /// <summary>
+    /// The clipboard is Windows', not Node's, so the Core asks for it and this answers. Only ever after
+    /// Joshua has agreed, and only the text: no images, no files, nothing that is not what he copied.
+    /// </summary>
+    void SendClipboard(string id)
+    {
+        string? text = null;
+        try { if (Clipboard.ContainsText()) text = Clipboard.GetText(); }
+        catch (Exception e) { Log.Write("clipboard read failed: " + e.Message); }
+        _ = link.SendAsync(new { t = "clipboard", id, text });
+    }
+
     /// <summary>Aang wants to change something on the machine. He does not do it until Joshua says yes.</summary>
-    void OnPermission(string id, string question)
+    void OnPermission(string id, string question, string? remembers = null)
     {
         if (hiddenByUser)
         {
@@ -649,7 +665,12 @@ sealed class PetWindow : Form
         }
         permissionId = id;
         Wake(); ExitExpanded(collapse: false);
-        bubble.Show("Can I " + question + "?", false, 120000);
+        // Say what "yes" commits to before he gives it. Agreeing once and then being asked again is
+        // what makes people stop reading these; agreeing once and quietly getting more than you meant is
+        // worse.
+        var ask = "Can I " + question + "?";
+        if (!string.IsNullOrEmpty(remembers)) ask += " Yes means I can " + remembers + " from now on.";
+        bubble.Show(ask, false, 120000);
         bubble.Asking = true;
         anim.Play("look"); dirty = true;
     }

@@ -1,4 +1,4 @@
-﻿// Typing to Aang, for real: real hotkey, real keystrokes, real clicks, real mouse wheel, with WoW in front.
+// Typing to Aang, for real: real hotkey, real keystrokes, real clicks, real mouse wheel, with WoW in front.
 // A fake Core records what the Body sends and plays replies back, and screenshots are taken at each step.
 //   node typing.mjs
 import { requireNoBody, ensureForeground, releaseForeground } from './guard.mjs';
@@ -18,7 +18,7 @@ const results = [];
 const check = (name, ok, detail = '') => { if (!ok) console.log('   inbox:', JSON.stringify(inbox.map(m => m.t + ':' + (m.text ?? m.mode ?? m.on ?? ''))));  results.push(ok); console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? '  ' + detail : ''}`); };
 
 // a clean Body state: no saved position or history
-for (const f of ['body.json', 'input-history.json']) { const p = path.join(process.env.APPDATA, 'Aang', f); if (existsSync(p)) rmSync(p); }
+for (const f of ['body.json', 'input-history.json']) { const p = path.join(process.env.AANG_BODY_DIR, f); if (existsSync(p)) rmSync(p); }
 
 function server(cmd, args) {
   const p = spawn(cmd, args, { stdio: ['pipe', 'pipe', 'inherit'] });
@@ -56,7 +56,7 @@ const hasWow = /world of warcraft/i.test(wowFg);
 const before = hasWow ? wowFg : await keys.ask('fg');
 const bubbleXY = [L + 120, T + 110 + 100];
 const openBox = async () => { await ensureForeground(keys.ask); await keys.ask(`click ${spriteXY[0]} ${spriteXY[1]}`); await sleep(200); };
-const cfgMode = () => { try { return JSON.parse(readFileSync(path.join(process.env.APPDATA, 'Aang', 'body.json'), 'utf8').replace(/^﻿/, '')).Mode; } catch { return null; } };
+const cfgMode = () => { try { return JSON.parse(readFileSync(path.join(process.env.AANG_BODY_DIR, 'body.json'), 'utf8').replace(/^﻿/, '')).Mode; } catch { return null; } };
 const answer = async s => { send({ t: 'bubble', text: 'ok', stream: false, id: s?.id }); await sleep(250); };
 const quota = (week, five, level) => send({ t: 'quota', five, week, fiveResetsAt: 0, weekResetsAt: 0, level });
 const inputRect = async () => (await keys.ask('rect Aang Input')).split(' ').map(Number);
@@ -75,7 +75,7 @@ quota(0.34, 0.12, 'ok');
 await sleep(300);
 await openBox(); await sleep(300);
 await snap('01_strip_auto_ok');
-const cfgUsage = () => { try { return JSON.parse(readFileSync(path.join(process.env.APPDATA, 'Aang', 'body.json'), 'utf8').replace(/^﻿/, '')).ShowUsage; } catch { return null; } };
+const cfgUsage = () => { try { return JSON.parse(readFileSync(path.join(process.env.AANG_BODY_DIR, 'body.json'), 'utf8').replace(/^﻿/, '')).ShowUsage; } catch { return null; } };
 const clickGauge = async () => { const r = await inputRect(); await keys.ask(`click ${r[2] - 25} ${r[3] - 12}`); await sleep(200); };
 check('usage numbers start hidden', cfgUsage() !== true, String(cfgUsage()));
 await clickGauge(); await snap('01b_usage_open');

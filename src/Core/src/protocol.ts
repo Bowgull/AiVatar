@@ -15,7 +15,8 @@ export type ToBody =
   | { t: 'tool'; id: string; name: string; phase: 'start' | 'done'; label: string }
   | { t: 'quota'; five: number; week: number; fiveResetsAt: number; weekResetsAt: number; level: QuotaLevel }
   | { t: 'consent'; id: string; wanted: Mode }
-  | { t: 'permission'; id: string; tool: string; question: string }
+  | { t: 'permission'; id: string; tool: string; question: string; remembers?: string }
+  | { t: 'clipboard.request'; id: string }
   | { t: 'error'; id?: string; message: string; next: string };
 
 export type FromBody =
@@ -29,7 +30,8 @@ export type FromBody =
   | { t: 'saving'; on: boolean }
   | { t: 'rate'; id: string; value: 'up' | 'down' | 'none' }
   | { t: 'mute'; on: boolean }
-  | { t: 'permission.reply'; id: string; allow: boolean };
+  | { t: 'permission.reply'; id: string; allow: boolean }
+  | { t: 'clipboard'; id: string; text: string | null };
 
 export function parseFromBody(raw: string): FromBody | null {
   try {

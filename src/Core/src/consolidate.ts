@@ -1,4 +1,4 @@
-// Catching up on what happened last time.
+﻿// Catching up on what happened last time.
 //
 // The plan called for this to run nightly. It cannot: this is a Shadow cloud PC with a four-hour session
 // limit that shut down four times on 2026-09-20, so there is no night to run in. It runs at the start of
@@ -71,7 +71,12 @@ export async function consolidate(
   if (!memory.available) return { ...out, skipped: 'no memory database' };
   if ((opts.weekUsed ?? 0) >= QUOTA_CEILING) return { ...out, skipped: `week already at ${Math.round((opts.weekUsed ?? 0) * 100)}%` };
 
-  const since = Number(memory.getMeta('last_consolidated_turn') ?? 0);
+  // A marker past the newest turn means turns were deleted, and SQLite hands their ids out again: every new
+  // turn would sit below the marker and consolidation would never run. Found 2026-09-20 after test turns
+  // were cleared out of the real history (marker 616, newest turn 326). Which turns are new cannot be told
+  // then, so read the most recent ones again: facts already held are only confirmed, never duplicated.
+  let since = Number(memory.getMeta('last_consolidated_turn') ?? 0);
+  if (since > memory.lastTurnId()) since = 0;
   const turns = memory.turnsAfter(since, MAX_TURNS);
   if (!turns.length) return { ...out, skipped: 'nothing new since last time' };
   out.considered = turns.length;
@@ -83,7 +88,12 @@ export async function consolidate(
     transcript += line;
   }
 
-  const reply = await ask(`${PROMPT}\n\n<conversation>\n${transcript}</conversation>`);
+  // What he already holds goes in too. Without it, a fact mentioned again came back reworded ("is rewriting
+  // Sygnalist" next to "is working on a rewrite of sygnalist") and was kept twice, since only exact text and
+  // a clear contradiction were caught. Found by tests/fakecore/consolidate.mjs on 2026-09-20.
+  const known = memory.list().map(f => `- ${f.text}`).join('\n');
+  const already = known ? `\n\nAlready known - do not write these again, however they are worded. Only write one if it has changed, as the new version:\n${known}` : '';
+  const reply = await ask(`${PROMPT}${already}\n\n<conversation>\n${transcript}</conversation>`);
   for (const fact of parseFacts(reply)) {
     const { fact: saved, replaced } = memory.remember(fact, 'consolidate', opts.now);
     if (saved) out.kept.push(saved.text);

@@ -49,6 +49,17 @@ test('the same turns are never read twice', async () => {
   m.close();
 });
 
+test('a marker left past the newest turn does not stop it for good', async () => {
+  const m = new Memory(freshDb());
+  m.setMeta('last_consolidated_turn', '616');           // turns were deleted; their ids come round again
+  m.saveTurn('my sister is called Dana', 'noted', 'test');
+  const r = await consolidate(m, replying('["His sister is called Dana"]').ask);
+  assert.equal(r.skipped, null, 'the new turn was read, not waved off as already seen');
+  assert.deepEqual(r.kept, ['His sister is called Dana']);
+  assert.equal(m.getMeta('last_consolidated_turn'), String(m.lastTurnId()), 'and the marker is back in step');
+  m.close();
+});
+
 test('it does not run when the week is already tight', async () => {
   const m = new Memory(freshDb());
   m.saveTurn('something worth keeping', 'ok', 'test');

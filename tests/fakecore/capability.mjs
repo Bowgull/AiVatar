@@ -1,6 +1,6 @@
-// Can Aang actually do things? Real Core, real Claude, real Body on screen.
+﻿// Can Aang actually do things? Real Core, real Claude, real Body on screen.
 //   node capability.mjs
-import { requireNoBody } from './guard.mjs';
+import { requireNoBody, isolatedEnv } from './guard.mjs';
 import { spawn } from 'node:child_process';
 import { mkdirSync, mkdtempSync } from 'node:fs';
 import { WebSocket } from 'ws';
@@ -32,8 +32,9 @@ const snap = async name => check('snapshot ' + name, (await cap.ask(`snap ${path
 const stateDir = mkdtempSync(path.join(os.tmpdir(), 'aang-cap-'));
 const core = spawn(process.execPath, ['--no-warnings', 'src/index.ts'], {
   cwd: path.join(root, 'src', 'Core'), stdio: ['ignore', 'pipe', 'pipe'],
-  env: { ...process.env, AANG_STATE_DIR: stateDir },
+  env: isolatedEnv({ AANG_STATE_DIR: stateDir }),
 });
+core.stdout.on('data', d => process.stdout.write('      core: ' + d));
 core.stderr.on('data', d => process.stdout.write('      core!: ' + d));
 await sleep(6000);
 
@@ -99,3 +100,4 @@ await sleep(600); await snap('05_said_yes');
 keys.p.stdin.write('quit\n'); cap.p.stdin.write('quit\n'); c.close(); body.kill(); core.kill();
 console.log(`\n${results.filter(Boolean).length}/${results.length} capability checks passed; screenshots in ${outDir}`);
 process.exit(results.every(Boolean) ? 0 : 1);
+

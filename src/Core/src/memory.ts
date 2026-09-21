@@ -62,6 +62,12 @@ export class Memory {
     catch { /* best effort */ }
   }
 
+  /** The id of the newest turn, or 0 with none. */
+  lastTurnId(): number {
+    try { return Number((this.db?.prepare("SELECT max(id) AS m FROM turns").get() as any)?.m ?? 0); }
+    catch { return 0; }
+  }
+
   /**
    * The most recent turns after this id, in the order they happened.
    * Most recent, not the first ones found: with no marker and 500 turns of history, taking the first 60
@@ -89,10 +95,18 @@ export class Memory {
     if (!this.db || !clean) return { fact: null, replaced: null };
     const stamp = now.toISOString().replace('T', ' ').slice(0, 19);
     try {
-      const existing = this.db.prepare('SELECT * FROM facts WHERE lower(text) = lower(?) AND retired = 0').get(clean) as any;
+      // Look at retired facts too. The text column is UNIQUE across every row, so a fact that was once
+      // superseded and is now true again ("the raid is back on Tuesdays") crashed the insert. It comes back
+      // to life instead, and whatever it contradicts now is retired in its place.
+      const existing = this.db.prepare('SELECT * FROM facts WHERE lower(text) = lower(?)').get(clean) as any;
       if (existing) {
-        this.db.prepare('UPDATE facts SET last_seen = ?, times_seen = times_seen + 1 WHERE id = ?').run(stamp, existing.id);
-        return { fact: this.factById(Number(existing.id)), replaced: null };
+        let replaced: Fact | null = null;
+        if (existing.retired) {
+          replaced = this.findContradiction(clean);
+          if (replaced) this.db.prepare('UPDATE facts SET retired = 1 WHERE id = ?').run(replaced.id);
+        }
+        this.db.prepare('UPDATE facts SET last_seen = ?, times_seen = times_seen + 1, retired = 0 WHERE id = ?').run(stamp, existing.id);
+        return { fact: this.factById(Number(existing.id)), replaced };
       }
       const replaced = this.findContradiction(clean);
       if (replaced) this.db.prepare('UPDATE facts SET retired = 1 WHERE id = ?').run(replaced.id);
@@ -119,15 +133,26 @@ export class Memory {
   }
 
   /** Forget a fact, by a few words of it. Deleted outright: "forget that" has to mean forget. */
-  forget(which: string): Fact | null {
-    if (!this.db) return null;
+  /**
+   * Delete every fact that matches, superseded ones included, and return what went.
+   * It used to delete only the first match: "forget everything about my raid nights" removed one of two raid
+   * facts, he said "Done.", and the other stayed (tests/fakecore/memory.mjs, 2026-09-20). The words match on
+   * their stem, so "raid nights" finds "raids Wednesdays".
+   */
+  forget(which: string): Fact[] {
+    if (!this.db) return [];
     const needle = (which ?? '').trim().toLowerCase();
-    if (!needle) return null;
-    const hit = this.list().find(f => f.text.toLowerCase().includes(needle))
-      ?? this.list().find(f => needle.split(/\s+/).filter(w => w.length > 3).some(w => f.text.toLowerCase().includes(w)));
-    if (!hit) return null;
-    try { this.db.prepare('DELETE FROM facts WHERE id = ?').run(hit.id); return hit; }
-    catch { return null; }
+    if (!needle) return [];
+    let all: Fact[];
+    try {
+      all = (this.db.prepare('SELECT id, text, ts, last_seen, times_seen, source FROM facts').all() as any[]).map(toFact);
+    } catch { return []; }
+    const stems = needle.split(/[^a-z0-9']+/).filter(w => w.length > 3 && !FORGET_STOP.has(w)).map(w => w.slice(0, 4));
+    let hits = all.filter(f => f.text.toLowerCase().includes(needle));
+    if (!hits.length && stems.length) hits = all.filter(f => stems.some(s => f.text.toLowerCase().includes(s)));
+    try { for (const h of hits) this.db.prepare('DELETE FROM facts WHERE id = ?').run(h.id); }
+    catch { return []; }
+    return hits;
   }
 
   /** Everything he currently holds, newest confirmation first. Retired facts are not included. */
@@ -310,6 +335,10 @@ export class Memory {
 
   close(): void { this.checkpoint(); try { this.db?.close(); } catch { /* ignore */ } }
 }
+
+/** Words in a "forget ..." request that say nothing about which fact is meant. */
+const FORGET_STOP = new Set(('everything about that this what with from please forget know knows remember stuff ' +
+  'things anything those these there where when your mine thing all').split(' '));
 
 function toFact(r: any): Fact {
   return { id: Number(r.id), text: String(r.text), ts: String(r.ts), lastSeen: String(r.last_seen ?? r.ts), timesSeen: Number(r.times_seen ?? 1), source: String(r.source ?? '') };

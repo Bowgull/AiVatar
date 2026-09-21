@@ -80,8 +80,14 @@ ws.close(); core.kill('SIGKILL'); await sleep(2000);
 coreLog = '';
 core = startCore();
 await sleep(35000);
-check('a second restart does not re-read the same turns', /skipped \(nothing new/.test(coreLog) || factList().length === sizeBefore,
+// The "remind me what im meant to be working on" exchange above is 2 new turns, so reading exactly those
+// is right. An earlier version of this check wanted no new facts at all, and only passed when the model
+// happened to keep nothing.
+const reread = Number(/caught up on (\d+) turns/.exec(coreLog)?.[1] ?? 0);
+check('a second restart reads only the turns since the last one', /skipped \(nothing new/.test(coreLog) || (reread > 0 && reread <= 2),
   (coreLog.match(/memory: .*/g) || []).slice(-2).join(' | '));
+const sygnalist = factList().filter(f => /sygnalist/i.test(f));
+check('something he already knows is not kept again in other words', sygnalist.length === 1, JSON.stringify(sygnalist));
 
 core.kill();
 console.log(`\n${results.filter(Boolean).length}/${results.length} consolidation checks passed`);
