@@ -67,7 +67,7 @@ sealed class PetWindow : Form
     // model chip + quota + consent
     string mode = "auto";
     bool saving, hasQuota;
-    double weekUse, fiveUse;
+    double weekUse, fiveUse, weekResetsAt, fiveResetsAt;      // resets are unix seconds, 0 when unknown
     string level = "ok";
     string? lastText, consentText, replyId, permissionId;
     string consentWanted = "", pendingMode = "smart";
@@ -255,6 +255,7 @@ sealed class PetWindow : Form
                 case "quota":
                     hasQuota = true;
                     weekUse = Num(m, "week"); fiveUse = Num(m, "five");
+                    weekResetsAt = Num(m, "weekResetsAt"); fiveResetsAt = Num(m, "fiveResetsAt");
                     level = Str(m, "level") ?? ModelChip.LevelFor(weekUse, saving);
                     saving = level == "saving";
                     if (cfg.Saving != saving) { cfg.Saving = saving; cfg.Save(); }
@@ -648,7 +649,7 @@ sealed class PetWindow : Form
 
     // ------------------------------------------------------------------ model chip, quota, consent
 
-    void PushStatus() => input.SetStatus(mode, saving, hasQuota, weekUse, fiveUse, saving ? "saving" : level);
+    void PushStatus() => input.SetStatus(mode, saving, hasQuota, weekUse, fiveUse, saving ? "saving" : level, weekResetsAt, fiveResetsAt);
 
     void SetMode(string m)
     {

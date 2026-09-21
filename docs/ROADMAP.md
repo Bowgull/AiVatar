@@ -227,8 +227,15 @@ Third-party memory services (privacy). Reddit feed. WoW combat-log analysis (his
    red pills). The window grew taller (headroom 110 to 168) with a one-time saved-position shift so the sprite does
    not move; the sprite is untouched. `--dpi=` draws at any scale for screenshots; `tests/fakecore/visual.mjs`
    captures every state with a pretend Core (no model) and clicks the new buttons. Checked at 100, 150 and 200%.
-   Still to do: H edge docking, the mode unit frames, the usage bars, the two-width bubble and smoothed streaming,
-   the Panel. Older live suites had hard-coded click positions that moved; those constants were updated, not re-run.
+   **Mode frames and usage bars built 2026-09-21 (eighth pass):** each mode wears its own inner stroke inside the gold
+   frame (Quick cyan `#00D1FF`, Smart blue `#3D9BFF`, Deep purple `#A970FF` with a small gold diamond so it differs
+   by shape as well as colour, saving grey, Auto plain gold) and the mode chip takes the same colour. The quota is now
+   ten WoW-style segments with the number always beside it, a white tick for how far through the week it is (a fill
+   past the tick means faster than the week), and a thin 5-hour bar under it (orange from 75%, red from 90%). Gold
+   while fine, orange from 40%, red from 50%, green while saving. The pill labels were shortened to "saving" and
+   "save?" so everything fits on one strip. Checked at 100% and 200%. Not built: the 150 ms crossfade between modes
+   (it changes instantly), and the reveal-on-hover states.
+   Still to do: H edge docking, the two-width bubble and smoothed streaming, the Panel. Older live suites had hard-coded click positions that moved; those constants were updated, not re-run.
 9. **The rest, in this order**: N memory depth, L watching and #anime, M drawing, O finish and the design gate.
 
 Retired and never to be built: C, E, P, and the iMessage half of F.
