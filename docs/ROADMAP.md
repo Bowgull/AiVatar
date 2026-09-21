@@ -262,7 +262,15 @@ Third-party memory services (privacy). Reddit feed. WoW combat-log analysis (his
    --selftest-dock` (26 checks, including that the rotation maths matches `RotateFlip` and that no pixel value
    changes); on the real Body all four edges pass 16 numeric checks (`tests/fakecore/visual-dock.mjs`). Not built:
    recomputing on a DPI change while running (a restart does), and the 150 ms crossfades.
-   Still to do: the two-width bubble and smoothed streaming, the Panel. Older live suites had hard-coded click positions that moved; those constants were updated, not re-run.
+   **Panel v1 built 2026-09-21 (eleventh pass):** tray "Panel..." opens a Clean Gold window with four tabs, all filled by
+   the Core with no model (`panel` / `panel.reply`): What I know (every remembered fact with a Forget button that
+   deletes exactly that row, is undoable, and stops him using it on the next answer), What I may do (the trust list
+   with Take back), What I did (the activity record), and Drafts (each waiting email with the whole text, Send / Save as
+   Gmail draft / Discard, approved by id and hash like a Discord card, with the second confirm for a new address). No
+   decisions live in the window: each button sends one message and the Core answers with a fresh list. Tested with 3 Core
+   tests and the real Body through `tests/fakecore/visual-panel.mjs` (`--panel=N` opens a tab). Not built: long answers
+   with markdown and copy, the job card stack, searchable history, the entity chips, settings.
+   Still to do: the two-width bubble and smoothed streaming, the rest of the Panel. Older live suites had hard-coded click positions that moved; those constants were updated, not re-run.
 9. **The rest, in this order**: N memory depth, L watching and #anime, M drawing, O finish and the design gate.
 
 Retired and never to be built: C, E, P, and the iMessage half of F.
