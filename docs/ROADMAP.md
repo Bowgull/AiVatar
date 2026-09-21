@@ -188,7 +188,14 @@ Third-party memory services (privacy). Reddit feed. WoW combat-log analysis (his
    Permissions card in Discord with a "Take back" button per item; Hush (deck button, or "hush 30", "unhush") holds
    everything unprompted, even what he asked to hear, and delivers it when it ends. The Body's tray review and a
    distinct-error-states pass are still open. Live: receipts, Activity, Permissions and Hush all checked in Discord.
-6. **The power track.** Q1 file operations and clipboard write. Q2 UI Automation hands. Q3 generalised delegation
+6. **The power track.** **Q1 built 2026-09-21 (fourth pass):** `list_folder`, `move_file` (also rename), `copy_file`,
+   `make_folder`, `delete_file` and `copy_to_clipboard`. Moves, copies and folders are asked once as "tidy files";
+   delete asks every single time. Nothing is ever overwritten; delete moves into Aang's own trash for 30 days, so
+   `undo_last` really brings it back; whole drives, his profile and main folders (Documents, Desktop, Downloads...)
+   are never moved or deleted themselves; his settings, memory and Windows are refused before he is asked; every
+   change is on the undo stack and in the activity record. Clipboard write uses the native Windows calls (the .NET
+   class threw on this machine). Live: 10/10 with the real model, and the real Body's clipboard tested end to end.
+   Original wording, kept: Q1 file operations and clipboard write. Q2 UI Automation hands. Q3 generalised delegation
    (Claude in Chrome, self-improvement sessions, Spotify). K background jobs fold in here.
 7. **I, email and outreach**, after his one-time Google sign-in; morning brief and calendar on the same auth.
 8. **The look**: B2 Clean Gold tokens and buttons, H docking, modes and bars, J the Panel.

@@ -26,6 +26,39 @@ static class Win32
     [DllImport("user32.dll")] public static extern IntPtr GetDC(IntPtr h);
     [DllImport("user32.dll")] public static extern int ReleaseDC(IntPtr h, IntPtr dc);
     [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+    // The native clipboard. .NET's Clipboard class threw on this machine although the text had landed, and could not
+    // read back its own write; these calls are what it wraps, without the flush step that failed.
+    [DllImport("user32.dll", SetLastError = true)] static extern bool OpenClipboard(IntPtr owner);
+    [DllImport("user32.dll", SetLastError = true)] static extern bool CloseClipboard();
+    [DllImport("user32.dll", SetLastError = true)] static extern bool EmptyClipboard();
+    [DllImport("user32.dll", SetLastError = true)] static extern IntPtr SetClipboardData(uint format, IntPtr mem);
+    [DllImport("kernel32.dll", SetLastError = true)] static extern IntPtr GlobalAlloc(uint flags, UIntPtr bytes);
+    [DllImport("kernel32.dll", SetLastError = true)] static extern IntPtr GlobalLock(IntPtr mem);
+    [DllImport("kernel32.dll", SetLastError = true)] static extern bool GlobalUnlock(IntPtr mem);
+    [DllImport("kernel32.dll", SetLastError = true)] static extern IntPtr GlobalFree(IntPtr mem);
+
+    /// <summary>Replace the clipboard with this text (Unicode). Retries while another program has it open. Null on success, else why not.</summary>
+    public static string? SetClipboardText(string text, IntPtr owner)
+    {
+        const uint CF_UNICODETEXT = 13, GMEM_MOVEABLE = 0x2;
+        bool open = false;
+        for (int i = 0; i < 20 && !open; i++) { open = OpenClipboard(owner); if (!open) System.Threading.Thread.Sleep(25); }
+        if (!open) return "another program is holding the clipboard open";
+        try
+        {
+            EmptyClipboard();
+            var bytes = (text.Length + 1) * 2;
+            var mem = GlobalAlloc(GMEM_MOVEABLE, (UIntPtr)bytes);
+            if (mem == IntPtr.Zero) return "Windows had no memory to give it";
+            var p = GlobalLock(mem);
+            if (p == IntPtr.Zero) { GlobalFree(mem); return "the clipboard memory could not be locked"; }
+            try { Marshal.Copy(text.ToCharArray(), 0, p, text.Length); Marshal.WriteInt16(p, text.Length * 2, 0); } finally { GlobalUnlock(mem); }
+            if (SetClipboardData(CF_UNICODETEXT, mem) == IntPtr.Zero) { GlobalFree(mem); return "Windows would not take the text"; }   // on success the system owns mem
+            return null;
+        }
+        finally { CloseClipboard(); }
+    }
+
     [StructLayout(LayoutKind.Sequential)] public struct LASTINPUTINFO { public uint cbSize, dwTime; }
     [DllImport("user32.dll")] static extern bool GetLastInputInfo(ref LASTINPUTINFO info);
     /// <summary>How long since the last key press or mouse move anywhere on this PC.</summary>

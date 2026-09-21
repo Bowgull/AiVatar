@@ -696,6 +696,8 @@ sealed class PetWindow : Form
                     "forcequit" => Hands.ForceQuit(what),
                     "arrange" => Hands.Arrange(what, how),
                     "media" => Hands.Media(what),
+                    // The clipboard belongs to the UI thread. The Core has already asked Joshua (once, and again after outside content).
+                    "clipset" => SetClipboard(what),
                     _ => new(false, $"I do not know how to {action}."),
                 };
             }
@@ -703,6 +705,18 @@ sealed class PetWindow : Form
             Log.Write($"hands {action} '{what}' {how} -> {r.Ok}");
             _ = link.SendAsync(new { t = "hands", id, ok = r.Ok, detail = r.Detail });
         });
+    }
+
+    Hands.Result SetClipboard(string text)
+    {
+        if (string.IsNullOrEmpty(text) || text.Length > 100_000) return new(false, "There was nothing sensible to copy.");
+        // The native calls, not System.Windows.Forms.Clipboard: on this machine that threw "Requested Clipboard
+        // operation did not succeed" although the text had landed, and could not read back its own write (found by
+        // testing the real Body, 2026-09-21). Windows-owned memory also outlives the Body.
+        string? why = null;
+        Invoke(() => { why = Win32.SetClipboardText(text, Handle); });
+        Log.Write($"clipset len={text.Length} result={(why ?? "ok")}");
+        return why == null ? new(true, $"Put {text.Length} characters on the clipboard.") : new(false, "The clipboard would not take it: " + why + ".");
     }
 
     /// <summary>

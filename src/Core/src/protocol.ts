@@ -33,7 +33,7 @@ export type ToBody =
   | { t: 'trust.reply'; items: { kind: string; example: string; since: string }[] }
   | { t: 'hush.reply'; text: string }
   /** Something only the desktop can do to its windows. Sent only after Joshua has agreed to it. */
-  | { t: 'hands.request'; id: string; action: 'close' | 'forcequit' | 'arrange' | 'media'; what?: string; how?: string }
+  | { t: 'hands.request'; id: string; action: 'close' | 'forcequit' | 'arrange' | 'media' | 'clipset'; what?: string; how?: string }
   | { t: 'error'; id?: string; message: string; next: string };
 
 export type FromBody =

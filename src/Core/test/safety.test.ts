@@ -1,3 +1,4 @@
+import './_env.ts';
 // The safety basics: a record of what he did, undo, a permissions review with revoke, and hush. No model involved:
 // the Core is driven through its own connection and its tool handlers are called directly.
 import { test, after } from 'node:test';

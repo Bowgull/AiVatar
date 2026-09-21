@@ -99,6 +99,11 @@ export function kindOf(tool: string, input: Record<string, unknown>): { kind: st
     // Asked once, then trusted (his call, 2026-09-21). Every file change keeps the old version, so it can be undone.
     case 'mcp__aang__write_file': case 'mcp__aang__edit_file': case 'mcp__aang__undo_file_change':
       return { kind: 'write files', says: 'write and change files (I keep the old version so it can be undone)' };
+    // Tidying is asked once; every change can be undone and nothing is overwritten. Deleting is deliberately absent:
+    // mcp__aang__delete_file asks every single time.
+    case 'mcp__aang__move_file': case 'mcp__aang__copy_file': case 'mcp__aang__make_folder':
+      return { kind: 'tidy files', says: 'move, copy, rename and make folders for you (nothing is overwritten, and it can be undone)' };
+    case 'mcp__aang__copy_to_clipboard': return { kind: 'write clipboard', says: 'put text on your clipboard' };
     case 'mcp__aang__send_to_phone': return { kind: 'send to Discord', says: 'send files and pictures of your window to your Discord' };
     case 'mcp__aang__close_app': return { kind: 'close apps', says: 'close apps by asking them to close' };
     case 'mcp__aang__arrange_window': return { kind: 'arrange windows', says: 'move, minimise and maximise your windows' };
