@@ -26,6 +26,7 @@ static class Program
 
     static int Main(string[] args)
     {
+        if (Array.IndexOf(args, "--act") >= 0) return Act.Run(args);     // acting in an app: see Act.cs
         Clock.Restart();
         long hwnd = Arg(args, "--hwnd", 0);
         int max = (int)Arg(args, "--max", 3000);
