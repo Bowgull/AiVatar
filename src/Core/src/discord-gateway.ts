@@ -40,7 +40,11 @@ export class DiscordGateway implements Gateway {
   onButton(cb: (b: ButtonPress) => void): void {
     this.client.on(Events.InteractionCreate, (i: any) => {
       if (!i.isButton()) return;
-      cb({ customId: i.customId, userId: i.user.id, ack: async (note: string) => { await i.update({ content: `${i.message.content}\n${note}`, components: [] }); } });
+      cb({
+        customId: i.customId, userId: i.user.id, channelId: i.channelId,
+        ack: async (note: string) => { await i.update({ content: `${i.message.content}\n${note}`, components: [] }); },
+        keep: async () => { await i.deferUpdate(); },
+      });
     });
   }
 
@@ -59,11 +63,27 @@ export class DiscordGateway implements Gateway {
     return out;
   }
 
+  private rows(msg: OutMsg) {
+    return msg.buttons?.length ? [new ActionRowBuilder<ButtonBuilder>().addComponents(msg.buttons.map((b: Button) => new ButtonBuilder().setCustomId(b.id).setLabel(b.label).setStyle(STYLE[b.style])))] : [];
+  }
+
   async send(channelId: string, msg: OutMsg): Promise<string> {
     const channel: any = await this.client.channels.fetch(channelId);
-    const components = msg.buttons?.length ? [new ActionRowBuilder<ButtonBuilder>().addComponents(msg.buttons.map((b: Button) => new ButtonBuilder().setCustomId(b.id).setLabel(b.label).setStyle(STYLE[b.style])))] : [];
-    const sent = await channel.send({ content: msg.content, components, ...(msg.silent ? { flags: MessageFlags.SuppressNotifications } : {}) });
+    const files = msg.files?.map(f => ({ attachment: f.data, name: f.name }));
+    const sent = await channel.send({ content: msg.content, components: this.rows(msg), ...(files ? { files } : {}), ...(msg.silent ? { flags: MessageFlags.SuppressNotifications } : {}) });
     return sent.id;
+  }
+
+  async edit(channelId: string, messageId: string, msg: OutMsg): Promise<void> {
+    const channel: any = await this.client.channels.fetch(channelId);
+    const m = await channel.messages.fetch(messageId);
+    await m.edit({ content: msg.content, components: this.rows(msg) });
+  }
+
+  async pin(channelId: string, messageId: string): Promise<void> {
+    const channel: any = await this.client.channels.fetch(channelId);
+    const m = await channel.messages.fetch(messageId);
+    await m.pin();
   }
 
   async typing(channelId: string): Promise<void> { const c: any = await this.client.channels.fetch(channelId); await c.sendTyping(); }
@@ -101,6 +121,7 @@ export class WsCoreLink implements CoreLink {
   submit(id: string, text: string) { this.send({ t: 'submit', id, text, mode: 'auto' }); }
   permission(id: string, allow: boolean) { this.send({ t: 'permission.reply', id, allow }); }
   stop() { this.send({ t: 'stop' }); }
+  status() { this.send({ t: 'status' }); }
   onEvent(cb: (m: any) => void) { this.cbs.push(cb); }
   close() { this.closed = true; this.ws?.close(); }
 }

@@ -1,4 +1,4 @@
-// The Discord channel, tested end to end against a fake Discord and a fake Core: no token, no network.
+﻿// The Discord channel, tested end to end against a fake Discord and a fake Core: no token, no network.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, existsSync } from 'node:fs';
@@ -19,7 +19,10 @@ class FakeGateway implements Gateway {
   onMessage(cb: (m: Incoming) => void) { this.msgCb = cb; }
   onButton(cb: (b: ButtonPress) => void) { this.btnCb = cb; }
   async ensureLayout() { const out: Record<string, string> = {}; for (const c of LAYOUT) for (const ch of c.channels) out[ch.name] = 'ch-' + ch.name; return out; }
+  edits: { channelId: string; messageId: string; msg: OutMsg }[] = []; pins: string[] = []; failEdit = false; failPin = false;
   async send(channelId: string, msg: OutMsg) { this.sent.push({ channelId, msg }); return 'm' + this.sent.length; }
+  async edit(channelId: string, messageId: string, msg: OutMsg) { if (this.failEdit) throw new Error('gone'); this.edits.push({ channelId, messageId, msg }); }
+  async pin(channelId: string, messageId: string) { if (this.failPin) throw new Error('missing permission'); this.pins.push(messageId); }
   async typing() {}
   async fetchSince(channelId: string, after: string | null, limit: number) {
     const all = this.history.get(channelId) ?? [];
@@ -32,16 +35,17 @@ class FakeGateway implements Gateway {
     const m: Incoming = { id, channelId: 'ch-' + channel, channelName: channel, authorId: author, isBot, content, createdAt: Date.now() };
     this.msgCb(m); return m;
   }
-  press(customId: string, userId: string) { const acks: string[] = []; this.btnCb({ customId, userId, ack: async n => { acks.push(n); } }); return acks; }
+  press(customId: string, userId: string, channelId = 'ch-aang') { const acks: string[] = []; this.btnCb({ customId, userId, channelId, ack: async n => { acks.push(n); }, keep: async () => { acks.push('(kept)'); } }); return acks; }
   to(channel: string) { return this.sent.filter(s => s.channelId === 'ch-' + channel).map(s => s.msg); }
 }
 
 class FakeCore implements CoreLink {
-  submits: { id: string; text: string }[] = []; perms: { id: string; allow: boolean }[] = []; stops = 0;
+  submits: { id: string; text: string }[] = []; perms: { id: string; allow: boolean }[] = []; stops = 0; statuses = 0;
   private cb: (m: any) => void = () => {};
   submit(id: string, text: string) { this.submits.push({ id, text }); }
   permission(id: string, allow: boolean) { this.perms.push({ id, allow }); }
   stop() { this.stops++; }
+  status() { this.statuses++; }
   onEvent(cb: (m: any) => void) { this.cb = cb; }
   emit(m: any) { this.cb(m); }
 }
@@ -180,10 +184,11 @@ test('reminders and "Need input in Claude" reach him; the routine ones go quiet 
   night.core.emit({ t: 'bubble', text: 'Reminder: stretch', stream: false, proactive: true }); await tick();
   night.core.emit({ t: 'bubble', text: 'Need input in Claude on the job hunt. It wants permission to use Claude in Chrome', stream: false, proactive: true, asked: true }); await tick();
   night.core.emit({ t: 'bubble', text: 'Claude Code finished in AangApp.', stream: false, proactive: true }); await tick();
-  assert.equal(night.gw.to('aang')[0]!.silent, false, 'a reminder he set always makes a sound');
+  const said = night.gw.to('aang').filter(m => !m.buttons);      // the pinned command deck is not something he was told
+  assert.equal(said[0]!.silent, false, 'a reminder he set always makes a sound');
   assert.match(night.gw.to('needs-you')[0]!.content!, /^Need input in Claude/);
   assert.equal(night.gw.to('needs-you')[0]!.silent, false);
-  assert.equal(night.gw.to('aang')[1]!.silent, true, 'routine news at night is posted silently, not dropped');
+  assert.equal(said[1]!.silent, true, 'routine news at night is posted silently, not dropped');
 });
 
 test('the permissions it was given are checked, in both directions', async () => {
@@ -202,3 +207,65 @@ test('"stop" from Discord stops the Core', async () => {
   assert.equal(core.stops, 1);
   assert.equal(core.submits.length, 0, 'and is not sent to the model as a question');
 });
+
+
+// ---------------------------------------------------------------- command deck, status, pictures and files
+
+const deckOf = (gw: FakeGateway) => gw.to('aang').filter(m => m.buttons?.some(b => b.id.startsWith('deck:')));
+
+test('a paired start posts the command deck once and pins it; the next start edits it in place', async () => {
+  const { gw, dir } = await make({ paired: true });
+  assert.equal(deckOf(gw).length, 1);
+  assert.deepEqual(deckOf(gw)[0]!.buttons!.map(b => b.label), ['Status', 'Job hunt now', 'Stop']);
+  assert.equal(gw.pins.length, 1);
+  const again = new FakeGateway(), core2 = new FakeCore();
+  await new DiscordAdapter(again, core2, dir, { typingMs: 1_000_000 }).start();
+  assert.equal(deckOf(again).length, 0, 'not posted twice');
+  assert.equal(again.edits.length, 1, 'edited in place');
+});
+
+test('if the deck was deleted, a new one is posted; if pinning is refused he is told how to fix it, and it still works', async () => {
+  const { dir } = await make({ paired: true });
+  const gw = new FakeGateway(), core = new FakeCore();
+  gw.failEdit = true; gw.failPin = true;
+  await new DiscordAdapter(gw, core, dir, { typingMs: 1_000_000 }).start();
+  assert.equal(deckOf(gw).length, 1, 'posted again');
+  assert.match(gw.to('log').map(m => m.content).join('\n'), /Pin Messages/);
+});
+
+test('the deck is only for him, and Status asks the Core without a model and answers where he pressed', async () => {
+  const { gw, core } = await make({ paired: true });
+  assert.deepEqual(gw.press('deck:status', STRANGER), ['That is not yours to answer.']);
+  await tick();
+  assert.equal(core.statuses, 0, 'a stranger pressing it does nothing');
+  const acks = gw.press('deck:status', OWNER, 'ch-capture'); await tick();
+  assert.deepEqual(acks, ['(kept)'], 'the deck stays: it is acknowledged, not replaced');
+  assert.equal(core.statuses, 1);
+  assert.equal(core.submits.length, 0, 'no model call');
+  core.emit({ t: 'status.reply', text: 'Aang is up.' }); await tick();
+  assert.deepEqual(gw.to('capture').map(m => m.content), ['Aang is up.']);
+});
+
+test('Job hunt now asks Aang exactly as typing it would, and the answer comes back to that channel; Stop stops', async () => {
+  const { gw, core } = await make({ paired: true });
+  gw.press('deck:job', OWNER); await tick();
+  assert.equal(core.submits.length, 1);
+  assert.equal(core.submits[0]!.text, 'Run my job search for today.');
+  core.emit({ t: 'bubble', text: 'Opened it in Claude.', stream: false, id: core.submits[0]!.id }); await tick();
+  assert.ok(gw.to('aang').some(m => m.content === 'Opened it in Claude.'));
+  gw.press('deck:stop', OWNER); await tick();
+  assert.equal(core.stops, 1);
+});
+
+test('a file or picture from the Core is posted as an attachment in the channel he is talking in', async () => {
+  const { gw, core } = await make({ paired: true });
+  gw.say('capture', OWNER, 'send me my screen', 'm1'); await tick();
+  core.emit({ t: 'attach', name: 'window.jpg', mime: 'image/jpeg', data: Buffer.from('JPEGDATA').toString('base64'), caption: 'your window' }); await tick();
+  const m = gw.to('capture').find(x => x.files);
+  assert.ok(m, 'posted in #capture, where he asked');
+  assert.equal(m!.files![0]!.name, 'window.jpg');
+  assert.equal(m!.files![0]!.data.toString(), 'JPEGDATA');
+  assert.equal(m!.content, 'your window');
+});
+
+

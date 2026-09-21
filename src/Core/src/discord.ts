@@ -16,8 +16,14 @@ import type { Pairing } from './discord-logic.ts';
 
 export interface Incoming { id: string; channelId: string; channelName: string; authorId: string; isBot: boolean; content: string; createdAt: number }
 export interface Button { id: string; label: string; style: 'primary' | 'secondary' | 'success' | 'danger' }
-export interface OutMsg { content?: string; silent?: boolean; buttons?: Button[] }
-export interface ButtonPress { customId: string; userId: string; ack: (note: string) => Promise<void> }
+export interface OutMsg { content?: string; silent?: boolean; buttons?: Button[]; files?: { name: string; data: Buffer }[] }
+export interface ButtonPress {
+  customId: string; userId: string; channelId: string;
+  /** Answer a one-off question: the message is updated and its buttons removed. */
+  ack: (note: string) => Promise<void>;
+  /** Acknowledge a press and leave the message as it is: for buttons that stay (the command deck). */
+  keep: () => Promise<void>;
+}
 
 export interface Gateway {
   onMessage(cb: (m: Incoming) => void): void;
@@ -25,6 +31,10 @@ export interface Gateway {
   /** Make sure every category and channel exists; returns channel name -> id. Idempotent. */
   ensureLayout(): Promise<Record<string, string>>;
   send(channelId: string, msg: OutMsg): Promise<string>;
+  /** Change a message he already sent. Rejects if it is gone. */
+  edit(channelId: string, messageId: string, msg: OutMsg): Promise<void>;
+  /** Pin a message. May reject if the permission is missing. */
+  pin(channelId: string, messageId: string): Promise<void>;
   typing(channelId: string): Promise<void>;
   /** Messages newer than `afterId`, oldest first. With no marker, returns just the newest one. */
   fetchSince(channelId: string, afterId: string | null, limit: number): Promise<Incoming[]>;
@@ -36,10 +46,20 @@ export interface CoreLink {
   submit(id: string, text: string): void;
   permission(id: string, allow: boolean): void;
   stop(): void;
+  status(): void;
   onEvent(cb: (m: any) => void): void;
 }
 
-export interface State { ownerId: string | null; channels: Record<string, string>; lastSeen: Record<string, string> }
+export interface State { ownerId: string | null; channels: Record<string, string>; lastSeen: Record<string, string>; deckId?: string }
+
+/** The pinned buttons in #aang. Status costs nothing; the job hunt goes through Aang like anything he types. */
+export const DECK: Button[] = [
+  { id: 'deck:status', label: 'Status', style: 'secondary' },
+  { id: 'deck:job', label: 'Job hunt now', style: 'primary' },
+  { id: 'deck:stop', label: 'Stop', style: 'danger' },
+];
+export const DECK_TEXT = 'Aang: command deck. Tap a button. Status is free, it does not use your Claude quota.';
+export const JOB_REQUEST = 'Run my job search for today.';
 
 export class DiscordAdapter {
   state: State = { ownerId: null, channels: {}, lastSeen: {} };
@@ -64,7 +84,7 @@ export class DiscordAdapter {
   private now() { return (this.opts.now ?? (() => new Date()))(); }
 
   async start(): Promise<void> {
-    try { const s = JSON.parse(readFileSync(this.stateFile, 'utf8')); this.state = { ownerId: s.ownerId ?? null, channels: s.channels ?? {}, lastSeen: s.lastSeen ?? {} }; }
+    try { const s = JSON.parse(readFileSync(this.stateFile, 'utf8')); this.state = { ownerId: s.ownerId ?? null, channels: s.channels ?? {}, lastSeen: s.lastSeen ?? {}, ...(s.deckId ? { deckId: s.deckId } : {}) }; }
     catch { /* first run */ }
     this.gw.onMessage(m => { void this.handle(m).catch(e => this.log('discord: message failed: ' + (e as Error).message)); });
     this.gw.onButton(b => { void this.press(b).catch(e => this.log('discord: button failed: ' + (e as Error).message)); });
@@ -78,9 +98,23 @@ export class DiscordAdapter {
       try { writeFileAtomic(this.pairFile, this.pairing.code); } catch { /* shown in the log instead */ }
       this.log(`discord: not paired yet. Send the code ${this.pairing.code} to Aang in #aang within 10 minutes.`);
     } else {
+      await this.ensureDeck();
       await this.catchUp();
     }
     await this.say('log', this.state.ownerId ? 'Shadow is on. Aang is back.' : 'Aang is online and waiting to be paired.', true);
+  }
+
+  /** One pinned message of buttons in #aang: edited in place if it is still there, otherwise posted and pinned again. */
+  async ensureDeck(): Promise<void> {
+    const channel = this.state.channels['aang']; if (!channel) return;
+    if (this.state.deckId) {
+      try { await this.gw.edit(channel, this.state.deckId, { content: DECK_TEXT, buttons: DECK }); return; }
+      catch { /* it was deleted; post a new one */ }
+    }
+    this.state.deckId = await this.gw.send(channel, { content: DECK_TEXT, buttons: DECK, silent: true });
+    this.save();
+    try { await this.gw.pin(channel, this.state.deckId); }
+    catch { await this.say('log', 'I could not pin the command deck in #aang. Give my role the Pin Messages permission and it will pin next start. It works unpinned.', true); }
   }
 
   /** Tell #log if the permissions he was given are wrong, in either direction. */
@@ -115,6 +149,7 @@ export class DiscordAdapter {
         this.pairing = null; try { rmSync(this.pairFile, { force: true }); } catch { /* gone */ }
         await this.gw.send(m.channelId, { content: 'Paired. I only answer you from now on.' });
         this.log('discord: paired.');
+        await this.ensureDeck().catch(e => this.log('discord: deck failed: ' + (e as Error).message));
       } else if (r === 'expired') { this.pairing = newPairing(this.now().getTime()); try { writeFileAtomic(this.pairFile, this.pairing.code); } catch { /* */ } this.log(`discord: pairing code expired; new code ${this.pairing.code}`); }
       return;
     }
@@ -126,11 +161,15 @@ export class DiscordAdapter {
     if (!text) return;
     if (/^(stop|\/stop)$/i.test(text)) { this.link.stop(); await this.gw.send(m.channelId, { content: 'Stopped.' }); return; }
 
-    const id = 'd' + m.id;
-    const entry = { channelId: m.channelId, timer: null as ReturnType<typeof setInterval> | null };
+    this.ask('d' + m.id, m.channelId, text);
+  }
+
+  /** Put a request to Aang and remember which channel the answer belongs in. */
+  private ask(id: string, channelId: string, text: string): void {
+    const entry = { channelId, timer: null as ReturnType<typeof setInterval> | null };
     this.pending.set(id, entry);
-    void this.gw.typing(m.channelId).catch(() => {});
-    entry.timer = setInterval(() => { void this.gw.typing(m.channelId).catch(() => {}); }, this.opts.typingMs ?? 8000);
+    void this.gw.typing(channelId).catch(() => {});
+    entry.timer = setInterval(() => { void this.gw.typing(channelId).catch(() => {}); }, this.opts.typingMs ?? 8000);
     entry.timer.unref?.();
     this.link.submit(id, text);
   }
@@ -166,6 +205,17 @@ export class DiscordAdapter {
       }
       return;
     }
+    if (ev?.t === 'status.reply' && typeof ev.text === 'string') {
+      const channelId = this.statusFor.shift() ?? this.state.channels['aang'];
+      if (channelId) await this.gw.send(channelId, { content: ev.text });
+      return;
+    }
+    if (ev?.t === 'attach' && typeof ev.data === 'string') {
+      // A picture or file he asked for: into the channel he is talking in, otherwise #aang.
+      const channelId = [...this.pending.values()].at(-1)?.channelId ?? this.state.channels['aang'];
+      if (channelId) await this.gw.send(channelId, { content: ev.caption ? String(ev.caption).slice(0, 1900) : undefined, files: [{ name: String(ev.name || 'file'), data: Buffer.from(ev.data, 'base64') }] });
+      return;
+    }
     if (ev?.t === 'error' && ev.id && this.pending.has(ev.id)) {
       const done = this.finish(ev.id)!;
       await this.gw.send(done.channelId, { content: [ev.message, ev.next].filter(Boolean).join(' ') });
@@ -185,8 +235,19 @@ export class DiscordAdapter {
     }
   }
 
+  /** Channels waiting for a status answer, in the order they asked. */
+  private readonly statusFor: string[] = [];
+  private deckSeq = 0;
+
   private async press(b: ButtonPress): Promise<void> {
     if (b.userId !== this.state.ownerId) { await b.ack('That is not yours to answer.'); return; }
+    if (b.customId.startsWith('deck:')) {
+      await b.keep();
+      if (b.customId === 'deck:status') { this.statusFor.push(b.channelId); this.link.status(); }
+      else if (b.customId === 'deck:job') this.ask('deck' + ++this.deckSeq, b.channelId, JOB_REQUEST);
+      else if (b.customId === 'deck:stop') { this.link.stop(); await this.gw.send(b.channelId, { content: 'Stopped.' }); }
+      return;
+    }
     const m = /^perm:([^:]+):(yes|no)$/.exec(b.customId);
     if (!m) return;
     if (!this.asked.has(m[1]!)) { await b.ack('That question has already been answered.'); return; }

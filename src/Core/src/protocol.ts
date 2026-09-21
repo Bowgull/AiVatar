@@ -22,6 +22,10 @@ export type ToBody =
   | { t: 'permission'; id: string; tool: string; question: string; remembers?: string }
   | { t: 'clipboard.request'; id: string }
   | { t: 'look.request'; id: string }
+  /** A file or picture for Discord (base64). Only the Discord connection is sent these. */
+  | { t: 'attach'; name: string; mime: string; data: string; caption?: string }
+  /** The answer to a `status` request: plain text, worked out without the model. */
+  | { t: 'status.reply'; text: string }
   /** Something only the desktop can do to its windows. Sent only after Joshua has agreed to it. */
   | { t: 'hands.request'; id: string; action: 'close' | 'forcequit' | 'arrange' | 'media'; what?: string; how?: string }
   | { t: 'error'; id?: string; message: string; next: string };
@@ -43,6 +47,8 @@ export type FromBody =
   | { t: 'permission.reply'; id: string; allow: boolean }
   | { t: 'clipboard'; id: string; text: string | null }
   | { t: 'hands'; id: string; ok: boolean; detail: string }
+  /** "How are things?" No model is involved: the Core answers from what it already knows. */
+  | { t: 'status' }
   /** A picture of his window: base64 JPEG, and how much of it is black (protected video comes out black). */
   | { t: 'look'; id: string; ok: boolean; data?: string | null; w?: number; h?: number; black?: number; error?: string | null };
 

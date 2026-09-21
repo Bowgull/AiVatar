@@ -2,7 +2,7 @@
 // streams replies, enforces the voice linter and grounding rule, and applies Joshua's quota rule.
 import { WebSocketServer } from 'ws';
 import type { WebSocket } from 'ws';
-import { appendFileSync, existsSync, mkdirSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { parseFromBody } from './protocol.ts';
@@ -27,6 +27,7 @@ import { TrustStore, kindOf } from './trust.ts';
 import { launch, openedText, resolve as resolveOpen } from './open.ts';
 import { runCommand } from './run.ts';
 import { buildSystemPrompt, lint, stripReasoning } from './voice.ts';
+import { MAX_SEND_BYTES, mimeOf, statusText, whyNotSend } from './phone.ts';
 
 export interface CoreConfig {
   port: number;
@@ -88,6 +89,7 @@ export class Core {
         editFile: (file, oldText, newText) => this.changeFile('mcp__aang__edit_file', { file }, () => editExact(file, oldText, newText, this.protectedPaths())),
         undoFile: file => this.changeFile('mcp__aang__undo_file_change', { file: file ?? '' }, () => undoLast(file)),
         hands: (action, what, how) => this.hands(action, what, how),
+        phone: (what, note) => this.sendToPhone(what, note),
       },
     );
   }
@@ -156,6 +158,61 @@ export class Core {
    */
   private looking: { id: string; resolve: (m: any) => void; timer: NodeJS.Timeout } | null = null;
   private lookSeq = 0;
+  /** Ask the Body for a picture of the window in front. Whoever calls this has already been given the yes. */
+  private requestLook(): Promise<any> {
+    const id = `look${++this.lookSeq}`;
+    return new Promise(resolve => {
+      const timer = setTimeout(() => { this.looking = null; resolve({ ok: false, error: 'the Body did not answer' }); }, 10_000);
+      timer.unref?.();
+      this.looking = { id, resolve, timer };
+      this.sendTo('desktop', { t: 'look.request', id });
+    });
+  }
+
+  /**
+   * Put a file, or a picture of the window he is in, into Discord. Asked once, then trusted. It goes only to the
+   * Discord connection, never to the model: what leaves the machine is exactly what he asked for. Files that hold
+   * secrets, and Aang's own settings and memory, are refused before he is asked.
+   */
+  private async sendToPhone(what: string, note?: string): Promise<{ ok: boolean; detail: string }> {
+    if (this.clientsOf('discord').length === 0) return { ok: false, detail: 'Discord is not connected, so there is nowhere to send it.' };
+    const isPicture = /^\s*(screen|screenshot|my screen|window|the window|picture)\s*$/i.test(what);
+    let name = '', mime = '', data = '';
+    if (!isPicture) {
+      const no = whyNotSend(what, [this.cfg.stateDir, path.join(this.cfg.dataDir, 'aang.db')]);
+      if (no) return { ok: false, detail: `Not sent: ${no}.` };
+      let size = 0;
+      try { const st = statSync(what); if (!st.isFile()) return { ok: false, detail: 'Not sent: that is a folder, not a file.' }; size = st.size; }
+      catch { return { ok: false, detail: `Not sent: there is no file at ${what}.` }; }
+      if (size > MAX_SEND_BYTES) return { ok: false, detail: `Not sent: it is ${(size / 1048576).toFixed(1)} MB and Discord takes at most 8 MB from me.` };
+    } else if (!this.activity.watching || !this.activity.current()?.hwnd) {
+      return { ok: false, detail: 'Not sent: I cannot reach the window in front to take a picture of it.' };
+    }
+    if (!await this.askPermission('mcp__aang__send_to_phone', { what: isPicture ? 'a picture of the window you are in' : what })) return { ok: false, detail: this.whyNot() + ' Nothing was sent.' };
+    if (isPicture) {
+      if (this.clientsOf('desktop').length === 0 || this.looking) return { ok: false, detail: 'The picture could not be taken right now.' };
+      const m = await this.requestLook();
+      this.tainted = true;
+      if (!m.ok || !m.data) return { ok: false, detail: `The picture could not be taken: ${m.error ?? 'no reason given'}.` };
+      if ((m.black ?? 0) >= BLACK_SHARE) return { ok: false, detail: 'Not sent: the picture came back black. That is protected video or a game the capture cannot reach.' };
+      name = 'window.jpg'; mime = 'image/jpeg'; data = m.data;
+    } else {
+      name = path.basename(what); mime = mimeOf(what); data = readFileSync(what).toString('base64');
+    }
+    this.sendTo('discord', { t: 'attach', name, mime, data, ...(note ? { caption: note } : {}) });
+    return { ok: true, detail: isPicture ? 'Sent a picture of the window he is in to Discord.' : `Sent ${name} to Discord.` };
+  }
+
+  private readonly startedAt = new Date();
+  /** How things are, from what the Core already knows. No model, so it costs nothing. */
+  private status(): string {
+    return statusText({
+      now: new Date(), startedAt: this.startedAt,
+      desktop: this.clientsOf('desktop').length > 0, atDesk: this.atDesk, discord: this.clientsOf('discord').length > 0,
+      working: this.active !== null && this.active.sub !== null, muted: this.muted,
+      quota: this.policy.last, claudeSessions: this.hooks.status(), reminders: this.reminders.list().length,
+    });
+  }
   private async lookAtScreen(): Promise<{ text: string; image?: { data: string; mimeType: string } }> {
     if (!this.activity.watching) return { text: 'Joshua has turned off letting you see which window he is in, so you cannot look at it either.' };
     const cur = this.activity.current();
@@ -164,13 +221,7 @@ export class Core {
     if (!cur.hwnd) return { text: `He is in ${where}, but its window cannot be reached to take a picture of, so you cannot see what is on it. Say so; do not guess from the title.` };
     if (!await this.askPermission('mcp__aang__look_at_window', { app: where })) return { text: this.whyNot() + ' You did not look.' };
     if (this.clientsOf('desktop').length === 0 || this.looking) return { text: 'The picture could not be taken right now.' };
-    const id = `look${++this.lookSeq}`;
-    const m: any = await new Promise(resolve => {
-      const timer = setTimeout(() => { this.looking = null; resolve({ ok: false, error: 'the Body did not answer' }); }, 10_000);
-      timer.unref?.();
-      this.looking = { id, resolve, timer };
-      this.sendTo('desktop', { t: 'look.request', id });
-    });
+    const m: any = await this.requestLook();
     this.tainted = true;                         // a picture of a page can carry words meant for you, too
     if (!m.ok || !m.data) return { text: `He is in ${where}, but the picture could not be taken: ${m.error ?? 'no reason given'}.` };
     if ((m.black ?? 0) >= BLACK_SHARE) {
@@ -457,6 +508,7 @@ export class Core {
         break;
       }
       case 'desk': this.atDesk = m.active !== false; break;
+      case 'status': this.send(ws, { t: 'status.reply', text: this.status() }); break;
       case 'submit': {
         const id = typeof m.id === 'string' && m.id ? m.id : undefined;
         const text = typeof m.text === 'string' ? m.text.trim() : '';
