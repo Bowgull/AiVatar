@@ -6,6 +6,7 @@
 #   hotkey <Ctrl+Shift+Space>  press a key combination
 #   send <SendKeys text>       type into whatever has focus, e.g.  hello{ENTER}   ^{ENTER}   {ESC}   {UP}   {PGDN}
 #   click <x> <y>              left click at screen coordinates
+#   rclick <x> <y>             right click at screen coordinates
 #   wheel <delta> <x> <y>      mouse wheel at screen coordinates (positive = up)
 #   rect <title part>          "L T R B" of the first visible window whose title contains the text
 #   pid <process>              "1" if the process is running
@@ -52,6 +53,7 @@ while ($null -ne ($line = [Console]::In.ReadLine())) {
       'hotkey' { Press $rest; Start-Sleep -Milliseconds 350; $r = "ok" }
       'send'   { [System.Windows.Forms.SendKeys]::SendWait($rest); Start-Sleep -Milliseconds 250; $r = "ok" }
       'click'  { $xy = $rest -split ' '; [void][K]::SetCursorPos([int]$xy[0], [int]$xy[1]); Start-Sleep -Milliseconds 120; [K]::mouse_event(0x0002, 0, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 60; [K]::mouse_event(0x0004, 0, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 300; $r = "ok" }
+      'rclick' { $xy = $rest -split ' '; [void][K]::SetCursorPos([int]$xy[0], [int]$xy[1]); Start-Sleep -Milliseconds 120; [K]::mouse_event(0x0008, 0, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 60; [K]::mouse_event(0x0010, 0, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 400; $r = "ok" }
       'drag'   { $a = $rest -split ' '; $x = [int]$a[0]; $y = [int]$a[1]; $dx = [int]$a[2]; $dy = [int]$a[3]; [void][K]::SetCursorPos($x, $y); Start-Sleep -Milliseconds 150; [K]::mouse_event(0x0002, 0, 0, 0, [UIntPtr]::Zero); for ($i = 1; $i -le 12; $i++) { [void][K]::SetCursorPos($x + [int]($dx * $i / 12), $y + [int]($dy * $i / 12)); Start-Sleep -Milliseconds 25 }; [K]::mouse_event(0x0004, 0, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 300; $r = "ok" }
       'move'   { $a = $rest -split ' '; [void][K]::SetCursorPos([int]$a[0], [int]$a[1]); Start-Sleep -Milliseconds 250; $r = 'ok' }
       'wheel'  { $a = $rest -split ' '; [void][K]::SetCursorPos([int]$a[1], [int]$a[2]); Start-Sleep -Milliseconds 120; [K]::mouse_event(0x0800, 0, 0, [int]$a[0], [UIntPtr]::Zero); Start-Sleep -Milliseconds 250; $r = "ok" }
