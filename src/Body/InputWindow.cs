@@ -39,9 +39,11 @@ sealed class InputWindow : Form
     // this is a real control, not the pre-scaled surface the bubble draws to.
     readonly Font stripFont;
 
-    public void SetStatus(string mode, bool saving, bool hasQuota, double week, double five, string level)
+    double weekResetsAt, fiveResetsAt;
+    public void SetStatus(string mode, bool saving, bool hasQuota, double week, double five, string level, double weekResetsAt = 0, double fiveResetsAt = 0)
     {
         this.mode = mode; this.saving = saving; this.hasQuota = hasQuota; this.week = week; this.five = five; this.level = level;
+        this.weekResetsAt = weekResetsAt; this.fiveResetsAt = fiveResetsAt;
         Invalidate();
     }
     public void SetConsent(bool pending, string wanted = "") { consent = pending; consentWanted = wanted; Invalidate(); }
@@ -115,14 +117,38 @@ sealed class InputWindow : Form
         using var pen = new Pen(Theme.WithAlpha(Theme.Gold, 240), Theme.Stroke * scale) { LineJoin = LineJoin.Round };
         e.Graphics.DrawPath(halo, p);
         e.Graphics.DrawPath(pen, p);
+        PaintModeFrame(e.Graphics);
         PaintStrip(e.Graphics);
+    }
+
+    /// <summary>
+    /// The mode's own colour as an inner stroke inside the gold outline, so Quick, Smart and Deep can be told apart
+    /// at a glance and in greyscale (Deep also carries a small gold diamond, so the difference is shape as well as
+    /// colour). Auto is the default and adds nothing: gold on its own.
+    /// </summary>
+    void PaintModeFrame(Graphics g)
+    {
+        if (!saving && mode == "auto") return;
+        var c = Theme.ModeColor(mode, saving);
+        var inset = (int)(4 * scale);
+        using var p = Rounded(new Rectangle(inset, inset, Width - 2 * inset - 1, Height - 2 * inset - 1), Math.Max(3, (int)(7 * scale)));
+        using var pen = new Pen(Theme.WithAlpha(c, 210), Math.Max(1.2f, 1.5f * scale));
+        g.DrawPath(pen, p);
+        if (mode == "deep" && !saving)
+        {
+            float cx = Width / 2f, cy = 1.5f * scale, r = 4.2f * scale;
+            using var gold = new SolidBrush(Theme.Gold);
+            using var edge = new Pen(Theme.Ink, 1.2f * scale);
+            var d = new[] { new PointF(cx, cy - r + 2 * scale), new PointF(cx + r, cy + 2 * scale), new PointF(cx, cy + r + 2 * scale), new PointF(cx - r, cy + 2 * scale) };
+            g.FillPolygon(gold, d); g.DrawPolygon(edge, d);
+        }
     }
 
     // Quota levels: the same colours as everywhere. Gold is Aang; orange means careful; red means over; green means saving.
     static Color LevelColor(string level) => level switch
     {
         "saving" => Theme.Green, "offer" => Theme.Red, "warn" => Theme.Orange,
-        _ => Theme.Secondary,
+        _ => Theme.Gold,
     };
 
     // The chip row: [Auto v]  [saving]                       week 34% · 5h 12%
@@ -142,45 +168,75 @@ sealed class InputWindow : Form
             chipRect = savingRect = Rectangle.Empty; return;
         }
 
-        chipRect = Pill(g, x, y, h, ModelChip.Label(mode) + " ▾", Theme.Gold, true);
+        // The chip wears its mode's colour (Auto is plain gold), matching the inner frame around the box.
+        chipRect = Pill(g, x, y, h, ModelChip.Label(mode) + " ▾", Theme.ModeColor(mode, false), true);
         x = chipRect.Right + (int)(6 * scale);
         savingRect = Rectangle.Empty;
-        if (saving) { savingRect = Pill(g, x, y, h, "saving quota", Theme.Green, true); }
-        else if (level == "offer") { savingRect = Pill(g, x, y, h, "save quota?", Theme.Red, false); }
+        if (saving) { savingRect = Pill(g, x, y, h, "saving", Theme.Green, true); }
+        else if (level == "offer") { savingRect = Pill(g, x, y, h, "save?", Theme.Red, false); }
 
         usageRect = Rectangle.Empty;
-        if (hasQuota)
+        if (hasQuota) PaintUsage(g, y, h);
+    }
+
+    /// <summary>
+    /// Weekly use as ten segments, WoW-style, with the number always beside it, a tick for where the week is (so
+    /// "44%" reads as ahead of or behind pace), and a thin bar under it for the last five hours. Coloured by the same
+    /// rule as before: gold while fine, orange from 40%, red from 50%, green while saving.
+    /// </summary>
+    void PaintUsage(Graphics g, int y, int h)
+    {
+        var c = LevelColor(level);
+        int seg = Math.Max(3, (int)(5 * scale)), gap = Math.Max(1, (int)(1 * scale)), segH = (int)(8 * scale), thin = Math.Max(2, (int)(3 * scale));
+        int barW = 10 * seg + 9 * gap;
+        var pct = ModelChip.Percent(week);
+        var textW = TextRenderer.MeasureText(g, "100%", stripFont, Size.Empty, TextFormatFlags.NoPadding).Width;
+        int right = Width - (int)(Pad * scale);
+        int gx = right - textW - (int)(5 * scale) - barW;
+        int gy = y + (int)(1 * scale);                                   // the week bar, with the thin one beneath it
+        int ty = gy + segH + (int)(2 * scale);
+
+        using (var back = new SolidBrush(Theme.WithAlpha(Theme.Plum, 200)))
+        using (var fill = new SolidBrush(Theme.WithAlpha(c, 235)))
+            for (int i = 0; i < 10; i++)
+            {
+                var r = new Rectangle(gx + i * (seg + gap), gy, seg, segH);
+                g.FillRectangle(back, r);
+                var f = Math.Clamp(week * 10 - i, 0, 1);
+                if (f > 0.02) g.FillRectangle(fill, new Rectangle(r.X, r.Y, Math.Max(1, (int)Math.Round(seg * f)), segH));
+            }
+
+        // Where the week is. A tick past the fill means there is room; a fill past the tick means faster than the week.
+        if (weekResetsAt > 0)
         {
-            // A small gauge: filled to the week's usage, coloured by the 40% / 50% rule, ticks at 40 and 50.
-            // The numbers stay hidden until it is clicked.
-            var c = LevelColor(level);
-            int gw = (int)(34 * scale), gh = (int)(11 * scale);
-            var gx = Width - (int)(Pad * scale) - gw; var gy = y + (h - gh) / 2;
-            var gr = new Rectangle(gx, gy, gw, gh);
-            using (var path = Rounded(gr, gh / 2))
-            {
-                using var back = new SolidBrush(Color.FromArgb(40, c)); g.FillPath(back, path);
-                var fill = (int)Math.Round(gw * Math.Clamp(week, 0, 1));
-                if (fill > 0)
-                {
-                    var old = g.Clip; g.SetClip(new Rectangle(gx, gy, fill, gh));
-                    using var fb = new SolidBrush(Color.FromArgb(200, c)); g.FillPath(fb, path);
-                    g.Clip = old;
-                }
-                using var pen = new Pen(Color.FromArgb(210, c), 1.2f); g.DrawPath(pen, path);
-            }
-            using (var tick = new Pen(Color.FromArgb(160, 16, 10, 34), 1f))
-                foreach (var at in new[] { 0.4, 0.5 }) { var tx = gx + (int)(gw * at); g.DrawLine(tick, tx, gy + 2, tx, gy + gh - 2); }
-            usageRect = Rectangle.Inflate(gr, (int)(3 * scale), (int)(3 * scale));
-            if (showUsage)
-            {
-                var t = $"week {ModelChip.Percent(week)} · 5h {ModelChip.Percent(five)}";
-                var sz = TextRenderer.MeasureText(g, t, stripFont, Size.Empty, TextFormatFlags.NoPadding);
-                using var b = new SolidBrush(c);
-                var tx = gx - (int)(6 * scale) - sz.Width;
-                g.DrawString(t, stripFont, b, tx, y + 1);
-                usageRect = Rectangle.Union(usageRect, new Rectangle(tx, y, sz.Width, h));
-            }
+            var left = weekResetsAt - DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            var elapsed = Math.Clamp(1 - left / (7 * 86400.0), 0, 1);
+            var tx = gx + (int)Math.Round(barW * elapsed);
+            using var tick = new Pen(Theme.WithAlpha(Theme.Text, 235), Math.Max(1f, 1.4f * scale));
+            g.DrawLine(tick, tx, gy - (int)(2 * scale), tx, gy + segH + (int)(1 * scale));
+        }
+
+        using (var tb = new SolidBrush(Theme.WithAlpha(Theme.Secondary, 255)))
+        {
+            using var back = new SolidBrush(Theme.WithAlpha(Theme.Plum, 200));
+            g.FillRectangle(back, new Rectangle(gx, ty, barW, thin));
+            var fiveC = five >= 0.9 ? Theme.Red : five >= 0.75 ? Theme.Orange : Theme.Secondary;
+            using var fb = new SolidBrush(fiveC);
+            g.FillRectangle(fb, new Rectangle(gx, ty, (int)Math.Round(barW * Math.Clamp(five, 0, 1)), thin));
+        }
+
+        using (var nb = new SolidBrush(c))
+            g.DrawString(pct, stripFont, nb, right - TextRenderer.MeasureText(g, pct, stripFont, Size.Empty, TextFormatFlags.NoPadding).Width, y + (h - stripFont.Height) / 2f);
+        usageRect = new Rectangle(gx - (int)(3 * scale), y - (int)(2 * scale), right - gx + (int)(6 * scale), h + (int)(4 * scale));
+
+        if (showUsage)
+        {
+            var t = $"week {pct} · 5h {ModelChip.Percent(five)}";
+            var sz = TextRenderer.MeasureText(g, t, stripFont, Size.Empty, TextFormatFlags.NoPadding);
+            using var b = new SolidBrush(Theme.Secondary);
+            var tx = gx - (int)(8 * scale) - sz.Width;
+            g.DrawString(t, stripFont, b, tx, y + (h - stripFont.Height) / 2f);
+            usageRect = Rectangle.Union(usageRect, new Rectangle(tx, y, sz.Width, h));
         }
     }
 

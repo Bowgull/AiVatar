@@ -29,6 +29,17 @@ static class Theme
     public static readonly Color Claude = Color.FromArgb(255, 0xE8, 0x8A, 0x6A);      // Claude's terracotta, for anything that is Claude
     public static readonly Color Halo = Color.FromArgb(120, 0, 0, 0);                 // under the outline, so it holds on bright ground
 
+    // ---- modes: one gold outer frame for everything, and an inner stroke that says which brain is answering.
+    public static readonly Color ModeQuick = Color.FromArgb(255, 0, 209, 255);        // #00D1FF
+    public static readonly Color ModeSmart = Color.FromArgb(255, 61, 155, 255);       // #3D9BFF
+    public static readonly Color ModeDeep = Color.FromArgb(255, 169, 112, 255);       // #A970FF, with a gold ornament
+    public static readonly Color ModeSaving = Color.FromArgb(255, 142, 135, 158);     // #8E879E
+    /// <summary>The colour of a mode. Auto is plain gold: it is the default, so it carries no extra mark.</summary>
+    public static Color ModeColor(string mode, bool saving) => saving ? ModeSaving : mode switch
+    {
+        "quick" => ModeQuick, "smart" => ModeSmart, "deep" => ModeDeep, _ => Gold,
+    };
+
     public static Color WithAlpha(Color c, int a) => Color.FromArgb(a, c.R, c.G, c.B);
 
     // ---- type (pixels: the surface is already DPI-scaled, see BubbleView)
