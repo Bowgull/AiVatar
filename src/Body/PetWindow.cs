@@ -186,6 +186,8 @@ sealed class PetWindow : Form
         base.OnShown(e);
         Render();
         timer.Start(); fgTimer.Start(); PollForeground(); ApplyQuiet();
+        wowTimer.Tick += (_, _) => _ = Task.Run(() => { try { wowRunning = System.Diagnostics.Process.GetProcesses().Any(p => { using (p) return p.ProcessName.StartsWith("Wow", StringComparison.OrdinalIgnoreCase); }); } catch { } });
+        wowTimer.Start();
         link.Start();
         if (!noCore)
         {
@@ -230,7 +232,9 @@ sealed class PetWindow : Form
                     if (Bool(m, "proactive") && (cfg.Muted || hiddenByUser)) break;
                     // Tucked at the edge: he does not pop a bubble over your work. He peeks a little further out with a dot,
                     // and the message is there when you click him.
-                    if (peeking) { heldText = text; badge = true; SlideTo(PeekPos()); dirty = true; break; }
+                    // Rainmeter did the same: a message while he is tucked brings him up to say it. While the game has focus it waits.
+                    if (peeking && Bool(m, "proactive") && quiet && !Bool(m, "asked")) { heldText = text; break; }
+                    if (peeking) Reveal(greet: false);
                     // "asked": news he asked for (a Claude job he started) comes through even while the game has focus.
                     if (Bool(m, "proactive") && quiet && !Bool(m, "asked")) { heldText = text; break; }
                     Wake();
@@ -475,7 +479,13 @@ sealed class PetWindow : Form
             else
             {
                 bubble.Draw(g, tick);
-                g.DrawImage(sprites.Frame(anim.State, anim.Frame), new Rectangle(246, 86, 224, 224));
+                if (flipX)
+                {
+                    using var fl = (Bitmap)sprites.Frame(anim.State, anim.Frame).Clone();
+                    fl.RotateFlip(RotateFlipType.RotateNoneFlipX);                    // walking left: a mirror, every pixel kept
+                    g.DrawImage(fl, new Rectangle(246, 86, 224, 224));
+                }
+                else g.DrawImage(sprites.Frame(anim.State, anim.Frame), new Rectangle(246, 86, 224, 224));
             }
 
             surface.Present(Handle, Location);
@@ -493,6 +503,7 @@ sealed class PetWindow : Form
     {
         base.OnMouseDown(e);
         if (e.Button != MouseButtons.Left) return;
+        if (travelStep != 0) { travelStep = 0; slideStart = DateTime.MinValue; flipX = false; anim.Play("idle"); dirty = true; }
         var bp = BubblePoint(e.Location);
         if (bubble.Expanded && bubble.CanScroll && (bubble.HitThumb(bp.X, bp.Y) || bubble.HitTrack(bp.X, bp.Y)))
         {
@@ -546,7 +557,7 @@ sealed class PetWindow : Form
         if (!dragging) return;
         dragging = false; Capture = false;
         if (moved) { AfterDrag(); return; }
-        if (dock != DockEdge.None && peeking) { Reveal(); return; }              // a click on his head brings him out
+        if (dock != DockEdge.None && peeking) { Reveal(thenType: true); return; }  // a click on his head: up, and the box opens
 
         var bp = BubblePoint(e.Location);
         var choice = bubble.HitChoice(bp.X, bp.Y);
@@ -641,6 +652,11 @@ sealed class PetWindow : Form
 
     void Submit(string text)
     {
+        // Rainmeter: "yip yip" sends him away. Docked, that means back down to the edge; it never reaches the model.
+        if (dock != DockEdge.None && System.Text.RegularExpressions.Regex.IsMatch(text.Trim(), @"^yip\s*yip\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+        {
+            input.Close(false); Peek(); return;
+        }
         var id = $"u{++idCounter}";
         currentId = id; working = true; acked = false; input.Working = true;
         // Instant feedback first, before any network: Aang reacts the moment Enter is pressed.
@@ -969,7 +985,7 @@ sealed class PetWindow : Form
                 m.Result = (IntPtr)1;
                 return;
             case Win32.WM_HOTKEY when (int)m.WParam == HotkeyId:
-                if (dock != DockEdge.None && peeking) { Reveal(thenType: true); return; }      // docked: bring him out and open the box
+                if (dock != DockEdge.None) { if (peeking) Reveal(thenType: true); else Peek(); return; }   // docked: up with the box, or back down
                 ToggleVisible();                        // the one global hotkey: hide or reveal Aang
                 return;
             case Win32.WM_HOTKEY when (int)m.WParam == EscId:
@@ -983,26 +999,43 @@ sealed class PetWindow : Form
 
     DockEdge dock = DockEdge.None;
     double dockFrac = 0.5;
-    bool peeking, badge;                                   // peeking: tucked at the edge with only his head showing; badge: he has something to say
+    bool peeking, badge;                                   // peeking: tucked at the edge with only his forehead and eyes showing
     Rectangle art = new(70, 60, 88, 150);                  // the sprite's visible pixels within its frame, measured from a real frame at start
     Point slideFrom, slideTo;
     DateTime slideStart = DateTime.MinValue, engagedAt = DateTime.UtcNow;
     const int SlideMs = 170;
-    bool inputAfterSlide;
+    int slideMs = SlideMs;
+    bool slideLinear;
+    bool inputAfterSlide, greetOnArrive;
     string? dockHint;
 
+    // Docking works the way his Rainmeter skin did (BloodWired: AangEdge.ini and Aang.lua), Joshua 2026-09-21: "the SAME
+    // behaviour as rainmeter". At rest only his forehead and eyes show. Hovering the edge where he is brings him up with a
+    // wave and a hello; clicking his head brings him up with the box open. He stays up, doing his idle things, and after
+    // 45 seconds with nothing going on (never while a bubble is up) he spins and slides back down. The hotkey toggles him,
+    // "yip yip" sends him down, and while WoW is running the edge does not wake him.
+    const int RevealMs = 600, TuckMs = 700, TuckAfterMs = 45_000, IdleEveryMs = 6_000;
+    bool hoverArmed = true;                                // after a tuck the mouse has to leave the edge before hovering wakes him again
+    volatile bool wowRunning;
+    readonly System.Windows.Forms.Timer wowTimer = new() { Interval = 1500 };
+    DateTime nextIdleAt = DateTime.MaxValue, behaviourUntil = DateTime.MaxValue, travelPauseUntil;
+    bool flipX;
+    int travelStep;                                        // 0 none, 1 going, 2 looking around, 3 coming back
+    string travelAnim = "walk";
+    readonly Random rnd = new();
+
     Screen DockScreen() => Screen.AllScreens.FirstOrDefault(s => s.DeviceName == cfg.DockMonitor) ?? Screen.FromRectangle(Docking.OnScreen(Location, art, Extra, scale));
-    Point PeekPos() => Docking.PeekWindow(dock, dockFrac, DockScreen().WorkingArea, art, Extra, scale, badge ? Docking.PeekMorePx : Docking.PeekPx);
+    Point PeekPos() => Docking.PeekWindow(dock, dockFrac, DockScreen().WorkingArea, art, Extra, scale, Docking.PeekPx);
     Point StandPos() => Docking.StandWindow(dock, dockFrac, DockScreen().WorkingArea, art, Extra, scale);
 
-    void SlideTo(Point to) { slideFrom = Location; slideTo = to; slideStart = DateTime.UtcNow; timer.Interval = 16; dirty = true; }
+    void SlideTo(Point to, int ms = SlideMs, bool linear = false) { slideFrom = Location; slideTo = to; slideStart = DateTime.UtcNow; slideMs = Math.Max(1, ms); slideLinear = linear; timer.Interval = 16; dirty = true; }
 
-    /// <summary>Advance a slide in progress, one ease-out (nothing bounces). True if he moved.</summary>
+    /// <summary>Advance a slide in progress: ease-out for rising and tucking, steady for walking. True if he moved.</summary>
     bool StepSlide(DateTime now)
     {
         if (slideStart == DateTime.MinValue) return false;
-        var t = Math.Clamp((now - slideStart).TotalMilliseconds / SlideMs, 0, 1);
-        var e = 1 - Math.Pow(1 - t, 3);
+        var t = Math.Clamp((now - slideStart).TotalMilliseconds / slideMs, 0, 1);
+        var e = slideLinear ? t : 1 - Math.Pow(1 - t, 3);
         Location = new Point((int)Math.Round(slideFrom.X + (slideTo.X - slideFrom.X) * e), (int)Math.Round(slideFrom.Y + (slideTo.Y - slideFrom.Y) * e));
         if (t >= 1) { slideStart = DateTime.MinValue; OnSlideDone(); }
         return true;
@@ -1017,49 +1050,81 @@ sealed class PetWindow : Form
 
     void OnSlideDone()
     {
+        if (travelStep != 0) { TravelNext(); return; }
         LogArt(peeking ? "peek" : "out");
-        if (peeking) return;
-        engagedAt = DateTime.UtcNow;
+        if (peeking) { flipX = false; return; }
+        var now = DateTime.UtcNow;
+        engagedAt = now; nextIdleAt = now.AddMilliseconds(IdleEveryMs);
         if (dockHint != null) { ShowBubble(dockHint, false); dockHint = null; }
         else if (heldText != null && !quiet) { ShowBubble(heldText, false); heldText = null; }
+        else if (greetOnArrive && !inputAfterSlide) ShowBubble(Greeting(), false);
+        greetOnArrive = false;
         if (inputAfterSlide) { inputAfterSlide = false; OpenInput(userAsked: true); }
+    }
+
+    static int TorontoHour()
+    {
+        try { return TimeZoneInfo.ConvertTime(DateTime.UtcNow, TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time")).Hour; }
+        catch { return DateTime.Now.Hour; }
+    }
+
+    /// <summary>His Rainmeter hellos, by the time of day in Toronto.</summary>
+    string Greeting()
+    {
+        var h = TorontoHour();
+        string[] pool = h >= 5 && h < 11 ? new[] { "Good morning! Yip yip!", "Morning! The sky looks great today.", "Up early? Nice!" }
+            : h >= 11 && h < 17 ? new[] { "Hey! What are we up to?", "Hi! Need a hand?", "Yip yip! I am here." }
+            : h >= 17 && h < 22 ? new[] { "Good evening! What is up?", "Hey! Long day?", "Yip yip! Ready when you are." }
+            : new[] { "Whoa, still up? Okay, what is up?", "Late night, huh? I am here.", "Shh... night mode. What do you need?" };
+        return pool[rnd.Next(pool.Length)];
     }
 
     /// <summary>Dock at an edge. The first time, he stands out once to say how to bring him back, then tucks away by himself.</summary>
     void DockTo(DockEdge edge, double frac, Screen screen)
     {
-        dock = edge; dockFrac = frac; badge = false;
+        dock = edge; dockFrac = frac; badge = false; travelStep = 0; flipX = false;
         cfg.DockEdge = Docking.Name(edge); cfg.DockFrac = frac; cfg.DockMonitor = screen.DeviceName;
         input.Close(false); ExitExpanded(collapse: false); bubble.Clear(); anim.Play("idle");
         if (!cfg.DockHinted)
         {
             cfg.DockHinted = true;
-            dockHint = $"Docked. Click my head{(activeHotkey.Length > 0 ? $", or press {activeHotkey}," : "")} to bring me out. The tray menu has Come back.";
+            dockHint = $"Docked. Hover the edge or click my head{(activeHotkey.Length > 0 ? $", or press {activeHotkey}," : "")} to bring me up. Say \"yip yip\" to send me back down.";
         }
         cfg.Save();
         Log.Write($"docked {edge} at {frac:0.00} on {screen.DeviceName}");
         peeking = dockHint == null;
+        hoverArmed = false;                                    // the mouse is on him right now; it must leave before hovering counts
         engagedAt = DateTime.UtcNow;
         SlideTo(peeking ? PeekPos() : StandPos());
         dirty = true;
     }
 
-    /// <summary>Bring him out. Clicking his head, the hotkey and anything that needs an answer all come here.</summary>
-    void Reveal(bool thenType = false)
+    /// <summary>Bring him up: hovering the edge, clicking his head, the hotkey, a message, or a question all come here.</summary>
+    void Reveal(bool thenType = false, bool greet = true)
     {
         if (dock == DockEdge.None || !peeking) { if (thenType) OpenInput(userAsked: true); return; }
-        peeking = false; badge = false; inputAfterSlide = thenType; engagedAt = DateTime.UtcNow;
-        SlideTo(StandPos()); Wake();
+        peeking = false; badge = false; inputAfterSlide = thenType; greetOnArrive = greet; engagedAt = DateTime.UtcNow;
+        anim.Play("hello"); Wake();
+        SlideTo(StandPos(), RevealMs);
     }
 
-    void Peek() { if (dock == DockEdge.None || peeking) return; peeking = true; SlideTo(PeekPos()); dirty = true; }
+    /// <summary>Back down to the edge: a spin, then a slide, leaving only his forehead and eyes.</summary>
+    void Peek()
+    {
+        if (dock == DockEdge.None || peeking) return;
+        peeking = true; travelStep = 0; flipX = false; hoverArmed = false; behaviourUntil = DateTime.MaxValue;
+        ExitExpanded(collapse: false); bubble.Clear();
+        anim.Play("spin"); Wake();
+        SlideTo(PeekPos(), TuckMs);
+        dirty = true;
+    }
 
     /// <summary>Leave the edge. From the tray he walks out to stand at the edge; after a drag he stays where he was dropped.</summary>
     void Undock(bool moveToStand)
     {
         if (dock == DockEdge.None) return;
         var target = moveToStand ? StandPos() : Location;
-        dock = DockEdge.None; peeking = false; badge = false; cfg.DockEdge = "";
+        dock = DockEdge.None; peeking = false; badge = false; travelStep = 0; flipX = false; cfg.DockEdge = "";
         cfg.X = target.X; cfg.Y = target.Y; cfg.Save();
         if (moveToStand) SlideTo(target);
         Log.Write("undocked"); dirty = true;
@@ -1067,7 +1132,8 @@ sealed class PetWindow : Form
 
     /// <summary>
     /// After a drag: within 24 px of the left, right or top edge he docks there; the bottom only if he was already
-    /// docked there (he normally stands on the taskbar, so snapping to it would tuck him away by accident).
+    /// docked there (he normally stands on the taskbar, so snapping to it would tuck him away by accident). Dragged along
+    /// the edge he is docked at while he is up, that is just his new spot: he stays up, as in Rainmeter.
     /// </summary>
     void AfterDrag()
     {
@@ -1075,6 +1141,14 @@ sealed class PetWindow : Form
         var artRect = Docking.OnScreen(Location, Docking.Rotated(art, turned), Extra, scale);
         var screen = Screen.FromPoint(Cursor.Position);
         var edge = Docking.Nearest(artRect, screen.WorkingArea, (int)(Docking.SnapPx * scale), allowBottom: dock == DockEdge.Bottom);
+        if (edge != DockEdge.None && edge == dock && !peeking)
+        {
+            dockFrac = Docking.Fraction(edge, artRect, screen.WorkingArea);
+            cfg.DockFrac = dockFrac; cfg.DockMonitor = screen.DeviceName; cfg.Save();
+            engagedAt = DateTime.UtcNow; nextIdleAt = engagedAt.AddMilliseconds(IdleEveryMs);
+            SlideTo(StandPos());
+            return;
+        }
         if (edge != DockEdge.None) { DockTo(edge, Docking.Fraction(edge, artRect, screen.WorkingArea), screen); return; }
         if (dock != DockEdge.None) { peeking = false; badge = false; dock = DockEdge.None; cfg.DockEdge = ""; }
         cfg.X = Location.X; cfg.Y = Location.Y; cfg.Save();
@@ -1100,15 +1174,92 @@ sealed class PetWindow : Form
     }
 
     /// <summary>
-    /// Tuck away again about a second after the mouse leaves him, but never while there is something to read or answer,
-    /// while the box is open, while he is working, or while he is being dragged.
+    /// Where hovering wakes him while he is tucked: the part of him that shows, and a 3 px strip along the very edge of the
+    /// screen beside it (the Rainmeter AangEdge strip), so a flick of the mouse to the edge is enough.
     /// </summary>
+    bool InHoverZone(Point c)
+    {
+        var sc = DockScreen();
+        var full = Docking.OnScreen(Location, Docking.Rotated(art, dock), Extra, scale);
+        var head = Rectangle.Intersect(full, sc.WorkingArea);
+        head.Inflate(2, 2);
+        if (head.Contains(c)) return true;
+        var mon = sc.Bounds;
+        var strip = dock switch
+        {
+            DockEdge.Bottom => new Rectangle(full.X, mon.Bottom - 3, full.Width, 3),
+            DockEdge.Top => new Rectangle(full.X, mon.Top, full.Width, 3),
+            DockEdge.Left => new Rectangle(mon.Left, full.Y, 3, full.Height),
+            _ => new Rectangle(mon.Right - 3, full.Y, 3, full.Height),
+        };
+        return strip.Contains(c);
+    }
+
     void WatchDock(DateTime now)
     {
-        if (dock == DockEdge.None || peeking || slideStart != DateTime.MinValue) return;
+        if (dock == DockEdge.None) return;
+        if (peeking)
+        {
+            if (slideStart != DateTime.MinValue || dragging) return;
+            if (!InHoverZone(Cursor.Position)) { hoverArmed = true; return; }
+            if (hoverArmed && !wowRunning) Reveal();
+            return;
+        }
+        if (slideStart != DateTime.MinValue && travelStep == 0) return;
         var engaged = input.Visible || working || bubble.Visible || bubble.Expanded || dragging || thumbDrag || permissionId != null || consentText != null || OverMe();
-        if (engaged) engagedAt = now;
-        else if ((now - engagedAt).TotalMilliseconds > 1000) Peek();
+        if (engaged)
+        {
+            engagedAt = now;
+            if (travelStep == 0) nextIdleAt = now.AddMilliseconds(IdleEveryMs);
+            if (behaviourUntil != DateTime.MaxValue) { behaviourUntil = DateTime.MaxValue; if (anim.State == "nap") { anim.Play("idle"); dirty = true; } }
+        }
+        if (travelStep == 2 && now >= travelPauseUntil) TravelNext();
+        if (behaviourUntil != DateTime.MaxValue && now >= behaviourUntil) { behaviourUntil = DateTime.MaxValue; anim.Play("idle"); nextIdleAt = now.AddMilliseconds(IdleEveryMs); dirty = true; }
+        if (engaged || travelStep != 0) return;
+        if ((now - engagedAt).TotalMilliseconds > TuckAfterMs) { Peek(); return; }
+        if (now >= nextIdleAt && anim.State == "idle" && behaviourUntil == DateTime.MaxValue && !quiet) StartBehaviour(now);
+    }
+
+    /// <summary>What he does on his own while he is up, with Rainmeter's odds: look, spin, scooter, walk, a nap late at night, or nothing.</summary>
+    void StartBehaviour(DateTime now)
+    {
+        var h = TorontoHour();
+        var night = h >= 23 || h < 6;
+        var opts = new (string n, int w)[] { ("look", 3), ("spin", 2), ("scooter", 3), ("walk", 2), ("nap", night ? 7 : 0), ("idle", 2) };
+        var r = rnd.Next(1, opts.Sum(o => o.w) + 1); var pick = "idle";
+        foreach (var o in opts) { r -= o.w; if (r <= 0) { pick = o.n; break; } }
+        nextIdleAt = now.AddMilliseconds(IdleEveryMs);
+        if (pick is "walk" or "scooter") { if (!StartTravel(pick)) anim.Play("look"); }
+        else if (pick == "nap") { anim.Play("nap"); behaviourUntil = now.AddSeconds(9); }
+        else if (pick != "idle") anim.Play(pick);
+        dirty = true;
+    }
+
+    /// <summary>A little trip along the bottom edge and back home, as in Rainmeter (only at the bottom: elsewhere he would walk off his edge).</summary>
+    bool StartTravel(string how)
+    {
+        if (dock != DockEdge.Bottom) return false;
+        var home = StandPos(); var wa = DockScreen().WorkingArea;
+        var lo = Math.Max(wa.Left + (int)(20 * scale) - (int)((Docking.SpriteX + art.X) * scale), home.X - (int)(240 * scale));
+        if (home.X - lo < (int)(80 * scale)) return false;
+        var tx = rnd.Next(lo, home.X - (int)(60 * scale));
+        var speed = (how == "scooter" ? 60 : 30) * scale;                                   // px per second, Rainmeter's pace
+        travelAnim = how; travelStep = 1; flipX = tx < Location.X; anim.Play(how);
+        SlideTo(new Point(tx, home.Y), (int)Math.Max(800, Math.Abs(tx - Location.X) / speed * 1000), linear: true);
+        return true;
+    }
+
+    void TravelNext()
+    {
+        if (travelStep == 1) { travelStep = 2; flipX = false; anim.Play("look"); travelPauseUntil = DateTime.UtcNow.AddMilliseconds(1400); dirty = true; return; }
+        if (travelStep == 2)
+        {
+            var home = StandPos();
+            travelStep = 3; flipX = home.X < Location.X; anim.Play(travelAnim);
+            SlideTo(home, (int)Math.Max(800, Math.Abs(home.X - Location.X) / (120 * scale) * 1000), linear: true);
+            return;
+        }
+        travelStep = 0; flipX = false; anim.Play("idle"); nextIdleAt = DateTime.UtcNow.AddMilliseconds(IdleEveryMs); dirty = true;
     }
 
     /// <summary>What is drawn while he is tucked at the edge: only him, turned to face the screen, and a dot if he has something to say.</summary>
