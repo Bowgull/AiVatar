@@ -62,6 +62,10 @@ sealed class PetWindow : Form
     bool hiddenByUser;
     /// <summary>Test flag (--set-hotkey): open the key chooser as soon as the window is up.</summary>
     bool openHotkeyBox;
+    /// <summary>Test flag (--panel): open the Panel as soon as the window is up.</summary>
+    bool openPanel;
+    int panelTab;
+    PanelWindow? panel;
     int idCounter;
 
     // model chip + quota + consent
@@ -122,6 +126,7 @@ sealed class PetWindow : Form
             else if (a.Equals("--quiet=always", StringComparison.OrdinalIgnoreCase)) forcedQuiet = true;
             else if (a.Equals("--no-core", StringComparison.OrdinalIgnoreCase)) noCore = true;   // tests: do not start the Core or touch autostart
             else if (a.Equals("--set-hotkey", StringComparison.OrdinalIgnoreCase)) openHotkeyBox = true;  // tests: open the key chooser at start
+            else if (a.StartsWith("--panel", StringComparison.OrdinalIgnoreCase)) { openPanel = true; if (a.Length > 8 && int.TryParse(a[8..], out var pt)) panelTab = Math.Clamp(pt, 0, 3); }   // tests: open the Panel at start, on a tab
         }
 
         sprites = new SpriteBank(Path.Combine(AppContext.BaseDirectory, "assets", "aang", "frames"));
@@ -195,6 +200,16 @@ sealed class PetWindow : Form
         anim.Play("hello");
         Log.Write($"shown at {Location} {pw}x{ph} scale {scale:0.00}");
         if (openHotkeyBox) BeginInvoke(AskForHotkey);
+        if (openPanel) BeginInvoke(OpenPanel);
+    }
+
+    /// <summary>The Panel: made once, then hidden and shown. Every time it is shown it asks the Core for a fresh copy.</summary>
+    void OpenPanel()
+    {
+        if (panel is null || panel.IsDisposed) panel = new PanelWindow(payload => link.SendAsync(payload));
+        panel.Show(); panel.WindowState = FormWindowState.Normal; panel.Activate();
+        if (panelTab > 0) { panel.Select(panelTab); panelTab = 0; }
+        panel.Refresh();
     }
 
     // ------------------------------------------------------------------ Core messages
@@ -269,6 +284,9 @@ sealed class PetWindow : Form
                     saving = level == "saving";
                     if (cfg.Saving != saving) { cfg.Saving = saving; cfg.Save(); }
                     PushStatus();
+                    break;
+                case "panel.reply":
+                    panel?.Load(m);
                     break;
                 case "quiet":
                     forcedQuiet = Bool(m, "on"); ApplyQuiet();
@@ -1123,6 +1141,8 @@ sealed class PetWindow : Form
         show.Click += (_, _) => ToggleVisible();
         var hotkeyItem = new ToolStripMenuItem("Set the hide and show key...");
         hotkeyItem.Click += (_, _) => AskForHotkey();
+        var panelItem = new ToolStripMenuItem("Panel...");
+        panelItem.Click += (_, _) => OpenPanel();
         var talk = new ToolStripMenuItem("Talk to Aang");
         talk.Click += (_, _) => OpenInput(userAsked: true);
         // Docking: tuck him against an edge with only his head showing. Dragging him within 24 px of the left, right or
@@ -1167,7 +1187,7 @@ sealed class PetWindow : Form
         autostartItem = new ToolStripMenuItem("Start with Windows");
         autostartItem.Click += (_, _) => Autostart.Set(!Autostart.IsOn());
         menu.Opening += (_, _) => autostartItem.Checked = Autostart.IsOn();
-        menu.Items.AddRange(new ToolStripItem[] { talk, show, dockMenu, comeBack, hotkeyItem, modelMenu, savingItem, quietItem, seeWindowItem, muteItem, new ToolStripSeparator(), coreItem, autostartItem, new ToolStripSeparator(), quit });
+        menu.Items.AddRange(new ToolStripItem[] { talk, panelItem, show, dockMenu, comeBack, hotkeyItem, modelMenu, savingItem, quietItem, seeWindowItem, muteItem, new ToolStripSeparator(), coreItem, autostartItem, new ToolStripSeparator(), quit });
         tray.ContextMenuStrip = menu;
         tray.Text = "Aang";
         tray.Icon = MakeIcon();
