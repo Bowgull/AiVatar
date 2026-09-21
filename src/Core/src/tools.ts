@@ -53,6 +53,9 @@ export const TOOL_LABELS: Record<string, string> = {
   make_folder: 'making that folder',
   delete_file: 'deleting that',
   copy_to_clipboard: 'putting that on your clipboard',
+  list_controls: 'looking at that app',
+  press_control: 'pressing that',
+  fill_control: 'filling that in',
   what_did_you_do: 'checking what I did',
   undo_last: 'putting that back',
   my_permissions: 'checking what I may do',
@@ -94,7 +97,8 @@ export const TOOL_NAMES = ['mcp__aang__get_time', 'mcp__aang__get_weather', 'mcp
   'mcp__aang__write_file', 'mcp__aang__edit_file', 'mcp__aang__undo_file_change',
   'mcp__aang__close_app', 'mcp__aang__force_quit', 'mcp__aang__arrange_window', 'mcp__aang__media_key', 'mcp__aang__my_abilities', 'mcp__aang__send_to_phone',
   'mcp__aang__what_did_you_do', 'mcp__aang__undo_last', 'mcp__aang__my_permissions', 'mcp__aang__revoke_permission',
-  'mcp__aang__list_folder', 'mcp__aang__move_file', 'mcp__aang__copy_file', 'mcp__aang__make_folder', 'mcp__aang__delete_file', 'mcp__aang__copy_to_clipboard'];
+  'mcp__aang__list_folder', 'mcp__aang__move_file', 'mcp__aang__copy_file', 'mcp__aang__make_folder', 'mcp__aang__delete_file', 'mcp__aang__copy_to_clipboard',
+  'mcp__aang__list_controls', 'mcp__aang__press_control', 'mcp__aang__fill_control'];
 
 /**
  * What he can honestly say he can do. A tool result, not prompt text: a long "here is what you can do" block in the
@@ -109,13 +113,14 @@ export const ABILITIES = [
   '- Write and change files: the old version is kept, so "undo that" works. Never his settings, memory or Windows.',
   '- Look in a folder, then move, copy, rename and make folders (never overwriting anything), and delete: a delete always asks and goes to my trash for 30 days, so it can be undone. Never a whole drive or his main folders themselves.',
   '- Put text on his clipboard.',
+  '- Look at the buttons and fields in an app and press or fill them by name. Asked once per app. Anything that sends, pays, deletes, signs in or agrees, and anything at all in a web browser, asks every time. Never a password field.',
   '- Close apps, move and resize windows, and press media keys. Force quit an app: that always asks first.',
   '- Read what is in the window he is in, and look at it. Read his clipboard.',
   '- Send a file, or a picture of the window he is in, to his Discord so he can see it on his phone. Never files that hold passwords or keys.',
   '- Set reminders. Remember things about him and search what he has told you.',
   '- Keep a record of what I do, say it back ("what did you just do"), undo the last change (a file, something remembered, a reminder), and show or take back what he has let me do without asking.',
   '- Start longer jobs in Claude Code, above all his job hunt.',
-  'You cannot: send email or messages, click or type inside other apps, install software, or use his accounts. If he asks for one of those, say it is not something you can do yet.',
+  'You cannot: send email or messages yourself, click at a spot on the screen or send raw keystrokes, install software, or use his accounts. If he asks for one of those, say it is not something you can do yet.',
 ].join('\n');
 
 /**
@@ -135,6 +140,9 @@ export interface Doers {
   copyFile(from: string, to: string): Promise<{ ok: boolean; detail: string }>;
   makeFolder(dir: string): Promise<{ ok: boolean; detail: string }>;
   deleteFile(target: string): Promise<{ ok: boolean; detail: string }>;
+  uiList(app: string): Promise<string>;
+  uiPress(app: string, name: string): Promise<{ ok: boolean; detail: string }>;
+  uiFill(app: string, name: string, text: string): Promise<{ ok: boolean; detail: string }>;
   phone(what: string, note?: string): Promise<{ ok: boolean; detail: string }>;
   /** Something acting has finished: for the activity log. */
   report(tool: string, input: Record<string, unknown>, failed: boolean, text: string): void;
@@ -150,7 +158,7 @@ export interface Doers {
 const LOGGED = new Set(['open', 'run', 'start_claude', 'read_window', 'look_at_window', 'read_clipboard', 'send_to_phone',
   'write_file', 'edit_file', 'undo_file_change', 'undo_last', 'close_app', 'force_quit', 'arrange_window', 'media_key',
   'remember', 'forget', 'set_reminder', 'cancel_reminder', 'revoke_permission', 'look_up_web',
-  'move_file', 'copy_file', 'make_folder', 'delete_file', 'copy_to_clipboard']);
+  'move_file', 'copy_file', 'make_folder', 'delete_file', 'copy_to_clipboard', 'list_controls', 'press_control', 'fill_control']);
 
 /**
  * Built-in tools Aang may use without asking. All of them only look: they search, fetch and read, and none
@@ -259,6 +267,9 @@ export function describeCall(tool: string, input: Record<string, unknown>): stri
     case 'mcp__aang__make_folder': return `make the folder ${short(s('path'), 60)}`;
     case 'mcp__aang__delete_file': return `DELETE ${short(s('path'), 60)} (kept in my trash for 30 days, so it can be undone)`;
     case 'mcp__aang__copy_to_clipboard': return `put ${short(s('text'), 40)} on your clipboard, replacing what is there`;
+    case 'mcp__aang__list_controls': return `look at the buttons and fields in ${short(s('app'), 40)}`;
+    case 'mcp__aang__press_control': return `press "${short(s('name'), 50)}" in ${short(s('app'), 30)}${input?.careful ? ' (I ask every time for this)' : ''}`;
+    case 'mcp__aang__fill_control': return `type "${short(s('text'), 50)}" into "${short(s('name'), 40)}" in ${short(s('app'), 30)}${input?.careful ? ' (I ask every time for this)' : ''}`;
     case 'mcp__aang__list_folder': return `look in ${short(s('path'), 60)}`;
     case 'mcp__aang__look_up_web': return `look up ${short(s('question'), 70)}`;
     case 'mcp__aang__remember': return `remember "${short(s('fact'), 80)}"`;
@@ -410,6 +421,15 @@ export function makeToolServer(
       tool('revoke_permission', 'Take back something he let you do without asking, so you ask again next time. Use when he says "stop letting you open apps", "ask me before writing files again", "revoke that". Give the name shown by my_permissions.',
         { kind: z.string().describe('the permission, e.g. "open apps", "write files", "run git"') },
         async ({ kind }) => ok(doers ? doers.revoke(kind) : 'Permissions are not available right now.')),
+      tool('list_controls', 'See the buttons, fields, checkboxes, menus and tabs you can use in an app, by name. ALWAYS do this before press_control or fill_control, so you use the exact names. Name the app ("notepad", "spotify", "calculator") or a piece of its window title. Costs nothing if he already let you read windows.',
+        { app: z.string().describe('the app name or part of its window title') },
+        async ({ app }) => ok(doers ? await doers.uiList(app) : 'Looking at apps is not available right now.')),
+      tool('press_control', 'Press a button, tick a box, pick a tab or menu item in an app, by its exact name from list_controls. Asked once per app; sending, paying, deleting, signing in, agreeing, and anything in a web browser ask him every time. It reports what really happened: if it says a button is greyed out or missing, say so.',
+        { app: z.string().describe('the app name'), name: z.string().describe('the control\'s exact name from list_controls') },
+        async ({ app, name }) => { if (!doers) return fail('Acting in apps is not available right now.'); const r = await doers.uiPress(app, name); return r.ok ? ok(r.detail) : fail(r.detail); }),
+      tool('fill_control', 'Type text into a field in an app, by its exact name from list_controls, replacing what is there. Password fields are never filled. Asked once per app, every time in a web browser. Say exactly what you typed.',
+        { app: z.string().describe('the app name'), name: z.string().describe('the field\'s exact name from list_controls'), text: z.string().describe('the text to put in the field') },
+        async ({ app, name, text }) => { if (!doers) return fail('Acting in apps is not available right now.'); const r = await doers.uiFill(app, name, text); return r.ok ? ok(r.detail) : fail(r.detail); }),
       tool('list_folder', 'See what is in a folder: names, sizes and dates, newest first. Use before tidying, moving or deleting, and for "what is in my Downloads". Full path.',
         { path: z.string().describe('full folder path, e.g. C:\\Users\\Shadow\\Downloads') },
         async ({ path: p }) => ok(doers ? doers.listFolder(p) : 'Looking in folders is not available right now.')),

@@ -103,6 +103,14 @@ export function kindOf(tool: string, input: Record<string, unknown>): { kind: st
     // mcp__aang__delete_file asks every single time.
     case 'mcp__aang__move_file': case 'mcp__aang__copy_file': case 'mcp__aang__make_folder':
       return { kind: 'tidy files', says: 'move, copy, rename and make folders for you (nothing is overwritten, and it can be undone)' };
+    case 'mcp__aang__list_controls': return { kind: 'read windows', says: 'read what is in your windows' };
+    // Acting inside an app: asked once PER APP. `careful` (a web browser, or a control like Send, Pay or Delete)
+    // is asked every time, which is what returning null means.
+    case 'mcp__aang__press_control': case 'mcp__aang__fill_control': {
+      const app = s('app').toLowerCase();
+      if (!app || input?.careful === true) return null;
+      return { kind: `act in ${app}`, says: `press buttons and fill fields in ${s('app')}` };
+    }
     case 'mcp__aang__copy_to_clipboard': return { kind: 'write clipboard', says: 'put text on your clipboard' };
     case 'mcp__aang__send_to_phone': return { kind: 'send to Discord', says: 'send files and pictures of your window to your Discord' };
     case 'mcp__aang__close_app': return { kind: 'close apps', says: 'close apps by asking them to close' };

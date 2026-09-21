@@ -195,7 +195,17 @@ Third-party memory services (privacy). Reddit feed. WoW combat-log analysis (his
    are never moved or deleted themselves; his settings, memory and Windows are refused before he is asked; every
    change is on the undo stack and in the activity record. Clipboard write uses the native Windows calls (the .NET
    class threw on this machine). Live: 10/10 with the real model, and the real Body's clipboard tested end to end.
-   Original wording, kept: Q1 file operations and clipboard write. Q2 UI Automation hands. Q3 generalised delegation
+   Original wording, kept: Q1 file operations and clipboard write.
+   **Q2 built 2026-09-21 (fifth pass): acting inside apps by control name.** `list_controls`, `press_control`,
+   `fill_control` through UI Automation, in the existing separate reader process (`AangReader.exe --act`, `Act.cs`),
+   so a hang or crash in another app's accessibility code cannot take Aang down. Asked once per app ("act in
+   notepad"); asked **every time** for controls named like Send, Pay, Delete, Submit, Sign in, Close, Yes, OK and for
+   every control in a web browser (a page chooses what its buttons are called), and after a browser the rest of the
+   turn asks again; a password field is never filled; greyed-out, missing or ambiguous names are refused and never
+   guessed between; the window's own Close/Minimize buttons are not offered. A press that opens a modal dialog
+   returns instead of hanging. Live: the real reader against a real Windows form 20/20 (every effect confirmed from
+   the form's log), the real model on it 6/6, and real Notepad's controls listed. Not built: raw clicks at screen
+   positions and raw keystrokes (still off), and acting in a browser is deliberately ask-every-time. Q2 UI Automation hands. Q3 generalised delegation
    (Claude in Chrome, self-improvement sessions, Spotify). K background jobs fold in here.
 7. **I, email and outreach**, after his one-time Google sign-in; morning brief and calendar on the same auth.
 8. **The look**: B2 Clean Gold tokens and buttons, H docking, modes and bars, J the Panel.

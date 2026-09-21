@@ -14,6 +14,8 @@ import { QuotaPolicy } from './quota.ts';
 import { MODELS, pickLane } from './route.ts';
 import type { Lane as LaneName } from './route.ts';
 import { editExact, refusal, undoLast, writeWhole } from './files.ts';
+import { describeMatches, isBrowser, listControlsText, needsCare, pickControl, runAct } from './uia.ts';
+import type { ActRunner } from './uia.ts';
 import { copyThing, deleteThing, emptyOldTrash, listFolder, makeFolder, moveThing } from './organise.ts';
 import type { Result as OrganiseResult } from './organise.ts';
 import type { Doers } from './tools.ts';
@@ -101,6 +103,9 @@ export class Core {
       hands: (action, what, how) => this.hands(action, what, how),
       phone: (what, note) => this.sendToPhone(what, note),
       listFolder: dir => this.listFolderSafe(dir),
+      uiList: app => this.uiList(app),
+      uiPress: (app, name) => this.uiAct('press', app, name),
+      uiFill: (app, name, text) => this.uiAct('fill', app, name, text),
       moveFile: (from, to) => this.organise('mcp__aang__move_file', { from, to }, [from, to], () => moveThing(from, to, this.protectedPaths())),
       copyFile: (from, to) => this.organise('mcp__aang__copy_file', { from, to }, [from, to], () => copyThing(from, to, this.protectedPaths())),
       makeFolder: dir => this.organise('mcp__aang__make_folder', { path: dir }, [dir], () => makeFolder(dir, this.protectedPaths())),
@@ -123,6 +128,45 @@ export class Core {
     const r = doIt();
     if (r.ok && r.undo) { const undo = r.undo; this.undo.push(describeCall(tool, input), () => undo()); }
     return { ok: r.ok, detail: r.detail };
+  }
+
+  // ------------------------------------------------------------------ acting inside apps (UI Automation)
+
+  /** Replaced by tests so the rules can be checked without a real window. */
+  actRunner: ActRunner = runAct;
+
+  /** What can be done in an app. Reading his windows, so the same standing yes as read_window covers it. */
+  private async uiList(app: string): Promise<string> {
+    if (!app?.trim()) return 'Say which app to look at.';
+    if (!await this.askPermission('mcp__aang__list_controls', { app })) return this.whyNot() + ' I did not look.';
+    const r = await this.actRunner({ app, do: 'find' });
+    if (r.ok && isBrowser(r.window?.process ?? '')) this.tainted = true;          // control names on a web page are the page's words
+    return listControlsText(r);
+  }
+
+  /** Press or fill one control, by name. See uia.ts for the rules on when he is asked. */
+  private async uiAct(kind: 'press' | 'fill', app: string, name: string, text?: string): Promise<{ ok: boolean; detail: string }> {
+    const fail = (detail: string) => ({ ok: false, detail });
+    if (!app?.trim() || !name?.trim()) return fail('Say which app and which control.');
+    if (kind === 'fill' && text === undefined) return fail('Say what to type.');
+    const found = await this.actRunner({ app, do: 'find', name });
+    if (!found.ok) return fail(found.error ?? 'I could not look at that app.');
+    const proc = found.window?.process ?? app;
+    const pick = pickControl(found.matches ?? [], name);
+    if ('error' in pick) {
+      if ((found.matches ?? []).length) return fail(pick.error);
+      const all = await this.actRunner({ app, do: 'find' });                      // nothing matched: show what is there
+      return fail(`${pick.error} ${all.ok && all.matches?.length ? describeMatches(all.matches, 12) : ''}`.trim());
+    }
+    const c = pick.control;
+    if (kind === 'fill' && c.password) return fail('That is a password field, and I never fill those.');
+    if (!c.enabled) return fail(`"${c.name}" is greyed out, so it cannot be used right now.`);
+    const { care } = needsCare(proc, c.name);
+    const tool = kind === 'press' ? 'mcp__aang__press_control' : 'mcp__aang__fill_control';
+    if (!await this.askPermission(tool, { app: proc, name: c.name, careful: care, ...(kind === 'fill' ? { text } : {}) })) return fail(this.whyNot() + ' Nothing was done.');
+    const r = await this.actRunner({ app: proc, do: kind, name: c.name, index: c.i, ...(kind === 'fill' ? { text } : {}) });
+    if (isBrowser(proc)) this.tainted = true;                                      // what the page shows next is its own words
+    return r.ok ? { ok: true, detail: `${r.detail} (in ${proc})` } : fail(r.error ?? 'It did not work.');
   }
 
   private listFolderSafe(dir: string): string {
