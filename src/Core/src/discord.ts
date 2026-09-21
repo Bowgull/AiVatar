@@ -9,14 +9,19 @@
 // exact thing; missed messages are read back when Shadow next starts; and quiet hours make messages silent,
 // never lost.
 import path from 'node:path';
-import { existsSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { writeFileAtomic } from './atomic.ts';
 import { Budget, LAYOUT, LISTEN_CHANNELS, NEEDED, FORBIDDEN, chunkMessage, kindOf, newPairing, tryPair } from './discord-logic.ts';
 import type { Pairing } from './discord-logic.ts';
 import { Grocery, looksLikeRecipe, parseListCommand, parseRecipe } from './lists.ts';
+import { Jobs, SWEEP_REQUEST, applyPrompt, extractUrls, fileStamp, parseVerdict, readShortlist, renderCard, vetPrompt } from './jobs.ts';
+import type { Card } from './jobs.ts';
+import { attachmentProblem, safeAttachmentName } from './phone.ts';
 
-export interface Incoming { id: string; channelId: string; channelName: string; authorId: string; isBot: boolean; content: string; createdAt: number }
-export interface Button { id: string; label: string; style: 'primary' | 'secondary' | 'success' | 'danger' }
+export interface Attachment { name: string; url: string; size: number }
+export interface Incoming { id: string; channelId: string; channelName: string; authorId: string; isBot: boolean; content: string; createdAt: number; attachments?: Attachment[] }
+/** With `url` it is a link button that opens the page and needs no answer from us. */
+export interface Button { id: string; label: string; style: 'primary' | 'secondary' | 'success' | 'danger'; url?: string }
 export interface OutMsg { content?: string; silent?: boolean; buttons?: Button[]; files?: { name: string; data: Buffer }[] }
 export interface ButtonPress {
   customId: string; userId: string; channelId: string;
@@ -38,6 +43,8 @@ export interface Gateway {
   pin(channelId: string, messageId: string): Promise<void>;
   /** Start a post in a forum channel; returns the id of the post (a thread), which more messages can be sent to. */
   createPost(forumId: string, title: string, content: string): Promise<string>;
+  /** The bytes of an attachment he sent. */
+  download(url: string): Promise<Buffer>;
   typing(channelId: string): Promise<void>;
   /** Messages newer than `afterId`, oldest first. With no marker, returns just the newest one. */
   fetchSince(channelId: string, afterId: string | null, limit: number): Promise<Incoming[]>;
@@ -46,7 +53,7 @@ export interface Gateway {
 }
 
 export interface CoreLink {
-  submit(id: string, text: string): void;
+  submit(id: string, text: string, opts?: { ephemeral?: boolean; mode?: 'auto' | 'smart' }): void;
   permission(id: string, allow: boolean): void;
   stop(): void;
   status(): void;
@@ -59,10 +66,21 @@ export interface State { ownerId: string | null; channels: Record<string, string
 export const DECK: Button[] = [
   { id: 'deck:status', label: 'Status', style: 'secondary' },
   { id: 'deck:job', label: 'Job hunt now', style: 'primary' },
+  { id: 'deck:apply', label: 'Apply approved', style: 'success' },
   { id: 'deck:stop', label: 'Stop', style: 'danger' },
 ];
-export const DECK_TEXT = 'Aang: command deck. Tap a button. Status is free, it does not use your Claude quota.';
-export const JOB_REQUEST = 'Run my job search for today.';
+export const DECK_TEXT = 'Aang: command deck. Tap a button. Status is free, it does not use your Claude quota. Job hunt now sweeps and screens only; nothing is applied to until you approve it.';
+export const JOB_REQUEST = SWEEP_REQUEST;
+
+export interface AdapterOpts {
+  budget?: Budget; now?: () => Date; log?: (s: string) => void; typingMs?: number;
+  /** where a sweep leaves its shortlist, and Joshua's job criteria (for vetting a pasted link) */
+  shortlistFile?: string; criteriaFile?: string;
+  /** where files sent from his phone are saved (outside the git-backed data folder) */
+  inboxDir?: string;
+  /** how often the shortlist is checked; 0 turns the timer off (tests call scanShortlist themselves) */
+  scanMs?: number;
+}
 
 export class DiscordAdapter {
   state: State = { ownerId: null, channels: {}, lastSeen: {} };
@@ -73,15 +91,21 @@ export class DiscordAdapter {
   private readonly gw: Gateway;
   private readonly link: CoreLink;
   private readonly dir: string;
-  private readonly opts: { budget?: Budget; now?: () => Date; log?: (s: string) => void; typingMs?: number };
+  private readonly opts: AdapterOpts;
   private readonly budget: Budget;
 
-  constructor(gw: Gateway, link: CoreLink, dir: string, opts: { budget?: Budget; now?: () => Date; log?: (s: string) => void; typingMs?: number } = {}) {
+  constructor(gw: Gateway, link: CoreLink, dir: string, opts: AdapterOpts = {}) {
     this.gw = gw; this.link = link; this.dir = dir; this.opts = opts;
     this.budget = opts.budget ?? new Budget();
     this.grocery = new Grocery(dir);
+    this.jobs = new Jobs(dir);
   }
   private readonly grocery: Grocery;
+  readonly jobs: Jobs;
+  private scanTimer: ReturnType<typeof setInterval> | null = null;
+  private lastShortlist = 0;
+  /** Links being vetted: request id -> the link and the channel to answer in. */
+  private readonly vetting = new Map<string, { url: string; channelId: string }>();
   private get stateFile() { return path.join(this.dir, 'discord.json'); }
   private get pairFile() { return path.join(this.dir, 'discord-pairing.txt'); }
   private log(s: string) { (this.opts.log ?? (() => {}))(s); }
@@ -105,6 +129,11 @@ export class DiscordAdapter {
     } else {
       await this.ensureDeck();
       await this.catchUp();
+      this.lastShortlist = this.opts.shortlistFile ? fileStamp(this.opts.shortlistFile) : 0;   // only what changes after this start is news
+      if (this.opts.shortlistFile && this.opts.scanMs !== 0) {
+        this.scanTimer = setInterval(() => { void this.scanShortlist().catch(e => this.log('discord: shortlist scan failed: ' + (e as Error).message)); }, this.opts.scanMs ?? 60_000);
+        this.scanTimer.unref?.();
+      }
     }
     await this.say('log', this.state.ownerId ? 'Shadow is on. Aang is back.' : 'Aang is online and waiting to be paired.', true);
   }
@@ -162,12 +191,114 @@ export class DiscordAdapter {
     if (!(LISTEN_CHANNELS as readonly string[]).includes(m.channelName)) return;
 
     this.state.lastSeen[m.channelId] = m.id; this.save();
+    if (m.attachments?.length) await this.receive(m);
     const text = m.content.trim();
     if (!text) return;
     if (/^(stop|\/stop)$/i.test(text)) { this.link.stop(); await this.gw.send(m.channelId, { content: 'Stopped.' }); return; }
 
     if (await this.file(m.channelId, m.channelName, text)) return;
+    if (await this.jobTalk(m.channelId, m.channelName, text)) return;
     this.ask('d' + m.id, m.channelId, text);
+  }
+
+  // ---------------------------------------------------------------- files from his phone
+
+  private async receive(m: Incoming): Promise<void> {
+    const dir = path.join(this.opts.inboxDir ?? path.join(this.dir, 'inbox'), this.now().toLocaleDateString('en-CA', { timeZone: 'America/Toronto' }));
+    const saved: string[] = [], refused: string[] = [];
+    for (const a of m.attachments ?? []) {
+      const name = safeAttachmentName(a.name);
+      const no = attachmentProblem(name, a.size);
+      if (no) { refused.push(`${name}: ${no}`); continue; }
+      try {
+        const data = await this.gw.download(a.url);
+        if (data.length > 25 * 1024 * 1024) { refused.push(`${name}: it is over 25 MB`); continue; }
+        mkdirSync(dir, { recursive: true });
+        let dest = path.join(dir, name), n = 1;
+        while (existsSync(dest)) dest = path.join(dir, `${path.parse(name).name} (${n++})${path.parse(name).ext}`);
+        writeFileSync(dest, data);
+        saved.push(dest);
+      } catch (e) { refused.push(`${name}: ${(e as Error).message}`); }
+    }
+    const said = [saved.length ? `Saved to the PC:\n${saved.join('\n')}` : '', refused.length ? `Not saved:\n${refused.join('\n')}` : ''].filter(Boolean).join('\n');
+    if (said) await this.gw.send(m.channelId, { content: said.slice(0, 1900) });
+  }
+
+  // ---------------------------------------------------------------- jobs: vet a link, cards, approve, apply
+
+  /** Job-related things said in a channel. True if handled here. */
+  private async jobTalk(channelId: string, channelName: string, text: string): Promise<boolean> {
+    const cap = /^(?:please\s+)?(?:set\s+|raise\s+|allow\s+)?(?:today'?s\s+)?(?:apply\s+)?cap(?:\s+to)?\s+(\d)(?:\s+today)?\s*[.!]?$/i.exec(text);
+    if (cap) {
+      const n = Number(cap[1]);
+      const set = this.jobs.raiseCap(n, this.now());
+      await this.gw.send(channelId, { content: n > set ? `The most I will send in a day is ${set}. Today's limit is ${set}.` : `Today's apply limit is ${set}. It goes back to 5 tomorrow.` });
+      return true;
+    }
+    if (channelName !== 'job-inbox') return false;
+    const urls = extractUrls(text);
+    if (!urls.length) return false;
+    for (const url of urls) {
+      if (this.jobs.isSeen(url)) { await this.gw.send(channelId, { content: `I already have that one in my list: ${url}` }); continue; }
+      const id = 'v' + Date.now() + Math.floor(Math.random() * 1000);
+      this.vetting.set(id, { url, channelId });
+      this.ask(id, channelId, vetPrompt(url, this.criteria()), { ephemeral: true, mode: 'smart' });
+    }
+    return true;
+  }
+
+  private criteria(): string {
+    try { return this.opts.criteriaFile ? readFileSync(this.opts.criteriaFile, 'utf8') : ''; } catch { return ''; }
+  }
+
+  /** A vetted link comes back as one JSON object; turn it into a card. */
+  private async vetted(id: string, reply: string): Promise<void> {
+    const v = this.vetting.get(id); if (!v) return;
+    this.vetting.delete(id);
+    const parsed = parseVerdict(reply, v.url);
+    if (!parsed) { await this.gw.send(v.channelId, { content: `I could not read a verdict for ${v.url}. What I got back:\n${reply.slice(0, 1200)}` }); return; }
+    await this.postCard(this.jobs.add(parsed, this.now()), v.channelId, false);
+  }
+
+  private async postCard(card: Card, channelId: string, silent: boolean): Promise<void> {
+    const view = renderCard(card);
+    card.channelId = channelId;
+    card.messageId = await this.gw.send(channelId, { content: view.content, buttons: view.buttons, silent });
+    this.jobs.save();
+  }
+  private async redrawCard(card: Card): Promise<void> {
+    if (!card.channelId || !card.messageId) return;
+    const view = renderCard(card);
+    try { await this.gw.edit(card.channelId, card.messageId, { content: view.content, buttons: view.buttons }); } catch { /* the card was deleted */ }
+  }
+
+  /** New entries in the sweep's shortlist become cards in #job-digest, once each. */
+  async scanShortlist(): Promise<number> {
+    const file = this.opts.shortlistFile; const where = this.state.channels['job-digest'];
+    if (!file || !where) return 0;
+    const stamp = fileStamp(file);
+    if (!stamp || stamp === this.lastShortlist) return 0;
+    this.lastShortlist = stamp;
+    const fresh = readShortlist(file).filter(e => !this.jobs.isSeen(e.url));
+    for (const e of fresh) {
+      const card = this.jobs.add({ url: e.url, title: e.title, company: e.company, location: e.location, salary: e.salary, verdict: 'apply', reason: e.reason || 'On the sweep shortlist.' }, this.now());
+      await this.postCard(card, where, true);
+    }
+    if (fresh.length) await this.say('job-digest', `${fresh.length} new job${fresh.length > 1 ? 's' : ''} from the sweep. Approve the ones you want, then tap Apply approved in #aang.`, false);
+    return fresh.length;
+  }
+
+  /** "Apply approved": the approved jobs that fit under today's cap go to a Claude session, and nothing else does. */
+  private async applyApproved(channelId: string): Promise<void> {
+    if (!this.jobs.approved().length) { await this.gw.send(channelId, { content: 'Nothing is approved yet. Approve jobs in #job-digest or #job-inbox first.' }); return; }
+    const left = this.jobs.left(this.now());
+    if (left === 0) { await this.gw.send(channelId, { content: `Today's limit of ${this.jobs.cap(this.now())} is used. Say "cap 8 today" to raise it, up to 8; otherwise these wait for tomorrow.` }); return; }
+    const { taken, waiting } = this.jobs.takeForApply(this.now());
+    for (const c of taken) await this.redrawCard(c);
+    const applied = this.state.channels['applied'];
+    if (applied) for (const c of taken) await this.gw.send(applied, { content: `Sent to apply: ${c.title} at ${c.company}\n${c.url}`, silent: true });
+    await this.gw.send(channelId, { content: `Sending ${taken.length} to apply${waiting ? `, ${waiting} more wait for tomorrow or a higher limit` : ''}. Aang will open a Claude session with them; press Enter there to start.` });
+    this.ask('apply' + Date.now(), channelId, applyPrompt(taken));
   }
 
   // ---------------------------------------------------------------- filing: grocery list and recipes, in code, no model
@@ -231,13 +362,13 @@ export class DiscordAdapter {
   }
 
   /** Put a request to Aang and remember which channel the answer belongs in. */
-  private ask(id: string, channelId: string, text: string): void {
+  private ask(id: string, channelId: string, text: string, opts?: { ephemeral?: boolean; mode?: 'auto' | 'smart' }): void {
     const entry = { channelId, timer: null as ReturnType<typeof setInterval> | null };
     this.pending.set(id, entry);
     void this.gw.typing(channelId).catch(() => {});
     entry.timer = setInterval(() => { void this.gw.typing(channelId).catch(() => {}); }, this.opts.typingMs ?? 8000);
     entry.timer.unref?.();
-    this.link.submit(id, text);
+    this.link.submit(id, text, opts);
   }
 
   // ---------------------------------------------------------------- Aang to him
@@ -259,6 +390,7 @@ export class DiscordAdapter {
       if (ev.id && this.pending.has(ev.id)) {
         if (ev.stream === true) return;                          // wait for the finished reply
         const done = this.finish(ev.id)!;
+        if (this.vetting.has(ev.id)) { await this.vetted(ev.id, ev.text); return; }
         for (const part of chunkMessage(ev.text)) await this.gw.send(done.channelId, { content: part });
         return;
       }
@@ -284,6 +416,7 @@ export class DiscordAdapter {
     }
     if (ev?.t === 'error' && ev.id && this.pending.has(ev.id)) {
       const done = this.finish(ev.id)!;
+      this.vetting.delete(ev.id);
       await this.gw.send(done.channelId, { content: [ev.message, ev.next].filter(Boolean).join(' ') });
       return;
     }
@@ -311,7 +444,15 @@ export class DiscordAdapter {
       await b.keep();
       if (b.customId === 'deck:status') { this.statusFor.push(b.channelId); this.link.status(); }
       else if (b.customId === 'deck:job') this.ask('deck' + ++this.deckSeq, b.channelId, JOB_REQUEST);
+      else if (b.customId === 'deck:apply') await this.applyApproved(b.channelId);
       else if (b.customId === 'deck:stop') { this.link.stop(); await this.gw.send(b.channelId, { content: 'Stopped.' }); }
+      return;
+    }
+    const job = /^job:(ok|no|new):(\d+)$/.exec(b.customId);
+    if (job) {
+      await b.keep();
+      const c = this.jobs.setStatus(job[2]!, job[1] === 'ok' ? 'approved' : job[1] === 'no' ? 'skipped' : 'new');
+      if (c) await this.redrawCard(c);
       return;
     }
     if (b.customId.startsWith('list:g:')) {

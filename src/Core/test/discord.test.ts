@@ -1,7 +1,7 @@
 // The Discord channel, tested end to end against a fake Discord and a fake Core: no token, no network.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, readFileSync, existsSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { DiscordAdapter } from '../src/discord.ts';
@@ -22,6 +22,8 @@ class FakeGateway implements Gateway {
   edits: { channelId: string; messageId: string; msg: OutMsg }[] = []; pins: string[] = []; failEdit = false; failPin = false;
   async send(channelId: string, msg: OutMsg) { this.sent.push({ channelId, msg }); return 'm' + this.sent.length; }
   async edit(channelId: string, messageId: string, msg: OutMsg) { if (this.failEdit) throw new Error('gone'); this.edits.push({ channelId, messageId, msg }); }
+  downloads: Record<string, Buffer> = {};
+  async download(url: string) { const b = this.downloads[url]; if (!b) throw new Error('download failed (404)'); return b; }
   posts: { forumId: string; title: string; content: string }[] = [];
   async createPost(forumId: string, title: string, content: string) { this.posts.push({ forumId, title, content }); return 'post' + this.posts.length; }
   async pin(channelId: string, messageId: string) { if (this.failPin) throw new Error('missing permission'); this.pins.push(messageId); }
@@ -42,9 +44,9 @@ class FakeGateway implements Gateway {
 }
 
 class FakeCore implements CoreLink {
-  submits: { id: string; text: string }[] = []; perms: { id: string; allow: boolean }[] = []; stops = 0; statuses = 0;
+  submits: { id: string; text: string; opts?: any }[] = []; perms: { id: string; allow: boolean }[] = []; stops = 0; statuses = 0;
   private cb: (m: any) => void = () => {};
-  submit(id: string, text: string) { this.submits.push({ id, text }); }
+  submit(id: string, text: string, opts?: any) { this.submits.push({ id, text, opts }); }
   permission(id: string, allow: boolean) { this.perms.push({ id, allow }); }
   stop() { this.stops++; }
   status() { this.statuses++; }
@@ -218,7 +220,7 @@ const deckOf = (gw: FakeGateway) => gw.to('aang').filter(m => m.buttons?.some(b 
 test('a paired start posts the command deck once and pins it; the next start edits it in place', async () => {
   const { gw, dir } = await make({ paired: true });
   assert.equal(deckOf(gw).length, 1);
-  assert.deepEqual(deckOf(gw)[0]!.buttons!.map(b => b.label), ['Status', 'Job hunt now', 'Stop']);
+  assert.deepEqual(deckOf(gw)[0]!.buttons!.map(b => b.label), ['Status', 'Job hunt now', 'Apply approved', 'Stop']);
   assert.equal(gw.pins.length, 1);
   const again = new FakeGateway(), core2 = new FakeCore();
   await new DiscordAdapter(again, core2, dir, { typingMs: 1_000_000 }).start();
@@ -252,7 +254,7 @@ test('Job hunt now asks Aang exactly as typing it would, and the answer comes ba
   const { gw, core } = await make({ paired: true });
   gw.press('deck:job', OWNER); await tick();
   assert.equal(core.submits.length, 1);
-  assert.equal(core.submits[0]!.text, 'Run my job search for today.');
+  assert.match(core.submits[0]!.text, /sweep and screen only.*shortlist.json/);
   core.emit({ t: 'bubble', text: 'Opened it in Claude.', stream: false, id: core.submits[0]!.id }); await tick();
   assert.ok(gw.to('aang').some(m => m.content === 'Opened it in Claude.'));
   gw.press('deck:stop', OWNER); await tick();
@@ -358,4 +360,136 @@ test('a long recipe is split across the post and replies, and a recipe pasted in
   gw.say('aang', OWNER, PASTA); await tick();
   assert.equal(gw.posts.length, 1, 'only #capture files recipes');
   assert.equal(core.submits.length, 1);
+});
+
+// ---------------------------------------------------------------- jobs, phone files
+
+async function makeJobs() {
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'aang-dcj-'));
+  const gw = new FakeGateway(), core = new FakeCore();
+  const shortlistFile = path.join(dir, 'shortlist.json');
+  writeFileSync(path.join(dir, 'discord.json'), JSON.stringify({ ownerId: OWNER, channels: {}, lastSeen: {} }));
+  const criteriaFile = path.join(dir, 'crit.md'); writeFileSync(criteriaFile, 'PAYFLOOR-TEST 80K');
+  const a = new DiscordAdapter(gw, core, dir, { typingMs: 1_000_000, scanMs: 0, shortlistFile, criteriaFile, inboxDir: path.join(dir, 'in'), now: () => new Date('2026-09-22T15:00:00Z') });
+  await a.start();
+  return { a, gw, core, dir, shortlistFile };
+}
+const VERDICT = '{"title":"Onboarding Lead","company":"Acme","location":"Toronto","salary":"$88K","verdict":"apply","reason":"Right lane."}';
+const cardsIn = (gw: FakeGateway, ch: string) => gw.to(ch).filter(m => m.buttons?.some(b => b.id.startsWith('job:')));
+
+test('a link pasted in #job-inbox is vetted by Aang privately, and comes back as a card with Open, Approve and Skip', async () => {
+  const { gw, core } = await makeJobs();
+  gw.say('job-inbox', OWNER, 'check this https://jobs.example.com/onboarding-lead please'); await tick();
+  assert.equal(core.submits.length, 1);
+  assert.match(core.submits[0]!.text, /Vet this job posting/);
+  assert.match(core.submits[0]!.text, /PAYFLOOR-TEST 80K/, 'his criteria are inside the question');
+  assert.deepEqual(core.submits[0]!.opts, { ephemeral: true, mode: 'smart' }, 'not kept as something he said');
+  core.emit({ t: 'bubble', text: 'Here you go: ' + VERDICT, stream: false, id: core.submits[0]!.id }); await tick();
+  const card = cardsIn(gw, 'job-inbox')[0]!;
+  assert.match(card.content!, /Onboarding Lead\*\* at Acme/);
+  assert.deepEqual(card.buttons!.map(b => b.label), ['Open', 'Approve', 'Skip']);
+  assert.ok(!gw.to('job-inbox').some(m => m.content?.startsWith('Here you go')), 'the raw reply is not posted');
+  gw.say('job-inbox', OWNER, 'https://jobs.example.com/onboarding-lead'); await tick();
+  assert.equal(core.submits.length, 1, 'a link already in the list is not vetted twice');
+  assert.match(gw.to('job-inbox').at(-1)!.content!, /already have that one/);
+});
+
+test('a vetting reply that is not a verdict is shown as it is, not turned into a card', async () => {
+  const { gw, core } = await makeJobs();
+  gw.say('job-inbox', OWNER, 'https://jobs.example.com/x'); await tick();
+  core.emit({ t: 'bubble', text: 'I could not open that page.', stream: false, id: core.submits[0]!.id }); await tick();
+  assert.equal(cardsIn(gw, 'job-inbox').length, 0);
+  assert.match(gw.to('job-inbox').at(-1)!.content!, /could not read a verdict[\s\S]*could not open that page/);
+});
+
+test('text in #job-inbox with no link is just a message to Aang', async () => {
+  const { gw, core } = await makeJobs();
+  gw.say('job-inbox', OWNER, 'which of these is best?'); await tick();
+  assert.equal(core.submits.length, 1);
+  assert.doesNotMatch(core.submits[0]!.text, /Vet this/);
+});
+
+test('Approve, Undo and Skip edit the card in place, and only he can press them', async () => {
+  const { gw, core } = await makeJobs();
+  gw.say('job-inbox', OWNER, 'https://jobs.example.com/a'); await tick();
+  core.emit({ t: 'bubble', text: VERDICT, stream: false, id: core.submits[0]!.id }); await tick();
+  const [ok, no] = [cardsIn(gw, 'job-inbox')[0]!.buttons![1]!.id, cardsIn(gw, 'job-inbox')[0]!.buttons![2]!.id];
+  assert.deepEqual(gw.press(ok, STRANGER), ['That is not yours to answer.']);
+  assert.equal(gw.edits.length, 0);
+  assert.deepEqual(gw.press(ok, OWNER), ['(kept)']); await tick();
+  assert.match(gw.edits.at(-1)!.msg.content!, /Approved/);
+  assert.deepEqual(gw.edits.at(-1)!.msg.buttons!.map(b => b.label), ['Open', 'Undo']);
+  gw.press(gw.edits.at(-1)!.msg.buttons![1]!.id, OWNER); await tick();
+  assert.deepEqual(gw.edits.at(-1)!.msg.buttons!.map(b => b.label), ['Open', 'Approve', 'Skip']);
+  gw.press(no, OWNER); await tick();
+  assert.match(gw.edits.at(-1)!.msg.content!, /Skipped/);
+});
+
+test('the sweep shortlist becomes cards in #job-digest once each, silently, with one loud summary', async () => {
+  const { a, gw, shortlistFile } = await makeJobs();
+  assert.equal(await a.scanShortlist(), 0, 'no file yet');
+  writeFileSync(shortlistFile, JSON.stringify([
+    { title: 'CSM', company: 'A', url: 'https://jobs.example.com/1', why: 'lane' },
+    { title: 'Onboarding', company: 'B', url: 'https://jobs.example.com/2' },
+    { title: 'Evil', company: 'C', url: 'javascript:alert(1)' },
+  ]));
+  assert.equal(await a.scanShortlist(), 2);
+  assert.equal(cardsIn(gw, 'job-digest').length, 2);
+  assert.ok(cardsIn(gw, 'job-digest').every(m => m.silent === true), 'each card is silent');
+  const summary = gw.to('job-digest').find(m => /2 new jobs/.test(m.content ?? ''))!;
+  assert.equal(summary.silent, false, 'one message that does make a sound');
+  assert.equal(await a.scanShortlist(), 0, 'unchanged file: nothing');
+  writeFileSync(shortlistFile, JSON.stringify([{ title: 'CSM', company: 'A', url: 'https://jobs.example.com/1' }, { title: 'New', company: 'D', url: 'https://jobs.example.com/4' }]));
+  const fs = await import('node:fs'); fs.utimesSync(shortlistFile, new Date(), new Date(Date.now() + 5000));
+  assert.equal(await a.scanShortlist(), 1, 'only the new one');
+});
+
+test('Apply approved sends only approved jobs, no more than the cap, to a Claude session; the rest wait', async () => {
+  const { a, gw, core, shortlistFile } = await makeJobs();
+  gw.press('deck:apply', OWNER); await tick();
+  assert.match(gw.to('aang').at(-1)!.content!, /Nothing is approved yet/);
+  assert.equal(core.submits.length, 0);
+
+  writeFileSync(shortlistFile, JSON.stringify(Array.from({ length: 7 }, (_, i) => ({ title: 'Role ' + i, company: 'Co', url: `https://jobs.example.com/${i}` }))));
+  await a.scanShortlist();
+  for (const c of a.jobs.cards) gw.press(`job:ok:${c.id}`, OWNER);
+  await tick();
+  gw.press('deck:apply', OWNER); await tick();
+  assert.equal(core.submits.length, 1);
+  const prompt = core.submits[0]!.text;
+  assert.equal((prompt.match(/^\d\. /gm) ?? []).length, 5, 'five, the daily limit');
+  assert.match(prompt, /CAPTCHA/);
+  assert.match(gw.to('aang').at(-1)!.content!, /Sending 5 to apply, 2 more wait/);
+  assert.equal(gw.to('applied').length, 5, 'one line per job in #applied');
+  gw.press('deck:apply', OWNER); await tick();
+  assert.match(gw.to('aang').at(-1)!.content!, /limit of 5 is used/);
+  assert.equal(core.submits.length, 1, 'a second tap sends nothing');
+
+  gw.say('aang', OWNER, 'cap 8 today'); await tick();
+  assert.match(gw.to('aang').at(-1)!.content!, /limit is 8/);
+  gw.press('deck:apply', OWNER); await tick();
+  assert.equal(core.submits.length, 2);
+  assert.equal((core.submits[1]!.text.match(/^\d\. /gm) ?? []).length, 2);
+  gw.say('aang', OWNER, 'cap 9'); await tick();
+  assert.match(gw.to('aang').at(-1)!.content!, /most I will send in a day is 8/);
+});
+
+test('files sent from his phone are saved on the PC; programs and huge files are refused; a photo with no words is not sent to the model', async () => {
+  const { gw, core, dir } = await makeJobs();
+  gw.downloads['https://cdn.discordapp.com/a/photo.jpg'] = Buffer.from('JPEG');
+  gw.downloads['https://cdn.discordapp.com/a/evil.exe'] = Buffer.from('MZ');
+  const m = gw.say('capture', OWNER, '', 'att1');
+  (m as any).attachments = [
+    { name: 'photo.jpg', url: 'https://cdn.discordapp.com/a/photo.jpg', size: 4 },
+    { name: 'evil.exe', url: 'https://cdn.discordapp.com/a/evil.exe', size: 2 },
+    { name: 'movie.mov', url: 'https://cdn.discordapp.com/a/movie.mov', size: 40 * 1048576 },
+  ];
+  await (gw as any).msgCb(m); await tick(); await tick();
+  const reply = gw.to('capture').map(x => x.content).join('\n');
+  assert.match(reply, /Saved to the PC:[\s\S]*photo\.jpg/);
+  assert.match(reply, /evil\.exe: it is a kind of file that can run/);
+  assert.match(reply, /movie\.mov: it is 40\.0 MB/);
+  assert.equal(readFileSync(path.join(dir, 'in', '2026-09-22', 'photo.jpg'), 'utf8'), 'JPEG');
+  assert.equal(existsSync(path.join(dir, 'in', '2026-09-22', 'evil.exe')), false);
+  assert.equal(core.submits.length, 0);
 });

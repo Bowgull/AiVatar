@@ -1,7 +1,9 @@
 // The real connections: discord.js to Discord, and a WebSocket to Aang's own Core. Deliberately thin - the
 // decisions live in discord-logic.ts and discord.ts, where they are tested without a network.
 import { existsSync, readFileSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
+import { folderFor } from './claude.ts';
 import { WebSocket } from 'ws';
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, Client, Events, GatewayIntentBits, MessageFlags, PermissionFlagsBits } from 'discord.js';
 import { DiscordAdapter } from './discord.ts';
@@ -32,7 +34,17 @@ export class DiscordGateway implements Gateway {
   close(): void { void this.client.destroy(); }
 
   private map(m: any): Incoming {
-    return { id: m.id, channelId: m.channelId, channelName: m.channel?.name ?? '', authorId: m.author?.id ?? '', isBot: !!m.author?.bot || !!m.webhookId, content: m.content ?? '', createdAt: m.createdTimestamp ?? 0 };
+    const attachments = [...(m.attachments?.values?.() ?? [])].map((a: any) => ({ name: String(a.name ?? 'file'), url: String(a.url), size: Number(a.size ?? 0) }));
+    return { id: m.id, channelId: m.channelId, channelName: m.channel?.name ?? '', authorId: m.author?.id ?? '', isBot: !!m.author?.bot || !!m.webhookId, content: m.content ?? '', createdAt: m.createdTimestamp ?? 0, ...(attachments.length ? { attachments } : {}) };
+  }
+
+  /** Fetch an attachment Discord is hosting for a message he sent. Only Discord's own hosts are ever fetched. */
+  async download(url: string): Promise<Buffer> {
+    const host = new URL(url).hostname;
+    if (!/(^|\.)(discordapp\.com|discordapp\.net|discord\.com)$/.test(host)) throw new Error('not a Discord attachment link');
+    const res = await fetch(url, { signal: AbortSignal.timeout(60_000) });
+    if (!res.ok) throw new Error(`download failed (${res.status})`);
+    return Buffer.from(await res.arrayBuffer());
   }
 
   onMessage(cb: (m: Incoming) => void): void { this.client.on(Events.MessageCreate, m => cb(this.map(m))); }
@@ -67,7 +79,10 @@ export class DiscordGateway implements Gateway {
   private rows(msg: OutMsg) {
     const rows: ActionRowBuilder<ButtonBuilder>[] = [];
     for (let i = 0; i < (msg.buttons?.length ?? 0) && rows.length < 5; i += 5) {
-      rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(msg.buttons!.slice(i, i + 5).map((b: Button) => new ButtonBuilder().setCustomId(b.id).setLabel(b.label.slice(0, 80)).setStyle(STYLE[b.style]))));
+      rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(msg.buttons!.slice(i, i + 5).map((b: Button) => {
+        const btn = new ButtonBuilder().setLabel(b.label.slice(0, 80));
+        return b.url ? btn.setStyle(ButtonStyle.Link).setURL(b.url) : btn.setCustomId(b.id).setStyle(STYLE[b.style]);
+      })));
     }
     return rows;
   }
@@ -81,14 +96,15 @@ export class DiscordGateway implements Gateway {
   async send(channelId: string, msg: OutMsg): Promise<string> {
     const channel: any = await this.client.channels.fetch(channelId);
     const files = msg.files?.map(f => ({ attachment: f.data, name: f.name }));
-    const sent = await channel.send({ content: msg.content, components: this.rows(msg), ...(files ? { files } : {}), ...(msg.silent ? { flags: MessageFlags.SuppressNotifications } : {}) });
+    // Nothing Aang posts may ping anyone: card text comes from web pages, and "@everyone" in a job title must stay text.
+    const sent = await channel.send({ content: msg.content, components: this.rows(msg), allowedMentions: { parse: [] }, ...(files ? { files } : {}), ...(msg.silent ? { flags: MessageFlags.SuppressNotifications } : {}) });
     return sent.id;
   }
 
   async edit(channelId: string, messageId: string, msg: OutMsg): Promise<void> {
     const channel: any = await this.client.channels.fetch(channelId);
     const m = await channel.messages.fetch(messageId);
-    await m.edit({ content: msg.content, components: this.rows(msg) });
+    await m.edit({ content: msg.content, components: this.rows(msg), allowedMentions: { parse: [] } });
   }
 
   async pin(channelId: string, messageId: string): Promise<void> {
@@ -129,7 +145,7 @@ export class WsCoreLink implements CoreLink {
     ws.on('error', () => { /* close follows */ });
   }
   private send(o: object) { if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(o)); }
-  submit(id: string, text: string) { this.send({ t: 'submit', id, text, mode: 'auto' }); }
+  submit(id: string, text: string, opts: { ephemeral?: boolean; mode?: 'auto' | 'smart' } = {}) { this.send({ t: 'submit', id, text, mode: opts.mode ?? 'auto', ...(opts.ephemeral ? { ephemeral: true } : {}) }); }
   permission(id: string, allow: boolean) { this.send({ t: 'permission.reply', id, allow }); }
   stop() { this.send({ t: 'stop' }); }
   status() { this.send({ t: 'status' }); }
@@ -139,6 +155,7 @@ export class WsCoreLink implements CoreLink {
 
 /** Start Discord if Joshua has set it up (a token file exists). Never throws: Aang runs without it. */
 export async function startDiscord(stateDir: string, port: number, log: (s: string) => void = console.log): Promise<DiscordAdapter | null> {
+  const jobDir = folderFor('job hunt');
   const tokenFile = path.join(stateDir, 'discord.token');
   if (process.env.AANG_DISCORD === '0' || !existsSync(tokenFile)) return null;
   try {
@@ -146,7 +163,10 @@ export async function startDiscord(stateDir: string, port: number, log: (s: stri
     if (!token) return null;
     const gw = new DiscordGateway(token);
     await gw.login();
-    const adapter = new DiscordAdapter(gw, new WsCoreLink(port), stateDir, { log });
+    const adapter = new DiscordAdapter(gw, new WsCoreLink(port), stateDir, {
+      log, shortlistFile: path.join(jobDir, 'shortlist.json'), criteriaFile: path.join(jobDir, 'memory', 'project_job_search_criteria.md'),
+      inboxDir: path.join(os.homedir(), 'Documents', 'AangInbox'),
+    });
     await adapter.start();
     log('discord: connected');
     return adapter;
