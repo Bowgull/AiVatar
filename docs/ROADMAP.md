@@ -135,6 +135,57 @@ This is one plan of record. It merges the ROADMAP's open items (P0 to P4 are don
 into digest cards he approves from Discord. D and B can run alongside. If he buys Always On, G′'s sweep runs on
 a schedule while he is out with no other change.
 
+### Final build path (2026-09-21, replaces the order table above where they differ)
+
+**His principle, 2026-09-21: more capability is the goal.** A power is held back only when its risk is not worth it,
+and then the answer is a permission gate, an undo and a log, never leaving it out. Every new power ships with all
+three, and none ships without a test that shows the refusal working as well as the success.
+
+**What the audit found missing.** Checked against the ledger, the four reports and everything he has asked for in
+this thread. None of these were in the plan before today:
+
+| # | Missing | Why it matters | Goes in |
+|---|---|---|---|
+| 1 | **Send things to his phone**: "show me my screen", a file, a screenshot, a result, as an attachment in Discord | The gym use case: look at the PC and get a file from it while away | F′3 |
+| 2 | **Photos and files in from his phone**: a photo of a recipe, receipt or handwritten list into #capture | Discord makes this free; only text is handled | F′3 |
+| 3 | **A command deck**: one pinned message of buttons (Status, Quota, Hush, Job hunt now, Stop) | Tapping beats typing on a phone; Discord buttons are already built | F′2 |
+| 4 | **Quota and status on the phone** ("how much of my week is left") | The Body gets it; Discord ignores it | F′2 |
+| 5 | **CAPTCHA and knockout relay**: the job-hunt session stops, a screenshot goes to #needs-you, he solves it or answers | He asked for this on day one; G′ only said "stop" | G′ |
+| 6 | **Essay and free-text answers drafted, never sent unseen**: draft to #drafts with Approve, Edit, Skip | His rule: nothing goes out without a shown draft | G′ |
+| 7 | **Outreach drafts** (recruiters, networking) to #drafts, sent by him | He listed outreach in the server plan; no phase had it | I |
+| 8 | **File operations**: move, copy, rename, delete to the Recycle Bin, all with undo. Only write and edit exist | "Tidy my Downloads" is the obvious next ask | Q1 |
+| 9 | **Clipboard write**: put text on his clipboard | Only reading exists | Q1 |
+| 10 | **UI Automation hands**: press a named button, fill a named field, in an app he has approved. The old "mouse and keyboard automation" was dropped at 19.5%, but that number was for pixel-guessing vision agents. Windows UI Automation acts on real controls by name, the same interface the screen reader already uses | This is the biggest single power gap: he can read any window but cannot act in one | Q2 |
+| 11 | **Delegating to Claude Code, generalised**: browsing tasks through Claude in Chrome (which replaces the dropped CDP idea), and "Aang, add X to yourself" as a session on this repo, never auto-merged | Uses the strongest agent available for open-ended work | Q3 |
+| 12 | **Music by name** (Spotify) beyond the media keys | "Play something" | Q3 |
+| 13 | **Repeating and scheduled things**: "every Monday", the morning brief, a scheduled job sweep | Reminders are one-shot | G′, I |
+| 14 | **Activity log, permissions review and Hush before more power** | Every power above needs to be seen, revoked and stopped | B1, before Q2 |
+| 15 | **Shadow session awareness**: Discord tells him when Shadow is about to hit its 4-hour cap | The one thing Lite does that costs him work | F′2 |
+
+**Kept dropped, and why.** Voice (declined twice). Always-on screen or audio capture (the category died).
+Third-party memory services (privacy). Reddit feed. WoW combat-log analysis (his deferral).
+
+**The path, in order.** Each stage ends with a green suite, a screenshot or live capture, and a commit.
+
+1. **Close A.** Wire files and windows (done 2026-09-21, 8 tests), test them live with the real model, run the
+   full live suite while he is away from WoW, one real job-hunt run, confirm autostart after a reboot, commit.
+2. **D, the persona spec and linter, small and first**, because Discord is where the voice is most visible.
+3. **Finish F′.** F′1 #capture filing and the grocery list with check-off buttons. F′2 command deck, quota and
+   status, Shadow-cap warning. F′3 photos in and things out to his phone. F′4 #job-inbox: paste a link, get a
+   fit verdict card.
+4. **G′, the job hunt.** Sweep, cards with Open / Apply / Skip, apply on approval (cap 5, hard max 8), CAPTCHA and
+   knockout relay, drafts for free-text answers, #applied, the Job Hunt sidebar group. Runs on a schedule when
+   he buys Always On.
+5. **B1, the safety basics**: activity log ("what did you just do"), undo across all powers, permissions review
+   with revoke, Hush. This is the gate for stage 6.
+6. **The power track.** Q1 file operations and clipboard write. Q2 UI Automation hands. Q3 generalised delegation
+   (Claude in Chrome, self-improvement sessions, Spotify). K background jobs fold in here.
+7. **I, email and outreach**, after his one-time Google sign-in; morning brief and calendar on the same auth.
+8. **The look**: B2 Clean Gold tokens and buttons, H docking, modes and bars, J the Panel.
+9. **The rest, in this order**: N memory depth, L watching and #anime, M drawing, O finish and the design gate.
+
+Retired and never to be built: C, E, P, and the iMessage half of F.
+
 ### Phase F′: Discord (replaces F)
 
 **What.** Built 2026-09-21: `discord-logic.ts`, `discord.ts`, `discord-gateway.ts` (discord.js 14.27), wired

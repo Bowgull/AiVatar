@@ -13,7 +13,8 @@ import { Memory } from './memory.ts';
 import { QuotaPolicy } from './quota.ts';
 import { MODELS, pickLane } from './route.ts';
 import type { Lane as LaneName } from './route.ts';
-import { READ_ONLY_BUILTINS, TOOL_NAMES, BUILTIN_SHELL, SHELL_TOOLS, WEB_PROMPT, WEB_TOOLS, describeCall, isLauncher, makeToolServer, reachesNetwork } from './tools.ts';
+import { editExact, refusal, undoLast, writeWhole } from './files.ts';
+import { READ_ONLY_BUILTINS, TOOL_NAMES, BUILTIN_SHELL, BUILTIN_WRITE, SHELL_TOOLS, WEB_PROMPT, WEB_TOOLS, describeCall, isLauncher, makeToolServer, reachesNetwork } from './tools.ts';
 import { HookServer, HookTracker } from './hooks.ts';
 import { Reminders } from './reminders.ts';
 import { SessionStore } from './sessions.ts';
@@ -82,7 +83,43 @@ export class Core {
       this.memory, this.hooks, this.reminders, q => this.lookUpWeb(q), this.activity,
       (what, withApp) => this.open(what, withApp), () => this.readClipboard(), cmd => this.run(cmd), () => this.readScreen(), () => this.lookAtScreen(),
       (task, where, name) => this.startClaude(task, where, name),
+      {
+        writeFile: (file, content) => this.changeFile('mcp__aang__write_file', { file }, () => writeWhole(file, content, this.protectedPaths())),
+        editFile: (file, oldText, newText) => this.changeFile('mcp__aang__edit_file', { file }, () => editExact(file, oldText, newText, this.protectedPaths())),
+        undoFile: file => this.changeFile('mcp__aang__undo_file_change', { file: file ?? '' }, () => undoLast(file)),
+        hands: (action, what, how) => this.hands(action, what, how),
+      },
     );
+  }
+
+  private protectedPaths() { return { stateDir: this.cfg.stateDir, dataDir: this.cfg.dataDir }; }
+
+  /** Ask (once, then trusted), then change the file. A refusal by the rules is reported without asking at all. */
+  private async changeFile(tool: string, input: Record<string, unknown>, doIt: () => { ok: boolean; detail: string }): Promise<{ ok: boolean; detail: string }> {
+    const file = String(input.file ?? '');
+    // Paths he can never be asked about (his own settings, memory, Windows) are refused first, so a poisoned page
+    // cannot turn one into a yes/no he might wave through.
+    const no = file ? refusal(file, this.protectedPaths()) : null;
+    if (no) return { ok: false, detail: `Not done: ${no}.` };
+    if (!await this.askPermission(tool, input)) return { ok: false, detail: this.whyNot() + ' Nothing was changed.' };
+    return doIt();
+  }
+
+  /** Windows only the desktop can reach: closing, force-quitting, moving, media keys. */
+  private handsPending = new Map<string, { resolve: (m: { ok: boolean; detail: string }) => void; timer: NodeJS.Timeout }>();
+  private handsSeq = 0;
+  private async hands(action: 'close' | 'forcequit' | 'arrange' | 'media', what: string, how?: string): Promise<{ ok: boolean; detail: string }> {
+    const tool = { close: 'close_app', forcequit: 'force_quit', arrange: 'arrange_window', media: 'media_key' }[action];
+    const input = action === 'media' ? { key: what } : { what, how: how ?? '' };
+    if (!await this.askPermission('mcp__aang__' + tool, input)) return { ok: false, detail: this.whyNot() + ' Nothing was done.' };
+    if (this.clientsOf('desktop').length === 0) return { ok: false, detail: 'The desktop is not connected, so I could not reach the windows.' };
+    const id = `hands${++this.handsSeq}`;
+    return new Promise(resolve => {
+      const timer = setTimeout(() => { this.handsPending.delete(id); resolve({ ok: false, detail: 'The desktop did not answer.' }); }, 15_000);
+      timer.unref?.();
+      this.handsPending.set(id, { resolve, timer });
+      this.sendTo('desktop', { t: 'hands.request', id, action, what, ...(how ? { how } : {}) });
+    });
   }
 
   /**
@@ -342,7 +379,7 @@ export class Core {
       // them, reaches for WebFetch first, gets refused and gives up instead of using look_up_web.
       // Measured on 2026-09-20, not guessed.
       allowedTools: [...TOOL_NAMES, ...READ_ONLY_BUILTINS],
-      disallowedTools: [...WEB_TOOLS, ...BUILTIN_SHELL],
+      disallowedTools: [...WEB_TOOLS, ...BUILTIN_SHELL, ...BUILTIN_WRITE],
       askPermission: (tool, input) => this.askPermission(tool, input),
       claudeExecutable: this.cfg.claudeExecutable,
       // Measured on the warm Quick lane: first token 1369 ms with thinking, 444 ms without. Chat does not
@@ -445,6 +482,11 @@ export class Core {
       case 'clipboard': {
         const c = this.clipboard;
         if (c && c.id === m.id) { clearTimeout(c.timer); this.clipboard = null; c.resolve(typeof m.text === 'string' ? m.text : null); }
+        break;
+      }
+      case 'hands': {
+        const h = this.handsPending.get(m.id);
+        if (h) { clearTimeout(h.timer); this.handsPending.delete(m.id); h.resolve({ ok: m.ok === true, detail: String(m.detail ?? '') }); }
         break;
       }
       case 'look': {

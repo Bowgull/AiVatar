@@ -96,6 +96,13 @@ export function kindOf(tool: string, input: Record<string, unknown>): { kind: st
     case 'mcp__aang__read_window': return { kind: 'read windows', says: 'read what is in your windows' };
     case 'mcp__aang__look_at_window': return { kind: 'look at windows', says: 'take pictures of the window you are in' };
     case 'mcp__aang__start_claude': return { kind: 'start Claude sessions', says: 'start Claude sessions for you' };
-    default: return null;                 // writing and editing files always ask
+    // Asked once, then trusted (his call, 2026-09-21). Every file change keeps the old version, so it can be undone.
+    case 'mcp__aang__write_file': case 'mcp__aang__edit_file': case 'mcp__aang__undo_file_change':
+      return { kind: 'write files', says: 'write and change files (I keep the old version so it can be undone)' };
+    case 'mcp__aang__close_app': return { kind: 'close apps', says: 'close apps by asking them to close' };
+    case 'mcp__aang__arrange_window': return { kind: 'arrange windows', says: 'move, minimise and maximise your windows' };
+    case 'mcp__aang__media_key': return { kind: 'control media', says: 'press play, pause, next and the volume keys' };
+    // mcp__aang__force_quit is deliberately absent: it destroys unsaved work, so it asks every single time.
+    default: return null;
   }
 }
