@@ -149,6 +149,10 @@ export class WsCoreLink implements CoreLink {
   permission(id: string, allow: boolean) { this.send({ t: 'permission.reply', id, allow }); }
   stop() { this.send({ t: 'stop' }); }
   status() { this.send({ t: 'status' }); }
+  actions() { this.send({ t: 'actions' }); }
+  trust() { this.send({ t: 'trust' }); }
+  revoke(kind: string) { this.send({ t: 'revoke', kind }); }
+  hush(minutes: number) { this.send({ t: 'hush', minutes }); }
   onEvent(cb: (m: any) => void) { this.cbs.push(cb); }
   close() { this.closed = true; this.ws?.close(); }
 }

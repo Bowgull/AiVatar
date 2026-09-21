@@ -50,6 +50,11 @@ class FakeCore implements CoreLink {
   permission(id: string, allow: boolean) { this.perms.push({ id, allow }); }
   stop() { this.stops++; }
   status() { this.statuses++; }
+  actionsAsked = 0; trustAsked = 0; revoked: string[] = []; hushed: number[] = [];
+  actions() { this.actionsAsked++; }
+  trust() { this.trustAsked++; }
+  revoke(kind: string) { this.revoked.push(kind); }
+  hush(minutes: number) { this.hushed.push(minutes); }
   onEvent(cb: (m: any) => void) { this.cb = cb; }
   emit(m: any) { this.cb(m); }
 }
@@ -220,7 +225,7 @@ const deckOf = (gw: FakeGateway) => gw.to('aang').filter(m => m.buttons?.some(b 
 test('a paired start posts the command deck once and pins it; the next start edits it in place', async () => {
   const { gw, dir } = await make({ paired: true });
   assert.equal(deckOf(gw).length, 1);
-  assert.deepEqual(deckOf(gw)[0]!.buttons!.map(b => b.label), ['Status', 'Job hunt now', 'Apply approved', 'Stop']);
+  assert.deepEqual(deckOf(gw)[0]!.buttons!.map(b => b.label), ['Status', 'Job hunt now', 'Apply approved', 'Stop', 'Hush 1 h', 'Activity', 'Permissions']);
   assert.equal(gw.pins.length, 1);
   const again = new FakeGateway(), core2 = new FakeCore();
   await new DiscordAdapter(again, core2, dir, { typingMs: 1_000_000 }).start();
@@ -492,4 +497,69 @@ test('files sent from his phone are saved on the PC; programs and huge files are
   assert.equal(readFileSync(path.join(dir, 'in', '2026-09-22', 'photo.jpg'), 'utf8'), 'JPEG');
   assert.equal(existsSync(path.join(dir, 'in', '2026-09-22', 'evil.exe')), false);
   assert.equal(core.submits.length, 0);
+});
+
+// ---------------------------------------------------------------- safety: receipts, activity, permissions, hush
+
+test('every action Aang takes leaves a silent receipt line in #log', async () => {
+  const { gw, core } = await make({ paired: true });
+  core.emit({ t: 'action', text: '2:31 pm  write to …/notes.txt' }); await tick();
+  const line = gw.to('log').find(m => m.content === '2:31 pm  write to …/notes.txt')!;
+  assert.ok(line);
+  assert.equal(line.silent, true);
+});
+
+test('Hush, Activity and Permissions buttons ask the Core (no model) and answer where they were pressed', async () => {
+  const { gw, core } = await make({ paired: true });
+  assert.deepEqual(gw.press('deck:hush', OWNER, 'ch-capture'), ['(kept)']); await tick();
+  assert.deepEqual(core.hushed, [60]);
+  core.emit({ t: 'hush.reply', text: 'Hushed until 4:30 p.m.' }); await tick();
+  assert.deepEqual(gw.to('capture').map(m => m.content), ['Hushed until 4:30 p.m.']);
+
+  gw.press('deck:log', OWNER); await tick();
+  assert.equal(core.actionsAsked, 1);
+  core.emit({ t: 'actions.reply', text: '2:31 p.m.  close spotify' }); await tick();
+  assert.match(gw.to('aang').at(-1)!.content!, /^What I did, newest last:\n2:31 p\.m\.  close spotify$/);
+  assert.equal(core.submits.length, 0, 'no model call for any of them');
+  assert.deepEqual(gw.press('deck:hush', STRANGER), ['That is not yours to answer.']);
+  assert.deepEqual(core.hushed, [60], 'a stranger cannot hush him');
+});
+
+test('typed controls: hush with a length, unhush, what did you do, what can you do without asking', async () => {
+  const { gw, core } = await make({ paired: true });
+  for (const [text, minutes] of [['hush', 60], ['hush 30', 30], ['hush for an hour', 60], ['quiet 2 hours', 120], ['hush 45 min', 45], ['unhush', 0], ['hush off', 0]] as const) {
+    gw.say('aang', OWNER, text); await tick();
+    assert.equal(core.hushed.at(-1), minutes, text);
+  }
+  gw.say('aang', OWNER, 'what did you just do?'); await tick();
+  assert.equal(core.actionsAsked, 1);
+  gw.say('aang', OWNER, 'what can you do without asking'); await tick();
+  assert.equal(core.trustAsked, 1);
+  assert.equal(core.submits.length, 0, 'none of these reach the model');
+  gw.say('aang', OWNER, 'hush the noise from the kettle'); await tick();
+  assert.equal(core.submits.length, 1, 'ordinary sentences that start with the word are still just talk');
+});
+
+test('the permissions card lists what he may do, has a button to take each back, and updates in place', async () => {
+  const { gw, core } = await make({ paired: true });
+  gw.press('deck:perms', OWNER); await tick();
+  assert.equal(core.trustAsked, 1);
+  const items = [{ kind: 'open apps', example: 'open Paint', since: '2026-09-21' }, { kind: 'write files', example: 'write to notes.txt', since: '2026-09-22' }];
+  core.emit({ t: 'trust.reply', items }); await tick();
+  const card = gw.to('aang').at(-1)!;
+  assert.match(card.content!, /open apps \(since 2026-09-21\), e\.g\. "open Paint"/);
+  assert.deepEqual(card.buttons!.map(b => b.label), ['Take back: open apps', 'Take back: write files']);
+
+  assert.deepEqual(gw.press('trust:rev:1', STRANGER), ['That is not yours to answer.']);
+  assert.deepEqual(core.revoked, []);
+  gw.press('trust:rev:1', OWNER); await tick();
+  assert.deepEqual(core.revoked, ['write files']);
+  const before = gw.sent.length;
+  core.emit({ t: 'trust.reply', items: [items[0]!] }); await tick();
+  assert.equal(gw.sent.length, before, 'edited, not reposted');
+  assert.deepEqual(gw.edits.at(-1)!.msg.buttons!.map(b => b.label), ['Take back: open apps']);
+
+  core.emit({ t: 'trust.reply', items: [] }); await tick();
+  assert.match(gw.edits.at(-1)!.msg.content!, /not allowed to do anything without asking/);
+  assert.equal(gw.edits.at(-1)!.msg.buttons!.length, 0);
 });

@@ -26,6 +26,12 @@ export type ToBody =
   | { t: 'attach'; name: string; mime: string; data: string; caption?: string }
   /** The answer to a `status` request: plain text, worked out without the model. */
   | { t: 'status.reply'; text: string }
+  /** One line for the receipt book (#log): something Aang just did on the machine. */
+  | { t: 'action'; text: string }
+  | { t: 'actions.reply'; text: string }
+  /** What he may do without asking, for review and revoke. */
+  | { t: 'trust.reply'; items: { kind: string; example: string; since: string }[] }
+  | { t: 'hush.reply'; text: string }
   /** Something only the desktop can do to its windows. Sent only after Joshua has agreed to it. */
   | { t: 'hands.request'; id: string; action: 'close' | 'forcequit' | 'arrange' | 'media'; what?: string; how?: string }
   | { t: 'error'; id?: string; message: string; next: string };
@@ -50,6 +56,11 @@ export type FromBody =
   | { t: 'hands'; id: string; ok: boolean; detail: string }
   /** "How are things?" No model is involved: the Core answers from what it already knows. */
   | { t: 'status' }
+  | { t: 'actions' }
+  | { t: 'trust' }
+  | { t: 'revoke'; kind: string }
+  /** Hold everything unprompted for this many minutes (0 ends it); it is delivered afterwards, not lost. */
+  | { t: 'hush'; minutes: number }
   /** A picture of his window: base64 JPEG, and how much of it is black (protected video comes out black). */
   | { t: 'look'; id: string; ok: boolean; data?: string | null; w?: number; h?: number; black?: number; error?: string | null };
 

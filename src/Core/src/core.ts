@@ -14,6 +14,7 @@ import { QuotaPolicy } from './quota.ts';
 import { MODELS, pickLane } from './route.ts';
 import type { Lane as LaneName } from './route.ts';
 import { editExact, refusal, undoLast, writeWhole } from './files.ts';
+import type { Doers } from './tools.ts';
 import { READ_ONLY_BUILTINS, TOOL_NAMES, BUILTIN_SHELL, BUILTIN_WRITE, SHELL_TOOLS, WEB_PROMPT, WEB_TOOLS, describeCall, isLauncher, makeToolServer, reachesNetwork } from './tools.ts';
 import { HookServer, HookTracker } from './hooks.ts';
 import { Reminders } from './reminders.ts';
@@ -27,7 +28,8 @@ import { TrustStore, kindOf } from './trust.ts';
 import { launch, openedText, resolve as resolveOpen } from './open.ts';
 import { runCommand } from './run.ts';
 import { buildSystemPrompt, lint, stripReasoning } from './voice.ts';
-import { MAX_SEND_BYTES, mimeOf, statusText, whyNotSend } from './phone.ts';
+import { MAX_SEND_BYTES, clock, mimeOf, statusText, whyNotSend } from './phone.ts';
+import { ActionLog, UndoStack, formatAction } from './actionlog.ts';
 
 export interface CoreConfig {
   port: number;
@@ -84,17 +86,82 @@ export class Core {
       this.memory, this.hooks, this.reminders, q => this.lookUpWeb(q), this.activity,
       (what, withApp) => this.open(what, withApp), () => this.readClipboard(), cmd => this.run(cmd), () => this.readScreen(), () => this.lookAtScreen(),
       (task, where, name) => this.startClaude(task, where, name),
-      {
-        writeFile: (file, content) => this.changeFile('mcp__aang__write_file', { file }, () => writeWhole(file, content, this.protectedPaths())),
-        editFile: (file, oldText, newText) => this.changeFile('mcp__aang__edit_file', { file }, () => editExact(file, oldText, newText, this.protectedPaths())),
-        undoFile: file => this.changeFile('mcp__aang__undo_file_change', { file: file ?? '' }, () => undoLast(file)),
-        hands: (action, what, how) => this.hands(action, what, how),
-        phone: (what, note) => this.sendToPhone(what, note),
-      },
+      this.doers(),
     );
   }
 
+  /** What the tools that change things, keep a record, or undo call back into. Also what the tests drive. */
+  doers(): Doers {
+    return {
+      writeFile: (file, content) => this.changeFile('mcp__aang__write_file', { file }, () => writeWhole(file, content, this.protectedPaths())),
+      editFile: (file, oldText, newText) => this.changeFile('mcp__aang__edit_file', { file }, () => editExact(file, oldText, newText, this.protectedPaths())),
+      undoFile: file => this.changeFile('mcp__aang__undo_file_change', { file: file ?? '' }, () => undoLast(file)),
+      hands: (action, what, how) => this.hands(action, what, how),
+      phone: (what, note) => this.sendToPhone(what, note),
+      report: (tool, input, failed, text) => this.reportAction(tool, input, failed, text),
+      pushUndo: (label, run) => this.undo.push(label, run),
+      undoLast: () => this.undoLastThing(),
+      recent: n => this.actions.text(n),
+      permissions: () => this.permissionsText(),
+      revoke: kind => this.revokeText(kind),
+    };
+  }
+
   private protectedPaths() { return { stateDir: this.cfg.stateDir, dataDir: this.cfg.dataDir }; }
+
+  // ------------------------------------------------------------------ the record, undo, permissions, hush
+
+  /** Everything he does on the machine, with what really happened. */
+  readonly actions: ActionLog;
+  private readonly undo = new UndoStack();
+
+  private reportAction(tool: string, input: Record<string, unknown>, failed: boolean, text: string): void {
+    const rec = this.actions.add({ tool, did: describeCall('mcp__aang__' + tool, input), ok: !failed, note: failed ? text : '' });
+    this.sendTo('discord', { t: 'action', text: formatAction(rec) });        // a receipt in #log, silently
+  }
+
+  private undoLastThing(): { ok: boolean; detail: string } {
+    const u = this.undo.pop();
+    if (!u) return { ok: false, detail: 'There is nothing to undo right now. I can undo a file change, something I remembered or forgot, or a reminder, since I last started.' };
+    return { ok: true, detail: `Undid ${u.label}. ${u.run()}` };
+  }
+
+  private permissionsText(): string {
+    const all = this.trust.list();
+    if (!all.length) return 'He has not let me do anything without asking. I ask before each kind of thing.';
+    return 'He has let me do these without asking each time:\n' + all.map(r => `- ${r.kind}${r.since ? ` (since ${r.since})` : ''}${r.example ? `, e.g. "${r.example}"` : ''}`).join('\n')
+      + '\nForce quit, deleting, installing and anything that reaches the internet ask every time. He can take any of these back.';
+  }
+
+  private revokeText(kind: string): string {
+    const want = (kind ?? '').trim().toLowerCase();
+    const all = this.trust.list();
+    const hit = all.find(r => r.kind.toLowerCase() === want) ?? (all.filter(r => r.kind.toLowerCase().includes(want)).length === 1 ? all.find(r => r.kind.toLowerCase().includes(want)) : undefined);
+    if (!want || !hit) return `I have no permission called "${kind}". ${this.permissionsText()}`;
+    this.trust.revoke(hit.kind);
+    return `Done. I will ask again before I ${hit.kind}.`;
+  }
+
+  /** Hold everything unprompted for a while; it is delivered afterwards, never lost. */
+  private hushUntil = 0;
+  private hushTimer: NodeJS.Timeout | null = null;
+  private hush(minutes: number): string {
+    if (this.hushTimer) { clearTimeout(this.hushTimer); this.hushTimer = null; }
+    const m = Math.max(0, Math.min(720, Math.floor(Number.isFinite(minutes) ? minutes : 0)));
+    if (m === 0) {
+      const was = this.hushUntil > Date.now();
+      this.hushUntil = 0; this.releasePending();
+      return was ? 'Hush is off. I will tell you what came up.' : 'I was not hushed.';
+    }
+    this.hushUntil = Date.now() + m * 60_000;
+    this.hushTimer = setTimeout(() => { this.hushUntil = 0; this.releasePending(); }, m * 60_000);
+    this.hushTimer.unref?.();
+    return `Hushed for ${m} minutes (until ${clock(new Date(this.hushUntil))}). I will hold whatever comes up and tell you after.`;
+  }
+  private releasePending(): void {
+    const held = this.pending.splice(0);
+    held.forEach((text, i) => setTimeout(() => this.announce(text), i * 6000).unref?.());
+  }
 
   /** Ask (once, then trusted), then change the file. A refusal by the rules is reported without asking at all. */
   private async changeFile(tool: string, input: Record<string, unknown>, doIt: () => { ok: boolean; detail: string }): Promise<{ ok: boolean; detail: string }> {
@@ -104,7 +171,9 @@ export class Core {
     const no = file ? refusal(file, this.protectedPaths()) : null;
     if (no) return { ok: false, detail: `Not done: ${no}.` };
     if (!await this.askPermission(tool, input)) return { ok: false, detail: this.whyNot() + ' Nothing was changed.' };
-    return doIt();
+    const r = doIt();
+    if (r.ok && tool !== 'mcp__aang__undo_file_change') this.undo.push(`the change to ${file}`, () => undoLast(file).detail);
+    return r;
   }
 
   /** Windows only the desktop can reach: closing, force-quitting, moving, media keys. */
@@ -211,6 +280,7 @@ export class Core {
       desktop: this.clientsOf('desktop').length > 0, atDesk: this.atDesk, discord: this.clientsOf('discord').length > 0,
       working: this.active !== null && this.active.sub !== null, muted: this.muted,
       quota: this.policy.last, claudeSessions: this.hooks.status(), reminders: this.reminders.list().length,
+      hushUntil: this.hushUntil ? new Date(this.hushUntil) : null,
     });
   }
   private async lookAtScreen(): Promise<{ text: string; image?: { data: string; mimeType: string } }> {
@@ -306,6 +376,7 @@ export class Core {
     this.reminders = new Reminders(cfg.stateDir);
     this.sessions = new SessionStore(cfg.stateDir);
     this.trust = new TrustStore(cfg.stateDir);
+    this.actions = new ActionLog(cfg.stateDir);
   }
 
   // ------------------------------------------------------------------ lifecycle
@@ -509,6 +580,15 @@ export class Core {
       }
       case 'desk': this.atDesk = m.active !== false; break;
       case 'status': this.send(ws, { t: 'status.reply', text: this.status() }); break;
+      case 'actions': this.send(ws, { t: 'actions.reply', text: this.actions.text(10) }); break;
+      case 'trust': this.send(ws, { t: 'trust.reply', items: this.trust.list().map(r => ({ kind: r.kind, example: r.example, since: r.since })) }); break;
+      case 'revoke': {
+        const said = this.revokeText(String(m.kind ?? ''));
+        this.actions.add({ tool: 'revoke', did: `took back a permission: ${String(m.kind ?? '').slice(0, 60)}`, ok: /^Done/.test(said), note: /^Done/.test(said) ? '' : said });
+        this.send(ws, { t: 'trust.reply', items: this.trust.list().map(r => ({ kind: r.kind, example: r.example, since: r.since })) });
+        break;
+      }
+      case 'hush': this.send(ws, { t: 'hush.reply', text: this.hush(Number(m.minutes)) }); break;
       case 'submit': {
         const id = typeof m.id === 'string' && m.id ? m.id : undefined;
         const text = typeof m.text === 'string' ? m.text.trim() : '';
@@ -698,6 +778,8 @@ export class Core {
    * order the moment he is back.
    */
   announce(text: string, opts: { asked?: boolean; focus?: string } = {}): void {
+    // Hush holds everything, even what he asked to be told about; it comes out when the hush ends.
+    if (this.hushUntil > Date.now()) { this.pending.push(text); while (this.pending.length > 8) this.pending.shift(); return; }
     const msg: ToBody = { t: 'bubble', text, stream: false, proactive: true, asked: opts.asked === true, ...(opts.focus ? { focus: opts.focus, link: 'Claude' } : {}) };
     // Away from the PC: Discord, and only Discord. It keeps its own quiet hours, which make it silent, not lost.
     if (this.whereHeIs() === 'discord') { this.sendTo('discord', msg); return; }

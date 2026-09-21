@@ -47,6 +47,10 @@ export const TOOL_LABELS: Record<string, string> = {
   look_at_window: 'looking at your window',
   start_claude: 'starting Claude on it',
   my_abilities: 'checking what I can do',
+  what_did_you_do: 'checking what I did',
+  undo_last: 'putting that back',
+  my_permissions: 'checking what I may do',
+  revoke_permission: 'taking that permission back',
   send_to_phone: 'sending that to your Discord',
   write_file: 'writing that file',
   edit_file: 'editing that file',
@@ -82,7 +86,8 @@ export const TOOL_NAMES = ['mcp__aang__get_time', 'mcp__aang__get_weather', 'mcp
   'mcp__aang__remember', 'mcp__aang__forget', 'mcp__aang__what_you_know',
   'mcp__aang__open', 'mcp__aang__read_clipboard', 'mcp__aang__run', 'mcp__aang__read_window', 'mcp__aang__look_at_window', 'mcp__aang__start_claude',
   'mcp__aang__write_file', 'mcp__aang__edit_file', 'mcp__aang__undo_file_change',
-  'mcp__aang__close_app', 'mcp__aang__force_quit', 'mcp__aang__arrange_window', 'mcp__aang__media_key', 'mcp__aang__my_abilities', 'mcp__aang__send_to_phone'];
+  'mcp__aang__close_app', 'mcp__aang__force_quit', 'mcp__aang__arrange_window', 'mcp__aang__media_key', 'mcp__aang__my_abilities', 'mcp__aang__send_to_phone',
+  'mcp__aang__what_did_you_do', 'mcp__aang__undo_last', 'mcp__aang__my_permissions', 'mcp__aang__revoke_permission'];
 
 /**
  * What he can honestly say he can do. A tool result, not prompt text: a long "here is what you can do" block in the
@@ -99,6 +104,7 @@ export const ABILITIES = [
   '- Read what is in the window he is in, and look at it. Read his clipboard.',
   '- Send a file, or a picture of the window he is in, to his Discord so he can see it on his phone. Never files that hold passwords or keys.',
   '- Set reminders. Remember things about him and search what he has told you.',
+  '- Keep a record of what I do, say it back ("what did you just do"), undo the last change (a file, something remembered, a reminder), and show or take back what he has let me do without asking.',
   '- Start longer jobs in Claude Code, above all his job hunt.',
   'You cannot: send email or messages, click or type inside other apps, install software, or use his accounts. If he asks for one of those, say it is not something you can do yet.',
 ].join('\n');
@@ -116,7 +122,20 @@ export interface Doers {
   undoFile(file?: string): Promise<{ ok: boolean; detail: string }>;
   hands(action: 'close' | 'forcequit' | 'arrange' | 'media', what: string, how?: string): Promise<{ ok: boolean; detail: string }>;
   phone(what: string, note?: string): Promise<{ ok: boolean; detail: string }>;
+  /** Something acting has finished: for the activity log. */
+  report(tool: string, input: Record<string, unknown>, failed: boolean, text: string): void;
+  /** Something that can be put back, for undo_last. */
+  pushUndo(label: string, run: () => string): void;
+  undoLast(): { ok: boolean; detail: string };
+  recent(n: number): string;
+  permissions(): string;
+  revoke(kind: string): string;
 }
+
+/** Tools whose use is written to the activity log. Reading the time or the weather is not worth a line. */
+const LOGGED = new Set(['open', 'run', 'start_claude', 'read_window', 'look_at_window', 'read_clipboard', 'send_to_phone',
+  'write_file', 'edit_file', 'undo_file_change', 'undo_last', 'close_app', 'force_quit', 'arrange_window', 'media_key',
+  'remember', 'forget', 'set_reminder', 'cancel_reminder', 'revoke_permission', 'look_up_web']);
 
 /**
  * Built-in tools Aang may use without asking. All of them only look: they search, fetch and read, and none
@@ -220,6 +239,13 @@ export function describeCall(tool: string, input: Record<string, unknown>): stri
     case 'mcp__aang__look_at_window': return `take a picture of ${short(s('app'), 60)}`;
     case 'mcp__aang__start_claude': return `start Claude on the ${short(s('name') || 'task', 40)}`;
     case 'mcp__aang__run': return `run ${short(s('command'), 70)}`;
+    case 'mcp__aang__look_up_web': return `look up ${short(s('question'), 70)}`;
+    case 'mcp__aang__remember': return `remember "${short(s('fact'), 80)}"`;
+    case 'mcp__aang__forget': return `forget "${short(s('which'), 60)}"`;
+    case 'mcp__aang__set_reminder': return `set a reminder: ${short(s('text'), 70)}`;
+    case 'mcp__aang__cancel_reminder': return `cancel the reminder "${short(s('which'), 60)}"`;
+    case 'mcp__aang__undo_last': return 'undo the last change';
+    case 'mcp__aang__revoke_permission': return `take back the permission "${short(s('kind'), 40)}"`;
     case 'mcp__aang__send_to_phone': return `send ${short(s('what'), 60)} to your Discord`;
     case 'mcp__aang__write_file': return `write to ${short(s('file'), 60)}`;
     case 'mcp__aang__edit_file': return `change ${short(s('file'), 60)}`;
@@ -250,9 +276,19 @@ export function makeToolServer(
   const ok = (text: string) => ({ content: [{ type: 'text' as const, text }] });
   const fail = (text: string) => ({ content: [{ type: 'text' as const, text }], isError: true });
 
+  // Every tool that acts is written to the activity log after it runs, with what really happened.
+  const logged = (t: any) => !LOGGED.has(t.name) || !doers ? t : {
+    ...t,
+    handler: async (a: any, x: unknown) => {
+      const r = await t.handler(a, x);
+      try { doers.report(t.name, a ?? {}, r?.isError === true, String(r?.content?.find((c: any) => c.type === 'text')?.text ?? '')); } catch { /* the log must never break a tool */ }
+      return r;
+    },
+  };
+
   return createSdkMcpServer({
     name: 'aang',
-    tools: [
+    tools: ([
       tool('get_time', 'Current local date and time in Toronto. Use for any question about the time or date.', {},
         async () => ok(formatTime())),
       tool('get_weather', 'Current weather in Toronto. Use for any question about the weather or what to wear.', {},
@@ -282,6 +318,7 @@ export function makeToolServer(
         async ({ fact }) => {
           const { fact: saved, replaced } = memory.remember(fact);
           if (!saved) return fail('That did not save. Say it again as a sentence?');
+          doers?.pushUndo(`remembering "${saved.text}"`, () => { memory.forget(saved.text); if (replaced) memory.remember(replaced.text); return `Forgot "${saved.text}" again${replaced ? ` and brought back "${replaced.text}"` : ''}.`; });
           return ok(replaced ? `Kept: "${saved.text}". It replaces the older "${replaced.text}".` : `Kept: "${saved.text}".`);
         }),
       tool('forget', 'Delete something you know about Joshua, when he asks you to forget it or tells you it is wrong.',
@@ -289,6 +326,7 @@ export function makeToolServer(
         async ({ which }) => {
           const gone = memory.forget(which);
           console.log(`memory: forget ${JSON.stringify(which)} removed ${gone.length}: ${JSON.stringify(gone.map(f => f.text))}`);
+          if (gone.length) doers?.pushUndo(`forgetting ${gone.length} thing${gone.length > 1 ? 's' : ''}`, () => { for (const f of gone) memory.remember(f.text); return `Brought back: ${gone.map(f => `"${f.text}"`).join('; ')}.`; });
           return gone.length
             ? ok(`Forgotten (${gone.length}): ${gone.map(f => `"${f.text}"`).join('; ')}. Tell him plainly what you forgot.`)
             : fail('Nothing matched that. Check what_you_know for what is there.');
@@ -341,6 +379,16 @@ export function makeToolServer(
           const r = await doers.phone(what, note);
           return r.ok ? ok(r.detail) : fail(r.detail);
         }),
+      tool('what_did_you_do', 'What you have done on his computer, newest last: files written, apps closed, things opened, commands run, what you read or sent. Use for "what did you just do", "what have you done today", "did you close that".',
+        { count: z.number().optional().describe('how many recent actions, default 10') },
+        async ({ count }) => ok(doers ? doers.recent(count ?? 10) : 'The activity record is not available right now.')),
+      tool('undo_last', 'Undo the last thing you did that can be undone: a file change, something you remembered or forgot, or a reminder you set or cancelled. Use for "undo that", "put it back", "that was wrong". Say plainly what was undone, or that nothing can be.', {},
+        async () => { if (!doers) return fail('Undo is not available right now.'); const r = doers.undoLast(); return r.ok ? ok(r.detail) : fail(r.detail); }),
+      tool('my_permissions', 'What he has let you do without asking each time, with when. Use for "what can you do without asking", "what have I allowed", "show your permissions".', {},
+        async () => ok(doers ? doers.permissions() : 'Permissions are not available right now.')),
+      tool('revoke_permission', 'Take back something he let you do without asking, so you ask again next time. Use when he says "stop letting you open apps", "ask me before writing files again", "revoke that". Give the name shown by my_permissions.',
+        { kind: z.string().describe('the permission, e.g. "open apps", "write files", "run git"') },
+        async ({ kind }) => ok(doers ? doers.revoke(kind) : 'Permissions are not available right now.')),
       tool('write_file', 'Create a file or replace one whole, with the text you give. For a small change to an existing file use edit_file instead. Give the full path starting with the drive. The old version is kept, so undo_file_change can put it back. You cannot write to Windows, program folders, or your own settings and memory.',
         { file: z.string().describe('full path, e.g. C:\\Users\\Shadow\\Documents\\notes.txt'), content: z.string().describe('the whole new content of the file') },
         async ({ file, content }) => {
@@ -412,6 +460,7 @@ export function makeToolServer(
           if (when === null) return fail('That time did not make sense. Ask him when he wants it, within the next month.');
           const r = reminders.add(text, when);
           if (!r) return fail('That reminder was empty, or he already has the maximum number set.');
+          doers?.pushUndo(`the reminder "${r.text}"`, () => { reminders.cancel(r.id); return `Cancelled the reminder "${r.text}".`; });
           return ok(`Reminder set: "${r.text}" ${describeWhen(r.at)}.`);
         }),
       tool('list_reminders', 'The reminders Joshua has set that have not gone off yet.', {},
@@ -426,9 +475,10 @@ export function makeToolServer(
         async ({ which }) => {
           if (!reminders) return fail('Reminders are not running right now.');
           const gone = reminders.cancel(which);
+          if (gone) doers?.pushUndo(`cancelling "${gone.text}"`, () => { const back = reminders.add(gone.text, gone.at); return back ? `Set the reminder "${gone.text}" again.` : 'That reminder could not be set again.'; });
           return gone ? ok(`Cancelled: "${gone.text}".`) : fail('No reminder matched that.');
         }),
-    ],
+    ] as any[]).map(logged),
   });
 }
 
