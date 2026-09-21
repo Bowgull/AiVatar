@@ -19,7 +19,7 @@ static class Docking
     /// <summary>Where the sprite frame sits in the window, before the headroom (see PetWindow.Extra), and its size.</summary>
     public const int SpriteX = 246, SpriteY = 86, Frame = 224;
     /// <summary>How much of him shows when docked, and when he has something to say (unscaled pixels, measured along the turn).</summary>
-    public const int PeekPx = 56, PeekMorePx = 90;
+    public const int PeekPx = 34, PeekMorePx = 90;          // 34: forehead and eyes, as the Rainmeter skin showed him
     /// <summary>Dragging him within this of an edge docks him there.</summary>
     public const int SnapPx = 24;
     /// <summary>The collapsed bubble reaches this far above the old window top: it must stay on screen when he stands at an edge.</summary>

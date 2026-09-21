@@ -262,6 +262,15 @@ Third-party memory services (privacy). Reddit feed. WoW combat-log analysis (his
    --selftest-dock` (26 checks, including that the rotation maths matches `RotateFlip` and that no pixel value
    changes); on the real Body all four edges pass 16 numeric checks (`tests/fakecore/visual-dock.mjs`). Not built:
    recomputing on a DPI change while running (a restart does), and the 150 ms crossfades.
+   **Docking redone the Rainmeter way 2026-09-21:** Joshua wanted the SAME behaviour as his old Rainmeter skin
+   (BloodWired AangEdge.ini + Aang.lua), read from its source: at rest only 34 px (forehead and eyes) shows; hovering the
+   edge where he is (his head, or a 3 px strip at the screen edge) brings him up in 0.6 s with a wave and a time-of-day
+   hello, no click needed; clicking his head brings him up with the box open; a message while tucked brings him up to say
+   it (held while WoW has focus); he stays up doing his idle things (look, spin, nap late at night, and at the bottom a
+   walk or scooter trip and back) and after 45 s with nothing going on, never while a bubble is up, spins and slides back
+   down; the hotkey toggles; "yip yip" sends him down; the edge does not wake him while WoW is running. Replaces the
+   click-to-reveal, 1 s tuck-back, 56 px peek and gold dot. Checked on the real Body: `tests/fakecore/visual-rainmeter.mjs`
+   (8/8, bottom and right) and `--selftest-dock`.
    **Panel v1 built 2026-09-21 (eleventh pass):** tray "Panel..." opens a Clean Gold window with four tabs, all filled by
    the Core with no model (`panel` / `panel.reply`): What I know (every remembered fact with a Forget button that
    deletes exactly that row, is undoable, and stops him using it on the next answer), What I may do (the trust list
