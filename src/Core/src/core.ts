@@ -16,6 +16,7 @@ import { READ_ONLY_BUILTINS, TOOL_NAMES, SHELL_TOOLS, WEB_PROMPT, WEB_TOOLS, des
 import { HookServer, HookTracker } from './hooks.ts';
 import { Reminders } from './reminders.ts';
 import { SessionStore } from './sessions.ts';
+import { ActivityLog } from './activity.ts';
 import { buildSystemPrompt, lint, stripReasoning } from './voice.ts';
 
 export interface CoreConfig {
@@ -61,8 +62,10 @@ export class Core {
   private readonly systemPrompt: string;
   /** Built fresh per lane: one in-process MCP server cannot serve two live queries. Sharing it made
    *  Aang's own tools fail with "the aang server failed to connect" the moment a second lane started. */
-  private tools() { return makeToolServer(this.memory, this.hooks, this.reminders, q => this.lookUpWeb(q)); }
+  private tools() { return makeToolServer(this.memory, this.hooks, this.reminders, q => this.lookUpWeb(q), this.activity); }
   readonly hooks = new HookTracker();
+  /** Which window Joshua is in. Memory only, never written to disk. */
+  readonly activity = new ActivityLog();
   readonly reminders: Reminders;
   /** Which Claude session each lane is in, so six reboots a day do not read as amnesia. */
   readonly sessions: SessionStore;
@@ -234,7 +237,13 @@ export class Core {
       }
       case 'stop': void this.stopActive(m.id); break;
       case 'rate': this.rate(m.id, m.value); break;
-      case 'presence': this.setSilent(m.quiet === true, this.muted); break;
+      case 'presence': {
+        this.setSilent(m.quiet === true, this.muted);
+        const watching = m.watching !== false;
+        if (watching !== this.activity.watching) { this.activity.watching = watching; if (!watching) this.activity.clear(); }
+        if (watching) this.activity.record(m.foreground ?? '', m.title ?? '');
+        break;
+      }
       case 'permission.reply': this.answerPermission(m.id, m.allow === true); break;
       case 'mute': this.setSilent(this.bodyQuiet, m.on === true); break;
       case 'saving': this.policy.setSaving(m.on); { const q = this.quotaMessage(); if (q) this.broadcast(q); } break;

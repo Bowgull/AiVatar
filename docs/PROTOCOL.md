@@ -21,7 +21,7 @@ Core is down (drag, poke, tray); it must never block on the link.
 | `t` | Fields | Meaning |
 |---|---|---|
 | `hello` | `v`: 1, `pid` | Sent on every (re)connect. |
-| `presence` | `quiet` (bool), `foreground` (process name) | Sent when quiet mode changes. |
+| `presence` | `quiet` (bool), `foreground` (process name), `title` (window title), `watching` (bool) | Sent when quiet mode changes, and whenever the foreground window or its title changes (at most twice a second). `watching: false` means Joshua has switched window awareness off in the tray: the Core stops recording and forgets what it had. |
 | `poked` | none | The sprite was clicked without dragging. |
 | `moved` | `x`, `y` | The window was dragged to a new position. |
 | `pong` | none | Reply to `ping`. |

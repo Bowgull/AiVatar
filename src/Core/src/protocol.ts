@@ -20,7 +20,7 @@ export type ToBody =
 
 export type FromBody =
   | { t: 'hello'; v: number; pid?: number }
-  | { t: 'presence'; quiet: boolean; foreground: string }
+  | { t: 'presence'; quiet: boolean; foreground: string; title?: string; watching?: boolean }
   | { t: 'poked' }
   | { t: 'moved'; x: number; y: number }
   | { t: 'pong' }

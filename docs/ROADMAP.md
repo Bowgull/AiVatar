@@ -158,7 +158,11 @@ finding, cloud for understanding**.
 
 ### P4 - Knowing what is on screen
 *Closes: F5, part of F3*
-- [ ] Always-on tier: foreground window title and process, polled. ~70% of "what is he doing"
+- [x] Always-on tier: foreground window title and process, polled (**done 2026-09-20**). Measured at
+      **0.77% of one core, 21 MB** - the poll already existed, the title was free. Held in memory only,
+      never written to disk, and reaching a conversation only when Aang calls what_im_doing, so a turn
+      that is not about the screen costs nothing and leaks nothing. Tray switch to turn it off.
+      7/7 live (tests/fakecore/window.mjs), 10/10 unit.
 - [ ] On-relevance tier: scoped, cached UIA read of the foreground window, 100-400 ms
 - [ ] Vision fallback only for canvas, games, or an explicit visual question. Window capture, downscaled
 - [ ] Honest failure: say "that video is DRM-protected, I can't see it" instead of guessing

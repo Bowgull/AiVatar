@@ -36,6 +36,7 @@ static class Win32
     [DllImport("kernel32.dll")] public static extern bool CloseHandle(IntPtr h);
     public const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
 
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetWindowText(IntPtr h, System.Text.StringBuilder s, int n);
     [DllImport("user32.dll")] public static extern short GetAsyncKeyState(int vk);
     [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
     [DllImport("user32.dll")] public static extern bool BringWindowToTop(IntPtr h);

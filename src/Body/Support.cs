@@ -86,6 +86,8 @@ sealed class Config
     public bool ShowUsage { get; set; }
     /// <summary>Master mute: Aang never speaks up on his own until it is switched off.</summary>
     public bool Muted { get; set; }
+    /// <summary>Let Aang see the title of the window in front, so he knows which app Joshua is in.</summary>
+    public bool SeeActiveWindow { get; set; } = true;
 
     public static Config Load()
     {

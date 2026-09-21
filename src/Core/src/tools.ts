@@ -4,6 +4,7 @@ import { z } from 'zod';
 import type { Memory } from './memory.ts';
 import type { HookTracker } from './hooks.ts';
 import type { Reminders } from './reminders.ts';
+import type { ActivityLog } from './activity.ts';
 import { describeWhen, dueAt } from './reminders.ts';
 
 const TZ = 'America/Toronto';
@@ -40,6 +41,7 @@ export const TOOL_LABELS: Record<string, string> = {
   get_weather: 'checking the weather',
   search_memory: 'looking through our history',
   claude_code_status: 'checking on Claude Code',
+  what_im_doing: 'checking what you are in',
   set_reminder: 'setting a reminder',
   list_reminders: 'checking your reminders',
   cancel_reminder: 'cancelling that reminder',
@@ -57,7 +59,7 @@ export const toolLabel = (fullName: string): string => TOOL_LABELS[fullName.repl
 
 export const TOOL_NAMES = ['mcp__aang__get_time', 'mcp__aang__get_weather', 'mcp__aang__search_memory',
   'mcp__aang__claude_code_status', 'mcp__aang__set_reminder', 'mcp__aang__list_reminders', 'mcp__aang__cancel_reminder',
-  'mcp__aang__look_up_web'];
+  'mcp__aang__look_up_web', 'mcp__aang__what_im_doing'];
 
 /**
  * Built-in tools Aang may use without asking. All of them only look: they search, fetch and read, and none
@@ -133,7 +135,7 @@ export function describeCall(tool: string, input: Record<string, unknown>): stri
   }
 }
 
-export function makeToolServer(memory: Memory, hooks?: HookTracker, reminders?: Reminders, lookUpWeb?: (q: string) => Promise<string>) {
+export function makeToolServer(memory: Memory, hooks?: HookTracker, reminders?: Reminders, lookUpWeb?: (q: string) => Promise<string>, activity?: ActivityLog) {
   const ok = (text: string) => ({ content: [{ type: 'text' as const, text }] });
   const fail = (text: string) => ({ content: [{ type: 'text' as const, text }], isError: true });
 
@@ -164,6 +166,8 @@ export function makeToolServer(memory: Memory, hooks?: HookTracker, reminders?: 
           try { return ok(await lookUpWeb(question)); }
           catch (e) { return fail('That lookup failed: ' + (e as Error).message); }
         }),
+      tool('what_im_doing', 'Which application window Joshua has in front of him right now, and which ones just before, from their titles. Use when he says "this", "here", "what I am looking at", or asks which app he is in. It only reads the window title, never what is inside the window. NOT for questions about Claude Code sessions or agents: use claude_code_status for those.', {},
+        async () => ok(activity ? activity.summary() : 'Window tracking is not running.')),
       tool('claude_code_status', 'What Joshua\'s Claude Code sessions are doing right now: working, waiting for him, or idle. Use for any question about Claude Code, his coding sessions, or whether something finished.', {},
         async () => ok(hooks ? hooks.status() : 'Session tracking is not running, so there is nothing to report.')),
       tool('set_reminder', 'Remind Joshua about something later. Give either in_minutes or at (an ISO timestamp); call get_time first if he named a clock time.',

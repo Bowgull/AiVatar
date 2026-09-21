@@ -30,10 +30,13 @@ sealed class PetWindow : Form
     CoreSupervisor? supervisor;
     bool noCore;
     ToolStripMenuItem coreItem = null!, autostartItem = null!;
-    ToolStripMenuItem quietItem = null!, showItem = null!, modelItems = null!, muteItem = null!;
+    ToolStripMenuItem quietItem = null!, showItem = null!, modelItems = null!, muteItem = null!, seeWindowItem = null!;
 
     string? heldText;               // latest proactive message waiting for quiet mode to end
     string foreground = "";
+    string foregroundTitle = "";
+    string sentWindow = "";
+    DateTime windowSentAt = DateTime.MinValue;
     bool dirty = true, quiet, autoQuiet, dragging, moved, hotkeyOk, bubbleWasVisible, wasAnimating = true;
     bool? forcedQuiet;
     DateTime wakeUntil = DateTime.MinValue;
@@ -132,7 +135,8 @@ sealed class PetWindow : Form
             if (!up) return;
             if (saving) _ = link.SendAsync(new { t = "saving", on = true });
             _ = link.SendAsync(new { t = "mute", on = cfg.Muted });
-            _ = link.SendAsync(new { t = "presence", quiet, foreground });      // so it knows to hold unprompted messages
+            sentWindow = "";                                                       // resend after a reconnect
+            _ = link.SendAsync(new { t = "presence", quiet, foreground, title = foregroundTitle, watching = cfg.SeeActiveWindow });
         };
         PushStatus();
         input.PageRequested += d => { if (d > 0 && bubble.More) ExpandBubble(); else if (bubble.Scroll(d * 6)) dirty = true; };
@@ -259,8 +263,41 @@ sealed class PetWindow : Form
     void PollForeground()
     {
         foreground = ForegroundName();
+        foregroundTitle = cfg.SeeActiveWindow ? ForegroundTitle() : "";
         var wow = cfg.QuietProcessPrefixes.Any(p => foreground.StartsWith(p, StringComparison.OrdinalIgnoreCase));
         if (wow != autoQuiet) { autoQuiet = wow; ApplyQuiet(); }
+        ReportWindow();
+    }
+
+    /// <summary>
+    /// Tell the Core which window is in front, when it changes. The title is the cheap half of knowing what
+    /// Joshua is doing: it names the app, and usually the repo, file, page or game, for no cost at all.
+    /// Only sent when it actually changes, and not more than twice a second, so alt-tabbing does not flood
+    /// the socket.
+    /// </summary>
+    void ReportWindow()
+    {
+        var now = DateTime.UtcNow;
+        var key = foreground + "\u0000" + foregroundTitle;
+        if (key == sentWindow || now - windowSentAt < TimeSpan.FromMilliseconds(500)) return;
+        sentWindow = key; windowSentAt = now;
+        _ = link.SendAsync(new { t = "presence", quiet, foreground, title = foregroundTitle, watching = cfg.SeeActiveWindow });
+    }
+
+    /// <summary>The foreground window's title. Read every poll, because it changes without the window
+    /// changing: a new browser tab or a new file is the same window with a different title.</summary>
+    string ForegroundTitle()
+    {
+        try
+        {
+            var h = Win32.GetForegroundWindow();
+            if (h == IntPtr.Zero) return "";
+            Win32.GetWindowThreadProcessId(h, out var pid);
+            if (pid == Environment.ProcessId) return "";      // never report Aang's own windows
+            var sb = new System.Text.StringBuilder(256);
+            return Win32.GetWindowText(h, sb, sb.Capacity) > 0 ? sb.ToString() : "";
+        }
+        catch { return ""; }
     }
 
     // The foreground window almost never changes, so the process name is looked up only when it does.
@@ -305,7 +342,7 @@ sealed class PetWindow : Form
         anim.Play("idle");
         if (!quiet && heldText != null) { ShowBubble(heldText, false); heldText = null; }
         dirty = true;
-        _ = link.SendAsync(new { t = "presence", quiet, foreground });
+        _ = link.SendAsync(new { t = "presence", quiet, foreground, title = foregroundTitle, watching = cfg.SeeActiveWindow });
     }
 
     // ------------------------------------------------------------------ frame loop
@@ -789,6 +826,15 @@ sealed class PetWindow : Form
         talk.Click += (_, _) => OpenInput(userAsked: true);
         quietItem = new ToolStripMenuItem("Quiet mode: auto");
         quietItem.Click += (_, _) => { forcedQuiet = forcedQuiet switch { null => true, true => false, false => null }; ApplyQuiet(); };
+        seeWindowItem = new ToolStripMenuItem("Let him see which app I'm in") { Checked = cfg.SeeActiveWindow };
+        seeWindowItem.Click += (_, _) =>
+        {
+            cfg.SeeActiveWindow = !cfg.SeeActiveWindow; cfg.Save();
+            seeWindowItem.Checked = cfg.SeeActiveWindow;
+            sentWindow = ""; windowSentAt = DateTime.MinValue;
+            PollForeground();
+            Note(cfg.SeeActiveWindow ? "I can see which app you're in." : "I can't see which app you're in now.");
+        };
         muteItem = new ToolStripMenuItem("Mute (nothing unprompted)") { Checked = cfg.Muted };
         muteItem.Click += (_, _) => SetMuted(!cfg.Muted);
         var quit = new ToolStripMenuItem("Quit Aang");
@@ -808,7 +854,7 @@ sealed class PetWindow : Form
         autostartItem = new ToolStripMenuItem("Start with Windows");
         autostartItem.Click += (_, _) => Autostart.Set(!Autostart.IsOn());
         menu.Opening += (_, _) => autostartItem.Checked = Autostart.IsOn();
-        menu.Items.AddRange(new ToolStripItem[] { talk, show, hotkeyItem, modelMenu, savingItem, quietItem, muteItem, new ToolStripSeparator(), coreItem, autostartItem, new ToolStripSeparator(), quit });
+        menu.Items.AddRange(new ToolStripItem[] { talk, show, hotkeyItem, modelMenu, savingItem, quietItem, seeWindowItem, muteItem, new ToolStripSeparator(), coreItem, autostartItem, new ToolStripSeparator(), quit });
         tray.ContextMenuStrip = menu;
         tray.Text = "Aang";
         tray.Icon = MakeIcon();
