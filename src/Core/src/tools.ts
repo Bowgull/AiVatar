@@ -47,6 +47,12 @@ export const TOOL_LABELS: Record<string, string> = {
   look_at_window: 'looking at your window',
   start_claude: 'starting Claude on it',
   my_abilities: 'checking what I can do',
+  list_folder: 'looking in that folder',
+  move_file: 'moving that',
+  copy_file: 'copying that',
+  make_folder: 'making that folder',
+  delete_file: 'deleting that',
+  copy_to_clipboard: 'putting that on your clipboard',
   what_did_you_do: 'checking what I did',
   undo_last: 'putting that back',
   my_permissions: 'checking what I may do',
@@ -87,7 +93,8 @@ export const TOOL_NAMES = ['mcp__aang__get_time', 'mcp__aang__get_weather', 'mcp
   'mcp__aang__open', 'mcp__aang__read_clipboard', 'mcp__aang__run', 'mcp__aang__read_window', 'mcp__aang__look_at_window', 'mcp__aang__start_claude',
   'mcp__aang__write_file', 'mcp__aang__edit_file', 'mcp__aang__undo_file_change',
   'mcp__aang__close_app', 'mcp__aang__force_quit', 'mcp__aang__arrange_window', 'mcp__aang__media_key', 'mcp__aang__my_abilities', 'mcp__aang__send_to_phone',
-  'mcp__aang__what_did_you_do', 'mcp__aang__undo_last', 'mcp__aang__my_permissions', 'mcp__aang__revoke_permission'];
+  'mcp__aang__what_did_you_do', 'mcp__aang__undo_last', 'mcp__aang__my_permissions', 'mcp__aang__revoke_permission',
+  'mcp__aang__list_folder', 'mcp__aang__move_file', 'mcp__aang__copy_file', 'mcp__aang__make_folder', 'mcp__aang__delete_file', 'mcp__aang__copy_to_clipboard'];
 
 /**
  * What he can honestly say he can do. A tool result, not prompt text: a long "here is what you can do" block in the
@@ -100,6 +107,8 @@ export const ABILITIES = [
   '- Run commands such as git, builds, tests and listings. Each kind of program is asked about once; installing, deleting or anything that reaches the internet asks every time.',
   '- Open apps, files, folders and links. Read and search his files.',
   '- Write and change files: the old version is kept, so "undo that" works. Never his settings, memory or Windows.',
+  '- Look in a folder, then move, copy, rename and make folders (never overwriting anything), and delete: a delete always asks and goes to my trash for 30 days, so it can be undone. Never a whole drive or his main folders themselves.',
+  '- Put text on his clipboard.',
   '- Close apps, move and resize windows, and press media keys. Force quit an app: that always asks first.',
   '- Read what is in the window he is in, and look at it. Read his clipboard.',
   '- Send a file, or a picture of the window he is in, to his Discord so he can see it on his phone. Never files that hold passwords or keys.',
@@ -120,7 +129,12 @@ export interface Doers {
   writeFile(file: string, content: string): Promise<{ ok: boolean; detail: string }>;
   editFile(file: string, oldText: string, newText: string): Promise<{ ok: boolean; detail: string }>;
   undoFile(file?: string): Promise<{ ok: boolean; detail: string }>;
-  hands(action: 'close' | 'forcequit' | 'arrange' | 'media', what: string, how?: string): Promise<{ ok: boolean; detail: string }>;
+  hands(action: 'close' | 'forcequit' | 'arrange' | 'media' | 'clipset', what: string, how?: string): Promise<{ ok: boolean; detail: string }>;
+  listFolder(dir: string): string;
+  moveFile(from: string, to: string): Promise<{ ok: boolean; detail: string }>;
+  copyFile(from: string, to: string): Promise<{ ok: boolean; detail: string }>;
+  makeFolder(dir: string): Promise<{ ok: boolean; detail: string }>;
+  deleteFile(target: string): Promise<{ ok: boolean; detail: string }>;
   phone(what: string, note?: string): Promise<{ ok: boolean; detail: string }>;
   /** Something acting has finished: for the activity log. */
   report(tool: string, input: Record<string, unknown>, failed: boolean, text: string): void;
@@ -135,7 +149,8 @@ export interface Doers {
 /** Tools whose use is written to the activity log. Reading the time or the weather is not worth a line. */
 const LOGGED = new Set(['open', 'run', 'start_claude', 'read_window', 'look_at_window', 'read_clipboard', 'send_to_phone',
   'write_file', 'edit_file', 'undo_file_change', 'undo_last', 'close_app', 'force_quit', 'arrange_window', 'media_key',
-  'remember', 'forget', 'set_reminder', 'cancel_reminder', 'revoke_permission', 'look_up_web']);
+  'remember', 'forget', 'set_reminder', 'cancel_reminder', 'revoke_permission', 'look_up_web',
+  'move_file', 'copy_file', 'make_folder', 'delete_file', 'copy_to_clipboard']);
 
 /**
  * Built-in tools Aang may use without asking. All of them only look: they search, fetch and read, and none
@@ -239,6 +254,12 @@ export function describeCall(tool: string, input: Record<string, unknown>): stri
     case 'mcp__aang__look_at_window': return `take a picture of ${short(s('app'), 60)}`;
     case 'mcp__aang__start_claude': return `start Claude on the ${short(s('name') || 'task', 40)}`;
     case 'mcp__aang__run': return `run ${short(s('command'), 70)}`;
+    case 'mcp__aang__move_file': return `move ${short(s('from'), 40)} to ${short(s('to'), 40)}`;
+    case 'mcp__aang__copy_file': return `copy ${short(s('from'), 40)} to ${short(s('to'), 40)}`;
+    case 'mcp__aang__make_folder': return `make the folder ${short(s('path'), 60)}`;
+    case 'mcp__aang__delete_file': return `DELETE ${short(s('path'), 60)} (kept in my trash for 30 days, so it can be undone)`;
+    case 'mcp__aang__copy_to_clipboard': return `put ${short(s('text'), 40)} on your clipboard, replacing what is there`;
+    case 'mcp__aang__list_folder': return `look in ${short(s('path'), 60)}`;
     case 'mcp__aang__look_up_web': return `look up ${short(s('question'), 70)}`;
     case 'mcp__aang__remember': return `remember "${short(s('fact'), 80)}"`;
     case 'mcp__aang__forget': return `forget "${short(s('which'), 60)}"`;
@@ -389,6 +410,24 @@ export function makeToolServer(
       tool('revoke_permission', 'Take back something he let you do without asking, so you ask again next time. Use when he says "stop letting you open apps", "ask me before writing files again", "revoke that". Give the name shown by my_permissions.',
         { kind: z.string().describe('the permission, e.g. "open apps", "write files", "run git"') },
         async ({ kind }) => ok(doers ? doers.revoke(kind) : 'Permissions are not available right now.')),
+      tool('list_folder', 'See what is in a folder: names, sizes and dates, newest first. Use before tidying, moving or deleting, and for "what is in my Downloads". Full path.',
+        { path: z.string().describe('full folder path, e.g. C:\\Users\\Shadow\\Downloads') },
+        async ({ path: p }) => ok(doers ? doers.listFolder(p) : 'Looking in folders is not available right now.')),
+      tool('move_file', 'Move or rename a file or folder. Never overwrites: if the destination exists it says so. Full paths for both. Rename is a move with the new name in the same folder. Undoable.',
+        { from: z.string(), to: z.string().describe('the full new path, including the new name') },
+        async ({ from, to }) => { if (!doers) return fail('Moving files is not available right now.'); const r = await doers.moveFile(from, to); return r.ok ? ok(r.detail) : fail(r.detail); }),
+      tool('copy_file', 'Copy a file or folder. Never overwrites. Full paths for both. Undoable.',
+        { from: z.string(), to: z.string().describe('the full path of the copy, including its name') },
+        async ({ from, to }) => { if (!doers) return fail('Copying files is not available right now.'); const r = await doers.copyFile(from, to); return r.ok ? ok(r.detail) : fail(r.detail); }),
+      tool('make_folder', 'Make a new folder (and any missing folders above it). Full path. Undoable while it is empty.',
+        { path: z.string().describe('full path of the new folder') },
+        async ({ path: p }) => { if (!doers) return fail('Making folders is not available right now.'); const r = await doers.makeFolder(p); return r.ok ? ok(r.detail) : fail(r.detail); }),
+      tool('delete_file', 'Delete a file or folder. It shows him its own yes/no EVERY time and goes to your trash for 30 days, so undo_last brings it back. Only when he asks for it to be deleted or cleared out; never to make room or tidy on your own initiative. Never a whole drive or a main folder like Documents itself.',
+        { path: z.string().describe('full path') },
+        async ({ path: p }) => { if (!doers) return fail('Deleting is not available right now.'); const r = await doers.deleteFile(p); return r.ok ? ok(r.detail) : fail(r.detail); }),
+      tool('copy_to_clipboard', 'Put text on his clipboard so he can paste it: a command, an address, a summary. Replaces what is on it now. Use only when he asks for something on the clipboard or to copy it.',
+        { text: z.string().describe('the text to copy') },
+        async ({ text }) => { if (!doers) return fail('The clipboard is not available right now.'); const r = await doers.hands('clipset', text); return r.ok ? ok(r.detail) : fail(r.detail); }),
       tool('write_file', 'Create a file or replace one whole, with the text you give. For a small change to an existing file use edit_file instead. Give the full path starting with the drive. The old version is kept, so undo_file_change can put it back. You cannot write to Windows, program folders, or your own settings and memory.',
         { file: z.string().describe('full path, e.g. C:\\Users\\Shadow\\Documents\\notes.txt'), content: z.string().describe('the whole new content of the file') },
         async ({ file, content }) => {

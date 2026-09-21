@@ -1,3 +1,4 @@
+import './_env.ts';
 // The tools that change things: files (with undo) and windows (close, force quit, move, media).
 // Joshua's rules (2026-09-21): writing files and closing apps are asked once and then trusted; force quit asks every
 // time; his own settings, memory and Windows are never written, and that is decided before he is ever asked.

@@ -14,6 +14,8 @@ import { QuotaPolicy } from './quota.ts';
 import { MODELS, pickLane } from './route.ts';
 import type { Lane as LaneName } from './route.ts';
 import { editExact, refusal, undoLast, writeWhole } from './files.ts';
+import { copyThing, deleteThing, emptyOldTrash, listFolder, makeFolder, moveThing } from './organise.ts';
+import type { Result as OrganiseResult } from './organise.ts';
 import type { Doers } from './tools.ts';
 import { READ_ONLY_BUILTINS, TOOL_NAMES, BUILTIN_SHELL, BUILTIN_WRITE, SHELL_TOOLS, WEB_PROMPT, WEB_TOOLS, describeCall, isLauncher, makeToolServer, reachesNetwork } from './tools.ts';
 import { HookServer, HookTracker } from './hooks.ts';
@@ -98,6 +100,11 @@ export class Core {
       undoFile: file => this.changeFile('mcp__aang__undo_file_change', { file: file ?? '' }, () => undoLast(file)),
       hands: (action, what, how) => this.hands(action, what, how),
       phone: (what, note) => this.sendToPhone(what, note),
+      listFolder: dir => this.listFolderSafe(dir),
+      moveFile: (from, to) => this.organise('mcp__aang__move_file', { from, to }, [from, to], () => moveThing(from, to, this.protectedPaths())),
+      copyFile: (from, to) => this.organise('mcp__aang__copy_file', { from, to }, [from, to], () => copyThing(from, to, this.protectedPaths())),
+      makeFolder: dir => this.organise('mcp__aang__make_folder', { path: dir }, [dir], () => makeFolder(dir, this.protectedPaths())),
+      deleteFile: target => this.organise('mcp__aang__delete_file', { path: target }, [target], () => deleteThing(target, this.protectedPaths())),
       report: (tool, input, failed, text) => this.reportAction(tool, input, failed, text),
       pushUndo: (label, run) => this.undo.push(label, run),
       undoLast: () => this.undoLastThing(),
@@ -108,6 +115,22 @@ export class Core {
   }
 
   private protectedPaths() { return { stateDir: this.cfg.stateDir, dataDir: this.cfg.dataDir }; }
+
+  /** Tidying: refused by the rules before he is asked, then asked (once for moves and copies, every time for delete), then done, and undoable. */
+  private async organise(tool: string, input: Record<string, unknown>, paths: string[], doIt: () => OrganiseResult): Promise<{ ok: boolean; detail: string }> {
+    for (const p of paths) { const no = refusal(p, this.protectedPaths()); if (no) return { ok: false, detail: `Not done: ${no}.` }; }
+    if (!await this.askPermission(tool, input)) return { ok: false, detail: this.whyNot() + ' Nothing was changed.' };
+    const r = doIt();
+    if (r.ok && r.undo) { const undo = r.undo; this.undo.push(describeCall(tool, input), () => undo()); }
+    return { ok: r.ok, detail: r.detail };
+  }
+
+  private listFolderSafe(dir: string): string {
+    if (!path.isAbsolute(dir)) return 'Give the full path of the folder, starting with the drive.';
+    const full = path.resolve(dir).toLowerCase(), state = path.resolve(this.cfg.stateDir).toLowerCase();
+    if (full === state || full.startsWith(state + path.sep)) return 'That is my own settings folder, which I do not open.';
+    return listFolder(dir);
+  }
 
   // ------------------------------------------------------------------ the record, undo, permissions, hush
 
@@ -179,9 +202,10 @@ export class Core {
   /** Windows only the desktop can reach: closing, force-quitting, moving, media keys. */
   private handsPending = new Map<string, { resolve: (m: { ok: boolean; detail: string }) => void; timer: NodeJS.Timeout }>();
   private handsSeq = 0;
-  private async hands(action: 'close' | 'forcequit' | 'arrange' | 'media', what: string, how?: string): Promise<{ ok: boolean; detail: string }> {
-    const tool = { close: 'close_app', forcequit: 'force_quit', arrange: 'arrange_window', media: 'media_key' }[action];
-    const input = action === 'media' ? { key: what } : { what, how: how ?? '' };
+  private async hands(action: 'close' | 'forcequit' | 'arrange' | 'media' | 'clipset', what: string, how?: string): Promise<{ ok: boolean; detail: string }> {
+    const tool = { close: 'close_app', forcequit: 'force_quit', arrange: 'arrange_window', media: 'media_key', clipset: 'copy_to_clipboard' }[action];
+    if (action === 'clipset' && (!what || what.length > 100_000)) return { ok: false, detail: what ? 'That is too long to put on the clipboard.' : 'There was nothing to copy.' };
+    const input = action === 'media' ? { key: what } : action === 'clipset' ? { text: what } : { what, how: how ?? '' };
     if (!await this.askPermission('mcp__aang__' + tool, input)) return { ok: false, detail: this.whyNot() + ' Nothing was done.' };
     if (this.clientsOf('desktop').length === 0) return { ok: false, detail: 'The desktop is not connected, so I could not reach the windows.' };
     const id = `hands${++this.handsSeq}`;
@@ -407,6 +431,7 @@ export class Core {
     // hours and ends with a hard shutdown, so do not leave it all for a clean stop that may never come.
     this.checkpointTimer = setInterval(() => this.memory.checkpoint(), 5 * 60_000);
     this.checkpointTimer.unref?.();
+    emptyOldTrash();                                   // whatever has sat in Aang's trash for 30 days goes for good
     this.reminders.onDue = r => this.announce(`Reminder: ${r.text}`);
     this.reminders.start();
     const resumable = Object.entries(this.sessions.all()).map(([l, r]) => `${l}=${r.id.slice(0, 8)}`).join(' ');
