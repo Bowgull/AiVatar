@@ -63,8 +63,19 @@ export class DiscordGateway implements Gateway {
     return out;
   }
 
+  /** Discord allows 5 buttons to a row and 5 rows to a message. */
   private rows(msg: OutMsg) {
-    return msg.buttons?.length ? [new ActionRowBuilder<ButtonBuilder>().addComponents(msg.buttons.map((b: Button) => new ButtonBuilder().setCustomId(b.id).setLabel(b.label).setStyle(STYLE[b.style])))] : [];
+    const rows: ActionRowBuilder<ButtonBuilder>[] = [];
+    for (let i = 0; i < (msg.buttons?.length ?? 0) && rows.length < 5; i += 5) {
+      rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(msg.buttons!.slice(i, i + 5).map((b: Button) => new ButtonBuilder().setCustomId(b.id).setLabel(b.label.slice(0, 80)).setStyle(STYLE[b.style]))));
+    }
+    return rows;
+  }
+
+  async createPost(forumId: string, title: string, content: string): Promise<string> {
+    const forum: any = await this.client.channels.fetch(forumId);
+    const post = await forum.threads.create({ name: title.slice(0, 100), message: { content } });
+    return post.id;
   }
 
   async send(channelId: string, msg: OutMsg): Promise<string> {

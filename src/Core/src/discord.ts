@@ -13,6 +13,7 @@ import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { writeFileAtomic } from './atomic.ts';
 import { Budget, LAYOUT, LISTEN_CHANNELS, NEEDED, FORBIDDEN, chunkMessage, kindOf, newPairing, tryPair } from './discord-logic.ts';
 import type { Pairing } from './discord-logic.ts';
+import { Grocery, looksLikeRecipe, parseListCommand, parseRecipe } from './lists.ts';
 
 export interface Incoming { id: string; channelId: string; channelName: string; authorId: string; isBot: boolean; content: string; createdAt: number }
 export interface Button { id: string; label: string; style: 'primary' | 'secondary' | 'success' | 'danger' }
@@ -35,6 +36,8 @@ export interface Gateway {
   edit(channelId: string, messageId: string, msg: OutMsg): Promise<void>;
   /** Pin a message. May reject if the permission is missing. */
   pin(channelId: string, messageId: string): Promise<void>;
+  /** Start a post in a forum channel; returns the id of the post (a thread), which more messages can be sent to. */
+  createPost(forumId: string, title: string, content: string): Promise<string>;
   typing(channelId: string): Promise<void>;
   /** Messages newer than `afterId`, oldest first. With no marker, returns just the newest one. */
   fetchSince(channelId: string, afterId: string | null, limit: number): Promise<Incoming[]>;
@@ -50,7 +53,7 @@ export interface CoreLink {
   onEvent(cb: (m: any) => void): void;
 }
 
-export interface State { ownerId: string | null; channels: Record<string, string>; lastSeen: Record<string, string>; deckId?: string }
+export interface State { ownerId: string | null; channels: Record<string, string>; lastSeen: Record<string, string>; deckId?: string; recipes?: Record<string, string[]> }
 
 /** The pinned buttons in #aang. Status costs nothing; the job hunt goes through Aang like anything he types. */
 export const DECK: Button[] = [
@@ -76,7 +79,9 @@ export class DiscordAdapter {
   constructor(gw: Gateway, link: CoreLink, dir: string, opts: { budget?: Budget; now?: () => Date; log?: (s: string) => void; typingMs?: number } = {}) {
     this.gw = gw; this.link = link; this.dir = dir; this.opts = opts;
     this.budget = opts.budget ?? new Budget();
+    this.grocery = new Grocery(dir);
   }
+  private readonly grocery: Grocery;
   private get stateFile() { return path.join(this.dir, 'discord.json'); }
   private get pairFile() { return path.join(this.dir, 'discord-pairing.txt'); }
   private log(s: string) { (this.opts.log ?? (() => {}))(s); }
@@ -84,7 +89,7 @@ export class DiscordAdapter {
   private now() { return (this.opts.now ?? (() => new Date()))(); }
 
   async start(): Promise<void> {
-    try { const s = JSON.parse(readFileSync(this.stateFile, 'utf8')); this.state = { ownerId: s.ownerId ?? null, channels: s.channels ?? {}, lastSeen: s.lastSeen ?? {}, ...(s.deckId ? { deckId: s.deckId } : {}) }; }
+    try { const s = JSON.parse(readFileSync(this.stateFile, 'utf8')); this.state = { ownerId: s.ownerId ?? null, channels: s.channels ?? {}, lastSeen: s.lastSeen ?? {}, ...(s.deckId ? { deckId: s.deckId } : {}), ...(s.recipes ? { recipes: s.recipes } : {}) }; }
     catch { /* first run */ }
     this.gw.onMessage(m => { void this.handle(m).catch(e => this.log('discord: message failed: ' + (e as Error).message)); });
     this.gw.onButton(b => { void this.press(b).catch(e => this.log('discord: button failed: ' + (e as Error).message)); });
@@ -161,7 +166,68 @@ export class DiscordAdapter {
     if (!text) return;
     if (/^(stop|\/stop)$/i.test(text)) { this.link.stop(); await this.gw.send(m.channelId, { content: 'Stopped.' }); return; }
 
+    if (await this.file(m.channelId, m.channelName, text)) return;
     this.ask('d' + m.id, m.channelId, text);
+  }
+
+  // ---------------------------------------------------------------- filing: grocery list and recipes, in code, no model
+
+  /** Handle it here if it is a list command or a pasted recipe; otherwise leave it for Aang. */
+  private async file(channelId: string, channelName: string, text: string): Promise<boolean> {
+    const cmd = parseListCommand(text);
+    if (cmd) {
+      let said: string;
+      if (cmd.op === 'add') {
+        const r = this.grocery.add(cmd.items);
+        const parts: string[] = [];
+        if (r.added.length) parts.push(`Added ${r.added.join(', ')}`);
+        if (r.had.length) parts.push(`${r.had.join(', ')} ${r.had.length > 1 ? 'were' : 'was'} already on it`);
+        if (r.full.length) parts.push(`no room for ${r.full.join(', ')} (the list holds 24)`);
+        said = parts.join('. ') + '.';
+      } else if (cmd.op === 'remove') {
+        const gone = this.grocery.remove(cmd.items);
+        said = gone.length ? `Took ${gone.join(', ')} off the grocery list.` : 'Nothing on the grocery list matched that.';
+      } else if (cmd.op === 'clear') {
+        said = `Cleared the grocery list (${this.grocery.clearAll()} items).`;
+      } else said = 'Here it is.';
+      await this.refreshList(cmd.op === 'show');
+      await this.gw.send(channelId, { content: said });
+      return true;
+    }
+    if (channelName === 'capture' && looksLikeRecipe(text)) { await this.fileRecipe(channelId, text); return true; }
+    return false;
+  }
+
+  /** Post or update the one grocery message in #lists. `bump` posts it fresh so it is at the bottom of the channel. */
+  private async refreshList(bump = false): Promise<void> {
+    const where = this.state.channels['lists']; if (!where) return;
+    const view = this.grocery.render();
+    const s = this.grocery.s;
+    if (s.messageId && s.channelId && !bump) {
+      try { await this.gw.edit(s.channelId, s.messageId, { content: view.content, buttons: view.buttons }); return; }
+      catch { /* it was deleted: post a new one */ }
+    }
+    const id = await this.gw.send(where, { content: view.content, buttons: view.buttons, silent: true });
+    this.grocery.remember(id, where);
+    try { await this.gw.pin(where, id); } catch { /* pinning is a nicety */ }
+  }
+
+  private async fileRecipe(channelId: string, text: string): Promise<void> {
+    const forum = this.state.channels['recipes'];
+    if (!forum) { await this.gw.send(channelId, { content: 'There is no #recipes channel to file it in.' }); return; }
+    const r = parseRecipe(text);
+    const parts = chunkMessage(r.body);
+    const post = await this.gw.createPost(forum, r.title, parts[0] ?? r.body);
+    for (const more of parts.slice(1)) await this.gw.send(post, { content: more, silent: true });
+    let buttons: Button[] | undefined;
+    if (r.ingredients.length >= 2) {
+      const key = String(Date.now());
+      const all = { ...(this.state.recipes ?? {}), [key]: r.ingredients };
+      const keys = Object.keys(all).sort(); while (keys.length > 20) delete all[keys.shift()!];
+      this.state.recipes = all; this.save();
+      buttons = [{ id: `recipe:add:${key}`, label: `Add ${r.ingredients.length} ingredients to the grocery list`, style: 'primary' }];
+    }
+    await this.gw.send(channelId, { content: `Filed in #recipes: ${r.title}.`, ...(buttons ? { buttons } : {}) });
   }
 
   /** Put a request to Aang and remember which channel the answer belongs in. */
@@ -246,6 +312,22 @@ export class DiscordAdapter {
       if (b.customId === 'deck:status') { this.statusFor.push(b.channelId); this.link.status(); }
       else if (b.customId === 'deck:job') this.ask('deck' + ++this.deckSeq, b.channelId, JOB_REQUEST);
       else if (b.customId === 'deck:stop') { this.link.stop(); await this.gw.send(b.channelId, { content: 'Stopped.' }); }
+      return;
+    }
+    if (b.customId.startsWith('list:g:')) {
+      await b.keep();
+      const which = b.customId.slice('list:g:'.length);
+      if (which === 'clear') this.grocery.clearChecked(); else this.grocery.toggle(Number(which));
+      await this.refreshList();
+      return;
+    }
+    const rec = /^recipe:add:(\d+)$/.exec(b.customId);
+    if (rec) {
+      const items = this.state.recipes?.[rec[1]!];
+      if (!items) { await b.ack('I no longer have that recipe\'s ingredients.'); return; }
+      const r = this.grocery.add(items);
+      await this.refreshList();
+      await b.ack(`Added ${r.added.length} to the grocery list${r.had.length ? `, ${r.had.length} were already on it` : ''}.`);
       return;
     }
     const m = /^perm:([^:]+):(yes|no)$/.exec(b.customId);
