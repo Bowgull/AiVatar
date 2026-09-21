@@ -87,7 +87,12 @@ export class Core {
   constructor(cfg: CoreConfig) {
     this.cfg = cfg;
     this.memory = new Memory(cfg.dataDir);
-    this.systemPrompt = buildSystemPrompt(this.memory.profile(), this.memory.learned());
+    // What he already knows about Joshua goes in the prompt, so he starts the conversation knowing it
+    // rather than having to go and look. Only the fresh, often-confirmed ones: a belief nobody has
+    // mentioned in months should not quietly colour every answer.
+    const standing = this.memory.standing().map(f => '- ' + f.text).join('\n');
+    this.systemPrompt = buildSystemPrompt(this.memory.profile(), this.memory.learned())
+      + (standing ? `\n\n<known>\nWhat you already know about Joshua. Treat it as true unless he says otherwise, and\nuse remember/forget to keep it current.\n${standing}\n</known>` : '');
     this.reminders = new Reminders(cfg.stateDir);
     this.sessions = new SessionStore(cfg.stateDir);
   }
@@ -115,6 +120,11 @@ export class Core {
     this.reminders.start();
     const resumable = Object.entries(this.sessions.all()).map(([l, r]) => `${l}=${r.id.slice(0, 8)}`).join(' ');
     console.log(`core listening on ws://127.0.0.1:${this.cfg.port}/body${resumable ? '  resuming ' + resumable : '  (no session to resume)'}`);
+    // Give the turns that never had a vector one, in the background. 148 of 466 were embedded by the
+    // old Aang; the rest have been invisible to meaning-based recall ever since. Local and free.
+    void this.memory.backfill().then(n => {
+      if (n) console.log(`memory: embedded ${n} older turns (${JSON.stringify(this.memory.coverage())})`);
+    });
     if (this.cfg.warm !== false) this.warm();
   }
 

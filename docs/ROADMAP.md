@@ -138,12 +138,19 @@ lines in the file."
 turn already paid for. Only consolidation spends, ~3.3k Haiku tokens per session, skipped above 40%.
 Measured on this machine: local models are fast but too dumb to extract facts, so it is **local for
 finding, cloud for understanding**.
-- [ ] Memory tool on Anthropic's pattern - Aang writes and reads his own durable notes
+- [x] Memory tool - Aang writes and reads his own durable notes (**done 2026-09-20**), plus forget and
+      a list of what he holds
 - [ ] **Catch-up consolidation at session start** (not nightly - the machine is off). Haiku. Skipped
       above 40% weekly quota
-- [ ] Wire the 116 existing embedded turns back in for semantic recall
-- [ ] Remember and forget by asking
-- [ ] Hygiene: contradiction detection, staleness decay, anti-sycophancy
+- [x] Semantic recall wired in (**done**): embeddinggemma locally, 42 ms, free. It found "the chibi keeps
+      freezing when I alt tab" from "desktop pet hangs when switching windows" - no shared words. The
+      turns that never had a vector are backfilled in the background: **148 of 466 became 458 of 480**
+- [x] Remember and forget by asking (**done**)
+- [x] Hygiene (**done**): a newer fact about the same subject supersedes the older one rather than both
+      being held; facts nobody confirms for 120 days stop being put in front of him but stay findable;
+      and the prompt now says remembering is something he DOES, because he was saying "I will remember
+      that" and writing nothing down
+- [ ] Catch-up consolidation at session start (the remaining piece of P2)
 - [ ] Episodic timeline (D8), fact extraction (D3)
 - [ ] **Detection half of co-learning** (see P9): topics and curiosity are computed and *answer when
       asked*, never volunteered

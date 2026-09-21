@@ -42,6 +42,9 @@ export const TOOL_LABELS: Record<string, string> = {
   search_memory: 'looking through our history',
   claude_code_status: 'checking on Claude Code',
   what_im_doing: 'checking what you are in',
+  remember: 'writing that down',
+  forget: 'forgetting that',
+  what_you_know: 'checking what I know about you',
   set_reminder: 'setting a reminder',
   list_reminders: 'checking your reminders',
   cancel_reminder: 'cancelling that reminder',
@@ -59,7 +62,8 @@ export const toolLabel = (fullName: string): string => TOOL_LABELS[fullName.repl
 
 export const TOOL_NAMES = ['mcp__aang__get_time', 'mcp__aang__get_weather', 'mcp__aang__search_memory',
   'mcp__aang__claude_code_status', 'mcp__aang__set_reminder', 'mcp__aang__list_reminders', 'mcp__aang__cancel_reminder',
-  'mcp__aang__look_up_web', 'mcp__aang__what_im_doing'];
+  'mcp__aang__look_up_web', 'mcp__aang__what_im_doing',
+  'mcp__aang__remember', 'mcp__aang__forget', 'mcp__aang__what_you_know'];
 
 /**
  * Built-in tools Aang may use without asking. All of them only look: they search, fetch and read, and none
@@ -149,10 +153,10 @@ export function makeToolServer(memory: Memory, hooks?: HookTracker, reminders?: 
           try { return ok(await fetchWeather()); }
           catch (e) { return fail(`Could not get the weather: ${(e as Error).message}`); }
         }),
-      tool('search_memory', 'Search past conversations with Joshua by words. Use when he refers to something from before.',
-        { query: z.string().describe('a few key words to search for') },
+      tool('search_memory', 'Search everything Joshua has ever said to you, by meaning as well as by words. Use whenever he refers to something from before, however vaguely.',
+        { query: z.string().describe('what to look for, in a few words or a short phrase') },
         async ({ query }) => {
-          const hits = memory.search(query);
+          const hits = await memory.recall(query);
           if (process.env.AANG_TRACE) console.log(`[trace] search_memory query=${JSON.stringify(query)} hits=${hits.length}`);
           // Be explicit about the gap so Aang neither invents its old answers nor claims there is no record.
           const gap = 'Note: many of Aang\'s own older replies are not kept, so results may show only what Joshua said.';
@@ -165,6 +169,25 @@ export function makeToolServer(memory: Memory, hooks?: HookTracker, reminders?: 
           if (!lookUpWeb) return fail('The web is not available right now.');
           try { return ok(await lookUpWeb(question)); }
           catch (e) { return fail('That lookup failed: ' + (e as Error).message); }
+        }),
+      tool('remember', 'Keep something about Joshua for good: a preference, a project, a person, a decision, how he likes things done. Use it the moment he tells you something worth knowing later, without waiting to be asked. One fact per call, as a short plain sentence about him.',
+        { fact: z.string().describe('the fact, e.g. "He raids on Tuesday and Thursday nights"') },
+        async ({ fact }) => {
+          const { fact: saved, replaced } = memory.remember(fact);
+          if (!saved) return fail('That did not save. Say it again as a sentence?');
+          return ok(replaced ? `Kept: "${saved.text}". It replaces the older "${replaced.text}".` : `Kept: "${saved.text}".`);
+        }),
+      tool('forget', 'Delete something you know about Joshua, when he asks you to forget it or tells you it is wrong.',
+        { which: z.string().describe('a few words of the fact to remove') },
+        async ({ which }) => {
+          const gone = memory.forget(which);
+          return gone ? ok(`Forgotten: "${gone.text}".`) : fail('Nothing matched that. Check what_you_know for what is there.');
+        }),
+      tool('what_you_know', 'Everything you currently remember about Joshua. Use when he asks what you know or remember about him.', {},
+        async () => {
+          const facts = memory.list();
+          if (!facts.length) return ok('Nothing is kept about him yet.');
+          return ok(facts.map(f => `- ${f.text}${f.timesSeen > 1 ? ` (confirmed ${f.timesSeen} times)` : ''}`).join('\n'));
         }),
       tool('what_im_doing', 'Which application window Joshua has in front of him right now, and which ones just before, from their titles. Use when he says "this", "here", "what I am looking at", or asks which app he is in. It only reads the window title, never what is inside the window. NOT for questions about Claude Code sessions or agents: use claude_code_status for those.', {},
         async () => ok(activity ? activity.summary() : 'Window tracking is not running.')),

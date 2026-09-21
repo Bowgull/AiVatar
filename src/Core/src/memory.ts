@@ -1,11 +1,32 @@
-// Conversation memory. Reuses the existing SQLite file (Documents/Aang/aang.db, FTS5 over every past turn)
-// so nothing Joshua has said to Aang is lost. Semantic recall stays a later step; full-text search
-// already answers "what did we say about X".
+// Conversation memory, on the SQLite file Aang has always used (Documents/Aang/aang.db), so nothing
+// Joshua has said is lost.
+//
+// Two halves, and the split is the whole design:
+//   - finding is local and free: embeddinggemma for meaning, FTS5 for words, both on this machine
+//   - understanding is Claude's, and it is already paid for by the turn Joshua asked for
+//
+// Facts are what make him feel like he knows Joshua. They are visible, deletable, superseded rather than
+// overwritten, and they fade if they are never confirmed again: remembering something badly is worse
+// than not remembering it.
 import { DatabaseSync } from 'node:sqlite';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import { EMBED_DIM, embed, fromBlob, similarity, toBlob } from './embed.ts';
 
-export interface Hit { ts: string; who: 'you' | 'Aang'; text: string }
+export interface Hit { ts: string; who: 'you' | 'Aang'; text: string; how?: 'words' | 'meaning' }
+
+export interface Fact {
+  id: number;
+  text: string;
+  /** When it was first learned, and when it was last confirmed. */
+  ts: string;
+  lastSeen: string;
+  timesSeen: number;
+  source: string;
+}
+
+/** A fact nobody has mentioned for this long stops being offered unprompted. */
+export const STALE_DAYS = 120;
 
 export class Memory {
   private db: DatabaseSync | null = null;
@@ -29,6 +50,87 @@ export class Memory {
 
   get available(): boolean { return this.db !== null; }
 
+  // ---------------------------------------------------------------- facts
+
+  /**
+   * Remember something durable about Joshua. A fact that contradicts one already held supersedes it:
+   * the old one is retired, not deleted, so "you used to say X" still works. Saying the same thing again
+   * just confirms it, which is what keeps it from going stale.
+   */
+  remember(text: string, source = 'joshua', now = new Date()): { fact: Fact | null; replaced: Fact | null } {
+    const clean = (text ?? '').trim().replace(/\s+/g, ' ').slice(0, 300);
+    if (!this.db || !clean) return { fact: null, replaced: null };
+    const stamp = now.toISOString().replace('T', ' ').slice(0, 19);
+    try {
+      const existing = this.db.prepare('SELECT * FROM facts WHERE lower(text) = lower(?) AND retired = 0').get(clean) as any;
+      if (existing) {
+        this.db.prepare('UPDATE facts SET last_seen = ?, times_seen = times_seen + 1 WHERE id = ?').run(stamp, existing.id);
+        return { fact: this.factById(Number(existing.id)), replaced: null };
+      }
+      const replaced = this.findContradiction(clean);
+      if (replaced) this.db.prepare('UPDATE facts SET retired = 1 WHERE id = ?').run(replaced.id);
+      const info = this.db.prepare('INSERT INTO facts (ts, text, source, last_seen, times_seen, retired) VALUES (?,?,?,?,1,0)')
+        .run(stamp, clean, source, stamp);
+      return { fact: this.factById(Number(info.lastInsertRowid)), replaced };
+    } catch (e) {
+      console.error('memory remember failed:', (e as Error).message);
+      return { fact: null, replaced: null };
+    }
+  }
+
+  /**
+   * A new fact about the same thing replaces the old one. "His girlfriend is called X" and "his
+   * girlfriend is called Y" cannot both be true, and keeping both would let him say either.
+   */
+  private findContradiction(text: string): Fact | null {
+    if (!this.db) return null;
+    const subject = keyNoun(text);
+    if (!subject) return null;
+    const rows = this.list();
+    for (const f of rows) if (keyNoun(f.text) === subject) return f;
+    return null;
+  }
+
+  /** Forget a fact, by a few words of it. Deleted outright: "forget that" has to mean forget. */
+  forget(which: string): Fact | null {
+    if (!this.db) return null;
+    const needle = (which ?? '').trim().toLowerCase();
+    if (!needle) return null;
+    const hit = this.list().find(f => f.text.toLowerCase().includes(needle))
+      ?? this.list().find(f => needle.split(/\s+/).filter(w => w.length > 3).some(w => f.text.toLowerCase().includes(w)));
+    if (!hit) return null;
+    try { this.db.prepare('DELETE FROM facts WHERE id = ?').run(hit.id); return hit; }
+    catch { return null; }
+  }
+
+  /** Everything he currently holds, newest confirmation first. Retired facts are not included. */
+  list(limit = 60): Fact[] {
+    if (!this.db) return [];
+    try {
+      const rows = this.db.prepare(
+        'SELECT id, text, ts, last_seen, times_seen, source FROM facts WHERE retired = 0 ORDER BY last_seen DESC LIMIT ?',
+      ).all(limit) as any[];
+      return rows.map(toFact);
+    } catch { return []; }
+  }
+
+  private factById(id: number): Fact | null {
+    try { const r = this.db?.prepare('SELECT id, text, ts, last_seen, times_seen, source FROM facts WHERE id = ?').get(id) as any; return r ? toFact(r) : null; }
+    catch { return null; }
+  }
+
+  /**
+   * The handful of facts worth putting in front of him at the start of a conversation. Fresh and
+   * often-confirmed first; anything not mentioned for months is left for search to find instead, so an
+   * old belief cannot quietly shape every answer.
+   */
+  standing(now = Date.now(), limit = 12): Fact[] {
+    const cutoff = now - STALE_DAYS * 86_400_000;
+    return this.list(60)
+      .filter(f => Date.parse(f.lastSeen.replace(' ', 'T') + 'Z') >= cutoff || f.timesSeen > 2)
+      .slice(0, limit);
+  }
+
   private readText(rel: string): string {
     try { return readFileSync(path.join(this.dataDir, rel), 'utf8'); } catch { return ''; }
   }
@@ -39,6 +141,52 @@ export class Memory {
   static readonly STOPWORDS = new Set(('what did we say said about the and you your for with that this have has had was were are ' +
     'any how why who when where which would could should can could not but its our out from into than then them they there their ' +
     'tell told talk talked remember earlier before last time did does doing done just like know').split(' '));
+
+  /**
+   * Recall, by meaning and by words. The local model turns the question into a vector and it is compared
+   * against every turn that has one; FTS5 catches the exact words a vector can miss, like a file name.
+   * Both are free, and either alone misses things the other finds.
+   */
+  async recall(query: string, limit = 6): Promise<Hit[]> {
+    const words = this.search(query, limit);
+    const vector = await this.searchByMeaning(query, limit);
+    const seen = new Set<string>();
+    const out: Hit[] = [];
+    // Interleave, so neither kind crowds the other out.
+    for (let i = 0; i < Math.max(words.length, vector.length) && out.length < limit; i++) {
+      for (const h of [vector[i], words[i]]) {
+        if (!h || out.length >= limit) continue;
+        const key = h.ts + h.text.slice(0, 40);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push(h);
+      }
+    }
+    return out;
+  }
+
+  /** Nearest turns by meaning. Returns nothing at all if the local model is not running. */
+  async searchByMeaning(query: string, limit = 6, floor = 0.55): Promise<Hit[]> {
+    if (!this.db) return [];
+    const q = await embed(query);
+    if (!q) return [];
+    try {
+      const rows = this.db.prepare(
+        `SELECT e.vec AS vec, t.ts AS ts, t.role AS role, t.text AS text
+           FROM embeddings e JOIN turns t ON t.id = e.turn_id
+          WHERE e.dim = ? AND NOT (t.role = 'aang' AND t.tier LIKE 'local%')`,
+      ).all(EMBED_DIM) as { vec: Uint8Array; ts: string; role: string; text: string }[];
+      return rows
+        .map(r => ({ score: similarity(q, fromBlob(r.vec)), ts: r.ts, role: r.role, text: r.text }))
+        .filter(r => r.score >= floor)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, limit)
+        .map(r => ({ ts: r.ts, who: (r.role === 'user' ? 'you' : 'Aang') as 'you' | 'Aang', text: r.text, how: 'meaning' as const }));
+    } catch (e) {
+      console.error('memory recall failed:', (e as Error).message);
+      return [];
+    }
+  }
 
   search(query: string, limit = 6): Hit[] {
     if (!this.db) return [];
@@ -57,7 +205,7 @@ export class Memory {
             AND NOT (t.role = 'aang' AND t.tier LIKE 'local%')
           ORDER BY rank LIMIT ?`,
       ).all(terms.map(t => `"${t}"`).join(' OR '), limit) as { ts: string; role: string; text: string }[];
-      return rows.map(r => ({ ts: r.ts, who: r.role === 'user' ? 'you' : 'Aang', text: r.text }));
+      return rows.map(r => ({ ts: r.ts, who: (r.role === 'user' ? 'you' : 'Aang') as 'you' | 'Aang', text: r.text, how: 'words' as const }));
     } catch (e) {
       console.error('memory search failed:', (e as Error).message);
       return [];
@@ -72,15 +220,84 @@ export class Memory {
       const fts = this.db.prepare('INSERT INTO turns_fts (text, turn_id) VALUES (?,?)');
       for (const [role, text, t] of [['user', user, null], ['aang', aang, tier]] as const) {
         const info = ins.run(now, role, t, text);
-        fts.run(text, Number(info.lastInsertRowid));
+        const id = Number(info.lastInsertRowid);
+        fts.run(text, id);
+        // Embedding is local and free, but it is not instant: do it after the turn is safely stored,
+        // and never let it delay the reply.
+        void this.embedTurn(id, text);
       }
     } catch (e) {
       console.error('memory save failed:', (e as Error).message);
     }
   }
 
+  private async embedTurn(id: number, text: string): Promise<void> {
+    const v = await embed(text);
+    if (!v || !this.db) return;
+    try { this.db.prepare('INSERT OR REPLACE INTO embeddings (turn_id, dim, vec) VALUES (?,?,?)').run(id, EMBED_DIM, toBlob(v)); }
+    catch { /* a missing vector costs recall quality, never correctness */ }
+  }
+
+  /**
+   * Give the turns that have no vector one, a few at a time. 148 of 466 were embedded by the old Aang
+   * and the rest have been invisible to meaning-based recall ever since. Runs in the background, pauses
+   * between batches so it never competes with a reply, and picks up where it left off next session.
+   */
+  async backfill(batch = 25, pauseMs = 250, budget = 400): Promise<number> {
+    if (!this.db) return 0;
+    let done = 0;
+    while (done < budget) {
+      let rows: { id: number; text: string }[];
+      try {
+        rows = this.db.prepare(
+          `SELECT t.id AS id, t.text AS text FROM turns t
+             LEFT JOIN embeddings e ON e.turn_id = t.id
+            WHERE e.turn_id IS NULL AND length(t.text) > 8
+            ORDER BY t.id DESC LIMIT ?`,
+        ).all(batch) as any[];
+      } catch { return done; }
+      if (!rows.length) return done;
+      for (const r of rows) {
+        const v = await embed(r.text);
+        if (!v) return done;                       // the local model is not running; stop quietly
+        try { this.db.prepare('INSERT OR REPLACE INTO embeddings (turn_id, dim, vec) VALUES (?,?,?)').run(r.id, EMBED_DIM, toBlob(v)); done++; }
+        catch { /* skip */ }
+      }
+      await new Promise(r => setTimeout(r, pauseMs));
+    }
+    return done;
+  }
+
+  /** How much of the history can be recalled by meaning. Diagnostics, and the backfill's progress. */
+  coverage(): { turns: number; embedded: number } {
+    if (!this.db) return { turns: 0, embedded: 0 };
+    try {
+      const t = (this.db.prepare('SELECT count(*) c FROM turns').get() as any).c as number;
+      const e = (this.db.prepare('SELECT count(*) c FROM embeddings').get() as any).c as number;
+      return { turns: t, embedded: e };
+    } catch { return { turns: 0, embedded: 0 }; }
+  }
+
   /** Fold the WAL back into the database so it cannot grow without bound across long sessions. */
   checkpoint(): void { try { this.db?.exec('PRAGMA wal_checkpoint(TRUNCATE);'); } catch { /* busy: next time */ } }
 
   close(): void { this.checkpoint(); try { this.db?.close(); } catch { /* ignore */ } }
+}
+
+function toFact(r: any): Fact {
+  return { id: Number(r.id), text: String(r.text), ts: String(r.ts), lastSeen: String(r.last_seen ?? r.ts), timesSeen: Number(r.times_seen ?? 1), source: String(r.source ?? '') };
+}
+
+/**
+ * What a fact is *about*, roughly: the first meaningful noun after any leading "his"/"the"/"joshua's".
+ * Crude on purpose - it only has to notice that two sentences are about the same thing so the newer one
+ * can replace the older.
+ */
+const SKIP = new Set(('his her their the a an joshua joshuas he she they is are was were has have had does do ' +
+  'currently now still also really very just about that this').split(' '));
+export function keyNoun(text: string): string {
+  for (const w of text.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/)) {
+    if (w.length > 2 && !SKIP.has(w)) return w.replace(/s$/, '');
+  }
+  return '';
 }
