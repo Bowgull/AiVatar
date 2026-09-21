@@ -427,8 +427,12 @@ test('Approve, Undo and Skip edit the card in place, and only he can press them'
   assert.equal(gw.edits.length, 0);
   assert.deepEqual(gw.press(ok, OWNER), ['(kept)']); await tick();
   assert.match(gw.edits.at(-1)!.msg.content!, /Approved/);
-  assert.deepEqual(gw.edits.at(-1)!.msg.buttons!.map(b => b.label), ['Open', 'Undo']);
+  assert.deepEqual(gw.edits.at(-1)!.msg.buttons!.map(b => b.label), ['Open', '✓ Approved', 'Undo']);
+  assert.equal(gw.edits.at(-1)!.msg.buttons![1]!.disabled, true, 'the finished step is greyed out');
+  const locked = gw.edits.length;
   gw.press(gw.edits.at(-1)!.msg.buttons![1]!.id, OWNER); await tick();
+  assert.equal(gw.edits.length, locked, 'pressing a greyed button changes nothing');
+  gw.press(gw.edits.at(-1)!.msg.buttons![2]!.id, OWNER); await tick();
   assert.deepEqual(gw.edits.at(-1)!.msg.buttons!.map(b => b.label), ['Open', 'Approve', 'Skip']);
   gw.press(no, OWNER); await tick();
   assert.match(gw.edits.at(-1)!.msg.content!, /Skipped/);

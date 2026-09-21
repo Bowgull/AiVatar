@@ -21,7 +21,7 @@ import { attachmentProblem, safeAttachmentName } from './phone.ts';
 export interface Attachment { name: string; url: string; size: number }
 export interface Incoming { id: string; channelId: string; channelName: string; authorId: string; isBot: boolean; content: string; createdAt: number; attachments?: Attachment[]; /** the message this one replies to */ replyTo?: string }
 /** With `url` it is a link button that opens the page and needs no answer from us. */
-export interface Button { id: string; label: string; style: 'primary' | 'secondary' | 'success' | 'danger'; url?: string }
+export interface Button { id: string; label: string; style: 'primary' | 'secondary' | 'success' | 'danger'; url?: string; /** greyed out and cannot be pressed */ disabled?: boolean }
 export interface OutMsg { content?: string; silent?: boolean; buttons?: Button[]; files?: { name: string; data: Buffer }[] }
 export interface ButtonPress {
   customId: string; userId: string; channelId: string;

@@ -81,7 +81,7 @@ export class DiscordGateway implements Gateway {
     for (let i = 0; i < (msg.buttons?.length ?? 0) && rows.length < 5; i += 5) {
       rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(msg.buttons!.slice(i, i + 5).map((b: Button) => {
         const btn = new ButtonBuilder().setLabel(b.label.slice(0, 80));
-        return b.url ? btn.setStyle(ButtonStyle.Link).setURL(b.url) : btn.setCustomId(b.id).setStyle(STYLE[b.style]);
+        return b.url ? btn.setStyle(ButtonStyle.Link).setURL(b.url) : btn.setCustomId(b.id).setStyle(STYLE[b.style]).setDisabled(b.disabled === true);
       })));
     }
     return rows;
