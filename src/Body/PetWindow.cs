@@ -1191,6 +1191,7 @@ sealed class PetWindow : Form
         autostartItem.Click += (_, _) => Autostart.Set(!Autostart.IsOn());
         menu.Opening += (_, _) => autostartItem.Checked = Autostart.IsOn();
         menu.Items.AddRange(new ToolStripItem[] { talk, panelItem, show, dockMenu, comeBack, hotkeyItem, modelMenu, savingItem, quietItem, seeWindowItem, muteItem, new ToolStripSeparator(), coreItem, autostartItem, new ToolStripSeparator(), quit });
+        GoldMenu.Apply(menu);
         tray.ContextMenuStrip = menu;
         tray.Text = "Aang";
         tray.Icon = MakeIcon();

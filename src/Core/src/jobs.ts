@@ -92,11 +92,18 @@ export const fileStamp = (file: string): number => { try { return existsSync(fil
 // ------------------------------------------------------------------ how a card looks
 
 const MARK: Record<Verdict, string> = { apply: 'Looks good', maybe: 'Maybe', skip: 'Probably skip' };
-export type CardButton = { id: string; label: string; style: 'primary' | 'secondary' | 'success' | 'danger'; url?: string };
+export type CardButton = { id: string; label: string; style: 'primary' | 'secondary' | 'success' | 'danger'; url?: string; /** shown greyed and cannot be pressed: how a finished step looks */ disabled?: boolean };
 
 export function renderCard(c: Card): { content: string; buttons: CardButton[] } {
+  // Each state looks different at a glance, and a finished step is a greyed button that cannot be pressed.
+  const head = c.status === 'applied' ? `✅ **APPLIED**  ·  **${c.title}** at ${c.company}`
+    : c.status === 'stuck' ? `⚠️ **NEEDS YOU**  ·  **${c.title}** at ${c.company}`
+    : c.status === 'sent' ? `📤 **SENT TO APPLY**  ·  **${c.title}** at ${c.company}`
+    : c.status === 'approved' ? `🟡 **APPROVED**  ·  **${c.title}** at ${c.company}`
+    : c.status === 'skipped' ? `~~**${c.title}** at ${c.company}~~`
+    : `**${c.title}** at ${c.company}`;
   const lines = [
-    `**${c.title}** at ${c.company}`,
+    head,
     [c.location, c.salary].filter(Boolean).join('  ·  '),
     `${MARK[c.verdict]}${c.reason ? `: ${c.reason}` : ''}`,
   ].filter(Boolean);
@@ -108,7 +115,10 @@ export function renderCard(c: Card): { content: string; buttons: CardButton[] } 
   const open: CardButton = { id: `job:open:${c.id}`, label: 'Open', style: 'secondary', url: c.url };
   const buttons: CardButton[] =
     c.status === 'new' ? [open, { id: `job:ok:${c.id}`, label: 'Approve', style: 'success' }, { id: `job:no:${c.id}`, label: 'Skip', style: 'danger' }]
-    : c.status === 'sent' || c.status === 'applied' || c.status === 'stuck' ? [open]
+    : c.status === 'applied' ? [open, { id: `job:locked:${c.id}`, label: '✓ Applied', style: 'success', disabled: true }]
+    : c.status === 'sent' ? [open, { id: `job:locked:${c.id}`, label: 'Sending…', style: 'secondary', disabled: true }]
+    : c.status === 'stuck' ? [open]
+    : c.status === 'approved' ? [open, { id: `job:locked:${c.id}`, label: '✓ Approved', style: 'success', disabled: true }, { id: `job:new:${c.id}`, label: 'Undo', style: 'secondary' }]
     : [open, { id: `job:new:${c.id}`, label: 'Undo', style: 'secondary' }];
   return { content: lines.join('\n'), buttons };
 }

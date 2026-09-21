@@ -29,5 +29,8 @@ const [x, y, w, h] = [+m[1], +m[2], +m[3], +m[4]];
 await keys.ask(`rclick ${x + w - 111} ${y + h - 90}`);
 await sleep(600);
 console.log(await cap.ask(`snap ${path.join(out, 'menu.png')}`));
+await keys.ask(`move ${x + w - 111 - 190} ${y + h - 90 - 88}`);      // onto a row, for the hover look
+await sleep(500);
+console.log(await cap.ask(`snap ${path.join(out, 'menu-hover.png')}`));
 body.kill(); wss.close(); keys.p.stdin.write('quit\n'); cap.p.stdin.write('quit\n');
 process.exit(0);
