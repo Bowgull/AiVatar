@@ -68,7 +68,8 @@ test('a card shows the job, what he decided, and the right buttons for each stat
   assert.equal(v.buttons[0]!.url, 'https://jobs.example.com/1');
   j.setStatus(c.id, 'approved'); v = renderCard(c);
   assert.match(v.content, /Approved/);
-  assert.deepEqual(v.buttons.map(b => b.label), ['Open', 'Undo']);
+  assert.deepEqual(v.buttons.map(b => b.label), ['Open', '✓ Approved', 'Undo']);
+  assert.equal(v.buttons[1]!.disabled, true, 'a finished step is greyed and cannot be pressed');
   j.setStatus(c.id, 'skipped'); assert.match(renderCard(c).content, /Skipped/);
   j.setStatus(c.id, 'new'); assert.deepEqual(renderCard(c).buttons.map(b => b.label), ['Open', 'Approve', 'Skip']);
 });
@@ -190,7 +191,9 @@ test('a result updates the card, counts against the cap, and a sent job cannot b
   assert.equal(j.recordResult('https://jobs.example.com/1', 'stuck', 'a CAPTCHA'), null, 'the same news twice changes nothing');
   assert.equal(j.recordResult('https://jobs.example.com/1', 'applied', 'Confirmation 42')!.status, 'applied');
   assert.match(renderCard(c).content, /Applied: Confirmation 42/);
-  assert.deepEqual(renderCard(c).buttons.map(b => b.label), ['Open']);
+  assert.deepEqual(renderCard(c).buttons.map(b => b.label), ['Open', '✓ Applied']);
+  assert.equal(renderCard(c).buttons[1]!.disabled, true, 'nothing left to press once it is applied');
+  assert.match(renderCard(c).content, /^✅ \*\*APPLIED\*\*/, 'an applied card looks different from a waiting one');
   assert.equal(j.setStatus(c.id, 'skipped')!.status, 'applied', 'no button can undo it now');
   assert.equal(j.recordResult('https://unknown.example.com/x', 'applied', ''), null);
   c.status = 'stuck'; c.result = 'a CAPTCHA'; assert.match(renderCard(c).content, /Needs you: a CAPTCHA/);
