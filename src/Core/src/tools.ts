@@ -45,6 +45,7 @@ export const TOOL_LABELS: Record<string, string> = {
   what_im_doing: 'checking what you are in',
   read_window: 'reading your window',
   look_at_window: 'looking at your window',
+  start_claude: 'starting Claude on it',
   remember: 'writing that down',
   forget: 'forgetting that',
   what_you_know: 'checking what I know about you',
@@ -70,7 +71,7 @@ export const TOOL_NAMES = ['mcp__aang__get_time', 'mcp__aang__get_weather', 'mcp
   'mcp__aang__claude_code_status', 'mcp__aang__set_reminder', 'mcp__aang__list_reminders', 'mcp__aang__cancel_reminder',
   'mcp__aang__look_up_web', 'mcp__aang__what_im_doing',
   'mcp__aang__remember', 'mcp__aang__forget', 'mcp__aang__what_you_know',
-  'mcp__aang__open', 'mcp__aang__read_clipboard', 'mcp__aang__run', 'mcp__aang__read_window', 'mcp__aang__look_at_window'];
+  'mcp__aang__open', 'mcp__aang__read_clipboard', 'mcp__aang__run', 'mcp__aang__read_window', 'mcp__aang__look_at_window', 'mcp__aang__start_claude'];
 
 /**
  * Built-in tools Aang may use without asking. All of them only look: they search, fetch and read, and none
@@ -172,6 +173,7 @@ export function describeCall(tool: string, input: Record<string, unknown>): stri
     case 'mcp__aang__read_clipboard': return 'read what you have copied';
     case 'mcp__aang__read_window': return `read what is in ${short(s('app'), 60)}`;
     case 'mcp__aang__look_at_window': return `take a picture of ${short(s('app'), 60)}`;
+    case 'mcp__aang__start_claude': return `start Claude on the ${short(s('name') || 'task', 40)}`;
     case 'mcp__aang__run': return `run ${short(s('command'), 70)}`;
     // Anything unknown: show whatever looks like the thing being done, never a bare tool name.
     default: {
@@ -189,6 +191,7 @@ export function makeToolServer(
   runIt?: (command: string) => Promise<{ ok: boolean; output: string }>,
   readScreen?: () => Promise<string>,
   lookAtScreen?: () => Promise<{ text: string; image?: { data: string; mimeType: string } }>,
+  startClaude?: (task: string, where?: string, name?: string) => Promise<string>,
 ) {
   const ok = (text: string) => ({ content: [{ type: 'text' as const, text }] });
   const fail = (text: string) => ({ content: [{ type: 'text' as const, text }], isError: true });
@@ -268,6 +271,13 @@ export function makeToolServer(
         }),
       tool('read_window', 'Read what is IN the window Joshua has in front of him: the page he is reading, the code or text in his editor, the chat, the folder listing. Use when he asks about the content - "what does this say", "explain this", "what am I looking at", "summarise this page", "is this right". It reads text, not pictures; for which app he is in, what_im_doing is enough.', {},
         async () => ok(readScreen ? await readScreen() : 'Reading windows is not available right now.')),
+      tool('start_claude', 'Open a new Claude Code session in the Claude app (the Code tab) on a longer job, with the request typed in, and follow it for Joshua. Use for work that belongs in Claude rather than in a quick reply: above all his job search ("run my job scan / job search / job hunt", "find me jobs", "apply to jobs") - that is his job-hunt skill, which runs in Claude Code with his Chrome. It returns straight away; you are told later when Claude needs him or finishes, and you pass that on.',
+        {
+          task: z.string().describe('the first message to Claude, e.g. "Run my job search for today." Keep his wording.'),
+          where: z.string().optional().describe('"job hunt" for the job search (its data folder), otherwise a folder path'),
+          name: z.string().optional().describe('a short name he would recognise, e.g. "job hunt"'),
+        },
+        async ({ task, where, name }) => ok(startClaude ? await startClaude(task, where, name) : 'Starting Claude sessions is not available right now.')),
       tool('look_at_window', 'Take a picture of the window Joshua is in and look at it. Costs far more than read_window, so use it only when words cannot answer: read_window came back empty (a game, a drawing, a canvas), or he asks how something LOOKS - a layout, a chart, a colour, an image, "does this look right".', {},
         async () => {
           if (!lookAtScreen) return fail('Looking at windows is not available right now.');

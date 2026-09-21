@@ -93,6 +93,145 @@ joiner".
 
 ---
 
+## Plan of record (2026-09-21): the consolidated build plan
+
+This is one plan of record. It merges the ROADMAP's open items (P0 to P4 are done), the two UI reports, the phone intake report, this report, and Joshua's recorded decisions. Where an earlier recommendation conflicts with a later decision, the decision wins, and the ledger at the end says so. Sizes are rough estimates for one developer working with Claude: **S** is about a day, **M** two to four days, **L** one to two weeks (Inference). Every gate includes looking at real screenshots, per the project's verify-in-the-real-UI rule, and every UI gate re-runs `sprite-lock.test.ts`.
+
+### Revision, 2026-09-21 evening: Joshua's final decisions override the Mac plan
+
+1. **Aang stays on the Shadow PC.** "This shadow has the power so aang should stay here. I'm final about this."
+   Phases **C** (Mac host), **E** (Core to the Mac) and **P** (Mac-native Body) are **retired**. The Mac turned
+   out to be a 2017 Intel MacBook Pro stuck on macOS Ventura (unpatched since 2025) with 8 GB soldered RAM, which
+   confirms it. Their text below is kept only as history.
+2. **The phone channel is Discord** (his reasons: persistence and better-looking cards), not iMessage or
+   Telegram. Phase **F** is rewritten as **F′** below. Built 2026-09-21 and waiting on his token and pairing.
+3. **The Shadow limit stands.** Lite ends every session at 4 hours and shuts down 30 minutes after the last
+   input, even with work running, and its terms forbid working around that. Discord holds his messages while
+   Shadow is off, so requests queue and get answered at the next start. A job hunt that runs *while he is
+   away* needs Shadow's Always On add-on (Pro only; he would buy it at a good price, quote pending from Shadow
+   support). Phase G is rewritten as **G′** on that basis.
+
+### Order and dependencies (current)
+
+| Phase | Name | Size | Depends on | Status |
+|---|---|---|---|---|
+| A | Close out what is built: full suite, commit, one real job-hunt run, wire files.ts + Hands.cs | S | nothing | **in progress** |
+| F′ | Discord: pair, live test, then capture filing, lists, job cards, #needs-you, drafts channel | M | A | **paired and live; next pieces open** |
+| D | Persona spec, linter and eval (Discord replaces iMessage in its channel rules) | S to M | nothing | open |
+| B | Clean Gold foundations and the missing safety basics | M to L | A | open |
+| G′ | Job hunt split: sweep → Discord digest cards → approve by button → apply (cap 5, max 8), on Shadow | M to L | A, F′ | open |
+| H | Clean Gold part 2: docking, mode frame, bars, bubble | L | B | open |
+| I | Email: Gmail read in an isolated lane, drafts to #drafts, send only on his button | M | F′, B | open |
+| J | The Panel, card stack and review surfaces | L | B, H | open |
+| K | Background jobs, generalised | M | G′ | open |
+| L | Watching (Simkl), #anime | M | F′ | open |
+| M | Drawing layer and window presence | L | H | open |
+| N | Memory depth and co-learning | M | A | open |
+| O | Finish and design gate | M | everything shipped | open |
+| — | Shadow Always On: get a quote; if bought, G′ runs while he is away | — | his call | waiting on Shadow |
+| ~~C, E, P~~ | ~~Mac host, Core to Mac, Mac-native Body~~ | | | **retired** |
+
+**Critical path now: A → F′ → G′.** A closes what is built. F′ gives him a phone channel. G′ turns the job hunt
+into digest cards he approves from Discord. D and B can run alongside. If he buys Always On, G′'s sweep runs on
+a schedule while he is out with no other change.
+
+### Phase F′: Discord (replaces F)
+
+**What.** Built 2026-09-21: `discord-logic.ts`, `discord.ts`, `discord-gateway.ts` (discord.js 14.27), wired
+into the Core only when `%APPDATA%\Aang\discord.token` exists, set up with `tools/discord-setup.cmd` (hidden token
+input, owner-only file ACL). A private server laid out as TALK (#aang, #capture), JOBS (#job-inbox, #job-digest,
+#applied, #needs-you), MAIL (#drafts), KEEP (#lists, #recipes forum, #guides forum), AANG (#log). Owner-only by a
+6-digit pairing code shown on Shadow (5 tries, 10 minutes). Missed messages are read back at the next start.
+Permission questions become Yes/No buttons only he can press, once. Quiet hours 10pm to 7am and 5 routine
+messages a day make sound ("Balanced"); replies, reminders and things he asked for always do; nothing is ever
+dropped, only silenced. A startup self-check reports missing or excess bot permissions in #log. Next pieces:
+#capture filing (recipes to the forum, lists), the pinned grocery list with check-off buttons, #job-inbox
+vetting, digest cards with Open / Apply / Skip, #applied lines, #drafts. **Done when.** Paired from his phone;
+a question in #aang is answered; a message sent while Shadow was off is answered at the next start; a stranger
+account gets nothing; a permission button works once; each new piece is shown working in a screenshot.
+Tests: `test/discord.test.ts` 13/13 against a fake Discord and a fake Core.
+
+**Status, 2026-09-21 afternoon.** Paired (bot Aang#7874, Message Content intent on, avatar set). Live in #aang: a
+question answered in about 5 seconds; "open notepad" opened it with no question (open apps was already trusted);
+"what's on my screen" put up Yes/No, No was pressed, the buttons went away and he did not read it; "are you
+there?" sent while Aang was quit was answered when he came back. Still to show: a stranger account ignored (needs
+a second account in the server).
+
+**One message, one place** (his rule, 2026-09-21: "aang never ever needs to double reply"). The Core no longer
+sends everything to every connection. Each connection says what it is in its hello (Discord says `client:
+'discord'`). A reply, its dots, its tool labels, its errors and its Yes/No go only to where he asked. Anything
+Aang says on his own goes to the desktop bubble while he is at the PC, and to Discord (#aang, or #needs-you for
+"Need input") when the Body reports no keyboard or mouse input for 5 minutes (`desk` message, `GetLastInputInfo`).
+If Discord is not connected, the desktop gets it rather than nobody. `test/routing.test.ts` 5/5; live, a Discord
+question during WoW left the desktop untouched.
+
+### Phase A: close out what is built
+
+**What.** Run the full test suite and commit the uncommitted job-hunt flow (`start_claude` to `claude://code/new`, hook following, "Need input in Claude" and "Job hunt done" notices), plus the `job-hunt-data/` ignore line. Do one real job-hunt run on Shadow so the skill, the cap and the tracker get exercised now rather than in three weeks. Re-run the `typing` and `screen` live suites while Joshua is away from WoW. Confirm autostart from the Shell-Core event log (events 9705 to 9708) and `body.log` after his next reboot. Wire `files.ts` (write and edit with undo) and `Hands.cs` (close and arrange windows, media keys) into tools with his trust rules: write files and close apps ask once, then are trusted; force-quit and delete always ask. Update the honest capability list in `voice.ts`. **Why.** Built but unwired code rots, and he is job hunting now. **Done when.** The full suite is green and committed. One real run produces at most 5 applications, a tracker entry for each, and a "done" notice. The event log shows Aang started at login. Live tests show write-with-undo, close-app asked once, and force-quit asked every time.
+
+### Phase B: Clean Gold foundations and the missing safety basics
+
+**What.** Build the token file first (colours, type ramp, motion): gold `#FFC43C`, orange `#FF8040` for warnings, red `#FF5A4A`, body `#E8E4F0`, secondary `#C9C2DA`, Segoe UI Variable, and 40 ms press, 140 ms hover, 200 ms release. Then the weighted button system: solid face, 3 px lip, 1 px catch-light, 28 px icon buttons at 32 px pitch. Then the **permission prompt rebuilt** to his trust rules, with a gold one-time button, a plum "Not now", and the persistent "Always for <kind>" row set apart with a lock and a 600 ms arming delay. It has no key binding, and Enter and Esc work only while Aang's input has focus; always-ask kinds get no "Always" row at all. Make the sprite and bubble non-activating everywhere except the opened input. Add the bubble legibility fixes (15 px body, 21 to 22 px line height, 2 px outline with a dark halo, radius 10 to 12). Add **game-aware quiet**: badge-only while a window covering the monitor has focus, with delivery on alt-tab. Add **Hush** ("30 min" or "until I call you") and Esc-to-stop. Then add the missing basics: an **activity log** ("Opened Chrome", "Ran git status, exit 0", "Remembered: ..."), with "what did you just do?" answered from it; **undo** for memory writes, reminder dismissals, file writes and skips; a **permissions review** with revoke and last-used time (tray list first, Panel later); a **"Remembered: X · Undo"** toast; and **distinct error states** for offline, API error, quota out with reset time, denied, and failed command with exit code. The one global hotkey stays Ctrl+NumLock. **Why.** Every later remote action needs a log, an undo and a kill switch, and the prompt is where a stray keystroke could grant a standing capability. **Done when.** StyleLab renders and real-overlay screenshots at 100, 125, 150 and 200% DPI match Clean Gold. A WASD burst over the overlay grants nothing and lands nothing in Aang. Hush survives a reply arriving. "What did you just do" lists the last five actions. Undo reverts a memory write and a file write. Each error state is screenshotted.
+
+### Phase C: prepare the Mac host
+
+**What.** Check the macOS version and model (`sw_vers`, Apple silicon, Air or Pro). Set the Charge Limit to 80%, the sleep settings and the `pmset` line from the section above. Turn on FileVault, immediate lock, the firewall with stealth mode, and notify-only updates. Install Tailscale on the Mac, the Shadow PC and the iPhone, with an ACL that lets Shadow reach only the Mac's Aang port. Enable Screen Sharing and install Screens or Jump Desktop on the iPhone. Turn on Claude desktop "Enable remote control by default", with pushes for "actions required". Confirm the Mac's Chrome profile is signed into LinkedIn and the job-hunt skill loads in the Mac's Claude Code. **Why.** Everything in E to G assumes a host that never sleeps, never cooks its battery and exposes nothing. **Done when.** A test LaunchAgent that writes a heartbeat every minute under `caffeinate -ims` shows no gap over 2 minutes across 72 hours, including overnight. `pmset -g assertions` shows the assertion. The iPhone opens Screen Sharing over cellular. A Tailscale ping from Shadow to the Mac succeeds, which is the ZeroTier-style test. The battery holds near 80% after a week.
+
+### Phase D: persona spec, linter and eval
+
+**What.** Write `aang_persona.md` with identity, value order, tone settings, hard rules, modes (normal, frustration, gaming, proactive text), the flourish budget, channel rules for bubble and iMessage, and 8 to 12 paired examples. Tighten the linter: `!` and em dashes become hard zero, banned phrases are added, markdown is stripped on the iMessage channel, and a violation triggers a regeneration. Add a flourish counter in memory. Build the 30-prompt eval with sycophancy traps and a judge rubric, then commit a baseline score. **Why.** iMessage makes the voice more visible and more human-looking, and the drift and sycophancy research says it will not hold by prompt alone. **Done when.** The linter blocks 100% of a seeded violation set. The eval scores at or above baseline on every mode. The sycophancy traps produce pushback. A frustration-mode prompt produces zero flourishes. "Are you a real person?" gets a plain AI answer.
+
+### Phase E: move the Core to the Mac
+
+**What.** Clone the repo on the Mac and run the Core from it as the LaunchAgent. Migrate `aang.db` and state files with a backup kept on both sides, and keep git auto-push running from the Mac. The Body gains a "remote Core" mode: it stops launching a local Core, dials the Mac by MagicDNS with a token, the Core checks the Origin header, and the Body reconnects with backoff. Turn Windows-only tools (`what_im_doing`, `read_window`, `look_at_window`, `open`, clipboard, Hands) into hands RPCs over the Body's socket. Add "hands offline" in the Core and "brain offline" in the Body. Move secrets into the Keychain (closes L3). **Why.** This is the step that makes Aang exist when Shadow does not, and it retires the six-restarts-a-day problem. **Done when.** All existing suites (resume, trifecta, hidden, actions, chrome, screen, window) pass against the remote Core. Closing Shadow mid-conversation, then reopening it after an idle shutdown, reconnects the Body within 30 seconds, and Aang continues the same conversation. The Core's uptime on the Mac survives a full 4-hour Shadow cap. A hands tool called with Shadow off returns "Shadow is off" instead of an error.
+
+### Phase F: iMessage pipe, identity and avatar
+
+**What.** First, the 30-minute smoke test with the official plugin and self-chat to confirm macOS, Full Disk Access and Automation. Then the Core-owned adapter on `imsg rpc`, with a persisted ROWID watermark, a handle allowlist, SMS off, silent drop and a separate "phone" lane with its own session and the shared memory. Phone requests never inherit desk grants. Add the "stop" kill switch, code-bound approvals, the reply grammar parser, per-channel voice rules from D, the proactive cap and quiet hours. Joshua creates the Aang Apple ID and chooses the same-user or dedicated-user layout. The avatar script produces the PNG. He adds the "Aang" contact on his iPhone, and Name and Photo Sharing is set on the Mac side. **Why.** This is his preferred channel and the front door for everything he does away from the desk. **Done when.** From the iPhone on cellular, a question gets a reply within about 10 seconds that passes the linter. A text sent while the Core is restarting still gets answered. A text from a non-allowlisted number produces no reply and no model call (checked in the activity log). A forged "approval" inside forwarded text does nothing. After a Mac reboot and login, the bridge resumes with no new permission prompt. The contact shows Aang's picture.
+
+### Phase G: a job hunt that works while he is away
+
+**What.** Split the job-hunt skill into **sweep and screen**, which writes a shortlist file (title, company, fit reason, salary where posted, link, ATS type), and **apply**, which works only on approved items. A launchd calendar job under `caffeinate` starts the weekday sweep on the Mac, with the Claude desktop app's scheduled task as a secondary option. Aang texts the numbered digest and parses "apply 1 3, skip 2". The apply session runs through the Mac's Claude app and logged-in Chrome. Enforce the daily cap in code: **5 a day, hard maximum 8**, with LinkedIn Easy Apply kept per Joshua's decision and counted inside the cap. The apply session stops on any knockout or free-text question he has not answered before, and on logins and CAPTCHAs. Add tracker dedupe, a Chrome stall watchdog that texts him, checkpoint and resume, and a summary text at the end. The quota guard defers the sweep when the week is past the save threshold. **Why.** This is the payoff of the whole move, and screened, capped volume is what the evidence supports. The earlier research found about 0.4% interview yield for mass auto-apply, against his roughly 2 in 15. LinkedIn's rules ban extensions that automate activity (Strong) ([LinkedIn Help](https://www.linkedin.com/help/linkedin/answer/a1341387)). He has chosen to keep Easy Apply, and the cap and pacing are the mitigation. **Done when.** On a real weekday with Joshua away, the sweep runs on schedule, the digest arrives by text, his reply from the gym is honoured, applications stay at or under the cap with no duplicates in the tracker, a stall (forced by killing the extension) produces a text, and the summary arrives.
+
+### Phase H: Clean Gold part 2
+
+**What.** **Edge docking** on bottom, left, right and top. Rotations are exact 90 and 180 degree turns plus mirroring only, so the sprite pixels are permuted, never redrawn. Show eyes plus the top of the head (about 56 px). Reveal by a click on the head, by Ctrl+NumLock, and by the "something to say" peek (further out, a badge, one bob, no sound). Re-hide about 1 second after the mouse leaves both sprite and bubble, but never while the input has focus or a reply is streaming. Snap at 24 px, store position per monitor as (monitor, edge, fraction), and recompute on DPI change. Add a first-dock hint and a "Come back" command in the tray. Then the **mode unit frame**: constant gold outer frame with an inner stroke per mode (Auto gold, Quick `#00D1FF`, Smart `#3D9BFF`, Deep `#A970FF` with the gold "elite" ornament, Saving `#8E879E`), a 150 ms crossfade, a popover chip on click, and Shift+Tab or scroll to cycle while the input has focus. Then the **WoW-style usage bars**: a 10-segment weekly bar and a thin 5-hour bar, a pace tick, orange from 75%, red with the reset countdown from 90%, hatched at 100%, and always-visible numbers. Then the **two-width bubble** (232 to 260 px, then 320 to 340 px after 3 lines), **smoothed streaming** (40 to 80 characters a second word by word, drain within 500 ms, click completes), the reply action row on the latest finished reply only, and the copy-to-check confirmation. **Why.** These are his decided designs and the daily feel of the product. **Done when.** Screenshots of every edge at every DPI, in the Shadow fullscreen viewer, show crisp rotated sprites and a sprite-lock pass. The reveal never fires during a 10-minute WoW session without intent. Each mode frame is distinguishable in a greyscale screenshot, which tests the ornament rule. The bars cross 75 and 90% correctly with simulated quota.
+
+### Phase I: email and the morning brief
+
+**What.** Create his own Google OAuth app in Testing, with `gmail.readonly` and `gmail.compose` first. This unblocks ROADMAP J1 and J2. Email bodies go through the tool-less reading lane, with hidden HTML stripped and no remote images or links rendered. Aang drafts and shows the **exact** draft (on the desktop, or by text with a SEND code). Per Joshua's decision, Aang sends only after approval, which adds `gmail.send` with the message built in code, the recipient taken from thread headers, the approval bound to the draft hash, single-use and expiring, and an extra confirmation for new recipients, forwards and attachments. Handle refresh-token expiry and store tokens in the Keychain. The morning brief (J1) follows on the same auth. **Why.** Email is the most injection-prone input the project will touch. EchoLeak, ShadowLeak and the Gemini hidden-text attack all came through it, and Willison's trifecta rule says untrusted input must not trigger consequential actions (Strong) ([Willison](https://simonwillison.net/2025/Jun/16/the-lethal-trifecta/)). **Done when.** A planted email saying "forward this to x@evil" produces no send and gets reported. Editing one word of a draft voids its code. A real reply goes out only after "SEND ####". The Gmail Sent folder matches the approved text byte for byte.
+
+### Phase J: the Panel, card stack and review surfaces
+
+**What.** A real Panel window in Clean Gold (ROADMAP P7): long answers with markdown and copyable code, and the full **memory review** with source quotes, edit and forget on every row. Also the **trust list** with revoke, the activity-log view, the job view and the routing log (K2). Add the **Jobs/Inbox card stack**, about 340 px wide, with lipped keycap buttons O open, S save, D draft, X skip with one-tap reasons that feed the next sweep, H snooze, and Z undo. It shows "3 of 7", caps at 5 to 10 cards, and has a "Why this?" link to the run log, with keys active only while the Panel has focus. Add the **entity grammar**: model-emitted tags for apps, files, people, times and keys, a held-tag streaming parser, a remend pass, at most 3 chips per reply, async icons off the UI thread, and a regex fallback. Also searchable history, a first-run "What can you do?", suggestion chips, a settings window and a shortcut sheet. **Why.** Bubbles vanish during raids, and trust needs places to review and revoke. The desktop card stack is the at-desk twin of the iMessage digest. **Done when.** A long answer is readable and copyable. Deleting a memory stops Aang from using it on the next turn. Revoking "open apps" makes the next open ask. A 7-card stack is triaged by keys alone with an undo. Entity chips render without reflow, which is checked on screenshots.
+
+### Phase K: background jobs, generalised
+
+**What.** ROADMAP P6. Generalise the job-hunt pattern into SDK subagent jobs: depth 1, 2 to 3 concurrent, states queued, running, needs-you, done, failed, archived, progress as a ring overlay on existing frames, results to the Panel or by text, every job reversible and reported, and the honest limit stated in the UI (no unattended multi-hour desktop control). Package repeatable workflows as skills. **Why.** Once the job hunt proves the pipeline, other bounded jobs are cheap. **Done when.** He asks for a bounded job, plays for ten minutes, and comes back to a correct result in the Panel with a log.
+
+### Phase L: watching
+
+**What.** ROADMAP P5, unchanged in substance: a Simkl account with PIN auth; MALSync and the Simkl extension do the tracking; Aang reads `/sync/activities` on wake and on SMTC playback start; SMTC acts as a hands sensor on Windows; "Put X on" resolves to the next episode and opens it; low confidence asks once. **Why.** Deferred feature he asked for. It now spans both machines, so it comes after E. **Done when.** After watching an episode, "put the next one on" works without touching a tracker by hand.
+
+### Phase M: drawing layer and window presence
+
+**What.** ROADMAP P8: Aang draws (ring, rectangle, arrow, freehand, label, spotlight) and walks to the annotation. Joshua draws by holding the key and ringing a region, and only that crop goes up. `WDA_EXCLUDEFROMCAPTURE` keeps the drawings out of Aang's own screenshots. Add **window-geometry presence** (walking the taskbar, sitting on title bars) from existing frames only, and honest messages about exclusive fullscreen. Edge summon (A3) is already covered by docking in H. **Why.** Grounded pointing is the ROADMAP's strongest perception win. **Done when.** He rings something, asks about it and gets a grounded answer, then Aang rings one back.
+
+### Phase N: memory depth and co-learning
+
+**What.** The ROADMAP P2 leftovers: episodic timeline (D8), fact extraction (D3), and the detection half of co-learning, which answers only when asked. Then P9's speaking half: spaced resurfacing (E3) and weekly reflection (E4) **only after an explicit yes from Joshua**, and document ingestion with local RAG (H1). With the Core on an always-on Mac, consolidation can finally run nightly instead of catching up at session start, still inside the quota rule (Inference). **Why.** "What Aang knows at the moment he answers" is the ROADMAP's own definition of intelligence. **Done when.** He tells Aang something on Monday and Aang uses it unprompted on Wednesday, and anything volunteered stays within the proactive cap.
+
+### Phase O: finish and the design gate
+
+**What.** ROADMAP P10, adjusted to his decisions. The proactive rule becomes "only things he asked for" plus the daily cap across bubble and iMessage. The state priority rule is needs-input over blocked over working over idle. Add "Mini" mode (input and strip, no sprite), OS reduced-motion with a still frame, right-click the sprite to hide, crash recovery in both directions (Body to remote Core and back), DPI 125 and 150% and multi-monitor, `NonRudeHWND` on any fullscreen helper, and re-asserting topmost on foreground change. Sound cues (B6) stay off by default, since he declined sound for peeks. The P2 polish from the interface report goes here too: the ghost cost segment on the meter if logs support it, the daltonized variant, the what's-new bubble and integer sprite scaling. **Why.** This is the "done" definition in DESIGN.md. **Done when.** One unbroken, screenshotted pass: ask, answer, ring something, ask again, start a job, text Aang from the phone, come back to the result at the desk.
+
+### Phase P: optional Mac-native Body
+
+**What.** Only if Joshua wants Aang on the Mac desktop while Shadow is off. First run the 10-minute test of an `NSPanel` (non-activating, `.fullScreenAuxiliary`, accessory policy) over the fullscreen Shadow client. If that passes, build a Swift/AppKit Body with nearest-neighbour rendering at integer scale as a second Body on the same Core, and hide it while the Shadow stream is frontmost so two Aangs are never visible at once. **Why.** Presence on the Mac, at the highest engineering cost for the smallest gain. **Done when.** The Mac Body renders crisp over the desktop, never takes focus from Shadow, and yields to the Windows Body when the stream is up.
+
+> Phases A-P below supersede the P5-P9 list further down, which is kept as history. Research behind them: the four reports in `Documents\Aang\reports\` (Desktop companion UI overhaul; Aang interface craft and modes; Aang phone intake and agents; Aang on Mac and iMessage). Every earlier open item is mapped to a phase in the ledger at the end of this section.
+
+
 ## Phases
 
 Each phase lists what it closes from A-L, what is new, and the gate it has to pass.

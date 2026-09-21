@@ -40,6 +40,11 @@ sealed class BubbleView : IDisposable
     readonly Color dimC = Color.FromArgb(200, 178, 170, 215);
     readonly Color gripC = Color.FromArgb(200, 178, 120, 255);      // the drag-handle purple from the original skin
     readonly Color trackC = Color.FromArgb(150, 44, 24, 92);
+    /// <summary>Claude's brand terracotta, lightened to read on the ink: the colour of anything that is Claude.</summary>
+    readonly Color linkC = Color.FromArgb(255, 0xE8, 0x8A, 0x6A);
+    readonly Font bold = new("Bahnschrift SemiBold", 14.667f, FontStyle.Regular, GraphicsUnit.Pixel);
+    /// <summary>A word in the text to mark as a link (e.g. "Claude"), or empty.</summary>
+    public string Link { get; set; } = "";
 
     string text = "";
     List<string> lines = new();
@@ -202,7 +207,7 @@ sealed class BubbleView : IDisposable
     public void Clear()
     {
         Visible = false; Dots = false; streaming = false; expanded = false; scroll = 0; Tools = false; Hover = false; Rating = 0; Asking = false;
-        text = ""; receipt = ""; lines = new(); hideAt = DateTime.MaxValue; shownH = 0;
+        text = ""; receipt = ""; lines = new(); hideAt = DateTime.MaxValue; shownH = 0; Link = "";
     }
 
     /// <summary>Grow the bubble upward to fit up to 12 lines. Returns false if there is nothing more to show.</summary>
@@ -351,11 +356,27 @@ sealed class BubbleView : IDisposable
         var rows = count + (asking ? 1 : 0);
         var slack = Math.Max(0f, (Bottom - top) - 2 * Pad - rows * LineH);
         var textTop = top + Pad + slack / 2f;
+        // Only the first "Claude" in the message is the link: every mention marked at once reads as noise.
+        int linkLine = -1;
+        if (Link.Length > 0) for (int j = 0; j < lines.Count; j++) if (lines[j].Contains(Link, StringComparison.Ordinal)) { linkLine = j; break; }
         for (int i = 0; i < count && first + i < lines.Count; i++)
         {
             var line = lines[first + i];
             if (More && i == count - 1) line = Ellipsize(line);            // "..." on the last visible line
-            g.DrawString(line, font, tb, TextX, textTop + i * LineH, StringFormat.GenericTypographic);
+            float y = textTop + i * LineH;
+            int at = first + i == linkLine ? line.IndexOf(Link, StringComparison.Ordinal) : -1;
+            if (at < 0) { g.DrawString(line, font, tb, TextX, y, StringFormat.GenericTypographic); continue; }
+            // The linked word - "Claude", the app his job runs in - is drawn in Claude's own colour and underlined,
+            // so it reads as a place to go rather than part of the sentence. A click on the bubble goes there.
+            var before = line[..at];
+            float x = TextX + (before.Length > 0 ? Width(before) + (before.EndsWith(' ') ? spaceW : 0) : 0);
+            if (before.Length > 0) g.DrawString(before, font, tb, TextX, y, StringFormat.GenericTypographic);
+            using (var lb = new SolidBrush(linkC)) g.DrawString(Link, bold, lb, x, y, StringFormat.GenericTypographic);
+            float lw = Width(Link) + 1;
+            using (var up = new Pen(linkC, 1.2f)) g.DrawLine(up, x, y + LineH - 2, x + lw, y + LineH - 2);
+            var after = line[(at + Link.Length)..];
+            // The gap is added by hand and the space itself dropped: drawing " on" after adding a space doubled it.
+            if (after.Length > 0) g.DrawString(after.TrimStart(' '), font, tb, x + lw + (after.StartsWith(' ') ? spaceW : 0), y, StringFormat.GenericTypographic);
         }
         g.ResetClip();
 

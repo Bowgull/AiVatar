@@ -20,7 +20,8 @@ Core is down (drag, poke, tray); it must never block on the link.
 
 | `t` | Fields | Meaning |
 |---|---|---|
-| `hello` | `v`: 1, `pid` | Sent on every (re)connect. |
+| `hello` | `v`: 1, `pid`, `client` (optional: `discord`; the desktop Body leaves it out) | Sent on every (re)connect. `client` decides what this connection is sent: a turn's messages go only to the connection it came from, and unprompted ones to wherever Joshua is (see `desk`). |
+| `desk` | `active` (bool) | Whether there has been keyboard or mouse input on this PC in the last 5 minutes. Sent when it changes and after a reconnect. While false and Discord is connected, unprompted messages go to Discord instead of the bubble. |
 | `presence` | `quiet` (bool), `foreground` (process name), `title` (window title), `watching` (bool) | Sent when quiet mode changes, and whenever the foreground window or its title changes (at most twice a second). `watching: false` means Joshua has switched window awareness off in the tray: the Core stops recording and forgets what it had. |
 | `poked` | none | The sprite was clicked without dragging. |
 | `moved` | `x`, `y` | The window was dragged to a new position. |

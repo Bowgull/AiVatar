@@ -5,7 +5,11 @@ export type QuotaLevel = 'ok' | 'warn' | 'offer' | 'saving';
 
 export type ToBody =
   | { t: 'state'; state: string }
-  | { t: 'bubble'; text: string; stream: boolean; id?: string; who?: string; proactive?: boolean }
+  | { t: 'bubble'; text: string; stream: boolean; id?: string; who?: string; proactive?: boolean;
+      /** Something he asked to be told about: shown even in quiet mode. */
+      asked?: boolean;
+      /** The window a click on the bubble brings forward, and the word in the text to mark as that link. */
+      focus?: string; link?: string }
   | { t: 'bubble.dots' }
   | { t: 'bubble.clear' }
   | { t: 'quiet'; on: boolean }
@@ -21,7 +25,10 @@ export type ToBody =
   | { t: 'error'; id?: string; message: string; next: string };
 
 export type FromBody =
-  | { t: 'hello'; v: number; pid?: number }
+  /** `client` says who is on the other end; the desktop Body leaves it out. */
+  | { t: 'hello'; v: number; pid?: number; client?: 'desktop' | 'discord' }
+  /** The Body: whether Joshua has touched the keyboard or mouse lately, sent when that changes. */
+  | { t: 'desk'; active: boolean }
   | { t: 'presence'; quiet: boolean; foreground: string; title?: string; watching?: boolean; hwnd?: number }
   | { t: 'poked' }
   | { t: 'moved'; x: number; y: number }
