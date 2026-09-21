@@ -118,3 +118,12 @@ test('the system prompt carries the voice rules, examples and Joshua\'s profile'
   const p = buildSystemPrompt('Joshua lives in Toronto.', '- likes fruit pies');
   for (const part of ['<voice>', '<examples>', 'get_weather', 'Joshua lives in Toronto.', 'fruit pies', 'no emoji']) assert.ok(p.includes(part), part);
 });
+
+test('a tool call written out as a stage direction never reaches him', () => {
+  const r = lint('(calls remember: "His raid group is the Bleeding Edge")\n\nGot it. Tuesdays at 9.', [], 'my raid group is the Bleeding Edge');
+  assert.equal(r.cleaned, 'Got it. Tuesdays at 9.');
+  assert.ok(r.fixed.includes('stage direction'));
+  assert.ok(r.flags.includes('wrote a tool call as text'));
+  assert.equal(lint('(after get_time) 2:51 pm.', ['mcp__aang__get_time']).cleaned, '2:51 pm.');
+  assert.equal(lint('Sure (the raid is at nine), see you there.', []).cleaned, 'Sure (the raid is at nine), see you there.', 'ordinary brackets are left alone');
+});

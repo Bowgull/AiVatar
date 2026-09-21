@@ -439,8 +439,9 @@ export class Core {
     return desk ? 'desktop' : null;
   }
   private sendTo(kind: 'desktop' | 'discord', msg: ToBody): void { for (const c of this.clientsOf(kind)) this.send(c, msg); }
-  /** Everything about one turn goes only to the connection it came from. */
-  private toTurn(sub: Submission, msg: ToBody): void { this.send(sub.socket, msg); }
+  private kindOfSocket(ws: WebSocket): 'desktop' | 'discord' { return this.clientKind.get(ws) ?? 'desktop'; }
+  /** Everything about one turn goes to the place it came from: every desktop window, or Discord. Not to the other place. */
+  private toTurn(sub: Submission, msg: ToBody): void { this.sendTo(this.kindOfSocket(sub.socket), msg); }
 
   private quotaMessage(): ToBody | null {
     const q = this.policy.last;
@@ -731,7 +732,7 @@ export class Core {
 
     // Asked where he asked for the thing; with no turn behind it, wherever he is.
     const turnSocket = this.active?.sub?.socket;
-    const askAt = turnSocket && turnSocket.readyState === turnSocket.OPEN ? [turnSocket] : (() => { const w = this.whereHeIs(); return w ? this.clientsOf(w) : []; })();
+    const askAt = turnSocket && turnSocket.readyState === turnSocket.OPEN ? this.clientsOf(this.kindOfSocket(turnSocket)) : (() => { const w = this.whereHeIs(); return w ? this.clientsOf(w) : []; })();
     if (askAt.length === 0) return this.refuse('it needs his yes and there is nowhere to ask him');
     if (this.permission) return this.refuse('another question is already waiting for his answer in the bubble');
     this.refused = '';
