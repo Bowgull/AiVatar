@@ -35,8 +35,8 @@ class FakeGateway implements Gateway {
     return all.slice(i + 1, i + 1 + limit);
   }
   async permissions() { return this.perms; }
-  say(channel: string, author: string, content: string, id = String(Math.random()), isBot = false) {
-    const m: Incoming = { id, channelId: 'ch-' + channel, channelName: channel, authorId: author, isBot, content, createdAt: Date.now() };
+  say(channel: string, author: string, content: string, id = String(Math.random()), isBot = false, replyTo?: string) {
+    const m: Incoming = { id, channelId: 'ch-' + channel, channelName: channel, authorId: author, isBot, content, createdAt: Date.now(), ...(replyTo ? { replyTo } : {}) };
     this.msgCb(m); return m;
   }
   press(customId: string, userId: string, channelId = 'ch-aang') { const acks: string[] = []; this.btnCb({ customId, userId, channelId, ack: async n => { acks.push(n); }, keep: async () => { acks.push('(kept)'); } }); return acks; }
@@ -375,9 +375,10 @@ async function makeJobs() {
   const shortlistFile = path.join(dir, 'shortlist.json');
   writeFileSync(path.join(dir, 'discord.json'), JSON.stringify({ ownerId: OWNER, channels: {}, lastSeen: {} }));
   const criteriaFile = path.join(dir, 'crit.md'); writeFileSync(criteriaFile, 'PAYFLOOR-TEST 80K');
-  const a = new DiscordAdapter(gw, core, dir, { typingMs: 1_000_000, scanMs: 0, shortlistFile, criteriaFile, inboxDir: path.join(dir, 'in'), now: () => new Date('2026-09-22T15:00:00Z') });
+  const draftsFile = path.join(dir, 'drafts.json'), answersFile = path.join(dir, 'answers-approved.json'), appliedFile = path.join(dir, 'applied.json');
+  const a = new DiscordAdapter(gw, core, dir, { typingMs: 1_000_000, scanMs: 0, shortlistFile, draftsFile, answersFile, appliedFile, criteriaFile, inboxDir: path.join(dir, 'in'), now: () => new Date('2026-09-22T15:00:00Z') });
   await a.start();
-  return { a, gw, core, dir, shortlistFile };
+  return { a, gw, core, dir, shortlistFile, draftsFile, answersFile, appliedFile };
 }
 const VERDICT = '{"title":"Onboarding Lead","company":"Acme","location":"Toronto","salary":"$88K","verdict":"apply","reason":"Right lane."}';
 const cardsIn = (gw: FakeGateway, ch: string) => gw.to(ch).filter(m => m.buttons?.some(b => b.id.startsWith('job:')));
@@ -562,4 +563,105 @@ test('the permissions card lists what he may do, has a button to take each back,
   core.emit({ t: 'trust.reply', items: [] }); await tick();
   assert.match(gw.edits.at(-1)!.msg.content!, /not allowed to do anything without asking/);
   assert.equal(gw.edits.at(-1)!.msg.buttons!.length, 0);
+});
+
+// ---------------------------------------------------------------- drafted answers and application results
+
+const DRAFTS = [
+  { company: 'Acme', title: 'CS Manager', url: 'https://jobs.example.com/1', question: 'Why do you want to work here?', draft: 'I like how you onboard customers.' },
+  { company: 'Acme', title: 'CS Manager', url: 'https://jobs.example.com/1', question: 'Notice period?', draft: 'Two weeks.' },
+];
+const draftCards = (gw: FakeGateway) => gw.to('drafts').filter(m => m.buttons?.some(b => b.id.startsWith('draft:')));
+const bump = async (file: string) => { const fs = await import('node:fs'); fs.utimesSync(file, new Date(), new Date(Date.now() + 10_000 + Math.floor(Math.random() * 5000))); };
+
+test('drafted answers become cards in #drafts, once each, with one loud summary; nothing is approved yet', async () => {
+  const { a, gw, draftsFile, answersFile } = await makeJobs();
+  assert.equal(await a.scanDrafts(), 0, 'no file yet');
+  writeFileSync(draftsFile, JSON.stringify(DRAFTS));
+  assert.equal(await a.scanDrafts(), 2);
+  const cards = draftCards(gw);
+  assert.equal(cards.length, 2);
+  assert.ok(cards.every(c => c.silent === true));
+  assert.match(cards[0]!.content!, /Answer to approve\*\* for CS Manager at Acme[\s\S]*Why do you want to work here\?[\s\S]*I like how you onboard customers\./);
+  assert.deepEqual(cards[0]!.buttons!.map(b => b.label), ['Approve these words', 'Skip']);
+  assert.equal(gw.to('drafts').find(m => /2 answers need your approval/.test(m.content ?? ''))!.silent, false);
+  assert.equal(await a.scanDrafts(), 0, 'unchanged file: nothing');
+  writeFileSync(draftsFile, JSON.stringify([...DRAFTS, { company: 'Beta', title: 'Onb', question: 'Salary?', draft: '85K' }])); await bump(draftsFile);
+  assert.equal(await a.scanDrafts(), 1, 'only the new one');
+  assert.equal(existsSync(answersFile), false, 'nothing approved, so nothing exported');
+});
+
+test('approving exports exactly the approved words; skipping and undo take them out again', async () => {
+  const { a, gw, draftsFile, answersFile } = await makeJobs();
+  writeFileSync(draftsFile, JSON.stringify(DRAFTS));
+  await a.scanDrafts();
+  const [c1, c2] = draftCards(gw);
+  const id = (c: typeof c1, n: number) => c!.buttons![n]!.id;
+  const exported = () => JSON.parse(readFileSync(answersFile, 'utf8'));
+
+  assert.deepEqual(gw.press(id(c1, 0), STRANGER), ['That is not yours to answer.']);
+  assert.equal(existsSync(answersFile), false, 'a stranger approves nothing');
+  gw.press(id(c1, 0), OWNER); await tick();
+  assert.deepEqual(exported().map((e: any) => [e.question, e.answer]), [['Why do you want to work here?', 'I like how you onboard customers.']]);
+  assert.match(gw.edits.at(-1)!.msg.content!, /Approved\. The application can use exactly these words\./);
+  gw.press(id(c2, 0), OWNER); await tick();
+  assert.equal(exported().length, 2);
+  gw.press(`draft:no:${a.drafts.items[1]!.id}`, OWNER); await tick();       // skip the second: it was approved, so this must remove it
+  assert.equal(exported().length, 1, 'skipped words are not exported');
+  gw.press(`draft:new:${a.drafts.items[0]!.id}`, OWNER); await tick();       // undo the first
+  assert.deepEqual(exported(), [], 'and neither are undone ones');
+});
+
+test('replying to a draft with his own wording replaces it and needs approving again; other messages in #drafts never reach the model', async () => {
+  const { a, gw, core, draftsFile, answersFile } = await makeJobs();
+  writeFileSync(draftsFile, JSON.stringify(DRAFTS));
+  await a.scanDrafts();
+  const card = a.drafts.items[0]!;
+  gw.press(`draft:ok:${card.id}`, OWNER); await tick();
+  assert.equal(JSON.parse(readFileSync(answersFile, 'utf8')).length, 1);
+
+  gw.say('drafts', OWNER, 'I care about the first ninety days of a customer.', 'r1', false, card.messageId); await tick();
+  assert.equal(a.drafts.get(card.id)!.text, 'I care about the first ninety days of a customer.');
+  assert.equal(a.drafts.get(card.id)!.status, 'new', 'his new words are not approved yet');
+  assert.deepEqual(JSON.parse(readFileSync(answersFile, 'utf8')), [], 'so the old approved words are withdrawn');
+  assert.match(gw.edits.at(-1)!.msg.content!, /\*\*Your wording:\*\*\nI care about the first ninety days/);
+  assert.match(gw.to('drafts').at(-1)!.content!, /Changed to your wording\. Tap Approve/);
+
+  gw.say('drafts', OWNER, 'what does this one mean?'); await tick();
+  assert.match(gw.to('drafts').at(-1)!.content!, /Reply directly to the draft/);
+  gw.say('drafts', OWNER, 'hello', 'x', false, 'some-other-message'); await tick();
+  assert.match(gw.to('drafts').at(-1)!.content!, /Reply directly to the draft/);
+  assert.equal(core.submits.length, 0, 'nothing in #drafts is ever sent to Aang');
+});
+
+test('application results: submitted goes to #applied and updates the card; stuck is loud and goes to #needs-you; each is told once', async () => {
+  const { a, gw, appliedFile, shortlistFile } = await makeJobs();
+  writeFileSync(shortlistFile, JSON.stringify([{ title: 'CSM', company: 'Acme', url: 'https://jobs.example.com/1' }, { title: 'Onb', company: 'Beta', url: 'https://jobs.example.com/2' }]));
+  await a.scanShortlist();
+  for (const c of a.jobs.cards) gw.press(`job:ok:${c.id}`, OWNER);
+  await tick(); gw.press('deck:apply', OWNER); await tick();
+  assert.equal(a.jobs.cards.every(c => c.status === 'sent'), true);
+  const appliedBefore = gw.to('applied').length;
+
+  writeFileSync(appliedFile, JSON.stringify([
+    { url: 'https://jobs.example.com/1', title: 'CSM', company: 'Acme', status: 'submitted', note: 'Confirmation: received' },
+    { url: 'https://jobs.example.com/2', title: 'Onb', company: 'Beta', status: 'stuck', note: 'reCAPTCHA on the last step' },
+    { url: 'https://jobs.example.com/99', title: 'Other', company: 'Gamma', status: 'submitted', note: 'a job that was not from a card' },
+  ]));
+  assert.equal(await a.scanApplied(), 3);
+  const lines = gw.to('applied').slice(appliedBefore);
+  assert.match(lines[0]!.content!, /^Submitted: CSM at Acme\nhttps:\/\/jobs\.example\.com\/1\nConfirmation: received$/);
+  assert.match(lines[1]!.content!, /^Stuck: Onb at Beta/);
+  assert.match(lines[2]!.content!, /^Submitted: Other at Gamma/);
+  assert.ok(lines.every(l => l.silent === true));
+  const need = gw.to('needs-you').at(-1)!;
+  assert.match(need.content!, /^Need input on the job hunt: Onb at Beta\. reCAPTCHA on the last step/);
+  assert.equal(need.silent, false, 'stuck makes a sound');
+  assert.deepEqual(a.jobs.cards.map(c => c.status), ['applied', 'stuck']);
+  assert.ok(gw.edits.some(e => /Applied: Confirmation: received/.test(e.msg.content ?? '')), 'the card itself shows it');
+
+  assert.equal(await a.scanApplied(), 0, 'unchanged file');
+  writeFileSync(appliedFile, JSON.stringify([{ url: 'https://jobs.example.com/2', title: 'Onb', company: 'Beta', status: 'submitted', note: 'Confirmation: done after he solved it' }])); await bump(appliedFile);
+  assert.equal(await a.scanApplied(), 1, 'a stuck job that later succeeds is news');
+  assert.equal(a.jobs.byUrl('https://jobs.example.com/2')!.status, 'applied');
 });

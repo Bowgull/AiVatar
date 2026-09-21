@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { DAILY_CAP, HARD_MAX, Jobs, applyPrompt, cleanField, extractUrls, parseVerdict, readShortlist, renderCard, safeUrl, vetPrompt } from '../src/jobs.ts';
+import { DAILY_CAP, HARD_MAX, Drafts, Jobs, applyPrompt, cleanField, extractUrls, parseVerdict, readAppliedFile, readDraftsFile, readShortlist, renderCard, renderDraft, safeUrl, vetPrompt } from '../src/jobs.ts';
 import { attachmentProblem, safeAttachmentName } from '../src/phone.ts';
 
 const tmp = () => mkdtempSync(path.join(os.tmpdir(), 'aang-jobs-'));
@@ -119,4 +119,87 @@ test('files from a phone: nothing that runs, nothing huge, and names are made sa
   assert.equal(safeAttachmentName('a<b>:c?.png'), 'a_b__c_.png');
   assert.equal(safeAttachmentName('...'), 'file');
   assert.equal(safeAttachmentName(''), 'file');
+});
+
+// ---------------------------------------------------------------- answers he must approve, and what came of each application
+
+test('drafts: read from the file, cleaned, given stable ids, and dodgy ones dropped', () => {
+  const f = path.join(tmp(), 'drafts.json');
+  writeFileSync(f, JSON.stringify([
+    { company: 'Acme', title: 'CS Manager', url: 'https://jobs.example.com/1', question: 'Why do you want to work here?', draft: 'I like the work. @everyone <@123>' },
+    { company: 'Acme', title: 'CS Manager', question: '   ', draft: 'no question' },
+    { company: 'Acme', question: 'Salary?', draft: '' },
+    { company: 'Beta', title: 'Onboarding', url: 'javascript:alert(1)', question: 'Notice period?', answer: 'Two weeks.' },
+  ]));
+  const d = readDraftsFile(f);
+  assert.equal(d.length, 2, 'no question or no text: dropped');
+  assert.equal(d[0]!.text, 'I like the work. @​everyone');
+  assert.equal(d[1]!.url, '', 'a link that is not https is not kept');
+  assert.equal(d[1]!.text, 'Two weeks.', 'the answer key works too');
+  assert.equal(readDraftsFile(f)[0]!.id, d[0]!.id, 'the same draft always has the same id');
+  assert.notEqual(d[0]!.id, d[1]!.id);
+  assert.deepEqual(readDraftsFile(path.join(tmp(), 'nope.json')), []);
+});
+
+test('a draft card shows the words and the buttons for each state; only approved words are exported; his rewrite needs approving again', () => {
+  const dir = tmp();
+  const dr = new Drafts(dir);
+  const d = dr.add({ id: 'abc1', company: 'Acme', title: 'CSM', url: 'https://jobs.example.com/1', question: 'Why us?', text: 'Because.' });
+  let v = renderDraft(d);
+  assert.match(v.content, /Answer to approve\*\* for CSM at Acme\n\*\*Question:\*\* Why us\?\n\*\*Draft:\*\*\nBecause\./);
+  assert.match(v.content, /Reply to this message with your own wording/);
+  assert.deepEqual(v.buttons.map(b => b.label), ['Approve these words', 'Skip']);
+  assert.deepEqual(dr.approvedForExport(), [], 'nothing is exported before he approves');
+
+  dr.setStatus('abc1', 'approved');
+  assert.deepEqual(dr.approvedForExport(), [{ company: 'Acme', title: 'CSM', url: 'https://jobs.example.com/1', question: 'Why us?', answer: 'Because.' }]);
+  v = renderDraft(dr.get('abc1')!);
+  assert.match(v.content, /Approved\. The application can use exactly these words\./);
+  assert.deepEqual(v.buttons.map(b => b.label), ['Undo']);
+
+  dr.rewrite('abc1', 'In my own words.');
+  assert.equal(dr.get('abc1')!.status, 'new', 'what was approved is not what is now here');
+  assert.deepEqual(dr.approvedForExport(), []);
+  assert.match(renderDraft(dr.get('abc1')!).content, /\*\*Your wording:\*\*\nIn my own words\./);
+  assert.equal(new Drafts(dir).get('abc1')!.text, 'In my own words.', 'kept across a restart');
+  const long = dr.add({ id: 'zz', company: '', title: '', url: '', question: 'Q', text: 'x'.repeat(3000) });
+  assert.ok(renderDraft(long).content.length <= 1900, 'always fits a Discord message');
+});
+
+test('applied.json: submitted and stuck are told apart, notes cleaned, junk dropped', () => {
+  const f = path.join(tmp(), 'applied.json');
+  writeFileSync(f, JSON.stringify([
+    { url: 'https://jobs.example.com/1', title: 'CSM', company: 'Acme', status: 'submitted', note: 'Confirmation: application received @everyone' },
+    { url: 'https://jobs.example.com/2', title: 'Onb', company: 'Beta', status: 'Stuck', note: 'reCAPTCHA on the last step' },
+    { url: 'https://jobs.example.com/3', status: 'maybe later' },
+    { url: 'not a url', status: 'submitted' },
+    { url: 'https://jobs.example.com/4', status: 'captcha' },
+  ]));
+  const a = readAppliedFile(f);
+  assert.deepEqual(a.map(e => e.status), ['applied', 'stuck', 'stuck']);
+  assert.equal(a[0]!.note, 'Confirmation: application received @​everyone');
+});
+
+test('a result updates the card, counts against the cap, and a sent job cannot be pulled back', () => {
+  const j = new Jobs(tmp());
+  const c = j.add({ url: 'https://jobs.example.com/1', title: 'T', company: 'C', location: '', salary: '', verdict: 'apply', reason: '' }, NOW);
+  j.setStatus(c.id, 'approved'); j.takeForApply(NOW);
+  assert.equal(j.left(NOW), 4);
+  assert.equal(j.recordResult('https://jobs.example.com/1', 'stuck', 'a CAPTCHA')!.status, 'stuck');
+  assert.equal(j.left(NOW), 4, 'stuck still counts today');
+  assert.equal(j.recordResult('https://jobs.example.com/1', 'stuck', 'a CAPTCHA'), null, 'the same news twice changes nothing');
+  assert.equal(j.recordResult('https://jobs.example.com/1', 'applied', 'Confirmation 42')!.status, 'applied');
+  assert.match(renderCard(c).content, /Applied: Confirmation 42/);
+  assert.deepEqual(renderCard(c).buttons.map(b => b.label), ['Open']);
+  assert.equal(j.setStatus(c.id, 'skipped')!.status, 'applied', 'no button can undo it now');
+  assert.equal(j.recordResult('https://unknown.example.com/x', 'applied', ''), null);
+  c.status = 'stuck'; c.result = 'a CAPTCHA'; assert.match(renderCard(c).content, /Needs you: a CAPTCHA/);
+});
+
+test('the apply request names the approved-answers file and the report file', () => {
+  const p = applyPrompt([]);
+  assert.match(p, /answers-approved\.json/);
+  assert.match(p, /exact words, unchanged/);
+  assert.match(p, /drafts\.json/);
+  assert.match(p, /applied\.json/);
 });

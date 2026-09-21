@@ -35,7 +35,7 @@ export class DiscordGateway implements Gateway {
 
   private map(m: any): Incoming {
     const attachments = [...(m.attachments?.values?.() ?? [])].map((a: any) => ({ name: String(a.name ?? 'file'), url: String(a.url), size: Number(a.size ?? 0) }));
-    return { id: m.id, channelId: m.channelId, channelName: m.channel?.name ?? '', authorId: m.author?.id ?? '', isBot: !!m.author?.bot || !!m.webhookId, content: m.content ?? '', createdAt: m.createdTimestamp ?? 0, ...(attachments.length ? { attachments } : {}) };
+    return { id: m.id, channelId: m.channelId, channelName: m.channel?.name ?? '', authorId: m.author?.id ?? '', isBot: !!m.author?.bot || !!m.webhookId, content: m.content ?? '', createdAt: m.createdTimestamp ?? 0, ...(attachments.length ? { attachments } : {}), ...(m.reference?.messageId ? { replyTo: String(m.reference.messageId) } : {}) };
   }
 
   /** Fetch an attachment Discord is hosting for a message he sent. Only Discord's own hosts are ever fetched. */
@@ -168,7 +168,8 @@ export async function startDiscord(stateDir: string, port: number, log: (s: stri
     const gw = new DiscordGateway(token);
     await gw.login();
     const adapter = new DiscordAdapter(gw, new WsCoreLink(port), stateDir, {
-      log, shortlistFile: path.join(jobDir, 'shortlist.json'), criteriaFile: path.join(jobDir, 'memory', 'project_job_search_criteria.md'),
+      log, shortlistFile: path.join(jobDir, 'shortlist.json'), draftsFile: path.join(jobDir, 'drafts.json'),
+      answersFile: path.join(jobDir, 'answers-approved.json'), appliedFile: path.join(jobDir, 'applied.json'), criteriaFile: path.join(jobDir, 'memory', 'project_job_search_criteria.md'),
       inboxDir: path.join(os.homedir(), 'Documents', 'AangInbox'),
     });
     await adapter.start();
