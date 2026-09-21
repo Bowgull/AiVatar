@@ -53,7 +53,7 @@ export class DiscordGateway implements Gateway {
     this.client.on(Events.InteractionCreate, (i: any) => {
       if (!i.isButton()) return;
       cb({
-        customId: i.customId, userId: i.user.id, channelId: i.channelId,
+        customId: i.customId, userId: i.user.id, channelId: i.channelId, messageId: i.message?.id,
         ack: async (note: string) => { await i.update({ content: `${i.message.content}\n${note}`, components: [] }); },
         keep: async () => { await i.deferUpdate(); },
       });
@@ -153,6 +153,8 @@ export class WsCoreLink implements CoreLink {
   trust() { this.send({ t: 'trust' }); }
   revoke(kind: string) { this.send({ t: 'revoke', kind }); }
   hush(minutes: number) { this.send({ t: 'hush', minutes }); }
+  mailAct(id: string, hash: string, action: 'send' | 'save' | 'discard') { this.send({ t: 'mail.act', id, hash, action }); }
+  brief() { this.send({ t: 'brief' }); }
   onEvent(cb: (m: any) => void) { this.cbs.push(cb); }
   close() { this.closed = true; this.ws?.close(); }
 }

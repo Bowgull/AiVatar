@@ -218,6 +218,21 @@ Third-party memory services (privacy). Reddit feed. WoW combat-log analysis (his
    positions and raw keystrokes (still off), and acting in a browser is deliberately ask-every-time. Q2 UI Automation hands. Q3 generalised delegation
    (Claude in Chrome, self-improvement sessions, Spotify). K background jobs fold in here.
 7. **I, email and outreach**, after his one-time Google sign-in; morning brief and calendar on the same auth.
+   **Built 2026-09-21 (tenth pass):** signed in once with `tools\google-setup.cmd` (own Google Cloud project "Aang",
+   Desktop client, PKCE loopback; tokens in `%APPDATA%\Aang\google.json`, owner-only, the downloaded client JSON
+   deleted). Scopes: gmail.readonly, gmail.compose, calendar.readonly. Tools: `mail_inbox`, `mail_read`,
+   `calendar_today` (asked once each, and the turn is marked as having read outside content) and `mail_draft`.
+   **There is no send tool.** A draft becomes a card in #drafts (Send / Save as Gmail draft / Discard) when he asked
+   in Discord or is away from the PC, or a yes/no in the bubble that shows the whole email when he asked at the desk.
+   The only code that sends is `MailService.act`, and it needs the id and the hash of the exact wording on the card:
+   a changed draft, a wrong hash, a second tap and a discarded draft all send nothing; an address he has never
+   written to through Aang asks a second time; at most 10 drafts an hour; a newer draft in the same thread replaces
+   the older. Mail shown to the model is fenced as untrusted data, HTML is reduced to text, hidden characters are
+   stripped, attachments are named and never opened. "morning brief" / "what's on today" in Discord answers with no
+   model (today's calendar and unread mail), and the same brief posts itself once a day after 7:00 Toronto time.
+   Tested with a pretend Google (30 tests), plus one real read of his inbox and calendar. Not yet done: sending has
+   not been tried against real Gmail (it waits for his first real draft); the Google project is in Testing, so the
+   sign-in lapses after 7 days until it is published; Body-side draft card for the desktop (the bubble question is used).
 8. **The look**: B2 Clean Gold tokens and buttons, H docking, modes and bars, J the Panel. **B2 built 2026-09-21
    (sixth pass):** `Theme.cs` is the one token set (gold `#FFC43C` = Aang and the main thing to press; orange careful;
    red no or over; green good; plum the quiet alternative) and the bubble, the input box and the strip under it all

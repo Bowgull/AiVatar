@@ -55,6 +55,9 @@ class FakeCore implements CoreLink {
   trust() { this.trustAsked++; }
   revoke(kind: string) { this.revoked.push(kind); }
   hush(minutes: number) { this.hushed.push(minutes); }
+  mails: { id: string; hash: string; action: string }[] = []; briefs = 0;
+  mailAct(id: string, hash: string, action: string) { this.mails.push({ id, hash, action }); }
+  brief() { this.briefs++; }
   onEvent(cb: (m: any) => void) { this.cb = cb; }
   emit(m: any) { this.cb(m); }
 }
@@ -664,4 +667,31 @@ test('application results: submitted goes to #applied and updates the card; stuc
   writeFileSync(appliedFile, JSON.stringify([{ url: 'https://jobs.example.com/2', title: 'Onb', company: 'Beta', status: 'submitted', note: 'Confirmation: done after he solved it' }])); await bump(appliedFile);
   assert.equal(await a.scanApplied(), 1, 'a stuck job that later succeeds is news');
   assert.equal(a.jobs.byUrl('https://jobs.example.com/2')!.status, 'applied');
+});
+
+// ---------------------------------------------------------------- email drafts and the brief
+
+test('an email draft is a card in #drafts; its buttons go to the Core with the hash, and the card is edited in place', async () => {
+  const { gw, core } = await make({ paired: true });
+  const buttons = [{ id: 'mail:send:ab12cd34:0123456789abcdef', label: 'Send', style: 'success' }, { id: 'mail:discard:ab12cd34:0123456789abcdef', label: 'Discard', style: 'danger' }];
+  core.emit({ t: 'mail.card', id: 'ab12cd34', content: 'Email draft. To: a@b.co', buttons }); await tick();
+  const card = gw.to('drafts').at(-1)!;
+  assert.equal(card.content, 'Email draft. To: a@b.co');
+  assert.equal(card.buttons!.length, 2);
+  assert.deepEqual(gw.press('mail:send:ab12cd34:0123456789abcdef', OWNER, 'ch-drafts'), ['(kept)']); await tick();
+  assert.deepEqual(core.mails, [{ id: 'ab12cd34', hash: '0123456789abcdef', action: 'send' }]);
+  assert.deepEqual(gw.press('mail:send:ab12cd34:0123456789abcdef', STRANGER), ['That is not yours to answer.']);
+  assert.equal(core.mails.length, 1, 'a stranger cannot send his mail');
+  const before = gw.to('drafts').length;
+  core.emit({ t: 'mail.card', id: 'ab12cd34', content: 'Sent.', buttons: [] }); await tick();
+  assert.equal(gw.to('drafts').length, before, 'the same card is edited, not posted again');
+});
+
+test('"morning brief" asks the Core with no model, and the answer goes where it was asked', async () => {
+  const { gw, core } = await make({ paired: true });
+  gw.say('aang', OWNER, 'morning brief'); await tick();
+  assert.equal(core.briefs, 1);
+  core.emit({ t: 'brief.reply', text: 'Today - nothing on the calendar today.' }); await tick();
+  assert.match(gw.to('aang').at(-1)!.content!, /^Today/);
+  assert.equal(core.submits.length, 0);
 });
