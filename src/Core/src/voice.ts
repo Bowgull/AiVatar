@@ -1,4 +1,4 @@
-﻿// Aang's voice: the system prompt and a deterministic linter.
+// Aang's voice: the system prompt and a deterministic linter.
 //
 // Prompt design follows Anthropic's guidance: examples steer tone and style most reliably (3-5, diverse,
 // in <example> tags) and instructions say what to do rather than only what not to do. The linter exists
@@ -126,7 +126,7 @@ export function stripReasoning(text: string): string {
 
 // ------------------------------------------------------------------ linter
 
-const EMOJI = /[\p{Extended_Pictographic}ï¸â€]/gu;
+const EMOJI = /[\p{Extended_Pictographic}️‍]/gu;
 
 const OPENERS = [
   /^(great|good|excellent|fantastic|interesting) (question|point|idea)/i,
@@ -138,7 +138,7 @@ const CLOSERS = /(let me know if|hope (that|this) helps|feel free to|happy to he
 const STOCK = /(ready for (an )?adventure|let'?s dive|bend some|on this (sunny|lovely|beautiful)|you'?ve got this|i'?m all ears)/i;
 const AI_WORDS = /\b(delve|tapestry|testament|vibrant|pivotal|showcas(e|es|ing)|fostering|underscor(e|es|ing)|crucial|seamless(ly)?|intricate|meticulous|landscape of|navigate the)\b/i;
 const NEGATIVE_PARALLEL = /\b(not just|isn'?t just|it'?s not (just )?[^.,;]{1,40}, it'?s)\b/i;
-const WEATHER = /\b(sunny|cloudy|overcast|rain(ing|y)?|snow(ing|y)?|drizzl\w+|humid|forecast|storm\w*|degrees|Â°|celsius|fahrenheit)\b/i;
+const WEATHER = /\b(sunny|cloudy|overcast|rain(ing|y)?|snow(ing|y)?|drizzl\w+|humid|forecast|storm\w*|degrees|°|celsius|fahrenheit)\b/i;
 // Aang has no vision and no view of the desktop; claiming otherwise is a capability hallucination.
 const SEES = /\b(i (can|could) (still )?(see|watch|tell)\b[^.]{0,40}\b(you|your|what you)|i'?m (watching|seeing)\b|(watching|seeing) (you|your)\b|i (can )?see what you'?re)/i;
 const CLOCK = /\b\d{1,2}:\d{2}\s?(am|pm|a\.m\.|p\.m\.)?\b/i;
@@ -181,7 +181,7 @@ export function lint(text: string, toolsUsed: string[], userText = ''): LintResu
   if (STOCK.test(t)) flags.push('stock cheerful phrase');
   if (AI_WORDS.test(t)) flags.push('AI vocabulary');
   if (NEGATIVE_PARALLEL.test(t)) flags.push('"not just X, but Y"');
-  if ((t.match(/â€”/g) ?? []).length > 1) flags.push('em dash overuse');
+  if ((t.match(/—/g) ?? []).length > 1) flags.push('em dash overuse');
   if (CLOSERS.test(t)) flags.push('offer of further help');
 
   if (SEES.test(t) && !/\b(screenshot|shared|showed|pasted)\b/i.test(userText)) flags.push('claims to see the screen');

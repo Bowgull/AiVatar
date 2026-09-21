@@ -1,4 +1,4 @@
-﻿// The Discord channel, tested end to end against a fake Discord and a fake Core: no token, no network.
+// The Discord channel, tested end to end against a fake Discord and a fake Core: no token, no network.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, existsSync } from 'node:fs';
@@ -22,6 +22,8 @@ class FakeGateway implements Gateway {
   edits: { channelId: string; messageId: string; msg: OutMsg }[] = []; pins: string[] = []; failEdit = false; failPin = false;
   async send(channelId: string, msg: OutMsg) { this.sent.push({ channelId, msg }); return 'm' + this.sent.length; }
   async edit(channelId: string, messageId: string, msg: OutMsg) { if (this.failEdit) throw new Error('gone'); this.edits.push({ channelId, messageId, msg }); }
+  posts: { forumId: string; title: string; content: string }[] = [];
+  async createPost(forumId: string, title: string, content: string) { this.posts.push({ forumId, title, content }); return 'post' + this.posts.length; }
   async pin(channelId: string, messageId: string) { if (this.failPin) throw new Error('missing permission'); this.pins.push(messageId); }
   async typing() {}
   async fetchSince(channelId: string, after: string | null, limit: number) {
@@ -269,3 +271,91 @@ test('a file or picture from the Core is posted as an attachment in the channel 
 });
 
 
+
+// ---------------------------------------------------------------- filing: grocery list and recipes
+
+const listOf = (gw: FakeGateway) => gw.to('lists').filter(m => m.content?.startsWith('Grocery list'));
+
+test('a grocery request is handled in code: no model call, the list appears in #lists, and he is told in the channel he used', async () => {
+  const { gw, core } = await make({ paired: true });
+  gw.say('capture', OWNER, 'add milk, eggs and bread to the grocery list'); await tick();
+  assert.equal(core.submits.length, 0, 'the model was never asked');
+  assert.match(gw.to('capture').map(m => m.content).join('|'), /Added milk, eggs, bread\./);
+  const list = listOf(gw);
+  assert.equal(list.length, 1);
+  assert.match(list[0]!.content!, /3 to get/);
+  assert.deepEqual(list[0]!.buttons!.map(b => b.label), ['milk', 'eggs', 'bread']);
+  assert.equal(gw.pins.length >= 1, true);
+});
+
+test('the list is edited in place, not reposted; ticking an item and clearing ticked ones work from the buttons', async () => {
+  const { gw } = await make({ paired: true });
+  gw.say('aang', OWNER, 'add milk and eggs to my groceries'); await tick();
+  const before = gw.sent.length, edits = gw.edits.length;
+  gw.say('aang', OWNER, 'groceries: jam'); await tick();
+  assert.equal(gw.edits.length, edits + 1, 'edited the same message');
+  assert.equal(listOf(gw).length, 1, 'no second copy');
+  assert.ok(gw.sent.length > before);                              // only his confirmation was added
+  const last = () => gw.edits.at(-1)!.msg;
+  assert.deepEqual(last().buttons!.map(b => b.label), ['milk', 'eggs', 'jam']);
+
+  const id = last().buttons![0]!.id;                               // tick milk
+  const acks = gw.press(id, OWNER); await tick();
+  assert.deepEqual(acks, ['(kept)']);
+  assert.deepEqual(last().buttons!.map(b => b.label), ['eggs', 'jam', '✓ milk', 'Clear ticked']);
+  gw.press('list:g:clear', OWNER); await tick();
+  assert.deepEqual(last().buttons!.map(b => b.label), ['eggs', 'jam']);
+  assert.deepEqual(gw.press('list:g:1', STRANGER), ['That is not yours to answer.']);
+});
+
+test('remove, clear and show, and things that only sound like list requests still go to Aang', async () => {
+  const { gw, core } = await make({ paired: true });
+  gw.say('aang', OWNER, 'add tea and jam to the grocery list'); await tick();
+  gw.say('aang', OWNER, 'take tea off the grocery list'); await tick();
+  assert.deepEqual(gw.edits.at(-1)!.msg.buttons!.map(b => b.label), ['jam']);
+  gw.say('aang', OWNER, 'show my grocery list'); await tick();
+  assert.equal(listOf(gw).length, 2, 'show posts it fresh at the bottom');
+  gw.say('aang', OWNER, 'clear the grocery list'); await tick();
+  assert.match(gw.edits.at(-1)!.msg.content!, /empty/);
+  assert.equal(core.submits.length, 0);
+  gw.say('aang', OWNER, 'put the kettle on'); await tick();
+  gw.say('aang', OWNER, 'what is a good grocery store near me'); await tick();
+  assert.deepEqual(core.submits.map(s => s.text), ['put the kettle on', 'what is a good grocery store near me']);
+});
+
+test('the list survives a restart: the next start edits the same message', async () => {
+  const { gw, dir } = await make({ paired: true });
+  gw.say('aang', OWNER, 'add tea to the grocery list'); await tick();
+  const gw2 = new FakeGateway(), core2 = new FakeCore();
+  await new DiscordAdapter(gw2, core2, dir, { typingMs: 1_000_000 }).start();
+  gw2.say('aang', OWNER, 'add jam to the grocery list'); await tick();
+  assert.equal(listOf(gw2).length, 0, 'not posted again');
+  assert.deepEqual(gw2.edits.at(-1)!.msg.buttons!.map(b => b.label), ['tea', 'jam']);
+});
+
+const PASTA = 'Lemon Pasta\nIngredients\n- 200 g spaghetti\n- 2 cloves garlic, minced\n- 3 tbsp olive oil\n\nInstructions\nBoil the pasta. Toss with everything else and eat it while it is hot.';
+
+test('a pasted recipe becomes a #recipes post, and one button adds its ingredients to the list, once', async () => {
+  const { gw, core } = await make({ paired: true });
+  gw.say('capture', OWNER, PASTA); await tick();
+  assert.equal(core.submits.length, 0, 'no model call');
+  assert.equal(gw.posts.length, 1);
+  assert.deepEqual([gw.posts[0]!.forumId, gw.posts[0]!.title], ['ch-recipes', 'Lemon Pasta']);
+  assert.match(gw.posts[0]!.content, /Boil the pasta/, 'the whole recipe is kept');
+  const reply = gw.to('capture').find(m => m.content?.startsWith('Filed in #recipes'))!;
+  assert.equal(reply.buttons![0]!.label, 'Add 3 ingredients to the grocery list');
+  const acks = gw.press(reply.buttons![0]!.id, OWNER); await tick();
+  assert.match(acks[0]!, /^Added 3 to the grocery list/);
+  assert.deepEqual(listOf(gw)[0]!.buttons!.map(b => b.label), ['spaghetti', 'garlic', 'olive oil']);
+});
+
+test('a long recipe is split across the post and replies, and a recipe pasted in #aang is left for Aang', async () => {
+  const { gw, core } = await make({ paired: true });
+  const long = 'Big Stew\nIngredients\n- beef\n- carrots\n\n' + ('Simmer gently and stir. '.repeat(200));
+  gw.say('capture', OWNER, long); await tick();
+  assert.equal(gw.posts.length, 1);
+  assert.ok(gw.sent.filter(s => s.channelId === 'post1').length >= 1, 'the rest went into the post as replies');
+  gw.say('aang', OWNER, PASTA); await tick();
+  assert.equal(gw.posts.length, 1, 'only #capture files recipes');
+  assert.equal(core.submits.length, 1);
+});
