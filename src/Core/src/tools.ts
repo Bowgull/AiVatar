@@ -113,6 +113,32 @@ export const TOOL_NAMES = ['mcp__aang__get_time', 'mcp__aang__get_weather', 'mcp
   'mcp__aang__do_task', 'mcp__aang__tell_task', 'mcp__aang__task_status', 'mcp__aang__stop_task'];
 
 /**
+ * What the QUICK lane can see. The rest are hidden from it, not merely un-allowed (see core.ts: left out of
+ * allowedTools, the model still sees a tool and reaches for it).
+ *
+ * Why (2026-09-22, and this is measured, not taste): tool-choice accuracy falls off a cliff somewhere around
+ * 40-50 tools, and there are 52 here. Writer's RAG-MCP benchmark put selection accuracy at 13.6% on a large
+ * set against 43.1% once the set was narrowed. The mechanism is just probability mass - with six tools the
+ * right one might hold 70% of it; with forty it holds 18% while three near-neighbours hold 12-14% each. The
+ * small model is hurt worst by this, and the small model is exactly what answers in the bubble. This IS the
+ * "Aang says he can't" complaint: not a weak model, a model made to pick from too large a shelf.
+ *
+ * So Quick keeps what chat actually needs - knowing, remembering, reminding, looking up - and everything that
+ * DOES something to the machine lives on Smart. Nothing is lost: a request to do something routes to Smart
+ * before this list is ever consulted (route.ts), and if one slips through, Quick saying "I can't" is caught
+ * and re-run on Smart (core.ts REFUSES). Tool search is the other known fix and was tried here: it cost a
+ * lookup round trip on every turn and one session searched five times without reaching a tool, so it stays off.
+ */
+export const QUICK_TOOLS = ['mcp__aang__get_time', 'mcp__aang__get_weather', 'mcp__aang__search_memory',
+  'mcp__aang__what_we_talked_about', 'mcp__aang__remember', 'mcp__aang__forget', 'mcp__aang__what_you_know',
+  'mcp__aang__set_reminder', 'mcp__aang__list_reminders', 'mcp__aang__cancel_reminder',
+  'mcp__aang__look_up_web', 'mcp__aang__what_im_doing', 'mcp__aang__claude_code_status',
+  'mcp__aang__what_did_you_do', 'mcp__aang__my_abilities', 'mcp__aang__my_permissions'];
+
+/** The ones Quick must not even see, so its shelf is 16 tools and not 52. */
+export const QUICK_HIDDEN = TOOL_NAMES.filter(t => !QUICK_TOOLS.includes(t));
+
+/**
  * What he can honestly say he can do. A tool result, not prompt text: a long "here is what you can do" block in the
  * system prompt made the Quick lane stop calling remember (measured 2026-09-21: the memory suite fell from 11/11
  * to 8/11), and a fact he states should come from a tool this turn anyway.
@@ -616,7 +642,7 @@ export function makeToolServer(
         }),
       tool('what_im_doing', 'Which application window Joshua has in front of him right now, and which ones just before, from their titles. Use when he says "this", "here", "what I am looking at", or asks which app he is in. It only reads the window title, never what is inside the window. NOT for questions about Claude Code sessions or agents: use claude_code_status for those.', {},
         async () => ok(activity ? activity.summary() : 'Window tracking is not running.')),
-      tool('claude_code_status', 'What Joshua\'s Claude Code sessions are doing right now: working, waiting for him, or idle. Use for any question about Claude Code, his coding sessions, or whether something finished.', {},
+      tool('claude_code_status', 'What Joshua\'s Claude Code sessions are doing right now - working, waiting for him, or idle - AND what a finished one actually said when it stopped. Use for any question about Claude Code, his coding sessions, whether something finished, and especially "what did it say", "what did it do" or "what came out of that": the answer is in here, so never tell him you cannot see what a session produced without calling this first.', {},
         async () => ok(hooks ? hooks.status() : 'Session tracking is not running, so there is nothing to report.')),
       tool('set_reminder', 'Remind Joshua about something later. Give either in_minutes or at (an ISO timestamp); call get_time first if he named a clock time.',
         { text: z.string().describe('what to remind him about, in his own words'),
