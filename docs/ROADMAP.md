@@ -58,7 +58,10 @@ the result. (3) Handing work off meant a pre-filled Claude app session he had to
    brings Claude forward on the Mac.
 3. One real job-hunt run.
 4. Confirm Aang starts by himself after a Shadow restart (it restarts about six times a day).
-5. Publish the Google app, so the sign-in stops lapsing every 7 days.
+5. ~~Publish the Google app~~ **Published 2026-09-22** ("In production", unverified, 1 of 100 users). Home page and
+   privacy policy at https://bowgull.github.io/aang/ (public repo Bowgull/aang). Left to do: run
+   `tools\google-setup.cmd` once more; the token from the Testing days still lapses on its 7-day clock, a new one
+   will not. Sign-in shows Google's "unverified app" screen; that is expected for a one-person app with Gmail.
 6. A worker permission while he is in WoW currently pops Aang out like any permission question: route it to
    the "!" icon instead.
 
