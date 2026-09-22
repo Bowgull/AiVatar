@@ -76,6 +76,12 @@ test('writing and editing files always ask', () => {
   assert.equal(kindOf('Edit', { file_path: 'x' }), null);
 });
 
+test('reading files is trusted as one kind, once (2026-09-22: was ungated entirely, unlike every other read)', () => {
+  assert.equal(kindOf('Read', { file_path: 'C:/Users/Shadow/notes.txt' })?.kind, 'read files');
+  assert.equal(kindOf('Glob', { pattern: '**/*.ts' })?.kind, 'read files');
+  assert.equal(kindOf('Grep', { pattern: 'foo' })?.kind, 'read files');
+});
+
 test('what to open is worked out from what he said', () => {
   assert.equal(classify('firefox'), 'app');
   assert.equal(classify('https://anthropic.com'), 'link');

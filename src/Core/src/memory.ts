@@ -77,7 +77,7 @@ export class Memory {
     if (!this.db) return [];
     try {
       const rows = this.db.prepare(
-        "SELECT id, role, text FROM turns WHERE id > ? AND NOT (role = 'aang' AND tier LIKE 'local%') ORDER BY id DESC LIMIT ?",
+        "SELECT id, role, text FROM turns WHERE id > ? AND NOT (role = 'aang' AND COALESCE(tier, '') LIKE 'local%') ORDER BY id DESC LIMIT ?",
       ).all(id, limit) as any[];
       return rows.reverse();
     } catch { return []; }
@@ -259,7 +259,7 @@ export class Memory {
       const rows = this.db.prepare(
         `SELECT e.vec AS vec, t.ts AS ts, t.role AS role, t.text AS text
            FROM embeddings e JOIN turns t ON t.id = e.turn_id
-          WHERE e.dim = ? AND NOT (t.role = 'aang' AND t.tier LIKE 'local%')`,
+          WHERE e.dim = ? AND NOT (t.role = 'aang' AND COALESCE(t.tier, '') LIKE 'local%')`,
       ).all(EMBED_DIM) as { vec: Uint8Array; ts: string; role: string; text: string }[];
       return rows
         .map(r => ({ score: similarity(q, fromBlob(r.vec)), ts: r.ts, role: r.role, text: r.text }))
@@ -287,7 +287,7 @@ export class Memory {
         `SELECT t.ts AS ts, t.role AS role, t.text AS text
            FROM turns_fts f JOIN turns t ON t.id = f.turn_id
           WHERE turns_fts MATCH ?
-            AND NOT (t.role = 'aang' AND t.tier LIKE 'local%')
+            AND NOT (t.role = 'aang' AND COALESCE(t.tier, '') LIKE 'local%')
           ORDER BY rank LIMIT ?`,
       ).all(terms.map(t => `"${t}"`).join(' OR '), limit) as { ts: string; role: string; text: string }[];
       return rows.map(r => ({ ts: r.ts, who: (r.role === 'user' ? 'you' : 'Aang') as 'you' | 'Aang', text: r.text, how: 'words' as const }));
@@ -417,8 +417,11 @@ function toFact(r: any): Fact {
  * Crude on purpose - it only has to notice that two sentences are about the same thing so the newer one
  * can replace the older.
  */
+// "user"/"users" belongs here too: consolidate() writes every fact as "The user is/has/prefers...", so
+// without this every single consolidated fact shared the keyNoun "user" and each one retired the last -
+// found live in aang.db on 2026-09-22, where 8 of 9 facts had chain-retired down to one survivor.
 const SKIP = new Set(('his her their the a an joshua joshuas he she they is are was were has have had does do ' +
-  'currently now still also really very just about that this').split(' '));
+  'currently now still also really very just about that this user users').split(' '));
 export function keyNoun(text: string): string {
   for (const w of text.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/)) {
     if (w.length > 2 && !SKIP.has(w)) return w.replace(/s$/, '');
