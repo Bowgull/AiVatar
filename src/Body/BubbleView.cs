@@ -1,5 +1,6 @@
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Drawing.Text;
 
 namespace Aang.Body;
 
@@ -31,22 +32,28 @@ sealed class BubbleView : IDisposable
     // Pixel units, not points. The bubble is drawn into a surface that is already scaled by the DPI factor,
     // and a point-sized font is scaled by the DPI again on top of that: at 200% the text came out 4x and
     // the lines overlapped. These are the 96-dpi pixel equivalents of 11pt / 8.5pt / 9pt.
-    readonly Font font = new(Theme.Face, Theme.BodyPx, FontStyle.Regular, GraphicsUnit.Pixel);
+    readonly Font font = Theme.Font(Theme.Face, Theme.BodyPx);
     readonly Bitmap measureBmp = new(1, 1);
     readonly Graphics measure;
     readonly Dictionary<string, float> widths = new();
     readonly float spaceW, ellipsisW;
     readonly Color fillC = Theme.InkFill;
     readonly Color strokeC = Theme.WithAlpha(Theme.Gold, 240);
-    readonly Color textC = Theme.Text;
-    readonly Color dimC = Theme.WithAlpha(Theme.Secondary, 210);
+    // The reading pane inside the ink+gold frame is parchment (StyleLab 2026-09-22), so its text is dark ink,
+    // not the pale text every other ink-filled surface uses.
+    readonly Color textC = Theme.InkText;
+    readonly Color dimC = Theme.WithAlpha(Theme.InkDim, 235);
     readonly Color gripC = Theme.WithAlpha(Theme.PlumEdge, 220);    // the scrollbar thumb
-    readonly Color trackC = Theme.WithAlpha(Theme.Plum, 150);
+    readonly Color trackC = Theme.WithAlpha(Theme.InkDim, 90);
     /// <summary>Claude's brand terracotta, lightened to read on the ink: the colour of anything that is Claude.</summary>
     readonly Color linkC = Theme.Claude;
-    readonly Font bold = new(Theme.FaceBold, Theme.BodyPx, FontStyle.Regular, GraphicsUnit.Pixel);
+    readonly Font bold = Theme.Font(Theme.FaceBold, Theme.BodyPx, FontStyle.Bold);
     /// <summary>A word in the text to mark as a link (e.g. "Claude"), or empty.</summary>
     public string Link { get; set; } = "";
+    /// <summary>What he typed, shown small and dim above the reply so a reply found later still makes sense
+    /// on its own (recognition over recall - NN/g). Never a log: it lives and dies with this one reply.</summary>
+    public string Asked { get; set; } = "";
+    const int AskedRowH = 18;
 
     string text = "";
     List<string> lines = new();
@@ -79,26 +86,49 @@ sealed class BubbleView : IDisposable
     /// <summary>1 = good, -1 = not good, 0 = not rated.</summary>
     public int Rating { get; set; }
     public DateTime CopiedUntil { get; set; }
-    /// <summary>A question that needs a yes or a no before anything happens. Buttons show only for this.</summary>
+    /// <summary>A question that needs an answer before anything happens. Buttons show only for this.</summary>
     public bool Asking
     {
         get => asking;
-        set { if (asking == value) return; asking = value; targetH = HeightFor(Math.Min(lines.Count, CollapsedLines)); }
+        set
+        {
+            if (asking == value) return;
+            asking = value;
+            if (asking) LayoutChoices();          // a long verb ("Start Claude on the job hunt") must not run past the frame
+            targetH = HeightFor(Math.Min(lines.Count, CollapsedLines));
+        }
     }
     bool asking;
-    // Weighted buttons: 28 px tall (they were 20, small for a decision that grants a permission) and a row of their own.
-    public const int ChoiceW = 68, ChoiceH = 28, AskRow = ChoiceH + 8;
-    /// <summary>0 = Yes, 1 = No.</summary>
-    public RectangleF ChoiceRect(int i) => new(Right - 14 - (2 - i) * (ChoiceW + 8), Bottom - Pad - ChoiceH, ChoiceW, ChoiceH);
+    /// <summary>The verb button's own words (e.g. "Open Chrome"), not a generic "Yes" - StyleLab 2026-09-22.</summary>
+    public string VerbLabel { get; set; } = "Do it";
+    /// <summary>Set only when this kind of thing can be trusted from now on. Empty means the once/not-now pair
+    /// is the whole choice - the third row never appears, same shape as the old Yes/No.</summary>
+    public string AlwaysLabel { get; set; } = "";
+    // Weighted buttons: 28 px tall (they were 20, small for a decision that grants a permission).
+    public const int ChoiceH = 28, ChoiceGap = 8;
+    /// <summary>True when the verb label is too wide to sit beside "Not now" even in the wide bubble, so all
+    /// three choices stack in their own row instead of two sharing one (found live, 2026-09-22: "Start Claude
+    /// on the job hunt" ran "Not now" clean off the edge of the frame).</summary>
+    bool stacked;
+    int AskRows => (stacked ? 2 : 1) + (AlwaysLabel.Length > 0 ? 1 : 0);
+    public int AskRow => AskRows * (ChoiceH + ChoiceGap);
+    // Rects are measured text width, so they are pinned down once per Draw() (DrawChoices) and read back here -
+    // a formula can't know a label's width without a Graphics, which HitChoice is not given one of.
+    readonly RectangleF[] choiceRects = new RectangleF[3];
+    /// <summary>0 = once (VerbLabel), 1 = not now, 2 = always (AlwaysLabel) - present only when AlwaysLabel is set.</summary>
+    public RectangleF ChoiceRect(int i) => choiceRects[i];
     public int HitChoice(float x, float y)
     {
         if (!Asking || !Visible) return -1;
-        for (int i = 0; i < 2; i++) { var r = ChoiceRect(i); r.Inflate(4, 4); if (r.Contains(x, y)) return i; }
+        var count = AlwaysLabel.Length > 0 ? 3 : 2;
+        for (int i = 0; i < count; i++) { var r = ChoiceRect(i); r.Inflate(4, 4); if (r.Contains(x, y)) return i; }
         return -1;
     }
-    public const int ToolW = 20, ToolH = 17;
-    /// <summary>0 = copy, 1 = good, 2 = not good.</summary>
-    public RectangleF ToolRect(int i) => new(Right - 8 - (3 - i) * (ToolW + 3), CurrentTop - ToolH / 2f - 1, ToolW, ToolH);
+    public const int ToolW = 20, ToolH = 17, ToolGap = 6;
+    /// <summary>0 = copy, 1 = good, 2 = not good. A small toolbar floating above the bubble's top-right corner -
+    /// it used to straddle the border itself, half in and half out, which read as misaligned rather than
+    /// deliberate (2026-09-22 feedback). Clear of the frame now, with its own halo so it still reads as his.</summary>
+    public RectangleF ToolRect(int i) => new(Right - 8 - (3 - i) * (ToolW + 3), CurrentTop - ToolH - ToolGap, ToolW, ToolH);
     public bool ToolsShown => Tools && Visible && !Dots && !streaming && !Asking;
     public int HitTool(float x, float y)
     {
@@ -183,7 +213,7 @@ sealed class BubbleView : IDisposable
         return l.TrimEnd(',', ';', ':', '.', ' ') + "...";
     }
 
-    float HeightFor(int lineCount) => Math.Clamp(lineCount * LineH + (asking ? AskRow : 0) + 2 * Pad, MinH, ExpandedMaxH + AskRow);
+    float HeightFor(int lineCount) => Math.Clamp(lineCount * LineH + (asking ? AskRow : 0) + (Asked.Length > 0 ? AskedRowH : 0) + 2 * Pad, MinH, ExpandedMaxH + AskRow + AskedRowH);
 
     public void Show(string t, bool stream, int holdMs)
     {
@@ -248,7 +278,7 @@ sealed class BubbleView : IDisposable
     public void Clear()
     {
         Visible = false; Dots = false; streaming = false; expanded = false; scroll = 0; Tools = false; Hover = false; Rating = 0; Asking = false;
-        text = ""; full = ""; shown = 0; Wide = false; receipt = ""; lines = new(); hideAt = DateTime.MaxValue; shownH = 0; Link = "";
+        text = ""; full = ""; shown = 0; Wide = false; receipt = ""; lines = new(); hideAt = DateTime.MaxValue; shownH = 0; Link = ""; Asked = "";
     }
 
     /// <summary>Grow the bubble upward to fit up to 12 lines. Returns false if there is nothing more to show.</summary>
@@ -369,6 +399,17 @@ sealed class BubbleView : IDisposable
         g.DrawPath(halo, path);                 // a dark edge under the gold, so it holds on a bright snowfield as well as a dark forest
         g.DrawPath(pen, path);
 
+        // The reading pane: parchment inset inside the ink+gold frame, StyleLab 2026-09-22. Plain rounded rect,
+        // no tail - the tail wedge stays ink, the same as every RPG dialogue box this was measured against.
+        var bodyRect = new RectangleF(LeftNow, top, Right - LeftNow, Bottom - top);
+        var inset = RectangleF.Inflate(bodyRect, -6, -6);
+        if (inset.Width > 0 && inset.Height > 0)
+        {
+            using var ip = RoundRect(inset, Math.Max(4f, Radius - 6f));
+            using (var pg = new LinearGradientBrush(inset, Theme.Parch1, Theme.Parch2, 90f)) g.FillPath(pg, ip);
+            using (var ipen = new Pen(Theme.ParchEdge, 1.2f)) g.DrawPath(ipen, ip);
+        }
+
         if (Dots)
         {
             g.SmoothingMode = old;
@@ -382,7 +423,7 @@ sealed class BubbleView : IDisposable
             }
             if (receipt.Length > 0)
             {
-                using var small = new Font(Theme.Face, Theme.ReceiptPx, FontStyle.Regular, GraphicsUnit.Pixel);
+                using var small = Theme.Font(Theme.Face, Theme.ReceiptPx);
                 using var rb = new SolidBrush(dimC);
                 g.DrawString(receipt + "...", small, rb, TextXNow, (Bottom + top) / 2 - 2, StringFormat.GenericTypographic);
             }
@@ -396,9 +437,18 @@ sealed class BubbleView : IDisposable
         // A short reply does not fill the minimum bubble height, so the leftover space is split above and
         // below instead of all falling underneath the text. Joshua asked for even padding; the MinH clamp
         // had quietly reintroduced 11px above and 27px below on a one-liner.
-        var used = count * LineH + (asking ? AskRow : 0);
+        var used = count * LineH + (asking ? AskRow : 0) + (Asked.Length > 0 ? AskedRowH : 0);
         var slack = Math.Max(0f, (Bottom - top) - 2 * Pad - used);
         var textTop = top + Pad + slack / 2f;
+        if (Asked.Length > 0)
+        {
+            using var af = Theme.Font(Theme.Face, Theme.ReceiptPx);
+            using var ab = new SolidBrush(dimC);
+            var line = Asked.Replace("\r", " ").Replace("\n", " ").Trim();
+            if (line.Length > 50) line = line[..49].TrimEnd() + "…";
+            g.DrawString(line, af, ab, TextXNow, textTop, StringFormat.GenericTypographic);
+            textTop += AskedRowH;
+        }
         // Only the first "Claude" in the message is the link: every mention marked at once reads as noise.
         int linkLine = -1;
         if (Link.Length > 0) for (int j = 0; j < lines.Count; j++) if (lines[j].Contains(Link, StringComparison.Ordinal)) { linkLine = j; break; }
@@ -443,34 +493,79 @@ sealed class BubbleView : IDisposable
         g.SmoothingMode = old;
     }
 
-    static readonly string[] ChoiceText = { "Yes", "No" };
+    float ButtonW(string label)
+    {
+        using var f = Theme.Font(Theme.PixelFace, Theme.ButtonPx);
+        return measure.MeasureString(label, f, PointF.Empty, StringFormat.GenericTypographic).Width + 24;
+    }
+
+    /// <summary>Decide, before the first paint, whether the verb and "Not now" fit side by side. Narrow first;
+    /// widen like a long reply already does; if even the wide bubble cannot hold both, stack every choice in
+    /// its own row instead of letting the row run past the frame.</summary>
+    void LayoutChoices()
+    {
+        var verbW = ButtonW(VerbLabel); var notW = ButtonW("Not now");
+        var alwaysW = AlwaysLabel.Length > 0 ? ButtonW(AlwaysLabel) : 0f;
+        var row1 = verbW + ChoiceGap + notW;
+        if (row1 <= MaxTextW && alwaysW <= MaxTextW) { stacked = false; return; }
+        if (!Wide) Wide = true;
+        var wideCap = MaxTextW + WideExtra;
+        stacked = row1 > wideCap || alwaysW > wideCap;
+    }
 
     /// <summary>
-    /// A weighted button: a solid face with a lip under it and a catch-light along its top edge, so it reads as
-    /// something to press rather than a label with an outline. Yes is gold (the main thing); No is plum (the quiet
-    /// alternative). Neither is green or red: those colours mean "good" and "bad", and declining is not bad.
+    /// Three real choices, not a collapsed yes/no (StyleLab 2026-09-22, from Joshua's own "ask once per kind,
+    /// then trust" rule): the verb itself ("Open Chrome") does it once and forgets; "Not now" declines; a third,
+    /// deliberately separate row - orange, never the default - trusts the whole kind from then on. Widths follow
+    /// the label (a fixed 68px box could not hold "Open Chrome"), so the rects are measured here and cached for
+    /// HitChoice, which has no Graphics of its own to measure with. Stacks instead of overflowing when even the
+    /// wide bubble cannot fit the verb beside "Not now" (LayoutChoices decides this before the first paint).
     /// </summary>
     void DrawChoices(Graphics g)
     {
         g.SmoothingMode = SmoothingMode.AntiAlias;
-        using var f = new Font(Theme.FaceBold, Theme.ButtonPx, FontStyle.Regular, GraphicsUnit.Pixel);
-        for (int i = 0; i < 2; i++)
+        // Pixel accent (StyleLab 2026-09-22): short button words, not a sentence, so Press Start 2P reads fine here.
+        using var f = Theme.Font(Theme.PixelFace, Theme.ButtonPx);
+        g.TextRenderingHint = TextRenderingHint.SingleBitPerPixelGridFit;
+        float MeasureW(string label) => g.MeasureString(label, f, PointF.Empty, StringFormat.GenericTypographic).Width + 24;
+
+        var topY = Bottom - Pad - ChoiceH - (AskRows - 1) * (ChoiceH + ChoiceGap);
+        var verbW = MeasureW(VerbLabel);
+        var notW = MeasureW("Not now");
+        float RowY(int row) => topY + row * (ChoiceH + ChoiceGap);
+
+        choiceRects[0] = new RectangleF(TextXNow, RowY(0), verbW, ChoiceH);
+        DrawChoice(g, f, choiceRects[0], VerbLabel, Theme.Gold, Theme.GoldDeep, Theme.GoldLight, Theme.Ink, primary: true);
+        choiceRects[1] = stacked
+            ? new RectangleF(TextXNow, RowY(1), notW, ChoiceH)
+            : new RectangleF(TextXNow + verbW + ChoiceGap, RowY(0), notW, ChoiceH);
+        DrawChoice(g, f, choiceRects[1], "Not now", Theme.Plum, Theme.PlumDeep, Theme.PlumEdge, Theme.Text, primary: false);
+
+        if (AlwaysLabel.Length > 0)
         {
-            var r = ChoiceRect(i);
-            var yes = i == 0;
-            var face = new RectangleF(r.X, r.Y, r.Width, r.Height - Theme.Lip);
-            using (var lipPath = RoundRect(r, 9)) using (var lip = new SolidBrush(yes ? Theme.GoldDeep : Theme.PlumDeep)) g.FillPath(lip, lipPath);
-            using (var facePath = RoundRect(face, 9))
-            {
-                using (var fb = new SolidBrush(yes ? Theme.Gold : Theme.Plum)) g.FillPath(fb, facePath);
-                if (!yes) using (var edge = new Pen(Theme.PlumEdge, 1.2f)) g.DrawPath(edge, facePath);
-            }
-            using (var light = new Pen(Theme.WithAlpha(yes ? Theme.GoldLight : Theme.PlumEdge, 170), 1f))
-                g.DrawLine(light, face.X + 9, face.Y + 1.5f, face.Right - 9, face.Y + 1.5f);
-            using var tb = new SolidBrush(yes ? Theme.Ink : Theme.Text);
-            var sz = g.MeasureString(ChoiceText[i], f, PointF.Empty, StringFormat.GenericTypographic);
-            g.DrawString(ChoiceText[i], f, tb, face.X + (face.Width - sz.Width) / 2, face.Y + (face.Height - sz.Height) / 2, StringFormat.GenericTypographic);
+            var alwaysW = MeasureW(AlwaysLabel);
+            choiceRects[2] = new RectangleF(TextXNow, RowY(stacked ? 2 : 1), alwaysW, ChoiceH);
+            DrawChoice(g, f, choiceRects[2], AlwaysLabel, Theme.Orange, Theme.OrangeDeep, Theme.OrangeDeep, Theme.Ink, primary: false);
         }
+        else choiceRects[2] = RectangleF.Empty;
+        g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
+    }
+
+    /// <summary>One weighted button: a solid face with a lip under it and a catch-light along its top edge.</summary>
+    void DrawChoice(Graphics g, Font f, RectangleF r, string label, Color faceColor, Color lip, Color edge, Color text, bool primary)
+    {
+        var face = new RectangleF(r.X, r.Y, r.Width, r.Height - Theme.Lip);
+        using (var lipPath = RoundRect(r, 9)) using (var lb = new SolidBrush(lip)) g.FillPath(lb, lipPath);
+        using (var facePath = RoundRect(face, 9))
+        {
+            using (var fb = new SolidBrush(faceColor)) g.FillPath(fb, facePath);
+            if (!primary) using (var ep = new Pen(edge, 1.2f)) g.DrawPath(ep, facePath);
+        }
+        using (var light = new Pen(Theme.WithAlpha(primary ? Theme.GoldLight : edge, 170), 1f))
+            g.DrawLine(light, face.X + 9, face.Y + 1.5f, face.Right - 9, face.Y + 1.5f);
+        using var tb = new SolidBrush(text);
+        var sz = g.MeasureString(label, f, PointF.Empty, StringFormat.GenericTypographic);
+        g.DrawString(label, f, tb, face.X + (face.Width - sz.Width) / 2, face.Y + (face.Height - sz.Height) / 2, StringFormat.GenericTypographic);
     }
 
     void DrawTools(Graphics g)
@@ -482,7 +577,8 @@ sealed class BubbleView : IDisposable
             var on = (i == 1 && Rating == 1) || (i == 2 && Rating == -1);
             var copied = i == 0 && CopiedUntil != default;
             var c = i == 1 ? Theme.Green : i == 2 ? Theme.Red : Theme.Gold;
-            using var path = RoundRect(r, 6);
+            using var path = RoundRect(r, 4);
+            using (var halo = new Pen(Theme.Halo, 3f) { LineJoin = LineJoin.Round }) g.DrawPath(halo, path);   // now it floats free of the frame, its own dark edge holds it together visually
             using (var bg = new SolidBrush(on || copied ? Theme.WithAlpha(c, 230) : Theme.WithAlpha(Theme.Ink, 240))) g.FillPath(bg, path);
             using (var pen = new Pen(c, 1.4f)) g.DrawPath(pen, path);
             var ink = on || copied ? Theme.Ink : c;

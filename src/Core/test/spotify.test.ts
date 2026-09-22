@@ -58,7 +58,7 @@ test('music is asked once; with Spotify closed it opens the app and plays once i
   signedIn(core.cfg.stateDir);
   await core.start();
   const c = new WebSocket('ws://127.0.0.1:47960/body');
-  let asked = 0; c.on('message', d => { const m = JSON.parse(String(d)); if (m.t === 'permission') { asked++; c.send(JSON.stringify({ t: 'permission.reply', id: m.id, allow: true })); } });
+  let asked = 0; c.on('message', d => { const m = JSON.parse(String(d)); if (m.t === 'permission') { asked++; c.send(JSON.stringify({ t: 'permission.reply', id: m.id, choice: 'always' })); } });
   await new Promise<void>(r => c.once('open', () => r()));
   try {
     const r = await core.doers().playMusic('hotel california');

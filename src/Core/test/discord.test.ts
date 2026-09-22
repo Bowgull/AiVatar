@@ -48,6 +48,8 @@ class FakeCore implements CoreLink {
   private cb: (m: any) => void = () => {};
   submit(id: string, text: string, opts?: any) { this.submits.push({ id, text, opts }); }
   permission(id: string, allow: boolean) { this.perms.push({ id, allow }); }
+  macRuns: string[] = [];
+  runOnMac(text: string) { this.macRuns.push(text); }
   stop() { this.stops++; }
   status() { this.statuses++; }
   actionsAsked = 0; trustAsked = 0; revoked: string[] = []; hushed: number[] = [];
@@ -260,10 +262,20 @@ test('the deck is only for him, and Status asks the Core without a model and ans
   assert.deepEqual(gw.to('capture').map(m => m.content), ['Aang is up.']);
 });
 
-test('Job hunt now asks Aang exactly as typing it would, and the answer comes back to that channel; Stop stops', async () => {
+test('Job hunt now runs it on the MacBook by default; the reply falls back to running it here when the Mac cannot be reached; Stop stops', async () => {
   const { gw, core } = await make({ paired: true });
   gw.press('deck:job', OWNER); await tick();
-  assert.equal(core.submits.length, 1);
+  assert.equal(core.macRuns.length, 1, 'the Mac is tried first, not the model here');
+  assert.match(core.macRuns[0]!, /sweep and screen only.*shortlist.json/);
+  assert.equal(core.submits.length, 0, 'no local session yet - waiting to hear whether the Mac took it');
+  core.emit({ t: 'mac.run.reply', ok: true }); await tick();
+  assert.ok(gw.to('aang').some(m => m.content === 'Starting the job hunt on your MacBook.'));
+  assert.equal(core.submits.length, 0, 'the Mac took it: never falls back too');
+
+  gw.press('deck:job', OWNER); await tick();
+  core.emit({ t: 'mac.run.reply', ok: false }); await tick();
+  assert.ok(gw.to('aang').some(m => /not reachable.*running the job hunt here instead/.test(m.content ?? '')));
+  assert.equal(core.submits.length, 1, 'falls back to his own worker here');
   assert.match(core.submits[0]!.text, /sweep and screen only.*shortlist.json/);
   core.emit({ t: 'bubble', text: 'Opened it in Claude.', stream: false, id: core.submits[0]!.id }); await tick();
   assert.ok(gw.to('aang').some(m => m.content === 'Opened it in Claude.'));
@@ -385,7 +397,7 @@ async function makeJobs() {
   await a.start();
   return { a, gw, core, dir, shortlistFile, draftsFile, answersFile, appliedFile };
 }
-const VERDICT = '{"title":"Onboarding Lead","company":"Acme","location":"Toronto","salary":"$88K","verdict":"apply","reason":"Right lane."}';
+const VERDICT = '{"title":"Onboarding Lead","company":"Acme","location":"Toronto","salary":"$88K","laneFit":"match","payFit":"meets","locationFit":"fit","exclusions":[],"reason":"Right lane."}';
 const cardsIn = (gw: FakeGateway, ch: string) => gw.to(ch).filter(m => m.buttons?.some(b => b.id.startsWith('job:')));
 
 test('a link pasted in #job-inbox is vetted by Aang privately, and comes back as a card with Open, Approve and Skip', async () => {
@@ -397,7 +409,8 @@ test('a link pasted in #job-inbox is vetted by Aang privately, and comes back as
   assert.deepEqual(core.submits[0]!.opts, { ephemeral: true, mode: 'smart' }, 'not kept as something he said');
   core.emit({ t: 'bubble', text: 'Here you go: ' + VERDICT, stream: false, id: core.submits[0]!.id }); await tick();
   const card = cardsIn(gw, 'job-inbox')[0]!;
-  assert.match(card.content!, /Onboarding Lead\*\* at Acme/);
+  assert.equal(card.embed?.title, 'Onboarding Lead at Acme');
+  assert.equal(card.embed?.fields?.find(f => f.name === 'Match')?.value, '100% · Looks good');
   assert.deepEqual(card.buttons!.map(b => b.label), ['Open', 'Approve', 'Skip']);
   assert.ok(!gw.to('job-inbox').some(m => m.content?.startsWith('Here you go')), 'the raw reply is not posted');
   gw.say('job-inbox', OWNER, 'https://jobs.example.com/onboarding-lead'); await tick();
@@ -428,7 +441,7 @@ test('Approve, Undo and Skip edit the card in place, and only he can press them'
   assert.deepEqual(gw.press(ok, STRANGER), ['That is not yours to answer.']);
   assert.equal(gw.edits.length, 0);
   assert.deepEqual(gw.press(ok, OWNER), ['(kept)']); await tick();
-  assert.match(gw.edits.at(-1)!.msg.content!, /Approved/);
+  assert.equal(gw.edits.at(-1)!.msg.embed?.fields?.find(f => f.name === 'Stage')?.value, 'Approved');
   assert.deepEqual(gw.edits.at(-1)!.msg.buttons!.map(b => b.label), ['Open', '✓ Approved', 'Undo']);
   assert.equal(gw.edits.at(-1)!.msg.buttons![1]!.disabled, true, 'the finished step is greyed out');
   const locked = gw.edits.length;
@@ -437,7 +450,7 @@ test('Approve, Undo and Skip edit the card in place, and only he can press them'
   gw.press(gw.edits.at(-1)!.msg.buttons![2]!.id, OWNER); await tick();
   assert.deepEqual(gw.edits.at(-1)!.msg.buttons!.map(b => b.label), ['Open', 'Approve', 'Skip']);
   gw.press(no, OWNER); await tick();
-  assert.match(gw.edits.at(-1)!.msg.content!, /Skipped/);
+  assert.equal(gw.edits.at(-1)!.msg.embed?.fields?.find(f => f.name === 'Stage')?.value, 'Skipped');
 });
 
 test('the sweep shortlist becomes cards in #job-digest once each, silently, with one loud summary', async () => {
@@ -457,6 +470,18 @@ test('the sweep shortlist becomes cards in #job-digest once each, silently, with
   writeFileSync(shortlistFile, JSON.stringify([{ title: 'CSM', company: 'A', url: 'https://jobs.example.com/1' }, { title: 'New', company: 'D', url: 'https://jobs.example.com/4' }]));
   const fs = await import('node:fs'); fs.utimesSync(shortlistFile, new Date(), new Date(Date.now() + 5000));
   assert.equal(await a.scanShortlist(), 1, 'only the new one');
+});
+
+test('a job found outside #job-inbox (job.card) becomes the same kind of card, once', async () => {
+  const { a, gw, core } = await makeJobs();
+  core.emit({ t: 'job.card', url: 'https://jobs.example.com/mail1', title: 'CSM', company: 'Acme', location: 'Remote', salary: '$90K', score: 85, verdict: 'apply', reason: 'From an email he forwarded.' }); await tick();
+  const found = cardsIn(gw, 'job-digest');
+  assert.equal(found.length, 1);
+  assert.equal(found[0]!.embed?.fields?.find(f => f.name === 'Match')?.value, '85% · Looks good');
+  assert.equal(a.jobs.isSeen('https://jobs.example.com/mail1'), true);
+  // The same job again (e.g. a second forward) does not make a second card.
+  core.emit({ t: 'job.card', url: 'https://jobs.example.com/mail1', title: 'CSM', company: 'Acme', location: '', salary: '', score: 85, verdict: 'apply', reason: '' }); await tick();
+  assert.equal(cardsIn(gw, 'job-digest').length, 1);
 });
 
 test('Apply approved sends only approved jobs, no more than the cap, to a Claude session; the rest wait', async () => {
@@ -667,7 +692,7 @@ test('application results: submitted goes to #applied and updates the card; stuc
   assert.match(need.content!, /^Need input on the job hunt: Onb at Beta\. reCAPTCHA on the last step/);
   assert.equal(need.silent, false, 'stuck makes a sound');
   assert.deepEqual(a.jobs.cards.map(c => c.status), ['applied', 'stuck']);
-  assert.ok(gw.edits.some(e => /Applied: Confirmation: received/.test(e.msg.content ?? '')), 'the card itself shows it');
+  assert.ok(gw.edits.some(e => e.msg.embed?.fields?.find(f => f.name === 'Result')?.value === 'Confirmation: received'), 'the card itself shows it');
 
   assert.equal(await a.scanApplied(), 0, 'unchanged file');
   writeFileSync(appliedFile, JSON.stringify([{ url: 'https://jobs.example.com/2', title: 'Onb', company: 'Beta', status: 'submitted', note: 'Confirmation: done after he solved it' }])); await bump(appliedFile);

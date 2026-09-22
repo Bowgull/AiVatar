@@ -14,7 +14,7 @@ import { writeFileAtomic } from './atomic.ts';
 import { Budget, LAYOUT, LISTEN_CHANNELS, NEEDED, FORBIDDEN, chunkMessage, kindOf, newPairing, tryPair } from './discord-logic.ts';
 import type { Pairing } from './discord-logic.ts';
 import { Grocery, looksLikeRecipe, parseListCommand, parseRecipe } from './lists.ts';
-import { Drafts, Jobs, SWEEP_REQUEST, applyPrompt, extractUrls, fileStamp, parseVerdict, readAppliedFile, readDraftsFile, readShortlist, renderCard, renderDraft, vetPrompt } from './jobs.ts';
+import { Drafts, Jobs, SWEEP_REQUEST, applyPrompt, extractUrls, fileStamp, parseVerdict, readAppliedFile, readDraftsFile, readShortlist, renderCard, renderDraft, verdictFor, vetPrompt } from './jobs.ts';
 import type { Card } from './jobs.ts';
 import { attachmentProblem, safeAttachmentName } from './phone.ts';
 
@@ -22,7 +22,14 @@ export interface Attachment { name: string; url: string; size: number }
 export interface Incoming { id: string; channelId: string; channelName: string; authorId: string; isBot: boolean; content: string; createdAt: number; attachments?: Attachment[]; /** the message this one replies to */ replyTo?: string }
 /** With `url` it is a link button that opens the page and needs no answer from us. */
 export interface Button { id: string; label: string; style: 'primary' | 'secondary' | 'success' | 'danger'; url?: string; /** greyed out and cannot be pressed */ disabled?: boolean }
-export interface OutMsg { content?: string; silent?: boolean; buttons?: Button[]; files?: { name: string; data: Buffer }[] }
+/** A real Discord embed, for anything that is a record to scan rather than a line to read - a job card first
+ * (2026-09-22): stage, match score, dates and reason each their own field instead of one run-on line. */
+export interface OutEmbed {
+  title?: string; description?: string; /** decimal, e.g. 0x57F287 */ color?: number;
+  fields?: { name: string; value: string; inline?: boolean }[];
+  footer?: string;
+}
+export interface OutMsg { content?: string; silent?: boolean; buttons?: Button[]; files?: { name: string; data: Buffer }[]; embed?: OutEmbed }
 export interface ButtonPress {
   customId: string; userId: string; channelId: string;
   /** the message the button is on */
@@ -57,6 +64,9 @@ export interface Gateway {
 export interface CoreLink {
   submit(id: string, text: string, opts?: { ephemeral?: boolean; mode?: 'auto' | 'smart' }): void;
   permission(id: string, allow: boolean): void;
+  /** Type this into a new chat in the Claude app on the MacBook. Answered by a mac.run.reply event, never a
+   *  direct return - the same async-event shape as status()/trust(). */
+  runOnMac(text: string): void;
   stop(): void;
   status(): void;
   actions(): void;
@@ -84,6 +94,9 @@ export const DECK: Button[] = [
 ];
 export const DECK_TEXT = 'Aang: command deck. Tap a button. Status is free, it does not use your Claude quota. Job hunt now sweeps and screens only; nothing is applied to until you approve it.';
 export const JOB_REQUEST = SWEEP_REQUEST;
+/** Placeholder for a shortlisted job with no rubric score of its own - lands as "apply" (>= 70), since the sweep
+ * was already asked to screen before shortlisting. */
+const SWEEP_SCORE = 75;
 
 export interface AdapterOpts {
   budget?: Budget; now?: () => Date; log?: (s: string) => void; typingMs?: number;
@@ -330,13 +343,13 @@ export class DiscordAdapter {
   private async postCard(card: Card, channelId: string, silent: boolean): Promise<void> {
     const view = renderCard(card);
     card.channelId = channelId;
-    card.messageId = await this.gw.send(channelId, { content: view.content, buttons: view.buttons, silent });
+    card.messageId = await this.gw.send(channelId, { content: view.content, embed: view.embed, buttons: view.buttons, silent });
     this.jobs.save();
   }
   private async redrawCard(card: Card): Promise<void> {
     if (!card.channelId || !card.messageId) return;
     const view = renderCard(card);
-    try { await this.gw.edit(card.channelId, card.messageId, { content: view.content, buttons: view.buttons }); } catch { /* the card was deleted */ }
+    try { await this.gw.edit(card.channelId, card.messageId, { content: view.content, embed: view.embed, buttons: view.buttons }); } catch { /* the card was deleted */ }
   }
 
   /** New entries in the sweep's shortlist become cards in #job-digest, once each. */
@@ -348,7 +361,10 @@ export class DiscordAdapter {
     this.lastShortlist = stamp;
     const fresh = readShortlist(file).filter(e => !this.jobs.isSeen(e.url));
     for (const e of fresh) {
-      const card = this.jobs.add({ url: e.url, title: e.title, company: e.company, location: e.location, salary: e.salary, verdict: 'apply', reason: e.reason || 'On the sweep shortlist.' }, this.now());
+      // The sweep skill does not score its own picks yet (it is outside this repo); until it does, a shortlisted
+      // job gets a fixed "the sweep already screened this" score rather than no score at all.
+      const score = e.score ?? SWEEP_SCORE;
+      const card = this.jobs.add({ url: e.url, title: e.title, company: e.company, location: e.location, salary: e.salary, score, verdict: verdictFor(score), reason: e.reason || 'On the sweep shortlist.' }, this.now());
       await this.postCard(card, where, true);
     }
     if (fresh.length) await this.say('job-digest', `${fresh.length} new job${fresh.length > 1 ? 's' : ''} from the sweep. Approve the ones you want, then tap Apply approved in #aang.`, false);
@@ -594,6 +610,22 @@ export class DiscordAdapter {
       if (channelId) await this.gw.send(channelId, { content: ev.text });
       return;
     }
+    if (ev?.t === 'mac.run.reply') {
+      const channelId = this.macRunFor.shift() ?? this.state.channels['aang'];
+      if (!channelId) return;
+      if (ev.ok) await this.gw.send(channelId, { content: 'Starting the job hunt on your MacBook.' });
+      else { await this.gw.send(channelId, { content: 'Your MacBook is not reachable right now - running the job hunt here instead.' }); this.ask('deck' + ++this.deckSeq, channelId, JOB_REQUEST); }
+      return;
+    }
+    if (ev?.t === 'job.card' && typeof ev.url === 'string') {
+      // A job found outside #job-inbox (an email, a link pasted in chat) - scored, then the same kind of card.
+      const where = this.state.channels['job-digest'];
+      if (where && !this.jobs.isSeen(ev.url)) {
+        const card = this.jobs.add({ url: ev.url, title: String(ev.title ?? ''), company: String(ev.company ?? ''), location: String(ev.location ?? ''), salary: String(ev.salary ?? ''), score: Number(ev.score) || 0, verdict: ev.verdict === 'apply' || ev.verdict === 'skip' ? ev.verdict : 'maybe', reason: String(ev.reason ?? '') }, this.now());
+        await this.postCard(card, where, false);
+      }
+      return;
+    }
     if (ev?.t === 'attach' && typeof ev.data === 'string') {
       // A picture or file he asked for: into the channel he is talking in, otherwise #aang.
       const channelId = [...this.pending.values()].at(-1)?.channelId ?? this.state.channels['aang'];
@@ -633,6 +665,7 @@ export class DiscordAdapter {
 
   /** Channels waiting for a status answer, in the order they asked. */
   private readonly statusFor: string[] = [];
+  private readonly macRunFor: string[] = [];
   private deckSeq = 0;
 
   private async press(b: ButtonPress): Promise<void> {
@@ -640,7 +673,9 @@ export class DiscordAdapter {
     if (b.customId.startsWith('deck:')) {
       await b.keep();
       if (b.customId === 'deck:status') { this.statusFor.push(b.channelId); this.link.status(); }
-      else if (b.customId === 'deck:job') this.ask('deck' + ++this.deckSeq, b.channelId, JOB_REQUEST);
+      // The job hunt, on the MacBook's own Claude app by default (2026-09-22); the reply falls back to running
+      // it here if the Mac cannot be reached (mac.run.reply, above).
+      else if (b.customId === 'deck:job') { this.macRunFor.push(b.channelId); this.link.runOnMac(JOB_REQUEST); }
       else if (b.customId === 'deck:apply') await this.applyApproved(b.channelId);
       else if (b.customId === 'deck:hush') { this.replyTo.hush.push(b.channelId); this.link.hush(60); }
       else if (b.customId === 'deck:log') { this.replyTo.actions.push(b.channelId); this.link.actions(); }

@@ -54,7 +54,7 @@ test('writing a file asks once, and the second write is trusted', async () => {
     const file = path.join(tmp(), 'notes.txt');
     writeFileSync(file, 'one');
     // He answers the first question with yes.
-    desk.c.on('message', d => { const m = JSON.parse(String(d)); if (m.t === 'permission') desk.c.send(JSON.stringify({ t: 'permission.reply', id: m.id, allow: true })); });
+    desk.c.on('message', d => { const m = JSON.parse(String(d)); if (m.t === 'permission') desk.c.send(JSON.stringify({ t: 'permission.reply', id: m.id, choice: 'always' })); });
     const r1 = await core.changeFile('mcp__aang__write_file', { file }, () => ({ ok: true, detail: 'x' }));
     assert.equal(r1.ok, true);
     assert.equal(desk.inbox.filter(m => m.t === 'permission').length, 1);
@@ -80,7 +80,7 @@ test('after reading outside content, a remembered yes is not used to write a fil
     core.trust.allow('write files', 'test');
     core.tainted = true;
     let asked = 0;
-    desk.c.on('message', d => { const m = JSON.parse(String(d)); if (m.t === 'permission') { asked++; desk.c.send(JSON.stringify({ t: 'permission.reply', id: m.id, allow: false })); } });
+    desk.c.on('message', d => { const m = JSON.parse(String(d)); if (m.t === 'permission') { asked++; desk.c.send(JSON.stringify({ t: 'permission.reply', id: m.id, choice: 'no' })); } });
     const file = path.join(tmp(), 'leak.txt');
     const r = await core.changeFile('mcp__aang__write_file', { file }, () => { writeFileSync(file, 'x'); return { ok: true, detail: 'x' }; });
     assert.equal(r.ok, false);
@@ -95,7 +95,7 @@ test('windows: the request reaches the desktop, its answer comes back, and force
     desk.c.on('message', d => {
       const m = JSON.parse(String(d));
       if (m.t === 'hands.request') desk.c.send(JSON.stringify({ t: 'hands', id: m.id, ok: true, detail: `did ${m.action} ${m.what}` }));
-      if (m.t === 'permission') desk.c.send(JSON.stringify({ t: 'permission.reply', id: m.id, allow: false }));
+      if (m.t === 'permission') desk.c.send(JSON.stringify({ t: 'permission.reply', id: m.id, choice: 'no' }));
     });
     const closed = await core.hands('close', 'notepad');
     assert.deepEqual(closed, { ok: true, detail: 'did close notepad' });

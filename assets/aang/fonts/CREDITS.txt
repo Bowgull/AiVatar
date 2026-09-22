@@ -1,0 +1,12 @@
+AtkinsonHyperlegible-Regular.ttf, AtkinsonHyperlegible-Bold.ttf
+  "Atkinson Hyperlegible" by the Braille Institute, via Google Fonts
+  https://github.com/googlefonts/atkinson-hyperlegible
+  SIL Open Font License 1.1 - see AtkinsonHyperlegible-OFL.txt
+  Body text in the bubble and input box: legibility research (APCA contrast, low-vision testing).
+
+PressStart2P-Regular.ttf
+  "Press Start 2P" by Cody "CodeMan38" Boisclair, via Google Fonts
+  https://github.com/google/fonts/tree/main/ofl/pressstart2p
+  SIL Open Font License 1.1 - see PressStart2P-OFL.txt
+  Short accents only: button labels, the mode chip, the speaker name. Never body text - too slow to read
+  in sentences at any usable size.

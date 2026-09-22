@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Linq;
 using System.Text.Json;
 
 namespace Aang.Body;
@@ -42,8 +43,19 @@ sealed class PetWindow : Form
     Color urgentColor = Theme.AvatarGlow;       // which tier is glowing: white-blue = blocking, terracotta = a job done
     Color badgeColor = Theme.Gold;              // the dot keeps its tier after the glow settles, so a glance still tells them apart
     int heldRank;                               // 3 needs him, 2 done, 1 ordinary news: the dot shows the most pressing one
-    DateTime urgentUntil = DateTime.MinValue;   // when the glow settles back (the marker itself stays until clicked)
+    DateTime urgentUntil = DateTime.MinValue;   // when the current burst's loom/pulse ends (the ambient glow does not)
     static readonly TimeSpan UrgentGlowFor = TimeSpan.FromSeconds(4);
+    /// <summary>He missed a real one in WoW (2026-09-22) and asked not to lose the glow until he acts, and asked
+    /// it be re-examined. Research (peripheral vision, motion-onset capture, habituation - see chat) found the
+    /// real cause: a 14x32px icon is far below what is resolvable ~27deg into the periphery, and smooth continuous
+    /// motion is the one pattern proven NOT to capture attention and to habituate fastest. Fix: keep a quiet
+    /// ambient glow alive for as long as something is unread (his ask), but do the actual attention-getting with a
+    /// few abrupt, bigger bursts on a backoff, then stop bursting - never stop the ambient glow.</summary>
+    static readonly TimeSpan[] BurstBackoff = { TimeSpan.Zero, TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(45), TimeSpan.FromSeconds(90) };
+    int burstsFired;
+    DateTime nextBurstAt = DateTime.MaxValue;
+    DateTime burstStart = DateTime.MinValue;    // when the current burst's loom/flicker began
+    bool ambientGlow;                           // ...urgent settled but still unread: a slow, quiet pulse, never fully gone
     string? bubbleFocus;            // the window a click on the bubble brings forward (a Claude session), if any
     string foreground = "";
     string foregroundTitle = "";
@@ -76,6 +88,9 @@ sealed class PetWindow : Form
     /// <summary>Test flag (--urgent-test / --urgent-test=badge|glow|wave): trigger a notification state as soon as
     /// the window is up, with no Core round trip.</summary>
     string? urgentTest;
+    /// <summary>Test flag (--bubble-test / --bubble-test=long): show a fixed reply in the bubble as soon as the
+    /// window is up, with no Core round trip - for checking a bubble redesign against real GDI+ output.</summary>
+    string? bubbleTest;
     int panelTab;
     PanelWindow? panel;
     int idCounter;
@@ -147,6 +162,13 @@ sealed class PetWindow : Form
             else if (a.Equals("--urgent-test=wave", StringComparison.OrdinalIgnoreCase)) urgentTest = "wave"; // Tier 2, standing - do NOT pass --dock
             else if (a.Equals("--urgent-test=badge", StringComparison.OrdinalIgnoreCase)) urgentTest = "badge"; // Tier 1, docked - use with --dock=bottom
             else if (a.Equals("--urgent-test=done", StringComparison.OrdinalIgnoreCase)) urgentTest = "done";   // Tier 3, docked, terracotta, no sound - use with --dock=bottom
+            else if (a.Equals("--bubble-test", StringComparison.OrdinalIgnoreCase)) bubbleTest = "short";
+            else if (a.Equals("--bubble-test=long", StringComparison.OrdinalIgnoreCase)) bubbleTest = "long";
+            else if (a.Equals("--bubble-test=ask", StringComparison.OrdinalIgnoreCase)) bubbleTest = "ask";
+            else if (a.Equals("--bubble-test=consent", StringComparison.OrdinalIgnoreCase)) bubbleTest = "consent";
+            else if (a.Equals("--bubble-test=consent-long", StringComparison.OrdinalIgnoreCase)) bubbleTest = "consent-long";
+            else if (a.Equals("--bubble-test=think", StringComparison.OrdinalIgnoreCase)) bubbleTest = "think";
+            else if (a.Equals("--bubble-test=input", StringComparison.OrdinalIgnoreCase)) bubbleTest = "input";
             else if (a.Equals("--done-icon=q", StringComparison.OrdinalIgnoreCase)) doneIcon = "q";             // preview: WoW's turn-in "?" for done
             else if (a.Equals("--icons-gold", StringComparison.OrdinalIgnoreCase)) iconsGold = true;            // preview: every icon in Aang's gold, as WoW's are
         }
@@ -231,6 +253,36 @@ sealed class PetWindow : Form
             else if (urgentTest == "done") { Hold("Job hunt done. Two applied.", "C:\\test", 2, Theme.Claude, "Claude"); TriggerDone(); }
             else { Hold("Need input in Claude on the test job: which one?", "C:\\test", 3, Theme.AvatarGlow, "Claude"); TriggerUrgent(); }
         });
+        if (bubbleTest != null) BeginInvoke(() =>
+        {
+            if (bubbleTest == "think")
+            {
+                Wake(); bubble.ShowDots("checking your calendar"); anim.Play("think"); dirty = true;
+                return;
+            }
+            if (bubbleTest == "input")
+            {
+                hasQuota = true; weekUse = 0.34; fiveUse = 0.12; level = "ok";
+                weekResetsAt = DateTimeOffset.UtcNow.AddDays(5).ToUnixTimeSeconds(); fiveResetsAt = DateTimeOffset.UtcNow.AddHours(2).ToUnixTimeSeconds();
+                PushStatus();
+                OpenInput(userAsked: true);
+                return;
+            }
+            if (bubbleTest is "consent" or "consent-long")
+            {
+                var longVerb = bubbleTest == "consent-long";
+                bubble.Show(longVerb ? "Can I start Claude on the job hunt?" : "Can I open Chrome?", false, 120000);
+                bubble.VerbLabel = longVerb ? "Start Claude on the job hunt" : "Open Chrome";
+                bubble.AlwaysLabel = longVerb ? "Always start Claude sessions for you" : "Always allow apps";
+                bubble.Asking = true; Wake(); dirty = true;
+                return;
+            }
+            var ask = bubbleTest == "ask" ? "whats on my screen right now" : "whats up";
+            var reply = bubbleTest == "long"
+                ? "The page is a kettle descaling guide. Fill the kettle halfway with equal parts white vinegar and water, boil it, and leave it for 45 minutes. Then rinse it three times so your tea doesn't taste of vinegar."
+                : "Paint's open.";
+            bubble.Asked = ask; ShowBubble(reply, false); bubble.Tools = true; bubble.Hover = true; Wake(); dirty = true;
+        });
     }
 
     /// <summary>The Panel: made once, then hidden and shown. Every time it is shown it asks the Core for a fresh copy.</summary>
@@ -305,6 +357,7 @@ sealed class PetWindow : Form
                     if (peeking) Reveal(greet: false);
                     Wake();
                     ExitExpanded(collapse: false);
+                    bubble.Asked = proactive ? "" : (lastText ?? "");
                     ShowBubble(text, Bool(m, "stream"));
                     bubbleFocus = Str(m, "focus");
                     bubble.Link = bubbleFocus != null ? Str(m, "link") ?? "" : "";
@@ -364,6 +417,12 @@ sealed class PetWindow : Form
                     break;
                 case "quiet":
                     forcedQuiet = Bool(m, "on"); ApplyQuiet();
+                    break;
+                case "job.hunt.reply":
+                    Note(Bool(m, "onMac") ? "Running on your MacBook." : "Your MacBook is not reachable - running it here.");
+                    break;
+                case "hush.reply":
+                    Note(Str(m, "text") ?? "Hush.");
                     break;
                 case "ping":
                     _ = link.SendAsync(new { t = "pong" });
@@ -558,12 +617,42 @@ sealed class PetWindow : Form
                     g.DrawImage(fl, new Rectangle(246, 86, 224, 224));
                 }
                 else g.DrawImage(sprites.Frame(anim.State, anim.Frame), new Rectangle(246, 86, 224, 224));
+                if (anim.State == "think") DrawThinkGlow(g);
             }
 
             surface.Present(Handle, Location);
             dirty = false;
         }
         catch (Exception e) { Log.Write("render failed: " + e); }
+    }
+
+    /// <summary>
+    /// Working (2026-09-22, Joshua: "get his arrow and eyes to glow like getting into avatar state"): the
+    /// tattoo and both eyes get a soft white-blue halo, breathing slowly, the same colour as Avatar State in
+    /// the show and the same Theme.AvatarGlow already used for "needs him". Positions are read off the sprite
+    /// sheet itself (think_5.png), not guessed: the arrow sits at 111,88 and the eyes at 100,106 / 121,106 in
+    /// the 224x224 frame. No new art - a glow drawn over the existing pixels, same trick as the bubble's own halo.
+    /// </summary>
+    void DrawThinkGlow(Graphics g)
+    {
+        var old = g.SmoothingMode; g.SmoothingMode = SmoothingMode.AntiAlias;
+        var phase = (Math.Sin(DateTime.UtcNow.TimeOfDay.TotalSeconds * 2.2) + 1) / 2;   // 0..1, ~2.9s breath
+        var a = (int)(115 + 100 * phase);
+        void Glow(float cx, float cy, float r)
+        {
+            var x = 246 + cx; var y = 86 + cy;
+            using var path = new GraphicsPath(); path.AddEllipse(x - r, y - r, r * 2, r * 2);
+            using var brush = new PathGradientBrush(path)
+            {
+                CenterColor = Theme.WithAlpha(Theme.AvatarGlow, Math.Min(255, a)),
+                SurroundColors = new[] { Theme.WithAlpha(Theme.AvatarGlow, 0) },
+            };
+            g.FillEllipse(brush, x - r, y - r, r * 2, r * 2);
+        }
+        Glow(111, 88, 12);   // the arrow tattoo
+        Glow(100, 106, 7);   // left eye
+        Glow(121, 106, 7);   // right eye
+        g.SmoothingMode = old;
     }
 
     // ------------------------------------------------------------------ mouse
@@ -623,7 +712,7 @@ sealed class PetWindow : Form
     {
         base.OnMouseUp(e);
         // A right-click on Aang is the same menu as the tray icon (Panel, Talk, Model, Dock...), where he is.
-        if (e.Button == MouseButtons.Right) { tray.ContextMenuStrip?.Show(new Point(Cursor.Position.X - 34, Cursor.Position.Y), ToolStripDropDownDirection.Left); return; }   // to his left: he is drawn above a menu that opens under him
+        if (e.Button == MouseButtons.Right) { SetClickAwayHook(true); tray.ContextMenuStrip?.Show(new Point(Cursor.Position.X - 34, Cursor.Position.Y), ToolStripDropDownDirection.Left); return; }   // to his left: he is drawn above a menu that opens under him
 
         if (thumbDrag) { thumbDrag = false; Capture = false; return; }
         if (!dragging) return;
@@ -635,7 +724,7 @@ sealed class PetWindow : Form
 
         var bp = BubblePoint(e.Location);
         var choice = bubble.HitChoice(bp.X, bp.Y);
-        if (choice >= 0) { AnswerPermission(choice == 0); dirty = true; return; }
+        if (choice >= 0) { AnswerPermission(choice switch { 0 => "once", 2 => "always", _ => "no" }); dirty = true; return; }
         var tool = bubble.HitTool(bp.X, bp.Y);
         if (tool >= 0) { UseTool(tool); dirty = true; return; }
         if (bubble.Visible && bubble.Contains(bp.X, bp.Y))
@@ -758,6 +847,7 @@ sealed class PetWindow : Form
     {
         working = false; input.Working = false; ackTimer.Stop();
         Wake(); ExitExpanded(collapse: false);
+        bubble.Asked = "";
         bubble.Show((message + " " + next).Trim(), false, 12000);
         anim.Play("talk"); dirty = true;
     }
@@ -796,6 +886,7 @@ sealed class PetWindow : Form
     {
         if (working || consentText != null) return;
         Wake(); ExitExpanded(collapse: false);
+        bubble.Asked = "";
         bubble.Show(text, false, 1800);
         dirty = true;
     }
@@ -893,29 +984,32 @@ sealed class PetWindow : Form
             // He cannot see it, so he cannot agree to it. No is the safe answer, and it is immediate
             // rather than leaving the Core waiting two minutes for a prompt nobody will ever see.
             Log.Write("permission refused: hidden by Joshua");
-            _ = link.SendAsync(new { t = "permission.reply", id, allow = false });
+            _ = link.SendAsync(new { t = "permission.reply", id, choice = "no" });
             return;
         }
         permissionId = id;
         if (peeking) Reveal();                                    // a question cannot be answered by a head at the edge
         Wake(); ExitExpanded(collapse: false);
-        // Say what "yes" commits to before he gives it. Agreeing once and then being asked again is
-        // what makes people stop reading these; agreeing once and quietly getting more than you meant is
-        // worse.
-        var ask = "Can I " + question + "?";
-        if (!string.IsNullOrEmpty(remembers)) ask += " Yes means I can " + remembers + " from now on.";
-        bubble.Show(ask, false, 120000);
+        // Three real choices (2026-09-22, was a single Yes that silently meant "forever"): the verb button
+        // does this one thing and forgets it; "Always allow X" is set apart, its own row, never the default,
+        // because that is the one that commits to more than what was asked.
+        bubble.Show("Can I " + question + "?", false, 120000);
+        bubble.VerbLabel = Capitalize(Truncate(question, 34));
+        bubble.AlwaysLabel = string.IsNullOrEmpty(remembers) ? "" : "Always " + remembers;
         bubble.Asking = true;
         anim.Play("look"); dirty = true;
     }
 
-    void AnswerPermission(bool allow)
+    static string Capitalize(string s) => s.Length == 0 ? s : char.ToUpperInvariant(s[0]) + s[1..];
+    static string Truncate(string s, int max) => s.Length <= max ? s : s[..(max - 1)].TrimEnd() + "…";
+
+    void AnswerPermission(string choice)
     {
         if (permissionId == null) return;
-        _ = link.SendAsync(new { t = "permission.reply", id = permissionId, allow });
+        _ = link.SendAsync(new { t = "permission.reply", id = permissionId, choice });
         permissionId = null;
         bubble.Asking = false;
-        if (allow) { bubble.ShowDots(); anim.Play("think"); }
+        if (choice != "no") { bubble.ShowDots(); anim.Play("think"); }
         else { bubble.Show("Alright, skipping that.", false, 2500); }
         dirty = true;
     }
@@ -1114,17 +1208,30 @@ sealed class PetWindow : Form
         var sc = DockScreen(); var wa = sc.WorkingArea;
         return dock == DockEdge.Bottom ? Rectangle.FromLTRB(wa.Left, wa.Top, wa.Right, sc.Bounds.Bottom) : wa;
     }
-    Point PeekPos() => Docking.PeekWindow(dock, dockFrac, DockArea(), art, Extra, scale, urgent ? Docking.PeekMorePx : Docking.PeekPx);
+    Point PeekPos() => Docking.PeekWindow(dock, dockFrac, DockArea(), art, Extra, scale, urgent || ambientGlow ? Docking.PeekMorePx : Docking.PeekPx);
+
+    /// <summary>Real SFX he picked live, 2026-09-22 (see assets/aang/sfx/CREDITS.txt for source and licence),
+    /// auditioned through a proper picker after System sound and a hand-synthesised square wave both turned out
+    /// to be exactly the "boring, generic" he was trying to get away from.</summary>
+    static readonly System.Media.SoundPlayer SfxNeedsYou = LoadSfx("needs-you.wav");
+    static readonly System.Media.SoundPlayer SfxDone = LoadSfx("done.wav");
+    static System.Media.SoundPlayer LoadSfx(string file)
+    {
+        var p = new System.Media.SoundPlayer();
+        try { p.SoundLocation = Path.Combine(AppContext.BaseDirectory, "assets", "aang", "sfx", file); p.LoadAsync(); }
+        catch (Exception e) { Log.Write("sfx load failed: " + e.Message); }
+        return p;
+    }
 
     /// <summary>Avatar State: something truly blocking. Docked, he peeks a little further out and glows; standing,
     /// a brief wave is all - never a full pop-out, that is what "hidden" and "asked" already cover.</summary>
-    void TriggerUrgent() => TriggerGlow(Theme.AvatarGlow, sound: true);
+    void TriggerUrgent() => TriggerGlow(Theme.AvatarGlow, SfxNeedsYou);
 
     /// <summary>A job he started finished on its own - its own quieter tier (2026-09-22, "aang needs to tell me
     /// its done", after ChatGPT's pet on a finished background task): the same motion as urgent, Claude's
-    /// terracotta instead of Avatar State's white-blue, and never a sound - it should never feel as pressing
-    /// as actually being stuck waiting on him.</summary>
-    void TriggerDone() => TriggerGlow(Theme.Claude, sound: false);
+    /// terracotta instead of Avatar State's white-blue, and its own quieter sound - he chose a distinct one
+    /// (2026-09-22) rather than leaving it silent, precisely so it never gets mistaken for needs-you by ear.</summary>
+    void TriggerDone() => TriggerGlow(Theme.Claude, SfxDone);
 
     /// <summary>Keep what he has not seen yet, unless something more pressing is already waiting: a finished job
     /// never covers up one that is stuck on him. False when it was not kept.</summary>
@@ -1137,23 +1244,33 @@ sealed class PetWindow : Form
     }
     string? heldFocus, heldHost;   // where the waiting session is: a window here ("Claude"), or "mac"
 
+    /// <summary>Nothing left waiting: the icon, the glow (burst or ambient) and its schedule all stop together.</summary>
+    void ClearBadge()
+    {
+        badge = false; urgent = false; ambientGlow = false; burstsFired = 0; nextBurstAt = DateTime.MaxValue;
+        heldText = null; heldJobCwd = null; heldFocus = null; heldHost = null;
+    }
+
     /// <summary>A click on the icon of a waiting Claude session takes him there (2026-09-22): Claude forward on
     /// this PC, or on the MacBook through its one-job listener. The icon goes; he stays tucked.</summary>
     bool GoToHeldSession()
     {
         if (heldHost != "mac" && heldFocus == null) return false;
         var mac = heldHost == "mac";
-        badge = false; urgent = false; heldText = null; heldJobCwd = null; heldFocus = null; heldHost = null; dirty = true;
+        ClearBadge(); dirty = true;
         if (mac) _ = link.SendAsync(new { t = "claude.front", host = "mac" });
         else Hands.Arrange("Claude", "front");
         Log.Write("icon clicked: " + (mac ? "Claude on the MacBook" : "Claude here"));
         return true;
     }
 
-    void TriggerGlow(Color color, bool sound)
+    void TriggerGlow(Color color, System.Media.SoundPlayer sound)
     {
-        urgent = true; urgentColor = color; urgentUntil = DateTime.UtcNow.AddSeconds(UrgentGlowFor.TotalSeconds); badge = true;
-        if (sound && !cfg.Muted) { try { System.Media.SystemSounds.Asterisk.Play(); } catch { /* never worth crashing over */ } }
+        urgent = true; ambientGlow = false; urgentColor = color; burstStart = DateTime.UtcNow;
+        urgentUntil = burstStart.AddSeconds(UrgentGlowFor.TotalSeconds); badge = true;
+        burstsFired++;
+        nextBurstAt = burstsFired < BurstBackoff.Length ? DateTime.UtcNow.Add(BurstBackoff[burstsFired]) : DateTime.MaxValue;
+        if (!cfg.Muted) { try { sound.Play(); } catch (Exception e) { Log.Write("sfx play failed: " + e.Message); } }
         if (dock != DockEdge.None && peeking) { if (slideStart == DateTime.MinValue) SlideTo(PeekPos()); }
         else if (anim.State is "idle" or "think") { anim.Play("hello"); Wake(); }
         dirty = true;
@@ -1218,7 +1335,7 @@ sealed class PetWindow : Form
     /// <summary>Dock at an edge. The first time, he stands out once to say how to bring him back, then tucks away by himself.</summary>
     void DockTo(DockEdge edge, double frac, Screen screen)
     {
-        dock = edge; dockFrac = frac; badge = false; urgent = false; travelStep = 0; flipX = false;
+        dock = edge; dockFrac = frac; badge = false; urgent = false; ambientGlow = false; burstsFired = 0; nextBurstAt = DateTime.MaxValue; travelStep = 0; flipX = false;
         cfg.DockEdge = Docking.Name(edge); cfg.DockFrac = frac; cfg.DockMonitor = screen.DeviceName;
         input.Close(false); ExitExpanded(collapse: false); bubble.Clear(); anim.Play("idle");
         if (!cfg.DockHinted)
@@ -1239,7 +1356,7 @@ sealed class PetWindow : Form
     void Reveal(bool thenType = false, bool greet = true)
     {
         if (dock == DockEdge.None || !peeking) { if (thenType) OpenInput(userAsked: true); return; }
-        peeking = false; badge = false; urgent = false; inputAfterSlide = thenType; greetOnArrive = greet; engagedAt = DateTime.UtcNow;
+        peeking = false; badge = false; urgent = false; ambientGlow = false; burstsFired = 0; nextBurstAt = DateTime.MaxValue; inputAfterSlide = thenType; greetOnArrive = greet; engagedAt = DateTime.UtcNow;
         anim.Play("hello"); Wake();
         SlideTo(StandPos(), RevealMs);
     }
@@ -1261,7 +1378,7 @@ sealed class PetWindow : Form
     {
         if (dock == DockEdge.None) return;
         var target = moveToStand ? StandPos() : Location;
-        dock = DockEdge.None; peeking = false; badge = false; urgent = false; travelStep = 0; flipX = false; cfg.DockEdge = "";
+        dock = DockEdge.None; peeking = false; badge = false; urgent = false; ambientGlow = false; burstsFired = 0; nextBurstAt = DateTime.MaxValue; travelStep = 0; flipX = false; cfg.DockEdge = "";
         cfg.X = target.X; cfg.Y = target.Y; cfg.Save();
         if (moveToStand) SlideTo(target);
         Log.Write("undocked"); dirty = true;
@@ -1287,7 +1404,7 @@ sealed class PetWindow : Form
             return;
         }
         if (edge != DockEdge.None) { DockTo(edge, Docking.Fraction(edge, artRect, screen.WorkingArea), screen); return; }
-        if (dock != DockEdge.None) { peeking = false; badge = false; urgent = false; dock = DockEdge.None; cfg.DockEdge = ""; }
+        if (dock != DockEdge.None) { peeking = false; badge = false; urgent = false; ambientGlow = false; burstsFired = 0; nextBurstAt = DateTime.MaxValue; dock = DockEdge.None; cfg.DockEdge = ""; }
         cfg.X = Location.X; cfg.Y = Location.Y; cfg.Save();
         _ = link.SendAsync(new { t = "moved", x = Location.X, y = Location.Y });
     }
@@ -1348,6 +1465,17 @@ sealed class PetWindow : Form
         else if (!on && mouseHook != IntPtr.Zero) { Win32.UnhookWindowsHookEx(mouseHook); mouseHook = IntPtr.Zero; }
     }
 
+    /// <summary>Is pt over this menu or any of its open submenus, at any depth?</summary>
+    static bool OverAnyMenu(ToolStripDropDown? menu, Point pt)
+    {
+        if (menu == null || !menu.Visible) return false;
+        if (menu.Bounds.Contains(pt)) return true;
+        foreach (ToolStripItem item in menu.Items)
+            if (item is ToolStripMenuItem mi && mi.HasDropDownItems && OverAnyMenu(mi.DropDown, pt))
+                return true;
+        return false;
+    }
+
     IntPtr MouseHook(int code, IntPtr wParam, IntPtr lParam)
     {
         try
@@ -1358,7 +1486,14 @@ sealed class PetWindow : Form
                 var info = System.Runtime.InteropServices.Marshal.PtrToStructure<Win32.MSLLHOOKSTRUCT>(lParam);
                 var pt = new Point(info.x, info.y);
                 var menu = tray.ContextMenuStrip;
-                var inside = OverMe(pt) || (input.Visible && input.Bounds.Contains(pt)) || (menu != null && menu.Visible && menu.Bounds.Contains(pt));
+                // A submenu ("Window" -> Dock left/right/top/bottom) is its own popup, outside the top-level
+                // menu's own Bounds - checking only menu.Bounds meant every click on a submenu item read as a
+                // click AWAY and closed the whole tree via BeginInvoke before the Click event ever fired. That
+                // was the real bug behind "the dock items don't work" - Joshua, 2026-09-22. Walk every open
+                // submenu, not just the top level.
+                var overMenu = OverAnyMenu(menu, pt);
+                if (menu != null && menu.Visible && !overMenu) BeginInvoke(() => menu.Close());
+                var inside = OverMe(pt) || (input.Visible && input.Bounds.Contains(pt)) || overMenu;
                 if (!inside) BeginInvoke(ClickedAway);
             }
         }
@@ -1377,11 +1512,16 @@ sealed class PetWindow : Form
         // The glow settles after a few seconds; the marker itself (badge, heldText) stays until he clicks it.
         if (urgent && now >= urgentUntil)
         {
-            urgent = false;
+            // The burst is over, but he asked not to lose the glow until he acts on it (2026-09-22): a quiet
+            // ambient pulse takes over, and he stays peeked out further, not back to the plain 34px forehead.
+            urgent = false; ambientGlow = badge;
             if (dock != DockEdge.None && peeking && slideStart == DateTime.MinValue) SlideTo(PeekPos());
             dirty = true;
         }
-        SetClickAwayHook(dock != DockEdge.None && !peeking);
+        // A few real, abrupt bursts beat one that never stops (research, 2026-09-22): continuous motion is the one
+        // pattern proven not to capture attention and to habituate fastest. Re-fire on a backoff until he acts.
+        if (badge && heldRank >= 2 && !urgent && now >= nextBurstAt) TriggerGlow(badgeColor, heldRank == 3 ? SfxNeedsYou : SfxDone);
+        SetClickAwayHook((dock != DockEdge.None && !peeking) || (tray.ContextMenuStrip?.Visible ?? false));
         if (dock == DockEdge.None) return;
         // The taskbar is always-on-top too, and clicking it lifts it over him; at the bottom he takes the top back each second.
         if (dock == DockEdge.Bottom && (now - topmostAt).TotalMilliseconds > 1000)
@@ -1460,19 +1600,52 @@ sealed class PetWindow : Form
         using var rot = (Bitmap)sprites.Frame(anim.State, anim.Frame).Clone();
         rot.RotateFlip(Docking.Rotation(dock));                           // an exact turn: pixels move, none change
         var at = new Rectangle(Docking.SpriteX, Docking.SpriteY, Docking.Frame, Docking.Frame);
-        if (urgent) DrawOutline(g, rot, at);
+        if (urgent) DrawOutline(g, rot, at, loom: true);
+        else if (ambientGlow) DrawOutline(g, rot, at, loom: false);
         g.DrawImage(rot, at);
         if (badge) DrawMarker(g);
     }
 
-    static readonly Point[] OutlineRing = { new(-3, 0), new(3, 0), new(0, -3), new(0, 3), new(-2, -2), new(2, -2), new(-2, 2), new(2, 2), new(-3, -1), new(3, -1), new(-3, 1), new(3, 1), new(-1, -3), new(1, -3), new(-1, 3), new(1, 3) };
 
     /// <summary>The moment something comes in: a pulsing outline in its tier's colour, traced from his own
     /// silhouette so it hugs him exactly. It sits outside his pixels, so none of them change (the sprite lock).
     /// Joshua, 2026-09-22, after seeing the soft glow disappear behind him in a real capture.</summary>
-    void DrawOutline(Graphics g, Bitmap sprite, Rectangle at)
+    /// <summary>Offsets that stamp a sprite's own silhouette into an outline of about radius <paramref name="r"/>
+    /// hugging its real pixel edges, not a generic circle around its box.</summary>
+    static Point[] RingOffsets(float r)
+    {
+        var set = new HashSet<(int, int)>();
+        int n = Math.Max(12, (int)(r * 6));
+        for (int i = 0; i < n; i++)
+        {
+            double a = i * 2 * Math.PI / n;
+            set.Add(((int)Math.Round(r * Math.Cos(a)), (int)Math.Round(r * Math.Sin(a))));
+        }
+        return set.Select(p => new Point(p.Item1, p.Item2)).ToArray();
+    }
+
+    /// <summary>Two moods, from what actually captures peripheral attention versus what merely marks a wait
+    /// (research, 2026-09-22). A BURST (loom=true) is an abrupt, non-smooth event: it snaps larger in ~150ms
+    /// (motion onset and looming both capture attention; smooth continuous motion does neither and habituates
+    /// fastest), hard-flickers near 9Hz for ~650ms (the periphery's fastest comfortably visible rate), then holds
+    /// steady and bright - no more motion after that, on purpose. Ambient is small, slow and quiet: present, not
+    /// attention-seeking, exactly because he asked the glow never fully disappear while something waits.</summary>
+    void DrawOutline(Graphics g, Bitmap sprite, Rectangle at, bool loom)
     {
         var c = urgentColor;
+        float radius; int alpha;
+        if (loom)
+        {
+            double t = (DateTime.UtcNow - burstStart).TotalMilliseconds;
+            float snap = t < 150 ? EaseOutBack((float)(t / 150.0)) : t < 320 ? 1f - (float)((t - 150) / 170.0) : 0f;
+            radius = 3f + 6f * Math.Clamp(snap, 0f, 1f);
+            alpha = t < 650 ? (((int)(t / 56) % 2) == 0 ? 245 : 70) : 235;   // ~9Hz hard on/off, then steady
+        }
+        else
+        {
+            double phase = (Math.Sin(DateTime.UtcNow.TimeOfDay.TotalSeconds * Math.PI * 0.5) + 1) / 2;   // slow, ~4s
+            radius = 3f; alpha = (int)(95 + 90 * phase);   // 45-100 read as a grey smudge against a dark desktop; brighter now
+        }
         using var solid = new Bitmap(sprite.Width, sprite.Height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
         using (var sg = Graphics.FromImage(solid))
         using (var flat = new System.Drawing.Imaging.ImageAttributes())
@@ -1484,12 +1657,12 @@ sealed class PetWindow : Form
             }));
             sg.DrawImage(sprite, new Rectangle(0, 0, sprite.Width, sprite.Height), 0, 0, sprite.Width, sprite.Height, GraphicsUnit.Pixel, flat);
         }
-        using var ring = new Bitmap(sprite.Width + 6, sprite.Height + 6, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
-        using (var rg = Graphics.FromImage(ring)) foreach (var o in OutlineRing) rg.DrawImageUnscaled(solid, 3 + o.X, 3 + o.Y);
-        double phase = (Math.Sin(DateTime.UtcNow.TimeOfDay.TotalSeconds * Math.PI * 1.6) + 1) / 2;       // 0..1, ~1.25 s
+        int pad = (int)Math.Ceiling(radius) + 2;
+        using var ring = new Bitmap(sprite.Width + pad * 2, sprite.Height + pad * 2, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+        using (var rg = Graphics.FromImage(ring)) foreach (var o in RingOffsets(radius)) rg.DrawImageUnscaled(solid, pad + o.X, pad + o.Y);
         using var fade = new System.Drawing.Imaging.ImageAttributes();
-        fade.SetColorMatrix(new System.Drawing.Imaging.ColorMatrix { Matrix33 = (float)(0.75 + 0.25 * phase) });   // bright even at the bottom of the pulse
-        g.DrawImage(ring, new Rectangle(at.X - 3, at.Y - 3, ring.Width, ring.Height), 0, 0, ring.Width, ring.Height, GraphicsUnit.Pixel, fade);
+        fade.SetColorMatrix(new System.Drawing.Imaging.ColorMatrix { Matrix33 = alpha / 255f });
+        g.DrawImage(ring, new Rectangle(at.X - pad, at.Y - pad, ring.Width, ring.Height), 0, 0, ring.Width, ring.Height, GraphicsUnit.Pixel, fade);
     }
 
     // Pixel icons on his own grain (one art pixel = 2 frame pixels), in the tradition he named (2026-09-22): a WoW
@@ -1506,7 +1679,7 @@ sealed class PetWindow : Form
     };
     static readonly string[] IconDoneTick =
     {
-        "........OOO", ".......OHFO", "......OHFSO", ".OOO.OHFSO.", "OHFOOHFSO..", "OSHFHFSO...", ".OSFFSO....", "..OSSO.....", "...OO......",
+        "........O.", ".......OHO", "......OHFO", ".OO..OHFO.", "OHFO.OHFO.", "OHFOOHFO..", ".OFFFFO...", "..OOOO....",
     };
     static readonly string[] IconNews =
     {
@@ -1550,7 +1723,7 @@ sealed class PetWindow : Form
 
     /// <summary>One icon pixel = one of his art pixels (2 frame pixels). 1.5x was tried and he found it too large
     /// (2026-09-22); his own grain is the size he chose.</summary>
-    const float IconPx = 2f;
+    const float IconPx = 2.4f;   // "slightly bigger" than his own art pixel (2026-09-22); 3f had been too large
 
     static void DrawIcon(Graphics g, string[] map, PointF center, Color c, float scaleBy)
     {
@@ -1589,14 +1762,39 @@ sealed class PetWindow : Form
         panelItem.Click += (_, _) => OpenPanel();
         var talk = new ToolStripMenuItem("Talk to Aang");
         talk.Click += (_, _) => OpenInput(userAsked: true);
+        // Parity with Discord's command deck (2026-09-22): job hunt, permissions and activity were only ever
+        // one tap away on the phone. Permissions and Activity already have a real, fuller view in the Panel
+        // (its "What I may do" / "What I did" tabs) - these just jump straight to it instead of building a
+        // second, thinner copy of the same list here.
+        var jobHuntItem = new ToolStripMenuItem("Job hunt now");
+        jobHuntItem.Click += (_, _) => { Note("Starting the job hunt..."); _ = link.SendAsync(new { t = "job.hunt" }); };
+        var permsItem = new ToolStripMenuItem("Permissions...");
+        permsItem.Click += (_, _) => { panelTab = 1; OpenPanel(); };
+        var activityItem = new ToolStripMenuItem("Activity...");
+        activityItem.Click += (_, _) => { panelTab = 2; OpenPanel(); };
+        var hushMenu = new ToolStripMenuItem("Hush");
+        foreach (var (label, mins) in new (string, int)[] { ("15 minutes", 15), ("1 hour", 60), ("4 hours", 240), ("Until I turn it off", 24 * 60) })
+        {
+            var item = new ToolStripMenuItem(label);
+            item.Click += (_, _) => _ = link.SendAsync(new { t = "hush", minutes = mins });
+            hushMenu.DropDownItems.Add(item);
+        }
+        var unhushItem = new ToolStripMenuItem("End hush now");
+        unhushItem.Click += (_, _) => _ = link.SendAsync(new { t = "hush", minutes = 0 });
+        hushMenu.DropDownItems.Add(new ToolStripSeparator());
+        hushMenu.DropDownItems.Add(unhushItem);
         // Docking: tuck him against an edge with only his head showing. Dragging him within 24 px of the left, right or
         // top edge does the same; the bottom is here because he normally stands there.
-        var dockMenu = new ToolStripMenuItem("Dock to an edge");
-        foreach (var edge in new[] { DockEdge.Left, DockEdge.Right, DockEdge.Top, DockEdge.Bottom })
+        // Flat, not a "Dock to an edge" flyout (2026-09-22, Joshua: hover was iffy, the click didn't always
+        // take) - a third level of nested owner-drawn popup was the likely cause (the dock geometry itself
+        // passes its full self-test, --selftest-dock, unchanged). One click fewer either way.
+        var dockItems = new ToolStripMenuItem[4];
+        for (int i = 0; i < 4; i++)
         {
-            var item = new ToolStripMenuItem(edge.ToString()) { Tag = edge };
+            var edge = new[] { DockEdge.Left, DockEdge.Right, DockEdge.Top, DockEdge.Bottom }[i];
+            var item = new ToolStripMenuItem("Dock " + edge.ToString().ToLowerInvariant()) { Tag = edge };
             item.Click += (_, _) => DockFromTray(edge);
-            dockMenu.DropDownItems.Add(item);
+            dockItems[i] = item;
         }
         var comeBack = new ToolStripMenuItem("Come back (undock)");
         comeBack.Click += (_, _) => Undock(moveToStand: true);
@@ -1631,7 +1829,20 @@ sealed class PetWindow : Form
         autostartItem = new ToolStripMenuItem("Start with Windows");
         autostartItem.Click += (_, _) => Autostart.Set(!Autostart.IsOn());
         menu.Opening += (_, _) => autostartItem.Checked = Autostart.IsOn();
-        menu.Items.AddRange(new ToolStripItem[] { talk, panelItem, show, dockMenu, comeBack, hotkeyItem, modelMenu, savingItem, quietItem, seeWindowItem, muteItem, new ToolStripSeparator(), coreItem, autostartItem, new ToolStripSeparator(), quit });
+        // Three groups, carved-plaque headers (GoldMenu 2026-09-22): Window (how he sits on screen), Aang (his
+        // behaviour and quota), Settings (the machine). Talk to Aang, Panel and Quit are common enough to stay
+        // on the main menu; everything else moved one click deeper so the main list reads at a glance.
+        var windowMenu = GoldMenu.Header("Window");
+        windowMenu.DropDownItems.Add(show);
+        windowMenu.DropDownItems.AddRange(dockItems);
+        windowMenu.DropDownItems.AddRange(new ToolStripItem[] { comeBack, hotkeyItem });
+        // Aang: what he does and what you check on him. Settings: everything about how he behaves (2026-09-22,
+        // Joshua: "job hunt permissions and activity belong in aang everything else is a setting").
+        var aangMenu = GoldMenu.Header("Aang");
+        aangMenu.DropDownItems.AddRange(new ToolStripItem[] { jobHuntItem, permsItem, activityItem });
+        var settingsMenu = GoldMenu.Header("Settings");
+        settingsMenu.DropDownItems.AddRange(new ToolStripItem[] { hushMenu, modelMenu, savingItem, quietItem, seeWindowItem, muteItem, autostartItem, coreItem });
+        menu.Items.AddRange(new ToolStripItem[] { talk, panelItem, new ToolStripSeparator(), windowMenu, aangMenu, settingsMenu, new ToolStripSeparator(), quit });
         GoldMenu.Apply(menu);
         tray.ContextMenuStrip = menu;
         tray.Text = "Aang";
