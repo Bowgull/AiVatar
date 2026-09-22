@@ -3,12 +3,12 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { DAILY_CAP, HARD_MAX, Drafts, Jobs, applyPrompt, cleanField, extractUrls, parseVerdict, readAppliedFile, readDraftsFile, readShortlist, renderCard, renderDraft, safeUrl, vetPrompt } from '../src/jobs.ts';
+import { DAILY_CAP, HARD_MAX, Drafts, Jobs, applyPrompt, cleanField, extractUrls, parseVerdict, readAppliedFile, readDraftsFile, readShortlist, renderCard, renderDraft, safeUrl, scoreOf, verdictFor, vetPrompt } from '../src/jobs.ts';
 import { attachmentProblem, safeAttachmentName } from '../src/phone.ts';
 
 const tmp = () => mkdtempSync(path.join(os.tmpdir(), 'aang-jobs-'));
 const NOW = new Date('2026-09-22T15:00:00Z');
-const job = (n: number) => ({ url: `https://jobs.example.com/${n}`, title: `Role ${n}`, company: 'Acme', location: 'Toronto', salary: '$90K', verdict: 'apply' as const, reason: 'fits' });
+const job = (n: number) => ({ url: `https://jobs.example.com/${n}`, title: `Role ${n}`, company: 'Acme', location: 'Toronto', salary: '$90K', score: 85, verdict: 'apply' as const, reason: 'fits' });
 
 test('text from the web cannot ping anyone or dress itself up', () => {
   assert.equal(cleanField('Hi @everyone <@123> **bold** `code`\nnext'), 'Hi @\u200beveryone bold code next');
@@ -33,12 +33,31 @@ test('the vetting question carries the link and his criteria text itself, so no 
   assert.match(vetPrompt('https://x.example.com/j', ''), /could not be read/);
 });
 
-test('a verdict is read out of the reply, and a mangled one is not guessed at', () => {
-  const v = parseVerdict('Sure.\n{"title":"Onboarding Specialist","company":"Acme","location":"Toronto","salary":"$85K","verdict":"apply","reason":"Matches the lane."}', 'https://x.example.com/j')!;
-  assert.deepEqual([v.title, v.company, v.verdict, v.url], ['Onboarding Specialist', 'Acme', 'apply', 'https://x.example.com/j']);
-  assert.equal(parseVerdict('{"title":"A","company":"B","verdict":"hire immediately"}', 'https://x.example.com/')!.verdict, 'maybe', 'an unknown verdict is only a maybe');
+test('the rubric: code does the arithmetic, the model only reports plain facts (2026-09-22)', () => {
+  // A clean, full-fit posting: every point on offer.
+  assert.equal(scoreOf({ lane: 'match', pay: 'meets', location: 'fit', exclusions: [] }), 100);
+  assert.equal(verdictFor(100), 'apply');
+  // Nothing stated: no guessing in its favour (unknown pay still earns a few points, same as "no exclusions
+  // found" does - absence of a red flag is not nothing, but it is not a fit either).
+  assert.equal(scoreOf({ lane: 'no', pay: 'unknown', location: 'no', exclusions: [] }), 30);
+  assert.equal(verdictFor(30), 'skip');
+  // A real dealbreaker caps the score regardless of how well everything else fits - it was never "minus a
+  // few points" in his own criteria, it was a no.
+  assert.equal(scoreOf({ lane: 'match', pay: 'meets', location: 'fit', exclusions: ['requires French'] }), 25);
+  assert.equal(verdictFor(25), 'skip');
+  // The boundaries: 70 is the lowest "apply", 40 the lowest "maybe", 39 falls to skip.
+  assert.deepEqual([verdictFor(70), verdictFor(69), verdictFor(40), verdictFor(39)], ['apply', 'maybe', 'maybe', 'skip']);
+});
+
+test('a verdict is read out of the reply as a rubric, scored by code, and a mangled one is not guessed at', () => {
+  const v = parseVerdict('Sure.\n{"title":"Onboarding Specialist","company":"Acme","location":"Toronto","salary":"$85K","laneFit":"match","payFit":"meets","locationFit":"fit","exclusions":[],"reason":"Matches the lane."}', 'https://x.example.com/j')!;
+  assert.deepEqual([v.title, v.company, v.verdict, v.score, v.url], ['Onboarding Specialist', 'Acme', 'apply', 100, 'https://x.example.com/j']);
+  const capped = parseVerdict('{"title":"A","company":"B","laneFit":"match","payFit":"meets","locationFit":"fit","exclusions":["needs French"]}', 'https://x.example.com/')!;
+  assert.deepEqual([capped.verdict, capped.score], ['skip', 25], 'a real dealbreaker overrides an otherwise perfect fit');
+  const blank = parseVerdict('{"title":"A","company":"B","laneFit":"hire immediately"}', 'https://x.example.com/')!;
+  assert.deepEqual([blank.verdict, blank.score], ['skip', 30], 'an unrecognised or missing field never reads as a fit');
   assert.equal(parseVerdict('no json here', 'https://x.example.com/'), null);
-  assert.equal(parseVerdict('{"verdict":"apply"}', 'https://x.example.com/'), null, 'no title or company');
+  assert.equal(parseVerdict('{"laneFit":"match"}', 'https://x.example.com/'), null, 'no title or company');
   assert.equal(parseVerdict('{"title":"@everyone","company":"C"}', 'https://x.example.com/')!.title, '@\u200beveryone');
 });
 
@@ -59,18 +78,28 @@ test('the shortlist file: good entries kept, dodgy ones dropped', () => {
   assert.deepEqual(readShortlist(path.join(tmp(), 'missing.json')), []);
 });
 
-test('a card shows the job, what he decided, and the right buttons for each state', () => {
+test('a card is a real embed: stage, match and dates each their own field, and the right buttons for each state', () => {
   const j = new Jobs(tmp());
   const c = j.add(job(1), NOW);
+  const field = (v: ReturnType<typeof renderCard>, name: string) => v.embed.fields?.find(f => f.name === name)?.value;
   let v = renderCard(c);
-  assert.match(v.content, /^\*\*Role 1\*\* at Acme\nToronto {2}·  \$90K\nLooks good: fits$/);
+  assert.equal(v.content, '', 'the embed carries everything now, not a run-on line of text');
+  assert.equal(v.embed.title, 'Role 1 at Acme');
+  assert.equal(v.embed.description, 'fits');
+  assert.equal(field(v, 'Match'), '85% · Looks good');
+  assert.equal(field(v, 'Location'), 'Toronto');
+  assert.equal(field(v, 'Salary'), '$90K');
+  assert.equal(field(v, 'Stage'), 'New');
   assert.deepEqual(v.buttons.map(b => b.label), ['Open', 'Approve', 'Skip']);
   assert.equal(v.buttons[0]!.url, 'https://jobs.example.com/1');
   j.setStatus(c.id, 'approved'); v = renderCard(c);
-  assert.match(v.content, /Approved/);
+  assert.equal(field(v, 'Stage'), 'Approved');
+  assert.equal(v.embed.color, 0xffc43c, 'approved is Aang gold');
   assert.deepEqual(v.buttons.map(b => b.label), ['Open', '✓ Approved', 'Undo']);
   assert.equal(v.buttons[1]!.disabled, true, 'a finished step is greyed and cannot be pressed');
-  j.setStatus(c.id, 'skipped'); assert.match(renderCard(c).content, /Skipped/);
+  j.setStatus(c.id, 'skipped'); v = renderCard(c);
+  assert.equal(field(v, 'Stage'), 'Skipped');
+  assert.match(v.embed.title!, /^~~.*~~$/, 'a skipped card is struck through');
   j.setStatus(c.id, 'new'); assert.deepEqual(renderCard(c).buttons.map(b => b.label), ['Open', 'Approve', 'Skip']);
 });
 
@@ -183,20 +212,24 @@ test('applied.json: submitted and stuck are told apart, notes cleaned, junk drop
 
 test('a result updates the card, counts against the cap, and a sent job cannot be pulled back', () => {
   const j = new Jobs(tmp());
-  const c = j.add({ url: 'https://jobs.example.com/1', title: 'T', company: 'C', location: '', salary: '', verdict: 'apply', reason: '' }, NOW);
+  const c = j.add({ url: 'https://jobs.example.com/1', title: 'T', company: 'C', location: '', salary: '', score: 85, verdict: 'apply', reason: '' }, NOW);
   j.setStatus(c.id, 'approved'); j.takeForApply(NOW);
   assert.equal(j.left(NOW), 4);
   assert.equal(j.recordResult('https://jobs.example.com/1', 'stuck', 'a CAPTCHA')!.status, 'stuck');
   assert.equal(j.left(NOW), 4, 'stuck still counts today');
   assert.equal(j.recordResult('https://jobs.example.com/1', 'stuck', 'a CAPTCHA'), null, 'the same news twice changes nothing');
   assert.equal(j.recordResult('https://jobs.example.com/1', 'applied', 'Confirmation 42')!.status, 'applied');
-  assert.match(renderCard(c).content, /Applied: Confirmation 42/);
-  assert.deepEqual(renderCard(c).buttons.map(b => b.label), ['Open', '✓ Applied']);
-  assert.equal(renderCard(c).buttons[1]!.disabled, true, 'nothing left to press once it is applied');
-  assert.match(renderCard(c).content, /^✅ \*\*APPLIED\*\*/, 'an applied card looks different from a waiting one');
+  assert.equal(c.appliedAt, '2026-09-22', 'the day it was first heard, not just buried in the result text');
+  let v = renderCard(c);
+  assert.equal(v.embed.fields?.find(f => f.name === 'Result')?.value, 'Confirmation 42');
+  assert.equal(v.embed.fields?.find(f => f.name === 'Applied')?.value, '2026-09-22');
+  assert.deepEqual(v.buttons.map(b => b.label), ['Open', '✓ Applied']);
+  assert.equal(v.buttons[1]!.disabled, true, 'nothing left to press once it is applied');
+  assert.equal(v.embed.color, 0x57f287, 'an applied card is green, same as a fresh strong match');
   assert.equal(j.setStatus(c.id, 'skipped')!.status, 'applied', 'no button can undo it now');
   assert.equal(j.recordResult('https://unknown.example.com/x', 'applied', ''), null);
-  c.status = 'stuck'; c.result = 'a CAPTCHA'; assert.match(renderCard(c).content, /Needs you: a CAPTCHA/);
+  c.status = 'stuck'; c.result = 'a CAPTCHA';
+  assert.equal(renderCard(c).embed.fields?.find(f => f.name === 'What it needs')?.value, 'a CAPTCHA');
 });
 
 test('the apply request names the approved-answers file and the report file', () => {

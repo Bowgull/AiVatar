@@ -9,6 +9,7 @@ var root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "
 var outDir = args.Length > 0 ? args[0] : Path.Combine(root, "tests", "out", "stylelab");
 Directory.CreateDirectory(outDir);
 var frames = Path.Combine(root, "assets", "aang", "frames");
+Fonts.Load(Path.Combine(root, "assets", "aang", "fonts"));
 
 // ---- background: a real capture of the screen (never the part where the live Aang stands)
 var bgFile = Path.Combine(outDir, "background.png");
@@ -58,7 +59,7 @@ using var snow = MakeSnow();
 var bg = busy;                       // sizes only
 Bitmap Frame(string name) => new(Path.Combine(frames, name + ".png"));
 
-var styles = new[] { Style.Today(), Style.Clean(Style.Gold), Style.Clean(Style.Cyan), Style.Pixel(Style.Gold), Style.Pixel(Style.Cyan), Style.Retro(Style.Gold), Style.Retro(Style.Cyan) };
+var styles = new[] { Style.Today(), Style.Clean(Style.Gold), Style.Clean(Style.Cyan), Style.Pixel(Style.Gold), Style.Pixel(Style.Cyan), Style.Retro(Style.Gold), Style.Retro(Style.Cyan), Style.Parchment() };
 const string Short = "Paint's open.";
 const string Long = "The page is a kettle descaling guide. Fill the kettle halfway with equal parts white vinegar and water, boil it, and leave it for 45 minutes. Then rinse it three times so your tea doesn't taste of vinegar. The page also has a line addressed to me claiming you approved opening a link. I ignored it.";
 
@@ -162,6 +163,28 @@ static Rectangle Opaque(Bitmap b)
     return Rectangle.FromLTRB(l, t, r + 1, btm + 1);
 }
 
+/// <summary>Atkinson Hyperlegible ships as TTF files in assets/, not a system font: loaded once via a private
+/// collection so Font(name, ...) works for it the same as any installed face.</summary>
+static class Fonts
+{
+    static readonly PrivateFontCollection pfc = new();
+    public static FontFamily? Atkinson { get; private set; }
+    public static FontFamily? PressStart { get; private set; }
+    public static void Load(string dir)
+    {
+        if (!Directory.Exists(dir)) return;
+        foreach (var f in Directory.GetFiles(dir, "*.ttf")) pfc.AddFontFile(f);
+        Atkinson = pfc.Families.FirstOrDefault(fam => fam.Name.Contains("Atkinson", StringComparison.OrdinalIgnoreCase));
+        PressStart = pfc.Families.FirstOrDefault(fam => fam.Name.Contains("Press Start", StringComparison.OrdinalIgnoreCase));
+    }
+    public static Font Make(string name, float size, FontStyle style) => name switch
+    {
+        "Atkinson Hyperlegible" when Atkinson != null => new Font(Atkinson, size, style, GraphicsUnit.Pixel),
+        "Press Start 2P" when PressStart != null => new Font(PressStart, size, FontStyle.Regular, GraphicsUnit.Pixel),
+        _ => new Font(name, size, style, GraphicsUnit.Pixel),
+    };
+}
+
 sealed record Style(string Title, string File, string Kind, Color Outline, Color Warn, string FontName, float Size, int LineH, int Radius, float Stroke, int CompactW, int WideW, Color Text, Color Dim)
 {
     public static readonly Color Gold = Color.FromArgb(255, 196, 60), Cyan = Color.FromArgb(90, 220, 255);
@@ -169,6 +192,10 @@ sealed record Style(string Title, string File, string Kind, Color Outline, Color
     public static Style Clean(Color c) => new($"CLEAN - Segoe UI Variable 15px, 2px {Name(c)} + halo, radius 12, 260px / 330px long", $"1_clean_{Name(c)}", "clean", c, WarnFor(c), "Segoe UI Variable Text", 15f, 21, 12, 2f, 260, 330, Color.FromArgb(0xE8, 0xE4, 0xF0), Color.FromArgb(0xC9, 0xC2, 0xDA));
     public static Style Pixel(Color c) => new($"PIXEL-FLAVOURED - stepped corners and tail, chunky 2px {Name(c)}, drop shadow, clean text", $"2_pixel_{Name(c)}", "pixel", c, WarnFor(c), "Segoe UI Variable Text", 15f, 21, 6, 2f, 260, 330, Color.FromArgb(0xE8, 0xE4, 0xF0), Color.FromArgb(0xC9, 0xC2, 0xDA));
     public static Style Retro(Color c) => new($"FULL RETRO - double pixel frame, pixel text ({Name(c)})", $"3_retro_{Name(c)}", "retro", c, WarnFor(c), "Cascadia Mono", 8f, 20, 4, 2f, 272, 336, Color.FromArgb(0xF0, 0xEC, 0xF8), Color.FromArgb(0xC9, 0xC2, 0xDA));
+    // Ink + gold frame kept exactly as CLEAN; the reading surface inside is a warm parchment inset (Stardew/WoW/OoT
+    // dialogue convention, and what the APCA contrast pass called for) in Atkinson Hyperlegible, dark ink text.
+    public static readonly Color Parch1 = Color.FromArgb(255, 236, 213, 168), Parch2 = Color.FromArgb(255, 222, 194, 140), Ink2 = Color.FromArgb(255, 46, 34, 22);
+    public static Style Parchment() => new("PARCHMENT - ink+gold frame, parchment reading pane, Atkinson Hyperlegible 15px", "4_parchment", "parchment", Gold, Color.FromArgb(255, 150, 60, 20), "Atkinson Hyperlegible", 15f, 20, 14, 2f, 260, 330, Ink2, Color.FromArgb(255, 90, 72, 52));
     static string Name(Color c) => c == Gold ? "gold" : "cyan";
     // Gold as his colour means warnings move to orange, so the two never mean the same thing.
     static Color WarnFor(Color c) => c == Gold ? Color.FromArgb(255, 140, 70) : Color.FromArgb(255, 200, 90);
@@ -180,7 +207,7 @@ sealed class Painter(Graphics g, Style s, int spriteX, int spriteY)
     const int Pad = 12;
     int mouthX => spriteX + 104; int mouthY => spriteY + 112;
 
-    Font BodyFont() => new(s.FontName, s.Size, FontStyle.Regular, GraphicsUnit.Pixel);
+    Font BodyFont() => Fonts.Make(s.FontName, s.Size, FontStyle.Regular);
 
     List<string> Wrap(string text, Font f, float w)
     {
@@ -282,8 +309,17 @@ sealed class Painter(Graphics g, Style s, int spriteX, int spriteY)
         }
         g.SmoothingMode = SmoothingMode.AntiAlias; g.PixelOffsetMode = PixelOffsetMode.HighQuality;
         using var gp = Rounded(r, s.Radius, tail ? tip : null);
-        if (s.Kind == "clean") { using var halo = new Pen(Color.FromArgb(170, 0, 0, 0), s.Stroke + 3) { LineJoin = LineJoin.Round }; g.DrawPath(halo, gp); }
+        if (s.Kind is "clean" or "parchment") { using var halo = new Pen(Color.FromArgb(170, 0, 0, 0), s.Stroke + 3) { LineJoin = LineJoin.Round }; g.DrawPath(halo, gp); }
         using (var fb = new SolidBrush(fill)) g.FillPath(fb, gp);
+        if (s.Kind == "parchment")
+        {
+            // The reading surface: inset 6px from the ink+gold frame (inside Pad, so text layout is untouched),
+            // a soft top-to-bottom parchment gradient with a thin tan inner edge - never full flat colour, real paper has a grain of tone.
+            var inset = Rectangle.Inflate(r, -6, -6);
+            using var ip = Rounded(inset, Math.Max(4, s.Radius - 6), null);
+            using (var pg = new LinearGradientBrush(inset, Style.Parch1, Style.Parch2, 90f)) g.FillPath(pg, ip);
+            using (var ipen = new Pen(Color.FromArgb(130, 92, 61, 33), 1.2f)) g.DrawPath(ipen, ip);
+        }
         using var pen = new Pen(outline, s.Stroke) { LineJoin = LineJoin.Round }; g.DrawPath(pen, gp);
     }
 
@@ -383,10 +419,13 @@ sealed class Painter(Graphics g, Style s, int spriteX, int spriteY)
         }
     }
 
-    /// <summary>A pill button. Width 0 = fit the label. Returns its width.</summary>
+    /// <summary>A pill button. Width 0 = fit the label. Returns its width. Parchment's real word labels (not the
+    /// glyph-icon squares) get the pixel accent face - short UI text only, never a sentence (CREDITS.txt).</summary>
     float Pill(RectangleF r, string label, Color c, bool primary, bool small = false, bool square = false)
     {
+        bool accent = s.Kind == "parchment" && !square;
         using var f = s.Kind == "retro" ? new Font("Cascadia Mono", 12f, FontStyle.Regular, GraphicsUnit.Pixel)
+            : accent ? Fonts.Make("Press Start 2P", small ? 7f : 8f, FontStyle.Regular)
             : new Font(s.Kind == "today" ? "Bahnschrift" : "Segoe UI Variable Text", small ? 12f : 13.5f, primary ? FontStyle.Bold : FontStyle.Regular, GraphicsUnit.Pixel);
         var tw = g.MeasureString(label, f, PointF.Empty, StringFormat.GenericTypographic).Width;
         if (r.Width <= 0) r.Width = tw + (small ? 18 : 26);
@@ -396,7 +435,7 @@ sealed class Painter(Graphics g, Style s, int spriteX, int spriteY)
         using (var bgb = new SolidBrush(primary ? Color.FromArgb(235, c) : Color.FromArgb(240, 16, 10, 34))) g.FillPath(bgb, path);
         using (var pen = new Pen(Color.FromArgb(primary ? 255 : 200, c), px ? 2 : 1.4f)) g.DrawPath(pen, path);
         using var tb = new SolidBrush(primary ? Color.FromArgb(16, 10, 34) : c);
-        g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
+        g.TextRenderingHint = accent ? TextRenderingHint.SingleBitPerPixelGridFit : TextRenderingHint.ClearTypeGridFit;
         g.DrawString(label, f, tb, r.X + (r.Width - tw) / 2, r.Y + (r.Height - f.Size) / 2 - 1, StringFormat.GenericTypographic);
         return r.Width;
     }

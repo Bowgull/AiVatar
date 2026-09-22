@@ -34,6 +34,7 @@ export type ToBody =
   | { t: 'tool'; id: string; name: string; phase: 'start' | 'done'; label: string }
   | { t: 'quota'; five: number; week: number; fiveResetsAt: number; weekResetsAt: number; level: QuotaLevel }
   | { t: 'consent'; id: string; wanted: Mode }
+  /** remembers, when set, is the standing-trust category (e.g. "open apps") that "Always allow" would grant. */
   | { t: 'permission'; id: string; tool: string; question: string; remembers?: string }
   | { t: 'clipboard.request'; id: string }
   | { t: 'look.request'; id: string }
@@ -41,6 +42,13 @@ export type ToBody =
   | { t: 'attach'; name: string; mime: string; data: string; caption?: string }
   /** The answer to a `status` request: plain text, worked out without the model. */
   | { t: 'status.reply'; text: string }
+  /** Whether `mac.run` reached the Mac and typed it into a new chat there. */
+  | { t: 'mac.run.reply'; ok: boolean }
+  /** Whether `job.hunt` ended up running on the Mac or, falling back, on his own worker here. */
+  | { t: 'job.hunt.reply'; onMac: boolean }
+  /** A job scored outside #job-inbox (an email, a link pasted in chat): Discord turns this into the same kind
+   *  of card. Only the Discord connection acts on it - nowhere else has anywhere to put a job card. */
+  | { t: 'job.card'; url: string; title: string; company: string; location: string; salary: string; score: number; verdict: 'apply' | 'maybe' | 'skip'; reason: string }
   /** One line for the receipt book (#log): something Aang just did on the machine. */
   | { t: 'action'; text: string }
   | { t: 'actions.reply'; text: string }
@@ -77,9 +85,16 @@ export type FromBody =
   | { t: 'saving'; on: boolean }
   | { t: 'rate'; id: string; value: 'up' | 'down' | 'none' }
   | { t: 'mute'; on: boolean }
-  | { t: 'permission.reply'; id: string; allow: boolean }
+  /** once: do it, do not remember. always: do it and trust the whole kind from now on. no: refused. */
+  | { t: 'permission.reply'; id: string; choice: 'once' | 'always' | 'no' }
   | { t: 'clipboard'; id: string; text: string | null }
   | { t: 'hands'; id: string; ok: boolean; detail: string }
+  /** Type text into a new chat in the Claude app on the Mac (2026-09-22), or say it could not be reached -
+   *  never a shell command, never anything Aang did not already have the text for. */
+  | { t: 'mac.run'; text: string }
+  /** Start the job hunt: the Mac's Claude app when a Mac is known, his own worker here otherwise. The desktop
+   *  tray's "Job hunt now" - Discord's button reaches the same place through mac.run + its own fallback. */
+  | { t: 'job.hunt' }
   /** "How are things?" No model is involved: the Core answers from what it already knows. */
   | { t: 'status' }
   | { t: 'actions' }

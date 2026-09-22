@@ -130,6 +130,7 @@ class FakeCore implements CoreLink {
   submits: any[] = [];
   submit(id: string, text: string) { this.submits.push({ id, text }); }
   permission() { /* not used here */ }
+  runOnMac() { /* not used here */ }
   stop() { /* not used here */ }
   status() { /* not used here */ }
   actions() { /* not used here */ }

@@ -9,6 +9,8 @@ import { parseFromBody } from './protocol.ts';
 import { writeFileAtomic } from './atomic.ts';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { MAC_LISTENER_PORT, macSetupScript } from './macsetup.ts';
+import { SWEEP_REQUEST, cleanField, safeUrl, scoreOf, verdictFor } from './jobs.ts';
+import type { Rubric } from './jobs.ts';
 import type { FromBody, Mode, ToBody } from './protocol.ts';
 import { Lane } from './lane.ts';
 import type { LaneEvent } from './lane.ts';
@@ -58,6 +60,8 @@ export interface CoreConfig {
   consolidate?: boolean;
 }
 
+/** once: do it, forget it. always: do it, and trust the whole kind from now on. no: refused. */
+type PermChoice = 'once' | 'always' | 'no';
 interface Submission { id: string; text: string; mode: Mode; once: boolean; socket: WebSocket; ephemeral?: boolean }
 interface Turn {
   sub: Submission | null;      // null for the silent warm-up turn
@@ -95,6 +99,11 @@ export function groundReply(reply: string, did: { did: string; ok: boolean; note
 
 /** Quick giving up on something a tool could do. It is thrown away and Smart takes the turn instead. */
 export const REFUSES = /\b(I can(?:'|no)?t\b|I(?:'m| am) (?:not able|unable)|I don'?t have (?:the ability|access|a way)|you(?:'ll| will) (?:need|have) to|(?:do|try) (?:it|that|this) yourself|(?:in|into) .{0,40} yourself|beyond (?:what I can|my)|plug (?:it|them|both|those|the)\b.{0,40}\bin\b)/i;
+
+/** However he phrases it, the job hunt is one fixed action (2026-09-22, Joshua: "any job-hunt-shaped request
+ *  should prefer the Mac"). Caught before routing, not left to the model to recognise and call do_task with,
+ *  so it never costs a model turn just to be noticed - the same as the "Job hunt now" button always was. */
+export const JOB_HUNT_RE = /\b(job\s*hunt|job\s*search|(?:search|look(?:ing)?|check(?:ing)?|hunt(?:ing)?)\s+(?:for|through)\s+(?:new\s+|a\s+)?jobs?\b|find\s+me\s+a\s+job|sweep\s+(?:the\s+)?job\s*boards?)/i;
 
 export interface TurnRecord {
   ts: string; id: string; lane: LaneName; user: string; reply: string;
@@ -224,6 +233,7 @@ export class Core {
       undoFile: file => this.changeFile('mcp__aang__undo_file_change', { file: file ?? '' }, () => undoLast(file)),
       hands: (action, what, how) => this.hands(action, what, how),
       phone: (what, note) => this.sendToPhone(what, note),
+      createJobCard: input => this.createJobCard(input),
       mailInbox: (query, max) => this.mailRead('mcp__aang__mail_inbox', { query: query ?? '' }, m => m.inbox(query || 'in:inbox', max ?? 10)),
       mailRead: id => this.mailRead('mcp__aang__mail_read', { id }, m => m.read(id)),
       calendar: days => this.mailRead('mcp__aang__calendar_today', { days: days ?? 1 }, m => m.agenda(days ?? 1)),
@@ -611,6 +621,24 @@ export class Core {
     return { ok: true, detail: isPicture ? 'Sent a picture of the window he is in to Discord.' : `Sent ${name} to Discord.` };
   }
 
+  /** A job found outside #job-inbox (an email, a link pasted in chat): the same scored card, wherever it came
+   *  from. The model already read the posting and judged the plain facts; this only does the arithmetic and
+   *  hands the card to Discord, which owns the job store (2026-09-22). */
+  private async createJobCard(input: { url: string; title: string; company: string; location?: string; salary?: string; rubric: Rubric; reason: string }): Promise<{ ok: boolean; detail: string }> {
+    if (this.clientsOf('discord').length === 0) return { ok: false, detail: 'Discord is not connected, so there is nowhere to put a job card right now.' };
+    const url = safeUrl(input.url);
+    if (!url) return { ok: false, detail: 'That is not a usable link, so no card was made.' };
+    const title = cleanField(input.title, 100), company = cleanField(input.company, 80);
+    if (!title && !company) return { ok: false, detail: 'No title or company came through, so no card was made.' };
+    const score = scoreOf(input.rubric);
+    this.sendTo('discord', {
+      t: 'job.card', url, title: title || 'Untitled role', company: company || 'Unknown company',
+      location: cleanField(input.location ?? '', 60), salary: cleanField(input.salary ?? '', 60),
+      score, verdict: verdictFor(score), reason: cleanField(input.reason, 280),
+    });
+    return { ok: true, detail: `Card made: ${score}% match (${verdictFor(score)}). It is in #job-digest for him to approve.` };
+  }
+
   private readonly startedAt = new Date();
   /** How things are, from what the Core already knows. No model, so it costs nothing. */
   private status(): string {
@@ -711,7 +739,7 @@ export class Core {
   /** Unprompted messages that arrived while he was quiet or muted, oldest first. */
   private readonly pending: string[] = [];
   /** The one permission question outstanding, if any. */
-  private permission: { id: string; resolve: (ok: boolean) => void; timer: NodeJS.Timeout } | null = null;
+  private permission: { id: string; resolve: (choice: PermChoice) => void; timer: NodeJS.Timeout } | null = null;
   private permissionSeq = 0;
   /** Test hook: the text of the most recent accepted submit. */
   lastSubmitText = '';
@@ -756,6 +784,19 @@ export class Core {
       const r = await fetch(`http://${this.macAddr}:${MAC_LISTENER_PORT}/front?k=${encodeURIComponent(this.keyFile('mac-front.key'))}`, { method: 'POST', signal: AbortSignal.timeout(3000) });
       if (r.status !== 204) console.error(`claude.front: the Mac said ${r.status}`);
     } catch (e) { console.error('claude.front: the Mac did not answer: ' + (e as Error).message); }
+  }
+
+  /** Types one message into a new Claude chat on the Mac and presses return - the same key as /front, a
+   *  different door. Used for the job hunt (2026-09-22, Joshua: "i prompt aang to run job hunt and my macbook
+   *  fires the claude in its app"), never for anything he did not ask for by name. Returns whether it reached
+   *  the Mac, so the caller can fall back to running the job here instead. */
+  private async runOnMac(text: string): Promise<boolean> {
+    if (!this.macAddr) return false;
+    try {
+      const r = await fetch(`http://${this.macAddr}:${MAC_LISTENER_PORT}/run?k=${encodeURIComponent(this.keyFile('mac-front.key'))}`, { method: 'POST', body: text, signal: AbortSignal.timeout(3000) });
+      if (r.status !== 204) { console.error(`claude.run: the Mac said ${r.status}`); return false; }
+      return true;
+    } catch (e) { console.error('claude.run: the Mac did not answer: ' + (e as Error).message); return false; }
   }
 
   /** The MacBook's setup script, for the one-time code in mac-setup.code (made by hand, gitignored). The code
@@ -841,7 +882,7 @@ export class Core {
   }
 
   async stop(): Promise<void> {
-    if (this.permission) this.answerPermission(this.permission.id, false);
+    if (this.permission) this.answerPermission(this.permission.id, 'no');
     if (this.checkpointTimer) clearInterval(this.checkpointTimer);
     if (this.briefTimer) clearInterval(this.briefTimer);
     if (this.nudgeTimer) clearInterval(this.nudgeTimer);
@@ -999,6 +1040,9 @@ export class Core {
         break;
       }
       case 'desk': this.atDesk = m.active !== false; break;
+      case 'mac.run': void this.runOnMac(String(m.text ?? '').slice(0, 4000)).then(ok => this.send(ws, { t: 'mac.run.reply', ok })); break;
+      // The desktop tray's "Job hunt now": Mac first, his own worker here if it cannot be reached.
+      case 'job.hunt': void this.runOnMac(SWEEP_REQUEST).then(async onMac => { if (!onMac) await this.startTask(SWEEP_REQUEST); this.send(ws, { t: 'job.hunt.reply', onMac }); }); break;
       case 'status': this.send(ws, { t: 'status.reply', text: this.status() }); break;
       case 'actions': this.send(ws, { t: 'actions.reply', text: this.actions.text(10) }); break;
       case 'trust': this.send(ws, { t: 'trust.reply', items: this.trust.list().map(r => ({ kind: r.kind, example: r.example, since: r.since })) }); break;
@@ -1040,6 +1084,16 @@ export class Core {
           this.send(ws, { t: 'error', id, message: 'That message was empty or malformed.', next: 'Type something and send it again.' });
           break;
         }
+        // Caught here, before the model ever sees it: "run my job search", however phrased, is the same one
+        // fixed action as the button. m.ephemeral is his own internal jobs (link vetting) never his own words.
+        if (m.ephemeral !== true && JOB_HUNT_RE.test(text)) {
+          this.send(ws, { t: 'ack', id });
+          void this.runOnMac(SWEEP_REQUEST).then(async onMac => {
+            if (!onMac) await this.startTask(SWEEP_REQUEST);
+            this.send(ws, { t: 'bubble', text: onMac ? 'Starting the job hunt on your MacBook.' : 'Your MacBook is not reachable - running it here.', stream: false, id });
+          });
+          break;
+        }
         const mode: Mode = m.mode === 'quick' || m.mode === 'smart' || m.mode === 'deep' ? m.mode : 'auto';
         this.lastSubmitText = text.slice(0, MAX_TEXT);
         this.submit({ id, text: text.slice(0, MAX_TEXT), mode, once: m.once === true, socket: ws, ...(m.ephemeral === true ? { ephemeral: true } : {}) });
@@ -1055,7 +1109,7 @@ export class Core {
         if (watching) this.activity.record(m.foreground ?? '', m.title ?? '', Date.now(), typeof m.hwnd === 'number' ? m.hwnd : 0);
         break;
       }
-      case 'permission.reply': this.answerPermission(m.id, m.allow === true); break;
+      case 'permission.reply': this.answerPermission(m.id, m.choice === 'always' || m.choice === 'once' ? m.choice : 'no'); break;
       case 'clipboard': {
         const c = this.clipboard;
         if (c && c.id === m.id) { clearTimeout(c.timer); this.clipboard = null; c.resolve(typeof m.text === 'string' ? m.text : null); }
@@ -1389,16 +1443,17 @@ export class Core {
     const id = `perm${++this.permissionSeq}`;
     const question = describeCall(tool, input);
     return new Promise<boolean>(resolve => {
-      const timer = setTimeout(() => { this.refused = 'he did not answer the question in the bubble in time'; this.answerPermission(id, false); }, PERMISSION_TIMEOUT_MS);
+      const timer = setTimeout(() => { this.refused = 'he did not answer the question in the bubble in time'; this.answerPermission(id, 'no'); }, PERMISSION_TIMEOUT_MS);
       timer.unref?.();
       this.permission = {
         id,
-        resolve: allowed => {
-          // Yes means yes to this kind of thing from now on, which is what he asked for, and the
-          // question says so before he answers.
-          if (allowed && kind) this.trust.allow(kind.kind, question);
-          if (!allowed && !this.refused) this.refused = 'Joshua said no in the bubble';
-          resolve(allowed);
+        resolve: choice => {
+          // Three real choices (2026-09-22, was a binary yes/no where yes silently meant forever):
+          // once does the thing and forgets it; always does the thing and trusts the whole kind from
+          // now on; no declines. Only always writes to trust.
+          if (choice === 'always' && kind) this.trust.allow(kind.kind, question);
+          if (choice === 'no' && !this.refused) this.refused = 'Joshua said no in the bubble';
+          resolve(choice !== 'no');
         },
         timer,
       };
@@ -1414,12 +1469,12 @@ export class Core {
   private refuse(why: string): Promise<boolean> { this.refused = why; return Promise.resolve(false); }
   private whyNot(): string { return `Not done: ${this.refused || 'Joshua said no in the bubble'}.`; }
 
-  private answerPermission(id: string, allow: boolean): void {
+  private answerPermission(id: string, choice: PermChoice): void {
     const p = this.permission;
     if (!p || p.id !== id) return;
     clearTimeout(p.timer);
     this.permission = null;
-    p.resolve(allow);
+    p.resolve(choice);
   }
 
   private record(r: TurnRecord): void {

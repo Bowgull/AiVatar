@@ -1,4 +1,5 @@
 using System.Drawing;
+using System.Drawing.Text;
 
 namespace Aang.Body;
 
@@ -19,6 +20,7 @@ static class Theme
     public static readonly Color GoldDeep = Color.FromArgb(255, 201, 140, 20);        // the lip under a gold button
     public static readonly Color GoldLight = Color.FromArgb(255, 255, 226, 140);      // the catch-light on its top edge
     public static readonly Color Orange = Color.FromArgb(255, 255, 128, 64);          // #FF8040 careful
+    public static readonly Color OrangeDeep = Color.FromArgb(255, 201, 94, 40);       // the lip under an orange button (the always-allow choice)
     public static readonly Color Red = Color.FromArgb(255, 255, 90, 74);              // #FF5A4A
     public static readonly Color Green = Color.FromArgb(255, 120, 230, 150);          // yes, good
     public static readonly Color Text = Color.FromArgb(255, 232, 228, 240);           // #E8E4F0 body text
@@ -30,6 +32,23 @@ static class Theme
     public static readonly Color Panel2 = Color.FromArgb(255, 26, 17, 50);            // the Panel's lists and text areas, a step lighter than the ink
     public static readonly Color Halo = Color.FromArgb(120, 0, 0, 0);                 // under the outline, so it holds on bright ground
     public static readonly Color AvatarGlow = Color.FromArgb(255, 200, 232, 255);     // Avatar State: something truly blocking. Means only this, nowhere else.
+
+    // ---- the parchment reading pane (StyleLab 2026-09-22): the ink+gold frame is kept exactly; the surface the
+    // text actually sits on, inset inside it, is warm parchment - Stardew/WoW/OoT dialogue convention, and what
+    // the APCA contrast pass called for over pale text on ink. Text and dim text switch to dark ink to read on it.
+    public static readonly Color Parch1 = Color.FromArgb(255, 236, 213, 168), Parch2 = Color.FromArgb(255, 222, 194, 140);
+    public static readonly Color ParchEdge = Color.FromArgb(130, 92, 61, 33);
+    public static readonly Color InkText = Color.FromArgb(255, 46, 34, 22);           // body text on parchment
+    public static readonly Color InkDim = Color.FromArgb(255, 90, 72, 52);            // dim/secondary text on parchment
+
+    // ---- deep wood (the menu, StyleLab 2026-09-22): carved wood and stone, not parchment - Joshua found the
+    // parchment menu "harsh and ugly" for this surface. Cream parchment now works the other way round, as
+    // light text on a dark wood panel, tying the two surfaces to the same palette from opposite directions.
+    public static readonly Color Wood1 = Color.FromArgb(255, 74, 46, 26);             // lighter wood, top of the gradient
+    public static readonly Color Wood2 = Color.FromArgb(255, 36, 22, 13);             // deep walnut, bottom of the gradient
+    public static readonly Color WoodGrain = Color.FromArgb(40, 0, 0, 0);             // streaks, always the same seed
+    public static readonly Color WoodPlaque = Color.FromArgb(255, 26, 15, 9);         // recessed panel behind a header row
+    public static readonly Color WoodCream = Color.FromArgb(255, 236, 213, 168);      // = Parch1: menu text on wood
 
     // ---- modes: one gold outer frame for everything, and an inner stroke that says which brain is answering.
     public static readonly Color ModeQuick = Color.FromArgb(255, 0, 209, 255);        // #00D1FF
@@ -45,8 +64,35 @@ static class Theme
     public static Color WithAlpha(Color c, int a) => Color.FromArgb(a, c.R, c.G, c.B);
 
     // ---- type (pixels: the surface is already DPI-scaled, see BubbleView)
-    public const float BodyPx = 15f, StripPx = 12f, ButtonPx = 13.5f, ReceiptPx = 12.5f;
-    public const string Face = "Bahnschrift", FaceBold = "Bahnschrift SemiBold";
+    public const float BodyPx = 15f, StripPx = 12f, ButtonPx = 8f, ReceiptPx = 12.5f;
+    /// <summary>Body and every sentence: legibility research (APCA contrast, low-vision testing) picked this
+    /// over Bahnschrift, which was never meant to run this small. Ships as a TTF (assets/aang/fonts), not
+    /// a Windows font, so it is loaded into a private collection below rather than looked up by name.</summary>
+    public const string Face = "Atkinson Hyperlegible", FaceBold = "Atkinson Hyperlegible";
+    /// <summary>Short UI accents only - button labels, the mode chip, the speaker name. Never a sentence: it is
+    /// far too slow to read in bulk. Also a private TTF; see Font() below.</summary>
+    public const string PixelFace = "Press Start 2P";
+
+    static readonly PrivateFontCollection Fonts = new();
+    static readonly FontFamily? AtkinsonFamily, PressStartFamily;
+    static Theme()
+    {
+        var dir = Path.Combine(AppContext.BaseDirectory, "assets", "aang", "fonts");
+        if (Directory.Exists(dir))
+        {
+            foreach (var f in Directory.GetFiles(dir, "*.ttf")) { try { Fonts.AddFontFile(f); } catch (Exception e) { Log.Write("font load failed: " + f + ": " + e.Message); } }
+            AtkinsonFamily = Fonts.Families.FirstOrDefault(fam => fam.Name.Contains("Atkinson", StringComparison.OrdinalIgnoreCase));
+            PressStartFamily = Fonts.Families.FirstOrDefault(fam => fam.Name.Contains("Press Start", StringComparison.OrdinalIgnoreCase));
+        }
+    }
+    /// <summary>A font by the names above, resolved against the private collection when it is one of ours,
+    /// or a normal system font otherwise (Cascadia Mono and the like, still used here and there).</summary>
+    public static Font Font(string face, float px, FontStyle style = FontStyle.Regular) => face switch
+    {
+        Face when AtkinsonFamily != null => new Font(AtkinsonFamily, px, style, GraphicsUnit.Pixel),
+        PixelFace when PressStartFamily != null => new Font(PressStartFamily, px, FontStyle.Regular, GraphicsUnit.Pixel),
+        _ => new Font(face, px, style, GraphicsUnit.Pixel),
+    };
 
     // ---- shape
     public const int Radius = 12;                 // the bubble; the input box and buttons are rounder

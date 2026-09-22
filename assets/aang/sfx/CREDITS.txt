@@ -1,0 +1,9 @@
+needs-you.wav
+  "Rise 03" from "Level up, power up, Coin get (13 Sounds)" by WobbleBoxx Workshop
+  https://opengameart.org/content/level-up-power-up-coin-get-13-sounds
+  CC0 (public domain). Pitched down from the original.
+
+done.wav
+  "Load/Save" from "JRPG Style UI Sounds" by KillaMaaki
+  https://opengameart.org/content/jrpg-style-ui-sounds
+  CC-BY 3.0 - https://creativecommons.org/licenses/by/3.0/
