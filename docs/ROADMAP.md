@@ -306,7 +306,7 @@ Third-party memory services (privacy). Reddit feed. WoW combat-log analysis (his
    TV marked watching, caught-up shows left out, the one watched last first) and opens the next episode as a search on
    his site (Crunchyroll unless simkl.json says otherwise). Each is asked once. Sign-ins: tools\spotify-setup.cmd
    (PKCE, no secret, needs his Spotify developer app with redirect http://127.0.0.1:47835/callback) and
-   tools\simkl-setup.cmd (PIN, needs his Simkl app). Tested with pretend services; not yet against the real ones.
+   tools\simkl-setup.cmd (OAuth 2.0 device code: his AUTH V2 app refuses the old /oauth/pin). Tested with pretend services; not yet against the real ones.
 9. **The rest, in this order**: N memory depth, L watching and #anime, M drawing, O finish and the design gate.
 
 Retired and never to be built: C, E, P, and the iMessage half of F.
