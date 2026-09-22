@@ -44,6 +44,22 @@ test('a job update carries its folder and, once pictures are trusted, a picture 
   });
 });
 
+test('genuinely blocking news is marked so; ordinary news is not', async () => {
+  await withCore(47967, async (core, desk) => {
+    core.announce('Need input in Claude on the browsing job: which one?', { asked: true });
+    core.announce('The job hunt is ready in Claude with the request typed in. Press Enter there to start it.', { asked: true });
+    core.announce('Job hunt done. Two applied. Details in Claude.', { asked: true });
+    core.announce("You've used 45% of your week.");
+    await wait(80);
+    const blocking = desk.inbox.filter(m => m.t === 'bubble' && m.blocking === true).map(m => m.text);
+    assert.equal(blocking.length, 2);
+    assert.match(blocking[0], /^Need input/);
+    assert.match(blocking[1], /ready in Claude/);
+    assert.ok(!desk.inbox.some(m => m.t === 'bubble' && /Job hunt done/.test(m.text) && m.blocking));
+    assert.ok(!desk.inbox.some(m => m.t === 'bubble' && /used 45%/.test(m.text) && m.blocking));
+  });
+});
+
 test('a reply naming a job neither Core nor Discord know about does nothing and does not crash', async () => {
   await withCore(47968, async (core, desk) => {
     desk.c.send(JSON.stringify({ t: 'claude.reply', cwd: 'C:\\nowhere', text: 'keep going' }));

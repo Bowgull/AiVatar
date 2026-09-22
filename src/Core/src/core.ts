@@ -191,6 +191,13 @@ export class Core {
 
   // ------------------------------------------------------------------ email and calendar
 
+  /**
+   * The ground truth for the one thing a wrong sentence can't be allowed to get wrong: whether an email actually
+   * went out this turn. Found 2026-09-22: Aang sent one - correctly, he had asked and Joshua tapped yes - and then
+   * told him "drafted and waiting for you to send." The tool returned the truth; the model just didn't say it.
+   * Prompts are not guarantees (see voice.ts's own opening comment): this makes it a guarantee instead of a hope.
+   */
+  private mailOutcome: { detail: string; sent: boolean } | null = null;
   private mailSvc: MailService | null = null;
   /** Replaced by tests so no real request is made. */
   googleFetch: Fetch | undefined;
@@ -235,7 +242,8 @@ export class Core {
       if (!said) { await svc.act(d.id, d.hash, 'discard'); return { ok: true, detail: `He did not approve it, so the draft was discarded and nothing was sent. ${this.whyNot()}` }; }
       let a = await svc.act(d.id, d.hash, 'send');
       if (a.draft?.status === 'confirm') a = await svc.act(d.id, d.hash, 'send');          // the question already named the new address
-      return a.draft?.status === 'sent' ? { ok: true, detail: `Sent to ${d.to.join(', ')}.` } : { ok: false, detail: a.note || 'It was not sent.' };
+      if (a.draft?.status === 'sent') { const detail = `Sent to ${d.to.join(', ')}.`; this.mailOutcome = { detail, sent: true }; return { ok: true, detail }; }
+      return { ok: false, detail: a.note || 'It was not sent.' };
     }
     return { ok: true, detail: 'The draft is kept but there is nowhere to show it to him right now, so it was NOT sent. Say so.' };
   }
@@ -893,6 +901,7 @@ export class Core {
 
   private submit(sub: Submission): void {
     const t0 = Date.now();
+    this.mailOutcome = null;
     // Acknowledge first, before any decision or model work: this is the "it heard me" moment.
     this.send(sub.socket, { t: 'ack', id: sub.id });
 
@@ -1009,10 +1018,17 @@ export class Core {
     const linted = lint(e.text, e.tools, sub.text);
     if (!linted.cleaned) { this.fail(turn, 'I got nothing back for that.', 'Ask again in a different way.'); return; }
     if (turn.flush) { clearTimeout(turn.flush); turn.flush = null; }
-    this.toTurn(sub, { t: 'bubble', text: linted.cleaned, stream: false, id: sub.id, who: MODELS[turn.lane].label });
-    if (!sub.ephemeral) this.memory.saveTurn(sub.text, linted.cleaned, 'claude-' + turn.lane);
+    // The reply must not contradict a real send. If it does not even say so, it is wrong, not just imprecise -
+    // replace it outright rather than let a false "still waiting" reach him.
+    let reply = linted.cleaned;
+    if (this.mailOutcome?.sent && !/\bsent\b/i.test(reply)) {
+      console.log('grounding: the reply did not say the email was sent; replaced with the tool\'s own words');
+      reply = this.mailOutcome.detail;
+    }
+    this.toTurn(sub, { t: 'bubble', text: reply, stream: false, id: sub.id, who: MODELS[turn.lane].label });
+    if (!sub.ephemeral) this.memory.saveTurn(sub.text, reply, 'claude-' + turn.lane);
     this.record({
-      ts: new Date().toISOString(), id: sub.id, lane: turn.lane, user: sub.text, reply: linted.cleaned,
+      ts: new Date().toISOString(), id: sub.id, lane: turn.lane, user: sub.text, reply,
       ms: e.ms, ttftMs: e.ttftMs, ackMs: turn.ackMs, ctxTokens: e.ctxTokens, tools: e.tools, fixed: linted.fixed, flags: linted.flags,
     });
     this.finishTurn(turn);
@@ -1033,12 +1049,17 @@ export class Core {
    * when he can actually see it: while he is in the game or has muted Aang they wait, and are delivered in
    * order the moment he is back.
    */
-  announce(text: string, opts: { asked?: boolean; focus?: string; jobCwd?: string; image?: { data: string; mimeType: string } } = {}): void {
+  /** A genuinely blocking piece of news: it starts "Need input" (Notification, or Stop with a question - see
+   *  claude.ts/asksSomething), or it is a fresh session sitting there needing him to press Enter to even start. */
+  private static readonly BLOCKING = /^(Need input|The .+ is ready in Claude with the request typed in)/i;
+
+  announce(text: string, opts: { asked?: boolean; focus?: string; jobCwd?: string; image?: { data: string; mimeType: string }; blocking?: boolean } = {}): void {
     // Hush holds everything, even what he asked to be told about; it comes out when the hush ends.
     if (this.hushUntil > Date.now()) { this.pending.push(text); while (this.pending.length > 8) this.pending.shift(); return; }
     const msg: ToBody = {
       t: 'bubble', text, stream: false, proactive: true, asked: opts.asked === true, ...(opts.focus ? { focus: opts.focus, link: 'Claude' } : {}),
       ...(opts.jobCwd ? { jobCwd: opts.jobCwd } : {}), ...(opts.image ? { image: opts.image } : {}),
+      ...((opts.blocking ?? Core.BLOCKING.test(text)) ? { blocking: true } : {}),
     };
     // Away from the PC: Discord, and only Discord. It keeps its own quiet hours, which make it silent, not lost.
     if (this.whereHeIs() === 'discord') { this.sendTo('discord', msg); return; }
