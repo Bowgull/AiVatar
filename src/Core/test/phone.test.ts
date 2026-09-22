@@ -81,7 +81,7 @@ test('status: the Core answers the one who asked, from what it knows, without an
 test('send_to_phone: a file goes only to Discord, after a yes, and a secret is refused before any question', async () => {
   const { core, desk, phone, done } = await desktop(47961);
   const file = path.join(tmp(), 'plan.txt'); writeFileSync(file, 'the plan');
-  desk.c.on('message', d => { const m = JSON.parse(String(d)); if (m.t === 'permission') desk.c.send(JSON.stringify({ t: 'permission.reply', id: m.id, allow: true })); });
+  desk.c.on('message', d => { const m = JSON.parse(String(d)); if (m.t === 'permission') desk.c.send(JSON.stringify({ t: 'permission.reply', id: m.id, choice: 'always' })); });
 
   const secret = await core.sendToPhone(path.join(core.cfg.stateDir, 'discord.token'));
   assert.equal(secret.ok, false);
@@ -102,7 +102,7 @@ test('send_to_phone: a file goes only to Discord, after a yes, and a secret is r
 
 test('send_to_phone: a no sends nothing; a missing file, a folder and a huge file are refused plainly', async () => {
   const { core, desk, phone, done } = await desktop(47962);
-  desk.c.on('message', d => { const m = JSON.parse(String(d)); if (m.t === 'permission') desk.c.send(JSON.stringify({ t: 'permission.reply', id: m.id, allow: false })); });
+  desk.c.on('message', d => { const m = JSON.parse(String(d)); if (m.t === 'permission') desk.c.send(JSON.stringify({ t: 'permission.reply', id: m.id, choice: 'no' })); });
   const file = path.join(tmp(), 'a.txt'); writeFileSync(file, 'x');
   assert.equal((await core.sendToPhone(file)).ok, false);
   assert.equal(phone.of('attach').length, 0);

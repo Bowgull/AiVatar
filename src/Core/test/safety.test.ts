@@ -122,7 +122,7 @@ test('permissions can be reviewed and taken back, from the phone, and are asked 
 
   // asked again now
   let asked = 0;
-  desk.c.on('message', d => { const m = JSON.parse(String(d)); if (m.t === 'permission') { asked++; desk.c.send(JSON.stringify({ t: 'permission.reply', id: m.id, allow: false })); } });
+  desk.c.on('message', d => { const m = JSON.parse(String(d)); if (m.t === 'permission') { asked++; desk.c.send(JSON.stringify({ t: 'permission.reply', id: m.id, choice: 'no' })); } });
   const r = await core.changeFile('mcp__aang__write_file', { file: path.join(tmp(), 'x.txt') }, () => ({ ok: true, detail: 'x' }));
   assert.equal(r.ok, false);
   assert.equal(asked, 1, 'it asks again');

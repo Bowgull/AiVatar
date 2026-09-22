@@ -38,6 +38,9 @@ sealed class InputWindow : Form
     // Pixels, like the bubble (it was 8.5 pt, about 11 px, hard to read at a glance), scaled by hand in the constructor:
     // this is a real control, not the pre-scaled surface the bubble draws to.
     readonly Font stripFont;
+    // Pixel accent (StyleLab 2026-09-22): the mode chip and saving/save? pills are short UI words, not a
+    // sentence, so Press Start 2P reads fine here - the percentages and the consent line stay in stripFont.
+    readonly Font pixelStripFont;
 
     double weekResetsAt, fiveResetsAt;
     // A change of mode fades its colours over 150 ms (frame and chip) instead of snapping.
@@ -85,7 +88,10 @@ sealed class InputWindow : Form
     public InputWindow(float scale, InputHistory history)
     {
         this.scale = scale; this.history = history;
-        stripFont = new Font(Theme.Face, Theme.StripPx * scale, FontStyle.Regular, GraphicsUnit.Pixel);
+        // Theme.Face is a private TTF (Atkinson Hyperlegible): new Font(name, ...) can't see it and silently
+        // falls back to a system default. Theme.Font() resolves it correctly - the same bug the tray menu had.
+        stripFont = Theme.Font(Theme.Face, Theme.StripPx * scale);
+        pixelStripFont = Theme.Font(Theme.PixelFace, 8f * scale);
         Text = "Aang Input";
         FormBorderStyle = FormBorderStyle.None;
         StartPosition = FormStartPosition.Manual;
@@ -97,10 +103,15 @@ sealed class InputWindow : Form
 
         box.Multiline = true; box.WordWrap = true; box.BorderStyle = BorderStyle.None;
         box.ScrollBars = ScrollBars.None; box.AcceptsReturn = false; box.AcceptsTab = false;
-        box.BackColor = BackColor; box.ForeColor = Theme.Text;
+        // The reading/typing surface is parchment now, like the bubble (StyleLab 2026-09-22) - dark ink text on
+        // it, not the pale text every other ink-filled surface uses. Flat, near the gradient's lighter end
+        // (Parch1): a real TextBox cannot paint a gradient, so this is picked to blend where it actually sits.
+        box.BackColor = Theme.Parch1; box.ForeColor = Theme.InkText;
         // 15 px, the same as the bubble's text, scaled by hand: this is a real control, so it is not on the
-        // pre-scaled surface the bubble draws to.
-        box.Font = new Font(Theme.Face, Theme.BodyPx * scale, FontStyle.Regular, GraphicsUnit.Pixel);
+        // pre-scaled surface the bubble draws to. A real TextBox renders through Windows' own ClearType, not
+        // anything this app controls, and that reads thinner here than the bubble's GDI+ text does (2026-09-22,
+        // Joshua: "thin, hard to read" - about typing, specifically). Bold is the lever actually available.
+        box.Font = Theme.Font(Theme.Face, Theme.BodyPx * scale, FontStyle.Bold);
         box.Dock = DockStyle.Fill;
         box.TextChanged += (_, _) => Grow();
         frameFrom = frameTo = FrameTarget; chipFrom = chipTo = ChipTarget;
@@ -132,15 +143,24 @@ sealed class InputWindow : Form
     protected override void OnPaint(PaintEventArgs e)
     {
         base.OnPaint(e);
-        e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+        var g = e.Graphics; g.SmoothingMode = SmoothingMode.AntiAlias;
         using var p = Rounded(new Rectangle(1, 1, Width - 3, Height - 3), (int)(10 * scale));
         // Gold, like the bubble he answers in (it was cyan: two colour languages on one screen).
         using var halo = new Pen(Theme.Halo, Theme.HaloStroke * scale) { LineJoin = LineJoin.Round };
+        g.DrawPath(halo, p);
+        // The parchment reading/typing surface, inset inside the ink+gold frame - same 6px margin as the
+        // bubble (StyleLab 2026-09-22), so the tail-less shapes still read as the same object.
+        var inset = Rectangle.Inflate(new Rectangle(1, 1, Width - 3, Height - 3), -(int)Math.Round(6 * scale), -(int)Math.Round(6 * scale));
+        if (inset.Width > 0 && inset.Height > 0)
+        {
+            using var ip = Rounded(inset, Math.Max(3, (int)(7 * scale)));
+            using (var pg = new LinearGradientBrush(inset, Theme.Parch1, Theme.Parch2, 90f)) g.FillPath(pg, ip);
+            using var ipen = new Pen(Theme.ParchEdge, 1f); g.DrawPath(ipen, ip);
+        }
         using var pen = new Pen(Theme.WithAlpha(Theme.Gold, 240), Theme.Stroke * scale) { LineJoin = LineJoin.Round };
-        e.Graphics.DrawPath(halo, p);
-        e.Graphics.DrawPath(pen, p);
-        PaintModeFrame(e.Graphics);
-        PaintStrip(e.Graphics);
+        g.DrawPath(pen, p);
+        PaintModeFrame(g);
+        PaintStrip(g);
     }
 
     /// <summary>
@@ -176,9 +196,16 @@ sealed class InputWindow : Form
     // The chip row: [Auto v]  [saving]                       week 34% · 5h 12%
     void PaintStrip(Graphics g)
     {
-        g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
-        var y = Height - (int)(StripH * scale) - (int)(2 * scale);
+        // AntiAliasGridFit, not ClearType (2026-09-22, Joshua: "thin, hard to read") - matches what already
+        // reads well in the bubble; Pill() below still switches to SingleBitPerPixelGridFit for its own pixel-
+        // accent labels, a deliberate different look, not body text.
+        g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
+        // The "Auto" pill was measured live poking past the parchment panel's own bottom edge and getting hard-
+        // clipped by the window's rounded corner (2026-09-22, Joshua: "just outside of frame") - the old offset
+        // (StripH*scale + 2*scale) left the pill's bottom only ~5px off the window edge, less than the 6px the
+        // parchment inset itself keeps clear. 10px clears both the inset and the window's own corner radius.
         var h = (int)((StripH - 3) * scale);
+        var y = Height - (int)(10 * scale) - h;
         int x = (int)(Pad * scale);
         using var line = new Pen(Theme.WithAlpha(Theme.Gold, 60));
         g.DrawLine(line, x, y - (int)(2 * scale), Width - x, y - (int)(2 * scale));
@@ -198,7 +225,11 @@ sealed class InputWindow : Form
         else if (level == "offer") { savingRect = Pill(g, x, y, h, "save?", Theme.Red, false); }
 
         usageRect = Rectangle.Empty;
-        if (hasQuota) PaintUsage(g, y, h);
+        // Never let the usage meter, which is laid out from the right, run into the pill cluster laid out from
+        // the left - "Deep" + "saving" is the widest the cluster gets (Joshua, 2026-09-22: overlap risk found
+        // while fixing the chip's contrast).
+        var clusterRight = (savingRect.IsEmpty ? chipRect.Right : savingRect.Right) + (int)(10 * scale);
+        if (hasQuota) PaintUsage(g, y, h, clusterRight);
     }
 
     /// <summary>
@@ -206,7 +237,7 @@ sealed class InputWindow : Form
     /// "44%" reads as ahead of or behind pace), and a thin bar under it for the last five hours. Coloured by the same
     /// rule as before: gold while fine, orange from 40%, red from 50%, green while saving.
     /// </summary>
-    void PaintUsage(Graphics g, int y, int h)
+    void PaintUsage(Graphics g, int y, int h, int minX)
     {
         var c = LevelColor(level);
         int seg = Math.Max(3, (int)(5 * scale)), gap = Math.Max(1, (int)(1 * scale)), segH = (int)(8 * scale), thin = Math.Max(2, (int)(3 * scale));
@@ -214,11 +245,12 @@ sealed class InputWindow : Form
         var pct = ModelChip.Percent(week);
         var textW = TextRenderer.MeasureText(g, "100%", stripFont, Size.Empty, TextFormatFlags.NoPadding).Width;
         int right = Width - (int)(Pad * scale);
-        int gx = right - textW - (int)(5 * scale) - barW;
+        int gx = Math.Max(minX, right - textW - (int)(5 * scale) - barW);
         int gy = y + (int)(1 * scale);                                   // the week bar, with the thin one beneath it
         int ty = gy + segH + (int)(2 * scale);
 
-        using (var back = new SolidBrush(Theme.WithAlpha(Theme.Plum, 200)))
+        // Track colour follows the bubble's scrollbar: dim ink, not plum, now that this sits on parchment.
+        using (var back = new SolidBrush(Theme.WithAlpha(Theme.InkDim, 90)))
         using (var fill = new SolidBrush(Theme.WithAlpha(c, 235)))
             for (int i = 0; i < 10; i++)
             {
@@ -234,20 +266,21 @@ sealed class InputWindow : Form
             var left = weekResetsAt - DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             var elapsed = Math.Clamp(1 - left / (7 * 86400.0), 0, 1);
             var tx = gx + (int)Math.Round(barW * elapsed);
-            using var tick = new Pen(Theme.WithAlpha(Theme.Text, 235), Math.Max(1f, 1.4f * scale));
+            using var tick = new Pen(Theme.WithAlpha(Theme.InkText, 235), Math.Max(1f, 1.4f * scale));
             g.DrawLine(tick, tx, gy - (int)(2 * scale), tx, gy + segH + (int)(1 * scale));
         }
 
-        using (var tb = new SolidBrush(Theme.WithAlpha(Theme.Secondary, 255)))
+        using (var back = new SolidBrush(Theme.WithAlpha(Theme.InkDim, 90)))
         {
-            using var back = new SolidBrush(Theme.WithAlpha(Theme.Plum, 200));
             g.FillRectangle(back, new Rectangle(gx, ty, barW, thin));
-            var fiveC = five >= 0.9 ? Theme.Red : five >= 0.75 ? Theme.Orange : Theme.Secondary;
+            var fiveC = five >= 0.9 ? Theme.Red : five >= 0.75 ? Theme.Orange : Theme.InkDim;
             using var fb = new SolidBrush(fiveC);
             g.FillRectangle(fb, new Rectangle(gx, ty, (int)Math.Round(barW * Math.Clamp(five, 0, 1)), thin));
         }
 
-        using (var nb = new SolidBrush(c))
+        // Dark ink, not the level colour: gold-on-parchment read poorly (too close in tone). The bars still
+        // carry the colour signal; the number just needs to be legible.
+        using (var nb = new SolidBrush(Theme.InkText))
             g.DrawString(pct, stripFont, nb, right - TextRenderer.MeasureText(g, pct, stripFont, Size.Empty, TextFormatFlags.NoPadding).Width, y + (h - stripFont.Height) / 2f);
         usageRect = new Rectangle(gx - (int)(3 * scale), y - (int)(2 * scale), right - gx + (int)(6 * scale), h + (int)(4 * scale));
 
@@ -255,7 +288,7 @@ sealed class InputWindow : Form
         {
             var t = $"week {pct} · 5h {ModelChip.Percent(five)}";
             var sz = TextRenderer.MeasureText(g, t, stripFont, Size.Empty, TextFormatFlags.NoPadding);
-            using var b = new SolidBrush(Theme.Secondary);
+            using var b = new SolidBrush(Theme.InkDim);
             var tx = gx - (int)(8 * scale) - sz.Width;
             g.DrawString(t, stripFont, b, tx, y + (h - stripFont.Height) / 2f);
             usageRect = Rectangle.Union(usageRect, new Rectangle(tx, y, sz.Width, h));
@@ -264,15 +297,25 @@ sealed class InputWindow : Form
 
     Rectangle Pill(Graphics g, int x, int y, int h, string text, Color c, bool filled)
     {
-        var scaled = stripFont;
-        var w = TextRenderer.MeasureText(g, text, scaled, Size.Empty, TextFormatFlags.NoPadding).Width + (int)(14 * scale);
+        // Redesigned for weight (2026-09-22, Joshua: "so light and frail looking") - a hairline stroke over a
+        // near-invisible 18% tint read as barely there against the parchment. A solid tint plus a bottom lip,
+        // the same carved-button language as the gold menu's own pill, gives it body without going heavy.
+        var scaled = pixelStripFont;
+        var w = TextRenderer.MeasureText(g, text, scaled, Size.Empty, TextFormatFlags.NoPadding).Width + (int)(16 * scale);
         var r = new Rectangle(x, y, w, h);
         using var path = Rounded(r, h / 2);
-        if (filled) { using var f = new SolidBrush(Theme.WithAlpha(c, 46)); g.FillPath(f, path); }
-        using var pen = new Pen(Theme.WithAlpha(c, 210), 1.3f);
+        if (filled) { using var f = new SolidBrush(Theme.WithAlpha(c, 95)); g.FillPath(f, path); }
+        using (var lip = new Pen(Theme.WithAlpha(Color.Black, 60), Math.Max(1.4f, 1.8f * scale)))
+            g.DrawArc(lip, r.X + 1, r.Y + r.Height / 3, r.Width - 2, r.Height - 2, 20, 140);          // a shadowed lower edge, not a flat ring
+        using var pen = new Pen(Theme.WithAlpha(c, 235), Math.Max(1.6f, 1.9f * scale));
         g.DrawPath(pen, path);
-        using var b = new SolidBrush(c);
-        g.DrawString(text, scaled, b, x + 7 * scale, y + (h - scaled.Height) / 2f);
+        // Dark ink, not the mode colour (2026-09-22, live screenshot: gold text on a gold-tinted pill was
+        // nearly unreadable). The border still carries which mode it is; the text just needs to be legible.
+        using var b = new SolidBrush(Theme.InkText);
+        var old = g.TextRenderingHint;
+        g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.SingleBitPerPixelGridFit;
+        g.DrawString(text, scaled, b, x + 8 * scale, y + (h - scaled.Height) / 2f);
+        g.TextRenderingHint = old;
         return r;
     }
 

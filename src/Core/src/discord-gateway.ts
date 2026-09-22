@@ -5,9 +5,9 @@ import os from 'node:os';
 import path from 'node:path';
 import { folderFor } from './claude.ts';
 import { WebSocket } from 'ws';
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, Client, Events, GatewayIntentBits, MessageFlags, PermissionFlagsBits } from 'discord.js';
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, Client, EmbedBuilder, Events, GatewayIntentBits, MessageFlags, PermissionFlagsBits } from 'discord.js';
 import { DiscordAdapter } from './discord.ts';
-import type { Button, ButtonPress, CoreLink, Gateway, Incoming, OutMsg } from './discord.ts';
+import type { Button, ButtonPress, CoreLink, Gateway, Incoming, OutEmbed, OutMsg } from './discord.ts';
 import { LAYOUT, NEEDED, FORBIDDEN, slug } from './discord-logic.ts';
 
 const STYLE = { primary: ButtonStyle.Primary, secondary: ButtonStyle.Secondary, success: ButtonStyle.Success, danger: ButtonStyle.Danger } as const;
@@ -87,6 +87,18 @@ export class DiscordGateway implements Gateway {
     return rows;
   }
 
+  private embeds(msg: OutMsg): EmbedBuilder[] {
+    if (!msg.embed) return [];
+    const e = msg.embed;
+    const b = new EmbedBuilder();
+    if (e.title) b.setTitle(e.title.slice(0, 256));
+    if (e.description) b.setDescription(e.description.slice(0, 4096));
+    if (e.color !== undefined) b.setColor(e.color);
+    if (e.footer) b.setFooter({ text: e.footer.slice(0, 2048) });
+    if (e.fields?.length) b.addFields(e.fields.slice(0, 25).map(f => ({ name: f.name.slice(0, 256), value: f.value.slice(0, 1024) || '​', inline: f.inline === true })));
+    return [b];
+  }
+
   async createPost(forumId: string, title: string, content: string): Promise<string> {
     const forum: any = await this.client.channels.fetch(forumId);
     const post = await forum.threads.create({ name: title.slice(0, 100), message: { content } });
@@ -97,14 +109,14 @@ export class DiscordGateway implements Gateway {
     const channel: any = await this.client.channels.fetch(channelId);
     const files = msg.files?.map(f => ({ attachment: f.data, name: f.name }));
     // Nothing Aang posts may ping anyone: card text comes from web pages, and "@everyone" in a job title must stay text.
-    const sent = await channel.send({ content: msg.content, components: this.rows(msg), allowedMentions: { parse: [] }, ...(files ? { files } : {}), ...(msg.silent ? { flags: MessageFlags.SuppressNotifications } : {}) });
+    const sent = await channel.send({ content: msg.content, embeds: this.embeds(msg), components: this.rows(msg), allowedMentions: { parse: [] }, ...(files ? { files } : {}), ...(msg.silent ? { flags: MessageFlags.SuppressNotifications } : {}) });
     return sent.id;
   }
 
   async edit(channelId: string, messageId: string, msg: OutMsg): Promise<void> {
     const channel: any = await this.client.channels.fetch(channelId);
     const m = await channel.messages.fetch(messageId);
-    await m.edit({ content: msg.content, components: this.rows(msg), allowedMentions: { parse: [] } });
+    await m.edit({ content: msg.content ?? '', embeds: this.embeds(msg), components: this.rows(msg), allowedMentions: { parse: [] } });
   }
 
   async pin(channelId: string, messageId: string): Promise<void> {
@@ -146,7 +158,12 @@ export class WsCoreLink implements CoreLink {
   }
   private send(o: object) { if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(o)); }
   submit(id: string, text: string, opts: { ephemeral?: boolean; mode?: 'auto' | 'smart' } = {}) { this.send({ t: 'submit', id, text, mode: opts.mode ?? 'auto', ...(opts.ephemeral ? { ephemeral: true } : {}) }); }
-  permission(id: string, allow: boolean) { this.send({ t: 'permission.reply', id, allow }); }
+  // Discord's own Yes/No only ever offers a binary choice (no verb button, no separate "always"), so yes maps
+  // to 'always' - the same thing a plain "yes" always meant before the desktop bubble grew a third option.
+  // Found live, 2026-09-22: this still sent the old {allow} shape after core.ts moved to {choice}, so every
+  // "Yes" pressed in Discord was silently read as "no".
+  permission(id: string, allow: boolean) { this.send({ t: 'permission.reply', id, choice: allow ? 'always' : 'no' }); }
+  runOnMac(text: string) { this.send({ t: 'mac.run', text }); }
   stop() { this.send({ t: 'stop' }); }
   status() { this.send({ t: 'status' }); }
   actions() { this.send({ t: 'actions' }); }

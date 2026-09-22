@@ -52,7 +52,10 @@ sealed class PanelWindow : Form
         Text = "Aang: Panel";
         AutoScaleMode = AutoScaleMode.None;
         BackColor = Theme.Ink; ForeColor = Theme.Text;
-        Font = new Font(Theme.Face, 10f * (s > 1.4f ? 1f : 1f), FontStyle.Regular, GraphicsUnit.Point);
+        // Theme.Face/FaceBold are private TTFs: new Font(name, ...) can't see them and silently falls back to a
+        // system default, the same bug the tray menu and input box had. Theme.Font() resolves it; sizes below
+        // are point-to-pixel equivalents (pt * 4/3) of what was here before.
+        Font = Theme.Font(Theme.Face, 13.3f * (s > 1.4f ? 1f : 1f));
         StartPosition = FormStartPosition.CenterScreen;
         ClientSize = new Size((int)(820 * s), (int)(560 * s));
         MinimumSize = new Size((int)(640 * s), (int)(420 * s));
@@ -64,7 +67,7 @@ sealed class PanelWindow : Form
         {
             int at = i;
             var b = new Button { Text = names[i], FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, TabStop = false,
-                Left = (int)((14 + i * 132) * s), Top = (int)(8 * s), Width = (int)(126 * s), Height = (int)(34 * s), Font = new Font(Theme.FaceBold, 10.5f, FontStyle.Regular, GraphicsUnit.Point) };
+                Left = (int)((14 + i * 132) * s), Top = (int)(8 * s), Width = (int)(126 * s), Height = (int)(34 * s), Font = Theme.Font(Theme.FaceBold, 14f) };
             b.FlatAppearance.BorderSize = 0;
             b.Click += (_, _) => Select(at);
             tabs[i] = b; strip.Controls.Add(b);
@@ -109,7 +112,7 @@ sealed class PanelWindow : Form
         drafts = MakeList(("To", 230), ("Subject", 370), ("Status", 110));
         drafts.Dock = DockStyle.Top; drafts.Height = (int)(150 * s);
         preview.Multiline = true; preview.ReadOnly = true; preview.ScrollBars = ScrollBars.Vertical; preview.BorderStyle = BorderStyle.None;
-        preview.BackColor = Theme.Panel2; preview.ForeColor = Theme.Text; preview.Font = new Font(Theme.Face, 10.5f, FontStyle.Regular, GraphicsUnit.Point); preview.Dock = DockStyle.Fill;
+        preview.BackColor = Theme.Panel2; preview.ForeColor = Theme.Text; preview.Font = Theme.Font(Theme.Face, 14f); preview.Dock = DockStyle.Fill;
         sendBtn = MakeButton("Send", Kind.Gold); saveBtn = MakeButton("Save as Gmail draft", Kind.Plum); discardBtn = MakeButton("Discard", Kind.Red);
         sendBtn.Click += (_, _) => Act("send"); saveBtn.Click += (_, _) => Act("save"); discardBtn.Click += (_, _) => Act("discard");
         draftsEmpty.Text = ""; draftsEmpty.ForeColor = Theme.Secondary; draftsEmpty.Dock = DockStyle.Top; draftsEmpty.Height = (int)(26 * s);
@@ -127,7 +130,7 @@ sealed class PanelWindow : Form
 
         // ---- history
         search.BorderStyle = BorderStyle.FixedSingle; search.BackColor = Theme.Panel2; search.ForeColor = Theme.Text;
-        search.Font = new Font(Theme.Face, 11f, FontStyle.Regular, GraphicsUnit.Point); search.Dock = DockStyle.Top;
+        search.Font = Theme.Font(Theme.Face, 14.7f); search.Dock = DockStyle.Top;
         search.PlaceholderText = "Search everything you and Aang have said...";
         search.TextChanged += (_, _) => { searchWait.Stop(); searchWait.Start(); };
         searchWait.Tick += (_, _) => { searchWait.Stop(); _ = send(new { t = "history", q = search.Text.Trim() }); };
@@ -135,7 +138,7 @@ sealed class PanelWindow : Form
         history.Dock = DockStyle.Top; history.Height = (int)(190 * s);
         history.SelectedIndexChanged += (_, _) => ShowHistory();
         historyText.Multiline = true; historyText.ReadOnly = true; historyText.ScrollBars = ScrollBars.Vertical; historyText.BorderStyle = BorderStyle.None;
-        historyText.BackColor = Theme.Panel2; historyText.ForeColor = Theme.Text; historyText.Font = new Font(Theme.Face, 10.5f, FontStyle.Regular, GraphicsUnit.Point); historyText.Dock = DockStyle.Fill;
+        historyText.BackColor = Theme.Panel2; historyText.ForeColor = Theme.Text; historyText.Font = Theme.Font(Theme.Face, 14f); historyText.Dock = DockStyle.Fill;
         copyBtn = MakeButton("Copy", Kind.Gold);
         copyBtn.Click += (_, _) =>
         {
@@ -163,7 +166,7 @@ sealed class PanelWindow : Form
             ("autostart", "Start with Windows") })
         {
             var cb = new CheckBox { Text = label, AutoSize = true, ForeColor = Theme.Text, BackColor = Theme.Ink, FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand,
-                Font = new Font(Theme.FaceBold, 11f, FontStyle.Regular, GraphicsUnit.Point), Margin = new Padding(0, 0, 0, (int)(14 * s)) };
+                Font = Theme.Font(Theme.FaceBold, 14.7f), Margin = new Padding(0, 0, 0, (int)(14 * s)) };
             cb.FlatAppearance.BorderColor = Theme.Gold; cb.FlatAppearance.CheckedBackColor = Theme.Gold; cb.FlatAppearance.MouseOverBackColor = Theme.Plum;
             var k = key;
             cb.CheckedChanged += (_, _) => { if (!loadingSettings) SetSetting?.Invoke(k, cb.Checked); };
@@ -338,7 +341,7 @@ sealed class PanelWindow : Form
 
     Button MakeButton(string text, Kind kind)
     {
-        var b = new Button { Text = text, FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, Height = (int)(34 * s), Width = (int)((text.Length > 14 ? 170 : 120) * s), Font = new Font(Theme.FaceBold, 10.5f, FontStyle.Regular, GraphicsUnit.Point), Margin = new Padding(0, 0, (int)(10 * s), 0) };
+        var b = new Button { Text = text, FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, Height = (int)(34 * s), Width = (int)((text.Length > 14 ? 170 : 120) * s), Font = Theme.Font(Theme.FaceBold, 14f), Margin = new Padding(0, 0, (int)(10 * s), 0) };
         b.FlatAppearance.BorderSize = 0;
         b.BackColor = kind switch { Kind.Gold => Theme.Gold, Kind.Plum => Theme.Plum, _ => Theme.Red };
         b.ForeColor = kind == Kind.Plum ? Theme.Text : Theme.Ink;
@@ -361,14 +364,14 @@ sealed class PanelWindow : Form
     ListView MakeList(params (string name, int width)[] cols)
     {
         var l = new ListView { View = View.Details, FullRowSelect = true, MultiSelect = false, HideSelection = false, OwnerDraw = true, BorderStyle = BorderStyle.None,
-            BackColor = Theme.Panel2, ForeColor = Theme.Text, HeaderStyle = ColumnHeaderStyle.Nonclickable, Font = new Font(Theme.Face, 10.5f, FontStyle.Regular, GraphicsUnit.Point) };
+            BackColor = Theme.Panel2, ForeColor = Theme.Text, HeaderStyle = ColumnHeaderStyle.Nonclickable, Font = Theme.Font(Theme.Face, 14f) };
         foreach (var (name, width) in cols) l.Columns.Add(name, (int)(width * s));
         // The last column takes whatever width is left, so no bare header shows at the right (it drew white).
         l.Resize += (_, _) => { if (l.Columns.Count == 0) return; var used = 0; for (int i = 0; i < l.Columns.Count - 1; i++) used += l.Columns[i].Width; l.Columns[^1].Width = Math.Max(60, l.ClientSize.Width - used); };
         l.DrawColumnHeader += (_, e) =>
         {
             using var back = new SolidBrush(Theme.PlumDeep); e.Graphics.FillRectangle(back, e.Bounds);
-            TextRenderer.DrawText(e.Graphics, e.Header?.Text ?? "", new Font(Theme.FaceBold, 10f, FontStyle.Regular, GraphicsUnit.Point), Rectangle.Inflate(e.Bounds, -6, 0), Theme.Gold, TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.EndEllipsis);
+            TextRenderer.DrawText(e.Graphics, e.Header?.Text ?? "", Theme.Font(Theme.FaceBold, 13.3f), Rectangle.Inflate(e.Bounds, -6, 0), Theme.Gold, TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.EndEllipsis);
         };
         l.DrawItem += (_, _) => { };
         l.DrawSubItem += (_, e) =>

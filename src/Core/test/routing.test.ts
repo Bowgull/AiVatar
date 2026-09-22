@@ -66,7 +66,7 @@ test('"where" means the desktop as a whole: a second desktop window (the Body) s
   assert.equal(body.of('permission').length, 1, 'the Body shows the question');
   assert.equal(desk.of('permission').length, 1);
   assert.equal(phone.of('permission').length, 0, 'Discord does not');
-  body.c.send(JSON.stringify({ t: 'permission.reply', id: body.of('permission')[0].id, allow: false }));
+  body.c.send(JSON.stringify({ t: 'permission.reply', id: body.of('permission')[0].id, choice: 'no' }));
   assert.equal(await asked, false);
   body.c.close();
   await done();
@@ -80,7 +80,7 @@ test('a yes/no question goes where the request came from', async () => {
   await wait(100);
   assert.equal(phone.of('permission').length, 1);
   assert.equal(desk.of('permission').length, 0);
-  phone.c.send(JSON.stringify({ t: 'permission.reply', id: phone.of('permission')[0].id, allow: false }));
+  phone.c.send(JSON.stringify({ t: 'permission.reply', id: phone.of('permission')[0].id, choice: 'no' }));
   assert.equal(await asked, false);
   await done();
 });

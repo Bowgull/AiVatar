@@ -10,3 +10,6 @@ tests/fakecore/node_modules/
 
 # Joshua's private job-hunt data (phone, address, resume, applications). Never commit.
 job-hunt-data/
+
+# Scratch screenshots taken while debugging the live UI - not app assets.
+snaps-bubble/
