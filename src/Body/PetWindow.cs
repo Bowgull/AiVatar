@@ -14,7 +14,9 @@ sealed class PetWindow : Form
 {
     // Extra: room above the old window so a bubble can grow to 12 lines. A full one reaches ExpandedMaxH (276) - Bottom
     // (124) = 152 above the old top; the copy/rate buttons stand another ~10 above that edge. 168 covers both.
-    public const int W = 470, H = 310, Extra = 168;
+    // W includes a left margin (Docking.Margin) where a long reply's bubble widens into; it is transparent and click-through.
+    public const int W = 470 + Docking.Margin, H = 310, Extra = 168;
+    const int Margin = Docking.Margin;
     const int HotkeyId = 0xA46, EscId = 0xA47, HotkeyPadId = 0xA48;
     static readonly TimeSpan WakeFor = TimeSpan.FromSeconds(4);
 
@@ -117,7 +119,9 @@ sealed class PetWindow : Form
             if (cfg.Y is int oldY4) cfg.Y = oldY4 - (int)Math.Round((Extra - 110) * scale);
             cfg.LayoutVersion = 4; cfg.Save();
         }
-        if (cfg.LayoutVersion < 5) { cfg.Hotkey = "Ctrl+Plus"; cfg.LayoutVersion = 5; cfg.Save(); }   // Joshua, 2026-09-21: Ctrl and +
+        if (cfg.LayoutVersion < 5) { cfg.Hotkey = "Ctrl+Plus"; cfg.LayoutVersion = 5; cfg.Save(); }
+        // Version 6: the window grew on the left for the wide bubble; the saved left edge moves by the same so he does not.
+        if (cfg.LayoutVersion < 6) { if (cfg.X is int oldX6) cfg.X = oldX6 - (int)Math.Round(Margin * scale); cfg.LayoutVersion = 6; cfg.Save(); }   // Joshua, 2026-09-21: Ctrl and +
         Location = cfg is { X: not null, Y: not null } ? Clamp(new Point(cfg.X.Value, cfg.Y.Value)) : DefaultPos();
 
         // Test/diagnostic flag: --quiet=never or --quiet=always overrides the WoW-focus detection.
@@ -127,7 +131,7 @@ sealed class PetWindow : Form
             else if (a.Equals("--quiet=always", StringComparison.OrdinalIgnoreCase)) forcedQuiet = true;
             else if (a.Equals("--no-core", StringComparison.OrdinalIgnoreCase)) noCore = true;   // tests: do not start the Core or touch autostart
             else if (a.Equals("--set-hotkey", StringComparison.OrdinalIgnoreCase)) openHotkeyBox = true;  // tests: open the key chooser at start
-            else if (a.StartsWith("--panel", StringComparison.OrdinalIgnoreCase)) { openPanel = true; if (a.Length > 8 && int.TryParse(a[8..], out var pt)) panelTab = Math.Clamp(pt, 0, 3); }   // tests: open the Panel at start, on a tab
+            else if (a.StartsWith("--panel", StringComparison.OrdinalIgnoreCase)) { openPanel = true; if (a.Length > 8 && int.TryParse(a[8..], out var pt)) panelTab = Math.Clamp(pt, 0, 5); }   // tests: open the Panel at start, on a tab
         }
 
         sprites = new SpriteBank(Path.Combine(AppContext.BaseDirectory, "assets", "aang", "frames"));
@@ -209,8 +213,33 @@ sealed class PetWindow : Form
     /// <summary>The Panel: made once, then hidden and shown. Every time it is shown it asks the Core for a fresh copy.</summary>
     void OpenPanel()
     {
-        if (panel is null || panel.IsDisposed) panel = new PanelWindow(payload => link.SendAsync(payload));
-        panel.Show(); panel.WindowState = FormWindowState.Normal; panel.Activate();
+        if (panel is null || panel.IsDisposed)
+        {
+            panel = new PanelWindow(payload => link.SendAsync(payload))
+            {
+                GetSetting = key => key switch
+                {
+                    "quietGame" => forcedQuiet != false, "mute" => cfg.Muted, "seeWindow" => cfg.SeeActiveWindow,
+                    "usage" => cfg.ShowUsage, "autostart" => Autostart.IsOn(), _ => false,
+                },
+                SetSetting = (key, on) =>
+                {
+                    switch (key)
+                    {
+                        case "quietGame": forcedQuiet = on ? null : false; ApplyQuiet(); break;
+                        case "mute": SetMuted(on); break;
+                        case "seeWindow":
+                            cfg.SeeActiveWindow = on; cfg.Save(); seeWindowItem.Checked = on;
+                            sentWindow = ""; windowSentAt = DateTime.MinValue; PollForeground();
+                            break;
+                        case "usage": cfg.ShowUsage = on; cfg.Save(); input.SetUsageShown(on); break;
+                        case "autostart": Autostart.Set(on); break;
+                    }
+                },
+                RunAction = what => { if (what == "hotkey") AskForHotkey(); else if (what == "undock") Undock(moveToStand: true); },
+            };
+        }
+        panel.Show(); panel.WindowState = FormWindowState.Normal; Win32.ForceForeground(panel.Handle); panel.Activate();   // Windows otherwise leaves it behind the window in front
         if (panelTab > 0) { panel.Select(panelTab); panelTab = 0; }
         panel.Refresh();
     }
@@ -292,6 +321,9 @@ sealed class PetWindow : Form
                     break;
                 case "panel.reply":
                     panel?.Load(m);
+                    break;
+                case "history.reply":
+                    panel?.LoadHistory(m);
                     break;
                 case "quiet":
                     forcedQuiet = Bool(m, "on"); ApplyQuiet();
@@ -472,7 +504,7 @@ sealed class PetWindow : Form
             surface.Clear();
             g.ResetTransform();
             g.ScaleTransform(scale, scale);
-            g.TranslateTransform(0, Extra);
+            g.TranslateTransform(Margin, Extra);
             g.InterpolationMode = InterpolationMode.NearestNeighbor;
             g.PixelOffsetMode = PixelOffsetMode.Half;
 
@@ -498,7 +530,7 @@ sealed class PetWindow : Form
     // ------------------------------------------------------------------ mouse
 
     /// <summary>Window pixels to bubble coordinates (unscaled, minus the headroom above the old window).</summary>
-    PointF BubblePoint(Point p) => new(p.X / scale, p.Y / scale - Extra);
+    PointF BubblePoint(Point p) => new(p.X / scale - Margin, p.Y / scale - Extra);
 
     protected override void OnMouseDown(MouseEventArgs e)
     {
@@ -625,8 +657,8 @@ sealed class PetWindow : Form
         {
             var c = Cursor.Position;
             var r = new Rectangle(
-                Location.X + (int)(BubbleView.Left * scale), Location.Y + (int)((bubble.CurrentTop + Extra) * scale),
-                (int)((BubbleView.Right - BubbleView.Left) * scale), (int)((BubbleView.Bottom - bubble.CurrentTop) * scale));
+                Location.X + (int)((Margin + bubble.LeftNow) * scale), Location.Y + (int)((bubble.CurrentTop + Extra) * scale),
+                (int)((BubbleView.Right - bubble.LeftNow) * scale), (int)((BubbleView.Bottom - bubble.CurrentTop) * scale));
             if (!r.Contains(c)) ExitExpanded(true);
         }
         mouseWasDown = down;
@@ -646,7 +678,7 @@ sealed class PetWindow : Form
         var prev = Win32.GetForegroundWindow();
         if (prev == Handle || prev == input.Handle) prev = IntPtr.Zero;
         input.Working = working;
-        input.Open(new Point(Location.X, Location.Y + (int)(Extra * scale)), prev);
+        input.Open(new Point(Location.X + (int)(Margin * scale), Location.Y + (int)(Extra * scale)), prev);
         Wake(); dirty = true;
         return true;
     }
@@ -1190,8 +1222,8 @@ sealed class PetWindow : Form
         var me = Docking.OnScreen(Location, art, Extra, scale); me.Inflate((int)(14 * scale), (int)(14 * scale));
         if (me.Contains(c)) return true;
         if (!bubble.Visible) return false;
-        return new Rectangle(Location.X + (int)(BubbleView.Left * scale), Location.Y + (int)((bubble.CurrentTop + Extra) * scale),
-            (int)((BubbleView.Right - BubbleView.Left) * scale), (int)((BubbleView.Bottom - bubble.CurrentTop) * scale)).Contains(c);
+        return new Rectangle(Location.X + (int)((Margin + bubble.LeftNow) * scale), Location.Y + (int)((bubble.CurrentTop + Extra) * scale),
+            (int)((BubbleView.Right - bubble.LeftNow) * scale), (int)((BubbleView.Bottom - bubble.CurrentTop) * scale)).Contains(c);
     }
 
     /// <summary>
@@ -1308,7 +1340,7 @@ sealed class PetWindow : Form
     {
         if (dock != DockEdge.Bottom) return false;
         var home = StandPos(); var wa = DockScreen().WorkingArea;
-        var lo = Math.Max(wa.Left + (int)(20 * scale) - (int)((Docking.SpriteX + art.X) * scale), home.X - (int)(240 * scale));
+        var lo = Math.Max(wa.Left + (int)(20 * scale) - (int)((Docking.WinSpriteX + art.X) * scale), home.X - (int)(240 * scale));
         if (home.X - lo < (int)(80 * scale)) return false;
         var tx = rnd.Next(lo, home.X - (int)(60 * scale));
         var speed = (how == "scooter" ? 60 : 30) * scale;                                   // px per second, Rainmeter's pace

@@ -40,10 +40,30 @@ sealed class InputWindow : Form
     readonly Font stripFont;
 
     double weekResetsAt, fiveResetsAt;
+    // A change of mode fades its colours over 150 ms (frame and chip) instead of snapping.
+    const double FadeMs = 150;
+    Color frameFrom, frameTo, chipFrom, chipTo;
+    DateTime fadeAt = DateTime.MinValue;
+    readonly System.Windows.Forms.Timer fade = new() { Interval = 16 };
+    Color FrameTarget => !saving && mode == "auto" ? Color.FromArgb(0, Theme.Gold) : Theme.WithAlpha(Theme.ModeColor(mode, saving), 210);
+    Color ChipTarget => Theme.ModeColor(mode, false);
+    double FadeT => Math.Clamp((DateTime.UtcNow - fadeAt).TotalMilliseconds / FadeMs, 0, 1);
+    static Color Lerp(Color a, Color b, double t) => Color.FromArgb(
+        (int)Math.Round(a.A + (b.A - a.A) * t), (int)Math.Round(a.R + (b.R - a.R) * t), (int)Math.Round(a.G + (b.G - a.G) * t), (int)Math.Round(a.B + (b.B - a.B) * t));
+    Color FrameNow => Lerp(frameFrom, frameTo, FadeT);
+    Color ChipNow => Lerp(chipFrom, chipTo, FadeT);
+
     public void SetStatus(string mode, bool saving, bool hasQuota, double week, double five, string level, double weekResetsAt = 0, double fiveResetsAt = 0)
     {
+        Color f0 = FrameNow, c0 = ChipNow;
         this.mode = mode; this.saving = saving; this.hasQuota = hasQuota; this.week = week; this.five = five; this.level = level;
         this.weekResetsAt = weekResetsAt; this.fiveResetsAt = fiveResetsAt;
+        if (FrameTarget != frameTo || ChipTarget != chipTo)
+        {
+            frameFrom = f0; chipFrom = c0; frameTo = FrameTarget; chipTo = ChipTarget;
+            fadeAt = Visible ? DateTime.UtcNow : DateTime.MinValue;             // hidden: no fade, it is simply the new colour
+            if (Visible) fade.Start();
+        }
         Invalidate();
     }
     public void SetConsent(bool pending, string wanted = "") { consent = pending; consentWanted = wanted; Invalidate(); }
@@ -83,6 +103,8 @@ sealed class InputWindow : Form
         box.Font = new Font(Theme.Face, Theme.BodyPx * scale, FontStyle.Regular, GraphicsUnit.Pixel);
         box.Dock = DockStyle.Fill;
         box.TextChanged += (_, _) => Grow();
+        frameFrom = frameTo = FrameTarget; chipFrom = chipTo = ChipTarget;
+        fade.Tick += (_, _) => { Invalidate(); if (FadeT >= 1) fade.Stop(); };
         Controls.Add(box);
         Grow();
     }
@@ -128,13 +150,13 @@ sealed class InputWindow : Form
     /// </summary>
     void PaintModeFrame(Graphics g)
     {
-        if (!saving && mode == "auto") return;
-        var c = Theme.ModeColor(mode, saving);
+        var c = FrameNow;
+        if (c.A < 3) return;
         var inset = (int)(4 * scale);
         using var p = Rounded(new Rectangle(inset, inset, Width - 2 * inset - 1, Height - 2 * inset - 1), Math.Max(3, (int)(7 * scale)));
-        using var pen = new Pen(Theme.WithAlpha(c, 210), Math.Max(1.2f, 1.5f * scale));
+        using var pen = new Pen(c, Math.Max(1.2f, 1.5f * scale));
         g.DrawPath(pen, p);
-        if (mode == "deep" && !saving)
+        if (mode == "deep" && !saving && FadeT >= 1)
         {
             float cx = Width / 2f, cy = 1.5f * scale, r = 4.2f * scale;
             using var gold = new SolidBrush(Theme.Gold);
@@ -169,7 +191,7 @@ sealed class InputWindow : Form
         }
 
         // The chip wears its mode's colour (Auto is plain gold), matching the inner frame around the box.
-        chipRect = Pill(g, x, y, h, ModelChip.Label(mode) + " ▾", Theme.ModeColor(mode, false), true);
+        chipRect = Pill(g, x, y, h, ModelChip.Label(mode) + " ▾", ChipNow, true);
         x = chipRect.Right + (int)(6 * scale);
         savingRect = Rectangle.Empty;
         if (saving) { savingRect = Pill(g, x, y, h, "saving", Theme.Green, true); }

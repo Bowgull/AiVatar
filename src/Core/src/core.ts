@@ -752,6 +752,7 @@ export class Core {
       }
       case 'hush': this.send(ws, { t: 'hush.reply', text: this.hush(Number(m.minutes)) }); break;
       case 'panel': this.send(ws, this.panelData()); break;
+      case 'history': { const q = typeof m.q === 'string' ? m.q.slice(0, 200) : ''; this.send(ws, { t: 'history.reply', q, items: this.memory.history(q, 200) }); break; }
       case 'forget.fact': {
         const gone = typeof m.id === 'number' ? this.memory.forgetId(m.id) : null;
         if (gone) {
