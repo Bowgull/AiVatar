@@ -13,7 +13,11 @@ export type ToBody =
       /** A Claude Code job this update is about (its folder): lets Discord remember the message so a reply continues that job. */
       jobCwd?: string;
       /** A picture of what it is doing right now, taken only while he is away and only once he has already trusted pictures to Discord. */
-      image?: { data: string; mimeType: string } }
+      image?: { data: string; mimeType: string };
+      /** Genuinely stuck waiting on a decision, not just news. Joshua, 2026-09-22: found out mid-raid, no idea Claude needed
+       *  him. This is the Avatar State tier: breaks through hidden (never mute), peeks further while docked or a brief
+       *  gesture while standing, a glow, and a sound - the one channel that can reach him even in a fullscreen game. */
+      blocking?: boolean }
   | { t: 'bubble.dots' }
   | { t: 'bubble.clear' }
   | { t: 'quiet'; on: boolean }

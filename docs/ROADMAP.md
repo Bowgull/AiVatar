@@ -287,6 +287,16 @@ Third-party memory services (privacy). Reddit feed. WoW combat-log analysis (his
    usage bars, start with Windows, change hotkey, undock), and now comes to the front when opened. Checked with
    `tests/fakecore/visual-look.mjs` and a Core test for History.
    Still to do: entity chips, the first-run "what can you do", suggestion chips. Older live suites had hard-coded click positions that moved; those constants were updated, not re-run.
+   **Mail-send grounding fix, 2026-09-22 (a real, confirmed bug, not a guess):** Aang sent an email for real (he had
+   asked, Joshua tapped yes on the permission bubble showing the whole text) and then told him "drafted and waiting
+   for you to send" - checked against the Gmail record and the docking log (he was out of dock exactly then), the
+   send itself was authorized; the REPLY was simply false about what had just happened. Confirmed by Joshua: he did
+   tap yes. Fix does not rely on a better prompt (voice.ts's own opening line: "prompts are not guarantees") - Core
+   now remembers the one deterministic fact that matters (`mailOutcome`, set only when mail_draft's desktop path
+   really sends) and, right where the reply is linted before it ever reaches him, replaces it outright if it does not
+   even say "sent". Tested (3 new cases in mail.test.ts, targeted run only per his 2026-09-22 rule: no full suite for
+   one feature): the false reply is replaced with the tool's own words; a correct one is left alone; an unrelated
+   reply on a turn with no send is never touched.
    **Trust fix built 2026-09-22, his own words: "is aang really acting as an extension of claude" -> no, and why:**
    real bug found live (Discord, unedited): asked for directions, Aang said "plug it into Google Maps yourself";
    asked directly "can you do it for me", Aang said "I can't" - false, `open` could have opened the route in one
