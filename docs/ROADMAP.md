@@ -15,6 +15,68 @@ Nothing is left floating. [THE-PLAN.md](THE-PLAN.md) holds the end-product pictu
 
 ---
 
+## Current plan (2026-09-22): the short list. Supersedes the order tables below.
+
+**The end result.** Aang is Claude that knows Joshua, lives on his desktop, and actually gets things done for him,
+in parallel with his own Claude sessions: as capable as plain Claude or more, because of his memory and his tools.
+He reaches Joshua at the desk (the bubble), in WoW (the icons on the docked sprite), and away (Discord), and covers
+Claude sessions on both the Shadow PC and the MacBook. Joshua, 2026-09-22: "aang needs to be as autonomous as
+claude in the sense that claude finds a way to GET things done", and "aang feels dumb without this type of power".
+
+**Why Aang felt dumb (found in the code, 2026-09-22).** Not missing tools: he has about 45. (1) Auto sent almost
+every short message to Haiku 4.5 with thinking off; only "code/research/plan" words or 500+ characters reached
+Sonnet. Every failure in his Discord log was a short request to act. (2) Nothing made him keep trying or check
+the result. (3) Handing work off meant a pre-filled Claude app session he had to press Enter on.
+
+**Built 2026-09-22.**
+- *Routing:* a request to act (`ACT` in route.ts, including his usual typos) goes to Smart (Sonnet 5, thinking
+  on); chat stays on Quick. Safety net: a Quick reply that refuses (`REFUSES` in core.ts) is never shown; the
+  same request is rerun on Smart, once. Not while saving quota, and not on a turn that already did something.
+- *Check before claiming:* every acting tool's real outcome is collected per turn; `groundReply` adds the truth
+  when every action failed but the reply sounds like success, and replaces a "cannot" reply when something was
+  actually done. The mail fix, generalised.
+- *The worker:* `do_task` hands a several-step job to Aang's own headless session on Opus 5 (60 tool steps,
+  30 minutes a run, 2 at once), with the same tools and gates as chat. It reports itself through the tiers
+  (tick = done, "!" = needs him); his next message sees what it asked (`<waiting>`); `tell_task` continues the
+  same session; `task_status`, `stop_task`; jobs survive a restart (`tasks.json`, session kept); each records
+  the share of his week it used. A job cannot start jobs; its actions are logged as its own.
+  Model choice, checked against Anthropic pricing: Opus 5 $5/$25, Sonnet 5 $3/$15 per M tokens, so about
+  1.7x per token; worth it for multi-step work, where a wrong step costs every step after it.
+- *WoW notifications* (PetWindow.cs): rise + pulsing outline for 4 s,
+  then a pixel icon over his head (white-blue "!" needs you with a sound, terracotta tick done, gold bubble
+  news), popping in and bobbing, most pressing wins, click goes to the session. Chosen with him from real
+  screenshots.
+- *MacBook bridge:* Tailscale on both; the Mac's Claude Code hooks report here (keyed); a one-job listener on
+  the Mac can only bring Claude forward when the icon is clicked. No SSH, by his choice. Aang itself stays on
+  the Shadow PC.
+
+**Next, in order.**
+1. One real test of the new doing: rerun on the real model the requests Aang actually fumbled (directions
+   from 77 Symington to Burlington, "make a note of this in logs", "open that email in a browser tab",
+   "open claude on my pc") and one real `do_task`. Costs quota, so on his word.
+2. The real Mac test: a Mac session finishes or needs him while he is in WoW; the icon shows; clicking it
+   brings Claude forward on the Mac.
+3. One real job-hunt run.
+4. Confirm Aang starts by himself after a Shadow restart (it restarts about six times a day).
+5. Publish the Google app, so the sign-in stops lapsing every 7 days.
+6. A worker permission while he is in WoW currently pops Aang out like any permission question: route it to
+   the "!" icon instead.
+
+**Parked (cut 2026-09-22, not deleted; the text below is kept).** Drawing layer and window presence (big,
+cosmetic). Persona eval (the linter stays). Search over his documents. Panel extras: chips, first-run help,
+card stack. Finish polish: 125/150% DPI and multi-monitor (his second screen is the Mac, not a Windows
+monitor), reduced motion, mini mode, the proactive cap (he has hush and mute), sound cues, tray review, the
+design gate at every DPI. Shadow 4-hour warning (no real signal found). Spotify (needs his developer app).
+CAPTCHA solving from the phone (needs him at the PC anyway).
+
+**Superseded lines below.** "Sound cues silent while a game has focus": he chose a sound for needs-you even in
+WoW. The docking "gold dot": now the icons. The state priority rule's "working" state: he does not want one.
+
+**Retired, unchanged:** iMessage and Telegram (Discord was chosen), the Mac as Aang's host (C, E, P), voice,
+always-on capture, the Reddit feed, WoW combat-log analysis.
+
+---
+
 ## What we did not know this morning
 
 These are the gaps found tonight that **were not on the A-L list at all**, because in the morning we did
