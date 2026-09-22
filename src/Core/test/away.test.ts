@@ -60,6 +60,21 @@ test('genuinely blocking news is marked so; ordinary news is not', async () => {
   });
 });
 
+test('a job finishing cleanly is its own quieter "done" tier - not blocking, and only for job news', async () => {
+  await withCore(47971, async (core, desk) => {
+    core.announce('Job hunt done. Two applied. Details in Claude.', { asked: true, jobCwd: 'C:\\jobs\\a' });
+    core.announce('Need input in Claude on the browsing job: which one?', { asked: true, jobCwd: 'C:\\jobs\\b' });
+    core.announce('Job hunt done. Two applied. Details in Claude.', { asked: true });   // no jobCwd: not job news, stays ordinary
+    await wait(80);
+    const done = desk.inbox.filter(m => m.t === 'bubble' && (m as any).done === true);
+    assert.equal(done.length, 1);
+    assert.match(done[0]!.text, /^Job hunt done/);
+    assert.ok(!done[0]!.blocking, 'done and blocking are never both set');
+    assert.ok(!desk.inbox.some(m => m.t === 'bubble' && /Need input/.test(m.text) && (m as any).done), 'a blocking message is never also marked done');
+    assert.equal(desk.inbox.filter(m => m.t === 'bubble' && /Job hunt done/.test(m.text) && (m as any).done).length, 1, 'the jobless copy is not marked done');
+  });
+});
+
 test('a reply naming a job neither Core nor Discord know about does nothing and does not crash', async () => {
   await withCore(47968, async (core, desk) => {
     desk.c.send(JSON.stringify({ t: 'claude.reply', cwd: 'C:\\nowhere', text: 'keep going' }));

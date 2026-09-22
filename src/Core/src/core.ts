@@ -2,11 +2,13 @@
 // streams replies, enforces the voice linter and grounding rule, and applies Joshua's quota rule.
 import { WebSocketServer } from 'ws';
 import type { WebSocket } from 'ws';
-import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync, unlinkSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { parseFromBody } from './protocol.ts';
 import { writeFileAtomic } from './atomic.ts';
+import { randomBytes, timingSafeEqual } from 'node:crypto';
+import { MAC_LISTENER_PORT, macSetupScript } from './macsetup.ts';
 import type { FromBody, Mode, ToBody } from './protocol.ts';
 import { Lane } from './lane.ts';
 import type { LaneEvent } from './lane.ts';
@@ -21,12 +23,14 @@ import { copyThing, deleteThing, emptyOldTrash, listFolder, makeFolder, moveThin
 import type { Result as OrganiseResult } from './organise.ts';
 import type { Doers } from './tools.ts';
 import { READ_ONLY_BUILTINS, TOOL_NAMES, BUILTIN_SHELL, BUILTIN_WRITE, SHELL_TOOLS, WEB_PROMPT, WEB_TOOLS, describeCall, isLauncher, makeToolServer, reachesNetwork } from './tools.ts';
-import { HookServer, HookTracker } from './hooks.ts';
+import { HookServer, HookTracker, isLoopback } from './hooks.ts';
 import { Reminders } from './reminders.ts';
 import { SessionStore } from './sessions.ts';
 import { ActivityLog, describe } from './activity.ts';
 import { clearReadCache, looksVisual, readWindow } from './screen.ts';
-import { CLAUDE_WINDOW, frameJob, isFrom, newsFor, nextState, openInClaude } from './claude.ts';
+import { CLAUDE_WINDOW, asksSomething, frameJob, isFrom, newsFor, nextState, openInClaude } from './claude.ts';
+import { MAX_RUNNING, TaskStore, WORKER_PROMPT, WORKER_TIMEOUT_MS, WORKER_TURNS, describeTasks } from './worker.ts';
+import type { Task } from './worker.ts';
 import type { JobKind, Launched } from './claude.ts';
 import { consolidate } from './consolidate.ts';
 import { TrustStore, kindOf } from './trust.ts';
@@ -64,7 +68,33 @@ interface Turn {
   startedAt: number;
   ackMs: number;
   watchdog: NodeJS.Timeout | null;
+  /** Quick said it could not, and this turn was handed to Smart instead: never hand it on twice. */
+  escalated?: boolean;
 }
+
+const SAYS_FAILED = /\b(couldn'?t|could not|didn'?t|did not|failed|not work|wasn'?t able|unable|can'?t|cannot|no luck|error)\b/i;
+
+/**
+ * The reply has to match what really happened this turn (the action record), whatever the model says - the email
+ * fix generalised (2026-09-22). Everything it tried failed but the reply sounds like success: the truth is added.
+ * Something really was done but the reply says it cannot: the reply is replaced with what was done.
+ */
+export function groundReply(reply: string, did: { did: string; ok: boolean; note: string }[]): string {
+  if (!did.length) return reply;
+  const done = did.filter(a => a.ok), failed = did.filter(a => !a.ok);
+  if (!done.length && !SAYS_FAILED.test(reply)) {
+    console.log('grounding: every action failed but the reply did not say so; adding what really happened');
+    return `${reply}\n\nThat did not actually work: ${failed.map(a => `${a.did}${a.note ? ` (${a.note})` : ''}`).join('; ')}.`;
+  }
+  if (done.length && REFUSES.test(reply)) {
+    console.log('grounding: the reply said it could not, but it did; replaced with what was done');
+    return `Done: ${done.map(a => a.did).join('; ')}.${failed.length ? ` Did not work: ${failed.map(a => a.did).join('; ')}.` : ''}`;
+  }
+  return reply;
+}
+
+/** Quick giving up on something a tool could do. It is thrown away and Smart takes the turn instead. */
+export const REFUSES = /\b(I can(?:'|no)?t\b|I(?:'m| am) (?:not able|unable)|I don'?t have (?:the ability|access|a way)|you(?:'ll| will) (?:need|have) to|(?:do|try) (?:it|that|this) yourself|(?:in|into) .{0,40} yourself|beyond (?:what I can|my)|plug (?:it|them|both|those|the)\b.{0,40}\bin\b)/i;
 
 export interface TurnRecord {
   ts: string; id: string; lane: LaneName; user: string; reply: string;
@@ -93,13 +123,97 @@ export class Core {
   private readonly systemPrompt: string;
   /** Built fresh per lane: one in-process MCP server cannot serve two live queries. Sharing it made
    *  Aang's own tools fail with "the aang server failed to connect" the moment a second lane started. */
-  private tools() {
+  private tools(forWorker = false) {
+    const doers = this.doers();
     return makeToolServer(
       this.memory, this.hooks, this.reminders, q => this.lookUpWeb(q), this.activity,
       (what, withApp) => this.open(what, withApp), () => this.readClipboard(), cmd => this.run(cmd), () => this.readScreen(), () => this.lookAtScreen(),
       (task, where, name, kind) => this.startClaude(task, where, name, kind),
-      this.doers(),
+      // A job never starts more jobs, and its actions are recorded as its own.
+      forWorker ? { ...doers, tasks: undefined, report: (tool, input, failed, text) => this.reportAction(tool, input, failed, text, true) } : doers,
     );
+  }
+
+  // ------------------------------------------------------------------ the background worker
+
+  readonly tasks: TaskStore;
+  private readonly workers = new Map<string, Lane>();
+
+  private workerLane(t: Task): Lane {
+    let l = this.workers.get(t.id);
+    if (l) return l;
+    l = new Lane({
+      name: 'worker-' + t.id, model: MODELS.deep.model, systemPrompt: WORKER_PROMPT, mcpServer: this.tools(true),
+      // The same tools and the same gates as chat, nothing more: a job is Aang working, not a way around him.
+      allowedTools: [...TOOL_NAMES, ...READ_ONLY_BUILTINS],
+      disallowedTools: [...WEB_TOOLS, ...BUILTIN_SHELL, ...BUILTIN_WRITE],
+      askPermission: (tool, input) => this.askPermission(tool, input),
+      claudeExecutable: this.cfg.claudeExecutable, maxTurns: WORKER_TURNS,
+      resumeId: t.sessionId ?? undefined,
+      onSession: id => { if (t.sessionId !== id) { t.sessionId = id; this.tasks.save(); } },
+      onResumeFailed: () => { t.sessionId = null; this.tasks.save(); },
+    });
+    l.onEvent(e => { if (e.t === 'quota') this.onLaneEvent('quick', e); });   // its usage counts like any other
+    this.workers.set(t.id, l);
+    return l;
+  }
+
+  private async startTask(task: string, name?: string): Promise<string> {
+    if (!task.trim()) return 'Nothing to do: the job was empty.';
+    if (this.policy.saving) return 'Saving quota is on, so no background job was started: a job runs on the biggest model. Tell him that, and that he can turn saving off, or ask for one step at a time here instead.';
+    const busy = this.tasks.running();
+    if (busy.length >= MAX_RUNNING) return `Not started: ${busy.length} jobs are already running (${busy.map(t => `"${t.name}"`).join(', ')}). Tell him it can start when one of them finishes.`;
+    const t = this.tasks.add(task.trim(), name);
+    this.actions.add({ tool: 'do_task', did: `started a background job: "${t.name}"`, ok: true, note: '' });
+    void this.runTask(t, task.trim());
+    return `Started "${t.name}" in the background. It will tell him itself when it is done or needs him. Say so in one short line; do not wait for it.`;
+  }
+
+  private async runTask(t: Task, message: string): Promise<void> {
+    t.state = 'working'; t.updatedAt = Date.now(); t.weekBefore = this.policy.last?.week; this.tasks.save();
+    const r = await this.workerLane(t).ask(message, WORKER_TIMEOUT_MS);
+    if ((t.state as string) === 'stopped') return;                     // he stopped it while it ran; nothing more to say
+    t.weekAfter = this.policy.last?.week; t.updatedAt = Date.now();
+    const said = (lint(r.text ?? '', [], message).cleaned || r.text || '').trim();
+    const cost = t.weekBefore !== undefined && t.weekAfter !== undefined ? ` (${Math.round((t.weekAfter - t.weekBefore) * 1000) / 10}% of his week)` : '';
+    console.log(`task "${t.name}": ${r.ok ? 'finished' : 'stopped'}${cost}`);
+    if (!r.ok) {
+      t.state = 'failed'; t.last = said || 'It stopped before it finished.'; this.tasks.save();
+      this.announce(`Need input on the ${t.name} job: it stopped before finishing (${t.last.slice(0, 160)}). Want it to try again?`, { asked: true });
+      return;
+    }
+    if (asksSomething(said)) {
+      t.state = 'needs you'; t.last = said; this.tasks.save();
+      this.announce(`Need input on the ${t.name} job: ${said}`, { asked: true });
+      return;
+    }
+    t.state = 'done'; t.last = said; this.tasks.save();
+    this.announce(`The ${t.name} job is done. ${said}`, { asked: true, done: true });
+  }
+
+  private async tellTask(which: string, message: string): Promise<string> {
+    const t = this.tasks.find(which);
+    if (!t) return `No background job matches "${which}". Check task_status.`;
+    if (t.state === 'working') return `"${t.name}" is still working. Tell him his words will go to it once it stops, or it can be stopped.`;
+    void this.runTask(t, message);
+    return `Passed that to "${t.name}"; it is working again and will report back itself. Say so in one short line.`;
+  }
+
+  private async stopTask(which: string): Promise<string> {
+    const t = this.tasks.find(which);
+    if (!t) return `No background job matches "${which}".`;
+    if (t.state !== 'working') return `"${t.name}" is not running (${t.state}).`;
+    t.state = 'stopped'; t.last = 'He stopped it.'; t.updatedAt = Date.now(); this.tasks.save();
+    await this.workers.get(t.id)?.interrupt();
+    this.actions.add({ tool: 'stop_task', did: `stopped the background job "${t.name}"`, ok: true, note: '' });
+    return `Stopped "${t.name}". What it already changed stays; undo_last can put back a file change.`;
+  }
+
+  /** Jobs waiting on his answer, put in front of his next message so a reply like "the blue one" reaches them. */
+  private withWaiting(text: string): string {
+    const w = this.tasks.waiting();
+    if (!w.length) return text;
+    return `<waiting>\nBackground jobs waiting on Joshua's answer:\n${w.map(t => `- "${t.name}": ${t.last.slice(0, 300)}`).join('\n')}\nIf his message answers or adds to one of these, pass his words on with tell_task.\n</waiting>\n\n${text}`;
   }
 
   /** What the tools that change things, keep a record, or undo call back into. Also what the tests drive. */
@@ -114,6 +228,12 @@ export class Core {
       mailRead: id => this.mailRead('mcp__aang__mail_read', { id }, m => m.read(id)),
       calendar: days => this.mailRead('mcp__aang__calendar_today', { days: days ?? 1 }, m => m.agenda(days ?? 1)),
       mailDraft: input => this.mailDraft(input),
+      tasks: {
+        start: (task, name) => this.startTask(task, name),
+        tell: (which, message) => this.tellTask(which, message),
+        status: () => describeTasks(this.tasks.list()),
+        stop: which => this.stopTask(which),
+      },
       playMusic: (what, kind) => this.playMusic(what, kind),
       watchNext: (show, open) => this.watchNext(show, open),
       listFolder: dir => this.listFolderSafe(dir),
@@ -329,8 +449,12 @@ export class Core {
   readonly actions: ActionLog;
   private readonly undo = new UndoStack();
 
-  private reportAction(tool: string, input: Record<string, unknown>, failed: boolean, text: string): void {
-    const rec = this.actions.add({ tool, did: describeCall('mcp__aang__' + tool, input), ok: !failed, note: failed ? text : '' });
+  /** What really happened this chat turn, for checking the reply against before he sees it. */
+  private turnActions: { did: string; ok: boolean; note: string }[] = [];
+
+  private reportAction(tool: string, input: Record<string, unknown>, failed: boolean, text: string, fromWorker = false): void {
+    const rec = this.actions.add({ tool, did: (fromWorker ? '(background job) ' : '') + describeCall('mcp__aang__' + tool, input), ok: !failed, note: failed ? text : '' });
+    if (!fromWorker) this.turnActions.push({ did: rec.did, ok: rec.ok, note: rec.note });   // a job's actions are not the chat reply's to check
     this.sendTo('discord', { t: 'action', text: formatAction(rec) });        // a receipt in #log, silently
   }
 
@@ -606,9 +730,47 @@ export class Core {
     this.sessions = new SessionStore(cfg.stateDir);
     this.trust = new TrustStore(cfg.stateDir);
     this.actions = new ActionLog(cfg.stateDir);
+    this.tasks = new TaskStore(cfg.stateDir);
   }
 
   // ------------------------------------------------------------------ lifecycle
+
+  /** A secret shared with the MacBook, made once and kept in the data folder (gitignored there): hook.key is what
+   *  the Mac's hooks send here, mac-front.key is what Aang sends the Mac's one-job listener. Two keys, so either
+   *  one leaking only opens its own single door. */
+  private keyFile(name: string): string {
+    const file = path.join(this.cfg.dataDir, name);
+    try { const k = readFileSync(file, 'utf8').trim(); if (k.length >= 20) return k; } catch { /* first run */ }
+    const k = randomBytes(18).toString('base64url');
+    try { mkdirSync(this.cfg.dataDir, { recursive: true }); writeFileAtomic(file, k); } catch (e) { console.error(`could not save ${name}: ` + (e as Error).message); }
+    return k;
+  }
+
+  /** The MacBook's Tailscale address, learned from its own hook posts (nothing to configure). */
+  private macAddr: string | null = null;
+
+  /** He clicked the icon for a MacBook session: the Mac's listener brings Claude forward there. It can do nothing else. */
+  private async frontOnMac(): Promise<void> {
+    if (!this.macAddr) { console.error('claude.front: no MacBook has been heard from yet'); return; }
+    try {
+      const r = await fetch(`http://${this.macAddr}:${MAC_LISTENER_PORT}/front?k=${encodeURIComponent(this.keyFile('mac-front.key'))}`, { method: 'POST', signal: AbortSignal.timeout(3000) });
+      if (r.status !== 204) console.error(`claude.front: the Mac said ${r.status}`);
+    } catch (e) { console.error('claude.front: the Mac did not answer: ' + (e as Error).message); }
+  }
+
+  /** The MacBook's setup script, for the one-time code in mac-setup.code (made by hand, gitignored). The code
+   *  works once and for 30 minutes, so the script with the keys in it is never left lying around to fetch. */
+  private setupFor(code: string): string | null {
+    const file = path.join(this.cfg.dataDir, 'mac-setup.code');
+    let want = '';
+    try { if (Date.now() - statSync(file).mtimeMs > 30 * 60_000) return null; want = readFileSync(file, 'utf8').trim(); } catch { return null; }
+    if (want.length < 6 || code.length !== want.length || !timingSafeEqual(Buffer.from(code), Buffer.from(want))) return null;
+    try { unlinkSync(file); } catch { /* it is used either way */ }
+    const ts = this.hookServer?.tailnet;
+    if (!ts) return null;
+    console.log('mac-setup: served the MacBook its setup script (the code is now used up)');
+    return macSetupScript(ts, this.cfg.port + 1, this.keyFile('hook.key'), this.keyFile('mac-front.key'));
+  }
 
   async start(): Promise<void> {
     await new Promise<void>((resolve, reject) => {
@@ -617,7 +779,9 @@ export class Core {
       this.wss.once('error', reject);
     });
     this.wss!.on('connection', ws => this.onConnection(ws));
-    this.hookServer = new HookServer(this.cfg.port + 1, ev => {
+    this.hookServer = new HookServer(this.cfg.port + 1, (ev, from) => {
+      const remote = !!from && !isLoopback(from);
+      if (remote) this.macAddr = from;
       const said = this.hooks.handle(ev);
       // A session Aang started for Joshua gets its own, fuller news, with a way straight to it.
       const mine = this.launched.find(l => l.state !== 'ended' && isFrom(l, ev));
@@ -631,9 +795,24 @@ export class Core {
         if (news) void this.announceJob(news, mine.cwd, { asked: true, focus: CLAUDE_WINDOW });
         return;
       }
-      if (said) this.announce(said.text);
-    });
-    try { await this.hookServer.start(); }
+      // A session he started himself, outside Aang, still gets the same two tiers - his rule, 2026-09-22:
+      // "extend it for self-started sessions too". 'waiting' is Notification/blocked (the same shape as
+      // blocking); 'finished' is Stop with nothing left to answer (the same shape as done). Both are asked:true
+      // on purpose - they are HookTracker's OWN judgement of what is worth saying (canSay's 60s repeat guard,
+      // Stop's long-turn-or-was-waiting filter), not routine chatter, so the quiet-hold that "only when I asked
+      // for it" exists for should not swallow them either. No jobCwd: there is no Panel tab for a session Aang
+      // did not launch; a click on the icon takes him to Claude (here, or on the Mac).
+      // A MacBook session (it came over Tailscale) says so, and a click brings Claude forward on the Mac, not here.
+      if (said) {
+        const text = remote ? said.text.replace(/^Claude Code/, 'Claude Code on the MacBook') : said.text;
+        const where = remote ? { host: 'mac' as const } : { focus: CLAUDE_WINDOW };
+        this.announce(text, said.kind === 'waiting' ? { asked: true, blocking: true, ...where } : { asked: true, done: true, ...where });
+      }
+    }, this.keyFile('hook.key'), code => this.setupFor(code));
+    try {
+      await this.hookServer.start();
+      if (this.hookServer.tailnet) console.log(`hooks: also listening on Tailscale ${this.hookServer.tailnet}:${this.cfg.port + 1}`);
+    }
     catch (e) { console.error('hook endpoint could not start:', (e as Error).message); this.hookServer = null; }
     // Fold the memory journal back into the database every few minutes; a Shadow session runs four
     // hours and ends with a hard shutdown, so do not leave it all for a clean stop that may never come.
@@ -833,6 +1012,7 @@ export class Core {
       case 'hush': this.send(ws, { t: 'hush.reply', text: this.hush(Number(m.minutes)) }); break;
       case 'panel': this.send(ws, this.panelData()); break;
       case 'history': { const q = typeof m.q === 'string' ? m.q.slice(0, 200) : ''; this.send(ws, { t: 'history.reply', q, items: this.memory.history(q, 200) }); break; }
+      case 'claude.front': void this.frontOnMac(); break;
       case 'claude.reply': {
         const cwd = typeof m.cwd === 'string' ? m.cwd : '', text = typeof m.text === 'string' ? m.text.trim() : '';
         const job = this.launched.find(l => l.state !== 'ended' && l.cwd.toLowerCase() === cwd.toLowerCase());
@@ -902,6 +1082,7 @@ export class Core {
   private submit(sub: Submission): void {
     const t0 = Date.now();
     this.mailOutcome = null;
+    this.turnActions = [];
     // Acknowledge first, before any decision or model work: this is the "it heard me" moment.
     this.send(sub.socket, { t: 'ack', id: sub.id });
 
@@ -918,14 +1099,16 @@ export class Core {
     this.begin(sub, choice.lane, Date.now() - t0);
   }
 
-  private begin(sub: Submission, lane: LaneName, ackMs: number): void {
+  private begin(sub: Submission, lane: LaneName, ackMs: number, escalated = false): void {
     this.toTurn(sub, { t: 'bubble.dots' });
     this.toTurn(sub, { t: 'state', state: 'think' });
-    const turn: Turn = { sub, lane, buf: '', flush: null, stopped: false, startedAt: Date.now(), ackMs, watchdog: null };
+    const turn: Turn = { sub, lane, buf: '', flush: null, stopped: false, startedAt: Date.now(), ackMs, watchdog: null, escalated };
     turn.watchdog = setTimeout(() => this.fail(turn, 'That took too long and I gave up waiting.', 'Try again, or ask something shorter.'), TURN_TIMEOUT_MS);
     this.active = turn;
-    this.tainted = false;
-    this.lane(lane).send(this.withKnown(lane, sub.text));
+    // A job reading a web page must not have that forgotten because he said something: while one runs, the
+    // "read outside content, ask again" flag can only be switched on, never off.
+    if (!this.tasks.running().length) this.tainted = false;
+    this.lane(lane).send(this.withWaiting(this.withKnown(lane, sub.text)));
   }
 
   /** The fact list each lane was last shown, so it is sent again only when it has changed. */
@@ -1021,10 +1204,22 @@ export class Core {
     // The reply must not contradict a real send. If it does not even say so, it is wrong, not just imprecise -
     // replace it outright rather than let a false "still waiting" reach him.
     let reply = linted.cleaned;
+    // The safety net under the routing: Quick answering "I can't" / "do it yourself" is never shown. Smart gets
+    // the same request instead - a structural fix, not a prompt one (voice.ts: prompts are not guarantees). Not
+    // while saving quota: Smart is never chosen silently then.
+    const didSomething = this.turnActions.some(a => a.ok) || !!this.mailOutcome?.sent;
+    if (turn.lane === 'quick' && !turn.escalated && !this.policy.saving && !didSomething && REFUSES.test(reply)) {
+      console.log('escalating: Quick said it could not; handing the turn to Smart');
+      if (turn.watchdog) clearTimeout(turn.watchdog);
+      this.active = null;
+      this.begin(sub, 'smart', turn.ackMs, true);
+      return;
+    }
     if (this.mailOutcome?.sent && !/\bsent\b/i.test(reply)) {
       console.log('grounding: the reply did not say the email was sent; replaced with the tool\'s own words');
       reply = this.mailOutcome.detail;
     }
+    reply = groundReply(reply, this.turnActions);
     this.toTurn(sub, { t: 'bubble', text: reply, stream: false, id: sub.id, who: MODELS[turn.lane].label });
     if (!sub.ephemeral) this.memory.saveTurn(sub.text, reply, 'claude-' + turn.lane);
     this.record({
@@ -1052,14 +1247,20 @@ export class Core {
   /** A genuinely blocking piece of news: it starts "Need input" (Notification, or Stop with a question - see
    *  claude.ts/asksSomething), or it is a fresh session sitting there needing him to press Enter to even start. */
   private static readonly BLOCKING = /^(Need input|The .+ is ready in Claude with the request typed in)/i;
+  /** A session he started finished cleanly, nothing left for him to answer - see claude.ts/newsFor's Stop branch,
+   *  which always phrases it this way. Scoped to job news only (jobCwd set): the word could appear in ordinary
+   *  chat with no such meaning. */
+  private static readonly DONE = /\b(done|finished)\.\s/i;
 
-  announce(text: string, opts: { asked?: boolean; focus?: string; jobCwd?: string; image?: { data: string; mimeType: string }; blocking?: boolean } = {}): void {
+  announce(text: string, opts: { asked?: boolean; focus?: string; jobCwd?: string; image?: { data: string; mimeType: string }; blocking?: boolean; done?: boolean; host?: 'mac' } = {}): void {
     // Hush holds everything, even what he asked to be told about; it comes out when the hush ends.
     if (this.hushUntil > Date.now()) { this.pending.push(text); while (this.pending.length > 8) this.pending.shift(); return; }
+    const blocking = opts.blocking ?? Core.BLOCKING.test(text);
+    const done = !blocking && (opts.done ?? (!!opts.jobCwd && Core.DONE.test(text)));
     const msg: ToBody = {
       t: 'bubble', text, stream: false, proactive: true, asked: opts.asked === true, ...(opts.focus ? { focus: opts.focus, link: 'Claude' } : {}),
       ...(opts.jobCwd ? { jobCwd: opts.jobCwd } : {}), ...(opts.image ? { image: opts.image } : {}),
-      ...((opts.blocking ?? Core.BLOCKING.test(text)) ? { blocking: true } : {}),
+      ...(blocking ? { blocking: true } : {}), ...(done ? { done: true } : {}), ...(opts.host ? { host: opts.host } : {}),
     };
     // Away from the PC: Discord, and only Discord. It keeps its own quiet hours, which make it silent, not lost.
     if (this.whereHeIs() === 'discord') { this.sendTo('discord', msg); return; }

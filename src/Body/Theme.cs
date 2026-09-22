@@ -29,6 +29,7 @@ static class Theme
     public static readonly Color Claude = Color.FromArgb(255, 0xE8, 0x8A, 0x6A);      // Claude's terracotta, for anything that is Claude
     public static readonly Color Panel2 = Color.FromArgb(255, 26, 17, 50);            // the Panel's lists and text areas, a step lighter than the ink
     public static readonly Color Halo = Color.FromArgb(120, 0, 0, 0);                 // under the outline, so it holds on bright ground
+    public static readonly Color AvatarGlow = Color.FromArgb(255, 200, 232, 255);     // Avatar State: something truly blocking. Means only this, nowhere else.
 
     // ---- modes: one gold outer frame for everything, and an inner stroke that says which brain is answering.
     public static readonly Color ModeQuick = Color.FromArgb(255, 0, 209, 255);        // #00D1FF
