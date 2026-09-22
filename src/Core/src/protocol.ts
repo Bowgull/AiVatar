@@ -9,7 +9,11 @@ export type ToBody =
       /** Something he asked to be told about: shown even in quiet mode. */
       asked?: boolean;
       /** The window a click on the bubble brings forward, and the word in the text to mark as that link. */
-      focus?: string; link?: string }
+      focus?: string; link?: string;
+      /** A Claude Code job this update is about (its folder): lets Discord remember the message so a reply continues that job. */
+      jobCwd?: string;
+      /** A picture of what it is doing right now, taken only while he is away and only once he has already trusted pictures to Discord. */
+      image?: { data: string; mimeType: string } }
   | { t: 'bubble.dots' }
   | { t: 'bubble.clear' }
   | { t: 'quiet'; on: boolean }
@@ -79,6 +83,8 @@ export type FromBody =
   | { t: 'panel' }
   | { t: 'forget.fact'; id: number }
   | { t: 'history'; q?: string }
+  /** A reply to a Claude Code job's update in Discord: told to that job, as a fresh follow-up in its folder. */
+  | { t: 'claude.reply'; cwd: string; text: string }
   /** A picture of his window: base64 JPEG, and how much of it is black (protected video comes out black). */
   | { t: 'look'; id: string; ok: boolean; data?: string | null; w?: number; h?: number; black?: number; error?: string | null };
 

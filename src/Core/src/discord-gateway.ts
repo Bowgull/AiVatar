@@ -155,6 +155,7 @@ export class WsCoreLink implements CoreLink {
   hush(minutes: number) { this.send({ t: 'hush', minutes }); }
   mailAct(id: string, hash: string, action: 'send' | 'save' | 'discard') { this.send({ t: 'mail.act', id, hash, action }); }
   brief() { this.send({ t: 'brief' }); }
+  claudeReply(cwd: string, text: string) { this.send({ t: 'claude.reply', cwd, text }); }
   onEvent(cb: (m: any) => void) { this.cbs.push(cb); }
   close() { this.closed = true; this.ws?.close(); }
 }

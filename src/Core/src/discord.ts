@@ -65,10 +65,12 @@ export interface CoreLink {
   hush(minutes: number): void;
   mailAct(id: string, hash: string, action: 'send' | 'save' | 'discard'): void;
   brief(): void;
+  /** A reply to a Claude Code job's update: continue that job (by its folder) with his words. */
+  claudeReply(cwd: string, text: string): void;
   onEvent(cb: (m: any) => void): void;
 }
 
-export interface State { ownerId: string | null; channels: Record<string, string>; lastSeen: Record<string, string>; deckId?: string; recipes?: Record<string, string[]>; /** email draft id -> where its card is, so a change edits the card in place */ mail?: Record<string, { c: string; m: string }> }
+export interface State { ownerId: string | null; channels: Record<string, string>; lastSeen: Record<string, string>; deckId?: string; recipes?: Record<string, string[]>; /** email draft id -> where its card is, so a change edits the card in place */ mail?: Record<string, { c: string; m: string }>; /** Claude job folder -> where its last update is, so a reply there continues that job */ jobs?: Record<string, { c: string; m: string }> }
 
 /** The pinned buttons in #aang. Status costs nothing; the job hunt goes through Aang like anything he types. */
 export const DECK: Button[] = [
@@ -130,7 +132,7 @@ export class DiscordAdapter {
   private now() { return (this.opts.now ?? (() => new Date()))(); }
 
   async start(): Promise<void> {
-    try { const s = JSON.parse(readFileSync(this.stateFile, 'utf8')); this.state = { ownerId: s.ownerId ?? null, channels: s.channels ?? {}, lastSeen: s.lastSeen ?? {}, ...(s.deckId ? { deckId: s.deckId } : {}), ...(s.recipes ? { recipes: s.recipes } : {}), ...(s.mail ? { mail: s.mail } : {}) }; }
+    try { const s = JSON.parse(readFileSync(this.stateFile, 'utf8')); this.state = { ownerId: s.ownerId ?? null, channels: s.channels ?? {}, lastSeen: s.lastSeen ?? {}, ...(s.deckId ? { deckId: s.deckId } : {}), ...(s.recipes ? { recipes: s.recipes } : {}), ...(s.mail ? { mail: s.mail } : {}), ...(s.jobs ? { jobs: s.jobs } : {}) }; }
     catch { /* first run */ }
     this.gw.onMessage(m => { void this.handle(m).catch(e => this.log('discord: message failed: ' + (e as Error).message)); });
     this.gw.onButton(b => { void this.press(b).catch(e => this.log('discord: button failed: ' + (e as Error).message)); });
@@ -217,9 +219,19 @@ export class DiscordAdapter {
     if (/^(stop|\/stop)$/i.test(text)) { this.link.stop(); await this.gw.send(m.channelId, { content: 'Stopped.' }); return; }
 
     if (m.channelName === 'drafts') { await this.draftReply(m, text); return; }          // #drafts is for changing drafts, never for chat
+    if (m.replyTo && await this.claudeReplyTo(m, text)) return;
     if (await this.file(m.channelId, m.channelName, text)) return;
     if (await this.jobTalk(m.channelId, m.channelName, text)) return;
     this.ask('d' + m.id, m.channelId, text);
+  }
+
+  /** A reply to one of a Claude Code job's own updates: told to that job, not to Aang. True if it was one. */
+  private async claudeReplyTo(m: Incoming, text: string): Promise<boolean> {
+    const hit = Object.entries(this.state.jobs ?? {}).find(([, v]) => v.m === m.replyTo);
+    if (!hit) return false;
+    await this.gw.send(m.channelId, { content: 'Telling Claude...' });
+    this.link.claudeReply(hit[0]!, text);
+    return true;
   }
 
   // ---------------------------------------------------------------- files from his phone
@@ -513,6 +525,21 @@ export class DiscordAdapter {
     for (const part of chunkMessage(text)) await this.gw.send(id, { content: part, silent });
   }
 
+  /**
+   * A Claude Code job's own update: one message (these stay short, so never chunked), with a picture of what it is
+   * doing when Aang has one. Remembered by the job's folder, so a reply in Discord (any reply to this exact message)
+   * is told to that job rather than treated as ordinary chat.
+   */
+  private async postJob(cwd: string, channel: string, text: string, silent: boolean, image?: { data: string; mimeType: string }): Promise<void> {
+    const channelId = this.state.channels[channel]; if (!channelId) return;
+    const files = image ? [{ name: 'screen.jpg', data: Buffer.from(image.data, 'base64') }] : undefined;
+    const id = await this.gw.send(channelId, { content: text.slice(0, 1900), silent, ...(files ? { files } : {}) });
+    this.state.jobs = { ...(this.state.jobs ?? {}), [cwd]: { c: channelId, m: id } };
+    const keys = Object.keys(this.state.jobs);
+    for (const k of keys.slice(0, Math.max(0, keys.length - 40))) delete this.state.jobs[k];
+    this.save();
+  }
+
   private finish(id: string): { channelId: string } | null {
     const p = this.pending.get(id); if (!p) return null;
     if (p.timer) clearInterval(p.timer);
@@ -534,6 +561,7 @@ export class DiscordAdapter {
         const kind = kindOf(ev);
         const loud = this.budget.loud(kind, this.now());
         const channel = kind === 'asked' && /^Need input/i.test(ev.text) ? 'needs-you' : 'aang';
+        if (typeof ev.jobCwd === 'string' && ev.jobCwd) { await this.postJob(ev.jobCwd, channel, ev.text, !loud, ev.image); return; }
         await this.say(channel, ev.text, !loud);
       }
       return;
