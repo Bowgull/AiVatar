@@ -36,6 +36,8 @@ import { buildSystemPrompt, lint, stripReasoning } from './voice.ts';
 import { MAX_SEND_BYTES, clock, mimeOf, statusText, whyNotSend } from './phone.ts';
 import { ActionLog, UndoStack, formatAction } from './actionlog.ts';
 import { Google } from './google.ts';
+import { Spotify, SpotifyError } from './spotify.ts';
+import { Simkl, episodeLink, findShow } from './simkl.ts';
 import { dueNudges, nudgeText, torontoDay } from './resurface.ts';
 import type { Fetch } from './google.ts';
 import { MailService, MailStore, renderMailCard } from './mail.ts';
@@ -112,6 +114,8 @@ export class Core {
       mailRead: id => this.mailRead('mcp__aang__mail_read', { id }, m => m.read(id)),
       calendar: days => this.mailRead('mcp__aang__calendar_today', { days: days ?? 1 }, m => m.agenda(days ?? 1)),
       mailDraft: input => this.mailDraft(input),
+      playMusic: (what, kind) => this.playMusic(what, kind),
+      watchNext: (show, open) => this.watchNext(show, open),
       listFolder: dir => this.listFolderSafe(dir),
       uiList: app => this.uiList(app),
       uiPress: (app, name) => this.uiAct('press', app, name),
@@ -138,6 +142,51 @@ export class Core {
     const r = doIt();
     if (r.ok && r.undo) { const undo = r.undo; this.undo.push(describeCall(tool, input), () => undo()); }
     return { ok: r.ok, detail: r.detail };
+  }
+
+  // ------------------------------------------------------------------ music
+
+  /** Replaced by tests so no real request is made. */
+  spotifyFetch: import('./google.ts').Fetch | undefined;
+  /** Replaced by tests: how long to wait for Spotify to open before trying again. */
+  spotifyWaitMs = 6000;
+  /** Replaced by tests: open the Spotify app on this PC. */
+  spotifyLaunch = async (): Promise<void> => { const r = resolveOpen('spotify'); if (!('error' in r)) await launch(r); };
+  private async playMusic(what: string, kind?: 'track' | 'playlist' | 'artist' | 'album'): Promise<{ ok: boolean; detail: string }> {
+    const sp = new Spotify(path.join(this.cfg.stateDir, 'spotify.json'), this.spotifyFetch);
+    if (!sp.connected) return { ok: false, detail: 'Spotify is not connected yet. Joshua signs in once by double-clicking tools\\spotify-setup.cmd.' };
+    if (!await this.askPermission('mcp__aang__play_music', { what })) return { ok: false, detail: this.whyNot() + ' Nothing was played.' };
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try { return { ok: true, detail: await sp.play(what, kind) }; }
+      catch (e) {
+        if (e instanceof SpotifyError && e.kind === 'device' && attempt < 2) {
+          // Spotify is not open anywhere: open the app here (he already allowed music) and try again once it is up.
+          if (attempt === 0) await this.spotifyLaunch();
+          await new Promise(r => setTimeout(r, this.spotifyWaitMs));
+          continue;
+        }
+        return { ok: false, detail: e instanceof SpotifyError ? e.message : `Spotify failed: ${(e as Error).message}` };
+      }
+    }
+    return { ok: false, detail: 'Spotify did not open in time. Open it and ask again.' };
+  }
+
+  /** Replaced by tests so no real request is made. */
+  simklFetch: import('./google.ts').Fetch | undefined;
+  /** What he is watching, and the next episode of it; with open, that episode is opened (as a link: asked once). */
+  private async watchNext(show?: string, open?: boolean): Promise<{ ok: boolean; detail: string }> {
+    const sk = new Simkl(path.join(this.cfg.stateDir, 'simkl.json'), this.simklFetch);
+    if (!sk.connected) return { ok: false, detail: 'Simkl is not connected yet. Joshua signs in once by double-clicking tools\\simkl-setup.cmd.' };
+    if (!await this.askPermission('mcp__aang__watch_next', {})) return { ok: false, detail: this.whyNot() };
+    let list;
+    try { list = await sk.watching(); } catch (e) { return { ok: false, detail: (e as Error).message }; }
+    if (!list.length) return { ok: true, detail: 'Nothing is marked as watching on his Simkl list.' };
+    const s = show?.trim() ? findShow(list, show) : list[0]!;
+    if (!s) return { ok: false, detail: `"${show}" is not on his watching list. He is watching: ${list.map(x => x.title).join(', ')}.` };
+    const line = (x: typeof s) => `${x.title}: next is episode ${x.next}${x.total ? ` of ${x.total}` : ''}`;
+    if (!open) return { ok: true, detail: show?.trim() ? line(s) : list.map(line).join('\n') };
+    const r = await this.open(episodeLink(sk.site, s));
+    return r.ok ? { ok: true, detail: `Opened episode ${s.next} of ${s.title}${s.total ? ` (of ${s.total})` : ''}. ${r.detail}` } : r;
   }
 
   // ------------------------------------------------------------------ email and calendar

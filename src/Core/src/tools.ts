@@ -74,6 +74,8 @@ export const TOOL_LABELS: Record<string, string> = {
   force_quit: 'force-quitting that',
   arrange_window: 'moving that window',
   media_key: 'pressing that key',
+  play_music: 'putting that on',
+  watch_next: 'checking your watch list',
   remember: 'writing that down',
   forget: 'forgetting that',
   what_you_know: 'checking what I know about you',
@@ -105,7 +107,7 @@ export const TOOL_NAMES = ['mcp__aang__get_time', 'mcp__aang__get_weather', 'mcp
   'mcp__aang__what_did_you_do', 'mcp__aang__undo_last', 'mcp__aang__my_permissions', 'mcp__aang__revoke_permission',
   'mcp__aang__list_folder', 'mcp__aang__move_file', 'mcp__aang__copy_file', 'mcp__aang__make_folder', 'mcp__aang__delete_file', 'mcp__aang__copy_to_clipboard',
   'mcp__aang__list_controls', 'mcp__aang__press_control', 'mcp__aang__fill_control',
-  'mcp__aang__mail_inbox', 'mcp__aang__mail_read', 'mcp__aang__calendar_today', 'mcp__aang__mail_draft'];
+  'mcp__aang__mail_inbox', 'mcp__aang__mail_read', 'mcp__aang__calendar_today', 'mcp__aang__mail_draft', 'mcp__aang__play_music', 'mcp__aang__watch_next'];
 
 /**
  * What he can honestly say he can do. A tool result, not prompt text: a long "here is what you can do" block in the
@@ -121,6 +123,8 @@ export const ABILITIES = [
   '- Look in a folder, then move, copy, rename and make folders (never overwriting anything), and delete: a delete always asks and goes to my trash for 30 days, so it can be undone. Never a whole drive or his main folders themselves.',
   '- Put text on his clipboard.',
   '- Look at the buttons and fields in an app and press or fill them by name. Asked once per app. Anything that sends, pays, deletes, signs in or agrees, and anything at all in a web browser, asks every time. Never a password field.',
+  '- Know what he is watching (anime and shows, from Simkl) and put the next episode on.',
+  '- Play music by name on Spotify (a song, artist, album or playlist), and press media keys for pause, next and volume.',
   '- Close apps, move and resize windows, and press media keys. Force quit an app: that always asks first.',
   '- Read what is in the window he is in, and look at it. Read his clipboard.',
   '- Send a file, or a picture of the window he is in, to his Discord so he can see it on his phone. Never files that hold passwords or keys.',
@@ -157,6 +161,8 @@ export interface Doers {
   mailRead(id: string): Promise<{ ok: boolean; detail: string }>;
   calendar(days?: number): Promise<{ ok: boolean; detail: string }>;
   mailDraft(input: { to: string[]; subject: string; body: string; replyToId?: string }): Promise<{ ok: boolean; detail: string }>;
+  playMusic(what: string, kind?: 'track' | 'playlist' | 'artist' | 'album'): Promise<{ ok: boolean; detail: string }>;
+  watchNext(show?: string, open?: boolean): Promise<{ ok: boolean; detail: string }>;
   /** Something acting has finished: for the activity log. */
   report(tool: string, input: Record<string, unknown>, failed: boolean, text: string): void;
   /** Something that can be put back, for undo_last. */
@@ -169,7 +175,7 @@ export interface Doers {
 
 /** Tools whose use is written to the activity log. Reading the time or the weather is not worth a line. */
 const LOGGED = new Set(['open', 'run', 'start_claude', 'read_window', 'look_at_window', 'read_clipboard', 'send_to_phone',
-  'mail_inbox', 'mail_read', 'calendar_today', 'mail_draft',
+  'mail_inbox', 'mail_read', 'calendar_today', 'mail_draft', 'play_music', 'watch_next',
   'write_file', 'edit_file', 'undo_file_change', 'undo_last', 'close_app', 'force_quit', 'arrange_window', 'media_key',
   'remember', 'forget', 'set_reminder', 'cancel_reminder', 'revoke_permission', 'look_up_web',
   'move_file', 'copy_file', 'make_folder', 'delete_file', 'copy_to_clipboard', 'list_controls', 'press_control', 'fill_control']);
@@ -303,6 +309,8 @@ export function describeCall(tool: string, input: Record<string, unknown>): stri
     case 'mcp__aang__mail_inbox': return s('query') ? `look through your email for ${short(s('query'), 50)}` : 'look through your inbox';
     case 'mcp__aang__mail_read': return 'read one of your emails';
     case 'mcp__aang__calendar_today': return 'look at your calendar';
+    case 'mcp__aang__play_music': return `play ${short(s('what'), 60)} on Spotify`;
+    case 'mcp__aang__watch_next': return 'look at your watch list on Simkl';
     case 'mcp__aang__mail_draft': return `draft an email to ${short(Array.isArray(input?.to) ? (input.to as unknown[]).join(', ') : '', 60)}: ${short(s('subject'), 60)}`;
     // The whole email is in the question: what he approves is what is sent.
     case 'mcp__aang__mail_send': return `SEND this email to ${short(s('to'), 100)}${s('fresh') ? ` (NEW address: ${short(s('fresh'), 60)})` : ''}. Subject: ${short(s('subject'), 100)}. It says: ${short(s('body'), 700)}`;
@@ -456,6 +464,12 @@ export function makeToolServer(
       tool('mail_draft', 'Write an email or a reply FOR HIM TO APPROVE. It is shown to him with a Send button; nothing is sent until he taps it, so never say it was sent, say it is waiting for him. For a reply, give replyToId (the id from mail_inbox) and the sender is filled in as the recipient if you leave `to` as that person. Write it in his voice: short, plain, no filler. One recipient unless he said otherwise.',
         { to: z.array(z.string()).describe('recipient email addresses'), subject: z.string(), body: z.string().describe('the email text, plain, no subject line inside it'), replyToId: z.string().optional().describe('the id of the email being answered') },
         async ({ to, subject, body, replyToId }) => { if (!doers) return fail('Email is not available right now.'); const r = await doers.mailDraft({ to, subject, body, ...(replyToId ? { replyToId } : {}) }); return r.ok ? ok(r.detail) : fail(r.detail); }),
+      tool('watch_next', 'What he is watching and the next episode of each (anime and TV, from his Simkl list), and putting the next one on. "put the next one on" / "next episode of Frieren": open=true with the show (leave show out for the one he watched last). "what am I watching" / "where was I on X": open=false.',
+        { show: z.string().optional().describe('the show, in his words; leave out for the one he watched last'), open: z.boolean().optional().describe('true to open the next episode') },
+        async ({ show, open }) => { if (!doers) return fail('The watch list is not available right now.'); const r = await doers.watchNext(show, open); return r.ok ? ok(r.detail) : fail(r.detail); }),
+      tool('play_music', 'Play music on Spotify by name: "play lo-fi girl", "put on Hotel California", "play some Radiohead", "play my Chill playlist". For pause, next or volume use media_key instead. Give kind when he said it ("the album", "the playlist", "songs by").',
+        { what: z.string().describe('what to play, in his words'), kind: z.enum(['track', 'playlist', 'artist', 'album']).optional() },
+        async ({ what, kind }) => { if (!doers) return fail('Music is not available right now.'); const r = await doers.playMusic(what, kind); return r.ok ? ok(r.detail) : fail(r.detail); }),
       tool('what_did_you_do','What you have done on his computer, newest last: files written, apps closed, things opened, commands run, what you read or sent. Use for "what did you just do", "what have you done today", "did you close that".',
         { count: z.number().optional().describe('how many recent actions, default 10') },
         async ({ count }) => ok(doers ? doers.recent(count ?? 10) : 'The activity record is not available right now.')),
