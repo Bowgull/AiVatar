@@ -236,7 +236,7 @@ sealed class PetWindow : Form
                         case "autostart": Autostart.Set(on); break;
                     }
                 },
-                RunAction = what => { if (what == "hotkey") AskForHotkey(); else if (what == "undock") Undock(moveToStand: true); },
+                RunAction = what => { if (what == "hotkey") AskForHotkey(); else if (what == "undock") Undock(moveToStand: true); else if (what == "claude") Hands.Arrange("Claude", "front"); },
             };
         }
         panel.Show(); panel.WindowState = FormWindowState.Normal; Win32.ForceForeground(panel.Handle); panel.Activate();   // Windows otherwise leaves it behind the window in front

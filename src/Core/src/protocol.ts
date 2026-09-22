@@ -36,7 +36,9 @@ export type ToBody =
   | { t: 'mail.card'; id: string; content: string; buttons: { id: string; label: string; style: 'primary' | 'secondary' | 'success' | 'danger' }[] }
   /** Everything the Panel shows, worked out without the model. `notice`: something to say at the top (a draft that would not send). */
   | { t: 'panel.reply'; facts: { id: number; text: string; seen: string; times: number }[]; trust: { kind: string; example: string; since: string }[]; actions: string;
-      drafts: { id: string; hash: string; to: string[]; subject: string; body: string; status: string; newTo: string[] }[]; mail: boolean; notice?: string }
+      drafts: { id: string; hash: string; to: string[]; subject: string; body: string; status: string; newTo: string[] }[]; mail: boolean; notice?: string;
+      /** Claude Code sessions he started through Aang, newest first. */
+      sessions?: { name: string; kind: string; state: string; since: string; last: string }[] }
   /** The Panel's History tab: past turns, newest first, matching `q` (all of its words). */
   | { t: 'history.reply'; q: string; items: { id: number; ts: string; who: 'you' | 'Aang'; text: string }[] }
   /** The morning brief, worked out without the model. */
