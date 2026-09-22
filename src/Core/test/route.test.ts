@@ -39,6 +39,26 @@ test('a request to DO something goes to Smart - his real ones that Quick fumbled
   assert.equal(pickLane('tell me a one line fun fact', 'auto', false, false).lane, 'quick');
 });
 
+test('everyday idioms that happen to contain an ACT word do not escalate - his real false positives, 2026-09-22', () => {
+  for (const t of ['on that note, how are you', 'I went for a run this morning', 'I want to go to bed', 'ugh, going to bed now'])
+    assert.equal(pickLane(t, 'auto', false, false).lane, 'quick', t);
+  // but the same words, meant as real requests, still escalate - the fix must not go too far the other way
+  assert.equal(pickLane('I need to set a reminder for tomorrow', 'auto', false, false).lane, 'smart');
+  assert.equal(pickLane('can you check my email', 'auto', false, false).lane, 'smart');
+  assert.equal(pickLane('close notepad for me', 'auto', false, false).lane, 'smart');
+});
+
+test('where he asked is the strongest signal: Discord is away, so it gets Smart outright', () => {
+  // 2026-09-22: on Discord he is on his phone, away - 444ms of first token buys him nothing there, and a
+  // wrong "I can't do that" costs him the errand. In the bubble he is at the PC and speed is the point.
+  assert.equal(pickLane('whats the time', 'auto', false, false, 'discord').lane, 'smart', 'away: right beats fast');
+  assert.equal(pickLane('are you there?', 'auto', false, false, 'discord').lane, 'smart');
+  assert.equal(pickLane('whats the time', 'auto', false, false, 'desktop').lane, 'quick', 'at the PC: still fast');
+  assert.equal(pickLane('whats the time', 'auto', false, false).lane, 'quick', 'no channel given behaves as the desktop did');
+  // his own "spend less" still wins over all of it
+  assert.equal(pickLane('open notepad', 'auto', true, false, 'discord').lane, 'quick', 'saving quota is never overridden');
+});
+
 test('saving quota keeps Auto on Quick even for hard work', () => {
   assert.equal(pickLane('debug this in detail', 'auto', true, false).lane, 'quick');
 });

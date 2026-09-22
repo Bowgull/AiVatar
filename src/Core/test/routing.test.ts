@@ -104,6 +104,61 @@ test('unprompted messages: desktop while he is at the PC, Discord when he is awa
   await done();
 });
 
+test('switching lane mid-conversation carries a recap; staying on the same lane does not', async () => {
+  // Each of Quick/Smart/Deep is its own persistent session with its own history (2026-09-22): a handoff used
+  // to arrive with no idea what was just said. Now the lane that is being switched TO gets a short recap of
+  // the last exchange, and only on a genuine switch - not on every turn.
+  const port = 47988;
+  const core: any = new Core({ port, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
+  const sent: { name: string; text: string }[] = [];
+  core.lane = (name: string) => ({ send: (text: string) => sent.push({ name, text }), interrupt: async () => {} });
+  await core.start();
+  const desk = await client(port);
+
+  desk.c.send(JSON.stringify({ t: 'submit', id: 'a', text: 'hi' }));            // -> quick
+  await wait(100);
+  assert.equal(sent[0]!.name, 'quick');
+  assert.ok(!sent[0]!.text.includes('<recap>'), 'nothing to recap on the very first turn');
+  core.onLaneEvent('quick', { t: 'result', ok: true, text: 'Hey.', tools: [], ms: 5 });
+  await wait(100);
+
+  desk.c.send(JSON.stringify({ t: 'submit', id: 'b', text: 'open notepad' }));  // ACT -> smart: a real switch
+  await wait(100);
+  assert.equal(sent[1]!.name, 'smart');
+  assert.match(sent[1]!.text, /<recap>[\s\S]*hi[\s\S]*Hey\.[\s\S]*<\/recap>/);
+  core.onLaneEvent('smart', { t: 'result', ok: true, text: 'Opened.', tools: ['open'], ms: 5 });
+  await wait(100);
+
+  desk.c.send(JSON.stringify({ t: 'submit', id: 'c', text: 'write a short poem' })); // HARD -> smart again: no switch
+  await wait(100);
+  assert.equal(sent[2]!.name, 'smart');
+  assert.ok(!sent[2]!.text.includes('<recap>'), 'still on Smart: its own session already has this');
+
+  desk.c.close(); await core.stop();
+});
+
+test('a job-hunt STATUS QUESTION does not launch a new sweep; a real request still does', async () => {
+  // 2026-09-22: JOB_HUNT_RE matched "job hunt" anywhere, so "how's the job hunt going" launched a whole new
+  // Mac sweep instead of just being answered. JOB_HUNT_QUESTION_RE excludes question-shaped phrasing.
+  const port = 47987;
+  const core: any = new Core({ port, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
+  const macRuns: string[] = [];
+  core.runOnMac = async (text: string) => { macRuns.push(text); return true; };
+  core.lane = () => ({ send: () => {}, interrupt: async () => {} });   // the question path must not reach here for real
+  await core.start();
+  const desk = await client(port);
+
+  desk.c.send(JSON.stringify({ t: 'submit', id: 'a', text: "how's the job hunt going" }));
+  await wait(100);
+  assert.equal(macRuns.length, 0, 'a question about it is not a request to run it');
+
+  desk.c.send(JSON.stringify({ t: 'submit', id: 'b', text: 'run my job search for today' }));
+  await wait(100);
+  assert.equal(macRuns.length, 1, 'a real request still launches the sweep');
+
+  desk.c.close(); await core.stop();
+});
+
 test('away but Discord is not connected: the desktop still gets it rather than nobody', async () => {
   const core: any = new Core({ port: 47995, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
   await core.start();

@@ -94,3 +94,14 @@ test('a job cut off by a restart is kept, marked, and can be carried on', () => 
   assert.equal(s.find('resume')?.id, 'job3');
   assert.equal(nameFor('Sort out my Downloads folder, please!'), 'sort out my downloads folder');
 });
+
+test('a job runs on Sonnet unless he actually asked for the strongest model', async () => {
+  // 2026-09-22 (Joshua's call): every job used to run on Opus, which both drains his plan fastest and has
+  // its own separate weekly cap - so tidying a folder was spending the scarcest thing he has.
+  await withCore(47997, async core => {
+    const normal = core.workerLane({ id: 'j1', name: 'tidy', deep: false });
+    assert.match(normal.opts.model, /sonnet/, 'an ordinary job: Sonnet');
+    const asked = core.workerLane({ id: 'j2', name: 'hard one', deep: true });
+    assert.match(asked.opts.model, /opus/, 'he asked for it: Opus');
+  });
+});

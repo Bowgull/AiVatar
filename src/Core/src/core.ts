@@ -24,7 +24,7 @@ import type { ActRunner } from './uia.ts';
 import { copyThing, deleteThing, emptyOldTrash, listFolder, makeFolder, moveThing } from './organise.ts';
 import type { Result as OrganiseResult } from './organise.ts';
 import type { Doers } from './tools.ts';
-import { READ_ONLY_BUILTINS, TOOL_NAMES, BUILTIN_SHELL, BUILTIN_WRITE, SHELL_TOOLS, WEB_PROMPT, WEB_TOOLS, describeCall, isLauncher, makeToolServer, reachesNetwork } from './tools.ts';
+import { TOOL_NAMES, BUILTIN_SHELL, BUILTIN_WRITE, PLAYWRIGHT_SERVER, SHELL_TOOLS, WEB_PROMPT, WEB_TOOLS, describeCall, isLauncher, makeToolServer, reachesNetwork } from './tools.ts';
 import { HookServer, HookTracker, isLoopback } from './hooks.ts';
 import { Reminders } from './reminders.ts';
 import { SessionStore } from './sessions.ts';
@@ -104,10 +104,15 @@ export const REFUSES = /\b(I can(?:'|no)?t\b|I(?:'m| am) (?:not able|unable)|I d
  *  should prefer the Mac"). Caught before routing, not left to the model to recognise and call do_task with,
  *  so it never costs a model turn just to be noticed - the same as the "Job hunt now" button always was. */
 export const JOB_HUNT_RE = /\b(job\s*hunt|job\s*search|(?:search|look(?:ing)?|check(?:ing)?|hunt(?:ing)?)\s+(?:for|through)\s+(?:new\s+|a\s+)?jobs?\b|find\s+me\s+a\s+job|sweep\s+(?:the\s+)?job\s*boards?)/i;
+/** "How's the job hunt going" is a question ABOUT it, not a request to run it - found live (2026-09-22): it
+ *  matched JOB_HUNT_RE too and launched a whole new sweep instead of just answering. A question opener (or
+ *  asking how it's going/what happened) means answer from what he already knows, not start one. */
+export const JOB_HUNT_QUESTION_RE = /^\s*(how|what|any|did|has|have|is|was|when)\b|\b(going|status|update|happening|any luck|anything)\b.{0,20}$/i;
 
 export interface TurnRecord {
   ts: string; id: string; lane: LaneName; user: string; reply: string;
-  ms: number; ttftMs: number | null; ackMs: number; ctxTokens: number; tools: string[]; fixed: string[]; flags: string[];
+  ms: number; ttftMs: number | null; ackMs: number; ctxTokens: number; cacheReadTokens: number; cacheWriteTokens: number;
+  tools: string[]; fixed: string[]; flags: string[];
 }
 
 const FLUSH_MS = 40;            // batch streamed text into ~40 ms paints
@@ -128,6 +133,9 @@ export class Core {
   private readonly lanes = new Map<LaneName, Lane>();
   private readonly queue: Submission[] = [];
   private readonly recent = new Map<string, { lane: LaneName; user: string; reply: string }>();
+  /** Which lane handled the last chat turn, so a switch (Quick warming up, then one question needs Smart)
+   *  can be handed a recap instead of arriving with no idea what was just said - see withRecap(). */
+  private lastLane: LaneName | null = null;
   private active: Turn | null = null;
   private readonly systemPrompt: string;
   /** Built fresh per lane: one in-process MCP server cannot serve two live queries. Sharing it made
@@ -152,9 +160,13 @@ export class Core {
     let l = this.workers.get(t.id);
     if (l) return l;
     l = new Lane({
-      name: 'worker-' + t.id, model: MODELS.deep.model, systemPrompt: WORKER_PROMPT, mcpServer: this.tools(true),
+      // Sonnet, not Opus (2026-09-22, Joshua's call). Every background job used to run on the strongest
+      // model whether it needed it or not, and on his plan Opus both drains the fastest AND has its own
+      // separate weekly cap - so a tidy-my-downloads job was quietly spending the scarcest thing he has.
+      // Opus only when he actually asks for it (do_task's `deep`).
+      name: 'worker-' + t.id, model: (t.deep ? MODELS.deep : MODELS.smart).model, systemPrompt: WORKER_PROMPT, mcpServer: this.tools(true),
       // The same tools and the same gates as chat, nothing more: a job is Aang working, not a way around him.
-      allowedTools: [...TOOL_NAMES, ...READ_ONLY_BUILTINS],
+      allowedTools: [...TOOL_NAMES],
       disallowedTools: [...WEB_TOOLS, ...BUILTIN_SHELL, ...BUILTIN_WRITE],
       askPermission: (tool, input) => this.askPermission(tool, input),
       claudeExecutable: this.cfg.claudeExecutable, maxTurns: WORKER_TURNS,
@@ -167,12 +179,12 @@ export class Core {
     return l;
   }
 
-  private async startTask(task: string, name?: string): Promise<string> {
+  private async startTask(task: string, name?: string, deep = false): Promise<string> {
     if (!task.trim()) return 'Nothing to do: the job was empty.';
-    if (this.policy.saving) return 'Saving quota is on, so no background job was started: a job runs on the biggest model. Tell him that, and that he can turn saving off, or ask for one step at a time here instead.';
+    if (this.policy.saving) return 'Saving quota is on, so no background job was started. Tell him that, and that he can turn saving off, or ask for one step at a time here instead.';
     const busy = this.tasks.running();
     if (busy.length >= MAX_RUNNING) return `Not started: ${busy.length} jobs are already running (${busy.map(t => `"${t.name}"`).join(', ')}). Tell him it can start when one of them finishes.`;
-    const t = this.tasks.add(task.trim(), name);
+    const t = this.tasks.add(task.trim(), name, Date.now(), deep);
     this.actions.add({ tool: 'do_task', did: `started a background job: "${t.name}"`, ok: true, note: '' });
     void this.runTask(t, task.trim());
     return `Started "${t.name}" in the background. It will tell him itself when it is done or needs him. Say so in one short line; do not wait for it.`;
@@ -239,7 +251,7 @@ export class Core {
       calendar: days => this.mailRead('mcp__aang__calendar_today', { days: days ?? 1 }, m => m.agenda(days ?? 1)),
       mailDraft: input => this.mailDraft(input),
       tasks: {
-        start: (task, name) => this.startTask(task, name),
+        start: (task, name, deep) => this.startTask(task, name, deep),
         tell: (which, message) => this.tellTask(which, message),
         status: () => describeTasks(this.tasks.list()),
         stop: which => this.stopTask(which),
@@ -710,6 +722,21 @@ export class Core {
     });
   }
   readonly hooks = new HookTracker();
+  /**
+   * A directory only Aang's own chat lanes ever use as their session cwd - never a real folder he opens in
+   * Claude Code himself. Once settingSources included 'user' (for Agent Skills, 2026-09-22), Aang's own
+   * lanes started loading his settings.json, whose hooks POST to this same HookServer - so this chat lane's
+   * own replies would otherwise show up indistinguishable from one of his real coding sessions finishing.
+   * The hook handler drops anything posted with this exact cwd before it reaches HookTracker or announce().
+   */
+  private selfCwdPath: string | null = null;
+  selfCwd(): string {
+    if (!this.selfCwdPath) {
+      this.selfCwdPath = path.join(this.cfg.dataDir, '.aang-self');
+      try { mkdirSync(this.selfCwdPath, { recursive: true }); } catch { /* best effort; a missing dir just falls back to process.cwd() */ }
+    }
+    return this.selfCwdPath;
+  }
   /** Which window Joshua is in. Memory only, never written to disk. */
   readonly activity = new ActivityLog();
   readonly reminders: Reminders;
@@ -821,6 +848,10 @@ export class Core {
     });
     this.wss!.on('connection', ws => this.onConnection(ws));
     this.hookServer = new HookServer(this.cfg.port + 1, (ev, from) => {
+      // Aang's own chat lanes now load his user settings (for Agent Skills), so his own settings.json hooks
+      // fire for their turns too. Any hook event whose cwd is Aang's own dedicated session directory is Aang
+      // talking to himself, not a Claude Code session Joshua is in - drop it before it reaches HookTracker.
+      if (String(ev?.cwd ?? '') === this.selfCwd()) return;
       const remote = !!from && !isLoopback(from);
       if (remote) this.macAddr = from;
       const said = this.hooks.handle(ev);
@@ -919,6 +950,10 @@ export class Core {
         // and a test reply showed it asking to run curl. A lane that reads untrusted pages must not be able
         // to see a shell at all, and canUseTool is not a reliable gate for the shell on this machine.
         allowedTools: WEB_TOOLS, onlyTools: WEB_TOOLS,
+        // Playwright MCP (2026-09-22): a real, isolated, headless browser for pages WebFetch cannot read -
+        // same lane, same "no files, no shell, read-only" boundary. See PLAYWRIGHT_TOOLS for exactly which
+        // of its tools are actually offered; the rest (click, type, fill, evaluate, cookies...) are not.
+        externalMcpServers: { playwright: PLAYWRIGHT_SERVER },
         claudeExecutable: this.cfg.claudeExecutable, thinking: { type: 'disabled' },
       });
       this.webLane.onEvent(() => {});
@@ -961,10 +996,21 @@ export class Core {
       // They have to be DISALLOWED, not merely left out of allowedTools. Left out, the model still sees
       // them, reaches for WebFetch first, gets refused and gives up instead of using look_up_web.
       // Measured on 2026-09-20, not guessed.
-      allowedTools: [...TOOL_NAMES, ...READ_ONLY_BUILTINS],
+      // Read/Glob/Grep are deliberately NOT in allowedTools (2026-09-22, was READ_ONLY_BUILTINS): they read
+      // anywhere on the whole disk, no prompt, ever - the one built-in tool class here that was ungated while
+      // every other read (email, calendar, windows, clipboard) already asks once. Left out (not disallowed),
+      // so the model still reaches for them and canUseTool/askPermission decides: free after the first yes,
+      // like everything else, EXCEPT while this turn has read outside content (tainted) - then it asks again,
+      // so a poisoned page cannot quietly turn "read my files" into reading something it named instead.
+      allowedTools: [...TOOL_NAMES],
       disallowedTools: [...WEB_TOOLS, ...BUILTIN_SHELL, ...BUILTIN_WRITE],
       askPermission: (tool, input) => this.askPermission(tool, input),
       claudeExecutable: this.cfg.claudeExecutable,
+      // Agent Skills, user-level only (job-hunt lives in ~/.claude/skills) - 2026-09-22. Loading user
+      // settings also loads his settings.json hooks, which is exactly what SELF_CWD/the hook-server filter
+      // below exist to neutralise, so this chat lane's own turns are never mistaken for one of his real
+      // Claude Code sessions finishing.
+      settingSources: ['user'], skills: ['job-hunt'], cwd: this.selfCwd(),
       // Measured on the warm Quick lane: first token 1369 ms with thinking, 444 ms without. Chat does not
       // need it; Smart and Deep keep it because they are chosen for work that does.
       thinking: name === 'quick' ? { type: 'disabled' } : undefined,
@@ -1086,7 +1132,7 @@ export class Core {
         }
         // Caught here, before the model ever sees it: "run my job search", however phrased, is the same one
         // fixed action as the button. m.ephemeral is his own internal jobs (link vetting) never his own words.
-        if (m.ephemeral !== true && JOB_HUNT_RE.test(text)) {
+        if (m.ephemeral !== true && JOB_HUNT_RE.test(text) && !JOB_HUNT_QUESTION_RE.test(text.trim())) {
           this.send(ws, { t: 'ack', id });
           void this.runOnMac(SWEEP_REQUEST).then(async onMac => {
             if (!onMac) await this.startTask(SWEEP_REQUEST);
@@ -1140,7 +1186,7 @@ export class Core {
     // Acknowledge first, before any decision or model work: this is the "it heard me" moment.
     this.send(sub.socket, { t: 'ack', id: sub.id });
 
-    const choice = pickLane(sub.text, sub.mode, this.policy.saving, sub.once);
+    const choice = pickLane(sub.text, sub.mode, this.policy.saving, sub.once, this.kindOfSocket(sub.socket));
     if (choice.needsConsent) {
       this.send(sub.socket, { t: 'consent', id: sub.id, wanted: sub.mode });
       return;
@@ -1162,7 +1208,25 @@ export class Core {
     // A job reading a web page must not have that forgotten because he said something: while one runs, the
     // "read outside content, ask again" flag can only be switched on, never off.
     if (!this.tasks.running().length) this.tainted = false;
-    this.lane(lane).send(this.withWaiting(this.withKnown(lane, sub.text)));
+    const text = escalated ? this.withWaiting(this.withKnown(lane, sub.text)) : this.withWaiting(this.withKnown(lane, this.withRecap(lane, sub.text)));
+    this.lastLane = lane;
+    this.lane(lane).send(text);
+  }
+
+  /**
+   * Each lane (Quick/Smart/Deep) is its own persistent session with its own history: routing to a different
+   * lane than the one that just answered otherwise arrives with NO idea what was just said, even mid-
+   * conversation - Quick chatting along, then one question tips into Smart, and Smart starts from zero.
+   * Skipped on an internal escalation retry (REFUSES): that resends the exact same question fresh, which
+   * needs no recap of itself. Not every message - only right after a genuine handoff, from `recent` (which
+   * already spans every lane), so a normal same-lane exchange costs nothing extra.
+   */
+  private withRecap(lane: LaneName, text: string): string {
+    if (this.lastLane === null || this.lastLane === lane) return text;
+    const last = [...this.recent.values()].slice(-2);
+    if (!last.length) return text;
+    const lines = last.map(t => `Joshua: ${t.user}\nYou (as ${MODELS[t.lane].label}): ${t.reply}`).join('\n');
+    return `<recap>\nWhat was just said, a moment ago, on a different lane than this one - not part of this session's own history:\n${lines}\n</recap>\n\n${text}`;
   }
 
   /** The fact list each lane was last shown, so it is sent again only when it has changed. */
@@ -1188,7 +1252,7 @@ export class Core {
     this.active = null;
     const sub = this.queue.shift();
     if (!sub) return;
-    const choice = pickLane(sub.text, sub.mode, this.policy.saving, sub.once);
+    const choice = pickLane(sub.text, sub.mode, this.policy.saving, sub.once, this.kindOfSocket(sub.socket));
     this.begin(sub, choice.lane, 0);
   }
 
@@ -1278,7 +1342,9 @@ export class Core {
     if (!sub.ephemeral) this.memory.saveTurn(sub.text, reply, 'claude-' + turn.lane);
     this.record({
       ts: new Date().toISOString(), id: sub.id, lane: turn.lane, user: sub.text, reply,
-      ms: e.ms, ttftMs: e.ttftMs, ackMs: turn.ackMs, ctxTokens: e.ctxTokens, tools: e.tools, fixed: linted.fixed, flags: linted.flags,
+      ms: e.ms, ttftMs: e.ttftMs, ackMs: turn.ackMs, ctxTokens: e.ctxTokens,
+      cacheReadTokens: e.cacheReadTokens, cacheWriteTokens: e.cacheWriteTokens,
+      tools: e.tools, fixed: linted.fixed, flags: linted.flags,
     });
     this.finishTurn(turn);
   }
