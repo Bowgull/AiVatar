@@ -115,6 +115,8 @@ export function kindOf(tool: string, input: Record<string, unknown>): { kind: st
     case 'mcp__aang__send_to_phone': return { kind: 'send to Discord', says: 'send files and pictures of your window to your Discord' };
     case 'mcp__aang__mail_inbox': case 'mcp__aang__mail_read': return { kind: 'read email', says: 'read your email (never send it: a draft always waits for your tap)' };
     case 'mcp__aang__calendar_today': return { kind: 'read calendar', says: 'read your calendar' };
+    case 'mcp__aang__play_music': return { kind: 'play music', says: 'play music on your Spotify' };
+    case 'mcp__aang__watch_next': return { kind: 'read watch list', says: 'read what you are watching on Simkl' };
     // mcp__aang__mail_send is deliberately absent: sending asks every single time, showing the whole email.
     case 'mcp__aang__close_app': return { kind: 'close apps', says: 'close apps by asking them to close' };
     case 'mcp__aang__arrange_window': return { kind: 'arrange windows', says: 'move, minimise and maximise your windows' };
