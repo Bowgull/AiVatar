@@ -36,6 +36,7 @@ import { buildSystemPrompt, lint, stripReasoning } from './voice.ts';
 import { MAX_SEND_BYTES, clock, mimeOf, statusText, whyNotSend } from './phone.ts';
 import { ActionLog, UndoStack, formatAction } from './actionlog.ts';
 import { Google } from './google.ts';
+import { dueNudges, nudgeText, torontoDay } from './resurface.ts';
 import type { Fetch } from './google.ts';
 import { MailService, MailStore, renderMailCard } from './mail.ts';
 import type { DraftInput, MailDraft } from './mail.ts';
@@ -510,6 +511,19 @@ export class Core {
   private hookServer: HookServer | null = null;
   private checkpointTimer: NodeJS.Timeout | null = null;
   private briefTimer: NodeJS.Timeout | null = null;
+  private nudgeTimer: NodeJS.Timeout | null = null;
+
+  /** Say back what he told Aang about today, once each, at most three a day. Returns what was said (tests). */
+  nudge(now = new Date()): string[] {
+    let done: string[] = [];
+    try { done = JSON.parse(this.memory.getMeta('nudged') ?? '[]'); } catch { done = []; }
+    const today = torontoDay(now);
+    const saidToday = done.filter(k => k.endsWith('@' + today)).length;
+    const due = dueNudges(this.memory.list(200).map(f => ({ id: f.id, text: f.text, lastSeen: f.lastSeen })), now, new Set(done), 3 - saidToday);
+    for (const n of due) { done.push(n.key); this.announce(nudgeText(n.text)); }
+    if (due.length) this.memory.setMeta('nudged', JSON.stringify(done.slice(-300)));
+    return due.map(n => nudgeText(n.text));
+  }
   /** Aang is visible but silent: the Body is in quiet mode (the game has focus), or Joshua muted him. */
   private bodyQuiet = false;
   private muted = false;
@@ -574,6 +588,9 @@ export class Core {
     // Once a day, after 7:00 Toronto time, the morning brief is posted on its own (no model, no quota). Only when signed in.
     this.briefTimer = setInterval(() => { void this.mail()?.dailyBrief().then(t => { if (t) this.announce(t); }).catch(() => { /* tried again in ten minutes */ }); }, 10 * 60_000);
     this.briefTimer.unref?.();
+    // Only when relevant (Joshua, 2026-09-21): a day he named has come, so what he said about it comes back. No model.
+    this.nudgeTimer = setInterval(() => this.nudge(), 10 * 60_000);
+    this.nudgeTimer.unref?.();
     const resumable = Object.entries(this.sessions.all()).map(([l, r]) => `${l}=${r.id.slice(0, 8)}`).join(' ');
     console.log(`core listening on ws://127.0.0.1:${this.cfg.port}/body${resumable ? '  resuming ' + resumable : '  (no session to resume)'}`);
     // Give the turns that never had a vector one, in the background. 148 of 466 were embedded by the
@@ -591,6 +608,7 @@ export class Core {
     if (this.permission) this.answerPermission(this.permission.id, false);
     if (this.checkpointTimer) clearInterval(this.checkpointTimer);
     if (this.briefTimer) clearInterval(this.briefTimer);
+    if (this.nudgeTimer) clearInterval(this.nudgeTimer);
     this.reminders.stop();
     await this.hookServer?.stop(); this.hookServer = null;
     this.webLane?.close(); this.webLane = null;

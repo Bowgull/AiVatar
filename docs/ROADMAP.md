@@ -294,6 +294,12 @@ Third-party memory services (privacy). Reddit feed. WoW combat-log analysis (his
    did tab (double-click brings Claude forward). A job not yet started in the same folder is no longer followed when a
    new one takes the folder; one that has its session id still is. Spotify by name is not built: it needs his Spotify
    developer app and sign-in (and Premium for playback control).
+   **Memory depth 2026-09-21 (N, his choice: "only when relevant", no weekly recap):** `resurface.ts` works out the one
+   day a remembered fact names ("Thursday at 2pm", "tomorrow", "Oct 1"; habits like "Tuesdays" or "every Friday" never
+   count), from when it was last said. On that day he says it back from 8:00, or from an hour before its time, once per
+   fact, at most three a day, never before 8 or after 22, through announce (hush, quiet and mute hold it). And
+   `what_we_talked_about` reads back one Toronto day's conversation ("what did we talk about Monday"). No model for
+   either. Not built: document ingestion (local RAG) and nightly consolidation.
 9. **The rest, in this order**: N memory depth, L watching and #anime, M drawing, O finish and the design gate.
 
 Retired and never to be built: C, E, P, and the iMessage half of F.
