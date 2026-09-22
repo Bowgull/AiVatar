@@ -157,7 +157,7 @@ export class DiscordAdapter {
         this.scanTimer.unref?.();
       }
     }
-    await this.say('log', this.state.ownerId ? 'Shadow is on. Aang is back.' : 'Aang is online and waiting to be paired.', true);
+    await this.say('log', this.state.ownerId ? 'Yip yip.' : 'Aang is online and waiting to be paired.', true);
   }
 
   /** One pinned message of buttons in #aang: edited in place if it is still there, otherwise posted and pinned again. */
