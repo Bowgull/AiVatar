@@ -107,7 +107,8 @@ export const TOOL_NAMES = ['mcp__aang__get_time', 'mcp__aang__get_weather', 'mcp
   'mcp__aang__what_did_you_do', 'mcp__aang__undo_last', 'mcp__aang__my_permissions', 'mcp__aang__revoke_permission',
   'mcp__aang__list_folder', 'mcp__aang__move_file', 'mcp__aang__copy_file', 'mcp__aang__make_folder', 'mcp__aang__delete_file', 'mcp__aang__copy_to_clipboard',
   'mcp__aang__list_controls', 'mcp__aang__press_control', 'mcp__aang__fill_control',
-  'mcp__aang__mail_inbox', 'mcp__aang__mail_read', 'mcp__aang__calendar_today', 'mcp__aang__mail_draft', 'mcp__aang__play_music', 'mcp__aang__watch_next'];
+  'mcp__aang__mail_inbox', 'mcp__aang__mail_read', 'mcp__aang__calendar_today', 'mcp__aang__mail_draft', 'mcp__aang__play_music', 'mcp__aang__watch_next',
+  'mcp__aang__do_task', 'mcp__aang__tell_task', 'mcp__aang__task_status', 'mcp__aang__stop_task'];
 
 /**
  * What he can honestly say he can do. A tool result, not prompt text: a long "here is what you can do" block in the
@@ -131,6 +132,7 @@ export const ABILITIES = [
   '- Read his email and calendar (asked once). Draft an email or a reply: the draft goes to him with a Send button and NOTHING is sent until he taps it, on that exact wording. You have no way to send by yourself.',
   '- Set reminders. Remember things about him and search what he has told you.',
   '- Keep a record of what I do, say it back ("what did you just do"), undo the last change (a file, something remembered, a reminder), and show or take back what he has let me do without asking.',
+  '- Hand anything with several steps, or that no single tool covers, to my background worker (do_task): it keeps going on its own until it is done or needs him, and tells him. So "I cannot" is almost never the answer: hand it over instead.',
   '- Start longer jobs in Claude Code and follow them: his job hunt, browsing jobs in his Chrome (Claude in Chrome, asking before anything is submitted, bought or sent), and changes to yourself (on a branch he reviews). He can see them in the Panel.',
   'You cannot: send email or messages by yourself, click at a spot on the screen or send raw keystrokes, install software, or use his accounts. If he asks for one of those, say it is not something you can do yet.',
 ].join('\n');
@@ -171,6 +173,13 @@ export interface Doers {
   recent(n: number): string;
   permissions(): string;
   revoke(kind: string): string;
+  /** The background worker. Left out of the worker's own tools, so a job can never start more jobs. */
+  tasks?: {
+    start(task: string, name?: string): Promise<string>;
+    tell(which: string, message: string): Promise<string>;
+    status(): string;
+    stop(which: string): Promise<string>;
+  };
 }
 
 /** Tools whose use is written to the activity log. Reading the time or the weather is not worth a line. */
@@ -596,6 +605,22 @@ export function makeToolServer(
           if (gone) doers?.pushUndo(`cancelling "${gone.text}"`, () => { const back = reminders.add(gone.text, gone.at); return back ? `Set the reminder "${gone.text}" again.` : 'That reminder could not be set again.'; });
           return gone ? ok(`Cancelled: "${gone.text}".`) : fail('No reminder matched that.');
         }),
+      ...(doers?.tasks ? [
+        tool('do_task', 'Hand a job to your background worker: anything that takes several steps, that no single tool of yours covers, or that may take more than a minute - "sort out my downloads", "find out why X is broken and fix it", "research Y and put it in a file", "set Z up", "go through ... and ...". It keeps going on its own, trying other ways when one fails, until the job is done or it truly needs him, and then tells him itself. It returns straight away: tell him in one short line that it is on it. Use this INSTEAD of telling him you cannot, or how he could do it himself. For one quick action a single tool of yours does, use that tool directly. His job hunt, and jobs that need his web browser clicked through, go to start_claude instead.',
+          {
+            task: z.string().describe('the job, in his words plus anything you already know that helps (paths, names, what done looks like)'),
+            name: z.string().optional().describe('a short name he would recognise, e.g. "downloads tidy"'),
+          },
+          async ({ task, name }) => ok(await doers.tasks!.start(task, name))),
+        tool('tell_task', 'Pass his words to a background job: his answer when a job asked him something, more instructions, or "carry on". Use it whenever his message answers or adds to a job (see <waiting> when there is one).',
+          { which: z.string().describe('the job\'s name, or "it" for the one waiting on him'), message: z.string().describe('his words, as he said them') },
+          async ({ which, message }) => ok(await doers.tasks!.tell(which, message))),
+        tool('task_status', 'The background jobs: what each is doing or did, and what it cost. Use for "what are you working on", "is it done", "how is the X going".', {},
+          async () => ok(doers.tasks!.status())),
+        tool('stop_task', 'Stop a background job he wants stopped.',
+          { which: z.string().describe('the job\'s name, or "it"') },
+          async ({ which }) => ok(await doers.tasks!.stop(which))),
+      ] : []),
     ] as any[]).map(logged),
   });
 }

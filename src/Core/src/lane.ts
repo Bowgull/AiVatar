@@ -37,6 +37,8 @@ export interface LaneOptions {
   claudeExecutable?: string;
   /** Extended thinking: `{ type: 'disabled' }` trades depth for first-token speed on the chat lane. */
   thinking?: { type: 'disabled' } | { type: 'adaptive' };
+  /** Tool round trips per message. Chat keeps the default 8; the worker needs room to keep trying. */
+  maxTurns?: number;
   /** A session id from a previous run of the Core, so a restart continues the same conversation. */
   resumeId?: string;
   /** Called whenever the lane learns its session id, so it can be written to disk. */
@@ -96,7 +98,7 @@ export class Lane {
         // ended up telling Joshua he had no internet and could not touch the machine.
         settingSources: [],
         includePartialMessages: true,
-        maxTurns: 8, // a chat turn never needs more than a few tool round trips; bound any runaway loop
+        maxTurns: this.opts.maxTurns ?? 8, // a chat turn never needs more than a few tool round trips; bound any runaway loop
         ...(this.opts.mcpServer ? { mcpServers: { aang: this.opts.mcpServer as never } } : {}),
         allowedTools: this.opts.allowedTools,
         ...(this.opts.disallowedTools?.length ? { disallowedTools: this.opts.disallowedTools } : {}),
@@ -150,6 +152,7 @@ export class Lane {
       this.listener = e => {
         if (e.t === 'result') finish({ ok: e.ok, text: e.text });
         else if (e.t === 'error') finish({ ok: false, text: e.message });
+        else previous(e);                 // quota and progress still reach whoever was listening
       };
       this.send(text);
     });

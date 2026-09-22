@@ -37,6 +37,13 @@ sealed class PetWindow : Form
     ToolStripMenuItem quietItem = null!, showItem = null!, modelItems = null!, muteItem = null!, seeWindowItem = null!;
 
     string? heldText;               // latest proactive message waiting for quiet mode to end
+    string? heldJobCwd;             // the held message's job, if it has one - clicking the marker opens its Panel tab
+    bool urgent;                    // Avatar State: something is glowing/waved, not just marked
+    Color urgentColor = Theme.AvatarGlow;       // which tier is glowing: white-blue = blocking, terracotta = a job done
+    Color badgeColor = Theme.Gold;              // the dot keeps its tier after the glow settles, so a glance still tells them apart
+    int heldRank;                               // 3 needs him, 2 done, 1 ordinary news: the dot shows the most pressing one
+    DateTime urgentUntil = DateTime.MinValue;   // when the glow settles back (the marker itself stays until clicked)
+    static readonly TimeSpan UrgentGlowFor = TimeSpan.FromSeconds(4);
     string? bubbleFocus;            // the window a click on the bubble brings forward (a Claude session), if any
     string foreground = "";
     string foregroundTitle = "";
@@ -66,6 +73,9 @@ sealed class PetWindow : Form
     bool openHotkeyBox;
     /// <summary>Test flag (--panel): open the Panel as soon as the window is up.</summary>
     bool openPanel;
+    /// <summary>Test flag (--urgent-test / --urgent-test=badge|glow|wave): trigger a notification state as soon as
+    /// the window is up, with no Core round trip.</summary>
+    string? urgentTest;
     int panelTab;
     PanelWindow? panel;
     int idCounter;
@@ -132,6 +142,13 @@ sealed class PetWindow : Form
             else if (a.Equals("--no-core", StringComparison.OrdinalIgnoreCase)) noCore = true;   // tests: do not start the Core or touch autostart
             else if (a.Equals("--set-hotkey", StringComparison.OrdinalIgnoreCase)) openHotkeyBox = true;  // tests: open the key chooser at start
             else if (a.StartsWith("--panel", StringComparison.OrdinalIgnoreCase)) { openPanel = true; if (a.Length > 8 && int.TryParse(a[8..], out var pt)) panelTab = Math.Clamp(pt, 0, 5); }   // tests: open the Panel at start, on a tab
+            else if (a.Equals("--urgent-test", StringComparison.OrdinalIgnoreCase)) urgentTest = "glow";      // tests: Tier 2, docked - use with --dock=bottom
+            else if (a.Equals("--urgent-test=glow", StringComparison.OrdinalIgnoreCase)) urgentTest = "glow"; // same, explicit
+            else if (a.Equals("--urgent-test=wave", StringComparison.OrdinalIgnoreCase)) urgentTest = "wave"; // Tier 2, standing - do NOT pass --dock
+            else if (a.Equals("--urgent-test=badge", StringComparison.OrdinalIgnoreCase)) urgentTest = "badge"; // Tier 1, docked - use with --dock=bottom
+            else if (a.Equals("--urgent-test=done", StringComparison.OrdinalIgnoreCase)) urgentTest = "done";   // Tier 3, docked, terracotta, no sound - use with --dock=bottom
+            else if (a.Equals("--done-icon=q", StringComparison.OrdinalIgnoreCase)) doneIcon = "q";             // preview: WoW's turn-in "?" for done
+            else if (a.Equals("--icons-gold", StringComparison.OrdinalIgnoreCase)) iconsGold = true;            // preview: every icon in Aang's gold, as WoW's are
         }
 
         sprites = new SpriteBank(Path.Combine(AppContext.BaseDirectory, "assets", "aang", "frames"));
@@ -208,6 +225,12 @@ sealed class PetWindow : Form
         Log.Write($"shown at {Location} {pw}x{ph} scale {scale:0.00}");
         if (openHotkeyBox) BeginInvoke(AskForHotkey);
         if (openPanel) BeginInvoke(OpenPanel);
+        if (urgentTest != null) BeginInvoke(() =>
+        {
+            if (urgentTest == "badge") Hold("Job hunt done. Two applied.", "C:\\test", 1, Theme.Gold);
+            else if (urgentTest == "done") { Hold("Job hunt done. Two applied.", "C:\\test", 2, Theme.Claude, "Claude"); TriggerDone(); }
+            else { Hold("Need input in Claude on the test job: which one?", "C:\\test", 3, Theme.AvatarGlow, "Claude"); TriggerUrgent(); }
+        });
     }
 
     /// <summary>The Panel: made once, then hidden and shown. Every time it is shown it asks the Core for a fresh copy.</summary>
@@ -258,24 +281,38 @@ sealed class PetWindow : Form
                     anim.Play(Str(m, "state") ?? "idle"); dirty = true;
                     break;
                 case "bubble":
+                {
                     var text = Str(m, "text") ?? "";
-                    if (Bool(m, "proactive") && (cfg.Muted || hiddenByUser)) break;
-                    // Tucked at the edge: he does not pop a bubble over your work. He peeks a little further out with a dot,
-                    // and the message is there when you click him.
-                    // Rainmeter did the same: a message while he is tucked brings him up to say it. While the game has focus it waits.
-                    if (peeking && Bool(m, "proactive") && quiet && !Bool(m, "asked")) { heldText = text; break; }
+                    var proactive = Bool(m, "proactive");
+                    var blocking = Bool(m, "blocking");
+                    var done = Bool(m, "done");
+                    var jobCwd = Str(m, "jobCwd");
+                    // Muted always wins - nothing unprompted at all, glow included. Hidden normally wins too; a
+                    // truly blocking message is the one exception he asked for (2026-09-22): let it through
+                    // quietly, as a glow, rather than lose it - never by popping the box open on its own (that
+                    // was Clippy's real bug). A finished job is not urgent enough to earn either exception.
+                    if (proactive && cfg.Muted && !blocking) break;
+                    if (proactive && hiddenByUser && !blocking) break;
+                    if (proactive && hiddenByUser && blocking) { hiddenByUser = false; Show(); }
+                    // Tucked at the edge or standing while the game has focus: ordinary news waits as a silent
+                    // marker on him (the Stardew "mailbox flag" - Tier 1); a finished job glows terracotta with
+                    // no sound (Tier 3, quieter than urgent); only something truly blocking gets the full Avatar
+                    // State treatment (Tier 2) - none of them ever pop him fully out over your play.
+                    var focus = Str(m, "focus"); var host = Str(m, "host");
+                    if (proactive && quiet && blocking) { if (Hold(text, jobCwd, 3, Theme.AvatarGlow, focus, host)) TriggerUrgent(); break; }
+                    if (proactive && quiet && done) { if (Hold(text, jobCwd, 2, Theme.Claude, focus, host)) TriggerDone(); break; }
+                    if (proactive && quiet) { Hold(text, jobCwd, 1, Theme.Gold, focus, host); break; }
                     if (peeking) Reveal(greet: false);
-                    // "asked": news he asked for (a Claude job he started) comes through even while the game has focus.
-                    if (Bool(m, "proactive") && quiet && !Bool(m, "asked")) { heldText = text; break; }
                     Wake();
                     ExitExpanded(collapse: false);
                     ShowBubble(text, Bool(m, "stream"));
                     bubbleFocus = Str(m, "focus");
                     bubble.Link = bubbleFocus != null ? Str(m, "link") ?? "" : "";
-                    if (!Bool(m, "stream") && !Bool(m, "proactive") && Str(m, "id") is { Length: > 0 } rid) { replyId = rid; bubble.Tools = true; bubble.Rating = 0; }
+                    if (!Bool(m, "stream") && !proactive && Str(m, "id") is { Length: > 0 } rid) { replyId = rid; bubble.Tools = true; bubble.Rating = 0; }
                     if (!Bool(m, "stream")) { working = false; input.Working = false; ackTimer.Stop(); }
                     permissionId = null;
                     break;
+                }
                 case "bubble.dots":
                     Wake(); bubble.ShowDots(); anim.Play("think"); dirty = true;
                     break;
@@ -475,8 +512,10 @@ sealed class PetWindow : Form
             }
             if (bubble.Visible) bubbleWasVisible = true;
 
+            if (urgent || (badge && peeking)) changed = true;              // the outline pulses and the icon bobs even while quiet holds the idle loop
+
             // Quiet mode freezes the idle loop; anything Joshua triggers (a reply, a poke) wakes it briefly.
-            var animate = !quiet || bubble.Visible || now < wakeUntil;
+            var animate = !quiet || bubble.Visible || now < wakeUntil || urgent;
             if (animate)
             {
                 if (anim.Tick(now, sprites.Count(anim.State), out var finished)) changed = true;
@@ -491,7 +530,7 @@ sealed class PetWindow : Form
             }
 
             if (changed || dirty) Render();
-            timer.Interval = slideStart != DateTime.MinValue ? 16 : bubble.Animating ? 33 : (!animate ? (bubble.More ? 250 : 250) : Math.Clamp(anim.FrameMs, 33, 200));
+            timer.Interval = slideStart != DateTime.MinValue ? 16 : bubble.Animating || urgent ? 33 : badge && peeking ? 50 : (!animate ? (bubble.More ? 250 : 250) : Math.Clamp(anim.FrameMs, 33, 200));
         }
         catch (Exception e) { Log.Write("tick failed: " + e); }
     }
@@ -590,7 +629,9 @@ sealed class PetWindow : Form
         if (!dragging) return;
         dragging = false; Capture = false;
         if (moved) { AfterDrag(); return; }
-        if (dock != DockEdge.None && peeking) { Reveal(thenType: true); return; }  // a click on his head: up, and the box opens
+        // A waiting Claude session: the icon takes him to it (here or on the Mac), not to the bubble.
+        if (dock != DockEdge.None && peeking && badge && GoToHeldSession()) return;
+        if (dock != DockEdge.None && peeking) { Reveal(thenType: true); return; }  // a click on his head: up, and the box opens (Reveal clears the marker)
 
         var bp = BubblePoint(e.Location);
         var choice = bubble.HitChoice(bp.X, bp.Y);
@@ -1073,7 +1114,50 @@ sealed class PetWindow : Form
         var sc = DockScreen(); var wa = sc.WorkingArea;
         return dock == DockEdge.Bottom ? Rectangle.FromLTRB(wa.Left, wa.Top, wa.Right, sc.Bounds.Bottom) : wa;
     }
-    Point PeekPos() => Docking.PeekWindow(dock, dockFrac, DockArea(), art, Extra, scale, Docking.PeekPx);
+    Point PeekPos() => Docking.PeekWindow(dock, dockFrac, DockArea(), art, Extra, scale, urgent ? Docking.PeekMorePx : Docking.PeekPx);
+
+    /// <summary>Avatar State: something truly blocking. Docked, he peeks a little further out and glows; standing,
+    /// a brief wave is all - never a full pop-out, that is what "hidden" and "asked" already cover.</summary>
+    void TriggerUrgent() => TriggerGlow(Theme.AvatarGlow, sound: true);
+
+    /// <summary>A job he started finished on its own - its own quieter tier (2026-09-22, "aang needs to tell me
+    /// its done", after ChatGPT's pet on a finished background task): the same motion as urgent, Claude's
+    /// terracotta instead of Avatar State's white-blue, and never a sound - it should never feel as pressing
+    /// as actually being stuck waiting on him.</summary>
+    void TriggerDone() => TriggerGlow(Theme.Claude, sound: false);
+
+    /// <summary>Keep what he has not seen yet, unless something more pressing is already waiting: a finished job
+    /// never covers up one that is stuck on him. False when it was not kept.</summary>
+    bool Hold(string text, string? jobCwd, int rank, Color color, string? focus = null, string? host = null)
+    {
+        if (badge && rank < heldRank) return false;
+        if (!badge || rank != heldRank) markerSince = DateTime.UtcNow;     // a new or different icon pops in again
+        heldText = text; heldJobCwd = jobCwd; heldRank = rank; badgeColor = color; heldFocus = focus; heldHost = host; badge = true; dirty = true;
+        return true;
+    }
+    string? heldFocus, heldHost;   // where the waiting session is: a window here ("Claude"), or "mac"
+
+    /// <summary>A click on the icon of a waiting Claude session takes him there (2026-09-22): Claude forward on
+    /// this PC, or on the MacBook through its one-job listener. The icon goes; he stays tucked.</summary>
+    bool GoToHeldSession()
+    {
+        if (heldHost != "mac" && heldFocus == null) return false;
+        var mac = heldHost == "mac";
+        badge = false; urgent = false; heldText = null; heldJobCwd = null; heldFocus = null; heldHost = null; dirty = true;
+        if (mac) _ = link.SendAsync(new { t = "claude.front", host = "mac" });
+        else Hands.Arrange("Claude", "front");
+        Log.Write("icon clicked: " + (mac ? "Claude on the MacBook" : "Claude here"));
+        return true;
+    }
+
+    void TriggerGlow(Color color, bool sound)
+    {
+        urgent = true; urgentColor = color; urgentUntil = DateTime.UtcNow.AddSeconds(UrgentGlowFor.TotalSeconds); badge = true;
+        if (sound && !cfg.Muted) { try { System.Media.SystemSounds.Asterisk.Play(); } catch { /* never worth crashing over */ } }
+        if (dock != DockEdge.None && peeking) { if (slideStart == DateTime.MinValue) SlideTo(PeekPos()); }
+        else if (anim.State is "idle" or "think") { anim.Play("hello"); Wake(); }
+        dirty = true;
+    }
     Point StandPos()
     {
         var p = Docking.StandWindow(dock, dockFrac, DockArea(), art, Extra, scale);
@@ -1134,7 +1218,7 @@ sealed class PetWindow : Form
     /// <summary>Dock at an edge. The first time, he stands out once to say how to bring him back, then tucks away by himself.</summary>
     void DockTo(DockEdge edge, double frac, Screen screen)
     {
-        dock = edge; dockFrac = frac; badge = false; travelStep = 0; flipX = false;
+        dock = edge; dockFrac = frac; badge = false; urgent = false; travelStep = 0; flipX = false;
         cfg.DockEdge = Docking.Name(edge); cfg.DockFrac = frac; cfg.DockMonitor = screen.DeviceName;
         input.Close(false); ExitExpanded(collapse: false); bubble.Clear(); anim.Play("idle");
         if (!cfg.DockHinted)
@@ -1155,7 +1239,7 @@ sealed class PetWindow : Form
     void Reveal(bool thenType = false, bool greet = true)
     {
         if (dock == DockEdge.None || !peeking) { if (thenType) OpenInput(userAsked: true); return; }
-        peeking = false; badge = false; inputAfterSlide = thenType; greetOnArrive = greet; engagedAt = DateTime.UtcNow;
+        peeking = false; badge = false; urgent = false; inputAfterSlide = thenType; greetOnArrive = greet; engagedAt = DateTime.UtcNow;
         anim.Play("hello"); Wake();
         SlideTo(StandPos(), RevealMs);
     }
@@ -1177,7 +1261,7 @@ sealed class PetWindow : Form
     {
         if (dock == DockEdge.None) return;
         var target = moveToStand ? StandPos() : Location;
-        dock = DockEdge.None; peeking = false; badge = false; travelStep = 0; flipX = false; cfg.DockEdge = "";
+        dock = DockEdge.None; peeking = false; badge = false; urgent = false; travelStep = 0; flipX = false; cfg.DockEdge = "";
         cfg.X = target.X; cfg.Y = target.Y; cfg.Save();
         if (moveToStand) SlideTo(target);
         Log.Write("undocked"); dirty = true;
@@ -1203,7 +1287,7 @@ sealed class PetWindow : Form
             return;
         }
         if (edge != DockEdge.None) { DockTo(edge, Docking.Fraction(edge, artRect, screen.WorkingArea), screen); return; }
-        if (dock != DockEdge.None) { peeking = false; badge = false; dock = DockEdge.None; cfg.DockEdge = ""; }
+        if (dock != DockEdge.None) { peeking = false; badge = false; urgent = false; dock = DockEdge.None; cfg.DockEdge = ""; }
         cfg.X = Location.X; cfg.Y = Location.Y; cfg.Save();
         _ = link.SendAsync(new { t = "moved", x = Location.X, y = Location.Y });
     }
@@ -1290,6 +1374,13 @@ sealed class PetWindow : Form
 
     void WatchDock(DateTime now)
     {
+        // The glow settles after a few seconds; the marker itself (badge, heldText) stays until he clicks it.
+        if (urgent && now >= urgentUntil)
+        {
+            urgent = false;
+            if (dock != DockEdge.None && peeking && slideStart == DateTime.MinValue) SlideTo(PeekPos());
+            dirty = true;
+        }
         SetClickAwayHook(dock != DockEdge.None && !peeking);
         if (dock == DockEdge.None) return;
         // The taskbar is always-on-top too, and clicking it lifts it over him; at the bottom he takes the top back each second.
@@ -1362,27 +1453,126 @@ sealed class PetWindow : Form
         travelStep = 0; flipX = false; anim.Play("idle"); nextIdleAt = DateTime.UtcNow.AddMilliseconds(IdleEveryMs); dirty = true;
     }
 
-    /// <summary>What is drawn while he is tucked at the edge: only him, turned to face the screen, and a dot if he has something to say.</summary>
+    /// <summary>What is drawn while he is tucked at the edge: only him, turned to face the screen, an outline while
+    /// something has just come in, and an icon over his head while it waits.</summary>
     void DrawPeeking(Graphics g)
     {
-        using (var rot = (Bitmap)sprites.Frame(anim.State, anim.Frame).Clone())
+        using var rot = (Bitmap)sprites.Frame(anim.State, anim.Frame).Clone();
+        rot.RotateFlip(Docking.Rotation(dock));                           // an exact turn: pixels move, none change
+        var at = new Rectangle(Docking.SpriteX, Docking.SpriteY, Docking.Frame, Docking.Frame);
+        if (urgent) DrawOutline(g, rot, at);
+        g.DrawImage(rot, at);
+        if (badge) DrawMarker(g);
+    }
+
+    static readonly Point[] OutlineRing = { new(-3, 0), new(3, 0), new(0, -3), new(0, 3), new(-2, -2), new(2, -2), new(-2, 2), new(2, 2), new(-3, -1), new(3, -1), new(-3, 1), new(3, 1), new(-1, -3), new(1, -3), new(-1, 3), new(1, 3) };
+
+    /// <summary>The moment something comes in: a pulsing outline in its tier's colour, traced from his own
+    /// silhouette so it hugs him exactly. It sits outside his pixels, so none of them change (the sprite lock).
+    /// Joshua, 2026-09-22, after seeing the soft glow disappear behind him in a real capture.</summary>
+    void DrawOutline(Graphics g, Bitmap sprite, Rectangle at)
+    {
+        var c = urgentColor;
+        using var solid = new Bitmap(sprite.Width, sprite.Height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+        using (var sg = Graphics.FromImage(solid))
+        using (var flat = new System.Drawing.Imaging.ImageAttributes())
         {
-            rot.RotateFlip(Docking.Rotation(dock));                       // an exact turn: pixels move, none change
-            g.DrawImage(rot, new Rectangle(Docking.SpriteX, Docking.SpriteY, Docking.Frame, Docking.Frame));
+            flat.SetColorMatrix(new System.Drawing.Imaging.ColorMatrix(new[]
+            {
+                new float[] { 0, 0, 0, 0, 0 }, new float[] { 0, 0, 0, 0, 0 }, new float[] { 0, 0, 0, 0, 0 },
+                new float[] { 0, 0, 0, 1, 0 }, new float[] { c.R / 255f, c.G / 255f, c.B / 255f, 0, 1 },
+            }));
+            sg.DrawImage(sprite, new Rectangle(0, 0, sprite.Width, sprite.Height), 0, 0, sprite.Width, sprite.Height, GraphicsUnit.Pixel, flat);
         }
-        if (!badge) return;
+        using var ring = new Bitmap(sprite.Width + 6, sprite.Height + 6, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+        using (var rg = Graphics.FromImage(ring)) foreach (var o in OutlineRing) rg.DrawImageUnscaled(solid, 3 + o.X, 3 + o.Y);
+        double phase = (Math.Sin(DateTime.UtcNow.TimeOfDay.TotalSeconds * Math.PI * 1.6) + 1) / 2;       // 0..1, ~1.25 s
+        using var fade = new System.Drawing.Imaging.ImageAttributes();
+        fade.SetColorMatrix(new System.Drawing.Imaging.ColorMatrix { Matrix33 = (float)(0.75 + 0.25 * phase) });   // bright even at the bottom of the pulse
+        g.DrawImage(ring, new Rectangle(at.X - 3, at.Y - 3, ring.Width, ring.Height), 0, 0, ring.Width, ring.Height, GraphicsUnit.Pixel, fade);
+    }
+
+    // Pixel icons on his own grain (one art pixel = 2 frame pixels), in the tradition he named (2026-09-22): a WoW
+    // quest mark, Stardew's bubble over a head, an N64 HUD icon. O outline, H catch-light, F face, S shade, . clear.
+    static readonly string[] IconNeeds =
+    {
+        ".OOOOO.", "OHHFFSO", "OHFFFSO", "OHFFFSO", "OHFFFSO", ".OHFSO.", ".OHFSO.", ".OHFSO.",
+        ".OFFSO.", "..OSO..", "..OOO..", ".......", ".OOOOO.", "OHFFFSO", "OFFFSSO", ".OOOOO.",
+    };
+    static readonly string[] IconDoneQ =
+    {
+        "...OOOOO...", "..OHHFFSO..", ".OHFOOOFSO.", ".OHO...OFSO", "..O....OFSO", "......OFFSO", ".....OFFSO.", "....OFFSO..",
+        "....OFSO...", "....OFSO...", "....OOOO...", "...........", "....OOOO...", "...OHFFSO..", "...OFFSSO..", "....OOOO...",
+    };
+    static readonly string[] IconDoneTick =
+    {
+        "........OOO", ".......OHFO", "......OHFSO", ".OOO.OHFSO.", "OHFOOHFSO..", "OSHFHFSO...", ".OSFFSO....", "..OSSO.....", "...OO......",
+    };
+    static readonly string[] IconNews =
+    {
+        "..OOOOOOOOO..", ".OHHHHHFFFSO.", "OHFFFFFFFFFSO", "OHFOFFOFFOFSO", "OHFFFFFFFFFSO", ".OFFFFFFFFSO.", "..OOOFSOOOO..", "....OSO......", "....OO.......",
+    };
+    /// <summary>Preview flags for choosing the look: --done-icon=q|tick, --icons-gold.</summary>
+    string doneIcon = "tick";
+    bool iconsGold;
+    DateTime markerSince = DateTime.MinValue;
+    const double PopMs = 320, BobPeriodS = 1.4;
+
+    static Color Mix(Color a, Color b, float t) => Color.FromArgb(255, (int)(a.R + (b.R - a.R) * t), (int)(a.G + (b.G - a.G) * t), (int)(a.B + (b.B - a.B) * t));
+
+    /// <summary>What is waiting, over his head (towards the middle of the screen, whichever edge he is on), until he
+    /// clicks it. Pops in with an overshoot, then bobs gently, the way a quest mark does, so it feels like a thing
+    /// in the world rather than a notification dot. A shape per kind, so they are told apart in any scene.</summary>
+    void DrawMarker(Graphics g)
+    {
+        var map = heldRank switch { 3 => IconNeeds, 2 => doneIcon == "q" ? IconDoneQ : IconDoneTick, _ => IconNews };
+        var color = iconsGold ? Theme.Gold : badgeColor;
+        const float px = IconPx;
         var r = Docking.Rotated(art, dock);
         float cx = Docking.SpriteX + r.X + r.Width / 2f, cy = Docking.SpriteY + r.Y + r.Height / 2f;
-        var pt = dock switch
+        float half = map.Length * px / 2f + 14f, halfW = map[0].Length * px / 2f + 14f;   // clear air between it and his head
+        var dir = dock switch { DockEdge.Bottom => new PointF(0, -1), DockEdge.Top => new PointF(0, 1), DockEdge.Right => new PointF(-1, 0), _ => new PointF(1, 0) };
+        var p = dock switch
         {
-            DockEdge.Bottom => new PointF(cx + 30, Docking.SpriteY + r.Y + 12),
-            DockEdge.Top => new PointF(cx + 30, Docking.SpriteY + r.Bottom - 12),
-            DockEdge.Right => new PointF(Docking.SpriteX + r.X + 12, cy - 30),
-            _ => new PointF(Docking.SpriteX + r.Right - 12, cy - 30),
+            DockEdge.Bottom => new PointF(cx, Docking.SpriteY + r.Y - half),
+            DockEdge.Top => new PointF(cx, Docking.SpriteY + r.Bottom + half),
+            DockEdge.Right => new PointF(Docking.SpriteX + r.X - halfW, cy),
+            _ => new PointF(Docking.SpriteX + r.Right + halfW, cy),
         };
-        g.SmoothingMode = SmoothingMode.AntiAlias;
-        using (var halo = new SolidBrush(Theme.WithAlpha(Theme.Ink, 230))) g.FillEllipse(halo, pt.X - 9, pt.Y - 9, 18, 18);
-        using (var dot = new SolidBrush(Theme.Gold)) g.FillEllipse(dot, pt.X - 6, pt.Y - 6, 12, 12);
+        var t = (DateTime.UtcNow - markerSince).TotalMilliseconds;
+        float pop = t >= PopMs ? 1f : EaseOutBack((float)(t / PopMs));
+        float bob = (float)((Math.Sin(DateTime.UtcNow.TimeOfDay.TotalSeconds * 2 * Math.PI / BobPeriodS) + 1) / 2 * 2 * px);
+        p = new PointF(p.X + dir.X * bob, p.Y + dir.Y * bob);
+        DrawIcon(g, map, p, color, Math.Max(0.05f, pop));
+    }
+
+    static float EaseOutBack(float t) { const float c1 = 1.9f, c3 = c1 + 1; var u = t - 1; return 1 + c3 * u * u * u + c1 * u * u; }
+
+    /// <summary>One icon pixel = one of his art pixels (2 frame pixels). 1.5x was tried and he found it too large
+    /// (2026-09-22); his own grain is the size he chose.</summary>
+    const float IconPx = 2f;
+
+    static void DrawIcon(Graphics g, string[] map, PointF center, Color c, float scaleBy)
+    {
+        const float px = IconPx;
+        int w = map[0].Length, h = map.Length;
+        var saved = g.Save();
+        g.TranslateTransform(center.X, center.Y); g.ScaleTransform(scaleBy, scaleBy);
+        g.SmoothingMode = SmoothingMode.None;
+        float x0 = -w * px / 2f, y0 = -h * px / 2f;
+        using var shadow = new SolidBrush(Color.FromArgb(120, 0, 0, 0));
+        using var ol = new SolidBrush(Theme.Ink);
+        using var hi = new SolidBrush(Mix(c, Color.White, 0.6f));
+        using var face = new SolidBrush(c);
+        using var sh = new SolidBrush(Mix(c, Color.Black, 0.38f));
+        for (int y = 0; y < h; y++) for (int x = 0; x < w; x++)            // a hard shadow, one art pixel down and right
+            if (map[y][x] != '.') g.FillRectangle(shadow, x0 + (x + 1) * px, y0 + (y + 1) * px, px, px);
+        for (int y = 0; y < h; y++) for (int x = 0; x < w; x++)
+        {
+            var b = map[y][x] switch { 'O' => ol, 'H' => hi, 'F' => face, 'S' => sh, _ => null };
+            if (b != null) g.FillRectangle(b, x0 + x * px, y0 + y * px, px, px);
+        }
+        g.Restore(saved);
     }
 
     // ------------------------------------------------------------------ tray

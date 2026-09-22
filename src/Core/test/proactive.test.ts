@@ -3,8 +3,9 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import http from 'node:http';
 import { WebSocket } from 'ws';
-import { HookTracker, LONG_TURN_MS, projectName } from '../src/hooks.ts';
+import { HookTracker, LONG_TURN_MS, projectName, tailnetAddress } from '../src/hooks.ts';
 import { Reminders, describeWhen, dueAt } from '../src/reminders.ts';
 import { Core } from '../src/core.ts';
 
@@ -206,6 +207,94 @@ test('a hook posted over HTTP reaches the bubble', async () => {
   await fetch('http://127.0.0.1:47984/hook', { method: 'GET' }).catch(() => {});
   await new Promise(r => setTimeout(r, 100));
   assert.equal(bubbles().length, 1, 'junk changes nothing and nothing crashed');
+  c.close();
+  await core.stop();
+});
+
+test('over Tailscale, a hook needs the key; a MacBook session says where it is', async (t) => {
+  const ts = tailnetAddress();
+  if (!ts) { t.skip('this machine is not on a tailnet'); return; }
+  const dataDir = tmp();
+  const core = new Core({ port: 47987, dataDir, stateDir: tmp(), warm: false });
+  await core.start();
+  const { c, bubbles } = await connected(47987);
+  const key = readFileSync(path.join(dataDir, 'hook.key'), 'utf8').trim();
+  const body = JSON.stringify({ hook_event_name: 'Notification', session_id: 'm1', cwd: '/Users/josh/code/site', message: 'needs permission' });
+
+  const without = await fetch(`http://${ts}:47988/hook?e=Notification`, { method: 'POST', body });
+  assert.equal(without.status, 403, 'no key, no entry');
+  const wrong = await fetch(`http://${ts}:47988/hook?e=Notification&k=nope`, { method: 'POST', body });
+  assert.equal(wrong.status, 403);
+  await new Promise(r => setTimeout(r, 150));
+  assert.equal(bubbles().length, 0);
+
+  const ok = await fetch(`http://${ts}:47988/hook?e=Notification&k=${key}`, { method: 'POST', body });
+  assert.equal(ok.status, 204);
+  await new Promise(r => setTimeout(r, 200));
+  const b = bubbles()[0];
+  assert.equal(b?.text, 'Claude Code on the MacBook is waiting on you in site.');
+  assert.equal(b?.blocking, true);
+  assert.equal(b?.focus, undefined, 'no window on this PC to bring forward');
+  assert.equal(b?.host, 'mac');
+
+  // A click on its icon: the Core asks the Mac's one-job listener (played here by a fake) to bring Claude forward.
+  const got: string[] = [];
+  const fake = http.createServer((req, res) => { got.push(`${req.method} ${req.url}`); res.writeHead(204).end(); });
+  await new Promise<void>(r => fake.listen(47840, ts, () => r()));
+  c.send(JSON.stringify({ t: 'claude.front', host: 'mac' }));
+  await new Promise(r => setTimeout(r, 300));
+  const frontKey = readFileSync(path.join(dataDir, 'mac-front.key'), 'utf8').trim();
+  assert.deepEqual(got, [`POST /front?k=${encodeURIComponent(frontKey)}`]);
+  assert.notEqual(frontKey, key, 'a different key from the one the hooks send');
+  await new Promise<void>(r => fake.close(() => r()));
+  c.close();
+  await core.stop();
+});
+
+test('the MacBook setup script is served once, for its code, with both keys in it', async (t) => {
+  const ts = tailnetAddress();
+  if (!ts) { t.skip('this machine is not on a tailnet'); return; }
+  const dataDir = tmp();
+  const core = new Core({ port: 47989, dataDir, stateDir: tmp(), warm: false });
+  await core.start();
+  const url = (c: string) => `http://${ts}:47990/mac-setup?c=${c}`;
+  assert.equal((await fetch(url('whatever'))).status, 404, 'no code file, nothing to fetch');
+  writeFileSync(path.join(dataDir, 'mac-setup.code'), 'k7p2x9');
+  assert.equal((await fetch(url('wrong1'))).status, 404);
+  const res = await fetch(url('k7p2x9'));
+  assert.equal(res.status, 200);
+  const script = await res.text();
+  assert.equal((await fetch(url('k7p2x9'))).status, 404, 'a used code works no more');
+  assert.ok(script.includes(readFileSync(path.join(dataDir, 'hook.key'), 'utf8').trim()));
+  assert.ok(script.includes(readFileSync(path.join(dataDir, 'mac-front.key'), 'utf8').trim()));
+  assert.ok(script.includes(`SHADOW='${ts}'`));
+  writeFileSync(path.join(dataDir, 'mac-setup.sh'), script);
+  await core.stop();
+});
+
+test('a session he started himself gets the same two tiers, even while the game has focus', async () => {
+  const core = new Core({ port: 47985, dataDir: tmp(), stateDir: tmp(), warm: false });
+  await core.start();
+  const { c, bubbles } = await connected(47985);
+  const post = (body: unknown) => fetch('http://127.0.0.1:47986/hook', { method: 'POST', body: JSON.stringify(body) });
+
+  c.send(JSON.stringify({ t: 'presence', quiet: true, foreground: 'Wow' }));
+  await new Promise(r => setTimeout(r, 100));
+
+  await post({ hook_event_name: 'Notification', session_id: 'h2', cwd: 'C:\\code\\AangApp', message: 'needs permission' });
+  await new Promise(r => setTimeout(r, 200));
+  const waiting = bubbles().find(b => /waiting on you/.test(b.text));
+  assert.ok(waiting, 'reaches him live, not held for the quiet-hold - it is not routine chatter');
+  assert.equal(waiting.blocking, true);
+  assert.equal(waiting.jobCwd, undefined, 'no Panel tab for a session Aang did not launch');
+
+  await post({ hook_event_name: 'Stop', session_id: 'h2', cwd: 'C:\\code\\AangApp' });
+  await new Promise(r => setTimeout(r, 200));
+  const finished = bubbles().find(b => /finished in/.test(b.text));
+  assert.ok(finished, 'a Stop worth mentioning (it was waiting) also reaches him live');
+  assert.equal(finished.done, true);
+  assert.equal(finished.blocking, undefined, 'done and blocking are never both set');
+
   c.close();
   await core.stop();
 });

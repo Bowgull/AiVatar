@@ -17,7 +17,14 @@ export type ToBody =
       /** Genuinely stuck waiting on a decision, not just news. Joshua, 2026-09-22: found out mid-raid, no idea Claude needed
        *  him. This is the Avatar State tier: breaks through hidden (never mute), peeks further while docked or a brief
        *  gesture while standing, a glow, and a sound - the one channel that can reach him even in a fullscreen game. */
-      blocking?: boolean }
+      blocking?: boolean;
+      /** A session he started finished on its own, nothing left for him to answer - its own quieter tier, Joshua
+       *  2026-09-22: "aang needs to tell me its done", like ChatGPT's pet on a finished background task. Same
+       *  glow motion as blocking, a different colour, and never a sound - it should never feel as urgent as
+       *  actually being stuck waiting on him. */
+      done?: boolean;
+      /** The session is on his MacBook (its hooks came over Tailscale): a click on the icon brings Claude forward there. */
+      host?: 'mac' }
   | { t: 'bubble.dots' }
   | { t: 'bubble.clear' }
   | { t: 'quiet'; on: boolean }
@@ -89,6 +96,8 @@ export type FromBody =
   | { t: 'history'; q?: string }
   /** A reply to a Claude Code job's update in Discord: told to that job, as a fresh follow-up in its folder. */
   | { t: 'claude.reply'; cwd: string; text: string }
+  /** He clicked an icon for a MacBook session: ask the Mac's one-job listener to bring Claude forward. */
+  | { t: 'claude.front'; host: 'mac' }
   /** A picture of his window: base64 JPEG, and how much of it is black (protected video comes out black). */
   | { t: 'look'; id: string; ok: boolean; data?: string | null; w?: number; h?: number; black?: number; error?: string | null };
 
