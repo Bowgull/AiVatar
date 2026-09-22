@@ -56,6 +56,22 @@ sealed class BubbleView : IDisposable
     DateTime hideAt = DateTime.MaxValue;
     string receipt = "";
 
+    // Two widths: a short reply keeps the narrow bubble; a long one widens to the left by WideExtra so it takes fewer
+    // lines. Decided once per reply and kept while it streams, so the text re-wraps at most once.
+    public const int WideExtra = 160, WideAfterLines = 4;
+    public bool Wide { get; private set; }
+    public float LeftNow => Wide ? Left - WideExtra : Left;
+    float TextXNow => Wide ? TextX - WideExtra : TextX;
+    float MaxW => Wide ? MaxTextW + WideExtra : MaxTextW;
+
+    // Smoothed streaming: the words are revealed at an even pace instead of in the lumps they arrive in. The pace
+    // quickens with the backlog, so it never falls far behind; everything else (copy, the tools) waits for the end.
+    string full = "";
+    int shown;
+    bool coreStreaming;
+    int holdAfter;
+    public bool Revealing => shown < full.Length;
+
     public bool Visible { get; private set; }
     /// <summary>A finished reply from Claude can be copied and rated: three small buttons straddle the top edge while the mouse is over the bubble.</summary>
     public bool Tools { get; set; }
@@ -91,7 +107,8 @@ sealed class BubbleView : IDisposable
         return -1;
     }
     public bool Dots { get; private set; }
-    public string Text => text;
+    /// <summary>The whole message, even the part not revealed yet (copy uses this).</summary>
+    public string Text => full;
     public IReadOnlyList<string> Lines => lines;
     public bool Expanded => expanded;
     public int ScrollLine => scroll;
@@ -100,7 +117,7 @@ sealed class BubbleView : IDisposable
     public bool More => Visible && !streaming && !Dots && !expanded && lines.Count > CollapsedLines;
     public bool CanScroll => expanded && lines.Count > ExpandedLines;
     public int VisibleLineCount => expanded ? Math.Min(lines.Count, ExpandedLines) : Math.Min(lines.Count, CollapsedLines);
-    public bool Animating => Visible && (Dots || Math.Abs(shownH - targetH) > 0.4f);
+    public bool Animating => Visible && (Dots || Revealing || Math.Abs(shownH - targetH) > 0.4f);
     public float CurrentTop => Bottom - Math.Max(shownH, MinH * 0.5f);
 
     public BubbleView()
@@ -130,20 +147,20 @@ sealed class BubbleView : IDisposable
             foreach (var word in para.Split(' ', StringSplitOptions.RemoveEmptyEntries))
             {
                 var w = Width(word);
-                if (w > MaxTextW)
+                if (w > MaxW)
                 {
                     if (cur.Length > 0) { result.Add(cur); cur = ""; curW = 0; }
                     var chunk = "";
                     foreach (var ch in word)
                     {
-                        if (chunk.Length > 0 && Width(chunk + ch) > MaxTextW) { result.Add(chunk); chunk = ""; }
+                        if (chunk.Length > 0 && Width(chunk + ch) > MaxW) { result.Add(chunk); chunk = ""; }
                         chunk += ch;
                     }
                     cur = chunk; curW = Width(cur);
                     continue;
                 }
                 if (cur.Length == 0) { cur = word; curW = w; }
-                else if (curW + spaceW + w <= MaxTextW) { cur += " " + word; curW += spaceW + w; }
+                else if (curW + spaceW + w <= MaxW) { cur += " " + word; curW += spaceW + w; }
                 else { result.Add(cur); cur = word; curW = w; }
             }
             result.Add(cur);
@@ -157,7 +174,7 @@ sealed class BubbleView : IDisposable
     {
         const float room = 24;                        // space kept for the arrow in the corner
         var l = line.TrimEnd();
-        while (l.Length > 0 && Width(l) + ellipsisW + room > MaxTextW)
+        while (l.Length > 0 && Width(l) + ellipsisW + room > MaxW)
         {
             var cut = l.LastIndexOf(' ');
             l = cut > 0 ? l[..cut] : l[..^1];
@@ -170,21 +187,42 @@ sealed class BubbleView : IDisposable
 
     public void Show(string t, bool stream, int holdMs)
     {
+        // The next piece of the same reply (or its final form) carries on from what is already shown.
+        var same = Visible && !Dots && full.Length > 0 && t.StartsWith(full, StringComparison.Ordinal);
         Dots = false; receipt = "";
-        text = t;
-        lines = Wrap(t);
-        streaming = stream; expanded = false; scroll = 0; Tools = false; Rating = 0; CopiedUntil = default; Asking = false;
+        if (!same) { Wide = false; shown = stream ? 0 : t.Length; }
+        full = t;
+        if (!Wide) Wide = Wrap(t).Count > WideAfterLines;          // measured at the narrow width
+        text = full[..Math.Min(shown, full.Length)];
+        lines = Wrap(text);
+        coreStreaming = stream; holdAfter = holdMs;
+        streaming = stream || Revealing;
+        expanded = false; scroll = 0; Tools = false; Rating = 0; CopiedUntil = default; Asking = false;
         Visible = true;
         targetH = HeightFor(Math.Min(lines.Count, CollapsedLines));
         if (shownH <= 0) shownH = targetH * 0.55f;
-        if (stream || holdMs <= 0) hideAt = DateTime.MaxValue;
-        else
-        {
-            // A reply that continues waits for the reader: nothing turns the page for them. It only goes away
-            // after a long idle time.
-            var hold = lines.Count > CollapsedLines ? Math.Max(holdMs, 60_000) : holdMs;
-            hideAt = DateTime.UtcNow.AddMilliseconds(hold);
-        }
+        SetHold();
+    }
+
+    void SetHold()
+    {
+        if (streaming || holdAfter <= 0) { hideAt = DateTime.MaxValue; return; }
+        // A reply that continues waits for the reader: nothing turns the page for them. It only goes away
+        // after a long idle time.
+        var hold = lines.Count > CollapsedLines ? Math.Max(holdAfter, 60_000) : holdAfter;
+        hideAt = DateTime.UtcNow.AddMilliseconds(hold);
+    }
+
+    /// <summary>Reveal a few more characters. True when the text changed.</summary>
+    bool StepReveal()
+    {
+        if (!Visible || Dots || !Revealing) return false;
+        var backlog = full.Length - shown;
+        shown = Math.Min(full.Length, shown + Math.Max(2, backlog / 6));
+        text = full[..shown]; lines = Wrap(text);
+        targetH = HeightFor(Math.Min(lines.Count, CollapsedLines));
+        if (!Revealing && !coreStreaming) { streaming = false; SetHold(); }
+        return true;
     }
 
     /// <summary>Thinking dots, with an optional short receipt line such as "checking the weather".</summary>
@@ -197,7 +235,7 @@ sealed class BubbleView : IDisposable
     /// </summary>
     public void ShowDots(string? receiptLine = null)
     {
-        text = ""; lines = new(); streaming = false; expanded = false; scroll = 0;
+        text = ""; full = ""; shown = 0; Wide = false; lines = new(); streaming = false; expanded = false; scroll = 0;
         Dots = true; receipt = receiptLine ?? "";
         Tools = false; Asking = false; Rating = 0;
         if (receipt.Length == 0) { Visible = false; hideAt = DateTime.MaxValue; return; }
@@ -210,7 +248,7 @@ sealed class BubbleView : IDisposable
     public void Clear()
     {
         Visible = false; Dots = false; streaming = false; expanded = false; scroll = 0; Tools = false; Hover = false; Rating = 0; Asking = false;
-        text = ""; receipt = ""; lines = new(); hideAt = DateTime.MaxValue; shownH = 0; Link = "";
+        text = ""; full = ""; shown = 0; Wide = false; receipt = ""; lines = new(); hideAt = DateTime.MaxValue; shownH = 0; Link = "";
     }
 
     /// <summary>Grow the bubble upward to fit up to 12 lines. Returns false if there is nothing more to show.</summary>
@@ -282,12 +320,12 @@ sealed class BubbleView : IDisposable
     public bool HitTrack(float x, float y) { var r = Track; r.Inflate(5, 0); return CanScroll && r.Contains(x, y); }
 
     public bool Contains(float x, float y) =>
-        Visible && x >= Left && x <= TailTipX && y >= CurrentTop && y <= Bottom;
+        Visible && x >= LeftNow && x <= TailTipX && y >= CurrentTop && y <= Bottom;
 
     /// <summary>Advance animation and expiry. Returns true if anything visible changed.</summary>
     public bool Update(DateTime now)
     {
-        var changed = false;
+        var changed = StepReveal();
         if (Hover && ToolsShown && hideAt != DateTime.MaxValue && hideAt < now.AddSeconds(2)) hideAt = now.AddSeconds(2);   // do not vanish under the mouse
         if (Visible && now >= hideAt) { Clear(); return true; }
         if (CopiedUntil != default && now >= CopiedUntil) { CopiedUntil = default; changed = true; }
@@ -299,9 +337,9 @@ sealed class BubbleView : IDisposable
     }
 
     /// <summary>The bubble and its tail as a single closed outline: no seam, nothing to misalign.</summary>
-    public static GraphicsPath Outline(float top)
+    public GraphicsPath Outline(float top)
     {
-        var r = Radius; var d = r * 2f;
+        var r = Radius; var d = r * 2f; var Left = LeftNow;
         var p = new GraphicsPath();
         p.StartFigure();
         p.AddArc(Left, top, d, d, 180, 90);
@@ -340,13 +378,13 @@ sealed class BubbleView : IDisposable
             {
                 var phase = (tick / 4 + i) % 3;
                 using var b = new SolidBrush(Color.FromArgb(phase == 0 ? 255 : 110, textC));
-                g.FillEllipse(b, TextX + i * 14, dotsY - (phase == 0 ? 3 : 0), 7, 7);
+                g.FillEllipse(b, TextXNow + i * 14, dotsY - (phase == 0 ? 3 : 0), 7, 7);
             }
             if (receipt.Length > 0)
             {
                 using var small = new Font(Theme.Face, Theme.ReceiptPx, FontStyle.Regular, GraphicsUnit.Pixel);
                 using var rb = new SolidBrush(dimC);
-                g.DrawString(receipt + "...", small, rb, TextX, (Bottom + top) / 2 - 2, StringFormat.GenericTypographic);
+                g.DrawString(receipt + "...", small, rb, TextXNow, (Bottom + top) / 2 - 2, StringFormat.GenericTypographic);
             }
             return;
         }
@@ -370,12 +408,12 @@ sealed class BubbleView : IDisposable
             if (More && i == count - 1) line = Ellipsize(line);            // "..." on the last visible line
             float y = textTop + i * LineH + 2;               // a 15 px face sits in the upper part of a 21 px line; nudge it to the middle
             int at = first + i == linkLine ? line.IndexOf(Link, StringComparison.Ordinal) : -1;
-            if (at < 0) { g.DrawString(line, font, tb, TextX, y, StringFormat.GenericTypographic); continue; }
+            if (at < 0) { g.DrawString(line, font, tb, TextXNow, y, StringFormat.GenericTypographic); continue; }
             // The linked word - "Claude", the app his job runs in - is drawn in Claude's own colour and underlined,
             // so it reads as a place to go rather than part of the sentence. A click on the bubble goes there.
             var before = line[..at];
-            float x = TextX + (before.Length > 0 ? Width(before) + (before.EndsWith(' ') ? spaceW : 0) : 0);
-            if (before.Length > 0) g.DrawString(before, font, tb, TextX, y, StringFormat.GenericTypographic);
+            float x = TextXNow + (before.Length > 0 ? Width(before) + (before.EndsWith(' ') ? spaceW : 0) : 0);
+            if (before.Length > 0) g.DrawString(before, font, tb, TextXNow, y, StringFormat.GenericTypographic);
             using (var lb = new SolidBrush(linkC)) g.DrawString(Link, bold, lb, x, y, StringFormat.GenericTypographic);
             float lw = Width(Link) + 1;
             using (var up = new Pen(linkC, 1.2f)) g.DrawLine(up, x, y + 17, x + lw, y + 17);

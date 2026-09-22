@@ -16,8 +16,9 @@ sealed class PanelWindow : Form
     readonly float s;
     readonly Panel host = new();
     readonly Label notice = new();
-    readonly Button[] tabs = new Button[4];
-    readonly Control[] pages = new Control[4];
+    const int Tabs = 6;
+    readonly Button[] tabs = new Button[Tabs];
+    readonly Control[] pages = new Control[Tabs];
     int current;
 
     readonly ListView facts, trust, drafts;
@@ -25,6 +26,20 @@ sealed class PanelWindow : Form
     readonly Label draftsEmpty = new(), memoryHint = new(), trustHint = new();
     readonly Button forget, takeBack, sendBtn, saveBtn, discardBtn;
     List<DraftRow> rows = new();
+
+    // History: every past message, newest first, searchable as he types, and copyable (the whole text of a long answer).
+    readonly TextBox search = new(), historyText = new();
+    readonly ListView history;
+    readonly Button copyBtn;
+    readonly System.Windows.Forms.Timer searchWait = new() { Interval = 250 };
+    List<(string When, string Who, string Text)> historyRows = new();
+    bool historyAsked;
+
+    // Settings: the switches from his right-click menu, in one place. The Body owns them; this only shows and flips them.
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)] public Func<string, bool>? GetSetting { get; set; }
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)] public Action<string, bool>? SetSetting { get; set; }
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)] public Action<string>? RunAction { get; set; }
+    readonly List<(CheckBox Box, string Key)> switches = new();
 
     sealed record DraftRow(string Id, string Hash, string To, string Subject, string Body, string Status, string NewTo);
 
@@ -43,13 +58,13 @@ sealed class PanelWindow : Form
         MinimumSize = new Size((int)(640 * s), (int)(420 * s));
         try { Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { /* the default icon */ }
 
-        var names = new[] { "What I know", "What I may do", "What I did", "Drafts" };
+        var names = new[] { "What I know", "What I may do", "What I did", "Drafts", "History", "Settings" };
         var strip = new Panel { Dock = DockStyle.Top, Height = (int)(48 * s), BackColor = Theme.Ink };
-        for (int i = 0; i < 4; i++)
+        for (int i = 0; i < Tabs; i++)
         {
             int at = i;
             var b = new Button { Text = names[i], FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, TabStop = false,
-                Left = (int)((14 + i * 158) * s), Top = (int)(8 * s), Width = (int)(150 * s), Height = (int)(34 * s), Font = new Font(Theme.FaceBold, 10.5f, FontStyle.Regular, GraphicsUnit.Point) };
+                Left = (int)((14 + i * 132) * s), Top = (int)(8 * s), Width = (int)(126 * s), Height = (int)(34 * s), Font = new Font(Theme.FaceBold, 10.5f, FontStyle.Regular, GraphicsUnit.Point) };
             b.FlatAppearance.BorderSize = 0;
             b.Click += (_, _) => Select(at);
             tabs[i] = b; strip.Controls.Add(b);
@@ -104,6 +119,57 @@ sealed class PanelWindow : Form
         drafts.SelectedIndexChanged += (_, _) => ShowDraft();
         pages[3] = draftPage;
 
+        // ---- history
+        search.BorderStyle = BorderStyle.FixedSingle; search.BackColor = Theme.Panel2; search.ForeColor = Theme.Text;
+        search.Font = new Font(Theme.Face, 11f, FontStyle.Regular, GraphicsUnit.Point); search.Dock = DockStyle.Top;
+        search.PlaceholderText = "Search everything you and Aang have said...";
+        search.TextChanged += (_, _) => { searchWait.Stop(); searchWait.Start(); };
+        searchWait.Tick += (_, _) => { searchWait.Stop(); _ = send(new { t = "history", q = search.Text.Trim() }); };
+        history = MakeList(("When", 130), ("Who", 60), ("What was said", 520));
+        history.Dock = DockStyle.Top; history.Height = (int)(190 * s);
+        history.SelectedIndexChanged += (_, _) => ShowHistory();
+        historyText.Multiline = true; historyText.ReadOnly = true; historyText.ScrollBars = ScrollBars.Vertical; historyText.BorderStyle = BorderStyle.None;
+        historyText.BackColor = Theme.Panel2; historyText.ForeColor = Theme.Text; historyText.Font = new Font(Theme.Face, 10.5f, FontStyle.Regular, GraphicsUnit.Point); historyText.Dock = DockStyle.Fill;
+        copyBtn = MakeButton("Copy", Kind.Gold);
+        copyBtn.Click += (_, _) =>
+        {
+            if (historyText.TextLength == 0) return;
+            try { Clipboard.SetDataObject(historyText.Text, true, 5, 60); copyBtn.Text = "Copied"; } catch { copyBtn.Text = "Try again"; }
+            var back = new System.Windows.Forms.Timer { Interval = 1200 }; back.Tick += (_, _) => { copyBtn.Text = "Copy"; back.Dispose(); }; back.Start();
+        };
+        var hBar = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = (int)(52 * s), Padding = new Padding((int)(14 * s), (int)(8 * s), 0, 0), BackColor = Theme.Ink };
+        hBar.Controls.Add(copyBtn);
+        var hText = new Panel { Dock = DockStyle.Fill, Padding = new Padding((int)(14 * s), (int)(10 * s), (int)(14 * s), 0) }; hText.Controls.Add(historyText);
+        var hTop = new Panel { Dock = DockStyle.Top, Height = (int)(236 * s), Padding = new Padding((int)(14 * s), (int)(12 * s), (int)(14 * s), 0) };
+        hTop.Controls.Add(history); hTop.Controls.Add(new Panel { Dock = DockStyle.Top, Height = (int)(8 * s) }); hTop.Controls.Add(search);
+        var historyPage = new Panel { Dock = DockStyle.Fill };
+        historyPage.Controls.Add(hText); historyPage.Controls.Add(hBar); historyPage.Controls.Add(hTop);
+        historyPage.Controls.SetChildIndex(hText, 0);
+        pages[4] = historyPage;
+
+        // ---- settings
+        var set = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, Padding = new Padding((int)(22 * s), (int)(18 * s), 0, 0), BackColor = Theme.Ink, AutoScroll = true };
+        foreach (var (key, label) in new[] {
+            ("quietGame", "Stay quiet while WoW has focus"),
+            ("mute", "Mute: nothing unprompted"),
+            ("seeWindow", "Let him see which app I'm in"),
+            ("usage", "Show the usage bars under the box"),
+            ("autostart", "Start with Windows") })
+        {
+            var cb = new CheckBox { Text = label, AutoSize = true, ForeColor = Theme.Text, BackColor = Theme.Ink, FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand,
+                Font = new Font(Theme.FaceBold, 11f, FontStyle.Regular, GraphicsUnit.Point), Margin = new Padding(0, 0, 0, (int)(14 * s)) };
+            cb.FlatAppearance.BorderColor = Theme.Gold; cb.FlatAppearance.CheckedBackColor = Theme.Gold; cb.FlatAppearance.MouseOverBackColor = Theme.Plum;
+            var k = key;
+            cb.CheckedChanged += (_, _) => { if (!loadingSettings) SetSetting?.Invoke(k, cb.Checked); };
+            switches.Add((cb, key)); set.Controls.Add(cb);
+        }
+        var hotkeyBtn = MakeButton("Change the hide and show key...", Kind.Plum); hotkeyBtn.Width = (int)(280 * s); hotkeyBtn.Margin = new Padding(0, (int)(10 * s), 0, (int)(10 * s));
+        hotkeyBtn.Click += (_, _) => RunAction?.Invoke("hotkey");
+        var undockBtn = MakeButton("Bring him off the edge (undock)", Kind.Plum); undockBtn.Width = (int)(280 * s); undockBtn.Margin = new Padding(0, 0, 0, (int)(10 * s));
+        undockBtn.Click += (_, _) => RunAction?.Invoke("undock");
+        set.Controls.Add(hotkeyBtn); set.Controls.Add(undockBtn);
+        pages[5] = set;
+
         foreach (var p in pages) { p.Dock = DockStyle.Fill; p.Visible = false; host.Controls.Add(p); }
         Controls.Add(host); Controls.Add(notice); Controls.Add(strip);
         Select(0);
@@ -128,7 +194,9 @@ sealed class PanelWindow : Form
     public void Select(int i)
     {
         current = i;
-        for (int k = 0; k < 4; k++)
+        if (i == 4 && !historyAsked) { historyAsked = true; _ = send(new { t = "history", q = "" }); }
+        if (i == 5) LoadSettings();
+        for (int k = 0; k < Tabs; k++)
         {
             pages[k].Visible = k == i;
             tabs[k].BackColor = k == i ? Theme.Gold : Theme.Plum;
@@ -188,6 +256,45 @@ sealed class PanelWindow : Form
         ShowDraft();
     }
 
+    bool loadingSettings;
+    public void LoadSettings()
+    {
+        loadingSettings = true;
+        foreach (var (box, key) in switches) box.Checked = GetSetting?.Invoke(key) ?? false;
+        loadingSettings = false;
+    }
+
+    /// <summary>The History tab's list, from the Core. A reply to an older search than the box now holds is ignored.</summary>
+    public void LoadHistory(JsonElement m)
+    {
+        if (Str(m, "q") != search.Text.Trim()) return;
+        historyRows = new();
+        if (m.TryGetProperty("items", out var items) && items.ValueKind == JsonValueKind.Array)
+            foreach (var it in items.EnumerateArray()) historyRows.Add((Day(Str(it, "ts")) + " " + Clock(Str(it, "ts")), Str(it, "who"), Str(it, "text")));
+        history.BeginUpdate(); history.Items.Clear();
+        foreach (var r in historyRows)
+        {
+            var li = new ListViewItem(r.When); li.SubItems.Add(r.Who); li.SubItems.Add(r.Text.Replace("\r", " ").Replace("\n", " "));
+            history.Items.Add(li);
+        }
+        history.EndUpdate();
+        if (history.Items.Count > 0) history.Items[0].Selected = true; else historyText.Text = search.Text.Length > 0 ? "Nothing matches that." : "";
+    }
+
+    void ShowHistory()
+    {
+        if (history.SelectedIndices.Count != 1) return;
+        var r = historyRows[history.SelectedIndices[0]];
+        historyText.Text = r.Text.Replace("\r", "").Replace("\n", "\r\n");
+    }
+
+    /// <summary>"2026-09-21 18:04:10" (UTC, as stored) as a Toronto time of day.</summary>
+    static string Clock(string stamp)
+    {
+        if (!DateTime.TryParse(stamp, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal, out var utc)) return "";
+        try { return TimeZoneInfo.ConvertTimeFromUtc(utc, TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time")).ToString("HH:mm"); } catch { return utc.ToLocalTime().ToString("HH:mm"); }
+    }
+
     static string Str(JsonElement e, string name) => e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
     static string Day(string stamp) => stamp.Length >= 10 ? stamp[..10] : stamp;
 
@@ -241,6 +348,8 @@ sealed class PanelWindow : Form
         var l = new ListView { View = View.Details, FullRowSelect = true, MultiSelect = false, HideSelection = false, OwnerDraw = true, BorderStyle = BorderStyle.None,
             BackColor = Theme.Panel2, ForeColor = Theme.Text, HeaderStyle = ColumnHeaderStyle.Nonclickable, Font = new Font(Theme.Face, 10.5f, FontStyle.Regular, GraphicsUnit.Point) };
         foreach (var (name, width) in cols) l.Columns.Add(name, (int)(width * s));
+        // The last column takes whatever width is left, so no bare header shows at the right (it drew white).
+        l.Resize += (_, _) => { if (l.Columns.Count == 0) return; var used = 0; for (int i = 0; i < l.Columns.Count - 1; i++) used += l.Columns[i].Width; l.Columns[^1].Width = Math.Max(60, l.ClientSize.Width - used); };
         l.DrawColumnHeader += (_, e) =>
         {
             using var back = new SolidBrush(Theme.PlumDeep); e.Graphics.FillRectangle(back, e.Bounds);

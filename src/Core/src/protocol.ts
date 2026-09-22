@@ -37,6 +37,8 @@ export type ToBody =
   /** Everything the Panel shows, worked out without the model. `notice`: something to say at the top (a draft that would not send). */
   | { t: 'panel.reply'; facts: { id: number; text: string; seen: string; times: number }[]; trust: { kind: string; example: string; since: string }[]; actions: string;
       drafts: { id: string; hash: string; to: string[]; subject: string; body: string; status: string; newTo: string[] }[]; mail: boolean; notice?: string }
+  /** The Panel's History tab: past turns, newest first, matching `q` (all of its words). */
+  | { t: 'history.reply'; q: string; items: { id: number; ts: string; who: 'you' | 'Aang'; text: string }[] }
   /** The morning brief, worked out without the model. */
   | { t: 'brief.reply'; text: string }
   /** Something only the desktop can do to its windows. Sent only after Joshua has agreed to it. */
@@ -74,6 +76,7 @@ export type FromBody =
   /** The Panel opened or refreshed; and its Forget button on one remembered fact. */
   | { t: 'panel' }
   | { t: 'forget.fact'; id: number }
+  | { t: 'history'; q?: string }
   /** A picture of his window: base64 JPEG, and how much of it is black (protected video comes out black). */
   | { t: 'look'; id: string; ok: boolean; data?: string | null; w?: number; h?: number; black?: number; error?: string | null };
 

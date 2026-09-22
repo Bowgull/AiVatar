@@ -279,7 +279,14 @@ Third-party memory services (privacy). Reddit feed. WoW combat-log analysis (his
    decisions live in the window: each button sends one message and the Core answers with a fresh list. Tested with 3 Core
    tests and the real Body through `tests/fakecore/visual-panel.mjs` (`--panel=N` opens a tab). Not built: long answers
    with markdown and copy, the job card stack, searchable history, the entity chips, settings.
-   Still to do: the two-width bubble and smoothed streaming, the rest of the Panel. Older live suites had hard-coded click positions that moved; those constants were updated, not re-run.
+   **Look pass built 2026-09-21:** two-width bubble (a reply over 4 narrow lines widens 160 px to the left, decided once per
+   reply; the window gained a transparent left margin for it, saved position shifted once); smoothed streaming (text is
+   revealed at an even pace that quickens with the backlog; copy and the rating tools wait for the end); a 150 ms fade
+   when the mode colour changes; the Panel gained History (every turn, newest first, searched as he types with every word
+   required and the last one a prefix, the whole text shown and copyable) and Settings (quiet in WoW, mute, see my app,
+   usage bars, start with Windows, change hotkey, undock), and now comes to the front when opened. Checked with
+   `tests/fakecore/visual-look.mjs` and a Core test for History.
+   Still to do: entity chips, the first-run "what can you do", suggestion chips. Older live suites had hard-coded click positions that moved; those constants were updated, not re-run.
 9. **The rest, in this order**: N memory depth, L watching and #anime, M drawing, O finish and the design gate.
 
 Retired and never to be built: C, E, P, and the iMessage half of F.
