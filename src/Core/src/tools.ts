@@ -7,6 +7,7 @@ import type { HookTracker } from './hooks.ts';
 import type { Reminders } from './reminders.ts';
 import type { ActivityLog } from './activity.ts';
 import { describeWhen, dueAt } from './reminders.ts';
+import { pastDay, utcRangeOf } from './resurface.ts';
 
 const TZ = 'America/Toronto';
 const LAT = 43.65, LON = -79.38; // Toronto, from Joshua's profile
@@ -41,6 +42,7 @@ export const TOOL_LABELS: Record<string, string> = {
   get_time: 'checking the time',
   get_weather: 'checking the weather',
   search_memory: 'looking through our history',
+  what_we_talked_about: 'looking back at that day',
   claude_code_status: 'checking on Claude Code',
   what_im_doing: 'checking what you are in',
   read_window: 'reading your window',
@@ -93,7 +95,7 @@ export const TOOL_LABELS: Record<string, string> = {
 };
 export const toolLabel = (fullName: string): string => TOOL_LABELS[fullName.replace(/^mcp__aang__/, '')] ?? 'working';
 
-export const TOOL_NAMES = ['mcp__aang__get_time', 'mcp__aang__get_weather', 'mcp__aang__search_memory',
+export const TOOL_NAMES = ['mcp__aang__get_time', 'mcp__aang__get_weather', 'mcp__aang__search_memory', 'mcp__aang__what_we_talked_about',
   'mcp__aang__claude_code_status', 'mcp__aang__set_reminder', 'mcp__aang__list_reminders', 'mcp__aang__cancel_reminder',
   'mcp__aang__look_up_web', 'mcp__aang__what_im_doing',
   'mcp__aang__remember', 'mcp__aang__forget', 'mcp__aang__what_you_know',
@@ -355,6 +357,18 @@ export function makeToolServer(
           const gap = 'Note: many of Aang\'s own older replies are not kept, so results may show only what Joshua said.';
           if (!hits.length) return ok(`Nothing found in past conversations for that. ${gap}`);
           return ok(hits.map(h => `${h.ts} ${h.who}: ${h.text}`).join('\n') + `\n${gap}`);
+        }),
+      tool('what_we_talked_about', 'The conversation from one day, in order: use for "what did we talk about on Monday", "what did I say yesterday", "what did we do last Friday". Give the day as he said it ("monday", "yesterday", "last friday", "sept 19" or 2026-09-19).',
+        { day: z.string().describe('the day, as he said it') },
+        async ({ day }) => {
+          const d = pastDay(day, new Date());
+          if (!d) return fail(`Not sure which day "${day}" is. Ask him for a weekday or a date.`);
+          const r = utcRangeOf(d);
+          const turns = memory.turnsBetween(r.from, r.to, 80);
+          if (!turns.length) return ok(`Nothing is kept from ${d}. Say so plainly.`);
+          const clock = (ts: string) => new Date(ts.replace(' ', 'T') + 'Z').toLocaleTimeString('en-CA', { timeZone: TZ, hour: 'numeric', minute: '2-digit' });
+          return ok(`${d}:\n` + turns.map(t => `${clock(t.ts)} ${t.who}: ${t.text.length > 300 ? t.text.slice(0, 300) + '...' : t.text}`).join('\n') +
+            '\nTell him the gist in a few sentences; do not read it back line by line.');
         }),
       tool('look_up_web', 'THE way to reach the internet. Use for any URL, any current event, any fact you are not certain of. Ask a plain question and get text back. The shell cannot fetch pages - this is the only option, and it always works.',
         { question: z.string().describe('what to find out, in a sentence') },
