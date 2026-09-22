@@ -15,7 +15,7 @@ sealed class PetWindow : Form
     // Extra: room above the old window so a bubble can grow to 12 lines. A full one reaches ExpandedMaxH (276) - Bottom
     // (124) = 152 above the old top; the copy/rate buttons stand another ~10 above that edge. 168 covers both.
     public const int W = 470, H = 310, Extra = 168;
-    const int HotkeyId = 0xA46, EscId = 0xA47;
+    const int HotkeyId = 0xA46, EscId = 0xA47, HotkeyPadId = 0xA48;
     static readonly TimeSpan WakeFor = TimeSpan.FromSeconds(4);
 
     readonly Config cfg = Config.Load();
@@ -117,6 +117,7 @@ sealed class PetWindow : Form
             if (cfg.Y is int oldY4) cfg.Y = oldY4 - (int)Math.Round((Extra - 110) * scale);
             cfg.LayoutVersion = 4; cfg.Save();
         }
+        if (cfg.LayoutVersion < 5) { cfg.Hotkey = "Ctrl+Plus"; cfg.LayoutVersion = 5; cfg.Save(); }   // Joshua, 2026-09-21: Ctrl and +
         Location = cfg is { X: not null, Y: not null } ? Clamp(new Point(cfg.X.Value, cfg.Y.Value)) : DefaultPos();
 
         // Test/diagnostic flag: --quiet=never or --quiet=always overrides the WoW-focus detection.
@@ -895,6 +896,9 @@ sealed class PetWindow : Form
             return false;
         }
         activeHotkey = combo;
+        // Ctrl + "+" means either + key: the number pad one is registered alongside (best effort).
+        Win32.UnregisterHotKey(Handle, HotkeyPadId);
+        if (vk == 0xBB) Win32.RegisterHotKey(Handle, HotkeyPadId, mods | Win32.MOD_NOREPEAT, 0x6B);
         Log.Write("hotkey registered: " + combo);
         return true;
     }
@@ -947,6 +951,8 @@ sealed class PetWindow : Form
                 case var np when np.StartsWith("numpad") && np.Length == 7 && char.IsDigit(np[6]): vk = (uint)(0x60 + (np[6] - '0')); break;
                 case "home": vk = 0x24; break;
                 case "numlock": vk = 0x90; break;
+                case "plus": case "=": case "oemplus": vk = 0xBB; break;                  // the +/= key on the main keyboard
+                case "add": case "numpadadd": case "numpad+": vk = 0x6B; break;          // + on the number pad
                 case var f when f.Length is 2 or 3 && f[0] == 'f' && int.TryParse(f.AsSpan(1), out var n) && n is >= 1 and <= 24: vk = (uint)(0x6F + n); break;
                 case var c when c.Length == 1 && char.IsLetterOrDigit(c[0]): vk = char.ToUpperInvariant(c[0]); break;
                 default: return false;
@@ -984,7 +990,7 @@ sealed class PetWindow : Form
             case Win32.WM_ERASEBKGND:
                 m.Result = (IntPtr)1;
                 return;
-            case Win32.WM_HOTKEY when (int)m.WParam == HotkeyId:
+            case Win32.WM_HOTKEY when (int)m.WParam == HotkeyId || (int)m.WParam == HotkeyPadId:
                 if (dock != DockEdge.None) { if (peeking) Reveal(thenType: true); else Peek(); return; }   // docked: up with the box, or back down
                 ToggleVisible();                        // the one global hotkey: hide or reveal Aang
                 return;
@@ -1025,8 +1031,22 @@ sealed class PetWindow : Form
     readonly Random rnd = new();
 
     Screen DockScreen() => Screen.AllScreens.FirstOrDefault(s => s.DeviceName == cfg.DockMonitor) ?? Screen.FromRectangle(Docking.OnScreen(Location, art, Extra, scale));
-    Point PeekPos() => Docking.PeekWindow(dock, dockFrac, DockScreen().WorkingArea, art, Extra, scale, Docking.PeekPx);
-    Point StandPos() => Docking.StandWindow(dock, dockFrac, DockScreen().WorkingArea, art, Extra, scale);
+    /// <summary>
+    /// The area he docks against. At the bottom that is the real bottom of the screen, over the taskbar, exactly as the
+    /// Rainmeter skin measured it (SCREENAREAHEIGHT): tucked, 34 px of his head show at the very bottom of the screen;
+    /// up, his feet are 9 px from it. Measuring from the top of the taskbar put him 40 px too high.
+    /// </summary>
+    Rectangle DockArea()
+    {
+        var sc = DockScreen(); var wa = sc.WorkingArea;
+        return dock == DockEdge.Bottom ? Rectangle.FromLTRB(wa.Left, wa.Top, wa.Right, sc.Bounds.Bottom) : wa;
+    }
+    Point PeekPos() => Docking.PeekWindow(dock, dockFrac, DockArea(), art, Extra, scale, Docking.PeekPx);
+    Point StandPos()
+    {
+        var p = Docking.StandWindow(dock, dockFrac, DockArea(), art, Extra, scale);
+        return dock == DockEdge.Bottom ? new Point(p.X, p.Y - (int)Math.Round(9 * scale)) : p;
+    }
 
     void SlideTo(Point to, int ms = SlideMs, bool linear = false) { slideFrom = Location; slideTo = to; slideStart = DateTime.UtcNow; slideMs = Math.Max(1, ms); slideLinear = linear; timer.Interval = 16; dirty = true; }
 
@@ -1113,6 +1133,7 @@ sealed class PetWindow : Form
     {
         if (dock == DockEdge.None || peeking) return;
         peeking = true; travelStep = 0; flipX = false; hoverArmed = false; behaviourUntil = DateTime.MaxValue;
+        if (input.Visible) input.Close(false);
         ExitExpanded(collapse: false); bubble.Clear();
         anim.Play("spin"); Wake();
         SlideTo(PeekPos(), TuckMs);
@@ -1163,9 +1184,9 @@ sealed class PetWindow : Form
     }
 
     /// <summary>Is the mouse on him or on his bubble?</summary>
-    bool OverMe()
+    bool OverMe() => OverMe(Cursor.Position);
+    bool OverMe(Point c)
     {
-        var c = Cursor.Position;
         var me = Docking.OnScreen(Location, art, Extra, scale); me.Inflate((int)(14 * scale), (int)(14 * scale));
         if (me.Contains(c)) return true;
         if (!bubble.Visible) return false;
@@ -1181,7 +1202,7 @@ sealed class PetWindow : Form
     {
         var sc = DockScreen();
         var full = Docking.OnScreen(Location, Docking.Rotated(art, dock), Extra, scale);
-        var head = Rectangle.Intersect(full, sc.WorkingArea);
+        var head = Rectangle.Intersect(full, DockArea());
         head.Inflate(2, 2);
         if (head.Contains(c)) return true;
         var mon = sc.Bounds;
@@ -1195,9 +1216,56 @@ sealed class PetWindow : Form
         return strip.Contains(c);
     }
 
+    // A click outside him sends him back down (Joshua, 2026-09-21), like his Rainmeter click-away. A low-level mouse
+    // hook sees clicks in other programs; it is installed only while he is docked and up, and it never eats a click.
+    IntPtr mouseHook;
+    Win32.HookProc? mouseProc;
+    DateTime topmostAt;
+
+    void SetClickAwayHook(bool on)
+    {
+        if (on && mouseHook == IntPtr.Zero)
+        {
+            mouseProc ??= MouseHook;
+            mouseHook = Win32.SetWindowsHookEx(Win32.WH_MOUSE_LL, mouseProc, Win32.GetModuleHandle(null), 0);
+        }
+        else if (!on && mouseHook != IntPtr.Zero) { Win32.UnhookWindowsHookEx(mouseHook); mouseHook = IntPtr.Zero; }
+    }
+
+    IntPtr MouseHook(int code, IntPtr wParam, IntPtr lParam)
+    {
+        try
+        {
+            var msg = (int)wParam;
+            if (code >= 0 && (msg == Win32.WM_LBUTTONDOWN || msg == Win32.WM_RBUTTONDOWN))
+            {
+                var info = System.Runtime.InteropServices.Marshal.PtrToStructure<Win32.MSLLHOOKSTRUCT>(lParam);
+                var pt = new Point(info.x, info.y);
+                var menu = tray.ContextMenuStrip;
+                var inside = OverMe(pt) || (input.Visible && input.Bounds.Contains(pt)) || (menu != null && menu.Visible && menu.Bounds.Contains(pt));
+                if (!inside) BeginInvoke(ClickedAway);
+            }
+        }
+        catch { /* the hook must never break the mouse */ }
+        return Win32.CallNextHookEx(IntPtr.Zero, code, wParam, lParam);
+    }
+
+    void ClickedAway()
+    {
+        if (dock == DockEdge.None || peeking || working || dragging || permissionId != null || consentText != null) return;
+        Peek();
+    }
+
     void WatchDock(DateTime now)
     {
+        SetClickAwayHook(dock != DockEdge.None && !peeking);
         if (dock == DockEdge.None) return;
+        // The taskbar is always-on-top too, and clicking it lifts it over him; at the bottom he takes the top back each second.
+        if (dock == DockEdge.Bottom && (now - topmostAt).TotalMilliseconds > 1000)
+        {
+            topmostAt = now;
+            Win32.SetWindowPos(Handle, Win32.HWND_TOPMOST, 0, 0, 0, 0, Win32.SWP_NOMOVE | Win32.SWP_NOSIZE | Win32.SWP_NOACTIVATE);
+        }
         if (peeking)
         {
             if (slideStart != DateTime.MinValue || dragging) return;
@@ -1382,6 +1450,8 @@ sealed class PetWindow : Form
     {
         timer.Stop(); fgTimer.Stop(); ackTimer.Stop(); awayTimer.Stop();
         if (hotkeyOk) Win32.UnregisterHotKey(Handle, HotkeyId);
+        Win32.UnregisterHotKey(Handle, HotkeyPadId);
+        SetClickAwayHook(false);
         if (escRegistered) Win32.UnregisterHotKey(Handle, EscId);
         input.Dispose();
         supervisor?.Dispose();

@@ -20,13 +20,15 @@ const ps = ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File'];
 const cap = server('powershell.exe', [...ps, path.join(root, 'tools', 'measure', 'Capture.ps1'), '-Serve']); cap.prime();
 const keys = server('powershell.exe', [...ps, path.join(root, 'tools', 'measure', 'Keys.ps1'), '-Serve']); keys.prime();
 await sleep(1500);
-const wa = JSON.parse(execSync(`powershell -NoProfile -Command "Add-Type -AssemblyName System.Windows.Forms; $w=[System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea; @{x=$w.X;y=$w.Y;w=$w.Width;h=$w.Height} | ConvertTo-Json -Compress"`, { encoding: 'utf8' }));
-const WA = { l: wa.x, t: wa.y, r: wa.x + wa.w, b: wa.y + wa.h };
+const wa = JSON.parse(execSync(`powershell -NoProfile -Command "Add-Type -AssemblyName System.Windows.Forms; $s=[System.Windows.Forms.Screen]::PrimaryScreen; $w=$s.WorkingArea; @{x=$w.X;y=$w.Y;w=$w.Width;h=$w.Height;sb=$s.Bounds.Bottom} | ConvertTo-Json -Compress"`, { encoding: 'utf8' }));
+const WA0 = { l: wa.x, t: wa.y, r: wa.x + wa.w, b: wa.y + wa.h };
+let WA = WA0;
 let failures = 0;
 const check = (n, ok, d = '') => { console.log(`${ok ? 'PASS' : 'FAIL'}  ${n}${ok ? '' : '  ' + d}`); if (!ok) failures++; };
 const inter = (a) => { const l = Math.max(a.x, WA.l), t = Math.max(a.y, WA.t), r = Math.min(a.x + a.w, WA.r), b = Math.min(a.y + a.h, WA.b); return { w: Math.max(0, r - l), h: Math.max(0, b - t) }; };
 await keys.ask(`move ${Math.round((WA.l + WA.r) / 2)} ${Math.round((WA.t + WA.b) / 2)}`);
 for (const edge of edges) {
+  WA = edge === 'bottom' ? { ...WA0, b: wa.sb } : WA0;          // the bottom is the real bottom of the screen, over the taskbar
   const bodyDir = mkdtempSync(path.join(os.tmpdir(), 'aang-rm-'));
   const wss = new WebSocketServer({ host: '127.0.0.1', port: 47831, path: '/body' });
   let sock = null; wss.on('connection', ws => { sock = ws; });
@@ -48,6 +50,15 @@ for (const edge of edges) {
   check(`${edge}: hovering (no click) brings him up`, !!a1 && a1.why === 'out', JSON.stringify(a1));
   await cap.ask(`snap ${path.join(out, `${edge}_2_up_hello.png`)}`);
   await keys.ask(`move ${Math.round((WA.l + WA.r) / 2)} ${Math.round((WA.t + WA.b) / 2)}`);
+  if (edge === 'bottom') {
+    await sleep(8000);                                                    // any greeting has faded
+    await keys.ask(`click 700 300`);                                      // a click somewhere else on the screen
+    await sleep(1400);
+    check(`${edge}: a click outside him sends him back down`, artrect()?.why === 'peek', JSON.stringify(artrect()));
+    await keys.ask(`move ${hx} ${hy}`); await sleep(1400);
+    check(`${edge}: hovering brings him up again`, artrect()?.why === 'out', JSON.stringify(artrect()));
+    await keys.ask(`move ${Math.round((WA.l + WA.r) / 2)} ${Math.round((WA.t + WA.b) / 2)}`);
+  }
   await sleep(20000);
   check(`${edge}: still up 20 s later`, artrect()?.why === 'out', JSON.stringify(artrect()));
   await sleep(33000);
