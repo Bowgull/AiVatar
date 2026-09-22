@@ -321,6 +321,17 @@ export class Memory {
     }
   }
 
+  /** Everything said between two UTC stamps ("YYYY-MM-DD HH:MM:SS"), oldest first: one day's conversation. */
+  turnsBetween(from: string, to: string, limit = 80): { ts: string; who: 'you' | 'Aang'; text: string }[] {
+    if (!this.db) return [];
+    try {
+      const rows = this.db.prepare(
+        `SELECT ts, role, text FROM turns WHERE ts >= ? AND ts < ? AND NOT (role = 'aang' AND COALESCE(tier, '') LIKE 'local%') ORDER BY id LIMIT ?`,
+      ).all(from, to, limit) as { ts: string; role: string; text: string }[];
+      return rows.map(r => ({ ts: String(r.ts), who: r.role === 'user' ? 'you' as const : 'Aang' as const, text: String(r.text) }));
+    } catch { return []; }
+  }
+
   saveTurn(user: string, aang: string, tier: string): void {
     if (!this.db) return;
     try {
