@@ -10,7 +10,7 @@ import path from 'node:path';
 import { WebSocket } from 'ws';
 import { Core } from '../src/core.ts';
 import { kindOf } from '../src/trust.ts';
-import { describeCall, TOOL_NAMES, BUILTIN_WRITE } from '../src/tools.ts';
+import { describeCall, TOOL_NAMES, QUICK_TOOLS, QUICK_HIDDEN, BUILTIN_WRITE } from '../src/tools.ts';
 
 process.env.AANG_UNDO_DIR = mkdtempSync(path.join(os.tmpdir(), 'aang-undo-'));
 const tmp = () => mkdtempSync(path.join(os.tmpdir(), 'aang-doers-'));
@@ -117,4 +117,20 @@ test('with no desktop connected, a window action says so instead of hanging', as
   assert.match(r.detail, /not connected/);
   await core.stop();
   assert.ok(readFileSync);
+});
+
+test('Quick gets a short shelf of tools, Smart gets all of them', () => {
+  // 2026-09-22: tool-choice accuracy falls off past ~40-50 tools and there are 52. The small model is hurt
+  // worst and the small model is what answers in the bubble, so Quick sees only what chat needs. Nothing is
+  // lost: doing routes to Smart first, and a Quick "I can't" is re-run there.
+  assert.ok(TOOL_NAMES.length > 40, 'if this ever drops below the cliff, the split can go');
+  assert.ok(QUICK_TOOLS.length <= 20, `Quick sees ${QUICK_TOOLS.length}; keep it well under the cliff`);
+  assert.deepEqual(QUICK_TOOLS.filter(t => !TOOL_NAMES.includes(t)), [], 'no typos: every Quick tool is a real one');
+  assert.equal(QUICK_TOOLS.length + QUICK_HIDDEN.length, TOOL_NAMES.length, 'every tool is either seen or hidden');
+  // the doing tools are the ones that must be hidden from Quick
+  for (const t of ['mcp__aang__run', 'mcp__aang__write_file', 'mcp__aang__delete_file', 'mcp__aang__mail_draft', 'mcp__aang__press_control'])
+    assert.ok(QUICK_HIDDEN.includes(t), `${t} must not be on Quick's shelf`);
+  // ...and remembering must NOT be, or casual chat stops being able to keep anything
+  for (const t of ['mcp__aang__remember', 'mcp__aang__search_memory', 'mcp__aang__set_reminder'])
+    assert.ok(QUICK_TOOLS.includes(t), `${t} is chat, Quick needs it`);
 });
