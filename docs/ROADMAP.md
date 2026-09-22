@@ -287,6 +287,18 @@ Third-party memory services (privacy). Reddit feed. WoW combat-log analysis (his
    usage bars, start with Windows, change hotkey, undock), and now comes to the front when opened. Checked with
    `tests/fakecore/visual-look.mjs` and a Core test for History.
    Still to do: entity chips, the first-run "what can you do", suggestion chips. Older live suites had hard-coded click positions that moved; those constants were updated, not re-run.
+   **Trust fix built 2026-09-22, his own words: "is aang really acting as an extension of claude" -> no, and why:**
+   real bug found live (Discord, unedited): asked for directions, Aang said "plug it into Google Maps yourself";
+   asked directly "can you do it for me", Aang said "I can't" - false, `open` could have opened the route in one
+   call. `voice.ts` gained a rule and a grounded example (the actual exchange, fixed): if a tool can do what he is
+   asking, use it, never describe how he would do it himself, never say "I can't" when a tool exists that can; try
+   one real alternative before reporting failure. Separately, a real capability gap in the same conversation: "open
+   claude on my pc" said Claude was not installed, though it plainly is - `open.ts`'s resolver only knew App Paths,
+   Start Menu .lnk files and PATH, none of which see a packaged (MSIX) app. Added `fromAppx` (Windows' own
+   `Get-StartApps`, the same index the Start Menu's search box uses) as a last resort; tested live against the real
+   Claude install (`Get-AppxPackage` confirmed it, `explorer.exe shell:AppsFolder\Claude_pzs8sxrjxfjjc!Claude`
+   correctly focused the running app). Not yet re-tested with a real model turn (would cost quota); the prompt and
+   resolver fix are unit-tested (308/308) and the app-open path was checked live, for free, outside any turn.
    **Away mode built 2026-09-21 (Joshua: "let me know when a claude session is done in discord and also gives me
    whatever the prompt was and i can reply back"):** a Claude Code job's own Notification/Stop update is now ONE
    Discord message remembered by its folder (#needs-you or #aang, as before), and while he is away and has already

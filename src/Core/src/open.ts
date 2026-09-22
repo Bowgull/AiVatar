@@ -95,6 +95,21 @@ function fromPath(exe: string): string | null {
   return out && existsSync(out) ? out : null;
 }
 
+/**
+ * Windows' own Start Menu index, via the same query the Start Menu's search box runs. Covers packaged
+ * (MSIX/AppX) apps, which have no .exe on PATH, no App Paths entry, and often no real .lnk file in the Start
+ * Menu folders either - fromStartMenu's file scan cannot see them at all. Found 2026-09-22: "open claude"
+ * said Claude was not installed, though it plainly was (Get-AppxPackage found it); Get-StartApps is what
+ * actually resolves it, the way clicking its Start Menu tile does.
+ */
+function fromAppx(name: string): { target: string; label: string } | null {
+  const q = name.replace(/'/g, "''");
+  const out = run('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
+    `$a = Get-StartApps -Name '*${q}*' | Select-Object -First 1; if ($a) { $a.Name + "|" + $a.AppID }`]);
+  const [label, id] = out.trim().split('|');
+  return id ? { target: `shell:AppsFolder\\${id}`, label: label || name } : null;
+}
+
 export interface FoundApp { target: string; name: string }
 
 /** Find an installed app by the name he used. null means it was looked for everywhere and is not there. */
@@ -106,7 +121,9 @@ export function findApp(name: string): FoundApp | null {
   const base = ALIASES[key] ?? key;
   const exe = `${base}.exe`;
   const hit = fromAppPaths(exe) ?? fromStartMenu(raw) ?? (base !== key ? fromStartMenu(base) : null) ?? fromPath(exe) ?? fromPath(`${base}.cmd`);
-  return hit ? { target: hit, name: displayName(hit) } : null;
+  if (hit) return { target: hit, name: displayName(hit) };
+  const appx = fromAppx(base) ?? (base !== key ? fromAppx(key) : null);
+  return appx ? { target: appx.target, name: appx.label } : null;
 }
 
 function displayName(target: string): string {
@@ -190,6 +207,11 @@ export function launch(r: Resolved): Promise<{ ok: boolean; detail: string }> {
         const link = readShortcut(program);
         if (link && existsSync(link.target)) { program = link.target; arg = [...splitArgs(link.args), ...arg]; }
         else { child = spawn('explorer.exe', [program], { detached: true, stdio: 'ignore' }); program = undefined; }
+      } else if (program && /^shell:/i.test(program)) {
+        // A packaged (MSIX/AppX) app, from fromAppx: there is no real .exe to spawn. explorer.exe activates
+        // it by this shell path exactly as a Start Menu tile click would. Tested live, 2026-09-22: this is how
+        // Claude itself, running as one of these, actually opens.
+        child = spawn('explorer.exe', [program], { detached: true, stdio: 'ignore' }); program = undefined;
       }
       if (child) { /* started through explorer above */ }
       else if (program) {
