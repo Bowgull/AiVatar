@@ -103,6 +103,15 @@ test('an app only the Start menu knows is found too', { skip: !existsSync(path.j
   assert.match(findApp('spotify')!.target, /spotify/i);
 });
 
+// 2026-09-22: "open claude on my pc" said Claude was not installed, though it plainly was - a packaged (MSIX)
+// app has no .exe on PATH, no App Paths entry, and fromStartMenu's file scan does not see it either.
+test('a packaged app with no .exe anywhere is still found, the way its own Start Menu tile is', () => {
+  const hit = findApp('claude');
+  if (!hit) return;                                   // not installed on whatever machine runs this suite
+  assert.match(hit.target, /^shell:AppsFolder\\/i);
+  assert.equal(hit.name, 'Claude');
+});
+
 test('a link can be opened in a named app, and that app is checked for, not assumed', { skip: !installed('C:/Program Files/Google/Chrome/Application/chrome.exe') && 'Chrome not installed here' }, () => {
   const r = resolve('https://www.youtube.com/results?search_query=foo+fighters+live+wembley', 'chrome') as any;
   assert.equal(r.kind, 'link');
