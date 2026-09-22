@@ -18,9 +18,18 @@ import { readFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
+export type JobKind = 'job hunt' | 'browse' | 'self' | 'task';
+/** waiting: typed in, he has not pressed Enter yet. ended: the session closed, or a newer job took its folder. */
+export type JobState = 'waiting' | 'working' | 'needs you' | 'done' | 'ended';
+
 export interface Launched {
   /** What Joshua calls it: "job hunt". */
   name: string;
+  kind?: JobKind;
+  state?: JobState;
+  /** The last thing he was told about it. */
+  last?: string;
+  updatedAt?: number;
   /** The folder the session works in - how its hook events are recognised, since the app picks the id. */
   cwd: string;
   /** The Claude session id, once its first hook event has said it. */
@@ -34,6 +43,44 @@ export function folderFor(where: string | undefined): string {
   if (!w) return os.homedir();
   if (/job/i.test(w) && !/[\\/]/.test(w)) return path.join(os.homedir(), 'job-hunt-data');
   return path.isAbsolute(w) ? w : path.join(os.homedir(), w);
+}
+
+/** Aang's own code: where "add X to yourself" is worked on. */
+export const AANG_REPO = path.join(os.homedir(), 'Documents', 'AangApp');
+
+/**
+ * What a kind of job means, written into the request so the session keeps to it. Browsing goes through Claude in
+ * Chrome and asks before anything that commits him. A change to Aang himself is made on its own branch, tested,
+ * and never merged by the session: Joshua reviews and merges it.
+ */
+export function frameJob(kind: JobKind, task: string, where?: string): { prompt: string; cwd: string } {
+  const t = task.trim();
+  if (kind === 'self') {
+    return {
+      cwd: AANG_REPO,
+      prompt: `${t}\n\nThis is a change to Aang himself (this repo). Rules: work on a new git branch named aang/<a short name>, never on main, and do not merge it. ` +
+        `Run npm test in src/Core, and dotnet build -c Release in src/Body if you change the Body, before you finish. ` +
+        `Finish with what you changed, how you checked it, and the branch name, so Joshua can review and merge it himself.`,
+    };
+  }
+  if (kind === 'browse') {
+    return {
+      cwd: folderFor(where),
+      prompt: `${t}\n\nUse Claude in Chrome for the browsing. Ask me before you submit a form, buy or pay for anything, sign in, or post or send anything. ` +
+        `Finish with a short summary of what you found or did, with links.`,
+    };
+  }
+  return { cwd: folderFor(kind === 'job hunt' ? where || 'job hunt' : where), prompt: t };
+}
+
+/** What one hook event does to a job's state. */
+export function nextState(ev: any, news: string | null, was: JobState): JobState {
+  const name = String(ev?.hook_event_name ?? '');
+  if (name === 'SessionEnd') return 'ended';
+  if (news && /^Need input/.test(news)) return 'needs you';
+  if (name === 'Stop') return 'done';
+  if (name === 'UserPromptSubmit' || name === 'PreToolUse' || name === 'PostToolUse' || name === 'SessionStart') return 'working';
+  return was;
 }
 
 /** The app link that opens a new Code session with the message typed in and the folder set. */

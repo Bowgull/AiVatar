@@ -3,12 +3,42 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { asksSomething, brief, folderFor, isFrom, lastAssistantText, newSessionLink, newsFor } from '../src/claude.ts';
+import { AANG_REPO, asksSomething, brief, folderFor, frameJob, isFrom, lastAssistantText, newSessionLink, newsFor, nextState } from '../src/claude.ts';
 import type { Launched } from '../src/claude.ts';
 import { kindOf } from '../src/trust.ts';
 import { describeCall } from '../src/tools.ts';
 
 const jobs = path.join(os.homedir(), 'job-hunt-data');
+test('a browsing job goes through Claude in Chrome and asks before anything that commits him', () => {
+  const f = frameJob('browse', 'find the cheapest flight to Montreal on Friday');
+  assert.match(f.prompt, /^find the cheapest flight/);
+  assert.match(f.prompt, /Claude in Chrome/);
+  assert.match(f.prompt, /Ask me before you submit a form, buy or pay/);
+});
+
+test('a change to Aang himself is made in his repo, on a branch, tested, and never merged by the session', () => {
+  const f = frameJob('self', 'add a pomodoro timer to yourself');
+  assert.equal(f.cwd, AANG_REPO);
+  assert.match(f.prompt, /new git branch named aang\//);
+  assert.match(f.prompt, /never on main, and do not merge it/);
+  assert.match(f.prompt, /npm test/);
+});
+
+test('a job hunt keeps his words and runs in the job-hunt folder; a plain task in the folder he named', () => {
+  assert.equal(frameJob('job hunt', 'Run my job search for today.').prompt, 'Run my job search for today.');
+  assert.match(frameJob('job hunt', 'x').cwd, /job-hunt-data$/);
+  assert.equal(frameJob('task', 'x').cwd, os.homedir());
+});
+
+test('a job moves through waiting, working, needs you and done from its hook events', () => {
+  assert.equal(nextState({ hook_event_name: 'UserPromptSubmit' }, null, 'waiting'), 'working');
+  assert.equal(nextState({ hook_event_name: 'Notification' }, 'Need input in Claude on the task.', 'working'), 'needs you');
+  assert.equal(nextState({ hook_event_name: 'Stop' }, 'Task done. It worked.', 'working'), 'done');
+  assert.equal(nextState({ hook_event_name: 'Stop' }, 'Need input in Claude on the task: which one?', 'working'), 'needs you');
+  assert.equal(nextState({ hook_event_name: 'SessionEnd' }, null, 'done'), 'ended');
+  assert.equal(nextState({ hook_event_name: 'Something' }, null, 'done'), 'done');
+});
+
 const launched = (): Launched => ({ name: 'job hunt', cwd: jobs, sessionId: null, startedAt: 0 });
 
 function transcript(...assistant: string[]): string {

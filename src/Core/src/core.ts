@@ -6,6 +6,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync } from 'n
 import os from 'node:os';
 import path from 'node:path';
 import { parseFromBody } from './protocol.ts';
+import { writeFileAtomic } from './atomic.ts';
 import type { FromBody, Mode, ToBody } from './protocol.ts';
 import { Lane } from './lane.ts';
 import type { LaneEvent } from './lane.ts';
@@ -25,8 +26,8 @@ import { Reminders } from './reminders.ts';
 import { SessionStore } from './sessions.ts';
 import { ActivityLog, describe } from './activity.ts';
 import { clearReadCache, looksVisual, readWindow } from './screen.ts';
-import { CLAUDE_WINDOW, folderFor, isFrom, newsFor, openInClaude } from './claude.ts';
-import type { Launched } from './claude.ts';
+import { CLAUDE_WINDOW, frameJob, isFrom, newsFor, nextState, openInClaude } from './claude.ts';
+import type { JobKind, Launched } from './claude.ts';
 import { consolidate } from './consolidate.ts';
 import { TrustStore, kindOf } from './trust.ts';
 import { launch, openedText, resolve as resolveOpen } from './open.ts';
@@ -93,7 +94,7 @@ export class Core {
     return makeToolServer(
       this.memory, this.hooks, this.reminders, q => this.lookUpWeb(q), this.activity,
       (what, withApp) => this.open(what, withApp), () => this.readClipboard(), cmd => this.run(cmd), () => this.readScreen(), () => this.lookAtScreen(),
-      (task, where, name) => this.startClaude(task, where, name),
+      (task, where, name, kind) => this.startClaude(task, where, name, kind),
       this.doers(),
     );
   }
@@ -208,6 +209,7 @@ export class Core {
       actions: this.actions.text(40),
       drafts: (svc?.store.open() ?? []).map(d => ({ id: d.id, hash: d.hash, to: d.to, subject: d.subject, body: d.body, status: d.status, newTo: d.newTo })),
       mail: svc !== null,
+      sessions: [...this.launched].reverse().map(l => ({ name: l.name, kind: l.kind ?? 'task', state: l.state ?? 'waiting', since: new Date(l.startedAt).toISOString(), last: l.last ?? '' })),
       ...(notice ? { notice } : {}),
     };
   }
@@ -547,11 +549,14 @@ export class Core {
     this.hookServer = new HookServer(this.cfg.port + 1, ev => {
       const said = this.hooks.handle(ev);
       // A session Aang started for Joshua gets its own, fuller news, with a way straight to it.
-      const mine = this.launched.find(l => isFrom(l, ev));
+      const mine = this.launched.find(l => l.state !== 'ended' && isFrom(l, ev));
       if (mine) {
         mine.sessionId ??= String(ev?.session_id ?? '') || null;
-        if (ev?.hook_event_name === 'SessionEnd') { this.launched.splice(this.launched.indexOf(mine), 1); return; }
-        const news = newsFor(mine, ev);
+        const news = ev?.hook_event_name === 'SessionEnd' ? null : newsFor(mine, ev);
+        mine.state = nextState(ev, news, mine.state ?? 'waiting');
+        if (news) mine.last = news;
+        mine.updatedAt = Date.now();
+        this.saveLaunched();
         if (news) this.announce(news, { asked: true, focus: CLAUDE_WINDOW });
         return;
       }
@@ -971,20 +976,36 @@ export class Core {
     this.sendTo('desktop', msg);
   }
 
-  /** Claude Code sessions Aang opened in the Claude app for Joshua, newest last. */
-  private readonly launched: Launched[] = [];
+  /** Claude Code sessions Aang opened in the Claude app for Joshua, newest last. Kept on disk, so a restart does not lose them. */
+  private launchedCache: Launched[] | null = null;
+  private get launched(): Launched[] {
+    if (this.launchedCache) return this.launchedCache;
+    try { const j = JSON.parse(readFileSync(path.join(this.cfg.stateDir, 'launched.json'), 'utf8')); this.launchedCache = Array.isArray(j) ? j : []; }
+    catch { this.launchedCache = []; }
+    return this.launchedCache;
+  }
+  private saveLaunched(): void {
+    const list = this.launched;
+    while (list.length > 20) list.shift();
+    try { writeFileAtomic(path.join(this.cfg.stateDir, 'launched.json'), JSON.stringify(list, null, 2)); } catch { /* best effort */ }
+  }
 
   /** Open a new session in the Claude app's Code tab with the request typed in, and follow it. */
-  private async startClaude(task: string, where?: string, name?: string): Promise<string> {
-    const cwd = folderFor(where);
-    const label = (name ?? '').trim() || (/job/i.test(`${where} ${task}`) ? 'job hunt' : 'task');
+  private async startClaude(task: string, where?: string, name?: string, kind?: JobKind): Promise<string> {
+    const k: JobKind = kind ?? (/job/i.test(`${where ?? ''} ${name ?? ''} ${task}`) ? 'job hunt' : 'task');
+    const framed = frameJob(k, task, where);
+    const cwd = framed.cwd;
+    const label = (name ?? '').trim() || (k === 'job hunt' ? 'job hunt' : k === 'self' ? 'change to Aang' : k === 'browse' ? 'browsing job' : 'task');
     if (!existsSync(cwd)) return `It did not start: the folder ${cwd} does not exist.`;
     if (!await this.askPermission('mcp__aang__start_claude', { task, name: label })) return this.whyNot() + ' No session was started.';
-    const l = openInClaude(task, { name: label, cwd });
+    const l = openInClaude(framed.prompt, { name: label, cwd });
     if ('error' in l) return `It did not start: ${l.error}`;
-    // One followed session per folder: a new job hunt replaces the old one's watch.
-    for (let i = this.launched.length - 1; i >= 0; i--) if (this.launched[i]!.cwd.toLowerCase() === cwd.toLowerCase()) this.launched.splice(i, 1);
+    l.kind = k; l.state = 'waiting'; l.updatedAt = Date.now();
+    // A job not yet started in the same folder can no longer be told apart from this one: it stops being followed.
+    // One that has already said who it is (its session id) is still followed.
+    for (const o of this.launched) if (o.state !== 'ended' && !o.sessionId && o.cwd.toLowerCase() === cwd.toLowerCase()) { o.state = 'ended'; o.last = 'Replaced by a newer job before it started.'; }
     this.launched.push(l);
+    this.saveLaunched();
     // Nothing is heard until he presses Enter (and confirms the folder, the first time). Say so once if he
     // has not, in case the app opened behind the game.
     const check = setTimeout(() => {

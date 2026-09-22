@@ -21,7 +21,7 @@ sealed class PanelWindow : Form
     readonly Control[] pages = new Control[Tabs];
     int current;
 
-    readonly ListView facts, trust, drafts;
+    readonly ListView facts, trust, drafts, sessions;
     readonly TextBox activity = new(), preview = new();
     readonly Label draftsEmpty = new(), memoryHint = new(), trustHint = new();
     readonly Button forget, takeBack, sendBtn, saveBtn, discardBtn;
@@ -96,7 +96,13 @@ sealed class PanelWindow : Form
         // ---- what I did
         activity.Multiline = true; activity.ReadOnly = true; activity.ScrollBars = ScrollBars.Vertical; activity.BorderStyle = BorderStyle.None;
         activity.BackColor = Theme.Panel2; activity.ForeColor = Theme.Text; activity.Font = new Font("Consolas", 10f, FontStyle.Regular, GraphicsUnit.Point); activity.Dock = DockStyle.Fill;
-        var actPage = new Panel { Dock = DockStyle.Fill, Padding = new Padding((int)(14 * s)) }; actPage.Controls.Add(activity);
+        // Claude jobs he started through Aang, on top: what each is doing now. A double-click brings Claude forward.
+        sessions = MakeList(("Claude job", 190), ("State", 100), ("Started", 130), ("Last news", 300));
+        sessions.Dock = DockStyle.Top; sessions.Height = (int)(150 * s);
+        sessions.DoubleClick += (_, _) => RunAction?.Invoke("claude");
+        var actPage = new Panel { Dock = DockStyle.Fill, Padding = new Padding((int)(14 * s)) };
+        actPage.Controls.Add(activity); actPage.Controls.Add(new Panel { Dock = DockStyle.Top, Height = (int)(10 * s) }); actPage.Controls.Add(sessions);
+        actPage.Controls.SetChildIndex(activity, 0);
         pages[2] = actPage;
 
         // ---- drafts
@@ -233,6 +239,15 @@ sealed class PanelWindow : Form
         trust.EndUpdate();
         trustHint.Text = trust.Items.Count == 0 ? "He asks before each kind of thing." : "Taking one back means he asks again next time. Deleting files, force quits and sending mail always ask.";
 
+        sessions.BeginUpdate(); sessions.Items.Clear();
+        if (m.TryGetProperty("sessions", out var ss) && ss.ValueKind == JsonValueKind.Array)
+            foreach (var j in ss.EnumerateArray())
+            {
+                var it = new ListViewItem(Str(j, "name")); it.SubItems.Add(Str(j, "state")); it.SubItems.Add(Day(Str(j, "since")) + " " + Clock(Str(j, "since")));
+                it.SubItems.Add(Str(j, "last").Replace("\n", " ")); sessions.Items.Add(it);
+            }
+        if (sessions.Items.Count == 0) { var none = new ListViewItem("No Claude jobs yet. Ask Aang for a longer job, a browsing job, or a change to himself."); sessions.Items.Add(none); }
+        sessions.EndUpdate();
         activity.Text = (Str(m, "actions") ?? "").Replace("\r", "").Replace("\n", "\r\n");
         activity.SelectionStart = activity.TextLength; activity.ScrollToCaret();
 
