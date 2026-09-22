@@ -29,7 +29,7 @@ export const LAYOUT: CategoryDef[] = [
     { name: 'job-inbox', kind: 'text', topic: 'Paste job links. Aang vets each one.' },
     { name: 'job-digest', kind: 'text', topic: 'What the job hunt found.' },
     { name: 'applied', kind: 'text', topic: 'One line per application, with its confirmation.' },
-    { name: 'needs-you', kind: 'text', topic: 'Only things blocked on Joshua: a captcha, an essay, an approval. Notifications on here only.' },
+    { name: 'needs-you', kind: 'text', topic: 'Only things blocked on Joshua: a captcha, an essay, an approval. Reply to one to answer that Claude job.' },
   ] },
   { name: 'MAIL', channels: [
     { name: 'drafts', kind: 'text', topic: 'Email drafts waiting for a yes. Nothing is sent without a button press.' },
@@ -45,7 +45,7 @@ export const LAYOUT: CategoryDef[] = [
 ];
 
 /** Channels whose messages are things Joshua says to Aang. */
-export const LISTEN_CHANNELS = ['aang', 'capture', 'lists', 'job-inbox', 'drafts'] as const;
+export const LISTEN_CHANNELS = ['aang', 'capture', 'lists', 'job-inbox', 'drafts', 'needs-you'] as const;
 
 /** The permissions Aang needs, by the names discord.js uses. Anything outside this is reported, not assumed. */
 export const NEEDED = ['ViewChannel', 'ManageChannels', 'SendMessages', 'SendMessagesInThreads', 'CreatePublicThreads',

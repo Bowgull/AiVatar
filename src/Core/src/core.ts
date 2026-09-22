@@ -620,7 +620,7 @@ export class Core {
         if (news) mine.last = news;
         mine.updatedAt = Date.now();
         this.saveLaunched();
-        if (news) this.announce(news, { asked: true, focus: CLAUDE_WINDOW });
+        if (news) void this.announceJob(news, mine.cwd, { asked: true, focus: CLAUDE_WINDOW });
         return;
       }
       if (said) this.announce(said.text);
@@ -825,6 +825,12 @@ export class Core {
       case 'hush': this.send(ws, { t: 'hush.reply', text: this.hush(Number(m.minutes)) }); break;
       case 'panel': this.send(ws, this.panelData()); break;
       case 'history': { const q = typeof m.q === 'string' ? m.q.slice(0, 200) : ''; this.send(ws, { t: 'history.reply', q, items: this.memory.history(q, 200) }); break; }
+      case 'claude.reply': {
+        const cwd = typeof m.cwd === 'string' ? m.cwd : '', text = typeof m.text === 'string' ? m.text.trim() : '';
+        const job = this.launched.find(l => l.state !== 'ended' && l.cwd.toLowerCase() === cwd.toLowerCase());
+        if (job && text) void this.startClaude(text, job.cwd, undefined, job.kind ?? 'task').then(res => this.sendTo('discord', { t: 'bubble', text: res, stream: false, proactive: true }));
+        break;
+      }
       case 'forget.fact': {
         const gone = typeof m.id === 'number' ? this.memory.forgetId(m.id) : null;
         if (gone) {
@@ -1027,10 +1033,13 @@ export class Core {
    * when he can actually see it: while he is in the game or has muted Aang they wait, and are delivered in
    * order the moment he is back.
    */
-  announce(text: string, opts: { asked?: boolean; focus?: string } = {}): void {
+  announce(text: string, opts: { asked?: boolean; focus?: string; jobCwd?: string; image?: { data: string; mimeType: string } } = {}): void {
     // Hush holds everything, even what he asked to be told about; it comes out when the hush ends.
     if (this.hushUntil > Date.now()) { this.pending.push(text); while (this.pending.length > 8) this.pending.shift(); return; }
-    const msg: ToBody = { t: 'bubble', text, stream: false, proactive: true, asked: opts.asked === true, ...(opts.focus ? { focus: opts.focus, link: 'Claude' } : {}) };
+    const msg: ToBody = {
+      t: 'bubble', text, stream: false, proactive: true, asked: opts.asked === true, ...(opts.focus ? { focus: opts.focus, link: 'Claude' } : {}),
+      ...(opts.jobCwd ? { jobCwd: opts.jobCwd } : {}), ...(opts.image ? { image: opts.image } : {}),
+    };
     // Away from the PC: Discord, and only Discord. It keeps its own quiet hours, which make it silent, not lost.
     if (this.whereHeIs() === 'discord') { this.sendTo('discord', msg); return; }
     // Something he asked Aang to watch for (a job he started) is said even while he is in the game - Joshua's
@@ -1041,6 +1050,25 @@ export class Core {
       return;
     }
     this.sendTo('desktop', msg);
+  }
+
+  /**
+   * The same news a Claude Code job's Notification or Stop hook always gave, with one addition: while he is away
+   * (Discord) and he has already trusted pictures reaching Discord, a picture of whatever is in front right now goes
+   * with it. Never asks for that trust itself - a background job must never compete for the one permission slot with
+   * something he is actually waiting on - so the first few updates may be text only, until he has said yes once
+   * (to send_to_phone, or here) in the ordinary way.
+   */
+  private async announceJob(text: string, cwd: string, opts: { asked?: boolean; focus?: string } = {}): Promise<void> {
+    let image: { data: string; mimeType: string } | undefined;
+    if (this.whereHeIs() === 'discord' && this.trust.allowed('send to Discord') && this.clientsOf('desktop').length && !this.looking) {
+      if (this.trust.allowed('arrange windows')) { try { await this.hands('arrange', 'Claude', 'front'); } catch { /* best effort */ } }
+      try {
+        const m = await this.requestLook();
+        if (m?.ok && m.data && (m.black ?? 0) < BLACK_SHARE) image = { data: m.data, mimeType: 'image/jpeg' };
+      } catch { /* best effort: the text still goes */ }
+    }
+    this.announce(text, { ...opts, jobCwd: cwd, ...(image ? { image } : {}) });
   }
 
   /** Claude Code sessions Aang opened in the Claude app for Joshua, newest last. Kept on disk, so a restart does not lose them. */
