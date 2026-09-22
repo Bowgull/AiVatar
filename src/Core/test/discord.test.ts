@@ -58,6 +58,8 @@ class FakeCore implements CoreLink {
   mails: { id: string; hash: string; action: string }[] = []; briefs = 0;
   mailAct(id: string, hash: string, action: string) { this.mails.push({ id, hash, action }); }
   brief() { this.briefs++; }
+  claudeReplies: { cwd: string; text: string }[] = [];
+  claudeReply(cwd: string, text: string) { this.claudeReplies.push({ cwd, text }); }
   onEvent(cb: (m: any) => void) { this.cb = cb; }
   emit(m: any) { this.cb(m); }
 }

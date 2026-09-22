@@ -287,6 +287,20 @@ Third-party memory services (privacy). Reddit feed. WoW combat-log analysis (his
    usage bars, start with Windows, change hotkey, undock), and now comes to the front when opened. Checked with
    `tests/fakecore/visual-look.mjs` and a Core test for History.
    Still to do: entity chips, the first-run "what can you do", suggestion chips. Older live suites had hard-coded click positions that moved; those constants were updated, not re-run.
+   **Away mode built 2026-09-21 (Joshua: "let me know when a claude session is done in discord and also gives me
+   whatever the prompt was and i can reply back"):** a Claude Code job's own Notification/Stop update is now ONE
+   Discord message remembered by its folder (#needs-you or #aang, as before), and while he is away and has already
+   trusted send_to_phone, it carries a picture of whatever is in front (never asks for that trust itself, so a
+   background job can never grab the one permission slot from something he is actually waiting on). Replying to that
+   message (#needs-you now listens - it only posted before) tells THAT job his words, as a fresh Claude Code session
+   in the same folder and kind (self stays on its branch, browse keeps Claude in Chrome and its asks); a stranger's
+   reply is refused like everywhere else. Honest limit, checked live: the Claude desktop app exposes nothing to
+   Windows UI Automation (`AangReader.exe --act` finds zero controls in it), so a reply cannot be typed into the
+   paused session itself - it is a real follow-up session in the same place, not a literal keystroke into the old
+   one. Tested: 6 Core/Discord tests (mail.test.ts's Core pattern for the job lookup and picture wiring, discord.test.ts's
+   fake gateway for the message tracking and reply routing); the real UIA probe against the live app was free (no
+   model call). Not built: the drawing layer's own screenshots (this reuses the existing window-picture path, not a
+   ringed region).
    **Delegation generalised 2026-09-21:** start_claude takes a kind: job hunt; browse (his Chrome through Claude in
    Chrome, asking before any submit, purchase, sign-in or post); self ("add X to yourself": his AangApp repo, a new
    aang/<name> branch, tests run, never merged by the session); task. Each job is followed through its hooks as waiting,
