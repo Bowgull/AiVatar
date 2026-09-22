@@ -10,7 +10,7 @@ import { toolLabel } from './tools.ts';
 export type LaneEvent =
   | { t: 'delta'; text: string; reset: boolean }
   | { t: 'tool'; name: string; phase: 'start' | 'done'; label: string }
-  | { t: 'result'; ok: boolean; text: string; ms: number; ttftMs: number | null; ctxTokens: number; tools: string[]; subtype: string }
+  | { t: 'result'; ok: boolean; text: string; ms: number; ttftMs: number | null; ctxTokens: number; cacheReadTokens: number; cacheWriteTokens: number; tools: string[]; subtype: string }
   | { t: 'quota'; quota: Quota }
   | { t: 'error'; message: string };
 
@@ -21,6 +21,9 @@ export interface LaneOptions {
   /** Aang's own in-process tools. The web lane gets none: it must not be able to call look_up_web,
    *  which would recurse, and sharing one server across two live queries breaks it. */
   mcpServer?: unknown;
+  /** External (stdio) MCP servers, launched as a child process per lane - e.g. Playwright MCP for the web
+   *  lane. Separate from mcpServer above: that one is Aang's own in-process tool server. */
+  externalMcpServers?: Record<string, { command: string; args: string[] }>;
   /** Tools that run without asking: Aang's own, plus the read-only built-ins. */
   allowedTools: string[];
   /** Tools taken out of the model's context entirely. Not the same as leaving them out of allowedTools,
@@ -45,6 +48,20 @@ export interface LaneOptions {
   onSession?: (id: string) => void;
   /** Called when a resume was refused, so the stored id can be dropped before it wedges anything. */
   onResumeFailed?: (id: string) => void;
+  /**
+   * Which of ~/.claude, the project and local settings to load. Default `[]` (none) keeps every lane in
+   * SDK isolation mode, as before: no CLAUDE.md, no settings.json hooks, no Agent Skills. A lane that needs
+   * Skills must opt in with `['user']` (or wherever the skill lives) AND set `cwd` to a directory that is
+   * never a real project he opens in Claude Code - see core.ts's `SELF_CWD` for why: his own settings.json
+   * fires hooks that POST to Aang's own hook server, and without a cwd only Aang would ever use, Aang's own
+   * replies would be mistaken for one of his real coding sessions finishing.
+   */
+  settingSources?: ('user' | 'project' | 'local')[];
+  /** Agent Skills to enable for this lane by name (SKILL.md `name`). Needs settingSources to include
+   *  wherever that skill's directory lives, or nothing is found. */
+  skills?: string[];
+  /** Working directory for this lane's session. Defaults to process.cwd(). See settingSources above. */
+  cwd?: string;
 }
 
 export class Lane {
@@ -89,6 +106,10 @@ export class Lane {
         while (self.inbox.length) yield self.inbox.shift()!;
       }
     }
+    // Built separately so an absent mcpServer/externalMcpServers cannot leave an `aang: undefined` key
+    // behind for the spread below to carry into Options (TS then rejects the whole options object).
+    const mcpServers: Record<string, unknown> = { ...(this.opts.externalMcpServers ?? {}) };
+    if (this.opts.mcpServer) mcpServers.aang = this.opts.mcpServer;
     this.q = query({
       prompt: prompts(),
       options: {
@@ -96,10 +117,12 @@ export class Lane {
         systemPrompt: this.opts.systemPrompt,
         // Note: never pass `tools: []`. An empty array switches every built-in off, which is how Aang
         // ended up telling Joshua he had no internet and could not touch the machine.
-        settingSources: [],
+        settingSources: this.opts.settingSources ?? [],
+        ...(this.opts.skills ? { skills: this.opts.skills } : {}),
+        ...(this.opts.cwd ? { cwd: this.opts.cwd } : {}),
         includePartialMessages: true,
         maxTurns: this.opts.maxTurns ?? 8, // a chat turn never needs more than a few tool round trips; bound any runaway loop
-        ...(this.opts.mcpServer ? { mcpServers: { aang: this.opts.mcpServer as never } } : {}),
+        ...(Object.keys(mcpServers).length ? { mcpServers: mcpServers as never } : {}),
         allowedTools: this.opts.allowedTools,
         ...(this.opts.disallowedTools?.length ? { disallowedTools: this.opts.disallowedTools } : {}),
         ...(this.opts.onlyTools ? { tools: this.opts.onlyTools } : {}),
@@ -230,6 +253,11 @@ export class Lane {
               ms: Date.now() - this.sentAt,
               ttftMs: this.firstTokenAt === null ? null : this.firstTokenAt - this.sentAt,
               ctxTokens: (u.input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0),
+              // Split out from ctxTokens (2026-09-22) so the cache hit rate is actually visible in turns.jsonl,
+              // rather than folded into one number: a persistent, resumed lane with a stable system prompt
+              // should already be cached by the API by default, but "should" is not the same as seeing it.
+              cacheReadTokens: u.cache_read_input_tokens ?? 0,
+              cacheWriteTokens: u.cache_creation_input_tokens ?? 0,
               tools: [...this.toolsUsed],
             });
             break;

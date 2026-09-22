@@ -23,6 +23,10 @@ export interface Task {
   /** Share of his week used, read before and after the last run: what the job actually cost. */
   weekBefore?: number;
   weekAfter?: number;
+  /** Run this one on Opus instead of Sonnet. Only when he actually asked for the strongest model: Opus is
+   *  weighted heaviest against his plan's limits AND has its own separate weekly cap on Max, so a job that
+   *  quietly used it was spending the scarcest thing he has (2026-09-22). */
+  deep?: boolean;
 }
 
 /** Tool round trips per run, and how long one run may take before it is called off. */
@@ -77,8 +81,8 @@ export class TaskStore {
   running(): Task[] { return this.tasks.filter(t => t.state === 'working'); }
   waiting(): Task[] { return this.tasks.filter(t => t.state === 'needs you'); }
 
-  add(task: string, name?: string, now = Date.now()): Task {
-    const t: Task = { id: 'job' + ++this.seq, name: (name ?? '').trim() || nameFor(task), task, state: 'working', last: '', sessionId: null, startedAt: now, updatedAt: now };
+  add(task: string, name?: string, now = Date.now(), deep = false): Task {
+    const t: Task = { id: 'job' + ++this.seq, name: (name ?? '').trim() || nameFor(task), task, state: 'working', last: '', sessionId: null, startedAt: now, updatedAt: now, ...(deep ? { deep: true } : {}) };
     this.tasks.push(t);
     while (this.tasks.length > 20) this.tasks.shift();
     this.save();

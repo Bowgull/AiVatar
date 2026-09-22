@@ -36,6 +36,12 @@ export const PROMPT = [
   'that will not still be true next week. If in doubt, leave it out: a wrong or pointless thing kept is',
   'worse than a right one missed, because he will be told it later as if it mattered.',
   '',
+  'A one-off question is not a fact about him, even phrased as one: "The user asked what the capital of France',
+  'is" or "The user is asking about the tallest mountain" are exactly the kind of thing to leave out - he was',
+  'curious about something once, that is all. A fact is something still true if nobody mentions it again:',
+  'where he works, who is in his life, what he likes, what he decided. Write "Joshua ..." or "His ...", never',
+  '"The user ...": a wall of facts that all start "The user is" cannot be told apart by what they are about.',
+  '',
   'Answer with a JSON array of strings and nothing else. If there is nothing worth keeping, answer [].',
 ].join('\n');
 

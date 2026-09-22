@@ -44,6 +44,25 @@ test('a job update carries its folder and, once pictures are trusted, a picture 
   });
 });
 
+test("Aang's own chat lanes loading Agent Skills does not make his own turns look like a Claude Code session", async () => {
+  // 2026-09-22: enabling settingSources:['user'] for Skills means Aang's own lanes now load his real
+  // settings.json, whose hooks POST here too. A hook event carrying Aang's own selfCwd must be dropped
+  // before it reaches HookTracker; a hook event from any other cwd (a real session of his) must still work.
+  await withCore(47955, async core => {
+    const post = (cwd: string, id: string) =>
+      fetch(`http://127.0.0.1:47956/hook`, {
+        method: 'POST', body: JSON.stringify({ hook_event_name: 'SessionStart', session_id: id, cwd }),
+      });
+    await post(core.selfCwd(), 'self-session');
+    await wait(60);
+    assert.equal(core.hooks.sessions.size, 0, 'his own lane talking to itself is not a tracked session');
+
+    await post('C:\\Users\\Shadow\\Documents\\some-real-project', 'real-session');
+    await wait(60);
+    assert.equal(core.hooks.sessions.size, 1, 'a real Claude Code session elsewhere is still tracked');
+  });
+});
+
 test('genuinely blocking news is marked so; ordinary news is not', async () => {
   await withCore(47967, async (core, desk) => {
     core.announce('Need input in Claude on the browsing job: which one?', { asked: true });

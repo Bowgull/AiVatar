@@ -79,6 +79,10 @@ export function programOf(command: string): string {
 export function kindOf(tool: string, input: Record<string, unknown>): { kind: string; says: string } | null {
   const s = (k: string) => typeof input?.[k] === 'string' ? String(input[k]) : '';
   switch (tool) {
+    // The SDK's own file-reading built-ins (2026-09-22): ask once, like every other read, EXCEPT the taint
+    // check in askPermission still applies to these - unlike read_window/mail_inbox/etc, reading a file by
+    // name is exactly the kind of thing a poisoned page could try to name for him.
+    case 'Read': case 'Glob': case 'Grep': return { kind: 'read files', says: 'read and search your files' };
     case 'Bash': case 'PowerShell': case 'mcp__aang__run': {
       const program = programOf(s('command'));
       if (!program) return null;

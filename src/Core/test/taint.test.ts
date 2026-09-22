@@ -39,6 +39,19 @@ test('reading stays trusted after outside content: reading is not acting', async
   core.memory.close();
 });
 
+test('reading FILES is the one exception: a poisoned page could name what to read, so it asks again too', async () => {
+  // 2026-09-22: Read/Glob/Grep used to be ungated entirely (never even reached askPermission), the one class
+  // of read that was not gated at all while every other read here already asked once. Now they are trusted
+  // like any other kind normally, but - unlike read_window/read_clipboard above - still re-ask once the turn
+  // has read outside content, since a file's PATH can itself be attacker-chosen.
+  const core = coreWithTrust('read files');
+  assert.equal(await core.askPermission('Read', { file_path: 'C:/Users/Shadow/notes.txt' }), true, 'trusted normally');
+  core.tainted = true;
+  assert.equal(await core.askPermission('Read', { file_path: 'C:/Users/Shadow/.ssh/id_rsa' }), false, 'asks again once tainted; no Body means it comes back no');
+  assert.equal(await core.askPermission('Glob', { pattern: '**/*.env' }), false);
+  core.memory.close();
+});
+
 test('a refusal says who refused: a rule is never reported as Joshua saying no', async () => {
   // 2026-09-21: a safety rule refused "start chrome" and Aang told him "you declined it in the bubble".
   const core = coreWithTrust();
