@@ -125,7 +125,7 @@ export const ABILITIES = [
   '- Read his email and calendar (asked once). Draft an email or a reply: the draft goes to him with a Send button and NOTHING is sent until he taps it, on that exact wording. You have no way to send by yourself.',
   '- Set reminders. Remember things about him and search what he has told you.',
   '- Keep a record of what I do, say it back ("what did you just do"), undo the last change (a file, something remembered, a reminder), and show or take back what he has let me do without asking.',
-  '- Start longer jobs in Claude Code, above all his job hunt.',
+  '- Start longer jobs in Claude Code and follow them: his job hunt, browsing jobs in his Chrome (Claude in Chrome, asking before anything is submitted, bought or sent), and changes to yourself (on a branch he reviews). He can see them in the Panel.',
   'You cannot: send email or messages by yourself, click at a spot on the screen or send raw keystrokes, install software, or use his accounts. If he asks for one of those, say it is not something you can do yet.',
 ].join('\n');
 
@@ -320,7 +320,7 @@ export function makeToolServer(
   runIt?: (command: string) => Promise<{ ok: boolean; output: string }>,
   readScreen?: () => Promise<string>,
   lookAtScreen?: () => Promise<{ text: string; image?: { data: string; mimeType: string } }>,
-  startClaude?: (task: string, where?: string, name?: string) => Promise<string>,
+  startClaude?: (task: string, where?: string, name?: string, kind?: 'job hunt' | 'browse' | 'self' | 'task') => Promise<string>,
   doers?: Doers,
 ) {
   const ok = (text: string) => ({ content: [{ type: 'text' as const, text }] });
@@ -413,13 +413,14 @@ export function makeToolServer(
         }),
       tool('read_window', 'Read what is IN the window Joshua has in front of him: the page he is reading, the code or text in his editor, the chat, the folder listing. Use when he asks about the content - "what does this say", "explain this", "what am I looking at", "summarise this page", "is this right". It reads text, not pictures; for which app he is in, what_im_doing is enough.', {},
         async () => ok(readScreen ? await readScreen() : 'Reading windows is not available right now.')),
-      tool('start_claude', 'Open a new Claude Code session in the Claude app (the Code tab) on a longer job, with the request typed in, and follow it for Joshua. Use for work that belongs in Claude rather than in a quick reply: above all his job search ("run my job scan / job search / job hunt", "find me jobs", "apply to jobs") - that is his job-hunt skill, which runs in Claude Code with his Chrome. It returns straight away; you are told later when Claude needs him or finishes, and you pass that on.',
+      tool('start_claude', 'Open a new Claude Code session in the Claude app (the Code tab) on a longer job, with the request typed in, and follow it for Joshua. Use for work that belongs in Claude rather than in a quick reply. kind: "job hunt" for his job search ("run my job scan", "find me jobs", "apply to jobs": his job-hunt skill); "browse" for anything done in a web browser over several steps ("book...", "find the cheapest...", "fill in...", "compare prices on...") - it runs in his Chrome through Claude in Chrome; "self" when he wants Aang himself changed ("add X to yourself", "fix your ...", "make yourself ...") - it works on a branch he reviews; "task" for any other longer job. It returns straight away; you are told later when Claude needs him or finishes, and you pass that on.',
         {
+          kind: z.enum(['job hunt', 'browse', 'self', 'task']).optional().describe('which kind of job; see above'),
           task: z.string().describe('the first message to Claude, e.g. "Run my job search for today." Keep his wording.'),
           where: z.string().optional().describe('"job hunt" for the job search (its data folder), otherwise a folder path'),
           name: z.string().optional().describe('a short name he would recognise, e.g. "job hunt"'),
         },
-        async ({ task, where, name }) => ok(startClaude ? await startClaude(task, where, name) : 'Starting Claude sessions is not available right now.')),
+        async ({ task, where, name, kind }) => ok(startClaude ? await startClaude(task, where, name, kind) : 'Starting Claude sessions is not available right now.')),
       tool('my_abilities', 'What you can and cannot do. Call it whenever he asks what you can do, what you are able to do, or whether you can do something you are unsure about.', {},
         async () => ok(ABILITIES)),
       tool('send_to_phone', 'Put something in Joshua\'s Discord so he can see it on his phone: a file from this computer, or a picture of the window he has in front of him. Use for "send me that file", "show me my screen", "what is on my screen, send a screenshot", "send it to my phone". It shows him its own yes/no first time. Give what as a full file path, or the word "screen" for a picture of the window in front. It cannot send files that hold passwords or keys. The picture is of one window, not the whole desktop; say so if he asked for the whole screen.',

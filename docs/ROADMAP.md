@@ -287,6 +287,13 @@ Third-party memory services (privacy). Reddit feed. WoW combat-log analysis (his
    usage bars, start with Windows, change hotkey, undock), and now comes to the front when opened. Checked with
    `tests/fakecore/visual-look.mjs` and a Core test for History.
    Still to do: entity chips, the first-run "what can you do", suggestion chips. Older live suites had hard-coded click positions that moved; those constants were updated, not re-run.
+   **Delegation generalised 2026-09-21:** start_claude takes a kind: job hunt; browse (his Chrome through Claude in
+   Chrome, asking before any submit, purchase, sign-in or post); self ("add X to yourself": his AangApp repo, a new
+   aang/<name> branch, tests run, never merged by the session); task. Each job is followed through its hooks as waiting,
+   working, needs you, done or ended, kept in launched.json across restarts (newest 20), and listed in the Panel's What I
+   did tab (double-click brings Claude forward). A job not yet started in the same folder is no longer followed when a
+   new one takes the folder; one that has its session id still is. Spotify by name is not built: it needs his Spotify
+   developer app and sign-in (and Premium for playback control).
 9. **The rest, in this order**: N memory depth, L watching and #anime, M drawing, O finish and the design gate.
 
 Retired and never to be built: C, E, P, and the iMessage half of F.
