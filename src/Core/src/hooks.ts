@@ -6,6 +6,7 @@
 import http from 'node:http';
 import os from 'node:os';
 import { timingSafeEqual } from 'node:crypto';
+import { brief, lastAssistantText } from './claude.ts';
 
 /** This machine's Tailscale address (100.64.0.0/10), if it is on a tailnet. */
 export function tailnetAddress(): string | null {
@@ -35,6 +36,15 @@ export interface Session {
   prompt: string;
   /** What Claude Code is waiting for, in its own words. */
   waitingFor: string;
+  /**
+   * Every hook event carries the path of that session's own transcript. It used to be dropped at the door,
+   * which is why "Claude is done" could never be followed by "what did it say?" - nothing Aang held had the
+   * answer, and claude_code_status could only ever report idle/working/waiting (2026-09-22, Joshua: "it told
+   * me claude was done running but then said it couldnt even tell me what was spat out").
+   */
+  transcriptPath?: string;
+  /** The last thing that session actually said, read from its transcript when it stopped. */
+  lastSaid: string;
 }
 
 export interface Announcement {
@@ -68,6 +78,9 @@ const ago = (ms: number): string => {
 export class HookTracker {
   readonly sessions = new Map<string, Session>();
   private lastSaid = new Map<string, number>();
+  /** Injected so this stays testable without a real transcript on disk. */
+  private readonly readTranscript: (path: string) => string;
+  constructor(readTranscript: (path: string) => string = lastAssistantText) { this.readTranscript = readTranscript; }
 
   /** Feed one hook event. Returns something to announce, or null. */
   handle(ev: any, now = Date.now()): Announcement | null {
@@ -80,9 +93,10 @@ export class HookTracker {
 
     const s = this.sessions.get(id) ?? {
       id, project: projectName(cwd), cwd, phase: 'idle' as SessionPhase,
-      startedAt: now, changedAt: now, turnStartedAt: null, prompt: '', waitingFor: '',
+      startedAt: now, changedAt: now, turnStartedAt: null, prompt: '', waitingFor: '', lastSaid: '',
     };
     if (cwd) { s.cwd = cwd; s.project = projectName(cwd); }
+    if (typeof ev?.transcript_path === 'string' && ev.transcript_path) s.transcriptPath = ev.transcript_path;
     s.changedAt = now;
     this.sessions.set(id, s);
     while (this.sessions.size > MAX_SESSIONS) this.sessions.delete(this.sessions.keys().next().value as string);
@@ -109,9 +123,13 @@ export class HookTracker {
         const ran = s.turnStartedAt ? now - s.turnStartedAt : 0;
         const wasWaiting = s.phase === 'waiting';
         s.phase = 'idle'; s.turnStartedAt = null; s.waitingFor = '';
+        // Read what it actually said BEFORE deciding whether to speak: even a turn too short to announce
+        // is one he can ask about afterwards, and status() can only answer from what was kept here.
+        if (s.transcriptPath) s.lastSaid = this.readTranscript(s.transcriptPath) || s.lastSaid;
         if (ran < LONG_TURN_MS && !wasWaiting) return null;      // he was sitting there; he saw it
         if (!this.canSay(id, 'finished', now)) return null;
-        return { kind: 'finished', session: s, text: `Claude Code finished in ${s.project}, that one took ${ago(ran)}.` };
+        const said = s.lastSaid ? ' ' + brief(s.lastSaid, 240) : '';
+        return { kind: 'finished', session: s, text: `Claude Code finished in ${s.project}, that one took ${ago(ran)}.${said}` };
       }
 
       default:
@@ -127,7 +145,11 @@ export class HookTracker {
     return true;
   }
 
-  /** A plain-language answer for "what's Claude Code doing", straight from the events. */
+  /**
+   * A plain-language answer for "what's Claude Code doing" AND for "what did it say" - the second half was
+   * missing entirely, so "it finished" could never be followed up on (2026-09-22). A finished session
+   * carries its own last words here, which is the only place they are held once the announcement is gone.
+   */
   status(now = Date.now()): string {
     const live = [...this.sessions.values()].sort((a, b) => b.changedAt - a.changedAt);
     if (!live.length) return 'No Claude Code sessions are running right now.';
@@ -135,7 +157,8 @@ export class HookTracker {
       const since = ago(now - s.changedAt);
       if (s.phase === 'waiting') return `${s.project}: waiting for Joshua${s.waitingFor ? ` (${s.waitingFor})` : ''}, for ${since} now.`;
       if (s.phase === 'working') return `${s.project}: working${s.prompt ? ` on "${s.prompt}"` : ''}, started ${since} ago.`;
-      return `${s.project}: idle, last active ${since} ago.`;
+      const said = s.lastSaid ? ` It finished by saying: ${brief(s.lastSaid, 500)}` : '';
+      return `${s.project}: idle, last active ${since} ago.${said}`;
     }).join('\n');
   }
 }

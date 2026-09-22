@@ -298,3 +298,25 @@ test('a session he started himself gets the same two tiers, even while the game 
   c.close();
   await core.stop();
 });
+
+test('"it finished" can be followed by "what did it say" - the transcript is kept, not dropped', () => {
+  // 2026-09-22, Joshua: "it told me claude was done running but then said it couldnt even tell me what was
+  // spat out". Every hook event carries transcript_path; it was being thrown away, so claude_code_status
+  // could only ever answer idle/working/waiting and the answer genuinely did not exist anywhere.
+  const h = new HookTracker(() => 'Renamed 14 files and fixed the failing test in dock.spec.ts.');
+  let t = 2_000_000;
+  h.handle(ev('SessionStart', { transcript_path: 'C:/t/x.jsonl' }), t);
+  h.handle(ev('UserPromptSubmit', { prompt: 'tidy the tests' }), t);
+  const said = h.handle(ev('Stop', { transcript_path: 'C:/t/x.jsonl' }), t + LONG_TURN_MS + 1);
+  assert.match(said!.text, /Renamed 14 files/, 'the announcement says what it actually did');
+  assert.match(h.status(t + LONG_TURN_MS + 2), /It finished by saying: Renamed 14 files/, 'and it can still be asked afterwards');
+});
+
+test('a turn too short to announce is still one he can ask about afterwards', () => {
+  const h = new HookTracker(() => 'Nothing needed changing, the test already passed.');
+  let t = 3_000_000;
+  h.handle(ev('SessionStart', { transcript_path: 'C:/t/y.jsonl' }), t);
+  h.handle(ev('UserPromptSubmit', { prompt: 'check it' }), t);
+  assert.equal(h.handle(ev('Stop', { transcript_path: 'C:/t/y.jsonl' }), t + 5_000), null, 'still not announced');
+  assert.match(h.status(t + 6_000), /Nothing needed changing/, 'but it was kept, so he can still ask');
+});

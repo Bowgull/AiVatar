@@ -24,7 +24,7 @@ import type { ActRunner } from './uia.ts';
 import { copyThing, deleteThing, emptyOldTrash, listFolder, makeFolder, moveThing } from './organise.ts';
 import type { Result as OrganiseResult } from './organise.ts';
 import type { Doers } from './tools.ts';
-import { TOOL_NAMES, BUILTIN_SHELL, BUILTIN_WRITE, PLAYWRIGHT_SERVER, SHELL_TOOLS, WEB_PROMPT, WEB_TOOLS, describeCall, isLauncher, makeToolServer, reachesNetwork } from './tools.ts';
+import { TOOL_NAMES, QUICK_TOOLS, QUICK_HIDDEN, BUILTIN_SHELL, BUILTIN_WRITE, PLAYWRIGHT_SERVER, SHELL_TOOLS, WEB_PROMPT, WEB_TOOLS, describeCall, isLauncher, makeToolServer, reachesNetwork } from './tools.ts';
 import { HookServer, HookTracker, isLoopback } from './hooks.ts';
 import { Reminders } from './reminders.ts';
 import { SessionStore } from './sessions.ts';
@@ -1002,8 +1002,11 @@ export class Core {
       // so the model still reaches for them and canUseTool/askPermission decides: free after the first yes,
       // like everything else, EXCEPT while this turn has read outside content (tainted) - then it asks again,
       // so a poisoned page cannot quietly turn "read my files" into reading something it named instead.
-      allowedTools: [...TOOL_NAMES],
-      disallowedTools: [...WEB_TOOLS, ...BUILTIN_SHELL, ...BUILTIN_WRITE],
+      allowedTools: name === 'quick' ? [...QUICK_TOOLS] : [...TOOL_NAMES],
+      // Quick sees a shelf of 16, not 52: past ~40 tools the right one stops standing out (see QUICK_TOOLS).
+      // Anything it cannot reach is a doing request, which routes to Smart first anyway - and if one slips
+      // through, its "I can't" is caught and re-run there.
+      disallowedTools: [...WEB_TOOLS, ...BUILTIN_SHELL, ...BUILTIN_WRITE, ...(name === 'quick' ? QUICK_HIDDEN : [])],
       askPermission: (tool, input) => this.askPermission(tool, input),
       claudeExecutable: this.cfg.claudeExecutable,
       // Agent Skills, user-level only (job-hunt lives in ~/.claude/skills) - 2026-09-22. Loading user
