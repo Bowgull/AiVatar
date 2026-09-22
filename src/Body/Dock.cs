@@ -18,6 +18,9 @@ static class Docking
 {
     /// <summary>Where the sprite frame sits in the window, before the headroom (see PetWindow.Extra), and its size.</summary>
     public const int SpriteX = 246, SpriteY = 86, Frame = 224;
+    /// <summary>The window is wider than the drawing by this, on the left, so a long reply's bubble can widen (BubbleView.WideExtra).
+    /// Screen maths use WinSpriteX; drawing, which is shifted by the margin, keeps SpriteX.</summary>
+    public const int Margin = BubbleView.WideExtra, WinSpriteX = Margin + SpriteX;
     /// <summary>How much of him shows when docked, and when he has something to say (unscaled pixels, measured along the turn).</summary>
     public const int PeekPx = 34, PeekMorePx = 90;          // 34: forehead and eyes, as the Rainmeter skin showed him
     /// <summary>Dragging him within this of an edge docks him there.</summary>
@@ -67,7 +70,7 @@ static class Docking
 
     /// <summary>Where a box in frame coordinates lands on the screen, for a window at <paramref name="win"/>.</summary>
     public static Rectangle OnScreen(Point win, Rectangle box, int extra, float scale) => new(
-        win.X + (int)Math.Round((SpriteX + box.X) * scale), win.Y + (int)Math.Round((SpriteY + extra + box.Y) * scale),
+        win.X + (int)Math.Round((WinSpriteX + box.X) * scale), win.Y + (int)Math.Round((SpriteY + extra + box.Y) * scale),
         (int)Math.Round(box.Width * scale), (int)Math.Round(box.Height * scale));
 
     static double Along(DockEdge e, double frac, Rectangle wa) => e is DockEdge.Left or DockEdge.Right ? wa.Top + frac * wa.Height : wa.Left + frac * wa.Width;
@@ -76,12 +79,12 @@ static class Docking
     public static Point PeekWindow(DockEdge e, double frac, Rectangle wa, Rectangle upright, int extra, float s, int peek)
     {
         var r = Rotated(upright, e);
-        double p = peek * s, sx = SpriteX + r.X, sy = SpriteY + extra + r.Y, along = Along(e, frac, wa);
+        double p = peek * s, sx = WinSpriteX + r.X, sy = SpriteY + extra + r.Y, along = Along(e, frac, wa);
         double x, y;
         switch (e)
         {
-            case DockEdge.Bottom: y = wa.Bottom - p - sy * s; x = along - (SpriteX + r.X + r.Width / 2.0) * s; break;
-            case DockEdge.Top: y = wa.Top + p - (sy + r.Height) * s; x = along - (SpriteX + r.X + r.Width / 2.0) * s; break;
+            case DockEdge.Bottom: y = wa.Bottom - p - sy * s; x = along - (WinSpriteX + r.X + r.Width / 2.0) * s; break;
+            case DockEdge.Top: y = wa.Top + p - (sy + r.Height) * s; x = along - (WinSpriteX + r.X + r.Width / 2.0) * s; break;
             case DockEdge.Right: x = wa.Right - p - sx * s; y = along - (sy + r.Height / 2.0) * s; break;
             default: x = wa.Left + p - (sx + r.Width) * s; y = along - (sy + r.Height / 2.0) * s; break;           // Left
         }
@@ -94,16 +97,16 @@ static class Docking
     /// </summary>
     public static Point StandWindow(DockEdge e, double frac, Rectangle wa, Rectangle upright, int extra, float s)
     {
-        double sx = SpriteX + upright.X, sy = SpriteY + extra + upright.Y, along = Along(e, frac, wa);
+        double sx = WinSpriteX + upright.X, sy = SpriteY + extra + upright.Y, along = Along(e, frac, wa);
         double x, y;
         switch (e)
         {
-            case DockEdge.Bottom: y = wa.Bottom - (sy + upright.Height) * s; x = along - (SpriteX + upright.X + upright.Width / 2.0) * s; break;
-            case DockEdge.Top: y = wa.Top - sy * s; x = along - (SpriteX + upright.X + upright.Width / 2.0) * s; break;
+            case DockEdge.Bottom: y = wa.Bottom - (sy + upright.Height) * s; x = along - (WinSpriteX + upright.X + upright.Width / 2.0) * s; break;
+            case DockEdge.Top: y = wa.Top - sy * s; x = along - (WinSpriteX + upright.X + upright.Width / 2.0) * s; break;
             case DockEdge.Right: x = wa.Right - (sx + upright.Width) * s; y = along - (sy + upright.Height / 2.0) * s; break;
             default: x = wa.Left - sx * s; y = along - (sy + upright.Height / 2.0) * s; break;                        // Left
         }
-        x = Math.Max(x, wa.Left - 6 * s);
+        x = Math.Max(x, wa.Left - (Margin + 6) * s);
         y = Math.Max(y, wa.Top - (extra + BubbleAboveOldTop) * s);
         return new Point((int)Math.Round(x), (int)Math.Round(y));
     }
@@ -179,7 +182,7 @@ static class Docking
         foreach (var e in new[] { DockEdge.Left, DockEdge.Top })
         {
             var win = StandWindow(e, 0.5, wa, box, extra, s);
-            var bubbleLeft = win.X + 6 * s; var bubbleTop = win.Y + (extra + BubbleAboveOldTop) * s;
+            var bubbleLeft = win.X + (Margin + 6) * s; var bubbleTop = win.Y + (extra + BubbleAboveOldTop) * s;
             Check($"standing at the {Name(e).PadRight(6)} edge his bubble stays on screen", bubbleLeft >= wa.Left - 1 && bubbleTop >= wa.Top - 1, $"bubble at {bubbleLeft:0},{bubbleTop:0}");
         }
         Check("the bottom is not snapped to unless asked", Nearest(OnScreen(StandWindow(DockEdge.Bottom, 0.5, wa, box, extra, s), box, extra, s), wa, 24, false) == DockEdge.None);
