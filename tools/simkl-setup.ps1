@@ -6,7 +6,7 @@
 #   https://www.crunchyroll.com/search?q={q}      (the default)
 #
 # 1. Asks for the Client ID.
-# 2. Shows a code and opens simkl.com/pin. Type the code there and allow Aang.
+# 2. Shows a code and opens simkl.com/pin with it filled in. Allow Aang there.
 # 3. Saves the sign-in to %APPDATA%\Aang\simkl.json, readable by this Windows user only.
 $ErrorActionPreference = 'Stop'
 $dir = Join-Path $env:APPDATA 'Aang'
@@ -21,20 +21,24 @@ $clientId = "$clientId".Trim()
 $site = if ($args.Count -gt 1) { $args[1] } else { 'https://www.crunchyroll.com/search?q={q}' }
 if ($clientId.Length -lt 20) { Write-Host '  That does not look like a Simkl Client ID.' -ForegroundColor Red; Read-Host '  Press Enter to close'; exit 1 }
 
-$pin = Invoke-RestMethod -Uri "https://api.simkl.com/oauth/pin?client_id=$clientId&redirect=urn:ietf:wg:oauth:2.0:oob"
+# Simkl's OAuth 2.0 device sign-in (apps made in its AUTH V2 wizard; the old /oauth/pin is refused for them).
+$dev = Invoke-RestMethod -Method Post -Uri 'https://api.simkl.com/oauth2/device' -Body @{ client_id = $clientId }
 Write-Host ''
-Write-Host "  Your code:  $($pin.user_code)" -ForegroundColor Yellow
-Write-Host '  Opening simkl.com/pin. Type the code there and allow Aang.'
-$verify = if ($pin.verification_url) { $pin.verification_url } else { 'https://simkl.com/pin/' }
+Write-Host "  Your code:  $($dev.user_code)" -ForegroundColor Yellow
+Write-Host '  Opening simkl.com/pin with the code filled in. Allow Aang there.'
+$verify = if ($dev.verification_uri_complete) { $dev.verification_uri_complete } else { 'https://simkl.com/pin/' }
 Start-Process $verify
 $token = $null
-$expires = if ($pin.expires_in) { [int]$pin.expires_in } else { 900 }
-$wait = if ($pin.interval) { [int]$pin.interval } else { 5 }
+$expires = if ($dev.expires_in) { [int]$dev.expires_in } else { 900 }
+$wait = if ($dev.interval) { [int]$dev.interval } else { 5 }
 $until = (Get-Date).AddSeconds($expires)
 while ((Get-Date) -lt $until -and -not $token) {
     Start-Sleep -Seconds $wait
-    $r = Invoke-RestMethod -Uri "https://api.simkl.com/oauth/pin/$($pin.user_code)?client_id=$clientId"
-    if ($r.result -eq 'OK' -and $r.access_token) { $token = $r.access_token }
+    try {
+        $r = Invoke-RestMethod -Method Post -Uri 'https://api.simkl.com/oauth2/token' -Body @{
+            grant_type = 'urn:ietf:params:oauth:grant-type:device_code'; device_code = $dev.device_code; client_id = $clientId }
+        if ($r.access_token) { $token = $r.access_token }
+    } catch { <# authorization_pending until he allows it #> }
 }
 if (-not $token) { Write-Host '  The code was not used in time. Run this again.' -ForegroundColor Red; Read-Host '  Press Enter to close'; exit 1 }
 @{ clientId = $clientId; accessToken = $token; site = $site } | ConvertTo-Json | Set-Content -Path $store -Encoding ascii
