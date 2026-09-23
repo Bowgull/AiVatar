@@ -5,6 +5,11 @@ export type QuotaLevel = 'ok' | 'warn' | 'offer' | 'saving';
 
 export type ToBody =
   | { t: 'state'; state: string }
+  /** Whether any Claude Code session Aang is following (a job hunt, a self-change, anything opened through
+   *  start_claude) is currently working or waiting on him, right now - continuous, not a point-in-time
+   *  message. Joshua, 2026-09-23: asked to run a job search, could not tell it was doing anything. Sent
+   *  once on connect and again only when it changes. */
+  | { t: 'claude.working'; working: boolean }
   | { t: 'bubble'; text: string; stream: boolean; id?: string; who?: string; proactive?: boolean;
       /** Something he asked to be told about: shown even in quiet mode. */
       asked?: boolean;

@@ -867,6 +867,7 @@ export class Core {
         if (news) mine.last = news;
         mine.updatedAt = Date.now();
         this.saveLaunched();
+        this.pushClaudeWorking();
         if (news) void this.announceJob(news, mine.cwd, { asked: true, focus: CLAUDE_WINDOW });
         return;
       }
@@ -1084,17 +1085,30 @@ export class Core {
     return { t: 'quota', five: q.five, week: q.week, fiveResetsAt: q.fiveResetsAt, weekResetsAt: q.weekResetsAt, level: this.policy.level };
   }
 
+  /** The one glow/eyes signal: is ANY Claude Code session he is following currently working or waiting on
+   *  him? Sent to the desktop only (the thing that draws him) and only when it actually changes. */
+  private lastPushedWorking: boolean | null = null;
+  private pushClaudeWorking(): void {
+    const working = this.launched.some(l => l.state === 'working' || l.state === 'waiting');
+    if (working === this.lastPushedWorking) return;
+    this.lastPushedWorking = working;
+    this.sendTo('desktop', { t: 'claude.working', working });
+  }
+
   private onBody(ws: WebSocket, m: FromBody): void {
     switch (m.t) {
       case 'hello': {
         this.clientKind.set(ws, m.client === 'discord' ? 'discord' : 'desktop');
         const q = this.quotaMessage(); if (q) this.send(ws, q);
+        if (this.kindOfSocket(ws) === 'desktop') this.send(ws, { t: 'claude.working', working: this.launched.some(l => l.state === 'working' || l.state === 'waiting') });
         break;
       }
       case 'desk': this.atDesk = m.active !== false; break;
       case 'mac.run': void this.runOnMac(String(m.text ?? '').slice(0, 4000)).then(ok => this.send(ws, { t: 'mac.run.reply', ok })); break;
       // The desktop tray's "Job hunt now": Mac first, his own worker here if it cannot be reached.
-      case 'job.hunt': void this.runOnMac(SWEEP_REQUEST).then(async onMac => { if (!onMac) await this.startTask(SWEEP_REQUEST); this.send(ws, { t: 'job.hunt.reply', onMac }); }); break;
+      // Same fallback fix as the JOB_HUNT_RE chat trigger below (2026-09-23): do_task cannot actually run this
+      // (no Claude in Chrome), start_claude can.
+      case 'job.hunt': void this.runOnMac(SWEEP_REQUEST).then(async onMac => { if (!onMac) await this.startClaude(SWEEP_REQUEST, 'job hunt', 'job hunt', 'job hunt'); this.send(ws, { t: 'job.hunt.reply', onMac }); }); break;
       case 'status': this.send(ws, { t: 'status.reply', text: this.status() }); break;
       case 'actions': this.send(ws, { t: 'actions.reply', text: this.actions.text(10) }); break;
       case 'trust': this.send(ws, { t: 'trust.reply', items: this.trust.list().map(r => ({ kind: r.kind, example: r.example, since: r.since })) }); break;
@@ -1458,6 +1472,7 @@ export class Core {
     for (const o of this.launched) if (o.state !== 'ended' && !o.sessionId && o.cwd.toLowerCase() === cwd.toLowerCase()) { o.state = 'ended'; o.last = 'Replaced by a newer job before it started.'; }
     this.launched.push(l);
     this.saveLaunched();
+    this.pushClaudeWorking();
     // Nothing is heard until he presses Enter (and confirms the folder, the first time). Say so once if he
     // has not, in case the app opened behind the game.
     const check = setTimeout(() => {

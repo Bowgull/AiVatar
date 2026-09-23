@@ -114,28 +114,30 @@ test('switching lane mid-conversation carries a recap; staying on the same lane 
   const sent: { name: string; text: string }[] = [];
   core.lane = (name: string) => ({ send: (text: string) => sent.push({ name, text }), interrupt: async () => {} });
   await core.start();
-  const desk = await client(port);
+  try {
+    const desk = await client(port);
 
-  desk.c.send(JSON.stringify({ t: 'submit', id: 'a', text: 'hi' }));            // -> quick
-  await wait(100);
-  assert.equal(sent[0]!.name, 'quick');
-  assert.ok(!sent[0]!.text.includes('<recap>'), 'nothing to recap on the very first turn');
-  core.onLaneEvent('quick', { t: 'result', ok: true, text: 'Hey.', tools: [], ms: 5 });
-  await wait(100);
+    desk.c.send(JSON.stringify({ t: 'submit', id: 'a', text: 'hi' }));            // -> quick
+    await wait(100);
+    assert.equal(sent[0]!.name, 'quick');
+    assert.ok(!sent[0]!.text.includes('<recap>'), 'nothing to recap on the very first turn');
+    core.onLaneEvent('quick', { t: 'result', ok: true, text: 'Hey.', tools: [], ms: 5 });
+    await wait(100);
 
-  desk.c.send(JSON.stringify({ t: 'submit', id: 'b', text: 'open notepad' }));  // ACT -> smart: a real switch
-  await wait(100);
-  assert.equal(sent[1]!.name, 'smart');
-  assert.match(sent[1]!.text, /<recap>[\s\S]*hi[\s\S]*Hey\.[\s\S]*<\/recap>/);
-  core.onLaneEvent('smart', { t: 'result', ok: true, text: 'Opened.', tools: ['open'], ms: 5 });
-  await wait(100);
+    desk.c.send(JSON.stringify({ t: 'submit', id: 'b', text: 'open notepad' }));  // ACT -> smart: a real switch
+    await wait(100);
+    assert.equal(sent[1]!.name, 'smart');
+    assert.match(sent[1]!.text, /<recap>[\s\S]*hi[\s\S]*Hey\.[\s\S]*<\/recap>/);
+    core.onLaneEvent('smart', { t: 'result', ok: true, text: 'Opened.', tools: ['open'], ms: 5 });
+    await wait(100);
 
-  desk.c.send(JSON.stringify({ t: 'submit', id: 'c', text: 'write a short poem' })); // HARD -> smart again: no switch
-  await wait(100);
-  assert.equal(sent[2]!.name, 'smart');
-  assert.ok(!sent[2]!.text.includes('<recap>'), 'still on Smart: its own session already has this');
+    desk.c.send(JSON.stringify({ t: 'submit', id: 'c', text: 'write a short poem' })); // HARD -> smart again: no switch
+    await wait(100);
+    assert.equal(sent[2]!.name, 'smart');
+    assert.ok(!sent[2]!.text.includes('<recap>'), 'still on Smart: its own session already has this');
 
-  desk.c.close(); await core.stop();
+    desk.c.close();
+  } finally { await core.stop(); }
 });
 
 test('a job-hunt STATUS QUESTION does not launch a new sweep; a real request still does', async () => {
@@ -147,17 +149,19 @@ test('a job-hunt STATUS QUESTION does not launch a new sweep; a real request sti
   core.runOnMac = async (text: string) => { macRuns.push(text); return true; };
   core.lane = () => ({ send: () => {}, interrupt: async () => {} });   // the question path must not reach here for real
   await core.start();
-  const desk = await client(port);
+  try {
+    const desk = await client(port);
 
-  desk.c.send(JSON.stringify({ t: 'submit', id: 'a', text: "how's the job hunt going" }));
-  await wait(100);
-  assert.equal(macRuns.length, 0, 'a question about it is not a request to run it');
+    desk.c.send(JSON.stringify({ t: 'submit', id: 'a', text: "how's the job hunt going" }));
+    await wait(100);
+    assert.equal(macRuns.length, 0, 'a question about it is not a request to run it');
 
-  desk.c.send(JSON.stringify({ t: 'submit', id: 'b', text: 'run my job search for today' }));
-  await wait(100);
-  assert.equal(macRuns.length, 1, 'a real request still launches the sweep');
+    desk.c.send(JSON.stringify({ t: 'submit', id: 'b', text: 'run my job search for today' }));
+    await wait(100);
+    assert.equal(macRuns.length, 1, 'a real request still launches the sweep');
 
-  desk.c.close(); await core.stop();
+    desk.c.close();
+  } finally { await core.stop(); }
 });
 
 test('"job scan" is job-hunt-shaped too, and the local fallback is Claude, not the worker', async () => {
@@ -172,16 +176,18 @@ test('"job scan" is job-hunt-shaped too, and the local fallback is Claude, not t
   const started: any[] = [];
   core.startClaude = async (...args: any[]) => { started.push(args); return 'opened'; };
   await core.start();
-  const desk = await client(port);
+  try {
+    const desk = await client(port);
 
-  desk.c.send(JSON.stringify({ t: 'submit', id: 'a', text: 'run a job scan' }));
-  await wait(100);
-  assert.equal(started.length, 1, '"job scan" is recognised and the deterministic path is taken');
-  assert.equal(started[0][0], SWEEP_REQUEST);
-  const said = desk.of('bubble').find(b => b.id === 'a');
-  assert.match(said!.text, /Press Enter there to start it/, 'he is told up front, not left to notice a window himself');
+    desk.c.send(JSON.stringify({ t: 'submit', id: 'a', text: 'run a job scan' }));
+    await wait(100);
+    assert.equal(started.length, 1, '"job scan" is recognised and the deterministic path is taken');
+    assert.equal(started[0][0], SWEEP_REQUEST);
+    const said = desk.of('bubble').find(b => b.id === 'a');
+    assert.match(said!.text, /Press Enter there to start it/, 'he is told up front, not left to notice a window himself');
 
-  desk.c.close(); await core.stop();
+    desk.c.close();
+  } finally { await core.stop(); }
 });
 
 test('a Claude session that goes quiet after starting is followed up on, once', async () => {
@@ -190,21 +196,65 @@ test('a Claude session that goes quiet after starting is followed up on, once', 
   // was invisible: nothing was watching it again (2026-09-23, live: exactly this happened on a job hunt).
   const core: any = new Core({ port: 47996, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
   await core.start();
-  const desk = await client(47996);
-  const now = Date.now();
-  core.launched.push({ name: 'job hunt', cwd: 'C:\\Users\\Shadow\\job-hunt-data', sessionId: 'abc123', state: 'working', startedAt: now - 10 * 60_000, updatedAt: now - 6 * 60_000 });
+  try {
+    const desk = await client(47996);
+    const now = Date.now();
+    core.launched.push({ name: 'job hunt', cwd: 'C:\\Users\\Shadow\\job-hunt-data', sessionId: 'abc123', state: 'working', startedAt: now - 10 * 60_000, updatedAt: now - 6 * 60_000 });
 
-  core.checkStaleLaunches(now);
-  await wait(50);
-  const nudge = desk.of('bubble').find((b: any) => /No word from the job hunt/.test(b.text));
-  assert.ok(nudge, 'a session gone quiet for 6 minutes is followed up on');
-  assert.equal(core.launched[0].staleNudged, true);
+    core.checkStaleLaunches(now);
+    await wait(50);
+    const nudge = desk.of('bubble').find((b: any) => /No word from the job hunt/.test(b.text));
+    assert.ok(nudge, 'a session gone quiet for 6 minutes is followed up on');
+    assert.equal(core.launched[0].staleNudged, true);
 
-  core.checkStaleLaunches(now + 1000);
-  await wait(50);
-  assert.equal(desk.of('bubble').filter((b: any) => /No word from the job hunt/.test(b.text)).length, 1, 'said once, not every sweep');
+    core.checkStaleLaunches(now + 1000);
+    await wait(50);
+    assert.equal(desk.of('bubble').filter((b: any) => /No word from the job hunt/.test(b.text)).length, 1, 'said once, not every sweep');
 
-  desk.c.close(); await core.stop();
+    desk.c.close();
+  } finally { await core.stop(); }
+});
+
+test('a continuous "Claude is working" signal reaches the desktop, once per real change', async () => {
+  // 2026-09-23, Joshua: asked for a job search, could not tell it was doing anything - point-in-time messages
+  // are not the same as a live state the Body can render continuously (the glow/eyes). A fresh connection
+  // gets told where things stand right now; an already-connected one hears again only when it changes.
+  const port = 47985;
+  const core: any = new Core({ port, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
+  await core.start();
+  try {
+    // client() resolves once the socket is OPEN and 'hello' is sent, not once the server has replied -
+    // an assertion right after connecting was checking before the reply could possibly have arrived. A
+    // missing `await wait()` here is exactly what turned an assertion failure into a 14-MINUTE hang
+    // (2026-09-23, live): the throw skipped the cleanup line at the bottom, so core.stop() never ran and
+    // the WebSocket/HTTP servers this test opened were never closed. try/finally now guarantees cleanup
+    // regardless of which assertion fails.
+    const desk1 = await client(port);
+    await wait(80);
+    assert.equal(desk1.of('claude.working').at(-1)?.working, false, 'nothing running yet, told so on connect');
+
+    core.launched.push({ name: 'job hunt', cwd: 'C:\\jobs', sessionId: null, state: 'waiting', startedAt: Date.now(), updatedAt: Date.now() });
+    core.pushClaudeWorking();
+    await wait(80);
+    assert.equal(desk1.of('claude.working').at(-1)?.working, true);
+
+    // a second desktop connecting now hears the CURRENT state immediately, not just future changes
+    const desk2 = await client(port);
+    await wait(80);
+    assert.equal(desk2.of('claude.working').at(-1)?.working, true);
+
+    const before = desk1.of('claude.working').length;            // already 2: the connect reply, then the real change
+    core.pushClaudeWorking();                                    // nothing changed: no repeat
+    await wait(80);
+    assert.equal(desk1.of('claude.working').length, before, 'a no-op check adds nothing');
+
+    core.launched[0].state = 'done';
+    core.pushClaudeWorking();
+    await wait(80);
+    assert.equal(desk1.of('claude.working').at(-1)?.working, false, 'and again once it is actually done');
+
+    desk1.c.close(); desk2.c.close();
+  } finally { await core.stop(); }
 });
 
 test('away but Discord is not connected: the desktop still gets it rather than nobody', async () => {
