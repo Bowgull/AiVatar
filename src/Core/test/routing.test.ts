@@ -8,6 +8,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { WebSocket } from 'ws';
 import { Core } from '../src/core.ts';
+import { SWEEP_REQUEST } from '../src/jobs.ts';
 
 const tmp = () => mkdtempSync(path.join(os.tmpdir(), 'aang-route-'));
 const wait = (ms: number) => new Promise(r => setTimeout(r, ms));
@@ -155,6 +156,53 @@ test('a job-hunt STATUS QUESTION does not launch a new sweep; a real request sti
   desk.c.send(JSON.stringify({ t: 'submit', id: 'b', text: 'run my job search for today' }));
   await wait(100);
   assert.equal(macRuns.length, 1, 'a real request still launches the sweep');
+
+  desk.c.close(); await core.stop();
+});
+
+test('"job scan" is job-hunt-shaped too, and the local fallback is Claude, not the worker', async () => {
+  // 2026-09-23, live: "run a job scan" did not match JOB_HUNT_RE at all (only "job hunt"/"job search" did), so
+  // it fell through to the model, which called start_claude on its own - a real session, but none of this
+  // block's reliability. Separately, the local (Mac-unreachable) fallback used to be do_task, the background
+  // worker - real evidence it cannot do this job at all (tasks.json: "Dropped, no job search run", it has no
+  // Claude in Chrome). start_claude is the one path with real browser access, so that is the fallback now.
+  const port = 47986;
+  const core: any = new Core({ port, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
+  core.runOnMac = async () => false;                        // Mac unreachable: force the local fallback
+  const started: any[] = [];
+  core.startClaude = async (...args: any[]) => { started.push(args); return 'opened'; };
+  await core.start();
+  const desk = await client(port);
+
+  desk.c.send(JSON.stringify({ t: 'submit', id: 'a', text: 'run a job scan' }));
+  await wait(100);
+  assert.equal(started.length, 1, '"job scan" is recognised and the deterministic path is taken');
+  assert.equal(started[0][0], SWEEP_REQUEST);
+  const said = desk.of('bubble').find(b => b.id === 'a');
+  assert.match(said!.text, /Press Enter there to start it/, 'he is told up front, not left to notice a window himself');
+
+  desk.c.close(); await core.stop();
+});
+
+test('a Claude session that goes quiet after starting is followed up on, once', async () => {
+  // The 90-second "press Enter" check only ever catches a session that NEVER got a session id. One that did
+  // - Enter was pressed, or it got past the folder-trust prompt - and then produced no further hook events
+  // was invisible: nothing was watching it again (2026-09-23, live: exactly this happened on a job hunt).
+  const core: any = new Core({ port: 47996, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
+  await core.start();
+  const desk = await client(47996);
+  const now = Date.now();
+  core.launched.push({ name: 'job hunt', cwd: 'C:\\Users\\Shadow\\job-hunt-data', sessionId: 'abc123', state: 'working', startedAt: now - 10 * 60_000, updatedAt: now - 6 * 60_000 });
+
+  core.checkStaleLaunches(now);
+  await wait(50);
+  const nudge = desk.of('bubble').find((b: any) => /No word from the job hunt/.test(b.text));
+  assert.ok(nudge, 'a session gone quiet for 6 minutes is followed up on');
+  assert.equal(core.launched[0].staleNudged, true);
+
+  core.checkStaleLaunches(now + 1000);
+  await wait(50);
+  assert.equal(desk.of('bubble').filter((b: any) => /No word from the job hunt/.test(b.text)).length, 1, 'said once, not every sweep');
 
   desk.c.close(); await core.stop();
 });

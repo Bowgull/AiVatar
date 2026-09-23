@@ -103,7 +103,10 @@ export const REFUSES = /\b(I can(?:'|no)?t\b|I(?:'m| am) (?:not able|unable)|I d
 /** However he phrases it, the job hunt is one fixed action (2026-09-22, Joshua: "any job-hunt-shaped request
  *  should prefer the Mac"). Caught before routing, not left to the model to recognise and call do_task with,
  *  so it never costs a model turn just to be noticed - the same as the "Job hunt now" button always was. */
-export const JOB_HUNT_RE = /\b(job\s*hunt|job\s*search|(?:search|look(?:ing)?|check(?:ing)?|hunt(?:ing)?)\s+(?:for|through)\s+(?:new\s+|a\s+)?jobs?\b|find\s+me\s+a\s+job|sweep\s+(?:the\s+)?job\s*boards?)/i;
+// "job scan" was missing (found live 2026-09-23: "run a job scan" fell through this entirely and reached
+// the model, which called start_claude itself - a real session, but with none of this block's reliability:
+// no Mac-first attempt, no immediate "press Enter" line, nothing. "However he phrases it" has to mean it.
+export const JOB_HUNT_RE = /\b(job\s*hunt|job\s*search|job\s*scan|(?:search|look(?:ing)?|check(?:ing)?|hunt(?:ing)?|scan(?:ning)?)\s+(?:for|through)\s+(?:new\s+|a\s+)?jobs?\b|find\s+me\s+a\s+job|sweep\s+(?:the\s+)?job\s*boards?)/i;
 /** "How's the job hunt going" is a question ABOUT it, not a request to run it - found live (2026-09-22): it
  *  matched JOB_HUNT_RE too and launched a whole new sweep instead of just answering. A question opener (or
  *  asking how it's going/what happened) means answer from what he already knows, not start one. */
@@ -897,7 +900,7 @@ export class Core {
     this.briefTimer = setInterval(() => { void this.mail()?.dailyBrief().then(t => { if (t) this.announce(t); }).catch(() => { /* tried again in ten minutes */ }); }, 10 * 60_000);
     this.briefTimer.unref?.();
     // Only when relevant (Joshua, 2026-09-21): a day he named has come, so what he said about it comes back. No model.
-    this.nudgeTimer = setInterval(() => this.nudge(), 10 * 60_000);
+    this.nudgeTimer = setInterval(() => { this.nudge(); this.checkStaleLaunches(); }, 10 * 60_000);
     this.nudgeTimer.unref?.();
     const resumable = Object.entries(this.sessions.all()).map(([l, r]) => `${l}=${r.id.slice(0, 8)}`).join(' ');
     console.log(`core listening on ws://127.0.0.1:${this.cfg.port}/body${resumable ? '  resuming ' + resumable : '  (no session to resume)'}`);
@@ -1138,8 +1141,17 @@ export class Core {
         if (m.ephemeral !== true && JOB_HUNT_RE.test(text) && !JOB_HUNT_QUESTION_RE.test(text.trim())) {
           this.send(ws, { t: 'ack', id });
           void this.runOnMac(SWEEP_REQUEST).then(async onMac => {
-            if (!onMac) await this.startTask(SWEEP_REQUEST);
-            this.send(ws, { t: 'bubble', text: onMac ? 'Starting the job hunt on your MacBook.' : 'Your MacBook is not reachable - running it here.', stream: false, id });
+            // do_task used to be the local fallback here. Real evidence it does not work (2026-09-23,
+            // tasks.json): "Dropped, no job search run" - the worker has no Claude in Chrome, so it cannot
+            // actually sweep boards logged in as him, and it knew it and gave up. start_claude is the one
+            // path that has real browser access; it just needs him to press Enter, so say that up front
+            // instead of leaving him to notice a window on his own.
+            if (!onMac) await this.startClaude(SWEEP_REQUEST, 'job hunt', 'job hunt', 'job hunt');
+            this.send(ws, {
+              t: 'bubble',
+              text: onMac ? 'Starting the job hunt on your MacBook.' : 'Your MacBook is not reachable - opened it in Claude here. Press Enter there to start it.',
+              stream: false, id,
+            });
           });
           break;
         }
@@ -1455,6 +1467,27 @@ export class Core {
     }, 90_000);
     check.unref?.();
     return `Opened a new Claude Code session in the Claude app for the ${label}, with his request already typed in. It has NOT started: he presses Enter in Claude to send it (and confirms the folder the first time). After that you will be told when Claude needs him or when it is done. Tell him that in one short sentence.`;
+  }
+
+  /**
+   * The 90-second check above only ever catches "he never pressed Enter". Once a hook event DOES arrive -
+   * Enter was pressed, or the session got past the folder-trust prompt - nothing was watching it again, ever.
+   * A session that goes quiet after that (stuck on a dialog no hook covers, or just stalled) looked exactly
+   * like one that was quietly working, and there was no way to tell the difference from here (2026-09-23,
+   * live: a job hunt session sat at "working" for minutes with zero further hook activity, and "I couldn't
+   * see he was working" was the honest complaint - there was, in fact, nothing to see). Said once per session.
+   */
+  private checkStaleLaunches(now = Date.now()): void {
+    const STALE_MS = 5 * 60_000;
+    for (const l of this.launched) {
+      if (l.state === 'ended' || l.state === 'done' || l.state === 'needs you' || l.staleNudged) continue;
+      if (!l.sessionId) continue;                                    // the 90s check above already covers this case
+      if (now - (l.updatedAt ?? l.startedAt) < STALE_MS) continue;
+      l.staleNudged = true;
+      this.saveLaunched();
+      const mins = Math.round((now - l.startedAt) / 60_000);
+      void this.announceJob(`No word from the ${l.name} in Claude for a few minutes now (${mins} since it started) - worth checking it: it may be waiting on a prompt there that does not reach me.`, l.cwd, { asked: true, focus: CLAUDE_WINDOW });
+    }
   }
 
   private setSilent(quiet: boolean, muted: boolean): void {

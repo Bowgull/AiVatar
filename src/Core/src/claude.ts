@@ -35,6 +35,8 @@ export interface Launched {
   /** The Claude session id, once its first hook event has said it. */
   sessionId: string | null;
   startedAt: number;
+  /** He was already told this one has gone quiet - so it is said once, not every sweep. */
+  staleNudged?: boolean;
 }
 
 /** Folders he names by what they are for. */
