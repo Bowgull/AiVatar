@@ -56,6 +56,14 @@ sealed class PetWindow : Form
     DateTime nextBurstAt = DateTime.MaxValue;
     DateTime burstStart = DateTime.MinValue;    // when the current burst's loom/flicker began
     bool ambientGlow;                           // ...urgent settled but still unread: a slow, quiet pulse, never fully gone
+    /// <summary>A Claude Code session he is following (a job hunt, a self-change, anything start_claude opened)
+    /// is currently working or waiting on him, right now - continuous, from the Core, not an event he was told
+    /// about once. Joshua, 2026-09-23: asked for a job search, could not tell it was doing anything; then, on
+    /// seeing the news dot alone, asked for the arrow and eyes too. Reuses the two glows that already exist
+    /// rather than inventing a third: DrawThinkGlow (eyes + arrow tattoo) while standing, the same quiet ambient
+    /// outline as "something waits" while docked/peeking - both already Theme.AvatarGlow, so nothing about what
+    /// the colour means changes, it is just no longer only a settled-burst state.</summary>
+    bool claudeWorking;
     string? bubbleFocus;            // the window a click on the bubble brings forward (a Claude session), if any
     string foreground = "";
     string foregroundTitle = "";
@@ -409,6 +417,16 @@ sealed class PetWindow : Form
                     if (cfg.Saving != saving) { cfg.Saving = saving; cfg.Save(); }
                     PushStatus();
                     break;
+                case "claude.working": {
+                    var was = claudeWorking;
+                    claudeWorking = Bool(m, "working");
+                    // Peek further out the moment it starts, the same as a settling glow already does, so the
+                    // eyes/arrow (standing) or outline (docked) are not hidden at the plain 34px forehead; back
+                    // in if nothing else (a real badge, an ambient glow) is still holding him out further.
+                    if (claudeWorking != was && dock != DockEdge.None && peeking && slideStart == DateTime.MinValue) SlideTo(PeekPos());
+                    dirty = true;
+                    break;
+                }
                 case "panel.reply":
                     panel?.Load(m);
                     break;
@@ -571,10 +589,12 @@ sealed class PetWindow : Form
             }
             if (bubble.Visible) bubbleWasVisible = true;
 
-            if (urgent || (badge && peeking)) changed = true;              // the outline pulses and the icon bobs even while quiet holds the idle loop
+            if (urgent || claudeWorking || (badge && peeking)) changed = true;  // the outline/glow pulses even while quiet holds the idle loop
 
             // Quiet mode freezes the idle loop; anything Joshua triggers (a reply, a poke) wakes it briefly.
-            var animate = !quiet || bubble.Visible || now < wakeUntil || urgent;
+            // claudeWorking is right beside urgent here on purpose: a session working is exactly the kind of
+            // thing the WoW-quiet-hold should not be able to hide - he is not being interrupted, just shown.
+            var animate = !quiet || bubble.Visible || now < wakeUntil || urgent || claudeWorking;
             if (animate)
             {
                 if (anim.Tick(now, sprites.Count(anim.State), out var finished)) changed = true;
@@ -589,7 +609,7 @@ sealed class PetWindow : Form
             }
 
             if (changed || dirty) Render();
-            timer.Interval = slideStart != DateTime.MinValue ? 16 : bubble.Animating || urgent ? 33 : badge && peeking ? 50 : (!animate ? (bubble.More ? 250 : 250) : Math.Clamp(anim.FrameMs, 33, 200));
+            timer.Interval = slideStart != DateTime.MinValue ? 16 : bubble.Animating || urgent ? 33 : (badge && peeking) || claudeWorking ? 50 : (!animate ? (bubble.More ? 250 : 250) : Math.Clamp(anim.FrameMs, 33, 200));
         }
         catch (Exception e) { Log.Write("tick failed: " + e); }
     }
@@ -617,7 +637,7 @@ sealed class PetWindow : Form
                     g.DrawImage(fl, new Rectangle(246, 86, 224, 224));
                 }
                 else g.DrawImage(sprites.Frame(anim.State, anim.Frame), new Rectangle(246, 86, 224, 224));
-                if (anim.State == "think") DrawThinkGlow(g);
+                if (anim.State == "think" || claudeWorking) DrawThinkGlow(g);
             }
 
             surface.Present(Handle, Location);
@@ -1208,7 +1228,7 @@ sealed class PetWindow : Form
         var sc = DockScreen(); var wa = sc.WorkingArea;
         return dock == DockEdge.Bottom ? Rectangle.FromLTRB(wa.Left, wa.Top, wa.Right, sc.Bounds.Bottom) : wa;
     }
-    Point PeekPos() => Docking.PeekWindow(dock, dockFrac, DockArea(), art, Extra, scale, urgent || ambientGlow ? Docking.PeekMorePx : Docking.PeekPx);
+    Point PeekPos() => Docking.PeekWindow(dock, dockFrac, DockArea(), art, Extra, scale, urgent || ambientGlow || claudeWorking ? Docking.PeekMorePx : Docking.PeekPx);
 
     /// <summary>Real SFX he picked live, 2026-09-22 (see assets/aang/sfx/CREDITS.txt for source and licence),
     /// auditioned through a proper picker after System sound and a hand-synthesised square wave both turned out
@@ -1601,7 +1621,7 @@ sealed class PetWindow : Form
         rot.RotateFlip(Docking.Rotation(dock));                           // an exact turn: pixels move, none change
         var at = new Rectangle(Docking.SpriteX, Docking.SpriteY, Docking.Frame, Docking.Frame);
         if (urgent) DrawOutline(g, rot, at, loom: true);
-        else if (ambientGlow) DrawOutline(g, rot, at, loom: false);
+        else if (ambientGlow || claudeWorking) DrawOutline(g, rot, at, loom: false);
         g.DrawImage(rot, at);
         if (badge) DrawMarker(g);
     }

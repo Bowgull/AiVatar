@@ -17,9 +17,11 @@ namespace Aang.Body;
 /// </summary>
 sealed class BubbleView : IDisposable
 {
-    // Clean Gold: 15 px text on a 21 px line (it was 14.7 on 16, which read cramped), radius 12, 12 px padding.
-    // The bubble grows UP from Bottom, so PetWindow.Extra must cover ExpandedMaxH - Bottom (see there).
-    public const int Left = 6, Right = 262, Bottom = 124, LineH = 21, TextX = 20, Pad = 12;
+    // Clean Gold: 15 px text, radius 12, 12 px padding. LineH was 21 (a 1.4x line-height, under WCAG's own
+    // 1.5x target for readable body text); 23 is 1.53x, in range - Joshua, 2026-09-23: "jumbled and hard to
+    // read", researched rather than guessed. The bubble grows UP from Bottom, so PetWindow.Extra must cover
+    // ExpandedMaxH - Bottom (see there).
+    public const int Left = 6, Right = 262, Bottom = 124, LineH = 23, TextX = 20, Pad = 12;
     public const int CollapsedLines = 6, ExpandedLines = 12;
     public const int MinH = 58, MaxTextW = 232, Radius = Theme.Radius;
     public const int CollapsedH = CollapsedLines * LineH + 2 * Pad;     // 150
@@ -65,7 +67,13 @@ sealed class BubbleView : IDisposable
 
     // Two widths: a short reply keeps the narrow bubble; a long one widens to the left by WideExtra so it takes fewer
     // lines. Decided once per reply and kept while it streams, so the text re-wraps at most once.
-    public const int WideExtra = 160, WideAfterLines = 4;
+    //
+    // WideAfterLines was 4, so 2-4 line replies - most of them - sat at the narrow width: measured (2026-09-23)
+    // at ~35 characters per line, under the ~45 accessibility floor for reading multiple lines (WCAG/typography
+    // research; the wide width measures ~59, comfortably in the 50-75 ideal range). A single line has no line-
+    // length problem to fix (nothing to read rhythm across), so the real threshold is "more than one line",
+    // not "many": Joshua, 2026-09-23, "jumbled and hard to read", researched rather than guessed at a number.
+    public const int WideExtra = 160, WideAfterLines = 1;
     public bool Wide { get; private set; }
     public float LeftNow => Wide ? Left - WideExtra : Left;
     float TextXNow => Wide ? TextX - WideExtra : TextX;
