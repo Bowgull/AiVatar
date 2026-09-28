@@ -11,9 +11,10 @@ import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { MAC_LISTENER_PORT, macSetupScript } from './macsetup.ts';
 import { SWEEP_REQUEST, cleanField, safeUrl, scoreOf, verdictFor } from './jobs.ts';
 import type { Rubric } from './jobs.ts';
-import type { FromBody, Mode, ToBody } from './protocol.ts';
+import type { FromBody, Mode, StructuredList, ToBody } from './protocol.ts';
 import { Lane } from './lane.ts';
 import type { LaneEvent } from './lane.ts';
+import { Backup } from './backup.ts';
 import { Memory } from './memory.ts';
 import { QuotaPolicy } from './quota.ts';
 import { MODELS, pickLane } from './route.ts';
@@ -182,6 +183,17 @@ export class Core {
     return l;
   }
 
+  /**
+   * A finished job's warm SDK process (~220 MB, the same as a chat lane) used to sit there for the life of the
+   * Core: nothing ever closed it, not on completion, not on stop(), not even here (2026-09-24). workerLane()
+   * already resumes by session id (`resumeId: t.sessionId`, persisted in tasks.json), so closing here loses
+   * nothing - tell_task later just pays a fresh process start, exactly like any other resumed lane does.
+   */
+  private closeWorker(id: string): void {
+    this.workers.get(id)?.close();
+    this.workers.delete(id);
+  }
+
   private async startTask(task: string, name?: string, deep = false): Promise<string> {
     if (!task.trim()) return 'Nothing to do: the job was empty.';
     if (this.policy.saving) return 'Saving quota is on, so no background job was started. Tell him that, and that he can turn saving off, or ask for one step at a time here instead.';
@@ -203,15 +215,18 @@ export class Core {
     console.log(`task "${t.name}": ${r.ok ? 'finished' : 'stopped'}${cost}`);
     if (!r.ok) {
       t.state = 'failed'; t.last = said || 'It stopped before it finished.'; this.tasks.save();
+      this.closeWorker(t.id);
       this.announce(`Need input on the ${t.name} job: it stopped before finishing (${t.last.slice(0, 160)}). Want it to try again?`, { asked: true });
       return;
     }
     if (asksSomething(said)) {
       t.state = 'needs you'; t.last = said; this.tasks.save();
+      this.closeWorker(t.id);
       this.announce(`Need input on the ${t.name} job: ${said}`, { asked: true });
       return;
     }
     t.state = 'done'; t.last = said; this.tasks.save();
+    this.closeWorker(t.id);
     this.announce(`The ${t.name} job is done. ${said}`, { asked: true, done: true });
   }
 
@@ -229,6 +244,7 @@ export class Core {
     if (t.state !== 'working') return `"${t.name}" is not running (${t.state}).`;
     t.state = 'stopped'; t.last = 'He stopped it.'; t.updatedAt = Date.now(); this.tasks.save();
     await this.workers.get(t.id)?.interrupt();
+    this.closeWorker(t.id);
     this.actions.add({ tool: 'stop_task', did: `stopped the background job "${t.name}"`, ok: true, note: '' });
     return `Stopped "${t.name}". What it already changed stays; undo_last can put back a file change.`;
   }
@@ -249,6 +265,7 @@ export class Core {
       hands: (action, what, how) => this.hands(action, what, how),
       phone: (what, note) => this.sendToPhone(what, note),
       createJobCard: input => this.createJobCard(input),
+      presentList: list => { this.pendingList = list; },
       mailInbox: (query, max) => this.mailRead('mcp__aang__mail_inbox', { query: query ?? '' }, m => m.inbox(query || 'in:inbox', max ?? 10)),
       mailRead: id => this.mailRead('mcp__aang__mail_read', { id }, m => m.read(id)),
       calendar: days => this.mailRead('mcp__aang__calendar_today', { days: days ?? 1 }, m => m.agenda(days ?? 1)),
@@ -473,9 +490,15 @@ export class Core {
   /** Everything he does on the machine, with what really happened. */
   readonly actions: ActionLog;
   private readonly undo = new UndoStack();
+  /** A verified copy of his memory, off this machine, every time he starts. See backup.ts. */
+  private readonly backup: Backup;
 
   /** What really happened this chat turn, for checking the reply against before he sees it. */
   private turnActions: { did: string; ok: boolean; note: string }[] = [];
+  /** Set by present_list, reset at the start of every turn same as turnActions, and attached to the reply's
+   *  own bubble message when the turn finishes (onLaneEvent's result branch) - never left to leak into a
+   *  later turn that never called it. */
+  private pendingList: StructuredList | null = null;
 
   private reportAction(tool: string, input: Record<string, unknown>, failed: boolean, text: string, fromWorker = false): void {
     const rec = this.actions.add({ tool, did: (fromWorker ? '(background job) ' : '') + describeCall('mcp__aang__' + tool, input), ok: !failed, note: failed ? text : '' });
@@ -789,6 +812,7 @@ export class Core {
     this.trust = new TrustStore(cfg.stateDir);
     this.actions = new ActionLog(cfg.stateDir);
     this.tasks = new TaskStore(cfg.stateDir);
+    this.backup = new Backup(cfg.dataDir);
   }
 
   // ------------------------------------------------------------------ lifecycle
@@ -804,8 +828,27 @@ export class Core {
     return k;
   }
 
-  /** The MacBook's Tailscale address, learned from its own hook posts (nothing to configure). */
-  private macAddr: string | null = null;
+  /**
+   * The MacBook's Tailscale address, learned from its own hook posts (nothing to configure) - and KEPT, in
+   * mac.json. It used to live only in memory, so every restart forgot it, and since the Mac only posts when a
+   * session actually runs there, "your MacBook is not reachable" was the answer until it happened to speak
+   * first. It never even tried the network (2026-09-23, Joshua: the bridge set up fine, then two restarts
+   * later the job hunt still said unreachable - the Mac was up and answering pings the whole time).
+   */
+  private macAddrCache: string | null | undefined;
+  private get macAddr(): string | null {
+    if (this.macAddrCache === undefined) {
+      try { this.macAddrCache = String(JSON.parse(readFileSync(path.join(this.cfg.stateDir, 'mac.json'), 'utf8')).addr || '') || null; }
+      catch { this.macAddrCache = null; }
+    }
+    return this.macAddrCache;
+  }
+  private set macAddr(addr: string | null) {
+    if (addr === this.macAddr) return;
+    this.macAddrCache = addr;
+    try { mkdirSync(this.cfg.stateDir, { recursive: true }); writeFileAtomic(path.join(this.cfg.stateDir, 'mac.json'), JSON.stringify({ addr })); }
+    catch { /* it still works this run; it just will not survive a restart */ }
+  }
 
   /** He clicked the icon for a MacBook session: the Mac's listener brings Claude forward there. It can do nothing else. */
   private async frontOnMac(): Promise<void> {
@@ -843,6 +886,17 @@ export class Core {
     return macSetupScript(ts, this.cfg.port + 1, this.keyFile('hook.key'), this.keyFile('mac-front.key'));
   }
 
+  /** VACUUM INTO, verify, commit, push - see backup.ts. A quiet receipt in #log either way; a spoken word only
+   *  if the last GOOD backup is already more than STALE_MS old, so one slow push on a fast night never sounds
+   *  an alarm by itself. */
+  private runBackup(): void {
+    const wasStale = this.backup.stale();
+    const r = this.backup.run();
+    const rec = this.actions.add({ tool: 'backup', did: r.ok ? `backed up his memory: ${r.detail}` : `backup failed: ${r.detail}`, ok: r.ok, note: r.ok ? '' : r.detail });
+    this.sendTo('discord', { t: 'action', text: formatAction(rec) });
+    if (!r.ok && wasStale) this.announce(`I have not backed up cleanly in over 12 hours. The last attempt failed: ${r.detail}.`);
+  }
+
   async start(): Promise<void> {
     await new Promise<void>((resolve, reject) => {
       this.wss = new WebSocketServer({ host: '127.0.0.1', port: this.cfg.port, path: '/body' });
@@ -858,6 +912,10 @@ export class Core {
       const remote = !!from && !isLoopback(from);
       if (remote) this.macAddr = from;
       const said = this.hooks.handle(ev);
+      // Which machine it is on is known here (the address it came from), not inside HookTracker - keep it on
+      // the session so the working icon can say "on your MacBook" and route a click there.
+      if (remote) { const s = this.hooks.sessions.get(String(ev?.session_id ?? '')); if (s) s.host = 'mac'; }
+      this.pushClaudeWorking();
       // A session Aang started for Joshua gets its own, fuller news, with a way straight to it.
       const mine = this.launched.find(l => l.state !== 'ended' && isFrom(l, ev));
       if (mine) {
@@ -894,6 +952,10 @@ export class Core {
     // hours and ends with a hard shutdown, so do not leave it all for a clean stop that may never come.
     this.checkpointTimer = setInterval(() => this.memory.checkpoint(), 5 * 60_000);
     this.checkpointTimer.unref?.();
+    // Leaves this machine every time he starts (2026-09-28), not on a schedule he might never reach - Shadow's
+    // reboots are unpredictable, so "back up nightly" would often just not happen; "back up at start" always
+    // does. Deferred a few seconds so it can never delay the very first message getting through.
+    setTimeout(() => this.runBackup(), 5_000).unref?.();
     emptyOldTrash();                                   // whatever has sat in Aang's trash for 30 days goes for good
     this.reminders.onDue = r => this.announce(`Reminder: ${r.text}`);
     this.reminders.start();
@@ -903,6 +965,9 @@ export class Core {
     // Only when relevant (Joshua, 2026-09-21): a day he named has come, so what he said about it comes back. No model.
     this.nudgeTimer = setInterval(() => { this.nudge(); this.checkStaleLaunches(); }, 10 * 60_000);
     this.nudgeTimer.unref?.();
+    // ...and once now: a session left "working" in launched.json when he last shut down is exactly the kind
+    // that will never speak again, and it should not be showing as live while he waits ten minutes for a sweep.
+    this.checkStaleLaunches();
     const resumable = Object.entries(this.sessions.all()).map(([l, r]) => `${l}=${r.id.slice(0, 8)}`).join(' ');
     console.log(`core listening on ws://127.0.0.1:${this.cfg.port}/body${resumable ? '  resuming ' + resumable : '  (no session to resume)'}`);
     // Give the turns that never had a vector one, in the background. 148 of 466 were embedded by the
@@ -917,6 +982,10 @@ export class Core {
   }
 
   async stop(): Promise<void> {
+    // A turn still active when the Core is asked to stop had a live TURN_TIMEOUT_MS watchdog with nothing
+    // ever clearing it (found 2026-09-24, diagnosing a stalled test: the timer is now unref'd so it can never
+    // block process exit on its own, but it should also just not fire at all against a Core that is gone).
+    if (this.active?.watchdog) clearTimeout(this.active.watchdog);
     if (this.permission) this.answerPermission(this.permission.id, 'no');
     if (this.checkpointTimer) clearInterval(this.checkpointTimer);
     if (this.briefTimer) clearInterval(this.briefTimer);
@@ -925,6 +994,7 @@ export class Core {
     await this.hookServer?.stop(); this.hookServer = null;
     this.webLane?.close(); this.webLane = null;
     for (const l of this.lanes.values()) l.close();
+    for (const l of this.workers.values()) l.close();     // a job left 'working' at shutdown, closeWorker never ran
     this.memory.close();
     if (!this.wss) return;
     // ws only fires the close callback once every client has disconnected, so a connected Body (or a
@@ -1085,14 +1155,35 @@ export class Core {
     return { t: 'quota', five: q.five, week: q.week, fiveResetsAt: q.fiveResetsAt, weekResetsAt: q.weekResetsAt, level: this.policy.level };
   }
 
-  /** The one glow/eyes signal: is ANY Claude Code session he is following currently working or waiting on
-   *  him? Sent to the desktop only (the thing that draws him) and only when it actually changes. */
-  private lastPushedWorking: boolean | null = null;
+  /**
+   * The one glow/eyes/icon signal: is ANY Claude Code session working or waiting on him right now, and what
+   * is it? Both the ones Aang opened (launched) and the ones he started himself or that run on the MacBook
+   * (HookTracker) - his words, 2026-09-23: "if i ask aang to run a job search or im working in claude at
+   * all". Carries a name and, for the Mac, where it is, so a click on the icon can say which and take him
+   * there. Desktop only (the thing that draws him), and only when it actually changes.
+   */
+  private workingNow(): { working: boolean; what?: string; host?: 'mac' } {
+    // 'waiting' on a Launched job always means "typed in, Enter not pressed yet" (JobState's own doc comment,
+    // set once at startClaude(), never re-entered by nextState()) - it can NEVER mean a real session is
+    // running. Counting it here made the glow turn on the instant a request was typed into a new Claude
+    // window, before anything had actually started (2026-09-23, approved fix: "only count it once it's really
+    // running"). A session that legitimately needs him mid-run is 'needs you', not 'waiting', and is announced
+    // separately when it happens; it is not folded into this continuous signal.
+    const job = this.launched.find(l => l.state === 'working');
+    if (job) return { working: true, what: job.name };
+    const live = [...this.hooks.sessions.values()]
+      .filter(s => s.phase === 'working' || s.phase === 'waiting')
+      .sort((a, b) => b.changedAt - a.changedAt)[0];
+    if (live) return { working: true, what: live.project, ...(live.host ? { host: live.host as 'mac' } : {}) };
+    return { working: false };
+  }
+  private lastPushedWorking = '';
   private pushClaudeWorking(): void {
-    const working = this.launched.some(l => l.state === 'working' || l.state === 'waiting');
-    if (working === this.lastPushedWorking) return;
-    this.lastPushedWorking = working;
-    this.sendTo('desktop', { t: 'claude.working', working });
+    const now = this.workingNow();
+    const key = JSON.stringify(now);
+    if (key === this.lastPushedWorking) return;
+    this.lastPushedWorking = key;
+    this.sendTo('desktop', { t: 'claude.working', ...now });
   }
 
   private onBody(ws: WebSocket, m: FromBody): void {
@@ -1100,7 +1191,7 @@ export class Core {
       case 'hello': {
         this.clientKind.set(ws, m.client === 'discord' ? 'discord' : 'desktop');
         const q = this.quotaMessage(); if (q) this.send(ws, q);
-        if (this.kindOfSocket(ws) === 'desktop') this.send(ws, { t: 'claude.working', working: this.launched.some(l => l.state === 'working' || l.state === 'waiting') });
+        if (this.kindOfSocket(ws) === 'desktop') this.send(ws, { t: 'claude.working', ...this.workingNow() });
         break;
       }
       case 'desk': this.atDesk = m.active !== false; break;
@@ -1212,6 +1303,7 @@ export class Core {
     const t0 = Date.now();
     this.mailOutcome = null;
     this.turnActions = [];
+    this.pendingList = null;
     // Acknowledge first, before any decision or model work: this is the "it heard me" moment.
     this.send(sub.socket, { t: 'ack', id: sub.id });
 
@@ -1233,13 +1325,35 @@ export class Core {
     this.toTurn(sub, { t: 'state', state: 'think' });
     const turn: Turn = { sub, lane, buf: '', flush: null, stopped: false, startedAt: Date.now(), ackMs, watchdog: null, escalated };
     turn.watchdog = setTimeout(() => this.fail(turn, 'That took too long and I gave up waiting.', 'Try again, or ask something shorter.'), TURN_TIMEOUT_MS);
+    turn.watchdog.unref?.();   // must never be the thing keeping the process alive; stop() also clears it explicitly below
     this.active = turn;
     // A job reading a web page must not have that forgotten because he said something: while one runs, the
     // "read outside content, ask again" flag can only be switched on, never off.
     if (!this.tasks.running().length) this.tainted = false;
-    const text = escalated ? this.withWaiting(this.withKnown(lane, sub.text)) : this.withWaiting(this.withKnown(lane, this.withRecap(lane, sub.text)));
+    const text = escalated
+      ? this.withWaiting(this.withKnown(lane, this.withAnnounced(sub.text)))
+      : this.withWaiting(this.withKnown(lane, this.withRecap(lane, this.withAnnounced(sub.text))));
     this.lastLane = lane;
     this.lane(lane).send(text);
+  }
+
+  /**
+   * A reply to something Aang said WITHOUT being asked - a quota notice, a reminder, a job report - reaching
+   * a model that has no idea what it is a reply to. announce() text is UI-only: it goes straight to the
+   * bubble/Discord and is never in any lane's own conversation, so unlike a model-generated line, it leaves
+   * no trace for the model to have "said" or remember (2026-09-23, live: told "you're at 50% of your week",
+   * replied "the week is almost over, that's fine", and the model that received that had genuinely nothing to
+   * go on - not evasion, the sentence it was replying to did not exist anywhere Aang could see). Used once,
+   * and only within a few minutes: a reply that arrives much later is more likely about something else, and
+   * forcing stale context onto it would be its own kind of wrong.
+   */
+  private lastAnnounced: { text: string; at: number } | null = null;
+  private static readonly ANNOUNCED_WINDOW_MS = 10 * 60_000;
+  private withAnnounced(text: string): string {
+    const a = this.lastAnnounced;
+    this.lastAnnounced = null;                          // used once, whether or not this reply turns out to be about it
+    if (!a || Date.now() - a.at > Core.ANNOUNCED_WINDOW_MS) return text;
+    return `<just said>\nWhat you told him, unprompted, a moment ago - he may well be replying to this:\n${a.text}\n</just said>\n\n${text}`;
   }
 
   /**
@@ -1367,7 +1481,7 @@ export class Core {
       reply = this.mailOutcome.detail;
     }
     reply = groundReply(reply, this.turnActions);
-    this.toTurn(sub, { t: 'bubble', text: reply, stream: false, id: sub.id, who: MODELS[turn.lane].label });
+    this.toTurn(sub, { t: 'bubble', text: reply, stream: false, id: sub.id, who: MODELS[turn.lane].label, ...(this.pendingList ? { list: this.pendingList } : {}) });
     if (!sub.ephemeral) this.memory.saveTurn(sub.text, reply, 'claude-' + turn.lane);
     this.record({
       ts: new Date().toISOString(), id: sub.id, lane: turn.lane, user: sub.text, reply,
@@ -1402,6 +1516,9 @@ export class Core {
   private static readonly DONE = /\b(done|finished)\.\s/i;
 
   announce(text: string, opts: { asked?: boolean; focus?: string; jobCwd?: string; image?: { data: string; mimeType: string }; blocking?: boolean; done?: boolean; host?: 'mac' } = {}): void {
+    // Whatever is said last is what a reply is most likely about, whether it lands now or only once hush/quiet
+    // lets it through - see withAnnounced().
+    this.lastAnnounced = { text, at: Date.now() };
     // Hush holds everything, even what he asked to be told about; it comes out when the hush ends.
     if (this.hushUntil > Date.now()) { this.pending.push(text); while (this.pending.length > 8) this.pending.shift(); return; }
     const blocking = opts.blocking ?? Core.BLOCKING.test(text);
@@ -1494,15 +1611,30 @@ export class Core {
    */
   private checkStaleLaunches(now = Date.now()): void {
     const STALE_MS = 5 * 60_000;
+    // Nudging once was not enough: a session that never speaks again stayed "working" for good, so the glow
+    // and the icon stayed on for good with it (2026-09-23, Joshua: "why is the chat bubble icon above aang
+    // currently" - a job hunt from that morning, long dead, still showing as live). After this long with no
+    // word at all it is not working, whatever it last said; let it go so what he sees is true again.
+    const GIVE_UP_MS = 30 * 60_000;
+    let changed = false;
     for (const l of this.launched) {
-      if (l.state === 'ended' || l.state === 'done' || l.state === 'needs you' || l.staleNudged) continue;
+      if (l.state === 'ended' || l.state === 'done' || l.state === 'needs you') continue;
+      const quiet = now - (l.updatedAt ?? l.startedAt);
+      if (quiet >= GIVE_UP_MS) {
+        l.state = 'ended';
+        l.last ??= 'Nothing more was heard from it.';
+        changed = true;
+        continue;
+      }
+      if (l.staleNudged) continue;
       if (!l.sessionId) continue;                                    // the 90s check above already covers this case
-      if (now - (l.updatedAt ?? l.startedAt) < STALE_MS) continue;
+      if (quiet < STALE_MS) continue;
       l.staleNudged = true;
-      this.saveLaunched();
+      changed = true;
       const mins = Math.round((now - l.startedAt) / 60_000);
       void this.announceJob(`No word from the ${l.name} in Claude for a few minutes now (${mins} since it started) - worth checking it: it may be waiting on a prompt there that does not reach me.`, l.cwd, { asked: true, focus: CLAUDE_WINDOW });
     }
+    if (changed) { this.saveLaunched(); this.pushClaudeWorking(); }
   }
 
   private setSilent(quiet: boolean, muted: boolean): void {

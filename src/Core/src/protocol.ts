@@ -3,13 +3,44 @@
 export type Mode = 'auto' | 'quick' | 'smart' | 'deep';
 export type QuotaLevel = 'ok' | 'warn' | 'offer' | 'saving';
 
+/**
+ * What kind of thing every row in one list is - never per row, a list is one kind (2026-09-24: an early draft
+ * of the bubble redesign gave three job rows three different icons, which made the icon decorate the row
+ * instead of naming it). Colour is the separate, per-row channel for how each one is doing (ChipTone below);
+ * an icon never changes meaning and a colour never changes meaning. This same shape is meant to feed a
+ * Discord card later (Phase 3) as well as the desktop bubble, so it lives in the wire protocol, not in either
+ * side's own drawing code.
+ */
+export type ListIcon = 'job' | 'email' | 'meeting' | 'file' | 'deadline' | 'reminder' | 'session' | 'link' | 'memory';
+/** good/normal/careful/stop/inactive, the same five-way vocabulary Theme.cs already uses everywhere else. */
+export type ChipTone = 'good' | 'normal' | 'careful' | 'stop' | 'inactive';
+export interface StructuredItem {
+  title: string;
+  subtitle?: string;
+  /** A short label - a score, a status - never required: most rows have nothing worth a chip. */
+  chipText?: string;
+  chipTone?: ChipTone;
+}
+export interface StructuredList {
+  icon: ListIcon;
+  /** Capped by the present_list tool's own schema (tools.ts), not here: this type just carries whatever it
+   *  was given. */
+  items: StructuredItem[];
+  /** How many more exist beyond `items`, if the model said so - "12 more in Discord", not a silent cutoff. */
+  moreCount?: number;
+}
+
 export type ToBody =
   | { t: 'state'; state: string }
   /** Whether any Claude Code session Aang is following (a job hunt, a self-change, anything opened through
    *  start_claude) is currently working or waiting on him, right now - continuous, not a point-in-time
    *  message. Joshua, 2026-09-23: asked to run a job search, could not tell it was doing anything. Sent
    *  once on connect and again only when it changes. */
-  | { t: 'claude.working'; working: boolean }
+  | { t: 'claude.working'; working: boolean;
+      /** What it is, in his words ("job hunt"), so a click on the icon can say so rather than just glow. */
+      what?: string;
+      /** Set when the session is on the MacBook, so the click routes there instead of to a window here. */
+      host?: 'mac' }
   | { t: 'bubble'; text: string; stream: boolean; id?: string; who?: string; proactive?: boolean;
       /** Something he asked to be told about: shown even in quiet mode. */
       asked?: boolean;
@@ -29,7 +60,11 @@ export type ToBody =
        *  actually being stuck waiting on him. */
       done?: boolean;
       /** The session is on his MacBook (its hooks came over Tailscale): a click on the icon brings Claude forward there. */
-      host?: 'mac' }
+      host?: 'mac';
+      /** A short list to render as real rows under the text, not as dashes inside it (2026-09-24, the bubble
+       *  redesign: "just a huge string of text with ** and --"). Set only when the model actually called
+       *  present_list this turn; `text` stays short prose around it either way, never the list itself. */
+      list?: StructuredList }
   | { t: 'bubble.dots' }
   | { t: 'bubble.clear' }
   | { t: 'quiet'; on: boolean }

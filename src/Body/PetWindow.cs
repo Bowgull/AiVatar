@@ -64,6 +64,14 @@ sealed class PetWindow : Form
     /// outline as "something waits" while docked/peeking - both already Theme.AvatarGlow, so nothing about what
     /// the colour means changes, it is just no longer only a settled-burst state.</summary>
     bool claudeWorking;
+    string workingWhat = "";                    // "job hunt": what to say if he clicks the icon
+    string? workingHost;                        // "mac" when it is running on the MacBook
+
+    /// <summary>Back to rest. While a Claude session is working that means THINKING, not standing idle: the
+    /// think animation is what says he is busy (and carries the arrow/eyes glow with it). Everywhere that used
+    /// to drop straight to idle goes through here, or the working state would be wiped by the next reply
+    /// ending, bubble closing or one-shot finishing.</summary>
+    void PlayRest() => anim.Play(claudeWorking ? "think" : "idle");
     string? bubbleFocus;            // the window a click on the bubble brings forward (a Claude session), if any
     string foreground = "";
     string foregroundTitle = "";
@@ -367,6 +375,9 @@ sealed class PetWindow : Form
                     ExitExpanded(collapse: false);
                     bubble.Asked = proactive ? "" : (lastText ?? "");
                     ShowBubble(text, Bool(m, "stream"));
+                    // Only ever present on the reply's own final message, never a streamed delta (core.ts
+                    // attaches it once, at result time) - so this only needs checking here, not per delta.
+                    if (!Bool(m, "stream")) bubble.Rows = ParseRows(m);
                     bubbleFocus = Str(m, "focus");
                     bubble.Link = bubbleFocus != null ? Str(m, "link") ?? "" : "";
                     if (!Bool(m, "stream") && !proactive && Str(m, "id") is { Length: > 0 } rid) { replyId = rid; bubble.Tools = true; bubble.Rating = 0; }
@@ -420,10 +431,17 @@ sealed class PetWindow : Form
                 case "claude.working": {
                     var was = claudeWorking;
                     claudeWorking = Bool(m, "working");
-                    // Peek further out the moment it starts, the same as a settling glow already does, so the
-                    // eyes/arrow (standing) or outline (docked) are not hidden at the plain 34px forehead; back
-                    // in if nothing else (a real badge, an ambient glow) is still holding him out further.
-                    if (claudeWorking != was && dock != DockEdge.None && peeking && slideStart == DateTime.MinValue) SlideTo(PeekPos());
+                    workingWhat = Str(m, "what") ?? "";
+                    workingHost = Str(m, "host");
+                    if (claudeWorking != was)
+                    {
+                        markerSince = DateTime.UtcNow;                       // the icon pops in, same as any other
+                        // Thinking is an ANIMATION, not a wash painted over the idle sprite - his own point
+                        // (2026-09-23): "when aang is thinking regularly it changes its animation correct?".
+                        // A session working IS him thinking, so it plays the same 12 frames, and the glow that
+                        // already rides on the think state comes with it instead of being smeared on alone.
+                        if (anim.State is "idle" or "think") PlayRest();
+                    }
                     dirty = true;
                     break;
                 }
@@ -453,6 +471,24 @@ sealed class PetWindow : Form
     static string? Str(JsonElement m, string name) => m.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
     static double Num(JsonElement m, string name) => m.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetDouble() : 0;
     static bool Bool(JsonElement m, string name) => m.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.True;
+
+    /// <summary>protocol.ts's StructuredList, off the wire (2026-09-24): the "bubble" message's own "list"
+    /// field, present only on the turn present_list actually ran on. Null on anything malformed rather than
+    /// throwing - a bad list is a missing list, never a crashed Body.</summary>
+    static BubbleRows? ParseRows(JsonElement m)
+    {
+        if (!m.TryGetProperty("list", out var l) || l.ValueKind != JsonValueKind.Object) return null;
+        if (!l.TryGetProperty("items", out var items) || items.ValueKind != JsonValueKind.Array) return null;
+        var rows = new BubbleRows { Icon = Str(l, "icon") ?? "file" };
+        foreach (var it in items.EnumerateArray())
+        {
+            if (it.ValueKind != JsonValueKind.Object) continue;
+            var title = Str(it, "title"); if (string.IsNullOrEmpty(title)) continue;
+            rows.Items.Add(new BubbleRow { Title = title, Subtitle = Str(it, "subtitle"), ChipText = Str(it, "chipText"), ChipTone = Str(it, "chipTone") });
+        }
+        if (l.TryGetProperty("moreCount", out var mc) && mc.ValueKind == JsonValueKind.Number) rows.MoreCount = mc.GetInt32();
+        return rows.Items.Count > 0 ? rows : null;
+    }
 
     void Wake() => wakeUntil = DateTime.UtcNow + WakeFor;
 
@@ -564,7 +600,12 @@ sealed class PetWindow : Form
         if (q == quiet) return;
         quiet = q;
         Log.Write($"quiet={quiet} foreground={foreground}");
-        anim.Play("idle");
+        // Found live, 2026-09-24 (Josh, tabbing into WoW fullscreen): a session working stayed shown as the
+        // dot-marker, but the sprite itself dropped out of "think" back to idle - no wind, no glow - and
+        // never came back, because idle loops forever and only a one-shot animation's own finish reasserts
+        // PlayRest() (Tick(), below). This one call bypassed PlayRest() and forced idle unconditionally,
+        // directly against the very next comment's own intent: a working session is what quiet must NOT hide.
+        PlayRest();
         if (!quiet && !peeking && heldText != null) { ShowBubble(heldText, false); heldText = null; }
         dirty = true;
         _ = link.SendAsync(new { t = "presence", quiet, foreground, title = foregroundTitle, watching = cfg.SeeActiveWindow, hwnd = foregroundHwnd });
@@ -585,7 +626,7 @@ sealed class PetWindow : Form
             if (bubbleWasVisible && !bubble.Visible)
             {
                 bubbleWasVisible = false;
-                if (anim.State == "talk") { anim.Play("idle"); changed = true; }
+                if (anim.State == "talk") { PlayRest(); changed = true; }
             }
             if (bubble.Visible) bubbleWasVisible = true;
 
@@ -598,13 +639,18 @@ sealed class PetWindow : Form
             if (animate)
             {
                 if (anim.Tick(now, sprites.Count(anim.State), out var finished)) changed = true;
-                if (finished) { anim.Play(bubble.Visible && !bubble.Dots ? "talk" : "idle"); changed = true; }
+                if (finished) { if (bubble.Visible && !bubble.Dots) anim.Play("talk"); else PlayRest(); changed = true; }
                 wasAnimating = true;
             }
             else if (wasAnimating)
             {
+                // Only reached when animate is false, which requires claudeWorking to already be false too (it
+                // is OR'd into animate above) - so this always resolved to idle anyway. Routed through PlayRest()
+                // regardless, on the same principle as ApplyQuiet's fix just above: every "return to rest" call
+                // site goes through the one helper, so this can never silently start hiding a working session
+                // again if the animate condition above is ever changed.
                 wasAnimating = false;
-                anim.Play("idle");
+                PlayRest();
                 changed = true;
             }
 
@@ -637,7 +683,7 @@ sealed class PetWindow : Form
                     g.DrawImage(fl, new Rectangle(246, 86, 224, 224));
                 }
                 else g.DrawImage(sprites.Frame(anim.State, anim.Frame), new Rectangle(246, 86, 224, 224));
-                if (anim.State == "think" || claudeWorking) DrawThinkGlow(g);
+                if (anim.State == "think") DrawThinkGlow(g);
             }
 
             surface.Present(Handle, Location);
@@ -653,14 +699,25 @@ sealed class PetWindow : Form
     /// sheet itself (think_5.png), not guessed: the arrow sits at 111,88 and the eyes at 100,106 / 121,106 in
     /// the 224x224 frame. No new art - a glow drawn over the existing pixels, same trick as the bubble's own halo.
     /// </summary>
-    void DrawThinkGlow(Graphics g)
+    void DrawThinkGlow(Graphics g, RotateFlipType turn = RotateFlipType.RotateNoneFlipNone)
     {
         var old = g.SmoothingMode; g.SmoothingMode = SmoothingMode.AntiAlias;
         var phase = (Math.Sin(DateTime.UtcNow.TimeOfDay.TotalSeconds * 2.2) + 1) / 2;   // 0..1, ~2.9s breath
         var a = (int)(115 + 100 * phase);
         void Glow(float cx, float cy, float r)
         {
-            var x = 246 + cx; var y = 86 + cy;
+            // Docking turns the whole frame (Docking.Rotation), so these points - read off the sprite itself -
+            // make the same turn, or they would glow the back of his head. Bottom, where he actually lives, is
+            // no turn at all: the numbers below are already right for it (2026-09-23).
+            const float n = Docking.Frame - 1;
+            var (rx, ry) = turn switch
+            {
+                RotateFlipType.Rotate90FlipNone => (n - cy, cx),
+                RotateFlipType.Rotate180FlipNone => (n - cx, n - cy),
+                RotateFlipType.Rotate270FlipNone => (cy, n - cx),
+                _ => (cx, cy),
+            };
+            var x = Docking.SpriteX + rx; var y = Docking.SpriteY + ry;
             using var path = new GraphicsPath(); path.AddEllipse(x - r, y - r, r * 2, r * 2);
             using var brush = new PathGradientBrush(path)
             {
@@ -740,6 +797,7 @@ sealed class PetWindow : Form
         if (moved) { AfterDrag(); return; }
         // A waiting Claude session: the icon takes him to it (here or on the Mac), not to the bubble.
         if (dock != DockEdge.None && peeking && badge && GoToHeldSession()) return;
+        if (dock != DockEdge.None && peeking && !badge && ExplainAndGoToWorking()) return;
         if (dock != DockEdge.None && peeking) { Reveal(thenType: true); return; }  // a click on his head: up, and the box opens (Reveal clears the marker)
 
         var bp = BubblePoint(e.Location);
@@ -756,12 +814,12 @@ sealed class PetWindow : Form
                 var r = Hands.Arrange(bubbleFocus, "front");
                 Log.Write($"bubble link -> {bubbleFocus}: {r.Detail}");
                 if (!r.Ok) { ShowBubble("That Claude window is closed now.", false); bubbleFocus = null; bubble.Link = ""; }
-                else { bubble.Clear(); bubbleFocus = null; if (anim.State == "talk") anim.Play("idle"); }
+                else { bubble.Clear(); bubbleFocus = null; if (anim.State == "talk") PlayRest(); }
             }
             else if (bubble.More) ExpandBubble();                      // "...v": grow it to read the rest
             else if (bubble.Expanded) { /* clicking inside the open bubble does nothing; Esc or a click outside closes it */ }
             else if (working) StopReply();                        // clicking the bubble while Aang is thinking stops it
-            else { bubble.Clear(); if (anim.State == "talk") anim.Play("idle"); }
+            else { bubble.Clear(); if (anim.State == "talk") PlayRest(); }
             dirty = true;
         }
         else
@@ -877,7 +935,7 @@ sealed class PetWindow : Form
         _ = link.SendAsync(new { t = "stop", id = currentId });
         working = false; input.Working = false; ackTimer.Stop();
         ExitExpanded(collapse: false);
-        bubble.Clear(); anim.Play("idle"); dirty = true;
+        bubble.Clear(); PlayRest(); dirty = true;
     }
 
     // ------------------------------------------------------------------ model chip, quota, consent
@@ -1063,7 +1121,7 @@ sealed class PetWindow : Form
     {
         if (consentText == null) return;
         consentText = null; input.SetConsent(false);
-        bubble.Clear(); anim.Play("idle"); dirty = true;
+        bubble.Clear(); PlayRest(); dirty = true;
     }
 
     // ------------------------------------------------------------------ hotkey
@@ -1228,7 +1286,9 @@ sealed class PetWindow : Form
         var sc = DockScreen(); var wa = sc.WorkingArea;
         return dock == DockEdge.Bottom ? Rectangle.FromLTRB(wa.Left, wa.Top, wa.Right, sc.Bounds.Bottom) : wa;
     }
-    Point PeekPos() => Docking.PeekWindow(dock, dockFrac, DockArea(), art, Extra, scale, urgent || ambientGlow || claudeWorking ? Docking.PeekMorePx : Docking.PeekPx);
+    // claudeWorking is deliberately NOT here (2026-09-23, Joshua: "why is he poking out? i didnt want that").
+    // Working is a state to SHOW, not an interruption: the glow and the icon say it without him moving.
+    Point PeekPos() => Docking.PeekWindow(dock, dockFrac, DockArea(), art, Extra, scale, urgent || ambientGlow ? Docking.PeekMorePx : Docking.PeekPx);
 
     /// <summary>Real SFX he picked live, 2026-09-22 (see assets/aang/sfx/CREDITS.txt for source and licence),
     /// auditioned through a proper picker after System sound and a hand-synthesised square wave both turned out
@@ -1281,6 +1341,23 @@ sealed class PetWindow : Form
         if (mac) _ = link.SendAsync(new { t = "claude.front", host = "mac" });
         else Hands.Arrange("Claude", "front");
         Log.Write("icon clicked: " + (mac ? "Claude on the MacBook" : "Claude here"));
+        return true;
+    }
+
+    /// <summary>The working-state icon's own click, extending GoToHeldSession's pattern to the continuous
+    /// "a session is working" signal, which previously had neither half of it (2026-09-23, Joshua: "when i
+    /// click the yellow chat bubble its not bringing me to the right session nor is it tell me what its
+    /// working on and where"). badge already outranks this for what is drawn (DrawMarker) and so it outranks
+    /// it for what a click does too - this only ever fires when there is no badge.</summary>
+    bool ExplainAndGoToWorking()
+    {
+        if (!claudeWorking) return false;
+        var mac = workingHost == "mac";
+        var what = string.IsNullOrEmpty(workingWhat) ? "something" : workingWhat;
+        Note(mac ? $"Working on {what}, on your MacBook." : $"Working on {what}.");
+        if (mac) _ = link.SendAsync(new { t = "claude.front", host = "mac" });
+        else Hands.Arrange("Claude", "front");
+        Log.Write("working icon clicked: " + what + (mac ? " (MacBook)" : ""));
         return true;
     }
 
@@ -1615,15 +1692,34 @@ sealed class PetWindow : Form
 
     /// <summary>What is drawn while he is tucked at the edge: only him, turned to face the screen, an outline while
     /// something has just come in, and an icon over his head while it waits.</summary>
+    /// <summary>Every think frame's own baked-in "..." dots, verified by pixel analysis to occupy exactly this box
+    /// in frame-local space (224x224) and nothing else, in every one of the 118 sprite frames - so clearing it is
+    /// always safe, not just while thinking. Docked/peeking gets its own thinking state (the yellow marker below,
+    /// now animated to the same rhythm) rather than the sprite's built-in ones, which read as a second, competing
+    /// set once his head is this small (2026-09-23/24). The locked source sprite is never touched: this clears a
+    /// CLONE, made fresh every draw.</summary>
+    static readonly Rectangle ThinkDotsBox = new(148, 48, 30, 10);
+
     void DrawPeeking(Graphics g)
     {
         using var rot = (Bitmap)sprites.Frame(anim.State, anim.Frame).Clone();
+        using (var cg = Graphics.FromImage(rot))
+        {
+            cg.CompositingMode = CompositingMode.SourceCopy;               // overwrite alpha, not blend onto it
+            using var clear = new SolidBrush(Color.Transparent);
+            cg.FillRectangle(clear, ThinkDotsBox);
+        }
         rot.RotateFlip(Docking.Rotation(dock));                           // an exact turn: pixels move, none change
         var at = new Rectangle(Docking.SpriteX, Docking.SpriteY, Docking.Frame, Docking.Frame);
         if (urgent) DrawOutline(g, rot, at, loom: true);
-        else if (ambientGlow || claudeWorking) DrawOutline(g, rot, at, loom: false);
+        else if (ambientGlow) DrawOutline(g, rot, at, loom: false);
         g.DrawImage(rot, at);
-        if (badge) DrawMarker(g);
+        // Exactly what the undocked view does, nothing invented for here: the glow rides on the think state,
+        // which a working session now puts him in. Turned with the frame so it lands on his real arrow and
+        // eyes at any edge. Not the silhouette outline (that already means "something unread is waiting"),
+        // and no peeking further out, which he explicitly did not want.
+        if (anim.State == "think") DrawThinkGlow(g, Docking.Rotation(dock));
+        if (badge || claudeWorking) DrawMarker(g);
     }
 
 
@@ -1705,21 +1801,46 @@ sealed class PetWindow : Form
     {
         "..OOOOOOOOO..", ".OHHHHHFFFSO.", "OHFFFFFFFFFSO", "OHFOFFOFFOFSO", "OHFFFFFFFFFSO", ".OFFFFFFFFSO.", "..OOOFSOOOO..", "....OSO......", "....OO.......",
     };
+    /// <summary>IconNews with its "..." row (row 3) empty, so the working icon can type the same three
+    /// hand-pixelled dots in one at a time instead of always showing all three (2026-09-24: "animate the
+    /// yellow bubble's dots typewriter-style"). Row 3 otherwise matches rows 2/4 exactly.</summary>
+    static readonly string[] IconNewsEmpty =
+    {
+        "..OOOOOOOOO..", ".OHHHHHFFFSO.", "OHFFFFFFFFFSO", "OHFFFFFFFFFSO", "OHFFFFFFFFFSO", ".OFFFFFFFFSO.", "..OOOFSOOOO..", "....OSO......", "....OO.......",
+    };
+    /// <summary>0 to 3 of IconNews's own dot positions (indices 3, 6, 9 of row 3), so this is exactly IconNews's
+    /// existing art, just phased in - no new dot shape was designed. dots=3 reproduces IconNews's row exactly.</summary>
+    static string[] IconNewsWithDots(int dots)
+    {
+        var row = IconNewsEmpty[3].ToCharArray();
+        if (dots >= 1) row[3] = 'O';
+        if (dots >= 2) row[6] = 'O';
+        if (dots >= 3) row[9] = 'O';
+        var copy = (string[])IconNewsEmpty.Clone();
+        copy[3] = new string(row);
+        return copy;
+    }
     /// <summary>Preview flags for choosing the look: --done-icon=q|tick, --icons-gold.</summary>
     string doneIcon = "tick";
     bool iconsGold;
     DateTime markerSince = DateTime.MinValue;
     const double PopMs = 320, BobPeriodS = 1.4;
 
-    static Color Mix(Color a, Color b, float t) => Color.FromArgb(255, (int)(a.R + (b.R - a.R) * t), (int)(a.G + (b.G - a.G) * t), (int)(a.B + (b.B - a.B) * t));
-
     /// <summary>What is waiting, over his head (towards the middle of the screen, whichever edge he is on), until he
     /// clicks it. Pops in with an overshoot, then bobs gently, the way a quest mark does, so it feels like a thing
     /// in the world rather than a notification dot. A shape per kind, so they are told apart in any scene.</summary>
     void DrawMarker(Graphics g)
     {
-        var map = heldRank switch { 3 => IconNeeds, 2 => doneIcon == "q" ? IconDoneQ : IconDoneTick, _ => IconNews };
-        var color = iconsGold ? Theme.Gold : badgeColor;
+        // Real news outranks "a session is working" - his call, 2026-09-23 - and badge/heldRank already carries
+        // that. With nothing held, this is the working state on its own: the gold news bubble he already knows,
+        // said in gold explicitly so a colour left behind by the last notification cannot leak into it.
+        var working = claudeWorking && !badge;
+        // Typed in over 9 of the think frames (3 each), holds full for the last 3, then the loop resets it to
+        // empty - the sprite's own 8fps/12-frame think cycle IS the clock, not a separate timer, so it can
+        // never drift out of step with the glow/wind the sprite already carries (2026-09-24).
+        var map = working ? IconNewsWithDots(Math.Clamp(anim.Frame / 3, 0, 3))
+            : heldRank switch { 3 => IconNeeds, 2 => doneIcon == "q" ? IconDoneQ : IconDoneTick, _ => IconNews };
+        var color = iconsGold || working ? Theme.Gold : badgeColor;
         const float px = IconPx;
         var r = Docking.Rotated(art, dock);
         float cx = Docking.SpriteX + r.X + r.Width / 2f, cy = Docking.SpriteY + r.Y + r.Height / 2f;
@@ -1736,7 +1857,7 @@ sealed class PetWindow : Form
         float pop = t >= PopMs ? 1f : EaseOutBack((float)(t / PopMs));
         float bob = (float)((Math.Sin(DateTime.UtcNow.TimeOfDay.TotalSeconds * 2 * Math.PI / BobPeriodS) + 1) / 2 * 2 * px);
         p = new PointF(p.X + dir.X * bob, p.Y + dir.Y * bob);
-        DrawIcon(g, map, p, color, Math.Max(0.05f, pop));
+        PixelIcon.Draw(g, map, p, color, IconPx, Math.Max(0.05f, pop));
     }
 
     static float EaseOutBack(float t) { const float c1 = 1.9f, c3 = c1 + 1; var u = t - 1; return 1 + c3 * u * u * u + c1 * u * u; }
@@ -1744,29 +1865,6 @@ sealed class PetWindow : Form
     /// <summary>One icon pixel = one of his art pixels (2 frame pixels). 1.5x was tried and he found it too large
     /// (2026-09-22); his own grain is the size he chose.</summary>
     const float IconPx = 2.4f;   // "slightly bigger" than his own art pixel (2026-09-22); 3f had been too large
-
-    static void DrawIcon(Graphics g, string[] map, PointF center, Color c, float scaleBy)
-    {
-        const float px = IconPx;
-        int w = map[0].Length, h = map.Length;
-        var saved = g.Save();
-        g.TranslateTransform(center.X, center.Y); g.ScaleTransform(scaleBy, scaleBy);
-        g.SmoothingMode = SmoothingMode.None;
-        float x0 = -w * px / 2f, y0 = -h * px / 2f;
-        using var shadow = new SolidBrush(Color.FromArgb(120, 0, 0, 0));
-        using var ol = new SolidBrush(Theme.Ink);
-        using var hi = new SolidBrush(Mix(c, Color.White, 0.6f));
-        using var face = new SolidBrush(c);
-        using var sh = new SolidBrush(Mix(c, Color.Black, 0.38f));
-        for (int y = 0; y < h; y++) for (int x = 0; x < w; x++)            // a hard shadow, one art pixel down and right
-            if (map[y][x] != '.') g.FillRectangle(shadow, x0 + (x + 1) * px, y0 + (y + 1) * px, px, px);
-        for (int y = 0; y < h; y++) for (int x = 0; x < w; x++)
-        {
-            var b = map[y][x] switch { 'O' => ol, 'H' => hi, 'F' => face, 'S' => sh, _ => null };
-            if (b != null) g.FillRectangle(b, x0 + x * px, y0 + y * px, px, px);
-        }
-        g.Restore(saved);
-    }
 
     // ------------------------------------------------------------------ tray
 
