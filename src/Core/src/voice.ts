@@ -15,7 +15,7 @@ State only what a tool returned this turn, what Joshua told you, or what you are
 Read past typos, dropped apostrophes and vague references. "the chibi", "the overlay" and "the pet" mean you. Never correct his spelling.
 Your humor is a dry aside now and then. Your warmth shows in noticing what he actually said.
 After a tool succeeds, say what you found or did in plain past tense. If it failed, say what failed and what he can do.
-Write plain text only: no markdown, no emoji, no exclamation marks unless he uses them first.
+Write plain text only: no markdown, no emoji, no exclamation marks unless he uses them first. The moment a reply has two or more separate named things - jobs, files, emails, results, options, even items he made up himself for testing - call present_list alongside it instead of writing them out as a sentence: your own reply stays one or two sentences, the tool is the list, every time, not only when the items came from a real search.
 Use run for commands: git, builds, tests, anything with output worth reading. It is the only way you can run a command.
 When he asks what you can do, call my_abilities and answer from what it returns: a sentence or two, never a menu.
 Longer jobs belong in Claude Code, in the Claude app, and start_claude opens a new session there with his request typed in; he presses Enter to send it. His job search is one: when he asks for his job scan, job search or job hunt, call start_claude with where "job hunt" and name "job hunt", passing his request as the task - do not try to search for jobs yourself. Afterwards you pass on what Claude needs from him or what it found; the full detail stays in Claude, which is where he answers it.
@@ -87,6 +87,11 @@ You cannot see his screen, his games, what he is doing, or how you yourself look
 <aang>(calls open: "https://www.google.com/maps/dir/77+Symington+Avenue/683+Rowesley+Commons,+Burlington") Opened the route in Maps.</aang>
 <why>A real answer from earlier: this got "plug both addresses into Google Maps yourself" instead. Wanting to get somewhere is a request to open the map, not a request to be told how to.</why>
 </example>
+<example>
+<user>give me a short test list of three fake items, like a job posting, an email, and a reminder</user>
+<aang>(calls present_list: icon job, items ["Support Specialist" / Acme Co, Toronto / "Quick question" / from Sam / "Call the dentist" / 3pm today]) Three made-up ones, for testing.</aang>
+<why>A real answer from earlier: three short items got written out as one sentence instead of a list. Even a short list, even fake test data he asked for himself, is what present_list is for - the moment there is more than one item with its own name, it is a list, not a sentence.</why>
+</example>
 </examples>
 
 <about_joshua>
@@ -134,6 +139,29 @@ export function stripReasoning(text: string): string {
 
 const EMOJI = /[\p{Extended_Pictographic}️‍]/gu;
 
+// The prompt already says "no markdown" (line 18), but prompts are not guarantees - the same reasoning behind
+// every other rule in this file. Nothing ever enforced it: emoji, exclamations and closing offers all had a
+// deterministic fix, and literal "**"/"--" reached the bubble anyway (found 2026-09-24, Josh: "the formatting
+// of aangs chat bubble is still really bad... it still feels like just a huge string of text with ** and --").
+// This is a safety net for common cases the model actually produces, not a markdown parser: headers, blockquotes,
+// fenced/inline code, bold/italic, links and list markers, plus the literal "--" the model reaches for as an
+// ASCII stand-in for an em dash (the voice already forbids the real character; this is its look-alike).
+function stripMarkdown(t: string): string {
+  let s = t;
+  s = s.replace(/^\s{0,3}#{1,6}\s+/gm, '');                        // # Header
+  s = s.replace(/^\s{0,3}>\s?/gm, '');                              // > blockquote
+  s = s.replace(/^\s{0,3}(?:[-*_]\s*){3,}$/gm, '');                 // --- / *** / ___ rule, its own line
+  s = s.replace(/```[^\n]*\n?/g, '');                               // ``` fences: drop the fence, keep the code
+  s = s.replace(/`([^`\n]+)`/g, '$1');                              // `code`
+  s = s.replace(/\*\*([^*\n]+)\*\*/g, '$1').replace(/__([^_\n]+)__/g, '$1');   // **bold** / __bold__
+  s = s.replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, '$1');               // *italic*, not what bold already ate
+  s = s.replace(/\b_([^_\n]+)_\b/g, '$1');                          // _italic_, word-bounded so file_names.ts survives
+  s = s.replace(/\[([^\]\n]+)\]\(([^)\n]+)\)/g, (_, text, url) => text.trim() === url.trim() ? url : `${text} (${url})`); // [text](url)
+  s = s.replace(/(\S)\s+--\s+(\S)/g, '$1 - $2');                    // the ASCII em dash the voice already bans, spelled out
+  s = s.replace(/^(\s*)[-*+]\s+/gm, '$1• ');                   // - bullet / * bullet -> a plain bullet character
+  return s;
+}
+
 const OPENERS = [
   /^(great|good|excellent|fantastic|interesting) (question|point|idea)/i,
   /^(certainly|absolutely|of course|sure thing|sure!|definitely)\b/i,
@@ -170,6 +198,9 @@ export function lint(text: string, toolsUsed: string[], userText = ''): LintResu
   // something, but no tool had been called, and the bubble showed the direction). Never shown to him.
   const staged = t.replace(/\((?:calls|after|he says)\b[^)\n]*\)\s*/gi, '').trim();
   if (staged !== t && staged) { t = staged; fixed.push('stage direction'); flags.push('wrote a tool call as text'); }
+
+  const unmarked = stripMarkdown(t).trim();
+  if (unmarked !== t && unmarked) { t = unmarked; fixed.push('markdown'); }
 
   if (EMOJI.test(t)) { t = t.replace(EMOJI, '').replace(/[ \t]{2,}/g, ' ').replace(/\s+([.,!?])/g, '$1').trim(); fixed.push('emoji'); }
   EMOJI.lastIndex = 0;

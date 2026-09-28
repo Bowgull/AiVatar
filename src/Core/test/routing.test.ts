@@ -73,6 +73,28 @@ test('"where" means the desktop as a whole: a second desktop window (the Body) s
   await done();
 });
 
+test('present_list rides the reply\'s own bubble message, and clears once it has', async () => {
+  // 2026-09-24: the bubble redesign needs the Core to say WHAT KIND of reply this is, not just send prose.
+  // present_list sets a per-turn field the same way turnActions already does; this checks it actually reaches
+  // the bubble message the reply goes out on, and that a later turn which never called it gets none.
+  const { core, desk, done } = await setup(47995);
+  desk.c.send(JSON.stringify({ t: 'submit', id: 'a', text: 'any jobs worth it' }));
+  await wait(100);
+  core.pendingList = { icon: 'job', items: [{ title: 'Senior CSM', subtitle: 'Shopify', chipText: '82', chipTone: 'good' }] };
+  core.onLaneEvent(core.active.lane, { t: 'result', ok: true, text: 'Three worth your time.', tools: [], ms: 5 });
+  await wait(100);
+  const first = desk.of('bubble').find((b: any) => !b.stream);
+  assert.deepEqual(first?.list, { icon: 'job', items: [{ title: 'Senior CSM', subtitle: 'Shopify', chipText: '82', chipTone: 'good' }] });
+
+  desk.c.send(JSON.stringify({ t: 'submit', id: 'b', text: 'what time is it' }));
+  await wait(100);
+  core.onLaneEvent(core.active.lane, { t: 'result', ok: true, text: 'It is 3pm.', tools: [], ms: 5 });
+  await wait(100);
+  const second = desk.of('bubble').filter((b: any) => !b.stream).at(-1);
+  assert.equal(second?.list, undefined, 'a turn that never called present_list carries no list');
+  await done();
+});
+
 test('a yes/no question goes where the request came from', async () => {
   const { core, desk, phone, done } = await setup(47993);
   phone.c.send(JSON.stringify({ t: 'submit', id: 'd2', text: 'read my screen' }));
@@ -233,10 +255,19 @@ test('a continuous "Claude is working" signal reaches the desktop, once per real
     await wait(80);
     assert.equal(desk1.of('claude.working').at(-1)?.working, false, 'nothing running yet, told so on connect');
 
+    // 'waiting' means typed in, Enter not pressed yet (JobState's own doc comment) - it must NEVER count as
+    // working, however tempting that was before the fix (2026-09-23, approved: "only count it once it's
+    // really running"). It was live-observed on 2026-09-23: the glow turned on the moment startClaude() opened
+    // the window, well before anything had actually started.
     core.launched.push({ name: 'job hunt', cwd: 'C:\\jobs', sessionId: null, state: 'waiting', startedAt: Date.now(), updatedAt: Date.now() });
     core.pushClaudeWorking();
     await wait(80);
-    assert.equal(desk1.of('claude.working').at(-1)?.working, true);
+    assert.equal(desk1.of('claude.working').at(-1)?.working, false, 'typed in but not started yet is not working');
+
+    core.launched[0].state = 'working'; core.launched[0].sessionId = 'sess1';   // Enter pressed, a real hook fired
+    core.pushClaudeWorking();
+    await wait(80);
+    assert.equal(desk1.of('claude.working').at(-1)?.working, true, 'a session that has really started is working');
 
     // a second desktop connecting now hears the CURRENT state immediately, not just future changes
     const desk2 = await client(port);
@@ -254,6 +285,44 @@ test('a continuous "Claude is working" signal reaches the desktop, once per real
     assert.equal(desk1.of('claude.working').at(-1)?.working, false, 'and again once it is actually done');
 
     desk1.c.close(); desk2.c.close();
+  } finally { await core.stop(); }
+});
+
+test('a reply to something Aang said unprompted carries what was actually said, once, while it is fresh', async () => {
+  // 2026-09-23, live: told "you're at 50% of your week", replied "the week is almost over, that's fine", and
+  // got nothing useful back - announce() text is UI-only, never in any lane's own conversation, so the model
+  // genuinely had nothing to go on. withAnnounced() gives the next reply that context.
+  const port = 47984;
+  const core: any = new Core({ port, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
+  const sent: string[] = [];
+  core.lane = () => ({ send: (text: string) => sent.push(text), interrupt: async () => {} });
+  await core.start();
+  try {
+    const desk = await client(port);
+    core.announce("You're at 50% of your week. Want me to save quota?");
+
+    desk.c.send(JSON.stringify({ t: 'submit', id: 'a', text: 'the week is almost over, that is fine' }));
+    await wait(100);
+    assert.match(sent[0]!, /<just said>[\s\S]*50% of your week[\s\S]*<\/just said>/, 'the reply carries what it is replying to');
+    // The mocked lane never finishes a turn on its own (found 2026-09-24: this test alone was missing the
+    // onLaneEvent pattern every other mocked-lane test in this file uses), so without this, this.active never
+    // clears, every later submit just queues, and the turn's watchdog timer eventually stalls the whole run
+    // for minutes rather than failing fast - the actual cause of a hang once attributed to a missing cleanup.
+    core.onLaneEvent(core.active.lane, { t: 'result', ok: true, text: 'ok', tools: [], ms: 5 });
+
+    desk.c.send(JSON.stringify({ t: 'submit', id: 'b', text: 'anyway, what time is it' }));
+    await wait(100);
+    assert.ok(!sent[1]!.includes('<just said>'), 'used once: an unrelated later message does not get it too');
+    core.onLaneEvent(core.active.lane, { t: 'result', ok: true, text: 'ok', tools: [], ms: 5 });
+
+    // stale: an announcement from long ago should not be forced onto a reply that may be about something else
+    core.lastAnnounced = { text: 'Reminder: stretch', at: Date.now() - 20 * 60_000 };
+    desk.c.send(JSON.stringify({ t: 'submit', id: 'c', text: 'ok' }));
+    await wait(100);
+    assert.ok(!sent[2]!.includes('<just said>'), 'too old: not assumed to be what this reply is about');
+    core.onLaneEvent(core.active.lane, { t: 'result', ok: true, text: 'ok', tools: [], ms: 5 });
+
+    desk.c.close();
   } finally { await core.stop(); }
 });
 

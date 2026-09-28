@@ -114,6 +114,55 @@ test('plain, useful replies produce no findings', () => {
   assert.deepEqual(r.fixed, []);
 });
 
+// The prompt says "no markdown" (voice.ts line 18) but nothing enforced it, and the model reaches for it
+// anyway: bold, bullets, and a literal "--" for an em dash - exactly what reached the real bubble and read
+// as "just a huge string of text with ** and --" (2026-09-24, Josh). One test per shape the model has
+// actually produced, not an attempt at a general markdown parser.
+test('bold and italic markers are stripped, the words kept', () => {
+  assert.equal(lint('Swept **47** postings overnight.', [], '').cleaned, 'Swept 47 postings overnight.');
+  assert.equal(lint('That was *not* the plan.', [], '').cleaned, 'That was not the plan.');
+  assert.equal(lint('Use __caution__ here.', [], '').cleaned, 'Use caution here.');
+  assert.ok(lint('**Done.**', [], '').fixed.includes('markdown'));
+});
+
+test('a file name with underscores is not mistaken for italic', () => {
+  assert.equal(lint('It is in job_search.md.', [], '').cleaned, 'It is in job_search.md.');
+});
+
+test('inline code and a fenced block keep the text, lose the backticks', () => {
+  assert.equal(lint('Run `npm test` first.', [], '').cleaned, 'Run npm test first.');
+  assert.equal(lint('```\nnpm test\n```', [], '').cleaned, 'npm test');
+});
+
+test('a markdown link keeps the words; the URL only if it adds something', () => {
+  assert.equal(lint('See [the job posting](https://example.com/job/42) for details.', [], '').cleaned,
+    'See the job posting (https://example.com/job/42) for details.');
+  assert.equal(lint('Try [example.com](example.com).', [], '').cleaned, 'Try example.com.');
+});
+
+test('the real complaint: "**" and "--" both leak into a job-hunt-shaped reply, and the fix removes both', () => {
+  const r = lint(
+    '**Three** jobs worth your time -- the Shopify one closes Friday.',
+    [], 'anything from the sweep',
+  );
+  assert.equal(r.cleaned, 'Three jobs worth your time - the Shopify one closes Friday.');
+  assert.ok(r.fixed.includes('markdown'));
+});
+
+test('a bulleted list becomes plain bullets, not dashes running together', () => {
+  const r = lint('Three worth it:\n- Shopify, Senior CSM\n- Wealthsimple, Implementation Lead', [], '');
+  assert.equal(r.cleaned, 'Three worth it:\n• Shopify, Senior CSM\n• Wealthsimple, Implementation Lead');
+});
+
+test('a header and a blockquote lose their markers, not their words', () => {
+  assert.equal(lint('# Job Sweep\nThree found.', [], '').cleaned, 'Job Sweep\nThree found.');
+  assert.equal(lint('> He said no.', [], '').cleaned, 'He said no.');
+});
+
+test('a lone horizontal rule line is dropped entirely', () => {
+  assert.equal(lint('Before.\n---\nAfter.', [], '').cleaned, 'Before.\n\nAfter.');
+});
+
 test('the system prompt carries the voice rules, examples and Joshua\'s profile', () => {
   const p = buildSystemPrompt('Joshua lives in Toronto.', '- likes fruit pies');
   for (const part of ['<voice>', '<examples>', 'get_weather', 'Joshua lives in Toronto.', 'fruit pies', 'no emoji']) assert.ok(p.includes(part), part);
