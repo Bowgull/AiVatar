@@ -45,6 +45,8 @@ export interface Session {
   transcriptPath?: string;
   /** The last thing that session actually said, read from its transcript when it stopped. */
   lastSaid: string;
+  /** Set when its hook events come over the tailnet: it is running on the MacBook, not here. */
+  host?: 'mac';
 }
 
 export interface Announcement {

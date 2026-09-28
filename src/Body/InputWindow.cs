@@ -98,6 +98,10 @@ sealed class InputWindow : Form
         ShowInTaskbar = false; TopMost = true;
         AutoScaleMode = AutoScaleMode.None;
         BackColor = Theme.Ink;
+        // OnPaint draws a gradient, a halo pen, the frame and the whole strip. Undoubled-buffered that is a
+        // visible flash on every repaint, and this form repaints while he is typing (2026-09-24, Joshua: "every
+        // time i type a letter it glitches... like the frames skip").
+        DoubleBuffered = true;
         Padding = new Padding((int)(Pad * scale), (int)(8 * scale), (int)(Pad * scale), (int)((7 + StripH) * scale));
         Size = new Size((int)(BaseW * scale), Fit(1));
 
@@ -122,13 +126,27 @@ sealed class InputWindow : Form
 
     int Fit(int lines) => (int)((lines * LineH + 15 + StripH) * scale);
 
+    /// <summary>The size the rounded Region was last built for, so it is only rebuilt when the box really resizes.</summary>
+    Size regionFor;
+    /// <summary>Kept so the previous one can be released; assigning Control.Region does not reliably free it.</summary>
+    Region? ownRegion;
+
     void Grow()
     {
         var lines = Math.Clamp(box.GetLineFromCharIndex(Math.Max(0, box.TextLength)) + 1, 1, MaxLinesShown);
         var h = Fit(lines);
         if (h != Height) { Height = h; }
+        // This runs on EVERY keystroke (box.TextChanged -> Grow). Rebuilding the rounded Region and forcing a
+        // full repaint are only needed when the box actually changed size: nothing OnPaint draws depends on the
+        // text, which the TextBox child paints itself. Doing both per character is what made typing stutter, and
+        // it leaked a GDI Region every time (2026-09-24). Wrapping is unaffected; only the redundant work is gone.
+        if (Size == regionFor) return;
+        regionFor = Size;
         using var p = Rounded(new Rectangle(0, 0, Width, Height), (int)(10 * scale));
-        Region = new Region(p);
+        var next = new Region(p);
+        Region = next;
+        ownRegion?.Dispose();
+        ownRegion = next;
         Invalidate();
     }
 

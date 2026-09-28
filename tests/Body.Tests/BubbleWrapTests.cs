@@ -15,11 +15,18 @@ public class BubbleWrapTests
         "seconds, which is roughly half of what spawning a fresh process for every message was costing, " +
         "and it stays warm between turns so the cache keeps paying off.";
 
-    // ~8 lines, from the real end-to-end run.
+    // Must wrap to MORE than CollapsedLines (6) at the WIDE bubble width, not the narrow one: Show() promotes
+    // any reply over one line to Wide (2026-09-23, the line-length readability fix), so a fixture only needs
+    // to be "long" is measured under the wide MaxW. Re-verify with ZZZ_diagnostic_wrap_count in this file if
+    // LineH, MaxTextW, WideExtra or the body font ever change again (found 2026-09-24: the previous fixture
+    // wrapped to 8 lines narrow but only 5 wide, so every test that depended on More/Expand/the long-hold
+    // silently broke and nothing caught it because the suite did not compile - see BubbleView.Outline nearby).
     const string Long =
         "Pelicans have a pouch under their bill that holds up to 3 gallons of water and fish. " +
         "They're built to dive-bomb from high up and scoop whole schools of fish in one go. " +
-        "They can live 25 years or more, which is pretty long for a water bird.";
+        "They can live 25 years or more, which is pretty long for a water bird. " +
+        "A colony can number in the thousands, and they fly in a tidy V to save energy on the long haul. " +
+        "Brown pelicans dive from as high as 60 feet and fold their wings just before they hit the water.";
 
     static string VeryLong => string.Join(' ', Enumerable.Range(1, 40).Select(i => $"Sentence number {i} keeps going for a while."));
 
@@ -81,8 +88,13 @@ public class BubbleWrapTests
         Assert.EndsWith("...", e);
         using var bmp = new Bitmap(1, 1);
         using var g = Graphics.FromImage(bmp);
-        using var font = new Font("Bahnschrift", 11f, FontStyle.Regular, GraphicsUnit.Point);
-        Assert.True(g.MeasureString(e, font, PointF.Empty, StringFormat.GenericTypographic).Width <= BubbleView.MaxTextW - 20,
+        // Must measure with the font and width BubbleView itself actually draws with, not a stand-in: the body
+        // font moved from Bahnschrift to Atkinson Hyperlegible (2026-09-22, "never meant to run this small"),
+        // and Ellipsize measures against the WIDE width whenever Show() promoted the bubble to Wide, not the
+        // narrow MaxTextW constant. A mismatched font or width here checks nothing real (found 2026-09-24).
+        using var font = Theme.Font(Theme.Face, Theme.BodyPx);
+        var maxW = b.Wide ? BubbleView.MaxTextW + BubbleView.WideExtra : BubbleView.MaxTextW;
+        Assert.True(g.MeasureString(e, font, PointF.Empty, StringFormat.GenericTypographic).Width <= maxW - 20,
             "the shortened line must leave room for the arrow");
     }
 
@@ -185,7 +197,8 @@ public class BubbleWrapTests
     [Fact]
     public void The_bubble_and_tail_are_one_closed_outline()
     {
-        using var path = BubbleView.Outline(6);
+        using var bubble = new BubbleView();
+        using var path = bubble.Outline(6);
         // PathPointType.Start is 0, so count points whose type bits are 0: exactly one start means one figure.
         Assert.Equal(1, path.PathTypes.Count(t => (t & 0x07) == 0));
         Assert.True((path.PathTypes[^1] & (byte)PathPointType.CloseSubpath) != 0, "the figure must be closed");
@@ -200,5 +213,46 @@ public class BubbleWrapTests
         using var bubble = new BubbleView();
         Assert.Equal(new[] { "one", "two" }, bubble.Wrap("one\ntwo"));
         Assert.Single(bubble.Wrap(""));
+    }
+
+    // present_list (2026-09-24): a reply can carry a short list of rows alongside its own prose, rendered
+    // below the text rather than as dashes inside it.
+    [Fact]
+    public void Setting_Rows_grows_the_bubble_to_fit_them()
+    {
+        using var b = new BubbleView();
+        b.Show("Three worth your time.", stream: false, holdMs: 10_000);
+        var now = DateTime.UtcNow;
+        for (int i = 0; i < 50; i++) b.Update(now);      // let shownH converge on targetH
+        var plainTop = b.CurrentTop;
+
+        b.Rows = new BubbleRows { Icon = "job", Items = { new BubbleRow { Title = "Senior CSM", Subtitle = "Shopify" } } };
+        for (int i = 0; i < 50; i++) b.Update(now);
+        var withRowsTop = b.CurrentTop;
+
+        // The bubble grows UPWARD from Bottom, so a taller bubble has a SMALLER (higher on screen) top.
+        Assert.True(withRowsTop < plainTop, "a bubble with rows must be taller than the same text without them");
+    }
+
+    [Fact]
+    public void A_genuinely_new_reply_starts_with_no_carried_over_list()
+    {
+        using var b = new BubbleView();
+        b.Show("Three worth your time.", stream: false, holdMs: 10_000);
+        b.Rows = new BubbleRows { Icon = "job", Items = { new BubbleRow { Title = "Senior CSM" } } };
+        Assert.NotNull(b.Rows);
+
+        b.Show("Something unrelated entirely.", stream: false, holdMs: 10_000);   // does not start with the old text
+        Assert.Null(b.Rows);
+    }
+
+    [Fact]
+    public void Clear_drops_the_list_along_with_everything_else()
+    {
+        using var b = new BubbleView();
+        b.Show("Three worth your time.", stream: false, holdMs: 10_000);
+        b.Rows = new BubbleRows { Icon = "job", Items = { new BubbleRow { Title = "Senior CSM" } } };
+        b.Clear();
+        Assert.Null(b.Rows);
     }
 }

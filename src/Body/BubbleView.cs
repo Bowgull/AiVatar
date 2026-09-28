@@ -39,7 +39,6 @@ sealed class BubbleView : IDisposable
     readonly Graphics measure;
     readonly Dictionary<string, float> widths = new();
     readonly float spaceW, ellipsisW;
-    readonly Color fillC = Theme.InkFill;
     readonly Color strokeC = Theme.WithAlpha(Theme.Gold, 240);
     // The reading pane inside the ink+gold frame is parchment (StyleLab 2026-09-22), so its text is dark ink,
     // not the pale text every other ink-filled surface uses.
@@ -64,6 +63,23 @@ sealed class BubbleView : IDisposable
     float shownH, targetH;
     DateTime hideAt = DateTime.MaxValue;
     string receipt = "";
+
+    /// <summary>Set once, alongside the reply's own final (non-streaming) Show(), when present_list ran this
+    /// turn (2026-09-24). Never part of Show()'s own signature - that call site count is already long, and a
+    /// list is the exception, not the shape every reply takes. Cleared by Clear() and by a genuinely new
+    /// (non-continuing) Show(), same as Wide is just below. Setting it recomputes the target height the same
+    /// way Asking's own setter does, so the bubble grows to actually fit the rows.</summary>
+    public BubbleRows? Rows
+    {
+        get => rows;
+        set { rows = value; targetH = HeightFor(Math.Min(lines.Count, CollapsedLines)); }
+    }
+    BubbleRows? rows;
+    const float RowH = 34f, RowGap = 5f, RowIconSlot = 22f;
+    /// <summary>Extra height the rows need, added into HeightFor's own clamp - zero with no list, so nothing
+    /// here changes a plain reply's layout.</summary>
+    float RowsH => rows == null || rows.Items.Count == 0 ? 0f
+        : rows.Items.Count * (RowH + RowGap) + 6f + (rows.MoreCount is int mc && mc > 0 ? 18f : 0f);
 
     // Two widths: a short reply keeps the narrow bubble; a long one widens to the left by WideExtra so it takes fewer
     // lines. Decided once per reply and kept while it streams, so the text re-wraps at most once.
@@ -221,14 +237,15 @@ sealed class BubbleView : IDisposable
         return l.TrimEnd(',', ';', ':', '.', ' ') + "...";
     }
 
-    float HeightFor(int lineCount) => Math.Clamp(lineCount * LineH + (asking ? AskRow : 0) + (Asked.Length > 0 ? AskedRowH : 0) + 2 * Pad, MinH, ExpandedMaxH + AskRow + AskedRowH);
+    float HeightFor(int lineCount) => Math.Clamp(lineCount * LineH + (asking ? AskRow : 0) + (Asked.Length > 0 ? AskedRowH : 0) + RowsH + 2 * Pad,
+        MinH, ExpandedMaxH + AskRow + AskedRowH + RowsH);
 
     public void Show(string t, bool stream, int holdMs)
     {
         // The next piece of the same reply (or its final form) carries on from what is already shown.
         var same = Visible && !Dots && full.Length > 0 && t.StartsWith(full, StringComparison.Ordinal);
         Dots = false; receipt = "";
-        if (!same) { Wide = false; shown = stream ? 0 : t.Length; }
+        if (!same) { Wide = false; shown = stream ? 0 : t.Length; rows = null; }   // a genuinely new reply starts with no list until told otherwise
         full = t;
         if (!Wide) Wide = Wrap(t).Count > WideAfterLines;          // measured at the narrow width
         text = full[..Math.Min(shown, full.Length)];
@@ -286,7 +303,7 @@ sealed class BubbleView : IDisposable
     public void Clear()
     {
         Visible = false; Dots = false; streaming = false; expanded = false; scroll = 0; Tools = false; Hover = false; Rating = 0; Asking = false;
-        text = ""; full = ""; shown = 0; Wide = false; receipt = ""; lines = new(); hideAt = DateTime.MaxValue; shownH = 0; Link = ""; Asked = "";
+        text = ""; full = ""; shown = 0; Wide = false; receipt = ""; lines = new(); hideAt = DateTime.MaxValue; shownH = 0; Link = ""; Asked = ""; rows = null;
     }
 
     /// <summary>Grow the bubble upward to fit up to 12 lines. Returns false if there is nothing more to show.</summary>
@@ -400,21 +417,26 @@ sealed class BubbleView : IDisposable
         var old = g.SmoothingMode;
         g.SmoothingMode = SmoothingMode.AntiAlias;
         using var path = Outline(top);
-        using var fill = new SolidBrush(fillC);
+        var pathBounds = path.GetBounds();
         using var halo = new Pen(Theme.Halo, Theme.HaloStroke) { LineJoin = LineJoin.Round };
         using var pen = new Pen(strokeC, Theme.Stroke) { LineJoin = LineJoin.Round };
-        g.FillPath(fill, path);
+        // Carved wood, not a flat ink fill (mockup D, StyleLab 2026-09-24): a top-lit gradient plus a few grain
+        // streaks - Theme.Wood1/Wood2/WoodGrain already existed for the tray menu's wood panel, but the bubble
+        // itself never picked them up, which is why the first pass at this list read as "just rows on ink."
+        using (var wg = new LinearGradientBrush(pathBounds, Theme.Wood1, Theme.Wood2, 90f)) g.FillPath(wg, path);
+        DrawGrain(g, path, pathBounds, Theme.WoodGrain, 7f);
         g.DrawPath(halo, path);                 // a dark edge under the gold, so it holds on a bright snowfield as well as a dark forest
         g.DrawPath(pen, path);
 
-        // The reading pane: parchment inset inside the ink+gold frame, StyleLab 2026-09-22. Plain rounded rect,
-        // no tail - the tail wedge stays ink, the same as every RPG dialogue box this was measured against.
+        // The reading pane: parchment inset inside the wood+gold frame, StyleLab 2026-09-22. Plain rounded rect,
+        // no tail - the tail wedge stays wood, the same as every RPG dialogue box this was measured against.
         var bodyRect = new RectangleF(LeftNow, top, Right - LeftNow, Bottom - top);
         var inset = RectangleF.Inflate(bodyRect, -6, -6);
         if (inset.Width > 0 && inset.Height > 0)
         {
             using var ip = RoundRect(inset, Math.Max(4f, Radius - 6f));
             using (var pg = new LinearGradientBrush(inset, Theme.Parch1, Theme.Parch2, 90f)) g.FillPath(pg, ip);
+            DrawGrain(g, ip, inset, Theme.WithAlpha(Theme.ParchEdge, 22), 11f);
             using (var ipen = new Pen(Theme.ParchEdge, 1.2f)) g.DrawPath(ipen, ip);
         }
 
@@ -480,6 +502,7 @@ sealed class BubbleView : IDisposable
             if (after.Length > 0) g.DrawString(after.TrimStart(' '), font, tb, x + lw + (after.StartsWith(' ') ? spaceW : 0), y, StringFormat.GenericTypographic);
         }
         g.ResetClip();
+        if (rows != null && rows.Items.Count > 0) DrawRows(g, textTop + count * LineH + 6f);
 
         if (More)
         {
@@ -499,6 +522,95 @@ sealed class BubbleView : IDisposable
         if (Asking) DrawChoices(g);
         if (ToolsShown && Hover) DrawTools(g);
         g.SmoothingMode = old;
+    }
+
+    /// <summary>A fixed diagonal streak pattern clipped to <paramref name="path"/> - "always the same seed"
+    /// (Theme.WoodGrain's own comment), not randomized per frame, so the bubble does not shimmer as it redraws.
+    /// Used at two different spacings/colours: wide dark streaks on the wood frame, faint ones on the parchment.</summary>
+    static void DrawGrain(Graphics g, GraphicsPath path, RectangleF bounds, Color color, float spacing)
+    {
+        g.SetClip(path);
+        using var grain = new Pen(color, 1f);
+        for (float x = bounds.Left - bounds.Height; x < bounds.Right; x += spacing)
+            g.DrawLine(grain, x, bounds.Bottom, x + bounds.Height, bounds.Top);
+        g.ResetClip();
+    }
+
+    /// <summary>good/normal/careful/stop/inactive -> Theme.cs's own colours, not a new palette. Same five-way
+    /// vocabulary the working-state marker and everything else in the app already uses.</summary>
+    static Color ChipColor(string? tone) => tone switch
+    {
+        "good" => Theme.Green, "careful" => Theme.Orange, "stop" => Theme.Red,
+        "inactive" => Theme.WithAlpha(Theme.Secondary, 200), _ => Theme.Gold,   // "normal" or unset
+    };
+
+    /// <summary>The list a reply's present_list call produced (2026-09-24): one carved-feeling row per item,
+    /// icon on the left naming what kind of thing it is, an optional chip on the right saying how it is doing.
+    /// At most 5 rows ever reach here (present_list's own schema caps it), so this never needs to scroll on
+    /// its own - a "moreCount" line under the rows is the overflow, not a scrollbar.</summary>
+    void DrawRows(Graphics g, float top)
+    {
+        if (rows == null) return;
+        var icon = PixelIcon.For(rows.Icon);
+        using var titleB = new SolidBrush(textC);
+        using var subB = new SolidBrush(dimC);
+        using var subF = Theme.Font(Theme.Face, Theme.ReceiptPx);
+        using var chipF = Theme.Font(Theme.PixelFace, 7f);
+        var y = top;
+        foreach (var item in rows.Items)
+        {
+            var rowRect = new RectangleF(TextXNow, y, MaxW, RowH);
+            var edgeC = ChipColor(item.ChipTone);
+            // A carved row, not a flat wash: a two-stop ink gradient for depth and a hairline border, same
+            // recipe as the wood frame outside it. The left edge repeats the chip's own colour even when a row
+            // has no chip - mockup D's "colour ranks the results," which a bare icon+chip never carried on its
+            // own (Joshua, 2026-09-24: "not even close" to that pass).
+            using (var rp = RoundRect(rowRect, 5f))
+            {
+                using (var rg = new LinearGradientBrush(rowRect, Theme.WithAlpha(Theme.ParchEdge, 50), Theme.WithAlpha(Theme.ParchEdge, 20), 90f)) g.FillPath(rg, rp);
+                using (var rowLine = new Pen(Theme.WithAlpha(Theme.ParchEdge, 130), 1f)) g.DrawPath(rowLine, rp);
+            }
+            using (var stripe = new SolidBrush(edgeC)) g.FillRectangle(stripe, rowRect.X, rowRect.Y + 3, 3f, rowRect.Height - 6);
+
+            var slotRect = new RectangleF(rowRect.X + 9, rowRect.Y + (RowH - RowIconSlot) / 2f, RowIconSlot, RowIconSlot);
+            using (var slotPath = RoundRect(slotRect, 4f))
+            {
+                using (var slotFill = new SolidBrush(Theme.WoodPlaque)) g.FillPath(slotFill, slotPath);
+                using (var slotPen = new Pen(Theme.WithAlpha(Theme.Gold, 160), 1f)) g.DrawPath(slotPen, slotPath);
+            }
+            PixelIcon.Draw(g, icon, new PointF(slotRect.X + slotRect.Width / 2f, slotRect.Y + slotRect.Height / 2f), Theme.Gold, 1.9f);
+
+            var chipW = 0f;
+            if (!string.IsNullOrEmpty(item.ChipText))
+            {
+                var chipSize = g.MeasureString(item.ChipText, chipF, PointF.Empty, StringFormat.GenericTypographic);
+                chipW = Math.Max(30f, chipSize.Width + 12);
+                var chipRect = new RectangleF(rowRect.Right - chipW - 6, rowRect.Y + (RowH - 18) / 2f, chipW, 18);
+                using (var cp = RoundRect(chipRect, 4f)) using (var cb = new SolidBrush(ChipColor(item.ChipTone))) g.FillPath(cb, cp);
+                using var ct = new SolidBrush(Theme.Ink);
+                g.DrawString(item.ChipText, chipF, ct, chipRect.X + (chipRect.Width - chipSize.Width) / 2f, chipRect.Y + 5, StringFormat.GenericTypographic);
+                chipW += 10;
+            }
+
+            var textX = slotRect.Right + 10;
+            var textW = rowRect.Right - textX - 8 - chipW;
+            var title = item.Title;
+            while (title.Length > 0 && Width(title) > textW) title = title[..^1];   // reuses the bubble's own font-metric cache
+            g.DrawString(title, bold, titleB, textX, rowRect.Y + 4, StringFormat.GenericTypographic);
+            if (!string.IsNullOrEmpty(item.Subtitle))
+            {
+                var sub = item.Subtitle;
+                var subMeasure = g.MeasureString(sub, subF, PointF.Empty, StringFormat.GenericTypographic).Width;
+                while (sub.Length > 0 && subMeasure > textW) { sub = sub[..^1]; subMeasure = g.MeasureString(sub, subF, PointF.Empty, StringFormat.GenericTypographic).Width; }
+                g.DrawString(sub, subF, subB, textX, rowRect.Y + 18, StringFormat.GenericTypographic);
+            }
+            y += RowH + RowGap;
+        }
+        if (rows.MoreCount is int more && more > 0)
+        {
+            using var moreF = Theme.Font(Theme.Face, Theme.ReceiptPx);
+            g.DrawString($"{more} more", moreF, subB, TextXNow, y + 2, StringFormat.GenericTypographic);
+        }
     }
 
     float ButtonW(string label)
