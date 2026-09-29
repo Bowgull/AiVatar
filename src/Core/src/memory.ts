@@ -41,10 +41,50 @@ export class Memory {
         // WAL with FULL sync: a hard Shadow shutdown is a power cut, and FULL is what makes a committed
         // turn survive one. Writes here are a few per conversation, so the cost is nothing.
         this.db.exec('PRAGMA journal_mode = WAL; PRAGMA synchronous = FULL; PRAGMA busy_timeout = 3000;');
+        this.migrateFacts();
       }
     } catch (e) {
       console.error('memory: could not open aang.db, running without it:', (e as Error).message);
       this.db = null;
+    }
+  }
+
+  /**
+   * Bring the facts table up to date, in place and idempotently: a `relation` for deciding what supersedes
+   * what, and valid_from/valid_to so a superseded fact keeps its dates instead of only a yes/no flag -
+   * "what does he do now" and "what did he say in March" are then both answerable from one table.
+   *
+   * `retired` is kept written and in step on purpose. It is derived from valid_to and nothing reads it any
+   * more, but an older build of the Core opening the same database still would, and a half-migrated file
+   * that silently loses facts is exactly the kind of thing this whole change exists to prevent.
+   */
+  private migrateFacts(): void {
+    if (!this.db) return;
+    try {
+      const cols = (this.db.prepare('PRAGMA table_info(facts)').all() as { name: string }[]).map(c => c.name);
+      if (!cols.includes('relation')) this.db.exec('ALTER TABLE facts ADD COLUMN relation TEXT');
+      if (!cols.includes('valid_from')) {
+        this.db.exec('ALTER TABLE facts ADD COLUMN valid_from TEXT');
+        this.db.exec('UPDATE facts SET valid_from = ts WHERE valid_from IS NULL');
+      }
+      if (!cols.includes('valid_to')) {
+        this.db.exec('ALTER TABLE facts ADD COLUMN valid_to TEXT');
+        // A fact already retired stopped being true when it was last confirmed; that is the closest honest
+        // date this table holds for it. Nothing better exists retrospectively, and inventing one would be worse.
+        this.db.exec('UPDATE facts SET valid_to = COALESCE(last_seen, ts) WHERE retired = 1 AND valid_to IS NULL');
+      }
+      // Give older rows the relation they would have had, so history stays inspectable and a future
+      // remember() about the same thing can match on it rather than re-guessing from the sentence.
+      const unset = this.db.prepare('SELECT id, text FROM facts WHERE relation IS NULL OR relation = \'\'').all() as { id: number; text: string }[];
+      if (unset.length) {
+        const set = this.db.prepare('UPDATE facts SET relation = ? WHERE id = ?');
+        for (const r of unset) set.run(relationOf(String(r.text)), r.id);
+      }
+    } catch (e) {
+      // A database with no facts table yet is a normal state (a fresh or minimal one), not a problem worth
+      // shouting about; anything else is.
+      const msg = (e as Error).message;
+      if (!/no such table/i.test(msg)) console.error('memory: facts migration skipped:', msg);
     }
   }
 
@@ -90,10 +130,11 @@ export class Memory {
    * the old one is retired, not deleted, so "you used to say X" still works. Saying the same thing again
    * just confirms it, which is what keeps it from going stale.
    */
-  remember(text: string, source = 'joshua', now = new Date()): { fact: Fact | null; replaced: Fact | null } {
+  remember(text: string, source = 'joshua', now = new Date(), declaredRelation?: string): { fact: Fact | null; replaced: Fact | null } {
     const clean = (text ?? '').trim().replace(/\s+/g, ' ').slice(0, 300);
     if (!this.db || !clean) return { fact: null, replaced: null };
     const stamp = now.toISOString().replace('T', ' ').slice(0, 19);
+    const relation = relationOf(clean, declaredRelation);
     try {
       // Look at retired facts too. The text column is UNIQUE across every row, so a fact that was once
       // superseded and is now true again ("the raid is back on Tuesdays") crashed the insert. It comes back
@@ -101,17 +142,19 @@ export class Memory {
       const existing = this.db.prepare('SELECT * FROM facts WHERE lower(text) = lower(?)').get(clean) as any;
       if (existing) {
         let replaced: Fact | null = null;
-        if (existing.retired) {
-          replaced = this.findContradiction(clean);
-          if (replaced) this.db.prepare('UPDATE facts SET retired = 1 WHERE id = ?').run(replaced.id);
+        if (existing.valid_to ?? existing.retired) {
+          replaced = this.findSuperseded(relation, Number(existing.id));
+          if (replaced) this.retire(replaced.id, stamp);
         }
-        this.db.prepare('UPDATE facts SET last_seen = ?, times_seen = times_seen + 1, retired = 0 WHERE id = ?').run(stamp, existing.id);
+        this.db.prepare('UPDATE facts SET last_seen = ?, times_seen = times_seen + 1, retired = 0, valid_to = NULL, relation = ? WHERE id = ?')
+          .run(stamp, relation, existing.id);
         return { fact: this.factById(Number(existing.id)), replaced };
       }
-      const replaced = this.findContradiction(clean);
-      if (replaced) this.db.prepare('UPDATE facts SET retired = 1 WHERE id = ?').run(replaced.id);
-      const info = this.db.prepare('INSERT INTO facts (ts, text, source, last_seen, times_seen, retired) VALUES (?,?,?,?,1,0)')
-        .run(stamp, clean, source, stamp);
+      const replaced = this.findSuperseded(relation);
+      if (replaced) this.retire(replaced.id, stamp);
+      const info = this.db.prepare(
+        'INSERT INTO facts (ts, text, source, last_seen, times_seen, retired, relation, valid_from, valid_to) VALUES (?,?,?,?,1,0,?,?,NULL)',
+      ).run(stamp, clean, source, stamp, relation, stamp);
       return { fact: this.factById(Number(info.lastInsertRowid)), replaced };
     } catch (e) {
       console.error('memory remember failed:', (e as Error).message);
@@ -119,17 +162,30 @@ export class Memory {
     }
   }
 
+  /** Stop a fact being current, keeping the date it stopped rather than only the fact that it did. */
+  private retire(id: number, stamp: string): void {
+    try { this.db?.prepare('UPDATE facts SET retired = 1, valid_to = ? WHERE id = ?').run(stamp, id); }
+    catch { /* leaving it live is safer than losing it */ }
+  }
+
   /**
-   * A new fact about the same thing replaces the old one. "His girlfriend is called X" and "his
-   * girlfriend is called Y" cannot both be true, and keeping both would let him say either.
+   * The one live fact this new one replaces, or null if it replaces nothing.
+   *
+   * Only relations declared SINGLE_VALUED can supersede anything at all. "His girlfriend is called X" and
+   * "...called Y" cannot both be true, so the older goes; "he plays WoW" and "he plays guitar" both can, so
+   * both stay. Before 2026-09-28 this compared a noun guessed from each sentence, which made every fact
+   * sharing a noun look contradictory and quietly ate 8 of his 13 facts.
    */
-  private findContradiction(text: string): Fact | null {
-    if (!this.db) return null;
-    const subject = keyNoun(text);
-    if (!subject) return null;
-    const rows = this.list();
-    for (const f of rows) if (keyNoun(f.text) === subject) return f;
-    return null;
+  private findSuperseded(relation: string, exceptId?: number): Fact | null {
+    if (!this.db || !relation || !supersedes(relation)) return null;
+    try {
+      const r = this.db.prepare(
+        `SELECT id, text, ts, last_seen, times_seen, source FROM facts
+          WHERE valid_to IS NULL AND retired = 0 AND relation = ? AND id <> ?
+          ORDER BY last_seen DESC LIMIT 1`,
+      ).get(relation, exceptId ?? -1) as any;
+      return r ? toFact(r) : null;
+    } catch { return null; }
   }
 
   /** Forget exactly one fact by its id: what the Forget button on a row in the Panel means. */
@@ -192,8 +248,9 @@ export class Memory {
   list(limit = 60): Fact[] {
     if (!this.db) return [];
     try {
+      // valid_to is the truth; retired is the derived copy kept for an older build reading the same file.
       const rows = this.db.prepare(
-        'SELECT id, text, ts, last_seen, times_seen, source FROM facts WHERE retired = 0 ORDER BY last_seen DESC LIMIT ?',
+        'SELECT id, text, ts, last_seen, times_seen, source FROM facts WHERE valid_to IS NULL AND retired = 0 ORDER BY last_seen DESC LIMIT ?',
       ).all(limit) as any[];
       return rows.map(toFact);
     } catch { return []; }
@@ -435,4 +492,41 @@ export function keyNoun(text: string): string {
     if (w.length > 2 && !SKIP.has(w)) return w.replace(/s$/, '');
   }
   return '';
+}
+
+/**
+ * Relations that hold exactly ONE current value, so a newer fact about the same relation supersedes the
+ * older one. Everything NOT listed here is multi-valued and nothing is ever retired for it.
+ *
+ * That default is the whole fix (1.2, 2026-09-28). The failure this replaces was over-DELETION, never
+ * over-accumulation: keyNoun guessed a subject from the first noun it found and treated any two sentences
+ * sharing it as contradictory, so "Joshua plays WoW most nights" and "Joshua plays guitar" both reduced to
+ * "play" and one erased the other. Measured live: 13 facts, 8 of them retired. Nothing is now destroyed
+ * unless someone deliberately declared that relation singular, which means the worst case is a fact too
+ * many rather than a fact silently gone.
+ *
+ * Keep this list small and defensible. A relation belongs here only if a second value genuinely cannot be
+ * true at the same time.
+ */
+const SINGLE_VALUED = new Set([
+  'girlfriend', 'boyfriend', 'partner', 'wife', 'husband',
+  'located', 'location', 'lives', 'city', 'address', 'timezone',
+  'employer', 'job', 'role', 'company', 'salary',
+  'phone', 'email', 'birthday', 'age',
+  // "his raid night" is the one night he raids, not a list of them - the singular reading the existing
+  // raid-night test depends on. "raids on Tuesday and Thursday" is a different sentence and dedupes by text.
+  'raid',
+]);
+
+/** True when a newer fact about this relation should retire the older one. */
+export function supersedes(relation: string): boolean { return SINGLE_VALUED.has(relation); }
+
+/**
+ * What a fact is about: what the caller declared, or the old noun guess when nothing was declared. The
+ * guess is now only ever used to LOOK UP a relation, never on its own to justify deleting anything - see
+ * SINGLE_VALUED above.
+ */
+export function relationOf(text: string, declared?: string): string {
+  const d = (declared ?? '').trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
+  return d || keyNoun(text);
 }
