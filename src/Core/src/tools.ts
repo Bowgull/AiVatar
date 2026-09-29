@@ -448,9 +448,12 @@ export function makeToolServer(
           catch (e) { return fail('That lookup failed: ' + (e as Error).message); }
         }),
       tool('remember', 'Keep something about Joshua for good: a preference, a project, a person, a decision, how he likes things done. Use it the moment he tells you something worth knowing later, without waiting to be asked. One fact per call, as a short plain sentence about him.',
-        { fact: z.string().describe('the fact, e.g. "He raids on Tuesday and Thursday nights"') },
-        async ({ fact }) => {
-          const { fact: saved, replaced } = memory.remember(fact);
+        {
+          fact: z.string().describe('the fact, e.g. "He raids on Tuesday and Thursday nights"'),
+          relation: z.string().optional().describe('one lowercase word for WHAT this is about, e.g. "employer", "location", "girlfriend", "hobby". A new fact only ever replaces an older one when they share a relation that can hold just one value at a time (employer, location); things like hobbies simply add. Leave out if unsure - guessing wrong here cannot delete anything.'),
+        },
+        async ({ fact, relation }) => {
+          const { fact: saved, replaced } = memory.remember(fact, 'joshua', new Date(), relation);
           if (!saved) return fail('That did not save. Say it again as a sentence?');
           doers?.pushUndo(`remembering "${saved.text}"`, () => { memory.forget(saved.text); if (replaced) memory.remember(replaced.text); return `Forgot "${saved.text}" again${replaced ? ` and brought back "${replaced.text}"` : ''}.`; });
           return ok(replaced ? `Kept: "${saved.text}". It replaces the older "${replaced.text}".` : `Kept: "${saved.text}".`);

@@ -15,6 +15,9 @@ async function* nothing() { /* the fake Claude process never has anything to say
 // export has to be preserved here - replacing the whole module, as mock.module does with a bare namedExports
 // object, would break createSdkMcpServer and everything else that isn't query.
 const real = await import('@anthropic-ai/claude-agent-sdk');
+// `exports` is the current name; @types/node still only declares the deprecated `namedExports`, so the cast
+// is to the type definitions lagging the runtime, not to a real mismatch. Using the old name instead would
+// work but prints a deprecation warning on every test run.
 mock.module('@anthropic-ai/claude-agent-sdk', {
   exports: {
     ...real,
@@ -23,7 +26,7 @@ mock.module('@anthropic-ai/claude-agent-sdk', {
       return Object.assign(nothing(), { close: async () => { /* */ }, interrupt: async () => { /* */ } });
     },
   },
-});
+} as unknown as Parameters<typeof mock.module>[1]);
 
 const { Lane } = await import('../src/lane.ts');
 
