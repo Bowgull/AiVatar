@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node --no-warnings src/index.ts",
     "check": "tsc -p .",
-    "test": "node --no-warnings --test test/*.test.ts",
+    "test": "node --no-warnings --experimental-test-module-mocks --test --test-timeout=20000 --test-concurrency=4 test/*.test.ts",
     "live": "node --no-warnings test/live.ts",
     "bench": "node --no-warnings test/bench.ts",
     "e2e": "node --no-warnings test/e2e.ts",

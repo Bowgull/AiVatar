@@ -142,6 +142,29 @@ test('coverage reports how much of the history can be recalled by meaning', () =
   m.close();
 });
 
+// 2026-09-28: found in the docs, not the code first - backfill()'s old query was "no embeddings row at all",
+// so a turn already holding a vector from a RETIRED model (wrong dim) read as already done and was skipped
+// forever. A real embedding-model change would have looked like it succeeded and silently re-embedded nothing.
+test('a turn embedded by a retired model is picked up again, not mistaken for already done', { timeout: 60_000 }, async () => {
+  const m = new Memory(copyDb());
+  const db = (m as unknown as { db: DatabaseSync }).db;
+  const ts = new Date().toISOString().replace('T', ' ').slice(0, 19);
+  const id = Number(db.prepare('INSERT INTO turns (ts, role, tier, text) VALUES (?,?,?,?)').run(ts, 'user', null, 'a sentence long enough to embed').lastInsertRowid);
+  const staleDim = EMBED_DIM + 1;
+  db.prepare('INSERT INTO embeddings (turn_id, dim, vec) VALUES (?,?,?)').run(id, staleDim, toBlob(new Float32Array(staleDim)));
+
+  const before = m.coverage();
+  assert.equal(db.prepare('SELECT dim FROM embeddings WHERE turn_id = ?').get(id)!.dim, staleDim, 'the stale row is really there');
+
+  const done = await m.backfill(25, 0, 400);
+  assert.ok(done >= 1, 'the stale-dim turn was re-embedded, not skipped as already-done');
+
+  const row = db.prepare('SELECT dim FROM embeddings WHERE turn_id = ?').get(id) as { dim: number };
+  assert.equal(row.dim, EMBED_DIM, 'the old row was replaced, not left beside a new one - turn_id is the primary key');
+  assert.equal(m.coverage().embedded, before.embedded + 1, 'coverage() must count it now that it truly has a usable vector');
+  m.close();
+});
+
 test('a fact that was superseded and is true again comes back rather than crashing', () => {
   const m = new Memory(copyDb());
   m.remember('His raid night is Tuesday');
