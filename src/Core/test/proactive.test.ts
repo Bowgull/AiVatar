@@ -154,9 +154,9 @@ async function connected(port: number) {
 }
 
 test('nothing unprompted arrives while the game has focus; it waits and is delivered after', async () => {
-  const core = new Core({ port: 47981, dataDir: tmp(), stateDir: tmp(), warm: false });
+  const core = new Core({ port: 48080, dataDir: tmp(), stateDir: tmp(), warm: false });
   await core.start();
-  const { c, bubbles } = await connected(47981);
+  const { c, bubbles } = await connected(48080);
 
   c.send(JSON.stringify({ t: 'presence', quiet: true, foreground: 'Wow' }));
   await new Promise(r => setTimeout(r, 100));
@@ -175,9 +175,9 @@ test('nothing unprompted arrives while the game has focus; it waits and is deliv
 });
 
 test('muting silences unprompted messages until it is turned off', async () => {
-  const core = new Core({ port: 47982, dataDir: tmp(), stateDir: tmp(), warm: false });
+  const core = new Core({ port: 48082, dataDir: tmp(), stateDir: tmp(), warm: false });
   await core.start();
-  const { c, bubbles } = await connected(47982);
+  const { c, bubbles } = await connected(48082);
 
   c.send(JSON.stringify({ t: 'mute', on: true }));
   await new Promise(r => setTimeout(r, 100));
@@ -193,10 +193,10 @@ test('muting silences unprompted messages until it is turned off', async () => {
 });
 
 test('a hook posted over HTTP reaches the bubble', async () => {
-  const core = new Core({ port: 47983, dataDir: tmp(), stateDir: tmp(), warm: false });
+  const core = new Core({ port: 48084, dataDir: tmp(), stateDir: tmp(), warm: false });
   await core.start();
-  const { c, bubbles } = await connected(47983);
-  const post = (body: unknown) => fetch('http://127.0.0.1:47984/hook', { method: 'POST', body: JSON.stringify(body) });
+  const { c, bubbles } = await connected(48084);
+  const post = (body: unknown) => fetch('http://127.0.0.1:48086/hook', { method: 'POST', body: JSON.stringify(body) });
 
   const res = await post({ hook_event_name: 'Notification', session_id: 'h1', cwd: 'C:\\code\\AangApp', message: 'needs permission' });
   assert.equal(res.status, 204, 'hooks get an immediate, empty answer');
@@ -204,7 +204,7 @@ test('a hook posted over HTTP reaches the bubble', async () => {
   assert.deepEqual(bubbles().map(b => [b.text, b.proactive]), [['Claude Code is waiting on you in AangApp.', true]]);
 
   await post('not an object');
-  await fetch('http://127.0.0.1:47984/hook', { method: 'GET' }).catch(() => {});
+  await fetch('http://127.0.0.1:48086/hook', { method: 'GET' }).catch(() => {});
   await new Promise(r => setTimeout(r, 100));
   assert.equal(bubbles().length, 1, 'junk changes nothing and nothing crashed');
   c.close();
@@ -215,20 +215,20 @@ test('over Tailscale, a hook needs the key; a MacBook session says where it is',
   const ts = tailnetAddress();
   if (!ts) { t.skip('this machine is not on a tailnet'); return; }
   const dataDir = tmp();
-  const core = new Core({ port: 47987, dataDir, stateDir: tmp(), warm: false });
+  const core = new Core({ port: 48092, dataDir, stateDir: tmp(), warm: false });
   await core.start();
-  const { c, bubbles } = await connected(47987);
+  const { c, bubbles } = await connected(48092);
   const key = readFileSync(path.join(dataDir, 'hook.key'), 'utf8').trim();
   const body = JSON.stringify({ hook_event_name: 'Notification', session_id: 'm1', cwd: '/Users/josh/code/site', message: 'needs permission' });
 
-  const without = await fetch(`http://${ts}:47988/hook?e=Notification`, { method: 'POST', body });
+  const without = await fetch(`http://${ts}:48094/hook?e=Notification`, { method: 'POST', body });
   assert.equal(without.status, 403, 'no key, no entry');
-  const wrong = await fetch(`http://${ts}:47988/hook?e=Notification&k=nope`, { method: 'POST', body });
+  const wrong = await fetch(`http://${ts}:48094/hook?e=Notification&k=nope`, { method: 'POST', body });
   assert.equal(wrong.status, 403);
   await new Promise(r => setTimeout(r, 150));
   assert.equal(bubbles().length, 0);
 
-  const ok = await fetch(`http://${ts}:47988/hook?e=Notification&k=${key}`, { method: 'POST', body });
+  const ok = await fetch(`http://${ts}:48094/hook?e=Notification&k=${key}`, { method: 'POST', body });
   assert.equal(ok.status, 204);
   await new Promise(r => setTimeout(r, 200));
   const b = bubbles()[0];
@@ -255,9 +255,9 @@ test('the MacBook setup script is served once, for its code, with both keys in i
   const ts = tailnetAddress();
   if (!ts) { t.skip('this machine is not on a tailnet'); return; }
   const dataDir = tmp();
-  const core = new Core({ port: 47989, dataDir, stateDir: tmp(), warm: false });
+  const core = new Core({ port: 48096, dataDir, stateDir: tmp(), warm: false });
   await core.start();
-  const url = (c: string) => `http://${ts}:47990/mac-setup?c=${c}`;
+  const url = (c: string) => `http://${ts}:48098/mac-setup?c=${c}`;
   assert.equal((await fetch(url('whatever'))).status, 404, 'no code file, nothing to fetch');
   writeFileSync(path.join(dataDir, 'mac-setup.code'), 'k7p2x9');
   assert.equal((await fetch(url('wrong1'))).status, 404);
@@ -273,10 +273,10 @@ test('the MacBook setup script is served once, for its code, with both keys in i
 });
 
 test('a session he started himself gets the same two tiers, even while the game has focus', async () => {
-  const core = new Core({ port: 47985, dataDir: tmp(), stateDir: tmp(), warm: false });
+  const core = new Core({ port: 48088, dataDir: tmp(), stateDir: tmp(), warm: false });
   await core.start();
-  const { c, bubbles } = await connected(47985);
-  const post = (body: unknown) => fetch('http://127.0.0.1:47986/hook', { method: 'POST', body: JSON.stringify(body) });
+  const { c, bubbles } = await connected(48088);
+  const post = (body: unknown) => fetch('http://127.0.0.1:48090/hook', { method: 'POST', body: JSON.stringify(body) });
 
   c.send(JSON.stringify({ t: 'presence', quiet: true, foreground: 'Wow' }));
   await new Promise(r => setTimeout(r, 100));

@@ -32,7 +32,7 @@ async function setup(port: number) {
 }
 
 test('a question asked in Discord is answered in Discord only, and the desktop shows nothing', async () => {
-  const { core, desk, phone, done } = await setup(47991);
+  const { core, desk, phone, done } = await setup(48132);
   phone.c.send(JSON.stringify({ t: 'submit', id: 'd1', text: 'what can you do?' }));
   await wait(100);
   const lane = core.active.lane;
@@ -46,7 +46,7 @@ test('a question asked in Discord is answered in Discord only, and the desktop s
 });
 
 test('a question asked on the desktop is answered there only', async () => {
-  const { core, desk, phone, done } = await setup(47992);
+  const { core, desk, phone, done } = await setup(48134);
   desk.c.send(JSON.stringify({ t: 'submit', id: 'b1', text: 'hi' }));
   await wait(100);
   core.onLaneEvent(core.active.lane, { t: 'result', ok: true, text: 'Hey.', tools: [], ms: 5 });
@@ -57,8 +57,8 @@ test('a question asked on the desktop is answered there only', async () => {
 });
 
 test('"where" means the desktop as a whole: a second desktop window (the Body) sees what the first one asked', async () => {
-  const { core, desk, phone, done } = await setup(47989);
-  const body = await client(47989);                                // the Body, next to a client that submits
+  const { core, desk, phone, done } = await setup(48144);
+  const body = await client(48130);                                // the Body, next to a client that submits
   await wait(100);
   desk.c.send(JSON.stringify({ t: 'submit', id: 'b9', text: 'open paint' }));
   await wait(100);
@@ -77,7 +77,7 @@ test('present_list rides the reply\'s own bubble message, and clears once it has
   // 2026-09-24: the bubble redesign needs the Core to say WHAT KIND of reply this is, not just send prose.
   // present_list sets a per-turn field the same way turnActions already does; this checks it actually reaches
   // the bubble message the reply goes out on, and that a later turn which never called it gets none.
-  const { core, desk, done } = await setup(47995);
+  const { core, desk, done } = await setup(48140);
   desk.c.send(JSON.stringify({ t: 'submit', id: 'a', text: 'any jobs worth it' }));
   await wait(100);
   core.pendingList = { icon: 'job', items: [{ title: 'Senior CSM', subtitle: 'Shopify', chipText: '82', chipTone: 'good' }] };
@@ -96,7 +96,7 @@ test('present_list rides the reply\'s own bubble message, and clears once it has
 });
 
 test('a yes/no question goes where the request came from', async () => {
-  const { core, desk, phone, done } = await setup(47993);
+  const { core, desk, phone, done } = await setup(48136);
   phone.c.send(JSON.stringify({ t: 'submit', id: 'd2', text: 'read my screen' }));
   await wait(100);
   const asked = core.askPermission('mcp__aang__read_window', { app: 'firefox' });
@@ -109,7 +109,7 @@ test('a yes/no question goes where the request came from', async () => {
 });
 
 test('unprompted messages: desktop while he is at the PC, Discord when he is away, never both', async () => {
-  const { core, desk, phone, done } = await setup(47994);
+  const { core, desk, phone, done } = await setup(48138);
   core.announce('Job hunt done.');
   await wait(100);
   assert.deepEqual([desk.of('bubble').length, phone.of('bubble').length], [1, 0], 'at the PC: the bubble only');
@@ -131,7 +131,7 @@ test('switching lane mid-conversation carries a recap; staying on the same lane 
   // Each of Quick/Smart/Deep is its own persistent session with its own history (2026-09-22): a handoff used
   // to arrive with no idea what was just said. Now the lane that is being switched TO gets a short recap of
   // the last exchange, and only on a genuine switch - not on every turn.
-  const port = 47988;
+  const port = 48128;
   const core: any = new Core({ port, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
   const sent: { name: string; text: string }[] = [];
   core.lane = (name: string) => ({ send: (text: string) => sent.push({ name, text }), interrupt: async () => {} });
@@ -165,7 +165,7 @@ test('switching lane mid-conversation carries a recap; staying on the same lane 
 test('a job-hunt STATUS QUESTION does not launch a new sweep; a real request still does', async () => {
   // 2026-09-22: JOB_HUNT_RE matched "job hunt" anywhere, so "how's the job hunt going" launched a whole new
   // Mac sweep instead of just being answered. JOB_HUNT_QUESTION_RE excludes question-shaped phrasing.
-  const port = 47987;
+  const port = 48126;
   const core: any = new Core({ port, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
   const macRuns: string[] = [];
   core.runOnMac = async (text: string) => { macRuns.push(text); return true; };
@@ -192,7 +192,7 @@ test('"job scan" is job-hunt-shaped too, and the local fallback is Claude, not t
   // block's reliability. Separately, the local (Mac-unreachable) fallback used to be do_task, the background
   // worker - real evidence it cannot do this job at all (tasks.json: "Dropped, no job search run", it has no
   // Claude in Chrome). start_claude is the one path with real browser access, so that is the fallback now.
-  const port = 47986;
+  const port = 48124;
   const core: any = new Core({ port, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
   core.runOnMac = async () => false;                        // Mac unreachable: force the local fallback
   const started: any[] = [];
@@ -216,10 +216,10 @@ test('a Claude session that goes quiet after starting is followed up on, once', 
   // The 90-second "press Enter" check only ever catches a session that NEVER got a session id. One that did
   // - Enter was pressed, or it got past the folder-trust prompt - and then produced no further hook events
   // was invisible: nothing was watching it again (2026-09-23, live: exactly this happened on a job hunt).
-  const core: any = new Core({ port: 47996, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
+  const core: any = new Core({ port: 48142, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
   await core.start();
   try {
-    const desk = await client(47996);
+    const desk = await client(48142);
     const now = Date.now();
     core.launched.push({ name: 'job hunt', cwd: 'C:\\Users\\Shadow\\job-hunt-data', sessionId: 'abc123', state: 'working', startedAt: now - 10 * 60_000, updatedAt: now - 6 * 60_000 });
 
@@ -241,7 +241,7 @@ test('a continuous "Claude is working" signal reaches the desktop, once per real
   // 2026-09-23, Joshua: asked for a job search, could not tell it was doing anything - point-in-time messages
   // are not the same as a live state the Body can render continuously (the glow/eyes). A fresh connection
   // gets told where things stand right now; an already-connected one hears again only when it changes.
-  const port = 47985;
+  const port = 48122;
   const core: any = new Core({ port, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
   await core.start();
   try {
@@ -292,7 +292,7 @@ test('a reply to something Aang said unprompted carries what was actually said, 
   // 2026-09-23, live: told "you're at 50% of your week", replied "the week is almost over, that's fine", and
   // got nothing useful back - announce() text is UI-only, never in any lane's own conversation, so the model
   // genuinely had nothing to go on. withAnnounced() gives the next reply that context.
-  const port = 47984;
+  const port = 48120;
   const core: any = new Core({ port, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
   const sent: string[] = [];
   core.lane = () => ({ send: (text: string) => sent.push(text), interrupt: async () => {} });
@@ -327,9 +327,9 @@ test('a reply to something Aang said unprompted carries what was actually said, 
 });
 
 test('away but Discord is not connected: the desktop still gets it rather than nobody', async () => {
-  const core: any = new Core({ port: 47995, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
+  const core: any = new Core({ port: 48146, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
   await core.start();
-  const desk = await client(47995);
+  const desk = await client(48140);
   desk.c.send(JSON.stringify({ t: 'desk', active: false }));
   await wait(100);
   core.announce('Reminder: stretch');

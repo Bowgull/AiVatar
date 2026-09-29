@@ -50,7 +50,7 @@ async function withCore(port: number, fn: (core: any, desk: { c: WebSocket; inbo
 }
 
 test('writing a file asks once, and the second write is trusted', async () => {
-  await withCore(47996, async (core, desk) => {
+  await withCore(48162, async (core, desk) => {
     const file = path.join(tmp(), 'notes.txt');
     writeFileSync(file, 'one');
     // He answers the first question with yes.
@@ -65,7 +65,7 @@ test('writing a file asks once, and the second write is trusted', async () => {
 });
 
 test('his settings, memory and Windows are refused without ever asking him', async () => {
-  await withCore(47997, async (core, desk) => {
+  await withCore(48164, async (core, desk) => {
     for (const file of [path.join(core.cfg.stateDir, 'trust.json'), path.join(core.cfg.dataDir, 'aang.db'), 'C:\\Windows\\System32\\drivers\\etc\\hosts', 'relative.txt']) {
       const r = await core.changeFile('mcp__aang__write_file', { file }, () => { throw new Error('must not run'); });
       assert.equal(r.ok, false, file);
@@ -76,7 +76,7 @@ test('his settings, memory and Windows are refused without ever asking him', asy
 });
 
 test('after reading outside content, a remembered yes is not used to write a file', async () => {
-  await withCore(47998, async (core, desk) => {
+  await withCore(48166, async (core, desk) => {
     core.trust.allow('write files', 'test');
     core.tainted = true;
     let asked = 0;
@@ -90,7 +90,7 @@ test('after reading outside content, a remembered yes is not used to write a fil
 });
 
 test('windows: the request reaches the desktop, its answer comes back, and force quit asks even when trusted', async () => {
-  await withCore(47999, async (core, desk) => {
+  await withCore(48168, async (core, desk) => {
     core.trust.allow('close apps', 'test');
     desk.c.on('message', d => {
       const m = JSON.parse(String(d));
@@ -109,7 +109,7 @@ test('windows: the request reaches the desktop, its answer comes back, and force
 });
 
 test('with no desktop connected, a window action says so instead of hanging', async () => {
-  const core: any = new Core({ port: 47990, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
+  const core: any = new Core({ port: 48160, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
   await core.start();
   core.trust.allow('close apps', 'test');
   const r = await core.hands('close', 'notepad');

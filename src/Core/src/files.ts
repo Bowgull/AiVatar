@@ -6,10 +6,23 @@
 //    to go back to - he acts on Joshua's own machine, often while Joshua is in a game and not watching.
 //  - Some files are never his to write, whatever was agreed: his own trust list (writing it would let him
 //    grant himself permissions), his memory database and state, and Windows itself.
-import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, statSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { writeFileAtomic } from './atomic.ts';
+
+/** The path's real, on-disk identity - following any symlink or NTFS junction to what it actually points at,
+ *  not just what the string says. `refusal()` must check THIS, not the raw path: a shortcut named notmydb.txt
+ *  that points at aang.db has to be caught exactly as surely as aang.db itself, and neither path.resolve() nor
+ *  a suffix regex on the given name follows a link to find that out. A file that does not exist yet cannot be
+ *  resolved directly, so its parent directory is resolved instead (still catching a junction *directory* aimed
+ *  at a protected area) and the file's own name is kept as given. */
+function realish(file: string): string {
+  const abs = path.resolve(file);
+  try { return realpathSync.native(abs); } catch { /* does not exist yet - keep trying */ }
+  try { return path.join(realpathSync.native(path.dirname(abs)), path.basename(abs)); }
+  catch { return abs; }                                  // the parent doesn't exist either; nothing left to resolve
+}
 
 /** Where the before-copies go, one per change, newest last. */
 export const UNDO_DIR = process.env.AANG_UNDO_DIR
@@ -20,7 +33,7 @@ export interface Protected { stateDir: string; dataDir: string }
 
 /** Why this path may not be written, or null if it may. */
 export function refusal(file: string, p: Protected): string | null {
-  const full = path.resolve(file).toLowerCase();
+  const full = realish(file).toLowerCase();
   const under = (dir: string) => { const d = path.resolve(dir).toLowerCase(); return full === d || full.startsWith(d + path.sep); };
   if (under(p.stateDir)) return 'that is my own settings and permissions folder, and I never write to it myself';
   if (under(path.join(p.dataDir, 'aang.db')) || /[\\/]aang\.db(-wal|-shm)?$/.test(full)) return 'that is my memory database; memory changes go through remember and forget';

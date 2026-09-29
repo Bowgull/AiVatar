@@ -369,12 +369,17 @@ export class Memory {
     while (done < budget) {
       let rows: { id: number; text: string }[];
       try {
+        // The join carries a dim check on purpose: a turn already holding a vector from a RETIRED embedding
+        // model still has an embeddings row, so a bare "e.turn_id IS NULL" would call it done and this would
+        // silently re-embed nothing after any future model change. With the dim check, a stale-dim row reads
+        // as no match, exactly like a missing one - INSERT OR REPLACE below then overwrites it correctly,
+        // since turn_id is the table's primary key regardless of what dim the old row had.
         rows = this.db.prepare(
           `SELECT t.id AS id, t.text AS text FROM turns t
-             LEFT JOIN embeddings e ON e.turn_id = t.id
+             LEFT JOIN embeddings e ON e.turn_id = t.id AND e.dim = ?
             WHERE e.turn_id IS NULL AND length(t.text) > 8
             ORDER BY t.id DESC LIMIT ?`,
-        ).all(batch) as any[];
+        ).all(EMBED_DIM, batch) as any[];
       } catch { return done; }
       if (!rows.length) return done;
       for (const r of rows) {
@@ -389,11 +394,14 @@ export class Memory {
   }
 
   /** How much of the history can be recalled by meaning. Diagnostics, and the backfill's progress. */
+  /** "embedded" means embedded with the model in use RIGHT NOW - a row left over from a retired model does not
+   *  count, the same rule backfill() uses to decide what still needs doing. Otherwise this over-reports forever
+   *  after any embedding model change: every turn already has A row, just not a usable one. */
   coverage(): { turns: number; embedded: number } {
     if (!this.db) return { turns: 0, embedded: 0 };
     try {
       const t = (this.db.prepare('SELECT count(*) c FROM turns').get() as any).c as number;
-      const e = (this.db.prepare('SELECT count(*) c FROM embeddings').get() as any).c as number;
+      const e = (this.db.prepare('SELECT count(*) c FROM embeddings WHERE dim = ?').get(EMBED_DIM) as any).c as number;
       return { turns: t, embedded: e };
     } catch { return { turns: 0, embedded: 0 }; }
   }

@@ -32,7 +32,7 @@ async function withCore(port: number, fn: (core: any, desk: { c: WebSocket; inbo
 }
 
 test('a job update carries its folder and, once pictures are trusted, a picture too', async () => {
-  await withCore(47966, async (core, desk) => {
+  await withCore(48004, async (core, desk) => {
     core.trust.allow('send to Discord', 'sent a file');
     core.announce('Need input in Claude on the browsing job: which one?', { asked: true, jobCwd: 'C:\\jobs\\a' });
     await wait(80);
@@ -48,9 +48,9 @@ test("Aang's own chat lanes loading Agent Skills does not make his own turns loo
   // 2026-09-22: enabling settingSources:['user'] for Skills means Aang's own lanes now load his real
   // settings.json, whose hooks POST here too. A hook event carrying Aang's own selfCwd must be dropped
   // before it reaches HookTracker; a hook event from any other cwd (a real session of his) must still work.
-  await withCore(47955, async core => {
+  await withCore(48000, async core => {
     const post = (cwd: string, id: string) =>
-      fetch(`http://127.0.0.1:47956/hook`, {
+      fetch(`http://127.0.0.1:48002/hook`, {
         method: 'POST', body: JSON.stringify({ hook_event_name: 'SessionStart', session_id: id, cwd }),
       });
     await post(core.selfCwd(), 'self-session');
@@ -64,7 +64,7 @@ test("Aang's own chat lanes loading Agent Skills does not make his own turns loo
 });
 
 test('genuinely blocking news is marked so; ordinary news is not', async () => {
-  await withCore(47967, async (core, desk) => {
+  await withCore(48006, async (core, desk) => {
     core.announce('Need input in Claude on the browsing job: which one?', { asked: true });
     core.announce('The job hunt is ready in Claude with the request typed in. Press Enter there to start it.', { asked: true });
     core.announce('Job hunt done. Two applied. Details in Claude.', { asked: true });
@@ -80,7 +80,7 @@ test('genuinely blocking news is marked so; ordinary news is not', async () => {
 });
 
 test('a job finishing cleanly is its own quieter "done" tier - not blocking, and only for job news', async () => {
-  await withCore(47971, async (core, desk) => {
+  await withCore(48012, async (core, desk) => {
     core.announce('Job hunt done. Two applied. Details in Claude.', { asked: true, jobCwd: 'C:\\jobs\\a' });
     core.announce('Need input in Claude on the browsing job: which one?', { asked: true, jobCwd: 'C:\\jobs\\b' });
     core.announce('Job hunt done. Two applied. Details in Claude.', { asked: true });   // no jobCwd: not job news, stays ordinary
@@ -95,7 +95,7 @@ test('a job finishing cleanly is its own quieter "done" tier - not blocking, and
 });
 
 test('a reply naming a job neither Core nor Discord know about does nothing and does not crash', async () => {
-  await withCore(47968, async (core, desk) => {
+  await withCore(48008, async (core, desk) => {
     desk.c.send(JSON.stringify({ t: 'claude.reply', cwd: 'C:\\nowhere', text: 'keep going' }));
     await wait(150);
     assert.ok(!desk.inbox.some(x => x.t === 'bubble'), 'nothing was sent back for a job that is not tracked');
@@ -107,11 +107,11 @@ test('claude.reply finds the tracked job by its folder and continues it in the S
   writeFileSync(path.join(stateDir, 'launched.json'), JSON.stringify([
     { name: 'browsing job', cwd: jobDir, kind: 'browse', state: 'needs you', sessionId: 's1', startedAt: Date.now() },
   ]));
-  const core: any = new Core({ port: 47970, dataDir: tmp(), stateDir, warm: false, consolidate: false });
+  const core: any = new Core({ port: 48010, dataDir: tmp(), stateDir, warm: false, consolidate: false });
   const calls: any[] = [];
   core.startClaude = async (...args: any[]) => { calls.push(args); return 'Opened a new Claude Code session in the Claude app for the browsing job.'; };
   await core.start();
-  const c = new WebSocket('ws://127.0.0.1:47970/body');
+  const c = new WebSocket('ws://127.0.0.1:48010/body');
   const inbox: any[] = [];
   c.on('message', d => inbox.push(JSON.parse(String(d))));
   await new Promise<void>(r => c.once('open', () => r()));

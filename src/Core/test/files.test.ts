@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -57,4 +57,17 @@ test('his own permissions, his memory and Windows are never his to write', () =>
   assert.equal(writeWhole(trust, '{"run rm": {}}', guard).ok, false);
   assert.equal(existsSync(trust), false, 'nothing was written');
   assert.equal(refusal(path.join(os.homedir(), 'Documents', 'notes.txt'), guard), null, 'his own documents are fine');
+});
+
+// 2026-09-28: a real gap, not a hypothetical one - the old refusal() only string-compared path.resolve(),
+// which never follows a link. An NTFS directory junction that ALIASES stateDir under an innocent-looking
+// path made "under(stateDir)" fail to recognise it was the same place, so writing through the alias sailed
+// straight past the guard. Junctions need no admin rights on Windows, unlike file symlinks (which this
+// sandbox cannot create at all - EPERM without Developer Mode), so this is the realistic form of the attack
+// and the one worth testing directly.
+test('a directory junction aliasing a protected folder is still caught, not just its real name', () => {
+  const decoy = path.join(tmp('aang-decoy-'), 'looks-harmless');
+  try { symlinkSync(guard.stateDir, decoy, 'junction'); }
+  catch (e) { console.log('junction not available on this machine, skipping:', (e as Error).message); return; }
+  assert.match(refusal(path.join(decoy, 'trust.json'), guard)!, /permissions/, 'the junction must resolve back to the real, protected directory');
 });

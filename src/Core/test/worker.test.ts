@@ -33,7 +33,7 @@ function scripted(core: any, answers: string[]) {
 }
 
 test('a job runs in the background and says itself that it is done, as the done tier', async () => {
-  await withCore(47991, async (core, desk) => {
+  await withCore(48180, async (core, desk) => {
     const asked = scripted(core, ['Moved 14 installers into C:\\Users\\Shadow\\Downloads\\Installers and left the rest.']);
     const said = await core.doers().tasks.start('tidy my downloads folder, installers into their own folder', 'downloads tidy');
     assert.match(said, /^Started "downloads tidy"/);
@@ -49,7 +49,7 @@ test('a job runs in the background and says itself that it is done, as the done 
 });
 
 test('a job that needs him says so as needs-you, reaches his next message, and his reply continues it', async () => {
-  await withCore(47993, async (core, desk) => {
+  await withCore(48182, async (core, desk) => {
     core.lane = (name: string) => ({ send: (text: string) => sent.push({ name, text }), interrupt: async () => {} });
     const sent: { name: string; text: string }[] = [];
     const asked = scripted(core, ['Found two old resumes. Which one should I update, the 2025 or the 2026 one?', 'Updated the 2026 one.']);
@@ -73,7 +73,7 @@ test('a job that needs him says so as needs-you, reaches his next message, and h
 });
 
 test('while saving quota a job is not started, and never more than two run at once', async () => {
-  await withCore(47995, async core => {
+  await withCore(48184, async core => {
     core.policy.saving = true;
     assert.match(await core.doers().tasks.start('something big'), /Saving quota is on/);
     core.policy.saving = false;
@@ -98,7 +98,7 @@ test('a job cut off by a restart is kept, marked, and can be carried on', () => 
 test('a job runs on Sonnet unless he actually asked for the strongest model', async () => {
   // 2026-09-22 (Joshua's call): every job used to run on Opus, which both drains his plan fastest and has
   // its own separate weekly cap - so tidying a folder was spending the scarcest thing he has.
-  await withCore(47997, async core => {
+  await withCore(48186, async core => {
     const normal = core.workerLane({ id: 'j1', name: 'tidy', deep: false });
     assert.match(normal.opts.model, /sonnet/, 'an ordinary job: Sonnet');
     const asked = core.workerLane({ id: 'j2', name: 'hard one', deep: true });
