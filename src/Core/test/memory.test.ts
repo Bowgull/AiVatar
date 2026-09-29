@@ -85,6 +85,50 @@ test('a fact nobody has confirmed for months stops being put in front of him', (
   m.close();
 });
 
+// 1.2, fixed 2026-09-28. The live database held 13 facts with 8 retired, because keyNoun guessed a subject
+// from the first noun in each sentence and treated any two sharing it as contradictory. These are the real
+// sentences that collided.
+test('two facts that merely share a noun both survive - the bug that ate 8 of his 13 facts', () => {
+  const m = new Memory(copyDb());
+  m.remember('Joshua plays WoW most nights');
+  m.remember('Joshua plays guitar');
+  const held = m.list().filter(f => /plays (WoW|guitar)/.test(f.text));
+  assert.equal(held.length, 2, 'both "play" facts stand; neither erased the other');
+  m.close();
+});
+
+test('nothing is retired for a relation that was never declared single-valued', () => {
+  const m = new Memory(copyDb());
+  const first = m.remember('He is learning Japanese', 'joshua', new Date(), 'hobby');
+  const second = m.remember('He is learning to sail', 'joshua', new Date(), 'hobby');
+  assert.equal(first.replaced, null);
+  assert.equal(second.replaced, null, 'a hobby does not replace another hobby');
+  assert.equal(m.list().filter(f => /learning/.test(f.text)).length, 2);
+  m.close();
+});
+
+test('a declared single-valued relation still replaces, and keeps the date it stopped being true', () => {
+  const m = new Memory(copyDb());
+  m.remember('He works at Shopify', 'joshua', new Date(), 'employer');
+  const moved = m.remember('He works at Stripe', 'joshua', new Date(), 'employer');
+  assert.equal(moved.replaced?.text, 'He works at Shopify', 'you only have one employer at a time');
+  assert.equal(m.list().filter(f => /works at/.test(f.text)).length, 1);
+  const db = (m as unknown as { db: DatabaseSync }).db;
+  const old = db.prepare("SELECT valid_to, relation FROM facts WHERE text = 'He works at Shopify'").get() as { valid_to: string | null; relation: string };
+  assert.ok(old.valid_to, 'the superseded fact records WHEN it stopped, not just that it did');
+  assert.equal(old.relation, 'employer');
+  m.close();
+});
+
+test('an explicit relation beats the noun guess: "located" would have collided, "hobby" does not', () => {
+  const m = new Memory(copyDb());
+  m.remember('He is located in Toronto', 'joshua', new Date(), 'location');
+  // Same leading noun the old guesser would have keyed on, but a different, multi-valued relation.
+  const other = m.remember('He is located near the lake for the summer', 'joshua', new Date(), 'hobby');
+  assert.equal(other.replaced, null, 'the declared relation decides, not the sentence shape');
+  m.close();
+});
+
 test('facts are about a subject, so contradictions can be spotted', () => {
   assert.equal(keyNoun('His girlfriend is called Sam'), 'girlfriend');
   assert.equal(keyNoun('He raids on Tuesday'), 'raid');
