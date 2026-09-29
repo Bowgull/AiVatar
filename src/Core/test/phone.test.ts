@@ -68,7 +68,7 @@ async function desktop(port: number, kind?: 'discord') {
 }
 
 test('status: the Core answers the one who asked, from what it knows, without any model', async () => {
-  const { core, desk, phone, done } = await desktop(47960);
+  const { core, desk, phone, done } = await desktop(48040);
   phone.c.send(JSON.stringify({ t: 'status' }));
   await wait(150);
   assert.equal(phone.of('status.reply').length, 1);
@@ -79,7 +79,7 @@ test('status: the Core answers the one who asked, from what it knows, without an
 });
 
 test('send_to_phone: a file goes only to Discord, after a yes, and a secret is refused before any question', async () => {
-  const { core, desk, phone, done } = await desktop(47961);
+  const { core, desk, phone, done } = await desktop(48042);
   const file = path.join(tmp(), 'plan.txt'); writeFileSync(file, 'the plan');
   desk.c.on('message', d => { const m = JSON.parse(String(d)); if (m.t === 'permission') desk.c.send(JSON.stringify({ t: 'permission.reply', id: m.id, choice: 'always' })); });
 
@@ -101,7 +101,7 @@ test('send_to_phone: a file goes only to Discord, after a yes, and a secret is r
 });
 
 test('send_to_phone: a no sends nothing; a missing file, a folder and a huge file are refused plainly', async () => {
-  const { core, desk, phone, done } = await desktop(47962);
+  const { core, desk, phone, done } = await desktop(48044);
   desk.c.on('message', d => { const m = JSON.parse(String(d)); if (m.t === 'permission') desk.c.send(JSON.stringify({ t: 'permission.reply', id: m.id, choice: 'no' })); });
   const file = path.join(tmp(), 'a.txt'); writeFileSync(file, 'x');
   assert.equal((await core.sendToPhone(file)).ok, false);
@@ -114,7 +114,7 @@ test('send_to_phone: a no sends nothing; a missing file, a folder and a huge fil
 });
 
 test('send_to_phone with no Discord connected says there is nowhere to send it', async () => {
-  const core: any = new Core({ port: 47963, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
+  const core: any = new Core({ port: 48046, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
   await core.start();
   const r = await core.sendToPhone('C:\\Users\\Shadow\\Documents\\a.txt');
   assert.match(r.detail, /nowhere to send/);

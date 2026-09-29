@@ -114,7 +114,15 @@ export class Lane {
       prompt: prompts(),
       options: {
         model: this.opts.model,
-        systemPrompt: this.opts.systemPrompt,
+        // Root-caused 2026-09-24 (0g): a bare string here "follows the default", which is the SDK's own words
+        // for systemPrompt.snapshot=true - it records the prompt on a lane's first request and replays that
+        // record verbatim on every later request AND resume, even across a Core restart after editing
+        // voice.ts, "until compaction or a new session." That produced three identical live tests reading
+        // ~66k cached tokens and writing only 300-500 new ones: the resumed conversation really was running
+        // on the prompt from before the edit. snapshot:false is only reachable through the object form, per
+        // the SDK's own type - a plain string cannot opt out. This is documented, deliberate SDK behaviour,
+        // not a caching artefact; the object form here is the fix, not a workaround.
+        systemPrompt: { type: 'custom', prompt: this.opts.systemPrompt, snapshot: false },
         // Note: never pass `tools: []`. An empty array switches every built-in off, which is how Aang
         // ended up telling Joshua he had no internet and could not touch the machine.
         settingSources: this.opts.settingSources ?? [],

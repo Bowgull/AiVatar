@@ -11,7 +11,7 @@ import { Core } from '../src/core.ts';
 const tmp = () => mkdtempSync(path.join(os.tmpdir(), 'aang-taint-'));
 
 function coreWithTrust(...kinds: string[]): any {
-  const core: any = new Core({ port: 47981, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
+  const core: any = new Core({ port: 48200, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
   for (const k of kinds) core.trust.allow(k, 'test');
   return core;
 }
