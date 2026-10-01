@@ -28,8 +28,8 @@ Status markers used below:
 | `[x]` | done and verified |
 | **BLOCKS** | something else cannot start until this is `[x]` |
 
-**Where we are right now: PHASE 0 COMPLETE (0.0 to 0.4), plus an unplanned fix that turned out to
-matter more than either, and 5.7 absorbed into 0.2. Phase 1 is next: the two security doors that block Drive.**
+**Where we are right now: PHASES 0 AND 1 COMPLETE, plus an unplanned fix that turned out to
+matter more than either, and 5.7 absorbed into 0.2. Phase 2 (Drive) is unblocked. Lindsay path resolved: there are TWO folders, `Lindsay's Job Hunt` in his own My Drive and `🎯 Lindsay's Job Hunt` shared by her; both are excluded by normalised name.**
 
 ### Found while verifying 0.1: Aang was being stalled mid-reply, for six days
 
@@ -305,7 +305,7 @@ contents. **They do not.** This phase is the answer.
 
 ---
 
-### `[ ]` 1.1 Reading a file must put Aang on guard: **BLOCKS Drive**
+### `[x]` 1.1 Reading a file must put Aang on guard  DONE 2026-10-01 (340e233)
 
 **Why:** **[verified]** Exactly seven places in `core.ts` mark a turn as tainted:
 
@@ -346,7 +346,7 @@ returns 8 or more.
 
 ---
 
-### `[ ]` 1.2 The exclusion list: **BLOCKS Drive**
+### `[x]` 1.2 The exclusion list  DONE 2026-10-01
 
 **Why:** `files.ts:35` refuses Aang's own state folder, his database, his undo copies, and
 Windows / Program Files / ProgramData. **[verified]** It does **not** cover:
@@ -723,8 +723,8 @@ Update this table as you go. It is the answer to "where are we".
 | phase | what it gets you | status |
 |---|---|---|
 | 0 | cheaper conversations, no silent amnesia | `[x]` **done** |
-| 1 | safe to read documents | `[ ]` **ready to start** |
-| 2 | he can read your Drive | `[ ]` blocked by 1 |
+| 1 | safe to read documents | `[x]` **done** |
+| 2 | he can read your Drive | `[ ]` **ready to start** |
 | 3 | he learns from it | `[ ]` blocked by 2 |
 | 4 | he is pleasant to use | `[ ]` 4.1 can start now |
 | 5 | the rest | `[ ]` any time |
