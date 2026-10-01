@@ -274,12 +274,35 @@ sealed class BubbleView : IDisposable
         hideAt = DateTime.UtcNow.AddMilliseconds(hold);
     }
 
+    /// <summary>Characters revealed per 50ms tick, so 2 is 40 a second. Steady, and deliberately not tied to
+    /// how much text is waiting.
+    ///
+    /// It used to be `Math.Max(2, backlog / 6)`, which meant a reply that arrived all at once was dumped at
+    /// around 2,000 characters a second while a slow one trickled: the same bubble read as typing or as a
+    /// flash depending on how fast Claude happened to answer. Joshua's decision, and the convention every RPG
+    /// uses: one even pace you can start reading immediately, and a click to skip the rest. 40 a second is
+    /// brisk against roughly 20 for comfortable prose reading, which is right for text you can already see
+    /// landing rather than text you must decode word by word.</summary>
+    const int RevealPerTick = 2;
+
+    /// <summary>Show the rest of the reply at once: the click half of the RPG convention. Only meaningful
+    /// once the whole reply has arrived - while Claude is still generating there is nothing to skip to, and a
+    /// click there means "stop", which PetWindow handles instead.</summary>
+    public bool SkipReveal()
+    {
+        if (!Visible || Dots || !Revealing) return false;
+        shown = full.Length;
+        text = full; lines = Wrap(text);
+        targetH = HeightFor(Math.Min(lines.Count, CollapsedLines));
+        if (!coreStreaming) { streaming = false; SetHold(); }   // the hold starts now, not when the animation would have ended
+        return true;
+    }
+
     /// <summary>Reveal a few more characters. True when the text changed.</summary>
     bool StepReveal()
     {
         if (!Visible || Dots || !Revealing) return false;
-        var backlog = full.Length - shown;
-        shown = Math.Min(full.Length, shown + Math.Max(2, backlog / 6));
+        shown = Math.Min(full.Length, shown + RevealPerTick);
         text = full[..shown]; lines = Wrap(text);
         targetH = HeightFor(Math.Min(lines.Count, CollapsedLines));
         if (!Revealing && !coreStreaming) { streaming = false; SetHold(); }

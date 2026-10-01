@@ -830,6 +830,11 @@ sealed class PetWindow : Form
                 if (!r.Ok) { ShowBubble("That Claude window is closed now.", false); bubbleFocus = null; bubble.Link = ""; }
                 else { bubble.Clear(); bubbleFocus = null; if (anim.State == "talk") PlayRest(); }
             }
+            // The click half of the RPG convention (2026-10-01): the reply is all here, it is just still
+            // being revealed, so show the rest now. Deliberately below the consent and link branches, which
+            // are decisions rather than impatience, and guarded on !working so that clicking while Claude is
+            // still generating keeps meaning "stop" - there is nothing to skip to yet.
+            else if (!working && bubble.SkipReveal()) { /* the rest is now shown */ }
             else if (bubble.More) ExpandBubble();                      // "...v": grow it to read the rest
             else if (bubble.Expanded) { /* clicking inside the open bubble does nothing; Esc or a click outside closes it */ }
             else if (working) StopReply();                        // clicking the bubble while Aang is thinking stops it

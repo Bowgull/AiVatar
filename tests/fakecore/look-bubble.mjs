@@ -17,6 +17,7 @@ import { WebSocketServer } from 'ws';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import fs from 'node:fs';
+import { spawnSync } from 'node:child_process';
 
 const root = path.resolve(import.meta.dirname, '..', '..');
 const bodyExe = path.join(root, 'src', 'Body', 'bin', 'Release', 'net10.0-windows', 'Aang.exe');
@@ -36,6 +37,41 @@ const snap = async name => {
   const r = await reply;
   console.log((r.startsWith('ok') ? '  saved  ' : '  FAILED ') + name + (r.startsWith('ok') ? '' : '  ' + r));
 };
+
+
+/** Click the middle of the bubble. Guarded: it resolves the Body's own window rect and refuses to click
+ *  unless Windows agrees that pixel belongs to the Body, so a mis-measured offset can never land on the game
+ *  or on one of Joshua's windows. */
+function clickBubble() {
+  const ps = `
+    Add-Type -TypeDefinition 'using System;using System.Text;using System.Runtime.InteropServices;
+    public class C{
+      [DllImport("user32.dll")]public static extern bool SetCursorPos(int x,int y);
+      [DllImport("user32.dll")]public static extern void mouse_event(uint f,int dx,int dy,uint d,UIntPtr e);
+      [DllImport("user32.dll")]public static extern IntPtr WindowFromPoint(P p);
+      [DllImport("user32.dll")]static extern bool EnumWindows(EW f,IntPtr p);
+      [DllImport("user32.dll")]public static extern int GetWindowText(IntPtr h,StringBuilder s,int n);
+      [DllImport("user32.dll")]public static extern bool IsWindowVisible(IntPtr h);
+      [DllImport("user32.dll")]public static extern bool GetWindowRect(IntPtr h,out R r);
+      delegate bool EW(IntPtr h,IntPtr p);
+      [StructLayout(LayoutKind.Sequential)]public struct P{public int X,Y;}
+      [StructLayout(LayoutKind.Sequential)]public struct R{public int L,T,Rr,B;}
+      public static IntPtr Find(string t){IntPtr f=IntPtr.Zero;
+        EnumWindows((h,l)=>{var sb=new StringBuilder(256);GetWindowText(h,sb,256);
+          if(sb.ToString()==t&&IsWindowVisible(h)){f=h;return false;}return true;},IntPtr.Zero);return f;}
+      public static IntPtr At(int x,int y){P p=new P();p.X=x;p.Y=y;return WindowFromPoint(p);}
+    }';
+    $h=[C]::Find('Aang Body'); if($h -eq [IntPtr]::Zero){'no window';exit}
+    $r=New-Object C+R; [void][C]::GetWindowRect($h,[ref]$r)
+    # the bubble sits in the left-centre of the window; this point is inside it in every capture so far
+    $x=$r.L+237; $y=$r.T+270
+    if([C]::At($x,$y) -ne $h){'pixel does not belong to the Body - not clicking';exit}
+    [void][C]::SetCursorPos($x,$y); Start-Sleep -Milliseconds 120
+    [C]::mouse_event(2,0,0,0,[UIntPtr]::Zero); Start-Sleep -Milliseconds 60
+    [C]::mouse_event(4,0,0,0,[UIntPtr]::Zero); 'clicked ' + $x + ',' + $y`;
+  const r = spawnSync('powershell', ['-NoProfile', '-Command', ps], { encoding: 'utf8' });
+  console.log('      ' + String(r.stdout ?? '').trim());
+}
 
 const wss = new WebSocketServer({ host: '127.0.0.1', port: 47831, path: '/body' });
 let ws = null;
@@ -112,6 +148,37 @@ await snap('05_plaque');
 send({ t: 'permission', id: 'perm9', tool: 'Read', question: 'read G:\\My Drive\\Job Search 2026\\applications.md', remembers: 'read and search your files' });
 await sleep(1800);
 await snap('04_asking');
+
+// 6. The reveal, caught mid-flight. A single frame cannot show pacing, so this snaps the SAME reply three
+// times while it is still being revealed. Steady pacing shows roughly equal growth between frames; the old
+// backlog/6 rule dumped a reply this long almost instantly, so frame one would already be complete.
+const long = 'Three follow-ups are due this week, and the Octup interview was yesterday so that one is worth '
+  + 'chasing by the seventh. BeMo has a functional test due tomorrow, which is the nearest real deadline on '
+  + 'the board. Everything else is still sitting at no response.';
+// The Core streams: a run of stream:true pieces, each the whole text so far, then one stream:false with
+// the final form. Only the streaming phase reveals - Show() sets `shown = stream ? 0 : t.Length` - so a
+// test that sends the finished reply alone proves nothing about pacing, which is how the first attempt at
+// this check fooled itself.
+send({ t: 'bubble', id: 'look6', who: 'Aang', stream: true, text: long.slice(0, 40) });
+await sleep(120);
+send({ t: 'bubble', id: 'look6', who: 'Aang', stream: true, text: long });   // the rest lands in one lump
+await sleep(300);  await snap('06_reveal_400ms');
+await sleep(1000); await snap('07_reveal_1400ms');
+await sleep(1000); await snap('08_reveal_2400ms');
+send({ t: 'bubble', id: 'look6', who: 'Aang', stream: false, text: long });
+await sleep(4000); await snap('09_reveal_done');
+
+// 10. The click half. Stream a long reply, let it get a little way in, then click the bubble: the rest must
+// appear at once. Clicked for real rather than reasoned about, because a handler placed in the wrong branch
+// of that if-chain would silently do something else - dismiss the bubble, or stop the reply.
+send({ t: 'bubble', id: 'look7', who: 'Aang', stream: true, text: long.slice(0, 40) });
+await sleep(120);
+send({ t: 'bubble', id: 'look7', who: 'Aang', stream: true, text: long });
+await sleep(700);
+await snap('10_before_click');
+clickBubble();
+await sleep(500);
+await snap('11_after_click');
 
 send({ t: 'bubble.clear' });
 await sleep(800);
