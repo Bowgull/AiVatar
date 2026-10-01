@@ -78,6 +78,25 @@ public class AangCap {
     return list;
   }
 
+  // Any visible, titled, real-sized window. The Panel is an ordinary form, not a topmost layered
+  // overlay, so Overlays() never sees it. Used as a fallback so a title filter still finds it.
+  public static List<Overlay> Any(string titleFilter) {
+    var list = new List<Overlay>();
+    EnumWindows((h, l) => {
+      if (!IsWindowVisible(h)) return true;
+      RECT r; if (!GetWindowRect(h, out r)) return true;
+      if (r.Right - r.Left < 40 || r.Bottom - r.Top < 40) return true;
+      var t = new StringBuilder(512); GetWindowText(h, t, 512);
+      string title = t.ToString();
+      if (string.IsNullOrWhiteSpace(title)) return true;
+      if (!string.IsNullOrEmpty(titleFilter) &&
+          title.IndexOf(titleFilter, StringComparison.OrdinalIgnoreCase) < 0) return true;
+      list.Add(new Overlay { H = h, R = r, Title = title });
+      return true;
+    }, IntPtr.Zero);
+    return list;
+  }
+
   public static Bitmap Window(IntPtr h) {
     RECT r; GetWindowRect(h, out r);
     int w = r.Right - r.Left, ht = r.Bottom - r.Top;
@@ -150,6 +169,7 @@ function Snap([string]$path, [string]$title, [int]$margin = 24) {
     $img = $b
     if ($title) {
       $ov = [AangCap]::Overlays($title)
+      if ($ov.Count -eq 0) { $ov = [AangCap]::Any($title) }   # the Panel is an ordinary window, not an overlay
       if ($ov.Count -gt 0) {
         $r = $ov[0].R
         $x = [Math]::Max(0, $r.Left - $vb.X - $margin); $y = [Math]::Max(0, $r.Top - $vb.Y - $margin)
