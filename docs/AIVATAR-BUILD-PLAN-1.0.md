@@ -105,16 +105,24 @@ forbidden.
 
 **Where:** `src/Core/src/core.ts:1079-1083` (the chat lane options).
 
-**The change:** add `onlyTools` to the lane options. The plumbing already exists and is
-unused: `lane.ts:34` declares it and `lane.ts:136` passes it to the engine as `tools`.
+**The change:** add `onlyTools` to the chat lane options. The plumbing already exists
+(`lane.ts:34` declares it, `lane.ts:136` passes it to the engine as `tools`) and two other
+lanes already use it correctly: the web lane at `core.ts:1026` restricts itself to web tools
+so a lane reading untrusted pages cannot see a shell, and the consolidate lane at
+`core.ts:1048` passes an empty list because it is a pure text summariser. **The chat lanes
+were the ones not using it.**
 
 ```ts
 // Alongside allowedTools / disallowedTools at core.ts:1079
-onlyTools: ['Read', 'Glob', 'Grep'],
+onlyTools: ['Read', 'Glob', 'Grep', 'Skill'],
 ```
 
-**Why those three:** they are the only built-ins Aang's own code references that are not
-already in `disallowedTools`. Verified by searching the whole Core for every built-in
+**Why those four:** Read, Glob and Grep are the only file built-ins Aang's own code
+references that are not already in `disallowedTools`. **`Skill` is the one that is easy to
+miss**: `core.ts:1089` loads `skills: ['job-hunt']`, and without the Skill tool that skill
+cannot be invoked. **[measured]** A probe of the engine's init message caught this before the
+edit: the first draft was Read/Glob/Grep and would have broken the job search silently, with
+no error and no failing test. `test/toolbudget.test.ts` now locks it. Verified by searching the whole Core for every built-in
 name. `Bash`, `PowerShell`, `Write`, `Edit`, `NotebookEdit`, `WebSearch`, `WebFetch` and
 the Playwright set are all already disallowed, so removing them loses nothing.
 

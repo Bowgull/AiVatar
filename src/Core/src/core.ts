@@ -1081,6 +1081,22 @@ export class Core {
       // Anything it cannot reach is a doing request, which routes to Smart first anyway - and if one slips
       // through, its "I can't" is caught and re-run there.
       disallowedTools: [...WEB_TOOLS, ...BUILTIN_SHELL, ...BUILTIN_WRITE, ...(name === 'quick' ? QUICK_HIDDEN : [])],
+      // Which of the ENGINE's own built-ins get loaded at all. A third switch, and the only one that
+      // changes the prompt: allowedTools and disallowedTools both still SEND every schema and merely
+      // decide what may be called. Measured 2026-09-30: all built-ins cost 56,822 input tokens, these
+      // four cost 4,749, so roughly 50k was being paid on every cold start for tools the line above
+      // already forbids - EnterWorktree, CronCreate, ScheduleWakeup, ShowOnboardingRolePicker and the
+      // rest, none of which mean anything inside a desktop pet.
+      //
+      // Skill is in this list because taking it away silently breaks `skills: ['job-hunt']` below.
+      // Found by probing the init message before making the change, not after: the first draft was
+      // Read/Glob/Grep only and would have removed it. Read/Glob/Grep stay for the reason given above.
+      //
+      // This does NOT undo the 2026-09-20 finding about web tools: that is about allowedTools, where
+      // the model still SEES the tool and reaches for WebFetch instead of look_up_web. Here the tool is
+      // never in the prompt at all, so there is nothing to reach for. The disallowedTools list stays as
+      // belt and braces.
+      onlyTools: ['Read', 'Glob', 'Grep', 'Skill'],
       askPermission: (tool, input) => this.askPermission(tool, input),
       claudeExecutable: this.cfg.claudeExecutable,
       // Agent Skills, user-level only (job-hunt lives in ~/.claude/skills) - 2026-09-22. Loading user
