@@ -129,6 +129,16 @@ const BLACK_SHARE = 0.85;
 const MAX_TEXT = 8000;
 const PERMISSION_TIMEOUT_MS = 120_000;   // he may be in the game; wait, but never for ever          // a chat message this long is a paste; cap it rather than trust the sender
 
+/**
+ * Tools whose content comes from outside Aang and Joshua, and so taints the turn.
+ *
+ * A file is not automatically Joshua's words. Once Drive is mirrored, most files on this disk were
+ * written by other people or downloaded from the internet, and a document can carry an instruction
+ * aimed at Aang exactly as a web page can. Grep and Glob are here for the same reason as Read: a
+ * match brings the file's own text back into the turn, and a path can be attacker-chosen.
+ */
+const READS_OUTSIDE_FILES = new Set(['Read', 'Glob', 'Grep']);
+
 export class Core {
   readonly cfg: CoreConfig;
   readonly memory: Memory;
@@ -1691,6 +1701,24 @@ export class Core {
    * this waits for a yes or a no. No Body, no answer, or a second question while one is open all mean no,
    * because the safe default when nobody is there to say yes is not to do it.
    */
+  /**
+   * Allow a tool, and mark the turn if that tool is about to bring outside content into it.
+   *
+   * Reading a FILE did not mark the turn until 2026-10-01. Seven things did - mail, the screen, a
+   * screenshot, browser control names, the web - so a poisoned web page made every later action ask
+   * again, while a poisoned DOCUMENT did not, and Aang would still act on a yes given earlier in the
+   * turn. Harmless while the only files were Joshua's own. Not harmless at all once Google Drive puts
+   * 1,225 documents written by other people and the internet on this disk, which is the next phase.
+   *
+   * Marked at approval rather than after the read, because these are the ENGINE's tools: Aang gates
+   * them and never sees the result, so this is the last point he controls. That errs toward marking a
+   * read that then fails, which only costs one extra question.
+   */
+  private granted(tool: string): boolean {
+    if (READS_OUTSIDE_FILES.has(tool)) this.tainted = true;
+    return true;
+  }
+
   private askPermission(tool: string, input: Record<string, unknown>): Promise<boolean> {
     // Belt and braces: if the main session ever reaches for a web tool directly, refuse it outright
     // rather than asking Joshua. Untrusted page content must not enter the session that holds his files.
@@ -1717,7 +1745,7 @@ export class Core {
     // Reading is not acting: the read tools stay trusted after a page was read. Anything that does
     // something asks again once outside content is in the turn.
     const acts = !['mcp__aang__read_window', 'mcp__aang__read_clipboard', 'mcp__aang__look_at_window', 'mcp__aang__mail_inbox', 'mcp__aang__mail_read', 'mcp__aang__calendar_today'].includes(tool);
-    if (kind && this.trust.allowed(kind.kind) && !(this.tainted && acts)) return Promise.resolve(true);
+    if (kind && this.trust.allowed(kind.kind) && !(this.tainted && acts)) return Promise.resolve(this.granted(tool));
     if (kind && this.tainted && acts && this.trust.allowed(kind.kind)) console.log(`asking again for "${kind.kind}": this turn has read outside content`);
 
     // Asked where he asked for the thing; with no turn behind it, wherever he is.
@@ -1739,7 +1767,7 @@ export class Core {
           // now on; no declines. Only always writes to trust.
           if (choice === 'always' && kind) this.trust.allow(kind.kind, question);
           if (choice === 'no' && !this.refused) this.refused = 'Joshua said no in the bubble';
-          resolve(choice !== 'no');
+          resolve(choice === 'no' ? false : this.granted(tool));
         },
         timer,
       };
