@@ -68,6 +68,23 @@ const SOMEONE_ELSES = ["[friend]'s job hunt"];
 const HER_NAME = /(^|[^a-z])[friend]([^a-z]|$)|[friend-site]/;
 
 /**
+ * Other people whose documents are in Joshua's Drive, by full name.
+ *
+ * Joshua's own profile.md already said this, as a sentence addressed to Aang: "resumes named
+ * [friend] / [friend] are other people's files - ignore." A sentence in a file Aang reads is
+ * an instruction he may or may not follow; this is the version that holds whatever he is told by a
+ * document he reads later.
+ *
+ * `[friend]_Resume.pdf` is in My Drive today and was readable until 2026-10-01, found while
+ * checking whether profile.md named anyone else. It did, and nobody had acted on it.
+ *
+ * Add a full name here, never a first name: the first-name version blocked Joshua's own
+ * "[friend] Launch" project notes, which is how a rule stops being trusted. Underscores and hyphens
+ * are handled by plainName(), so [friend]_Resume.pdf matches "[friend]".
+ */
+const OTHER_PEOPLE = [/(^|[^a-z])[friend]([^a-z]|$)/, /(^|[^a-z])[friend]([^a-z]|$)/];
+
+/**
  * Fold a path segment down to just its words, so a name still matches after someone has decorated
  * it. Strips emoji and punctuation, turns curly apostrophes into straight ones (Google Docs and
  * Windows both produce them), lowercases, and collapses runs of space.
@@ -98,7 +115,7 @@ export function offLimits(file: string): string | null {
   for (const seg of segments) {
     const name = plainName(seg);
     if (SOMEONE_ELSES.includes(name)) return 'that folder is someone else\'s, and it is not mine to open';
-    if (HER_NAME.test(name)) return 'that is someone else\'s file, and it is not mine to open';
+    if (HER_NAME.test(name) || OTHER_PEOPLE.some(re => re.test(name))) return 'that is someone else\'s file, and it is not mine to open';
   }
 
   const home = os.homedir().toLowerCase();
