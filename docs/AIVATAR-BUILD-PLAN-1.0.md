@@ -28,7 +28,7 @@ Status markers used below:
 | `[x]` | done and verified |
 | **BLOCKS** | something else cannot start until this is `[x]` |
 
-**Where we are right now: nothing started. Phase 0, step 0.1 is next.**
+**Where we are right now: 0.0 done (commit 51c8daa). Phase 0, step 0.1 is next.**
 
 ---
 
@@ -74,7 +74,7 @@ right now. Half a day.
 
 ---
 
-### `[ ]` 0.0 Commit what is already on disk
+### `[x]` 0.0 Commit what is already on disk  DONE 2026-10-01 (51c8daa)
 
 There are six untracked files from the measurement work. Commit them before touching
 code so the diff of real changes stays clean.
