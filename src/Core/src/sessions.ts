@@ -6,7 +6,7 @@
 // the transcripts under ~/.claude/projects and the Shadow disk persists, so all we have to remember is
 // the id.
 import { existsSync, readFileSync } from 'node:fs';
-import { writeFileAtomic } from './atomic.ts';
+import { reportWriteFailure, writeFileAtomic } from './atomic.ts';
 import path from 'node:path';
 
 export interface SessionRecord {
@@ -50,7 +50,13 @@ export class SessionStore {
   private save(): void {
     try {
       writeFileAtomic(this.file, JSON.stringify(this.data, null, 2));
-    } catch { /* best effort: losing the id costs memory, not correctness */ }
+    } catch (e) {
+      // Losing one id costs continuity, not correctness, so this must not throw. But losing EVERY id
+      // means Aang restarts into amnesia roughly six times a day and never says why: this file stopped
+      // being written on 2026-09-24, within a minute of turns.jsonl, and the silent catch that used to
+      // be here is the reason a week passed before anyone noticed.
+      reportWriteFailure(this.file, e);
+    }
   }
 
   /** The id to resume for this lane, or undefined if there is none or it is too old. */

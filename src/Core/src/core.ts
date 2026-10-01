@@ -6,7 +6,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync, unlinkSy
 import os from 'node:os';
 import path from 'node:path';
 import { parseFromBody } from './protocol.ts';
-import { writeFileAtomic } from './atomic.ts';
+import { reportWriteFailure, writeFileAtomic } from './atomic.ts';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { MAC_LISTENER_PORT, macSetupScript } from './macsetup.ts';
 import { SWEEP_REQUEST, cleanField, safeUrl, scoreOf, verdictFor } from './jobs.ts';
@@ -1745,10 +1745,14 @@ export class Core {
   private record(r: TurnRecord): void {
     this.recent.set(r.id, { lane: r.lane, user: r.user, reply: r.reply });
     if (this.recent.size > 60) this.recent.delete(this.recent.keys().next().value as string);
+    // Best effort means do not crash a turn over a metrics line. It does NOT mean fail in silence:
+    // this write stopped working on 2026-09-24 and went unnoticed for six days, because the catch
+    // that used to be here threw the reason away. See reportWriteFailure.
+    const turns = path.join(this.cfg.stateDir, 'turns.jsonl');
     try {
       mkdirSync(this.cfg.stateDir, { recursive: true });
-      appendFileSync(path.join(this.cfg.stateDir, 'turns.jsonl'), JSON.stringify(r) + '\n');
-    } catch { /* metrics are best effort */ }
+      appendFileSync(turns, JSON.stringify(r) + '\n');
+    } catch (e) { reportWriteFailure(turns, e); }
     this.onTurn(r);
   }
 }
