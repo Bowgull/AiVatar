@@ -84,6 +84,8 @@ static class Paths
 static class Log
 {
     static readonly object gate = new();
+    static int failures;
+
     public static void Write(string msg)
     {
         try
@@ -91,11 +93,33 @@ static class Log
             lock (gate)
             {
                 var p = Paths.File("body.log");
-                if (System.IO.File.Exists(p) && new FileInfo(p).Length > 512 * 1024) System.IO.File.Delete(p);
-                System.IO.File.AppendAllText(p, $"{DateTime.Now:HH:mm:ss.fff} {msg}{Environment.NewLine}");
+                // Rotate, do not delete. The old code deleted the whole file past 512 KiB, so the
+                // evidence of an incident could vanish before anyone looked - and the Body logs
+                // every window move, so it fills fast. One previous generation is kept, which is
+                // the difference between "what happened just before the crash" and nothing.
+                if (System.IO.File.Exists(p) && new FileInfo(p).Length > 512 * 1024)
+                {
+                    var old = p + ".1";
+                    try { System.IO.File.Delete(old); } catch { /* no previous generation */ }
+                    try { System.IO.File.Move(p, old); } catch { System.IO.File.Delete(p); }
+                }
+                // Full dates. The timestamps here were HH:mm:ss.fff with no date, and while
+                // diagnosing a fault on 2026-10-01 a line from 2026-09-24 read exactly like one
+                // from that morning and sent the diagnosis in the wrong direction more than once.
+                System.IO.File.AppendAllText(p, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} {msg}{Environment.NewLine}");
+                failures = 0;
             }
         }
-        catch { /* logging is best effort */ }
+        catch (Exception e)
+        {
+            // Best effort means do not crash the Body over a log line. It does not mean failing in
+            // silence: the Core's equivalent stopped writing on 2026-09-24 and nobody could have
+            // known for six days, because the catch here threw the reason away. Loud once, then at
+            // each power of ten, so a persistent failure keeps a pulse instead of a flood.
+            var n = ++failures;
+            if (n == 1 || Math.Log10(n) % 1 == 0)
+                try { Console.Error.WriteLine($"body.log write failed ({n}x): {e.Message}"); } catch { /* nowhere left to say it */ }
+        }
     }
 }
 
