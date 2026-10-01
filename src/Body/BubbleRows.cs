@@ -19,4 +19,9 @@ sealed class BubbleRows
     public string Icon = "";
     public List<BubbleRow> Items = new();
     public int? MoreCount;
+    /// <summary>The carved header plaque (mockup D), or null. Rare by design: board E's rule is that it
+    /// "only appears when something is genuinely urgent, its colour saying which tier", and present_list's
+    /// own schema says the same to the model. A plaque on every list is a banner nobody reads.</summary>
+    public string? HeaderText;
+    public string? HeaderTone;
 }
