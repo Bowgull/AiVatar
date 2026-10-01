@@ -67,6 +67,32 @@ sealed class CoreSupervisor : IDisposable
 
     void Set(string s) { if (s == Status) return; Status = s; Log.Write("core supervisor: " + s); StatusChanged?.Invoke(s); }
 
+    /// <summary>Raised once, when restarting has been given up on. The pet says this out loud.</summary>
+    public event Action<string>? GaveUp;
+
+    // A crash loop with no limit is a pet that looks alive and does nothing, forever, quietly. The
+    // backoff below resets to 2s whenever a Core survived a minute, so a Core that dies at 61 seconds
+    // restarts every 63 seconds for as long as the machine is on and never escalates.
+    //
+    // The window has to be wide enough to catch that: five deaths at ~63s apart span about 5m15s, so a
+    // five-minute window would let the oldest age out and never trip. Ten minutes catches both that and
+    // a fast loop, while still being impossible to reach by accident - a healthy Core runs for hours,
+    // and Shadow's own four-hour reboot produces one death, not five.
+    const int BurstLimit = 5;
+    static readonly TimeSpan BurstWindow = TimeSpan.FromMinutes(10);
+    readonly Queue<DateTime> deaths = new();
+
+    /// <summary>True once the Core has died too often to keep restarting. Restarting Aang clears it.</summary>
+    public bool GivenUp { get; private set; }
+
+    /// <summary>Records a death and says whether that is now a loop rather than bad luck.</summary>
+    bool TooManyDeaths(DateTime now)
+    {
+        deaths.Enqueue(now);
+        while (deaths.Count > 0 && now - deaths.Peek() > BurstWindow) deaths.Dequeue();
+        return deaths.Count >= BurstLimit;
+    }
+
     async Task RunAsync()
     {
         if (coreDir == null) { Set("Core folder not found, not starting it"); return; }
@@ -131,6 +157,21 @@ sealed class CoreSupervisor : IDisposable
                 // dispose races them, which is the leak that started all of the above.
                 try { await Task.WhenAll(pipes).WaitAsync(TimeSpan.FromSeconds(5)); } catch { /* a slow tail must not block the restart */ }
                 writer?.Dispose();
+
+                // Stop rather than loop forever. Without this, a Core that cannot stay up is invisible:
+                // the pet sits there looking perfectly normal while nothing behind it works, which is the
+                // same silent-failure shape as the write that died for six days.
+                if (TooManyDeaths(DateTime.UtcNow))
+                {
+                    GivenUp = true;
+                    var ran = (int)(DateTime.UtcNow - started).TotalSeconds;
+                    Set($"gave up after {BurstLimit} crashes in {BurstWindow.TotalMinutes:0} minutes");
+                    GaveUp?.Invoke($"My brain keeps crashing, {BurstLimit} times in the last {BurstWindow.TotalMinutes:0} minutes, " +
+                                   $"the last one after {ran} second{(ran == 1 ? "" : "s")}. I have stopped trying so it does not loop forever. " +
+                                   "Restart me once you have had a look at core.log.");
+                    return;
+                }
+
                 pause = DateTime.UtcNow - started > TimeSpan.FromMinutes(1) ? TimeSpan.FromSeconds(2) : TimeSpan.FromSeconds(Math.Min(30, pause.TotalSeconds * 2));
             }
             catch (OperationCanceledException) { break; }
