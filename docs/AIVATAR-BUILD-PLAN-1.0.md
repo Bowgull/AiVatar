@@ -586,7 +586,7 @@ instantly, the convention every RPG uses. `[typewriter reveal, StepReveal]`
 
 ---
 
-### `[ ]` 4.3 Scroll back through a conversation
+### `[x]` 4.3 Scroll back through a conversation
 
 **Not built.** Both voices distinguishable without reading a word: yours on recessed plum
 with a `YOU` label, his on parchment. Conversations separated by natural time gaps,

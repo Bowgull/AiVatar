@@ -28,11 +28,10 @@ sealed class PanelWindow : Form
     List<DraftRow> rows = new();
 
     // History: every past message, newest first, searchable as he types, and copyable (the whole text of a long answer).
-    readonly TextBox search = new(), historyText = new();
-    readonly ListView history;
+    readonly TextBox search = new();
+    ConversationView conversation = null!;
     readonly Button copyBtn;
     readonly System.Windows.Forms.Timer searchWait = new() { Interval = 250 };
-    List<(string When, string Who, string Text)> historyRows = new();
     bool historyAsked;
 
     // Settings: the switches from his right-click menu, in one place. The Body owns them; this only shows and flips them.
@@ -134,23 +133,23 @@ sealed class PanelWindow : Form
         search.PlaceholderText = "Search everything you and Aang have said...";
         search.TextChanged += (_, _) => { searchWait.Stop(); searchWait.Start(); };
         searchWait.Tick += (_, _) => { searchWait.Stop(); _ = send(new { t = "history", q = search.Text.Trim() }); };
-        history = MakeList(("When", 130), ("Who", 60), ("What was said", 520));
-        history.Dock = DockStyle.Top; history.Height = (int)(190 * s);
-        history.SelectedIndexChanged += (_, _) => ShowHistory();
-        historyText.Multiline = true; historyText.ReadOnly = true; historyText.ScrollBars = ScrollBars.Vertical; historyText.BorderStyle = BorderStyle.None;
-        historyText.BackColor = Theme.Panel2; historyText.ForeColor = Theme.Text; historyText.Font = Theme.Font(Theme.Face, 14f); historyText.Dock = DockStyle.Fill;
+        // The conversation itself, not a table of it (4.3). A three-column ListView with the selected row in
+        // a box underneath answers "find the turn where I said X" and cannot answer "what were we talking
+        // about on Monday", which is the thing he actually asked for. Both voices are now on screen at once
+        // and told apart without reading a word.
+        conversation = new ConversationView(s) { Dock = DockStyle.Fill, EmptyMessage = "Nothing here yet." };
         copyBtn = MakeButton("Copy", Kind.Gold);
         copyBtn.Click += (_, _) =>
         {
-            if (historyText.TextLength == 0) return;
-            try { Clipboard.SetDataObject(historyText.Text, true, 5, 60); copyBtn.Text = "Copied"; } catch { copyBtn.Text = "Try again"; }
+            if (conversation.IsEmpty) return;
+            try { Clipboard.SetDataObject(conversation.AsText(), true, 5, 60); copyBtn.Text = "Copied"; } catch { copyBtn.Text = "Try again"; }
             var back = new System.Windows.Forms.Timer { Interval = 1200 }; back.Tick += (_, _) => { copyBtn.Text = "Copy"; back.Dispose(); }; back.Start();
         };
         var hBar = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = (int)(52 * s), Padding = new Padding((int)(14 * s), (int)(8 * s), 0, 0), BackColor = Theme.Ink };
         hBar.Controls.Add(copyBtn);
-        var hText = new Panel { Dock = DockStyle.Fill, Padding = new Padding((int)(14 * s), (int)(10 * s), (int)(14 * s), 0) }; hText.Controls.Add(historyText);
-        var hTop = new Panel { Dock = DockStyle.Top, Height = (int)(236 * s), Padding = new Padding((int)(14 * s), (int)(12 * s), (int)(14 * s), 0) };
-        hTop.Controls.Add(history); hTop.Controls.Add(new Panel { Dock = DockStyle.Top, Height = (int)(8 * s) }); hTop.Controls.Add(search);
+        var hText = new Panel { Dock = DockStyle.Fill, Padding = new Padding((int)(14 * s), (int)(4 * s), (int)(14 * s), 0) }; hText.Controls.Add(conversation);
+        var hTop = new Panel { Dock = DockStyle.Top, Height = (int)(54 * s), Padding = new Padding((int)(14 * s), (int)(12 * s), (int)(14 * s), 0) };
+        hTop.Controls.Add(search);
         var historyPage = new Panel { Dock = DockStyle.Fill };
         historyPage.Controls.Add(hText); historyPage.Controls.Add(hBar); historyPage.Controls.Add(hTop);
         historyPage.Controls.SetChildIndex(hText, 0);
@@ -286,25 +285,15 @@ sealed class PanelWindow : Form
     public void LoadHistory(JsonElement m)
     {
         if (Str(m, "q") != search.Text.Trim()) return;
-        historyRows = new();
+        var list = new List<ConversationView.Turn>();
         if (m.TryGetProperty("items", out var items) && items.ValueKind == JsonValueKind.Array)
-            foreach (var it in items.EnumerateArray()) historyRows.Add((Day(Str(it, "ts")) + " " + Clock(Str(it, "ts")), Str(it, "who"), Str(it, "text")));
-        history.BeginUpdate(); history.Items.Clear();
-        foreach (var r in historyRows)
-        {
-            var li = new ListViewItem(r.When); li.SubItems.Add(r.Who); li.SubItems.Add(r.Text.Replace("\r", " ").Replace("\n", " "));
-            history.Items.Add(li);
-        }
-        history.EndUpdate();
-        if (history.Items.Count > 0) history.Items[0].Selected = true; else historyText.Text = search.Text.Length > 0 ? "Nothing matches that." : "";
+            foreach (var it in items.EnumerateArray()) list.Add(new ConversationView.Turn(Str(it, "ts"), Str(it, "who"), Str(it, "text")));
+        // Oldest first: a conversation is read downwards, and the Core returns newest first for the old table.
+        list.Reverse();
+        conversation.EmptyMessage = search.Text.Length > 0 ? "Nothing matches that." : "Nothing here yet.";
+        conversation.SetTurns(list, atNewest: search.Text.Length == 0);   // search results start at the top
     }
 
-    void ShowHistory()
-    {
-        if (history.SelectedIndices.Count != 1) return;
-        var r = historyRows[history.SelectedIndices[0]];
-        historyText.Text = r.Text.Replace("\r", "").Replace("\n", "\r\n");
-    }
 
     /// <summary>"2026-09-21 18:04:10" (UTC, as stored) as a Toronto time of day.</summary>
     static string Clock(string stamp)
