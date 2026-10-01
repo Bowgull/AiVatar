@@ -321,6 +321,47 @@ export function tidyPaths(text: string): string {
 }
 
 /** A short, plain sentence describing a tool call, for the receipt line and the permission question. */
+/**
+ * The same description, with the parts that should not sit on disk taken out.
+ *
+ * WHY THIS IS SEPARATE: describeCall has two jobs that pull in opposite directions. It writes the
+ * permission question Joshua reads, where the full command is the whole point - a question reading
+ * "use PowerShell" with no command in it is a question he cannot answer, which is why the detail was
+ * put in (see the note on the Bash case below). And it writes the action log, which persists, is
+ * read back by `what did you do`, and is a receipt book rather than a transcript.
+ *
+ * Finding M10 in PORT-TO-MAC.md: `actions.jsonl` was keeping full shell command lines and clipboard
+ * text. A command line is where tokens, keys and paths live, and it lands in a plain file that
+ * nothing rotates. Correcting M10 while here: what Aang READS from the clipboard was never logged
+ * (`read_clipboard` returns a fixed string); only what he PUTS there was.
+ *
+ * What stays is the shape of what happened: which tool, which app, which field, the command's name.
+ * `run git ...` is still a useful receipt. `run git push https://user:token@host` is a leak. Joshua
+ * saw and approved the full text at the time; keeping it afterwards buys nothing.
+ */
+export function describeForLog(tool: string, input: Record<string, unknown>): string {
+  const str = (k: string) => typeof input?.[k] === 'string' ? String(input[k]) : '';
+  const clip = (v: string, n: number) => v.length > n ? v.slice(0, n) + '...' : v;
+  switch (tool) {
+    case 'Bash': case 'PowerShell': case 'mcp__aang__run': {
+      // Keep the program being run, drop its arguments: enough to answer "what did you do", not
+      // enough to hand over a token. A leading `cd ... &&` is scaffolding, same as in describeCall.
+      const cmd = str('command').replace(/^\s*cd\s+[^&]+&&\s*/i, '').trim();
+      const name = cmd.split(/\s+/, 1)[0] ?? '';
+      return name ? `run ${clip(name, 30)}${cmd.length > name.length ? ' ...' : ''}` : 'run a command';
+    }
+    case 'mcp__aang__copy_to_clipboard':
+      return 'put something on your clipboard, replacing what was there';
+    case 'mcp__aang__fill_control': {
+      // The field and the app are the receipt. What was typed into it is not: this is the one tool
+      // that can put a typed secret on disk, and uia.ts already refuses password fields outright.
+      const where = clip(str('name'), 40), app = clip(str('app'), 30);
+      return `type into "${where}"${app ? ` in ${app}` : ''}`;
+    }
+    default: return describeCall(tool, input);
+  }
+}
+
 export function describeCall(tool: string, input: Record<string, unknown>): string {
   const s = (k: string) => typeof input?.[k] === 'string' ? tidyPaths(String(input[k])) : '';
   const short = (v: string, n = 90) => v.length > n ? v.slice(0, n) + '...' : v;

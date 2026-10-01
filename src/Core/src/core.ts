@@ -25,7 +25,7 @@ import type { ActRunner } from './uia.ts';
 import { copyThing, deleteThing, emptyOldTrash, listFolder, makeFolder, moveThing } from './organise.ts';
 import type { Result as OrganiseResult } from './organise.ts';
 import type { Doers } from './tools.ts';
-import { TOOL_NAMES, QUICK_TOOLS, QUICK_HIDDEN, BUILTIN_SHELL, BUILTIN_WRITE, PLAYWRIGHT_SERVER, SHELL_TOOLS, WEB_PROMPT, WEB_TOOLS, describeCall, isLauncher, makeToolServer, reachesNetwork } from './tools.ts';
+import { TOOL_NAMES, QUICK_TOOLS, QUICK_HIDDEN, BUILTIN_SHELL, BUILTIN_WRITE, PLAYWRIGHT_SERVER, SHELL_TOOLS, WEB_PROMPT, WEB_TOOLS, describeCall, describeForLog, isLauncher, makeToolServer, reachesNetwork } from './tools.ts';
 import { HookServer, HookTracker, isLoopback } from './hooks.ts';
 import { Reminders } from './reminders.ts';
 import { SessionStore } from './sessions.ts';
@@ -501,7 +501,9 @@ export class Core {
   private pendingList: StructuredList | null = null;
 
   private reportAction(tool: string, input: Record<string, unknown>, failed: boolean, text: string, fromWorker = false): void {
-    const rec = this.actions.add({ tool, did: (fromWorker ? '(background job) ' : '') + describeCall('mcp__aang__' + tool, input), ok: !failed, note: failed ? text : '' });
+    // describeForLog, not describeCall: the permission question Joshua answers needs the full
+    // command, the receipt that persists does not. See tools.ts and finding M10.
+    const rec = this.actions.add({ tool, did: (fromWorker ? '(background job) ' : '') + describeForLog('mcp__aang__' + tool, input), ok: !failed, note: failed ? text : '' });
     if (!fromWorker) this.turnActions.push({ did: rec.did, ok: rec.ok, note: rec.note });   // a job's actions are not the chat reply's to check
     this.sendTo('discord', { t: 'action', text: formatAction(rec) });        // a receipt in #log, silently
   }
