@@ -467,7 +467,12 @@ sealed class BubbleView : IDisposable
         // A short reply does not fill the minimum bubble height, so the leftover space is split above and
         // below instead of all falling underneath the text. Joshua asked for even padding; the MinH clamp
         // had quietly reintroduced 11px above and 27px below on a one-liner.
-        var used = count * LineH + (asking ? AskRow : 0) + (Asked.Length > 0 ? AskedRowH : 0);
+        // RowsH belongs here, and leaving it out was a real bug (found 2026-10-01 by looking at a capture
+        // rather than at the tests, which all passed). HeightFor already grows the bubble by RowsH, so a reply
+        // with rows got a tall bubble and a `slack` computed as if the rows did not exist. Half that phantom
+        // slack went above the text, which pushed the rows down by the same amount and straight out of the
+        // frame: with five rows, two of them and the "N more" line drew on the desktop below the bubble.
+        var used = count * LineH + (asking ? AskRow : 0) + (Asked.Length > 0 ? AskedRowH : 0) + RowsH;
         var slack = Math.Max(0f, (Bottom - top) - 2 * Pad - used);
         var textTop = top + Pad + slack / 2f;
         if (Asked.Length > 0)
@@ -548,6 +553,20 @@ sealed class BubbleView : IDisposable
     /// icon on the left naming what kind of thing it is, an optional chip on the right saying how it is doing.
     /// At most 5 rows ever reach here (present_list's own schema caps it), so this never needs to scroll on
     /// its own - a "moreCount" line under the rows is the overflow, not a scrollbar.</summary>
+    /// <summary>Shorten <paramref name="s"/> to fit <paramref name="w"/>, ending in "..." when anything was
+    /// dropped. Takes its own measuring function because a row's title and its subtitle are different fonts:
+    /// the title reuses the bubble's cached metrics, the subtitle has to be measured against its own.</summary>
+    static string Clip(string s, float w, Func<string, float> measure)
+    {
+        if (string.IsNullOrEmpty(s) || measure(s) <= w) return s;
+        var dots = measure("...");
+        var t = s;
+        while (t.Length > 0 && measure(t) + dots > w) t = t[..^1];
+        // Trailing punctuation before an ellipsis reads as a typo ("the scene...."), the same reason
+        // Ellipsize() trims it.
+        return t.TrimEnd(',', ';', ':', '.', ' ', '-') + "...";
+    }
+
     void DrawRows(Graphics g, float top)
     {
         if (rows == null) return;
@@ -594,15 +613,15 @@ sealed class BubbleView : IDisposable
 
             var textX = slotRect.Right + 10;
             var textW = rowRect.Right - textX - 8 - chipW;
-            var title = item.Title;
-            while (title.Length > 0 && Width(title) > textW) title = title[..^1];   // reuses the bubble's own font-metric cache
-            g.DrawString(title, bold, titleB, textX, rowRect.Y + 4, StringFormat.GenericTypographic);
+            // Cut with an ellipsis, never mid-word in silence. Both of these used to drop characters off the end
+            // with nothing to show for it, so "Customer Success Manager" became "Customer Success Mana" and read
+            // as a rendering fault rather than as a shortened line (seen in snaps-bubble/03, 2026-10-01). The
+            // main text already ellipsizes - Ellipsize() above - and rows now match it.
+            g.DrawString(Clip(item.Title, textW, t => Width(t)), bold, titleB, textX, rowRect.Y + 4, StringFormat.GenericTypographic);
             if (!string.IsNullOrEmpty(item.Subtitle))
             {
-                var sub = item.Subtitle;
-                var subMeasure = g.MeasureString(sub, subF, PointF.Empty, StringFormat.GenericTypographic).Width;
-                while (sub.Length > 0 && subMeasure > textW) { sub = sub[..^1]; subMeasure = g.MeasureString(sub, subF, PointF.Empty, StringFormat.GenericTypographic).Width; }
-                g.DrawString(sub, subF, subB, textX, rowRect.Y + 18, StringFormat.GenericTypographic);
+                var measure = (string t) => g.MeasureString(t, subF, PointF.Empty, StringFormat.GenericTypographic).Width;
+                g.DrawString(Clip(item.Subtitle, textW, measure), subF, subB, textX, rowRect.Y + 18, StringFormat.GenericTypographic);
             }
             y += RowH + RowGap;
         }
