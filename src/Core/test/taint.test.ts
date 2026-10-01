@@ -129,3 +129,40 @@ test('tools that are not file reads still do not mark the turn', async () => {
   assert.equal(core.tainted, false, 'writing a file brings nothing in; only reading does');
   core.memory.close();
 });
+
+// ---------------------------------------------------------------- 1.2, 2026-10-01
+// Some paths are refused outright, before Joshua is ever asked. The shell and the web already worked
+// this way; file reads did not, and reads were not path-checked at all. A question he might wave
+// through mid-raid is not a control, so these never become a question.
+
+test('Lindsay\'s folder is refused even with read files trusted', async () => {
+  const core = coreWithTrust('read files');
+  assert.equal(await core.askPermission('Read', { file_path: 'G:/My Drive/Lindsay\'s Job Hunt/tracker.xlsx' }), false,
+    'his instruction was explicit and permanent; trust must not override it');
+  assert.equal(await core.askPermission('Read', { file_path: 'G:/My Drive/\u{1F3AF} Lindsay\'s Job Hunt/resume.docx' }), false,
+    'the shared copy has an emoji in the name and must be caught too');
+  core.memory.close();
+});
+
+test('key stores are refused even with read files trusted', async () => {
+  const core = coreWithTrust('read files');
+  for (const p of ['C:/Users/Shadow/.ssh/id_rsa', 'C:/Users/Shadow/.claude/projects/session.jsonl', 'C:/Users/Shadow/code/.env'])
+    assert.equal(await core.askPermission('Read', { file_path: p }), false, `${p} must never be readable`);
+  core.memory.close();
+});
+
+test('a refusal on an off-limits path says a rule did it, not Joshua', async () => {
+  // 2026-09-21: a safety rule refused something and Aang told him he had declined it in the bubble.
+  const core = coreWithTrust('read files');
+  await core.askPermission('Read', { file_path: 'C:/Users/Shadow/.ssh/id_rsa' });
+  const why = core.whyNot();
+  assert.match(why, /safety rule/);
+  assert.match(why, /was not asked and did not say no/);
+  core.memory.close();
+});
+
+test('his own documents are still readable: the guard has not swallowed the point of the phase', async () => {
+  const core = coreWithTrust('read files');
+  assert.equal(await core.askPermission('Read', { file_path: 'G:/My Drive/Job Search 2026/Master Resume/resume.docx' }), true);
+  core.memory.close();
+});

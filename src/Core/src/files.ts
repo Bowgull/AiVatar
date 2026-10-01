@@ -31,8 +31,83 @@ const MAX_BYTES = 2_000_000;
 
 export interface Protected { stateDir: string; dataDir: string }
 
+/**
+ * Folder names that are somebody else's, matched by name wherever they appear.
+ *
+ * Joshua's instruction, given twice and without qualification: "My Drive contains a folder called
+ * `Lindsay's Job Hunt`. That is someone else's data. Exclude it explicitly and permanently."
+ *
+ * Until now that instruction existed only as a sentence in a document. A sentence in a document is
+ * advice; this is the rule. Found on 2026-10-01 that there are TWO such folders, which is why this
+ * matches by name rather than by path:
+ *   - `Lindsay's Job Hunt`, owned by Joshua, sitting in his own My Drive. This is the one that
+ *     actually lands on this disk when Drive mirrors.
+ *   - `🎯 Lindsay's Job Hunt`, owned by her and shared with him. The emoji is why the comparison
+ *     normalises rather than testing equality: a rule written for the plain name would miss it.
+ * Matching by name also covers the folder being moved, renamed around, or shared again later, which
+ * a fixed path would not.
+ */
+const SOMEONE_ELSES = ["lindsay's job hunt"];
+
+/**
+ * Fold a path segment down to just its words, so a name still matches after someone has decorated
+ * it. Strips emoji and punctuation, turns curly apostrophes into straight ones (Google Docs and
+ * Windows both produce them), lowercases, and collapses runs of space.
+ */
+function plainName(segment: string): string {
+  return segment
+    .normalize('NFKD')
+    .replace(/[‘’ʼ]/g, "'")      // curly and modifier apostrophes
+    .toLowerCase()
+    .replace(/[^a-z0-9']+/g, ' ')               // emoji, punctuation, separators
+    .trim()
+    .replace(/\s+/g, ' ');
+}
+
+/**
+ * Why Aang may not touch this path at all, read or write, or null if he may.
+ *
+ * Separate from refusal() below, which is about writing. These are places whose CONTENTS are not his
+ * to see: other people's data, and the credential stores that would let one bad read become a much
+ * worse day. Nothing here was covered before 2026-10-01: refusal() protected his own state, his
+ * database and Windows, and reads were not path-checked at all.
+ */
+export function offLimits(file: string): string | null {
+  const full = realish(file);                   // follow shortcuts first, or a link bypasses every rule below
+  const lower = full.toLowerCase();
+  const segments = full.split(/[\\/]+/);
+
+  for (const seg of segments) {
+    if (SOMEONE_ELSES.includes(plainName(seg))) return 'that folder is someone else\'s, and it is not mine to open';
+  }
+
+  const home = os.homedir().toLowerCase();
+  const under = (dir: string) => { const d = path.resolve(dir).toLowerCase(); return lower === d || lower.startsWith(d + path.sep); };
+
+  // Keys and tokens. Reading any of these once is enough to matter, so they are refused rather than
+  // asked about: a question Joshua might wave through mid-raid is not a control.
+  if (under(path.join(home, '.ssh'))) return 'those are your SSH keys';
+  if (under(path.join(home, '.aws'))) return 'those are your AWS credentials';
+  if (under(path.join(home, '.gnupg'))) return 'those are your GPG keys';
+  // ~/.claude holds the credentials Aang himself signs in with, plus every session transcript on this
+  // machine - 722 of them when this was written. A document that could get him to read his own
+  // transcripts could get him to read anything he has ever been told.
+  if (under(path.join(home, '.claude'))) return 'that is my own Claude login and session history';
+  if (/[\\/]\.env(\.[^\\/]*)?$/.test(lower)) return 'a .env file holds keys and passwords';
+
+  // Browser profiles: Login Data, Cookies and Local State are where saved passwords and session
+  // cookies live. The whole profile folder goes, because the file names move between versions.
+  if (/[\\/](user data|profiles)[\\/]/.test(lower) && /(chrome|edge|brave|opera|vivaldi|chromium|firefox|mozilla)/.test(lower))
+    return 'that is a browser profile, where saved passwords and cookies are kept';
+
+  return null;
+}
+
 /** Why this path may not be written, or null if it may. */
 export function refusal(file: string, p: Protected): string | null {
+  // Anything nobody may touch certainly may not be written to.
+  const never = offLimits(file);
+  if (never) return never;
   const full = realish(file).toLowerCase();
   const under = (dir: string) => { const d = path.resolve(dir).toLowerCase(); return full === d || full.startsWith(d + path.sep); };
   if (under(p.stateDir)) return 'that is my own settings and permissions folder, and I never write to it myself';

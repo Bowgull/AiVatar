@@ -19,7 +19,7 @@ import { Memory } from './memory.ts';
 import { QuotaPolicy } from './quota.ts';
 import { MODELS, pickLane } from './route.ts';
 import type { Lane as LaneName } from './route.ts';
-import { editExact, refusal, undoLast, writeWhole } from './files.ts';
+import { editExact, offLimits, refusal, undoLast, writeWhole } from './files.ts';
 import { describeMatches, isBrowser, listControlsText, needsCare, pickControl, runAct } from './uia.ts';
 import type { ActRunner } from './uia.ts';
 import { copyThing, deleteThing, emptyOldTrash, listFolder, makeFolder, moveThing } from './organise.ts';
@@ -492,6 +492,9 @@ export class Core {
     if (!path.isAbsolute(dir)) return 'Give the full path of the folder, starting with the drive.';
     const full = path.resolve(dir).toLowerCase(), state = path.resolve(this.cfg.stateDir).toLowerCase();
     if (full === state || full.startsWith(state + path.sep)) return 'That is my own settings folder, which I do not open.';
+    // Belt and braces with the check in askPermission: a listing reached any other way is still refused.
+    const never = offLimits(dir);
+    if (never) return `I did not open it: ${never}.`;
     return listFolder(dir);
   }
 
@@ -1738,6 +1741,18 @@ export class Core {
     if (isShell && reachesNetwork(String(input?.command ?? ''))) {
       console.log('refused a shell command that reaches the network; look_up_web is the only way out');
       return this.refuse('a safety rule stopped it: commands may not reach the internet; use look_up_web. Joshua was not asked');
+    }
+    // Some paths are nobody's to read, not even once, and not even with a yes: other people's data,
+    // and the stores that hold keys and saved passwords. Refused before Joshua is asked, for the same
+    // reason the shell and the web are above - a question he might wave through mid-raid is not a
+    // control. Reads were not path-checked at all before 2026-10-01; refusal() guarded writes only.
+    if (READS_OUTSIDE_FILES.has(tool) || tool === 'mcp__aang__list_folder') {
+      const where = String(input?.file_path ?? input?.path ?? input?.pattern ?? '');
+      const never = where ? offLimits(where) : null;
+      if (never) {
+        console.log(`refused ${tool} on an off-limits path`);
+        return this.refuse(`a safety rule stopped it: ${never}. Joshua was not asked and did not say no`);
+      }
     }
     // Joshua's rule: ask once per kind, then trust it. Being asked the same thing every time is what
     // makes a prompt tiring, and a tiring prompt gets waved through without being read.
