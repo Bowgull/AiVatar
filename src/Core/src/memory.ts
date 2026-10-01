@@ -278,11 +278,35 @@ export class Memory {
       .slice(0, limit);
   }
 
-  private readText(rel: string): string {
-    try { return readFileSync(path.join(this.dataDir, rel), 'utf8'); } catch { return ''; }
+  /**
+   * Where the hand-written Brain notes live: the Drive folder if it is mounted, else the copy in the
+   * data folder.
+   *
+   * Until 2026-10-01 this only ever read `<dataDir>/Brain`, which on this machine is a copy somebody
+   * made by hand - its own first line said so: "mirror of Drive > Aang Brain > profile.md". It had
+   * drifted badly. profile.md was 520 bytes against the Drive original's 1,327, so Aang had been
+   * answering from a truncated version of who Joshua is, and every edit made in Drive since then had
+   * gone nowhere.
+   *
+   * Resolved per read rather than once at startup, because Drive is a network filesystem that can be
+   * signed out, offline, or simply not running yet when the Core starts. If it is not there, the
+   * local copy still answers, which is worse than Drive and far better than nothing.
+   */
+  private brainDir(): string {
+    const drive = process.env.AANG_BRAIN_DIR
+      ?? path.join(process.env.GOOGLE_DRIVE_ROOT ?? 'G:\\My Drive', 'Aang Brain');
+    try { if (existsSync(drive)) return drive; } catch { /* unreachable network path */ }
+    return path.join(this.dataDir, 'Brain');
   }
-  profile(): string { return this.readText('Brain/profile.md'); }
-  learned(): string { return this.readText('Brain/learned.md'); }
+
+  private readText(name: string): string {
+    try { return readFileSync(path.join(this.brainDir(), name), 'utf8'); } catch { return ''; }
+  }
+  profile(): string { return this.readText('profile.md'); }
+  learned(): string { return this.readText('learned.md'); }
+
+  /** Which Brain folder is actually being read, for a health check and for the Core to log at start. */
+  brainSource(): string { return this.brainDir(); }
 
   /** Words that match almost every turn and so carry no meaning for a search. */
   static readonly STOPWORDS = new Set(('what did we say said about the and you your for with that this have has had was were are ' +
