@@ -28,8 +28,11 @@ Status markers used below:
 | `[x]` | done and verified |
 | **BLOCKS** | something else cannot start until this is `[x]` |
 
-**Where we are right now: PHASES 0 AND 1 COMPLETE, plus an unplanned fix that turned out to
-matter more than either, and 5.7 absorbed into 0.2. Phase 2 (Drive) is unblocked. Lindsay path resolved: there are TWO folders, `Lindsay's Job Hunt` in his own My Drive and `🎯 Lindsay's Job Hunt` shared by her; both are excluded by normalised name.**
+**Where we are right now: PHASES 0, 1 AND 2 COMPLETE (2.4 Obsidian outstanding, optional), plus an unplanned fix that turned out to
+matter more than either, and 5.7 absorbed into 0.2. 2.5 PASSED: asked "whats my status with octup", Aang called Read and answered correctly from
+applications.md. Two prompt faults found and fixed to get there, neither of them plumbing: voice.ts
+told him to OFFER to look, and profile.md only told him to read the file if he already knew the
+question was about the job hunt. Lindsay path resolved: there are TWO folders, `Lindsay's Job Hunt` in his own My Drive and `🎯 Lindsay's Job Hunt` shared by her; both are excluded by normalised name.**
 
 ### Found while verifying 0.1: Aang was being stalled mid-reply, for six days
 
@@ -399,7 +402,7 @@ readable. Half a day.
 
 ---
 
-### `[ ]` 2.1 Sign into Google Drive in mirror mode
+### `[x]` 2.1 Drive signed in and mounted (G:, streaming)  DONE 2026-10-01
 
 **[verified]** Drive for Desktop is **already installed** at
 `C:\Program Files\Google\Drive File Stream\131.0.2.0`. It is not signed in and no drive is
@@ -416,7 +419,7 @@ once signed in, or from the MacBook.
 
 ---
 
-### `[ ]` 2.2 Point Aang at the real Brain folder
+### `[x]` 2.2 Point Aang at the real Brain folder  DONE 2026-10-01 (ec02f16)
 
 **[verified]** There are two copies of these files:
 
@@ -440,7 +443,7 @@ Nothing writes it. Whatever used to has been removed. Correct the header or dele
 
 ---
 
-### `[ ]` 2.3 Write the rules file
+### `[x]` 2.3 Write the rules file  DONE 2026-10-01 (5026447)
 
 A `CLAUDE.md` inside the Drive folder describing the structure and where new files go.
 This is the one concrete technique worth copying from the source video, and it prevents
@@ -464,7 +467,7 @@ there, the only conflict risk is you against yourself.
 
 ---
 
-### `[ ]` 2.5 Prove it works
+### `[x]` 2.5 Prove it works  PASSED 2026-10-01
 
 Ask Aang the question this whole phase exists for:
 
@@ -724,7 +727,7 @@ Update this table as you go. It is the answer to "where are we".
 |---|---|---|
 | 0 | cheaper conversations, no silent amnesia | `[x]` **done** |
 | 1 | safe to read documents | `[x]` **done** |
-| 2 | he can read your Drive | `[ ]` **ready to start** |
-| 3 | he learns from it | `[ ]` blocked by 2 |
+| 2 | he can read your Drive | `[x]` **done** |
+| 3 | he learns from it | `[ ]` **ready to start** |
 | 4 | he is pleasant to use | `[ ]` 4.1 can start now |
 | 5 | the rest | `[ ]` any time |
