@@ -93,7 +93,23 @@ await sleep(2200);
 await snap('03_five_rows');
 
 // 4. A permission question. Different furniture again: the choices sit inside the same frame.
-send({ t: 'ask', id: 'perm9', tool: 'Read', question: 'read G:\\My Drive\\Job Search 2026\\applications.md', remembers: 'read and search your files' });
+// 5. The plaque: the one case it exists for, something genuinely time-critical.
+send({
+  t: 'bubble', id: 'look5', who: 'Aang', stream: false,
+  text: 'Two things need you before tomorrow.',
+  list: {
+    icon: 'deadline',
+    header: { text: 'DUE TOMORROW', tone: 'careful' },
+    items: [
+      { title: 'BeMo', subtitle: 'Functional test due 2 Oct', chipText: 'Test', chipTone: 'careful' },
+      { title: 'FreeWill', subtitle: 'Follow up, applied 18 Sept', chipText: 'Chase', chipTone: 'normal' },
+    ],
+  },
+});
+await sleep(2200);
+await snap('05_plaque');
+
+send({ t: 'permission', id: 'perm9', tool: 'Read', question: 'read G:\\My Drive\\Job Search 2026\\applications.md', remembers: 'read and search your files' });
 await sleep(1800);
 await snap('04_asking');
 

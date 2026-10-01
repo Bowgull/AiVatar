@@ -78,8 +78,14 @@ sealed class BubbleView : IDisposable
     const float RowH = 34f, RowGap = 5f, RowIconSlot = 22f;
     /// <summary>Extra height the rows need, added into HeightFor's own clamp - zero with no list, so nothing
     /// here changes a plain reply's layout.</summary>
+    const float PlaqueH = 22f, PlaqueGap = 6f;
+    /// <summary>Whether this list carries a header plaque. Checked in one place so the height and the drawing
+    /// can never disagree - leaving the rows out of the height calculation is exactly the bug that pushed two
+    /// of them onto the desktop (2026-10-01).</summary>
+    bool HasPlaque => rows != null && !string.IsNullOrWhiteSpace(rows.HeaderText);
     float RowsH => rows == null || rows.Items.Count == 0 ? 0f
-        : rows.Items.Count * (RowH + RowGap) + 6f + (rows.MoreCount is int mc && mc > 0 ? 18f : 0f);
+        : rows.Items.Count * (RowH + RowGap) + 6f + (rows.MoreCount is int mc && mc > 0 ? 18f : 0f)
+          + (HasPlaque ? PlaqueH + PlaqueGap : 0f);
 
     // Two widths: a short reply keeps the narrow bubble; a long one widens to the left by WideExtra so it takes fewer
     // lines. Decided once per reply and kept while it streams, so the text re-wraps at most once.
@@ -427,6 +433,14 @@ sealed class BubbleView : IDisposable
         DrawGrain(g, path, pathBounds, Theme.WoodGrain, 7f);
         g.DrawPath(halo, path);                 // a dark edge under the gold, so it holds on a bright snowfield as well as a dark forest
         g.DrawPath(pen, path);
+        // The gold bevel (mockup D, finished 2026-10-01). A single flat stroke reads as an outline drawn round
+        // a shape; a carved frame is lit from above, so the gold is bright along the top and falls to GoldDeep
+        // along the bottom. GoldDeep already existed in Theme.cs as "the lip under a gold button" and was never
+        // used here. One gradient pen rather than two clipped arcs, because the outline includes the tail wedge
+        // and clipping an arbitrary path by quadrant is fragile.
+        using (var bevelBrush = new LinearGradientBrush(pathBounds, Theme.GoldLit, Theme.GoldDeep, 90f))
+        using (var bevel = new Pen(bevelBrush, Theme.Stroke * 0.55f) { LineJoin = LineJoin.Round })
+            g.DrawPath(bevel, path);
 
         // The reading pane: parchment inset inside the wood+gold frame, StyleLab 2026-09-22. Plain rounded rect,
         // no tail - the tail wedge stays wood, the same as every RPG dialogue box this was measured against.
@@ -437,7 +451,11 @@ sealed class BubbleView : IDisposable
             using var ip = RoundRect(inset, Math.Max(4f, Radius - 6f));
             using (var pg = new LinearGradientBrush(inset, Theme.Parch1, Theme.Parch2, 90f)) g.FillPath(pg, ip);
             DrawGrain(g, ip, inset, Theme.WithAlpha(Theme.ParchEdge, 22), 11f);
-            using (var ipen = new Pen(Theme.ParchEdge, 1.2f)) g.DrawPath(ipen, ip);
+            // Recessed, not painted on (mockup D). The bevel runs the opposite way to the frame's: the pane is
+            // sunk, so its top edge is in shadow and its bottom edge catches the light. That inversion is the
+            // whole reason it reads as carved rather than as a lighter rectangle sitting on wood.
+            using (var insetBevel = new LinearGradientBrush(inset, Theme.WithAlpha(Theme.Wood2, 190), Theme.WithAlpha(Theme.WoodCream, 150), 90f))
+            using (var ipen = new Pen(insetBevel, 1.6f)) g.DrawPath(ipen, ip);
         }
 
         if (Dots)
@@ -576,6 +594,28 @@ sealed class BubbleView : IDisposable
         using var subF = Theme.Font(Theme.Face, Theme.ReceiptPx);
         using var chipF = Theme.Font(Theme.PixelFace, 7f);
         var y = top;
+        // The recessed header plaque (mockup D). Carved INTO the parchment rather than laid on it: the
+        // WoodPlaque fill is the darkest colour in the theme and its comment already called it "recessed panel
+        // behind a header row", so it was made for this and had never been used. Its bevel runs shadow-at-top
+        // like the reading pane, the opposite way to the outer frame, which is what sells the recess. The tone
+        // colour is the tier - the same five-way vocabulary as the chips, never a sixth meaning.
+        if (HasPlaque)
+        {
+            var plaqueRect = new RectangleF(TextXNow, y, MaxW, PlaqueH);
+            var tone = ChipColor(rows.HeaderTone);
+            using (var pp = RoundRect(plaqueRect, 4f))
+            {
+                using (var fill = new SolidBrush(Theme.WoodPlaque)) g.FillPath(fill, pp);
+                using (var bev = new LinearGradientBrush(plaqueRect, Theme.WithAlpha(Color.Black, 150), Theme.WithAlpha(Theme.WoodCream, 90), 90f))
+                using (var bp = new Pen(bev, 1.4f)) g.DrawPath(bp, pp);
+            }
+            using (var stripe = new SolidBrush(tone)) g.FillRectangle(stripe, plaqueRect.X + 3, plaqueRect.Y + 4, 3f, plaqueRect.Height - 8);
+            using var plaqueF = Theme.Font(Theme.PixelFace, 8f);
+            using var plaqueB = new SolidBrush(tone);
+            g.DrawString(Clip(rows.HeaderText!, MaxW - 20f, t => g.MeasureString(t, plaqueF, PointF.Empty, StringFormat.GenericTypographic).Width),
+                plaqueF, plaqueB, plaqueRect.X + 12, plaqueRect.Y + 6, StringFormat.GenericTypographic);
+            y += PlaqueH + PlaqueGap;
+        }
         foreach (var item in rows.Items)
         {
             var rowRect = new RectangleF(TextXNow, y, MaxW, RowH);

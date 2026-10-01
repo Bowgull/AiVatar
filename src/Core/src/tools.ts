@@ -579,6 +579,10 @@ export function makeToolServer(
       tool('present_list', 'Call this alongside your normal reply whenever it is naturally a short list of things - jobs found, files, results, options - instead of writing the list as text with dashes or numbers. Your own reply stays one or two short sentences around it: what you found, and anything that needs saying after (a deadline, a question). Never repeat the items themselves in your reply text; this tool IS the list. At most 5 items. If there are more than that, put the real count in moreCount and say in your reply where the rest are (Discord, the Panel) - never silently drop them and never list more than 5 here.',
         {
           icon: z.enum(['job', 'email', 'meeting', 'file', 'deadline', 'reminder', 'session', 'link', 'memory']).describe('what KIND of thing every item in this list is - the whole list is one kind, never mixed'),
+          header: z.object({
+            text: z.string().describe('a few words, e.g. "2 due today" or "interview tomorrow"'),
+            tone: z.enum(['good', 'normal', 'careful', 'stop', 'inactive']),
+          }).optional().describe('a carved plaque above the rows. ONLY when something in this list is genuinely time-critical - a deadline today or tomorrow, an interview, something about to be missed. Leave it out otherwise: a plaque on every list is a banner, and a banner nobody can ignore is a banner nobody reads.'),
           items: z.array(z.object({
             title: z.string(),
             subtitle: z.string().optional().describe('one short line under the title - company and location for a job, sender for an email'),
