@@ -124,3 +124,48 @@ test('the paths refusal() already protected still are', () => {
   assert.match(refusal('C:/Windows/System32/drivers/etc/hosts', P) ?? '', /Windows/i);
   assert.match(refusal('notes.txt', P) ?? '', /full path/i);
 });
+
+// Found by sweeping the REAL mounted Drive on 2026-10-01, after the folder rule was already written
+// and passing. Two files of hers sat at the top level of My Drive, outside her folder, where the
+// folder rule could not reach them. The lesson is in the ordering: the rule looked complete until it
+// met the actual disk.
+
+test('her files outside her folder are refused too', () => {
+  for (const p of [
+    'G:/My Drive/Lindsay Bell - CV.pdf',
+    'G:/My Drive/Lindsay Bell - CV.gdoc',
+    'G:/My Drive/Lindsay Bell - Resume (Fairmont Royal York).docx',   // the one Drive shows her owning
+    'C:/Users/Shadow/Downloads/lindsay bell cv.pdf',
+  ]) assert.match(offLimits(p) ?? '', /someone else/i, `${p} must be refused`);
+});
+
+test('a file named after her email is refused', () => {
+  assert.match(offLimits('G:/My Drive/exports/lindsaybelldesign-export.zip') ?? '', /someone else/i);
+});
+
+test('Joshua\'s own notes that merely mention her are NOT refused', () => {
+  // The reason the test is her full name rather than her first name. This file is real, and it is
+  // his: a CereBro project note about a "Lindsay Launch". Blocking it would hide his own work from
+  // him with no explanation, which is how a rule stops being trusted.
+  assert.equal(offLimits('G:/My Drive/CereBro-Vault/07_Knowledge/obsidian-vault-archive-90/Sundesk Build History/snapshots/2026-05-10 0804 Sundesk Session Handoff - Lindsay Launch Checklist.md'), null);
+  assert.equal(offLimits('G:/My Drive/Lindsay birthday ideas/list.md'), null);
+  assert.equal(offLimits('C:/Users/Shadow/Documents/call with lindsay.txt'), null);
+});
+
+test('the real Drive paths, exactly as they are mounted right now', () => {
+  // Not synthetic. These are the paths as they exist on G: today, so this test fails the moment the
+  // rule and the disk disagree.
+  const refused = [
+    'G:/My Drive/Lindsay\'s Job Hunt',
+    'G:/My Drive/Lindsay Bell - CV.pdf',
+    'G:/My Drive/Lindsay Bell - CV.gdoc',
+  ];
+  const allowed = [
+    'G:/My Drive/Aang Brain/profile.md',
+    'G:/My Drive/Job Search 2026/Master Resume',
+    'G:/My Drive/Job Search 2026/Job Applications Tracker.gsheet',
+    'G:/My Drive/CereBro-Vault/README.md',
+  ];
+  for (const p of refused) assert.ok(offLimits(p), `${p} is hers and must be refused`);
+  for (const p of allowed) assert.equal(offLimits(p), null, `${p} is his and must stay readable`);
+});

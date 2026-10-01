@@ -50,6 +50,24 @@ export interface Protected { stateDir: string; dataDir: string }
 const SOMEONE_ELSES = ["lindsay's job hunt"];
 
 /**
+ * Her name on a file, as opposed to a mention of her in Joshua's own work.
+ *
+ * Sweeping the real mounted Drive on 2026-10-01 found two files of hers sitting at the TOP level of
+ * My Drive, outside her folder, which the folder rule above does not reach:
+ *     Lindsay Bell - CV.pdf
+ *     Lindsay Bell - CV.gdoc
+ *
+ * The same sweep found why a bare "lindsay" match would be wrong:
+ *     CereBro-Vault/.../Sundesk Session Handoff - Lindsay Launch Checklist.md
+ * That one is Joshua's own project note about a launch, and blocking it would hide his work from him
+ * with no explanation, which is how a rule stops being trusted.
+ *
+ * So the test is her full name or her address, not her first name. It catches anything she sends or
+ * shares later under the same naming ("Lindsay Bell - Resume.docx"), and leaves his notes alone.
+ */
+const HER_NAME = /(^|[^a-z])lindsay bell([^a-z]|$)|lindsaybelldesign/;
+
+/**
  * Fold a path segment down to just its words, so a name still matches after someone has decorated
  * it. Strips emoji and punctuation, turns curly apostrophes into straight ones (Google Docs and
  * Windows both produce them), lowercases, and collapses runs of space.
@@ -78,7 +96,9 @@ export function offLimits(file: string): string | null {
   const segments = full.split(/[\\/]+/);
 
   for (const seg of segments) {
-    if (SOMEONE_ELSES.includes(plainName(seg))) return 'that folder is someone else\'s, and it is not mine to open';
+    const name = plainName(seg);
+    if (SOMEONE_ELSES.includes(name)) return 'that folder is someone else\'s, and it is not mine to open';
+    if (HER_NAME.test(name)) return 'that is someone else\'s file, and it is not mine to open';
   }
 
   const home = os.homedir().toLowerCase();
