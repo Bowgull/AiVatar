@@ -71,3 +71,61 @@ test('looking something up on the web marks the turn', async () => {
   assert.equal(core.tainted, true);
   core.memory.close();
 });
+
+// ---------------------------------------------------------------- 1.1, 2026-10-01
+// Reading a FILE did not mark the turn. Seven things did - mail, the screen, a screenshot, browser
+// control names, the web - so a poisoned web page made every later action ask again, while a
+// poisoned DOCUMENT did not, and Aang would still act on a yes given earlier in the same turn.
+//
+// Harmless while the only files on this disk were Joshua's own. Not harmless once Google Drive puts
+// 1,225 documents written by other people and the internet here, which is the whole point of the
+// next phase. The tests above already cover the second half of the mechanism (a tainted turn
+// re-asks before reading a file); these cover the half that was missing, which is that reading the
+// file is itself what taints the turn.
+
+test('reading a file marks the turn: a document is not automatically his own words', async () => {
+  const core = coreWithTrust('read files');
+  assert.equal(core.tainted, false);
+  assert.equal(await core.askPermission('Read', { file_path: 'C:/Users/Shadow/Documents/notes.txt' }), true);
+  assert.equal(core.tainted, true, 'a file can carry an instruction aimed at Aang, exactly as a web page can');
+  core.memory.close();
+});
+
+test('searching files marks the turn too: a match brings the file\'s own text back', async () => {
+  for (const tool of ['Glob', 'Grep']) {
+    const core = coreWithTrust('read files');
+    assert.equal(await core.askPermission(tool, { pattern: '**/*.md' }), true);
+    assert.equal(core.tainted, true, `${tool} returns content from files nobody here wrote`);
+    core.memory.close();
+  }
+});
+
+test('after reading a file, a remembered yes no longer opens the door', async () => {
+  // The whole point. Before this, Aang would read a hostile document and then act on a yes Joshua
+  // gave earlier in the same turn, without asking again.
+  const core = coreWithTrust('read files', 'open links', 'run git');
+  assert.equal(await core.askPermission('mcp__aang__open', { what: 'https://example.com' }), true, 'trusted before any file is read');
+  assert.equal(await core.askPermission('Read', { file_path: 'C:/Users/Shadow/Downloads/from-the-internet.md' }), true);
+  // No Body is connected, so a question that has to be asked comes back as no: proof it asked.
+  assert.equal(await core.askPermission('mcp__aang__open', { what: 'https://example.com/leak?d=profile' }), false,
+    'acting after reading a document must ask again rather than use the remembered yes');
+  assert.equal(await core.askPermission('mcp__aang__run', { command: 'git status' }), false);
+  core.memory.close();
+});
+
+test('a refused file read does not mark the turn', async () => {
+  // Nothing was read, so nothing came in. Marking here would cost an extra question for no reason.
+  const core: any = new Core({ port: 48202, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
+  assert.equal(await core.askPermission('Read', { file_path: 'C:/Users/Shadow/.ssh/id_rsa' }), false, 'untrusted and no Body to ask');
+  assert.equal(core.tainted, false);
+  core.memory.close();
+});
+
+test('tools that are not file reads still do not mark the turn', async () => {
+  // The marking must be surgical: if everything taints, every second action asks again and the
+  // prompt becomes noise that gets waved through, which is the failure this system exists to avoid.
+  const core = coreWithTrust('write files');
+  assert.equal(await core.askPermission('mcp__aang__write_file', { path: 'C:/Users/Shadow/notes.txt', text: 'hi' }), true);
+  assert.equal(core.tainted, false, 'writing a file brings nothing in; only reading does');
+  core.memory.close();
+});
