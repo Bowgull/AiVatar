@@ -86,15 +86,51 @@ sealed class CoreSupervisor : IDisposable
                 child = Process.Start(psi);
                 if (child == null) { Set("Core would not start"); await Task.Delay(pause, cts.Token); continue; }
                 if (job != IntPtr.Zero) AssignProcessToJobObject(job, child.Handle);
-                var logPath = Paths.File("core.log");
-                if (File.Exists(logPath) && new FileInfo(logPath).Length > 1024 * 1024) File.Delete(logPath);
-                var writer = new StreamWriter(logPath, append: true) { AutoFlush = true };
-                void Pipe(StreamReader r) => Task.Run(async () => { try { string? l; while ((l = await r.ReadLineAsync()) != null) lock (writer) writer.WriteLine($"{DateTime.Now:HH:mm:ss} {l}"); } catch { } });
-                Pipe(child.StandardOutput); Pipe(child.StandardError);
+                // The Core's output MUST be drained, whether or not we can write it down.
+                //
+                // 2026-10-01, found after a week of damage: core.log stopped on 2026-09-24 and Aang began
+                // answering with a single full stop. Same cause. The old code disposed the writer the moment
+                // the Core exited, while the two fire-and-forget reader tasks still held it; they threw into a
+                // bare catch and died, leaking the file handle. The NEXT spawn's StreamWriter then failed
+                // because that handle still had core.log open - and it failed AFTER Process.Start, so the Core
+                // was already running with its output redirected into a pipe nobody was reading. A full pipe
+                // stalls the writer, which is why replies came back truncated. Once one handle leaked, every
+                // restart after it failed the same way, silently, for six days.
+                //
+                // So: share the file rather than fight over it, keep draining even if the log cannot be opened
+                // (a lost log is an inconvenience, a stalled Core is not), and wait for the readers to finish
+                // before disposing anything.
+                StreamWriter? writer = null;
+                try
+                {
+                    var logPath = Paths.File("core.log");
+                    if (File.Exists(logPath) && new FileInfo(logPath).Length > 1024 * 1024) File.Delete(logPath);
+                    var fs = new FileStream(logPath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite);
+                    writer = new StreamWriter(fs) { AutoFlush = true };
+                }
+                catch (Exception e) { Set("core.log unavailable, draining output anyway: " + e.Message); }
+
+                // Full ISO timestamps: the old HH:mm:ss had no date, so a line from last Tuesday read exactly
+                // like one from this morning while diagnosing this very bug.
+                var w = writer;
+                Task Pipe(StreamReader r) => Task.Run(async () =>
+                {
+                    try
+                    {
+                        string? l;
+                        while ((l = await r.ReadLineAsync()) != null)
+                            if (w != null) lock (w) w.WriteLine($"{DateTime.Now:yyyy-MM-dd HH:mm:ss} {l}");
+                    }
+                    catch (Exception e) { Set("core.log writer stopped: " + e.Message); }
+                });
+                var pipes = new[] { Pipe(child.StandardOutput), Pipe(child.StandardError) };
                 Set($"Core started (pid {child.Id})");
                 await child.WaitForExitAsync(cts.Token);
                 Set($"Core exited with code {child.ExitCode}");
-                writer.Dispose();
+                // Let the readers finish the tail of the output before the writer goes away. Without this the
+                // dispose races them, which is the leak that started all of the above.
+                try { await Task.WhenAll(pipes).WaitAsync(TimeSpan.FromSeconds(5)); } catch { /* a slow tail must not block the restart */ }
+                writer?.Dispose();
                 pause = DateTime.UtcNow - started > TimeSpan.FromMinutes(1) ? TimeSpan.FromSeconds(2) : TimeSpan.FromSeconds(Math.Min(30, pause.TotalSeconds * 2));
             }
             catch (OperationCanceledException) { break; }
