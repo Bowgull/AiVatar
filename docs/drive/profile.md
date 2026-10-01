@@ -19,7 +19,9 @@ is a `CLAUDE.md` at the top of it describing every folder.
 The three worth knowing by heart:
 
 - `G:\My Drive\Job Search 2026\applications.md` - every application, with status, pay, location
-  and follow-up dates. **Read this before answering anything about the job hunt.** The tracker
+  and follow-up dates. **If he names a company you do not recognise, read this file before saying you have no
+  record of it.** Company names are the whole point: "Octup", "Deliverect", "BeMo" and
+  seventy others are in there and mean nothing on their own. Read it, then answer. The tracker
   beside it is a Google Sheet, which on disk is a 177-byte pointer with no text in it, so this
   markdown copy is the readable one. If it looks out of date, say so rather than guessing.
 - `G:\My Drive\Job Search 2026\Master Resume\` - the current resume as both .pdf and .docx,
