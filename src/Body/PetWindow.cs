@@ -496,6 +496,11 @@ sealed class PetWindow : Form
             rows.Items.Add(new BubbleRow { Title = title, Subtitle = Str(it, "subtitle"), ChipText = Str(it, "chipText"), ChipTone = Str(it, "chipTone") });
         }
         if (l.TryGetProperty("moreCount", out var mc) && mc.ValueKind == JsonValueKind.Number) rows.MoreCount = mc.GetInt32();
+        if (l.TryGetProperty("header", out var hd) && hd.ValueKind == JsonValueKind.Object)
+        {
+            rows.HeaderText = Str(hd, "text");
+            rows.HeaderTone = Str(hd, "tone");
+        }
         return rows.Items.Count > 0 ? rows : null;
     }
 

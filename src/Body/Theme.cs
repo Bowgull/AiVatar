@@ -18,6 +18,7 @@ static class Theme
     public static readonly Color InkFill = Color.FromArgb(244, 16, 10, 34);           // the bubble, a hair see-through
     public static readonly Color Gold = Color.FromArgb(255, 255, 196, 60);            // #FFC43C
     public static readonly Color GoldDeep = Color.FromArgb(255, 201, 140, 20);        // the lip under a gold button
+    public static readonly Color GoldLit = Color.FromArgb(255, 255, 224, 150);        // the lit top edge of a carved gold bevel
     public static readonly Color GoldLight = Color.FromArgb(255, 255, 226, 140);      // the catch-light on its top edge
     public static readonly Color Orange = Color.FromArgb(255, 255, 128, 64);          // #FF8040 careful
     public static readonly Color OrangeDeep = Color.FromArgb(255, 201, 94, 40);       // the lip under an orange button (the always-allow choice)

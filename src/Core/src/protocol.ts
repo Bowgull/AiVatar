@@ -21,8 +21,19 @@ export interface StructuredItem {
   chipText?: string;
   chipTone?: ChipTone;
 }
+/**
+ * The recessed header plaque (mockup D). Deliberately optional and deliberately rare: board E's rule is that
+ * it "only appears when something is genuinely urgent, its colour saying which tier". A plaque on every list
+ * is a banner, and a banner nobody can ignore is a banner nobody reads.
+ */
+export interface ListHeader {
+  text: string;
+  tone: ChipTone;
+}
 export interface StructuredList {
   icon: ListIcon;
+  /** Shown as a carved plaque above the rows. Leave it out unless something here is actually urgent. */
+  header?: ListHeader;
   /** Capped by the present_list tool's own schema (tools.ts), not here: this type just carries whatever it
    *  was given. */
   items: StructuredItem[];
