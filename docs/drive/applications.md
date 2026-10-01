@@ -6,14 +6,14 @@ Readable mirror of `Job Applications Tracker` (Google Sheet). Generated 2026-10-
 177-byte pointer holding a document id, not a spreadsheet, so nothing without a Google Sheets
 scope can read it. If this file is older than the sheet, trust the sheet and say so.
 
-76 applications. 20 awaiting a reply, 1 at interview stage, 1 in progress, 19 rejected, the
+76 applications. 20 awaiting a reply, 1 interviewed and awaiting an outcome, 1 in progress, 19 rejected, the
 rest no response.
 
 ## Needs attention
 
 | what | when | detail |
 |---|---|---|
-| **Octup** | interview was **2026-09-30 09:30** | Account Manager. Round 3. Applied 2026-09-13 via LinkedIn Easy Apply. The only one past first round |
+| **Octup** | interviewed **2026-09-30**, chase by **2026-10-07** | Account Manager. Round 3 done, awaiting the outcome. Applied 2026-09-13 via LinkedIn Easy Apply. The only one past first round |
 | **BeMo** | functional test due **2026-10-02** | Senior Customer Support Specialist. Applied 2026-08-28, still in progress |
 | Deliverect, GreenShield, Litmus | follow up **2026-10-01** | all applied 2026-09-17 |
 | FreeWill, Samsara | follow up **2026-10-02** | both applied 2026-09-18 |
@@ -74,7 +74,7 @@ rest no response.
 | Corpay | (Sales Recruitment Event) | 2026-09-13 | No response | | | |
 | Gorgias | Customer Implementation Manager, Commercial | 2026-09-13 | No response | CA$123-136K | Toronto hybrid 2d/wk | |
 | Harvey | Mid-Market Customer Success Manager | 2026-09-13 | No response | $125-145K | Toronto hybrid 3d/wk | |
-| **Octup** | **Account Manager** | 2026-09-13 | **Round 3** | | | LinkedIn Easy Apply |
+| **Octup** | **Account Manager** | 2026-09-13 | **Round 3 interviewed 09-30, awaiting outcome** | | | LinkedIn Easy Apply |
 | Paymentus | Technical Implementation Project Manager | 2026-09-13 | No response | | | LinkedIn Easy Apply |
 | Ramp | Senior Scaled Customer Activation Manager | 2026-09-13 | No response | CA$138-189K | Toronto hybrid 3d/wk | |
 | Wealthsimple | Team Lead, Client Experience Operations | 2026-09-13 | No response | | | |
