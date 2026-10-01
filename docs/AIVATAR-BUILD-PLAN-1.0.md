@@ -28,8 +28,8 @@ Status markers used below:
 | `[x]` | done and verified |
 | **BLOCKS** | something else cannot start until this is `[x]` |
 
-**Where we are right now: 0.0, 0.1, 0.2 and 0.3 done, plus an unplanned fix that turned out to
-matter more than either, and 5.7 absorbed into 0.2. Phase 0, step 0.4 is next.**
+**Where we are right now: PHASE 0 COMPLETE (0.0 to 0.4), plus an unplanned fix that turned out to
+matter more than either, and 5.7 absorbed into 0.2. Phase 1 is next: the two security doors that block Drive.**
 
 ### Found while verifying 0.1: Aang was being stalled mid-reply, for six days
 
@@ -263,7 +263,7 @@ Then run a command through Aang and confirm `actions.jsonl` holds no command tex
 
 ---
 
-### `[ ]` 0.4 Stop the silent crash loop
+### `[x]` 0.4 Stop the silent crash loop  DONE 2026-10-01 (6bdfb72)
 
 **Why:** `CoreSupervisor.cs:98` backs off from 2s to 30s but has no burst limit. A Core
 that dies at 61 seconds loops forever, quietly, and nothing tells you.
@@ -633,7 +633,7 @@ than one long loop. Idle is about 90% of a desktop pet's screen time.
 
 **Goal:** everything confirmed real but on nobody's critical path. Do it when you want.
 
-- `[ ]` 5.1 **Rotate `core.log` instead of deleting it.** `CoreSupervisor.cs:90` deletes
+- `[~]` 5.1 **Rotate the logs instead of deleting them.** Body half DONE in 0.4 (6bdfb72): `Log.Write` keeps one generation, stamps full dates, reports failures. `core.log` (written by the supervisor) still deletes past 1 MiB. `CoreSupervisor.cs:90` deletes
   the file past 1 MiB, and `:92` stamps lines `HH:mm:ss` with no date. With six restarts a
   day the evidence of an incident can vanish before you look. Keep one generation, use
   full timestamps. **20 minutes.**
@@ -722,8 +722,8 @@ Update this table as you go. It is the answer to "where are we".
 
 | phase | what it gets you | status |
 |---|---|---|
-| 0 | cheaper conversations, no silent amnesia | `[ ]` not started |
-| 1 | safe to read documents | `[ ]` blocked by 0 |
+| 0 | cheaper conversations, no silent amnesia | `[x]` **done** |
+| 1 | safe to read documents | `[ ]` **ready to start** |
 | 2 | he can read your Drive | `[ ]` blocked by 1 |
 | 3 | he learns from it | `[ ]` blocked by 2 |
 | 4 | he is pleasant to use | `[ ]` 4.1 can start now |
