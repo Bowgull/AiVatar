@@ -28,7 +28,44 @@ Status markers used below:
 | `[x]` | done and verified |
 | **BLOCKS** | something else cannot start until this is `[x]` |
 
-**Where we are right now: 0.0 done (commit 51c8daa). Phase 0, step 0.1 is next.**
+**Where we are right now: 0.0 and 0.1 done, plus an unplanned fix that turned out to
+matter more than either. Phase 0, step 0.2 is next.**
+
+### Found while verifying 0.1: Aang was being stalled mid-reply, for six days
+
+Verifying 0.1 needed the turn log, which turned out to be stale since 2026-09-24. Chasing
+that found a fault that was never in the plan and was doing real damage:
+
+1. The supervisor disposed the `core.log` writer the moment a Core exited, while its two
+   fire-and-forget reader tasks still held it. They threw into a bare `catch {}` and died,
+   leaking the file handle.
+2. The next spawn could not open `core.log`, and failed **after** `Process.Start`, so the
+   Core ran with its output redirected into a pipe nobody was reading.
+3. A full pipe stalls the writer. **Replies came back truncated** (one arrived as a single
+   full stop) and metrics writes were skipped.
+4. Every restart after the first leak failed identically, in silence, because the error
+   went to `body.log`, which had died of the same cause.
+
+Fixed in `4433220` (share the log file, drain the pipes even when the log cannot be opened,
+await the readers before disposing) and `946567a` (a failed write now reports itself once,
+then at each power of ten). Confirmed after the fix: `core.log` writing with full dates for
+the first time since 2026-09-24, `turns.jsonl` recording again, and a whole reply.
+
+**Two lessons worth carrying into the rest of this plan.** A "best effort" catch that
+discards the reason is not best effort, it is a blindfold: this cost six days. And the
+dateless `HH:mm:ss` stamps in `core.log` made a line from 2026-09-24 read exactly like one
+from this morning, which sent the diagnosis in the wrong direction more than once. Step 5.1
+already covers that and is now partly done.
+
+### Caveat on the 0.1 saving: it only lands on a NEW session
+
+Measured after the change, quick lane: 25,051 and 25,415 tokens against a 28,386 average.
+That is about 3,300 saved, not the ~46,000 the probe showed, and the reason is in the same
+records: `cacheRead` was 24,760 and 25,122. **A resumed session is still reading the prefix
+built with the old tool list.** The full saving appears when a lane starts a genuinely new
+session, which happens on its own once the current ones age out (`MAX_SESSION_AGE_DAYS`, 7
+days) or sooner if the sessions are cleared deliberately. Nothing is wrong with the change;
+the probe and the test both confirm it is applied.
 
 ---
 
@@ -91,7 +128,7 @@ git commit -m "Measurement tools and the research verdicts they produced"
 
 ---
 
-### `[ ]` 0.1 Stop loading 40 tools Aang cannot use
+### `[x]` 0.1 Stop loading 40 tools Aang cannot use  DONE 2026-10-01 (21dd4b6)
 
 **Why:** **[measured]** A live probe showed the engine loads every built-in tool into
 every conversation. With all of them: 56,822 tokens. With only the three Aang needs:
