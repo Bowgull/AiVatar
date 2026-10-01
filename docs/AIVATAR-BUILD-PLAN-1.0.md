@@ -28,7 +28,7 @@ Status markers used below:
 | `[x]` | done and verified |
 | **BLOCKS** | something else cannot start until this is `[x]` |
 
-**Where we are right now: PHASES 0, 1 AND 2 COMPLETE (2.4 Obsidian outstanding, optional), plus an unplanned fix that turned out to
+**Where we are right now: PHASES 0, 1 AND 2 COMPLETE, plus an unplanned fix that turned out to
 matter more than either, and 5.7 absorbed into 0.2. 2.5 PASSED: asked "whats my status with octup", Aang called Read and answered correctly from
 applications.md. Two prompt faults found and fixed to get there, neither of them plumbing: voice.ts
 told him to OFFER to look, and profile.md only told him to read the file if he already knew the
@@ -453,7 +453,7 @@ drift.
 
 ---
 
-### `[ ]` 2.4 Install Obsidian and point it at the vault
+### `[x]` 2.4 Install Obsidian and point it at the vault  DONE 2026-10-01
 
 **[verified]** Obsidian is **not installed** on Shadow. The vault lives inside the Drive
 folder, so this cannot happen before 2.1.
