@@ -169,3 +169,26 @@ test('the real Drive paths, exactly as they are mounted right now', () => {
   for (const p of refused) assert.ok(offLimits(p), `${p} is hers and must be refused`);
   for (const p of allowed) assert.equal(offLimits(p), null, `${p} is his and must stay readable`);
 });
+
+// Found 2026-10-01 while checking what profile.md actually tells Aang. It already said, as a
+// sentence addressed to him: "resumes named Lindsay Bell / Robin Scott are other people's files -
+// ignore." Nobody had acted on the second name, and Robin_Scott_Resume.pdf was sitting in My Drive,
+// readable. An instruction inside a file Aang reads is advice he may or may not follow, and it does
+// not survive him being told something else by a document later in the same turn.
+
+test('Robin Scott\'s files are refused, including the real one on disk', () => {
+  for (const p of [
+    'G:/My Drive/Robin_Scott_Resume.pdf',          // the one that is actually there
+    'G:/My Drive/Robin Scott - Resume.pdf',
+    'C:/Users/Shadow/Downloads/robin scott cv.docx',
+  ]) assert.match(offLimits(p) ?? '', /someone else/i, `${p} must be refused`);
+});
+
+test('a first name on its own is still not enough to block', () => {
+  // Same rule as for her: full names only. "Robin" or "Lindsay" alone would block Joshua's own work.
+  for (const p of [
+    'G:/My Drive/Robin Hood notes.md',
+    'G:/My Drive/robins and other birds.md',
+    'G:/My Drive/Scott Pilgrim.md',
+  ]) assert.equal(offLimits(p), null, `${p} should be allowed`);
+});
