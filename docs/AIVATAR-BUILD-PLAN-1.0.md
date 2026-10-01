@@ -28,8 +28,8 @@ Status markers used below:
 | `[x]` | done and verified |
 | **BLOCKS** | something else cannot start until this is `[x]` |
 
-**Where we are right now: 0.0 and 0.1 done, plus an unplanned fix that turned out to
-matter more than either. Phase 0, step 0.2 is next.**
+**Where we are right now: 0.0, 0.1 and 0.2 done, plus an unplanned fix that turned out to
+matter more than either, and 5.7 absorbed into 0.2. Phase 0, step 0.3 is next.**
 
 ### Found while verifying 0.1: Aang was being stalled mid-reply, for six days
 
@@ -194,7 +194,7 @@ a built-in beyond those three, and add it to the list.
 
 ---
 
-### `[ ]` 0.2 Never start with no memory and say nothing
+### `[x]` 0.2 Memory that heals itself  DONE 2026-10-01 (e51666c)
 
 **Why:** `memory.ts:39` reads `if (existsSync(file))`. If `aang.db` is missing or
 unreadable, `this.db` stays `null`, one line goes to a console nobody reads, and **Aang
@@ -673,7 +673,7 @@ than one long loop. Idle is about 90% of a desktop pet's screen time.
   design (the job object at `CoreSupervisor.cs:30`), so "both recover" was never
   achievable.
 
-- `[ ]` 5.7 **A way to create a database from nothing.** **[verified]** There is no
+- `[x]` 5.7 **A way to create a database from nothing.** DONE in 0.2 (e51666c): `createDatabase()` in `schema.ts` is the third branch of the healing logic. **[verified]** There is no
   `CREATE TABLE` anywhere in the source tree and no `.sql` file. A fresh install on a new
   machine cannot work. Not urgent while this machine runs, but it is the real content of
   the item the brief called "the backup cannot be restored".
