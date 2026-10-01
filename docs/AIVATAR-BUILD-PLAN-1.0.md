@@ -28,8 +28,8 @@ Status markers used below:
 | `[x]` | done and verified |
 | **BLOCKS** | something else cannot start until this is `[x]` |
 
-**Where we are right now: 0.0, 0.1 and 0.2 done, plus an unplanned fix that turned out to
-matter more than either, and 5.7 absorbed into 0.2. Phase 0, step 0.3 is next.**
+**Where we are right now: 0.0, 0.1, 0.2 and 0.3 done, plus an unplanned fix that turned out to
+matter more than either, and 5.7 absorbed into 0.2. Phase 0, step 0.4 is next.**
 
 ### Found while verifying 0.1: Aang was being stalled mid-reply, for six days
 
@@ -232,7 +232,7 @@ answer. Rename it back.
 
 ---
 
-### `[ ]` 0.3 Stop writing shell commands into the action log
+### `[x]` 0.3 Stop writing shell commands into the action log  DONE 2026-10-01
 
 **Why:** `core.ts:504` writes `describeCall` output into `actions.jsonl`. **[verified]**
 That includes full shell command lines (`tools.ts:333`, truncated at 70 characters) and
