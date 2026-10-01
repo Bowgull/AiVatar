@@ -559,7 +559,7 @@ in the gap while Phase 3 runs overnight.
 
 ---
 
-### `[ ]` 4.1 Look at what was already built: **do this in Phase 0, it is 20 minutes**
+### `[x]` 4.1 Look at what was already built  DONE 2026-10-01 (8c7652d, 058cce5): **do this in Phase 0, it is 20 minutes**
 
 **Status: built, never seen.** The list rows and the carved-wood frame pass 40 tests but
 nobody has watched them render.
@@ -578,7 +578,7 @@ The instruction was strengthened, but that can never be a guarantee. Test it twi
 
 ---
 
-### `[ ]` 4.2 Typing that reads at a steady pace
+### `[x]` 4.2 Typing that reads at a steady pace  DONE 2026-10-01
 
 **Not built.** Replies arrive in bursts because the reveal speeds up based on how much
 text is waiting. You already decided: a steady readable pace, click to dump the rest
