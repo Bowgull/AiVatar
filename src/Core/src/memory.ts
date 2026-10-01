@@ -9,6 +9,7 @@
 // overwritten, and they fade if they are never confirmed again: remembering something badly is worse
 // than not remembering it.
 import { DatabaseSync } from 'node:sqlite';
+import { openMemory, type OpenResult } from './schema.ts';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { EMBED_DIM, embed, fromBlob, similarity, toBlob } from './embed.ts';
@@ -32,21 +33,25 @@ export class Memory {
   private db: DatabaseSync | null = null;
   readonly dataDir: string;
 
+  /**
+   * What happened when memory opened, for the Core to show him. Empty detail means the normal case:
+   * it opened, nothing to say. `ok: false` means there is no memory at all and Aang must say so
+   * rather than carry on as if he knew Joshua.
+   */
+  readonly opened: OpenResult;
+
   constructor(dataDir: string) {
     this.dataDir = dataDir;
-    try {
-      const file = path.join(dataDir, 'aang.db');
-      if (existsSync(file)) {
-        this.db = new DatabaseSync(file);
-        // WAL with FULL sync: a hard Shadow shutdown is a power cut, and FULL is what makes a committed
-        // turn survive one. Writes here are a few per conversation, so the cost is nothing.
-        this.db.exec('PRAGMA journal_mode = WAL; PRAGMA synchronous = FULL; PRAGMA busy_timeout = 3000;');
-        this.migrateFacts();
-      }
-    } catch (e) {
-      console.error('memory: could not open aang.db, running without it:', (e as Error).message);
-      this.db = null;
-    }
+    // openMemory heals rather than tolerating: a damaged or missing database is restored from the
+    // verified backup, or rebuilt empty, before it gets here. The old code was
+    // `if (existsSync(file))` with no else, so a missing file meant Aang started with no memory,
+    // said nothing about it, and talked to Joshua as a stranger in his own voice. See schema.ts.
+    this.opened = openMemory(dataDir);
+    this.db = this.opened.db;
+    // WAL with FULL sync is set by openMemory on whichever path it took: a hard Shadow shutdown is
+    // a power cut, and FULL is what makes a committed turn survive one.
+    if (this.db) this.migrateFacts();
+    if (this.opened.detail) console.error('memory: ' + this.opened.detail);
   }
 
   /**

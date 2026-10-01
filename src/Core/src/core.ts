@@ -956,6 +956,15 @@ export class Core {
     // reboots are unpredictable, so "back up nightly" would often just not happen; "back up at start" always
     // does. Deferred a few seconds so it can never delay the very first message getting through.
     setTimeout(() => this.runBackup(), 5_000).unref?.();
+    // Something happened to his memory on the way up: it was missing, or damaged and restored, or
+    // built from nothing. He says so himself rather than leaving it in a log, because the failure
+    // this replaces was Aang starting with no memory at all and talking to Joshua as a stranger
+    // without ever mentioning it. Said once, after the first message can get through, so it reads
+    // as him noticing rather than as a startup error. See schema.ts.
+    if (this.memory.opened.detail) {
+      const note = this.memory.opened.detail;
+      setTimeout(() => this.announce(note, { asked: true }), 2_000).unref?.();
+    }
     emptyOldTrash();                                   // whatever has sat in Aang's trash for 30 days goes for good
     this.reminders.onDue = r => this.announce(`Reminder: ${r.text}`);
     this.reminders.start();
@@ -1337,6 +1346,16 @@ export class Core {
   }
 
   private begin(sub: Submission, lane: LaneName, ackMs: number, escalated = false): void {
+    // No memory at all, and it could not be restored or rebuilt: say so instead of holding a
+    // conversation. He would otherwise sound exactly like himself while knowing nothing about
+    // Joshua, remembering nothing said to him, and never mentioning either - which is the failure
+    // this whole path exists to make impossible. Normal breakage never reaches here: a damaged
+    // database is restored from backup and a missing one is created (schema.ts), so this fires only
+    // when even creating a database failed, meaning something is genuinely wrong with the disk.
+    if (!this.memory.opened.ok) {
+      this.toTurn(sub, { t: 'bubble', text: this.memory.opened.detail, stream: false, id: sub.id, who: 'Aang' });
+      return;
+    }
     this.toTurn(sub, { t: 'bubble.dots' });
     this.toTurn(sub, { t: 'state', state: 'think' });
     const turn: Turn = { sub, lane, buf: '', flush: null, stopped: false, startedAt: Date.now(), ackMs, watchdog: null, escalated };
