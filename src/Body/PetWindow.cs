@@ -255,6 +255,15 @@ sealed class PetWindow : Form
             else Autostart.Migrate();
             supervisor = new CoreSupervisor(47831, cfg.CoreDir, cfg.NodePath);
             supervisor.StatusChanged += st => { if (IsHandleCreated) BeginInvoke(() => coreItem.Text = "Core: " + st); };
+            // A crash loop used to be invisible: the pet looked perfectly normal while nothing behind it
+            // worked. The supervisor now stops after a burst rather than retrying forever, and when it
+            // does, Aang says so himself. The tray menu alone is not enough - nobody opens it to check
+            // whether their desktop pet is secretly dead.
+            supervisor.GaveUp += msg =>
+            {
+                if (!IsHandleCreated) return;
+                BeginInvoke(() => { Wake(); ShowBubble(msg, false); dirty = true; });
+            };
             supervisor.Start();
         }
         hotkeyOk = RegisterHotkey();
