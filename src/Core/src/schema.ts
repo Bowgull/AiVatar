@@ -32,7 +32,8 @@ export const SCHEMA_VERSION = 1;
  */
 const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS turns (
-     id INTEGER PRIMARY KEY, ts TEXT NOT NULL, role TEXT NOT NULL, tier TEXT, text TEXT NOT NULL )`,
+     id INTEGER PRIMARY KEY, ts TEXT NOT NULL, role TEXT NOT NULL, tier TEXT, text TEXT NOT NULL,
+     hidden INTEGER NOT NULL DEFAULT 0 )`,
   `CREATE INDEX IF NOT EXISTS turns_ts ON turns(ts)`,
   `CREATE VIRTUAL TABLE IF NOT EXISTS turns_fts USING fts5(text, turn_id UNINDEXED)`,
   `CREATE TABLE IF NOT EXISTS facts (
@@ -96,12 +97,44 @@ function setAside(file: string): string | null {
   try { renameSync(file, to); dropSidecars(file); return path.basename(to); } catch { return null; }
 }
 
+/**
+ * Columns added after the first release.
+ *
+ * An existing database opens straight through path 1 of openMemory and NEVER sees SCHEMA, so a column
+ * added to SCHEMA alone would exist only in databases built from scratch. His live file has 424 turns
+ * in it and was built before any of this. Anything added later has to be applied here, on every open.
+ *
+ * Guarded by reading the table's own columns: SQLite has no "ADD COLUMN IF NOT EXISTS", and wrapping a
+ * bare ALTER in a try would swallow a real failure as if it were the already-there case.
+ */
+const ADDED_COLUMNS: { table: string; column: string; decl: string }[] = [
+  // 4.3b: forgetting a turn hides it. The row stays, so "undo that" can bring it back.
+  { table: 'turns', column: 'hidden', decl: 'INTEGER NOT NULL DEFAULT 0' },
+];
+
+/** Bring an opened database up to the current shape. Safe to run on every open; does nothing when there is
+ *  nothing to do. Never throws: a database that is one column behind is still worth having. */
+export function migrate(db: DatabaseSync): void {
+  for (const { table, column, decl } of ADDED_COLUMNS) {
+    try {
+      const cols = db.prepare(`PRAGMA table_info(${table})`).all() as { name: unknown }[];
+      if (cols.length === 0) continue;                                  // no such table: SCHEMA owns it
+      if (cols.some(c => String(c.name) === column)) continue;          // already there
+      db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${decl}`);
+      console.error(`memory: added ${table}.${column}`);
+    } catch (e) {
+      console.error(`memory: could not add ${table}.${column}:`, (e as Error).message);
+    }
+  }
+}
+
 export function createDatabase(file: string): DatabaseSync {
   mkdirSync(path.dirname(file), { recursive: true });
   const db = new DatabaseSync(file);
   db.exec('PRAGMA journal_mode = WAL; PRAGMA synchronous = FULL; PRAGMA busy_timeout = 3000;');
   for (const stmt of SCHEMA) db.exec(stmt);
   db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`);
+  migrate(db);
   return db;
 }
 
@@ -120,6 +153,7 @@ export function openMemory(dataDir: string): OpenResult {
     try {
       const db = new DatabaseSync(file);
       db.exec('PRAGMA journal_mode = WAL; PRAGMA synchronous = FULL; PRAGMA busy_timeout = 3000;');
+      migrate(db);
       return { db, ok: true, detail: '', how: 'opened' };
     } catch (e) {
       console.error('memory: passed its check then would not open:', (e as Error).message);
@@ -140,6 +174,7 @@ export function openMemory(dataDir: string): OpenResult {
       copyFileSync(backup, file);
       const db = new DatabaseSync(file);
       db.exec('PRAGMA journal_mode = WAL; PRAGMA synchronous = FULL; PRAGMA busy_timeout = 3000;');
+      migrate(db);
       const turns = (db.prepare('SELECT count(*) c FROM turns').get() as { c: number }).c;
       const age = Math.round((Date.now() - statSync(backup).mtimeMs) / 3_600_000);
       return {

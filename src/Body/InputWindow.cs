@@ -124,7 +124,70 @@ sealed class InputWindow : Form
         Grow();
     }
 
-    int Fit(int lines) => (int)((lines * LineH + 15 + StripH) * scale);
+    /// <summary>A message Joshua pointed at from the scrollback: the row, and enough of its words to
+    /// recognise it on a chip.</summary>
+    public sealed record Pointed(int Id, string Text);
+
+    /// <summary>Pinned context. His decision, 2026-10-01: these stay until he takes them off, so a back and
+    /// forth about one email does not need re-pinning every message.</summary>
+    readonly List<Pointed> pins = new();
+    /// <summary>The one message a Reply is bound to. Cleared once sent: a reply is about that message, not a
+    /// standing setting.</summary>
+    Pointed? replying;
+
+    public const int PointerRowH = 22;
+    bool HasPointers => pins.Count > 0 || replying != null;
+    int PointerH => HasPointers ? (int)(PointerRowH * scale) : 0;
+
+    public IReadOnlyList<int> PinnedIds => pins.Select(p => p.Id).ToArray();
+    public int? ReplyingTo => replying?.Id;
+
+    /// <summary>Pin a message as context. Pinning the same one twice is not two pins.</summary>
+    public void Pin(int id, string text)
+    {
+        if (id <= 0 || pins.Any(p => p.Id == id)) return;
+        pins.Add(new Pointed(id, text));
+        while (pins.Count > 6) pins.RemoveAt(0);      // the row has to stay readable
+        Relayout();
+    }
+
+    /// <summary>Bind the next message to one he chose. Replaces any earlier binding: there is one reply.</summary>
+    public void ReplyTo(int id, string text)
+    {
+        if (id <= 0) return;
+        replying = new Pointed(id, text);
+        Relayout();
+    }
+
+    /// <summary>Forget the reply binding. Pins are left alone - he removes those himself.</summary>
+    public void ClearReply() { if (replying is null) return; replying = null; Relayout(); }
+
+    public void ClearPins() { if (pins.Count == 0) return; pins.Clear(); Relayout(); }
+
+    /// <summary>Extra width while something is attached. At 256px three chips come out as "Octup i...",
+    /// which is not a label, it is a shape. The box is only this wide while there is something to show.</summary>
+    const int PointerExtra = 110;
+
+    void Relayout()
+    {
+        Padding = new Padding((int)(Pad * scale), (int)(8 * scale) + PointerH, (int)(Pad * scale), (int)((7 + StripH) * scale));
+        var want = (int)((BaseW + (HasPointers ? PointerExtra : 0)) * scale);
+        if (Width != want)
+        {
+            // Grow leftwards, so the box stays put against the pet rather than sliding out from under it.
+            var screen = Screen.FromPoint(Location).WorkingArea;
+            var x = Math.Clamp(Location.X, screen.Left, Math.Max(screen.Left, screen.Right - want));
+            Bounds = new Rectangle(x, Location.Y, want, Height);
+        }
+        regionFor = Size.Empty;                        // the rounded region must be rebuilt at the new height
+        Grow();
+        Invalidate();
+    }
+
+    /// <summary>Where each chip's x sits, rebuilt on every paint so a click lands on what is drawn.</summary>
+    readonly List<(RectangleF close, int id)> chipCloses = new();
+
+    int Fit(int lines) => (int)((lines * LineH + 15 + StripH) * scale) + PointerH;
 
     /// <summary>The size the rounded Region was last built for, so it is only rebuilt when the box really resizes.</summary>
     Size regionFor;
@@ -178,7 +241,96 @@ sealed class InputWindow : Form
         using var pen = new Pen(Theme.WithAlpha(Theme.Gold, 240), Theme.Stroke * scale) { LineJoin = LineJoin.Round };
         g.DrawPath(pen, p);
         PaintModeFrame(g);
+        PaintPointers(g);
         PaintStrip(g);
+    }
+
+    /// <summary>
+    /// The row above what he is typing: what this message is a reply to, and anything he pinned.
+    ///
+    /// Drawn rather than built from controls because this form is a layered, hand-painted surface - a real
+    /// FlowLayoutPanel here would sit on top of the parchment gradient with its own background and break the
+    /// one-object look the frame and the bubble share.
+    /// </summary>
+    void PaintPointers(Graphics g)
+    {
+        chipCloses.Clear();
+        if (!HasPointers) return;
+
+        // Inside the parchment, not inside the window: the frame has a 6px inset and a gold stroke, and a
+        // chip laid out against Width ran straight over both (2026-10-01, first capture).
+        float edge = (6 + 4) * scale;
+        float left = edge, right = Width - edge;
+        float h = (PointerRowH - 6) * scale, y = 7 * scale;
+        float gap = 4 * scale;
+        using var font = Theme.Font(Theme.Face, 10.5f * scale);
+        using var ink = new SolidBrush(Theme.InkText);
+        // Trimmed by the text renderer inside each chip's own rectangle. Shortening the string first is a
+        // guess at the width; this is the width.
+        using var fmt = new StringFormat(StringFormatFlags.NoWrap) { Trimming = StringTrimming.EllipsisCharacter, LineAlignment = StringAlignment.Center };
+
+        // Everything he pointed at has to be on screen. Sharing the row rather than drawing until it runs
+        // out means the third pin cannot silently vanish, which is what the first version did.
+        var items = new List<(string lead, string body, int id)>();
+        if (replying != null) items.Add(("reply: ", replying.Text, -1));
+        foreach (var pinned in pins) items.Add(("", pinned.Text, pinned.Id));
+
+        float each = (right - left - gap * (items.Count - 1)) / items.Count;
+        float min = 54 * scale;
+        var shown = items.Count;
+        if (each < min)
+        {
+            // Too many to read. Show as many as stay legible and count the rest, so the number is still true.
+            shown = Math.Max(1, (int)((right - left + gap) / (min + gap)) - 1);
+            each = (right - left - gap * shown) / shown;      // the last slot is the "+N" chip
+        }
+
+        float x = left;
+        for (var i = 0; i < shown; i++)
+        {
+            var (lead, body, id) = items[i];
+            var r = new RectangleF(x, y, each, h);
+            var isReply = id < 0;
+            // A reply and a pin are different things, so they are different colours: the reply is solid gold
+            // because it says what the message IS, a pin is pale because it only says what it is about.
+            var fill = isReply ? Theme.WithAlpha(Theme.Gold, 210) : Theme.WithAlpha(Theme.WoodCream, 225);
+            using (var b = new SolidBrush(fill)) using (var path = Rounded(Rectangle.Round(r), (int)(5 * scale))) g.FillPath(b, path);
+            using (var pen = new Pen(Theme.WithAlpha(Theme.GoldDeep, 200), 1f)) using (var path = Rounded(Rectangle.Round(r), (int)(5 * scale))) g.DrawPath(pen, path);
+
+            var closeW = isReply ? 0f : 14 * scale;
+            var text = new RectangleF(r.X + 5 * scale, r.Y, r.Width - 8 * scale - closeW, r.Height);
+            g.DrawString(lead + OneLine(body), font, ink, text, fmt);
+            if (!isReply)
+            {
+                var close = new RectangleF(r.Right - closeW, r.Y, closeW, r.Height);
+                using var xf = Theme.Font(Theme.Face, 11f * scale, FontStyle.Bold);
+                using var cf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+                g.DrawString("x", xf, ink, close, cf);
+                chipCloses.Add((close, id));
+            }
+            x += each + gap;
+        }
+        if (shown < items.Count)
+        {
+            var r = new RectangleF(x, y, right - x, h);
+            using (var b = new SolidBrush(Theme.WithAlpha(Theme.WoodCream, 160))) using (var path = Rounded(Rectangle.Round(r), (int)(5 * scale))) g.FillPath(b, path);
+            using var cf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+            g.DrawString("+" + (items.Count - shown), font, ink, r, cf);
+        }
+    }
+
+    /// <summary>One line, however it was typed: a pinned message can be a paragraph, and a chip is a line.</summary>
+    static string OneLine(string text) =>
+        string.Join(' ', text.Split(new[] { ' ', '\r', '\n', '\t' }, StringSplitOptions.RemoveEmptyEntries));
+
+    /// <summary>First few words, cut on a word where it can be, so a chip reads as language and not as a hash.</summary>
+    static string Shorten(string text, int max)
+    {
+        var one = string.Join(' ', text.Split(new[] { ' ', '\r', '\n', '\t' }, StringSplitOptions.RemoveEmptyEntries));
+        if (one.Length <= max) return one;
+        var cut = one[..max];
+        var space = cut.LastIndexOf(' ');
+        return (space > max / 2 ? cut[..space] : cut) + "...";
     }
 
     /// <summary>
@@ -341,6 +493,10 @@ sealed class InputWindow : Form
     {
         base.OnMouseDown(e);
         if (e.Button != MouseButtons.Left) return;
+        // An x on a pinned chip takes that one off. Checked before the mode pill: the rows do not overlap,
+        // but this one is above and a miss here should never cycle the mode.
+        foreach (var (close, id) in chipCloses)
+            if (close.Contains(e.Location)) { pins.RemoveAll(p => p.Id == id); Relayout(); box.Focus(); return; }
         if (chipRect.Contains(e.Location)) ModeChosen?.Invoke("next");
         else if (usageRect.Contains(e.Location)) { showUsage = !showUsage; UsageShownChanged?.Invoke(showUsage); Invalidate(); }
         else if (savingRect.Contains(e.Location)) SavingToggled?.Invoke();

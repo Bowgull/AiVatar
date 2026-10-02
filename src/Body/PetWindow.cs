@@ -107,6 +107,7 @@ sealed class PetWindow : Form
     /// <summary>Test flag (--bubble-test / --bubble-test=long): show a fixed reply in the bubble as soon as the
     /// window is up, with no Core round trip - for checking a bubble redesign against real GDI+ output.</summary>
     string? bubbleTest;
+    bool pinsTest;   // tests: show the type box with a reply and two pins attached, so the chips can be looked at
     int panelTab;
     PanelWindow? panel;
     int idCounter;
@@ -178,6 +179,7 @@ sealed class PetWindow : Form
             else if (a.Equals("--urgent-test=wave", StringComparison.OrdinalIgnoreCase)) urgentTest = "wave"; // Tier 2, standing - do NOT pass --dock
             else if (a.Equals("--urgent-test=badge", StringComparison.OrdinalIgnoreCase)) urgentTest = "badge"; // Tier 1, docked - use with --dock=bottom
             else if (a.Equals("--urgent-test=done", StringComparison.OrdinalIgnoreCase)) urgentTest = "done";   // Tier 3, docked, terracotta, no sound - use with --dock=bottom
+            else if (a.Equals("--pins-test", StringComparison.OrdinalIgnoreCase)) pinsTest = true;   // tests: the reply and pinned-context chips
             else if (a.Equals("--bubble-test", StringComparison.OrdinalIgnoreCase)) bubbleTest = "short";
             else if (a.Equals("--bubble-test=long", StringComparison.OrdinalIgnoreCase)) bubbleTest = "long";
             else if (a.Equals("--bubble-test=ask", StringComparison.OrdinalIgnoreCase)) bubbleTest = "ask";
@@ -278,6 +280,14 @@ sealed class PetWindow : Form
             else if (urgentTest == "done") { Hold("Job hunt done. Two applied.", "C:\\test", 2, Theme.Claude, "Claude"); TriggerDone(); }
             else { Hold("Need input in Claude on the test job: which one?", "C:\\test", 3, Theme.AvatarGlow, "Claude"); TriggerUrgent(); }
         });
+        if (pinsTest) BeginInvoke(() =>
+        {
+            Wake();
+            input.ReplyTo(812, "Twenty are still waiting on a reply. Three follow-ups were due today: Deliverect, GreenShield and Litmus.");
+            input.Pin(806, @"can you read G:\My Drive\Job Search 2026\applications.md and tell me how many are still open");
+            input.Pin(799, "Octup is the only one past first round.");
+            input.Open(Location, IntPtr.Zero);
+        });
         if (bubbleTest != null) BeginInvoke(() =>
         {
             if (bubbleTest == "think")
@@ -337,6 +347,15 @@ sealed class PetWindow : Form
                     }
                 },
                 RunAction = what => { if (what == "hotkey") AskForHotkey(); else if (what == "undock") Undock(moveToStand: true); else if (what == "claude") Hands.Arrange("Claude", "front"); },
+            };
+            // Right-clicking a message in the Panel's scrollback puts it on the type box, where he can see
+            // what is attached before he sends anything.
+            panel.PointAt = (what, id, text) =>
+            {
+                if (what == "pin") { input.Pin(id, text); return; }      // the Panel stays up so he can pin another
+                input.ReplyTo(id, text);
+                Wake();
+                input.Open(Location, Win32.GetForegroundWindow());
             };
         }
         panel.Show(); panel.WindowState = FormWindowState.Normal; Win32.ForceForeground(panel.Handle); panel.Activate();   // Windows otherwise leaves it behind the window in front
@@ -929,7 +948,17 @@ sealed class PetWindow : Form
             return;
         }
         lastText = text; consentText = null; input.SetConsent(false);
-        _ = link.SendAsync(new { t = "submit", id, text, mode });
+        // What he pointed at travels with the message. Both are his own choices from the scrollback, never
+        // inferred: a reply bound by recency misattributes, which is why Slack and Discord carry an explicit
+        // reference rather than guessing from what came last.
+        var replyTo = input.ReplyingTo;
+        var pinned = input.PinnedIds;
+        _ = link.SendAsync(replyTo is int r
+            ? new { t = "submit", id, text, mode, replyTo = r, context = pinned }
+            : pinned.Count > 0 ? (object)new { t = "submit", id, text, mode, context = pinned }
+                               : new { t = "submit", id, text, mode });
+        // The reply binding was about that one message. Pins stay until he takes them off (his decision).
+        input.ClearReply();
         ackTimer.Stop(); ackTimer.Start();                        // if the Core never acknowledges, say so
     }
 

@@ -138,6 +138,23 @@ sealed class PanelWindow : Form
         // about on Monday", which is the thing he actually asked for. Both voices are now on screen at once
         // and told apart without reading a word.
         conversation = new ConversationView(s) { Dock = DockStyle.Fill, EmptyMessage = "Nothing here yet." };
+        // Right-click a message: reply to that exact one, pin it, copy it, or forget it. The Panel only
+        // relays - which row is meant is decided by what he clicked, never inferred from what is newest.
+        // Reply closes the Panel, because the next thing he does is type. Pin does not: pinning two things
+        // means right-clicking twice, and opening the type box after the first one would put the Panel behind
+        // it. The notice is how he knows it landed.
+        conversation.ReplyRequested += (id, text) => { PointAt?.Invoke("reply", id, text); Hide(); };
+        conversation.PinRequested += (id, text) =>
+        {
+            PointAt?.Invoke("pin", id, text);
+            Say("Pinned. It rides along with everything you type until you take it off.");
+        };
+        conversation.ForgetRequested += id =>
+        {
+            _ = send(new { t = "forget.turn", id });
+            // Take it off screen now rather than waiting for a round trip, so the click visibly did something.
+            _ = send(new { t = "history", q = search.Text.Trim() });
+        };
         copyBtn = MakeButton("Copy", Kind.Gold);
         copyBtn.Click += (_, _) =>
         {
@@ -282,12 +299,28 @@ sealed class PanelWindow : Form
     }
 
     /// <summary>The History tab's list, from the Core. A reply to an older search than the box now holds is ignored.</summary>
+    /// <summary>Joshua pointed at a message: "reply" or "pin", the row id, and its text for the chip. The
+    /// Panel does not own the type box, so it hands this up rather than acting on it.</summary>
+    public Action<string, int, string>? PointAt;
+
+    /// <summary>A line along the bottom, cleared after a few seconds. Used for things that happened because
+    /// he clicked, where a dialog would be too much and silence would be too little.</summary>
+    void Say(string text)
+    {
+        notice.Text = text;
+        var clear = new System.Windows.Forms.Timer { Interval = 4000 };
+        clear.Tick += (_, _) => { if (notice.Text == text) notice.Text = ""; clear.Stop(); clear.Dispose(); };
+        clear.Start();
+    }
+
     public void LoadHistory(JsonElement m)
     {
         if (Str(m, "q") != search.Text.Trim()) return;
         var list = new List<ConversationView.Turn>();
         if (m.TryGetProperty("items", out var items) && items.ValueKind == JsonValueKind.Array)
-            foreach (var it in items.EnumerateArray()) list.Add(new ConversationView.Turn(Str(it, "ts"), Str(it, "who"), Str(it, "text")));
+            foreach (var it in items.EnumerateArray())
+                list.Add(new ConversationView.Turn(Str(it, "ts"), Str(it, "who"), Str(it, "text"),
+                    it.TryGetProperty("id", out var tid) && tid.TryGetInt32(out var tn) ? tn : 0));
         // Oldest first: a conversation is read downwards, and the Core returns newest first for the old table.
         list.Reverse();
         conversation.EmptyMessage = search.Text.Length > 0 ? "Nothing matches that." : "Nothing here yet.";

@@ -595,6 +595,73 @@ for buttons. `[scrollback, conversation view]`
 
 ---
 
+### `[ ]` 4.3b Reach back into the conversation
+
+**Not built. Added 2026-10-01 from Joshua's mockup F.** Built BEFORE 4.4 and 4.5 by his
+decision, because both of those touch the same window and would be partly redone.
+
+Numbered 4.3b rather than renumbering 4.4 and 4.5, so nothing that already points at those
+steps goes stale.
+
+**The problem.** The desktop shows exactly one message. When Aang replies, the last reply is
+gone. If he said something four turns ago and Joshua wants to act on it, Joshua retypes it.
+The Panel has the full scrollback as of 4.3, but it is read-only: a message there is
+something to read, not something to use. Aang's memory of the conversation is in the Core;
+Joshua's pointer into it does not exist, so he cannot say "that one".
+
+**His decisions, 2026-10-01:**
+
+- The desktop rests on one reply, as now, and grows into the stack only when he scrolls up.
+  It drops back when Aang answers again. Chosen so it stays small over the game.
+- Pinned context stays until he removes it, as a chip above the type box.
+- The right-click menu is: Reply to this, Add as context, Copy text, Forget this.
+- Forget hides the turn and keeps the row, so "undo that" works, the same as forgetting a
+  fact does today.
+
+**Half of this was already approved on 2026-09-24** (see the reply/context design): proactive
+messages carry a stable ID, a reply binds to a SPECIFIC message, a pending question never
+expires and is resolved only by a real reply to it. That design has never been built. The
+wire already carries `id` on every `bubble`, but `submit` has nowhere to put "this is about
+message 847", so the binding has no path.
+
+#### Core
+
+- `[ ]` **C1 Hide, do not delete.** Add `hidden INTEGER DEFAULT 0` to `turns` (a migration,
+  guarded by a `PRAGMA table_info` check, not a bare `ALTER`). `history()` and the context
+  assembly both skip hidden rows. `hideTurn(id)` / `unhideTurn(id)`.
+- `[ ]` **C2 Tell the Body which rows it is showing.** `saveTurn` currently returns nothing,
+  so the Body never learns the database ids of the exchange on screen. Note the trap: the
+  `id` already on a `bubble` message is the SUBMIT id, not the turn row id. Return both row
+  ids and send `{ t: 'turn.saved', id, userTurn, aangTurn }`.
+- `[ ]` **C3 Carry the binding.** `submit` gains `replyTo?: number` and `context?: number[]`,
+  both turn ids. The Core loads those rows and puts their text ahead of his message, so the
+  model sees the quoted text and not an id it cannot resolve.
+- `[ ]` **C4 Proactive messages become real turns.** `announce()` sends straight to the bubble
+  and `saveTurn` is called in exactly one place, the normal chat path, so nothing Aang says
+  unprompted exists as a row. Without this, "reply to this" fails on precisely the messages
+  he most wants to reply to. This is part 1 of the September design.
+
+#### Body
+
+- `[ ]` **B1 The desktop stack.** Scrolling up past the current reply grows the bubble into
+  the scrollback from mockup F; a new reply collapses it. `ConversationView` already draws
+  this shape for the Panel, so the question to settle first is whether it can be reused
+  inside a layered window or whether the bubble draws its own.
+- `[ ]` **B2 The menu, on the desktop.**
+- `[ ]` **B3 The menu, in the Panel.** Cheap: `ConversationView.Turn` only has to carry the
+  `Id` that `history.reply` already sends and `PanelWindow` currently drops on the floor.
+- `[ ]` **B4 The chips.** Pinned context above the type box with an x; a reply shows a quoted
+  strip above the box.
+
+**Test:** fake-core harness, no quota. Pin two messages, check both ride along. Reply to an
+older message, check the binding is the one clicked and not the newest. Forget a turn, check
+it leaves search and comes back on undo.
+
+**Out of scope, on purpose:** Discord. It has replies natively, and its binding can be read
+from `message_reference` later.
+
+---
+
 ### `[ ]` 4.4 A quiet signal when something is genuinely stuck
 
 **Not built.** When a Claude session is blocked waiting on you, Aang announces once then
