@@ -228,7 +228,7 @@ sealed class PetWindow : Form
             _ = link.SendAsync(new { t = "presence", quiet, foreground, title = foregroundTitle, watching = cfg.SeeActiveWindow, hwnd = foregroundHwnd });
         };
         PushStatus();
-        input.PageRequested += d => { if (d > 0 && bubble.More) ExpandBubble(); else if (bubble.Scroll(d * 6)) dirty = true; };
+        input.PageRequested += d => { if (d > 0 && bubble.More) ExpandBubble(); else if (bubble.Scroll(d * 6)) dirty = true; FillStackFromMemory(); };
         BuildTray();
     }
 
@@ -287,12 +287,15 @@ sealed class PetWindow : Form
             Wake();
             // Shaped like his real history: short pings, one long reply, one with a path in it. His 207 real
             // messages average 28 characters, so a view that only looks right with paragraphs looks wrong daily.
-            bubble.Remember(801, "morning", true);
-            bubble.Remember(802, "Morning. Nothing waiting on you yet.", false);
-            bubble.Remember(803, "whats my status with octup", true);
-            bubble.Remember(804, "Octup is the only one past first round. You interviewed on the 30th and are waiting on the outcome.", false);
-            bubble.Remember(805, "how many applications are still open", true);
-            bubble.Remember(806, "Twenty are still waiting on a reply. Three follow-ups were due today: Deliverect, GreenShield and Litmus.", false);
+            // Spread over three days, so the date dividers have something to divide.
+            bubble.ReachedTheStart = true;
+            var d2 = DateTime.Now.AddDays(-2); var d1 = DateTime.Now.AddDays(-1); var now = DateTime.Now;
+            bubble.RememberAt(801, "morning", true, d2);
+            bubble.RememberAt(802, "Morning. Nothing waiting on you yet.", false, d2);
+            bubble.RememberAt(803, "whats my status with octup", true, d1);
+            bubble.RememberAt(804, "Octup is the only one past first round. You interviewed on the 30th and are waiting on the outcome.", false, d1);
+            bubble.RememberAt(805, "how many applications are still open", true, now);
+            bubble.RememberAt(806, "Twenty are still waiting on a reply. Three follow-ups were due today: Deliverect, GreenShield and Litmus.", false, now);
             ShowBubble("Twenty are still waiting on a reply. Three follow-ups were due today: Deliverect, GreenShield and Litmus.", false);
             bubble.EnterScrollback();
             dirty = true;
@@ -507,6 +510,26 @@ sealed class PetWindow : Form
                     break;
                 case "history.reply":
                     panel?.LoadHistory(m);
+                    // The same reply fills the bubble's stack. The Core returns newest first; the stack is
+                    // read downwards, so it goes in reversed.
+                    if (bubble.InScrollback && m.TryGetProperty("items", out var hit) && hit.ValueKind == JsonValueKind.Array)
+                    {
+                        awaitingOlder = false;
+                        var older = new List<BubbleView.Said>();
+                        foreach (var it in hit.EnumerateArray())
+                            older.Add(new BubbleView.Said(
+                                it.TryGetProperty("id", out var hid) && hid.TryGetInt32(out var hn) ? hn : 0,
+                                Str(it, "text") ?? "", Str(it, "who") == "you",
+                                DateTime.TryParse(Str(it, "ts"), System.Globalization.CultureInfo.InvariantCulture,
+                                    System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal,
+                                    out var hts) ? hts.ToLocalTime() : DateTime.Now));
+                        older.Reverse();
+                        // An empty page means the database has nothing older: stop asking, and say so in the
+                        // bubble rather than letting him scroll into silence wondering if it is broken.
+                        if (older.Count == 0) bubble.ReachedTheStart = true;
+                        bubble.Prepend(older);
+                        dirty = true;
+                    }
                     break;
                 case "quiet":
                     forcedQuiet = Bool(m, "on"); ApplyQuiet();
@@ -802,11 +825,6 @@ sealed class PetWindow : Form
     protected override void OnMouseDown(MouseEventArgs e)
     {
         base.OnMouseDown(e);
-        if (e.Button == MouseButtons.Right && bubble.InScrollback)
-        {
-            var row = bubble.TurnAt(BubblePoint(e.Location).Y);
-            if (row > 0) { ShowTurnMenu(row, e.Location); return; }
-        }
         if (e.Button != MouseButtons.Left) return;
         if (travelStep != 0) { travelStep = 0; slideStart = DateTime.MinValue; flipX = false; anim.Play("idle"); dirty = true; }
         var bp = BubblePoint(e.Location);
@@ -846,6 +864,25 @@ sealed class PetWindow : Form
         if (bubble.Hover) { bubble.Hover = false; dirty = true; }
     }
 
+    /// <summary>
+    /// Top the stack up from the database the first time he scrolls back.
+    ///
+    /// Without this the bubble could only show what happened since the app last started, which is not
+    /// "scroll back an hour", it is "scroll back as far as the last restart" - and the Core restarts several
+    /// times a day. Asked once per scrollback, not per scroll tick.
+    /// </summary>
+    void FillStackFromMemory()
+    {
+        if (!bubble.WantsOlder || awaitingOlder) return;
+        awaitingOlder = true;
+        // Older than the oldest already shown. Repeats every time he reaches the top, so there is no limit
+        // on how far back he can go - days, weeks, until the database runs out.
+        _ = link.SendAsync(new { t = "history", q = "", before = bubble.OldestId });
+    }
+
+    /// <summary>One page of older turns is in flight; stops a scroll at the top asking over and over.</summary>
+    bool awaitingOlder;
+
     /// <summary>The same four choices the Panel offers, on the desktop. One list of actions, one place they
     /// are defined, so the two cannot drift apart.</summary>
     void ShowTurnMenu(int row, Point at)
@@ -874,13 +911,28 @@ sealed class PetWindow : Form
         // Scroll up over the bubble to reach back through the conversation. Scroll() opens the stack itself
         // when there is nothing above - the gesture is the same one either way, so there is nothing to learn.
         if (bubble.Scroll(e.Delta > 0 ? -2 : 2)) dirty = true;
+        FillStackFromMemory();
     }
 
     protected override void OnMouseUp(MouseEventArgs e)
     {
         base.OnMouseUp(e);
-        // A right-click on Aang is the same menu as the tray icon (Panel, Talk, Model, Dock...), where he is.
-        if (e.Button == MouseButtons.Right) { SetClickAwayHook(true); tray.ContextMenuStrip?.Show(new Point(Cursor.Position.X - 34, Cursor.Position.Y), ToolStripDropDownDirection.Left); return; }   // to his left: he is drawn above a menu that opens under him
+        if (e.Button == MouseButtons.Right)
+        {
+            // A right-click ON A MESSAGE is about that message; anywhere else on Aang is the tray menu
+            // (Panel, Talk, Model, Dock...). Decided here and nowhere else: the tray menu opens on mouse UP,
+            // so an earlier handler on mouse DOWN just meant both ran and this one won (2026-10-02, Joshua:
+            // "the right clcik doesnt work in the bubble it ddefualts to the regular right click menu").
+            var onBubble = BubblePoint(e.Location);
+            if (bubble.Contains(onBubble.X, onBubble.Y))
+            {
+                var row = bubble.TurnAt(onBubble.Y);
+                if (row > 0) { ShowTurnMenu(row, e.Location); return; }
+            }
+            SetClickAwayHook(true);
+            tray.ContextMenuStrip?.Show(new Point(Cursor.Position.X - 34, Cursor.Position.Y), ToolStripDropDownDirection.Left);
+            return;   // to his left: he is drawn above a menu that opens under him
+        }
 
         if (thumbDrag) { thumbDrag = false; Capture = false; return; }
         if (!dragging) return;

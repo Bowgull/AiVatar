@@ -388,7 +388,13 @@ export class Memory {
    * search narrows as he types); without, simply the latest. Replies from the retired local models are left out,
    * as in search().
    */
-  history(query = '', limit = 200): { id: number; ts: string; who: 'you' | 'Aang'; text: string }[] {
+  /**
+   * The conversation, newest first.
+   *
+   * `before` pages backwards: scrolling back through the bubble asks for the next older chunk each time it
+   * reaches the top, so there is no cap on how far back he can go - only on how much is drawn at once.
+   */
+  history(query = '', limit = 200, before = 0): { id: number; ts: string; who: 'you' | 'Aang'; text: string }[] {
     if (!this.db) return [];
     const terms = query.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter(w => w.length > 1).slice(0, 8);
     try {
@@ -396,10 +402,10 @@ export class Memory {
         ? this.db.prepare(
             `SELECT t.id AS id, t.ts AS ts, t.role AS role, t.text AS text
                FROM turns_fts f JOIN turns t ON t.id = f.turn_id
-              WHERE turns_fts MATCH ? AND ${visible('t')}
-              ORDER BY t.id DESC LIMIT ?`).all(terms.map(t => `"${t}"*`).join(' AND '), limit)
+              WHERE turns_fts MATCH ? AND ${visible('t')} AND (? = 0 OR t.id < ?)
+              ORDER BY t.id DESC LIMIT ?`).all(terms.map(t => `"${t}"*`).join(' AND '), before, before, limit)
         : this.db.prepare(
-            `SELECT id, ts, role, text FROM turns WHERE ${visible()} ORDER BY id DESC LIMIT ?`).all(limit)) as { id: number; ts: string; role: string; text: string }[];
+            `SELECT id, ts, role, text FROM turns WHERE ${visible()} AND (? = 0 OR id < ?) ORDER BY id DESC LIMIT ?`).all(before, before, limit)) as { id: number; ts: string; role: string; text: string }[];
       return rows.map(r => ({ id: Number(r.id), ts: String(r.ts), who: r.role === 'user' ? 'you' as const : 'Aang' as const, text: String(r.text) }));
     } catch (e) {
       console.error('memory history failed:', (e as Error).message);
