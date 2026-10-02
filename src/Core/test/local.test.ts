@@ -7,7 +7,8 @@ import './_env.ts';
 // without it.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { askLocal, localReady, stripThinking, LOCAL_MODEL } from '../src/local.ts';
+import { askLocal, localReady, stripThinking, unloadLocal, LOCAL_MODEL } from '../src/local.ts';
+import { freeVramMiB } from '../src/gpu.ts';
 
 test('reasoning is stripped, however the model emits it', () => {
   // Rule 2. `think: false` is asked for, but a model that ignores it must not leak its reasoning into a
@@ -67,4 +68,25 @@ test('it reads a document and answers from it, with no tools anywhere', { timeou
   assert.equal(r.ok, true, `local model failed: ${r.why} ${r.detail ?? ''}`);
   assert.ok(/octup/i.test(r.text), `expected it to name Octup, got: ${r.text.slice(0, 200)}`);
   console.log(`      read a document in ${r.ms} ms`);
+});
+
+// Deliberately last: it takes the card back, which the reading tests above need.
+test('unloading actually gives the graphics card back', { timeout: 60_000 }, async t => {
+  const ready = await localReady();
+  if (!ready.ready) { t.skip('local model not available'); return; }
+  const before = await freeVramMiB();
+  if (before === null) { t.skip('no nvidia-smi, so there is nothing to measure'); return; }
+
+  assert.equal(await unloadLocal(), true, 'the unload request should be accepted');
+  // Ollama frees asynchronously; give the driver a moment to report it.
+  let after = before;
+  for (let i = 0; i < 20; i++) {
+    await new Promise(r => setTimeout(r, 500));
+    after = (await freeVramMiB()) ?? after;
+    if (after - before > 4000) break;
+  }
+  console.log(`      free VRAM ${before} MiB -> ${after} MiB`);
+  // The model is ~13 GB. Anything less than several GB coming back means it did not really unload, which
+  // is the whole point of the check: a game starting must not find the card still full.
+  assert.ok(after - before > 4000, `expected the card back, went from ${before} to ${after} MiB`);
 });
