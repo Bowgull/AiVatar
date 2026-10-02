@@ -32,6 +32,21 @@ const MAX_BYTES = 2_000_000;
 export interface Protected { stateDir: string; dataDir: string }
 
 /**
+ * Joshua's Obsidian vault, and the one folder inside it Aang may write to.
+ *
+ * He reads the whole vault. He writes to `10_Projects/Aang` and nowhere else, and that is enforced here
+ * rather than asked for, because the failure mode actually documented for agents editing vaults is not
+ * "noise" - it is writing to the WRONG NOTE, the one next to the one it retrieved. A rule in the write gate
+ * makes that impossible by construction instead of unlikely by good behaviour.
+ *
+ * 1,088 of the 1,183 notes are old AI session handoffs. The ~95 Joshua wrote himself are the asset, and
+ * they sit outside his folder, so they are covered.
+ */
+export const VAULT_DIR = process.env.AANG_VAULT_DIR
+  ?? path.join(process.env.USERPROFILE ?? 'C:\\Users\\Shadow', 'Documents', 'CereBro-Vault');
+export const VAULT_WRITABLE = path.join(VAULT_DIR, '10_Projects', 'Aang');
+
+/**
  * Folder names that are somebody else's, matched by name wherever they appear.
  *
  * Joshua's instruction, given twice and without qualification: "My Drive contains a folder called
@@ -150,6 +165,10 @@ export function refusal(file: string, p: Protected): string | null {
   if (under(p.stateDir)) return 'that is my own settings and permissions folder, and I never write to it myself';
   if (under(path.join(p.dataDir, 'aang.db')) || /[\\/]aang\.db(-wal|-shm)?$/.test(full)) return 'that is my memory database; memory changes go through remember and forget';
   if (under(UNDO_DIR)) return 'that is where my undo copies are kept';
+  // Read the whole vault, write only to my own folder in it. Everything else there is Joshua's.
+  if (under(VAULT_DIR) && !under(VAULT_WRITABLE)) {
+    return 'that is Joshua\'s vault. I read it, but the only part of it I write to is 10_Projects/Aang';
+  }
   const win = process.env.SystemRoot ?? 'C:\\Windows';
   for (const sys of [win, process.env.ProgramFiles ?? 'C:\\Program Files', process.env['ProgramFiles(x86)'] ?? 'C:\\Program Files (x86)', process.env.ProgramData ?? 'C:\\ProgramData']) {
     if (under(sys)) return 'that is part of Windows or an installed program';
