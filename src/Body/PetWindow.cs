@@ -108,6 +108,7 @@ sealed class PetWindow : Form
     /// window is up, with no Core round trip - for checking a bubble redesign against real GDI+ output.</summary>
     string? bubbleTest;
     bool pinsTest;   // tests: show the type box with a reply and two pins attached, so the chips can be looked at
+    bool stackTest;  // tests: fill the bubble with a conversation and open the scrollback
     int panelTab;
     PanelWindow? panel;
     int idCounter;
@@ -180,6 +181,7 @@ sealed class PetWindow : Form
             else if (a.Equals("--urgent-test=badge", StringComparison.OrdinalIgnoreCase)) urgentTest = "badge"; // Tier 1, docked - use with --dock=bottom
             else if (a.Equals("--urgent-test=done", StringComparison.OrdinalIgnoreCase)) urgentTest = "done";   // Tier 3, docked, terracotta, no sound - use with --dock=bottom
             else if (a.Equals("--pins-test", StringComparison.OrdinalIgnoreCase)) pinsTest = true;   // tests: the reply and pinned-context chips
+            else if (a.Equals("--stack-test", StringComparison.OrdinalIgnoreCase)) stackTest = true;  // tests: the desktop scrollback
             else if (a.Equals("--bubble-test", StringComparison.OrdinalIgnoreCase)) bubbleTest = "short";
             else if (a.Equals("--bubble-test=long", StringComparison.OrdinalIgnoreCase)) bubbleTest = "long";
             else if (a.Equals("--bubble-test=ask", StringComparison.OrdinalIgnoreCase)) bubbleTest = "ask";
@@ -279,6 +281,21 @@ sealed class PetWindow : Form
             if (urgentTest == "badge") Hold("Job hunt done. Two applied.", "C:\\test", 1, Theme.Gold);
             else if (urgentTest == "done") { Hold("Job hunt done. Two applied.", "C:\\test", 2, Theme.Claude, "Claude"); TriggerDone(); }
             else { Hold("Need input in Claude on the test job: which one?", "C:\\test", 3, Theme.AvatarGlow, "Claude"); TriggerUrgent(); }
+        });
+        if (stackTest) BeginInvoke(() =>
+        {
+            Wake();
+            // Shaped like his real history: short pings, one long reply, one with a path in it. His 207 real
+            // messages average 28 characters, so a view that only looks right with paragraphs looks wrong daily.
+            bubble.Remember(801, "morning", true);
+            bubble.Remember(802, "Morning. Nothing waiting on you yet.", false);
+            bubble.Remember(803, "whats my status with octup", true);
+            bubble.Remember(804, "Octup is the only one past first round. You interviewed on the 30th and are waiting on the outcome.", false);
+            bubble.Remember(805, "how many applications are still open", true);
+            bubble.Remember(806, "Twenty are still waiting on a reply. Three follow-ups were due today: Deliverect, GreenShield and Litmus.", false);
+            ShowBubble("Twenty are still waiting on a reply. Three follow-ups were due today: Deliverect, GreenShield and Litmus.", false);
+            bubble.EnterScrollback();
+            dirty = true;
         });
         if (pinsTest) BeginInvoke(() =>
         {
@@ -410,6 +427,11 @@ sealed class PetWindow : Form
                     bubble.Link = bubbleFocus != null ? Str(m, "link") ?? "" : "";
                     if (!Bool(m, "stream") && !proactive && Str(m, "id") is { Length: > 0 } rid) { replyId = rid; bubble.Tools = true; bubble.Rating = 0; }
                     if (!Bool(m, "stream")) { working = false; input.Working = false; ackTimer.Stop(); }
+                    // Keep the finished reply so he can scroll back to it. Only the finished one: a streamed
+                    // delta is the same reply arriving again, not another thing said. A proactive message
+                    // carries its own row, because it was stored on its way out.
+                    if (!Bool(m, "stream"))
+                        bubble.Remember(m.TryGetProperty("turn", out var tr) && tr.TryGetInt32(out var trn) ? trn : 0, text, false);
                     permissionId = null;
                     break;
                 }
@@ -419,6 +441,13 @@ sealed class PetWindow : Form
                 case "bubble.clear":
                     ExitExpanded(collapse: false);
                     bubble.Clear(); dirty = true;
+                    break;
+                case "turn.saved":
+                    // The exchange is now two rows. Until this arrives the Body has only the submit id, which
+                    // names the request and not the stored turn.
+                    if (m.TryGetProperty("userTurn", out var ut) && ut.TryGetInt32(out var utn)
+                        && m.TryGetProperty("aangTurn", out var at2) && at2.TryGetInt32(out var atn))
+                        bubble.AssignIds(utn, atn);
                     break;
                 case "ack":
                     acked = true; ackTimer.Stop();
@@ -773,6 +802,11 @@ sealed class PetWindow : Form
     protected override void OnMouseDown(MouseEventArgs e)
     {
         base.OnMouseDown(e);
+        if (e.Button == MouseButtons.Right && bubble.InScrollback)
+        {
+            var row = bubble.TurnAt(BubblePoint(e.Location).Y);
+            if (row > 0) { ShowTurnMenu(row, e.Location); return; }
+        }
         if (e.Button != MouseButtons.Left) return;
         if (travelStep != 0) { travelStep = 0; slideStart = DateTime.MinValue; flipX = false; anim.Play("idle"); dirty = true; }
         var bp = BubblePoint(e.Location);
@@ -812,10 +846,34 @@ sealed class PetWindow : Form
         if (bubble.Hover) { bubble.Hover = false; dirty = true; }
     }
 
+    /// <summary>The same four choices the Panel offers, on the desktop. One list of actions, one place they
+    /// are defined, so the two cannot drift apart.</summary>
+    void ShowTurnMenu(int row, Point at)
+    {
+        var said = bubble.Remembered(row);
+        var menu = new ContextMenuStrip { ShowImageMargin = false };
+        void Add(string label, Action go)
+        {
+            var item = new ToolStripMenuItem(label);
+            item.Click += (_, _) => go();
+            menu.Items.Add(item);
+        }
+        Add("Reply to this", () => { input.ReplyTo(row, said); Wake(); input.Open(Location, Win32.GetForegroundWindow()); });
+        Add("Add as context", () => input.Pin(row, said));
+        Add("Copy text", () => { try { Clipboard.SetDataObject(said, true, 5, 60); } catch { /* another app had the clipboard */ } });
+        menu.Items.Add(new ToolStripSeparator());
+        Add("Forget this", () => { _ = link.SendAsync(new { t = "forget.turn", id = row }); bubble.Forget(row); dirty = true; });
+        GoldMenu.Apply(menu);
+        menu.Closed += (_, _) => menu.Dispose();
+        menu.Show(this, at);
+    }
+
     protected override void OnMouseWheel(MouseEventArgs e)
     {
         base.OnMouseWheel(e);
-        if (bubble.Expanded && bubble.Scroll(e.Delta > 0 ? -2 : 2)) dirty = true;
+        // Scroll up over the bubble to reach back through the conversation. Scroll() opens the stack itself
+        // when there is nothing above - the gesture is the same one either way, so there is nothing to learn.
+        if (bubble.Scroll(e.Delta > 0 ? -2 : 2)) dirty = true;
     }
 
     protected override void OnMouseUp(MouseEventArgs e)
@@ -948,6 +1006,7 @@ sealed class PetWindow : Form
             return;
         }
         lastText = text; consentText = null; input.SetConsent(false);
+        bubble.Remember(0, text, true);        // his own turn; its row id arrives with turn.saved
         // What he pointed at travels with the message. Both are his own choices from the scrollback, never
         // inferred: a reply bound by recency misattributes, which is why Slack and Discord carry an explicit
         // reference rather than guessing from what came last.
