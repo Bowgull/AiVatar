@@ -44,7 +44,19 @@ export interface Protected { stateDir: string; dataDir: string }
  */
 export const VAULT_DIR = process.env.AANG_VAULT_DIR
   ?? path.join(process.env.USERPROFILE ?? 'C:\\Users\\Shadow', 'Documents', 'CereBro-Vault');
-export const VAULT_WRITABLE = path.join(VAULT_DIR, '10_Projects', 'Aang');
+
+/**
+ * The folder Obsidian actually opens, which is NOT the repository root.
+ *
+ * The repository holds 1,188 notes and 566 MB, but 548 MB of that is 1,111 session transcripts averaging
+ * nearly 2 MB each. Pointing Obsidian at the whole thing was tried on 2026-10-02 and left it using 2.5 GB
+ * of memory and seven minutes of CPU, still indexing. The 73 notes Joshua actually works in come to 11 MB
+ * and open instantly. So: Aang READS the whole repository, including every transcript, because that is
+ * where search earns its keep; Obsidian opens only the working vault; and Aang WRITES only to his own
+ * folder inside it, so he still appears in Joshua's graph.
+ */
+export const VAULT_WORKING = path.join(VAULT_DIR, '07_Knowledge', 'obsidian-vault');
+export const VAULT_WRITABLE = path.join(VAULT_WORKING, '10_Projects', 'Aang');
 
 /**
  * Folder names that are somebody else's, matched by name wherever they appear.
