@@ -711,8 +711,12 @@ sealed class BubbleView : IDisposable
     public bool LeaveScrollback()
     {
         if (!scrollback) return false;
-        scrollback = false; expanded = false; scroll = 0;
+        scrollback = false; expanded = false; scroll = 0; scrollPx = 0;
         lines = Wrap(text); mineLine = new(); lineTurn.Clear();
+        // Opened from the menu with nothing on screen, there is no reply to fall back to, and collapsing to a
+        // bubble containing no words left an empty parchment box sitting there with no way to shift it
+        // (2026-10-02, Joshua: "right now hes stuck"). Nothing to say means nothing on screen.
+        if (text.Length == 0) { Visible = false; Dots = false; hideAt = DateTime.MaxValue; shownH = 0; return true; }
         targetH = HeightFor(Math.Min(lines.Count, CollapsedLines));
         return true;
     }
