@@ -20,7 +20,9 @@ static class Docking
     public const int SpriteX = 246, SpriteY = 86, Frame = 224;
     /// <summary>The window is wider than the drawing by this, on the left, so a long reply's bubble can widen (BubbleView.WideExtra).
     /// Screen maths use WinSpriteX; drawing, which is shifted by the margin, keeps SpriteX.</summary>
-    public const int Margin = BubbleView.WideExtra, WinSpriteX = Margin + SpriteX;
+    // Room to the LEFT of the sprite inside the window. Sized by the widest the bubble ever gets, which is
+    // the conversation, not a wide reply.
+    public const int Margin = BubbleView.ScrollbackExtra, WinSpriteX = Margin + SpriteX;
     /// <summary>How much of him shows when docked, and when he has something to say (unscaled pixels, measured along the turn).</summary>
     public const int PeekPx = 34, PeekMorePx = 90;          // 34: forehead and eyes, as the Rainmeter skin showed him
     /// <summary>Dragging him within this of an edge docks him there.</summary>
