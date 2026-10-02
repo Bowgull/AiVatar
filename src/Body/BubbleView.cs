@@ -110,6 +110,10 @@ sealed class BubbleView : IDisposable
     public bool InScrollback => scrollback;
     int scroll;
     float shownH, targetH;
+    /// <summary>Where the view actually sits, in pixels, easing toward `scroll * LineH`. The scroll position
+    /// itself is still whole lines; this is only how it gets there. Jumping a whole 23px line per wheel notch
+    /// is what read as "really jumpy and glitchy" (Joshua, 2026-10-02).</summary>
+    float scrollPx;
     DateTime hideAt = DateTime.MaxValue;
     string receipt = "";
 
@@ -145,9 +149,25 @@ sealed class BubbleView : IDisposable
     // length problem to fix (nothing to read rhythm across), so the real threshold is "more than one line",
     // not "many": Joshua, 2026-09-23, "jumbled and hard to read", researched rather than guessed at a number.
     public const int WideExtra = 160, WideAfterLines = 1;
+
+    /// <summary>
+    /// How much wider and taller the bubble gets while it is showing the conversation.
+    ///
+    /// A reply is read once and dismissed; scrollback is read like a page, and at 12 lines in a 416px box it
+    /// was "too small and cramped" (Joshua, 2026-10-02). These only apply in scrollback, so a normal reply
+    /// over the game is exactly the size it was.
+    /// </summary>
+    public const int ScrollbackExtra = 300, ScrollbackLines = 22;
+    public const int ScrollbackMaxH = ScrollbackLines * LineH + 2 * Pad;   // 530
     public bool Wide { get; private set; }
-    public float LeftNow => Wide ? Left - WideExtra : Left;
-    float TextXNow => Wide ? TextX - WideExtra : TextX;
+    public float LeftNow => scrollback ? Left - ScrollbackExtra : Wide ? Left - WideExtra : Left;
+
+    /// <summary>Lines that fit at the current size. The conversation gets more room than one reply does.</summary>
+    int FitLines => scrollback ? ScrollbackLines : ExpandedLines;
+    /// <summary>Where text starts. Derived from LeftNow rather than restating the widening, so a new width
+    /// cannot move the frame and leave the text behind - which is exactly what the conversation width did on
+    /// its first run: a dead slab of empty parchment down the left (2026-10-02).</summary>
+    float TextXNow => LeftNow + (TextX - Left);
     float MaxW => Wide ? MaxTextW + WideExtra : MaxTextW;
 
     /// <summary>Text width inside a conversation card. Narrower than MaxW by the card's own padding, or the
@@ -228,9 +248,9 @@ sealed class BubbleView : IDisposable
 
     /// <summary>The reply is longer than the collapsed bubble: show "..." and the arrow.</summary>
     public bool More => Visible && !streaming && !Dots && !expanded && lines.Count > CollapsedLines;
-    public bool CanScroll => (expanded || scrollback) && lines.Count > ExpandedLines;
-    public int VisibleLineCount => expanded ? Math.Min(lines.Count, ExpandedLines) : Math.Min(lines.Count, CollapsedLines);
-    public bool Animating => Visible && (Dots || Revealing || Math.Abs(shownH - targetH) > 0.4f);
+    public bool CanScroll => (expanded || scrollback) && lines.Count > FitLines;
+    public int VisibleLineCount => expanded ? Math.Min(lines.Count, FitLines) : Math.Min(lines.Count, CollapsedLines);
+    public bool Animating => Visible && (Dots || Revealing || Math.Abs(shownH - targetH) > 0.4f || Math.Abs(scrollPx - scroll * (float)LineH) > 0.5f);
     public float CurrentTop => Bottom - Math.Max(shownH, MinH * 0.5f);
 
     public BubbleView()
@@ -301,7 +321,7 @@ sealed class BubbleView : IDisposable
     }
 
     float HeightFor(int lineCount) => Math.Clamp(lineCount * LineH + (asking ? AskRow : 0) + (Asked.Length > 0 ? AskedRowH : 0) + RowsH + 2 * Pad,
-        MinH, ExpandedMaxH + AskRow + AskedRowH + RowsH);
+        MinH, scrollback ? ScrollbackMaxH : ExpandedMaxH + AskRow + AskedRowH + RowsH);
 
     public void Show(string t, bool stream, int holdMs)
     {
@@ -397,7 +417,7 @@ sealed class BubbleView : IDisposable
     {
         if (!More) return false;
         expanded = true; scroll = 0;
-        targetH = HeightFor(Math.Min(lines.Count, ExpandedLines));
+        targetH = HeightFor(Math.Min(lines.Count, FitLines));
         hideAt = DateTime.UtcNow.AddMinutes(5);           // stays until Joshua closes it
         return true;
     }
@@ -445,8 +465,8 @@ sealed class BubbleView : IDisposable
         if (back.Count == 0) { LeaveScrollback(); return; }
         var wasAt = scroll;
         Rebuild();
-        scroll = Math.Clamp(wasAt, 0, Math.Max(0, lines.Count - ExpandedLines));
-        targetH = HeightFor(Math.Min(lines.Count, ExpandedLines));
+        scroll = Math.Clamp(wasAt, 0, Math.Max(0, lines.Count - FitLines));
+        targetH = HeightFor(Math.Min(lines.Count, FitLines));
     }
 
     /// <summary>
@@ -512,8 +532,8 @@ sealed class BubbleView : IDisposable
         // Keep his eye where it was: everything shifted down by however many lines went in above.
         var before = lines.Count;
         Rebuild();
-        scroll = Math.Clamp(scroll + (lines.Count - before), 0, Math.Max(0, lines.Count - ExpandedLines));
-        targetH = HeightFor(Math.Min(lines.Count, ExpandedLines));
+        scroll = Math.Clamp(scroll + (lines.Count - before), 0, Math.Max(0, lines.Count - FitLines));
+        targetH = HeightFor(Math.Min(lines.Count, FitLines));
     }
 
     /// <summary>
@@ -530,8 +550,9 @@ sealed class BubbleView : IDisposable
         Asked = ""; rows = null;                       // neither belongs to a conversation, only to one reply
         scrollback = true; expanded = true;
         Rebuild();
-        scroll = Math.Max(0, lines.Count - ExpandedLines);
-        targetH = HeightFor(Math.Min(Math.Max(lines.Count, 3), ExpandedLines));
+        scroll = Math.Max(0, lines.Count - FitLines);
+        targetH = HeightFor(Math.Min(Math.Max(lines.Count, 3), FitLines));
+        scrollPx = scroll * LineH;
         if (shownH <= 0) shownH = targetH * 0.55f;
         hideAt = DateTime.UtcNow.AddMinutes(10);        // it stays until he closes it
         return true;
@@ -542,8 +563,8 @@ sealed class BubbleView : IDisposable
         if (scrollback || back.Count == 0) return false;
         scrollback = true; expanded = true;
         Rebuild();
-        scroll = Math.Max(0, lines.Count - ExpandedLines);     // open at the newest, like any chat window
-        targetH = HeightFor(Math.Min(lines.Count, ExpandedLines));
+        scroll = Math.Max(0, lines.Count - FitLines);     // open at the newest, like any chat window
+        targetH = HeightFor(Math.Min(lines.Count, FitLines));
         hideAt = DateTime.UtcNow.AddMinutes(5);
         return true;
     }
@@ -716,7 +737,7 @@ sealed class BubbleView : IDisposable
         // make anyway, so there is nothing extra to learn.
         if (delta < 0 && !scrollback && scroll == 0 && back.Count > 0) return EnterScrollback();
         if (!CanScroll) return false;
-        var max = lines.Count - ExpandedLines;
+        var max = lines.Count - FitLines;
         var next = Math.Clamp(scroll + delta, 0, max);
         if (next == scroll) return false;
         scroll = next;
@@ -739,7 +760,7 @@ sealed class BubbleView : IDisposable
             if (!CanScroll) return RectangleF.Empty;
             var frac = ExpandedLines / (float)lines.Count;
             var h = Math.Max(24, t.Height * frac);
-            var maxScroll = lines.Count - ExpandedLines;
+            var maxScroll = lines.Count - FitLines;
             var y = t.Y + (t.Height - h) * (scroll / (float)maxScroll);
             return new RectangleF(t.X, y, t.Width, h);
         }
@@ -751,7 +772,7 @@ sealed class BubbleView : IDisposable
         if (!CanScroll) return false;
         var t = Track; var th = Thumb.Height;
         var frac = Math.Clamp((y - t.Y - th / 2) / Math.Max(1, t.Height - th), 0f, 1f);
-        var next = (int)Math.Round(frac * (lines.Count - ExpandedLines));
+        var next = (int)Math.Round(frac * (lines.Count - FitLines));
         if (next == scroll) return false;
         scroll = next; hideAt = DateTime.UtcNow.AddMinutes(5);
         return true;
@@ -772,6 +793,9 @@ sealed class BubbleView : IDisposable
         if (CopiedUntil != default && now >= CopiedUntil) { CopiedUntil = default; changed = true; }
         if (Visible && Math.Abs(shownH - targetH) > 0.4f) { shownH += (targetH - shownH) * 0.4f; changed = true; }
         else if (Visible && shownH != targetH) { shownH = targetH; changed = true; }
+        var scrollTo = scroll * (float)LineH;
+        if (Visible && Math.Abs(scrollPx - scrollTo) > 0.5f) { scrollPx += (scrollTo - scrollPx) * 0.28f; changed = true; }
+        else if (Visible && scrollPx != scrollTo) { scrollPx = scrollTo; changed = true; }
         if (Visible && Dots) changed = true;
         if (More) changed = true;                         // the arrow bobs
         return changed;
@@ -860,8 +884,14 @@ sealed class BubbleView : IDisposable
 
         g.SetClip(path);
         using var tb = new SolidBrush(textC);
-        var first = streaming ? Math.Max(0, lines.Count - CollapsedLines) : expanded ? scroll : 0;
+        // In scrollback the view sits at a PIXEL offset that eases toward the line it is scrolling to, so the
+        // first visible line can be a partial one. Everything else still works in whole lines.
+        var smooth = scrollback ? scrollPx : scroll * (float)LineH;
+        var first = streaming ? Math.Max(0, lines.Count - CollapsedLines) : expanded ? (int)(smooth / LineH) : 0;
         var count = streaming ? Math.Min(lines.Count, CollapsedLines) : VisibleLineCount;
+        // One extra line, so the part-line scrolling in at the bottom is drawn rather than popping in.
+        if (scrollback && first + count < lines.Count) count++;
+        var slide = scrollback ? -(smooth - first * LineH) : 0f;
         // A short reply does not fill the minimum bubble height, so the leftover space is split above and
         // below instead of all falling underneath the text. Joshua asked for even padding; the MinH clamp
         // had quietly reintroduced 11px above and 27px below on a one-liner.
@@ -872,7 +902,7 @@ sealed class BubbleView : IDisposable
         // frame: with five rows, two of them and the "N more" line drew on the desktop below the bubble.
         var used = count * LineH + (asking ? AskRow : 0) + (Asked.Length > 0 ? AskedRowH : 0) + RowsH;
         var slack = Math.Max(0f, (Bottom - top) - 2 * Pad - used);
-        var textTop = top + Pad + slack / 2f;
+        var textTop = top + Pad + slack / 2f + slide;
         if (Asked.Length > 0)
         {
             using var af = Theme.Font(Theme.Face, Theme.ReceiptPx);
