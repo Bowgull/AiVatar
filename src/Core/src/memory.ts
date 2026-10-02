@@ -186,7 +186,7 @@ export class Memory {
     try {
       const r = this.db.prepare(
         `SELECT id, text, ts, last_seen, times_seen, source FROM facts
-          WHERE valid_to IS NULL AND retired = 0 AND relation = ? AND id <> ?
+          WHERE valid_to IS NULL AND retired = 0 AND COALESCE(pending, 0) = 0 AND relation = ? AND id <> ?
           ORDER BY last_seen DESC LIMIT 1`,
       ).get(relation, exceptId ?? -1) as any;
       return r ? toFact(r) : null;
@@ -194,6 +194,79 @@ export class Memory {
   }
 
   /** Forget exactly one fact by its id: what the Forget button on a row in the Panel means. */
+  /**
+   * A fact the local model read out of a document, waiting for Joshua to say yes.
+   *
+   * Nothing self-activates. A pending fact is not used in an answer, is not what a later fact is judged to
+   * contradict, and is not shown as something he knows - it only exists so he can be asked about it. That
+   * is the same policy as skills, and it is the thing standing between him and a memory full of whatever a
+   * thousand session transcripts happened to say.
+   *
+   * `fromDoc` is kept so he can be told WHERE a claim came from when he is asked to approve it. An
+   * unsourced fact is one he has to take on trust, which is exactly what this phase must avoid.
+   */
+  rememberPending(text: string, fromDoc: string): number | null {
+    const clean = (text ?? '').trim().replace(/\s+/g, ' ').slice(0, 300);
+    if (!this.db || !clean) return null;
+    try {
+      // Already known, already waiting, or already rejected: all three mean do not ask again.
+      const seen = this.db.prepare('SELECT id FROM facts WHERE lower(text) = lower(?)').get(clean) as { id: number } | undefined;
+      if (seen) return null;
+      const stamp = new Date().toISOString().replace('T', ' ').slice(0, 19);
+      const info = this.db.prepare(
+        'INSERT INTO facts (ts, text, source, last_seen, times_seen, retired, pending, from_doc)'
+        + " VALUES (?,?,'document',?,1,0,1,?)",
+      ).run(stamp, clean, stamp, fromDoc.slice(0, 300));
+      return Number(info.lastInsertRowid);
+    } catch (e) {
+      console.error('memory rememberPending failed:', (e as Error).message);
+      return null;
+    }
+  }
+
+  /** The ones waiting on him, oldest first, so a batch is worked through in the order it was read. */
+  pendingFacts(limit = 5): { id: number; text: string; fromDoc: string }[] {
+    if (!this.db) return [];
+    try {
+      const rows = this.db.prepare(
+        'SELECT id, text, from_doc FROM facts WHERE COALESCE(pending, 0) = 1 ORDER BY id LIMIT ?',
+      ).all(limit) as { id: number; text: string; from_doc: string | null }[];
+      return rows.map(r => ({ id: Number(r.id), text: String(r.text), fromDoc: String(r.from_doc ?? '') }));
+    } catch { return []; }
+  }
+
+  pendingCount(): number {
+    if (!this.db) return 0;
+    try { return (this.db.prepare('SELECT count(*) c FROM facts WHERE COALESCE(pending, 0) = 1').get() as { c: number }).c; }
+    catch { return 0; }
+  }
+
+  /** He said yes. It becomes a fact he knows, from this moment, and can supersede an older one. */
+  approveFact(id: number): Fact | null {
+    if (!this.db) return null;
+    try {
+      const stamp = new Date().toISOString().replace('T', ' ').slice(0, 19);
+      const changed = this.db.prepare('UPDATE facts SET pending = 0, last_seen = ? WHERE id = ? AND COALESCE(pending, 0) = 1')
+        .run(stamp, id).changes;
+      if (!changed) return null;
+      const r = this.db.prepare('SELECT id, text, ts, last_seen, times_seen, source FROM facts WHERE id = ?').get(id) as any;
+      return r ? toFact(r) : null;
+    } catch (e) {
+      console.error('memory approveFact failed:', (e as Error).message);
+      return null;
+    }
+  }
+
+  /**
+   * He said no. Deleted outright rather than marked, because a rejected claim that stays in the table
+   * would be re-offered by rememberPending's duplicate check forever, and because "no" should mean gone.
+   */
+  binPending(id: number): boolean {
+    if (!this.db) return false;
+    try { return this.db.prepare('DELETE FROM facts WHERE id = ? AND COALESCE(pending, 0) = 1').run(id).changes > 0; }
+    catch { return false; }
+  }
+
   forgetId(id: number): Fact | null {
     if (!this.db) return null;
     let f: Fact | undefined;
@@ -255,7 +328,8 @@ export class Memory {
     try {
       // valid_to is the truth; retired is the derived copy kept for an older build reading the same file.
       const rows = this.db.prepare(
-        'SELECT id, text, ts, last_seen, times_seen, source FROM facts WHERE valid_to IS NULL AND retired = 0 ORDER BY last_seen DESC LIMIT ?',
+        'SELECT id, text, ts, last_seen, times_seen, source FROM facts'
+        + ' WHERE valid_to IS NULL AND retired = 0 AND COALESCE(pending, 0) = 0 ORDER BY last_seen DESC LIMIT ?',
       ).all(limit) as any[];
       return rows.map(toFact);
     } catch { return []; }
