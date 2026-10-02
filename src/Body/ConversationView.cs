@@ -21,7 +21,9 @@ namespace Aang.Body;
 /// </summary>
 sealed class ConversationView : Control
 {
-    public sealed record Turn(string Stamp, string Who, string Text);
+    /// <param name="Id">The database row. 0 means "not known", which is what a turn read from an older
+    /// reply looks like; the menu stays closed on those rather than acting on the wrong row.</param>
+    public sealed record Turn(string Stamp, string Who, string Text, int Id = 0);
 
     /// <summary>A quiet stretch this long reads as a new conversation. Thirty minutes is long enough that a
     /// pause to make coffee does not split a thread, and short enough that the morning and the evening are
@@ -46,6 +48,8 @@ sealed class ConversationView : Control
         public List<string> Lines = new();
         public bool Mine;
         public int Y, H;
+        public int Id;
+        public string Text = "";       // the unwrapped original, for Copy and for the pinned chip
     }
 
     public ConversationView(float scale)
@@ -81,6 +85,58 @@ sealed class ConversationView : Control
     static bool Mine(string who) => who.Equals("user", StringComparison.OrdinalIgnoreCase)
                                  || who.Equals("joshua", StringComparison.OrdinalIgnoreCase)
                                  || who.Equals("you", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>What Joshua chose from a message's own menu. The view does not act on any of these itself
+    /// (except Copy, which needs nothing from the Core): it names the row, and the Panel sends it.</summary>
+    public event Action<int, string>? ReplyRequested;      // row id, the text, so the box can quote it
+    public event Action<int, string>? PinRequested;
+    public event Action<int>? ForgetRequested;
+
+    /// <summary>The message under a point, or null for a divider, a gap, or empty space.</summary>
+    Block? BlockAt(int x, int y)
+    {
+        if (x < 0 || x > Width) return null;
+        foreach (var b in blocks)
+        {
+            if (b.Divider) continue;
+            var top = b.Y - scroll;
+            if (y >= top && y < top + b.H) return b;
+        }
+        return null;
+    }
+
+    protected override void OnMouseDown(MouseEventArgs e)
+    {
+        base.OnMouseDown(e);
+        Focus();
+        if (e.Button != MouseButtons.Right) return;
+        if (layoutStale) return;                       // nothing has been measured yet: no row to name
+        var hit = BlockAt(e.X, e.Y);
+        if (hit is null) return;
+        // A turn with no row id came from somewhere that did not know it. Copy still works; anything that
+        // would act on a row stays out, rather than guessing at one and acting on the wrong message.
+        ShowMenu(hit, e.Location);
+    }
+
+    void ShowMenu(Block b, Point at)
+    {
+        var menu = new ContextMenuStrip { ShowImageMargin = false };
+        void Add(string label, Action go, bool on = true)
+        {
+            var item = new ToolStripMenuItem(label) { Enabled = on };
+            item.Click += (_, _) => go();
+            menu.Items.Add(item);
+        }
+        var known = b.Id > 0;
+        Add("Reply to this", () => ReplyRequested?.Invoke(b.Id, b.Text), known);
+        Add("Add as context", () => PinRequested?.Invoke(b.Id, b.Text), known);
+        Add("Copy text", () => { try { Clipboard.SetDataObject(b.Text, true, 5, 60); } catch { /* another app had the clipboard */ } });
+        menu.Items.Add(new ToolStripSeparator());
+        Add("Forget this", () => ForgetRequested?.Invoke(b.Id), known);
+        GoldMenu.Apply(menu);
+        menu.Closed += (_, _) => menu.Dispose();
+        menu.Show(this, at);
+    }
 
     protected override void OnResize(EventArgs e) { base.OnResize(e); layoutStale = true; Invalidate(); }
 
@@ -150,7 +206,8 @@ sealed class ConversationView : Control
             var mine = Mine(t.Who);
             var lines = Wrap(g, t.Text, body, textW);
             var h = LabelH + lines.Count * lineH + 2 * BubblePad;
-            blocks.Add(new Block { Mine = mine, Label = mine ? "YOU" : "AANG", Time = Clock(when), Lines = lines, Y = y, H = h });
+            blocks.Add(new Block { Mine = mine, Label = mine ? "YOU" : "AANG", Time = Clock(when), Lines = lines, Y = y, H = h,
+                                   Id = t.Id, Text = t.Text });
             y += h + Gap;
         }
         contentH = y + Pad;

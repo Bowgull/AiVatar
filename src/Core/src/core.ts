@@ -63,7 +63,9 @@ export interface CoreConfig {
 
 /** once: do it, forget it. always: do it, and trust the whole kind from now on. no: refused. */
 type PermChoice = 'once' | 'always' | 'no';
-interface Submission { id: string; text: string; mode: Mode; once: boolean; socket: WebSocket; ephemeral?: boolean }
+interface Submission { id: string; text: string; mode: Mode; once: boolean; socket: WebSocket; ephemeral?: boolean;
+  /** The turn he clicked Reply on, and the turns he pinned. Both are row ids, both chosen by him. */
+  replyTo?: number; context?: number[] }
 interface Turn {
   sub: Submission | null;      // null for the silent warm-up turn
   lane: LaneName;
@@ -1269,6 +1271,18 @@ export class Core {
         this.send(ws, this.panelData());
         break;
       }
+      case 'forget.turn': {
+        const gone = typeof m.id === 'number' ? this.memory.hideTurn(m.id) : null;
+        if (gone) {
+          const id = gone.id;
+          this.undo.push(`forgetting that message`, () => this.memory.unhideTurn(id) ? 'Brought that message back.' : 'That message was already back.');
+          this.actions.add({ tool: 'forget', did: `forgot a message: "${gone.text.slice(0, 70)}"`, ok: true, note: '' });
+        }
+        break;
+      }
+      case 'unforget.turn':
+        if (typeof m.id === 'number') this.memory.unhideTurn(m.id);
+        break;
       case 'mail.act':
         if (typeof m.id === 'string' && typeof m.hash === 'string' && (m.action === 'send' || m.action === 'save' || m.action === 'discard'))
           void this.mailAct(ws, m.id, m.hash, m.action).catch(e => console.error('mail action failed:', (e as Error).message));
@@ -1302,7 +1316,14 @@ export class Core {
         }
         const mode: Mode = m.mode === 'quick' || m.mode === 'smart' || m.mode === 'deep' ? m.mode : 'auto';
         this.lastSubmitText = text.slice(0, MAX_TEXT);
-        this.submit({ id, text: text.slice(0, MAX_TEXT), mode, once: m.once === true, socket: ws, ...(m.ephemeral === true ? { ephemeral: true } : {}) });
+        const replyTo = typeof m.replyTo === 'number' && Number.isInteger(m.replyTo) && m.replyTo > 0 ? m.replyTo : undefined;
+        const context = Array.isArray(m.context)
+          ? m.context.filter((n): n is number => typeof n === 'number' && Number.isInteger(n) && n > 0).slice(0, 10)
+          : undefined;
+        this.submit({ id, text: text.slice(0, MAX_TEXT), mode, once: m.once === true, socket: ws,
+          ...(replyTo !== undefined ? { replyTo } : {}),
+          ...(context && context.length ? { context } : {}),
+          ...(m.ephemeral === true ? { ephemeral: true } : {}) });
         break;
       }
       case 'stop': void this.stopActive(m.id); break;
@@ -1381,8 +1402,8 @@ export class Core {
     // "read outside content, ask again" flag can only be switched on, never off.
     if (!this.tasks.running().length) this.tainted = false;
     const text = escalated
-      ? this.withWaiting(this.withKnown(lane, this.withAnnounced(sub.text)))
-      : this.withWaiting(this.withKnown(lane, this.withRecap(lane, this.withAnnounced(sub.text))));
+      ? this.withWaiting(this.withKnown(lane, this.withAnnounced(this.withPointedAt(sub))))
+      : this.withWaiting(this.withKnown(lane, this.withRecap(lane, this.withAnnounced(this.withPointedAt(sub)))));
     this.lastLane = lane;
     this.lane(lane).send(text);
   }
@@ -1399,6 +1420,42 @@ export class Core {
    */
   private lastAnnounced: { text: string; at: number } | null = null;
   private static readonly ANNOUNCED_WINDOW_MS = 10 * 60_000;
+  /**
+   * The turns Joshua pointed at: one he pressed Reply on, and any he pinned.
+   *
+   * The model is given the TEXT, not the row number. An id it cannot resolve is worse than nothing - it
+   * reads as a reference the model will then invent a meaning for. The binding is explicit on purpose:
+   * inferring which message a reply is about from recency demonstrably misattributes, which is why Slack
+   * carries thread_ts and Discord carries message_reference rather than guessing.
+   */
+  private withPointedAt(sub: Submission): string {
+    const quoted = sub.replyTo !== undefined ? this.memory.turnsById([sub.replyTo])[0] : undefined;
+    const pinned = sub.context?.length
+      ? this.memory.turnsById(sub.context).filter(t => t.id !== sub.replyTo)
+      : [];
+    if (!quoted && pinned.length === 0) return sub.text;
+    const say = (t: { who: string; text: string }) => `${t.who === 'you' ? 'Joshua' : 'You'} said: ${t.text}`;
+    const parts: string[] = [];
+    if (quoted) {
+      parts.push([
+        '<replying to>',
+        'He pressed Reply on this exact message. It is what he is answering.',
+        say(quoted),
+        '</replying to>',
+      ].join('\n'));
+    }
+    if (pinned.length) {
+      const one = pinned.length === 1;
+      parts.push([
+        '<pinned>',
+        `He pinned ${one ? 'this' : 'these'} himself, so ${one ? 'it is' : 'they are'} relevant to what he is about to ask.`,
+        ...pinned.map(say),
+        '</pinned>',
+      ].join('\n'));
+    }
+    return parts.join('\n\n') + '\n\n' + sub.text;
+  }
+
   private withAnnounced(text: string): string {
     const a = this.lastAnnounced;
     this.lastAnnounced = null;                          // used once, whether or not this reply turns out to be about it
@@ -1532,7 +1589,12 @@ export class Core {
     }
     reply = groundReply(reply, this.turnActions);
     this.toTurn(sub, { t: 'bubble', text: reply, stream: false, id: sub.id, who: MODELS[turn.lane].label, ...(this.pendingList ? { list: this.pendingList } : {}) });
-    if (!sub.ephemeral) this.memory.saveTurn(sub.text, reply, 'claude-' + turn.lane);
+    if (!sub.ephemeral) {
+      const rows = this.memory.saveTurn(sub.text, reply, 'claude-' + turn.lane);
+      // Which rows the exchange became. Without this the Body has only the submit id, which identifies the
+      // request and not the stored turn, so "reply to that one" would have nothing to point at.
+      if (rows) this.toTurn(sub, { t: 'turn.saved', id: sub.id, userTurn: rows.userTurn, aangTurn: rows.aangTurn });
+    }
     this.record({
       ts: new Date().toISOString(), id: sub.id, lane: turn.lane, user: sub.text, reply,
       ms: e.ms, ttftMs: e.ttftMs, ackMs: turn.ackMs, ctxTokens: e.ctxTokens,
@@ -1573,13 +1635,29 @@ export class Core {
     if (this.hushUntil > Date.now()) { this.pending.push(text); while (this.pending.length > 8) this.pending.shift(); return; }
     const blocking = opts.blocking ?? Core.BLOCKING.test(text);
     const done = !blocking && (opts.done ?? (!!opts.jobCwd && Core.DONE.test(text)));
-    const msg: ToBody = {
+    const msg: Extract<ToBody, { t: 'bubble' }> = {
       t: 'bubble', text, stream: false, proactive: true, asked: opts.asked === true, ...(opts.focus ? { focus: opts.focus, link: 'Claude' } : {}),
       ...(opts.jobCwd ? { jobCwd: opts.jobCwd } : {}), ...(opts.image ? { image: opts.image } : {}),
       ...(blocking ? { blocking: true } : {}), ...(done ? { done: true } : {}), ...(opts.host ? { host: opts.host } : {}),
     };
+    /**
+     * Store it as a turn, and carry the row id out with the message.
+     *
+     * Done here rather than at the top of announce(), because a message held by hush or quiet comes back
+     * through announce() again when it is released: storing it on the way in would record it twice, and
+     * record things he never actually saw. It becomes a turn when it reaches him.
+     *
+     * Until this existed, saveTurn was called in exactly one place - the normal chat path - so nothing Aang
+     * said unprompted was a row anywhere. That is both why he could not be replied to and why, told "you are
+     * at 50% of your week", he answered "the week is almost over, that's fine": the sentence he was replying
+     * to did not exist anywhere he could see.
+     */
+    const remember = (): void => {
+      const row = this.memory.saveSaid(text);
+      if (row !== null) msg.turn = row;
+    };
     // Away from the PC: Discord, and only Discord. It keeps its own quiet hours, which make it silent, not lost.
-    if (this.whereHeIs() === 'discord') { this.sendTo('discord', msg); return; }
+    if (this.whereHeIs() === 'discord') { remember(); this.sendTo('discord', msg); return; }
     // Something he asked Aang to watch for (a job he started) is said even while he is in the game - Joshua's
     // rule, 2026-09-21: "only when I asked for it". Mute still holds everything.
     if (this.muted || (this.bodyQuiet && !opts.asked)) {
@@ -1587,6 +1665,7 @@ export class Core {
       while (this.pending.length > 5) this.pending.shift();
       return;
     }
+    remember();
     this.sendTo('desktop', msg);
   }
 

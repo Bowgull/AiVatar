@@ -53,6 +53,8 @@ export type ToBody =
       /** Set when the session is on the MacBook, so the click routes there instead of to a window here. */
       host?: 'mac' }
   | { t: 'bubble'; text: string; stream: boolean; id?: string; who?: string; proactive?: boolean;
+      /** The row this message was stored as, when it was stored. What a right-click acts on. */
+      turn?: number;
       /** Something he asked to be told about: shown even in quiet mode. */
       asked?: boolean;
       /** The window a click on the bubble brings forward, and the word in the text to mark as that link. */
@@ -115,6 +117,12 @@ export type ToBody =
       sessions?: { name: string; kind: string; state: string; since: string; last: string }[] }
   /** The Panel's History tab: past turns, newest first, matching `q` (all of its words). */
   | { t: 'history.reply'; q: string; items: { id: number; ts: string; who: 'you' | 'Aang'; text: string }[] }
+  /**
+   * The database rows the exchange just became. Sent after a reply is stored so the Body can let Joshua
+   * right-click what is on screen. `id` is the submit id it answers, which identifies the REQUEST; the
+   * turn numbers identify the rows, and the two are not interchangeable.
+   */
+  | { t: 'turn.saved'; id: string; userTurn: number; aangTurn: number }
   /** The morning brief, worked out without the model. */
   | { t: 'brief.reply'; text: string }
   /** Something only the desktop can do to its windows. Sent only after Joshua has agreed to it. */
@@ -131,7 +139,15 @@ export type FromBody =
   | { t: 'moved'; x: number; y: number }
   | { t: 'pong' }
   /** `ephemeral`: a job Aang set himself (vetting a link). Not kept in memory, since Joshua did not say it. */
-  | { t: 'submit'; id: string; text: string; mode?: Mode; once?: boolean; ephemeral?: boolean }
+  | { t: 'submit'; id: string; text: string; mode?: Mode; once?: boolean; ephemeral?: boolean;
+      /**
+       * The turn this message answers, chosen by Joshua from the scrollback. A real binding, not a guess:
+       * recency heuristics demonstrably misattribute, which is why Slack has thread_ts and Discord has
+       * message_reference. Nothing infers this.
+       */
+      replyTo?: number;
+      /** Turns he pinned as context. They ride along with every message until he removes them. */
+      context?: number[] }
   | { t: 'stop'; id?: string }
   | { t: 'saving'; on: boolean }
   | { t: 'rate'; id: string; value: 'up' | 'down' | 'none' }
@@ -159,6 +175,9 @@ export type FromBody =
   /** The Panel opened or refreshed; and its Forget button on one remembered fact. */
   | { t: 'panel' }
   | { t: 'forget.fact'; id: number }
+  /** Forget one turn of the conversation. Hidden, not deleted, so 'turn.unforget' can undo it. */
+  | { t: 'forget.turn'; id: number }
+  | { t: 'unforget.turn'; id: number }
   | { t: 'history'; q?: string }
   /** A reply to a Claude Code job's update in Discord: told to that job, as a fresh follow-up in its folder. */
   | { t: 'claude.reply'; cwd: string; text: string }
