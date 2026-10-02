@@ -77,6 +77,8 @@ interface Turn {
   watchdog: NodeJS.Timeout | null;
   /** Quick said it could not, and this turn was handed to Smart instead: never hand it on twice. */
   escalated?: boolean;
+  /** This turn claimed ignorance without looking and was sent back to look. Only ever once. */
+  relooked?: boolean;
 }
 
 const SAYS_FAILED = /\b(couldn'?t|could not|didn'?t|did not|failed|not work|wasn'?t able|unable|can'?t|cannot|no luck|error)\b/i;
@@ -102,6 +104,34 @@ export function groundReply(reply: string, did: { did: string; ok: boolean; note
 
 /** Quick giving up on something a tool could do. It is thrown away and Smart takes the turn instead. */
 export const REFUSES = /\b(I can(?:'|no)?t\b|I(?:'m| am) (?:not able|unable)|I don'?t have (?:the ability|access|a way)|you(?:'ll| will) (?:need|have) to|(?:do|try) (?:it|that|this) yourself|(?:in|into) .{0,40} yourself|beyond (?:what I can|my)|plug (?:it|them|both|those|the)\b.{0,40}\bin\b)/i;
+
+/**
+ * Claiming not to know something, in a reply that used no tools at all.
+ *
+ * This is the "answered from assumption" fault, and it is the third time a prose instruction has failed to
+ * stop it. voice.ts already says, in plain words, "look: search his memory, read his files, or look it up on
+ * the web, then answer. Offering to look is not an answer." It still happened on 2026-10-02: asked why
+ * Obsidian was not set up, he said "I don't have the details... that's part of the Aang rebuild that's still
+ * in progress." Obsidian WAS set up, pointed at a 68-note vault, the day before. One file read would have
+ * told him. He did not read it.
+ *
+ * So this is a structural check, like REFUSES above it. The rule is not "never say you don't know" - it is
+ * "do not claim ignorance you have not earned". Paired with a no-tools-used test, so a reply that genuinely
+ * went and looked and still came up empty is left alone, which is honest and should be.
+ */
+export const GUESSED = new RegExp(
+  [
+    // "I don't have the details on that", "I don't know the specifics"
+    String.raw`\bI don'?t (?:have|know)\b[^.]{0,60}\b(?:details|specifics|record|records|idea|information|visibility|insight)\b`,
+    // "no record of that", "I have no memory of it"
+    String.raw`\b(?:I have |there'?s )?no (?:record|memory|details|information|idea)\b`,
+    // "not sure why that is"
+    String.raw`\bnot sure (?:why|what|whether|if|how)\b`,
+    // "that's part of the rebuild" / "still in progress": deflecting to the project instead of looking
+    String.raw`\b(?:that'?s|this is) (?:part of|still)\b[^.]{0,40}\b(?:in progress|rebuild|being built|not finished)\b`,
+  ].join('|'),
+  'i',
+);
 
 /** However he phrases it, the job hunt is one fixed action (2026-09-22, Joshua: "any job-hunt-shaped request
  *  should prefer the Mac"). Caught before routing, not left to the model to recognise and call do_task with,
@@ -1386,7 +1416,7 @@ export class Core {
     this.begin(sub, choice.lane, Date.now() - t0);
   }
 
-  private begin(sub: Submission, lane: LaneName, ackMs: number, escalated = false): void {
+  private begin(sub: Submission, lane: LaneName, ackMs: number, escalated = false, relooked = false): void {
     // No memory at all, and it could not be restored or rebuilt: say so instead of holding a
     // conversation. He would otherwise sound exactly like himself while knowing nothing about
     // Joshua, remembering nothing said to him, and never mentioning either - which is the failure
@@ -1399,7 +1429,7 @@ export class Core {
     }
     this.toTurn(sub, { t: 'bubble.dots' });
     this.toTurn(sub, { t: 'state', state: 'think' });
-    const turn: Turn = { sub, lane, buf: '', flush: null, stopped: false, startedAt: Date.now(), ackMs, watchdog: null, escalated };
+    const turn: Turn = { sub, lane, buf: '', flush: null, stopped: false, startedAt: Date.now(), ackMs, watchdog: null, escalated, relooked };
     turn.watchdog = setTimeout(() => this.fail(turn, 'That took too long and I gave up waiting.', 'Try again, or ask something shorter.'), TURN_TIMEOUT_MS);
     turn.watchdog.unref?.();   // must never be the thing keeping the process alive; stop() also clears it explicitly below
     this.active = turn;
@@ -1407,8 +1437,8 @@ export class Core {
     // "read outside content, ask again" flag can only be switched on, never off.
     if (!this.tasks.running().length) this.tainted = false;
     const text = escalated
-      ? this.withWaiting(this.withKnown(lane, this.withAnnounced(this.withPointedAt(sub))))
-      : this.withWaiting(this.withKnown(lane, this.withRecap(lane, this.withAnnounced(this.withPointedAt(sub)))));
+      ? this.withWaiting(this.withKnown(lane, this.withAnnounced(this.withLook(this.withPointedAt(sub)))))
+      : this.withWaiting(this.withKnown(lane, this.withRecap(lane, this.withAnnounced(this.withLook(this.withPointedAt(sub))))));
     this.lastLane = lane;
     this.lane(lane).send(text);
   }
@@ -1459,6 +1489,30 @@ export class Core {
       ].join('\n'));
     }
     return parts.join('\n\n') + '\n\n' + sub.text;
+  }
+
+  /**
+   * One shot: the previous attempt claimed not to know something without looking anything up. Say so, once.
+   *
+   * Phrased as a fact about what just happened rather than as a rule, because the rule is already in
+   * voice.ts and has been ignored three times. A model acts on "your last answer did X" far more reliably
+   * than on a standing instruction it has already read and skipped past.
+   */
+  private relookPending = false;
+
+  private withLook(text: string): string {
+    if (!this.relookPending) return text;
+    this.relookPending = false;
+    return [
+      '<look first>',
+      'Your previous answer to this said you did not know, and you called no tools at all before saying it.',
+      'Check before answering: read the file, search your memory, look at the setting, or look it up.',
+      'If you look and still do not know, say what you checked and what was missing. That is a real answer.',
+      '"I do not have the details", with nothing looked at, is not.',
+      '</look first>',
+      '',
+      text,
+    ].join('\n');
   }
 
   private withAnnounced(text: string): string {
@@ -1517,9 +1571,25 @@ export class Core {
     if (this.active === turn) this.next();
   }
 
+  /**
+   * A turn that died.
+   *
+   * It is now WRITTEN DOWN as well as shown. Until 2026-10-02 a failed turn left no trace at all: saveTurn
+   * runs only on the success path, so a question that timed out or errored was simply absent from his memory
+   * afterwards. Joshua asked about launching WoW from his Rainmeter button, got nothing, and there was no row
+   * anywhere saying it had even been asked - so neither of us could tell a turn that failed from one that was
+   * never sent. A failure he can scroll back to is the difference.
+   */
   private fail(turn: Turn, message: string, next: string): void {
     if (this.active !== turn) return;
-    if (turn.sub) this.toTurn(turn.sub, { t: 'error', id: turn.sub.id, message, next });
+    if (turn.sub) {
+      this.toTurn(turn.sub, { t: 'error', id: turn.sub.id, message, next });
+      console.error(`turn failed after ${Date.now() - turn.startedAt}ms on ${turn.lane}: ${message}`);
+      if (!turn.sub.ephemeral) {
+        const rows = this.memory.saveTurn(turn.sub.text, `[this one did not finish] ${message} ${next}`.trim(), 'failed-' + turn.lane);
+        if (rows) this.toTurn(turn.sub, { t: 'turn.saved', id: turn.sub.id, userTurn: rows.userTurn, aangTurn: rows.aangTurn });
+      }
+    }
     void this.lanes.get(turn.lane)?.interrupt();
     this.finishTurn(turn);
   }
@@ -1591,6 +1661,18 @@ export class Core {
     if (this.mailOutcome?.sent && !/\bsent\b/i.test(reply)) {
       console.log('grounding: the reply did not say the email was sent; replaced with the tool\'s own words');
       reply = this.mailOutcome.detail;
+    }
+    // Claimed ignorance with no tool call behind it: send it back once, told to look. After the REFUSES
+    // escalation so that takes priority, and never while saving quota, because this costs a second turn.
+    // The no-tools test is what leaves honest "I looked and it is not there" answers alone.
+    const usedTools = (e.tools?.length ?? 0) > 0;
+    if (!turn.relooked && !turn.escalated && !this.policy.saving && !didSomething && !usedTools && GUESSED.test(reply)) {
+      console.log('re-asking: he said he did not know without looking anything up');
+      if (turn.watchdog) clearTimeout(turn.watchdog);
+      this.active = null;
+      this.relookPending = true;
+      this.begin(sub, turn.lane, turn.ackMs, false, true);
+      return;
     }
     reply = groundReply(reply, this.turnActions);
     this.toTurn(sub, { t: 'bubble', text: reply, stream: false, id: sub.id, who: MODELS[turn.lane].label, ...(this.pendingList ? { list: this.pendingList } : {}) });
