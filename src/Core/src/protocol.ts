@@ -116,7 +116,9 @@ export type ToBody =
       /** Claude Code sessions he started through Aang, newest first. */
       sessions?: { name: string; kind: string; state: string; since: string; last: string }[] }
   /** The Panel's History tab: past turns, newest first, matching `q` (all of its words). */
-  | { t: 'history.reply'; q: string; items: { id: number; ts: string; who: 'you' | 'Aang'; text: string }[] }
+  | { t: 'history.reply'; q: string; items: { id: number; ts: string; who: 'you' | 'Aang'; text: string }[];
+      /** Echoed back so the Body knows this is an older page and not a fresh search. */
+      before?: number }
   /**
    * The database rows the exchange just became. Sent after a reply is stored so the Body can let Joshua
    * right-click what is on screen. `id` is the submit id it answers, which identifies the REQUEST; the
@@ -178,7 +180,9 @@ export type FromBody =
   /** Forget one turn of the conversation. Hidden, not deleted, so 'turn.unforget' can undo it. */
   | { t: 'forget.turn'; id: number }
   | { t: 'unforget.turn'; id: number }
-  | { t: 'history'; q?: string }
+  | { t: 'history'; q?: string;
+      /** Only turns older than this row, so the bubble can page backwards for as long as he keeps scrolling. */
+      before?: number }
   /** A reply to a Claude Code job's update in Discord: told to that job, as a fresh follow-up in its folder. */
   | { t: 'claude.reply'; cwd: string; text: string }
   /** He clicked an icon for a MacBook session: ask the Mac's one-job listener to bring Claude forward. */

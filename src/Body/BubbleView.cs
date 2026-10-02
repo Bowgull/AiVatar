@@ -64,7 +64,8 @@ sealed class BubbleView : IDisposable
     bool streaming, expanded;
 
     /// <summary>One thing that was said, kept so he can scroll back to it without opening the Panel.</summary>
-    public sealed record Said(int Id, string Text, bool Mine);
+    /// <param name="When">Used for the date dividers. Scrolling back days without them is just a wall.</param>
+    public sealed record Said(int Id, string Text, bool Mine, DateTime When);
 
     /// <summary>
     /// The recent conversation, newest last.
@@ -74,7 +75,28 @@ sealed class BubbleView : IDisposable
     /// just saying", which is a dozen turns at most.
     /// </summary>
     readonly List<Said> back = new();
-    const int KeepTurns = 24;
+    /// <summary>
+    /// How many live turns to hold before the oldest drop off.
+    ///
+    /// There is deliberately no cap on how far BACK he can scroll: reaching the top asks the database for
+    /// the next older page, and keeps doing that until there is nothing older. This number only bounds what
+    /// one run of the app accumulates on its own. A turn is a short string - his real messages average 28
+    /// characters - so holding a few thousand costs nothing worth measuring.
+    /// </summary>
+    const int KeepTurns = 400;
+
+    /// <summary>The oldest row now in the stack, which is where the next page back starts. 0 when empty.</summary>
+    public int OldestId => back.FirstOrDefault(b => b.Id > 0)?.Id ?? 0;
+
+    /// <summary>Set once the database says there is nothing older, so the Body stops asking.</summary>
+    public bool ReachedTheStart { get; set; }
+
+    /// <summary>True when he has scrolled to the top and there may be more behind it.</summary>
+    public bool WantsOlder => scrollback && scroll == 0 && !ReachedTheStart;
+
+    /// <summary>True once the stack has been topped up from the database, so it is asked for once per
+    /// scrollback and not on every scroll tick.</summary>
+    public bool FilledFromMemory { get; set; }
 
     /// <summary>True while the bubble is showing the conversation rather than one reply.</summary>
     bool scrollback;
@@ -366,13 +388,16 @@ sealed class BubbleView : IDisposable
     }
 
     /// <summary>Keep something that was said. Called as each turn lands, so scrolling up has anything to show.</summary>
-    public void Remember(int id, string text, bool mine)
+    public void Remember(int id, string text, bool mine) => RememberAt(id, text, mine, DateTime.Now);
+
+    /// <summary>Remember something said at a given time. Separate so tests can lay out several days.</summary>
+    public void RememberAt(int id, string text, bool mine, DateTime when)
     {
         var t = (text ?? "").Trim();
         if (t.Length == 0) return;
         // The same reply arrives repeatedly while it streams; only the finished one is kept.
         if (back.Count > 0 && back[^1].Mine == mine && t.StartsWith(back[^1].Text, StringComparison.Ordinal)) back.RemoveAt(back.Count - 1);
-        back.Add(new Said(id, t, mine));
+        back.Add(new Said(id, t, mine, when));
         while (back.Count > KeepTurns) back.RemoveAt(0);
     }
 
@@ -409,10 +434,16 @@ sealed class BubbleView : IDisposable
         targetH = HeightFor(Math.Min(lines.Count, ExpandedLines));
     }
 
-    /// <summary>The row id of the line under a point, or 0. What a right-click on the bubble acts on.</summary>
+    /// <summary>
+    /// The row id of the message under a point, or 0.
+    ///
+    /// Outside scrollback that is whatever reply is on screen: right-clicking the answer he is reading is
+    /// the obvious case, and limiting this to scrollback meant the menu only existed somewhere he had to
+    /// find first (2026-10-02).
+    /// </summary>
     public int TurnAt(float y)
     {
-        if (!scrollback) return 0;
+        if (!scrollback) return back.Count > 0 && !back[^1].Mine ? back[^1].Id : 0;
         var i = LineAt(y);
         return i >= 0 && i < lineTurn.Count ? lineTurn[i] : 0;
     }
@@ -436,6 +467,29 @@ sealed class BubbleView : IDisposable
     /// already scrolls, rather than a second renderer, so paging, the scrollbar and the height all keep
     /// working as they do.
     /// </summary>
+    /// <summary>
+    /// Put older turns in front of what is already there.
+    ///
+    /// Called with what the database holds, so scrolling back reaches past this run of the app. Anything
+    /// already in the stack wins: the live copy is the one whose row ids have been filled in, and it is the
+    /// one he has been looking at.
+    /// </summary>
+    public void Prepend(IEnumerable<Said> older)
+    {
+        var have = new HashSet<int>(back.Where(b => b.Id > 0).Select(b => b.Id));
+        var add = older.Where(o => o.Id > 0 && !have.Contains(o.Id)).ToList();
+        if (add.Count == 0) return;
+        // The newest of the fetched turns is almost always the same text as the live one; ids keep them apart.
+        back.InsertRange(0, add);
+        // No trimming here: these are the pages he asked for by scrolling to them.
+        if (!scrollback) return;
+        // Keep his eye where it was: everything shifted down by however many lines went in above.
+        var before = lines.Count;
+        Rebuild();
+        scroll = Math.Clamp(scroll + (lines.Count - before), 0, Math.Max(0, lines.Count - ExpandedLines));
+        targetH = HeightFor(Math.Min(lines.Count, ExpandedLines));
+    }
+
     public bool EnterScrollback()
     {
         if (scrollback || back.Count == 0) return false;
@@ -449,13 +503,39 @@ sealed class BubbleView : IDisposable
 
     void Rebuild()
     {
-        lines = new(); mineLine = new(); lineTurn.Clear();
+        lines = new(); mineLine = new(); lineTurn.Clear(); dividers.Clear();
+        void Mark(string text, bool mine, int id, bool divider = false)
+        {
+            if (divider) dividers.Add(lines.Count);
+            lines.Add(text); mineLine.Add(mine); lineTurn.Add(id);
+        }
+        if (ReachedTheStart && back.Count > 0) Mark("This is the start.", false, 0, divider: true);
+        var day = DateTime.MinValue.Date;
         for (var i = 0; i < back.Count; i++)
         {
             var said = back[i];
-            if (i > 0) { lines.Add(""); mineLine.Add(false); lineTurn.Add(0); }   // a blank line between turns
-            foreach (var l in Wrap(said.Text)) { lines.Add(l); mineLine.Add(said.Mine); lineTurn.Add(said.Id); }
+            // A date whenever the day changes. Scrolling back a week without them is a wall of sentences with
+            // no idea where you are in it.
+            if (said.When.Date != day)
+            {
+                day = said.When.Date;
+                if (lines.Count > 0) Mark("", false, 0);
+                Mark(DayName(day), false, 0, divider: true);
+            }
+            else if (i > 0) Mark("", false, 0);                       // a blank line between turns
+            foreach (var l in Wrap(said.Text)) Mark(l, said.Mine, said.Id);
         }
+    }
+
+    /// <summary>Lines that are a divider rather than something said: drawn centred and dim, never as speech.</summary>
+    readonly List<int> dividers = new();
+
+    static string DayName(DateTime d)
+    {
+        var today = DateTime.Now.Date;
+        if (d == today) return "Today";
+        if (d == today.AddDays(-1)) return "Yesterday";
+        return d > today.AddDays(-6) ? d.ToString("dddd") : d.ToString("d MMMM");
     }
 
     /// <summary>Leave the stack and go back to the last reply. Called when he answers, or presses Esc.</summary>
@@ -665,7 +745,7 @@ sealed class BubbleView : IDisposable
         {
             for (int i = 0; i < count && first + i < lines.Count; i++)
             {
-                if (!mineLine[first + i] || lines[first + i].Length == 0) continue;
+                if (!mineLine[first + i] || lines[first + i].Length == 0 || dividers.Contains(first + i)) continue;
                 var runEnd = i;
                 while (runEnd + 1 < count && first + runEnd + 1 < lines.Count && mineLine[first + runEnd + 1]
                        && lines[first + runEnd + 1].Length > 0) runEnd++;
@@ -681,6 +761,20 @@ sealed class BubbleView : IDisposable
             var line = lines[first + i];
             if (More && i == count - 1) line = Ellipsize(line);            // "..." on the last visible line
             float y = textTop + i * LineH + 2;               // a 15 px face sits in the upper part of a 21 px line; nudge it to the middle
+            if (scrollback && dividers.Contains(first + i))
+            {
+                using var df = Theme.Font(Theme.Face, Theme.ReceiptPx);
+                using var db = new SolidBrush(dimC);
+                var w = Width(line);
+                var cx = TextXNow + (Right - TextXNow - 8 - w) / 2f;
+                using (var rule = new Pen(Theme.WithAlpha(dimC, 90), 1f))
+                {
+                    g.DrawLine(rule, TextXNow, y + 8, cx - 6, y + 8);
+                    g.DrawLine(rule, cx + w + 6, y + 8, Right - 8, y + 8);
+                }
+                g.DrawString(line, df, db, cx, y + 1, StringFormat.GenericTypographic);
+                continue;
+            }
             if (scrollback && mineLine[first + i])
             {
                 using var mb = new SolidBrush(Theme.Text);                 // light text, because the band is dark
