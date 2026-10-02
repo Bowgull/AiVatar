@@ -595,7 +595,7 @@ for buttons. `[scrollback, conversation view]`
 
 ---
 
-### `[ ]` 4.3b Reach back into the conversation
+### `[x]` 4.3b Reach back into the conversation
 
 **Not built. Added 2026-10-01 from Joshua's mockup F.** Built BEFORE 4.4 and 4.5 by his
 decision, because both of those touch the same window and would be partly redone.
@@ -626,36 +626,41 @@ message 847", so the binding has no path.
 
 #### Core
 
-- `[ ]` **C1 Hide, do not delete.** Add `hidden INTEGER DEFAULT 0` to `turns` (a migration,
+- `[x]` **C1 Hide, do not delete.** Add `hidden INTEGER DEFAULT 0` to `turns` (a migration,
   guarded by a `PRAGMA table_info` check, not a bare `ALTER`). `history()` and the context
   assembly both skip hidden rows. `hideTurn(id)` / `unhideTurn(id)`.
-- `[ ]` **C2 Tell the Body which rows it is showing.** `saveTurn` currently returns nothing,
+- `[x]` **C2 Tell the Body which rows it is showing.** `saveTurn` currently returns nothing,
   so the Body never learns the database ids of the exchange on screen. Note the trap: the
   `id` already on a `bubble` message is the SUBMIT id, not the turn row id. Return both row
   ids and send `{ t: 'turn.saved', id, userTurn, aangTurn }`.
-- `[ ]` **C3 Carry the binding.** `submit` gains `replyTo?: number` and `context?: number[]`,
+- `[x]` **C3 Carry the binding.** `submit` gains `replyTo?: number` and `context?: number[]`,
   both turn ids. The Core loads those rows and puts their text ahead of his message, so the
   model sees the quoted text and not an id it cannot resolve.
-- `[ ]` **C4 Proactive messages become real turns.** `announce()` sends straight to the bubble
+- `[x]` **C4 Proactive messages become real turns.** `announce()` sends straight to the bubble
   and `saveTurn` is called in exactly one place, the normal chat path, so nothing Aang says
   unprompted exists as a row. Without this, "reply to this" fails on precisely the messages
   he most wants to reply to. This is part 1 of the September design.
 
 #### Body
 
-- `[ ]` **B1 The desktop stack.** Scrolling up past the current reply grows the bubble into
+- `[x]` **B1 The desktop stack.** Scrolling up past the current reply grows the bubble into
   the scrollback from mockup F; a new reply collapses it. `ConversationView` already draws
   this shape for the Panel, so the question to settle first is whether it can be reused
   inside a layered window or whether the bubble draws its own.
-- `[ ]` **B2 The menu, on the desktop.**
-- `[ ]` **B3 The menu, in the Panel.** Cheap: `ConversationView.Turn` only has to carry the
+- `[x]` **B2 The menu, on the desktop.**
+- `[x]` **B3 The menu, in the Panel.** Cheap: `ConversationView.Turn` only has to carry the
   `Id` that `history.reply` already sends and `PanelWindow` currently drops on the floor.
-- `[ ]` **B4 The chips.** Pinned context above the type box with an x; a reply shows a quoted
+- `[x]` **B4 The chips.** Pinned context above the type box with an x; a reply shows a quoted
   strip above the box.
 
-**Test:** fake-core harness, no quota. Pin two messages, check both ride along. Reply to an
-older message, check the binding is the one clicked and not the newest. Forget a turn, check
-it leaves search and comes back on undo.
+**Done 2026-10-01.** 7 Core tests in `reachback.test.ts`, and three captures looked at:
+`snaps-bubble/stack/40_stack.png`, `snaps-bubble/pins/30_pins.png`,
+`snaps-bubble/panel/20_panel_history.png`. Test flags `--stack-test` and `--pins-test`.
+
+The schema drift test had to change with it: it compared a fresh database against his live one
+read-only, which stopped being true the moment a column was added. It now opens a COPY of his
+real file, so what it asserts is that his database ends up the right shape after migrating,
+which is the thing that actually matters.
 
 **Out of scope, on purpose:** Discord. It has replies natively, and its binding can be read
 from `message_reference` later.

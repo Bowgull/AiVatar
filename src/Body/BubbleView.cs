@@ -58,7 +58,27 @@ sealed class BubbleView : IDisposable
 
     string text = "";
     List<string> lines = new();
+    /// <summary>Who each line in <see cref="lines"/> belongs to, same length, same order. Only meaningful in
+    /// scrollback: a normal reply is all his.</summary>
+    List<bool> mineLine = new();
     bool streaming, expanded;
+
+    /// <summary>One thing that was said, kept so he can scroll back to it without opening the Panel.</summary>
+    public sealed record Said(int Id, string Text, bool Mine);
+
+    /// <summary>
+    /// The recent conversation, newest last.
+    ///
+    /// Capped hard: this is a bubble over a game, not an archive. Everything older is in the Panel, which is
+    /// searchable and is where scrollback properly belongs - the desktop only has to answer "what were we
+    /// just saying", which is a dozen turns at most.
+    /// </summary>
+    readonly List<Said> back = new();
+    const int KeepTurns = 24;
+
+    /// <summary>True while the bubble is showing the conversation rather than one reply.</summary>
+    bool scrollback;
+    public bool InScrollback => scrollback;
     int scroll;
     float shownH, targetH;
     DateTime hideAt = DateTime.MaxValue;
@@ -175,7 +195,7 @@ sealed class BubbleView : IDisposable
 
     /// <summary>The reply is longer than the collapsed bubble: show "..." and the arrow.</summary>
     public bool More => Visible && !streaming && !Dots && !expanded && lines.Count > CollapsedLines;
-    public bool CanScroll => expanded && lines.Count > ExpandedLines;
+    public bool CanScroll => (expanded || scrollback) && lines.Count > ExpandedLines;
     public int VisibleLineCount => expanded ? Math.Min(lines.Count, ExpandedLines) : Math.Min(lines.Count, CollapsedLines);
     public bool Animating => Visible && (Dots || Revealing || Math.Abs(shownH - targetH) > 0.4f);
     public float CurrentTop => Bottom - Math.Max(shownH, MinH * 0.5f);
@@ -258,7 +278,7 @@ sealed class BubbleView : IDisposable
         lines = Wrap(text);
         coreStreaming = stream; holdAfter = holdMs;
         streaming = stream || Revealing;
-        expanded = false; scroll = 0; Tools = false; Rating = 0; CopiedUntil = default; Asking = false;
+        expanded = false; scrollback = false; scroll = 0; Tools = false; Rating = 0; CopiedUntil = default; Asking = false;
         Visible = true;
         targetH = HeightFor(Math.Min(lines.Count, CollapsedLines));
         if (shownH <= 0) shownH = targetH * 0.55f;
@@ -345,10 +365,116 @@ sealed class BubbleView : IDisposable
         return true;
     }
 
+    /// <summary>Keep something that was said. Called as each turn lands, so scrolling up has anything to show.</summary>
+    public void Remember(int id, string text, bool mine)
+    {
+        var t = (text ?? "").Trim();
+        if (t.Length == 0) return;
+        // The same reply arrives repeatedly while it streams; only the finished one is kept.
+        if (back.Count > 0 && back[^1].Mine == mine && t.StartsWith(back[^1].Text, StringComparison.Ordinal)) back.RemoveAt(back.Count - 1);
+        back.Add(new Said(id, t, mine));
+        while (back.Count > KeepTurns) back.RemoveAt(0);
+    }
+
+    /// <summary>
+    /// Fill in the row ids for the exchange that just finished.
+    ///
+    /// The two turns are remembered as they happen - his the moment he presses Enter, the reply when it
+    /// lands - and neither has a row until the Core has written them. Matched from the end rather than by
+    /// position: anything else goes wrong the first time a message is dropped or a reply never arrives.
+    /// </summary>
+    public void AssignIds(int userTurn, int aangTurn)
+    {
+        for (var i = back.Count - 1; i >= 0 && i >= back.Count - 2; i--)
+        {
+            if (back[i].Id != 0) continue;
+            back[i] = back[i] with { Id = back[i].Mine ? userTurn : aangTurn };
+        }
+        if (scrollback) { var at = scroll; Rebuild(); scroll = at; }
+    }
+
+    /// <summary>What a stored turn actually said, for Copy and for the chip. Empty if it is no longer kept.</summary>
+    public string Remembered(int id) => back.FirstOrDefault(b => b.Id == id)?.Text ?? "";
+
+    /// <summary>Drop a turn from the stack because he forgot it. The Core hides the row; this takes it off
+    /// the screen now, rather than leaving it there until something else redraws.</summary>
+    public void Forget(int id)
+    {
+        if (back.RemoveAll(b => b.Id == id) == 0) return;
+        if (!scrollback) return;
+        if (back.Count == 0) { LeaveScrollback(); return; }
+        var wasAt = scroll;
+        Rebuild();
+        scroll = Math.Clamp(wasAt, 0, Math.Max(0, lines.Count - ExpandedLines));
+        targetH = HeightFor(Math.Min(lines.Count, ExpandedLines));
+    }
+
+    /// <summary>The row id of the line under a point, or 0. What a right-click on the bubble acts on.</summary>
+    public int TurnAt(float y)
+    {
+        if (!scrollback) return 0;
+        var i = LineAt(y);
+        return i >= 0 && i < lineTurn.Count ? lineTurn[i] : 0;
+    }
+
+    /// <summary>The visible line index at a y in bubble coordinates, or -1.</summary>
+    int LineAt(float y)
+    {
+        var top = CurrentTop + Pad;
+        var i = (int)((y - top) / LineH);
+        return i < 0 ? -1 : scroll + i;
+    }
+
+    /// <summary>Which stored turn each line came from, so a click can name a row.</summary>
+    readonly List<int> lineTurn = new();
+
+    /// <summary>
+    /// Show the conversation instead of the last reply.
+    ///
+    /// His decision, 2026-10-01: the bubble rests on one reply and only becomes the stack when he goes
+    /// looking, so it stays small over the game. Built on the same wrapped-lines list the expanded view
+    /// already scrolls, rather than a second renderer, so paging, the scrollbar and the height all keep
+    /// working as they do.
+    /// </summary>
+    public bool EnterScrollback()
+    {
+        if (scrollback || back.Count == 0) return false;
+        scrollback = true; expanded = true;
+        Rebuild();
+        scroll = Math.Max(0, lines.Count - ExpandedLines);     // open at the newest, like any chat window
+        targetH = HeightFor(Math.Min(lines.Count, ExpandedLines));
+        hideAt = DateTime.UtcNow.AddMinutes(5);
+        return true;
+    }
+
+    void Rebuild()
+    {
+        lines = new(); mineLine = new(); lineTurn.Clear();
+        for (var i = 0; i < back.Count; i++)
+        {
+            var said = back[i];
+            if (i > 0) { lines.Add(""); mineLine.Add(false); lineTurn.Add(0); }   // a blank line between turns
+            foreach (var l in Wrap(said.Text)) { lines.Add(l); mineLine.Add(said.Mine); lineTurn.Add(said.Id); }
+        }
+    }
+
+    /// <summary>Leave the stack and go back to the last reply. Called when he answers, or presses Esc.</summary>
+    public bool LeaveScrollback()
+    {
+        if (!scrollback) return false;
+        scrollback = false; expanded = false; scroll = 0;
+        lines = Wrap(text); mineLine = new(); lineTurn.Clear();
+        targetH = HeightFor(Math.Min(lines.Count, CollapsedLines));
+        return true;
+    }
+
     /// <summary>Back to the normal size (Esc, or a click outside).</summary>
     public bool Collapse()
     {
         if (!expanded) return false;
+        // Esc out of the stack puts the last reply back, not an empty expanded bubble: `lines` is the whole
+        // conversation while scrolled back, and collapsing without rebuilding would show six lines of it.
+        if (scrollback) return LeaveScrollback();
         expanded = false; scroll = 0;
         targetH = HeightFor(Math.Min(lines.Count, CollapsedLines));
         hideAt = DateTime.UtcNow.AddSeconds(60);
@@ -358,6 +484,9 @@ sealed class BubbleView : IDisposable
     /// <summary>Scroll the expanded view by whole lines. Returns false if it did not move.</summary>
     public bool Scroll(int delta)
     {
+        // Scrolling up with nothing above is how he asks for the conversation: it is the gesture he would
+        // make anyway, so there is nothing extra to learn.
+        if (delta < 0 && !scrollback && scroll == 0 && back.Count > 0) return EnterScrollback();
         if (!CanScroll) return false;
         var max = lines.Count - ExpandedLines;
         var next = Math.Clamp(scroll + delta, 0, max);
@@ -528,11 +657,36 @@ sealed class BubbleView : IDisposable
         // Only the first "Claude" in the message is the link: every mention marked at once reads as noise.
         int linkLine = -1;
         if (Link.Length > 0) for (int j = 0; j < lines.Count; j++) if (lines[j].Contains(Link, StringComparison.Ordinal)) { linkLine = j; break; }
+        // In scrollback, what Joshua said sits on a recessed plum band and his own replies stay on the
+        // parchment, so the two voices are told apart without reading a word - the same rule the Panel's
+        // conversation uses, and the same two colours. A band is drawn per RUN of his lines, not per line,
+        // or a wrapped sentence comes out as stripes.
+        if (scrollback)
+        {
+            for (int i = 0; i < count && first + i < lines.Count; i++)
+            {
+                if (!mineLine[first + i] || lines[first + i].Length == 0) continue;
+                var runEnd = i;
+                while (runEnd + 1 < count && first + runEnd + 1 < lines.Count && mineLine[first + runEnd + 1]
+                       && lines[first + runEnd + 1].Length > 0) runEnd++;
+                var bandTop = textTop + i * LineH;
+                var r = new RectangleF(TextXNow - 6, bandTop, Right - TextXNow - 2, (runEnd - i + 1) * LineH + 2);
+                using (var band = RoundRect(r, 6))
+                using (var b = new SolidBrush(Theme.WithAlpha(Theme.Plum, 235))) g.FillPath(b, band);
+                i = runEnd;
+            }
+        }
         for (int i = 0; i < count && first + i < lines.Count; i++)
         {
             var line = lines[first + i];
             if (More && i == count - 1) line = Ellipsize(line);            // "..." on the last visible line
             float y = textTop + i * LineH + 2;               // a 15 px face sits in the upper part of a 21 px line; nudge it to the middle
+            if (scrollback && mineLine[first + i])
+            {
+                using var mb = new SolidBrush(Theme.Text);                 // light text, because the band is dark
+                g.DrawString(line, font, mb, TextXNow, y, StringFormat.GenericTypographic);
+                continue;
+            }
             int at = first + i == linkLine ? line.IndexOf(Link, StringComparison.Ordinal) : -1;
             if (at < 0) { g.DrawString(line, font, tb, TextXNow, y, StringFormat.GenericTypographic); continue; }
             // The linked word - "Claude", the app his job runs in - is drawn in Claude's own colour and underlined,
