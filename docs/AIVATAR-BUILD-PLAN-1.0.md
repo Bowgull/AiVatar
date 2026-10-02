@@ -735,6 +735,38 @@ than one long loop. Idle is about 90% of a desktop pet's screen time.
 
   **Decide first:** rewrite the reply, or just flag it? Flagging is safer.
 
+- `[x]` 5.4b **Close the OTHER honesty hole: claiming ignorance without looking.** DONE
+  2026-10-02 (12deb1d). Sibling of 5.4, and the opposite direction: 5.4 is "did nothing, says
+  it did"; this is "looked at nothing, says it does not know". Found live - asked why Obsidian
+  was not set up, he replied that he had no details and that it was part of the rebuild still in
+  progress. It had been set up the day before, pointed at a 68-note vault, and one file read
+  would have said so. He called no tools at all.
+
+  `GUESSED` in `core.ts` now sends such a reply back once, told that its previous answer looked
+  nothing up. Gated on NO TOOLS USED, which is what keeps "I searched and it is not there"
+  intact: that is an honest answer and must not cost a second turn out of his quota. Six such
+  answers are pinned in `guessed.test.ts` as explicitly allowed.
+
+  **This was the third attempt.** voice.ts has said it in prose since 2026-10-01 and was
+  ignored each time. Prompts are not guarantees. This one is in code.
+
+- `[x]` 5.4c **A failed turn is written down.** DONE 2026-10-02 (12deb1d). `saveTurn` ran only
+  on the success path, so a turn that died left no row anywhere. His question about launching
+  WoW from a Rainmeter button produced nothing, and afterwards a turn that had failed was
+  indistinguishable from one never sent. `fail()` now records the exchange with a
+  `failed-<lane>` tier and logs how long it ran before dying. Partial of 5.3 and 5.5: the
+  `aang why` command and the six silent files are both still open.
+
+- `[ ]` 5.9 **The Google sign-in does not renew itself.** Found 2026-10-02, NOT previously in
+  this plan. `%APPDATA%\Aang\google.json` holds a valid `refreshToken` for his account, and the
+  access token expired 2026-09-28 regardless. A refresh token exists precisely so he signs in
+  once; the renewal is not firing. Re-running `tools\google-setup.cmd` fixes it for about a
+  week and hides the real fault.
+
+  Blocks nothing. It gates Gmail read/compose and Calendar read only. Calendar has never come
+  up once in 590 turns; email he used genuinely on 22-24 September and not since. Worth fixing
+  before the next sign-in, so that sign-in is the last one.
+
 - `[ ]` 5.5 **Logging in the six silent files.** **[verified]** Zero `console.*` calls in
   `discord.ts`, `jobs.ts`, `protocol.ts`, `quota.ts`, `activity.ts`, `claude.ts`. The whole
   Discord surface and the job pipeline are invisible. Also: `record()` is called from one
