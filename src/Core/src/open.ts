@@ -152,12 +152,46 @@ export interface Resolved {
   kind: OpenKind;
   /** The app it opens in, when one was named or it is an app. */
   app?: FoundApp;
+  /** Arguments the program needs. Only set by a recipe: a plain app is started with none. */
+  args?: string[];
 }
+
+/**
+ * Apps that are not started by running their own exe.
+ *
+ * World of Warcraft is the case that forced this. Running `WowB.exe` directly DOES start the game, but
+ * Battle.net never hands it a session, so Joshua lands on a login screen with nothing saved (tested live,
+ * 2026-10-02). Going through Battle.net with the product code is what carries his credentials, and the code
+ * is the SHORT one, `WoWF`, not the install flavour `wow_classic_beta` that the folder and the patch
+ * endpoint both use. Five plausible forms were tried before that one worked, so it is written down here
+ * rather than rediscovered.
+ */
+interface Recipe { match: RegExp; exe: string; args: string[]; label: string }
+
+const RECIPES: Recipe[] = [
+  {
+    match: /^(wow|wow ?forever|world of warcraft|warcraft|wowf)$/i,
+    exe: 'C:\\Program Files (x86)\\Battle.net\\Battle.net.exe',
+    args: ['--exec=launch WoWF'],
+    label: 'World of Warcraft',
+  },
+];
 
 /** Resolve what he asked for into something Windows can start, or an error that is true. */
 export function resolve(what: string, withApp?: string): Resolved | { error: string } {
   let t = (what ?? '').trim().replace(/^["']|["']$/g, '');
   if (!t) return { error: 'Nothing to open.' };
+
+  // Checked before anything else: "wow" would otherwise be treated as a word to search for or an app to
+  // find by name, and the app it would find is the launcher, which only gets him as far as a Play button.
+  if (!withApp) {
+    const recipe = RECIPES.find(r => r.match.test(t));
+    if (recipe) {
+      if (!existsSync(recipe.exe)) return { error: `${recipe.label} needs Battle.net, and it is not installed where it was expected.` };
+      return { target: recipe.exe, kind: 'app', args: recipe.args, app: { target: recipe.exe, name: recipe.label } };
+    }
+  }
+
   const kind = classify(t);
 
   let app: FoundApp | undefined;
@@ -198,7 +232,7 @@ export function launch(r: Resolved): Promise<{ ok: boolean; detail: string }> {
     try {
       let child;
       let program = r.kind === 'app' ? r.target : r.app?.target;
-      let arg = r.kind === 'app' ? [] : [r.target];
+      let arg = r.kind === 'app' ? (r.args ?? []) : [r.target];
       if (program && program.toLowerCase().endsWith('.lnk')) {
         // Follow the shortcut to the program it points at and start that, with the shortcut's own arguments
         // first. Handing the .lnk to a PowerShell Start-Process was tried first and started nothing for
