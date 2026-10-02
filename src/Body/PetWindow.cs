@@ -722,6 +722,10 @@ sealed class PetWindow : Form
         {
             var now = DateTime.UtcNow;
             tick++;
+            // Esc and the click-away watcher belong to the STATE, not to whichever call opened it. Arming
+            // them at each entry point meant any path that did not know to arm them produced a bubble with
+            // no way out, which is how the conversation shipped stuck (2026-10-02).
+            if (bubble.Expanded && !awayTimer.Enabled) EnterExpandedMode();
             var changed = bubble.Update(now);
             if (StepSlide(now)) changed = true;
             WatchDock(now);
@@ -930,10 +934,6 @@ sealed class PetWindow : Form
         // when there is nothing above - the gesture is the same one either way, so there is nothing to learn.
         if (!bubble.Visible && e.Delta > 0) { if (bubble.OpenConversation()) { Wake(); dirty = true; } }
         else if (bubble.Scroll(e.Delta > 0 ? -1 : 1)) dirty = true;
-        // Scrolling into the conversation arms Esc and the click-away watcher too. Both already existed for
-        // an expanded reply; they were simply never switched on for this, so there was no way to close it
-        // (Joshua, 2026-10-02: "right now there is NO way for me to close the scroll bubble").
-        if (bubble.InScrollback) EnterExpandedMode();
         FillStackFromMemory();
     }
 
@@ -1021,6 +1021,22 @@ sealed class PetWindow : Form
         awayTimer.Start();
     }
 
+    /// <summary>
+    /// Put everything of Aang's away and leave him standing there.
+    ///
+    /// Joshua's rule, stated twice: clicking anywhere outside Aang returns him to neutral. Previously this
+    /// only collapsed the bubble, which was fine when a bubble always had a reply in it, and wrong once the
+    /// conversation could be opened with nothing to collapse back to.
+    /// </summary>
+    void ReturnToNeutral()
+    {
+        ExitExpanded(collapse: true);
+        if (bubble.InScrollback && bubble.LeaveScrollback()) dirty = true;
+        if (input.Visible) input.Close(giveBackFocus: true);
+        if (anim.State is "talk" or "think") anim.Play("idle");
+        dirty = true;
+    }
+
     void ExitExpanded(bool collapse)
     {
         if (escRegistered) { Win32.UnregisterHotKey(Handle, EscId); escRegistered = false; }
@@ -1038,7 +1054,9 @@ sealed class PetWindow : Form
             var r = new Rectangle(
                 Location.X + (int)((Margin + bubble.LeftNow) * scale), Location.Y + (int)((bubble.CurrentTop + Extra) * scale),
                 (int)((BubbleView.Right - bubble.LeftNow) * scale), (int)((BubbleView.Bottom - bubble.CurrentTop) * scale));
-            if (!r.Contains(c)) ExitExpanded(true);
+            // The type box is Aang's too: clicking into it is not clicking away from him.
+            var onInput = input.Visible && input.Bounds.Contains(c);
+            if (!r.Contains(c) && !onInput) ReturnToNeutral();
         }
         mouseWasDown = down;
     }
@@ -2065,7 +2083,7 @@ sealed class PetWindow : Form
         // Scrolling up over him opens this too, but a wheel gesture is not discoverable, and he should not
         // have to say something to Aang just to have a bubble to scroll.
         var conversation = new ToolStripMenuItem("Conversation");
-        conversation.Click += (_, _) => { Wake(); if (bubble.OpenConversation()) { EnterExpandedMode(); dirty = true; FillStackFromMemory(); } };
+        conversation.Click += (_, _) => { Wake(); if (bubble.OpenConversation()) { dirty = true; FillStackFromMemory(); } };
         // Parity with Discord's command deck (2026-09-22): job hunt, permissions and activity were only ever
         // one tap away on the phone. Permissions and Activity already have a real, fuller view in the Panel
         // (its "What I may do" / "What I did" tabs) - these just jump straight to it instead of building a
