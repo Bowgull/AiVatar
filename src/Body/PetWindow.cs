@@ -13,10 +13,13 @@ namespace Aang.Body;
 /// </summary>
 sealed class PetWindow : Form
 {
-    // Extra: room above the old window so a bubble can grow to 12 lines. A full one reaches ExpandedMaxH (276) - Bottom
+    // Extra: room above the old window so a bubble can grow to 12 lines. A full one reaches
+    // ExpandedMaxH (300) - Bottom = 176, and the "what you asked" line can add 18 more, so 208 leaves a
+    // little over. It was 168, sized from a comment that still said 276 after LineH changed 21 -> 23, which
+    // cut the top border off every fully expanded bubble (2026-10-02).
     // (124) = 152 above the old top; the copy/rate buttons stand another ~10 above that edge. 168 covers both.
     // W includes a left margin (Docking.Margin) where a long reply's bubble widens into; it is transparent and click-through.
-    public const int W = 470 + Docking.Margin, H = 310, Extra = 168;
+    public const int W = 470 + Docking.Margin, H = 310, Extra = 208;
     const int Margin = Docking.Margin;
     const int HotkeyId = 0xA46, EscId = 0xA47, HotkeyPadId = 0xA48;
     static readonly TimeSpan WakeFor = TimeSpan.FromSeconds(4);
@@ -165,6 +168,10 @@ sealed class PetWindow : Form
         if (cfg.LayoutVersion < 5) { cfg.Hotkey = "Ctrl+Plus"; cfg.LayoutVersion = 5; cfg.Save(); }
         // Version 6: the window grew on the left for the wide bubble; the saved left edge moves by the same so he does not.
         if (cfg.LayoutVersion < 6) { if (cfg.X is int oldX6) cfg.X = oldX6 - (int)Math.Round(Margin * scale); cfg.LayoutVersion = 6; cfg.Save(); }   // Joshua, 2026-09-21: Ctrl and +
+        // Extra grew 168 -> 208 to stop a full bubble losing its top border. The window grows upward, so move
+        // the saved position up by the same amount or Aang would jump 40px down the screen on this one start.
+        // Same correction LayoutVersion 4 made the last time this changed.
+        if (cfg.LayoutVersion < 7) { if (cfg.Y is int oldY7) cfg.Y = oldY7 - (int)Math.Round((208 - 168) * scale); cfg.LayoutVersion = 7; cfg.Save(); }
         Location = cfg is { X: not null, Y: not null } ? Clamp(new Point(cfg.X.Value, cfg.Y.Value)) : DefaultPos();
 
         // Test/diagnostic flag: --quiet=never or --quiet=always overrides the WoW-focus detection.
@@ -910,7 +917,8 @@ sealed class PetWindow : Form
         base.OnMouseWheel(e);
         // Scroll up over the bubble to reach back through the conversation. Scroll() opens the stack itself
         // when there is nothing above - the gesture is the same one either way, so there is nothing to learn.
-        if (bubble.Scroll(e.Delta > 0 ? -2 : 2)) dirty = true;
+        if (!bubble.Visible && e.Delta > 0) { if (bubble.OpenConversation()) { Wake(); dirty = true; } }
+        else if (bubble.Scroll(e.Delta > 0 ? -2 : 2)) dirty = true;
         FillStackFromMemory();
     }
 
@@ -2039,6 +2047,10 @@ sealed class PetWindow : Form
         panelItem.Click += (_, _) => OpenPanel();
         var talk = new ToolStripMenuItem("Talk to Aang");
         talk.Click += (_, _) => OpenInput(userAsked: true);
+        // Scrolling up over him opens this too, but a wheel gesture is not discoverable, and he should not
+        // have to say something to Aang just to have a bubble to scroll.
+        var conversation = new ToolStripMenuItem("Conversation");
+        conversation.Click += (_, _) => { Wake(); if (bubble.OpenConversation()) { dirty = true; FillStackFromMemory(); } };
         // Parity with Discord's command deck (2026-09-22): job hunt, permissions and activity were only ever
         // one tap away on the phone. Permissions and Activity already have a real, fuller view in the Panel
         // (its "What I may do" / "What I did" tabs) - these just jump straight to it instead of building a
@@ -2119,7 +2131,7 @@ sealed class PetWindow : Form
         aangMenu.DropDownItems.AddRange(new ToolStripItem[] { jobHuntItem, permsItem, activityItem });
         var settingsMenu = GoldMenu.Header("Settings");
         settingsMenu.DropDownItems.AddRange(new ToolStripItem[] { hushMenu, modelMenu, savingItem, quietItem, seeWindowItem, muteItem, autostartItem, coreItem });
-        menu.Items.AddRange(new ToolStripItem[] { talk, panelItem, new ToolStripSeparator(), windowMenu, aangMenu, settingsMenu, new ToolStripSeparator(), quit });
+        menu.Items.AddRange(new ToolStripItem[] { talk, conversation, panelItem, new ToolStripSeparator(), windowMenu, aangMenu, settingsMenu, new ToolStripSeparator(), quit });
         GoldMenu.Apply(menu);
         tray.ContextMenuStrip = menu;
         tray.Text = "Aang";
