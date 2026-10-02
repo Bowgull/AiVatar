@@ -97,6 +97,21 @@ public class AangCap {
     return list;
   }
 
+  [DllImport("user32.dll")] static extern bool SetCursorPos(int x, int y);
+  [DllImport("user32.dll")] static extern void mouse_event(uint f, uint dx, uint dy, uint d, UIntPtr e);
+  const uint MOUSEEVENTF_LEFTDOWN = 0x02, MOUSEEVENTF_LEFTUP = 0x04,
+             MOUSEEVENTF_RIGHTDOWN = 0x08, MOUSEEVENTF_RIGHTUP = 0x10;
+
+  /// <summary>A real click at a screen point, so handlers that disagree about mouse-down versus mouse-up
+  /// are actually exercised.</summary>
+  public static void Click(int x, int y, bool right) {
+    SetCursorPos(x, y);
+    System.Threading.Thread.Sleep(120);
+    mouse_event(right ? MOUSEEVENTF_RIGHTDOWN : MOUSEEVENTF_LEFTDOWN, 0, 0, 0, UIntPtr.Zero);
+    System.Threading.Thread.Sleep(60);
+    mouse_event(right ? MOUSEEVENTF_RIGHTUP : MOUSEEVENTF_LEFTUP, 0, 0, 0, UIntPtr.Zero);
+  }
+
   public static Bitmap Window(IntPtr h) {
     RECT r; GetWindowRect(h, out r);
     int w = r.Right - r.Left, ht = r.Bottom - r.Top;
@@ -189,6 +204,19 @@ if ($Serve) {
   [Console]::Out.WriteLine("ready"); [Console]::Out.Flush()
   while ($null -ne ($line = [Console]::In.ReadLine())) {
     if ($line -eq 'quit') { break }
+    if ($line -match '^rect\s+(.+)$') {
+      $t = $Matches[1]
+      $ov = [AangCap]::Overlays($t); if ($ov.Count -eq 0) { $ov = [AangCap]::Any($t) }
+      if ($ov.Count -eq 0) { [Console]::Out.WriteLine("no-window") }
+      else { $r = $ov[0].R; [Console]::Out.WriteLine("rect $($r.Left) $($r.Top) $($r.Right - $r.Left) $($r.Bottom - $r.Top)") }
+      [Console]::Out.Flush(); continue
+    }
+    if ($line -match '^click\s+(\S+)\s+(\d+)\s+(\d+)$') {
+      # A real mouse click through the OS, not a synthetic WinForms event: the bug being tested was that
+      # two different handlers both responded to the same physical right-click, which only a real one shows.
+      [AangCap]::Click([int]$Matches[2], [int]$Matches[3], $Matches[1] -eq 'right')
+      [Console]::Out.WriteLine("ok"); [Console]::Out.Flush(); continue
+    }
     if ($line -match '^snap\s+(\S+)(?:\s+(.+))?$') {
       $res = Snap $Matches[1] ($Matches[2]) 24
       [Console]::Out.WriteLine("$res $($Matches[1])"); [Console]::Out.Flush()
