@@ -122,7 +122,7 @@ export class Memory {
     if (!this.db) return [];
     try {
       const rows = this.db.prepare(
-        "SELECT id, role, text FROM turns WHERE id > ? AND NOT (role = 'aang' AND COALESCE(tier, '') LIKE 'local%') ORDER BY id DESC LIMIT ?",
+        `SELECT id, role, text FROM turns WHERE id > ? AND ${visible()} ORDER BY id DESC LIMIT ?`,
       ).all(id, limit) as any[];
       return rows.reverse();
     } catch { return []; }
@@ -345,7 +345,7 @@ export class Memory {
       const rows = this.db.prepare(
         `SELECT e.vec AS vec, t.ts AS ts, t.role AS role, t.text AS text
            FROM embeddings e JOIN turns t ON t.id = e.turn_id
-          WHERE e.dim = ? AND NOT (t.role = 'aang' AND COALESCE(t.tier, '') LIKE 'local%')`,
+          WHERE e.dim = ? AND ${visible('t')}`,
       ).all(EMBED_DIM) as { vec: Uint8Array; ts: string; role: string; text: string }[];
       return rows
         .map(r => ({ score: similarity(q, fromBlob(r.vec)), ts: r.ts, role: r.role, text: r.text }))
@@ -373,7 +373,7 @@ export class Memory {
         `SELECT t.ts AS ts, t.role AS role, t.text AS text
            FROM turns_fts f JOIN turns t ON t.id = f.turn_id
           WHERE turns_fts MATCH ?
-            AND NOT (t.role = 'aang' AND COALESCE(t.tier, '') LIKE 'local%')
+            AND ${visible('t')}
           ORDER BY rank LIMIT ?`,
       ).all(terms.map(t => `"${t}"`).join(' OR '), limit) as { ts: string; role: string; text: string }[];
       return rows.map(r => ({ ts: r.ts, who: (r.role === 'user' ? 'you' : 'Aang') as 'you' | 'Aang', text: r.text, how: 'words' as const }));
@@ -396,13 +396,58 @@ export class Memory {
         ? this.db.prepare(
             `SELECT t.id AS id, t.ts AS ts, t.role AS role, t.text AS text
                FROM turns_fts f JOIN turns t ON t.id = f.turn_id
-              WHERE turns_fts MATCH ? AND NOT (t.role = 'aang' AND COALESCE(t.tier, '') LIKE 'local%')
+              WHERE turns_fts MATCH ? AND ${visible('t')}
               ORDER BY t.id DESC LIMIT ?`).all(terms.map(t => `"${t}"*`).join(' AND '), limit)
         : this.db.prepare(
-            `SELECT id, ts, role, text FROM turns WHERE NOT (role = 'aang' AND COALESCE(tier, '') LIKE 'local%') ORDER BY id DESC LIMIT ?`).all(limit)) as { id: number; ts: string; role: string; text: string }[];
+            `SELECT id, ts, role, text FROM turns WHERE ${visible()} ORDER BY id DESC LIMIT ?`).all(limit)) as { id: number; ts: string; role: string; text: string }[];
       return rows.map(r => ({ id: Number(r.id), ts: String(r.ts), who: r.role === 'user' ? 'you' as const : 'Aang' as const, text: String(r.text) }));
     } catch (e) {
       console.error('memory history failed:', (e as Error).message);
+      return [];
+    }
+  }
+
+  /**
+   * Forget one turn. It is hidden, not deleted: every read goes through `visible()`, so a hidden turn
+   * stops reaching his answers and drops out of search, while the row stays for "undo that".
+   *
+   * Returns what was hidden so the Body can offer to put it back, or null if there was no such row.
+   */
+  hideTurn(id: number): { id: number; who: 'you' | 'Aang'; text: string } | null {
+    if (!this.db) return null;
+    try {
+      const row = this.db.prepare('SELECT id, role, text FROM turns WHERE id = ?').get(id) as
+        { id: number; role: string; text: string } | undefined;
+      if (!row) return null;
+      this.db.prepare('UPDATE turns SET hidden = 1 WHERE id = ?').run(id);
+      return { id: Number(row.id), who: row.role === 'user' ? 'you' : 'Aang', text: String(row.text) };
+    } catch (e) {
+      console.error('memory hideTurn failed:', (e as Error).message);
+      return null;
+    }
+  }
+
+  /** Undo a hideTurn. True if a row actually came back. */
+  unhideTurn(id: number): boolean {
+    if (!this.db) return false;
+    try { return this.db.prepare('UPDATE turns SET hidden = 0 WHERE id = ?').run(id).changes > 0; }
+    catch (e) { console.error('memory unhideTurn failed:', (e as Error).message); return false; }
+  }
+
+  /** The text of specific turns, oldest first, for a reply or a pinned piece of context. Hidden rows are
+   *  left out: forgetting one has to mean he cannot be handed it either. */
+  turnsById(ids: number[]): { id: number; who: 'you' | 'Aang'; text: string }[] {
+    if (!this.db || ids.length === 0) return [];
+    const wanted = ids.filter(n => Number.isInteger(n) && n > 0).slice(0, 20);
+    if (wanted.length === 0) return [];
+    try {
+      const rows = this.db.prepare(
+        `SELECT id, role, text FROM turns WHERE id IN (${wanted.map(() => '?').join(',')})
+           AND COALESCE(hidden, 0) = 0 ORDER BY id`).all(...wanted) as
+        { id: number; role: string; text: string }[];
+      return rows.map(r => ({ id: Number(r.id), who: r.role === 'user' ? 'you' as const : 'Aang' as const, text: String(r.text) }));
+    } catch (e) {
+      console.error('memory turnsById failed:', (e as Error).message);
       return [];
     }
   }
@@ -412,28 +457,65 @@ export class Memory {
     if (!this.db) return [];
     try {
       const rows = this.db.prepare(
-        `SELECT ts, role, text FROM turns WHERE ts >= ? AND ts < ? AND NOT (role = 'aang' AND COALESCE(tier, '') LIKE 'local%') ORDER BY id LIMIT ?`,
+        `SELECT ts, role, text FROM turns WHERE ts >= ? AND ts < ? AND ${visible()} ORDER BY id LIMIT ?`,
       ).all(from, to, limit) as { ts: string; role: string; text: string }[];
       return rows.map(r => ({ ts: String(r.ts), who: r.role === 'user' ? 'you' as const : 'Aang' as const, text: String(r.text) }));
     } catch { return []; }
   }
 
-  saveTurn(user: string, aang: string, tier: string): void {
-    if (!this.db) return;
+  /**
+   * Store the exchange.
+   *
+   * Returns the two row ids. The Body needs them to let Joshua act on a message he can see: the `id` that
+   * already rides on a `bubble` is the SUBMIT id, which identifies the request, not the row. Null when
+   * nothing was stored, so a caller cannot mistake a failed write for turn 0.
+   */
+  saveTurn(user: string, aang: string, tier: string): { userTurn: number; aangTurn: number } | null {
+    if (!this.db) return null;
     try {
       const now = new Date().toISOString().replace('T', ' ').slice(0, 19);
       const ins = this.db.prepare('INSERT INTO turns (ts, role, tier, text) VALUES (?,?,?,?)');
       const fts = this.db.prepare('INSERT INTO turns_fts (text, turn_id) VALUES (?,?)');
+      const saved: number[] = [];
       for (const [role, text, t] of [['user', user, null], ['aang', aang, tier]] as const) {
         const info = ins.run(now, role, t, text);
         const id = Number(info.lastInsertRowid);
+        saved.push(id);
         fts.run(text, id);
         // Embedding is local and free, but it is not instant: do it after the turn is safely stored,
         // and never let it delay the reply.
         void this.embedTurn(id, text);
       }
+      return { userTurn: saved[0], aangTurn: saved[1] };
     } catch (e) {
       console.error('memory save failed:', (e as Error).message);
+      return null;
+    }
+  }
+
+  /**
+   * Store one thing Aang said on his own: a nudge, a reminder, an announcement.
+   *
+   * Until now `saveTurn` was called in exactly one place, the normal chat path, so nothing Aang said
+   * unprompted existed as a row at all. That is why he could be told "you are at 50% of your week" and
+   * reply "the week is almost over, that's fine" - the model genuinely had nothing to go on, and there
+   * was no row for Joshua to reply to either.
+   *
+   * `tier` is recorded as `proactive` so it is never mistaken for an answer he reasoned his way to.
+   */
+  saveSaid(text: string): number | null {
+    if (!this.db || !text.trim()) return null;
+    try {
+      const now = new Date().toISOString().replace('T', ' ').slice(0, 19);
+      const info = this.db.prepare('INSERT INTO turns (ts, role, tier, text) VALUES (?,?,?,?)')
+        .run(now, 'aang', 'proactive', text);
+      const id = Number(info.lastInsertRowid);
+      this.db.prepare('INSERT INTO turns_fts (text, turn_id) VALUES (?,?)').run(text, id);
+      void this.embedTurn(id, text);
+      return id;
+    } catch (e) {
+      console.error('memory saveSaid failed:', (e as Error).message);
+      return null;
     }
   }
 
@@ -496,6 +578,21 @@ export class Memory {
   checkpoint(): void { try { this.db?.exec('PRAGMA wal_checkpoint(TRUNCATE);'); } catch { /* busy: next time */ } }
 
   close(): void { this.checkpoint(); try { this.db?.close(); } catch { /* ignore */ } }
+}
+
+/**
+ * What counts as a turn Aang may use or show. Two rules, written once because they were copied into five
+ * separate queries and the sixth would have got one of them wrong:
+ *
+ *  - a local model's answer is never recalled as something Aang said, so a small model's mistake cannot
+ *    become a memory;
+ *  - a turn Joshua forgot is hidden, not deleted, so "undo that" can bring it back.
+ *
+ * `a` is the table's alias in the query ("t" in the joins, "" for a bare FROM turns).
+ */
+function visible(a = ''): string {
+  const c = a ? `${a}.` : '';
+  return `NOT (${c}role = 'aang' AND COALESCE(${c}tier, '') LIKE 'local%') AND COALESCE(${c}hidden, 0) = 0`;
 }
 
 /** Words in a "forget ..." request that say nothing about which fact is meant. */
