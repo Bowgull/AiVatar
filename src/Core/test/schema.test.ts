@@ -175,19 +175,26 @@ test('a stale -wal does not stop a healthy database from opening normally', () =
   r.db!.close();
 });
 
-test('the created schema matches what the live database actually uses', () => {
-  // Guards against the schema here drifting from the one 400+ real turns live in. Compares the
-  // column names of every table, which is what a query would break on.
+test('the created schema matches his real database, once it has been opened', () => {
+  // Guards against the schema here drifting from the one 400+ real turns live in. Compares the column
+  // names of every table, which is what a query would break on.
+  //
+  // Against a COPY of the live file, opened rather than read: openMemory migrates on every open, so the
+  // thing worth asserting is that his real database ends up the same shape as a fresh one - not that it
+  // already is one, which stopped being true the moment a column was added (2026-10-01). Reading it
+  // read-only would have tested the shape he is migrating away from. The original is never touched.
   const real = path.join('C:', 'Users', 'Shadow', 'Documents', 'Aang', 'aang.db');
   if (!existsSync(real)) return;
-  const dir = tmp();
-  const fresh = createDatabase(path.join(dir, 'aang.db'));
-  const live = new DatabaseSync(real, { readOnly: true });
+  const dir = tmp(), copy = path.join(dir, 'aang.db');
+  copyFileSync(real, copy);
+  const opened = openMemory(dir);
+  assert.equal(opened.how, 'opened', 'his database should open normally, not need restoring');
+  const fresh = createDatabase(path.join(tmp(), 'aang.db'));
   try {
     for (const t of ['turns', 'facts', 'embeddings', 'cache', 'topics', 'journal', 'meta']) {
       const cols = (d: DatabaseSync) => (d.prepare(`PRAGMA table_info(${t})`).all() as { name: string }[])
         .map(c => c.name).sort();
-      assert.deepEqual(cols(fresh), cols(live), `table ${t} has drifted from the live database`);
+      assert.deepEqual(cols(fresh), cols(opened.db!), `table ${t} has drifted from the live database`);
     }
-  } finally { fresh.close(); live.close(); }
+  } finally { fresh.close(); opened.db!.close(); }
 });
