@@ -108,6 +108,11 @@ function setAside(file: string): string | null {
  * bare ALTER in a try would swallow a real failure as if it were the already-there case.
  */
 const ADDED_COLUMNS: { table: string; column: string; decl: string }[] = [
+  // 3.3: a fact the local model read out of a document waits here until Joshua approves it. Nothing
+  // self-activates; a pending fact is never used in an answer and never shown as something he knows.
+  { table: 'facts', column: 'pending', decl: 'INTEGER NOT NULL DEFAULT 0' },
+  // 3.3: which document a fact came from, so he can see why Aang believes it.
+  { table: 'facts', column: 'from_doc', decl: 'TEXT' },
   // 4.3b: forgetting a turn hides it. The row stays, so "undo that" can bring it back.
   { table: 'turns', column: 'hidden', decl: 'INTEGER NOT NULL DEFAULT 0' },
 ];
