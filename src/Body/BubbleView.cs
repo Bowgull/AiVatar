@@ -20,12 +20,19 @@ sealed class BubbleView : IDisposable
     // Clean Gold: 15 px text, radius 12, 12 px padding. LineH was 21 (a 1.4x line-height, under WCAG's own
     // 1.5x target for readable body text); 23 is 1.53x, in range - Joshua, 2026-09-23: "jumbled and hard to
     // read", researched rather than guessed. The bubble grows UP from Bottom, so PetWindow.Extra must cover
-    // ExpandedMaxH - Bottom (see there).
+    // ExpandedMaxH - Bottom (see there), which is 176, not the 152 the old stale comment implied.
     public const int Left = 6, Right = 262, Bottom = 124, LineH = 23, TextX = 20, Pad = 12;
     public const int CollapsedLines = 6, ExpandedLines = 12;
     public const int MinH = 58, MaxTextW = 232, Radius = Theme.Radius;
-    public const int CollapsedH = CollapsedLines * LineH + 2 * Pad;     // 150
-    public const int ExpandedMaxH = ExpandedLines * LineH + 2 * Pad;    // 276
+    public const int CollapsedH = CollapsedLines * LineH + 2 * Pad;     // 162
+    public const int ExpandedMaxH = ExpandedLines * LineH + 2 * Pad;    // 300
+
+    // Those two comments said 150 and 276 until 2026-10-02. They were right when a line was 21px, and were
+    // never updated when LineH became 23 - so the headroom above the window was sized from a stale number
+    // and a fully expanded bubble was drawn 8px past the top of its own window. Nothing showed it until the
+    // scrollback made the bubble routinely reach full height (Joshua: "the top of the expanded bubble is cut
+    // off its just missing the entire border"). Anything deriving a size from these must use the constants,
+    // never the comments.
     // Tail: base on the bubble's right edge, tip aimed at Aang's face.
     const int TailBaseTop = Bottom - 40, TailBaseBottom = Bottom - 18, TailTipX = 320, TailTipY = 152;
     // Scrollbar: a slim track in the right margin inside the outline.
@@ -143,6 +150,10 @@ sealed class BubbleView : IDisposable
     float TextXNow => Wide ? TextX - WideExtra : TextX;
     float MaxW => Wide ? MaxTextW + WideExtra : MaxTextW;
 
+    /// <summary>Text width inside a conversation card. Narrower than MaxW by the card's own padding, or the
+    /// last word of a long reply sits on the card edge (2026-10-02, seen in a capture).</summary>
+    float CardTextW => MaxW - 44;
+
     // Smoothed streaming: the words are revealed at an even pace instead of in the lumps they arrive in. The pace
     // quickens with the backlog, so it never falls far behind; everything else (copy, the tools) waits for the end.
     string full = "";
@@ -239,7 +250,11 @@ sealed class BubbleView : IDisposable
     }
 
     /// <summary>Greedy word wrap. Deterministic and append-stable, apart from the last partial word.</summary>
-    public List<string> Wrap(string t)
+    public List<string> Wrap(string t) => Wrap(t, MaxW);
+
+    /// <param name="maxW">The width to wrap to. Defaults to the bubble's own; a conversation card is
+    /// narrower, because its padding is inside that width and not outside it.</param>
+    public List<string> Wrap(string t, float maxW)
     {
         var result = new List<string>();
         foreach (var para in t.Replace("\r", "").Split('\n'))
@@ -249,13 +264,13 @@ sealed class BubbleView : IDisposable
             foreach (var word in para.Split(' ', StringSplitOptions.RemoveEmptyEntries))
             {
                 var w = Width(word);
-                if (w > MaxW)
+                if (w > maxW)
                 {
                     if (cur.Length > 0) { result.Add(cur); cur = ""; curW = 0; }
                     var chunk = "";
                     foreach (var ch in word)
                     {
-                        if (chunk.Length > 0 && Width(chunk + ch) > MaxW) { result.Add(chunk); chunk = ""; }
+                        if (chunk.Length > 0 && Width(chunk + ch) > maxW) { result.Add(chunk); chunk = ""; }
                         chunk += ch;
                     }
                     cur = chunk; curW = Width(cur);
@@ -445,7 +460,18 @@ sealed class BubbleView : IDisposable
     {
         if (!scrollback) return back.Count > 0 && !back[^1].Mine ? back[^1].Id : 0;
         var i = LineAt(y);
-        return i >= 0 && i < lineTurn.Count ? lineTurn[i] : 0;
+        if (i < 0 || i >= lineTurn.Count) return 0;
+        if (lineTurn[i] > 0) return lineTurn[i];
+        // A blank line, or a date divider, between two lines of the same message. Snap to the message just
+        // below, then just above, rather than doing nothing: a click landing in the gap is still a click on
+        // something, and silence reads as the menu being broken (which is exactly how it read to me when a
+        // test click landed on a divider, 2026-10-02).
+        for (var d = 1; d <= 2; d++)
+        {
+            if (i + d < lineTurn.Count && lineTurn[i + d] > 0) return lineTurn[i + d];
+            if (i - d >= 0 && lineTurn[i - d] > 0) return lineTurn[i - d];
+        }
+        return 0;
     }
 
     /// <summary>The visible line index at a y in bubble coordinates, or -1.</summary>
@@ -490,6 +516,27 @@ sealed class BubbleView : IDisposable
         targetH = HeightFor(Math.Min(lines.Count, ExpandedLines));
     }
 
+    /// <summary>
+    /// Open the conversation on demand, with or without a reply on screen.
+    ///
+    /// Scrolling only reached it while a bubble happened to be up, which meant saying something to Aang
+    /// first just to have something to scroll (Joshua, 2026-10-02: "the chat bubble should always be
+    /// accesable not only when i send a message to try and get to it").
+    /// </summary>
+    public bool OpenConversation()
+    {
+        if (scrollback) return false;
+        Visible = true; Dots = false; streaming = false; Asking = false;
+        Asked = ""; rows = null;                       // neither belongs to a conversation, only to one reply
+        scrollback = true; expanded = true;
+        Rebuild();
+        scroll = Math.Max(0, lines.Count - ExpandedLines);
+        targetH = HeightFor(Math.Min(Math.Max(lines.Count, 3), ExpandedLines));
+        if (shownH <= 0) shownH = targetH * 0.55f;
+        hideAt = DateTime.UtcNow.AddMinutes(10);        // it stays until he closes it
+        return true;
+    }
+
     public bool EnterScrollback()
     {
         if (scrollback || back.Count == 0) return false;
@@ -503,13 +550,13 @@ sealed class BubbleView : IDisposable
 
     void Rebuild()
     {
-        lines = new(); mineLine = new(); lineTurn.Clear(); dividers.Clear();
+        lines = new(); mineLine = new(); lineTurn.Clear(); dividers.Clear(); heads.Clear();
         void Mark(string text, bool mine, int id, bool divider = false)
         {
             if (divider) dividers.Add(lines.Count);
             lines.Add(text); mineLine.Add(mine); lineTurn.Add(id);
         }
-        if (ReachedTheStart && back.Count > 0) Mark("This is the start.", false, 0, divider: true);
+        if (ReachedTheStart) Mark(back.Count > 0 ? "This is the start." : "Nothing said yet.", false, 0, divider: true);
         var day = DateTime.MinValue.Date;
         for (var i = 0; i < back.Count; i++)
         {
@@ -522,10 +569,111 @@ sealed class BubbleView : IDisposable
                 if (lines.Count > 0) Mark("", false, 0);
                 Mark(DayName(day), false, 0, divider: true);
             }
-            else if (i > 0) Mark("", false, 0);                       // a blank line between turns
-            foreach (var l in Wrap(said.Text)) Mark(l, said.Mine, said.Id);
+            // Who said it and when, on its own small line above the words.
+            //
+            // This replaces a blank separator. A blank line says "something changed" and leaves him to work
+            // out what; with long replies and several turns on screen that is the wall he described
+            // (2026-10-02: "a bit hard to decern what is what espically with long replies or lots of input").
+            // A costed line that names the speaker is worth more than an empty one that does not.
+            heads.Add(lines.Count);
+            Mark((said.Mine ? "YOU" : "AANG") + "   " + said.When.ToString("h:mm tt").ToLowerInvariant(), said.Mine, said.Id);
+            foreach (var l in Wrap(said.Text, CardTextW)) Mark(l, said.Mine, said.Id);
         }
     }
+
+    /// <summary>
+    /// The conversation, drawn as a container of messages rather than a page of text (mockup F).
+    ///
+    /// A recessed dark panel, then one card per turn: Joshua's right-aligned on plum and only as wide as
+    /// its words, Aang's left-aligned on parchment. The label sits ABOVE its card, outside it, so the eye
+    /// gets "who" before "what" and a long reply still reads as one object with a top and a bottom.
+    /// </summary>
+    void DrawConversation(Graphics g, float textTop, int first, int count)
+    {
+        float left = TextXNow - 4, right = Right - 10;
+        // The panel the cards sit on: the same carved mahogany the tray menu and the bubble's own frame are
+        // cut from, lit from the top, with its grain. The first version washed Theme.Ink over the parchment,
+        // which is a cold purple-black and came out exactly as Joshua described it - "grey and dead"
+        // (2026-10-02). Wood1/Wood2 were already the right colours; Ink was never a wood.
+        var panel = new RectangleF(left - 4, textTop - 6, right - left + 10, count * LineH + 10);
+        using (var pp = RoundRect(panel, 7))
+        {
+            using (var pb = new LinearGradientBrush(panel, Theme.Wood1, Theme.Wood2, 90f)) g.FillPath(pb, pp);
+            DrawGrain(g, pp, panel, Theme.WoodGrain, 6f);
+            // A dark lip round the inside, so the panel reads as recessed into the bubble rather than laid on it.
+            using var lip = new Pen(Theme.WoodPlaque, 1.4f);
+            g.DrawPath(lip, pp);
+        }
+
+        using var body = Theme.Font(Theme.Face, Theme.BodyPx);
+        using var small = Theme.Font(Theme.Face, Theme.ReceiptPx);
+        using var ink = new SolidBrush(Theme.InkText);
+        using var pale = new SolidBrush(Theme.Text);
+        using var dim = new SolidBrush(Theme.WithAlpha(Theme.Text, 150));
+
+        for (int i = 0; i < count && first + i < lines.Count; i++)
+        {
+            var idx = first + i;
+            float y = textTop + i * LineH;
+
+            if (dividers.Contains(idx))
+            {
+                var w = Width(lines[idx]);
+                var cx = left + (right - left - w) / 2f;
+                using var rule = new Pen(Theme.WithAlpha(Theme.Text, 70), 1f);
+                g.DrawLine(rule, left, y + 10, cx - 6, y + 10);
+                g.DrawLine(rule, cx + w + 6, y + 10, right, y + 10);
+                g.DrawString(lines[idx], small, dim, cx, y + 3, StringFormat.GenericTypographic);
+                continue;
+            }
+            if (!heads.Contains(idx)) continue;           // body lines are drawn with their own card below
+
+            // How far this turn runs, in visible lines.
+            var mine = mineLine[idx];
+            var last = i;
+            while (last + 1 < count && first + last + 1 < lines.Count
+                   && !heads.Contains(first + last + 1) && !dividers.Contains(first + last + 1)
+                   && lineTurn[first + last + 1] == lineTurn[idx]) last++;
+            var bodyCount = last - i;                      // the header itself is not in the card
+
+            // The label, above the card and outside it.
+            var label = lines[idx];
+            var lw = Width(label);
+            g.DrawString(label, small, dim, mine ? right - lw : left, y + 3, StringFormat.GenericTypographic);
+
+            if (bodyCount <= 0) continue;
+            // His own messages are as wide as they need to be; Aang's take the width, because his are longer
+            // and ragged right-edges on a paragraph read worse than a block.
+            float widest = 0;
+            for (var b = 1; b <= bodyCount; b++) widest = Math.Max(widest, Width(lines[first + i + b]));
+            float cardW = mine ? Math.Min(widest + 18, right - left) : right - left;
+            float cardX = mine ? right - cardW : left;
+            var card = new RectangleF(cardX, y + LineH - 3, cardW, bodyCount * LineH + 7);
+
+            using (var cp = RoundRect(card, 6))
+            {
+                if (mine)
+                {
+                    using var b = new SolidBrush(Theme.Plum);
+                    g.FillPath(b, cp);
+                }
+                else
+                {
+                    using var b = new LinearGradientBrush(card, Theme.Parch1, Theme.Parch2, 90f);
+                    g.FillPath(b, cp);
+                }
+                using var edge = new Pen(Theme.WithAlpha(mine ? Theme.Gold : Theme.ParchEdge, mine ? 110 : 200), 1f);
+                g.DrawPath(edge, cp);
+            }
+            for (var b = 1; b <= bodyCount; b++)
+                g.DrawString(lines[first + i + b], body, mine ? pale : ink,
+                    cardX + 9, y + b * LineH, StringFormat.GenericTypographic);
+            i = last;
+        }
+    }
+
+    /// <summary>Lines that name the speaker rather than repeat what was said.</summary>
+    readonly List<int> heads = new();
 
     /// <summary>Lines that are a divider rather than something said: drawn centred and dim, never as speech.</summary>
     readonly List<int> dividers = new();
@@ -737,50 +885,23 @@ sealed class BubbleView : IDisposable
         // Only the first "Claude" in the message is the link: every mention marked at once reads as noise.
         int linkLine = -1;
         if (Link.Length > 0) for (int j = 0; j < lines.Count; j++) if (lines[j].Contains(Link, StringComparison.Ordinal)) { linkLine = j; break; }
-        // In scrollback, what Joshua said sits on a recessed plum band and his own replies stay on the
-        // parchment, so the two voices are told apart without reading a word - the same rule the Panel's
-        // conversation uses, and the same two colours. A band is drawn per RUN of his lines, not per line,
-        // or a wrapped sentence comes out as stripes.
+        // In scrollback the bubble stops being a sheet of text and becomes a container of messages: a
+        // recessed dark panel with a card per turn on it, his on the right in plum, Aang's on the left in
+        // parchment, each labelled above itself (mockup F). Bands on one sheet told the voices apart but not
+        // where a message started and stopped, which is what made long replies hard to follow
+        // (Joshua, 2026-10-02: "hard to decern what is what espically with long replies").
         if (scrollback)
         {
-            for (int i = 0; i < count && first + i < lines.Count; i++)
-            {
-                if (!mineLine[first + i] || lines[first + i].Length == 0 || dividers.Contains(first + i)) continue;
-                var runEnd = i;
-                while (runEnd + 1 < count && first + runEnd + 1 < lines.Count && mineLine[first + runEnd + 1]
-                       && lines[first + runEnd + 1].Length > 0) runEnd++;
-                var bandTop = textTop + i * LineH;
-                var r = new RectangleF(TextXNow - 6, bandTop, Right - TextXNow - 2, (runEnd - i + 1) * LineH + 2);
-                using (var band = RoundRect(r, 6))
-                using (var b = new SolidBrush(Theme.WithAlpha(Theme.Plum, 235))) g.FillPath(b, band);
-                i = runEnd;
-            }
+            DrawConversation(g, textTop, first, count);
+            g.ResetClip();
         }
+        else
+        {
         for (int i = 0; i < count && first + i < lines.Count; i++)
         {
             var line = lines[first + i];
             if (More && i == count - 1) line = Ellipsize(line);            // "..." on the last visible line
             float y = textTop + i * LineH + 2;               // a 15 px face sits in the upper part of a 21 px line; nudge it to the middle
-            if (scrollback && dividers.Contains(first + i))
-            {
-                using var df = Theme.Font(Theme.Face, Theme.ReceiptPx);
-                using var db = new SolidBrush(dimC);
-                var w = Width(line);
-                var cx = TextXNow + (Right - TextXNow - 8 - w) / 2f;
-                using (var rule = new Pen(Theme.WithAlpha(dimC, 90), 1f))
-                {
-                    g.DrawLine(rule, TextXNow, y + 8, cx - 6, y + 8);
-                    g.DrawLine(rule, cx + w + 6, y + 8, Right - 8, y + 8);
-                }
-                g.DrawString(line, df, db, cx, y + 1, StringFormat.GenericTypographic);
-                continue;
-            }
-            if (scrollback && mineLine[first + i])
-            {
-                using var mb = new SolidBrush(Theme.Text);                 // light text, because the band is dark
-                g.DrawString(line, font, mb, TextXNow, y, StringFormat.GenericTypographic);
-                continue;
-            }
             int at = first + i == linkLine ? line.IndexOf(Link, StringComparison.Ordinal) : -1;
             if (at < 0) { g.DrawString(line, font, tb, TextXNow, y, StringFormat.GenericTypographic); continue; }
             // The linked word - "Claude", the app his job runs in - is drawn in Claude's own colour and underlined,
@@ -794,6 +915,7 @@ sealed class BubbleView : IDisposable
             var after = line[(at + Link.Length)..];
             // The gap is added by hand and the space itself dropped: drawing " on" after adding a space doubled it.
             if (after.Length > 0) g.DrawString(after.TrimStart(' '), font, tb, x + lw + (after.StartsWith(' ') ? spaceW : 0), y, StringFormat.GenericTypographic);
+        }
         }
         g.ResetClip();
         if (rows != null && rows.Items.Count > 0) DrawRows(g, textTop + count * LineH + 6f);
