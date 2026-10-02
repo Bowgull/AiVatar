@@ -27,11 +27,13 @@
 // If Ollama is not running this returns a failure with a reason, exactly like embed.ts returning null:
 // reading getting slower is acceptable, Aang breaking is not.
 
+import { gameRunning } from './gpu.ts';
+
 export const LOCAL_MODEL = process.env.AANG_LOCAL_MODEL ?? 'hf.co/unsloth/Qwen3.5-35B-A3B-GGUF:UD-IQ3_XXS';
 const URL = process.env.AANG_OLLAMA ?? 'http://127.0.0.1:11434';
 
 /** Why a local answer could not be used. Separated so a caller can tell "not running" from "said nothing". */
-export type LocalFailure = 'offline' | 'no-model' | 'timeout' | 'empty' | 'error';
+export type LocalFailure = 'offline' | 'no-model' | 'timeout' | 'empty' | 'error' | 'game';
 
 export interface LocalResult {
   ok: boolean;
@@ -68,11 +70,27 @@ let warnedOffline = false;
  */
 export async function askLocal(
   prompt: string,
-  { system, timeoutMs = 120_000, maxTokens = 1024 }: { system?: string; timeoutMs?: number; maxTokens?: number } = {},
+  { system, timeoutMs = 120_000, maxTokens = 1024, evenInGame = false }:
+    { system?: string; timeoutMs?: number; maxTokens?: number; evenInGame?: boolean } = {},
 ): Promise<LocalResult> {
   const started = Date.now();
   const text = (prompt ?? '').trim();
   if (!text) return { ok: false, text: '', ms: 0, why: 'empty', detail: 'There was nothing to read.' };
+
+  // 3.2: the card belongs to the game. Checked here rather than at each caller, so a reading job added
+  // later cannot forget to ask. `evenInGame` exists only for tests, which must be able to run either way.
+  if (!evenInGame) {
+    const game = await gameRunning();
+    if (game.running) {
+      // And give the card back if we are already holding it. Refusing to load is only half the rule when
+      // Ollama keeps a model resident for five minutes after the last read.
+      void unloadLocal();
+      return {
+        ok: false, text: '', ms: Date.now() - started, why: 'game',
+        detail: `${game.which} is running, so the graphics card is busy. This waits until you quit.`,
+      };
+    }
+  }
 
   try {
     const res = await fetch(`${URL}/api/chat`, {
@@ -132,6 +150,29 @@ export async function askLocal(
         ? `The local model took longer than ${Math.round(timeoutMs / 1000)}s and was given up on.`
         : 'Ollama is not running, so nothing can be read locally right now.',
     };
+  }
+}
+
+/**
+ * Give the card back.
+ *
+ * Ollama keeps a model resident for five minutes after the last request, so refusing to LOAD during a game
+ * is only half the rule: a model loaded a minute before WoW starts would sit on 13 GB of a 15.3 GB card
+ * through the whole raid. Measured right after the 3.1 tests: 923 MiB free, with nothing reading anything.
+ *
+ * `keep_alive: 0` unloads immediately. Safe to call when nothing is loaded.
+ */
+export async function unloadLocal(timeoutMs = 10_000): Promise<boolean> {
+  try {
+    const res = await fetch(`${URL}/api/generate`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ model: LOCAL_MODEL, keep_alive: 0 }),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    return res.ok;
+  } catch {
+    return false;      // Ollama is not running, so the card is already free of it
   }
 }
 
