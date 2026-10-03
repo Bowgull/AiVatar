@@ -16,7 +16,7 @@ sealed class PanelWindow : Form
     readonly float s;
     readonly Panel host = new();
     readonly Label notice = new();
-    const int Tabs = 6;
+    const int Tabs = 7;
     readonly Button[] tabs = new Button[Tabs];
     readonly Control[] pages = new Control[Tabs];
     int current;
@@ -60,7 +60,7 @@ sealed class PanelWindow : Form
         MinimumSize = new Size((int)(640 * s), (int)(420 * s));
         try { Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { /* the default icon */ }
 
-        var names = new[] { "What I know", "What I may do", "What I did", "Drafts", "History", "Settings" };
+        var names = new[] { "What I know", "What I may do", "What I did", "Drafts", "Jobs", "History", "Settings" };
         var strip = new Panel { Dock = DockStyle.Top, Height = (int)(48 * s), BackColor = Theme.Ink };
         for (int i = 0; i < Tabs; i++)
         {
@@ -170,7 +170,8 @@ sealed class PanelWindow : Form
         var historyPage = new Panel { Dock = DockStyle.Fill };
         historyPage.Controls.Add(hText); historyPage.Controls.Add(hBar); historyPage.Controls.Add(hTop);
         historyPage.Controls.SetChildIndex(hText, 0);
-        pages[4] = historyPage;
+        pages[5] = historyPage;
+        pages[4] = BuildJobs();
 
         // ---- settings
         var set = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, Padding = new Padding((int)(22 * s), (int)(18 * s), 0, 0), BackColor = Theme.Ink, AutoScroll = true };
@@ -193,7 +194,7 @@ sealed class PanelWindow : Form
         var undockBtn = MakeButton("Bring him off the edge (undock)", Kind.Plum); undockBtn.Width = (int)(280 * s); undockBtn.Margin = new Padding(0, 0, 0, (int)(10 * s));
         undockBtn.Click += (_, _) => RunAction?.Invoke("undock");
         set.Controls.Add(hotkeyBtn); set.Controls.Add(undockBtn);
-        pages[5] = set;
+        pages[6] = set;
 
         foreach (var p in pages) { p.Dock = DockStyle.Fill; p.Visible = false; host.Controls.Add(p); }
         Controls.Add(host); Controls.Add(notice); Controls.Add(strip);
@@ -219,14 +220,174 @@ sealed class PanelWindow : Form
     public void Select(int i)
     {
         current = i;
-        if (i == 4 && !historyAsked) { historyAsked = true; _ = send(new { t = "history", q = "" }); }
-        if (i == 5) LoadSettings();
+        if (i == 4) ShowJob();
+        if (i == 5 && !historyAsked) { historyAsked = true; _ = send(new { t = "history", q = "" }); }
+        if (i == 6) LoadSettings();
         for (int k = 0; k < Tabs; k++)
         {
             pages[k].Visible = k == i;
             tabs[k].BackColor = k == i ? Theme.Gold : Theme.Plum;
             tabs[k].ForeColor = k == i ? Theme.Ink : Theme.Text;
         }
+    }
+
+    // ---- jobs: the card stack
+    //
+    // 4.5. One card at a time, not a list. A list of fifteen jobs is a chore you put off; one card with two
+    // real answers on it is a decision you can actually make, and then the next one appears. That is the
+    // whole design, and it is why the count ("3 of 7") matters - it says the end is in sight.
+    //
+    // Triaged from the keyboard: A to apply, X to skip, O to open the posting, Z to put the last one back.
+    // The keys work only while the Panel has focus, so they can never fire into the game.
+    sealed record JobCard(string Id, string Title, string Company, string Location, string Salary,
+                          int Score, string Verdict, string Reason, string Url);
+    List<JobCard> jobCards = new();
+    int jobAt;
+    readonly Label jobCount = new(), jobTitle = new(), jobWhere = new(), jobWhy = new(), jobEmpty = new();
+    readonly Panel jobChip = new();
+    Keycap jobOpen = null!, jobApply = null!, jobSkip = null!, jobUndo = null!;
+
+    Control BuildJobs()
+    {
+        var page = new Panel { Dock = DockStyle.Fill, BackColor = Theme.Ink, Visible = false };
+
+        jobEmpty.Text = "Nothing waiting on you. Jobs arrive from #job-inbox and the weekly sweep.";
+        jobEmpty.ForeColor = Theme.Secondary; jobEmpty.AutoSize = false;
+        jobEmpty.Bounds = new Rectangle((int)(24 * s), (int)(24 * s), (int)(560 * s), (int)(28 * s));
+        page.Controls.Add(jobEmpty);
+
+        // The card. 340 px wide was the agreed width and it is a good one: wide enough for a real company
+        // name, narrow enough that the eye takes the whole card in without travelling.
+        var card = new Panel { BackColor = Theme.Plum, Bounds = new Rectangle((int)(24 * s), (int)(56 * s), (int)(340 * s), (int)(250 * s)) };
+        card.Paint += (_, e) =>
+        {
+            using var pen = new Pen(Theme.Gold, 1.6f);
+            e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            e.Graphics.DrawRectangle(pen, 0, 0, card.Width - 2, card.Height - 2);
+        };
+
+        jobCount.ForeColor = Theme.Secondary; jobCount.AutoSize = false;
+        jobCount.Bounds = new Rectangle((int)(24 * s), (int)(26 * s), (int)(300 * s), (int)(22 * s));
+        page.Controls.Add(jobCount);
+
+        jobTitle.ForeColor = Theme.Text; jobTitle.AutoSize = false; jobTitle.Font = Theme.Font(Theme.FaceBold, 15f);
+        jobTitle.Bounds = new Rectangle((int)(16 * s), (int)(14 * s), (int)(308 * s), (int)(46 * s));
+        card.Controls.Add(jobTitle);
+
+        jobWhere.ForeColor = Theme.Secondary; jobWhere.AutoSize = false;
+        jobWhere.Bounds = new Rectangle((int)(16 * s), (int)(64 * s), (int)(308 * s), (int)(40 * s));
+        card.Controls.Add(jobWhere);
+
+        // The score chip, in the five-way tone vocabulary Theme already uses everywhere else.
+        jobChip.Bounds = new Rectangle((int)(16 * s), (int)(108 * s), (int)(92 * s), (int)(24 * s));
+        jobChip.Paint += (_, e) =>
+        {
+            if (jobCards.Count == 0) return;
+            var c = jobCards[Math.Min(jobAt, jobCards.Count - 1)];
+            var tone = c.Verdict == "apply" ? Theme.Green : c.Verdict == "skip" ? Theme.Red : Theme.Gold;
+            e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            using var b = new SolidBrush(tone);
+            e.Graphics.FillRectangle(b, 0, 0, jobChip.Width - 1, jobChip.Height - 1);
+            using var f = Theme.Font(Theme.FaceBold, 11f);
+            using var tb = new SolidBrush(Theme.Ink);
+            var label = $"{c.Verdict}  {c.Score}";
+            var sz = e.Graphics.MeasureString(label, f);
+            e.Graphics.DrawString(label, f, tb, (jobChip.Width - sz.Width) / 2, (jobChip.Height - sz.Height) / 2);
+        };
+        card.Controls.Add(jobChip);
+
+        // Why this one. Aang's own reason, shown on the card rather than behind a link: the point of the
+        // score is lost if you cannot see what it was for without another click.
+        jobWhy.ForeColor = Theme.Secondary; jobWhy.AutoSize = false;
+        jobWhy.Bounds = new Rectangle((int)(16 * s), (int)(142 * s), (int)(308 * s), (int)(92 * s));
+        card.Controls.Add(jobWhy);
+        page.Controls.Add(card);
+
+        // The buttons, in the order he would use them: look, then decide, then the escape hatch.
+        int bx = (int)(24 * s), by = (int)(322 * s), bw = (int)(96 * s), bh = (int)(34 * s), gap = (int)(10 * s);
+        // The two families come straight from the bubble so they read as the same object: a gold face on a
+        // deep-gold lip with dark ink for the thing he usually wants, and a plum face on a deep-plum lip with
+        // LIGHT ink for the rest. The first attempt passed Ink as the plum lip and left the dark ink on it,
+        // so three of the four buttons had near-invisible text and no lip at all (capture, 2026-10-03).
+        Keycap Cap(string text, string key, bool primary, Action go)
+        {
+            var k = new Keycap {
+                Text = text, Key = key, Primary = primary,
+                Face = primary ? Theme.Gold : Theme.Plum,
+                Lip  = primary ? Theme.GoldDeep : Theme.PlumDeep,
+                Edge = primary ? Theme.GoldLight : Theme.PlumEdge,
+                Ink  = primary ? Theme.Ink : Theme.Text,
+                Bounds = new Rectangle(bx, by, bw, bh), BackColor = Theme.Ink };
+            k.Click += (_, _) => go();
+            bx += bw + gap;
+            page.Controls.Add(k);
+            return k;
+        }
+        jobOpen  = Cap("Open",  "O", false, () => JobAct("open"));
+        jobApply = Cap("Apply", "A", true,  () => JobAct("apply"));
+        jobSkip  = Cap("Skip",  "X", false, () => JobAct("skip"));
+        jobUndo  = Cap("Undo",  "Z", false, () => JobAct("undo"));
+
+        return page;
+    }
+
+    void JobAct(string action)
+    {
+        if (action == "undo") { _ = send(new { t = "job.act", id = "undo", action = "undo" }); return; }
+        if (jobCards.Count == 0) return;
+        var c = jobCards[Math.Min(jobAt, jobCards.Count - 1)];
+        _ = send(new { t = "job.act", id = c.Id, action });
+        // Opening the posting is not a decision, so the stack does not move on.
+        if (action == "open") return;
+        // Move on straight away rather than waiting for the Core's refreshed list. He has decided; making him
+        // watch a round trip before the next card appears is what makes a triage flow feel slow.
+        jobCards.RemoveAt(Math.Min(jobAt, jobCards.Count - 1));
+        if (jobAt >= jobCards.Count) jobAt = Math.Max(0, jobCards.Count - 1);
+        ShowJob();
+    }
+
+    void ShowJob()
+    {
+        var any = jobCards.Count > 0;
+        jobEmpty.Visible = !any;
+        // Hidden, not greyed. Four dead buttons under "nothing waiting on you" is clutter, and the greyed
+        // version did not read as disabled anyway (capture, 2026-10-03). Undo stays, because the moment
+        // after clearing the last card is exactly when he might want the last one back.
+        foreach (var k in new[] { jobOpen, jobApply, jobSkip }) k.Visible = any;
+        jobTitle.Parent!.Visible = any;
+        jobCount.Visible = any;
+        if (!any) { jobCount.Text = ""; return; }
+
+        var c = jobCards[Math.Min(jobAt, jobCards.Count - 1)];
+        jobCount.Text = $"{Math.Min(jobAt, jobCards.Count - 1) + 1} of {jobCards.Count} waiting on you";
+        jobTitle.Text = c.Title;
+        jobWhere.Text = string.Join("   ", new[] { c.Company, c.Location, c.Salary }.Where(x => x.Length > 0));
+        jobWhy.Text = c.Reason;
+        jobChip.Invalidate();
+    }
+
+    /// <summary>
+    /// The stack's keys: A apply, X skip, O open, Z undo.
+    /// </summary>
+    /// <remarks>
+    /// Only while the Jobs tab is showing, and only when he is not typing in a box - otherwise an "x" in the
+    /// history search would skip a job. ProcessCmdKey runs before the focused control sees the key, which is
+    /// what makes a bare letter work as a shortcut at all; the guards below are what keep it from being a
+    /// menace. They cannot reach the game, because a window only gets these while it has focus.
+    /// </remarks>
+    protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+    {
+        if (current == 4 && ActiveControl is not TextBox && jobCards.Count > 0)
+        {
+            switch (keyData)
+            {
+                case Keys.A: JobAct("apply"); return true;
+                case Keys.X: JobAct("skip"); return true;
+                case Keys.O: JobAct("open"); return true;
+                case Keys.Z: JobAct("undo"); return true;
+            }
+        }
+        return base.ProcessCmdKey(ref msg, keyData);
     }
 
     public int CurrentTab => current;
@@ -285,6 +446,18 @@ sealed class PanelWindow : Form
         var mailOn = !m.TryGetProperty("mail", out var mo) || mo.ValueKind != JsonValueKind.False;
         draftsEmpty.Text = !mailOn ? "Google is not connected. Double-click tools\\google-setup.cmd once." : rows.Count == 0 ? "No drafts waiting." : $"{rows.Count} waiting. Nothing is sent until you press Send.";
         tabs[3].Text = rows.Count > 0 ? $"Drafts ({rows.Count})" : "Drafts";
+
+        // 4.5: the card stack. The count on the tab is the point - he should be able to tell from the tab
+        // strip alone whether anything is waiting, without opening it.
+        jobCards = new List<JobCard>();
+        if (m.TryGetProperty("jobs", out var js) && js.ValueKind == JsonValueKind.Array)
+            foreach (var j in js.EnumerateArray())
+                jobCards.Add(new JobCard(Str(j, "id"), Str(j, "title"), Str(j, "company"), Str(j, "location"),
+                    Str(j, "salary"), j.TryGetProperty("score", out var sc) && sc.ValueKind == JsonValueKind.Number ? sc.GetInt32() : 0,
+                    Str(j, "verdict"), Str(j, "reason"), Str(j, "url")));
+        jobAt = 0;
+        tabs[4].Text = jobCards.Count > 0 ? $"Jobs ({jobCards.Count})" : "Jobs";
+        ShowJob();
         var again = keep is null ? -1 : rows.FindIndex(r => r.To == keep);
         if (rows.Count > 0) drafts.Items[Math.Max(0, again)].Selected = true;
         ShowDraft();

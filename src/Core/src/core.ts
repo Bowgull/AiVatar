@@ -9,7 +9,7 @@ import { parseFromBody } from './protocol.ts';
 import { reportWriteFailure, rotateIfBig, writeFileAtomic } from './atomic.ts';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { MAC_LISTENER_PORT, macSetupScript } from './macsetup.ts';
-import { SWEEP_REQUEST, cleanField, safeUrl, scoreOf, verdictFor } from './jobs.ts';
+import { Jobs, SWEEP_REQUEST, cleanField, safeUrl, scoreOf, verdictFor } from './jobs.ts';
 import type { Rubric } from './jobs.ts';
 import type { FromBody, Mode, StructuredList, ToBody } from './protocol.ts';
 import { Lane } from './lane.ts';
@@ -505,6 +505,50 @@ export class Core {
   }
 
   /** Everything the Panel shows, without the model: what he knows, what he may do unasked, what he did, and drafts waiting. */
+  /**
+   * 4.5: one decision on one job card, from the Panel's stack.
+   *
+   * The store belongs to the Discord side, so this opens it, changes the one card and writes it back,
+   * rather than holding a copy that would quietly disagree with the cards on his phone.
+   *
+   * `undo` is what makes triaging by keyboard safe: six cards go past quickly and a wrong key should cost
+   * one press to fix, not a trip into a JSON file. Only the LAST decision is undoable, which is the honest
+   * limit of remembering one thing.
+   */
+  private lastJobDecision: { id: string; was: string } | null = null;
+
+  private jobAct(id: string, action: string, ws: WebSocket): void {
+    if (!id) return;
+    const jobs = new Jobs(this.cfg.stateDir);
+    const card = jobs.get(id);
+    if (!card) { this.send(ws, { t: 'error', message: 'I no longer have that job card.', next: 'Open the Panel again to refresh the stack.' }); return; }
+
+    if (action === 'open') {
+      // Opening the posting decides nothing, so it is not undoable and does not touch the card.
+      void this.open(card.url);
+      this.actions.add({ tool: 'job', did: `opened the posting for ${card.title} at ${card.company}`.slice(0, 120), ok: true, note: '' });
+      return;
+    }
+
+    if (action === 'undo') {
+      const last = this.lastJobDecision;
+      if (!last) { this.send(ws, { t: 'error', message: 'There is nothing to undo in the stack.', next: 'Only the last decision can be put back.' }); return; }
+      const back = jobs.get(last.id);
+      if (back) { back.status = last.was as typeof back.status; jobs.save(); }
+      this.lastJobDecision = null;
+      this.actions.add({ tool: 'job', did: `put a job card back to undecided`, ok: true, note: '' });
+      this.send(ws, this.panelData());
+      return;
+    }
+
+    const want = action === 'apply' ? 'approved' : action === 'skip' ? 'skipped' : '';
+    if (!want) return;
+    this.lastJobDecision = { id, was: card.status };
+    jobs.setStatus(id, want as 'approved' | 'skipped');
+    this.actions.add({ tool: 'job', did: `${action === 'apply' ? 'marked for applying' : 'skipped'}: ${card.title} at ${card.company}`.slice(0, 120), ok: true, note: '' });
+    this.send(ws, this.panelData());
+  }
+
   private panelData(notice?: string): ToBody {
     const svc = this.mail();
     return {
@@ -515,6 +559,11 @@ export class Core {
       drafts: (svc?.store.open() ?? []).map(d => ({ id: d.id, hash: d.hash, to: d.to, subject: d.subject, body: d.body, status: d.status, newTo: d.newTo })),
       mail: svc !== null,
       sessions: [...this.launched].reverse().map(l => ({ name: l.name, kind: l.kind ?? 'task', state: l.state ?? 'waiting', since: new Date(l.startedAt).toISOString(), last: l.last ?? '' })),
+      // 4.5: the card stack. Read from jobs.json each time rather than held, because the Discord side owns
+      // this store and writes to it; a cached copy here would quietly disagree with what he sees on his phone.
+      jobs: new Jobs(this.cfg.stateDir).cards.filter(c => c.status === 'new').reverse().slice(0, 10)
+        .map(c => ({ id: c.id, title: c.title, company: c.company, location: c.location, salary: c.salary,
+                     score: c.score, verdict: c.verdict, reason: c.reason, url: c.url, at: c.at })),
       ...(notice ? { notice } : {}),
     };
   }
@@ -1506,6 +1555,8 @@ export class Core {
       // The Body is closing. Set by index.ts, which owns the one shutdown path; a direct import here would
       // be circular, and the Core should not be deciding how the process exits anyway.
       case 'shutdown': this.onShutdownRequest?.(); break;
+      // 4.5: one decision on one job card, from the Panel's stack.
+      case 'job.act': this.jobAct(String(m.id ?? ''), String(m.action ?? ''), ws); break;
       default: break; // poked, moved, pong: nothing to do yet
     }
   }
