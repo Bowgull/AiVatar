@@ -641,6 +641,50 @@ export class Memory {
    * already rides on a `bubble` is the SUBMIT id, which identifies the request, not the row. Null when
    * nothing was stored, so a caller cannot mistake a failed write for turn 0.
    */
+  /**
+   * 5.6: store what he said the moment he says it, not when the answer arrives.
+   *
+   * `saveTurn` writes both halves together once the reply is finished, which means a Core that dies
+   * mid-reply loses his message completely - it was only ever in memory. The M5 gate asked for exactly
+   * this ("mid-reply, conversation preserved") and it had never been true. Proven by the rewritten
+   * supervisor test on 2026-10-03: his message was not among the stored turns afterwards.
+   *
+   * The two halves no longer need to be written together, because 5.3 gave both rows the same `req`,
+   * which is what pairs them. Call this at submit, `saveReplied` when the answer exists.
+   */
+  saveAsked(user: string, req: string): number | null {
+    if (!this.db) return null;
+    try {
+      const now = new Date().toISOString().replace('T', ' ').slice(0, 19);
+      const info = this.db.prepare('INSERT INTO turns (ts, role, tier, text, req) VALUES (?,?,?,?,?)')
+        .run(now, 'user', null, user, req);
+      const id = Number(info.lastInsertRowid);
+      this.db.prepare('INSERT INTO turns_fts (text, turn_id) VALUES (?,?)').run(user, id);
+      void this.embedTurn(id, user);
+      return id;
+    } catch (e) {
+      console.error('memory saveAsked failed:', (e as Error).message);
+      return null;
+    }
+  }
+
+  /** The other half: what Aang answered, tied to the same request. */
+  saveReplied(aang: string, tier: string, req: string): number | null {
+    if (!this.db) return null;
+    try {
+      const now = new Date().toISOString().replace('T', ' ').slice(0, 19);
+      const info = this.db.prepare('INSERT INTO turns (ts, role, tier, text, req) VALUES (?,?,?,?,?)')
+        .run(now, 'aang', tier, aang, req);
+      const id = Number(info.lastInsertRowid);
+      this.db.prepare('INSERT INTO turns_fts (text, turn_id) VALUES (?,?)').run(aang, id);
+      void this.embedTurn(id, aang);
+      return id;
+    } catch (e) {
+      console.error('memory saveReplied failed:', (e as Error).message);
+      return null;
+    }
+  }
+
   /** `req` (5.3) is the request this exchange answered: what ties these rows to the action record. */
   saveTurn(user: string, aang: string, tier: string, req?: string): { userTurn: number; aangTurn: number } | null {
     if (!this.db) return null;

@@ -925,12 +925,48 @@ detection at all.
 
   Seven checks on the rotation and the parser, no model and no quota spent.
 
-- `[ ]` 5.6 **Make the M5 gate test what it claims.** `tests/fakecore/supervisor.mjs` kills
-  an **idle** Core and asserts only that something is listening again. The gate at
-  `PLAN.md:137` asks for mid-reply with the conversation preserved. Different tests wearing
-  the same name. Also rewrite the Body half honestly: killing the Body kills the Core by
-  design (the job object at `CoreSupervisor.cs:30`), so "both recover" was never
-  achievable.
+- `[x]` 5.6 **Make the M5 gate test what it claims.** DONE 2026-10-03. 13/13.
+  `tests/fakecore/supervisor.mjs` killed an **idle** Core and asserted only that something
+  was listening again. The gate asks for mid-reply with the conversation preserved:
+  different tests wearing the same name.
+
+  **It also ran against his real memory.** No `isolatedEnv`, so the gate test pointed the
+  Body at his live `aang.db` and state folder - a test scribbling on the thing it exists to
+  protect. Now isolated, like the others.
+
+  **Mid-reply, for free.** New `tests/fakecore/stub-claude.mjs` is a Claude that never
+  answers. The SDK spawns it where the real CLI goes, so a turn sits genuinely in flight for
+  about 19 seconds and the kill lands in the middle of a reply without a token of quota
+  being spent. (`AANG_WARM=0` matters: the Core's silent warm-up turn otherwise holds the
+  lane and the test's own message comes back `queued`.)
+
+  **The Body half, stated honestly.** Killing the Body kills the Core by design - the job
+  object at `CoreSupervisor.cs:30` exists so a crashed Body cannot orphan one. "Both
+  recover" was never achievable. The test now asserts the real guarantee instead.
+
+  **The gate was false, and the test proved it.** See 5.10.
+
+- `[x]` 5.10 **A Core that died mid-reply lost what he had just said.** DONE 2026-10-03,
+  found by 5.6 above. Not previously on any list.
+
+  Both halves of a turn were written together by `saveTurn` once the reply finished, so
+  between pressing Enter and the answer arriving - which can be minutes - his message
+  existed only in memory. A crash in that window lost it outright, with no trace anywhere.
+  The M5 gate had claimed this was safe since it was written.
+
+  Fixed by splitting the save: `saveAsked` at submit, `saveReplied` when the answer exists.
+  5.3 made this cheap, because both rows already carry the same `req`, which is what pairs
+  them - they no longer need to be written in one go.
+
+  Two details that are easy to get wrong, both deliberate:
+  - The save happens **after** the prompt is built and sent. A row stored any earlier can be
+    picked up by the recap and handed back to the model as context for answering itself.
+  - The marker lives on the **submission**, not the Turn. An escalated or re-looked turn
+    calls `begin()` again with the same submission and a fresh Turn, so a marker on the Turn
+    would reset and store his message twice. Tested.
+
+  Verified: the gate test went from 12/13 to 13/13 on exactly this check, and three checks
+  cover the duplicate guard, the pairing and the ordering.
 
 - `[x]` 5.7 **A way to create a database from nothing.** DONE in 0.2 (e51666c): `createDatabase()` in `schema.ts` is the third branch of the healing logic. **[verified]** There is no
   `CREATE TABLE` anywhere in the source tree and no `.sql` file. A fresh install on a new
