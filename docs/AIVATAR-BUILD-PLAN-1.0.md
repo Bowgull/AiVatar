@@ -704,245 +704,235 @@ than one long loop. Idle is about 90% of a desktop pet's screen time.
 
 ---
 
-# PHASE 6: the cockpit  **PLANNED, NOT STARTED**
+# PHASE 6: the cockpit  **DESIGNED, NOT STARTED**
 
-**Joshua's idea, first interviewed 2026-10-02 as "the player", re-interviewed and widened
-2026-10-03 into the cockpit. His instruction on 2026-10-03: "i dont want to do this revamp yet
-just finish planning it out all and deep researching its possibilities". So this section is the
-plan and the research. Nothing here is built.**
+**Joshua's idea, first interviewed 2026-10-02 as "the player", widened 2026-10-03 into the cockpit and
+designed in full the same day. Nothing here is built. His instruction: "finish planning it out all".**
 
 The shape, in his words: Aang's bubble **expands** into a window - "this new dashboard this new
-cockpit" - that takes whatever shape the content needs. A deck of research cards with thumbnails
-and links. A page. A video in the corner. A job. And when there is nothing to show, it is the
-small parchment bubble it is today.
-
-The reason it matters is not decoration. **Aang currently cannot show you anything.** He can only
-tell you. Read twenty trending repos and all he can do is write a wall of text. Give him a surface
-and he can put the thing itself in front of you.
+cockpit" - that takes whatever shape the content needs.
 
 ---
 
-## The correction: it CAN be the bubble
+## The reason this matters, which is NOT the one I had been giving
 
-**The 2026-10-02 entry said this was impossible. That was wrong, and the error is worth keeping
-rather than quietly deleting.** It said:
+I had been selling this on video and thumbnails. Those are real, and they are not the prize.
 
-> "It cannot be the speech bubble... Microsoft's own documentation is explicit that a child window
-> - a browser, a video player - does not render into such a window."
+**The prize is that Aang could finally say things with structure.** He is currently FORBIDDEN from
+formatting anything. `voice.ts` line 18: *"Write plain text only: no markdown, no emoji"*, and a lint
+strips markdown if the model emits any.
 
-The documentation does say that, and the first half of the sentence is true: a **child window**
-cannot render into a per-pixel-alpha layered window. The mistake was treating "child window" as
-the only way to put a browser on screen. It is not.
+That rule is correct, because the bubble is drawn with GDI - it paints plain strings onto a canvas and
+has no renderer for anything else. A `**bold**` would reach him as literal asterisks, which is exactly
+what happened on 2026-09-24 and why the rule was written.
 
-**WebView2 has a second hosting mode - visual hosting - where the browser renders into a
-DirectComposition visual instead of a child window.** That is precisely what makes per-pixel alpha
-and forwarded mouse input possible. From the internals of a project that ships it:
+So the chain is: **the canvas cannot format, therefore the prompt forbids formatting, therefore
+everything is a wall of prose.** The only structure that exists at all is `present_list`.
 
-> "The browser renders into a DirectComposition visual instead of a child window
-> (WS_EX_NOREDIRECTIONBITMAP), which is what makes true per-pixel alpha and forwarded mouse input
-> possible at all."
+What he gets today for three jobs:
 
-**Working proof:** `maschine34675/WebOverlay` puts HTML panels and click-through HUDs over a
-running game. One shared WebView2, raw COM. Its recipe:
+> I looked at three jobs. Octup is a customer success manager role in Toronto hybrid paying 95 to 120
+> thousand which is the closest match this week. Constellation Dealer Group is a digital project
+> coordinator remote with no salary posted which is worth a look only if the week is thin. GreenShield
+> is a bilingual account executive in Montreal which needs French and is commission based so both are
+> dealbreakers.
 
-- `WS_EX_NOREDIRECTIONBITMAP` so the compositor allocates no opaque surface
-- `CoreWebView2CompositionController` with `RootVisualTarget` set to the app's own visual
-- `DefaultBackgroundColor` alpha 0, so the page draws nothing where it paints nothing
-- `WS_EX_TRANSPARENT` **together with** `WS_EX_LAYERED` for click-through, because transparent
-  alone does not take a window out of hit-testing
-- mouse input forwarded by hand with `SendMouseInput`
+One grey paragraph; every word must be read to find the one that matters. The same facts with a
+heading, three rows, a colour per verdict and the salary in its own column are legible in a second.
 
-So the carved bubble can become a web page without giving up the shape, the transparency or the
-click-through. **Joshua's choice, 2026-10-03: rebuild the bubble itself as a web page.**
+**His rule for it, 2026-10-03: structure only when it earns it.** "It is 3:14" stays one plain line.
+Anything with parts - several jobs, a comparison, steps, findings - gets the full treatment. Same
+discipline as the existing list rule, and `voice.ts` line 18 has to be rewritten rather than deleted.
 
 ---
 
-## What he decided
+## The correction that unblocked this
 
-**Scope.** Surface first, chrome later. The agreed destination is the CereBro browser he already
-designed; the order is the surface (cards, pages, video) before the navigation furniture (rail,
-omnibox, tabs). This is not a detour: once the bubble is a web page, the bubble IS the browser
-engine, and the rail and omnibox are additive. Nothing is thrown away.
+**The 2026-10-02 entry said the bubble could never hold a browser. That was wrong.** It said a child
+window does not render into a per-pixel-alpha layered window - true, and it is in Microsoft's docs -
+but it treated "child window" as the only way to put a browser on screen.
 
-**Placement.** The bubble expands into it, so Aang stays the anchor and it always reads as him
-showing you something rather than an app launching. He was unsure whether some content should
-instead live in a fixed corner: "it depends on what it is and how it should behave". Resolve by
-building the expand-from-Aang behaviour first and seeing what actually annoys him.
+**WebView2 has a second hosting mode.** The browser renders into a DirectComposition visual instead of
+a child window, which is exactly what makes per-pixel alpha and forwarded mouse input possible.
+`maschine34675/WebOverlay` ships click-through HTML HUDs over a running game on that recipe:
+`WS_EX_NOREDIRECTIONBITMAP`, `CoreWebView2CompositionController` with `RootVisualTarget`,
+`DefaultBackgroundColor` alpha 0, and `WS_EX_TRANSPARENT` **together with** `WS_EX_LAYERED` for
+click-through, with mouse input forwarded by hand.
 
-**The look is not up for redesign.** He said plainly, 2026-10-03: "I LOVE the weight of the
-buttons currently they feel and look great lets keep this in mind." The lipped keycap button is a
-border, an inset highlight and a gradient; it reproduces faithfully in CSS. **Take the exact
-values out of `Theme.cs`, do not eyeball them.** The mahogany, the parchment, the carved frame and
-the grain all come across the same way.
-
-**Logins: real ones, safely.** He refused the easy answer - "there cant be a 'theres no way to do
-this safely' there has to be a way" - and he was right. See the safety design below.
-
-**Adoption: he is told, never acted for.** When Aang finds something good and open source he
-writes up what it is, whether it is alive, its licence, and whether it applies - and stops.
-Nothing is installed. Nothing of Aang's own code changes from something read on the internet.
+**Also corrected:** he believed he played WoW in exclusive fullscreen. WoW has not had it since patch
+8.0.1 in 2018, and his `Config.wtf` confirms borderless. The overlay can sit over his game.
 
 ---
 
-## What is genuinely possible, with sources
+## What it is made of
 
-**Real web pages, Aang-shaped, see-through, click-through, over the game.** Proven by WebOverlay.
+**Scope: the bubble AND the Panel, in one job.** He chose this knowing it roughly doubles the work,
+because the alternative is a period where half of Aang looks like a different program. The Panel is
+seven tabs of Windows controls today - What I know, What I may do, What I did, Drafts, Jobs, History,
+Settings - and all of it gets rebuilt in Aang's own look.
 
-**Any layout.** Cards, decks, grids, thumbnails, timelines, charts. Once it is a web page this is
-CSS, which is the whole point: each new layout in the hand-drawn bubble is days of GDI work.
+**The sprite stays hand-drawn. (My recommendation, not his instruction - overturn it if you disagree.)**
+The drawing is identical either way; the only question is what paints it. Keeping it costs nothing and
+risks nothing. Moving it into the page buys easier layout between pet and bubble, and pays for it with
+the free click-through, the proven animation timing, and the one part of Aang he already likes.
 
-**Over WoW specifically - and the earlier worry was unfounded.** Joshua believed he played in
-exclusive fullscreen, which would have minimised the game under any overlay. **WoW has not had
-exclusive fullscreen since patch 8.0.1 in 2018**; the only modes are Windowed and Fullscreen
-Windowed, which is borderless. His `Config.wtf` confirms it: `GxApi "D3D12"`, `GxMaximize "1"`, no
-`GxWindow` override. The overlay can sit over his game.
+**The look is not up for redesign.** "I LOVE the weight of the buttons currently they feel and look
+great lets keep this in mind." That style has a name: a **skeuomorphic chunky 3D keycap** with a
+**hard offset shadow** - a solid darker shape behind and below the face, which the face travels down
+onto when pressed. It is NOT neumorphism, which uses soft paired shadows and reads washy. In CSS it is
+one `box-shadow` with no blur, so it reproduces exactly. `Theme.Lip` is 3 px against a convention of
+~8 px for a game key and ~4 px for a UI button, so it is deliberately restrained - keep it there.
+**Take every value from `Theme.cs`; do not eyeball any of it.**
 
-**The page can call back into Aang.** `AddHostObjectToScript` and web messages mean a button ON a
-card runs a real Aang action - save to vault, apply to this, remind me Thursday. This is the
-difference between a television and a control panel, and it is the single capability that makes
-this a cockpit rather than a viewer.
+---
 
-**Local pages with no web server.** A custom `aang://` scheme renders local content directly,
-which means **his Obsidian notes, properly rendered, inside the bubble.**
+## What it must be able to do
 
-**He can see what he showed.** `CapturePreviewAsync` photographs the window, so the same card can
-go to Discord as an image.
+Chosen by him across three rounds on 2026-10-03.
 
-**Picture-in-picture.** Video can pop out and float over the game independently of the bubble.
+**Showing**
+- Rich replies - headings, colour, icons, columns - per the rule above
+- A live view of a Claude Code job working: steps, files and output as they happen, not just "done"
+- Charts: the job hunt by stage, Claude use week over week, addon drift
+- Two things side by side - two job offers, before and after a file change
+- Video, including picture-in-picture over the game (YouTube and Twitch; see "impossible" below)
 
-**Reliable extraction.** The Chrome DevTools Protocol is exposed, so Aang reads a page's real
-structure rather than guessing from text. This is what makes "pull the thumbnail, title, stars,
-licence and description" dependable instead of flaky.
+**Doing**
+- Buttons on his answers that act: apply to this, save to vault, remind me Thursday
+- Drag a file onto Aang and ask about it
+- Snip part of the screen and ask about just that - the real answer to "did I do it right?", and
+  better than `look_at_window`, which only does whole windows
+- Highlight text in any app, press a hotkey, and it is in the bubble
 
-**Also available and worth remembering:** print a page to PDF straight into the vault, drag a file
-onto Aang, intercept web notifications, embed sites that normally refuse embedding, and
-programmatic find-in-page.
+**Knowing**
+- One search box over everything: his memory, the 1,188 vault notes, conversations, jobs, addons.
+  Four separate places today, one of them searchable
+- **Show the plan before he acts.** The research names this as the single biggest gap in Aang - every
+  agent winning in 2026 does plan-before-action and Aang does none of it. He shows the steps, Joshua
+  approves or edits, then it runs
+- More than one thing waiting at once. Today a new message REPLACES the last, so three things needing
+  him means he sees one and loses two. This is closer to a bug than a feature
 
-**Downstream of "it is a web page":** the job hunt as real charts, quota over time, a live view of
-a Claude Code session working, before/after diffs side by side, the vault graph.
+**When it breaks**
+- Say plainly what is wrong, in Aang's own voice, with a way to retry: *"My brain stopped and I am
+  restarting it. Nothing you said is lost."* Never a blank window, never an endless spinner. Error and
+  empty states are the thing nobody designs and the thing that makes software feel cheap.
+
+**Offered and NOT chosen** (recorded so they are not silently rebuilt): rendering his Obsidian notes
+in-window, before/after diffs, syntax-highlighted code, the job hunt as a drag-between-columns board,
+full keyboard operation, a timeline of the day, seeing the page he read with the used part marked, and
+editing a fact in place.
 
 ---
 
 ## What is genuinely impossible
 
-**Netflix, Disney+, Prime and other paid streaming. Not expensive - impossible.** Confirmed again
-2026-10-03 and the reason is now precise: WebView2 supports PlayReady but **not Widevine** (open
-feature request, `WebView2Feedback#4828`), and those services additionally require a vetting
-programme called Verified Media Path that an app like Aang will not be admitted to. YouTube and
-Twitch use no such protection and are fine. **Do not relitigate this without a Widevine
-announcement.**
+**Netflix, Disney+, Prime and other paid streaming.** WebView2 supports PlayReady but **not Widevine**
+(open request, `WebView2Feedback#4828`), and those services additionally require Verified Media Path
+admission, which an app like Aang will not get. YouTube and Twitch use no such protection. **Do not
+relitigate without a Widevine announcement.**
 
-**Bot-detection evasion stays out.** Unchanged from 2026-10-02 and still right: the requirement
-was never proven, and Patchright was rejected because evasion run from inside his own logged-in
-session attaches the consequence to the identity he is job hunting with.
+**Bot-detection evasion stays out**, unchanged from 2026-10-02: the requirement was never proven, and
+Patchright was rejected because evasion from inside his own logged-in session attaches the consequence
+to the identity he is job hunting with.
 
 ---
 
-## Measured cost, and what still needs measuring
+## Safety: real logins, done properly
 
-From `DECISIONS.md` D1, measured on this machine: a WebView2 host ran **7 processes, 165-166 MB,
-10.9-12.5% CPU, 0.31 s startup**. The layered window uses about a tenth of the memory and four to
-seven times less CPU. One earlier run reporting 18.7 GB and 177% CPU is treated as an anomaly and
-excluded; it is disclosed rather than hidden.
+He refused the easy answer - *"there cant be a 'theres no way to do this safely' there has to be a
+way"* - and he was right.
 
-**That CPU figure is the risk, and it is not yet the right measurement.** It was taken rendering
-at 30 fps. An idle deck of cards should cost far less, and a video should cost more. **Before any
-of this is committed to, measure three things separately while WoW is running: an idle card deck,
-a scrolling page, and a playing video.** If an idle deck is not close to free, the whole design
-needs rethinking, because the bubble is open most of the day.
+**The fear people name is the wrong one.** "A bad page steals your cookie" is solved: a page on one
+site cannot read another site's cookies. That is decades of browser hardening.
 
-**One browser, reused, never one per card.** Each WebView2 instance spawns its own set of
-processes; the runtime binaries are shared between apps but the memory is not. Use a single
-`CoreWebView2Environment` and a single control.
-
-**Two other costs to accept:** driver frame-generation tools (AMD Fluid Motion Frames, Lossless
-Scaling, NVIDIA Smooth Motion) can stutter while any overlay is up, and mouse input must be
-forwarded by hand.
-
----
-
-## The safety design
-
-His standing rule: assume hostile input, least privilege, mediated access. A window that renders
-arbitrary web pages is hostile input by definition. He wants his real logins anyway. Both are
-satisfiable.
-
-**The fear people usually name is the wrong one.** "A bad page steals your cookie" is already
-solved: a page on one site cannot read another site's cookies. That is decades of browser
-hardening and it is not the risk here.
-
-**The real risk is specific to an agent: a page tells Aang to do something, and Aang does it while
+**The real risk is specific to an agent: a page tells Aang to do something and Aang does it while
 signed in as Joshua.**
 
-So:
+1. **Two profiles, one runtime.** WebView2 supports multiple profiles under a single user data folder,
+   with separate cookies and storage and no second runtime. `signed-in` only ever navigates to a short
+   allowlist he actually signs into; `sandbox` is empty and takes everything Aang found. A research
+   link **cannot** open in the signed-in profile - enforced at `NavigationStarting`, which can cancel
+   any navigation including redirects and iframes, not by convention.
+2. **The injection defence already exists.** The taint rule - reading outside content forces Aang to
+   ask again before acting - has been live since September and his `core.log` shows it firing. Extend
+   it to cover anything the window loads.
+3. **Free hardening**: downloads cancelled by default, script dialogs suppressed, camera/microphone/
+   location denied, screen capture blocked, Enhanced Security Mode raised on `sandbox`.
+4. **Chrome history and bookmarks: only on request, with a prompt each time.** Never on Aang's own
+   initiative.
 
-**1. Two profiles, one runtime.** WebView2 supports multiple profiles under a single user data
-folder - separate cookies, separate storage, no second runtime and no extra memory.
+---
 
-- **`signed-in`** - only ever navigates to a short allowlist Joshua actually signs into (GitHub,
-  Reddit, YouTube). Nothing Aang found on the internet is ever opened here.
-- **`sandbox`** - everything Aang found. Empty. No cookies, nothing of his. A poisoned page here
-  is looking at a blank browser.
+## Cost, measured and still to measure
 
-A research link **cannot** open in the signed-in profile. This is enforced in code, not by
-convention: `NavigationStarting` can cancel any navigation before it loads, including redirects
-and iframes.
+From `DECISIONS.md` D1, on this machine: a WebView2 host ran **7 processes, 165-166 MB, 10.9-12.5%
+CPU, 0.31 s startup**. The layered window uses about a tenth of the memory and four to seven times
+less CPU. One run reporting 18.7 GB is treated as an anomaly and excluded; it is disclosed rather than
+hidden.
 
-**2. The injection defence already exists and is already live.** The taint rule - reading outside
-content forces Aang to ask again before acting - is exactly the right protection, has been in
-since September, and his own `core.log` shows it firing: `asking again for "write files": this
-turn has read outside content`. Extend it to cover anything the window loads.
+**That CPU figure is the risk and it is not yet the right measurement** - it was taken rendering at 30
+fps. **Before committing, measure three things separately with WoW running: an idle card deck, a
+scrolling page, and a playing video.** If an idle deck is not close to free, the whole design needs
+rethinking, because the bubble is open most of the day.
 
-**3. Free hardening, because the API supports each one.** Downloads cancelled by default
-(`DownloadStarting`), JavaScript dialogs suppressed (`ScriptDialogOpening`), camera, microphone
-and location denied (`PermissionRequested`), screen-capture API blocked
-(`ScreenCaptureStarting`), and Enhanced Security Mode raised on the `sandbox` profile.
+**One browser, reused, never one per card.** Each instance spawns its own processes; the runtime
+binaries are shared between apps but the memory is not.
 
-**4. Chrome history and bookmarks: only on request, with a prompt each time.** His decision,
-2026-10-03. Never read on Aang's own initiative. Note that for shows this is unnecessary - see
-below.
+**Two costs to accept:** driver frame-generation tools (AMD Fluid Motion, Lossless Scaling, NVIDIA
+Smooth Motion) can stutter while any overlay is up, and mouse input must be forwarded by hand.
 
 ---
 
 ## What already exists and must not be rebuilt
 
-**"Get me Naruto" already works.** Simkl is connected right now (token verified 2026-10-03) and
-the `watch_next` tool already answers "what am I watching", "where was I on X" and "put the next
-one on", with the correct next episode number. MALSync and the Simkl extension mark episodes as he
-watches; Aang only reads. **Simkl is a better source than browser history for this, because it
-tracks episode numbers and bookmarks do not.** If it misses, that is a bug to fix, not a feature
-to build.
-
-**The Watch Shelf** from his CereBro design is the natural home for this once the surface exists.
-Noted as a destination, not first-pass work.
+**"Get me Naruto" works today.** Simkl is connected (verified 2026-10-03) and `watch_next` already
+answers "what am I watching", "where was I on X" and "put the next one on" with the right episode.
+Simkl beats browser history here because it tracks episode numbers.
 
 **His CereBro browser is 118 files of finished art.** `app/client/public/browser-home/` holds
-`aang-avatar-medallion.png`, `aang-dock.png`, bookmark cards and medallions for GitHub, Hacker
-News, Reddit, X, YouTube and Obsidian, the left rail, the omnibox, tab and title-bar pieces.
+`aang-avatar-medallion.png`, `aang-dock.png`, bookmark cards and medallions for GitHub, Hacker News,
+Reddit, X, YouTube and Obsidian, the rail, omnibox, tab and title-bar pieces.
 `CEREBRO_DAILY_OS_BROWSER_CONTRACT.md` is the spec: left rail (Keep / Browser / Work / Sources /
-Ledger / Basement), one bottom "Ask Aang" bar and deliberately no right-hand agent rail, a Watch
-Shelf drawer, manual browsing needs no approval while agent-driven browsing does, receipts only
-when asked. **Those rules already match Aang's.** CereBro is retired and Aang is its successor -
-his words, 2026-10-03 - so this is the earlier draft of this product, to be borrowed from freely.
+Ledger / Basement), one bottom "Ask Aang" bar and deliberately no right-hand agent rail, a Watch Shelf
+drawer, manual browsing needs no approval while agent-driven browsing does, receipts only when asked.
+Those rules already match Aang's. **CereBro is retired and Aang is its successor - his words - so this
+is the earlier draft of this product, to borrow from freely.**
 
 ---
 
-## Build order, when it starts
+## Build order
 
-1. **Measure first.** Idle card deck, scrolling page, playing video, each with WoW running. Decide
-   on evidence whether the bubble becomes a web page or stays as it is with a second window.
-2. **The shell.** `WS_EX_NOREDIRECTIONBITMAP` window, composition-hosted WebView2, alpha 0
-   background, mouse forwarding, click-through when idle. Prove the pet still looks and behaves
-   exactly as it does now with an empty page in it.
-3. **The theme in CSS**, lifted from `Theme.cs`. The keycap buttons are the acceptance test: put
-   the old bubble and the new one side by side and only proceed if they match.
-4. **One card type.** The research card, since Phase 7 produces them.
-5. **The callback bridge** so a button on a card runs a real Aang action.
-6. **Video**, then picture-in-picture.
-7. **Chrome** - rail, omnibox, tabs, Watch Shelf - only once the surface has earned its keep.
+1. **Measure first.** Idle deck, scrolling page, playing video, each with WoW running. Decide on
+   evidence, not on this document.
+2. **The shell.** `WS_EX_NOREDIRECTIONBITMAP` window, composition-hosted WebView2, alpha-0 background,
+   mouse forwarding, click-through when idle. Prove the pet looks and behaves EXACTLY as it does now
+   with an empty page in it.
+3. **The theme in CSS**, lifted from `Theme.cs`. The keycap buttons are the acceptance test: old and
+   new side by side, and do not proceed until they match.
+4. **Rich replies** - the formatting rule. This is the biggest daily win and it needs no browser
+   features at all, only a renderer.
+5. **One card type**, the research card, since Phase 7 already produces them.
+6. **The callback bridge** so a button on a card runs a real Aang action.
+7. **Plan-before-action**, then several things waiting at once.
+8. **Snip, hotkey-grab, drag-and-drop** - the input half.
+9. **Search over everything**, charts, side-by-side, the live job view.
+10. **Video**, then picture-in-picture.
+11. **The Panel's seven tabs**, rebuilt in the same look.
 
 Keep the old bubble behind a switch until he says the new one is better, judged on the real thing
 rather than a mockup.
+
+---
+
+## What would make this a mistake
+
+- **If an idle card deck is not nearly free on CPU.** The bubble is open all day and he games on this
+  machine. That single measurement can kill the design, and it has not been taken.
+- **If the keycap buttons do not come across.** It is the one thing he has said plainly that he loves.
+  If CSS cannot match the feel, that is a reason to stop and think, not to ship it anyway.
+- **If the Panel rebuild stalls the whole thing.** He chose one job knowing it doubles the work; if it
+  turns out to be the thing stopping anything shipping, splitting it is the correct retreat.
 
 ---
 
@@ -1573,6 +1563,6 @@ Update this table as you go. It is the answer to "where are we".
 | 3 | he learns from it | `[x]` **done 2026-10-02** (3.1, 3.2, 3.3 all ticked; 1,188 notes indexed) |
 | 4 | he is pleasant to use | `[x]` **done 2026-10-03** |
 | 5 | the rest | `[x]` **done 2026-10-03** |
-| 6 | the cockpit: he can SHOW you things, not just tell you | `[ ]` **planned, not started** |
+| 6 | the cockpit: he can SHOW you things, not just tell you - and finally FORMAT what he says | `[ ]` **designed in full 2026-10-03, not started.** Includes rebuilding the Panel |
 | 7 | the research loop: he watches what is trending and tells you what matters | `[~]` **mostly BUILT 2026-10-03** - sweep, mentions, addon check and digest all run live. Left: the #look-into-this channel and the digest reaching Discord |
 | 8 | the local model does more, so fewer turns reach Claude | `[ ]` **designed, not started** |
