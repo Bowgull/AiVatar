@@ -66,7 +66,15 @@ export interface CoreConfig {
 type PermChoice = 'once' | 'always' | 'no';
 interface Submission { id: string; text: string; mode: Mode; once: boolean; socket: WebSocket; ephemeral?: boolean;
   /** The turn he clicked Reply on, and the turns he pinned. Both are row ids, both chosen by him. */
-  replyTo?: number; context?: number[] }
+  replyTo?: number; context?: number[];
+  /**
+   * 5.6: the row his message was stored as, written at submit so a crash mid-reply cannot lose it.
+   *
+   * It lives on the SUBMISSION and not the Turn on purpose. An escalated or re-looked turn calls
+   * begin() a second time with this same submission and a brand new Turn, so a marker on the Turn
+   * would reset and store his message twice.
+   */
+  askedTurn?: number }
 interface Turn {
   sub: Submission | null;      // null for the silent warm-up turn
   lane: LaneName;
@@ -1517,6 +1525,16 @@ export class Core {
       : this.withWaiting(this.withKnown(lane, this.withRecap(lane, this.withAnnounced(this.withLook(this.withPointedAt(sub))))));
     this.lastLane = lane;
     this.lane(lane).send(text);
+    // 5.6: write down what he said NOW, not when the answer comes back.
+    //
+    // Everything above this line can take minutes - that is the whole window in which the Core can be
+    // killed, and until today a death in it lost his message outright, because both halves of a turn
+    // were written together once the reply finished. The M5 gate claimed this was safe and it never was.
+    //
+    // Deliberately AFTER the prompt was built and sent: a row saved any earlier could be picked up by
+    // the recap as "previous conversation" and handed back to the model as context for answering
+    // itself. The few milliseconds above are the only window left, against minutes before.
+    if (sub && !sub.ephemeral && sub.askedTurn === undefined) sub.askedTurn = this.memory.saveAsked(sub.text, sub.id) ?? undefined;
   }
 
   /**
@@ -1662,8 +1680,8 @@ export class Core {
       this.toTurn(turn.sub, { t: 'error', id: turn.sub.id, message, next });
       console.error(`turn failed after ${Date.now() - turn.startedAt}ms on ${turn.lane}: ${message}`);
       if (!turn.sub.ephemeral) {
-        const rows = this.memory.saveTurn(turn.sub.text, `[this one did not finish] ${message} ${next}`.trim(), 'failed-' + turn.lane, turn.sub.id);
-        if (rows) this.toTurn(turn.sub, { t: 'turn.saved', id: turn.sub.id, userTurn: rows.userTurn, aangTurn: rows.aangTurn });
+        const aangTurn = this.memory.saveReplied(`[this one did not finish] ${message} ${next}`.trim(), 'failed-' + turn.lane, turn.sub.id);
+        if (turn.sub.askedTurn && aangTurn) this.toTurn(turn.sub, { t: 'turn.saved', id: turn.sub.id, userTurn: turn.sub.askedTurn, aangTurn });
       }
       // 5.5: a failed turn belongs in the metrics too. record() was called from the success path only,
       // so turns.jsonl counted every turn that worked and none that did not - which makes the one
@@ -1762,10 +1780,11 @@ export class Core {
     reply = groundReply(reply, this.turnActions);
     this.toTurn(sub, { t: 'bubble', text: reply, stream: false, id: sub.id, who: MODELS[turn.lane].label, ...(this.pendingList ? { list: this.pendingList } : {}) });
     if (!sub.ephemeral) {
-      const rows = this.memory.saveTurn(sub.text, reply, 'claude-' + turn.lane, sub.id);
+      // His half is already stored (5.6, at submit). Only the answer is new.
+      const aangTurn = this.memory.saveReplied(reply, 'claude-' + turn.lane, sub.id);
       // Which rows the exchange became. Without this the Body has only the submit id, which identifies the
       // request and not the stored turn, so "reply to that one" would have nothing to point at.
-      if (rows) this.toTurn(sub, { t: 'turn.saved', id: sub.id, userTurn: rows.userTurn, aangTurn: rows.aangTurn });
+      if (sub.askedTurn && aangTurn) this.toTurn(sub, { t: 'turn.saved', id: sub.id, userTurn: sub.askedTurn, aangTurn });
     }
     this.record({
       ts: new Date().toISOString(), id: sub.id, lane: turn.lane, user: sub.text, reply,
