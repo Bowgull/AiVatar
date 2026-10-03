@@ -88,7 +88,14 @@ export type ToBody =
   | { t: 'quota'; five: number; week: number; fiveResetsAt: number; weekResetsAt: number; level: QuotaLevel }
   | { t: 'consent'; id: string; wanted: Mode }
   /** remembers, when set, is the standing-trust category (e.g. "open apps") that "Always allow" would grant. */
-  | { t: 'permission'; id: string; tool: string; question: string; remembers?: string }
+  | { t: 'permission'; id: string; tool: string; question: string; remembers?: string;
+      /**
+       * One short sentence explaining the CONCEPT, for someone who does not know the words - and for a
+       * command, the exact text being run. Joshua, 2026-10-03: "im just seeing gibberish... still very
+       * briefly explain the concept of what he's doing". Shown under the question, quieter, so it never
+       * gets in the way once he already knows. Empty for anything that needs no explaining.
+       */
+      means?: string }
   /**
    * Something the local model read in one of Joshua's documents, offered for approval.
    *

@@ -219,6 +219,30 @@ sealed class BubbleView : IDisposable
     /// <summary>Set only when this kind of thing can be trusted from now on. Empty means the once/not-now pair
     /// is the whole choice - the third row never appears, same shape as the old Yes/No.</summary>
     public string AlwaysLabel { get; set; } = "";
+
+    /// <summary>
+    /// The quieter second paragraph under a question: what this KIND of thing actually means.
+    /// </summary>
+    /// <remarks>
+    /// Joshua, 2026-10-03: "im just seeing gibberish... i need them to surface as boomer proof easy to
+    /// understand langauge but still very briefly explain the conctep of what hes doing". The question
+    /// says what he is being asked; this says what that means, and for a command it carries the exact
+    /// text being run. Drawn in InkDim and below, so it is there the first time and ignorable after.
+    ///
+    /// Call AFTER Show, which clears it: Show is the start of a new thing to say.
+    /// </remarks>
+    int quietFrom = -1;
+    public void Explain(string means)
+    {
+        quietFrom = -1;
+        if (string.IsNullOrWhiteSpace(means)) return;
+        // Wide first, then re-wrap: the wrap width depends on it, so lines measured before would be wrong.
+        Wide = true;
+        lines = Wrap(text);
+        quietFrom = lines.Count;
+        lines.AddRange(Wrap(means.Trim()));
+        targetH = HeightFor(lines.Count);
+    }
     // Weighted buttons: 28 px tall (they were 20, small for a decision that grants a permission).
     public const int ChoiceH = 28, ChoiceGap = 8;
     /// <summary>True when the verb label is too wide to sit beside "Not now" even in the wide bubble, so all
@@ -347,7 +371,7 @@ sealed class BubbleView : IDisposable
         lines = Wrap(text);
         coreStreaming = stream; holdAfter = holdMs;
         streaming = stream || Revealing;
-        expanded = false; scrollback = false; scroll = 0; Tools = false; Rating = 0; CopiedUntil = default; Asking = false; DeclineLabel = NotNow;
+        expanded = false; scrollback = false; scroll = 0; Tools = false; Rating = 0; CopiedUntil = default; Asking = false; DeclineLabel = NotNow; quietFrom = -1;
         Visible = true;
         targetH = HeightFor(Math.Min(lines.Count, CollapsedLines));
         if (shownH <= 0) shownH = targetH * 0.55f;
@@ -900,6 +924,7 @@ sealed class BubbleView : IDisposable
 
         g.SetClip(path);
         using var tb = new SolidBrush(textC);
+        using var dim = new SolidBrush(Theme.InkDim);
         // In scrollback the view sits at a PIXEL offset that eases toward the line it is scrolling to, so the
         // first visible line can be a partial one. Everything else still works in whole lines.
         var smooth = scrollback ? scrollPx : scroll * (float)LineH;
@@ -948,8 +973,11 @@ sealed class BubbleView : IDisposable
             var line = lines[first + i];
             if (More && i == count - 1) line = Ellipsize(line);            // "..." on the last visible line
             float y = textTop + i * LineH + 2;               // a 15 px face sits in the upper part of a 21 px line; nudge it to the middle
+            // The plain-English explanation under a question is drawn quieter than the question itself,
+            // so it reads as a footnote rather than as more of the thing being asked. See Explain().
+            var ink = quietFrom >= 0 && first + i >= quietFrom ? dim : tb;
             int at = first + i == linkLine ? line.IndexOf(Link, StringComparison.Ordinal) : -1;
-            if (at < 0) { g.DrawString(line, font, tb, TextXNow, y, StringFormat.GenericTypographic); continue; }
+            if (at < 0) { g.DrawString(line, font, ink, TextXNow, y, StringFormat.GenericTypographic); continue; }
             // The linked word - "Claude", the app his job runs in - is drawn in Claude's own colour and underlined,
             // so it reads as a place to go rather than part of the sentence. A click on the bubble goes there.
             var before = line[..at];

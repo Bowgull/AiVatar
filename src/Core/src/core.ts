@@ -50,6 +50,7 @@ import { dueNudges, nudgeText, torontoDay } from './resurface.ts';
 import type { Fetch } from './google.ts';
 import { MailService, MailStore, renderMailCard } from './mail.ts';
 import type { DraftInput, MailDraft } from './mail.ts';
+import { meansOf } from './plain.ts';
 
 export interface CoreConfig {
   port: number;
@@ -2172,7 +2173,10 @@ export class Core {
         },
         timer,
       };
-      for (const c of askAt) this.send(c, { t: 'permission', id, tool, question, remembers: kind?.says });
+      // `means` is the plain-English second line: what this KIND of thing is, and for a command, the
+      // exact text. See plain.ts - a question he cannot read is not consent.
+      const means = meansOf(tool, input);
+      for (const c of askAt) this.send(c, { t: 'permission', id, tool, question, remembers: kind?.says, ...(means ? { means } : {}) });
     });
   }
 
