@@ -112,7 +112,8 @@ sealed class PetWindow : Form
     /// window is up, with no Core round trip - for checking a bubble redesign against real GDI+ output.</summary>
     string? bubbleTest;
     bool pinsTest;   // tests: show the type box with a reply and two pins attached, so the chips can be looked at
-    bool stackTest;  // tests: fill the bubble with a conversation and open the scrollback
+    bool stackTest;  // tests: fill the bubble with a conversation and open the scrollback
+    bool factTest;   // tests: the fact-approval question
     int panelTab;
     PanelWindow? panel;
     int idCounter;
@@ -123,6 +124,7 @@ sealed class PetWindow : Form
     double weekUse, fiveUse, weekResetsAt, fiveResetsAt;      // resets are unix seconds, 0 when unknown
     string level = "ok";
     string? lastText, consentText, replyId, permissionId;
+    int? factId;   // a fact from one of his documents, waiting on yes or no
     string consentWanted = "", pendingMode = "smart";
 
     protected override CreateParams CreateParams
@@ -198,7 +200,8 @@ sealed class PetWindow : Form
             else if (a.Equals("--urgent-test=wave", StringComparison.OrdinalIgnoreCase)) urgentTest = "wave"; // Tier 2, standing - do NOT pass --dock
             else if (a.Equals("--urgent-test=badge", StringComparison.OrdinalIgnoreCase)) urgentTest = "badge"; // Tier 1, docked - use with --dock=bottom
             else if (a.Equals("--urgent-test=done", StringComparison.OrdinalIgnoreCase)) urgentTest = "done";   // Tier 3, docked, terracotta, no sound - use with --dock=bottom
-            else if (a.Equals("--pins-test", StringComparison.OrdinalIgnoreCase)) pinsTest = true;   // tests: the reply and pinned-context chips
+            else if (a.Equals("--pins-test", StringComparison.OrdinalIgnoreCase)) pinsTest = true;   // tests: the reply and pinned-context chips
+            else if (a.Equals("--fact-test", StringComparison.OrdinalIgnoreCase)) factTest = true;   // tests: a fact from a document, offered for approval
             else if (a.Equals("--stack-test", StringComparison.OrdinalIgnoreCase)) stackTest = true;  // tests: the desktop scrollback
             else if (a.Equals("--bubble-test", StringComparison.OrdinalIgnoreCase)) bubbleTest = "short";
             else if (a.Equals("--bubble-test=long", StringComparison.OrdinalIgnoreCase)) bubbleTest = "long";
@@ -299,6 +302,15 @@ sealed class PetWindow : Form
             if (urgentTest == "badge") Hold("Job hunt done. Two applied.", "C:\\test", 1, Theme.Gold);
             else if (urgentTest == "done") { Hold("Job hunt done. Two applied.", "C:\\test", 2, Theme.Claude, "Claude"); TriggerDone(); }
             else { Hold("Need input in Claude on the test job: which one?", "C:\\test", 3, Theme.AvatarGlow, "Claude"); TriggerUrgent(); }
+        });
+        if (factTest) BeginInvoke(() =>
+        {
+            Wake();
+            var m = System.Text.Json.JsonDocument.Parse(
+                "{\"id\":42,\"text\":\"Joshua's current role is Account Manager at PayMyTuition since January 2026.\","
+                + "\"fromDoc\":\"profile.md\",\"left\":7}").RootElement;
+            OnFactAsk(m);
+            dirty = true;
         });
         if (stackTest) BeginInvoke(() =>
         {
@@ -484,6 +496,9 @@ sealed class PetWindow : Form
                     break;
                 case "consent":
                     OnConsent(Str(m, "wanted") ?? "smart");
+                    break;
+                case "fact.ask":
+                    OnFactAsk(m);
                     break;
                 case "permission":
                     OnPermission(Str(m, "id") ?? "", Str(m, "question") ?? "do that", Str(m, "remembers"));
@@ -968,6 +983,9 @@ sealed class PetWindow : Form
 
         var bp = BubblePoint(e.Location);
         var choice = bubble.HitChoice(bp.X, bp.Y);
+        // The same two buttons answer two different questions. A fact being offered is not a permission:
+        // it has no "always", because the answer is about one claim rather than a standing rule.
+        if (choice >= 0 && factId != null) { AnswerFact(choice == 0); dirty = true; return; }
         if (choice >= 0) { AnswerPermission(choice switch { 0 => "once", 2 => "always", _ => "no" }); dirty = true; return; }
         var tool = bubble.HitTool(bp.X, bp.Y);
         if (tool >= 0) { UseTool(tool); dirty = true; return; }
@@ -1276,6 +1294,46 @@ sealed class PetWindow : Form
         bubble.AlwaysLabel = string.IsNullOrEmpty(remembers) ? "" : "Always " + remembers;
         bubble.Asking = true;
         anim.Play("look"); dirty = true;
+    }
+
+    /// <summary>
+    /// Something the local model read in one of Joshua's documents, offered for approval.
+    ///
+    /// Shown the same way a permission is, because the shape fits - a short question and two buttons - but
+    /// answered separately. There is no "always": the answer is about this one claim, not a standing rule,
+    /// and offering to remember it forever would be answering a question nobody asked.
+    /// </summary>
+    void OnFactAsk(JsonElement m)
+    {
+        if (!m.TryGetProperty("id", out var idp) || !idp.TryGetInt32(out var id)) return;
+        var text = Str(m, "text") ?? "";
+        if (text.Length == 0) return;
+        if (hiddenByUser || cfg.Muted) { _ = link.SendAsync(new { t = "fact.reply", id, keep = false }); return; }
+
+        factId = id;
+        if (peeking) Reveal();
+        Wake(); ExitExpanded(collapse: false);
+        var from = Str(m, "fromDoc") ?? "";
+        var left = m.TryGetProperty("left", out var lp) && lp.TryGetInt32(out var ln) ? ln : 0;
+        var shown = from.Length > 0 ? text + Environment.NewLine + Environment.NewLine + "from " + from : text;
+        bubble.Show(shown, false, 180000);
+        bubble.Asked = left > 1 ? $"Worth remembering? ({left} waiting)" : "Worth remembering?";
+        bubble.VerbLabel = "Yes, remember";
+        bubble.DeclineLabel = "No, drop it";   // declining DELETES it, so the button must not say "not now"
+        bubble.AlwaysLabel = "";              // no standing rule: this is about one claim
+        bubble.Asking = true;
+        anim.Play("look"); dirty = true;
+    }
+
+    void AnswerFact(bool keep)
+    {
+        if (factId == null) return;
+        _ = link.SendAsync(new { t = "fact.reply", id = factId, keep });
+        factId = null;
+        bubble.Asking = false;
+        bubble.Asked = "";
+        bubble.Show(keep ? "Got it." : "Dropped it.", false, 2000);
+        dirty = true;
     }
 
     static string Capitalize(string s) => s.Length == 0 ? s : char.ToUpperInvariant(s[0]) + s[1..];
