@@ -23,7 +23,17 @@
 import { execSync } from 'node:child_process';
 
 const HOST = 'http://localhost:11434';
-const BUDGET = 1500;   // enough for a thinking model to think AND answer; empty answer = fail
+// Generous enough that EMPTY means the model really could not finish, not that it ran out of room.
+//
+// Raised from 1500 on 2026-10-03 after a wrong diagnosis worth recording. Qwen3.5-35B scored EMPTY with
+// thinking on, and on a SHORT prompt it turned out to need only ~1,600 thinking tokens and answered
+// fine at 4000 - which looked like proof that 1500 was simply too small.
+//
+// It was not. On this file's real extract prompt the same model thinks until whatever budget it is
+// given is gone: 1,537 tokens at a budget of 1500, and 3,967 at a budget of 4000, answering neither
+// time. Its thinking expands to fill the space. So EMPTY here is a genuine failure of that model in
+// that mode, and the budget is 4000 only so nobody has to wonder about it again.
+const BUDGET = 4000;
 
 const models = process.argv.slice(2).filter(a => !a.startsWith('--'));
 if (process.argv.includes('--list') || !models.length) {
