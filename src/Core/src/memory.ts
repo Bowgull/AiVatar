@@ -527,6 +527,38 @@ export class Memory {
     catch (e) { console.error('memory unhideTurn failed:', (e as Error).message); return false; }
   }
 
+  /**
+   * Replace something wrong with the right version, in one step.
+   *
+   * Forget-then-remember was always possible, but it is two separate acts: if the forget matched the wrong
+   * fact, or the remember failed, he is left worse off than before and nothing says so. Here either both
+   * happen or neither does, and the caller gets back exactly what went and exactly what arrived, so Aang
+   * can say it back to him rather than claiming success.
+   *
+   * Nothing is matched by id, because Joshua is talking, not clicking: he says "no, I'm at PayMyTuition
+   * now", and the words are what identify the fact.
+   */
+  correct(which: string, right: string, now = new Date(), relation?: string):
+    { removed: Fact[]; saved: Fact | null; detail: string } {
+    const clean = (right ?? '').trim();
+    if (!clean) return { removed: [], saved: null, detail: 'There was no corrected version to keep.' };
+
+    const removed = this.forget(which);
+    const { fact: saved } = this.remember(clean, 'joshua', now, relation);
+    if (!saved) {
+      // Putting back what was removed matters more than the correction: losing a true fact to a failed
+      // write is the one outcome worse than holding a wrong one.
+      for (const f of removed) this.remember(f.text, f.source, now);
+      return { removed: [], saved: null, detail: 'The corrected version would not save, so nothing was changed.' };
+    }
+    return {
+      removed, saved,
+      detail: removed.length
+        ? `Replaced ${removed.map(f => `"${f.text}"`).join('; ')} with "${saved.text}".`
+        : `Nothing matched "${which}", so I kept "${saved.text}" as something new.`,
+    };
+  }
+
   /** The text of specific turns, oldest first, for a reply or a pinned piece of context. Hidden rows are
    *  left out: forgetting one has to mean he cannot be handed it either. */
   turnsById(ids: number[]): { id: number; who: 'you' | 'Aang'; text: string }[] {

@@ -499,7 +499,27 @@ export function makeToolServer(
           doers?.pushUndo(`remembering "${saved.text}"`, () => { memory.forget(saved.text); if (replaced) memory.remember(replaced.text); return `Forgot "${saved.text}" again${replaced ? ` and brought back "${replaced.text}"` : ''}.`; });
           return ok(replaced ? `Kept: "${saved.text}". It replaces the older "${replaced.text}".` : `Kept: "${saved.text}".`);
         }),
-      tool('forget', 'Delete something you know about Joshua, when he asks you to forget it or tells you it is wrong.',
+      tool('correct', 'Fix something you know about Joshua that is WRONG. Use this, not forget-then-remember, whenever he corrects you ("no, I\'m at X now", "that\'s not right, it\'s Y"). Then say the corrected version back to him in your reply, in full, so he can see you got it right.',
+        {
+          wrong: z.string().describe('a few words of the fact that is wrong, e.g. "Account Manager at Flexiti"'),
+          right: z.string().describe('the corrected fact, as a short plain sentence about him'),
+          relation: z.string().optional().describe('one lowercase word for WHAT this is about, e.g. "employer", "location". Same rule as remember: leave it out if unsure.'),
+        },
+        async ({ wrong, right, relation }) => {
+          const r = memory.correct(wrong, right, new Date(), relation);
+          if (!r.saved) return fail(r.detail);
+          console.log(`memory: correct ${JSON.stringify(wrong)} -> ${JSON.stringify(r.saved.text)} (removed ${r.removed.length})`);
+          // One undo for the whole correction: putting the old one back without removing the new one would
+          // leave him holding both halves of a contradiction.
+          const removed = r.removed, saved = r.saved;
+          doers?.pushUndo(`correcting that to "${saved.text}"`, () => {
+            memory.forget(saved.text);
+            for (const f of removed) memory.remember(f.text, f.source);
+            return removed.length ? `Put back: ${removed.map(f => `"${f.text}"`).join('; ')}.` : `Forgot "${saved.text}" again.`;
+          });
+          return ok(`${r.detail} Now say the corrected version back to him in your reply, word for word, so he can check it.`);
+        }),
+      tool('forget', 'Delete something you know about Joshua, when he asks you to forget it. If it is WRONG rather than unwanted, use correct instead so the right version replaces it.',
         { which: z.string().describe('a few words of the fact to remove') },
         async ({ which }) => {
           const gone = memory.forget(which);
