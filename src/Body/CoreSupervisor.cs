@@ -180,9 +180,27 @@ sealed class CoreSupervisor : IDisposable
         }
     }
 
+    /// <summary>
+    /// Wait for the Core to stop on its own, having been asked over the socket.
+    /// </summary>
+    /// <remarks>
+    /// Windows has no way to send a real SIGTERM from .NET - Process.Kill is always a hard terminate - so
+    /// the polite request travels over the WebSocket the Body already holds, and this only waits for the
+    /// result. Bounded, because a Core that will not stop must not stop the Body closing: Dispose kills it
+    /// anyway afterwards. Returns true if it went quietly.
+    /// </remarks>
+    public bool WaitForExit(TimeSpan within)
+    {
+        if (child is not { HasExited: false }) return true;
+        try { return child.WaitForExit((int)within.TotalMilliseconds); }
+        catch { return true; }                      // already gone, or never really started
+    }
+
     public void Dispose()
     {
         cts.Cancel();
+        // Still a hard kill, and deliberately: by now the Core has been asked and given its moment. This is
+        // the fallback for a Core that is wedged, not the normal path it used to be.
         try { if (child is { HasExited: false }) child.Kill(entireProcessTree: true); } catch { /* already gone */ }
         if (job != IntPtr.Zero) Win32.CloseHandle(job);
     }

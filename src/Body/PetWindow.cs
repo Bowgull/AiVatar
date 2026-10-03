@@ -97,6 +97,7 @@ sealed class PetWindow : Form
     /// <summary>True when --dpi= forced a scale for testing, so a real DPI change must not overwrite it.</summary>
     bool dpiForced;
     float dpiChangeTo;   // tests: --dpi-change=N rescales to N% a few seconds after start
+    int quitAfter;       // tests: --quit-after=N quits the way the tray menu does, N seconds in
     readonly InputHistory history = new(Paths.File("input-history.json"));
     readonly System.Windows.Forms.Timer ackTimer = new() { Interval = 4000 };
     readonly System.Windows.Forms.Timer awayTimer = new() { Interval = 30 };
@@ -212,6 +213,7 @@ sealed class PetWindow : Form
             else if (a.Equals("--fact-test", StringComparison.OrdinalIgnoreCase)) factTest = true;   // tests: a fact from a document, offered for approval
             else if (a.Equals("--stack-test", StringComparison.OrdinalIgnoreCase)) stackTest = true;  // tests: the desktop scrollback
             else if (a.StartsWith("--dpi-change=", StringComparison.OrdinalIgnoreCase) && int.TryParse(a[13..], out var dc) && dc is >= 96 and <= 400) dpiChangeTo = dc / 96f;   // tests: rescale while running
+            else if (a.StartsWith("--quit-after=", StringComparison.OrdinalIgnoreCase) && int.TryParse(a[13..], out var qa) && qa is > 0 and <= 120) quitAfter = qa;   // tests: the real quit path
             else if (a.Equals("--bubble-test", StringComparison.OrdinalIgnoreCase)) bubbleTest = "short";
             else if (a.Equals("--bubble-test=long", StringComparison.OrdinalIgnoreCase)) bubbleTest = "long";
             else if (a.Equals("--bubble-test=ask", StringComparison.OrdinalIgnoreCase)) bubbleTest = "ask";
@@ -389,6 +391,15 @@ sealed class PetWindow : Form
         Log.Write($"shown at {Location} {pw}x{ph} scale {scale:0.00}");
         if (openHotkeyBox) BeginInvoke(AskForHotkey);
         if (openPanel) BeginInvoke(OpenPanel);
+        if (quitAfter > 0)
+        {
+            // Exactly what the tray's "Quit Aang" does, which is the real way this happens. taskkill without
+            // /F never reaches this window at all - it is a no-activate tool window - so it could not test
+            // the close path (2026-10-03).
+            var q = new System.Windows.Forms.Timer { Interval = quitAfter * 1000 };
+            q.Tick += (_, _) => { q.Stop(); q.Dispose(); tray.Visible = false; Application.Exit(); };
+            q.Start();
+        }
         if (dpiChangeTo > 0)
         {
             // Drives the real rescale path a few seconds in, so the thing that runs when Windows' scaling
@@ -2433,12 +2444,25 @@ sealed class PetWindow : Form
 
     protected override void OnFormClosing(FormClosingEventArgs e)
     {
+        Log.Write($"closing: reason={e.CloseReason}");
         timer.Stop(); fgTimer.Stop(); ackTimer.Stop(); awayTimer.Stop();
         if (hotkeyOk) Win32.UnregisterHotKey(Handle, HotkeyId);
         Win32.UnregisterHotKey(Handle, HotkeyPadId);
         SetClickAwayHook(false);
         if (escRegistered) Win32.UnregisterHotKey(Handle, EscId);
         input.Dispose();
+        // Ask the Core to stop before killing it.
+        //
+        // Until now this went straight to Dispose, which hard-kills the whole process tree, so the Core's
+        // own cleanup - answering pending permission questions, closing the database properly - almost never
+        // ran. Windows cannot send a real SIGTERM from .NET, so the request goes over the socket the Body
+        // already holds. Three seconds is long enough for a Core that is listening and short enough that a
+        // wedged one does not keep the window open; Dispose still kills it either way.
+        if (supervisor != null)
+        {
+            try { link.SendAsync(new { t = "shutdown" }).Wait(500); } catch { /* socket already gone */ }
+            if (!supervisor.WaitForExit(TimeSpan.FromSeconds(3))) Log.Write("core did not stop when asked; killing it");
+        }
         supervisor?.Dispose();
         tray.Visible = false; tray.Dispose();
         link.Dispose();
