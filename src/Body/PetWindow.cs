@@ -640,7 +640,7 @@ sealed class PetWindow : Form
                     OnFactAsk(m);
                     break;
                 case "permission":
-                    OnPermission(Str(m, "id") ?? "", Str(m, "question") ?? "do that", Str(m, "remembers"));
+                    OnPermission(Str(m, "id") ?? "", Str(m, "question") ?? "do that", Str(m, "remembers"), Str(m, "means"));
                     break;
                 case "clipboard.request":
                     SendClipboard(Str(m, "id") ?? "");
@@ -1425,7 +1425,7 @@ sealed class PetWindow : Form
     }
 
     /// <summary>Aang wants to change something on the machine. He does not do it until Joshua says yes.</summary>
-    void OnPermission(string id, string question, string? remembers = null)
+    void OnPermission(string id, string question, string? remembers = null, string? means = null)
     {
         if (hiddenByUser)
         {
@@ -1442,6 +1442,9 @@ sealed class PetWindow : Form
         // does this one thing and forgets it; "Always allow X" is set apart, its own row, never the default,
         // because that is the one that commits to more than what was asked.
         bubble.Show("Can I " + question + "?", false, 120000);
+        // The plain-English footnote: what this kind of thing means, and for a command its exact text.
+        // After Show, which clears it (2026-10-03, his "im just seeing gibberish").
+        bubble.Explain(means ?? "");
         bubble.VerbLabel = Capitalize(Truncate(question, 34));
         bubble.AlwaysLabel = string.IsNullOrEmpty(remembers) ? "" : "Always " + remembers;
         bubble.Asking = true;
