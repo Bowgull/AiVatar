@@ -32,6 +32,18 @@ sealed class InputWindow : Form
     // What the strip under the text shows. Set by the Body whenever the Core reports something.
     string mode = "auto"; bool saving, hasQuota, consent; double week, five; string level = "ok"; string consentWanted = "";
     Rectangle chipRect, savingRect, usageRect;
+
+    /// <summary>
+    /// 4.5: what the thing under the mouse actually means, in plain words. Empty when nothing is hovered.
+    /// </summary>
+    /// <remarks>
+    /// The strip is three controls with no labels on them - a mode pill, a "saving" pill and ten little
+    /// segments - and nothing on screen ever said what any of them did. Same complaint as the permission
+    /// questions (2026-10-03, "im just seeing gibberish"): a control you cannot read is a control you do
+    /// not use. Hovering swaps the usage bars for a sentence, because they are competing for the same
+    /// strip and words are worth more than bars at the moment you are asking what something is.
+    /// </remarks>
+    string hint = "";
     bool showUsage;
     public event Action<bool>? UsageShownChanged;
     public void SetUsageShown(bool on) { showUsage = on; Invalidate(); }
@@ -408,7 +420,15 @@ sealed class InputWindow : Form
         // the left - "Deep" + "saving" is the widest the cluster gets (Joshua, 2026-09-22: overlap risk found
         // while fixing the chip's contrast).
         var clusterRight = (savingRect.IsEmpty ? chipRect.Right : savingRect.Right) + (int)(10 * scale);
-        if (hasQuota) PaintUsage(g, y, h, clusterRight);
+        if (hint.Length > 0)
+        {
+            // Words in place of the bars: they share this strip, and while he is asking what something is
+            // the answer is worth more than the meter. Clipped so a long sentence can never push the layout.
+            using var hb = new SolidBrush(Theme.Gold);
+            var room = new RectangleF(clusterRight, y + (h - stripFont.Height) / 2f, Width - clusterRight - 8 * scale, h);
+            g.DrawString(hint, stripFont, hb, room, new StringFormat { Trimming = StringTrimming.EllipsisCharacter, FormatFlags = StringFormatFlags.NoWrap });
+        }
+        else if (hasQuota) PaintUsage(g, y, h, clusterRight);
     }
 
     /// <summary>
@@ -496,6 +516,45 @@ sealed class InputWindow : Form
         g.DrawString(text, scaled, b, x + 8 * scale, y + (h - scaled.Height) / 2f);
         g.TextRenderingHint = old;
         return r;
+    }
+
+    /// <summary>What each control on the strip is for, said the way he would say it.</summary>
+    string MeaningAt(Point p)
+    {
+        // Short on purpose. The strip is a fixed 256 px and anything longer is cut off mid-word, which is
+        // no better than the gibberish this was meant to fix - measured, about 20 characters fit. The key
+        // word goes first so it survives even if a future scale clips the rest. The room to explain a
+        // concept properly is in the permission bubble, where there is space for it (2026-10-03).
+        if (chipRect.Contains(p)) return mode switch
+        {
+            "quick" => "Quick: fastest",
+            "smart" => "Smart: thinks more",
+            "deep"  => "Deep: most thorough",
+            _        => "Auto: I choose",
+        };
+        if (!savingRect.IsEmpty && savingRect.Contains(p))
+            return saving ? "Saving: Quick only" : "Click to use less";
+        if (!usageRect.IsEmpty && usageRect.Contains(p))
+            return "Week's Claude use";
+        return "";
+    }
+
+    protected override void OnMouseMove(MouseEventArgs e)
+    {
+        base.OnMouseMove(e);
+        var want = MeaningAt(e.Location);
+        Cursor = want.Length > 0 ? Cursors.Hand : Cursors.Default;
+        // Only repaint when it actually changed: this fires on every pixel of movement.
+        if (want == hint) return;
+        hint = want;
+        Invalidate();
+    }
+
+    protected override void OnMouseLeave(EventArgs e)
+    {
+        base.OnMouseLeave(e);
+        if (hint.Length == 0) return;
+        hint = ""; Cursor = Cursors.Default; Invalidate();
     }
 
     protected override void OnMouseDown(MouseEventArgs e)
