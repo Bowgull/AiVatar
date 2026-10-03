@@ -111,6 +111,38 @@ export function groundReply(reply: string, did: { did: string; ok: boolean; note
   return reply;
 }
 
+/**
+ * 5.4: a reply that claims something was DONE when nothing was done at all.
+ *
+ * groundReply opens with `if (!did.length) return reply`, so the one case it never covered is the worst
+ * one: the action record is empty and the reply says "I've opened it". Everything else - tried and
+ * failed, or did it but said it could not - was already handled.
+ *
+ * THE FIX IN THE BRIEF DOES NOT WORK. It said to consult SAYS_FAILED and REFUSES. Both detect a reply
+ * claiming FAILURE; this is a reply claiming SUCCESS with nothing behind it. They cannot see it.
+ *
+ * It FLAGS, it does not rewrite, and that was the decision taken before any of this was written: a
+ * false positive here would rewrite a correct answer, which is worse than the fault being caught. So
+ * the flag goes into the turn record where it can be counted and the detector tuned on real traffic,
+ * and nothing he reads is touched. 5.3's `why_did_you_do_that` is the human-facing half - ask why, and
+ * it says plainly that nothing was done.
+ *
+ * Two guards keep it honest, and the second matters more than the regex:
+ *  - Only when NO tools were used at all. A reply saying "I checked and it is not there" used a tool
+ *    that keeps no action record, and is true. If zero tools ran, nothing can have been done.
+ *  - Only unambiguously physical verbs. "I made a few assumptions", "I set out the options" and "I
+ *    wrote a short summary" are ordinary prose about the answer itself, so made/set/wrote/created are
+ *    deliberately NOT here, however tempting. A narrow net that catches less is the right trade when
+ *    the alternative is calling a truthful reply a lie.
+ */
+export const CLAIMS_DID = new RegExp(
+  [
+    // "I've opened it", "I have just sent that", "I opened it"
+    String.raw`\bI(?:'ve| have)?\s+(?:just\s+)?(?:opened|sent|saved|closed|deleted|moved|copied|emailed|forwarded|downloaded|installed|uninstalled|renamed|played|ran|launched|archived)\b`,
+    // a bare claim of completion with nothing else in it
+    String.raw`^(?:done|all set|that'?s done|sorted)\b`,
+  ].join('|'), 'i');
+
 /** Quick giving up on something a tool could do. It is thrown away and Smart takes the turn instead. */
 export const REFUSES = /\b(I can(?:'|no)?t\b|I(?:'m| am) (?:not able|unable)|I don'?t have (?:the ability|access|a way)|you(?:'ll| will) (?:need|have) to|(?:do|try) (?:it|that|this) yourself|(?:in|into) .{0,40} yourself|beyond (?:what I can|my)|plug (?:it|them|both|those|the)\b.{0,40}\bin\b)/i;
 
@@ -1778,6 +1810,12 @@ export class Core {
       return;
     }
     reply = groundReply(reply, this.turnActions);
+    // 5.4: said it did something, did nothing, called nothing. Flagged, never rewritten - see CLAIMS_DID.
+    const flags = [...linted.flags];
+    if (!didSomething && !usedTools && CLAIMS_DID.test(reply)) {
+      flags.push('claimed-without-doing');
+      console.error('honesty: the reply claims something was done, but no tool ran and nothing was recorded');
+    }
     this.toTurn(sub, { t: 'bubble', text: reply, stream: false, id: sub.id, who: MODELS[turn.lane].label, ...(this.pendingList ? { list: this.pendingList } : {}) });
     if (!sub.ephemeral) {
       // His half is already stored (5.6, at submit). Only the answer is new.
@@ -1790,7 +1828,7 @@ export class Core {
       ts: new Date().toISOString(), id: sub.id, lane: turn.lane, user: sub.text, reply,
       ms: e.ms, ttftMs: e.ttftMs, ackMs: turn.ackMs, ctxTokens: e.ctxTokens,
       cacheReadTokens: e.cacheReadTokens, cacheWriteTokens: e.cacheWriteTokens,
-      tools: e.tools, fixed: linted.fixed, flags: linted.flags,
+      tools: e.tools, fixed: linted.fixed, flags,
     });
     this.finishTurn(turn);
   }

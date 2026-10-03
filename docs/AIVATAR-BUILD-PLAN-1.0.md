@@ -818,7 +818,7 @@ detection at all.
   Verified on a copy of the live 525-turn database: column added, index created, integrity
   ok, old rows untouched with `req` empty, second run silent.
 
-- `[ ]` 5.4 **Close the honesty-check hole.** `core.ts:87` is
+- `[x]` 5.4 **Close the honesty-check hole.** DONE 2026-10-03. `core.ts:87` is
   `if (!did.length) return reply;`, so when Aang did nothing but claims he did, grounding
   never runs. That is the worst case and the one not covered.
 
@@ -829,6 +829,23 @@ detection at all.
   correct answer. **A day with test cases, not an hour.**
 
   **Decide first:** rewrite the reply, or just flag it? Flagging is safer.
+
+  **Flagged, as decided.** New `CLAIMS_DID` in `core.ts`. The flag goes into the turn
+  record where it can be counted and the detector tuned on real traffic; nothing he reads
+  is touched. 5.3's `why_did_you_do_that` is the human-facing half - ask why, and it says
+  plainly that nothing was done.
+
+  **The second guard matters more than the regex.** It only fires when NO tools were used
+  at all, because a reply saying "I checked and it is not there" used a tool that keeps no
+  action record and is perfectly true. If zero tools ran, nothing can have been done.
+
+  **The verb list is deliberately narrow.** `made`, `set`, `wrote` and `created` are all
+  absent, however tempting: "I made a few assumptions", "I set out three options", "I
+  wrote a short summary" are ordinary prose about the answer itself. Catching less is the
+  right trade when the alternative is calling a truthful reply a lie.
+
+  New `tests/fakecore/honesty.mjs`, 35 cases covering all four checks, no quota. Twelve of
+  them are the prose that must NOT be flagged, which is the half that actually matters.
 
 - `[x]` 5.4b **Close the OTHER honesty hole: claiming ignorance without looking.** DONE
   2026-10-02 (12deb1d). Sibling of 5.4, and the opposite direction: 5.4 is "did nothing, says
