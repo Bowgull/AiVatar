@@ -764,10 +764,14 @@ detection at all.
 
 **Goal:** everything confirmed real but on nobody's critical path. Do it when you want.
 
-- `[~]` 5.1 **Rotate the logs instead of deleting them.** Body half DONE in 0.4 (6bdfb72): `Log.Write` keeps one generation, stamps full dates, reports failures. `core.log` (written by the supervisor) still deletes past 1 MiB. `CoreSupervisor.cs:90` deletes
-  the file past 1 MiB, and `:92` stamps lines `HH:mm:ss` with no date. With six restarts a
-  day the evidence of an incident can vanish before you look. Keep one generation, use
-  full timestamps. **20 minutes.**
+- `[x]` 5.1 **Rotate the logs instead of deleting them.** DONE 2026-10-03. Body half was done in 0.4 (6bdfb72): `Log.Write` keeps one generation, stamps full dates, reports failures. `core.log` (written by the supervisor) still deletes past 1 MiB. `CoreSupervisor.cs:90` deletes
+  the file past 1 MiB. With six restarts a day the evidence of an incident can vanish
+  before you look.
+
+  `core.log` now rotates to `core.log.1` instead of deleting, the same rule `Log.Write`
+  already used for `body.log`. The timestamp half was already fixed: lines carry full
+  dates. Verified live - padded the log past 1 MiB, started Aang, and the old file was
+  preserved as `.1` with his real history intact rather than destroyed.
 
 - `[x]` 5.2 **Handle SIGTERM.** DONE 2026-10-03 (3d8daf7). `index.ts:17` traps only `SIGINT`;
   `CoreSupervisor.cs:109` hard-kills with `Kill(entireProcessTree: true)`. So the cleanup
@@ -904,8 +908,8 @@ detection at all.
   machine cannot work. Not urgent while this machine runs, but it is the real content of
   the item the brief called "the backup cannot be restored".
 
-- `[ ]` 5.8 **Delete the stray `$null` file.** An empty file literally named `$null` is
-  committed in `src/Core/`, from a mistyped shell redirect. **One minute.**
+- `[x]` 5.8 **Delete the stray `$null` file.** DONE 2026-10-03. An empty file literally
+  named `$null` was committed in `src/Core/`, from a mistyped shell redirect. Gone.
 
 ---
 
