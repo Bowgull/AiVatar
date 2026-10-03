@@ -577,6 +577,52 @@ export class Memory {
     }
   }
 
+  /**
+   * 5.3: the whole exchange one turn belongs to, whichever half is pointed at.
+   *
+   * Joshua points at a message, not a pair, and it is as likely to be his own words as Aang's. Both rows
+   * of an exchange carry the same `req`, so either one finds the other. `req` is null for anything saved
+   * before 5.3 and for anything Aang said unprompted, and the caller has to say so rather than pretend.
+   */
+  exchange(turnId: number): { req: string | null; ts: string; asked: string; replied: string; tier: string } | null {
+    if (!this.db || !Number.isInteger(turnId) || turnId <= 0) return null;
+    try {
+      const row = this.db.prepare('SELECT id, ts, req, role, text, tier FROM turns WHERE id = ?').get(turnId) as
+        { id: number; ts: string; req: string | null; role: string; text: string; tier: string | null } | undefined;
+      if (!row) return null;
+      const req = row.req ? String(row.req) : null;
+      if (!req) {
+        // No link to follow: answer with the one row there is rather than guessing at its neighbour.
+        const mine = row.role === 'user';
+        return { req: null, ts: String(row.ts), asked: mine ? String(row.text) : '', replied: mine ? '' : String(row.text), tier: String(row.tier ?? '') };
+      }
+      return this.exchangeByRequest(req);
+    } catch (e) {
+      console.error('memory exchange failed:', (e as Error).message);
+      return null;
+    }
+  }
+
+  /** The same exchange, found by the request id rather than by one of its rows. */
+  exchangeByRequest(req: string): { req: string | null; ts: string; asked: string; replied: string; tier: string } | null {
+    if (!this.db || !req) return null;
+    try {
+      const both = this.db.prepare('SELECT role, text, tier, ts FROM turns WHERE req = ? ORDER BY id').all(req) as
+        { role: string; text: string; tier: string | null; ts: string }[];
+      if (!both.length) return null;
+      const asked = both.find(r => r.role === 'user');
+      const replied = both.find(r => r.role !== 'user');
+      return {
+        req, ts: String(asked?.ts ?? both[0].ts),
+        asked: String(asked?.text ?? ''), replied: String(replied?.text ?? ''),
+        tier: String(replied?.tier ?? ''),
+      };
+    } catch (e) {
+      console.error('memory exchangeByRequest failed:', (e as Error).message);
+      return null;
+    }
+  }
+
   /** Everything said between two UTC stamps ("YYYY-MM-DD HH:MM:SS"), oldest first: one day's conversation. */
   turnsBetween(from: string, to: string, limit = 80): { ts: string; who: 'you' | 'Aang'; text: string }[] {
     if (!this.db) return [];
@@ -595,15 +641,16 @@ export class Memory {
    * already rides on a `bubble` is the SUBMIT id, which identifies the request, not the row. Null when
    * nothing was stored, so a caller cannot mistake a failed write for turn 0.
    */
-  saveTurn(user: string, aang: string, tier: string): { userTurn: number; aangTurn: number } | null {
+  /** `req` (5.3) is the request this exchange answered: what ties these rows to the action record. */
+  saveTurn(user: string, aang: string, tier: string, req?: string): { userTurn: number; aangTurn: number } | null {
     if (!this.db) return null;
     try {
       const now = new Date().toISOString().replace('T', ' ').slice(0, 19);
-      const ins = this.db.prepare('INSERT INTO turns (ts, role, tier, text) VALUES (?,?,?,?)');
+      const ins = this.db.prepare('INSERT INTO turns (ts, role, tier, text, req) VALUES (?,?,?,?,?)');
       const fts = this.db.prepare('INSERT INTO turns_fts (text, turn_id) VALUES (?,?)');
       const saved: number[] = [];
       for (const [role, text, t] of [['user', user, null], ['aang', aang, tier]] as const) {
-        const info = ins.run(now, role, t, text);
+        const info = ins.run(now, role, t, text, req ?? null);
         const id = Number(info.lastInsertRowid);
         saved.push(id);
         fts.run(text, id);

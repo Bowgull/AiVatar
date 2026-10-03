@@ -7,7 +7,18 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync } from 'n
 import path from 'node:path';
 import { writeFileAtomic } from './atomic.ts';
 
-export interface ActionRec { ts: string; tool: string; did: string; ok: boolean; note: string }
+export interface ActionRec {
+  ts: string; tool: string; did: string; ok: boolean; note: string;
+  /**
+   * 5.3: the request Aang was answering when he did this, when he was answering one at all.
+   *
+   * Not a turn id, deliberately. Actions are written while a turn is still running and the turn row does
+   * not exist until the reply is finished, so there is no turn id to stamp here. The turn row carries the
+   * same request id, which makes "why did you do that" a join. Older lines have no `req` and never will;
+   * for those the honest answer is that the link was not being kept yet.
+   */
+  req?: string;
+}
 
 const clock = (iso: string) => new Date(iso).toLocaleTimeString('en-CA', { timeZone: 'America/Toronto', hour: 'numeric', minute: '2-digit', hour12: true });
 const day = (iso: string) => new Date(iso).toLocaleDateString('en-CA', { timeZone: 'America/Toronto' });
@@ -53,6 +64,24 @@ export class ActionLog {
 
   /** Newest last. */
   recent(n = 10): ActionRec[] { return this.load().slice(-Math.max(1, Math.min(50, n))); }
+
+  /** Everything done while answering one request, oldest first. Empty when that request did nothing. */
+  forRequest(req: string): ActionRec[] {
+    if (!req) return [];
+    return this.load().filter(r => r.req === req);
+  }
+
+  /**
+   * The newest request that actually did something, for "why did you do that" with nothing pointed at.
+   *
+   * Joshua should not have to know a number to ask. Only requests that DID something count: the last
+   * three turns being chat means the thing he is asking about is the one before them.
+   */
+  lastRequestThatDidSomething(): string | null {
+    const all = this.load();
+    for (let i = all.length - 1; i >= 0; i--) if (all[i].req) return all[i].req!;
+    return null;
+  }
 
   text(n = 10): string {
     const recs = this.recent(n);

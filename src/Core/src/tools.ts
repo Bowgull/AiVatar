@@ -207,6 +207,8 @@ export interface Doers {
   pushUndo(label: string, run: () => string): void;
   undoLast(): { ok: boolean; detail: string };
   recent(n: number): string;
+  /** 5.3: what he asked, what you did because of it, what you said back. No turn means the last one that did something. */
+  why(turn?: number): string;
   permissions(): string;
   revoke(kind: string): string;
   /** The background worker. Left out of the worker's own tools, so a job can never start more jobs. */
@@ -637,6 +639,9 @@ export function makeToolServer(
       tool('what_did_you_do','What you have done on his computer, newest last: files written, apps closed, things opened, commands run, what you read or sent. Use for "what did you just do", "what have you done today", "did you close that".',
         { count: z.number().optional().describe('how many recent actions, default 10') },
         async ({ count }) => ok(doers ? doers.recent(count ?? 10) : 'The activity record is not available right now.')),
+      tool('why_did_you_do_that', 'Why you did something: what he asked, what you actually did because of it, and what you said back. Use for "why did you do that", "what made you do that", "why did you open that", "what was that for". Leave turn out unless he pointed at a particular message - with nothing given it explains the last thing you actually did. Read the answer back as it is; do not reason about what you might have been thinking.',
+        { turn: z.number().optional().describe('the numbered message he pointed at, if he pointed at one') },
+        async ({ turn }) => ok(doers ? doers.why(turn) : 'The activity record is not available right now.')),
       tool('undo_last', 'Undo the last thing you did that can be undone: a file change, something you remembered or forgot, or a reminder you set or cancelled. Use for "undo that", "put it back", "that was wrong". Say plainly what was undone, or that nothing can be.', {},
         async () => { if (!doers) return fail('Undo is not available right now.'); const r = doers.undoLast(); return r.ok ? ok(r.detail) : fail(r.detail); }),
       tool('my_permissions', 'What he has let you do without asking each time, with when. Use for "what can you do without asking", "what have I allowed", "show your permissions".', {},
