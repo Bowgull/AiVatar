@@ -382,6 +382,19 @@ export class Memory {
   /** Which Brain folder is actually being read, for a health check and for the Core to log at start. */
   brainSource(): string { return this.brainDir(); }
 
+  /**
+   * The open database, for code that owns its own tables.
+   *
+   * Deliberately narrow in intent: the document index (docs.ts) keeps `docs` and `docs_fts`, which are
+   * nothing to do with turns or facts, and wrapping every one of its queries in a Memory method would put
+   * vault searching inside a class about conversation memory. Null when memory never opened, and every
+   * caller must check, because a dead database is the one state this whole file exists to survive.
+   *
+   * Not a general escape hatch: turns and facts still go through the methods above, which is where the
+   * visibility rules live.
+   */
+  handle(): DatabaseSync | null { return this.db; }
+
   /** Words that match almost every turn and so carry no meaning for a search. */
   static readonly STOPWORDS = new Set(('what did we say said about the and you your for with that this have has had was were are ' +
     'any how why who when where which would could should can could not but its our out from into than then them they there their ' +
