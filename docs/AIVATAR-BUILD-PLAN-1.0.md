@@ -679,9 +679,9 @@ persistent but quiet signal, distinct from the working glow, easy to ignore mid-
 
 All not built. Previously marked parked; **unparked by your decision, 2026-10-01.**
 
-- `[ ]` 150ms crossfade between modes
+- `[x]` 150ms crossfade between modes  **ALREADY BUILT** (InputWindow: FadeMs=150, lerped frame and chip colours, a 16ms timer that stops itself). Verified 2026-10-02, not rebuilt.
 - `[ ]` reveal-on-hover states
-- `[ ]` recompute layout when display scaling changes while running
+- `[x]` recompute layout when display scaling changes while running  **DONE 2026-10-02**
 - `[ ]` entity chips in the Panel
 - `[ ]` a first-run "here's what I can do"
 - `[ ]` suggestion chips

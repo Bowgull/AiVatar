@@ -26,9 +26,11 @@ sealed class PetWindow : Form
     static readonly TimeSpan WakeFor = TimeSpan.FromSeconds(4);
 
     readonly Config cfg = Config.Load();
-    readonly float scale;
-    readonly int pw, ph;
-    readonly LayeredSurface surface;
+    // Not readonly: all three are recomputed when Windows' display scaling changes (OnDpiChanged).
+    float scale;
+    int pw, ph;
+    /// <summary>Not readonly: it is sized in real pixels, so a change to display scaling replaces it.</summary>
+    LayeredSurface surface;
     readonly SpriteBank sprites;
     readonly Anim anim = new();
     readonly BubbleView bubble = new();
@@ -89,7 +91,12 @@ sealed class PetWindow : Form
     Point dragStart, startLoc;
     int tick;
 
-    readonly InputWindow input;
+    /// <summary>Not readonly: a change to Windows' display scaling rebuilds it, because the box bakes the
+    /// scale in when it is constructed. See MakeInput and OnDpiChanged.</summary>
+    InputWindow input;
+    /// <summary>True when --dpi= forced a scale for testing, so a real DPI change must not overwrite it.</summary>
+    bool dpiForced;
+    float dpiChangeTo;   // tests: --dpi-change=N rescales to N% a few seconds after start
     readonly InputHistory history = new(Paths.File("input-history.json"));
     readonly System.Windows.Forms.Timer ackTimer = new() { Interval = 4000 };
     readonly System.Windows.Forms.Timer awayTimer = new() { Interval = 30 };
@@ -143,7 +150,7 @@ sealed class PetWindow : Form
     {
         scale = DeviceDpi / 96f;
         // Test flag: --dpi=150 draws at 150% on any desktop, so every scale can be looked at without changing Windows.
-        foreach (var a in args) if (a.StartsWith("--dpi=", StringComparison.OrdinalIgnoreCase) && int.TryParse(a[6..], out var d) && d is >= 96 and <= 400) scale = d / 96f;
+        foreach (var a in args) if (a.StartsWith("--dpi=", StringComparison.OrdinalIgnoreCase) && int.TryParse(a[6..], out var d) && d is >= 96 and <= 400) { scale = d / 96f; dpiForced = true; }
         pw = (int)Math.Round(W * scale);
         ph = (int)Math.Round((H + Extra) * scale);
 
@@ -204,6 +211,7 @@ sealed class PetWindow : Form
             else if (a.Equals("--pins-test", StringComparison.OrdinalIgnoreCase)) pinsTest = true;   // tests: the reply and pinned-context chips
             else if (a.Equals("--fact-test", StringComparison.OrdinalIgnoreCase)) factTest = true;   // tests: a fact from a document, offered for approval
             else if (a.Equals("--stack-test", StringComparison.OrdinalIgnoreCase)) stackTest = true;  // tests: the desktop scrollback
+            else if (a.StartsWith("--dpi-change=", StringComparison.OrdinalIgnoreCase) && int.TryParse(a[13..], out var dc) && dc is >= 96 and <= 400) dpiChangeTo = dc / 96f;   // tests: rescale while running
             else if (a.Equals("--bubble-test", StringComparison.OrdinalIgnoreCase)) bubbleTest = "short";
             else if (a.Equals("--bubble-test=long", StringComparison.OrdinalIgnoreCase)) bubbleTest = "long";
             else if (a.Equals("--bubble-test=ask", StringComparison.OrdinalIgnoreCase)) bubbleTest = "ask";
@@ -232,16 +240,8 @@ sealed class PetWindow : Form
         ackTimer.Tick += (_, _) => AckTimeout();
         awayTimer.Tick += (_, _) => WatchForClickAway();
 
-        input = new InputWindow(scale, history);
-        input.Submitted += Submit;
-        input.StopRequested += StopReply;
         mode = ModelChip.Normalize(cfg.Mode); saving = cfg.Saving;
-        input.ModeChosen += m => SetMode(m == "next" ? ModelChip.Next(mode) : m);
-        input.SavingToggled += () => SetSaving(!saving);
-        input.SetUsageShown(cfg.ShowUsage);
-        input.UsageShownChanged += on => { cfg.ShowUsage = on; cfg.Save(); };
-        input.ConsentAccepted += AllowOnce;
-        input.ConsentDeclined += DeclineConsent;
+        MakeInput();
         link.ConnectionChanged += up =>
         {
             if (!up) return;
@@ -251,8 +251,98 @@ sealed class PetWindow : Form
             _ = link.SendAsync(new { t = "presence", quiet, foreground, title = foregroundTitle, watching = cfg.SeeActiveWindow, hwnd = foregroundHwnd });
         };
         PushStatus();
-        input.PageRequested += d => { if (d > 0 && bubble.More) ExpandBubble(); else if (bubble.Scroll(d * 6)) dirty = true; FillStackFromMemory(); };
         BuildTray();
+    }
+
+    /// <summary>
+    /// Windows' display scaling changed while Aang was running.
+    /// </summary>
+    /// <remarks>
+    /// Every surface here reads the scale ONCE, when it is built: the pet's own bitmap, the type box, the
+    /// Panel. Nothing recomputed it, so moving a laptop to a 150% monitor, or changing scaling in Settings,
+    /// left him drawn at the old size until the next restart - sharp but wrong, or soft and wrong, with no
+    /// hint why.
+    ///
+    /// The Panel is simply disposed: it is already built lazily, so the next opening builds it correctly for
+    /// free. The type box has to be rebuilt because it is held, and MakeInput exists so that rebuild carries
+    /// every handler with it.
+    ///
+    /// A scale forced by --dpi= is left alone. That flag exists to look at any size on this desktop, and a
+    /// real DPI event overwriting it would quietly undo the thing being tested.
+    /// </remarks>
+    protected override void OnDpiChanged(DpiChangedEventArgs e)
+    {
+        base.OnDpiChanged(e);
+        if (dpiForced) return;                 // a forced test scale is not overwritten by a real event
+        Rescale(e.DeviceDpiNew / 96f);
+    }
+
+    /// <summary>Rebuild everything at a new scale. Separate from OnDpiChanged so a test can drive it without
+    /// changing Windows' display settings for the whole desktop.</summary>
+    internal void Rescale(float next)
+    {
+        if (Math.Abs(next - scale) < 0.01f) return;
+        Log.Write($"display scaling changed: {scale:0.00} -> {next:0.00}");
+        var was = scale;
+        scale = next;
+        pw = (int)Math.Round(W * scale);
+        ph = (int)Math.Round((H + Extra) * scale);
+
+        var old = surface;
+        surface = new LayeredSurface(pw, ph);
+        old.Dispose();
+        Size = new Size(pw, ph);
+
+        // Keep the SPRITE where it was, not the window corner. The window grows down and to the right from
+        // its top-left, and the sprite sits a long way into it, so a plain resize slides him across the
+        // screen and at 150% pushed him mostly off the right-hand edge (seen in a capture, 2026-10-02).
+        // Clamp() does not catch that: it only asks whether the window touches a screen at all, and a window
+        // four fifths off the edge still does.
+        var drift = Docking.SpriteX * (was - scale);
+        var moved = new Point(Location.X + (int)Math.Round(drift), Location.Y + (int)Math.Round(Docking.SpriteY * (was - scale)));
+        var work = Screen.FromPoint(Location).WorkingArea;
+        Location = new Point(
+            Math.Clamp(moved.X, work.Left - (int)(Docking.SpriteX * scale), work.Right - (int)(Docking.SpriteX * scale) - 80),
+            Math.Clamp(moved.Y, work.Top - (int)(Docking.SpriteY * scale), work.Bottom - (int)(Docking.SpriteY * scale) - 80));
+
+        // Rebuilt rather than rescaled: both bake the scale in at construction.
+        var wasOpen = input.Visible;
+        var draft = input.Draft;
+        input.Dispose();
+        MakeInput();
+        PushStatus();
+        if (wasOpen) { input.Open(Location, IntPtr.Zero); input.SetDraft(draft); }
+
+        if (panel is { IsDisposed: false }) { panel.Dispose(); panel = null; }
+
+        dirty = true;
+        Render();
+        Log.Write($"rescaled to {scale:0.00}: window {Location} {pw}x{ph}, sprite at "
+            + $"{Location.X + (int)(Docking.SpriteX * scale)},{Location.Y + (int)(Docking.SpriteY * scale)} "
+            + $"(screen {Screen.FromPoint(Location).WorkingArea})");
+    }
+
+    /// <summary>
+    /// Build the type box and wire it up.
+    /// </summary>
+    /// <remarks>
+    /// Its own method because the box bakes in the display scale at construction, so changing Windows'
+    /// scaling while Aang is running means building a new one. Every handler lives here, so a rebuilt box
+    /// is wired exactly like the first - the alternative is nine subscriptions to remember by hand, which
+    /// is a bug waiting for the first person who adds a tenth.
+    /// </remarks>
+    void MakeInput()
+    {
+        input = new InputWindow(scale, history);
+        input.Submitted += Submit;
+        input.StopRequested += StopReply;
+        input.ModeChosen += m => SetMode(m == "next" ? ModelChip.Next(mode) : m);
+        input.SavingToggled += () => SetSaving(!saving);
+        input.SetUsageShown(cfg.ShowUsage);
+        input.UsageShownChanged += on => { cfg.ShowUsage = on; cfg.Save(); };
+        input.ConsentAccepted += AllowOnce;
+        input.ConsentDeclined += DeclineConsent;
+        input.PageRequested += d => { if (d > 0 && bubble.More) ExpandBubble(); else if (bubble.Scroll(d * 6)) dirty = true; FillStackFromMemory(); };
     }
 
     Point DefaultPos()
@@ -299,6 +389,14 @@ sealed class PetWindow : Form
         Log.Write($"shown at {Location} {pw}x{ph} scale {scale:0.00}");
         if (openHotkeyBox) BeginInvoke(AskForHotkey);
         if (openPanel) BeginInvoke(OpenPanel);
+        if (dpiChangeTo > 0)
+        {
+            // Drives the real rescale path a few seconds in, so the thing that runs when Windows' scaling
+            // changes is actually exercised rather than assumed.
+            var t = new System.Windows.Forms.Timer { Interval = 4000 };
+            t.Tick += (_, _) => { t.Stop(); t.Dispose(); Rescale(dpiChangeTo); };
+            t.Start();
+        }
         if (urgentTest != null) BeginInvoke(() =>
         {
             if (urgentTest == "badge") Hold("Job hunt done. Two applied.", "C:\\test", 1, Theme.Gold);

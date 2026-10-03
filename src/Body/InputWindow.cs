@@ -78,6 +78,15 @@ sealed class InputWindow : Form
     public bool Working { get; set; }
     public string Draft => box.Text;
 
+    /// <summary>Put a half-typed message back. Used when the box is rebuilt after a display-scaling change,
+    /// so changing a monitor setting does not throw away what he was in the middle of saying.</summary>
+    public void SetDraft(string text)
+    {
+        box.Text = text ?? "";
+        box.SelectionStart = box.TextLength;
+        Grow();
+    }
+
     protected override CreateParams CreateParams
     {
         get { var cp = base.CreateParams; cp.ExStyle |= Win32.WS_EX_TOOLWINDOW | Win32.WS_EX_TOPMOST; return cp; }
