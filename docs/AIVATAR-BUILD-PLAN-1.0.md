@@ -1065,6 +1065,85 @@ write-up as though the earlier work never happened.
 
 ---
 
+## 7.6 Addons: tell him what is behind, and help him understand them
+
+**Joshua, 2026-10-03: "can we also have aang hook into curseforge as well maybe? and let me know
+when addons need updating or there are new trernding ones or ones thjat i dont have thjat i should
+get and then him help me walk through what they are what they do why i need them and best ways to
+setuop like im confused i can ask what do i do now? did i do it right? whats the best setting?"**
+
+### What he decided
+
+- **Notify, never install.** "Can he not just tell me in a Custom formatted message in a bubble
+  right? surface a message - Hey XYZ needs an update or Hey theres a few updates for your addons."
+  Aang does not download, swap or write anything into the game folder.
+- **He can look at the screen when asked.** For "did I do it right?", with the permission prompt
+  each time, which `look_at_window` already does. Not automatic, not continuous.
+- **A quick scan on first startup**, not a background watcher.
+- **Suggestions yes, a few, with reasons.** Same three-mentions rule as the rest of Phase 7.
+
+### What already works, today, with no API and no key
+
+Reading the installed addons and their versions, straight off disk. Verified 2026-10-03: 22 addons
+under `_classic_beta_/Interface/AddOns`, each with a `.toc` carrying `## Version`.
+
+**Better than that: the `.toc` files already carry their CurseForge project IDs.** Fifteen of the
+22 have `## X-Curse-Project-ID`, including every one that matters - Leatrix Plus (94855), Leatrix
+Maps (298842), RXPGuides (486246), BlizzMove (17809), BetterBlizzFrames (940950), WhatsTraining
+(324944), GearQuest Forever (1698950), Talents Forever (1700435). So Aang already knows exactly
+which project each addon is, locally. **The only missing piece is looking up the latest version
+number for an id.**
+
+Found on the first scan and still true: **his GearQuest Forever class modules are on 0.2.18-beta
+while CurseForge's latest is v0.2.20-beta (29 September 2026)** - nine files about two releases
+behind. That is the exact shape of thing this step exists to catch.
+
+### The obstacle, and why it is only one obstacle
+
+**CurseForge is closed at the edge.** Every unauthenticated request returns 403, including the
+project page and both RSS paths - tested 2026-10-03. There is no scraping route, and looking for
+one would be both fragile and against their terms.
+
+**The API needs a key, applied for and reviewed by Overwolf, and they refuse competitors.** WowUp,
+the most popular third-party addon manager there was, was denied under the clause forbidding
+anything that competes "directly or indirectly" with CurseForge.
+
+**But the shape Joshua chose is the approvable one, and that is not a coincidence.** An app that
+downloads and installs addons competes with their app. One that reads what he already has, tells
+him what is behind, explains it, and sends him to CurseForge to click download drives traffic
+**to** them. That is a materially different application, and it is worth making in those words.
+
+**Action for Joshua, and only he can do it:** apply for a CurseForge API key. It is free, it costs
+nothing to be refused, and the application should say plainly that this is a read-only assistant
+that notifies and explains, never downloads or installs.
+
+**If the key never comes:** only BugSack carries a GitHub URL, so a GitHub-only fallback covers one
+addon of 22 and is not worth building on its own. Everything else in this step still works - the
+scan, the explaining, the screen-looking, the suggestions from the research loop - just without the
+"a newer version exists" line.
+
+### Build order
+
+1. **Read the installed addons on startup.** Name, version, project id, folder. Free, local, no
+   network. This alone lets him answer "what addons do I have" and "what does X do".
+2. **The explaining half.** "What is this, why would I want it, what do the settings mean." This is
+   conversation and needs no API at all, and it is the half he described in the most detail.
+3. **"Did I do it right?"** - the existing `look_at_window`, pointed at WoW, with its own permission
+   prompt. Nothing new to build except knowing to offer it.
+4. **The version check**, once a key exists. One call per project id, cached, on startup only.
+5. **The bubble card.** "Three of your addons have updates" with the names, what changed, and a
+   button that opens the CurseForge page. Shares the card format with the rest of Phase 7.
+6. **Suggestions**, through the research loop's existing filter rather than a second one.
+
+### Open question
+
+Whether "first startup" means when Aang starts, or when WoW starts. Aang already knows when WoW
+launches (`gpu.ts` watches for the game), so the second is possible and is probably what he meant -
+being told about addons while actually sitting at the game is more useful than being told at 9am.
+Confirm before building.
+
+---
+
 ## Open questions
 
 - Which day the weekly sweep runs, and whether he wants it before or after the week's quota
