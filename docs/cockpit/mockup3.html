@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aang Cockpit — type</title>
+<!--
+  THIRD PASS, 2026-10-03. His words: "the writing itself feels thin espically on the buttons its a bit
+  hard to read and the model chips are also a bit plain and feel hollow with hard to read text" and
+  "we are missing out sttyle elements in the font the style and the formatting with headers underslines".
+  All three are right, and the first is a problem in AANG, not only in my mockup.
+
+  THE BIG ONE: PRESS START 2P IS OVER-USED. Theme.cs sets ButtonPx = 8f and draws button labels in the
+  pixel face. A pixel font at 8px is a decorative face being asked to do a reading job, and it loses.
+  Stardew and Ocarina of Time do NOT do this - their buttons use a chunky READABLE face, and the pixel
+  font is reserved for plaques, chips and small labels. That is the fix, and it is a change to
+  Theme.cs, not just to CSS.
+
+  WHAT ELSE WAS MISSING, all of it ordinary typography that the bubble simply cannot do today:
+    - a real type scale. Everything was 13-16px with no display size at all.
+    - carved/embossed headings: a dark line below and a light line above, which is what makes text look
+      cut into wood rather than printed on it.
+    - decorative rules. A plain 1px border is a web page; a carved rule with a centre ornament is this
+      genre.
+    - small caps and letter-spacing for labels.
+    - tabular numbers, so money and counts line up in a column.
+    - pull quotes, asides, and underlines that look carved rather than like hyperlinks.
+  -->
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+:root{
+  --gold:#FFC43C; --gold-deep:#C98C14; --gold-lit:#FFE096; --gold-light:#FFE28C;
+  --orange:#FF8040; --orange-deep:#C95E28; --red:#FF5A4A; --green:#78E696;
+  --text:#E8E4F0; --secondary:#C9C2DA;
+  --plum:#4A2C6E; --plum-deep:#2C1848; --plum-edge:#966EC8;
+  --parch1:#ECD5A8; --parch2:#DEC28C;
+  --ink-text:#2E2216; --ink-dim:#5A4834;
+  --wood1:#4A2E1A; --wood2:#24160D; --wood-plaque:#1A0F09;
+  --mode-quick:#00D1FF; --mode-smart:#3D9BFF; --mode-deep:#A970FF; --mode-saving:#8E879E;
+  --outline:#120A05; --ow:4px;
+  --face:"Atkinson Hyperlegible",system-ui,sans-serif; --pixel:"Press Start 2P",monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#0d0a16;color:var(--text);font:15px/1.6 var(--face);padding:26px 18px 90px;image-rendering:pixelated}
+.wrap{max-width:1020px;margin:0 auto}
+.lab{font:400 10px var(--pixel);color:var(--gold-lit);margin:40px 0 8px;text-shadow:2px 2px 0 var(--outline);letter-spacing:1px}
+.note{color:var(--secondary);font-size:13.5px;margin:0 0 18px;max-width:80ch}
+.note b{color:var(--text)}
+.row{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start}
+
+/* ===== surfaces (unchanged from pass 2) ===== */
+.wood{position:relative;padding:18px;border:var(--ow) solid var(--outline);border-radius:10px;
+  background:repeating-linear-gradient(91deg,rgba(0,0,0,.22) 0 2px,transparent 2px 9px),
+    repeating-linear-gradient(89deg,rgba(0,0,0,.14) 0 1px,transparent 1px 15px),
+    linear-gradient(180deg,var(--wood1),var(--wood2));
+  box-shadow:inset 0 4px 0 rgba(255,224,150,.17),inset 0 -5px 0 rgba(0,0,0,.45),0 6px 0 rgba(0,0,0,.55)}
+.parch{position:relative;color:var(--ink-text);padding:17px 19px;border-radius:8px;
+  background:repeating-linear-gradient(97deg,rgba(140,105,60,.07) 0 1px,transparent 1px 6px),
+    linear-gradient(180deg,var(--parch1),var(--parch2));
+  border:var(--ow) solid var(--outline);
+  box-shadow:inset 0 4px 0 rgba(255,255,255,.5),inset 0 -4px 0 rgba(150,110,60,.3),0 5px 0 rgba(0,0,0,.5)}
+
+/* =======================================================================
+   TYPE SCALE. The thing that was missing entirely.
+   ======================================================================= */
+
+/* DISPLAY - a chapter heading. Carved: light above, dark below. */
+.t-display{
+  font:700 30px/1.15 var(--face); color:#4a3414; margin:0 0 4px; letter-spacing:-.4px;
+  text-shadow:0 2px 0 rgba(255,255,255,.55), 0 -1px 0 rgba(90,60,25,.5), 0 3px 0 rgba(120,85,40,.35);
+}
+/* On wood instead of parchment, the same trick inverted. */
+.on-wood .t-display{color:var(--gold);text-shadow:0 2px 0 var(--outline),0 -1px 0 rgba(255,224,150,.35)}
+
+/* HEADING - a section inside a reply */
+.t-head{
+  font:700 19px/1.25 var(--face); color:#3a2a16; margin:0 0 8px;
+  text-shadow:0 1px 0 rgba(255,255,255,.5);
+}
+/* EYEBROW - the small pixel label above a heading. THIS is what the pixel font is for. */
+.t-eyebrow{font:400 8px var(--pixel);color:#8a6a2a;letter-spacing:1.5px;margin:0 0 6px;
+  text-shadow:1px 1px 0 rgba(255,255,255,.4)}
+/* BODY */
+.t-body{font:400 15.5px/1.62 var(--face);color:var(--ink-text);margin:0 0 10px}
+/* LEAD - the first line of an answer, a notch bigger */
+.t-lead{font:400 17px/1.5 var(--face);color:#3a2a16;margin:0 0 10px}
+/* ASIDE */
+.t-aside{font:italic 400 14px/1.55 var(--face);color:var(--ink-dim)}
+/* CAPTION */
+.t-caption{font:400 12.5px var(--face);color:var(--ink-dim)}
+/* NUMBERS line up */
+.t-num{font-variant-numeric:tabular-nums lining-nums}
+
+/* CARVED UNDERLINE - not a hyperlink, a groove cut in the surface */
+.u-carved{
+  text-decoration:none;
+  box-shadow:inset 0 -7px 0 rgba(201,140,20,.22), inset 0 -9px 0 rgba(90,60,25,.45);
+  padding-bottom:1px;
+}
+/* EMPHASIS that is not just bold: a highlighter stripe */
+.u-mark{background:linear-gradient(180deg,transparent 58%,rgba(255,196,60,.55) 58%);padding:0 2px}
+
+/* CARVED RULE with a centre ornament */
+.rule{display:flex;align-items:center;gap:11px;margin:16px 0}
+.rule::before,.rule::after{content:"";flex:1;height:4px;border-radius:2px;
+  background:linear-gradient(180deg,rgba(90,60,25,.42) 0 2px,rgba(255,255,255,.45) 2px 4px)}
+.rule i{width:9px;height:9px;transform:rotate(45deg);background:var(--gold);
+  border:2px solid var(--outline);flex:0 0 auto}
+
+/* =======================================================================
+   BUTTONS - THE FIX. Readable face, bigger, hard shadow.
+   ======================================================================= */
+.key{
+  /* was: 8px Press Start 2P. now: 14px bold Atkinson - readable at a glance, still chunky. */
+  font:700 14px var(--face); letter-spacing:.2px;
+  border:3px solid var(--outline); border-radius:8px; padding:12px 20px 13px;
+  cursor:pointer; position:relative; top:0; transition:top .05s, box-shadow .05s;
+  background:var(--plum); color:#fff;
+  text-shadow:0 2px 0 rgba(0,0,0,.6);          /* hard, no blur - lifts off the texture */
+  box-shadow:0 5px 0 var(--outline), 0 5px 0 -1px var(--plum-deep), inset 0 3px 0 rgba(150,110,200,.5);
+}
+.key:active{top:5px;box-shadow:0 0 0 var(--outline),inset 0 3px 0 rgba(150,110,200,.5)}
+.key.primary{background:var(--gold);color:#2a1c00;text-shadow:0 2px 0 rgba(255,235,180,.75);
+  box-shadow:0 5px 0 var(--outline),0 5px 0 -1px var(--gold-deep),inset 0 3px 0 var(--gold-light)}
+.key.primary:active{box-shadow:0 0 0 var(--outline),inset 0 3px 0 var(--gold-light)}
+.key.warn{background:var(--orange);color:#2e1200;text-shadow:0 2px 0 rgba(255,220,180,.6);
+  box-shadow:0 5px 0 var(--outline),0 5px 0 -1px var(--orange-deep),inset 0 3px 0 rgba(255,224,150,.5)}
+.key.warn:active{box-shadow:0 0 0 var(--outline),inset 0 3px 0 rgba(255,224,150,.5)}
+.key .k{position:absolute;top:2px;right:6px;font:400 7px var(--pixel);opacity:.65}
+.keys{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-top:15px}
+/* the old way, for comparison */
+.key.old{font:400 8px var(--pixel);padding:11px 16px;text-shadow:1px 1px 0 rgba(0,0,0,.5)}
+
+/* =======================================================================
+   MODE CHIPS - filled with their own colour, not hollow
+   ======================================================================= */
+.pill{
+  font:700 13px var(--face); letter-spacing:.3px;
+  padding:10px 16px; border-radius:999px; border:3px solid var(--outline);
+  position:relative; top:0; cursor:pointer; transition:top .05s, box-shadow .05s;
+  box-shadow:0 4px 0 var(--outline), inset 0 3px 0 rgba(255,255,255,.3);
+  color:#141018; text-shadow:0 1px 0 rgba(255,255,255,.45);
+}
+.pill:active{top:4px;box-shadow:0 0 0 var(--outline),inset 0 3px 0 rgba(255,255,255,.3)}
+.pill.auto{background:var(--gold)}
+.pill.local{background:var(--green)}
+.pill.quick{background:var(--mode-quick)}
+.pill.smart{background:var(--mode-smart);color:#06182e;text-shadow:0 1px 0 rgba(255,255,255,.3)}
+.pill.deep{background:var(--mode-deep);color:#1d0b33;text-shadow:0 1px 0 rgba(255,255,255,.3)}
+.pill.off{background:#6d6579;color:#f0edf5;text-shadow:0 1px 0 rgba(0,0,0,.4)}
+.pill.old{font:400 8px var(--pixel);background:var(--parch1);color:#4a3418;
+  box-shadow:0 3px 0 var(--outline);text-shadow:none}
+
+/* chips that label a thing */
+.chip{display:inline-block;font:700 12px var(--face);padding:5px 10px;border-radius:5px;
+  border:2.5px solid var(--outline);color:#231700;text-shadow:0 1px 0 rgba(255,255,255,.4)}
+.chip.good{background:var(--green)}.chip.careful{background:var(--orange)}
+.chip.stop{background:var(--red);color:#2e0b06}.chip.normal{background:var(--gold)}
+
+.plaque{background:var(--wood-plaque);border-radius:6px;padding:10px 14px;margin:0 0 15px;
+  font:400 9px var(--pixel);color:var(--gold);letter-spacing:1px;text-shadow:2px 2px 0 rgba(0,0,0,.85);
+  border:3px solid var(--outline);box-shadow:inset 0 4px 0 rgba(0,0,0,.65)}
+.find{display:grid;grid-template-columns:16px 1fr auto;gap:12px;align-items:start;padding:11px 0;
+  border-top:3px solid rgba(90,60,25,.28)}
+.find:first-of-type{border-top:0}
+.dot{width:11px;height:11px;border-radius:50%;margin-top:6px;border:2px solid var(--outline)}
+.dot.good{background:var(--green)}.dot.careful{background:var(--orange)}.dot.stop{background:var(--red)}
+.vs{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.vs .lab2{font:400 8px var(--pixel);color:var(--orange);margin-bottom:9px;letter-spacing:1px}
+.vs .lab2.good{color:var(--green)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="lab">1 — THE BUTTON PROBLEM IS IN AANG, NOT JUST THE MOCKUP</div>
+<p class="note"><code>Theme.cs</code> sets <b>ButtonPx = 8f</b> and draws labels in Press Start 2P. That is a decorative face doing a reading job. <b>Stardew and Ocarina of Time do not do this</b> — their buttons use a chunky readable face, and the pixel font is kept for plaques and small labels. Press both rows.</p>
+<div class="vs">
+  <div><div class="lab2">BEFORE — 8px pixel font</div>
+    <div class="keys" style="margin:0">
+      <button class="key old primary">Apply to Octup</button>
+      <button class="key old">Not now</button>
+    </div></div>
+  <div><div class="lab2 good">AFTER — 14px bold, hard shadow</div>
+    <div class="keys" style="margin:0">
+      <button class="key primary">Apply to Octup<span class="k">A</span></button>
+      <button class="key">Not now<span class="k">N</span></button>
+    </div></div>
+</div>
+
+<div class="lab">2 — THE MODE CHIPS WERE HOLLOW</div>
+<p class="note">Outlined with a pale fill reads as empty and the text had nothing to sit on. <b>Each mode already has its own colour in <code>Theme.cs</code></b> — Quick cyan, Smart blue, Deep purple — so fill the chip with it, put dark readable text on top, and give it the same lip as a button so it is obviously pressable.</p>
+<div class="vs">
+  <div><div class="lab2">BEFORE</div>
+    <div class="row" style="gap:9px">
+      <span class="pill old">Auto ▾</span><span class="pill old">Local</span><span class="pill old">Quick</span>
+      <span class="pill old">Smart</span><span class="pill old">Deep</span>
+    </div></div>
+  <div><div class="lab2 good">AFTER</div>
+    <div class="row" style="gap:9px">
+      <span class="pill auto">Auto ▾</span><span class="pill local">Local</span><span class="pill quick">Quick</span>
+      <span class="pill smart">Smart</span><span class="pill deep">Deep</span>
+    </div></div>
+</div>
+
+<div class="lab">3 — A REAL TYPE SCALE</div>
+<p class="note">Everything was 13–16px with no display size, no eyebrow, no caption. Six sizes with jobs, and headings <b>carved</b> — a light line above and a dark line below, which is what makes text look cut into the surface rather than printed on it.</p>
+<div class="parch" style="max-width:600px">
+  <div class="t-eyebrow">WEEKLY SWEEP · 28 SEPTEMBER</div>
+  <h1 class="t-display">Three jobs this week</h1>
+  <p class="t-lead">One of them is the closest match you have had all month.</p>
+  <div class="rule"><i></i></div>
+  <h2 class="t-head">Why Octup</h2>
+  <p class="t-body">Account management in a SaaS team, hybrid in Toronto, and the salary is <span class="u-mark">in range</span>. You have done this exact job before, which is the part that matters on a <a class="u-carved" href="#">first screen</a>.</p>
+  <p class="t-aside">I have not applied. Nothing is sent without your tap.</p>
+  <div class="rule"><i></i></div>
+  <h2 class="t-head">The other two</h2>
+  <div class="find"><div class="dot careful"></div>
+    <div><b>Constellation Dealer Group</b><div class="t-caption">Remote, Canada · no salary posted</div></div>
+    <div class="t-num t-caption">—</div></div>
+  <div class="find"><div class="dot stop"></div>
+    <div><b>GreenShield</b><div class="t-caption">Montreal · French required</div></div>
+    <div class="t-num t-caption">$70–80K</div></div>
+  <div class="keys">
+    <button class="key primary">Apply to Octup<span class="k">A</span></button>
+    <button class="key">Show me all<span class="k">S</span></button>
+  </div>
+</div>
+
+<div class="lab">4 — THE SAME SCALE ON WOOD</div>
+<div class="wood on-wood" style="max-width:600px">
+  <div class="plaque">THIS WEEK</div>
+  <h1 class="t-display">What kept coming up</h1>
+  <p style="color:var(--secondary);font-size:15.5px;line-height:1.6;margin:0 0 12px">
+    <b style="color:var(--gold)">jev</b> four times, <b style="color:var(--gold)">muse</b> three. You asked to be told when something repeats.</p>
+  <div class="row" style="gap:9px">
+    <span class="chip good">worth a look</span><span class="chip careful">keeps coming up</span><span class="chip normal">new</span><span class="chip stop">skip</span>
+  </div>
+</div>
+
+<div class="lab">5 — NUMBERS THAT LINE UP</div>
+<p class="note">Tabular figures, so a column of money or counts reads down the page instead of jittering.</p>
+<div class="parch" style="max-width:380px">
+  <div class="find"><div class="dot good"></div><div><b>Octup</b></div><div class="t-num">$95–120K</div></div>
+  <div class="find"><div class="dot careful"></div><div><b>Constellation</b></div><div class="t-num">$111–118K</div></div>
+  <div class="find"><div class="dot stop"></div><div><b>GreenShield</b></div><div class="t-num">$70–80K</div></div>
+</div>
+
+<div class="lab">WHAT THIS MEANS FOR THE REAL APP</div>
+<p class="note"><b>The button fix is a change to <code>Theme.cs</code>, not just to the cockpit.</b> Press Start 2P should be reserved for plaques, eyebrows and tiny labels; anything you need to READ wants Atkinson bold with a hard shadow. That one change would make the bubble easier to use today, before any of Phase 6 exists.<br><br>
+Everything else here — the scale, carved headings, rules with an ornament, the highlighter, the carved underline, tabular numbers — <b>is impossible in the bubble as it stands</b>, because GDI draws plain strings. That is the Phase 6 argument in one paragraph.</p>
+
+</div>
+</body>
+</html>
