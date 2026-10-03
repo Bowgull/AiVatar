@@ -118,20 +118,39 @@
   text-shadow:0 1px 0 rgba(255,255,255,.65),0 -1px 0 rgba(90,60,25,.35)}
 .t-head{font:700 21px/1.25 var(--display);color:var(--carve-ink);margin:0 0 8px;
   text-shadow:0 1px 0 rgba(255,255,255,.6)}
-.t-lead{font:400 17px/1.5 var(--body);color:#3a2a16;margin:0 0 10px}
-.t-body{font:400 15.5px/1.62 var(--body);color:var(--ink-text);margin:0 0 10px}
-.t-aside{font:italic 400 14px/1.55 var(--body);color:var(--ink-dim)}
-.t-caption{font:400 12.5px var(--body);color:var(--ink-dim)}
+/* Body weight is 500, not 400. Figtree at 400 over warm parchment with a game
+   running behind it reads thin, which he called out. 500 is the lightest
+   weight that still holds at this size; 600 starts to look shouty next to the
+   Cinzel headings. The inks are also a shade darker than the Theme.cs
+   originals for the same reason. */
+.t-lead{font:500 17px/1.5 var(--body);color:#33240f;margin:0 0 10px}
+.t-body{font:500 15.5px/1.62 var(--body);color:#271c10;margin:0 0 10px}
+.t-body b,.t-lead b{font-weight:700}
+.t-aside{font:italic 500 14px/1.55 var(--body);color:#4e3d28}
+.t-caption{font:500 12.5px var(--body);color:#4e3d28}
 .t-num{font-variant-numeric:tabular-nums lining-nums}
 /* on wood, the same carving inverted */
 .wood .t-eyebrow{color:var(--gold-deep);text-shadow:1px 1px 0 rgba(0,0,0,.7)}
 .wood .t-display,.wood .t-head{color:var(--gold);text-shadow:0 2px 0 var(--outline),0 -1px 0 rgba(255,224,150,.3)}
 .wood .t-lead,.wood .t-body{color:var(--secondary)}
 .wood .t-aside,.wood .t-caption{color:#a99a86}
-/* emphasis that is not just bold */
-.u-mark{background:linear-gradient(180deg,transparent 58%,rgba(255,196,60,.55) 58%);padding:0 2px}
-.u-carved{text-decoration:none;
-  box-shadow:inset 0 -7px 0 rgba(201,140,20,.22),inset 0 -9px 0 rgba(90,60,25,.45);padding-bottom:1px}
+/* Emphasis that is not just bold.
+   Measured from the BASELINE, in em. The first version used a percentage of
+   the inline box, which is why the highlights sat crooked: a percentage lands
+   mid-glyph and drifts with every line-height and font-size on the page.
+   box-decoration-break keeps them square when a phrase wraps across two
+   lines, and the inline inset shadows are gone because they clip at a wrap. */
+.u-mark,.u-carved{
+  -webkit-box-decoration-break:clone;box-decoration-break:clone;
+  padding:.04em .16em .10em;background-repeat:no-repeat}
+.u-mark{border-radius:2px;
+  background-image:linear-gradient(rgba(255,196,60,.6),rgba(255,196,60,.6));
+  background-size:100% .78em;background-position:left 0 bottom .06em}
+.u-carved{background-image:
+    linear-gradient(rgba(90,60,25,.55),rgba(90,60,25,.55)),
+    linear-gradient(rgba(201,140,20,.32),rgba(201,140,20,.32));
+  background-size:100% .09em,100% .22em;
+  background-position:left 0 bottom .03em,left 0 bottom .11em}
 
 /* ====================================================================
    DIVIDERS - a hierarchy. He liked two, and they do different jobs.
@@ -232,7 +251,7 @@
 .dot.good{background:var(--green)} .dot.careful{background:var(--orange)} .dot.stop{background:var(--red)}
 
 /* ---------------------------------------------------------------- steps */
-.step{display:flex;gap:10px;align-items:center;padding:5px 0;font:400 14.5px var(--body)}
+.step{display:flex;gap:10px;align-items:center;padding:5px 0;font:500 14.5px var(--body)}
 .step .mark{width:16px;text-align:center;font:400 12px var(--label)}
 .step.done{color:var(--ink-dim)} .step.done .mark{color:#2f7a4a}
 .step.now{color:var(--ink-text);font-weight:700} .step.now .mark{color:#9a6a0e;animation:tick .9s steps(2) infinite}
