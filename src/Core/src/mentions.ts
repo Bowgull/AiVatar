@@ -71,7 +71,21 @@ function coreOf(name: string): string | null {
   return parts.length === 1 && parts[0] !== name ? parts[0] : null;
 }
 
+/**
+ * Sources whose titles name products, so counting them means something.
+ *
+ * arXiv is deliberately NOT here. The first live run remembered "audio", "aware", "benchmark",
+ * "benchmarking" and "beyond" as if they were trending tools - because a paper title describes a topic,
+ * not a product, and asking "what is this about" of "Beyond Benchmarks: Audio-Aware Agents" correctly
+ * returns topic words. The fault was asking at all.
+ *
+ * Papers stay in the sweep and in the digest. They are there for depth - reading the primary source is
+ * what catches a vendor number - and that job does not need them counted.
+ */
+const NAMES_PRODUCTS = new Set<Finding['source']>(['github', 'hn', 'reddit']);
+
 export function namesIn(f: Finding): string[] {
+  if (!NAMES_PRODUCTS.has(f.source)) return [];
   const out = new Set<string>();
   if (f.source === 'github') {
     const repo = (f.title.split('/')[1] ?? f.title).toLowerCase();
@@ -109,24 +123,45 @@ export async function namesInWith(
   const out = new Map<string, string[]>();
   for (const f of findings) out.set(f.id, namesIn(f));
   if (findings.length === 0) return out;
+  // Seeded with the regex above ONLY so that a model that cannot run at all still produces something.
+  // Once it HAS run, its "-" is an answer, not a gap, and falling back to the regex there is what put
+  // "there", "amazon", "analysis" and "certificate" in the table on the first live run - the model had
+  // correctly said those titles name no product, and the fallback overruled it.
 
-  const list = findings.map((f, i) => `${i + 1}. ${f.title}`).join('\n');
+  // Only the sources whose titles name products. Asking about a paper title gets a topic word back,
+  // which is the right answer to the wrong question - see NAMES_PRODUCTS.
+  const asked = findings.filter(f => NAMES_PRODUCTS.has(f.source));
+  if (asked.length === 0) return out;
+  const list = asked.map((f, i) => `${i + 1}. ${f.title}`).join('\n');
   const r = await ask(
-    `Here are ${findings.length} titles from GitHub, Hacker News and arXiv.\n\n${list}\n\n` +
-    `For each one, name the product, project, tool or company it is ABOUT. Reply with one line per ` +
-    `title, exactly "<number>: <name>" and nothing else. Use "-" when a title names no product. ` +
-    `Never answer with an ordinary English word like "there", "long" or "new".`,
+    `Here are ${asked.length} titles from GitHub and Hacker News.\n\n${list}\n\n` +
+    `For each one, give the NAME of the product, project or company it is about - the sort of name you ` +
+    `would type into a search box. Reply with one line per title, exactly "<number>: <name>" and nothing ` +
+    `else.\n\nAnswer "-" whenever there is no such name, and that will be most of them. Never answer with ` +
+    `a topic or a description: "audio", "benchmark", "ai agents" and "agent memory" are all wrong answers, ` +
+    `and so is any ordinary English word like "there", "long" or "new".`,
     { system: 'You extract product names from titles. You reply only in the format asked for.', maxTokens: 900 },
   );
   if (!r.ok || !r.text) return out;
 
+  // The model answered, so its judgement replaces the regex for everything it was asked about. A repo
+  // name is kept regardless, because it is exact and not a guess.
+  for (const f of asked) out.set(f.id, f.source === 'github' ? namesIn(f) : []);
+
   for (const line of r.text.split('\n')) {
     const m = /^\s*(\d+)\s*[:.\)]\s*(.+?)\s*$/.exec(line);
     if (!m) continue;
-    const f = findings[Number(m[1]) - 1];
+    const f = asked[Number(m[1]) - 1];
     const name = m[2].trim().toLowerCase();
     if (!f || !name || name === '-' || name.length < 3 || name.length > 40) continue;
     if (NOT_A_NAME.has(name)) continue;
+    // One word, or a hyphenated one. "ai agents" and "border drawings" both came back from the first
+    // live run as if they were products. A two-word answer is a description almost every time, and the
+    // few real ones are not worth the noise of allowing them.
+    if (/\s/.test(name)) continue;
+    // And it has to actually be IN the title. Anything else is the model inventing one, and an invented
+    // name counted three times would read exactly like a real trend.
+    if (!f.title.toLowerCase().includes(name.split(/[-_]/)[0])) continue;
     // Keep the repo name too: it is exact, and the model sometimes answers with the owner instead.
     const kept = new Set(f.source === 'github' ? namesIn(f) : []);
     kept.add(name);
