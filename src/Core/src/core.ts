@@ -333,6 +333,7 @@ export class Core {
       pushUndo: (label, run) => this.undo.push(label, run),
       undoLast: () => this.undoLastThing(),
       recent: n => this.actions.text(n),
+      why: turn => this.whyText(turn),
       permissions: () => this.permissionsText(),
       revoke: kind => this.revokeText(kind),
     };
@@ -549,9 +550,60 @@ export class Core {
   private reportAction(tool: string, input: Record<string, unknown>, failed: boolean, text: string, fromWorker = false): void {
     // describeForLog, not describeCall: the permission question Joshua answers needs the full
     // command, the receipt that persists does not. See tools.ts and finding M10.
-    const rec = this.actions.add({ tool, did: (fromWorker ? '(background job) ' : '') + describeForLog('mcp__aang__' + tool, input), ok: !failed, note: failed ? text : '' });
+    // 5.3: stamp the request being answered, so this action can be traced back to what he asked for.
+    // A background job's actions belong to no chat turn, which is exactly why `req` is left off them.
+    const req = fromWorker ? undefined : this.active?.sub?.id;
+    const rec = this.actions.add({ tool, did: (fromWorker ? '(background job) ' : '') + describeForLog('mcp__aang__' + tool, input), ok: !failed, note: failed ? text : '', ...(req ? { req } : {}) });
     if (!fromWorker) this.turnActions.push({ did: rec.did, ok: rec.ok, note: rec.note });   // a job's actions are not the chat reply's to check
     this.sendTo('discord', { t: 'action', text: formatAction(rec) });        // a receipt in #log, silently
+  }
+
+  /**
+   * 5.3: "why did you do that?" - what he asked, what was done because of it, and what was said back.
+   *
+   * Before this the only way to answer was to put the action log and the conversation side by side and
+   * compare clocks, which guesses. The request id makes it a lookup: the actions and the turn rows carry
+   * the same one.
+   *
+   * With no turn pointed at it takes the newest request that actually DID something, because three
+   * replies of plain chat since then do not change what "that" means.
+   *
+   * It says plainly when it cannot answer. The honest failures are worth more than a plausible story:
+   * nothing recorded, a turn from before 5.3 that has no link, and a turn that did nothing at all.
+   */
+  private whyText(turnId?: number): string {
+    const pointed = Number.isInteger(turnId) && (turnId as number) > 0;
+    let req: string | null;
+    let ex: ReturnType<Memory['exchange']> = null;
+
+    if (pointed) {
+      ex = this.memory.exchange(turnId as number);
+      if (!ex) return `I have no message numbered ${turnId}.`;
+      req = ex.req;
+      if (!req) return `That message is from before I started keeping track of which actions went with which message, so I cannot tell you honestly what I did because of it. I can from now on.`;
+    } else {
+      req = this.actions.lastRequestThatDidSomething();
+      if (!req) return 'I have not done anything on your computer that I have a record of, so there is nothing to explain.';
+    }
+
+    const did = this.actions.forRequest(req);
+    if (!ex) {
+      // Found by action, not by message: get the exchange back from the request id.
+      const row = this.memory.exchangeByRequest(req);
+      ex = row;
+    }
+    if (!did.length) {
+      return ex?.asked
+        ? `I did not do anything on your computer for that one. You asked: "${ex.asked.slice(0, 200)}". I only answered.`
+        : 'I did not do anything on your computer for that one, I only answered.';
+    }
+
+    const lines: string[] = [];
+    if (ex?.asked) lines.push(`You asked: "${ex.asked.slice(0, 300)}"`);
+    lines.push(did.length === 1 ? 'So I did this:' : `So I did ${did.length} things:`);
+    for (const r of did) lines.push('  ' + formatAction(r));
+    if (ex?.replied) lines.push(`Then I told you: "${ex.replied.slice(0, 300)}"`);
+    return lines.join('\n');
   }
 
   private undoLastThing(): { ok: boolean; detail: string } {
@@ -1610,7 +1662,7 @@ export class Core {
       this.toTurn(turn.sub, { t: 'error', id: turn.sub.id, message, next });
       console.error(`turn failed after ${Date.now() - turn.startedAt}ms on ${turn.lane}: ${message}`);
       if (!turn.sub.ephemeral) {
-        const rows = this.memory.saveTurn(turn.sub.text, `[this one did not finish] ${message} ${next}`.trim(), 'failed-' + turn.lane);
+        const rows = this.memory.saveTurn(turn.sub.text, `[this one did not finish] ${message} ${next}`.trim(), 'failed-' + turn.lane, turn.sub.id);
         if (rows) this.toTurn(turn.sub, { t: 'turn.saved', id: turn.sub.id, userTurn: rows.userTurn, aangTurn: rows.aangTurn });
       }
     }
@@ -1701,7 +1753,7 @@ export class Core {
     reply = groundReply(reply, this.turnActions);
     this.toTurn(sub, { t: 'bubble', text: reply, stream: false, id: sub.id, who: MODELS[turn.lane].label, ...(this.pendingList ? { list: this.pendingList } : {}) });
     if (!sub.ephemeral) {
-      const rows = this.memory.saveTurn(sub.text, reply, 'claude-' + turn.lane);
+      const rows = this.memory.saveTurn(sub.text, reply, 'claude-' + turn.lane, sub.id);
       // Which rows the exchange became. Without this the Body has only the submit id, which identifies the
       // request and not the stored turn, so "reply to that one" would have nothing to point at.
       if (rows) this.toTurn(sub, { t: 'turn.saved', id: sub.id, userTurn: rows.userTurn, aangTurn: rows.aangTurn });
