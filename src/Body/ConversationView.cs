@@ -47,6 +47,10 @@ sealed class ConversationView : Control
         public string Time = "";
         public List<string> Lines = new();
         public bool Mine;
+        /// <summary>4.5: the files and links mentioned, as things he can press. Empty for most messages.</summary>
+        public List<Entities.Chip> Chips = new();
+        /// <summary>Where each chip was actually drawn, so a click can be matched to one. Set during paint.</summary>
+        public List<RectangleF> ChipRects = new();
         public int Y, H;
         public int Id;
         public string Text = "";       // the unwrapped original, for Copy and for the pinned chip
@@ -91,6 +95,8 @@ sealed class ConversationView : Control
     public event Action<int, string>? ReplyRequested;      // row id, the text, so the box can quote it
     public event Action<int, string>? PinRequested;
     public event Action<int>? ForgetRequested;
+    /// <summary>4.5: he pressed a file or link chip. The Panel decides what opening it means.</summary>
+    public event Action<Entities.Chip>? ChipPressed;
 
     /// <summary>The message under a point, or null for a divider, a gap, or empty space.</summary>
     Block? BlockAt(int x, int y)
@@ -109,6 +115,13 @@ sealed class ConversationView : Control
     {
         base.OnMouseDown(e);
         Focus();
+        // 4.5: a left click on a chip opens the thing it names. Checked before anything else, because a chip
+        // sits inside a message and the message's own handling would otherwise swallow it.
+        if (e.Button == MouseButtons.Left && !layoutStale)
+        {
+            var chip = ChipAt(e.X, e.Y);
+            if (chip is not null) { ChipPressed?.Invoke(chip); return; }
+        }
         if (e.Button != MouseButtons.Right) return;
         if (layoutStale) return;                       // nothing has been measured yet: no row to name
         var hit = BlockAt(e.X, e.Y);
@@ -116,6 +129,23 @@ sealed class ConversationView : Control
         // A turn with no row id came from somewhere that did not know it. Copy still works; anything that
         // would act on a row stays out, rather than guessing at one and acting on the wrong message.
         ShowMenu(hit, e.Location);
+    }
+
+    /// <summary>
+    /// The chip under a point, or null.
+    /// </summary>
+    /// <remarks>
+    /// ChipRects are stored in SCREEN coordinates as they are drawn, already carrying the scroll offset,
+    /// so this compares against them directly. That is safe because any scroll repaints, and a repaint
+    /// rewrites them - but it is also why they are cleared at the top of each block's paint rather than
+    /// accumulated, since a stale rect would be a button in the wrong place.
+    /// </remarks>
+    Entities.Chip? ChipAt(int x, int y)
+    {
+        foreach (var b in blocks)
+            for (int i = 0; i < b.ChipRects.Count && i < b.Chips.Count; i++)
+                if (b.ChipRects[i].Contains(x, y)) return b.Chips[i];
+        return null;
     }
 
     void ShowMenu(Block b, Point at)
@@ -181,6 +211,8 @@ sealed class ConversationView : Control
     int LabelH => (int)(16 * s);
     int Gap => (int)(10 * s);
     int DividerH => (int)(34 * s);
+    /// <summary>4.5: the row of file and link chips under a message, when it has any.</summary>
+    int ChipRowH => (int)(26 * s);
 
     void Measure(Graphics g)
     {
@@ -205,9 +237,12 @@ sealed class ConversationView : Control
 
             var mine = Mine(t.Who);
             var lines = Wrap(g, t.Text, body, textW);
-            var h = LabelH + lines.Count * lineH + 2 * BubblePad;
+            // 4.5: files and links get a row of chips under the text. Only when there are any, so an
+            // ordinary message is exactly as tall as it was before.
+            var chips = Entities.Find(t.Text);
+            var h = LabelH + lines.Count * lineH + 2 * BubblePad + (chips.Count > 0 ? ChipRowH : 0);
             blocks.Add(new Block { Mine = mine, Label = mine ? "YOU" : "AANG", Time = Clock(when), Lines = lines, Y = y, H = h,
-                                   Id = t.Id, Text = t.Text });
+                                   Id = t.Id, Text = t.Text, Chips = chips });
             y += h + Gap;
         }
         contentH = y + Pad;
@@ -321,6 +356,42 @@ sealed class ConversationView : Control
             {
                 var ty = rect.Y + BubblePad + LabelH;
                 foreach (var line in b.Lines) { g.DrawString(line, body, tb, rect.X + BubblePad, ty, StringFormat.GenericTypographic); ty += lineH; }
+            }
+
+            // 4.5: the chips. Drawn in the message's own ink so they belong to it rather than floating, and
+            // measured into ChipRects as they go, because a click has no Graphics to re-measure with.
+            b.ChipRects.Clear();
+            if (b.Chips.Count > 0)
+            {
+                using var cf = Theme.Font(Theme.Face, 11.5f);
+                var cx = rect.X + BubblePad;
+                var cy = rect.Y + rect.Height - ChipRowH + (int)(2 * s);
+                foreach (var chip in b.Chips)
+                {
+                    var tw = g.MeasureString(chip.Label, cf, PointF.Empty, StringFormat.GenericTypographic).Width;
+                    var cw = tw + (int)(22 * s);
+                    var cr = new RectangleF(cx, cy, cw, ChipRowH - (int)(8 * s));
+                    if (cr.Right > rect.Right - BubblePad) break;      // never run past the message it belongs to
+                    using (var p = Round(cr, 4f * s))
+                    {
+                        using var fill = new SolidBrush(Theme.WithAlpha(b.Mine ? Theme.PlumEdge : Theme.InkDim, 46));
+                        g.FillPath(fill, p);
+                        using var pen = new Pen(Theme.WithAlpha(b.Mine ? Theme.PlumEdge : Theme.InkDim, 150), 1f);
+                        g.DrawPath(pen, p);
+                    }
+                    // A dot for which kind it is: filled for a file, hollow for a link. Shape, not colour,
+                    // because colour already means how something is doing everywhere else in this app.
+                    var dot = new RectangleF(cr.X + 7 * s, cr.Y + cr.Height / 2 - 3 * s, 6 * s, 6 * s);
+                    using (var dp = new Pen(b.Mine ? Theme.PlumEdge : Theme.InkDim, 1.3f))
+                    {
+                        if (chip.Kind == "file") { using var db2 = new SolidBrush(b.Mine ? Theme.PlumEdge : Theme.InkDim); g.FillEllipse(db2, dot); }
+                        else g.DrawEllipse(dp, dot);
+                    }
+                    using (var cb = new SolidBrush(b.Mine ? Theme.Text : Theme.InkText))
+                        g.DrawString(chip.Label, cf, cb, cr.X + 17 * s, cr.Y + (cr.Height - cf.Height) / 2 + 1, StringFormat.GenericTypographic);
+                    b.ChipRects.Add(cr);
+                    cx += cw + (int)(6 * s);
+                }
             }
         }
 

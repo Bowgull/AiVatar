@@ -1557,6 +1557,13 @@ export class Core {
       case 'shutdown': this.onShutdownRequest?.(); break;
       // 4.5: one decision on one job card, from the Panel's stack.
       case 'job.act': this.jobAct(String(m.id ?? ''), String(m.action ?? ''), ws); break;
+      // 4.5: a file or link chip pressed in the Panel. open() asks its own permission and the result is
+      // reported like any other action, so this costs no model turn and skips no gate.
+      case 'open.thing': {
+        const what = String(m.what ?? '').slice(0, 500);
+        if (what) void this.open(what).then(r => this.reportAction('open', { what }, !r.ok, r.detail));
+        break;
+      }
       default: break; // poked, moved, pong: nothing to do yet
     }
   }
