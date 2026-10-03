@@ -822,6 +822,10 @@ export class Core {
   private checkpointTimer: NodeJS.Timeout | null = null;
   private briefTimer: NodeJS.Timeout | null = null;
   private factTimer: NodeJS.Timeout | null = null;
+
+  /** Set by index.ts: what to do when the Body asks the Core to stop. The Core does not decide how the
+   *  process exits, and importing the shutdown path here would be circular. */
+  onShutdownRequest?: () => void;
   private backupTimer: NodeJS.Timeout | null = null;
   private nudgeTimer: NodeJS.Timeout | null = null;
 
@@ -1406,6 +1410,9 @@ export class Core {
       }
       case 'mute': this.setSilent(this.bodyQuiet, m.on === true); break;
       case 'saving': this.policy.setSaving(m.on); { const q = this.quotaMessage(); if (q) this.broadcast(q); } break;
+      // The Body is closing. Set by index.ts, which owns the one shutdown path; a direct import here would
+      // be circular, and the Core should not be deciding how the process exits anyway.
+      case 'shutdown': this.onShutdownRequest?.(); break;
       default: break; // poked, moved, pong: nothing to do yet
     }
   }
