@@ -70,6 +70,20 @@ const SCHEMA = [
      mtime INTEGER NOT NULL, bytes INTEGER NOT NULL, dim INTEGER, vec BLOB )`,
   `CREATE INDEX IF NOT EXISTS docs_mtime ON docs(mtime)`,
   `CREATE VIRTUAL TABLE IF NOT EXISTS docs_fts USING fts5(title, head, path UNINDEXED, doc_id UNINDEXED)`,
+  /*
+   * 7: what keeps coming up, by week.
+   *
+   * One row per name per week, so "twice this week and twice last week" is answerable - which is the
+   * whole point. A single week's popularity list is nearly worthless; the repetition across weeks is
+   * the signal Joshua described ("when harnesses first started coming out... now people are talking
+   * about jev"). `sources` is a comma-separated set, so three mentions all from one place can be told
+   * apart from three mentions in three different places.
+   */
+  `CREATE TABLE IF NOT EXISTS mentions (
+     name TEXT NOT NULL, week TEXT NOT NULL, times INTEGER NOT NULL DEFAULT 1,
+     first_seen TEXT NOT NULL, last_seen TEXT NOT NULL, sources TEXT NOT NULL DEFAULT '',
+     PRIMARY KEY (name, week) )`,
+  `CREATE INDEX IF NOT EXISTS mentions_week ON mentions(week)`,
   `CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT)`,
 ];
 
