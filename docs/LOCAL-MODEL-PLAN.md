@@ -22,6 +22,30 @@ THINK=off node --experimental-strip-types tools/measure/voicerace.mjs <model>
 
 **Local handles jobs up to 4 tool calls. Claude takes 5 or more.**
 
+> **CORRECTED 2026-10-03. That line is true only with THINKING OFF, which is how Aang calls the
+> model - so it was never a limit of the model, it was a limit of how we were using it.**
+>
+> Same model, same card, same test, one switch:
+>
+> | Qwen3.5-35B-A3B | 1 | 2 | 3 | 4 | 5 steps |
+> |---|---|---|---|---|---|
+> | `THINK=off` (as Aang runs it) | 3/3 | 3/3 | 3/3 | 3/3 | **0/3** |
+> | thinking on | 5/5 | 5/5 | 5/5 | 5/5 | **5/5** |
+>
+> Timed on the five-step job: thinking on takes **50 seconds and calls all five tools in order**;
+> thinking off takes **4 seconds, calls four, and stops before the last one** - then replies as if it
+> had finished, which is the failure described below.
+>
+> So the five-step work currently handed to Claude CAN be done locally, for nothing, at about fifty
+> seconds a job. That is a real quota saving and it needs no new model: Hermes-4-14B was raced for
+> this and is not needed - it also passes five steps, but it is 8x slower and it failed the TWO-step
+> job 0/5 by inventing an answer without calling a tool at all.
+>
+> **Not yet acted on - it changes the architecture, which is Joshua's call.** The open problem is that
+> the step count is not known before the job starts, so "use thinking for 5+ steps" cannot be a rule
+> decided in advance. And fifty seconds is a long time to sit in front of a bubble, so this probably
+> belongs to background and proactive work rather than to a turn he is waiting on.
+
 That line was measured three separate times. It is not a judgement call, and it must be
 enforced in code, because of how the failure looks (see "The failure mode" below).
 
