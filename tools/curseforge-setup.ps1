@@ -51,8 +51,13 @@ try {
 }
 Write-Host ' it works.' -ForegroundColor Green
 
-@{ apiKey = $key; gameId = 1; savedAt = (Get-Date).ToString('o') } |
-    ConvertTo-Json | Set-Content -Path $store -Encoding utf8
+# WriteAllText with an explicit no-BOM encoding, NOT Set-Content -Encoding utf8.
+#
+# Windows PowerShell 5.1 writes a byte order mark when told "utf8", and Node's JSON.parse refuses a
+# file that starts with one - so the key saved fine, said "it works", and then Aang could not read it
+# (2026-10-03, caught on the first real run). Every other store Aang keeps is plain UTF-8.
+$json = @{ apiKey = $key; gameId = 1; savedAt = (Get-Date).ToString('o') } | ConvertTo-Json
+[System.IO.File]::WriteAllText($store, $json, (New-Object System.Text.UTF8Encoding($false)))
 
 # Readable by this Windows user only - the same treatment google.json and simkl.json get.
 $acl = Get-Acl $store
