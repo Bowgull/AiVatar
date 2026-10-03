@@ -1135,12 +1135,15 @@ scan, the explaining, the screen-looking, the suggestions from the research loop
    button that opens the CurseForge page. Shares the card format with the rest of Phase 7.
 6. **Suggestions**, through the research loop's existing filter rather than a second one.
 
-### Open question
+### Settled
 
-Whether "first startup" means when Aang starts, or when WoW starts. Aang already knows when WoW
-launches (`gpu.ts` watches for the game), so the second is possible and is probably what he meant -
-being told about addons while actually sitting at the game is more useful than being told at 9am.
-Confirm before building.
+**"When Aang starts"** - his answer, 2026-10-03, asked directly. Not when WoW launches, which was my
+guess and was wrong. So the scan runs once at Aang's startup and the result is held; it does not
+re-check when the game opens.
+
+**Applying for the key is his to do.** Drafted in full at `docs/CURSEFORGE-API-APPLICATION.md`,
+ready to paste. He asked me to submit it; I did not, because it is an application in his name that
+accepts a Terms of Service on his behalf.
 
 ---
 
