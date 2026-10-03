@@ -208,7 +208,8 @@ sealed class PetWindow : Form
             else if (a.Equals("--bubble-test=long", StringComparison.OrdinalIgnoreCase)) bubbleTest = "long";
             else if (a.Equals("--bubble-test=ask", StringComparison.OrdinalIgnoreCase)) bubbleTest = "ask";
             else if (a.Equals("--bubble-test=consent", StringComparison.OrdinalIgnoreCase)) bubbleTest = "consent";
-            else if (a.Equals("--bubble-test=consent-long", StringComparison.OrdinalIgnoreCase)) bubbleTest = "consent-long";
+            else if (a.Equals("--bubble-test=consent-long", StringComparison.OrdinalIgnoreCase)) bubbleTest = "consent-long";
+            else if (a.Equals("--bubble-test=always-long", StringComparison.OrdinalIgnoreCase)) bubbleTest = "always-long";   // tests: a button label wider than the bubble
             else if (a.Equals("--bubble-test=think", StringComparison.OrdinalIgnoreCase)) bubbleTest = "think";
             else if (a.Equals("--bubble-test=input", StringComparison.OrdinalIgnoreCase)) bubbleTest = "input";
             else if (a.Equals("--done-icon=q", StringComparison.OrdinalIgnoreCase)) doneIcon = "q";             // preview: WoW's turn-in "?" for done
@@ -361,6 +362,14 @@ sealed class PetWindow : Form
                 bubble.VerbLabel = longVerb ? "Start Claude on the job hunt" : "Open Chrome";
                 bubble.AlwaysLabel = longVerb ? "Always start Claude sessions for you" : "Always allow apps";
                 bubble.Asking = true; Wake(); dirty = true;
+                return;
+            }
+            if (bubbleTest == "always-long")
+            {
+                // Deliberately absurd, to prove the clamp rather than the current wording. The real label
+                // was shortened at source, but nothing stops a future one being long again.
+                OnPermission("test", "write to .../Documents/TikTok_Cogni_Transcript.txt",
+                    "write and change files on this computer including anything in Documents, keeping the old version so it can always be undone");
                 return;
             }
             var ask = bubbleTest == "ask" ? "whats on my screen right now" : "whats up";

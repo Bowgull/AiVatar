@@ -102,7 +102,11 @@ export function kindOf(tool: string, input: Record<string, unknown>): { kind: st
     case 'mcp__aang__start_claude': return { kind: 'start Claude sessions', says: 'start Claude sessions for you' };
     // Asked once, then trusted (his call, 2026-09-21). Every file change keeps the old version, so it can be undone.
     case 'mcp__aang__write_file': case 'mcp__aang__edit_file': case 'mcp__aang__undo_file_change':
-      return { kind: 'write files', says: 'write and change files (I keep the old version so it can be undone)' };
+      // `says` becomes a BUTTON LABEL ("Always " + says), so it has to be a short phrase. It used to carry
+      // the reassurance about keeping old versions, which made a button wider than the bubble and drew it
+      // off the frame (2026-10-03, from Joshua's screenshot). The reassurance belongs in the sentence
+      // above the buttons, not on one of them.
+      return { kind: 'write files', says: 'write and change files' };
     // Tidying is asked once; every change can be undone and nothing is overwritten. Deleting is deliberately absent:
     // mcp__aang__delete_file asks every single time.
     case 'mcp__aang__move_file': case 'mcp__aang__copy_file': case 'mcp__aang__make_folder':

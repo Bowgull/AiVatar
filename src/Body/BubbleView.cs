@@ -1147,23 +1147,37 @@ sealed class BubbleView : IDisposable
         g.TextRenderingHint = TextRenderingHint.SingleBitPerPixelGridFit;
         float MeasureW(string label) => g.MeasureString(label, f, PointF.Empty, StringFormat.GenericTypographic).Width + 24;
 
+        // No button may be wider than the bubble it is in. Stacking puts each choice on its own ROW, which
+        // does nothing for a single label that is wider than the whole frame - and "Always write and change
+        // files (I keep the old version so it can be undone)" is exactly that, so it drew straight off the
+        // right-hand edge (2026-10-03, from Joshua's screenshot). The label is cut to fit instead.
+        var roomForButton = Right - 8 - TextXNow;
+        string Fit(string label)
+        {
+            if (label.Length == 0 || MeasureW(label) <= roomForButton) return label;
+            return Clip(label, roomForButton - 24, t => g.MeasureString(t, f, PointF.Empty, StringFormat.GenericTypographic).Width);
+        }
+
         var topY = Bottom - Pad - ChoiceH - (AskRows - 1) * (ChoiceH + ChoiceGap);
-        var verbW = MeasureW(VerbLabel);
-        var notW = MeasureW(DeclineLabel);
+        var verbText = Fit(VerbLabel);
+        var declineText = Fit(DeclineLabel);
+        var verbW = MeasureW(verbText);
+        var notW = MeasureW(declineText);
         float RowY(int row) => topY + row * (ChoiceH + ChoiceGap);
 
         choiceRects[0] = new RectangleF(TextXNow, RowY(0), verbW, ChoiceH);
-        DrawChoice(g, f, choiceRects[0], VerbLabel, Theme.Gold, Theme.GoldDeep, Theme.GoldLight, Theme.Ink, primary: true);
+        DrawChoice(g, f, choiceRects[0], verbText, Theme.Gold, Theme.GoldDeep, Theme.GoldLight, Theme.Ink, primary: true);
         choiceRects[1] = stacked
             ? new RectangleF(TextXNow, RowY(1), notW, ChoiceH)
             : new RectangleF(TextXNow + verbW + ChoiceGap, RowY(0), notW, ChoiceH);
-        DrawChoice(g, f, choiceRects[1], DeclineLabel, Theme.Plum, Theme.PlumDeep, Theme.PlumEdge, Theme.Text, primary: false);
+        DrawChoice(g, f, choiceRects[1], declineText, Theme.Plum, Theme.PlumDeep, Theme.PlumEdge, Theme.Text, primary: false);
 
         if (AlwaysLabel.Length > 0)
         {
-            var alwaysW = MeasureW(AlwaysLabel);
+            var alwaysText = Fit(AlwaysLabel);
+            var alwaysW = MeasureW(alwaysText);
             choiceRects[2] = new RectangleF(TextXNow, RowY(stacked ? 2 : 1), alwaysW, ChoiceH);
-            DrawChoice(g, f, choiceRects[2], AlwaysLabel, Theme.Orange, Theme.OrangeDeep, Theme.OrangeDeep, Theme.Ink, primary: false);
+            DrawChoice(g, f, choiceRects[2], alwaysText, Theme.Orange, Theme.OrangeDeep, Theme.OrangeDeep, Theme.Ink, primary: false);
         }
         else choiceRects[2] = RectangleF.Empty;
         g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
