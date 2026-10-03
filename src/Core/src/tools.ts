@@ -11,6 +11,7 @@ import { pastDay, utcRangeOf } from './resurface.ts';
 import { cleanField, safeUrl, scoreOf, verdictFor } from './jobs.ts';
 import type { Rubric } from './jobs.ts';
 import type { ChipTone, ListIcon, StructuredList } from './protocol.ts';
+import { plainCommand, stripScaffolding } from './plain.ts';
 
 const TZ = 'America/Toronto';
 const LAT = 43.65, LON = -79.38; // Toronto, from Joshua's profile
@@ -371,9 +372,14 @@ export function describeCall(tool: string, input: Record<string, unknown>): stri
     // On Windows the shell tool is PowerShell, not Bash. Missing it meant the question read "use
     // PowerShell" with no command in it - Joshua would have been approving something he could not see.
     case 'Bash': case 'PowerShell': {
-      // a leading `cd somewhere &&` is scaffolding, not the thing he is agreeing to
-      const cmd = s('command').replace(/^\s*cd\s+[^&]+&&\s*/i, '').trim();
-      return `run ${short(cmd, 70)}`;
+      // Lead with what it MEANS. "Can I run Get-ChildItem -Path ... | Where-Object {...}?" is a
+      // question he cannot answer, and a question nobody can answer is not a safeguard - it teaches
+      // him to click the button to make it go away (his words, 2026-10-03: "im just seeing gibberish").
+      // The exact text is not dropped: it rides along in meansOf, underneath, where he can read it.
+      const plain = plainCommand(s('command'));
+      if (plain) return plain;
+      const cmd = stripScaffolding(s('command'));
+      return `run this: ${short(cmd, 70)}`;
     }
     case 'Write': return `write to ${short(s('file_path'), 60)}`;
     case 'Edit': case 'NotebookEdit': return `change ${short(s('file_path') || s('notebook_path'), 60)}`;
@@ -386,11 +392,11 @@ export function describeCall(tool: string, input: Record<string, unknown>): stri
     case 'mcp__aang__read_window': return `read what is in ${short(s('app'), 60)}`;
     case 'mcp__aang__look_at_window': return `take a picture of ${short(s('app'), 60)}`;
     case 'mcp__aang__start_claude': return `start Claude on the ${short(s('name') || 'task', 40)}`;
-    case 'mcp__aang__run': return `run ${short(s('command'), 70)}`;
+    case 'mcp__aang__run': { const p = plainCommand(s('command')); return p ? p : `run this: ${short(stripScaffolding(s('command')), 70)}`; }
     case 'mcp__aang__move_file': return `move ${short(s('from'), 40)} to ${short(s('to'), 40)}`;
     case 'mcp__aang__copy_file': return `copy ${short(s('from'), 40)} to ${short(s('to'), 40)}`;
     case 'mcp__aang__make_folder': return `make the folder ${short(s('path'), 60)}`;
-    case 'mcp__aang__delete_file': return `DELETE ${short(s('path'), 60)} (kept in my trash for 30 days, so it can be undone)`;
+    case 'mcp__aang__delete_file': return `DELETE ${short(s('path'), 60)}`;   // the 30-day bin is explained underneath now, not twice
     case 'mcp__aang__copy_to_clipboard': return `put ${short(s('text'), 40)} on your clipboard, replacing what is there`;
     case 'mcp__aang__list_controls': return `look at the buttons and fields in ${short(s('app'), 40)}`;
     case 'mcp__aang__press_control': return `press "${short(s('name'), 50)}" in ${short(s('app'), 30)}${input?.careful ? ' (I ask every time for this)' : ''}`;

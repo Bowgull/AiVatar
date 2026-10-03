@@ -10,6 +10,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { writeFileAtomic } from './atomic.ts';
+import { plainProgram } from './plain.ts';
 
 export interface TrustRecord {
   kind: string;
@@ -63,7 +64,22 @@ export class TrustStore {
 
 /** The first word of a shell command: the program being run, which is what gets trusted. */
 export function programOf(command: string): string {
-  const cleaned = (command ?? '').trim().replace(/^\s*cd\s+[^&]+&&\s*/i, '').trim();
+  // Strip the "go to this folder first" scaffolding, which is not the thing he is agreeing to.
+  //
+  // This used to strip `cd somewhere &&` only, and on this machine that is the one form that never
+  // appears: the shell is PowerShell 5.1, which has no `&&` at all, so every real command is written
+  // `cd somewhere; git status`. The result was a trusted kind called "run cd" - meaningless to read,
+  // and far too broad, because "always allow run cd" would have waved through anything at all that
+  // began by changing folder. Seen five times in his own log before it was noticed (2026-10-03).
+  //
+  // Looped, because `cd one; cd two; git status` is a shape the model does produce.
+  let cleaned = (command ?? '').trim();
+  for (let i = 0; i < 4; i++) {
+    const next = cleaned.replace(/^\s*(?:cd|pushd|set-location|sl)\s+(?:"[^"]*"|'[^']*'|[^;&\r\n]+)\s*(?:;|&&|\r?\n)\s*/i, '');
+    if (next === cleaned) break;
+    cleaned = next;
+  }
+  cleaned = cleaned.trim();
   // A quoted path comes first and may contain spaces: "C:/Program Files/Git/bin/git.exe" is one token,
   // and splitting on whitespace made the trusted program "program".
   const quoted = cleaned.match(/^"([^"]+)"/) ?? cleaned.match(/^'([^']+)'/);
@@ -87,8 +103,12 @@ export function kindOf(tool: string, input: Record<string, unknown>): { kind: st
       const program = programOf(s('command'));
       if (!program) return null;
       // Things that delete or install are never trusted in advance, however often he says yes.
-      if (/^(rm|del|rmdir|rd|format|diskpart|reg|shutdown|takeown|icacls|winget|choco|npm|pip|curl|wget)$/.test(program)) return null;
-      return { kind: `run ${program}`, says: `run ${program} commands` };
+      // Added stop-process/taskkill/kill 2026-10-03: force-quitting loses whatever was unsaved in the
+      // program, which belongs with deleting and installing rather than with listing a folder.
+      if (/^(rm|del|rmdir|rd|format|diskpart|reg|shutdown|takeown|icacls|winget|choco|npm|pip|curl|wget|stop-process|taskkill|kill)$/.test(program)) return null;
+      // The CATEGORY stays the exact program name - it is a security boundary. Only the wording he reads
+      // on the button is made plain. See plainProgram.
+      return { kind: `run ${program}`, says: plainProgram(program) || `run ${program} commands` };
     }
     case 'mcp__aang__open': {
       const what = s('what');
