@@ -124,7 +124,8 @@ sealed class PetWindow : Form
     double weekUse, fiveUse, weekResetsAt, fiveResetsAt;      // resets are unix seconds, 0 when unknown
     string level = "ok";
     string? lastText, consentText, replyId, permissionId;
-    int? factId;   // a fact from one of his documents, waiting on yes or no
+    int? factId;   // a fact from one of his documents, waiting on yes or no
+    bool backupAsk;  // the vault backup offer is on screen
     string consentWanted = "", pendingMode = "smart";
 
     protected override CreateParams CreateParams
@@ -497,6 +498,9 @@ sealed class PetWindow : Form
                 case "consent":
                     OnConsent(Str(m, "wanted") ?? "smart");
                     break;
+                case "backup.ask":
+                    OnBackupAsk(m);
+                    break;
                 case "fact.ask":
                     OnFactAsk(m);
                     break;
@@ -985,6 +989,7 @@ sealed class PetWindow : Form
         var choice = bubble.HitChoice(bp.X, bp.Y);
         // The same two buttons answer two different questions. A fact being offered is not a permission:
         // it has no "always", because the answer is about one claim rather than a standing rule.
+        if (choice >= 0 && backupAsk) { AnswerBackup(choice == 0); dirty = true; return; }
         if (choice >= 0 && factId != null) { AnswerFact(choice == 0); dirty = true; return; }
         if (choice >= 0) { AnswerPermission(choice switch { 0 => "once", 2 => "always", _ => "no" }); dirty = true; return; }
         var tool = bubble.HitTool(bp.X, bp.Y);
@@ -1323,6 +1328,37 @@ sealed class PetWindow : Form
         bubble.AlwaysLabel = "";              // no standing rule: this is about one claim
         bubble.Asking = true;
         anim.Play("look"); dirty = true;
+    }
+
+    /// <summary>
+    /// The vault has changes and has not been saved for a few days. Offered, never done unasked.
+    ///
+    /// "Not now" is the honest word here, unlike on a fact: declining really does mean later, and the Core
+    /// waits half a day before raising it again.
+    /// </summary>
+    void OnBackupAsk(JsonElement m)
+    {
+        if (hiddenByUser || cfg.Muted) { _ = link.SendAsync(new { t = "backup.reply", now = false }); return; }
+        var days = m.TryGetProperty("days", out var dp) && dp.TryGetInt32(out var dn) ? dn : 3;
+        backupAsk = true;
+        if (peeking) Reveal();
+        Wake(); ExitExpanded(collapse: false);
+        bubble.Show($"Your vault has changes and has not been backed up for {days} days. Save it to GitHub?", false, 180000);
+        bubble.Asked = "";
+        bubble.VerbLabel = "Back it up";
+        bubble.AlwaysLabel = "";
+        bubble.Asking = true;
+        anim.Play("look"); dirty = true;
+    }
+
+    void AnswerBackup(bool now)
+    {
+        backupAsk = false;
+        _ = link.SendAsync(new { t = "backup.reply", now });
+        bubble.Asking = false;
+        if (now) { bubble.ShowDots(); anim.Play("think"); }
+        else bubble.Show("Alright, later.", false, 2000);
+        dirty = true;
     }
 
     void AnswerFact(bool keep)

@@ -38,6 +38,7 @@ import type { JobKind, Launched } from './claude.ts';
 import { consolidate } from './consolidate.ts';
 import { TrustStore, kindOf } from './trust.ts';
 import { launch, openedText, resolve as resolveOpen } from './open.ts';
+import { vaultState, backupVault } from './backup-vault.ts';
 import { runCommand } from './run.ts';
 import { buildSystemPrompt, lint, stripReasoning } from './voice.ts';
 import { MAX_SEND_BYTES, clock, mimeOf, statusText, whyNotSend } from './phone.ts';
@@ -821,6 +822,7 @@ export class Core {
   private checkpointTimer: NodeJS.Timeout | null = null;
   private briefTimer: NodeJS.Timeout | null = null;
   private factTimer: NodeJS.Timeout | null = null;
+  private backupTimer: NodeJS.Timeout | null = null;
   private nudgeTimer: NodeJS.Timeout | null = null;
 
   /** Say back what he told Aang about today, once each, at most three a day. Returns what was said (tests). */
@@ -1024,6 +1026,10 @@ export class Core {
     // more than the same question later.
     this.factTimer = setInterval(() => this.offerFact(), 5 * 60_000);
     this.factTimer.unref?.();
+    // The vault backup check. Hourly is plenty for a three-day threshold, and offerBackup() decides
+    // whether now is a reasonable moment to ask at all.
+    this.backupTimer = setInterval(() => { void this.offerBackup(); }, 60 * 60_000);
+    this.backupTimer.unref?.();
     this.briefTimer.unref?.();
     // Only when relevant (Joshua, 2026-09-21): a day he named has come, so what he said about it comes back. No model.
     this.nudgeTimer = setInterval(() => { this.nudge(); this.checkStaleLaunches(); }, 10 * 60_000);
@@ -1053,6 +1059,7 @@ export class Core {
     if (this.checkpointTimer) clearInterval(this.checkpointTimer);
     if (this.briefTimer) clearInterval(this.briefTimer);
     if (this.factTimer) clearInterval(this.factTimer);
+    if (this.backupTimer) clearInterval(this.backupTimer);
     if (this.nudgeTimer) clearInterval(this.nudgeTimer);
     this.reminders.stop();
     await this.hookServer?.stop(); this.hookServer = null;
@@ -1324,6 +1331,7 @@ export class Core {
         break;
       }
       case 'fact.reply': this.answerFact(m.id, m.keep); break;
+      case 'backup.reply': this.answerBackup(m.now); break;
       case 'unforget.turn':
         if (typeof m.id === 'number') this.memory.unhideTurn(m.id);
         break;
@@ -1749,6 +1757,41 @@ export class Core {
       fromDoc: next.fromDoc.split(/[\\/]/).pop() ?? '',
       left,
     });
+  }
+
+  /** True while the backup question is on screen, so it is asked once rather than every check. */
+  private askingBackup = false;
+  /** When he last said no. Declining means "not now", so it comes back, but not in ten minutes. */
+  private backupDeclinedAt = 0;
+
+  /**
+   * Offer to back up the vault, if it has changes and has not been saved for a few days.
+   *
+   * Only when there is something to save: a vault nobody has touched for a week does not need backing up,
+   * it needs leaving alone. And never into a game, for the same reason nothing else is.
+   */
+  async offerBackup(): Promise<void> {
+    if (this.askingBackup || this.askingFact !== null || this.active) return;
+    if (this.muted || this.bodyQuiet) return;
+    if (this.hushUntil > Date.now()) return;
+    if (Date.now() - this.backupDeclinedAt < 12 * 3_600_000) return;    // he said not now; mean it
+    const state = await vaultState();
+    if (!state.due) return;
+    this.askingBackup = true;
+    this.sendTo('desktop', { t: 'backup.ask', days: Math.floor(state.days), changed: 0 });
+  }
+
+  /** Yes backs it up and says what happened; no waits half a day before asking again. */
+  private answerBackup(now: unknown): void {
+    if (!this.askingBackup) return;
+    this.askingBackup = false;
+    if (now !== true) { this.backupDeclinedAt = Date.now(); return; }
+    void backupVault()
+      .then(r => {
+        this.announce(r.detail, { asked: true });
+        this.actions.add({ tool: 'backup', did: r.detail.slice(0, 90), ok: r.ok, note: '' });
+      })
+      .catch(e => this.announce(`I could not back up your vault: ${(e as Error).message}`, { asked: true }));
   }
 
   /** His answer about one fact. Yes keeps it, no deletes it, and either way the next one can be offered. */
