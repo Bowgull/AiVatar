@@ -501,7 +501,7 @@ anything to learn from. The documents are the unlock, not the machinery.
 
 ---
 
-### `[ ]` 3.1 Wire in the local model
+### `[x]` 3.1 Wire in the local model  **DONE 2026-10-02 (3cd6422)**
 
 Model: `hf.co/unsloth/Qwen3.5-35B-A3B-GGUF:UD-IQ3_XXS`, already installed, 13 GB, runs
 fully on the GPU at 47.6 words/sec. It won a measured race against three alternatives.
@@ -524,7 +524,7 @@ Full results and the traps in `LOCAL-MODEL-PLAN.md`.
 
 ---
 
-### `[ ]` 3.2 The WoW rule
+### `[x]` 3.2 The WoW rule  **DONE 2026-10-02 (696604a)**
 
 **[verified]** `screen.ts:83` already detects the game by process name (`wow`, `wowb`,
 `wow-64`, plus Overwatch, Diablo, Valorant). The detection exists; nothing uses it for
@@ -537,7 +537,7 @@ reading resumes on quit.
 
 ---
 
-### `[ ]` 3.3 Read the documents
+### `[~]` 3.3 Read the documents  **HALF DONE 2026-10-02 (82800da)**
 
 An overnight batch job: read each document, extract durable facts, write them to the facts
 table for your approval.
