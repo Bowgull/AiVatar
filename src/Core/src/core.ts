@@ -820,6 +820,7 @@ export class Core {
   private hookServer: HookServer | null = null;
   private checkpointTimer: NodeJS.Timeout | null = null;
   private briefTimer: NodeJS.Timeout | null = null;
+  private factTimer: NodeJS.Timeout | null = null;
   private nudgeTimer: NodeJS.Timeout | null = null;
 
   /** Say back what he told Aang about today, once each, at most three a day. Returns what was said (tests). */
@@ -1017,6 +1018,12 @@ export class Core {
     this.reminders.start();
     // Once a day, after 7:00 Toronto time, the morning brief is posted on its own (no model, no quota). Only when signed in.
     this.briefTimer = setInterval(() => { void this.mail()?.dailyBrief().then(t => { if (t) this.announce(t); }).catch(() => { /* tried again in ten minutes */ }); }, 10 * 60_000);
+    // Facts read out of his documents, offered one at a time when he is not busy and not in a game.
+    // offerFact() does the deciding; this only gives it a chance to. Five minutes because none of these
+    // is urgent - they came out of documents he already has - and a question at a bad moment costs far
+    // more than the same question later.
+    this.factTimer = setInterval(() => this.offerFact(), 5 * 60_000);
+    this.factTimer.unref?.();
     this.briefTimer.unref?.();
     // Only when relevant (Joshua, 2026-09-21): a day he named has come, so what he said about it comes back. No model.
     this.nudgeTimer = setInterval(() => { this.nudge(); this.checkStaleLaunches(); }, 10 * 60_000);
@@ -1045,6 +1052,7 @@ export class Core {
     if (this.permission) this.answerPermission(this.permission.id, 'no');
     if (this.checkpointTimer) clearInterval(this.checkpointTimer);
     if (this.briefTimer) clearInterval(this.briefTimer);
+    if (this.factTimer) clearInterval(this.factTimer);
     if (this.nudgeTimer) clearInterval(this.nudgeTimer);
     this.reminders.stop();
     await this.hookServer?.stop(); this.hookServer = null;
@@ -1315,6 +1323,7 @@ export class Core {
         }
         break;
       }
+      case 'fact.reply': this.answerFact(m.id, m.keep); break;
       case 'unforget.turn':
         if (typeof m.id === 'number') this.memory.unhideTurn(m.id);
         break;
@@ -1713,6 +1722,49 @@ export class Core {
    *  which always phrases it this way. Scoped to job news only (jobCwd set): the word could appear in ordinary
    *  chat with no such meaning. */
   private static readonly DONE = /\b(done|finished)\.\s/i;
+
+  /**
+   * The fact currently being asked about, so a reply can be matched and two are never asked at once.
+   */
+  private askingFact: number | null = null;
+
+  /**
+   * Offer one pending fact for approval, if now is a reasonable moment.
+   *
+   * ONE AT A TIME, and never unprompted into a game. These came out of his own documents, so none of them
+   * is urgent; the cost of asking at a bad moment is far higher than the cost of asking later. The same
+   * rule the rest of the proactive system follows, for the same reason.
+   */
+  offerFact(): void {
+    if (this.askingFact !== null) return;                 // one question at a time
+    if (this.active) return;                              // he is mid-answer
+    if (this.muted || this.bodyQuiet) return;             // in a game, or silenced
+    if (this.hushUntil > Date.now()) return;
+    const next = this.memory.pendingFacts(1)[0];
+    if (!next) return;
+    this.askingFact = next.id;
+    const left = this.memory.pendingCount();
+    this.sendTo('desktop', {
+      t: 'fact.ask', id: next.id, text: next.text,
+      fromDoc: next.fromDoc.split(/[\\/]/).pop() ?? '',
+      left,
+    });
+  }
+
+  /** His answer about one fact. Yes keeps it, no deletes it, and either way the next one can be offered. */
+  private answerFact(id: unknown, keep: unknown): void {
+    if (typeof id !== 'number' || this.askingFact !== id) return;
+    this.askingFact = null;
+    if (keep === true) {
+      const f = this.memory.approveFact(id);
+      if (f) this.actions.add({ tool: 'remember', did: `learned "${f.text.slice(0, 70)}" from a document`, ok: true, note: '' });
+    } else {
+      this.memory.binPending(id);
+    }
+    // The next one, after a pause. Back to back questions read as an interrogation, which is how a useful
+    // feature becomes one he turns off.
+    setTimeout(() => this.offerFact(), 45_000).unref?.();
+  }
 
   announce(text: string, opts: { asked?: boolean; focus?: string; jobCwd?: string; image?: { data: string; mimeType: string }; blocking?: boolean; done?: boolean; host?: 'mac' } = {}): void {
     // Whatever is said last is what a reply is most likely about, whether it lands now or only once hush/quiet
