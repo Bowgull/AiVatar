@@ -192,6 +192,9 @@ export type FromBody =
   /** Yes this is true and worth keeping, or no it is not. Applies to this one fact. */
   | { t: 'fact.reply'; id: number; keep: boolean }
   | { t: 'backup.reply'; now: boolean }
+  /** The Body is closing and is asking the Core to stop cleanly. Windows cannot send a real SIGTERM
+   *  from .NET, so this socket is the only way to ask politely rather than terminate. */
+  | { t: 'shutdown' }
   | { t: 'unforget.turn'; id: number }
   | { t: 'history'; q?: string;
       /** Only turns older than this row, so the bubble can page backwards for as long as he keeps scrolling. */
