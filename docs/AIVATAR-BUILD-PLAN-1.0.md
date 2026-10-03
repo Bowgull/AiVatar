@@ -537,7 +537,7 @@ reading resumes on quit.
 
 ---
 
-### `[~]` 3.3 Read the documents  **HALF DONE 2026-10-02 (82800da)**
+### `[x]` 3.3 Read the documents  **DONE 2026-10-02 (82800da, 8a5b31e, 93cbba6)**
 
 An overnight batch job: read each document, extract durable facts, write them to the facts
 table for your approval.
