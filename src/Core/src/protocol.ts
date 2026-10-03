@@ -89,6 +89,14 @@ export type ToBody =
   | { t: 'consent'; id: string; wanted: Mode }
   /** remembers, when set, is the standing-trust category (e.g. "open apps") that "Always allow" would grant. */
   | { t: 'permission'; id: string; tool: string; question: string; remembers?: string }
+  /**
+   * Something the local model read in one of Joshua's documents, offered for approval.
+   *
+   * Deliberately NOT a permission: a permission asks to do a thing and can be remembered as a standing
+   * yes, which is the wrong shape entirely. This asks whether a claim is true, the answer applies to that
+   * one fact, and nothing is remembered as a rule.
+   */
+  | { t: 'fact.ask'; id: number; text: string; fromDoc: string; left: number }
   | { t: 'clipboard.request'; id: string }
   | { t: 'look.request'; id: string }
   /** A file or picture for Discord (base64). Only the Discord connection is sent these. */
@@ -179,6 +187,8 @@ export type FromBody =
   | { t: 'forget.fact'; id: number }
   /** Forget one turn of the conversation. Hidden, not deleted, so 'turn.unforget' can undo it. */
   | { t: 'forget.turn'; id: number }
+  /** Yes this is true and worth keeping, or no it is not. Applies to this one fact. */
+  | { t: 'fact.reply'; id: number; keep: boolean }
   | { t: 'unforget.turn'; id: number }
   | { t: 'history'; q?: string;
       /** Only turns older than this row, so the bubble can page backwards for as long as he keeps scrolling. */

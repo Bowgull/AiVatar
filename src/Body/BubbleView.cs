@@ -204,6 +204,18 @@ sealed class BubbleView : IDisposable
     bool asking;
     /// <summary>The verb button's own words (e.g. "Open Chrome"), not a generic "Yes" - StyleLab 2026-09-22.</summary>
     public string VerbLabel { get; set; } = "Do it";
+
+    /// <summary>
+    /// What the declining button says.
+    /// </summary>
+    /// <remarks>
+    /// "Not now" is right for a permission, where saying no leaves the door open and he can be asked again.
+    /// It was wrong for a fact offered from one of his documents, where declining DELETES the claim. Caught
+    /// by looking at the capture on 2026-10-02: the button promised one thing and the code did another.
+    /// A button has to say what it does.
+    /// </remarks>
+    public string DeclineLabel { get; set; } = NotNow;
+    public const string NotNow = "Not now";
     /// <summary>Set only when this kind of thing can be trusted from now on. Empty means the once/not-now pair
     /// is the whole choice - the third row never appears, same shape as the old Yes/No.</summary>
     public string AlwaysLabel { get; set; } = "";
@@ -335,7 +347,7 @@ sealed class BubbleView : IDisposable
         lines = Wrap(text);
         coreStreaming = stream; holdAfter = holdMs;
         streaming = stream || Revealing;
-        expanded = false; scrollback = false; scroll = 0; Tools = false; Rating = 0; CopiedUntil = default; Asking = false;
+        expanded = false; scrollback = false; scroll = 0; Tools = false; Rating = 0; CopiedUntil = default; Asking = false; DeclineLabel = NotNow;
         Visible = true;
         targetH = HeightFor(Math.Min(lines.Count, CollapsedLines));
         if (shownH <= 0) shownH = targetH * 0.55f;
@@ -1110,7 +1122,7 @@ sealed class BubbleView : IDisposable
     /// its own row instead of letting the row run past the frame.</summary>
     void LayoutChoices()
     {
-        var verbW = ButtonW(VerbLabel); var notW = ButtonW("Not now");
+        var verbW = ButtonW(VerbLabel); var notW = ButtonW(DeclineLabel);
         var alwaysW = AlwaysLabel.Length > 0 ? ButtonW(AlwaysLabel) : 0f;
         var row1 = verbW + ChoiceGap + notW;
         if (row1 <= MaxTextW && alwaysW <= MaxTextW) { stacked = false; return; }
@@ -1137,7 +1149,7 @@ sealed class BubbleView : IDisposable
 
         var topY = Bottom - Pad - ChoiceH - (AskRows - 1) * (ChoiceH + ChoiceGap);
         var verbW = MeasureW(VerbLabel);
-        var notW = MeasureW("Not now");
+        var notW = MeasureW(DeclineLabel);
         float RowY(int row) => topY + row * (ChoiceH + ChoiceGap);
 
         choiceRects[0] = new RectangleF(TextXNow, RowY(0), verbW, ChoiceH);
@@ -1145,7 +1157,7 @@ sealed class BubbleView : IDisposable
         choiceRects[1] = stacked
             ? new RectangleF(TextXNow, RowY(1), notW, ChoiceH)
             : new RectangleF(TextXNow + verbW + ChoiceGap, RowY(0), notW, ChoiceH);
-        DrawChoice(g, f, choiceRects[1], "Not now", Theme.Plum, Theme.PlumDeep, Theme.PlumEdge, Theme.Text, primary: false);
+        DrawChoice(g, f, choiceRects[1], DeclineLabel, Theme.Plum, Theme.PlumDeep, Theme.PlumEdge, Theme.Text, primary: false);
 
         if (AlwaysLabel.Length > 0)
         {
