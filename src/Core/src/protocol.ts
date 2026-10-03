@@ -97,6 +97,8 @@ export type ToBody =
    * one fact, and nothing is remembered as a rule.
    */
   | { t: 'fact.ask'; id: number; text: string; fromDoc: string; left: number }
+  /** The vault has changes and has not been backed up for a while. Offered, never done unasked. */
+  | { t: 'backup.ask'; days: number; changed: number }
   | { t: 'clipboard.request'; id: string }
   | { t: 'look.request'; id: string }
   /** A file or picture for Discord (base64). Only the Discord connection is sent these. */
@@ -189,6 +191,7 @@ export type FromBody =
   | { t: 'forget.turn'; id: number }
   /** Yes this is true and worth keeping, or no it is not. Applies to this one fact. */
   | { t: 'fact.reply'; id: number; keep: boolean }
+  | { t: 'backup.reply'; now: boolean }
   | { t: 'unforget.turn'; id: number }
   | { t: 'history'; q?: string;
       /** Only turns older than this row, so the bubble can page backwards for as long as he keeps scrolling. */
