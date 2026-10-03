@@ -33,10 +33,30 @@ using System;
 using System.Text;
 using System.Drawing;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 
 public class AangCap {
   [DllImport("user32.dll")] static extern bool EnumWindows(EnumWindowsProc f, IntPtr p);
+  [DllImport("user32.dll")] static extern int GetWindowThreadProcessId(IntPtr h, out int pid);
+
+  // Only windows belonging to this process are ever matched.
+  //
+  // The title alone is not enough. A filter of "Aang" also matches the Claude desktop app, whose window
+  // carries the project folder's name, and that cost real time twice on 2026-10-02: once photographing
+  // the Claude window instead of the Panel, and once instead of the pet, each time looking exactly like
+  // the feature under test was broken. The owning process is unambiguous.
+  //
+  // Checked AFTER the title matches, so the lookup runs for a handful of windows rather than hundreds.
+  public static string Owner = "Aang";
+
+  static bool OwnedByAang(IntPtr h) {
+    if (string.IsNullOrEmpty(Owner)) return true;
+    int pid; GetWindowThreadProcessId(h, out pid);
+    if (pid == 0) return false;
+    try { return string.Equals(Process.GetProcessById(pid).ProcessName, Owner, StringComparison.OrdinalIgnoreCase); }
+    catch { return false; }        // gone between enumerating and asking: not a window worth photographing
+  }
   delegate bool EnumWindowsProc(IntPtr h, IntPtr p);
   [DllImport("user32.dll")] static extern int  GetWindowText(IntPtr h, StringBuilder s, int n);
   [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr h);
@@ -72,6 +92,7 @@ public class AangCap {
       string title = t.ToString();
       if (!string.IsNullOrEmpty(titleFilter) &&
           title.IndexOf(titleFilter, StringComparison.OrdinalIgnoreCase) < 0) return true;
+      if (!OwnedByAang(h)) return true;
       list.Add(new Overlay { H = h, R = r, Title = title });
       return true;
     }, IntPtr.Zero);
@@ -91,6 +112,7 @@ public class AangCap {
       if (string.IsNullOrWhiteSpace(title)) return true;
       if (!string.IsNullOrEmpty(titleFilter) &&
           title.IndexOf(titleFilter, StringComparison.OrdinalIgnoreCase) < 0) return true;
+      if (!OwnedByAang(h)) return true;
       list.Add(new Overlay { H = h, R = r, Title = title });
       return true;
     }, IntPtr.Zero);
