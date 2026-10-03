@@ -1154,6 +1154,145 @@ accepts a Terms of Service on his behalf.
 - Whether a drop in `#look-into-this` should ever be allowed to cost more than a fixed ceiling.
   A single link that turns into an hour of reading is a real risk at 5% of a week.
 
+# PHASE 8: let the local model do more  **DESIGNED, NOT STARTED**
+
+**Found 2026-10-03, while answering "does Hermes have any use in Aang". It does not - but looking
+cost nothing and turned up this, which is worth more than Hermes was.**
+
+## The finding
+
+`LOCAL-MODEL-PLAN.md` says local handles up to 4 tool calls and Claude takes 5 or more, because
+Qwen3.5-35B scored 0/3 at five steps. That is reproducible and it was right.
+
+**It is also only true with thinking OFF, which is how `local.ts` calls the model.** Same model, same
+card, same `steprace.mjs`:
+
+| Qwen3.5-35B-A3B | 1 | 2 | 3 | 4 | 5 steps |
+|---|---|---|---|---|---|
+| `THINK=off` (as Aang runs it) | 3/3 | 3/3 | 3/3 | 3/3 | **0/3** |
+| thinking on | 5/5 | 5/5 | 5/5 | 5/5 | **5/5** |
+
+Timed on the five-step job: **thinking on takes 50 seconds and calls all five tools in the right
+order. Thinking off takes 4 seconds, calls four, stops before the last, and reports success.**
+
+So the 4-step ceiling was never the model. It was us. Work currently handed to Claude can run on his
+own card for nothing, at about fifty seconds a job.
+
+**Hermes-4-14B was raced for this and is not needed.** It also passes five steps, but it is 8x slower
+and it failed the TWO-step job 0/5 by answering from its own head without calling a tool at all.
+
+## The trap this must not fall into
+
+From the cascade research: **if the signal for "did the cheap model fail?" is wrong, you pay twice** -
+the local attempt and the Claude call. "A 70% cheap-tier route with a 50% false-fail rate is worse
+than always using the expensive model."
+
+**So the number that decides whether this was worth building is NET quota saved, not how often it
+routed local.** Measure it from the start or there is no way to know.
+
+## What he decided, 2026-10-03
+
+**Where it applies: background and proactive work only.** The sweep, reading documents, vetting job
+links, the addon check, anything Aang starts himself. Never a question he is sitting in front of -
+the latency research puts anything over 1.5 s at "sluggish", and fifty seconds is thirty times that.
+This is also where the cascade trap is weakest: nobody is waiting, so a failed local attempt costs
+time nobody feels.
+
+**How failure is caught: the honesty check he already built.** Step 5.4's `CLAIMS_DID` flags a reply
+claiming something was done when the action record is empty. "Stopped early and replied as if
+finished" IS "claims it did something, did nothing" - the detector already exists, it is mechanical,
+it costs nothing, and it was written for exactly this shape of lie. His own plan insists the handoff
+be code and never the model's own judgement, which rules out asking it; and having Claude verify every
+answer is the cascade trap written down.
+
+**Escalation is silent, with an icon.** Local tries, the check catches a false finish, Claude redoes
+it, and he sees the right answer with a small mark saying it was handed over. No question, no
+interruption.
+
+**Two minutes, then give up.** Comfortably past the ~50 s a five-step job takes, short enough that a
+looping model cannot hold the card all afternoon.
+
+**While a game is running: small jobs only, never the slow ones.** `gpu.ts` already refuses the local
+model mid-game. Quick extraction may run; multi-step thinking waits until he stops playing. A
+50-second GPU job during a raid is the one thing that would make Aang feel like a problem.
+
+**Near the quota limit: a switch, never automatic.** He may flip it, or Aang may ask, but Aang does
+not change his own behaviour because the week is nearly gone. Predictability beats cleverness.
+
+**A `Local` mode on the pill.** Auto | Local | Quick | Smart | Deep. He picks it when he wants
+something done for free and does not mind waiting. This touches `Mode` in `protocol.ts`, `pickLane`,
+and the mode chip in `InputWindow`.
+
+**A `[local]` marker on every reply local produced.** Quiet and always there, so he learns over time
+what it can handle alone.
+
+**Research drops split in two.** Local reads the page and pulls the facts; Claude judges whether it
+matters and writes the verdict. The verdict is the part he reads, and a 14B-class model writing it is
+the weakest link.
+
+## The UI, and what Aang is missing
+
+The agents winning in 2026 share five things: plan before action, diff before write, tool calls as the
+primary surface, a stop button that actually stops, and a token meter that does not lie. Measured:
+
+| | Aang today |
+|---|---|
+| token meter that does not lie | **better than most** - ten segments, week and 5-hour, a pace tick |
+| stop that actually stops | exists and works |
+| diff before write | partial - permission names the file and undo exists, but there is no preview |
+| tool calls as the primary surface | **partial, and wrong for long jobs** |
+| plan before action | **missing entirely** |
+
+**The fourth is the one that breaks a 50-second job.** Each `tool` event currently REPLACES the dots
+label: "checking the time" is overwritten by "searching your memory", overwritten again, and at the
+end there is nothing. For a four-second turn that is fine. For fifty seconds it is the worst case -
+motion with no memory, and no way to tell progress from a stall.
+
+**The fix is a live checklist, which is what Claude Code does and what the research recommends.** Show
+the steps; tick them off. `StructuredList` with per-row `ChipTone` is already a list of rows with
+status colours, so the drawing exists.
+
+**His choice: a line in the bubble, the detail in the Panel.** Glanceable on the desktop, the whole
+picture a click away - the pattern Claude Code and Cursor both use.
+
+```
+Working on that myself                    [local]
+  done   checked the time
+  done   searched what you said about Float
+  now    reading your screen
+         set a reminder
+         show you the list
+```
+
+Worth knowing from the research, because it changes how this should feel: **people rate a slower
+answer as MORE thoughtful, not broken - but only when they can see something happening.** A spinner
+for fifty seconds reads as stuck; five ticking steps read as deliberation.
+
+## Build order
+
+1. **A net-saving counter first.** Local attempts, local successes, escalations, and Claude turns
+   avoided. Without it there is no way to know whether any of the rest was worth it, and the research
+   is explicit that the headline routing rate lies.
+2. **`thinkHard` on `askLocal`** - thinking on, 2-minute timeout, refused mid-game like the rest.
+3. **Route background work through it**, with `CLAIMS_DID` as the escalation signal.
+4. **The checklist**: emit the plan as a `StructuredList`, update rows from the existing `tool` events.
+5. **The `[local]` marker and the handover icon.**
+6. **The `Local` mode on the pill.**
+7. **Split the research drops** - local reads, Claude judges.
+
+## What would make this a mistake
+
+- **If the escalation rate is high.** Pay twice often enough and this costs more than it saves. The
+  counter from step 1 is what tells him, and the honest answer may be to turn it off.
+- **If `CLAIMS_DID` misses the silent stop.** It was built for a reply claiming an action with an
+  empty record; a local model that stops early may instead say something vague that claims nothing. If
+  so it needs widening, and that is the risky kind of change - a false positive escalates work that
+  was fine.
+- **If 50 seconds turns out to be optimistic.** One job, one shape, measured once. A longer or messier
+  job may be much worse, and nothing here has measured that.
+
+---
+
 # PHASE 5: the rest of the fixes
 
 **Goal:** everything confirmed real but on nobody's critical path. Do it when you want.
@@ -1436,3 +1575,4 @@ Update this table as you go. It is the answer to "where are we".
 | 5 | the rest | `[x]` **done 2026-10-03** |
 | 6 | the cockpit: he can SHOW you things, not just tell you | `[ ]` **planned, not started** |
 | 7 | the research loop: he watches what is trending and tells you what matters | `[ ]` **planned, does not wait for 6** |
+| 8 | the local model does more, so fewer turns reach Claude | `[ ]` **designed, not started** |
