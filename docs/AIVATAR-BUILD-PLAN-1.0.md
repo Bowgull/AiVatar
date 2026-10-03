@@ -819,20 +819,34 @@ detection at all.
   once; the renewal is not firing. Re-running `tools\google-setup.cmd` fixes it for about a
   week and hides the real fault.
 
-  **THE CAUSE, measured not guessed.** Attempting exactly the refresh Aang attempts returns HTTP 400,
-  `invalid_grant`, "Token has been expired or revoked". The refresh logic in google.ts is correct and
-  Google simply refused. A Cloud project whose OAuth consent screen is EXTERNAL and still in TESTING
-  issues refresh tokens that expire after exactly 7 days, on a fixed clock, however often they are
-  used. He signed in around 21 September; it died on the 28th.
-
-  **THE FIX IS NOT IN THIS CODEBASE.** It is a dropdown: console.cloud.google.com, OAuth consent
-  screen, publishing status Testing -> In production, then sign in once more. New credentials are
-  generally needed afterwards, because the old ones can keep the 7-day behaviour.
-
-  **WHAT CHANGED HERE: the message.** It said "run tools\google-setup.cmd again", which is true and
-  useless - that buys another seven days and he is back the following week. It now names the real
-  cause, says plainly it is not something he did, and gives the one-off fix.
-
+  **THE CAUSE, measured not guessed.** Attempting exactly the refresh Aang attempts returns HTTP 400,
+
+  `invalid_grant`, "Token has been expired or revoked". The refresh logic in google.ts is correct and
+
+  Google simply refused. A Cloud project whose OAuth consent screen is EXTERNAL and still in TESTING
+
+  issues refresh tokens that expire after exactly 7 days, on a fixed clock, however often they are
+
+  used. He signed in around 21 September; it died on the 28th.
+
+
+
+  **THE FIX IS NOT IN THIS CODEBASE.** It is a dropdown: console.cloud.google.com, OAuth consent
+
+  screen, publishing status Testing -> In production, then sign in once more. New credentials are
+
+  generally needed afterwards, because the old ones can keep the 7-day behaviour.
+
+
+
+  **WHAT CHANGED HERE: the message.** It said "run tools\google-setup.cmd again", which is true and
+
+  useless - that buys another seven days and he is back the following week. It now names the real
+
+  cause, says plainly it is not something he did, and gives the one-off fix.
+
+
+
   Blocks nothing. It gates Gmail read/compose and Calendar read only. Calendar has never come
   up once in 590 turns; email he used genuinely on 22-24 September and not since. Worth fixing
   before the next sign-in, so that sign-in is the last one.
