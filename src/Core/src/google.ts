@@ -51,12 +51,33 @@ export class Google {
     const r = await this.fetcher('https://oauth2.googleapis.com/token', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body });
     const j = await r.json().catch(() => ({}));
     if (!r.ok || !j.access_token) {
-      if (j?.error === 'invalid_grant') { this.t = null; throw new GoogleError('Google sign-in has expired. Run tools\\google-setup.cmd again.', 'signin'); }
+      if (j?.error === 'invalid_grant') {
+        this.t = null;
+        // WHY THIS MESSAGE IS LONGER THAN "SIGN IN AGAIN": diagnosed 2026-10-02. Google rejected a valid
+        // refresh token with "Token has been expired or revoked", and the cause is not Joshua and not this
+        // code. A Google Cloud project whose OAuth consent screen is EXTERNAL and still in TESTING issues
+        // refresh tokens that die after exactly 7 days, on a fixed clock, however often they are used.
+        // He signed in around 21 September and it died on the 28th.
+        //
+        // So "run the setup again" is true and useless: it buys another seven days and he is back here next
+        // week. The actual fix is a dropdown in the Cloud Console, and the message has to say so or this
+        // repeats forever. Note also that new credentials are generally needed after publishing; the old
+        // ones can keep the 7-day behaviour.
+        throw new GoogleError(
+          'Google cut off the sign-in. This is their 7-day limit for apps still marked "Testing", not something you did. '
+          + 'Running tools\\google-setup.cmd gets you another 7 days. To stop it happening every week, set the project to '
+          + '"In production" on the OAuth consent screen at console.cloud.google.com, then sign in once more.',
+          'signin');
+      }
       throw new GoogleError(`Google would not refresh the sign-in (${r.status}).`);
     }
-    t.accessToken = j.access_token; t.expiresAt = this.now() + (Number(j.expires_in) || 3600) * 1000 - 60_000;
+    // Held in a local rather than read back off `t`: accessToken is optional on the type, so returning the
+    // field could not satisfy Promise<string> even though the guard above has already proved it is there.
+    // This was the one pre-existing type error in this file.
+    const fresh = String(j.access_token);
+    t.accessToken = fresh; t.expiresAt = this.now() + (Number(j.expires_in) || 3600) * 1000 - 60_000;
     try { writeFileSync(this.file, JSON.stringify(t, null, 2)); } catch { /* it just refreshes again next time */ }   // in place, so the owner-only ACL stays
-    return t.accessToken;
+    return fresh;
   }
 
   private async call(method: string, url: string, body?: unknown): Promise<any> {
