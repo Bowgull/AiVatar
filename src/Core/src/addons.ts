@@ -124,14 +124,42 @@ export async function latestFor(fetch: Fetch, key: string, projectId: number): P
  * a false "you are out of date" is worse than silence.
  */
 export function isBehind(mine: string, theirs: string): boolean {
-  const nums = (s: string) => (s.match(/\d+/g) ?? []).map(Number);
-  const a = nums(mine), b = nums(theirs);
+  const a = core(mine), b = core(theirs);
   if (a.length === 0 || b.length === 0) return false;
   for (let i = 0; i < Math.max(a.length, b.length); i++) {
     const x = a[i] ?? 0, y = b[i] ?? 0;
     if (x !== y) return y > x;
   }
   return false;
+}
+
+/**
+ * The numbers that are actually the version, and nothing else.
+ *
+ * Taking every number in the string was wrong twice on the first real run against his addons:
+ *
+ *  - RestedXP publishes "v4.11.13-2-gf3570d0", which is git's way of saying "2 commits after tag
+ *    v4.11.13". Counting the 2 and the hex made it look newer than his identical v4.11.13, so he
+ *    would have been sent to re-download the release he already had.
+ *  - Talents Forever publishes the FILE NAME, "TalentsForeverBook-0.36.1.zip". He was lucky there -
+ *    a name with a digit in it, like "Addon2-1.2.3.zip", would have compared 2.1.2.3 against 1.2.3
+ *    and claimed he was years behind.
+ *
+ * So: drop a git-describe tail, drop anything before the first dotted number group, and read only
+ * that group plus a trailing beta/rc number if there is one - which is what keeps beta10 ahead of
+ * beta9 rather than level with it.
+ */
+function core(v: string): number[] {
+  const s = String(v ?? '').trim().replace(/-\d+-g[0-9a-f]{7,}$/i, '');
+  // A dotted group wherever it appears beats a bare number earlier in the string: "Addon2-0.36.1.zip"
+  // must read as 0.36.1, not as 2. Only fall back to a bare number when there is no dotted group at
+  // all, which is how Auctionator's "340" still works.
+  const m = /(\d+(?:\.\d+)+)/.exec(s) ?? /(\d+)/.exec(s);
+  if (!m) return [];
+  const out = m[1].split('.').map(Number);
+  const tail = new RegExp(`${m[1].replace(/\./g, '\\.')}[-_.]?(?:beta|rc|alpha|b|a)[-_.]?(\\d+)`, 'i').exec(s);
+  if (tail) out.push(Number(tail[1]));
+  return out;
 }
 
 /**
