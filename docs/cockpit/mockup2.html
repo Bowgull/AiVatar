@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aang Cockpit — chunky</title>
+<!--
+  SECOND PASS, 2026-10-03. He said the first was "really plain", then named the target exactly:
+  "ITS VERY n64 lergend of zelda mario sorta starw dew vally".
+
+  So the language was never wrong - Aang's wood-and-parchment IS that lineage. What was wrong is that I
+  drew it THIN. That genre is defined by chunk, and the first pass had none of it:
+
+    1. THICK DARK OUTLINES. Stardew and OoT panels carry a 3-4px near-black outline, then a lighter
+       inner bevel inside it. My version had a 1.2px hairline.
+    2. DEEP BEVELS. Light on the top edge, dark on the bottom, several pixels of each - so a panel
+       reads as carved rather than printed. Mine had a 1px highlight.
+    3. VISIBLE TEXTURE. Wood grain and parchment fibre you can actually see. Mine was a flat gradient.
+    4. HARD EDGES. No soft shadows, no blur. image-rendering:pixelated, and every shadow offset with
+       zero blur radius. Soft shadows are what make this style look like a web page wearing a costume.
+    5. STUDS. Corner nails and rivets. Tiny, and they are most of what says "built object".
+    6. BIGGER LIPS. A 3px keycap lip is right on a small button and too timid on a panel.
+
+  Colours are still exactly Theme.cs. Nothing invented.
+-->
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#100A22;
+  --gold:#FFC43C; --gold-deep:#C98C14; --gold-lit:#FFE096; --gold-light:#FFE28C;
+  --orange:#FF8040; --orange-deep:#C95E28; --red:#FF5A4A; --green:#78E696;
+  --text:#E8E4F0; --secondary:#C9C2DA;
+  --plum:#4A2C6E; --plum-deep:#2C1848; --plum-edge:#966EC8;
+  --parch1:#ECD5A8; --parch2:#DEC28C;
+  --ink-text:#2E2216; --ink-dim:#5A4834;
+  --wood1:#4A2E1A; --wood2:#24160D; --wood-plaque:#1A0F09;
+  /* the chunk */
+  --outline:#120A05;          /* the near-black line round everything */
+  --ow:4px;                   /* how thick that line is */
+  --lip:3px;                  /* Theme.Lip, for small buttons */
+  --face:"Atkinson Hyperlegible",system-ui,sans-serif; --pixel:"Press Start 2P",monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#0d0a16;color:var(--text);font:15px/1.6 var(--face);padding:26px 18px 90px;
+     image-rendering:pixelated}
+.wrap{max-width:1060px;margin:0 auto}
+h1{font:400 19px var(--pixel);color:var(--gold);margin:0 0 8px;text-shadow:3px 3px 0 var(--outline)}
+h2{font:400 11px var(--pixel);color:var(--gold-lit);margin:42px 0 8px;text-shadow:2px 2px 0 var(--outline)}
+.note{color:var(--secondary);font-size:13.5px;margin:0 0 18px;max-width:80ch}
+.note b{color:var(--text)}
+.row{display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start}
+
+/* ===== THE WOODEN FRAME: outline, bevel, grain, studs ===== */
+.wood{
+  position:relative;padding:16px;
+  background:
+    /* grain, two passes, always the same seed */
+    repeating-linear-gradient(91deg, rgba(0,0,0,.22) 0 2px, transparent 2px 9px),
+    repeating-linear-gradient(89deg, rgba(0,0,0,.14) 0 1px, transparent 1px 15px),
+    repeating-linear-gradient(90deg, rgba(255,200,140,.05) 0 1px, transparent 1px 23px),
+    linear-gradient(180deg,var(--wood1),var(--wood2));
+  border:var(--ow) solid var(--outline);
+  border-radius:10px;
+  /* carved: lit on top, dark at the bottom, several px of each. no blur anywhere. */
+  box-shadow:
+    inset 0 4px 0 rgba(255,224,150,.17),
+    inset 0 -5px 0 rgba(0,0,0,.45),
+    inset 4px 0 0 rgba(0,0,0,.2),
+    inset -4px 0 0 rgba(0,0,0,.2),
+    0 6px 0 rgba(0,0,0,.55);
+}
+/* corner studs - tiny, and most of what says "built object" */
+.wood::before,.wood::after{content:"";position:absolute;width:7px;height:7px;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%, var(--gold-lit), var(--gold-deep) 70%);
+  box-shadow:0 1px 0 var(--outline)}
+.wood::before{top:7px;left:7px} .wood::after{top:7px;right:7px}
+.wood .studs{position:absolute;bottom:7px;left:7px;right:7px;height:7px;pointer-events:none}
+.wood .studs i{position:absolute;width:7px;height:7px;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%, var(--gold-lit), var(--gold-deep) 70%);box-shadow:0 1px 0 var(--outline)}
+.wood .studs i:first-child{left:0} .wood .studs i:last-child{right:0}
+
+/* the recessed plaque, carved INTO the wood */
+.plaque{
+  background:var(--wood-plaque);border-radius:6px;padding:9px 13px;margin:0 0 14px;
+  font:400 9px var(--pixel);color:var(--gold);text-shadow:2px 2px 0 rgba(0,0,0,.8);
+  border:3px solid var(--outline);
+  box-shadow:inset 0 4px 0 rgba(0,0,0,.65), inset 0 -2px 0 rgba(255,224,150,.1);
+}
+.plaque.urgent{color:var(--orange)}
+
+/* ===== PARCHMENT: what Aang says ===== */
+.parch{
+  position:relative;color:var(--ink-text);padding:15px 17px;border-radius:8px;
+  background:
+    repeating-linear-gradient(97deg, rgba(140,105,60,.07) 0 1px, transparent 1px 6px),
+    repeating-linear-gradient(3deg, rgba(140,105,60,.05) 0 1px, transparent 1px 9px),
+    linear-gradient(180deg,var(--parch1),var(--parch2));
+  border:var(--ow) solid var(--outline);
+  box-shadow:
+    inset 0 4px 0 rgba(255,255,255,.5),
+    inset 0 -4px 0 rgba(150,110,60,.3),
+    0 5px 0 rgba(0,0,0,.5);
+}
+.parch.tail::after{content:"";position:absolute;left:28px;bottom:-16px;width:18px;height:18px;
+  background:var(--parch2);border-right:var(--ow) solid var(--outline);border-bottom:var(--ow) solid var(--outline);
+  transform:rotate(45deg)}
+.mine{
+  color:var(--text);padding:15px 17px;border-radius:8px;
+  background:linear-gradient(180deg,var(--plum-deep),var(--plum));
+  border:var(--ow) solid var(--outline);
+  box-shadow:inset 0 5px 0 rgba(0,0,0,.4), inset 0 -3px 0 rgba(150,110,200,.3), 0 5px 0 rgba(0,0,0,.5);
+}
+.who{font:400 7px var(--pixel);color:var(--ink-dim);margin-bottom:8px}
+.mine .who{color:var(--plum-edge)}
+.stamp{float:right;font-size:12px;color:var(--ink-dim)}
+.dim{color:var(--ink-dim)}
+
+/* ===== KEYCAPS: chunkier. outline + a real lip + hard press ===== */
+.key{
+  font:400 9px var(--pixel);border:3px solid var(--outline);border-radius:8px;padding:12px 17px;
+  cursor:pointer;position:relative;top:0;transition:top .05s,box-shadow .05s;
+  background:var(--plum);color:var(--text);
+  box-shadow:0 5px 0 var(--outline), 0 5px 0 -1px var(--plum-deep), inset 0 3px 0 rgba(150,110,200,.45);
+  text-shadow:1px 1px 0 rgba(0,0,0,.5);
+}
+.key:active{top:5px;box-shadow:0 0 0 var(--outline), inset 0 3px 0 rgba(150,110,200,.45)}
+.key.primary{background:var(--gold);color:#3a2800;text-shadow:1px 1px 0 rgba(255,224,150,.5);
+  box-shadow:0 5px 0 var(--outline), 0 5px 0 -1px var(--gold-deep), inset 0 3px 0 var(--gold-light)}
+.key.primary:active{box-shadow:0 0 0 var(--outline), inset 0 3px 0 var(--gold-light)}
+.key.warn{background:var(--orange);color:#3a1800;
+  box-shadow:0 5px 0 var(--outline), 0 5px 0 -1px var(--orange-deep), inset 0 3px 0 rgba(255,224,150,.45)}
+.key.warn:active{box-shadow:0 0 0 var(--outline), inset 0 3px 0 rgba(255,224,150,.45)}
+.key .k{position:absolute;top:2px;right:5px;font-size:6px;opacity:.75}
+.keys{display:flex;gap:11px;flex-wrap:wrap;align-items:flex-end;margin-top:14px}
+
+/* ===== chips: hard, outlined ===== */
+.chip{display:inline-block;font:400 7px var(--pixel);padding:6px 9px;border-radius:5px;color:#2b1c00;
+  border:2px solid var(--outline);text-shadow:none}
+.chip.good{background:var(--green)}.chip.careful{background:var(--orange)}
+.chip.stop{background:var(--red)}.chip.normal{background:var(--gold)}
+.tag{display:inline-block;font:400 6.5px var(--pixel);padding:5px 7px;border-radius:4px;
+  border:2px solid var(--outline);background:var(--green);color:#163a24}
+.tag.handed{background:var(--orange);color:#3a1800}
+
+/* ===== rows inside parchment ===== */
+h3{margin:3px 0 11px;font:700 16px var(--face);color:var(--ink-text)}
+.find{display:grid;grid-template-columns:16px 1fr auto;gap:11px;align-items:start;padding:10px 0;
+  border-top:3px solid rgba(92,61,33,.3)}
+.find:first-of-type{border-top:0}
+.dot{width:11px;height:11px;border-radius:50%;margin-top:5px;border:2px solid var(--outline)}
+.dot.good{background:var(--green)}.dot.careful{background:var(--orange)}.dot.stop{background:var(--red)}
+.meta{color:var(--ink-dim);font-size:13px}
+.why{color:var(--ink-dim);font-size:13px;font-style:italic;margin-top:2px}
+.money{font-variant-numeric:tabular-nums;white-space:nowrap;font-size:13.5px}
+
+/* ===== checklist ===== */
+.step{display:flex;gap:10px;align-items:center;padding:5px 0;font-size:14.5px}
+.step .mark{width:16px;text-align:center;font:400 9px var(--pixel)}
+.step.done{color:var(--ink-dim)}.step.done .mark{color:#2f7a4a}
+.step.now{color:var(--ink-text);font-weight:700}
+.step.now .mark{color:#9a6a0e;animation:tick .9s steps(2) infinite}
+.step.todo{color:rgba(90,72,52,.5)}
+@keyframes tick{50%{opacity:.2}}
+
+/* ===== mode pills ===== */
+.strip{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.pill{font:400 8px var(--pixel);padding:9px 13px;border-radius:999px;border:3px solid var(--outline);
+  background:var(--parch1);color:#4a3418;box-shadow:0 3px 0 var(--outline)}
+.pill.on{background:var(--gold);color:#3a2800}
+.meter{display:flex;gap:3px;align-items:center;padding:7px;border:3px solid var(--outline);border-radius:8px;
+  background:var(--wood-plaque);box-shadow:inset 0 3px 0 rgba(0,0,0,.6)}
+.seg{width:10px;height:17px;border:1px solid var(--outline);background:#3a2e1a}
+.seg.on{background:var(--gold)} .seg.hot{background:var(--orange)}
+.pct{font:400 9px var(--pixel);color:var(--gold);margin-left:8px;text-shadow:2px 2px 0 var(--outline)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>N64 / ZELDA / STARDEW</h1>
+<p class="note">You named it and the language was never wrong — Aang's wood and parchment <b>is</b> that lineage. I drew it thin. That genre is defined by <b>chunk</b>: a 4px near-black outline round everything, bevels several pixels deep, visible grain, hard shadows with no blur, and little gold studs in the corners. Same colours as before — every value still straight out of <code>Theme.cs</code>.</p>
+
+<h2>THE FRAME</h2>
+<div class="wood" style="max-width:560px">
+  <div class="studs"><i></i><i></i></div>
+  <div class="plaque">THREE JOBS NEED YOU</div>
+  <div class="parch">
+    <span class="stamp">9:02 am</span><div class="who">AANG</div>
+    <h3>Three jobs this week</h3>
+    <div class="find"><div class="dot good"></div>
+      <div><b>Octup</b> — Customer Success Manager<div class="meta">Toronto · hybrid</div>
+      <div class="why">Closest match. Salary in range, and you have the background.</div></div>
+      <div class="money">$95–120K</div></div>
+    <div class="find"><div class="dot careful"></div>
+      <div><b>Constellation Dealer Group</b> — Project Coordinator<div class="meta">Remote, Canada</div>
+      <div class="why">Coordination rather than account work, no salary posted.</div></div>
+      <div class="money dim">—</div></div>
+    <div class="find"><div class="dot stop"></div>
+      <div><b>GreenShield</b> — Bilingual AE<div class="meta">Montreal</div>
+      <div class="why">French required and quota-carrying. Both dealbreakers.</div></div>
+      <div class="money dim">$70–80K</div></div>
+    <div class="keys">
+      <button class="key primary">Apply to Octup<span class="k">A</span></button>
+      <button class="key">Open all<span class="k">O</span></button>
+      <button class="key">Skip<span class="k">X</span></button>
+    </div>
+  </div>
+</div>
+
+<h2>THE BUTTONS — PRESS THEM</h2>
+<p class="note">Outline, then a <b>5px</b> lip, then a hard press with no blur. The whole face drops onto the lip. Compare to the first pass, where the lip was 3px and there was no outline at all.</p>
+<div class="keys">
+  <button class="key primary">Do it<span class="k">D</span></button>
+  <button class="key">Not now<span class="k">N</span></button>
+  <button class="key warn">Always allow<span class="k">A</span></button>
+</div>
+
+<h2>A SHORT ANSWER STAYS SHORT</h2>
+<div style="max-width:380px"><div class="parch tail"><span class="stamp">3:14 pm</span><div class="who">AANG</div>It's 3:14.</div></div>
+
+<h2>WHAT HE SAID vs WHAT YOU SAID</h2>
+<div class="row">
+  <div class="mine" style="max-width:330px"><div class="who">YOU</div>whats my status with octup</div>
+  <div class="parch" style="max-width:380px"><div class="who">AANG</div>Interviewed 30 September, round three. Nothing needed from you yet.</div>
+</div>
+
+<h2>A LONG LOCAL JOB</h2>
+<div style="max-width:420px">
+  <div class="parch"><div class="who">AANG <span class="tag" style="float:right">LOCAL</span></div>
+    <div style="font-weight:700;margin-bottom:9px">Working on that myself</div>
+    <div class="step done"><span class="mark">✓</span>checked the time</div>
+    <div class="step done"><span class="mark">✓</span>searched what you said about Float</div>
+    <div class="step now"><span class="mark">▸</span>reading your screen</div>
+    <div class="step todo"><span class="mark">·</span>set a reminder</div>
+    <div class="step todo"><span class="mark">·</span>show you the list</div>
+    <div class="keys"><button class="key">Hand to Claude<span class="k">C</span></button></div>
+  </div>
+</div>
+
+<h2>PERMISSION, IN PLAIN WORDS</h2>
+<div style="max-width:460px">
+  <div class="parch tail"><div class="who">AANG</div>
+    <div style="font-weight:700;margin-bottom:6px">Can I list what is in a folder?</div>
+    <div class="dim" style="font-size:13.5px">A command is an instruction typed straight to your computer, the way you would in a black terminal window.</div>
+    <div class="keys">
+      <button class="key primary">List it<span class="k">L</span></button>
+      <button class="key">Not now<span class="k">N</span></button>
+      <button class="key warn">Always<span class="k">A</span></button>
+    </div>
+  </div>
+</div>
+
+<h2>MODES AND QUOTA</h2>
+<div class="strip">
+  <span class="pill on">Auto ▾</span><span class="pill">Local</span><span class="pill">Quick</span>
+  <span class="pill">Smart</span><span class="pill">Deep</span>
+  <span class="meter">
+    <span class="seg on"></span><span class="seg on"></span><span class="seg on"></span><span class="seg on"></span>
+    <span class="seg on"></span><span class="seg on"></span><span class="seg on"></span><span class="seg on"></span>
+    <span class="seg hot"></span><span class="seg"></span>
+  </span><span class="pct">91%</span>
+</div>
+
+<h2>WHEN IT BREAKS</h2>
+<div style="max-width:420px">
+  <div class="parch tail" style="border-color:var(--orange-deep)">
+    <div class="who">AANG</div>
+    <div style="font-weight:700;margin-bottom:5px">My brain stopped and I'm restarting it.</div>
+    <div class="dim" style="font-size:13.5px">Nothing you said is lost. This usually takes a few seconds.</div>
+    <div class="keys"><button class="key primary">Try now<span class="k">T</span></button></div>
+  </div>
+</div>
+
+<h2>WHAT IS STILL FAKED HERE</h2>
+<p class="note">Being straight about it: the grain and the parchment fibre are <b>CSS stripes</b>, which is a decent impression and not real texture. Zelda and Stardew use hand-drawn tiles. Two or three small seamless PNGs — wood, parchment, and a gold frame corner — would take this the rest of the way, and they are the kind of thing worth drawing once. <b>Everything else here is final-quality and uses nothing but your existing colours.</b></p>
+
+</div>
+</body>
+</html>
