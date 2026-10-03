@@ -890,11 +890,40 @@ detection at all.
   up once in 590 turns; email he used genuinely on 22-24 September and not since. Worth fixing
   before the next sign-in, so that sign-in is the last one.
 
-- `[ ]` 5.5 **Logging in the six silent files.** **[verified]** Zero `console.*` calls in
-  `discord.ts`, `jobs.ts`, `protocol.ts`, `quota.ts`, `activity.ts`, `claude.ts`. The whole
-  Discord surface and the job pipeline are invisible. Also: `record()` is called from one
-  place only (`core.ts:1486`), so worker turns produce no turn record at all, and
-  `turns.jsonl` is appended at `core.ts:1734` with no size limit.
+- `[x]` 5.5 **Logging in the six silent files.** DONE 2026-10-03.
+
+  **The premise was partly wrong, and counting `console.*` is why.** `discord.ts` is not
+  silent: it logs through an injected `log`, which `startDiscord` defaults to
+  `console.log`, so it reaches `core.log` like everything else. `core.log` has
+  "discord: connected" in it right now. `quota.ts` and `activity.ts` are pure calculation
+  with no failure path to report, and a log line in either would be noise. Counting
+  `console.*` found files, not faults.
+
+  **What was actually hidden, and is now said out loud:**
+  - `jobs.ts` swallowed every parse failure into `catch { return [] }`. A file that does
+    not exist yet and a file that has been corrupted produced identical silence, and the
+    second one means his shortlist, his drafts, or every job card he has ever been shown
+    was dropped on the floor with nothing written anywhere. Missing stays quiet; present
+    but broken gets a line. Five places.
+  - `protocol.ts` dropped any message it could not read, leaving no trace. That is the
+    shape of fault that hides for a week: the Body sends something, the Core ignores it,
+    and the symptom is a button that does nothing. Counted, loud once then at each power
+    of ten, and it never logs the raw text, which may be whatever he just typed.
+  - `claude.ts` returned "" for a transcript it could not read, which looked exactly like
+    a session with nothing to report - including one sitting there waiting on him. Once
+    per transcript, since it is called on a timer.
+
+  **`turns.jsonl` had no size limit.** Now rotates at 4 MiB through a new shared
+  `rotateIfBig` in `atomic.ts`, one generation, the same rule 5.1 settled on for the two
+  logs. Deleting is the one thing it must not do.
+
+  **`record()` was called from the success path only**, so `turns.jsonl` counted every
+  turn that worked and none that failed - which makes the one number worth having, how
+  often he is let down, impossible to get. `fail()` now records too, with a `failed` flag
+  and zeroed token counts rather than guessed ones. Worker turns still produce no record;
+  left alone deliberately, since a background job is not a turn he is waiting on.
+
+  Seven checks on the rotation and the parser, no model and no quota spent.
 
 - `[ ]` 5.6 **Make the M5 gate test what it claims.** `tests/fakecore/supervisor.mjs` kills
   an **idle** Core and asserts only that something is listening again. The gate at

@@ -6,7 +6,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync, unlinkSy
 import os from 'node:os';
 import path from 'node:path';
 import { parseFromBody } from './protocol.ts';
-import { reportWriteFailure, writeFileAtomic } from './atomic.ts';
+import { reportWriteFailure, rotateIfBig, writeFileAtomic } from './atomic.ts';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { MAC_LISTENER_PORT, macSetupScript } from './macsetup.ts';
 import { SWEEP_REQUEST, cleanField, safeUrl, scoreOf, verdictFor } from './jobs.ts';
@@ -1665,6 +1665,15 @@ export class Core {
         const rows = this.memory.saveTurn(turn.sub.text, `[this one did not finish] ${message} ${next}`.trim(), 'failed-' + turn.lane, turn.sub.id);
         if (rows) this.toTurn(turn.sub, { t: 'turn.saved', id: turn.sub.id, userTurn: rows.userTurn, aangTurn: rows.aangTurn });
       }
+      // 5.5: a failed turn belongs in the metrics too. record() was called from the success path only,
+      // so turns.jsonl counted every turn that worked and none that did not - which makes the one
+      // number you would actually go looking for, how often he is let down, impossible to get. The
+      // token counts are genuinely unknown here and are written as zero rather than guessed at.
+      this.record({
+        ts: new Date().toISOString(), id: turn.sub.id, lane: turn.lane, user: turn.sub.text,
+        reply: `[failed] ${message}`, ms: Date.now() - turn.startedAt, ttftMs: null, ackMs: turn.ackMs,
+        ctxTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, tools: [], fixed: [], flags: ['failed'],
+      });
     }
     void this.lanes.get(turn.lane)?.interrupt();
     this.finishTurn(turn);
@@ -2135,6 +2144,10 @@ export class Core {
     const turns = path.join(this.cfg.stateDir, 'turns.jsonl');
     try {
       mkdirSync(this.cfg.stateDir, { recursive: true });
+      // 5.5: this had no size limit at all. It grows by a line per turn forever, and the one thing it
+      // must not do is what core.log used to - delete itself and take the history with it. One
+      // generation, 4 MiB, which at the size these lines run to is months of turns.
+      rotateIfBig(turns, 4 * 1024 * 1024);
       appendFileSync(turns, JSON.stringify(r) + '\n');
     } catch (e) { reportWriteFailure(turns, e); }
     this.onTurn(r);

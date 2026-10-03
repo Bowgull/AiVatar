@@ -126,9 +126,28 @@ export function parseVerdict(reply: string, url: string): Omit<Card, 'id' | 'sta
 // scanShortlist() gives these a fixed placeholder score, since the sweep already screens before shortlisting.
 export interface ShortEntry { url: string; title: string; company: string; location: string; salary: string; reason: string; ats: string; score?: number }
 /** Read the sweep's shortlist.json. Bad entries are dropped, not repaired: a card is only as trustworthy as its link. */
+/**
+ * 5.5: read one of the job pipeline's JSON files, and say so when it is there but unreadable.
+ *
+ * This whole file used to swallow every parse failure into `catch { return [] }`. A file that does
+ * not exist yet and a file that has been corrupted produced exactly the same silence - an empty job
+ * list - and the second one means his shortlist, his drafts or every card he has ever been shown has
+ * just been dropped on the floor with nothing written down anywhere.
+ *
+ * Missing is normal and stays quiet. Present but broken is a fault and gets one line.
+ */
+function readJsonOrSay(file: string, what: string): any {
+  if (!existsSync(file)) return null;                     // not written yet: nothing to report
+  try { return JSON.parse(readFileSync(file, 'utf8')); }
+  catch (e) {
+    console.error(`jobs: ${what} could not be read (${path.basename(file)}): ${(e as Error).message}`);
+    return null;
+  }
+}
+
 export function readShortlist(file: string): ShortEntry[] {
   try {
-    const raw = JSON.parse(readFileSync(file, 'utf8'));
+    const raw = readJsonOrSay(file, 'the job shortlist');
     const list = Array.isArray(raw) ? raw : Array.isArray(raw?.jobs) ? raw.jobs : [];
     const out: ShortEntry[] = [];
     for (const e of list) {
@@ -199,8 +218,9 @@ export class Jobs {
   private readonly file: string;
   constructor(dir: string) {
     this.file = path.join(dir, 'jobs.json');
+    // Starting empty here means every job card he has been shown is gone. Worth a line.
     try { if (existsSync(this.file)) { const r = JSON.parse(readFileSync(this.file, 'utf8')); this.cards = Array.isArray(r.cards) ? r.cards : []; this.seen = Array.isArray(r.seen) ? r.seen : []; if (r.capToday) this.capToday = r.capToday; } }
-    catch { /* start empty */ }
+    catch (e) { console.error(`jobs: starting with no job cards, ${path.basename(this.file)} could not be read: ${(e as Error).message}`); }
   }
   save() { try { writeFileAtomic(this.file, JSON.stringify({ cards: this.cards.slice(-300), seen: this.seen.slice(-1000), capToday: this.capToday }, null, 2)); } catch { /* best effort */ } }
 
@@ -254,7 +274,7 @@ const hash = (s: string) => { let h = 5381; for (let i = 0; i < s.length; i++) h
 
 export function readDraftsFile(file: string): Omit<Draft, 'status'>[] {
   try {
-    const raw = JSON.parse(readFileSync(file, 'utf8'));
+    const raw = readJsonOrSay(file, 'the application drafts');
     const list = Array.isArray(raw) ? raw : Array.isArray(raw?.drafts) ? raw.drafts : [];
     const out: Omit<Draft, 'status'>[] = [];
     for (const e of list) {
@@ -288,7 +308,8 @@ export class Drafts {
   private readonly file: string;
   constructor(dir: string) {
     this.file = path.join(dir, 'drafts-state.json');
-    try { if (existsSync(this.file)) { const r = JSON.parse(readFileSync(this.file, 'utf8')); if (Array.isArray(r)) this.items = r; } } catch { /* start empty */ }
+    try { if (existsSync(this.file)) { const r = JSON.parse(readFileSync(this.file, 'utf8')); if (Array.isArray(r)) this.items = r; } }
+    catch (e) { console.error(`jobs: starting with no drafts, ${path.basename(this.file)} could not be read: ${(e as Error).message}`); }
   }
   save() { try { writeFileAtomic(this.file, JSON.stringify(this.items.slice(-200), null, 2)); } catch { /* best effort */ } }
   get(id: string) { return this.items.find(d => d.id === id) ?? null; }
@@ -309,7 +330,7 @@ export interface AppliedEntry { url: string; title: string; company: string; sta
 /** What the apply session reports for each job: submitted (with the confirmation it saw), or stuck (with why). */
 export function readAppliedFile(file: string): AppliedEntry[] {
   try {
-    const raw = JSON.parse(readFileSync(file, 'utf8'));
+    const raw = readJsonOrSay(file, 'the record of what you applied to');
     const list = Array.isArray(raw) ? raw : Array.isArray(raw?.applied) ? raw.applied : [];
     const out: AppliedEntry[] = [];
     for (const e of list) {
