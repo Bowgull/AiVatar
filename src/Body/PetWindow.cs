@@ -112,7 +112,7 @@ sealed class PetWindow : Form
     /// window is up, with no Core round trip - for checking a bubble redesign against real GDI+ output.</summary>
     string? bubbleTest;
     bool pinsTest;   // tests: show the type box with a reply and two pins attached, so the chips can be looked at
-    bool stackTest;  // tests: fill the bubble with a conversation and open the scrollback
+    bool stackTest;  // tests: fill the bubble with a conversation and open the scrollback
     bool factTest;   // tests: the fact-approval question
     int panelTab;
     PanelWindow? panel;
@@ -124,7 +124,7 @@ sealed class PetWindow : Form
     double weekUse, fiveUse, weekResetsAt, fiveResetsAt;      // resets are unix seconds, 0 when unknown
     string level = "ok";
     string? lastText, consentText, replyId, permissionId;
-    int? factId;   // a fact from one of his documents, waiting on yes or no
+    int? factId;   // a fact from one of his documents, waiting on yes or no
     bool backupAsk;  // the vault backup offer is on screen
     string consentWanted = "", pendingMode = "smart";
 
@@ -201,14 +201,14 @@ sealed class PetWindow : Form
             else if (a.Equals("--urgent-test=wave", StringComparison.OrdinalIgnoreCase)) urgentTest = "wave"; // Tier 2, standing - do NOT pass --dock
             else if (a.Equals("--urgent-test=badge", StringComparison.OrdinalIgnoreCase)) urgentTest = "badge"; // Tier 1, docked - use with --dock=bottom
             else if (a.Equals("--urgent-test=done", StringComparison.OrdinalIgnoreCase)) urgentTest = "done";   // Tier 3, docked, terracotta, no sound - use with --dock=bottom
-            else if (a.Equals("--pins-test", StringComparison.OrdinalIgnoreCase)) pinsTest = true;   // tests: the reply and pinned-context chips
+            else if (a.Equals("--pins-test", StringComparison.OrdinalIgnoreCase)) pinsTest = true;   // tests: the reply and pinned-context chips
             else if (a.Equals("--fact-test", StringComparison.OrdinalIgnoreCase)) factTest = true;   // tests: a fact from a document, offered for approval
             else if (a.Equals("--stack-test", StringComparison.OrdinalIgnoreCase)) stackTest = true;  // tests: the desktop scrollback
             else if (a.Equals("--bubble-test", StringComparison.OrdinalIgnoreCase)) bubbleTest = "short";
             else if (a.Equals("--bubble-test=long", StringComparison.OrdinalIgnoreCase)) bubbleTest = "long";
             else if (a.Equals("--bubble-test=ask", StringComparison.OrdinalIgnoreCase)) bubbleTest = "ask";
             else if (a.Equals("--bubble-test=consent", StringComparison.OrdinalIgnoreCase)) bubbleTest = "consent";
-            else if (a.Equals("--bubble-test=consent-long", StringComparison.OrdinalIgnoreCase)) bubbleTest = "consent-long";
+            else if (a.Equals("--bubble-test=consent-long", StringComparison.OrdinalIgnoreCase)) bubbleTest = "consent-long";
             else if (a.Equals("--bubble-test=always-long", StringComparison.OrdinalIgnoreCase)) bubbleTest = "always-long";   // tests: a button label wider than the bubble
             else if (a.Equals("--bubble-test=think", StringComparison.OrdinalIgnoreCase)) bubbleTest = "think";
             else if (a.Equals("--bubble-test=input", StringComparison.OrdinalIgnoreCase)) bubbleTest = "input";
@@ -475,6 +475,23 @@ sealed class PetWindow : Form
                     // carries its own row, because it was stored on its way out.
                     if (!Bool(m, "stream"))
                         bubble.Remember(m.TryGetProperty("turn", out var tr) && tr.TryGetInt32(out var trn) ? trn : 0, text, false);
+                    // 4.4: something is genuinely STUCK, and he is at his desk rather than in a game.
+                    //
+                    // The three persistent markers above are all gated on `quiet`, which only means a game has
+                    // focus. Away from a game a blocking message showed a bubble that faded after twenty
+                    // seconds and left nothing behind, so stepping out of the room lost it entirely. A session
+                    // waiting on him is the one state where something really is stopped, and it should still
+                    // be saying so when he comes back.
+                    //
+                    // Marker only, no burst and no sound: he is sitting here and has just seen the bubble.
+                    // The loud version is for when a game has his attention. This is the quiet pulse the
+                    // ambient glow was written for, which until now could only be reached by a burst expiring.
+                    if (proactive && blocking && !quiet && Hold(text, jobCwd, 3, Theme.AvatarGlow, focus, host))
+                    {
+                        ambientGlow = true;
+                        Log.Write("stuck: marker left for a blocked session (at desk, no burst)");
+                        dirty = true;
+                    }
                     permissionId = null;
                     break;
                 }
@@ -507,9 +524,9 @@ sealed class PetWindow : Form
                 case "consent":
                     OnConsent(Str(m, "wanted") ?? "smart");
                     break;
-                case "backup.ask":
-                    OnBackupAsk(m);
-                    break;
+                case "backup.ask":
+                    OnBackupAsk(m);
+                    break;
                 case "fact.ask":
                     OnFactAsk(m);
                     break;
@@ -811,13 +828,25 @@ sealed class PetWindow : Form
             else
             {
                 bubble.Draw(g, tick);
+                var standing = new Rectangle(246, 86, 224, 224);
+                var frame = sprites.Frame(anim.State, anim.Frame);
+                Bitmap? mirrored = null;
                 if (flipX)
                 {
-                    using var fl = (Bitmap)sprites.Frame(anim.State, anim.Frame).Clone();
-                    fl.RotateFlip(RotateFlipType.RotateNoneFlipX);                    // walking left: a mirror, every pixel kept
-                    g.DrawImage(fl, new Rectangle(246, 86, 224, 224));
+                    mirrored = (Bitmap)frame.Clone();
+                    mirrored.RotateFlip(RotateFlipType.RotateNoneFlipX);               // walking left: a mirror, every pixel kept
                 }
-                else g.DrawImage(sprites.Frame(anim.State, anim.Frame), new Rectangle(246, 86, 224, 224));
+                var shown = mirrored ?? frame;
+                // 4.4: the marker for something genuinely stuck, drawn STANDING as well as docked.
+                //
+                // Until now both outlines lived only in DrawPeeking, so a waiting session showed nothing at
+                // all unless he happened to be tucked at a screen edge - and "he is at his desk" is precisely
+                // the case 4.4 exists for. The state was being set correctly and had nowhere to appear.
+                // Behind the sprite, same as DrawPeeking does it, so it reads as a halo and not a box.
+                if (urgent) DrawOutline(g, shown, standing, loom: true);
+                else if (ambientGlow) DrawOutline(g, shown, standing, loom: false);
+                g.DrawImage(shown, standing);
+                mirrored?.Dispose();
                 if (anim.State == "think") DrawThinkGlow(g);
             }
 
@@ -998,7 +1027,7 @@ sealed class PetWindow : Form
         var choice = bubble.HitChoice(bp.X, bp.Y);
         // The same two buttons answer two different questions. A fact being offered is not a permission:
         // it has no "always", because the answer is about one claim rather than a standing rule.
-        if (choice >= 0 && backupAsk) { AnswerBackup(choice == 0); dirty = true; return; }
+        if (choice >= 0 && backupAsk) { AnswerBackup(choice == 0); dirty = true; return; }
         if (choice >= 0 && factId != null) { AnswerFact(choice == 0); dirty = true; return; }
         if (choice >= 0) { AnswerPermission(choice switch { 0 => "once", 2 => "always", _ => "no" }); dirty = true; return; }
         var tool = bubble.HitTool(bp.X, bp.Y);

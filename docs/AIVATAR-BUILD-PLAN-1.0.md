@@ -667,7 +667,7 @@ from `message_reference` later.
 
 ---
 
-### `[ ]` 4.4 A quiet signal when something is genuinely stuck
+### `[x]` 4.4 A quiet signal when something is genuinely stuck  **DONE 2026-10-02**
 
 **Not built.** When a Claude session is blocked waiting on you, Aang announces once then
 goes quiet, which is the one state where something really is stopped. It needs a
