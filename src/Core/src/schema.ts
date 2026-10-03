@@ -52,6 +52,23 @@ const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS journal (
      id INTEGER PRIMARY KEY, topic TEXT NOT NULL UNIQUE, first_seen TEXT NOT NULL,
      last_seen TEXT NOT NULL, times_seen INTEGER DEFAULT 1 )`,
+  /*
+   * 3.3: the vault, searchable without loading it.
+   *
+   * ONE ROW PER NOTE, not per chunk. Joshua's 1,188 notes are 566 MB, and the session handoffs run to
+   * nearly 2 MB each. Chunking that at 1,500 characters would be ~377,000 embeddings, four hours of GPU
+   * and a gigabyte of vectors, to answer a question that is really "which note is this in". Indexing the
+   * title, the note's own `llm_summary` frontmatter where it has one, and the opening of the body gives
+   * 1,188 embeddings, under a minute, and about 4 MB.
+   *
+   * `head` is what was embedded, kept so a result can show why it matched. `mtime` lets a re-index skip
+   * everything that has not changed.
+   */
+  `CREATE TABLE IF NOT EXISTS docs (
+     id INTEGER PRIMARY KEY, path TEXT NOT NULL UNIQUE, title TEXT NOT NULL, head TEXT NOT NULL,
+     mtime INTEGER NOT NULL, bytes INTEGER NOT NULL, dim INTEGER, vec BLOB )`,
+  `CREATE INDEX IF NOT EXISTS docs_mtime ON docs(mtime)`,
+  `CREATE VIRTUAL TABLE IF NOT EXISTS docs_fts USING fts5(title, head, path UNINDEXED, doc_id UNINDEXED)`,
   `CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT)`,
 ];
 
@@ -120,6 +137,14 @@ const ADDED_COLUMNS: { table: string; column: string; decl: string }[] = [
 /** Bring an opened database up to the current shape. Safe to run on every open; does nothing when there is
  *  nothing to do. Never throws: a database that is one column behind is still worth having. */
 export function migrate(db: DatabaseSync): void {
+  // Run SCHEMA first. Every statement in it is IF NOT EXISTS, so on an existing database this is a no-op
+  // for tables that are already there and CREATES the ones added since. Without this, a new TABLE would
+  // reach only databases built from scratch - the exact trap ADDED_COLUMNS exists for, one level up.
+  // Found while adding the document index on 2026-10-02.
+  for (const stmt of SCHEMA) {
+    try { db.exec(stmt); }
+    catch (e) { console.error('memory: schema statement failed:', (e as Error).message); }
+  }
   for (const { table, column, decl } of ADDED_COLUMNS) {
     try {
       const cols = db.prepare(`PRAGMA table_info(${table})`).all() as { name: unknown }[];
