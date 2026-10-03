@@ -201,5 +201,26 @@ export async function sweep(fetch: Fetch, sinceDays = 7): Promise<Finding[]> {
   ]);
   const all = parts.flat();
   const seen = new Set<string>();
-  return all.filter(f => (f.id && f.title && !seen.has(f.id)) && (seen.add(f.id), true));
+  return all.filter(f => f.id && f.title && readable(f) && !seen.has(f.id) && (seen.add(f.id), true));
+}
+
+/**
+ * Something he can actually read.
+ *
+ * The first real digest carried a Claude Code course written in Russian, a hot-topic site framework in
+ * Chinese and a Japanese text-refining skill. All three are real and popular; none of them are any use
+ * to someone who reads English, and three unreadable rows in a twelve-row list is a quarter of the page
+ * wasted (2026-10-03).
+ *
+ * Judged on the DESCRIPTION, not the title: plenty of good projects have a stylised name. A project
+ * described in English stays, whatever it is called. Anything with no description at all also stays -
+ * absence of evidence is not a reason to drop something.
+ */
+function readable(f: Finding): boolean {
+  const text = f.blurb || f.title;
+  if (!text) return true;
+  const letters = text.replace(/[^\p{L}]/gu, '');
+  if (letters.length < 8) return true;
+  const latin = letters.replace(/[^\p{Script=Latin}]/gu, '').length;
+  return latin / letters.length >= 0.5;
 }
