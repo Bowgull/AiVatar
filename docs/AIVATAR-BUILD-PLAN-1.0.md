@@ -675,17 +675,17 @@ persistent but quiet signal, distinct from the working glow, easy to ignore mid-
 
 ---
 
-### `[ ]` 4.5 The smaller polish: **not parked**
+### `[x]` 4.5 The smaller polish  **DONE 2026-10-03**
 
 All not built. Previously marked parked; **unparked by your decision, 2026-10-01.**
 
 - `[x]` 150ms crossfade between modes  **ALREADY BUILT** (InputWindow: FadeMs=150, lerped frame and chip colours, a 16ms timer that stops itself). Verified 2026-10-02, not rebuilt.
-- `[ ]` reveal-on-hover states
+- `[x]` reveal-on-hover states  **DONE 2026-10-03.** Hovering the mode pill, the saving pill or the usage meter swaps the bars for a sentence saying what that control is. Short on purpose: the strip is a fixed 256 px and about twenty characters fit, so the key word goes first.
 - `[x]` recompute layout when display scaling changes while running  **DONE 2026-10-02**
-- `[ ]` entity chips in the Panel
+- `[x]` entity chips in the Panel  **DONE 2026-10-03.** Files and links in a message become chips you press to open the thing. The regex half only, deliberately: model-emitted tags cost tokens on every reply. A chip press sends `open.thing`, not a model turn, and still goes through the permission gate.
 - `[~]` ~~a first-run "here's what I can do"~~  **DROPPED 2026-10-02, his call: "no welcome tour is needed what even is that???"** He has used Aang daily for weeks. A tour explains an app to someone meeting it for the first time, and that person does not exist here.
-- `[ ]` suggestion chips
-- `[ ]` the job card stack
+- `[x]` suggestion chips  **DONE 2026-10-03.** Three one-tap starters in the input box while it is empty, from what the Body already knows (jobs waiting, time of day) and never from the model. Tapping one fills the box rather than sending it.
+- `[x]` the job card stack  **DONE 2026-10-03.** A Jobs tab: one card at a time, "1 of 3 waiting on you", triaged by keyboard (A apply, X skip, O open, Z undo) only while that tab has focus. New shared `Keycap` control so the Panel finally wears the same lipped buttons as the bubble. Save and snooze left out rather than faked: the card only has new/approved/skipped.
 
 Each is small and independent. Do them in any order, one commit each.
 
@@ -1350,7 +1350,7 @@ Update this table as you go. It is the answer to "where are we".
 | 1 | safe to read documents | `[x]` **done** |
 | 2 | he can read your Drive | `[x]` **done** |
 | 3 | he learns from it | `[ ]` **ready to start** |
-| 4 | he is pleasant to use | `[ ]` 4.1 can start now |
+| 4 | he is pleasant to use | `[x]` **done 2026-10-03** |
 | 5 | the rest | `[x]` **done 2026-10-03** |
 | 6 | the cockpit: he can SHOW you things, not just tell you | `[ ]` **planned, not started** |
 | 7 | the research loop: he watches what is trending and tells you what matters | `[ ]` **planned, does not wait for 6** |
