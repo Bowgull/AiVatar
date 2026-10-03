@@ -1574,5 +1574,5 @@ Update this table as you go. It is the answer to "where are we".
 | 4 | he is pleasant to use | `[x]` **done 2026-10-03** |
 | 5 | the rest | `[x]` **done 2026-10-03** |
 | 6 | the cockpit: he can SHOW you things, not just tell you | `[ ]` **planned, not started** |
-| 7 | the research loop: he watches what is trending and tells you what matters | `[ ]` **planned, does not wait for 6** |
+| 7 | the research loop: he watches what is trending and tells you what matters | `[~]` **mostly BUILT 2026-10-03** - sweep, mentions, addon check and digest all run live. Left: the #look-into-this channel and the digest reaching Discord |
 | 8 | the local model does more, so fewer turns reach Claude | `[ ]` **designed, not started** |
