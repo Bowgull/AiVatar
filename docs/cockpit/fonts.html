@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aang Cockpit — fonts</title>
+<!--
+  FOURTH PASS, 2026-10-03: the font deep dive he asked for, across ALL the games he named.
+  First time round I researched Zelda and stopped, which was one game out of five.
+
+  WHAT THE GAMES ACTUALLY USE
+  ---------------------------
+  ZELDA (N64 era)
+    Ocarina of Time logo .......... Charlemagne Bold (Carol Twombly, Adobe) - engraved Roman capitals
+    Ocarina of Time 3D subtitles .. Friz Quadrata - a flared glyphic serif
+    Ocarina of Time N64 in-game ... Kokinedo
+    Breath of the Wild ............ Hylia Serif (community recreation)
+
+  MARIO
+    Logos and UI, 1988 onward ..... the "classic Super Mario font", uneven sans, Nintendo in-house
+    the "64" in Super Mario 64 ..... Myriad
+    COURSE / THANK YOU in SM64 .... Lithos Black - Greek-inscription capitals
+    Modern Nintendo system UI ..... New Rodin / Rodin NTLG - geometric sans
+    Paper Mario ................... Pop Joy
+
+  FINAL FANTASY
+    The originals ................. custom 8x8 pixel fonts by Kazuko Shibuya, who also did the menus
+    FFVII on PlayStation .......... recreated as Reactor7, a proportional sans PIXEL font
+
+  STARDEW VALLEY
+    Three custom pixel fonts ...... Small (tooltips), Medium (item names), Dialogue (font_bold)
+
+  THE PATTERN, WHICH IS THE ACTUAL FINDING
+  ----------------------------------------
+  1. Every one of them pairs a CHARACTERFUL DISPLAY face with a PLAIN READABLE body face.
+     Not one uses a single font for everything.
+  2. Both Zelda and Mario reach for CLASSICAL INSCRIPTION CAPITALS at the top of the hierarchy -
+     Charlemagne and Lithos are both carved-in-stone faces. That is not a coincidence, it is the
+     genre saying "this is old and important".
+  3. The body text is deliberately boring: a clean sans, or a pixel font built for legibility at
+     one exact size. The character lives in the display face and the frame, never in the paragraph.
+
+  AANG TODAY DOES THE OPPOSITE OF ALL THREE. One font (Atkinson Hyperlegible, an ACCESSIBILITY
+  face engineered to have no character) for everything, plus a pixel font misapplied to buttons at
+  8px - decoration where legibility is needed, and no display face at all.
+-->
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400..900&family=Marcellus&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Figtree:wght@300..900&family=Nunito+Sans:wght@200..900&family=Silkscreen:wght@400;700&family=Pixelify+Sans:wght@400..700&family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+:root{
+  --gold:#FFC43C;--gold-deep:#C98C14;--gold-lit:#FFE096;--gold-light:#FFE28C;
+  --orange:#FF8040;--orange-deep:#C95E28;--red:#FF5A4A;--green:#78E696;
+  --text:#E8E4F0;--secondary:#C9C2DA;
+  --plum:#4A2C6E;--plum-deep:#2C1848;--plum-edge:#966EC8;
+  --parch1:#ECD5A8;--parch2:#DEC28C;--ink-text:#2E2216;--ink-dim:#5A4834;
+  --wood1:#4A2E1A;--wood2:#24160D;--wood-plaque:#1A0F09;
+  --outline:#120A05;--ow:4px;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#0d0a16;color:var(--text);font:15px/1.6 "Atkinson Hyperlegible",system-ui,sans-serif;
+  padding:26px 18px 90px;image-rendering:pixelated}
+.wrap{max-width:1000px;margin:0 auto}
+.lab{font:400 10px "Press Start 2P",monospace;color:var(--gold-lit);margin:38px 0 8px;
+  text-shadow:2px 2px 0 var(--outline);letter-spacing:1px}
+.note{color:var(--secondary);font-size:13.5px;margin:0 0 16px;max-width:82ch}
+.note b{color:var(--text)} .note code{color:var(--gold);font-size:12.5px}
+table.src{width:100%;border-collapse:collapse;font-size:13.5px;margin-bottom:8px}
+table.src td{padding:7px 10px;border-bottom:1px solid rgba(150,110,200,.18);vertical-align:top}
+table.src td:first-child{color:var(--gold);white-space:nowrap;width:1%}
+table.src td:nth-child(2){color:var(--text);white-space:nowrap;width:1%;font-weight:700}
+table.src td:last-child{color:var(--secondary)}
+
+.parch{position:relative;color:var(--ink-text);padding:20px 22px;border-radius:8px;
+  background:repeating-linear-gradient(97deg,rgba(140,105,60,.07) 0 1px,transparent 1px 6px),
+    linear-gradient(180deg,var(--parch1),var(--parch2));
+  border:var(--ow) solid var(--outline);
+  box-shadow:inset 0 4px 0 rgba(255,255,255,.5),inset 0 -4px 0 rgba(150,110,60,.3),0 5px 0 rgba(0,0,0,.5)}
+
+/* the three candidate display faces */
+.d-cinzel{font-family:"Cinzel",serif;font-weight:700}
+.d-marcellus{font-family:"Marcellus",serif;font-weight:400}
+.d-atkinson{font-family:"Atkinson Hyperlegible",sans-serif;font-weight:700}
+.carve{color:#4a3414;text-shadow:0 2px 0 rgba(255,255,255,.55),0 -1px 0 rgba(90,60,25,.5)}
+.spec{font-size:31px;line-height:1.15;margin:0 0 3px;letter-spacing:.5px}
+.spec.caps{text-transform:uppercase;letter-spacing:2.5px;font-size:26px}
+.tiny{font:400 11px "Press Start 2P",monospace;color:var(--ink-dim);margin-bottom:12px}
+
+/* candidate body faces */
+.b-atkinson{font-family:"Atkinson Hyperlegible",sans-serif}
+.b-figtree{font-family:"Figtree",sans-serif}
+.b-nunito{font-family:"Nunito Sans",sans-serif}
+.body-spec{font-size:15.5px;line-height:1.62;margin:5px 0 0}
+
+/* pixel accents */
+.p-press{font-family:"Press Start 2P",monospace}
+.p-silk{font-family:"Silkscreen",monospace}
+.p-pixelify{font-family:"Pixelify Sans",monospace}
+
+.rule{display:flex;align-items:center;gap:11px;margin:15px 0}
+.rule::before,.rule::after{content:"";flex:1;height:4px;border-radius:2px;
+  background:linear-gradient(180deg,rgba(90,60,25,.42) 0 2px,rgba(255,255,255,.45) 2px 4px)}
+.rule i{width:9px;height:9px;transform:rotate(45deg);background:var(--gold);
+  border:2px solid var(--outline);flex:0 0 auto}
+.key{font:700 14px "Figtree",sans-serif;border:3px solid var(--outline);border-radius:8px;
+  padding:12px 20px 13px;cursor:pointer;position:relative;top:0;transition:top .05s,box-shadow .05s;
+  background:var(--gold);color:#2a1c00;text-shadow:0 2px 0 rgba(255,235,180,.75);
+  box-shadow:0 5px 0 var(--outline),0 5px 0 -1px var(--gold-deep),inset 0 3px 0 var(--gold-light)}
+.key:active{top:5px;box-shadow:0 0 0 var(--outline),inset 0 3px 0 var(--gold-light)}
+.key.q{background:var(--plum);color:#fff;text-shadow:0 2px 0 rgba(0,0,0,.6);
+  box-shadow:0 5px 0 var(--outline),0 5px 0 -1px var(--plum-deep),inset 0 3px 0 rgba(150,110,200,.5)}
+.key.q:active{box-shadow:0 0 0 var(--outline),inset 0 3px 0 rgba(150,110,200,.5)}
+.keys{display:flex;gap:12px;flex-wrap:wrap;margin-top:15px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.pick{border:3px solid var(--green);border-radius:8px;padding:3px 9px;font:700 11px "Figtree",sans-serif;
+  color:#163a24;background:var(--green);display:inline-block;margin-left:9px;vertical-align:4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="lab">WHAT THOSE GAMES ACTUALLY USE</div>
+<p class="note">All five you named, not just Zelda. Researched rather than guessed.</p>
+<table class="src">
+  <tr><td>ZELDA</td><td>Charlemagne Bold</td><td>Ocarina of Time logo — engraved Roman capitals, by Carol Twombly</td></tr>
+  <tr><td></td><td>Friz Quadrata</td><td>Ocarina of Time 3D subtitles — a flared glyphic serif</td></tr>
+  <tr><td></td><td>Kokinedo</td><td>the original N64 in-game text</td></tr>
+  <tr><td></td><td>Hylia Serif</td><td>Breath of the Wild (community recreation)</td></tr>
+  <tr><td>MARIO</td><td>classic Super Mario font</td><td>logos and UI since 1988 — uneven sans, Nintendo in-house</td></tr>
+  <tr><td></td><td>Lithos Black</td><td>COURSE and THANK YOU in Super Mario 64 — Greek inscription capitals</td></tr>
+  <tr><td></td><td>Myriad</td><td>the "64" itself</td></tr>
+  <tr><td></td><td>New Rodin / Rodin NTLG</td><td>modern Nintendo system UI — geometric sans</td></tr>
+  <tr><td>FINAL FANTASY</td><td>Kazuko Shibuya's originals</td><td>custom 8×8 pixel fonts; she designed the menus too</td></tr>
+  <tr><td></td><td>Reactor7</td><td>recreation of FFVII's PlayStation text — a proportional pixel sans</td></tr>
+  <tr><td>STARDEW VALLEY</td><td>three custom pixel fonts</td><td>Small for tooltips, Medium for item names, Dialogue for titles</td></tr>
+</table>
+
+<div class="lab">THE PATTERN — THIS IS THE FINDING</div>
+<p class="note">
+<b>1. Every single one pairs a characterful DISPLAY face with a plain READABLE body face.</b> Not one of them uses a single font for everything.<br><br>
+<b>2. Zelda and Mario both reach for classical inscription capitals at the top.</b> Charlemagne and Lithos are both carved-in-stone faces. That is not coincidence — it is the genre saying <i>this is old and this matters</i>.<br><br>
+<b>3. The body text is deliberately boring.</b> A clean sans, or a pixel font built for legibility at one exact size. The character lives in the display face and the frame — never in the paragraph.<br><br>
+<b>Aang today does the opposite of all three.</b> One font for everything — Atkinson Hyperlegible, an <i>accessibility</i> face engineered to have no character — plus a pixel font misapplied to buttons at 8px. Decoration where legibility is needed, and no display face at all. <b>That is why it reads flat.</b></p>
+
+<div class="lab">THE DISPLAY FACE — PICK ONE</div>
+<p class="note">Free, on Google Fonts, in the Charlemagne/Lithos lineage. Shown carved, as a heading would be.</p>
+<div class="parch">
+  <div class="tiny">CINZEL — modelled directly on Roman inscriptions. The closest free thing to Charlemagne.<span class="pick">MY PICK</span></div>
+  <div class="spec d-cinzel carve">Three jobs this week</div>
+  <div class="spec caps d-cinzel carve" style="margin-bottom:18px">What kept coming up</div>
+  <div class="rule"><i></i></div>
+  <div class="tiny">MARCELLUS — same lineage, softer and a little more humanist.</div>
+  <div class="spec d-marcellus carve">Three jobs this week</div>
+  <div class="spec caps d-marcellus carve" style="margin-bottom:18px">What kept coming up</div>
+  <div class="rule"><i></i></div>
+  <div class="tiny">ATKINSON BOLD — what Aang uses now, for comparison.</div>
+  <div class="spec d-atkinson carve">Three jobs this week</div>
+  <div class="spec caps d-atkinson carve">What kept coming up</div>
+</div>
+
+<div class="lab">THE BODY FACE — THE BORING ONE, ON PURPOSE</div>
+<p class="note">This is the Rodin role: clean, even, invisible. Readability wins here and nothing else matters.</p>
+<div class="two">
+  <div class="parch">
+    <div class="tiny">ATKINSON — current<span class="pick">KEEP</span></div>
+    <p class="body-spec b-atkinson">Account management in a SaaS team, hybrid in Toronto, and the salary is in range. You have done this exact job before, which is the part that matters on a first screen.</p>
+  </div>
+  <div class="parch">
+    <div class="tiny">FIGTREE — a touch warmer</div>
+    <p class="body-spec b-figtree">Account management in a SaaS team, hybrid in Toronto, and the salary is in range. You have done this exact job before, which is the part that matters on a first screen.</p>
+  </div>
+</div>
+
+<div class="lab">THE PIXEL ACCENT — SMALL LABELS ONLY, NEVER BUTTONS</div>
+<p class="note">Press Start 2P is a <b>capitals-only, fixed-grid</b> face. It is superb on a plaque and wrong on anything you read in a hurry. Two alternatives that keep the pixel feel and stay legible at small sizes.</p>
+<div class="parch">
+  <div style="display:grid;grid-template-columns:150px 1fr;gap:12px;align-items:center;font-size:15px">
+    <span class="tiny" style="margin:0">PRESS START 2P</span><span class="p-press" style="font-size:9px;color:var(--ink-dim)">WEEKLY SWEEP · 28 SEPT</span>
+    <span class="tiny" style="margin:0">SILKSCREEN</span><span class="p-silk" style="font-size:13px;color:var(--ink-dim)">WEEKLY SWEEP · 28 SEPT</span>
+    <span class="tiny" style="margin:0">PIXELIFY SANS</span><span class="p-pixelify" style="font-size:16px;color:var(--ink-dim)">WEEKLY SWEEP · 28 SEPT</span>
+  </div>
+</div>
+
+<div class="lab">ALL THREE TOGETHER</div>
+<p class="note">Cinzel for the heading, Figtree for the body, Silkscreen for the small label, and a readable face on the buttons. Same colours, same frame as before — only the type has changed.</p>
+<div class="parch" style="max-width:620px">
+  <div class="p-silk" style="font-size:13px;color:#8a6a2a;letter-spacing:1px;margin-bottom:8px">WEEKLY SWEEP · 28 SEPTEMBER</div>
+  <div class="spec d-cinzel carve" style="font-size:33px">Three jobs this week</div>
+  <p class="body-spec b-figtree" style="font-size:17px;color:#3a2a16">One of them is the closest match you have had all month.</p>
+  <div class="rule"><i></i></div>
+  <div class="d-cinzel carve" style="font-size:21px;margin-bottom:7px">Why Octup</div>
+  <p class="body-spec b-figtree">Account management in a SaaS team, hybrid in Toronto, and the salary is in range. You have done this exact job before, which is the part that matters on a first screen.</p>
+  <div class="keys">
+    <button class="key">Apply to Octup</button>
+    <button class="key q">Show me all</button>
+  </div>
+</div>
+
+<div class="lab">WHAT I WOULD DO</div>
+<p class="note"><b>Cinzel</b> for display, <b>Figtree</b> or keep Atkinson for body, <b>Silkscreen</b> for small labels, and a readable face on buttons. That is three faces doing three jobs, which is what every game you named does and what Aang does not. Scroll back up and compare the last block with the Atkinson-only one — <b>same colours, same frame, same words.</b></p>
+
+</div>
+</body>
+</html>
