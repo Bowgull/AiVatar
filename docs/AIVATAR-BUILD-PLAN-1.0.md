@@ -1431,7 +1431,7 @@ Update this table as you go. It is the answer to "where are we".
 | 0 | cheaper conversations, no silent amnesia | `[x]` **done** |
 | 1 | safe to read documents | `[x]` **done** |
 | 2 | he can read your Drive | `[x]` **done** |
-| 3 | he learns from it | `[ ]` **ready to start** |
+| 3 | he learns from it | `[x]` **done 2026-10-02** (3.1, 3.2, 3.3 all ticked; 1,188 notes indexed) |
 | 4 | he is pleasant to use | `[x]` **done 2026-10-03** |
 | 5 | the rest | `[x]` **done 2026-10-03** |
 | 6 | the cockpit: he can SHOW you things, not just tell you | `[ ]` **planned, not started** |
