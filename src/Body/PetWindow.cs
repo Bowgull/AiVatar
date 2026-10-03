@@ -680,6 +680,9 @@ sealed class PetWindow : Form
                 }
                 case "panel.reply":
                     panel?.Load(m);
+                    // The starter chip needs the count even when the Panel is closed, so it is kept here
+                    // rather than read back out of a window that may not exist.
+                    jobsWaiting = m.TryGetProperty("jobs", out var jw) && jw.ValueKind == JsonValueKind.Array ? jw.GetArrayLength() : 0;
                     break;
                 case "history.reply":
                     panel?.LoadHistory(m);
@@ -1238,6 +1241,33 @@ sealed class PetWindow : Form
     /// True only when Joshua did something that means "come back": the tray item, or clicking Aang. A
     /// consent or permission question must never bring a hidden pet back on screen.
     /// </param>
+    /// <summary>
+    /// The one-tap starters for the input box. Worked out here, from what the Body already knows.
+    /// </summary>
+    /// <remarks>
+    /// Never from the model. A suggestion that costs a Claude turn to produce costs more than the thing it
+    /// suggests, and at 87% of his week that is not a trade worth making. Everything below is already in
+    /// memory: whether jobs are waiting, what hour it is.
+    ///
+    /// Three at most, because the row is 256 px wide and a fourth is a shape rather than a label.
+    /// </remarks>
+    IEnumerable<(string Label, string Text)> Starters()
+    {
+        var list = new List<(string, string)>();
+        if (jobsWaiting > 0) list.Add(($"Jobs ({jobsWaiting})", "what jobs are waiting for me?"));
+        var hour = DateTime.Now.Hour;
+        if (hour < 12) list.Add(("Today", "what is on today?"));
+        else list.Add(("What you did", "what have you done today?"));
+        // Labels fit about twelve characters: the row is 256 px split three ways, and "How are things"
+        // came back as "How are thi..." in the first capture, which is a shape rather than a label.
+        list.Add(("Anything up?", "how are things?"));
+        if (list.Count < 3) list.Add(("What you did", "what have you done today?"));
+        return list.Distinct().Take(3);
+    }
+
+    /// <summary>How many job cards are waiting on him, from the last Panel refresh. 0 until one arrives.</summary>
+    int jobsWaiting;
+
     bool OpenInput(bool userAsked = false)
     {
         if (hiddenByUser && !userAsked) { Log.Write("input box suppressed: hidden by Joshua"); return false; }
@@ -1246,6 +1276,7 @@ sealed class PetWindow : Form
         var prev = Win32.GetForegroundWindow();
         if (prev == Handle || prev == input.Handle) prev = IntPtr.Zero;
         input.Working = working;
+        input.SetSuggestions(Starters());
         input.Open(new Point(Location.X + (int)(Margin * scale), Location.Y + (int)(Extra * scale)), prev);
         Wake(); dirty = true;
         return true;

@@ -158,7 +158,33 @@ sealed class InputWindow : Form
 
     public const int PointerRowH = 22;
     bool HasPointers => pins.Count > 0 || replying != null;
-    int PointerH => HasPointers ? (int)(PointerRowH * scale) : 0;
+
+    /// <summary>
+    /// 4.5: a few one-tap starters, shown in the pointer row while the box is empty.
+    /// </summary>
+    /// <remarks>
+    /// Not a tour. He rejected a first-run "here's what I can do" outright - "no welcome tour is needed
+    /// what even is that???" - and he was right, because a tour explains an app to someone meeting it for
+    /// the first time and that person does not exist here. These are different: always there, never
+    /// explaining anything, and they go away the moment he types a character.
+    ///
+    /// They cost nothing. The labels come from what the Body already knows - whether jobs are waiting,
+    /// what time it is - and never from the model, because a suggestion that costs a Claude turn to
+    /// produce is a suggestion that costs more than the thing it suggests.
+    ///
+    /// Tapping one FILLS the box rather than sending it, so he can change his mind mid-sentence.
+    /// </remarks>
+    readonly List<(string Label, string Text)> suggestions = new();
+    bool ShowingSuggestions => suggestions.Count > 0 && box.Text.Length == 0 && !HasPointers;
+
+    public void SetSuggestions(IEnumerable<(string Label, string Text)> items)
+    {
+        suggestions.Clear();
+        suggestions.AddRange(items.Take(3));
+        Relayout();
+    }
+
+    int PointerH => HasPointers || ShowingSuggestions ? (int)(PointerRowH * scale) : 0;
 
     public IReadOnlyList<int> PinnedIds => pins.Select(p => p.Id).ToArray();
     public int? ReplyingTo => replying?.Id;
@@ -203,6 +229,42 @@ sealed class InputWindow : Form
         regionFor = Size.Empty;                        // the rounded region must be rebuilt at the new height
         Grow();
         Invalidate();
+    }
+
+    /// <summary>Where each suggestion was drawn, rebuilt on every paint so a tap lands on what is shown.</summary>
+    readonly List<RectangleF> suggestRects = new();
+
+    /// <summary>
+    /// The starters, drawn in the same row the pins use and in the same quiet parchment style.
+    /// </summary>
+    /// <remarks>
+    /// They share the row on purpose. A second row would make the box taller all the time for something
+    /// that is only ever a convenience, and the row is empty whenever these are showing - the two can
+    /// never both be there, because a pin means he has already decided what this message is about.
+    /// </remarks>
+    void DrawSuggestions(Graphics g)
+    {
+        float edge = (6 + 4) * scale;
+        float left = edge, right = Width - edge;
+        float h = (PointerRowH - 6) * scale, y = 7 * scale, gap = 4 * scale;
+        using var font = Theme.Font(Theme.Face, 10.5f * scale);
+        using var fmt = new StringFormat(StringFormatFlags.NoWrap) { Trimming = StringTrimming.EllipsisCharacter, LineAlignment = StringAlignment.Center, Alignment = StringAlignment.Center };
+        // Quieter than a pin: a pin is something he chose, these are only offers.
+        using var fill = new SolidBrush(Theme.WithAlpha(Theme.InkDim, 28));
+        using var pen = new Pen(Theme.WithAlpha(Theme.InkDim, 110), 1f);
+        using var ink = new SolidBrush(Theme.WithAlpha(Theme.InkText, 200));
+
+        var n = suggestions.Count;
+        float each = (right - left - gap * (n - 1)) / n;
+        float x = left;
+        for (var i = 0; i < n; i++)
+        {
+            var r = new RectangleF(x, y, each, h);
+            using (var p = Rounded(Rectangle.Round(r), (int)(4 * scale))) { g.FillPath(fill, p); g.DrawPath(pen, p); }
+            g.DrawString(suggestions[i].Label, font, ink, r, fmt);
+            suggestRects.Add(r);
+            x += each + gap;
+        }
     }
 
     /// <summary>Where each chip's x sits, rebuilt on every paint so a click lands on what is drawn.</summary>
@@ -276,7 +338,8 @@ sealed class InputWindow : Form
     void PaintPointers(Graphics g)
     {
         chipCloses.Clear();
-        if (!HasPointers) return;
+        suggestRects.Clear();
+        if (!HasPointers) { if (ShowingSuggestions) DrawSuggestions(g); return; }
 
         // Inside the parchment, not inside the window: the frame has a 6px inset and a gold stroke, and a
         // chip laid out against Width ran straight over both (2026-10-01, first capture).
@@ -565,6 +628,15 @@ sealed class InputWindow : Form
         // but this one is above and a miss here should never cycle the mode.
         foreach (var (close, id) in chipCloses)
             if (close.Contains(e.Location)) { pins.RemoveAll(p => p.Id == id); Relayout(); box.Focus(); return; }
+        for (var i = 0; i < suggestRects.Count && i < suggestions.Count; i++)
+            if (suggestRects[i].Contains(e.Location))
+            {
+                box.Text = suggestions[i].Text;
+                box.SelectionStart = box.Text.Length;
+                box.Focus();
+                Relayout();
+                return;
+            }
         if (chipRect.Contains(e.Location)) ModeChosen?.Invoke("next");
         else if (usageRect.Contains(e.Location)) { showUsage = !showUsage; UsageShownChanged?.Invoke(showUsage); Invalidate(); }
         else if (savingRect.Contains(e.Location)) SavingToggled?.Invoke();
