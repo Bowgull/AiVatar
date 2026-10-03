@@ -51,6 +51,7 @@ import type { Fetch } from './google.ts';
 import { MailService, MailStore, renderMailCard } from './mail.ts';
 import type { DraftInput, MailDraft } from './mail.ts';
 import { meansOf } from './plain.ts';
+import { checkAddons, saveDigest, weeklySweep } from './watch.ts';
 
 export interface CoreConfig {
   port: number;
@@ -970,6 +971,40 @@ export class Core {
   onShutdownRequest?: () => void;
   private backupTimer: NodeJS.Timeout | null = null;
   private nudgeTimer: NodeJS.Timeout | null = null;
+  private watchTimer: NodeJS.Timeout | null = null;
+  private sweepTimer: NodeJS.Timeout | null = null;
+
+  /**
+   * 7: the addon check and the weekly sweep.
+   *
+   * Says nothing when there is nothing, which is the whole discipline of this feature. A digest that
+   * arrives every week saying "not much this week" teaches him to ignore it, and then he ignores the
+   * week that mattered too.
+   *
+   * Never runs while he is mid-turn: the sweep can take a minute and the local model wants the card, and
+   * interrupting an answer he is waiting for to go and read Hacker News is exactly backwards.
+   */
+  private async runWatch(): Promise<void> {
+    if (this.active) return;
+    const deps = {
+      fetch: ((u: string, i?: Parameters<typeof fetch>[1]) => fetch(u, i)) as unknown as import('./google.ts').Fetch,
+      db: this.memory.handle(), stateDir: this.cfg.stateDir,
+      askLocal: async (prompt: string, opts?: { system?: string; maxTokens?: number }) => {
+        const { askLocal } = await import('./local.ts');
+        const r = await askLocal(prompt, { ...opts, timeoutMs: 300_000 });
+        return { ok: r.ok, text: r.text };
+      },
+    };
+    try {
+      const addons = await checkAddons(deps);
+      if (addons) { this.announce(addons, { asked: true }); this.memory.saveSaid(addons); }
+    } catch (e) { console.error('addons: ' + (e as Error).message); }
+    try {
+      const { said, note } = await weeklySweep(deps);
+      if (note) saveDigest(note);
+      if (said) { this.announce(said, { asked: true }); this.memory.saveSaid(said); }
+    } catch (e) { console.error('research: ' + (e as Error).message); }
+  }
 
   /** Say back what he told Aang about today, once each, at most three a day. Returns what was said (tests). */
   nudge(now = new Date()): string[] {
@@ -1180,6 +1215,18 @@ export class Core {
     // Only when relevant (Joshua, 2026-09-21): a day he named has come, so what he said about it comes back. No model.
     this.nudgeTimer = setInterval(() => { this.nudge(); this.checkStaleLaunches(); }, 10 * 60_000);
     this.nudgeTimer.unref?.();
+
+    // 7: the watch. Addons when he starts (his answer, asked directly), the sweep once a week.
+    //
+    // Both are delayed and both are guarded by a date written down rather than by the timer, so six
+    // restarts on a Monday sweep once and a day of restarts nags once. The delay matters: startup is
+    // when he is most likely to be waiting for Aang to be useful, and neither of these is urgent.
+    this.watchTimer = setTimeout(() => { void this.runWatch(); }, 90_000);
+    this.watchTimer.unref?.();
+    // Checked hourly rather than weekly, because a machine that reboots every four hours never reaches
+    // a weekly timer. The week key is what actually stops it running twice.
+    this.sweepTimer = setInterval(() => { void this.runWatch(); }, 60 * 60_000);
+    this.sweepTimer.unref?.();
     // ...and once now: a session left "working" in launched.json when he last shut down is exactly the kind
     // that will never speak again, and it should not be showing as live while he waits ten minutes for a sweep.
     this.checkStaleLaunches();
@@ -1207,6 +1254,8 @@ export class Core {
     if (this.factTimer) clearInterval(this.factTimer);
     if (this.backupTimer) clearInterval(this.backupTimer);
     if (this.nudgeTimer) clearInterval(this.nudgeTimer);
+    if (this.watchTimer) clearTimeout(this.watchTimer);
+    if (this.sweepTimer) clearInterval(this.sweepTimer);
     this.reminders.stop();
     await this.hookServer?.stop(); this.hookServer = null;
     this.webLane?.close(); this.webLane = null;
