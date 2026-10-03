@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aang Cockpit — depth</title>
+<!--
+  FIFTH PASS, 2026-10-03. Three things he challenged, all fair:
+
+  1. "is all of this also backed by research on trends for front end design?"
+     YES, and more strongly than I expected:
+       - "serifs are loud again... the pendulum is swinging toward expression"
+       - "designers are pairing expressive, attention-grabbing fonts with practical, readable ones"
+         which is exactly Cinzel + Figtree, arrived at independently from the games
+       - skeuomorphism is in active revival, driven by Apple's Liquid Glass rather than nostalgia
+       - tactile brutalism is replacing corporate soft UI
+
+  2. "is there a hybrid way"
+     It is THE defining trait of 2026: "not one dominant style... a culture of recombination:
+     skeuomorphism layered over surveillance UI, brutalism softened with botanical gradients, pixels
+     collaged with vapor gloss." So carved wood WITH modern layout and data density is the movement,
+     not a compromise.
+
+  3. "that divider is SOOO boring"
+     Correct. A line with a diamond is the most generic fantasy divider there is. Eight alternatives
+     below, each doing a different job.
+
+  AND WHY IT STILL READS FLAT. The current skeuomorphism recipe is four things and I was using two:
+     - SVG fractalNoise at 0.04-0.06 opacity: REAL texture, no image files. Replaces my fake stripes.
+     - a four-layer shadow stack: contact, ambient, inset top highlight, inset bottom shade
+     - letterpress text: dark text with a LIGHT shadow, which is what looks pressed in
+     - :active with translateY and inverted shadows
+  Noted from the same source: "embossed text routinely lands under the WCAG 4.5:1 minimum", so the
+  carved headings below keep a dark enough ink to survive it.
+-->
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400..900&family=Figtree:wght@300..900&family=Silkscreen:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --gold:#FFC43C;--gold-deep:#C98C14;--gold-lit:#FFE096;--gold-light:#FFE28C;
+  --orange:#FF8040;--orange-deep:#C95E28;--red:#FF5A4A;--green:#78E696;
+  --text:#E8E4F0;--secondary:#C9C2DA;
+  --plum:#4A2C6E;--plum-deep:#2C1848;--plum-edge:#966EC8;
+  --parch1:#ECD5A8;--parch2:#DEC28C;--ink-text:#2E2216;--ink-dim:#5A4834;
+  --wood1:#4A2E1A;--wood2:#24160D;--wood-plaque:#1A0F09;
+  --outline:#120A05;--ow:4px;
+  --display:"Cinzel",serif; --body:"Figtree",system-ui,sans-serif; --pix:"Silkscreen",monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#0d0a16;color:var(--text);font:15px/1.6 var(--body);padding:26px 18px 90px}
+.wrap{max-width:980px;margin:0 auto}
+.lab{font:700 13px var(--pix);color:var(--gold-lit);margin:40px 0 8px;text-shadow:2px 2px 0 var(--outline);letter-spacing:1px}
+.note{color:var(--secondary);font-size:13.5px;margin:0 0 18px;max-width:82ch}
+.note b{color:var(--text)}
+.cap{font:400 12px var(--pix);color:var(--ink-dim);margin:0 0 8px}
+
+/* ===== REAL TEXTURE: SVG fractalNoise, per the 2026 recipe. No image files. ===== */
+.noise::before{
+  content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;opacity:.05;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ===== FOUR-LAYER SHADOW STACK on parchment ===== */
+.parch{
+  position:relative;color:var(--ink-text);padding:22px 24px;border-radius:9px;overflow:hidden;
+  background:linear-gradient(180deg,#F0DCB4 0%,var(--parch1) 45%,var(--parch2) 100%);
+  border:var(--ow) solid var(--outline);
+  box-shadow:
+    inset 0 5px 0 rgba(255,255,255,.55),      /* inset top highlight */
+    inset 0 -6px 0 rgba(150,110,60,.32),      /* inset bottom shade  */
+    0 3px 0 rgba(0,0,0,.6),                   /* contact             */
+    0 10px 22px rgba(0,0,0,.45);              /* ambient             */
+}
+.wood{
+  position:relative;padding:20px;border-radius:10px;overflow:hidden;
+  background:linear-gradient(180deg,#56371F 0%,var(--wood1) 40%,var(--wood2) 100%);
+  border:var(--ow) solid var(--outline);
+  box-shadow:inset 0 5px 0 rgba(255,224,150,.2),inset 0 -6px 0 rgba(0,0,0,.5),
+    0 3px 0 rgba(0,0,0,.6),0 10px 22px rgba(0,0,0,.45);
+}
+
+/* ===== LETTERPRESS: dark ink, LIGHT shadow. contrast kept above 4.5:1 ===== */
+.carved{font-family:var(--display);font-weight:700;color:#2A1C08;
+  text-shadow:0 1px 0 rgba(255,255,255,.65), 0 -1px 0 rgba(90,60,25,.35)}
+h3.carved{font-size:25px;margin:0 0 4px;letter-spacing:.3px}
+.sub{font-size:14.5px;color:var(--ink-dim);margin:0}
+
+/* =====================================================================
+   EIGHT DIVIDERS. Each does a different job.
+   ===================================================================== */
+
+/* 1 CARVED GROOVE - a channel cut into the surface, not a line drawn on it */
+.d-groove{height:8px;border-radius:4px;margin:18px 0;
+  background:linear-gradient(180deg,rgba(90,60,25,.5) 0 3px,rgba(255,255,255,.55) 3px 6px,transparent 6px);
+  box-shadow:inset 0 1px 2px rgba(0,0,0,.35)}
+
+/* 2 FORGED END-CAPS - the rule terminates in metal brackets */
+.d-forged{display:flex;align-items:center;gap:0;margin:18px 0}
+.d-forged .bar{flex:1;height:6px;background:linear-gradient(180deg,var(--gold-deep) 0 3px,var(--gold-lit) 3px 6px);
+  border-top:2px solid var(--outline);border-bottom:2px solid var(--outline)}
+/* .cap is also the caption class on this page, which collided and left two stray squares at the left
+   edge of the rule. Named endcap so the two cannot be confused again. */
+.d-forged .endcap{width:14px;height:18px;flex:0 0 auto;
+  background:linear-gradient(180deg,var(--gold-lit),var(--gold-deep));
+  border:2px solid var(--outline);border-radius:3px;box-shadow:inset 0 2px 0 rgba(255,255,255,.5)}
+
+/* 3 TORN PAGE - the parchment itself ends */
+.d-torn{height:12px;margin:18px 0;
+  background:
+    radial-gradient(circle at 6px 0,transparent 5px,rgba(90,60,25,.3) 5px) repeat-x 0 0/12px 12px;
+  filter:drop-shadow(0 1px 0 rgba(255,255,255,.5))}
+
+/* 4 DOUBLE RULE - Final Fantasy's thin pair, with unequal weights */
+.d-double{margin:18px 0}
+.d-double i{display:block;background:rgba(90,60,25,.45);box-shadow:0 1px 0 rgba(255,255,255,.5)}
+.d-double i:first-child{height:3px} .d-double i:last-child{height:1px;margin-top:3px;opacity:.7}
+
+/* 5 CHAIN - links, for something that connects two things */
+.d-chain{display:flex;align-items:center;justify-content:center;gap:3px;margin:18px 0;opacity:.85}
+.d-chain i{width:13px;height:9px;border:2.5px solid var(--gold-deep);border-radius:50%;
+  box-shadow:0 1px 0 rgba(255,255,255,.4)}
+.d-chain .bar{flex:1;height:3px;background:rgba(90,60,25,.4);box-shadow:0 1px 0 rgba(255,255,255,.45)}
+
+/* 6 GEM IN A SETTING - a real faceted stone, not a flat diamond */
+.d-gem{display:flex;align-items:center;gap:12px;margin:18px 0}
+.d-gem .bar{flex:1;height:5px;border-radius:3px;
+  background:linear-gradient(180deg,rgba(90,60,25,.45) 0 2px,rgba(255,255,255,.5) 2px 5px)}
+.d-gem .stone{width:16px;height:16px;transform:rotate(45deg);flex:0 0 auto;
+  background:linear-gradient(135deg,#FFEFC0 0%,var(--gold) 42%,var(--gold-deep) 100%);
+  border:2.5px solid var(--outline);
+  box-shadow:inset 2px 2px 0 rgba(255,255,255,.7), inset -2px -2px 0 rgba(140,90,10,.6)}
+
+/* 7 HEADING ON THE RULE - the rule runs behind, the text sits on it */
+.d-onrule{display:flex;align-items:center;gap:0;margin:20px 0 12px}
+.d-onrule .bar{flex:1;height:5px;border-radius:3px;
+  background:linear-gradient(180deg,rgba(90,60,25,.45) 0 2px,rgba(255,255,255,.5) 2px 5px)}
+.d-onrule span{font-family:var(--display);font-weight:700;font-size:15px;color:#2A1C08;
+  padding:0 13px;letter-spacing:1.5px;text-transform:uppercase;
+  text-shadow:0 1px 0 rgba(255,255,255,.65)}
+
+/* 8 STITCHED - for something informal or provisional */
+.d-stitch{height:3px;margin:18px 0;
+  background:repeating-linear-gradient(90deg,rgba(90,60,25,.55) 0 9px,transparent 9px 16px);
+  box-shadow:0 1px 0 rgba(255,255,255,.5)}
+
+/* dark-surface variants */
+.on-wood .d-groove{background:linear-gradient(180deg,rgba(0,0,0,.6) 0 3px,rgba(255,224,150,.28) 3px 6px,transparent 6px)}
+.on-wood .carved{color:var(--gold);text-shadow:0 2px 0 var(--outline),0 -1px 0 rgba(255,224,150,.3)}
+.on-wood .sub{color:var(--secondary)}
+
+.key{font:700 14px var(--body);border:3px solid var(--outline);border-radius:8px;padding:12px 20px 13px;
+  cursor:pointer;position:relative;top:0;transition:top .05s,box-shadow .05s;background:var(--gold);color:#2a1c00;
+  text-shadow:0 1px 0 rgba(255,235,180,.8);
+  box-shadow:0 5px 0 var(--outline),0 5px 0 -1px var(--gold-deep),inset 0 3px 0 var(--gold-light),0 8px 14px rgba(0,0,0,.4)}
+.key:active{top:5px;box-shadow:0 0 0 var(--outline),inset 0 3px 0 var(--gold-light)}
+.key.q{background:var(--plum);color:#fff;text-shadow:0 1px 0 rgba(0,0,0,.7);
+  box-shadow:0 5px 0 var(--outline),0 5px 0 -1px var(--plum-deep),inset 0 3px 0 rgba(150,110,200,.5),0 8px 14px rgba(0,0,0,.4)}
+.key.q:active{box-shadow:0 0 0 var(--outline),inset 0 3px 0 rgba(150,110,200,.5)}
+.keys{display:flex;gap:12px;flex-wrap:wrap;margin-top:16px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="lab">THE TREND RESEARCH BACKS ALL OF IT</div>
+<p class="note"><b>"Serifs are loud again — the pendulum is swinging toward expression."</b> And: <b>"designers are pairing expressive, attention-grabbing fonts with practical, readable ones."</b> That is Cinzel plus Figtree, arrived at from the trend data independently of the games. Skeuomorphism is in active revival — driven by Apple's Liquid Glass, not nostalgia — and tactile brutalism is replacing corporate soft UI.<br><br>
+<b>On the hybrid:</b> it is not merely possible, it is the defining trait of the year. <i>"2026 isn't about one dominant style, it's about a culture of recombination."</i> Carved wood with modern layout and real data density <b>is</b> the movement.</p>
+
+<div class="lab">WHY IT STILL READ FLAT — AND THE FIX</div>
+<p class="note">The current recipe is four things and I was using two. Everything on this page now has: <b>real SVG noise texture</b> (no image files), a <b>four-layer shadow stack</b> — contact, ambient, inset top highlight, inset bottom shade — and <b>letterpress text</b>, which is dark ink with a <i>light</i> shadow. That last one is what makes type look pressed into a surface rather than printed on it.</p>
+
+<div class="two">
+  <div><p class="cap">BEFORE — two shadows, fake stripes</p>
+    <div style="position:relative;color:var(--ink-text);padding:22px 24px;border-radius:9px;
+      background:repeating-linear-gradient(97deg,rgba(140,105,60,.07) 0 1px,transparent 1px 6px),linear-gradient(180deg,var(--parch1),var(--parch2));
+      border:4px solid var(--outline);box-shadow:inset 0 4px 0 rgba(255,255,255,.5),0 5px 0 rgba(0,0,0,.5)">
+      <h3 style="font-family:var(--display);font-weight:700;font-size:25px;margin:0 0 4px;color:#4a3414;text-shadow:0 2px 0 rgba(255,255,255,.55)">Three jobs this week</h3>
+      <p class="sub">One is the closest match you have had all month.</p>
+    </div></div>
+  <div><p class="cap">AFTER — four layers, real noise, letterpress</p>
+    <div class="parch noise">
+      <h3 class="carved">Three jobs this week</h3>
+      <p class="sub">One is the closest match you have had all month.</p>
+    </div></div>
+</div>
+
+<div class="lab">EIGHT DIVIDERS — THE DIAMOND WAS THE LAZY ONE</div>
+<p class="note">Each does a different job. A divider is not decoration; it says what kind of break this is.</p>
+
+<div class="parch noise">
+  <p class="cap">1 — CARVED GROOVE · a channel cut into the surface, not a line drawn on it. The default.</p>
+  <div class="d-groove"></div>
+
+  <p class="cap">2 — FORGED END-CAPS · the rule terminates in metal. For a major section break.</p>
+  <div class="d-forged"><div class="endcap"></div><div class="bar"></div><div class="endcap"></div></div>
+
+  <p class="cap">3 — TORN PAGE · the parchment itself ends. For "that is everything".</p>
+  <div class="d-torn"></div>
+
+  <p class="cap">4 — DOUBLE RULE · Final Fantasy's thin pair, unequal weights. Quiet, for inside a section.</p>
+  <div class="d-double"><i></i><i></i></div>
+
+  <p class="cap">5 — CHAIN · links. For two things that are connected — before and after, cause and effect.</p>
+  <div class="d-chain"><div class="bar"></div><i></i><i></i><i></i><div class="bar"></div></div>
+
+  <p class="cap">6 — GEM IN A SETTING · a faceted stone with real highlights, not a flat diamond. For something important.</p>
+  <div class="d-gem"><div class="bar"></div><div class="stone"></div><div class="bar"></div></div>
+
+  <p class="cap">7 — HEADING ON THE RULE · the rule runs behind and the words sit on it. Replaces a heading AND a divider.</p>
+  <div class="d-onrule"><div class="bar"></div><span>The other two</span><div class="bar"></div></div>
+
+  <p class="cap">8 — STITCHED · dashed, informal. For something provisional or a note to self.</p>
+  <div class="d-stitch"></div>
+</div>
+
+<div class="lab">ALL TOGETHER, ON WOOD</div>
+<div class="wood noise on-wood" style="max-width:620px">
+  <h3 class="carved" style="font-size:27px">What kept coming up</h3>
+  <p class="sub">Four mentions of <b style="color:var(--gold)">jev</b>, three of <b style="color:var(--gold)">muse</b>.</p>
+  <div class="d-groove"></div>
+  <div class="d-onrule"><div class="bar" style="background:linear-gradient(180deg,rgba(0,0,0,.6) 0 2px,rgba(255,224,150,.28) 2px 5px)"></div><span style="color:var(--gold);text-shadow:0 2px 0 var(--outline)">Worth a look</span><div class="bar" style="background:linear-gradient(180deg,rgba(0,0,0,.6) 0 2px,rgba(255,224,150,.28) 2px 5px)"></div></div>
+  <p class="sub">A headless browser built for agents. 9.4k stars, MIT, active this week.</p>
+  <div class="keys"><button class="key">Open it</button><button class="key q">Not now</button></div>
+</div>
+
+<div class="lab">THE ONE CAVEAT</div>
+<p class="note">From the same source: <b>"embossed text routinely lands under the WCAG 4.5:1 minimum."</b> Letterpress works by lowering contrast, so the carved headings here use a darker ink than looks strictly prettiest — it has to stay readable at a glance on a bright screen with a game behind it. Worth checking rather than assuming, because this is exactly the trade where style quietly wins over legibility.</p>
+
+</div>
+</body>
+</html>
