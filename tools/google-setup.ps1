@@ -13,17 +13,30 @@ Write-Host ''
 Write-Host '  Aang: connect to Google' -ForegroundColor Yellow
 Write-Host '  -----------------------'
 
-$json = Get-ChildItem (Join-Path $env:USERPROFILE 'Downloads') -Filter 'client_secret*.json' -ErrorAction SilentlyContinue |
-    Sort-Object LastWriteTime -Descending | Select-Object -First 1
-if (-not $json) {
-    Write-Host '  No client_secret*.json in your Downloads folder.' -ForegroundColor Red
-    Write-Host '  In Google Cloud > Auth Platform > Clients > Aang, download the JSON, then run this again.'
-    Read-Host '  Press Enter to close'; exit 1
-}
-$c = (Get-Content $json.FullName -Raw | ConvertFrom-Json).installed
-if (-not $c.client_id -or -not $c.client_secret) {
-    Write-Host '  That file is not a Desktop-app client (no "installed" section). Nothing was saved.' -ForegroundColor Red
-    Read-Host '  Press Enter to close'; exit 1
+# Reuse the client already saved, if there is one.
+#
+# This used to demand a freshly downloaded client_secret*.json every time, which is right the FIRST
+# time and pointless afterwards: the id and secret are already in google.json and do not change. Signing
+# in again is needed whenever the refresh token dies - which, while the app sat in Testing, was every
+# seven days - and making him go and re-download a file he already has is friction for nothing.
+$c = $null
+$existing = if (Test-Path $store) { Get-Content $store -Raw | ConvertFrom-Json } else { $null }
+if ($existing -and $existing.clientId -and $existing.clientSecret) {
+    $c = [pscustomobject]@{ client_id = $existing.clientId; client_secret = $existing.clientSecret }
+    Write-Host '  Using the Google client already saved. Signing you in again.' -ForegroundColor DarkGray
+} else {
+    $json = Get-ChildItem (Join-Path $env:USERPROFILE 'Downloads') -Filter 'client_secret*.json' -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    if (-not $json) {
+        Write-Host '  No client_secret*.json in your Downloads folder.' -ForegroundColor Red
+        Write-Host '  In Google Cloud > Auth Platform > Clients > Aang, download the JSON, then run this again.'
+        Read-Host '  Press Enter to close'; exit 1
+    }
+    $c = (Get-Content $json.FullName -Raw | ConvertFrom-Json).installed
+    if (-not $c.client_id -or -not $c.client_secret) {
+        Write-Host '  That file is not a Desktop-app client (no "installed" section). Nothing was saved.' -ForegroundColor Red
+        Read-Host '  Press Enter to close'; exit 1
+    }
 }
 
 function B64Url([byte[]]$b) { [Convert]::ToBase64String($b).TrimEnd('=').Replace('+', '-').Replace('/', '_') }
@@ -68,9 +81,15 @@ if (-not $tok.refresh_token) { Write-Host '  Google gave no refresh token. Remov
     clientId = $c.client_id; clientSecret = $c.client_secret; refreshToken = $tok.refresh_token
     accessToken = $tok.access_token; expiresAt = [DateTimeOffset]::UtcNow.AddSeconds([int]$tok.expires_in - 60).ToUnixTimeMilliseconds()
     scope = $tok.scope; account = 'bocas.joshua@gmail.com'
+    # When this sign-in happened, so that if Google cuts it off again Aang can say whether it lasted
+    # exactly seven days - which means the project is still in Testing - or something else went wrong.
+    # Without this the answer takes an afternoon of detective work, which it did on 2026-10-02.
+    signedInAt = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
 } | ConvertTo-Json | Set-Content -Path $store -Encoding ascii
 icacls $store /inheritance:r /grant:r "$($env:USERNAME):(R,W)" | Out-Null
-Remove-Item $json.FullName -Force
+# Only when there WAS a downloaded file. Reusing the saved client leaves $json null, and deleting a
+# null path throws right at the end, after everything has already succeeded.
+if ($json) { Remove-Item $json.FullName -Force }
 Write-Host '  Saved, readable by your Windows account only. The downloaded JSON was deleted.' -ForegroundColor Green
 Write-Host '  Tell Claude "google done" and Aang will pick it up.'
 Read-Host '  Press Enter to close'

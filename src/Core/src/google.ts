@@ -5,7 +5,12 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 
 export type Fetch = (url: string, init?: { method?: string; headers?: Record<string, string>; body?: string }) => Promise<{ ok: boolean; status: number; json(): Promise<any>; text(): Promise<string> }>;
 
-export interface Tokens { clientId: string; clientSecret: string; refreshToken: string; accessToken?: string; expiresAt?: number; scope?: string; account?: string }
+export interface Tokens {
+  clientId: string; clientSecret: string; refreshToken: string;
+  accessToken?: string; expiresAt?: number; scope?: string; account?: string;
+  /** When he last signed in. Absent on anything saved before 2026-10-03; the caller must cope. */
+  signedInAt?: number;
+}
 
 export class GoogleError extends Error {
   /** `signin`: he has to run google-setup again (the token was revoked or expired). `none`: he never signed in. */
@@ -63,11 +68,20 @@ export class Google {
         // week. The actual fix is a dropdown in the Cloud Console, and the message has to say so or this
         // repeats forever. Note also that new credentials are generally needed after publishing; the old
         // ones can keep the 7-day behaviour.
-        throw new GoogleError(
-          'Google cut off the sign-in. This is their 7-day limit for apps still marked "Testing", not something you did. '
-          + 'Running tools\\google-setup.cmd gets you another 7 days. To stop it happening every week, set the project to '
-          + '"In production" on the OAuth consent screen at console.cloud.google.com, then sign in once more.',
-          'signin');
+        // How long it actually lasted answers WHY, and the answer is not the same every time. Seven days
+        // means the project is still in Testing. Longer means something else - he revoked it at
+        // myaccount.google.com, or changed his password, or the client was deleted - and telling him to go
+        // and change a dropdown that is already correct would send him in the wrong direction.
+        const days = t.signedInAt ? Math.round((Date.now() - t.signedInAt) / 86_400_000) : null;
+        const lasted = days === null ? '' : ` It lasted ${days} day${days === 1 ? '' : 's'}.`;
+        const why = days !== null && days > 9
+          ? `${lasted} That is longer than the 7-day limit for apps marked "Testing", so this is NOT that - `
+            + 'the sign-in was most likely withdrawn at myaccount.google.com/permissions, or the client was changed.'
+          : `${lasted} This is their 7-day limit for apps still marked "Testing", not something you did. `
+            + 'To stop it happening every week, set the project to "In production" on the OAuth consent screen at '
+            + 'console.cloud.google.com, then sign in once more - a token issued while it was still Testing keeps the '
+            + 'old 7-day clock, so publishing alone is not enough.';
+        throw new GoogleError(`Google cut off the sign-in.${why} Run tools\\google-setup.cmd to sign in again.`, 'signin');
       }
       throw new GoogleError(`Google would not refresh the sign-in (${r.status}).`);
     }
