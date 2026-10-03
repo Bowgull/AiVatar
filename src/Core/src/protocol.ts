@@ -206,10 +206,28 @@ export type FromBody =
   /** A picture of his window: base64 JPEG, and how much of it is black (protected video comes out black). */
   | { t: 'look'; id: string; ok: boolean; data?: string | null; w?: number; h?: number; black?: number; error?: string | null };
 
+/**
+ * 5.5: a message that cannot be read is DROPPED, and a drop used to leave no trace at all.
+ *
+ * That is the shape of fault that hides for a week: the Body sends something, the Core quietly
+ * ignores it, and the only symptom is a button that does nothing. Saying so once is enough to turn
+ * "it just does not work" into a one-line answer.
+ *
+ * Counted rather than printed every time, because a Body sending malformed messages would send a lot
+ * of them, and a flood is as useless as silence. Loud once, then at each power of ten - the same rule
+ * reportWriteFailure uses. The raw text is never logged: it may contain whatever he just typed.
+ */
+let dropped = 0;
 export function parseFromBody(raw: string): FromBody | null {
   try {
     const v = JSON.parse(raw);
     if (v && typeof v === 'object' && typeof v.t === 'string') return v as FromBody;
-  } catch { /* fall through */ }
-  return null;
+    dropped++;
+    if (dropped === 1 || Math.log10(dropped) % 1 === 0) console.error(`dropped a message from the Body (${dropped}x): no 't' field`);
+    return null;
+  } catch (e) {
+    dropped++;
+    if (dropped === 1 || Math.log10(dropped) % 1 === 0) console.error(`dropped a message from the Body (${dropped}x): ${(e as Error).message}`);
+    return null;
+  }
 }
