@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aang Cockpit</title>
+<!--
+  Every element of the cockpit, in real CSS, with the real colours.
+
+  NOT a picture of a mockup. Every value here is lifted from src/Body/Theme.cs rather than eyeballed,
+  so this file is the seed of the actual stylesheet - if a colour looks wrong here it is wrong in Aang
+  too. Phase 6 step 3 says the keycap buttons are the acceptance test; this is what gets held up
+  against the real bubble.
+
+  Written 2026-10-03 after the full cockpit interview.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* ---- straight out of Theme.cs. Do not invent values here. ---- */
+  --ink:#100A22; --ink-fill:rgba(16,10,34,.957); --panel2:#1A1132;
+  --gold:#FFC43C; --gold-deep:#C98C14; --gold-lit:#FFE096; --gold-light:#FFE28C;
+  --orange:#FF8040; --orange-deep:#C95E28;
+  --red:#FF5A4A; --green:#78E696;
+  --text:#E8E4F0; --secondary:#C9C2DA;
+  --plum:#4A2C6E; --plum-deep:#2C1848; --plum-edge:#966EC8;
+  --claude:#E88A6A;
+  --parch1:#ECD5A8; --parch2:#DEC28C; --parch-edge:rgba(92,61,33,.51);
+  --ink-text:#2E2216; --ink-dim:#5A4834;
+  --wood1:#4A2E1A; --wood2:#24160D; --wood-plaque:#1A0F09; --wood-cream:#ECD5A8;
+  --mode-quick:#00D1FF; --mode-smart:#3D9BFF; --mode-deep:#A970FF; --mode-saving:#8E879E;
+  --avatar-glow:#C8E8FF;
+  --lip:3px;                      /* Theme.Lip - deliberately restrained, keep it */
+  --face:"Atkinson Hyperlegible",system-ui,sans-serif;
+  --pixel:"Press Start 2P",monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#0a0616;color:var(--text);font:15px/1.55 var(--face);padding:28px 16px 80px}
+.wrap{max-width:1180px;margin:0 auto}
+h1{font:400 22px var(--pixel);color:var(--gold);margin:0 0 6px}
+.sub{color:var(--secondary);margin:0 0 28px;max-width:70ch}
+h2{font:400 11px var(--pixel);color:var(--gold-lit);margin:44px 0 4px;letter-spacing:.5px}
+.note{color:var(--secondary);font-size:13.5px;margin:0 0 16px;max-width:78ch}
+.note b{color:var(--text)}
+.row{display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start}
+
+/* ---------- the carved wood panel: the scrollback / cockpit frame ---------- */
+.wood{
+  background:linear-gradient(180deg,var(--wood1),var(--wood2));
+  border:2px solid var(--gold); border-radius:14px; padding:14px;
+  box-shadow:0 0 0 1px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,224,150,.22), 0 10px 30px rgba(0,0,0,.5);
+  position:relative; overflow:hidden;
+}
+/* grain: always the same seed, like the real one */
+.wood::before{
+  content:"";position:absolute;inset:0;pointer-events:none;opacity:.5;
+  background:repeating-linear-gradient(94deg,rgba(0,0,0,.16) 0 1px,transparent 1px 7px),
+             repeating-linear-gradient(86deg,rgba(0,0,0,.10) 0 1px,transparent 1px 13px);
+}
+.plaque{
+  background:var(--wood-plaque); border-radius:8px; padding:7px 12px; margin:-2px 0 12px;
+  box-shadow:inset 0 2px 5px rgba(0,0,0,.75), 0 1px 0 rgba(255,224,150,.1);
+  font:400 9px var(--pixel); color:var(--gold); position:relative;
+}
+.plaque.urgent{color:var(--orange)}
+
+/* ---------- parchment: what Aang says ---------- */
+.parch{
+  background:linear-gradient(180deg,var(--parch1),var(--parch2));
+  color:var(--ink-text); border:1.2px solid var(--parch-edge); border-radius:10px;
+  padding:13px 15px; position:relative;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.4), 0 2px 6px rgba(0,0,0,.35);
+}
+.parch.tail::after{
+  content:"";position:absolute;left:26px;bottom:-9px;width:16px;height:16px;
+  background:var(--parch2);border-right:1.2px solid var(--parch-edge);border-bottom:1.2px solid var(--parch-edge);
+  transform:rotate(45deg);
+}
+.mine{ /* his own words: recessed plum, pressed in */
+  background:linear-gradient(180deg,var(--plum-deep),var(--plum));
+  color:var(--text); border:1.2px solid rgba(150,110,200,.6); border-radius:10px; padding:13px 15px;
+  box-shadow:inset 0 2px 5px rgba(0,0,0,.45);
+}
+.who{font:400 7px var(--pixel);color:var(--ink-dim);margin-bottom:7px;letter-spacing:.5px}
+.mine .who{color:var(--plum-edge)}
+.stamp{float:right;font-size:11.5px;color:var(--ink-dim);font-weight:400}
+.mine .stamp{color:rgba(150,110,200,.7)}
+.dim{color:var(--ink-dim)}
+
+/* ---------- the keycap. ONE box-shadow, no blur. This is the acceptance test. ---------- */
+.key{
+  font:400 8px var(--pixel); border:0; border-radius:9px; padding:11px 16px 11px;
+  cursor:pointer; position:relative; top:0; transition:top .04s, box-shadow .04s;
+  background:var(--plum); color:var(--text);
+  box-shadow:0 var(--lip) 0 var(--plum-deep), inset 0 1px 0 rgba(150,110,200,.5);
+}
+.key:active{top:var(--lip); box-shadow:0 0 0 var(--plum-deep), inset 0 1px 0 rgba(150,110,200,.5)}
+.key.primary{background:var(--gold);color:var(--ink);box-shadow:0 var(--lip) 0 var(--gold-deep), inset 0 1px 0 var(--gold-light)}
+.key.primary:active{box-shadow:0 0 0 var(--gold-deep), inset 0 1px 0 var(--gold-light)}
+.key.warn{background:var(--orange);color:var(--ink);box-shadow:0 var(--lip) 0 var(--orange-deep), inset 0 1px 0 rgba(255,224,150,.5)}
+.key .k{position:absolute;top:3px;right:5px;font-size:6px;opacity:.8}
+.keys{display:flex;gap:9px;flex-wrap:wrap;align-items:flex-end}
+
+/* ---------- chips ---------- */
+.chip{display:inline-block;font:400 7px var(--pixel);padding:5px 9px;border-radius:5px;color:var(--ink);vertical-align:middle}
+.chip.good{background:var(--green)} .chip.careful{background:var(--orange)}
+.chip.stop{background:var(--red)} .chip.normal{background:var(--gold)}
+.chip.off{background:#4a4458;color:var(--secondary)}
+.tag{display:inline-block;font:400 6.5px var(--pixel);padding:4px 7px;border-radius:4px;
+     background:rgba(16,10,34,.14);color:var(--ink-dim);border:1px solid rgba(92,61,33,.35)}
+.tag.local{background:rgba(120,230,150,.22);border-color:rgba(60,140,90,.45);color:#2c5c3e}
+.tag.handed{background:rgba(232,138,106,.2);border-color:rgba(180,90,60,.45);color:#7a3a24}
+
+/* ---------- rich reply: the whole point of phase 6 ---------- */
+.rich h3{font:700 15.5px var(--face);margin:2px 0 10px;color:var(--ink-text)}
+.find{display:grid;grid-template-columns:18px 1fr auto;gap:10px;align-items:start;
+      padding:9px 0;border-top:1px solid rgba(92,61,33,.22)}
+.find:first-of-type{border-top:0}
+.dot{width:10px;height:10px;border-radius:50%;margin-top:5px}
+.dot.good{background:#2f9e5c} .dot.careful{background:#c87b1e} .dot.stop{background:#c0392b}
+.find b{font-weight:700}
+.find .meta{color:var(--ink-dim);font-size:13px}
+.find .why{color:var(--ink-dim);font-size:13px;font-style:italic;margin-top:2px}
+.money{font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--ink-text);font-size:13.5px}
+
+/* ---------- live checklist ---------- */
+.step{display:flex;gap:9px;align-items:center;padding:4px 0;font-size:14px}
+.step .mark{width:15px;text-align:center;font-size:12px}
+.step.done{color:var(--ink-dim)} .step.done .mark{color:#2f9e5c}
+.step.now{color:var(--ink-text);font-weight:700}
+.step.now .mark{color:var(--gold-deep);animation:tick 1s steps(2) infinite}
+.step.todo{color:rgba(90,72,52,.55)}
+@keyframes tick{50%{opacity:.25}}
+
+/* ---------- research card ---------- */
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(248px,1fr));gap:13px}
+.card{background:var(--panel2);border:1px solid rgba(150,110,200,.35);border-radius:10px;overflow:hidden;
+      box-shadow:0 2px 8px rgba(0,0,0,.4)}
+.thumb{height:84px;background:linear-gradient(135deg,#2a1c4e,#15102c);display:flex;align-items:center;
+       justify-content:center;color:var(--plum-edge);font:400 8px var(--pixel);border-bottom:1px solid rgba(150,110,200,.3)}
+.card .body{padding:11px 12px}
+.card h4{margin:0 0 5px;font:700 14px var(--face);color:var(--text)}
+.card p{margin:0 0 9px;font-size:13px;color:var(--secondary);line-height:1.45}
+.card .foot{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.stars{font-size:12px;color:var(--gold);font-variant-numeric:tabular-nums}
+
+/* ---------- strip: modes + quota, as the input box wears it ---------- */
+.strip{display:flex;align-items:center;gap:9px;padding:9px 11px;background:linear-gradient(180deg,var(--parch1),var(--parch2));
+       border:1.2px solid var(--parch-edge);border-radius:10px}
+.pill{font:400 8px var(--pixel);padding:7px 11px;border-radius:999px;border:1.4px solid;background:rgba(16,10,34,.08)}
+.pill.auto{border-color:var(--gold);color:#6b5312}
+.pill.local{border-color:var(--green);color:#2c5c3e}
+.pill.quick{border-color:var(--mode-quick);color:#15596b}
+.pill.smart{border-color:var(--mode-smart);color:#1b4a7a}
+.pill.deep{border-color:var(--mode-deep);color:#53318a}
+.meter{display:flex;gap:2.5px;margin-left:auto;align-items:center}
+.seg{width:9px;height:15px;background:rgba(46,34,22,.22);border-radius:2px}
+.seg.on{background:var(--gold-deep)} .seg.hot{background:var(--orange-deep)}
+.pct{font:400 9px var(--pixel);color:var(--ink-text);margin-left:7px}
+
+/* ---------- panel: the seven tabs, rebuilt ---------- */
+.tabs{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px}
+.tab{font:400 8px var(--pixel);padding:10px 13px;border-radius:8px;background:var(--plum);color:var(--text);
+     box-shadow:0 var(--lip) 0 var(--plum-deep);cursor:pointer}
+.tab.on{background:var(--gold);color:var(--ink);box-shadow:0 var(--lip) 0 var(--gold-deep)}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{text-align:left;font:400 7px var(--pixel);color:var(--gold-lit);padding:8px 10px;border-bottom:1px solid rgba(150,110,200,.3)}
+td{padding:9px 10px;border-bottom:1px solid rgba(150,110,200,.14);color:var(--text)}
+tr:hover td{background:rgba(150,110,200,.07)}
+
+/* ---------- chart ---------- */
+.bars{display:flex;align-items:flex-end;gap:11px;height:120px;padding:10px 4px 0}
+.bar{flex:1;background:linear-gradient(180deg,var(--gold),var(--gold-deep));border-radius:4px 4px 0 0;position:relative}
+.bar span{position:absolute;bottom:-20px;left:0;right:0;text-align:center;font-size:11px;color:var(--secondary)}
+.bar em{position:absolute;top:-19px;left:0;right:0;text-align:center;font-size:11px;color:var(--gold);font-style:normal}
+
+/* ---------- misc ---------- */
+.stack{display:grid;gap:9px}
+.side{display:grid;grid-template-columns:1fr 1fr;gap:13px}
+.search{width:100%;padding:12px 14px;border-radius:10px;border:1.2px solid var(--parch-edge);
+        background:linear-gradient(180deg,var(--parch1),var(--parch2));color:var(--ink-text);font:15px var(--face)}
+.search::placeholder{color:rgba(90,72,52,.65)}
+.err{border-color:var(--orange)}
+.vid{aspect-ratio:16/9;background:#000;border-radius:10px;border:2px solid var(--gold);display:flex;
+     align-items:center;justify-content:center;color:var(--secondary);font:400 9px var(--pixel)}
+code{font:13px ui-monospace,monospace;background:rgba(16,10,34,.12);padding:2px 5px;border-radius:4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>AANG COCKPIT</h1>
+<p class="sub">Every element, in real CSS, with the real colours from <code>Theme.cs</code>. Not a picture of a mockup — if something looks wrong here it is wrong in Aang too. The keycap buttons are the acceptance test.</p>
+
+<h2>1 — A SHORT ANSWER STAYS SHORT</h2>
+<p class="note">The rule you chose: <b>structure only when it earns it.</b> No headings, no furniture, no colour on something that is one line.</p>
+<div style="max-width:430px">
+  <div class="parch tail"><span class="stamp">3:14 pm</span><div class="who">AANG</div>It's 3:14.</div>
+</div>
+
+<h2>2 — AND A REAL ANSWER FINALLY LOOKS LIKE ONE</h2>
+<p class="note">The same three jobs you get as one grey paragraph today. <b>This is the actual point of Phase 6</b> — not video, not thumbnails. Today Aang is forbidden from any of this because the canvas cannot draw it.</p>
+<div style="max-width:560px">
+  <div class="parch rich"><span class="stamp">9:02 am</span><div class="who">AANG</div>
+    <h3>Three jobs this week</h3>
+    <div class="find"><div class="dot good"></div>
+      <div><b>Octup</b> — Customer Success Manager<div class="meta">Toronto · hybrid</div>
+      <div class="why">Closest match. Salary in range, and you have the account background.</div></div>
+      <div class="money">$95–120K</div></div>
+    <div class="find"><div class="dot careful"></div>
+      <div><b>Constellation Dealer Group</b> — Digital Project Coordinator<div class="meta">Remote, Canada</div>
+      <div class="why">Coordination rather than account work, and no salary posted.</div></div>
+      <div class="money dim">—</div></div>
+    <div class="find"><div class="dot stop"></div>
+      <div><b>GreenShield</b> — Bilingual Account Executive<div class="meta">Montreal</div>
+      <div class="why">French required and quota-carrying. Both on your dealbreaker list.</div></div>
+      <div class="money dim">$70–80K</div></div>
+    <div style="margin-top:12px" class="keys">
+      <button class="key primary">Apply to Octup<span class="k">A</span></button>
+      <button class="key">Open all three<span class="k">O</span></button>
+      <button class="key">Skip<span class="k">X</span></button>
+    </div>
+  </div>
+</div>
+
+<h2>3 — THE BUTTONS</h2>
+<p class="note">Skeuomorphic chunky 3D keycap with a <b>hard offset shadow</b> — one <code>box-shadow</code>, no blur. Not neumorphism. Press one: the face travels down onto the lip. <code>--lip: 3px</code>, straight from <code>Theme.Lip</code>.</p>
+<div class="keys">
+  <button class="key primary">Do it<span class="k">D</span></button>
+  <button class="key">Not now<span class="k">N</span></button>
+  <button class="key warn">Always allow<span class="k">A</span></button>
+  <button class="key" disabled style="opacity:.45;cursor:default">Unavailable</button>
+</div>
+
+<h2>4 — ASKING PERMISSION, IN PLAIN WORDS</h2>
+<p class="note">The question leads with what it <b>means</b>; the exact command rides underneath where you can still read it.</p>
+<div style="max-width:470px">
+  <div class="parch tail"><div class="who">AANG</div>
+    <div style="font-weight:700;margin-bottom:5px">Can I list what is in a folder?</div>
+    <div class="dim" style="font-size:13.5px">A command is an instruction typed straight to your computer, the way you would in a black terminal window. Exactly this: <code>Get-ChildItem -Path C:\Users\Shadow\Documents</code></div>
+    <div class="keys" style="margin-top:12px">
+      <button class="key primary">List what is in a folder<span class="k">L</span></button>
+      <button class="key">Not now<span class="k">N</span></button>
+    </div>
+    <div class="keys" style="margin-top:9px"><button class="key warn">Always list what is in your folders</button></div>
+  </div>
+</div>
+
+<h2>5 — A LONG LOCAL JOB: THE LIVE CHECKLIST</h2>
+<p class="note">Fifty seconds of dots reads as <i>stuck</i>. Five ticking steps read as <i>deliberation</i> — the research found people rate the same answer as more thoughtful. Each tool event becomes a row instead of replacing the last.</p>
+<div style="max-width:430px">
+  <div class="parch"><div class="who">AANG <span class="tag local" style="float:right">local</span></div>
+    <div style="font-weight:700;margin-bottom:7px">Working on that myself</div>
+    <div class="step done"><span class="mark">✓</span>checked the time</div>
+    <div class="step done"><span class="mark">✓</span>searched what you said about Float</div>
+    <div class="step now"><span class="mark">▸</span>reading your screen</div>
+    <div class="step todo"><span class="mark">·</span>set a reminder</div>
+    <div class="step todo"><span class="mark">·</span>show you the list</div>
+    <div class="keys" style="margin-top:11px"><button class="key">Hand to Claude<span class="k">C</span></button></div>
+  </div>
+</div>
+
+<h2>6 — THE PLAN, BEFORE HE ACTS</h2>
+<p class="note">The single biggest gap in Aang, and every agent winning in 2026 has it. He shows the steps; you approve, or remove one, and only then does it run.</p>
+<div style="max-width:430px">
+  <div class="parch"><div class="who">AANG</div>
+    <div style="font-weight:700;margin-bottom:7px">Here's what I'd do</div>
+    <div class="step todo"><span class="mark">1</span>read the posting at greenshield.ca</div>
+    <div class="step todo"><span class="mark">2</span>check what you said about French roles</div>
+    <div class="step todo"><span class="mark">3</span>draft a reply for you to approve</div>
+    <div class="keys" style="margin-top:11px">
+      <button class="key primary">Go ahead<span class="k">G</span></button>
+      <button class="key">Change it<span class="k">E</span></button>
+      <button class="key">No<span class="k">N</span></button>
+    </div>
+  </div>
+</div>
+
+<h2>7 — RESEARCH CARDS</h2>
+<p class="note">What the weekly sweep already produces, finally shown as something rather than described in a paragraph.</p>
+<div class="cards">
+  <div class="card"><div class="thumb">GITHUB</div><div class="body">
+    <h4>lightpanda-io/browser</h4><p>Headless browser built for AI agents. ~8MB per instance against Chrome's 200MB.</p>
+    <div class="foot"><span class="stars">★ 9.4k</span><span class="chip good">worth a look</span><span class="tag">MIT</span></div></div></div>
+  <div class="card"><div class="thumb">HACKER NEWS</div><div class="body">
+    <h4>Why are AI agents lying?</h4><p>660 points. Discussion of confident false completion reports in agent loops.</p>
+    <div class="foot"><span class="stars">660 pts</span><span class="chip normal">relevant</span></div></div></div>
+  <div class="card"><div class="thumb">SEEN 4×</div><div class="body">
+    <h4>jev</h4><p>Mentioned four times this week across GitHub. You asked to be told when something keeps coming up.</p>
+    <div class="foot"><span class="chip careful">keeps coming up</span></div></div></div>
+</div>
+
+<h2>8 — SEVERAL THINGS WAITING AT ONCE</h2>
+<p class="note">Today a new message <b>replaces</b> the last, so three things needing you means you see one and lose two. Closer to a bug than a feature.</p>
+<div style="max-width:470px" class="stack">
+  <div class="wood"><div class="plaque urgent">3 THINGS NEED YOU</div>
+    <div class="stack">
+      <div class="parch" style="padding:10px 13px"><b>A job is waiting</b> <span class="chip good" style="float:right">apply</span><div class="dim" style="font-size:13px">Octup, Customer Success Manager</div></div>
+      <div class="parch" style="padding:10px 13px"><b>A draft needs your yes</b> <span class="chip careful" style="float:right">email</span><div class="dim" style="font-size:13px">Reply to Constellation, written this morning</div></div>
+      <div class="parch" style="padding:10px 13px"><b>An addon is behind</b> <span class="chip off" style="float:right">minor</span><div class="dim" style="font-size:13px">RestedXP, two versions back</div></div>
+    </div>
+  </div>
+</div>
+
+<h2>9 — MODES AND QUOTA</h2>
+<p class="note"><code>Local</code> joins the pill. The meter is the one thing already better than most tools — ten segments, the number always beside it.</p>
+<div style="max-width:620px">
+  <div class="strip">
+    <span class="pill auto">Auto ▾</span><span class="pill local">Local</span><span class="pill quick">Quick</span>
+    <span class="pill smart">Smart</span><span class="pill deep">Deep</span>
+    <span class="meter">
+      <span class="seg on"></span><span class="seg on"></span><span class="seg on"></span><span class="seg on"></span>
+      <span class="seg on"></span><span class="seg on"></span><span class="seg on"></span><span class="seg on"></span>
+      <span class="seg hot"></span><span class="seg"></span><span class="pct">91%</span>
+    </span>
+  </div>
+</div>
+
+<h2>10 — TWO THINGS SIDE BY SIDE</h2>
+<div class="side" style="max-width:720px">
+  <div class="parch"><div class="who">BEFORE</div><div style="font-size:13.5px">Account Manager · PayMyTuition<br><span class="dim">Toronto · since January</span></div></div>
+  <div class="parch"><div class="who">AFTER</div><div style="font-size:13.5px">Customer Success Manager · Octup<br><span class="dim">Toronto, hybrid · $95–120K</span></div></div>
+</div>
+
+<h2>11 — CHARTS</h2>
+<p class="note">Your job hunt by stage. Numbers today, prose in the bubble, nothing you can see at a glance.</p>
+<div class="wood" style="max-width:560px"><div class="plaque">APPLICATIONS BY STAGE</div>
+  <div class="bars">
+    <div class="bar" style="height:92%"><em>23</em><span>found</span></div>
+    <div class="bar" style="height:52%"><em>13</em><span>applied</span></div>
+    <div class="bar" style="height:20%"><em>5</em><span>replied</span></div>
+    <div class="bar" style="height:12%"><em>3</em><span>interview</span></div>
+    <div class="bar" style="height:4%"><em>1</em><span>offer</span></div>
+  </div>
+  <div style="height:22px"></div>
+</div>
+
+<h2>12 — ONE SEARCH BOX OVER EVERYTHING</h2>
+<p class="note">His memory, your 1,188 vault notes, conversations, jobs, addons. Four separate places today, one of them searchable.</p>
+<div style="max-width:620px">
+  <input class="search" placeholder="Search everything — memory, vault, conversations, jobs, addons…">
+</div>
+
+<h2>13 — THE PANEL, REBUILT</h2>
+<p class="note">Seven tabs of plain Windows controls today. You chose to rebuild it in the same job so nothing looks like a different program.</p>
+<div class="wood" style="max-width:760px">
+  <div class="tabs">
+    <span class="tab on">What I know</span><span class="tab">What I may do</span><span class="tab">What I did</span>
+    <span class="tab">Drafts</span><span class="tab">Jobs 3</span><span class="tab">History</span><span class="tab">Settings</span>
+  </div>
+  <table>
+    <tr><th>What he knows</th><th>Seen</th><th>Last</th><th></th></tr>
+    <tr><td>Lives in Toronto</td><td>×7</td><td>2 Oct</td><td><button class="key" style="padding:6px 10px">Forget</button></td></tr>
+    <tr><td>Account Manager at PayMyTuition since January</td><td>×4</td><td>1 Oct</td><td><button class="key" style="padding:6px 10px">Forget</button></td></tr>
+    <tr><td>Raids Tuesdays and Thursdays</td><td>×3</td><td>30 Sep</td><td><button class="key" style="padding:6px 10px">Forget</button></td></tr>
+  </table>
+</div>
+
+<h2>14 — VIDEO IN THE CORNER</h2>
+<p class="note">YouTube and Twitch work. <b>Netflix and other paid streaming are impossible</b> — not expensive, impossible: no Widevine in WebView2, and they require a vetting programme Aang will not get into.</p>
+<div style="max-width:330px"><div class="vid">▶ PICTURE IN PICTURE</div></div>
+
+<h2>15 — WHEN SOMETHING IS BROKEN</h2>
+<p class="note">The state nobody designs, and the one that makes software feel cheap. In Aang's own voice, with a way out — never a blank window, never an endless spinner.</p>
+<div style="max-width:430px">
+  <div class="parch err tail"><div class="who">AANG</div>
+    <div style="font-weight:700;margin-bottom:4px">My brain stopped and I'm restarting it.</div>
+    <div class="dim" style="font-size:13.5px">Nothing you said is lost. This usually takes a few seconds.</div>
+    <div class="keys" style="margin-top:11px"><button class="key primary">Try now<span class="k">T</span></button></div>
+  </div>
+</div>
+
+<h2>16 — THE MARKERS</h2>
+<p class="note">Quiet, always there. You learn over time what he can handle alone, without being told in a sentence every time.</p>
+<div class="row">
+  <div class="parch" style="max-width:300px"><div class="who">AANG <span class="tag local" style="float:right">local</span></div>Done — nothing left waiting on you.</div>
+  <div class="parch" style="max-width:320px"><div class="who">AANG <span class="tag handed" style="float:right">local → Claude</span></div>That one needed more thinking, so I handed it over.</div>
+</div>
+
+<p class="note" style="margin-top:46px;border-top:1px solid rgba(150,110,200,.25);padding-top:18px">
+Every colour here is from <code>src/Body/Theme.cs</code>. Fonts are Atkinson Hyperlegible and Press Start 2P, the two Aang already ships.
+<b>Nothing in this file is invented.</b> Phase 6 step 3: hold this against the real bubble, and do not proceed until the buttons match.
+</p>
+
+</div>
+</body>
+</html>
