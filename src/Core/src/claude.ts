@@ -121,9 +121,20 @@ export function lastAssistantText(transcriptPath: string): string {
       const text = parts.filter((p: any) => p?.type === 'text').map((p: any) => String(p.text)).join('\n').trim();
       if (text) return text;
     }
-  } catch { /* unreadable: say less rather than something wrong */ }
+  } catch (e) {
+    // 5.5: returning "" here means Aang has nothing to say about a Claude session that may well be
+    // sitting there waiting on him, and it used to look exactly like a session with nothing to report.
+    // Once per transcript: this is called on a timer, so repeating it would bury everything else.
+    if (!moanedAbout.has(transcriptPath)) {
+      moanedAbout.add(transcriptPath);
+      console.error(`claude: cannot read a session transcript, so I cannot tell you what it is doing: ${(e as Error).message}`);
+    }
+  }
   return '';
 }
+
+/** Transcripts already complained about, so a timer cannot turn one bad file into a wall of text. */
+const moanedAbout = new Set<string>();
 
 /** Short enough for a bubble: the first few sentences, markdown stripped. */
 export function brief(text: string, max = 320): string {

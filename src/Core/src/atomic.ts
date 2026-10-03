@@ -4,7 +4,7 @@
 // a file write is concerned. Writing in place can leave a truncated file, and every loader here treats a
 // file it cannot parse as empty - so a kill mid-write would silently lose all of Joshua's reminders.
 // Write to a temporary file, flush it to disk, then rename over the target: a rename is atomic.
-import { closeSync, fsyncSync, mkdirSync, openSync, renameSync, writeSync } from 'node:fs';
+import { closeSync, existsSync, fsyncSync, mkdirSync, openSync, renameSync, rmSync, statSync, writeSync } from 'node:fs';
 import path from 'node:path';
 
 export function writeFileAtomic(file: string, data: string | Uint8Array): void {
@@ -42,3 +42,23 @@ export function reportWriteFailure(file: string, e: unknown): void {
 
 /** How many writes have failed for a file, for a health check or a test. 0 means healthy. */
 export const writeFailureCount = (file: string): number => writeFailures.get(file) ?? 0;
+
+/**
+ * Keep an append-only file from growing without limit, WITHOUT throwing its history away.
+ *
+ * 5.1 fixed `core.log` and `body.log`, which both used to delete themselves outright past a size.
+ * Deleting is the worst option: it throws away precisely the history you want when something has just
+ * gone wrong. One previous generation is the difference between "what happened just before" and
+ * nothing, and it bounds the space at twice the limit rather than leaving it unbounded.
+ *
+ * Call before appending. Never throws: a file that could not be rotated is still worth writing to.
+ */
+export function rotateIfBig(file: string, limitBytes: number): void {
+  try {
+    if (!existsSync(file) || statSync(file).size <= limitBytes) return;
+    const old = `${file}.1`;
+    try { rmSync(old, { force: true }); } catch { /* no previous generation */ }
+    // A rename can fail if something else holds the file. Losing one generation beats growing forever.
+    try { renameSync(file, old); } catch { try { rmSync(file, { force: true }); } catch { /* keep going */ } }
+  } catch { /* rotation is housekeeping; it must never stop the write it was protecting */ }
+}
