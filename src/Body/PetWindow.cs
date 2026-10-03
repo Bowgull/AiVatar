@@ -203,7 +203,8 @@ sealed class PetWindow : Form
             else if (a.Equals("--quiet=always", StringComparison.OrdinalIgnoreCase)) forcedQuiet = true;
             else if (a.Equals("--no-core", StringComparison.OrdinalIgnoreCase)) noCore = true;   // tests: do not start the Core or touch autostart
             else if (a.Equals("--set-hotkey", StringComparison.OrdinalIgnoreCase)) openHotkeyBox = true;  // tests: open the key chooser at start
-            else if (a.StartsWith("--panel", StringComparison.OrdinalIgnoreCase)) { openPanel = true; if (a.Length > 8 && int.TryParse(a[8..], out var pt)) panelTab = Math.Clamp(pt, 0, 5); }   // tests: open the Panel at start, on a tab
+            // tests: open the Panel at start, on a tab. 0-6 since the Jobs stack made it seven (4.5).
+            else if (a.StartsWith("--panel", StringComparison.OrdinalIgnoreCase)) { openPanel = true; if (a.Length > 8 && int.TryParse(a[8..], out var pt)) panelTab = Math.Clamp(pt, 0, 6); }
             else if (a.Equals("--urgent-test", StringComparison.OrdinalIgnoreCase)) urgentTest = "glow";      // tests: Tier 2, docked - use with --dock=bottom
             else if (a.Equals("--urgent-test=glow", StringComparison.OrdinalIgnoreCase)) urgentTest = "glow"; // same, explicit
             else if (a.Equals("--urgent-test=wave", StringComparison.OrdinalIgnoreCase)) urgentTest = "wave"; // Tier 2, standing - do NOT pass --dock

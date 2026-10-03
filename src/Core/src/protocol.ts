@@ -131,7 +131,11 @@ export type ToBody =
   | { t: 'panel.reply'; facts: { id: number; text: string; seen: string; times: number }[]; trust: { kind: string; example: string; since: string }[]; actions: string;
       drafts: { id: string; hash: string; to: string[]; subject: string; body: string; status: string; newTo: string[] }[]; mail: boolean; notice?: string;
       /** Claude Code sessions he started through Aang, newest first. */
-      sessions?: { name: string; kind: string; state: string; since: string; last: string }[] }
+      sessions?: { name: string; kind: string; state: string; since: string; last: string }[];
+      /** 4.5: jobs still waiting on him, newest first, for the card stack. Only status 'new': anything he
+       *  has already decided on is not a decision he still owes. */
+      jobs?: { id: string; title: string; company: string; location: string; salary: string;
+               score: number; verdict: 'apply' | 'maybe' | 'skip'; reason: string; url: string; at: string }[] }
   /** The Panel's History tab: past turns, newest first, matching `q` (all of its words). */
   | { t: 'history.reply'; q: string; items: { id: number; ts: string; who: 'you' | 'Aang'; text: string }[];
       /** Echoed back so the Body knows this is an older page and not a fresh search. */
@@ -194,6 +198,13 @@ export type FromBody =
   /** The Panel opened or refreshed; and its Forget button on one remembered fact. */
   | { t: 'panel' }
   | { t: 'forget.fact'; id: number }
+  /**
+   * 4.5: a decision on one job card, from the Panel's stack.
+   *
+   * `open` just opens the posting and decides nothing. `apply` and `skip` are the two real answers.
+   * `undo` puts the last one back to undecided, which is what makes triaging by keyboard safe to do fast.
+   */
+  | { t: 'job.act'; id: string; action: 'open' | 'apply' | 'skip' | 'undo' }
   /** Forget one turn of the conversation. Hidden, not deleted, so 'turn.unforget' can undo it. */
   | { t: 'forget.turn'; id: number }
   /** Yes this is true and worth keeping, or no it is not. Applies to this one fact. */
