@@ -130,7 +130,19 @@ sealed class CoreSupervisor : IDisposable
                 try
                 {
                     var logPath = Paths.File("core.log");
-                    if (File.Exists(logPath) && new FileInfo(logPath).Length > 1024 * 1024) File.Delete(logPath);
+                    // 5.1: rotate, do not delete. This deleted the whole file past 1 MiB, so with six
+                    // restarts a day the evidence of an incident could be gone before anyone looked -
+                    // exactly what happened on 2026-09-24, when the Core stopped writing and nobody could
+                    // have known for six days. One previous generation is the difference between "what
+                    // happened just before it died" and nothing. Same rule as Log.Write for body.log.
+                    if (File.Exists(logPath) && new FileInfo(logPath).Length > 1024 * 1024)
+                    {
+                        var old = logPath + ".1";
+                        try { File.Delete(old); } catch { /* no previous generation */ }
+                        // A move can fail if something still holds the file; losing one generation is
+                        // better than letting the log grow without limit.
+                        try { File.Move(logPath, old); } catch { try { File.Delete(logPath); } catch { /* keep going */ } }
+                    }
                     var fs = new FileStream(logPath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite);
                     writer = new StreamWriter(fs) { AutoFlush = true };
                 }
