@@ -205,6 +205,14 @@ export type FromBody =
    * `undo` puts the last one back to undecided, which is what makes triaging by keyboard safe to do fast.
    */
   | { t: 'job.act'; id: string; action: 'open' | 'apply' | 'skip' | 'undo' }
+  /**
+   * 4.5: he pressed a file or link chip in the Panel's history.
+   *
+   * Deliberately NOT a `submit`. A chip is a button, and a button press must not cost a Claude turn -
+   * at 87% of his week a few clicks would be real money. This opens the thing directly, and still goes
+   * through `open`'s own permission gate and the activity log, so the Panel is not a side door.
+   */
+  | { t: 'open.thing'; what: string }
   /** Forget one turn of the conversation. Hidden, not deleted, so 'turn.unforget' can undo it. */
   | { t: 'forget.turn'; id: number }
   /** Yes this is true and worth keeping, or no it is not. Applies to this one fact. */

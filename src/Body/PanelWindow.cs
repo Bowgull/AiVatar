@@ -144,6 +144,10 @@ sealed class PanelWindow : Form
         // means right-clicking twice, and opening the type box after the first one would put the Panel behind
         // it. The notice is how he knows it landed.
         conversation.ReplyRequested += (id, text) => { PointAt?.Invoke("reply", id, text); Hide(); };
+        // 4.5: pressing a file or link chip opens it. Routed through the Core rather than opened here, so it
+        // goes through the same permission gate and the same activity log as anything else Aang opens -
+        // the Panel must not become a side door that skips both.
+        conversation.ChipPressed += chip => _ = send(new { t = "open.thing", what = chip.Value });
         conversation.PinRequested += (id, text) =>
         {
             PointAt?.Invoke("pin", id, text);
