@@ -12,10 +12,11 @@
 //               expected fact, which is mechanical, not another model's opinion)
 //   4. tool     does it produce a valid tool call with the right name and arguments
 //
-// The THINKING TRAP is handled the only way that works: think:false in the request is
-// NOT reliable (qwen3-vl:8b ignored it and burned its whole budget), so a thinking
-// model gets a generous token budget and the score counts only the final answer. If
-// the final answer is empty, that is a FAIL and is reported as one, never skipped.
+// The THINKING TRAP: think:false is not always honoured (qwen3-vl:8b ignored it and
+// burned its whole budget), so a thinking model ALSO gets a generous token budget and the
+// score counts only the final answer. An empty final answer is a FAIL and is reported as
+// one, never skipped. It is now sent BY DEFAULT, because that is what Aang does; measuring
+// with thinking on measures a mode nothing runs. Use THINK=on to compare deliberately.
 //
 //   node tools/measure/modelrace.mjs model1 model2 ...
 //   node tools/measure/modelrace.mjs --list          models installed right now
@@ -92,7 +93,14 @@ const vram = () => {
   try { return Number(execSync('nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits', { encoding: 'utf8' }).trim().split('\n')[0]); }
   catch { return NaN; }
 };
-const NOTHINK = process.env.THINK === 'off';   // asks the server to skip thinking; some builds ignore it, which the EMPTY check catches
+// Thinking OFF by default, because that is how Aang actually calls these models (local.ts always sends
+// think:false). Measuring them with thinking ON measures something nobody runs.
+//
+// This default was the other way round and it nearly cost a wrong decision on 2026-10-03: Qwen3.5-35B
+// came back EMPTY twice, burning 1,600 tokens thinking, which read exactly like the model had regressed
+// since the September race. It had not. With thinking off, as Aang sends it, the same model answers in
+// 2.9 seconds with 7/8. Set THINK=on to measure the other way deliberately.
+const NOTHINK = process.env.THINK !== 'on';
 const post = (path, body) => fetch(HOST + path, { method: 'POST', body: JSON.stringify(NOTHINK && path === '/api/chat' ? { ...body, think: false } : body) }).then(r => r.json());
 const unload = async m => { try { await post('/api/generate', { model: m, keep_alive: 0 }); } catch { /* already gone */ } };
 
