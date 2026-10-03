@@ -769,15 +769,50 @@ detection at all.
   day the evidence of an incident can vanish before you look. Keep one generation, use
   full timestamps. **20 minutes.**
 
-- `[ ]` 5.2 **Handle SIGTERM.** `index.ts:17` traps only `SIGINT`;
+- `[x]` 5.2 **Handle SIGTERM.** DONE 2026-10-03 (3d8daf7). `index.ts:17` traps only `SIGINT`;
   `CoreSupervisor.cs:109` hard-kills with `Kill(entireProcessTree: true)`. So the cleanup
   that answers pending permission prompts and checkpoints the database almost never runs.
-  **2 hours.**
 
-- `[ ]` 5.3 **Give actions a turn id, and add `aang why <turn_id>`.** `actionlog.ts:10`
-  has no id at all, so "why did you do that" can only be answered by comparing clocks.
-  **Must come after 0.3.** The highest-value observability work on the list. **An
-  afternoon.**
+  **SIGTERM turned out to be the wrong mechanism.** Windows cannot send a real one from
+  .NET - `Process.Kill` is always a hard terminate - so there is no signal to trap. The
+  polite request goes over the WebSocket the Body already holds instead: a new
+  `{ t: 'shutdown' }` message, routed to the one shutdown path in `index.ts`. The trap is
+  still added for a Core started from a terminal. The Body waits three seconds, then
+  `Dispose` hard-kills as the fallback for a wedged Core. Guarded against running twice and
+  bounded by a five second timer: a Core that hangs on the way out is worse than the kill
+  it replaces.
+
+  **Testing it needed a new flag.** `taskkill` without `/F` never reaches the pet window,
+  because it is a no-activate tool window, so the first two attempts proved nothing and
+  looked like a broken feature. `--quit-after=N` does exactly what the tray's "Quit Aang"
+  does. Confirmed: `closing: reason=ApplicationExitCall` and the Core's own "the Body is
+  closing" 21ms apart.
+
+- `[x]` 5.3 **Give actions a turn id, and add `aang why <turn_id>`.** DONE 2026-10-03.
+  `actionlog.ts:10` has no id at all, so "why did you do that" can only be answered by
+  comparing clocks.
+
+  **A turn id could not work, and the reason matters.** Actions are recorded *during* a
+  turn; the turn row does not exist until the reply is finished. There is no turn id to
+  stamp at the time. Both sides carry the **request id** instead - `turns.req` (new column,
+  migrated) and `ActionRec.req` - so the answer is a join, not a comparison of clocks.
+
+  **Not a typed command, a question.** `aang why <turn_id>` would need him to know a
+  number. It is a tool, `why_did_you_do_that`, so "why did you do that" works in plain
+  English; with nothing pointed at it takes the newest request that actually *did*
+  something, because three replies of chat since then do not change what "that" means. It
+  answers with what he asked, what was done, and what was said back.
+
+  **It says when it cannot answer** rather than inventing a reason: nothing recorded, a
+  turn from before today that has no link, and a turn that did nothing at all are three
+  different honest answers.
+
+  **Found a silent bug while testing the migration.** `CREATE INDEX turns_req ON
+  turns(req)` sat in SCHEMA, which ran *before* `ADDED_COLUMNS` added the column, so on an
+  existing database the index failed with "no such column", nothing retried it, and it
+  printed an alarming line on every boot. `migrate()` now does columns first, then tables.
+  Verified on a copy of the live 525-turn database: column added, index created, integrity
+  ok, old rows untouched with `req` empty, second run silent.
 
 - `[ ]` 5.4 **Close the honesty-check hole.** `core.ts:87` is
   `if (!did.length) return reply;`, so when Aang did nothing but claims he did, grounding

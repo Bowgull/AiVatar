@@ -33,7 +33,8 @@ export const SCHEMA_VERSION = 1;
 const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS turns (
      id INTEGER PRIMARY KEY, ts TEXT NOT NULL, role TEXT NOT NULL, tier TEXT, text TEXT NOT NULL,
-     hidden INTEGER NOT NULL DEFAULT 0 )`,
+     hidden INTEGER NOT NULL DEFAULT 0, req TEXT )`,
+  `CREATE INDEX IF NOT EXISTS turns_req ON turns(req)`,
   `CREATE INDEX IF NOT EXISTS turns_ts ON turns(ts)`,
   `CREATE VIRTUAL TABLE IF NOT EXISTS turns_fts USING fts5(text, turn_id UNINDEXED)`,
   `CREATE TABLE IF NOT EXISTS facts (
@@ -132,19 +133,26 @@ const ADDED_COLUMNS: { table: string; column: string; decl: string }[] = [
   { table: 'facts', column: 'from_doc', decl: 'TEXT' },
   // 4.3b: forgetting a turn hides it. The row stays, so "undo that" can bring it back.
   { table: 'turns', column: 'hidden', decl: 'INTEGER NOT NULL DEFAULT 0' },
+  // 5.3: the request this turn answered. It is what ties a stored turn to the things Aang actually did,
+  // because the action record is written DURING a turn and the turn row only exists once the reply is
+  // finished - so there is no turn id to stamp on an action at the time. Both sides carry the request id
+  // instead, and "why did you do that" is a join rather than a comparison of clocks.
+  { table: 'turns', column: 'req', decl: 'TEXT' },
 ];
 
 /** Bring an opened database up to the current shape. Safe to run on every open; does nothing when there is
  *  nothing to do. Never throws: a database that is one column behind is still worth having. */
 export function migrate(db: DatabaseSync): void {
-  // Run SCHEMA first. Every statement in it is IF NOT EXISTS, so on an existing database this is a no-op
-  // for tables that are already there and CREATES the ones added since. Without this, a new TABLE would
-  // reach only databases built from scratch - the exact trap ADDED_COLUMNS exists for, one level up.
-  // Found while adding the document index on 2026-10-02.
-  for (const stmt of SCHEMA) {
-    try { db.exec(stmt); }
-    catch (e) { console.error('memory: schema statement failed:', (e as Error).message); }
-  }
+  // Columns BEFORE tables, and the order matters.
+  //
+  // It used to be the other way round, and adding `turns.req` showed why that is wrong: SCHEMA contains
+  // `CREATE INDEX turns_req ON turns(req)`, which on an existing database ran before the column existed.
+  // It failed with "no such column: req", nothing retried it, and the result was a database with the
+  // column but no index and an alarming line on every single boot. Columns first means an index on a
+  // newly added column simply works (2026-10-03).
+  //
+  // A table that does not exist yet is skipped here and created by SCHEMA below, which is why this order
+  // is safe for a database built from nothing as well as one being brought forward.
   for (const { table, column, decl } of ADDED_COLUMNS) {
     try {
       const cols = db.prepare(`PRAGMA table_info(${table})`).all() as { name: unknown }[];
@@ -155,6 +163,14 @@ export function migrate(db: DatabaseSync): void {
     } catch (e) {
       console.error(`memory: could not add ${table}.${column}:`, (e as Error).message);
     }
+  }
+  // Every statement in SCHEMA is IF NOT EXISTS, so on an existing database this is a no-op for what is
+  // already there and CREATES whatever was added since. Without it, a new TABLE would reach only
+  // databases built from scratch - the exact trap ADDED_COLUMNS exists for, one level up. Found while
+  // adding the document index on 2026-10-02.
+  for (const stmt of SCHEMA) {
+    try { db.exec(stmt); }
+    catch (e) { console.error('memory: schema statement failed:', (e as Error).message); }
   }
 }
 
