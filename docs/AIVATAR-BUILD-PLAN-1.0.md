@@ -704,6 +704,62 @@ than one long loop. Idle is about 90% of a desktop pet's screen time.
 
 ---
 
+# PHASE 6: the player  **NOT NOW**
+
+**Joshua's idea, 2026-10-02, interviewed the same day. Explicitly parked: "we need to finish
+this build path first." Nothing here is started until Phases 4 and 5 are closed.**
+
+The shape: he says "play me XYZ", Aang works out where it should come from, and it plays in a
+window of Aang's own that Joshua can move and resize, with Aang able to pause, skip and set the
+volume on request.
+
+## What he decided
+
+- **Its own window, built from the Panel's parts.** Shares the Panel's styling and code, but is a
+  separate window he can throw around. He would not want the whole Panel following a video into a
+  corner.
+- **He moves and resizes it himself.** Fresh position each time, not remembered.
+- **One at a time.** A new thing replaces what is playing.
+- **Aang controls playback** on request: pause, skip, volume.
+- **No automatic audio rule.** His words: "Id need control over it." Nothing ducks or pauses by
+  itself when a game starts.
+- **Where to play from: learn his habits, ask when unsure.** Music to Spotify, a streamer name to
+  Twitch, otherwise YouTube. Asks the first time something is ambiguous and remembers the answer,
+  which is the fact memory he already has.
+- **Closing it stops playback.** Nothing keeps running unseen.
+
+## What is already settled, and must not be relitigated without new evidence
+
+**Netflix and paid streaming are impossible.** Not expensive - impossible. Protected content is
+blacked out in any window an application composes, and the browser engine available here does not
+carry the licence those services require. YouTube and Twitch use no such protection and are fine.
+
+**It cannot be the speech bubble, and his own answer already avoids this.** The bubble is one
+hand-painted image handed to Windows per frame, which is what buys the free click-through over a
+game. Microsoft's own documentation is explicit that a child window - a browser, a video player -
+does not render into such a window. Putting a player inside the bubble means abandoning that
+technique, hand-writing the click-through it currently gets for nothing, and forwarding every mouse
+event by hand. A separate ordinary window sidesteps all of it, and is what he chose.
+
+**Bot-detection evasion is NOT part of this.** He first said some sites block Aang, then answered
+"unsure" when asked which. So the requirement is unproven and nothing is built for it. His
+CloakBrowser note (20_Knowledge/Sources/GitHub) describes a stealth Chromium for CereBro and says
+on its own face that review is required before integration. Separately, on 2026-10-02 Patchright
+was evaluated and rejected: evasion run from inside his own logged-in session attaches the
+consequence to his identity, and the account most at risk is the one he is job hunting with. If a
+site genuinely blocks him later, look at what actually failed first - it is often not bot
+detection at all.
+
+## Open questions for when this starts
+
+- Which browser engine. WebView2 is already present on the machine and already spiked in
+  `tools/window-spike/webview2/`. LightPanda is for agents reading pages headlessly and cannot show
+  anything, so it answers the "Aang reads a page" half and none of the "Joshua watches" half.
+- Measured cost before committing: D1 in DECISIONS.md put a WebView2 host at ~165 MB and ~11% CPU
+  while open. Acceptable for something opened deliberately; measure again rather than assume.
+- Whether Aang reading pages and Joshua watching pages are the same window or two. He said they
+  might be the same; they are usually two separate pieces of software.
+
 # PHASE 5: the rest of the fixes
 
 **Goal:** everything confirmed real but on nobody's critical path. Do it when you want.
