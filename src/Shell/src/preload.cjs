@@ -45,6 +45,9 @@ contextBridge.exposeInMainWorld('aang', {
   popoutToMac: () => ipcRenderer.send('popout:tomac'),
   /** How many pixels of the window are Aang's own chrome, measured by the page. */
   popoutChrome: px => ipcRenderer.send('popout:chrome', px),
+  /** Playback started, paused or ran out, so the brain can tick the episode off (step 6.8). Sent only
+   *  on a change: there is no heartbeat here and there must not be one. */
+  popoutPlayback: s => ipcRenderer.send('popout:playback', s),
   /** Where the openings, endings and sponsor bits are in what is playing. */
   onPopoutSegments(fn) {
     const h = (_e, list) => fn(list);
