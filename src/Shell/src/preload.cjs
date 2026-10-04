@@ -67,6 +67,19 @@ contextBridge.exposeInMainWorld('aang', {
   /** The pointer is over the drawn bubble, so this window should take the mouse. Off it, clicks pass
    *  through to whatever is behind. */
   bubbleClickable: on => ipcRenderer.send('bubble:clickable', on),
+
+  // --- the typing box (6.12b). Named doors only.
+  onInputState(fn) {
+    const h = (_e, v) => fn(v);
+    ipcRenderer.on('input:state', h);
+    return () => { ipcRenderer.off('input:state', h); };
+  },
+  submit: a => ipcRenderer.send('input:submit', a),
+  saveHistory: list => ipcRenderer.send('input:history', list),
+  inputClose: () => ipcRenderer.send('input:close'),
+  stop: () => ipcRenderer.send('input:stop'),
+  setMode: m => ipcRenderer.send('input:mode', m),
+  inputSize: s => ipcRenderer.send('input:size', s),
   /** Where the openings, endings and sponsor bits are in what is playing. */
   onPopoutSegments(fn) {
     const h = (_e, list) => fn(list);

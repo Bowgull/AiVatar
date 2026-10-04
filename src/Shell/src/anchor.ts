@@ -58,17 +58,27 @@ export function bubbleAt(at: PetAt, size: { width: number; height: number }): Bo
 }
 
 /**
- * The typing box: beside him, under the bubble. The summon hotkey opens it here whether or not he is
- * looking at the pet, so it has to be right without him having moved anything.
+ * Where the typing box sits relative to the sprite, unscaled, read out of the C# rather than guessed (the
+ * first version guessed "under his feet" and the recording showed Aang standing on top of the box).
  *
- * InputWindow.Open is given the pet window's Location today; what it does with it is a left edge in line
- * with the bubble and a top just below the sprite. Reproduced from the sprite instead, for the same
- * reason the bubble is.
+ * PetWindow.OpenInput passes `Location + (Margin, Extra) * scale`, which is the drawn origin, and
+ * InputWindow.Open adds `(6, 132) * scale`. The sprite sits at Dock.cs `(SpriteX, SpriteY) = (246, 86)`
+ * from that same origin. So the box's top-left is 240 px LEFT of the sprite and 46 px below its top:
+ * beside him, in line with the bubble's left edge, just under the bubble.
  */
+export const INPUT_FROM_SPRITE = { left: 6 - 246, top: 132 - 86 } as const;
+
+/**
+ * The page draws the box 6 px in from its window's left edge (input.css `.frame` padding), so the WINDOW
+ * starts that much further left for the drawn box to land where the old one did.
+ */
+export const INPUT_FRAME_INSET = 6;
+
+/** The typing box: beside him, under the bubble, where the old one opens. */
 export function inputAt(at: PetAt, size: { width: number; height: number }): Box {
   const s = at.scale || 1;
-  const left = at.sprite.x + BUBBLE_FROM_SPRITE.right * s - size.width;
-  const top = at.sprite.y + at.sprite.height + 6 * s;
+  const left = at.sprite.x + INPUT_FROM_SPRITE.left * s - INPUT_FRAME_INSET;
+  const top = at.sprite.y + INPUT_FROM_SPRITE.top * s;
   return onScreen({ x: left, y: top, width: size.width, height: size.height }, at.screen);
 }
 
