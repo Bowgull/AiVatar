@@ -1,0 +1,16 @@
+:root{ --ink:#100A22; --panel2:#1A1132; --gold:#FFC43C; --gold-deep:#C98C14; --gold-lit:#FFE096;
+         --green:#78E696; --red:#FF5A4A; --text:#E8E4F0; --secondary:#C9C2DA; --outline:#120A05; }
+  *{ box-sizing:border-box }
+  body{ margin:0; height:100vh; display:grid; place-items:center; background:var(--ink);
+        color:var(--text); font:500 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+        -webkit-user-select:none; user-select:none; }
+  .card{ text-align:center; padding:24px 28px }
+  h1{ font:700 22px/1.2 Georgia, serif; color:var(--gold); margin:0 0 6px }
+  p{ margin:0 0 18px; color:var(--secondary); font-size:13.5px }
+  .lamp{ display:inline-flex; align-items:center; gap:9px; padding:9px 14px; border-radius:8px;
+         background:var(--panel2); border:3px solid var(--outline); font:600 13px/1 inherit }
+  .gem{ width:13px; height:13px; border-radius:50%; border:2px solid var(--outline); background:#6d6579 }
+  .up .gem{ background:var(--green); box-shadow:0 0 8px rgba(120,230,150,.9) }
+  .down .gem{ background:var(--red) }
+  .seen{ margin-top:16px; font:400 11px/1.5 ui-monospace, Consolas, monospace; color:#7b7291;
+         max-width:360px; word-break:break-word; min-height:2.4em }
