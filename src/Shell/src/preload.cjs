@@ -27,4 +27,15 @@ contextBridge.exposeInMainWorld('aang', {
   },
   /** Which window this is, so one page can be used in more than one place. */
   windowKind: () => ipcRenderer.invoke('shell:windowKind'),
+
+  // --- the pop-out. Each one is named; there is no general "do this" door.
+  /** Hear what to play. The address is built in the main process; the page never makes one. */
+  onPopout(fn) {
+    const h = (_e, v) => fn(v);
+    ipcRenderer.on('popout:show', h);
+    return () => { ipcRenderer.off('popout:show', h); };
+  },
+  /** Out of the way, still playing. */
+  popoutHide: () => ipcRenderer.send('popout:hide'),
+  popoutClose: () => ipcRenderer.send('popout:close'),
 });

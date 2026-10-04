@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- Served from 127.0.0.1, not from a file: a YouTube embed from file:// fails with Error 153.
+     frame-src is the one thing this page is allowed to reach out for, because the video lives there. -->
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' data:;
+               frame-src https://www.youtube.com https://www.youtube-nocookie.com https://player.twitch.tv https:;
+               form-action 'none'; base-uri 'none'">
+<title>Aang</title>
+<link rel="stylesheet" href="popout.css">
+</head>
+<body>
+  <div class="frame">
+    <div class="bar">
+      <i class="grip"></i>
+      <span class="what" id="what">Nothing playing</span>
+      <span class="src" id="src" hidden></span>
+      <span class="keys">
+        <button class="key" id="hide" title="Hide it (the video keeps playing)">&#8211;</button>
+        <button class="key close" id="close" title="Close">&times;</button>
+      </span>
+    </div>
+    <div class="stage">
+      <div class="empty" id="empty">Ask Aang to put something on.</div>
+      <iframe id="video" hidden allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+              referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+      <i class="grab"></i>
+    </div>
+  </div>
+<script src="popout.js"></script>
+</body>
+</html>
