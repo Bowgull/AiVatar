@@ -64,6 +64,9 @@ contextBridge.exposeInMainWorld('aang', {
   forgetTurn: id => ipcRenderer.send('bubble:forget', id),
   /** Pull another page of his own history, older than the row given. */
   olderTurns: a => ipcRenderer.send('bubble:older', a),
+  /** The pointer is over the drawn bubble, so this window should take the mouse. Off it, clicks pass
+   *  through to whatever is behind. */
+  bubbleClickable: on => ipcRenderer.send('bubble:clickable', on),
   /** Where the openings, endings and sponsor bits are in what is playing. */
   onPopoutSegments(fn) {
     const h = (_e, list) => fn(list);

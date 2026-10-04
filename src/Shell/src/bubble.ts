@@ -72,8 +72,24 @@ export class Bubble {
       w.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
       lockDown(w.webContents);
       denyPermissions(w.webContents.session);
+      // THE MOUSE PASSES STRAIGHT THROUGH, except over the drawn bubble.
+      //
+      // This window is transparent, frameless and always on top, and most of it is empty. Without this
+      // it is an INVISIBLE PANE sitting over his desktop that silently swallows every click landing in
+      // it - nothing to see, nothing to drag away, clicks simply stop working in a region of the
+      // screen. That is exactly what happened on the first real run (2026-10-04), and it is the one
+      // bug a browser tab cannot ever show, because a tab has nothing underneath it.
+      //
+      // `forward: true` keeps mouse-move events coming to the page so it can still tell when the
+      // pointer is over the bubble; the page says so, and `setClickable` opens it up just for that.
+      w.setIgnoreMouseEvents(true, { forward: true });
       void w.loadURL(`${this.o.origin}/bubble.html`);
-      w.on('closed', () => { this.win = null; });
+      // Whatever arrived while the page was loading, now that it can hear it.
+      w.webContents.on('did-finish-load', () => {
+        const held = this.waiting.splice(0);
+        for (const [channel, payload] of held) w.webContents.send(channel, payload);
+      });
+      w.on('closed', () => { this.win = null; this.waiting.length = 0; });
       this.win = w;
       return w;
     } catch (e) {
@@ -96,6 +112,27 @@ export class Bubble {
   }
 
   /**
+   * Take the mouse, or let it through.
+   *
+   * Called by the page as the pointer crosses the drawn shape. Everything outside it stays
+   * click-through, so the empty parts of this window never take a click meant for his desktop.
+   */
+  setClickable(on: boolean): void {
+    if (!this.win || this.win.isDestroyed()) return;
+    if (on === this.clickable) return;              // setIgnoreMouseEvents is not free; only on a change
+    this.clickable = on;
+    // `forward: true` ALWAYS, not only while ignoring.
+    //
+    // The first version passed `forward: !on`, which is a trap: the moment the pointer touched the
+    // bubble the window stopped forwarding mouse moves, so the page could never see the pointer LEAVE,
+    // so it never went back to click-through. From then on the window kept every click landing in its
+    // rectangle, with nothing visible to explain why. Passing it always costs nothing and the window
+    // can always tell when he has moved off.
+    this.win.setIgnoreMouseEvents(!on, { forward: true });
+  }
+  private clickable = false;
+
+  /**
    * Let it take focus, for the one case that needs it: something in the bubble he has to type into.
    * Put back the moment it is done, because the default has to be "never steals focus".
    */
@@ -103,14 +140,30 @@ export class Bubble {
     if (this.win && !this.win.isDestroyed()) this.win.setFocusable(on);
   }
 
-  /** Pass a brain message to the page. */
+  /**
+   * Pass a brain message to the page.
+   *
+   * The window is made here if it does not exist, and messages that arrive while the page is still
+   * loading are held rather than dropped. Both were real bugs on the first run: the window was built
+   * lazily and nothing ever asked for it, so no message reached it at all; and `loadURL` is
+   * asynchronous, so even once it did, anything sent in the first moment landed before the page had
+   * a listener and vanished silently.
+   */
   send(channel: string, payload: unknown): void {
-    if (this.win && !this.win.isDestroyed()) this.win.webContents.send(channel, payload);
+    const w = this.window();
+    if (!w || w.isDestroyed()) return;
+    if (w.webContents.isLoading()) {
+      this.waiting.push([channel, payload]);
+      return;
+    }
+    w.webContents.send(channel, payload);
   }
+  private readonly waiting: Array<[string, unknown]> = [];
 
   close(): void {
     if (this.win && !this.win.isDestroyed()) this.win.close();
     this.win = null;
+    this.clickable = false;
   }
 }
 
