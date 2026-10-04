@@ -1,0 +1,565 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Aang Pop-out</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Figtree:ital,wght@0,400;0,500;0,600;0,700;0,900;1,500&family=Silkscreen&display=swap" rel="stylesheet">
+<style>
+/* ===========================================================================
+   SHEET 4 - THE VIDEO POP-OUT
+   Continues sheets 1, 2 and 3. Same language, nothing new invented:
+   the scrub track and the volume and transparency sliders are all the carved
+   groove; the knobs are the gem in a setting; the frame is carved wood.
+
+   THIS SHEET REPLACES section 2 of sheet 3. Two decisions changed it:
+     32. It is a NORMAL CLICKABLE WINDOW. Click it to use it, click the game to
+         go back. Ghost mode and edit mode are gone. Click-through is an
+         optional switch, off by default.
+     34. One pop-out at a time.
+   =========================================================================== */
+:root{
+  --ink:#100A22; --panel2:#1A1132;
+  --gold:#FFC43C; --gold-deep:#C98C14; --gold-lit:#FFE096; --gold-light:#FFE28C;
+  --orange:#FF8040; --orange-deep:#C95E28; --red:#FF5A4A; --green:#78E696;
+  --text:#E8E4F0; --secondary:#C9C2DA;
+  --plum:#4A2C6E; --plum-deep:#2C1848; --plum-edge:#966EC8; --claude:#E88A6A;
+  --parch1:#ECD5A8; --parch2:#DEC28C;
+  --ink-text:#2E2216; --ink-dim:#5A4834;
+  --wood1:#4A2E1A; --wood2:#24160D; --wood-plaque:#1A0F09;
+  --mode-quick:#00D1FF; --mode-smart:#3D9BFF; --mode-deep:#A970FF;
+  --outline:#120A05; --ow:4px; --lip:5px;
+  --display:"Cinzel",Georgia,"Times New Roman",serif;
+  --body:"Figtree",system-ui,-apple-system,Segoe UI,sans-serif;
+  --label:"Silkscreen",ui-monospace,Consolas,monospace;
+  --carve-ink:#2A1C08;
+}
+*{box-sizing:border-box}
+body{margin:0;padding:30px 20px 100px;background:#07040F;font-family:var(--body);
+  -webkit-font-smoothing:antialiased;color:var(--text)}
+.wrap{max-width:960px;margin:0 auto}
+h1{font:400 16px var(--label);color:#7a6fa0;letter-spacing:3px;text-align:center;margin:0 0 8px}
+.sub{font:500 13px/1.6 var(--body);color:#7b7291;text-align:center;margin:0 0 40px}
+h2.part{font:400 13px var(--label);color:var(--gold-deep);letter-spacing:3px;
+  margin:56px 0 6px;padding-bottom:10px;border-bottom:3px solid #241a3a}
+p.why{font:500 14px/1.65 var(--body);color:#9a90b5;margin:0 0 24px;max-width:700px}
+h3.sur{font:700 19px var(--display);color:#cfc4ea;margin:34px 0 4px}
+p.sur{font:500 13.5px/1.6 var(--body);color:#8a80a5;margin:0 0 16px;max-width:700px}
+.cardlab{font:400 10px var(--label);color:#6a6186;letter-spacing:1.5px;margin:0 0 12px}
+.two{display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start}
+.new{display:inline-block;font:400 9px var(--label);letter-spacing:1px;padding:4px 6px;border-radius:3px;
+  border:2px solid var(--outline);background:var(--green);color:#163a24;vertical-align:3px;margin-left:6px}
+.new.gone{background:var(--red);color:#2e0b06}
+.new.reuse{background:var(--gold-lit);color:#2a1c00}
+
+/* ---- carried over verbatim from sheets 1 to 3 ---- */
+.tex{position:relative}
+.tex::before{content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;opacity:.05;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E")}
+.parch{position:relative;color:var(--ink-text);padding:20px 22px;border-radius:9px;overflow:hidden;
+  background:linear-gradient(180deg,#F0DCB4 0%,var(--parch1) 45%,var(--parch2) 100%);
+  border:var(--ow) solid var(--outline);
+  box-shadow:inset 0 5px 0 rgba(255,255,255,.55),inset 0 -6px 0 rgba(150,110,60,.32),
+    0 3px 0 rgba(0,0,0,.6),0 10px 22px rgba(0,0,0,.45)}
+.wood{position:relative;padding:18px;border-radius:10px;overflow:hidden;color:var(--text);
+  background:linear-gradient(180deg,#56371F 0%,var(--wood1) 40%,var(--wood2) 100%);
+  border:var(--ow) solid var(--outline);
+  box-shadow:inset 0 5px 0 rgba(255,224,150,.2),inset 0 -6px 0 rgba(0,0,0,.5),
+    0 3px 0 rgba(0,0,0,.6),0 10px 22px rgba(0,0,0,.45)}
+.plaque{background:var(--wood-plaque);border-radius:6px;padding:9px 13px;margin:0 0 13px;
+  font:400 12px var(--label);color:var(--gold);letter-spacing:1px;
+  text-shadow:2px 2px 0 rgba(0,0,0,.85);border:3px solid var(--outline);
+  box-shadow:inset 0 4px 0 rgba(0,0,0,.65);display:inline-block}
+.t-eyebrow{font:400 12px var(--label);color:#8a6a2a;letter-spacing:1px;margin:0 0 7px;
+  text-shadow:1px 1px 0 rgba(255,255,255,.4)}
+.t-head{font:700 20px/1.25 var(--display);color:var(--carve-ink);margin:0 0 8px;
+  text-shadow:0 1px 0 rgba(255,255,255,.6)}
+.t-body{font:500 15.5px/1.62 var(--body);color:#271c10;margin:0 0 10px}
+.t-body b{font-weight:700}
+.t-caption{font:500 12.5px var(--body);color:#4e3d28}
+.t-aside{font:italic 500 14px/1.55 var(--body);color:#4e3d28}
+.wood .t-eyebrow{color:var(--gold-deep);text-shadow:1px 1px 0 rgba(0,0,0,.7)}
+.wood .t-head{color:var(--gold);text-shadow:0 2px 0 var(--outline),0 -1px 0 rgba(255,224,150,.3)}
+.wood .t-body{color:var(--secondary)} .wood .t-caption,.wood .t-aside{color:#a99a86}
+.u-mark{-webkit-box-decoration-break:clone;box-decoration-break:clone;padding:.04em .16em .10em;
+  border-radius:2px;background-repeat:no-repeat;
+  background-image:linear-gradient(rgba(255,196,60,.6),rgba(255,196,60,.6));
+  background-size:100% .78em;background-position:left 0 bottom .06em}
+.rule-minor{height:8px;border-radius:4px;margin:14px 0;
+  background:linear-gradient(180deg,rgba(90,60,25,.5) 0 3px,rgba(255,255,255,.55) 3px 6px,transparent 6px);
+  box-shadow:inset 0 1px 2px rgba(0,0,0,.35)}
+.rule-titled{display:flex;align-items:center;margin:18px 0 11px}
+.rule-titled .bar{flex:1;height:5px;border-radius:3px;
+  background:linear-gradient(180deg,rgba(90,60,25,.45) 0 2px,rgba(255,255,255,.5) 2px 5px)}
+.rule-titled span{font:700 14px var(--display);color:var(--carve-ink);padding:0 12px;
+  letter-spacing:1.5px;text-transform:uppercase;text-shadow:0 1px 0 rgba(255,255,255,.65)}
+.wood .rule-titled .bar{background:linear-gradient(180deg,rgba(0,0,0,.6) 0 2px,rgba(255,224,150,.28) 2px 5px)}
+.wood .rule-titled span{color:var(--gold);text-shadow:0 2px 0 var(--outline)}
+.key{font:700 14px var(--body);border:3px solid var(--outline);border-radius:8px;
+  padding:11px 18px 12px;cursor:pointer;position:relative;top:0;transition:top .05s,box-shadow .05s;
+  background:var(--plum);color:#fff;text-shadow:0 1px 0 rgba(0,0,0,.7);
+  box-shadow:0 var(--lip) 0 var(--outline),0 var(--lip) 0 -1px var(--plum-deep),
+    inset 0 3px 0 rgba(150,110,200,.5),0 8px 14px rgba(0,0,0,.4)}
+.key:active{top:var(--lip);box-shadow:0 0 0 var(--outline),inset 0 3px 0 rgba(150,110,200,.5)}
+.key.primary{background:var(--gold);color:#2a1c00;text-shadow:0 1px 0 rgba(255,235,180,.8);
+  box-shadow:0 var(--lip) 0 var(--outline),0 var(--lip) 0 -1px var(--gold-deep),
+    inset 0 3px 0 var(--gold-light),0 8px 14px rgba(0,0,0,.4)}
+.key.primary:active{box-shadow:0 0 0 var(--outline),inset 0 3px 0 var(--gold-light)}
+.key.sm{font-size:12.5px;padding:8px 13px 9px;--lip:4px}
+.key .k{position:absolute;top:2px;right:6px;font:400 10px var(--label);opacity:.6}
+.keys{display:flex;gap:11px;flex-wrap:wrap;align-items:flex-end;margin-top:15px}
+.chip{display:inline-block;font:700 12px var(--body);padding:5px 10px;border-radius:5px;
+  border:2.5px solid var(--outline);color:#231700;text-shadow:0 1px 0 rgba(255,255,255,.4);white-space:nowrap}
+.chip.good{background:var(--green)} .chip.normal{background:var(--gold)}
+.chip.careful{background:var(--orange)}
+
+/* =========================================== the fake game behind it */
+.game{position:relative;border-radius:12px;overflow:hidden;border:3px solid #1a1430;
+  background:radial-gradient(ellipse 60% 40% at 72% 22%,rgba(255,196,60,.28),transparent 70%),
+    linear-gradient(180deg,#2d3f66 0%,#4a5a7a 32%,#6b6a62 52%,#3d4a35 62%,#2a3426 100%)}
+.game::after{content:"";position:absolute;inset:0;
+  background:radial-gradient(ellipse 120% 30% at 20% 100%,#1e2a1c,transparent 60%),
+    radial-gradient(ellipse 90% 26% at 85% 100%,#20291d,transparent 60%),
+    repeating-linear-gradient(97deg,transparent 0 40px,rgba(0,0,0,.05) 40px 80px)}
+.bar-ui{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);display:flex;gap:4px;z-index:3}
+.bar-ui i{width:28px;height:28px;border-radius:4px;border:2px solid #0b0a12;
+  background:linear-gradient(180deg,#3a3550,#1d1a2c);box-shadow:inset 0 2px 0 rgba(255,255,255,.12)}
+.hp{position:absolute;left:14px;top:14px;width:150px;z-index:3}
+.hp i{display:block;height:11px;border:2px solid #0b0a12;border-radius:3px;margin-bottom:3px;
+  background:linear-gradient(180deg,#5ad17a,#2c7a43)}
+.hp i.mana{background:linear-gradient(180deg,#5a9ad1,#2c4a7a);width:72%}
+.caplabel{position:absolute;left:14px;bottom:14px;z-index:4;font:400 11px var(--label);
+  color:#fff;letter-spacing:1px;background:rgba(0,0,0,.6);padding:5px 9px;border-radius:4px}
+
+/* =========================================== THE POP-OUT */
+.pop{border-radius:12px;overflow:hidden;border:var(--ow) solid var(--outline);
+  box-shadow:0 5px 0 rgba(0,0,0,.65),0 18px 38px rgba(0,0,0,.65)}
+/* the grab bar: carved wood, this is what you drag */
+.popbar{display:flex;align-items:center;gap:8px;padding:8px 9px;cursor:move;
+  background:linear-gradient(180deg,#56371F,var(--wood2));border-bottom:3px solid var(--outline)}
+.grip{display:grid;grid-template-columns:repeat(3,4px);gap:3px;flex:0 0 auto;padding:0 2px}
+.grip i{width:4px;height:4px;border-radius:1px;background:var(--gold-deep);box-shadow:0 1px 0 rgba(0,0,0,.7)}
+.popbar .nm{font:400 10px var(--label);color:var(--gold);letter-spacing:1px;flex:1;min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-shadow:1px 1px 0 rgba(0,0,0,.8)}
+.popbar .src{font:400 9px var(--label);letter-spacing:.5px;padding:3px 6px;border-radius:3px;
+  border:2px solid var(--outline);background:var(--gold-deep);color:#2a1c00;flex:0 0 auto}
+.popbar .src.locked{background:var(--mode-deep);color:#1d0b33}
+/* the picture */
+.screen{aspect-ratio:16/9;display:grid;place-items:center;position:relative;
+  background:radial-gradient(ellipse at 50% 40%,#3a4a6a,#0d1018 70%);
+  color:#5a6a8a;font:400 11px var(--label);letter-spacing:1px}
+.screen.anime{background:radial-gradient(ellipse at 40% 35%,#6a4a7a,#160d1c 72%);color:#8a6a9a}
+/* the controls */
+.ctrl{display:flex;align-items:center;gap:9px;padding:9px 10px;
+  background:linear-gradient(180deg,var(--panel2),var(--ink));border-top:3px solid var(--outline)}
+.ctrl.second{border-top:none;padding-top:0}
+.ico{width:30px;height:30px;flex:0 0 auto;border-radius:7px;border:2.5px solid var(--outline);cursor:pointer;
+  display:grid;place-items:center;position:relative;top:0;transition:top .05s,box-shadow .05s;
+  background:linear-gradient(180deg,var(--plum),var(--plum-deep));
+  box-shadow:0 3px 0 var(--outline),inset 0 2px 0 rgba(150,110,200,.45)}
+.ico:active{top:3px;box-shadow:0 0 0 var(--outline),inset 0 2px 0 rgba(150,110,200,.45)}
+.ico.gold{background:linear-gradient(180deg,var(--gold-lit),var(--gold-deep));
+  box-shadow:0 3px 0 var(--outline),inset 0 2px 0 rgba(255,255,255,.5)}
+.ico.sm{width:24px;height:24px;border-radius:6px}
+.ico svg{width:15px;height:15px} .ico.sm svg{width:11px;height:11px}
+/* the groove, reused as every track on this sheet */
+.track{flex:1;min-width:0;height:10px;border-radius:5px;position:relative;cursor:pointer;
+  background:linear-gradient(180deg,rgba(0,0,0,.72) 0 4px,rgba(255,224,150,.2) 4px 7px,transparent 7px);
+  box-shadow:inset 0 2px 3px rgba(0,0,0,.6)}
+.track .fill{position:absolute;left:0;top:0;height:7px;border-radius:4px;
+  background:linear-gradient(180deg,var(--gold-lit) 0 3px,var(--gold-deep) 3px 7px)}
+.track .knob{position:absolute;top:-5px;width:15px;height:19px;border-radius:4px;
+  background:linear-gradient(180deg,var(--gold-lit),var(--gold-deep));
+  border:2.5px solid var(--outline);box-shadow:inset 0 2px 0 rgba(255,255,255,.6),0 2px 0 rgba(0,0,0,.5)}
+.track.short{flex:0 0 78px;max-width:78px}
+.tnum{font:500 11.5px var(--body);color:#9a90b5;font-variant-numeric:tabular-nums;flex:0 0 auto}
+/* the resize corner: three carved diagonal grooves */
+.rsz{position:absolute;right:4px;bottom:4px;width:18px;height:18px;cursor:nwse-resize;
+  background:linear-gradient(135deg,transparent 0 46%,var(--gold-deep) 46% 54%,transparent 54% 64%,
+    var(--gold-deep) 64% 72%,transparent 72% 82%,var(--gold-deep) 82% 90%,transparent 90%)}
+.hint{position:absolute;pointer-events:none;font:400 9px var(--label);letter-spacing:1px;color:var(--gold);
+  text-shadow:1px 1px 0 #000;white-space:nowrap;z-index:5}
+
+/* ---- the small parts ---- */
+.sw{display:inline-flex;align-items:center;gap:9px;font:600 13px var(--body);cursor:pointer}
+.sw .bed{width:54px;height:28px;border-radius:999px;border:3px solid var(--outline);position:relative;
+  background:#0B0718;box-shadow:inset 0 3px 0 rgba(0,0,0,.7);flex:0 0 auto}
+.sw .nub{position:absolute;top:1px;left:1px;width:20px;height:20px;border-radius:50%;
+  border:2.5px solid var(--outline);background:linear-gradient(180deg,#8e879e,#5a5468);
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.3);transition:left .12s}
+.sw.on .bed{background:linear-gradient(180deg,#2f7a4a,#1d5230)}
+.sw.on .nub{left:27px;background:linear-gradient(180deg,var(--green),#3f9a5f)}
+.sizebtn{font:400 10px var(--label);letter-spacing:.5px;padding:7px 10px;border-radius:6px;cursor:pointer;
+  border:2.5px solid var(--outline);background:linear-gradient(180deg,var(--plum),var(--plum-deep));
+  color:#E6DCC8;text-shadow:1px 1px 0 rgba(0,0,0,.7);position:relative;top:0;
+  box-shadow:0 3px 0 var(--outline),inset 0 2px 0 rgba(150,110,200,.45)}
+.sizebtn.on{background:linear-gradient(180deg,var(--gold-lit),var(--gold-deep));color:#2a1c00;
+  text-shadow:0 1px 0 rgba(255,255,255,.5);box-shadow:0 3px 0 var(--outline),inset 0 2px 0 rgba(255,255,255,.5)}
+.sizebtn:active{top:3px;box-shadow:0 0 0 var(--outline)}
+.minimenu{width:232px;padding:6px;border-radius:10px;background:linear-gradient(180deg,#56371F,var(--wood2));
+  border:3px solid var(--outline);box-shadow:0 4px 0 rgba(0,0,0,.6)}
+.minimenu .row{padding:8px 10px;border-radius:6px;font:400 11px var(--label);color:#E6DCC8;
+  text-shadow:1px 1px 0 rgba(0,0,0,.75)}
+.minimenu .row.hot{background:linear-gradient(180deg,var(--gold-lit),var(--gold-deep));color:#2a1c00;
+  text-shadow:0 1px 0 rgba(255,255,255,.5);box-shadow:inset 0 2px 0 rgba(255,255,255,.45)}
+.kbd{display:inline-block;font:700 13px var(--body);color:#2a1c00;padding:6px 10px 7px;border-radius:6px;
+  border:2.5px solid var(--outline);background:var(--gold-lit);box-shadow:0 3px 0 var(--outline)}
+.waysin{display:grid;grid-template-columns:repeat(auto-fit,minmax(265px,1fr));gap:20px;margin-top:6px}
+.way .n{font:700 34px var(--display);color:var(--gold);text-shadow:0 2px 0 var(--outline);float:left;
+  margin:-4px 12px 0 0;line-height:1}
+.youbub{display:inline-block;font:500 14px var(--body);color:#ded8ec;padding:10px 13px;border-radius:8px;
+  background:linear-gradient(180deg,var(--plum-deep),var(--plum));border:3px solid var(--outline);
+  box-shadow:inset 0 4px 0 rgba(0,0,0,.4)}
+table.spec{border-collapse:collapse;width:100%;max-width:700px;margin:10px 0 0}
+table.spec td,table.spec th{border-bottom:3px solid #241a3a;padding:9px 10px;text-align:left;
+  font:500 13.5px var(--body);color:#9a90b5;vertical-align:top}
+table.spec th{font:400 10px var(--label);letter-spacing:1px;color:var(--gold-deep)}
+table.spec td b{color:#cfc4ea}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>AANG &middot; THE VIDEO POP-OUT</h1>
+<p class="sub">Sheet 4. The thing you will use most.<br>
+<b style="color:#9a90b5">This replaces section 2 of sheet 3.</b> Ghost mode and edit mode are gone:
+it is a normal window you click.</p>
+
+<!-- ============================================== 1 -->
+<h2 class="part">1 &middot; OVER YOUR GAME</h2>
+<p class="why">Grab the wooden bar to move it. Grab any edge or the corner to resize. It holds 16 by 9
+so the picture never squashes. <b>Click it and it becomes the window you are using. Click the game and
+you are back in the game.</b> Exactly like every other window on Windows, because that is the thing
+you already know.</p>
+
+<div class="game" style="height:470px">
+  <div class="hp"><i></i><i class="mana"></i></div>
+  <div class="bar-ui"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+  <div style="position:absolute;right:34px;top:48px;width:430px;z-index:4">
+    <div class="pop" style="position:relative">
+      <div class="popbar">
+        <span class="grip"><i></i><i></i><i></i><i></i><i></i><i></i></span>
+        <span class="nm">ASMONGOLD</span>
+        <span class="src">TWITCH &middot; LIVE</span>
+        <span class="ico sm" title="send to the MacBook"><svg viewBox="0 0 14 14"><rect x="1" y="2.5" width="12" height="8" rx="1.2" stroke="#e8e0f5" stroke-width="1.6" fill="none"/><path d="M4 12.2h6" stroke="#e8e0f5" stroke-width="1.6" stroke-linecap="round"/></svg></span>
+        <span class="ico sm" title="close"><svg viewBox="0 0 12 12"><path d="M2 2L10 10M10 2L2 10" stroke="#e8e0f5" stroke-width="2.4" stroke-linecap="round"/></svg></span>
+      </div>
+      <div class="screen">LIVE STREAM</div>
+      <div class="ctrl">
+        <span class="ico gold"><svg viewBox="0 0 14 14"><rect x="3" y="2" width="3" height="10" rx="1" fill="#2a1c00"/><rect x="8" y="2" width="3" height="10" rx="1" fill="#2a1c00"/></svg></span>
+        <div class="track"><i class="fill" style="width:100%"></i></div>
+        <span class="tnum">LIVE</span>
+      </div>
+      <div class="ctrl second" style="position:relative">
+        <span class="ico"><svg viewBox="0 0 16 16"><path d="M2 6h3l4-3v10l-4-3H2z" fill="#e8e0f5"/><path d="M11 5.5c1.2 1.4 1.2 3.6 0 5" stroke="#e8e0f5" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg></span>
+        <div class="track short"><i class="fill" style="width:64%"></i><i class="knob" style="left:58%"></i></div>
+        <span class="ico"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5" stroke="#e8e0f5" stroke-width="1.8" fill="none"/><path d="M8 2.5a5.5 5.5 0 010 11z" fill="#e8e0f5"/></svg></span>
+        <div class="track short"><i class="fill" style="width:88%"></i><i class="knob" style="left:82%"></i></div>
+        <span style="flex:1"></span>
+        <span class="ico" title="fullscreen"><svg viewBox="0 0 16 16"><path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4" stroke="#e8e0f5" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <span style="width:16px"></span>
+        <i class="rsz"></i>
+      </div>
+    </div>
+    <span class="hint" style="left:120px;top:-18px">&#8597; DRAG THE WOOD TO MOVE</span>
+    <span class="hint" style="right:-10px;bottom:-20px">DRAG TO RESIZE &#8600;</span>
+  </div>
+  <span class="caplabel">ONE POP-OUT AT A TIME &middot; ALWAYS ON TOP</span>
+</div>
+
+<h3 class="sur">The grab bar tells you three things before you read a word</h3>
+<p class="sur">Left to right: the grip you drag, what is playing, where it came from, and two small
+keycaps. The source plaque is <b style="color:#cfc4ea">gold for open video</b> and
+<b style="color:#A970FF">purple for a paid service</b>, which is the same purple that means "your own
+machine" elsewhere in Aang, used here for "your own subscription".</p>
+
+<!-- ============================================== 2 -->
+<h2 class="part">2 &middot; THE CONTROLS, UP CLOSE</h2>
+<p class="why">Every control is a carved groove with a gem knob, the same parts as sheet 1's dividers.
+Nothing new was drawn for this. The buttons are big because you are hitting them with a raid going on.</p>
+
+<div class="two">
+  <div style="width:470px">
+    <p class="cardlab">A RECORDED VIDEO</p>
+    <div class="pop">
+      <div class="popbar">
+        <span class="grip"><i></i><i></i><i></i><i></i><i></i><i></i></span>
+        <span class="nm">FROST MAGE OPENER, EXPLAINED</span>
+        <span class="src">YOUTUBE</span>
+        <span class="ico sm"><svg viewBox="0 0 14 14"><rect x="1" y="2.5" width="12" height="8" rx="1.2" stroke="#e8e0f5" stroke-width="1.6" fill="none"/><path d="M4 12.2h6" stroke="#e8e0f5" stroke-width="1.6" stroke-linecap="round"/></svg></span>
+        <span class="ico sm"><svg viewBox="0 0 12 12"><path d="M2 2L10 10M10 2L2 10" stroke="#e8e0f5" stroke-width="2.4" stroke-linecap="round"/></svg></span>
+      </div>
+      <div class="screen">VIDEO</div>
+      <div class="ctrl">
+        <span class="ico gold"><svg viewBox="0 0 14 14"><path d="M4 2.5l7 4.5-7 4.5z" fill="#2a1c00"/></svg></span>
+        <div class="track"><i class="fill" style="width:38%"></i><i class="knob" style="left:35%"></i></div>
+        <span class="tnum">4:12 / 11:03</span>
+      </div>
+      <div class="ctrl second" style="position:relative">
+        <span class="ico"><svg viewBox="0 0 16 16"><path d="M2 6h3l4-3v10l-4-3H2z" fill="#e8e0f5"/><path d="M11 5.5c1.2 1.4 1.2 3.6 0 5" stroke="#e8e0f5" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg></span>
+        <div class="track short"><i class="fill" style="width:64%"></i><i class="knob" style="left:58%"></i></div>
+        <span class="ico"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5" stroke="#e8e0f5" stroke-width="1.8" fill="none"/><path d="M8 2.5a5.5 5.5 0 010 11z" fill="#e8e0f5"/></svg></span>
+        <div class="track short"><i class="fill" style="width:88%"></i><i class="knob" style="left:82%"></i></div>
+        <span style="flex:1"></span>
+        <span class="ico"><svg viewBox="0 0 16 16"><path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4" stroke="#e8e0f5" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <span style="width:16px"></span>
+        <i class="rsz"></i>
+      </div>
+    </div>
+  </div>
+
+  <div style="flex:1;min-width:300px">
+    <p class="cardlab">WHAT EACH ONE IS</p>
+    <table class="spec">
+      <tr><th>Control</th><th>What it is</th></tr>
+      <tr><td><b>Play and pause</b></td><td>The only gold button. Gold means "the main thing here"</td></tr>
+      <tr><td><b>The long groove</b></td><td>Where you are in the video. Drag the gem to move. Full and unmoving when a stream is live</td></tr>
+      <tr><td><b>Speaker + short groove</b></td><td>Volume</td></tr>
+      <tr><td><b>Half-filled circle + short groove</b> <span class="new">NEW</span></td><td>See-through. Slide it down and the game shows through the picture</td></tr>
+      <tr><td><b>The four corners</b></td><td>Fullscreen. The ordinary icon everyone knows</td></tr>
+      <tr><td><b>Carved diagonal</b></td><td>Drag to resize. 16 by 9 is held</td></tr>
+      <tr><td><b>Laptop keycap</b> <span class="new">NEW</span></td><td>Send this to the MacBook</td></tr>
+    </table>
+    <p class="sur" style="margin-top:14px"><b style="color:#cfc4ea">Why the see-through slider sits
+    next to volume:</b> they are the two things you nudge without thinking. Same shape, same place,
+    one is for your ears and one is for your eyes.</p>
+  </div>
+</div>
+
+<h3 class="sur">The see-through slider, three positions</h3>
+<p class="sur">The bars stay solid even when the picture fades, so you can always find them.</p>
+<div class="two">
+  <div style="width:240px">
+    <p class="cardlab">100%</p>
+    <div class="pop"><div class="popbar"><span class="grip"><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="nm">FULL</span></div>
+      <div class="screen" style="font-size:9px">VIDEO</div></div>
+  </div>
+  <div style="width:240px">
+    <p class="cardlab">60%</p>
+    <div class="pop"><div class="popbar"><span class="grip"><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="nm">FADED</span></div>
+      <div class="screen" style="font-size:9px;opacity:.6">VIDEO</div></div>
+  </div>
+  <div style="width:240px">
+    <p class="cardlab">25%, A GHOST</p>
+    <div class="pop"><div class="popbar"><span class="grip"><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="nm">GHOST</span></div>
+      <div class="screen" style="font-size:9px;opacity:.25">VIDEO</div></div>
+  </div>
+</div>
+
+<!-- ============================================== 3 -->
+<h2 class="part">3 &middot; SIZE AND PLACE</h2>
+<p class="why">Four snap sizes plus free drag. Snap sizes exist because dragging a thin edge during a
+fight is miserable, and because a few fixed rectangles are kinder to the graphics card than any size
+you like. It remembers where you left it.</p>
+
+<div class="two" style="align-items:center">
+  <div class="wood tex" style="width:420px">
+    <div class="plaque">SIZE</div>
+    <div style="display:flex;gap:9px;flex-wrap:wrap">
+      <span class="sizebtn">CORNER</span>
+      <span class="sizebtn on">MEDIUM</span>
+      <span class="sizebtn">BIG</span>
+      <span class="sizebtn">FULLSCREEN</span>
+    </div>
+    <div class="rule-titled"><i class="bar"></i><span>And where</span><i class="bar"></i></div>
+    <p class="t-body" style="margin:0">Drop it near an edge of the screen and it snaps flush. Your own
+    health bars sit top-left and your action bars sit bottom-centre, so <b>the right-hand side is the
+    only quiet part of a WoW screen.</b> That is where it opens the first time.</p>
+  </div>
+  <div style="flex:1;min-width:260px">
+    <p class="cardlab">WHERE IT OPENS, AND WHY</p>
+    <div class="game" style="height:200px">
+      <div class="hp"><i></i><i class="mana"></i></div>
+      <div class="bar-ui"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div style="position:absolute;right:16px;top:50%;transform:translateY(-50%);width:150px;
+        border:3px dashed var(--gold);border-radius:8px;aspect-ratio:16/9;display:grid;place-items:center;
+        font:400 9px var(--label);color:var(--gold);z-index:4;text-shadow:1px 1px 0 #000">HERE</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================== 4 -->
+<h2 class="part">4 &middot; HOW IT OPENS</h2>
+<p class="why">Six ways, and <b>every one of them is something you did.</b> Nothing ever floats a video
+over your game on its own.</p>
+
+<div class="waysin">
+  <div class="way">
+    <span class="n">1</span>
+    <p class="sur" style="margin:0 0 10px"><b style="color:#cfc4ea">You ask.</b> A game is up, so it
+    floats. No game, and it opens in a tab instead.</p>
+    <span class="youbub">put asmongold on</span>
+  </div>
+  <div class="way">
+    <span class="n">2</span>
+    <p class="sur" style="margin:0 0 10px"><b style="color:#cfc4ea">You tap Watch</b> on something
+    Aang offered.</p>
+    <button class="key primary sm">Watch it<span class="k">A</span></button>
+  </div>
+  <div class="way">
+    <span class="n">3</span>
+    <p class="sur" style="margin:0 0 10px"><b style="color:#cfc4ea">A video is playing in a tab</b> and
+    you press Float. The tab's video lifts out over the game.</p>
+    <span class="ico gold" style="width:34px;height:34px"><svg viewBox="0 0 16 16"><rect x="1.5" y="3" width="13" height="10" rx="1.5" stroke="#2a1c00" stroke-width="1.8" fill="none"/><rect x="8" y="8" width="5" height="3.5" rx=".8" fill="#2a1c00"/></svg></span>
+  </div>
+  <div class="way">
+    <span class="n">4</span>
+    <p class="sur" style="margin:0 0 10px"><b style="color:#cfc4ea">Right-click a link</b> anywhere in
+    Aang.</p>
+    <div class="minimenu">
+      <div class="row">Open in a tab</div>
+      <div class="row hot">Watch over my game</div>
+      <div class="row">Send to the MacBook</div>
+      <div class="row">Copy link</div>
+    </div>
+  </div>
+  <div class="way">
+    <span class="n">5</span>
+    <p class="sur" style="margin:0 0 10px"><b style="color:#cfc4ea">A hotkey</b> hides it and brings it
+    back without stopping the video. You pick the keys.</p>
+    <span class="kbd">Ctrl</span> <span class="kbd">Shift</span> <span class="kbd">V</span>
+  </div>
+  <div class="way">
+    <span class="n">6</span>
+    <p class="sur" style="margin:0 0 10px"><b style="color:#cfc4ea">You switch to WoW</b> while a video
+    plays in a tab, and it follows you out automatically. <span class="chip normal">OPTIONAL</span></p>
+    <p class="sur" style="margin:0"><i>The one thing people said they missed most when they left Arc.</i></p>
+  </div>
+</div>
+
+<!-- ============================================== 5 -->
+<h2 class="part">5 &middot; PAID SERVICES, AND THE SHADOW CATCH</h2>
+<p class="why">Prime, Crunchyroll and Netflix all play in the pop-out. <b>Tested on 2026-10-04 and you
+watched it yourself.</b> But your Windows machine is a Shadow cloud PC, so there is one real catch,
+and it is honest to show it rather than hide it.</p>
+
+<div class="two">
+  <div style="width:430px">
+    <p class="cardlab">ANIME, IN THE POP-OUT</p>
+    <div class="pop">
+      <div class="popbar">
+        <span class="grip"><i></i><i></i><i></i><i></i><i></i><i></i></span>
+        <span class="nm">NARUTO SHIPPUDEN &middot; EP 96</span>
+        <span class="src locked">PRIME &middot; DUB</span>
+        <span class="ico sm"><svg viewBox="0 0 14 14"><rect x="1" y="2.5" width="12" height="8" rx="1.2" stroke="#e8e0f5" stroke-width="1.6" fill="none"/><path d="M4 12.2h6" stroke="#e8e0f5" stroke-width="1.6" stroke-linecap="round"/></svg></span>
+        <span class="ico sm"><svg viewBox="0 0 12 12"><path d="M2 2L10 10M10 2L2 10" stroke="#e8e0f5" stroke-width="2.4" stroke-linecap="round"/></svg></span>
+      </div>
+      <div class="screen anime">EPISODE</div>
+      <div class="ctrl">
+        <span class="ico gold"><svg viewBox="0 0 14 14"><rect x="3" y="2" width="3" height="10" rx="1" fill="#2a1c00"/><rect x="8" y="2" width="3" height="10" rx="1" fill="#2a1c00"/></svg></span>
+        <div class="track"><i class="fill" style="width:22%"></i><i class="knob" style="left:19%"></i></div>
+        <span class="tnum">5:04 / 23:40</span>
+      </div>
+    </div>
+    <p class="sur" style="margin-top:12px">The purple plaque means a paid service. <b>DUB</b> is there
+    because Aang remembers you only watch dubbed, and Simkl cannot store that, so he keeps it himself.</p>
+  </div>
+
+  <div class="parch tex" style="flex:1;min-width:320px">
+    <p class="t-eyebrow">THE CATCH, IN PLAIN WORDS</p>
+    <h3 class="t-head">Aang cannot see this one</h3>
+    <p class="t-body">Your PC is in a data centre. Everything on it reaches you as a video stream. Paid
+    video refuses to travel in a stream like that, so Shadow showed an error instead.</p>
+    <div class="rule-titled"><i class="bar"></i><span>The fix, and it works</span><i class="bar"></i></div>
+    <p class="t-body">Shadow's own instructions say to turn off a graphics shortcut for that window.
+    We did, and <span class="u-mark">the episode played perfectly</span>, 1,500 frames in a minute
+    with none dropped.</p>
+    <div class="rule-minor"></div>
+    <p class="t-caption" style="margin:0"><b>What it means day to day:</b> nothing. It only affects
+    this one window. The one odd part is that if Aang takes a picture of his own screen, paid video
+    comes out black. So when we check whether a video works, <b>you look, not him.</b></p>
+  </div>
+</div>
+
+<!-- ============================================== 6 -->
+<h2 class="part">6 &middot; SENDING IT TO THE MACBOOK</h2>
+<p class="why">You play Shadow on your MacBook, so the Mac is always right there. Aang can open
+something on it directly: a backup if a paid service ever refuses, and useful on its own when you
+would rather watch on the Mac's own screen.</p>
+
+<div class="two">
+  <div class="wood tex" style="width:420px">
+    <div class="plaque">SENT</div>
+    <h3 class="t-head">Playing on your MacBook</h3>
+    <p class="t-body">Episode 96 is open on the Mac in its floating player. It will sit over the
+    Shadow window.</p>
+    <div class="rule-titled"><i class="bar"></i><span>What I can do there</span><i class="bar"></i></div>
+    <p class="t-body">Open a link on a service you approved. <b>That is the whole list.</b> No files,
+    no commands, nothing else, and only over your own private network between the two machines.</p>
+    <div class="keys">
+      <button class="key sm">Bring it back here<span class="k">Z</span></button>
+    </div>
+  </div>
+  <div style="flex:1;min-width:300px">
+    <p class="cardlab">WHEN AANG OFFERS IT HIMSELF</p>
+    <div class="parch tex">
+      <p class="t-body" style="margin:0">Netflix will not play in the pop-out until you do the free
+      sign-up. <span class="u-mark">Want it on the MacBook instead?</span></p>
+      <div class="keys">
+        <button class="key primary sm">Yes, the Mac<span class="k">A</span></button>
+        <button class="key sm">Remind me about the sign-up<span class="k">X</span></button>
+        <button class="key sm">No<span class="k">Z</span></button>
+      </div>
+    </div>
+    <p class="sur" style="margin-top:14px">He only offers this when something genuinely will not play
+    here. He never quietly moves your video to another machine.</p>
+  </div>
+</div>
+
+<!-- ============================================== 7 -->
+<h2 class="part">7 &middot; THE SMALL PARTS</h2>
+
+<div class="two">
+  <div class="parch tex" style="width:360px">
+    <p class="t-eyebrow">POP-OUT SETTINGS</p>
+    <h3 class="t-head" style="margin-bottom:14px">Switches</h3>
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <span class="sw on" style="color:var(--carve-ink)"><i class="bed"><i class="nub"></i></i>Always on top</span>
+      <span class="sw on" style="color:var(--carve-ink)"><i class="bed"><i class="nub"></i></i>Follow me out of a tab</span>
+      <span class="sw on" style="color:var(--carve-ink)"><i class="bed"><i class="nub"></i></i>Skip sponsor bits</span>
+      <span class="sw on" style="color:var(--carve-ink)"><i class="bed"><i class="nub"></i></i>Smooth video while gaming</span>
+      <span class="sw" style="color:#4e3d28"><i class="bed"><i class="nub"></i></i>Click straight through it</span>
+    </div>
+    <div class="rule-minor"></div>
+    <p class="t-aside" style="margin:0">The last one is off. With it on you cannot click the picture at
+    all, which is useful now and then and confusing by default.</p>
+  </div>
+
+  <div style="flex:1;min-width:300px">
+    <p class="cardlab">AANG OFFERING A VIDEO</p>
+    <div class="parch tex">
+      <p class="t-eyebrow">ANSWERED &middot; FROST MAGE</p>
+      <p class="t-body">Shatter into Glacial Spike is still the opener. The problem is you are casting
+      <b>Flurry</b> before <b>Winter's Chill</b> lands.</p>
+      <div class="rule-minor"></div>
+      <p class="t-caption" style="margin:0 0 3px">There is a 4 minute clip of exactly this.</p>
+      <div class="keys">
+        <button class="key primary sm">Watch it<span class="k">A</span></button>
+        <button class="key sm">No<span class="k">Z</span></button>
+      </div>
+    </div>
+    <p class="sur" style="margin-top:14px">He only offers a video when the reading he was already
+    doing turned one up. He never goes looking on purpose, so the offer costs nothing.</p>
+
+    <p class="cardlab" style="margin-top:28px">THE TRACKS, ALL THE SAME PART <span class="new reuse">REUSED</span></p>
+    <div class="ctrl" style="border:3px solid var(--outline);border-radius:9px">
+      <div class="track"><i class="fill" style="width:72%"></i><i class="knob" style="left:68%"></i></div>
+    </div>
+    <p class="sur" style="margin-top:12px">Scrub, volume and see-through are one shape at three sizes.
+    Three controls, no new ideas.</p>
+  </div>
+</div>
+
+<h2 class="part">8 &middot; WHAT IS DELIBERATELY NOT HERE</h2>
+<table class="spec">
+  <tr><th>Left out</th><th>Why</th></tr>
+  <tr><td><b>Ghost mode and edit mode</b> <span class="new gone">REMOVED</span></td><td>Your decision 32. It is a normal window now. The old version relied on the mouse being sensed over a see-through window, which has Windows bugs that Electron closed as "not planned"</td></tr>
+  <tr><td><b>Twitch chat</b></td><td>Your decision 33</td></tr>
+  <tr><td><b>Two pop-outs at once</b></td><td>Your decision 34. Opening a new video replaces the old one. Two videos would also double the load on Shadow's graphics card while WoW runs</td></tr>
+  <tr><td><b>Controls that fade in on hover</b></td><td>Same Windows bugs. They are simply always there</td></tr>
+  <tr><td><b>Netflix, for now</b></td><td>Needs a free sign-up in your name before it will play here. Until then, the MacBook</td></tr>
+</table>
+
+</div>
+</body>
+</html>
