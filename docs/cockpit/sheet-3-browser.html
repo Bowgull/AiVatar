@@ -256,6 +256,45 @@ p.sur{font:500 13.5px/1.6 var(--body);color:#8a80a5;margin:0 0 16px;max-width:68
   text-overflow:ellipsis;white-space:nowrap}
 .hrow .dom{font:500 12px var(--body);color:#4e3d28}
 .hrow .when{font:400 10px var(--label);color:#8a6a2a;letter-spacing:.5px}
+
+/* ---- overlay v2: drag anywhere, drag to resize, one fullscreen icon ---- */
+.vid2{position:relative;width:400px;border-radius:12px;overflow:visible}
+.vid2 .frame{border-radius:12px;overflow:hidden;border:var(--ow) solid var(--outline);
+  box-shadow:0 4px 0 rgba(0,0,0,.6),0 16px 34px rgba(0,0,0,.6)}
+.vid2 .vidbar{cursor:move}
+.grip{display:grid;grid-template-columns:repeat(3,4px);gap:3px;flex:0 0 auto;padding:0 3px}
+.grip i{width:4px;height:4px;border-radius:1px;background:var(--gold-deep);box-shadow:0 1px 0 rgba(0,0,0,.7)}
+.ico{width:30px;height:30px;flex:0 0 auto;border-radius:7px;border:2.5px solid var(--outline);cursor:pointer;
+  display:grid;place-items:center;position:relative;top:0;transition:top .05s,box-shadow .05s;
+  background:linear-gradient(180deg,var(--plum),var(--plum-deep));
+  box-shadow:0 3px 0 var(--outline),inset 0 2px 0 rgba(150,110,200,.45)}
+.ico:active{top:3px;box-shadow:0 0 0 var(--outline),inset 0 2px 0 rgba(150,110,200,.45)}
+.ico.gold{background:linear-gradient(180deg,var(--gold-lit),var(--gold-deep));
+  box-shadow:0 3px 0 var(--outline),inset 0 2px 0 rgba(255,255,255,.5)}
+.ico svg{width:15px;height:15px}
+.ico.sm{width:24px;height:24px;border-radius:6px} .ico.sm svg{width:11px;height:11px}
+/* the resize grip: three carved diagonal grooves in the corner */
+.rsz{position:absolute;right:4px;bottom:4px;width:18px;height:18px;cursor:nwse-resize;
+  background:linear-gradient(135deg,transparent 0 46%,var(--gold-deep) 46% 54%,transparent 54% 64%,
+    var(--gold-deep) 64% 72%,transparent 72% 82%,var(--gold-deep) 82% 90%,transparent 90%)}
+/* where the drag targets are, shown only on this sheet */
+.hint{position:absolute;pointer-events:none;font:400 9px var(--label);letter-spacing:1px;color:var(--gold);
+  text-shadow:1px 1px 0 #000;white-space:nowrap}
+.ghost{position:absolute;border:3px dashed var(--gold);border-radius:12px;pointer-events:none;opacity:.75}
+.waysin{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px;margin-top:6px}
+.way .n{font:700 34px var(--display);color:var(--gold);text-shadow:0 2px 0 var(--outline);float:left;
+  margin:-4px 12px 0 0;line-height:1}
+.youbub{display:inline-block;font:500 14px var(--body);color:#ded8ec;padding:10px 13px;border-radius:8px;
+  background:linear-gradient(180deg,var(--plum-deep),var(--plum));border:3px solid var(--outline);
+  box-shadow:inset 0 4px 0 rgba(0,0,0,.4)}
+.minimenu{width:220px;padding:6px;border-radius:10px;background:linear-gradient(180deg,#56371F,var(--wood2));
+  border:3px solid var(--outline);box-shadow:0 4px 0 rgba(0,0,0,.6)}
+.minimenu .row{padding:8px 10px;border-radius:6px;font:400 11px var(--label);color:#E6DCC8;
+  text-shadow:1px 1px 0 rgba(0,0,0,.75)}
+.minimenu .row.hot{background:linear-gradient(180deg,var(--gold-lit),var(--gold-deep));color:#2a1c00;
+  text-shadow:0 1px 0 rgba(255,255,255,.5);box-shadow:inset 0 2px 0 rgba(255,255,255,.45)}
+.kbd{display:inline-block;font:700 13px var(--body);color:#2a1c00;padding:6px 10px 7px;border-radius:6px;
+  border:2.5px solid var(--outline);background:var(--gold-lit);box-shadow:0 3px 0 var(--outline)}
 </style>
 </head>
 <body>
@@ -358,39 +397,117 @@ whether you or Aang is driving. All three carved in, all three unpaintable.</p>
 
 <!-- ============================================== 2 -->
 <h2 class="part">2 &middot; THE VIDEO OVERLAY</h2>
-<p class="why">What rides over your game. The control bar is ours, not YouTube's, because you should not be
-aiming at a 20-pixel button mid-fight. <b>Clicks pass straight through the picture to the game.</b> Only this
-bar catches them.</p>
+<p class="why">What rides over your game. Grab the top bar to move it anywhere on your screen. Grab any edge
+or the corner to resize it. One fullscreen button, the normal icon everyone knows. The picture keeps 16 by 9
+while you resize, so it never squashes.</p>
 
-<div class="two">
+<div class="two" style="gap:60px">
   <div>
     <p class="cardlab">OVER YOUR GAME</p>
-    <div class="vid">
-      <div class="vidbar">
-        <span class="nm">ASMONGOLD &middot; TWITCH</span>
-        <span class="rnd" style="width:23px;height:23px;font-size:11px">&#8600;</span>
-        <span class="rnd" style="width:23px;height:23px;font-size:11px">&times;</span>
+    <div class="vid2">
+      <div class="frame">
+        <div class="vidbar">
+          <span class="grip"><i></i><i></i><i></i><i></i><i></i><i></i></span>
+          <span class="nm">ASMONGOLD &middot; TWITCH</span>
+          <span class="ico sm" title="close"><svg viewBox="0 0 12 12"><path d="M2 2L10 10M10 2L2 10" stroke="#e8e0f5" stroke-width="2.4" stroke-linecap="round"/></svg></span>
+        </div>
+        <div class="screen">VIDEO</div>
+        <div class="ctrl">
+          <span class="ico gold"><svg viewBox="0 0 14 14"><rect x="3" y="2" width="3" height="10" rx="1" fill="#2a1c00"/><rect x="8" y="2" width="3" height="10" rx="1" fill="#2a1c00"/></svg></span>
+          <div class="track"><i class="fill" style="width:38%"></i><i class="knob" style="left:35%"></i></div>
+          <span class="tnum">12:04</span>
+        </div>
+        <div class="ctrl" style="border-top:none;padding-top:0;position:relative">
+          <span class="ico"><svg viewBox="0 0 16 16"><path d="M2 6h3l4-3v10l-4-3H2z" fill="#e8e0f5"/><path d="M11 5.5c1.2 1.4 1.2 3.6 0 5" stroke="#e8e0f5" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg></span>
+          <div class="track vol"><i class="fill" style="width:64%"></i><i class="knob" style="left:58%"></i></div>
+          <span style="flex:1"></span>
+          <span class="ico" title="fullscreen"><svg viewBox="0 0 16 16"><path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4" stroke="#e8e0f5" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          <span style="width:16px"></span>
+          <i class="rsz"></i>
+        </div>
       </div>
-      <div class="screen">VIDEO</div>
-      <div class="ctrl">
-        <span class="rnd gold" style="width:30px;height:30px">&#9208;</span>
-        <div class="track"><i class="fill" style="width:38%"></i><i class="knob" style="left:35%"></i></div>
-        <span class="tnum">12:04</span>
-      </div>
-      <div class="ctrl" style="border-top:none;padding-top:0">
-        <span class="rnd" style="width:27px;height:27px;font-size:12px">&#128266;</span>
-        <div class="track vol"><i class="fill" style="width:64%"></i><i class="knob" style="left:58%"></i></div>
-        <span class="pill sm local">Corner</span>
-        <span class="pill sm" style="background:#6d6579;color:#f0edf5;text-shadow:0 1px 0 rgba(0,0,0,.4)">Big</span>
-        <span class="pill sm" style="background:#6d6579;color:#f0edf5;text-shadow:0 1px 0 rgba(0,0,0,.4)">Full</span>
-      </div>
+      <!-- sheet-only annotations -->
+      <span class="hint" style="left:130px;top:-20px">&#8597; GRAB HERE TO MOVE</span>
+      <span class="hint" style="right:-14px;bottom:-22px">DRAG TO RESIZE &#8600;</span>
+      <span class="hint" style="left:-46px;top:46%;transform:rotate(-90deg)">ANY EDGE</span>
     </div>
-    <p class="sur" style="margin-top:13px;max-width:400px">Three sizes rather than a drag handle, because
-    dragging a thin window edge while raiding is miserable. It remembers which you last used.</p>
   </div>
 
+  <div style="max-width:360px">
+    <p class="cardlab">MID-RESIZE</p>
+    <div style="position:relative;height:220px">
+      <div class="ghost" style="left:0;top:0;width:340px;height:210px"></div>
+      <div style="position:absolute;left:0;top:0;width:250px">
+        <div class="frame" style="border-radius:12px;overflow:hidden;border:var(--ow) solid var(--outline)">
+          <div class="vidbar"><span class="grip"><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="nm">ASMONGOLD</span></div>
+          <div class="screen" style="font-size:9px">VIDEO</div>
+        </div>
+      </div>
+      <span class="hint" style="left:190px;top:188px">16:9 HELD</span>
+    </div>
+    <p class="sur" style="margin:4px 0 0">The gold outline is where it will land when you let go. Drop it near
+    a screen edge and it snaps flush. It remembers where you left it.</p>
+  </div>
+</div>
+
+<h3 class="sur">How you click through it</h3>
+<p class="sur">The top bar and the controls catch your mouse. <b style="color:#cfc4ea">The picture does
+not.</b> Click on the video itself and the click lands in your game behind it, so you can keep fighting with
+it on screen. Move the mouse over it and the bars fade in. Move away and they fade out, leaving just the
+picture.</p>
+
+<h3 class="sur">How it opens</h3>
+<p class="sur">Five ways in. Every one of them is something you do. Nothing pops a video over your game on
+its own.</p>
+
+<div class="waysin">
+  <div class="way">
+    <span class="n">1</span>
+    <p class="sur" style="margin:0 0 10px"><b style="color:#cfc4ea">You ask.</b> With a game up, it floats.
+    Without one, it opens in a tab.</p>
+    <span class="youbub">put asmongold on</span>
+  </div>
+
+  <div class="way">
+    <span class="n">2</span>
+    <p class="sur" style="margin:0 0 10px"><b style="color:#cfc4ea">You tap Watch</b> on something Aang
+    offered.</p>
+    <button class="key primary sm">Watch it<span class="k">A</span></button>
+  </div>
+
+  <div class="way">
+    <span class="n">3</span>
+    <p class="sur" style="margin:0 0 10px"><b style="color:#cfc4ea">A video is playing in a tab.</b> A
+    Float button appears in the bar. One click and the tab's video lifts out over your game.</p>
+    <div class="chrome" style="border:3px solid var(--outline);border-radius:9px;padding:7px">
+      <div class="slot" style="padding:5px 9px"><span class="url"><b>youtube.com</b>/watch</span></div>
+      <span class="ico gold"><svg viewBox="0 0 16 16"><rect x="1.5" y="3" width="13" height="10" rx="1.5" stroke="#2a1c00" stroke-width="1.8" fill="none"/><rect x="8" y="8" width="5" height="3.5" rx=".8" fill="#2a1c00"/></svg></span>
+    </div>
+  </div>
+
+  <div class="way">
+    <span class="n">4</span>
+    <p class="sur" style="margin:0 0 10px"><b style="color:#cfc4ea">Right-click a link</b> in the scroll
+    back, or anywhere in the browser.</p>
+    <div class="minimenu">
+      <div class="row">Open in a tab</div>
+      <div class="row hot">Watch over my game</div>
+      <div class="row">Copy link</div>
+    </div>
+  </div>
+
+  <div class="way">
+    <span class="n">5</span>
+    <p class="sur" style="margin:0 0 10px"><b style="color:#cfc4ea">A hotkey</b> hides it and brings it back
+    without stopping the video. You pick the keys.</p>
+    <span class="kbd">Ctrl</span> <span class="kbd">Shift</span> <span class="kbd">V</span>
+  </div>
+</div>
+
+<h3 class="sur" style="margin-top:44px">Offered, not pushed</h3>
+<div class="two">
   <div>
-    <p class="cardlab">AANG OFFERING ONE <span class="new">NEW</span></p>
+    <p class="cardlab">AANG OFFERING ONE</p>
     <div class="parch tex" style="width:390px">
       <p class="t-eyebrow">ANSWERED &middot; FROST MAGE</p>
       <p class="t-body">Shatter into Glacial Spike is still the opener. Your talents are fine, the problem
