@@ -266,11 +266,6 @@ p.sur{font:500 13.5px/1.6 var(--body);color:#8a80a5;margin:0 0 16px;max-width:74
 .stat div{flex:1;min-width:140px;padding:10px 12px;border-radius:8px;background:rgba(255,255,255,.35);border:3px solid rgba(90,60,25,.35)}
 .stat b{display:block;font:900 28px/1 var(--display);color:var(--carve-ink)}
 .stat span{display:block;font:500 12.5px var(--body);color:#5a4834;margin-top:4px}
-table.tv{width:100%;border-collapse:collapse;margin-top:8px;display:none;font:500 13.5px var(--body);color:#271c10}
-table.tv.on{display:table}
-table.tv th{font:400 9px var(--label);letter-spacing:.5px;color:#8a6a2a;text-align:left;padding:5px 6px;border-bottom:3px solid rgba(90,60,25,.35)}
-table.tv td{padding:5px 6px;border-bottom:2px solid rgba(90,60,25,.18)}
-table.tv td.n{text-align:right;font-weight:700}
 
 /* ---- 3 side by side ---- */
 .sbs{display:grid;grid-template-columns:120px 1fr 1fr;border:3px solid rgba(90,60,25,.45);border-radius:8px;overflow:hidden}
@@ -363,6 +358,24 @@ table.tv td.n{text-align:right;font-weight:700}
 .decide{border:3px dashed var(--gold-deep);border-radius:9px;padding:12px 14px;background:rgba(255,196,60,.07);max-width:740px}
 .decide b{color:var(--gold)}
 .decide p{margin:0 0 6px;font:500 13.5px/1.6 var(--body);color:#c9c2da}
+
+/* ---- 5 bubble-driven ---- */
+.start{display:grid;grid-template-columns:72px 1fr;gap:14px;align-items:center;padding:9px 0;font:500 14.5px/1.5 var(--body);color:#271c10}
+.start+.start{border-top:3px solid rgba(90,60,25,.22)}
+.start .kbd{text-align:center;font:400 10px var(--label);letter-spacing:1px}
+.ctx{width:290px;background:#fff;border:1px solid #c8c8c8;border-radius:8px;padding:6px 0;box-shadow:0 8px 24px rgba(0,0,0,.45);
+  font:400 13.5px system-ui,Segoe UI,sans-serif;color:#222}
+.ctx .it{display:flex;align-items:center;gap:9px;padding:7px 14px}
+.ctx .it span{margin-left:auto;color:#888;font-size:12px}
+.ctx .it img{width:18px;height:18px;image-rendering:pixelated}
+.ctx .it.on{background:#e8f0fe;font-weight:600}
+.ctx .sep{height:1px;background:#e2e2e2;margin:5px 0}
+.bub7{overflow:visible;width:100%}
+.tail::after{content:"";position:absolute;left:28px;bottom:-16px;width:18px;height:18px;
+  background:var(--parch2);border-right:var(--ow) solid var(--outline);border-bottom:var(--ow) solid var(--outline);transform:rotate(45deg)}
+.thumb{border-radius:6px;border:3px solid var(--outline);background:#1b2430;padding:10px 12px;max-width:300px;
+  box-shadow:0 3px 0 rgba(0,0,0,.4)}
+.thumb div{font:500 11px/1.45 ui-monospace,Consolas,monospace;color:#ffb38a}
 </style>
 </head>
 <body>
@@ -434,7 +447,7 @@ back grouped by where they live, so you can see at a glance which places had not
 <p class="why">Three questions you actually ask: <b>where is the job hunt up to</b>, <b>how much Claude am I
 using</b>, and <b>which addons have fallen behind</b>. Each chart is drawn on the parchment, every bar has the
 black outline the rest of Aang has, and every number is written on the chart, so nothing depends on colour
-alone. Point at any bar for the exact figure. "Show as a table" swaps the picture for plain rows.</p>
+alone. Point at any bar for the exact figure.</p>
 
 <div class="two" style="align-items:flex-start">
   <div class="parch tex card">
@@ -448,8 +461,7 @@ alone. Point at any bar for the exact figure. "Show as a table" swaps the pictur
       </svg>
       <div class="tip"></div>
     </div>
-    <table class="tv" id="t-jobs"><tr><th>STAGE</th><th style="text-align:right">JOBS</th></tr></table>
-    <div class="keys"><button class="key sm" data-table="t-jobs">Show as a table<span class="k">T</span></button></div>
+    
   </div>
   <div style="flex:1;min-width:250px">
     <p class="sur"><b>The stages are the real six</b> from the job hunt, in the order a job moves through
@@ -477,8 +489,7 @@ alone. Point at any bar for the exact figure. "Show as a table" swaps the pictur
       </svg>
       <div class="tip"></div>
     </div>
-    <table class="tv" id="t-use"><tr><th>WEEK OF</th><th style="text-align:right">CLAUDE</th><th style="text-align:right">QWEN</th></tr></table>
-    <div class="keys"><button class="key sm" data-table="t-use">Show as a table<span class="k">T</span></button></div>
+    
   </div>
   <div style="flex:1;min-width:250px">
     <p class="sur"><b>These numbers are your real ones</b>, counted from Aang's memory for this sheet: 34 Claude
@@ -504,53 +515,28 @@ alone. Point at any bar for the exact figure. "Show as a table" swaps the pictur
       </svg>
       <div class="tip"></div>
     </div>
-    <table class="tv" id="t-addons"><tr><th>ADDON</th><th>YOURS</th><th>NEWEST</th><th style="text-align:right">DAYS</th></tr></table>
-    <div class="keys"><button class="key sm" data-table="t-addons">Show as a table<span class="k">T</span></button>
-      <button class="key sm">Open CurseForge<span class="k">O</span></button></div>
+    <div class="keys"><button class="key sm">Open CurseForge<span class="k">O</span></button></div>
   </div>
   <div style="flex:1;min-width:250px">
     <p class="sur"><b>Longest behind at the top.</b> Each bar is how many days ago the newer version came out,
     which is what the addon check already works out from CurseForge's release date.</p>
-    <p class="sur"><b>Your version and the newest</b> show when you point at a bar, or all at once in the
-    table.</p>
+    <p class="sur"><b>Your version and the newest</b> show when you point at a bar.</p>
     <p class="sur"><b>Aang does not update addons.</b> The button opens CurseForge. Example addons; your real list
     comes from the WoW folder.</p>
   </div>
 </div>
 
 <!-- ============================================== 3 -->
-<h2 class="part">3 &middot; TWO THINGS SIDE BY SIDE <span class="step">6.18</span></h2>
-<p class="why">Two jobs, or a file before and after a change. <b>Rows that differ are lit gold</b>; rows that
-match stay plain, so your eye goes to what is different. <b>Aang does not pick a winner.</b> He lays it out;
-you decide.</p>
-
-<div class="two" style="align-items:flex-start">
-  <div class="parch tex card">
-    <p class="t-eyebrow">TWO JOBS</p>
-    <div class="sbs">
-      <div class="rh"></div>
-      <div class="ch">Product Manager<small>Octup</small></div>
-      <div class="ch">Product Manager<small>Northwind</small></div>
-      <div class="rh">MATCH</div><div class="diff"><b>82</b> out of 100</div><div class="diff"><b>71</b> out of 100</div>
-      <div class="rh">AANG SAID</div><div>Apply</div><div>Apply</div>
-      <div class="rh">WHY</div><div class="diff">Remote, and the role asks for the work you did on game tools.</div>
-        <div class="diff">Strong team, but three days a week in the office.</div>
-      <div class="rh">PAY</div><div class="diff">Not in the posting</div><div class="diff">$95k to $110k</div>
-      <div class="rh">STAGE</div><div>Applied</div><div>Applied</div>
-      <div class="rh">FOUND</div><div class="diff">22 Sep</div><div class="diff">29 Sep</div>
-    </div>
-    <div class="keys"><button class="key sm">Open both postings<span class="k">O</span></button>
-      <button class="key sm">Swap one out<span class="k">S</span></button></div>
-  </div>
-  <div style="flex:1;min-width:250px">
-    <p class="sur"><b>The rows are the job card's own fields:</b> the match score, what Aang said, his reason,
-    the stage and the date found. Pay shows only when the posting says it; "Not in the posting" is said plainly
-    rather than left blank.</p>
-    <p class="sur"><b>To start one:</b> tick two cards on the Jobs tab, or say "compare these two".</p>
-  </div>
+<h2 class="part">3 &middot; BEFORE AND AFTER A CHANGE <span class="step">6.18</span></h2>
+<p class="why"><b>Only one kind is kept: a file before and after Aang changed it.</b> You get here from
+<b>What I did</b> (sheet 6): click any change in the timeline and this opens. Red is what went, green is what
+came in.</p>
+<div class="decide" style="margin-bottom:22px">
+  <p><b>CUT: comparing two jobs side by side.</b> Your job hunt is one card at a time, apply or skip, and you'd
+  only compare two when you're holding two offers, which is rare. If that happens, say "compare these two" in
+  the bubble and Aang lays it out in the chat. No separate view to build or maintain.</p>
 </div>
-
-<div class="two" style="align-items:flex-start;margin-top:26px">
+<div class="two" style="align-items:flex-start">
   <div class="parch tex card">
     <p class="t-eyebrow">A FILE, BEFORE AND AFTER &middot; 10_Projects/Aang/raid-night.md</p>
     <div class="code">
@@ -626,87 +612,118 @@ in What I did, and this opens.</p>
 </div>
 
 <!-- ============================================== 5 -->
-<h2 class="part">5 &middot; SNIP, GRAB, DROP <span class="step">6.17</span></h2>
-<p class="why">Three ways to hand Aang something without typing it out: <b>snip</b> part of the screen, <b>grab</b>
-text you have highlighted in any app, or <b>drop</b> a file on him. Whatever you hand him is treated as
-something to read, never as orders. If a web page you grab says "ignore your rules", Aang reads that as text
-on a page.</p>
+<h2 class="part">5 &middot; HAND AANG SOMETHING: SNIP, SEND, DROP <span class="step">6.17</span></h2>
+<p class="why">Three ways to hand Aang something without typing it out. <b>All three end up in the same place:
+his chat bubble.</b> He shows you what he got, asks what you want, and you answer the way you always do,
+with a key or by typing. No extra windows and no forms to fill in. Whatever you hand him is something to
+read, never orders: if a web page you send says "ignore your rules", Aang treats it as text on a page.</p>
 
-<h3 class="sur">Snip: drag a box, then ask</h3>
+<h3 class="sur">How you start each one</h3>
+<div class="parch tex" style="max-width:760px">
+  <div class="start"><span class="kbd">SNIP</span>
+    <div><b>Right-click Aang, then "Snip the screen".</b> It sits in the Aang group of the gold menu you already
+    have. Or the snip key, if you want one.</div></div>
+  <div class="start"><span class="kbd">SEND</span>
+    <div><b>Highlight text, right-click, "Send to Aang".</b> Works in Aang's own browser, in Chrome (a small
+    extension), and on files in File Explorer. Everywhere else, use the send key (see below for why).</div></div>
+  <div class="start"><span class="kbd">DROP</span>
+    <div><b>Drag a file onto Aang.</b> Or right-click the file in File Explorer, "Send to", "Aang".</div></div>
+</div>
+
+<div class="two" style="margin-top:18px">
+  <div style="flex:1;min-width:280px">
+    <div class="ctx">
+      <div class="it">Copy<span>Ctrl+C</span></div>
+      <div class="it">Search the web for "We would like to set up..."</div>
+      <div class="sep"></div>
+      <div class="it on"><img src="data:image/png;base64,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" alt="">Send to Aang</div>
+      <div class="sep"></div>
+      <div class="it">Inspect</div>
+    </div>
+  </div>
+  <div style="flex:1.4;min-width:260px">
+    <p class="sur"><b>Why the right-click can't be everywhere:</b> Windows has no shared right-click menu for
+    highlighted text. Every app draws its own: Chrome's, Discord's and Notepad's are three separate menus, and
+    an outside program like Aang can only add to one when that app allows it. Aang's own browser is his, so it
+    is built in. Chrome allows it through an extension. File Explorer has "Send to" for files. Discord,
+    Notepad and WoW chat allow nothing, so there the send key is the only way in.</p>
+    <p class="sur"><b>The other option, which I don't recommend:</b> a little Aang button that pops up over any
+    text you highlight. That would work everywhere, but it would also pop up every time you select anything,
+    WoW included.</p>
+  </div>
+</div>
+
+<h3 class="sur" style="margin-top:28px">Snip: drag a box, Aang asks</h3>
 <div class="two" style="align-items:flex-start">
-  <div class="card" style="max-width:520px">
-    <div class="screen">
+  <div class="card" style="max-width:500px">
+    <div class="screen" style="height:200px">
       <div class="err">Interface\AddOns\Questie\Modules\<br>QuestieTracker.lua:812: attempt to<br>index field 'quest' (a nil value)</div>
-      <div class="sel"><i></i><i></i><i></i><i></i><span class="sz">356 &times; 118</span></div>
-      <div class="askplate">
-        <div class="in">What is this error and is it my fault?</div>
-        <div class="keys">
-          <button class="key primary sm">Ask<span class="k">&#9166;</span></button>
-          <button class="key sm">Copy the picture<span class="k">C</span></button>
-          <button class="key sm">Cancel<span class="k">Esc</span></button>
-          <span class="chip claude">CLAUDE</span>
-        </div>
-      </div>
+      <div class="sel"><i></i><i></i><i></i><i></i><span class="sz">356 &times; 118 &middot; ENTER TO SEND &middot; ESC TO CANCEL</span></div>
     </div>
-  </div>
-  <div style="flex:1;min-width:250px">
-    <p class="sur"><b>The screen dims and you drag a box.</b> Gold corners show what will be sent, with its size.
-    Nothing outside the box goes anywhere.</p>
-    <p class="sur"><b>The CLAUDE chip says where it goes</b> before you press Ask. A picture goes to Claude and
-    costs quota. The snip is not saved unless you press Copy.</p>
-    <p class="sur"><b>On this PC, protected video snips black.</b> Netflix, Prime and the rest come out as an empty
-    black box (you found that on 4 Oct). Aang says so rather than guessing at a black picture.</p>
-  </div>
-</div>
-
-<h3 class="sur" style="margin-top:26px">Grab: highlight text anywhere, press the key</h3>
-<div class="two" style="align-items:flex-start">
-  <div style="display:flex;flex-direction:column;gap:14px;max-width:440px;width:100%">
-    <div class="app"><div class="bar">Chrome &middot; mail.google.com</div>
-      <div class="pg">Thanks for applying. <span class="hl">We would like to set up a 30 minute call with the hiring
-      manager next week. Please reply with three times that work for you.</span></div></div>
-    <div class="parch tex">
-      <span class="from">GRABBED FROM CHROME &middot; READ, NOT OBEYED</span>
-      <div class="quote">We would like to set up a 30 minute call with the hiring manager next week. Please reply
-      with three times that work for you.</div>
+    <div class="bub7 parch tex tail" style="margin-top:22px">
+      <div class="thumb"><div>QuestieTracker.lua:812: attempt to index field 'quest' (a nil value)</div></div>
+      <p class="t-body" style="margin:10px 0 4px">Got your snip. What do you want to know about it?</p>
       <div class="keys">
-        <button class="key primary sm">Draft a reply<span class="k">R</span></button>
-        <button class="key sm">Explain it<span class="k">E</span></button>
-        <button class="key sm">Remember this<span class="k">M</span></button>
-        <button class="key sm">Ask about it<span class="k">A</span></button>
+        <button class="key primary sm">What is this error?<span class="k">A</span></button>
+        <button class="key sm">Forget it<span class="k">Z</span></button>
       </div>
     </div>
   </div>
   <div style="flex:1;min-width:250px">
-    <p class="sur"><b>Highlight, press the grab key, and the words land in a card</b> with where they came from
-    on top. You never copy and paste.</p>
-    <p class="sur"><b>"Draft a reply" makes a draft</b>, the same draft card as sheet 6. Nothing is sent.
-    "Remember this" goes through the usual "remember?" ask first.</p>
-    <p class="sur"><span class="tag kept">KEPT</span> the reader that already pulls the words out of the window in
-    front of you, in its own process so a crash in another app cannot take Aang down.
-    <span class="tag new">NEW</span> asking it for just the highlighted part. If an app will not say, Aang copies,
-    reads, then puts your clipboard back as it was.</p>
+    <p class="sur"><b>The screen dims, you drag a box, press Enter.</b> Gold corners show exactly what gets
+    sent. Nothing outside the box goes anywhere.</p>
+    <p class="sur"><b>Then it is just a chat.</b> The snip appears small in his bubble with a question. He guesses
+    the likely one as the gold key, and you can type your own instead.</p>
+    <p class="sur"><b>Nothing goes to Claude until you answer.</b> The snip sits on this PC while he asks. Once
+    you answer, the model pill shows which model it went to, as it does for every message.</p>
+    <p class="sur"><b>On this PC, protected video snips black.</b> Netflix, Prime and the rest come out as an
+    empty black box (you found that on 4 Oct). If a snip is all black, Aang says so instead of guessing.</p>
   </div>
 </div>
 
-<h3 class="sur" style="margin-top:26px">Drop: drag a file onto Aang</h3>
+<h3 class="sur" style="margin-top:28px">Send: what arrives in the bubble</h3>
 <div class="two" style="align-items:flex-start">
-  <div style="display:flex;flex-direction:column;gap:16px;max-width:460px;width:100%">
+  <div class="bub7 parch tex tail" style="max-width:460px">
+    <span class="from">FROM CHROME &middot; MAIL.GOOGLE.COM &middot; READ, NOT OBEYED</span>
+    <div class="quote">We would like to set up a 30 minute call with the hiring manager next week. Please reply
+    with three times that work for you.</div>
+    <p class="t-body" style="margin:10px 0 4px">They want three times for a call next week. Want me to draft a
+    reply? I can check your calendar for open slots.</p>
+    <div class="keys">
+      <button class="key primary sm">Draft a reply<span class="k">A</span></button>
+      <button class="key sm">Not now<span class="k">Z</span></button>
+    </div>
+  </div>
+  <div style="flex:1;min-width:250px">
+    <p class="sur"><b>Where it came from is printed on top</b>, so you always know which app and which page the
+    words are from.</p>
+    <p class="sur"><b>He reads it and suggests the obvious next step</b> as the gold key. Anything else, just
+    type it. "Draft a reply" makes a draft card (sheet 6). Nothing is sent without your OK.</p>
+    <p class="sur"><span class="tag kept">KEPT</span> the reader that already pulls the words out of the window in
+    front of you, in its own process so a crash in another app can't take Aang down.
+    <span class="tag new">NEW</span> asking it for just the highlighted part. If an app won't say, Aang copies,
+    reads, then puts your clipboard back the way it was.</p>
+  </div>
+</div>
+
+<h3 class="sur" style="margin-top:28px">Drop: drag a file onto Aang, he asks</h3>
+<div class="two" style="align-items:flex-start">
+  <div style="display:flex;flex-direction:column;gap:18px;max-width:460px;width:100%">
     <div class="droparea">
       <div class="ghostfile">Octup offer.pdf</div>
       <div class="pet"><i class="ring"></i><img src="data:image/png;base64,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" alt="Aang"><span class="say">DROP IT ON ME</span></div>
     </div>
-    <div class="parch tex">
+    <div class="bub7 parch tex tail">
       <div class="fileplate"><span class="ic">PDF</span>
         <div><div class="nm">Octup offer.pdf</div><div class="mt">212 KB &middot; from Downloads</div></div></div>
+      <p class="t-body" style="margin:10px 0 4px">Looks like a job offer from Octup. What should I do with it?</p>
       <div class="keys">
-        <button class="key primary sm">Sum it up<span class="k">S</span></button>
-        <button class="key sm">Ask about it<span class="k">A</span></button>
-        <button class="key sm">Put a copy in my vault folder<span class="k">V</span></button>
-        <span class="chip qwen">QWEN</span>
+        <button class="key primary sm">Sum it up<span class="k">A</span></button>
+        <button class="key sm">Keep a copy<span class="k">S</span></button>
+        <button class="key sm">Nothing<span class="k">Z</span></button>
       </div>
     </div>
-    <div class="parch tex">
+    <div class="bub7 parch tex tail">
       <div class="fileplate"><span class="ic">ENV</span>
         <div><div class="nm">.env</div><div class="mt">1 KB &middot; from a project folder</div></div></div>
       <p class="no" style="margin:12px 0 0">I won't open that: a .env file holds keys and passwords.</p>
@@ -715,22 +732,23 @@ on a page.</p>
   <div style="flex:1;min-width:250px">
     <p class="sur"><b>Drag a file near him and the ring lights</b> in his own pale blue glow, so you know he will
     take it.</p>
-    <p class="sur"><b>Then a card asks what to do with it.</b> Nothing happens on the drop alone. "Sum it up"
-    starts on Qwen, and the chip says so.</p>
-    <p class="sur"><b>The vault copy goes only to Aang's own folder</b> in your vault, the one place there he may
-    write.</p>
+    <p class="sur"><b>Then he asks, in the bubble.</b> Nothing happens on the drop alone. Qwen reads the name
+    and the first page, on this PC, makes a guess about what it is, and offers the likely next step. From there you work it
+    out together, the same as any chat.</p>
+    <p class="sur"><b>"Keep a copy" goes only to Aang's own folder</b> in your vault, the one place there he
+    may write.</p>
     <p class="sur"><b>The refusals are the real ones</b> Aang already gives: keys and passwords, browser profiles,
-    his own memory file, and anything that belongs to someone else. They are said plainly, in red, with no button to
-    override.</p>
-    <p class="sur"><span class="tag kept">KEPT</span> every refusal and the vault rule. <span class="tag new">NEW</span>
-    the drop itself. Programs are never run: a dropped .exe gets "I won't run programs. I can tell you what it is."</p>
+    his own memory file, and anything that belongs to someone else. They are said plainly, in red, with no
+    button to override. Programs are never run: a dropped .exe gets "I won't run programs. I can tell you what
+    it is."</p>
   </div>
 </div>
 
 <div class="decide" style="margin-top:24px">
-  <p><b>YOUR CALL: the snip and grab keys.</b> A key Aang claims stops working in WoW, the way Ctrl+Plus already
-  does. Proposed: <b>Ctrl+Shift+Plus</b> to snip and <b>Ctrl+Alt+Plus</b> to grab, both beside the hide-and-show key
-  you already chose and unlikely to be bound in WoW. Changed in Settings with the same "press the keys" box as today.</p>
+  <p><b>YOUR CALL: the snip and send keys.</b> A key Aang claims stops working in WoW, the way Ctrl+Plus already
+  does. Proposed: <b>Ctrl+Shift+Plus</b> to snip and <b>Ctrl+Alt+Plus</b> to send, both next to the hide-and-show
+  key you already chose and unlikely to be bound in WoW. Or no keys at all, and use the right-click menus only.
+  Changed in Settings with the same "press the keys" box as today.</p>
 </div>
 
 </div>
@@ -742,7 +760,6 @@ function el(tag,attrs,parent){const e=document.createElementNS(NS,tag);for(const
 function tipper(box){const tip=box.querySelector('.tip');return{show(ev,html){tip.innerHTML=html;tip.style.opacity=1;
   const r=box.getBoundingClientRect();let x=ev.clientX-r.left+12,y=ev.clientY-r.top-34;if(x+tip.offsetWidth>r.width)x=r.width-tip.offsetWidth;tip.style.left=x+'px';tip.style.top=y+'px'},
   hide(){tip.style.opacity=0}}}
-function row(t,cells){const tr=document.createElement('tr');cells.forEach((c,i)=>{const td=document.createElement('td');td.textContent=c;if(typeof c==='number')td.className='n';tr.appendChild(td)});t.appendChild(tr)}
 
 // 1 jobs by stage, one hue; Needs you is status orange with an icon and its own words
 (()=>{const data=[['New',6,'#FFC43C'],['Approved',2,'#FFC43C'],['Sent to apply',1,'#FFC43C'],['Applied',4,'#FFC43C'],['! Needs you',1,'#FF8040'],['Skipped',9,'#BFAE8A']];
@@ -750,8 +767,7 @@ function row(t,cells){const tr=document.createElement('tr');cells.forEach((c,i)=
  data.forEach(([n,v,c],i)=>{const y=10+i*36;el('text',{class:'lab',x:140,y:y+18,'text-anchor':'end'},svg).textContent=n;
   const r=el('rect',{class:'m',x:150,y,width:Math.max(sx(v),4),height:24,rx:4,fill:c},svg);
   el('text',{class:'val',x:150+sx(v)+8,y:y+17},svg).textContent=v;
-  r.addEventListener('mousemove',e=>T.show(e,`<b>${n.replace('! ','')}</b> &middot; ${v} job${v>1?'s':''}`));r.addEventListener('mouseleave',T.hide);
-  row(document.getElementById('t-jobs'),[n.replace('! ',''),v])});
+  r.addEventListener('mousemove',e=>T.show(e,`<b>${n.replace('! ','')}</b> &middot; ${v} job${v>1?'s':''}`));r.addEventListener('mouseleave',T.hide);});
  el('line',{class:'base',x1:150,y1:4,x2:150,y2:226},svg)})();
 
 // 2 replies per week, stacked Claude + Qwen, real counts from aang.db
@@ -762,8 +778,7 @@ function row(t,cells){const tr=document.createElement('tr');cells.forEach((c,i)=
   segs.forEach(([who,v,col])=>{if(!v)return;const h=sy(v);const r=el('rect',{class:'m',x,y:top-h,width:bw,height:h-2,rx:4,fill:col},svg);
    r.addEventListener('mousemove',e=>T.show(e,`<b>${who}</b>, week of ${w} &middot; ${v} replies`));r.addEventListener('mouseleave',T.hide);top-=h});
   el('text',{class:'val',x:x+bw/2,y:top-8,'text-anchor':'middle'},svg).textContent=c+q;
-  el('text',{class:'axis',x:x+bw/2,y:218,'text-anchor':'middle'},svg).textContent=w.toUpperCase()+(i===2?' (NOW)':'');
-  row(document.getElementById('t-use'),[w,c,q])});
+  el('text',{class:'axis',x:x+bw/2,y:218,'text-anchor':'middle'},svg).textContent=w.toUpperCase()+(i===2?' (NOW)':'');});
  el('text',{class:'lab',x:90+70+8,y:base-sy(34)-sy(40)/2+4},svg).textContent='Qwen 40';
  el('text',{class:'lab',x:90+70+8,y:base-sy(34)/2+4},svg).textContent='Claude 34';
  el('line',{class:'base',x1:40,y1:base,x2:550,y2:base},svg)})();
@@ -774,13 +789,9 @@ function row(t,cells){const tr=document.createElement('tr');cells.forEach((c,i)=
  data.forEach(([n,a,b,d],i)=>{const y=12+i*42;el('text',{class:'lab',x:140,y:y+19,'text-anchor':'end'},svg).textContent=n;
   const r=el('rect',{class:'m',x:150,y,width:sx(d),height:26,rx:4,fill:'#FFC43C'},svg);
   el('text',{class:'val',x:150+sx(d)+8,y:y+18},svg).textContent=d+(d===1?' day':' days');
-  r.addEventListener('mousemove',e=>T.show(e,`<b>${n}</b> &middot; yours ${a}, newest ${b}`));r.addEventListener('mouseleave',T.hide);
-  row(document.getElementById('t-addons'),[n,a,b,d])});
+  r.addEventListener('mousemove',e=>T.show(e,`<b>${n}</b> &middot; yours ${a}, newest ${b}`));r.addEventListener('mouseleave',T.hide);});
  el('line',{class:'base',x1:150,y1:4,x2:150,y2:184},svg)})();
 
-document.querySelectorAll('[data-table]').forEach(b=>b.addEventListener('click',()=>{
-  const t=document.getElementById(b.dataset.table),on=t.classList.toggle('on');
-  t.previousElementSibling.style.display=on?'none':'';b.firstChild.textContent=on?'Show as a chart':'Show as a table'}));
 </script>
 </body>
 </html>
