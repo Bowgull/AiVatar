@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- Served from 127.0.0.1 like every page here. font-src is for the bundled faces (6.10).
+     No frame-src at all: unlike the pop-out, nothing from the internet is ever shown in the bubble. -->
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' data:;
+               font-src 'self'; style-src-attr 'unsafe-inline';
+               form-action 'none'; base-uri 'none'">
+<title>Aang</title>
+<link rel="stylesheet" href="cockpit.css">
+<link rel="stylesheet" href="bubble.css">
+</head>
+<body>
+
+<!-- The whole window is see-through; only this is drawn. `hidden` until there is something to say, so
+     an empty bubble is never a faint rectangle floating beside him. -->
+<div id="bubble" class="parch tex tail" hidden>
+
+  <!-- Who is speaking and what it cost. Deliberately small and above the words, like the old one. -->
+  <p class="who"><span id="who"></span></p>
+
+  <!-- The reply. `lines` is what the collapse arrow measures, so the text and its measurement can
+       never disagree. -->
+  <div id="scroller" class="scroller">
+    <p id="said" class="t-body said"></p>
+  </div>
+
+  <!-- Over six lines: the bobbing arrow. A click grows it to twelve, then it scrolls. -->
+  <button id="more" class="more" hidden aria-label="Show the rest">
+    <span class="arrow" aria-hidden="true">▾</span>
+  </button>
+
+  <!-- Working on it. The dots and, under them, what the tool is actually doing. -->
+  <div id="working" class="working" hidden>
+    <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+    <span id="doing" class="doing"></span>
+  </div>
+
+  <!-- A question that has to be answered before anything happens. Keycaps, A / X / Z, as today. -->
+  <div id="asks" class="keys asks" hidden></div>
+
+  <!-- Copy and rate: they straddle the top edge while the mouse is over the bubble, finished replies
+       only. aria-pressed carries the rating, so the look and what a screen reader says cannot differ. -->
+  <div id="tools" class="tools" hidden>
+    <button id="copy" class="tool" title="Copy">Copy</button>
+    <button id="up" class="tool" aria-pressed="false" title="Good">Good</button>
+    <button id="down" class="tool" aria-pressed="false" title="Not good">Not good</button>
+  </div>
+
+</div>
+
+<script src="bubble.js" type="module"></script>
+</body>
+</html>

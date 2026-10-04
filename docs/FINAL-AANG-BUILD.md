@@ -1699,7 +1699,7 @@ the hole it leaves is closed.
 
 ---
 
-### `[ ]` 6.12 The new bubble
+### `[~]` 6.12 The new bubble  **STARTED 2026-10-04: the spine is in, 5 of 11 parity rows remain**
 
 **Entry:** 6.10, 6.10b and 6.11 done; the asks mockup approved.
 
@@ -1710,6 +1710,50 @@ signal, the asks, quiet and mute, ratings.
 
 **Done when:** every bubble row is ticked on the real app, and he has used it for a few days and
 judged it better. Only then does the GDI bubble go (6.18b).
+
+**PASS 1, 2026-10-04.** 9 new tests (19 in the Shell's placement and reveal suites). This is a long
+step and it is deliberately not claimed as finished.
+
+**OFF BY DEFAULT.** `AANG_NEW_BUBBLE=1` turns it on. The GDI bubble is still running and two bubbles
+saying the same thing at once is worse than one old one. It is also not something he should discover
+mid-raid.
+
+**The window, and the three things that would be noticed instantly if wrong:** it never takes focus
+(`showInactive`, `focusable: false`, raised only for something he must type into) because he is usually
+in a game and a window that activates alt-tabs him out of a raid; it is transparent and frameless, so
+only the drawn shape shows rather than a grey slab; and it is `pop-up-menu` level - above ordinary
+windows, below Windows' own alerts, which is not Aang's place to cover.
+
+**DONE, and checked in a real browser:** the reply at a steady pace, the collapse thresholds, the
+bobbing arrow, the dots and tool label, copy, rate (with the switched-on look from 6.10), and the
+widths. Line height measured at exactly 23, matching `BubbleView.LineH`. Widths come out at 97 px for
+one line and cap at 416 wide, matching the painted `Left = 6, Right = 262` plus `WideExtra`.
+
+**THE PACE IS THE POINT, and it is written down twice.** `pages/reveal.js` carries his 4.2 reasoning
+verbatim: 2 characters per 50 ms tick, 40 a second, **deliberately not tied to how much text is
+waiting**. The old `Math.Max(2, backlog / 6)` made the same bubble read as typing or as a flash
+depending on how fast Claude answered. A test proves an instant 400-character reply and a dribbling one
+show exactly the same amount after 500 ms. The reveal is worked out from the clock rather than counted
+tick by tick, so a throttled window catches up instead of crawling.
+
+**ONE COPY of that logic, not two.** It lives in `pages/` as plain JavaScript, because the page server
+serves exactly one folder and a browser cannot load TypeScript. The tests import that same file, and
+`tsconfig` now type-checks it with `checkJs`, so the shipped copy cannot drift from the tested one.
+
+**A loop avoided rather than fixed later:** the window is sized from the page's own measurement, so the
+bubble's max width is an absolute number of pixels and never `100vw`. Otherwise the bubble grows to the
+window and the window to the bubble, which is exactly the runaway the pop-out needed a guard for.
+`box-sizing: border-box`, or the 4 px frame and padding sit outside the cap and every bubble is 36 px
+wider than the painted one.
+
+**Separate sender check.** `fromBubble` is its own function rather than a general "is it one of ours":
+the pop-out shows pages from the internet, and it must never reach the bubble's doors and write to his
+clipboard or send ratings in his name.
+
+**STILL TO DO in 6.12**, each a parity row: scrolling up into memory; right-click reachback; entity
+chips for files and links; the asks (permission, consent, a fact, a backup) wired to the real messages;
+quiet, mute and hush. Plus checking the 4.4 halo and the Avatar State glow still work once the bubble
+is Electron - those stay C# and are only verified here.
 
 ---
 
