@@ -1528,7 +1528,7 @@ mockup exists and he has approved it.** Not yet drawn:
 
 ---
 
-### `[ ]` 6.10 The look, made real  **BLOCKS 6.11, 6.10b**
+### `[~]` 6.10 The look, made real  **BLOCKS 6.11, 6.10b**  **BUILT 2026-10-04; one question for him**
 
 **Why:** "I LOVE the weight of the buttons currently". If CSS cannot match them, stop and think.
 
@@ -1543,6 +1543,46 @@ mockup exists and he has approved it.** Not yet drawn:
 - Targets at least 24 px; with reduced motion on, buttons keep their depth but lose their travel.
 
 **Done when:** he cannot tell the old keycap from the new one by look or feel, side by side.
+
+**BUILT 2026-10-04.** `src/Shell/pages/cockpit.css` is the real stylesheet; `docs/cockpit/cockpit.css`
+is now the mockup it was copied from, and the two must be kept in step or one of them deleted.
+
+**The fonts are bundled**, five WOFF2 files in `src/Shell/pages/fonts/` with their licences and a
+CREDITS file. They live beside the pages because the page server serves exactly one folder and refuses
+any path that climbs out of it. Cinzel and Figtree are variable, so one file carries every weight, which
+was verified rather than assumed (Google serves the same URL for each weight asked for); Silkscreen is
+not, so its two weights are two files. Proved loaded from disk by `document.fonts.check`, not by eye.
+**`font-src 'self'` had to be added** to the page's policy: `default-src 'none'` blocks fonts outright,
+so without it every face would have silently fallen back.
+
+**The three pressed-in looks did not exist.** The mockup had `:active` and nothing else, so clicked,
+keyboard-focused and switched-on were identical. Each now has one job: clicked travels down; focus
+**never moves** and gets a gold ring outside the black outline; switched-on sits down for good, is lit
+from inside, and carries the word "On". Focus never moving is what keeps a switch he has merely tabbed
+to from reading as one he has turned on.
+
+**A real bug, found by tabbing rather than by looking:** `.key[aria-pressed="true"]` and
+`.key:focus-visible` carry the SAME specificity, so the one written later won and **a switched-on button
+that was keyboard-focused showed no focus ring at all**. Every screenshot looked right; it took reading
+the computed `box-shadow` back. The combinations are now written out explicitly, and the comment that
+claimed they composed on their own is corrected.
+
+**Also in:** a 24px minimum on everything pressable (checked, nothing is under it); reduced motion keeps
+every bit of depth and removes only travel, with a row on the page forced into that mode so it can be
+seen without changing a system setting; and a forced-colours block, because Windows high contrast throws
+away every shadow and the shadows are the entire language.
+
+**`src/Shell/pages/keycaps.html` is the acceptance test**, since "done when" is a side-by-side. The left
+column is Keycap.cs rebuilt in CSS number for number, each value annotated with the line it came from.
+
+**THE QUESTION FOR HIM, and the reason this is not ticked.** The sheet and this step disagree, and both
+are his:
+  - the step says "Theme.Lip is 3px and stays 3px" and "he cannot tell the old from the new";
+  - the sheet he approved on 2026-10-03 sets `--lip:5px`, a 3px near-black outline on every button, a
+    full-width inset highlight, a drop shadow, and replaces the pixel label face with Figtree.
+Those cannot both hold: the sheet is a visibly chunkier button, on purpose. Nothing is being decided
+here. The page puts them side by side so he can say which, and what he picks is what 6.11 and 6.10b
+build on.
 
 ---
 
