@@ -1848,7 +1848,33 @@ least trustworthy side of that, and both `openPath` and `openExternal` will chee
 until 6.12b, so they arrive with it rather than appearing greyed out - a menu item he cannot use is worse
 than one that is not there. The old bubble still has all four the whole time.
 
-**STILL TO DO in 6.12**: scrolling up into memory, and quiet, mute and hush. Plus checking the 4.4 halo and the Avatar State glow still work once the bubble
+**PASS 4: THE SCROLL-BACK, QUIET AND MUTE, 2026-10-04.** 10 more tests. **93 passing in the Shell.**
+
+**It has no bottom, and that is the ported rule:** ask for turns older than the OLDEST already shown,
+and ask again every time he reaches the top. PetWindow's own words: "Repeats every time he reaches the
+top, so there is no limit on how far back he can go - days, weeks, until the database runs out."
+
+**Three guards, each a test.** One page at a time, because a scroll at the top fires many times a second
+and would otherwise ask dozens of times for the same page (`awaitingOlder` in the C#). An empty page -
+or a page of only rows it already has - means the beginning, and nothing is asked after it, or it would
+ask for ever at the top of his history. And a page that never arrives unlocks, so a dropped reply cannot
+shut him out of his own memory.
+
+**His place is kept.** New turns are added ABOVE him, so the scroll position is corrected by exactly how
+much the content grew. Without that he would be thrown back to where he started every time more loaded,
+which is the classic way this feature is got wrong.
+
+**Two voices, from sheet 2:** his own turns are pressed INTO the parchment in plum; Aang's sit plainly on
+it, because parchment is already the surface Aang speaks on.
+
+**Quiet and mute silence Aang STARTING something, never an answer.** A reply to a question he asked still
+shows while muted; only a proactive one is held. Getting that backwards would make a muted Aang look
+broken.
+
+**6.12 parity rows now done:** the steady pace, the A/X/Z keycaps, the downward arrow, scrolling into
+memory, right-click (2 of 4; the other 2 need 6.12b's typing box), entity chips, the dots and tool label,
+the asks, quiet and mute, copy and rate. **Left:** the 4.4 halo and Avatar State glow, which stay C# and
+only need checking once the bubble is Electron - and that is a check on the real app, with him. Plus checking the 4.4 halo and the Avatar State glow still work once the bubble
 is Electron - those stay C# and are only verified here.
 
 ---

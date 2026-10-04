@@ -338,6 +338,13 @@ app.whenReady().then(async () => {
       return;
     }
   });
+  // Another page of his own history. `before` is a row id, so there is no limit: every time he reaches
+  // the top it asks for the ones older than the oldest it has, until the database runs out.
+  ipcMain.on('bubble:older', (e, a) => {
+    if (!fromBubble(e)) return;
+    const before = Number(a?.before);
+    link?.send({ t: 'history', q: '', ...(Number.isFinite(before) ? { before } : {}) });
+  });
   ipcMain.on('bubble:forget', (e, id) => {
     if (!fromBubble(e)) return;
     const turn = Number(id);
