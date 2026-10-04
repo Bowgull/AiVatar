@@ -8,7 +8,7 @@
 //
 // A crash in here must never take the pet or the brain with it. It is its own process, supervised from
 // the tray, and it holds nothing the others need.
-import { app, BrowserWindow, Menu, clipboard, ipcMain, session } from 'electron';
+import { app, BrowserWindow, Menu, clipboard, ipcMain, session, shell } from 'electron';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -317,6 +317,31 @@ app.whenReady().then(async () => {
       }
       return;
     }
+  });
+  // A chip he pressed. Opened in HIS programs, through the operating system, never inside Aang: a
+  // link from a reply is exactly the kind of thing that should land in a browser with a visible address
+  // bar. Only http, https and a real file path; anything else is refused rather than handed to the
+  // shell, because `openPath` and `openExternal` will both cheerfully run things.
+  ipcMain.on('bubble:open', (e, t) => {
+    if (!fromBubble(e) || !t || typeof t !== 'object') return;
+    const value = String(t.value ?? '');
+    if (t.kind === 'link') {
+      if (!/^https?:\/\//i.test(value)) { console.error('shell: refused a chip that was not http'); return; }
+      void shell.openExternal(value);
+      return;
+    }
+    if (t.kind === 'file') {
+      // A drive path or a UNC share, which is what entities.js matched in the first place. Checked
+      // again here because the page is the least trustworthy side of this.
+      if (!/^(?:[A-Za-z]:\\|\\\\)/.test(value)) { console.error('shell: refused a chip that was not a path'); return; }
+      void shell.openPath(value);
+      return;
+    }
+  });
+  ipcMain.on('bubble:forget', (e, id) => {
+    if (!fromBubble(e)) return;
+    const turn = Number(id);
+    if (Number.isFinite(turn)) link?.send({ t: 'forget.turn', id: turn });
   });
   ipcMain.on('bubble:rate', (e, r) => {
     if (!fromBubble(e) || !r || typeof r !== 'object') return;

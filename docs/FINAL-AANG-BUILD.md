@@ -1825,8 +1825,30 @@ the typing box is still the Body's until 6.12b.
 **Also corrected:** "Skip" on a fact is NOT a no. Saying a claim is untrue and declining to judge it are
 different answers, and only the first should teach Aang anything.
 
-**STILL TO DO in 6.12**, each a parity row: scrolling up into memory; right-click reachback; entity
-chips for files and links; quiet, mute and hush. Plus checking the 4.4 halo and the Avatar State glow still work once the bubble
+**PASS 3: CHIPS AND REACHING BACK, 2026-10-04.** 9 more tests (39 in the Shell).
+
+**The chips are PORTED from `Entities.cs`, reasoning included**, because every rule in that file was put
+there for a reason the code does not show: the patterns are deliberately strict ("a loose path pattern
+matches half of ordinary prose, and a chip on a non-file is worse than no chip"); **files come first, not
+in the order they appear**, because a file Aang just wrote is what he is most likely to want and must not
+be pushed off the row by two links mentioned earlier; at most three, so it never becomes a menu; and it
+never throws, because a chip is a convenience and must not break the view it sits in. Tests cover the
+prose a loose pattern would wrongly grab: version numbers, prices, email addresses, relative paths.
+
+**Chips appear only when the reply has finished.** A chip for half a path is useless, and a row of them
+appearing and rearranging while he reads is worse than waiting a second.
+
+**A chip opens in HIS programs, through the operating system, never inside Aang** - a link from a reply
+belongs in a browser with a visible address bar. The main process checks the value again before opening:
+http or https for a link, a drive path or UNC share for a file, anything else refused. The page is the
+least trustworthy side of that, and both `openPath` and `openExternal` will cheerfully run things.
+
+**Right-click gives two of the old four**: Copy text, and Forget this set apart in orange as it is today.
+"Reply to this" and "Add as context" both put something in the typing box, which is still the C# one
+until 6.12b, so they arrive with it rather than appearing greyed out - a menu item he cannot use is worse
+than one that is not there. The old bubble still has all four the whole time.
+
+**STILL TO DO in 6.12**: scrolling up into memory, and quiet, mute and hush. Plus checking the 4.4 halo and the Avatar State glow still work once the bubble
 is Electron - those stay C# and are only verified here.
 
 ---

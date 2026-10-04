@@ -58,6 +58,10 @@ contextBridge.exposeInMainWorld('aang', {
   bubbleSize: s => ipcRenderer.send('bubble:size', s),
   /** His answer to an ask: yes, no, always, show, skip. Named, so a page cannot invent a new one. */
   answerAsk: a => ipcRenderer.send('bubble:answer', a),
+  /** Open a file or link he pressed a chip for. The main process decides HOW; the page only says which. */
+  openThing: t => ipcRenderer.send('bubble:open', t),
+  /** Forget one stored message, by the row the brain gave it. */
+  forgetTurn: id => ipcRenderer.send('bubble:forget', id),
   /** Where the openings, endings and sponsor bits are in what is playing. */
   onPopoutSegments(fn) {
     const h = (_e, list) => fn(list);
