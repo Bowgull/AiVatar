@@ -419,19 +419,125 @@ with one plain line saying what it does. Grouped so the list reads at a glance.<
 <!-- ============================================== 7 -->
 <h2 class="part">7 &middot; THE MORNING BRIEF <span class="step">6.15</span></h2>
 <p class="why">Posted once a day after 7 am Toronto time, worked out <b>without the model</b>, so it costs
-no quota. Today it is two plain lists, "Today" from your calendar and "Unread" from Gmail. It now gets
-the headings and rows those lists deserve.</p>
+no quota. Its content is exactly what it is today: <b>Today</b> from your calendar and <b>Unread</b> from
+Gmail. Two small touches are new, both worked out in code with no model: a JOB tag on mail from a
+company you are tracking, and a gem on your game night. Otherwise the change is that it finally looks like something worth opening:
+a wooden banner for the day, the calendar as a carved timeline with a line for "now", and the inbox as
+rows with a medallion per sender.</p>
 
-<div class="parch tex" style="max-width:560px">
-  <p class="t-eyebrow">GOOD MORNING &middot; SATURDAY 4 OCTOBER</p>
-  <h3 class="t-display">Your morning</h3>
-  <div class="rule-titled"><i class="bar"></i><span>Today</span><i class="bar"></i></div>
-  <div class="row" style="padding:7px 4px"><div><div class="main">10:30 AM &middot; Call with the Octup recruiter</div></div></div>
-  <div class="row" style="padding:7px 4px"><div><div class="main">7:00 PM &middot; Raid</div></div></div>
-  <div class="rule-titled"><i class="bar"></i><span>Unread</span><i class="bar"></i></div>
-  <div class="row" style="padding:7px 4px"><div><div class="main">Octup Talent</div><div class="meta">Your application was received</div></div></div>
-  <div class="row" style="padding:7px 4px"><div><div class="main">CurseForge</div><div class="meta">DBM has an update</div></div></div>
-  <p class="t-hint">Worked out without Claude. It cost nothing.</p>
+<style>
+.brief{max-width:600px;border-radius:12px;overflow:hidden;border:var(--ow) solid var(--outline);
+  box-shadow:0 4px 0 rgba(0,0,0,.6),0 16px 34px rgba(0,0,0,.55)}
+.brief .banner{position:relative;padding:18px 22px 16px;color:var(--text);
+  background:linear-gradient(180deg,#5e3c21 0%,var(--wood1) 45%,var(--wood2) 100%);
+  border-bottom:var(--ow) solid var(--outline);box-shadow:inset 0 5px 0 rgba(255,224,150,.2)}
+.brief .banner .hi{font:900 30px/1.05 var(--display);color:var(--gold);letter-spacing:.5px;
+  text-shadow:0 3px 0 var(--outline),0 -1px 0 rgba(255,224,150,.35)}
+.brief .banner .day{display:inline-flex;align-items:center;gap:8px;margin-top:10px;
+  font:400 11px var(--label);letter-spacing:1px;color:var(--gold-lit);background:var(--wood-plaque);
+  padding:7px 11px;border-radius:6px;border:3px solid var(--outline);box-shadow:inset 0 3px 0 rgba(0,0,0,.65)}
+.brief .banner .sun{position:absolute;right:20px;top:16px;width:58px;height:58px;border-radius:50%;
+  border:3px solid var(--outline);background:radial-gradient(circle at 38% 34%,#fff4c8,var(--gold) 55%,var(--gold-deep));
+  box-shadow:0 0 0 6px rgba(255,196,60,.18),0 0 26px 6px rgba(255,196,60,.35),inset 0 -4px 0 rgba(0,0,0,.18)}
+.brief .counts{display:flex;gap:8px;margin-top:12px}
+.brief .counts span{font:700 12px var(--body);padding:5px 10px;border-radius:999px;border:2.5px solid var(--outline);
+  background:var(--gold-lit);color:#2a1c00;box-shadow:0 2px 0 var(--outline)}
+.brief .counts span.mail{background:var(--plum-edge);color:#1d0b33}
+.brief .page{padding:6px 22px 20px}
+/* the calendar as a carved timeline */
+.cal{position:relative;padding:6px 0 4px 0}
+.ev2{display:grid;grid-template-columns:86px 22px 1fr;align-items:center;gap:0;min-height:52px;position:relative}
+.ev2 .t{justify-self:end;margin-right:12px;font:700 13px var(--body);color:#2a1c00;padding:5px 9px;border-radius:6px;
+  border:2.5px solid var(--outline);background:linear-gradient(180deg,var(--gold-lit),var(--gold));
+  box-shadow:0 3px 0 var(--outline),inset 0 2px 0 rgba(255,255,255,.5);white-space:nowrap}
+.ev2 .rail{position:relative;height:100%;align-self:stretch}
+.ev2 .rail::before{content:"";position:absolute;left:8px;top:0;bottom:0;width:6px;border-radius:3px;
+  background:linear-gradient(90deg,rgba(90,60,25,.55) 0 3px,rgba(255,255,255,.55) 3px 6px)}
+.ev2 .rail::after{content:"";position:absolute;left:3px;top:50%;margin-top:-8px;width:16px;height:16px;border-radius:50%;
+  border:3px solid var(--outline);background:var(--parch1);box-shadow:inset 0 2px 0 rgba(255,255,255,.6)}
+.ev2.past .t{background:linear-gradient(180deg,#d9cdb1,#bfae8a);color:#5a4834;box-shadow:0 2px 0 var(--outline)}
+.ev2.past .what{color:#7a6a52}
+.ev2.past .rail::after{background:#bfae8a}
+.ev2.game .rail::after{background:radial-gradient(circle at 35% 35%,#fff0c4,var(--gold) 60%,var(--gold-deep))}
+.ev2 .what{padding-left:12px;font:700 16px/1.35 var(--body);color:#271c10}
+.ev2 .what small{display:block;font:500 12.5px var(--body);color:#5a4834;margin-top:1px}
+.nowline{display:grid;grid-template-columns:86px 22px 1fr;align-items:center;height:20px}
+.nowline .lab{justify-self:end;margin-right:12px;font:400 9px var(--label);letter-spacing:1px;color:var(--orange-deep)}
+.nowline .ln{grid-column:2 / 4;height:4px;border-radius:2px;background:var(--orange);box-shadow:0 1px 0 rgba(0,0,0,.35)}
+.tagpill{display:inline-block;font:400 8.5px var(--label);letter-spacing:.5px;padding:3px 6px;border-radius:3px;
+  border:2px solid var(--outline);background:var(--qwen);color:#1d0b33;margin-left:8px;vertical-align:2px}
+/* the inbox */
+.mailrow{display:grid;grid-template-columns:40px 1fr auto;gap:12px;align-items:center;padding:10px 4px}
+.mailrow+.mailrow{border-top:3px solid rgba(90,60,25,.22)}
+.medal{width:36px;height:36px;border-radius:50%;border:3px solid var(--outline);display:grid;place-items:center;
+  font:700 15px var(--display);color:var(--carve-ink);box-shadow:inset 0 3px 0 rgba(255,255,255,.45),0 2px 0 var(--outline)}
+.mailrow .from{font:700 15px var(--body);color:#271c10}
+.mailrow .subj{font:500 13.5px var(--body);color:#4e3d28;margin-top:1px}
+.mailrow .when{font:400 9.5px var(--label);letter-spacing:.5px;color:#8a6a2a;white-space:nowrap}
+.mailrow.job .from::after{content:"JOB";font:400 8.5px var(--label);letter-spacing:.5px;padding:2px 5px;border-radius:3px;
+  border:2px solid var(--outline);background:var(--green);color:#163a24;margin-left:8px;vertical-align:2px}
+.freebar{display:flex;align-items:center;gap:9px;margin-top:16px;padding:9px 12px;border-radius:7px;
+  background:rgba(120,230,150,.16);border:2.5px solid rgba(47,122,74,.55)}
+.freebar b{font:400 9.5px var(--label);letter-spacing:1px;color:#1d5230;padding:3px 6px;border-radius:3px;
+  border:2px solid var(--outline);background:var(--green)}
+.freebar span{font:500 13px var(--body);color:#2f5a3a}
+</style>
+
+<div class="two" style="align-items:flex-start">
+  <div class="brief">
+    <div class="banner">
+      <div class="hi">Good morning</div>
+      <div class="day">SATURDAY &middot; 4 OCTOBER</div>
+      <div class="counts"><span>2 TODAY</span><span class="mail">3 UNREAD</span></div>
+      <i class="sun"></i>
+    </div>
+    <div class="page tex" style="background:linear-gradient(180deg,#F0DCB4,var(--parch2))">
+      <div class="rule-titled"><i class="bar"></i><span>Today</span><i class="bar"></i></div>
+      <div class="cal">
+        <div class="ev2 past"><span class="t">7:30 AM</span><i class="rail"></i>
+          <div class="what">Gym<small>Done</small></div></div>
+        <div class="nowline"><span class="lab">NOW</span><i class="ln"></i></div>
+        <div class="ev2"><span class="t">10:30 AM</span><i class="rail"></i>
+          <div class="what">Call with the Octup recruiter<small>30 minutes &middot; Google Meet</small></div></div>
+        <div class="ev2 game"><span class="t">7:00 PM</span><i class="rail"></i>
+          <div class="what">Raid<small>Three hours</small></div></div>
+      </div>
+
+      <div class="rule-major"><i class="endcap"></i><i class="bar"></i><i class="endcap"></i></div>
+
+      <div class="rule-titled" style="margin-top:0"><i class="bar"></i><span>Unread</span><i class="bar"></i></div>
+      <div class="mailrow job"><span class="medal" style="background:linear-gradient(180deg,#bff2cc,var(--green))">O</span>
+        <div><div class="from">Octup Talent</div><div class="subj">Your application was received</div></div>
+        <span class="when">6:12 AM</span></div>
+      <div class="mailrow"><span class="medal" style="background:linear-gradient(180deg,#ffd2b0,var(--orange))">C</span>
+        <div><div class="from">CurseForge</div><div class="subj">DBM has an update</div></div>
+        <span class="when">YESTERDAY</span></div>
+      <div class="mailrow"><span class="medal" style="background:linear-gradient(180deg,#d9c8f4,var(--plum-edge))">B</span>
+        <div><div class="from">Blizzard</div><div class="subj">Patch notes for this week's maintenance</div></div>
+        <span class="when">YESTERDAY</span></div>
+
+      <div class="freebar"><b>NO QUOTA</b><span>Worked out without Claude or Qwen. It cost nothing.</span></div>
+      <div class="keys">
+        <button class="key primary sm">Got it<span class="k">A</span></button>
+        <button class="key sm">Open Gmail<span class="k">X</span></button>
+      </div>
+    </div>
+  </div>
+
+  <div style="flex:1;min-width:250px">
+    <p class="sur"><b>The banner</b> is carved wood, because this is Aang greeting you, not a document.
+    The day sits in a recessed plaque, and two pills say how much is in it before you read a word.</p>
+    <p class="sur"><b>Today is a timeline</b>, carved into the parchment. Times are gold keycaps, the
+    orange line is "now", and anything already over turns grey. An event that looks like your game night
+    gets a gold gem on the rail.</p>
+    <p class="sur"><b>Unread mail</b> gets a medallion per sender and the time it arrived. Anything that
+    matches a job you are tracking is tagged JOB in green, because the job hunt already knows the
+    company names.</p>
+    <p class="sur"><b>The dividers follow sheet 1:</b> carved grooves between items, one forged rule
+    between the two topics.</p>
+    <p class="sur"><b>Still no model.</b> The green bar says so, because "this cost nothing" is worth
+    knowing every morning.</p>
+  </div>
 </div>
 
 <!-- ============================================== 8 -->
