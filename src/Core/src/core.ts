@@ -60,7 +60,13 @@ export interface CoreConfig {
   claudeExecutable?: string;
   /** Send a silent first message at start so the first real one does not pay for process start-up. */
   warm?: boolean;
-  /** Read the last session and write down what mattered. Off in tests that do not want the call. */
+  /**
+   * Read the last session and write down what mattered. OFF unless set to true (decision 47,
+   * 2026-10-04). His whole history is about 6k tokens, so Aang can read it rather than squeeze it;
+   * in its life this produced 5 live facts and stored junk ("the user is tired"); and it reads what
+   * Aang read, so a planted line in an email could become a "fact about him". Facts he approves
+   * himself (step 3.3) replace it. Kept, not deleted, in case the scale ever changes.
+   */
   consolidate?: boolean;
 }
 
@@ -1239,7 +1245,7 @@ export class Core {
     });
     // Catch up on the last session. Deliberately after a pause: Joshua may already be typing, and this
     // must never make his first message wait.
-    if (this.cfg.consolidate !== false) setTimeout(() => void this.catchUp(), 20_000).unref?.();
+    if (this.cfg.consolidate === true) setTimeout(() => void this.catchUp(), 20_000).unref?.();
     if (this.cfg.warm !== false) this.warm();
   }
 
