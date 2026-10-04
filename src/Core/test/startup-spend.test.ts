@@ -34,3 +34,43 @@ test('Q4: a normal start does not study the last session', async () => {
 test('Q4: it still runs when deliberately switched on', async () => {
   assert.equal(await studied({ consolidate: true }, 48302), true);
 });
+
+// ------------------------------------------------------------------ Q1: the warm-up turn
+
+/** Starts a Core and reports whether the Quick lane was warmed, optionally after a poke. */
+async function warmed(port: number, poke: boolean): Promise<boolean> {
+  const core: any = new Core({ port, dataDir: tmp(), stateDir: tmp() });
+  let sent = 0;
+  core.lane = () => ({ send: () => { sent++; } });
+  try {
+    await core.start();
+    if (poke) core.onBody({ readyState: 1, send() {} }, { t: 'poked' });
+  } finally {
+    await core.stop();
+  }
+  return sent > 0;
+}
+
+test('Q1: starting the Core sends nothing to Claude', async () => {
+  assert.equal(await warmed(48304, false), false);
+});
+
+test('Q1: clicking Aang warms the lane', async () => {
+  assert.equal(await warmed(48306, true), true);
+});
+
+test('Q1: it warms once, not on every click', async () => {
+  const core: any = new Core({ port: 48308, dataDir: tmp(), stateDir: tmp() });
+  let sent = 0;
+  core.lane = () => ({ send: () => { sent++; } });
+  const ws: any = { readyState: 1, send() {} };
+  try {
+    await core.start();
+    core.onBody(ws, { t: 'poked' });
+    core.onBody(ws, { t: 'poked' });
+    core.onBody(ws, { t: 'poked' });
+  } finally {
+    await core.stop();
+  }
+  assert.equal(sent, 1);
+});
