@@ -92,6 +92,28 @@ export function programOf(command: string): string {
  * What kind of permission this call needs, and how to describe it to him. Returns null for anything that
  * must be asked every single time.
  */
+/**
+ * The asks that need a HOLD, not a click (sheet 5, section 2).
+ *
+ * "Anything that sends, buys, deletes or closes someone else's app uses the lever: press AND HOLD while
+ * a brass bar fills. A reflex click does nothing." The research behind it: identical prompts get clicked
+ * through, half of them in under two seconds.
+ *
+ * Decided HERE rather than in the page, for two reasons. It is one list instead of a rule repeated in
+ * every window, and the window drawing a question must not also be the thing judging how serious it is.
+ *
+ * Deliberately short. A lever on everything is a lever on nothing: he would learn to hold through them
+ * exactly as he would learn to click through them.
+ */
+export const HOLD_TO_CONFIRM: readonly string[] = [
+  'mcp__aang__mail_send',      // once it is sent it is sent
+  'mcp__aang__force_quit',     // destroys unsaved work in someone else's app
+  'mcp__aang__delete_file',    // undo_file_change covers edits, not a deletion
+];
+
+/** Does this ask have to be held rather than clicked? */
+export const needsHold = (tool: string): boolean => HOLD_TO_CONFIRM.includes(tool);
+
 export function kindOf(tool: string, input: Record<string, unknown>): { kind: string; says: string } | null {
   const s = (k: string) => typeof input?.[k] === 'string' ? String(input[k]) : '';
   switch (tool) {

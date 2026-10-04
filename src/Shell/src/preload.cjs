@@ -56,6 +56,8 @@ contextBridge.exposeInMainWorld('aang', {
   rate: r => ipcRenderer.send('bubble:rate', r),
   /** How big the drawn bubble actually is, measured by the page, so the window can fit it. */
   bubbleSize: s => ipcRenderer.send('bubble:size', s),
+  /** His answer to an ask: yes, no, always, show, skip. Named, so a page cannot invent a new one. */
+  answerAsk: a => ipcRenderer.send('bubble:answer', a),
   /** Where the openings, endings and sponsor bits are in what is playing. */
   onPopoutSegments(fn) {
     const h = (_e, list) => fn(list);

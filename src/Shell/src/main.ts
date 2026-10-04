@@ -287,6 +287,37 @@ app.whenReady().then(async () => {
     placeWindows();                    // its bottom-right is the anchor, so a size change moves it
     bubble?.show();
   });
+  // His answer to an ask. Translated here into the reply the brain expects, because each kind answers
+  // differently and the page should not have to know that. "show" is not a reply at all: it is a
+  // request to see the whole thing first, which is a `submit`, so the ask stays open until he decides.
+  ipcMain.on('bubble:answer', (e, a) => {
+    if (!fromBubble(e) || !a || typeof a !== 'object') return;
+    const choice = String(a.choice ?? '');
+    if (a.t === 'permission') {
+      if (choice === 'show') { link?.send({ t: 'submit', id: 'show-' + Date.now(), text: 'show me that first' }); return; }
+      const picked = choice === 'yes' ? 'once' : choice === 'always' ? 'always' : 'no';
+      link?.send({ t: 'permission.reply', id: String(a.id ?? ''), choice: picked });
+      return;
+    }
+    if (a.t === 'fact.ask') {
+      // "Skip" is deliberately NOT a no: saying a claim is untrue and declining to judge it are
+      // different answers, and only the first should teach Aang anything.
+      if (choice === 'skip') return;
+      link?.send({ t: 'fact.reply', id: Number(a.id) || 0, keep: choice === 'yes' });
+      return;
+    }
+    if (a.t === 'backup.ask') { link?.send({ t: 'backup.reply', now: choice === 'yes' }); return; }
+    // Consent has NO reply message, which is easy to get wrong: the turn simply stopped, and saying
+    // yes means asking again with `once: true`. Checked against what the C# Body does (AllowOnce), not
+    // assumed - the first version of this invented a `consent.reply` that nothing would have read.
+    // Saying no means doing nothing at all: the turn is already over.
+    if (a.t === 'consent') {
+      if (choice === 'yes' && typeof a.text === 'string' && a.text) {
+        link?.send({ t: 'submit', id: 'c' + Date.now(), text: a.text, mode: String(a.mode ?? 'smart'), once: true });
+      }
+      return;
+    }
+  });
   ipcMain.on('bubble:rate', (e, r) => {
     if (!fromBubble(e) || !r || typeof r !== 'object') return;
     const turn = Number(r.turn);

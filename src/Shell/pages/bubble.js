@@ -4,6 +4,7 @@
 // is tested. This file is the part that needs a screen: measuring real lines of real text, and the
 // clicks.
 import { Reveal, TICK_MS, hasMore, linesShown, scrolls } from './reveal.js';
+import { HOLD_MS, askFrom } from './asks.js';
 
 const el = id => document.getElementById(id);
 const bubble = el('bubble'), said = el('said'), scroller = el('scroller'), more = el('more');
@@ -81,9 +82,107 @@ function show() {
   if (Number.isFinite(h) && h > 0) lineHeight = h;
 }
 
+// ---------------------------------------------------------------- the asks
+let asking = null;        // the message being asked about, so an answer can name it
+
+/** Draw an ask. The shape comes from asks.js; this only puts it on screen and listens. */
+function showAsk(m) {
+  const a = askFrom(m);
+  if (!a) return false;
+  asking = m;
+  // The question goes where a reply goes, so his eye does not have to move for it.
+  reveal.start(a.question, false);
+  reveal.skip();                                  // a question is never revealed slowly
+  who.textContent = a.plaque ?? '';
+  said.textContent = a.question;
+  // The explaining line, quieter, under the question. Joshua, 2026-10-03: "im just seeing gibberish".
+  let means = document.getElementById('means');
+  if (!means) {
+    means = document.createElement('p');
+    means.id = 'means';
+    means.className = 't-means';
+    said.after(means);
+  }
+  means.textContent = a.means ?? '';
+  means.hidden = !a.means;
+
+  asks.replaceChildren();
+  for (const k of a.keys) {
+    if (k.hold) { asks.append(lever(k)); continue; }
+    const b = document.createElement('button');
+    b.className = 'key sm' + (k.tone === 'primary' ? ' primary' : k.tone === 'warn' ? ' warn' : '');
+    b.dataset.key = k.key;
+    b.append(k.label);
+    const tag = document.createElement('span');
+    tag.className = 'k';
+    tag.textContent = k.key;
+    b.append(tag);
+    b.addEventListener('click', () => answer(k.choice));
+    asks.append(b);
+  }
+  asks.hidden = false;
+  working.hidden = true;
+  show();
+  fit();
+  reportSize();
+  return true;
+}
+
+/**
+ * The lever: press AND HOLD while the bar fills (sheet 5, section 2).
+ *
+ * The bar is driven from how long he has actually held it, frame by frame, rather than being a CSS
+ * animation. That way letting go stops it dead - an animation would keep running for a moment after,
+ * which on the one control that cannot be undone is exactly the wrong behaviour.
+ */
+function lever(k) {
+  const el = document.createElement('div');
+  el.className = 'lever';
+  el.tabIndex = 0;
+  el.dataset.key = k.key;
+  el.innerHTML = '<i class="fillbar"></i><i class="knob"></i><span class="txt"></span><span class="hold">HOLD</span>';
+  el.querySelector('.txt').textContent = k.label;
+
+  let from = 0, raf = 0;
+  const paint = () => {
+    const done = Math.min(1, (performance.now() - from) / HOLD_MS);
+    el.style.setProperty('--fill', (done * 100).toFixed(1) + '%');
+    if (done >= 1) { stop(); answer(k.choice); return; }
+    raf = requestAnimationFrame(paint);
+  };
+  const stop = () => { cancelAnimationFrame(raf); raf = 0; from = 0; el.style.setProperty('--fill', '0%'); };
+  const start = () => { if (raf) return; from = performance.now(); raf = requestAnimationFrame(paint); };
+
+  el.addEventListener('pointerdown', e => { el.setPointerCapture?.(e.pointerId); start(); });
+  for (const ev of ['pointerup', 'pointercancel', 'pointerleave', 'blur']) el.addEventListener(ev, stop);
+  // The keyboard has to be able to do it too, and it has to be a HOLD there as well: a held key
+  // repeats, so only the first keydown starts it and the keyup stops it.
+  el.addEventListener('keydown', e => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); start(); } });
+  el.addEventListener('keyup', e => { if (e.key === ' ' || e.key === 'Enter') stop(); });
+  return el;
+}
+
+/** His answer. Sent once, then the keys go away so nothing can be answered twice. */
+function answer(choice) {
+  if (!asking) return;
+  // For consent, saying yes means asking the same thing again with `once`, so what was asked has to
+  // travel with the answer. The bubble is the only place that still knows it.
+  window.aang?.answerAsk?.({
+    t: asking.t, id: asking.id, choice,
+    // A consent ask carries the words it is about, because saying yes means asking them again.
+    ...(asking.t === 'consent' ? { text: asking.text, mode: asking.wanted } : {}),
+  });
+  asking = null;
+  asks.hidden = true;
+  asks.replaceChildren();
+}
+
 // ---------------------------------------------------------------- what the brain says
 window.aang?.onMessage?.(m => {
   if (!m || typeof m !== 'object') return;
+
+  // An ask takes priority: it is the one thing that must be answered before anything else happens.
+  if (showAsk(m)) return;
 
   if (m.t === 'bubble' && typeof m.text === 'string') {
     // A new reply replaces whatever was there; more of the same one is appended. The brain sends the
