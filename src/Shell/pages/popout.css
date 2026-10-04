@@ -1,5 +1,7 @@
 /* The pop-out, built from sheet 4 section 1. The controls themselves are step 6.5; what is here is
    the window: the wooden grab bar you drag, the source plaque, and the picture. */
+/* Silkscreen is the pixel label font the rest of Aang uses. Bundled, not fetched: a window that only
+   looks right with the internet up is not a window Aang can rely on (step 6.10 bundles the rest). */
 :root{
   --ink:#100A22; --panel2:#1A1132;
   --gold:#FFC43C; --gold-deep:#C98C14; --gold-lit:#FFE096;
@@ -27,18 +29,23 @@ html,body{ height:100%; overflow:hidden; background:var(--panel2); color:var(--t
   background:linear-gradient(180deg,#56371F 0%,var(--wood1) 45%,var(--wood2) 100%);
   border-bottom:3px solid var(--outline); box-shadow:inset 0 3px 0 rgba(255,224,150,.18) }
 
-/* The grip: the carved groove from sheet 1, turned on its side. */
-.grip{ width:16px; height:16px; flex:0 0 auto; border-radius:3px;
-  background:repeating-linear-gradient(180deg, rgba(0,0,0,.55) 0 2px, rgba(255,224,150,.28) 2px 4px) }
+/* The grip, exactly as sheet 4 draws it: a 3 by 3 of carved dots. */
+.grip{ display:grid; grid-template-columns:repeat(3,4px); gap:3px; flex:0 0 auto; padding:0 2px }
+.grip i{ width:4px; height:4px; border-radius:1px; background:var(--gold-deep); box-shadow:0 1px 0 rgba(0,0,0,.7) }
 
 .what{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
-  font:700 13px var(--body); color:#F0E6D0; text-shadow:1px 1px 0 rgba(0,0,0,.8) }
+  font:400 10px var(--label); color:var(--gold); letter-spacing:1px; text-shadow:1px 1px 0 rgba(0,0,0,.8) }
 
 /* Gold for open video, purple for a paid service: the same purple that means "your own" elsewhere. */
-.src{ flex:0 0 auto; font:400 9px var(--label); letter-spacing:.5px; padding:4px 7px; border-radius:4px;
-  border:2px solid var(--outline); background:var(--gold); color:#2a1c00 }
-.src.paid{ background:var(--plum-edge); color:#1d0b33 }
-.src.live::after{ content:" ● LIVE"; color:var(--red) }
+.src{ flex:0 0 auto; font:400 9px var(--label); letter-spacing:.5px; padding:3px 6px; border-radius:3px;
+  border:2px solid var(--outline); background:var(--gold-deep); color:#2a1c00 }
+/* Purple for a paid service: the same purple that means "your own" elsewhere in Aang. */
+.src.paid{ background:#A970FF; color:#1d0b33 }
+/* Sheet 4 draws "TWITCH · LIVE" because its example was a stream that was live. Aang cannot know
+   that: a channel link tells him it is a channel, not whether anyone is on air. The first real run
+   showed "TWITCH · LIVE" over a player plainly saying the streamer was offline, which is worse than
+   saying nothing. The live flag is still carried, because it decides whether the scrub bar can be
+   dragged (step 6.5); it just does not claim anything here. */
 
 /* Keycaps are not draggable, or the bar would swallow the clicks. */
 .keys{ -webkit-app-region:no-drag; display:flex; gap:6px; flex:0 0 auto }

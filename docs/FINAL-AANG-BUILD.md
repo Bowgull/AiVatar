@@ -1044,7 +1044,7 @@ fixed; page errors are now logged.
 
 Mockup: **`sheet-4-popout.html`**. Decisions 27 and 29 to 34.
 
-### `[ ]` 6.3 The pop-out window  **BLOCKS 6.4, 6.5**
+### `[~]` 6.3 The pop-out window  **BUILT 2026-10-04** (4f67be2, 37f8dd1); his own eyes over WoW still owed
 
 **Why:** decision 27.
 
@@ -1061,13 +1061,49 @@ Mockup: **`sheet-4-popout.html`**. Decisions 27 and 29 to 34.
   made transparent when not in use.
 - Video embeds served from a tiny page on `127.0.0.1`. **Direct YouTube embeds fail with Error 153**
   (tested); Twitch needs `parent=127.0.0.1` and at least 400 by 300.
-- `electron-overlay-window` to follow the WoW window, **only if** it works on WoW (untested; proven on
-  Path of Exile).
+- ~~`electron-overlay-window` to follow the WoW window~~ **DECIDED 2026-10-04: not used.** The "only
+  if" clause resolves to no, for four reasons, three of which are conflicts rather than doubts:
+  1. **It does the opposite of what sheet 4 asks.** It keeps the overlay's size and place in sync with
+     the game window. His rule is "your size wins": he drags it where he wants and it stays there.
+  2. **It requires the window never to die.** The pop-out is closed and reopened all the time.
+  3. **Its README lists Windows 7 to 10.** He is on Windows 11.
+  4. **It is not needed.** 6.1 already proved a plain always-on-top window plays video over WoW on this
+     machine, and he watched it himself: "same as always", "everything looks great".
+  The one thing it would have added is hiding the pop-out when he alt-tabs out of the game. The hotkey
+  (Ctrl+Shift+V) does that on purpose instead.
 
 **Verify:** YouTube and a Twitch stream in the pop-out over WoW; drag, resize, close, reopen.
 
 **Done when:** it reopens exactly where and how big he left it, plays both, and the sheet 4 side by
 side matches section 1.
+
+**BUILT 2026-10-04.** `src/Shell/` gains `popout.ts`, `embed.ts`, `geometry.ts`, `pageserver.ts`,
+`hotkey.ts` and the pop-out page. 15 checks in `tests/fakecore/popout.mjs`, 6 in `popout-drag.mjs`
+which drives the window through Windows itself, and 17 unit tests.
+
+**Proved, with real video, not mocked:**
+- YouTube plays, in every link shape he might paste, with timestamps kept.
+- **Twitch plays:** the player connected and reported the streamer offline, which is a real answer from
+  Twitch and only possible if the `parent` host was accepted.
+- A second video replaces the first; one window at a time.
+- Dragged to a deliberately wrong shape, the picture comes back to 16 by 9; dropped near an edge it
+  snaps flush; it reopens at the size and place it was left.
+- No Error 153, which is what the 127.0.0.1 page server exists to prevent.
+
+**The side by side against sheet 4 section 1.** Matching: the carved frame and hard black edge, the
+wooden grab bar, the 3 by 3 grip of carved dots, the title in the pixel font in gold, the source plaque
+(gold for open video, purple for paid), two keycaps on the right, and the resize corner. **Named
+differences, all deliberate:**
+- **No control strip along the bottom.** That is step 6.5, by the plan's own split.
+- **The second keycap is hide, not the laptop.** Send-to-MacBook is 6.5 and the Mac helper is 6.9. A
+  hide keycap is an ADDITION to the mockup: the hotkey does the same thing but is invisible, so there
+  is a visible way to do it. **His to accept or reject.**
+- **The plaque says TWITCH, not "TWITCH · LIVE".** Aang cannot know whether a channel is on air; the
+  first run showed LIVE over a player saying the streamer was offline. The live flag is still carried,
+  because it decides whether the scrub bar can be dragged in 6.5.
+
+**STILL OWED, and it needs him in game:** whether it genuinely sits over WoW and whether dragging it
+feels right. Everything above was proved against a real Electron and real video, but on the desktop.
 
 **Rollback:** delete `src/Shell/popout/`.
 
