@@ -1319,8 +1319,9 @@ Downloads list, print, PDF, a screen-share picker for calls, spellcheck.
 
 Reader and summariser (Readability, Turndown, Qwen); searchable reading memory (SQLite FTS5 plus
 sqlite-vec); a labelled element index borrowed from Vimium's link hints, so "click B7" is how he acts;
-five tools or fewer; trails (Horse Browser) and mark as done (SigmaOS); the agent on **its own
-profile**, never the one with his logins.
+five tools or fewer; trails (Horse Browser) and mark as done (SigmaOS); **decision 42**: Aang reads
+your signed-in tabs and acts on them only through the held lever, driven in-process with no debug port;
+his own no-login profile stays for general browsing.
 
 ### `[ ]` 6.26 A week as the second browser  **BLOCKS 6.27**
 
@@ -2071,6 +2072,7 @@ Three research reports sit behind this appendix, all in the data repo at `Aang/r
 | 39 | Fading controls | **Yes.** Fade two seconds after the mouse stops, back on hover, never while paused. Reverses my earlier "not possible", which was only true of click-through windows |
 | 40 | See-through slider | **One continuous slider with a percentage**, not modes. The bars never fade |
 | 41 | Skipping | **On:** anime openings and endings, intros and recaps, YouTube sponsor bits, YouTube ads. **Twitch ads off** until he decides. **Every skip shows Undo** |
+| 42 | Aang and your signed-in sites (2026-10-04) | **He reads your signed-in tabs freely; anything that acts on your account (send, apply, buy, post, delete) needs the held lever, every time.** Driven from inside Aang's own browser, **no debug port**. His no-login profile stays for general browsing. Only your words set a plan; a page that asks him to do something is refused and reported |
 
 ---
 
@@ -2084,7 +2086,7 @@ Three research reports sit behind this appendix, all in the data repo at `Aang/r
 | If state gets painful | **Lit, 6 KB** | Only if plain TypeScript starts hurting. Not up front, and probably never |
 | Styling | **`docs/cockpit/cockpit.css`** | Already written and already approved. It is the real sheet, not a mockup |
 | Pet, tray, hotkeys, screen reading, window placement | **stays C#** | Nothing else on Windows can do these at all. This is why 3 keeps the pet and tray native |
-| The agent driving the browser | **Playwright MCP, on a separate agent profile** | Already a dependency (`@playwright/mcp`). Attached over CDP, never to the profile holding his logins (see "Security") |
+| The agent driving the browser | **In-process, from Aang's own main process (decision 42)**: `webContents` calls and the labelled element index, no debug port. Playwright MCP over CDP only for his separate no-login profile, if at all | An open debug port would let any program on the PC drive his signed-in sessions; driving from inside the app opens no door. Reading his tabs is free; acting on his account is lever-gated |
 
 #### Why Electron and not WebView2
 WebView2 was chosen first because it is already on Windows. Three things reversed it:
@@ -2434,7 +2436,7 @@ audit, never depend on it.
 
 | What | Licence | Use |
 |---|---|---|
-| **[Playwright MCP](https://github.com/microsoft/playwright-mcp)** (already in Aang) | Apache-2.0 | B7. `--cdp-endpoint` into Aang's browser, core tools only. **An open debug port lets any program on the PC drive his signed-in sessions**, so the agent gets its own profile, never his |
+| **[Playwright MCP](https://github.com/microsoft/playwright-mcp)** (already in Aang) | Apache-2.0 | B7. `--cdp-endpoint` into Aang's browser, core tools only. **An open debug port lets any program on the PC drive his signed-in sessions**, so CDP is only ever pointed at the no-login profile. His own tabs are driven in-process (decision 42) |
 | **[Readability](https://github.com/mozilla/readability)** plus **[Turndown](https://github.com/mixmark-io/turndown)** | Apache-2.0, MIT | B6. A page becomes about 2K tokens of clean text Qwen can handle |
 | **SQLite FTS5 plus [sqlite-vec](https://github.com/asg017/sqlite-vec)** | Apache-2.0 | B6. Searchable browsing memory. sqlite-vec is pre-1.0, so plain keyword search must always work on its own |
 | **Aang's own 4 to 6 browser tools** | His code | B6. List tabs, read tab, search history, find bookmark, run routine. A goose report found Qwen on Ollama only makes clean tool calls with about 5 tools or fewer, **stricter than the 40 to 50 measured for Claude** |
