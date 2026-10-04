@@ -117,7 +117,15 @@ export type ToBody =
   | { t: 'queued'; id: string; position: number }
   | { t: 'tool'; id: string; name: string; phase: 'start' | 'done'; label: string }
   | { t: 'quota'; five: number; week: number; fiveResetsAt: number; weekResetsAt: number; level: QuotaLevel }
-  | { t: 'consent'; id: string; wanted: Mode }
+  /**
+   * A costlier model was asked for while saving quota is on: allowed once, or not at all.
+   *
+   * There is NO reply message for this, which is easy to get wrong. The turn has already stopped;
+   * saying yes means submitting the same words again with `once: true`. `text` is carried so a window
+   * that did not send the message can still answer it - the C# Body remembers what it submitted, and
+   * the Shell's bubble cannot, because the typing box is still the Body's until 6.12b.
+   */
+  | { t: 'consent'; id: string; wanted: Mode; text: string }
   /** remembers, when set, is the standing-trust category (e.g. "open apps") that "Always allow" would grant. */
   | { t: 'permission'; id: string; tool: string; question: string; remembers?: string;
       /**
@@ -126,7 +134,13 @@ export type ToBody =
        * briefly explain the concept of what he's doing". Shown under the question, quieter, so it never
        * gets in the way once he already knows. Empty for anything that needs no explaining.
        */
-      means?: string }
+      means?: string;
+      /**
+       * This one has to be HELD, not clicked (sheet 5, section 2): it sends, buys, deletes, or closes
+       * someone else's app. A reflex click must not be able to do it. Decided by the Core, never by the
+       * window drawing the question.
+       */
+      hold?: boolean }
   /**
    * Something the local model read in one of Joshua's documents, offered for approval.
    *

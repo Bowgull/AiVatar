@@ -1798,9 +1798,35 @@ wider than the painted one.
 the pop-out shows pages from the internet, and it must never reach the bubble's doors and write to his
 clipboard or send ratings in his name.
 
+**PASS 2: THE ASKS, 2026-10-04.** 11 more tests (30 in the Shell). All four kinds - permission,
+consent, a fact to remember, a backup - rendered from their real fields and compared with sheet 5.
+
+**The lever is built**, with the hold a reflex click cannot satisfy (800 ms). The bar is driven frame by
+frame from how long he has actually held it rather than by a CSS animation, so letting go stops it dead;
+an animation would keep filling for a moment afterwards, which on the one control that cannot be undone
+is precisely the wrong behaviour. The keyboard holds too, and a repeating key cannot cheat it.
+
+**WHICH asks get a lever is decided in the Core**, `trust.ts` `HOLD_TO_CONFIRM`, and sent as `hold` on
+the message. Not guessed in the page from the tool name or the wording: one list instead of a rule
+repeated in every window, and the window drawing a question must never be the thing judging how serious
+it is. A test asserts that alarming words alone do not produce a lever. The list is deliberately short -
+a lever on everything is a lever on nothing.
+
+**An "Always" is never offered on something that cannot be undone**, even when the Core sent a
+`remembers` for it. A standing yes to sending email is not a setting anyone should be able to click into.
+
+**Two messages I invented and had to correct by reading the C#:** there is no `consent.reply` - consent
+has no reply at all, the turn simply stopped, and saying yes means submitting the same words again with
+`once: true` (`PetWindow.AllowOnce`). And there is no `asked` message carrying his words. The fix was to
+add `text` to the `consent` message so it is self-contained, which a window that did not send the
+original submission needs: the C# Body remembers what it submitted and the Shell's bubble cannot, because
+the typing box is still the Body's until 6.12b.
+
+**Also corrected:** "Skip" on a fact is NOT a no. Saying a claim is untrue and declining to judge it are
+different answers, and only the first should teach Aang anything.
+
 **STILL TO DO in 6.12**, each a parity row: scrolling up into memory; right-click reachback; entity
-chips for files and links; the asks (permission, consent, a fact, a backup) wired to the real messages;
-quiet, mute and hush. Plus checking the 4.4 halo and the Avatar State glow still work once the bubble
+chips for files and links; quiet, mute and hush. Plus checking the 4.4 halo and the Avatar State glow still work once the bubble
 is Electron - those stay C# and are only verified here.
 
 ---

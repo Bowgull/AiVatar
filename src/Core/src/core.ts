@@ -37,7 +37,7 @@ import { MAX_RUNNING, TaskStore, WORKER_PROMPT, WORKER_TIMEOUT_MS, WORKER_TURNS,
 import type { Task } from './worker.ts';
 import type { JobKind, Launched } from './claude.ts';
 import { consolidate } from './consolidate.ts';
-import { TrustStore, kindOf } from './trust.ts';
+import { TrustStore, kindOf, needsHold } from './trust.ts';
 import { launch, openedText, resolve as resolveOpen } from './open.ts';
 import { vaultState, backupVault } from './backup-vault.ts';
 import { runCommand } from './run.ts';
@@ -1935,7 +1935,7 @@ export class Core {
 
     const choice = pickLane(sub.text, sub.mode, this.policy.saving, sub.once, this.kindOfSocket(sub.socket));
     if (choice.needsConsent) {
-      this.send(sub.socket, { t: 'consent', id: sub.id, wanted: sub.mode });
+      this.send(sub.socket, { t: 'consent', id: sub.id, wanted: sub.mode, text: sub.text });
       return;
     }
     if (this.active) {
@@ -2589,7 +2589,8 @@ export class Core {
       // `means` is the plain-English second line: what this KIND of thing is, and for a command, the
       // exact text. See plain.ts - a question he cannot read is not consent.
       const means = meansOf(tool, input);
-      for (const c of askAt) this.send(c, { t: 'permission', id, tool, question, remembers: kind?.says, ...(means ? { means } : {}) });
+      const hold = needsHold(tool);
+      for (const c of askAt) this.send(c, { t: 'permission', id, tool, question, remembers: kind?.says, ...(means ? { means } : {}), ...(hold ? { hold: true } : {}) });
     });
   }
 
