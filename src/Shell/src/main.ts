@@ -13,6 +13,8 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { CoreLink } from './link.ts';
+import { bubbleAt, inputAt, moved, readPetAt } from './anchor.ts';
+import type { PetAt } from './anchor.ts';
 import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown, wrongSettings } from './safety.ts';
 import { snapshotOnce } from './snapshot.ts';
 import { servePages, type PageServer } from './pageserver.ts';
@@ -74,6 +76,31 @@ try {
 /** The separate castLabs process that plays paid video (step 6.4). */
 let drm: DrmRuntime | null = null;
 
+/** Where the pet last said it was (step 6.10b). Null until the C# Body says. */
+let petAt: PetAt | null = null;
+
+/**
+ * Put Aang's own windows back where they belong beside him.
+ *
+ * Nothing to place yet: the bubble and the typing box arrive with 6.12. This is the seam they plug
+ * into, and it is here now because the C# side, the protocol and the arithmetic all had to agree, and
+ * agreeing is easier to prove while there is nothing on screen to confuse it with.
+ *
+ * The pop-out is deliberately NOT moved. He drags that where he wants it and it stays there; a video
+ * that chased the pet around the screen would be maddening (way 6, removed on purpose).
+ */
+function placeWindows(): void {
+  if (!petAt) return;
+  for (const [name, w] of windows) {
+    if (w.isDestroyed()) continue;
+    const place = name === 'bubble' ? bubbleAt : name === 'input' ? inputAt : null;
+    if (!place) continue;
+    const [width, height] = w.getSize();
+    const box = place(petAt, { width, height });
+    w.setPosition(box.x, box.y);
+  }
+}
+
 const link = new CoreLink({
   port: PORT,
   stateDir: STATE_DIR,
@@ -95,6 +122,14 @@ const link = new CoreLink({
       return;
     }
     if (m.t === 'popout.close') { popout?.close(); drm?.close(); return; }
+    // 6.10b: where the pet is. Kept so any window opened later can be placed without waiting for Joshua
+    // to move him. `moved()` drops the jitter of a drag, because re-placing a window is not free and a
+    // drag arrives as a stream of positions.
+    if (m.t === 'pet.at') {
+      const at = readPetAt(m);
+      if (at && moved(petAt, at)) { petAt = at; placeWindows(); }
+      return;
+    }
     for (const w of windows.values()) if (!w.isDestroyed()) w.webContents.send('brain:message', m);
   },
   onConnected: up => { for (const w of windows.values()) if (!w.isDestroyed()) w.webContents.send('brain:connected', up); },

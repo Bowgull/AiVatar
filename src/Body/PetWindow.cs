@@ -254,6 +254,10 @@ sealed class PetWindow : Form
             _ = link.SendAsync(new { t = "mute", on = cfg.Muted });
             sentWindow = ""; sentDesk = null;                                      // resend after a reconnect
             _ = link.SendAsync(new { t = "presence", quiet, foreground, title = foregroundTitle, watching = cfg.SeeActiveWindow, hwnd = foregroundHwnd });
+            // 6.10b. Position is only sent when it CHANGES, so a Shell that started later - or restarted,
+            // which it does on its own - would otherwise know nothing about where Aang is until he is next
+            // dragged. The pet does not move just because something reconnected.
+            SendPetAt();
         };
         PushStatus();
         BuildTray();
@@ -317,6 +321,7 @@ sealed class PetWindow : Form
         MakeInput();
         PushStatus();
         if (wasOpen) { input.Open(Location, IntPtr.Zero); input.SetDraft(draft); }
+        SendPetAt();            // 6.10b: the corner moved and the sprite did not, so the Shell must be told
 
         if (panel is { IsDisposed: false }) { panel.Dispose(); panel = null; }
 
@@ -1065,6 +1070,7 @@ sealed class PetWindow : Form
         moved = true;
         Location = new Point(startLoc.X + dx, startLoc.Y + dy);
         surface.Present(Handle, Location);
+        SendPetAt();            // 6.10b: during the drag, so his windows travel with him rather than jump at the end
     }
 
     protected override void OnMouseLeave(EventArgs e)
@@ -1880,7 +1886,7 @@ sealed class PetWindow : Form
         var t = Math.Clamp((now - slideStart).TotalMilliseconds / slideMs, 0, 1);
         var e = slideLinear ? t : 1 - Math.Pow(1 - t, 3);
         Location = new Point((int)Math.Round(slideFrom.X + (slideTo.X - slideFrom.X) * e), (int)Math.Round(slideFrom.Y + (slideTo.Y - slideFrom.Y) * e));
-        if (t >= 1) { slideStart = DateTime.MinValue; OnSlideDone(); }
+        if (t >= 1) { slideStart = DateTime.MinValue; OnSlideDone(); SendPetAt(); }
         return true;
     }
 
@@ -1997,6 +2003,42 @@ sealed class PetWindow : Form
         if (dock != DockEdge.None) { peeking = false; badge = false; urgent = false; ambientGlow = false; burstsFired = 0; nextBurstAt = DateTime.MaxValue; dock = DockEdge.None; cfg.DockEdge = ""; }
         cfg.X = Location.X; cfg.Y = Location.Y; cfg.Save();
         _ = link.SendAsync(new { t = "moved", x = Location.X, y = Location.Y });
+        SendPetAt();
+    }
+
+    /// <summary>
+    /// Tell the Shell where Aang actually is, so its windows can hang off him (step 6.10b).
+    /// </summary>
+    /// <remarks>
+    /// The SPRITE's rectangle, not the window's. This window is 770 x 740 unscaled and the monk is a
+    /// 224 px square a long way inside it; the rest is room the bubble grows into. The window corner also
+    /// moves when display scaling changes, while Rescale goes to deliberate trouble to keep the sprite
+    /// still, so the corner is the one thing that must NOT be used as the anchor.
+    ///
+    /// Scaling is applied here because this is the only side that knows it for certain, and the working
+    /// area comes along so the Shell never has to ask Windows about monitors it cannot see.
+    ///
+    /// Sent on a change, never on a timer: a position is only true at the moment it is sent, and a
+    /// heartbeat of coordinates is the kind of thing that quietly costs battery for ever.
+    /// </remarks>
+    void SendPetAt()
+    {
+        if (!link.IsConnected) return;
+        try
+        {
+            var artRect = Docking.OnScreen(Location, Docking.Rotated(art, peeking ? dock : DockEdge.None), Extra, scale);
+            var wa = Screen.FromPoint(new Point(artRect.Left + artRect.Width / 2, artRect.Top + artRect.Height / 2)).WorkingArea;
+            _ = link.SendAsync(new
+            {
+                t = "pet.at",
+                sprite = new { x = artRect.Left, y = artRect.Top, width = artRect.Width, height = artRect.Height },
+                screen = new { x = wa.Left, y = wa.Top, width = wa.Width, height = wa.Height },
+                scale,
+                edge = Docking.Name(dock),
+                peeking,
+            });
+        }
+        catch (Exception e) { Log.Write("pet.at could not be sent: " + e.Message); }
     }
 
     void DockFromTray(DockEdge e)
