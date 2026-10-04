@@ -1283,7 +1283,7 @@ than none.
 
 ---
 
-### `[ ]` 6.7 "Put X on"
+### `[~]` 6.7 "Put X on"  **BUILT 2026-10-04**; the Canada availability lookup needs a key he does not have
 
 **Why:** the reason the pop-out is useful without hunting for things.
 
@@ -1296,6 +1296,44 @@ preference is a table, per show then per category then global, **not** conversat
 
 **Off the path, but uses Phase 8 thinking:** extraction stays in Qwen's fast mode; nothing here needs
 the slow thinking mode.
+
+**BUILT 2026-10-04.** 16 unit tests. One tool, `watch`, is the only way anything is put on.
+`src/Core/src/puton.ts` holds the word reading (named puton.ts because `watch.ts` was already the WoW
+addon watcher, and the first version of this quietly overwrote it).
+
+**Code answers before any model is asked**, in this order: a link he pasted, then the shape of the
+sentence, then a name he has put on before. Twitch logins are checked against Twitch's own rule (4 to
+25 characters, letters, digits, underscore) so an impossible name gets the search page instead of a
+certain 404. Spaces close up, because "zack rawrr" is how zackrawrr is said out loud. A YouTube handle
+is used as a handle, which is 1 quota unit against 100 for a search.
+
+**What it refuses to guess, and why that is the feature:** a bare name with no service. "put asmongold
+on" could be a channel or a show, and the cost of being wrong is the wrong page appearing over his
+game, which is worse than one question. So the first time he says where, and **the name is then written
+down** (`subdub.json`), so every time after that the bare sentence is certain and no model is asked.
+Only a real channel is remembered, never a search page and never an episode link, which goes stale the
+moment he watches it.
+
+**His own watching list is asked before giving up:** a show he is part-way through has a real episode
+link from Simkl, which beats any guess at where it streams. This is also what `watch_next` used to do;
+that tool now only ANSWERS ("where was I on Frieren") and no longer opens anything, so there is exactly
+one opener on the shelf rather than two that overlap.
+
+**Where it opens is not his decision to make every time and does not move on its own:** a game up means
+the pop-out over it, nothing up means an ordinary tab. Way 6 is gone as planned.
+
+**Sub or dub is a table**, read most specific first: this show, then this kind of show, then what he
+usually wants. It says which row decided ("your setting for Frieren", "what you usually want") so he can
+see why and correct it. A hand-edited or older file is filled in rather than thrown on, and the dub table
+and the channel table share one file, so writing one cannot wipe the other (it did, before a test caught
+it).
+
+**BLOCKED ON HIM:** the **Streaming Availability API** key. There is no such file in `%APPDATA%\Aang\`
+and it is a paid RapidAPI service, so it is his call, not something to sign up for on his behalf. Until
+then, where a show streams in Canada (and its audio languages, which is what would make dub a pure data
+lookup rather than a saved preference) is the one thing this cannot answer. Everything else works without
+it. **Twitch via `twurple`** was not needed either: an embed needs no account, so no key and no
+dependency were added for it.
 
 ---
 

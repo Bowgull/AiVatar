@@ -48,6 +48,8 @@ export const TOOL_LABELS: Record<string, string> = {
   search_memory: 'looking through our history',
   what_we_talked_about: 'looking back at that day',
   claude_code_status: 'checking on Claude Code',
+  watch: 'putting that on',
+  set_dub: 'noting that down',
   what_im_doing: 'checking what you are in',
   read_window: 'reading your window',
   look_at_window: 'looking at your window',
@@ -111,7 +113,7 @@ export const TOOL_NAMES = ['mcp__aang__get_time', 'mcp__aang__get_weather', 'mcp
   'mcp__aang__what_did_you_do', 'mcp__aang__undo_last', 'mcp__aang__my_permissions', 'mcp__aang__revoke_permission',
   'mcp__aang__list_folder', 'mcp__aang__move_file', 'mcp__aang__copy_file', 'mcp__aang__make_folder', 'mcp__aang__delete_file', 'mcp__aang__copy_to_clipboard',
   'mcp__aang__list_controls', 'mcp__aang__press_control', 'mcp__aang__fill_control',
-  'mcp__aang__mail_inbox', 'mcp__aang__mail_read', 'mcp__aang__calendar_today', 'mcp__aang__mail_draft', 'mcp__aang__play_music', 'mcp__aang__watch_next',
+  'mcp__aang__mail_inbox', 'mcp__aang__mail_read', 'mcp__aang__calendar_today', 'mcp__aang__mail_draft', 'mcp__aang__play_music', 'mcp__aang__watch_next', 'mcp__aang__watch', 'mcp__aang__set_dub',
   'mcp__aang__do_task', 'mcp__aang__tell_task', 'mcp__aang__task_status', 'mcp__aang__stop_task', 'mcp__aang__present_list'];
 
 /**
@@ -202,6 +204,9 @@ export interface Doers {
   mailDraft(input: { to: string[]; subject: string; body: string; replyToId?: string }): Promise<{ ok: boolean; detail: string }>;
   playMusic(what: string, kind?: 'track' | 'playlist' | 'artist' | 'album'): Promise<{ ok: boolean; detail: string }>;
   watchNext(show?: string, open?: boolean): Promise<{ ok: boolean; detail: string }>;
+  /** Step 6.7: the ONE way anything is put on. Code reads his words before any model is asked. */
+  putOn(words: string, dub?: boolean): Promise<{ ok: boolean; detail: string }>;
+  setDubPreference(want: 'sub' | 'dub', title?: string, category?: string): Promise<{ ok: boolean; detail: string }>;
   /** Something acting has finished: for the activity log. */
   report(tool: string, input: Record<string, unknown>, failed: boolean, text: string): void;
   /** Something that can be put back, for undo_last. */
@@ -422,6 +427,8 @@ export function describeCall(tool: string, input: Record<string, unknown>): stri
     case 'mcp__aang__calendar_today': return 'look at your calendar';
     case 'mcp__aang__play_music': return `play ${short(s('what'), 60)} on Spotify`;
     case 'mcp__aang__watch_next': return 'look at your watch list on Simkl';
+    // The address is shown, because what he is agreeing to is a page opening, possibly over his game.
+    case 'mcp__aang__watch': return `put ${short(s('url'), 90)} on`;
     case 'mcp__aang__mail_draft': return `draft an email to ${short(Array.isArray(input?.to) ? (input.to as unknown[]).join(', ') : '', 60)}: ${short(s('subject'), 60)}`;
     // The whole email is in the question: what he approves is what is sent.
     case 'mcp__aang__mail_send': return `SEND this email to ${short(s('to'), 100)}${s('fresh') ? ` (NEW address: ${short(s('fresh'), 60)})` : ''}. Subject: ${short(s('subject'), 100)}. It says: ${short(s('body'), 700)}`;
@@ -636,9 +643,22 @@ export function makeToolServer(
       tool('mail_draft', 'Write an email or a reply FOR HIM TO APPROVE. It is shown to him with a Send button; nothing is sent until he taps it, so never say it was sent, say it is waiting for him. For a reply, give replyToId (the id from mail_inbox) and the sender is filled in as the recipient if you leave `to` as that person. Write it in his voice: short, plain, no filler. One recipient unless he said otherwise.',
         { to: z.array(z.string()).describe('recipient email addresses'), subject: z.string(), body: z.string().describe('the email text, plain, no subject line inside it'), replyToId: z.string().optional().describe('the id of the email being answered') },
         async ({ to, subject, body, replyToId }) => { if (!doers) return fail('Email is not available right now.'); const r = await doers.mailDraft({ to, subject, body, ...(replyToId ? { replyToId } : {}) }); return r.ok ? ok(r.detail) : fail(r.detail); }),
-      tool('watch_next', 'What he is watching and the next episode of each (anime and TV, from his Simkl list), and putting the next one on. "put the next one on" / "next episode of Frieren": open=true with the show (leave show out for the one he watched last). "what am I watching" / "where was I on X": open=false.',
-        { show: z.string().optional().describe('the show, in his words; leave out for the one he watched last'), open: z.boolean().optional().describe('true to open the next episode') },
-        async ({ show, open }) => { if (!doers) return fail('The watch list is not available right now.'); const r = await doers.watchNext(show, open); return r.ok ? ok(r.detail) : fail(r.detail); }),
+      tool('watch_next', 'What he is watching and where he got to, from his Simkl list: "what am I watching", "where was I on Frieren", "what is next". This ANSWERS, it does not put anything on - to actually put something on, including the next episode, use `watch`.',
+        { show: z.string().optional().describe('the show, in his words; leave out for all of them') },
+        async ({ show }) => { if (!doers) return fail('The watch list is not available right now.'); const r = await doers.watchNext(show, false); return r.ok ? ok(r.detail) : fail(r.detail); }),
+      tool('watch', 'Put something on to watch: "put asmongold on", "put on twitch", "put the next episode of Frieren on", "put this on" with a link, "put some lofi on youtube". ONE tool for all of it - his words are read by code first, so give them to you as he said them rather than working out a link yourself. Where it opens is decided here, not by you: over his game if a game is up, otherwise an ordinary tab. If it comes back saying it is not sure what to put on, say that line to him and ask; do NOT invent a link.',
+        {
+          words: z.string().describe('what he said, in his own words, including any link he pasted'),
+          dub: z.boolean().optional().describe('ONLY if he said sub or dub for this one. Leave it out otherwise: his saved preference is used.'),
+        },
+        async ({ words, dub }) => { if (!doers) return fail('Watching is not available right now.'); const r = await doers.putOn(words, dub); return r.ok ? ok(r.detail) : fail(r.detail); }),
+      tool('set_dub', 'Remember whether he wants subs or a dub, when he says so as a preference ("always dub anime", "I watch Frieren subbed", "dub from now on"). Give the show for just that show, or the kind ("anime") for that kind, or neither for everything.',
+        {
+          want: z.enum(['sub', 'dub']),
+          title: z.string().optional().describe('one show only'),
+          category: z.string().optional().describe('a kind of show, e.g. anime'),
+        },
+        async ({ want, title, category }) => { if (!doers) return fail('That preference cannot be saved right now.'); const r = await doers.setDubPreference(want, title, category); return r.ok ? ok(r.detail) : fail(r.detail); }),
       tool('play_music', 'Play music on Spotify by name: "play lo-fi girl", "put on Hotel California", "play some Radiohead", "play my Chill playlist". For pause, next or volume use media_key instead. Give kind when he said it ("the album", "the playlist", "songs by").',
         { what: z.string().describe('what to play, in his words'), kind: z.enum(['track', 'playlist', 'artist', 'album']).optional() },
         async ({ what, kind }) => { if (!doers) return fail('Music is not available right now.'); const r = await doers.playMusic(what, kind); return r.ok ? ok(r.detail) : fail(r.detail); }),

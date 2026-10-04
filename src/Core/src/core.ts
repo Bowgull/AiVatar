@@ -47,6 +47,9 @@ import { ActionLog, UndoStack, formatAction } from './actionlog.ts';
 import { Google } from './google.ts';
 import { Spotify, SpotifyError } from './spotify.ts';
 import { Simkl, episodeLink, findShow } from './simkl.ts';
+import { gameRunning } from './gpu.ts';
+import { DEFAULT_DUBS, dubFor, isPlan, nameLeftOver, readChannels, readDubs, readWords, rememberChannel, setDub } from './puton.ts';
+import type { Channels, Dub, DubTable, WatchPlan, Where } from './puton.ts';
 import { dueNudges, nudgeText, torontoDay } from './resurface.ts';
 import type { Fetch } from './google.ts';
 import { MailService, MailStore, renderMailCard } from './mail.ts';
@@ -375,6 +378,8 @@ export class Core {
       },
       playMusic: (what, kind) => this.playMusic(what, kind),
       watchNext: (show, open) => this.watchNext(show, open),
+      putOn: (words, dub) => this.putOn(words, dub),
+      setDubPreference: (want, title, category) => this.setDubPreference(want, title, category),
       listFolder: dir => this.listFolderSafe(dir),
       uiList: app => this.uiList(app),
       uiPress: (app, name) => this.uiAct('press', app, name),
@@ -447,6 +452,120 @@ export class Core {
     if (!open) return { ok: true, detail: show?.trim() ? line(s) : list.map(line).join('\n') };
     const r = await this.open(episodeLink(sk.site, s));
     return r.ok ? { ok: true, detail: `Opened episode ${s.next} of ${s.title}${s.total ? ` (of ${s.total})` : ''}. ${r.detail}` } : r;
+  }
+
+  // ------------------------------------------------------------------ "put X on" (step 6.7)
+
+  /** Where the sub-or-dub table lives. A file he can open and read, not something remembered. */
+  private dubFile(): string { return path.join(this.cfg.stateDir, 'subdub.json'); }
+
+  /** The whole file: what he wants subbed or dubbed, and the channels he has put on by name before. */
+  private watchPrefs(): { dubs: DubTable; channels: Channels } {
+    let raw: any = {};
+    try { raw = JSON.parse(readFileSync(this.dubFile(), 'utf8')); } catch { /* first run */ }
+    return { dubs: readDubs(raw), channels: readChannels(raw?.channels) };
+  }
+
+  private dubs(): DubTable { return this.watchPrefs().dubs; }
+
+  /** Set a row of the table: this show, or this kind of show, or what he usually wants. */
+  private async setDubPreference(want: Dub, title?: string, category?: string): Promise<{ ok: boolean; detail: string }> {
+    const prefs = this.watchPrefs();
+    const before = prefs.dubs;
+    const after = setDub(before, want, title, category);
+    // The channels he has put on live in the same file; writing the dub table must not wipe them.
+    const whole = (d: DubTable) => JSON.stringify({ ...d, channels: prefs.channels }, null, 2);
+    try { writeFileAtomic(this.dubFile(), whole(after)); }
+    catch (e) { reportWriteFailure(this.dubFile(), e); return { ok: false, detail: 'That preference could not be saved.' }; }
+    const which = title?.trim() ? title.trim() : category?.trim() ? category.trim().toLowerCase() : 'everything';
+    this.undo.push(`the ${want} setting for ${which}`, () => {
+      try { writeFileAtomic(this.dubFile(), whole(before)); return `Put the ${which} setting back.`; }
+      catch { return 'That could not be put back.'; }
+    });
+    return { ok: true, detail: `Noted: ${which} in ${want}.` };
+  }
+
+  /**
+   * "Put X on." Code reads his words first (watch.ts); only what code cannot settle is handed back for
+   * Qwen to name, and it comes through here again.
+   *
+   * Where it opens is NOT his choice to make every time and NOT something that moves on its own: a game
+   * up means the pop-out over it, nothing up means an ordinary tab. Way 6 of the old plan, Aang moving
+   * the window himself, is deliberately gone.
+   */
+  private async putOn(words: string, dub?: boolean): Promise<{ ok: boolean; detail: string }> {
+    const prefs = this.watchPrefs();
+    let plan = readWords(words, prefs.channels);
+
+    // Not settled by the shape of the sentence. Before giving up, his own watching list is asked: a show
+    // he is part-way through has a real episode link, which beats any guess at where it streams.
+    if (!isPlan(plan)) {
+      const fromList = await this.episodeOf(plan.words);
+      if (fromList) plan = fromList;
+    }
+    if (!isPlan(plan)) {
+      // Said plainly, because a wrong page over his game is worse than one more sentence. Where a show
+      // streams in Canada is a paid lookup (Streaming Availability API) and he has no key for it, so
+      // this is the honest end of the road rather than a guess.
+      // Saying the service once is enough: a name he puts on is written down below, so the next time
+      // "put <name> on" on its own is certain.
+      return { ok: false, detail: `Not sure what to put on: ${plan.because} Say where this once ("on Twitch", "on YouTube") or paste the link, and I will remember it.` };
+    }
+
+    // Sub or dub is a table lookup, so it is the same answer every time and he can see why.
+    const settled = plan as WatchPlan;
+    if (dub === undefined && settled.service !== 'Twitch') {
+      const { want, from } = dubFor(this.dubs(), settled.what, settled.service === 'Crunchyroll' ? 'anime' : undefined);
+      if (want === 'dub') { settled.dub = true; settled.what += ` (dubbed, ${from})`; }
+    } else if (dub !== undefined) {
+      settled.dub = dub;
+    }
+
+    const game = await gameRunning();
+    if (!await this.askPermission('mcp__aang__watch', { url: settled.url })) {
+      return { ok: false, detail: this.whyNot() + ' Nothing was opened.' };
+    }
+    const where: Where = game.running && this.clientsOf('desktop').length > 0 ? 'popout' : 'tab';
+    if (where === 'popout') {
+      this.sendTo('desktop', { t: 'popout.open', url: settled.url, title: settled.what });
+    } else {
+      const r = await this.open(settled.url);
+      if (!r.ok) return r;
+    }
+    this.rememberChannelFrom(words, settled, prefs);
+    const how = settled.exact ? 'Put on' : 'Opened the search for';
+    return { ok: true, detail: `${how} ${settled.what} on ${settled.service}${where === 'popout' ? ', over your game' : ''}.` };
+  }
+
+  /**
+   * He said "put asmongold on twitch" and it worked, so next time "put asmongold on" is enough.
+   *
+   * Only the bare name is written down, and only for a channel: a show is deliberately left out,
+   * because an episode link goes stale the moment he watches it.
+   */
+  private rememberChannelFrom(words: string, plan: WatchPlan, prefs: { dubs: DubTable; channels: Channels }): void {
+    const name = nameLeftOver(words);
+    const after = rememberChannel(prefs.channels, name, plan);
+    if (after === prefs.channels) return;
+    try { writeFileAtomic(this.dubFile(), JSON.stringify({ ...prefs.dubs, channels: after }, null, 2)); }
+    catch (e) { reportWriteFailure(this.dubFile(), e); }   // not worth failing the thing he asked for
+  }
+
+  /** A title he is part-way through, from his own watching list, as a real episode link. */
+  private async episodeOf(title: string): Promise<WatchPlan | null> {
+    if (!title.trim()) return null;
+    const sk = new Simkl(path.join(this.cfg.stateDir, 'simkl.json'), this.simklFetch);
+    if (!sk.connected) return null;
+    let list;
+    try { list = await sk.watching(); } catch { return null; }
+    const s = findShow(list, title);
+    if (!s) return null;
+    return {
+      url: episodeLink(sk.site, s),
+      what: `${s.title} episode ${s.next}`,
+      service: 'your watch list',
+      exact: true,
+    };
   }
 
   // ------------------------------------------------------------------ email and calendar
