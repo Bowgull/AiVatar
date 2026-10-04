@@ -80,6 +80,50 @@ Two rules fall out, both load-bearing for a default browser:
 
 ---
 
+## Locked video over WoW: works, through Shadow, with one switch
+
+**Tested later the same day, and it overturns what I had told him.** I had said Prime and
+Crunchyroll "almost certainly" could not play in a see-through window. He disputed it. He was right.
+
+**The machine is a Shadow cloud PC.** Everything on it reaches him as a video stream, so "the screen"
+is itself a capture. That matters for every test in this file.
+
+castLabs Electron **44.5.1+wvcus**, Widevine module **4.10.3050.0** installed itself. Shaka Player's
+public Widevine test stream, with a real licence from Shaka's licence proxy.
+
+| Run | Window | Hardware acceleration | Decrypted and playing? | What reached his screen through Shadow |
+|---|---|---|---|---|
+| 1 | Normal | On | **Yes**: 345 frames, time advancing | Shadow error **S:102 "protected video that we cannot display"** |
+| 2 | See-through, always on top, click-through | On | **Yes**: 355 frames, time advancing | Same block (screen copy pure black) |
+| 3 | **See-through, always on top, click-through** | **Off** | **Yes**: 1,500 frames in 60 s, a steady 25 fps | **The video, playing clearly, no lag.** Confirmed by his own eyes |
+
+**Why.** With hardware acceleration on, Chromium sends Widevine video down a DirectComposition path
+flagged `DXGI_SWAP_CHAIN_FLAG_DISPLAY_ONLY`, which Microsoft documents as blocking screen grabbing.
+Shadow streams by grabbing the screen, so it got nothing and showed S:102. With acceleration off,
+the video is drawn like ordinary video and Shadow can stream it.
+
+**This is Shadow's own documented fix** ([S-102 support article](https://support.shadow.tech/hc/en-us/articles/32731834359953-S-102-Shadow-has-detected-a-protected-video-that-we-cannot-display)),
+not a way around the protection. The licensed Widevine module still decrypts the video, for the
+subscriber, on his own screen.
+
+**What it changes:**
+- The video pop-out over WoW **can** carry Prime, Crunchyroll and Netflix, not only YouTube and Twitch.
+- The DRM pop-out runs with hardware acceleration off. That only affects that one window's process,
+  not WoW. Worth trying later: the narrower switch `disable-direct-composition-video-overlays`, which
+  keeps acceleration for everything except the protected-video path.
+- Aang's screenshots of a DRM window will be black whenever acceleration is on. Expected.
+
+**Still to confirm with his real accounts**, at build time:
+- **Crunchyroll and Prime** may play unsigned; both work in Linux Chrome, which has no signature.
+- **Netflix rejects** development-signed castLabs builds (error M7121-1331). It needs castLabs'
+  **free EVS production signing**, which needs a signup **in his name**.
+- Quality: Prime around 720p; Netflix possibly up to 1080p; Crunchyroll unconfirmed.
+
+The Mac stays as the fallback: he plays Shadow on his MacBook, and macOS picture-in-picture floats
+over the Shadow window if anything here ever fails.
+
+---
+
 ## Not run, and why
 
 | Test | Why not |
