@@ -54,14 +54,19 @@ const twitchChannel = (u: URL): { channel?: string; video?: string } | null => {
  *
  * `host` is the address the pop-out's own page is served from, which Twitch insists on being told.
  */
-export function embedFor(link: string, host = '127.0.0.1'): Embed | null {
+export function embedFor(link: string, host = '127.0.0.1', origin?: string): Embed | null {
   let u: URL;
   try { u = new URL(link.trim()); } catch { return null; }
   if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;   // never file:, never javascript:
 
   const yt = youtubeId(u);
   if (yt) {
-    const q = new URLSearchParams({ autoplay: '1', rel: '0', modestbranding: '1' });
+    // enablejsapi is what lets Aang's own play, pause, scrub and volume work at all: without it the
+    // player ignores every message and the controls would sit there doing nothing (step 6.5).
+    const q = new URLSearchParams({ autoplay: '1', rel: '0', modestbranding: '1', enablejsapi: '1' });
+    // YouTube wants to know which page is driving it. Without this it accepts the address but ignores
+    // the commands, which looks exactly like controls that are wired up and do nothing.
+    if (origin) q.set('origin', origin);
     // Keep his place if the link had a timestamp on it.
     const t = u.searchParams.get('t') ?? u.searchParams.get('start');
     if (t) q.set('start', String(parseInt(t, 10) || 0));

@@ -20,26 +20,41 @@ export const MIN = { width: 400, height: 300 };
  * first real run looked like on 2026-10-04.
  */
 export const BAR = 34;
+
+/**
+ * Everything above and below the picture: the bar, both control rows and the frame's own border.
+ *
+ * It is a starting guess only. The page measures itself once it has drawn and says what the real
+ * figure is, because this number changes every time a control is added and a stale constant means a
+ * letterboxed picture that nobody notices. Measured at 132 on 2026-10-04.
+ */
+export const CHROME = 132;
 /** How close to an edge counts as "drop it near an edge and it snaps flush" (sheet 4). */
 export const SNAP = 24;
 
 /** The nearest 16 by 9 box, holding whichever side he was dragging. */
-export function hold169(width: number, height: number, drove: 'width' | 'height' = 'width'): { width: number; height: number } {
+export function hold169(
+  width: number,
+  height: number,
+  drove: 'width' | 'height' = 'width',
+  chrome: number = CHROME,
+): { width: number; height: number } {
   const w = Math.max(MIN.width, Math.round(width));
   const h = Math.max(MIN.height, Math.round(height));
   if (drove === 'width') {
-    // The picture is 16 by 9; the window is that plus the bar.
-    const byWidth = Math.round(w * 9 / 16) + BAR;
-    if (byWidth < MIN.height) return { width: Math.round((MIN.height - BAR) * 16 / 9), height: MIN.height };
+    // The picture is 16 by 9; the window is that plus everything Aang draws around it.
+    const byWidth = Math.round(w * 9 / 16) + chrome;
+    if (byWidth < MIN.height) return { width: Math.round((MIN.height - chrome) * 16 / 9), height: MIN.height };
     return { width: w, height: byWidth };
   }
-  const byHeight = Math.round((h - BAR) * 16 / 9);
-  if (byHeight < MIN.width) return { width: MIN.width, height: Math.round(MIN.width * 9 / 16) + BAR };
+  const byHeight = Math.round((h - chrome) * 16 / 9);
+  if (byHeight < MIN.width) return { width: MIN.width, height: Math.round(MIN.width * 9 / 16) + chrome };
   return { width: byHeight, height: h };
 }
 
 /** The picture inside a window of this size: what has to come out 16 by 9. */
-export const pictureOf = (box: { width: number; height: number }) => ({ width: box.width, height: box.height - BAR });
+export const pictureOf = (box: { width: number; height: number }, chrome: number = CHROME) =>
+  ({ width: box.width, height: box.height - chrome });
 
 /**
  * Where it goes the very first time: the right-hand side.
@@ -47,9 +62,9 @@ export const pictureOf = (box: { width: number; height: number }) => ({ width: b
  * His health bars are top-left and his action bars are bottom-centre, so the mid-right is the only
  * quiet part of a WoW screen (sheet 4 section 3, and the 2026-10-03 research on game interfaces).
  */
-export function firstTime(screen: Screen): Box {
+export function firstTime(screen: Screen, chrome: number = CHROME): Box {
   const width = Math.max(MIN.width, Math.min(640, Math.round(screen.width * 0.33)));
-  const { width: w, height: h } = hold169(width, 0, 'width');
+  const { width: w, height: h } = hold169(width, 0, 'width', chrome);
   return {
     x: screen.x + screen.width - w - SNAP,
     y: screen.y + Math.round((screen.height - h) / 2),
@@ -88,9 +103,9 @@ export function ontoScreen(box: Box, screen: Screen): Box {
 }
 
 /** The preset shortcuts from sheet 4. Each is a 16 by 9 box placed on the right-hand side. */
-export function preset(name: 'corner' | 'medium' | 'big', screen: Screen): Box {
+export function preset(name: 'corner' | 'medium' | 'big', screen: Screen, chrome: number = CHROME): Box {
   const share = name === 'corner' ? 0.22 : name === 'medium' ? 0.36 : 0.55;
-  const { width, height } = hold169(Math.round(screen.width * share), 0, 'width');
+  const { width, height } = hold169(Math.round(screen.width * share), 0, 'width', chrome);
   return {
     x: screen.x + screen.width - width - SNAP,
     y: name === 'corner'
