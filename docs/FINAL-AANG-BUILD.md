@@ -1090,7 +1090,8 @@ mockup exists and he has approved it.** Not yet drawn:
 | ~~What I know, What I may do, What I did, Drafts, History, Settings~~ **DRAWN, sheet 6** (Jobs on sheet 2) | 6.15 |
 | ~~Email draft cards; the morning brief~~ **DRAWN, sheet 6** | 6.15 |
 | ~~Research cards from Phase 7~~ **DRAWN, sheet 6** | 6.15b |
-| Search over everything; charts; side by side; the live Claude Code job view | 6.18 |
+| ~~Search over everything; charts; side by side; the live Claude Code job view~~ **DRAWN, sheet 7** | 6.18 |
+| ~~Snip, hotkey grab, drag and drop~~ **DRAWN, sheet 7** | 6.17 |
 | ~~The three distinct "pressed in" looks (clicked, keyboard focus, switched on)~~ **DRAWN, sheet 5** | 6.10 |
 | Browser: vertical tab rail, six tab states, crashed-tab plate, chip and lever approvals, phishing warning, trails, mark as done, "open in Chrome" | 6.19 onward |
 
@@ -1226,7 +1227,8 @@ a `[qwen]` marker, by its real name (decision 8), never "local" or "free". **Thi
 ### `[ ]` 6.17 Snip, hotkey grab, drag and drop
 
 Snip part of the screen and ask about it; highlight text in any app and press a key; drop a file on
-Aang.
+Aang. Mockup: sheet 7, section 5. **Open decision (his):** the snip and grab keys. A global key stops
+working in WoW; proposed Ctrl+Shift+Plus (snip) and Ctrl+Alt+Plus (grab), set in the existing HotkeyBox.
 
 ---
 
@@ -1234,7 +1236,9 @@ Aang.
 
 One search box over memory, the vault, conversations, jobs and addons. Charts: the job hunt by stage,
 Claude use week over week, addon drift. Two things side by side. A Claude Code job shown working,
-steps and files as they happen.
+steps and files as they happen. Mockup: sheet 7. **New, not kept:** the live steps and files need two
+more Claude Code hooks (before and after each tool); today only three are sent. A daily saved quota
+reading, so the usage chart can show the percent week over week.
 
 ---
 
