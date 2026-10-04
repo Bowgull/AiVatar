@@ -11,6 +11,7 @@
 // plainly what to do. An expiring credential with no refresh path is a thing that breaks quietly, which is the worst
 // way for anything in Aang to break.
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
 import type { Fetch } from './google.ts';
 
 export interface Show {
@@ -25,6 +26,14 @@ export interface Show {
   id: number;
   /** Simkl's own year, sent alongside the id so a bad id still matches the right thing. */
   year: number | null;
+  /** AniList's id for it, from Simkl's own list. How the English name is found. 0 when there is none. */
+  anilist?: number;
+  /**
+   * Other names it goes by: the English title and the common short ones ("The Apothecary Diaries",
+   * "AoT"). Simkl keeps only the Japanese name, and he says the English one, so without these three of
+   * his seven shows could not be found by the name he actually uses (checked 2026-10-04).
+   */
+  aka?: string[];
 }
 export const DEFAULT_SITE = 'https://www.crunchyroll.com/search?q={q}';
 
@@ -40,6 +49,8 @@ interface Saved {
 }
 
 const norm = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+/** With the spaces taken out, so "dandadan" and "Dan Da Dan" are the same thing. */
+const squash = (s: string) => s.replace(/ /g, '');
 
 /** The next episode number from one entry of Simkl's list, defensively: a "S1E6"-style field if there is one, else one past what is watched. */
 export function nextOf(e: any): number {
@@ -49,16 +60,65 @@ export function nextOf(e: any): number {
   return Number(e?.watched_episodes_count ?? 0) + 1;
 }
 
-/** The show he means: an exact title, then one that contains his words, then one sharing most of them. */
+/**
+ * The show he means, by ANY name it goes by: an exact name, then one that contains his words, then one
+ * sharing most of them. Spaces are ignored at each step, because people do not agree on where they go.
+ */
 export function findShow(shows: Show[], said: string): Show | null {
   const q = norm(said);
   if (!q) return null;
-  const exact = shows.find(s => norm(s.title) === q); if (exact) return exact;
-  const has = shows.find(s => norm(s.title).includes(q)); if (has) return has;
+  const sq = squash(q);
+  const names = (s: Show) => [s.title, ...(s.aka ?? [])].map(norm).filter(Boolean);
+  const exact = shows.find(s => names(s).some(n => n === q || squash(n) === sq)); if (exact) return exact;
+  const has = shows.find(s => names(s).some(n => n.includes(q) || squash(n).includes(sq))); if (has) return has;
   const words = q.split(' ').filter(w => w.length > 2);
   let best: Show | null = null, score = 0;
-  for (const s of shows) { const t = norm(s.title); const n = words.filter(w => t.includes(w)).length; if (n > score) { score = n; best = s; } }
+  for (const s of shows) {
+    const n = Math.max(0, ...names(s).map(t => words.filter(w => t.includes(w)).length));
+    if (n > score) { score = n; best = s; }
+  }
   return score > 0 ? best : null;
+}
+
+/**
+ * The English and other names for his anime, from AniList, which needs no key and no account.
+ *
+ * Names do not change, so each is looked up ONCE and kept in a file next to the Simkl sign-in. Only the
+ * shows not already in that file are asked about, all in one request. If AniList is down this returns
+ * what is already known and the rest are matched on Simkl's name alone: a missing nickname must never
+ * stop him seeing his own list.
+ */
+export async function otherNames(ids: number[], cacheFile: string, fetcher: Fetch): Promise<Map<number, string[]>> {
+  let known: Record<string, string[]> = {};
+  try { if (existsSync(cacheFile)) known = JSON.parse(readFileSync(cacheFile, 'utf8')) ?? {}; } catch { known = {}; }
+  const want = [...new Set(ids.filter(id => id > 0 && !Array.isArray(known[String(id)])))];
+  if (want.length) {
+    try {
+      const r = await fetcher('https://graphql.anilist.co', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', accept: 'application/json' },
+        body: JSON.stringify({
+          query: 'query($ids:[Int]){ Page(perPage:50){ media(id_in:$ids, type:ANIME){ id title{ english romaji } synonyms } } }',
+          variables: { ids: want.slice(0, 50) },
+        }),
+      });
+      if (r.ok) {
+        const j: any = await r.json().catch(() => ({}));
+        for (const m of (j?.data?.Page?.media ?? []) as any[]) {
+          const id = Number(m?.id);
+          if (!id) continue;
+          const list = [m?.title?.english, m?.title?.romaji, ...((m?.synonyms ?? []) as unknown[])]
+            .filter((x): x is string => typeof x === 'string' && x.trim().length > 0)
+            .map(x => x.trim());
+          known[String(id)] = [...new Set(list)].slice(0, 12);
+        }
+        try { writeFileSync(cacheFile, JSON.stringify(known, null, 2), 'utf8'); } catch { /* still good for this run */ }
+      }
+    } catch { /* AniList down: match on Simkl's names, as before */ }
+  }
+  const out = new Map<number, string[]>();
+  for (const id of ids) if (Array.isArray(known[String(id)])) out.set(id, known[String(id)]!);
+  return out;
 }
 
 export const episodeLink = (site: string, s: Show): string => site.replace('{q}', encodeURIComponent(`${s.title} episode ${s.next}`));
@@ -240,8 +300,15 @@ export class Simkl {
           kind: kind === 'anime' ? 'anime' : 'tv', lastAt: Date.parse(String(e?.last_watched_at ?? '')) || 0,
           id: Number(it?.ids?.simkl ?? it?.ids?.simkl_id ?? 0) || 0,
           year: Number(it?.year) || null,
+          anilist: Number(it?.ids?.anilist) || 0,
         });
       }
+    }
+    // The names he actually says, for the anime. One request for any not seen before, then never again.
+    const ids = out.map(s => s.anilist ?? 0).filter(n => n > 0);
+    if (ids.length) {
+      const names = await otherNames(ids, path.join(path.dirname(this.file), 'anime-names.json'), this.fetcher);
+      for (const s of out) { const aka = s.anilist ? names.get(s.anilist) : undefined; if (aka) s.aka = aka; }
     }
     return out.sort((a, b) => b.lastAt - a.lastAt);                        // the one he watched last comes first
   }
