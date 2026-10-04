@@ -103,3 +103,16 @@ if ($summary) {
 } else {
   "ffmpeg wrote no summary; see $log"
 }
+
+# --- reading the result -------------------------------------------------------------------------------
+# To find stretches where the picture stopped changing:
+#
+#   ffmpeg -hide_banner -nostats -i run.mkv -vf "freezedetect=n=0.003:d=0.5" -map 0:v -f null -
+#
+# (In PowerShell 5.1, send its output to a file with -RedirectStandardError rather than 2>&1: redirecting
+# a native program's stderr inline turns every line into an error record and sets $? to false.)
+#
+# IMPORTANT, or this will mislead: freezedetect reports a still desktop as frozen, because a still
+# desktop IS a still picture. On an idle machine it will say freeze_start: 0 and mean nothing at all.
+# The signal worth having is a freeze DURING something - while a window opens, while the pet slides,
+# while a reply is being revealed. Record while that is happening and read the times against it.
