@@ -21,6 +21,8 @@ import { holdHotkey, type Hotkey } from './hotkey.ts';
 import { DrmRuntime } from './drmrunner.ts';
 import { notReadyBecause, serviceFor } from './services.ts';
 import { readSettings, writeSettings, type PopoutSettings } from './settings.ts';
+import { FindSkips } from './skip/find.ts';
+import { DEFAULT_SKIPS, withDefaults, type SkipSettings } from './skip/settings.ts';
 import type { Box } from './geometry.ts';
 
 const PORT = Number(process.env.AANG_PORT ?? 47831);
@@ -61,6 +63,12 @@ let popout: Popout | null = null;
 let hotkey: Hotkey | null = null;
 /** His pop-out switches. Read once at start and kept in step when he changes one. */
 let settings: PopoutSettings = readSettings(STATE_DIR);
+/** What he has asked Aang to skip. Twitch ads are off until he decides (step 6.6). */
+let skipSettings: SkipSettings = DEFAULT_SKIPS;
+try {
+  const f = path.join(STATE_DIR, 'skips.json');
+  if (existsSync(f)) skipSettings = withDefaults(JSON.parse(readFileSync(f, 'utf8')));
+} catch { /* an unreadable file means the defaults, never a refusal to start */ }
 /** The separate castLabs process that plays paid video (step 6.4). */
 let drm: DrmRuntime | null = null;
 
@@ -162,6 +170,8 @@ app.whenReady().then(async () => {
       // "Your size wins", unless he has switched that off (sheet 4, section 7).
       remember: box => { if (settings.rememberSize) rememberBox(box); },
       settings: () => settings,
+      skips: new FindSkips(STATE_DIR),
+      skipSettings: () => skipSettings,
     });
     console.log(`shell: pages on ${pages.origin}`);
 

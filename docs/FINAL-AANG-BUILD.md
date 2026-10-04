@@ -1212,11 +1212,15 @@ he cannot close.
 
 ---
 
-### `--` QUOTA GATE, after 6.5
+### `--` QUOTA GATE, after 6.5  **SKIPPED 2026-10-04, his call: "dont worry about it"**
 
 Read the Claude usage meter. 6.1 to 6.5 are the most typical kind of work in this phase, so the
 rate per step projects the rest. **Write the projection here and decide with him whether to
 continue at the same pace.** The engineering assessment could not estimate this honestly in advance.
+
+**He skipped it on 2026-10-04** and asked to carry on. It costs nothing to do later: the meter is read
+from his own usage, not from anything that has to be running at the time. Worth offering again if the
+pace changes or the week runs hot.
 
 ---
 

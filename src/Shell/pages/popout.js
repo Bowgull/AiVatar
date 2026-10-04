@@ -1,6 +1,7 @@
 // The pop-out's page. It shows what the main process tells it to and nothing else: it holds no
 // connection, chooses no address, and cannot open a window.
 import { Player, clock, el } from './player.js';
+import { Skipper } from './skipper.js';
 
 const what = el('what');
 const src = el('src');
@@ -8,6 +9,11 @@ const video = el('video');
 const empty = el('empty');
 const frame = el('frame');
 const player = new Player();
+const skipper = new Skipper(player, { plaque: el('skip'), said: el('skipsaid'), undo: el('skipundo') });
+
+// Segments for the video that is playing, worked out in the main process (it is the one that can
+// reach the network) and handed over here.
+window.aang.onPopoutSegments(list => skipper.reset(list));
 
 // ---------------------------------------------------------------- what is playing
 window.aang.onPopout(v => {
@@ -30,6 +36,8 @@ window.aang.onPopout(v => {
   // Gold for open video, purple for a paid service (sheet 4, section 1).
   src.className = 'src' + (v.source === 'page' ? ' paid' : '');
   document.title = 'Aang: ' + v.title;
+  // A new video knows nothing about the old one's openings.
+  skipper.reset([]);
   paintControls();
   // Arm the fade now that something is playing. Without this the timer was only ever set by a mouse
   // move, so the wood never faded on its own: found by testing it, 2026-10-04.
@@ -119,6 +127,9 @@ function paintControls() {
   //
   // This is also what makes "stays put while paused" work. Clicking pause fires a pointer event first,
   // which arms the timer while the player still thinks it is playing; the state change undoes that.
+  // Skipping rides on the player's own position reports, which arrive several times a second.
+  skipper.at(s.at);
+
   if (wasPlaying !== s.playing) {
     wasPlaying = s.playing;
     queueMicrotask(showChrome);
