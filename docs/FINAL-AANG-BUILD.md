@@ -1232,6 +1232,28 @@ pace changes or the week runs hot.
 
 ---
 
+### Sheet-by-sheet check, 2026-10-04
+
+Run after he asked whether the build was ever put beside the mockups. It was not. Procedure now
+recorded: serve `docs/cockpit/` over http (the browser pane cannot screenshot `file://`), open both,
+and compare **computed values**, not screenshots - a 2.5 px travel difference is invisible by eye.
+
+| Step | Sheet | Result |
+|---|---|---|
+| 6.10 three states | 5 | **2 of 3 wrong**, fixed (d0f7d84). See 6.10. |
+| 6.3-6.5 pop-out controls | 4 | **Correct.** 30x30, 7 px radius, 2 px border, `0 3px 0` lip, gold play on plum - identical to the sheet's `.ico`. |
+| 6.3 grab-bar buttons | 4 | **Drifted**, fixed. Were 26x22, 5 px radius, **2 px lip**; the sheet's `.ico.sm` is 24x24, 6 px, **3 px lip**. Less weight than asked for, and the weight is the thing he has said he loves. |
+| 6.3 close button | 4 | **Drifted**, fixed. Was red, sheet says plum. Red means "no, or over" in this palette, and this button only puts a video away. |
+| 6.3 grab bar, source chip, control rows | 4 | **Correct.** Same font, padding, radius, border and colours; `.src.paid` uses the same `#A970FF` as the sheet's `.src.locked`. |
+| 6.6 skipping plaque | 4 | Not drawn on sheet 4; nothing to compare. |
+
+**Deliberate difference, kept:** sheet 4 shows "TWITCH - LIVE" on the source chip. Aang cannot know
+whether anyone is on air from a channel link, and the first real run showed that label over a player
+plainly saying the streamer was offline. The flag is still carried because it decides whether the scrub
+bar can be dragged; it just does not claim anything. Already written up in `popout.css`.
+
+---
+
 ### `[~]` 6.6 Skipping  **BUILT 2026-10-04** (ce8286b, 7b88676, 45e0cfa); Twitch ads still his call
 
 **Why:** he asked. Research tested each source live.
