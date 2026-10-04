@@ -45,6 +45,12 @@ contextBridge.exposeInMainWorld('aang', {
   popoutToMac: () => ipcRenderer.send('popout:tomac'),
   /** How many pixels of the window are Aang's own chrome, measured by the page. */
   popoutChrome: px => ipcRenderer.send('popout:chrome', px),
+  /** Where the openings, endings and sponsor bits are in what is playing. */
+  onPopoutSegments(fn) {
+    const h = (_e, list) => fn(list);
+    ipcRenderer.on('popout:segments', h);
+    return () => { ipcRenderer.off('popout:segments', h); };
+  },
   /** His switches, so the page knows whether it may fade. */
   onPopoutSettings(fn) {
     const h = (_e, s) => fn(s);
