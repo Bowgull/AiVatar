@@ -43,6 +43,19 @@ export interface StructuredList {
 
 export type ToBody =
   | { t: 'state'; state: string }
+  /**
+   * Put a video on over his game (step 6.3, his decision 27). Only the Shell listens for this; the
+   * C# window ignores it, which is why it is safe to send to everything.
+   *
+   * The Shell works out what to actually play: a YouTube or Twitch link becomes the right embed, and
+   * anything else opens as its own page. An address that is not http or https is refused there.
+   */
+  | { t: 'popout.open'; url: string;
+      /** What to show on the grab bar before the page says its own title. */
+      title?: string }
+  /** Put it away. The video stops; `popout.hide` is the one that keeps it playing. */
+  | { t: 'popout.close' }
+
   /** Whether any Claude Code session Aang is following (a job hunt, a self-change, anything opened through
    *  start_claude) is currently working or waiting on him, right now - continuous, not a point-in-time
    *  message. Joshua, 2026-09-23: asked to run a job search, could not tell it was doing anything. Sent
