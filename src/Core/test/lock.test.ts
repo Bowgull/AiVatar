@@ -82,3 +82,51 @@ test('S1: a web page cannot post fake Claude Code events either', async () => {
     assert.equal(await post({ 'Content-Type': 'application/json' }), 204);
   });
 });
+
+// ---------------------------------------------------------------- the password, for Aang's own windows
+
+import { readToken, TOKEN_HEADER, tokenFile } from '../src/token.ts';
+import { existsSync, readFileSync } from 'node:fs';
+
+/** Connects the way a real program can and a web page cannot: with a header. */
+function connectWith(port: number, headers: Record<string, string>, origin?: string): Promise<boolean> {
+  return new Promise(resolve => {
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/body`, { headers, ...(origin ? { origin } : {}) });
+    const done = (ok: boolean) => { try { ws.close(); } catch { /* gone */ } resolve(ok); };
+    ws.once('open', () => done(true));
+    ws.once('error', () => done(false));
+    ws.once('unexpected-response', () => done(false));
+  });
+}
+
+test('S1: a window with the password gets in even though it sends an origin', async () => {
+  const stateDir = tmp();
+  const core: any = new Core({ port: 48330, dataDir: tmp(), stateDir, warm: false });
+  await core.start();
+  try {
+    const token = readToken(stateDir)!;
+    assert.ok(token, 'the Core writes a password at start');
+    // This is Aang's own Electron window: a browser, so it sends an origin, but it can set a header.
+    assert.equal(await connectWith(48330, { [TOKEN_HEADER]: token }, 'file://'), true);
+    // The same window without the password is just another page.
+    assert.equal(await connectWith(48330, {}, 'file://'), false);
+    // A guessed password is no password.
+    assert.equal(await connectWith(48330, { [TOKEN_HEADER]: 'a'.repeat(token.length) }, 'file://'), false);
+  } finally { await core.stop(); }
+});
+
+test('S1: the password is new each run and is cleared on a clean stop', async () => {
+  const stateDir = tmp();
+  const a: any = new Core({ port: 48332, dataDir: tmp(), stateDir, warm: false });
+  await a.start();
+  const first = readFileSync(tokenFile(stateDir), 'utf8');
+  await a.stop();
+  assert.equal(existsSync(tokenFile(stateDir)), false, 'no stale password is left behind');
+
+  const b: any = new Core({ port: 48332, dataDir: tmp(), stateDir, warm: false });
+  await b.start();
+  const second = readFileSync(tokenFile(stateDir), 'utf8');
+  await b.stop();
+  assert.notEqual(first, second, 'a leaked password is worthless by the next start');
+  assert.ok(first.length >= 40);
+});
