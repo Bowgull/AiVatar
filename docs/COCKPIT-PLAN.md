@@ -4,7 +4,10 @@ Interviewed and decided 2026-10-03, extended 2026-10-04 with the browser. Every 
 his. Nothing in this plan is built yet. The only code shipped alongside it is the Simkl token fix
 (commits 68de23a, fb8e7c7, 8c9c793), which is maintenance, not plan work.
 
-This supersedes the "Phase 6, cockpit" line in `AIVATAR-BUILD-PLAN-1.0.md`, which was a sketch.
+**How this relates to the build plan.** `docs/AIVATAR-BUILD-PLAN-1.0.md` (version 1.1) is the
+authority on ORDER: Phase 6 there holds every step, the critical path, and what "done" means. This
+document holds the DECISIONS and the REASONS behind them. If the two ever disagree about order, the
+build plan wins; about what he decided, this one does.
 
 **The 2026-10-04 revision changes the foundation from WebView2 to Electron.** Every section below
 that used to say WebView2 has been rewritten rather than left beside a correction, so the plan
@@ -56,6 +59,11 @@ Three research reports sit behind this plan, all in the data repo at `Aang/repor
 | 34 | How many pop-outs | **One at a time.** Opening a new video replaces the current one |
 | 35 | Launching on the Mac | **A tiny locked-down Mac helper over Tailscale**, so Aang can open things on the MacBook (see "The Mac helper") |
 | 36 | Going back | **A frozen copy of today's Aang plus a data snapshot** (see "Going back") |
+| 37 | Pop-out size | **His size wins.** Opens at the size and place he last left it; presets are shortcuts only; it never resizes itself |
+| 38 | Jumping into the pop-out by itself | **Never.** A video in a tab stays there until he moves it |
+| 39 | Fading controls | **Yes.** Fade two seconds after the mouse stops, back on hover, never while paused. Reverses my earlier "not possible", which was only true of click-through windows |
+| 40 | See-through slider | **One continuous slider with a percentage**, not modes. The bars never fade |
+| 41 | Skipping | **On:** anime openings and endings, intros and recaps, YouTube sponsor bits, YouTube ads. **Twitch ads off** until he decides. **Every skip shows Undo** |
 
 ---
 
@@ -223,85 +231,15 @@ What the default-browser goal adds, from `Aang/reports/Aang as default browser.m
 - **Vertical tabs**: the chunky style eats width faster than flat tabs, so the look itself forces a
   vertical tab rail. Sheet 3's horizontal strip is out of date.
 
-## Order of work
+## Order of work, and what "done" means
 
-Constrained by decision 6: every step ships looking finished. Decision 28: built together.
+**Moved to the build plan**, so there is one place for order. See `docs/AIVATAR-BUILD-PLAN-1.0.md`,
+Phase 6: steps 6.0 to 6.28, the critical path, the quota gate after 6.5, and the definition of done
+(mockup and build side by side, every difference named, paid video and feel checked by his eyes).
 
-Four tracks. **C** is Aang's own pages. **P** is the video pop-out. **A** is the browser. **I** is
-Aang's intelligence inside the browser. They share the Electron shell and its hardening, so **A1
-comes before anything that signs in**, and **P1 is measured over WoW before the rest of P is built**.
-
-### Cockpit track
-
-| Step | What | Risk |
-|---|---|---|
-| ~~0~~ | ~~The see-through spike~~ | **Done 2026-10-04, passed** |
-| **C1** | Window 2 shell: framed window, carved tab strip, one real tab | None |
-| **C2** | The remaining six tabs | None |
-| **C3** | The scroll back inside window 2, with hover actions, real text selection, Ctrl+F | None |
-| **C4** | The palette move and the strip (below) | None, but it touches everything at once |
-| **C5** | The bubble as a see-through Electron window | Low now. Ghost and edit mode by hotkey |
-
-### Pop-out track (the one he will use most)
-
-| Step | Build | Borrowed | Weeks |
-|---|---|---|---|
-| **P1** | The pop-out window: always on top, clickable like a normal window (decision 32), optional click-through switch, snap sizes plus free drag, 16:9 worked out by Aang. **Stutter defences from day one**: background throttling off, hide fully when not in use. **Measured over WoW** with PresentMon, with NVIDIA Instant Replay on and off | `electron-overlay-window` (to follow the WoW window), `get-windows` | 1 to 1.5 |
-| **P2** | Locked video: castLabs runtime for the pop-out, **hardware acceleration off for that window** (tested), Crunchyroll and Prime with his real accounts, then Netflix after his EVS signup | castLabs ECS | 1 |
-| **P3** | Controls: play, pause, scrub, volume, fullscreen, transparency slider, auto picture-in-picture when he switches to WoW. One pop-out at a time (decision 34). No Twitch chat (decision 33) | | 1 |
-| **P4** | "Put X on": code matches his words, Qwen fills the gaps, Streaming Availability finds it in Canada with a dub, Twitch via twurple, YouTube embeds served from a local page (direct embeds fail with Error 153) | streaming-availability, twurple | 1 to 1.5 |
-| **P5** | SponsorBlock; Aang marks episodes watched in Simkl when he plays them | SponsorBlock API | 0.5 to 1 |
-| **P6** | The Mac helper (see below) | | 0.5 to 1 |
-
-### Browser track
-
-| Step | Build | Borrowed | Weeks |
-|---|---|---|---|
-| **A1** | Hardening **before any real sign-in**: cookie encryption, sandbox, security switches. Test on a throwaway profile first | `@electron/fuses` | 0.5 |
-| **A2** | Tab positioning layer: turns "where a tab should be" into "where the view actually is", with monitor scaling and drag. **Exists nowhere, written by hand** | | 1 |
-| **A3** | Shell: **vertical tab rail**, address bar, back and forward, reopen closed tab, find, zoom | Min, Tree Style Tab's tree logic | 2 |
-| **A4** | Never lose a tab: continuous snapshots for crash restore, sleeping tabs and update restarts | Electron's history save and restore | 1 |
-| **A5** | Crash and hang handling, with a timeout on every call into a tab | | 0.5 |
-| **A6** | Protection: ad and tracker blocking with a visible per-site pause, phishing lists, downloads marked for Defender, passkeys hidden | Ghostery, Phishing.Database, URLhaus | 1 |
-| **A7** | Default browser: registration, the "Set default" step, hardened link handling | | 1 |
-| **A8** | His stuff: Bitwarden filling, Floccus with the Mac, one-time bookmark import | Min's adapter, Floccus, bookmark-parser | 1 |
-| **A9** | Everyday extras: downloads list, print, PDF, screen-share picker, spellcheck | electron-dl | 1 |
-| **A10** | Upkeep automation: Electron and castLabs upgrades flagged, monthly passkey-bridge check | Renovate or Dependabot | 0.5 |
-
-### Intelligence track
-
-| Step | Build | Weeks |
-|---|---|---|
-| **I1** | Page reader and summariser (Readability, Turndown, Qwen) | 0.5 |
-| **I2** | Searchable reading memory (SQLite FTS5 plus sqlite-vec) | 1 |
-| **I3** | Labelled-element index, borrowed from Vimium's link hints, so "click B7" is how Aang acts | 0.5 |
-| **I4** | A small tool shelf of five or fewer, and chat with your tabs | 0.5 |
-| **I5** | Trails (from Horse Browser) and mark as done (from SigmaOS) | 0.5 |
-| **I6** | Agent lane on its own profile, approvals as chips for routine asks and a lever for serious ones | 1 |
-
-**Total, all four tracks:** roughly 16 to 22 weeks, by estimate.
-
-### The order between them
-- **A1 before any real sign-in**, because cookie encryption cannot be switched on afterwards.
-- **P1 measured over WoW before P2 onwards.** If it stutters and cannot be fixed, the plan changes.
-- **After A1 and A2, read the Claude usage meter** and project the cost of the rest before continuing.
-- C1 to C4 carry no risk and can be done in any gap.
-
-## Definition of done, for every step
-
-**No step is done until all of these are true.** This is the zero-drift rule he set, written down so
-it cannot be skipped.
-
-1. **Screenshot the matching mockup** in `docs/cockpit/sheet-*.html`.
-2. **Screenshot the real build** showing the same thing, using `tools/measure/Capture.ps1` and the
-   `tests/fakecore/look-*.mjs` drivers.
-3. **Put them side by side in one image and show him.**
-4. **Name every difference out loud**, as either a fix or a reason.
-5. **Locked video is checked by his eyes**, never by screenshot (see "Shadow is a cloud PC").
-6. **Feel is checked by him**: button travel, the arrow's bob, how the pop-out behaves mid-fight.
-   Screenshots cannot catch these.
-
-If the mockup is wrong rather than the build, the mockup is fixed first and the step re-checked.
+The short version of the path: **6.1 measure over WoW, then 6.2 the shell, then three lines in
+parallel:** the pop-out (6.3 to 6.5), Aang that can format (6.10 to 6.12), and the browser (6.19 to
+6.27, with the default-browser switch last, after a week of real use).
 
 ## Going back
 
