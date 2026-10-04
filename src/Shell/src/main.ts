@@ -18,6 +18,8 @@ import { snapshotOnce } from './snapshot.ts';
 import { servePages, type PageServer } from './pageserver.ts';
 import { Popout, popoutFile } from './popout.ts';
 import { holdHotkey, type Hotkey } from './hotkey.ts';
+import { DrmRuntime } from './drmrunner.ts';
+import { notReadyBecause, serviceFor } from './services.ts';
 import type { Box } from './geometry.ts';
 
 const PORT = Number(process.env.AANG_PORT ?? 47831);
@@ -56,6 +58,8 @@ function rememberBox(box: Box): void {
 let pages: PageServer | null = null;
 let popout: Popout | null = null;
 let hotkey: Hotkey | null = null;
+/** The separate castLabs process that plays paid video (step 6.4). */
+let drm: DrmRuntime | null = null;
 
 const link = new CoreLink({
   port: PORT,
@@ -63,10 +67,21 @@ const link = new CoreLink({
   onMessage: m => {
     // "Put X on": the one message the pop-out answers to. Everything else is passed to the windows.
     if (m.t === 'popout.open' && typeof m.url === 'string') {
+      // Paid video goes to the separate castLabs process: hardware acceleration has to be off for it,
+      // and that is process-wide. Everything else plays in the ordinary pop-out (step 6.4).
+      const paid = serviceFor(m.url);
+      if (paid) {
+        if (!paid.ready) { console.error(`shell: ${notReadyBecause(paid.id)}`); return; }
+        popout?.close();                       // one at a time, across both runtimes (decision 34)
+        const why = drm?.open(m.url);
+        if (why) console.error(`shell: ${why}`);
+        return;
+      }
+      drm?.close();
       if (!popout?.open(m.url)) console.error(`shell: nothing playable in ${String(m.url).slice(0, 80)}`);
       return;
     }
-    if (m.t === 'popout.close') { popout?.close(); return; }
+    if (m.t === 'popout.close') { popout?.close(); drm?.close(); return; }
     for (const w of windows.values()) if (!w.isDestroyed()) w.webContents.send('brain:message', m);
   },
   onConnected: up => { for (const w of windows.values()) if (!w.isDestroyed()) w.webContents.send('brain:connected', up); },
@@ -145,7 +160,17 @@ app.whenReady().then(async () => {
     });
     console.log(`shell: pages on ${pages.origin}`);
 
+    drm = new DrmRuntime({
+      shellDir: path.join(HERE, '..'),
+      stateDir: STATE_DIR,
+      // Always said, not only on a bad code: a paid-video window that vanishes should never do so
+      // silently, and the code is the first thing worth knowing when it does.
+      onExit: code => console.log(`shell: the paid-video runtime stopped (code ${code})`),
+    });
+    if (!drm.available) console.log('shell: the castLabs build is not installed, so paid video will not play yet');
+
     // The key that puts it away and brings it back, still playing (sheet 4, way 5).
+    // Whichever runtime is playing, the key hides it: he should not have to know which is which.
     hotkey = holdHotkey(STATE_DIR, () => popout?.toggleHidden());
     if (hotkey.active) console.log(`shell: ${hotkey.active} hides and shows the pop-out`);
   } catch (e) {
@@ -175,7 +200,7 @@ function fromPopout(e: Electron.IpcMainEvent): boolean {
   return Boolean(w && e.sender === w.webContents);
 }
 
-app.on('before-quit', () => { link.stop(); hotkey?.release(); popout?.close(); pages?.close(); });
+app.on('before-quit', () => { link.stop(); hotkey?.release(); popout?.close(); drm?.close(); pages?.close(); });
 
 // Nothing a page does may take the Shell down silently.
 process.on('uncaughtException', e => console.error('shell: uncaught: ' + (e as Error).message));

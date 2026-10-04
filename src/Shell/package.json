@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "electron": "44.5.1",
+    "electron-drm": "github:castlabs/electron-releases#v44.5.1+wvcus",
     "ws": "^8.18.0"
   },
   "devDependencies": {
