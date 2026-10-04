@@ -42,6 +42,7 @@ import { launch, openedText, resolve as resolveOpen } from './open.ts';
 import { vaultState, backupVault } from './backup-vault.ts';
 import { runCommand } from './run.ts';
 import { buildSystemPrompt, lint, stripReasoning } from './voice.ts';
+import type { CanDraw } from './voice.ts';
 import { MAX_SEND_BYTES, clock, mimeOf, statusText, whyNotSend } from './phone.ts';
 import { ActionLog, UndoStack, formatAction } from './actionlog.ts';
 import { Google } from './google.ts';
@@ -1689,6 +1690,20 @@ export class Core {
   }
   private sendTo(kind: 'desktop' | 'discord', msg: ToBody): void { for (const c of this.clientsOf(kind)) this.send(c, msg); }
   private kindOfSocket(ws: WebSocket): 'desktop' | 'discord' { return this.clientKind.get(ws) ?? 'desktop'; }
+
+  /**
+   * Can whatever is about to SHOW this reply draw formatting? (step 6.11)
+   *
+   * Discord can, and has been able to all along: every reply to his phone has been having its
+   * formatting stripped for the sake of a bubble that was never going to see it.
+   *
+   * The desktop cannot yet. The old bubble is one run of GDI text, so markdown left in it would be
+   * asterisks and hashes on his screen. That flips when 6.12 replaces it, and this is the one line
+   * that has to change.
+   */
+  private canDraw(ws: WebSocket): CanDraw {
+    return this.kindOfSocket(ws) === 'discord' ? 'rich' : 'plain';
+  }
   /** Everything about one turn goes to the place it came from: every desktop window, or Discord. Not to the other place. */
   private toTurn(sub: Submission, msg: ToBody): void { this.sendTo(this.kindOfSocket(sub.socket), msg); }
 
@@ -2157,7 +2172,7 @@ export class Core {
     if (turn.stopped) { this.finishTurn(turn); return; }
     if (!e.ok) { this.fail(turn, 'Claude stopped before finishing that.', 'Ask again, or try Smart for something harder.'); return; }
 
-    const linted = lint(e.text, e.tools, sub.text);
+    const linted = lint(e.text, e.tools, sub.text, this.canDraw(sub.socket));
     if (!linted.cleaned) { this.fail(turn, 'I got nothing back for that.', 'Ask again in a different way.'); return; }
     if (turn.flush) { clearTimeout(turn.flush); turn.flush = null; }
     // The reply must not contradict a real send. If it does not even say so, it is wrong, not just imprecise -
