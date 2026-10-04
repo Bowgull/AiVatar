@@ -17,6 +17,9 @@ window.aang.onPopoutSegments(list => skipper.reset(list));
 
 // ---------------------------------------------------------------- what is playing
 window.aang.onPopout(v => {
+  // A new video, so the last thing reported about the old one no longer applies. Without this, putting
+  // on a second episode while the first was already "playing" would report nothing at all.
+  told = null;
   // No address means this page is only the bar: the video is a separate view underneath it, because
   // paid services refuse to be shown in a frame (step 6.4). With an address, the page shows the video
   // itself, which is how YouTube and Twitch work, since their embed addresses exist to be framed.
@@ -155,7 +158,23 @@ function paintControls() {
   setGroove('scrubfill', 'scrubknob', s.length ? s.at / s.length : (s.live ? 1 : 0));
   setGroove('volfill', 'volknob', s.muted ? 0 : s.volume);
 }
-player.onUpdate = paintControls;
+// ---------------------------------------------------------------- telling the brain what is playing
+// Step 6.8. ONLY on a change, and the change is the point: a timer here would be a heartbeat, which
+// Simkl prohibits and which costs 45 to 135 times as much for the same answer. Their session expires
+// on its own, so starting and stopping is enough.
+let told = null;              // the last thing reported, so the same news is not sent twice
+function reportPlayback(st) {
+  // "Ended" has to be worked out, because neither player sends a clean finish through this path: a
+  // video that is not playing and is within a few seconds of its end has run out, rather than been
+  // paused there. A live stream has no end to reach.
+  const ended = !st.live && st.length > 0 && !st.playing && st.at >= st.length - 3;
+  const now = ended ? 'ended' : st.playing ? 'playing' : 'paused';
+  if (now === told) return;
+  told = now;
+  window.aang?.popoutPlayback?.({ playing: st.playing, at: st.at, length: st.length, ended });
+}
+
+player.onUpdate = st => { paintControls(st); reportPlayback(st); };
 
 // ---------------------------------------------------------------- the controls get out of the way
 // Sheet 4: two seconds after the mouse stops, the wood and the controls fade out and the corners round

@@ -209,6 +209,18 @@ app.whenReady().then(async () => {
   ipcMain.on('popout:opacity', (e, v) => { if (fromPopout(e) && typeof v === 'number') popout?.setOpacity(v); });
   ipcMain.on('popout:fullscreen', e => { if (fromPopout(e)) popout?.toggleFullscreen(); });
   ipcMain.on('popout:chrome', (e, px) => { if (fromPopout(e) && typeof px === 'number') popout?.setChrome(px); });
+  // Step 6.8. The page reports seconds; the brain converts to the percentage Simkl wants, because the
+  // page is the least trustworthy place to do arithmetic that decides what gets marked watched.
+  ipcMain.on('popout:playback', (e, s) => {
+    if (!fromPopout(e) || !s || typeof s !== 'object') return;
+    link?.send({
+      t: 'watch.state',
+      playing: s.playing === true,
+      at: Number(s.at) || 0,
+      length: Number(s.length) || 0,
+      ended: s.ended === true,
+    });
+  });
   ipcMain.on('popout:tomac', e => {
     if (!fromPopout(e)) return;
     // Handing it to the MacBook is step 6.9, which extends the listener that already exists there.

@@ -1337,7 +1337,7 @@ dependency were added for it.
 
 ---
 
-### `[ ]` 6.8 Aang marks what he watched
+### `[~]` 6.8 Aang marks what he watched  **BUILT 2026-10-04**; one re-run of his Simkl setup still needed
 
 **Why:** Simkl's extension tracks only Netflix and Crunchyroll, and **nothing tracks Prime**, where
 his anime plays. When Aang opens the episode he already knows what it is.
@@ -1347,6 +1347,43 @@ heartbeat** (prohibited, 45 to 135 times the cost), anime by **absolute** episod
 `media:write` scope, which `tools/simkl-setup.ps1` now asks for.
 
 **Blocked on him:** his Simkl list is empty, and his sign-in predates the scope; one re-run of setup.
+The code now says exactly that when it happens: a 403 is reported as "this sign-in can read his list but
+not change it", not as a network error, because that is the failure he will actually hit first.
+
+**BUILT 2026-10-04.** 8 unit tests, and the existing 7 Simkl tests still pass.
+
+**Read from the real API blueprint, not from memory** (`jsapi.apiary.io/apis/simkl.apib`, 235 KB, fetched
+2026-10-04, because the rendered docs are JavaScript and come back empty). Four things in the step above
+were wrong or incomplete, and each would have shipped as a silent no-op:
+
+1. **`progress` is a PERCENTAGE, 0 to 100**, and it is required on every scrobble call. The step did not
+   say so. Sending seconds would have marked a 24-minute episode as 0.4% watched for ever.
+2. **`/scrobble/stop` already marks anything past 80% as watched.** So `POST /sync/history` on finish, as
+   the step had it, is a SECOND write of the same episode. History is now used only for "mark that
+   watched" when he says so himself, with no playback involved.
+3. **"anime by absolute episode number" is not a thing to do.** Simkl maps TVDB and TMDB numbering onto
+   AniDB itself, and absolute ordering is expressed through episode-level `ids`, not a bare number. The
+   build sidesteps all of it by sending **Simkl's own id and Simkl's own episode number**, taken from his
+   own list, so there is no numbering to convert.
+4. **One scrobble per account at a time, with a twenty-second lock.** Two overlapping calls mean one
+   loses, so they queue, the same way token renewal already does. A 409 means "already marked within the
+   hour", which is a success, and is now reported as one.
+
+**The rule that matters more than any of it: Aang marks what Aang put on, and nothing else.** The tracker
+is armed in exactly one place, the watch-list path in 6.7, which is the only place that honestly knows
+both the show and the episode. Nothing is inferred from a page title or an address. Putting anything else
+on disarms it. A show whose Simkl row carries no id still plays, and is simply not marked, because
+matching by title alone can tick off the wrong show, and a wrongly ticked episode is both unnoticed and
+awkward to undo.
+
+**No heartbeat, as planned, and now for a checked reason:** Simkl's session expires on its own after the
+runtime elapses, so start and stop are genuinely enough. The pop-out reports only on a CHANGE (started,
+paused, resumed, ran out). "Ran out" has to be worked out in the page, since neither player sends a clean
+finish: not playing, and within three seconds of the end, with live streams excluded.
+
+**It never interrupts him to report its own failure.** A failed scrobble goes to the log he can ask for.
+And it only claims an episode was ticked off when Simkl said `scrobble`; below 80% Simkl saves his place
+instead, which is the right outcome but a different sentence.
 
 ---
 

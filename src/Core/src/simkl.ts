@@ -13,7 +13,19 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import type { Fetch } from './google.ts';
 
-export interface Show { title: string; next: number; watched: number; total: number | null; kind: 'anime' | 'tv'; /** when he last watched it (ms), for "the next one" */ lastAt: number }
+export interface Show {
+  title: string; next: number; watched: number; total: number | null; kind: 'anime' | 'tv';
+  /** when he last watched it (ms), for "the next one" */
+  lastAt: number;
+  /**
+   * Simkl's own id for the show. Carried because step 6.8 scrobbles against it: Simkl matches on
+   * title and year otherwise, and "Frieren" matching the wrong row would tick off the wrong show.
+   * Zero when the list did not carry one, which is the one case scrobbling declines to guess.
+   */
+  id: number;
+  /** Simkl's own year, sent alongside the id so a bad id still matches the right thing. */
+  year: number | null;
+}
 export const DEFAULT_SITE = 'https://www.crunchyroll.com/search?q={q}';
 
 interface Saved {
@@ -136,6 +148,82 @@ export class Simkl {
     return await r.json().catch(() => ({}));
   }
 
+  /**
+   * Simkl allows ONE scrobble operation per account at a time, with a twenty-second lock (their docs,
+   * read 2026-10-04). Two of these overlapping means one of them loses, so they queue here instead.
+   */
+  private scrobbling: Promise<unknown> = Promise.resolve();
+
+  /** A signed-in POST that renews the token once if Simkl says it is stale, instead of giving up. */
+  private async post(url: string, body: unknown): Promise<{ status: number; json: any }> {
+    const s = this.saved();
+    if (!s) throw new Error('Simkl is not connected. Run tools\simkl-setup.cmd once.');
+    const call = (token: string) => this.fetcher(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'simkl-api-key': s.clientId, authorization: `Bearer ${token}` },
+      body: JSON.stringify(body),
+    });
+    let r = await call(s.accessToken);
+    if (r.status === 401) {
+      const fresh = await this.refresh(s);
+      if (!fresh) throw new Error('The Simkl sign-in has run out. Run tools\simkl-setup.cmd once.');
+      r = await call(fresh);
+    }
+    // 403 is the one that is NOT a network problem: the sign-in is real but was made without permission
+    // to write. His own sign-in predates that permission, so this is the likely first failure.
+    if (r.status === 403) throw new Error('This Simkl sign-in can read his list but not change it. Run tools\simkl-setup.cmd once to grant that.');
+    return { status: r.status, json: await r.json().catch(() => ({})) };
+  }
+
+  /**
+   * One scrobble call. `at` and `length` are seconds; Simkl wants a PERCENTAGE, which is the easiest
+   * thing in here to get wrong.
+   *
+   * There is NO heartbeat, deliberately: Simkl's session expires on its own after the runtime elapses,
+   * so start and stop are enough, and polling it would cost 45 to 135 times as much for nothing.
+   *
+   * Returns what Simkl did, in its own words: 'start', 'pause' (saved for later), 'scrobble' (marked
+   * watched), or 'already' when it had already been marked within the hour.
+   */
+  async scrobble(what: 'start' | 'pause' | 'stop', s: Show, episode: number, at: number, length: number):
+    Promise<'start' | 'pause' | 'scrobble' | 'already' | null> {
+    if (!s.id) return null;                   // no id means matching by title, which can tick the wrong show
+    const progress = length > 0 ? Math.max(0, Math.min(100, (at / length) * 100)) : 0;
+    const run = async () => {
+      const item = { title: s.title, ...(s.year ? { year: s.year } : {}), ids: { simkl: s.id } };
+      const { status, json } = await this.post(`https://api.simkl.com/scrobble/${what}`, {
+        progress: Number(progress.toFixed(2)),
+        [s.kind === 'anime' ? 'anime' : 'show']: item,
+        // Simkl's own episode number from his own list, so there is no numbering to convert. Their docs
+        // warn that anime numbering differs between AniDB, TVDB and TMDB; using Simkl's avoids all of it.
+        episode: { number: episode },
+      });
+      // Their duplicate protection: stopping something already marked watched in the last hour. That is
+      // a success from his point of view, not a failure.
+      if (status === 409) return 'already' as const;
+      if (status !== 200 && status !== 201) throw new Error(`Simkl said ${status}.`);
+      const action = String(json?.action ?? '');
+      return (action === 'start' || action === 'pause' || action === 'scrobble') ? action : null;
+    };
+    const queued = this.scrobbling.then(run, run);
+    this.scrobbling = queued.catch(() => {});   // a failure must not block the next one for ever
+    return queued;
+  }
+
+  /**
+   * Mark an episode watched outright, with no playback involved: for when he says so himself.
+   *
+   * The normal path does NOT come through here. `/scrobble/stop` already marks anything past 80%
+   * watched, so calling both would write the same episode twice.
+   */
+  async markWatched(s: Show, episode: number): Promise<boolean> {
+    if (!s.id) return false;
+    const item = { title: s.title, ...(s.year ? { year: s.year } : {}), ids: { simkl: s.id }, episodes: [{ number: episode }] };
+    const { status } = await this.post('https://api.simkl.com/sync/history',
+      s.kind === 'anime' ? { shows: [item] } : { shows: [item] });
+    return status === 200 || status === 201 || status === 409;
+  }
+
   /** Everything he is watching now, anime and TV, with the next episode of each. */
   async watching(): Promise<Show[]> {
     const j = await this.get('https://api.simkl.com/sync/all-items/?extended=full');
@@ -146,7 +234,13 @@ export class Simkl {
         const total = Number(e?.total_episodes_count) || null;
         const next = nextOf(e);
         if (total && next > total) continue;                               // caught up to the end
-        out.push({ title: String(e?.show?.title ?? e?.anime?.title ?? 'Untitled'), next, watched: Number(e?.watched_episodes_count ?? 0), total, kind: kind === 'anime' ? 'anime' : 'tv', lastAt: Date.parse(String(e?.last_watched_at ?? '')) || 0 });
+        const it = e?.show ?? e?.anime ?? {};
+        out.push({
+          title: String(it?.title ?? 'Untitled'), next, watched: Number(e?.watched_episodes_count ?? 0), total,
+          kind: kind === 'anime' ? 'anime' : 'tv', lastAt: Date.parse(String(e?.last_watched_at ?? '')) || 0,
+          id: Number(it?.ids?.simkl ?? it?.ids?.simkl_id ?? 0) || 0,
+          year: Number(it?.year) || null,
+        });
       }
     }
     return out.sort((a, b) => b.lastAt - a.lastAt);                        // the one he watched last comes first
