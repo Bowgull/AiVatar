@@ -13,6 +13,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import { writeFileAtomic } from './atomic.ts';
 import { Budget, LAYOUT, LISTEN_CHANNELS, NEEDED, FORBIDDEN, chunkMessage, kindOf, newPairing, tryPair } from './discord-logic.ts';
 import type { Pairing } from './discord-logic.ts';
+import { capture } from './capture.ts';
 import { Grocery, looksLikeRecipe, parseListCommand, parseRecipe } from './lists.ts';
 import { Drafts, Jobs, SWEEP_REQUEST, applyPrompt, extractUrls, fileStamp, parseVerdict, readAppliedFile, readDraftsFile, readShortlist, renderCard, renderDraft, verdictFor, vetPrompt } from './jobs.ts';
 import type { Card } from './jobs.ts';
@@ -73,6 +74,8 @@ export interface CoreLink {
   trust(): void;
   revoke(kind: string): void;
   hush(minutes: number): void;
+  /** Turn quota saving on or off from his phone. Free: it never reaches Claude. */
+  saving(on: boolean): void;
   mailAct(id: string, hash: string, action: 'send' | 'save' | 'discard'): void;
   brief(): void;
   /** A reply to a Claude Code job's update: continue that job (by its folder) with his words. */
@@ -301,13 +304,25 @@ export class DiscordAdapter {
   private trustKinds: string[] = [];
   private trustCard: { channelId: string; messageId: string } | null = null;
 
-  /** "hush 30", "unhush", "what did you do", "what can you do without asking": free, and instant. */
+  /** "hush 30", "unhush", "save quota", "what did you do", "what can you do without asking": free, and instant. */
   private async controls(channelId: string, text: string): Promise<boolean> {
     let m: RegExpExecArray | null;
     if (/^(?:unhush|un-hush|end hush|hush off|stop hush(?:ing)?)[.!]?$/i.test(text)) { this.replyTo.hush.push(channelId); this.link.hush(0); return true; }
     if ((m = /^(?:hush|quiet)(?:\s+(?:for\s+)?(?:(?:an?\s+)?(hour)|(\d{1,3})\s*(m|min|mins|minutes?|h|hr|hrs|hours?)?))?[.!]?$/i.exec(text))) {
       const minutes = m[1] ? 60 : m[2] ? Number(m[2]) * (/^h/i.test(m[3] ?? '') ? 60 : 1) : 60;
       this.replyTo.hush.push(channelId); this.link.hush(minutes); return true;
+    }
+    // Saving mode from his phone (step Q2). It used to be desktop-only, and it forgot itself at every
+    // restart, so at 72% to 88% of his week he could neither keep it on nor turn it back on from here.
+    if (/^(?:save|saving)(?: quota| mode)?(?: on)?[.!]?$/i.test(text) || /^(?:turn )?(?:on )?saving(?: mode)?[.!]?$/i.test(text)) {
+      this.link.saving(true);
+      await this.gw.send(channelId, { content: 'Saving quota from now on: I will stay on Quick and skip background work. Say "saving off" to stop.' });
+      return true;
+    }
+    if (/^(?:saving|save)(?: quota| mode)? off[.!]?$/i.test(text) || /^(?:stop|end) saving(?: quota| mode)?[.!]?$/i.test(text)) {
+      this.link.saving(false);
+      await this.gw.send(channelId, { content: 'Back to normal. I will use the best model for each job again.' });
+      return true;
     }
     if (/^(?:(?:my |the )?(?:morning )?(?:brief|briefing)|what'?s on today|what is on today|(?:my )?agenda(?: today)?)\??[.!]?$/i.test(text)) { this.replyTo.brief.push(channelId); this.link.brief(); return true; }
     if (/^what (?:have you|did you)(?: just)? (?:do|done)(?: today)?\??$/i.test(text)) { this.replyTo.actions.push(channelId); this.link.actions(); return true; }
@@ -489,6 +504,20 @@ export class DiscordAdapter {
       return true;
     }
     if (channelName === 'capture' && looksLikeRecipe(text)) { await this.fileRecipe(channelId, text); return true; }
+    // Anything else in #capture is a thought to keep, not a question. Written down here, in code, for
+    // nothing: it used to fall through to Aang on Smart (step Q3). A question still goes to him, since
+    // he would be no use answering it from a file, and so does anything aimed at him by name.
+    if (channelName === 'capture' && !text.trimEnd().endsWith('?') && !text.toLowerCase().includes('aang')) {
+      const c = capture(text);
+      if (c) {
+        await this.gw.send(channelId, {
+          content: c.countToday > 1 ? `Noted (${c.countToday} today).` : 'Noted.',
+          silent: true,
+        });
+        return true;
+      }
+      // It could not be written: fall through to Aang rather than lose it.
+    }
     return false;
   }
 

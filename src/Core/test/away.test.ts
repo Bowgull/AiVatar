@@ -156,6 +156,7 @@ class FakeCore implements CoreLink {
   trust() { /* not used here */ }
   revoke() { /* not used here */ }
   hush() { /* not used here */ }
+  saving() { /* not used here */ }
   mailAct() { /* not used here */ }
   brief() { /* not used here */ }
   claudeReplies: { cwd: string; text: string }[] = [];
