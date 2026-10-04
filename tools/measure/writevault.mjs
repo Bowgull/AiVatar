@@ -14,7 +14,7 @@ const dataDir = process.env.AANG_DATA_DIR
 
 // Pull the phase headings straight out of the plan, so this note cannot drift from it by hand.
 function buildState() {
-  const plan = path.join(path.dirname(new URL(import.meta.url).pathname.slice(1)), '..', '..', 'docs', 'AIVATAR-BUILD-PLAN-1.0.md');
+  const plan = path.join(path.dirname(new URL(import.meta.url).pathname.slice(1)), '..', '..', 'docs', 'FINAL-AANG-BUILD.md');
   let text;
   try { text = readFileSync(plan, 'utf8'); } catch { return 'The build plan could not be read on this run.'; }
 

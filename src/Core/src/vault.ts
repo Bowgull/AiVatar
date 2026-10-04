@@ -135,7 +135,7 @@ export function writeVaultNotes(memory: Memory, opts: { buildState?: string } = 
     '',
     opts.buildState?.trim() || 'No build state was supplied on this run.',
     '',
-    'The authority on order is `docs/AIVATAR-BUILD-PLAN-1.0.md` in the AiVatar repository.',
+    'The authority on order is `docs/FINAL-AANG-BUILD.md` (the FINAL AANG BUILD) in the AiVatar repository.',
     'This note is a mirror of it and is always the copy to distrust.',
     '',
   ].join('\n'));
