@@ -13,8 +13,8 @@ window.aang.onPopout(v => {
   what.textContent = v.title;
   src.textContent = v.label;
   src.hidden = false;
-  // Gold for open video, purple for a paid service; live streams get the red dot.
-  src.className = 'src' + (v.source === 'page' ? ' paid' : '') + (v.live ? ' live' : '');
+  // Gold for open video, purple for a paid service (sheet 4, section 1).
+  src.className = 'src' + (v.source === 'page' ? ' paid' : '');
   document.title = 'Aang: ' + v.title;
 });
 
