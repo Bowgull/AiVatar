@@ -1288,6 +1288,31 @@ export class Core {
     } catch (e) { console.error('claude.run: the Mac did not answer: ' + (e as Error).message); return false; }
   }
 
+  /**
+   * Step 6.9: open one link on the MacBook, in its own browser.
+   *
+   * The fallback for paid video, because `app.disableHardwareAcceleration()` is process-wide and Shadow
+   * cannot capture an accelerated protected surface. When Crunchyroll or Prime will not play here, the
+   * Mac is the place it does play.
+   *
+   * The Mac refuses anything that is not https on a site he approved, whatever is sent, so this is a
+   * second check rather than the only one: a bad address fails there too.
+   */
+  private async openOnMac(url: string): Promise<{ ok: boolean; detail: string }> {
+    if (!this.macAddr) return { ok: false, detail: 'No MacBook has been heard from yet, so there is nowhere to send it.' };
+    if (!/^https:\/\//i.test(url)) return { ok: false, detail: 'Only https links can be sent to the MacBook.' };
+    try {
+      const r = await fetch(`http://${this.macAddr}:${MAC_LISTENER_PORT}/open?k=${encodeURIComponent(this.keyFile('mac-front.key'))}`,
+        { method: 'POST', body: url, signal: AbortSignal.timeout(3000) });
+      if (r.status === 403) {
+        return { ok: false, detail: 'The MacBook would not open that. Either it is not a site on its list, or its setup has not been re-run since this was added.' };
+      }
+      if (r.status !== 204) return { ok: false, detail: `The MacBook said ${r.status}.` };
+      this.reportAction('mcp__aang__watch', { mac: url }, false, `Opened ${url} on the MacBook.`);
+      return { ok: true, detail: 'Opened it on your MacBook.' };
+    } catch (e) { return { ok: false, detail: 'The MacBook did not answer: ' + (e as Error).message }; }
+  }
+
   /** The MacBook's setup script, for the one-time code in mac-setup.code (made by hand, gitignored). The code
    *  works once and for 30 minutes, so the script with the keys in it is never left lying around to fetch. */
   private setupFor(code: string): string | null {
@@ -1707,6 +1732,11 @@ export class Core {
       // restart (step Q1). Costs the same one silent turn, but only when he is actually here.
       case 'poked': this.warmNow(); break;
       case 'watch.state': void this.playbackChanged({ playing: m.playing !== false, at: Number(m.at) || 0, length: Number(m.length) || 0, ended: m.ended === true }); break;
+      // He pressed the keycap himself, so there is nothing to ask: it is one link, to his own MacBook,
+      // and the Mac refuses anything that is not a site on its own list.
+      case 'watch.tomac': void this.openOnMac(String(m.url ?? '')).then(r => {
+        if (!r.ok) this.sendTo('desktop', { t: 'bubble', text: r.detail, stream: false, proactive: true });
+      }); break;
       case 'mac.run': void this.runOnMac(String(m.text ?? '').slice(0, 4000)).then(ok => this.send(ws, { t: 'mac.run.reply', ok })); break;
       // The desktop tray's "Job hunt now": Mac first, his own worker here if it cannot be reached.
       // Same fallback fix as the JOB_HUNT_RE chat trigger below (2026-09-23): do_task cannot actually run this

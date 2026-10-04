@@ -26,25 +26,49 @@ my $dir = dirname($0);
 my ($ip) = (qx{/sbin/ifconfig} =~ /inet (100\.(?:6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.\d+\.\d+)/);
 unless ($ip) { sleep 30; exit 1 }                      # Tailscale is not up yet; launchd starts this again
 my $srv = IO::Socket::INET->new(LocalAddr => $ip, LocalPort => $port, Listen => 5, ReuseAddr => 1) or do { sleep 30; exit 1 };
-my ($lastFront, $lastRun) = (0, 0);
+my ($lastFront, $lastRun, $lastOpen) = (0, 0, 0);
+# Step 6.9. This door takes an ADDRESS off the network and opens it on his Mac, so the key alone is not
+# enough: only these sites, and only https. Least privilege, his standing rule. Anything else is refused
+# even with the right key, so a key that ever leaked still could not point his Mac at an arbitrary page.
+my @allowed = qw(
+  www.primevideo.com primevideo.com www.amazon.ca www.amazon.com
+  www.crunchyroll.com crunchyroll.com
+  www.netflix.com netflix.com
+  www.youtube.com youtu.be m.youtube.com
+  www.twitch.tv twitch.tv
+  www.disneyplus.com disneyplus.com
+);
 while (my $c = $srv->accept) {
   my $peer = $c->peerhost // '';
   my ($path, $qkey, $clen) = ('', '', 0);
   eval {
     local $SIG{ALRM} = sub { die "slow\n" }; alarm 3;
     my $l = <$c> // '';
-    if ($l =~ m{^POST (/front|/run)\?k=([^\s&]+) HTTP/}) { ($path, $qkey) = ($1, $2); }
+    if ($l =~ m{^POST (/front|/run|/open)\?k=([^\s&]+) HTTP/}) { ($path, $qkey) = ($1, $2); }
     while (my $h = <$c>) { last if $h =~ /^\r?\n\z/; $clen = $1 if $h =~ /^Content-Length:\s*(\d+)/i; }
     alarm 0;
   };
   my $ok = $peer =~ /^100\./ && $path ne '' && $qkey eq $key;
   my $body = '';
-  if ($ok && $path eq '/run' && $clen > 0) { my $n = $clen > 4000 ? 4000 : $clen; read $c, $body, $n; }
+  if ($ok && ($path eq '/run' || $path eq '/open') && $clen > 0) { my $n = $clen > 4000 ? 4000 : $clen; read $c, $body, $n; }
   if ($ok && $path eq '/front' && time - $lastFront >= 2) { $lastFront = time; system('/usr/bin/open', '-a', 'Claude'); }
   if ($ok && $path eq '/run' && $body ne '' && time - $lastRun >= 10) {
     $lastRun = time;
     my $tmp = "$dir/run-" . time() . '.txt';
     if (open(my $fh, '>:encoding(UTF-8)', $tmp)) { print $fh $body; close $fh; system('/usr/bin/osascript', "$dir/run.applescript", $tmp); unlink $tmp; }
+  }
+  if ($ok && $path eq '/open' && $body ne '' && time - $lastOpen >= 3) {
+    my $u = $body; $u =~ s/^\s+|\s+$//g;
+    # Spelled out rather than clever: https only, a host from the list above, and only characters that
+    # belong in an address. A value starting with a dash would otherwise be read as an option by open.
+    if (length($u) <= 2000 && $u =~ m{^https://([A-Za-z0-9.-]+)(/[^\s<>"']*)?$}) {
+      my $host = lc $1;
+      if (grep { $_ eq $host } @allowed) {
+        $lastOpen = time;
+        # A list, not a string, so nothing in the address is ever read by a shell.
+        system('/usr/bin/open', $u);
+      } else { $ok = 0 }
+    } else { $ok = 0 }
   }
   print $c ($ok ? "HTTP/1.1 204 No Content\r\n" : "HTTP/1.1 403 Forbidden\r\n"), "Content-Length: 0\r\nConnection: close\r\n\r\n";
   close $c;
