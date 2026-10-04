@@ -17,9 +17,10 @@ Every step says what to change, where, how to check it worked, and how to undo i
 Nothing here is a guess: every file and line number was read from the real code, and
 every claim marked **[measured]** came from a test run on this machine.
 
-**This document is the one you follow.** When it disagrees with an older doc, it wins,
-except for `WHAT-IS-LEFT.md`, which remains the authority on *what exists*. This one is
-the authority on *what order to do it in*.
+**This document is the one you follow, for what to build and in what order.** Since the
+2026-10-04 reconciliation (decision 47) it also replaces `WHAT-IS-LEFT.md` as the list of what
+exists: every item there is now a step here, marked done, or in "Not doing". Every older plan
+is history.
 
 ---
 
@@ -37,9 +38,14 @@ Status markers used below:
 | `[x]` | done and verified |
 | **BLOCKS** | something else cannot start until this is `[x]` |
 
-**Where we are right now (2026-10-04): PHASES 0 TO 5 COMPLETE. PHASE 7 MOSTLY BUILT. PHASE 6
-DESIGNED IN FULL, NOT STARTED: the next step is 6.1, measuring over WoW. Today's Aang is frozen as
-the git tag `aang-v1-before-rebuild` and pushed to GitHub.**
+**Where we are right now (2026-10-04, evening): PHASES 0 TO 5 COMPLETE. PHASE 7 MOSTLY BUILT.
+PHASE 6: 6.0 and 6.1 DONE (6.1 passed over WoW with him playing). The next step is S1 and Q, the
+connection lock and the quota fixes, then 6.2. Today's Aang is frozen as the git tag
+`aang-v1-before-rebuild` and pushed to GitHub.**
+
+**This is now the only plan.** On 2026-10-04 every leftover item in `WHAT-IS-LEFT.md` and the older
+plans was checked against the code and outside research and either folded in here as a step, marked
+done, or written into "Not doing" with its reason (decision 47). The older documents are history.
 
 **History, 2026-10-01: PHASES 0, 1 AND 2 COMPLETE, plus an unplanned fix that turned out to
 matter more than either, and 5.7 absorbed into 0.2. 2.5 PASSED: asked "whats my status with octup", Aang called Read and answered correctly from
@@ -717,7 +723,7 @@ than one long loop. Idle is about 90% of a desktop pet's screen time.
 
 ---
 
-# PHASE 6: the cockpit, the pop-out and the browser  **DESIGNED IN FULL, NOT STARTED**
+# PHASE 6: the cockpit, the pop-out and the browser  **6.0 AND 6.1 DONE; S1 AND Q NEXT, THEN 6.2**
 
 **Rewritten 2026-10-04 for plan version 1.1.** The 2026-10-03 version of this phase was built on
 WebView2 and said paid streaming was impossible. Both are now wrong: the engine is **Electron**, and
@@ -776,7 +782,9 @@ rule and they are not optional.
 ```
 6.0 safety net                     DONE
  -> 6.1 MEASURE OVER WOW            PASSED 2026-10-04, it did not kill the design
- -> 6.2 the shell exists            <- NEXT. blocks every Electron step
+ -> S1 the connection lock          <- NEXT. about 10 lines; a web page can drive Aang today
+ -> Q  the quota leaks              about 2 hours; warm-up, saving mode, #capture
+ -> 6.2 the shell exists            blocks every Electron step
      |
      |-> 6.3 pop-out window -> 6.4 paid video -> 6.5 controls          = POP-OUT USABLE
      |        -> QUOTA GATE (read the meter, project the rest)
@@ -787,6 +795,8 @@ rule and they are not optional.
      |
      |-> 6.19 tab positioning -> 6.20 browser shell -> 6.21 never lose a tab
               -> 6.22 protection -> 6.26 a week as second browser -> 6.27 DEFAULT
+              (S2, the eleven small security fixes, must land before 6.25, when
+               Aang starts reading his signed-in tabs under decision 42)
 ```
 
 **Off the path, any gap:** 6.6 to 6.9 (skipping, "put X on", Simkl marking, the Mac helper), 6.13,
@@ -866,6 +876,84 @@ turns on. The slider from decision 40 stays; only its default moves.
 
 **Still owed, folded into 6.3:** re-measure with a **real 1080p stream**. The test clip was a small
 public Widevine demo, so 2.3% is a floor, not the number for full-size anime.
+
+---
+
+### `[ ]` S1 The connection lock  **BLOCKS 6.2**  (added 2026-10-04, decision 47)
+
+**Why:** the brain's local connection (`core.ts:1133`, `ws://127.0.0.1:<port>/body`) checks nothing.
+Browsers do not apply same-origin rules to WebSockets; they only send an Origin header and leave the
+check to the server (RFC 6455 section 10.2). Firefox lets pages reach localhost by design, Edge does
+not cover WebSockets in its local-network protection, and Chrome only does from version 147 with an
+Allow button. So **a web page can connect today** and send a message as Joshua with no outside-content
+flag, read 200 turns of history, read the Panel, answer a waiting question "always", or send a waiting
+draft. Real precedents: Claude Code's own IDE extension (CVE-2025-52882), MCP Inspector
+(CVE-2025-49596), Ollama (CVE-2024-28224), Zoom (2019). Phase 6 puts a full browser on this same PC,
+so the lock goes on before anything Electron connects.
+
+**The change:**
+- **Refuse any connection that carries an Origin header** (about 10 lines, `verifyClient`). Browsers
+  always send one and a page cannot remove it; his C# window and the Discord link send none. This is
+  about 90% of the benefit, and it also stops DNS rebinding, because a rebound page's Origin is the
+  attacker's domain.
+- The same check on the hook server on the next port up (`hooks.ts:199`).
+- **Then a per-boot password:** the Core writes a random token to its state folder at start; the Body,
+  and later the Electron Shell, read it and present it. About 2 to 3 hours with the C# side. The
+  Electron Shell in 6.2 needs this, because Electron pages do send an Origin.
+
+**Done when:** a page in Firefox, Edge and Chrome cannot connect (tested from a local test page), the
+Body and Discord still work, and a client without the token is refused.
+
+### `[ ]` Q The quota leaks  **BLOCKS 6.2**  (added 2026-10-04, decision 47)
+
+**Why:** his week has been at 72% to 88%, and four things spend it for nothing. Measured from his own
+logs, 2026-10-04:
+- **Q1 The warm-up turn.** On by default (`index.ts:12`). Every Core start resumes the Quick session at
+  about 24k tokens and sends "Reply with a single period". The Core started 4, 14, 22 and 4 times on
+  1 to 4 October, often with fewer real messages than starts. **Warm only when he opens the bubble or
+  presses a key**, or not at all. 10 minutes.
+- **Q2 Saving mode forgets itself.** It lives only in memory (`quota.ts:35`), so every restart turns it
+  off and re-offers it: the only duplicate message in his history is "You're at 88%... save quota?".
+  **Save it to disk, and add "save on" / "save off" to Discord.** 45 minutes.
+- **Q3 Every #capture note costs a Sonnet turn.** Non-recipe notes go through `route.ts:61` to Smart at
+  23k to 46k tokens. **Append them to a dated notes file in code, no model, and acknowledge.** 1 to 2 hours.
+- **Q4 Fact auto-extraction off for good.** In its whole life it produced 5 facts, and it is a route for
+  text Aang reads to write into his memory. `consolidate` defaults to off. 5 minutes. (It was already
+  being skipped at every start for quota, so this is tidiness as much as saving.)
+
+**Done when:** a cold start with no message sends nothing to Claude; saving mode survives a restart and
+can be switched from Discord; a #capture note produces a file line and no Claude turn.
+
+### `[ ]` S2 The eleven small security fixes  **BLOCKS 6.25**  (added 2026-10-04, decision 47)
+
+Real and reachable through a poisoned email, web page or screen, but each is small: about a day in
+total. They must land before Aang reads his signed-in tabs (decision 42, step 6.25).
+- **2.2** Refuse writes to the Brain folder and to the AangApp source, including the security code. 5 lines.
+  (Copilot was attacked exactly this way, CVE-2025-53773.)
+- **2.3** Refuse writes to the Startup folder and both PowerShell profile folders; ask for `schtasks`
+  and `setx`. 10 lines. (MITRE T1547.001, T1546.013.)
+- **2.4** Never auto-allow a command containing `;` `|` `&` `$(` a backtick, `>` or a newline: those
+  always ask. 3 lines. (The Gemini CLI bug; Claude Code splits on the same characters.) Also: a trusted
+  program may not read files outside his project folders.
+- **2.5** `look_up_web` asks when the turn has read outside content or the address is not one he typed. 10 lines.
+- **2.6 and 2.7, one wrapper:** when a turn has read outside content, tools that change things
+  (`remember`, `correct`, `do_task`, drafts) ask first; and `search_memory`, `what_we_talked_about` and
+  `claude_code_status` set the outside-content flag on what they return. About 20 lines.
+- **2.8** Email approval shows the whole message, or says "open it on the desktop". 10 to 20 lines.
+- **2.9** `SuppressEmbeds` on every message Aang sends to Discord, so a planted link cannot leak data
+  with nobody clicking. 1 line. (Shown against Discord AI bots, February 2026.)
+- **2.11** A Discord "yes" means once, never "always". 1 line.
+- **2.13** "Open files" asks every time for programs and scripts. 5 lines.
+- **2.19** His own tools may not read `%APPDATA%\Aang` (the Google token can send mail as him). 1 line.
+
+**Done when:** each has a test that tries the attack and is refused.
+
+### `[ ]` S3 The Mac bridge fixes  **when Mac work resumes**  (added 2026-10-04, decision 47)
+
+Low risk today: the listener binds only to the Mac's Tailscale address, so only his own devices reach it.
+When Mac work comes back: check the real tailnet range `100.64.0.0/10` (or `tailscale whois`) instead of
+`/^100\./`, move the key from the URL to a header, compare in constant time, and take the key out of
+the launchd command line. 20 to 30 minutes.
 
 ---
 
@@ -1371,6 +1459,66 @@ whether the Windows passkey bridge (`@clerk/electron-passkeys`, 0.0.3) is ready.
 
 ---
 
+
+---
+
+## Leftovers kept, off the critical path (added 2026-10-04, decision 47)
+
+From the 2026-10-04 reconciliation of every older plan. Each one earned its place on evidence; none
+blocks anything. Do them in any gap.
+
+### `[ ]` K1 Small fixes, each under an hour
+- **Photos from Discord:** pass the saved image's path into the turn so Claude can look at it
+  (`discord.ts:252-271` already saves it).
+- **The replay bug:** only ever move Discord's `lastSeen` forward, comparing ids as numbers
+  (`discord.ts:228`). Today a live message during catch-up can move it back and replay messages.
+- **The double save:** delete the two `saveSaid` calls at `core.ts:1000` and `:1005`; `announce()`
+  already saves (`:2071`), and the extra call also records messages that were muted or held.
+- **Tailscale at start:** retry binding the hook listener every 60 seconds (`hooks.ts:222-229` tries once).
+- ~~**The old plans:** a "SUPERSEDED" header on NEXT, ROADMAP, PORT-TO-MAC, WHAT-IS-LEFT, PLAN and
+  THE-PLAN.~~ **DONE 2026-10-04.**
+- **A size cap on resumed sessions:** start fresh past about 30k tokens instead of only after 7 days
+  (Smart reached 45.7k on 2 October), so a cold start costs less.
+- **A 10-minute real Mac test** of the live helper.
+
+### `[ ]` K2 The research loop, finished (Phase 7)
+- **#look-into-this:** he drops a link; **Qwen reads and summarises it first**; Claude only when he taps
+  "go deeper", with a fixed cap per week. 3 to 4 hours.
+- **Claude verdicts on the shortlist:** at most two a week, run just after the weekly reset.
+- **Scoring against his projects:** Qwen plus a fixed one-paragraph project list. No Claude.
+- **"Already rejected":** a `verdict` column on the existing `mentions` table, so a dismissed name stays dismissed.
+- **The digest to a Discord channel:** the note already exists (`core.ts:1004`); post it.
+
+### `[ ]` K3 Addons (Phase 7.6), finished
+- **One chat tool that lists his installed addons**; `addons.ts` already reads them. With that,
+  "what does this addon do" is ordinary conversation.
+- **One sentence in `look_at_window`'s description** so he is offered "want me to check your setup?".
+
+### `[ ]` K4 Qwen does a little more (Phase 8, narrowed)
+- **Thinking on for background work** (`thinkHard` on `askLocal`): measured 5/5 at five steps.
+- **Then move job-link vetting to Qwen** (`discord.ts:292`), the last background job still paid for
+  with Claude. Two fields in `turns.jsonl` count wins and escalations.
+- The `[qwen]` marker is UI and is done in 6.16.
+
+### `[ ]` K5 The job hunt, measured once
+- **One small sweep-only run, started from Discord** (`SWEEP_REQUEST`, `jobs.ts:359`), a few boards and
+  lanes, with its Claude cost written down. A sweep has never been costed.
+- **Borrow career-ops' dead-posting check** (`career-ops-hq/career-ops`, MIT, 73k stars): a free public
+  API check before any screening.
+- **Fetch Greenhouse's form questions** (`?questions=true`, free, no tokens) before tailoring anything,
+  so a knock-out question is seen before work is spent.
+- **Pacing:** keep LinkedIn page loads per sweep down; that, not applications, is the risk.
+
+### `[ ]` K6 A small memory check
+Ten to fifteen questions taken from real failures, checked by code, run **only** before a memory or
+prompt change. Not a 30-question suite, and never run routinely (his test-budget rule).
+
+### `[ ]` K7 Job and interview prep, when it is needed
+When a real interview lands: Aang reads the email's attachments. Prep itself happens in chat; no
+meeting-booking feature.
+
+---
+
 ## What would make this a mistake
 
 - **If 6.1 fails** and no fix brings WoW back to normal. That ends the overlay; the Mac's own
@@ -1385,7 +1533,7 @@ whether the Windows passkey bridge (`@clerk/electron-passkeys`, 0.0.3) is ready.
 
 ---
 
-# PHASE 7: the research loop  **PLANNED, NOT STARTED**
+# PHASE 7: the research loop  **MOSTLY BUILT** (sweep, mentions, digest note, addon check: `research.ts`, `mentions.ts`, `watch.ts`, `addons.ts`). What is left is step K2
 
 **Joshua, 2026-10-03: "can we also get aang to weekly scan github or find something that shows
 whats trending on github all time and weekly, then see if those things are helpful for him to
@@ -1552,7 +1700,7 @@ downloads and installs addons competes with their app. One that reads what he al
 him what is behind, explains it, and sends him to CurseForge to click download drives traffic
 **to** them. That is a materially different application, and it is worth making in those words.
 
-**Action for Joshua, and only he can do it:** apply for a CurseForge API key. It is free, it costs
+**DONE: his key is in** (commit e5edf79; the version check runs). Kept below for the record. **Action for Joshua, and only he can do it:** apply for a CurseForge API key. It is free, it costs
 nothing to be refused, and the application should say plainly that this is a read-only assistant
 that notifies and explains, never downloads or installs.
 
@@ -1995,6 +2143,23 @@ Recorded so they do not quietly come back.
 | | why |
 |---|---|
 | **Katara, and Momo with it** (WHAT-IS-LEFT.md §8) | **His decision, 2026-10-04: "no katara".** The second sprite is not being built. Momo only existed to carry messages between the two sprites, so it goes too. |
+| **The PIN for approvals** (old 2.10) | Prompt injection cannot tap a button. Discord two-factor, the owner-only check and the per-draft hash already cover a stolen account. Half a day of friction for little gain. |
+| **Old 2.12, 2.15 and 2.18 as separate fixes** | Each is only reachable through the open connection; S1 closes all three. |
+| **Learning from his ratings** (old 4.2) | Six ratings ever, the last on 20 September. And the 2026-09-28 verdict: never optimise against them. |
+| **Self-written skills** (old 4.10) | One user, few repeated procedures, and he can write a skill with Claude Code in minutes. |
+| **Commitments as their own rows** (old 4.13) | `reminders.ts` covers dated ones; recall triggered by context is unsolved research. |
+| **"Recent history in the prompt"** (old 4.4) | Already true: lanes resume their own session for 7 days. The real issue is size, which is K1's cap. |
+| **A 30-question eval suite** (old 4.1) | Shrunk to K6. Every run costs quota, and the memory design is frozen. |
+| **Discord tidying** (old 5.5) | Archiving three channels by hand takes seconds. |
+| **Phone cards before Phase 6** (old 5.3) | The card format is defined in Phase 6; building it now means designing it twice. Revisit after 6.15. |
+| **Shadow-off Paths B, C and D** | **Path A is chosen and already works:** Discord holds messages and the backfill catches up. B adds a host to maintain for an "I'm asleep" reply, C forces `/ask`, D is the biggest build for the least use. |
+| **Aang pointing on screen** (old 7.2) | `look_at_window` has never been used once. The Phase 6 browser can highlight inside its own pages if a need appears. |
+| **Name and city out of the code** (old 8.1) | Its reason was a second character, which is dropped. Toronto in code is also correct for a cloud PC whose clock zone may differ. |
+| **The "all-time" half of the GitHub sweep** | Top repos for a topic barely change week to week, and about 16% of repos over 50 stars were in fake-star campaigns (arXiv 2412.13459). Delete `establishedRepos`. |
+| **Qwen reading the screen** (qwen3-vl) | The free text reader already exists, the model would cost another 6 GB, and the GPU guard refuses local models mid-game, which is exactly when he would want it. |
+| **Addon suggestions** (old 7.6 step 6) | No data source for them. |
+| **Job hunt: the stuck relay, sidebar filing, dropping Indeed, full interview-prep** | The relay already exists as text (`discord.ts:428-447`); filing is tidiness; Indeed returned 183 postings to his own sweep on 21 September, so "Indeed blocks everyone" was false; prep happens in chat (K7). His own notes say about 60 cold applications gave zero interviews: the bottleneck is fit and channel, not automation. |
+| **Permission expiry, secrets-in-logs cleanup** (old 2.14, 2.16) | Low value now; the action log is already clean and keys only travel over loopback or Tailscale. |
 | Rebuilding Aang on a different foundation | **[verified]** It would move you off your subscription onto metered API billing. |
 | Context editing | **[verified]** Zero references in both the pinned and current engine packages. Its 84% headline came from a 100-turn run that would otherwise have run out of room; your lanes cap at 8 turns. |
 | A local model as the main brain | **[measured]** Fails at 5 tool calls, 0/3. And the "Claude validates it" idea is refuted: a production study measured a verifier catch rate of 0.20 and a contribution of +1.5 points, and found using the frontier model as the checker *"eliminates most rescues."* |
@@ -2036,8 +2201,8 @@ Update this table as you go. It is the answer to "where are we".
 # APPENDIX A: Phase 6 decisions, and the reasons behind them
 
 Interviewed and decided 2026-10-03, extended 2026-10-04 with the browser. Every decision below is
-his. Nothing in this plan is built yet. The only code shipped alongside it is the Simkl token fix
-(commits 68de23a, fb8e7c7, 8c9c793), which is maintenance, not plan work.
+his. Built so far from this appendix: 6.0 and 6.1 (2026-10-04). Also shipped alongside it: the Simkl
+token fix (commits 68de23a, fb8e7c7, 8c9c793), which is maintenance, not plan work.
 
 **How this relates to the rest of the plan.** Phase 6 above is the authority on ORDER: every step,
 the critical path, and what "done" means. This appendix holds the DECISIONS and the REASONS. This
@@ -2103,6 +2268,7 @@ Three research reports sit behind this appendix, all in the data repo at `Aang/r
 | 44 | The browser's top band (2026-10-04) | **Back, forward, reload, address slot. Nothing else.** No Aang button (Aang is already on screen over the browser: his halo glows, clicking him opens his chat), no ad counter (pausing ad blocking lives behind the SECURE plaque). The slot says who is driving **in full words**: YOU ARE DRIVING / AANG IS READING / AANG IS DRIVING |
 | 45 | The pop-out's default look (measured 2026-10-04) | **Opaque by default; see-through is turned on.** Measured over WoW: a see-through always-on-top window pushes the GPU's drawing load from ~29% to 47.4%, an opaque one costs nothing (26.8%, baseline). The video itself is near free either way. The slider in decision 40 is unchanged; only its starting point moves |
 | 46 | Katara (2026-10-04) | **Not built.** WHAT-IS-LEFT.md §8 is retired, and Momo with it. Recorded under "Not doing" |
+| 47 | One plan, reconciled (2026-10-04) | Every leftover in `WHAT-IS-LEFT.md` and the older plans was checked against the code and outside research. **Order: S1 the connection lock and Q the quota leaks before 6.2; S2 the eleven small security fixes before 6.25; S3 when Mac work resumes.** Everything else kept is a K step off the critical path; everything dropped is in "Not doing" with its reason. Of the old 19 security items, 12 are real (1 urgent, 11 small), 3 wait, 4 were overkill or covered by S1. Path A is the answer to "what happens when Shadow is off" |
 
 ---
 
@@ -2305,7 +2471,7 @@ Locked down, because anything that can make the Mac open things on command is a 
 | Rule | Why |
 |---|---|
 | **Listens only on the Mac's Tailscale address** (`100.83.81.65`) | Nothing on the open internet can even see it. Shadow (`100.91.66.119`) and the Mac are both on his tailnet, signed in as him |
-| **Only accepts messages signed by Aang** | Another device on the tailnet still cannot drive it |
+| **Only accepts messages carrying Aang's key** | Another device on the tailnet still cannot drive it. **Correction 2026-10-04:** today this is a plain key in the URL compared with Perl `eq`, not a signature (`macsetup.ts:36`, `:40`). Low risk, because only his own tailnet can reach it; the fixes are step S3, due when Mac work resumes |
 | **Only `https` links, only from sites he approves** | Prime, Crunchyroll, Netflix, YouTube, Twitch to start |
 | **Does nothing else** | No files, no commands, no other apps |
 | **Logged** | Every request, accepted or refused |

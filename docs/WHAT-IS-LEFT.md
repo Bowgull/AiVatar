@@ -1,3 +1,5 @@
+> **SUPERSEDED (2026-10-04).** This is history. The one plan is [`FINAL-AANG-BUILD.md`](FINAL-AANG-BUILD.md): every item here was checked against the code and either built, folded in as a step there, or written into its "Not doing" table with the reason (decision 47). Do not act on this document.
+
 # Everything left to build
 
 *Written 2026-09-28. This is the complete map — every outstanding item across all planning documents, merged and de-duplicated, in plain language.*
