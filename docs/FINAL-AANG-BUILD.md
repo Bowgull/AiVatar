@@ -1224,7 +1224,7 @@ pace changes or the week runs hot.
 
 ---
 
-### `[ ]` 6.6 Skipping
+### `[~]` 6.6 Skipping  **BUILT 2026-10-04** (ce8286b, 7b88676, 45e0cfa); Twitch ads still his call
 
 **Why:** he asked. Research tested each source live.
 
@@ -1240,7 +1240,46 @@ pace changes or the week runs hot.
 
 **Every skip shows a plaque for three seconds with Undo.** Nothing is skipped silently.
 
-**Blocked on him:** whether Twitch ad blocking is worth turning on.
+**Blocked on him:** whether Twitch ad blocking is worth turning on. **Still off**, and not built:
+its own notes admit the result is a 360p picture for the length of the ad break, which may well be
+worse than the ad. It is one switch away when he says.
+
+**BUILT 2026-10-04.** 18 unit tests, plus `tests/fakecore/skipping.mjs` end to end against real
+community data.
+
+**Proved, nothing mocked:** a real video whose intro really is marked 0 to 16 seconds. Aang jumped past
+it, said so on the plaque, Undo put him back, and it then did **not** fight him by skipping again.
+
+**The rules that make it bearable rather than annoying:** nothing is skipped silently (a carved plaque
+for three seconds, with Undo); a skip only fires in the **first second** of a segment, because if he
+has let the opening run he is watching it on purpose; and the same segment is never skipped twice.
+
+**SponsorBlock is asked by a hashed prefix**, as they intend: four characters of a hash go out, every
+video sharing them comes back, and his is picked out on this machine. They never learn what he is
+watching. Music in a music video and plain markers are deliberately left alone.
+
+**The service's own Skip button** is pressed for him on Prime, Crunchyroll and Netflix. Netflix's is a
+React component that ignores a plain click, so the real mouse sequence is sent. Prime and Crunchyroll
+are marked steady and Netflix fragile, and the log says so when it attaches to the fragile one. The
+watcher is deliberately dumb: it never reads the page, presses at most once every four seconds, and
+only presses something he could have pressed himself. Verified running in a real Crunchyroll page.
+
+**Ad blocking** uses Ghostery's engine with **uBlock's own lists**, verified by what the engine decides
+address by address, because a blocker that reports four lists and blocks nothing looks identical to one
+that works.
+
+**THE REAL LIMIT, now a test:** YouTube increasingly serves its own ads from its own address, beside the
+video. Refusing those would break the player, so no list does it and none can. That is why uBlock does
+that part with rules injected into the page, and the honest reason the switch reads "works, breaks for
+a day or two every few weeks".
+
+**A near miss worth recording:** a run where one list failed to download left a smaller cache, and
+testing against it suggested Google ad domains were never blocked from YouTube. They are. A failed list
+is now reported rather than silently blocking less, and a cache from such a run is not trusted.
+
+**Still owed:** the anime opening lookup needs to know the title and episode, which arrives with 6.7
+and 6.8. Until then it is wired and waiting rather than guessing, because a wrong opening time is worse
+than none.
 
 ---
 
