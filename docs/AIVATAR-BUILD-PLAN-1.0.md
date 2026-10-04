@@ -1,6 +1,11 @@
 # AiVatar Build Plan 1.0
 
-**Version 1.0** | Written 2026-10-01 | Owner: Joshua Bocas
+**Version 1.1** | Written 2026-10-01, revised 2026-10-04 | Owner: Joshua Bocas
+
+**What changed in 1.1:** Phase 6 rewritten from scratch (Electron instead of WebView2, the video
+pop-out, paid video proven to play on Shadow, the everyday browser, a critical path and 29 steps).
+Phase 8 steps 4 and 6 now live in Phase 6. The file keeps its `1.0` name so `CLAUDE.md` still points
+at it.
 
 The ordered, step-by-step plan for finishing Aang.
 
@@ -28,7 +33,11 @@ Status markers used below:
 | `[x]` | done and verified |
 | **BLOCKS** | something else cannot start until this is `[x]` |
 
-**Where we are right now: PHASES 0, 1 AND 2 COMPLETE, plus an unplanned fix that turned out to
+**Where we are right now (2026-10-04): PHASES 0 TO 5 COMPLETE. PHASE 7 MOSTLY BUILT. PHASE 6
+DESIGNED IN FULL, NOT STARTED: the next step is 6.1, measuring over WoW. Today's Aang is frozen as
+the git tag `aang-v1-before-rebuild` and pushed to GitHub.**
+
+**History, 2026-10-01: PHASES 0, 1 AND 2 COMPLETE, plus an unplanned fix that turned out to
 matter more than either, and 5.7 absorbed into 0.2. 2.5 PASSED: asked "whats my status with octup", Aang called Read and answered correctly from
 applications.md. Two prompt faults found and fixed to get there, neither of them plumbing: voice.ts
 told him to OFFER to look, and profile.md only told him to read the file if he already knew the
@@ -704,235 +713,457 @@ than one long loop. Idle is about 90% of a desktop pet's screen time.
 
 ---
 
-# PHASE 6: the cockpit  **DESIGNED, NOT STARTED**
+# PHASE 6: the cockpit, the pop-out and the browser  **DESIGNED IN FULL, NOT STARTED**
 
-**Joshua's idea, first interviewed 2026-10-02 as "the player", widened 2026-10-03 into the cockpit and
-designed in full the same day. Nothing here is built. His instruction: "finish planning it out all".**
+**Rewritten 2026-10-04 for plan version 1.1.** The 2026-10-03 version of this phase was built on
+WebView2 and said paid streaming was impossible. Both are now wrong: the engine is **Electron**, and
+paid streaming **played over WoW on this machine**, which he watched himself. This version replaces it.
 
-The shape, in his words: Aang's bubble **expands** into a window - "this new dashboard this new
-cockpit" - that takes whatever shape the content needs.
+**Where the reasons live.** Every decision behind this phase, numbered 1 to 36, and the reasoning for
+each, is in `docs/COCKPIT-PLAN.md`. This phase holds the **order** and the **steps**. The approved
+mockups are `docs/cockpit/sheet-1-language.html` to `sheet-4-popout.html`. Test results are in
+`docs/BROWSER-TESTS-2026-10-04.md`. The engineering view is `docs/BROWSER-ENGINEERING-ASSESSMENT.md`.
 
----
+**What it gets him, in his order of use:**
+1. **The video pop-out over WoW.** What he will use most (decision 27).
+2. **Aang that can finally format what he says.** The biggest daily win.
+3. **His own everyday browser**, eventually his default (decision 26).
 
-## The reason this matters, which is NOT the one I had been giving
-
-I had been selling this on video and thumbnails. Those are real, and they are not the prize.
-
-**The prize is that Aang could finally say things with structure.** He is currently FORBIDDEN from
-formatting anything. `voice.ts` line 18: *"Write plain text only: no markdown, no emoji"*, and a lint
-strips markdown if the model emits any.
-
-That rule is correct, because the bubble is drawn with GDI - it paints plain strings onto a canvas and
-has no renderer for anything else. A `**bold**` would reach him as literal asterisks, which is exactly
-what happened on 2026-09-24 and why the rule was written.
-
-So the chain is: **the canvas cannot format, therefore the prompt forbids formatting, therefore
-everything is a wall of prose.** The only structure that exists at all is `present_list`.
-
-What he gets today for three jobs:
-
-> I looked at three jobs. Octup is a customer success manager role in Toronto hybrid paying 95 to 120
-> thousand which is the closest match this week. Constellation Dealer Group is a digital project
-> coordinator remote with no salary posted which is worth a look only if the week is thin. GreenShield
-> is a bilingual account executive in Montreal which needs French and is commission based so both are
-> dealbreakers.
-
-One grey paragraph; every word must be read to find the one that matters. The same facts with a
-heading, three rows, a colour per verdict and the salary in its own column are legible in a second.
-
-**His rule for it, 2026-10-03: structure only when it earns it.** "It is 3:14" stays one plain line.
-Anything with parts - several jobs, a comparison, steps, findings - gets the full treatment. Same
-discipline as the existing list rule, and `voice.ts` line 18 has to be rewritten rather than deleted.
+**Entry:** phases 0 to 5 done (they are).
+**Exit:** every step below `[x]`, and he has used the browser as his default for a week without
+going back to Chrome for anything not on the "kept in Chrome" list.
 
 ---
 
-## The correction that unblocked this
+## Five facts that shape every step
 
-**The 2026-10-02 entry said the bubble could never hold a browser. That was wrong.** It said a child
-window does not render into a per-pixel-alpha layered window - true, and it is in Microsoft's docs -
-but it treated "child window" as the only way to put a browser on screen.
-
-**WebView2 has a second hosting mode.** The browser renders into a DirectComposition visual instead of
-a child window, which is exactly what makes per-pixel alpha and forwarded mouse input possible.
-`maschine34675/WebOverlay` ships click-through HTML HUDs over a running game on that recipe:
-`WS_EX_NOREDIRECTIONBITMAP`, `CoreWebView2CompositionController` with `RootVisualTarget`,
-`DefaultBackgroundColor` alpha 0, and `WS_EX_TRANSPARENT` **together with** `WS_EX_LAYERED` for
-click-through, with mouse input forwarded by hand.
-
-**Also corrected:** he believed he played WoW in exclusive fullscreen. WoW has not had it since patch
-8.0.1 in 2018, and his `Config.wtf` confirms borderless. The overlay can sit over his game.
+1. **This PC is a Shadow cloud PC, played on his MacBook.** His screen is itself a video stream.
+   Paid video is blocked by Shadow (error S:102) unless the window drawing it has hardware
+   acceleration off, which is Shadow's own documented fix and is tested. **Paid video can never be
+   checked by screenshot here; every screenshot of it is black. He looks.**
+2. **The engine is Electron, two runtimes.** Stock Electron for everything; castLabs Electron (with
+   Widevine) for paid video. Tested: castLabs `44.5.1+wvcus`, Widevine `4.10.3050.0`.
+3. **Built together** (decision 28), in dependency order. Nothing is built "first and decided later".
+4. **Each step ships looking finished** (decision 6). No half-moved stretches.
+5. **The pet sprite and the tray menu stay C#.** Nothing else on Windows can do them.
 
 ---
 
-## What it is made of
+## How "done" works in this phase
 
-**Scope: the bubble AND the Panel, in one job.** He chose this knowing it roughly doubles the work,
-because the alternative is a period where half of Aang looks like a different program. The Panel is
-seven tabs of Windows controls today - What I know, What I may do, What I did, Drafts, Jobs, History,
-Settings - and all of it gets rebuilt in Aang's own look.
+Every step's **Done when** includes these, on top of its own line. They come from his zero-drift
+rule and they are not optional.
 
-**The sprite stays hand-drawn. (My recommendation, not his instruction - overturn it if you disagree.)**
-The drawing is identical either way; the only question is what paints it. Keeping it costs nothing and
-risks nothing. Moving it into the page buys easier layout between pet and bubble, and pays for it with
-the free click-through, the proven animation timing, and the one part of Aang he already likes.
-
-**The look is not up for redesign.** "I LOVE the weight of the buttons currently they feel and look
-great lets keep this in mind." That style has a name: a **skeuomorphic chunky 3D keycap** with a
-**hard offset shadow** - a solid darker shape behind and below the face, which the face travels down
-onto when pressed. It is NOT neumorphism, which uses soft paired shadows and reads washy. In CSS it is
-one `box-shadow` with no blur, so it reproduces exactly. `Theme.Lip` is 3 px against a convention of
-~8 px for a game key and ~4 px for a UI button, so it is deliberately restrained - keep it there.
-**Take every value from `Theme.cs`; do not eyeball any of it.**
+1. Screenshot the matching mockup sheet. Screenshot the real build showing the same thing, with
+   `tools/measure/Capture.ps1` and the `tests/fakecore/look-*.mjs` drivers.
+2. Put them side by side in one image and show him.
+3. Name every difference out loud, as a fix or a reason. If the mockup was wrong, fix the mockup
+   first, then re-check the step.
+4. **Paid video and feel are checked by his eyes**, never by screenshot: button travel, the fade, how
+   the pop-out behaves mid-fight.
+5. One step, one commit, hash written next to the tick (ground rule 1).
 
 ---
 
-## What it must be able to do
+## The critical path
 
-Chosen by him across three rounds on 2026-10-03.
+**Each arrow blocks the next. Everything not on a line can be done in any gap.**
 
-**Showing**
-- Rich replies - headings, colour, icons, columns - per the rule above
-- A live view of a Claude Code job working: steps, files and output as they happen, not just "done"
-- Charts: the job hunt by stage, Claude use week over week, addon drift
-- Two things side by side - two job offers, before and after a file change
-- Video, including picture-in-picture over the game (YouTube and Twitch; see "impossible" below)
+```
+6.0 safety net
+ -> 6.1 MEASURE OVER WOW            (can kill the design)
+ -> 6.2 the shell exists            (blocks every Electron step)
+     |
+     |-> 6.3 pop-out window -> 6.4 paid video -> 6.5 controls          = POP-OUT USABLE
+     |        -> QUOTA GATE (read the meter, project the rest)
+     |
+     |-> 6.10 keycaps match -> 6.11 rich replies -> 6.12 new bubble      = AANG CAN FORMAT
+     |
+     |-> 6.19 tab positioning -> 6.20 browser shell -> 6.21 never lose a tab
+              -> 6.22 protection -> 6.26 a week as second browser -> 6.27 DEFAULT
+```
 
-**Doing**
-- Buttons on his answers that act: apply to this, save to vault, remind me Thursday
-- Drag a file onto Aang and ask about it
-- Snip part of the screen and ask about just that - the real answer to "did I do it right?", and
-  better than `look_at_window`, which only does whole windows
-- Highlight text in any app, press a hotkey, and it is in the bubble
+**Off the path, any gap:** 6.6 to 6.9 (skipping, "put X on", Simkl marking, the Mac helper), 6.13 to
+6.18 (the rest of the cockpit), 6.23 to 6.25 (his stuff, extras, Aang's intelligence in the
+browser), 6.28 (upkeep).
 
-**Knowing**
-- One search box over everything: his memory, the 1,188 vault notes, conversations, jobs, addons.
-  Four separate places today, one of them searchable
-- **Show the plan before he acts.** The research names this as the single biggest gap in Aang - every
-  agent winning in 2026 does plan-before-action and Aang does none of it. He shows the steps, Joshua
-  approves or edits, then it runs
-- More than one thing waiting at once. Today a new message REPLACES the last, so three things needing
-  him means he sees one and loses two. This is closer to a bug than a feature
-
-**When it breaks**
-- Say plainly what is wrong, in Aang's own voice, with a way to retry: *"My brain stopped and I am
-  restarting it. Nothing you said is lost."* Never a blank window, never an endless spinner. Error and
-  empty states are the thing nobody designs and the thing that makes software feel cheap.
-
-**Offered and NOT chosen** (recorded so they are not silently rebuilt): rendering his Obsidian notes
-in-window, before/after diffs, syntax-highlighted code, the job hunt as a drag-between-columns board,
-full keyboard operation, a timeline of the day, seeing the page he read with the used part marked, and
-editing a fact in place.
+**Why this order, plainly:** the pop-out goes first because it is what he will use most **and**
+it is where the two riskiest unknowns live, the overlay over WoW and paid video on Shadow. If either
+fails, better to know in week one. Rich replies come next because they are the biggest daily win and
+need no browser features. The browser comes last because it is the most work and the least used of
+the three, and the default-browser switch is flipped only after a week of real use.
 
 ---
 
-## What is genuinely impossible
+### `[x]` 6.0 The safety net  DONE 2026-10-04 (tag `aang-v1-before-rebuild`, pushed)
 
-**Netflix, Disney+, Prime and other paid streaming.** WebView2 supports PlayReady but **not Widevine**
-(open request, `WebView2Feedback#4828`), and those services additionally require Verified Media Path
-admission, which an app like Aang will not get. YouTube and Twitch use no such protection. **Do not
-relitigate without a Widevine announcement.**
+**Why:** he wants to be able to say "let's go back to the old one" (decision 36).
 
-**Bot-detection evasion stays out**, unchanged from 2026-10-02: the requirement was never proven, and
-Patchright was rejected because evasion from inside his own logged-in session attaches the consequence
-to the identity he is job hunting with.
+**The change:** today's working Aang frozen as git tag **`aang-v1-before-rebuild`** at `658f02d`,
+**pushed to GitHub** and verified there. Still owed, and part of 6.2: the first time the new Shell
+starts, it copies `%APPDATA%\Aang` and the database to a dated snapshot **before touching anything**,
+because old code cannot always read data the new code has changed.
 
----
-
-## Safety: real logins, done properly
-
-He refused the easy answer - *"there cant be a 'theres no way to do this safely' there has to be a
-way"* - and he was right.
-
-**The fear people name is the wrong one.** "A bad page steals your cookie" is solved: a page on one
-site cannot read another site's cookies. That is decades of browser hardening.
-
-**The real risk is specific to an agent: a page tells Aang to do something and Aang does it while
-signed in as Joshua.**
-
-1. **Two profiles, one runtime.** WebView2 supports multiple profiles under a single user data folder,
-   with separate cookies and storage and no second runtime. `signed-in` only ever navigates to a short
-   allowlist he actually signs into; `sandbox` is empty and takes everything Aang found. A research
-   link **cannot** open in the signed-in profile - enforced at `NavigationStarting`, which can cancel
-   any navigation including redirects and iframes, not by convention.
-2. **The injection defence already exists.** The taint rule - reading outside content forces Aang to
-   ask again before acting - has been live since September and his `core.log` shows it firing. Extend
-   it to cover anything the window loads.
-3. **Free hardening**: downloads cancelled by default, script dialogs suppressed, camera/microphone/
-   location denied, screen capture blocked, Enhanced Security Mode raised on `sandbox`.
-4. **Chrome history and bookmarks: only on request, with a prompt each time.** Never on Aang's own
-   initiative.
+**To go back:** close the new Aang, `git checkout aang-v1-before-rebuild`, rebuild, restore the
+snapshot. Only one Aang runs at a time: both want port 47831 and the tray.
 
 ---
 
-## Cost, measured and still to measure
+### `[ ]` 6.1 Measure over WoW, before building anything  **BLOCKS everything in this phase**
 
-From `DECISIONS.md` D1, on this machine: a WebView2 host ran **7 processes, 165-166 MB, 10.9-12.5%
-CPU, 0.31 s startup**. The layered window uses about a tenth of the memory and four to seven times
-less CPU. One run reporting 18.7 GB is treated as an anomaly and excluded; it is disclosed rather than
-hidden.
+**Why:** the old plan named this as the one measurement that could kill the design, and it was
+never taken. The research since adds the thing gamers actually complain about: **video stuttering
+while a game has focus**, from background throttling, hardware acceleration and NVIDIA Instant
+Replay. And everything here runs on Shadow's GPU, re-encoded into Shadow's stream.
 
-**That CPU figure is the risk and it is not yet the right measurement** - it was taken rendering at 30
-fps. **Before committing, measure three things separately with WoW running: an idle card deck, a
-scrolling page, and a playing video.** If an idle deck is not close to free, the whole design needs
-rethinking, because the bubble is open most of the day.
+**Where:** throwaway scripts in the scratchpad, like the 2026-10-04 tests. Results to
+`docs/BROWSER-TESTS-2026-10-04.md`, new section.
 
-**One browser, reused, never one per card.** Each instance spawns its own processes; the runtime
-binaries are shared between apps but the memory is not.
+**The change:** with WoW running in a raid-like scene, measure each of these for two minutes:
+1. Nothing extra open (baseline).
+2. An idle Electron window open.
+3. A page scrolling.
+4. YouTube playing in a see-through always-on-top window, `backgroundThrottling: false`.
+5. The Widevine test stream in castLabs with hardware acceleration off.
 
-**Two costs to accept:** driver frame-generation tools (AMD Fluid Motion, Lossless Scaling, NVIDIA
-Smooth Motion) can stutter while any overlay is up, and mouse input must be forwarded by hand.
+For each: CPU, GPU and RAM of the Electron processes (`typeperf`), and **WoW's frame pacing with
+PresentMon**. Run 4 twice, with NVIDIA Instant Replay on and off.
 
----
+**Verify:** the numbers are in the doc, and he plays through runs 4 and 5 and says how WoW feels.
 
-## What already exists and must not be rebuilt
+**Done when:** an idle window costs close to nothing, **and** WoW's frame pacing in runs 4 and 5 is
+within noise of the baseline or has a named fix that brings it there, **and** he says it feels the same.
 
-**"Get me Naruto" works today.** Simkl is connected (verified 2026-10-03) and `watch_next` already
-answers "what am I watching", "where was I on X" and "put the next one on" with the right episode.
-Simkl beats browser history here because it tracks episode numbers.
-
-**His CereBro browser is 118 files of finished art.** `app/client/public/browser-home/` holds
-`aang-avatar-medallion.png`, `aang-dock.png`, bookmark cards and medallions for GitHub, Hacker News,
-Reddit, X, YouTube and Obsidian, the rail, omnibox, tab and title-bar pieces.
-`CEREBRO_DAILY_OS_BROWSER_CONTRACT.md` is the spec: left rail (Keep / Browser / Work / Sources /
-Ledger / Basement), one bottom "Ask Aang" bar and deliberately no right-hand agent rail, a Watch Shelf
-drawer, manual browsing needs no approval while agent-driven browsing does, receipts only when asked.
-Those rules already match Aang's. **CereBro is retired and Aang is its successor - his words - so this
-is the earlier draft of this product, to borrow from freely.**
+**If it fails:** stop, and decide with him. Options in order: the Mac's own picture-in-picture for
+video (no build at all), a smaller or lower-rate pop-out, or no overlay. **Do not build 6.3 onward on
+a failed 6.1.**
 
 ---
 
-## Build order
+### `[ ]` 6.2 The shell exists  **BLOCKS every Electron step**
 
-1. **Measure first.** Idle deck, scrolling page, playing video, each with WoW running. Decide on
-   evidence, not on this document.
-2. **The shell.** `WS_EX_NOREDIRECTIONBITMAP` window, composition-hosted WebView2, alpha-0 background,
-   mouse forwarding, click-through when idle. Prove the pet looks and behaves EXACTLY as it does now
-   with an empty page in it.
-3. **The theme in CSS**, lifted from `Theme.cs`. The keycap buttons are the acceptance test: old and
-   new side by side, and do not proceed until they match.
-4. **Rich replies** - the formatting rule. This is the biggest daily win and it needs no browser
-   features at all, only a renderer.
-5. **One card type**, the research card, since Phase 7 already produces them.
-6. **The callback bridge** so a button on a card runs a real Aang action.
-7. **Plan-before-action**, then several things waiting at once.
-8. **Snip, hotkey-grab, drag-and-drop** - the input half.
-9. **Search over everything**, charts, side-by-side, the live job view.
-10. **Video**, then picture-in-picture.
-11. **The Panel's seven tabs**, rebuilt in the same look.
+**Why:** every window in this phase is Electron, and none of it exists yet.
 
-Keep the old bubble behind a switch until he says the new one is better, judged on the real thing
-rather than a mockup.
+**Where:** new `src/Shell/` (main process, preload, pages). Supervised from `src/Body/CoreSupervisor.cs`
+the way the Core already is. Talks to the Core over the existing WebSocket; **the protocol does not
+change**.
+
+**The change:**
+- An Electron app the tray starts, restarts if it dies, and stops on quit. A crash in it must never
+  take down the pet or the Core.
+- **Before any real sign-in**, the fuses: `EnableCookieEncryption` on, `RunAsNode` off, Node options
+  and the inspector off, archive integrity on (`@electron/fuses`). Cookie encryption **cannot be
+  turned on later** without losing every login.
+- Every web view: `sandbox`, `contextIsolation`, no `nodeIntegration`, permissions denied by default,
+  `setWindowOpenHandler` denying new windows, IPC sender checked.
+- The data snapshot from 6.0, on first start only.
+- **Settle one thing by test, not assumption:** whether the Shell's TypeScript runs directly like the
+  Core's does, or needs `tsc` first. The Core runs `.ts` under Node with no build step; Electron's
+  bundled Node may or may not.
+
+**Verify:** start Aang from the tray; kill the Shell from Task Manager; the tray restarts it within
+seconds and the pet never flickers. Then run Electron's own checklist against it once with
+`electronegativity` as an audit.
+
+**Done when:** the Shell starts, survives being killed, reaches the Core, the snapshot exists, and the
+fuses are confirmed set on the built app.
+
+**Rollback:** remove the supervisor entry; the C# Body runs exactly as today.
+
+---
+
+## The pop-out: what he will use most
+
+Mockup: **`sheet-4-popout.html`**. Decisions 27 and 29 to 34.
+
+### `[ ]` 6.3 The pop-out window  **BLOCKS 6.4, 6.5**
+
+**Why:** decision 27.
+
+**Where:** `src/Shell/popout/`.
+
+**The change:**
+- Always on top. **A normal clickable window** (decision 32): click it to use it, click WoW to go back.
+- Drag the wooden bar to move; drag any edge or corner to resize; **16:9 worked out by Aang**, not
+  trusted to Windows (`setAspectRatio` does not apply to code-set sizes, tested).
+- **Opens at the size and place he last left it.** First time only: the right-hand side, the only
+  quiet part of a WoW screen. Snaps flush near a screen edge. Size presets are shortcuts only.
+- **One pop-out at a time** (decision 34).
+- **Stutter defences from day one**, from 6.1: `backgroundThrottling: false`, hidden fully rather than
+  made transparent when not in use.
+- Video embeds served from a tiny page on `127.0.0.1`. **Direct YouTube embeds fail with Error 153**
+  (tested); Twitch needs `parent=127.0.0.1` and at least 400 by 300.
+- `electron-overlay-window` to follow the WoW window, **only if** it works on WoW (untested; proven on
+  Path of Exile).
+
+**Verify:** YouTube and a Twitch stream in the pop-out over WoW; drag, resize, close, reopen.
+
+**Done when:** it reopens exactly where and how big he left it, plays both, and the sheet 4 side by
+side matches section 1.
+
+**Rollback:** delete `src/Shell/popout/`.
+
+---
+
+### `[ ]` 6.4 Paid video  **BLOCKS nothing else, but is on the path to "pop-out usable"**
+
+**Why:** decisions 29 and 30. His anime is on Prime, in the Crunchyroll section.
+
+**Where:** a castLabs runtime for the pop-out only, `src/Shell/drm/`.
+
+**The change:** castLabs Electron, `app.disableHardwareAcceleration()` **in that process only**, the
+Widevine module ready before the first page (`components.whenReady()`). Try the narrower switch
+`disable-direct-composition-video-overlays` too: if it also gets past Shadow, prefer it, because it
+keeps acceleration for everything except the protected video. An allow-list of paid services; nothing
+else ever loads in this runtime, because castLabs lags security fixes by weeks.
+
+**Verify:** Crunchyroll, then Prime, with **his** accounts. **He looks.** Read the player's error code
+if anything is black: that is the licence, not the window.
+
+**Done when:** an episode of his plays over WoW and he says it plays cleanly.
+
+**Blocked on him:** signing in to Prime and Crunchyroll in the pop-out himself (Aang never types a
+password). **Netflix waits for his free castLabs EVS signup** (decision 31); Netflix rejects
+development builds (error M7121-1331).
+
+**Rollback:** the paid services fall back to the Mac helper (6.9) or Chrome.
+
+---
+
+### `[ ]` 6.5 The controls
+
+**Why:** he plays with a raid going on; the buttons are big for that reason.
+
+**The change:** play and pause (the only gold key), the scrub groove, volume, the **see-through
+slider** (one continuous slider with a percentage, the bars never fade), fullscreen, the resize
+corner, the send-to-MacBook keycap. **Controls and wood fade two seconds after the mouse stops and
+come back on hover; never while paused.** Settings panel as drawn: always on top, remember size,
+fade controls, smooth video, clicks go through to the game (off).
+
+**Done when:** sheet 4 sections 2, 3 and 7 match side by side, and the fade feels right to him.
+
+---
+
+### `--` QUOTA GATE, after 6.5
+
+Read the Claude usage meter. 6.1 to 6.5 are the most typical kind of work in this phase, so the
+rate per step projects the rest. **Write the projection here and decide with him whether to
+continue at the same pace.** The engineering assessment could not estimate this honestly in advance.
+
+---
+
+### `[ ]` 6.6 Skipping
+
+**Why:** he asked. Research tested each source live.
+
+**The change**, each with an on/off switch and an honest reliability tag, as drawn:
+
+| Skip | Source | Reliability |
+|---|---|---|
+| Anime openings and endings | **AniSkip**, free, no key, `GET /v2/skip-times/{malId}/{ep}?types=op&types=ed&episodeLength=0`. Title to MAL id via AniList; absolute episode to season via `erengy/anime-relations` (one bundled file). Cache everything: the backend has been dormant since 2024 | Solid |
+| Intros and recaps | Press the service's own Skip button. Prime `.atvwebplayersdk-skipelement-button`, Netflix `.watch-video--skip-content-button` (Netflix's needs the React handler, not `.click()`) | Solid on Prime, Netflix fragile |
+| YouTube sponsor bits | SponsorBlock, hashed-prefix lookup, through the IFrame API | Solid |
+| YouTube ads | Ghostery's engine **with uBlock's lists**, not its prebuilt EasyList, refreshed automatically | Breaks every few weeks |
+| Twitch ads | `ryanbr/TwitchAdSolutions` `vaft`. **Off by default.** Its own notes say the result is a 360p picture for the ad break | Shaky |
+
+**Every skip shows a plaque for three seconds with Undo.** Nothing is skipped silently.
+
+**Blocked on him:** whether Twitch ad blocking is worth turning on.
+
+---
+
+### `[ ]` 6.7 "Put X on"
+
+**Why:** the reason the pop-out is useful without hunting for things.
+
+**The change:** one `watch()` tool, not several (tool-choice accuracy collapses on long shelves;
+Qwen is cleanest at five tools or fewer). Code matches his words first; Qwen fills in the gaps with
+thinking off; **the Streaming Availability API** finds where it is in Canada, with audio languages so
+**dub** is a data lookup; Twitch via `twurple`; YouTube by handle (1 quota unit, not 100). Where it
+opens: the pop-out if a game is up, a tab if not, **never moved by itself** (way 6 removed). The dub
+preference is a table, per show then per category then global, **not** conversation memory.
+
+**Off the path, but uses Phase 8 thinking:** extraction stays in Qwen's fast mode; nothing here needs
+the slow thinking mode.
+
+---
+
+### `[ ]` 6.8 Aang marks what he watched
+
+**Why:** Simkl's extension tracks only Netflix and Crunchyroll, and **nothing tracks Prime**, where
+his anime plays. When Aang opens the episode he already knows what it is.
+
+**The change:** `POST /sync/history` on finish, `/scrobble/start|stop` around playback, **never a
+heartbeat** (prohibited, 45 to 135 times the cost), anime by **absolute** episode number. Needs the
+`media:write` scope, which `tools/simkl-setup.ps1` now asks for.
+
+**Blocked on him:** his Simkl list is empty, and his sign-in predates the scope; one re-run of setup.
+
+---
+
+### `[ ]` 6.9 The Mac helper
+
+**Why:** decision 35. A fallback for paid video and a way to watch on the Mac by choice.
+
+**The change:** one small background helper on the MacBook that does exactly one thing: open an
+approved link in picture-in-picture. **Listens only on the Mac's Tailscale address `100.83.81.65`.**
+Only messages signed by Aang. Only `https` links from sites he approves. Logs every request. Not a Mac
+port: no pet, no brain.
+
+**Blocked on him:** installing it on the Mac.
+
+---
+
+## Aang can format what he says
+
+Mockups: **`sheet-1-language.html`** and **`sheet-2-surfaces.html`**.
+
+### `[ ]` 6.10 The keycaps match  **BLOCKS 6.11**
+
+**Why:** "I LOVE the weight of the buttons currently". If CSS cannot match them, stop and think.
+
+**The change:** `docs/cockpit/cockpit.css` checked against `Theme.cs` value by value. `Theme.Lip` is
+3 px and stays 3 px. Old and new buttons side by side.
+
+**Done when:** he cannot tell the old keycap from the new one by feel or look.
+
+---
+
+### `[ ]` 6.11 Rich replies  **BLOCKS 6.12**
+
+**Why:** the biggest daily win. `voice.ts` line 18 forbids formatting because the GDI bubble cannot
+draw it; a lint strips any markdown. The result is walls of prose.
+
+**The change:** rewrite line 18 rather than delete it, with his rule: **structure only when it earns
+it.** "It is 3:14" stays one line; several jobs, a comparison, steps or findings get headings, rows
+and colour. The lint stays for the old bubble until 6.12 replaces it. Dividers follow sheet 1's
+hierarchy: forged end-caps between topics, carved grooves between items.
+
+**Done when:** the three-jobs example from the old plan comes out as sheet 1's reply, side by side.
+
+---
+
+### `[ ]` 6.12 The new bubble
+
+**The change:** the bubble as a see-through Electron window beside the C# pet. Normal mouse
+behaviour; no click-through dependency. The old GDI bubble stays in the code until **he** judges the
+new one better on the real thing, then it goes.
+
+---
+
+### `[ ]` 6.13 Several things waiting, and the plan before acting
+
+**Why:** today a new message **replaces** the last, so three things needing him means he sees one.
+And plan-before-action is the single biggest gap the research found.
+
+**Shared with Phase 8 step 4** (the live checklist). Build it once, here.
+
+---
+
+### `[ ]` 6.14 Buttons on answers that act
+
+The callback bridge: a button on a card runs a real Aang action through the existing trust gate.
+
+### `[ ]` 6.15 Window 2: the scroll back and the seven tabs
+
+What I know, What I may do, What I did, Drafts, Jobs, History, Settings, rebuilt in the look. **If
+this stalls the phase, split it out.** That is the correct retreat, not a failure.
+
+### `[ ]` 6.16 The palette move and the local model on the strip
+
+Qwen takes the purple; the three Claude modes move to the warm end. **A `Local` mode on the pill** and
+a `[local]` marker. **This is Phase 8 step 6; do it once, here.**
+
+### `[ ]` 6.17 Snip, hotkey grab, drag and drop
+
+### `[ ]` 6.18 Search over everything, charts, side by side, the live job view
+
+---
+
+## The browser
+
+Mockup: **`sheet-3-browser.html`**, which still shows a horizontal tab strip and must be redrawn with
+a **vertical tab rail** before 6.20. Its section 2 is superseded by sheet 4.
+
+### `[ ]` 6.19 The tab positioning layer  **BLOCKS 6.20**
+
+**Why:** no layout library can hold an Electron browser view; they lay out page elements, and a
+`WebContentsView` is not one. The piece that turns "where a tab should be" into "where the view is",
+with Windows monitor scaling and drag, **exists nowhere and is written by hand.**
+
+**Done when:** a view tracks a resizing, dragging layout with no tearing at his scaling.
+
+### `[ ]` 6.20 The browser shell  **BLOCKS 6.21**
+
+**Vertical tab rail** (the chunky style forces it: thick outlines eat width faster than flat tabs),
+address bar that searches and never carries commands, back and forward, reopen closed tab, find, zoom.
+Borrowed from **Min** (Apache-2.0) and Tree Style Tab's tree logic.
+
+### `[ ]` 6.21 Never lose a tab  **BLOCKS 6.22**
+
+Continuous snapshots of each tab; the same snapshot powers crash restore, sleeping tabs and update
+restarts (`electron-updater` closes windows before `before-quit`, so save-on-quit cannot be trusted).
+**Every call into a tab has a timeout: calling a crashed one hangs** (tested). A crashed tab gets a
+"this page crashed, reload" plate.
+
+### `[ ]` 6.22 Protection  **BLOCKS 6.26**
+
+Ghostery with a visible per-site pause; phishing lists (Phishing.Database, URLhaus, OpenPhish) on
+every load; downloads marked so Defender scans them; **passkeys hidden** so sites fall back to a
+password and code, because passkeys hang in Electron and poison later attempts (tested). Approvals as
+**chips** for routine asks and a **lever** for serious ones, always in the carved chrome, never in the
+page area.
+
+### `[ ]` 6.23 His stuff
+
+Bitwarden filling from the main process (Min's adapter), Floccus bookmarks and open tabs with the Mac,
+one-time bookmark import. Passwords reach Bitwarden through each Mac browser's own Export button.
+
+### `[ ]` 6.24 Everyday extras
+
+Downloads list, print, PDF, a screen-share picker for calls, spellcheck.
+
+### `[ ]` 6.25 Aang inside the browser
+
+Reader and summariser (Readability, Turndown, Qwen); searchable reading memory (SQLite FTS5 plus
+sqlite-vec); a labelled element index borrowed from Vimium's link hints, so "click B7" is how he acts;
+five tools or fewer; trails (Horse Browser) and mark as done (SigmaOS); the agent on **its own
+profile**, never the one with his logins.
+
+### `[ ]` 6.26 A week as the second browser  **BLOCKS 6.27**
+
+He uses it alongside Chrome for a week. Every site that breaks goes on a list. That list decides
+what stays in Chrome.
+
+### `[ ]` 6.27 The default browser
+
+Register (StartMenuInternet, Capabilities, RegisteredApplications, all per-user), harden incoming
+links against the known attack where a link smuggles in startup instructions (`--` before `%1`,
+`http` and `https` only, real URL parsing), then open Windows Settings for **him** to click "Set
+default". Windows does not let an app set itself, and that is fine.
+
+**Kept in Chrome, on purpose:** sites that insist on passkeys, the odd blocked Google sign-in (if Aang
+is the default, "open in your default browser" sends it back to Aang), and anything caught in a
+security-patch gap.
+
+### `[ ]` 6.28 Upkeep, automated
+
+Electron and castLabs upgrades flagged automatically; filter lists refreshed daily; a monthly check on
+whether the Windows passkey bridge (`@clerk/electron-passkeys`, 0.0.3) is ready.
 
 ---
 
 ## What would make this a mistake
 
-- **If an idle card deck is not nearly free on CPU.** The bubble is open all day and he games on this
-  machine. That single measurement can kill the design, and it has not been taken.
-- **If the keycap buttons do not come across.** It is the one thing he has said plainly that he loves.
-  If CSS cannot match the feel, that is a reason to stop and think, not to ship it anyway.
-- **If the Panel rebuild stalls the whole thing.** He chose one job knowing it doubles the work; if it
-  turns out to be the thing stopping anything shipping, splitting it is the correct retreat.
+- **If 6.1 fails** and no fix brings WoW back to normal. That ends the overlay; the Mac's own
+  picture-in-picture is the fallback.
+- **If the keycaps do not come across.** The one thing he has said plainly that he loves.
+- **If the quota gate after 6.5 projects more than he will spend.** Then the browser shrinks, not the
+  pop-out.
+- **If upkeep starts eating weeks.** Small browsers die of month-six maintenance, not month-one
+  features. Watch the time each Electron upgrade takes.
+- **If Google starts blocking Electron's sign-in.** It works today because Google does not recognise
+  the name, not because Google allows it.
 
 ---
 
@@ -1266,8 +1497,9 @@ for fifty seconds reads as stuck; five ticking steps read as deliberation.
 2. **`thinkHard` on `askLocal`** - thinking on, 2-minute timeout, refused mid-game like the rest.
 3. **Route background work through it**, with `CLAIMS_DID` as the escalation signal.
 4. **The checklist**: emit the plan as a `StructuredList`, update rows from the existing `tool` events.
+   **Moved to Phase 6 step 6.13 in plan 1.1**, built once in the new bubble.
 5. **The `[local]` marker and the handover icon.**
-6. **The `Local` mode on the pill.**
+6. **The `Local` mode on the pill.** **Moved to Phase 6 step 6.16 in plan 1.1**, with the palette move.
 7. **Split the research drops** - local reads, Claude judges.
 
 ## What would make this a mistake
@@ -1529,6 +1761,12 @@ These change the code, so they cannot be guessed.
 | 3 | Size of My Drive versus free space | 2.1 | Needs the MacBook or a signed-in session. |
 | 4 | Honesty check: rewrite the reply, or flag it? | 5.4 | **Flag.** Rewriting risks changing a correct answer. |
 | 5 | Which cache rate your account is billed at | nothing, but it doubles the cost numbers | The billing page says. |
+| 6 | Sign in to Prime and Crunchyroll yourself, in the pop-out | 6.4 | Aang never types a password. Thirty seconds each. |
+| 7 | The free castLabs EVS signup, in your name | Netflix in 6.4 | **Agreed 2026-10-04**, at build time. Until then, Netflix goes to the Mac. |
+| 8 | Turn Twitch ad blocking on? | 6.6 | **Leave it off.** It gives a 360p picture for the ad break and breaks constantly. |
+| 9 | Re-run `tools/simkl-setup.cmd` once | 6.8 | Your sign-in predates the write permission, and your list is empty. |
+| 10 | Install the Mac helper on the MacBook | 6.9 | Needs your hands on the Mac. |
+| 11 | Go or stop at the quota gate after 6.5 | the rest of Phase 6 | Decide on the measured rate, not on a guess. |
 
 ---
 
@@ -1547,6 +1785,13 @@ Recorded so they do not quietly come back.
 | A paid memory service | MemDelta: p = 1.0 against plain retrieval, at 50x the ingest cost. |
 | A dashboard | `present_list` already exists, and Discord cards already give you the phone view. |
 | Voice | Not your bottleneck. |
+| WebView2 for the cockpit | Cannot play Widevine (`WebView2Feedback#4828`), and Google blocks sign-in inside it. Replaced by Electron, 2026-10-04. |
+| Ghost mode and edit mode on the pop-out | His decision 32: it is a normal clickable window. The old version relied on mouse sensing over a click-through window, which Electron marked "not planned" on Windows. |
+| A video jumping into the pop-out by itself | His call, 2026-10-04: never. |
+| Importing logged-in sessions from the Mac | Chrome ties sessions to a key in the Mac's security chip that cannot be copied; Firefox sessions fail on a new machine. Saves three minutes, once. |
+| Horizontal tabs | The chunky style eats width faster than flat tabs, so it fails sooner. Vertical only. |
+| Our own browser engine | Ladybird, funded with a full-time team, plans a stable release in 2028. |
+| Getting paid video past Shadow by any route other than Shadow's own fix | Shadow's documented fix works; nothing else is needed or wanted. |
 | Jev and `jev-audit` | The audit tool is 1 star, 1 commit, vendor-authored, and its default scan path is 722 of your transcripts. Jev itself is waitlist-gated. Get on the waitlist; it costs nothing. |
 
 ---
@@ -1563,6 +1808,6 @@ Update this table as you go. It is the answer to "where are we".
 | 3 | he learns from it | `[x]` **done 2026-10-02** (3.1, 3.2, 3.3 all ticked; 1,188 notes indexed) |
 | 4 | he is pleasant to use | `[x]` **done 2026-10-03** |
 | 5 | the rest | `[x]` **done 2026-10-03** |
-| 6 | the cockpit: he can SHOW you things, not just tell you - and finally FORMAT what he says | `[ ]` **designed in full 2026-10-03, not started.** Includes rebuilding the Panel |
+| 6 | the video pop-out over WoW, Aang that can FORMAT what he says, and his own everyday browser | `[ ]` **rewritten 2026-10-04 (plan 1.1): 29 steps, critical path, not started.** 6.0 done (safety tag pushed). Next: **6.1, measure over WoW** |
 | 7 | the research loop: he watches what is trending and tells you what matters | `[~]` **mostly BUILT 2026-10-03** - sweep, mentions, addon check and digest all run live. Left: the #look-into-this channel and the digest reaching Discord |
 | 8 | the local model does more, so fewer turns reach Claude | `[ ]` **designed, not started** |
