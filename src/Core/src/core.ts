@@ -1142,7 +1142,26 @@ export class Core {
 
   async start(): Promise<void> {
     await new Promise<void>((resolve, reject) => {
-      this.wss = new WebSocketServer({ host: '127.0.0.1', port: this.cfg.port, path: '/body' });
+      this.wss = new WebSocketServer({
+        host: '127.0.0.1', port: this.cfg.port, path: '/body',
+        // THE LOCK (step S1, decision 47). Browsers do not apply same-origin rules to WebSockets:
+        // they connect to anything and only send an Origin header, leaving the check to the server
+        // (RFC 6455 section 10.2). Firefox allows localhost by design, Edge's local-network protection
+        // does not cover WebSockets, and Chrome only covers them from 147, behind an Allow button.
+        // So without this, a web page could open this socket and send messages as Joshua, read his
+        // history, or send a waiting email draft. Exactly this bug hit Claude Code's own IDE extension
+        // (CVE-2025-52882), MCP Inspector (CVE-2025-49596), Ollama (CVE-2024-28224) and Zoom (2019).
+        //
+        // The rule: anything that sends an Origin is a browser page, and no browser page is Aang.
+        // His C# Body and the Discord link send none. A page cannot remove or forge the header, and a
+        // DNS-rebound page carries the attacker's own origin, so this stops that too. Phase 6 puts a
+        // real browser on this machine, which is why this lands before the Electron shell.
+        verifyClient: ({ origin, req }, done) => {
+          if (!origin) return done(true);
+          console.error(`refused a connection from a web page (origin ${String(origin).slice(0, 80)})`);
+          void req; done(false, 403, 'Forbidden');
+        },
+      });
       this.wss.once('listening', () => resolve());
       this.wss.once('error', reject);
     });
