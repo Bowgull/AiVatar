@@ -17,6 +17,7 @@ import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown, wrongSettings } from '
 import { snapshotOnce } from './snapshot.ts';
 import { servePages, type PageServer } from './pageserver.ts';
 import { Popout, popoutFile } from './popout.ts';
+import { holdHotkey, type Hotkey } from './hotkey.ts';
 import type { Box } from './geometry.ts';
 
 const PORT = Number(process.env.AANG_PORT ?? 47831);
@@ -54,6 +55,7 @@ function rememberBox(box: Box): void {
 
 let pages: PageServer | null = null;
 let popout: Popout | null = null;
+let hotkey: Hotkey | null = null;
 
 const link = new CoreLink({
   port: PORT,
@@ -142,6 +144,10 @@ app.whenReady().then(async () => {
       remember: rememberBox,
     });
     console.log(`shell: pages on ${pages.origin}`);
+
+    // The key that puts it away and brings it back, still playing (sheet 4, way 5).
+    hotkey = holdHotkey(STATE_DIR, () => popout?.toggleHidden());
+    if (hotkey.active) console.log(`shell: ${hotkey.active} hides and shows the pop-out`);
   } catch (e) {
     console.error('shell: the page server would not start, so the pop-out is unavailable: ' + (e as Error).message);
   }
@@ -169,7 +175,7 @@ function fromPopout(e: Electron.IpcMainEvent): boolean {
   return Boolean(w && e.sender === w.webContents);
 }
 
-app.on('before-quit', () => { link.stop(); popout?.close(); pages?.close(); });
+app.on('before-quit', () => { link.stop(); hotkey?.release(); popout?.close(); pages?.close(); });
 
 // Nothing a page does may take the Shell down silently.
 process.on('uncaughtException', e => console.error('shell: uncaught: ' + (e as Error).message));

@@ -90,8 +90,8 @@ export class Popout {
     this.win.setAlwaysOnTop(true, 'screen-saver');
     lockDown(this.win.webContents, { openExternally: true });
 
-    this.win.on('resize', () => this.afterDrag('size'));
-    this.win.on('move', () => this.afterDrag('place'));
+    this.win.on('resize', () => this.afterDrag());
+    this.win.on('move', () => this.afterDrag());
     this.win.on('closed', () => { this.win = null; });
     this.win.webContents.on('did-finish-load', () => this.send());
     this.win.once('ready-to-show', () => this.win?.show());
@@ -120,7 +120,23 @@ export class Popout {
    * is corrected only once he lets go, so it does not fight his hand while he is still moving it.
    */
   private pending: NodeJS.Timeout | null = null;
-  private afterDrag(what: 'size' | 'place'): void {
+  /**
+   * True while a correction of our own is being applied.
+   *
+   * setBounds fires its own move and resize events, which would arrive here and start the whole
+   * correction again. One round settles today, but a correction that feeds itself is the shape of a
+   * window that creeps smaller every time it is touched, and his rule is "your size wins". Cheap to
+   * prevent, so it is prevented.
+   *
+   * Worth knowing while reading this: Electron and Windows disagree about how wide a frameless window
+   * is, by about 16 pixels. Windows counts an invisible resize border that Electron does not. Both are
+   * right in their own terms; everything here uses Electron's numbers throughout, which are the ones
+   * that match what he can see.
+   */
+  private correcting = false;
+
+  private afterDrag(): void {
+    if (this.correcting) return;
     if (this.pending) clearTimeout(this.pending);
     this.pending = setTimeout(() => {
       const w = this.window;
@@ -128,15 +144,20 @@ export class Popout {
       const b = w.getBounds();
       const area = this.screenFor(b);
 
-      let box: Box = { ...b };
-      if (what === 'size') {
-        const { width, height } = hold169(b.width, b.height, 'width');
-        box = { ...box, width, height };
-      }
-      box = snapToEdges(box, area);
+      // 16 by 9 is held after ANY drag, not only a resize. Dragging the window fires both a move and
+      // a resize, and whichever lands last wins this debounce: when it was the move, the shape was
+      // never corrected and the picture stayed squashed. Found by dragging it, 2026-10-04.
+      // Correcting a size that is already right is a no-op, so a plain move is left alone.
+      const { width, height } = hold169(b.width, b.height, 'width');
+      let box: Box = snapToEdges({ ...b, width, height }, area);
 
       const moved = box.x !== b.x || box.y !== b.y || box.width !== b.width || box.height !== b.height;
-      if (moved) w.setBounds(box);
+      if (moved) {
+        this.correcting = true;
+        w.setBounds(box);
+        // Long enough for the events setBounds causes to arrive and be ignored.
+        setTimeout(() => { this.correcting = false; }, 250).unref?.();
+      }
       this.deps.remember(box);
     }, 180);
     this.pending.unref?.();
