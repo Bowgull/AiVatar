@@ -51,6 +51,37 @@ export function lockDown(contents: WebContents, opts: { allow?: readonly string[
 
   // Nothing may attach a debugger to his windows: that is a way back in to everything else.
   contents.on('will-attach-webview', e => e.preventDefault());
+
+  // A middle click on a link is a second way to ask for a new window, and it does not go through the
+  // handler above. Chromium only reports it when asked to, hence this line. Flagged by the Electron
+  // audit on 2026-10-04 (AUXCLICK_JS_CHECK).
+  contents.on('did-finish-load', () => {
+    contents.executeJavaScript("window.addEventListener('auxclick', e => e.preventDefault());", true)
+      .catch(() => { /* the page went away mid-load */ });
+  });
+}
+
+/**
+ * Check the settings a window is about to be made with, rather than trusting that they are right.
+ *
+ * Worth having for two reasons. A later window can pass its own webPreferences and quietly drop one,
+ * because the spread in main.ts lets it. And the Electron audit cannot see through that spread at all:
+ * on 2026-10-04 it reported contextIsolation and sandbox as unreviewed when both were on. This answers
+ * the question the static check could not. What the page experiences is proved separately, in
+ * tests/fakecore/look-shell.mjs, which asks the page itself whether it can reach Node.
+ *
+ * Returns the settings that are wrong, empty when all is well.
+ */
+export function wrongSettings(prefs: Record<string, unknown> | undefined): string[] {
+  const p = prefs;
+  if (!p) return ['the window was given no settings at all'];
+  const bad: string[] = [];
+  const mustBeOn = ['sandbox', 'contextIsolation'] as const;
+  const mustBeOff = ['nodeIntegration', 'nodeIntegrationInWorker', 'nodeIntegrationInSubFrames', 'webviewTag'] as const;
+  for (const k of mustBeOn) if (p[k] !== true) bad.push(`${k} should be on`);
+  for (const k of mustBeOff) if (p[k] === true) bad.push(`${k} should be off`);
+  if (p.webSecurity === false) bad.push('webSecurity should be on');
+  return bad;
 }
 
 /**
