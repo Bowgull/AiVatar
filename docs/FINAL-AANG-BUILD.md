@@ -1321,7 +1321,7 @@ Downloads list, print, PDF, a screen-share picker for calls, spellcheck.
 
 Reader and summariser (Readability, Turndown, Qwen); searchable reading memory (SQLite FTS5 plus
 sqlite-vec); a labelled element index borrowed from Vimium's link hints, so "click B7" is how he acts;
-five tools or fewer; trails (Horse Browser) and mark as done (SigmaOS); **decision 42**: Aang reads
+five tools or fewer; trails (Horse Browser) and mark as done as a WoW quest turn-in (decision 43); **decision 42**: Aang reads
 your signed-in tabs and acts on them only through the held lever, driven in-process with no debug port;
 his own no-login profile stays for general browsing.
 
@@ -2075,6 +2075,8 @@ Three research reports sit behind this appendix, all in the data repo at `Aang/r
 | 40 | See-through slider | **One continuous slider with a percentage**, not modes. The bars never fade |
 | 41 | Skipping | **On:** anime openings and endings, intros and recaps, YouTube sponsor bits, YouTube ads. **Twitch ads off** until he decides. **Every skip shows Undo** |
 | 42 | Aang and your signed-in sites (2026-10-04) | **He reads your signed-in tabs freely; anything that acts on your account (send, apply, buy, post, delete) needs the held lever, every time.** Driven from inside Aang's own browser, **no debug port**. His no-login profile stays for general browsing. Only your words set a plan; a page that asks him to do something is refused and reported |
+| 43 | Mark as done, in the browser (2026-10-04) | **A WoW quest turn-in.** A grey `?` appears on a tab only while he points at it; it turns **gold and glows** when Aang sees the thing is finished (an application submitted), exactly as a gold `?` means "ready to hand in". Clicking it flashes **QUEST COMPLETE**, then the tab drops to the DONE shelf with a quiet tick, never closed. **Aang never turns one in himself.** Rejected: brass latch, green gem, treasure chest, CLEARED stamp, power star |
+| 44 | The browser's top band (2026-10-04) | **Back, forward, reload, address slot. Nothing else.** No Aang button (Aang is already on screen over the browser: his halo glows, clicking him opens his chat), no ad counter (pausing ad blocking lives behind the SECURE plaque). The slot says who is driving **in full words**: YOU ARE DRIVING / AANG IS READING / AANG IS DRIVING |
 
 ---
 
