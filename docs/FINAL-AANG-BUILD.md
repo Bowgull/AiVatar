@@ -973,6 +973,14 @@ the launchd command line. 20 to 30 minutes.
 
 ### `[x]` 6.2 The shell exists  **DONE 2026-10-04** (36aaa8d, 4443afc, 70772e2, 3d6c83d)
 
+**FIRST REAL RUN: 2026-10-04 16:58, hours after this was marked done.** The Aang.exe he actually runs (the
+Release build his Startup shortcut points at) was built 2026-10-03 00:39, before the Shell supervisor
+existed, and every test ran against a Debug build. So the pop-out had never started in his real app, and
+6.3 to 6.9 had only run in the test harness. It took rebuilding Release and restarting the real Aang to
+find. It also exposed a bug: the pet and the Shell both connect as desktop clients, so "put X on" would
+have said "over your game" with nothing showing it (fixed in a7ce2f2). **A step that touches the Body is
+not done until the Release build is rebuilt and the real Aang.exe restarted.**
+
 **Why:** every window in this phase is Electron, and none of it exists yet.
 
 **Where:** new `src/Shell/` (main process, preload, pages). Supervised from `src/Body/CoreSupervisor.cs`
@@ -1337,7 +1345,7 @@ dependency were added for it.
 
 ---
 
-### `[~]` 6.8 Aang marks what he watched  **BUILT 2026-10-04**; one re-run of his Simkl setup still needed
+### `[x]` 6.8 Aang marks what he watched  **BUILT AND LIVE 2026-10-04**
 
 **Why:** Simkl's extension tracks only Netflix and Crunchyroll, and **nothing tracks Prime**, where
 his anime plays. When Aang opens the episode he already knows what it is.
@@ -1381,13 +1389,23 @@ runtime elapses, so start and stop are genuinely enough. The pop-out reports onl
 paused, resumed, ran out). "Ran out" has to be worked out in the page, since neither player sends a clean
 finish: not playing, and within three seconds of the end, with live streams excluded.
 
+**LIVE 2026-10-04, checked against his real account:** the new sign-in renews itself weekly; it reads
+his list (7 shows he is watching, all carrying the Simkl id this needs); and an empty "add nothing" write
+came back 201, which proves the permission without changing anything on his list.
+
+**The check found a real gap in 6.7.** Simkl keeps only the Japanese name, and on his real list "apothecary
+diaries", "attack on titan" and "dandadan" all found nothing. Fixed (e2f1f31) with AniList, already used
+elsewhere and keyless: each show's AniList id is on his Simkl list, the English name and nicknames are
+asked for once in one request and kept in `anime-names.json`, and spaces are ignored when matching. All
+ten ordinary phrasings tried then found the right show, including "aot".
+
 **It never interrupts him to report its own failure.** A failed scrobble goes to the log he can ask for.
 And it only claims an episode was ticked off when Simkl said `scrobble`; below 80% Simkl saves his place
 instead, which is the right outcome but a different sentence.
 
 ---
 
-### `[~]` 6.9 The Mac helper  **BUILT 2026-10-04**; one re-run of his Mac setup still needed
+### `[x]` 6.9 The Mac helper  **BUILT AND LIVE 2026-10-04**
 
 **Why:** decision 35. A fallback for paid video and a way to watch on the Mac by choice.
 
@@ -1428,6 +1446,12 @@ link.
 request line still accepted only `/front|/run`, so every `/open` was refused with 403; and a backtick
 inside the Perl (in the regex, then again in a comment) closed the JavaScript template the script lives
 in, which the type checker caught rather than anything at run time.
+
+**LIVE 2026-10-04, proved on his real Mac:** example.com refused with 403 even with the right key,
+YouTube accepted with 204. The first re-run did not take, and the reason is worth keeping: **the brain
+serves the Mac's setup script from the code it loaded when it STARTED**, and it had been running since
+10:51 that morning, so the Mac was handed the old listener without the new door. Any change to
+`macsetup.ts` needs a brain restart BEFORE the Mac re-runs setup.
 
 **Picture-in-picture is NOT done and was not promised here.** The step said PiP; what is built opens the
 link in his Mac's own browser. Forcing PiP from outside a browser needs a setting he would have to turn
