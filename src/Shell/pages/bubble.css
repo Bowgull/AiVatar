@@ -153,3 +153,18 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
 .mrow:hover{background:rgba(255,224,150,.12)}
 /* The one that removes something is set apart, as it is in the old menu. */
 .mrow:last-child{color:var(--orange);margin-top:3px;border-top:2px solid rgba(0,0,0,.45);border-radius:0 0 6px 6px}
+
+/* ---- the scroll-back (parity row) ----------------------------------------
+   His turns and Aang's, above whatever is being said now. Sheet 2's two
+   voices: his own pressed IN, Aang's on the parchment he speaks on. */
+.back{display:flex;flex-direction:column;gap:7px;margin:0 0 9px}
+.back[hidden]{display:none}
+.turn{margin:0;font:500 14px/1.5 var(--body);white-space:pre-wrap;overflow-wrap:anywhere}
+/* His own, pressed into the parchment rather than sitting on it. */
+.turn.mine{
+  padding:7px 10px;border-radius:7px;color:var(--text);
+  background:linear-gradient(180deg,var(--plum-deep),var(--plum));
+  box-shadow:inset 0 3px 0 rgba(0,0,0,.4),inset 0 -2px 0 rgba(150,110,200,.3);
+}
+/* Aang's, plain on the parchment: it is the surface he already speaks on. */
+.turn.his{color:var(--ink-text)}
