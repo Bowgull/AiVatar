@@ -1,0 +1,636 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Aang Bubble</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Figtree:ital,wght@0,400;0,500;0,600;0,700;0,900;1,500&family=Silkscreen&display=swap" rel="stylesheet">
+<style>
+/* ===========================================================================
+   SHEET 5 - EVERYTHING THE NEW BUBBLE SHOWS
+   For FINAL AANG BUILD steps 6.10, 6.12, 6.13 and 6.14b. Continues sheets 1-4:
+   same tokens, same keycaps, same carved grooves. Every message drawn here is
+   one the Core already sends today (protocol.ts), with its real fields:
+     permission  question, means, remembers ("Always ...")
+     fact.ask    text, fromDoc, left
+     backup.ask  days, changed
+     consent     wanted mode
+     error       message, next
+     queued      position
+   =========================================================================== */
+:root{
+  --ink:#100A22; --panel2:#1A1132;
+  --gold:#FFC43C; --gold-deep:#C98C14; --gold-lit:#FFE096; --gold-light:#FFE28C;
+  --orange:#FF8040; --orange-deep:#C95E28; --red:#FF5A4A; --green:#78E696;
+  --text:#E8E4F0; --secondary:#C9C2DA;
+  --plum:#4A2C6E; --plum-deep:#2C1848; --plum-edge:#966EC8; --claude:#E88A6A;
+  --parch1:#ECD5A8; --parch2:#DEC28C;
+  --ink-text:#2E2216; --ink-dim:#5A4834;
+  --wood1:#4A2E1A; --wood2:#24160D; --wood-plaque:#1A0F09;
+  --mode-deep:#A970FF; --local:#A970FF;
+  --outline:#120A05; --ow:4px; --lip:5px;
+  --display:"Cinzel",Georgia,"Times New Roman",serif;
+  --body:"Figtree",system-ui,-apple-system,Segoe UI,sans-serif;
+  --label:"Silkscreen",ui-monospace,Consolas,monospace;
+  --carve-ink:#2A1C08;
+}
+*{box-sizing:border-box}
+body{margin:0;padding:30px 20px 100px;background:#07040F;font-family:var(--body);
+  -webkit-font-smoothing:antialiased;color:var(--text)}
+.wrap{max-width:960px;margin:0 auto}
+h1{font:400 16px var(--label);color:#7a6fa0;letter-spacing:3px;text-align:center;margin:0 0 8px}
+.sub{font:500 13px/1.6 var(--body);color:#7b7291;text-align:center;margin:0 0 40px}
+h2.part{font:400 13px var(--label);color:var(--gold-deep);letter-spacing:3px;
+  margin:56px 0 6px;padding-bottom:10px;border-bottom:3px solid #241a3a}
+p.why{font:500 14px/1.65 var(--body);color:#9a90b5;margin:0 0 24px;max-width:720px}
+h3.sur{font:700 19px var(--display);color:#cfc4ea;margin:34px 0 4px}
+p.sur{font:500 13.5px/1.6 var(--body);color:#8a80a5;margin:0 0 16px;max-width:720px}
+p.sur b{color:#cfc4ea}
+.cardlab{font:400 10px var(--label);color:#6a6186;letter-spacing:1.5px;margin:0 0 12px}
+.two{display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start}
+.step{display:inline-block;font:400 9px var(--label);letter-spacing:1px;padding:4px 6px;border-radius:3px;
+  border:2px solid var(--outline);background:var(--gold-lit);color:#2a1c00;vertical-align:3px;margin-left:6px}
+
+/* ---- carried over verbatim ---- */
+.tex{position:relative}
+.tex::before{content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;opacity:.05;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E")}
+.parch{position:relative;color:var(--ink-text);padding:20px 22px;border-radius:9px;overflow:hidden;
+  background:linear-gradient(180deg,#F0DCB4 0%,var(--parch1) 45%,var(--parch2) 100%);
+  border:var(--ow) solid var(--outline);
+  box-shadow:inset 0 5px 0 rgba(255,255,255,.55),inset 0 -6px 0 rgba(150,110,60,.32),
+    0 3px 0 rgba(0,0,0,.6),0 10px 22px rgba(0,0,0,.45)}
+.wood{position:relative;padding:18px 20px;border-radius:10px;overflow:hidden;color:var(--text);
+  background:linear-gradient(180deg,#56371F 0%,var(--wood1) 40%,var(--wood2) 100%);
+  border:var(--ow) solid var(--outline);
+  box-shadow:inset 0 5px 0 rgba(255,224,150,.2),inset 0 -6px 0 rgba(0,0,0,.5),
+    0 3px 0 rgba(0,0,0,.6),0 10px 22px rgba(0,0,0,.45)}
+.tail::after{content:"";position:absolute;left:28px;bottom:-16px;width:18px;height:18px;
+  background:var(--parch2);border-right:var(--ow) solid var(--outline);
+  border-bottom:var(--ow) solid var(--outline);transform:rotate(45deg)}
+.wood.tail::after{background:var(--wood2)}
+.plaque{background:var(--wood-plaque);border-radius:6px;padding:9px 13px;margin:0 0 13px;
+  font:400 12px var(--label);color:var(--gold);letter-spacing:1px;
+  text-shadow:2px 2px 0 rgba(0,0,0,.85);border:3px solid var(--outline);
+  box-shadow:inset 0 4px 0 rgba(0,0,0,.65);display:inline-block}
+.plaque.urgent{color:var(--orange)} .plaque.danger{color:var(--red)}
+.t-eyebrow{font:400 12px var(--label);color:#8a6a2a;letter-spacing:1px;margin:0 0 7px;
+  text-shadow:1px 1px 0 rgba(255,255,255,.4)}
+.t-head{font:700 20px/1.25 var(--display);color:var(--carve-ink);margin:0 0 8px;
+  text-shadow:0 1px 0 rgba(255,255,255,.6)}
+.t-body{font:500 15.5px/1.62 var(--body);color:#271c10;margin:0 0 10px}
+.t-body b{font-weight:700}
+.t-means{font:italic 500 13.5px/1.55 var(--body);color:#5a4834;margin:0 0 10px}
+.t-caption{font:500 12.5px var(--body);color:#4e3d28}
+.wood .t-eyebrow{color:var(--gold-deep);text-shadow:1px 1px 0 rgba(0,0,0,.7)}
+.wood .t-head{color:var(--gold);text-shadow:0 2px 0 var(--outline),0 -1px 0 rgba(255,224,150,.3)}
+.wood .t-body{color:var(--secondary)} .wood .t-means{color:#b8a98f}
+.wood .t-caption{color:#a99a86}
+.code{font:600 13px ui-monospace,Consolas,monospace;background:rgba(0,0,0,.35);color:#f3e6c8;
+  padding:7px 10px;border-radius:6px;border:2px solid var(--outline);display:block;margin:0 0 10px;
+  box-shadow:inset 0 2px 0 rgba(0,0,0,.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rule-minor{height:8px;border-radius:4px;margin:14px 0;
+  background:linear-gradient(180deg,rgba(90,60,25,.5) 0 3px,rgba(255,255,255,.55) 3px 6px,transparent 6px);
+  box-shadow:inset 0 1px 2px rgba(0,0,0,.35)}
+.wood .rule-minor{background:linear-gradient(180deg,rgba(0,0,0,.6) 0 3px,rgba(255,224,150,.28) 3px 6px,transparent 6px)}
+.rule-titled{display:flex;align-items:center;margin:16px 0 10px}
+.rule-titled .bar{flex:1;height:5px;border-radius:3px;
+  background:linear-gradient(180deg,rgba(90,60,25,.45) 0 2px,rgba(255,255,255,.5) 2px 5px)}
+.rule-titled span{font:700 13px var(--display);color:var(--carve-ink);padding:0 11px;
+  letter-spacing:1.5px;text-transform:uppercase;text-shadow:0 1px 0 rgba(255,255,255,.65)}
+.wood .rule-titled .bar{background:linear-gradient(180deg,rgba(0,0,0,.6) 0 2px,rgba(255,224,150,.28) 2px 5px)}
+.wood .rule-titled span{color:var(--gold);text-shadow:0 2px 0 var(--outline)}
+
+.key{font:700 14px var(--body);border:3px solid var(--outline);border-radius:8px;
+  padding:11px 18px 12px;cursor:pointer;position:relative;top:0;transition:top .05s,box-shadow .05s;
+  background:var(--plum);color:#fff;text-shadow:0 1px 0 rgba(0,0,0,.7);
+  box-shadow:0 var(--lip) 0 var(--outline),0 var(--lip) 0 -1px var(--plum-deep),
+    inset 0 3px 0 rgba(150,110,200,.5),0 8px 14px rgba(0,0,0,.4)}
+.key:active{top:var(--lip);box-shadow:0 0 0 var(--outline),inset 0 3px 0 rgba(150,110,200,.5)}
+.key.primary{background:var(--gold);color:#2a1c00;text-shadow:0 1px 0 rgba(255,235,180,.8);
+  box-shadow:0 var(--lip) 0 var(--outline),0 var(--lip) 0 -1px var(--gold-deep),
+    inset 0 3px 0 var(--gold-light),0 8px 14px rgba(0,0,0,.4)}
+.key.primary:active{box-shadow:0 0 0 var(--outline),inset 0 3px 0 var(--gold-light)}
+.key.warn{background:var(--orange);color:#2e1200;text-shadow:0 1px 0 rgba(255,220,180,.7);
+  box-shadow:0 var(--lip) 0 var(--outline),0 var(--lip) 0 -1px var(--orange-deep),
+    inset 0 3px 0 rgba(255,224,150,.5),0 8px 14px rgba(0,0,0,.4)}
+.key.sm{font-size:12.5px;padding:8px 13px 9px;--lip:4px}
+.key .k{position:absolute;top:2px;right:6px;font:400 10px var(--label);opacity:.6}
+.keys{display:flex;gap:11px;flex-wrap:wrap;align-items:flex-end;margin-top:14px}
+.chip{display:inline-block;font:700 12px var(--body);padding:5px 10px;border-radius:5px;
+  border:2.5px solid var(--outline);color:#231700;text-shadow:0 1px 0 rgba(255,255,255,.4);white-space:nowrap}
+.chip.good{background:var(--green)} .chip.normal{background:var(--gold)} .chip.careful{background:var(--orange)}
+.chip.local{background:var(--local);color:#1d0b33} .chip.claude{background:var(--claude);color:#3a1708}
+
+/* =========================================== 1. THE THREE PRESSED-IN LOOKS
+   One expressive move ("pressed in") used to carry three meanings. Research
+   called that the biggest accessibility hazard of this style. Three different
+   materials now, so they can never be confused. */
+.state-row{display:flex;gap:30px;flex-wrap:wrap;align-items:flex-end}
+.state-col{display:flex;flex-direction:column;align-items:center;gap:12px;width:200px}
+.state-col .lab{font:400 10px var(--label);color:var(--gold-deep);letter-spacing:1px;text-align:center}
+.state-col p{font:500 12.5px/1.5 var(--body);color:#8a80a5;margin:0;text-align:center}
+/* clicked: the face travels down onto its shadow, for as long as the finger is on it */
+.key.held{top:var(--lip);box-shadow:0 0 0 var(--outline),inset 0 3px 0 rgba(150,110,200,.5)}
+/* keyboard focus: no travel at all. A carved gold groove AROUND the key, outside its edge */
+.key.focus{outline:3px solid var(--gold);outline-offset:4px;
+  box-shadow:0 var(--lip) 0 var(--outline),0 var(--lip) 0 -1px var(--plum-deep),
+    inset 0 3px 0 rgba(150,110,200,.5),0 0 0 7px rgba(18,10,5,.9)}
+/* switched on: latched half way down, darker face, a lit gem set into it */
+.key.latched{top:calc(var(--lip) / 2);background:var(--plum-deep);
+  box-shadow:0 calc(var(--lip) / 2) 0 var(--outline),inset 0 4px 0 rgba(0,0,0,.45);padding-left:34px}
+.key.latched::before{content:"";position:absolute;left:12px;top:50%;width:12px;height:12px;margin-top:-6px;
+  border-radius:50%;border:2px solid var(--outline);background:radial-gradient(circle at 35% 35%,#d6ffe2,var(--green) 55%,#2f7a4a);
+  box-shadow:0 0 8px rgba(120,230,150,.7)}
+
+/* =========================================== 2. THE LEVER: serious approvals
+   A routine ask uses ordinary keycaps. Anything that sends, buys, deletes or
+   closes someone else's app uses the lever: press AND HOLD while a brass bar
+   fills. A reflex click does nothing. Research: identical prompts get clicked
+   through, half of them in under two seconds. */
+.lever{position:relative;display:inline-flex;align-items:center;gap:12px;padding:12px 18px 13px 16px;
+  border-radius:9px;border:3px solid var(--outline);cursor:pointer;min-width:250px;overflow:hidden;
+  background:linear-gradient(180deg,#5b3a20,#2a190e);color:var(--gold-lit);
+  font:700 14px var(--body);text-shadow:0 1px 0 rgba(0,0,0,.7);
+  box-shadow:0 6px 0 var(--outline),inset 0 3px 0 rgba(255,224,150,.25),0 9px 16px rgba(0,0,0,.45)}
+.lever .fillbar{position:absolute;left:0;top:0;bottom:0;width:42%;
+  background:linear-gradient(180deg,rgba(255,196,60,.55),rgba(201,140,20,.55));
+  border-right:3px solid var(--gold);}
+.lever .txt{position:relative}
+.lever .hold{position:relative;font:400 9px var(--label);letter-spacing:1px;color:#ffe9b0;
+  margin-left:auto;padding:4px 6px;border:2px solid var(--outline);border-radius:4px;background:rgba(0,0,0,.35)}
+.lever .knob{position:relative;width:20px;height:20px;border-radius:50%;border:3px solid var(--outline);
+  background:radial-gradient(circle at 35% 30%,var(--gold-lit),var(--gold-deep));flex:0 0 auto}
+
+/* =========================================== 3. THE STRIP, for the consent ask */
+.box{background:#140e26;border:3px solid var(--outline);border-radius:8px 8px 0 0;padding:12px 13px;
+  font:500 15px var(--body);color:var(--text);box-shadow:inset 0 3px 0 rgba(0,0,0,.6)}
+.strip{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:0 0 8px 8px;
+  background:linear-gradient(180deg,var(--panel2),var(--ink));border:3px solid var(--outline);border-top:none;
+  font:600 12.5px var(--body);color:var(--secondary)}
+.strip .ask{display:flex;align-items:center;gap:9px;flex:1}
+.kbd{display:inline-block;font:700 11px var(--body);color:#2a1c00;padding:3px 7px 4px;border-radius:5px;
+  border:2px solid var(--outline);background:var(--gold-lit);box-shadow:0 2px 0 var(--outline)}
+.modepill{font:700 11px var(--body);padding:4px 9px;border-radius:999px;border:2.5px solid var(--outline);
+  background:var(--mode-deep);color:#1d0b33;box-shadow:0 2px 0 var(--outline)}
+
+/* =========================================== 4. THE STUCK SIGNAL
+   Distinct from the working glow. Persistent, quiet, no motion beyond a slow
+   breath, so it can be ignored mid-raid and still be there afterwards. */
+.pet{width:120px;height:120px;border-radius:14px;position:relative;
+  background:radial-gradient(circle at 50% 42%,#ffe4b0 0 22%,#f7a35c 23% 34%,transparent 35%),
+    radial-gradient(ellipse at 50% 85%,#6b4fb0 0 30%,transparent 31%),linear-gradient(180deg,#26203a,#120d22);
+  border:3px dashed #3a2f55}
+.pet .lbl{position:absolute;left:0;right:0;bottom:-22px;text-align:center;font:400 9px var(--label);color:#6a6186}
+.waitmark{position:absolute;right:-14px;top:-12px;display:flex;align-items:center;gap:7px;
+  padding:6px 9px 6px 7px;border-radius:999px;background:var(--wood-plaque);border:2.5px solid var(--outline);
+  box-shadow:0 3px 0 rgba(0,0,0,.6);font:400 9px var(--label);letter-spacing:.5px;color:var(--orange);
+  text-shadow:1px 1px 0 rgba(0,0,0,.8);white-space:nowrap}
+.waitmark i{width:11px;height:11px;border-radius:50%;border:2px solid var(--outline);background:var(--orange);
+  animation:breathe 3.2s ease-in-out infinite}
+@keyframes breathe{50%{opacity:.35}}
+.glow{position:absolute;inset:-8px;border-radius:20px;box-shadow:0 0 18px 4px rgba(200,232,255,.55);pointer-events:none}
+
+/* =========================================== 5. THE CHECKLIST */
+.check{display:flex;gap:10px;align-items:center;padding:5px 0;font:500 14.5px var(--body)}
+.check .mark{width:46px;text-align:left;font:400 10px var(--label);letter-spacing:.5px}
+.check.done{color:#4e3d28}.check.done .mark{color:#2f7a4a}
+.check.now{color:#271c10;font-weight:700}.check.now .mark{color:#9a6a0e;animation:tick .9s steps(2) infinite}
+.check.todo{color:rgba(90,72,52,.5)} .check.todo .mark{color:rgba(90,72,52,.45)}
+.check.fail{color:#7a2a1c;font-weight:700}.check.fail .mark{color:var(--red)}
+@keyframes tick{50%{opacity:.25}}
+.check .chip{margin-left:auto;font-size:11px;padding:3px 7px}
+
+/* =========================================== 6. SEVERAL THINGS WAITING
+   Today a new message REPLACES the last. Now they stack: the top one is open,
+   the rest show as parchment edges underneath, each with a one-line label. */
+.stack{position:relative;width:420px;padding-bottom:62px}
+.stack .under{position:absolute;left:14px;right:14px;height:26px;border-radius:0 0 9px 9px;
+  border:var(--ow) solid var(--outline);border-top:none;display:flex;align-items:center;padding:0 12px;
+  font:600 12px var(--body);color:#4e3d28;
+  background:linear-gradient(180deg,var(--parch2),#cfae74)}
+.stack .under b{font:400 9px var(--label);letter-spacing:.5px;color:#8a6a2a;margin-right:8px}
+.stack .under.u1{bottom:34px;z-index:2} .stack .under.u2{bottom:10px;left:26px;right:26px;z-index:1;opacity:.85}
+.stack .top{position:relative;z-index:3}
+.count{display:inline-flex;align-items:center;gap:6px;font:400 10px var(--label);letter-spacing:1px;color:var(--gold);
+  background:var(--wood-plaque);padding:5px 9px;border-radius:5px;border:2.5px solid var(--outline);
+  box-shadow:inset 0 2px 0 rgba(0,0,0,.6)}
+
+/* =========================================== 7. THE PLAN */
+.plan{counter-reset:p;margin:0 0 4px;padding:0;list-style:none}
+.plan li{counter-increment:p;display:grid;grid-template-columns:30px 1fr auto;gap:10px;align-items:start;padding:8px 0}
+.plan li+li{border-top:3px solid rgba(90,60,25,.24)}
+.plan li::before{content:counter(p);font:700 16px var(--display);color:var(--carve-ink);
+  width:26px;height:26px;border-radius:6px;border:2.5px solid var(--outline);display:grid;place-items:center;
+  background:linear-gradient(180deg,var(--gold-lit),var(--gold-deep));text-shadow:0 1px 0 rgba(255,255,255,.5)}
+.plan li span{font:500 14.5px/1.5 var(--body);color:#271c10}
+.plan li em{font:italic 500 12.5px var(--body);color:#5a4834;display:block}
+
+/* =========================================== 8. THE ARROW (kept, from 4.x) */
+.arrow{display:block;margin:8px auto 0;width:30px;height:19px;animation:bob 1.5s ease-in-out infinite}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(4px)}}
+.fade{color:rgba(39,28,16,.42)}
+/* the copy and rating keys above the bubble: small, but still keycaps, and a rating that is
+   switched on uses the latched look from section 1 rather than a new one */
+.mini{width:28px;height:28px;border-radius:7px;border:2.5px solid var(--outline);display:grid;place-items:center;
+  background:linear-gradient(180deg,var(--plum),var(--plum-deep));box-shadow:0 3px 0 var(--outline),inset 0 2px 0 rgba(150,110,200,.45);
+  cursor:pointer;position:relative;top:0}
+.mini svg{width:13px;height:13px}
+.mini.on{top:2px;background:linear-gradient(180deg,var(--gold-lit),var(--gold-deep));box-shadow:0 1px 0 var(--outline),inset 0 3px 0 rgba(0,0,0,.25)}
+
+/* =========================================== 9. EMPTY STATES */
+.empty{text-align:center;padding:26px 22px}
+.empty .ill{width:64px;height:64px;margin:0 auto 12px;border-radius:12px;border:3px solid var(--outline);
+  background:radial-gradient(circle at 50% 40%,var(--gold-lit),var(--gold-deep) 70%);display:grid;place-items:center;
+  font:700 30px var(--display);color:var(--carve-ink);box-shadow:inset 0 3px 0 rgba(255,255,255,.5),0 4px 0 var(--outline)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>AANG &middot; THE BUBBLE</h1>
+<p class="sub">Sheet 5. Everything the new bubble shows: FINAL AANG BUILD steps 6.10 to 6.14b.<br>
+Every message on this sheet is one the brain <b style="color:#9a90b5">already sends today</b>, drawn
+with its real wording and real fields. Nothing here is invented content.</p>
+
+<!-- ============================================== 1 -->
+<h2 class="part">1 &middot; THREE WAYS TO BE PRESSED IN <span class="step">6.10</span></h2>
+<p class="why">Your style has one big move: things press in. Today that one move would mean three
+different things, and the research named that the biggest accessibility risk in the whole look. So
+each meaning gets its own material, and they can never be mistaken for each other.</p>
+
+<div class="state-row">
+  <div class="state-col">
+    <button class="key">Open Chrome</button>
+    <span class="lab">RESTING</span>
+    <p>For comparison. Sitting up on its lip.</p>
+  </div>
+  <div class="state-col">
+    <button class="key held">Open Chrome</button>
+    <span class="lab">BEING CLICKED</span>
+    <p>The face travels all the way down onto its shadow, only while your finger is on it.</p>
+  </div>
+  <div class="state-col">
+    <button class="key focus">Open Chrome</button>
+    <span class="lab">KEYBOARD IS HERE</span>
+    <p>No travel at all. A gold groove carved around the outside. It sits, it does not press.</p>
+  </div>
+  <div class="state-col">
+    <button class="key latched">Save quota</button>
+    <span class="lab">SWITCHED ON</span>
+    <p>Latched half way down, a darker face, and a green gem lit inside it.</p>
+  </div>
+</div>
+<p class="sur" style="margin-top:22px"><b>With reduced motion on</b> in Windows, the clicked state keeps
+its depth and colour but loses the travel, so nothing moves on screen. Every key is at least 24 pixels
+tall, past the accessibility minimum.</p>
+
+<!-- ============================================== 2 -->
+<h2 class="part">2 &middot; THE ASKS <span class="step">6.12</span></h2>
+<p class="why">Four kinds of question, all already sent by the brain today. They keep the plain
+"what that means" line you asked for on 2026-10-03, quieter, under the question. <b>Routine asks use
+ordinary keycaps. Anything serious uses the lever</b>, which has to be held, because the research shows
+identical prompts get clicked through without reading, half of them in under two seconds.</p>
+
+<h3 class="sur">A routine permission</h3>
+<div class="two">
+  <div class="wood tex tail" style="width:440px">
+    <div class="plaque">ASKING FIRST</div>
+    <h3 class="t-head">Can I open Chrome?</h3>
+    <p class="t-means">It opens the Chrome browser, the same as double-clicking its icon.</p>
+    <div class="keys">
+      <button class="key primary sm">Open Chrome<span class="k">A</span></button>
+      <button class="key sm">Not now<span class="k">Z</span></button>
+    </div>
+    <div class="keys" style="margin-top:12px">
+      <button class="key warn sm">Always open apps<span class="k">X</span></button>
+    </div>
+  </div>
+  <div style="flex:1;min-width:260px">
+    <p class="sur"><b>Three keycaps, exactly as today:</b> the action itself does it once, "Not now"
+    declines, and "Always" trusts that whole kind of thing from then on.</p>
+    <p class="sur"><b>"Always" is kept exactly as you have it now: its own row, orange, never the
+    default.</b> That is a safety decision from 2026-09-22, so a quick tap on the first row can never
+    hand out permanent trust by accident. It only appears when that kind of thing can be trusted for good.
+    Opening apps can. Sending an email never can.</p>
+    <p class="sur">The question is the big line. The explanation is the quiet italic line, so it never
+    gets in the way once you already know.</p>
+  </div>
+</div>
+
+<h3 class="sur">A permission to run a command</h3>
+<div class="two">
+  <div class="wood tex tail" style="width:440px">
+    <div class="plaque">ASKING FIRST</div>
+    <h3 class="t-head">Can I check what is filling your C drive?</h3>
+    <p class="t-means">This lists the biggest folders. It only looks; nothing is changed or deleted.</p>
+    <span class="code">Get-ChildItem C:\ -Directory | Sort-Object Length</span>
+    <div class="keys">
+      <button class="key primary sm">Run it<span class="k">A</span></button>
+      <button class="key sm">Not now<span class="k">Z</span></button>
+    </div>
+  </div>
+  <div style="flex:1;min-width:260px">
+    <p class="sur"><b>For a command, the exact text is shown</b>, in a dark carved slot so it reads as
+    "the actual thing being run", not as Aang talking. No "always" key: commands are never trusted for good.</p>
+  </div>
+</div>
+
+<h3 class="sur">A serious one, with the lever</h3>
+<div class="two">
+  <div class="wood tex tail" style="width:440px">
+    <div class="plaque urgent">THIS CANNOT BE UNDONE</div>
+    <h3 class="t-head">Send the cover letter to Octup?</h3>
+    <p class="t-means">It goes from your Gmail to their hiring address. Once it is sent it is sent.</p>
+    <div class="rule-titled"><i class="bar"></i><span>Where this came from</span><i class="bar"></i></div>
+    <p class="t-body" style="font-size:14px">You asked me to apply to the good ones this morning. Nothing
+    in the email or the posting asked me to.</p>
+    <div class="keys" style="align-items:center">
+      <div class="lever"><i class="fillbar"></i><i class="knob"></i><span class="txt">Hold to send</span><span class="hold">HOLD</span></div>
+      <button class="key sm">Show me first<span class="k">X</span></button>
+      <button class="key warn sm">No<span class="k">Z</span></button>
+    </div>
+  </div>
+  <div style="flex:1;min-width:260px">
+    <p class="sur"><b>The lever</b> is a heavy brass bar. Press and hold, and it fills over about a
+    second. Let go early and nothing happens. A reflex click can never send, buy, delete, or close
+    someone else's app.</p>
+    <p class="sur"><b>"Where this came from"</b> is the safety rule made visible: it names the thing you
+    said that started it, so a page or an email can never quietly be the reason.</p>
+    <p class="sur">Shown here part way through being held.</p>
+  </div>
+</div>
+
+<h3 class="sur">A fact Aang read in your notes</h3>
+<div class="two">
+  <div class="parch tex tail" style="width:440px">
+    <p class="t-eyebrow">I READ THIS IN YOUR NOTES &middot; 3 MORE AFTER THIS</p>
+    <h3 class="t-head">Is this true?</h3>
+    <p class="t-body">"You prefer hybrid roles over fully remote ones."</p>
+    <p class="t-caption" style="margin:0 0 4px">From <b>profile.md</b> in your Aang Brain folder</p>
+    <div class="keys">
+      <button class="key primary sm">Yes, remember<span class="k">A</span></button>
+      <button class="key sm">Not true<span class="k">X</span></button>
+      <button class="key sm">Skip<span class="k">Z</span></button>
+    </div>
+  </div>
+  <div style="flex:1;min-width:260px">
+    <p class="sur"><b>Parchment, not wood</b>, on purpose. A permission is Aang asking to use his
+    hands. This is a document asking whether it is right. Different question, different surface.</p>
+    <p class="sur">It names the file it came from and how many are left, so you know how long this will
+    take. "Yes" only ever applies to this one fact. Nothing is turned into a rule.</p>
+  </div>
+</div>
+
+<h3 class="sur">A backup, offered</h3>
+<div class="two">
+  <div class="parch tex tail" style="width:440px">
+    <p class="t-eyebrow">YOUR VAULT</p>
+    <p class="t-body" style="margin-bottom:4px"><b>14 notes changed</b> and nothing has been backed up
+    in <b>6 days</b>.</p>
+    <div class="keys">
+      <button class="key primary sm">Back it up<span class="k">A</span></button>
+      <button class="key sm">Later<span class="k">Z</span></button>
+    </div>
+  </div>
+  <div style="flex:1;min-width:260px">
+    <p class="sur"><b>Offered, never done on its own</b>, exactly as today. Two numbers and two keys.
+    Small, because it is the least urgent ask there is.</p>
+  </div>
+</div>
+
+<h3 class="sur">Asking to use a bigger brain, in the typing box</h3>
+<div style="max-width:520px">
+  <div class="box">compare all three offers properly, salary benefits commute</div>
+  <div class="strip">
+    <div class="ask"><span class="modepill">DEEP</span> Use Deep (Opus) for this one?</div>
+    <span class="kbd">Enter</span> yes <span class="kbd">Esc</span> no
+  </div>
+</div>
+<p class="sur" style="margin-top:12px">Today this is a line of plain text in the strip. Now the mode is
+its own coloured pill, in the colour it has everywhere else, and the keys are keycaps. It still never
+takes a click: Enter or Esc, without leaving the keyboard.</p>
+
+<!-- ============================================== 3 -->
+<h2 class="part">3 &middot; STUCK, AND WORKING <span class="step">6.12</span> <span class="step">6.13</span></h2>
+
+<h3 class="sur">When a Claude Code job is stuck waiting on you</h3>
+<p class="sur">From step 4.4: the one state where something has really stopped. Aang says so once, then
+goes quiet, and this mark stays on the pet until you deal with it. <b>It is not the working glow</b>,
+so the two can never be confused, and it only breathes slowly, so it can sit there through a raid
+without pulling your eye.</p>
+<div class="two" style="align-items:center;gap:60px">
+  <div style="position:relative"><div class="pet"><span class="lbl">THE PET</span></div>
+    <span class="waitmark"><i></i>CLAUDE IS WAITING ON YOU</span></div>
+  <div style="position:relative"><div class="pet"><span class="lbl">FOR COMPARISON: WORKING</span></div>
+    <i class="glow"></i></div>
+  <p class="sur" style="max-width:340px;margin:0">Click the mark and the bubble says what it is waiting
+  for. Answer it and the mark goes away.</p>
+</div>
+
+<h3 class="sur">A job with several steps, shown as it happens</h3>
+<p class="sur">Today each step's label <b>replaces</b> the last, so a long job is motion with no memory.
+Now the steps stay, ticked as they finish. The research found people rate a slow answer as thoughtful,
+not broken, but only when they can see something happening.</p>
+<div class="two">
+  <div class="parch tex tail" style="width:440px">
+    <p class="t-eyebrow">WORKING ON IT &middot; STEP 3 OF 5</p>
+    <div class="check done"><span class="mark">DONE</span><span>Read your job search notes</span><span class="chip local">LOCAL</span></div>
+    <div class="check done"><span class="mark">DONE</span><span>Checked three new postings</span><span class="chip local">LOCAL</span></div>
+    <div class="check now"><span class="mark">NOW</span><span>Comparing them to what you want</span><span class="chip claude">CLAUDE</span></div>
+    <div class="check todo"><span class="mark">NEXT</span><span>Writing it up</span></div>
+    <div class="check todo"><span class="mark">NEXT</span><span>Showing you</span></div>
+    <div class="keys"><button class="key sm">Stop<span class="k">Esc</span></button></div>
+  </div>
+  <div style="flex:1;min-width:260px">
+    <p class="sur"><b>Each step says who did it.</b> Purple LOCAL means your own machine, free. Orange
+    CLAUDE means it went to Claude and cost quota. Same colours as the strip.</p>
+    <p class="sur">When a step fails it turns red and says why, and the job stops there rather than
+    pretending. <b>Stop</b> always actually stops.</p>
+  </div>
+</div>
+
+<h3 class="sur">When a new message has to wait its turn</h3>
+<div class="parch tex tail" style="width:440px">
+  <p class="t-body" style="margin:0">I am still on your last one. <b>Yours is next.</b></p>
+</div>
+<p class="sur" style="margin-top:22px">That is the whole of it. Today's "queued, position 2" becomes a
+sentence.</p>
+
+<!-- ============================================== 4 -->
+<h2 class="part">4 &middot; SEVERAL THINGS AT ONCE <span class="step">6.13</span></h2>
+<p class="why"><b>Today a new message replaces the last one.</b> Three things needing you means you see
+one and the other two are gone. Now they stack: the newest is open, the rest sit underneath as edges
+of parchment, each with one line saying what it is. Answer the top one and the next slides up.</p>
+
+<div class="two" style="align-items:flex-start">
+  <div class="stack">
+    <div class="wood tex top">
+      <div class="plaque">ASKING FIRST</div>
+      <h3 class="t-head">Can I open Chrome?</h3>
+      <p class="t-means">It opens the Chrome browser, the same as double-clicking its icon.</p>
+      <div class="keys" style="justify-content:space-between;align-items:center">
+        <span style="display:flex;gap:10px">
+          <button class="key primary sm">Open Chrome<span class="k">A</span></button>
+          <button class="key sm">Not now<span class="k">Z</span></button>
+        </span>
+        <span class="count">1 OF 3</span>
+      </div>
+      <div class="keys" style="margin-top:12px">
+        <button class="key warn sm">Always open apps<span class="k">X</span></button>
+      </div>
+    </div>
+    <div class="under u1"><b>NEXT</b>Is this true? "You prefer hybrid roles..."</div>
+    <div class="under u2"><b>THEN</b>Back up your vault</div>
+  </div>
+  <div style="flex:1;min-width:280px">
+    <p class="sur"><b>Order:</b> anything waiting on a decision comes before anything that is just
+    information, and serious asks come before routine ones. Within that, oldest first, so nothing gets
+    buried.</p>
+    <p class="sur"><b>Click any edge</b> to jump straight to it. Nothing in the stack ever disappears on
+    its own; it stays until you answer it or dismiss it.</p>
+  </div>
+</div>
+
+<!-- ============================================== 5 -->
+<h2 class="part">5 &middot; THE PLAN, BEFORE HE ACTS <span class="step">6.13</span></h2>
+<p class="why">The single biggest gap the research found in Aang: every agent that works well in 2026
+shows its plan before it acts. For anything with more than two steps, or that touches your accounts or
+files, he shows the steps first and you say go.</p>
+
+<div class="two">
+  <div class="parch tex tail" style="width:470px">
+    <p class="t-eyebrow">HERE IS WHAT I WILL DO</p>
+    <h3 class="t-head">Apply to Octup</h3>
+    <ol class="plan">
+      <li><span>Write a cover letter from the one you liked in August<em>Nothing leaves your machine</em></span></li>
+      <li><span>Show it to you<em>You can change any of it</em></span></li>
+      <li><span>Fill in their application form<em>On their site, signed in as you</em></span><span class="chip careful">ASKS FIRST</span></li>
+      <li><span>Send it<em>Cannot be undone</em></span><span class="chip careful">LEVER</span></li>
+    </ol>
+    <div class="keys">
+      <button class="key primary sm">Go<span class="k">A</span></button>
+      <button class="key sm">Change the plan<span class="k">X</span></button>
+      <button class="key sm">Cancel<span class="k">Z</span></button>
+    </div>
+  </div>
+  <div style="flex:1;min-width:260px">
+    <p class="sur"><b>The plan says in advance which steps will stop and ask</b>, and which one needs the
+    lever. No surprises half way through.</p>
+    <p class="sur">Once you say go, this same card turns into the checklist in section 3 and ticks off
+    as he works.</p>
+    <p class="sur"><b>Small things skip this.</b> "What time is it" or "open Spotify" just happen. The
+    plan is for jobs, not for answers.</p>
+  </div>
+</div>
+
+<!-- ============================================== 6 -->
+<h2 class="part">6 &middot; KEPT EXACTLY: THE ARROW, COPY AND RATINGS <span class="step">6.12</span></h2>
+<p class="why">Your features from Phase 4, carried over unchanged. Over six lines, the reply collapses
+with the last line fading and the arrow bobbing. Click it and it grows to twelve, then scrolls. Scroll
+up past the top and older turns come back from memory, with no limit. <b>Above the top edge</b>, as
+today: copy the reply, or rate it up or down. Click a rating again to take it back. Ratings feed the
+voice review.</p>
+<div style="width:440px;display:flex;justify-content:flex-end;gap:7px;margin:0 0 8px">
+  <span class="mini" title="copy"><svg viewBox="0 0 14 14"><rect x="4" y="4" width="8" height="8" rx="1.3" stroke="#e8e0f5" stroke-width="1.6" fill="none"/><path d="M2.5 9.5V3a1 1 0 011-1H10" stroke="#e8e0f5" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg></span>
+  <span class="mini on" title="rated up"><svg viewBox="0 0 14 14"><path d="M4 12.5V6.5l3-4.5c.9 0 1.6.8 1.4 1.7L8 6h3.3c.8 0 1.4.8 1.2 1.6l-1 4c-.2.6-.7.9-1.3.9z" fill="#2a1c00"/><rect x="1.5" y="6.5" width="2" height="6" rx=".5" fill="#2a1c00"/></svg></span>
+  <span class="mini" title="rate down"><svg viewBox="0 0 14 14" style="transform:rotate(180deg)"><path d="M4 12.5V6.5l3-4.5c.9 0 1.6.8 1.4 1.7L8 6h3.3c.8 0 1.4.8 1.2 1.6l-1 4c-.2.6-.7.9-1.3.9z" fill="#e8e0f5"/><rect x="1.5" y="6.5" width="2" height="6" rx=".5" fill="#e8e0f5"/></svg></span>
+</div>
+<div class="parch tex tail" style="width:440px">
+  <p class="t-body">Three came in overnight. <b>Octup</b> is the one worth your time: Customer Success
+  Manager in Toronto, hybrid, $95k to $120k. The account work is what you already do all day.</p>
+  <p class="t-body fade" style="margin-bottom:0">The other two I would skip. Constellation listed no pay,
+  which usually means it is low, and GreenShield needs French and carries a quota, which are both on your&hellip;</p>
+  <svg class="arrow" viewBox="0 0 30 19">
+    <path d="M3 3 L15 14 L27 3" fill="none" stroke="#120A05" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M3 3 L15 14 L27 3" fill="none" stroke="#C98C14" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+</div>
+
+<!-- ============================================== 7 -->
+<h2 class="part">7 &middot; WHEN THINGS GO WRONG <span class="step">6.14b</span></h2>
+<p class="why">"Error and empty states are the thing nobody designs and the thing that makes software
+feel cheap." Every failure says plainly what happened, in Aang's own voice, and what to do next. Never a
+blank window. Never an endless spinner.</p>
+
+<div class="two">
+  <div style="width:440px">
+    <p class="cardlab">HIS BRAIN RESTARTING</p>
+    <div class="wood tex tail">
+      <div class="plaque">ONE MOMENT</div>
+      <h3 class="t-head">My brain stopped. I am restarting it.</h3>
+      <p class="t-body"><b>Nothing you said is lost.</b> I will pick up where we were.</p>
+      <div class="check now" style="color:var(--secondary)"><span class="mark" style="color:var(--gold)">NOW</span><span>Starting back up</span></div>
+    </div>
+  </div>
+  <div style="width:440px">
+    <p class="cardlab">IT DID NOT COME BACK</p>
+    <div class="wood tex tail">
+      <div class="plaque danger">STILL DOWN</div>
+      <h3 class="t-head">I could not restart after three tries.</h3>
+      <p class="t-body">Something is stopping me starting. Your messages are saved.</p>
+      <div class="keys">
+        <button class="key primary sm">Try again<span class="k">A</span></button>
+        <button class="key sm">Show what went wrong<span class="k">X</span></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="two" style="margin-top:30px">
+  <div style="width:440px">
+    <p class="cardlab">AN ORDINARY ERROR (THE BRAIN'S OWN WORDING)</p>
+    <div class="parch tex tail">
+      <p class="t-body" style="margin-bottom:6px"><b>I no longer have that job card.</b></p>
+      <p class="t-means" style="margin:0">Open the Panel again to refresh the stack.</p>
+    </div>
+    <p class="sur" style="margin-top:22px">The brain already sends every error as two parts: what went
+    wrong, and what to do next. The bubble just gives them a bold line and a quiet line.</p>
+  </div>
+  <div style="width:440px">
+    <p class="cardlab">THE NETWORK IS DOWN</p>
+    <div class="parch tex tail">
+      <p class="t-body" style="margin-bottom:6px"><b>I cannot reach Claude right now.</b></p>
+      <p class="t-means" style="margin:0 0 4px">Your internet looks down. Small things I can still do
+      myself; anything bigger waits until it is back.</p>
+      <div class="keys"><button class="key sm">Use my own brain for now<span class="k">A</span></button></div>
+    </div>
+  </div>
+</div>
+
+<h3 class="sur">When there is nothing yet</h3>
+<p class="sur">Every empty list says what will appear there and how, instead of an empty box.</p>
+<div class="two">
+  <div class="parch tex" style="width:290px">
+    <div class="empty">
+      <div class="ill">&#10003;</div>
+      <h3 class="t-head" style="font-size:17px">Nothing waiting</h3>
+      <p class="t-caption" style="margin:0">When I need you for something, it lands here.</p>
+    </div>
+  </div>
+  <div class="parch tex" style="width:290px">
+    <div class="empty">
+      <div class="ill">J</div>
+      <h3 class="t-head" style="font-size:17px">No new jobs today</h3>
+      <p class="t-caption" style="margin:0">I check every few hours. The next sweep is at 2 pm.</p>
+    </div>
+  </div>
+  <div class="parch tex" style="width:290px">
+    <div class="empty">
+      <div class="ill">?</div>
+      <h3 class="t-head" style="font-size:17px">No history yet</h3>
+      <p class="t-caption" style="margin:0">Everything we say to each other will be here to scroll back through.</p>
+    </div>
+  </div>
+</div>
+
+<h2 class="part">CHECKED AGAINST TODAY'S CODE</h2>
+<p class="why">Before this sheet was sent, each kept feature was checked against what the C# bubble
+actually does, not what I remembered. That caught one mistake in my first draft: I had put "Always" in
+line with the other keys in plum, which would have quietly undone your 2026-09-22 rule that it sits on
+its own row, in orange, never the default. Fixed above. Every bubble row of the parity list is now drawn
+here or on sheets 1 and 2.</p>
+
+</div>
+</body>
+</html>

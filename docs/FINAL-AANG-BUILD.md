@@ -1061,7 +1061,7 @@ ports them starts by reading the code.
 | Lists with coloured status rows (`present_list`) | `StructuredList` | 6.11 |
 | Asks in plain language: permission, consent, a fact to remember, a backup | `permission`, `consent`, `fact.ask`, `backup.ask` | 6.12 |
 | Quiet mode, mute, hush | `quiet`, `mute`, `hush` | 6.12 |
-| Ratings | `rate` | 6.12, **verify** |
+| Copy a reply, and rate it up or down (click again to take it back; feeds the voice review) | `PetWindow`, `rate` | 6.12 |
 | The morning brief | `brief` | 6.15, **verify** |
 | Typing box keys: Enter sends, Shift or Ctrl+Enter new line, Esc stops or closes, Up and Down recall, PageUp and PageDown page the bubble | `InputWindow` | 6.12b |
 | Ctrl+1 to 4 picks the mode | `ModelChip` | 6.12b |
@@ -1083,15 +1083,15 @@ mockup exists and he has approved it.** Not yet drawn:
 
 | Mockup | Needed by |
 |---|---|
-| The asks: permission, consent, a fact to remember, a backup, in the chip and lever language | 6.12 |
-| The stuck signal and the "working" checklist in the bubble | 6.12, 6.13 |
-| Several things waiting at once; the plan shown before acting | 6.13 |
-| **Error and empty states**: "My brain stopped and I am restarting it. Nothing you said is lost." Never a blank window, never an endless spinner | 6.14b |
+| ~~The asks: permission, consent, a fact to remember, a backup, in the chip and lever language~~ **DRAWN, sheet 5** | 6.12 |
+| ~~The stuck signal and the "working" checklist in the bubble~~ **DRAWN, sheet 5** | 6.12, 6.13 |
+| ~~Several things waiting at once; the plan shown before acting~~ **DRAWN, sheet 5** | 6.13 |
+| ~~**Error and empty states**~~ **DRAWN, sheet 5** | 6.14b |
 | What I know, What I may do, What I did, Drafts, History, Settings (only Jobs is drawn) | 6.15 |
 | Email draft cards; the morning brief | 6.15 |
 | Research cards from Phase 7 | 6.15b |
 | Search over everything; charts; side by side; the live Claude Code job view | 6.18 |
-| The three distinct "pressed in" looks (clicked, keyboard focus, switched on) | 6.10 |
+| ~~The three distinct "pressed in" looks (clicked, keyboard focus, switched on)~~ **DRAWN, sheet 5** | 6.10 |
 | Browser: vertical tab rail, six tab states, crashed-tab plate, chip and lever approvals, phishing warning, trails, mark as done, "open in Chrome" | 6.19 onward |
 
 ---
