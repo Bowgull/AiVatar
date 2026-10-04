@@ -12,7 +12,7 @@ import { app, BrowserWindow, Menu, ipcMain, session } from 'electron';
 import os from 'node:os';
 import path from 'node:path';
 import { CoreLink } from './link.ts';
-import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown } from './safety.ts';
+import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown, wrongSettings } from './safety.ts';
 
 const PORT = Number(process.env.AANG_PORT ?? 47831);
 const STATE_DIR = process.env.AANG_STATE_DIR
@@ -43,11 +43,18 @@ function open(kind: string, page: string, opts: Electron.BrowserWindowConstructo
   const existing = windows.get(kind);
   if (existing && !existing.isDestroyed()) { existing.show(); existing.focus(); return existing; }
 
+  const prefs = { ...SAFE_WEB_PREFERENCES, preload: path.join(HERE, 'preload.cjs'), ...(opts.webPreferences ?? {}) };
+  // Checked before the window exists, not after: a window that is not locked down should never be
+  // drawn at all. A later window can pass its own settings, and this is what stops one quietly
+  // dropping the sandbox.
+  const wrong = wrongSettings(prefs as Record<string, unknown>);
+  if (wrong.length) throw new Error(`refusing to open [${kind}]: ${wrong.join(', ')}`);
+
   const win = new BrowserWindow({
     width: 520, height: 420, show: false, backgroundColor: '#100A22',
     title: 'Aang',
     ...opts,
-    webPreferences: { ...SAFE_WEB_PREFERENCES, preload: path.join(HERE, 'preload.cjs'), ...(opts.webPreferences ?? {}) },
+    webPreferences: prefs,
   });
   lockDown(win.webContents);
   // A page that breaks must say so somewhere Joshua can find it, not fail in silence behind glass.
@@ -86,7 +93,10 @@ app.whenReady().then(() => {
   });
 
   link.start();
-  open('hello', 'hello.html', { width: 460, height: 360 });
+  // AANG_SHELL_PAGE lets the look driver (tests/fakecore/look-shell.mjs) open any page for a picture.
+  // Ignored in normal use: there is only one page today, and later windows are opened by the brain.
+  const first = process.env.AANG_SHELL_PAGE ?? 'hello.html';
+  open(first.replace(/\.html$/, ''), first, { width: 460, height: 360 });
 
   // macOS only, and Aang does not run there, but Electron complains without it.
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) open('hello', 'hello.html'); });
