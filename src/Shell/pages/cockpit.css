@@ -96,9 +96,9 @@
   --lip:5px;            /* how far a button travels when pressed */
 
   /* ---- type ---- */
-  --display:"Cinzel",Georgia,serif;
-  --body:"Figtree",system-ui,-apple-system,sans-serif;
-  --label:"Silkscreen",ui-monospace,monospace;
+  --display:"Cinzel",Georgia,"Times New Roman",serif;
+  --body:"Figtree",system-ui,-apple-system,Segoe UI,sans-serif;
+  --label:"Silkscreen",ui-monospace,Consolas,monospace;
 
   /* ---- the ink used for carved text. Darker than prettiest, on purpose. ---- */
   --carve-ink:#2A1C08;
@@ -152,6 +152,9 @@
   font:400 13px var(--label);color:var(--gold);letter-spacing:1px;
   text-shadow:2px 2px 0 rgba(0,0,0,.85);border:3px solid var(--outline);
   box-shadow:inset 0 4px 0 rgba(0,0,0,.65);
+  /* A carved nameplate, sized to its words. Without this it stretches to the full width of whatever
+     holds it and stops reading as a plate. Sheet 1 has it; this did not, until a diff found it. */
+  display:inline-block;
 }
 .plaque.urgent{color:var(--orange)}
 
@@ -267,7 +270,9 @@
 
 /* ---------------------------------------------------------------- chips */
 .chip{display:inline-block;font:700 12px var(--body);padding:5px 10px;border-radius:5px;
-  border:2.5px solid var(--outline);color:#231700;text-shadow:0 1px 0 rgba(255,255,255,.4)}
+  border:2.5px solid var(--outline);color:#231700;text-shadow:0 1px 0 rgba(255,255,255,.4);
+  /* A chip that wraps is not a chip, it is two lines in a rounded box. Sheet 1 has this. */
+  white-space:nowrap}
 .chip.good{background:var(--green)}
 .chip.careful{background:var(--orange)}
 .chip.stop{background:var(--red);color:#2e0b06}
