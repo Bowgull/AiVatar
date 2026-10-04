@@ -383,11 +383,10 @@ p.sur{font:500 13.5px/1.6 var(--body);color:#8a80a5;margin:0 0 16px;max-width:74
   box-shadow:0 4px 0 rgba(0,0,0,.6),0 14px 28px rgba(0,0,0,.6)}
 .menu .mrow{display:flex;align-items:center;gap:8px;padding:9px 11px;border-radius:6px;
   font:400 11.5px var(--label);color:#E6DCC8;letter-spacing:.5px;cursor:pointer;text-shadow:1px 1px 0 rgba(0,0,0,.75)}
-.menu .mrow:hover,.menu .mrow.lit:hover{background:linear-gradient(180deg,var(--gold-lit),var(--gold-deep));color:#2a1c00;
+.menu .mrow:hover{background:linear-gradient(180deg,var(--gold-lit),var(--gold-deep));color:#2a1c00;
   text-shadow:0 1px 0 rgba(255,255,255,.5);box-shadow:inset 0 2px 0 rgba(255,255,255,.45)}
-.menu .mrow.lit{box-shadow:inset 0 0 0 2px var(--gold);color:var(--gold-lit)}
+.menu .mrow.act{font:700 13px/1 var(--display);letter-spacing:.6px;color:var(--gold-lit);padding:10px 11px 9px}
 .menu .mrow .arr{margin-left:auto;opacity:.6;font-family:var(--body);font-size:13px}
-.menu .mrow.lit .arr{font:400 8px var(--label);opacity:.75}
 .menu .mrow .tick{width:13px;font-size:12px;opacity:.9}
 .menu .hdr{background:var(--wood-plaque);border-radius:6px;padding:8px 11px;margin:6px 2px 4px;
   font:400 10px var(--label);color:var(--gold);letter-spacing:1.5px;border:2px solid var(--outline);
@@ -400,18 +399,30 @@ p.sur{font:500 13.5px/1.6 var(--body);color:#8a80a5;margin:0 0 16px;max-width:74
 .screen.small .sel .sz{top:-22px}
 .snipflow{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:18px;align-items:start}
 .stepno{font:400 10px var(--label);letter-spacing:1.5px;color:var(--gold-deep);margin:0 0 8px}
-.shot{position:absolute;right:14px;bottom:14px;width:178px;padding:7px;border-radius:9px;
-  background:linear-gradient(180deg,#56371F,var(--wood2));border:3px solid var(--outline);
-  box-shadow:0 5px 0 rgba(0,0,0,.6),0 12px 24px rgba(0,0,0,.6);animation:shrink .5s ease-out}
-@keyframes shrink{from{transform:scale(1.9) translate(-30%,-30%);opacity:.4}to{transform:none;opacity:1}}
-.shot .pic{border-radius:5px;border:2px solid var(--outline);background:#1d140c;padding:6px 7px;height:58px;overflow:hidden}
+.shot{position:absolute;right:12px;bottom:12px;width:236px;padding:10px 11px 12px;border-radius:10px;
+  background:linear-gradient(180deg,#56371F 0%,var(--wood1) 40%,var(--wood2) 100%);border:var(--ow) solid var(--outline);
+  box-shadow:inset 0 4px 0 rgba(255,224,150,.2),inset 0 -5px 0 rgba(0,0,0,.5),0 5px 0 rgba(0,0,0,.6),0 14px 26px rgba(0,0,0,.6);
+  animation:shrink .45s cubic-bezier(.2,.9,.3,1.2)}
+@keyframes shrink{from{transform:scale(1.7) translate(-28%,-26%);opacity:.5}to{transform:none;opacity:1}}
+.shot .plq{display:inline-block;font:400 9.5px var(--label);letter-spacing:1.5px;color:var(--gold);padding:5px 9px;
+  border-radius:5px;background:var(--wood-plaque);border:2.5px solid var(--outline);box-shadow:inset 0 3px 0 rgba(0,0,0,.65);
+  text-shadow:1px 1px 0 rgba(0,0,0,.85)}
+.shot .frame{position:relative;margin:9px 0 8px;padding:7px;border-radius:6px;
+  background:linear-gradient(180deg,#F0DCB4,var(--parch2));border:3px solid var(--outline);box-shadow:inset 0 3px 0 rgba(255,255,255,.5)}
+.shot .frame i{position:absolute;width:9px;height:9px;border:3px solid var(--gold-deep)}
+.shot .frame i:nth-of-type(1){left:2px;top:2px;border-right:0;border-bottom:0}
+.shot .frame i:nth-of-type(2){right:2px;top:2px;border-left:0;border-bottom:0}
+.shot .frame i:nth-of-type(3){left:2px;bottom:2px;border-right:0;border-top:0}
+.shot .frame i:nth-of-type(4){right:2px;bottom:2px;border-left:0;border-top:0}
+.shot .pic{border-radius:3px;border:2px solid var(--outline);background:#1d140c;padding:6px 7px;height:50px;overflow:hidden}
 .shot .pic div{font:500 8.5px/1.4 ui-monospace,Consolas,monospace;color:#ffb38a}
-.shot .yn{display:flex;justify-content:space-between;margin-top:8px}
-.gem{width:46px;height:46px;border-radius:50%;border:3px solid var(--outline);cursor:pointer;
-  font:900 20px var(--body);position:relative;top:0;box-shadow:0 4px 0 var(--outline),inset 0 3px 0 rgba(255,255,255,.5)}
-.gem:active{top:4px;box-shadow:0 0 0 var(--outline),inset 0 3px 0 rgba(255,255,255,.5)}
-.gem.yes{background:radial-gradient(circle at 35% 30%,#d2ffdd,var(--green) 55%,#3f9a5f);color:#163a24}
-.gem.no{background:radial-gradient(circle at 35% 30%,#ffd0c8,var(--red) 55%,#a8352a);color:#2e0b06}
+.shot .ask{font:700 14px var(--display);color:var(--gold-lit);text-shadow:0 2px 0 var(--outline);margin:0 0 9px}
+.shot .yn{display:flex;align-items:center;gap:9px;padding-left:16px;position:relative}
+.shot .yn .key{flex:1}
+.ptr{position:absolute;left:-2px;top:50%;margin-top:-8px;width:12px;height:16px;background:var(--gold-lit);
+  clip-path:polygon(0 0,25% 0,25% 12.5%,50% 12.5%,50% 25%,75% 25%,75% 37.5%,100% 37.5%,100% 62.5%,75% 62.5%,75% 75%,50% 75%,50% 87.5%,25% 87.5%,25% 100%,0 100%);
+  filter:drop-shadow(2px 2px 0 var(--outline));animation:bob .7s steps(2) infinite}
+@keyframes bob{50%{transform:translateX(3px)}}
 </style>
 </head>
 <body>
@@ -593,8 +604,8 @@ says "ignore your rules", Aang treats it as text on a page.</p>
     <div class="mrow">Show Aang<span class="arr">&#8250;</span></div>
     <div class="mrow">Where he sits<span class="arr">&#8250;</span></div>
     <div class="hdr">AANG</div>
-    <div class="mrow lit">Snip the screen<span class="arr">CTRL+SHIFT+PLUS</span></div>
-    <div class="mrow lit">Send what I highlighted</div>
+    <div class="mrow act">Snipit</div>
+    <div class="mrow act">Highlight</div>
     <div class="mrow">Job hunt<span class="arr">&#8250;</span></div>
     <div class="mrow">What he may do<span class="arr">&#8250;</span></div>
     <div class="mrow">What he did<span class="arr">&#8250;</span></div>
@@ -605,33 +616,38 @@ says "ignore your rules", Aang treats it as text on a page.</p>
     <div class="mrow danger">Quit Aang</div>
   </div>
   <div style="flex:1;min-width:250px">
-    <p class="sur"><b>Two new rows at the top of the AANG group</b> in the gold menu you already have (sheet 2).
-    Nothing else in the menu changes.</p>
-    <p class="sur"><b>Snip the screen</b> also has its key, <b>Ctrl+Shift+Plus</b>, printed beside it so you learn
-    it. It sits next to your hide-and-show key, Ctrl+Plus.</p>
-    <p class="sur"><b>Send what I highlighted</b> has no key. Highlight text in any app, right-click Aang, pick
-    it. Clicking Aang never takes focus away from the app you were in (his window is built that way), so your
-    highlight is still there when he reads it.</p>
+    <p class="sur"><b>Two new rows at the top of the AANG group</b> in the gold menu you already have (sheet 2):
+    <b>Snipit</b> and <b>Highlight</b>. Same height as every other row. They're in Cinzel, the title font, so the two
+    things you <i>do</i> stand apart from the places you <i>go</i>.</p>
+    <p class="sur"><b>Snipit</b> also works from Ctrl+Shift+Plus. The menu doesn't print the key.</p>
+    <p class="sur"><b>Highlight</b>: highlight text in any app, right-click Aang, pick it. Clicking Aang never takes
+    focus away from the app you were in (his window is built that way), so your highlight is still there when he
+    reads it.</p>
     <p class="sur"><b>Drop</b> needs no menu: drag a file onto him.</p>
   </div>
 </div>
 
-<h3 class="sur" style="margin-top:28px">Snip: drag a box, confirm it, Aang asks</h3>
+<h3 class="sur" style="margin-top:28px">Snipit: drag a box, confirm it, Aang asks</h3>
 <div class="snipflow">
   <div>
     <p class="stepno">1 &middot; DRAG A BOX</p>
-    <div class="screen small" style="height:190px">
+    <div class="screen small" style="height:270px">
       <div class="err">Interface\AddOns\Questie\Modules\<br>QuestieTracker.lua:812: attempt to<br>index field 'quest' (a nil value)</div>
       <div class="sel"><i></i><i></i><i></i><i></i><span class="sz">356 &times; 118</span></div>
     </div>
   </div>
   <div>
     <p class="stepno">2 &middot; SEND IT OR BIN IT</p>
-    <div class="screen" style="height:190px;background:linear-gradient(135deg,#2b3a2a,#1b2430 60%,#2a1f33)">
+    <div class="screen" style="height:270px;background:linear-gradient(135deg,#2b3a2a,#1b2430 60%,#2a1f33)">
       <div class="shot">
-        <div class="pic"><div>QuestieTracker.lua:812: attempt to index field 'quest' (a nil value)</div></div>
-        <div class="yn"><button class="gem no" title="Throw it away">&#10005;</button><button class="gem yes" title="Send to Aang">&#10003;</button></div>
-      </div>
+        <span class="plq">SNIPIT</span>
+        <div class="frame"><i></i><i></i><i></i><i></i>
+          <div class="pic"><div>QuestieTracker.lua:812: attempt to index field 'quest' (a nil value)</div></div></div>
+        <p class="ask">Send this to Aang?</p>
+        <div class="yn"><i class="ptr"></i>
+          <button class="key primary sm">Send<span class="k">&#9166;</span></button>
+          <button class="key sm">Bin it<span class="k">Esc</span></button></div>
+      </div>      </div>
     </div>
   </div>
   <div>
@@ -649,8 +665,9 @@ says "ignore your rules", Aang treats it as text on a page.</p>
 <div class="two" style="margin-top:16px">
   <div style="flex:1;min-width:250px">
     <p class="sur"><b>Like a screenshot on an iPhone:</b> the moment you let go, the snip shrinks into a small
-    card in the corner by Aang with two gems. Green tick sends it to Aang. Red cross throws it away. Enter and
-    Esc do the same.</p>
+    carved card in the corner by Aang. It's his ask card from sheet 5 in miniature: the wood frame, the plaque, the snip
+    set in parchment with gold corners like an item you just picked up in Zelda, and two keycaps. The little gold
+    pointer bobs beside the choice that's picked, like a Final Fantasy menu. Enter sends, Esc bins it.</p>
     <p class="sur"><b>It never sends by itself.</b> On an iPhone the thumbnail slides away on its own; here it
     waits until you choose, because sending is your call. Start another snip and the old one is thrown away.</p>
   </div>
@@ -662,7 +679,7 @@ says "ignore your rules", Aang treats it as text on a page.</p>
   </div>
 </div>
 
-<h3 class="sur" style="margin-top:28px">Send what I highlighted: what arrives in the bubble</h3>
+<h3 class="sur" style="margin-top:28px">Highlight: what arrives in the bubble</h3>
 <div class="two" style="align-items:flex-start">
   <div class="bub7 parch tex tail" style="max-width:460px">
     <span class="from">FROM CHROME &middot; MAIL.GOOGLE.COM &middot; READ, NOT OBEYED</span>
