@@ -1246,6 +1246,11 @@ and compare **computed values**, not screenshots - a 2.5 px travel difference is
 | 6.3 close button | 4 | **Drifted**, fixed. Was red, sheet says plum. Red means "no, or over" in this palette, and this button only puts a video away. |
 | 6.3 grab bar, source chip, control rows | 4 | **Correct.** Same font, padding, radius, border and colours; `.src.paid` uses the same `#A970FF` as the sheet's `.src.locked`. |
 | 6.6 skipping plaque | 4 | Not drawn on sheet 4; nothing to compare. |
+| 6.10 tokens | 1 | **30 of 33 identical, none missing.** The three were only FALLBACK fonts (Segoe UI, Times New Roman, Consolas); matched anyway. |
+| 6.10 surfaces and type | 1, 2 | **13 of 15 identical.** The two "differences" were spaces after commas in a shadow list. Two real misses found and fixed: `.plaque` had lost `display:inline-block`, so a carved nameplate stretched to full width; `.chip` had lost `white-space:nowrap`, so a chip could wrap into two lines in a rounded box. |
+| 6.12 speaker label | 2 | **Drifted**, fixed. `.who` was 10 px with .5 px tracking and a forced uppercase; the sheet is 9.5 px, 1 px tracking, opacity .75, and does not force case - the brain already sends the label in the case it wants. |
+| 6.12 collapse arrow | 5 | **Drifted**, fixed. It was the text character "▾". The sheet's is a 30x19 SVG chevron drawn TWICE, a 7 px near-black stroke with a 3.5 px gold one over it, which is what makes it look carved rather than typed. The bob was 1.4s/3px against the sheet's 1.5s/4px. |
+| 6.12 bubble geometry | 5 | **Correct**, measured in the browser: collapsed text 162 px, exactly `BubbleView.CollapsedH` (6 x 23 + 2 x 12); line height 23; narrow 97 px, wide capped at 416. |
 
 **Deliberate difference, kept:** sheet 4 shows "TWITCH - LIVE" on the source chip. Aang cannot know
 whether anyone is on air from a channel link, and the first real run showed that label over a player

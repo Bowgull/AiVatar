@@ -29,7 +29,13 @@
 
   <!-- Over six lines: the bobbing arrow. A click grows it to twelve, then it scrolls. -->
   <button id="more" class="more" hidden aria-label="Show the rest">
-    <span class="arrow" aria-hidden="true">▾</span>
+    <!-- Sheet 5's chevron, verbatim: drawn twice, a thick near-black stroke with gold over it, which
+         is what makes it look carved rather than typed. It was a text character here until a diff
+         against the sheet found it (2026-10-04). -->
+    <svg class="arrow" viewBox="0 0 30 19" aria-hidden="true">
+      <path d="M3 3 L15 14 L27 3" fill="none" stroke="#120A05" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M3 3 L15 14 L27 3" fill="none" stroke="#C98C14" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
   </button>
 
   <!-- Working on it. The dots and, under them, what the tool is actually doing. -->
