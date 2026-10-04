@@ -16,6 +16,17 @@
 
 <!-- The whole window is see-through; only this is drawn. `hidden` until there is something to say, so
      an empty bubble is never a faint rectangle floating beside him. -->
+<!-- The wrapper exists for one reason: the parchment clips anything outside its edges (that is what
+     keeps its texture inside the rounded corners), and the copy and rate keys straddle the top edge by
+     design. Inside the parchment they were clipped off and could never be seen (sweep, 2026-10-04). -->
+<div id="wrap" class="wrap">
+  <!-- Copy and rate: they straddle the top edge while the mouse is over the bubble, finished replies
+       only. aria-pressed carries the rating, so the look and what a screen reader says cannot differ. -->
+  <div id="tools" class="tools" hidden>
+    <button id="copy" class="mini" title="Copy">C</button>
+    <button id="up" class="mini" aria-pressed="false" title="Good">+</button>
+    <button id="down" class="mini" aria-pressed="false" title="Not good">&minus;</button>
+  </div>
 <div id="bubble" class="parch tex tail" hidden>
 
   <!-- Who is speaking and what it cost. Deliberately small and above the words, like the old one. -->
@@ -47,14 +58,9 @@
   <!-- A question that has to be answered before anything happens. Keycaps, A / X / Z, as today. -->
   <div id="asks" class="keys asks" hidden></div>
 
-  <!-- Copy and rate: they straddle the top edge while the mouse is over the bubble, finished replies
-       only. aria-pressed carries the rating, so the look and what a screen reader says cannot differ. -->
-  <div id="tools" class="tools" hidden>
-    <button id="copy" class="mini" title="Copy">C</button>
-    <button id="up" class="mini" aria-pressed="false" title="Good">+</button>
-    <button id="down" class="mini" aria-pressed="false" title="Not good">&minus;</button>
-  </div>
 
+
+</div>
 </div>
 
 <script src="bubble.js" type="module"></script>

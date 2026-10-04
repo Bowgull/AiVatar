@@ -37,6 +37,8 @@ html,body{margin:0;padding:0;background:transparent;overflow:hidden;font:500 15p
    its own chrome taken off, and it has to grow with the text, which input.js
    does by measuring - up to six lines, then it scrolls, as the old box does. */
 textarea.box{display:block;width:100%;box-sizing:border-box;resize:none;outline:none;
-  margin:0;line-height:1.45;overflow-y:hidden;caret-color:var(--gold)}
+  margin:0;line-height:1.45;overflow-y:hidden;caret-color:var(--gold);
+  /* past four lines it scrolls; a thin plum bar like the bubble's, not the white system one */
+  scrollbar-width:thin;scrollbar-color:var(--plum-edge) transparent}
 textarea.box::placeholder{color:#6d6585}
 .pill[hidden]{display:none}

@@ -26,6 +26,12 @@ html,body{
   font:500 15px/1.6 var(--body);
 }
 #bubble{pointer-events:auto}
+/* The wrapper carries the bubble's place in the window, so the copy and rate keys can sit on its top
+   edge outside the parchment's clipping. */
+.wrap{position:relative;align-self:flex-end;margin:0 6px 18px;pointer-events:none}
+.wrap .tools{pointer-events:none;z-index:3}   /* above the parchment, which comes after it */
+/* The window is 18 px taller than the bubble and its tail, for the copy and rate keys above it. */
+body{padding-top:18px;box-sizing:border-box}
 
 /* Grows UP from its bottom, like the painted one: the window is placed by its
    bottom-right corner (anchor.ts), so the content has to hang from the bottom
@@ -34,7 +40,7 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
 
 #bubble{
   position:relative;
-  margin:0 6px 18px;      /* room under it for the tail, which hangs outside */
+  margin:0;               /* the wrapper holds the margin now */
   padding:10px 14px 12px;
   /* Sized to its text, like the painted one, not stretched to the window. The widths are the painted
      ones: BubbleView draws Left = 6 to Right = 262, so 256 across; a long reply widens by WideExtra
@@ -47,7 +53,6 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
   /* flex-END: the window is anchored by its RIGHT edge at Aang's shoulder (anchor.ts), so the drawn
      bubble has to hug that edge. flex-start left a one-word reply sitting at the far side of a window
      wider than it, 130 px from him (seen on his desktop, 2026-10-04). */
-  align-self:flex-end;
   width:max-content;
   /* border-box, so 256 is the width of the drawn bubble as he sees it. Without it the padding and the
      4px frame sit outside the cap and every bubble is 36px wider than the painted one. */
@@ -116,7 +121,11 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
   opacity:0;transition:opacity .14s ease-out;pointer-events:none;
 }
 .tools[hidden]{display:none}
-#bubble:hover .tools,.tools:focus-within{opacity:1;pointer-events:auto}
+/* `.over` is set by bubble.js from its own pointer tracking. The browser's :hover is NOT reliable here:
+   in a click-through window Electron forwards mouse moves to the page's scripts, but the :hover state
+   stayed false the whole time the pointer sat on the bubble (logged: "hover=false", 2026-10-04), so the
+   keys never appeared. :hover is kept as well, for when the window is already taking the mouse. */
+.wrap.over .tools,.wrap:hover .tools,.tools:focus-within{opacity:1;pointer-events:auto}
 /* The keys themselves are .mini in cockpit.css, lifted from sheet 5 section 8:
    "still keycaps, and a rating that is switched on uses the latched look from
    section 1 rather than a new one". Only their placement is here. */

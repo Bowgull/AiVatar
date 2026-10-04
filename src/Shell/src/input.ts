@@ -49,7 +49,7 @@ export class InputBox {
       });
       // Clicking away closes it and keeps the draft, as the old box does. Not while it is being opened:
       // the very act of showing it can blur the window that was in front, and that is not him leaving.
-      w.on('blur', () => { if (Date.now() - this.openedAt > 250) this.close(); });
+      w.on('blur', () => { if (Date.now() - this.openedAt > 250) this.close(false); });
       w.on('closed', () => { this.win = null; });
       this.win = w;
       return w;
@@ -72,15 +72,35 @@ export class InputBox {
     if (!w || w.isDestroyed()) return;
     if (at) w.setPosition(Math.round(at.x), Math.round(at.y));
     this.openedAt = Date.now();
+    if (w.isMinimized()) w.restore();      // close() minimizes to give the keyboard back
     w.show();
     w.focus();
     w.webContents.focus();
     this.send('input:state', { ...state, opened: true });
   }
 
-  close(): void {
-    if (this.win && !this.win.isDestroyed() && this.win.isVisible()) this.win.hide();
+  /**
+   * Hide it AND hand the keyboard back.
+   *
+   * Just hiding a focused window on Windows does not move the keyboard anywhere: the first sweep
+   * (2026-10-04) showed the hidden box still reported as the window in front a minute later, so his
+   * next keystrokes would have gone into an invisible window instead of back to his game. The old box
+   * did `ForceForeground(previous)`. Electron cannot name the previous window, but minimizing makes
+   * Windows activate the next one in line - the one he was in - and the window is hidden straight after,
+   * so nothing visible happens.
+   */
+  close(giveBack = true): void {
+    const w = this.win;
+    if (!w || w.isDestroyed() || !w.isVisible()) return;
+    w.hide();
+    // The pet knows which window he was in and hands the keyboard straight back to it. Minimizing to
+    // let Windows pick "the next window" was tried first and handed it to Discord instead of the window
+    // he had come from (sweep, 2026-10-04) - in a game, his movement keys would go into Discord.
+    // Not when he clicked away: he chose a window, and taking the keyboard from it would be rude.
+    if (giveBack) this.onGiveBack?.();
   }
+  /** Set by main.ts: ask the pet to give the keyboard back to the window he came from. */
+  onGiveBack: (() => void) | null = null;
 
   send(channel: string, payload: unknown): void {
     const w = this.win;

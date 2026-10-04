@@ -1779,7 +1779,7 @@ export class Core {
       // position a fresh Shell would know nothing until Joshua next dragged him.
       case 'pet.at': this.lastPetAt = m as PetAt; this.sendToShells(this.lastPetAt); break;
       // 6.12b: the Shell caught the hotkey and has its box open already; the pet only moves.
-      case 'summon': case 'dismiss': this.sendTo('desktop', { t: m.t }); break;
+      case 'summon': case 'dismiss': case 'refocus': this.sendTo('desktop', { t: m.t }); break;
       case 'watch.tomac': void this.openOnMac(String(m.url ?? '')).then(r => {
         if (!r.ok) this.sendTo('desktop', { t: 'bubble', text: r.detail, stream: false, proactive: true });
       }); break;

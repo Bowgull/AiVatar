@@ -567,7 +567,17 @@ sealed class PetWindow : Form
             // test unreadable. The pet still wakes, so he still reacts when spoken to.
             if (NewFrontEnd && tp.GetString() is "bubble" or "bubble.dots" or "bubble.clear" or "tool"
                 or "permission" or "fact.ask" or "backup.ask" or "consent")
-            { Wake(); dirty = true; return; }
+            {
+                // The pet keeps ALL his body language; only the drawing of the bubble moved. The first
+                // version skipped these outright, and because the switch from "think" to "talk" lives in
+                // ShowBubble, he was left stuck mid-thought - the dashed ring and three dots - long after
+                // the reply had come and gone (seen in the sweep, 2026-10-04).
+                var kind = tp.GetString();
+                if (kind == "bubble.dots") anim.Play("think");
+                else if (kind == "bubble" && (anim.State is "idle" or "think")) anim.Play("talk");
+                if (kind == "bubble" && !Bool(m, "stream")) { working = false; ackTimer.Stop(); }
+                Wake(); dirty = true; return;
+            }
             switch (tp.GetString())
             {
                 // The Shell owns the hotkey now and has already opened its typing box; the pet only has to
@@ -579,6 +589,12 @@ sealed class PetWindow : Form
                     break;
                 case "dismiss":
                     if (dock != DockEdge.None && !peeking) Peek();
+                    break;
+                // The Shell's typing box closed by Esc, by sending, or by Ctrl+Plus: give the keyboard back
+                // to the window he was in, as the old box did with ForceForeground(previous). Without this
+                // Windows hands it to whatever is next in line - Discord, in the sweep, not the game.
+                case "refocus":
+                    if (returnTo != IntPtr.Zero && Win32.IsWindow(returnTo)) Win32.ForceForeground(returnTo);
                     break;
                 case "state":
                     Wake();
@@ -801,9 +817,28 @@ sealed class PetWindow : Form
 
     // ------------------------------------------------------------------ quiet mode
 
+    /// <summary>
+    /// The window to hand the keyboard back to when the new typing box closes (6.12b): the last one in
+    /// front that was not Aang's - not the pet, not the Shell's windows. Kept here because the pet already
+    /// looks at the foreground twice a second, and because Electron cannot name another program's window.
+    /// Never sent anywhere, so it does not depend on the "let Aang see the active window" setting.
+    /// </summary>
+    IntPtr returnTo;
+
     void PollForeground()
     {
         foreground = ForegroundName();
+        try
+        {
+            var fgh = Win32.GetForegroundWindow();
+            if (fgh != IntPtr.Zero)
+            {
+                Win32.GetWindowThreadProcessId(fgh, out var fgPid);
+                if (fgPid != Environment.ProcessId && !foreground.Equals("electron", StringComparison.OrdinalIgnoreCase))
+                    returnTo = fgh;
+            }
+        }
+        catch { /* only used to give focus back; never worth failing a poll over */ }
         foregroundTitle = cfg.SeeActiveWindow ? ForegroundTitle() : "";
         if (!cfg.SeeActiveWindow) foregroundHwnd = 0;
         var wow = cfg.QuietProcessPrefixes.Any(p => foreground.StartsWith(p, StringComparison.OrdinalIgnoreCase));
