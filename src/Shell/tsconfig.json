@@ -14,5 +14,5 @@
     "types": ["node"],
     "lib": ["es2023", "dom"]
   },
-  "include": ["src/**/*.ts", "test/**/*.ts", "pages/reveal.js", "pages/asks.js", "pages/entities.js"]
+  "include": ["src/**/*.ts", "test/**/*.ts", "pages/reveal.js", "pages/asks.js", "pages/entities.js", "pages/scrollback.js"]
 }

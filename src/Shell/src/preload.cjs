@@ -62,6 +62,8 @@ contextBridge.exposeInMainWorld('aang', {
   openThing: t => ipcRenderer.send('bubble:open', t),
   /** Forget one stored message, by the row the brain gave it. */
   forgetTurn: id => ipcRenderer.send('bubble:forget', id),
+  /** Pull another page of his own history, older than the row given. */
+  olderTurns: a => ipcRenderer.send('bubble:older', a),
   /** Where the openings, endings and sponsor bits are in what is playing. */
   onPopoutSegments(fn) {
     const h = (_e, list) => fn(list);

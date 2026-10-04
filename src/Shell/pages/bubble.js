@@ -6,6 +6,7 @@
 import { Reveal, TICK_MS, hasMore, linesShown, scrolls } from './reveal.js';
 import { HOLD_MS, askFrom } from './asks.js';
 import { find as findEntities } from './entities.js';
+import { Scrollback, atTop } from './scrollback.js';
 
 const el = id => document.getElementById(id);
 const bubble = el('bubble'), said = el('said'), scroller = el('scroller'), more = el('more');
@@ -16,6 +17,15 @@ let expanded = false;
 let lineHeight = 23;          // measured below; BubbleView.LineH until then
 let rating = 0;               // 1 good, -1 not good, 0 not rated
 let turn = null;              // the stored row this reply became, for rating and reachback
+const back = new Scrollback();
+let reading = false;          // he has scrolled up into his history; the bubble is a scroll-back now
+/**
+ * Quiet means he is busy, mute means he never wants Aang speaking up on his own.
+ *
+ * Neither silences an ANSWER to something he asked: the C# has always drawn those. What they stop is
+ * Aang appearing by himself. So a reply still shows while muted, and only a proactive one is held.
+ */
+let quiet = false, muted = false;
 
 /** How many lines the text actually takes, measured rather than estimated. */
 function lineCount() {
@@ -214,6 +224,9 @@ window.aang?.onMessage?.(m => {
   if (showAsk(m)) return;
 
   if (m.t === 'bubble' && typeof m.text === 'string') {
+    // Muted means he never wants Aang starting a conversation. An ANSWER is not that, so only the
+    // proactive ones are held - the brain marks them, and this is the one place it matters here.
+    if (m.proactive && muted) return;
     // A new reply replaces whatever was there; more of the same one is appended. The brain sends the
     // whole text each time, not a delta, so this is a replace either way - the Reveal decides the pace.
     const same = m.stream && reveal.whole && m.text.startsWith(reveal.whole.slice(0, 12));
@@ -237,8 +250,28 @@ window.aang?.onMessage?.(m => {
 
   if (m.t === 'tool' && typeof m.label === 'string') { doing.textContent = m.label; return; }
 
+  // A page of older turns. Keeping his place is the point: if the list grew above him and the view
+  // stayed where it was, he would be thrown back to where he started every time.
+  if (m.t === 'history.reply' && Array.isArray(m.items)) {
+    const wasHeight = scroller.scrollHeight, wasTop = scroller.scrollTop;
+    const added = back.older(m.items);
+    if (added) {
+      paintBack();
+      scroller.scrollTop = wasTop + (scroller.scrollHeight - wasHeight);
+    }
+    reportSize();
+    return;
+  }
+
+  // Quiet and mute change nothing about a reply, only about Aang speaking up by himself.
+  if (m.t === 'quiet') { quiet = m.on === true; return; }
+  if (m.t === 'mute') { muted = m.on === true; return; }
+
   if (m.t === 'bubble.clear') {
     reveal.clear();
+    back.clear();
+    reading = false;
+    paintBack();
     expanded = false;
     bubble.hidden = true;
     working.hidden = true;
@@ -289,6 +322,41 @@ bubble.addEventListener('click', e => {
   if (e.target.closest('.tool, .key, .more')) return;     // those have their own jobs
   if (reveal.skip()) { paint(); return; }
 });
+
+/** Draw the scroll-back: his turns and Aang's, oldest first, above whatever is being said now. */
+function paintBack() {
+  let box = document.getElementById('back');
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'back';
+    box.className = 'back';
+    scroller.before(box);
+  }
+  box.hidden = !reading;
+  if (!reading) return;
+  box.replaceChildren();
+  for (const t of back.turns) {
+    const p = document.createElement('p');
+    p.className = 'turn ' + (t.who === 'you' ? 'mine' : 'his');
+    p.textContent = t.text;
+    box.append(p);
+  }
+}
+
+/**
+ * He is at the top: pull more of his own history.
+ *
+ * The whole point is that it has no bottom. Every time he reaches the top it asks again, so he can keep
+ * going back for days or weeks until the database runs out. `wants` holds all the guards.
+ */
+function pullOlder() {
+  const ask = back.wants(atTop(scroller.scrollTop));
+  if (!ask) return;
+  reading = true;
+  scroller.classList.add('scrolls');
+  window.aang?.olderTurns?.(ask);
+}
+scroller.addEventListener('scroll', pullOlder, { passive: true });
 
 more.addEventListener('click', () => {
   expanded = !expanded;
