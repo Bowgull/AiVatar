@@ -1,0 +1,42 @@
+/* Step 6.12b: the typing box.
+   ============================================================================
+   Sheet 2, part 3, lifted declaration for declaration: .box, .strip, .segs,
+   .pinned, .pinchip and .pill.sm. Only what a real window needs is added, and
+   marked: the textarea reset, the transparent page, and the mode colours,
+   which already exist as .pill.quick/.smart/.deep in cockpit.css. */
+
+html,body{margin:0;padding:0;background:transparent;overflow:hidden;font:500 15px var(--body)}
+.frame{padding:4px 6px 10px}
+
+/* ---- sheet 2 ---- */
+.box{background:#140e26;border:3px solid var(--outline);border-radius:8px 8px 0 0;padding:12px 13px;
+  font:500 15px var(--body);color:var(--text);box-shadow:inset 0 3px 0 rgba(0,0,0,.6)}
+.strip{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:0 0 8px 8px;
+  background:linear-gradient(180deg,var(--panel2),var(--ink));border:3px solid var(--outline);border-top:none}
+.segs{display:flex;gap:3px;margin-left:auto}
+.segs i{width:9px;height:15px;border-radius:2px;border:1.5px solid var(--outline);background:#2b2342}
+.segs i.on{background:var(--green)}
+.segs i.warn{background:var(--orange)}
+/* added: red from 50%, his quota rule; sheet 2 draws only the first two states */
+.segs i.stop{background:var(--red)}
+.pinned{display:flex;gap:7px;flex-wrap:wrap;padding:0 0 9px}
+.pinned[hidden]{display:none}
+.pinchip{display:flex;align-items:center;gap:6px;font:600 11.5px var(--body);color:#2a1c00;
+  background:var(--gold-lit);border:2.5px solid var(--outline);border-radius:999px;padding:4px 5px 4px 10px}
+.pinchip.reply{background:var(--claude);color:#3a1708}
+.pinchip b{font:400 9px var(--label);letter-spacing:.5px;opacity:.75}
+.pinchip s{width:15px;height:15px;border-radius:50%;background:rgba(0,0,0,.28);display:grid;
+  place-items:center;font:700 11px var(--body);text-decoration:none;cursor:pointer}
+.pill.sm{font-size:11.5px;padding:6px 11px;border-width:2.5px;
+  box-shadow:0 3px 0 var(--outline),inset 0 2px 0 rgba(255,255,255,.3)}
+.pill.saving{background:var(--mode-saving);color:#15121b}
+.pill.auto{background:var(--gold)}
+
+/* ---- added: a real textarea dressed as sheet 2's .box ----
+   The sheet draws the box as a div with a fake caret. A real textarea needs
+   its own chrome taken off, and it has to grow with the text, which input.js
+   does by measuring - up to six lines, then it scrolls, as the old box does. */
+textarea.box{display:block;width:100%;box-sizing:border-box;resize:none;outline:none;
+  margin:0;line-height:1.45;overflow-y:hidden;caret-color:var(--gold)}
+textarea.box::placeholder{color:#6d6585}
+.pill[hidden]{display:none}

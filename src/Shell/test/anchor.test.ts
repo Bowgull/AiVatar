@@ -70,10 +70,15 @@ test('a window bigger than the screen loses its end, not its beginning', () => {
   assert.equal(b.y, SCREEN.y);
 });
 
-test('the typing box sits under him, lined up with the bubble', () => {
-  const box = inputAt(at(), { width: 300, height: 48 });
-  assert.equal(box.x + box.width, 1400 + 16, 'same right edge as the bubble');
-  assert.equal(box.y, 600 + 224 + 6, 'just below his feet');
+test('the typing box opens where the old one does: left of him, under the bubble', () => {
+  // PetWindow.OpenInput + InputWindow.Open: drawn origin + (6, 132); the sprite is at (246, 86) from it.
+  const box = inputAt(at(), { width: 268, height: 112 });
+  assert.equal(box.x + 6, 1400 - 240, 'the DRAWN box is 240 px to his left (the window starts 6 px earlier)');
+  assert.equal(box.y, 600 + 46, '46 px below the top of the sprite, just under the bubble');
+  // At 150% the offsets scale with him.
+  const big = inputAt(at({ scale: 1.5 }), { width: 268, height: 112 });
+  assert.equal(big.x + 6, 1400 - 360);
+  assert.equal(big.y, 600 + 69);
 });
 
 test('the jitter of a held mouse does not move anything, but a real drag does', () => {
