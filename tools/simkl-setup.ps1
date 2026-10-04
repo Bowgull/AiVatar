@@ -16,9 +16,26 @@ New-Item -ItemType Directory -Force $dir | Out-Null
 Write-Host ''
 Write-Host '  Aang: connect to Simkl' -ForegroundColor Yellow
 Write-Host '  ----------------------'
-$clientId = if ($args.Count -gt 0) { $args[0] } else { (Read-Host '  Client ID from your Simkl app') }
+# Re-use what is already here. Signing in again is now a routine thing rather than a one-off (Simkl's AUTH V2
+# cut sign-ins from five years to seven days), so making him go and find his Client ID on the website every
+# time would be a small cruelty. Same for where episodes open: keep his choice unless he says otherwise.
+$old = $null
+if (Test-Path $store) { try { $old = Get-Content $store -Raw | ConvertFrom-Json } catch { $old = $null } }
+
+if ($args.Count -gt 0) { $clientId = $args[0] }
+elseif ($old -and $old.clientId) {
+    Write-Host "  Using the Client ID already saved (ends $($old.clientId.Substring($old.clientId.Length - 6)))." -ForegroundColor DarkGray
+    Write-Host '  Press Enter to keep it, or paste a different one.'
+    $typed = Read-Host '  Client ID'
+    $clientId = if ([string]::IsNullOrWhiteSpace($typed)) { $old.clientId } else { $typed }
+} else {
+    $clientId = Read-Host '  Client ID from your Simkl app'
+}
 $clientId = "$clientId".Trim()
-$site = if ($args.Count -gt 1) { $args[1] } else { 'https://www.crunchyroll.com/search?q={q}' }
+
+$site = if ($args.Count -gt 1) { $args[1] }
+        elseif ($old -and $old.site) { $old.site }
+        else { 'https://www.crunchyroll.com/search?q={q}' }
 if ($clientId.Length -lt 20) { Write-Host '  That does not look like a Simkl Client ID.' -ForegroundColor Red; Read-Host '  Press Enter to close'; exit 1 }
 
 # Simkl's OAuth 2.0 device sign-in (apps made in its AUTH V2 wizard; the old /oauth/pin is refused for them).
