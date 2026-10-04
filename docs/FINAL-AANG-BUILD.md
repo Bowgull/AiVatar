@@ -782,9 +782,11 @@ rule and they are not optional.
 ```
 6.0 safety net                     DONE
  -> 6.1 MEASURE OVER WOW            PASSED 2026-10-04, it did not kill the design
- -> S1 the connection lock          Origin half DONE; the per-boot token is owed
+ -> S1 the connection lock          Origin half DONE (8865a96)
  -> Q  the quota leaks              DONE (warm-up, saving mode, #capture, auto-extraction)
- -> 6.2 the shell exists            <- NEXT, with S1's token built alongside it
+ -> S1 the password                 DONE (546ef39), built with the Shell that needed it
+ -> 6.2 the shell exists            DONE 2026-10-04
+ -> 6.3 the pop-out window          <- NEXT
      |
      |-> 6.3 pop-out window -> 6.4 paid video -> 6.5 controls          = POP-OUT USABLE
      |        -> QUOTA GATE (read the meter, project the rest)
@@ -879,7 +881,7 @@ public Widevine demo, so 2.3% is a floor, not the number for full-size anime.
 
 ---
 
-### `[~]` S1 The connection lock  **the Origin half DONE 2026-10-04 (8865a96); the token is owed before 6.2**
+### `[x]` S1 The connection lock  **DONE 2026-10-04** (8865a96 the Origin rule, 546ef39 the password)
 
 **Why:** the brain's local connection (`core.ts:1133`, `ws://127.0.0.1:<port>/body`) checks nothing.
 Browsers do not apply same-origin rules to WebSockets; they only send an Origin header and leave the
@@ -907,8 +909,10 @@ Body and Discord still work, and a client without the token is refused.
 **DONE 2026-10-04 (8865a96): the Origin half.** `verifyClient` on the Core's socket and an Origin check
 on the hook server. Four tests in `test/lock.test.ts`, and **verified against a real browser**: a page
 served from `http://127.0.0.1:47955` was refused, read nothing, and had its fake hook event blocked.
-**Still owed before 6.2: the per-boot token**, because the Electron Shell is a browser and does send an
-Origin, so the Origin rule alone would lock Aang's own windows out.
+**DONE 2026-10-04 (546ef39): the password.** A fresh token each start, in `token.ts`, presented as a
+header. A browser page cannot set a custom header on a WebSocket at all, so the header means "a real
+program on this PC" whatever Origin it claims, which is what lets Aang's own Electron windows in while
+keeping pages out. Cleared on a clean stop and compared in constant time.
 
 ### `[x]` Q The quota leaks  **DONE 2026-10-04** (d31bf16, e18f221, 7187bce)
 
@@ -967,7 +971,7 @@ the launchd command line. 20 to 30 minutes.
 
 ---
 
-### `[ ]` 6.2 The shell exists  **BLOCKS every Electron step**
+### `[x]` 6.2 The shell exists  **DONE 2026-10-04** (36aaa8d, 4443afc, 70772e2, 3d6c83d)
 
 **Why:** every window in this phase is Electron, and none of it exists yet.
 
@@ -997,7 +1001,40 @@ seconds and the pet never flickers. Then run Electron's own checklist against it
 `electronegativity` as an audit.
 
 **Done when:** the Shell starts, survives being killed, reaches the Core, the snapshot exists, and the
-fuses are confirmed set on the built app.
+fuses are confirmed set on the built app. **All met.**
+
+**DONE 2026-10-04.** `src/Shell/`: main process, `preload.cjs`, `safety.ts` (one place every window is
+built from), `link.ts`, `snapshot.ts`, and a first page. Supervised by the tray through the same
+`CoreSupervisor`, now taking a spec so the Shell gets every hard-won fix without a second copy.
+
+**The TypeScript question, settled by test:** Electron 44 runs the **main process** straight from
+TypeScript like the Core, so there is no build step. A **sandboxed preload cannot**: it is loaded by
+Chromium, does not strip types, and must be CommonJS. The first run failed on its import statement.
+So `preload.cjs` is hand-written JavaScript and `bridge.ts` declares its shape.
+
+**Proved, not assumed:**
+- End to end against a real Core: the Shell presented the S1 password, was let in, and a real
+  `claude.working` message reached the page, which showed a green lamp.
+- `tests/fakecore/shell-restart.mjs`: killed and it comes back, starts with no Core at all, and a
+  second copy stands down. 7/7. It avoids starting the pet, so it can run while his real Aang is up.
+- `tests/fakecore/look-shell.mjs`: the driver every later window needs. Attaches over the DevTools
+  protocol (Playwright's Electron launcher is broken on Electron 30+), drives a fake Core, saves a
+  picture of the page as drawn, and **asks the page what it can reach**: no `require`, no `process`,
+  no `module`, and a bridge with exactly three named functions.
+- Fuses set and **read back** on a real binary. The checker was wrong on its first run and reported
+  every fuse off while they were on (the wire is character codes, not characters); fixed.
+- Four C# tests for the supervision, four for the snapshot.
+
+**The audit (electronegativity), as the step asked.** Three real findings, all fixed: the page's
+policy allowed inline style and script (both are now their own files, so it says `'self'`, and every
+later page follows that shape); a middle click was a second way to open a window; `openExternal` is
+guarded to http and https. The two "high" items were the tool failing to see through the shared
+settings object, so the settings are now **checked before a window is created** (it refuses to open
+rather than drawing an unsafe one) and what the page experiences is proved at runtime instead.
+
+**Two bugs the first real run found that tests had not:** a page that loaded after the Core connected
+missed the announcement and sat on "starting..." forever, and that failure was completely silent. Both
+fixed; page errors are now logged.
 
 **Rollback:** remove the supervisor entry; the C# Body runs exactly as today.
 
