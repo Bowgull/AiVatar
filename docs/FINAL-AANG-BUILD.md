@@ -1087,9 +1087,9 @@ mockup exists and he has approved it.** Not yet drawn:
 | ~~The stuck signal and the "working" checklist in the bubble~~ **DRAWN, sheet 5** | 6.12, 6.13 |
 | ~~Several things waiting at once; the plan shown before acting~~ **DRAWN, sheet 5** | 6.13 |
 | ~~**Error and empty states**~~ **DRAWN, sheet 5** | 6.14b |
-| What I know, What I may do, What I did, Drafts, History, Settings (only Jobs is drawn) | 6.15 |
-| Email draft cards; the morning brief | 6.15 |
-| Research cards from Phase 7 | 6.15b |
+| ~~What I know, What I may do, What I did, Drafts, History, Settings~~ **DRAWN, sheet 6** (Jobs on sheet 2) | 6.15 |
+| ~~Email draft cards; the morning brief~~ **DRAWN, sheet 6** | 6.15 |
+| ~~Research cards from Phase 7~~ **DRAWN, sheet 6** | 6.15b |
 | Search over everything; charts; side by side; the live Claude Code job view | 6.18 |
 | ~~The three distinct "pressed in" looks (clicked, keyboard focus, switched on)~~ **DRAWN, sheet 5** | 6.10 |
 | Browser: vertical tab rail, six tab states, crashed-tab plate, chip and lever approvals, phishing warning, trails, mark as done, "open in Chrome" | 6.19 onward |
