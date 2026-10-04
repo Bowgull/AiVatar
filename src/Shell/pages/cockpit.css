@@ -499,3 +499,49 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{
     outline:3px solid Highlight;outline-offset:2px}
   .key[aria-pressed="true"],.pill[aria-pressed="true"]{background:Highlight;color:HighlightText}
 }
+
+/* ============================================================================
+   THE LEVER - serious approvals (sheet 5, section 2)
+   ============================================================================
+   "A routine ask uses ordinary keycaps. Anything that sends, buys, deletes or
+   closes someone else's app uses the lever: press AND HOLD while a brass bar
+   fills. A reflex click does nothing." The research behind it: identical
+   prompts get clicked through, half of them in under two seconds.
+
+   Lifted from sheet 5 declaration for declaration. The only addition is the
+   `--fill` variable, because in the sheet the bar is drawn frozen at 42% to
+   show what it looks like, and here it has to actually move. WHICH asks get a
+   lever is decided in the Core (trust.ts HOLD_TO_CONFIRM), never here. */
+.lever{
+  position:relative;display:inline-flex;align-items:center;gap:12px;
+  padding:12px 18px 13px 16px;border-radius:9px;border:3px solid var(--outline);
+  cursor:pointer;min-width:250px;overflow:hidden;
+  background:linear-gradient(180deg,#5b3a20,#2a190e);color:var(--gold-lit);
+  font:700 14px var(--body);text-shadow:0 1px 0 rgba(0,0,0,.7);
+  box-shadow:0 6px 0 var(--outline),inset 0 3px 0 rgba(255,224,150,.25),0 9px 16px rgba(0,0,0,.45);
+  --fill:0%;
+}
+.lever .fillbar{
+  position:absolute;left:0;top:0;bottom:0;width:var(--fill);
+  background:linear-gradient(180deg,rgba(255,196,60,.55),rgba(201,140,20,.55));
+  border-right:3px solid var(--gold);
+}
+/* No width transition: the bar is driven frame by frame from how long he has
+   actually held it, so it is a readout rather than an animation. If it eased,
+   it would keep filling after he let go, which is the one thing it must not do. */
+.lever .txt{position:relative}
+.lever .hold{
+  position:relative;font:400 9px var(--label);letter-spacing:1px;color:#ffe9b0;
+  margin-left:auto;padding:4px 6px;border:2px solid var(--outline);border-radius:4px;
+  background:rgba(0,0,0,.35);
+}
+.lever .knob{
+  position:relative;width:20px;height:20px;border-radius:50%;border:3px solid var(--outline);
+  background:radial-gradient(circle at 35% 30%,var(--gold-lit),var(--gold-deep));flex:0 0 auto;
+}
+/* Held: it sinks, like every other pressable thing here. */
+.lever:active{top:3px;box-shadow:0 3px 0 var(--outline),inset 0 3px 0 rgba(255,224,150,.25)}
+.lever:focus-visible{outline:3px solid var(--gold);outline-offset:4px}
+
+/* The smaller keycap the asks use beside a lever. Sheet 5. */
+.key.sm{font-size:12.5px;padding:8px 13px 9px;--lip:4px}
