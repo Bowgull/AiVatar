@@ -1,0 +1,69 @@
+/* The pop-out, built from sheet 4 section 1. The controls themselves are step 6.5; what is here is
+   the window: the wooden grab bar you drag, the source plaque, and the picture. */
+:root{
+  --ink:#100A22; --panel2:#1A1132;
+  --gold:#FFC43C; --gold-deep:#C98C14; --gold-lit:#FFE096;
+  --plum:#4A2C6E; --plum-deep:#2C1848; --plum-edge:#966EC8;
+  --red:#FF5A4A; --text:#E8E4F0; --secondary:#C9C2DA;
+  --wood1:#4A2E1A; --wood2:#24160D; --wood-plaque:#1A0F09;
+  --outline:#120A05; --ow:4px;
+  --display:"Cinzel",Georgia,"Times New Roman",serif;
+  --body:"Figtree",system-ui,-apple-system,Segoe UI,sans-serif;
+  --label:"Silkscreen",ui-monospace,Consolas,monospace;
+  --bar:34px;
+}
+*{ box-sizing:border-box; margin:0; padding:0 }
+html,body{ height:100%; overflow:hidden; background:var(--panel2); color:var(--text);
+  font-family:var(--body); -webkit-user-select:none; user-select:none; cursor:default }
+
+/* The whole window is one carved chunk with a hard black edge, like everything else Aang draws. */
+.frame{ height:100%; display:grid; grid-template-rows:var(--bar) 1fr;
+  border:var(--ow) solid var(--outline); border-radius:10px; overflow:hidden; background:#000 }
+
+/* ---------------------------------------------------------------- the grab bar
+   Sheet 4: "the grip you drag, what is playing, where it came from, and two small keycaps".
+   -webkit-app-region:drag is what makes a frameless window movable by this bar. */
+.bar{ -webkit-app-region:drag; display:flex; align-items:center; gap:9px; padding:0 8px;
+  background:linear-gradient(180deg,#56371F 0%,var(--wood1) 45%,var(--wood2) 100%);
+  border-bottom:3px solid var(--outline); box-shadow:inset 0 3px 0 rgba(255,224,150,.18) }
+
+/* The grip: the carved groove from sheet 1, turned on its side. */
+.grip{ width:16px; height:16px; flex:0 0 auto; border-radius:3px;
+  background:repeating-linear-gradient(180deg, rgba(0,0,0,.55) 0 2px, rgba(255,224,150,.28) 2px 4px) }
+
+.what{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  font:700 13px var(--body); color:#F0E6D0; text-shadow:1px 1px 0 rgba(0,0,0,.8) }
+
+/* Gold for open video, purple for a paid service: the same purple that means "your own" elsewhere. */
+.src{ flex:0 0 auto; font:400 9px var(--label); letter-spacing:.5px; padding:4px 7px; border-radius:4px;
+  border:2px solid var(--outline); background:var(--gold); color:#2a1c00 }
+.src.paid{ background:var(--plum-edge); color:#1d0b33 }
+.src.live::after{ content:" ● LIVE"; color:var(--red) }
+
+/* Keycaps are not draggable, or the bar would swallow the clicks. */
+.keys{ -webkit-app-region:no-drag; display:flex; gap:6px; flex:0 0 auto }
+.key{ width:26px; height:22px; border-radius:5px; border:2px solid var(--outline); cursor:pointer;
+  background:linear-gradient(180deg,var(--plum),var(--plum-deep)); color:#e8e0f5;
+  font:700 12px var(--body); display:grid; place-items:center; position:relative; top:0;
+  box-shadow:0 2px 0 var(--outline), inset 0 2px 0 rgba(150,110,200,.45) }
+.key:active{ top:2px; box-shadow:0 0 0 var(--outline), inset 0 2px 0 rgba(150,110,200,.45) }
+.key.close{ background:linear-gradient(180deg,#8a3228,#55180f) }
+
+/* ---------------------------------------------------------------- the picture */
+.stage{ position:relative; background:#000 }
+iframe{ width:100%; height:100%; border:0; display:block; background:#000 }
+
+/* Before anything is playing.
+   The [hidden] rule is not optional: a class that sets display beats the browser's own rule for the
+   hidden attribute, so without this the "nothing playing" line sits on top of the video. It did,
+   on the first real run, 2026-10-04. */
+.empty{ position:absolute; inset:0; display:grid; place-items:center; text-align:center;
+  font:500 13px var(--body); color:#7b7291; padding:16px }
+[hidden]{ display:none !important }
+
+/* The resize corner, drawn as the carved diagonal from the mockup. Windows does the dragging; this
+   only shows where to take hold. */
+.grab{ position:absolute; right:0; bottom:0; width:18px; height:18px; pointer-events:none;
+  background:linear-gradient(135deg,transparent 0 46%,var(--gold-deep) 46% 54%,transparent 54% 64%,
+    var(--gold-deep) 64% 72%,transparent 72% 82%,var(--gold-deep) 82% 90%,transparent 90%);
+  opacity:.75 }

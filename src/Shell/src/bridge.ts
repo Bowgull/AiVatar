@@ -7,6 +7,12 @@ export interface ShellBridge {
   onConnected(fn: (up: boolean) => void): () => void;
   /** Which window this is, so one page can be used in more than one place. */
   windowKind(): Promise<string>;
+
+  /** What the pop-out should play. The address is built in the main process. */
+  onPopout(fn: (v: { url: string; source: string; label: string; live: boolean; title: string }) => void): () => void;
+  /** Out of the way, still playing. */
+  popoutHide(): void;
+  popoutClose(): void;
 }
 
 declare global {
