@@ -774,9 +774,9 @@ rule and they are not optional.
 **Each arrow blocks the next. Everything not on a line can be done in any gap.**
 
 ```
-6.0 safety net
- -> 6.1 MEASURE OVER WOW            (can kill the design)
- -> 6.2 the shell exists            (blocks every Electron step)
+6.0 safety net                     DONE
+ -> 6.1 MEASURE OVER WOW            PASSED 2026-10-04, it did not kill the design
+ -> 6.2 the shell exists            <- NEXT. blocks every Electron step
      |
      |-> 6.3 pop-out window -> 6.4 paid video -> 6.5 controls          = POP-OUT USABLE
      |        -> QUOTA GATE (read the meter, project the rest)
@@ -815,7 +815,7 @@ snapshot. Only one Aang runs at a time: both want port 47831 and the tray.
 
 ---
 
-### `[ ]` 6.1 Measure over WoW, before building anything  **BLOCKS everything in this phase**
+### `[x]` 6.1 Measure over WoW, before building anything  **PASSED 2026-10-04, phase unblocked**
 
 **Why:** the old plan named this as the one measurement that could kill the design, and it was
 never taken. The research since adds the thing gamers actually complain about: **video stuttering
@@ -843,6 +843,26 @@ within noise of the baseline or has a named fix that brings it there, **and** he
 **If it fails:** stop, and decide with him. Options in order: the Mac's own picture-in-picture for
 video (no build at all), a smaller or lower-rate pop-out, or no overlay. **Do not build 6.3 onward on
 a failed 6.1.**
+
+**RESULT, 2026-10-04: passed.** Full numbers in `docs/BROWSER-TESTS-2026-10-04.md`. 90,088 WoW frames
+through PresentMon, five runs, him playing throughout.
+- An idle Electron window costs **0% CPU and 277 MB**, and WoW's own CPU does not move.
+- Frame pacing with a window open, a page scrolling, and video playing see-through on top is
+  **indistinguishable from the baseline**: tenths of a frame per second on the 1% low, and **zero
+  hitches over 50 ms** in six minutes.
+- DRM through castLabs with hardware acceleration off cost **2.3% CPU**, about the same as YouTube
+  decoding on the GPU, and far less than feared. Its four hitches all fell inside **one second**, when
+  protected playback starts.
+- He played both video runs and said "same as always" and "everything looks great".
+
+**What it changed (decision 45):** **transparency is the expensive part, not the video.** The
+see-through window pushed the GPU's drawing load from ~29% to 47.4%; the opaque one left it at 26.8%.
+It cost no frames here, but **6.3 defaults the pop-out to opaque**, with see-through as something he
+turns on. The slider from decision 40 stays; only its default moves.
+
+**Still owed, folded into 6.3:** re-measure with a **real 1080p stream** (the test clip was a small
+public Widevine demo, so 2.3% is a floor, not the number for full-size anime), and check **NVIDIA
+Instant Replay** on and off, which this run did not confirm either way.
 
 ---
 
@@ -2077,6 +2097,7 @@ Three research reports sit behind this appendix, all in the data repo at `Aang/r
 | 42 | Aang and your signed-in sites (2026-10-04) | **He reads your signed-in tabs freely; anything that acts on your account (send, apply, buy, post, delete) needs the held lever, every time.** Driven from inside Aang's own browser, **no debug port**. His no-login profile stays for general browsing. Only your words set a plan; a page that asks him to do something is refused and reported |
 | 43 | Mark as done, in the browser (2026-10-04) | **A WoW quest turn-in.** A grey `?` appears on a tab only while he points at it; it turns **gold and glows** when Aang sees the thing is finished (an application submitted), exactly as a gold `?` means "ready to hand in". Clicking it flashes **QUEST COMPLETE**, then the tab drops to the DONE shelf with a quiet tick, never closed. **Aang never turns one in himself.** Rejected: brass latch, green gem, treasure chest, CLEARED stamp, power star |
 | 44 | The browser's top band (2026-10-04) | **Back, forward, reload, address slot. Nothing else.** No Aang button (Aang is already on screen over the browser: his halo glows, clicking him opens his chat), no ad counter (pausing ad blocking lives behind the SECURE plaque). The slot says who is driving **in full words**: YOU ARE DRIVING / AANG IS READING / AANG IS DRIVING |
+| 45 | The pop-out's default look (measured 2026-10-04) | **Opaque by default; see-through is turned on.** Measured over WoW: a see-through always-on-top window pushes the GPU's drawing load from ~29% to 47.4%, an opaque one costs nothing (26.8%, baseline). The video itself is near free either way. The slider in decision 40 is unchanged; only its starting point moves |
 
 ---
 
@@ -2249,7 +2270,7 @@ What the default-browser goal adds, from `Aang/reports/Aang as default browser.m
 **See Phase 6 above**, the one place for order: steps 6.0 to 6.28, the critical path, the quota gate after 6.5, and the definition of done
 (mockup and build side by side, every difference named, paid video and feel checked by his eyes).
 
-The short version of the path: **6.1 measure over WoW, then 6.2 the shell, then three lines in
+The short version of the path: 6.1 measure over WoW (**passed 2026-10-04**), then **6.2 the shell**, then three lines in
 parallel:** the pop-out (6.3 to 6.5), Aang that can format (6.10 to 6.12), and the browser (6.19 to
 6.27, with the default-browser switch last, after a week of real use).
 

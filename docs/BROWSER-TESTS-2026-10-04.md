@@ -154,3 +154,97 @@ over the Shadow window if anything here ever fails.
 **The passkey hang has a cheap stopgap:** delete `window.PublicKeyCredential` so sites never offer a
 passkey and fall back to password plus code. Ugly, one line, and it turns a frozen page into a
 working login. That moves from "nice to have" to **required before daily use**.
+
+---
+
+# Step 6.1: measured over WoW, 2026-10-04
+
+**This is the measurement the old plan called the one that could kill the design.** Taken on his
+Shadow cloud PC with WoW running and him playing, not idling at a login screen.
+
+**The rig:** Windows 11 Home 22621, NVIDIA RTX 2000 Ada (virtualised, through Shadow), WowB.exe.
+Stock **Electron 44.5.1** for runs 2 to 4 and **castLabs 44.5.1+wvcus** for run 5, so the two builds
+are the same Chromium version and the comparison is like for like. Frame data from **Intel PresentMon
+2.6.0** (signature checked: Intel Corporation, valid), one 25-minute trace of 90,088 WoW frames, sliced
+per run afterwards. Process and GPU counters sampled every ~8 s for 2 minutes per run. Throwaway
+scripts in the session scratchpad; not kept.
+
+**Two things to know about the numbers.** PresentMon needs administrator rights, so he approved one
+UAC prompt and the trace ran unattended after that. Its `TimeInDateTime` came out exactly 4 hours
+behind the wall clock on this machine; the offset was measured against the known trace end rather than
+assumed, and applied when slicing.
+
+## What it cost
+
+| Run | WoW CPU (median) | GPU drawing the game | GPU video decode | Window CPU | Window RAM |
+|---|---|---|---|---|---|
+| 1. WoW alone (twice) | 21-23% | 25-32% | 0% | - | - |
+| 2. Idle Electron window | 20.6% | 23.9% | 0% | **0%** | 277 MB |
+| 3. A page scrolling | 21.5% | 35.9% | 0% | 2.5% | 349 MB |
+| 4. YouTube, see-through, on top | 21.9% | **47.4%** | 1.9% | 2.1% | 636 MB |
+| 5. Widevine, castLabs, hw accel off | 22.2% | 26.8% | 0% | 2.3% | 549 MB |
+
+## How evenly WoW's frames arrived
+
+Average FPS hides stutter, so what matters is the 1% low (the worst one frame in a hundred) and
+outright hitches.
+
+| Run | frames | avg FPS | 1% low | 0.1% low | worst frame | hitches >50 ms |
+|---|---|---|---|---|---|---|
+| 1b. Baseline | 6,950 | 59.9 | 43.9 | 39.8 | 36.6 ms | **0** |
+| 2. Idle window | 6,714 | 59.9 | 43.5 | 40.5 | 26.3 ms | **0** |
+| 3. Scrolling | 7,250 | 59.9 | 43.8 | 40.7 | 26.3 ms | **0** |
+| 4. Video over WoW | 6,738 | 60.2 | 43.5 | 39.3 | 37.5 ms | **0** |
+| 5. DRM over WoW | 6,684 | 59.7 | 43.2 | 36.8 | 202.4 ms | 4 |
+
+**Runs 2, 3 and 4 are indistinguishable from the baseline.** Every difference is a few tenths of a
+frame per second on the 1% low, which is less than the gap between the two baseline runs. Not one
+hitch over 50 ms in six minutes of play with a window open, a page scrolling, and video playing on top.
+
+**Run 5's four hitches all landed inside the same single second**, 14 s into the run, then 106 s ran
+clean. That is the moment protected playback starts, not a cost that continues. It cost one visible
+stumble of about a fifth of a second.
+
+**His verdict, which is half the pass mark:** with the see-through video window on top, "same as
+always", game and video both. On the DRM run, "everything looks great", and the picture was visible
+rather than the black box Shadow gives for protected video when hardware acceleration is left on.
+
+## The finding that changes a design choice
+
+**Transparency costs about as much GPU as the game does. The video costs almost nothing.**
+
+Run 4's window was see-through and run 5's was not. The see-through one pushed the GPU's drawing load
+from ~29% to **47.4%**; the opaque one left it at **26.8%**, which is the baseline. Video decode was
+1.9% at most in either. So the expense is Windows blending a transparent always-on-top window over the
+game every frame, not playing the video.
+
+It did not cost a single frame here, because this machine has the headroom. It is still the one real
+cost found, and it sets a rule for 6.3: **the pop-out defaults to opaque, and see-through is a thing he
+turns on**, not the other way round. The see-through slider (decision 40) stays; its default moves.
+
+**Hardware acceleration being off cost far less than feared.** Decoding protected video on the main
+processor instead of the GPU came to 2.3%, about the same as YouTube decoding on the GPU.
+
+## Verdict
+
+**6.1 passes. Phase 6 is unblocked.** Against the three conditions:
+
+1. *An idle window costs close to nothing.* **Yes.** 0% CPU, 277 MB, WoW's own CPU unmoved.
+2. *WoW's frame pacing is within noise of the baseline.* **Yes for runs 2 to 4**, to within tenths of a
+   frame per second and zero hitches. Run 5 adds one cluster of hitches when protected playback starts,
+   lasting one second out of 120.
+3. *He says it feels the same.* **Yes**, on both the see-through run and the DRM run.
+
+## What this does not prove
+
+- **The test clip was small.** Run 5 used a public Shaka Widevine demo asset, not a 1080p Netflix or
+  Prime stream. Decoding on the main processor gets more expensive with resolution, so 2.3% is a floor,
+  not the number for real anime at full size. **Re-measure in 6.3 with a real stream.**
+- **NVIDIA Instant Replay was not tested both ways.** The plan asked for run 4 with it on and off. The
+  NVIDIA background processes are running on this PC but whether Instant Replay itself is armed was not
+  confirmed, so this is still owed. Given runs 2 to 4 produced zero hitches as they stand, it is a
+  check, not a risk.
+- **One scene, one character, two minutes a run.** A 20-player raid pull may behave differently than
+  what he was doing.
+- **The see-through cost was measured on a machine with headroom.** Total GPU peaked at 70% of a card
+  that is already sharing itself with Shadow's own encoder.
