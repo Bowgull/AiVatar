@@ -21,6 +21,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { hold169, firstTime, ontoScreen, snapToEdges, MIN, BAR, type Box } from '../src/geometry.ts';
 import { allowedInDrm, serviceFor } from '../src/services.ts';
+import { rulesFor, watcherFor } from '../src/skip/skipbutton.ts';
 import { stack, type Stack } from '../src/stack.ts';
 
 const HERE = import.meta.dirname;
@@ -133,6 +134,19 @@ app.whenReady().then(async () => {
       url: '', source: 'page', label: service.label, live: false,
       title: service.label.charAt(0) + service.label.slice(1).toLowerCase(),
     });
+  });
+
+  // Press the service's own Skip button for him, if he has asked for that (step 6.6). The watcher
+  // goes in after every page load, because a service navigates between episodes without a new window.
+  const wantsSkip = process.env.AANG_SKIP_INTROS !== '0';
+  views.content.webContents.on('did-finish-load', () => {
+    if (!wantsSkip) return;
+    const url = views?.content.webContents.getURL() ?? '';
+    const rule = rulesFor(url)[0];
+    if (!rule) return;
+    views?.content.webContents.executeJavaScript(watcherFor(rule), true)
+      .then(r => console.log(`drm: skip-intro watcher ${r} on ${rule.host}${rule.steady ? '' : ' (this one is fragile)'}`))
+      .catch(e => console.error('drm: could not watch for the Skip button: ' + (e as Error).message));
   });
 
   // Say what happened if the service refuses to load, rather than showing a blank window. The most

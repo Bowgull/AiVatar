@@ -144,3 +144,34 @@ test('a saved file missing a switch gets the default, never off by accident', ()
   assert.deepEqual(withDefaults(null), DEFAULT_SKIPS);
   assert.deepEqual(withDefaults({ nonsense: 1, sponsor: 'yes' }), DEFAULT_SKIPS);
 });
+
+// ---------------------------------------------------------------- the service's own Skip button
+
+test('each service is matched on its host, and a lookalike is not', async () => {
+  const { rulesFor } = await import('../src/skip/skipbutton.ts');
+  assert.equal(rulesFor('https://www.primevideo.com/detail/x')[0]?.host, 'primevideo.com');
+  assert.equal(rulesFor('https://beta.crunchyroll.com/watch/x')[0]?.host, 'crunchyroll.com');
+  assert.equal(rulesFor('https://www.netflix.com/watch/1')[0]?.host, 'netflix.com');
+  assert.deepEqual(rulesFor('https://crunchyroll.com.evil.ru/watch'), []);
+  assert.deepEqual(rulesFor('https://www.youtube.com/watch?v=x'), []);
+  assert.deepEqual(rulesFor('not a link'), []);
+});
+
+test('Netflix is marked fragile and the other two are not, because that is true', async () => {
+  const { SKIP_BUTTONS } = await import('../src/skip/skipbutton.ts');
+  assert.equal(SKIP_BUTTONS.find(r => r.host === 'netflix.com')!.steady, false);
+  assert.equal(SKIP_BUTTONS.find(r => r.host === 'primevideo.com')!.steady, true);
+  assert.equal(SKIP_BUTTONS.find(r => r.host === 'crunchyroll.com')!.steady, true);
+});
+
+test('the watcher sends a real mouse sequence, not just a click', async () => {
+  const { SKIP_BUTTONS, watcherFor } = await import('../src/skip/skipbutton.ts');
+  const js = watcherFor(SKIP_BUTTONS.find(r => r.host === 'netflix.com')!);
+  // Netflix's button is a React component that ignores a synthetic .click().
+  for (const ev of ['pointerdown', 'mousedown', 'mouseup', 'click']) assert.match(js, new RegExp(ev));
+  // It must not run twice over, and must not press in a loop.
+  assert.match(js, /__aangSkipWatch/);
+  assert.match(js, /lastPressed/);
+  // And it must never press something he could not have pressed himself.
+  assert.match(js, /offsetParent/);
+});
