@@ -8,11 +8,12 @@
 //
 // A crash in here must never take the pet or the brain with it. It is its own process, supervised from
 // the tray, and it holds nothing the others need.
-import { app, BrowserWindow, Menu, ipcMain, session } from 'electron';
+import { app, BrowserWindow, Menu, clipboard, ipcMain, session } from 'electron';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { CoreLink } from './link.ts';
+import { Bubble, wantsNewBubble } from './bubble.ts';
 import { bubbleAt, inputAt, moved, readPetAt } from './anchor.ts';
 import type { PetAt } from './anchor.ts';
 import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown, wrongSettings } from './safety.ts';
@@ -63,6 +64,8 @@ function rememberBox(box: Box): void {
 
 let pages: PageServer | null = null;
 let popout: Popout | null = null;
+/** The new bubble (step 6.12). Null unless he has switched it on: see wantsNewBubble. */
+let bubble: Bubble | null = null;
 let hotkey: Hotkey | null = null;
 let ads: AdBlock | null = null;
 /** His pop-out switches. Read once at start and kept in step when he changes one. */
@@ -91,6 +94,12 @@ let petAt: PetAt | null = null;
  */
 function placeWindows(): void {
   if (!petAt) return;
+  const b = bubble?.window();
+  if (b && !b.isDestroyed()) {
+    const [width, height] = b.getSize();
+    const box = bubbleAt(petAt, { width, height });
+    b.setPosition(box.x, box.y);
+  }
   for (const [name, w] of windows) {
     if (w.isDestroyed()) continue;
     const place = name === 'bubble' ? bubbleAt : name === 'input' ? inputAt : null;
@@ -131,6 +140,9 @@ const link = new CoreLink({
       return;
     }
     for (const w of windows.values()) if (!w.isDestroyed()) w.webContents.send('brain:message', m);
+    // The bubble is not in `windows`: it is made on demand and has its own lifetime, so it is told
+    // separately rather than being swept up by a loop that does not know about it.
+    bubble?.send('brain:message', m);
   },
   onConnected: up => { for (const w of windows.values()) if (!w.isDestroyed()) w.webContents.send('brain:connected', up); },
 });
@@ -212,6 +224,13 @@ app.whenReady().then(async () => {
     });
     console.log(`shell: pages on ${pages.origin}`);
 
+    // Step 6.12. OFF unless he asks for it: the old GDI bubble is still running, and two bubbles saying
+    // the same thing at once is worse than one old one. It is not something to discover mid-raid.
+    if (wantsNewBubble()) {
+      bubble = new Bubble({ origin: pages.origin, preloadPath: path.join(HERE, 'preload.cjs') });
+      console.log('shell: the new bubble is on (AANG_NEW_BUBBLE=1)');
+    }
+
     drm = new DrmRuntime({
       shellDir: path.join(HERE, '..'),
       stateDir: STATE_DIR,
@@ -246,6 +265,33 @@ app.whenReady().then(async () => {
   ipcMain.on('popout:chrome', (e, px) => { if (fromPopout(e) && typeof px === 'number') popout?.setChrome(px); });
   // Step 6.8. The page reports seconds; the brain converts to the percentage Simkl wants, because the
   // page is the least trustworthy place to do arithmetic that decides what gets marked watched.
+  // Step 6.12. Only the clipboard and a rating: the bubble can say what Aang said and what Joshua
+  // thought of it, and nothing else. Both are checked for coming from a window of ours.
+  ipcMain.on('bubble:copy', (e, text) => {
+    if (!fromBubble(e) || typeof text !== 'string' || !text) return;
+    clipboard.writeText(text.slice(0, 100_000));
+  });
+  // The page measured the drawn shape; the window follows it and is put back beside the pet. The
+  // window cannot work this out itself: the browser wrapped the text using the real font at the real
+  // size. Same fix as the pop-out's letterboxing - the page measures, the window follows.
+  ipcMain.on('bubble:size', (e, size) => {
+    if (!fromBubble(e) || !size || typeof size !== 'object') return;
+    const w = bubble?.window();
+    if (!w || w.isDestroyed()) return;
+    const width = Math.max(220, Math.min(1400, Math.round(Number(size.width) || 0)));
+    const height = Math.max(80, Math.min(900, Math.round(Number(size.height) || 0)));
+    if (!width || !height) return;
+    const [haveW, haveH] = w.getSize();
+    if (haveW === width && haveH === height) return;
+    w.setSize(width, height);
+    placeWindows();                    // its bottom-right is the anchor, so a size change moves it
+    bubble?.show();
+  });
+  ipcMain.on('bubble:rate', (e, r) => {
+    if (!fromBubble(e) || !r || typeof r !== 'object') return;
+    const turn = Number(r.turn);
+    link?.send({ t: 'rate', ...(Number.isFinite(turn) ? { turn } : {}), rating: Math.sign(Number(r.rating) || 0) });
+  });
   ipcMain.on('popout:playback', (e, s) => {
     if (!fromPopout(e) || !s || typeof s !== 'object') return;
     link?.send({
@@ -284,7 +330,19 @@ function fromPopout(e: Electron.IpcMainEvent): boolean {
   return Boolean(w && e.sender === w.webContents);
 }
 
-app.on('before-quit', () => { link.stop(); hotkey?.release(); ads?.stop(); popout?.close(); drm?.close(); pages?.close(); });
+/**
+ * Did this come from the bubble? (step 6.12)
+ *
+ * Separate from fromPopout on purpose rather than a general "is it one of ours": the pop-out shows
+ * pages from the internet, so it must never be able to reach the bubble's doors and put things on his
+ * clipboard or send ratings in his name.
+ */
+function fromBubble(e: Electron.IpcMainEvent): boolean {
+  const w = bubble?.window();
+  return Boolean(w && !w.isDestroyed() && e.sender === w.webContents);
+}
+
+app.on('before-quit', () => { link.stop(); hotkey?.release(); ads?.stop(); popout?.close(); bubble?.close(); drm?.close(); pages?.close(); });
 
 // Nothing a page does may take the Shell down silently.
 process.on('uncaughtException', e => console.error('shell: uncaught: ' + (e as Error).message));
