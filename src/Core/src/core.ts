@@ -58,7 +58,12 @@ export interface CoreConfig {
   dataDir: string;
   stateDir: string;
   claudeExecutable?: string;
-  /** Send a silent first message at start so the first real one does not pay for process start-up. */
+  /**
+   * Send a silent first message so the first real one does not pay for process start-up. Since
+   * 2026-10-04 (decision 47, step Q1) this waits until he CLICKS Aang rather than firing at start:
+   * this is a Shadow cloud PC that restarted 4 to 22 times a day over 1 to 4 October, and each
+   * warm-up resumed the Quick session at about 24k tokens whether or not he ever said anything.
+   */
   warm?: boolean;
   /**
    * Read the last session and write down what mattered. OFF unless set to true (decision 47,
@@ -1246,7 +1251,8 @@ export class Core {
     // Catch up on the last session. Deliberately after a pause: Joshua may already be typing, and this
     // must never make his first message wait.
     if (this.cfg.consolidate === true) setTimeout(() => void this.catchUp(), 20_000).unref?.();
-    if (this.cfg.warm !== false) this.warm();
+    // Armed, not fired: the first poke warms the lane (step Q1).
+    this.warmPending = this.cfg.warm !== false;
   }
 
   async stop(): Promise<void> {
@@ -1388,6 +1394,16 @@ export class Core {
     return l;
   }
 
+  /** Set at start, cleared by the first warm-up, so a restart alone never spends anything. */
+  private warmPending = false;
+
+  /** Warm the Quick lane once, when he first reaches for Aang. */
+  private warmNow(): void {
+    if (!this.warmPending) return;
+    this.warmPending = false;
+    this.warm();
+  }
+
   private warm(): void {
     const l = this.lane('quick');
     this.active = { sub: null, lane: 'quick', buf: '', flush: null, stopped: false, startedAt: Date.now(), ackMs: 0, watchdog: null };
@@ -1483,6 +1499,9 @@ export class Core {
         break;
       }
       case 'desk': this.atDesk = m.active !== false; break;
+      // He clicked Aang, so the typing box is opening: warm the lane now rather than at every
+      // restart (step Q1). Costs the same one silent turn, but only when he is actually here.
+      case 'poked': this.warmNow(); break;
       case 'mac.run': void this.runOnMac(String(m.text ?? '').slice(0, 4000)).then(ok => this.send(ws, { t: 'mac.run.reply', ok })); break;
       // The desktop tray's "Job hunt now": Mac first, his own worker here if it cannot be reached.
       // Same fallback fix as the JOB_HUNT_RE chat trigger below (2026-09-23): do_task cannot actually run this
@@ -1542,6 +1561,8 @@ export class Core {
         break;
       case 'brief': void this.briefFor(ws).catch(e => console.error('brief failed:', (e as Error).message)); break;
       case 'submit': {
+        // He is already talking, so a warm-up would only add a second cold turn behind his.
+        this.warmPending = false;
         const id = typeof m.id === 'string' && m.id ? m.id : undefined;
         const text = typeof m.text === 'string' ? m.text.trim() : '';
         if (!id || !text) {
