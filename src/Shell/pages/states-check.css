@@ -1,0 +1,8 @@
+/* Step 6.10 check page: renders the shipped cockpit.css states so they can be put beside sheet 5. */
+body{margin:0;padding:26px;background:#07040F;color:#E8E4F0;font:500 14px var(--body)}
+  h1{font:900 24px var(--display);color:var(--gold);margin:0 0 4px}
+  p.n{color:#8a80a5;margin:0 0 22px;max-width:70ch}
+  .row{display:flex;gap:30px;flex-wrap:wrap;align-items:flex-end;margin:0 0 10px}
+  .col{display:flex;flex-direction:column;align-items:center;gap:10px;width:190px}
+  .lab{font:400 10px var(--label);color:var(--gold-deep);letter-spacing:1px;text-align:center}
+  .note{font:500 12px/1.45 var(--body);color:#8a80a5;text-align:center;margin:0}
