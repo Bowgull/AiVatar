@@ -45,6 +45,17 @@ Three research reports sit behind this plan, all in the data repo at `Aang/repor
 | 23 | Video overlay | **Drag anywhere, drag any edge to resize, one normal fullscreen icon, a transparency slider** |
 | 24 | Watching | **Aang marks episodes watched himself, and remembers dub** (see "Watching") |
 | 25 | Mac | **Bookmarks imported; bookmarks, tabs and passwords kept in step.** Cookie import ruled out (see "Mac sync") |
+| 26 | The real goal | **Aang's browser becomes his everyday Windows browser**, with Chrome kept on purpose for a short list (see "The everyday browser") |
+| 27 | Main use | **The video pop-out over WoW** is what he will use most |
+| 28 | Build order | **Pop-out and browser built together**, not pop-out first. His call, 2026-10-04, against my recommendation |
+| 29 | Pop-out content | **Twitch, YouTube, anime on Prime and Crunchyroll, Netflix** |
+| 30 | Locked video | **Plays in the pop-out on Shadow, with hardware acceleration off for that window.** Tested, and he saw it (see "Shadow is a cloud PC") |
+| 31 | Netflix | **He signs up for castLabs' free EVS signing at build time**, in his name |
+| 32 | Pop-out controls | **Click the pop-out to use it, click WoW to go back**, like any window. Click-through is an optional switch, not the default. Replaces "ghost mode and edit mode" |
+| 33 | Twitch chat | **None** |
+| 34 | How many pop-outs | **One at a time.** Opening a new video replaces the current one |
+| 35 | Launching on the Mac | **A tiny locked-down Mac helper over Tailscale**, so Aang can open things on the MacBook (see "The Mac helper") |
+| 36 | Going back | **A frozen copy of today's Aang plus a data snapshot** (see "Going back") |
 
 ---
 
@@ -162,7 +173,7 @@ tested on this PC with **Electron 44.5.1 (Chromium 152)**. Scratch code, not kep
 
 | Unknown | How |
 |---|---|
-| Does hover still work while WoW has focus? | Electron has several Windows bugs here, closed "not planned". So: **ghost mode** (ignores the mouse entirely) and **edit mode** (drag and resize), switched by hotkey, never by hover |
+| Does hover still work while WoW has focus? | Electron has several Windows bugs here, closed "not planned". **Settled by decision 32:** the pop-out is a normal clickable window, so nothing depends on hover. Click-through is an optional switch only |
 | Does the overlay hurt WoW's smoothness? | Forum reports say a window on top can knock a borderless game off its fastest display path. **Hide the window completely when not in use**, and check with PresentMon with WoW running |
 | Does `electron-overlay-window` follow WoW? | Proven on Path of Exile, not WoW. Test before relying on it |
 | Drag-resize holding 16:9 | Test with a real mouse |
@@ -171,12 +182,54 @@ None of these block anything else in the plan.
 
 ---
 
+## Shadow is a cloud PC
+
+**Found 2026-10-04, and it changes several earlier assumptions.** The Windows machine is a
+**Shadow.tech cloud PC**. He plays it **on his MacBook**. Everything on it, WoW included, reaches him
+as a video stream, so **his screen is itself a capture**.
+
+- **Locked video is blocked by default.** Shadow shows error **S:102 "protected video that we cannot
+  display"** for Widevine video drawn with hardware acceleration on. Its policy forbids streaming
+  video-on-demand services.
+- **Shadow's own documented fix works.** With hardware acceleration off for the pop-out window, a
+  real Widevine stream played through Shadow in a see-through, always-on-top window: 1,500 frames in
+  60 seconds, and he saw it clearly with no lag. Full record in `docs/BROWSER-TESTS-2026-10-04.md`.
+- **DRM can never be checked by screenshot on this machine.** Every screenshot of locked video is
+  black while hardware acceleration is on. Checking locked video means asking him to look.
+- **"The GPU" means Shadow's GPU.** WoW, Qwen and the pop-out all share it, and every frame is
+  re-encoded into Shadow's stream to the Mac.
+- **The Mac is the fallback.** macOS picture-in-picture floats over the Shadow window.
+
+## The everyday browser
+
+Decision 26. Full engineering assessment in `docs/BROWSER-ENGINEERING-ASSESSMENT.md`.
+
+**Realistic target: 85 to 90% of his browsing on this PC.** Chrome stays installed, on purpose, for:
+sites that insist on passkeys (passkeys hang in Electron, tested); the odd blocked Google sign-in
+(if Aang is the default, "open in your default browser" sends it back to Aang, so Chrome is the
+escape hatch); and anything caught in a security-patch gap. That is how every small browser lives.
+
+What the default-browser goal adds, from `Aang/reports/Aang as default browser.md`:
+- **The browser is its own program**, supervised by the tray, so a bad site can never take down the
+  pet and the brain.
+- **Never lose a tab**: continuous snapshots that also power crash restore, sleeping tabs and
+  restarts for updates.
+- **Crash and hang handling**: every call into a tab has a timeout, because calling a crashed one
+  hangs (tested).
+- **Hostile links**: once Aang is the default, links arrive from email and Discord. The link handler
+  is hardened against the known class of attacks that smuggle startup instructions in a link.
+- **Registering as default**: Windows will not let an app set itself. Aang registers, then opens the
+  Windows Settings page for him to click once.
+- **Vertical tabs**: the chunky style eats width faster than flat tabs, so the look itself forces a
+  vertical tab rail. Sheet 3's horizontal strip is out of date.
+
 ## Order of work
 
-Constrained by decision 6: every step ships looking finished.
+Constrained by decision 6: every step ships looking finished. Decision 28: built together.
 
-Two tracks. The cockpit track is Aang's own pages. The browser track is the web browser. They share
-the Electron shell, so **B1 comes before anything else in either track**.
+Four tracks. **C** is Aang's own pages. **P** is the video pop-out. **A** is the browser. **I** is
+Aang's intelligence inside the browser. They share the Electron shell and its hardening, so **A1
+comes before anything that signs in**, and **P1 is measured over WoW before the rest of P is built**.
 
 ### Cockpit track
 
@@ -189,29 +242,100 @@ the Electron shell, so **B1 comes before anything else in either track**.
 | **C4** | The palette move and the strip (below) | None, but it touches everything at once |
 | **C5** | The bubble as a see-through Electron window | Low now. Ghost and edit mode by hotkey |
 
+### Pop-out track (the one he will use most)
+
+| Step | Build | Borrowed | Weeks |
+|---|---|---|---|
+| **P1** | The pop-out window: always on top, clickable like a normal window (decision 32), optional click-through switch, snap sizes plus free drag, 16:9 worked out by Aang. **Stutter defences from day one**: background throttling off, hide fully when not in use. **Measured over WoW** with PresentMon, with NVIDIA Instant Replay on and off | `electron-overlay-window` (to follow the WoW window), `get-windows` | 1 to 1.5 |
+| **P2** | Locked video: castLabs runtime for the pop-out, **hardware acceleration off for that window** (tested), Crunchyroll and Prime with his real accounts, then Netflix after his EVS signup | castLabs ECS | 1 |
+| **P3** | Controls: play, pause, scrub, volume, fullscreen, transparency slider, auto picture-in-picture when he switches to WoW. One pop-out at a time (decision 34). No Twitch chat (decision 33) | | 1 |
+| **P4** | "Put X on": code matches his words, Qwen fills the gaps, Streaming Availability finds it in Canada with a dub, Twitch via twurple, YouTube embeds served from a local page (direct embeds fail with Error 153) | streaming-availability, twurple | 1 to 1.5 |
+| **P5** | SponsorBlock; Aang marks episodes watched in Simkl when he plays them | SponsorBlock API | 0.5 to 1 |
+| **P6** | The Mac helper (see below) | | 0.5 to 1 |
+
 ### Browser track
 
-From the borrow list. Hardening first, AI reading second, castLabs last.
-
-| Step | Build | Borrowed from | Rough effort |
+| Step | Build | Borrowed | Weeks |
 |---|---|---|---|
-| **B1** | Set the fuses, including cookie encryption. Test on a throwaway profile, **then** do the first real sign-ins. Sandbox every page, follow the checklist above | `@electron/fuses` | 1 day |
-| **B2** | Shell: one window, one view per tab, address bar that searches, back and forward, reopen closed tab, session restore, find, zoom, downloads with his approval and Mark-of-the-Web | Min, electron-dl, Windows `IAttachmentExecute` | 1 to 2 weeks |
-| **B3** | Ad and tracker blocking with a per-site pause; phishing and malware lists checked on every page load; passkeys hidden so sites fall back to password plus code | Ghostery, Phishing.Database, URLhaus, OpenPhish, the Lumen fix | 3 to 4 days |
-| **B4** | Sleeping tabs and game mode | Electron's history save and restore, Ferdium's rules, get-windows | 3 to 5 days |
-| **B5** | Mac in step: Floccus for bookmarks and open tabs, Bitwarden filling from the main process, one-time bookmark import | Floccus, Min's Bitwarden adapter, bookmark-parser | 1 week |
-| **B6** | AI reading: reader pipeline, "chat with my tabs", searchable browsing memory, 4 to 6 small tools per shelf, datamarking | Readability, Turndown, SQLite FTS5 and sqlite-vec | 1 week |
-| **B7** | Agent lane on a **separate profile**: Playwright MCP core tools, approval cards drawn by Aang, Prompt Guard tripwire | Playwright MCP, Prompt Guard 2 ONNX | 3 to 5 days |
-| **B8** | Overlay extras: SponsorBlock, go-live alerts, pin to WoW, transparency slider, "put X on" | SponsorBlock API, twurple, electron-overlay-window, streaming-availability | 1 week |
-| **B9** | castLabs runtime for an allow-list of Netflix, Prime and Crunchyroll only, its own profile, and an alert when Chrome reports an exploited bug | castLabs ECS | 3 to 5 days |
-| **B10** | Upgrade automation for Electron and castLabs, plus a monthly "is the Clerk passkey bridge ready" check | Renovate or Dependabot | Half a day, then ongoing |
+| **A1** | Hardening **before any real sign-in**: cookie encryption, sandbox, security switches. Test on a throwaway profile first | `@electron/fuses` | 0.5 |
+| **A2** | Tab positioning layer: turns "where a tab should be" into "where the view actually is", with monitor scaling and drag. **Exists nowhere, written by hand** | | 1 |
+| **A3** | Shell: **vertical tab rail**, address bar, back and forward, reopen closed tab, find, zoom | Min, Tree Style Tab's tree logic | 2 |
+| **A4** | Never lose a tab: continuous snapshots for crash restore, sleeping tabs and update restarts | Electron's history save and restore | 1 |
+| **A5** | Crash and hang handling, with a timeout on every call into a tab | | 0.5 |
+| **A6** | Protection: ad and tracker blocking with a visible per-site pause, phishing lists, downloads marked for Defender, passkeys hidden | Ghostery, Phishing.Database, URLhaus | 1 |
+| **A7** | Default browser: registration, the "Set default" step, hardened link handling | | 1 |
+| **A8** | His stuff: Bitwarden filling, Floccus with the Mac, one-time bookmark import | Min's adapter, Floccus, bookmark-parser | 1 |
+| **A9** | Everyday extras: downloads list, print, PDF, screen-share picker, spellcheck | electron-dl | 1 |
+| **A10** | Upkeep automation: Electron and castLabs upgrades flagged, monthly passkey-bridge check | Renovate or Dependabot | 0.5 |
 
-**Total, browser track:** roughly two to three months of steady work.
+### Intelligence track
+
+| Step | Build | Weeks |
+|---|---|---|
+| **I1** | Page reader and summariser (Readability, Turndown, Qwen) | 0.5 |
+| **I2** | Searchable reading memory (SQLite FTS5 plus sqlite-vec) | 1 |
+| **I3** | Labelled-element index, borrowed from Vimium's link hints, so "click B7" is how Aang acts | 0.5 |
+| **I4** | A small tool shelf of five or fewer, and chat with your tabs | 0.5 |
+| **I5** | Trails (from Horse Browser) and mark as done (from SigmaOS) | 0.5 |
+| **I6** | Agent lane on its own profile, approvals as chips for routine asks and a lever for serious ones | 1 |
+
+**Total, all four tracks:** roughly 16 to 22 weeks, by estimate.
 
 ### The order between them
-C1 to C4 carry no risk and do not need the browser, so they can go first. B1 must come before
-**any** real sign-in, because cookie encryption cannot be switched on afterwards without losing
-every login.
+- **A1 before any real sign-in**, because cookie encryption cannot be switched on afterwards.
+- **P1 measured over WoW before P2 onwards.** If it stutters and cannot be fixed, the plan changes.
+- **After A1 and A2, read the Claude usage meter** and project the cost of the rest before continuing.
+- C1 to C4 carry no risk and can be done in any gap.
+
+## Definition of done, for every step
+
+**No step is done until all of these are true.** This is the zero-drift rule he set, written down so
+it cannot be skipped.
+
+1. **Screenshot the matching mockup** in `docs/cockpit/sheet-*.html`.
+2. **Screenshot the real build** showing the same thing, using `tools/measure/Capture.ps1` and the
+   `tests/fakecore/look-*.mjs` drivers.
+3. **Put them side by side in one image and show him.**
+4. **Name every difference out loud**, as either a fix or a reason.
+5. **Locked video is checked by his eyes**, never by screenshot (see "Shadow is a cloud PC").
+6. **Feel is checked by him**: button travel, the arrow's bob, how the pop-out behaves mid-fight.
+   Screenshots cannot catch these.
+
+If the mockup is wrong rather than the build, the mockup is fixed first and the step re-checked.
+
+## Going back
+
+Decision 36. He wants to be able to say "let's go back to the old one".
+
+- **The code:** today's working Aang is frozen as the git tag **`aang-v1-before-rebuild`** (commit
+  `658f02d`, 2026-10-04). It is on this Shadow PC only until he agrees to push it to GitHub, which
+  makes it a real off-machine vault.
+- **The data:** before the rebuilt Aang runs for the first time, `%APPDATA%\Aang` and the database are
+  copied to a dated snapshot. Old code cannot always read data the new code has changed, so going
+  back means restoring both.
+- **To go back:** close the new Aang, check out the tag, rebuild, restore the snapshot. Only one Aang
+  runs at a time, because both want the same port and the same tray.
+
+## The Mac helper
+
+Decision 35. Lets Aang open something on the MacBook, mainly locked video in picture-in-picture over
+the Shadow window if the pop-out ever fails, and anything he would rather watch on the Mac.
+
+**Not a Mac port.** No pet, no brain. One small background helper on the Mac that can do exactly one
+thing: open an approved link.
+
+Locked down, because anything that can make the Mac open things on command is a remote control:
+
+| Rule | Why |
+|---|---|
+| **Listens only on the Mac's Tailscale address** (`100.83.81.65`) | Nothing on the open internet can even see it. Shadow (`100.91.66.119`) and the Mac are both on his tailnet, signed in as him |
+| **Only accepts messages signed by Aang** | Another device on the tailnet still cannot drive it |
+| **Only `https` links, only from sites he approves** | Prime, Crunchyroll, Netflix, YouTube, Twitch to start |
+| **Does nothing else** | No files, no commands, no other apps |
+| **Logged** | Every request, accepted or refused |
+
+Housekeeping noticed in passing: an old Shadow device (`shadow-g1fvugo9`) is still on his tailnet,
+offline for 21 days. Worth removing from the Tailscale admin page.
 
 ---
 
@@ -429,9 +553,13 @@ included. Obligations only start on sharing:
 | Usability | 9 | 5 | 7 |
 | Maintenance burden | 10 | 2 | 4 |
 
-**Likelihood, as judgement not measurement:** about **70%** that it becomes his everyday browser on
-this PC, about **15%** that he never needs Chrome or Edge here again, and **zero** for the Mac,
-because Aang is not going there.
+**Likelihood, as judgement not measurement, revised 2026-10-04 after the hands-on tests:** about
+**75%** that it becomes his everyday browser on this PC, **under 5%** that he never needs Chrome
+here again (Chrome is kept on purpose as the escape hatch), about **55%** that he is still happy with
+it at six months, and **zero** for the Mac, because Aang is not going there. The history: 70% and 15%
+before the default-browser goal, 65% and under 5% after it, then up to 75% once Smart App Control,
+site isolation, video codecs, Google sign-in and Meet all tested well and locked video was shown to
+reach him through Shadow.
 
 ### What GitHub cannot supply
 
