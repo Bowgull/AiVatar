@@ -1871,6 +1871,27 @@ it, because parchment is already the surface Aang speaks on.
 shows while muted; only a proactive one is held. Getting that backwards would make a muted Aang look
 broken.
 
+**FIRST RUN ON HIS REAL DESKTOP, 2026-10-04. It works** - the parchment bubble appeared beside the
+docked pet, in the right place, with the right type. And three things went wrong that **no browser-tab
+check could ever have found**, because a tab has nothing underneath it and cannot cover anything:
+
+1. **The Shell opened a placeholder window on every start.** `hello.html`, 460x360, saying "nothing is
+   drawn here yet", landing on top of his Discord conversation - and Aang restarts several times a day.
+   He said it was glitchy and nothing made sense, and he was right. The Shell now opens NOTHING; the
+   brain opens windows when there is something to show.
+2. **I diagnosed that wrong first, from memory, and said so confidently.** I told him an invisible pane
+   was swallowing his clicks. A screenshot of his actual screen showed the real cause in seconds.
+3. **A trap in my own click-through code:** `setIgnoreMouseEvents(!on, { forward: !on })`. The moment
+   the pointer touched the bubble, the window stopped forwarding mouse moves, so the page could never
+   see it leave, so it never went back to click-through - from then on it kept every click landing in
+   its rectangle with nothing visible to explain why. `forward` is now always true, the hover test is a
+   cheap rectangle before the exact one (it runs on every mouse move), and the mouse is released the
+   instant the bubble hides.
+
+**`tools/capture-screen.ps1` exists now**: it photographs the whole desktop and lists every window Aang
+has with its position, visibility and whether it is click-through. It found in thirty seconds what a day
+of browser-tab checking had hidden. **Every visual step from here ends with it.**
+
 **6.12 parity rows now done:** the steady pace, the A/X/Z keycaps, the downward arrow, scrolling into
 memory, right-click (2 of 4; the other 2 need 6.12b's typing box), entity chips, the dots and tool label,
 the asks, quiet and mute, copy and rate. **Left:** the 4.4 halo and Avatar State glow, which stay C# and

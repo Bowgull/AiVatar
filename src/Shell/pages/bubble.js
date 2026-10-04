@@ -274,6 +274,7 @@ window.aang?.onMessage?.(m => {
     paintBack();
     expanded = false;
     bubble.hidden = true;
+    releaseMouse();
     working.hidden = true;
     asks.hidden = true;
     if (ticking) { clearInterval(ticking); ticking = null; }
@@ -313,6 +314,49 @@ bubble.addEventListener('contextmenu', e => {
   setTimeout(() => document.addEventListener('pointerdown', closeMenu, { once: true }), 0);
 });
 window.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu(); });
+
+// ---------------------------------------------------------------- letting the mouse through
+// The window is transparent and covers more than the bubble does. Everything outside the drawn shape
+// has to pass clicks through to whatever is behind, or Aang puts an invisible pane over his desktop.
+//
+// The main process keeps the window click-through and forwards move events here; this says when the
+// pointer is actually over something of ours. `elementFromPoint` rather than a rectangle, so the
+// rounded corners and the gap under the tail are honest.
+let overNow = false;
+/**
+ * Is the pointer over something of ours?
+ *
+ * A cheap rectangle test first, because this runs on EVERY mouse move the window is forwarded - which
+ * is every move his mouse makes across that part of the screen - and `elementFromPoint` forces the
+ * browser to work out the layout each time. The rectangle rules out almost all of them for nothing.
+ * Only inside it does the exact test run, which is what makes the rounded corners and the gap under
+ * the tail honest rather than a box.
+ */
+function overBubble(x, y) {
+  if (bubble.hidden) return false;
+  const r = bubble.getBoundingClientRect();
+  const near = x >= r.left - 2 && x <= r.right + 2 && y >= r.top - 2 && y <= r.bottom + 2;
+  const menu = document.getElementById('turnmenu');
+  if (!near && !menu) return false;
+  const el = document.elementFromPoint(x, y);
+  return Boolean(el && el.closest('#bubble, #turnmenu'));
+}
+window.addEventListener('mousemove', e => {
+  const over = overBubble(e.clientX, e.clientY);
+  if (over === overNow) return;
+  overNow = over;
+  window.aang?.bubbleClickable?.(over);
+}, { passive: true });
+// Whenever the bubble goes away, let go of the mouse at once rather than waiting for a move that may
+// never come: a window that is hidden must never still be holding clicks.
+function releaseMouse() {
+  if (!overNow) return;
+  overNow = false;
+  window.aang?.bubbleClickable?.(false);
+}
+// Leaving the window entirely must also let go, or it keeps the mouse after he moves off it.
+window.addEventListener('mouseleave', releaseMouse);
+window.addEventListener('blur', releaseMouse);
 
 // ---------------------------------------------------------------- his clicks
 // One click on the bubble means two different things, and the order matters: while text is still
