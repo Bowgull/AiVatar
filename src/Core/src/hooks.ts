@@ -196,6 +196,10 @@ export class HookServer {
       return;
     }
     if (req.method !== 'POST' || !req.url?.startsWith('/hook')) { res.writeHead(404).end(); return; }
+    // The same lock as the Core's socket (step S1). A web page can POST across origins to localhost
+    // without a preflight when the content type is plain, so loopback alone is not proof this came
+    // from Claude Code. curl, which is what the hooks actually use, sends no Origin.
+    if (req.headers.origin) { res.writeHead(403).end(); return; }
     if (!isLoopback(req.socket.remoteAddress ?? '')) {
       const k = new URL(req.url, 'http://x').searchParams.get('k') ?? '';
       if (!this.key || !sameKey(k, this.key)) { res.writeHead(403).end(); return; }
