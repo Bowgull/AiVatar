@@ -5,6 +5,7 @@
 // clicks.
 import { Reveal, TICK_MS, hasMore, linesShown, scrolls } from './reveal.js';
 import { HOLD_MS, askFrom } from './asks.js';
+import { find as findEntities } from './entities.js';
 
 const el = id => document.getElementById(id);
 const bubble = el('bubble'), said = el('said'), scroller = el('scroller'), more = el('more');
@@ -51,6 +52,33 @@ function reportSize() {
   window.aang?.bubbleSize?.({ width, height });
 }
 
+/**
+ * Files and links in the reply, as pressable chips (parity row, from 4.5).
+ *
+ * Only once the reply has finished arriving: a chip for half a path is useless, and a row of them
+ * appearing and rearranging while he is reading is worse than waiting a second.
+ */
+function paintChips() {
+  let row = document.getElementById('chips');
+  if (!row) {
+    row = document.createElement('div');
+    row.id = 'chips';
+    row.className = 'chips';
+    scroller.after(row);
+  }
+  const list = reveal.done ? findEntities(reveal.whole) : [];
+  row.replaceChildren();
+  row.hidden = list.length === 0;
+  for (const c of list) {
+    const b = document.createElement('button');
+    b.className = 'chip act';
+    b.title = c.value;                       // the whole path or address, on hover
+    b.textContent = c.label;
+    b.addEventListener('click', () => window.aang?.openThing?.({ kind: c.kind, value: c.value }));
+    row.append(b);
+  }
+}
+
 /** Paint whatever is revealed so far. */
 function paint() {
   said.textContent = reveal.text;
@@ -60,6 +88,7 @@ function paint() {
   reportSize();
   // Copy and rate are for a FINISHED reply only: offering to copy half a sentence is a trap.
   tools.hidden = !reveal.done || !reveal.whole;
+  paintChips();
 }
 
 // The reveal runs on its own clock and works out how much should be visible from the elapsed time, so
@@ -218,6 +247,39 @@ window.aang?.onMessage?.(m => {
     return;
   }
 });
+
+// ---------------------------------------------------------------- reaching back into a message
+// The same actions the old bubble offers on a right-click (4.3b). Two of the four are here: Copy and
+// Forget work entirely within what exists today. "Reply to this" and "Add as context" both put
+// something into the typing box, which is still the C# one until 6.12b, so they arrive with it rather
+// than appearing here greyed out - a menu item he cannot use is worse than one that is not there.
+function closeMenu() { document.getElementById('turnmenu')?.remove(); }
+
+bubble.addEventListener('contextmenu', e => {
+  if (!reveal.whole || !reveal.done) return;
+  e.preventDefault();
+  closeMenu();
+  const menu = document.createElement('div');
+  menu.id = 'turnmenu';
+  menu.className = 'wood turnmenu';
+  for (const [label, go] of [
+    ['Copy text', () => window.aang?.copyText?.(reveal.whole)],
+    // Forget is last and set apart, as it is in the old menu: it is the one that removes something.
+    ['Forget this', () => { if (turn !== null) window.aang?.forgetTurn?.(turn); reveal.clear(); paint(); bubble.hidden = true; }],
+  ]) {
+    const b = document.createElement('button');
+    b.className = 'mrow';
+    b.textContent = label;
+    b.addEventListener('click', () => { closeMenu(); go(); });
+    menu.append(b);
+  }
+  // Placed where he clicked, then nudged back on screen if that would hang it off the edge.
+  menu.style.left = Math.max(4, Math.min(e.clientX, window.innerWidth - 150)) + 'px';
+  menu.style.top = Math.max(4, Math.min(e.clientY, window.innerHeight - 80)) + 'px';
+  document.body.append(menu);
+  setTimeout(() => document.addEventListener('pointerdown', closeMenu, { once: true }), 0);
+});
+window.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu(); });
 
 // ---------------------------------------------------------------- his clicks
 // One click on the bubble means two different things, and the order matters: while text is still
