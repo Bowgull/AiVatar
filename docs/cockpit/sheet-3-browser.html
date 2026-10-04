@@ -1,0 +1,529 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Aang Browser</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Figtree:ital,wght@0,400;0,500;0,600;0,700;0,900;1,500&family=Silkscreen&display=swap" rel="stylesheet">
+<style>
+/* ===========================================================================
+   AANG'S BROWSER - part three of the design language
+   Continues cockpit-mockup.html and cockpit-everything.html. Nothing new is
+   invented here: the scrub track is the carved groove, the loading bar is the
+   forged rule, the knobs are the gem-in-a-setting, the tabs are the Panel's
+   tab strip. Every colour is from src/Body/Theme.cs.
+   =========================================================================== */
+:root{
+  --ink:#100A22; --panel2:#1A1132;
+  --gold:#FFC43C; --gold-deep:#C98C14; --gold-lit:#FFE096; --gold-light:#FFE28C;
+  --orange:#FF8040; --orange-deep:#C95E28; --red:#FF5A4A; --green:#78E696;
+  --text:#E8E4F0; --secondary:#C9C2DA;
+  --plum:#4A2C6E; --plum-deep:#2C1848; --plum-edge:#966EC8; --claude:#E88A6A;
+  --parch1:#ECD5A8; --parch2:#DEC28C;
+  --ink-text:#2E2216; --ink-dim:#5A4834;
+  --wood1:#4A2E1A; --wood2:#24160D; --wood-plaque:#1A0F09;
+  --mode-quick:#00D1FF; --mode-smart:#3D9BFF; --mode-deep:#A970FF; --mode-saving:#8E879E;
+  --outline:#120A05; --ow:4px; --lip:5px;
+  --display:"Cinzel",Georgia,"Times New Roman",serif;
+  --body:"Figtree",system-ui,-apple-system,Segoe UI,sans-serif;
+  --label:"Silkscreen",ui-monospace,Consolas,monospace;
+  --carve-ink:#2A1C08;
+}
+*{box-sizing:border-box}
+body{margin:0;padding:30px 20px 100px;background:#07040F;font-family:var(--body);
+  -webkit-font-smoothing:antialiased;color:var(--text)}
+.wrap{max-width:940px;margin:0 auto}
+h1{font:400 16px var(--label);color:#7a6fa0;letter-spacing:3px;text-align:center;margin:0 0 8px}
+.sub{font:500 13px/1.6 var(--body);color:#7b7291;text-align:center;margin:0 0 40px}
+h2.part{font:400 13px var(--label);color:var(--gold-deep);letter-spacing:3px;
+  margin:56px 0 6px;padding-bottom:10px;border-bottom:3px solid #241a3a}
+p.why{font:500 14px/1.65 var(--body);color:#9a90b5;margin:0 0 24px;max-width:680px}
+h3.sur{font:700 19px var(--display);color:#cfc4ea;margin:34px 0 4px}
+p.sur{font:500 13.5px/1.6 var(--body);color:#8a80a5;margin:0 0 16px;max-width:680px}
+.new{display:inline-block;font:400 9px var(--label);letter-spacing:1px;padding:4px 6px;border-radius:3px;
+  border:2px solid var(--outline);background:var(--green);color:#163a24;vertical-align:3px;margin-left:6px}
+.reuse{background:var(--gold-lit);color:#2a1c00}
+.two{display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start}
+.cardlab{font:400 10px var(--label);color:#6a6186;letter-spacing:1.5px;margin:0 0 12px}
+
+/* ---- carried over verbatim ---- */
+.tex{position:relative}
+.tex::before{content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;opacity:.05;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E")}
+.parch{position:relative;color:var(--ink-text);padding:20px 22px;border-radius:9px;overflow:hidden;
+  background:linear-gradient(180deg,#F0DCB4 0%,var(--parch1) 45%,var(--parch2) 100%);
+  border:var(--ow) solid var(--outline);
+  box-shadow:inset 0 5px 0 rgba(255,255,255,.55),inset 0 -6px 0 rgba(150,110,60,.32),
+    0 3px 0 rgba(0,0,0,.6),0 10px 22px rgba(0,0,0,.45)}
+.wood{position:relative;padding:18px;border-radius:10px;overflow:hidden;color:var(--text);
+  background:linear-gradient(180deg,#56371F 0%,var(--wood1) 40%,var(--wood2) 100%);
+  border:var(--ow) solid var(--outline);
+  box-shadow:inset 0 5px 0 rgba(255,224,150,.2),inset 0 -6px 0 rgba(0,0,0,.5),
+    0 3px 0 rgba(0,0,0,.6),0 10px 22px rgba(0,0,0,.45)}
+.plaque{background:var(--wood-plaque);border-radius:6px;padding:9px 13px;margin:0 0 13px;
+  font:400 12px var(--label);color:var(--gold);letter-spacing:1px;
+  text-shadow:2px 2px 0 rgba(0,0,0,.85);border:3px solid var(--outline);
+  box-shadow:inset 0 4px 0 rgba(0,0,0,.65);display:inline-block}
+.plaque.urgent{color:var(--orange)}
+.t-eyebrow{font:400 12px var(--label);color:#8a6a2a;letter-spacing:1px;margin:0 0 7px;
+  text-shadow:1px 1px 0 rgba(255,255,255,.4)}
+.t-head{font:700 20px/1.25 var(--display);color:var(--carve-ink);margin:0 0 8px;
+  text-shadow:0 1px 0 rgba(255,255,255,.6)}
+.t-body{font:500 15.5px/1.62 var(--body);color:#271c10;margin:0 0 10px}
+.t-body b{font-weight:700}
+.t-caption{font:500 12.5px var(--body);color:#4e3d28}
+.t-aside{font:italic 500 14px/1.55 var(--body);color:#4e3d28}
+.wood .t-eyebrow{color:var(--gold-deep);text-shadow:1px 1px 0 rgba(0,0,0,.7)}
+.wood .t-head{color:var(--gold);text-shadow:0 2px 0 var(--outline),0 -1px 0 rgba(255,224,150,.3)}
+.wood .t-body{color:var(--secondary)} .wood .t-caption,.wood .t-aside{color:#a99a86}
+.u-mark{-webkit-box-decoration-break:clone;box-decoration-break:clone;padding:.04em .16em .10em;
+  border-radius:2px;background-repeat:no-repeat;
+  background-image:linear-gradient(rgba(255,196,60,.6),rgba(255,196,60,.6));
+  background-size:100% .78em;background-position:left 0 bottom .06em}
+.rule-minor{height:8px;border-radius:4px;margin:14px 0;
+  background:linear-gradient(180deg,rgba(90,60,25,.5) 0 3px,rgba(255,255,255,.55) 3px 6px,transparent 6px);
+  box-shadow:inset 0 1px 2px rgba(0,0,0,.35)}
+.rule-titled{display:flex;align-items:center;margin:18px 0 11px}
+.rule-titled .bar{flex:1;height:5px;border-radius:3px;
+  background:linear-gradient(180deg,rgba(90,60,25,.45) 0 2px,rgba(255,255,255,.5) 2px 5px)}
+.rule-titled span{font:700 14px var(--display);color:var(--carve-ink);padding:0 12px;
+  letter-spacing:1.5px;text-transform:uppercase;text-shadow:0 1px 0 rgba(255,255,255,.65)}
+.wood .rule-titled .bar{background:linear-gradient(180deg,rgba(0,0,0,.6) 0 2px,rgba(255,224,150,.28) 2px 5px)}
+.wood .rule-titled span{color:var(--gold);text-shadow:0 2px 0 var(--outline)}
+.key{font:700 14px var(--body);border:3px solid var(--outline);border-radius:8px;
+  padding:11px 18px 12px;cursor:pointer;position:relative;top:0;transition:top .05s,box-shadow .05s;
+  background:var(--plum);color:#fff;text-shadow:0 1px 0 rgba(0,0,0,.7);
+  box-shadow:0 var(--lip) 0 var(--outline),0 var(--lip) 0 -1px var(--plum-deep),
+    inset 0 3px 0 rgba(150,110,200,.5),0 8px 14px rgba(0,0,0,.4)}
+.key:active{top:var(--lip);box-shadow:0 0 0 var(--outline),inset 0 3px 0 rgba(150,110,200,.5)}
+.key.primary{background:var(--gold);color:#2a1c00;text-shadow:0 1px 0 rgba(255,235,180,.8);
+  box-shadow:0 var(--lip) 0 var(--outline),0 var(--lip) 0 -1px var(--gold-deep),
+    inset 0 3px 0 var(--gold-light),0 8px 14px rgba(0,0,0,.4)}
+.key.primary:active{box-shadow:0 0 0 var(--outline),inset 0 3px 0 var(--gold-light)}
+.key.warn{background:var(--orange);color:#2e1200;text-shadow:0 1px 0 rgba(255,220,180,.7);
+  box-shadow:0 var(--lip) 0 var(--outline),0 var(--lip) 0 -1px var(--orange-deep),
+    inset 0 3px 0 rgba(255,224,150,.5),0 8px 14px rgba(0,0,0,.4)}
+.key.warn:active{box-shadow:0 0 0 var(--outline),inset 0 3px 0 rgba(255,224,150,.5)}
+.key .k{position:absolute;top:2px;right:6px;font:400 10px var(--label);opacity:.6}
+.key.sm{font-size:12.5px;padding:8px 13px 9px;--lip:4px}
+.keys{display:flex;gap:11px;flex-wrap:wrap;align-items:flex-end;margin-top:15px}
+.chip{display:inline-block;font:700 12px var(--body);padding:5px 10px;border-radius:5px;
+  border:2.5px solid var(--outline);color:#231700;text-shadow:0 1px 0 rgba(255,255,255,.4);white-space:nowrap}
+.chip.good{background:var(--green)} .chip.careful{background:var(--orange)}
+.chip.stop{background:var(--red);color:#2e0b06} .chip.normal{background:var(--gold)}
+.pill{font:700 13px var(--body);padding:9px 15px;border-radius:999px;border:3px solid var(--outline);
+  position:relative;top:0;cursor:pointer;transition:top .05s,box-shadow .05s;color:#141018;
+  text-shadow:0 1px 0 rgba(255,255,255,.45);box-shadow:0 4px 0 var(--outline),inset 0 3px 0 rgba(255,255,255,.3)}
+.pill:active{top:4px;box-shadow:0 0 0 var(--outline),inset 0 3px 0 rgba(255,255,255,.3)}
+.pill.sm{font-size:11.5px;padding:6px 11px;border-width:2.5px;box-shadow:0 3px 0 var(--outline),inset 0 2px 0 rgba(255,255,255,.3)}
+.pill.auto{background:var(--gold)} .pill.local{background:var(--green)}
+
+/* =========================================== THE BROWSER WINDOW */
+.win{border-radius:12px;overflow:hidden;border:var(--ow) solid var(--outline);
+  box-shadow:0 4px 0 rgba(0,0,0,.6),0 16px 34px rgba(0,0,0,.55)}
+
+/* --- the carved tab strip. Same language as the Panel's. --- */
+.tabstrip{display:flex;align-items:flex-end;gap:5px;padding:9px 9px 0;
+  background:linear-gradient(180deg,#56371F,var(--wood2));border-bottom:3px solid var(--outline)}
+.tab{display:flex;align-items:center;gap:7px;font:600 12px var(--body);padding:9px 11px 10px;
+  border-radius:7px 7px 0 0;border:2.5px solid var(--outline);border-bottom:none;cursor:pointer;
+  color:#E6DCC8;background:linear-gradient(180deg,var(--plum),var(--plum-deep));
+  text-shadow:1px 1px 0 rgba(0,0,0,.7);position:relative;top:3px;max-width:190px}
+.tab.on{background:linear-gradient(180deg,#F0DCB4,var(--parch2));color:var(--carve-ink);top:0;
+  text-shadow:0 1px 0 rgba(255,255,255,.55);box-shadow:inset 0 3px 0 rgba(255,255,255,.55)}
+.tab .ttl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tab .fav{width:13px;height:13px;border-radius:3px;border:2px solid var(--outline);flex:0 0 auto}
+.tab .x{width:15px;height:15px;border-radius:50%;background:rgba(0,0,0,.26);display:grid;place-items:center;
+  font:700 11px var(--body);flex:0 0 auto}
+.tab.on .x{background:rgba(90,60,25,.3)}
+.tab.add{background:var(--wood-plaque);color:var(--gold);padding:9px 13px 10px;
+  box-shadow:inset 0 3px 0 rgba(0,0,0,.6)}
+
+/* --- the chrome bar: back, forward, reload, the slot, pop out --- */
+.chrome{display:flex;align-items:center;gap:9px;padding:10px;
+  background:linear-gradient(180deg,var(--panel2),var(--ink));border-bottom:3px solid var(--outline)}
+.rnd{width:33px;height:33px;flex:0 0 auto;border-radius:8px;border:2.5px solid var(--outline);cursor:pointer;
+  background:linear-gradient(180deg,var(--plum),var(--plum-deep));display:grid;place-items:center;
+  color:#e8e0f5;font:700 15px var(--body);position:relative;top:0;transition:top .05s,box-shadow .05s;
+  box-shadow:0 3px 0 var(--outline),inset 0 2px 0 rgba(150,110,200,.45)}
+.rnd:active{top:3px;box-shadow:0 0 0 var(--outline),inset 0 2px 0 rgba(150,110,200,.45)}
+.rnd.dim{opacity:.4;cursor:default}
+.rnd.gold{background:linear-gradient(180deg,var(--gold-lit),var(--gold-deep));color:#2a1c00;
+  box-shadow:0 3px 0 var(--outline),inset 0 2px 0 rgba(255,255,255,.5)}
+
+/* THE SLOT: the address bar. Carved IN, so it can never be mistaken for page
+   content, which sits on a raised surface. He can type in it. */
+.slot{flex:1;min-width:0;display:flex;align-items:center;gap:9px;padding:7px 11px;border-radius:8px;
+  background:#0B0718;border:3px solid var(--outline);box-shadow:inset 0 4px 0 rgba(0,0,0,.7)}
+.slot .lock{font:400 10px var(--label);letter-spacing:.5px;padding:4px 7px;border-radius:4px;
+  border:2px solid var(--outline);background:var(--green);color:#163a24;flex:0 0 auto}
+.slot .lock.bad{background:var(--red);color:#2e0b06}
+.slot .url{flex:1;min-width:0;font:500 13.5px var(--body);color:#8a80a5;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.slot .url b{color:#F0E6FF;font-weight:700}   /* the real domain, bright. The rest dim. */
+.slot .caret{width:2px;height:16px;background:var(--gold);animation:blink .9s steps(2) infinite}
+@keyframes blink{50%{opacity:0}}
+.slot .who{font:400 9px var(--label);letter-spacing:1px;color:var(--gold-deep);flex:0 0 auto;
+  border-left:2px solid #241a3a;padding-left:9px}
+
+/* --- the loading bar: the forged rule, filling --- */
+.loading{height:6px;background:#0B0718;border-bottom:3px solid var(--outline);overflow:hidden}
+.loading i{display:block;height:100%;width:62%;
+  background:linear-gradient(180deg,var(--gold-deep) 0 3px,var(--gold-lit) 3px 6px);
+  box-shadow:2px 0 0 var(--outline)}
+
+/* --- bookmarks: little carved plaques --- */
+.marks{display:flex;align-items:center;gap:7px;padding:8px 10px;overflow:hidden;
+  background:linear-gradient(180deg,var(--wood1),var(--wood2));border-bottom:3px solid var(--outline)}
+.mark{display:flex;align-items:center;gap:6px;font:600 11.5px var(--body);color:#E6DCC8;
+  padding:5px 9px;border-radius:5px;cursor:pointer;background:var(--wood-plaque);
+  border:2px solid var(--outline);box-shadow:inset 0 2px 0 rgba(0,0,0,.6);
+  text-shadow:1px 1px 0 rgba(0,0,0,.7);white-space:nowrap}
+.mark:hover{background:linear-gradient(180deg,var(--gold-lit),var(--gold-deep));color:#2a1c00;
+  text-shadow:0 1px 0 rgba(255,255,255,.5);box-shadow:inset 0 2px 0 rgba(255,255,255,.45)}
+.mark .fav{width:11px;height:11px;border-radius:3px;border:1.5px solid var(--outline)}
+.mark .in{font:400 8px var(--label);color:var(--green);letter-spacing:.5px}
+.mark:hover .in{color:#163a24}
+
+/* --- the page itself. Deliberately plain: it is someone else's. --- */
+.page{background:#f6f3ee;padding:0;min-height:230px;position:relative}
+.pagefake{padding:20px 22px;color:#2b2b2b;font:400 14px/1.6 -apple-system,system-ui,sans-serif}
+.pagefake h4{font:700 20px/1.2 Georgia,serif;margin:0 0 9px;color:#1a1a1a}
+.pagefake .bl{height:11px;background:#ddd9d2;border-radius:3px;margin:7px 0}
+.pagefake .bl.s{width:72%} .pagefake .bl.t{width:45%}
+.pagefake .btn{display:inline-block;margin-top:13px;background:#2f6fd0;color:#fff;
+  padding:9px 15px;border-radius:5px;font-size:13px;font-weight:600}
+.edge{position:absolute;inset:0;pointer-events:none;
+  box-shadow:inset 0 0 0 3px rgba(18,10,5,.55)}
+
+/* =========================================== MEDIA CONTROLS
+   The scrub track IS the carved groove. The knob IS the gem-in-a-setting.
+   Nothing new was invented for this. */
+.vid{border-radius:12px;overflow:hidden;border:var(--ow) solid var(--outline);width:400px;
+  box-shadow:0 4px 0 rgba(0,0,0,.6),0 16px 34px rgba(0,0,0,.6)}
+.vidbar{display:flex;align-items:center;gap:8px;padding:8px 9px;
+  background:linear-gradient(180deg,#56371F,var(--wood2));border-bottom:3px solid var(--outline)}
+.vidbar .nm{font:400 10px var(--label);color:var(--gold);letter-spacing:1px;flex:1;min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-shadow:1px 1px 0 rgba(0,0,0,.8)}
+.screen{aspect-ratio:16/9;background:
+    radial-gradient(ellipse at 50% 40%,#3a4a6a,#0d1018 70%);display:grid;place-items:center;
+  color:#5a6a8a;font:400 11px var(--label);letter-spacing:1px}
+.ctrl{display:flex;align-items:center;gap:10px;padding:10px;
+  background:linear-gradient(180deg,var(--panel2),var(--ink));border-top:3px solid var(--outline)}
+
+/* the groove, reused as a track */
+.track{flex:1;min-width:0;height:10px;border-radius:5px;position:relative;cursor:pointer;
+  background:linear-gradient(180deg,rgba(0,0,0,.72) 0 4px,rgba(255,224,150,.2) 4px 7px,transparent 7px);
+  box-shadow:inset 0 2px 3px rgba(0,0,0,.6)}
+.track .fill{position:absolute;left:0;top:0;height:7px;border-radius:4px;
+  background:linear-gradient(180deg,var(--gold-lit) 0 3px,var(--gold-deep) 3px 7px)}
+.track .knob{position:absolute;top:-5px;width:15px;height:19px;border-radius:4px;
+  background:linear-gradient(180deg,var(--gold-lit),var(--gold-deep));
+  border:2.5px solid var(--outline);box-shadow:inset 0 2px 0 rgba(255,255,255,.6),0 2px 0 rgba(0,0,0,.5)}
+.track.vol{flex:0 0 86px;max-width:86px}
+.tnum{font:500 11.5px var(--body);color:#9a90b5;font-variant-numeric:tabular-nums;flex:0 0 auto}
+
+/* =========================================== NEW SMALL PARTS */
+/* a switch: a keycap that stays down */
+.sw{display:inline-flex;align-items:center;gap:9px;font:600 13px var(--body);color:#cfc4ea;cursor:pointer}
+.sw .bed{width:54px;height:28px;border-radius:999px;border:3px solid var(--outline);position:relative;
+  background:#0B0718;box-shadow:inset 0 3px 0 rgba(0,0,0,.7);flex:0 0 auto}
+.sw .nub{position:absolute;top:1px;left:1px;width:20px;height:20px;border-radius:50%;
+  border:2.5px solid var(--outline);background:linear-gradient(180deg,#8e879e,#5a5468);
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.3);transition:left .12s}
+.sw.on .bed{background:linear-gradient(180deg,#2f7a4a,#1d5230)}
+.sw.on .nub{left:27px;background:linear-gradient(180deg,var(--green),#3f9a5f)}
+
+/* a tooltip: a tiny carved plaque with a tail */
+.tip{position:relative;display:inline-block}
+.tipbox{font:600 12px var(--body);color:#E6DCC8;background:var(--wood-plaque);padding:8px 11px;
+  border:2.5px solid var(--outline);border-radius:7px;box-shadow:inset 0 2px 0 rgba(255,224,150,.18),
+    0 4px 0 rgba(0,0,0,.5);text-shadow:1px 1px 0 rgba(0,0,0,.7);position:relative}
+.tipbox::after{content:"";position:absolute;left:18px;bottom:-9px;width:11px;height:11px;
+  background:var(--wood-plaque);border-right:2.5px solid var(--outline);
+  border-bottom:2.5px solid var(--outline);transform:rotate(45deg)}
+
+/* history search: a carved slot on parchment */
+.hslot{display:flex;align-items:center;gap:9px;padding:9px 12px;border-radius:8px;
+  background:rgba(90,60,25,.16);border:3px solid rgba(90,60,25,.5);
+  box-shadow:inset 0 3px 0 rgba(90,60,25,.25)}
+.hslot .q{flex:1;font:500 14px var(--body);color:var(--carve-ink)}
+.hslot .lab{font:400 10px var(--label);color:#8a6a2a;letter-spacing:1px}
+.hrow{display:grid;grid-template-columns:14px 1fr auto;gap:11px;align-items:center;padding:9px 0}
+.hrow+.hrow{border-top:3px solid rgba(90,60,25,.24)}
+.hrow .fav{width:13px;height:13px;border-radius:3px;border:2px solid var(--outline)}
+.hrow .ttl{font:600 14px var(--body);color:var(--carve-ink);overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.hrow .dom{font:500 12px var(--body);color:#4e3d28}
+.hrow .when{font:400 10px var(--label);color:#8a6a2a;letter-spacing:.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>AANG &middot; THE BROWSER</h1>
+<p class="sub">Part three. Continues the two sheets you approved.<br>
+Nothing is invented here: the scrub track is the <b style="color:#9a90b5">carved groove</b>, the loading bar is
+the <b style="color:#9a90b5">forged rule</b>,<br>the knobs are the <b style="color:#9a90b5">gem in a
+setting</b>, the tabs are the <b style="color:#9a90b5">Panel's tab strip</b>.</p>
+
+<!-- ============================================== 1 -->
+<h2 class="part">1 &middot; THE WINDOW</h2>
+<p class="why">Proper tabs, as you asked. An address bar you can type in. The one rule that matters:
+<b>Aang's own controls are carved INTO the frame, and the web page sits on a raised surface with a hard
+black edge.</b> A page can draw anything it likes inside that edge, and it can never look like the bar
+above it. That is what stops a website drawing a fake Aang.</p>
+
+<div class="win">
+  <div class="tabstrip">
+    <div class="tab on">
+      <span class="fav" style="background:#ff0000"></span>
+      <span class="ttl">Frost Mage Guide</span><span class="x">&times;</span>
+    </div>
+    <div class="tab">
+      <span class="fav" style="background:#9146ff"></span>
+      <span class="ttl">Twitch</span><span class="x">&times;</span>
+    </div>
+    <div class="tab">
+      <span class="fav" style="background:#f4731c"></span>
+      <span class="ttl">CurseForge &mdash; DBM</span><span class="x">&times;</span>
+    </div>
+    <div class="tab add">+</div>
+  </div>
+
+  <div class="chrome">
+    <span class="rnd">&#8249;</span>
+    <span class="rnd dim">&#8250;</span>
+    <span class="rnd">&#10227;</span>
+    <div class="slot">
+      <span class="lock">SECURE</span>
+      <span class="url">https://<b>wowhead.com</b>/guide/classes/mage/frost/overview</span>
+      <span class="who">AANG IS DRIVING</span>
+    </div>
+    <span class="rnd gold" title="pop out">&#8599;</span>
+  </div>
+
+  <div class="loading"><i></i></div>
+
+  <div class="marks">
+    <span class="mark"><i class="fav" style="background:#ff0000"></i>YouTube<i class="in">IN</i></span>
+    <span class="mark"><i class="fav" style="background:#9146ff"></i>Twitch<i class="in">IN</i></span>
+    <span class="mark"><i class="fav" style="background:#00a8e1"></i>Prime<i class="in">IN</i></span>
+    <span class="mark"><i class="fav" style="background:#e50914"></i>Netflix<i class="in">IN</i></span>
+    <span class="mark"><i class="fav" style="background:#f4731c"></i>CurseForge<i class="in">IN</i></span>
+    <span class="mark"><i class="fav" style="background:#0a66c2"></i>LinkedIn<i class="in">IN</i></span>
+  </div>
+
+  <div class="page">
+    <div class="pagefake">
+      <h4>Frost Mage DPS Guide</h4>
+      <div class="bl"></div><div class="bl s"></div><div class="bl"></div><div class="bl t"></div>
+      <span class="btn">Open talent calculator</span>
+    </div>
+    <div class="edge"></div>
+  </div>
+</div>
+
+<p class="sur" style="margin-top:16px"><b style="color:#cfc4ea">Read the address bar left to right.</b>
+A green SECURE plaque, the real domain in bright white with everything else dimmed so you cannot be fooled
+by <span style="color:#8a80a5">wowhead.com</span><b style="color:#F0E6FF">.evil.ru</b>, and on the right
+whether you or Aang is driving. All three carved in, all three unpaintable.</p>
+
+<h3 class="sur">When it is NOT safe <span class="new">NEW</span></h3>
+<p class="sur">Same bar, different plaque. No subtlety, no small grey padlock you would never notice.</p>
+<div class="win" style="max-width:640px">
+  <div class="chrome">
+    <span class="rnd">&#8249;</span><span class="rnd dim">&#8250;</span><span class="rnd">&#10227;</span>
+    <div class="slot">
+      <span class="lock bad">NOT SECURE</span>
+      <span class="url">http://<b>anime-stream-free-hd.biz</b>/watch/ep7</span>
+      <span class="who">AANG IS DRIVING</span>
+    </div>
+    <span class="rnd gold">&#8599;</span>
+  </div>
+</div>
+
+<h3 class="sur">You typing in it <span class="new">NEW</span></h3>
+<div class="win" style="max-width:640px">
+  <div class="chrome">
+    <span class="rnd">&#8249;</span><span class="rnd dim">&#8250;</span><span class="rnd">&#10227;</span>
+    <div class="slot">
+      <span class="lock" style="background:var(--gold);color:#2a1c00">GO</span>
+      <span class="url"><b>crunchyroll.com</b><span class="caret"></span></span>
+      <span class="who" style="color:var(--plum-edge)">YOU ARE DRIVING</span>
+    </div>
+    <span class="rnd gold">&#8599;</span>
+  </div>
+</div>
+
+<!-- ============================================== 2 -->
+<h2 class="part">2 &middot; THE VIDEO OVERLAY</h2>
+<p class="why">What rides over your game. The control bar is ours, not YouTube's, because you should not be
+aiming at a 20-pixel button mid-fight. <b>Clicks pass straight through the picture to the game.</b> Only this
+bar catches them.</p>
+
+<div class="two">
+  <div>
+    <p class="cardlab">OVER YOUR GAME</p>
+    <div class="vid">
+      <div class="vidbar">
+        <span class="nm">ASMONGOLD &middot; TWITCH</span>
+        <span class="rnd" style="width:23px;height:23px;font-size:11px">&#8600;</span>
+        <span class="rnd" style="width:23px;height:23px;font-size:11px">&times;</span>
+      </div>
+      <div class="screen">VIDEO</div>
+      <div class="ctrl">
+        <span class="rnd gold" style="width:30px;height:30px">&#9208;</span>
+        <div class="track"><i class="fill" style="width:38%"></i><i class="knob" style="left:35%"></i></div>
+        <span class="tnum">12:04</span>
+      </div>
+      <div class="ctrl" style="border-top:none;padding-top:0">
+        <span class="rnd" style="width:27px;height:27px;font-size:12px">&#128266;</span>
+        <div class="track vol"><i class="fill" style="width:64%"></i><i class="knob" style="left:58%"></i></div>
+        <span class="pill sm local">Corner</span>
+        <span class="pill sm" style="background:#6d6579;color:#f0edf5;text-shadow:0 1px 0 rgba(0,0,0,.4)">Big</span>
+        <span class="pill sm" style="background:#6d6579;color:#f0edf5;text-shadow:0 1px 0 rgba(0,0,0,.4)">Full</span>
+      </div>
+    </div>
+    <p class="sur" style="margin-top:13px;max-width:400px">Three sizes rather than a drag handle, because
+    dragging a thin window edge while raiding is miserable. It remembers which you last used.</p>
+  </div>
+
+  <div>
+    <p class="cardlab">AANG OFFERING ONE <span class="new">NEW</span></p>
+    <div class="parch tex" style="width:390px">
+      <p class="t-eyebrow">ANSWERED &middot; FROST MAGE</p>
+      <p class="t-body">Shatter into Glacial Spike is still the opener. Your talents are fine, the problem
+      is you are casting <b>Flurry</b> before <b>Winter's Chill</b> lands.</p>
+      <div class="rule-minor"></div>
+      <p class="t-caption" style="margin:0 0 3px">There is a 4 minute clip of exactly this.</p>
+      <div class="keys">
+        <button class="key primary sm">Watch it<span class="k">A</span></button>
+        <button class="key sm">No<span class="k">Z</span></button>
+      </div>
+    </div>
+    <p class="sur" style="margin-top:13px;max-width:390px">He only offers a video when the research he was
+    already doing turned one up. He never goes looking on purpose, so the offer costs nothing.</p>
+  </div>
+</div>
+
+<!-- ============================================== 3 -->
+<h2 class="part">3 &middot; THE THREE ASKS</h2>
+<p class="why">Browsing creates exactly three moments where Aang has to stop. All three use the wood
+surface, because this is Aang talking about his own hands rather than handing you a document.</p>
+
+<div class="two">
+  <div class="wood tex" style="width:395px">
+    <div class="plaque">NEED YOU FOR 30 SECONDS</div>
+    <h3 class="t-head">Crunchyroll wants a login</h3>
+    <p class="t-body">I have the page open. Type it in and I will carry on from there.</p>
+    <div class="rule-titled"><i class="bar"></i><span>Why I am not doing it</span><i class="bar"></i></div>
+    <p class="t-body"><b>I never type your passwords.</b> Not this one, not any. You open the door, I walk
+    through it. That way there is nothing of yours for me to lose.</p>
+    <div class="keys">
+      <button class="key primary sm">Show me the page<span class="k">A</span></button>
+      <button class="key sm">Skip it<span class="k">Z</span></button>
+    </div>
+  </div>
+
+  <div class="wood tex" style="width:395px">
+    <div class="plaque">ASKING FIRST</div>
+    <h3 class="t-head">Download DBM-11.2.1.zip?</h3>
+    <p class="t-body">From <b>curseforge.com</b>. 4.2 MB. It is the addon you asked me to update.</p>
+    <div class="rule-titled"><i class="bar"></i><span>If you say always</span><i class="bar"></i></div>
+    <p class="t-body">I stop asking for <b>curseforge.com only</b>. Every other site still asks every single
+    time.</p>
+    <div class="keys">
+      <button class="key primary sm">Yes<span class="k">A</span></button>
+      <button class="key sm">Always, this site<span class="k">X</span></button>
+      <button class="key warn sm">No<span class="k">Z</span></button>
+    </div>
+  </div>
+</div>
+
+<h3 class="sur">The one that matters most</h3>
+<p class="sur">Aang can read anything. He cannot <b>do</b> anything on a site where you are signed in
+without this. Note the last line: it names where the idea came from, so a page cannot quietly steer him.</p>
+<div class="wood tex" style="max-width:480px">
+  <div class="plaque urgent">THIS WOULD DO SOMETHING</div>
+  <h3 class="t-head">Press Apply on LinkedIn?</h3>
+  <p class="t-body">The Octup posting. You are signed in, so this sends your profile and the letter we
+  wrote. <b>It cannot be taken back.</b></p>
+  <div class="rule-titled"><i class="bar"></i><span>Where this came from</span><i class="bar"></i></div>
+  <p class="t-body">You told me to apply to the good ones this morning. <span class="u-mark">Nothing on the
+  page asked me to do this.</span></p>
+  <div class="keys">
+    <button class="key primary sm">Press it<span class="k">A</span></button>
+    <button class="key sm">Show me first<span class="k">X</span></button>
+    <button class="key warn sm">No<span class="k">Z</span></button>
+  </div>
+</div>
+
+<!-- ============================================== 4 -->
+<h2 class="part">4 &middot; HISTORY YOU CAN SEARCH</h2>
+<p class="why">You said yes to this. Parchment, because it is a record you read rather than Aang speaking.
+The search slot is carved in, same as the address bar, so every place you type looks the same.</p>
+
+<div class="parch tex" style="max-width:600px">
+  <p class="t-eyebrow">WHERE I HAVE BEEN &middot; 2,418 PAGES</p>
+  <h3 class="t-head">History</h3>
+  <div class="hslot">
+    <span class="lab">FIND</span>
+    <span class="q">frost mage</span>
+    <span class="chip normal">11 HITS</span>
+  </div>
+  <div class="rule-minor"></div>
+  <div class="hrow">
+    <i class="fav" style="background:#ff0000"></i>
+    <div><div class="ttl">Frost Mage DPS Guide</div><div class="dom">wowhead.com</div></div>
+    <span class="when">20 MIN AGO</span>
+  </div>
+  <div class="hrow">
+    <i class="fav" style="background:#9146ff"></i>
+    <div><div class="ttl">Frost opener, Winter's Chill timing</div><div class="dom">twitch.tv</div></div>
+    <span class="when">YESTERDAY</span>
+  </div>
+  <div class="hrow">
+    <i class="fav" style="background:#5a8ad1"></i>
+    <div><div class="ttl">Mage &mdash; Frost talent trees</div><div class="dom">icy-veins.com</div></div>
+    <span class="when">TUE</span>
+  </div>
+  <p class="t-aside" style="margin:14px 0 0">Ask me instead if you like. "What was that mage site from
+  Tuesday" works.</p>
+</div>
+
+<!-- ============================================== 5 -->
+<h2 class="part">5 &middot; THE SMALL PARTS</h2>
+<p class="why">Everything the two earlier sheets were missing. Switches, tooltips, tracks.</p>
+
+<div class="two">
+  <div class="parch tex" style="width:330px">
+    <p class="t-eyebrow">SWITCHES <span class="new">NEW</span></p>
+    <h3 class="t-head" style="margin-bottom:14px">Browser settings</h3>
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <span class="sw on" style="color:var(--carve-ink)"><i class="bed"><i class="nub"></i></i>Block popups</span>
+      <span class="sw on" style="color:var(--carve-ink)"><i class="bed"><i class="nub"></i></i>Block ads</span>
+      <span class="sw on" style="color:var(--carve-ink)"><i class="bed"><i class="nub"></i></i>Keep history</span>
+      <span class="sw" style="color:#4e3d28"><i class="bed"><i class="nub"></i></i>Let Aang act without asking</span>
+    </div>
+    <p class="t-aside" style="margin:16px 0 0">The last one stays off. That is the gate.</p>
+  </div>
+
+  <div>
+    <p class="cardlab">TOOLTIPS <span class="new">NEW</span></p>
+    <div class="tip"><div class="tipbox">Pops this page into its own window</div></div>
+    <div style="height:18px"></div>
+    <div class="tip"><div class="tipbox">You are signed in here</div></div>
+
+    <p class="cardlab" style="margin:30px 0 12px">TRACKS <span class="reuse new">REUSED</span></p>
+    <div class="ctrl" style="border:3px solid var(--outline);border-radius:9px">
+      <div class="track"><i class="fill" style="width:72%"></i><i class="knob" style="left:68%"></i></div>
+    </div>
+    <p class="sur" style="margin-top:12px;max-width:330px">The scrub track, the volume slider and the
+    loading bar are all the carved groove and the forged rule, resized. Three new controls, zero new ideas.</p>
+  </div>
+</div>
+
+</div>
+</body>
+</html>

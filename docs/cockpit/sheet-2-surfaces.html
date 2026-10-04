@@ -1,0 +1,675 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Aang Everything</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Figtree:ital,wght@0,400;0,500;0,600;0,700;0,900;1,500&family=Silkscreen&display=swap" rel="stylesheet">
+<style>
+/* ===========================================================================
+   AANG: EVERY SURFACE IN THE NEW LANGUAGE
+   Colours all come from src/Body/Theme.cs. Nothing invented.
+   =========================================================================== */
+:root{
+  --ink:#100A22; --panel2:#1A1132;
+  --gold:#FFC43C; --gold-deep:#C98C14; --gold-lit:#FFE096; --gold-light:#FFE28C;
+  --orange:#FF8040; --orange-deep:#C95E28; --red:#FF5A4A; --green:#78E696;
+  --text:#E8E4F0; --secondary:#C9C2DA;
+  --plum:#4A2C6E; --plum-deep:#2C1848; --plum-edge:#966EC8; --claude:#E88A6A;
+  --parch1:#ECD5A8; --parch2:#DEC28C;
+  --ink-text:#2E2216; --ink-dim:#5A4834;
+  --wood1:#4A2E1A; --wood2:#24160D; --wood-plaque:#1A0F09;
+  --mode-quick:#00D1FF; --mode-smart:#3D9BFF; --mode-deep:#A970FF; --mode-saving:#8E879E;
+  --avatar-glow:#C8E8FF;
+  --outline:#120A05; --ow:4px; --lip:5px;
+  --display:"Cinzel",Georgia,"Times New Roman",serif;
+  --body:"Figtree",system-ui,-apple-system,Segoe UI,sans-serif;
+  --label:"Silkscreen",ui-monospace,Consolas,monospace;
+  --carve-ink:#2A1C08;
+}
+*{box-sizing:border-box}
+body{margin:0;padding:30px 20px 100px;background:#07040F;font-family:var(--body);
+  -webkit-font-smoothing:antialiased;color:var(--text)}
+.wrap{max-width:900px;margin:0 auto}
+h1{font:400 16px var(--label);color:#7a6fa0;letter-spacing:3px;text-align:center;margin:0 0 8px}
+.sub{font:500 13px/1.6 var(--body);color:#7b7291;text-align:center;margin:0 0 40px}
+h2.part{font:400 13px var(--label);color:var(--gold-deep);letter-spacing:3px;
+  margin:54px 0 6px;padding-bottom:10px;border-bottom:3px solid #241a3a}
+p.why{font:500 14px/1.65 var(--body);color:#9a90b5;margin:0 0 24px;max-width:660px}
+h3.sur{font:700 19px var(--display);color:#cfc4ea;margin:34px 0 4px}
+p.sur{font:500 13.5px/1.6 var(--body);color:#8a80a5;margin:0 0 16px;max-width:660px}
+.flag{display:inline-block;font:400 10px var(--label);letter-spacing:1px;padding:4px 7px;
+  border-radius:3px;border:2px solid var(--outline);background:var(--green);color:#163a24;vertical-align:2px}
+.flag.b{background:var(--mode-deep);color:#1d0b33}
+
+/* ---- texture, surfaces, type: as settled in cockpit.css ---- */
+.tex{position:relative}
+.tex::before{content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;opacity:.05;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E")}
+.parch{position:relative;color:var(--ink-text);padding:20px 22px;border-radius:9px;overflow:hidden;
+  background:linear-gradient(180deg,#F0DCB4 0%,var(--parch1) 45%,var(--parch2) 100%);
+  border:var(--ow) solid var(--outline);
+  box-shadow:inset 0 5px 0 rgba(255,255,255,.55),inset 0 -6px 0 rgba(150,110,60,.32),
+    0 3px 0 rgba(0,0,0,.6),0 10px 22px rgba(0,0,0,.45)}
+.wood{position:relative;padding:18px;border-radius:10px;overflow:hidden;color:var(--text);
+  background:linear-gradient(180deg,#56371F 0%,var(--wood1) 40%,var(--wood2) 100%);
+  border:var(--ow) solid var(--outline);
+  box-shadow:inset 0 5px 0 rgba(255,224,150,.2),inset 0 -6px 0 rgba(0,0,0,.5),
+    0 3px 0 rgba(0,0,0,.6),0 10px 22px rgba(0,0,0,.45)}
+.mine{position:relative;color:var(--text);padding:14px 16px;border-radius:8px;overflow:hidden;
+  background:linear-gradient(180deg,var(--plum-deep),var(--plum));
+  border:var(--ow) solid var(--outline);
+  box-shadow:inset 0 5px 0 rgba(0,0,0,.4),inset 0 -3px 0 rgba(150,110,200,.3),0 4px 0 rgba(0,0,0,.5)}
+.tail::after{content:"";position:absolute;left:28px;bottom:-16px;width:18px;height:18px;
+  background:var(--parch2);border-right:var(--ow) solid var(--outline);
+  border-bottom:var(--ow) solid var(--outline);transform:rotate(45deg)}
+.plaque{background:var(--wood-plaque);border-radius:6px;padding:9px 13px;margin:0 0 13px;
+  font:400 12px var(--label);color:var(--gold);letter-spacing:1px;
+  text-shadow:2px 2px 0 rgba(0,0,0,.85);border:3px solid var(--outline);
+  box-shadow:inset 0 4px 0 rgba(0,0,0,.65);display:inline-block}
+.plaque.urgent{color:var(--orange)}
+
+.t-eyebrow{font:400 12px var(--label);color:#8a6a2a;letter-spacing:1px;margin:0 0 7px;
+  text-shadow:1px 1px 0 rgba(255,255,255,.4)}
+.t-display{font:700 27px/1.15 var(--display);color:var(--carve-ink);margin:0 0 5px;
+  text-shadow:0 1px 0 rgba(255,255,255,.65),0 -1px 0 rgba(90,60,25,.35)}
+.t-head{font:700 20px/1.25 var(--display);color:var(--carve-ink);margin:0 0 8px;
+  text-shadow:0 1px 0 rgba(255,255,255,.6)}
+.t-lead{font:500 16.5px/1.5 var(--body);color:#33240f;margin:0 0 10px}
+.t-body{font:500 15.5px/1.62 var(--body);color:#271c10;margin:0 0 10px}
+.t-body b,.t-lead b{font-weight:700}
+.t-aside{font:italic 500 14px/1.55 var(--body);color:#4e3d28}
+.t-caption{font:500 12.5px var(--body);color:#4e3d28}
+.t-num{font-variant-numeric:tabular-nums lining-nums}
+.wood .t-eyebrow{color:var(--gold-deep);text-shadow:1px 1px 0 rgba(0,0,0,.7)}
+.wood .t-display,.wood .t-head{color:var(--gold);text-shadow:0 2px 0 var(--outline),0 -1px 0 rgba(255,224,150,.3)}
+.wood .t-lead,.wood .t-body{color:var(--secondary)}
+.wood .t-aside,.wood .t-caption{color:#a99a86}
+.mine .t-body{color:#ded8ec}
+.u-mark,.u-carved{-webkit-box-decoration-break:clone;box-decoration-break:clone;
+  padding:.04em .16em .10em;background-repeat:no-repeat}
+.u-mark{border-radius:2px;background-image:linear-gradient(rgba(255,196,60,.6),rgba(255,196,60,.6));
+  background-size:100% .78em;background-position:left 0 bottom .06em}
+.u-carved{background-image:linear-gradient(rgba(90,60,25,.55),rgba(90,60,25,.55)),
+    linear-gradient(rgba(201,140,20,.32),rgba(201,140,20,.32));
+  background-size:100% .09em,100% .22em;
+  background-position:left 0 bottom .03em,left 0 bottom .11em}
+
+/* ---- dividers: the hierarchy ---- */
+.rule-major{display:flex;align-items:center;margin:20px 0}
+.rule-major .bar{flex:1;height:6px;
+  background:linear-gradient(180deg,var(--gold-deep) 0 3px,var(--gold-lit) 3px 6px);
+  border-top:2px solid var(--outline);border-bottom:2px solid var(--outline)}
+.rule-major .endcap{width:14px;height:18px;flex:0 0 auto;border-radius:3px;
+  background:linear-gradient(180deg,var(--gold-lit),var(--gold-deep));
+  border:2px solid var(--outline);box-shadow:inset 0 2px 0 rgba(255,255,255,.5)}
+.rule-minor{height:8px;border-radius:4px;margin:14px 0;
+  background:linear-gradient(180deg,rgba(90,60,25,.5) 0 3px,rgba(255,255,255,.55) 3px 6px,transparent 6px);
+  box-shadow:inset 0 1px 2px rgba(0,0,0,.35)}
+.wood .rule-minor{background:linear-gradient(180deg,rgba(0,0,0,.6) 0 3px,rgba(255,224,150,.28) 3px 6px,transparent 6px)}
+.rule-titled{display:flex;align-items:center;margin:18px 0 11px}
+.rule-titled .bar{flex:1;height:5px;border-radius:3px;
+  background:linear-gradient(180deg,rgba(90,60,25,.45) 0 2px,rgba(255,255,255,.5) 2px 5px)}
+.rule-titled span{font:700 14px var(--display);color:var(--carve-ink);padding:0 12px;
+  letter-spacing:1.5px;text-transform:uppercase;text-shadow:0 1px 0 rgba(255,255,255,.65)}
+.wood .rule-titled .bar{background:linear-gradient(180deg,rgba(0,0,0,.6) 0 2px,rgba(255,224,150,.28) 2px 5px)}
+.wood .rule-titled span{color:var(--gold);text-shadow:0 2px 0 var(--outline)}
+.rule-end{height:12px;margin:16px 0 2px;
+  background:radial-gradient(circle at 6px 0,transparent 5px,rgba(90,60,25,.3) 5px) repeat-x 0 0/12px 12px;
+  filter:drop-shadow(0 1px 0 rgba(255,255,255,.5))}
+
+/* ---- buttons, chips, pills ---- */
+.key{font:700 14px var(--body);border:3px solid var(--outline);border-radius:8px;
+  padding:11px 18px 12px;cursor:pointer;position:relative;top:0;transition:top .05s,box-shadow .05s;
+  background:var(--plum);color:#fff;text-shadow:0 1px 0 rgba(0,0,0,.7);
+  box-shadow:0 var(--lip) 0 var(--outline),0 var(--lip) 0 -1px var(--plum-deep),
+    inset 0 3px 0 rgba(150,110,200,.5),0 8px 14px rgba(0,0,0,.4)}
+.key:active{top:var(--lip);box-shadow:0 0 0 var(--outline),inset 0 3px 0 rgba(150,110,200,.5)}
+.key.primary{background:var(--gold);color:#2a1c00;text-shadow:0 1px 0 rgba(255,235,180,.8);
+  box-shadow:0 var(--lip) 0 var(--outline),0 var(--lip) 0 -1px var(--gold-deep),
+    inset 0 3px 0 var(--gold-light),0 8px 14px rgba(0,0,0,.4)}
+.key.primary:active{box-shadow:0 0 0 var(--outline),inset 0 3px 0 var(--gold-light)}
+.key.warn{background:var(--orange);color:#2e1200;text-shadow:0 1px 0 rgba(255,220,180,.7);
+  box-shadow:0 var(--lip) 0 var(--outline),0 var(--lip) 0 -1px var(--orange-deep),
+    inset 0 3px 0 rgba(255,224,150,.5),0 8px 14px rgba(0,0,0,.4)}
+.key.warn:active{box-shadow:0 0 0 var(--outline),inset 0 3px 0 rgba(255,224,150,.5)}
+.key .k{position:absolute;top:2px;right:6px;font:400 10px var(--label);opacity:.6}
+.key.sm{font-size:12.5px;padding:8px 13px 9px;--lip:4px}
+.keys{display:flex;gap:11px;flex-wrap:wrap;align-items:flex-end;margin-top:15px}
+.chip{display:inline-block;font:700 12px var(--body);padding:5px 10px;border-radius:5px;
+  border:2.5px solid var(--outline);color:#231700;text-shadow:0 1px 0 rgba(255,255,255,.4);white-space:nowrap}
+.chip.good{background:var(--green)} .chip.careful{background:var(--orange)}
+.chip.stop{background:var(--red);color:#2e0b06} .chip.normal{background:var(--gold)}
+.pill{font:700 13px var(--body);padding:9px 15px;border-radius:999px;border:3px solid var(--outline);
+  position:relative;top:0;cursor:pointer;transition:top .05s,box-shadow .05s;color:#141018;
+  text-shadow:0 1px 0 rgba(255,255,255,.45);box-shadow:0 4px 0 var(--outline),inset 0 3px 0 rgba(255,255,255,.3)}
+.pill:active{top:4px;box-shadow:0 0 0 var(--outline),inset 0 3px 0 rgba(255,255,255,.3)}
+.pill.sm{font-size:11.5px;padding:6px 11px;border-width:2.5px;box-shadow:0 3px 0 var(--outline),inset 0 2px 0 rgba(255,255,255,.3)}
+.pill.auto{background:var(--gold)} .pill.local{background:var(--green)}
+.pill.quick{background:var(--mode-quick)} .pill.smart{background:var(--mode-smart);color:#06182e}
+.pill.deep{background:var(--mode-deep);color:#1d0b33} .pill.saving{background:var(--mode-saving);color:#15121b}
+.find{display:grid;grid-template-columns:16px 1fr auto;gap:11px;align-items:start;padding:10px 0}
+.find+.find{border-top:3px solid rgba(90,60,25,.28)}
+.dot{width:11px;height:11px;border-radius:50%;margin-top:6px;border:2px solid var(--outline)}
+.dot.good{background:var(--green)} .dot.careful{background:var(--orange)} .dot.stop{background:var(--red)}
+
+/* =================================================== PART 1: THE GAME SCENE
+   The three shapes have to be judged over a game, because that is the only
+   place they will ever be seen. This is a fake WoW-ish dusk, in CSS. */
+.game{position:relative;height:430px;border-radius:12px;overflow:hidden;
+  border:3px solid #1a1430;margin-bottom:16px;
+  background:
+    radial-gradient(ellipse 60% 40% at 72% 22%,rgba(255,196,60,.28),transparent 70%),
+    linear-gradient(180deg,#2d3f66 0%,#4a5a7a 32%,#6b6a62 52%,#3d4a35 62%,#2a3426 100%)}
+.game::after{content:"";position:absolute;inset:0;
+  background:
+    radial-gradient(ellipse 120% 30% at 20% 100%,#1e2a1c,transparent 60%),
+    radial-gradient(ellipse 90% 26% at 85% 100%,#20291d,transparent 60%),
+    repeating-linear-gradient(97deg,transparent 0 40px,rgba(0,0,0,.05) 40px 80px)}
+/* fake action bar, so the scale reads like a real game */
+.bar-ui{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);display:flex;gap:4px;z-index:3}
+.bar-ui i{width:30px;height:30px;border-radius:4px;border:2px solid #0b0a12;
+  background:linear-gradient(180deg,#3a3550,#1d1a2c);box-shadow:inset 0 2px 0 rgba(255,255,255,.12)}
+.hp{position:absolute;left:14px;top:14px;width:150px;z-index:3}
+.hp i{display:block;height:11px;border:2px solid #0b0a12;border-radius:3px;margin-bottom:3px;
+  background:linear-gradient(180deg,#5ad17a,#2c7a43)}
+.hp i.mana{background:linear-gradient(180deg,#5a9ad1,#2c4a7a);width:72%}
+.stage{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:22px;padding:26px;z-index:2}
+.caplabel{position:absolute;left:14px;bottom:14px;z-index:4;font:400 11px var(--label);
+  color:#fff;letter-spacing:1px;background:rgba(0,0,0,.6);padding:5px 9px;border-radius:4px}
+
+/* STYLE A: see-through, no window, floats */
+.shapeA{width:330px;filter:drop-shadow(0 14px 26px rgba(0,0,0,.6))}
+/* STYLE B: a real window with a frame and a title bar */
+.shapeB{width:360px;border-radius:12px;overflow:hidden;border:var(--ow) solid var(--outline);
+  box-shadow:0 4px 0 rgba(0,0,0,.6),0 16px 34px rgba(0,0,0,.6)}
+.shapeB .titlebar{display:flex;align-items:center;gap:9px;padding:9px 11px;
+  background:linear-gradient(180deg,#56371F,var(--wood2));border-bottom:3px solid var(--outline)}
+.shapeB .titlebar .nm{font:400 11px var(--label);color:var(--gold);letter-spacing:1px;flex:1;
+  text-shadow:1px 1px 0 rgba(0,0,0,.8)}
+.shapeB .titlebar .bt{width:17px;height:17px;border-radius:4px;border:2px solid var(--outline);
+  background:linear-gradient(180deg,var(--gold-lit),var(--gold-deep))}
+.shapeB .titlebar .bt.x{background:linear-gradient(180deg,#ff9a85,var(--orange-deep))}
+.shapeB .inner{background:linear-gradient(180deg,#F0DCB4,var(--parch2));padding:17px 19px;color:var(--ink-text)}
+/* STYLE C: small floating bubble, plus a window when there is a lot to say */
+.shapeC{display:flex;align-items:flex-start;gap:18px}
+.shapeC .lil{width:206px;filter:drop-shadow(0 12px 22px rgba(0,0,0,.6))}
+
+/* ---- the bubble's own parts ---- */
+.arrow{display:block;margin:10px auto 0;width:30px;height:19px;cursor:pointer;
+  animation:bob 1.5s ease-in-out infinite}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(4px)}}
+.strip{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:0 0 8px 8px;
+  background:linear-gradient(180deg,var(--panel2),var(--ink));border:3px solid var(--outline);border-top:none}
+.segs{display:flex;gap:3px;margin-left:auto}
+.segs i{width:9px;height:15px;border-radius:2px;border:1.5px solid var(--outline);background:#2b2342}
+.segs i.on{background:var(--green)} .segs i.warn{background:var(--orange)}
+.box{background:#140e26;border:3px solid var(--outline);border-radius:8px 8px 0 0;padding:12px 13px;
+  font:500 15px var(--body);color:var(--text);box-shadow:inset 0 3px 0 rgba(0,0,0,.6)}
+.box .caret{display:inline-block;width:2px;height:17px;background:var(--gold);vertical-align:-3px;
+  animation:tick .9s steps(2) infinite}
+@keyframes tick{50%{opacity:0}}
+.pinned{display:flex;gap:7px;flex-wrap:wrap;padding:0 0 9px}
+.pinchip{display:flex;align-items:center;gap:6px;font:600 11.5px var(--body);color:#2a1c00;
+  background:var(--gold-lit);border:2.5px solid var(--outline);border-radius:999px;padding:4px 5px 4px 10px}
+.pinchip.reply{background:var(--claude);color:#3a1708}
+.pinchip b{font:400 9px var(--label);letter-spacing:.5px;opacity:.75}
+.pinchip s{width:15px;height:15px;border-radius:50%;background:rgba(0,0,0,.28);display:grid;
+  place-items:center;font:700 11px var(--body);text-decoration:none;cursor:pointer}
+
+/* ---- the menus ---- */
+.menu{width:252px;padding:7px;border-radius:12px;overflow:hidden;
+  background:linear-gradient(180deg,#56371F,var(--wood2));border:3px solid var(--outline);
+  box-shadow:0 4px 0 rgba(0,0,0,.6),0 14px 28px rgba(0,0,0,.6)}
+.menu .row{display:flex;align-items:center;gap:8px;padding:9px 11px;border-radius:6px;
+  font:400 11.5px var(--label);color:#E6DCC8;letter-spacing:.5px;cursor:pointer;
+  text-shadow:1px 1px 0 rgba(0,0,0,.75)}
+.menu .row:hover{background:linear-gradient(180deg,var(--gold-lit),var(--gold-deep));color:#2a1c00;
+  text-shadow:0 1px 0 rgba(255,255,255,.5);box-shadow:inset 0 2px 0 rgba(255,255,255,.45)}
+.menu .row .arr{margin-left:auto;opacity:.6;font-family:var(--body);font-size:13px}
+.menu .row .tick{width:13px;font-size:12px;opacity:.9}
+.menu .hdr{background:var(--wood-plaque);border-radius:6px;padding:8px 11px;margin:6px 2px 4px;
+  font:400 10px var(--label);color:var(--gold);letter-spacing:1.5px;border:2px solid var(--outline);
+  box-shadow:inset 0 3px 0 rgba(0,0,0,.65);text-shadow:1px 1px 0 rgba(0,0,0,.85)}
+.menu .sep{height:4px;margin:6px 4px;border-radius:2px;
+  background:linear-gradient(180deg,rgba(0,0,0,.65) 0 2px,rgba(255,224,150,.22) 2px 4px)}
+.menu .row.danger:hover{background:linear-gradient(180deg,#ff9a85,var(--orange-deep));color:#2e1200}
+
+/* ---- the Panel ---- */
+.panel{border-radius:12px;overflow:hidden;border:var(--ow) solid var(--outline);
+  box-shadow:0 4px 0 rgba(0,0,0,.6),0 16px 34px rgba(0,0,0,.55)}
+.panel .tabs{display:flex;gap:5px;padding:9px 9px 0;background:linear-gradient(180deg,#56371F,var(--wood2));
+  border-bottom:3px solid var(--outline);flex-wrap:wrap}
+.panel .tab{font:400 10.5px var(--label);letter-spacing:.5px;padding:10px 12px 11px;border-radius:7px 7px 0 0;
+  border:2.5px solid var(--outline);border-bottom:none;cursor:pointer;color:#E6DCC8;
+  background:linear-gradient(180deg,var(--plum),var(--plum-deep));text-shadow:1px 1px 0 rgba(0,0,0,.7);
+  position:relative;top:3px}
+.panel .tab.on{background:linear-gradient(180deg,var(--gold-lit),var(--gold));color:#2a1c00;top:0;
+  text-shadow:0 1px 0 rgba(255,255,255,.55);box-shadow:inset 0 3px 0 rgba(255,255,255,.5)}
+.panel .tab i{font-style:normal;font-family:var(--body);font-weight:700;font-size:11px;
+  background:rgba(0,0,0,.25);border-radius:999px;padding:1px 5px;margin-left:5px}
+.panel .body{background:linear-gradient(180deg,#F0DCB4,var(--parch2));padding:20px 22px;color:var(--ink-text)}
+.panel .foot{background:var(--ink);padding:8px 12px;font:500 12px var(--body);color:#9a90b5;
+  border-top:3px solid var(--outline)}
+
+/* ---- the scroll back ---- */
+.scroll{max-height:520px;overflow:auto;background:linear-gradient(180deg,#14102a,#0d0920);
+  border:var(--ow) solid var(--outline);border-radius:10px;padding:16px}
+.scroll::-webkit-scrollbar{width:13px}
+.scroll::-webkit-scrollbar-track{background:#0a0718;border-radius:7px}
+.scroll::-webkit-scrollbar-thumb{background:linear-gradient(180deg,var(--gold-lit),var(--gold-deep));
+  border:2px solid var(--outline);border-radius:7px}
+.turn{margin:0 0 13px;max-width:86%}
+.turn.r{margin-left:auto}
+.who{font:400 9.5px var(--label);letter-spacing:1px;margin:0 0 5px;opacity:.75}
+.who.you{color:var(--plum-edge);text-align:right}
+.who.aang{color:var(--gold-deep)}
+.daydiv{display:flex;align-items:center;margin:22px 0 18px}
+.daydiv .bar{flex:1;height:6px;background:linear-gradient(180deg,var(--gold-deep) 0 3px,var(--gold-lit) 3px 6px);
+  border-top:2px solid var(--outline);border-bottom:2px solid var(--outline)}
+.daydiv .endcap{width:14px;height:18px;border-radius:3px;background:linear-gradient(180deg,var(--gold-lit),var(--gold-deep));
+  border:2px solid var(--outline);box-shadow:inset 0 2px 0 rgba(255,255,255,.5)}
+.daydiv span{font:400 10px var(--label);color:var(--gold);letter-spacing:1.5px;padding:0 12px;
+  text-shadow:0 2px 0 var(--outline)}
+.hoverbar{display:flex;gap:6px;margin-top:7px;opacity:0;transition:opacity .12s}
+.turn:hover .hoverbar{opacity:1}
+.gap{text-align:center;font:400 9.5px var(--label);color:#5a5270;letter-spacing:1px;margin:16px 0}
+
+/* ---- the tray spot and layout helpers ---- */
+.two{display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start}
+.card{background:#120d24;border:3px solid #241a3a;border-radius:10px;padding:18px}
+.cardlab{font:400 10px var(--label);color:#6a6186;letter-spacing:1.5px;margin:0 0 12px}
+.step{display:flex;gap:9px;align-items:center;padding:4px 0;font:500 14px var(--body)}
+.step .mark{width:15px;text-align:center;font:400 11px var(--label)}
+.step.done{color:#4e3d28}.step.done .mark{color:#2f7a4a}
+.step.now{color:#271c10;font-weight:700}.step.now .mark{color:#9a6a0e;animation:tick .9s steps(2) infinite}
+.step.todo{color:rgba(90,72,52,.5)}
+.tag{display:inline-block;font:700 11px var(--body);padding:4px 7px;border-radius:4px;
+  border:2px solid var(--outline);background:var(--green);color:#163a24;margin-left:auto;white-space:nowrap}
+.tag.handed{background:var(--claude);color:#3a1708}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>AANG &middot; EVERY SURFACE</h1>
+<p class="sub">The design language from the cockpit, carried into the bubble, the scroll back,<br>
+the menus and the Panel. <b style="color:#9a90b5">Press and hold any button.</b> <b style="color:#9a90b5">Hover a message in the scroll back.</b></p>
+
+<!-- ================================================== PART 1 -->
+<h2 class="part">PART 1 &middot; THE THREE SHAPES</h2>
+<p class="why">You said you needed to see these. They are shown over a fake game because that is the
+only place they will ever be seen. Same words in all three, so the only thing changing is the shape.</p>
+
+<h3 class="sur">A &middot; See-through, any shape <span class="flag b">HARD TO BUILD</span></h3>
+<p class="sur">What you have today. No window edges, no title bar. The parchment just floats over the game
+with a speech tail pointing at Aang. Needs a trick only one person on GitHub has proven.</p>
+<div class="game">
+  <div class="hp"><i></i><i class="mana"></i></div>
+  <div class="bar-ui"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+  <div class="stage">
+    <div class="shapeA">
+      <div class="parch tex tail">
+        <p class="t-eyebrow">NOW &middot; ADDONS</p>
+        <h3 class="t-head">Three addons broke</h3>
+        <p class="t-body">The patch landed an hour ago. <b>DBM</b>, <b>WeakAuras</b> and <b>Details</b>
+        all need updating or your raid tonight gets rough.</p>
+        <div class="rule-minor"></div>
+        <p class="t-caption">I can do all three. <span class="u-carved">Nothing installs without your tap.</span></p>
+        <div class="keys">
+          <button class="key primary sm">Update all<span class="k">A</span></button>
+          <button class="key sm">Which ones<span class="k">X</span></button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <span class="caplabel">STYLE A &middot; FLOATS, NO EDGES</span>
+</div>
+
+<h3 class="sur">B &middot; A proper little window <span class="flag">EASY AND SAFE</span></h3>
+<p class="sur">A game dialog box with a carved title bar and a close button. Boring to build, which is the
+point: almost nothing can go wrong. You can also drag it, resize it, and it never fights your game for clicks.</p>
+<div class="game">
+  <div class="hp"><i></i><i class="mana"></i></div>
+  <div class="bar-ui"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+  <div class="stage">
+    <div class="shapeB">
+      <div class="titlebar"><span class="nm">AANG</span><span class="bt"></span><span class="bt x"></span></div>
+      <div class="inner tex">
+        <p class="t-eyebrow">NOW &middot; ADDONS</p>
+        <h3 class="t-head">Three addons broke</h3>
+        <p class="t-body">The patch landed an hour ago. <b>DBM</b>, <b>WeakAuras</b> and <b>Details</b>
+        all need updating or your raid tonight gets rough.</p>
+        <div class="rule-minor"></div>
+        <p class="t-caption">I can do all three. <span class="u-carved">Nothing installs without your tap.</span></p>
+        <div class="keys">
+          <button class="key primary sm">Update all<span class="k">A</span></button>
+          <button class="key sm">Which ones<span class="k">X</span></button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <span class="caplabel">STYLE B &middot; FRAMED WINDOW</span>
+</div>
+
+<h3 class="sur">C &middot; Both <span class="flag">LEAST RISK</span></h3>
+<p class="sur">The little bubble keeps today's floating shape and stays painted the old way, for quick
+things. When there is a lot to say, the framed window opens next to it. Two things to maintain, nothing to
+gamble on.</p>
+<div class="game">
+  <div class="hp"><i></i><i class="mana"></i></div>
+  <div class="bar-ui"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+  <div class="stage">
+    <div class="shapeC">
+      <div class="lil">
+        <div class="parch tex tail">
+          <p class="t-body" style="margin:0">Three addons broke after the patch.</p>
+          <div class="keys" style="margin-top:11px">
+            <button class="key primary sm">Show me<span class="k">A</span></button>
+          </div>
+        </div>
+      </div>
+      <div class="shapeB" style="width:300px">
+        <div class="titlebar"><span class="nm">ADDONS</span><span class="bt"></span><span class="bt x"></span></div>
+        <div class="inner tex">
+          <h3 class="t-head" style="margin-bottom:10px">Three need updating</h3>
+          <div class="find"><span class="dot stop"></span><div><p class="t-body" style="margin:0"><b>DBM</b> &mdash; boss timers</p></div><span class="chip stop">BROKEN</span></div>
+          <div class="find"><span class="dot careful"></span><div><p class="t-body" style="margin:0"><b>WeakAuras</b></p></div><span class="chip careful">OLD</span></div>
+          <div class="find"><span class="dot careful"></span><div><p class="t-body" style="margin:0"><b>Details</b></p></div><span class="chip careful">OLD</span></div>
+          <div class="keys"><button class="key primary sm">Update all<span class="k">A</span></button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <span class="caplabel">STYLE C &middot; BUBBLE SPEAKS, WINDOW EXPLAINS</span>
+</div>
+
+<!-- ================================================== PART 2 -->
+<h2 class="part">PART 2 &middot; THE SPEECH BUBBLE</h2>
+<p class="why">What changes most: Aang can use headings, bold and highlights inside a sentence. Right now
+<code style="color:#cfa">voice.ts</code> forbids all of it, because the old drawing tools cannot mix fonts in
+one paragraph. That rule is the reason you get walls of text.</p>
+
+<div class="two">
+  <div style="flex:1;min-width:330px">
+    <h3 class="sur">A long reply, collapsed</h3>
+    <p class="sur">Your downward arrow, still doing its job. Over six lines it appears, bobbing, and the
+    last line fades out. Click to grow to twelve, then it scrolls.</p>
+    <div class="parch tex tail" style="max-width:400px">
+      <p class="t-eyebrow">THIS MORNING &middot; 3 JOBS</p>
+      <h3 class="t-head">Three came in overnight</h3>
+      <p class="t-body">One is worth your time. <b>Octup</b>, Customer Success Manager in Toronto, hybrid,
+      <span class="t-num u-mark">$95k&ndash;$120k</span>. The account work is what you already do all day.</p>
+      <p class="t-body" style="color:rgba(39,28,16,.45)">The other two I would skip. Constellation listed no
+      pay, which usually means it is low, and GreenShield needs French and carries a quota, which are both
+      on your&hellip;</p>
+      <svg class="arrow" viewBox="0 0 30 19">
+        <path d="M3 3 L15 14 L27 3" fill="none" stroke="#120A05" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M3 3 L15 14 L27 3" fill="none" stroke="#C98C14" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+  </div>
+  <div style="flex:1;min-width:330px">
+    <h3 class="sur">Asking permission</h3>
+    <p class="sur">Wood, because this is Aang talking about his own hands, not handing you a document.
+    Named rules instead of jargon.</p>
+    <div class="wood tex" style="max-width:400px">
+      <div class="plaque urgent">ASKING FIRST</div>
+      <h3 class="t-head">Can I close Spotify?</h3>
+      <p class="t-body">It is using the speakers and your call starts in four minutes.</p>
+      <div class="rule-titled"><i class="bar"></i><span>What that means</span><i class="bar"></i></div>
+      <p class="t-body">I shut the app down, same as clicking the X. Your music stays in your account.
+      Nothing is deleted.</p>
+      <div class="rule-titled"><i class="bar"></i><span>Why I am asking</span><i class="bar"></i></div>
+      <p class="t-body">Closing other people's apps is on the list of things I never do on my own.</p>
+      <div class="keys">
+        <button class="key primary sm">Yes<span class="k">A</span></button>
+        <button class="key sm">Always<span class="k">X</span></button>
+        <button class="key warn sm">No<span class="k">Z</span></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h3 class="sur">Aang working, mid-reply</h3>
+<p class="sur">Each step says whether it cost you anything. Free means your own machine answered.</p>
+<div class="parch tex" style="max-width:440px">
+  <p class="t-eyebrow">WORKING &middot; STEP 3 OF 5</p>
+  <h3 class="t-head">Checking your addons</h3>
+  <div class="rule-minor"></div>
+  <div class="step done"><span class="mark">&#10003;</span><span>Found 41 addons</span><span class="tag">free</span></div>
+  <div class="step done"><span class="mark">&#10003;</span><span>Asked CurseForge for versions</span><span class="tag">free</span></div>
+  <div class="step now"><span class="mark">&#9656;</span><span>Working out which matter</span><span class="tag handed">Claude</span></div>
+  <div class="step todo"><span class="mark">&#9671;</span><span>Writing it in plain words</span></div>
+  <div class="step todo"><span class="mark">&#9671;</span><span>Showing you</span></div>
+  <div class="rule-end"></div>
+</div>
+
+<!-- ================================================== PART 3 -->
+<h2 class="part">PART 3 &middot; THE TYPING BOX AND ITS STRIP</h2>
+<p class="why">Today the strip is three unlabelled controls. The mode pill and the save-quota pill get filled
+with their own colour so they stop reading as empty, and the ten usage segments turn orange as the week
+burns down. The pinned chips and the reply chip become real chips with an X on them.</p>
+
+<div style="max-width:480px">
+  <div class="pinned">
+    <span class="pinchip reply"><b>REPLYING TO</b> the Octup posting<s>&times;</s></span>
+    <span class="pinchip"><b>PINNED</b> Lindsay's email<s>&times;</s></span>
+  </div>
+  <div class="box">Can you draft the cover letter for that one<span class="caret"></span></div>
+  <div class="strip">
+    <button class="pill auto sm">Auto</button>
+    <button class="pill saving sm">Save quota</button>
+    <span class="segs">
+      <i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i>
+      <i class="on"></i><i class="warn"></i><i></i><i></i><i></i>
+    </span>
+  </div>
+  <p class="sur" style="margin-top:12px">Hovering any of it swaps the bars for a plain sentence, the way it
+  already does. Keyboard is unchanged: Enter sends, Up and Down recall, PageUp and PageDown page the bubble.</p>
+</div>
+
+<!-- ================================================== PART 4 -->
+<h2 class="part">PART 4 &middot; THE SCROLL BACK</h2>
+<p class="why">Your turns on recessed plum, Aang's on parchment, exactly as now. What changes: the
+thirty-minute gap divider becomes the forged end-cap rule, which is what I designed that divider for. The
+right-click menu becomes buttons that appear when you hover a message, so you can see what is possible
+without guessing. Scroll up and it keeps loading older turns for as long as the database has them.</p>
+
+<div class="scroll">
+  <p class="gap">&#8593; SCROLL FOR OLDER &middot; LOADING FROM MEMORY</p>
+
+  <div class="daydiv"><i class="endcap"></i><i class="bar"></i><span>TUESDAY 30 SEPT &middot; MORNING</span><i class="bar"></i><i class="endcap"></i></div>
+
+  <div class="turn r">
+    <p class="who you">YOU &middot; 9:14</p>
+    <div class="mine tex"><p class="t-body" style="margin:0">whats worth looking at today</p></div>
+  </div>
+
+  <div class="turn">
+    <p class="who aang">AANG &middot; 9:14</p>
+    <div class="parch tex">
+      <p class="t-body" style="margin:0">Two things. The <b>Octup</b> posting is still open and still the best
+      match you have had this month. And your resume has <span class="u-mark">Lindsay's phone number</span> on
+      it, which I think is a copy-paste mistake.</p>
+      <div class="hoverbar">
+        <button class="key sm">Reply to this</button>
+        <button class="key sm">Add as context</button>
+        <button class="key sm">Copy</button>
+        <button class="key warn sm">Forget</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="turn r">
+    <p class="who you">YOU &middot; 9:16</p>
+    <div class="mine tex"><p class="t-body" style="margin:0">oh god fix the number</p></div>
+  </div>
+
+  <div class="turn">
+    <p class="who aang">AANG &middot; 9:16</p>
+    <div class="parch tex">
+      <p class="t-body" style="margin:0">Changed to yours and saved a copy of the old one.
+      <span class="u-carved">I did not send anything.</span></p>
+      <div class="hoverbar">
+        <button class="key sm">Reply to this</button>
+        <button class="key sm">Add as context</button>
+        <button class="key sm">Copy</button>
+        <button class="key warn sm">Forget</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="daydiv"><i class="endcap"></i><i class="bar"></i><span>TUESDAY 30 SEPT &middot; AFTERNOON</span><i class="bar"></i><i class="endcap"></i></div>
+
+  <div class="turn r">
+    <p class="who you">YOU &middot; 15:02</p>
+    <div class="mine tex"><p class="t-body" style="margin:0">did the patch break anything</p></div>
+  </div>
+
+  <div class="turn">
+    <p class="who aang">AANG &middot; 15:02</p>
+    <div class="parch tex">
+      <p class="t-body">Three addons. <b>DBM</b> is the one that matters, because it calls boss timers and
+      your raid is tonight.</p>
+      <div class="rule-minor"></div>
+      <p class="t-caption" style="margin:0">The other two are cosmetic and can wait.</p>
+      <div class="hoverbar">
+        <button class="key sm">Reply to this</button>
+        <button class="key sm">Add as context</button>
+        <button class="key sm">Copy</button>
+        <button class="key warn sm">Forget</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================== PART 5 -->
+<h2 class="part">PART 5 &middot; THE MENUS</h2>
+<p class="why">The carved-wood menu you already have, with the pixel face kept because a menu is a list of
+short labels, not a paragraph. What is new: the separators become the carved groove, the hover is a pressed
+gold plate rather than a flat highlight, and anything destructive turns orange on hover so Forget and Quit
+cannot be hit by accident.</p>
+
+<div class="two">
+  <div>
+    <p class="cardlab">RIGHT-CLICK A MESSAGE</p>
+    <div class="menu">
+      <div class="row">Reply to this</div>
+      <div class="row">Add as context</div>
+      <div class="row">Copy text</div>
+      <div class="sep"></div>
+      <div class="row danger">Forget this</div>
+    </div>
+  </div>
+
+  <div>
+    <p class="cardlab">THE TRAY MENU</p>
+    <div class="menu">
+      <div class="row">Talk to Aang</div>
+      <div class="row">Conversation</div>
+      <div class="row">Panel</div>
+      <div class="sep"></div>
+      <div class="hdr">WINDOW</div>
+      <div class="row">Show Aang<span class="arr">&#8250;</span></div>
+      <div class="row">Where he sits<span class="arr">&#8250;</span></div>
+      <div class="hdr">AANG</div>
+      <div class="row">Job hunt<span class="arr">&#8250;</span></div>
+      <div class="row">What he may do<span class="arr">&#8250;</span></div>
+      <div class="row">What he did<span class="arr">&#8250;</span></div>
+      <div class="hdr">SETTINGS</div>
+      <div class="row">Model<span class="arr">&#8250;</span></div>
+      <div class="row"><span class="tick">&#10003;</span>Save quota</div>
+      <div class="row"><span class="tick">&#10003;</span>See which app I'm in</div>
+      <div class="row"><span class="tick"></span>Mute</div>
+      <div class="row"><span class="tick">&#10003;</span>Start with Windows</div>
+      <div class="sep"></div>
+      <div class="row danger">Quit Aang</div>
+    </div>
+  </div>
+
+  <div>
+    <p class="cardlab">MODEL SUBMENU</p>
+    <div class="menu" style="width:234px">
+      <div class="hdr">WHO ANSWERS</div>
+      <div class="row"><span class="tick">&#10003;</span>Auto &mdash; let Aang pick</div>
+      <div class="row"><span class="tick"></span>Free &mdash; my own machine</div>
+      <div class="row"><span class="tick"></span>Quick</div>
+      <div class="row"><span class="tick"></span>Smart</div>
+      <div class="row"><span class="tick"></span>Deep</div>
+      <div class="sep"></div>
+      <div class="row"><span class="tick">&#10003;</span>Save quota</div>
+    </div>
+    <p class="sur" style="margin-top:12px;max-width:234px">The pills and this menu are the same six choices,
+    so neither can drift from the other.</p>
+  </div>
+</div>
+
+<!-- ================================================== PART 6 -->
+<h2 class="part">PART 6 &middot; THE PANEL</h2>
+<p class="why">Your seven tabs, unchanged in what they do. The tab strip becomes carved wood with the live
+tab as a raised gold plate, and counts ride on the tab itself instead of being glued into the label text.</p>
+
+<div class="panel">
+  <div class="tabs">
+    <span class="tab">WHAT I KNOW</span>
+    <span class="tab">WHAT I MAY DO</span>
+    <span class="tab">WHAT I DID</span>
+    <span class="tab">DRAFTS <i>2</i></span>
+    <span class="tab on">JOBS <i>3</i></span>
+    <span class="tab">HISTORY</span>
+    <span class="tab">SETTINGS</span>
+  </div>
+  <div class="body tex">
+    <p class="t-eyebrow">3 OPEN &middot; LAST SWEEP 20 MINUTES AGO</p>
+    <h3 class="t-display">Jobs</h3>
+    <p class="t-lead">Scored against what you told me you want. I have applied to none of them.</p>
+
+    <div class="rule-major"><i class="endcap"></i><i class="bar"></i><i class="endcap"></i></div>
+
+    <div class="find">
+      <span class="dot good"></span>
+      <div>
+        <p class="t-body" style="margin:0"><b>Octup</b> &mdash; Customer Success Manager, Toronto, hybrid.
+        <span class="t-num u-mark">$95k&ndash;$120k</span></p>
+        <p class="t-caption" style="margin:4px 0 0">Posted 11 hours ago &middot; 14 applicants &middot;
+        closest match this month</p>
+        <div class="keys" style="margin-top:11px">
+          <button class="key primary sm">Draft a letter<span class="k">A</span></button>
+          <button class="key sm">Open posting<span class="k">X</span></button>
+          <button class="key sm">Not for me<span class="k">Z</span></button>
+        </div>
+      </div>
+      <span class="chip good">GO</span>
+    </div>
+
+    <div class="rule-minor"></div>
+
+    <div class="find">
+      <span class="dot careful"></span>
+      <div>
+        <p class="t-body" style="margin:0"><b>Constellation Dealer Group</b> &mdash; Digital Project
+        Coordinator, remote</p>
+        <p class="t-caption" style="margin:4px 0 0">No pay listed, which usually means it is low</p>
+      </div>
+      <span class="chip careful">MAYBE</span>
+    </div>
+
+    <div class="find">
+      <span class="dot stop"></span>
+      <div>
+        <p class="t-body" style="margin:0"><b>GreenShield</b> &mdash; bilingual account executive, Montreal</p>
+        <p class="t-caption" style="margin:4px 0 0">Needs French, carries a quota. Both on your no list.</p>
+      </div>
+      <span class="chip stop">SKIP</span>
+    </div>
+
+    <div class="rule-end"></div>
+    <p class="t-aside" style="margin:0">Next sweep in forty minutes. I will only interrupt you for a GO.</p>
+  </div>
+  <div class="foot">Core running &middot; 41 addons watched &middot; 6% of this week's quota used</div>
+</div>
+
+</div>
+</body>
+</html>
