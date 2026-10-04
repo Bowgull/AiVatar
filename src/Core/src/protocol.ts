@@ -41,6 +41,22 @@ export interface StructuredList {
   moreCount?: number;
 }
 
+/**
+ * Where the pet is (step 6.10b). ONE definition, used in both directions: the Body sends it and the
+ * Core passes it to the Shell unchanged, so a field added to one cannot go missing from the other.
+ */
+export interface PetAt {
+  t: 'pet.at';
+  /** The SPRITE's rectangle in screen pixels, already scaled - not the window's. */
+  sprite: { x: number; y: number; width: number; height: number };
+  /** The working area of the display he is on, so nothing lands under the taskbar. */
+  screen: { x: number; y: number; width: number; height: number };
+  scale: number;
+  edge: 'none' | 'left' | 'right' | 'top' | 'bottom';
+  /** Docked and collapsed to his head. */
+  peeking: boolean;
+}
+
 export type ToBody =
   | { t: 'state'; state: string }
   /**
@@ -55,6 +71,8 @@ export type ToBody =
       title?: string }
   /** Put it away. The video stops; `popout.hide` is the one that keeps it playing. */
   | { t: 'popout.close' }
+  /** Passed straight through from the Body, to the Shell only (step 6.10b). The C# pet ignores it. */
+  | PetAt
 
   /** Whether any Claude Code session Aang is following (a job hunt, a self-change, anything opened through
    *  start_claude) is currently working or waiting on him, right now - continuous, not a point-in-time
@@ -190,6 +208,16 @@ export type FromBody =
   /** The pop-out's "send to the MacBook" keycap (step 6.9). The Mac opens it in its own browser, which
    *  is the fallback for paid video that will not play on Shadow at all. */
   | { t: 'watch.tomac'; url: string }
+  /**
+   * Where the pet IS (step 6.10b), so the Shell can hang its windows off him. Sent by the C# Body when
+   * he is dragged, docked, rescaled or moved between displays - on a change, never on a timer.
+   *
+   * The rectangle is the SPRITE's, not the window's: the pet window is mostly empty room for the bubble
+   * to grow into, and its corner moves when display scaling changes while the sprite deliberately does
+   * not. Screen pixels, already scaled, because the Body is the only side that knows the scale for
+   * certain.
+   */
+  | PetAt
   | { t: 'moved'; x: number; y: number }
   | { t: 'pong' }
   /** `ephemeral`: a job Aang set himself (vetting a link). Not kept in memory, since Joshua did not say it. */

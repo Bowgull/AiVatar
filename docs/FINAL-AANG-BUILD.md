@@ -1602,7 +1602,7 @@ different-looking halves and no way to tell which was which.
 
 ---
 
-### `[ ]` 6.10b The pet and its windows move together  **BLOCKS 6.12**
+### `[~]` 6.10b The pet and its windows move together  **BUILT 2026-10-04**; the seam is in, the windows arrive at 6.12  **BLOCKS 6.12**
 
 **Why:** the pet stays C# (fact 5) and the bubble and typing box become Electron. Two programs now
 have to behave like one thing.
@@ -1619,6 +1619,42 @@ box beside the pet.
 change display scaling; summon with the hotkey.
 
 **Done when:** nothing about where the bubble appears is different from today.
+
+**BUILT 2026-10-04.** 10 tests, all arithmetic, so the awkward cases are checked rather than hoped for.
+
+**THE ANCHOR IS THE SPRITE, NOT THE WINDOW**, and that is the whole decision. The pet's window is
+770 x 740 unscaled while the monk is a 224 px square a long way inside it; the rest is empty room the
+bubble grows into. Anchoring to the window corner would put the bubble hundreds of pixels from him, and
+worse, **the corner moves when display scaling changes while the sprite deliberately does not** -
+`PetWindow.Rescale` goes to real trouble to keep him still, and a capture on 2026-10-02 shows what
+happens when that is got wrong. So `pet.at` carries the sprite's rectangle, already scaled, because the
+Body is the only side that knows the scale for certain.
+
+**The offsets are read out of the drawing code, not eyeballed:** `BubbleView.cs:24` has
+`Right = 262, Bottom = 124` and `Dock.cs:19` has `SpriteX = 246, SpriteY = 86`, both in the space
+`PetWindow.cs:953` translates into. So the bubble's bottom-right corner sits 16 px right of his left
+edge and 38 px below his top, and it grows **up and left** from there. A test asserts those two
+subtractions, so if the C# moves, the test says so rather than the bubble quietly drifting.
+
+**Sent on a change, never on a timer**, including during the drag itself so his windows travel with him
+instead of jumping when he lets go. `moved()` drops the jitter of a held mouse, and its threshold scales
+with him, because two pixels at 150% is less movement to the eye than two at 100%.
+
+**The Core keeps the last position.** The Shell restarts on its own and the Body only sends this when the
+pet moves, so a fresh Shell would otherwise know nothing until Joshua next dragged him. It is never
+persisted: a position from a previous run is worse than none, since the pet is placed afresh at startup.
+
+**Its own `onScreen`, deliberately not `geometry.ts`'s `ontoScreen`.** That one only guarantees a window
+touches a screen at all, which is right for a pop-out he dragged somewhere on purpose and wrong here,
+where nothing was dragged and a bubble four fifths off the edge is unreadable. A window too big for the
+screen is pinned top-left, because text reads from there.
+
+**The pop-out is deliberately NOT moved** by any of this. He puts it where he wants it and it stays;
+a video chasing the pet around the screen is way 6, removed on purpose.
+
+**Still to come at 6.12:** the bubble and typing box themselves. `placeWindows()` is the seam they plug
+into. Built now because the C# side, the protocol and the arithmetic all had to agree, and agreement is
+far easier to prove while there is nothing on screen to confuse it with.
 
 ---
 

@@ -43,6 +43,7 @@ import { vaultState, backupVault } from './backup-vault.ts';
 import { runCommand } from './run.ts';
 import { buildSystemPrompt, lint, stripReasoning } from './voice.ts';
 import type { CanDraw } from './voice.ts';
+import type { PetAt } from './protocol.ts';
 import { MAX_SEND_BYTES, clock, mimeOf, statusText, whyNotSend } from './phone.ts';
 import { ActionLog, UndoStack, formatAction } from './actionlog.ts';
 import { Google } from './google.ts';
@@ -1676,8 +1677,16 @@ export class Core {
   private atDesk = true;
   /** The Electron Shell's connections: the only desktop client that can actually show the pop-out. */
   private readonly shells = new WeakSet<WebSocket>();
+  /** The last place the pet said it was, for a Shell that connects afterwards. Never persisted: a
+   *  position from a previous run is worse than none, since the pet is placed afresh at startup. */
+  private lastPetAt: PetAt | null = null;
   private shellConnected(): boolean {
     return this.wss ? [...this.wss.clients].some(c => c.readyState === c.OPEN && this.shells.has(c)) : false;
+  }
+  /** To the Electron Shell only. The pet is a desktop client too, and must not be sent its own news. */
+  private sendToShells(msg: ToBody): void {
+    if (!this.wss) return;
+    for (const c of this.wss.clients) if (c.readyState === c.OPEN && this.shells.has(c)) this.send(c, msg);
   }
   private clientsOf(kind: 'desktop' | 'discord'): WebSocket[] {
     return this.wss ? [...this.wss.clients].filter(c => c.readyState === c.OPEN && (this.clientKind.get(c) ?? 'desktop') === kind) : [];
@@ -1748,7 +1757,10 @@ export class Core {
     switch (m.t) {
       case 'hello': {
         this.clientKind.set(ws, m.client === 'discord' ? 'discord' : 'desktop');
-        if (m.shell === true) this.shells.add(ws);
+        if (m.shell === true) {
+          this.shells.add(ws);
+          if (this.lastPetAt) this.send(ws, this.lastPetAt);
+        }
         const q = this.quotaMessage(); if (q) this.send(ws, q);
         if (this.kindOfSocket(ws) === 'desktop') this.send(ws, { t: 'claude.working', ...this.workingNow() });
         break;
@@ -1760,6 +1772,12 @@ export class Core {
       case 'watch.state': void this.playbackChanged({ playing: m.playing !== false, at: Number(m.at) || 0, length: Number(m.length) || 0, ended: m.ended === true }); break;
       // He pressed the keycap himself, so there is nothing to ask: it is one link, to his own MacBook,
       // and the Mac refuses anything that is not a site on its own list.
+      // 6.10b: where the pet is, passed straight to the Shell so its windows can follow him. Not stored
+      // and not acted on here: the Core has no windows, and a position is only ever true right now.
+      // 6.10b: where the pet is, passed to the Shell so its windows follow him. Kept, because the Shell
+      // restarts on its own and the Body only sends this when the pet MOVES - without the last known
+      // position a fresh Shell would know nothing until Joshua next dragged him.
+      case 'pet.at': this.lastPetAt = m as PetAt; this.sendToShells(this.lastPetAt); break;
       case 'watch.tomac': void this.openOnMac(String(m.url ?? '')).then(r => {
         if (!r.ok) this.sendTo('desktop', { t: 'bubble', text: r.detail, stream: false, proactive: true });
       }); break;
