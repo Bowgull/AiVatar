@@ -101,6 +101,8 @@ static class Win32
     /// the moment of the call is the standard way to take (and later give back) focus reliably, for example from
     /// a game to the input box and back again.
     /// </summary>
+    [DllImport("user32.dll")] public static extern bool IsWindow(IntPtr h);
+
     public static void ForceForeground(IntPtr target)
     {
         if (target == IntPtr.Zero) return;

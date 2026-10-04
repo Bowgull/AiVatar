@@ -67,6 +67,8 @@ contextBridge.exposeInMainWorld('aang', {
   /** The pointer is over the drawn bubble, so this window should take the mouse. Off it, clicks pass
    *  through to whatever is behind. */
   bubbleClickable: on => ipcRenderer.send('bubble:clickable', on),
+  /** The bubble has finished saying its piece and gone; the window can go too. */
+  bubbleHidden: () => ipcRenderer.send('bubble:hidden'),
 
   // --- the typing box (6.12b). Named doors only.
   onInputState(fn) {

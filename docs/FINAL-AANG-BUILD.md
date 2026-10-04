@@ -1948,6 +1948,29 @@ top, read out of `OpenInput` + `InputWindow.Open`. The look is sheet 2's `.box`,
 five in ten minutes the pet's supervisor GIVES UP on it - leaving Ctrl+Plus owned by nobody. Restart the
 whole of Aang instead.
 
+**THE SWEEP, 2026-10-04.** `tools/sweep-frontend.ps1` does everything he would, in one recording with a
+screenshot and every Aang window's position at each step, sending ONE message. Eight rounds. What it found
+and what fixed it:
+
+| Found on his screen | Cause | Fix |
+|---|---|---|
+| The bubble never went away (43 s later) | the hide clock was never ported | `PetWindow.ShowBubble`'s hold, 3-20 s by length, 60 s if it collapses; paused while hovered; never for an ask |
+| After the box closed, the keyboard stayed in the hidden box | just hiding a focused window moves the keyboard nowhere | the pet remembers the last window that was not Aang's and gives it back (`refocus`), as the old box's `ForceForeground(previous)` did |
+| ...then it went to Discord, not the window he came from | "minimize and let Windows pick" picks the next in line, not the previous | the above; minimizing removed |
+| Copy and rate keys never appeared | 1) outside the window, 2) clipped by the parchment's own `overflow:hidden`, 3) the browser's `:hover` stays FALSE in a click-through window even with the pointer on it (logged) | room above; lifted out of the parchment into a wrapper; shown from our own pointer tracking, not `:hover` |
+| A reply's second line was cut off | "wide" toggled both ways and flipped on every tick | decided once per reply at the narrow width, never undone (`BubbleView.Show`) |
+| Aang stuck mid-thought, dashed ring and dots, after the reply | the think-to-talk switch lives in the code that draws the old bubble, which was skipped | the pet keeps every animation; only the drawing moved |
+| The old gold bubble still greeted him on slide-out | the pet calls its bubble directly, not only on brain messages | `BubbleView.Show`/`ShowDots` refuse to draw with the new front end on, whoever calls |
+| A reply left floating at the edge after Aang tucked away | old Peek() clears the bubble; nothing told the new one | hidden on the transition to peeking |
+| The box's scrollbar was the white system one | - | thin plum, like the bubble |
+
+**Testing lessons from the sweep itself:** `SetCursorPos` teleports the pointer without producing input, so
+nothing listening for the mouse ever hears it - hover tests must move it with `mouse_event`. PowerShell
+turns `$null` into `""` for a string parameter, so `FindWindowW($null, …)` finds nothing - use
+`[NullString]::Value`. A test that waits for a 22-second recording before hovering finds the bubble
+correctly gone. And a run where he is using the machine starts from the wrong window and proves nothing
+about the first steps.
+
 **STILL TO DO (pass 2):** reply and pinned chips (and with them the bubble's "Reply to this" and "Add as
 context"); the three suggestion chips when empty; the pace tick and the hover sentence on the strip; the
 draft surviving a scaling change; the consent row; Ctrl+1-4 persisting (the pet must stay the one writer of
