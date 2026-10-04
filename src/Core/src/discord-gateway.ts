@@ -170,6 +170,7 @@ export class WsCoreLink implements CoreLink {
   trust() { this.send({ t: 'trust' }); }
   revoke(kind: string) { this.send({ t: 'revoke', kind }); }
   hush(minutes: number) { this.send({ t: 'hush', minutes }); }
+  saving(on: boolean) { this.send({ t: 'saving', on }); }
   mailAct(id: string, hash: string, action: 'send' | 'save' | 'discard') { this.send({ t: 'mail.act', id, hash, action }); }
   brief() { this.send({ t: 'brief' }); }
   claudeReply(cwd: string, text: string) { this.send({ t: 'claude.reply', cwd, text }); }

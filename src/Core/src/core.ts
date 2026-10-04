@@ -228,7 +228,7 @@ const READS_OUTSIDE_FILES = new Set(['Read', 'Glob', 'Grep']);
 export class Core {
   readonly cfg: CoreConfig;
   readonly memory: Memory;
-  readonly policy = new QuotaPolicy();
+  readonly policy: QuotaPolicy;
   private wss: WebSocketServer | null = null;
   private readonly lanes = new Map<LaneName, Lane>();
   private readonly queue: Submission[] = [];
@@ -1043,6 +1043,7 @@ export class Core {
 
   constructor(cfg: CoreConfig) {
     this.cfg = cfg;
+    this.policy = new QuotaPolicy(cfg.stateDir);   // remembers saving mode across restarts (step Q2)
     this.memory = new Memory(cfg.dataDir);
     // What he knows about Joshua is NOT in the system prompt: that is fixed for the life of a session, so a
     // forgotten fact stayed in front of him. Found 2026-09-20: he read it there after a forget, decided "the

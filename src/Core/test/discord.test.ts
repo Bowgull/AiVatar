@@ -53,10 +53,12 @@ class FakeCore implements CoreLink {
   stop() { this.stops++; }
   status() { this.statuses++; }
   actionsAsked = 0; trustAsked = 0; revoked: string[] = []; hushed: number[] = [];
+  savingSet: boolean[] = [];
   actions() { this.actionsAsked++; }
   trust() { this.trustAsked++; }
   revoke(kind: string) { this.revoked.push(kind); }
   hush(minutes: number) { this.hushed.push(minutes); }
+  saving(on: boolean) { this.savingSet.push(on); }
   mails: { id: string; hash: string; action: string }[] = []; briefs = 0;
   mailAct(id: string, hash: string, action: string) { this.mails.push({ id, hash, action }); }
   brief() { this.briefs++; }
@@ -148,7 +150,8 @@ test('until paired, nobody can talk to Aang, and the right code binds him to one
 
 test('his message goes to the Core, and the finished reply comes back to the same channel, cut to fit', async () => {
   const { gw, core } = await make({ paired: true });
-  gw.say('capture', OWNER, 'remember this recipe: 2 eggs and flour', 'm42'); await tick();
+  // A question, so it still reaches Aang: a plain thought in #capture is now filed in code (step Q3).
+  gw.say('capture', OWNER, 'what was that recipe with 2 eggs and flour?', 'm42'); await tick();
   assert.equal(core.submits[0]!.id, 'dm42');
   core.emit({ t: 'bubble', text: 'partial', stream: true, id: 'dm42' });
   await tick(); assert.equal(gw.to('capture').length, 0, 'streaming text is not sent piece by piece');
@@ -285,7 +288,7 @@ test('Job hunt now runs it on the MacBook by default; the reply falls back to ru
 
 test('a file or picture from the Core is posted as an attachment in the channel he is talking in', async () => {
   const { gw, core } = await make({ paired: true });
-  gw.say('capture', OWNER, 'send me my screen', 'm1'); await tick();
+  gw.say('capture', OWNER, 'can you send me my screen?', 'm1'); await tick();
   core.emit({ t: 'attach', name: 'window.jpg', mime: 'image/jpeg', data: Buffer.from('JPEGDATA').toString('base64'), caption: 'your window' }); await tick();
   const m = gw.to('capture').find(x => x.files);
   assert.ok(m, 'posted in #capture, where he asked');
@@ -725,4 +728,37 @@ test('"morning brief" asks the Core with no model, and the answer goes where it 
   core.emit({ t: 'brief.reply', text: 'Today - nothing on the calendar today.' }); await tick();
   assert.match(gw.to('aang').at(-1)!.content!, /^Today/);
   assert.equal(core.submits.length, 0);
+});
+
+// ---------------------------------------------------------------- Q2: saving mode from his phone
+
+test('"save quota" and "saving off" switch it from Discord, free, without reaching Claude', async () => {
+  const { gw, core } = await make({ paired: true });
+
+  gw.say('aang', OWNER, 'save quota'); await tick();
+  assert.deepEqual(core.savingSet, [true]);
+  assert.match(String(gw.to("aang").at(-1)?.content), /Saving quota from now on/);
+
+  gw.say('aang', OWNER, 'saving off'); await tick();
+  assert.deepEqual(core.savingSet, [true, false]);
+  assert.match(String(gw.to("aang").at(-1)?.content), /Back to normal/);
+
+  // Free means free: neither reached the model.
+  assert.equal(core.submits.length, 0);
+});
+
+// ---------------------------------------------------------------- Q3: #capture notes cost nothing
+
+test('a thought in #capture is written down for free; a question still goes to Aang', async () => {
+  const { gw, core } = await make({ paired: true });
+
+  gw.say('capture', OWNER, 'raid moved to 7 on saturdays'); await tick();
+  assert.equal(core.submits.length, 0);                       // no Claude turn
+  assert.match(String(gw.to('capture').at(-1)?.content), /^Noted/);
+
+  gw.say('capture', OWNER, 'what time is the raid?'); await tick();
+  assert.equal(core.submits.length, 1);                       // a question is still his to answer
+
+  gw.say('capture', OWNER, 'aang remind me about the raid'); await tick();
+  assert.equal(core.submits.length, 2);                       // and so is anything aimed at him
 });
