@@ -183,6 +183,9 @@ export type FromBody =
   | { t: 'watch.state'; playing: boolean; at: number; length: number;
       /** True once the video has genuinely run out, as opposed to being paused near the end. */
       ended?: boolean }
+  /** The pop-out's "send to the MacBook" keycap (step 6.9). The Mac opens it in its own browser, which
+   *  is the fallback for paid video that will not play on Shadow at all. */
+  | { t: 'watch.tomac'; url: string }
   | { t: 'moved'; x: number; y: number }
   | { t: 'pong' }
   /** `ephemeral`: a job Aang set himself (vetting a link). Not kept in memory, since Joshua did not say it. */

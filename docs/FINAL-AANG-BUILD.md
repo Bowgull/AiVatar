@@ -1387,7 +1387,7 @@ instead, which is the right outcome but a different sentence.
 
 ---
 
-### `[ ]` 6.9 The Mac helper
+### `[~]` 6.9 The Mac helper  **BUILT 2026-10-04**; one re-run of his Mac setup still needed
 
 **Why:** decision 35. A fallback for paid video and a way to watch on the Mac by choice.
 
@@ -1400,7 +1400,38 @@ Shadow's `mac.json` already holds the Mac's address, `100.83.81.65`. **Do not bu
 approves, in the browser's picture-in-picture. Same key, same Tailscale-only rule, rate-limited,
 logged. Nothing else. Not a Mac port: no pet, no brain.
 
-**Blocked on him:** re-running the one-paste Mac setup so the listener picks up `/open`.
+**Blocked on him:** re-running the one-paste Mac setup so the listener picks up `/open`. Until he
+does, the Mac answers 403 and Aang says so in those words: either it is not a site on the list, or the
+setup has not been re-run.
+
+**BUILT 2026-10-04.** 7 tests, which run the REAL Perl shipped in `macsetup.ts` rather than a copy of
+its rules, because a copy of a security check is the thing that drifts.
+
+**The listener is still the same three doors**, and a test asserts exactly that, because "not a Mac
+port" is easy to agree with and easy to erode one door at a time.
+
+**The check is not just the key.** This door takes an address off the network and opens it on his
+machine, so the key proving it came from Aang is not enough on its own: https only, and only a host on
+a list baked into the listener. A key that ever leaked still cannot point his Mac at an arbitrary page.
+Rate-limited to one open every three seconds and capped at 2000 characters, like the other two doors.
+
+**Refused, and tested:** plain http, `file://`, `javascript:`, a lookalike host (`www.youtube.com.evil.test`),
+a host smuggled through userinfo (`www.youtube.com@evil.test`), and anything starting with a dash, which
+`open` would otherwise read as an option. The address is handed to `system()` as a LIST, so nothing in it
+is ever read by a shell, and that is asserted too.
+
+**The keycap works now.** The pop-out's "send to the MacBook" button was a stub that logged and did
+nothing; it now goes through the brain, which holds the address and the key. The Shell only says which
+link.
+
+**Two bugs the tests caught, both of which would have shipped as a door that silently did nothing:** the
+request line still accepted only `/front|/run`, so every `/open` was refused with 403; and a backtick
+inside the Perl (in the regex, then again in a comment) closed the JavaScript template the script lives
+in, which the type checker caught rather than anything at run time.
+
+**Picture-in-picture is NOT done and was not promised here.** The step said PiP; what is built opens the
+link in his Mac's own browser. Forcing PiP from outside a browser needs a setting he would have to turn
+on by hand, so the honest version is that the Mac opens it and the PiP button is his click.
 
 ---
 
