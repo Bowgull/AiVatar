@@ -1,15 +1,31 @@
 // What he is watching, and the next episode of it: "put the next one on", "what am I watching". Simkl keeps his list
 // (MALSync and the Simkl browser extension mark episodes as he watches them); Aang only reads it. Signed in once with
-// tools/simkl-setup.cmd (Simkl's PIN sign-in; the token is in %APPDATA%\Aang\simkl.json and does not expire).
+// tools/simkl-setup.cmd (Simkl's device sign-in; the sign-in lives in %APPDATA%\Aang\simkl.json).
 // Where an episode is opened is his choice, kept in the same file as a link with {q} in it (a search for the show and
 // episode); Crunchyroll's search until he says otherwise.
-import { existsSync, readFileSync } from 'node:fs';
+//
+// TOKENS DO EXPIRE. This file used to say they did not, the setup script threw the refresh token away because of it,
+// and on 2026-10-04 his access token came back 401 "Access token has expired" with no way to recover but re-running
+// setup by hand. Nothing told him: `watch_next` is not something he uses daily, so it would have sat broken for
+// months. So: the whole token response is kept now, a 401 refreshes once and retries, and a refresh that fails says
+// plainly what to do. An expiring credential with no refresh path is a thing that breaks quietly, which is the worst
+// way for anything in Aang to break.
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import type { Fetch } from './google.ts';
 
 export interface Show { title: string; next: number; watched: number; total: number | null; kind: 'anime' | 'tv'; /** when he last watched it (ms), for "the next one" */ lastAt: number }
 export const DEFAULT_SITE = 'https://www.crunchyroll.com/search?q={q}';
 
-interface Saved { clientId: string; accessToken: string; site?: string }
+interface Saved {
+  clientId: string;
+  accessToken: string;
+  /** Kept so an expired token can be swapped for a fresh one without him doing anything. Absent in sign-ins made
+   *  before 2026-10-04, which the setup script wrote without it: those have to be re-run once. */
+  refreshToken?: string;
+  /** ms since epoch, from the token response's expires_in. Absent means "unknown", not "never". */
+  expiresAt?: number;
+  site?: string;
+}
 
 const norm = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 
@@ -46,14 +62,65 @@ export class Simkl {
   get connected(): boolean { return this.saved() !== null; }
   get site(): string { return this.saved()?.site || DEFAULT_SITE; }
 
-  /** Everything he is watching now, anime and TV, with the next episode of each. */
-  async watching(): Promise<Show[]> {
+  /** Keep whatever changed, leaving the rest of the file alone. */
+  private write(patch: Partial<Saved>): void {
+    try {
+      const now = this.saved();
+      if (!now) return;
+      writeFileSync(this.file, JSON.stringify({ ...now, ...patch }, null, 2), 'utf8');
+    } catch { /* read-only disk: the new token is still good for this run */ }
+  }
+
+  /**
+   * Swap an expired access token for a fresh one. Standard OAuth 2.0 refresh, which is what issued the token in the
+   * first place. Returns the new token, or null when there is nothing to refresh with or Simkl refuses, in which case
+   * the caller tells him to sign in again rather than failing with a bare 401.
+   */
+  private async refresh(s: Saved): Promise<string | null> {
+    if (!s.refreshToken) return null;
+    try {
+      const r = await this.fetcher('https://api.simkl.com/oauth2/token', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ grant_type: 'refresh_token', refresh_token: s.refreshToken, client_id: s.clientId }),
+      });
+      if (!r.ok) return null;
+      const j: any = await r.json().catch(() => ({}));
+      const token = String(j?.access_token ?? '');
+      if (!token) return null;
+      this.write({
+        accessToken: token,
+        // Simkl may or may not rotate the refresh token. Keep the new one when it sends one.
+        ...(j?.refresh_token ? { refreshToken: String(j.refresh_token) } : {}),
+        ...(Number(j?.expires_in) ? { expiresAt: Date.now() + Number(j.expires_in) * 1000 } : {}),
+      });
+      return token;
+    } catch { return null; }
+  }
+
+  /** A signed-in GET that renews the token once if Simkl says it is stale, instead of giving up. */
+  private async get(url: string): Promise<any> {
     const s = this.saved();
     if (!s) throw new Error('Simkl is not connected. Run tools\\simkl-setup.cmd once.');
-    const r = await this.fetcher('https://api.simkl.com/sync/all-items/?extended=full', { headers: { 'simkl-api-key': s.clientId, authorization: `Bearer ${s.accessToken}` } });
+    const call = (token: string) => this.fetcher(url, { headers: { 'simkl-api-key': s.clientId, authorization: `Bearer ${token}` } });
+
+    let r = await call(s.accessToken);
+    if (r.status === 401) {
+      const fresh = await this.refresh(s);
+      if (!fresh) {
+        throw new Error(s.refreshToken
+          ? 'Simkl would not renew the sign-in. Run tools\\simkl-setup.cmd again.'
+          : 'The Simkl sign-in has run out, and this one was saved before Aang kept the renewal key. Run tools\\simkl-setup.cmd once and it will keep itself going after that.');
+      }
+      r = await call(fresh);
+    }
     if (r.status === 401) throw new Error('Simkl turned the sign-in down. Run tools\\simkl-setup.cmd again.');
     if (!r.ok) throw new Error(`Simkl said ${r.status}.`);
-    const j = await r.json().catch(() => ({}));
+    return await r.json().catch(() => ({}));
+  }
+
+  /** Everything he is watching now, anime and TV, with the next episode of each. */
+  async watching(): Promise<Show[]> {
+    const j = await this.get('https://api.simkl.com/sync/all-items/?extended=full');
     const out: Show[] = [];
     for (const kind of ['anime', 'shows'] as const) {
       for (const e of (j?.[kind] ?? []) as any[]) {
