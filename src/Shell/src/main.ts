@@ -20,6 +20,7 @@ import { Popout, popoutFile } from './popout.ts';
 import { holdHotkey, type Hotkey } from './hotkey.ts';
 import { DrmRuntime } from './drmrunner.ts';
 import { notReadyBecause, serviceFor } from './services.ts';
+import { readSettings, writeSettings, type PopoutSettings } from './settings.ts';
 import type { Box } from './geometry.ts';
 
 const PORT = Number(process.env.AANG_PORT ?? 47831);
@@ -58,6 +59,8 @@ function rememberBox(box: Box): void {
 let pages: PageServer | null = null;
 let popout: Popout | null = null;
 let hotkey: Hotkey | null = null;
+/** His pop-out switches. Read once at start and kept in step when he changes one. */
+let settings: PopoutSettings = readSettings(STATE_DIR);
 /** The separate castLabs process that plays paid video (step 6.4). */
 let drm: DrmRuntime | null = null;
 
@@ -156,7 +159,9 @@ app.whenReady().then(async () => {
       pages,
       preloadPath: path.join(HERE, 'preload.cjs'),
       remembered: rememberedBox,
-      remember: rememberBox,
+      // "Your size wins", unless he has switched that off (sheet 4, section 7).
+      remember: box => { if (settings.rememberSize) rememberBox(box); },
+      settings: () => settings,
     });
     console.log(`shell: pages on ${pages.origin}`);
 
@@ -179,6 +184,16 @@ app.whenReady().then(async () => {
 
   ipcMain.on('popout:hide', e => { if (fromPopout(e)) popout?.toggleHidden(); });
   ipcMain.on('popout:close', e => { if (fromPopout(e)) popout?.close(); });
+  ipcMain.on('popout:opacity', (e, v) => { if (fromPopout(e) && typeof v === 'number') popout?.setOpacity(v); });
+  ipcMain.on('popout:fullscreen', e => { if (fromPopout(e)) popout?.toggleFullscreen(); });
+  ipcMain.on('popout:chrome', (e, px) => { if (fromPopout(e) && typeof px === 'number') popout?.setChrome(px); });
+  ipcMain.on('popout:tomac', e => {
+    if (!fromPopout(e)) return;
+    // Handing it to the MacBook is step 6.9, which extends the listener that already exists there.
+    // Until then, say so rather than letting the keycap do nothing at all.
+    const url = popout?.link;
+    if (url) console.log(`shell: send to the MacBook is step 6.9; nothing sent for ${url.slice(0, 60)}`);
+  });
 
   link.start();
   // AANG_SHELL_PAGE lets the look driver (tests/fakecore/look-shell.mjs) open any page for a picture.

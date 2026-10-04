@@ -13,6 +13,14 @@ export interface ShellBridge {
   /** Out of the way, still playing. */
   popoutHide(): void;
   popoutClose(): void;
+  /** How see-through the window is, 0.2 to 1. */
+  popoutOpacity(v: number): void;
+  popoutFullscreen(): void;
+  popoutToMac(): void;
+  /** How many pixels of the window are Aang's own chrome, measured by the page. */
+  popoutChrome(px: number): void;
+  /** His switches, so the page knows whether it may fade. */
+  onPopoutSettings(fn: (s: { fadeControls?: boolean; alwaysOnTop?: boolean; clickThrough?: boolean }) => void): () => void;
 }
 
 declare global {

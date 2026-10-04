@@ -74,3 +74,58 @@ iframe{ width:100%; height:100%; border:0; display:block; background:#000 }
   background:linear-gradient(135deg,transparent 0 46%,var(--gold-deep) 46% 54%,transparent 54% 64%,
     var(--gold-deep) 64% 72%,transparent 72% 82%,var(--gold-deep) 82% 90%,transparent 90%);
   opacity:.75 }
+
+/* ---------------------------------------------------------------- the controls (step 6.5)
+   Every part here is lifted from sheet 4 section 2: the groove with a gem knob is the same shape at
+   three sizes, and nothing new was drawn. The buttons are big because he is hitting them with a raid
+   going on. */
+.frame{ grid-template-rows:var(--bar) 1fr auto }
+
+.ctrl{ -webkit-app-region:no-drag; display:flex; align-items:center; gap:9px; padding:9px 10px;
+  background:linear-gradient(180deg,var(--panel2),var(--ink)); border-top:3px solid var(--outline) }
+
+.ico{ width:30px; height:30px; flex:0 0 auto; border-radius:7px; border:2.5px solid var(--outline); cursor:pointer;
+  display:grid; place-items:center; position:relative; top:0; transition:top .05s, box-shadow .05s;
+  background:linear-gradient(180deg,var(--plum),var(--plum-deep));
+  box-shadow:0 3px 0 var(--outline), inset 0 2px 0 rgba(150,110,200,.45) }
+.ico:active{ top:3px; box-shadow:0 0 0 var(--outline), inset 0 2px 0 rgba(150,110,200,.45) }
+/* Gold means "the main thing here", and play is the only gold button. */
+.ico.gold{ background:linear-gradient(180deg,var(--gold-lit),var(--gold-deep));
+  box-shadow:0 3px 0 var(--outline), inset 0 2px 0 rgba(255,255,255,.5) }
+.ico svg{ width:15px; height:15px; fill:#e8e0f5 }
+.ico.gold svg{ fill:#2a1c00 }
+/* A control the player will not answer is dimmed, never hidden: he should see it is there and why. */
+.ico[disabled]{ opacity:.35; cursor:default; pointer-events:none }
+
+/* The groove. Scrub, volume and see-through are this one shape at three sizes. */
+.track{ flex:1; min-width:0; height:10px; border-radius:5px; position:relative; cursor:pointer;
+  background:linear-gradient(180deg,rgba(0,0,0,.72) 0 4px,rgba(255,224,150,.2) 4px 7px,transparent 7px);
+  box-shadow:inset 0 2px 3px rgba(0,0,0,.6) }
+.track .fill{ position:absolute; left:0; top:0; height:7px; border-radius:4px; pointer-events:none;
+  background:linear-gradient(180deg,var(--gold-lit) 0 3px,var(--gold-deep) 3px 7px) }
+.track .knob{ position:absolute; top:-5px; width:15px; height:19px; border-radius:4px; margin-left:-7px; pointer-events:none;
+  background:linear-gradient(180deg,var(--gold-lit),var(--gold-deep));
+  border:2.5px solid var(--outline); box-shadow:inset 0 2px 0 rgba(255,255,255,.6), 0 2px 0 rgba(0,0,0,.5) }
+.track.short{ flex:0 0 78px; max-width:78px }
+/* A live stream has no place to scrub to: full and unmoving, as sheet 4 says. */
+.track.live{ cursor:default }
+.track.live .knob{ display:none }
+.track.live .fill{ width:100% }
+
+.tnum{ font:500 11.5px var(--body); color:#9a90b5; font-variant-numeric:tabular-nums; flex:0 0 auto }
+.tnum.live{ color:var(--red); font:400 9px var(--label); letter-spacing:1px }
+
+/* See-through: the half-filled circle from the mockup, beside volume because they are the two things
+   he nudges without thinking. One for his ears, one for his eyes. */
+.halfmoon{ width:15px; height:15px; border-radius:50%; border:2px solid var(--gold-lit);
+  background:linear-gradient(90deg,var(--gold-lit) 0 50%,transparent 50%) }
+
+/* The controls get out of the way (sheet 4, section 2). Two seconds after the mouse stops, the wood and
+   the controls fade and the corners round off: just the picture, sitting over his game. Everything
+   comes back the moment the mouse crosses the window, with no click and no hunting for a hidden edge.
+   The picture itself never fades. */
+.frame .bar, .frame .ctrl{ transition:opacity .35s ease }
+.frame.faded .bar, .frame.faded .ctrl{ opacity:0; pointer-events:none }
+.frame.faded{ grid-template-rows:0 1fr 0 }
+.frame{ transition:border-radius .35s ease }
+.frame.faded{ border-radius:14px }

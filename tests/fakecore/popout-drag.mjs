@@ -21,7 +21,10 @@ mkdirSync(outDir, { recursive: true });
 const BRAIN_PORT = 47989;
 const STATE = path.join(outDir, 'state');
 mkdirSync(STATE, { recursive: true });
-const BAR = 34;                       // the wooden grab bar, matching --bar in popout.css
+// Everything Aang draws around the picture: the bar, both control rows and the frame's border. It
+// grew from 34 to 132 when the controls arrived in 6.5, which is why the page measures it at runtime
+// and tells the main process rather than anyone hard-coding it in the product.
+const CHROME = 132;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const results = [];
 const check = (name, ok, detail = '') => { results.push(ok); console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? '  ' + detail : ''}`); };
@@ -66,8 +69,8 @@ await sleep(1500);
 check('a squashed size is written down corrected, not as dragged', existsSync(saved));
 if (existsSync(saved)) {
   const b = readBox();
-  check('the picture is back to 16 by 9', Math.abs(b.width / (b.height - BAR) - 16 / 9) < 0.05,
-    `window ${b.width}x${b.height}, picture ${b.width}x${b.height - BAR}`);
+  check('the picture is back to 16 by 9', Math.abs(b.width / (b.height - CHROME) - 16 / 9) < 0.05,
+    `window ${b.width}x${b.height}, picture ${b.width}x${b.height - CHROME}`);
   // The width he ended at is kept and the HEIGHT is what moves, so the picture gets the right shape
   // without the window jumping to a size he never chose.
   //
