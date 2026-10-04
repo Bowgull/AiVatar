@@ -23,6 +23,7 @@ import { notReadyBecause, serviceFor } from './services.ts';
 import { readSettings, writeSettings, type PopoutSettings } from './settings.ts';
 import { FindSkips } from './skip/find.ts';
 import { DEFAULT_SKIPS, withDefaults, type SkipSettings } from './skip/settings.ts';
+import { blockAds, type AdBlock } from './skip/ads.ts';
 import type { Box } from './geometry.ts';
 
 const PORT = Number(process.env.AANG_PORT ?? 47831);
@@ -61,6 +62,7 @@ function rememberBox(box: Box): void {
 let pages: PageServer | null = null;
 let popout: Popout | null = null;
 let hotkey: Hotkey | null = null;
+let ads: AdBlock | null = null;
 /** His pop-out switches. Read once at start and kept in step when he changes one. */
 let settings: PopoutSettings = readSettings(STATE_DIR);
 /** What he has asked Aang to skip. Twitch ads are off until he decides (step 6.6). */
@@ -186,6 +188,16 @@ app.whenReady().then(async () => {
 
     // The key that puts it away and brings it back, still playing (sheet 4, way 5).
     // Whichever runtime is playing, the key hides it: he should not have to know which is which.
+    // Ads, on the stock Shell's session only. The paid-video runtime never gets this: a subscription
+    // has no ads to block, and a request filter in front of a licence negotiation breaks playback for
+    // nothing. Deliberately not awaited: fetching lists must never hold up the windows.
+    if (skipSettings.youtubeAds) {
+      void blockAds(session.defaultSession, STATE_DIR).then(b => {
+        ads = b;
+        if (b) console.log(`shell: blocking ads with ${b.lists} lists`);
+      });
+    }
+
     hotkey = holdHotkey(STATE_DIR, () => popout?.toggleHidden());
     if (hotkey.active) console.log(`shell: ${hotkey.active} hides and shows the pop-out`);
   } catch (e) {
@@ -225,7 +237,7 @@ function fromPopout(e: Electron.IpcMainEvent): boolean {
   return Boolean(w && e.sender === w.webContents);
 }
 
-app.on('before-quit', () => { link.stop(); hotkey?.release(); popout?.close(); drm?.close(); pages?.close(); });
+app.on('before-quit', () => { link.stop(); hotkey?.release(); ads?.stop(); popout?.close(); drm?.close(); pages?.close(); });
 
 // Nothing a page does may take the Shell down silently.
 process.on('uncaughtException', e => console.error('shell: uncaught: ' + (e as Error).message));
