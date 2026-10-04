@@ -176,3 +176,65 @@ test('a tool call written out as a stage direction never reaches him', () => {
   assert.equal(lint('(after get_time) 2:51 pm.', ['mcp__aang__get_time']).cleaned, '2:51 pm.');
   assert.equal(lint('Sure (the raid is at nine), see you there.', []).cleaned, 'Sure (the raid is at nine), see you there.', 'ordinary brackets are left alone');
 });
+
+// ---------------------------------------------------------------- 6.11: structure where it can be drawn
+// Until now every reply had its formatting stripped, including the ones going to Discord, which can
+// draw it perfectly well. What changes is not the writing: it is who the reply is for.
+
+test('formatting survives where it can be drawn, and is flattened where it cannot', () => {
+  const rich = '**Three jobs** are waiting.\n\n- one\n- two';
+  // Discord, and from 6.12 the new bubble.
+  assert.equal(lint(rich, [], '', 'rich').cleaned, rich, 'nothing touched');
+  // The old GDI bubble paints one run of text: asterisks would be asterisks on his screen.
+  const flat = lint(rich, [], '', 'plain');
+  assert.ok(!flat.cleaned.includes('**'), flat.cleaned);
+  assert.ok(flat.cleaned.includes('Three jobs are waiting.'));
+  assert.ok(flat.cleaned.includes('• one'), 'a bullet is still a bullet');
+  assert.ok(flat.fixed.includes('markdown'), 'and it is recorded as a repair');
+});
+
+test('plain is the default, so nothing that forgets to say gets raw markdown', () => {
+  // Every other caller in the Core passes nothing. The safe answer has to be the default: a stray
+  // asterisk on his screen is ugly, a missing one is invisible.
+  assert.equal(lint('**bold**', []).cleaned, 'bold');
+});
+
+test('a table becomes something readable rather than pipes', () => {
+  // 6.11 lets the model write tables at all, so this is new ground: before, it never produced one.
+  const t = 'Here:\n\n| Job | Pay |\n| --- | --- |\n| Dev | 90k |\n| QA | 70k |';
+  const out = lint(t, [], '', 'plain').cleaned;
+  assert.ok(!out.includes('|'), out);
+  assert.ok(!/---/.test(out), 'the separator row is gone, not left as dashes');
+  assert.ok(out.includes('Job - Pay'));
+  assert.ok(out.includes('Dev - 90k'));
+  assert.ok(!/\n\n\n/.test(out), 'and no hole where the separator was');
+});
+
+test('the rules that are not about formatting still apply to both', () => {
+  // Rich does not mean unchecked: a closing offer and a stray exclamation are still wrong, and
+  // leaked reasoning must never reach him whatever is drawing it.
+  for (const how of ['rich', 'plain'] as const) {
+    const r = lint('**Done.** Let me know if you need anything else!', [], '', how);
+    assert.ok(!/let me know/i.test(r.cleaned), `${how}: ${r.cleaned}`);
+    assert.ok(!r.cleaned.includes('!'), how);
+  }
+  assert.ok(lint('**hi**', [], '', 'rich').cleaned.includes('**'), 'but formatting itself survives');
+});
+
+test('the voice asks for structure only when it earns it', () => {
+  const p = buildSystemPrompt('', '');
+  assert.match(p, /Structure only when it earns it/);
+  assert.match(p, /never a table with one row/, 'the specific failure modes are named, not implied');
+  assert.ok(!/no markdown/i.test(p), 'the old blanket ban is gone, not merely contradicted');
+  assert.match(p, /present_list/, 'and the rows-in-the-bubble rule still stands');
+});
+
+test('a sentence ending in bold still counts as a sentence', () => {
+  // The regression 6.11 introduced and nearly shipped: with markdown kept, "**Done.**" has its full
+  // stop INSIDE the bold, so splitting on ". " saw one sentence and the closing offer survived.
+  const r = lint('**Done.** Let me know if you need anything else.', [], '', 'rich');
+  assert.equal(r.cleaned, '**Done.**');
+  assert.ok(r.fixed.includes('closing offer'));
+  // The same for a quote and a bracket, which close the same way.
+  assert.equal(lint('He said "no." Hope that helps.', [], '', 'rich').cleaned, 'He said "no."');
+});

@@ -1622,7 +1622,7 @@ change display scaling; summon with the hotkey.
 
 ---
 
-### `[ ]` 6.11 Rich replies  **BLOCKS 6.12**
+### `[~]` 6.11 Rich replies  **BUILT 2026-10-04**; live on Discord now, on the desktop at 6.12  **BLOCKS 6.12**
 
 **Why:** the biggest daily win. `voice.ts` line 18 forbids formatting because the GDI bubble cannot
 draw it, and a lint strips any markdown. The result is walls of prose.
@@ -1633,6 +1633,33 @@ and colour. `present_list` keeps working. The lint stays for the old bubble unti
 Dividers follow sheet 1: forged end-caps between topics, carved grooves between items.
 
 **Done when:** the three-jobs example comes out as sheet 1's reply, side by side.
+
+**BUILT 2026-10-04.** 6 new tests; 31 in the voice suite, all passing.
+
+**It pays off TODAY, not at 6.12.** The blanket ban was stripping formatting from every reply
+*including the ones going to Discord*, which has always been able to draw it. So his phone has been
+getting flattened text for the sake of a bubble that was never going to see it. Discord is now `rich`;
+the desktop stays `plain` until 6.12 replaces the GDI bubble, and `canDraw()` in core.ts is the single
+line that flips.
+
+**The prompt is deliberately the SAME either way.** Telling the model per turn whether it may format
+would change the system prompt between turns and throw away the prompt cache, which is most of what
+keeps his weekly quota survivable. The model always writes its best reply; the lint flattens it where
+it has to. `plain` is the default argument, so any caller that forgets gets the safe answer.
+
+**Line 18 rewritten, not deleted**, with his rule: structure only when it earns it. It names the
+failure modes rather than implying them - no heading on a single-part answer, no one-row table, never
+bold a whole sentence, one heading at most. `present_list` is untouched and still carries real rows.
+
+**A REGRESSION THIS STEP INTRODUCED AND NEARLY SHIPPED.** Allowing markdown through broke the rule that
+drops a closing offer of help: "**Done.** Let me know if you need anything else." has its full stop
+INSIDE the bold, so splitting sentences on ". " saw one sentence and the offer survived. It was
+impossible before, because markdown was always stripped first. The split now steps over markup, quotes
+and brackets that close after the stop, and the case is a named test. Found by a test, not by reading.
+
+**Tables flatten properly** for the plain path, which is new ground: before this the model never
+produced one. The separator row goes rather than becoming a line of dashes, rows become "a - b", and
+the hole it leaves is closed.
 
 ---
 

@@ -15,7 +15,7 @@ State only what a tool returned this turn, what Joshua told you, or what you are
 Read past typos, dropped apostrophes and vague references. "the chibi", "the overlay" and "the pet" mean you. Never correct his spelling.
 Your humor is a dry aside now and then. Your warmth shows in noticing what he actually said.
 After a tool succeeds, say what you found or did in plain past tense. If it failed, say what failed and what he can do.
-Write plain text only: no markdown, no emoji, no exclamation marks unless he uses them first. The moment a reply has two or more separate named things - jobs, files, emails, results, options, even items he made up himself for testing - call present_list alongside it instead of writing them out as a sentence: your own reply stays one or two sentences, the tool is the list, every time, not only when the items came from a real search.
+Structure only when it earns it. Most answers are one to three plain sentences with no formatting at all: "It is 3:14" is a line, never a heading. Reach for shape only when the answer really has parts - several jobs, a comparison, steps to follow in order, findings from a search - and then use the smallest thing that works: one short heading, one line per item, bold on the few words that actually matter. Never a heading on a single-part answer, never a table with one row, never bold a whole sentence, and never more than one heading unless he asked for a document. No emoji. No exclamation marks unless he uses them first. The moment a reply has two or more separate named things - jobs, files, emails, results, options, even items he made up himself for testing - call present_list alongside it instead of writing them out as a sentence: your own reply stays one or two sentences, the tool is the list, every time, not only when the items came from a real search.
 Use run for commands: git, builds, tests, anything with output worth reading. It is the only way you can run a command.
 When he asks what you can do, call my_abilities and answer from what it returns: a sentence or two, never a menu.
 Longer jobs belong in Claude Code, in the Claude app, and start_claude opens a new session there with his request typed in; he presses Enter to send it. His job search is one: when he asks for his job scan, job search or job hunt, call start_claude with where "job hunt" and name "job hunt", passing his request as the task - do not try to search for jobs yourself. Afterwards you pass on what Claude needs from him or what it found; the full detail stays in Claude, which is where he answers it.
@@ -159,6 +159,12 @@ function stripMarkdown(t: string): string {
   s = s.replace(/\[([^\]\n]+)\]\(([^)\n]+)\)/g, (_, text, url) => text.trim() === url.trim() ? url : `${text} (${url})`); // [text](url)
   s = s.replace(/(\S)\s+--\s+(\S)/g, '$1 - $2');                    // the ASCII em dash the voice already bans, spelled out
   s = s.replace(/^(\s*)[-*+]\s+/gm, '$1• ');                   // - bullet / * bullet -> a plain bullet character
+  // A table is the one thing that does not survive on its own: the separator row becomes a line of
+  // dashes and every row keeps its pipes. Added with 6.11, which lets the model write tables at all.
+  s = s.replace(/^\s*\|?[\s:]*-{2,}[-\s|:]*\|?\s*$/gm, '');          // |---|---| separator: gone
+  s = s.replace(/^\s*\|(.+)\|\s*$/gm, (_, row: string) =>              // | a | b | -> a - b
+    row.split('|').map(c => c.trim()).filter(Boolean).join(' - '));
+  s = s.replace(/\n{3,}/g, '\n\n');                                   // the gaps that leaves
   return s;
 }
 
@@ -185,7 +191,18 @@ export interface LintResult {
   flags: string[];
 }
 
-export function lint(text: string, toolsUsed: string[], userText = ''): LintResult {
+/**
+ * Can the thing that will SHOW this reply draw formatting? (step 6.11)
+ *
+ * The prompt is deliberately the same either way. Telling the model per turn
+ * whether it may use formatting would change the system prompt between turns,
+ * which throws away the prompt cache, and the cache is most of what keeps his
+ * weekly quota survivable. So the model always writes its best reply and this
+ * flattens it where it has to.
+ */
+export type CanDraw = 'rich' | 'plain';
+
+export function lint(text: string, toolsUsed: string[], userText = '', canDraw: CanDraw = 'plain'): LintResult {
   const fixed: string[] = [];
   const flags: string[] = [];
   let t = text.trim();
@@ -199,14 +216,24 @@ export function lint(text: string, toolsUsed: string[], userText = ''): LintResu
   const staged = t.replace(/\((?:calls|after|he says)\b[^)\n]*\)\s*/gi, '').trim();
   if (staged !== t && staged) { t = staged; fixed.push('stage direction'); flags.push('wrote a tool call as text'); }
 
-  const unmarked = stripMarkdown(t).trim();
-  if (unmarked !== t && unmarked) { t = unmarked; fixed.push('markdown'); }
+  // 6.11: kept where it can actually be drawn (Discord today, the new bubble from 6.12), flattened
+  // where it cannot. The old GDI bubble paints a single run of text: markdown left in it is not
+  // formatting, it is asterisks and hashes on his screen.
+  if (canDraw === 'plain') {
+    const unmarked = stripMarkdown(t).trim();
+    if (unmarked !== t && unmarked) { t = unmarked; fixed.push('markdown'); }
+  }
 
   if (EMOJI.test(t)) { t = t.replace(EMOJI, '').replace(/[ \t]{2,}/g, ' ').replace(/\s+([.,!?])/g, '$1').trim(); fixed.push('emoji'); }
   EMOJI.lastIndex = 0;
 
   // A closing offer of more help carries no information; drop that final sentence.
-  const sentences = t.split(/(?<=[.!?])\s+/);
+  //
+  // The split has to step over any markup that closes AFTER the full stop, because "**Done.** Let me
+  // know if you need anything else." is two sentences and the plain split saw one, so the offer
+  // survived. It could not happen before 6.11, when markdown was always stripped first; it appeared
+  // the moment formatting was allowed through. Found by a test, not by reading.
+  const sentences = t.split(/(?<=[.!?][*_`"'\)\]]*)\s+/);
   if (sentences.length > 1 && CLOSERS.test(sentences[sentences.length - 1]!)) {
     sentences.pop(); t = sentences.join(' '); fixed.push('closing offer');
   }
