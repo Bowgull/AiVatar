@@ -1528,21 +1528,24 @@ mockup exists and he has approved it.** Not yet drawn:
 
 ---
 
-### `[~]` 6.10 The look, made real  **BLOCKS 6.11, 6.10b**  **BUILT 2026-10-04; one question for him**
+### `[x]` 6.10 The look, made real  **DONE 2026-10-04** (322eeee, e543c12)  **BLOCKS 6.11, 6.10b**
 
 **Why:** "I LOVE the weight of the buttons currently". If CSS cannot match them, stop and think.
 
 **Where:** `docs/cockpit/cockpit.css` becomes the Shell's stylesheet.
 
 **The change:**
-- Checked against `Theme.cs` value by value. `Theme.Lip` is 3 px and stays 3 px.
+- ~~Checked against `Theme.cs` value by value. `Theme.Lip` is 3 px and stays 3 px.~~
+  **Overtaken 2026-10-04: the sheet's 5 px lip is what ships.** See the decision below.
 - **Fonts bundled into the app**, not loaded from Google: Cinzel, Figtree, Silkscreen. The mockups
   load them from the web; the app must work offline.
 - **Three distinct "pressed in" looks**, from the research: clicked, keyboard focus, switched on.
   Today they would look alike, which is the biggest accessibility hazard this style introduces.
 - Targets at least 24 px; with reduced motion on, buttons keep their depth but lose their travel.
 
-**Done when:** he cannot tell the old keycap from the new one by look or feel, side by side.
+**Done when:** ~~he cannot tell the old keycap from the new one by look or feel, side by side.~~
+**Overtaken.** That line predates the sheet and contradicted it; his answer settles it in the sheet's
+favour.
 
 **BUILT 2026-10-04.** `src/Shell/pages/cockpit.css` is the real stylesheet; `docs/cockpit/cockpit.css`
 is now the mockup it was copied from, and the two must be kept in step or one of them deleted.
@@ -1575,14 +1578,27 @@ away every shadow and the shadows are the entire language.
 **`src/Shell/pages/keycaps.html` is the acceptance test**, since "done when" is a side-by-side. The left
 column is Keycap.cs rebuilt in CSS number for number, each value annotated with the line it came from.
 
-**THE QUESTION FOR HIM, and the reason this is not ticked.** The sheet and this step disagree, and both
-are his:
-  - the step says "Theme.Lip is 3px and stays 3px" and "he cannot tell the old from the new";
-  - the sheet he approved on 2026-10-03 sets `--lip:5px`, a 3px near-black outline on every button, a
-    full-width inset highlight, a drop shadow, and replaces the pixel label face with Figtree.
-Those cannot both hold: the sheet is a visibly chunkier button, on purpose. Nothing is being decided
-here. The page puts them side by side so he can say which, and what he picks is what 6.11 and 6.10b
-build on.
+**SETTLED 2026-10-04: the sheet, exactly as drawn.** His words: "why cant we just go with exactly what
+the sheet had i dont want to be redesigining a bunch of shit right now."
+
+He first picked the current keycap and asked for darker shading under it, and I built a four-step picker
+for that. **That was the wrong move and the picker is deleted.** He had already decided this look on
+2026-10-03; re-opening it as a side-by-side turned a build step into a design review he did not ask for,
+and the second question was worse than the first. The lesson, which is the point of writing this down:
+**when a decision already exists, build it.** A contradiction in this document is for me to resolve by
+reading the newer decision, not for him to re-litigate.
+
+**His darker shading came free.** In the sheet the strip under a button is `--outline` (#120A05, near
+black), not dark gold, with a soft drop shadow under that. It is already far darker than the current
+app, so the thing he asked for is what the sheet does.
+
+**Deleted with the decision:** `keycaps.*` (the old-versus-new page), `lip.*` (the four-step picker), and
+the three WOFF2 faces that existed only to render the old look in a browser. They had served their
+purpose and would have rotted: `keycaps.css` held a hand-copy of Keycap.cs that nothing kept in step.
+
+**Keycap.cs and Theme.cs are NOT touched.** The WinForms app keeps its own look until the window it
+draws is actually replaced, which is 6.12 and later. Changing both at once would leave him with two
+different-looking halves and no way to tell which was which.
 
 ---
 
