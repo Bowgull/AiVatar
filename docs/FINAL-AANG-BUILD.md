@@ -1162,7 +1162,7 @@ mode. Netflix additionally waits on his castLabs EVS signup (decision 31).
 
 ---
 
-### `[ ]` 6.5 The controls
+### `[~]` 6.5 The controls  **BUILT 2026-10-04** (cac988a); the settings panel and his eyes still owed
 
 **Why:** he plays with a raid going on; the buttons are big for that reason.
 
@@ -1173,6 +1173,42 @@ come back on hover; never while paused.** Settings panel as drawn: always on top
 fade controls, smooth video, clicks go through to the game (off).
 
 **Done when:** sheet 4 sections 2, 3 and 7 match side by side, and the fade feels right to him.
+
+**BUILT 2026-10-04 (cac988a).** 11 checks in `tests/fakecore/controls.mjs`, against a real player.
+
+**Proved, not mocked:** the clock reads `0:15 / 10:35`, pressing play really pauses YouTube and the
+clock really stops, pressing it again really starts it. That works only because **`enablejsapi` and the
+page's own `origin`** are both on the address: without either, the player accepts the address and
+ignores every command, which looks exactly like controls that are wired up and do nothing.
+
+**What each control can and cannot do, said plainly rather than faked.** YouTube and Twitch answer, so
+play, pause, scrub and volume work. **A paid service does not**: it is a separate view underneath,
+because it refuses to be framed (6.4), so Aang cannot reach inside its player. Those controls are
+**dimmed**, never hidden, and the clock says "its own controls", because the service's own player is
+right there in the picture. **See-through and fullscreen work everywhere**, because they are the
+window's doing, not the page's. See-through never goes below 20%: a window he cannot find is a window
+he cannot close.
+
+**Six bugs, every one found by running it and none by a unit test:**
+- **The page server was refusing Aang's own JavaScript.** A module script is always fetched in CORS
+  mode, so the browser sends an origin header even for our own files, and "refuse anything with an
+  origin" refused `player.js`. None of the page's code ran at all.
+- The content policy blocked the grooves from positioning themselves, because `style-src 'self'`
+  covers style attributes too. `style-src-attr` is the narrow allowance for exactly that.
+- The fade timer was only armed by a mouse move, so it never fired on its own.
+- Pressing pause armed the fade before the player registered the pause.
+- A groove died silently when pointer capture refused a pointer it did not know.
+- **The letterboxing came back**, because the chrome around the picture grew from 34 pixels to 132 the
+  moment the controls arrived. The page now **measures itself and tells the main process**, since a
+  hard-coded figure goes stale every time a control is added and nobody notices the black bars.
+
+**STILL OWED:**
+- **The settings panel as drawn** (sheet 4 section 7). The switches exist in `settings.ts` with his
+  defaults and are applied; there is no panel to change them from yet. The skipping switches on that
+  sheet are step 6.6.
+- **The DRM runtime has the bar but not the control strip.** `stack.ts` holds two regions and needs a
+  third for a bottom strip. A paid service has its own controls meanwhile.
+- **His eyes on the fade**, which is the half of "done when" only he can give.
 
 ---
 
