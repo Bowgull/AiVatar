@@ -190,6 +190,13 @@ p.sur b{color:#cfc4ea}
   animation:breathe 3.2s ease-in-out infinite}
 @keyframes breathe{50%{opacity:.35}}
 .glow{position:absolute;inset:-8px;border-radius:20px;box-shadow:0 0 18px 4px rgba(200,232,255,.55);pointer-events:none}
+/* the real signals, Theme.AvatarGlow #C8E8FF, drawn on the sprite by the C# pet */
+.eyeglow{position:absolute;width:12px;height:12px;border-radius:50%;background:#C8E8FF;
+  box-shadow:0 0 10px 5px rgba(200,232,255,.75);animation:breathe 2.9s ease-in-out infinite;pointer-events:none}
+.arrowglow{width:10px;height:18px;border-radius:5px}
+.pet.halo{border:3px solid #3a2f55;box-shadow:0 0 0 5px rgba(200,232,255,.55),0 0 22px 6px rgba(200,232,255,.45);
+  animation:breathe 2.9s ease-in-out infinite}
+.pet.halo.loom{box-shadow:0 0 0 9px rgba(200,232,255,.7),0 0 34px 14px rgba(200,232,255,.6)}
 
 /* =========================================== 5. THE CHECKLIST */
 .check{display:flex;gap:10px;align-items:center;padding:5px 0;font:500 14.5px var(--body)}
@@ -415,18 +422,34 @@ takes a click: Enter or Esc, without leaving the keyboard.</p>
 <h2 class="part">3 &middot; STUCK, AND WORKING <span class="step">6.12</span> <span class="step">6.13</span></h2>
 
 <h3 class="sur">When a Claude Code job is stuck waiting on you</h3>
-<p class="sur">From step 4.4: the one state where something has really stopped. Aang says so once, then
-goes quiet, and this mark stays on the pet until you deal with it. <b>It is not the working glow</b>,
-so the two can never be confused, and it only breathes slowly, so it can sit there through a raid
-without pulling your eye.</p>
-<div class="two" style="align-items:center;gap:60px">
-  <div style="position:relative"><div class="pet"><span class="lbl">THE PET</span></div>
-    <span class="waitmark"><i></i>CLAUDE IS WAITING ON YOU</span></div>
-  <div style="position:relative"><div class="pet"><span class="lbl">FOR COMPARISON: WORKING</span></div>
-    <i class="glow"></i></div>
-  <p class="sur" style="max-width:340px;margin:0">Click the mark and the bubble says what it is waiting
-  for. Answer it and the mark goes away.</p>
+<p class="sur"><b>Already built in step 4.4, and kept exactly as it is.</b> Both signals are drawn on
+Aang himself, by the C# pet, which is not being rebuilt. So there is nothing new to design here; this
+section only records what the new bubble must not break. (An earlier draft of this sheet invented a new
+amber plaque for this. Wrong: the real one already exists, and it is better.)</p>
+<div class="two" style="align-items:center;gap:56px">
+  <div style="position:relative;width:120px">
+    <div class="pet"><span class="lbl">WORKING</span></div>
+    <i class="eyeglow" style="left:44px;top:38px"></i><i class="eyeglow" style="left:64px;top:38px"></i>
+    <i class="eyeglow arrowglow" style="left:55px;top:16px"></i>
+  </div>
+  <div style="position:relative;width:120px">
+    <div class="pet halo"><span class="lbl">STUCK, AT YOUR DESK</span></div>
+  </div>
+  <div style="position:relative;width:120px">
+    <div class="pet halo loom"><span class="lbl">STUCK, IN A GAME</span></div>
+  </div>
 </div>
+<div class="two" style="margin-top:34px">
+  <p class="sur" style="flex:1;min-width:220px;margin:0"><b>Working:</b> the Avatar State glow. His arrow
+  tattoo and both eyes glow soft white-blue and breathe slowly, about every three seconds.</p>
+  <p class="sur" style="flex:1;min-width:220px;margin:0"><b>Stuck at your desk:</b> a quiet halo around
+  his whole body in the same white-blue, pulsing gently. No burst, no sound: you are sitting there. It
+  stays until you deal with it, standing or tucked into an edge.</p>
+  <p class="sur" style="flex:1;min-width:220px;margin:0"><b>Stuck while a game has focus:</b> the halo
+  looms larger, with a burst and a sound, because a game has your attention.</p>
+</div>
+<p class="sur" style="margin-top:16px"><b>What 6.12 checks:</b> click the halo and the new bubble says what
+the job is waiting for; answer it and the halo goes. That is the only new part.</p>
 
 <h3 class="sur">A job with several steps, shown as it happens</h3>
 <p class="sur">Today each step's label <b>replaces</b> the last, so a long job is motion with no memory.
@@ -435,15 +458,15 @@ not broken, but only when they can see something happening.</p>
 <div class="two">
   <div class="parch tex tail" style="width:440px">
     <p class="t-eyebrow">WORKING ON IT &middot; STEP 3 OF 5</p>
-    <div class="check done"><span class="mark">DONE</span><span>Read your job search notes</span><span class="chip local">LOCAL</span></div>
-    <div class="check done"><span class="mark">DONE</span><span>Checked three new postings</span><span class="chip local">LOCAL</span></div>
+    <div class="check done"><span class="mark">DONE</span><span>Read your job search notes</span><span class="chip local">QWEN</span></div>
+    <div class="check done"><span class="mark">DONE</span><span>Checked three new postings</span><span class="chip local">QWEN</span></div>
     <div class="check now"><span class="mark">NOW</span><span>Comparing them to what you want</span><span class="chip claude">CLAUDE</span></div>
     <div class="check todo"><span class="mark">NEXT</span><span>Writing it up</span></div>
     <div class="check todo"><span class="mark">NEXT</span><span>Showing you</span></div>
     <div class="keys"><button class="key sm">Stop<span class="k">Esc</span></button></div>
   </div>
   <div style="flex:1;min-width:260px">
-    <p class="sur"><b>Each step says who did it.</b> Purple LOCAL means your own machine, free. Orange
+    <p class="sur"><b>Each step says who did it.</b> Purple QWEN means Qwen did it, on your own machine, for free. Orange
     CLAUDE means it went to Claude and cost quota. Same colours as the strip.</p>
     <p class="sur">When a step fails it turns red and says why, and the job stops there rather than
     pretending. <b>Stop</b> always actually stops.</p>

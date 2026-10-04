@@ -1057,7 +1057,7 @@ ports them starts by reading the code.
 | Right-click a message: reply to it, add as context, copy, forget (4.3b) | `BubbleView`, `ConversationView` | 6.12, 6.15 |
 | Files and links in a message become pressable chips (4.5) | `Entities` | 6.12, 6.15 |
 | "Working on it" dots and the tool label | `bubble.dots`, `tool` | 6.12, then the checklist in 6.13 |
-| A quiet signal when something is genuinely stuck (4.4) | `BubbleView` | 6.12 |
+| **Working**: the Avatar State glow on his arrow and eyes. **Stuck waiting on him (4.4)**: a halo outline around his whole body, quiet at the desk, looming with a burst and sound when a game has focus, held until dealt with | `PetWindow` (drawn on the sprite) | **stays C#, nothing to rebuild.** 6.12 only checks it still works once the bubble is Electron |
 | Lists with coloured status rows (`present_list`) | `StructuredList` | 6.11 |
 | Asks in plain language: permission, consent, a fact to remember, a backup | `permission`, `consent`, `fact.ask`, `backup.ask` | 6.12 |
 | Quiet mode, mute, hush | `quiet`, `mute`, `hush` | 6.12 |
@@ -1218,8 +1218,8 @@ Phase 7 makes most.
 
 ### `[ ]` 6.16 The palette move and the local model on the strip
 
-Qwen takes the purple; the three Claude modes move to the warm end. **A `Local` mode on the pill** and
-a `[local]` marker. **This is Phase 8 step 6; done once, here.**
+Qwen takes the purple; the three Claude modes move to the warm end. **A `Qwen` mode on the pill** and
+a `[qwen]` marker, by its real name (decision 8), never "local" or "free". **This is Phase 8 step 6; done once, here.**
 
 ---
 
@@ -1610,11 +1610,11 @@ model mid-game. Quick extraction may run; multi-step thinking waits until he sto
 **Near the quota limit: a switch, never automatic.** He may flip it, or Aang may ask, but Aang does
 not change his own behaviour because the week is nearly gone. Predictability beats cleverness.
 
-**A `Local` mode on the pill.** Auto | Local | Quick | Smart | Deep. He picks it when he wants
+**A `Qwen` mode on the pill.** Auto | Qwen | Quick | Smart | Deep. He picks it when he wants
 something done for free and does not mind waiting. This touches `Mode` in `protocol.ts`, `pickLane`,
 and the mode chip in `InputWindow`.
 
-**A `[local]` marker on every reply local produced.** Quiet and always there, so he learns over time
+**A `[qwen]` marker on every reply Qwen produced.** Quiet and always there, so he learns over time
 what it can handle alone.
 
 **Research drops split in two.** Local reads the page and pulls the facts; Claude judges whether it
@@ -1647,7 +1647,7 @@ status colours, so the drawing exists.
 picture a click away - the pattern Claude Code and Cursor both use.
 
 ```
-Working on that myself                    [local]
+Working on that myself                    [qwen]
   done   checked the time
   done   searched what you said about Float
   now    reading your screen
@@ -1668,8 +1668,8 @@ for fifty seconds reads as stuck; five ticking steps read as deliberation.
 3. **Route background work through it**, with `CLAIMS_DID` as the escalation signal.
 4. **The checklist**: emit the plan as a `StructuredList`, update rows from the existing `tool` events.
    **Moved to Phase 6 step 6.13 in plan 1.1**, built once in the new bubble.
-5. **The `[local]` marker and the handover icon.**
-6. **The `Local` mode on the pill.** **Moved to Phase 6 step 6.16 in plan 1.1**, with the palette move.
+5. **The `[qwen]` marker and the handover icon.**
+6. **The `Qwen` mode on the pill.** **Moved to Phase 6 step 6.16 in plan 1.1**, with the palette move.
 7. **Split the research drops** - local reads, Claude judges.
 
 ## What would make this a mistake
