@@ -223,10 +223,10 @@ app.whenReady().then(async () => {
   });
   ipcMain.on('popout:tomac', e => {
     if (!fromPopout(e)) return;
-    // Handing it to the MacBook is step 6.9, which extends the listener that already exists there.
-    // Until then, say so rather than letting the keycap do nothing at all.
+    // Step 6.9. The brain holds the Mac's address and key; the Shell only says which link, and the Mac
+    // itself refuses anything that is not a site on its own list.
     const url = popout?.link;
-    if (url) console.log(`shell: send to the MacBook is step 6.9; nothing sent for ${url.slice(0, 60)}`);
+    if (url) link?.send({ t: 'watch.tomac', url });
   });
 
   link.start();
