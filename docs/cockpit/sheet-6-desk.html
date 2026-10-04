@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Aang Desk</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Figtree:ital,wght@0,400;0,500;0,600;0,700;0,900;1,500&family=Silkscreen&display=swap" rel="stylesheet">
+<style>
+/* ===========================================================================
+   SHEET 6 - WINDOW 2, THE DESK
+   For FINAL AANG BUILD steps 6.15 and 6.15b. The Panel's seven tabs rebuilt in
+   his look, plus email drafts, the morning brief and research cards.
+   Every row, label and hint here is the real one from PanelWindow.cs and the
+   Core's panel.reply / history.reply / brief.reply / research Finding shapes.
+   The tab strip is the one already approved on sheet 2. Jobs is on sheet 2.
+   =========================================================================== */
+:root{
+  --ink:#100A22; --panel2:#1A1132;
+  --gold:#FFC43C; --gold-deep:#C98C14; --gold-lit:#FFE096; --gold-light:#FFE28C;
+  --orange:#FF8040; --orange-deep:#C95E28; --red:#FF5A4A; --green:#78E696;
+  --text:#E8E4F0; --secondary:#C9C2DA;
+  --plum:#4A2C6E; --plum-deep:#2C1848; --plum-edge:#966EC8; --claude:#E88A6A;
+  --parch1:#ECD5A8; --parch2:#DEC28C;
+  --ink-text:#2E2216; --ink-dim:#5A4834;
+  --wood1:#4A2E1A; --wood2:#24160D; --wood-plaque:#1A0F09;
+  --qwen:#A970FF;
+  --outline:#120A05; --ow:4px; --lip:5px;
+  --display:"Cinzel",Georgia,"Times New Roman",serif;
+  --body:"Figtree",system-ui,-apple-system,Segoe UI,sans-serif;
+  --label:"Silkscreen",ui-monospace,Consolas,monospace;
+  --carve-ink:#2A1C08;
+}
+*{box-sizing:border-box}
+body{margin:0;padding:30px 20px 100px;background:#07040F;font-family:var(--body);
+  -webkit-font-smoothing:antialiased;color:var(--text)}
+.wrap{max-width:980px;margin:0 auto}
+h1{font:400 16px var(--label);color:#7a6fa0;letter-spacing:3px;text-align:center;margin:0 0 8px}
+.sub{font:500 13px/1.6 var(--body);color:#7b7291;text-align:center;margin:0 0 40px}
+h2.part{font:400 13px var(--label);color:var(--gold-deep);letter-spacing:3px;
+  margin:56px 0 6px;padding-bottom:10px;border-bottom:3px solid #241a3a}
+p.why{font:500 14px/1.65 var(--body);color:#9a90b5;margin:0 0 22px;max-width:740px}
+p.why b,p.sur b{color:#cfc4ea}
+p.sur{font:500 13.5px/1.6 var(--body);color:#8a80a5;margin:0 0 16px;max-width:740px}
+.step{display:inline-block;font:400 9px var(--label);letter-spacing:1px;padding:4px 6px;border-radius:3px;
+  border:2px solid var(--outline);background:var(--gold-lit);color:#2a1c00;vertical-align:3px;margin-left:6px}
+.kept{background:var(--green);color:#163a24}
+
+/* ---- carried over ---- */
+.tex{position:relative}
+.tex::before{content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;opacity:.05;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E")}
+.parch{position:relative;color:var(--ink-text);padding:20px 22px;border-radius:9px;overflow:hidden;
+  background:linear-gradient(180deg,#F0DCB4 0%,var(--parch1) 45%,var(--parch2) 100%);
+  border:var(--ow) solid var(--outline);
+  box-shadow:inset 0 5px 0 rgba(255,255,255,.55),inset 0 -6px 0 rgba(150,110,60,.32),
+    0 3px 0 rgba(0,0,0,.6),0 10px 22px rgba(0,0,0,.45)}
+.t-eyebrow{font:400 12px var(--label);color:#8a6a2a;letter-spacing:1px;margin:0 0 7px;
+  text-shadow:1px 1px 0 rgba(255,255,255,.4)}
+.t-display{font:700 26px/1.15 var(--display);color:var(--carve-ink);margin:0 0 4px;
+  text-shadow:0 1px 0 rgba(255,255,255,.65),0 -1px 0 rgba(90,60,25,.35)}
+.t-head{font:700 19px/1.25 var(--display);color:var(--carve-ink);margin:0 0 8px;
+  text-shadow:0 1px 0 rgba(255,255,255,.6)}
+.t-lead{font:500 16px/1.5 var(--body);color:#33240f;margin:0 0 6px}
+.t-body{font:500 15px/1.6 var(--body);color:#271c10;margin:0 0 8px}
+.t-body b{font-weight:700}
+.t-caption{font:500 12.5px var(--body);color:#4e3d28}
+.t-hint{font:italic 500 13px/1.55 var(--body);color:#5a4834;margin:14px 0 0}
+.u-mark{-webkit-box-decoration-break:clone;box-decoration-break:clone;padding:.04em .16em .10em;border-radius:2px;
+  background-repeat:no-repeat;background-image:linear-gradient(rgba(255,196,60,.6),rgba(255,196,60,.6));
+  background-size:100% .78em;background-position:left 0 bottom .06em}
+.rule-minor{height:8px;border-radius:4px;margin:12px 0;
+  background:linear-gradient(180deg,rgba(90,60,25,.5) 0 3px,rgba(255,255,255,.55) 3px 6px,transparent 6px);
+  box-shadow:inset 0 1px 2px rgba(0,0,0,.35)}
+.rule-major{display:flex;align-items:center;margin:20px 0}
+.rule-major .bar{flex:1;height:6px;background:linear-gradient(180deg,var(--gold-deep) 0 3px,var(--gold-lit) 3px 6px);
+  border-top:2px solid var(--outline);border-bottom:2px solid var(--outline)}
+.rule-major .endcap{width:14px;height:18px;flex:0 0 auto;border-radius:3px;background:linear-gradient(180deg,var(--gold-lit),var(--gold-deep));
+  border:2px solid var(--outline);box-shadow:inset 0 2px 0 rgba(255,255,255,.5)}
+.rule-titled{display:flex;align-items:center;margin:18px 0 10px}
+.rule-titled .bar{flex:1;height:5px;border-radius:3px;
+  background:linear-gradient(180deg,rgba(90,60,25,.45) 0 2px,rgba(255,255,255,.5) 2px 5px)}
+.rule-titled span{font:700 13px var(--display);color:var(--carve-ink);padding:0 11px;
+  letter-spacing:1.5px;text-transform:uppercase;text-shadow:0 1px 0 rgba(255,255,255,.65)}
+.key{font:700 14px var(--body);border:3px solid var(--outline);border-radius:8px;
+  padding:11px 18px 12px;cursor:pointer;position:relative;top:0;
+  background:var(--plum);color:#fff;text-shadow:0 1px 0 rgba(0,0,0,.7);
+  box-shadow:0 var(--lip) 0 var(--outline),0 var(--lip) 0 -1px var(--plum-deep),
+    inset 0 3px 0 rgba(150,110,200,.5),0 8px 14px rgba(0,0,0,.4)}
+.key:active{top:var(--lip);box-shadow:0 0 0 var(--outline),inset 0 3px 0 rgba(150,110,200,.5)}
+.key.primary{background:var(--gold);color:#2a1c00;text-shadow:0 1px 0 rgba(255,235,180,.8);
+  box-shadow:0 var(--lip) 0 var(--outline),0 var(--lip) 0 -1px var(--gold-deep),inset 0 3px 0 var(--gold-light),0 8px 14px rgba(0,0,0,.4)}
+.key.danger{background:var(--red);color:#2e0b06;text-shadow:0 1px 0 rgba(255,200,190,.6);
+  box-shadow:0 var(--lip) 0 var(--outline),0 var(--lip) 0 -1px #a8352a,inset 0 3px 0 rgba(255,200,190,.5),0 8px 14px rgba(0,0,0,.4)}
+.key.sm{font-size:12.5px;padding:8px 13px 9px;--lip:4px}
+.key .k{position:absolute;top:2px;right:6px;font:400 10px var(--label);opacity:.6}
+.keys{display:flex;gap:11px;flex-wrap:wrap;align-items:center;margin-top:14px}
+.chip{display:inline-block;font:700 11.5px var(--body);padding:4px 9px;border-radius:5px;
+  border:2.5px solid var(--outline);color:#231700;text-shadow:0 1px 0 rgba(255,255,255,.4);white-space:nowrap}
+.chip.good{background:var(--green)} .chip.normal{background:var(--gold)} .chip.careful{background:var(--orange)}
+.chip.stop{background:var(--red);color:#2e0b06} .chip.off{background:#6d6579;color:#f0edf5;text-shadow:0 1px 0 rgba(0,0,0,.4)}
+.chip.qwen{background:var(--qwen);color:#1d0b33} .chip.claude{background:var(--claude);color:#3a1708}
+.lever{position:relative;display:inline-flex;align-items:center;gap:12px;padding:11px 16px 12px 14px;
+  border-radius:9px;border:3px solid var(--outline);min-width:200px;overflow:hidden;
+  background:linear-gradient(180deg,#5b3a20,#2a190e);color:var(--gold-lit);font:700 13.5px var(--body);
+  text-shadow:0 1px 0 rgba(0,0,0,.7);box-shadow:0 6px 0 var(--outline),inset 0 3px 0 rgba(255,224,150,.25)}
+.lever .knob{width:18px;height:18px;border-radius:50%;border:3px solid var(--outline);
+  background:radial-gradient(circle at 35% 30%,var(--gold-lit),var(--gold-deep))}
+.lever .hold{font:400 9px var(--label);letter-spacing:1px;color:#ffe9b0;margin-left:auto;padding:3px 6px;
+  border:2px solid var(--outline);border-radius:4px;background:rgba(0,0,0,.35)}
+
+/* =========================================== WINDOW 2: the frame and the approved tab strip */
+.desk{border-radius:12px;overflow:hidden;border:var(--ow) solid var(--outline);
+  box-shadow:0 4px 0 rgba(0,0,0,.6),0 16px 34px rgba(0,0,0,.55)}
+.desk .tabs{display:flex;gap:5px;padding:9px 9px 0;background:linear-gradient(180deg,#56371F,var(--wood2));
+  border-bottom:3px solid var(--outline);flex-wrap:wrap}
+.desk .tab{font:400 10.5px var(--label);letter-spacing:.5px;padding:10px 12px 11px;border-radius:7px 7px 0 0;
+  border:2.5px solid var(--outline);border-bottom:none;color:#E6DCC8;cursor:pointer;
+  background:linear-gradient(180deg,var(--plum),var(--plum-deep));text-shadow:1px 1px 0 rgba(0,0,0,.7);position:relative;top:3px}
+.desk .tab.on{background:linear-gradient(180deg,var(--gold-lit),var(--gold));color:#2a1c00;top:0;
+  text-shadow:0 1px 0 rgba(255,255,255,.55);box-shadow:inset 0 3px 0 rgba(255,255,255,.5)}
+.desk .tab i{font-style:normal;font-family:var(--body);font-weight:700;font-size:11px;
+  background:rgba(0,0,0,.25);border-radius:999px;padding:1px 5px;margin-left:5px}
+.desk .body{background:linear-gradient(180deg,#F0DCB4,var(--parch2));padding:20px 22px;color:var(--ink-text);position:relative}
+.desk .foot{background:var(--ink);padding:8px 12px;font:500 12px var(--body);color:#9a90b5;border-top:3px solid var(--outline)}
+
+/* ---- rows: one thing per row, the action appears on the row you point at ---- */
+.row{display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center;padding:11px 12px;border-radius:7px}
+.row+.row{border-top:3px solid rgba(90,60,25,.22)}
+.row .main{font:600 15px/1.45 var(--body);color:#271c10}
+.row .meta{font:500 12.5px var(--body);color:#5a4834;margin-top:3px}
+.row .meta b{color:#3a2a16}
+.row.hover{background:rgba(255,255,255,.35);box-shadow:inset 0 0 0 2.5px rgba(201,140,20,.55)}
+.row .act{opacity:0} .row.hover .act{opacity:1}
+.alwaysask{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.alwaysask span{font:600 12.5px var(--body);color:#5a2a1c;padding:5px 10px;border-radius:5px;
+  background:rgba(255,128,64,.18);border:2.5px solid rgba(201,94,40,.6)}
+
+/* ---- what I did: Claude jobs + the activity timeline ---- */
+.job{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:10px 0}
+.job+.job{border-top:3px solid rgba(90,60,25,.22)}
+.job .nm{font:700 15px var(--body);color:#271c10}
+.job .last{font:500 12.5px var(--body);color:#5a4834;margin-top:2px}
+.dot{width:12px;height:12px;border-radius:50%;border:2.5px solid var(--outline)}
+.dot.working{background:#C8E8FF;box-shadow:0 0 8px rgba(200,232,255,.9)} .dot.needs{background:var(--orange)}
+.dot.done{background:var(--green)} .dot.ended{background:#8e879e}
+.tl{position:relative;padding-left:26px}
+.tl::before{content:"";position:absolute;left:8px;top:6px;bottom:6px;width:4px;border-radius:2px;
+  background:linear-gradient(90deg,rgba(90,60,25,.5) 0 2px,rgba(255,255,255,.5) 2px 4px)}
+.tl .ev{position:relative;padding:6px 0 10px}
+.tl .ev::before{content:"";position:absolute;left:-24px;top:9px;width:12px;height:12px;border-radius:3px;
+  border:2.5px solid var(--outline);background:var(--gold)}
+.tl .ev.asked::before{background:var(--orange)} .tl .ev.undo::before{background:#8e879e}
+.tl .when{font:400 9.5px var(--label);letter-spacing:.5px;color:#8a6a2a}
+.tl .what{font:500 14.5px/1.45 var(--body);color:#271c10}
+.tl .what code{font:600 12.5px ui-monospace,Consolas,monospace;background:rgba(0,0,0,.08);padding:1px 5px;border-radius:4px}
+
+/* ---- drafts ---- */
+.mailcard .hdr{display:grid;grid-template-columns:70px 1fr;gap:6px 12px;align-items:center;margin-bottom:12px}
+.mailcard .hdr span{font:400 10px var(--label);letter-spacing:1px;color:#8a6a2a}
+.mailcard .hdr div{font:600 15px var(--body);color:#271c10}
+.letter{background:rgba(255,255,255,.45);border:3px solid rgba(90,60,25,.35);border-radius:8px;padding:14px 16px;
+  font:500 14.5px/1.65 var(--body);color:#271c10;box-shadow:inset 0 2px 0 rgba(255,255,255,.6)}
+.newto{display:inline-flex;align-items:center;gap:6px;margin-left:8px}
+
+/* ---- history ---- */
+.searchslot{display:flex;align-items:center;gap:10px;padding:10px 13px;border-radius:8px;
+  background:rgba(90,60,25,.16);border:3px solid rgba(90,60,25,.5);box-shadow:inset 0 3px 0 rgba(90,60,25,.25)}
+.searchslot .q{flex:1;font:500 15px var(--body);color:var(--carve-ink)}
+.searchslot .lab{font:400 10px var(--label);color:#8a6a2a;letter-spacing:1px}
+.turn{margin:12px 0 0;max-width:84%}
+.turn.r{margin-left:auto}
+.who{font:400 9.5px var(--label);letter-spacing:1px;margin:0 0 5px;color:#8a6a2a}
+.turn.r .who{text-align:right;color:var(--plum-edge)}
+.bub{padding:11px 14px;border-radius:8px;border:3px solid var(--outline);font:500 14.5px/1.55 var(--body)}
+.bub.aang{background:linear-gradient(180deg,#F6E8C8,#ECD5A8);color:#271c10}
+.bub.you{background:linear-gradient(180deg,var(--plum-deep),var(--plum));color:#ded8ec;box-shadow:inset 0 4px 0 rgba(0,0,0,.35)}
+.bub mark{background:linear-gradient(rgba(255,196,60,.75),rgba(255,196,60,.75));color:inherit;padding:0 2px;border-radius:2px}
+.hoverbar{display:flex;gap:6px;margin-top:7px}
+
+/* ---- settings ---- */
+.setlist{display:flex;flex-direction:column;gap:13px}
+.setrow{display:grid;grid-template-columns:56px 1fr;gap:12px;align-items:start}
+.setrow b{font:700 14.5px var(--body);color:var(--carve-ink)}
+.setrow div>span{display:block;font:500 12.5px/1.5 var(--body);color:#4e3d28;margin-top:2px}
+.sw .bed{width:54px;height:28px;border-radius:999px;border:3px solid var(--outline);position:relative;display:block;
+  background:#0B0718;box-shadow:inset 0 3px 0 rgba(0,0,0,.7)}
+.sw .nub{position:absolute;top:1px;left:1px;width:20px;height:20px;border-radius:50%;
+  border:2.5px solid var(--outline);background:linear-gradient(180deg,#8e879e,#5a5468);box-shadow:inset 0 2px 0 rgba(255,255,255,.3)}
+.sw.on .bed{background:linear-gradient(180deg,#2f7a4a,#1d5230)}
+.sw.on .nub{left:27px;background:linear-gradient(180deg,var(--green),#3f9a5f)}
+.kbd{display:inline-block;font:700 13px var(--body);color:#2a1c00;padding:6px 10px 7px;border-radius:6px;
+  border:2.5px solid var(--outline);background:var(--gold-lit);box-shadow:0 3px 0 var(--outline)}
+
+/* ---- research card ---- */
+.src{display:inline-block;font:400 9px var(--label);letter-spacing:.5px;padding:3px 6px;border-radius:3px;border:2px solid var(--outline)}
+.src.gh{background:#2b2342;color:#e8e0f5} .src.hn{background:var(--orange);color:#2e1200}
+.src.ax{background:#b31b1b;color:#ffe9e9} .src.rd{background:#ff6b3d;color:#2e1200}
+.find{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:start;padding:10px 0}
+.find+.find{border-top:3px solid rgba(90,60,25,.22)}
+.find .ttl{font:700 15px var(--body);color:#271c10}
+.find .bl{font:500 13px/1.5 var(--body);color:#4e3d28;margin-top:2px}
+.score{font:700 12px var(--body);color:#5a4834;white-space:nowrap}
+.repeat{display:flex;align-items:center;gap:10px;padding:7px 0}
+.repeat b{font:700 15px var(--body);color:#271c10}
+.repeat span{font:500 12.5px var(--body);color:#5a4834}
+.honest{font:italic 500 12.5px var(--body);color:#7a4a2a;background:rgba(255,128,64,.12);
+  border:2.5px dashed rgba(201,94,40,.55);border-radius:6px;padding:7px 10px;margin:8px 0 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>AANG &middot; THE DESK</h1>
+<p class="sub">Sheet 6. Window 2: the Panel's seven tabs, email drafts, the morning brief, and research
+cards.<br>FINAL AANG BUILD steps 6.15 and 6.15b. Every label, hint and column here is the
+<b style="color:#9a90b5">real one</b> from today's Panel or from the brain's own messages.</p>
+
+<!-- ============================================== 1 -->
+<h2 class="part">1 &middot; WHAT I KNOW <span class="step">6.15</span></h2>
+<p class="why">Today: a three-column list, "What he knows about you", "Confirmed", "Last seen", and a red
+"Forget this" button at the bottom that acts on whichever row is selected. Now each fact is a row you
+read like a sentence, and <b>"Forget" appears on the row your mouse is on</b>, so you can never forget
+the wrong one by having a different row selected.</p>
+
+<div class="desk">
+  <div class="tabs">
+    <span class="tab on">WHAT I KNOW</span><span class="tab">WHAT I MAY DO</span><span class="tab">WHAT I DID</span>
+    <span class="tab">DRAFTS <i>1</i></span><span class="tab">JOBS <i>3</i></span><span class="tab">HISTORY</span><span class="tab">SETTINGS</span>
+  </div>
+  <div class="body tex">
+    <p class="t-eyebrow">42 THINGS &middot; NEWEST FIRST</p>
+    <h3 class="t-display">What I know about you</h3>
+    <div class="rule-major"><i class="endcap"></i><i class="bar"></i><i class="endcap"></i></div>
+    <div class="row">
+      <div><div class="main">You prefer hybrid roles over fully remote ones.</div>
+        <div class="meta">Confirmed <b>3 times</b> &middot; last seen <b>today</b></div></div>
+      <span class="act"><button class="key danger sm">Forget</button></span>
+    </div>
+    <div class="row hover">
+      <div><div class="main">You play a Frost Mage in WoW.</div>
+        <div class="meta">Confirmed <b>7 times</b> &middot; last seen <b>yesterday</b></div></div>
+      <span class="act"><button class="key danger sm">Forget</button></span>
+    </div>
+    <div class="row">
+      <div><div class="main">You only watch anime dubbed.</div>
+        <div class="meta">Confirmed <b>once</b> &middot; last seen <b>4 Oct</b></div></div>
+      <span class="act"><button class="key danger sm">Forget</button></span>
+    </div>
+    <p class="t-hint">Forgetting one stops him using it from his next answer. "Undo that" brings it back.</p>
+  </div>
+  <div class="foot">The hint line above is today's wording, kept word for word.</div>
+</div>
+
+<!-- ============================================== 2 -->
+<h2 class="part">2 &middot; WHAT I MAY DO <span class="step">6.15</span></h2>
+<p class="why">Every kind of thing you have said "Always" to. Same columns as today, "Allowed without
+asking", "For example", "Since", and the same "Take this back". The things that <b>always</b> ask, no
+matter what, are now shown as their own row of orange tags instead of being buried in the hint, so you
+can see the limits at a glance.</p>
+
+<div class="desk">
+  <div class="tabs">
+    <span class="tab">WHAT I KNOW</span><span class="tab on">WHAT I MAY DO</span><span class="tab">WHAT I DID</span>
+    <span class="tab">DRAFTS <i>1</i></span><span class="tab">JOBS <i>3</i></span><span class="tab">HISTORY</span><span class="tab">SETTINGS</span>
+  </div>
+  <div class="body tex">
+    <h3 class="t-display">What I may do without asking</h3>
+    <div class="rule-major"><i class="endcap"></i><i class="bar"></i><i class="endcap"></i></div>
+    <div class="row hover">
+      <div><div class="main">Open apps</div><div class="meta">For example <b>Chrome</b> &middot; since <b>22 Sep</b></div></div>
+      <span class="act"><button class="key sm">Take this back</button></span>
+    </div>
+    <div class="row">
+      <div><div class="main">Read your windows</div><div class="meta">For example <b>Discord</b> &middot; since <b>24 Sep</b></div></div>
+      <span class="act"><button class="key sm">Take this back</button></span>
+    </div>
+    <div class="row">
+      <div><div class="main">Play music</div><div class="meta">For example <b>lo-fi on Spotify</b> &middot; since <b>1 Oct</b></div></div>
+      <span class="act"><button class="key sm">Take this back</button></span>
+    </div>
+    <div class="rule-titled"><i class="bar"></i><span>Always asks, no matter what</span><i class="bar"></i></div>
+    <div class="alwaysask"><span>Deleting files</span><span>Force quitting an app</span><span>Sending email</span><span>Anything with the lever</span></div>
+    <p class="t-hint">Taking one back means he asks again next time. Deleting files, force quits and sending mail always ask.</p>
+  </div>
+</div>
+
+<!-- ============================================== 3 -->
+<h2 class="part">3 &middot; WHAT I DID <span class="step">6.15</span></h2>
+<p class="why">Today this tab is a block of small grey monospace text, and a list of Claude Code jobs
+with "State", "Started" and "Last news" columns. Now the jobs come first, each with a coloured state,
+and the action log becomes a <b>timeline you can read</b>, newest at the top, with anything that asked
+you or was undone marked.</p>
+
+<div class="desk">
+  <div class="tabs">
+    <span class="tab">WHAT I KNOW</span><span class="tab">WHAT I MAY DO</span><span class="tab on">WHAT I DID</span>
+    <span class="tab">DRAFTS <i>1</i></span><span class="tab">JOBS <i>3</i></span><span class="tab">HISTORY</span><span class="tab">SETTINGS</span>
+  </div>
+  <div class="body tex">
+    <h3 class="t-display">What I did</h3>
+    <div class="rule-titled"><i class="bar"></i><span>Claude jobs</span><i class="bar"></i></div>
+    <div class="job"><i class="dot needs"></i>
+      <div><div class="nm">Job hunt</div><div class="last">Needs you: "Should I apply to Octup with the August letter?"</div></div>
+      <span class="chip careful">NEEDS YOU</span></div>
+    <div class="job"><i class="dot working"></i>
+      <div><div class="nm">Fix the addon checker</div><div class="last">Editing watch.ts &middot; started 14 min ago</div></div>
+      <span class="chip off" style="background:#C8E8FF;color:#1a2a3a;text-shadow:none">WORKING</span></div>
+    <div class="job"><i class="dot done"></i>
+      <div><div class="nm">Weekly research sweep</div><div class="last">Finished &middot; wrote this week's notes to your vault</div></div>
+      <span class="chip good">DONE</span></div>
+    <div class="rule-major"><i class="endcap"></i><i class="bar"></i><i class="endcap"></i></div>
+    <div class="rule-titled" style="margin-top:0"><i class="bar"></i><span>Everything else, newest first</span><i class="bar"></i></div>
+    <div class="tl">
+      <div class="ev"><div class="when">2:41 PM</div><div class="what">Opened <b>Chrome</b>. You allow this always.</div></div>
+      <div class="ev asked"><div class="when">2:12 PM</div><div class="what">Ran <code>Get-ChildItem C:\</code> after you said yes.</div></div>
+      <div class="ev undo"><div class="when">11:03 AM</div><div class="what">Moved <b>resume-v3.pdf</b> to Archive, then put it back when you said "undo that".</div></div>
+      <div class="ev"><div class="when">9:15 AM</div><div class="what">Played <b>lo-fi</b> on Spotify.</div></div>
+    </div>
+    <div class="keys"><button class="key sm">Undo the last one<span class="k">Z</span></button></div>
+  </div>
+  <div class="foot">Gold square: done on its own. Orange: asked you first. Grey: undone.</div>
+</div>
+
+<!-- ============================================== 4 -->
+<h2 class="part">4 &middot; DRAFTS <span class="step">6.15</span></h2>
+<p class="why">Today: a list of "To", "Subject", "Status", and three buttons, Send, Save as Gmail draft,
+Discard. Now you see the letter itself. <b>Two safety changes.</b> Any address you have never written to
+before is flagged, because the brain already knows (it keeps that list), and today the Panel never shows
+it. And <b>Send uses the lever</b> from sheet 5, because a sent email cannot be taken back.</p>
+
+<div class="desk">
+  <div class="tabs">
+    <span class="tab">WHAT I KNOW</span><span class="tab">WHAT I MAY DO</span><span class="tab">WHAT I DID</span>
+    <span class="tab on">DRAFTS <i>1</i></span><span class="tab">JOBS <i>3</i></span><span class="tab">HISTORY</span><span class="tab">SETTINGS</span>
+  </div>
+  <div class="body tex mailcard">
+    <p class="t-eyebrow">1 DRAFT WAITING &middot; NOTHING SENT YET</p>
+    <div class="hdr">
+      <span>TO</span><div>careers@octup.com <span class="newto"><span class="chip careful">NEVER WRITTEN TO BEFORE</span></span></div>
+      <span>SUBJECT</span><div>Customer Success Manager application, Joshua Bocas</div>
+    </div>
+    <div class="letter">Hi Octup team,<br><br>I am applying for the Customer Success Manager role in Toronto.
+    For the last three years I have managed a book of accounts much like yours&hellip;</div>
+    <div class="keys">
+      <div class="lever"><i class="knob"></i><span>Hold to send</span><span class="hold">HOLD</span></div>
+      <button class="key sm">Save as Gmail draft</button>
+      <button class="key danger sm">Discard</button>
+    </div>
+  </div>
+</div>
+<p class="sur" style="margin-top:16px">Drafts also still go to your Discord as cards with their own buttons,
+exactly as today. That does not change.</p>
+
+<!-- ============================================== 5 -->
+<h2 class="part">5 &middot; HISTORY <span class="step">6.15</span></h2>
+<p class="why">Today's search box keeps its exact words: "Search everything you and Aang have said...".
+Results come back in the scroll back's own two voices, your plum and his parchment, with the words that
+matched highlighted. Pointing at one shows the four actions from sheet 2: reply, add as context, copy,
+forget.</p>
+
+<div class="desk">
+  <div class="tabs">
+    <span class="tab">WHAT I KNOW</span><span class="tab">WHAT I MAY DO</span><span class="tab">WHAT I DID</span>
+    <span class="tab">DRAFTS <i>1</i></span><span class="tab">JOBS <i>3</i></span><span class="tab on">HISTORY</span><span class="tab">SETTINGS</span>
+  </div>
+  <div class="body tex">
+    <div class="searchslot"><span class="lab">FIND</span><span class="q">frost mage opener</span><span class="chip normal">3 FOUND</span></div>
+    <div class="turn r"><p class="who">YOU &middot; TUE 9:14 PM</p>
+      <div class="bub you">whats the <mark>frost mage opener</mark> again</div></div>
+    <div class="turn"><p class="who">AANG &middot; TUE 9:14 PM</p>
+      <div class="bub aang">Shatter into Glacial Spike is still the <mark>opener</mark>. The problem is you are casting
+      Flurry before Winter's Chill lands.
+        <div class="hoverbar"><button class="key sm">Reply to this</button><button class="key sm">Add as context</button><button class="key sm">Copy</button></div>
+      </div></div>
+    <div class="keys"><button class="key sm">Copy all of it</button></div>
+  </div>
+</div>
+
+<!-- ============================================== 6 -->
+<h2 class="part">6 &middot; SETTINGS <span class="step">6.15</span></h2>
+<p class="why">Today's five checkboxes and two buttons, word for word, as the switches from sheet 4, each
+with one plain line saying what it does. Grouped so the list reads at a glance.</p>
+
+<div class="desk">
+  <div class="tabs">
+    <span class="tab">WHAT I KNOW</span><span class="tab">WHAT I MAY DO</span><span class="tab">WHAT I DID</span>
+    <span class="tab">DRAFTS <i>1</i></span><span class="tab">JOBS <i>3</i></span><span class="tab">HISTORY</span><span class="tab on">SETTINGS</span>
+  </div>
+  <div class="body tex">
+    <h3 class="t-display">Settings</h3>
+    <div class="rule-titled"><i class="bar"></i><span>While you play</span><i class="bar"></i></div>
+    <div class="setlist">
+      <div class="setrow"><span class="sw on"><i class="bed"><i class="nub"></i></i></span>
+        <div><b>Stay quiet while WoW has focus</b><span>He holds anything that is not urgent until you come out of the game</span></div></div>
+      <div class="setrow"><span class="sw"><i class="bed"><i class="nub"></i></i></span>
+        <div><b>Mute: nothing unprompted</b><span>He only speaks when you speak to him</span></div></div>
+    </div>
+    <div class="rule-titled"><i class="bar"></i><span>What he can see</span><i class="bar"></i></div>
+    <div class="setlist">
+      <div class="setrow"><span class="sw on"><i class="bed"><i class="nub"></i></i></span>
+        <div><b>Let him see which app I'm in</b><span>Only the name of the app at the front, never what is in it</span></div></div>
+      <div class="setrow"><span class="sw on"><i class="bed"><i class="nub"></i></i></span>
+        <div><b>Show the usage bars under the box</b><span>The ten segments that show how much Claude you have left this week</span></div></div>
+    </div>
+    <div class="rule-titled"><i class="bar"></i><span>This computer</span><i class="bar"></i></div>
+    <div class="setlist">
+      <div class="setrow"><span class="sw on"><i class="bed"><i class="nub"></i></i></span>
+        <div><b>Start with Windows</b><span>He is there when Shadow starts</span></div></div>
+    </div>
+    <div class="keys">
+      <button class="key sm">Change the hide and show key...</button>
+      <button class="key sm">Bring him off the edge (undock)</button>
+    </div>
+  </div>
+</div>
+<p class="sur" style="margin-top:16px"><b>Not added:</b> the pop-out's own settings live on the pop-out
+(sheet 4), and the browser's on the browser. Settings here stay about Aang himself.</p>
+
+<!-- ============================================== 7 -->
+<h2 class="part">7 &middot; THE MORNING BRIEF <span class="step">6.15</span></h2>
+<p class="why">Posted once a day after 7 am Toronto time, worked out <b>without the model</b>, so it costs
+no quota. Today it is two plain lists, "Today" from your calendar and "Unread" from Gmail. It now gets
+the headings and rows those lists deserve.</p>
+
+<div class="parch tex" style="max-width:560px">
+  <p class="t-eyebrow">GOOD MORNING &middot; SATURDAY 4 OCTOBER</p>
+  <h3 class="t-display">Your morning</h3>
+  <div class="rule-titled"><i class="bar"></i><span>Today</span><i class="bar"></i></div>
+  <div class="row" style="padding:7px 4px"><div><div class="main">10:30 AM &middot; Call with the Octup recruiter</div></div></div>
+  <div class="row" style="padding:7px 4px"><div><div class="main">7:00 PM &middot; Raid</div></div></div>
+  <div class="rule-titled"><i class="bar"></i><span>Unread</span><i class="bar"></i></div>
+  <div class="row" style="padding:7px 4px"><div><div class="main">Octup Talent</div><div class="meta">Your application was received</div></div></div>
+  <div class="row" style="padding:7px 4px"><div><div class="main">CurseForge</div><div class="meta">DBM has an update</div></div></div>
+  <p class="t-hint">Worked out without Claude. It cost nothing.</p>
+</div>
+
+<!-- ============================================== 8 -->
+<h2 class="part">8 &middot; RESEARCH CARDS <span class="step">6.15b</span></h2>
+<p class="why">What Phase 7's weekly sweep already produces, as a card instead of a note you have to open
+in Obsidian. Same parts as the note it writes today: what <b>keeps coming up</b> across weeks, then the
+top finds from each source with their score. And the same honest line the note already carries: Aang
+wrote this; nothing here is checked.</p>
+
+<div class="parch tex" style="max-width:640px">
+  <p class="t-eyebrow">RESEARCH &middot; WEEK OF 29 SEPTEMBER</p>
+  <h3 class="t-display">What came up</h3>
+  <p class="t-lead">Swept 214 things from GitHub, Hacker News and arXiv.</p>
+  <div class="rule-titled"><i class="bar"></i><span>Keeps coming up</span><i class="bar"></i></div>
+  <div class="repeat"><b>browser-use</b><span>5 times over 3 weeks (GitHub, Hacker News)</span></div>
+  <div class="repeat"><b>Qwen3.5</b><span>4 times over 2 weeks (Hacker News, arXiv)</span></div>
+  <div class="rule-major"><i class="endcap"></i><i class="bar"></i><i class="endcap"></i></div>
+  <div class="find"><span class="src gh">GITHUB</span>
+    <div><div class="ttl">vercel-labs/agent-browser</div><div class="bl">Reads pages as labelled elements, so an agent can say "click B7".</div></div>
+    <span class="score">43.5k stars</span></div>
+  <div class="find"><span class="src hn">HN</span>
+    <div><div class="ttl">Show HN: a local model that browses for you</div><div class="bl">Runs on one consumer GPU; the comments argue about reliability.</div></div>
+    <span class="score">612 points</span></div>
+  <div class="find"><span class="src ax">ARXIV</span>
+    <div><div class="ttl">Defeating Prompt Injections by Design</div><div class="bl">The CaMeL paper; the plan's safety model is built on it.</div></div>
+    <span class="score">new</span></div>
+  <p class="honest">Aang wrote this; nothing here is checked.</p>
+  <div class="keys">
+    <button class="key primary sm">Tell me about one<span class="k">A</span></button>
+    <button class="key sm">Open the full notes<span class="k">X</span></button>
+  </div>
+</div>
+<p class="sur" style="margin-top:16px"><b>Scores only compare within a source</b>, never across: GitHub
+stars and Hacker News points are different animals, so they sit beside their own source tag, never in one
+ranked list. That rule comes from the research code itself.</p>
+
+<h2 class="part">ALREADY DRAWN ELSEWHERE</h2>
+<p class="why"><b>The Jobs tab</b> (card stack, A apply / X skip / O open / Z undo) is on sheet 2,
+section 6. <b>The scroll back</b> with its forged-rule dividers is on sheet 2, section 4. Neither is
+redrawn here.</p>
+
+</div>
+</body>
+</html>
