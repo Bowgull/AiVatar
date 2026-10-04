@@ -1,0 +1,23 @@
+{
+  "name": "aang-shell",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Aang's windows. The pet, the tray and screen reading stay in C#; everything drawn lives here.",
+  "type": "module",
+  "main": "src/main.ts",
+  "scripts": {
+    "start": "electron src/main.ts",
+    "check": "tsc -p .",
+    "test": "node --no-warnings --test --test-timeout=30000 test/*.test.ts"
+  },
+  "dependencies": {
+    "electron": "44.5.1",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@electron/fuses": "^1.8.0",
+    "@types/node": "^22.10.0",
+    "@types/ws": "^8.5.13",
+    "typescript": "^5.7.2"
+  }
+}
