@@ -49,12 +49,17 @@ html,body{ height:100%; overflow:hidden; background:var(--panel2); color:var(--t
 
 /* Keycaps are not draggable, or the bar would swallow the clicks. */
 .keys{ -webkit-app-region:no-drag; display:flex; gap:6px; flex:0 0 auto }
-.key{ width:26px; height:22px; border-radius:5px; border:2px solid var(--outline); cursor:pointer;
+/* Sheet 4's `.ico.sm`, matched value for value after a side-by-side on 2026-10-04. These had drifted
+   to 26x22 with a 5px radius and a 2px lip, which is LESS WEIGHT than the sheet asks for, and the
+   weight is the one thing he has said he loves about these buttons. The lip is 3px, like every other
+   small key in the sheets. */
+.key{ width:24px; height:24px; border-radius:6px; border:2px solid var(--outline); cursor:pointer;
   background:linear-gradient(180deg,var(--plum),var(--plum-deep)); color:#e8e0f5;
   font:700 12px var(--body); display:grid; place-items:center; position:relative; top:0;
-  box-shadow:0 2px 0 var(--outline), inset 0 2px 0 rgba(150,110,200,.45) }
-.key:active{ top:2px; box-shadow:0 0 0 var(--outline), inset 0 2px 0 rgba(150,110,200,.45) }
-.key.close{ background:linear-gradient(180deg,#8a3228,#55180f) }
+  box-shadow:0 3px 0 var(--outline), inset 0 2px 0 rgba(150,110,200,.45) }
+.key:active{ top:3px; box-shadow:0 0 0 var(--outline), inset 0 2px 0 rgba(150,110,200,.45) }
+/* Close was red here and plum in the sheet. Red reads as "danger" and this button only puts a video
+   away, which is not dangerous; it also broke the rule that red means no, or over. Back to the sheet. */
 
 /* ---------------------------------------------------------------- the picture */
 .stage{ position:relative; background:#000 }
