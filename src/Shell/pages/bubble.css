@@ -122,3 +122,34 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
 @media (prefers-reduced-motion:reduce){
   .scroller{transition:none}
 }
+
+/* ---- chips for files and links (parity row, from 4.5) --------------------
+   `.chip` itself is cockpit.css. These are the pressable kind, so they get the
+   lip every other pressable thing here has, and they sit under the words. */
+.chips{display:flex;gap:7px;flex-wrap:wrap;margin:9px 0 0}
+.chips[hidden]{display:none}
+.chip.act{
+  cursor:pointer;background:var(--gold);position:relative;top:0;
+  box-shadow:0 3px 0 var(--outline);
+  max-width:100%;overflow:hidden;text-overflow:ellipsis;
+}
+.chip.act:active{top:3px;box-shadow:0 0 0 var(--outline)}
+
+/* ---- the right-click menu on a message (4.3b) ----------------------------
+   Sheet 2's wood menu, with its row styling. The same surface as the tray menu,
+   because it is the same kind of thing: a short list of actions on wood. */
+.turnmenu{
+  position:fixed;z-index:10;width:146px;padding:7px;border-radius:12px;overflow:hidden;
+  background:linear-gradient(180deg,#56371F,var(--wood2));border:3px solid var(--outline);
+  box-shadow:0 4px 0 rgba(0,0,0,.6),0 14px 28px rgba(0,0,0,.6);
+  pointer-events:auto;
+}
+.mrow{
+  display:flex;align-items:center;gap:8px;width:100%;padding:9px 11px;border-radius:6px;
+  font:400 11.5px var(--label);color:#E6DCC8;letter-spacing:.5px;cursor:pointer;
+  text-shadow:1px 1px 0 rgba(0,0,0,.75);
+  background:none;border:none;text-align:left;min-height:24px;
+}
+.mrow:hover{background:rgba(255,224,150,.12)}
+/* The one that removes something is set apart, as it is in the old menu. */
+.mrow:last-child{color:var(--orange);margin-top:3px;border-top:2px solid rgba(0,0,0,.45);border-radius:0 0 6px 6px}
