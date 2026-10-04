@@ -28,20 +28,32 @@ Write-Host "  Your code:  $($dev.user_code)" -ForegroundColor Yellow
 Write-Host '  Opening simkl.com/pin with the code filled in. Allow Aang there.'
 $verify = if ($dev.verification_uri_complete) { $dev.verification_uri_complete } else { 'https://simkl.com/pin/' }
 Start-Process $verify
-$token = $null
+$got = $null
 $expires = if ($dev.expires_in) { [int]$dev.expires_in } else { 900 }
 $wait = if ($dev.interval) { [int]$dev.interval } else { 5 }
 $until = (Get-Date).AddSeconds($expires)
-while ((Get-Date) -lt $until -and -not $token) {
+while ((Get-Date) -lt $until -and -not $got) {
     Start-Sleep -Seconds $wait
     try {
         $r = Invoke-RestMethod -Method Post -Uri 'https://api.simkl.com/oauth2/token' -Body @{
             grant_type = 'urn:ietf:params:oauth:grant-type:device_code'; device_code = $dev.device_code; client_id = $clientId }
-        if ($r.access_token) { $token = $r.access_token }
+        if ($r.access_token) { $got = $r }
     } catch { <# authorization_pending until he allows it #> }
 }
-if (-not $token) { Write-Host '  The code was not used in time. Run this again.' -ForegroundColor Red; Read-Host '  Press Enter to close'; exit 1 }
-@{ clientId = $clientId; accessToken = $token; site = $site } | ConvertTo-Json | Set-Content -Path $store -Encoding ascii
+if (-not $got) { Write-Host '  The code was not used in time. Run this again.' -ForegroundColor Red; Read-Host '  Press Enter to close'; exit 1 }
+
+# Keep the WHOLE sign-in, not just the access token. The first version of this script saved only the access token
+# because a comment claimed Simkl tokens never expire. On 2026-10-04 his did, and because the renewal key had been
+# thrown away there was no way back but running this by hand. Anything the token endpoint hands over is kept now.
+$save = @{ clientId = $clientId; accessToken = $got.access_token; site = $site }
+if ($got.PSObject.Properties.Name -contains 'refresh_token' -and $got.refresh_token) { $save.refreshToken = $got.refresh_token }
+if ($got.PSObject.Properties.Name -contains 'expires_in' -and $got.expires_in) {
+    $save.expiresAt = [int64]([DateTimeOffset]::UtcNow.AddSeconds([int]$got.expires_in).ToUnixTimeMilliseconds())
+}
+if (-not $save.refreshToken) {
+    Write-Host '  Note: Simkl did not send a renewal key, so if this sign-in ever runs out you will run this again.' -ForegroundColor DarkYellow
+}
+$save | ConvertTo-Json | Set-Content -Path $store -Encoding ascii
 icacls $store /inheritance:r /grant:r "$($env:USERNAME):(R,W)" | Out-Null
 Write-Host '  Saved, readable by your Windows account only. Say "put the next episode on" to Aang.' -ForegroundColor Green
 Read-Host '  Press Enter to close'
