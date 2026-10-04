@@ -1237,7 +1237,8 @@ Snip part of the screen and ask about it; highlight text in any app and press a 
 Aang. Mockup: sheet 7, section 4. **All three land in the chat bubble** (his rule, 2026-10-04): Aang shows
 what he got, asks what to do, and it goes from there as a normal chat. Nothing goes to Claude until he answers.
 - **Where they live (his decision, 2026-10-04):** two new rows at the top of the AANG group in the gold menu
-  (right-click Aang): **Snipit** and **Highlight**, in Cinzel, same row height, no key printed. No browser, Chrome
+  (right-click Aang): **Snipit** and **Highlight**, same font and size as the rest of the menu, in Aang's pale blue
+  (#C8E8FF, Theme.AvatarGlow), no key printed. No browser, Chrome
   or Explorer menus.
 - Snip: key **Ctrl+Shift+Plus** (his decision). On release the snip shrinks to a corner card (his ask card in
   miniature: wood frame, SNIPIT plaque, framed snip, Send / Bin it keycaps, a bobbing pixel pointer), like an
