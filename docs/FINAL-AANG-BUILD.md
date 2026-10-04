@@ -1109,7 +1109,7 @@ feels right. Everything above was proved against a real Electron and real video,
 
 ---
 
-### `[ ]` 6.4 Paid video  **BLOCKS nothing else, but is on the path to "pop-out usable"**
+### `[~]` 6.4 Paid video  **BUILT 2026-10-04** (16a2a3f); his accounts and his eyes still owed
 
 **Why:** decisions 29 and 30. His anime is on Prime, in the Crunchyroll section.
 
@@ -1131,6 +1131,34 @@ password). **Netflix waits for his free castLabs EVS signup** (decision 31); Net
 development builds (error M7121-1331).
 
 **Rollback:** the paid services fall back to the Mac helper (6.9) or Chrome.
+
+**BUILT 2026-10-04 (16a2a3f).** `src/Shell/drm/` is a second Electron, launched on demand by
+`src/drmrunner.ts`. Prime and Crunchyroll are ready; Netflix is recognised and refused with its own
+error code until he does the castLabs signup. 9 checks in `tests/fakecore/drm.mjs`, 5 unit tests on
+the allow-list.
+
+**THE FINDING THAT CHANGED THE DESIGN, and it will matter again in 6.19:** paid services refuse to be
+shown in a frame. Crunchyroll answers `ERR_BLOCKED_BY_RESPONSE`; the others do the same. YouTube and
+Twitch are the exception, because their *embed* addresses exist to be framed, which is why the
+ordinary pop-out can use one. So a paid service has to **be** the page, with Aang's wooden bar as a
+second view stacked above it. **`src/Shell/src/stack.ts` is that, and it is an early, small version of
+the view-positioning layer step 6.19 needs for browser tabs.** 6.19 is now less of an unknown.
+
+**The two modes.** `narrow` (the default) keeps hardware acceleration and only stops Chromium putting
+protected video in the display-only overlay Shadow cannot capture. `full` turns acceleration off
+altogether, which 6.1 proved works. **Only his eyes can choose between them**: if the picture is black
+on `narrow`, it is `full`. Set with `AANG_DRM_MODE`.
+
+**Three bugs found by running it, every one silent:**
+- The runtime shared an app name with the Shell, so its single-instance check saw the Shell and exited
+  with code 0. It "started" and vanished with nothing saying why. It now has its own name and folder,
+  which is right regardless: his paid sign-ins belong to that runtime alone.
+- A failed spawn emits an error event and nothing else, which nobody was listening for.
+- The bar page was handed the service's address and tried to show Crunchyroll inside itself.
+
+**STILL OWED, and only he can do it:** signing in to Prime and Crunchyroll in the pop-out (Aang never
+types a password), then watching an episode over WoW and saying whether it plays cleanly, and on which
+mode. Netflix additionally waits on his castLabs EVS signup (decision 31).
 
 ---
 
