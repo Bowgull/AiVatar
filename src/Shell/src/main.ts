@@ -13,10 +13,12 @@ import os from 'node:os';
 import path from 'node:path';
 import { CoreLink } from './link.ts';
 import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown, wrongSettings } from './safety.ts';
+import { snapshotOnce } from './snapshot.ts';
 
 const PORT = Number(process.env.AANG_PORT ?? 47831);
 const STATE_DIR = process.env.AANG_STATE_DIR
   ?? path.join(process.env.APPDATA ?? path.join(os.homedir(), 'AppData', 'Roaming'), 'Aang');
+const DATA_DIR = process.env.AANG_DATA_DIR ?? path.join(os.homedir(), 'Documents', 'Aang');
 const HERE = import.meta.dirname;
 
 /**
@@ -82,6 +84,13 @@ app.whenReady().then(() => {
   // No Electron menu bar. Aang's windows are his own look, and File/Edit/View is not it. It also
   // removes the built-in reload and developer-tools shortcuts from every window he draws.
   Menu.setApplicationMenu(null);
+
+  // BEFORE ANYTHING ELSE: a copy of his settings and his memory as they are right now, taken once.
+  // The git tag keeps the old code; this keeps the old data, which the tag cannot (step 6.0, his
+  // decision 36). It never stops the Shell starting, whatever goes wrong.
+  const snap = snapshotOnce(STATE_DIR, DATA_DIR);
+  if (snap.dir) console.log(`shell: kept a copy of Aang as he was in ${snap.dir} (${snap.files} files, ${Math.round(snap.bytes / 1e6)} MB)`);
+  if (snap.skipped.length) console.log(`shell: the copy skipped ${snap.skipped.length}: ${snap.skipped.slice(0, 3).join('; ')}`);
 
   // Nothing may ask for the camera, the microphone, notifications or his location. Windows that need
   // one (a video call in the browser, step 6.22) will declare it and ask him first.
