@@ -1592,6 +1592,27 @@ reading the newer decision, not for him to re-litigate.
 black), not dark gold, with a soft drop shadow under that. It is already far darker than the current
 app, so the thing he asked for is what the sheet does.
 
+**DRIFT FOUND 2026-10-04, when he asked whether I was actually comparing against the mockups.** I was
+not. I had been checking my own output against numbers in the C#, never against the sheets, which is
+what this document and his own standing rule both require. Put side by side, **two of the three states
+were wrong**:
+
+| | Sheet 5 says | What had shipped |
+|---|---|---|
+| Clicked | all the way down, lip gone | the same |
+| Keyboard focus | a real `outline`, gold 3px, offset 4px, plus a dark ring at 7px | box-shadow rings, no outline |
+| **Switched on** | **half way down (2.5px), a DARKER plum face, a lit green gem** | gold face, full travel, the word "On" |
+| Rating keys | reuse the latched look (`.mini`, sheet section 8) | an invented gold style |
+
+Now taken verbatim from the sheet and confirmed by computed values, not by eye: face `rgb(44,24,72)`,
+travel 2.5px, gem present, outline gold 3px at offset 4px with no travel. The sheet's focus is also
+simply better: a real outline survives Windows high contrast, where every shadow is thrown away.
+
+**`pages/states-check.html` is kept** as the comparison harness, and it is safe to keep where
+`keycaps.css` was not: it renders **from the shipped `cockpit.css`** and hand-copies nothing, so it
+cannot drift. It also prints the computed values, so the comparison is numbers rather than an
+impression.
+
 **Deleted with the decision:** `keycaps.*` (the old-versus-new page), `lip.*` (the four-step picker), and
 the three WOFF2 faces that existed only to render the old look in a browser. They had served their
 purpose and would have rotted: `keycaps.css` held a hand-copy of Keycap.cs that nothing kept in step.

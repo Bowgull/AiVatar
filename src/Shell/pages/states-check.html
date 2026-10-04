@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' data:;
+               font-src 'self'; style-src-attr 'unsafe-inline'; form-action 'none'; base-uri 'none'">
+<title>States, against sheet 5</title>
+<link rel="stylesheet" href="cockpit.css">
+<link rel="stylesheet" href="states-check.css"></head><body>
+<h1>The three states, from cockpit.css</h1>
+<p class="n">Rendered from the real shipped stylesheet. Compare with sheet 5 section 1 beside it:
+the switched-on key must sit <b>half</b> way down with a <b>darker</b> face and a <b>green gem</b>, and
+focus must be a gold groove <b>outside</b> the key with no travel at all.</p>
+<div class="row">
+  <div class="col"><button class="key">Open Chrome</button><span class="lab">RESTING</span>
+    <p class="note">Sitting up on its lip.</p></div>
+  <div class="col"><button class="key" id="held">Open Chrome</button><span class="lab">BEING CLICKED</span>
+    <p class="note">All the way down onto its shadow.</p></div>
+  <div class="col"><button class="key" id="foc">Open Chrome</button><span class="lab">FOCUSED</span>
+    <p class="note">No travel. A gold groove outside it.</p></div>
+  <div class="col"><button class="key" aria-pressed="true">Save quota</button><span class="lab">SWITCHED ON</span>
+    <p class="note">Half way down, darker, green gem.</p></div>
+</div>
+<div class="row" style="margin-top:26px">
+  <div class="col"><button class="mini">C</button><span class="lab">COPY</span></div>
+  <div class="col"><button class="mini" aria-pressed="true">+</button><span class="lab">RATED GOOD</span></div>
+</div>
+<script src="states-check.js" type="module"></script>
+</body></html>
