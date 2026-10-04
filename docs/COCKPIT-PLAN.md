@@ -144,6 +144,7 @@ Constrained by decision 6: every step ships looking finished.
 | **4** | The palette move and the strip (below) | None, but it touches everything at once |
 | **5** | The bubble, by whichever route spike 0 decided | Known by now |
 | **6** | The browsing pane, muzzled, with the unspoofable chrome strip | Medium, understood |
+| **7** | Bookmarks imported from his Mac's Chrome and Firefox, so the bar starts out looking like his | None |
 
 Steps 1 to 4 are worth doing whichever way step 0 lands. That is deliberate: the gamble is not
 on the critical path.
@@ -209,6 +210,57 @@ Hermes-4-14B was raced for exactly this and rejected: it passes five steps but i
 slower, and it failed the **two**-step job 0/5 by inventing an answer with no tool call at all.
 
 ---
+
+## Watching: Aang marks it himself, and remembers dub
+
+Added 2026-10-04, both his call.
+
+### Why this is needed at all
+Aang only READS the Simkl list today. Something else has to tick episodes off, and the coverage of that
+something else is thin. Simkl's own extension auto-scrobbles **Netflix and Crunchyroll only**. Simkl states
+that Disney+, Prime Video, Hulu and Max have no history page and no way in, so it cannot sync them. MALSync
+covers 96 anime sites, and the aniwave / 9anime / hianime family is **not among them**, because those sites
+change domain constantly and matching is per-domain.
+
+So: he watches anime through **Prime Video's Crunchyroll section**, which nothing tracks. His list goes
+stale, and "put the next one on" is wrong.
+
+### The fix: Aang is the one opening the episode, so Aang records it
+Once Aang has his own browser he knows exactly what he just put on. No extension, no page-scraping, no
+domain matching. Coverage stops depending on anyone else.
+
+- `POST /sync/history` to mark it watched, and `/scrobble/start|pause|stop` while it plays.
+- 80% counts as watched, and that fires on `stop` only.
+- **A 20-second per-user write lock, and heartbeats are explicitly prohibited** (45 to 135 times the quota
+  cost). So: one call at the start, one at the end, never a ticker.
+- ID resolution walks simkl, imdb, tmdb, tvdb, mal, anidb, then title plus year, then title alone "as a last
+  resort". Resolve the id once and keep it rather than sending titles every time.
+- **Anime counts straight through.** His links read `ep-96`, not season 4 episode 8. Sending
+  `{season: 1, number: 96}` files it under the wrong season. Anime needs an anime-native id and the absolute
+  number, with no season field.
+
+### Scopes
+AUTH V2 is read-only by default, so writing needs `media:write`. `simkl-setup.ps1` asks for
+`media:read media:write` as of commit fb8e7c7, falling back to read if Simkl refuses.
+
+### Dub, which Simkl cannot help with
+**Simkl records audio language nowhere.** No field, no endpoint. Its dub and sub availability display is a
+JustWatch-powered website feature, not something the API returns.
+
+So dub is Aang's own preference, stored on his side:
+
+- One row per show, one per category (all anime defaults to dub), one global default. Looked up in that
+  order. **Not** kept in conversation memory: PrefEval found models follow a stated preference less than 10%
+  of the time after ten turns.
+- The Streaming Availability API returns `audios` and `subtitles` per option as ISO 639-1 codes, but has **no
+  audio filter on search**, so Aang fetches and filters himself.
+- A correction ("no, the dub") overwrites that one show's row immediately. A broad rule ("all anime in dub")
+  goes through the existing pending-and-approved path, like every other remembered fact.
+
+### The one-time thing worth doing
+Crunchyroll has a **Connect With Prime Video** sign-in at `sso.crunchyroll.com/login/amazon`. A Prime Video
+channel subscriber can use it to sign in on crunchyroll.com itself. Moving his anime watching from Prime's
+player to Crunchyroll's own site puts it on a service Simkl already tracks, today, with no code at all.
 
 ## Not changing
 
