@@ -12,9 +12,21 @@ namespace Aang.Body;
 /// </summary>
 sealed class CoreSupervisor : IDisposable
 {
-    readonly int port;
-    readonly string? coreDir;
-    readonly string? nodeExe;
+    /// <summary>
+    /// What this supervisor looks after. Added 2026-10-04 so the Shell (Aang's windows) gets the same
+    /// treatment as the Core without a second copy of this class: every hard-won fix below - the drained
+    /// output, the shared log handle, the burst limit, the job object - was paid for once already.
+    /// </summary>
+    internal readonly record struct ChildSpec(
+        string Name,        // "Core" or "Shell", used in the status line and the log
+        string LogFile,     // core.log, shell.log
+        int Port,           // 0 means nothing listens, so do not check whether it is already running
+        string? Dir,        // working directory
+        string? Exe,        // the program to run
+        string Args,
+        string GiveUpSays); // what Aang says out loud when it has crashed too often
+
+    readonly ChildSpec spec;
     readonly CancellationTokenSource cts = new();
     readonly IntPtr job;
     Process? child;
@@ -22,12 +34,48 @@ sealed class CoreSupervisor : IDisposable
     public string Status { get; private set; } = "not started";
     public event Action<string>? StatusChanged;
 
-    public CoreSupervisor(int port, string? coreDirOverride, string? nodeOverride)
+    internal CoreSupervisor(ChildSpec spec)
     {
-        this.port = port;
-        coreDir = coreDirOverride is { Length: > 0 } ? coreDirOverride : FindCoreDir();
-        nodeExe = nodeOverride is { Length: > 0 } ? nodeOverride : FindNode();
+        this.spec = spec;
         job = CreateKillOnCloseJob();
+    }
+
+    public CoreSupervisor(int port, string? coreDirOverride, string? nodeOverride)
+        : this(new ChildSpec(
+            Name: "Core",
+            LogFile: "core.log",
+            Port: port,
+            Dir: coreDirOverride is { Length: > 0 } ? coreDirOverride : FindCoreDir(),
+            Exe: nodeOverride is { Length: > 0 } ? nodeOverride : FindNode(),
+            Args: "--no-warnings src/index.ts",
+            GiveUpSays: "My brain keeps crashing"))
+    { }
+
+    /// <summary>Aang's windows: the Electron Shell, run by the Electron that ships inside it.</summary>
+    public static CoreSupervisor ForShell(string? shellDirOverride)
+    {
+        var dir = shellDirOverride is { Length: > 0 } ? shellDirOverride : FindShellDir();
+        return new CoreSupervisor(new ChildSpec(
+            Name: "Shell",
+            LogFile: "shell.log",
+            Port: 0,                                  // it listens on nothing; it connects out to the Core
+            Dir: dir,
+            Exe: dir == null ? null : Path.Combine(dir, "node_modules", "electron", "dist", "electron.exe"),
+            Args: "src/main.ts",
+            GiveUpSays: "My windows keep crashing"));
+    }
+
+    /// <summary>Walk up to the repo's src/Shell, the same way the Core is found.</summary>
+    public static string? FindShellDir()
+    {
+        for (var d = new DirectoryInfo(AppContext.BaseDirectory); d != null; d = d.Parent)
+        {
+            var c = Path.Combine(d.FullName, "src", "Shell");
+            if (File.Exists(Path.Combine(c, "src", "main.ts"))) return c;
+            c = Path.Combine(d.FullName, "Shell");
+            if (File.Exists(Path.Combine(c, "src", "main.ts"))) return c;
+        }
+        return null;
     }
 
     public void Start() => _ = Task.Run(RunAsync);
@@ -57,15 +105,16 @@ sealed class CoreSupervisor : IDisposable
 
     bool PortInUse()
     {
+        if (spec.Port == 0) return false;             // the Shell listens on nothing: never "already running"
         try
         {
             using var c = new TcpClient();
-            return c.ConnectAsync("127.0.0.1", port).Wait(600) && c.Connected;
+            return c.ConnectAsync("127.0.0.1", spec.Port).Wait(600) && c.Connected;
         }
         catch { return false; }
     }
 
-    void Set(string s) { if (s == Status) return; Status = s; Log.Write("core supervisor: " + s); StatusChanged?.Invoke(s); }
+    void Set(string s) { if (s == Status) return; Status = s; Log.Write($"{spec.Name.ToLowerInvariant()} supervisor: " + s); StatusChanged?.Invoke(s); }
 
     /// <summary>Raised once, when restarting has been given up on. The pet says this out loud.</summary>
     public event Action<string>? GaveUp;
@@ -95,22 +144,26 @@ sealed class CoreSupervisor : IDisposable
 
     async Task RunAsync()
     {
-        if (coreDir == null) { Set("Core folder not found, not starting it"); return; }
-        if (nodeExe == null) { Set("Node.js not found, not starting the Core"); return; }
+        if (spec.Dir == null) { Set($"{spec.Name} folder not found, not starting it"); return; }
+        if (spec.Exe == null || !File.Exists(spec.Exe))
+        {
+            Set($"{spec.Name}: {(spec.Name == "Core" ? "Node.js" : "Electron")} not found, not starting it");
+            return;
+        }
         var pause = TimeSpan.FromSeconds(2);
         while (!cts.IsCancellationRequested)
         {
             try
             {
-                if (PortInUse()) { Set("a Core is already running"); await Task.Delay(5000, cts.Token); continue; }
+                if (PortInUse()) { Set($"a {spec.Name} is already running"); await Task.Delay(5000, cts.Token); continue; }
                 var started = DateTime.UtcNow;
-                var psi = new ProcessStartInfo(nodeExe, "--no-warnings src/index.ts")
+                var psi = new ProcessStartInfo(spec.Exe, spec.Args)
                 {
-                    WorkingDirectory = coreDir, UseShellExecute = false, CreateNoWindow = true,
+                    WorkingDirectory = spec.Dir, UseShellExecute = false, CreateNoWindow = true,
                     RedirectStandardOutput = true, RedirectStandardError = true,
                 };
                 child = Process.Start(psi);
-                if (child == null) { Set("Core would not start"); await Task.Delay(pause, cts.Token); continue; }
+                if (child == null) { Set($"{spec.Name} would not start"); await Task.Delay(pause, cts.Token); continue; }
                 if (job != IntPtr.Zero) AssignProcessToJobObject(job, child.Handle);
                 // The Core's output MUST be drained, whether or not we can write it down.
                 //
@@ -129,7 +182,7 @@ sealed class CoreSupervisor : IDisposable
                 StreamWriter? writer = null;
                 try
                 {
-                    var logPath = Paths.File("core.log");
+                    var logPath = Paths.File(spec.LogFile);
                     // 5.1: rotate, do not delete. This deleted the whole file past 1 MiB, so with six
                     // restarts a day the evidence of an incident could be gone before anyone looked -
                     // exactly what happened on 2026-09-24, when the Core stopped writing and nobody could
@@ -146,7 +199,7 @@ sealed class CoreSupervisor : IDisposable
                     var fs = new FileStream(logPath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite);
                     writer = new StreamWriter(fs) { AutoFlush = true };
                 }
-                catch (Exception e) { Set("core.log unavailable, draining output anyway: " + e.Message); }
+                catch (Exception e) { Set($"{spec.LogFile} unavailable, draining output anyway: " + e.Message); }
 
                 // Full ISO timestamps: the old HH:mm:ss had no date, so a line from last Tuesday read exactly
                 // like one from this morning while diagnosing this very bug.
@@ -159,12 +212,12 @@ sealed class CoreSupervisor : IDisposable
                         while ((l = await r.ReadLineAsync()) != null)
                             if (w != null) lock (w) w.WriteLine($"{DateTime.Now:yyyy-MM-dd HH:mm:ss} {l}");
                     }
-                    catch (Exception e) { Set("core.log writer stopped: " + e.Message); }
+                    catch (Exception e) { Set($"{spec.LogFile} writer stopped: " + e.Message); }
                 });
                 var pipes = new[] { Pipe(child.StandardOutput), Pipe(child.StandardError) };
-                Set($"Core started (pid {child.Id})");
+                Set($"{spec.Name} started (pid {child.Id})");
                 await child.WaitForExitAsync(cts.Token);
-                Set($"Core exited with code {child.ExitCode}");
+                Set($"{spec.Name} exited with code {child.ExitCode}");
                 // Let the readers finish the tail of the output before the writer goes away. Without this the
                 // dispose races them, which is the leak that started all of the above.
                 try { await Task.WhenAll(pipes).WaitAsync(TimeSpan.FromSeconds(5)); } catch { /* a slow tail must not block the restart */ }
@@ -178,9 +231,9 @@ sealed class CoreSupervisor : IDisposable
                     GivenUp = true;
                     var ran = (int)(DateTime.UtcNow - started).TotalSeconds;
                     Set($"gave up after {BurstLimit} crashes in {BurstWindow.TotalMinutes:0} minutes");
-                    GaveUp?.Invoke($"My brain keeps crashing, {BurstLimit} times in the last {BurstWindow.TotalMinutes:0} minutes, " +
+                    GaveUp?.Invoke($"{spec.GiveUpSays}, {BurstLimit} times in the last {BurstWindow.TotalMinutes:0} minutes, " +
                                    $"the last one after {ran} second{(ran == 1 ? "" : "s")}. I have stopped trying so it does not loop forever. " +
-                                   "Restart me once you have had a look at core.log.");
+                                   $"Restart me once you have had a look at {spec.LogFile}.");
                     return;
                 }
 
