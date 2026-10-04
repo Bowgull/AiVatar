@@ -56,7 +56,7 @@ export class CoreLink {
       this.pause = 500;
       this.connected = true;
       this.o.onConnected?.(true);
-      this.send({ t: 'hello', v: 1, client: 'desktop', pid: process.pid });
+      this.send({ t: 'hello', v: 1, client: 'desktop', shell: true, pid: process.pid });
     });
     ws.on('message', d => {
       // Nothing the brain sends may throw out of here and take the Shell with it.

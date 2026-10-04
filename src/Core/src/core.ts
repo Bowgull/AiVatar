@@ -526,7 +526,11 @@ export class Core {
     if (!await this.askPermission('mcp__aang__watch', { url: settled.url })) {
       return { ok: false, detail: this.whyNot() + ' Nothing was opened.' };
     }
-    const where: Where = game.running && this.clientsOf('desktop').length > 0 ? 'popout' : 'tab';
+    // The pop-out only if the program that shows it is actually connected. The pet is a desktop client
+    // too and ignores this message, so "any desktop client" would report a video over his game that
+    // nothing was showing. Without the Shell it opens in a tab, and says why.
+    const shell = this.shellConnected();
+    const where: Where = game.running && shell ? 'popout' : 'tab';
     if (where === 'popout') {
       this.sendTo('desktop', { t: 'popout.open', url: settled.url, title: settled.what });
     } else {
@@ -537,7 +541,8 @@ export class Core {
     if (settled.service !== 'your watch list') this.playing = null;
     this.rememberChannelFrom(words, settled, prefs);
     const how = settled.exact ? 'Put on' : 'Opened the search for';
-    return { ok: true, detail: `${how} ${settled.what} on ${settled.service}${where === 'popout' ? ', over your game' : ''}.` };
+    const note = where === 'popout' ? ', over your game' : game.running && !shell ? ' in a tab, because the pop-out is not running' : '';
+    return { ok: true, detail: `${how} ${settled.what} on ${settled.service}${note}.` };
   }
 
   /**
@@ -1668,6 +1673,11 @@ export class Core {
   private readonly clientKind = new WeakMap<WebSocket, 'desktop' | 'discord'>();
   /** Whether he has used this PC in the last few minutes, as the Body last said. */
   private atDesk = true;
+  /** The Electron Shell's connections: the only desktop client that can actually show the pop-out. */
+  private readonly shells = new WeakSet<WebSocket>();
+  private shellConnected(): boolean {
+    return this.wss ? [...this.wss.clients].some(c => c.readyState === c.OPEN && this.shells.has(c)) : false;
+  }
   private clientsOf(kind: 'desktop' | 'discord'): WebSocket[] {
     return this.wss ? [...this.wss.clients].filter(c => c.readyState === c.OPEN && (this.clientKind.get(c) ?? 'desktop') === kind) : [];
   }
@@ -1723,6 +1733,7 @@ export class Core {
     switch (m.t) {
       case 'hello': {
         this.clientKind.set(ws, m.client === 'discord' ? 'discord' : 'desktop');
+        if (m.shell === true) this.shells.add(ws);
         const q = this.quotaMessage(); if (q) this.send(ws, q);
         if (this.kindOfSocket(ws) === 'desktop') this.send(ws, { t: 'claude.working', ...this.workingNow() });
         break;
