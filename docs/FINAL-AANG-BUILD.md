@@ -1071,7 +1071,7 @@ ports them starts by reading the code.
 | The scroll back: both voices, plum and parchment, a divider at every 30-minute gap | `ConversationView` | 6.15 |
 | Seven Panel tabs, counts on tabs, the Jobs card stack with A / X / O / Z | `PanelWindow` | 6.15 |
 | Email draft cards | `mail.card` | 6.15 (Drafts); Discord unchanged |
-| "A Claude Code job is running" | `claude.working` | 6.13, then the live view in 6.18 |
+| "A Claude Code job is running" | `claude.working` | 6.13 (the live view in 6.18 was cut 2026-10-04) |
 | Docking, "come back", the summon hotkey, following the pet | `Dock`, `HotkeyBox`, `PetWindow` | 6.10b |
 | Several monitors and display scaling | `PetWindow` | 6.10b |
 | The tray menu, grouped Window / Aang / Settings | `GoldMenu` | **stays C#**, restyled to sheet 2 in 6.18b |
@@ -1090,7 +1090,7 @@ mockup exists and he has approved it.** Not yet drawn:
 | ~~What I know, What I may do, What I did, Drafts, History, Settings~~ **DRAWN, sheet 6** (Jobs on sheet 2) | 6.15 |
 | ~~Email draft cards; the morning brief~~ **DRAWN, sheet 6** | 6.15 |
 | ~~Research cards from Phase 7~~ **DRAWN, sheet 6** | 6.15b |
-| ~~Search over everything; charts; before and after; the live Claude Code job view~~ **DRAWN, sheet 7** | 6.18 |
+| ~~Search over everything; charts~~ **DRAWN, sheet 7** (side by side and the live job view cut) | 6.18 |
 | ~~Snip, hotkey grab, drag and drop~~ **DRAWN, sheet 7** | 6.17 |
 | ~~The three distinct "pressed in" looks (clicked, keyboard focus, switched on)~~ **DRAWN, sheet 5** | 6.10 |
 | Browser: vertical tab rail, six tab states, crashed-tab plate, chip and lever approvals, phishing warning, trails, mark as done, "open in Chrome" | 6.19 onward |
@@ -1234,25 +1234,25 @@ a `[qwen]` marker, by its real name (decision 8), never "local" or "free". **Thi
 ### `[ ]` 6.17 Snip, hotkey grab, drag and drop
 
 Snip part of the screen and ask about it; highlight text in any app and press a key; drop a file on
-Aang. Mockup: sheet 7, section 5. **All three land in the chat bubble** (his rule, 2026-10-04): Aang shows
+Aang. Mockup: sheet 7, section 4. **All three land in the chat bubble** (his rule, 2026-10-04): Aang shows
 what he got, asks what to do, and it goes from there as a normal chat. Nothing goes to Claude until he answers.
-- Snip: "Snip the screen" in the Aang group of the gold menu (right-click Aang).
-- Send text: right-click "Send to Aang" in Aang's own browser (built in), Chrome (small extension), and
-  File Explorer's "Send to" for files. Windows has no shared text menu, so other apps need the send key.
+- **Where they live (his decision, 2026-10-04):** two new rows at the top of the AANG group in the gold menu
+  (right-click Aang): "Snip the screen" and "Send what I highlighted". No browser, Chrome or Explorer menus.
+- Snip: key **Ctrl+Shift+Plus** (his decision). On release the snip shrinks to a corner card with a green
+  tick (send) and red cross (bin), like an iPhone screenshot. It never sends by itself.
+- Send what I highlighted: no key. PetWindow is WS_EX_NOACTIVATE, so the app in front keeps focus and its
+  highlight; the reader asks UI Automation for the selection, else copy, read, restore the clipboard.
+  **Test in 6.17:** that the gold menu opening does not clear the highlight in Chrome, Discord, Notepad.
 - Drop: drag onto Aang; Qwen reads the name and first page and suggests a next step.
-**Open decision (his):** the snip and send keys, or none. A global key stops working in WoW; proposed
-Ctrl+Shift+Plus (snip) and Ctrl+Alt+Plus (send), set in the existing HotkeyBox.
 
 ---
 
-### `[ ]` 6.18 Search over everything, charts, side by side, the live job view
+### `[ ]` 6.18 Search over everything, and the charts
 
 One search box over memory, the vault, conversations, jobs and addons. Charts: the job hunt by stage,
-Claude use week over week, addon drift (no table buttons, his call). Before and after a file change, opened
-from What I did. **Cut 2026-10-04:** comparing two jobs side by side; ask in the bubble instead. A Claude Code job shown working,
-steps and files as they happen. Mockup: sheet 7. **New, not kept:** the live steps and files need two
-more Claude Code hooks (before and after each tool); today only three are sent. A daily saved quota
-reading, so the usage chart can show the percent week over week.
+Claude use week over week, addon drift (no table buttons, his call). **Cut 2026-10-04 (his call):** the
+before-and-after file view, the live Claude Code job window, and comparing two jobs; each is a question
+in the bubble instead, and undo already exists. Mockup: sheet 7. A daily saved quota reading, so the usage chart can later show the percent week over week.
 
 ---
 

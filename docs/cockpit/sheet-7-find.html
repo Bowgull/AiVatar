@@ -7,9 +7,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Figtree:ital,wght@0,400;0,500;0,600;0,700;0,900;1,500&family=Silkscreen&display=swap" rel="stylesheet">
 <style>
 /* ===========================================================================
-   SHEET 7 - FIND, CHARTS, COMPARE, WATCH, GRAB
-   For FINAL AANG BUILD steps 6.17 and 6.18. Search, charts, side by side,
-   the live job view, and snip, grab and drop.
+   SHEET 7 - FIND, CHARTS, SNIP, SEND, DROP
+   For FINAL AANG BUILD steps 6.17 and 6.18. Search, charts, and snip,
+   send and drop, all landing in the chat bubble.
    Fields come from docs.ts (DocHit.how), jobs.ts (the six stages), addons.ts
    (Behind), quota.ts, hooks.ts (claude.working) and files.ts (the refusals).
    Reply counts in the usage chart are real, counted from aang.db on 4 Oct.
@@ -376,15 +376,51 @@ p.sur{font:500 13.5px/1.6 var(--body);color:#8a80a5;margin:0 0 16px;max-width:74
 .thumb{border-radius:6px;border:3px solid var(--outline);background:#1b2430;padding:10px 12px;max-width:300px;
   box-shadow:0 3px 0 rgba(0,0,0,.4)}
 .thumb div{font:500 11px/1.45 ui-monospace,Consolas,monospace;color:#ffb38a}
+
+/* ---- the gold menu, from sheet 2 ---- */
+.menu{width:262px;padding:7px;border-radius:12px;overflow:hidden;flex:0 0 auto;
+  background:linear-gradient(180deg,#56371F,var(--wood2));border:3px solid var(--outline);
+  box-shadow:0 4px 0 rgba(0,0,0,.6),0 14px 28px rgba(0,0,0,.6)}
+.menu .mrow{display:flex;align-items:center;gap:8px;padding:9px 11px;border-radius:6px;
+  font:400 11.5px var(--label);color:#E6DCC8;letter-spacing:.5px;cursor:pointer;text-shadow:1px 1px 0 rgba(0,0,0,.75)}
+.menu .mrow:hover,.menu .mrow.lit:hover{background:linear-gradient(180deg,var(--gold-lit),var(--gold-deep));color:#2a1c00;
+  text-shadow:0 1px 0 rgba(255,255,255,.5);box-shadow:inset 0 2px 0 rgba(255,255,255,.45)}
+.menu .mrow.lit{box-shadow:inset 0 0 0 2px var(--gold);color:var(--gold-lit)}
+.menu .mrow .arr{margin-left:auto;opacity:.6;font-family:var(--body);font-size:13px}
+.menu .mrow.lit .arr{font:400 8px var(--label);opacity:.75}
+.menu .mrow .tick{width:13px;font-size:12px;opacity:.9}
+.menu .hdr{background:var(--wood-plaque);border-radius:6px;padding:8px 11px;margin:6px 2px 4px;
+  font:400 10px var(--label);color:var(--gold);letter-spacing:1.5px;border:2px solid var(--outline);
+  box-shadow:inset 0 3px 0 rgba(0,0,0,.65);text-shadow:1px 1px 0 rgba(0,0,0,.85)}
+.menu .sep{height:4px;margin:6px 4px;border-radius:2px;background:linear-gradient(180deg,rgba(0,0,0,.65) 0 2px,rgba(255,224,150,.22) 2px 4px)}
+.menu .mrow.danger:hover{background:linear-gradient(180deg,#ff9a85,var(--orange-deep));color:#2e1200}
+/* ---- the snip confirm ---- */
+.screen.small .err{left:22px;top:52px;width:auto;right:22px;font-size:10.5px;padding:9px 10px}
+.screen.small .sel{left:14px;top:44px;width:auto;right:14px;height:84px}
+.screen.small .sel .sz{top:-22px}
+.snipflow{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:18px;align-items:start}
+.stepno{font:400 10px var(--label);letter-spacing:1.5px;color:var(--gold-deep);margin:0 0 8px}
+.shot{position:absolute;right:14px;bottom:14px;width:178px;padding:7px;border-radius:9px;
+  background:linear-gradient(180deg,#56371F,var(--wood2));border:3px solid var(--outline);
+  box-shadow:0 5px 0 rgba(0,0,0,.6),0 12px 24px rgba(0,0,0,.6);animation:shrink .5s ease-out}
+@keyframes shrink{from{transform:scale(1.9) translate(-30%,-30%);opacity:.4}to{transform:none;opacity:1}}
+.shot .pic{border-radius:5px;border:2px solid var(--outline);background:#1d140c;padding:6px 7px;height:58px;overflow:hidden}
+.shot .pic div{font:500 8.5px/1.4 ui-monospace,Consolas,monospace;color:#ffb38a}
+.shot .yn{display:flex;justify-content:space-between;margin-top:8px}
+.gem{width:46px;height:46px;border-radius:50%;border:3px solid var(--outline);cursor:pointer;
+  font:900 20px var(--body);position:relative;top:0;box-shadow:0 4px 0 var(--outline),inset 0 3px 0 rgba(255,255,255,.5)}
+.gem:active{top:4px;box-shadow:0 0 0 var(--outline),inset 0 3px 0 rgba(255,255,255,.5)}
+.gem.yes{background:radial-gradient(circle at 35% 30%,#d2ffdd,var(--green) 55%,#3f9a5f);color:#163a24}
+.gem.no{background:radial-gradient(circle at 35% 30%,#ffd0c8,var(--red) 55%,#a8352a);color:#2e0b06}
 </style>
 </head>
 <body>
 <div class="wrap">
 
-<h1>AANG &middot; FIND, CHARTS, COMPARE, WATCH, GRAB</h1>
-<p class="sub">Sheet 7. Search over everything, the three charts, two things side by side, a Claude Code job
-shown live, and the three ways to hand Aang something: snip, grab, drop.<br>FINAL AANG BUILD steps 6.17 and
-6.18. Fields come from the <b style="color:#9a90b5">real code</b>; each part says what is kept and what is new.</p>
+<h1>AANG &middot; FIND, CHARTS, SNIP, SEND, DROP</h1>
+<p class="sub">Sheet 7. Search over everything, the three charts, and the three ways to hand Aang something:
+snip, send, drop.<br>FINAL AANG BUILD steps 6.17 and 6.18. Fields come from the <b style="color:#9a90b5">real code</b>;
+each part says what is kept and what is new.</p>
 
 <!-- ============================================== 1 -->
 <h2 class="part">1 &middot; SEARCH OVER EVERYTHING <span class="step">6.18</span></h2>
@@ -527,140 +563,80 @@ alone. Point at any bar for the exact figure.</p>
 </div>
 
 <!-- ============================================== 3 -->
-<h2 class="part">3 &middot; BEFORE AND AFTER A CHANGE <span class="step">6.18</span></h2>
-<p class="why"><b>Only one kind is kept: a file before and after Aang changed it.</b> You get here from
-<b>What I did</b> (sheet 6): click any change in the timeline and this opens. Red is what went, green is what
-came in.</p>
-<div class="decide" style="margin-bottom:22px">
-  <p><b>CUT: comparing two jobs side by side.</b> Your job hunt is one card at a time, apply or skip, and you'd
-  only compare two when you're holding two offers, which is rare. If that happens, say "compare these two" in
-  the bubble and Aang lays it out in the chat. No separate view to build or maintain.</p>
-</div>
-<div class="two" style="align-items:flex-start">
-  <div class="parch tex card">
-    <p class="t-eyebrow">A FILE, BEFORE AND AFTER &middot; 10_Projects/Aang/raid-night.md</p>
-    <div class="code">
-      <div class="hd"><span>BEFORE &middot; 2 OCT 9:14 PM</span><span>AFTER</span></div>
-      <div class="ln"><span># Raid night</span><span># Raid night</span></div>
-      <div class="ln"><span class="rm">Saturday, 8 PM</span><span class="ad">Saturday, 7 PM</span></div>
-      <div class="ln"><span>Bring flasks and food</span><span>Bring flasks and food</span></div>
-      <div class="ln"><span></span><span class="ad">Update DBM first</span></div>
-    </div>
-    <div class="keys"><button class="key sm">Put it back<span class="k">Z</span></button>
-      <button class="key sm">Open the file<span class="k">O</span></button></div>
-  </div>
-  <div style="flex:1;min-width:250px">
-    <p class="sur"><b>Before is the undo copy</b> Aang already keeps of every file he changes. This only shows
-    it. Red is what went, green is what came in.</p>
-    <p class="sur"><b>"Put it back"</b> is the undo that exists today, given a button.</p>
-    <p class="sur"><span class="tag kept">KEPT</span> undo copies and undo. <span class="tag new">NEW</span> seeing the two side by side.</p>
-  </div>
+<h2 class="part">3 &middot; CUT FROM THIS BUILD</h2>
+<div class="decide" style="margin-bottom:8px">
+  <p><b>The before-and-after file view.</b> Aang already keeps an undo copy of every file he changes, and undo
+  already works. If you want to know what he changed, ask him in the bubble: he says it in a sentence and
+  offers "Put it back". A separate red-and-green view was extra.</p>
+  <p><b>The live Claude Code job window.</b> Your complaint on 23 Sep was "I can't tell it's doing anything".
+  The glow already answers that, and the step-by-step checklist in the bubble (sheet 5) shows progress. A
+  second window listing every file it reads was extra, and it needed two new Claude Code hooks to feed it.
+  Those hooks are dropped too.</p>
+  <p><b>Comparing two jobs side by side.</b> Rare. Ask in the bubble instead.</p>
 </div>
 
 <!-- ============================================== 4 -->
-<h2 class="part">4 &middot; A CLAUDE CODE JOB, LIVE <span class="step">6.18</span></h2>
-<p class="why">Today a running job is a glow and one line: "job hunt, working". You asked to run a job search
-and "could not tell it was doing anything". This window is that job opened up: <b>the steps</b>, ticked as
-they finish, and <b>every file and page it touches</b>, as it touches them. Click the glowing Aang, or the job
-in What I did, and this opens.</p>
-
-<div class="live">
-  <div class="top"><span class="nm">Job hunt</span><span class="host">ON THIS PC</span><span class="clock">WORKING &middot; 4 MIN 12 S</span></div>
-  <div class="cols">
-    <div>
-      <p class="t-eyebrow">STEPS</p>
-      <div class="check done"><span class="mark">DONE</span><span>Read your job search notes</span></div>
-      <div class="check done"><span class="mark">DONE</span><span>Searched three job boards</span></div>
-      <div class="check now"><span class="mark">NOW</span><span>Scoring 6 new postings</span></div>
-      <div class="check todo"><span class="mark">NEXT</span><span>Making the job cards</span></div>
-      <div class="check todo"><span class="mark">NEXT</span><span>Telling you</span></div>
-    </div>
-    <div>
-      <p class="t-eyebrow">WHAT IT HAS TOUCHED</p>
-      <div class="file"><span class="v read">READ</span><span>Brain/job-search.md</span></div>
-      <div class="file"><span class="v read">READ</span><span>Brain/profile.md</span></div>
-      <div class="file"><span class="v web">PAGE</span><span>linkedin.com/jobs</span></div>
-      <div class="file"><span class="v web">PAGE</span><span>indeed.com</span></div>
-      <div class="file"><span class="v web">PAGE</span><span>wellfound.com</span></div>
-      <div class="file fresh"><span class="v edit">EDIT</span><span>jobs.json</span></div>
-    </div>
-  </div>
-  <div class="justnow"><b>JUST NOW</b><span>Octup, Product Manager: 82, apply.</span></div>
-  <div class="keysbar"><div class="keys">
-    <button class="key sm">Stop<span class="k">Esc</span></button>
-    <button class="key sm">Open the terminal<span class="k">X</span></button>
-    <button class="key sm">Hide this<span class="k">H</span></button>
-  </div></div>
-</div>
-
-<div class="two" style="margin-top:18px">
-  <div style="flex:1;min-width:250px">
-    <p class="sur"><b>READ, EDIT and PAGE</b> are the three kinds of thing a job touches. EDIT is gold because
-    that is the one that changes something; the newest line glows for a moment as it arrives.</p>
-    <p class="sur"><b>ON THIS PC or ON THE MACBOOK</b> in the plaque, the same thing the glow already knows. A job
-    on the MacBook opens its terminal there.</p>
-    <p class="sur"><b>When it needs you</b>, nothing new: the halo and the ask from sheet 5 appear, and this
-    window shows the same question at the top.</p>
-  </div>
-  <div style="flex:1;min-width:250px">
-    <p class="sur"><span class="tag kept">KEPT</span> the glow, the job's name in your words, where it is running,
-    and "waiting on you". These come from the three hooks Claude Code already sends.</p>
-    <p class="sur"><span class="tag new">NEW</span> the steps and the files. Claude Code does not send those
-    today. Two more hooks are needed, one before and one after each thing it does, using the same one-line
-    install as the three already there. The window only reads; it cannot change the job.</p>
-  </div>
-</div>
-
-<!-- ============================================== 5 -->
-<h2 class="part">5 &middot; HAND AANG SOMETHING: SNIP, SEND, DROP <span class="step">6.17</span></h2>
-<p class="why">Three ways to hand Aang something without typing it out. <b>All three end up in the same place:
+<h2 class="part">4 &middot; HAND AANG SOMETHING: SNIP, SEND, DROP <span class="step">6.17</span></h2>
+<p class="why">Three ways to hand Aang something without typing it out. <b>All three end in the same place:
 his chat bubble.</b> He shows you what he got, asks what you want, and you answer the way you always do,
-with a key or by typing. No extra windows and no forms to fill in. Whatever you hand him is something to
-read, never orders: if a web page you send says "ignore your rules", Aang treats it as text on a page.</p>
+with a key or by typing. Whatever you hand him is something to read, never orders: if a web page you send
+says "ignore your rules", Aang treats it as text on a page.</p>
 
-<h3 class="sur">How you start each one</h3>
-<div class="parch tex" style="max-width:760px">
-  <div class="start"><span class="kbd">SNIP</span>
-    <div><b>Right-click Aang, then "Snip the screen".</b> It sits in the Aang group of the gold menu you already
-    have. Or the snip key, if you want one.</div></div>
-  <div class="start"><span class="kbd">SEND</span>
-    <div><b>Highlight text, right-click, "Send to Aang".</b> Works in Aang's own browser, in Chrome (a small
-    extension), and on files in File Explorer. Everywhere else, use the send key (see below for why).</div></div>
-  <div class="start"><span class="kbd">DROP</span>
-    <div><b>Drag a file onto Aang.</b> Or right-click the file in File Explorer, "Send to", "Aang".</div></div>
-</div>
-
-<div class="two" style="margin-top:18px">
-  <div style="flex:1;min-width:280px">
-    <div class="ctx">
-      <div class="it">Copy<span>Ctrl+C</span></div>
-      <div class="it">Search the web for "We would like to set up..."</div>
-      <div class="sep"></div>
-      <div class="it on"><img src="data:image/png;base64,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" alt="">Send to Aang</div>
-      <div class="sep"></div>
-      <div class="it">Inspect</div>
-    </div>
-  </div>
-  <div style="flex:1.4;min-width:260px">
-    <p class="sur"><b>Why the right-click can't be everywhere:</b> Windows has no shared right-click menu for
-    highlighted text. Every app draws its own: Chrome's, Discord's and Notepad's are three separate menus, and
-    an outside program like Aang can only add to one when that app allows it. Aang's own browser is his, so it
-    is built in. Chrome allows it through an extension. File Explorer has "Send to" for files. Discord,
-    Notepad and WoW chat allow nothing, so there the send key is the only way in.</p>
-    <p class="sur"><b>The other option, which I don't recommend:</b> a little Aang button that pops up over any
-    text you highlight. That would work everywhere, but it would also pop up every time you select anything,
-    WoW included.</p>
-  </div>
-</div>
-
-<h3 class="sur" style="margin-top:28px">Snip: drag a box, Aang asks</h3>
+<h3 class="sur">Where they live: right-click Aang</h3>
 <div class="two" style="align-items:flex-start">
-  <div class="card" style="max-width:500px">
-    <div class="screen" style="height:200px">
+  <div class="menu">
+    <div class="mrow">Talk to Aang</div>
+    <div class="mrow">Conversation</div>
+    <div class="mrow">Panel</div>
+    <div class="sep"></div>
+    <div class="hdr">WINDOW</div>
+    <div class="mrow">Show Aang<span class="arr">&#8250;</span></div>
+    <div class="mrow">Where he sits<span class="arr">&#8250;</span></div>
+    <div class="hdr">AANG</div>
+    <div class="mrow lit">Snip the screen<span class="arr">CTRL+SHIFT+PLUS</span></div>
+    <div class="mrow lit">Send what I highlighted</div>
+    <div class="mrow">Job hunt<span class="arr">&#8250;</span></div>
+    <div class="mrow">What he may do<span class="arr">&#8250;</span></div>
+    <div class="mrow">What he did<span class="arr">&#8250;</span></div>
+    <div class="hdr">SETTINGS</div>
+    <div class="mrow">Model<span class="arr">&#8250;</span></div>
+    <div class="mrow"><span class="tick">&#10003;</span>Save quota</div>
+    <div class="sep"></div>
+    <div class="mrow danger">Quit Aang</div>
+  </div>
+  <div style="flex:1;min-width:250px">
+    <p class="sur"><b>Two new rows at the top of the AANG group</b> in the gold menu you already have (sheet 2).
+    Nothing else in the menu changes.</p>
+    <p class="sur"><b>Snip the screen</b> also has its key, <b>Ctrl+Shift+Plus</b>, printed beside it so you learn
+    it. It sits next to your hide-and-show key, Ctrl+Plus.</p>
+    <p class="sur"><b>Send what I highlighted</b> has no key. Highlight text in any app, right-click Aang, pick
+    it. Clicking Aang never takes focus away from the app you were in (his window is built that way), so your
+    highlight is still there when he reads it.</p>
+    <p class="sur"><b>Drop</b> needs no menu: drag a file onto him.</p>
+  </div>
+</div>
+
+<h3 class="sur" style="margin-top:28px">Snip: drag a box, confirm it, Aang asks</h3>
+<div class="snipflow">
+  <div>
+    <p class="stepno">1 &middot; DRAG A BOX</p>
+    <div class="screen small" style="height:190px">
       <div class="err">Interface\AddOns\Questie\Modules\<br>QuestieTracker.lua:812: attempt to<br>index field 'quest' (a nil value)</div>
-      <div class="sel"><i></i><i></i><i></i><i></i><span class="sz">356 &times; 118 &middot; ENTER TO SEND &middot; ESC TO CANCEL</span></div>
+      <div class="sel"><i></i><i></i><i></i><i></i><span class="sz">356 &times; 118</span></div>
     </div>
-    <div class="bub7 parch tex tail" style="margin-top:22px">
+  </div>
+  <div>
+    <p class="stepno">2 &middot; SEND IT OR BIN IT</p>
+    <div class="screen" style="height:190px;background:linear-gradient(135deg,#2b3a2a,#1b2430 60%,#2a1f33)">
+      <div class="shot">
+        <div class="pic"><div>QuestieTracker.lua:812: attempt to index field 'quest' (a nil value)</div></div>
+        <div class="yn"><button class="gem no" title="Throw it away">&#10005;</button><button class="gem yes" title="Send to Aang">&#10003;</button></div>
+      </div>
+    </div>
+  </div>
+  <div>
+    <p class="stepno">3 &middot; AANG ASKS</p>
+    <div class="bub7 parch tex tail">
       <div class="thumb"><div>QuestieTracker.lua:812: attempt to index field 'quest' (a nil value)</div></div>
       <p class="t-body" style="margin:10px 0 4px">Got your snip. What do you want to know about it?</p>
       <div class="keys">
@@ -669,19 +645,24 @@ read, never orders: if a web page you send says "ignore your rules", Aang treats
       </div>
     </div>
   </div>
+</div>
+<div class="two" style="margin-top:16px">
   <div style="flex:1;min-width:250px">
-    <p class="sur"><b>The screen dims, you drag a box, press Enter.</b> Gold corners show exactly what gets
-    sent. Nothing outside the box goes anywhere.</p>
-    <p class="sur"><b>Then it is just a chat.</b> The snip appears small in his bubble with a question. He guesses
-    the likely one as the gold key, and you can type your own instead.</p>
-    <p class="sur"><b>Nothing goes to Claude until you answer.</b> The snip sits on this PC while he asks. Once
-    you answer, the model pill shows which model it went to, as it does for every message.</p>
+    <p class="sur"><b>Like a screenshot on an iPhone:</b> the moment you let go, the snip shrinks into a small
+    card in the corner by Aang with two gems. Green tick sends it to Aang. Red cross throws it away. Enter and
+    Esc do the same.</p>
+    <p class="sur"><b>It never sends by itself.</b> On an iPhone the thumbnail slides away on its own; here it
+    waits until you choose, because sending is your call. Start another snip and the old one is thrown away.</p>
+  </div>
+  <div style="flex:1;min-width:250px">
+    <p class="sur"><b>Then it's just a chat.</b> He guesses the likely question as the gold key, or you type your
+    own. Nothing goes to Claude until you answer, and the model pill shows which model it goes to.</p>
     <p class="sur"><b>On this PC, protected video snips black.</b> Netflix, Prime and the rest come out as an
-    empty black box (you found that on 4 Oct). If a snip is all black, Aang says so instead of guessing.</p>
+    empty black box (you found that on 4 Oct). If a snip is all black, the card says so before you send it.</p>
   </div>
 </div>
 
-<h3 class="sur" style="margin-top:28px">Send: what arrives in the bubble</h3>
+<h3 class="sur" style="margin-top:28px">Send what I highlighted: what arrives in the bubble</h3>
 <div class="two" style="align-items:flex-start">
   <div class="bub7 parch tex tail" style="max-width:460px">
     <span class="from">FROM CHROME &middot; MAIL.GOOGLE.COM &middot; READ, NOT OBEYED</span>
@@ -697,8 +678,10 @@ read, never orders: if a web page you send says "ignore your rules", Aang treats
   <div style="flex:1;min-width:250px">
     <p class="sur"><b>Where it came from is printed on top</b>, so you always know which app and which page the
     words are from.</p>
-    <p class="sur"><b>He reads it and suggests the obvious next step</b> as the gold key. Anything else, just
-    type it. "Draft a reply" makes a draft card (sheet 6). Nothing is sent without your OK.</p>
+    <p class="sur"><b>He suggests the obvious next step</b> as the gold key. Anything else, just type it. "Draft a
+    reply" makes a draft card (sheet 6). Nothing is sent without your OK.</p>
+    <p class="sur"><b>Nothing highlighted?</b> He says "I don't see anything highlighted in Chrome" rather than
+    guessing.</p>
     <p class="sur"><span class="tag kept">KEPT</span> the reader that already pulls the words out of the window in
     front of you, in its own process so a crash in another app can't take Aang down.
     <span class="tag new">NEW</span> asking it for just the highlighted part. If an app won't say, Aang copies,
@@ -732,9 +715,9 @@ read, never orders: if a web page you send says "ignore your rules", Aang treats
   <div style="flex:1;min-width:250px">
     <p class="sur"><b>Drag a file near him and the ring lights</b> in his own pale blue glow, so you know he will
     take it.</p>
-    <p class="sur"><b>Then he asks, in the bubble.</b> Nothing happens on the drop alone. Qwen reads the name
-    and the first page, on this PC, makes a guess about what it is, and offers the likely next step. From there you work it
-    out together, the same as any chat.</p>
+    <p class="sur"><b>Then he asks, in the bubble.</b> Nothing happens on the drop alone. Qwen reads the name and
+    the first page, on this PC, makes a guess about what it is, and offers the likely next step. From there you
+    work it out together, the same as any chat.</p>
     <p class="sur"><b>"Keep a copy" goes only to Aang's own folder</b> in your vault, the one place there he
     may write.</p>
     <p class="sur"><b>The refusals are the real ones</b> Aang already gives: keys and passwords, browser profiles,
@@ -742,13 +725,6 @@ read, never orders: if a web page you send says "ignore your rules", Aang treats
     button to override. Programs are never run: a dropped .exe gets "I won't run programs. I can tell you what
     it is."</p>
   </div>
-</div>
-
-<div class="decide" style="margin-top:24px">
-  <p><b>YOUR CALL: the snip and send keys.</b> A key Aang claims stops working in WoW, the way Ctrl+Plus already
-  does. Proposed: <b>Ctrl+Shift+Plus</b> to snip and <b>Ctrl+Alt+Plus</b> to send, both next to the hide-and-show
-  key you already chose and unlikely to be bound in WoW. Or no keys at all, and use the right-click menus only.
-  Changed in Settings with the same "press the keys" box as today.</p>
 </div>
 
 </div>
