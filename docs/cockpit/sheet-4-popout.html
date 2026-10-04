@@ -326,45 +326,97 @@ Nothing new was drawn for this. The buttons are big because you are hitting them
   </div>
 </div>
 
-<h3 class="sur">The see-through slider, three positions</h3>
-<p class="sur">The bars stay solid even when the picture fades, so you can always find them.</p>
+<h3 class="sur">The see-through slider is one smooth slider, not a set of modes</h3>
+<p class="sur">Drag the gem anywhere along it and the picture fades to match, with a number so you can
+put it back exactly. <b style="color:#cfc4ea">The bars never fade</b>, so you can always find the
+controls however faint the picture gets. The three below are just points along the one slider.</p>
+
+<div style="max-width:470px;margin:0 0 20px">
+  <div class="ctrl" style="border:3px solid var(--outline);border-radius:9px">
+    <span class="ico"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5" stroke="#e8e0f5" stroke-width="1.8" fill="none"/><path d="M8 2.5a5.5 5.5 0 010 11z" fill="#e8e0f5"/></svg></span>
+    <div class="track"><i class="fill" style="width:72%"></i><i class="knob" style="left:68%"></i></div>
+    <span class="tnum">72%</span>
+  </div>
+</div>
+
 <div class="two">
-  <div style="width:240px">
-    <p class="cardlab">100%</p>
-    <div class="pop"><div class="popbar"><span class="grip"><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="nm">FULL</span></div>
+  <div style="width:230px">
+    <p class="cardlab">AT 100%</p>
+    <div class="pop"><div class="popbar"><span class="grip"><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="nm">SOLID</span></div>
       <div class="screen" style="font-size:9px">VIDEO</div></div>
   </div>
-  <div style="width:240px">
-    <p class="cardlab">60%</p>
-    <div class="pop"><div class="popbar"><span class="grip"><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="nm">FADED</span></div>
+  <div style="width:230px">
+    <p class="cardlab">AT 60%</p>
+    <div class="pop"><div class="popbar"><span class="grip"><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="nm">SOLID</span></div>
       <div class="screen" style="font-size:9px;opacity:.6">VIDEO</div></div>
   </div>
-  <div style="width:240px">
-    <p class="cardlab">25%, A GHOST</p>
-    <div class="pop"><div class="popbar"><span class="grip"><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="nm">GHOST</span></div>
+  <div style="width:230px">
+    <p class="cardlab">AT 25%</p>
+    <div class="pop"><div class="popbar"><span class="grip"><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="nm">SOLID</span></div>
       <div class="screen" style="font-size:9px;opacity:.25">VIDEO</div></div>
   </div>
 </div>
 
+<h3 class="sur">The controls get out of the way <span class="new">NEW</span></h3>
+<p class="sur"><b style="color:#cfc4ea">A correction to what I told you earlier.</b> I said fading
+controls were not possible on Windows. That is only true of a window you can click straight through,
+and this is a normal window, so it behaves like any other video player.</p>
+
+<div class="two" style="align-items:flex-start">
+  <div style="width:380px">
+    <p class="cardlab">WHILE PLAYING, MOUSE ELSEWHERE</p>
+    <div class="pop">
+      <div class="screen" style="border-radius:8px">VIDEO</div>
+    </div>
+    <p class="sur" style="margin-top:12px">Two seconds after you stop moving the mouse, the wood and
+    the controls fade out and the corners round off. Just the picture, sitting over your game.</p>
+  </div>
+  <div style="width:380px">
+    <p class="cardlab">MOUSE OVER IT</p>
+    <div class="pop">
+      <div class="popbar">
+        <span class="grip"><i></i><i></i><i></i><i></i><i></i><i></i></span>
+        <span class="nm">ASMONGOLD</span><span class="src">TWITCH</span>
+        <span class="ico sm"><svg viewBox="0 0 12 12"><path d="M2 2L10 10M10 2L2 10" stroke="#e8e0f5" stroke-width="2.4" stroke-linecap="round"/></svg></span>
+      </div>
+      <div class="screen">VIDEO</div>
+      <div class="ctrl">
+        <span class="ico gold"><svg viewBox="0 0 14 14"><rect x="3" y="2" width="3" height="10" rx="1" fill="#2a1c00"/><rect x="8" y="2" width="3" height="10" rx="1" fill="#2a1c00"/></svg></span>
+        <div class="track"><i class="fill" style="width:38%"></i><i class="knob" style="left:35%"></i></div>
+        <span class="tnum">4:12</span>
+      </div>
+    </div>
+    <p class="sur" style="margin-top:12px">Everything comes back the moment the mouse crosses it. No
+    click needed, no hunting for a hidden edge.</p>
+  </div>
+</div>
+<p class="sur" style="max-width:700px"><b style="color:#cfc4ea">One exception, on purpose:</b> while
+the video is paused the controls stay put. If you paused it, you are probably about to press
+something.</p>
+
 <!-- ============================================== 3 -->
 <h2 class="part">3 &middot; SIZE AND PLACE</h2>
-<p class="why">Four snap sizes plus free drag. Snap sizes exist because dragging a thin edge during a
-fight is miserable, and because a few fixed rectangles are kinder to the graphics card than any size
-you like. It remembers where you left it.</p>
+<p class="why"><b style="color:#cfc4ea">Your size wins.</b> Drag any edge or the corner to whatever
+size suits you, and that is the size it opens at next time, in the same spot. The presets are only
+shortcuts for when you cannot be bothered to drag during a fight. It never resizes itself.</p>
 
 <div class="two" style="align-items:center">
   <div class="wood tex" style="width:420px">
     <div class="plaque">SIZE</div>
+    <p class="t-body" style="margin:0 0 12px"><b>Yours</b>, remembered. The buttons below just jump to
+    a size quickly; dragging always overrides them.</p>
     <div style="display:flex;gap:9px;flex-wrap:wrap">
+      <span class="sizebtn on">YOURS</span>
       <span class="sizebtn">CORNER</span>
-      <span class="sizebtn on">MEDIUM</span>
+      <span class="sizebtn">MEDIUM</span>
       <span class="sizebtn">BIG</span>
       <span class="sizebtn">FULLSCREEN</span>
     </div>
     <div class="rule-titled"><i class="bar"></i><span>And where</span><i class="bar"></i></div>
-    <p class="t-body" style="margin:0">Drop it near an edge of the screen and it snaps flush. Your own
-    health bars sit top-left and your action bars sit bottom-centre, so <b>the right-hand side is the
-    only quiet part of a WoW screen.</b> That is where it opens the first time.</p>
+    <p class="t-body" style="margin:0">It opens where you last left it. <b>The first time only</b>, it
+    picks the right-hand side, because your health bars sit top-left and your action bars sit
+    bottom-centre, so that is the only quiet part of a WoW screen. Drop it near an edge and it snaps
+    flush.</p>
   </div>
   <div style="flex:1;min-width:260px">
     <p class="cardlab">WHERE IT OPENS, AND WHY</p>
@@ -373,15 +425,16 @@ you like. It remembers where you left it.</p>
       <div class="bar-ui"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
       <div style="position:absolute;right:16px;top:50%;transform:translateY(-50%);width:150px;
         border:3px dashed var(--gold);border-radius:8px;aspect-ratio:16/9;display:grid;place-items:center;
-        font:400 9px var(--label);color:var(--gold);z-index:4;text-shadow:1px 1px 0 #000">HERE</div>
+        font:400 9px var(--label);color:var(--gold);z-index:4;text-shadow:1px 1px 0 #000;text-align:center;
+        line-height:1.6">FIRST TIME<br>ONLY</div>
     </div>
   </div>
 </div>
 
 <!-- ============================================== 4 -->
 <h2 class="part">4 &middot; HOW IT OPENS</h2>
-<p class="why">Six ways, and <b>every one of them is something you did.</b> Nothing ever floats a video
-over your game on its own.</p>
+<p class="why">Five ways, and <b>every one of them is something you did.</b> Nothing ever floats a
+video over your game on its own. There is no sixth way where it decides for itself.</p>
 
 <div class="waysin">
   <div class="way">
@@ -418,12 +471,6 @@ over your game on its own.</p>
     <p class="sur" style="margin:0 0 10px"><b style="color:#cfc4ea">A hotkey</b> hides it and brings it
     back without stopping the video. You pick the keys.</p>
     <span class="kbd">Ctrl</span> <span class="kbd">Shift</span> <span class="kbd">V</span>
-  </div>
-  <div class="way">
-    <span class="n">6</span>
-    <p class="sur" style="margin:0 0 10px"><b style="color:#cfc4ea">You switch to WoW</b> while a video
-    plays in a tab, and it follows you out automatically. <span class="chip normal">OPTIONAL</span></p>
-    <p class="sur" style="margin:0"><i>The one thing people said they missed most when they left Arc.</i></p>
   </div>
 </div>
 
@@ -554,11 +601,16 @@ would rather watch on the Mac's own screen.</p>
 <table class="spec">
   <tr><th>Left out</th><th>Why</th></tr>
   <tr><td><b>Ghost mode and edit mode</b> <span class="new gone">REMOVED</span></td><td>Your decision 32. It is a normal window now. The old version relied on the mouse being sensed over a see-through window, which has Windows bugs that Electron closed as "not planned"</td></tr>
+  <tr><td><b>Jumping into the pop-out by itself</b> <span class="new gone">REMOVED</span></td><td>Your call, 2026-10-04: <b>never</b>. A video in a tab stays in that tab until you move it. The switch for it is gone too</td></tr>
   <tr><td><b>Twitch chat</b></td><td>Your decision 33</td></tr>
   <tr><td><b>Two pop-outs at once</b></td><td>Your decision 34. Opening a new video replaces the old one. Two videos would also double the load on Shadow's graphics card while WoW runs</td></tr>
-  <tr><td><b>Controls that fade in on hover</b></td><td>Same Windows bugs. They are simply always there</td></tr>
   <tr><td><b>Netflix, for now</b></td><td>Needs a free sign-up in your name before it will play here. Until then, the MacBook</td></tr>
+  <tr><td><b>Resizing itself, ever</b></td><td>Your size is remembered and never overridden</td></tr>
 </table>
+
+<h3 class="sur">And one thing I removed for the wrong reason, now back</h3>
+<p class="sur"><b style="color:#cfc4ea">Fading controls.</b> I told you Windows could not do it. That
+was only true of click-through windows, and this is a normal one. Section 2 shows them.</p>
 
 </div>
 </body>
