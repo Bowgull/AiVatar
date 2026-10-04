@@ -145,6 +145,9 @@ export function kindOf(tool: string, input: Record<string, unknown>): { kind: st
     case 'mcp__aang__calendar_today': return { kind: 'read calendar', says: 'read your calendar' };
     case 'mcp__aang__play_music': return { kind: 'play music', says: 'play music on your Spotify' };
     case 'mcp__aang__watch_next': return { kind: 'read watch list', says: 'read what you are watching on Simkl' };
+    // One allowance covers putting things on, because asking every time during a raid is the thing it is
+    // for. It is bounded by what watch.ts will build a link to at all: his video services, nothing else.
+    case 'mcp__aang__watch': return { kind: 'put videos on', says: 'put videos on from YouTube, Twitch, Crunchyroll, Prime Video and Netflix, over your game or in a tab' };
     // mcp__aang__mail_send is deliberately absent: sending asks every single time, showing the whole email.
     case 'mcp__aang__close_app': return { kind: 'close apps', says: 'close apps by asking them to close' };
     case 'mcp__aang__arrange_window': return { kind: 'arrange windows', says: 'move, minimise and maximise your windows' };
