@@ -115,6 +115,23 @@ if (p2) {
   const got = v?.result?.value ?? {};
   check('Twitch is told which host is embedding it, or it refuses to play', /parent=127\.0\.0\.1/.test(got.src || ''), got.src);
   check('the plaque changed to the new source', got.label === 'TWITCH', got.label);
+
+  // Twitch is fussier than YouTube: it refuses outright if the host is not named, and it will not play
+  // under 400 by 300. So check it actually drew something rather than only that the address was right.
+  await sleep(6000);
+  const played = await p2.send('Runtime.evaluate', {
+    returnByValue: true,
+    expression: `(() => {
+      const f = document.getElementById('video');
+      const r = f.getBoundingClientRect();
+      return { w: Math.round(r.width), h: Math.round(r.height), frames: window.length };
+    })()`,
+  });
+  const tw = played?.result?.value ?? {};
+  check('the Twitch player is big enough for Twitch to play at all', tw.w >= 400 && tw.h >= 300, `${tw.w}x${tw.h}`);
+  check('the Twitch frame loaded', tw.frames >= 1, `${tw.frames} frame(s)`);
+  const shot2 = await p2.send('Page.captureScreenshot', { format: 'png' });
+  writeFileSync(path.join(outDir, 'popout-twitch.png'), Buffer.from(shot2.data, 'base64'));
   p2.close();
 }
 
