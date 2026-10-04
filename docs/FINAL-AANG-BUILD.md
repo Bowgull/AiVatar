@@ -1287,6 +1287,8 @@ with Windows monitor scaling and drag, **exists nowhere and is written by hand.*
 ### `[ ]` 6.20 The browser shell  **BLOCKS 6.21**
 
 **Vertical tab rail** (the chunky style forces it: thick outlines eat width faster than flat tabs),
+Top band is only back, forward, reload and the address slot (sheet 3; no Aang button, no ad counter, his calls
+2026-10-04). The slot says who is driving in words: YOU ARE DRIVING / AANG IS READING / AANG IS DRIVING.
 address bar that searches and never carries commands, back and forward, reopen closed tab, find, zoom.
 Borrowed from **Min** (Apache-2.0) and Tree Style Tab's tree logic.
 
@@ -1303,7 +1305,7 @@ Ghostery with a visible per-site pause; phishing lists (Phishing.Database, URLha
 every load; downloads marked so Defender scans them; **passkeys hidden** so sites fall back to a
 password and code, because passkeys hang in Electron and poison later attempts (tested). Approvals as
 **chips** for routine asks and a **lever** for serious ones, never in the page area. Sheet 3: a *website's*
-ask is a parchment chip hanging from the top band; *Aang's* asks come in his bubble from his plaque
+ask is a parchment chip hanging from the top band; *Aang's* asks come in his bubble (from Aang on screen; the browser has no Aang button, his call 2026-10-04)
 (keycaps routine, lever serious), per his bubble rule. Notifications and location are refused unasked.
 
 ### `[ ]` 6.23 His stuff
