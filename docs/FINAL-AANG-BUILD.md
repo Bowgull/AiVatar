@@ -782,9 +782,9 @@ rule and they are not optional.
 ```
 6.0 safety net                     DONE
  -> 6.1 MEASURE OVER WOW            PASSED 2026-10-04, it did not kill the design
- -> S1 the connection lock          <- NEXT. about 10 lines; a web page can drive Aang today
- -> Q  the quota leaks              about 2 hours; warm-up, saving mode, #capture
- -> 6.2 the shell exists            blocks every Electron step
+ -> S1 the connection lock          Origin half DONE; the per-boot token is owed
+ -> Q  the quota leaks              DONE (warm-up, saving mode, #capture, auto-extraction)
+ -> 6.2 the shell exists            <- NEXT, with S1's token built alongside it
      |
      |-> 6.3 pop-out window -> 6.4 paid video -> 6.5 controls          = POP-OUT USABLE
      |        -> QUOTA GATE (read the meter, project the rest)
@@ -879,7 +879,7 @@ public Widevine demo, so 2.3% is a floor, not the number for full-size anime.
 
 ---
 
-### `[ ]` S1 The connection lock  **BLOCKS 6.2**  (added 2026-10-04, decision 47)
+### `[~]` S1 The connection lock  **the Origin half DONE 2026-10-04 (8865a96); the token is owed before 6.2**
 
 **Why:** the brain's local connection (`core.ts:1133`, `ws://127.0.0.1:<port>/body`) checks nothing.
 Browsers do not apply same-origin rules to WebSockets; they only send an Origin header and leave the
@@ -904,7 +904,13 @@ so the lock goes on before anything Electron connects.
 **Done when:** a page in Firefox, Edge and Chrome cannot connect (tested from a local test page), the
 Body and Discord still work, and a client without the token is refused.
 
-### `[ ]` Q The quota leaks  **BLOCKS 6.2**  (added 2026-10-04, decision 47)
+**DONE 2026-10-04 (8865a96): the Origin half.** `verifyClient` on the Core's socket and an Origin check
+on the hook server. Four tests in `test/lock.test.ts`, and **verified against a real browser**: a page
+served from `http://127.0.0.1:47955` was refused, read nothing, and had its fake hook event blocked.
+**Still owed before 6.2: the per-boot token**, because the Electron Shell is a browser and does send an
+Origin, so the Origin rule alone would lock Aang's own windows out.
+
+### `[x]` Q The quota leaks  **DONE 2026-10-04** (d31bf16, e18f221, 7187bce)
 
 **Why:** his week has been at 72% to 88%, and four things spend it for nothing. Measured from his own
 logs, 2026-10-04:
@@ -922,7 +928,11 @@ logs, 2026-10-04:
   being skipped at every start for quota, so this is tidiness as much as saving.)
 
 **Done when:** a cold start with no message sends nothing to Claude; saving mode survives a restart and
-can be switched from Discord; a #capture note produces a file line and no Claude turn.
+can be switched from Discord; a #capture note produces a file line and no Claude turn. **All three met**,
+with tests in `test/startup-spend.test.ts`, `test/quota.test.ts` and `test/capture.test.ts`.
+
+**What the work found:** remembering only his "not now" would still have repeated the 40% warning at
+every restart, so `warned` and `offered` are saved too. A test caught that before it shipped.
 
 ### `[ ]` S2 The eleven small security fixes  **BLOCKS 6.25**  (added 2026-10-04, decision 47)
 
