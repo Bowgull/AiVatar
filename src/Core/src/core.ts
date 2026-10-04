@@ -17,6 +17,7 @@ import type { LaneEvent } from './lane.ts';
 import { Backup } from './backup.ts';
 import { Memory } from './memory.ts';
 import { QuotaPolicy } from './quota.ts';
+import { TOKEN_HEADER, clearToken, newToken, sameToken } from './token.ts';
 import { MODELS, pickLane } from './route.ts';
 import type { Lane as LaneName } from './route.ts';
 import { editExact, offLimits, refusal, undoLast, writeWhole } from './files.ts';
@@ -1140,7 +1141,11 @@ export class Core {
     if (!r.ok && wasStale) this.announce(`I have not backed up cleanly in over 12 hours. The last attempt failed: ${r.detail}.`);
   }
 
+  /** This run's password. Null only if it could not be written; the Origin rule still stands. */
+  private token: string | null = null;
+
   async start(): Promise<void> {
+    this.token = newToken(this.cfg.stateDir);
     await new Promise<void>((resolve, reject) => {
       this.wss = new WebSocketServer({
         host: '127.0.0.1', port: this.cfg.port, path: '/body',
@@ -1157,9 +1162,14 @@ export class Core {
         // DNS-rebound page carries the attacker's own origin, so this stops that too. Phase 6 puts a
         // real browser on this machine, which is why this lands before the Electron shell.
         verifyClient: ({ origin, req }, done) => {
-          if (!origin) return done(true);
+          // THE SECOND LOCK: a password only a real program can present. A browser page cannot set a
+          // custom header on a WebSocket at all, so this is what tells Aang's own Electron windows
+          // (which are browsers, and do send an Origin) apart from a web page that is not his.
+          const given = String(req.headers[TOKEN_HEADER] ?? '');
+          if (given && this.token && sameToken(given, this.token)) return done(true);
+          if (!origin) return done(true);           // his C# window, which sends neither
           console.error(`refused a connection from a web page (origin ${String(origin).slice(0, 80)})`);
-          void req; done(false, 403, 'Forbidden');
+          done(false, 403, 'Forbidden');
         },
       });
       this.wss.once('listening', () => resolve());
@@ -1276,6 +1286,8 @@ export class Core {
   }
 
   async stop(): Promise<void> {
+    // A stale password must not outlive the Core that issued it.
+    clearToken(this.cfg.stateDir);
     // A turn still active when the Core is asked to stop had a live TURN_TIMEOUT_MS watchdog with nothing
     // ever clearing it (found 2026-09-24, diagnosing a stalled test: the timer is now unref'd so it can never
     // block process exit on its own, but it should also just not fire at all against a Core that is gone).
