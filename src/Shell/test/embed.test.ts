@@ -18,6 +18,8 @@ test('YouTube, in every shape he might paste', () => {
     assert.equal(e.source, 'youtube', link);
     assert.ok(e.url.startsWith(want), `${link} -> ${e.url}`);
     assert.match(e.url, /autoplay=1/);
+    // Without this the player ignores Aang's controls entirely (step 6.5).
+    assert.match(e.url, /enablejsapi=1/, link);
   }
 });
 

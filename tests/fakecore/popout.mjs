@@ -139,12 +139,14 @@ if (p2) {
 check('it wrote down its size and place', existsSync(path.join(STATE, 'popout.json')));
 if (existsSync(path.join(STATE, 'popout.json'))) {
   const box = JSON.parse(readFileSync(path.join(STATE, 'popout.json'), 'utf8'));
-  // 16 by 9 is held for THE PICTURE, not the window: the window is the picture plus the grab bar.
-  // Checking the window instead is what hid the letterboxing on the first run.
-  const BAR = 34;
-  const ratio = box.width / (box.height - BAR);
-  check('and the picture is 16 by 9', Math.abs(ratio - 16 / 9) < 0.03,
-    `window ${box.width}x${box.height}, picture ${box.width}x${box.height - BAR}`);
+  // 16 by 9 is held for THE PICTURE, not the window: the window is the picture plus everything Aang
+  // draws around it. Checking the window instead is what hid the letterboxing on the first run, and
+  // this number grew from 34 to 132 the moment the controls arrived, which is exactly why the page
+  // measures it and tells the main process rather than anyone hard-coding it.
+  const CHROME = 132;
+  const ratio = box.width / (box.height - CHROME);
+  check('and the picture is 16 by 9', Math.abs(ratio - 16 / 9) < 0.04,
+    `window ${box.width}x${box.height}, picture ${box.width}x${box.height - CHROME}`);
 }
 
 shell.kill();

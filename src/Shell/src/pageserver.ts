@@ -32,11 +32,20 @@ export interface PageServer {
 export function servePages(dir: string): Promise<PageServer> {
   const root = path.resolve(dir);
 
+  let origin = '';
   const server: Server = createServer((req, res) => {
     if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405).end(); return; }
 
-    // A page here is Aang's own, so nothing else may ask it for anything.
-    if (req.headers.origin) { res.writeHead(403).end(); return; }
+    // A page here is Aang's own, so nothing else may ask it for anything. But "anything else" means
+    // another origin: a module script is always fetched in CORS mode, so the browser sends an Origin
+    // header even for Aang's own files. Refusing those refused player.js and left every control dead,
+    // found 2026-10-04. So: no Origin at all is fine, our own Origin is fine, anyone else is not.
+    const from = req.headers.origin;
+    if (from && from !== origin) {
+      console.error(`pages: refused a request from ${String(from).slice(0, 80)}`);
+      res.writeHead(403).end();
+      return;
+    }
 
     const name = decodeURIComponent((req.url ?? '/').split('?')[0]!);
     const file = path.resolve(root, '.' + (name === '/' ? '/popout.html' : name));
@@ -59,8 +68,9 @@ export function servePages(dir: string): Promise<PageServer> {
     server.listen(0, '127.0.0.1', () => {
       const addr = server.address();
       if (typeof addr === 'string' || !addr) { reject(new Error('the page server did not get a port')); return; }
+      origin = `http://127.0.0.1:${addr.port}`;
       resolve({
-        origin: `http://127.0.0.1:${addr.port}`,
+        origin,
         host: '127.0.0.1',
         close: () => server.close(),
       });

@@ -1,9 +1,9 @@
 // Where the pop-out sits and how big it is (step 6.3). His rule: "your size wins."
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { BAR, MIN, SNAP, firstTime, hold169, ontoScreen, pictureOf, preset, snapToEdges } from '../src/geometry.ts';
+import { CHROME, MIN, SNAP, firstTime, hold169, ontoScreen, pictureOf, preset, snapToEdges } from '../src/geometry.ts';
 
-/** 16 by 9 has to hold for THE PICTURE, not the window: the window is the picture plus the grab bar. */
+/** 16 by 9 has to hold for THE PICTURE, not the window: the window is the picture plus Aang's chrome. */
 const pictureIs169 = (box: { width: number; height: number }) => {
   const p = pictureOf(box);
   return Math.abs(p.width / p.height - 16 / 9) < 0.02;
@@ -12,16 +12,22 @@ const pictureIs169 = (box: { width: number; height: number }) => {
 const SCREEN = { x: 0, y: 0, width: 1920, height: 1080 };
 
 test('16 by 9 is held for the picture, whichever side he drags', () => {
-  // The window is the picture plus the bar, so a 1600-wide window is 900 + bar tall.
-  assert.deepEqual(hold169(1600, 400, 'width'), { width: 1600, height: 900 + BAR });
+  // The window is the picture plus the chrome, so a 1600-wide window is 900 + chrome tall.
+  assert.deepEqual(hold169(1600, 400, 'width'), { width: 1600, height: 900 + CHROME });
   assert.ok(pictureIs169(hold169(1600, 400, 'width')));
-  assert.ok(pictureIs169(hold169(500, 720 + BAR, 'height')));
+  assert.ok(pictureIs169(hold169(500, 720 + CHROME, 'height')));
 });
 
 test('the picture never letterboxes, at any size he might drag to', () => {
-  // The first run letterboxed because the WINDOW was 16 by 9 and the bar ate into the picture.
+  // The first run letterboxed because the WINDOW was 16 by 9 and the chrome ate into the picture.
   for (const w of [400, 640, 854, 1280, 1600, 1920]) {
     assert.ok(pictureIs169(hold169(w, 0, 'width')), `width ${w}`);
+  }
+  // And with a chrome height the page measured for itself, rather than the built-in guess.
+  for (const chrome of [34, 100, 132, 180]) {
+    const box = hold169(1280, 0, 'width', chrome);
+    const p = pictureOf(box, chrome);
+    assert.ok(Math.abs(p.width / p.height - 16 / 9) < 0.02, `chrome ${chrome}`);
   }
 });
 

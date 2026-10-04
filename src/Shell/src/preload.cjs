@@ -38,4 +38,17 @@ contextBridge.exposeInMainWorld('aang', {
   /** Out of the way, still playing. */
   popoutHide: () => ipcRenderer.send('popout:hide'),
   popoutClose: () => ipcRenderer.send('popout:close'),
+  /** How see-through the window is, 0.2 to 1. The window's own doing, so it works for paid services
+   *  too, where Aang cannot reach inside the player at all. */
+  popoutOpacity: v => ipcRenderer.send('popout:opacity', v),
+  popoutFullscreen: () => ipcRenderer.send('popout:fullscreen'),
+  popoutToMac: () => ipcRenderer.send('popout:tomac'),
+  /** How many pixels of the window are Aang's own chrome, measured by the page. */
+  popoutChrome: px => ipcRenderer.send('popout:chrome', px),
+  /** His switches, so the page knows whether it may fade. */
+  onPopoutSettings(fn) {
+    const h = (_e, s) => fn(s);
+    ipcRenderer.on('popout:settings', h);
+    return () => { ipcRenderer.off('popout:settings', h); };
+  },
 });
