@@ -8,12 +8,13 @@
 //
 // A crash in here must never take the pet or the brain with it. It is its own process, supervised from
 // the tray, and it holds nothing the others need.
-import { app, BrowserWindow, Menu, clipboard, ipcMain, session, shell } from 'electron';
+import { app, BrowserWindow, Menu, clipboard, globalShortcut, ipcMain, session, shell } from 'electron';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { CoreLink } from './link.ts';
 import { Bubble, wantsNewBubble } from './bubble.ts';
+import { InputBox } from './input.ts';
 import { bubbleAt, inputAt, moved, readPetAt } from './anchor.ts';
 import type { PetAt } from './anchor.ts';
 import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown, wrongSettings } from './safety.ts';
@@ -66,6 +67,39 @@ let pages: PageServer | null = null;
 let popout: Popout | null = null;
 /** The new bubble (step 6.12). Null unless he has switched it on: see wantsNewBubble. */
 let bubble: Bubble | null = null;
+/** The new typing box (step 6.12b). Same switch as the bubble: they replace the old ones together. */
+let input: InputBox | null = null;
+/** The mode the typing box sends with. Starts from the pet's own settings, which the pet still owns. */
+let inputMode = 'auto';
+/** The last usage the brain reported, for the strip. */
+let lastWeek = 0, lastLevel = 'ok';
+
+/** His Up-arrow history, shared with the old box so it carries over. */
+const HISTORY_FILE = () => path.join(STATE_DIR, 'input-history.json');
+function readJson(file: string): unknown {
+  try { return JSON.parse(readFileSync(file, 'utf8')); } catch { return null; }
+}
+
+/**
+ * Ctrl+Plus, with the new front end on.
+ *
+ * Everything that must happen for his first key to land in the box happens HERE, synchronously, before
+ * this returns: show the window and focus it. Telling the pet to slide out goes after, and does not
+ * matter to the typing at all. See input.ts for why the order is the whole fix.
+ */
+function onHotkey(): void {
+  if (!input) return;
+  if (input.visible) { input.close(); link?.send({ t: 'dismiss' }); return; }
+  const body = readJson(path.join(STATE_DIR, 'body.json')) as Record<string, unknown> | null;
+  const at = petAt ? inputAt(petAt, { width: 268, height: 112 }) : null;
+  input.open(at, {
+    history: readJson(HISTORY_FILE()) ?? [],
+    mode: inputMode,
+    saving: body?.Saving === true,
+    week: lastWeek, level: lastLevel,
+  });
+  link?.send({ t: 'summon' });
+}
 let hotkey: Hotkey | null = null;
 let ads: AdBlock | null = null;
 /** His pop-out switches. Read once at start and kept in step when he changes one. */
@@ -94,6 +128,14 @@ let petAt: PetAt | null = null;
  */
 function placeWindows(): void {
   if (!petAt) return;
+  // The typing box follows him too: docked, it opens at once where he IS, and he then slides out. Moving
+  // a focused window does not take the keyboard from it.
+  const iw = input?.visible ? input.window() : null;
+  if (iw && !iw.isDestroyed()) {
+    const [width, height] = iw.getSize();
+    const box = inputAt(petAt, { width, height });
+    iw.setPosition(box.x, box.y);
+  }
   const b = bubble?.window();
   if (b && !b.isDestroyed()) {
     const [width, height] = b.getSize();
@@ -131,6 +173,7 @@ const link = new CoreLink({
       return;
     }
     if (m.t === 'popout.close') { popout?.close(); drm?.close(); return; }
+    if (m.t === 'quota') { lastWeek = Number(m.week) || 0; lastLevel = String(m.level ?? 'ok'); }
     // 6.10b: where the pet is. Kept so any window opened later can be placed without waiting for Joshua
     // to move him. `moved()` drops the jitter of a drag, because re-placing a window is not free and a
     // drag arrives as a stream of positions.
@@ -143,6 +186,7 @@ const link = new CoreLink({
     // The bubble is not in `windows`: it is made on demand and has its own lifetime, so it is told
     // separately rather than being swept up by a loop that does not know about it.
     bubble?.send('brain:message', m);
+    input?.send('brain:message', m);
   },
   onConnected: up => { for (const w of windows.values()) if (!w.isDestroyed()) w.webContents.send('brain:connected', up); },
 });
@@ -232,6 +276,18 @@ app.whenReady().then(async () => {
       // the first message would mean loading a page and sending to it in the same instant.
       bubble.window();
       console.log('shell: the new bubble is on (AANG_NEW_BUBBLE=1)');
+
+      // 6.12b: the typing box comes with it, and so does the hotkey. The pet does not register Ctrl+Plus
+      // when this switch is on, so there is exactly one owner and no fight over it.
+      input = new InputBox({ origin: pages.origin, preloadPath: path.join(HERE, 'preload.cjs') });
+      input.window();
+      const body = readJson(path.join(STATE_DIR, 'body.json')) as Record<string, unknown> | null;
+      if (typeof body?.Mode === 'string') inputMode = body.Mode;
+      // '=' is the key with + on it (VK_OEM_PLUS), which is what the pet registered; numadd is the keypad.
+      for (const key of ['Control+=', 'Control+numadd']) {
+        if (!globalShortcut.register(key, onHotkey)) console.error(`shell: could not take ${key}; another program has it`);
+      }
+      console.log('shell: the new typing box is on; Ctrl+Plus belongs to the Shell');
     }
 
     drm = new DrmRuntime({
@@ -285,9 +341,15 @@ app.whenReady().then(async () => {
     const height = Math.max(80, Math.min(900, Math.round(Number(size.height) || 0)));
     if (!width || !height) return;
     const [haveW, haveH] = w.getSize();
-    if (haveW === width && haveH === height) return;
-    w.setSize(width, height);
-    placeWindows();                    // its bottom-right is the anchor, so a size change moves it
+    if (haveW !== width || haveH !== height) {
+      // setBounds, NEVER setSize: on a window made with `resizable: false`, setSize is silently ignored
+      // on this machine, while setBounds works (test/electron/setsize.cjs, 2026-10-04). The first real
+      // run left the bubble at its starting 560 px, so a two-word reply sat 450 px away from Aang.
+      // One call for size AND position also means it never shows for a frame at the old size.
+      const [x, y] = w.getPosition();
+      const box = petAt ? bubbleAt(petAt, { width, height }) : { x, y, width, height };
+      w.setBounds({ x: box.x, y: box.y, width, height });
+    }
     bubble?.show();
   });
   // His answer to an ask. Translated here into the reply the brain expects, because each kind answers
@@ -344,6 +406,25 @@ app.whenReady().then(async () => {
   // Another page of his own history. `before` is a row id, so there is no limit: every time he reaches
   // the top it asks for the ones older than the oldest it has, until the database runs out.
   ipcMain.on('bubble:clickable', (e, on) => { if (fromBubble(e)) bubble?.setClickable(on === true); });
+
+  // ---- the typing box (6.12b). Its own sender check, like the bubble's.
+  ipcMain.on('input:submit', (e, a) => {
+    if (!fromInput(e) || !a || typeof a.text !== 'string' || !a.text.trim()) return;
+    const mode = ['auto', 'quick', 'smart', 'deep'].includes(a.mode) ? a.mode : inputMode;
+    link?.send({ t: 'submit', id: 's' + Date.now(), text: a.text.slice(0, 20_000), mode });
+    input?.close();                                      // the old box closes on send too
+  });
+  ipcMain.on('input:history', (e, list) => {
+    if (!fromInput(e) || !Array.isArray(list)) return;
+    try { writeFileSync(HISTORY_FILE(), JSON.stringify(list.filter((x) => typeof x === 'string').slice(-50))); }
+    catch (err) { console.error('shell: history not saved: ' + (err as Error).message); }
+  });
+  ipcMain.on('input:close', (e) => { if (fromInput(e)) input?.close(); });
+  ipcMain.on('input:stop', (e) => { if (fromInput(e)) link?.send({ t: 'stop' }); });
+  ipcMain.on('input:mode', (e, m) => { if (fromInput(e) && typeof m === 'string') inputMode = m; });
+  ipcMain.on('input:size', (e, s) => {
+    if (fromInput(e) && s && typeof s === 'object') input?.resize(Number(s.width) || 0, Number(s.height) || 0);
+  });
   ipcMain.on('bubble:older', (e, a) => {
     if (!fromBubble(e)) return;
     const before = Number(a?.before);
@@ -416,12 +497,18 @@ function fromPopout(e: Electron.IpcMainEvent): boolean {
  * pages from the internet, so it must never be able to reach the bubble's doors and put things on his
  * clipboard or send ratings in his name.
  */
+function fromInput(e: Electron.IpcMainEvent): boolean {
+  const w = input?.window();
+  return Boolean(w && !w.isDestroyed() && e.sender === w.webContents);
+}
+
 function fromBubble(e: Electron.IpcMainEvent): boolean {
   const w = bubble?.window();
   return Boolean(w && !w.isDestroyed() && e.sender === w.webContents);
 }
 
-app.on('before-quit', () => { link.stop(); hotkey?.release(); ads?.stop(); popout?.close(); bubble?.close(); drm?.close(); pages?.close(); });
+app.on('will-quit', () => globalShortcut.unregisterAll());
+app.on('before-quit', () => { input?.destroy(); link.stop(); hotkey?.release(); ads?.stop(); popout?.close(); bubble?.close(); drm?.close(); pages?.close(); });
 
 // Nothing a page does may take the Shell down silently.
 process.on('uncaughtException', e => console.error('shell: uncaught: ' + (e as Error).message));

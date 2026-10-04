@@ -44,7 +44,10 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
      100vw would mean the bubble grows to the window and the window to the bubble - a loop with no
      stable answer. The same mistake made the pop-out resize itself for ever until a guard was added.
      A fixed cap breaks it: the bubble has an opinion of its own and the window simply obeys. */
-  align-self:flex-start;
+  /* flex-END: the window is anchored by its RIGHT edge at Aang's shoulder (anchor.ts), so the drawn
+     bubble has to hug that edge. flex-start left a one-word reply sitting at the far side of a window
+     wider than it, 130 px from him (seen on his desktop, 2026-10-04). */
+  align-self:flex-end;
   width:max-content;
   /* border-box, so 256 is the width of the drawn bubble as he sees it. Without it the padding and the
      4px frame sit outside the cap and every bubble is 36px wider than the painted one. */
@@ -168,3 +171,12 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
 }
 /* Aang's, plain on the parchment: it is the surface he already speaks on. */
 .turn.his{color:var(--ink-text)}
+
+/* ---- the tail points AT AANG, on the right -------------------------------
+   cockpit.css (from sheet 5) puts the tail at the bottom LEFT, because the sheet
+   draws a bubble on its own with nobody beside it. In Aang the bubble grows up
+   and left from his shoulder, so he is always to its RIGHT, and today's painted
+   bubble points its tail that way (BubbleView TailTipX 320, past its right edge
+   at 262). A tail pointing away from the speaker reads as someone else talking.
+   Seen in the first real-desktop screenshot of a reply, 2026-10-04. */
+#bubble.tail::after{left:auto;right:24px}

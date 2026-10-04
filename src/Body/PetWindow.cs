@@ -562,8 +562,24 @@ sealed class PetWindow : Form
         try
         {
             if (!m.TryGetProperty("t", out var tp)) return;
+            // The new front end (6.12/6.12b): the Electron bubble and typing box draw these instead, so the
+            // pet does not ALSO draw them. Two bubbles saying the same thing is what made the first real
+            // test unreadable. The pet still wakes, so he still reacts when spoken to.
+            if (NewFrontEnd && tp.GetString() is "bubble" or "bubble.dots" or "bubble.clear" or "tool"
+                or "permission" or "fact.ask" or "backup.ask" or "consent")
+            { Wake(); dirty = true; return; }
             switch (tp.GetString())
             {
+                // The Shell owns the hotkey now and has already opened its typing box; the pet only has to
+                // come out from the edge (or back in), with no box of its own and no greeting.
+                case "summon":
+                    if (!Visible) { hiddenByUser = false; Show(); }
+                    if (dock != DockEdge.None && peeking) Reveal(thenType: false, greet: false);
+                    Wake(); dirty = true;
+                    break;
+                case "dismiss":
+                    if (dock != DockEdge.None && !peeking) Peek();
+                    break;
                 case "state":
                     Wake();
                     anim.Play(Str(m, "state") ?? "idle"); dirty = true;
@@ -1632,8 +1648,18 @@ sealed class PetWindow : Form
 
     /// <summary>Take the one global hotkey. Another program may already own a combination, so the result is
     /// logged, shown in the tray, and changeable by pressing a different key (see AskForHotkey).</summary>
+    /// <summary>
+    /// The Electron bubble and typing box are on (AANG_NEW_BUBBLE=1, inherited by the Shell, so one switch
+    /// covers both programs).
+    /// </summary>
+    internal static readonly bool NewFrontEnd = Environment.GetEnvironmentVariable("AANG_NEW_BUBBLE") == "1";
+
     bool RegisterHotkey()
     {
+        // With the new front end the SHELL takes the hotkey, not the pet. Windows only lets the program that
+        // received a key press take the keyboard, so if the pet caught it and passed it on, the Electron box
+        // would open without focus - the exact blank-until-clicked bug the old box had (2026-10-04).
+        if (NewFrontEnd) { Log.Write("hotkey left to the Shell (new front end is on)"); return false; }
         if (activeHotkey.Length > 0) { Win32.UnregisterHotKey(Handle, HotkeyId); activeHotkey = ""; }
         var combo = cfg.Hotkey;
         if (!TryParseHotkey(combo, out var mods, out var vk)) { Log.Write("hotkey not understood: " + combo); return false; }

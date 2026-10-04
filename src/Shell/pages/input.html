@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' data:;
+               font-src 'self'; style-src-attr 'unsafe-inline';
+               form-action 'none'; base-uri 'none'">
+<title>Aang Input</title>
+<link rel="stylesheet" href="cockpit.css">
+<link rel="stylesheet" href="input.css">
+</head>
+<body>
+<!-- Sheet 2, part 3: the pinned and reply chips above, the box, the strip below. -->
+<div id="frame" class="frame">
+  <div id="pinned" class="pinned" hidden></div>
+  <!-- A real textarea, so the caret, selection and IME are the system's own. Spell-check is OFF: the
+       old box never had it, and it underlined "Aang" in red in every message (seen in the first
+       recording). The caret is put in it by input.js on load and on every focus. -->
+  <textarea id="box" class="box" rows="1" spellcheck="false" autocomplete="off" autofocus
+            aria-label="Say something to Aang"></textarea>
+  <div class="strip">
+    <button id="mode" class="pill sm" type="button" tabindex="-1"></button>
+    <button id="saving" class="pill saving sm" type="button" tabindex="-1" hidden>Save quota</button>
+    <span id="segs" class="segs" aria-hidden="true"></span>
+  </div>
+</div>
+<script src="input.js" type="module"></script>
+</body>
+</html>

@@ -1908,6 +1908,51 @@ scaling change, the consent row.
 
 **Done when:** every typing-box row is ticked, and his hands do not notice the change.
 
+**PASS 1, 2026-10-04. Tested on his real desktop, recorded, with screenshots.** 7 new tests, 100 in the
+Shell. Ctrl+Plus, typing straight away, Enter, and the new bubble answering all work end to end.
+
+**THE RULE THIS STEP IS BUILT AROUND: Windows only lets the program that RECEIVED a key press take the
+keyboard.** Learned the same day from the old box (blank until clicked). So with the new front end on, the
+**Shell owns Ctrl+Plus** (Electron `globalShortcut`), the pet does not register it at all, and the box is
+shown and focused synchronously INSIDE the hotkey handler. The pet is told to slide out afterwards; that
+no longer has anything to do with typing. Measured with `tools/repro-typing-fast.ps1`, which types the way
+he does, immediately, into a throwaway window so lost keys land nowhere that matters:
+
+| | Old box | New box |
+|---|---|---|
+| Keys lost to the window behind | 4 of 9 | **0** |
+| Box had the keyboard by the first letter | no (0.7 s) | **yes (0.1 s)** |
+| Still had it two seconds later | no | **yes** |
+
+**One switch, `AANG_NEW_BUBBLE=1`, covers both programs** (the Shell inherits it from the pet). With it on
+the pet stops drawing its own bubble and asks, so there is never two of everything.
+
+**Ported, not invented:** the keys exactly as `InputWindow.ProcessCmdKey` has them; Up/Down history from
+`InputHistory.cs` rule for rule, **sharing its file** so his history carries over; 256 px wide and four
+lines before scrolling (`BaseW`, `MaxLinesShown` - I had guessed 420 and 6); the usage segments filling with
+use, orange from 40%, red from 50% (`PaintUsage`); placement 240 px left of the sprite and 46 px below its
+top, read out of `OpenInput` + `InputWindow.Open`. The look is sheet 2's `.box`, `.strip`, `.segs`, `.pill.sm`.
+
+**Seven bugs found ONLY by looking at his screen, each fixed and re-recorded:**
+1. Focused the window, never the text field in it: keys reached the window and went nowhere.
+2. Placed under Aang's feet; the old box sits beside him. Aang stood on top of it.
+3. The box widened 4 px per keystroke (measured width + margin, measured again): 268 to 372 in a sentence.
+4. **`setSize` is silently IGNORED on a `resizable: false` window on this machine; `setBounds` works**
+   (`test/electron/setsize.cjs` proves it). The bubble stayed at its starting 560 px, so a two-word reply
+   sat 450 px from Aang. Nothing in the Shell uses `setSize` now.
+5. The bubble aligned to the LEFT of a window anchored by its RIGHT edge: a one-word reply sat 130 px off.
+6. The tail pointed away from Aang (sheet 5 draws a bubble with no speaker beside it).
+7. Spell-check underlined "Aang" in red, and an added focus glow the sheet does not have. Both removed.
+
+**A testing trap, for whoever runs this next:** killing the Shell to reload it counts as a crash, and after
+five in ten minutes the pet's supervisor GIVES UP on it - leaving Ctrl+Plus owned by nobody. Restart the
+whole of Aang instead.
+
+**STILL TO DO (pass 2):** reply and pinned chips (and with them the bubble's "Reply to this" and "Add as
+context"); the three suggestion chips when empty; the pace tick and the hover sentence on the strip; the
+draft surviving a scaling change; the consent row; Ctrl+1-4 persisting (the pet must stay the one writer of
+`body.json`, so this needs a message rather than a second writer); PageUp/PageDown paging the bubble.
+
 ---
 
 ### `[ ]` 6.13 Several things waiting, and the plan before acting

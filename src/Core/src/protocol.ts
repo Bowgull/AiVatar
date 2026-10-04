@@ -73,6 +73,11 @@ export type ToBody =
   | { t: 'popout.close' }
   /** Passed straight through from the Body, to the Shell only (step 6.10b). The C# pet ignores it. */
   | PetAt
+  /**
+   * The Shell owns the hotkey when the new front end is on (6.12b), opens its own typing box at once,
+   * and tells the pet only to come out from the edge (`summon`) or go back (`dismiss`).
+   */
+  | { t: 'summon' } | { t: 'dismiss' }
 
   /** Whether any Claude Code session Aang is following (a job hunt, a self-change, anything opened through
    *  start_claude) is currently working or waiting on him, right now - continuous, not a point-in-time
@@ -222,6 +227,7 @@ export type FromBody =
   /** The pop-out's "send to the MacBook" keycap (step 6.9). The Mac opens it in its own browser, which
    *  is the fallback for paid video that will not play on Shadow at all. */
   | { t: 'watch.tomac'; url: string }
+  | { t: 'summon' } | { t: 'dismiss' }
   /**
    * Where the pet IS (step 6.10b), so the Shell can hang its windows off him. Sent by the C# Body when
    * he is dragged, docked, rescaled or moved between displays - on a change, never on a timer.
