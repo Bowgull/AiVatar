@@ -39,8 +39,10 @@ sealed class PetWindow : Form
     readonly System.Windows.Forms.Timer fgTimer = new() { Interval = 500 };
     readonly NotifyIcon tray = new();
     CoreSupervisor? supervisor;
+    /// <summary>Aang's windows (the Electron Shell). Separate on purpose: a crash in it must never take the pet down.</summary>
+    CoreSupervisor? shell;
     bool noCore;
-    ToolStripMenuItem coreItem = null!, autostartItem = null!;
+    ToolStripMenuItem coreItem = null!, shellItem = null!, autostartItem = null!;
     ToolStripMenuItem quietItem = null!, showItem = null!, modelItems = null!, muteItem = null!, seeWindowItem = null!;
 
     string? heldText;               // latest proactive message waiting for quiet mode to end
@@ -385,6 +387,21 @@ sealed class PetWindow : Form
                 BeginInvoke(() => { Wake(); ShowBubble(msg, false); dirty = true; });
             };
             supervisor.Start();
+
+            // Aang's windows, supervised exactly like his brain (step 6.2). Started only if the Shell
+            // is actually present: an older copy of Aang without it must still run, and a missing
+            // Electron is a quiet status line, not a crash.
+            if (!cfg.NoShell)
+            {
+                shell = CoreSupervisor.ForShell(cfg.ShellDir);
+                shell.StatusChanged += st => { if (IsHandleCreated) BeginInvoke(() => shellItem.Text = "Windows: " + st); };
+                shell.GaveUp += msg =>
+                {
+                    if (!IsHandleCreated) return;
+                    BeginInvoke(() => { Wake(); ShowBubble(msg, false); dirty = true; });
+                };
+                shell.Start();
+            }
         }
         hotkeyOk = RegisterHotkey();
         UpdateTrayText();
@@ -2424,6 +2441,7 @@ sealed class PetWindow : Form
         savingItem.Click += (_, _) => SetSaving(!saving);
         modelMenu.DropDownOpening += (_, _) => { UpdateModeMenu(); savingItem.Checked = saving; };
         coreItem = new ToolStripMenuItem("Core: starting") { Enabled = false };
+        shellItem = new ToolStripMenuItem("Windows: starting") { Enabled = false };
         autostartItem = new ToolStripMenuItem("Start with Windows");
         autostartItem.Click += (_, _) => Autostart.Set(!Autostart.IsOn());
         menu.Opening += (_, _) => autostartItem.Checked = Autostart.IsOn();
@@ -2439,7 +2457,7 @@ sealed class PetWindow : Form
         var aangMenu = GoldMenu.Header("Aang");
         aangMenu.DropDownItems.AddRange(new ToolStripItem[] { jobHuntItem, permsItem, activityItem });
         var settingsMenu = GoldMenu.Header("Settings");
-        settingsMenu.DropDownItems.AddRange(new ToolStripItem[] { hushMenu, modelMenu, savingItem, quietItem, seeWindowItem, muteItem, autostartItem, coreItem });
+        settingsMenu.DropDownItems.AddRange(new ToolStripItem[] { hushMenu, modelMenu, savingItem, quietItem, seeWindowItem, muteItem, autostartItem, coreItem, shellItem });
         menu.Items.AddRange(new ToolStripItem[] { talk, conversation, panelItem, new ToolStripSeparator(), windowMenu, aangMenu, settingsMenu, new ToolStripSeparator(), quit });
         GoldMenu.Apply(menu);
         tray.ContextMenuStrip = menu;
@@ -2499,6 +2517,7 @@ sealed class PetWindow : Form
             if (!supervisor.WaitForExit(TimeSpan.FromSeconds(3))) Log.Write("core did not stop when asked; killing it");
         }
         supervisor?.Dispose();
+        shell?.Dispose();
         tray.Visible = false; tray.Dispose();
         link.Dispose();
         base.OnFormClosing(e);

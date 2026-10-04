@@ -141,6 +141,10 @@ sealed class Config
     /// <summary>Optional overrides for where the Core lives and which node runs it (normally found automatically).</summary>
     public string CoreDir { get; set; } = "";
     public string NodePath { get; set; } = "";
+    /// <summary>Where Aang's windows (the Electron Shell) live. Normally found automatically.</summary>
+    public string ShellDir { get; set; } = "";
+    /// <summary>Run without the Shell. For diagnosing: the pet and the brain work exactly as before.</summary>
+    public bool NoShell { get; set; }
     /// <summary>Whether the usage numbers are open next to the gauge in the input box.</summary>
     public bool ShowUsage { get; set; }
     /// <summary>Master mute: Aang never speaks up on his own until it is switched off.</summary>
