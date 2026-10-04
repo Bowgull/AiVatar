@@ -47,6 +47,7 @@ import { ActionLog, UndoStack, formatAction } from './actionlog.ts';
 import { Google } from './google.ts';
 import { Spotify, SpotifyError } from './spotify.ts';
 import { Simkl, episodeLink, findShow } from './simkl.ts';
+import type { Show } from './simkl.ts';
 import { gameRunning } from './gpu.ts';
 import { DEFAULT_DUBS, dubFor, isPlan, nameLeftOver, readChannels, readDubs, readWords, rememberChannel, setDub } from './puton.ts';
 import type { Channels, Dub, DubTable, WatchPlan, Where } from './puton.ts';
@@ -532,6 +533,8 @@ export class Core {
       const r = await this.open(settled.url);
       if (!r.ok) return r;
     }
+    // Something else was put on, so whatever Aang thought was playing no longer is.
+    if (settled.service !== 'your watch list') this.playing = null;
     this.rememberChannelFrom(words, settled, prefs);
     const how = settled.exact ? 'Put on' : 'Opened the search for';
     return { ok: true, detail: `${how} ${settled.what} on ${settled.service}${where === 'popout' ? ', over your game' : ''}.` };
@@ -551,6 +554,52 @@ export class Core {
     catch (e) { reportWriteFailure(this.dubFile(), e); }   // not worth failing the thing he asked for
   }
 
+  // ------------------------------------------------------------------ ticking it off (step 6.8)
+
+  /**
+   * What Aang KNOWS is playing, because Aang opened it from his own watching list.
+   *
+   * Only ever set from the list. Nothing here is inferred from a page title or an address: ticking off
+   * the wrong episode is not a thing he would notice straight away and not a thing he can easily undo,
+   * so the rule is that Aang marks what it put on and nothing else. Simkl's own extension covers
+   * Netflix and Crunchyroll in the browser; this is the Prime gap, which nothing else tracks.
+   */
+  private playing: { show: Show; episode: number; told: 'start' | 'pause' | null; done: boolean } | null = null;
+
+  private async playbackChanged(msg: { playing: boolean; at: number; length: number; ended?: boolean }): Promise<void> {
+    const now = this.playing;
+    if (!now || now.done) return;             // nothing Aang can name is playing, so nothing is marked
+    const sk = new Simkl(path.join(this.cfg.stateDir, 'simkl.json'), this.simklFetch);
+    if (!sk.connected) return;
+
+    // Which of the three calls this is. Nothing is sent when it would repeat what Simkl already knows.
+    const want: 'start' | 'pause' | 'stop' | null =
+      msg.ended ? 'stop' : msg.playing ? (now.told === 'start' ? null : 'start') : (now.told === 'pause' ? null : 'pause');
+    if (!want) return;
+
+    try {
+      const did = await sk.scrobble(want, now.show, now.episode, msg.at, msg.length);
+      if (want === 'stop') {
+        now.done = true;
+        // Only say so when Simkl actually marked it. Below 80% it saved his place instead, which is
+        // the right outcome but a different sentence, and claiming the wrong one is how a tracker
+        // stops being trusted.
+        if (did === 'scrobble' || did === 'already') {
+          this.reportAction('mcp__aang__watch', { marked: `${now.show.title} episode ${now.episode}` }, false,
+            `Ticked off ${now.show.title} episode ${now.episode} on his Simkl list.`);
+        }
+        this.playing = null;
+      } else {
+        now.told = want;
+      }
+    } catch (e) {
+      // A tracker that interrupts him to report its own failure is worse than one that misses an
+      // episode. It goes in the log he can ask for, and that is all.
+      console.log(`simkl: could not ${want} the scrobble: ${(e as Error).message}`);
+      if (want === 'stop') { now.done = true; this.playing = null; }
+    }
+  }
+
   /** A title he is part-way through, from his own watching list, as a real episode link. */
   private async episodeOf(title: string): Promise<WatchPlan | null> {
     if (!title.trim()) return null;
@@ -560,6 +609,10 @@ export class Core {
     try { list = await sk.watching(); } catch { return null; }
     const s = findShow(list, title);
     if (!s) return null;
+    // The one place Aang can honestly say what is playing, so this is the only place that arms the
+    // ticking-off in 6.8. An id of zero means Simkl's list did not name the show; it still opens, it
+    // just will not be marked, which is better than marking the wrong one.
+    this.playing = { show: s, episode: s.next, told: null, done: false };
     return {
       url: episodeLink(sk.site, s),
       what: `${s.title} episode ${s.next}`,
@@ -1653,6 +1706,7 @@ export class Core {
       // He clicked Aang, so the typing box is opening: warm the lane now rather than at every
       // restart (step Q1). Costs the same one silent turn, but only when he is actually here.
       case 'poked': this.warmNow(); break;
+      case 'watch.state': void this.playbackChanged({ playing: m.playing !== false, at: Number(m.at) || 0, length: Number(m.length) || 0, ended: m.ended === true }); break;
       case 'mac.run': void this.runOnMac(String(m.text ?? '').slice(0, 4000)).then(ok => this.send(ws, { t: 'mac.run.reply', ok })); break;
       // The desktop tray's "Job hunt now": Mac first, his own worker here if it cannot be reached.
       // Same fallback fix as the JOB_HUNT_RE chat trigger below (2026-09-23): do_task cannot actually run this

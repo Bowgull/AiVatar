@@ -172,6 +172,17 @@ export type FromBody =
   | { t: 'desk'; active: boolean }
   | { t: 'presence'; quiet: boolean; foreground: string; title?: string; watching?: boolean; hwnd?: number }
   | { t: 'poked' }
+  /**
+   * The pop-out says playback changed (step 6.8). Sent ONLY when it changes: started, paused, resumed,
+   * or ran out. There is deliberately no heartbeat, because Simkl's own session expires on its own and
+   * polling it costs 45 to 135 times as much for the same answer.
+   *
+   * Seconds, not a percentage: the Core converts, because getting that wrong silently ticks off the
+   * wrong amount of an episode.
+   */
+  | { t: 'watch.state'; playing: boolean; at: number; length: number;
+      /** True once the video has genuinely run out, as opposed to being paused near the end. */
+      ended?: boolean }
   | { t: 'moved'; x: number; y: number }
   | { t: 'pong' }
   /** `ephemeral`: a job Aang set himself (vetting a link). Not kept in memory, since Joshua did not say it. */
