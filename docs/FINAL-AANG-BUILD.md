@@ -1093,7 +1093,7 @@ mockup exists and he has approved it.** Not yet drawn:
 | ~~Search over everything; charts~~ **DRAWN, sheet 7** (side by side and the live job view cut) | 6.18 |
 | ~~Snip, hotkey grab, drag and drop~~ **DRAWN, sheet 7** | 6.17 |
 | ~~The three distinct "pressed in" looks (clicked, keyboard focus, switched on)~~ **DRAWN, sheet 5** | 6.10 |
-| Browser: vertical tab rail, six tab states, crashed-tab plate, chip and lever approvals, phishing warning, trails, mark as done, "open in Chrome" | 6.19 onward |
+| ~~Browser: vertical tab rail, six tab states, crashed-tab plate, chip and lever approvals, phishing warning, trails, mark as done, "open in Chrome"~~ **DRAWN, sheet 3 (redrawn 2026-10-04)** | 6.19 onward |
 
 ---
 
@@ -1302,8 +1302,9 @@ restarts (`electron-updater` closes windows before `before-quit`, so save-on-qui
 Ghostery with a visible per-site pause; phishing lists (Phishing.Database, URLhaus, OpenPhish) on
 every load; downloads marked so Defender scans them; **passkeys hidden** so sites fall back to a
 password and code, because passkeys hang in Electron and poison later attempts (tested). Approvals as
-**chips** for routine asks and a **lever** for serious ones, always in the carved chrome, never in the
-page area.
+**chips** for routine asks and a **lever** for serious ones, never in the page area. Sheet 3: a *website's*
+ask is a parchment chip hanging from the top band; *Aang's* asks come in his bubble from his plaque
+(keycaps routine, lever serious), per his bubble rule. Notifications and location are refused unasked.
 
 ### `[ ]` 6.23 His stuff
 

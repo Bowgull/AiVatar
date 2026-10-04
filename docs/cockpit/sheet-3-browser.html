@@ -295,80 +295,518 @@ p.sur{font:500 13.5px/1.6 var(--body);color:#8a80a5;margin:0 0 16px;max-width:68
   text-shadow:0 1px 0 rgba(255,255,255,.5);box-shadow:inset 0 2px 0 rgba(255,255,255,.45)}
 .kbd{display:inline-block;font:700 13px var(--body);color:#2a1c00;padding:6px 10px 7px;border-radius:6px;
   border:2.5px solid var(--outline);background:var(--gold-lit);box-shadow:0 3px 0 var(--outline)}
+
+/* =========================================== SHEET 3, REDRAWN 2026-10-04 */
+.step{display:inline-block;font:400 9px var(--label);letter-spacing:1px;padding:4px 6px;border-radius:3px;
+  border:2px solid var(--outline);background:var(--gold-lit);color:#2a1c00;vertical-align:3px;margin-left:6px}
+.new2{display:inline-block;font:400 9px var(--label);letter-spacing:.5px;padding:3px 6px;border-radius:3px;
+  border:2px solid var(--outline);background:var(--orange);color:#2e1200;vertical-align:2px}
+.kept2{display:inline-block;font:400 9px var(--label);letter-spacing:.5px;padding:3px 6px;border-radius:3px;
+  border:2px solid var(--outline);background:var(--green);color:#163a24;vertical-align:2px}
+.fi{width:16px;height:16px;border-radius:3px;flex:0 0 auto;image-rendering:auto;background:#fff;border:1.5px solid var(--outline)}
+
+/* ---- the whole window ---- */
+.bw{border-radius:12px;overflow:hidden;border:var(--ow) solid var(--outline);background:var(--wood2);
+  box-shadow:0 4px 0 rgba(0,0,0,.6),0 16px 34px rgba(0,0,0,.55)}
+.band{display:flex;align-items:center;gap:9px;padding:10px 12px;position:relative;
+  background:linear-gradient(180deg,#5e3c21 0%,var(--wood1) 50%,var(--wood2) 100%);
+  border-bottom:var(--ow) solid var(--outline);box-shadow:inset 0 4px 0 rgba(255,224,150,.18)}
+.band .cap{width:12px;height:30px;flex:0 0 auto;border-radius:3px;border:2px solid var(--outline);
+  background:linear-gradient(180deg,var(--gold-lit),var(--gold-deep));box-shadow:inset 0 2px 0 rgba(255,255,255,.5)}
+.shield{display:flex;align-items:center;gap:6px;flex:0 0 auto;padding:6px 9px;border-radius:7px;border:2.5px solid var(--outline);
+  background:var(--wood-plaque);box-shadow:inset 0 3px 0 rgba(0,0,0,.6);font:400 9px var(--label);letter-spacing:.5px;color:var(--green)}
+.shield b{font:700 13px var(--body);color:var(--gold-lit)}
+.shield.paused{color:#bfae8a}
+.aplq{display:flex;align-items:center;gap:7px;flex:0 0 auto;padding:4px 10px 4px 5px;border-radius:8px;border:3px solid var(--outline);
+  background:linear-gradient(180deg,var(--plum),var(--plum-deep));box-shadow:0 3px 0 var(--outline),inset 0 2px 0 rgba(150,110,200,.45);
+  font:700 13px var(--display);color:var(--gold-lit);text-shadow:0 2px 0 var(--outline);cursor:pointer}
+.aplq img{width:28px;height:28px;image-rendering:pixelated}
+.aplq.lit{box-shadow:0 3px 0 var(--outline),0 0 0 3px rgba(200,232,255,.55),0 0 18px rgba(200,232,255,.5)}
+.body3{display:grid;grid-template-columns:262px 1fr;min-height:470px}
+.rail{background:linear-gradient(180deg,var(--wood1),var(--wood2));border-right:var(--ow) solid var(--outline);padding:10px 9px 14px}
+.rail .newtab{display:flex;align-items:center;gap:8px;width:100%;margin-bottom:6px}
+.th{display:flex;align-items:center;gap:8px;margin:12px 2px 6px;font:700 13px var(--display);letter-spacing:1px;
+  color:var(--gold);text-shadow:0 2px 0 var(--outline)}
+.th::after{content:"";flex:1;height:5px;border-radius:3px;background:linear-gradient(180deg,rgba(0,0,0,.6) 0 2px,rgba(255,224,150,.2) 2px 5px)}
+.th .n{font:400 9px var(--label);color:#bfae8a;letter-spacing:.5px}
+
+/* a tab plaque on the rail */
+.tp{position:relative;display:flex;align-items:center;gap:8px;padding:8px 9px;margin:0 0 6px;border-radius:7px;
+  border:2.5px solid var(--outline);background:linear-gradient(180deg,var(--plum),var(--plum-deep));color:#E6DCC8;
+  font:600 12.5px var(--body);text-shadow:1px 1px 0 rgba(0,0,0,.7);box-shadow:0 3px 0 var(--outline),inset 0 2px 0 rgba(150,110,200,.4);cursor:pointer}
+.tp .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tp.kid{margin-left:18px}
+.tp.kid::before{content:"";position:absolute;left:-13px;top:-9px;width:9px;height:24px;border-left:3px solid rgba(0,0,0,.55);border-bottom:3px solid rgba(0,0,0,.55);border-radius:0 0 0 5px}
+.tp.on{background:linear-gradient(180deg,#F0DCB4,var(--parch2));color:var(--carve-ink);text-shadow:0 1px 0 rgba(255,255,255,.55);
+  box-shadow:0 3px 0 var(--outline),inset 0 3px 0 rgba(255,255,255,.55);margin-right:-14px;border-right-width:0;border-radius:7px 0 0 7px;z-index:2}
+/* loading: a carved arc that fills */
+.arc{width:18px;height:18px;flex:0 0 auto;border-radius:50%;border:3px solid rgba(0,0,0,.55);border-top-color:var(--gold);border-right-color:var(--gold);animation:spin 1.1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* sleeping: sunk flush into the groove, colour drained */
+.tp.sleep{background:#2a1d14;color:#9a8a72;box-shadow:inset 0 3px 0 rgba(0,0,0,.65);text-shadow:none}
+.tp.sleep .fi{filter:grayscale(1) brightness(.75)}
+.tp.sleep .zz{font:400 8.5px var(--label);color:#8a7a62;letter-spacing:.5px}
+/* playing / muted: a real tiny keycap */
+.spk{width:24px;height:22px;flex:0 0 auto;border-radius:5px;border:2px solid var(--outline);display:grid;place-items:center;position:relative;top:0;
+  background:linear-gradient(180deg,var(--gold-lit),var(--gold-deep));box-shadow:0 2px 0 var(--outline),inset 0 2px 0 rgba(255,255,255,.5)}
+.spk svg{width:14px;height:14px}
+.spk.muted{top:2px;box-shadow:inset 0 2px 0 rgba(0,0,0,.4);background:linear-gradient(180deg,#bfae8a,#8a7a62)}
+.spk.muted::after{content:"";position:absolute;width:3px;height:22px;background:var(--red);border:1px solid var(--outline);transform:rotate(45deg)}
+/* crashed: a cracked plaque with a broken outline */
+.tp.crash{border-style:dashed;background:linear-gradient(180deg,#5a2a22,#3a1712);color:#ffcfc4}
+.tp.crash::after{content:"";position:absolute;left:auto;right:74px;top:-3px;bottom:-3px;width:12px;
+  background:linear-gradient(115deg,transparent 0 40%,var(--outline) 40% 52%,transparent 52%),linear-gradient(65deg,transparent 0 46%,var(--outline) 46% 56%,transparent 56%);
+  background-size:100% 50%;background-repeat:no-repeat;background-position:top,bottom}
+.tp.crash .cr{font:400 8.5px var(--label);color:var(--red);letter-spacing:.5px}
+/* waiting on you: an orange mark, never on the page */
+.tp .wait{font:400 8.5px var(--label);letter-spacing:.5px;color:#2e1200;background:var(--orange);border:2px solid var(--outline);border-radius:3px;padding:2px 4px}
+/* the brass latch for done */
+.latch{width:22px;height:18px;flex:0 0 auto;position:relative;cursor:pointer}
+.latch i{position:absolute;left:0;top:5px;width:22px;height:8px;border-radius:2px;border:2px solid var(--outline);background:linear-gradient(180deg,#e2c069,#9b7420)}
+.latch b{position:absolute;right:1px;top:0;width:8px;height:18px;border-radius:2px;border:2px solid var(--outline);background:linear-gradient(90deg,#f3d98a,#b88a28);transform-origin:50% 100%}
+.latch.thrown b{transform:rotate(-55deg) translate(-2px,1px)}
+/* the done shelf */
+.shelf{margin-top:14px;padding:8px 7px 6px;border-radius:8px;background:#20140c;border:2.5px solid var(--outline);box-shadow:inset 0 4px 0 rgba(0,0,0,.6)}
+.shelf .lab{font:400 9px var(--label);letter-spacing:1px;color:#bfae8a;margin:0 2px 6px;display:flex;justify-content:space-between}
+.tp.done{background:linear-gradient(180deg,#4b5a36,#2f3a20);color:#d6e6c0;font-weight:500}
+.tp.done .t{text-decoration:line-through;text-decoration-color:rgba(214,230,192,.5)}
+/* Aang's own tabs */
+.aangtabs{margin-top:14px;padding:8px 7px 4px;border-radius:8px;border:2.5px dashed rgba(200,232,255,.55);background:rgba(200,232,255,.06)}
+.aangtabs .lab{display:flex;align-items:center;gap:7px;font:400 9px var(--label);letter-spacing:1px;color:#C8E8FF;margin:0 2px 7px}
+.aangtabs .lab img{width:18px;height:18px;image-rendering:pixelated}
+.tp.his{background:linear-gradient(180deg,#2c3a52,#1a2236);color:#dfeaff;box-shadow:0 3px 0 var(--outline),inset 0 2px 0 rgba(200,232,255,.3)}
+
+/* the page area */
+.pg3{position:relative;background:#f6f3ee;border-left:0}
+.pg3 .edge{position:absolute;inset:0;pointer-events:none;box-shadow:inset 0 0 0 3px rgba(18,10,5,.55)}
+
+/* chips that sit in the band, joined to the identity plaque by a groove */
+.bandchip{position:absolute;top:100%;margin-top:-2px;z-index:4;padding:10px 12px;border-radius:0 0 9px 9px;
+  background:linear-gradient(180deg,#F0DCB4,var(--parch2));border:3px solid var(--outline);border-top:0;
+  box-shadow:0 5px 0 rgba(0,0,0,.55),inset 0 3px 0 rgba(90,60,25,.25);color:var(--ink-text);width:300px}
+.bandchip::before{content:"";position:absolute;left:24px;top:-12px;width:10px;height:12px;background:linear-gradient(90deg,var(--outline) 0 2px,var(--parch1) 2px 8px,var(--outline) 8px)}
+.bandchip .q{font:700 15px var(--body);color:#271c10;display:flex;align-items:center;gap:8px}
+.bandchip .m{font:italic 500 13px/1.45 var(--body);color:#5a4834;margin:4px 0 0}
+.bandchip .keys{margin-top:10px}
+
+/* Aang's own warning plates, drawn instead of the page */
+.plate{position:relative;margin:26px auto;max-width:520px;padding:20px 22px;border-radius:12px;color:var(--text);
+  background:linear-gradient(180deg,#56371F 0%,var(--wood1) 40%,var(--wood2) 100%);border:var(--ow) solid var(--outline);
+  box-shadow:inset 0 5px 0 rgba(255,224,150,.2),inset 0 -6px 0 rgba(0,0,0,.5),0 6px 0 rgba(0,0,0,.4),0 16px 30px rgba(0,0,0,.35)}
+.plate h3{font:700 22px/1.2 var(--display);color:var(--gold);text-shadow:0 2px 0 var(--outline);margin:10px 0 6px}
+.plate p{font:500 14.5px/1.55 var(--body);color:#e6dcc8;margin:0 0 8px}
+.plate p b{color:#fff}
+.plate .plq{display:inline-block;font:400 11px var(--label);letter-spacing:1.5px;padding:7px 11px;border-radius:6px;
+  background:var(--wood-plaque);border:3px solid var(--outline);box-shadow:inset 0 4px 0 rgba(0,0,0,.65);text-shadow:2px 2px 0 rgba(0,0,0,.85)}
+.plq.red{color:var(--red)} .plq.gold{color:var(--gold)}
+.plate .cracks{position:absolute;right:18px;top:16px;width:56px;height:56px;border-radius:8px;border:3px dashed var(--red);
+  background:linear-gradient(120deg,transparent 46%,var(--red) 46% 52%,transparent 52%),#2a1410}
+.lists{display:flex;gap:6px;flex-wrap:wrap;margin:4px 0 10px}
+.lists span{font:400 9px var(--label);letter-spacing:.5px;padding:4px 7px;border-radius:4px;border:2px solid var(--outline);background:#3a1712;color:#ffcfc4}
+
+/* the lever, from sheet 5 */
+.lever{position:relative;display:inline-flex;align-items:center;gap:12px;padding:11px 16px 12px 14px;
+  border-radius:9px;border:3px solid var(--outline);min-width:230px;overflow:hidden;cursor:pointer;
+  background:linear-gradient(180deg,#5b3a20,#2a190e);color:var(--gold-lit);font:700 13.5px var(--body);
+  text-shadow:0 1px 0 rgba(0,0,0,.7);box-shadow:0 6px 0 var(--outline),inset 0 3px 0 rgba(255,224,150,.25)}
+.lever::before{content:"";position:absolute;left:0;top:0;bottom:0;width:38%;background:linear-gradient(90deg,rgba(255,196,60,.28),rgba(255,196,60,.12))}
+.lever .knob{width:18px;height:18px;border-radius:50%;border:3px solid var(--outline);position:relative;
+  background:radial-gradient(circle at 35% 30%,var(--gold-lit),var(--gold-deep))}
+.lever .hold{font:400 9px var(--label);letter-spacing:1px;color:#ffe9b0;margin-left:auto;padding:3px 6px;position:relative;
+  border:2px solid var(--outline);border-radius:4px;background:rgba(0,0,0,.35)}
+.lever.red{background:linear-gradient(180deg,#6a2a20,#2e120c)}
+
+/* Aang's bubble, hanging from his plaque */
+.hang{position:relative;max-width:440px;margin-top:22px;overflow:visible !important}
+.hang::before{content:"";position:absolute;right:46px;top:-15px;width:18px;height:18px;background:#56371F;
+  border-left:var(--ow) solid var(--outline);border-top:var(--ow) solid var(--outline);transform:rotate(45deg)}
+.hang.parch::before{background:#F0DCB4}
+.whence{margin:10px 0 0;padding:9px 11px;border-radius:7px;background:rgba(0,0,0,.28);border:2px solid rgba(255,224,150,.25);font:500 13px/1.45 var(--body);color:#e6dcc8}
+.whence b{display:block;font:400 9px var(--label);letter-spacing:1px;color:var(--gold);margin-bottom:3px}
+
+/* the tab right-click menu */
+.menu3{width:250px;padding:7px;border-radius:12px;background:linear-gradient(180deg,#56371F,var(--wood2));border:3px solid var(--outline);
+  box-shadow:0 4px 0 rgba(0,0,0,.6),0 14px 28px rgba(0,0,0,.6)}
+.menu3 .mr{display:flex;align-items:center;gap:8px;padding:9px 11px;border-radius:6px;font:400 11.5px var(--label);color:#E6DCC8;letter-spacing:.5px;text-shadow:1px 1px 0 rgba(0,0,0,.75)}
+.menu3 .mr.hot{background:linear-gradient(180deg,var(--gold-lit),var(--gold-deep));color:#2a1c00;text-shadow:0 1px 0 rgba(255,255,255,.5)}
+.menu3 .sep{height:4px;margin:6px 4px;border-radius:2px;background:linear-gradient(180deg,rgba(0,0,0,.65) 0 2px,rgba(255,224,150,.22) 2px 4px)}
+.states{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px 22px}
+.states .st{background:linear-gradient(180deg,var(--wood1),var(--wood2));border:3px solid var(--outline);border-radius:10px;padding:12px 12px 6px}
+.states .cap{font:500 13px/1.5 var(--body);color:#c9c2da;margin:6px 2px 4px}
+.states .cap b{color:#fff}
+.states .nm{font:400 9.5px var(--label);letter-spacing:1px;color:var(--gold);margin:0 2px 8px}
+
 </style>
 </head>
 <body>
 <div class="wrap">
 
 <h1>AANG &middot; THE BROWSER</h1>
-<p class="sub">Part three. Continues the two sheets you approved.<br>
-Nothing is invented here: the scrub track is the <b style="color:#9a90b5">carved groove</b>, the loading bar is
-the <b style="color:#9a90b5">forged rule</b>,<br>the knobs are the <b style="color:#9a90b5">gem in a
-setting</b>, the tabs are the <b style="color:#9a90b5">Panel's tab strip</b>.</p>
+<p class="sub">Sheet 3, redrawn 4 Oct. Your everyday browser, in the same wood, parchment and keycaps as the rest of
+Aang.<br>FINAL AANG BUILD steps 6.19 to 6.27. The video pop-out is on sheet 4. Each part says what is
+<b style="color:#9a90b5">kept</b> from the first drawing and what is <b style="color:#9a90b5">new</b>.</p>
 
 <!-- ============================================== 1 -->
-<h2 class="part">1 &middot; THE WINDOW</h2>
-<p class="why">Proper tabs, as you asked. An address bar you can type in. The one rule that matters:
-<b>Aang's own controls are carved INTO the frame, and the web page sits on a raised surface with a hard
-black edge.</b> A page can draw anything it likes inside that edge, and it can never look like the bar
-above it. That is what stops a website drawing a fake Aang.</p>
+<h2 class="part">1 &middot; THE WINDOW <span class="step">6.20</span></h2>
+<p class="why">Tabs run down the left in a <b>rail</b>, not across the top. Thick outlines eat width fast, and a rail
+has room for a title you can actually read. <b>Tabs are grouped into trails</b>: one per thing you're doing
+(job hunt, WoW, anime), so twelve open tabs read as three jobs, not twelve strangers. The top is <b>one carved
+band</b>, the only place controls live. <b>Nothing Aang asks ever appears inside the page</b>, so a website can't
+fake him.</p>
 
-<div class="win">
-  <div class="tabstrip">
-    <div class="tab on">
-      <span class="fav" style="background:#ff0000"></span>
-      <span class="ttl">Frost Mage Guide</span><span class="x">&times;</span>
-    </div>
-    <div class="tab">
-      <span class="fav" style="background:#9146ff"></span>
-      <span class="ttl">Twitch</span><span class="x">&times;</span>
-    </div>
-    <div class="tab">
-      <span class="fav" style="background:#f4731c"></span>
-      <span class="ttl">CurseForge: DBM</span><span class="x">&times;</span>
-    </div>
-    <div class="tab add">+</div>
-  </div>
-
-  <div class="chrome">
-    <span class="rnd">&#8249;</span>
-    <span class="rnd dim">&#8250;</span>
-    <span class="rnd">&#10227;</span>
+<div class="bw">
+  <div class="band">
+    <i class="cap"></i>
+    <span class="rnd">&#8249;</span><span class="rnd dim">&#8250;</span><span class="rnd">&#10227;</span>
     <div class="slot">
       <span class="lock">SECURE</span>
-      <span class="url">https://<b>wowhead.com</b>/guide/classes/mage/frost/overview</span>
-      <span class="who">AANG IS DRIVING</span>
+      <span class="url">https://www.<b>wowhead.com</b>/guide/classes/mage/frost/overview</span>
+      <span class="who" style="color:var(--plum-edge)">YOU</span>
     </div>
-    <span class="rnd gold" title="pop out">&#8599;</span>
+    <span class="shield" title="Ads blocked on this page. Click to pause for this site.">ADS <b>14</b></span>
+    <span class="rnd gold" title="Pop this page out over WoW">&#8599;</span>
+    <span class="aplq"><img src="data:image/png;base64,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" alt="">AANG</span>
+    <i class="cap"></i>
   </div>
-
   <div class="loading"><i></i></div>
+  <div class="body3">
+    <div class="rail">
+      <button class="key sm newtab">+ New tab<span class="k">Ctrl T</span></button>
 
-  <div class="marks">
-    <span class="mark"><i class="fav" style="background:#ff0000"></i>YouTube<i class="in">IN</i></span>
-    <span class="mark"><i class="fav" style="background:#9146ff"></i>Twitch<i class="in">IN</i></span>
-    <span class="mark"><i class="fav" style="background:#00a8e1"></i>Prime<i class="in">IN</i></span>
-    <span class="mark"><i class="fav" style="background:#e50914"></i>Netflix<i class="in">IN</i></span>
-    <span class="mark"><i class="fav" style="background:#f4731c"></i>CurseForge<i class="in">IN</i></span>
-    <span class="mark"><i class="fav" style="background:#0a66c2"></i>LinkedIn<i class="in">IN</i></span>
-  </div>
+      <div class="th">JOB HUNT <span class="n">3</span></div>
+      <div class="tp"><img class="fi" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAADCUlEQVR4nO2bO2zaUBSGf1dFCh1CqDOkyUBaS+mQSDgrQ+Is2RDZyJg1nRjYgaEbA1Mzhm4ZG7FFlWKpEksqxZWaoZVcCUWlSxAxi5EY3KEFEWyIr2M4+PFNGN9rn/P5Pi2ZMwwDQeYZdQDUhAKoA6Dm+bgTXL5WBJADEJtZNNNBA1ABUDHK6fvRkyYBXL62BEAGkJx6aLMhBqAA4ACAOHrSqgvk4J/kh0n+b9UPGCfAr5hysxLg9T4/CVNu4SzgtKIk8JCEZQCArN5BVluuBTVLmAVIAo/q4TYS8ejgvwI20GjrODq79pwIpi4gCTwuj1MPku+TiEdxeZyCJPCuBTcLmARUD7ddKTNP2BYgCbzlkx8lEY96qhUwCFi2fVGWstQEfhq0LUBW72xflKUsNQwCWmi09UfLNdq6p6ZCpi5wdHbtSpl5gkmArLawd1K3bAmNto69k7qnnj7gYCUoqy2sv/8c3KVwH1lteTbpYRwLmDb9xZQkLENparjXewAApdkZ/HYDZgFGOT3xPJev2S5fuviJ4sWPwbEk8MjtvEFmc2XiPRptHdWrW1S+/HqyjLloAesvX6CaFbFrcwmdiEdR2N9Abuc1cuc3qF7dOr43uQBxdRHyuxRiCxHmurGFCE6z/95zOpVAuhQW15wnP8xpVnS8ASMVkNlceXLyfYr7bx3V881maFfgIa4uMtfzjQAAONh6xVyHfBAcRev2oPzuDI6XohEkbT5ZJ+PA3AjQur2xU5ok8Khkth4VIa55tAto3R6kD/WxU5mstmztMp0MqHMhIHd+A6XZmVhGaXbw8avzBc84yAX0l7V2GB4b3IJcwKfvf2yXVZqa6/cnF0C9pSYX4ObW1gnkAliYRmshFxD4LkBNKIA6AGpCAdQBUBMKoA6AmlAAdQDUhAKoA6CGG/1miMvXfP0RkVFOc8PHgW8BoQDqAKixEuD+i7f5wZSblYDKDAKhwpSbaRYAAC5fU+C/74a+GeW0rY+mAEACUII/uoMGoGSVPDCmBQSJcBagDoCawAv4CyJz5Ou100U7AAAAAElFTkSuQmCC"><span class="t">Product jobs, Toronto</span><span class="latch"><i></i><b></b></span></div>
+      <div class="tp kid"><img class="fi" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAMAAACdt4HsAAAAVFBMVEUkpH////8AnnYNoHkAnHIconzd7+nj8u3H5Nq33dCt2Mm+4NSQy7jP6N93wan7/v3z+/mk08M7q4lvvaRGr49ht5uAxK7q9vNWs5ad0L/V6+SHx7O95YAPAAABq0lEQVRYhe1WXZOCMAwkSQMIKC2Iov7//3lp+RDuyYSZeznzxDjudtskm2TZN77xaTAfw+N1wEP4EsAfwPMNJGoyE1AVCQr7JfgSCSqLAiaUcI3gTxYB2IX8XuQ5wBlN+BMscbHox3zFQ+EMeEk++GYcH618PNQSeBTY0xEz0V0+TQL89HKcCUHQSnDtWzfWALk2DSinDnMP0mtVoyPoDxH4zRVKyxUE1FKSwJ0lj3yFeKykETNvSeNUyG3o+9TMjaGW8fku5dpQylIK1YJvTPjopamfzpnZzdjlVvkLgRRxMBMwdslSqgxNcwXHNQ1lZ3iFdw5seXDpeF+HULfpHkqGqQ4vDokmW1fWIg/x+CX/GPsCOs1LumKHoMhXKho6tWK1Abiz/KBQQOGXZO7jdPmcIbnJ7tlJN17jUNqPcxfn618SSA/BvnJ0s4Ue8v9x+4i3jct/EMmHt3lPdaEx9uSHwyoZG+2OkyoJxnm4urQk6TyBmtlKZEXq4pNCr7SE2Q6Ksrynj5t6ScLX1lB6w5JF2eJJPpBt2SYcmhBeV2ffcmVBIuPp3/hf8QOfpQydWNIBGAAAAABJRU5ErkJggg=="><span class="t">Octup: Product Manager</span><i class="arc"></i></div>
+      <div class="tp sleep"><img class="fi" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAMAAACdt4HsAAAAXVBMVEVHcEz8/f////////////////////////////////////////////////8AKZj///8AOpsAKZYAL5ihs9fR2eu8yOGEm8puiMAAG5JUc7UMR6Ls8fjg6PM5XauVqdIVgTeGAAAADnRSTlMA++R+76AJbSvKgkq5EyIxDB0AAAJ7SURBVFiFpZfZgqsgDEDFUat2OixCQa3+/2del9YaTFCveRPJIQmBhCjCJcvvZVrEjHMWF2l5zzNiIi55WiQcSFKk+WHtm6e8QG6HGD8xrj4hyj1PshutPcstiHgUe/qcFw9af3f5txGk98f0Of/B9X+RqS9tTF8Z3cLhX0w/3aob2zVyFNHZF/iTHlifVY1USirRNEpK5WpgxcaGjf+6lkr+2UqPYqyQstOBOPjxZ71TojZrd2rpAAHsxcNf3yrZaAbHqqYDXqzyIfPypx3Mr3zmiAUmFBnpQC2F4fuyOJH5C7nuhWr48gGUYJQZ1Sym6qoP2PLeiRwe/9aJz/q6c2MW9RQgzrEIWPmJ30soMYrEAjrJHAVogHGfBdtu1hfij3IjmTyAY51YUB99oWrKhHxziIxbVnsuACEpQLpJIlsv+We/AEcBhmSCe6D/vsm2skBRgCSP7mCgalbeHIgBv3tZ1KzizeqFoDklJYwha9Y5/FITQTkyk8YoghgaC/62drjRVB06WEUE6tDTn6uN9i9UKHEEbg1LzSOFReCTTHpaot0ZrbaBIPKIBX7qquptLVzAMBYFijl/DtfBsJX0cR6DGKrHz737YNxGpKKdAaReKp8GlN5hOg24+1fqScBwnP2qdA4wVqdAFPcB6fZSPQfIt9f6KUCCltYTgLmw5GQ27wGSnGhvjgKWNud/AUuHQUVhB/DtkqhkCgNWLc62yToCAE037kQv58KEAryWG92Jd3FzWMe0abjRVntqMVSD/ELabexQ6bHXrhEDkGabsMFUBqlMaLt//cFx/clz/dF1/dk3IsrALRuT3q/l6tN3Ylx6fM+eHH3+/wPQl8Lr6f4T2gAAAABJRU5ErkJggg=="><span class="t">Indeed: saved search</span><span class="zz">ASLEEP</span></div>
 
-  <div class="page">
-    <div class="pagefake">
-      <h4>Frost Mage DPS Guide</h4>
-      <div class="bl"></div><div class="bl s"></div><div class="bl"></div><div class="bl t"></div>
-      <span class="btn">Open talent calculator</span>
+      <div class="th">WOW <span class="n">3</span></div>
+      <div class="tp on"><img class="fi" src="data:image/jpeg;base64,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"><span class="t">Frost Mage DPS Guide</span></div>
+      <div class="tp kid"><img class="fi" src="data:image/png;base64,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"><span class="t">Frost talents, Icy Veins</span></div>
+      <div class="tp crash"><img class="fi" src="data:image/x-icon;base64,AAABAAIAEBAAAAEAIABoBAAAJgAAACAgAAABACAAqBAAAI4EAAAoAAAAEAAAACAAAAABACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANGTvQDRk70AAAAAAAAAAADZm9F82ZPH/NmTx/zZk8f82ZPH/NmTx/zRk70AAAAAAAAAAAAAAAAAAAAAAAAAAADBg7yA2ZPH/NWTwvzRk70BAYO8QNmb0XzVk8e82ZPH/NmTx/zZk8e8wYO8QAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANWX0bzZk8f82ZPH/NmTx/zZj8N81Y/HvNmTx/zZl8d82Y+9QAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwYO8wNmTx/zZk8f82ZPH/NmTx/zZk8e8wYO8gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADdj8p82ZPH/NmTx/zZk8f83ZO9wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA2ZO+ANmTx/zZk8f82ZPH/NWLvYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAYO8QOGjvIDRk70A2Y++gNmTx/zZk8f82ZPH/NmTx/zVj8e82ZO+AQGDvEAAAAAAAAAAAAAAAAAAAAAA2Y++gNmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f81ZPC/NWLvYAAAAAAAAAAAN2PwrzZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZj8d82Y/HfNmPx3zZj8d81Y++gNmTvgDZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f8AAAAAAAAAAAAAAAAAAAAAAAAAADho7yA4aO8gOGjvIDho7yA4aO8gOGjvIDho7yA4aO8gOGjvIDho7yA4aO8gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP//AAD//wAA//8AAOYDAADgAwAA8AcAAPgPAAD8HwAA/B8AAMAHAACAAQAAgAAAAAAfAAAAHwAA//8AAP//AAAoAAAAIAAAAEAAAAABACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEBg7xA4aO8gOGjvIDho7yA4aO8gOGjvIDho7yA4aO8gOGjvIDho7yA4aO8gOGjvIDho7yA4aO8gOGjvIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMGDvEDZk74AAAAAAAAAAAAAAAAAAAAAAMGDvIDZl8d82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f81ZPK/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAN2TyvzVk8L84YO8gAAAAAAAAAAAAAAAAMGDvEDZj8q82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zdk73AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA1Yu9gNmTx/zVj8e82ZO+AQGDvEAAAAAAAAAAAAAAAADRk70A2ZfHfNmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/MGDvEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADBg7yA2ZPH/NmTx/zZk8f82ZPH/NWTwvzRi73A1Ze8wQGDvEAAAAAAzY+9QNWTyvzZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zVk8r8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADVl9G82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmPw3zdk8L83ZPC/NmPx3zZk8f82ZPH/NmTx/zZk8f82ZfHfNmPvUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADRk70A2ZfHfNmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmXyrzBg7yAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADBg7yA2ZfHfNmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zVj8p8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADBg7yA2ZfHfNmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZfKvAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADVi72A2ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx7zBg7xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADVk8e82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f81Y++QAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANmPx3zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk74AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADRk70A2ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmPx30Bg7xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA1Yu9gNmPx3zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTxzzhg7yAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA4aO8gOGjvIDho7yA0ZO9AM2PvUDRi73A2ZfCvNWPx7zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NWPx7zZk74A0ZO9AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANGTvQDZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f81Y/HvNWTwvzRi73BAYO8QAAAAAAAAAAAAAAAAAAAAAAAAAAA0ZO9ANmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zVj8e82ZO+AQGDvEAAAAAAAAAAAAAAAADRk70A2ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82Y/HfOGDvIAAAAAAAAAAANWPxoDZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82Y/HfNmPx3zZj8d82Y/HfNmPx3zZj8d82Y/HfNmPx3zZj8d83ZPK/AAAAADZk74A2ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA1Yu9gNmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADRk70A0ZO9ANGTvQDRk70A0ZO9ANGTvQDRk70A0ZO9ANGTvQDRk70A0ZO9ANGTvQDRk70A0ZO9ANGTvQDRk70A0ZO9ANGTvQDRk70A0ZO9ANGTvQDRk70AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP////////////////////////////AAH/zwAB/+OAAf/g4AH/4AgD//AAA//4AAf//AAf//4AP///AD///4B///+Af///AD///gAf/gAAB/wAAAB8AAAAHAAAAAwAAAAIAAA/8AAAP/AAAD////////////////////////////"><span class="t">CurseForge: DBM</span><span class="cr">CRASHED</span></div>
+
+      <div class="th">ANIME <span class="n">2</span></div>
+      <div class="tp"><img class="fi" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAMAAACdt4HsAAAAkFBMVEUFeP////8AdP8Adv8AcP8Acv8Abv9ho//7/f+52f/l8f8AbP/S4v/h7/+RuP/V5//u9/+Ov/8Ee//J4v+1z/+r0/9Lkf/0+v8sif/V6v9PmP+60v/N3/8AgP9en/9+uv+nzP96rP9+s/9prf+axf8wkf/A3v8uhf+cwf9dqP/g6v/G2f8AZf9xp/9CnP9Nof8kxyO/AAADe0lEQVRYhe1Wa5OjNhBkhCSEWIzAgITNyzzMYp+X///vMkAl2aTW2rvbT0ntVNnGRmr19PQMdpzv+I7/fxD3a/urN/M1gE5m0xe2u+4rFOavJH4qG8IpCxzqOjRglLEEU+DrFSWMuxwX4F3OLPvrIlsAroa3es4galSW+HI+QnjqAfzKdToF0FgAPKnUTUHKziCVTA/gJxGESuFLgoh5p3WpREMsANDwDooxBTWO4w7wYmINcXWE+1RC92OGaHqmxwpQsVwrLwU/cOkOMAR1KPKggbIO4fVyAOk9o4AAuiJ5qB8pZNRhO0DM61DnvIH7Q4EMQxXZAAAB1Mrg3wAUAfD2pa69vLJp0P/oNw0+YFCOR5gDI89P3bUCiJuAM1bhAwYleQXhKzg/9RQCiDch7qsPWuqQg86SUjX0FMmcdnAnpFGg22fbd4DEMdiDbPMboUiDE8elaE6CP7nUMQm1ASio3J3gn7Um7J+ErS3h5kO6K+x2fr3Vilwu5jeGguuEq4oYVKr5qXM/CMIwd5cRsjFADQIteoYXfM+ccWqFI16My/OhT/r2jTj1ua0UApCxvQ8J6lg192y0iOgwbLcgiaF1Siw/SgpHIXruhQAQOcT4+KkX20AY0cuTD4fgBfvPh+tbBmI2x60ZWzbA0XQgLaq6JILFSFkjQGOkuPBKi9mDsK46uI1XuJBA6M5CgbYwnKA0K0AusG8DJeYL6OJYgJxDgT8U0NqstIiiRwn4DvBgfAOQ5zRtD3UBG8BgkzFRwkeOK8AUQscNplCLMA/MUJsrdIyC7i0pOPyK/XgiCBAnLUTxVaCIVzj3q4gHuHWtZaKtwTqAl8Th2MW0lgBZAT3DUaaxAGRKQYA62Z1ZLcuIlhkXLNbY9NW44IGmj2c0kpPUcVd91hpke6K667uLxnbX8/BiP5ZQ9tl+633iJMknrTUZy4KpPgyx93Skbuef/PopSTMUIcq5WDngszCentR5uninUwZWGzhkOkLZVR91PQ7ES0cyGO0qrD2ro3ik9P3/Gxdni2ki1VX6aCWwrq1i7HoRDssUBHyLgE7LEKKHOuzonxiRdPQ1bKGiq+9fI7V90dlEq3L8jMCWBjuloRLwdwh1G0aOZ9tH4jsIWvVtGd1CKWUYvdxfvYT+4nR3GT6FTvXj4dXjRNivjPZ3IGSP39r8Hd/xH4s/AOGGQ17LRVwWAAAAAElFTkSuQmCC"><span class="t">Crunchyroll on Prime</span>
+        <span class="spk"><svg viewBox="0 0 16 16"><path d="M2 6h3l4-3v10l-4-3H2z" fill="#2a1c00"/><path d="M11 5c1.5 1.5 1.5 4.5 0 6" stroke="#2a1c00" stroke-width="1.8" fill="none"/></svg></span></div>
+      <div class="tp"><img class="fi" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAMAAACdt4HsAAAATlBMVEVHcEz/ADP/ADP/ADP/ADP/ADP/ADP/ADP/ADP/ADP/ADP/ADP/ADP/ADP/ADP/ADP/////EUb/ACL/RGP/7/P/q7n/hpn/zNX/3eP/Z34pvHLoAAAAD3RSTlMA6zaWxYZkrPTcSyF7D/rE87ViAAABdklEQVRYhe2W226DMAyGnaMJhCTtKLTv/6ILXYXQWicZvtkFv4SEhPwp+JQf4NSpf6VhkL21RiFq7ZwQIoS4KQQhnHNaIypjbS+H4Ve4Ryd2AbTC8wnCod+Fm5bQdxlm/EY4HP8ijMfjY2QeIMY1k5oRH3Suv+OcwA0gm8pPSUjoOfEx9mB5AEsX4dIEMKBIwPJ1rQMUIAlI6VZHIN0GGZCm+VpBaCDbYAVkxKMMcDVASkssHcKBqAFyKi40QkBXB6Q7nYoOSPYOkBEPitAIWP+DCUjL5zO0AshyAjnNewDdUKGpCoWW7hr6oDhUotqJ01zpxOIwpelWmSZdBtRXgi7tg3vDRsHCRpoLM7RJgSe/NYSvVxNvKwcLkgWIEiTZii3KN9PIuhv1yLudcxWBdzn2q8NgJKF7eqTjaezkj8s6/BP95lLxgMsIuHer0qImV8u7hEYrPxnmMRvm7Ji9N0apbJtfyu/KGO+zS842efy7ET91qqZvZj+d0TOLUpwAAAAASUVORK5CYII="><span class="t">Frieren OP, full</span>
+        <span class="spk muted"><svg viewBox="0 0 16 16"><path d="M2 6h3l4-3v10l-4-3H2z" fill="#3a2a16"/></svg></span></div>
+
+      <div class="aangtabs">
+        <div class="lab"><img src="data:image/png;base64,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" alt="">AANG'S TABS &middot; NO LOGINS</div>
+        <div class="tp his"><img class="fi" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAMAAACdt4HsAAAAnFBMVEVHcEz/RQD/RQD/RgD/RQD/RQD/RwD/RQD/RQD/RQD/RQD/RQD+////RQD/QQDL1t36/f31+frw9fbQ3OPp8fMCBQjl7PDW4uj/OwAMFxrd6Ov/Xgr4a0H0hWr86uP8eVP+SwnhqZv+Vx38qZH3l3zp3d35vKfsPwnNxMPzzcM2LivDZ2DBOxxUTk16gIKMkZPbJwCzTjumrbBiZmgrqJW8AAAADHRSTlMA+bIOIOsGctCTNkm9WdahAAAEa0lEQVRYhZVX6XqqMBAVRcEigQAiWsImq0tte9//3e5kAYkg2vnFR3JOZsvMZDYbldVCNbS5vlRMU1nqc81QF6vxnaOiGmvdfBB9bahvwj+0ufIIB1EUXft45/Th4X01XmqhLZ/DqSy1ae0nTm8t0Z/bsXp1PGdYak8CslpPAlEQBIh/rhdj+MU0PsjyYx4j9JRhMZ/G55Fj46hMOMN8wPDifJTjDZMmEFY8+OGV/XG0EZKPM2iT+OpytjxBEAkCU0qIj6n4VZfTfr/9tRnejkQkzGU/H6bypwL4aX+qbSa408DU3zMA8KfrhRw8TMVxmo5A6YxQpwwA/I+Jsvrg+57n+4cQdUvL9mZNReCyBTyEIazdHYiVB73FtfDglAdO+2vCPsK0tuqUSIviXk16YL//4V8oCeMwQ/Iy84L6RAGE4PqABRe4Q+wKIIQe8OacesEYq1+wNcnivExP1/J4jLPEHICZGP0kZgewGxskISlZ8tqY509UkjCh/kOB2MgFEnrRWhAk5AgSm4EZl13q3yUqY6AI6R6SiFgo+mKmtvi4icRZALeHBO0S/WjiNprqzBD4XBxqb/AYmIvTMkdtPhgiiEE8ovSURCQQgWSFCGXN3/BQWXhOzPlFRPGo0VNix4xAn7GLhPI/E2xyRrCc8TQ62hJDUww8iZtCUsA+8kDOeA4dMQYKwVKcL5dzIeP7/+hGjDmBKQiI41AKxlD8fFdVdZbCEp3h3+Wn4IfbtLJwE0xhQrjzPEcwpN8VCsuw7CvcfCMUl5fU5njH8wpeWRTuRDNJdwef6bDxz9/IzEhGel6xad58kursb1hh9A+7lJeJpainrOJg5ojiXCWfn0nQj6xNguQzMyvwAjNg59aitOkz0dGAgRIAw+FcfYIgWQPE/jEC2LVr8ZBIbT1CSYqpJzFOGYHZ9wF0NPqvSjGFOzhN2guttZeJ6gAENBYFyWBz7khRyOFXRgqGd3DYlVaju85wH8C3lML2oQg1zsbuCeTR8Vj6LH6O59xro3ovKKZZeJ6gEBkhZZ4Iv0ND2EGgoPRKWur5nAE4HLf+vd2+mNxuv7XL+xKFe17aKqDQHt0VVRRC9/G5Fti6biW5WligoTvFHYFBy3o3mtBs6jhuMsGtRfuHQxcDRVelxkJzASg4h/Vvu90LoQo4Ar2750A7I9xbGyKW67qcwwMjOgLAMzTAXYt0+HZk7DVXYlEKlyritzpst/8sj4F3sGTlyb0rjLR34lpWS+LWX6ft9vRVuweOpSv5vat07b3fXoOwtloBEt9x/B2HMqnjXnvvTUn9/pql1h3wIGlvvFB6I448ZCUEKAYcYEJKkl6HlYYsaUZAKCNpw13mgjbcIU1KpOlAked+edBEiPX2wudyKEra4eUG/ziqDkZdRDUJwzgOw8wcjhbDcXtsUEFChisjw7Y2Nqg8k+H5q7/hB0+WP+HHnjzTw7osY4+u6cfCw/FD+Ox9/ccfnqvp19Jd5s+evm8RTD2+1UmGF8///zy82AIwH3Z6AAAAAElFTkSuQmCC"><span class="t">r/classicwow: patch notes</span><i class="arc"></i></div>
+      </div>
+
+      <div class="shelf">
+        <div class="lab"><span>DONE</span><span>2</span></div>
+        <div class="tp done"><img class="fi" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAMAAACdt4HsAAAAVFBMVEUkpH////8AnnYNoHkAnHIconzd7+nj8u3H5Nq33dCt2Mm+4NSQy7jP6N93wan7/v3z+/mk08M7q4lvvaRGr49ht5uAxK7q9vNWs5ad0L/V6+SHx7O95YAPAAABq0lEQVRYhe1WXZOCMAwkSQMIKC2Iov7//3lp+RDuyYSZeznzxDjudtskm2TZN77xaTAfw+N1wEP4EsAfwPMNJGoyE1AVCQr7JfgSCSqLAiaUcI3gTxYB2IX8XuQ5wBlN+BMscbHox3zFQ+EMeEk++GYcH618PNQSeBTY0xEz0V0+TQL89HKcCUHQSnDtWzfWALk2DSinDnMP0mtVoyPoDxH4zRVKyxUE1FKSwJ0lj3yFeKykETNvSeNUyG3o+9TMjaGW8fku5dpQylIK1YJvTPjopamfzpnZzdjlVvkLgRRxMBMwdslSqgxNcwXHNQ1lZ3iFdw5seXDpeF+HULfpHkqGqQ4vDokmW1fWIg/x+CX/GPsCOs1LumKHoMhXKho6tWK1Abiz/KBQQOGXZO7jdPmcIbnJ7tlJN17jUNqPcxfn618SSA/BvnJ0s4Ue8v9x+4i3jct/EMmHt3lPdaEx9uSHwyoZG+2OkyoJxnm4urQk6TyBmtlKZEXq4pNCr7SE2Q6Ksrynj5t6ScLX1lB6w5JF2eJJPpBt2SYcmhBeV2ffcmVBIuPp3/hf8QOfpQydWNIBGAAAAABJRU5ErkJggg=="><span class="t">Northwind application</span><span class="latch thrown"><i></i><b></b></span></div>
+        <div class="tp done"><img class="fi" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAADCUlEQVR4nO2bO2zaUBSGf1dFCh1CqDOkyUBaS+mQSDgrQ+Is2RDZyJg1nRjYgaEbA1Mzhm4ZG7FFlWKpEksqxZWaoZVcCUWlSxAxi5EY3KEFEWyIr2M4+PFNGN9rn/P5Pi2ZMwwDQeYZdQDUhAKoA6Dm+bgTXL5WBJADEJtZNNNBA1ABUDHK6fvRkyYBXL62BEAGkJx6aLMhBqAA4ACAOHrSqgvk4J/kh0n+b9UPGCfAr5hysxLg9T4/CVNu4SzgtKIk8JCEZQCArN5BVluuBTVLmAVIAo/q4TYS8ejgvwI20GjrODq79pwIpi4gCTwuj1MPku+TiEdxeZyCJPCuBTcLmARUD7ddKTNP2BYgCbzlkx8lEY96qhUwCFi2fVGWstQEfhq0LUBW72xflKUsNQwCWmi09UfLNdq6p6ZCpi5wdHbtSpl5gkmArLawd1K3bAmNto69k7qnnj7gYCUoqy2sv/8c3KVwH1lteTbpYRwLmDb9xZQkLENparjXewAApdkZ/HYDZgFGOT3xPJev2S5fuviJ4sWPwbEk8MjtvEFmc2XiPRptHdWrW1S+/HqyjLloAesvX6CaFbFrcwmdiEdR2N9Abuc1cuc3qF7dOr43uQBxdRHyuxRiCxHmurGFCE6z/95zOpVAuhQW15wnP8xpVnS8ASMVkNlceXLyfYr7bx3V881maFfgIa4uMtfzjQAAONh6xVyHfBAcRev2oPzuDI6XohEkbT5ZJ+PA3AjQur2xU5ok8Khkth4VIa55tAto3R6kD/WxU5mstmztMp0MqHMhIHd+A6XZmVhGaXbw8avzBc84yAX0l7V2GB4b3IJcwKfvf2yXVZqa6/cnF0C9pSYX4ObW1gnkAliYRmshFxD4LkBNKIA6AGpCAdQBUBMKoA6AmlAAdQDUhAKoA6CGG/1miMvXfP0RkVFOc8PHgW8BoQDqAKixEuD+i7f5wZSblYDKDAKhwpSbaRYAAC5fU+C/74a+GeW0rY+mAEACUII/uoMGoGSVPDCmBQSJcBagDoCawAv4CyJz5Ou100U7AAAAAElFTkSuQmCC"><span class="t">Shopify: Product Lead</span><span class="latch thrown"><i></i><b></b></span></div>
+      </div>
     </div>
-    <div class="edge"></div>
+    <div class="pg3">
+      <div class="pagefake">
+        <h4>Frost Mage DPS Guide</h4>
+        <div class="bl"></div><div class="bl s"></div><div class="bl"></div><div class="bl t"></div>
+        <div class="bl"></div><div class="bl s"></div><div class="bl t"></div>
+        <span class="btn">Open talent calculator</span>
+      </div>
+      <i class="edge"></i>
+    </div>
   </div>
 </div>
 
-<p class="sur" style="margin-top:16px"><b style="color:#cfc4ea">Read the address bar left to right.</b>
-A green SECURE plaque, the real domain in bright white with everything else dimmed so you cannot be fooled
-by <span style="color:#8a80a5">wowhead.com</span><b style="color:#F0E6FF">.evil.ru</b>, and on the right
-whether you or Aang is driving. All three carved in, all three unpaintable.</p>
+<div class="two" style="margin-top:18px">
+  <div style="flex:1;min-width:260px">
+    <p class="sur"><b>The top band, left to right:</b> back, forward, reload; the address slot, carved in; how many ads
+    were blocked on this page (click it to pause blocking for just this site); pop out over WoW (sheet 4); and
+    <b>Aang's plaque</b>. It never moves and never opens anything by itself. When he has something to say it
+    glows, like the halo on his sprite.</p>
+    <p class="sur"><b>The address slot</b> <span class="kept2">KEPT</span>: SECURE or NOT SECURE on a plaque, the real
+    domain bright and the rest dimmed, and who's driving on the right.</p>
+  </div>
+  <div style="flex:1;min-width:260px">
+    <p class="sur"><b>The rail:</b> trails headed in Cinzel, tabs as plaques. A tab you opened from another sits under
+    it, joined by a carved line. The tab you're on is parchment and joins the page, like a tab in a ring binder.</p>
+    <p class="sur"><b>Aang's tabs sit in their own dashed box</b>, in his pale blue, at the bottom. They run in a
+    separate profile with none of your logins (section 4).</p>
+    <p class="sur"><b>The DONE shelf</b> holds finished things below everything else (section 3).</p>
+  </div>
+</div>
 
-<h3 class="sur">When it is NOT safe <span class="new">NEW</span></h3>
+<!-- ============================================== 2 -->
+<h2 class="part">2 &middot; WHAT A TAB CAN BE DOING <span class="step">6.20</span> <span class="step">6.21</span></h2>
+<p class="why">Each state is a <b>different shape</b>, not just a different shade, so you can tell them apart at a
+glance and without colour. Crashed looks broken, not just dim, so it can never be mistaken for asleep.</p>
+<div class="states">
+  <div class="st"><p class="nm">THE ONE YOU'RE ON</p>
+    <div class="tp on" style="margin-right:0;border-right-width:2.5px;border-radius:7px"><img class="fi" src="data:image/jpeg;base64,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"><span class="t">Frost Mage DPS Guide</span></div>
+    <p class="cap"><b>Parchment</b>, the same as the page, and joined to it.</p></div>
+  <div class="st"><p class="nm">LOADING</p>
+    <div class="tp"><img class="fi" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAMAAACdt4HsAAAAVFBMVEUkpH////8AnnYNoHkAnHIconzd7+nj8u3H5Nq33dCt2Mm+4NSQy7jP6N93wan7/v3z+/mk08M7q4lvvaRGr49ht5uAxK7q9vNWs5ad0L/V6+SHx7O95YAPAAABq0lEQVRYhe1WXZOCMAwkSQMIKC2Iov7//3lp+RDuyYSZeznzxDjudtskm2TZN77xaTAfw+N1wEP4EsAfwPMNJGoyE1AVCQr7JfgSCSqLAiaUcI3gTxYB2IX8XuQ5wBlN+BMscbHox3zFQ+EMeEk++GYcH618PNQSeBTY0xEz0V0+TQL89HKcCUHQSnDtWzfWALk2DSinDnMP0mtVoyPoDxH4zRVKyxUE1FKSwJ0lj3yFeKykETNvSeNUyG3o+9TMjaGW8fku5dpQylIK1YJvTPjopamfzpnZzdjlVvkLgRRxMBMwdslSqgxNcwXHNQ1lZ3iFdw5seXDpeF+HULfpHkqGqQ4vDokmW1fWIg/x+CX/GPsCOs1LumKHoMhXKho6tWK1Abiz/KBQQOGXZO7jdPmcIbnJ7tlJN17jUNqPcxfn618SSA/BvnJ0s4Ue8v9x+4i3jct/EMmHt3lPdaEx9uSHwyoZG+2OkyoJxnm4urQk6TyBmtlKZEXq4pNCr7SE2Q6Ksrynj5t6ScLX1lB6w5JF2eJJPpBt2SYcmhBeV2ffcmVBIuPp3/hf8QOfpQydWNIBGAAAAABJRU5ErkJggg=="><span class="t">Octup: Product Manager</span><i class="arc"></i></div>
+    <p class="cap"><b>A gold arc going round</b> in a carved ring.</p></div>
+  <div class="st"><p class="nm">ASLEEP</p>
+    <div class="tp sleep"><img class="fi" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAMAAACdt4HsAAAAXVBMVEVHcEz8/f////////////////////////////////////////////////8AKZj///8AOpsAKZYAL5ihs9fR2eu8yOGEm8puiMAAG5JUc7UMR6Ls8fjg6PM5XauVqdIVgTeGAAAADnRSTlMA++R+76AJbSvKgkq5EyIxDB0AAAJ7SURBVFiFpZfZgqsgDEDFUat2OixCQa3+/2del9YaTFCveRPJIQmBhCjCJcvvZVrEjHMWF2l5zzNiIi55WiQcSFKk+WHtm6e8QG6HGD8xrj4hyj1PshutPcstiHgUe/qcFw9af3f5txGk98f0Of/B9X+RqS9tTF8Z3cLhX0w/3aob2zVyFNHZF/iTHlifVY1USirRNEpK5WpgxcaGjf+6lkr+2UqPYqyQstOBOPjxZ71TojZrd2rpAAHsxcNf3yrZaAbHqqYDXqzyIfPypx3Mr3zmiAUmFBnpQC2F4fuyOJH5C7nuhWr48gGUYJQZ1Sym6qoP2PLeiRwe/9aJz/q6c2MW9RQgzrEIWPmJ30soMYrEAjrJHAVogHGfBdtu1hfij3IjmTyAY51YUB99oWrKhHxziIxbVnsuACEpQLpJIlsv+We/AEcBhmSCe6D/vsm2skBRgCSP7mCgalbeHIgBv3tZ1KzizeqFoDklJYwha9Y5/FITQTkyk8YoghgaC/62drjRVB06WEUE6tDTn6uN9i9UKHEEbg1LzSOFReCTTHpaot0ZrbaBIPKIBX7qquptLVzAMBYFijl/DtfBsJX0cR6DGKrHz737YNxGpKKdAaReKp8GlN5hOg24+1fqScBwnP2qdA4wVqdAFPcB6fZSPQfIt9f6KUCCltYTgLmw5GQ27wGSnGhvjgKWNud/AUuHQUVhB/DtkqhkCgNWLc62yToCAE037kQv58KEAryWG92Jd3FzWMe0abjRVntqMVSD/ELabexQ6bHXrhEDkGabsMFUBqlMaLt//cFx/clz/dF1/dk3IsrALRuT3q/l6tN3Ylx6fM+eHH3+/wPQl8Lr6f4T2gAAAABJRU5ErkJggg=="><span class="t">Indeed: saved search</span><span class="zz">ASLEEP</span></div>
+    <p class="cap"><b>Sunk flush into the wood</b>, colour drained. Not used for a while, so it's put away to save
+    memory. Click and it wakes exactly where you left it.</p></div>
+  <div class="st"><p class="nm">PLAYING SOUND</p>
+    <div class="tp"><img class="fi" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAMAAACdt4HsAAAAkFBMVEUFeP////8AdP8Adv8AcP8Acv8Abv9ho//7/f+52f/l8f8AbP/S4v/h7/+RuP/V5//u9/+Ov/8Ee//J4v+1z/+r0/9Lkf/0+v8sif/V6v9PmP+60v/N3/8AgP9en/9+uv+nzP96rP9+s/9prf+axf8wkf/A3v8uhf+cwf9dqP/g6v/G2f8AZf9xp/9CnP9Nof8kxyO/AAADe0lEQVRYhe1Wa5OjNhBkhCSEWIzAgITNyzzMYp+X///vMkAl2aTW2rvbT0ntVNnGRmr19PQMdpzv+I7/fxD3a/urN/M1gE5m0xe2u+4rFOavJH4qG8IpCxzqOjRglLEEU+DrFSWMuxwX4F3OLPvrIlsAroa3es4galSW+HI+QnjqAfzKdToF0FgAPKnUTUHKziCVTA/gJxGESuFLgoh5p3WpREMsANDwDooxBTWO4w7wYmINcXWE+1RC92OGaHqmxwpQsVwrLwU/cOkOMAR1KPKggbIO4fVyAOk9o4AAuiJ5qB8pZNRhO0DM61DnvIH7Q4EMQxXZAAAB1Mrg3wAUAfD2pa69vLJp0P/oNw0+YFCOR5gDI89P3bUCiJuAM1bhAwYleQXhKzg/9RQCiDch7qsPWuqQg86SUjX0FMmcdnAnpFGg22fbd4DEMdiDbPMboUiDE8elaE6CP7nUMQm1ASio3J3gn7Um7J+ErS3h5kO6K+x2fr3Vilwu5jeGguuEq4oYVKr5qXM/CMIwd5cRsjFADQIteoYXfM+ccWqFI16My/OhT/r2jTj1ua0UApCxvQ8J6lg192y0iOgwbLcgiaF1Siw/SgpHIXruhQAQOcT4+KkX20AY0cuTD4fgBfvPh+tbBmI2x60ZWzbA0XQgLaq6JILFSFkjQGOkuPBKi9mDsK46uI1XuJBA6M5CgbYwnKA0K0AusG8DJeYL6OJYgJxDgT8U0NqstIiiRwn4DvBgfAOQ5zRtD3UBG8BgkzFRwkeOK8AUQscNplCLMA/MUJsrdIyC7i0pOPyK/XgiCBAnLUTxVaCIVzj3q4gHuHWtZaKtwTqAl8Th2MW0lgBZAT3DUaaxAGRKQYA62Z1ZLcuIlhkXLNbY9NW44IGmj2c0kpPUcVd91hpke6K667uLxnbX8/BiP5ZQ9tl+633iJMknrTUZy4KpPgyx93Skbuef/PopSTMUIcq5WDngszCentR5uninUwZWGzhkOkLZVR91PQ7ES0cyGO0qrD2ro3ik9P3/Gxdni2ki1VX6aCWwrq1i7HoRDssUBHyLgE7LEKKHOuzonxiRdPQ1bKGiq+9fI7V90dlEq3L8jMCWBjuloRLwdwh1G0aOZ9tH4jsIWvVtGd1CKWUYvdxfvYT+4nR3GT6FTvXj4dXjRNivjPZ3IGSP39r8Hd/xH4s/AOGGQ17LRVwWAAAAAElFTkSuQmCC"><span class="t">Crunchyroll on Prime</span>
+      <span class="spk"><svg viewBox="0 0 16 16"><path d="M2 6h3l4-3v10l-4-3H2z" fill="#2a1c00"/><path d="M11 5c1.5 1.5 1.5 4.5 0 6" stroke="#2a1c00" stroke-width="1.8" fill="none"/></svg></span></div>
+    <p class="cap"><b>A tiny gold keycap.</b> It's a real button: press it to mute. Chrome took that away in 2018.</p></div>
+  <div class="st"><p class="nm">MUTED</p>
+    <div class="tp"><img class="fi" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAMAAACdt4HsAAAATlBMVEVHcEz/ADP/ADP/ADP/ADP/ADP/ADP/ADP/ADP/ADP/ADP/ADP/ADP/ADP/ADP/ADP/////EUb/ACL/RGP/7/P/q7n/hpn/zNX/3eP/Z34pvHLoAAAAD3RSTlMA6zaWxYZkrPTcSyF7D/rE87ViAAABdklEQVRYhe2W226DMAyGnaMJhCTtKLTv/6ILXYXQWicZvtkFv4SEhPwp+JQf4NSpf6VhkL21RiFq7ZwQIoS4KQQhnHNaIypjbS+H4Ve4Ryd2AbTC8wnCod+Fm5bQdxlm/EY4HP8ijMfjY2QeIMY1k5oRH3Suv+OcwA0gm8pPSUjoOfEx9mB5AEsX4dIEMKBIwPJ1rQMUIAlI6VZHIN0GGZCm+VpBaCDbYAVkxKMMcDVASkssHcKBqAFyKi40QkBXB6Q7nYoOSPYOkBEPitAIWP+DCUjL5zO0AshyAjnNewDdUKGpCoWW7hr6oDhUotqJ01zpxOIwpelWmSZdBtRXgi7tg3vDRsHCRpoLM7RJgSe/NYSvVxNvKwcLkgWIEiTZii3KN9PIuhv1yLudcxWBdzn2q8NgJKF7eqTjaezkj8s6/BP95lLxgMsIuHer0qImV8u7hEYrPxnmMRvm7Ji9N0apbJtfyu/KGO+zS842efy7ET91qqZvZj+d0TOLUpwAAAAASUVORK5CYII="><span class="t">Frieren OP, full</span>
+      <span class="spk muted"><svg viewBox="0 0 16 16"><path d="M2 6h3l4-3v10l-4-3H2z" fill="#3a2a16"/></svg></span></div>
+    <p class="cap"><b>The same keycap, pressed in</b>, with a red slash.</p></div>
+  <div class="st"><p class="nm">CRASHED</p>
+    <div class="tp crash"><img class="fi" src="data:image/x-icon;base64,AAABAAIAEBAAAAEAIABoBAAAJgAAACAgAAABACAAqBAAAI4EAAAoAAAAEAAAACAAAAABACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANGTvQDRk70AAAAAAAAAAADZm9F82ZPH/NmTx/zZk8f82ZPH/NmTx/zRk70AAAAAAAAAAAAAAAAAAAAAAAAAAADBg7yA2ZPH/NWTwvzRk70BAYO8QNmb0XzVk8e82ZPH/NmTx/zZk8e8wYO8QAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANWX0bzZk8f82ZPH/NmTx/zZj8N81Y/HvNmTx/zZl8d82Y+9QAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwYO8wNmTx/zZk8f82ZPH/NmTx/zZk8e8wYO8gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADdj8p82ZPH/NmTx/zZk8f83ZO9wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA2ZO+ANmTx/zZk8f82ZPH/NWLvYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAYO8QOGjvIDRk70A2Y++gNmTx/zZk8f82ZPH/NmTx/zVj8e82ZO+AQGDvEAAAAAAAAAAAAAAAAAAAAAA2Y++gNmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f81ZPC/NWLvYAAAAAAAAAAAN2PwrzZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZj8d82Y/HfNmPx3zZj8d81Y++gNmTvgDZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f8AAAAAAAAAAAAAAAAAAAAAAAAAADho7yA4aO8gOGjvIDho7yA4aO8gOGjvIDho7yA4aO8gOGjvIDho7yA4aO8gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP//AAD//wAA//8AAOYDAADgAwAA8AcAAPgPAAD8HwAA/B8AAMAHAACAAQAAgAAAAAAfAAAAHwAA//8AAP//AAAoAAAAIAAAAEAAAAABACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEBg7xA4aO8gOGjvIDho7yA4aO8gOGjvIDho7yA4aO8gOGjvIDho7yA4aO8gOGjvIDho7yA4aO8gOGjvIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMGDvEDZk74AAAAAAAAAAAAAAAAAAAAAAMGDvIDZl8d82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f81ZPK/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAN2TyvzVk8L84YO8gAAAAAAAAAAAAAAAAMGDvEDZj8q82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zdk73AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA1Yu9gNmTx/zVj8e82ZO+AQGDvEAAAAAAAAAAAAAAAADRk70A2ZfHfNmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/MGDvEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADBg7yA2ZPH/NmTx/zZk8f82ZPH/NWTwvzRi73A1Ze8wQGDvEAAAAAAzY+9QNWTyvzZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zVk8r8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADVl9G82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmPw3zdk8L83ZPC/NmPx3zZk8f82ZPH/NmTx/zZk8f82ZfHfNmPvUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADRk70A2ZfHfNmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmXyrzBg7yAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADBg7yA2ZfHfNmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zVj8p8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADBg7yA2ZfHfNmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZfKvAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADVi72A2ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx7zBg7xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADVk8e82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f81Y++QAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANmPx3zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk74AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADRk70A2ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmPx30Bg7xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA1Yu9gNmPx3zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTxzzhg7yAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA4aO8gOGjvIDho7yA0ZO9AM2PvUDRi73A2ZfCvNWPx7zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NWPx7zZk74A0ZO9AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANGTvQDZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f81Y/HvNWTwvzRi73BAYO8QAAAAAAAAAAAAAAAAAAAAAAAAAAA0ZO9ANmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zVj8e82ZO+AQGDvEAAAAAAAAAAAAAAAADRk70A2ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82Y/HfOGDvIAAAAAAAAAAANWPxoDZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82Y/HfNmPx3zZj8d82Y/HfNmPx3zZj8d82Y/HfNmPx3zZj8d83ZPK/AAAAADZk74A2ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA1Yu9gNmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/NmTx/zZk8f82ZPH/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADRk70A0ZO9ANGTvQDRk70A0ZO9ANGTvQDRk70A0ZO9ANGTvQDRk70A0ZO9ANGTvQDRk70A0ZO9ANGTvQDRk70A0ZO9ANGTvQDRk70A0ZO9ANGTvQDRk70AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP////////////////////////////AAH/zwAB/+OAAf/g4AH/4AgD//AAA//4AAf//AAf//4AP///AD///4B///+Af///AD///gAf/gAAB/wAAAB8AAAAHAAAAAwAAAAIAAA/8AAAP/AAAD////////////////////////////"><span class="t">CurseForge: DBM</span><span class="cr">CRASHED</span></div>
+    <p class="cap"><b>A cracked plaque</b> with a broken outline. Click it for the plate below.</p></div>
+  <div class="st"><p class="nm">WAITING ON YOU</p>
+    <div class="tp"><img class="fi" src="data:image/png;base64,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"><span class="t">Google Meet</span><span class="wait">ASKS</span></div>
+    <p class="cap"><b>An orange tag</b>: the site asked for something. The question itself is in the top band.</p></div>
+  <div class="st"><p class="nm">DONE</p>
+    <div class="tp done"><img class="fi" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAMAAACdt4HsAAAAVFBMVEUkpH////8AnnYNoHkAnHIconzd7+nj8u3H5Nq33dCt2Mm+4NSQy7jP6N93wan7/v3z+/mk08M7q4lvvaRGr49ht5uAxK7q9vNWs5ad0L/V6+SHx7O95YAPAAABq0lEQVRYhe1WXZOCMAwkSQMIKC2Iov7//3lp+RDuyYSZeznzxDjudtskm2TZN77xaTAfw+N1wEP4EsAfwPMNJGoyE1AVCQr7JfgSCSqLAiaUcI3gTxYB2IX8XuQ5wBlN+BMscbHox3zFQ+EMeEk++GYcH618PNQSeBTY0xEz0V0+TQL89HKcCUHQSnDtWzfWALk2DSinDnMP0mtVoyPoDxH4zRVKyxUE1FKSwJ0lj3yFeKykETNvSeNUyG3o+9TMjaGW8fku5dpQylIK1YJvTPjopamfzpnZzdjlVvkLgRRxMBMwdslSqgxNcwXHNQ1lZ3iFdw5seXDpeF+HULfpHkqGqQ4vDokmW1fWIg/x+CX/GPsCOs1LumKHoMhXKho6tWK1Abiz/KBQQOGXZO7jdPmcIbnJ7tlJN17jUNqPcxfn618SSA/BvnJ0s4Ue8v9x+4i3jct/EMmHt3lPdaEx9uSHwyoZG+2OkyoJxnm4urQk6TyBmtlKZEXq4pNCr7SE2Q6Ksrynj5t6ScLX1lB6w5JF2eJJPpBt2SYcmhBeV2ffcmVBIuPp3/hf8QOfpQydWNIBGAAAAABJRU5ErkJggg=="><span class="t">Northwind application</span><span class="latch thrown"><i></i><b></b></span></div>
+    <p class="cap"><b>The brass latch thrown</b>, and it moves down to the DONE shelf.</p></div>
+</div>
+
+<h3 class="sur" style="margin-top:28px">When a tab crashes <span class="step">6.21</span></h3>
+<div class="two" style="align-items:flex-start">
+  <div class="bw" style="flex:1.3;min-width:320px">
+    <div class="band"><i class="cap"></i><span class="rnd">&#8249;</span><span class="rnd dim">&#8250;</span><span class="rnd">&#10227;</span>
+      <div class="slot"><span class="lock">SECURE</span><span class="url">https://www.<b>curseforge.com</b>/wow/addons/deadly-boss-mods</span></div><i class="cap"></i></div>
+    <div class="pg3" style="background:#2a1d14;min-height:280px;padding:1px 16px">
+      <div class="plate">
+        <i class="cracks"></i>
+        <span class="plq red">THIS PAGE CRASHED</span>
+        <h3>CurseForge stopped working</h3>
+        <p>The page broke, not your PC. Reload brings it back <b>where you were</b>: I saved its place 2 minutes ago.</p>
+        <div class="keys">
+          <button class="key primary sm">Reload<span class="k">A</span></button>
+          <button class="key sm">Close the tab<span class="k">Z</span></button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div style="flex:1;min-width:250px">
+    <p class="sur"><b>This is Aang's own plate</b>, drawn where the page was. It's the only sign you get: tested on 4 Oct,
+    a crashed page just goes blank and anything that pokes it hangs. So this plate never touches the dead page.</p>
+    <p class="sur"><b>Reload builds a fresh page</b> from the snapshot Aang keeps of every tab: where you'd scrolled,
+    what you'd typed. The same snapshots bring every tab back after a restart or a Shadow reboot.</p>
+  </div>
+</div>
+
+<!-- ============================================== 3 -->
+<h2 class="part">3 &middot; TRAILS AND THE DONE SHELF <span class="step">6.25</span></h2>
+<p class="why">Borrowed from two small browsers that people who keep fifty tabs open swear by. <b>Trails</b> (from
+Horse Browser) keep the link between pages: the Octup posting sits under the job search it came from. <b>Mark as
+done</b> (from SigmaOS) lets a finished thing leave your way without being closed and lost.</p>
+<div class="two" style="align-items:flex-start">
+  <div class="rail" style="width:262px;border:var(--ow) solid var(--outline);border-radius:12px;flex:0 0 auto">
+    <div class="th">JOB HUNT <span class="n">3</span></div>
+    <div class="tp"><img class="fi" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAADCUlEQVR4nO2bO2zaUBSGf1dFCh1CqDOkyUBaS+mQSDgrQ+Is2RDZyJg1nRjYgaEbA1Mzhm4ZG7FFlWKpEksqxZWaoZVcCUWlSxAxi5EY3KEFEWyIr2M4+PFNGN9rn/P5Pi2ZMwwDQeYZdQDUhAKoA6Dm+bgTXL5WBJADEJtZNNNBA1ABUDHK6fvRkyYBXL62BEAGkJx6aLMhBqAA4ACAOHrSqgvk4J/kh0n+b9UPGCfAr5hysxLg9T4/CVNu4SzgtKIk8JCEZQCArN5BVluuBTVLmAVIAo/q4TYS8ejgvwI20GjrODq79pwIpi4gCTwuj1MPku+TiEdxeZyCJPCuBTcLmARUD7ddKTNP2BYgCbzlkx8lEY96qhUwCFi2fVGWstQEfhq0LUBW72xflKUsNQwCWmi09UfLNdq6p6ZCpi5wdHbtSpl5gkmArLawd1K3bAmNto69k7qnnj7gYCUoqy2sv/8c3KVwH1lteTbpYRwLmDb9xZQkLENparjXewAApdkZ/HYDZgFGOT3xPJev2S5fuviJ4sWPwbEk8MjtvEFmc2XiPRptHdWrW1S+/HqyjLloAesvX6CaFbFrcwmdiEdR2N9Abuc1cuc3qF7dOr43uQBxdRHyuxRiCxHmurGFCE6z/95zOpVAuhQW15wnP8xpVnS8ASMVkNlceXLyfYr7bx3V881maFfgIa4uMtfzjQAAONh6xVyHfBAcRev2oPzuDI6XohEkbT5ZJ+PA3AjQur2xU5ok8Khkth4VIa55tAto3R6kD/WxU5mstmztMp0MqHMhIHd+A6XZmVhGaXbw8avzBc84yAX0l7V2GB4b3IJcwKfvf2yXVZqa6/cnF0C9pSYX4ObW1gnkAliYRmshFxD4LkBNKIA6AGpCAdQBUBMKoA6AmlAAdQDUhAKoA6CGG/1miMvXfP0RkVFOc8PHgW8BoQDqAKixEuD+i7f5wZSblYDKDAKhwpSbaRYAAC5fU+C/74a+GeW0rY+mAEACUII/uoMGoGSVPDCmBQSJcBagDoCawAv4CyJz5Ou100U7AAAAAElFTkSuQmCC"><span class="t">Product jobs, Toronto</span><span class="latch"><i></i><b></b></span></div>
+    <div class="tp kid"><img class="fi" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAMAAACdt4HsAAAAVFBMVEUkpH////8AnnYNoHkAnHIconzd7+nj8u3H5Nq33dCt2Mm+4NSQy7jP6N93wan7/v3z+/mk08M7q4lvvaRGr49ht5uAxK7q9vNWs5ad0L/V6+SHx7O95YAPAAABq0lEQVRYhe1WXZOCMAwkSQMIKC2Iov7//3lp+RDuyYSZeznzxDjudtskm2TZN77xaTAfw+N1wEP4EsAfwPMNJGoyE1AVCQr7JfgSCSqLAiaUcI3gTxYB2IX8XuQ5wBlN+BMscbHox3zFQ+EMeEk++GYcH618PNQSeBTY0xEz0V0+TQL89HKcCUHQSnDtWzfWALk2DSinDnMP0mtVoyPoDxH4zRVKyxUE1FKSwJ0lj3yFeKykETNvSeNUyG3o+9TMjaGW8fku5dpQylIK1YJvTPjopamfzpnZzdjlVvkLgRRxMBMwdslSqgxNcwXHNQ1lZ3iFdw5seXDpeF+HULfpHkqGqQ4vDokmW1fWIg/x+CX/GPsCOs1LumKHoMhXKho6tWK1Abiz/KBQQOGXZO7jdPmcIbnJ7tlJN17jUNqPcxfn618SSA/BvnJ0s4Ue8v9x+4i3jct/EMmHt3lPdaEx9uSHwyoZG+2OkyoJxnm4urQk6TyBmtlKZEXq4pNCr7SE2Q6Ksrynj5t6ScLX1lB6w5JF2eJJPpBt2SYcmhBeV2ffcmVBIuPp3/hf8QOfpQydWNIBGAAAAABJRU5ErkJggg=="><span class="t">Octup: Product Manager</span><span class="latch"><i></i><b></b></span></div>
+    <div class="tp kid" style="margin-left:36px"><img class="fi" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAADCUlEQVR4nO2bO2zaUBSGf1dFCh1CqDOkyUBaS+mQSDgrQ+Is2RDZyJg1nRjYgaEbA1Mzhm4ZG7FFlWKpEksqxZWaoZVcCUWlSxAxi5EY3KEFEWyIr2M4+PFNGN9rn/P5Pi2ZMwwDQeYZdQDUhAKoA6Dm+bgTXL5WBJADEJtZNNNBA1ABUDHK6fvRkyYBXL62BEAGkJx6aLMhBqAA4ACAOHrSqgvk4J/kh0n+b9UPGCfAr5hysxLg9T4/CVNu4SzgtKIk8JCEZQCArN5BVluuBTVLmAVIAo/q4TYS8ejgvwI20GjrODq79pwIpi4gCTwuj1MPku+TiEdxeZyCJPCuBTcLmARUD7ddKTNP2BYgCbzlkx8lEY96qhUwCFi2fVGWstQEfhq0LUBW72xflKUsNQwCWmi09UfLNdq6p6ZCpi5wdHbtSpl5gkmArLawd1K3bAmNto69k7qnnj7gYCUoqy2sv/8c3KVwH1lteTbpYRwLmDb9xZQkLENparjXewAApdkZ/HYDZgFGOT3xPJev2S5fuviJ4sWPwbEk8MjtvEFmc2XiPRptHdWrW1S+/HqyjLloAesvX6CaFbFrcwmdiEdR2N9Abuc1cuc3qF7dOr43uQBxdRHyuxRiCxHmurGFCE6z/95zOpVAuhQW15wnP8xpVnS8ASMVkNlceXLyfYr7bx3V881maFfgIa4uMtfzjQAAONh6xVyHfBAcRev2oPzuDI6XohEkbT5ZJ+PA3AjQur2xU5ok8Khkth4VIa55tAto3R6kD/WxU5mstmztMp0MqHMhIHd+A6XZmVhGaXbw8avzBc84yAX0l7V2GB4b3IJcwKfvf2yXVZqa6/cnF0C9pSYX4ObW1gnkAliYRmshFxD4LkBNKIA6AGpCAdQBUBMKoA6AmlAAdQDUhAKoA6CGG/1miMvXfP0RkVFOc8PHgW8BoQDqAKixEuD+i7f5wZSblYDKDAKhwpSbaRYAAC5fU+C/74a+GeW0rY+mAEACUII/uoMGoGSVPDCmBQSJcBagDoCawAv4CyJz5Ou100U7AAAAAElFTkSuQmCC"><span class="t">Octup: company page</span><span class="latch"><i></i><b></b></span></div>
+    <div class="tp"><img class="fi" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAMAAACdt4HsAAAAXVBMVEVHcEz8/f////////////////////////////////////////////////8AKZj///8AOpsAKZYAL5ihs9fR2eu8yOGEm8puiMAAG5JUc7UMR6Ls8fjg6PM5XauVqdIVgTeGAAAADnRSTlMA++R+76AJbSvKgkq5EyIxDB0AAAJ7SURBVFiFpZfZgqsgDEDFUat2OixCQa3+/2del9YaTFCveRPJIQmBhCjCJcvvZVrEjHMWF2l5zzNiIi55WiQcSFKk+WHtm6e8QG6HGD8xrj4hyj1PshutPcstiHgUe/qcFw9af3f5txGk98f0Of/B9X+RqS9tTF8Z3cLhX0w/3aob2zVyFNHZF/iTHlifVY1USirRNEpK5WpgxcaGjf+6lkr+2UqPYqyQstOBOPjxZ71TojZrd2rpAAHsxcNf3yrZaAbHqqYDXqzyIfPypx3Mr3zmiAUmFBnpQC2F4fuyOJH5C7nuhWr48gGUYJQZ1Sym6qoP2PLeiRwe/9aJz/q6c2MW9RQgzrEIWPmJ30soMYrEAjrJHAVogHGfBdtu1hfij3IjmTyAY51YUB99oWrKhHxziIxbVnsuACEpQLpJIlsv+We/AEcBhmSCe6D/vsm2skBRgCSP7mCgalbeHIgBv3tZ1KzizeqFoDklJYwha9Y5/FITQTkyk8YoghgaC/62drjRVB06WEUE6tDTn6uN9i9UKHEEbg1LzSOFReCTTHpaot0ZrbaBIPKIBX7qquptLVzAMBYFijl/DtfBsJX0cR6DGKrHz737YNxGpKKdAaReKp8GlN5hOg24+1fqScBwnP2qdA4wVqdAFPcB6fZSPQfIt9f6KUCCltYTgLmw5GQ27wGSnGhvjgKWNud/AUuHQUVhB/DtkqhkCgNWLc62yToCAE037kQv58KEAryWG92Jd3FzWMe0abjRVntqMVSD/ELabexQ6bHXrhEDkGabsMFUBqlMaLt//cFx/clz/dF1/dk3IsrALRuT3q/l6tN3Ylx6fM+eHH3+/wPQl8Lr6f4T2gAAAABJRU5ErkJggg=="><span class="t">Indeed: saved search</span><span class="latch"><i></i><b></b></span></div>
+    <div class="shelf">
+      <div class="lab"><span>DONE</span><span>2</span></div>
+      <div class="tp done"><img class="fi" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAMAAACdt4HsAAAAVFBMVEUkpH////8AnnYNoHkAnHIconzd7+nj8u3H5Nq33dCt2Mm+4NSQy7jP6N93wan7/v3z+/mk08M7q4lvvaRGr49ht5uAxK7q9vNWs5ad0L/V6+SHx7O95YAPAAABq0lEQVRYhe1WXZOCMAwkSQMIKC2Iov7//3lp+RDuyYSZeznzxDjudtskm2TZN77xaTAfw+N1wEP4EsAfwPMNJGoyE1AVCQr7JfgSCSqLAiaUcI3gTxYB2IX8XuQ5wBlN+BMscbHox3zFQ+EMeEk++GYcH618PNQSeBTY0xEz0V0+TQL89HKcCUHQSnDtWzfWALk2DSinDnMP0mtVoyPoDxH4zRVKyxUE1FKSwJ0lj3yFeKykETNvSeNUyG3o+9TMjaGW8fku5dpQylIK1YJvTPjopamfzpnZzdjlVvkLgRRxMBMwdslSqgxNcwXHNQ1lZ3iFdw5seXDpeF+HULfpHkqGqQ4vDokmW1fWIg/x+CX/GPsCOs1LumKHoMhXKho6tWK1Abiz/KBQQOGXZO7jdPmcIbnJ7tlJN17jUNqPcxfn618SSA/BvnJ0s4Ue8v9x+4i3jct/EMmHt3lPdaEx9uSHwyoZG+2OkyoJxnm4urQk6TyBmtlKZEXq4pNCr7SE2Q6Ksrynj5t6ScLX1lB6w5JF2eJJPpBt2SYcmhBeV2ffcmVBIuPp3/hf8QOfpQydWNIBGAAAAABJRU5ErkJggg=="><span class="t">Northwind application</span><span class="latch thrown"><i></i><b></b></span></div>
+      <div class="tp done"><img class="fi" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAADCUlEQVR4nO2bO2zaUBSGf1dFCh1CqDOkyUBaS+mQSDgrQ+Is2RDZyJg1nRjYgaEbA1Mzhm4ZG7FFlWKpEksqxZWaoZVcCUWlSxAxi5EY3KEFEWyIr2M4+PFNGN9rn/P5Pi2ZMwwDQeYZdQDUhAKoA6Dm+bgTXL5WBJADEJtZNNNBA1ABUDHK6fvRkyYBXL62BEAGkJx6aLMhBqAA4ACAOHrSqgvk4J/kh0n+b9UPGCfAr5hysxLg9T4/CVNu4SzgtKIk8JCEZQCArN5BVluuBTVLmAVIAo/q4TYS8ejgvwI20GjrODq79pwIpi4gCTwuj1MPku+TiEdxeZyCJPCuBTcLmARUD7ddKTNP2BYgCbzlkx8lEY96qhUwCFi2fVGWstQEfhq0LUBW72xflKUsNQwCWmi09UfLNdq6p6ZCpi5wdHbtSpl5gkmArLawd1K3bAmNto69k7qnnj7gYCUoqy2sv/8c3KVwH1lteTbpYRwLmDb9xZQkLENparjXewAApdkZ/HYDZgFGOT3xPJev2S5fuviJ4sWPwbEk8MjtvEFmc2XiPRptHdWrW1S+/HqyjLloAesvX6CaFbFrcwmdiEdR2N9Abuc1cuc3qF7dOr43uQBxdRHyuxRiCxHmurGFCE6z/95zOpVAuhQW15wnP8xpVnS8ASMVkNlceXLyfYr7bx3V881maFfgIa4uMtfzjQAAONh6xVyHfBAcRev2oPzuDI6XohEkbT5ZJ+PA3AjQur2xU5ok8Khkth4VIa55tAto3R6kD/WxU5mstmztMp0MqHMhIHd+A6XZmVhGaXbw8avzBc84yAX0l7V2GB4b3IJcwKfvf2yXVZqa6/cnF0C9pSYX4ObW1gnkAliYRmshFxD4LkBNKIA6AGpCAdQBUBMKoA6AmlAAdQDUhAKoA6CGG/1miMvXfP0RkVFOc8PHgW8BoQDqAKixEuD+i7f5wZSblYDKDAKhwpSbaRYAAC5fU+C/74a+GeW0rY+mAEACUII/uoMGoGSVPDCmBQSJcBagDoCawAv4CyJz5Ou100U7AAAAAElFTkSuQmCC"><span class="t">Shopify: Product Lead</span><span class="latch thrown"><i></i><b></b></span></div>
+    </div>
+  </div>
+  <div style="flex:1;min-width:250px">
+    <p class="sur"><b>A trail starts by itself</b> when you open a link from a page: the new tab sits under the old one.
+    Drag a tab to move it to another trail. Click a trail's name to fold it away.</p>
+    <p class="sur"><b>Done is the brass latch</b> on each tab. Flip it and the tab drops to the DONE shelf. It isn't closed,
+    so you can always look back at it. When Aang sees an application go through, he offers to flip it for you, in
+    his bubble. He never flips it on his own.</p>
+    <p class="sur"><b>Trails don't pile up forever.</b> The risk with trails is hoarding them instead of tabs. Once a week Aang
+    offers, in his bubble, to tidy: fold the old ones, sum up what was in them, put the summary in your vault.</p>
+  </div>
+</div>
+
+<!-- ============================================== 4 -->
+<h2 class="part">4 &middot; YOUR TABS AND AANG'S TABS <span class="step">6.25</span></h2>
+<p class="why"><b>Aang browses in his own profile, with none of your logins.</b> That's the security rule from the
+plan: if Aang could drive the tabs where you're signed in, any program on this PC that got hold of him could too. So
+Aang reads and fetches in his own tabs, and anything that needs <i>you</i> signed in, he hands back.</p>
+<div class="two" style="align-items:flex-start">
+  <div style="flex:1.3;min-width:320px">
+    <div class="bw">
+      <div class="band"><i class="cap"></i><span class="rnd">&#8249;</span><span class="rnd dim">&#8250;</span><span class="rnd">&#10227;</span>
+        <div class="slot"><span class="lock">SECURE</span><span class="url" style="min-width:90px"><b>octup.com</b>/careers/login</span>
+          <span class="who" style="color:#C8E8FF">AANG &middot; NO LOGINS</span></div>
+        <span class="aplq lit"><img src="data:image/png;base64,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" alt="">AANG</span><i class="cap"></i></div>
+      <div class="pg3" style="min-height:120px"><div class="pagefake"><h4>Sign in to apply</h4><div class="bl s"></div><div class="bl t"></div></div><i class="edge"></i></div>
+    </div>
+    <div class="hang wood tex" style="margin-left:auto">
+      <div class="plaque">NEED YOU</div>
+      <h3 class="t-head">Octup wants you signed in</h3>
+      <p class="t-body">I don't have your logins in my tabs, on purpose. I'll open this page in one of yours, and you
+      take it from there.</p>
+      <div class="keys">
+        <button class="key primary sm">Open it in my tab<span class="k">A</span></button>
+        <button class="key sm">Skip it<span class="k">Z</span></button>
+      </div>
+    </div>
+  </div>
+  <div style="flex:1;min-width:250px">
+    <p class="sur"><b>You can always tell whose tab it is.</b> Aang's tabs are pale blue in their own box on the rail, and
+    the address slot says <b>AANG &middot; NO LOGINS</b> where it would say YOU.</p>
+    <p class="sur"><b>Aang never types a password.</b> <span class="kept2">KEPT</span> from the first drawing. In your own tabs,
+    Bitwarden fills them when <i>you</i> press it.</p>
+    <p class="sur"><b>His ask comes in his bubble</b>, hanging from his plaque, like everything else he says. The buttons
+    are on his bubble, never on the page.</p>
+  </div>
+</div>
+
+<!-- ============================================== 5 -->
+<h2 class="part">5 &middot; THE ASKS <span class="step">6.22</span></h2>
+<p class="why">Two kinds of ask, in two different places, on purpose. <b>When a website asks</b> (camera, microphone),
+a parchment chip drops from the top band, joined to the padlock plaque by a carved notch. <b>When Aang asks</b>, it's
+his bubble: ordinary keycaps for routine things, <b>the lever you have to hold</b> for serious ones. People click
+through identical prompts in under two seconds without reading; different shapes in different places break that habit.</p>
+
+<h3 class="sur">A website asks: the chip</h3>
+<div class="two" style="align-items:flex-start">
+  <div class="bw" style="flex:1.3;min-width:320px;overflow:visible">
+    <div class="band" style="border-radius:8px 8px 0 0"><i class="cap"></i><span class="rnd">&#8249;</span><span class="rnd dim">&#8250;</span><span class="rnd">&#10227;</span>
+      <div class="slot"><span class="lock">SECURE</span><span class="url">https://<b>meet.google.com</b>/abc-defg-hij</span><span class="who" style="color:var(--plum-edge)">YOU</span></div><i class="cap"></i>
+      <div class="bandchip" style="left:150px">
+        <div class="q"><img class="fi" src="data:image/png;base64,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">Camera and microphone?</div>
+        <p class="m">Google Meet wants to see and hear you for this call.</p>
+        <div class="keys">
+          <button class="key primary sm">Allow for this call<span class="k">A</span></button>
+          <button class="key sm">No<span class="k">Z</span></button>
+        </div>
+      </div>
+    </div>
+    <div class="pg3" style="min-height:220px;background:#202124;border-radius:0 0 8px 8px"><i class="edge"></i></div>
+  </div>
+  <div style="flex:1;min-width:250px">
+    <p class="sur"><b>The chip hangs from the band</b>, joined to it, so it's plainly part of the browser. Anything floating
+    loose inside the page is the page, and can't be trusted.</p>
+    <p class="sur"><b>Most asks never happen.</b> Notifications and your location are refused without asking: nothing
+    you do needs them. That leaves camera, microphone and the odd download.</p>
+    <p class="sur"><b>"For this call"</b> means it's asked again next time. There's no "always" for camera or microphone.</p>
+  </div>
+</div>
+
+<h3 class="sur" style="margin-top:28px">Aang asks, routine: keycaps</h3>
+<div class="two" style="align-items:flex-start">
+  <div class="wood tex" style="max-width:440px;flex:1;min-width:300px">
+    <div class="plaque">ASKING FIRST</div>
+    <h3 class="t-head">Download DBM-11.2.7.zip?</h3>
+    <p class="t-body">From <b>curseforge.com</b>. 4.2 MB. The update you asked me to get. Windows Defender scans it before
+    you can open it.</p>
+    <div class="keys">
+      <button class="key primary sm">Download it<span class="k">A</span></button>
+      <button class="key sm">Not now<span class="k">Z</span></button>
+    </div>
+    <div class="keys" style="margin-top:12px">
+      <button class="key warn sm">Always, from curseforge.com<span class="k">X</span></button>
+    </div>
+  </div>
+  <div style="flex:1;min-width:250px">
+    <p class="sur"><span class="kept2">KEPT</span> from the first drawing and from his asks today: <b>"Always" is its own row,
+    orange, never the default</b>, and it trusts that one site only.</p>
+  </div>
+</div>
+
+<h3 class="sur" style="margin-top:28px">Aang asks, serious: the lever</h3>
+<div class="two" style="align-items:flex-start">
+  <div class="wood tex" style="max-width:460px;flex:1;min-width:300px">
+    <div class="plaque urgent">THIS WOULD SEND SOMETHING</div>
+    <h3 class="t-head">Send the Octup application?</h3>
+    <p class="t-body">Greenhouse form, filled with your profile and the letter we wrote. <b>It can't be taken back.</b></p>
+    <div class="whence"><b>WHERE THIS CAME FROM</b>You said "apply to the good ones" this morning. Nothing on the page asked
+    me to do this.</div>
+    <div class="keys" style="margin-top:14px">
+      <span class="lever"><i class="knob"></i>Send it<span class="hold">HOLD</span></span>
+      <button class="key sm">Show me the form<span class="k">X</span></button>
+      <button class="key sm">No<span class="k">Z</span></button>
+    </div>
+  </div>
+  <div style="flex:1;min-width:250px">
+    <p class="sur"><b>The lever must be held</b> until it fills. A quick tap does nothing. It's the same lever as every other
+    serious ask (sheet 5).</p>
+    <p class="sur"><b>"Where this came from"</b> <span class="kept2">KEPT</span>: names whose idea it was, so a page can't quietly
+    steer him. If the idea came from a page, he doesn't ask; he refuses.</p>
+    <p class="sur"><b>This works in his own tabs</b> because a job form like Greenhouse needs no login.</p>
+  </div>
+</div>
+
+<!-- ============================================== 6 -->
+<h2 class="part">6 &middot; A FAKE SITE <span class="step">6.22</span></h2>
+<p class="why">Every page you open is checked against three public lists of known fake and harmful sites, updated
+daily or faster. A match never loads. Aang's own plate appears instead, and the padlock plaque turns red.</p>
+<div class="two" style="align-items:flex-start">
+  <div class="bw" style="flex:1.3;min-width:320px">
+    <div class="band"><i class="cap"></i><span class="rnd">&#8249;</span><span class="rnd dim">&#8250;</span><span class="rnd">&#10227;</span>
+      <div class="slot"><span class="lock bad">BLOCKED</span><span class="url">https://<b>battle-net-login.com</b>/account/verify</span></div><i class="cap"></i></div>
+    <div class="pg3" style="background:#2a1410;min-height:340px;padding:1px 16px">
+      <div class="plate">
+        <span class="plq red">STOPPED &middot; FAKE SITE</span>
+        <h3>This is not Blizzard</h3>
+        <p><b>battle-net-login.com</b> is on two lists of fake login pages. It's built to look like Battle.net and take your
+        password.</p>
+        <div class="lists"><span>OPENPHISH</span><span>PHISHING.DATABASE</span></div>
+        <p>The real one is <b>account.battle.net</b>.</p>
+        <div class="keys">
+          <button class="key primary sm">Take me to the real one<span class="k">A</span></button>
+          <button class="key sm">Go back<span class="k">Z</span></button>
+        </div>
+        <div class="keys" style="margin-top:16px">
+          <span class="lever red"><i class="knob"></i>Open it anyway<span class="hold">HOLD</span></span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div style="flex:1;min-width:250px">
+    <p class="sur"><b>Plain words, no jargon.</b> What it is, which lists caught it, and where the real site is.</p>
+    <p class="sur"><b>The safe way is the gold key.</b> Going in anyway is possible, because lists are sometimes wrong,
+    but it's the red lever: held, never one click.</p>
+    <p class="sur"><b>Aang's tabs never get the lever.</b> If he lands on a listed site, he backs out and tells you.</p>
+  </div>
+</div>
+
+<!-- ============================================== 7 -->
+<h2 class="part">7 &middot; OPEN IN CHROME <span class="step">6.27</span></h2>
+<p class="why">A few sites will always work better in Chrome: ones that insist on a passkey (they hang in this kind of
+browser, tested), and the odd Google sign-in that refuses it. <b>Chrome stays installed for those.</b> Aang says so
+when it happens, and any tab can be sent there by hand.</p>
+<div class="two" style="align-items:flex-start">
+  <div class="bw" style="flex:1.3;min-width:320px;overflow:visible">
+    <div class="band" style="border-radius:8px 8px 0 0"><i class="cap"></i><span class="rnd">&#8249;</span><span class="rnd dim">&#8250;</span><span class="rnd">&#10227;</span>
+      <div class="slot"><span class="lock">SECURE</span><span class="url">https://<b>accounts.example-bank.com</b>/signin</span><span class="who" style="color:var(--plum-edge)">YOU</span></div><i class="cap"></i>
+      <div class="bandchip" style="left:150px;width:330px">
+        <div class="q">This site wants a passkey</div>
+        <p class="m">Passkeys don't work in this browser yet. Chrome handles them.</p>
+        <div class="keys">
+          <button class="key primary sm">Open it in Chrome<span class="k">A</span></button>
+          <button class="key sm">Use a password instead<span class="k">Z</span></button>
+        </div>
+      </div>
+    </div>
+    <div class="pg3" style="min-height:220px;border-radius:0 0 8px 8px"><i class="edge"></i></div>
+  </div>
+  <div style="flex:1;min-width:250px;display:flex;flex-direction:column;gap:12px">
+    <div class="menu3">
+      <div class="mr">Reload</div>
+      <div class="mr">Mute</div>
+      <div class="mr">Move to trail<span style="margin-left:auto;opacity:.6">&#8250;</span></div>
+      <div class="mr">Mark as done</div>
+      <div class="sep"></div>
+      <div class="mr hot">Open in Chrome</div>
+      <div class="mr">Pop out over WoW</div>
+      <div class="sep"></div>
+      <div class="mr">Close</div>
+    </div>
+    <p class="sur"><b>Right-click any tab</b> for the same: "Open in Chrome" sits there with everything else. The tab stays
+    open here too.</p>
+    <p class="sur"><b>Remembered per site.</b> Say "always use Chrome for this one" and that site skips straight there.
+    That list is what decides which sites stay in Chrome after the trial week (6.26).</p>
+  </div>
+</div>
+
+<!-- ============================================== 8 -->
+<h2 class="part">8 &middot; THE ADDRESS SLOT, TWO MORE WAYS <span class="kept2">KEPT</span></h2>
+<p class="why">Unchanged from the first drawing.</p>
+<h3 class="sur">When it is NOT safe </h3>
 <p class="sur">Same bar, different plaque. No subtlety, no small grey padlock you would never notice.</p>
 <div class="win" style="max-width:640px">
   <div class="chrome">
@@ -382,7 +820,7 @@ whether you or Aang is driving. All three carved in, all three unpaintable.</p>
   </div>
 </div>
 
-<h3 class="sur">You typing in it <span class="new">NEW</span></h3>
+<h3 class="sur">You typing in it </h3>
 <div class="win" style="max-width:640px">
   <div class="chrome">
     <span class="rnd">&#8249;</span><span class="rnd dim">&#8250;</span><span class="rnd">&#10227;</span>
@@ -395,200 +833,8 @@ whether you or Aang is driving. All three carved in, all three unpaintable.</p>
   </div>
 </div>
 
-<!-- ============================================== 2 -->
-<h2 class="part">2 &middot; THE VIDEO OVERLAY &nbsp;<span style="color:#FF5A4A">SUPERSEDED: SEE SHEET 4</span></h2>
-<div style="border:3px solid #FF5A4A;border-radius:10px;padding:16px 18px;margin:0 0 22px;
-  background:rgba(255,90,74,.08)">
-  <p style="font:700 14px/1.6 var(--body);color:#FF9A85;margin:0 0 8px">
-    This section is out of date. <b>Sheet 4 (sheet-4-popout.html) replaces it.</b></p>
-  <p style="font:500 13.5px/1.65 var(--body);color:#9a90b5;margin:0">
-    Two decisions on 2026-10-04 changed it. <b style="color:#cfc4ea">Decision 32:</b> the pop-out is a
-    normal clickable window, so ghost mode and edit mode below are gone, and the controls no longer
-    fade in on hover. <b style="color:#cfc4ea">Decision 34:</b> one pop-out at a time. Sheet 4 also
-    adds the see-through slider, the send-to-MacBook keycap and paid services, which are drawn
-    nowhere below. Kept here only so the change is visible.</p>
-</div>
-<p class="why" style="opacity:.55">What rides over your game. Grab the top bar to move it anywhere on your screen. Grab any edge
-or the corner to resize it. One fullscreen button, the normal icon everyone knows. The picture keeps 16 by 9
-while you resize, so it never squashes.</p>
-
-<div class="two" style="gap:60px">
-  <div>
-    <p class="cardlab">OVER YOUR GAME</p>
-    <div class="vid2">
-      <div class="frame">
-        <div class="vidbar">
-          <span class="grip"><i></i><i></i><i></i><i></i><i></i><i></i></span>
-          <span class="nm">ASMONGOLD &middot; TWITCH</span>
-          <span class="ico sm" title="close"><svg viewBox="0 0 12 12"><path d="M2 2L10 10M10 2L2 10" stroke="#e8e0f5" stroke-width="2.4" stroke-linecap="round"/></svg></span>
-        </div>
-        <div class="screen">VIDEO</div>
-        <div class="ctrl">
-          <span class="ico gold"><svg viewBox="0 0 14 14"><rect x="3" y="2" width="3" height="10" rx="1" fill="#2a1c00"/><rect x="8" y="2" width="3" height="10" rx="1" fill="#2a1c00"/></svg></span>
-          <div class="track"><i class="fill" style="width:38%"></i><i class="knob" style="left:35%"></i></div>
-          <span class="tnum">12:04</span>
-        </div>
-        <div class="ctrl" style="border-top:none;padding-top:0;position:relative">
-          <span class="ico"><svg viewBox="0 0 16 16"><path d="M2 6h3l4-3v10l-4-3H2z" fill="#e8e0f5"/><path d="M11 5.5c1.2 1.4 1.2 3.6 0 5" stroke="#e8e0f5" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg></span>
-          <div class="track vol"><i class="fill" style="width:64%"></i><i class="knob" style="left:58%"></i></div>
-          <span style="flex:1"></span>
-          <span class="ico" title="fullscreen"><svg viewBox="0 0 16 16"><path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4" stroke="#e8e0f5" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-          <span style="width:16px"></span>
-          <i class="rsz"></i>
-        </div>
-      </div>
-      <!-- sheet-only annotations -->
-      <span class="hint" style="left:130px;top:-20px">&#8597; GRAB HERE TO MOVE</span>
-      <span class="hint" style="right:-14px;bottom:-22px">DRAG TO RESIZE &#8600;</span>
-      <span class="hint" style="left:-46px;top:46%;transform:rotate(-90deg)">ANY EDGE</span>
-    </div>
-  </div>
-
-  <div style="max-width:360px">
-    <p class="cardlab">MID-RESIZE</p>
-    <div style="position:relative;height:220px">
-      <div class="ghost" style="left:0;top:0;width:340px;height:210px"></div>
-      <div style="position:absolute;left:0;top:0;width:250px">
-        <div class="frame" style="border-radius:12px;overflow:hidden;border:var(--ow) solid var(--outline)">
-          <div class="vidbar"><span class="grip"><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="nm">ASMONGOLD</span></div>
-          <div class="screen" style="font-size:9px">VIDEO</div>
-        </div>
-      </div>
-      <span class="hint" style="left:190px;top:188px">16:9 HELD</span>
-    </div>
-    <p class="sur" style="margin:4px 0 0">The gold outline is where it will land when you let go. Drop it near
-    a screen edge and it snaps flush. It remembers where you left it.</p>
-  </div>
-</div>
-
-<h3 class="sur">How you click through it</h3>
-<p class="sur">The top bar and the controls catch your mouse. <b style="color:#cfc4ea">The picture does
-not.</b> Click on the video itself and the click lands in your game behind it, so you can keep fighting with
-it on screen. Move the mouse over it and the bars fade in. Move away and they fade out, leaving just the
-picture.</p>
-
-<h3 class="sur">How it opens</h3>
-<p class="sur">Five ways in. Every one of them is something you do. Nothing pops a video over your game on
-its own.</p>
-
-<div class="waysin">
-  <div class="way">
-    <span class="n">1</span>
-    <p class="sur" style="margin:0 0 10px"><b style="color:#cfc4ea">You ask.</b> With a game up, it floats.
-    Without one, it opens in a tab.</p>
-    <span class="youbub">put asmongold on</span>
-  </div>
-
-  <div class="way">
-    <span class="n">2</span>
-    <p class="sur" style="margin:0 0 10px"><b style="color:#cfc4ea">You tap Watch</b> on something Aang
-    offered.</p>
-    <button class="key primary sm">Watch it<span class="k">A</span></button>
-  </div>
-
-  <div class="way">
-    <span class="n">3</span>
-    <p class="sur" style="margin:0 0 10px"><b style="color:#cfc4ea">A video is playing in a tab.</b> A
-    Float button appears in the bar. One click and the tab's video lifts out over your game.</p>
-    <div class="chrome" style="border:3px solid var(--outline);border-radius:9px;padding:7px">
-      <div class="slot" style="padding:5px 9px"><span class="url"><b>youtube.com</b>/watch</span></div>
-      <span class="ico gold"><svg viewBox="0 0 16 16"><rect x="1.5" y="3" width="13" height="10" rx="1.5" stroke="#2a1c00" stroke-width="1.8" fill="none"/><rect x="8" y="8" width="5" height="3.5" rx=".8" fill="#2a1c00"/></svg></span>
-    </div>
-  </div>
-
-  <div class="way">
-    <span class="n">4</span>
-    <p class="sur" style="margin:0 0 10px"><b style="color:#cfc4ea">Right-click a link</b> in the scroll
-    back, or anywhere in the browser.</p>
-    <div class="minimenu">
-      <div class="row">Open in a tab</div>
-      <div class="row hot">Watch over my game</div>
-      <div class="row">Copy link</div>
-    </div>
-  </div>
-
-  <div class="way">
-    <span class="n">5</span>
-    <p class="sur" style="margin:0 0 10px"><b style="color:#cfc4ea">A hotkey</b> hides it and brings it back
-    without stopping the video. You pick the keys.</p>
-    <span class="kbd">Ctrl</span> <span class="kbd">Shift</span> <span class="kbd">V</span>
-  </div>
-</div>
-
-<h3 class="sur" style="margin-top:44px">Offered, not pushed</h3>
-<div class="two">
-  <div>
-    <p class="cardlab">AANG OFFERING ONE</p>
-    <div class="parch tex" style="width:390px">
-      <p class="t-eyebrow">ANSWERED &middot; FROST MAGE</p>
-      <p class="t-body">Shatter into Glacial Spike is still the opener. Your talents are fine, the problem
-      is you are casting <b>Flurry</b> before <b>Winter's Chill</b> lands.</p>
-      <div class="rule-minor"></div>
-      <p class="t-caption" style="margin:0 0 3px">There is a 4 minute clip of exactly this.</p>
-      <div class="keys">
-        <button class="key primary sm">Watch it<span class="k">A</span></button>
-        <button class="key sm">No<span class="k">Z</span></button>
-      </div>
-    </div>
-    <p class="sur" style="margin-top:13px;max-width:390px">He only offers a video when the research he was
-    already doing turned one up. He never goes looking on purpose, so the offer costs nothing.</p>
-  </div>
-</div>
-
-<!-- ============================================== 3 -->
-<h2 class="part">3 &middot; THE THREE ASKS</h2>
-<p class="why">Browsing creates exactly three moments where Aang has to stop. All three use the wood
-surface, because this is Aang talking about his own hands rather than handing you a document.</p>
-
-<div class="two">
-  <div class="wood tex" style="width:395px">
-    <div class="plaque">NEED YOU FOR 30 SECONDS</div>
-    <h3 class="t-head">Crunchyroll wants a login</h3>
-    <p class="t-body">I have the page open. Type it in and I will carry on from there.</p>
-    <div class="rule-titled"><i class="bar"></i><span>Why I am not doing it</span><i class="bar"></i></div>
-    <p class="t-body"><b>I never type your passwords.</b> Not this one, not any. You open the door, I walk
-    through it. That way there is nothing of yours for me to lose.</p>
-    <div class="keys">
-      <button class="key primary sm">Show me the page<span class="k">A</span></button>
-      <button class="key sm">Skip it<span class="k">Z</span></button>
-    </div>
-  </div>
-
-  <div class="wood tex" style="width:395px">
-    <div class="plaque">ASKING FIRST</div>
-    <h3 class="t-head">Download DBM-11.2.1.zip?</h3>
-    <p class="t-body">From <b>curseforge.com</b>. 4.2 MB. It is the addon you asked me to update.</p>
-    <div class="rule-titled"><i class="bar"></i><span>If you say always</span><i class="bar"></i></div>
-    <p class="t-body">I stop asking for <b>curseforge.com only</b>. Every other site still asks every single
-    time.</p>
-    <div class="keys">
-      <button class="key primary sm">Yes<span class="k">A</span></button>
-      <button class="key sm">Always, this site<span class="k">X</span></button>
-      <button class="key warn sm">No<span class="k">Z</span></button>
-    </div>
-  </div>
-</div>
-
-<h3 class="sur">The one that matters most</h3>
-<p class="sur">Aang can read anything. He cannot <b>do</b> anything on a site where you are signed in
-without this. Note the last line: it names where the idea came from, so a page cannot quietly steer him.</p>
-<div class="wood tex" style="max-width:480px">
-  <div class="plaque urgent">THIS WOULD DO SOMETHING</div>
-  <h3 class="t-head">Press Apply on LinkedIn?</h3>
-  <p class="t-body">The Octup posting. You are signed in, so this sends your profile and the letter we
-  wrote. <b>It cannot be taken back.</b></p>
-  <div class="rule-titled"><i class="bar"></i><span>Where this came from</span><i class="bar"></i></div>
-  <p class="t-body">You told me to apply to the good ones this morning. <span class="u-mark">Nothing on the
-  page asked me to do this.</span></p>
-  <div class="keys">
-    <button class="key primary sm">Press it<span class="k">A</span></button>
-    <button class="key sm">Show me first<span class="k">X</span></button>
-    <button class="key warn sm">No<span class="k">Z</span></button>
-  </div>
-</div>
-
 <!-- ============================================== 4 -->
-<h2 class="part">4 &middot; HISTORY YOU CAN SEARCH</h2>
+<h2 class="part">9 &middot; HISTORY YOU CAN SEARCH <span class="kept2">KEPT</span></h2>
 <p class="why">You said yes to this. Parchment, because it is a record you read rather than Aang speaking.
 The search slot is carved in, same as the address bar, so every place you type looks the same.</p>
 
@@ -621,7 +867,7 @@ The search slot is carved in, same as the address bar, so every place you type l
 </div>
 
 <!-- ============================================== 5 -->
-<h2 class="part">5 &middot; THE SMALL PARTS</h2>
+<h2 class="part">10 &middot; THE SMALL PARTS <span class="kept2">KEPT</span></h2>
 <p class="why">Everything the two earlier sheets were missing. Switches, tooltips, tracks.</p>
 
 <div class="two">
