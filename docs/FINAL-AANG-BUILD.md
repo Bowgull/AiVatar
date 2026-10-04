@@ -1090,7 +1090,7 @@ mockup exists and he has approved it.** Not yet drawn:
 | ~~What I know, What I may do, What I did, Drafts, History, Settings~~ **DRAWN, sheet 6** (Jobs on sheet 2) | 6.15 |
 | ~~Email draft cards; the morning brief~~ **DRAWN, sheet 6** | 6.15 |
 | ~~Research cards from Phase 7~~ **DRAWN, sheet 6** | 6.15b |
-| ~~Search over everything; charts; side by side; the live Claude Code job view~~ **DRAWN, sheet 7** | 6.18 |
+| ~~Search over everything; charts; before and after; the live Claude Code job view~~ **DRAWN, sheet 7** | 6.18 |
 | ~~Snip, hotkey grab, drag and drop~~ **DRAWN, sheet 7** | 6.17 |
 | ~~The three distinct "pressed in" looks (clicked, keyboard focus, switched on)~~ **DRAWN, sheet 5** | 6.10 |
 | Browser: vertical tab rail, six tab states, crashed-tab plate, chip and lever approvals, phishing warning, trails, mark as done, "open in Chrome" | 6.19 onward |
@@ -1208,6 +1208,13 @@ searches. The seven tabs: What I know, What I may do, What I did, Drafts (with e
 X / O / Z kept), History, Settings. **If this stalls the phase, split it out.** That is the correct
 retreat, not a failure.
 
+**The morning brief's sender logos** (sheet 6, his ask 2026-10-04): first the company's BIMI logo (a DNS
+record, `default._bimi.<domain>`, the one Gmail shows; Blizzard has one), then the site's icon, then the
+gold letter medallion. Fetched once per domain and kept on this PC, never per email, so no fetch can tell
+a sender their mail was opened. People's personal addresses always get the letter. Logos are untrusted
+files from the internet: show them only as images, never inline SVG. Some sites block automated fetches
+(CurseForge's main site sits behind a Cloudflare check), which is why the fallbacks exist.
+
 ---
 
 ### `[ ]` 6.15b Research cards
@@ -1227,15 +1234,22 @@ a `[qwen]` marker, by its real name (decision 8), never "local" or "free". **Thi
 ### `[ ]` 6.17 Snip, hotkey grab, drag and drop
 
 Snip part of the screen and ask about it; highlight text in any app and press a key; drop a file on
-Aang. Mockup: sheet 7, section 5. **Open decision (his):** the snip and grab keys. A global key stops
-working in WoW; proposed Ctrl+Shift+Plus (snip) and Ctrl+Alt+Plus (grab), set in the existing HotkeyBox.
+Aang. Mockup: sheet 7, section 5. **All three land in the chat bubble** (his rule, 2026-10-04): Aang shows
+what he got, asks what to do, and it goes from there as a normal chat. Nothing goes to Claude until he answers.
+- Snip: "Snip the screen" in the Aang group of the gold menu (right-click Aang).
+- Send text: right-click "Send to Aang" in Aang's own browser (built in), Chrome (small extension), and
+  File Explorer's "Send to" for files. Windows has no shared text menu, so other apps need the send key.
+- Drop: drag onto Aang; Qwen reads the name and first page and suggests a next step.
+**Open decision (his):** the snip and send keys, or none. A global key stops working in WoW; proposed
+Ctrl+Shift+Plus (snip) and Ctrl+Alt+Plus (send), set in the existing HotkeyBox.
 
 ---
 
 ### `[ ]` 6.18 Search over everything, charts, side by side, the live job view
 
 One search box over memory, the vault, conversations, jobs and addons. Charts: the job hunt by stage,
-Claude use week over week, addon drift. Two things side by side. A Claude Code job shown working,
+Claude use week over week, addon drift (no table buttons, his call). Before and after a file change, opened
+from What I did. **Cut 2026-10-04:** comparing two jobs side by side; ask in the bubble instead. A Claude Code job shown working,
 steps and files as they happen. Mockup: sheet 7. **New, not kept:** the live steps and files need two
 more Claude Code hooks (before and after each tool); today only three are sent. A daily saved quota
 reading, so the usage chart can show the percent week over week.
