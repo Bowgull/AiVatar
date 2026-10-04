@@ -11,6 +11,7 @@
     "test": "node --no-warnings --test --test-timeout=30000 test/*.test.ts"
   },
   "dependencies": {
+    "@ghostery/adblocker-electron": "^2.18.2",
     "electron": "44.5.1",
     "electron-drm": "github:castlabs/electron-releases#v44.5.1+wvcus",
     "ws": "^8.18.0"
