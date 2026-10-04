@@ -123,3 +123,43 @@ test('the next episode, and the link that opens it', () => {
   assert.equal(nextOf({ watched_episodes_count: 7 }), 8);
   assert.equal(episodeLink(DEFAULT_SITE, { title: 'Dandadan', next: 9 } as any), 'https://www.crunchyroll.com/search?q=Dandadan%20episode%209');
 });
+
+// ---------------------------------------------------------------------------- the names he says (2026-10-04)
+// Simkl keeps only the Japanese name. Checked on his real list: 3 of 5 ordinary ways of asking found
+// nothing ("apothecary diaries", "attack on titan", "dandadan").
+
+test('a show is found by its English name and its nicknames, not just Simkl\'s', async () => {
+  const { findShow } = await import('../src/simkl.ts');
+  const base = { next: 1, watched: 0, total: 12, kind: 'anime' as const, lastAt: 0, id: 1, year: 2023 };
+  const list = [
+    { ...base, title: 'Kusuriya no Hitorigoto', aka: ['The Apothecary Diaries'] },
+    { ...base, title: 'Shingeki no Kyojin: The Final Season', aka: ['Attack on Titan Final Season Part 2', 'AoT 4'] },
+    { ...base, title: 'Dan Da Dan', aka: ['DAN DA DAN'] },
+  ];
+  assert.equal(findShow(list, 'apothecary diaries')?.title, 'Kusuriya no Hitorigoto');
+  assert.equal(findShow(list, 'attack on titan')?.title, 'Shingeki no Kyojin: The Final Season');
+  assert.equal(findShow(list, 'dandadan')?.title, 'Dan Da Dan', 'spaces are not something people agree on');
+  assert.equal(findShow(list, 'kusuriya')?.title, 'Kusuriya no Hitorigoto', 'and Simkl\'s own name still works');
+});
+
+test('English names are asked for once, then kept, and AniList being down breaks nothing', async () => {
+  const { otherNames } = await import('../src/simkl.ts');
+  const { mkdtempSync } = await import('node:fs');
+  const os = await import('node:os');
+  const path = await import('node:path');
+  const cache = path.join(mkdtempSync(path.join(os.tmpdir(), 'names-')), 'anime-names.json');
+  let asked = 0;
+  const up = (async () => { asked++; return { ok: true, status: 200, json: async () => ({
+    data: { Page: { media: [{ id: 161645, title: { english: 'The Apothecary Diaries', romaji: 'Kusuriya no Hitorigoto' }, synonyms: ['Drugstore Soliloquy'] }] } },
+  }) }; }) as never;
+
+  const first = await otherNames([161645], cache, up);
+  assert.deepEqual(first.get(161645), ['The Apothecary Diaries', 'Kusuriya no Hitorigoto', 'Drugstore Soliloquy']);
+  await otherNames([161645], cache, up);
+  assert.equal(asked, 1, 'names do not change, so the second time nothing is asked');
+
+  const down = (async () => { throw new Error('AniList is down'); }) as never;
+  const later = await otherNames([161645, 999], cache, down);
+  assert.deepEqual(later.get(161645)?.[0], 'The Apothecary Diaries', 'what is known is still used');
+  assert.equal(later.get(999), undefined, 'and the unknown one just goes without');
+});
