@@ -854,15 +854,18 @@ through PresentMon, five runs, him playing throughout.
   decoding on the GPU, and far less than feared. Its four hitches all fell inside **one second**, when
   protected playback starts.
 - He played both video runs and said "same as always" and "everything looks great".
+- **NVIDIA Instant Replay was then tested on as well** (run 4b, his call when the gap was put to him).
+  It is the thing the research blamed for stutter and it changed nothing: **zero hitches**, worst frame
+  27.8 ms against the baseline's own 36.6 ms. It does cost 16 points of GPU encoding on top of Shadow's
+  own, taking total GPU to 71%, the highest of any run, and still nothing reached the frames.
 
 **What it changed (decision 45):** **transparency is the expensive part, not the video.** The
 see-through window pushed the GPU's drawing load from ~29% to 47.4%; the opaque one left it at 26.8%.
 It cost no frames here, but **6.3 defaults the pop-out to opaque**, with see-through as something he
 turns on. The slider from decision 40 stays; only its default moves.
 
-**Still owed, folded into 6.3:** re-measure with a **real 1080p stream** (the test clip was a small
-public Widevine demo, so 2.3% is a floor, not the number for full-size anime), and check **NVIDIA
-Instant Replay** on and off, which this run did not confirm either way.
+**Still owed, folded into 6.3:** re-measure with a **real 1080p stream**. The test clip was a small
+public Widevine demo, so 2.3% is a floor, not the number for full-size anime.
 
 ---
 
