@@ -84,9 +84,23 @@ export class Player {
     this.onUpdate(this.state);
   }
 
+  /** Jump to a point along the scrub groove, 0 to 1. Needs the length, which the groove has anyway. */
   seekTo(fraction) {
     if (!this.canSeek) return;
-    const to = Math.max(0, Math.min(1, fraction)) * this.state.length;
+    this.seekSeconds(Math.max(0, Math.min(1, fraction)) * this.state.length);
+  }
+
+  /**
+   * Jump to a time in seconds.
+   *
+   * Skipping uses this rather than the fraction above, and that matters: a skip fires in the first
+   * second of a video, when the player has often not reported its length yet. Working out a fraction
+   * then divides by nothing, and the jump either does not happen or lands at the very end. The plaque
+   * said "skipped the intro" while the video sat where it was. Found by watching it, 2026-10-04.
+   */
+  seekSeconds(seconds) {
+    if (!this.canDrive) return;
+    const to = Math.max(0, seconds);
     this.state.at = to;
     this.command('seekTo', [to, true]);
     this.onUpdate(this.state);

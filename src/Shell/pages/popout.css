@@ -129,3 +129,19 @@ iframe{ width:100%; height:100%; border:0; display:block; background:#000 }
 .frame.faded{ grid-template-rows:0 1fr 0 }
 .frame{ transition:border-radius .35s ease }
 .frame.faded{ border-radius:14px }
+
+/* ---------------------------------------------------------------- the skip plaque (step 6.6)
+   Nothing is skipped silently. Every skip says what it did and offers to put it back, for three
+   seconds, in the carved plaque from sheet 1. It sits over the picture rather than in the controls,
+   because the controls may well be faded when a skip happens. */
+.skip{ position:absolute; left:12px; bottom:12px; z-index:6; display:flex; align-items:center; gap:10px;
+  padding:8px 10px; border-radius:8px; opacity:0; transform:translateY(6px); pointer-events:none;
+  background:linear-gradient(180deg,#56371F 0%,var(--wood1) 45%,var(--wood2) 100%);
+  border:3px solid var(--outline); box-shadow:0 4px 0 rgba(0,0,0,.55);
+  transition:opacity .18s ease, transform .18s ease }
+.skip.up{ opacity:1; transform:none; pointer-events:auto }
+.skip .said{ font:400 10px var(--label); letter-spacing:.5px; color:var(--gold-lit); text-shadow:1px 1px 0 rgba(0,0,0,.8) }
+.skip .undo{ font:700 12px var(--body); color:#2a1c00; padding:5px 10px; border-radius:6px; cursor:pointer;
+  border:2.5px solid var(--outline); background:linear-gradient(180deg,var(--gold-lit),var(--gold-deep));
+  box-shadow:0 2px 0 var(--outline), inset 0 2px 0 rgba(255,255,255,.5); position:relative; top:0 }
+.skip .undo:active{ top:2px; box-shadow:0 0 0 var(--outline) }

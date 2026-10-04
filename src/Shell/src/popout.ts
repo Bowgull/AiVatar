@@ -17,12 +17,17 @@ import { CHROME, MIN, firstTime, hold169, ontoScreen, preset, snapToEdges, type 
 import { SAFE_WEB_PREFERENCES, lockDown, wrongSettings } from './safety.ts';
 import type { PageServer } from './pageserver.ts';
 import type { PopoutSettings } from './settings.ts';
+import type { FindSkips } from './skip/find.ts';
+import type { SkipSettings } from './skip/settings.ts';
 
 export interface PopoutDeps {
   pages: PageServer;
   preloadPath: string;
   /** His switches, read fresh each time the window opens. */
   settings: () => PopoutSettings;
+  /** Works out what to skip. Optional: without it nothing is skipped, which is a fine way to run. */
+  skips?: FindSkips;
+  skipSettings?: () => SkipSettings;
   /** Where the remembered size and place live, and how they are written back. */
   remembered: () => Box | null;
   remember: (box: Box) => void;
@@ -32,7 +37,7 @@ export class Popout {
   private win: BrowserWindow | null = null;
   private deps: PopoutDeps;
   /** What is playing, so a reopened window can put it back. */
-  private showing: { link: string; embed: Embed; title: string } | null = null;
+  private showing: { link: string; embed: Embed; title: string; about?: { title?: string; episode?: number } } | null = null;
   /**
    * How much of the window is Aang's own chrome rather than picture. The page measures itself and
    * says, because this changes whenever a control is added and a stale number letterboxes the picture
@@ -71,10 +76,10 @@ export class Popout {
    * Returns null for anything that is not a real http link, so a mistyped address shows nothing rather
    * than opening a window onto an error.
    */
-  open(link: string): BrowserWindow | null {
+  open(link: string, about?: { title?: string; episode?: number }): BrowserWindow | null {
     const embed = embedFor(link, this.deps.pages.host, this.deps.pages.origin);
     if (!embed) return null;
-    this.showing = { link, embed, title: titleFor(embed, link) };
+    this.showing = { link, embed, title: titleFor(embed, link), about };
 
     // One at a time: a new video goes into the window that is already there (decision 34).
     if (this.window) {
@@ -138,6 +143,24 @@ export class Popout {
       live: this.showing.embed.live,
       title: this.showing.title,
     });
+    void this.sendSegments();
+  }
+
+  /**
+   * Find what to skip and hand it over. Deliberately after the video is already playing: looking up an
+   * opening must never be the reason a video is slow to start.
+   */
+  private async sendSegments(): Promise<void> {
+    const { skips, skipSettings } = this.deps;
+    if (!skips || !skipSettings || !this.showing) return;
+    try {
+      const found = await skips.forEmbed(this.showing.embed, skipSettings(), this.showing.about);
+      const w = this.window;
+      if (w && found.length) w.webContents.send('popout:segments', found);
+    } catch (e) {
+      // Not knowing where an opening is must never break playback.
+      console.error('shell: could not work out what to skip: ' + (e as Error).message);
+    }
   }
 
   /**

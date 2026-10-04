@@ -19,6 +19,8 @@ export interface ShellBridge {
   popoutToMac(): void;
   /** How many pixels of the window are Aang's own chrome, measured by the page. */
   popoutChrome(px: number): void;
+  /** Where the openings, endings and sponsor bits are in what is playing. */
+  onPopoutSegments(fn: (list: { from: number; to: number; says: string }[]) => void): () => void;
   /** His switches, so the page knows whether it may fade. */
   onPopoutSettings(fn: (s: { fadeControls?: boolean; alwaysOnTop?: boolean; clickThrough?: boolean }) => void): () => void;
 }
