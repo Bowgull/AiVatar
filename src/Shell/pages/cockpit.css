@@ -1,0 +1,460 @@
+/* ============================================================================
+   AANG COCKPIT - the stylesheet  (step 6.10)
+   ============================================================================
+   THE REAL ONE. docs/cockpit/cockpit.css is the mockup it was copied from on
+   2026-10-04; this is the file the Shell actually loads. Keep them in step, or
+   delete the mockup - two copies of a stylesheet is how a look drifts.
+
+   What this file adds to the mockup, all of it required by 6.10:
+     - @font-face, so the three faces are BUNDLED (fonts/) and the app works
+       offline. The mockup loads them from Google, which the app must not.
+     - three distinct "pressed in" looks, at the bottom. The mockup has only
+       :active, so clicked / keyboard-focused / switched-on were identical.
+       6.10 calls that "the biggest accessibility hazard this style introduces".
+     - a 24px minimum on anything pressable.
+     - reduced motion: depth stays, travel goes.
+
+   Everything decided with Joshua on 2026-10-03, in one file. This is not a
+   mockup: it is the sheet the real cockpit starts from.
+
+   COLOURS are lifted from src/Body/Theme.cs. Nothing here is invented, and if a
+   colour looks wrong it is wrong in Aang too.
+
+   TYPE is three faces doing three jobs, which is what every game he named does
+   and what Aang does not:
+     display  Cinzel      - Roman inscriptions. The free face closest to
+                            Charlemagne (Zelda's logo) and Lithos (Mario 64).
+     body     Figtree     - deliberately boring. The character lives in the
+                            display face and the frame, never in the paragraph.
+     label    Silkscreen  - small pixel labels ONLY. Replaces Press Start 2P,
+                            which Theme.cs currently misapplies to buttons at
+                            8px, where it is decoration doing a reading job.
+
+   DEPTH follows the 2026 skeuomorphism recipe, all four parts:
+     1. real SVG fractalNoise texture at ~.05 - no image files
+     2. a four-layer shadow stack: contact, ambient, inset top highlight,
+        inset bottom shade
+     3. letterpress text - dark ink with a LIGHT shadow
+     4. :active that physically depresses, with the shadow inverted
+   Warning carried from the same source: "embossed text routinely lands under
+   the WCAG 4.5:1 minimum". The inks below are darker than looks prettiest,
+   because he reads this over a game.
+
+   DIVIDERS are a hierarchy, not a choice - he liked two and they do different
+   jobs. The rule is at .rule-major.
+   ============================================================================ */
+
+/* ---------------------------------------------------------------- the faces
+   Bundled, not fetched. See fonts/CREDITS.txt for who made them and why each
+   one is here. `font-display:block` on purpose: these are small files from
+   disk, so the wait is imperceptible, and the alternative is Aang drawing one
+   frame in Times New Roman every time a window opens.
+
+   Cinzel and Figtree are variable, so one file carries every weight. Silkscreen
+   is not, so its two weights are two files and must be declared separately - ask
+   for a weight it does not have and the browser fakes it by smearing the pixels,
+   which on a pixel face looks broken. */
+@font-face{
+  font-family:"Cinzel";src:url("fonts/Cinzel.woff2") format("woff2");
+  font-weight:400 900;font-style:normal;font-display:block;
+}
+@font-face{
+  font-family:"Figtree";src:url("fonts/Figtree.woff2") format("woff2");
+  font-weight:300 900;font-style:normal;font-display:block;
+}
+@font-face{
+  font-family:"Figtree";src:url("fonts/Figtree-Italic.woff2") format("woff2");
+  font-weight:300 900;font-style:italic;font-display:block;
+}
+@font-face{
+  font-family:"Silkscreen";src:url("fonts/Silkscreen-Regular.woff2") format("woff2");
+  font-weight:400;font-style:normal;font-display:block;
+}
+@font-face{
+  font-family:"Silkscreen";src:url("fonts/Silkscreen-Bold.woff2") format("woff2");
+  font-weight:700;font-style:normal;font-display:block;
+}
+
+:root{
+  /* ---- Theme.cs ---- */
+  --ink:#100A22;        --panel2:#1A1132;
+  --gold:#FFC43C;       --gold-deep:#C98C14;  --gold-lit:#FFE096;  --gold-light:#FFE28C;
+  --orange:#FF8040;     --orange-deep:#C95E28;
+  --red:#FF5A4A;        --green:#78E696;
+  --text:#E8E4F0;       --secondary:#C9C2DA;
+  --plum:#4A2C6E;       --plum-deep:#2C1848;  --plum-edge:#966EC8;
+  --claude:#E88A6A;
+  --parch1:#ECD5A8;     --parch2:#DEC28C;
+  --ink-text:#2E2216;   --ink-dim:#5A4834;
+  --wood1:#4A2E1A;      --wood2:#24160D;      --wood-plaque:#1A0F09;
+  --mode-quick:#00D1FF; --mode-smart:#3D9BFF; --mode-deep:#A970FF; --mode-saving:#8E879E;
+  --avatar-glow:#C8E8FF;
+
+  /* ---- the chunk ---- */
+  --outline:#120A05;    /* the near-black line round everything */
+  --ow:4px;             /* how thick it is */
+  --lip:5px;            /* how far a button travels when pressed */
+
+  /* ---- type ---- */
+  --display:"Cinzel",Georgia,serif;
+  --body:"Figtree",system-ui,-apple-system,sans-serif;
+  --label:"Silkscreen",ui-monospace,monospace;
+
+  /* ---- the ink used for carved text. Darker than prettiest, on purpose. ---- */
+  --carve-ink:#2A1C08;
+}
+
+/* ---------------------------------------------------------------- texture
+   One class, applied to any surface. Real noise, no image files. */
+.tex{position:relative}
+.tex::before{
+  content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;opacity:.05;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ---------------------------------------------------------------- surfaces */
+.parch{
+  position:relative;color:var(--ink-text);padding:22px 24px;border-radius:9px;overflow:hidden;
+  background:linear-gradient(180deg,#F0DCB4 0%,var(--parch1) 45%,var(--parch2) 100%);
+  border:var(--ow) solid var(--outline);
+  box-shadow:
+    inset 0 5px 0 rgba(255,255,255,.55),
+    inset 0 -6px 0 rgba(150,110,60,.32),
+    0 3px 0 rgba(0,0,0,.6),
+    0 10px 22px rgba(0,0,0,.45);
+}
+.wood{
+  position:relative;padding:20px;border-radius:10px;overflow:hidden;color:var(--text);
+  background:linear-gradient(180deg,#56371F 0%,var(--wood1) 40%,var(--wood2) 100%);
+  border:var(--ow) solid var(--outline);
+  box-shadow:
+    inset 0 5px 0 rgba(255,224,150,.2),
+    inset 0 -6px 0 rgba(0,0,0,.5),
+    0 3px 0 rgba(0,0,0,.6),
+    0 10px 22px rgba(0,0,0,.45);
+}
+/* his own words: pressed IN rather than sitting on top */
+.mine{
+  position:relative;color:var(--text);padding:17px 19px;border-radius:8px;overflow:hidden;
+  background:linear-gradient(180deg,var(--plum-deep),var(--plum));
+  border:var(--ow) solid var(--outline);
+  box-shadow:inset 0 5px 0 rgba(0,0,0,.4),inset 0 -3px 0 rgba(150,110,200,.3),0 4px 0 rgba(0,0,0,.5);
+}
+/* the speech tail */
+.tail::after{
+  content:"";position:absolute;left:28px;bottom:-16px;width:18px;height:18px;
+  background:var(--parch2);border-right:var(--ow) solid var(--outline);
+  border-bottom:var(--ow) solid var(--outline);transform:rotate(45deg);
+}
+/* the recessed plaque, carved INTO wood */
+.plaque{
+  background:var(--wood-plaque);border-radius:6px;padding:10px 14px;margin:0 0 15px;
+  font:400 13px var(--label);color:var(--gold);letter-spacing:1px;
+  text-shadow:2px 2px 0 rgba(0,0,0,.85);border:3px solid var(--outline);
+  box-shadow:inset 0 4px 0 rgba(0,0,0,.65);
+}
+.plaque.urgent{color:var(--orange)}
+
+/* ---------------------------------------------------------------- type */
+.t-eyebrow{font:400 13px var(--label);color:#8a6a2a;letter-spacing:1px;margin:0 0 7px;
+  text-shadow:1px 1px 0 rgba(255,255,255,.4)}
+.t-display{font:700 30px/1.15 var(--display);color:var(--carve-ink);margin:0 0 5px;letter-spacing:.3px;
+  text-shadow:0 1px 0 rgba(255,255,255,.65),0 -1px 0 rgba(90,60,25,.35)}
+.t-head{font:700 21px/1.25 var(--display);color:var(--carve-ink);margin:0 0 8px;
+  text-shadow:0 1px 0 rgba(255,255,255,.6)}
+/* Body weight is 500, not 400. Figtree at 400 over warm parchment with a game
+   running behind it reads thin, which he called out. 500 is the lightest
+   weight that still holds at this size; 600 starts to look shouty next to the
+   Cinzel headings. The inks are also a shade darker than the Theme.cs
+   originals for the same reason. */
+.t-lead{font:500 17px/1.5 var(--body);color:#33240f;margin:0 0 10px}
+.t-body{font:500 15.5px/1.62 var(--body);color:#271c10;margin:0 0 10px}
+.t-body b,.t-lead b{font-weight:700}
+.t-aside{font:italic 500 14px/1.55 var(--body);color:#4e3d28}
+.t-caption{font:500 12.5px var(--body);color:#4e3d28}
+.t-num{font-variant-numeric:tabular-nums lining-nums}
+/* on wood, the same carving inverted */
+.wood .t-eyebrow{color:var(--gold-deep);text-shadow:1px 1px 0 rgba(0,0,0,.7)}
+.wood .t-display,.wood .t-head{color:var(--gold);text-shadow:0 2px 0 var(--outline),0 -1px 0 rgba(255,224,150,.3)}
+.wood .t-lead,.wood .t-body{color:var(--secondary)}
+.wood .t-aside,.wood .t-caption{color:#a99a86}
+/* Emphasis that is not just bold.
+   Measured from the BASELINE, in em. The first version used a percentage of
+   the inline box, which is why the highlights sat crooked: a percentage lands
+   mid-glyph and drifts with every line-height and font-size on the page.
+   box-decoration-break keeps them square when a phrase wraps across two
+   lines, and the inline inset shadows are gone because they clip at a wrap. */
+.u-mark,.u-carved{
+  -webkit-box-decoration-break:clone;box-decoration-break:clone;
+  padding:.04em .16em .10em;background-repeat:no-repeat}
+.u-mark{border-radius:2px;
+  background-image:linear-gradient(rgba(255,196,60,.6),rgba(255,196,60,.6));
+  background-size:100% .78em;background-position:left 0 bottom .06em}
+.u-carved{background-image:
+    linear-gradient(rgba(90,60,25,.55),rgba(90,60,25,.55)),
+    linear-gradient(rgba(201,140,20,.32),rgba(201,140,20,.32));
+  background-size:100% .09em,100% .22em;
+  background-position:left 0 bottom .03em,left 0 bottom .11em}
+
+/* ====================================================================
+   DIVIDERS - a hierarchy. He liked two, and they do different jobs.
+
+   THE RULE
+     .rule-major   forged end-caps. Between TOPICS. At most twice in one
+                   reply, because a break that happens often stops meaning
+                   "something new starts here".
+     .rule-minor   carved groove. Between ITEMS, and between a heading and
+                   its body. The workhorse - use this unless there is a
+                   reason not to.
+     .rule-titled  the heading sits ON the rule. Use when the break has a
+                   name; it replaces a heading AND a divider.
+     .rule-end     torn parchment. "That is everything." Once, at the
+                   bottom, and never in the middle.
+   ==================================================================== */
+
+/* MAJOR - forged metal, with end-caps */
+.rule-major{display:flex;align-items:center;gap:0;margin:22px 0}
+.rule-major .bar{flex:1;height:6px;
+  background:linear-gradient(180deg,var(--gold-deep) 0 3px,var(--gold-lit) 3px 6px);
+  border-top:2px solid var(--outline);border-bottom:2px solid var(--outline)}
+.rule-major .endcap{width:14px;height:18px;flex:0 0 auto;border-radius:3px;
+  background:linear-gradient(180deg,var(--gold-lit),var(--gold-deep));
+  border:2px solid var(--outline);box-shadow:inset 0 2px 0 rgba(255,255,255,.5)}
+
+/* MINOR - a channel cut into the surface, not a line drawn on it */
+.rule-minor{height:8px;border-radius:4px;margin:16px 0;
+  background:linear-gradient(180deg,rgba(90,60,25,.5) 0 3px,rgba(255,255,255,.55) 3px 6px,transparent 6px);
+  box-shadow:inset 0 1px 2px rgba(0,0,0,.35)}
+.wood .rule-minor{background:linear-gradient(180deg,rgba(0,0,0,.6) 0 3px,rgba(255,224,150,.28) 3px 6px,transparent 6px)}
+
+/* TITLED - the rule runs behind, the words sit on it */
+.rule-titled{display:flex;align-items:center;gap:0;margin:20px 0 12px}
+.rule-titled .bar{flex:1;height:5px;border-radius:3px;
+  background:linear-gradient(180deg,rgba(90,60,25,.45) 0 2px,rgba(255,255,255,.5) 2px 5px)}
+.rule-titled span{font:700 15px var(--display);color:var(--carve-ink);padding:0 13px;
+  letter-spacing:1.5px;text-transform:uppercase;text-shadow:0 1px 0 rgba(255,255,255,.65)}
+.wood .rule-titled .bar{background:linear-gradient(180deg,rgba(0,0,0,.6) 0 2px,rgba(255,224,150,.28) 2px 5px)}
+.wood .rule-titled span{color:var(--gold);text-shadow:0 2px 0 var(--outline)}
+
+/* END - the parchment itself finishes */
+.rule-end{height:12px;margin:18px 0 4px;
+  background:radial-gradient(circle at 6px 0,transparent 5px,rgba(90,60,25,.3) 5px) repeat-x 0 0/12px 12px;
+  filter:drop-shadow(0 1px 0 rgba(255,255,255,.5))}
+
+/* ---------------------------------------------------------------- buttons
+   Readable face, NOT the pixel one. Theme.cs sets ButtonPx = 8f and draws
+   labels in Press Start 2P; that is the single worst readability problem in
+   the app today, and fixing it does not need the cockpit. */
+.key{
+  font:700 14px var(--body);letter-spacing:.2px;
+  border:3px solid var(--outline);border-radius:8px;padding:12px 20px 13px;
+  cursor:pointer;position:relative;top:0;transition:top .05s,box-shadow .05s;
+  background:var(--plum);color:#fff;text-shadow:0 1px 0 rgba(0,0,0,.7);
+  box-shadow:0 var(--lip) 0 var(--outline),0 var(--lip) 0 -1px var(--plum-deep),
+    inset 0 3px 0 rgba(150,110,200,.5),0 8px 14px rgba(0,0,0,.4);
+}
+.key:active{top:var(--lip);box-shadow:0 0 0 var(--outline),inset 0 3px 0 rgba(150,110,200,.5)}
+.key.primary{background:var(--gold);color:#2a1c00;text-shadow:0 1px 0 rgba(255,235,180,.8);
+  box-shadow:0 var(--lip) 0 var(--outline),0 var(--lip) 0 -1px var(--gold-deep),
+    inset 0 3px 0 var(--gold-light),0 8px 14px rgba(0,0,0,.4)}
+.key.primary:active{box-shadow:0 0 0 var(--outline),inset 0 3px 0 var(--gold-light)}
+.key.warn{background:var(--orange);color:#2e1200;text-shadow:0 1px 0 rgba(255,220,180,.7);
+  box-shadow:0 var(--lip) 0 var(--outline),0 var(--lip) 0 -1px var(--orange-deep),
+    inset 0 3px 0 rgba(255,224,150,.5),0 8px 14px rgba(0,0,0,.4)}
+.key.warn:active{box-shadow:0 0 0 var(--outline),inset 0 3px 0 rgba(255,224,150,.5)}
+.key .k{position:absolute;top:2px;right:6px;font:400 10px var(--label);opacity:.6}
+.keys{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-top:16px}
+
+/* ---------------------------------------------------------------- chips */
+.chip{display:inline-block;font:700 12px var(--body);padding:5px 10px;border-radius:5px;
+  border:2.5px solid var(--outline);color:#231700;text-shadow:0 1px 0 rgba(255,255,255,.4)}
+.chip.good{background:var(--green)}
+.chip.careful{background:var(--orange)}
+.chip.stop{background:var(--red);color:#2e0b06}
+.chip.normal{background:var(--gold)}
+.chip.off{background:#6d6579;color:#f0edf5;text-shadow:0 1px 0 rgba(0,0,0,.4)}
+
+/* mode pills - filled with their OWN colour. Hollow ones read as empty. */
+.pill{font:700 13px var(--body);letter-spacing:.3px;padding:10px 16px;border-radius:999px;
+  border:3px solid var(--outline);position:relative;top:0;cursor:pointer;
+  transition:top .05s,box-shadow .05s;color:#141018;text-shadow:0 1px 0 rgba(255,255,255,.45);
+  box-shadow:0 4px 0 var(--outline),inset 0 3px 0 rgba(255,255,255,.3)}
+.pill:active{top:4px;box-shadow:0 0 0 var(--outline),inset 0 3px 0 rgba(255,255,255,.3)}
+.pill.auto{background:var(--gold)}
+.pill.local{background:var(--green)}
+.pill.quick{background:var(--mode-quick)}
+.pill.smart{background:var(--mode-smart);color:#06182e}
+.pill.deep{background:var(--mode-deep);color:#1d0b33}
+.pill.saving{background:var(--mode-saving);color:#15121b}
+
+/* ---------------------------------------------------------------- rows */
+.find{display:grid;grid-template-columns:16px 1fr auto;gap:12px;align-items:start;padding:11px 0}
+.find + .find{border-top:3px solid rgba(90,60,25,.28)}
+.wood .find + .find{border-top-color:rgba(255,196,60,.16)}
+.dot{width:11px;height:11px;border-radius:50%;margin-top:6px;border:2px solid var(--outline)}
+.dot.good{background:var(--green)} .dot.careful{background:var(--orange)} .dot.stop{background:var(--red)}
+
+/* ---------------------------------------------------------------- steps */
+.step{display:flex;gap:10px;align-items:center;padding:5px 0;font:500 14.5px var(--body)}
+.step .mark{width:16px;text-align:center;font:400 12px var(--label)}
+.step.done{color:var(--ink-dim)} .step.done .mark{color:#2f7a4a}
+.step.now{color:var(--ink-text);font-weight:700} .step.now .mark{color:#9a6a0e;animation:tick .9s steps(2) infinite}
+.step.todo{color:rgba(90,72,52,.5)}
+@keyframes tick{50%{opacity:.2}}
+
+/* ---------------------------------------------------------------- markers */
+.tag{display:inline-block;font:700 11px var(--body);padding:5px 8px;border-radius:4px;
+  border:2px solid var(--outline);background:var(--green);color:#163a24}
+.tag.handed{background:var(--claude);color:#3a1708}
+
+/* ============================================================================
+   THE THREE PRESSED-IN LOOKS  (step 6.10)
+   ============================================================================
+   A chunky button has one obvious way to say something: push it down. Three
+   different states all want to say something, and in the mockup all three used
+   it, so they were indistinguishable:
+
+     1. CLICKED        - he is holding the mouse down, right now. Momentary.
+     2. KEYBOARD FOCUS - this is where the keyboard is. Says nothing about
+                         whether it is on, and he may be about to move on.
+     3. SWITCHED ON    - a setting that is on. Lasts until he changes it.
+
+   Telling 2 from 3 matters most: a switch he has merely tabbed to must not look
+   like a switch he has turned on, or he turns things on by accident and cannot
+   tell what is set. So each gets ONE job:
+
+     CLICKED      travels down, lip gone. Nothing else moves.
+     FOCUS        NEVER moves. A bright ring OUTSIDE the near-black outline,
+                  which is the one place nothing else draws.
+     ON           sits down permanently AND is lit from inside, so it reads as
+                  recessed-and-live rather than merely recessed. It also carries
+                  a word ("On"), because colour and depth alone fail for anyone
+                  who cannot see either.
+
+   Because focus never moves, a focused switch that is on can be down, lit AND
+   ringed at once. That does not happen by itself: the combinations are written
+   out below, because a focus rule and a pressed rule carry the same weight in
+   CSS and whichever is written last would otherwise silently win.
+*/
+
+/* ---- 2. KEYBOARD FOCUS ---------------------------------------------------
+   :focus-visible, not :focus, so a mouse click does not leave a ring behind.
+   Two rings: gold to be seen on wood and parchment, then a dark one outside it
+   so the gold itself is visible against gold surfaces. No travel. */
+.key:focus-visible,.pill:focus-visible,.chip[tabindex]:focus-visible,
+button:focus-visible,[role="button"]:focus-visible,a:focus-visible,
+input:focus-visible,select:focus-visible,textarea:focus-visible{
+  outline:none;
+  box-shadow:0 0 0 3px var(--gold),0 0 0 6px var(--outline),0 4px 14px rgba(0,0,0,.5);
+}
+/* A focused button that is ALSO pressable keeps its lip: focus must not look
+   like a press. The lip shadow is restated here because the ring replaced it. */
+.key:focus-visible{
+  box-shadow:0 var(--lip) 0 var(--outline),0 var(--lip) 0 -1px var(--plum-deep),
+    inset 0 3px 0 rgba(150,110,200,.5),
+    0 0 0 3px var(--gold),0 0 0 6px var(--outline);
+}
+.key.primary:focus-visible{
+  box-shadow:0 var(--lip) 0 var(--outline),0 var(--lip) 0 -1px var(--gold-deep),
+    inset 0 3px 0 var(--gold-light),
+    0 0 0 3px var(--gold-lit),0 0 0 6px var(--outline);
+}
+.key.warn:focus-visible{
+  box-shadow:0 var(--lip) 0 var(--outline),0 var(--lip) 0 -1px var(--orange-deep),
+    inset 0 3px 0 rgba(255,224,150,.5),
+    0 0 0 3px var(--gold),0 0 0 6px var(--outline);
+}
+/* Holding the mouse on a focused button still shows the press, because :active
+   comes after this and wins on equal weight. Stated so nobody "fixes" the order. */
+
+/* ---- 3. SWITCHED ON ------------------------------------------------------
+   Driven by aria-pressed, which is also what a screen reader reads out, so the
+   look and the announcement cannot disagree. */
+.key[aria-pressed="true"],.pill[aria-pressed="true"]{
+  top:var(--lip);
+  /* Down, with no lip under it, and lit from within: an inner gold glow plus a
+     dark top shade, which is the opposite of the raised button's top highlight. */
+  box-shadow:0 0 0 var(--outline),
+    inset 0 4px 6px rgba(0,0,0,.55),
+    inset 0 0 0 2px var(--gold-deep),
+    inset 0 -3px 0 var(--gold-lit);
+  background:var(--gold);color:#2a1c00;text-shadow:0 1px 0 rgba(255,235,180,.8);
+}
+/* Pressing an already-on button must still do something visible, or it feels
+   dead. It goes darker rather than further down, since it is already down. */
+.key[aria-pressed="true"]:active,.pill[aria-pressed="true"]:active{
+  background:var(--gold-deep);
+  box-shadow:0 0 0 var(--outline),inset 0 5px 8px rgba(0,0,0,.7),inset 0 0 0 2px var(--gold-deep);
+}
+/* The word, so this never depends on seeing depth or colour. Hidden from
+   screen readers: aria-pressed already says it, and both would say it twice. */
+.key[aria-pressed]::after,.pill[aria-pressed]::after{
+  content:"Off";position:absolute;right:8px;bottom:2px;
+  font:400 9px var(--label);opacity:.75;letter-spacing:0;
+}
+.key[aria-pressed="true"]::after,.pill[aria-pressed="true"]::after{content:"On";opacity:.9}
+/* Room for that word, so it never sits on the label. */
+.key[aria-pressed]{padding-right:34px}
+
+/* ---- ON *AND* FOCUSED ----------------------------------------------------
+   Both at once, stated on purpose. A switch is the one control where focus
+   matters most, because the next key press changes a setting.
+
+   This rule has to exist because `.key[aria-pressed="true"]` and
+   `.key:focus-visible` carry the SAME weight, so the one written later simply
+   wins and the ring vanishes. Caught by tabbing onto a switched-on button and
+   reading back its shadow (2026-10-04); it looked right in every still. The
+   comment above once claimed these composed on their own. They do not. */
+.key[aria-pressed="true"]:focus-visible,.pill[aria-pressed="true"]:focus-visible{
+  box-shadow:inset 0 4px 6px rgba(0,0,0,.55),
+    inset 0 0 0 2px var(--gold-deep),
+    inset 0 -3px 0 var(--gold-lit),
+    0 0 0 3px var(--gold-lit),0 0 0 6px var(--outline);
+}
+/* And off-but-focused, for the same reason: the plain `.key:focus-visible`
+   above is outweighed by nothing here, but stating the pair keeps the two
+   switch states symmetrical, so neither can be changed without the other. */
+.key[aria-pressed="false"]:focus-visible,.pill[aria-pressed="false"]:focus-visible{
+  box-shadow:0 var(--lip) 0 var(--outline),0 var(--lip) 0 -1px var(--plum-deep),
+    inset 0 3px 0 rgba(150,110,200,.5),
+    0 0 0 3px var(--gold),0 0 0 6px var(--outline);
+}
+
+/* ---- every pressable thing is at least 24px -------------------------------
+   The target size, not the ink. A 10px pixel label in a corner is not a target
+   and is left alone; the thing it sits in is what has to be big enough. */
+.key,.pill,button,[role="button"],.chip[tabindex],.tab,.row.act{
+  min-height:24px;min-width:24px;
+  box-sizing:border-box;
+}
+
+/* ---- reduced motion ------------------------------------------------------
+   6.10: "with reduced motion on, buttons keep their depth but lose their
+   travel." So the lip, the shadows and the carving all stay - the style IS the
+   depth - and only the moving goes. A button still changes when pressed: it
+   loses its lip shadow in place, so the depth reads as gone without anything
+   sliding. The blinking step marker stops too; a thing that flashes for ever is
+   exactly what this setting is asking to be spared. */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{transition-duration:.01ms !important;animation-duration:.01ms !important;
+    animation-iteration-count:1 !important;scroll-behavior:auto !important}
+  .key:active,.pill:active,.key[aria-pressed="true"],.pill[aria-pressed="true"]{top:0}
+  .key:active{box-shadow:0 0 0 var(--outline),inset 0 4px 6px rgba(0,0,0,.5)}
+  .pill:active{box-shadow:0 0 0 var(--outline),inset 0 4px 6px rgba(0,0,0,.5)}
+  .key[aria-pressed="true"],.pill[aria-pressed="true"]{
+    box-shadow:0 0 0 var(--outline),inset 0 4px 6px rgba(0,0,0,.55),
+      inset 0 0 0 2px var(--gold-deep),inset 0 -3px 0 var(--gold-lit);
+  }
+  .step.now .mark{animation:none;opacity:1}
+}
+
+/* ---- forced colours (Windows high contrast) ------------------------------
+   Every shadow disappears in this mode, and the shadows are the whole language,
+   so depth has to be said again in a way that survives: a real border, and the
+   system's own "this one is chosen" colour for a switch that is on. */
+@media (forced-colors:active){
+  .key,.pill,button,[role="button"]{border:2px solid ButtonBorder;background:ButtonFace;color:ButtonText}
+  .key:focus-visible,.pill:focus-visible,button:focus-visible,[role="button"]:focus-visible{
+    outline:3px solid Highlight;outline-offset:2px}
+  .key[aria-pressed="true"],.pill[aria-pressed="true"]{background:Highlight;color:HighlightText}
+}

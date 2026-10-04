@@ -1,0 +1,43 @@
+The cockpit's typefaces (step 6.10, added 2026-10-04)
+=====================================================
+
+Three faces doing three jobs, decided with Joshua on 2026-10-03 and written down in
+docs/cockpit/cockpit.css. These are WOFF2 because the cockpit is web pages in the Shell. The WinForms
+app has its own fonts, as TTF, in assets/aang/fonts - different files for a different drawing engine,
+not duplicates.
+
+They live HERE, beside the pages, because the page server serves exactly one folder and refuses any
+path that climbs out of it (see pageserver.ts). Anything the pages need has to be inside it.
+
+Bundled rather than loaded from Google, for three reasons: the app has to work with no internet; a web
+font that fails to arrive silently swaps the typeface mid-use, which looks like a bug in Aang; and a
+page that asks fonts.googleapis.com for a file tells Google when he opened Aang.
+
+Cinzel.woff2            (variable, 400-900)
+  "Cinzel" by Natanael Gama, via Google Fonts
+  https://github.com/google/fonts/tree/main/ofl/cinzel
+  SIL Open Font License 1.1 - see Cinzel-OFL.txt
+  Display only: headings and short titles. Based on Roman inscriptions; the free face closest to
+  Charlemagne (Zelda's logo) and Lithos (Mario 64).
+
+Figtree.woff2, Figtree-Italic.woff2   (variable, 300-900)
+  "Figtree" by Erik Kennedy, via Google Fonts
+  https://github.com/google/fonts/tree/main/ofl/figtree
+  SIL Open Font License 1.1 - see Figtree-OFL.txt
+  Body text and button labels. Deliberately plain: the character belongs in the display face and the
+  frame, never in the paragraph.
+
+Silkscreen-Regular.woff2, Silkscreen-Bold.woff2   (static: two files, not variable)
+  "Silkscreen" by Jason Kottke, via Google Fonts
+  https://github.com/google/fonts/tree/main/ofl/silkscreen
+  SIL Open Font License 1.1 - see Silkscreen-OFL.txt
+  Small pixel labels ONLY, such as the key hint in a button's corner.
+
+Cinzel and Figtree are variable fonts, which is why one file covers every weight. Google serves the
+same URL for each weight it is asked for, and that is how it was verified rather than assumed.
+
+COVERAGE: all of these are Google's "latin" subset - U+0000-00FF plus the usual punctuation, the euro,
+the arrows and the replacement character. That covers English, accented names, and every character the
+cockpit draws. It does NOT include latin-ext (U+0100 and up), which is Polish, Czech, Turkish and the
+like. If a name ever renders as empty boxes, that is why, and the fix is to fetch the latin-ext file
+for that face too.
