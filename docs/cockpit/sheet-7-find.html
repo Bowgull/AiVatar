@@ -1,0 +1,786 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Aang Find and Grab</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Figtree:ital,wght@0,400;0,500;0,600;0,700;0,900;1,500&family=Silkscreen&display=swap" rel="stylesheet">
+<style>
+/* ===========================================================================
+   SHEET 7 - FIND, CHARTS, COMPARE, WATCH, GRAB
+   For FINAL AANG BUILD steps 6.17 and 6.18. Search, charts, side by side,
+   the live job view, and snip, grab and drop.
+   Fields come from docs.ts (DocHit.how), jobs.ts (the six stages), addons.ts
+   (Behind), quota.ts, hooks.ts (claude.working) and files.ts (the refusals).
+   Reply counts in the usage chart are real, counted from aang.db on 4 Oct.
+   =========================================================================== */
+:root{
+  --ink:#100A22; --panel2:#1A1132;
+  --gold:#FFC43C; --gold-deep:#C98C14; --gold-lit:#FFE096; --gold-light:#FFE28C;
+  --orange:#FF8040; --orange-deep:#C95E28; --red:#FF5A4A; --green:#78E696;
+  --text:#E8E4F0; --secondary:#C9C2DA;
+  --plum:#4A2C6E; --plum-deep:#2C1848; --plum-edge:#966EC8; --claude:#E88A6A;
+  --parch1:#ECD5A8; --parch2:#DEC28C;
+  --ink-text:#2E2216; --ink-dim:#5A4834;
+  --wood1:#4A2E1A; --wood2:#24160D; --wood-plaque:#1A0F09;
+  --qwen:#A970FF;
+  --outline:#120A05; --ow:4px; --lip:5px;
+  --display:"Cinzel",Georgia,"Times New Roman",serif;
+  --body:"Figtree",system-ui,-apple-system,Segoe UI,sans-serif;
+  --label:"Silkscreen",ui-monospace,Consolas,monospace;
+  --carve-ink:#2A1C08;
+}
+*{box-sizing:border-box}
+body{margin:0;padding:30px 20px 100px;background:#07040F;font-family:var(--body);
+  -webkit-font-smoothing:antialiased;color:var(--text)}
+.wrap{max-width:980px;margin:0 auto}
+h1{font:400 16px var(--label);color:#7a6fa0;letter-spacing:3px;text-align:center;margin:0 0 8px}
+.sub{font:500 13px/1.6 var(--body);color:#7b7291;text-align:center;margin:0 0 40px}
+h2.part{font:400 13px var(--label);color:var(--gold-deep);letter-spacing:3px;
+  margin:56px 0 6px;padding-bottom:10px;border-bottom:3px solid #241a3a}
+p.why{font:500 14px/1.65 var(--body);color:#9a90b5;margin:0 0 22px;max-width:740px}
+p.why b,p.sur b{color:#cfc4ea}
+p.sur{font:500 13.5px/1.6 var(--body);color:#8a80a5;margin:0 0 16px;max-width:740px}
+.step{display:inline-block;font:400 9px var(--label);letter-spacing:1px;padding:4px 6px;border-radius:3px;
+  border:2px solid var(--outline);background:var(--gold-lit);color:#2a1c00;vertical-align:3px;margin-left:6px}
+.kept{background:var(--green);color:#163a24}
+
+/* ---- carried over ---- */
+.tex{position:relative}
+.tex::before{content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;opacity:.05;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E")}
+.parch{position:relative;color:var(--ink-text);padding:20px 22px;border-radius:9px;overflow:hidden;
+  background:linear-gradient(180deg,#F0DCB4 0%,var(--parch1) 45%,var(--parch2) 100%);
+  border:var(--ow) solid var(--outline);
+  box-shadow:inset 0 5px 0 rgba(255,255,255,.55),inset 0 -6px 0 rgba(150,110,60,.32),
+    0 3px 0 rgba(0,0,0,.6),0 10px 22px rgba(0,0,0,.45)}
+.t-eyebrow{font:400 12px var(--label);color:#8a6a2a;letter-spacing:1px;margin:0 0 7px;
+  text-shadow:1px 1px 0 rgba(255,255,255,.4)}
+.t-display{font:700 26px/1.15 var(--display);color:var(--carve-ink);margin:0 0 4px;
+  text-shadow:0 1px 0 rgba(255,255,255,.65),0 -1px 0 rgba(90,60,25,.35)}
+.t-head{font:700 19px/1.25 var(--display);color:var(--carve-ink);margin:0 0 8px;
+  text-shadow:0 1px 0 rgba(255,255,255,.6)}
+.t-lead{font:500 16px/1.5 var(--body);color:#33240f;margin:0 0 6px}
+.t-body{font:500 15px/1.6 var(--body);color:#271c10;margin:0 0 8px}
+.t-body b{font-weight:700}
+.t-caption{font:500 12.5px var(--body);color:#4e3d28}
+.t-hint{font:italic 500 13px/1.55 var(--body);color:#5a4834;margin:14px 0 0}
+.u-mark{-webkit-box-decoration-break:clone;box-decoration-break:clone;padding:.04em .16em .10em;border-radius:2px;
+  background-repeat:no-repeat;background-image:linear-gradient(rgba(255,196,60,.6),rgba(255,196,60,.6));
+  background-size:100% .78em;background-position:left 0 bottom .06em}
+.rule-minor{height:8px;border-radius:4px;margin:12px 0;
+  background:linear-gradient(180deg,rgba(90,60,25,.5) 0 3px,rgba(255,255,255,.55) 3px 6px,transparent 6px);
+  box-shadow:inset 0 1px 2px rgba(0,0,0,.35)}
+.rule-major{display:flex;align-items:center;margin:20px 0}
+.rule-major .bar{flex:1;height:6px;background:linear-gradient(180deg,var(--gold-deep) 0 3px,var(--gold-lit) 3px 6px);
+  border-top:2px solid var(--outline);border-bottom:2px solid var(--outline)}
+.rule-major .endcap{width:14px;height:18px;flex:0 0 auto;border-radius:3px;background:linear-gradient(180deg,var(--gold-lit),var(--gold-deep));
+  border:2px solid var(--outline);box-shadow:inset 0 2px 0 rgba(255,255,255,.5)}
+.rule-titled{display:flex;align-items:center;margin:18px 0 10px}
+.rule-titled .bar{flex:1;height:5px;border-radius:3px;
+  background:linear-gradient(180deg,rgba(90,60,25,.45) 0 2px,rgba(255,255,255,.5) 2px 5px)}
+.rule-titled span{font:700 13px var(--display);color:var(--carve-ink);padding:0 11px;
+  letter-spacing:1.5px;text-transform:uppercase;text-shadow:0 1px 0 rgba(255,255,255,.65)}
+.key{font:700 14px var(--body);border:3px solid var(--outline);border-radius:8px;
+  padding:11px 18px 12px;cursor:pointer;position:relative;top:0;
+  background:var(--plum);color:#fff;text-shadow:0 1px 0 rgba(0,0,0,.7);
+  box-shadow:0 var(--lip) 0 var(--outline),0 var(--lip) 0 -1px var(--plum-deep),
+    inset 0 3px 0 rgba(150,110,200,.5),0 8px 14px rgba(0,0,0,.4)}
+.key:active{top:var(--lip);box-shadow:0 0 0 var(--outline),inset 0 3px 0 rgba(150,110,200,.5)}
+.key.primary{background:var(--gold);color:#2a1c00;text-shadow:0 1px 0 rgba(255,235,180,.8);
+  box-shadow:0 var(--lip) 0 var(--outline),0 var(--lip) 0 -1px var(--gold-deep),inset 0 3px 0 var(--gold-light),0 8px 14px rgba(0,0,0,.4)}
+.key.danger{background:var(--red);color:#2e0b06;text-shadow:0 1px 0 rgba(255,200,190,.6);
+  box-shadow:0 var(--lip) 0 var(--outline),0 var(--lip) 0 -1px #a8352a,inset 0 3px 0 rgba(255,200,190,.5),0 8px 14px rgba(0,0,0,.4)}
+.key.sm{font-size:12.5px;padding:8px 13px 9px;--lip:4px}
+.key .k{position:absolute;top:2px;right:6px;font:400 10px var(--label);opacity:.6}
+.keys{display:flex;gap:11px;flex-wrap:wrap;align-items:center;margin-top:14px}
+.chip{display:inline-block;font:700 11.5px var(--body);padding:4px 9px;border-radius:5px;
+  border:2.5px solid var(--outline);color:#231700;text-shadow:0 1px 0 rgba(255,255,255,.4);white-space:nowrap}
+.chip.good{background:var(--green)} .chip.normal{background:var(--gold)} .chip.careful{background:var(--orange)}
+.chip.stop{background:var(--red);color:#2e0b06} .chip.off{background:#6d6579;color:#f0edf5;text-shadow:0 1px 0 rgba(0,0,0,.4)}
+.chip.qwen{background:var(--qwen);color:#1d0b33} .chip.claude{background:var(--claude);color:#3a1708}
+.lever{position:relative;display:inline-flex;align-items:center;gap:12px;padding:11px 16px 12px 14px;
+  border-radius:9px;border:3px solid var(--outline);min-width:200px;overflow:hidden;
+  background:linear-gradient(180deg,#5b3a20,#2a190e);color:var(--gold-lit);font:700 13.5px var(--body);
+  text-shadow:0 1px 0 rgba(0,0,0,.7);box-shadow:0 6px 0 var(--outline),inset 0 3px 0 rgba(255,224,150,.25)}
+.lever .knob{width:18px;height:18px;border-radius:50%;border:3px solid var(--outline);
+  background:radial-gradient(circle at 35% 30%,var(--gold-lit),var(--gold-deep))}
+.lever .hold{font:400 9px var(--label);letter-spacing:1px;color:#ffe9b0;margin-left:auto;padding:3px 6px;
+  border:2px solid var(--outline);border-radius:4px;background:rgba(0,0,0,.35)}
+
+/* =========================================== WINDOW 2: the frame and the approved tab strip */
+.desk{border-radius:12px;overflow:hidden;border:var(--ow) solid var(--outline);
+  box-shadow:0 4px 0 rgba(0,0,0,.6),0 16px 34px rgba(0,0,0,.55)}
+.desk .tabs{display:flex;gap:5px;padding:9px 9px 0;background:linear-gradient(180deg,#56371F,var(--wood2));
+  border-bottom:3px solid var(--outline);flex-wrap:wrap}
+.desk .tab{font:400 10.5px var(--label);letter-spacing:.5px;padding:10px 12px 11px;border-radius:7px 7px 0 0;
+  border:2.5px solid var(--outline);border-bottom:none;color:#E6DCC8;cursor:pointer;
+  background:linear-gradient(180deg,var(--plum),var(--plum-deep));text-shadow:1px 1px 0 rgba(0,0,0,.7);position:relative;top:3px}
+.desk .tab.on{background:linear-gradient(180deg,var(--gold-lit),var(--gold));color:#2a1c00;top:0;
+  text-shadow:0 1px 0 rgba(255,255,255,.55);box-shadow:inset 0 3px 0 rgba(255,255,255,.5)}
+.desk .tab i{font-style:normal;font-family:var(--body);font-weight:700;font-size:11px;
+  background:rgba(0,0,0,.25);border-radius:999px;padding:1px 5px;margin-left:5px}
+.desk .body{background:linear-gradient(180deg,#F0DCB4,var(--parch2));padding:20px 22px;color:var(--ink-text);position:relative}
+.desk .foot{background:var(--ink);padding:8px 12px;font:500 12px var(--body);color:#9a90b5;border-top:3px solid var(--outline)}
+
+/* ---- rows: one thing per row, the action appears on the row you point at ---- */
+.row{display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center;padding:11px 12px;border-radius:7px}
+.row+.row{border-top:3px solid rgba(90,60,25,.22)}
+.row .main{font:600 15px/1.45 var(--body);color:#271c10}
+.row .meta{font:500 12.5px var(--body);color:#5a4834;margin-top:3px}
+.row .meta b{color:#3a2a16}
+.row.hover{background:rgba(255,255,255,.35);box-shadow:inset 0 0 0 2.5px rgba(201,140,20,.55)}
+.row .act{opacity:0} .row.hover .act{opacity:1}
+.alwaysask{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.alwaysask span{font:600 12.5px var(--body);color:#5a2a1c;padding:5px 10px;border-radius:5px;
+  background:rgba(255,128,64,.18);border:2.5px solid rgba(201,94,40,.6)}
+
+/* ---- what I did: Claude jobs + the activity timeline ---- */
+.job{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:10px 0}
+.job+.job{border-top:3px solid rgba(90,60,25,.22)}
+.job .nm{font:700 15px var(--body);color:#271c10}
+.job .last{font:500 12.5px var(--body);color:#5a4834;margin-top:2px}
+.dot{width:12px;height:12px;border-radius:50%;border:2.5px solid var(--outline)}
+.dot.working{background:#C8E8FF;box-shadow:0 0 8px rgba(200,232,255,.9)} .dot.needs{background:var(--orange)}
+.dot.done{background:var(--green)} .dot.ended{background:#8e879e}
+.tl{position:relative;padding-left:26px}
+.tl::before{content:"";position:absolute;left:8px;top:6px;bottom:6px;width:4px;border-radius:2px;
+  background:linear-gradient(90deg,rgba(90,60,25,.5) 0 2px,rgba(255,255,255,.5) 2px 4px)}
+.tl .ev{position:relative;padding:6px 0 10px}
+.tl .ev::before{content:"";position:absolute;left:-24px;top:9px;width:12px;height:12px;border-radius:3px;
+  border:2.5px solid var(--outline);background:var(--gold)}
+.tl .ev.asked::before{background:var(--orange)} .tl .ev.undo::before{background:#8e879e}
+.tl .when{font:400 9.5px var(--label);letter-spacing:.5px;color:#8a6a2a}
+.tl .what{font:500 14.5px/1.45 var(--body);color:#271c10}
+.tl .what code{font:600 12.5px ui-monospace,Consolas,monospace;background:rgba(0,0,0,.08);padding:1px 5px;border-radius:4px}
+
+/* ---- drafts ---- */
+.mailcard .hdr{display:grid;grid-template-columns:70px 1fr;gap:6px 12px;align-items:center;margin-bottom:12px}
+.mailcard .hdr span{font:400 10px var(--label);letter-spacing:1px;color:#8a6a2a}
+.mailcard .hdr div{font:600 15px var(--body);color:#271c10}
+.letter{background:rgba(255,255,255,.45);border:3px solid rgba(90,60,25,.35);border-radius:8px;padding:14px 16px;
+  font:500 14.5px/1.65 var(--body);color:#271c10;box-shadow:inset 0 2px 0 rgba(255,255,255,.6)}
+.newto{display:inline-flex;align-items:center;gap:6px;margin-left:8px}
+
+/* ---- history ---- */
+.searchslot{display:flex;align-items:center;gap:10px;padding:10px 13px;border-radius:8px;
+  background:rgba(90,60,25,.16);border:3px solid rgba(90,60,25,.5);box-shadow:inset 0 3px 0 rgba(90,60,25,.25)}
+.searchslot .q{flex:1;font:500 15px var(--body);color:var(--carve-ink)}
+.searchslot .lab{font:400 10px var(--label);color:#8a6a2a;letter-spacing:1px}
+.turn{margin:12px 0 0;max-width:84%}
+.turn.r{margin-left:auto}
+.who{font:400 9.5px var(--label);letter-spacing:1px;margin:0 0 5px;color:#8a6a2a}
+.turn.r .who{text-align:right;color:var(--plum-edge)}
+.bub{padding:11px 14px;border-radius:8px;border:3px solid var(--outline);font:500 14.5px/1.55 var(--body)}
+.bub.aang{background:linear-gradient(180deg,#F6E8C8,#ECD5A8);color:#271c10}
+.bub.you{background:linear-gradient(180deg,var(--plum-deep),var(--plum));color:#ded8ec;box-shadow:inset 0 4px 0 rgba(0,0,0,.35)}
+.bub mark{background:linear-gradient(rgba(255,196,60,.75),rgba(255,196,60,.75));color:inherit;padding:0 2px;border-radius:2px}
+.hoverbar{display:flex;gap:6px;margin-top:7px}
+
+/* ---- settings ---- */
+.setlist{display:flex;flex-direction:column;gap:13px}
+.setrow{display:grid;grid-template-columns:56px 1fr;gap:12px;align-items:start}
+.setrow b{font:700 14.5px var(--body);color:var(--carve-ink)}
+.setrow div>span{display:block;font:500 12.5px/1.5 var(--body);color:#4e3d28;margin-top:2px}
+.sw .bed{width:54px;height:28px;border-radius:999px;border:3px solid var(--outline);position:relative;display:block;
+  background:#0B0718;box-shadow:inset 0 3px 0 rgba(0,0,0,.7)}
+.sw .nub{position:absolute;top:1px;left:1px;width:20px;height:20px;border-radius:50%;
+  border:2.5px solid var(--outline);background:linear-gradient(180deg,#8e879e,#5a5468);box-shadow:inset 0 2px 0 rgba(255,255,255,.3)}
+.sw.on .bed{background:linear-gradient(180deg,#2f7a4a,#1d5230)}
+.sw.on .nub{left:27px;background:linear-gradient(180deg,var(--green),#3f9a5f)}
+.kbd{display:inline-block;font:700 13px var(--body);color:#2a1c00;padding:6px 10px 7px;border-radius:6px;
+  border:2.5px solid var(--outline);background:var(--gold-lit);box-shadow:0 3px 0 var(--outline)}
+
+/* ---- research card ---- */
+.src{display:inline-block;font:400 9px var(--label);letter-spacing:.5px;padding:3px 6px;border-radius:3px;border:2px solid var(--outline)}
+.src.gh{background:#2b2342;color:#e8e0f5} .src.hn{background:var(--orange);color:#2e1200}
+.src.ax{background:#b31b1b;color:#ffe9e9} .src.rd{background:#ff6b3d;color:#2e1200}
+.find{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:start;padding:10px 0}
+.find+.find{border-top:3px solid rgba(90,60,25,.22)}
+.find .ttl{font:700 15px var(--body);color:#271c10}
+.find .bl{font:500 13px/1.5 var(--body);color:#4e3d28;margin-top:2px}
+.score{font:700 12px var(--body);color:#5a4834;white-space:nowrap}
+.repeat{display:flex;align-items:center;gap:10px;padding:7px 0}
+.repeat b{font:700 15px var(--body);color:#271c10}
+.repeat span{font:500 12.5px var(--body);color:#5a4834}
+.honest{font:italic 500 12.5px var(--body);color:#7a4a2a;background:rgba(255,128,64,.12);
+  border:2.5px dashed rgba(201,94,40,.55);border-radius:6px;padding:7px 10px;margin:8px 0 0}
+
+/* =========================================== SHEET 7 */
+.new{background:var(--orange);color:#2e1200}
+.tag{display:inline-block;font:400 9px var(--label);letter-spacing:.5px;padding:3px 6px;border-radius:3px;
+  border:2px solid var(--outline);vertical-align:2px}
+.tag.kept{background:var(--green);color:#163a24} .tag.new{background:var(--orange);color:#2e1200}
+.tag.yours{background:var(--gold-lit);color:#2a1c00}
+.two{display:flex;gap:22px;flex-wrap:wrap}
+.card{max-width:620px;width:100%}
+
+/* ---- 1 search ---- */
+.sbox{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:9px;
+  background:var(--wood-plaque);border:3px solid var(--outline);box-shadow:inset 0 4px 0 rgba(0,0,0,.7),0 1px 0 rgba(255,224,150,.2)}
+.sbox .glass{width:18px;height:18px;border-radius:50%;border:3px solid var(--gold);position:relative;flex:0 0 auto}
+.sbox .glass::after{content:"";position:absolute;width:3px;height:9px;background:var(--gold);right:-6px;bottom:-8px;transform:rotate(-45deg);border-radius:2px}
+.sbox .q{flex:1;font:600 17px var(--body);color:var(--gold-lit)}
+.sbox .q i{display:inline-block;width:2px;height:19px;background:var(--gold-lit);vertical-align:-3px;margin-left:2px;animation:blink 1s steps(2) infinite}
+@keyframes blink{50%{opacity:0}}
+.sbox .k{font:400 9.5px var(--label);color:#a08a5a;letter-spacing:1px}
+.srcs{display:flex;gap:7px;flex-wrap:wrap;margin:12px 0 4px}
+.srcs span{font:700 12.5px var(--body);padding:5px 10px;border-radius:999px;border:2.5px solid var(--outline);
+  background:var(--gold-lit);color:#2a1c00;box-shadow:0 2px 0 var(--outline)}
+.srcs span.none{background:#cdbf9f;color:#6a5a44;box-shadow:none}
+.srcs span b{font-weight:900}
+.hit{display:grid;grid-template-columns:38px 1fr auto;gap:12px;align-items:center;padding:10px 10px;border-radius:7px}
+.hit+.hit{border-top:3px solid rgba(90,60,25,.22)}
+.hit.hover{background:rgba(255,255,255,.35);box-shadow:inset 0 0 0 2.5px rgba(201,140,20,.55)}
+.hit .ttl{font:700 15px var(--body);color:#271c10}
+.hit .sn{font:500 13px/1.45 var(--body);color:#4e3d28;margin-top:2px}
+.hit .sn mark{background:linear-gradient(rgba(255,196,60,.75),rgba(255,196,60,.75));color:inherit;padding:0 2px;border-radius:2px}
+.hit .how{font:400 8.5px var(--label);letter-spacing:.5px;color:#8a6a2a;text-align:right;white-space:nowrap}
+.medal{width:34px;height:34px;border-radius:50%;border:3px solid var(--outline);display:grid;place-items:center;
+  font:400 9px var(--label);color:#2a1c08;box-shadow:inset 0 3px 0 rgba(255,255,255,.45),0 2px 0 var(--outline)}
+.m-mem{background:linear-gradient(180deg,#fff0c4,var(--gold))}
+.m-vault{background:linear-gradient(180deg,#d9c8f4,var(--plum-edge))}
+.m-talk{background:linear-gradient(180deg,#f8e8cc,#d8bf8c)}
+.m-job{background:linear-gradient(180deg,#bff2cc,var(--green))}
+.m-addon{background:linear-gradient(180deg,#ffd2b0,var(--orange))}
+.empty-src{font:italic 500 13px var(--body);color:#7a6a52;padding:6px 10px}
+
+/* ---- 2 charts ---- */
+.chart{position:relative}
+.chart svg{display:block;width:100%;height:auto;overflow:visible}
+.chart .axis{font:400 9px var(--label);fill:#8a6a2a;letter-spacing:.5px}
+.chart .lab{font:600 13px var(--body);fill:#271c10}
+.chart .val{font:700 13px var(--body);fill:#271c10}
+.chart .grid{stroke:rgba(90,60,25,.22);stroke-width:1}
+.chart .base{stroke:#5a4834;stroke-width:2}
+.chart .m{stroke:var(--outline);stroke-width:2.5;cursor:default}
+.chart .m:hover,.chart .m.on{filter:brightness(1.12)}
+.tip{position:absolute;pointer-events:none;opacity:0;transition:opacity .08s;z-index:5;
+  font:600 12.5px/1.4 var(--body);color:var(--text);background:linear-gradient(180deg,var(--plum),var(--plum-deep));
+  border:2.5px solid var(--outline);border-radius:6px;padding:6px 9px;white-space:nowrap;box-shadow:0 3px 0 var(--outline)}
+.tip b{color:var(--gold-lit)}
+.legend{display:flex;gap:16px;flex-wrap:wrap;margin:2px 0 8px}
+.legend span{display:inline-flex;align-items:center;gap:7px;font:600 13px var(--body);color:#271c10}
+.legend i{width:14px;height:14px;border-radius:3px;border:2.5px solid var(--outline)}
+.stat{display:flex;gap:12px;flex-wrap:wrap;margin:4px 0 10px}
+.stat div{flex:1;min-width:140px;padding:10px 12px;border-radius:8px;background:rgba(255,255,255,.35);border:3px solid rgba(90,60,25,.35)}
+.stat b{display:block;font:900 28px/1 var(--display);color:var(--carve-ink)}
+.stat span{display:block;font:500 12.5px var(--body);color:#5a4834;margin-top:4px}
+table.tv{width:100%;border-collapse:collapse;margin-top:8px;display:none;font:500 13.5px var(--body);color:#271c10}
+table.tv.on{display:table}
+table.tv th{font:400 9px var(--label);letter-spacing:.5px;color:#8a6a2a;text-align:left;padding:5px 6px;border-bottom:3px solid rgba(90,60,25,.35)}
+table.tv td{padding:5px 6px;border-bottom:2px solid rgba(90,60,25,.18)}
+table.tv td.n{text-align:right;font-weight:700}
+
+/* ---- 3 side by side ---- */
+.sbs{display:grid;grid-template-columns:120px 1fr 1fr;border:3px solid rgba(90,60,25,.45);border-radius:8px;overflow:hidden}
+.sbs>div{padding:9px 11px;font:500 14px/1.45 var(--body);color:#271c10;border-top:2px solid rgba(90,60,25,.2)}
+.sbs>div:nth-child(-n+3){border-top:none}
+.sbs .rh{font:400 9px var(--label);letter-spacing:.5px;color:#8a6a2a;background:rgba(90,60,25,.08);display:flex;align-items:center}
+.sbs .ch{font:700 15px var(--display);color:var(--carve-ink);background:rgba(255,255,255,.35)}
+.sbs .ch small{display:block;font:500 12px var(--body);color:#5a4834}
+.sbs .diff{background:rgba(255,196,60,.22)}
+.sbs>div+div:not(.rh){border-left:2px solid rgba(90,60,25,.2)}
+.code{font:600 13px/1.7 ui-monospace,Consolas,monospace;border-radius:8px;overflow:hidden;border:3px solid rgba(90,60,25,.45);background:rgba(255,255,255,.4)}
+.code .hd{display:grid;grid-template-columns:1fr 1fr;font:400 9px var(--label);letter-spacing:.5px;color:#8a6a2a;background:rgba(90,60,25,.1)}
+.code .hd span{padding:6px 10px}
+.code .ln{display:grid;grid-template-columns:1fr 1fr}
+.code .ln span{padding:0 10px;white-space:pre;color:#3a2a16;overflow:hidden}
+.code .ln span+span{border-left:2px solid rgba(90,60,25,.2)}
+.code .rm{background:rgba(255,90,74,.18);color:#7a2a1c !important}
+.code .ad{background:rgba(120,230,150,.28);color:#1d5230 !important}
+
+/* ---- 4 live job ---- */
+.live{border-radius:12px;overflow:hidden;border:var(--ow) solid var(--outline);max-width:760px;
+  box-shadow:0 4px 0 rgba(0,0,0,.6),0 16px 34px rgba(0,0,0,.55)}
+.live .top{display:flex;align-items:center;gap:12px;padding:12px 16px;color:var(--text);
+  background:linear-gradient(180deg,#5e3c21,var(--wood1) 50%,var(--wood2));border-bottom:3px solid var(--outline)}
+.live .top .nm{font:700 19px var(--display);color:var(--gold);text-shadow:0 2px 0 var(--outline)}
+.live .top .host{font:400 9px var(--label);letter-spacing:1px;color:var(--gold-lit);background:var(--wood-plaque);
+  padding:5px 8px;border-radius:5px;border:2.5px solid var(--outline);box-shadow:inset 0 2px 0 rgba(0,0,0,.6)}
+.live .top .clock{margin-left:auto;font:400 10px var(--label);color:#d8c9a8;letter-spacing:1px}
+.live .cols{display:grid;grid-template-columns:1.1fr 1fr;background:linear-gradient(180deg,#F0DCB4,var(--parch2));color:var(--ink-text)}
+.live .cols>div{padding:16px 18px}
+.live .cols>div+div{border-left:3px solid rgba(90,60,25,.3)}
+.check{display:flex;gap:10px;align-items:center;padding:5px 0;font:500 14.5px var(--body)}
+.check .mark{width:46px;flex:0 0 auto;font:400 10px var(--label);letter-spacing:.5px}
+.check.done{color:#4e3d28}.check.done .mark{color:#2f7a4a}
+.check.now{color:#271c10;font-weight:700}.check.now .mark{color:#9a6a0e;animation:tick .9s steps(2) infinite}
+@keyframes tick{50%{opacity:.35}}
+.check.todo{color:rgba(90,72,52,.5)} .check.todo .mark{color:rgba(90,72,52,.45)}
+.file{display:grid;grid-template-columns:58px 1fr;gap:8px;align-items:baseline;padding:4px 0;font:600 13px ui-monospace,Consolas,monospace;color:#3a2a16}
+.file .v{font:400 8.5px var(--label);letter-spacing:.5px;padding:2px 5px;border-radius:3px;border:2px solid var(--outline);text-align:center}
+.v.read{background:#e8dcc0;color:#5a4834} .v.edit{background:var(--gold);color:#2a1c00} .v.web{background:var(--plum-edge);color:#1d0b33}
+.file.fresh{animation:fresh 2s ease-out}
+@keyframes fresh{from{background:rgba(255,196,60,.5)}to{background:transparent}}
+.live .justnow{background:var(--ink);color:#c9c2da;padding:9px 16px;font:500 13px var(--body);border-top:3px solid var(--outline);display:flex;gap:10px;align-items:center}
+.live .justnow b{font:400 9px var(--label);letter-spacing:1px;color:var(--avatar,#C8E8FF)}
+.live .keysbar{background:linear-gradient(180deg,#3a2414,var(--wood2));padding:4px 16px 14px;border-top:3px solid var(--outline)}
+
+/* ---- 5 snip, grab, drop ---- */
+.screen{position:relative;height:300px;border-radius:10px;overflow:hidden;border:var(--ow) solid var(--outline);
+  background:linear-gradient(135deg,#2b3a2a,#1b2430 60%,#2a1f33)}
+.screen .dim{position:absolute;inset:0;background:rgba(7,4,15,.62)}
+.screen .err{position:absolute;left:60px;top:58px;width:330px;padding:12px 14px;border-radius:6px;background:#1d140c;
+  border:2px solid #8a6a2a;font:500 12.5px/1.5 ui-monospace,Consolas,monospace;color:#ffb38a}
+.screen .sel{position:absolute;left:48px;top:46px;width:356px;height:118px;box-shadow:0 0 0 9999px rgba(7,4,15,.62)}
+.screen .sel i{position:absolute;width:20px;height:20px;border:4px solid var(--gold)}
+.screen .sel i:nth-child(1){left:-4px;top:-4px;border-right:none;border-bottom:none}
+.screen .sel i:nth-child(2){right:-4px;top:-4px;border-left:none;border-bottom:none}
+.screen .sel i:nth-child(3){left:-4px;bottom:-4px;border-right:none;border-top:none}
+.screen .sel i:nth-child(4){right:-4px;bottom:-4px;border-left:none;border-top:none}
+.screen .sel .sz{position:absolute;right:0;top:-24px;font:400 9px var(--label);letter-spacing:1px;color:var(--gold-lit)}
+.askplate{position:absolute;left:48px;top:182px;width:420px;padding:12px 14px;border-radius:9px;
+  background:linear-gradient(180deg,#F0DCB4,var(--parch2));border:3px solid var(--outline);box-shadow:0 5px 0 rgba(0,0,0,.6)}
+.askplate .in{padding:9px 11px;border-radius:7px;background:rgba(90,60,25,.16);border:3px solid rgba(90,60,25,.5);
+  box-shadow:inset 0 3px 0 rgba(90,60,25,.25);font:500 14.5px var(--body);color:#271c10}
+.askplate .keys{margin-top:10px}
+.app{border-radius:9px;overflow:hidden;border:3px solid var(--outline);background:#fff;max-width:420px}
+.app .bar{background:#dfe3ea;padding:6px 10px;font:600 12px system-ui,Segoe UI,sans-serif;color:#444}
+.app .pg{padding:14px 16px;font:400 14.5px/1.6 Georgia,serif;color:#222}
+.app .pg .hl{background:#3d7cf0;color:#fff}
+.quote{border-left:5px solid var(--gold-deep);background:rgba(255,255,255,.4);padding:9px 12px;border-radius:0 7px 7px 0;
+  font:italic 500 14.5px/1.55 var(--body);color:#271c10}
+.from{display:inline-block;font:400 9px var(--label);letter-spacing:.5px;color:#5a4834;margin-bottom:7px}
+.droparea{display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+.pet{position:relative;width:150px;height:150px;display:grid;place-items:center}
+.pet img{width:96px;height:96px;image-rendering:pixelated;position:relative;z-index:2}
+.pet .ring{position:absolute;inset:6px;border-radius:50%;border:4px dashed #C8E8FF;
+  box-shadow:0 0 22px 6px rgba(200,232,255,.45),inset 0 0 22px rgba(200,232,255,.35);animation:spin 9s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.pet .say{position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);font:400 9px var(--label);letter-spacing:1px;
+  color:#C8E8FF;white-space:nowrap}
+.ghostfile{padding:10px 12px;border-radius:7px;background:#fff;border:3px solid var(--outline);transform:rotate(-4deg);
+  font:600 13px system-ui,Segoe UI,sans-serif;color:#333;box-shadow:0 8px 18px rgba(0,0,0,.5);opacity:.92}
+.fileplate{display:grid;grid-template-columns:42px 1fr;gap:12px;align-items:center}
+.fileplate .ic{width:40px;height:48px;border-radius:4px;border:3px solid var(--outline);background:linear-gradient(180deg,#fff,#e9dcc0);
+  display:grid;place-items:end center;padding-bottom:5px;font:400 8px var(--label);color:#b31b1b;position:relative}
+.fileplate .ic::before{content:"";position:absolute;right:-3px;top:-3px;width:12px;height:12px;background:var(--parch1);border-left:3px solid var(--outline);border-bottom:3px solid var(--outline)}
+.fileplate .nm{font:700 15px var(--body);color:#271c10}
+.fileplate .mt{font:500 12.5px var(--body);color:#5a4834}
+.no{font:600 14.5px/1.5 var(--body);color:#7a2a1c;background:rgba(255,90,74,.12);border:2.5px solid rgba(255,90,74,.5);
+  border-radius:7px;padding:9px 12px}
+.decide{border:3px dashed var(--gold-deep);border-radius:9px;padding:12px 14px;background:rgba(255,196,60,.07);max-width:740px}
+.decide b{color:var(--gold)}
+.decide p{margin:0 0 6px;font:500 13.5px/1.6 var(--body);color:#c9c2da}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>AANG &middot; FIND, CHARTS, COMPARE, WATCH, GRAB</h1>
+<p class="sub">Sheet 7. Search over everything, the three charts, two things side by side, a Claude Code job
+shown live, and the three ways to hand Aang something: snip, grab, drop.<br>FINAL AANG BUILD steps 6.17 and
+6.18. Fields come from the <b style="color:#9a90b5">real code</b>; each part says what is kept and what is new.</p>
+
+<!-- ============================================== 1 -->
+<h2 class="part">1 &middot; SEARCH OVER EVERYTHING <span class="step">6.18</span></h2>
+<p class="why">One box searches five things that today each have their own search, or none:
+<b>What I know</b> (the facts), <b>your vault</b> (all 1,188 notes, already indexed for meaning and for exact
+words), <b>conversations</b> (every turn, same two kinds of index), <b>jobs</b> and <b>addons</b>. Results come
+back grouped by where they live, so you can see at a glance which places had nothing.</p>
+
+<div class="two" style="align-items:flex-start">
+  <div class="desk card">
+    <div class="body tex">
+      <div class="sbox"><i class="glass"></i><span class="q">dbm<i></i></span><span class="k">ENTER OPENS &middot; &uarr;&darr; MOVES</span></div>
+      <div class="srcs">
+        <span><b>1</b> Addons</span><span><b>2</b> Conversations</span><span><b>1</b> Vault</span>
+        <span class="none">0 What I know</span><span class="none">0 Jobs</span>
+      </div>
+
+      <div class="rule-titled"><i class="bar"></i><span>Addons</span><i class="bar"></i></div>
+      <div class="hit hover"><span class="medal m-addon">ADD</span>
+        <div><div class="ttl">Deadly Boss Mods</div><div class="sn">Yours is 11.2.3. <mark>DBM</mark> 11.2.7 came out 6 days ago.</div></div>
+        <span class="how">BEHIND</span></div>
+
+      <div class="rule-titled"><i class="bar"></i><span>Conversations</span><i class="bar"></i></div>
+      <div class="hit"><span class="medal m-talk">YOU</span>
+        <div><div class="ttl">"is <mark>dbm</mark> out of date?"</div><div class="sn">You asked, 28 Sep. I said yes, and where to get it.</div></div>
+        <span class="how">WORDS</span></div>
+      <div class="hit"><span class="medal m-talk">AANG</span>
+        <div><div class="ttl">The raid timers talk</div><div class="sn">"...boss timers, the addon you use for that is <mark>DBM</mark>..."</div></div>
+        <span class="how">MEANING</span></div>
+
+      <div class="rule-titled"><i class="bar"></i><span>Vault</span><i class="bar"></i></div>
+      <div class="hit"><span class="medal m-vault">NOTE</span>
+        <div><div class="ttl">WoW addon list</div><div class="sn">Raid: <mark>DBM</mark>, Details!, WeakAuras. Questing: Questie.</div></div>
+        <span class="how">WORDS</span></div>
+
+      <p class="empty-src">Nothing in What I know or Jobs matches "dbm".</p>
+      <div class="keys">
+        <button class="key primary sm">Open it<span class="k">&#9166;</span></button>
+        <button class="key sm">Ask Aang about these<span class="k">A</span></button>
+      </div>
+    </div>
+  </div>
+  <div style="flex:1;min-width:250px">
+    <p class="sur"><b>The box is the recessed plaque</b> from sheet 1, so it reads as "type here", not as another
+    button. It opens with the same key in either window.</p>
+    <p class="sur"><b>The count pills</b> answer "is it anywhere?" before you read a line. A grey pill means
+    that place was searched and had nothing. Click a pill to see only that place.</p>
+    <p class="sur"><b>MEANING or WORDS</b> on the right is real: every vault and conversation hit already
+    says which index found it. Words means the exact word was there. Meaning means it was about the same thing.</p>
+    <p class="sur"><b>Searching costs nothing.</b> Both indexes are on this PC. Only "Ask Aang about these" goes
+    to a model, and the pill at the bottom of the window says which one first.</p>
+    <p class="sur"><span class="tag kept">KEPT</span> the vault and conversation search, and folders you have
+    excluded are never indexed, so they can never turn up here.
+    <span class="tag new">NEW</span> one box for all five, and searching facts, jobs and addons at all.</p>
+  </div>
+</div>
+
+<!-- ============================================== 2 -->
+<h2 class="part">2 &middot; THE THREE CHARTS <span class="step">6.18</span></h2>
+<p class="why">Three questions you actually ask: <b>where is the job hunt up to</b>, <b>how much Claude am I
+using</b>, and <b>which addons have fallen behind</b>. Each chart is drawn on the parchment, every bar has the
+black outline the rest of Aang has, and every number is written on the chart, so nothing depends on colour
+alone. Point at any bar for the exact figure. "Show as a table" swaps the picture for plain rows.</p>
+
+<div class="two" style="align-items:flex-start">
+  <div class="parch tex card">
+    <p class="t-eyebrow">JOB HUNT &middot; WHERE EACH ONE IS</p>
+    <p class="t-head">17 jobs found, 4 applied</p>
+    <div class="chart" id="c-jobs">
+      <svg viewBox="0 0 560 238" role="img" aria-label="Jobs by stage">
+        <g class="grid"><line x1="150" y1="6" x2="150" y2="226"/><line x1="250" y1="6" x2="250" y2="226"/><line x1="350" y1="6" x2="350" y2="226"/><line x1="450" y1="6" x2="450" y2="226"/></g>
+        <text class="axis" x="150" y="236" text-anchor="middle">0</text><text class="axis" x="250" y="236" text-anchor="middle">3</text>
+        <text class="axis" x="350" y="236" text-anchor="middle">6</text><text class="axis" x="450" y="236" text-anchor="middle">9</text>
+      </svg>
+      <div class="tip"></div>
+    </div>
+    <table class="tv" id="t-jobs"><tr><th>STAGE</th><th style="text-align:right">JOBS</th></tr></table>
+    <div class="keys"><button class="key sm" data-table="t-jobs">Show as a table<span class="k">T</span></button></div>
+  </div>
+  <div style="flex:1;min-width:250px">
+    <p class="sur"><b>The stages are the real six</b> from the job hunt, in the order a job moves through
+    them: New, Approved, Sent to apply, Applied. Then the two side roads.</p>
+    <p class="sur"><b>One colour, gold,</b> because these are counts of one thing. The only exception is
+    <b>Needs you</b>: orange with a "!" and its own words, because it is the one that wants something from you.
+    Skipped is grey: done with, still counted.</p>
+    <p class="sur"><b>Click a bar</b> and the Jobs tab opens on just those cards.</p>
+  </div>
+</div>
+
+<div class="two" style="align-items:flex-start;margin-top:26px">
+  <div class="parch tex card">
+    <p class="t-eyebrow">CLAUDE AND QWEN &middot; REPLIES PER WEEK</p>
+    <div class="stat">
+      <div><b>38%</b><span>of your Claude week used. Resets Monday.</span></div>
+      <div><b>40</b><span>replies from Qwen in the week of 14 Sep. They cost no quota.</span></div>
+    </div>
+    <div class="legend"><span><i style="background:#E88A6A"></i>Claude</span><span><i style="background:#966EC8"></i>Qwen</span></div>
+    <div class="chart" id="c-use">
+      <svg viewBox="0 0 560 250" role="img" aria-label="Replies per week, Claude and Qwen">
+        <g class="grid"><line x1="40" y1="20" x2="550" y2="20"/><line x1="40" y1="80" x2="550" y2="80"/><line x1="40" y1="140" x2="550" y2="140"/></g>
+        <text class="axis" x="32" y="204" text-anchor="end">0</text><text class="axis" x="32" y="144" text-anchor="end">40</text>
+        <text class="axis" x="32" y="84" text-anchor="end">80</text><text class="axis" x="32" y="24" text-anchor="end">120</text>
+      </svg>
+      <div class="tip"></div>
+    </div>
+    <table class="tv" id="t-use"><tr><th>WEEK OF</th><th style="text-align:right">CLAUDE</th><th style="text-align:right">QWEN</th></tr></table>
+    <div class="keys"><button class="key sm" data-table="t-use">Show as a table<span class="k">T</span></button></div>
+  </div>
+  <div style="flex:1;min-width:250px">
+    <p class="sur"><b>These numbers are your real ones</b>, counted from Aang's memory for this sheet: 34 Claude
+    and 40 Qwen replies the week of 14 Sep, 101 Claude the week after, 32 so far this week.</p>
+    <p class="sur"><b>Claude is its own orange and Qwen its own purple</b>, the same pair the checklist tags use.
+    The two were checked by a script for colour-blind readers and stay well apart.</p>
+    <p class="sur"><b>One scale only.</b> The 38% sits in its own box above the chart, not on a second axis,
+    because a percent and a count on one chart would mislead.</p>
+    <p class="sur"><span class="tag new">NEW</span> Today the 38% is only ever "right now"; nothing is kept. 6.18
+    saves one reading a day, so this chart can later show the percent week over week as well.</p>
+  </div>
+</div>
+
+<div class="two" style="align-items:flex-start;margin-top:26px">
+  <div class="parch tex card">
+    <p class="t-eyebrow">ADDONS &middot; HOW LONG EACH HAS BEEN BEHIND</p>
+    <p class="t-head">4 behind, 23 up to date</p>
+    <div class="chart" id="c-addons">
+      <svg viewBox="0 0 560 196" role="img" aria-label="Days each addon has been behind">
+        <g class="grid"><line x1="150" y1="6" x2="150" y2="184"/><line x1="250" y1="6" x2="250" y2="184"/><line x1="350" y1="6" x2="350" y2="184"/><line x1="450" y1="6" x2="450" y2="184"/></g>
+        <text class="axis" x="150" y="194" text-anchor="middle">0 DAYS</text><text class="axis" x="250" y="194" text-anchor="middle">15</text>
+        <text class="axis" x="350" y="194" text-anchor="middle">30</text><text class="axis" x="450" y="194" text-anchor="middle">45</text>
+      </svg>
+      <div class="tip"></div>
+    </div>
+    <table class="tv" id="t-addons"><tr><th>ADDON</th><th>YOURS</th><th>NEWEST</th><th style="text-align:right">DAYS</th></tr></table>
+    <div class="keys"><button class="key sm" data-table="t-addons">Show as a table<span class="k">T</span></button>
+      <button class="key sm">Open CurseForge<span class="k">O</span></button></div>
+  </div>
+  <div style="flex:1;min-width:250px">
+    <p class="sur"><b>Longest behind at the top.</b> Each bar is how many days ago the newer version came out,
+    which is what the addon check already works out from CurseForge's release date.</p>
+    <p class="sur"><b>Your version and the newest</b> show when you point at a bar, or all at once in the
+    table.</p>
+    <p class="sur"><b>Aang does not update addons.</b> The button opens CurseForge. Example addons; your real list
+    comes from the WoW folder.</p>
+  </div>
+</div>
+
+<!-- ============================================== 3 -->
+<h2 class="part">3 &middot; TWO THINGS SIDE BY SIDE <span class="step">6.18</span></h2>
+<p class="why">Two jobs, or a file before and after a change. <b>Rows that differ are lit gold</b>; rows that
+match stay plain, so your eye goes to what is different. <b>Aang does not pick a winner.</b> He lays it out;
+you decide.</p>
+
+<div class="two" style="align-items:flex-start">
+  <div class="parch tex card">
+    <p class="t-eyebrow">TWO JOBS</p>
+    <div class="sbs">
+      <div class="rh"></div>
+      <div class="ch">Product Manager<small>Octup</small></div>
+      <div class="ch">Product Manager<small>Northwind</small></div>
+      <div class="rh">MATCH</div><div class="diff"><b>82</b> out of 100</div><div class="diff"><b>71</b> out of 100</div>
+      <div class="rh">AANG SAID</div><div>Apply</div><div>Apply</div>
+      <div class="rh">WHY</div><div class="diff">Remote, and the role asks for the work you did on game tools.</div>
+        <div class="diff">Strong team, but three days a week in the office.</div>
+      <div class="rh">PAY</div><div class="diff">Not in the posting</div><div class="diff">$95k to $110k</div>
+      <div class="rh">STAGE</div><div>Applied</div><div>Applied</div>
+      <div class="rh">FOUND</div><div class="diff">22 Sep</div><div class="diff">29 Sep</div>
+    </div>
+    <div class="keys"><button class="key sm">Open both postings<span class="k">O</span></button>
+      <button class="key sm">Swap one out<span class="k">S</span></button></div>
+  </div>
+  <div style="flex:1;min-width:250px">
+    <p class="sur"><b>The rows are the job card's own fields:</b> the match score, what Aang said, his reason,
+    the stage and the date found. Pay shows only when the posting says it; "Not in the posting" is said plainly
+    rather than left blank.</p>
+    <p class="sur"><b>To start one:</b> tick two cards on the Jobs tab, or say "compare these two".</p>
+  </div>
+</div>
+
+<div class="two" style="align-items:flex-start;margin-top:26px">
+  <div class="parch tex card">
+    <p class="t-eyebrow">A FILE, BEFORE AND AFTER &middot; 10_Projects/Aang/raid-night.md</p>
+    <div class="code">
+      <div class="hd"><span>BEFORE &middot; 2 OCT 9:14 PM</span><span>AFTER</span></div>
+      <div class="ln"><span># Raid night</span><span># Raid night</span></div>
+      <div class="ln"><span class="rm">Saturday, 8 PM</span><span class="ad">Saturday, 7 PM</span></div>
+      <div class="ln"><span>Bring flasks and food</span><span>Bring flasks and food</span></div>
+      <div class="ln"><span></span><span class="ad">Update DBM first</span></div>
+    </div>
+    <div class="keys"><button class="key sm">Put it back<span class="k">Z</span></button>
+      <button class="key sm">Open the file<span class="k">O</span></button></div>
+  </div>
+  <div style="flex:1;min-width:250px">
+    <p class="sur"><b>Before is the undo copy</b> Aang already keeps of every file he changes. This only shows
+    it. Red is what went, green is what came in.</p>
+    <p class="sur"><b>"Put it back"</b> is the undo that exists today, given a button.</p>
+    <p class="sur"><span class="tag kept">KEPT</span> undo copies and undo. <span class="tag new">NEW</span> seeing the two side by side.</p>
+  </div>
+</div>
+
+<!-- ============================================== 4 -->
+<h2 class="part">4 &middot; A CLAUDE CODE JOB, LIVE <span class="step">6.18</span></h2>
+<p class="why">Today a running job is a glow and one line: "job hunt, working". You asked to run a job search
+and "could not tell it was doing anything". This window is that job opened up: <b>the steps</b>, ticked as
+they finish, and <b>every file and page it touches</b>, as it touches them. Click the glowing Aang, or the job
+in What I did, and this opens.</p>
+
+<div class="live">
+  <div class="top"><span class="nm">Job hunt</span><span class="host">ON THIS PC</span><span class="clock">WORKING &middot; 4 MIN 12 S</span></div>
+  <div class="cols">
+    <div>
+      <p class="t-eyebrow">STEPS</p>
+      <div class="check done"><span class="mark">DONE</span><span>Read your job search notes</span></div>
+      <div class="check done"><span class="mark">DONE</span><span>Searched three job boards</span></div>
+      <div class="check now"><span class="mark">NOW</span><span>Scoring 6 new postings</span></div>
+      <div class="check todo"><span class="mark">NEXT</span><span>Making the job cards</span></div>
+      <div class="check todo"><span class="mark">NEXT</span><span>Telling you</span></div>
+    </div>
+    <div>
+      <p class="t-eyebrow">WHAT IT HAS TOUCHED</p>
+      <div class="file"><span class="v read">READ</span><span>Brain/job-search.md</span></div>
+      <div class="file"><span class="v read">READ</span><span>Brain/profile.md</span></div>
+      <div class="file"><span class="v web">PAGE</span><span>linkedin.com/jobs</span></div>
+      <div class="file"><span class="v web">PAGE</span><span>indeed.com</span></div>
+      <div class="file"><span class="v web">PAGE</span><span>wellfound.com</span></div>
+      <div class="file fresh"><span class="v edit">EDIT</span><span>jobs.json</span></div>
+    </div>
+  </div>
+  <div class="justnow"><b>JUST NOW</b><span>Octup, Product Manager: 82, apply.</span></div>
+  <div class="keysbar"><div class="keys">
+    <button class="key sm">Stop<span class="k">Esc</span></button>
+    <button class="key sm">Open the terminal<span class="k">X</span></button>
+    <button class="key sm">Hide this<span class="k">H</span></button>
+  </div></div>
+</div>
+
+<div class="two" style="margin-top:18px">
+  <div style="flex:1;min-width:250px">
+    <p class="sur"><b>READ, EDIT and PAGE</b> are the three kinds of thing a job touches. EDIT is gold because
+    that is the one that changes something; the newest line glows for a moment as it arrives.</p>
+    <p class="sur"><b>ON THIS PC or ON THE MACBOOK</b> in the plaque, the same thing the glow already knows. A job
+    on the MacBook opens its terminal there.</p>
+    <p class="sur"><b>When it needs you</b>, nothing new: the halo and the ask from sheet 5 appear, and this
+    window shows the same question at the top.</p>
+  </div>
+  <div style="flex:1;min-width:250px">
+    <p class="sur"><span class="tag kept">KEPT</span> the glow, the job's name in your words, where it is running,
+    and "waiting on you". These come from the three hooks Claude Code already sends.</p>
+    <p class="sur"><span class="tag new">NEW</span> the steps and the files. Claude Code does not send those
+    today. Two more hooks are needed, one before and one after each thing it does, using the same one-line
+    install as the three already there. The window only reads; it cannot change the job.</p>
+  </div>
+</div>
+
+<!-- ============================================== 5 -->
+<h2 class="part">5 &middot; SNIP, GRAB, DROP <span class="step">6.17</span></h2>
+<p class="why">Three ways to hand Aang something without typing it out: <b>snip</b> part of the screen, <b>grab</b>
+text you have highlighted in any app, or <b>drop</b> a file on him. Whatever you hand him is treated as
+something to read, never as orders. If a web page you grab says "ignore your rules", Aang reads that as text
+on a page.</p>
+
+<h3 class="sur">Snip: drag a box, then ask</h3>
+<div class="two" style="align-items:flex-start">
+  <div class="card" style="max-width:520px">
+    <div class="screen">
+      <div class="err">Interface\AddOns\Questie\Modules\<br>QuestieTracker.lua:812: attempt to<br>index field 'quest' (a nil value)</div>
+      <div class="sel"><i></i><i></i><i></i><i></i><span class="sz">356 &times; 118</span></div>
+      <div class="askplate">
+        <div class="in">What is this error and is it my fault?</div>
+        <div class="keys">
+          <button class="key primary sm">Ask<span class="k">&#9166;</span></button>
+          <button class="key sm">Copy the picture<span class="k">C</span></button>
+          <button class="key sm">Cancel<span class="k">Esc</span></button>
+          <span class="chip claude">CLAUDE</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div style="flex:1;min-width:250px">
+    <p class="sur"><b>The screen dims and you drag a box.</b> Gold corners show what will be sent, with its size.
+    Nothing outside the box goes anywhere.</p>
+    <p class="sur"><b>The CLAUDE chip says where it goes</b> before you press Ask. A picture goes to Claude and
+    costs quota. The snip is not saved unless you press Copy.</p>
+    <p class="sur"><b>On this PC, protected video snips black.</b> Netflix, Prime and the rest come out as an empty
+    black box (you found that on 4 Oct). Aang says so rather than guessing at a black picture.</p>
+  </div>
+</div>
+
+<h3 class="sur" style="margin-top:26px">Grab: highlight text anywhere, press the key</h3>
+<div class="two" style="align-items:flex-start">
+  <div style="display:flex;flex-direction:column;gap:14px;max-width:440px;width:100%">
+    <div class="app"><div class="bar">Chrome &middot; mail.google.com</div>
+      <div class="pg">Thanks for applying. <span class="hl">We would like to set up a 30 minute call with the hiring
+      manager next week. Please reply with three times that work for you.</span></div></div>
+    <div class="parch tex">
+      <span class="from">GRABBED FROM CHROME &middot; READ, NOT OBEYED</span>
+      <div class="quote">We would like to set up a 30 minute call with the hiring manager next week. Please reply
+      with three times that work for you.</div>
+      <div class="keys">
+        <button class="key primary sm">Draft a reply<span class="k">R</span></button>
+        <button class="key sm">Explain it<span class="k">E</span></button>
+        <button class="key sm">Remember this<span class="k">M</span></button>
+        <button class="key sm">Ask about it<span class="k">A</span></button>
+      </div>
+    </div>
+  </div>
+  <div style="flex:1;min-width:250px">
+    <p class="sur"><b>Highlight, press the grab key, and the words land in a card</b> with where they came from
+    on top. You never copy and paste.</p>
+    <p class="sur"><b>"Draft a reply" makes a draft</b>, the same draft card as sheet 6. Nothing is sent.
+    "Remember this" goes through the usual "remember?" ask first.</p>
+    <p class="sur"><span class="tag kept">KEPT</span> the reader that already pulls the words out of the window in
+    front of you, in its own process so a crash in another app cannot take Aang down.
+    <span class="tag new">NEW</span> asking it for just the highlighted part. If an app will not say, Aang copies,
+    reads, then puts your clipboard back as it was.</p>
+  </div>
+</div>
+
+<h3 class="sur" style="margin-top:26px">Drop: drag a file onto Aang</h3>
+<div class="two" style="align-items:flex-start">
+  <div style="display:flex;flex-direction:column;gap:16px;max-width:460px;width:100%">
+    <div class="droparea">
+      <div class="ghostfile">Octup offer.pdf</div>
+      <div class="pet"><i class="ring"></i><img src="data:image/png;base64,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" alt="Aang"><span class="say">DROP IT ON ME</span></div>
+    </div>
+    <div class="parch tex">
+      <div class="fileplate"><span class="ic">PDF</span>
+        <div><div class="nm">Octup offer.pdf</div><div class="mt">212 KB &middot; from Downloads</div></div></div>
+      <div class="keys">
+        <button class="key primary sm">Sum it up<span class="k">S</span></button>
+        <button class="key sm">Ask about it<span class="k">A</span></button>
+        <button class="key sm">Put a copy in my vault folder<span class="k">V</span></button>
+        <span class="chip qwen">QWEN</span>
+      </div>
+    </div>
+    <div class="parch tex">
+      <div class="fileplate"><span class="ic">ENV</span>
+        <div><div class="nm">.env</div><div class="mt">1 KB &middot; from a project folder</div></div></div>
+      <p class="no" style="margin:12px 0 0">I won't open that: a .env file holds keys and passwords.</p>
+    </div>
+  </div>
+  <div style="flex:1;min-width:250px">
+    <p class="sur"><b>Drag a file near him and the ring lights</b> in his own pale blue glow, so you know he will
+    take it.</p>
+    <p class="sur"><b>Then a card asks what to do with it.</b> Nothing happens on the drop alone. "Sum it up"
+    starts on Qwen, and the chip says so.</p>
+    <p class="sur"><b>The vault copy goes only to Aang's own folder</b> in your vault, the one place there he may
+    write.</p>
+    <p class="sur"><b>The refusals are the real ones</b> Aang already gives: keys and passwords, browser profiles,
+    his own memory file, and anything that belongs to someone else. They are said plainly, in red, with no button to
+    override.</p>
+    <p class="sur"><span class="tag kept">KEPT</span> every refusal and the vault rule. <span class="tag new">NEW</span>
+    the drop itself. Programs are never run: a dropped .exe gets "I won't run programs. I can tell you what it is."</p>
+  </div>
+</div>
+
+<div class="decide" style="margin-top:24px">
+  <p><b>YOUR CALL: the snip and grab keys.</b> A key Aang claims stops working in WoW, the way Ctrl+Plus already
+  does. Proposed: <b>Ctrl+Shift+Plus</b> to snip and <b>Ctrl+Alt+Plus</b> to grab, both beside the hide-and-show key
+  you already chose and unlikely to be bound in WoW. Changed in Settings with the same "press the keys" box as today.</p>
+</div>
+
+</div>
+
+<script>
+// Mockup only: draws the three charts from small data tables, with a hover tip and a table view.
+const NS='http://www.w3.org/2000/svg';
+function el(tag,attrs,parent){const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);parent&&parent.appendChild(e);return e}
+function tipper(box){const tip=box.querySelector('.tip');return{show(ev,html){tip.innerHTML=html;tip.style.opacity=1;
+  const r=box.getBoundingClientRect();let x=ev.clientX-r.left+12,y=ev.clientY-r.top-34;if(x+tip.offsetWidth>r.width)x=r.width-tip.offsetWidth;tip.style.left=x+'px';tip.style.top=y+'px'},
+  hide(){tip.style.opacity=0}}}
+function row(t,cells){const tr=document.createElement('tr');cells.forEach((c,i)=>{const td=document.createElement('td');td.textContent=c;if(typeof c==='number')td.className='n';tr.appendChild(td)});t.appendChild(tr)}
+
+// 1 jobs by stage, one hue; Needs you is status orange with an icon and its own words
+(()=>{const data=[['New',6,'#FFC43C'],['Approved',2,'#FFC43C'],['Sent to apply',1,'#FFC43C'],['Applied',4,'#FFC43C'],['! Needs you',1,'#FF8040'],['Skipped',9,'#BFAE8A']];
+ const box=document.getElementById('c-jobs'),svg=box.querySelector('svg'),T=tipper(box),sx=v=>v*100/3;
+ data.forEach(([n,v,c],i)=>{const y=10+i*36;el('text',{class:'lab',x:140,y:y+18,'text-anchor':'end'},svg).textContent=n;
+  const r=el('rect',{class:'m',x:150,y,width:Math.max(sx(v),4),height:24,rx:4,fill:c},svg);
+  el('text',{class:'val',x:150+sx(v)+8,y:y+17},svg).textContent=v;
+  r.addEventListener('mousemove',e=>T.show(e,`<b>${n.replace('! ','')}</b> &middot; ${v} job${v>1?'s':''}`));r.addEventListener('mouseleave',T.hide);
+  row(document.getElementById('t-jobs'),[n.replace('! ',''),v])});
+ el('line',{class:'base',x1:150,y1:4,x2:150,y2:226},svg)})();
+
+// 2 replies per week, stacked Claude + Qwen, real counts from aang.db
+(()=>{const data=[['14 Sep',34,40],['21 Sep',101,0],['28 Sep',32,0]];
+ const box=document.getElementById('c-use'),svg=box.querySelector('svg'),T=tipper(box),sy=v=>v*1.5,base=200;
+ data.forEach(([w,c,q],i)=>{const x=90+i*160,bw=70;
+  let top=base;const segs=[['Claude',c,'#E88A6A'],['Qwen',q,'#966EC8']];
+  segs.forEach(([who,v,col])=>{if(!v)return;const h=sy(v);const r=el('rect',{class:'m',x,y:top-h,width:bw,height:h-2,rx:4,fill:col},svg);
+   r.addEventListener('mousemove',e=>T.show(e,`<b>${who}</b>, week of ${w} &middot; ${v} replies`));r.addEventListener('mouseleave',T.hide);top-=h});
+  el('text',{class:'val',x:x+bw/2,y:top-8,'text-anchor':'middle'},svg).textContent=c+q;
+  el('text',{class:'axis',x:x+bw/2,y:218,'text-anchor':'middle'},svg).textContent=w.toUpperCase()+(i===2?' (NOW)':'');
+  row(document.getElementById('t-use'),[w,c,q])});
+ el('text',{class:'lab',x:90+70+8,y:base-sy(34)-sy(40)/2+4},svg).textContent='Qwen 40';
+ el('text',{class:'lab',x:90+70+8,y:base-sy(34)/2+4},svg).textContent='Claude 34';
+ el('line',{class:'base',x1:40,y1:base,x2:550,y2:base},svg)})();
+
+// 3 addon drift, one hue, longest first
+(()=>{const data=[['Questie','10.4.1','10.6.0',41],['Details!','2.1.9','2.2.3',18],['Deadly Boss Mods','11.2.3','11.2.7',6],['WeakAuras','5.19.1','5.19.2',2]];
+ const box=document.getElementById('c-addons'),svg=box.querySelector('svg'),T=tipper(box),sx=v=>v*100/15;
+ data.forEach(([n,a,b,d],i)=>{const y=12+i*42;el('text',{class:'lab',x:140,y:y+19,'text-anchor':'end'},svg).textContent=n;
+  const r=el('rect',{class:'m',x:150,y,width:sx(d),height:26,rx:4,fill:'#FFC43C'},svg);
+  el('text',{class:'val',x:150+sx(d)+8,y:y+18},svg).textContent=d+(d===1?' day':' days');
+  r.addEventListener('mousemove',e=>T.show(e,`<b>${n}</b> &middot; yours ${a}, newest ${b}`));r.addEventListener('mouseleave',T.hide);
+  row(document.getElementById('t-addons'),[n,a,b,d])});
+ el('line',{class:'base',x1:150,y1:4,x2:150,y2:184},svg)})();
+
+document.querySelectorAll('[data-table]').forEach(b=>b.addEventListener('click',()=>{
+  const t=document.getElementById(b.dataset.table),on=t.classList.toggle('on');
+  t.previousElementSibling.style.display=on?'none':'';b.firstChild.textContent=on?'Show as a chart':'Show as a table'}));
+</script>
+</body>
+</html>
