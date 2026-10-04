@@ -183,6 +183,7 @@ assumed, and applied when slicing.
 | 3. A page scrolling | 21.5% | 35.9% | 0% | 2.5% | 349 MB |
 | 4. YouTube, see-through, on top | 21.9% | **47.4%** | 1.9% | 2.1% | 636 MB |
 | 5. Widevine, castLabs, hw accel off | 22.2% | 26.8% | 0% | 2.3% | 549 MB |
+| 4b. Run 4 again, **Instant Replay on** | 20.1% | 51.3% | 2.8% | 2.9% | 651 MB |
 
 ## How evenly WoW's frames arrived
 
@@ -196,6 +197,7 @@ outright hitches.
 | 3. Scrolling | 7,250 | 59.9 | 43.8 | 40.7 | 26.3 ms | **0** |
 | 4. Video over WoW | 6,738 | 60.2 | 43.5 | 39.3 | 37.5 ms | **0** |
 | 5. DRM over WoW | 6,684 | 59.7 | 43.2 | 36.8 | 202.4 ms | 4 |
+| 4b. Video + Instant Replay | 6,713 | 59.9 | 43.2 | 39.8 | **27.8 ms** | **0** |
 
 **Runs 2, 3 and 4 are indistinguishable from the baseline.** Every difference is a few tenths of a
 frame per second on the 1% low, which is less than the gap between the two baseline runs. Not one
@@ -204,6 +206,17 @@ hitch over 50 ms in six minutes of play with a window open, a page scrolling, an
 **Run 5's four hitches all landed inside the same single second**, 14 s into the run, then 106 s ran
 clean. That is the moment protected playback starts, not a cost that continues. It cost one visible
 stumble of about a fifth of a second.
+
+**NVIDIA Instant Replay changes nothing here, and the research expected it to.** Run 4 was repeated
+with Instant Replay armed. It is plainly running: GPU encoding goes from 4.3% to **19.9%**, on top of
+what Shadow already spends encoding his screen for the MacBook, and total GPU reaches **71%**, the
+highest of any run. WoW's own CPU did not move (20.1%), and frame pacing came out **identical with zero
+hitches** and a worst frame of 27.8 ms, better than the baseline's own 36.6 ms. Three things competing
+for the same video hardware (Instant Replay recording, Shadow streaming, a transparent window
+compositing) cost nothing measurable.
+
+*(The registry value `DVREnabled` under `NVSPCAPS` stays unset when Instant Replay is on, so it is not
+a usable check. The encoder jumping to 19.9% is the proof it was armed.)*
 
 **His verdict, which is half the pass mark:** with the see-through video window on top, "same as
 always", game and video both. On the DRM run, "everything looks great", and the picture was visible
@@ -240,10 +253,6 @@ processor instead of the GPU came to 2.3%, about the same as YouTube decoding on
 - **The test clip was small.** Run 5 used a public Shaka Widevine demo asset, not a 1080p Netflix or
   Prime stream. Decoding on the main processor gets more expensive with resolution, so 2.3% is a floor,
   not the number for real anime at full size. **Re-measure in 6.3 with a real stream.**
-- **NVIDIA Instant Replay was not tested both ways.** The plan asked for run 4 with it on and off. The
-  NVIDIA background processes are running on this PC but whether Instant Replay itself is armed was not
-  confirmed, so this is still owed. Given runs 2 to 4 produced zero hitches as they stand, it is a
-  check, not a risk.
 - **One scene, one character, two minutes a run.** A 20-player raid pull may behave differently than
   what he was doing.
 - **The see-through cost was measured on a machine with headroom.** Total GPU peaked at 70% of a card
