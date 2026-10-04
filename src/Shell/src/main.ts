@@ -228,6 +228,9 @@ app.whenReady().then(async () => {
     // the same thing at once is worse than one old one. It is not something to discover mid-raid.
     if (wantsNewBubble()) {
       bubble = new Bubble({ origin: pages.origin, preloadPath: path.join(HERE, 'preload.cjs') });
+      // Built now, hidden, so the page is loaded and listening before anything is said. Waiting for
+      // the first message would mean loading a page and sending to it in the same instant.
+      bubble.window();
       console.log('shell: the new bubble is on (AANG_NEW_BUBBLE=1)');
     }
 
@@ -340,6 +343,7 @@ app.whenReady().then(async () => {
   });
   // Another page of his own history. `before` is a row id, so there is no limit: every time he reaches
   // the top it asks for the ones older than the oldest it has, until the database runs out.
+  ipcMain.on('bubble:clickable', (e, on) => { if (fromBubble(e)) bubble?.setClickable(on === true); });
   ipcMain.on('bubble:older', (e, a) => {
     if (!fromBubble(e)) return;
     const before = Number(a?.before);
@@ -374,13 +378,25 @@ app.whenReady().then(async () => {
   });
 
   link.start();
-  // AANG_SHELL_PAGE lets the look driver (tests/fakecore/look-shell.mjs) open any page for a picture.
-  // Ignored in normal use: there is only one page today, and later windows are opened by the brain.
-  const first = process.env.AANG_SHELL_PAGE ?? 'hello.html';
-  open(first.replace(/\.html$/, ''), first, { width: 460, height: 360 });
+  // NOTHING IS OPENED ON STARTUP.
+  //
+  // This used to open hello.html, a placeholder saying "the window layer, nothing is drawn here yet".
+  // On 2026-10-04 a screenshot of his actual desktop showed what that meant in practice: a 460x360
+  // window sitting over his Discord conversation, thrown up again on every restart, and Aang restarts
+  // several times a day. He described the result as glitchy and said nothing made sense, and he was
+  // right - it was a window in his face that he had never asked for.
+  //
+  // The lesson is bigger than the window: every check of this program had been done in a browser tab,
+  // where a window cannot cover anything, so this was invisible to all of it.
+  //
+  // The Shell is a thing that waits. The brain opens its windows when there is something to show.
+  // AANG_SHELL_PAGE is still honoured, for the look driver (tests/fakecore/look-shell.mjs) and for
+  // looking at a page by hand.
+  const first = process.env.AANG_SHELL_PAGE;
+  if (first) open(first.replace(/\.html$/, ''), first, { width: 460, height: 360 });
 
   // macOS only, and Aang does not run there, but Electron complains without it.
-  app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) open('hello', 'hello.html'); });
+  app.on('activate', () => { /* nothing to reopen: the Shell shows a window only when asked */ });
 });
 
 // The tray owns the lifetime, not the last window: closing a window must not kill the Shell, because
