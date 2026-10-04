@@ -9,11 +9,15 @@
 // A crash in here must never take the pet or the brain with it. It is its own process, supervised from
 // the tray, and it holds nothing the others need.
 import { app, BrowserWindow, Menu, ipcMain, session } from 'electron';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { CoreLink } from './link.ts';
 import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown, wrongSettings } from './safety.ts';
 import { snapshotOnce } from './snapshot.ts';
+import { servePages, type PageServer } from './pageserver.ts';
+import { Popout, popoutFile } from './popout.ts';
+import type { Box } from './geometry.ts';
 
 const PORT = Number(process.env.AANG_PORT ?? 47831);
 const STATE_DIR = process.env.AANG_STATE_DIR
@@ -33,10 +37,36 @@ if (!app.requestSingleInstanceLock()) {
 /** Every window this Shell has open, by kind, so the brain's messages reach the right one. */
 const windows = new Map<string, BrowserWindow>();
 
+/** The pop-out's size and place, remembered between runs. His rule: "your size wins." */
+function rememberedBox(): Box | null {
+  try {
+    const f = popoutFile(STATE_DIR);
+    if (!existsSync(f)) return null;
+    const j = JSON.parse(readFileSync(f, 'utf8'));
+    const ok = ['x', 'y', 'width', 'height'].every(k => Number.isFinite(j?.[k]));
+    return ok ? { x: j.x, y: j.y, width: j.width, height: j.height } : null;
+  } catch { return null; }
+}
+function rememberBox(box: Box): void {
+  try { writeFileSync(popoutFile(STATE_DIR), JSON.stringify(box)); }
+  catch (e) { console.error('shell: could not remember the pop-out size: ' + (e as Error).message); }
+}
+
+let pages: PageServer | null = null;
+let popout: Popout | null = null;
+
 const link = new CoreLink({
   port: PORT,
   stateDir: STATE_DIR,
-  onMessage: m => { for (const w of windows.values()) if (!w.isDestroyed()) w.webContents.send('brain:message', m); },
+  onMessage: m => {
+    // "Put X on": the one message the pop-out answers to. Everything else is passed to the windows.
+    if (m.t === 'popout.open' && typeof m.url === 'string') {
+      if (!popout?.open(m.url)) console.error(`shell: nothing playable in ${String(m.url).slice(0, 80)}`);
+      return;
+    }
+    if (m.t === 'popout.close') { popout?.close(); return; }
+    for (const w of windows.values()) if (!w.isDestroyed()) w.webContents.send('brain:message', m);
+  },
   onConnected: up => { for (const w of windows.values()) if (!w.isDestroyed()) w.webContents.send('brain:connected', up); },
 });
 
@@ -80,7 +110,7 @@ function open(kind: string, page: string, opts: Electron.BrowserWindowConstructo
   return win;
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   // No Electron menu bar. Aang's windows are his own look, and File/Edit/View is not it. It also
   // removes the built-in reload and developer-tools shortcuts from every window he draws.
   Menu.setApplicationMenu(null);
@@ -101,6 +131,24 @@ app.whenReady().then(() => {
     return 'unknown';
   });
 
+  // The pop-out's page is served over http rather than loaded from disk: a YouTube embed from a
+  // file:// page fails with Error 153 (tested 2026-10-04).
+  try {
+    pages = await servePages(path.join(HERE, '..', 'pages'));
+    popout = new Popout({
+      pages,
+      preloadPath: path.join(HERE, 'preload.cjs'),
+      remembered: rememberedBox,
+      remember: rememberBox,
+    });
+    console.log(`shell: pages on ${pages.origin}`);
+  } catch (e) {
+    console.error('shell: the page server would not start, so the pop-out is unavailable: ' + (e as Error).message);
+  }
+
+  ipcMain.on('popout:hide', e => { if (fromPopout(e)) popout?.toggleHidden(); });
+  ipcMain.on('popout:close', e => { if (fromPopout(e)) popout?.close(); });
+
   link.start();
   // AANG_SHELL_PAGE lets the look driver (tests/fakecore/look-shell.mjs) open any page for a picture.
   // Ignored in normal use: there is only one page today, and later windows are opened by the brain.
@@ -115,7 +163,13 @@ app.whenReady().then(() => {
 // the pop-out and the bubble come and go while Aang stays running.
 app.on('window-all-closed', () => { /* deliberately nothing */ });
 
-app.on('before-quit', () => link.stop());
+/** A message is only acted on if it really came from the pop-out's own page. */
+function fromPopout(e: Electron.IpcMainEvent): boolean {
+  const w = popout?.window;
+  return Boolean(w && e.sender === w.webContents);
+}
+
+app.on('before-quit', () => { link.stop(); popout?.close(); pages?.close(); });
 
 // Nothing a page does may take the Shell down silently.
 process.on('uncaughtException', e => console.error('shell: uncaught: ' + (e as Error).message));
