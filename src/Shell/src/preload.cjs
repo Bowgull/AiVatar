@@ -48,6 +48,14 @@ contextBridge.exposeInMainWorld('aang', {
   /** Playback started, paused or ran out, so the brain can tick the episode off (step 6.8). Sent only
    *  on a change: there is no heartbeat here and there must not be one. */
   popoutPlayback: s => ipcRenderer.send('popout:playback', s),
+
+  // --- the bubble (step 6.12). Named doors, like everything else here.
+  /** Put a finished reply on his clipboard. The page sends the WHOLE message, never what is on screen. */
+  copyText: text => ipcRenderer.send('bubble:copy', text),
+  /** Rate the reply: 1 good, -1 not good, 0 taking it back. */
+  rate: r => ipcRenderer.send('bubble:rate', r),
+  /** How big the drawn bubble actually is, measured by the page, so the window can fit it. */
+  bubbleSize: s => ipcRenderer.send('bubble:size', s),
   /** Where the openings, endings and sponsor bits are in what is playing. */
   onPopoutSegments(fn) {
     const h = (_e, list) => fn(list);
