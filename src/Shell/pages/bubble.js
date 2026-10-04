@@ -55,7 +55,9 @@ function reportSize() {
   const r = bubble.getBoundingClientRect();
   // Round up: a half pixel short clips the frame's bottom edge.
   const width = Math.ceil(r.width) + 12;      // the margins either side
-  const height = Math.ceil(r.height) + 24;    // and room under it for the tail
+  // Room under it for the tail, and ABOVE it for the copy and rate keys, which straddle its top edge.
+  // Without the top room they sat outside the window and could never be seen (first sweep, 2026-10-04).
+  const height = Math.ceil(r.height) + 24 + 18;
   const key = width + 'x' + height;
   if (key === lastSize) return;               // resizing a window is not free
   lastSize = key;
@@ -93,7 +95,11 @@ function paintChips() {
 function paint() {
   said.textContent = reveal.text;
   // Over one line of text, the bubble widens, which is what BubbleView does at WideAfterLines = 1.
-  bubble.classList.toggle('wide', lineCount() > 1);
+  // Wide is decided ONCE per reply, measured at the narrow width, and never undone - BubbleView.Show:
+  // `if (!Wide) Wide = Wrap(t).Count > WideAfterLines; // measured at the narrow width`. Toggling it
+  // both ways made it flip: two lines narrow -> go wide -> one line wide -> go narrow -> ... and it
+  // settled sized for the wrong number of lines, cutting the second line off (sweep, 2026-10-04).
+  if (!bubble.classList.contains('wide') && lineCount() > 1) bubble.classList.add('wide');
   fit();
   reportSize();
   // Copy and rate are for a FINISHED reply only: offering to copy half a sentence is a trap.
@@ -106,11 +112,37 @@ function paint() {
 let ticking = null;
 function startTicking() {
   if (ticking) return;
+  clearTimeout(hideTimer);
   ticking = setInterval(() => {
     reveal.tick();
     paint();
-    if (reveal.done) { clearInterval(ticking); ticking = null; }
+    if (reveal.done) { clearInterval(ticking); ticking = null; scheduleHide(); }
   }, TICK_MS);
+}
+
+// ---------------------------------------------------------------- going away
+// The first real sweep (2026-10-04) showed a reply still on screen 43 seconds later, and the reply before
+// it still there at the start of the next run: this bubble had no way to leave. Ported from the old one:
+//   PetWindow.ShowBubble   hold = clamp(2500 + 45 x characters, 3000, 20000) ms
+//   BubbleView.SetHold     a reply long enough to collapse waits at least 60 s - "nothing turns the page
+//                          for the reader"
+// and, as in the old one, never while the mouse is on it, and never while it is asking him something.
+let hideTimer = 0;
+function holdFor(text) {
+  const base = Math.min(20000, Math.max(3000, 2500 + 45 * text.length));
+  return lineCount() > 6 ? Math.max(base, 60000) : base;
+}
+function scheduleHide() {
+  clearTimeout(hideTimer);
+  if (bubble.hidden || asking || !reveal.done || !reveal.whole || overNow || reading) return;
+  hideTimer = setTimeout(goAway, holdFor(reveal.whole));
+}
+function goAway() {
+  if (asking || overNow) return;
+  bubble.hidden = true;
+  releaseMouse();
+  // The WINDOW goes too: a hidden page in a shown window is still a window on his desktop.
+  window.aang?.bubbleHidden?.();
 }
 
 function show() {
@@ -231,7 +263,7 @@ window.aang?.onMessage?.(m => {
     // whole text each time, not a delta, so this is a replace either way - the Reveal decides the pace.
     const same = m.stream && reveal.whole && m.text.startsWith(reveal.whole.slice(0, 12));
     if (same) reveal.append(m.text, m.stream === true);
-    else { reveal.start(m.text, m.stream === true); expanded = false; rating = 0; setRating(); }
+    else { reveal.start(m.text, m.stream === true); expanded = false; rating = 0; setRating(); bubble.classList.remove('wide'); }
     turn = typeof m.turn === 'number' ? m.turn : null;
     who.textContent = typeof m.who === 'string' ? m.who : '';
     working.hidden = true;
@@ -335,24 +367,39 @@ let overNow = false;
 function overBubble(x, y) {
   if (bubble.hidden) return false;
   const r = bubble.getBoundingClientRect();
-  const near = x >= r.left - 2 && x <= r.right + 2 && y >= r.top - 2 && y <= r.bottom + 2;
+  // The keys sit on the top edge, so "near" reaches up far enough to include them.
+  const near = x >= r.left - 2 && x <= r.right + 2 && y >= r.top - 18 && y <= r.bottom + 2;
   const menu = document.getElementById('turnmenu');
   if (!near && !menu) return false;
   const el = document.elementFromPoint(x, y);
-  return Boolean(el && el.closest('#bubble, #turnmenu'));
+  return Boolean(el && el.closest('#bubble, #tools, #turnmenu'));
 }
 window.addEventListener('mousemove', e => {
   const over = overBubble(e.clientX, e.clientY);
   if (over === overNow) return;
   overNow = over;
+  document.getElementById('wrap')?.classList.toggle('over', over);
+  console.info('bubble: pointer ' + (over ? 'over' : 'off'));
+  // What the keys are actually doing a moment later, after their fade: the only way to tell "not shown"
+  // from "shown but clipped" from "never told to show" without guessing.
+  if (over) setTimeout(() => {
+    const cs = getComputedStyle(tools), r = tools.getBoundingClientRect();
+    console.info(`bubble: keys hidden=${tools.hidden} opacity=${cs.opacity} display=${cs.display} at ${Math.round(r.left)},${Math.round(r.top)} ${Math.round(r.width)}x${Math.round(r.height)} hover=${document.querySelector('.wrap')?.matches(':hover')} over=${document.getElementById('wrap')?.classList.contains('over')} window=${innerWidth}x${innerHeight}`);
+  }, 400);
   window.aang?.bubbleClickable?.(over);
+  if (over) clearTimeout(hideTimer); else scheduleHide();
 }, { passive: true });
 // Whenever the bubble goes away, let go of the mouse at once rather than waiting for a move that may
 // never come: a window that is hidden must never still be holding clicks.
 function releaseMouse() {
   if (!overNow) return;
   overNow = false;
+  document.getElementById('wrap')?.classList.remove('over');
   window.aang?.bubbleClickable?.(false);
+  // Hovering paused the clock; leaving has to start it again. The first version only released the
+  // mouse, so a reply he had once moused over stayed up until Aang happened to tuck himself away
+  // (sweep, 2026-10-04: still showing 27 s after it finished).
+  scheduleHide();
 }
 // Leaving the window entirely must also let go, or it keeps the mouse after he moves off it.
 window.addEventListener('mouseleave', releaseMouse);

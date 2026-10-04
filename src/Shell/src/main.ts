@@ -179,7 +179,16 @@ const link = new CoreLink({
     // drag arrives as a stream of positions.
     if (m.t === 'pet.at') {
       const at = readPetAt(m);
-      if (at && moved(petAt, at)) { petAt = at; placeWindows(); }
+      if (at && moved(petAt, at)) {
+        // Tucked back into the edge: what he was saying goes with him, as Peek() clears the old bubble.
+        // The first sweep showed a reply left floating at the screen edge with nobody beside it.
+        if (at.peeking && petAt && !petAt.peeking) {
+          bubble?.send('brain:message', { t: 'bubble.clear' });
+          bubble?.hide();
+        }
+        petAt = at;
+        placeWindows();
+      }
       return;
     }
     for (const w of windows.values()) if (!w.isDestroyed()) w.webContents.send('brain:message', m);
@@ -280,6 +289,7 @@ app.whenReady().then(async () => {
       // 6.12b: the typing box comes with it, and so does the hotkey. The pet does not register Ctrl+Plus
       // when this switch is on, so there is exactly one owner and no fight over it.
       input = new InputBox({ origin: pages.origin, preloadPath: path.join(HERE, 'preload.cjs') });
+      input.onGiveBack = () => link?.send({ t: 'refocus' });
       input.window();
       const body = readJson(path.join(STATE_DIR, 'body.json')) as Record<string, unknown> | null;
       if (typeof body?.Mode === 'string') inputMode = body.Mode;
@@ -406,6 +416,7 @@ app.whenReady().then(async () => {
   // Another page of his own history. `before` is a row id, so there is no limit: every time he reaches
   // the top it asks for the ones older than the oldest it has, until the database runs out.
   ipcMain.on('bubble:clickable', (e, on) => { if (fromBubble(e)) bubble?.setClickable(on === true); });
+  ipcMain.on('bubble:hidden', (e) => { if (fromBubble(e)) { bubble?.setClickable(false); bubble?.hide(); } });
 
   // ---- the typing box (6.12b). Its own sender check, like the bubble's.
   ipcMain.on('input:submit', (e, a) => {

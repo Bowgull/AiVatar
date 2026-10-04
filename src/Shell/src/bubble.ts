@@ -90,6 +90,13 @@ export class Bubble {
         for (const [channel, payload] of held) w.webContents.send(channel, payload);
       });
       w.on('closed', () => { this.win = null; this.waiting.length = 0; });
+      // The page's own console into the Shell's log. Without this a bubble that never hears the mouse,
+      // or throws on a message, fails in silence - which is how the hover keys went missing unexplained.
+      w.webContents.on('console-message', (e) => {
+        const level = (e as unknown as { level?: string }).level ?? '';
+        const text = (e as unknown as { message?: string }).message ?? '';
+        if (level === 'info' || level === 'warning' || level === 'error') console.log(`bubble page: ${text}`);
+      });
       this.win = w;
       return w;
     } catch (e) {

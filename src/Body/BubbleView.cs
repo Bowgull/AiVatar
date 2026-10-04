@@ -361,6 +361,11 @@ sealed class BubbleView : IDisposable
 
     public void Show(string t, bool stream, int holdMs)
     {
+        // With the new front end on, the old bubble never draws, by ANY path. Gating the brain's messages
+        // was not enough: the pet calls this directly too - his greeting when he slides out appeared in
+        // the old gold style beside the new bubble (recorded, 2026-10-04). Stopping it here covers every
+        // caller, present and future.
+        if (PetWindow.NewFrontEnd) return;
         // The next piece of the same reply (or its final form) carries on from what is already shown.
         var same = Visible && !Dots && full.Length > 0 && t.StartsWith(full, StringComparison.Ordinal);
         Dots = false; receipt = "";
@@ -432,6 +437,7 @@ sealed class BubbleView : IDisposable
     /// </summary>
     public void ShowDots(string? receiptLine = null)
     {
+        if (PetWindow.NewFrontEnd) return;          // see Show: the old bubble never draws with the new one on
         text = ""; full = ""; shown = 0; Wide = false; lines = new(); streaming = false; expanded = false; scroll = 0;
         Dots = true; receipt = receiptLine ?? "";
         Tools = false; Asking = false; Rating = 0;
