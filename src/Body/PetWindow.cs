@@ -1291,7 +1291,9 @@ sealed class PetWindow : Form
     /// <summary>How many job cards are waiting on him, from the last Panel refresh. 0 until one arrives.</summary>
     int jobsWaiting;
 
-    bool OpenInput(bool userAsked = false)
+    /// <param name="bodyAt">Where Aang's window will be, when that is not where it is yet: docked, the box
+    /// is opened at the spot he is sliding TO, so it does not have to wait for him to arrive.</param>
+    bool OpenInput(bool userAsked = false, Point? bodyAt = null)
     {
         if (hiddenByUser && !userAsked) { Log.Write("input box suppressed: hidden by Joshua"); return false; }
         if (peeking && userAsked) { Reveal(thenType: true); return true; }         // docked: bring him out first, then open the box
@@ -1300,7 +1302,8 @@ sealed class PetWindow : Form
         if (prev == Handle || prev == input.Handle) prev = IntPtr.Zero;
         input.Working = working;
         input.SetSuggestions(Starters());
-        input.Open(new Point(Location.X + (int)(Margin * scale), Location.Y + (int)(Extra * scale)), prev);
+        var at = bodyAt ?? Location;
+        input.Open(new Point(at.X + (int)(Margin * scale), at.Y + (int)(Extra * scale)), prev);
         Wake(); dirty = true;
         return true;
     }
@@ -1952,9 +1955,24 @@ sealed class PetWindow : Form
     void Reveal(bool thenType = false, bool greet = true)
     {
         if (dock == DockEdge.None || !peeking) { if (thenType) OpenInput(userAsked: true); return; }
-        peeking = false; badge = false; urgent = false; ambientGlow = false; burstsFired = 0; nextBurstAt = DateTime.MaxValue; inputAfterSlide = thenType; greetOnArrive = greet; engagedAt = DateTime.UtcNow;
+        peeking = false; badge = false; urgent = false; ambientGlow = false; burstsFired = 0; nextBurstAt = DateTime.MaxValue; engagedAt = DateTime.UtcNow;
+        // Typing: no greeting, he came to say something.
+        greetOnArrive = greet && !thenType;
+        inputAfterSlide = false;
         anim.Play("hello"); Wake();
-        SlideTo(StandPos(), RevealMs);
+        var stand = StandPos();
+        SlideTo(stand, RevealMs);
+        // The box opens NOW, on the key press, not when the slide ends - at the spot he is sliding to.
+        //
+        // It used to wait the 600 ms of the slide. Joshua, 2026-10-04: "when i hit ctrl plus and start
+        // typing the box goes blank until i click out then back into it. If i hit ctrl plus and start
+        // typing i want to see my typing RIGHT AWAY." Recorded and traced: Windows lets a program take
+        // the keyboard only while it holds the most recent input, and pressing the hotkey gives Aang
+        // that. But he starts typing at once, those keys go to whatever he was in, that program now
+        // holds the most recent input, and 600 ms later Windows quietly refuses to hand Aang the
+        // keyboard. The box appeared without focus and stayed blank until he clicked into it. A test
+        // that waited for the box before typing could never see it, which is why the first one passed.
+        if (thenType) OpenInput(userAsked: true, bodyAt: stand);
     }
 
     /// <summary>Back down to the edge: a spin, then a slide, leaving only his forehead and eyes.</summary>
