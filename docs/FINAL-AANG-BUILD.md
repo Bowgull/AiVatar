@@ -1994,6 +1994,7 @@ Recorded so they do not quietly come back.
 
 | | why |
 |---|---|
+| **Katara, and Momo with it** (WHAT-IS-LEFT.md §8) | **His decision, 2026-10-04: "no katara".** The second sprite is not being built. Momo only existed to carry messages between the two sprites, so it goes too. |
 | Rebuilding Aang on a different foundation | **[verified]** It would move you off your subscription onto metered API billing. |
 | Context editing | **[verified]** Zero references in both the pinned and current engine packages. Its 84% headline came from a 100-turn run that would otherwise have run out of room; your lanes cap at 8 turns. |
 | A local model as the main brain | **[measured]** Fails at 5 tool calls, 0/3. And the "Claude validates it" idea is refuted: a production study measured a verifier catch rate of 0.20 and a contribution of +1.5 points, and found using the frontier model as the checker *"eliminates most rescues."* |
@@ -2101,6 +2102,7 @@ Three research reports sit behind this appendix, all in the data repo at `Aang/r
 | 43 | Mark as done, in the browser (2026-10-04) | **A WoW quest turn-in.** A grey `?` appears on a tab only while he points at it; it turns **gold and glows** when Aang sees the thing is finished (an application submitted), exactly as a gold `?` means "ready to hand in". Clicking it flashes **QUEST COMPLETE**, then the tab drops to the DONE shelf with a quiet tick, never closed. **Aang never turns one in himself.** Rejected: brass latch, green gem, treasure chest, CLEARED stamp, power star |
 | 44 | The browser's top band (2026-10-04) | **Back, forward, reload, address slot. Nothing else.** No Aang button (Aang is already on screen over the browser: his halo glows, clicking him opens his chat), no ad counter (pausing ad blocking lives behind the SECURE plaque). The slot says who is driving **in full words**: YOU ARE DRIVING / AANG IS READING / AANG IS DRIVING |
 | 45 | The pop-out's default look (measured 2026-10-04) | **Opaque by default; see-through is turned on.** Measured over WoW: a see-through always-on-top window pushes the GPU's drawing load from ~29% to 47.4%, an opaque one costs nothing (26.8%, baseline). The video itself is near free either way. The slider in decision 40 is unchanged; only its starting point moves |
+| 46 | Katara (2026-10-04) | **Not built.** WHAT-IS-LEFT.md §8 is retired, and Momo with it. Recorded under "Not doing" |
 
 ---
 
