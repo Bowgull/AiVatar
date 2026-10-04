@@ -39,10 +39,14 @@ const unauthorised = { ok: false, status: 401, json: async () => ({ error: 'inva
 test('an expired token renews itself and the answer still arrives', async () => {
   const file = store({ clientId: 'c'.repeat(32), accessToken: 'stale', refreshToken: 'renew-me' });
   const seen: string[] = [];
+  let refreshSent: { type: string; body: string } | null = null;
   const sk = new Simkl(file, async (url: string, init?: any) => {
     const auth = String(init?.headers?.authorization ?? '');
     seen.push(`${url.includes('oauth2/token') ? 'REFRESH' : 'LIST'} ${auth.replace('Bearer ', '')}`);
-    if (url.includes('oauth2/token')) return ok({ access_token: 'fresh', refresh_token: 'renew-again', expires_in: 7776000 }) as any;
+    if (url.includes('oauth2/token')) {
+      refreshSent = { type: String(init?.headers?.['content-type'] ?? ''), body: String(init?.body ?? '') };
+      return ok({ access_token: 'fresh', refresh_token: 'renew-again', expires_in: 604800 }) as any;
+    }
     return (auth.includes('stale') ? unauthorised : ok(list)) as any;
   });
 
@@ -51,11 +55,37 @@ test('an expired token renews itself and the answer still arrives', async () => 
   // stale call, refresh, retry: one renewal, not a loop.
   assert.deepEqual(seen, ['LIST stale', 'REFRESH ', 'LIST fresh']);
 
+  // OAuth token endpoints take a form, not JSON. Sending JSON would have failed every single week.
+  assert.match(refreshSent!.type, /application\/x-www-form-urlencoded/);
+  const sent = new URLSearchParams(refreshSent!.body);
+  assert.equal(sent.get('grant_type'), 'refresh_token');
+  assert.equal(sent.get('refresh_token'), 'renew-me');
+  assert.equal(sent.get('client_id'), 'c'.repeat(32));
+
   // and it is written down, so the next run starts fresh rather than renewing again
   const after = JSON.parse(readFileSync(file, 'utf8'));
   assert.equal(after.accessToken, 'fresh');
-  assert.equal(after.refreshToken, 'renew-again');
+  assert.equal(after.refreshToken, 'renew-again', 'the rotated key is kept: the old one is dead');
   assert.ok(after.expiresAt > Date.now(), 'expiry kept');
+});
+
+test('two calls at once share one renewal, because renewing kills the old token', async () => {
+  const file = store({ clientId: 'c'.repeat(32), accessToken: 'stale', refreshToken: 'renew-me' });
+  let refreshes = 0;
+  const sk = new Simkl(file, async (url: string, init?: any) => {
+    const auth = String(init?.headers?.authorization ?? '');
+    if (url.includes('oauth2/token')) {
+      refreshes++;
+      await new Promise(r => setTimeout(r, 25));              // slow enough for a second caller to arrive
+      return ok({ access_token: 'fresh', refresh_token: 'renew-again', expires_in: 604800 }) as any;
+    }
+    return (auth.includes('stale') ? unauthorised : ok(list)) as any;
+  });
+
+  const [a, b] = await Promise.all([sk.watching(), sk.watching()]);
+  assert.equal(a.length, 3);
+  assert.equal(b.length, 3);
+  assert.equal(refreshes, 1, 'one renewal shared, not one each');
 });
 
 test('a sign-in saved before the fix says what to do, instead of a bare 401', async () => {

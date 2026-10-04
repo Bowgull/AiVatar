@@ -72,29 +72,47 @@ export class Simkl {
   }
 
   /**
-   * Swap an expired access token for a fresh one. Standard OAuth 2.0 refresh, which is what issued the token in the
-   * first place. Returns the new token, or null when there is nothing to refresh with or Simkl refuses, in which case
-   * the caller tells him to sign in again rather than failing with a bare 401.
+   * One refresh at a time, ever.
+   *
+   * Simkl invalidates the old access token the moment a new one is issued, so two calls refreshing at once would
+   * leave one of them holding a token that was already dead on arrival. Everyone waits on the first one instead.
+   */
+  private refreshing: Promise<string | null> | null = null;
+
+  /**
+   * Swap an expired access token for a fresh one.
+   *
+   * Simkl's AUTH V2 (2026-09-18) cut access tokens from five years to SEVEN DAYS, with a refresh token good for 180
+   * days that is renewed every time it is used. So this is not a rare repair: it runs most weeks, and if it ever
+   * stops working `watch_next` is dead within the week.
+   *
+   * Form-encoded, not JSON: it is an OAuth 2.0 token endpoint and that is what the spec says they take. The first
+   * version of this sent JSON, which would have failed every time.
    */
   private async refresh(s: Saved): Promise<string | null> {
     if (!s.refreshToken) return null;
-    try {
-      const r = await this.fetcher('https://api.simkl.com/oauth2/token', {
-        method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ grant_type: 'refresh_token', refresh_token: s.refreshToken, client_id: s.clientId }),
-      });
-      if (!r.ok) return null;
-      const j: any = await r.json().catch(() => ({}));
-      const token = String(j?.access_token ?? '');
-      if (!token) return null;
-      this.write({
-        accessToken: token,
-        // Simkl may or may not rotate the refresh token. Keep the new one when it sends one.
-        ...(j?.refresh_token ? { refreshToken: String(j.refresh_token) } : {}),
-        ...(Number(j?.expires_in) ? { expiresAt: Date.now() + Number(j.expires_in) * 1000 } : {}),
-      });
-      return token;
-    } catch { return null; }
+    if (this.refreshing) return this.refreshing;
+    this.refreshing = (async () => {
+      try {
+        const r = await this.fetcher('https://api.simkl.com/oauth2/token', {
+          method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: s.refreshToken!, client_id: s.clientId }).toString(),
+        });
+        if (!r.ok) return null;
+        const j: any = await r.json().catch(() => ({}));
+        const token = String(j?.access_token ?? '');
+        if (!token) return null;
+        this.write({
+          accessToken: token,
+          // The refresh token rotates, and the old one dies with it. Losing this write means signing in by hand again.
+          ...(j?.refresh_token ? { refreshToken: String(j.refresh_token) } : {}),
+          ...(Number(j?.expires_in) ? { expiresAt: Date.now() + Number(j.expires_in) * 1000 } : {}),
+        });
+        return token;
+      } catch { return null; }
+      finally { this.refreshing = null; }
+    })();
+    return this.refreshing;
   }
 
   /** A signed-in GET that renews the token once if Simkl says it is stale, instead of giving up. */
@@ -109,7 +127,7 @@ export class Simkl {
       if (!fresh) {
         throw new Error(s.refreshToken
           ? 'Simkl would not renew the sign-in. Run tools\\simkl-setup.cmd again.'
-          : 'The Simkl sign-in has run out, and this one was saved before Aang kept the renewal key. Run tools\\simkl-setup.cmd once and it will keep itself going after that.');
+          : 'The Simkl sign-in has run out. Simkl signs-ins now last a week, and this one was saved before Aang kept the renewal key, so there is nothing to renew it with. Run tools\\simkl-setup.cmd once and it will keep itself going after that.');
       }
       r = await call(fresh);
     }

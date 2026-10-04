@@ -22,7 +22,14 @@ $site = if ($args.Count -gt 1) { $args[1] } else { 'https://www.crunchyroll.com/
 if ($clientId.Length -lt 20) { Write-Host '  That does not look like a Simkl Client ID.' -ForegroundColor Red; Read-Host '  Press Enter to close'; exit 1 }
 
 # Simkl's OAuth 2.0 device sign-in (apps made in its AUTH V2 wizard; the old /oauth/pin is refused for them).
-$dev = Invoke-RestMethod -Method Post -Uri 'https://api.simkl.com/oauth2/device' -Body @{ client_id = $clientId }
+# AUTH V2 (2026-09-18) is also read-only unless write is asked for, so ask once here rather than making him redo
+# this the day Aang starts marking episodes watched itself.
+$dev = try {
+    Invoke-RestMethod -Method Post -Uri 'https://api.simkl.com/oauth2/device' -Body @{ client_id = $clientId; scope = 'media:read media:write' }
+} catch {
+    Write-Host '  (Simkl did not take the permissions request; asking for plain read access instead.)' -ForegroundColor DarkYellow
+    Invoke-RestMethod -Method Post -Uri 'https://api.simkl.com/oauth2/device' -Body @{ client_id = $clientId }
+}
 Write-Host ''
 Write-Host "  Your code:  $($dev.user_code)" -ForegroundColor Yellow
 Write-Host '  Opening simkl.com/pin with the code filled in. Allow Aang there.'
