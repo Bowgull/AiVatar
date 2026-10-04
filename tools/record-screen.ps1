@@ -12,10 +12,25 @@
 # Alongside it, the CPU of every Aang process, sampled while recording, so a stutter can be laid at the
 # door of the right program instead of guessed at.
 #
-#   powershell -NoProfile -ExecutionPolicy Bypass -File tools\record-screen.ps1 -Seconds 12 -Out run.mp4
+# LET IT RUN OUT. Do not kill it.
+#
+# Killing ffmpeg loses whatever is still in its write buffer, and on 2026-10-04 that turned a real
+# 35-second recording of the problem being diagnosed into an unreadable file, and then a second
+# 6-second test into a 0 KB one. Matroska helps with truncation but not with a lost buffer.
+#
+# So: choose a length and let it finish. Forty-five seconds is long enough to catch a freeze, and if
+# more is needed, record again. A recording that completes is worth more than one that can be stopped.
+#
+#   powershell -NoProfile -ExecutionPolicy Bypass -File tools\record-screen.ps1 -Seconds 12 -Out run.mkv
 param(
   [int]$Seconds = 10,
-  [string]$Out = "$env:TEMP\aang-screen.mp4",
+  # MATROSKA, NOT MP4, and that is not a preference.
+  #
+  # An mp4 only becomes playable when ffmpeg writes its index at the very end. Stop the recording part
+  # way through - which is exactly what happens when the person watching says "stop now" - and the file
+  # is rubble. That lost a real 35-second recording of the very thing being diagnosed, on 2026-10-04.
+  # Matroska writes as it goes, so a half-finished recording is still a working recording.
+  [string]$Out = "$env:TEMP\aang-screen.mkv",
   [int]$Fps = 30
 )
 
@@ -74,8 +89,16 @@ if ($summary) {
   "frames: $got of about $want expected, $drop dropped"
   if ($want -gt 0) {
     $pct = [math]::Round(100 * $got / $want)
-    if ($pct -lt 90) { "THE SCREEN DID NOT KEEP UP: only $pct% of the expected frames ever changed." }
-    else { "the screen kept up ($pct% of expected frames)" }
+    # Only a judgement if it actually ran its full length. Stopped early, a low count means it was
+    # stopped early, and saying "the screen did not keep up" would be a lie dressed as a measurement.
+    $ran = if ($summary -match 'time=(\d+):(\d+):([\d.]+)') { [double]$Matches[1]*3600 + [double]$Matches[2]*60 + [double]$Matches[3] } else { 0 }
+    if ($ran -lt $Seconds * 0.9) {
+      "stopped early after $([math]::Round($ran,1))s, so there is no verdict on frame rate; $got frames recorded"
+    } elseif ($pct -lt 90) {
+      "THE SCREEN DID NOT KEEP UP: only $pct% of the expected frames ever changed."
+    } else {
+      "the screen kept up ($pct% of expected frames)"
+    }
   }
 } else {
   "ffmpeg wrote no summary; see $log"
