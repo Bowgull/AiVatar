@@ -338,90 +338,126 @@
 */
 
 /* ---- 2. KEYBOARD FOCUS ---------------------------------------------------
-   :focus-visible, not :focus, so a mouse click does not leave a ring behind.
-   Two rings: gold to be seen on wood and parchment, then a dark one outside it
-   so the gold itself is visible against gold surfaces. No travel. */
+   Sheet 5, section 1, verbatim: "a carved gold groove AROUND the key, outside
+   its edge". A real `outline` with an offset, not a box-shadow ring - which
+   also means it survives Windows high contrast, where shadows are thrown away
+   and an outline is not. The dark ring outside it keeps the gold visible when
+   the key itself is gold. NO TRAVEL: that is what separates it from a press. */
 .key:focus-visible,.pill:focus-visible,.chip[tabindex]:focus-visible,
 button:focus-visible,[role="button"]:focus-visible,a:focus-visible,
 input:focus-visible,select:focus-visible,textarea:focus-visible{
-  outline:none;
-  box-shadow:0 0 0 3px var(--gold),0 0 0 6px var(--outline),0 4px 14px rgba(0,0,0,.5);
+  outline:3px solid var(--gold);
+  outline-offset:4px;
 }
-/* A focused button that is ALSO pressable keeps its lip: focus must not look
-   like a press. The lip shadow is restated here because the ring replaced it. */
+/* A focusable key keeps its lip while focused, so focus never reads as a press.
+   The outer dark ring is the sheet's `0 0 0 7px rgba(18,10,5,.9)`. */
 .key:focus-visible{
   box-shadow:0 var(--lip) 0 var(--outline),0 var(--lip) 0 -1px var(--plum-deep),
-    inset 0 3px 0 rgba(150,110,200,.5),
-    0 0 0 3px var(--gold),0 0 0 6px var(--outline);
+    inset 0 3px 0 rgba(150,110,200,.5),0 0 0 7px rgba(18,10,5,.9);
 }
 .key.primary:focus-visible{
   box-shadow:0 var(--lip) 0 var(--outline),0 var(--lip) 0 -1px var(--gold-deep),
-    inset 0 3px 0 var(--gold-light),
-    0 0 0 3px var(--gold-lit),0 0 0 6px var(--outline);
+    inset 0 3px 0 var(--gold-light),0 0 0 7px rgba(18,10,5,.9);
 }
 .key.warn:focus-visible{
   box-shadow:0 var(--lip) 0 var(--outline),0 var(--lip) 0 -1px var(--orange-deep),
-    inset 0 3px 0 rgba(255,224,150,.5),
-    0 0 0 3px var(--gold),0 0 0 6px var(--outline);
+    inset 0 3px 0 rgba(255,224,150,.5),0 0 0 7px rgba(18,10,5,.9);
 }
-/* Holding the mouse on a focused button still shows the press, because :active
-   comes after this and wins on equal weight. Stated so nobody "fixes" the order. */
 
 /* ---- 3. SWITCHED ON ------------------------------------------------------
-   Driven by aria-pressed, which is also what a screen reader reads out, so the
+   Sheet 5: "Latched half way down, a darker face, and a green gem lit inside
+   it." HALF way, not all the way, is the whole trick: a thing held down by a
+   catch reads differently from a thing being pushed. The face goes DARKER
+   rather than brighter, and the gem is what carries the state at a glance.
+
+   Driven by aria-pressed, which is also what a screen reader announces, so the
    look and the announcement cannot disagree. */
 .key[aria-pressed="true"],.pill[aria-pressed="true"]{
-  top:var(--lip);
-  /* Down, with no lip under it, and lit from within: an inner gold glow plus a
-     dark top shade, which is the opposite of the raised button's top highlight. */
-  box-shadow:0 0 0 var(--outline),
-    inset 0 4px 6px rgba(0,0,0,.55),
-    inset 0 0 0 2px var(--gold-deep),
-    inset 0 -3px 0 var(--gold-lit);
-  background:var(--gold);color:#2a1c00;text-shadow:0 1px 0 rgba(255,235,180,.8);
+  top:calc(var(--lip) / 2);
+  background:var(--plum-deep);
+  box-shadow:0 calc(var(--lip) / 2) 0 var(--outline),inset 0 4px 0 rgba(0,0,0,.45);
+  padding-left:34px;                     /* room for the gem */
 }
-/* Pressing an already-on button must still do something visible, or it feels
-   dead. It goes darker rather than further down, since it is already down. */
+/* The gem: lit, so "on" is legible without reading the label or judging depth. */
+.key[aria-pressed="true"]::before,.pill[aria-pressed="true"]::before{
+  content:"";position:absolute;left:12px;top:50%;width:12px;height:12px;margin-top:-6px;
+  border-radius:50%;border:2px solid var(--outline);
+  background:radial-gradient(circle at 35% 35%,#d6ffe2,var(--green) 55%,#2f7a4a);
+  box-shadow:0 0 8px rgba(120,230,150,.7);
+}
+/* Pressing something already on must still do something, or it feels dead. It
+   goes the rest of the way down rather than changing colour. */
 .key[aria-pressed="true"]:active,.pill[aria-pressed="true"]:active{
-  background:var(--gold-deep);
-  box-shadow:0 0 0 var(--outline),inset 0 5px 8px rgba(0,0,0,.7),inset 0 0 0 2px var(--gold-deep);
+  top:var(--lip);
+  box-shadow:0 0 0 var(--outline),inset 0 5px 0 rgba(0,0,0,.55);
 }
-/* The word, so this never depends on seeing depth or colour. Hidden from
-   screen readers: aria-pressed already says it, and both would say it twice. */
-.key[aria-pressed]::after,.pill[aria-pressed]::after{
-  content:"Off";position:absolute;right:8px;bottom:2px;
-  font:400 9px var(--label);opacity:.75;letter-spacing:0;
-}
-.key[aria-pressed="true"]::after,.pill[aria-pressed="true"]::after{content:"On";opacity:.9}
-/* Room for that word, so it never sits on the label. */
-.key[aria-pressed]{padding-right:34px}
 
 /* ---- ON *AND* FOCUSED ----------------------------------------------------
-   Both at once, stated on purpose. A switch is the one control where focus
-   matters most, because the next key press changes a setting.
-
-   This rule has to exist because `.key[aria-pressed="true"]` and
-   `.key:focus-visible` carry the SAME weight, so the one written later simply
-   wins and the ring vanishes. Caught by tabbing onto a switched-on button and
-   reading back its shadow (2026-10-04); it looked right in every still. The
-   comment above once claimed these composed on their own. They do not. */
+   Both at once, written out because an aria-pressed rule and a focus-visible
+   rule carry the SAME weight in CSS, so whichever came last would silently win
+   and the ring would vanish. Caught on 2026-10-04 by tabbing onto a switched-on
+   key and reading its computed shadow back; it looked right in every still. */
 .key[aria-pressed="true"]:focus-visible,.pill[aria-pressed="true"]:focus-visible{
-  box-shadow:inset 0 4px 6px rgba(0,0,0,.55),
-    inset 0 0 0 2px var(--gold-deep),
-    inset 0 -3px 0 var(--gold-lit),
-    0 0 0 3px var(--gold-lit),0 0 0 6px var(--outline);
-}
-/* And off-but-focused, for the same reason: the plain `.key:focus-visible`
-   above is outweighed by nothing here, but stating the pair keeps the two
-   switch states symmetrical, so neither can be changed without the other. */
-.key[aria-pressed="false"]:focus-visible,.pill[aria-pressed="false"]:focus-visible{
-  box-shadow:0 var(--lip) 0 var(--outline),0 var(--lip) 0 -1px var(--plum-deep),
-    inset 0 3px 0 rgba(150,110,200,.5),
-    0 0 0 3px var(--gold),0 0 0 6px var(--outline);
+  outline:3px solid var(--gold);
+  outline-offset:4px;
+  box-shadow:0 calc(var(--lip) / 2) 0 var(--outline),inset 0 4px 0 rgba(0,0,0,.45),
+    0 0 0 7px rgba(18,10,5,.9);
 }
 
 /* ---- every pressable thing is at least 24px -------------------------------
    The target size, not the ink. A 10px pixel label in a corner is not a target
+   and is left alone; the thing it sits in is what has to be big enough. */
+.key,.pill,button,[role="button"],.chip[tabindex],.tab,.row.act{
+  min-height:24px;min-width:24px;
+  box-sizing:border-box;
+}
+
+/* ---- the small copy and rating keys, above the bubble ---------------------
+   Sheet 5, section 8: "still keycaps, and a rating that is switched on uses the
+   latched look from section 1 rather than a new one". Lifted from the sheet
+   rather than invented, which is what the first version of 6.12 did. */
+.mini{
+  width:28px;height:28px;border-radius:7px;border:2.5px solid var(--outline);
+  display:grid;place-items:center;cursor:pointer;position:relative;top:0;
+  background:linear-gradient(180deg,var(--plum),var(--plum-deep));
+  box-shadow:0 3px 0 var(--outline),inset 0 2px 0 rgba(150,110,200,.45);
+  color:var(--parch1);font:400 9px var(--label);
+}
+.mini:active{top:3px;box-shadow:0 0 0 var(--outline),inset 0 2px 0 rgba(150,110,200,.45)}
+.mini[aria-pressed="true"]{
+  top:2px;padding-left:0;
+  background:linear-gradient(180deg,var(--gold-lit),var(--gold-deep));
+  box-shadow:0 1px 0 var(--outline),inset 0 3px 0 rgba(0,0,0,.25);
+}
+/* The gem belongs on a labelled key, not on a 28px square: there is no room and
+   the whole face already changes colour. */
+.mini[aria-pressed="true"]::before{content:none}
+
+/* ---- reduced motion ------------------------------------------------------
+   6.10: "with reduced motion on, buttons keep their depth but lose their
+   travel." So the lip, the shadows and the carving all stay - the style IS the
+   depth - and only the moving goes. */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{transition-duration:.01ms !important;animation-duration:.01ms !important;
+    animation-iteration-count:1 !important;scroll-behavior:auto !important}
+  .key:active,.pill:active,.key[aria-pressed="true"],.pill[aria-pressed="true"],.mini:active,.mini[aria-pressed="true"]{top:0}
+  .key:active{box-shadow:0 0 0 var(--outline),inset 0 4px 6px rgba(0,0,0,.5)}
+  .pill:active{box-shadow:0 0 0 var(--outline),inset 0 4px 6px rgba(0,0,0,.5)}
+  .key[aria-pressed="true"],.pill[aria-pressed="true"]{
+    box-shadow:0 0 0 var(--outline),inset 0 4px 0 rgba(0,0,0,.45);
+  }
+  .step.now .mark{animation:none;opacity:1}
+}
+
+/* ---- forced colours (Windows high contrast) ------------------------------
+   Every shadow disappears in this mode, and the shadows are the whole language,
+   so depth has to be said again in a way that survives: a real border, and the
+   system's own "this one is chosen" colour for a switch that is on. The focus
+   outline above is already a real outline, so it survives on its own. */
+@media (forced-colors:active){
+  .key,.pill,button,[role="button"],.mini{border:2px solid ButtonBorder;background:ButtonFace;color:ButtonText}
+  .key[aria-pressed="true"],.pill[aria-pressed="true"],.mini[aria-pressed="true"]{background:Highlight;color:HighlightText}
+}
    and is left alone; the thing it sits in is what has to be big enough. */
 .key,.pill,button,[role="button"],.chip[tabindex],.tab,.row.act{
   min-height:24px;min-width:24px;

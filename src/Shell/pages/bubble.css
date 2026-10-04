@@ -112,20 +112,11 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
 }
 .tools[hidden]{display:none}
 #bubble:hover .tools,.tools:focus-within{opacity:1;pointer-events:auto}
-.tool{
-  font:400 9px var(--label);letter-spacing:0;
-  padding:4px 8px;min-height:24px;border-radius:6px;cursor:pointer;
-  color:var(--parch1);background:var(--plum);
-  border:2px solid var(--outline);
-  box-shadow:0 2px 0 var(--outline);
-}
-.tool:active{transform:translateY(2px);box-shadow:none}
-/* A rating that is ON is the switched-on look from 6.10, scaled to this size. */
-.tool[aria-pressed="true"]{
-  background:var(--gold);color:#2a1c00;transform:translateY(2px);
-  box-shadow:inset 0 2px 4px rgba(0,0,0,.5),inset 0 0 0 1px var(--gold-deep);
-}
+/* The keys themselves are .mini in cockpit.css, lifted from sheet 5 section 8:
+   "still keycaps, and a rating that is switched on uses the latched look from
+   section 1 rather than a new one". Only their placement is here. */
+.tools .mini{flex:0 0 auto}
+
 @media (prefers-reduced-motion:reduce){
-  .tool:active,.tool[aria-pressed="true"]{transform:none}
   .scroller{transition:none}
 }
