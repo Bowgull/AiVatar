@@ -423,6 +423,10 @@ app.whenReady().then(async () => {
     if (!fromInput(e) || !a || typeof a.text !== 'string' || !a.text.trim()) return;
     const mode = ['auto', 'quick', 'smart', 'deep'].includes(a.mode) ? a.mode : inputMode;
     link?.send({ t: 'submit', id: 's' + Date.now(), text: a.text.slice(0, 20_000), mode });
+    // The bubble shows what he ASKED above the answer, as the old one does (BubbleView.Asked, set from
+    // `lastText`). The brain never sends his own words back, and the old box knew them because it was
+    // the same program; the Shell has to carry them across itself.
+    bubble?.send('brain:message', { t: 'asked', text: a.text });
     input?.close();                                      // the old box closes on send too
   });
   ipcMain.on('input:history', (e, list) => {

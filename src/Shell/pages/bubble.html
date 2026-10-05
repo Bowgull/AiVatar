@@ -19,7 +19,7 @@
 <!-- The wrapper exists for one reason: the parchment clips anything outside its edges (that is what
      keeps its texture inside the rounded corners), and the copy and rate keys straddle the top edge by
      design. Inside the parchment they were clipped off and could never be seen (sweep, 2026-10-04). -->
-<div id="wrap" class="wrap">
+<div id="wrap" class="wrap tail">
   <!-- Copy and rate: they straddle the top edge while the mouse is over the bubble, finished replies
        only. aria-pressed carries the rating, so the look and what a screen reader says cannot differ. -->
   <div id="tools" class="tools" hidden>
@@ -27,7 +27,7 @@
     <button id="up" class="mini" aria-pressed="false" title="Good">+</button>
     <button id="down" class="mini" aria-pressed="false" title="Not good">&minus;</button>
   </div>
-<div id="bubble" class="parch tex tail" hidden>
+<div id="bubble" class="parch tex" hidden>
 
   <!-- Who is speaking and what it cost. Deliberately small and above the words, like the old one. -->
   <p class="who"><span id="who"></span></p>

@@ -17,6 +17,7 @@ let expanded = false;
 let lineHeight = 23;          // measured below; BubbleView.LineH until then
 let rating = 0;               // 1 good, -1 not good, 0 not rated
 let turn = null;              // the stored row this reply became, for rating and reachback
+let asked = '';               // what he last said, shown above the answer
 const back = new Scrollback();
 let reading = false;          // he has scrolled up into his history; the bubble is a scroll-back now
 /**
@@ -61,6 +62,8 @@ function reportSize() {
   const key = width + 'x' + height;
   if (key === lastSize) return;               // resizing a window is not free
   lastSize = key;
+  const t = said.getBoundingClientRect();
+  console.info(`bubble: box ${Math.round(r.width)}x${Math.round(r.height)} text ${Math.round(t.width)}w scroll ${said.scrollWidth} wide=${bubble.classList.contains('wide')} asking window=${innerWidth}x${innerHeight} -> ${width}x${height}`);
   window.aang?.bubbleSize?.({ width, height });
 }
 
@@ -252,6 +255,9 @@ function answer(choice) {
 window.aang?.onMessage?.(m => {
   if (!m || typeof m !== 'object') return;
 
+  // What he just asked, for the line above the answer. Kept until the next thing he says.
+  if (m.t === 'asked' && typeof m.text === 'string') { asked = m.text; return; }
+
   // An ask takes priority: it is the one thing that must be answered before anything else happens.
   if (showAsk(m)) return;
 
@@ -265,7 +271,13 @@ window.aang?.onMessage?.(m => {
     if (same) reveal.append(m.text, m.stream === true);
     else { reveal.start(m.text, m.stream === true); expanded = false; rating = 0; setRating(); bubble.classList.remove('wide'); }
     turn = typeof m.turn === 'number' ? m.turn : null;
-    who.textContent = typeof m.who === 'string' ? m.who : '';
+    // HIS QUESTION, not the model's name. The old bubble puts what he asked here, dimmed and cut at 50
+    // characters (BubbleView:953), so a reply always carries its question. Showing "QUICK" instead was
+    // a label nobody needed, and he spotted it at once (2026-10-04).
+    // Nothing above a message Aang started himself: there was no question.
+    const line = m.proactive ? '' : asked.replace(/\s+/g, ' ').trim();
+    who.textContent = line.length > 50 ? line.slice(0, 49).trimEnd() + '…' : line;
+    who.hidden = !who.textContent;
     working.hidden = true;
     show();
     paint();
