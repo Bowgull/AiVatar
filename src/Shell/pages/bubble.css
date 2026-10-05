@@ -53,22 +53,32 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
   /* flex-END: the window is anchored by its RIGHT edge at Aang's shoulder (anchor.ts), so the drawn
      bubble has to hug that edge. flex-start left a one-word reply sitting at the far side of a window
      wider than it, 130 px from him (seen on his desktop, 2026-10-04). */
-  width:max-content;
+  /* TWO WIDTHS, never anything in between. BubbleView draws Left 6 to Right 262 - 256 across - and a
+     long reply widens by WideExtra (160) to 416.
+
+     `width:max-content` was tried first and is wrong: it lets a sentence run out to the full 416 on ONE
+     line instead of wrapping into a compact two-line bubble, so a reply reads as a long thin strip
+     beside Aang rather than as something he said. Measured on his desktop: a 60-character reply came
+     out 399 wide and 72 tall - one line - and clipped (2026-10-04). */
+  width:256px;
   /* border-box, so 256 is the width of the drawn bubble as he sees it. Without it the padding and the
-     4px frame sit outside the cap and every bubble is 36px wider than the painted one. */
+     4px frame sit outside it and every bubble is 36px wider than the painted one. */
   box-sizing:border-box;
-  max-width:256px;
 }
-#bubble.wide{max-width:416px}
-#bubble.scrollback{max-width:556px}
+#bubble.wide{width:416px}
+#bubble.scrollback{width:556px}
 #bubble[hidden]{display:none}
 
 /* Sheet 2's `.who`, value for value. Was 10px with .5px tracking and a forced uppercase until a diff
    against the sheet found it; the sheet uses 9.5px, 1px tracking and opacity rather than a colour, and
    does not force case - the brain already sends the label in the case it wants. */
+/* His question, above the answer: the old bubble's own treatment - the body face at ReceiptPx (12.5px),
+   in the dim parchment ink, not the pixel label face. It is a reminder, so it stays quiet. */
 .who{
-  font:400 9.5px var(--label);letter-spacing:1px;margin:0 0 5px;opacity:.75;
+  font:500 12.5px var(--body);color:var(--ink-dim);margin:0 0 4px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
+.who[hidden]{display:none}
 
 /* The text area. max-height is set from the line count in JS rather than here,
    because "six lines" has to be six lines of the real font at the real size,
@@ -188,4 +198,19 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
    bubble points its tail that way (BubbleView TailTipX 320, past its right edge
    at 262). A tail pointing away from the speaker reads as someone else talking.
    Seen in the first real-desktop screenshot of a reply, 2026-10-04. */
-#bubble.tail::after{left:auto;right:24px}
+/* THE TAIL LIVES ON THE WRAPPER, not on the bubble.
+   `.parch` sets `overflow:hidden` - that is what keeps its texture inside the rounded corners - so a
+   tail drawn as the bubble's own ::after is clipped off completely and never appears at all. Exactly
+   the mistake the copy and rate keys made. Seen beside the old bubble, whose tail is a long pointer
+   reaching to Aang's head, while the new one had none (2026-10-04).
+   On the RIGHT, because Aang always stands to the bubble's right. */
+.wrap.tail::after{
+  /* left:auto is load-bearing: cockpit.css's own .tail::after sets left:28px (the sheet draws a bubble
+     with nobody beside it), and with both left and right set, left wins - the tail came out on the far
+     side from Aang. */
+  content:"";position:absolute;left:auto;right:24px;bottom:-16px;width:18px;height:18px;
+  background:var(--parch2);border-right:var(--ow) solid var(--outline);
+  border-bottom:var(--ow) solid var(--outline);transform:rotate(45deg);
+}
+/* Nothing when there is nothing being said: an arrow pointing at him out of thin air. */
+.wrap.tail:has(#bubble[hidden])::after{content:none}
