@@ -39,9 +39,42 @@ export interface PetAt {
  * top, and it grows UP and LEFT from there. That is why a long reply widens leftwards rather than
  * pushing him across the screen.
  */
+/**
+ * Where the drawn art sits inside the 224 px sprite frame.
+ *
+ * THE PET REPORTS ITS ART BOX, NOT ITS FRAME. `PetWindow` sends `sprite = artRect`, which is the
+ * monk's own 49 x 125 bounding box, while every offset below was read out of the C# in FRAME
+ * coordinates. Treating one as the other put the bubble and the typing box 88 px too far right and
+ * 78 px too low: the box landed across his chest instead of beside his head, its right edge 15 px
+ * into his robe, and the tail aimed at his knees. Measured off `assets/aang/frames/idle_0.png`:
+ * opaque pixels run x 88..137, y 78..203.
+ *
+ * Scaled, because the art box arrives already scaled.
+ */
+export const ART_IN_FRAME = { x: 88, y: 78 } as const;
+
+/** The 224 px frame's top-left, worked back from the art box the pet actually sends. */
+export function frameOf(at: PetAt): { x: number; y: number } {
+  const s = at.scale || 1;
+  return { x: at.sprite.x - ART_IN_FRAME.x * s, y: at.sprite.y - ART_IN_FRAME.y * s };
+}
+
+/** His head's centre, for anything that has to point at him. Frame coordinates: 112 across, 96 down. */
+export function headOf(at: PetAt): { x: number; y: number } {
+  const s = at.scale || 1, f = frameOf(at);
+  return { x: f.x + 112 * s, y: f.y + 96 * s };
+}
+
 export const BUBBLE_FROM_SPRITE = {
-  /** Right edge of the bubble, relative to the sprite's LEFT edge: 262 - 246. */
-  right: 16,
+  /**
+   * Right edge of the bubble, relative to the FRAME's left edge.
+   *
+   * The C# value was 16 (262 - 246), which is 16 px into the 224 px frame. But his drawing is only
+   * 49 px wide and starts at x 88 inside that frame, so 16 left a 72 px hole between the panel and
+   * him - "its just a little too far" (2026-10-04). 72 puts the panel's edge 16 px from his actual
+   * art, which is a gutter you can see rather than an accident of the frame's padding.
+   */
+  right: 72,
   /** Bottom edge of the bubble, relative to the sprite's TOP edge: 124 - 86. */
   bottom: 38,
 } as const;
@@ -51,9 +84,9 @@ export const BUBBLE_FROM_SPRITE = {
  * screen. Growth is up and to the left, so the returned box's bottom-right is the fixed point.
  */
 export function bubbleAt(at: PetAt, size: { width: number; height: number }): Box {
-  const s = at.scale || 1;
-  const right = at.sprite.x + BUBBLE_FROM_SPRITE.right * s;
-  const bottom = at.sprite.y + BUBBLE_FROM_SPRITE.bottom * s;
+  const s = at.scale || 1, f = frameOf(at);
+  const right = f.x + BUBBLE_FROM_SPRITE.right * s;
+  const bottom = f.y + BUBBLE_FROM_SPRITE.bottom * s;
   return onScreen({ x: right - size.width, y: bottom - size.height, width: size.width, height: size.height }, at.screen);
 }
 
@@ -66,7 +99,16 @@ export function bubbleAt(at: PetAt, size: { width: number; height: number }): Bo
  * from that same origin. So the box's top-left is 240 px LEFT of the sprite and 46 px below its top:
  * beside him, in line with the bubble's left edge, just under the bubble.
  */
-export const INPUT_FROM_SPRITE = { left: 6 - 246, top: 132 - 86 } as const;
+export const INPUT_FROM_SPRITE = {
+  /** Matched to the bubble: 72 - 256 puts its right edge on the bubble's, and its left edge too. */
+  left: 72 - 256,
+  /**
+   * 74, so the DRAWN box's top (this plus the page's own 4 px of frame padding) lands on 78: the top
+   * of his head. The C# value of 46 floated it 28 px above him. His ask, 2026-10-04: "i want the top
+   * of the box to be in line with the top of his head".
+   */
+  top: 74,
+} as const;
 
 /**
  * The page draws the box 6 px in from its window's left edge (input.css `.frame` padding), so the WINDOW
@@ -76,9 +118,9 @@ export const INPUT_FRAME_INSET = 6;
 
 /** The typing box: beside him, under the bubble, where the old one opens. */
 export function inputAt(at: PetAt, size: { width: number; height: number }): Box {
-  const s = at.scale || 1;
-  const left = at.sprite.x + INPUT_FROM_SPRITE.left * s - INPUT_FRAME_INSET;
-  const top = at.sprite.y + INPUT_FROM_SPRITE.top * s;
+  const s = at.scale || 1, f = frameOf(at);
+  const left = f.x + INPUT_FROM_SPRITE.left * s - INPUT_FRAME_INSET;
+  const top = f.y + INPUT_FROM_SPRITE.top * s;
   return onScreen({ x: left, y: top, width: size.width, height: size.height }, at.screen);
 }
 

@@ -14,15 +14,36 @@
 <!-- Sheet 2, part 3: the pinned and reply chips above, the box, the strip below. -->
 <div id="frame" class="frame">
   <div id="pinned" class="pinned" hidden></div>
+  <!-- Three things to tap when the box is empty. Clicking one FILLS the box; it never sends. -->
+  <div id="starters" class="starters" hidden></div>
+  <!-- Shown when the brain could not take a message. The text is back in the box; nothing is lost. -->
+  <div id="failrow" class="askrow failrow" hidden></div>
   <!-- A real textarea, so the caret, selection and IME are the system's own. Spell-check is OFF: the
        old box never had it, and it underlined "Aang" in red in every message (seen in the first
        recording). The caret is put in it by input.js on load and on every focus. -->
-  <textarea id="box" class="box" rows="1" spellcheck="false" autocomplete="off" autofocus
-            aria-label="Say something to Aang"></textarea>
-  <div class="strip">
+  <!-- Mix 1: the wooden frame is the div, the plum field is the textarea set into it. -->
+  <div class="box">
+    <textarea id="box" class="field" rows="1" spellcheck="false" autocomplete="off" autofocus
+              aria-label="Say something to Aang"></textarea>
+  </div>
+  <div id="strip" class="strip">
     <button id="mode" class="pill sm" type="button" tabindex="-1"></button>
     <button id="saving" class="pill saving sm" type="button" tabindex="-1" hidden>Save quota</button>
-    <span id="segs" class="segs" aria-hidden="true"></span>
+    <!-- Hovering any of the three swaps the bars for a sentence saying what it is. They share the strip,
+         and at the moment you are asking what something does, words beat bars (4.5, ported from the C#). -->
+    <span id="hint" class="hint" hidden></span>
+    <!-- An ask waiting on him, answerable right here with Enter or Esc. The bubble still shows the
+         whole question and its keycaps; this is the shortcut for when his hands are already in the box. -->
+    <span id="askrow" class="askrow" hidden></span>
+    <!-- The week: ten segments, a tick for where the week itself has got to, and a thin bar underneath
+         for the last five hours. The tick is what makes the percentage mean anything. -->
+    <span id="usage" class="usage">
+      <span class="weekrow">
+        <span id="segs" class="segs" aria-hidden="true"></span>
+        <span id="pacetick" class="pacetick" aria-hidden="true" hidden></span>
+      </span>
+      <span class="five" aria-hidden="true"><span id="fivebar" class="fivefill"></span></span>
+    </span>
   </div>
 </div>
 <script src="input.js" type="module"></script>

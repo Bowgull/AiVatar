@@ -98,10 +98,12 @@ export class Reveal {
 /**
  * How tall the bubble is, in lines, given how many the text needs.
  *
- * BubbleView.cs:25 - six lines collapsed, twelve expanded. Over six it collapses and shows the bobbing
- * arrow; a click takes it to twelve; past twelve it scrolls.
+ * Six lines collapsed, and then AS MANY AS THE REPLY NEEDS once he clicks the arrow. BubbleView.cs:25
+ * capped the expanded state at twelve and scrolled past that, which contradicts the design: the arrow
+ * says there is more, so clicking it has to show all of it. "If something needs to get big let it, to
+ * fit" (2026-10-04). The only limit left is the screen, and anchor.ts already keeps the window on it.
  */
-export const COLLAPSED_LINES = 6, EXPANDED_LINES = 12;
+export const COLLAPSED_LINES = 6;
 
 /**
  * @param {number} total lines the text actually needs
@@ -109,7 +111,7 @@ export const COLLAPSED_LINES = 6, EXPANDED_LINES = 12;
  * @returns {number}
  */
 export function linesShown(total, expanded) {
-  return Math.min(total, expanded ? EXPANDED_LINES : COLLAPSED_LINES);
+  return expanded ? total : Math.min(total, COLLAPSED_LINES);
 }
 
 /**
@@ -121,9 +123,13 @@ export function hasMore(total, expanded) {
 }
 
 /**
- * Past twelve lines, expanding is not enough and it has to scroll.
- * @param {number} total @param {boolean} expanded @returns {boolean}
+ * Does it have to scroll?
+ *
+ * No. Expanding shows the whole reply however long it is; the window is placed by anchor.ts, which
+ * keeps it on the screen. Kept as a function because bubble.js and the tests both call it, and
+ * because if a limit ever comes back it belongs here.
+ * @param {number} _total @param {boolean} _expanded @returns {boolean}
  */
-export function scrolls(total, expanded) {
-  return expanded && total > EXPANDED_LINES;
+export function scrolls(_total, _expanded) {
+  return false;
 }

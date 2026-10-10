@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Aang · The bubble, redrawn</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Figtree:ital,wght@0,400;0,500;0,600;0,700;0,900;1,500&family=Silkscreen&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="sheet-8.css">
+</head>
+<body>
+<div class="wrap">
+
+<h1>A A N G   ·   T H E   B U B B L E</h1>
+<p class="sub">
+  Sheet 8. The one surface that was never drawn on its own, which is how it drifted.<br>
+  Everything here sits on a real screenshot of your Discord, because that is where you meet it.
+</p>
+
+<!-- ====================================================== THE FINDING -->
+<h2 class="part">WHAT I FOUND IN YOUR OLD FILES</h2>
+<p class="why">
+  You asked whether the colour change came from the mockups. It did, and it was new. Your
+  <b>original Rainmeter Aang</b> drew the bubble like this:
+</p>
+<pre class="code">Rectangle 6,6,256,118,<b>14</b> | Fill <b>14,8,30</b>,244 | StrokeWidth 1.8 | Stroke <b>255,196,60</b>,235
+Tail = 254,88 → 306,114 → 254,112</pre>
+<p class="why">
+  A dark panel, a <b>gold edge</b>: 255,196,60 is exactly <code>Theme.Gold</code>, and a long pointed
+  tail reaching right, into him. The C# version kept the gold and inset parchment inside it. <b>Sheet 5,
+  three days ago, dropped the gold for a near-black outline.</b> That is the whole of the change, and it
+  is why it stopped reading as Aang.
+</p>
+
+<!-- ====================================================== 1. THE FRAME -->
+<h2 class="part">1 · THE FRAME <span class="pick">PICK ONE</span></h2>
+<p class="why">
+  Same reply, same size, same type. Only the edge changes. Look at which one your eye finds first.
+</p>
+
+<div class="grid4">
+  <figure>
+    <div class="scene">
+      <div class="bub f-now tail">
+        <p class="q">two short sentences about tea</p>
+        <p class="a">Leaves brewed in hot water. Different kinds, all soothing.</p>
+      </div>
+    </div>
+    <figcaption><b>A · As it is now</b>Sheet 5's 4px near-black outline on parchment. The same edge as
+      the keycaps and the pop-out.</figcaption>
+  </figure>
+
+  <figure>
+    <div class="scene">
+      <div class="bub f-origin tail">
+        <p class="q light">two short sentences about tea</p>
+        <p class="a light">Leaves brewed in hot water. Different kinds, all soothing.</p>
+      </div>
+    </div>
+    <figcaption><b>B · The original</b>Your Rainmeter bubble, exactly: dark panel, 1.8px gold edge,
+      light text, corner 14.</figcaption>
+  </figure>
+
+  <figure>
+    <div class="scene">
+      <div class="bub f-carved tail">
+        <p class="q">two short sentences about tea</p>
+        <p class="a">Leaves brewed in hot water. Different kinds, all soothing.</p>
+      </div>
+    </div>
+    <figcaption><b>C · Carved gold</b>What you have today: a thick gold frame lit along the top, falling
+      to dark gold at the bottom, parchment inside it.</figcaption>
+  </figure>
+
+  <figure>
+    <div class="scene">
+      <div class="bub f-both tail">
+        <p class="q">two short sentences about tea</p>
+        <p class="a">Leaves brewed in hot water. Different kinds, all soothing.</p>
+      </div>
+    </div>
+    <figcaption><b>D · Both edges</b>The near-black chunk outline <i>and</i> a gold line inside it. Keeps
+      the sheets' weight, puts Aang's colour back.</figcaption>
+  </figure>
+</div>
+
+<!-- ====================================================== 2. THE TAIL -->
+<h2 class="part">2 · THE TAIL <span class="pick">PICK ONE</span></h2>
+<p class="why">
+  You said it should be a proper tail reaching him. Both earlier versions used a long, thin, pointed
+  triangle out of the right edge, 44px in Rainmeter, 58px in the C#. What it has now is a small
+  diamond, which is why it reads as floating.
+</p>
+<div class="grid3">
+  <figure>
+    <div class="scene tall">
+      <div class="bub f-both diamond"><p class="a">Hot water and leaves.</p></div>
+      <div class="sprite" aria-hidden="true"></div>
+    </div>
+    <figcaption><b>A · What it does now</b>An 18px diamond under the bubble. Points down, at nothing.</figcaption>
+  </figure>
+  <figure>
+    <div class="scene tall">
+      <div class="bub f-both longtail"><p class="a">Hot water and leaves.</p></div>
+      <div class="sprite" aria-hidden="true"></div>
+    </div>
+    <figcaption><b>B · The long tail</b>A thin pointed triangle out of the right edge, into his head.
+      Both earlier Aangs did this.</figcaption>
+  </figure>
+  <figure>
+    <div class="scene tall">
+      <div class="bub f-both overlap"><p class="a">Hot water and leaves.</p></div>
+      <div class="sprite" aria-hidden="true"></div>
+    </div>
+    <figcaption><b>C · Tail and overlap</b>The long tail, and the bubble sits over his shoulder a
+      little, so they are one object rather than two.</figcaption>
+  </figure>
+</div>
+
+<!-- ====================================================== 3. THE TOP LINE -->
+<h2 class="part">3 · THE TOP LINE <span class="pick">PICK ONE</span></h2>
+<div class="grid2">
+  <figure>
+    <div class="scene">
+      <div class="bub f-both tail">
+        <p class="q">two short sentences about tea</p>
+        <p class="a">Leaves brewed in hot water. Different kinds, all soothing.</p>
+      </div>
+    </div>
+    <figcaption><b>A · Your question</b>What he is answering, dimmed, cut at 50 characters. Useful when a
+      reply lands a while after you asked, or you have said something since.</figcaption>
+  </figure>
+  <figure>
+    <div class="scene">
+      <div class="bub f-both tail named">
+        <p class="name">AANG</p>
+        <p class="a">Leaves brewed in hot water. Different kinds, all soothing.</p>
+      </div>
+    </div>
+    <figcaption><b>B · His name</b>A game dialogue box labels its speaker. More of a dialogue box; tells
+      you nothing you did not know.</figcaption>
+  </figure>
+</div>
+
+<!-- ====================================================== 4. THE SCROLL BACK -->
+<h2 class="part">4 · THE SCROLL BACK <span class="pick">PICK ONE</span></h2>
+<p class="why">
+  It fades in when you scroll up, as it does today. The question is what it fades into.
+</p>
+<div class="grid2">
+  <figure>
+    <div class="scene tallest">
+      <div class="bub f-both tail grown">
+        <p class="turn mine">put the next episode of apothecary diaries on</p>
+        <p class="turn his">Put on Kusuriya no Hitorigoto episode 13, over your game.</p>
+        <p class="turn mine">did it tick off</p>
+        <p class="turn his">Yes. Episode 13 is marked watched, and 14 is next.</p>
+      </div>
+    </div>
+    <figcaption><b>A · The same bubble, grown</b>One object. It gets taller, your turns pressed into the
+      parchment in plum, his on it. The tail stays, so it is still him talking.</figcaption>
+  </figure>
+  <figure>
+    <div class="scene tallest">
+      <div class="panel under">
+        <p class="plaque">EARLIER</p>
+        <p class="turn mine">put the next episode of apothecary diaries on</p>
+        <p class="turn his">Put on Kusuriya no Hitorigoto episode 13, over your game.</p>
+        <p class="turn mine">did it tick off</p>
+        <p class="turn his">Yes. Episode 13 is marked watched, and 14 is next.</p>
+      </div>
+      <div class="bub f-both tail small over"><p class="a">Yes. Episode 13 is marked.</p></div>
+    </div>
+    <figcaption><b>B · A panel behind it</b>A recessed dark panel fades in <i>behind</i> the bubble and
+      holds the history. The bubble stays what he is saying now.</figcaption>
+  </figure>
+</div>
+
+<!-- ====================================================== 5. BUBBLE + BOX -->
+<h2 class="part">5 · THE BUBBLE AND THE TYPING BOX <span class="pick">PICK ONE</span></h2>
+<div class="grid3">
+  <figure>
+    <div class="scene tall s5">
+      <div class="stack">
+        <div class="bub f-both nolip"><p class="a">Leaves brewed in hot water.</p></div>
+        <div class="box joined">what you type<span class="caret"></span></div>
+        <div class="strip joined"><span class="pill">Auto</span><span class="segs"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i><i></i><i></i></span></div>
+      </div>
+      <div class="sprite" aria-hidden="true"></div>
+    </div>
+    <figcaption><b>A · One stacked object</b>They share edges. One panel: his half on parchment, yours
+      dark, the strip underneath.</figcaption>
+  </figure>
+  <figure>
+    <div class="scene tall s5">
+      <div class="bub f-both tail"><p class="a">Leaves brewed in hot water.</p></div>
+      <div class="gap"></div>
+      <div class="box"><span>what you type</span><span class="caret"></span></div>
+      <div class="strip"><span class="pill">Auto</span><span class="segs"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i><i></i><i></i></span></div>
+      <div class="sprite" aria-hidden="true"></div>
+    </div>
+    <figcaption><b>B · Two separate things</b>As now. He speaks, you type; different objects, a gap
+      between them.</figcaption>
+  </figure>
+  <figure>
+    <div class="scene tall s5">
+      <div class="bub f-both tail pair"><p class="a">Leaves brewed in hot water.</p></div>
+      <div class="gap small"></div>
+      <div class="box pair"><span>what you type</span><span class="caret"></span></div>
+      <div class="strip pair"><span class="pill">Auto</span><span class="segs"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i><i></i><i></i></span></div>
+      <div class="sprite" aria-hidden="true"></div>
+    </div>
+    <figcaption><b>C · A matched pair</b>Separate, but the same width, the same edge and the same corner,
+      so they read as belonging together.</figcaption>
+  </figure>
+</div>
+
+<!-- ====================================================== THE BUG -->
+<h2 class="part">AND THE THING THAT IS NOT A DESIGN QUESTION</h2>
+<p class="why">
+  <b>"As it's typing it flashes in and out of frame."</b> That is a bug, not a look. The window is being
+  resized on every tick while the words appear. I measured it going 357 → 366 → 382 → 396 → 399 pixels
+  wide in under a second, and each step is a visible jump.
+  <br><br>
+  The old bubble never does this because it is painted inside a window that does not move. The fix is the
+  same idea: <b>measure the whole reply and size the window once</b>, then let the words appear inside a
+  frame that is already still. Whichever option you pick, that is fixed.
+</p>
+
+</div>
+</body>
+</html>

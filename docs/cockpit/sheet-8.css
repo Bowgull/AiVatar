@@ -1,0 +1,186 @@
+/* ===========================================================================
+   SHEET 8 - THE BUBBLE, REDRAWN
+   The one surface that was never drawn on its own. Same tokens as sheets 1-5;
+   nothing new is invented here except the frame options themselves, and each of
+   those is lifted from a real version of Aang that existed.
+   =========================================================================== */
+:root{
+  --ink:#100A22; --panel2:#1A1132;
+  --gold:#FFC43C; --gold-deep:#C98C14; --gold-lit:#FFE096; --gold-light:#FFE28C;
+  --orange:#FF8040; --red:#FF5A4A; --green:#78E696;
+  --text:#E8E4F0; --secondary:#C9C2DA;
+  --plum:#4A2C6E; --plum-deep:#2C1848; --plum-edge:#966EC8;
+  --parch1:#ECD5A8; --parch2:#DEC28C;
+  --ink-text:#2E2216; --ink-dim:#5A4834;
+  --wood2:#24160D; --wood-plaque:#1A0F09;
+  --outline:#120A05; --ow:4px;
+  --display:"Cinzel",Georgia,"Times New Roman",serif;
+  --body:"Figtree",system-ui,-apple-system,Segoe UI,sans-serif;
+  --label:"Silkscreen",ui-monospace,Consolas,monospace;
+  /* The original Rainmeter bubble, read out of Aang.ini */
+  --origin-fill:#0E081E;
+}
+*{box-sizing:border-box}
+body{margin:0;padding:30px 20px 100px;background:#07040F;font-family:var(--body);color:var(--text);
+  -webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px;margin:0 auto}
+h1{font:400 16px var(--label);color:#7a6fa0;letter-spacing:3px;text-align:center;margin:0 0 8px}
+.sub{font:500 13px/1.7 var(--body);color:#7b7291;text-align:center;margin:0 0 44px}
+h2.part{font:400 13px var(--label);color:var(--gold-deep);letter-spacing:3px;
+  margin:56px 0 6px;padding-bottom:10px;border-bottom:3px solid #241a3a}
+.pick{font:400 9px var(--label);letter-spacing:1px;color:#2a1c00;background:var(--gold-lit);
+  border:2px solid var(--outline);border-radius:3px;padding:3px 6px;margin-left:10px;vertical-align:2px}
+p.why{font:500 14px/1.7 var(--body);color:#9a90b5;margin:0 0 22px;max-width:780px}
+p.why b{color:#cfc4ea} p.why code{font:600 13px ui-monospace,Consolas,monospace;color:var(--gold-lit)}
+pre.code{font:600 12.5px/1.8 ui-monospace,Consolas,monospace;background:rgba(0,0,0,.4);color:#f3e6c8;
+  padding:12px 14px;border-radius:7px;border:2px solid var(--outline);margin:0 0 18px;overflow-x:auto;
+  box-shadow:inset 0 2px 0 rgba(0,0,0,.5)}
+pre.code b{color:var(--gold)}
+
+/* ---- the layout of the option grids ---- */
+.grid4,.grid3,.grid2{display:grid;gap:22px;margin:0 0 10px}
+.grid4{grid-template-columns:repeat(2,1fr)}
+.grid3{grid-template-columns:repeat(3,1fr)}
+.grid2{grid-template-columns:repeat(2,1fr)}
+@media (max-width:980px){.grid4,.grid3,.grid2{grid-template-columns:1fr}}
+figure{margin:0}
+figcaption{font:500 12.5px/1.6 var(--body);color:#8a80a5;margin-top:11px}
+figcaption b{display:block;font:700 13.5px var(--body);color:#cfc4ea;margin-bottom:3px}
+figcaption i{color:#a99cc4}
+
+/* ---- the scene: a real screenshot of his Discord, so contrast is honest ---- */
+.scene{position:relative;height:190px;border-radius:9px;overflow:hidden;border:2px solid #241a3a;
+  background:url("bg-discord.jpg") center/cover no-repeat;
+  display:flex;flex-direction:column;align-items:flex-end;justify-content:flex-end;padding:16px 58px 16px 16px}
+.scene.tall{height:250px;padding-right:96px}
+.scene.tallest{height:330px;padding-right:58px}
+/* Aang, standing where he stands: to the RIGHT of what he says. */
+.sprite{position:absolute;right:16px;bottom:14px;width:62px;height:88px;
+  background:
+    radial-gradient(circle at 50% 26%,#ffe4b0 0 30%,transparent 31%),
+    radial-gradient(ellipse at 50% 74%,#E8A33C 0 46%,transparent 47%),
+    linear-gradient(180deg,transparent 0 22%,#6b4fb0 22% 24%,transparent 24%);
+  filter:drop-shadow(0 2px 2px rgba(0,0,0,.6))}
+
+/* =========================================================== THE BUBBLE */
+.bub{position:relative;border-radius:12px;padding:11px 14px 12px;width:270px;max-width:100%}
+.bub p{margin:0}
+.q{font:500 12.5px var(--body);color:var(--ink-dim);margin:0 0 4px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.q.light{color:#8e86a8}
+.a{font:500 15px/1.5 var(--body);color:var(--ink-text)}
+.a.light{color:#F0F4FF}
+.name{font:400 10px var(--label);color:var(--gold);letter-spacing:1.5px;margin:0 0 5px;
+  text-shadow:1px 1px 0 rgba(0,0,0,.6)}
+.named{padding-top:10px}
+
+/* ---- A · as it is now: sheet 5's parchment and near-black outline ---- */
+.f-now{background:linear-gradient(180deg,#F0DCB4 0%,var(--parch1) 45%,var(--parch2) 100%);
+  border:var(--ow) solid var(--outline);border-radius:9px;
+  box-shadow:inset 0 5px 0 rgba(255,255,255,.55),inset 0 -6px 0 rgba(150,110,60,.32),
+    0 3px 0 rgba(0,0,0,.6),0 10px 22px rgba(0,0,0,.45)}
+
+/* ---- B · the original Rainmeter bubble, value for value ----
+   Rectangle ...,14 | Fill 14,8,30,244 | StrokeWidth 1.8 | Stroke 255,196,60,235 */
+.f-origin{background:rgba(14,8,30,.957);border:2px solid rgba(255,196,60,.92);border-radius:14px;
+  box-shadow:0 8px 20px rgba(0,0,0,.55)}
+
+/* ---- C · the carved gold frame he has today in the C# app ----
+   BubbleView: a bevel lit from above, GoldLit at the top falling to GoldDeep. */
+/* The gradient-border trick (a transparent border over two background layers clipped
+   padding-box,border-box) drew no gold at all on this machine, so the bevel is done with the four
+   border colours instead: lit along the top, gold at the sides, dark gold at the bottom. The corners
+   mitre on their own, which is exactly the cut a carved frame has. No pseudo-element, so the tail
+   options below are free to use ::before and ::after. */
+.f-carved{background:linear-gradient(180deg,#F0DCB4 0%,var(--parch1) 45%,var(--parch2) 100%);
+  border:5px solid;border-color:var(--gold-lit) var(--gold) var(--gold-deep);border-radius:12px;
+  box-shadow:
+    inset 0 0 0 1px rgba(142,98,14,.75),           /* the shaded inner lip */
+    0 0 0 1.5px rgba(0,0,0,.8),                    /* a hairline outside, so gold on gold still reads */
+    0 4px 0 rgba(0,0,0,.5),0 10px 22px rgba(0,0,0,.5)}
+
+/* ---- D · both edges: the chunk outline, with gold inside it ---- */
+.f-both{background:linear-gradient(180deg,#F0DCB4 0%,var(--parch1) 45%,var(--parch2) 100%);
+  border:var(--ow) solid var(--outline);border-radius:10px;
+  box-shadow:inset 0 0 0 2px var(--gold),
+    inset 0 6px 0 -2px rgba(255,255,255,.5),inset 0 -6px 0 -2px rgba(150,110,60,.3),
+    0 3px 0 rgba(0,0,0,.6),0 10px 22px rgba(0,0,0,.5)}
+
+/* =========================================================== TAILS */
+/* The small diamond it has now: points down, at nothing. */
+.diamond::after{content:"";position:absolute;right:24px;bottom:-11px;width:18px;height:18px;
+  background:var(--parch2);border-right:var(--ow) solid var(--outline);
+  border-bottom:var(--ow) solid var(--outline);transform:rotate(45deg)}
+/* The long pointed tail, out of the RIGHT edge near the bottom, as both earlier Aangs drew it:
+   Rainmeter 254,88 → 306,114 → 254,112 is 44px long and 24px tall at the base. */
+.tail::after,.longtail::after,.overlap::after{content:"";position:absolute;right:-42px;bottom:16px;
+  width:0;height:0;border-style:solid;border-width:13px 0 5px 44px;
+  border-color:transparent transparent transparent var(--outline)}
+.tail::before,.longtail::before,.overlap::before{content:"";position:absolute;right:-34px;bottom:19px;
+  width:0;height:0;border-style:solid;border-width:9px 0 3px 36px;z-index:2;
+  border-color:transparent transparent transparent var(--parch2)}
+/* The original's tail was stroked gold too (Shape2 ... Stroke Color 255,196,60), so on B the big
+   triangle is gold and the one laid over it is the panel fill: the same edge, carried onto the tail. */
+.f-origin.tail::after,.f-origin.longtail::after,.f-origin.overlap::after{border-left-color:rgba(255,196,60,.92)}
+.f-origin.tail::before,.f-origin.longtail::before,.f-origin.overlap::before{border-left-color:var(--origin-fill)}
+/* Same for the carved frame: the tail wears the frame's gold, not the near-black outline. */
+.f-carved.tail::after,.f-carved.longtail::after,.f-carved.overlap::after{border-left-color:var(--gold-deep)}
+/* box-shadow follows the BOX, so it runs straight across behind a tail and leaves the tail flat.
+   filter: drop-shadow follows the drawn shape, so the tail gets the same contact shadow the body has.
+   Only the outer (dark) triangle needs it; the fill triangle sits on top of it. */
+.diamond::after,.tail::after,.longtail::after,.overlap::after{filter:drop-shadow(0 3px 0 rgba(0,0,0,.5))}
+.overlap{margin-right:-26px}
+
+/* =========================================================== SCROLL BACK */
+.grown{width:330px}
+.turn{margin:0 0 9px;font:500 13.5px/1.5 var(--body)}
+.turn:last-child{margin-bottom:0}
+.turn.mine{color:var(--text);padding:8px 10px;border-radius:7px;
+  background:linear-gradient(180deg,var(--plum-deep),var(--plum));
+  border:2.5px solid var(--outline);
+  box-shadow:inset 0 3px 0 rgba(0,0,0,.4),inset 0 -2px 0 rgba(150,110,200,.3)}
+.turn.his{color:var(--ink-text)}
+.panel{width:330px;padding:14px;border-radius:10px;margin-bottom:12px;
+  background:linear-gradient(180deg,#14102a,#0d0920);border:var(--ow) solid var(--outline);
+  box-shadow:inset 0 4px 0 rgba(0,0,0,.6),0 10px 22px rgba(0,0,0,.5)}
+.panel .turn.his{color:var(--secondary)}
+/* "Behind" has to look behind: the bubble sits ON the panel's bottom edge and hides part of it,
+   which is the only thing that makes one surface read as further back than the other. */
+.panel.under{margin-bottom:0}
+.bub.over{margin-top:-15px;z-index:2}
+.plaque{background:var(--wood-plaque);border-radius:5px;padding:6px 10px;margin:0 0 11px;
+  font:400 10px var(--label);color:var(--gold);letter-spacing:1px;display:inline-block;
+  text-shadow:2px 2px 0 rgba(0,0,0,.85);border:2.5px solid var(--outline);
+  box-shadow:inset 0 3px 0 rgba(0,0,0,.65)}
+.small{width:230px}
+
+/* =========================================================== BOX + STRIP */
+/* 280 + the scene's 16/58 padding is wider than a third of the sheet, which pushed the third card off
+   the page. The stack is drawn at 262 here so all three columns fit; the real one is 280. */
+.stack{width:262px}
+.scene.s5{padding:16px 74px 16px 12px}
+.box{width:262px;background:#140e26;border:3px solid var(--outline);border-radius:8px 8px 0 0;
+  padding:11px 12px;font:500 14px var(--body);color:#6d6585;
+  box-shadow:inset 0 3px 0 rgba(0,0,0,.6)}
+.strip{width:262px;display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:0 0 8px 8px;
+  background:linear-gradient(180deg,var(--panel2),var(--ink));
+  border:3px solid var(--outline);border-top:none}
+.caret{display:inline-block;width:2px;height:15px;background:var(--gold);vertical-align:-3px;margin-left:2px}
+.pill{font:700 11px var(--body);padding:5px 10px;border-radius:999px;border:2.5px solid var(--outline);
+  background:var(--gold);color:#141018;box-shadow:0 2px 0 var(--outline),inset 0 2px 0 rgba(255,255,255,.3)}
+.segs{display:flex;gap:3px;margin-left:auto}
+.segs i{width:8px;height:14px;border-radius:2px;border:1.5px solid var(--outline);background:#2b2342}
+.segs i.on{background:var(--green)}
+.gap{height:12px} .gap.small{height:7px}
+/* When the bubble and the box are stacked, the bubble is at the TOP of the stack, so Aang has to stand
+   level with it or the tail points over his head. The real anchor does the same: the bubble is placed
+   from him, not him from it. */
+.scene.s5 .sprite{bottom:auto;top:26px}
+/* A · one object: shared edges, nothing floating */
+.bub.nolip{width:262px;border-radius:8px 8px 0 0;border-bottom:none;
+  box-shadow:inset 0 0 0 2px var(--gold),inset 0 6px 0 -2px rgba(255,255,255,.5)}
+.joined{border-top-width:3px}
+.box.joined{border-radius:0}
+/* C · a matched pair: same width, same edge, same corner */
+.bub.pair{width:262px;border-radius:8px}
+.box.pair{border-radius:8px 8px 0 0}

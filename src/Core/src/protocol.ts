@@ -78,6 +78,12 @@ export type ToBody =
    * and tells the pet only to come out from the edge (`summon`) or go back (`dismiss`).
    */
   | { t: 'summon' } | { t: 'dismiss' } | { t: 'refocus' }
+  /** The pet was clicked and the new front end is on, so the Shell opens its typing box. */
+  | { t: 'typebox' }
+  /** He picked a mode in the new typing box. The PET writes it to body.json; nothing else may. */
+  | { t: 'mode'; mode: Mode }
+  /** The bubble was clicked on a message naming a window (a Claude session): bring it forward. */
+  | { t: 'bubble.focus'; focus: string }
 
   /** Whether any Claude Code session Aang is following (a job hunt, a self-change, anything opened through
    *  start_claude) is currently working or waiting on him, right now - continuous, not a point-in-time
@@ -228,6 +234,12 @@ export type FromBody =
    *  is the fallback for paid video that will not play on Shadow at all. */
   | { t: 'watch.tomac'; url: string }
   | { t: 'summon' } | { t: 'dismiss' } | { t: 'refocus' }
+  /** The pet was clicked and the new front end is on, so the Shell opens its typing box. */
+  | { t: 'typebox' }
+  /** He picked a mode in the new typing box. The PET writes it to body.json; nothing else may. */
+  | { t: 'mode'; mode: Mode }
+  /** The bubble was clicked on a message naming a window (a Claude session): bring it forward. */
+  | { t: 'bubble.focus'; focus: string }
   /**
    * Where the pet IS (step 6.10b), so the Shell can hang its windows off him. Sent by the C# Body when
    * he is dragged, docked, rescaled or moved between displays - on a change, never on a timer.

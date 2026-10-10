@@ -4,19 +4,23 @@
 // is tested. This file is the part that needs a screen: measuring real lines of real text, and the
 // clicks.
 import { Reveal, TICK_MS, hasMore, linesShown, scrolls } from './reveal.js';
+import { balloonPath, paintBalloon, PAD_R, PAD_B, DEFAULT_AIM, WIDEST_AFTER_LINES } from './balloon.js';
 import { HOLD_MS, askFrom } from './asks.js';
 import { find as findEntities } from './entities.js';
 import { Scrollback, atTop } from './scrollback.js';
 
 const el = id => document.getElementById(id);
 const bubble = el('bubble'), said = el('said'), scroller = el('scroller'), more = el('more');
+const skin = el('skin');
 const working = el('working'), doing = el('doing'), asks = el('asks'), tools = el('tools'), who = el('who');
 
 const reveal = new Reveal();
 let expanded = false;
 let lineHeight = 23;          // measured below; BubbleView.LineH until then
-let rating = 0;               // 1 good, -1 not good, 0 not rated
-let turn = null;              // the stored row this reply became, for rating and reachback
+let turn = null;              // the stored row this reply became, for reachback
+// A window this reply is ABOUT - a Claude Code session. The brain sends it as `focus` and clicking
+// the reply takes him there, exactly as the C# bubble does (PetWindow: `Hands.Arrange(.., "front")`).
+let focusWindow = null;
 let asked = '';               // what he last said, shown above the answer
 const back = new Scrollback();
 let reading = false;          // he has scrolled up into his history; the bubble is a scroll-back now
@@ -51,20 +55,62 @@ function fit() {
  * Same approach as the pop-out's chrome measurement, which was the fix for letterboxing there - the
  * page measures, the window follows.
  */
+/**
+ * Draw the balloon's shape behind the text.
+ *
+ * Regenerated rather than scaled: stretching one fixed outline to fit a longer reply would distort
+ * the corner radii and the tail with it, so a one-line and a twenty-line balloon would not look like
+ * the same object. Cheap enough to do on every size change - it is one string and one innerHTML.
+ */
+let lastShape = '', shapeId = 0;
+/** Where his head is, relative to this page's top-left. The Shell works it out and sends it. */
+let aim = { ...DEFAULT_AIM };
+window.aang?.onAim?.((a) => {
+  if (!a || typeof a.x !== 'number' || typeof a.y !== 'number') return;
+  const next = { x: a.x, y: a.y, flip: a.flip === true };
+  if (next.x === aim.x && next.y === aim.y && next.flip === aim.flip) return;
+  aim = next;
+  lastShape = '';                                   // he moved, so the shape has to be redrawn
+  const r = bubble.getBoundingClientRect();
+  if (r.width) paintSkin(r.width, r.height);
+});
+
+function paintSkin(w, h) {
+  // A hidden bubble measures 0x0, and the tail has a minimum length, so painting then left a lone
+  // tail and its shadow floating near him with no balloon attached (seen on his desktop, 2026-10-05).
+  // Nothing to say, nothing drawn.
+  if (bubble.hidden || w < 20 || h < 20) { skin.innerHTML = ''; lastShape = ''; return; }
+  // His head in the balloon's own coordinates. `aim` is in page coordinates, so the balloon's own
+  // top-left is subtracted. balloonPath does the rest: which edge, where on it, and how long.
+  const box = bubble.getBoundingClientRect();
+  const head = { x: aim.x - box.left, y: aim.y - box.top };
+  const key = `${Math.round(w)}x${Math.round(h)}:${Math.round(head.x)},${Math.round(head.y)}:${aim.flip}`;
+  if (key === lastShape) return;
+  lastShape = key;
+  const d = balloonPath(w, h, head);
+  paintBalloon(skin, w + PAD_R, h + PAD_B, d, ++shapeId);
+}
+
 let lastSize = '';
 function reportSize() {
   const r = bubble.getBoundingClientRect();
+  paintSkin(r.width, r.height);
   // Round up: a half pixel short clips the frame's bottom edge.
-  const width = Math.ceil(r.width) + 12;      // the margins either side
-  // Room under it for the tail, and ABOVE it for the copy and rate keys, which straddle its top edge.
-  // Without the top room they sat outside the window and could never be seen (first sweep, 2026-10-04).
-  const height = Math.ceil(r.height) + 24 + 18;
+  // 6 px of margin on the left, 78 on the right: the extra 72 is the room the TAIL hangs in
+  // (bubble.css `.wrap`), its reach plus slack so the ink line is not on the window edge. Same
+  // below: 18 above for the copy and rate keys, 56 under for the tail, of which 38 is new. Without the top room the keys sat outside the window and could never be
+  // seen (first sweep, 2026-10-04); the tail would go the same way.
+  const width = Math.ceil(r.width) + 6 + 78;
+  const height = Math.ceil(r.height) + 18 + 56 + 6;
   const key = width + 'x' + height;
   if (key === lastSize) return;               // resizing a window is not free
   lastSize = key;
   const t = said.getBoundingClientRect();
   console.info(`bubble: box ${Math.round(r.width)}x${Math.round(r.height)} text ${Math.round(t.width)}w scroll ${said.scrollWidth} wide=${bubble.classList.contains('wide')} asking window=${innerWidth}x${innerHeight} -> ${width}x${height}`);
-  window.aang?.bubbleSize?.({ width, height });
+  // `pad` is how much of that size is tail room beyond the shape the window used to be. The Shell
+  // places the window by the OLD shape and then grows it right and down, so adding a tail does not
+  // move the panel one pixel from where it has always sat beside him.
+  window.aang?.bubbleSize?.({ width, height, pad: { right: 72, bottom: 38 } });
 }
 
 /**
@@ -103,6 +149,11 @@ function paint() {
   // both ways made it flip: two lines narrow -> go wide -> one line wide -> go narrow -> ... and it
   // settled sized for the wrong number of lines, cutting the second line off (sweep, 2026-10-04).
   if (!bubble.classList.contains('wide') && lineCount() > 1) bubble.classList.add('wide');
+  // And a third width for a reply long enough that even 416 would be a tall narrow column. Measured
+  // at the wide width and never undone, for the same reason `wide` is not: toggling it both ways
+  // makes it flip between two sizes and settle on the wrong one.
+  if (bubble.classList.contains('wide') && !bubble.classList.contains('widest')
+      && lineCount() > WIDEST_AFTER_LINES) bubble.classList.add('widest');
   fit();
   reportSize();
   // Copy and rate are for a FINISHED reply only: offering to copy half a sentence is a trap.
@@ -158,6 +209,91 @@ function show() {
 
 // ---------------------------------------------------------------- the asks
 let asking = null;        // the message being asked about, so an answer can name it
+
+/**
+ * Everything waiting on him, newest shown, the rest kept (6.13, sheet 5 section 4).
+ *
+ * A new ask used to REPLACE the last, so three things needing him meant he saw one and the other two
+ * were gone for good. Now they stack. Sheet 5 sets the order, and it is deliberate:
+ *   "anything waiting on a decision comes before anything that is just information, and serious asks
+ *    come before routine ones. Within that, oldest first, so nothing gets buried."
+ * Nothing in the stack ever disappears on its own; it stays until answered or dismissed.
+ */
+const waiting = [];
+/** Lower sorts first. A thing that cannot be undone outranks a permission, which outranks the rest. */
+function rank(m) {
+  if (m.t === 'permission') return m.hold ? 0 : 1;
+  if (m.t === 'consent') return 2;
+  if (m.t === 'fact.ask' || m.t === 'backup.ask') return 3;
+  return 4;
+}
+/** Put one in the queue, keeping that order, oldest first within a rank. */
+function queueAsk(m) {
+  // The same question arriving twice is one question, not two.
+  const id = String(m.id ?? '');
+  if (id && waiting.some((w) => String(w.id ?? '') === id && w.t === m.t)) return;
+  m.__at = Date.now();
+  waiting.push(m);
+  waiting.sort((x, y) => rank(x) - rank(y) || x.__at - y.__at);
+}
+/** One line saying what a waiting item is, for its edge in the stack. */
+function edgeLabel(m) {
+  const a = askFrom(m);
+  const q = a?.question ?? '';
+  return q.replace(/\s+/g, ' ').trim().slice(0, 46);
+}
+
+/**
+ * Show whichever waiting item is on top, and draw the rest as edges under it.
+ *
+ * Answer the top one and the next slides up, which is the whole point of the stack.
+ */
+function showTopAsk() {
+  paintEdges();
+  // Nothing waiting: the asks row goes, and whatever the bubble was saying stays as it was.
+  if (!waiting.length) { asking = null; asks.hidden = true; asks.replaceChildren(); return false; }
+  return showAsk(waiting[0]);
+}
+
+/** The parchment edges under the open one, one line each, newest-but-one first. Sheet 5 section 4. */
+function paintEdges() {
+  let row = document.getElementById('under');
+  if (!row) {
+    row = document.createElement('div');
+    row.id = 'under';
+    row.className = 'under';
+    bubble.after(row);
+  }
+  const rest = waiting.slice(1, 3);            // two edges at most: a third is unreadable at this width
+  row.hidden = rest.length === 0;
+  row.textContent = '';
+  rest.forEach((m, i) => {
+    const e = document.createElement('button');
+    e.type = 'button';
+    e.className = 'edge u' + (i + 1);
+    const b = document.createElement('b');
+    b.textContent = i === 0 ? 'NEXT' : 'THEN';
+    const t = document.createElement('span');
+    t.textContent = edgeLabel(m);
+    e.append(b, t);
+    // "Click any edge to jump straight to it."
+    e.addEventListener('click', () => {
+      const pick = waiting.indexOf(m);
+      if (pick > 0) { waiting.unshift(...waiting.splice(pick, 1)); showTopAsk(); }
+    });
+    row.append(e);
+  });
+  // "1 OF 3" beside the keys, so he knows how many are behind this one.
+  let count = document.getElementById('count');
+  if (!count) {
+    count = document.createElement('span');
+    count.id = 'count';
+    count.className = 'count';
+    asks.after(count);
+  }
+  count.hidden = waiting.length < 2;
+  count.textContent = waiting.length < 2 ? '' : `1 OF ${waiting.length}`;
+}
 
 /** Draw an ask. The shape comes from asks.js; this only puts it on screen and listens. */
 function showAsk(m) {
@@ -246,9 +382,15 @@ function answer(choice) {
     // A consent ask carries the words it is about, because saying yes means asking them again.
     ...(asking.t === 'consent' ? { text: asking.text, mode: asking.wanted } : {}),
   });
+  // Off the queue, then show whatever is behind it. Nothing in the stack disappears on its own.
+  const done = asking;
   asking = null;
+  const at = waiting.indexOf(done);
+  if (at >= 0) waiting.splice(at, 1);
   asks.hidden = true;
   asks.replaceChildren();
+  if (waiting.length) { showTopAsk(); return; }
+  paintEdges();
 }
 
 // ---------------------------------------------------------------- what the brain says
@@ -259,7 +401,8 @@ window.aang?.onMessage?.(m => {
   if (m.t === 'asked' && typeof m.text === 'string') { asked = m.text; return; }
 
   // An ask takes priority: it is the one thing that must be answered before anything else happens.
-  if (showAsk(m)) return;
+  // It joins the queue rather than replacing what is there, and the queue decides which is on top.
+  if (askFrom(m)) { queueAsk(m); showTopAsk(); return; }
 
   if (m.t === 'bubble' && typeof m.text === 'string') {
     // Muted means he never wants Aang starting a conversation. An ANSWER is not that, so only the
@@ -269,8 +412,19 @@ window.aang?.onMessage?.(m => {
     // whole text each time, not a delta, so this is a replace either way - the Reveal decides the pace.
     const same = m.stream && reveal.whole && m.text.startsWith(reveal.whole.slice(0, 12));
     if (same) reveal.append(m.text, m.stream === true);
-    else { reveal.start(m.text, m.stream === true); expanded = false; rating = 0; setRating(); bubble.classList.remove('wide'); }
+    // A NEW reply starts revealing here. This line was deleted on 2026-10-05 by a regex that removed
+    // every line mentioning setRating(), and this one happened to mention it - so a new reply never
+    // started and the bubble showed only his question line. The widths reset with it: `wide` and
+    // `widest` are decided once per reply (see paint), so a short answer after a long one must not
+    // inherit the long one's width.
+    else {
+      reveal.start(m.text, m.stream === true);
+      expanded = false;
+      bubble.classList.remove('wide', 'widest');
+    }
     turn = typeof m.turn === 'number' ? m.turn : null;
+    // Only on the finished reply, like the rows: a streamed delta is the same reply arriving again.
+    if (!m.stream) focusWindow = typeof m.focus === 'string' && m.focus ? m.focus : null;
     // HIS QUESTION, not the model's name. The old bubble puts what he asked here, dimmed and cut at 50
     // characters (BubbleView:953), so a reply always carries its question. Showing "QUICK" instead was
     // a label nobody needed, and he spotted it at once (2026-10-04).
@@ -302,6 +456,10 @@ window.aang?.onMessage?.(m => {
     if (added) {
       paintBack();
       scroller.scrollTop = wasTop + (scroller.scrollHeight - wasHeight);
+    } else if (!back.turns.length) {
+      // Asked for, answered with nothing, and nothing held: the empty line is the answer, not silence.
+      reading = true;
+      paintBack();
     }
     reportSize();
     return;
@@ -321,16 +479,18 @@ window.aang?.onMessage?.(m => {
     releaseMouse();
     working.hidden = true;
     asks.hidden = true;
+    // The queue goes with it, or its edges would hang under a bubble that is no longer there.
+    waiting.length = 0;
+    paintEdges();
     if (ticking) { clearInterval(ticking); ticking = null; }
     return;
   }
 });
 
 // ---------------------------------------------------------------- reaching back into a message
-// The same actions the old bubble offers on a right-click (4.3b). Two of the four are here: Copy and
-// Forget work entirely within what exists today. "Reply to this" and "Add as context" both put
-// something into the typing box, which is still the C# one until 6.12b, so they arrive with it rather
-// than appearing here greyed out - a menu item he cannot use is worse than one that is not there.
+// The same actions the old bubble offers on a right-click (4.3b). All four now: Copy and Forget work
+// within the bubble, and "Reply to this" and "Add as context" put something into the typing box, which
+// is ours as of 6.12b - so they stopped being impossible and arrived here (2026-10-04).
 function closeMenu() { document.getElementById('turnmenu')?.remove(); }
 
 bubble.addEventListener('contextmenu', e => {
@@ -342,6 +502,10 @@ bubble.addEventListener('contextmenu', e => {
   menu.className = 'wood turnmenu';
   for (const [label, go] of [
     ['Copy text', () => window.aang?.copyText?.(reveal.whole)],
+    // Both open the typing box if it is shut, because the chip is only useful next to the words he is
+    // about to write. `turn` is the row the brain gave this message: a real binding, never a guess.
+    ['Reply to this', () => { if (turn !== null) window.aang?.replyToTurn?.(turn, reveal.whole); }],
+    ['Add as context', () => { if (turn !== null) window.aang?.pinTurn?.(turn, reveal.whole); }],
     // Forget is last and set apart, as it is in the old menu: it is the one that removes something.
     ['Forget this', () => { if (turn !== null) window.aang?.forgetTurn?.(turn); reveal.clear(); paint(); bubble.hidden = true; }],
   ]) {
@@ -423,6 +587,16 @@ window.addEventListener('blur', releaseMouse);
 // would expand a bubble he was only trying to finish reading. reveal.skip() returns which happened.
 bubble.addEventListener('click', e => {
   if (e.target.closest('.tool, .key, .more')) return;     // those have their own jobs
+  // "Need input in Claude": take him straight to that session's window, and let the reply go. This
+  // sits ABOVE skip-reveal for the same reason the C# puts it there - it is a decision, not
+  // impatience with the typing.
+  if (focusWindow) {
+    window.aang?.focusWindow?.(focusWindow);
+    focusWindow = null;
+    reveal.clear(); paint(); bubble.hidden = true;
+    window.aang?.bubbleHidden?.();
+    return;
+  }
   if (reveal.skip()) { paint(); return; }
 });
 
@@ -438,6 +612,15 @@ function paintBack() {
   box.hidden = !reading;
   if (!reading) return;
   box.replaceChildren();
+  // 6.14b: an empty list says what will appear there and how, instead of an empty box (sheet 5 section 9).
+  // Only when he has actually reached the top with nothing above, never over a history that has turns.
+  if (!back.turns.length) {
+    const e = document.createElement('p');
+    e.className = 'empty-line';
+    e.textContent = 'No history yet. Everything we say to each other will be here to scroll back through.';
+    box.append(e);
+    return;
+  }
   for (const t of back.turns) {
     const p = document.createElement('p');
     p.className = 'turn ' + (t.who === 'you' ? 'mine' : 'his');
@@ -461,6 +644,22 @@ function pullOlder() {
 }
 scroller.addEventListener('scroll', pullOlder, { passive: true });
 
+/**
+ * PageUp / PageDown, pressed in the typing box.
+ *
+ * The C#'s rule, one line, ported as it stands (PetWindow:355):
+ *   `if (d > 0 && bubble.More) ExpandBubble(); else if (bubble.Scroll(d * 6)) ...; FillStackFromMemory();`
+ * So PageDown on a collapsed reply OPENS it rather than scrolling past it, which is the first thing he
+ * would want; otherwise both directions move six lines, and reaching the top pulls older history in.
+ */
+window.aang?.onPage?.((d) => {
+  if (bubble.hidden) return;
+  if (d > 0 && !more.hidden && !expanded) { expanded = true; fit(); return; }
+  scroller.classList.add('scrolls');
+  scroller.scrollTop += d * 6 * lineHeight;
+  pullOlder();
+});
+
 more.addEventListener('click', () => {
   expanded = !expanded;
   fit();
@@ -474,24 +673,3 @@ el('copy').addEventListener('click', () => {
   setTimeout(() => { b.textContent = 'Copy'; }, 1200);
 });
 
-function setRating() {
-  el('up').setAttribute('aria-pressed', rating === 1 ? 'true' : 'false');
-  el('down').setAttribute('aria-pressed', rating === -1 ? 'true' : 'false');
-}
-for (const [id, value] of [['up', 1], ['down', -1]]) {
-  el(id).addEventListener('click', () => {
-    // Clicking the same one again takes it back, which is what the old bubble does.
-    rating = rating === value ? 0 : value;
-    setRating();
-    window.aang?.rate?.({ turn, rating });
-  });
-}
-
-// Keyboard, for the asks: A / X / Z as today. Only while something is actually being asked, so these
-// letters are never swallowed from anything else he might be doing.
-window.addEventListener('keydown', e => {
-  if (asks.hidden) return;
-  const key = e.key.toUpperCase();
-  const button = [...asks.querySelectorAll('.key')].find(b => b.dataset.key === key);
-  if (button) { e.preventDefault(); button.click(); }
-});
