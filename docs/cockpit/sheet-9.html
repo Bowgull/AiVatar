@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Aang · The thought tail and the typing box</title>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:ital,wght@0,400;0,500;0,600;0,700;1,500&family=Silkscreen&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="sheet-9.css">
+</head>
+<body>
+<div class="wrap">
+
+<h1>A A N G   ·   S H E E T   9</h1>
+<p class="sub">
+  Four of the five are settled: frame A, your question on top, the bubble grown for scroll-back, a
+  matched pair.<br>
+  This settles the tail and the typing box. Everything below is drawn 1:1 and placed where the code
+  actually puts it.
+</p>
+
+<!-- ====================================================== 0. THE GEOMETRY -->
+<h2 class="part">FIRST, SOMETHING EVERY SHEET SO FAR GOT WRONG</h2>
+<p class="why">
+  Sheets 1 to 8 drew Aang standing on the floor beside a bubble. That is not where it goes. Reading
+  <b>anchor.ts</b>, which was itself read out of the C# that draws it today: the bubble's
+  <b>bottom-right corner</b> sits 16px right of his left edge and 38px below his top, and the panel
+  grows <b>up and left</b> from there, so that one corner never moves. It hangs at his shoulder, just
+  overlapping him. The typing box starts 240px left of him, which puts its left and right edges on
+  exactly the same two lines as the bubble. That is what makes them a pair, and it was true before
+  anyone drew it.
+  <br><br>
+  Everything below is at full size, with his real sprite, placed by those numbers.
+</p>
+
+<!-- ====================================================== 1. THE THOUGHT TAIL -->
+<h2 class="part">1 · THE THOUGHT TAIL <span class="pick done">BUILT</span></h2>
+<p class="why">
+  How that era drew one, which is the same in comics and in every 16 and 64 bit game that borrowed
+  from them:
+</p>
+<ul class="why">
+  <li><b>Separate round beads, not one shape.</b> A speech tail is attached. A thought tail is a trail
+    of independent circles with a visible gap between each, and that gap is the whole difference
+    between thinking and talking.</li>
+  <li><b>Three, shrinking.</b> Odd number, almost always three, each smaller than the last. Two reads
+    as a mistake; four crowds him.</li>
+  <li><b>Each wears the full edge.</b> Same near-black outline, same fill, same hard contact shadow as
+    the panel. In pixel art the outline thins on the smallest bead so it does not turn into a solid
+    blob, which is done here: 4px, 4px, 3px.</li>
+  <li><b>They arc.</b> A straight row reads as a dotted line. A curve reads as a thought leaving him.</li>
+  <li><b>They hang off the corner that never moves.</b> Because the panel grows up and left, anchoring
+    the beads to the bottom-right corner means they stay on his head whether the reply is one line or
+    twenty, with no maths at all.</li>
+</ul>
+<div class="grid2">
+  <figure>
+    <div class="scene">
+      <div class="bub">
+        <p class="q">two short sentences about tea</p>
+        <p class="a">Leaves brewed in hot water. Different kinds, all soothing.</p>
+        <span class="think" aria-hidden="true"><i></i><i></i><i></i></span>
+      </div>
+      <div class="sprite" aria-hidden="true"></div>
+    </div>
+    <figcaption><b>One reply</b>Three beads arcing from the corner of the panel down to his head.</figcaption>
+  </figure>
+  <figure>
+    <div class="scene tall">
+      <div class="bub">
+        <p class="turn mine">put the next episode of apothecary diaries on</p>
+        <p class="turn his">Put on Kusuriya no Hitorigoto episode 13, over your game.</p>
+        <p class="turn mine">did it tick off</p>
+        <p class="turn his">Yes. Episode 13 is marked watched, and 14 is next.</p>
+        <span class="think" aria-hidden="true"><i></i><i></i><i></i></span>
+      </div>
+      <div class="sprite" aria-hidden="true"></div>
+    </div>
+    <figcaption><b>Scrolled back</b>The same panel grown upward. The beads have not moved a pixel,
+      because the corner they hang off has not moved either.</figcaption>
+  </figure>
+</div>
+
+<!-- ====================================================== 2. THE MIXES -->
+<h2 class="part">2 · THE TYPING BOX, MIXED <span class="pick">PICK ONE</span></h2>
+<p class="why">
+  You asked whether it can be a mix of all three. It can, and it is the better answer. A Stardew input
+  is not one flat colour: it is a <b>wooden frame with a field set into it</b>. So the wood becomes the
+  furniture, the field becomes the thing you write on, and the only question left is what the field is
+  made of.
+</p>
+<div class="grid2">
+  <figure>
+    <div class="scene mix m-plum">
+      <div class="bub">
+        <p class="q">two short sentences about tea</p>
+        <p class="a">Leaves brewed in hot water. Different kinds, all soothing.</p>
+        <span class="think" aria-hidden="true"><i></i><i></i><i></i></span>
+      </div>
+      <div class="typing">
+        <div class="box"><div class="field">what you type<span class="caret"></span></div></div>
+        <div class="strip"><span class="pill">Auto</span><span class="segs"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i><i></i><i></i></span></div>
+      </div>
+      <div class="sprite" aria-hidden="true"></div>
+    </div>
+    <figcaption><b>Mix 1 · Wood frame, plum field</b>Wood for the furniture, plum for the field, gold
+      for the caret. Your words wear here the exact colour they already wear inside the bubble, so
+      parchment is Aang and plum is you, everywhere, with no second rule to learn.</figcaption>
+  </figure>
+  <figure>
+    <div class="scene mix m-parch">
+      <div class="bub">
+        <p class="q">two short sentences about tea</p>
+        <p class="a">Leaves brewed in hot water. Different kinds, all soothing.</p>
+        <span class="think" aria-hidden="true"><i></i><i></i><i></i></span>
+      </div>
+      <div class="typing">
+        <div class="box"><div class="field">what you type<span class="caret"></span></div></div>
+        <div class="strip"><span class="pill">Auto</span><span class="segs"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i><i></i><i></i></span></div>
+      </div>
+      <div class="sprite" aria-hidden="true"></div>
+    </div>
+    <figcaption><b>Mix 2 · Wood frame, parchment field</b>Wood for the furniture, a dulled page set
+      into it, your ink dark on it like his. Warmest of everything here and closest to Stardew, but it
+      gives up the plum rule: your words and his would sit on the same surface.</figcaption>
+  </figure>
+</div>
+
+<!-- ====================================================== 3. THE FLAT ONES -->
+<h2 class="part">3 · AND THE THREE FLAT ONES, FOR COMPARISON</h2>
+<p class="why">
+  The same three on their own, in case a mix is busier than you want. Each keeps the matched pair: same
+  width, same 4px edge, same corner.
+</p>
+<div class="grid2">
+  <figure>
+    <div class="scene t-plum">
+      <div class="bub"><p class="a">Leaves brewed in hot water.</p>
+        <span class="think" aria-hidden="true"><i></i><i></i><i></i></span></div>
+      <div class="typing">
+        <div class="box">what you type<span class="caret"></span></div>
+        <div class="strip"><span class="pill">Auto</span><span class="segs"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i><i></i><i></i></span></div>
+      </div>
+      <div class="sprite" aria-hidden="true"></div>
+    </div>
+    <figcaption><b>A · Plum</b>The colour your words already wear.</figcaption>
+  </figure>
+  <figure>
+    <div class="scene t-wood">
+      <div class="bub"><p class="a">Leaves brewed in hot water.</p>
+        <span class="think" aria-hidden="true"><i></i><i></i><i></i></span></div>
+      <div class="typing">
+        <div class="box">what you type<span class="caret"></span></div>
+        <div class="strip"><span class="pill">Auto</span><span class="segs"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i><i></i><i></i></span></div>
+      </div>
+      <div class="sprite" aria-hidden="true"></div>
+    </div>
+    <figcaption><b>B · Wood</b>The carved sign your pop-out menu is already made of.</figcaption>
+  </figure>
+  <figure>
+    <div class="scene t-parch">
+      <div class="bub"><p class="a">Leaves brewed in hot water.</p>
+        <span class="think" aria-hidden="true"><i></i><i></i><i></i></span></div>
+      <div class="typing">
+        <div class="box">what you type<span class="caret"></span></div>
+        <div class="strip"><span class="pill">Auto</span><span class="segs"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i><i></i><i></i></span></div>
+      </div>
+      <div class="sprite" aria-hidden="true"></div>
+    </div>
+    <figcaption><b>C · Parchment, dulled</b>The same page a shade cooler, pressed in.</figcaption>
+  </figure>
+  <figure>
+    <div class="scene t-now">
+      <div class="bub"><p class="a">Leaves brewed in hot water.</p>
+        <span class="think" aria-hidden="true"><i></i><i></i><i></i></span></div>
+      <div class="typing">
+        <div class="box">what you type<span class="caret"></span></div>
+        <div class="strip"><span class="pill">Auto</span><span class="segs"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i><i></i><i></i></span></div>
+      </div>
+      <div class="sprite" aria-hidden="true"></div>
+    </div>
+    <figcaption><b>Today</b>#140e26, almost the page background. The one you rejected.</figcaption>
+  </figure>
+</div>
+
+</div>
+</body>
+</html>

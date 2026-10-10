@@ -1,0 +1,55 @@
+/* ===========================================================================
+   SHEET 12 - THE BALLOON, AS DECIDED
+   Settled in the interview: a soft-edged RECTANGLE (not an oval), the design
+   language unchanged (parchment, lit top lip, shaded bottom, near-black line,
+   hard shadow), one shape always, sentence case, warm cream, a real comic tail
+   and no beads. It grows to fit the whole reply; the twelve-line cap is gone.
+
+   The shape is one SVG path, built by build-sheet12.py, which is the same
+   arithmetic the real bubble will run in JS once it has measured the reply.
+   =========================================================================== */
+:root{
+  --gold:#FFC43C; --gold-deep:#C98C14; --gold-lit:#FFE096;
+  --green:#78E696; --text:#E8E4F0;
+  --ink-text:#2E2216; --ink-dim:#5A4834;
+  --outline:#120A05;
+  --body:"Figtree",system-ui,-apple-system,Segoe UI,sans-serif;
+  --label:"Silkscreen",ui-monospace,Consolas,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;padding:30px 20px 100px;background:#07040F;font-family:var(--body);color:var(--text);
+  -webkit-font-smoothing:antialiased}
+.wrap{max-width:1210px;margin:0 auto}
+h1{font:400 16px var(--label);color:#7a6fa0;letter-spacing:3px;text-align:center;margin:0 0 8px}
+.sub{font:500 13px/1.7 var(--body);color:#7b7291;text-align:center;margin:0 0 40px}
+h2.part{font:400 13px var(--label);color:var(--gold-deep);letter-spacing:3px;
+  margin:52px 0 6px;padding-bottom:10px;border-bottom:3px solid #241a3a}
+p.why{font:500 14px/1.7 var(--body);color:#9a90b5;margin:0 0 22px;max-width:880px}
+p.why b{color:#cfc4ea} p.why i{color:#a99cc4}
+figure{margin:0}
+figcaption{font:500 12.5px/1.6 var(--body);color:#8a80a5;margin-top:11px}
+figcaption b{display:block;font:700 13.5px var(--body);color:#cfc4ea;margin-bottom:3px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin:0 0 10px}
+@media (max-width:980px){.grid3{grid-template-columns:1fr}}
+.gap{height:26px}
+
+.scene{position:relative;border-radius:9px;overflow:hidden;border:2px solid #241a3a;
+  background:url("bg-discord.jpg") right bottom/cover no-repeat}
+.sprite{position:absolute;background:url("aang-idle.png") center/contain no-repeat;
+  image-rendering:pixelated}
+/* The size diagrams: a flat screen the colour of Discord, so the balloon's height is the only thing
+   you are reading. A fifth-size screenshot behind it is unreadable noise. */
+.scene.flat{background:#1E1F22}
+.scene.flat::before{content:"";position:absolute;inset:0 0 0 22%;background:#2B2D31}
+
+/* The balloon hangs off the sprite by the real anchor. `hold` is placed so the BODY's bottom-right
+   corner lands on it; the svg itself reaches further right and down for the tail. */
+.hold{position:absolute;z-index:2}
+.balloon{position:relative}
+.shape{display:block}
+/* The words sit over the body only, never over the tail. Sentence case, as decided. */
+.txt{position:absolute;display:flex;flex-direction:column;justify-content:center;
+  color:var(--ink-text);font:500 15px/1.53 var(--body)}
+.txt p{margin:0}
+.q{font:500 12.5px var(--body);color:var(--ink-dim);margin:0 0 4px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

@@ -11,20 +11,27 @@ import type { PetAt } from '../src/anchor.ts';
 
 /** A 1920x1080 screen with a taskbar, which is his: Shadow is 1920x1080 at scaleFactor 1. */
 const SCREEN = { x: 0, y: 0, width: 1920, height: 1040 };
+// `sprite` is his ART box, 49 x 125, which is what PetWindow sends (`sprite = artRect`). It is NOT the
+// 224 px frame; the frame is worked back from it in anchor.ts. Getting that round the wrong way put
+// every window 88 px right and 78 px low on his real desktop (2026-10-04).
 const at = (over: Partial<PetAt> = {}): PetAt => ({
-  sprite: { x: 1400, y: 600, width: 224, height: 224 },
+  sprite: { x: 1400, y: 600, width: 49, height: 125 },
   screen: SCREEN, scale: 1, edge: 'none', peeking: false, ...over,
 });
+/** The frame's top-left for the fixture above: the art sits at 88,78 inside it. */
+const FX = 1400 - 88, FY = 600 - 78;
 
-test('the bubble hangs off the sprite exactly where the C# paints it', () => {
-  // BubbleView.cs:24 Right = 262, Bottom = 124; Dock.cs:19 SpriteX = 246, SpriteY = 86. Both are in the
-  // space PetWindow.cs:953 translates into, so the offsets are 262-246 = 16 and 124-86 = 38.
-  assert.equal(BUBBLE_FROM_SPRITE.right, 262 - 246);
+test('the bubble hangs beside his ART, not inside his frame', () => {
+  // The C# offset was 16 (BubbleView Right 262 minus Dock SpriteX 246), measured against the 224 px
+  // frame. His drawing is 49 px wide starting at x 88 in that frame, so 16 left a 72 px hole between
+  // the panel and him. 72 puts its edge a deliberate 16 px from his art instead.
+  assert.equal(BUBBLE_FROM_SPRITE.right, 72);
   assert.equal(BUBBLE_FROM_SPRITE.bottom, 124 - 86);
 
   const b = bubbleAt(at(), { width: 256, height: 150 });
-  assert.equal(b.x + b.width, 1400 + 16, 'its right edge sits 16px past his left edge');
-  assert.equal(b.y + b.height, 600 + 38, 'its bottom sits 38px below his top');
+  assert.equal(b.x + b.width, FX + 72, 'its right edge is 72 px into the frame');
+  assert.equal(b.x + b.width, 1400 - 16, 'which is 16 px clear of his art');
+  assert.equal(b.y + b.height, FY + 38, 'its bottom sits 38px below the frame top');
 });
 
 test('it grows up and to the left, which is why he never gets pushed across the screen', () => {
@@ -38,9 +45,9 @@ test('it grows up and to the left, which is why he never gets pushed across the 
 test('display scaling moves it with him, because the offsets are his pixels not the screen\'s', () => {
   // At 150% the sprite is reported bigger and in different screen pixels; the gap between him and the
   // bubble has to grow by the same amount or the tail stops touching him.
-  const b = bubbleAt(at({ sprite: { x: 1400, y: 600, width: 336, height: 336 }, scale: 1.5 }), { width: 384, height: 225 });
-  assert.equal(b.x + b.width, 1400 + 16 * 1.5);
-  assert.equal(b.y + b.height, 600 + 38 * 1.5);
+  const b = bubbleAt(at({ sprite: { x: 1400, y: 600, width: 73, height: 187 }, scale: 1.5 }), { width: 384, height: 225 });
+  assert.equal(b.x + b.width, 1400 - 88 * 1.5 + 72 * 1.5, 'the art inset scales too');
+  assert.equal(b.y + b.height, 600 - 78 * 1.5 + 38 * 1.5);
 });
 
 test('it is never pushed off the screen, even standing in a corner', () => {
@@ -58,9 +65,9 @@ test('a second monitor is just another set of coordinates, including a negative 
   // A display to the LEFT of the main one has negative x in Windows. Placement must stay on THAT screen
   // rather than snapping back to the primary.
   const left = { x: -1920, y: 0, width: 1920, height: 1040 };
-  const b = bubbleAt(at({ sprite: { x: -500, y: 300, width: 224, height: 224 }, screen: left }), { width: 400, height: 300 });
+  const b = bubbleAt(at({ sprite: { x: -500, y: 300, width: 49, height: 125 }, screen: left }), { width: 400, height: 300 });
   assert.ok(b.x >= left.x && b.x + b.width <= left.x + left.width, JSON.stringify(b));
-  assert.equal(b.x + b.width, -500 + 16);
+  assert.equal(b.x + b.width, -500 - 88 + 72, 'negative coordinates are just coordinates');
 });
 
 test('a window bigger than the screen loses its end, not its beginning', () => {
@@ -70,15 +77,17 @@ test('a window bigger than the screen loses its end, not its beginning', () => {
   assert.equal(b.y, SCREEN.y);
 });
 
-test('the typing box opens where the old one does: left of him, under the bubble', () => {
-  // PetWindow.OpenInput + InputWindow.Open: drawn origin + (6, 132); the sprite is at (246, 86) from it.
+test('the typing box lines up with the bubble, and its top meets the top of his head', () => {
+  // His ask, 2026-10-04: "i want the top of the box to be in line with the top of his head". The page
+  // draws the box 4 px below the window's top (`.frame` padding), so a window top of FY+74 puts the
+  // DRAWN top on FY+78, which is exactly where his art begins.
   const box = inputAt(at(), { width: 268, height: 112 });
-  assert.equal(box.x + 6, 1400 - 240, 'the DRAWN box is 240 px to his left (the window starts 6 px earlier)');
-  assert.equal(box.y, 600 + 46, '46 px below the top of the sprite, just under the bubble');
+  assert.equal(box.x + 6 + 256, FX + 72, 'its right edge matches the bubble');
+  assert.equal(box.y + 4, 600, 'the drawn top meets the top of his head');
   // At 150% the offsets scale with him.
-  const big = inputAt(at({ scale: 1.5 }), { width: 268, height: 112 });
-  assert.equal(big.x + 6, 1400 - 360);
-  assert.equal(big.y, 600 + 69);
+  const big = inputAt(at({ sprite: { x: 1400, y: 600, width: 73, height: 187 }, scale: 1.5 }), { width: 268, height: 112 });
+  assert.equal(big.x + 6, 1400 - 88 * 1.5 - 184 * 1.5);
+  assert.equal(big.y, 600 - 78 * 1.5 + 74 * 1.5, 'and the drawn top still lands on his head');
 });
 
 test('the jitter of a held mouse does not move anything, but a real drag does', () => {

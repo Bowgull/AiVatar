@@ -92,6 +92,19 @@ static class Win32
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetWindowText(IntPtr h, System.Text.StringBuilder s, int n);
     [DllImport("user32.dll")] public static extern short GetAsyncKeyState(int vk);
     [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
+    /// <summary>
+    /// Let another process take the foreground, once.
+    ///
+    /// Windows only lets the process that RECEIVED the input hand the foreground on - the same rule that
+    /// shaped the hotkey work. A click on Aang arrives HERE, so when the Shell is asked to open its
+    /// typing box its own `focus()` is silently refused: the box appeared over his game with the
+    /// keyboard still in the game, and because it never held focus it never blurred, so clicking away
+    /// never closed it either (2026-10-04). This grants that right across for the next foreground change.
+    /// ASFW_ANY (-1) rather than the Shell's pid, because the pet is not told the Shell's pid and the
+    /// grant lasts only until the next foreground change.
+    /// </summary>
+    [DllImport("user32.dll")] public static extern bool AllowSetForegroundWindow(int pid);
+    public const int ASFW_ANY = -1;
     [DllImport("user32.dll")] public static extern bool BringWindowToTop(IntPtr h);
     [DllImport("user32.dll")] public static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool attach);
     [DllImport("kernel32.dll")] public static extern uint GetCurrentThreadId();

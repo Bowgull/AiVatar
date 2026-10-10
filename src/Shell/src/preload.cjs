@@ -52,8 +52,15 @@ contextBridge.exposeInMainWorld('aang', {
   // --- the bubble (step 6.12). Named doors, like everything else here.
   /** Put a finished reply on his clipboard. The page sends the WHOLE message, never what is on screen. */
   copyText: text => ipcRenderer.send('bubble:copy', text),
-  /** Rate the reply: 1 good, -1 not good, 0 taking it back. */
-  rate: r => ipcRenderer.send('bubble:rate', r),
+  /**
+   * He clicked a reply that is about a window - a Claude Code session. Bring that window forward.
+   *
+   * The ratings that used to live here are gone (2026-10-04): `ratings.jsonl` was written and never
+   * read by anything, six ratings existed in the system's lifetime and three of those were taken back,
+   * and the research says a single user's thumbs need 100+ samples per version before the aggregate
+   * means anything. "Forget this" in the right-click menu already covers "do not keep this".
+   */
+  focusWindow: name => ipcRenderer.send('bubble:focus', name),
   /** How big the drawn bubble actually is, measured by the page, so the window can fit it. */
   bubbleSize: s => ipcRenderer.send('bubble:size', s),
   /** His answer to an ask: yes, no, always, show, skip. Named, so a page cannot invent a new one. */
@@ -62,6 +69,15 @@ contextBridge.exposeInMainWorld('aang', {
   openThing: t => ipcRenderer.send('bubble:open', t),
   /** Forget one stored message, by the row the brain gave it. */
   forgetTurn: id => ipcRenderer.send('bubble:forget', id),
+  /**
+   * "Reply to this" and "Add as context", from the bubble's right-click menu (4.3b).
+   *
+   * Both put something into the TYPING BOX rather than doing anything themselves, which is why they
+   * could not exist until the box was ours too. `turn` is the row the brain gave the message: a real
+   * binding, never a guess, because recency heuristics demonstrably misattribute.
+   */
+  replyToTurn: (turn, preview) => ipcRenderer.send('bubble:replyto', { turn, preview }),
+  pinTurn: (turn, preview) => ipcRenderer.send('bubble:pin', { turn, preview }),
   /** Pull another page of his own history, older than the row given. */
   olderTurns: a => ipcRenderer.send('bubble:older', a),
   /** The pointer is over the drawn bubble, so this window should take the mouse. Off it, clicks pass
@@ -69,6 +85,26 @@ contextBridge.exposeInMainWorld('aang', {
   bubbleClickable: on => ipcRenderer.send('bubble:clickable', on),
   /** The bubble has finished saying its piece and gone; the window can go too. */
   bubbleHidden: () => ipcRenderer.send('bubble:hidden'),
+  /**
+   * Where Aang's head is, so the tail can point at it.
+   *
+   * The page cannot work this out. It knows its own box and nothing else: not where the pet is, not
+   * what the display scaling is, not which edge he is docked to. Guessing it from a constant put the
+   * tail 80 px past his head on the first real run. So the Shell, which has the sprite rectangle in
+   * screen pixels, works it out and hands the page a point in the page's own coordinates.
+   * `{x, y, flip}` - flip is true when he is to the LEFT and the tail has to come out of that side.
+   */
+  /** The bubble is told to page itself, from the typing box. -1 up, 1 down. */
+  onPage(fn) {
+    const h = (_e, d) => fn(d);
+    ipcRenderer.on('bubble:page', h);
+    return () => ipcRenderer.removeListener('bubble:page', h);
+  },
+  onAim(fn) {
+    const h = (_e, aim) => fn(aim);
+    ipcRenderer.on('bubble:aim', h);
+    return () => ipcRenderer.removeListener('bubble:aim', h);
+  },
 
   // --- the typing box (6.12b). Named doors only.
   onInputState(fn) {
@@ -77,6 +113,45 @@ contextBridge.exposeInMainWorld('aang', {
     return () => { ipcRenderer.off('input:state', h); };
   },
   submit: a => ipcRenderer.send('input:submit', a),
+  /** The chips the box is carrying: what he is replying to, and what he has pinned as context. */
+  onChips(fn) {
+    const h = (_e, chips) => fn(chips);
+    ipcRenderer.on('input:chips', h);
+    return () => ipcRenderer.removeListener('input:chips', h);
+  },
+  dropChip: a => ipcRenderer.send('input:dropchip', a),
+  /**
+   * His answer to the ask shown in the typing box's strip. The Shell holds WHAT is being answered.
+   *
+   * Deliberately not called `answerAsk`: the bubble already exposes that name for `bubble:answer`, and
+   * both pages share this one preload, so a second `answerAsk` key would silently overwrite the first
+   * and break the bubble's keycaps. Object literals do not warn about duplicate keys.
+   */
+  answerFromBox: a => ipcRenderer.send('input:answer', a),
+  /**
+   * PageUp / PageDown pressed in the typing box: page the BUBBLE, which is the window he is reading.
+   * -1 is up, 1 is down. Ported from InputWindow's `PageRequested`.
+   */
+  pageBubble: d => ipcRenderer.send('input:page', d),
+  /**
+   * An ask is waiting, so the typing box can show it and let him answer without leaving the box.
+   *
+   * The bubble asks with keycaps and remains the real surface. This exists for the case the C# built
+   * the consent row for: he is already typing when the question arrives, and making him move to the
+   * bubble to press a key is the thing that made the old permission questions feel like an interruption.
+   * `null` means nothing is waiting any more.
+   */
+  /** A message the brain could not take. The box keeps the text so nothing he typed is lost. */
+  onFailed(fn) {
+    const h = (_e, f) => fn(f);
+    ipcRenderer.on('input:failed', h);
+    return () => ipcRenderer.removeListener('input:failed', h);
+  },
+  onAsk(fn) {
+    const h = (_e, a) => fn(a);
+    ipcRenderer.on('input:ask', h);
+    return () => ipcRenderer.removeListener('input:ask', h);
+  },
   saveHistory: list => ipcRenderer.send('input:history', list),
   inputClose: () => ipcRenderer.send('input:close'),
   stop: () => ipcRenderer.send('input:stop'),

@@ -6,7 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  CHARS_PER_SECOND, COLLAPSED_LINES, EXPANDED_LINES, PER_TICK, Reveal, TICK_MS,
+  CHARS_PER_SECOND, COLLAPSED_LINES, PER_TICK, Reveal, TICK_MS,
   hasMore, linesShown, scrolls,
 } from '../pages/reveal.js';
 
@@ -110,9 +110,8 @@ test('"finished" means nothing more is coming AND all of it is shown', () => {
   assert.equal(r.done, true);
 });
 
-test('six lines, then twelve, then it scrolls', () => {
+test('six lines collapsed, and then however many the reply needs', () => {
   assert.equal(COLLAPSED_LINES, 6);
-  assert.equal(EXPANDED_LINES, 12);
 
   assert.equal(linesShown(3, false), 3, 'a short reply is just itself');
   assert.equal(hasMore(3, false), false, 'and has no arrow');
@@ -121,11 +120,14 @@ test('six lines, then twelve, then it scrolls', () => {
   assert.equal(hasMore(9, false), true, 'with the arrow');
   assert.equal(linesShown(9, true), 9, 'and a click shows all nine');
   assert.equal(hasMore(9, true), false);
-  assert.equal(scrolls(9, true), false, 'nine fits in twelve, so no scrolling');
 
-  assert.equal(linesShown(30, true), 12, 'past twelve it stops growing');
-  assert.equal(scrolls(30, true), true, 'and scrolls instead');
-  assert.equal(hasMore(30, true), true);
+  // The twelve-line cap is gone. The arrow says there is more, so clicking it shows ALL of it, however
+  // long: "if something needs to get big let it, to fit" (2026-10-04). Nothing scrolls any more; the
+  // only limit is the screen, and anchor.ts keeps the window on it.
+  assert.equal(linesShown(30, true), 30, 'thirty lines expands to thirty');
+  assert.equal(linesShown(200, true), 200, 'and there is no upper bound');
+  assert.equal(hasMore(30, true), false, 'so there is never more left over');
+  assert.equal(scrolls(30, true), false, 'and it never scrolls');
 });
 
 test('clearing leaves nothing behind for the next message to inherit', () => {

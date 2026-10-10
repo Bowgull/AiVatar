@@ -210,6 +210,8 @@ export interface TurnRecord {
   ts: string; id: string; lane: LaneName; user: string; reply: string;
   ms: number; ttftMs: number | null; ackMs: number; ctxTokens: number; cacheReadTokens: number; cacheWriteTokens: number;
   tools: string[]; fixed: string[]; flags: string[];
+  /** Which model actually answered. Absent means the SDK did not say. See `served` in lane.ts. */
+  served?: string[];
 }
 
 const FLUSH_MS = 40;            // batch streamed text into ~40 ms paints
@@ -1641,9 +1643,12 @@ export class Core {
   }
 
   private warm(): void {
-    const l = this.lane('quick');
-    this.active = { sub: null, lane: 'quick', buf: '', flush: null, stopped: false, startedAt: Date.now(), ackMs: 0, watchdog: null };
-    l.send('Reply with a single period and nothing else.');
+    // In a FORK that is never saved, so it cannot teach this lane anything. The old version sent this
+    // into the real session once per Core start: 41 times over five days, after which Haiku answered
+    // Joshua's own "hey checking in" with a single "." (2026-10-05). See Lane.warm.
+    void this.lane('quick').warm('Reply with a single period and nothing else.')
+      .then(r => { if (r) console.log(`warm-up: cache written ${r.cacheWriteTokens}, read ${r.cacheReadTokens}`); })
+      .catch(e => console.log('warm-up skipped: ' + (e as Error).message));
   }
 
   // ------------------------------------------------------------------ Body side
@@ -1779,7 +1784,14 @@ export class Core {
       // position a fresh Shell would know nothing until Joshua next dragged him.
       case 'pet.at': this.lastPetAt = m as PetAt; this.sendToShells(this.lastPetAt); break;
       // 6.12b: the Shell caught the hotkey and has its box open already; the pet only moves.
-      case 'summon': case 'dismiss': case 'refocus': this.sendTo('desktop', { t: m.t }); break;
+      // `typebox` is the pet asking the Shell to open the new typing box. It goes through here for the
+      // same reason `summon` does: the two programs do not talk to each other, only to the brain.
+      case 'summon': case 'dismiss': case 'refocus': case 'typebox': this.sendTo('desktop', { t: m.t }); break;
+      // The new bubble was clicked on a message that names a window; the pet has the Win32 side.
+      case 'bubble.focus': this.sendTo('desktop', { t: 'bubble.focus', focus: m.focus }); break;
+      // The mode he picked in the new box. Relayed so the PET can write it to body.json: the pet is
+      // the only writer of that file, and two writers of one file is how it gets truncated.
+      case 'mode': this.sendTo('desktop', { t: 'mode', mode: m.mode }); break;
       case 'watch.tomac': void this.openOnMac(String(m.url ?? '')).then(r => {
         if (!r.ok) this.sendTo('desktop', { t: 'bubble', text: r.detail, stream: false, proactive: true });
       }); break;
@@ -2245,7 +2257,13 @@ export class Core {
       ms: e.ms, ttftMs: e.ttftMs, ackMs: turn.ackMs, ctxTokens: e.ctxTokens,
       cacheReadTokens: e.cacheReadTokens, cacheWriteTokens: e.cacheWriteTokens,
       tools: e.tools, fixed: linted.fixed, flags,
+      ...(e.served?.length ? { served: e.served } : {}),
     });
+    // A subscription can be served a different model than asked for, with no error
+    // (anthropics/claude-agent-sdk-typescript#355). Nothing here could have noticed before.
+    if (e.served?.length && !e.served.includes(MODELS[turn.lane].model)) {
+      console.log(`lane ${turn.lane}: asked for ${MODELS[turn.lane].model}, was served ${e.served.join(', ')}`);
+    }
     this.finishTurn(turn);
   }
 
