@@ -15,7 +15,7 @@ import path from 'node:path';
 import { CoreLink } from './link.ts';
 import { Bubble, wantsNewBubble } from './bubble.ts';
 import { InputBox } from './input.ts';
-import { bubbleAt, inputAt, moved, readPetAt } from './anchor.ts';
+import { bubbleAt, headOf, inputAt, moved, readPetAt } from './anchor.ts';
 import type { PetAt } from './anchor.ts';
 import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown, wrongSettings } from './safety.ts';
 import { snapshotOnce } from './snapshot.ts';
@@ -90,15 +90,63 @@ function readJson(file: string): unknown {
 function onHotkey(): void {
   if (!input) return;
   if (input.visible) { input.close(); link?.send({ t: 'dismiss' }); return; }
+  openTypeBox();
+  link?.send({ t: 'summon' });
+}
+
+/**
+ * Open the typing box, wherever the request came from.
+ *
+ * Two things ask for it: Ctrl+Plus, which the Shell owns, and a click on Aang, which the pet turns into
+ * a `typebox` message. Before this, a click opened the pet's OWN box instead, so which box he got
+ * depended on how he asked for it.
+ */
+function openTypeBox(): void {
+  if (!input) return;
   const body = readJson(path.join(STATE_DIR, 'body.json')) as Record<string, unknown> | null;
   const at = petAt ? inputAt(petAt, { width: 268, height: 112 }) : null;
   input.open(at, {
     history: readJson(HISTORY_FILE()) ?? [],
     mode: inputMode,
     saving: body?.Saving === true,
-    week: lastWeek, level: lastLevel,
+    week: lastWeek, level: lastLevel, five: lastFive, weekResetsAt: lastWeekResetsAt,
+    starters: starters(),
   });
-  link?.send({ t: 'summon' });
+}
+/** The last finished reply, so tucking away into the edge holds it rather than destroying it. */
+let heldBubble: Record<string, unknown> | null = null;
+/** The five-hour window, 0..1, and the unix second the week resets. Both feed the strip. */
+let lastFive = 0, lastWeekResetsAt = 0;
+/** The ask waiting on him, so a box opened afterwards still shows it. Cleared once answered. */
+let liveAsk: Record<string, unknown> | null = null;
+/**
+ * How many job cards are waiting on him, for the "Jobs (n)" starter.
+ *
+ * Read off `panel.reply` exactly as the pet does it: "the starter chip needs the count even when the
+ * Panel is closed, so it is kept here rather than read back out of a window that may not exist".
+ */
+let jobsWaiting = 0;
+/**
+ * The three chips offered when the box is empty.
+ *
+ * Chosen from his own 34 genuine asks in turns.jsonl, not from taste. The biggest group by far is him
+ * probing what Aang can do ("can you browse the web?", "can you verify facts?", "do you work?", "can
+ * you open and close things like apps?"), and a third of all his messages are a bare "hey checking
+ * in", which is really asking whether anything has happened. The old time-of-day pair went: he has
+ * never once asked either, and a label that changes at noon is a label you cannot learn.
+ *
+ * Labels fit about twelve characters, because the row is 256 px split three ways: "How are things"
+ * came back as "How are thi..." in the C#'s own first capture, "which is a shape rather than a label".
+ */
+function starters(): { label: string; text: string }[] {
+  const out: { label: string; text: string }[] = [];
+  if (jobsWaiting > 0) out.push({ label: `Jobs (${jobsWaiting})`, text: 'what jobs are waiting for me?' });
+  // MEASURED, not estimated: a chip is 83 px wide at 256/3, which fits about 11 characters of the
+  // 11px body face. "What can you do" and "What did I miss" both came back cut on the first draw -
+  // the C# hit the same wall and called the result "a shape rather than a label".
+  out.push({ label: 'Your powers', text: 'what can you do?' });
+  out.push({ label: 'I miss much?', text: 'what have you done since I last spoke to you?' });
+  return out.slice(0, 3);
 }
 let hotkey: Hotkey | null = null;
 let ads: AdBlock | null = null;
@@ -172,24 +220,66 @@ const link = new CoreLink({
       if (!popout?.open(m.url)) console.error(`shell: nothing playable in ${String(m.url).slice(0, 80)}`);
       return;
     }
+    // He clicked Aang. The pet does not open a box of its own any more; it asks for this one.
+    if (m.t === 'typebox') { if (!input?.visible) openTypeBox(); return; }
     if (m.t === 'popout.close') { popout?.close(); drm?.close(); return; }
-    if (m.t === 'quota') { lastWeek = Number(m.week) || 0; lastLevel = String(m.level ?? 'ok'); }
+    if (m.t === 'panel.reply') {
+      jobsWaiting = Array.isArray((m as Record<string, unknown>).jobs) ? ((m as { jobs: unknown[] }).jobs).length : 0;
+      input?.send('input:state', { starters: starters() });
+    }
+    if (m.t === 'quota') {
+      lastWeek = Number(m.week) || 0;
+      lastLevel = String(m.level ?? 'ok');
+      // The five-hour window and when the week resets were being thrown away. The strip needs both:
+      // the thin bar underneath is the five hours, and the reset time is what puts the pace tick
+      // where the week actually is, which is the whole reason a percentage means anything.
+      lastFive = Number(m.five) || 0;
+      lastWeekResetsAt = Number(m.weekResetsAt) || 0;
+      input?.send('input:state', { week: lastWeek, level: lastLevel, five: lastFive, weekResetsAt: lastWeekResetsAt });
+    }
     // 6.10b: where the pet is. Kept so any window opened later can be placed without waiting for Joshua
     // to move him. `moved()` drops the jitter of a drag, because re-placing a window is not free and a
     // drag arrives as a stream of positions.
     if (m.t === 'pet.at') {
       const at = readPetAt(m);
       if (at && moved(petAt, at)) {
-        // Tucked back into the edge: what he was saying goes with him, as Peek() clears the old bubble.
-        // The first sweep showed a reply left floating at the screen edge with nobody beside it.
-        if (at.peeking && petAt && !petAt.peeking) {
-          bubble?.send('brain:message', { t: 'bubble.clear' });
-          bubble?.hide();
-        }
+        // Tucked back into the edge: what he was saying goes with him, because the first sweep showed a
+        // reply left floating at the screen edge with nobody beside it.
+        //
+        // But it is HELD, not thrown away. Clearing it outright lost a reply he had not read: he asked
+        // "hey just checking in", Aang answered, and four seconds later Aang tucked himself away and
+        // took the answer with him (turns.jsonl 04:07:12, artrect peek 00:07:16, 2026-10-05). The pet
+        // already works this way for messages that ARRIVE while he is docked - `heldText` in
+        // PetWindow, shown again once he is out - so this is the same rule, not a second one.
+        const cameOut = !at.peeking && petAt?.peeking === true;
+        if (at.peeking && petAt && !petAt.peeking) bubble?.hide();
+        // EVERY position-dependent thing happens AFTER petAt is updated and the windows are placed.
+        // Showing the held reply before that put it where he USED to be, with the tail aiming at his
+        // old spot - it came back pointing away from him, off to one side (seen on his screen,
+        // 2026-10-05). The order is the fix.
         petAt = at;
         placeWindows();
+        if (cameOut && heldBubble) {
+          // Out again: say the held one once more, then let it go.
+          const held = heldBubble;
+          heldBubble = null;
+          bubble?.send('brain:message', held);
+          bubble?.show();
+          // The page re-measures on the new text and reports its size, which re-places the window and
+          // re-aims the tail from where he is NOW.
+        }
       }
       return;
+    }
+    // The last finished reply, kept so tucking away does not destroy something he has not read.
+    // Only finished ones: a streamed part is the same reply arriving again, not another thing said.
+    if (m.t === 'bubble' && typeof m.text === 'string' && !m.stream) heldBubble = m;
+    if (m.t === 'bubble.clear') heldBubble = null;
+    // An ask also goes to the typing box, so it can be answered from there. The bubble still shows it
+    // in full with its keycaps; the box gets a one-line version for when he is already typing.
+    if (m.t === 'permission' || m.t === 'consent' || m.t === 'fact.ask' || m.t === 'backup.ask') {
+      liveAsk = m as Record<string, unknown>;
+      input?.send('input:ask', liveAsk);
     }
     for (const w of windows.values()) if (!w.isDestroyed()) w.webContents.send('brain:message', m);
     // The bubble is not in `windows`: it is made on demand and has its own lifetime, so it is told
@@ -343,6 +433,27 @@ app.whenReady().then(async () => {
   // The page measured the drawn shape; the window follows it and is put back beside the pet. The
   // window cannot work this out itself: the browser wrapped the text using the real font at the real
   // size. Same fix as the pop-out's letterboxing - the page measures, the window follows.
+  /**
+   * Tell the bubble page where Aang's head is, in the page's own coordinates.
+   *
+   * The page has no way to know this: it sees its own box and nothing else - not the pet's position,
+   * not the display scaling, not which edge he is docked to. The first version had the page guess
+   * from a constant and the tail came out 80 px past his head on the real desktop. Here the sprite
+   * rectangle is already known in screen pixels, so the sum is exact.
+   *
+   * The head sits at the middle of the sprite horizontally and 96/224 of the way down it, which is
+   * where the drawn monk's head is in every frame.
+   */
+  function aimTail(w: BrowserWindow, box: { x: number; y: number }) {
+    if (!petAt) return;
+    // headOf works back from the art box the pet sends to the frame the offsets are written in.
+    // Doing this by hand here used `sprite.y + 96`, which is 78 px low when `sprite` is the art box.
+    const h = headOf(petAt);
+    const head = { x: h.x - box.x, y: h.y - box.y };
+    // He is to the LEFT of the bubble only when docked left, and then the tail leaves the other side.
+    w.webContents.send('bubble:aim', { x: head.x, y: head.y, flip: head.x < 0 });
+  }
+
   ipcMain.on('bubble:size', (e, size) => {
     if (!fromBubble(e) || !size || typeof size !== 'object') return;
     const w = bubble?.window();
@@ -357,16 +468,45 @@ app.whenReady().then(async () => {
       // run left the bubble at its starting 560 px, so a two-word reply sat 450 px away from Aang.
       // One call for size AND position also means it never shows for a frame at the old size.
       const [x, y] = w.getPosition();
-      const box = petAt ? bubbleAt(petAt, { width, height }) : { x, y, width, height };
+      // `pad` is the room the thought beads hang in, on the right and underneath. The window is placed
+      // by the shape WITHOUT it, so the panel's bottom-right corner lands on the same anchor it always
+      // has, and the window simply extends further right and down to hold the beads. Place by the full
+      // size instead and the panel jumps 84 px left and 40 px up the moment a tail is added.
+      const pr = Math.max(0, Math.min(400, Math.round(Number(size.pad?.right) || 0)));
+      const pb = Math.max(0, Math.min(400, Math.round(Number(size.pad?.bottom) || 0)));
+      const box = petAt
+        ? bubbleAt(petAt, { width: width - pr, height: height - pb })
+        : { x, y, width, height };
       w.setBounds({ x: box.x, y: box.y, width, height });
+      aimTail(w, box);
     }
     bubble?.show();
   });
   // His answer to an ask. Translated here into the reply the brain expects, because each kind answers
   // differently and the page should not have to know that. "show" is not a reply at all: it is a
   // request to see the whole thing first, which is a `submit`, so the ask stays open until he decides.
-  ipcMain.on('bubble:answer', (e, a) => {
-    if (!fromBubble(e) || !a || typeof a !== 'object') return;
+  // The typing box has the keyboard, but the bubble is what he is reading. PageUp/PageDown are passed
+  // straight across, exactly as InputWindow.PageRequested does it in the C#.
+  ipcMain.on('input:page', (e, d) => {
+    if (!fromInput(e) || (d !== 1 && d !== -1)) return;
+    bubble?.send('bubble:page', d);
+  });
+  ipcMain.on('input:answer', (e, a) => {
+    if (!fromInput(e) || !liveAsk) return;
+    // Rebuilt from the ask the Shell is holding, never from what the page sends: the page knows the
+    // choice and nothing else, so it cannot invent an id or change what is being consented to.
+    const choice = String((a as Record<string, unknown>)?.choice ?? '');
+    answerAsk({ ...liveAsk, choice });
+    liveAsk = null;
+    input?.send('input:ask', null);
+  });
+  /**
+   * Act on his answer to an ask, whichever window he answered from.
+   *
+   * Pulled out of the bubble's own handler so the typing box can reuse it: two copies of the consent
+   * rule would be two chances to get it wrong, and the consent rule is the subtle one (see below).
+   */
+  function answerAsk(a: Record<string, unknown>): void {
     const choice = String(a.choice ?? '');
     if (a.t === 'permission') {
       if (choice === 'show') { link?.send({ t: 'submit', id: 'show-' + Date.now(), text: 'show me that first' }); return; }
@@ -392,6 +532,14 @@ app.whenReady().then(async () => {
       }
       return;
     }
+  }
+
+  ipcMain.on('bubble:answer', (e, a) => {
+    if (!fromBubble(e) || !a || typeof a !== 'object') return;
+    answerAsk(a as Record<string, unknown>);
+    // Answered from the bubble, so the box must stop offering it too.
+    liveAsk = null;
+    input?.send('input:ask', null);
   });
   // A chip he pressed. Opened in HIS programs, through the operating system, never inside Aang: a
   // link from a reply is exactly the kind of thing that should land in a browser with a visible address
@@ -419,10 +567,71 @@ app.whenReady().then(async () => {
   ipcMain.on('bubble:hidden', (e) => { if (fromBubble(e)) { bubble?.setClickable(false); bubble?.hide(); } });
 
   // ---- the typing box (6.12b). Its own sender check, like the bubble's.
+  /**
+   * What the typing box is carrying: the turn he is replying to, and the turns he has pinned.
+   *
+   * Kept HERE, not in the page, because the box is opened and closed constantly and he expects a pin to
+   * survive that - "they ride along with every message until he removes them" (protocol.ts). The reply
+   * is different: it is about one message, so it is cleared once sent.
+   */
+  let replyTo: { turn: number; preview: string } | null = null;
+  const pinned: { turn: number; preview: string }[] = [];
+  const sendChips = () => input?.send('input:chips', { replyTo, pinned });
+  const chipOf = (a: unknown) => {
+    const o = (a ?? {}) as Record<string, unknown>;
+    const turn = Number(o.turn);
+    if (!Number.isFinite(turn)) return null;
+    return { turn, preview: String(o.preview ?? '').slice(0, 80) };
+  };
+
+  ipcMain.on('bubble:replyto', (e, a) => {
+    if (!fromBubble(e)) return;
+    const c = chipOf(a); if (!c) return;
+    replyTo = c;
+    if (!input?.visible) openTypeBox();
+    sendChips();
+  });
+  ipcMain.on('bubble:pin', (e, a) => {
+    if (!fromBubble(e)) return;
+    const c = chipOf(a); if (!c) return;
+    // Pinning the same turn twice is a no-op rather than a duplicate chip.
+    if (!pinned.some((p) => p.turn === c.turn)) pinned.push(c);
+    // Six at most, oldest dropped, exactly as InputWindow.Pin does it: "the row has to stay readable".
+    while (pinned.length > 6) pinned.shift();
+    if (!input?.visible) openTypeBox();
+    sendChips();
+  });
+  ipcMain.on('input:dropchip', (e, a) => {
+    if (!fromInput(e)) return;
+    const o = (a ?? {}) as Record<string, unknown>;
+    if (o.kind === 'reply') replyTo = null;
+    else {
+      const turn = Number(o.turn);
+      const i = pinned.findIndex((p) => p.turn === turn);
+      if (i >= 0) pinned.splice(i, 1);
+    }
+    sendChips();
+  });
+
   ipcMain.on('input:submit', (e, a) => {
     if (!fromInput(e) || !a || typeof a.text !== 'string' || !a.text.trim()) return;
     const mode = ['auto', 'quick', 'smart', 'deep'].includes(a.mode) ? a.mode : inputMode;
-    link?.send({ t: 'submit', id: 's' + Date.now(), text: a.text.slice(0, 20_000), mode });
+    const sent = link?.send({
+      t: 'submit', id: 's' + Date.now(), text: a.text.slice(0, 20_000), mode,
+      ...(replyTo ? { replyTo: replyTo.turn } : {}),
+      ...(pinned.length ? { context: pinned.map((p) => p.turn) } : {}),
+    });
+    // The brain was not there to take it. link.send returns false and the message is gone unless we
+    // say so: nothing downstream would ever notice. 6.14b: "Nothing you said is lost." Tell the box,
+    // which keeps the text, and let him retry from there.
+    if (!sent) {
+      input?.send('input:failed', { text: a.text, reason: 'brain-down' });
+      return;
+    }
+    // The reply was about ONE message, so it goes once it is said. Pins stay: they ride along with
+    // every message until he takes them off (protocol.ts).
+    replyTo = null;
+    sendChips();
     // The bubble shows what he ASKED above the answer, as the old one does (BubbleView.Asked, set from
     // `lastText`). The brain never sends his own words back, and the old box knew them because it was
     // the same program; the Shell has to carry them across itself.
@@ -436,7 +645,15 @@ app.whenReady().then(async () => {
   });
   ipcMain.on('input:close', (e) => { if (fromInput(e)) input?.close(); });
   ipcMain.on('input:stop', (e) => { if (fromInput(e)) link?.send({ t: 'stop' }); });
-  ipcMain.on('input:mode', (e, m) => { if (fromInput(e) && typeof m === 'string') inputMode = m; });
+  ipcMain.on('input:mode', (e, m) => {
+    if (!fromInput(e) || typeof m !== 'string') return;
+    if (!['auto', 'quick', 'smart', 'deep'].includes(m)) return;
+    inputMode = m;
+    // Kept in memory here AND sent on, or the choice dies with the process. The Shell deliberately does
+    // not write body.json itself: the pet is its only writer (Support.cs Atomic.Write), and a second
+    // writer on a machine that shuts down hard every four hours is how that file ends up truncated.
+    link?.send({ t: 'mode', mode: m as 'auto' | 'quick' | 'smart' | 'deep' });
+  });
   ipcMain.on('input:size', (e, s) => {
     if (fromInput(e) && s && typeof s === 'object') input?.resize(Number(s.width) || 0, Number(s.height) || 0);
   });
@@ -450,10 +667,16 @@ app.whenReady().then(async () => {
     const turn = Number(id);
     if (Number.isFinite(turn)) link?.send({ t: 'forget.turn', id: turn });
   });
-  ipcMain.on('bubble:rate', (e, r) => {
-    if (!fromBubble(e) || !r || typeof r !== 'object') return;
-    const turn = Number(r.turn);
-    link?.send({ t: 'rate', ...(Number.isFinite(turn) ? { turn } : {}), rating: Math.sign(Number(r.rating) || 0) });
+  /**
+   * A click on a reply that names a window takes him to it - a Claude Code session, usually.
+   *
+   * The pet does the actual bringing-forward: it owns the Win32 side and already does exactly this for
+   * its own bubble (`PetWindow` + `Hands.Arrange`). So this goes pet-ward through the brain, the same
+   * route as `typebox`, rather than teaching the Shell a second way to move windows.
+   */
+  ipcMain.on('bubble:focus', (e, name) => {
+    if (!fromBubble(e) || typeof name !== 'string' || !name) return;
+    link?.send({ t: 'bubble.focus', focus: name.slice(0, 200) });
   });
   ipcMain.on('popout:playback', (e, s) => {
     if (!fromPopout(e) || !s || typeof s !== 'object') return;

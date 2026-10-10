@@ -20,13 +20,16 @@
      keeps its texture inside the rounded corners), and the copy and rate keys straddle the top edge by
      design. Inside the parchment they were clipped off and could never be seen (sweep, 2026-10-04). -->
 <div id="wrap" class="wrap tail">
-  <!-- Copy and rate: they straddle the top edge while the mouse is over the bubble, finished replies
-       only. aria-pressed carries the rating, so the look and what a screen reader says cannot differ. -->
-  <div id="tools" class="tools" hidden>
-    <button id="copy" class="mini" title="Copy">C</button>
-    <button id="up" class="mini" aria-pressed="false" title="Good">+</button>
-    <button id="down" class="mini" aria-pressed="false" title="Not good">&minus;</button>
-  </div>
+  <!-- The balloon itself. #bubble carries the text and the buttons; its SHAPE is drawn here, behind
+       it, as one SVG path: the soft-edged rectangle and the comic tail as a single closed outline,
+       so the ink line runs round the body and out along the tail with no seam. balloon.js regenerates
+       it whenever the reply changes size, because stretching a fixed shape would distort the corners
+       and the tail. Outside #bubble because the parchment clips its own children. -->
+  <svg id="skin" class="skin" aria-hidden="true"></svg>
+  <!-- Copy, INSIDE the panel's bottom-right, on a finished reply while the mouse is over it.
+       The thumbs went on 2026-10-04: ratings.jsonl was written and never read, six ratings existed in
+       the whole life of the app and three of those were taken back, and "Forget this" in the
+       right-click menu already covers "do not keep this". -->
 <div id="bubble" class="parch tex" hidden>
 
   <!-- Who is speaking and what it cost. Deliberately small and above the words, like the old one. -->
@@ -57,6 +60,14 @@
 
   <!-- A question that has to be answered before anything happens. Keycaps, A / X / Z, as today. -->
   <div id="asks" class="keys asks" hidden></div>
+
+  <!-- Copy, INSIDE the panel's bottom-right, on a finished reply while the mouse is over it.
+       The thumbs went on 2026-10-04: ratings.jsonl was written and never read, six ratings existed in
+       the whole life of the app and three of those were taken back, and "Forget this" in the
+       right-click menu already covers "do not keep this". -->
+  <div id="tools" class="tools" hidden>
+    <button id="copy" class="mini" title="Copy this reply">Copy</button>
+  </div>
 
 
 

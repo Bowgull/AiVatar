@@ -2,7 +2,7 @@
 // Messages queue in order; text streams out as it is generated. If the process dies the next message
 // restarts it and resumes the same conversation.
 import { query } from '@anthropic-ai/claude-agent-sdk';
-import type { Query, SDKUserMessage } from '@anthropic-ai/claude-agent-sdk';
+import type { Options, Query, SDKUserMessage } from '@anthropic-ai/claude-agent-sdk';
 import { parseRateLimit } from './quota.ts';
 import type { Quota } from './quota.ts';
 import { toolLabel } from './tools.ts';
@@ -10,7 +10,7 @@ import { toolLabel } from './tools.ts';
 export type LaneEvent =
   | { t: 'delta'; text: string; reset: boolean }
   | { t: 'tool'; name: string; phase: 'start' | 'done'; label: string }
-  | { t: 'result'; ok: boolean; text: string; ms: number; ttftMs: number | null; ctxTokens: number; cacheReadTokens: number; cacheWriteTokens: number; tools: string[]; subtype: string }
+  | { t: 'result'; ok: boolean; text: string; ms: number; ttftMs: number | null; ctxTokens: number; cacheReadTokens: number; cacheWriteTokens: number; tools: string[]; subtype: string; served?: string[] }
   | { t: 'quota'; quota: Quota }
   | { t: 'error'; message: string };
 
@@ -106,13 +106,23 @@ export class Lane {
         while (self.inbox.length) yield self.inbox.shift()!;
       }
     }
+    this.q = query({ prompt: prompts(), options: { ...this.options(), resume: this.sessionId } });
+    void this.pump(this.q);
+  }
+
+  /**
+   * Every option that shapes what the model is SENT, built in one place.
+   *
+   * The warm-up has to send a byte-identical prefix (system prompt, tool definitions, model) or it builds
+   * a cache entry the real turn never reads, which is the "write never read" waste QUOTA-MEASURED.md
+   * found was 25% of all measured spend. Two copies of this object would drift; one cannot.
+   */
+  private options(): Omit<Options, 'resume'> {
     // Built separately so an absent mcpServer/externalMcpServers cannot leave an `aang: undefined` key
     // behind for the spread below to carry into Options (TS then rejects the whole options object).
     const mcpServers: Record<string, unknown> = { ...(this.opts.externalMcpServers ?? {}) };
     if (this.opts.mcpServer) mcpServers.aang = this.opts.mcpServer;
-    this.q = query({
-      prompt: prompts(),
-      options: {
+    return {
         model: this.opts.model,
         // Root-caused 2026-09-24 (0g): a bare string here "follows the default", which is the SDK's own words
         // for systemPrompt.snapshot=true - it records the prompt on a lane's first request and replays that
@@ -136,14 +146,13 @@ export class Lane {
         ...(this.opts.onlyTools ? { tools: this.opts.onlyTools } : {}),
         // Anything not in allowedTools (Bash, Write, Edit, ...) comes through canUseTool, which asks Joshua
         // in the bubble and waits for his answer.
-        permissionMode: 'default',
+        permissionMode: 'default' as const,
         ...(this.opts.askPermission ? {
           canUseTool: async (tool: string, input: Record<string, unknown>) =>
             (await this.opts.askPermission!(tool, input))
               ? { behavior: 'allow' as const, updatedInput: input }
               : { behavior: 'deny' as const, message: 'Not allowed: either a safety rule stopped it or Joshua said no. Do not tell him he declined unless he did.' },
         } : {}),
-        resume: this.sessionId,
         // Account-level claude.ai connectors (Drive, Gmail, ...) otherwise load into every session:
         // measured 16k tokens per turn with them, 2.7k without.
         // ENABLE_TOOL_SEARCH=false: load his ~20 small tools up front. By default the engine hides them behind a
@@ -152,9 +161,46 @@ export class Lane {
         env: { ...process.env, ENABLE_CLAUDEAI_MCP_SERVERS: 'false', ENABLE_TOOL_SEARCH: 'false' },
         ...(this.opts.thinking ? { thinking: this.opts.thinking as never } : {}),
         ...(this.opts.claudeExecutable ? { pathToClaudeCodeExecutable: this.opts.claudeExecutable } : {}),
+    };
+  }
+
+  /**
+   * Warm the prompt cache WITHOUT touching the conversation.
+   *
+   * The old warm-up pushed "Reply with a single period and nothing else." into this lane's real session,
+   * once per Core start. Over five days that was 41 times; 46 of the 93 replies in that session were a
+   * lone ".", and Haiku learned the pattern and started answering HIM with a full stop (2026-10-05).
+   *
+   * This is a separate one-shot query on the same options, so it sends the same prefix and builds the
+   * cache entry the next real turn reads. `forkSession` makes it continue from a COPY of the
+   * conversation, so the history it carries is identical (a fresh session would not be, and the cache
+   * lookback is only 20 blocks); `persistSession: false` means that copy is never written anywhere.
+   * Both are in the SDK's own types; GitHub anthropics/claude-agent-sdk-typescript#355 shows this exact
+   * shape running on a Max subscription.
+   *
+   * Measured from turns.jsonl before the change: warm turns reach the first word in a median 1.0 s, the
+   * one cold turn in 4.4 s. That gap is what this buys, which is why it is kept rather than removed.
+   */
+  async warm(text: string): Promise<{ cacheWriteTokens: number; cacheReadTokens: number } | null> {
+    const resume = this.sessionId;
+    const q = query({
+      prompt: text,
+      options: {
+        ...this.options(),
+        ...(resume ? { resume, forkSession: true } : {}),
+        persistSession: false,
+        maxTurns: 1,
+        // Nothing may happen in a warm-up. A refusal is client-side, so it does not change the prefix.
+        canUseTool: async () => ({ behavior: 'deny' as const, message: 'This is a cache warm-up; do nothing.' }),
       },
     });
-    void this.pump(this.q);
+    for await (const m of q) {
+      if (m.type === 'result') {
+        const u = (m as unknown as { usage?: Record<string, number> }).usage ?? {};
+        return { cacheWriteTokens: u.cache_creation_input_tokens ?? 0, cacheReadTokens: u.cache_read_input_tokens ?? 0 };
+      }
+    }
+    return null;
   }
 
   send(text: string): void {
@@ -267,6 +313,10 @@ export class Lane {
               cacheReadTokens: u.cache_read_input_tokens ?? 0,
               cacheWriteTokens: u.cache_creation_input_tokens ?? 0,
               tools: [...this.toolsUsed],
+              // Which model ACTUALLY answered. On a subscription the SDK can serve a different model than
+              // asked for, with HTTP success and no error, for an id it does not know or under load
+              // (anthropics/claude-agent-sdk-typescript#355). The only signal is the keys of modelUsage.
+              served: Object.keys((m as unknown as { modelUsage?: Record<string, unknown> }).modelUsage ?? {}),
             });
             break;
           }

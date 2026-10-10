@@ -9,12 +9,33 @@ html,body{margin:0;padding:0;background:transparent;overflow:hidden;font:500 15p
 .frame{padding:4px 6px 10px}
 
 /* ---- sheet 2 ---- */
-.box{background:#140e26;border:3px solid var(--outline);border-radius:8px 8px 0 0;padding:12px 13px;
-  font:500 15px var(--body);color:var(--text);box-shadow:inset 0 3px 0 rgba(0,0,0,.6)}
-.strip{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:0 0 8px 8px;
-  background:linear-gradient(180deg,var(--panel2),var(--ink));border:3px solid var(--outline);border-top:none}
+/* ---- sheet 9, Mix 1: a wooden frame with a plum field set into it ----------
+   #140e26 was almost the page background, so the box read as a hole cut in the desk rather than a
+   surface to write on. A Stardew input is not one flat colour: it is furniture with a field set into
+   it. So the frame is the same wood as the pop-out menu, and the field is the exact plum his own
+   words already wear inside the bubble. Parchment is Aang, plum is you, everywhere. */
+.box{background:linear-gradient(180deg,#56371F,var(--wood1));
+  border:var(--ow) solid var(--outline);border-radius:14px 14px 0 0;padding:5px;
+  box-shadow:inset 0 3px 0 rgba(255,220,170,.18),inset 0 -3px 0 rgba(0,0,0,.45)}
+/* The FIELD dominates the bar under it: it is the thing he uses. Three lines at rest, growing with
+   the prompt, which input.js already does by measuring the text. Before this the two had nearly the
+   same height and read as two equal halves. */
+/* Two lines at rest, not three. Three made the whole box 136px of drawn height against the old box's
+   112, and it hung down over his left edge on the real desktop. It still clearly dominates the bar
+   under it, which was the point of Mix 1; it just is not bigger than the thing it sits under. */
+/* The furniture was thicker than the thing it holds: 8px of wood plus a 4px edge on every side of the
+   field. 5px reads as a frame without becoming the main event, and the field rests just under two
+   lines, so an empty box is not a slab of purple. It still grows with the text (input.js measures). */
+.field{border-radius:9px;padding:7px 10px;font:500 15px/1.5 var(--body);min-height:44px;
+  border:2px solid rgba(0,0,0,.55);color:#CFC0E4;
+  background:linear-gradient(180deg,var(--plum-deep),var(--plum));
+  box-shadow:inset 0 3px 0 rgba(0,0,0,.45),inset 0 -2px 0 rgba(150,110,200,.32)}
+/* A readout he glances at, so it takes as little height as it can and stay legible. */
+.strip{display:flex;align-items:center;gap:7px;padding:2px 9px;border-radius:0 0 14px 14px;
+  background:linear-gradient(180deg,var(--wood1),var(--wood2));
+  border:var(--ow) solid var(--outline);border-top:none}
 .segs{display:flex;gap:3px;margin-left:auto}
-.segs i{width:9px;height:15px;border-radius:2px;border:1.5px solid var(--outline);background:#2b2342}
+.segs i{width:6px;height:10px;border-radius:2px;border:1.5px solid var(--outline);background:#44301d}
 .segs i.on{background:var(--green)}
 .segs i.warn{background:var(--orange)}
 /* added: red from 50%, his quota rule; sheet 2 draws only the first two states */
@@ -27,18 +48,85 @@ html,body{margin:0;padding:0;background:transparent;overflow:hidden;font:500 15p
 .pinchip b{font:400 9px var(--label);letter-spacing:.5px;opacity:.75}
 .pinchip s{width:15px;height:15px;border-radius:50%;background:rgba(0,0,0,.28);display:grid;
   place-items:center;font:700 11px var(--body);text-decoration:none;cursor:pointer}
-.pill.sm{font-size:11.5px;padding:6px 11px;border-width:2.5px;
+.pill.sm{font-size:10.5px;padding:4px 10px;border-width:2px;
   box-shadow:0 3px 0 var(--outline),inset 0 2px 0 rgba(255,255,255,.3)}
 .pill.saving{background:var(--mode-saving);color:#15121b}
 .pill.auto{background:var(--gold)}
 
 /* ---- added: a real textarea dressed as sheet 2's .box ----
-   The sheet draws the box as a div with a fake caret. A real textarea needs
+   The sheet draws the field as a div with a fake caret. A real textarea needs
    its own chrome taken off, and it has to grow with the text, which input.js
    does by measuring - up to six lines, then it scrolls, as the old box does. */
-textarea.box{display:block;width:100%;box-sizing:border-box;resize:none;outline:none;
-  margin:0;line-height:1.45;overflow-y:hidden;caret-color:var(--gold);
+/* The real textarea IS the field, sitting inside the wooden .box. */
+textarea.field{display:block;width:100%;box-sizing:border-box;resize:none;outline:none;
+  margin:0;overflow-y:hidden;caret-color:var(--gold);
   /* past four lines it scrolls; a thin plum bar like the bubble's, not the white system one */
   scrollbar-width:thin;scrollbar-color:var(--plum-edge) transparent}
-textarea.box::placeholder{color:#6d6585}
+textarea.field::placeholder{color:#8E7FA8}
 .pill[hidden]{display:none}
+
+/* ---- softer corners and a little grain, to match the speech bubble -------
+   14px on the outer corners instead of 8, and 9 on the field inside it, so the pair reads as the same
+   object as the balloon beside it rather than a sharper one. The balloon's own corner is 15.
+
+   The grain is the same noise `.tex` paints on the parchment, at a touch more than the balloon's .05,
+   because wood and plum are darker surfaces and the same opacity barely shows on them. `pointer-events`
+   off and `inset:0` with `border-radius:inherit` so it never covers the caret or squares the corners. */
+.box, .strip{position:relative}
+.box::after, .strip::after{
+  content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;opacity:.07;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+/* The field is above the grain, so the text it holds is never dusted by it. */
+.field{position:relative;z-index:1}
+
+/* ---- the strip's readouts (4.5, ported from InputWindow.PaintUsage and MeaningAt) ----------
+   The segments show the week, the tick shows where the WEEK is, and the thin bar under them is the
+   last five hours. Without the tick, "44%" says nothing: it is fast on a Monday and slack on a
+   Saturday. Hovering any control replaces the bars with a plain sentence, because they compete for
+   the same strip and a control you cannot read is a control you do not use. */
+.usage{display:flex;flex-direction:column;gap:2px;margin-left:auto}
+.weekrow{position:relative;display:flex;gap:3px}
+.pacetick{position:absolute;top:-2px;bottom:-1px;width:1.5px;background:var(--ink-text);
+  box-shadow:0 0 0 1px rgba(0,0,0,.5);pointer-events:none}
+.pacetick[hidden]{display:none}
+.five{width:100%;height:3px;border-radius:2px;background:rgba(0,0,0,.45);overflow:hidden}
+.fivefill{display:block;height:100%;width:0;background:var(--ink-dim);transition:width .2s linear}
+.fivefill.warn{background:var(--orange)}
+.fivefill.stop{background:var(--red)}
+/* The sentence takes the bars' place rather than pushing them along. */
+.hint{margin-left:auto;font:500 11px var(--body);color:#D9C3A4;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;max-width:62%}
+.hint[hidden]{display:none}
+.strip.hinting .usage{display:none}
+
+/* ---- an ask waiting on him, in the strip (ported from the C# consent row) ----------------
+   "Allow X once?  Enter = yes   Esc = no", in the orange the C# used, because it is a question rather
+   than a readout. It takes the whole strip: a question competing with usage bars is the gibberish he
+   complained about. One line, cut rather than wrapped, so the box never reflows under his hands. */
+.askrow{display:flex;align-items:baseline;gap:8px;min-width:0;flex:1 1 auto}
+.askrow[hidden]{display:none}
+.askrow b{font:700 11.5px var(--body);color:var(--orange);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.askrow .how{font:500 10.5px var(--body);color:#C8B49A;white-space:nowrap;margin-left:auto}
+/* The pills go too, exactly as the C# does it: PaintStrip draws the consent line and RETURNS before
+   the mode and saving pills, clearing their hit rectangles. A question needs the whole strip, and
+   "Allow Deep ..." cut in half is the gibberish he objected to. */
+.strip.asking .usage,.strip.asking .hint,.strip.asking .pill{display:none}
+
+/* ---- the three starters (ported from InputWindow.DrawSuggestions) ------------------------
+   Three equal chips splitting the row, only when the box is empty. Deliberately QUIETER than a pin:
+   "a pin is something he chose, these are only offers", so no gold fill, just a dim outline on the
+   wood. The label is cut rather than wrapped, which is why they are about twelve characters. */
+.starters{display:flex;gap:4px;padding:0 0 6px}
+.starters[hidden]{display:none}
+.starter{flex:1 1 0;min-width:0;cursor:pointer;
+  font:500 11px var(--body);color:#D9C3A4;
+  background:rgba(0,0,0,.26);border:1px solid rgba(217,195,164,.42);border-radius:4px;
+  padding:5px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.starter:hover{background:rgba(255,224,150,.14);color:#F2E3C8;border-color:rgba(255,224,150,.6)}
+
+/* ---- the brain is not answering (6.14b). Orange, like an ask: it needs him, but it is not an ask. */
+.failrow{color:var(--orange)}
+.failrow b{color:var(--orange)}
+.failrow[hidden]{display:none}

@@ -28,7 +28,14 @@ html,body{
 #bubble{pointer-events:auto}
 /* The wrapper carries the bubble's place in the window, so the copy and rate keys can sit on its top
    edge outside the parchment's clipping. */
-.wrap{position:relative;align-self:flex-end;margin:0 6px 18px;pointer-events:none}
+/* The right and bottom margins are the room the tail hangs in. They are margins rather than a
+   bigger window alone, because `align-self:flex-end` would otherwise push the panel against the
+   window's right edge and the tail would be clipped off by it, exactly as the copy keys once were.
+   main.ts is told how much of the window is this reserved room (bubble:size `pad`) so the PANEL still
+   lands where it has always landed, not shifted up and left by the tail. */
+.wrap{position:relative;align-self:flex-end;margin:0 78px 56px 6px;pointer-events:none}
+/* 78 and 56, not 70 and 46: the tail needs its exact reach PLUS slack, or its ink line sits on the
+   window edge and the hard shadow under the tip is clipped away by `overflow:hidden`. */
 .wrap .tools{pointer-events:none;z-index:3}   /* above the parchment, which comes after it */
 /* The window is 18 px taller than the bubble and its tail, for the copy and rate keys above it. */
 body{padding-top:18px;box-sizing:border-box}
@@ -66,6 +73,10 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
   box-sizing:border-box;
 }
 #bubble.wide{width:416px}
+/* The third width. 556 is not a new number: it is BubbleView's ScrollbackExtra (300) added to 256,
+   the width the scroll-back has always used. A reply past about eighteen lines at 416 would be a
+   tall narrow column running up the screen, so it widens once more instead of growing taller. */
+#bubble.widest{width:556px}
 #bubble.scrollback{width:556px}
 #bubble[hidden]{display:none}
 
@@ -126,8 +137,11 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
 /* ---- copy and rate -------------------------------------------------------
    They straddle the TOP EDGE, half in and half out, as today, and appear only
    while the mouse is over a finished reply. */
+/* INSIDE the panel, bottom-right. It used to straddle the top edge as three grey keycaps, which he
+   called "boring and mono tone with one colour". One key now, in the gold that means "you can press
+   this" everywhere else in Aang, sitting on the parchment rather than cutting its edge. */
 .tools{
-  position:absolute;top:-13px;right:14px;display:flex;gap:6px;
+  position:absolute;right:10px;bottom:8px;display:flex;gap:6px;z-index:4;
   opacity:0;transition:opacity .14s ease-out;pointer-events:none;
 }
 .tools[hidden]{display:none}
@@ -139,7 +153,14 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
 /* The keys themselves are .mini in cockpit.css, lifted from sheet 5 section 8:
    "still keycaps, and a rating that is switched on uses the latched look from
    section 1 rather than a new one". Only their placement is here. */
-.tools .mini{flex:0 0 auto}
+.tools .mini{
+  flex:0 0 auto;width:auto;padding:3px 9px;
+  font:400 9px var(--label);letter-spacing:1px;
+  background:var(--gold);color:#2a1c00;
+  border:2.5px solid var(--outline);border-radius:5px;
+  box-shadow:0 2px 0 var(--outline),inset 0 2px 0 rgba(255,255,255,.35);
+}
+.tools .mini:active{top:2px;box-shadow:0 0 0 var(--outline),inset 0 2px 0 rgba(255,255,255,.2)}
 
 @media (prefers-reduced-motion:reduce){
   .scroller{transition:none}
@@ -204,13 +225,54 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
    the mistake the copy and rate keys made. Seen beside the old bubble, whose tail is a long pointer
    reaching to Aang's head, while the new one had none (2026-10-04).
    On the RIGHT, because Aang always stands to the bubble's right. */
-.wrap.tail::after{
-  /* left:auto is load-bearing: cockpit.css's own .tail::after sets left:28px (the sheet draws a bubble
-     with nobody beside it), and with both left and right set, left wins - the tail came out on the far
-     side from Aang. */
-  content:"";position:absolute;left:auto;right:24px;bottom:-16px;width:18px;height:18px;
-  background:var(--parch2);border-right:var(--ow) solid var(--outline);
-  border-bottom:var(--ow) solid var(--outline);transform:rotate(45deg);
-}
-/* Nothing when there is nothing being said: an arrow pointing at him out of thin air. */
-.wrap.tail:has(#bubble[hidden])::after{content:none}
+/* cockpit.css's own .tail::after draws a diamond at the bottom LEFT. Switched off here entirely: the
+   tail is now three beads (#think below), and a leftover diamond would be a second tail. */
+.wrap.tail::after{content:none}
+
+/* ---- the balloon's shape lives in #skin, not here ------------------------
+   #bubble keeps the text, the padding and the buttons; its parchment, its frame, its carve and its
+   tail are all one SVG path drawn behind it (balloon.js). That is the only way the ink line can run
+   round the body and out along the tail without a seam: a tail built as a second element always
+   shows the body's own border running straight across the join.
+   So the parchment's own background, border and shadow are switched off here. The padding, the
+   radius and `overflow:hidden` stay, because the text still has to sit inside the drawn shape. */
+#bubble{background:none;border:none;box-shadow:none}
+/* The noise texture is painted by .tex::before on #bubble and still works, since it is clipped to
+   the same rounded box the SVG draws. */
+.skin{position:absolute;left:0;top:0;z-index:0;pointer-events:none;display:block}
+.skin[hidden]{display:none}
+/* The shape lives outside #bubble, so hiding the bubble does not hide it. Belt and braces with the
+   0x0 guard in paintSkin: a stale shape can never outlive the words it was drawn for. */
+.wrap:has(#bubble[hidden]) .skin{display:none}
+#bubble{position:relative;z-index:1}
+
+/* ---- several things waiting (6.13, sheet 5 section 4) ------------------------------------
+   "Today a new message replaces the last one. Three things needing you means you see one and the
+   other two are gone. Now they stack: the newest is open, the rest sit underneath as edges of
+   parchment, each with one line saying what it is. Answer the top one and the next slides up."
+   Lifted from the sheet's `.stack .under` and `.count`, with the sheet's own colours. */
+.under{position:relative;display:flex;flex-direction:column;align-items:stretch;pointer-events:auto}
+.under[hidden]{display:none}
+.edge{display:flex;align-items:center;gap:8px;height:26px;padding:0 12px;cursor:pointer;
+  border:var(--ow) solid var(--outline);border-top:none;border-radius:0 0 9px 9px;
+  background:linear-gradient(180deg,var(--parch2),#cfae74);
+  font:600 12px var(--body);color:#4e3d28;text-align:left;
+  overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+/* Each one is narrower than the one above it, so the pile reads as depth rather than a list. */
+.edge.u1{margin:0 14px;z-index:2}
+.edge.u2{margin:0 26px;opacity:.85;z-index:1}
+.edge b{font:400 9px var(--label);letter-spacing:.5px;color:#8a6a2a;flex:0 0 auto}
+.edge span{overflow:hidden;text-overflow:ellipsis}
+.edge:hover{background:linear-gradient(180deg,#e9cf9b,#d8b87e)}
+/* "1 OF 3", beside the keys, so he knows how many are behind this one. */
+.count{display:inline-flex;align-items:center;gap:6px;align-self:flex-end;margin:6px 2px 0;
+  font:400 10px var(--label);letter-spacing:1px;color:var(--gold);
+  background:var(--wood-plaque);padding:5px 9px;border-radius:5px;border:2.5px solid var(--outline);
+  box-shadow:inset 0 2px 0 rgba(0,0,0,.6)}
+.count[hidden]{display:none}
+
+/* ---- nothing yet (6.14b, sheet 5 section 9) ---------------------------------------------
+   Every empty list says what will appear there and how, instead of an empty box. This is the
+   scroll-back's, shown only when he has reached the top with nothing above it. Quiet caption
+   weight, in the parchment ink, centred, as the sheet draws it. */
+.empty-line{margin:6px 4px;text-align:center;font:500 13px/1.5 var(--body);color:var(--ink-dim)}

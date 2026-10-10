@@ -565,6 +565,30 @@ sealed class PetWindow : Form
             // The new front end (6.12/6.12b): the Electron bubble and typing box draw these instead, so the
             // pet does not ALSO draw them. Two bubbles saying the same thing is what made the first real
             // test unreadable. The pet still wakes, so he still reacts when spoken to.
+            // `typebox` is the pet's own request coming back round: the brain relays it to every desktop
+            // client and the pet is one of them. The Shell acts on it; the pet must not, or a click would
+            // ask for the box twice.
+            if (NewFrontEnd && tp.GetString() == "typebox") return;
+            // He picked a mode in the new typing box. The pet is the only writer of body.json, so the
+            // choice comes here to be saved rather than the Shell writing that file too.
+            if (NewFrontEnd && tp.GetString() == "mode")
+            {
+                if (Str(m, "mode") is { Length: > 0 } picked) SetMode(picked);
+                return;
+            }
+            // The new bubble was clicked on a message that names a window (a Claude session). The pet
+            // owns the Win32 side, so it does the bringing-forward, exactly as its own bubble does.
+            if (NewFrontEnd && tp.GetString() == "bubble.focus")
+            {
+                var want = Str(m, "focus");
+                if (want is { Length: > 0 })
+                {
+                    var r = Hands.Arrange(want, "front");
+                    Log.Write($"bubble link -> {want}: {r.Detail}");
+                    if (!r.Ok) _ = link.SendAsync(new { t = "bubble.focus.failed" });
+                }
+                return;
+            }
             if (NewFrontEnd && tp.GetString() is "bubble" or "bubble.dots" or "bubble.clear" or "tool"
                 or "permission" or "fact.ask" or "backup.ask" or "consent")
             {
@@ -1348,6 +1372,22 @@ sealed class PetWindow : Form
     {
         if (hiddenByUser && !userAsked) { Log.Write("input box suppressed: hidden by Joshua"); return false; }
         if (peeking && userAsked) { Reveal(thenType: true); return true; }         // docked: bring him out first, then open the box
+        // THE NEW FRONT END OWNS THE TYPING BOX, however it is opened.
+        //
+        // The hotkey already went to the Shell, but a CLICK on Aang, the gold menu's "Talk", and the
+        // slide-out-then-type path all came through here and opened the C# box instead - so which box he
+        // got depended on how he asked for it (he hit this, 2026-10-04). Gating it here covers all seven
+        // callers at once. The pet still wakes and still looks at him; only the box moved.
+        if (NewFrontEnd)
+        {
+            if (!Visible) { hiddenByUser = false; Show(); }
+            // Hand the foreground right across BEFORE asking, or the Shell's focus() is refused and the
+            // box opens with the keyboard still in his game. See Win32.AllowSetForegroundWindow.
+            Win32.AllowSetForegroundWindow(Win32.ASFW_ANY);
+            _ = link.SendAsync(new { t = "typebox" });
+            Wake(); dirty = true;
+            return true;
+        }
         if (!Visible) { hiddenByUser = false; Show(); }
         var prev = Win32.GetForegroundWindow();
         if (prev == Handle || prev == input.Handle) prev = IntPtr.Zero;
