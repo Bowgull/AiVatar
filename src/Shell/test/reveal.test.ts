@@ -161,3 +161,13 @@ test('the cockpit pace: whole words, one every 38 ms, never faster because more 
   assert.equal(b.text, a.text, 'and the same for one dribbling in');
   assert.ok(!/\S$/.test('one tw'.slice(0, wordEnd('one two', 1))), 'never stops mid-word');
 });
+
+test('a long answer folds to its short version; a short or one-paragraph one never does', async () => {
+  const { summaryOf, SUMMARY_AFTER_CHARS } = await import('../pages/reveal.js');
+  const short = 'Short version: your WoW alerts break when the new bubble is on. Three lines fix it.';
+  const rest = 'What happens now: '.padEnd(SUMMARY_AFTER_CHARS, 'x');
+  assert.equal(summaryOf(short + '\n\n' + rest), short);
+  assert.equal(summaryOf('a\n\nb'), null, 'too short to fold');
+  assert.equal(summaryOf('y'.repeat(SUMMARY_AFTER_CHARS + 50)), null, 'one paragraph: nothing to fold to');
+  assert.equal(summaryOf('z'.repeat(400) + '\n\n' + 'tail'), null, 'a "short version" that is most of it is not one');
+});
