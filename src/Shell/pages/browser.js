@@ -233,7 +233,7 @@ function paintTabs() {
   for (const tr of trails) { const tabs = live.filter((t) => t.trail === tr.id); if (tabs.length) groups.push({ id: tr.id, trail: tr, tabs }); }
   const done = state.tabs.filter((t) => t.done);
   const rowFor = (t, kid) => {
-    const sig = JSON.stringify([t.id === state.active, t.crashed, t.asleep, t.loading, t.favicon, t.title, t.url, t.audible, t.muted, kid, t.done]);
+    const sig = JSON.stringify([t.id === state.active, t.crashed, t.asleep, t.loading, t.favicon, t.title, t.url, t.audible, t.muted, kid, t.done, t.lent]);
     let r = rows.get(t.id);
     if (!r || r.sig !== sig) { const fresh = buildRow(t, kid); if (r) r.el.replaceWith(fresh); r = { sig, el: fresh }; rows.set(t.id, r); }
     return r.el;
@@ -331,9 +331,10 @@ function buildRow(t, kid) {
     row.append(title);
     if (t.crashed) { const c = document.createElement('span'); c.className = 'cr'; c.textContent = 'CRASHED'; row.append(c); }
     // Sheet 3: asleep is sunk flush into the wood, colour drained. Click and it wakes where it was.
-    if (asleep) { const z = document.createElement('span'); z.className = 'zz'; z.textContent = 'ASLEEP'; row.append(z); }
+    if (asleep && !t.lent) { const z = document.createElement('span'); z.className = 'zz'; z.textContent = 'ASLEEP'; row.append(z); }
+    if (t.lent) { const z = document.createElement('span'); z.className = 'zz lent'; z.textContent = 'IN POPOUT'; row.append(z); }
     // The pop-out keycap, only on video tabs: a video site, or anything playing sound right now.
-    if (!t.done && (t.audible || VIDEO_SITE.test(hostOf(t.url)))) {
+    if (!t.done && !t.lent && (t.audible || VIDEO_SITE.test(hostOf(t.url)))) {
       const p = document.createElement('button'); p.type = 'button'; p.className = 'pip';
       p.title = 'Pops this page into its own window'; p.setAttribute('aria-label', 'Popout');
       p.addEventListener('click', (e) => { e.stopPropagation(); window.aang?.browserPopout?.(t.id); });
@@ -437,6 +438,7 @@ function redLever() {
   box.append(l);
 }
 el('phishback').addEventListener('click', () => window.aang?.browserAct?.('phishback'));
+el('reclaim').addEventListener('click', () => window.aang?.browserAct?.('reclaim'));
 el('phishreal').addEventListener('click', () => window.aang?.browserAct?.('phishreal'));
 
 window.aang?.onBrowserTabs?.((s) => {
@@ -452,6 +454,7 @@ window.aang?.onBrowserTabs?.((s) => {
   loading.classList.toggle('busy', Boolean(t?.loading));
   const crashed = Boolean(t?.crashed);
   el('crashplate').hidden = !crashed;
+  el('lentplate').hidden = !t?.lent;
   // A listed site: the red plate where the page would be, and the plaque turns red.
   const b = t?.blocked;
   el('phishplate').hidden = !b;

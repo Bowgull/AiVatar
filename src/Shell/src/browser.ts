@@ -43,6 +43,8 @@ interface Tab {
   audible: boolean;
   muted: boolean;
   crashed: boolean;
+  /** Lent to the popout: the live page is playing over his game; the browser shows a plate where it was. */
+  lent: boolean;
   scrollY: number;
   zoom: number;
   lastSeen: number;
@@ -244,15 +246,15 @@ export class AangBrowser {
     const t = this.cur();
     if (!w || w.isDestroyed()) return;
     this.drawerOpen = open;
-    if (!open) { this.place(); if (t?.view) t.view.setVisible(true); w.webContents.send('browser:frozen', null); return; }
+    if (!open) { this.place(); if (t?.view && !t.lent) t.view.setVisible(true); w.webContents.send('browser:frozen', null); return; }
     let shot: string | null = null;
-    if (t?.view && !t.crashed && !t.blocked) {
+    if (t?.view && !t.crashed && !t.blocked && !t.lent) {
       try { const img = await within(t.view.webContents.capturePage(), 600, null); if (img && !img.isEmpty()) shot = 'data:image/jpeg;base64,' + img.toJPEG(82).toString('base64'); }
       catch { /* no picture: the page area shows its own colour */ }
     }
     if (!this.drawerOpen) return;               // closed again while the picture was taken
     w.webContents.send('browser:frozen', shot);
-    if (t?.view) t.view.setVisible(false);
+    if (t?.view && !t.lent) t.view.setVisible(false);
   }
 
   isFrame(sender: Electron.WebContents): boolean { return Boolean(this.win && !this.win.isDestroyed() && sender === this.win.webContents); }
@@ -281,7 +283,7 @@ export class AangBrowser {
     w.on('unmaximize', () => this.place());
     w.on('close', () => { void this.snapshot(); });
     w.on('closed', () => {
-      for (const t of this.tabs) this.closeView(t);
+      for (const t of this.tabs) if (!t.lent) this.closeView(t);
       this.tabs = []; this.active = null; this.win = null;
       this.timers.forEach(clearInterval); this.timers = [];
     });
@@ -310,7 +312,7 @@ export class AangBrowser {
     if (!w || w.isDestroyed()) return;
     const [cw, ch] = w.getContentSize();
     const t = this.cur();
-    if (!t?.view) return;
+    if (!t?.view || t.lent) return;
     // A crashed page is moved out of the way so the frame's own plate shows; it is never touched.
     if (t.crashed || t.blocked) { t.view.setBounds({ x: 0, y: 0, width: 0, height: 0 }); return; }
     t.view.setBounds({ x: this.inset.left, y: this.inset.top, width: Math.max(0, cw - this.inset.left - this.inset.right), height: Math.max(0, ch - this.inset.top - this.inset.bottom) });
@@ -356,7 +358,8 @@ export class AangBrowser {
     // A crashed page goes blank and anything that pokes it hangs (tested 2026-10-04): mark it, never touch it.
     wc.on('render-process-gone', () => { tab.crashed = true; tab.loading = false; this.place(); this.sendTabs(); });
     // The keys work wherever the keyboard is, page or frame.
-    wc.on('before-input-event', (e, input) => { if (this.key(input)) e.preventDefault(); });
+    // Not while it is lent to the popout: Ctrl+W there must not close a tab in here.
+    wc.on('before-input-event', (e, input) => { if (!tab.lent && this.key(input)) e.preventDefault(); });
     // Back where it was: the zoom at once, the scroll once the page has drawn.
     if (tab.zoom) wc.setZoomLevel(tab.zoom);
     if (tab.muted) wc.setAudioMuted(true);
@@ -383,7 +386,7 @@ export class AangBrowser {
   private sleepIdle(): void {
     const now = Date.now();
     let any = false;
-    for (const t of this.tabs) if (t.view && t.id !== this.active && !t.audible && now - t.lastSeen > SLEEP_AFTER_MS) { this.sleep(t); any = true; }
+    for (const t of this.tabs) if (t.view && !t.lent && t.id !== this.active && !t.audible && now - t.lastSeen > SLEEP_AFTER_MS) { this.sleep(t); any = true; }
     if (any) this.sendTabs();
   }
 
@@ -401,7 +404,7 @@ export class AangBrowser {
       trail = from.done ? null : from.trail;
     } else if (this.pendingTrail !== null) { trail = this.pendingTrail; }
     this.pendingTrail = null;
-    const tab: Tab = { id: ++this.seq, view: null, opener, title: 'New tab', url, favicon: '', loading: true, audible: false, muted: false, crashed: false, scrollY: 0, zoom: 0, lastSeen: Date.now(), blocked: null, trail, done: false };
+    const tab: Tab = { id: ++this.seq, view: null, opener, title: 'New tab', url, favicon: '', loading: true, audible: false, muted: false, crashed: false, scrollY: 0, zoom: 0, lastSeen: Date.now(), blocked: null, trail, done: false, lent: false };
     // A child sits right under the last tab of its trail, so the trail reads top to bottom.
     if (from) {
       let at = this.tabs.indexOf(from);
@@ -419,6 +422,13 @@ export class AangBrowser {
     if (!w || w.isDestroyed() || !t) return;
     // Every live tab stays in the window; switching only shows one and hides the rest. Placed first, then
     // shown, so it never appears for a moment at the last tab's size.
+    if (t.lent) {
+      // Its page is in the popout: the frame shows "playing in the popout" where it was.
+      this.active = id;
+      for (const x of this.tabs) if (x.view && !x.lent) x.view.setVisible(false);
+      this.changed();
+      return;
+    }
     if (!t.view) this.wake(t);                         // an asleep tab wakes exactly where it was left
     this.active = id;
     t.lastSeen = Date.now();
@@ -426,7 +436,7 @@ export class AangBrowser {
     for (const x of this.tabs) if (x.id !== id && x.view) { try { x.view.webContents.stopFindInPage('clearSelection'); } catch { /* gone */ } }
     // With the drawer open the page stays hidden under it; closing the drawer shows whichever tab is current.
     if (!this.drawerOpen) t.view!.setVisible(true);
-    for (const x of this.tabs) if (x.id !== id && x.view) x.view.setVisible(false);
+    for (const x of this.tabs) if (x.id !== id && x.view && !x.lent) x.view.setVisible(false);
     if (!t.crashed) t.view!.webContents.focus();
     this.changed();
   }
@@ -434,6 +444,8 @@ export class AangBrowser {
   close(id: number): void {
     const i = this.tabs.findIndex((x) => x.id === id);
     if (i < 0) return;
+    // A tab playing in the popout comes back first, so its page is closed here and nowhere else.
+    if (this.tabs[i]!.lent) this.onReclaim?.();
     const [t] = this.tabs.splice(i, 1);
     if (isWeb(t!.url)) { this.closed.push(t!.url); if (this.closed.length > 25) this.closed.shift(); }
     this.closeView(t!);
@@ -458,6 +470,35 @@ export class AangBrowser {
   }
 
   reopen(): void { const u = this.closed.pop(); if (u) this.newTab(u); }
+
+  // ------------------------------------------------------------------ lending a tab to the popout ("take the tab with you")
+  /** Set by main: bring a lent tab back from the popout (the popout closes and hands it over). */
+  onReclaim: (() => void) | null = null;
+
+  /**
+   * Lend a live tab to the popout: the same page, already playing, signed in, nothing reloaded. It leaves this
+   * window and the frame shows a plate where it was. Null for a tab with no live page (asleep, crashed, blocked).
+   */
+  lend(id: number): { view: WebContentsView; url: string; title: string } | null {
+    const t = this.tabs.find((x) => x.id === id);
+    if (!t?.view || t.crashed || t.blocked || t.lent) return null;
+    t.lent = true;
+    try { this.win?.contentView.removeChildView(t.view); } catch { /* not shown */ }
+    try { t.view.webContents.stopFindInPage('clearSelection'); } catch { /* gone */ }
+    this.changed();
+    return { view: t.view, url: t.url, title: t.title };
+  }
+
+  /** The popout hands the tab back: into the window, where it was. If the tab or the window is gone, the page closes. */
+  giveBack(id: number, view: WebContentsView): void {
+    const t = this.tabs.find((x) => x.id === id);
+    const w = this.win;
+    if (!t || t.view !== view || !w || w.isDestroyed()) { try { view.webContents.close(); } catch { /* gone */ } if (t) { t.view = null; t.lent = false; } return; }
+    t.lent = false;
+    view.setVisible(false);
+    w.contentView.addChildView(view);
+    if (t.id === this.active) this.activate(t.id); else this.changed();
+  }
 
   /** A tab's address, for the pop-out. */
   urlOf(id: number): string | null { const t = this.tabs.find((x) => x.id === id); return t && isWeb(t.url) ? t.url : null; }
@@ -534,6 +575,7 @@ export class AangBrowser {
       case 'newtab': this.newTab(HOME); this.win?.webContents.send('browser:focusslot'); break;
       case 'close': if (t) this.close(t.id); break;
       case 'reopen': this.reopen(); break;
+      case 'reclaim': this.onReclaim?.(); break;
       case 'drawer-open': void this.drawer(true); break;
       case 'drawer-close': void this.drawer(false); break;
       // The red plate: the safe way out, or (the held lever) in anyway, for this site, this run.
@@ -625,7 +667,7 @@ export class AangBrowser {
       for (const t of list) {
         const tab: Tab = { id: ++this.seq, view: null, opener: null, title: String(t.title ?? t.url).slice(0, 300), url: t.url, favicon: '',
           loading: false, audible: false, muted: t.muted === true, crashed: false, scrollY: Number(t.scrollY) || 0, zoom: Number(t.zoom) || 0, lastSeen: Date.now(), blocked: null,
-          trail: Number.isInteger(t.trail) ? t.trail : null, done: false };
+          trail: Number.isInteger(t.trail) ? t.trail : null, done: false, lent: false };
         ids.push(tab.id);
         this.tabs.push(tab);
       }
@@ -651,7 +693,7 @@ export class AangBrowser {
     w.webContents.send('browser:tabs', {
       active: this.active,
       canBack: Boolean(wc?.navigationHistory.canGoBack()), canForward: Boolean(wc?.navigationHistory.canGoForward()),
-      tabs: this.tabs.map((x) => ({ id: x.id, opener: x.opener, title: x.title, url: x.url, favicon: x.favicon, loading: x.loading, audible: x.audible, muted: x.muted, crashed: x.crashed, asleep: !x.view, blocked: x.blocked, trail: x.trail, done: x.done })),
+      tabs: this.tabs.map((x) => ({ id: x.id, opener: x.opener, title: x.title, url: x.url, favicon: x.favicon, loading: x.loading, audible: x.audible, muted: x.muted, crashed: x.crashed, asleep: !x.view, blocked: x.blocked, trail: x.trail, done: x.done, lent: x.lent })),
       trails: this.trails,
       adsPaused: (() => { try { return this.paused.has(new URL(t?.url ?? '').hostname.replace(/^www\./, '')); } catch { return false; } })(),
       adsOn: Boolean(this.ads),

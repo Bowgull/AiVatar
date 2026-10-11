@@ -23,7 +23,12 @@ window.aang.onPopout(v => {
   // No address means this page is only the bar: the video is a separate view underneath it, because
   // paid services refuse to be shown in a frame (step 6.4). With an address, the page shows the video
   // itself, which is how YouTube and Twitch work, since their embed addresses exist to be framed.
-  if (v.url) {
+  if (v.source === 'tab') {
+    // A tab taken from the browser: its live page is laid over the picture area by the main process.
+    video.hidden = true;
+    video.removeAttribute('src');
+    player.attach('tab', null, false);
+  } else if (v.url) {
     // The address is built in the main process. The page never constructs one.
     video.src = v.url;
     video.hidden = false;
@@ -216,6 +221,15 @@ function reportChrome() {
   if (wasFaded) frame.classList.add('faded');
   if (px > 0) window.aang.popoutChrome(px);
 }
+
+// Where the picture area is, so a tab taken from the browser can be laid exactly over it. Re-said whenever it
+// changes size (the controls fading out gives the picture the whole window).
+const stageEl = document.querySelector('.stage');
+const sayStage = () => { const r = stageEl.getBoundingClientRect(); window.aang?.popoutStage?.({ x: r.left, y: r.top, width: r.width, height: r.height }); };
+new ResizeObserver(sayStage).observe(stageEl);
+frame.addEventListener('transitionend', sayStage);
+// The lent page swallows the mouse, so the main process says when it is over the window.
+window.aang?.onPopoutWake?.(() => showChrome());
 
 paintControls();
 paintSeeThrough();
