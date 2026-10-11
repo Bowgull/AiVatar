@@ -2345,8 +2345,10 @@ banner, the timeline with a line for now and a gem on game nights, the inbox wit
 kept on this PC for 30 days, never per email; people's addresses always get the letter; **never a private
 address**: the domain comes from a From line anyone can write, so names and every address they resolve to
 are checked before any request, redirects are refused, and only real images under 200 KB are kept, drawn
-by <img>. Weather and "talents changed in the patch" from the sheet are NOT built: no free source is
-wired for weather, and the patch line belongs to K3.
+by <img>. **Weather added the same day (his yes):** today's now, low to high and chance of rain from
+Open-Meteo (the free, keyless service get_weather already uses), as sheet 13's line under Today and a
+sky-blue pill on the window-2 banner; rain is mentioned only at 30% or more. "Talents changed in the
+patch" stays with K3.
 **6.15 is now built end to end; what is left is his look at it on the desktop.**
 
 **The change:** ports the scroll-back and Panel rows of the parity list. The 30-minute divider

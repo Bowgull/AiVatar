@@ -135,6 +135,8 @@ html,body{margin:0;height:100%;background:var(--wood2);overflow:hidden}
 .brief .counts span{font:700 12px var(--body);padding:5px 10px;border-radius:999px;border:2.5px solid var(--outline);
   background:var(--gold-lit);color:#2a1c00;box-shadow:0 2px 0 var(--outline)}
 .brief .counts span.mail{background:var(--plum-edge);color:#1d0b33}
+/* the weather pill: sky blue, his Avatar glow, so it reads as outside rather than as a count */
+.brief .counts span.wx{background:var(--avatar-glow);color:#1a2a3a}
 .brief .page{padding:6px 22px 20px;background:linear-gradient(180deg,#F0DCB4,var(--parch2))}
 .cal{position:relative;padding:6px 0 4px 0}
 .ev2{display:grid;grid-template-columns:86px 22px 1fr;align-items:center;gap:0;min-height:52px;position:relative}

@@ -63,6 +63,8 @@ export interface BriefCard {
   events: { title: string; start: string | null; end: string | null; allDay: boolean; where: string }[];
   unread: { from: string; subject: string; at: number; logo?: string; job?: boolean }[];
   jobsNew: number;
+  /** Today in Toronto, from Open-Meteo. Absent when the service did not answer. */
+  weather?: { now: number; high: number; low: number; words: string; rain: number };
   week: number | null;
   weekResetsAt: number | null;
   error?: string;
