@@ -421,7 +421,7 @@ app.whenReady().then(async () => {
       }
       console.log('shell: the new typing box is on; Ctrl+Plus belongs to the Shell');
 
-      aangBrowser = new AangBrowser({ origin: pages.origin, preloadPath: path.join(HERE, 'preload.cjs') });
+      aangBrowser = new AangBrowser({ origin: pages.origin, preloadPath: path.join(HERE, 'preload.cjs'), stateDir: STATE_DIR });
 
       // 6.17: Snipit, on Ctrl+Shift+Plus (his key). The snip lands on the typing box as a chip, never sent by itself.
       snipper = new Snipper({

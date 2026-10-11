@@ -1,4 +1,4 @@
-// Steps 6.19 and 6.20, pass 1: Aang's browser.
+// Steps 6.19, 6.20 and 6.21: Aang's browser.
 //
 // One window. Its frame (the carved band and the tab rail, sheet 3) is a page of ours; each tab is its own
 // WebContentsView, placed by hand in the page area. That placing is step 6.19: no layout library can hold a
@@ -7,21 +7,31 @@
 // own size, so the page never lags a frame behind the frame or tears at his scaling. Electron works in
 // device-independent pixels, so Windows' monitor scaling is already accounted for.
 //
+// 6.21, NEVER LOSE A TAB: every tab is snapshotted (address, title, where it sat in the rail, scroll, zoom)
+// every few seconds and on every navigation, to one file written atomically. Save-on-quit cannot be
+// trusted (an updater or a Shadow shutdown closes windows first), so the snapshot is continuous and the
+// same one powers crash reload, sleeping tabs and coming back after a restart. Every call INTO a tab has a
+// timeout: calling a crashed one hangs (tested 2026-10-04).
+//
 // SAFETY, from the first line:
 //  - His browsing lives in its own session (`persist:aang-browser`), apart from Aang's pages and the pop-out.
 //  - A tab can only ever be a web page: http and https. The address slot searches or goes to a site and
-//    never runs anything (no javascript:, file:, chrome: or anything else).
+//    never runs anything (address.ts, tested).
 //  - Tabs get NO preload and the safe preferences: a website can never reach Aang's doors.
 //  - Every permission a site asks for is refused until 6.22 adds the asks (chips and the lever).
 import { BrowserWindow, WebContentsView, screen, session as electronSession } from 'electron';
+import { existsSync, readFileSync } from 'node:fs';
+import path from 'node:path';
 import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown } from './safety.ts';
 import { addressFor } from './address.ts';
+import { writeFileAtomic } from './atomic.ts';
 
-export interface BrowserOptions { origin: string; preloadPath: string }
+export interface BrowserOptions { origin: string; preloadPath: string; stateDir: string }
 
 interface Tab {
   id: number;
-  view: WebContentsView;
+  /** null while the tab is asleep: its page is closed to save memory, its snapshot kept. */
+  view: WebContentsView | null;
   opener: number | null;
   title: string;
   url: string;
@@ -30,9 +40,20 @@ interface Tab {
   audible: boolean;
   muted: boolean;
   crashed: boolean;
+  scrollY: number;
+  zoom: number;
+  lastSeen: number;
 }
 
 const isWeb = (u: string) => /^https?:\/\//i.test(u);
+const HOME = 'https://www.google.com';
+/** A tab not looked at for this long, and not playing sound, goes to sleep. */
+const SLEEP_AFTER_MS = 30 * 60_000;
+
+/** Every call into a page, with a deadline: a crashed page never answers, and must never hang Aang. */
+function within<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return Promise.race([p.catch(() => fallback), new Promise<T>((r) => setTimeout(() => r(fallback), ms))]);
+}
 
 export class AangBrowser {
   private win: BrowserWindow | null = null;
@@ -41,16 +62,20 @@ export class AangBrowser {
   private seq = 0;
   private closed: string[] = [];
   private inset = { left: 268, top: 66 };
+  private timers: NodeJS.Timeout[] = [];
+  private saveSoon: NodeJS.Timeout | null = null;
   private readonly o: BrowserOptions;
+  private readonly file: string;
   private readonly ses = electronSession.fromPartition('persist:aang-browser');
   constructor(o: BrowserOptions) {
     this.o = o;
+    this.file = path.join(o.stateDir, 'browser-tabs.json');
     denyPermissions(this.ses);
   }
 
   isFrame(sender: Electron.WebContents): boolean { return Boolean(this.win && !this.win.isDestroyed() && sender === this.win.webContents); }
 
-  /** Open the window (or bring it forward), optionally on an address. */
+  /** Open the window (or bring it forward), optionally on an address. Coming back, every tab comes back. */
   open(url?: string): void {
     if (this.win && !this.win.isDestroyed()) {
       if (this.win.isMinimized()) this.win.restore();
@@ -70,11 +95,21 @@ export class AangBrowser {
     w.on('resize', () => this.place());
     w.on('maximize', () => this.place());
     w.on('unmaximize', () => this.place());
-    w.on('closed', () => { for (const t of this.tabs) { try { t.view.webContents.close(); } catch { /* gone */ } } this.tabs = []; this.active = null; this.win = null; });
+    w.on('close', () => { void this.snapshot(); });
+    w.on('closed', () => {
+      for (const t of this.tabs) this.closeView(t);
+      this.tabs = []; this.active = null; this.win = null;
+      this.timers.forEach(clearInterval); this.timers = [];
+    });
     w.once('ready-to-show', () => w.show());
-    w.webContents.once('did-finish-load', () => { this.newTab(url ?? 'https://www.google.com'); });
+    w.webContents.once('did-finish-load', () => {
+      if (!this.restore()) this.newTab(url ?? HOME);
+      else if (url) this.newTab(url);
+    });
     this.win = w;
     void w.loadURL(`${this.o.origin}/browser.html`);
+    // The continuous snapshot, and putting idle tabs to sleep.
+    this.timers.push(setInterval(() => { void this.snapshot(); }, 8000), setInterval(() => this.sleepIdle(), 60_000));
   }
 
   /** 6.19: the frame says how big its rail and band are; everything else follows from the window. */
@@ -89,11 +124,61 @@ export class AangBrowser {
     const w = this.win;
     if (!w || w.isDestroyed()) return;
     const [cw, ch] = w.getContentSize();
-    const t = this.tabs.find((x) => x.id === this.active);
-    if (!t) return;
+    const t = this.cur();
+    if (!t?.view) return;
     // A crashed page is moved out of the way so the frame's own plate shows; it is never touched.
     if (t.crashed) { t.view.setBounds({ x: 0, y: 0, width: 0, height: 0 }); return; }
     t.view.setBounds({ x: this.inset.left, y: this.inset.top, width: Math.max(0, cw - this.inset.left), height: Math.max(0, ch - this.inset.top) });
+  }
+
+  /** Give a tab a live page, at its address, then put it back where it was scrolled. */
+  private wake(tab: Tab): void {
+    // The safe preferences, but a tab in the background may sleep: unlike the pop-out it has no reason to
+    // keep painting over his game. NOT lockDown(): that pins a window to one page, and a browser navigates.
+    const view = new WebContentsView({ webPreferences: { ...SAFE_WEB_PREFERENCES, backgroundThrottling: true, session: this.ses } });
+    const wc = view.webContents;
+    tab.view = view; tab.crashed = false; tab.loading = true;
+    wc.on('will-attach-webview', (e) => e.preventDefault());
+    // A link that opens a new window becomes a tab under the one it came from. Web pages only.
+    // A middle click or Ctrl+click opens it behind, the way every browser does.
+    wc.setWindowOpenHandler(({ url: u, disposition }) => { if (isWeb(u)) this.newTab(u, tab.id, disposition !== 'background-tab'); return { action: 'deny' }; });
+    wc.on('will-navigate', (e, u) => { if (!isWeb(u)) e.preventDefault(); });
+    wc.on('page-title-updated', (_e, title) => { tab.title = title; this.changed(); });
+    wc.on('page-favicon-updated', (_e, icons) => { tab.favicon = icons.find((i) => /^https?:|^data:image\//.test(i)) ?? ''; this.sendTabs(); });
+    wc.on('did-start-loading', () => { tab.loading = true; if (tab.crashed) { tab.crashed = false; this.place(); } this.sendTabs(); });
+    wc.on('did-stop-loading', () => { tab.loading = false; this.sendTabs(); });
+    wc.on('did-navigate', (_e, u) => { tab.url = u; tab.scrollY = 0; this.changed(); });
+    wc.on('did-navigate-in-page', (_e, u) => { tab.url = u; this.changed(); });
+    wc.on('audio-state-changed', (e) => { tab.audible = (e as unknown as { audible: boolean }).audible; this.sendTabs(); });
+    // A crashed page goes blank and anything that pokes it hangs (tested 2026-10-04): mark it, never touch it.
+    wc.on('render-process-gone', () => { tab.crashed = true; tab.loading = false; this.place(); this.sendTabs(); });
+    // The keys work wherever the keyboard is, page or frame.
+    wc.on('before-input-event', (e, input) => { if (this.key(input)) e.preventDefault(); });
+    // Back where it was: the zoom at once, the scroll once the page has drawn.
+    if (tab.zoom) wc.setZoomLevel(tab.zoom);
+    if (tab.muted) wc.setAudioMuted(true);
+    const back = tab.scrollY;
+    if (back > 0) wc.once('did-finish-load', () => { void within(wc.executeJavaScript(`window.scrollTo(0, ${Math.round(back)})`, true), 1500, null); });
+    void wc.loadURL(tab.url);
+  }
+
+  /** Put a tab to sleep: its page closes, its snapshot stays, the plaque sinks. */
+  private sleep(tab: Tab): void {
+    if (!tab.view) return;
+    this.closeView(tab);
+    tab.loading = false; tab.audible = false;
+  }
+  private closeView(tab: Tab): void {
+    if (!tab.view) return;
+    try { this.win?.contentView.removeChildView(tab.view); } catch { /* not shown */ }
+    try { tab.view.webContents.close(); } catch { /* gone */ }
+    tab.view = null;
+  }
+  private sleepIdle(): void {
+    const now = Date.now();
+    let any = false;
+    for (const t of this.tabs) if (t.view && t.id !== this.active && !t.audible && now - t.lastSeen > SLEEP_AFTER_MS) { this.sleep(t); any = true; }
+    if (any) this.sendTabs();
   }
 
   newTab(address: string, opener: number | null = null, focus = true): number | null {
@@ -101,30 +186,10 @@ export class AangBrowser {
     if (!w || w.isDestroyed()) return null;
     const url = isWeb(address) ? address : addressFor(address);
     if (!url) return null;
-    // The safe preferences, but a tab in the background may sleep: unlike the pop-out it has no reason to
-    // keep painting over his game. NOT lockDown(): that pins a window to one page, and a browser navigates.
-    const view = new WebContentsView({ webPreferences: { ...SAFE_WEB_PREFERENCES, backgroundThrottling: true, session: this.ses } });
-    const wc = view.webContents;
-    wc.on('will-attach-webview', (e) => e.preventDefault());
-    const tab: Tab = { id: ++this.seq, view, opener, title: 'New tab', url, favicon: '', loading: true, audible: false, muted: false, crashed: false };
+    const tab: Tab = { id: ++this.seq, view: null, opener, title: 'New tab', url, favicon: '', loading: true, audible: false, muted: false, crashed: false, scrollY: 0, zoom: 0, lastSeen: Date.now() };
     this.tabs.push(tab);
-    // A link that opens a new window becomes a tab under the one it came from. Web pages only.
-    // A middle click or Ctrl+click opens it behind, the way every browser does.
-    wc.setWindowOpenHandler(({ url: u, disposition }) => { if (isWeb(u)) this.newTab(u, tab.id, disposition !== 'background-tab'); return { action: 'deny' }; });
-    wc.on('will-navigate', (e, u) => { if (!isWeb(u)) e.preventDefault(); });
-    wc.on('page-title-updated', (_e, title) => { tab.title = title; this.sendTabs(); });
-    wc.on('page-favicon-updated', (_e, icons) => { tab.favicon = icons.find((i) => /^https?:|^data:image\//.test(i)) ?? ''; this.sendTabs(); });
-    wc.on('did-start-loading', () => { tab.loading = true; if (tab.crashed) { tab.crashed = false; this.place(); } this.sendTabs(); });
-    wc.on('did-stop-loading', () => { tab.loading = false; this.sendTabs(); });
-    wc.on('did-navigate', (_e, u) => { tab.url = u; this.sendTabs(); });
-    wc.on('did-navigate-in-page', (_e, u) => { tab.url = u; this.sendTabs(); });
-    wc.on('audio-state-changed', (e) => { tab.audible = (e as unknown as { audible: boolean }).audible; this.sendTabs(); });
-    // A crashed page goes blank and anything that pokes it hangs (tested 2026-10-04): mark it, never touch it.
-    wc.on('render-process-gone', () => { tab.crashed = true; tab.loading = false; this.place(); this.sendTabs(); });
-    // The keys work wherever the keyboard is, page or frame.
-    wc.on('before-input-event', (e, input) => { if (this.key(input)) e.preventDefault(); });
-    void wc.loadURL(url);
-    if (focus) this.activate(tab.id); else this.sendTabs();
+    this.wake(tab);
+    if (focus) this.activate(tab.id); else this.changed();
     return tab.id;
   }
 
@@ -132,12 +197,14 @@ export class AangBrowser {
     const w = this.win;
     const t = this.tabs.find((x) => x.id === id);
     if (!w || w.isDestroyed() || !t) return;
-    for (const x of this.tabs) if (x.id !== id) { try { w.contentView.removeChildView(x.view); } catch { /* not shown */ } }
-    w.contentView.addChildView(t.view);
+    for (const x of this.tabs) if (x.id !== id && x.view) { try { w.contentView.removeChildView(x.view); } catch { /* not shown */ } }
+    if (!t.view) this.wake(t);                         // an asleep tab wakes exactly where it was left
+    w.contentView.addChildView(t.view!);
     this.active = id;
+    t.lastSeen = Date.now();
     this.place();
-    if (!t.crashed) t.view.webContents.focus();
-    this.sendTabs();
+    if (!t.crashed) t.view!.webContents.focus();
+    this.changed();
   }
 
   close(id: number): void {
@@ -145,13 +212,12 @@ export class AangBrowser {
     if (i < 0) return;
     const [t] = this.tabs.splice(i, 1);
     if (isWeb(t!.url)) { this.closed.push(t!.url); if (this.closed.length > 25) this.closed.shift(); }
-    try { this.win?.contentView.removeChildView(t!.view); } catch { /* gone */ }
-    try { t!.view.webContents.close(); } catch { /* gone */ }
+    this.closeView(t!);
     if (this.active === id) {
       const next = this.tabs[Math.min(i, this.tabs.length - 1)];
       this.active = null;
-      if (next) this.activate(next.id); else this.newTab('https://www.google.com');
-    } else this.sendTabs();
+      if (next) this.activate(next.id); else this.newTab(HOME);
+    } else this.changed();
   }
 
   /** A click on one tab's plaque: show it, close it, or mute it. */
@@ -160,7 +226,7 @@ export class AangBrowser {
     if (!t) return;
     if (act === 'show') this.activate(id);
     else if (act === 'close') this.close(id);
-    else if (act === 'mute') { t.muted = !t.muted; t.view.webContents.setAudioMuted(t.muted); this.sendTabs(); }
+    else if (act === 'mute') { t.muted = !t.muted; t.view?.webContents.setAudioMuted(t.muted); this.changed(); }
   }
 
   reopen(): void { const u = this.closed.pop(); if (u) this.newTab(u); }
@@ -171,7 +237,7 @@ export class AangBrowser {
     const url = addressFor(address);
     const t = this.cur();
     if (!url) return;
-    if (!t) { this.newTab(url); return; }
+    if (!t?.view) { this.newTab(url); return; }
     t.crashed = false;
     void t.view.webContents.loadURL(url);
     t.view.webContents.focus();
@@ -179,17 +245,18 @@ export class AangBrowser {
 
   act(what: string): void {
     const t = this.cur();
-    const wc = t?.view.webContents;
+    const wc = t?.view?.webContents;
     switch (what) {
       case 'back': if (wc?.navigationHistory.canGoBack()) wc.navigationHistory.goBack(); break;
       case 'forward': if (wc?.navigationHistory.canGoForward()) wc.navigationHistory.goForward(); break;
-      case 'reload': if (t) { t.crashed = false; wc!.reload(); } break;
+      // A crashed page is rebuilt fresh from its snapshot, never reloaded in place (poking it hangs).
+      case 'reload': if (t) { if (t.crashed) { this.closeView(t); this.activate(t.id); } else wc?.reload(); } break;
       case 'stop': wc?.stop(); break;
-      case 'mute': if (t) { t.muted = !t.muted; wc!.setAudioMuted(t.muted); this.sendTabs(); } break;
-      case 'zoomin': if (wc) wc.setZoomLevel(Math.min(5, wc.getZoomLevel() + 0.5)); break;
-      case 'zoomout': if (wc) wc.setZoomLevel(Math.max(-5, wc.getZoomLevel() - 0.5)); break;
-      case 'zoomreset': wc?.setZoomLevel(0); break;
-      case 'newtab': this.newTab('https://www.google.com'); this.win?.webContents.send('browser:focusslot'); break;
+      case 'mute': if (t) { t.muted = !t.muted; wc?.setAudioMuted(t.muted); this.changed(); } break;
+      case 'zoomin': if (wc && t) { t.zoom = Math.min(5, wc.getZoomLevel() + 0.5); wc.setZoomLevel(t.zoom); this.changed(); } break;
+      case 'zoomout': if (wc && t) { t.zoom = Math.max(-5, wc.getZoomLevel() - 0.5); wc.setZoomLevel(t.zoom); this.changed(); } break;
+      case 'zoomreset': if (wc && t) { t.zoom = 0; wc.setZoomLevel(0); this.changed(); } break;
+      case 'newtab': this.newTab(HOME); this.win?.webContents.send('browser:focusslot'); break;
       case 'close': if (t) this.close(t.id); break;
       case 'reopen': this.reopen(); break;
     }
@@ -218,19 +285,69 @@ export class AangBrowser {
     return false;
   }
 
+  // ---------------------------------------------------------------- 6.21 the snapshot
+  /** Something worth keeping changed: redraw now, and write the snapshot shortly (one write per burst). */
+  private changed(): void {
+    this.sendTabs();
+    if (this.saveSoon) return;
+    this.saveSoon = setTimeout(() => { this.saveSoon = null; void this.snapshot(); }, 1500);
+  }
+
+  /** Write every tab to disk. Scroll is asked of each live page with a deadline; a page that does not answer keeps its last. */
+  private async snapshot(): Promise<void> {
+    if (!this.tabs.length) return;
+    await Promise.all(this.tabs.map(async (t) => {
+      if (!t.view || t.crashed) return;
+      const y = await within(t.view.webContents.executeJavaScript('window.scrollY', true) as Promise<number>, 800, t.scrollY);
+      if (typeof y === 'number' && Number.isFinite(y)) t.scrollY = y;
+    }));
+    const data = {
+      v: 1, at: new Date().toISOString(),
+      active: Math.max(0, this.tabs.findIndex((x) => x.id === this.active)),
+      tabs: this.tabs.filter((t) => isWeb(t.url)).map((t) => ({
+        url: t.url, title: t.title, opener: t.opener === null ? null : this.tabs.findIndex((x) => x.id === t.opener),
+        scrollY: Math.round(t.scrollY), zoom: t.zoom, muted: t.muted,
+      })),
+      closed: this.closed.slice(-25),
+    };
+    try { writeFileAtomic(this.file, JSON.stringify(data)); } catch (e) { console.error('shell: browser: the tabs could not be saved: ' + (e as Error).message); }
+  }
+
+  /** Bring every tab back from the last snapshot. Only the one he was on loads; the rest come back asleep. */
+  private restore(): boolean {
+    try {
+      if (!existsSync(this.file)) return false;
+      const s = JSON.parse(readFileSync(this.file, 'utf8'));
+      const list = Array.isArray(s?.tabs) ? s.tabs.filter((t: { url?: unknown }) => typeof t?.url === 'string' && isWeb(t.url as string)).slice(0, 80) : [];
+      if (!list.length) return false;
+      const ids: number[] = [];
+      for (const t of list) {
+        const tab: Tab = { id: ++this.seq, view: null, opener: null, title: String(t.title ?? t.url).slice(0, 300), url: t.url, favicon: '',
+          loading: false, audible: false, muted: t.muted === true, crashed: false, scrollY: Number(t.scrollY) || 0, zoom: Number(t.zoom) || 0, lastSeen: Date.now() };
+        ids.push(tab.id);
+        this.tabs.push(tab);
+      }
+      list.forEach((t: { opener?: unknown }, i: number) => { const o = Number(t.opener); if (Number.isInteger(o) && o >= 0 && o < ids.length && o !== i) this.tabs[i]!.opener = ids[o]!; });
+      if (Array.isArray(s.closed)) this.closed = s.closed.filter((u: unknown) => typeof u === 'string' && isWeb(u as string)).slice(-25);
+      const a = Math.min(Math.max(0, Number(s.active) || 0), this.tabs.length - 1);
+      this.activate(this.tabs[a]!.id);
+      return true;
+    } catch (e) { console.error('shell: browser: the saved tabs could not be read: ' + (e as Error).message); return false; }
+  }
+
   /** The rail and the band redraw from this. Plain data only. */
   private sendTabs(): void {
     const w = this.win;
     if (!w || w.isDestroyed()) return;
     const t = this.cur();
-    const wc = t?.view.webContents;
+    const wc = t?.view?.webContents;
     w.webContents.send('browser:tabs', {
       active: this.active,
       canBack: Boolean(wc?.navigationHistory.canGoBack()), canForward: Boolean(wc?.navigationHistory.canGoForward()),
-      tabs: this.tabs.map((x) => ({ id: x.id, opener: x.opener, title: x.title, url: x.url, favicon: x.favicon, loading: x.loading, audible: x.audible, muted: x.muted, crashed: x.crashed })),
+      tabs: this.tabs.map((x) => ({ id: x.id, opener: x.opener, title: x.title, url: x.url, favicon: x.favicon, loading: x.loading, audible: x.audible, muted: x.muted, crashed: x.crashed, asleep: !x.view })),
     });
     if (t) w.setTitle(`${t.title} - Aang Browser`);
   }
 
-  closeAll(): void { if (this.win && !this.win.isDestroyed()) this.win.close(); }
+  closeAll(): void { if (this.win && !this.win.isDestroyed()) { void this.snapshot(); this.win.close(); } }
 }
