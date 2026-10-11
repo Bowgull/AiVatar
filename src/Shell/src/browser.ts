@@ -19,14 +19,16 @@
 //    never runs anything (address.ts, tested).
 //  - Tabs get NO preload and the safe preferences: a website can never reach Aang's doors.
 //  - Every permission a site asks for is refused until 6.22 adds the asks (chips and the lever).
-import { BrowserWindow, WebContentsView, screen, session as electronSession } from 'electron';
-import { existsSync, readFileSync } from 'node:fs';
+import { BrowserWindow, WebContentsView, app, screen, session as electronSession } from 'electron';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown } from './safety.ts';
 import { addressFor } from './address.ts';
 import { writeFileAtomic } from './atomic.ts';
+import { PhishCheck } from './phish.ts';
+import { blockAds, type AdBlock } from './skip/ads.ts';
 
-export interface BrowserOptions { origin: string; preloadPath: string; stateDir: string }
+export interface BrowserOptions { origin: string; preloadPath: string; stateDir: string; tabPreloadPath: string }
 
 interface Tab {
   id: number;
@@ -43,6 +45,8 @@ interface Tab {
   scrollY: number;
   zoom: number;
   lastSeen: number;
+  /** 6.22: stopped before loading because a list names it: which lists. */
+  blocked: { url: string; lists: string[] } | null;
 }
 
 const isWeb = (u: string) => /^https?:\/\//i.test(u);
@@ -67,10 +71,99 @@ export class AangBrowser {
   private readonly o: BrowserOptions;
   private readonly file: string;
   private readonly ses = electronSession.fromPartition('persist:aang-browser');
+  // 6.22, protection.
+  private readonly phish: PhishCheck;
+  private ads: AdBlock | null = null;
+  private readonly pausedFile: string;
+  private paused = new Set<string>();
+  /** Sites he chose to open anyway, past a list, with the held lever. This run only. */
+  private readonly letThrough = new Set<string>();
+  private readonly asks = new Map<number, (allow: boolean) => void>();
+  private askSeq = 0;
   constructor(o: BrowserOptions) {
     this.o = o;
     this.file = path.join(o.stateDir, 'browser-tabs.json');
+    this.pausedFile = path.join(o.stateDir, 'adblock-paused.json');
     denyPermissions(this.ses);
+    this.permissions();
+    this.downloads();
+    this.phish = new PhishCheck(o.stateDir);
+    void this.phish.start();
+    try { if (existsSync(this.pausedFile)) this.paused = new Set(JSON.parse(readFileSync(this.pausedFile, 'utf8'))); } catch { /* none paused */ }
+    void blockAds(this.ses, o.stateDir).then((b) => { this.ads = b; if (b) for (const h of this.paused) b.pause(h, true); });
+  }
+
+  /**
+   * 6.22, the asks (sheet 3 section 5). Fullscreen just works; camera and microphone ask through the chip that
+   * hangs from the band, for this call only, never "always"; notifications, location and everything else are
+   * refused without asking, because nothing he does needs them.
+   */
+  private permissions(): void {
+    this.ses.setPermissionRequestHandler((wc, permission, done, details) => {
+      if (permission === 'fullscreen') { done(true); return; }
+      if (permission !== 'media' || !this.win || this.win.isDestroyed()) { done(false); return; }
+      const types = ((details as { mediaTypes?: string[] }).mediaTypes ?? []);
+      const what = types.includes('video') && types.includes('audio') ? 'Camera and microphone?' : types.includes('video') ? 'Your camera?' : 'Your microphone?';
+      let host = '';
+      try { host = new URL(wc.getURL()).hostname.replace(/^www\./, ''); } catch { /* unknown */ }
+      const id = ++this.askSeq;
+      const timer = setTimeout(() => { const f = this.asks.get(id); if (f) { this.asks.delete(id); f(false); } }, 120_000);
+      this.asks.set(id, (allow) => { clearTimeout(timer); done(allow); });
+      this.win.webContents.send('browser:ask', { id, host, what });
+    });
+    this.ses.setPermissionCheckHandler((_wc, permission) => permission === 'fullscreen');
+  }
+  /** His answer to the chip. */
+  answer(id: number, allow: boolean): void { const f = this.asks.get(id); if (f) { this.asks.delete(id); f(allow); } }
+
+  /**
+   * 6.22: downloads go to his Downloads folder and are marked as from the internet (the Mark of the Web),
+   * so Windows Defender and SmartScreen check them before anything opens them, exactly as for Chrome.
+   */
+  private downloads(): void {
+    this.ses.on('will-download', (_e, item) => {
+      const dir = app.getPath('downloads');
+      const base = item.getFilename().replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_') || 'download';
+      let to = path.join(dir, base), n = 1;
+      while (existsSync(to)) { const p = path.parse(base); to = path.join(dir, `${p.name} (${n++})${p.ext}`); }
+      item.setSavePath(to);
+      const from = item.getURL();
+      item.once('done', (_ev, state) => {
+        if (state === 'completed') {
+          try { writeFileSync(to + ':Zone.Identifier', `[ZoneTransfer]\r\nZoneId=3\r\nHostUrl=${isWeb(from) ? from : 'about:internet'}\r\n`); }
+          catch (e) { console.error('shell: could not mark the download for Defender: ' + (e as Error).message); }
+        }
+        this.win?.webContents.send('browser:download', { name: path.basename(to), state });
+      });
+    });
+  }
+
+  /** Is this address on a list, and has he not chosen to go anyway? Returns the lists, or none. */
+  private listed(u: string): string[] {
+    try { if (this.letThrough.has(new URL(u).hostname)) return []; } catch { return []; }
+    return this.phish.check(u);
+  }
+  /** Stop a tab at a listed address: nothing loads, the frame shows the red plate instead. */
+  private block(tab: Tab, url: string, lists: string[]): void {
+    tab.blocked = { url, lists };
+    tab.url = url;
+    tab.loading = false;
+    if (tab.view) { try { tab.view.webContents.stop(); } catch { /* gone */ } }
+    this.place();
+    this.changed();
+  }
+
+  /** 6.22: "Block ads on this site" off or on, for the site he is on. Kept between runs. */
+  pauseAds(on: boolean): void {
+    const t = this.cur();
+    let host = '';
+    try { host = new URL(t?.url ?? '').hostname.replace(/^www\./, ''); } catch { return; }
+    if (!host) return;
+    if (on) this.paused.add(host); else this.paused.delete(host);
+    this.ads?.pause(host, on);
+    try { writeFileAtomic(this.pausedFile, JSON.stringify([...this.paused])); } catch { /* best effort */ }
+    t?.view?.webContents.reload();
+    this.sendTabs();
   }
 
   isFrame(sender: Electron.WebContents): boolean { return Boolean(this.win && !this.win.isDestroyed() && sender === this.win.webContents); }
@@ -127,7 +220,7 @@ export class AangBrowser {
     const t = this.cur();
     if (!t?.view) return;
     // A crashed page is moved out of the way so the frame's own plate shows; it is never touched.
-    if (t.crashed) { t.view.setBounds({ x: 0, y: 0, width: 0, height: 0 }); return; }
+    if (t.crashed || t.blocked) { t.view.setBounds({ x: 0, y: 0, width: 0, height: 0 }); return; }
     t.view.setBounds({ x: this.inset.left, y: this.inset.top, width: Math.max(0, cw - this.inset.left), height: Math.max(0, ch - this.inset.top) });
   }
 
@@ -135,14 +228,18 @@ export class AangBrowser {
   private wake(tab: Tab): void {
     // The safe preferences, but a tab in the background may sleep: unlike the pop-out it has no reason to
     // keep painting over his game. NOT lockDown(): that pins a window to one page, and a browser navigates.
-    const view = new WebContentsView({ webPreferences: { ...SAFE_WEB_PREFERENCES, backgroundThrottling: true, session: this.ses } });
+    // tabpreload.cjs exposes nothing to the page; it only hides passkeys, which hang in Electron (6.22).
+    const view = new WebContentsView({ webPreferences: { ...SAFE_WEB_PREFERENCES, backgroundThrottling: true, session: this.ses, preload: this.o.tabPreloadPath } });
     const wc = view.webContents;
     tab.view = view; tab.crashed = false; tab.loading = true;
     wc.on('will-attach-webview', (e) => e.preventDefault());
     // A link that opens a new window becomes a tab under the one it came from. Web pages only.
     // A middle click or Ctrl+click opens it behind, the way every browser does.
     wc.setWindowOpenHandler(({ url: u, disposition }) => { if (isWeb(u)) this.newTab(u, tab.id, disposition !== 'background-tab'); return { action: 'deny' }; });
-    wc.on('will-navigate', (e, u) => { if (!isWeb(u)) e.preventDefault(); });
+    // 6.22: a listed site never loads, whether it is a link, a redirect or anything else.
+    wc.on('will-navigate', (e, u) => { if (!isWeb(u)) { e.preventDefault(); return; } const l = this.listed(u); if (l.length) { e.preventDefault(); this.block(tab, u, l); } });
+    wc.on('will-redirect', (e, u, _inPage, isMain) => { if (!isMain) return; const l = isWeb(u) ? this.listed(u) : ['NOT A WEB PAGE']; if (l.length) { e.preventDefault(); this.block(tab, u, l); } });
+    wc.on('did-start-navigation', (d) => { const x = d as unknown as { url: string; isMainFrame: boolean }; if (!x.isMainFrame || !isWeb(x.url)) return; const l = this.listed(x.url); if (l.length) this.block(tab, x.url, l); });
     wc.on('page-title-updated', (_e, title) => { tab.title = title; this.changed(); });
     wc.on('page-favicon-updated', (_e, icons) => { tab.favicon = icons.find((i) => /^https?:|^data:image\//.test(i)) ?? ''; this.sendTabs(); });
     wc.on('did-start-loading', () => { tab.loading = true; if (tab.crashed) { tab.crashed = false; this.place(); } this.sendTabs(); });
@@ -159,6 +256,9 @@ export class AangBrowser {
     if (tab.muted) wc.setAudioMuted(true);
     const back = tab.scrollY;
     if (back > 0) wc.once('did-finish-load', () => { void within(wc.executeJavaScript(`window.scrollTo(0, ${Math.round(back)})`, true), 1500, null); });
+    const l = this.listed(tab.url);
+    if (l.length) { this.block(tab, tab.url, l); return; }
+    tab.blocked = null;
     void wc.loadURL(tab.url);
   }
 
@@ -186,7 +286,7 @@ export class AangBrowser {
     if (!w || w.isDestroyed()) return null;
     const url = isWeb(address) ? address : addressFor(address);
     if (!url) return null;
-    const tab: Tab = { id: ++this.seq, view: null, opener, title: 'New tab', url, favicon: '', loading: true, audible: false, muted: false, crashed: false, scrollY: 0, zoom: 0, lastSeen: Date.now() };
+    const tab: Tab = { id: ++this.seq, view: null, opener, title: 'New tab', url, favicon: '', loading: true, audible: false, muted: false, crashed: false, scrollY: 0, zoom: 0, lastSeen: Date.now(), blocked: null };
     this.tabs.push(tab);
     this.wake(tab);
     if (focus) this.activate(tab.id); else this.changed();
@@ -239,6 +339,9 @@ export class AangBrowser {
     if (!url) return;
     if (!t?.view) { this.newTab(url); return; }
     t.crashed = false;
+    const l = this.listed(url);
+    if (l.length) { this.block(t, url, l); return; }
+    t.blocked = null; this.place();
     void t.view.webContents.loadURL(url);
     t.view.webContents.focus();
   }
@@ -259,6 +362,9 @@ export class AangBrowser {
       case 'newtab': this.newTab(HOME); this.win?.webContents.send('browser:focusslot'); break;
       case 'close': if (t) this.close(t.id); break;
       case 'reopen': this.reopen(); break;
+      // The red plate: the safe way out, or (the held lever) in anyway, for this site, this run.
+      case 'phishback': if (t) { t.blocked = null; if (wc?.navigationHistory.canGoBack()) { this.place(); wc.navigationHistory.goBack(); } else this.close(t.id); } break;
+      case 'phishopen': if (t?.blocked) { try { this.letThrough.add(new URL(t.blocked.url).hostname); } catch { /* bad url */ } const u = t.blocked.url; t.blocked = null; this.place(); void wc?.loadURL(u); } break;
     }
   }
 
@@ -323,7 +429,7 @@ export class AangBrowser {
       const ids: number[] = [];
       for (const t of list) {
         const tab: Tab = { id: ++this.seq, view: null, opener: null, title: String(t.title ?? t.url).slice(0, 300), url: t.url, favicon: '',
-          loading: false, audible: false, muted: t.muted === true, crashed: false, scrollY: Number(t.scrollY) || 0, zoom: Number(t.zoom) || 0, lastSeen: Date.now() };
+          loading: false, audible: false, muted: t.muted === true, crashed: false, scrollY: Number(t.scrollY) || 0, zoom: Number(t.zoom) || 0, lastSeen: Date.now(), blocked: null };
         ids.push(tab.id);
         this.tabs.push(tab);
       }
@@ -344,7 +450,9 @@ export class AangBrowser {
     w.webContents.send('browser:tabs', {
       active: this.active,
       canBack: Boolean(wc?.navigationHistory.canGoBack()), canForward: Boolean(wc?.navigationHistory.canGoForward()),
-      tabs: this.tabs.map((x) => ({ id: x.id, opener: x.opener, title: x.title, url: x.url, favicon: x.favicon, loading: x.loading, audible: x.audible, muted: x.muted, crashed: x.crashed, asleep: !x.view })),
+      tabs: this.tabs.map((x) => ({ id: x.id, opener: x.opener, title: x.title, url: x.url, favicon: x.favicon, loading: x.loading, audible: x.audible, muted: x.muted, crashed: x.crashed, asleep: !x.view, blocked: x.blocked })),
+      adsPaused: (() => { try { return this.paused.has(new URL(t?.url ?? '').hostname.replace(/^www\./, '')); } catch { return false; } })(),
+      adsOn: Boolean(this.ads),
     });
     if (t) w.setTitle(`${t.title} - Aang Browser`);
   }

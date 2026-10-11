@@ -33,6 +33,8 @@ export interface AdBlock {
   stop(): void;
   /** How many lists were actually loaded. Zero means it is not blocking anything. */
   lists: number;
+  /** 6.22: stop blocking ads on one site (on = paused), or start again. Kept by the caller. */
+  pause(host: string, on: boolean): void;
 }
 
 /**
@@ -94,6 +96,13 @@ export async function blockAds(session: Session, stateDir: string): Promise<AdBl
     return {
       lists: got,
       stop: () => { try { blocker.disableBlockingInSession(session); } catch { /* already off */ } },
+      // An exception rule for the whole page on that site, the way uBlock's per-site switch works.
+      pause: (host: string, on: boolean) => {
+        const h = String(host).toLowerCase().replace(/^www\./, '');
+        if (!/^[a-z0-9.-]+$/.test(h)) return;
+        const rule = `@@||${h}^$document`;
+        try { blocker.updateFromDiff(on ? { added: [rule] } : { removed: [rule] }); } catch (e) { console.error('shell: ad pause failed: ' + (e as Error).message); }
+      },
     };
   } catch (e) {
     console.error('shell: the ad blocker would not start, so ads are not being blocked: ' + (e as Error).message);
