@@ -532,6 +532,8 @@ app.whenReady().then(async () => {
       return;
     }
     if (a.t === 'permission') {
+      // "Change it" on an email: not this one, and the typing box opens for what to change.
+      if (choice === 'change') { link?.send({ t: 'permission.reply', id: String(a.id ?? ''), choice: 'no' }); if (!input?.visible) openTypeBox(); return; }
       if (choice === 'show') { link?.send({ t: 'submit', id: 'show-' + Date.now(), text: 'show me that first' }); return; }
       const picked = choice === 'yes' ? 'once' : choice === 'always' ? 'always' : 'no';
       link?.send({ t: 'permission.reply', id: String(a.id ?? ''), choice: picked });

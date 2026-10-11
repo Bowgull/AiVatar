@@ -2286,13 +2286,21 @@ yet (9.D), so a job carries on as today and each step asks for itself.
 
 ---
 
-### `[ ]` 6.14 Buttons on answers that act
+### `[x]` 6.14 Buttons on answers that act  **BUILT 2026-10-11**
 
 The callback bridge: a button on a card runs a real Aang action through the existing trust gate.
 
 **Demoed 2026-10-10 (sheet 13):** anything that cannot be undone uses the lever: press and hold 800 ms
 while a gold fill crosses the key; a click does nothing; "Show me first" lists exactly what goes.
 Every key row has the 600 ms click guard.
+
+**BUILT 2026-10-11 (browser tab).** The lever and the 600 ms guard were already in (6.12). New: **an email
+waiting to be sent shows the letter itself** (sheet 13's draft card): To, a NEVER WRITTEN TO BEFORE chip on
+a new address, the whole text, then **Hold to send**, **Change it** (not this one; the typing box opens for
+what to change) and **Not now**. It is the same permission underneath, `mail_send`, so the hold is still
+the gate and there is never an Always. Window 2's Drafts tab and Jobs card (6.15) and the brief card are
+the other buttons that act. **Not built:** buttons on present_list rows (they carry no action yet; a job
+row's Apply belongs with 9.A0's one list of actions, so it is built once, there).
 
 ---
 
