@@ -228,6 +228,8 @@ const stageEl = document.querySelector('.stage');
 const sayStage = () => { const r = stageEl.getBoundingClientRect(); window.aang?.popoutStage?.({ x: r.left, y: r.top, width: r.width, height: r.height }); };
 new ResizeObserver(sayStage).observe(stageEl);
 frame.addEventListener('transitionend', sayStage);
+// The controls fading in or out changes the picture area at once: say so then, not only when a size is noticed.
+new MutationObserver(() => setTimeout(sayStage, 0)).observe(frame, { attributes: true, attributeFilter: ['class'] });
 // The lent page swallows the mouse, so the main process says when it is over the window.
 window.aang?.onPopoutWake?.(() => showChrome());
 

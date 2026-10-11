@@ -64,7 +64,7 @@ export class Popout {
   // controls, so nothing reloads and his login comes with it. The page is shown at the video alone by asking the
   // page to put its player in fullscreen, which, with this window not allowed to go fullscreen itself, fills
   // exactly the space it has here. If a page refuses, the whole page shows instead: still the right video.
-  private lent: { view: WebContentsView; back: (view: WebContentsView) => void; poll: NodeJS.Timeout; cursor: NodeJS.Timeout } | null = null;
+  private lent: { view: WebContentsView; back: (view: WebContentsView) => void; poll: NodeJS.Timeout; cursor: NodeJS.Timeout; css: string | null } | null = null;
   private stage = { x: 0, y: 34, width: 0, height: 0 };
 
   /** The page says where its picture area is, in its own pixels; the lent page is laid exactly over it. */
@@ -99,14 +99,22 @@ export class Popout {
         if (s && typeof s === 'object') this.window?.webContents.send('popout:tabstate', cleanState(s as Record<string, unknown>));
       });
     }, 500);
-    this.lent = { view, back, poll, cursor };
+    const lent = { view, back, poll, cursor, css: null as string | null };
+    this.lent = lent;
     if (w.webContents.isLoading()) w.webContents.once('did-finish-load', () => this.send()); else this.send();
-    // Find the video and give it the whole picture. Retried briefly: a page that is still building its player
-    // may not have the video yet.
+    // The bare picture (his pick): the site's own buttons hidden, the video filling whatever is fullscreen.
+    void wc.insertCSS(BARE_CSS).then((key) => { if (this.lent === lent) lent.css = key; else void wc.removeInsertedCSS(key).catch(() => {}); }).catch(() => {});
+    // Give the player the whole picture. A page refuses fullscreen until its window is actually showing, so this
+    // waits for that, and it counts only a fullscreen that really happened, retrying for a few seconds (found on
+    // his screen, 2026-10-11: the first try came before the window appeared and was never repeated).
     let tries = 0;
-    const focus = () => { void within(wc.executeJavaScript(FOCUS_JS, true), 800, false).then((ok) => { if (!ok && ++tries < 6) setTimeout(focus, 500); }); };
-    focus();
+    const focus = () => {
+      if (this.lent !== lent) return;
+      if (!this.window?.isVisible()) { setTimeout(focus, 150); return; }
+      void within(wc.executeJavaScript(FOCUS_JS, true), 1500, false).then((ok) => { if (!ok && ++tries < 10) setTimeout(focus, 500); });
+    };
     w.show();
+    focus();
   }
 
   /** The controls, driving the lent page's video. */
@@ -129,7 +137,10 @@ export class Popout {
     this.lent = null;
     clearInterval(l.poll); clearInterval(l.cursor);
     const wc = l.view.webContents;
-    if (!wc.isDestroyed()) void within(wc.executeJavaScript('document.fullscreenElement&&document.exitFullscreen().catch(()=>{});true', true), 400, null);
+    if (!wc.isDestroyed()) {
+      void within(wc.executeJavaScript('document.fullscreenElement&&document.exitFullscreen().catch(()=>{});true', true), 400, null);
+      if (l.css) void wc.removeInsertedCSS(l.css).catch(() => {});
+    }
     try { this.window?.contentView.removeChildView(l.view); } catch { /* not here */ }
     try { this.window?.setFullScreenable(true); } catch { /* gone */ }
     l.back(l.view);
@@ -370,22 +381,26 @@ function within<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
  * (the box about the same size, so YouTube's and Twitch's own players keep their captions) goes fullscreen,
  * which here means "fill the popout". True when there was a video.
  */
-const FOCUS_JS = `(() => {
+const FOCUS_JS = `(async () => {
   const vs = [...document.querySelectorAll('video')].filter(v => v.offsetWidth * v.offsetHeight > 0);
   vs.sort((a, b) => (b.paused ? 0 : 1) - (a.paused ? 0 : 1) || b.offsetWidth * b.offsetHeight - a.offsetWidth * a.offsetHeight);
   const v = vs[0];
   if (!v) return false;
   window.__aangVideo = v;
   if (document.fullscreenElement) return true;
-  const area = v.offsetWidth * v.offsetHeight;
-  let box = v;
-  for (let p = v.parentElement; p && p !== document.body; p = p.parentElement) {
-    if (p.offsetWidth * p.offsetHeight > area * 1.35) break;
-    box = p;
-  }
-  (box.requestFullscreen ? box.requestFullscreen() : Promise.reject()).catch(() => v.requestFullscreen && v.requestFullscreen().catch(() => {}));
-  return true;
+  const player = v.closest('.html5-video-player, [data-a-target="video-player"], .video-player, .player') || v;
+  try { await player.requestFullscreen(); return true; }
+  catch { try { await v.requestFullscreen(); return true; } catch { return false; } }
 })()`;
+/**
+ * The bare picture: whatever is fullscreen, the video fills it; the site's own buttons and overlays go (YouTube's
+ * named; any page's built-in video controls too). Captions are left alone. Tested on YouTube 2026-10-11: the video
+ * filled the picture area exactly, the control bar gone, captions showing.
+ */
+const BARE_CSS = `:fullscreen video { position:fixed !important; left:0 !important; top:0 !important; width:100vw !important; height:100vh !important; object-fit:contain !important; background:#000 !important; margin:0 !important; transform:none !important; }
+:fullscreen .html5-video-container { position:absolute !important; inset:0 !important; width:100% !important; height:100% !important; }
+.ytp-chrome-bottom,.ytp-chrome-top,.ytp-gradient-top,.ytp-gradient-bottom,.ytp-pause-overlay,.ytp-ce-element,.ytp-endscreen-content,.ytp-watermark,.ytp-paid-content-overlay,.ytp-overflow-button,.ytp-cards-teaser,.ytp-iv-player-content{display:none !important}
+video::-webkit-media-controls{display:none !important}`;
 const STATE_JS = `(() => { const v = window.__aangVideo; if (!v || !v.isConnected) { return null; }
   return { at: v.currentTime, length: v.duration, paused: v.paused, volume: v.volume, muted: v.muted }; })()`;
 /** The page's numbers, checked: it is someone else's page, so nothing it says is trusted as anything but a number. */
