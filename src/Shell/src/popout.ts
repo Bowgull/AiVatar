@@ -97,6 +97,8 @@ export class Popout {
     const poll = setInterval(() => {
       void within(wc.executeJavaScript(STATE_JS, true), 600, null).then((s) => {
         if (s && typeof s === 'object') this.window?.webContents.send('popout:tabstate', cleanState(s as Record<string, unknown>));
+        // The next video (autoplay) can be a new player: pin it again, so it stays the bare picture.
+        else void within(wc.executeJavaScript(FOCUS_JS, true), 600, false);
       });
     }, 500);
     const lent = { view, back, poll, cursor, css: null as string | null };
@@ -138,7 +140,7 @@ export class Popout {
     clearInterval(l.poll); clearInterval(l.cursor);
     const wc = l.view.webContents;
     if (!wc.isDestroyed()) {
-      void within(wc.executeJavaScript('document.fullscreenElement&&document.exitFullscreen().catch(()=>{});true', true), 400, null);
+      void within(wc.executeJavaScript(UNPIN_JS, true), 400, null);
       if (l.css) void wc.removeInsertedCSS(l.css).catch(() => {});
     }
     try { this.window?.contentView.removeChildView(l.view); } catch { /* not here */ }
@@ -381,26 +383,34 @@ function within<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
  * (the box about the same size, so YouTube's and Twitch's own players keep their captions) goes fullscreen,
  * which here means "fill the popout". True when there was a video.
  */
-const FOCUS_JS = `(async () => {
+/**
+ * Pin the site's own player over the whole page: the playing video first, else the biggest; the player around it
+ * (YouTube's, Twitch's, any page's) is marked and BARE_CSS lays it edge to edge on top of everything, so nothing
+ * of the page shows: no header, no "Next:" panel, no scrollbar. No fullscreen request, so no timing to get wrong.
+ * True when there was a video. Tested on a YouTube Mix page 2026-10-11: the video filled the view exactly.
+ */
+const FOCUS_JS = `(() => {
   const vs = [...document.querySelectorAll('video')].filter(v => v.offsetWidth * v.offsetHeight > 0);
   vs.sort((a, b) => (b.paused ? 0 : 1) - (a.paused ? 0 : 1) || b.offsetWidth * b.offsetHeight - a.offsetWidth * a.offsetHeight);
   const v = vs[0];
   if (!v) return false;
   window.__aangVideo = v;
-  if (document.fullscreenElement) return true;
+  for (const old of document.querySelectorAll('[data-aang-player]')) old.removeAttribute('data-aang-player');
   const player = v.closest('.html5-video-player, [data-a-target="video-player"], .video-player, .player') || v;
-  try { await player.requestFullscreen(); return true; }
-  catch { try { await v.requestFullscreen(); return true; } catch { return false; } }
+  player.setAttribute('data-aang-player', '');
+  document.documentElement.classList.add('aang-bare');
+  return true;
 })()`;
-/**
- * The bare picture: whatever is fullscreen, the video fills it; the site's own buttons and overlays go (YouTube's
- * named; any page's built-in video controls too). Captions are left alone. Tested on YouTube 2026-10-11: the video
- * filled the picture area exactly, the control bar gone, captions showing.
- */
-const BARE_CSS = `:fullscreen video { position:fixed !important; left:0 !important; top:0 !important; width:100vw !important; height:100vh !important; object-fit:contain !important; background:#000 !important; margin:0 !important; transform:none !important; }
-:fullscreen .html5-video-container { position:absolute !important; inset:0 !important; width:100% !important; height:100% !important; }
-.ytp-chrome-bottom,.ytp-chrome-top,.ytp-gradient-top,.ytp-gradient-bottom,.ytp-pause-overlay,.ytp-ce-element,.ytp-endscreen-content,.ytp-watermark,.ytp-paid-content-overlay,.ytp-overflow-button,.ytp-cards-teaser,.ytp-iv-player-content{display:none !important}
-video::-webkit-media-controls{display:none !important}`;
+/** Undo the pin when the tab goes back to the browser: the page is exactly as it was. */
+const UNPIN_JS = `(() => { document.documentElement.classList.remove('aang-bare');
+  for (const el of document.querySelectorAll('[data-aang-player]')) el.removeAttribute('data-aang-player'); return true; })()`;
+/** The bare picture (his pick): the player over everything, the video filling it, the site's own buttons hidden. Captions stay. */
+const BARE_CSS = `html.aang-bare, html.aang-bare body { overflow:hidden !important; }
+html.aang-bare [data-aang-player] { position:fixed !important; left:0 !important; top:0 !important; width:100vw !important; height:100vh !important; max-width:none !important; max-height:none !important; z-index:2147483646 !important; background:#000 !important; margin:0 !important; transform:none !important; }
+html.aang-bare [data-aang-player] video { position:fixed !important; left:0 !important; top:0 !important; width:100vw !important; height:100vh !important; object-fit:contain !important; background:#000 !important; margin:0 !important; transform:none !important; }
+html.aang-bare .html5-video-container { position:absolute !important; inset:0 !important; width:100% !important; height:100% !important; }
+html.aang-bare .ytp-chrome-bottom,html.aang-bare .ytp-chrome-top,html.aang-bare .ytp-gradient-top,html.aang-bare .ytp-gradient-bottom,html.aang-bare .ytp-pause-overlay,html.aang-bare .ytp-ce-element,html.aang-bare .ytp-endscreen-content,html.aang-bare .ytp-watermark,html.aang-bare .ytp-paid-content-overlay,html.aang-bare .ytp-overflow-button,html.aang-bare .ytp-cards-teaser,html.aang-bare .ytp-iv-player-content{display:none !important}
+html.aang-bare video::-webkit-media-controls{display:none !important}`;
 const STATE_JS = `(() => { const v = window.__aangVideo; if (!v || !v.isConnected) { return null; }
   return { at: v.currentTime, length: v.duration, paused: v.paused, volume: v.volume, muted: v.muted }; })()`;
 /** The page's numbers, checked: it is someone else's page, so nothing it says is trusted as anything but a number. */
