@@ -252,7 +252,9 @@ export type FromBody =
       /** Set by the Electron Shell, which is a desktop client like the pet but is the only one that can
        *  show the pop-out. Without this the brain could not tell them apart, and would say a video was
        *  on over his game when nothing was there to show it. */
-      shell?: boolean }
+      shell?: boolean;
+      /** The Shell is drawing the replies (the new bubble), so desktop replies can keep their formatting. */
+      bubble?: boolean }
   /** The Body: whether Joshua has touched the keyboard or mouse lately, sent when that changes. */
   | { t: 'desk'; active: boolean }
   | { t: 'presence'; quiet: boolean; foreground: string; title?: string; watching?: boolean; hwnd?: number }

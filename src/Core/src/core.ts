@@ -1773,8 +1773,13 @@ export class Core {
    * asterisks and hashes on his screen. That flips when 6.12 replaces it, and this is the one line
    * that has to change.
    */
+  /** Shells whose new bubble draws the replies (6.11 on the desktop): while one is connected, desktop is rich. */
+  private readonly drawingShells = new WeakSet<WebSocket>();
   private canDraw(ws: WebSocket): CanDraw {
-    return this.kindOfSocket(ws) === 'discord' ? 'rich' : 'plain';
+    if (this.kindOfSocket(ws) === 'discord') return 'rich';
+    // The flip 6.11 left for 6.12: the GDI bubble could not draw formatting, the new one can.
+    const drawing = this.wss ? [...this.wss.clients].some(c => c.readyState === c.OPEN && this.drawingShells.has(c)) : false;
+    return drawing ? 'rich' : 'plain';
   }
   /** Everything about one turn goes to the place it came from: every desktop window, or Discord. Not to the other place. */
   private toTurn(sub: Submission, msg: ToBody): void { this.sendTo(this.kindOfSocket(sub.socket), msg); }
@@ -1822,6 +1827,7 @@ export class Core {
         this.clientKind.set(ws, m.client === 'discord' ? 'discord' : 'desktop');
         if (m.shell === true) {
           this.shells.add(ws);
+          if (m.bubble === true) this.drawingShells.add(ws);
           if (this.lastPetAt) this.send(ws, this.lastPetAt);
         }
         const q = this.quotaMessage(); if (q) this.send(ws, q);
