@@ -45,6 +45,7 @@ html,body{margin:0;padding:0;background:transparent;overflow:hidden;font:500 15p
 .pinchip{display:flex;align-items:center;gap:6px;font:600 11.5px var(--body);color:#2a1c00;
   background:var(--gold-lit);border:2.5px solid var(--outline);border-radius:999px;padding:4px 5px 4px 10px}
 .pinchip.reply{background:var(--claude);color:#3a1708}
+.pinchip.snip{background:var(--avatar-glow);color:#1a2a3a}
 .pinchip b{font:400 9px var(--label);letter-spacing:.5px;opacity:.75}
 .pinchip s{width:15px;height:15px;border-radius:50%;background:rgba(0,0,0,.28);display:grid;
   place-items:center;font:700 11px var(--body);text-decoration:none;cursor:pointer}

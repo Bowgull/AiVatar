@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- 6.17: the snip overlay. The frozen screen, dimmed; drag a box; Esc cancels. Nothing from the
+     internet, and the screenshot arrives as a data URL from the Shell. -->
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' data:;
+               font-src 'self'; style-src-attr 'unsafe-inline'; form-action 'none'; base-uri 'none'">
+<title>Snipit</title>
+<link rel="stylesheet" href="cockpit.css">
+<link rel="stylesheet" href="snip.css">
+</head>
+<body>
+<img id="shot" alt="">
+<div id="dim" class="dim"></div>
+<div id="box" class="box" hidden></div>
+<div id="hint" class="hint">DRAG A BOX AROUND IT &middot; ESC TO CANCEL</div>
+<script src="snip.js" type="module"></script>
+</body>
+</html>

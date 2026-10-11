@@ -2419,7 +2419,7 @@ a `[qwen]` marker, by its real name (decision 8), never "local" or "free". **Thi
 
 ---
 
-### `[ ]` 6.17 Snip, hotkey grab, drag and drop
+### `[~]` 6.17 Snip, hotkey grab, drag and drop  **PASS 1 (Snipit) BUILT 2026-10-11**
 
 Snip part of the screen and ask about it; highlight text in any app and press a key; drop a file on
 Aang. Mockup: sheet 7, section 4. **All three land in the chat bubble** (his rule, 2026-10-04): Aang shows
@@ -2464,6 +2464,16 @@ highlight or a drop:
 - **Black out private bits:** 9.F1.
 - **Remember it:** a copy goes to Aang's own folder in his vault and is read by the existing reader
   (3.3); originals are never changed.
+
+**PASS 1: SNIPIT, BUILT 2026-10-11 (type-checked and built; the capture itself needs his desktop).**
+Ctrl+Shift+Plus (and keypad plus), or **Snipit** at the top of the pet's AANG menu in pale blue with no key
+printed, freezes the screen under the mouse; he drags a box (Esc or right-click cancels; a click without a
+drag cancels). The snip is saved as a PNG in **Pictures\Aang snips** (his picture, findable, read through the
+ordinary "read a file" permission), then shrinks to a **corner card**: wood frame, SNIPIT plaque in pale blue,
+the snip, a bobbing pointer, **Send** and **Bin it** (to the Recycle Bin). It never sends by itself and never
+takes focus from his game. **Send** puts a pale-blue SNIP chip on the typing box; his message goes with
+"[He attached a screenshot he snipped: <path>. Look at it with Read before you answer.]". The four choices
+below, Highlight and the drop are later passes.
 
 **Taking things in ("ingestion", his yes to all, 2026-10-10):** a file, a whole folder, a web link or a
 video. Qwen reads first, on this PC, for free; Claude only on "Go deeper", which says its cost first.

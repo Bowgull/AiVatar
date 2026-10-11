@@ -83,7 +83,9 @@ sealed class GoldMenuRenderer : ToolStripProfessionalRenderer
         // selection pill is under it, same as everywhere else that pill appears.
         e.TextColor = !e.Item.Enabled ? Theme.WithAlpha(Theme.WoodCream, 130)
             : e.Item.Selected || e.Item.Pressed ? Theme.Ink
-            : header ? Theme.Gold : Theme.WoodCream;
+            : header ? Theme.Gold
+            // 6.17: Snipit and Highlight in Aang's pale blue (his decision, 2026-10-04), marked by their Tag.
+            : e.Item.Tag as string == "avatar" ? Theme.AvatarGlow : Theme.WoodCream;
         // Pixel font here was a mistake (2026-09-22, Joshua: "so fucking hard to read") - a menu gets read
         // fast and has no room for a chunky pixel grid the way a big button label does. Atkinson Hyperlegible,
         // the same body face as everywhere else you actually read text; bold and a touch larger marks a header.

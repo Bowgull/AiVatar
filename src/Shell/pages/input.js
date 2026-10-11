@@ -260,7 +260,7 @@ function send() {
  * here is the cross that takes one off.
  */
 const pinnedRow = document.getElementById('pinned');
-function paintChips({ replyTo, pinned } = {}) {
+function paintChips({ replyTo, pinned, snips } = {}) {
   if (!pinnedRow) return;
   pinnedRow.textContent = '';
   const chip = (kind, label, text, onDrop) => {
@@ -286,6 +286,12 @@ function paintChips({ replyTo, pinned } = {}) {
   for (const p of pinned || []) {
     pinnedRow.append(chip('pin', 'CONTEXT', p.preview,
       () => window.aang?.dropChip?.({ kind: 'pin', turn: p.turn })));
+  }
+  // 6.17: a snip waiting to go with this message, in Snipit's pale blue.
+  for (const s of snips || []) {
+    const c = chip('snip', 'SNIP', s.name, () => window.aang?.dropChip?.({ kind: 'snip', name: s.name }));
+    c.classList.add('snip');
+    pinnedRow.append(c);
   }
   pinnedRow.hidden = !pinnedRow.childElementCount;
   reportSize();                       // the row changes how tall the box is

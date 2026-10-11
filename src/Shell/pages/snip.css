@@ -1,0 +1,13 @@
+/* 6.17: the snip overlay. The frozen screen with a plum dim; the box he drags is cut out of the dim and
+   outlined in his pale blue (#C8E8FF, the Avatar glow), the colour the plan gives Snipit. */
+html,body{margin:0;height:100%;overflow:hidden;background:#000;cursor:crosshair;-webkit-user-select:none;user-select:none}
+#shot{position:fixed;inset:0;width:100vw;height:100vh;display:block;pointer-events:none}
+.dim{position:fixed;inset:0;background:rgba(16,10,34,.45);pointer-events:none}
+.box{position:fixed;border:2px solid var(--avatar-glow);box-shadow:0 0 0 9999px rgba(16,10,34,.45),0 0 14px rgba(200,232,255,.7);
+  pointer-events:none;background:transparent}
+.box[hidden]{display:none}
+/* while a box is being drawn, its own shadow does the dimming, so the full-screen dim steps aside */
+body.drawing .dim{display:none}
+.hint{position:fixed;left:50%;top:18px;transform:translateX(-50%);font:400 11px var(--label);letter-spacing:1px;
+  color:var(--gold-lit);background:var(--wood-plaque);padding:8px 12px;border-radius:6px;border:3px solid var(--outline);
+  box-shadow:inset 0 3px 0 rgba(0,0,0,.6);pointer-events:none}

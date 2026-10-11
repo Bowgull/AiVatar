@@ -108,6 +108,13 @@ contextBridge.exposeInMainWorld('aang', {
     return () => ipcRenderer.removeListener('bubble:aim', h);
   },
 
+  // --- Snipit (6.17): the overlay and the corner card. Named doors only.
+  onSnipShot(fn) { const h = (_e, url) => fn(url); ipcRenderer.on('snip:shot', h); return () => ipcRenderer.removeListener('snip:shot', h); },
+  snipDone: r => ipcRenderer.send('snip:done', r),
+  onSnipCard(fn) { const h = (_e, s) => fn(s); ipcRenderer.on('snip:card', h); return () => ipcRenderer.removeListener('snip:card', h); },
+  snipSend: () => ipcRenderer.send('snip:send'),
+  snipBin: () => ipcRenderer.send('snip:bin'),
+
   // --- window 2, the desk (6.15). Named doors only, each the same message the C# Panel sends.
   deskPanel: () => ipcRenderer.send('desk:panel'),
   /** Settings are the pet's own: ask where they stand, set one, or run one of its two actions. */

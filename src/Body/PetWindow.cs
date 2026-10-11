@@ -2668,6 +2668,14 @@ sealed class PetWindow : Form
         // Joshua: "job hunt permissions and activity belong in aang everything else is a setting").
         var aangMenu = GoldMenu.Header("Aang");
         aangMenu.DropDownItems.AddRange(new ToolStripItem[] { jobHuntItem, permsItem, activityItem });
+        // 6.17: Snipit at the top of the AANG group, in pale blue, no key printed (his decision, 2026-10-04).
+        // The Shell does the snipping, so it is only offered when the new front end is on.
+        if (NewFrontEnd)
+        {
+            var snipItem = new ToolStripMenuItem("Snipit") { Tag = "avatar" };
+            snipItem.Click += (_, _) => _ = link.SendAsync(new { t = "snip" });
+            aangMenu.DropDownItems.Insert(0, snipItem);
+        }
         var settingsMenu = GoldMenu.Header("Settings");
         settingsMenu.DropDownItems.AddRange(new ToolStripItem[] { hushMenu, modelMenu, savingItem, quietItem, seeWindowItem, muteItem, autostartItem, coreItem, shellItem });
         menu.Items.AddRange(new ToolStripItem[] { talk, conversation, panelItem, new ToolStripSeparator(), windowMenu, aangMenu, settingsMenu, new ToolStripSeparator(), quit });
