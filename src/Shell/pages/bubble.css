@@ -136,6 +136,17 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
    running past the frame, which is what LayoutChoices guards against in the
    C# ("Start Claude on the job hunt" is a long verb). */
 .asks{margin:10px 0 0;gap:9px;flex-wrap:wrap}
+/* ---- the whisper: one quiet line, sized to itself, up to 340 (sheet 13) ---- */
+#bubble.whisper{width:auto;max-width:340px;padding:9px 14px 10px}
+#bubble.whisper .said{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px}
+.media{display:flex;gap:6px;margin:7px 0 0}
+.media[hidden]{display:none}
+.mkey{width:34px;height:28px;display:grid;place-items:center;cursor:pointer;color:var(--ink-text);
+  background:var(--gold);border:2.5px solid var(--outline);border-radius:8px;
+  box-shadow:0 2px 0 var(--outline),inset 0 2px 0 rgba(255,255,255,.35);position:relative;top:0;
+  transition:transform .15s cubic-bezier(.32,1.6,.5,1)}
+.mkey:hover{transform:translateY(-1.5px)}
+.mkey:active{top:2px;box-shadow:0 0 0 var(--outline)}
 /* "See the exact command": quiet, under the explaining line; the command itself only on a tap. */
 .exact{margin:6px 0 0}
 .exact[hidden]{display:none}
