@@ -515,6 +515,15 @@ sealed class PetWindow : Form
     /// <summary>The Panel: made once, then hidden and shown. Every time it is shown it asks the Core for a fresh copy.</summary>
     void OpenPanel()
     {
+        // 6.15: with the new front end on, window 2 (the Shell's desk) replaces this Panel. Same route as
+        // the typing box: through the brain to the Shell. Settings stay here until window 2 has them
+        // (pass 2), so that tab still opens the C# Panel. Nothing is retired until he has used it (6.18b).
+        if (NewFrontEnd && panelTab != 6)
+        {
+            var tab = panelTab; panelTab = 0;
+            _ = link.SendAsync(new { t = "desk.open", tab });
+            return;
+        }
         if (panel is null || panel.IsDisposed)
         {
             panel = new PanelWindow(payload => link.SendAsync(payload))
@@ -613,6 +622,11 @@ sealed class PetWindow : Form
                     break;
                 case "dismiss":
                     if (dock != DockEdge.None && !peeking) Peek();
+                    break;
+                // Window 2's Settings tab, until pass 2 moves the switches there: they are the pet's own, so
+                // the pet opens its Settings page. Any other tab is the Shell's to open.
+                case "desk.open":
+                    if (m.TryGetProperty("tab", out var dt) && dt.TryGetInt32(out var dtab) && dtab == 6) { panelTab = 6; OpenPanel(); }
                     break;
                 // The Shell's typing box closed by Esc, by sending, or by Ctrl+Plus: give the keyboard back
                 // to the window he was in, as the old box did with ForceForeground(previous). Without this

@@ -108,6 +108,24 @@ contextBridge.exposeInMainWorld('aang', {
     return () => ipcRenderer.removeListener('bubble:aim', h);
   },
 
+  // --- window 2, the desk (6.15). Named doors only, each the same message the C# Panel sends.
+  deskPanel: () => ipcRenderer.send('desk:panel'),
+  /** Settings are still the pet's own window until pass 2: ask the pet to open it. */
+  deskSettings: () => ipcRenderer.send('desk:settings'),
+  deskForgetFact: id => ipcRenderer.send('desk:forgetfact', id),
+  deskRevoke: kind => ipcRenderer.send('desk:revoke', kind),
+  deskMail: a => ipcRenderer.send('desk:mail', a),
+  deskJob: a => ipcRenderer.send('desk:job', a),
+  deskHistory: a => ipcRenderer.send('desk:history', a),
+  deskForgetTurn: id => ipcRenderer.send('desk:forgetturn', id),
+  deskCopy: text => ipcRenderer.send('desk:copy', text),
+  /** Which tab to open on, when the pet's menu asked for a particular one. */
+  onDeskTab(fn) {
+    const h = (_e, n) => fn(n);
+    ipcRenderer.on('desk:tab', h);
+    return () => ipcRenderer.removeListener('desk:tab', h);
+  },
+
   // --- the typing box (6.12b). Named doors only.
   onInputState(fn) {
     const h = (_e, v) => fn(v);
