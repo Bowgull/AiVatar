@@ -768,6 +768,46 @@ window.aang?.onConnected?.((up) => {
   downTimers.push(setTimeout(() => tell('brain.wait'), 8000), setTimeout(() => tell('brain.down'), 60000));
 });
 
+// ---------------------------------------------------------------- research cards (6.15b, sheet 6 section 8)
+// The weekly sweep as a card: what keeps coming up, then the top finds from each source with the source's
+// own score (never compared across sources), and the honest line. No verdicts: the sweep does not judge,
+// and a Borrow or Avoid it did not earn would be made up.
+const SRC = { github: ['GITHUB', 'gh'], hn: ['HN', 'hn'], arxiv: ['ARXIV', 'ax'], reddit: ['REDDIT', 'rd'] };
+function showResearch(r, turnRow) {
+  card.replaceChildren();
+  const T = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
+  const wrap = T('div', 'research');
+  wrap.append(T('p', 'eyebrow', `RESEARCH \u00b7 WEEK OF ${String(r.week).toUpperCase()}`), T('div', 'lead', `Swept ${r.swept} things.`));
+  if (r.repeats?.length) {
+    wrap.append(T('div', 'sub', 'KEEPS COMING UP'));
+    for (const x of r.repeats) { const row = T('div', 'repeat'); row.append(T('b', '', x.name), T('span', '', `${x.times} times over ${x.weeks} week${x.weeks === 1 ? '' : 's'} (${x.sources})`)); wrap.append(row); }
+  }
+  for (const f of r.finds ?? []) {
+    const [label, cls] = SRC[f.source] ?? ['WEB', 'gh'];
+    const row = T('div', 'find');
+    const mid = T('div', 'fmid');
+    const title = T('button', 'ttl', f.title);
+    title.type = 'button';
+    title.title = f.url;
+    // A link opens in his own browser, through the same checked door as a reply's link chips.
+    title.addEventListener('click', () => { if (/^https:\/\//.test(f.url)) window.aang?.openThing?.({ kind: 'link', value: f.url }); });
+    mid.append(title);
+    if (f.blurb) mid.append(T('div', 'bl', f.blurb));
+    const score = f.source === 'github' ? `${f.score >= 1000 ? (f.score / 1000).toFixed(1) + 'k' : f.score} stars` : f.source === 'hn' ? `${f.score} points` : f.source === 'reddit' ? `${f.score} up` : 'new';
+    row.append(T('span', 'src ' + cls, label), mid, T('span', 'score', score));
+    wrap.append(row);
+  }
+  wrap.append(T('p', 'honest', 'Aang wrote this; nothing here is checked.'));
+  card.append(wrap);
+  const keys = T('div', 'keys');
+  const k = (label, letter, cls, fn) => { const x = T('button', 'key sm' + (cls ? ' ' + cls : ''), label); x.type = 'button'; x.append(T('span', 'k', letter)); x.addEventListener('click', fn); keys.append(x); };
+  k('Tell me about one', 'A', 'primary', () => { if (turnRow !== null) window.aang?.replyToTurn?.(turnRow, 'This week\u2019s research'); });
+  if (r.file) k('Open the full notes', 'X', '', () => window.aang?.openThing?.({ kind: 'file', value: r.file }));
+  k('Done', 'Z', '', () => { releaseMouse(); goAway(); });
+  card.append(keys);
+  card.hidden = false;
+}
+
 // ---------------------------------------------------------------- what the brain says
 window.aang?.onMessage?.(m => {
   if (!m || typeof m !== 'object') return;
@@ -793,6 +833,19 @@ window.aang?.onMessage?.(m => {
     scroller.hidden = false;
     // The reply is the end of the job: the checklist has done its work.
     if (!m.stream) { livePlan = null; paintPlan(null, -1); }
+    // The weekly research arrives as a card at the desk (6.15b), the same way the brief does.
+    if (m.research && typeof m.research === 'object' && Array.isArray(m.research.finds)) {
+      reveal.start('', false);
+      who.textContent = 'THIS WEEK\u2019S RESEARCH';
+      who.hidden = false;
+      who.classList.add('plaque');
+      scroller.hidden = true; working.hidden = true; tools.hidden = true;
+      bubble.classList.add('wide', 'widest');
+      showResearch(m.research, typeof m.turn === 'number' ? m.turn : null);
+      bubble.classList.remove('enter'); void bubble.offsetWidth; bubble.classList.add('enter');
+      show(); fit(); reportSize(); scheduleHide();
+      return;
+    }
     // The morning brief arrives as a card at the desk; the text stays for Discord and the old bubble.
     if (m.brief && typeof m.brief === 'object' && Array.isArray(m.brief.events)) {
       reveal.start('', false);

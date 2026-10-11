@@ -1240,9 +1240,10 @@ export class Core {
       if (addons) { this.announce(addons, { asked: true }); this.memory.saveSaid(addons); }
     } catch (e) { console.error('addons: ' + (e as Error).message); }
     try {
-      const { said, note } = await weeklySweep(deps);
-      if (note) saveDigest(note);
-      if (said) { this.announce(said, { asked: true }); this.memory.saveSaid(said); }
+      const { said, note, card } = await weeklySweep(deps);
+      const file = note ? saveDigest(note) : '';
+      // At the desk it arrives as the research card (6.15b); Discord keeps the sentence.
+      if (said) { this.announce(said, { asked: true, ...(card ? { research: { ...card, ...(file ? { file } : {}) } } : {}) }); this.memory.saveSaid(said); }
     } catch (e) { console.error('research: ' + (e as Error).message); }
   }
 
@@ -2454,7 +2455,7 @@ export class Core {
     setTimeout(() => this.offerFact(), 45_000).unref?.();
   }
 
-  announce(text: string, opts: { asked?: boolean; focus?: string; jobCwd?: string; image?: { data: string; mimeType: string }; blocking?: boolean; done?: boolean; host?: 'mac'; reminder?: string; brief?: BriefCard } = {}): void {
+  announce(text: string, opts: { asked?: boolean; focus?: string; jobCwd?: string; image?: { data: string; mimeType: string }; blocking?: boolean; done?: boolean; host?: 'mac'; reminder?: string; brief?: BriefCard; research?: import('./watch.ts').ResearchCard & { file?: string } } = {}): void {
     // Whatever is said last is what a reply is most likely about, whether it lands now or only once hush/quiet
     // lets it through - see withAnnounced().
     this.lastAnnounced = { text, at: Date.now() };
@@ -2466,7 +2467,7 @@ export class Core {
       t: 'bubble', text, stream: false, proactive: true, asked: opts.asked === true, ...(opts.focus ? { focus: opts.focus, link: 'Claude' } : {}),
       ...(opts.jobCwd ? { jobCwd: opts.jobCwd } : {}), ...(opts.image ? { image: opts.image } : {}),
       ...(blocking ? { blocking: true } : {}), ...(done ? { done: true } : {}), ...(opts.host ? { host: opts.host } : {}),
-      ...(opts.reminder ? { reminder: opts.reminder } : {}), ...(opts.brief ? { brief: opts.brief } : {}),
+      ...(opts.reminder ? { reminder: opts.reminder } : {}), ...(opts.brief ? { brief: opts.brief } : {}), ...(opts.research ? { research: opts.research } : {}),
     };
     /**
      * Store it as a turn, and carry the row id out with the message.

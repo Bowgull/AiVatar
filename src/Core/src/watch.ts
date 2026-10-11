@@ -87,7 +87,16 @@ export async function checkAddons(deps: WatchDeps): Promise<string> {
  * sweeps once. Everything it finds goes into the mention table; only what has come up at least three
  * times gets said out loud, because that is the signal he asked for and the raw list is not.
  */
-export async function weeklySweep(deps: WatchDeps): Promise<{ said: string; note: string; found: number }> {
+/** The sweep as a card (6.15b, sheet 6 section 8): the same parts as the note, as data. */
+export interface ResearchCard {
+  week: string;
+  swept: number;
+  repeats: { name: string; times: number; weeks: number; sources: string }[];
+  /** The top two from each source, scores only ever compared within their own source. */
+  finds: { source: Finding['source']; title: string; url: string; blurb: string; score: number }[];
+}
+
+export async function weeklySweep(deps: WatchDeps): Promise<{ said: string; note: string; found: number; card?: ResearchCard }> {
   const now = (deps.now ?? (() => new Date()))();
   const week = weekOf(now);
   if (!deps.db) return { said: '', note: '', found: 0 };
@@ -117,7 +126,10 @@ export async function weeklySweep(deps: WatchDeps): Promise<{ said: string; note
   // Said out loud: only the few that are genuinely repeating, newest interest first.
   const top = repeats.slice(0, 3).map(r => `${r.name} (${r.times}x${r.weeks > 1 ? ` over ${r.weeks} weeks` : ''})`);
   const said = `Something keeps coming up: ${top.join(', ')}. I wrote up this week's sweep in your vault.`;
-  return { said, note, found: found.length };
+  const finds = (['github', 'hn', 'arxiv', 'reddit'] as const).flatMap(s => found.filter(f => f.source === s).slice(0, 2))
+    .map(f => ({ source: f.source, title: f.title.slice(0, 140), url: f.url, blurb: (f.blurb ?? '').slice(0, 200), score: f.score }));
+  const card: ResearchCard = { week: weekOf(now), swept: found.length, repeats: repeats.slice(0, 5), finds };
+  return { said, note, found: found.length, card };
 }
 
 /** The write-up. Markdown, in his vault, because that is where he already looks things up. */

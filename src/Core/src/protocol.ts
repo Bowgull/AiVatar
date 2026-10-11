@@ -124,6 +124,8 @@ export type ToBody =
       reminder?: string;
       /** The morning brief as a card (6.15): the cockpit draws this instead of the text. */
       brief?: BriefCard;
+      /** The weekly sweep as a card (6.15b), with where its note was written. */
+      research?: import('./watch.ts').ResearchCard & { file?: string };
       /** Something he asked to be told about: shown even in quiet mode. */
       asked?: boolean;
       /** The window a click on the bubble brings forward, and the word in the text to mark as that link. */
