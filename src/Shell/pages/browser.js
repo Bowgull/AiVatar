@@ -242,7 +242,8 @@ function paintTabs() {
   for (const g of groups) {
     if (g.id !== null) want.push(headFor(g.trail, g.tabs.length));
     const inGroup = new Set(g.tabs.map((t) => t.id));
-    for (const t of g.tabs) want.push(rowFor(t, Boolean(t.opener && inGroup.has(t.opener))));
+    // Only inside a trail does a tab sit under the one it came from; loose tabs are a flat list.
+    for (const t of g.tabs) want.push(rowFor(t, g.id !== null && Boolean(t.opener && inGroup.has(t.opener))));
   }
   let shelf = document.getElementById('doneshelf');
   if (done.length) {
@@ -294,9 +295,6 @@ function tabMenu(t, x, y) {
   item('Reload', () => window.aang?.browserTab?.({ id: t.id, act: 'reload' }));
   item(t.muted ? 'Unmute' : 'Mute', () => window.aang?.browserTab?.({ id: t.id, act: 'mute' }));
   sep();
-  if (t.done) item('Not done after all', () => window.aang?.browserTab?.({ id: t.id, act: 'undone' }));
-  else item('Mark as done', () => turnIn(t.id));
-  m.append(Object.assign(document.createElement('div'), { className: 'sep' }));
   const trails = Array.isArray(state.trails) ? state.trails : [];
   for (const tr of trails) if (tr.id !== t.trail) item('Move to ' + tr.name.toLowerCase().replace(/^./, (c) => c.toUpperCase()), () => window.aang?.browserTrail?.({ act: 'move', tab: t.id, to: tr.id }), { sub: true });
   item('Move to a new trail', () => window.aang?.browserTrail?.({ act: 'move', tab: t.id, to: 'new' }), { sub: true });
@@ -349,12 +347,6 @@ function buildRow(t, kid) {
       s.addEventListener('click', (e) => { e.stopPropagation(); window.aang?.browserTab?.({ id: t.id, act: 'mute' }); });
       row.append(s);
     }
-    // The quest mark: turn the tab in (it is not closed). A done tab shows its tick instead.
-    const q = document.createElement('button'); q.type = 'button'; q.className = 'qm';
-    q.textContent = t.done ? '\u2713' : '?';
-    q.setAttribute('aria-label', t.done ? 'Done' : 'Mark as done');
-    if (!t.done) q.addEventListener('click', (e) => { e.stopPropagation(); turnIn(t.id); });
-    row.append(q);
     const x = document.createElement('button'); x.type = 'button'; x.className = 'x'; x.textContent = '×'; x.setAttribute('aria-label', 'Close tab');
     x.addEventListener('click', (e) => { e.stopPropagation(); tap(0.7); window.aang?.browserTab?.({ id: t.id, act: 'close' }); });
     row.append(x);
