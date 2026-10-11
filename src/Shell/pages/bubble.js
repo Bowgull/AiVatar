@@ -397,6 +397,9 @@ function goAway() {
       bubble.hidden = true;
       snapShut();
       releaseMouse();
+      // A question that stepped aside for a reply comes back now.
+      if (askParked && waiting.length) { askParked = false; showTopAsk(); return; }
+      askParked = false;
       // A whisper that arrived while he was reading waits its turn, then shows.
       if (whisperNext) { const w = whisperNext; whisperNext = null; showWhisper(w); return; }
       // The WINDOW goes too: a hidden page in a shown window is still a window on his desktop.
@@ -416,6 +419,7 @@ function show() {
 
 // ---------------------------------------------------------------- the asks
 let asking = null;        // the message being asked about, so an answer can name it
+let askParked = false;    // a question stepped aside for a reply, and comes back after it
 
 /**
  * Everything waiting on him, newest shown, the rest kept (6.13, sheet 5 section 4).
@@ -440,6 +444,16 @@ function queueAsk(m) {
   const id = String(m.id ?? '');
   if (id && waiting.some((w) => String(w.id ?? '') === id && w.t === m.t)) return;
   m.__at = Date.now();
+  // Parity with the old pet: these questions went away on their own (consent 60 s, a fact or a backup offer
+  // 180 s), with nothing answered for him. Permissions and plans are timed by the brain (ask.expired).
+  const ttl = m.t === 'consent' ? 60000 : (m.t === 'fact.ask' || m.t === 'backup.ask') ? 180000 : 0;
+  if (ttl) setTimeout(() => {
+    const i = waiting.indexOf(m);
+    if (i < 0) return;
+    waiting.splice(i, 1);
+    if (asking === m) { asking = null; asks.hidden = true; asks.replaceChildren(); if (!showTopAsk()) scheduleHide(); }
+    else paintEdges();
+  }, ttl);
   waiting.push(m);
   waiting.sort((x, y) => rank(x) - rank(y) || x.__at - y.__at);
 }
@@ -1072,6 +1086,9 @@ function onBrain(m) {
   }
 
   if (m.t === 'bubble' && typeof m.text === 'string') {
+    // A reply arriving while a question is open: the question steps aside, still waiting, and comes back
+    // when the reply has been read. Before, its keys stayed live under the reply's words.
+    if (asking && !m.stream) { asking = null; asks.hidden = true; asks.replaceChildren(); askParked = true; }
     // A real reply takes the balloon back from a whisper.
     bubble.classList.remove('whisper');
     mediaRow.hidden = true;

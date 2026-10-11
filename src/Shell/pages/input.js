@@ -166,7 +166,7 @@ window.aang?.onFailed?.((f) => {
   const m = document.createElement('b');
   // Measured: the strip is 256px and this line must fit beside "Enter to retry". The full sentence
   // cut to "Nothi..." on the first draw. The words that matter are the first two.
-  m.textContent = 'Brain is down. Not lost.';
+  m.textContent = f.reason === 'no-answer' ? 'No answer. Not lost.' : 'Brain is down. Not lost.';
   const how = document.createElement('span');
   how.className = 'how';
   how.textContent = 'Enter to retry';
