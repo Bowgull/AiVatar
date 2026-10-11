@@ -2673,7 +2673,9 @@ sealed class PetWindow : Form
         if (NewFrontEnd)
         {
             var snipItem = new ToolStripMenuItem("Snipit") { Tag = "avatar" };
-            snipItem.Click += (_, _) => _ = link.SendAsync(new { t = "snip" });
+            // The click landed in the pet, so only the pet may hand the foreground on: pass that right across
+            // first (as for the typing box), so the Shell's overlay can take the keyboard.
+            snipItem.Click += (_, _) => { Win32.AllowSetForegroundWindow(Win32.ASFW_ANY); _ = link.SendAsync(new { t = "snip" }); };
             aangMenu.DropDownItems.Insert(0, snipItem);
         }
         var settingsMenu = GoldMenu.Header("Settings");
