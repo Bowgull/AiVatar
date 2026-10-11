@@ -362,6 +362,10 @@ function brief() {
     h('div', 'day', String(b.day ?? '').replace(',', ' \u00b7').toUpperCase()));
   const counts = h('div', 'counts');
   counts.append(h('span', '', `${b.events.length} TODAY`), h('span', 'mail', `${b.unread.length} UNREAD`));
+  if (b.weather) {
+    const w = b.weather;
+    counts.append(h('span', 'wx', `${w.now} C \u00b7 ${w.words.toUpperCase()}` + (w.rain >= 30 ? ` \u00b7 ${w.rain}% RAIN` : '')));
+  }
   // His face where the sheet drew a sun (his call, 2026-10-11): Aang greeting you, in the same glowing medallion.
   const sun = h('span', 'sun');
   const face = document.createElement('img');
