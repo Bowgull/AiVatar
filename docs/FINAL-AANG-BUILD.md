@@ -2508,7 +2508,7 @@ Folders always show the plan first and skip anything that looks private.
 
 ---
 
-### `[~]` 6.18 Search over everything, and the charts  **SEARCH BUILT 2026-10-11**
+### `[x]` 6.18 Search over everything, and the charts  **BUILT 2026-10-11**
 
 One search box over memory, the vault, conversations, jobs and addons. Charts: the job hunt by stage,
 Claude use week over week, addon drift (no table buttons, his call). **Cut 2026-10-04 (his call):** the
@@ -2524,8 +2524,19 @@ replaces it). The brain (`searchAll`) asks five places separately, no model: Wha
 match), conversations (exact words, then meaning), the vault (its existing meaning and word index), jobs
 and installed addons. Count pills say which places had nothing; hits are grouped, matches marked, and
 WORDS / MEANING says which index found it. A vault note opens through the same checked door as a chip; a
-conversation hit opens History on it; a fact or job opens its tab. **Not built: the balloon version of the
+conversation hit sits in the results; a fact or job opens its tab. **Not built: the balloon version of the
 search from sheet 13**, and "Ask Aang about these".
+
+**WINDOW 2 IS NOW FOUR TABS AND A SEARCH (his call, 2026-10-11, after I pushed back on seven):** WHAT I KNOW;
+WHAT I DID (anything waiting on him first, drafts included with Hold to send, then Claude jobs, the timeline
+and the use chart); JOBS (the stage chart above the card); SETTINGS (the switches, then What I may do
+without asking); SEARCH (Ctrl+F; an empty box is the recent conversation, which replaces History). The
+pet's menu items and the brief card still name the old tabs and land where those things live now.
+**THE CHARTS, BUILT 2026-10-11 (browser tab):** the job hunt by stage (all six real stages, Needs you in
+orange with a "!", Skipped grey, every count written on the bar) and Claude and Qwen replies per week for
+six weeks, counted from his own memory, with his Claude week as a percent in its own line above (never a
+second axis). **The addon chart is dropped** in the same call: addons that fall behind show in search and
+in the brief instead. **Not built:** the daily saved quota reading for a percent-over-time line.
 
 ---
 
