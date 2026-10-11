@@ -218,28 +218,111 @@ const SPEAKER = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 6h3l4-3
 // Rows are kept and only redrawn when something about that tab changed, so a title or a spinner on one
 // tab never rebuilds the whole rail (that rebuild was the flicker, and it dropped the hover under the mouse).
 const rows = new Map();
+const heads = new Map();
+/**
+ * The drawer's list, sheet 3 section 3: loose tabs first, then each trail under its carved heading, then the
+ * DONE shelf. Rows are kept and only rebuilt when something about that tab changed (the flicker fix).
+ */
 function paintTabs() {
   const open = new Set(state.tabs.map((t) => t.id));
-  const want = [];
-  for (const t of state.tabs) {
-    const sig = JSON.stringify([t.id === state.active, t.crashed, t.asleep, t.loading, t.favicon, t.title, t.url, t.audible, t.muted, t.opener && open.has(t.opener)]);
+  const trails = Array.isArray(state.trails) ? state.trails : [];
+  const live = state.tabs.filter((t) => !t.done);
+  const groups = [{ id: null, tabs: live.filter((t) => t.trail == null) }];
+  for (const tr of trails) { const tabs = live.filter((t) => t.trail === tr.id); if (tabs.length) groups.push({ id: tr.id, trail: tr, tabs }); }
+  const done = state.tabs.filter((t) => t.done);
+  const rowFor = (t, kid) => {
+    const sig = JSON.stringify([t.id === state.active, t.crashed, t.asleep, t.loading, t.favicon, t.title, t.url, t.audible, t.muted, kid, t.done]);
     let r = rows.get(t.id);
-    if (!r || r.sig !== sig) {
-      const fresh = buildRow(t, open);
-      if (r) r.el.replaceWith(fresh);
-      r = { sig, el: fresh };
-      rows.set(t.id, r);
-    }
-    want.push(r.el);
+    if (!r || r.sig !== sig) { const fresh = buildRow(t, kid); if (r) r.el.replaceWith(fresh); r = { sig, el: fresh }; rows.set(t.id, r); }
+    return r.el;
+  };
+  const want = [];
+  for (const g of groups) {
+    if (g.id !== null) want.push(headFor(g.trail, g.tabs.length));
+    const inGroup = new Set(g.tabs.map((t) => t.id));
+    for (const t of g.tabs) want.push(rowFor(t, Boolean(t.opener && inGroup.has(t.opener))));
+  }
+  let shelf = document.getElementById('doneshelf');
+  if (done.length) {
+    if (!shelf) { shelf = document.createElement('div'); shelf.id = 'doneshelf'; shelf.className = 'shelf'; }
+    const lab = document.createElement('div'); lab.className = 'lab';
+    lab.append(Object.assign(document.createElement('span'), { textContent: 'DONE' }), Object.assign(document.createElement('span'), { textContent: String(done.length) }));
+    shelf.replaceChildren(lab, ...done.map((t) => rowFor(t, false)));
+    want.push(shelf);
   }
   for (const [id, r] of rows) if (!open.has(id)) { r.el.remove(); rows.delete(id); }
+  for (const [id, h] of heads) if (!groups.some((g) => g.id === id)) { h.remove(); heads.delete(id); }
+  if (!done.length && shelf) shelf.remove();
   want.forEach((node, i) => { if (tabsBox.children[i] !== node) tabsBox.insertBefore(node, tabsBox.children[i] ?? null); });
+  while (tabsBox.children.length > want.length) tabsBox.lastElementChild.remove();
 }
-function buildRow(t, open) {
+/** A trail's carved heading. Click the name to rename it; his name is kept for good (Qwen never renames it). */
+function headFor(tr, n) {
+  let h = heads.get(tr.id);
+  if (!h) { h = document.createElement('div'); h.className = 'th'; heads.set(tr.id, h); }
+  if (h.querySelector('input')) return h;               // he is typing its name: leave it be
+  const nm = Object.assign(document.createElement('span'), { className: 'nm', textContent: tr.name, title: 'Click to rename' });
+  nm.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const box = Object.assign(document.createElement('input'), { value: tr.name, maxLength: 24, spellcheck: false });
+    box.setAttribute('aria-label', 'Trail name');
+    const done = (save) => { if (save && box.value.trim()) window.aang?.browserTrail?.({ act: 'rename', id: tr.id, name: box.value }); box.replaceWith(nm); };
+    box.addEventListener('keydown', (k) => { if (k.key === 'Enter') done(true); if (k.key === 'Escape') { k.stopPropagation(); done(false); } });
+    box.addEventListener('blur', () => done(true));
+    nm.replaceWith(box); box.focus(); box.select();
+  });
+  h.replaceChildren(nm, Object.assign(document.createElement('span'), { className: 'n', textContent: String(n) }));
+  return h;
+}
+
+// ---- the tab's own menu (right-click), sheet 3 section 7
+function closeTabMenu() { document.getElementById('tabmenu')?.remove(); }
+function tabMenu(t, x, y) {
+  closeTabMenu();
+  const m = document.createElement('div'); m.id = 'tabmenu'; m.className = 'tabmenu'; m.setAttribute('role', 'menu');
+  const item = (label, go, opts = {}) => {
+    const b = document.createElement('button'); b.type = 'button'; b.setAttribute('role', 'menuitem');
+    if (opts.sub) b.className = 'sub';
+    b.append(label);
+    if (opts.soon) { b.disabled = true; b.append(Object.assign(document.createElement('i'), { textContent: 'SOON' })); }
+    else b.addEventListener('click', () => { closeTabMenu(); go(); });
+    m.append(b);
+  };
+  const sep = () => m.append(Object.assign(document.createElement('div'), { className: 'sep' }));
+  item('Reload', () => window.aang?.browserTab?.({ id: t.id, act: 'reload' }));
+  item(t.muted ? 'Unmute' : 'Mute', () => window.aang?.browserTab?.({ id: t.id, act: 'mute' }));
+  sep();
+  if (t.done) item('Not done after all', () => window.aang?.browserTab?.({ id: t.id, act: 'undone' }));
+  else item('Mark as done', () => turnIn(t.id));
+  m.append(Object.assign(document.createElement('div'), { className: 'sep' }));
+  const trails = Array.isArray(state.trails) ? state.trails : [];
+  for (const tr of trails) if (tr.id !== t.trail) item('Move to ' + tr.name.toLowerCase().replace(/^./, (c) => c.toUpperCase()), () => window.aang?.browserTrail?.({ act: 'move', tab: t.id, to: tr.id }), { sub: true });
+  item('Move to a new trail', () => window.aang?.browserTrail?.({ act: 'move', tab: t.id, to: 'new' }), { sub: true });
+  if (t.trail != null) item('Take out of the trail', () => window.aang?.browserTrail?.({ act: 'move', tab: t.id, to: null }), { sub: true });
+  sep();
+  item('Open in Chrome', () => {}, { soon: true });
+  item('Pop out over WoW', () => {}, { soon: true });
+  sep();
+  item('Close', () => { tap(0.7); window.aang?.browserTab?.({ id: t.id, act: 'close' }); });
+  document.body.append(m);
+  const r = m.getBoundingClientRect();
+  m.style.left = Math.max(4, Math.min(x, innerWidth - r.width - 4)) + 'px';
+  m.style.top = Math.max(4, Math.min(y, innerHeight - r.height - 4)) + 'px';
+  setTimeout(() => document.addEventListener('pointerdown', (e) => { if (!m.contains(e.target)) closeTabMenu(); }, { once: true }), 0);
+}
+/** "QUEST COMPLETE" over the tab for a moment, then it drops to the DONE shelf with a quiet tick (sheet 3). */
+function turnIn(id) {
+  const r = rows.get(id)?.el;
+  if (r) r.append(Object.assign(document.createElement('span'), { className: 'quest', textContent: 'QUEST COMPLETE' }));
+  setTimeout(() => { tap(1.25); window.aang?.browserTab?.({ id, act: 'done' }); }, 850);
+}
+el('newtrail').addEventListener('click', () => { closeDrawer(); window.aang?.browserTrail?.({ act: 'new' }); });
+
+function buildRow(t, kid) {
   {
     const row = document.createElement('div');
     const asleep = t.asleep && t.id !== state.active;
-    row.className = 'tp' + (t.id === state.active ? ' on' : '') + (t.crashed ? ' crash' : '') + (asleep ? ' sleep' : '') + (t.opener && open.has(t.opener) ? ' kid' : '');
+    row.className = 'tp' + (t.id === state.active ? ' on' : '') + (t.crashed ? ' crash' : '') + (asleep ? ' sleep' : '') + (kid ? ' kid' : '') + (t.done ? ' done' : '');
     row.title = t.url;
     row.tabIndex = 0;
     if (t.loading && !t.crashed) row.append(Object.assign(document.createElement('i'), { className: 'arc' }));
@@ -257,6 +340,12 @@ function buildRow(t, open) {
       s.addEventListener('click', (e) => { e.stopPropagation(); window.aang?.browserTab?.({ id: t.id, act: 'mute' }); });
       row.append(s);
     }
+    // The quest mark: turn the tab in (it is not closed). A done tab shows its tick instead.
+    const q = document.createElement('button'); q.type = 'button'; q.className = 'qm';
+    q.textContent = t.done ? '\u2713' : '?';
+    q.setAttribute('aria-label', t.done ? 'Done' : 'Mark as done');
+    if (!t.done) q.addEventListener('click', (e) => { e.stopPropagation(); turnIn(t.id); });
+    row.append(q);
     const x = document.createElement('button'); x.type = 'button'; x.className = 'x'; x.textContent = '×'; x.setAttribute('aria-label', 'Close tab');
     x.addEventListener('click', (e) => { e.stopPropagation(); tap(0.7); window.aang?.browserTab?.({ id: t.id, act: 'close' }); });
     row.append(x);
@@ -264,6 +353,7 @@ function buildRow(t, open) {
     row.addEventListener('pointerdown', (e) => { if (e.button === 0 && !e.target.closest('button')) { window.aang?.browserTab?.({ id: t.id, act: 'show' }); closeDrawer(); } });
     row.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); window.aang?.browserTab?.({ id: t.id, act: 'show' }); } });
     row.addEventListener('auxclick', (e) => { if (e.button === 1) { tap(0.7); window.aang?.browserTab?.({ id: t.id, act: 'close' }); } });
+    row.addEventListener('contextmenu', (e) => { e.preventDefault(); tabMenu(t, e.clientX, e.clientY); });
     return row;
   }
 }
