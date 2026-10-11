@@ -41,7 +41,11 @@ export interface AdBlock {
  * Start blocking on a session. Returns null if the blocker could not be built, which is not fatal: he
  * sees ads, and that is better than a browser that will not load anything.
  */
-export async function blockAds(session: Session, stateDir: string): Promise<AdBlock | null> {
+/**
+ * `cosmetic`: also hide the empty boxes ads leave behind. Ghostery can do that for ONE session per app (it
+ * registers app-wide handlers), so his browser gets it and the pop-out, which only plays video, does not.
+ */
+export async function blockAds(session: Session, stateDir: string, opts: { cosmetic?: boolean } = {}): Promise<AdBlock | null> {
   const cacheDir = path.join(stateDir, 'adblock');
   try { mkdirSync(cacheDir, { recursive: true }); } catch { /* checked on write */ }
 
@@ -91,7 +95,7 @@ export async function blockAds(session: Session, stateDir: string): Promise<AdBl
 
   try {
     const { ElectronBlocker } = await import('@ghostery/adblocker-electron');
-    const blocker = ElectronBlocker.parse(text);
+    const blocker = ElectronBlocker.parse(text, { loadCosmeticFilters: opts.cosmetic === true });
     blocker.enableBlockingInSession(session);
     return {
       lists: got,
