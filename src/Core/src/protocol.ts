@@ -105,6 +105,15 @@ export type ToBody =
   | { t: 'drop'; files: string[] }
   /** 6.17: "Remember it" on a dropped file, from the bubble. */
   | { t: 'drop.keep'; path: string }
+  /** 6.18: one search over everything, from window 2. */
+  | { t: 'search'; q: string }
+  /** 6.18: the answer, grouped by where it lives. Every index is on this PC: searching costs nothing. */
+  | { t: 'search.reply'; q: string;
+      facts: { id: number; text: string }[];
+      talk: { ts: string; who: 'you' | 'Aang'; text: string; how: 'words' | 'meaning' }[];
+      vault: { title: string; path: string; head: string; how: 'words' | 'meaning' }[];
+      jobs: { id: string; title: string; company: string; status: string }[];
+      addons: { title: string; version: string }[] }
   /** 6.17: the brain's verdict, so the balloon can airbend it in (or spit it back out). */
   | { t: 'drop.go'; name: string; refused?: string; folder?: boolean }
   /** 6.17: what Qwen made of it. `summary` is empty when Qwen could not read it (in a game, or not running). */
@@ -308,6 +317,15 @@ export type FromBody =
   | { t: 'drop'; files: string[] }
   /** 6.17: "Remember it" on a dropped file, from the bubble. */
   | { t: 'drop.keep'; path: string }
+  /** 6.18: one search over everything, from window 2. */
+  | { t: 'search'; q: string }
+  /** 6.18: the answer, grouped by where it lives. Every index is on this PC: searching costs nothing. */
+  | { t: 'search.reply'; q: string;
+      facts: { id: number; text: string }[];
+      talk: { ts: string; who: 'you' | 'Aang'; text: string; how: 'words' | 'meaning' }[];
+      vault: { title: string; path: string; head: string; how: 'words' | 'meaning' }[];
+      jobs: { id: string; title: string; company: string; status: string }[];
+      addons: { title: string; version: string }[] }
   /** 6.17: the brain's verdict, so the balloon can airbend it in (or spit it back out). */
   | { t: 'drop.go'; name: string; refused?: string; folder?: boolean }
   /** 6.17: what Qwen made of it. `summary` is empty when Qwen could not read it (in a game, or not running). */
