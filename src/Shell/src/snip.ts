@@ -108,11 +108,23 @@ export class Snipper {
     w.webContents.once('did-finish-load', () => {
       if (w.isDestroyed()) return;
       w.webContents.send('snip:card', { url: img.resize({ width: Math.min(560, img.getSize().width) }).toDataURL() });
-      w.showInactive();
+      // Shown once it has measured itself (fitCard), so it never appears cut off; this is the fallback.
+      setTimeout(() => { if (!w.isDestroyed() && !w.isVisible()) w.showInactive(); }, 800);
     });
     w.on('closed', () => { if (this.card === w) this.card = null; });
     this.card = w;
     void w.loadURL(`${this.o.origin}/snipcard.html`);
+  }
+
+  /** The card measured itself: resize the window to it, still anchored to the bottom-right corner. */
+  fitCard(width: number, height: number): void {
+    const w = this.card;
+    if (!w || w.isDestroyed() || width < 100 || height < 100) return;
+    const W = Math.min(600, Math.round(width)), H = Math.min(700, Math.round(height));
+    const b = w.getBounds();
+    // setBounds, never setSize: setSize is ignored on a non-resizable window on this machine (see main.ts).
+    w.setBounds({ x: b.x + b.width - W, y: b.y + b.height - H, width: W, height: H });
+    if (!w.isVisible()) w.showInactive();
   }
 
   private closeCard(): void { if (this.card && !this.card.isDestroyed()) this.card.close(); this.card = null; }
