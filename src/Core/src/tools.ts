@@ -41,6 +41,23 @@ export async function fetchWeather(fetchImpl: typeof fetch = fetch): Promise<str
     `(feels like ${Math.round(c.apparent_temperature)} C), wind ${Math.round(c.wind_speed_10m)} km/h, precipitation ${c.precipitation} mm.`;
 }
 
+/**
+ * Today's weather for the morning brief (6.15): now, the high and low, and the chance of rain. Same free
+ * service as get_weather (Open-Meteo, no key, no account), and like the rest of the brief, no model.
+ */
+export async function fetchDayWeather(fetchImpl: typeof fetch = fetch): Promise<{ now: number; high: number; low: number; words: string; rain: number }> {
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}` +
+    `&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code` +
+    `&forecast_days=1&timezone=${encodeURIComponent(TZ)}`;
+  const res = await fetchImpl(url, { signal: AbortSignal.timeout(5000) });
+  if (!res.ok) throw new Error(`weather service returned ${res.status}`);
+  const j: any = await res.json();
+  return {
+    now: Math.round(j.current.temperature_2m), high: Math.round(j.daily.temperature_2m_max[0]), low: Math.round(j.daily.temperature_2m_min[0]),
+    words: describeWeatherCode(j.daily.weather_code[0]), rain: Math.round(j.daily.precipitation_probability_max[0] ?? 0),
+  };
+}
+
 /** Short receipt lines the Body can show while a tool runs. */
 export const TOOL_LABELS: Record<string, string> = {
   get_time: 'checking the time',

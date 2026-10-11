@@ -27,7 +27,7 @@ import type { ActRunner } from './uia.ts';
 import { copyThing, deleteThing, emptyOldTrash, listFolder, makeFolder, moveThing } from './organise.ts';
 import type { Result as OrganiseResult } from './organise.ts';
 import type { Doers } from './tools.ts';
-import { TOOL_NAMES, QUICK_TOOLS, QUICK_HIDDEN, BUILTIN_SHELL, BUILTIN_WRITE, PLAYWRIGHT_SERVER, SHELL_TOOLS, WEB_PROMPT, WEB_TOOLS, describeCall, describeForLog, isLauncher, makeToolServer, reachesNetwork } from './tools.ts';
+import { TOOL_NAMES, QUICK_TOOLS, fetchDayWeather, QUICK_HIDDEN, BUILTIN_SHELL, BUILTIN_WRITE, PLAYWRIGHT_SERVER, SHELL_TOOLS, WEB_PROMPT, WEB_TOOLS, describeCall, describeForLog, isLauncher, makeToolServer, reachesNetwork } from './tools.ts';
 import { HookServer, HookTracker, isLoopback } from './hooks.ts';
 import { Reminders } from './reminders.ts';
 import { SessionStore } from './sessions.ts';
@@ -796,7 +796,9 @@ export class Core {
     const companies = [...new Set(cards.map(c => c.company.trim().toLowerCase()).filter(c => c.length >= 3))];
     const dayAgo = Date.now() - 24 * 3600_000;
     const q = this.policy.last;
+    const weather = await fetchDayWeather().catch(() => null);
     return {
+      ...(weather ? { weather } : {}),
       day: new Date().toLocaleDateString('en-CA', { timeZone: 'America/Toronto', weekday: 'long', day: 'numeric', month: 'long' }),
       events: d.events,
       unread: d.unread.map(u => {

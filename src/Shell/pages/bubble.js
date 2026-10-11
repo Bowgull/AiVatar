@@ -663,7 +663,12 @@ function showBrief(b) {
   const grid = T('div', 'brief');
   const today = sec('TODAY');
   if (!b.events.length) row(today, T('span', 'chip off', '-'), 'Nothing on the calendar');
-  for (const e of b.events.slice(0, 5)) row(today, T('span', 'chip', e.allDay ? 'ALL DAY' : timeOf(e.start)), e.title);
+  for (const e of b.events.slice(0, 4)) row(today, T('span', 'chip', e.allDay ? 'ALL DAY' : timeOf(e.start)), e.title);
+  // Sheet 13's weather line: "8 C  Cloudy, rain after 4". The chance of rain only when it is worth saying.
+  if (b.weather) {
+    const w = b.weather, words = w.words.charAt(0).toUpperCase() + w.words.slice(1);
+    row(today, T('span', 'chip off', `${w.now} C`), `${words}, ${w.low} to ${w.high}` + (w.rain >= 30 ? `, ${w.rain}% rain` : ''));
+  }
   const reply = sec('NEEDS A REPLY');
   if (!b.unread.length) row(reply, T('span', 'chip good', '0'), 'Nothing unread');
   for (const u of b.unread.slice(0, 4)) row(reply, medal(u), u.from + (u.job ? '  \u00b7 JOB' : ''));
