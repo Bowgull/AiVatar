@@ -113,7 +113,7 @@ app.whenReady().then(async () => {
 
   win = new BaseWindow({
     ...box, minWidth: MIN.width, minHeight: MIN.height,
-    frame: false, transparent: false, backgroundColor: '#1A1132',
+    frame: false, transparent: false, backgroundColor: '#24160D', thickFrame: true,
     alwaysOnTop: true, show: false, title: 'Aang',
   });
   win.setAlwaysOnTop(true, 'screen-saver');
