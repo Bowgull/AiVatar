@@ -499,6 +499,7 @@ function answer(choice) {
     t: asking.t, id: asking.id, choice,
     // A consent ask carries the words it is about, because saying yes means asking them again.
     ...(asking.t === 'consent' ? { text: asking.text, mode: asking.wanted } : {}),
+    ...(typeof asking.reminder === 'string' ? { reminder: asking.reminder } : {}),
   });
   // Off the queue, then show whatever is behind it. Nothing in the stack disappears on its own.
   const done = asking;

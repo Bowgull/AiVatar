@@ -78,6 +78,18 @@ export function askFrom(m) {
     };
   }
 
+  // A reminder coming due (6.12, sheet 13): a short ask rather than a reply that times out unread.
+  if (m.t === 'bubble' && typeof m.reminder === 'string' && m.reminder) {
+    return {
+      plaque: 'REMINDER',
+      question: String(m.text ?? '').replace(/^Reminder:\s*/i, ''),
+      keys: [
+        { label: 'Got it', key: 'A', choice: 'ok', tone: 'primary' },
+        { label: 'Snooze 5 min', key: 'Z', choice: 'snooze' },
+      ],
+    };
+  }
+
   if (m.t === 'consent') {
     const wanted = String(m.wanted ?? '');
     return {

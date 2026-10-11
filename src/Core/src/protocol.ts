@@ -97,6 +97,8 @@ export type ToBody =
   | { t: 'bubble'; text: string; stream: boolean; id?: string; who?: string; proactive?: boolean;
       /** The row this message was stored as, when it was stored. What a right-click acts on. */
       turn?: number;
+      /** A reminder coming due (its id): the cockpit shows it as a short ask, Got it or Snooze 5 min (6.12). */
+      reminder?: string;
       /** Something he asked to be told about: shown even in quiet mode. */
       asked?: boolean;
       /** The window a click on the bubble brings forward, and the word in the text to mark as that link. */
@@ -308,6 +310,8 @@ export type FromBody =
   | { t: 'forget.turn'; id: number }
   /** Yes this is true and worth keeping, or no it is not. Applies to this one fact. */
   | { t: 'fact.reply'; id: number; keep: boolean }
+  /** His answer to a reminder: "Got it" ends it, "Snooze" brings the same words back in five minutes. */
+  | { t: 'reminder.reply'; id: string; snooze: boolean }
   | { t: 'backup.reply'; now: boolean }
   /** The Body is closing and is asking the Core to stop cleanly. Windows cannot send a real SIGTERM
    *  from .NET, so this socket is the only way to ask politely rather than terminate. */

@@ -2036,8 +2036,12 @@ while he builds). 112 tests in the Shell.
 - **Smoother look:** ink 4, corners 19, the soft shadow, gentler lip, padding 14/17/15, 15.5 px type
   on a 24 px line, keys that lift 1.5 px and spring, pill chips.
 - **The 600 ms click guard** on every new set of keys.
+- **Reminders as a short ask, built 2026-10-11:** a due reminder carries its id (`reminder` on the
+  bubble message); the balloon shows REMINDER with Got it and Snooze 5 min; `reminder.reply` snoozes by
+  re-adding the same words five minutes on. One held by hush comes back as plain text (no id). Checked
+  in a browser tab; the Core side is type-checked, not yet run live.
 - **Still owed:** whisper and open sizes, summary plus "Show more", approvals in plain words, now
-  playing, reminders, his eyes going to the balloon.
+  playing, his eyes going to the balloon.
 
 ---
 

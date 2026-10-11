@@ -1444,7 +1444,13 @@ export class Core {
       setTimeout(() => this.announce(note, { asked: true }), 2_000).unref?.();
     }
     emptyOldTrash();                                   // whatever has sat in Aang's trash for 30 days goes for good
-    this.reminders.onDue = r => this.announce(`Reminder: ${r.text}`);
+    // Sent with its id, so the cockpit can offer Got it and Snooze 5 min (sheet 13). The words are kept a
+    // little while so a snooze can say the same thing again; a reminder held by hush comes back as plain text.
+    this.reminders.onDue = r => {
+      this.firedReminders.set(r.id, r.text);
+      while (this.firedReminders.size > 20) this.firedReminders.delete(this.firedReminders.keys().next().value!);
+      this.announce(`Reminder: ${r.text}`, { reminder: r.id });
+    };
     this.reminders.start();
     // Once a day, after 7:00 Toronto time, the morning brief is posted on its own (no model, no quota). Only when signed in.
     this.briefTimer = setInterval(() => { void this.mail()?.dailyBrief().then(t => { if (t) this.announce(t); }).catch(() => { /* tried again in ten minutes */ }); }, 10 * 60_000);
@@ -1844,6 +1850,12 @@ export class Core {
         break;
       }
       case 'fact.reply': this.answerFact(m.id, m.keep); break;
+      case 'reminder.reply': {
+        const text = this.firedReminders.get(m.id);
+        this.firedReminders.delete(m.id);
+        if (m.snooze && text) this.reminders.add(text, Date.now() + 5 * 60_000);
+        break;
+      }
       case 'backup.reply': this.answerBackup(m.now); break;
       case 'unforget.turn':
         if (typeof m.id === 'number') this.memory.unhideTurn(m.id);
@@ -2318,6 +2330,9 @@ export class Core {
     });
   }
 
+  /** Reminders that have just come due, by id, so "Snooze 5 min" can bring the same words back. */
+  private readonly firedReminders = new Map<string, string>();
+
   /** True while the backup question is on screen, so it is asked once rather than every check. */
   private askingBackup = false;
   /** When he last said no. Declining means "not now", so it comes back, but not in ten minutes. */
@@ -2368,7 +2383,7 @@ export class Core {
     setTimeout(() => this.offerFact(), 45_000).unref?.();
   }
 
-  announce(text: string, opts: { asked?: boolean; focus?: string; jobCwd?: string; image?: { data: string; mimeType: string }; blocking?: boolean; done?: boolean; host?: 'mac' } = {}): void {
+  announce(text: string, opts: { asked?: boolean; focus?: string; jobCwd?: string; image?: { data: string; mimeType: string }; blocking?: boolean; done?: boolean; host?: 'mac'; reminder?: string } = {}): void {
     // Whatever is said last is what a reply is most likely about, whether it lands now or only once hush/quiet
     // lets it through - see withAnnounced().
     this.lastAnnounced = { text, at: Date.now() };
@@ -2380,6 +2395,7 @@ export class Core {
       t: 'bubble', text, stream: false, proactive: true, asked: opts.asked === true, ...(opts.focus ? { focus: opts.focus, link: 'Claude' } : {}),
       ...(opts.jobCwd ? { jobCwd: opts.jobCwd } : {}), ...(opts.image ? { image: opts.image } : {}),
       ...(blocking ? { blocking: true } : {}), ...(done ? { done: true } : {}), ...(opts.host ? { host: opts.host } : {}),
+      ...(opts.reminder ? { reminder: opts.reminder } : {}),
     };
     /**
      * Store it as a turn, and carry the row id out with the message.
