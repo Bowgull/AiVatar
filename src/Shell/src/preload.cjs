@@ -61,6 +61,10 @@ contextBridge.exposeInMainWorld('aang', {
    * means anything. "Forget this" in the right-click menu already covers "do not keep this".
    */
   focusWindow: name => ipcRenderer.send('bubble:focus', name),
+  /** A click on a message while Aang is still working stops the reply, as the old bubble's did. */
+  bubbleStop: () => ipcRenderer.send('bubble:stop'),
+  /** A click on a message about a Claude session on his MacBook brings Claude forward there. */
+  macFront: () => ipcRenderer.send('bubble:macfront'),
   /** How big the drawn bubble actually is, measured by the page, so the window can fit it. */
   bubbleSize: s => ipcRenderer.send('bubble:size', s),
   /** His answer to an ask: yes, no, always, show, skip. Named, so a page cannot invent a new one. */
@@ -101,6 +105,12 @@ contextBridge.exposeInMainWorld('aang', {
     const h = (_e, d) => fn(d);
     ipcRenderer.on('bubble:page', h);
     return () => ipcRenderer.removeListener('bubble:page', h);
+  },
+  /** Esc, or a click away from everything of ours: let the message go (parity with the old bubble, 2026-10-11). */
+  onDismiss(fn) {
+    const h = (_e, why) => fn(why);
+    ipcRenderer.on('bubble:dismiss', h);
+    return () => ipcRenderer.removeListener('bubble:dismiss', h);
   },
   onAim(fn) {
     const h = (_e, aim) => fn(aim);

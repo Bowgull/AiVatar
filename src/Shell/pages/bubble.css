@@ -446,3 +446,9 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
   #bubble.enter > *{animation:none}
   #bubble .key{transition:none}
 }
+
+/* Parity with the old pet + his rule (2026-10-11): an answer's keys show only while he points at the bubble.
+   The question stands alone until then; the "!" over Aang's head says he is waiting. */
+.wrap:not(.over) #asks,.wrap:not(.over) #count{display:none}
+/* The word a click acts on (a Claude session), as the old bubble drew it. */
+#said .link{font-weight:800;color:#E88A6A;text-decoration:underline;text-underline-offset:2px}

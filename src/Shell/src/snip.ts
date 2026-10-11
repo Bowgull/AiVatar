@@ -67,11 +67,15 @@ export class Snipper {
     // Esc is TAKEN while the overlay is up. Windows does not hand the keyboard to a window that did not
     // receive the key press, so over his game the overlay never got it, and a plain Esc went to WoW
     // instead (found on his desktop, 2026-10-11). Taken for this second only, given back on close.
+    // The bubble may be holding Esc (a message on screen); the overlay outranks it for this second.
+    globalShortcut.unregister('Escape');
     this.escHeld = globalShortcut.register('Escape', () => this.done(null));
     void w.loadURL(`${this.o.origin}/snip.html`);
   }
 
   private escHeld = false;
+  /** The overlay is up: Esc is the overlay's, not the bubble's. */
+  get open(): boolean { return Boolean(this.overlay && !this.overlay.isDestroyed()); }
   private releaseEsc(): void { if (this.escHeld) { try { globalShortcut.unregister('Escape'); } catch { /* gone */ } this.escHeld = false; } }
 
   /** The box he drew, in the overlay's own pixels, or null for cancelled. */

@@ -1772,6 +1772,7 @@ export class Core {
   /** The last place the pet said it was, for a Shell that connects afterwards. Never persisted: a
    *  position from a previous run is worse than none, since the pet is placed afresh at startup. */
   private lastPetAt: PetAt | null = null;
+  private lastBubbleState: { t: 'bubble.state'; quiet: boolean; hidden: boolean; muted: boolean } | null = null;
   private shellConnected(): boolean {
     return this.wss ? [...this.wss.clients].some(c => c.readyState === c.OPEN && this.shells.has(c)) : false;
   }
@@ -1858,6 +1859,7 @@ export class Core {
           this.shells.add(ws);
           if (m.bubble === true) this.drawingShells.add(ws);
           if (this.lastPetAt) this.send(ws, this.lastPetAt);
+          if (this.lastBubbleState) this.send(ws, this.lastBubbleState);
         }
         const q = this.quotaMessage(); if (q) this.send(ws, q);
         if (this.kindOfSocket(ws) === 'desktop') this.send(ws, { t: 'claude.working', ...this.workingNow() });
@@ -1885,6 +1887,10 @@ export class Core {
       case 'settings.get': case 'settings.set': case 'settings.do': case 'settings': this.sendTo('desktop', m); break;
       // The new bubble was clicked on a message that names a window; the pet has the Win32 side.
       case 'bubble.focus': this.sendTo('desktop', { t: 'bubble.focus', focus: m.focus }); break;
+      // Parity with the old pet (2026-10-11): between the pet and the new bubble, passed through as they are.
+      // The gate state is kept so a Shell that restarts knows at once whether he is in a game.
+      case 'bubble.state': this.lastBubbleState = { t: 'bubble.state', quiet: m.quiet === true, hidden: m.hidden === true, muted: m.muted === true }; this.sendTo('desktop', this.lastBubbleState); break;
+      case 'pet.say': case 'outside.click': case 'bubble.busy': case 'bubble.focus.failed': this.sendTo('desktop', m); break;
       // The mode he picked in the new box. Relayed so the PET can write it to body.json: the pet is
       // the only writer of that file, and two writers of one file is how it gets truncated.
       case 'mode': this.sendTo('desktop', { t: 'mode', mode: m.mode }); break;
@@ -2719,7 +2725,7 @@ export class Core {
     const id = `perm${++this.permissionSeq}`;
     const question = describeCall(tool, input);
     return new Promise<boolean>(resolve => {
-      const timer = setTimeout(() => { this.refused = 'he did not answer the question in the bubble in time'; this.answerPermission(id, 'no'); }, PERMISSION_TIMEOUT_MS);
+      const timer = setTimeout(() => { this.refused = 'he did not answer the question in the bubble in time'; this.answerPermission(id, 'no'); this.sendTo('desktop', { t: 'ask.expired', id }); }, PERMISSION_TIMEOUT_MS);
       timer.unref?.();
       this.permission = {
         id,
@@ -2848,7 +2854,7 @@ export class Core {
     const id = `plan${++this.planSeq}`;
     const shown = steps.slice(0, 8).map(s => ({ text: String(s.text).slice(0, 120), ...(s.tool ? { tool: String(s.tool).slice(0, 60) } : {}), gate: gateOf(s.tool) }));
     return new Promise(resolve => {
-      const timer = setTimeout(() => { this.answerPlan(id, false); }, PERMISSION_TIMEOUT_MS);
+      const timer = setTimeout(() => { this.answerPlan(id, false); this.sendTo('desktop', { t: 'ask.expired', id }); }, PERMISSION_TIMEOUT_MS);
       timer.unref?.();
       this.planWait = { id, timer, resolve: go => resolve(go ? { go: true, detail: 'He said Go. Do the steps in order.' } : { go: false, detail: 'He did not say Go. Nothing was done: say so in one line and stop.' }) };
       this.sendTo('desktop', { t: 'plan', id, steps: shown });

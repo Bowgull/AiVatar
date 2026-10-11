@@ -8,7 +8,7 @@
 //
 // A crash in here must never take the pet or the brain with it. It is its own process, supervised from
 // the tray, and it holds nothing the others need.
-import { app, BrowserWindow, Menu, clipboard, globalShortcut, ipcMain, session, shell } from 'electron';
+import { app, BrowserWindow, Menu, clipboard, globalShortcut, ipcMain, screen, session, shell } from 'electron';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -71,6 +71,32 @@ let popout: Popout | null = null;
 let bubble: Bubble | null = null;
 /** The new typing box (step 6.12b). Same switch as the bubble: they replace the old ones together. */
 let input: InputBox | null = null;
+/** He is in a game (the pet's quiet). Esc is never taken from a game. */
+let gameQuiet = false;
+let escHeld = false;
+let busySent = '';
+/**
+ * Parity with the old pet (2026-10-11). Four times a second: tell the pet where our windows are, so a click on the
+ * bubble is not "away" and he does not tuck mid-message; and hold Esc only while a message shows and he is not
+ * in a game, so Esc dismisses it the way the old bubble's did. Polled rather than wired into every show and
+ * hide, because the bubble shows and hides from a dozen places.
+ */
+function watchBusy(): void {
+  const wins = [bubble?.window(), input?.visible ? input.window() : null].filter((w): w is BrowserWindow => Boolean(w && !w.isDestroyed() && w.isVisible()));
+  const showing = Boolean(bubble?.window()?.isVisible());
+  let r: Electron.Rectangle | null = null;
+  for (const w of wins) {
+    const b = screen.dipToScreenRect(w, w.getBounds());
+    r = r ? { x: Math.min(r.x, b.x), y: Math.min(r.y, b.y), width: Math.max(r.x + r.width, b.x + b.width) - Math.min(r.x, b.x), height: Math.max(r.y + r.height, b.y + b.height) - Math.min(r.y, b.y) } : b;
+  }
+  const key = r ? `${r.x},${r.y},${r.width},${r.height}` : '';
+  if (key !== busySent) { busySent = key; link?.send(r ? { t: 'bubble.busy', on: true, x: r.x, y: r.y, w: r.width, h: r.height } : { t: 'bubble.busy', on: false }); }
+  // The snip overlay takes Esc itself (it unregisters ours first), so ours is simply let go of while it is up.
+  if (snipper?.open) { escHeld = false; return; }
+  const wantEsc = showing && !gameQuiet;
+  if (wantEsc && !escHeld) escHeld = globalShortcut.register('Escape', () => bubble?.send('bubble:dismiss', 'esc'));
+  else if (!wantEsc && escHeld) { globalShortcut.unregister('Escape'); escHeld = false; }
+}
 /** The mode the typing box sends with. Starts from the pet's own settings, which the pet still owns. */
 let inputMode = 'auto';
 /** The last usage the brain reported, for the strip. */
@@ -241,6 +267,10 @@ const link = new CoreLink({
       openDesk(typeof m.tab === 'number' ? m.tab : 0);
       return;
     }
+    // Parity with the old pet (2026-10-11). The pet's gate: in a game, Esc belongs to the game.
+    if (m.t === 'bubble.state') gameQuiet = m.quiet === true;
+    // He clicked away from everything of ours (the pet's mouse hook saw it): the bubble lets go, as the old one did.
+    if (m.t === 'outside.click') { bubble?.send('bubble:dismiss', 'outside'); return; }
     // A page of history goes ONLY to the window that asked for it. Both the bubble's scroll-back and the
     // desk's History tab ask for it, the brain answers on the one link, and a desk search landing in the
     // scroll-back would put search results into the conversation he is reading.
@@ -409,6 +439,7 @@ app.whenReady().then(async () => {
       // the first message would mean loading a page and sending to it in the same instant.
       bubble.window();
       console.log('shell: the new bubble is on (AANG_NEW_BUBBLE=1)');
+      setInterval(watchBusy, 250);
 
       // 6.12b: the typing box comes with it, and so does the hotkey. The pet does not register Ctrl+Plus
       // when this switch is on, so there is exactly one owner and no fight over it.
@@ -831,6 +862,8 @@ app.whenReady().then(async () => {
    * its own bubble (`PetWindow` + `Hands.Arrange`). So this goes pet-ward through the brain, the same
    * route as `typebox`, rather than teaching the Shell a second way to move windows.
    */
+  ipcMain.on('bubble:stop', (e) => { if (fromBubble(e)) link?.send({ t: 'stop' }); });
+  ipcMain.on('bubble:macfront', (e) => { if (fromBubble(e)) link?.send({ t: 'claude.front', host: 'mac' }); });
   ipcMain.on('bubble:focus', (e, name) => {
     if (!fromBubble(e) || typeof name !== 'string' || !name) return;
     link?.send({ t: 'bubble.focus', focus: name.slice(0, 200) });
