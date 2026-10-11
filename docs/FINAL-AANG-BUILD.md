@@ -2389,7 +2389,7 @@ card (whole message, To, Cc, Subject, attachments as chips, **hold to send**, Ch
 
 ---
 
-### `[ ]` 6.15b Research cards
+### `[x]` 6.15b Research cards  **BUILT 2026-10-11**
 
 Phase 7 already produces findings; they become cards in his look. One card type first, the one
 Phase 7 makes most.
@@ -2398,6 +2398,15 @@ Phase 7 makes most.
 source (GITHUB, 4.2K STARS), a one-line finding and a verdict chip (Borrow / Avoid). Keys: Go deeper
 (Claude, says what it costs first), Remember it, Done. Links and videos sent to him arrive the same way
 after Qwen reads them (see 6.17 and K2).
+
+**BUILT 2026-10-11 (browser tab; the sweep only runs weekly, so not seen live yet).** The weekly sweep
+(`watch.ts`) now also returns its findings as data (`ResearchCard`): what keeps coming up, then the top two
+from each source with that source's own score, never ranked across sources. At the desk it arrives as a
+card in the open balloon in sheet 6's layout (source tags, titles that open in his browser through the
+checked link door, the honest line "Aang wrote this; nothing here is checked"); Discord keeps its sentence.
+Keys: Tell me about one (puts the card on the typing box as a reply), Open the full notes (the vault note),
+Done. **No Borrow / Avoid verdicts and no Go deeper yet:** the sweep does not judge anything, so a verdict
+would be invented; both arrive with the K2 drop box, where Qwen actually reads a link.
 
 ---
 
