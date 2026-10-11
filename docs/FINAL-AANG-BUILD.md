@@ -2276,7 +2276,7 @@ Every key row has the 600 ms click guard.
 
 ---
 
-### `[ ]` 6.14b When things go wrong, and when there is nothing yet
+### `[x]` 6.14b When things go wrong, and when there is nothing yet  **BUILT 2026-10-11**
 
 **Why:** "Error and empty states are the thing nobody designs and the thing that makes software feel
 cheap." From the 2026-10-03 design, dropped in the first draft of 1.1.
@@ -2287,6 +2287,15 @@ endless spinner. Every empty tab and list says what will appear there and how.
 
 **Demoed 2026-10-10 (sheet 13, "Something broke"):** ONE MOMENT, then STILL DOWN with Try again and Show
 what went wrong, worded exactly as sheet 5.
+
+**BUILT 2026-10-11, checked in a browser tab.** The bubble hears when the brain's link drops. Nothing for
+the first 8 s (the Core restarts several times a day and a quick restart is never announced), then ONE
+MOMENT ("My brain stopped. I am restarting it. Nothing you said is lost."), then after a minute STILL DOWN
+with **Try again** (the Shell stops waiting out its back-off and tries now) and **Show what went wrong**
+(opens `%APPDATA%\Aang\core.log`). Never while he is in a game. When it is back, one whisper, "I'm back.
+Nothing was lost.", and only if he had been told it was down. **One honest change to the sheet's words:**
+it says "after a minute of trying", not "after three tries", because the Shell cannot count the pet's
+restarts. Every window-2 tab already says what will appear when it is empty (6.15).
 
 ---
 

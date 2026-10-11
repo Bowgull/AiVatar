@@ -88,6 +88,22 @@ export function askFrom(m) {
     };
   }
 
+  // 6.14b, sheet 13 "Something broke": the brain is down. In his voice, never a blank box or a spinner.
+  // These two never reach the brain (it is the thing that is down): the bubble answers them itself.
+  if (m.t === 'brain.wait') {
+    return { plaque: 'ONE MOMENT', question: 'My brain stopped. I am restarting it.',
+      means: 'Nothing you said is lost. I will pick up where we were.', keys: [] };
+  }
+  if (m.t === 'brain.down') {
+    // Sheet 5 says "after three tries"; the Shell cannot count the pet's restarts, so it says what it knows.
+    return { plaque: 'STILL DOWN', question: 'I still cannot restart after a minute of trying.',
+      means: 'Something is stopping me starting. Your messages are saved.',
+      keys: [
+        { label: 'Try again', key: 'A', choice: 'retry', tone: 'primary' },
+        { label: 'Show what went wrong', key: 'X', choice: 'log' },
+      ] };
+  }
+
   // A reminder coming due (6.12, sheet 13): a short ask rather than a reply that times out unread.
   if (m.t === 'bubble' && typeof m.reminder === 'string' && m.reminder) {
     return {
