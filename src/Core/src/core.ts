@@ -372,6 +372,7 @@ export class Core {
       phone: (what, note) => this.sendToPhone(what, note),
       createJobCard: input => this.createJobCard(input),
       presentList: list => { this.pendingList = list; },
+      showPlan: steps => this.showPlan(steps),
       mailInbox: (query, max) => this.mailRead('mcp__aang__mail_inbox', { query: query ?? '' }, m => m.inbox(query || 'in:inbox', max ?? 10)),
       mailRead: id => this.mailRead('mcp__aang__mail_read', { id }, m => m.read(id)),
       calendar: days => this.mailRead('mcp__aang__calendar_today', { days: days ?? 1 }, m => m.agenda(days ?? 1)),
@@ -1976,6 +1977,7 @@ export class Core {
         if (watching) this.activity.record(m.foreground ?? '', m.title ?? '', Date.now(), typeof m.hwnd === 'number' ? m.hwnd : 0);
         break;
       }
+      case 'plan.reply': this.answerPlan(String(m.id ?? ''), m.go === true); break;
       case 'permission.reply': this.answerPermission(m.id, m.choice === 'always' || m.choice === 'once' ? m.choice : 'no'); break;
       case 'clipboard': {
         const c = this.clipboard;
@@ -2699,6 +2701,50 @@ export class Core {
   private refused = '';
   private refuse(why: string): Promise<boolean> { this.refused = why; return Promise.resolve(false); }
   private whyNot(): string { return `Not done: ${this.refused || 'Joshua said no in the bubble'}.`; }
+
+  /** The plan waiting for his Go, if any. One at a time, like a permission. */
+  private planWait: { id: string; resolve: (go: boolean) => void; timer: NodeJS.Timeout } | null = null;
+  private planSeq = 0;
+
+  /**
+   * 6.13: the plan before he acts (sheet 13, "The plan, before he acts").
+   *
+   * Each step is marked from the SAME rules the permission gate uses, never from the model's say-so: a
+   * tool that must be held is LEVER, one he has not said Always to is ASK FIRST, the rest just happen.
+   * The plan itself grants nothing; every step still goes through askPermission as it runs.
+   *
+   * Only at the desk. Away, there is no Go button yet (9.D), so the job carries on as it always has and
+   * each step still asks for itself.
+   */
+  private showPlan(steps: { text: string; tool?: string }[]): Promise<{ go: boolean; detail: string }> {
+    const turnSocket = this.active?.sub?.socket;
+    const at = turnSocket && turnSocket.readyState === turnSocket.OPEN ? this.kindOfSocket(turnSocket) : this.whereHeIs();
+    if (at !== 'desktop' || this.clientsOf('desktop').length === 0) return Promise.resolve({ go: true, detail: 'He is away from the desk: carry on, each step asks for itself.' });
+    if (this.planWait) return Promise.resolve({ go: false, detail: 'Another plan is already waiting for his answer.' });
+    const gateOf = (tool?: string): 'none' | 'ask' | 'lever' => {
+      if (!tool) return 'none';
+      const full = tool.startsWith('mcp__') || /^[A-Z]/.test(tool) ? tool : `mcp__aang__${tool}`;
+      if (needsHold(full)) return 'lever';
+      const k = kindOf(full, {});
+      return k && !this.trust.allowed(k.kind) ? 'ask' : 'none';
+    };
+    const id = `plan${++this.planSeq}`;
+    const shown = steps.slice(0, 8).map(s => ({ text: String(s.text).slice(0, 120), ...(s.tool ? { tool: String(s.tool).slice(0, 60) } : {}), gate: gateOf(s.tool) }));
+    return new Promise(resolve => {
+      const timer = setTimeout(() => { this.answerPlan(id, false); }, PERMISSION_TIMEOUT_MS);
+      timer.unref?.();
+      this.planWait = { id, timer, resolve: go => resolve(go ? { go: true, detail: 'He said Go. Do the steps in order.' } : { go: false, detail: 'He did not say Go. Nothing was done: say so in one line and stop.' }) };
+      this.sendTo('desktop', { t: 'plan', id, steps: shown });
+    });
+  }
+
+  private answerPlan(id: string, go: boolean): void {
+    const w = this.planWait;
+    if (!w || w.id !== id) return;
+    clearTimeout(w.timer);
+    this.planWait = null;
+    w.resolve(go);
+  }
 
   private answerPermission(id: string, choice: PermChoice): void {
     const p = this.permission;

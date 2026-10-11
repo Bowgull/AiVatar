@@ -88,6 +88,18 @@ export function askFrom(m) {
     };
   }
 
+  // 6.13, sheet 13 "The plan, before he acts": the steps, each marked, then Go.
+  if (m.t === 'plan' && Array.isArray(m.steps)) {
+    return {
+      plaque: 'THE PLAN',
+      question: 'Here is what I will do.',
+      keys: [
+        { label: 'Go', key: 'A', choice: 'go', tone: 'primary' },
+        { label: 'Not now', key: 'Z', choice: 'no' },
+      ],
+    };
+  }
+
   // 6.14b, sheet 13 "Something broke": the brain is down. In his voice, never a blank box or a spinner.
   // These two never reach the brain (it is the thing that is down): the bubble answers them itself.
   if (m.t === 'brain.wait') {

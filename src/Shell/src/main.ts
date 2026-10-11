@@ -526,6 +526,7 @@ app.whenReady().then(async () => {
    */
   function answerAsk(a: Record<string, unknown>): void {
     const choice = String(a.choice ?? '');
+    if (a.t === 'plan') { link?.send({ t: 'plan.reply', id: String(a.id ?? ''), go: choice === 'go' }); return; }
     if (typeof a.reminder === 'string' && a.reminder) {
       link?.send({ t: 'reminder.reply', id: a.reminder, snooze: choice === 'snooze' });
       return;

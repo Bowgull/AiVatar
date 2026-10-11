@@ -212,6 +212,8 @@ export type ToBody =
   /** What he may do without asking, for review and revoke. */
   | { t: 'trust.reply'; items: { kind: string; example: string; since: string }[] }
   | { t: 'hush.reply'; text: string }
+  /** 6.13: the plan before he acts. `gate` per step: none, ask (asks him first) or lever (hold to confirm). */
+  | { t: 'plan'; id: string; steps: { text: string; tool?: string; gate: 'none' | 'ask' | 'lever' }[] }
   /** The morning brief as a card (6.15): the brief's data plus what only the Core knows - logos, which
    *  senders are companies he is tracking, new job matches overnight, and his Claude week. */
   | { t: 'brief.card'; card: BriefCard }
@@ -336,6 +338,8 @@ export type FromBody =
    * `undo` puts the last one back to undecided, which is what makes triaging by keyboard safe to do fast.
    */
   | { t: 'job.act'; id: string; action: 'open' | 'apply' | 'skip' | 'undo' }
+  /** 6.13: his answer to a plan. */
+  | { t: 'plan.reply'; id: string; go: boolean }
   /** Window 2's "Undo the last one" (6.15): the same undo stack the undo_last tool uses. His press is the yes. */
   | { t: 'undo.last' }
   /**
