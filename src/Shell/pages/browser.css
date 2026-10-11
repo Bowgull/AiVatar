@@ -241,3 +241,7 @@ body.drawer-open .drawer{transform:none;visibility:visible;transition:transform 
 .tp .pip::before{content:"";position:absolute;left:3px;top:3px;right:3px;bottom:3px;border:2px solid #2a1c00;border-radius:2px}
 .tp .pip::after{content:"";position:absolute;right:5px;bottom:5px;width:8px;height:6px;background:#2a1c00;border-radius:1px}
 .tp .pip:active{transform:translateY(2px);box-shadow:inset 0 2px 0 rgba(255,255,255,.5)}
+
+/* The Popout key shows only while he points at a video tab (2026-10-11). */
+.tp .pip{display:none}
+.tp:hover .pip,.tp:focus-within .pip{display:block}

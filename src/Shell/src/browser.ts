@@ -625,7 +625,7 @@ export class AangBrowser {
       for (const t of list) {
         const tab: Tab = { id: ++this.seq, view: null, opener: null, title: String(t.title ?? t.url).slice(0, 300), url: t.url, favicon: '',
           loading: false, audible: false, muted: t.muted === true, crashed: false, scrollY: Number(t.scrollY) || 0, zoom: Number(t.zoom) || 0, lastSeen: Date.now(), blocked: null,
-          trail: Number.isInteger(t.trail) ? t.trail : null, done: t.done === true };
+          trail: Number.isInteger(t.trail) ? t.trail : null, done: false };
         ids.push(tab.id);
         this.tabs.push(tab);
       }
