@@ -234,3 +234,10 @@ body.drawer-open .drawer{transform:none;visibility:visible;transition:transform 
 .tabmenu button i{font:400 8.5px var(--label);font-style:normal;color:#8a7a62}
 .tabmenu .sep{height:3px;margin:5px 2px;background:rgba(0,0,0,.45)}
 .tabmenu .sub{padding-left:14px}
+
+/* ---- the pop-out keycap, only on video tabs (sheet 3 "pick one: YOUR CALL", option 1) ---- */
+.tp .pip{width:26px;height:22px;flex:0 0 auto;border-radius:5px;border:2px solid var(--outline);position:relative;cursor:pointer;padding:0;
+  background:linear-gradient(180deg,var(--gold-lit),var(--gold-deep));box-shadow:0 2px 0 var(--outline),inset 0 2px 0 rgba(255,255,255,.5)}
+.tp .pip::before{content:"";position:absolute;left:3px;top:3px;right:3px;bottom:3px;border:2px solid #2a1c00;border-radius:2px}
+.tp .pip::after{content:"";position:absolute;right:5px;bottom:5px;width:8px;height:6px;background:#2a1c00;border-radius:1px}
+.tp .pip:active{transform:translateY(2px);box-shadow:inset 0 2px 0 rgba(255,255,255,.5)}

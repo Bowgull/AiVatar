@@ -213,6 +213,8 @@ function paintUrl(u) {
   urlEl.append(`${parsed.protocol}//${sub}`, b, `${parsed.pathname === '/' ? '' : parsed.pathname}${parsed.search}`);
 }
 
+const VIDEO_SITE = /(^|\.)(youtube\.com|youtu\.be|twitch\.tv|crunchyroll\.com|netflix\.com|primevideo\.com|amazon\.(com|ca)|disneyplus\.com|vimeo\.com|kick\.com|max\.com|crave\.ca)$/i;
+const hostOf = (u) => { try { return new URL(u).hostname; } catch { return ''; } };
 const SHIELD = '<svg viewBox="0 0 7 7" width="12" height="12" shape-rendering="crispEdges" aria-hidden="true"><path d="M1 0h5v1H1zM0 1h1v3H0zM6 1h1v3H6zM1 4h1v1H1zM5 4h1v1H5zM2 5h1v1H2zM4 5h1v1H4zM3 6h1v1H3zM3 2h1v3H3zM2 3h3v1H2z" fill="currentColor"/></svg>';
 const SPEAKER = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 6h3l4-3v10l-4-3H2z" fill="#2a1c00"/><path d="M11 5c1.5 1.5 1.5 4.5 0 6" stroke="#2a1c00" stroke-width="1.8" fill="none"/></svg>';
 // Rows are kept and only redrawn when something about that tab changed, so a title or a spinner on one
@@ -301,7 +303,7 @@ function tabMenu(t, x, y) {
   if (t.trail != null) item('Take out of the trail', () => window.aang?.browserTrail?.({ act: 'move', tab: t.id, to: null }), { sub: true });
   sep();
   item('Open in Chrome', () => {}, { soon: true });
-  item('Pop out over WoW', () => {}, { soon: true });
+  item('Pop out over WoW', () => window.aang?.browserPopout?.(t.id));
   sep();
   item('Close', () => { tap(0.7); window.aang?.browserTab?.({ id: t.id, act: 'close' }); });
   document.body.append(m);
@@ -332,6 +334,13 @@ function buildRow(t, kid) {
     if (t.crashed) { const c = document.createElement('span'); c.className = 'cr'; c.textContent = 'CRASHED'; row.append(c); }
     // Sheet 3: asleep is sunk flush into the wood, colour drained. Click and it wakes where it was.
     if (asleep) { const z = document.createElement('span'); z.className = 'zz'; z.textContent = 'ASLEEP'; row.append(z); }
+    // The pop-out keycap, only on video tabs: a video site, or anything playing sound right now.
+    if (!t.done && (t.audible || VIDEO_SITE.test(hostOf(t.url)))) {
+      const p = document.createElement('button'); p.type = 'button'; p.className = 'pip';
+      p.title = 'Pops this page into its own window'; p.setAttribute('aria-label', 'Pop out over WoW');
+      p.addEventListener('click', (e) => { e.stopPropagation(); window.aang?.browserPopout?.(t.id); });
+      row.append(p);
+    }
     if (t.audible || t.muted) {
       // Sheet 3: a real button. Press it to mute; pressed in, with a red slash, when muted.
       const s = document.createElement('button'); s.type = 'button'; s.className = 'spk' + (t.muted ? ' muted' : '');

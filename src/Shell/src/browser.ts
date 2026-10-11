@@ -451,6 +451,14 @@ export class AangBrowser {
 
   reopen(): void { const u = this.closed.pop(); if (u) this.newTab(u); }
 
+  /** A tab's address, for the pop-out. */
+  urlOf(id: number): string | null { const t = this.tabs.find((x) => x.id === id); return t && isWeb(t.url) ? t.url : null; }
+  /** Pause whatever the tab is playing (it went to the pop-out). With a deadline: a dead page never hangs Aang. */
+  pauseMedia(id: number): void {
+    const wc = this.tabs.find((x) => x.id === id)?.view?.webContents;
+    if (wc) void within(wc.executeJavaScript("document.querySelectorAll('video,audio').forEach(m=>{try{m.pause()}catch{}});true", true), 800, null);
+  }
+
   // ------------------------------------------------------------------ trails and the done shelf (sheet 3 section 3)
   /** "+ New trail": the next tab he opens starts it. */
   private pendingTrail: number | null = null;
