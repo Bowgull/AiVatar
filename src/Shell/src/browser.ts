@@ -90,7 +90,7 @@ export class AangBrowser {
     this.phish = new PhishCheck(o.stateDir);
     void this.phish.start();
     try { if (existsSync(this.pausedFile)) this.paused = new Set(JSON.parse(readFileSync(this.pausedFile, 'utf8'))); } catch { /* none paused */ }
-    void blockAds(this.ses, o.stateDir).then((b) => { this.ads = b; if (b) for (const h of this.paused) b.pause(h, true); });
+    void blockAds(this.ses, o.stateDir, { cosmetic: true }).then((b) => { this.ads = b; if (b) for (const h of this.paused) b.pause(h, true); });
   }
 
   /**
