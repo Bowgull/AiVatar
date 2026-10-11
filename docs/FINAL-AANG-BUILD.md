@@ -2593,12 +2593,23 @@ webviews, and every permission a site asks for is refused until 6.22. Background
 pop-out). **Not yet:** trails, Aang's tabs box, the DONE shelf, find in page, the ad blocker and the asks (6.22),
 never losing a tab (6.21), the pop-out keycap on video tabs.
 
-### `[ ]` 6.21 Never lose a tab  **BLOCKS 6.22**
+### `[x]` 6.21 Never lose a tab  **BUILT 2026-10-11**  **BLOCKS 6.22**
 
 Continuous snapshots of each tab; the same snapshot powers crash restore, sleeping tabs and update
 restarts (`electron-updater` closes windows before `before-quit`, so save-on-quit cannot be trusted).
 **Every call into a tab has a timeout: calling a crashed one hangs** (tested). A crashed tab gets a
 "this page crashed, reload" plate.
+
+**BUILT 2026-10-11 (type-checked; not yet seen on his screen).** One snapshot file,
+`browser-tabs.json`, written atomically every 8 s and 1.5 s after any change (navigation, title, zoom, mute,
+opening or closing a tab): every tab's address, title, which tab it came from, scroll and zoom, which one he
+was on, and the last 25 closed. Scroll is asked of each live page **with an 800 ms deadline**, and every other
+call into a page has one too. **Coming back** (a restart, a crash of the whole Shell, a Shadow reboot) every
+tab returns in its place; only the one he was on loads, the rest come back **asleep** (sheet 3: sunk into the
+wood, colour drained, ASLEEP) and wake at their address, zoom and scroll when clicked. **Idle tabs sleep**
+after 30 minutes unseen, never one playing sound. **A crashed tab's Reload rebuilds the page from its
+snapshot** rather than reloading the dead one. Only http and https ever go into or come out of the file.
+**Not kept:** what he had typed in a form (a page's own fields are not Aang's to copy).
 
 ### `[ ]` 6.22 Protection  **BLOCKS 6.26**
 
