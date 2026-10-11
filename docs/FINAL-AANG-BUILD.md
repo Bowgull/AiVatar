@@ -2310,8 +2310,12 @@ sets (`settings.set`) and runs the two actions (`settings.do`), and a switch sho
 once the pet answers with `settings`. The C# Panel's getters and setters became one shared copy
 (`GetSettingValue`, `SetSettingValue`, `RunSettingAction`). With the new front end on, every Panel menu
 item now opens window 2. Checked in a browser tab.
-**PASS 2 still owes:** the morning brief, Reply to this and Add as context on History turns, the forged
-30-minute divider, Ctrl+F, "Undo the last one".
+**ALSO BUILT 2026-10-11:** Reply to this and Add as context on History turns (the bubble's own handlers,
+now also open to window 2); the forged divider at every 30-minute gap, labelled "SUNDAY 11 OCT ·
+MORNING"; Ctrl+F from any tab goes to History with the box focused; "Undo the last one" (Z) on What I
+did, through a new `undo.last` that uses the same undo stack as the undo_last tool and says the result
+as a whisper. All checked in a browser tab.
+**PASS 2 still owes:** the morning brief (sheet 6 section 7, with the sender logos).
 
 **The change:** ports the scroll-back and Panel rows of the parity list. The 30-minute divider
 becomes the forged end-cap rule; right-click becomes hover buttons; text can be selected; Ctrl+F
