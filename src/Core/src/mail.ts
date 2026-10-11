@@ -245,6 +245,13 @@ export function formatEvent(e: CalEvent): string {
   return `${when}  ${cleanText(e.summary ?? '(no title)', 100)}${e.location ? ` @ ${cleanText(e.location, 60)}` : ''}`;
 }
 
+/** The morning brief as data (6.15). Times are ISO strings; `at` is when the mail arrived, in ms. */
+export interface BriefData {
+  events: { title: string; start: string | null; end: string | null; allDay: boolean; where: string }[];
+  unread: { from: string; address: string; subject: string; at: number }[];
+  error?: string;
+}
+
 export class MailService {
   readonly store: MailStore;
   private readonly g: Google;
@@ -321,6 +328,36 @@ export class MailService {
       return msgs.map(m => `- ${header(m, 'From').replace(/<[^>]*>/g, '').trim() || 'Someone'}: ${header(m, 'Subject') || '(no subject)'}`).join('\n');
     });
     return `**Today**\n${cal}\n\n**Unread**\n${mail}`.slice(0, 1900);
+  }
+
+  /**
+   * The same brief as data, for the cockpit's card and window 2 (6.15). Still no model: the calendar and
+   * the unread list, as fields rather than a paragraph, so each can be drawn as sheets 6 and 13 draw it.
+   */
+  async briefData(): Promise<BriefData> {
+    const out: BriefData = { events: [], unread: [] };
+    try {
+      const r = dayRange(this.now(), 1);
+      out.events = (await this.g.events(r.from, r.to)).filter(e => e.status !== 'cancelled').map(e => ({
+        title: cleanText(e.summary ?? '(no title)', 100),
+        start: e.start?.dateTime ?? null, end: e.end?.dateTime ?? null, allDay: !e.start?.dateTime,
+        where: e.location ? cleanText(e.location, 60) : '',
+      }));
+    } catch (e) { out.error = (e as Error).message; }
+    try {
+      const ids = await this.g.list('is:unread in:inbox newer_than:2d', 8);
+      const msgs = await Promise.all(ids.map(x => this.g.message(x.id, 'metadata')));
+      out.unread = msgs.map(m => {
+        const from = header(m, 'From');
+        return {
+          from: from.replace(/<[^>]*>/g, '').replace(/"/g, '').trim() || 'Someone',
+          address: (/<([^>]+)>/.exec(from)?.[1] ?? from).trim().toLowerCase().slice(0, 200),
+          subject: header(m, 'Subject') || '(no subject)',
+          at: Number(m.internalDate) || 0,
+        };
+      });
+    } catch (e) { out.error = (e as Error).message; }
+    return out;
   }
 
   /** Once a day, the first time this is asked after 7:00 Toronto time. Returns the text or null. */

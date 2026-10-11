@@ -122,6 +122,9 @@ contextBridge.exposeInMainWorld('aang', {
   deskForgetTurn: id => ipcRenderer.send('desk:forgetturn', id),
   deskCopy: text => ipcRenderer.send('desk:copy', text),
   deskUndo: () => ipcRenderer.send('desk:undo'),
+  deskBrief: () => ipcRenderer.send('desk:brief'),
+  /** From the bubble's brief card: open window 2 on the whole brief. */
+  openDesk: tab => ipcRenderer.send('bubble:desk', tab),
   /** Which tab to open on, when the pet's menu asked for a particular one. */
   onDeskTab(fn) {
     const h = (_e, n) => fn(n);

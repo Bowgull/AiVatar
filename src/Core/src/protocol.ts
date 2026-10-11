@@ -57,6 +57,17 @@ export interface PetAt {
   peeking: boolean;
 }
 
+/** See `brief.card`. `logo` is a data URL or absent (the page draws the first letter). */
+export interface BriefCard {
+  day: string;
+  events: { title: string; start: string | null; end: string | null; allDay: boolean; where: string }[];
+  unread: { from: string; subject: string; at: number; logo?: string; job?: boolean }[];
+  jobsNew: number;
+  week: number | null;
+  weekResetsAt: number | null;
+  error?: string;
+}
+
 export type ToBody =
   | { t: 'state'; state: string }
   /**
@@ -109,6 +120,8 @@ export type ToBody =
       turn?: number;
       /** A reminder coming due (its id): the cockpit shows it as a short ask, Got it or Snooze 5 min (6.12). */
       reminder?: string;
+      /** The morning brief as a card (6.15): the cockpit draws this instead of the text. */
+      brief?: BriefCard;
       /** Something he asked to be told about: shown even in quiet mode. */
       asked?: boolean;
       /** The window a click on the bubble brings forward, and the word in the text to mark as that link. */
@@ -199,6 +212,9 @@ export type ToBody =
   /** What he may do without asking, for review and revoke. */
   | { t: 'trust.reply'; items: { kind: string; example: string; since: string }[] }
   | { t: 'hush.reply'; text: string }
+  /** The morning brief as a card (6.15): the brief's data plus what only the Core knows - logos, which
+   *  senders are companies he is tracking, new job matches overnight, and his Claude week. */
+  | { t: 'brief.card'; card: BriefCard }
   /** An email draft waiting for his tap (or its new state), for Discord. `id` is the draft; the buttons carry its hash. */
   | { t: 'mail.card'; id: string; content: string; buttons: { id: string; label: string; style: 'primary' | 'secondary' | 'success' | 'danger' }[] }
   /** Everything the Panel shows, worked out without the model. `notice`: something to say at the top (a draft that would not send). */
