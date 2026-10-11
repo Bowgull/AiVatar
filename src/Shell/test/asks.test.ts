@@ -95,3 +95,12 @@ test('the hold is long enough that a reflex click cannot do it', () => {
   // A click is tens of milliseconds; this has to be far longer than that and still bearable.
   assert.ok(HOLD_MS >= 500 && HOLD_MS <= 1500, String(HOLD_MS));
 });
+
+test('a reminder coming due is a short ask: Got it, or Snooze 5 min (6.12, sheet 13)', async () => {
+  const { askFrom } = await import('../pages/asks.js');
+  const a = askFrom({ t: 'bubble', text: 'Reminder: email the landlord', stream: false, reminder: 'r1' });
+  assert.ok(a, 'a reminder must become an ask, not a reply that times out unread');
+  assert.equal(a.question, 'email the landlord');
+  assert.deepEqual(a.keys.map((k: { choice: string }) => k.choice), ['ok', 'snooze']);
+  assert.equal(askFrom({ t: 'bubble', text: 'Reminder: hi', stream: false }), null, 'an ordinary reply is not an ask');
+});
