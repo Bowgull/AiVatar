@@ -16,7 +16,7 @@
 
 /**
  * @typedef {{ label: string, key: 'A'|'X'|'Z', choice: string, tone?: 'primary'|'warn', hold?: boolean }} AskKey
- * @typedef {{ plaque?: string, question: string, means?: string, keys: AskKey[] }} Ask
+ * @typedef {{ plaque?: string, question: string, means?: string, exact?: string, keys: AskKey[] }} Ask
  */
 
 /**
@@ -41,10 +41,20 @@ export function askFrom(m) {
       // Only when the Core says this kind of thing CAN be remembered. Its own row, never the default.
       if (m.remembers) keys.push({ label: 'Always ' + m.remembers, key: 'X', choice: 'always' });
     }
+    // Approvals in plain words, never code (sheet 13). A command's exact text comes off the question and
+    // the explaining line and sits one tap away instead; the old bubble and Discord still show it inline.
+    const exact = typeof m.exact === 'string' && m.exact ? m.exact : undefined;
+    let question = String(m.question ?? 'Can I do that?');
+    let means = m.means ? String(m.means) : undefined;
+    if (exact) {
+      if (/^run this:/i.test(question)) question = 'run a command I do not recognise';
+      if (means) means = means.replace(/\s*Exactly this:[\s\S]*$/, '').trim() || undefined;
+    }
     return {
       plaque: m.hold ? 'THIS CANNOT BE UNDONE' : 'ASKING FIRST',
-      question: String(m.question ?? 'Can I do that?'),
-      means: m.means ? String(m.means) : undefined,
+      question,
+      means,
+      exact,
       keys,
     };
   }

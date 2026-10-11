@@ -65,6 +65,13 @@ export function stripScaffolding(command: string): string {
  * For a command it also carries the exact text, because that is the thing he is actually approving
  * and it must not be hidden behind a paraphrase, however good the paraphrase is.
  */
+/** The exact text of a command, for the cockpit's "See the exact command". Empty for anything else. */
+export function exactOf(tool: string, input: Record<string, unknown>): string {
+  if (tool !== 'Bash' && tool !== 'PowerShell' && tool !== 'mcp__aang__run') return '';
+  const c = typeof input?.command === 'string' ? stripScaffolding(String(input.command)) : '';
+  return c.slice(0, 2000);
+}
+
 export function meansOf(tool: string, input: Record<string, unknown>): string {
   const s = (k: string) => typeof input?.[k] === 'string' ? String(input[k]) : '';
   const clip = (v: string, n: number) => v.length > n ? v.slice(0, n) + '...' : v;

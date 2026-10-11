@@ -49,7 +49,9 @@ function fit() {
   // key is always there: Show more, then Show less.
   const summarised = summaryOf(reveal.whole) !== null && !asking;
   const shown = summarised ? total : linesShown(total, expanded);
-  scroller.style.maxHeight = `${shown * lineHeight}px`;
+  // An ask's explaining line and its exact command sit inside the scroller, under the question, so a cap
+  // sized to the question's own lines clipped them away entirely. An ask is never capped.
+  scroller.style.maxHeight = asking ? 'none' : `${shown * lineHeight}px`;
   scroller.classList.toggle('scrolls', scrolls(total, expanded));
   more.hidden = summarised ? false : !hasMore(total, expanded);
   more.classList.toggle('labelled', summarised);
@@ -442,6 +444,25 @@ function showAsk(m) {
   }
   means.textContent = a.means ?? '';
   means.hidden = !a.means;
+  // The exact command, one tap away: never code in the balloon unless he asks to see it.
+  let exact = document.getElementById('exact');
+  if (!exact) {
+    exact = document.createElement('div');
+    exact.id = 'exact';
+    exact.className = 'exact';
+    exact.innerHTML = '<button type="button" class="exact-key"></button><pre class="exact-text" hidden></pre>';
+    means.after(exact);
+    const key = exact.querySelector('.exact-key'), text = exact.querySelector('.exact-text');
+    key.addEventListener('click', () => {
+      text.hidden = !text.hidden;
+      key.textContent = text.hidden ? 'See the exact command' : 'Hide the command';
+      fit(); reportSize();
+    });
+  }
+  exact.hidden = !a.exact;
+  exact.querySelector('.exact-text').textContent = a.exact ?? '';
+  exact.querySelector('.exact-text').hidden = true;
+  exact.querySelector('.exact-key').textContent = 'See the exact command';
 
   asks.replaceChildren();
   for (const k of a.keys) {
@@ -553,6 +574,8 @@ window.aang?.onMessage?.(m => {
       reveal.start(m.text, m.stream === true);
       expanded = false;
       bubble.classList.remove('wide', 'widest');
+      // An ask's explaining line and command belong to the ask, never to the reply that follows it.
+      for (const id of ['means', 'exact']) { const e = document.getElementById(id); if (e) e.hidden = true; }
       // New content fades in 160 ms into the grow, over 300 ms (sheet 13). Restarted, not stacked.
       bubble.classList.remove('enter'); void bubble.offsetWidth; bubble.classList.add('enter');
     }
