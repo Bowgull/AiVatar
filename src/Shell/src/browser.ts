@@ -53,6 +53,10 @@ const isWeb = (u: string) => /^https?:\/\//i.test(u);
 const HOME = 'https://www.google.com';
 /** A tab not looked at for this long, and not playing sound, goes to sleep. */
 const SLEEP_AFTER_MS = 30 * 60_000;
+// The band's height (Windows draws its buttons over it), the theatre strip's, and the page area's colour.
+const BAND_HEIGHT = 58;
+const THEATRE_STRIP = 30;
+const PAGE_COLOUR = '#f6f3ee';
 
 /** Every call into a page, with a deadline: a crashed page never answers, and must never hang Aang. */
 function within<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
@@ -80,10 +84,15 @@ export class AangBrowser {
   private readonly letThrough = new Set<string>();
   private readonly asks = new Map<number, (allow: boolean) => void>();
   private askSeq = 0;
+  /** The little wood sounds (new tab, close, download done). Off until he turns them on in Settings. */
+  sounds = false;
+  private readonly prefsFile: string;
   constructor(o: BrowserOptions) {
     this.o = o;
     this.file = path.join(o.stateDir, 'browser-tabs.json');
     this.pausedFile = path.join(o.stateDir, 'adblock-paused.json');
+    this.prefsFile = path.join(o.stateDir, 'browser-prefs.json');
+    try { if (existsSync(this.prefsFile)) this.sounds = JSON.parse(readFileSync(this.prefsFile, 'utf8'))?.sounds === true; } catch { /* defaults */ }
     denyPermissions(this.ses);
     this.permissions();
     this.downloads();
@@ -166,6 +175,19 @@ export class AangBrowser {
     this.sendTabs();
   }
 
+  setSounds(on: boolean): void {
+    this.sounds = on;
+    try { writeFileAtomic(this.prefsFile, JSON.stringify({ sounds: on })); } catch { /* best effort */ }
+    this.sendTabs();
+  }
+
+  /** Theatre: the frame folds down to a thin strip, so Windows' own buttons shrink to fit it. */
+  theatre(on: boolean): void {
+    const w = this.win;
+    if (!w || w.isDestroyed()) return;
+    try { w.setTitleBarOverlay({ color: '#3a2414', symbolColor: '#FFE096', height: on ? THEATRE_STRIP : BAND_HEIGHT }); } catch { /* not on this OS */ }
+  }
+
   isFrame(sender: Electron.WebContents): boolean { return Boolean(this.win && !this.win.isDestroyed() && sender === this.win.webContents); }
 
   /** Open the window (or bring it forward), optionally on an address. Coming back, every tab comes back. */
@@ -181,7 +203,7 @@ export class AangBrowser {
       width: Math.min(1440, wa.width - 80), height: Math.min(900, wa.height - 60), minWidth: 720, minHeight: 480,
       show: false, backgroundColor: '#24160D', title: 'Aang Browser',
       // The carved band IS the title bar; Windows draws its own buttons over the band's right end.
-      titleBarStyle: 'hidden', titleBarOverlay: { color: '#3a2414', symbolColor: '#FFE096', height: 58 },
+      titleBarStyle: 'hidden', titleBarOverlay: { color: '#3a2414', symbolColor: '#FFE096', height: BAND_HEIGHT },
       webPreferences: { ...SAFE_WEB_PREFERENCES, preload: this.o.preloadPath },
     });
     lockDown(w.webContents);
@@ -231,6 +253,11 @@ export class AangBrowser {
     // tabpreload.cjs exposes nothing to the page; it only hides passkeys, which hang in Electron (6.22).
     const view = new WebContentsView({ webPreferences: { ...SAFE_WEB_PREFERENCES, backgroundThrottling: true, session: this.ses, preload: this.o.tabPreloadPath } });
     const wc = view.webContents;
+    // A new view paints white until its page draws; that white is the flash between pages. Paint it the
+    // page area's own colour instead, and keep it in the window, hidden, so switching to it is instant.
+    view.setBackgroundColor(PAGE_COLOUR);
+    view.setVisible(false);
+    this.win?.contentView.addChildView(view);
     tab.view = view; tab.crashed = false; tab.loading = true;
     wc.on('will-attach-webview', (e) => e.preventDefault());
     // A link that opens a new window becomes a tab under the one it came from. Web pages only.
@@ -297,12 +324,14 @@ export class AangBrowser {
     const w = this.win;
     const t = this.tabs.find((x) => x.id === id);
     if (!w || w.isDestroyed() || !t) return;
-    for (const x of this.tabs) if (x.id !== id && x.view) { try { w.contentView.removeChildView(x.view); } catch { /* not shown */ } }
+    // Every live tab stays in the window; switching only shows one and hides the rest. Placed first, then
+    // shown, so it never appears for a moment at the last tab's size.
     if (!t.view) this.wake(t);                         // an asleep tab wakes exactly where it was left
-    w.contentView.addChildView(t.view!);
     this.active = id;
     t.lastSeen = Date.now();
     this.place();
+    t.view!.setVisible(true);
+    for (const x of this.tabs) if (x.id !== id && x.view) x.view.setVisible(false);
     if (!t.crashed) t.view!.webContents.focus();
     this.changed();
   }
@@ -362,6 +391,8 @@ export class AangBrowser {
       case 'newtab': this.newTab(HOME); this.win?.webContents.send('browser:focusslot'); break;
       case 'close': if (t) this.close(t.id); break;
       case 'reopen': this.reopen(); break;
+      case 'theatre-on': this.theatre(true); break;
+      case 'theatre-off': this.theatre(false); break;
       // The red plate: the safe way out, or (the held lever) in anyway, for this site, this run.
       case 'phishback': if (t) { t.blocked = null; if (wc?.navigationHistory.canGoBack()) { this.place(); wc.navigationHistory.goBack(); } else this.close(t.id); } break;
       case 'phishopen': if (t?.blocked) { try { this.letThrough.add(new URL(t.blocked.url).hostname); } catch { /* bad url */ } const u = t.blocked.url; t.blocked = null; this.place(); void wc?.loadURL(u); } break;
@@ -382,6 +413,13 @@ export class AangBrowser {
     if (c && (k === '=' || k === '+')) { this.act('zoomin'); return true; }
     if (c && k === '-') { this.act('zoomout'); return true; }
     if (c && k === '0') { this.act('zoomreset'); return true; }
+    // Ctrl+1 to 8 go to that tab, Ctrl+9 to the last, as in Chrome.
+    if (c && !i.shift && /^[1-9]$/.test(k)) {
+      const n = k === '9' ? this.tabs[this.tabs.length - 1] : this.tabs[Number(k) - 1];
+      if (n) this.activate(n.id);
+      return true;
+    }
+    if (k === 'escape' && this.cur()?.loading) { this.act('stop'); return false; }
     if (c && k === 'tab') {
       const i2 = this.tabs.findIndex((x) => x.id === this.active);
       const n = this.tabs[(i2 + (i.shift ? -1 : 1) + this.tabs.length) % this.tabs.length];
@@ -453,6 +491,7 @@ export class AangBrowser {
       tabs: this.tabs.map((x) => ({ id: x.id, opener: x.opener, title: x.title, url: x.url, favicon: x.favicon, loading: x.loading, audible: x.audible, muted: x.muted, crashed: x.crashed, asleep: !x.view, blocked: x.blocked })),
       adsPaused: (() => { try { return this.paused.has(new URL(t?.url ?? '').hostname.replace(/^www\./, '')); } catch { return false; } })(),
       adsOn: Boolean(this.ads),
+      sounds: this.sounds,
     });
     if (t) w.setTitle(`${t.title} - Aang Browser`);
   }

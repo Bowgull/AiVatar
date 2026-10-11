@@ -319,6 +319,8 @@ const GROUPS = [
     ['usage', 'Show the usage bars under the box', 'The ten segments that show how much Claude you have left this week']]],
   ['This computer', [
     ['autostart', 'Start with Windows', 'He is there when Shadow starts']]],
+  ['The browser', [
+    ['browserSounds', 'Little wood sounds', 'A soft tap when a tab opens or closes, and when a download finishes']]],
 ];
 function settings() {
   body.append(h('h3', 't-display', 'Settings'));
