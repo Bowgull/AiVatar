@@ -8,7 +8,7 @@
 // Saved as a PNG in his own Pictures folder ("Aang snips"), not in Aang's data folder: it is his picture,
 // he should be able to find it, and Aang reading it goes through the same "read a file" permission as any
 // other file. Bin it moves it to the Recycle Bin rather than deleting it outright.
-import { BrowserWindow, desktopCapturer, screen, shell, type NativeImage } from 'electron';
+import { BrowserWindow, desktopCapturer, globalShortcut, screen, shell, type NativeImage } from 'electron';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown } from './safety.ts';
@@ -62,15 +62,23 @@ export class Snipper {
       w.webContents.send('snip:shot', this.full.toDataURL());
       w.show(); w.focus();
     });
-    w.on('closed', () => { if (this.overlay === w) this.overlay = null; });
+    w.on('closed', () => { if (this.overlay === w) this.overlay = null; this.releaseEsc(); });
     this.overlay = w;
+    // Esc is TAKEN while the overlay is up. Windows does not hand the keyboard to a window that did not
+    // receive the key press, so over his game the overlay never got it, and a plain Esc went to WoW
+    // instead (found on his desktop, 2026-10-11). Taken for this second only, given back on close.
+    this.escHeld = globalShortcut.register('Escape', () => this.done(null));
     void w.loadURL(`${this.o.origin}/snip.html`);
   }
+
+  private escHeld = false;
+  private releaseEsc(): void { if (this.escHeld) { try { globalShortcut.unregister('Escape'); } catch { /* gone */ } this.escHeld = false; } }
 
   /** The box he drew, in the overlay's own pixels, or null for cancelled. */
   done(r: { x: number; y: number; w: number; h: number; vw: number; vh: number } | null): void {
     const full = this.full;
     this.full = null;
+    this.releaseEsc();
     if (this.overlay && !this.overlay.isDestroyed()) this.overlay.close();
     if (!r || !full) return;
     const size = full.getSize();
