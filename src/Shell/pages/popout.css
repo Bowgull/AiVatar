@@ -150,3 +150,33 @@ iframe{ width:100%; height:100%; border:0; display:block; background:#000 }
   border:2.5px solid var(--outline); background:linear-gradient(180deg,var(--gold-lit),var(--gold-deep));
   box-shadow:0 2px 0 var(--outline), inset 0 2px 0 rgba(255,255,255,.5); position:relative; top:0 }
 .skip .undo:active{ top:2px; box-shadow:0 0 0 var(--outline) }
+
+/* ==== the browser's look (his pick, 2026-10-11; board "The pop-out: before and after") ====
+   Same layout, the browser's materials: the pixel plank bar, dark grainy wood under the controls, one pixel grid
+   for every icon, a pixel gem knob and resize corner. Windows draws the rounded corners and the shadow now, so the
+   page no longer paints a black ring and rounded corners inside a square window. Light from the top-left. */
+html,body{ background:#24160D }
+.frame{ border:none; border-radius:0; background:#000 }
+.frame.faded{ border-radius:0 }
+.bar{ background:url(art/browser/band.png) repeat-x 0 0/128px 34px; image-rendering:pixelated; border-bottom:4px solid var(--outline); box-shadow:none }
+.grip{ display:block; width:10px; height:10px; padding:0; margin:0 2px; background:url(art/browser/grip.png) 0 0/10px 10px; image-rendering:pixelated }
+.what{ color:var(--gold-lit) }
+.key{ border-radius:4px; background:#4A2C6E;
+  box-shadow:inset 2px 2px 0 rgba(190,150,240,.35), inset -2px -2px 0 rgba(0,0,0,.4), 0 2px 0 var(--outline) }
+.key:active{ top:2px; box-shadow:inset 2px 2px 0 rgba(190,150,240,.35), inset -2px -2px 0 rgba(0,0,0,.4) }
+.key svg{ display:block }
+.ctrl{ background:url(art/browser/tray.png) 0 0/128px 256px; image-rendering:pixelated; border-top:4px solid var(--outline);
+  box-shadow:inset 0 2px 0 rgba(255,225,160,.12) }
+#ctrl2{ box-shadow:none }
+.ico{ border-radius:4px; border-width:2px; background:#4A2C6E;
+  box-shadow:inset 2px 2px 0 rgba(190,150,240,.35), inset -2px -2px 0 rgba(0,0,0,.4), 0 2px 0 var(--outline) }
+.ico:active{ top:2px; box-shadow:inset 2px 2px 0 rgba(190,150,240,.35), inset -2px -2px 0 rgba(0,0,0,.4) }
+.ico.gold{ background:#FFC43C; box-shadow:inset 2px 2px 0 rgba(255,245,200,.7), inset -2px -2px 0 rgba(120,80,10,.5), 0 2px 0 var(--outline) }
+.ico svg{ width:auto; height:auto }
+.ico.gold svg{ width:16px; height:16px }
+.track .knob{ top:-6px; width:14px; height:20px; margin-left:-7px; border:none; border-radius:0; box-shadow:none;
+  background:url(art/browser/knob.png) 0 0/14px 20px; image-rendering:pixelated }
+.grab{ right:3px; bottom:3px; width:14px; height:14px; opacity:.85; background:url(art/browser/grab.png) 0 0/14px 14px; image-rendering:pixelated }
+.skip{ background:url(art/browser/tray.png) 0 0/128px 256px; image-rendering:pixelated; border-radius:4px; border-width:2px;
+  box-shadow:inset 2px 2px 0 rgba(255,225,160,.15), 0 3px 0 rgba(0,0,0,.55) }
+.skip .undo{ border-radius:4px; border-width:2px; background:#FFC43C; box-shadow:inset 2px 2px 0 rgba(255,245,200,.7), inset -2px -2px 0 rgba(120,80,10,.5), 0 2px 0 var(--outline) }

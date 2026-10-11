@@ -117,8 +117,9 @@ el('seethroughicon').addEventListener('click', () => {
 });
 
 // ---------------------------------------------------------------- painting the state
-const PLAY = 'M4 3l9 5-9 5z';
-const PAUSE = 'M4 2.5h3.2v11H4zM8.8 2.5H12v11H8.8z';
+// Pixel shapes, on the same grid as every other icon of Aang's (the browser's look, 2026-10-11).
+const PLAY = 'M4 3h2v10H4zM6 4h2v8H6zM8 5h2v6H8zM10 6h2v4h-2zM12 7h1v2h-1z';
+const PAUSE = 'M4 3h3v10H4zM9 3h3v10H9z';
 
 let wasPlaying = null;
 

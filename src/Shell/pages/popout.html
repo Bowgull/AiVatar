@@ -15,12 +15,12 @@
 <body>
   <div class="frame" id="frame">
     <div class="bar">
-      <i class="grip"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></i>
+      <i class="grip"></i>
       <span class="what" id="what">Nothing playing</span>
       <span class="src" id="src" hidden></span>
       <span class="keys">
-        <button class="key" id="hide" title="Hide it (the video keeps playing)">&#8211;</button>
-        <button class="key close" id="close" title="Close">&times;</button>
+        <button class="key" id="hide" title="Hide it (the video keeps playing)" aria-label="Hide it"><svg viewBox="0 0 7 7" width="10" height="10" shape-rendering="crispEdges" aria-hidden="true"><path d="M0 5h1v1h-1zM1 5h1v1h-1zM2 5h1v1h-1zM3 5h1v1h-1zM4 5h1v1h-1zM5 5h1v1h-1zM6 5h1v1h-1z" fill="#e8e0f5"/></svg></button>
+        <button class="key close" id="close" title="Close" aria-label="Close"><svg viewBox="0 0 7 7" width="10" height="10" shape-rendering="crispEdges" aria-hidden="true"><path d="M0 0h1v1h-1zM6 0h1v1h-1zM1 1h1v1h-1zM5 1h1v1h-1zM2 2h1v1h-1zM4 2h1v1h-1zM3 3h1v1h-1zM2 4h1v1h-1zM4 4h1v1h-1zM1 5h1v1h-1zM5 5h1v1h-1zM0 6h1v1h-1zM6 6h1v1h-1z" fill="#e8e0f5"/></svg></button>
       </span>
     </div>
     <div class="stage">
@@ -35,7 +35,7 @@
     </div>
     <div class="ctrl" id="ctrl">
       <button class="ico gold" id="play" title="Play and pause">
-        <svg viewBox="0 0 16 16" id="playicon"><path d="M4 2.5h3.2v11H4zM8.8 2.5H12v11H8.8z"/></svg>
+        <svg viewBox="0 0 16 16" id="playicon" shape-rendering="crispEdges"><path d="M4 3h3v10H4zM9 3h3v10H9z"/></svg>
       </button>
       <div class="track" id="scrub" title="Where you are in the video">
         <i class="fill" id="scrubfill"></i><i class="knob" id="scrubknob"></i>
@@ -44,22 +44,22 @@
     </div>
     <div class="ctrl" id="ctrl2" style="border-top:none;padding-top:0">
       <button class="ico sm" id="mute" title="Mute">
-        <svg viewBox="0 0 16 16"><path d="M2 6h3l4-3v10l-4-3H2z"/><path d="M11 5c1.5 1.5 1.5 4.5 0 6" stroke="#e8e0f5" stroke-width="1.6" fill="none"/></svg>
+<svg viewBox="0 0 7 7" width="12" height="12" shape-rendering="crispEdges" aria-hidden="true"><path d="M3 0h1v1h-1zM2 1h1v1h-1zM3 1h1v1h-1zM5 1h1v1h-1zM0 2h1v1h-1zM1 2h1v1h-1zM2 2h1v1h-1zM3 2h1v1h-1zM6 2h1v1h-1zM0 3h1v1h-1zM1 3h1v1h-1zM2 3h1v1h-1zM3 3h1v1h-1zM6 3h1v1h-1zM0 4h1v1h-1zM1 4h1v1h-1zM2 4h1v1h-1zM3 4h1v1h-1zM6 4h1v1h-1zM2 5h1v1h-1zM3 5h1v1h-1zM5 5h1v1h-1zM3 6h1v1h-1z" fill="#e8e0f5"/></svg>
       </button>
       <div class="track short" id="vol" title="Volume">
         <i class="fill" id="volfill"></i><i class="knob" id="volknob"></i>
       </div>
-      <button class="ico sm" id="seethroughicon" title="See-through"><i class="halfmoon"></i></button>
+      <button class="ico sm" id="seethroughicon" title="See-through"><svg viewBox="0 0 7 7" width="12" height="12" shape-rendering="crispEdges" aria-hidden="true"><path d="M2 0h1v1h-1zM3 0h1v1h-1zM4 0h1v1h-1zM1 1h1v1h-1zM2 1h1v1h-1zM5 1h1v1h-1zM0 2h1v1h-1zM1 2h1v1h-1zM2 2h1v1h-1zM6 2h1v1h-1zM0 3h1v1h-1zM1 3h1v1h-1zM2 3h1v1h-1zM6 3h1v1h-1zM0 4h1v1h-1zM1 4h1v1h-1zM2 4h1v1h-1zM6 4h1v1h-1zM1 5h1v1h-1zM2 5h1v1h-1zM5 5h1v1h-1zM2 6h1v1h-1zM3 6h1v1h-1zM4 6h1v1h-1z" fill="#FFE096"/></svg></button>
       <div class="track short" id="see" title="See-through: slide down and the game shows through">
         <i class="fill" id="seefill"></i><i class="knob" id="seeknob"></i>
       </div>
       <span class="tnum" id="seenum">100%</span>
       <span style="flex:1"></span>
       <button class="ico sm" id="mac" title="Send this to the MacBook">
-        <svg viewBox="0 0 16 16"><rect x="2.5" y="3" width="11" height="7.5" rx="1" fill="none" stroke="#e8e0f5" stroke-width="1.6"/><path d="M1 12.5h14"/></svg>
+<svg viewBox="0 0 7 7" width="12" height="12" shape-rendering="crispEdges" aria-hidden="true"><path d="M0 0h1v1h-1zM1 0h1v1h-1zM2 0h1v1h-1zM3 0h1v1h-1zM4 0h1v1h-1zM5 0h1v1h-1zM6 0h1v1h-1zM0 1h1v1h-1zM6 1h1v1h-1zM0 2h1v1h-1zM6 2h1v1h-1zM0 3h1v1h-1zM1 3h1v1h-1zM2 3h1v1h-1zM3 3h1v1h-1zM4 3h1v1h-1zM5 3h1v1h-1zM6 3h1v1h-1zM0 5h1v1h-1zM1 5h1v1h-1zM2 5h1v1h-1zM3 5h1v1h-1zM4 5h1v1h-1zM5 5h1v1h-1zM6 5h1v1h-1z" fill="#e8e0f5"/></svg>
       </button>
       <button class="ico sm" id="full" title="Fullscreen">
-        <svg viewBox="0 0 16 16"><path d="M2 2h5v2H4v3H2zM14 2H9v2h3v3h2zM2 14h5v-2H4V9H2zM14 14H9v-2h3V9h2z"/></svg>
+<svg viewBox="0 0 7 7" width="12" height="12" shape-rendering="crispEdges" aria-hidden="true"><path d="M0 0h1v1h-1zM1 0h1v1h-1zM5 0h1v1h-1zM6 0h1v1h-1zM0 1h1v1h-1zM6 1h1v1h-1zM0 5h1v1h-1zM6 5h1v1h-1zM0 6h1v1h-1zM1 6h1v1h-1zM5 6h1v1h-1zM6 6h1v1h-1z" fill="#e8e0f5"/></svg>
       </button>
     </div>
   </div>
