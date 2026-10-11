@@ -25,6 +25,10 @@ let turn = null;              // the stored row this reply became, for reachback
 // A window this reply is ABOUT - a Claude Code session. The brain sends it as `focus` and clicking
 // the reply takes him there, exactly as the C# bubble does (PetWindow: `Hands.Arrange(.., "front")`).
 let focusWindow = null;
+/** The message is about a Claude session on his MacBook: a click brings Claude forward there. */
+let macSession = false;
+/** A line the pet says carries its own time on screen (notes 1.8 s, errors 12 s), as the old bubble did. */
+let holdOverride = 0;
 let asked = '';               // what he last said, shown above the answer
 const back = new Scrollback();
 let reading = false;          // he has scrolled up into his history; the bubble is a scroll-back now
@@ -35,6 +39,11 @@ let reading = false;          // he has scrolled up into his history; the bubble
  * Aang appearing by himself. So a reply still shows while muted, and only a proactive one is held.
  */
 let quiet = false, muted = false;
+/** He hid Aang (the Clippy rule): nothing unprompted until he brings him back. The pet says so. */
+let petHidden = false;
+/** The proactive message the pet is holding for him while he is in a game, kept whole (a brief stays a card). */
+let heldMsg = null;
+const heldRank = (m) => (m.blocking ? 3 : m.done ? 2 : 1);
 
 /** How many lines the text actually takes, measured rather than estimated. */
 function lineCount() {
@@ -317,10 +326,29 @@ function paint() {
   tools.hidden = !reveal.done || !reveal.whole || bubble.classList.contains('whisper');
   paintChips();
   paintList();
+  markLink();
   // Measured LAST, once the chips and the list rows are in: measuring first left the balloon sized for
   // the words alone, with the rows hidden below its edge (found 2026-10-11).
   fit();
   reportSize();
+}
+
+/**
+ * The old bubble drew the word it could act on ("Claude") bold, terracotta and underlined, so he could see the
+ * message was clickable (BubbleView:962). Done once the words are all in, on the first match only.
+ */
+let linkWord = '';
+function markLink() {
+  if (!linkWord || !reveal.done || said.querySelector('.link')) return;
+  const walk = document.createTreeWalker(said, NodeFilter.SHOW_TEXT);
+  for (let n = walk.nextNode(); n; n = walk.nextNode()) {
+    const i = n.data.indexOf(linkWord);
+    if (i < 0) continue;
+    const after = n.splitText(i); after.splitText(linkWord.length);
+    const s = document.createElement('span'); s.className = 'link'; s.textContent = linkWord;
+    after.replaceWith(s);
+    return;
+  }
 }
 
 // The reveal runs on its own clock and works out how much should be visible from the elapsed time, so
@@ -348,6 +376,7 @@ function holdFor(text) {
   if (bubble.classList.contains('whisper')) return 10000;
   if (!card.hidden) return 120000;                  // the brief is read, not glanced at
   if (livePlan) return 600000;                      // a job is running: the checklist stays until the reply
+  if (holdOverride) return holdOverride;           // a line the pet says carries its own time, as before
   const base = Math.min(20000, Math.max(3000, 2500 + 45 * text.length));
   return lineCount() > 6 || summaryOf(text) ? Math.max(base, 60000) : base;
 }
@@ -988,7 +1017,7 @@ function dropReady(r) {
 }
 
 // ---------------------------------------------------------------- what the brain says
-window.aang?.onMessage?.(m => {
+function onBrain(m) {
   if (!m || typeof m !== 'object') return;
 
   // What he just asked, for the line above the answer. Kept until the next thing he says.
@@ -996,7 +1025,13 @@ window.aang?.onMessage?.(m => {
 
   // An ask takes priority: it is the one thing that must be answered before anything else happens.
   // It joins the queue rather than replacing what is there, and the queue decides which is on top.
-  if (askFrom(m)) { queueAsk(m); showTopAsk(); return; }
+  if (askFrom(m)) {
+    // He hid Aang: he cannot see it, so the pet answers no for him (PetWindow, the Clippy rule). A fact or
+    // a backup offer is also skipped while muted, exactly as the old pet did.
+    if (petHidden && m.t !== 'plan') return;
+    if (muted && (m.t === 'fact.ask' || m.t === 'backup.ask')) return;
+    queueAsk(m); showTopAsk(); return;
+  }
 
   // 6.17: a file over the pet, dropped, judged, and read.
   if (m.t === 'drop.hover') { if (m.on) startDrop(); else if (D && D.drop === null) { endDrop(); card.hidden = true; scroller.hidden = false; goAway(); } return; }
@@ -1006,6 +1041,33 @@ window.aang?.onMessage?.(m => {
   if (m.t === 'whisper' && typeof m.text === 'string') {
     if (!bubble.hidden && !bubble.classList.contains('whisper')) { whisperNext = m; return; }
     showWhisper(m);
+    return;
+  }
+
+  // Parity with the old pet (2026-10-11): the pet's gate, applied to what Aang starts himself, the same rule
+  // the pet uses (PetWindow, case "bubble"). Muted and hidden drop it unless it is truly blocking; in a game
+  // it is HELD by the pet as an icon, glow and sound, and comes back here as a `pet.say` when he comes out.
+  if (m.t === 'bubble' && typeof m.text === 'string' && m.proactive && !m.stream) {
+    if ((muted || petHidden) && !m.blocking) return;
+    if (quiet) { if (!heldMsg || heldRank(m) >= heldRank(heldMsg)) heldMsg = m; return; }
+  }
+  // A line the pet says itself, or the held message coming out. Shown like a reply, with no question above it.
+  if (m.t === 'pet.say' && typeof m.text === 'string' && m.text) {
+    const whole = heldMsg && heldMsg.text === m.text ? heldMsg : null;
+    if (whole) heldMsg = null;
+    const say = whole ? { ...whole, proactive: false, fromPet: true } : { t: 'bubble', text: m.text, stream: false, fromPet: true, hold: m.hold, focus: m.focus, host: m.host, link: m.link };
+    window.dispatchEvent(new CustomEvent('aang:say', { detail: say }));
+    return;
+  }
+  if (m.t === 'bubble.focus.failed') { window.dispatchEvent(new CustomEvent('aang:say', { detail: { t: 'bubble', text: 'That Claude window is closed now.', stream: false, fromPet: true, hold: 4000 } })); return; }
+  if (m.t === 'ask.expired' && m.id != null) {
+    const i = waiting.findIndex((w) => String(w.id ?? '') === String(m.id));
+    if (i >= 0) { waiting.splice(i, 1); if (!showTopAsk()) { asks.hidden = true; scheduleHide(); } }
+    return;
+  }
+  if (m.t === 'bubble.state') {
+    quiet = m.quiet === true; muted = m.muted === true; petHidden = m.hidden === true;
+    if (!quiet) heldMsg = null;          // the pet says the held one itself, through pet.say
     return;
   }
 
@@ -1051,7 +1113,7 @@ window.aang?.onMessage?.(m => {
     who.classList.remove('plaque', 'red');
     // Muted means he never wants Aang starting a conversation. An ANSWER is not that, so only the
     // proactive ones are held - the brain marks them, and this is the one place it matters here.
-    if (m.proactive && muted) return;
+    // (Muted, hidden and in-a-game are handled at the top, by the pet's own rule.)
     // A new reply replaces whatever was there; more of the same one is appended. The brain sends the
     // whole text each time, not a delta, so this is a replace either way - the Reveal decides the pace.
     const same = m.stream && reveal.whole && m.text.startsWith(reveal.whole.slice(0, 12));
@@ -1076,6 +1138,9 @@ window.aang?.onMessage?.(m => {
     else if (!same) replyList = null;
     // Only on the finished reply, like the rows: a streamed delta is the same reply arriving again.
     if (!m.stream) focusWindow = typeof m.focus === 'string' && m.focus ? m.focus : null;
+    if (!m.stream) macSession = m.host === 'mac';
+    if (!m.stream) linkWord = (focusWindow || macSession) ? (typeof m.link === 'string' && m.link ? m.link : 'Claude') : '';
+    if (!m.stream) holdOverride = Number.isFinite(m.hold) && m.hold > 0 ? m.hold : 0;
     // HIS QUESTION, not the model's name. The old bubble puts what he asked here, dimmed and cut at 50
     // characters (BubbleView:953), so a reply always carries its question. Showing "QUICK" instead was
     // a label nobody needed, and he spotted it at once (2026-10-04).
@@ -1137,7 +1202,10 @@ window.aang?.onMessage?.(m => {
     if (ticking) { clearInterval(ticking); ticking = null; }
     return;
   }
-});
+}
+window.aang?.onMessage?.(onBrain);
+/** A line the pet says (or a held message coming out): drawn exactly like a reply, through the same path. */
+function onSay(m) { if (m && typeof m.text === 'string') onBrain(m); }
 
 // ---------------------------------------------------------------- reaching back into a message
 // The same actions the old bubble offers on a right-click (4.3b). All four now: Copy and Forget work
@@ -1207,6 +1275,13 @@ window.addEventListener('mousemove', e => {
   if (over === overNow) return;
   overNow = over;
   document.getElementById('wrap')?.classList.toggle('over', over);
+  // Keys only while he is pointing at the bubble (2026-10-11: "these buttons should only surface when i hover").
+  // The bubble grows to show them, so it is measured again; the 600 ms guard starts when they appear, so a
+  // mouse arriving fast cannot land on Allow.
+  if (asking) {
+    if (over) { asks.classList.add('guard'); setTimeout(() => asks.classList.remove('guard'), 600); }
+    fit(); reportSize();
+  }
   console.info('bubble: pointer ' + (over ? 'over' : 'off'));
   // What the keys are actually doing a moment later, after their fade: the only way to tell "not shown"
   // from "shown but clipped" from "never told to show" without guessing.
@@ -1249,8 +1324,24 @@ bubble.addEventListener('click', e => {
     window.aang?.bubbleHidden?.();
     return;
   }
+  // A Claude session on his MacBook: Claude comes forward there (the pet's icon did this; 2026-09-22).
+  if (macSession) { macSession = false; window.aang?.macFront?.(); dismiss(); return; }
   if (reveal.skip()) { paint(); return; }
+  // The old bubble's order (PetWindow:1316): a question waits for its answer; Aang still working means
+  // stop; otherwise the click lets the message go.
+  if (asking) return;
+  if (!working.hidden) { window.aang?.bubbleStop?.(); return; }
+  dismiss();
 });
+
+/** Let the message go now: a click on it, Esc, or a click away from everything of ours. Never a question. */
+function dismiss() {
+  if (asking || bubble.hidden) return;
+  clearTimeout(hideTimer);
+  goAway();
+}
+window.aang?.onDismiss?.(() => dismiss());
+window.addEventListener('aang:say', (e) => onSay(e.detail));
 
 /** Draw the scroll-back: his turns and Aang's, oldest first, above whatever is being said now. */
 function paintBack() {
