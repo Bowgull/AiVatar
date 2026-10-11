@@ -105,7 +105,10 @@ export class Popout {
       frame: false,
       // Opaque (decision 45). The see-through slider in 6.5 turns it on when he wants it.
       transparent: false,
-      backgroundColor: '#1A1132',
+      // The wood colour, so nothing flashes before the page draws. Windows rounds the corners and draws the
+      // shadow (the browser's look): a frameless window keeps its thick frame for exactly that.
+      backgroundColor: '#24160D',
+      thickFrame: true,
       alwaysOnTop: set.alwaysOnTop,
       skipTaskbar: false,          // it is a real window; it belongs in alt-tab
       show: false,
