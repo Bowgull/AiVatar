@@ -10,7 +10,7 @@
 //   - Opaque by default (decision 45, measured in 6.1: a see-through always-on-top window pushes the
 //     GPU's drawing load from ~29% to 47%, an opaque one costs nothing).
 //   - Hidden outright when not in use rather than made invisible, so it costs nothing while away.
-import { BrowserWindow, screen as electronScreen } from 'electron';
+import { BrowserWindow, screen as electronScreen, type WebContentsView } from 'electron';
 import path from 'node:path';
 import { embedFor, titleFor, type Embed } from './embed.ts';
 import { CHROME, MIN, firstTime, hold169, ontoScreen, preset, snapToEdges, type Box } from './geometry.ts';
@@ -59,6 +59,82 @@ export class Popout {
 
   constructor(deps: PopoutDeps) { this.deps = deps; }
 
+  // ------------------------------------------------------------------ a tab taken from the browser (2026-10-11)
+  // "Take the tab with you": any video on any site. The live page itself moves in under the popout's own bar and
+  // controls, so nothing reloads and his login comes with it. The page is shown at the video alone by asking the
+  // page to put its player in fullscreen, which, with this window not allowed to go fullscreen itself, fills
+  // exactly the space it has here. If a page refuses, the whole page shows instead: still the right video.
+  private lent: { view: WebContentsView; back: (view: WebContentsView) => void; poll: NodeJS.Timeout; cursor: NodeJS.Timeout } | null = null;
+  private stage = { x: 0, y: 34, width: 0, height: 0 };
+
+  /** The page says where its picture area is, in its own pixels; the lent page is laid exactly over it. */
+  setStage(r: { x: number; y: number; width: number; height: number }): void {
+    if (![r.x, r.y, r.width, r.height].every(Number.isFinite)) return;
+    this.stage = { x: Math.round(r.x), y: Math.round(r.y), width: Math.max(0, Math.round(r.width)), height: Math.max(0, Math.round(r.height)) };
+    this.lent?.view.setBounds(this.stage);
+  }
+
+  /** Take a live tab in. Whatever was playing before goes (one at a time, decision 34). */
+  openTab(view: WebContentsView, about: { url: string; title: string; label: string }, back: (view: WebContentsView) => void): void {
+    this.returnTab();
+    this.showing = { link: about.url, embed: { url: '', source: 'tab', label: about.label, live: false } as unknown as Embed, title: about.title };
+    const w = this.window ?? this.create();
+    // The page's fullscreen must fill this picture area, never take over the whole screen.
+    w.setFullScreenable(false);
+    view.setBounds(this.stage);
+    view.setVisible(true);
+    w.contentView.addChildView(view);
+    const wc = view.webContents;
+    // The page swallows the mouse, so the popout's own page never sees it cross the picture: watch the cursor
+    // from here, and wake the controls when it is over the window (Flow browser does the same for its sidebar).
+    const cursor = setInterval(() => {
+      const win = this.window;
+      if (!win || !win.isVisible()) return;
+      const p = electronScreen.getCursorScreenPoint(), b = win.getBounds();
+      if (p.x >= b.x && p.x < b.x + b.width && p.y >= b.y && p.y < b.y + b.height) win.webContents.send('popout:wake');
+    }, 150);
+    // What the video is doing, twice a second, for the controls. Numbers only; the page's own words never travel.
+    const poll = setInterval(() => {
+      void within(wc.executeJavaScript(STATE_JS, true), 600, null).then((s) => {
+        if (s && typeof s === 'object') this.window?.webContents.send('popout:tabstate', cleanState(s as Record<string, unknown>));
+      });
+    }, 500);
+    this.lent = { view, back, poll, cursor };
+    if (w.webContents.isLoading()) w.webContents.once('did-finish-load', () => this.send()); else this.send();
+    // Find the video and give it the whole picture. Retried briefly: a page that is still building its player
+    // may not have the video yet.
+    let tries = 0;
+    const focus = () => { void within(wc.executeJavaScript(FOCUS_JS, true), 800, false).then((ok) => { if (!ok && ++tries < 6) setTimeout(focus, 500); }); };
+    focus();
+    w.show();
+  }
+
+  /** The controls, driving the lent page's video. */
+  tabCommand(c: { func?: unknown; arg?: unknown }): void {
+    const wc = this.lent?.view.webContents;
+    if (!wc) return;
+    const n = Number(c.arg);
+    const js = c.func === 'play' ? 'v.play()' : c.func === 'pause' ? 'v.pause()'
+      : c.func === 'seek' && Number.isFinite(n) ? `v.currentTime=${Math.max(0, n)}`
+      : c.func === 'volume' && Number.isFinite(n) ? `v.volume=${Math.max(0, Math.min(1, n))};v.muted=false`
+      : c.func === 'mute' ? 'v.muted=true' : c.func === 'unmute' ? 'v.muted=false' : null;
+    if (!js) return;
+    void within(wc.executeJavaScript(`(()=>{const v=window.__aangVideo;if(!v)return false;${js};return true})()`, true), 600, false);
+  }
+
+  /** Hand the tab back to the browser, as it is, still playing. */
+  returnTab(): void {
+    const l = this.lent;
+    if (!l) return;
+    this.lent = null;
+    clearInterval(l.poll); clearInterval(l.cursor);
+    const wc = l.view.webContents;
+    if (!wc.isDestroyed()) void within(wc.executeJavaScript('document.fullscreenElement&&document.exitFullscreen().catch(()=>{});true', true), 400, null);
+    try { this.window?.contentView.removeChildView(l.view); } catch { /* not here */ }
+    try { this.window?.setFullScreenable(true); } catch { /* gone */ }
+    l.back(l.view);
+  }
+
   get window(): BrowserWindow | null { return this.win?.isDestroyed() ? null : this.win; }
   get isOpen(): boolean { return Boolean(this.window); }
 
@@ -81,12 +157,19 @@ export class Popout {
     if (!embed) return null;
     this.showing = { link, embed, title: titleFor(embed, link), about };
 
+    // A lent tab goes back to the browser: one thing at a time (decision 34).
+    this.returnTab();
     // One at a time: a new video goes into the window that is already there (decision 34).
     if (this.window) {
       this.send();
       this.win!.show();
       return this.win;
     }
+    return this.create();
+  }
+
+  /** The window itself, made once and kept until he closes it. */
+  private create(): BrowserWindow {
 
     const saved = this.deps.remembered();
     const area = this.screenFor(saved ?? undefined);
@@ -124,6 +207,8 @@ export class Popout {
 
     this.win.on('resize', () => this.afterDrag());
     this.win.on('move', () => this.afterDrag());
+    // Closing the window by any route gives a lent tab back first, so the page is never lost with it.
+    this.win.on('close', () => this.returnTab());
     this.win.on('closed', () => { this.win = null; });
     this.win.webContents.on('did-finish-load', () => {
       this.send();
@@ -220,7 +305,7 @@ export class Popout {
   jumpTo(size: 'corner' | 'medium' | 'big' | 'fullscreen'): void {
     const w = this.window;
     if (!w) return;
-    if (size === 'fullscreen') { w.setFullScreen(!w.isFullScreen()); return; }
+    if (size === 'fullscreen') { this.toggleFullscreen(); return; }
     const box = preset(size, this.screenFor(w.getBounds()), this.chrome);
     w.setBounds(box);
     this.deps.remember(box);
@@ -238,7 +323,11 @@ export class Popout {
 
   toggleFullscreen(): void {
     const w = this.window;
-    if (w) w.setFullScreen(!w.isFullScreen());
+    if (!w) return;
+    // While a tab is lent the window is kept from fullscreen (so the PAGE's fullscreen stays inside it); his own
+    // fullscreen key still works, by allowing it for that moment.
+    w.setFullScreenable(true);
+    w.setFullScreen(!w.isFullScreen());
   }
 
   /** What is playing, so it can be handed to the MacBook (step 6.9). */
@@ -262,12 +351,48 @@ export class Popout {
   }
 
   close(): void {
+    this.returnTab();
     this.pending && clearTimeout(this.pending);
     this.showing = null;
     const w = this.window;
     this.win = null;
     w?.destroy();
   }
+}
+
+/** Every call into a page has a deadline: a dead page never answers, and must never hang Aang. */
+function within<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return Promise.race([p.catch(() => fallback), new Promise<T>((r) => setTimeout(() => r(fallback), ms))]);
+}
+
+/**
+ * Find the video and give it the whole picture: the playing one first, else the biggest. The player around it
+ * (the box about the same size, so YouTube's and Twitch's own players keep their captions) goes fullscreen,
+ * which here means "fill the popout". True when there was a video.
+ */
+const FOCUS_JS = `(() => {
+  const vs = [...document.querySelectorAll('video')].filter(v => v.offsetWidth * v.offsetHeight > 0);
+  vs.sort((a, b) => (b.paused ? 0 : 1) - (a.paused ? 0 : 1) || b.offsetWidth * b.offsetHeight - a.offsetWidth * a.offsetHeight);
+  const v = vs[0];
+  if (!v) return false;
+  window.__aangVideo = v;
+  if (document.fullscreenElement) return true;
+  const area = v.offsetWidth * v.offsetHeight;
+  let box = v;
+  for (let p = v.parentElement; p && p !== document.body; p = p.parentElement) {
+    if (p.offsetWidth * p.offsetHeight > area * 1.35) break;
+    box = p;
+  }
+  (box.requestFullscreen ? box.requestFullscreen() : Promise.reject()).catch(() => v.requestFullscreen && v.requestFullscreen().catch(() => {}));
+  return true;
+})()`;
+const STATE_JS = `(() => { const v = window.__aangVideo; if (!v || !v.isConnected) { return null; }
+  return { at: v.currentTime, length: v.duration, paused: v.paused, volume: v.volume, muted: v.muted }; })()`;
+/** The page's numbers, checked: it is someone else's page, so nothing it says is trusted as anything but a number. */
+function cleanState(s: Record<string, unknown>): { at: number; length: number; playing: boolean; volume: number; muted: boolean; live: boolean } {
+  const num = (x: unknown) => (typeof x === 'number' && Number.isFinite(x) ? x : 0);
+  const live = s.length === Infinity || (typeof s.length === 'number' && !Number.isFinite(s.length));
+  return { at: Math.max(0, num(s.at)), length: live ? 0 : Math.max(0, num(s.length)), playing: s.paused === false, volume: Math.max(0, Math.min(1, num(s.volume))), muted: s.muted === true, live };
 }
 
 /** Where the remembered size and place are kept, beside his other settings. */

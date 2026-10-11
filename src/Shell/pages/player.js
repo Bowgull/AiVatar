@@ -18,7 +18,13 @@ const el = id => document.getElementById(id);
 
 export class Player {
   constructor() {
-    this.kind = 'none';          // 'youtube' | 'twitch' | 'elsewhere' | 'none'
+    this.kind = 'none';          // 'youtube' | 'twitch' | 'tab' | 'elsewhere' | 'none'
+    // A tab taken from the browser: its video reports through the main process, twice a second.
+    window.aang?.onPopoutTabState?.((s) => {
+      if (this.kind !== 'tab' || !s) return;
+      this.state = { ...this.state, at: s.at, length: s.length, playing: s.playing, volume: s.volume, muted: s.muted, live: s.live };
+      this.onUpdate(this.state);
+    });
     this.frame = null;
     this.state = { playing: false, at: 0, length: 0, volume: 1, muted: false, live: false };
     this.onUpdate = () => {};
@@ -35,7 +41,7 @@ export class Player {
   }
 
   /** Whether this player will answer at all. The controls dim themselves from this. */
-  get canDrive() { return this.kind === 'youtube' || this.kind === 'twitch'; }
+  get canDrive() { return this.kind === 'youtube' || this.kind === 'twitch' || this.kind === 'tab'; }
   /** A live stream has nowhere to seek to. */
   get canSeek() { return this.canDrive && !this.state.live && this.state.length > 0; }
 
@@ -55,6 +61,13 @@ export class Player {
 
   /** Send a command in whichever vocabulary this player speaks. */
   command(func, args = []) {
+    if (this.kind === 'tab') {
+      // The same few words for any page's <video>, sent through the main process.
+      const map = { playVideo: ['play'], pauseVideo: ['pause'], seekTo: ['seek', args[0]], setVolume: ['volume', (args[0] ?? 100) / 100], mute: ['mute'], unMute: ['unmute'] };
+      const m = map[func];
+      if (m) window.aang?.popoutTabCmd?.({ func: m[0], arg: m[1] });
+      return;
+    }
     if (this.kind === 'youtube') this.post({ event: 'command', func, args, id: 1, channel: 'widget' });
     else if (this.kind === 'twitch') this.post({ namespace: 'twitch-embed-player-proxy', eventName: func, params: args[0] });
   }

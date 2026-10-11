@@ -450,6 +450,7 @@ app.whenReady().then(async () => {
       console.log('shell: the new typing box is on; Ctrl+Plus belongs to the Shell');
 
       aangBrowser = new AangBrowser({ origin: pages.origin, preloadPath: path.join(HERE, 'preload.cjs'), stateDir: STATE_DIR, tabPreloadPath: path.join(HERE, 'tabpreload.cjs') });
+      aangBrowser.onReclaim = () => popout?.returnTab();
 
       // 6.17: Snipit, on Ctrl+Shift+Plus (his key). The snip lands on the typing box as a chip, never sent by itself.
       snipper = new Snipper({
@@ -772,11 +773,23 @@ app.whenReady().then(async () => {
   ipcMain.on('browser:askreply', (e, a) => { if (aangBrowser?.isFrame(e.sender) && a && Number.isInteger(a.id)) aangBrowser.answer(a.id, a.allow === true); });
   ipcMain.on('browser:adpause', (e, on) => { if (aangBrowser?.isFrame(e.sender)) aangBrowser.pauseAds(on === true); });
   // 6.20: a video tab's pop-out keycap, or "Pop out over WoW" on its menu. The tab pauses so it is not heard twice.
+  // "Take the tab with you" (2026-10-11): any video on any site. The live tab itself moves into the popout, so
+  // nothing reloads and his login comes along; closing the popout hands it back. Paid services are the one
+  // exception: their protected video only plays in the castLabs popout, so for those the address goes there.
   ipcMain.on('browser:popout', (e, id) => {
-    if (!aangBrowser?.isFrame(e.sender) || !Number.isInteger(id)) return;
+    if (!aangBrowser?.isFrame(e.sender) || !Number.isInteger(id) || !popout) return;
     const url = aangBrowser.urlOf(id);
-    if (url && openPopout(url)) aangBrowser.pauseMedia(id);
+    if (!url) return;
+    if (serviceFor(url)) { if (openPopout(url)) aangBrowser.pauseMedia(id); return; }
+    drm?.close();
+    const lent = aangBrowser.lend(id);
+    if (!lent) { if (openPopout(url)) aangBrowser.pauseMedia(id); return; }
+    let label = 'PAGE';
+    try { label = new URL(url).hostname.replace(/^www\./, '').split('.').slice(-2, -1)[0]!.toUpperCase().slice(0, 14); } catch { /* keep PAGE */ }
+    popout.openTab(lent.view, { url, title: lent.title.slice(0, 80) || url, label }, (view) => aangBrowser?.giveBack(id, view));
   });
+  ipcMain.on('popout:stage', (e, r) => { if (fromPopout(e) && r && typeof r === 'object') popout?.setStage(r); });
+  ipcMain.on('popout:tabcmd', (e, c) => { if (fromPopout(e) && c && typeof c === 'object') popout?.tabCommand(c); });
   ipcMain.on('browser:trail', (e, a) => {
     if (!aangBrowser?.isFrame(e.sender) || !a || typeof a !== 'object') return;
     if (a.act === 'new') aangBrowser.newTrail();

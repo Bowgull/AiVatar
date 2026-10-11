@@ -126,6 +126,11 @@ contextBridge.exposeInMainWorld('aang', {
   onBrowserTabs(fn) { const h = (_e, s) => fn(s); ipcRenderer.on('browser:tabs', h); return () => ipcRenderer.removeListener('browser:tabs', h); },
   browserAskReply: a => ipcRenderer.send('browser:askreply', a),
   browserAdPause: on => ipcRenderer.send('browser:adpause', on),
+  /** The popout page: where its picture area is (a lent tab is laid over it), and the controls for that tab. */
+  popoutStage: r => ipcRenderer.send('popout:stage', r),
+  popoutTabCmd: c => ipcRenderer.send('popout:tabcmd', c),
+  onPopoutTabState(fn) { const h = (_e, s) => fn(s); ipcRenderer.on('popout:tabstate', h); return () => ipcRenderer.removeListener('popout:tabstate', h); },
+  onPopoutWake(fn) { const h = () => fn(); ipcRenderer.on('popout:wake', h); return () => ipcRenderer.removeListener('popout:wake', h); },
   /** Send a video tab to the pop-out over WoW. */
   browserPopout: id => ipcRenderer.send('browser:popout', id),
   /** Trails: new, rename, or move a tab ({act, id?, name?, tab?, to?}). */
