@@ -129,6 +129,19 @@ export type ToBody =
   | { t: 'mode'; mode: Mode }
   /** The bubble was clicked on a message naming a window (a Claude session): bring it forward. */
   | { t: 'bubble.focus'; focus: string }
+  /** Parity with the old pet (2026-10-11): the pet's gate for messages Aang starts himself. The Shell applies
+   *  the same rule the pet does, so a proactive message never pops over WoW, past mute, or past hidden. */
+  | { t: 'bubble.state'; quiet: boolean; hidden: boolean; muted: boolean }
+  /** A line the pet says itself (notes, errors, hellos, a held message coming out). Drawn by the new bubble. */
+  | { t: 'pet.say'; text: string; hold?: number; focus?: string; host?: 'mac'; link?: string }
+  /** He clicked somewhere that is not the pet (the pet's mouse hook sees it); the Shell decides if it was outside its windows. */
+  | { t: 'outside.click'; x: number; y: number }
+  /** The new bubble is showing something (or the typing box is open), so the pet must not tuck away under it. */
+  | { t: 'bubble.busy'; on: boolean }
+  /** The pet could not bring that Claude window forward: it was closed. */
+  | { t: 'bubble.focus.failed' }
+  /** An ask he never answered ran out (the brain said no for him): take it off the bubble. */
+  | { t: 'ask.expired'; id: string }
 
   /** Whether any Claude Code session Aang is following (a job hunt, a self-change, anything opened through
    *  start_claude) is currently working or waiting on him, right now - continuous, not a point-in-time
@@ -348,6 +361,17 @@ export type FromBody =
   | { t: 'mode'; mode: Mode }
   /** The bubble was clicked on a message naming a window (a Claude session): bring it forward. */
   | { t: 'bubble.focus'; focus: string }
+  /** Parity with the old pet (2026-10-11): the pet's gate for messages Aang starts himself. The Shell applies
+   *  the same rule the pet does, so a proactive message never pops over WoW, past mute, or past hidden. */
+  | { t: 'bubble.state'; quiet: boolean; hidden: boolean; muted: boolean }
+  /** A line the pet says itself (notes, errors, hellos, a held message coming out). Drawn by the new bubble. */
+  | { t: 'pet.say'; text: string; hold?: number; focus?: string; host?: 'mac'; link?: string }
+  /** He clicked somewhere that is not the pet (the pet's mouse hook sees it); the Shell decides if it was outside its windows. */
+  | { t: 'outside.click'; x: number; y: number }
+  /** The new bubble is showing something (or the typing box is open), so the pet must not tuck away under it. */
+  | { t: 'bubble.busy'; on: boolean }
+  /** The pet could not bring that Claude window forward: it was closed. */
+  | { t: 'bubble.focus.failed' }
   /**
    * Where the pet IS (step 6.10b), so the Shell can hang its windows off him. Sent by the C# Body when
    * he is dragged, docked, rescaled or moved between displays - on a change, never on a timer.

@@ -162,6 +162,8 @@ sealed class PetWindow : Form
         // and the Shell's balloon does the airbending. Only with the new front end, which draws it.
         if (NewFrontEnd)
         {
+            // Parity (2026-10-11): the pet's own lines are drawn by the new bubble, not lost.
+            BubbleView.Forward = (text, hold) => _ = link.SendAsync(new { t = "pet.say", text, hold });
             AllowDrop = true;
             DragEnter += (_, e) =>
             {
@@ -636,9 +638,22 @@ sealed class PetWindow : Form
                 }
                 return;
             }
+            // Parity (2026-10-11): where the Shell's windows are and whether one is showing, so a click on the
+            // new bubble is not "away" and he never tucks under a message or a question.
+            if (NewFrontEnd && tp.GetString() == "bubble.busy")
+            {
+                shellBusy = Bool(m, "on");
+                shellRect = shellBusy ? new Rectangle((int)Num(m, "x"), (int)Num(m, "y"), (int)Num(m, "w"), (int)Num(m, "h")) : Rectangle.Empty;
+                return;
+            }
             if (NewFrontEnd && tp.GetString() is "bubble" or "bubble.dots" or "bubble.clear" or "tool"
                 or "permission" or "fact.ask" or "backup.ask" or "consent")
             {
+                // Parity with the old pet (2026-10-11): the new bubble only DRAWS. Everything else the pet did
+                // with a message still happens here, by the same rules as case "bubble" below: muted and
+                // hidden drop what he did not ask for, a game holds it as the icon, glow and sound, he slides
+                // out from the dock to say it, and the glance. The Shell applies the same gate (bubble.state).
+                if (!NewFrontEndGate(m, tp.GetString()!)) return;
                 // The pet keeps ALL his body language; only the drawing of the bubble moved. The first
                 // version skipped these outright, and because the switch from "think" to "talk" lives in
                 // ShowBubble, he was left stuck mid-thought - the dashed ring and three dots - long after
@@ -890,6 +905,68 @@ sealed class PetWindow : Form
 
     void Wake() => wakeUntil = DateTime.UtcNow + WakeFor;
 
+    // ------------------------------------------------------------------ the new front end's gate (parity, 2026-10-11)
+    bool shellBusy;
+    Rectangle shellRect = Rectangle.Empty;
+    string sentBubbleState = "";
+    bool sentBubbleStateConnected;
+
+    /// <summary>
+    /// The pet's half of a message the new bubble draws. False when the pet kept it (held for after the game, or
+    /// dropped because he is muted or hid Aang) - the Shell then does not draw it either, by the same rule.
+    /// </summary>
+    bool NewFrontEndGate(JsonElement m, string kind)
+    {
+        if (kind == "bubble" && !Bool(m, "stream"))
+        {
+            var text = Str(m, "text") ?? "";
+            var proactive = Bool(m, "proactive"); var blocking = Bool(m, "blocking"); var done = Bool(m, "done");
+            var jobCwd = Str(m, "jobCwd"); var focus = Str(m, "focus"); var host = Str(m, "host");
+            if (proactive && cfg.Muted && !blocking) return false;
+            if (proactive && hiddenByUser && !blocking) return false;
+            if (proactive && hiddenByUser && blocking) { hiddenByUser = false; Show(); SendBubbleState(); }
+            if (proactive && quiet && blocking) { if (Hold(text, jobCwd, 3, Theme.AvatarGlow, focus, host)) TriggerUrgent(); return false; }
+            if (proactive && quiet && done) { if (Hold(text, jobCwd, 2, Theme.Claude, focus, host)) TriggerDone(); return false; }
+            if (proactive && quiet) { Hold(text, jobCwd, 1, Theme.Gold, focus, host); return false; }
+            if (peeking) Reveal(greet: false);
+            if (anim.State is "idle" or "think" or "talk") glanceUntil = DateTime.UtcNow.AddMilliseconds(GlanceMs);
+            // At the desk, a session stuck on him leaves the quiet marker (4.4), exactly as before.
+            if (proactive && blocking && !quiet && Hold(text, jobCwd, 3, Theme.AvatarGlow, focus, host))
+            { ambientGlow = true; Log.Write("stuck: marker left for a blocked session (at desk, no burst)"); }
+            return true;
+        }
+        if (kind is "permission" or "fact.ask" or "backup.ask" or "consent")
+        {
+            // He hid Aang: he cannot see it, so he cannot agree to it (the Clippy rule). Answered at once, as before.
+            if (hiddenByUser)
+            {
+                if (kind == "permission") _ = link.SendAsync(new { t = "permission.reply", id = Str(m, "id") ?? "", choice = "no" });
+                else if (kind == "fact.ask" && m.TryGetProperty("id", out var fid) && fid.TryGetInt32(out var fn)) _ = link.SendAsync(new { t = "fact.reply", id = fn, keep = false });
+                else if (kind == "backup.ask") _ = link.SendAsync(new { t = "backup.reply", now = false });
+                Log.Write($"{kind} answered no: hidden by Joshua");
+                return false;
+            }
+            if (cfg.Muted && kind == "fact.ask" && m.TryGetProperty("id", out var mid) && mid.TryGetInt32(out var mn)) { _ = link.SendAsync(new { t = "fact.reply", id = mn, keep = false }); return false; }
+            if (cfg.Muted && kind == "backup.ask") { _ = link.SendAsync(new { t = "backup.reply", now = false }); return false; }
+            if (peeking) Reveal(greet: false);        // a question cannot be answered by a head at the edge
+            anim.Play("look");
+            return true;
+        }
+        if (kind == "bubble.dots" && peeking && working) Reveal(greet: false);
+        return true;
+    }
+
+    /// <summary>Tell the new bubble the pet's gate: in a game, hidden, muted. Sent on change and after a reconnect.</summary>
+    void SendBubbleState()
+    {
+        if (!NewFrontEnd) return;
+        var key = $"{quiet}|{hiddenByUser}|{cfg.Muted}";
+        var connected = link.IsConnected;
+        if (key == sentBubbleState && connected == sentBubbleStateConnected) return;
+        sentBubbleState = key; sentBubbleStateConnected = connected;
+        if (connected) _ = link.SendAsync(new { t = "bubble.state", quiet, hidden = hiddenByUser, muted = cfg.Muted });
+    }
+
     void ShowBubble(string text, bool stream)
     {
         var hold = stream ? 0 : Math.Clamp(2500 + 45 * text.Length, 3000, 20000);
@@ -933,6 +1010,7 @@ sealed class PetWindow : Form
         if (!cfg.SeeActiveWindow) foregroundHwnd = 0;
         var wow = cfg.QuietProcessPrefixes.Any(p => foreground.StartsWith(p, StringComparison.OrdinalIgnoreCase));
         if (wow != autoQuiet) { autoQuiet = wow; ApplyQuiet(); }
+        SendBubbleState();
         ReportWindow();
         ReportDesk();
     }
@@ -2314,8 +2392,11 @@ sealed class PetWindow : Form
                 // submenu, not just the top level.
                 var overMenu = OverAnyMenu(menu, pt);
                 if (menu != null && menu.Visible && !overMenu) BeginInvoke(() => menu.Close());
-                var inside = OverMe(pt) || (input.Visible && input.Bounds.Contains(pt)) || overMenu;
+                var onShell = NewFrontEnd && shellBusy && shellRect.Contains(pt);
+                var inside = OverMe(pt) || (input.Visible && input.Bounds.Contains(pt)) || overMenu || onShell;
                 if (!inside) BeginInvoke(ClickedAway);
+                // The new bubble lets go when he clicks away from everything of ours, as the old one did.
+                if (!inside && NewFrontEnd && shellBusy) _ = link.SendAsync(new { t = "outside.click", x = pt.X, y = pt.Y });
             }
         }
         catch { /* the hook must never break the mouse */ }
@@ -2324,7 +2405,7 @@ sealed class PetWindow : Form
 
     void ClickedAway()
     {
-        if (dock == DockEdge.None || peeking || working || dragging || permissionId != null || consentText != null) return;
+        if (dock == DockEdge.None || peeking || working || dragging || permissionId != null || consentText != null || (NewFrontEnd && shellBusy)) return;
         Peek();
     }
 
@@ -2342,7 +2423,7 @@ sealed class PetWindow : Form
         // A few real, abrupt bursts beat one that never stops (research, 2026-09-22): continuous motion is the one
         // pattern proven not to capture attention and to habituate fastest. Re-fire on a backoff until he acts.
         if (badge && heldRank >= 2 && !urgent && now >= nextBurstAt) TriggerGlow(badgeColor, heldRank == 3 ? SfxNeedsYou : SfxDone);
-        SetClickAwayHook((dock != DockEdge.None && !peeking) || (tray.ContextMenuStrip?.Visible ?? false));
+        SetClickAwayHook((dock != DockEdge.None && !peeking) || (tray.ContextMenuStrip?.Visible ?? false) || (NewFrontEnd && shellBusy));
         if (dock == DockEdge.None) return;
         // The taskbar is always-on-top too, and clicking it lifts it over him; at the bottom he takes the top back each second.
         if (dock == DockEdge.Bottom && (now - topmostAt).TotalMilliseconds > 1000)
@@ -2358,7 +2439,7 @@ sealed class PetWindow : Form
             return;
         }
         if (slideStart != DateTime.MinValue && travelStep == 0) return;
-        var engaged = input.Visible || working || bubble.Visible || bubble.Expanded || dragging || thumbDrag || permissionId != null || consentText != null || OverMe();
+        var engaged = input.Visible || working || (NewFrontEnd && shellBusy) || bubble.Visible || bubble.Expanded || dragging || thumbDrag || permissionId != null || consentText != null || OverMe();
         if (engaged)
         {
             engagedAt = now;

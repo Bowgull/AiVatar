@@ -359,13 +359,18 @@ sealed class BubbleView : IDisposable
     float HeightFor(int lineCount) => Math.Clamp(lineCount * LineH + (asking ? AskRow : 0) + (Asked.Length > 0 ? AskedRowH : 0) + RowsH + 2 * Pad,
         MinH, scrollback ? ScrollbackMaxH : ExpandedMaxH + AskRow + AskedRowH + RowsH);
 
+    /// <summary>With the new front end on: where the pet's own lines go instead of being drawn here.</summary>
+    public static Action<string, int>? Forward;
+
     public void Show(string t, bool stream, int holdMs)
     {
         // With the new front end on, the old bubble never draws, by ANY path. Gating the brain's messages
         // was not enough: the pet calls this directly too - his greeting when he slides out appeared in
         // the old gold style beside the new bubble (recorded, 2026-10-04). Stopping it here covers every
         // caller, present and future.
-        if (PetWindow.NewFrontEnd) return;
+        // ...but the WORDS are not lost (parity, 2026-10-11): every line the pet says itself - notes, errors,
+        // hellos, a held message coming out - goes to the new bubble to be drawn there.
+        if (PetWindow.NewFrontEnd) { if (!stream && t.Length > 0) Forward?.Invoke(t, holdMs); return; }
         // The next piece of the same reply (or its final form) carries on from what is already shown.
         var same = Visible && !Dots && full.Length > 0 && t.StartsWith(full, StringComparison.Ordinal);
         Dots = false; receipt = "";
