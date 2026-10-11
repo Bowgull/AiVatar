@@ -47,6 +47,21 @@ interface Tab {
   lastSeen: number;
   /** 6.22: stopped before loading because a list names it: which lists. */
   blocked: { url: string; lists: string[] } | null;
+  /** Sheet 3 section 3: the trail it belongs to (null = a loose tab), and whether he turned it in. */
+  trail: number | null;
+  done: boolean;
+}
+
+/** A trail (Horse Browser's idea, sheet 3): pages that belong to one thing he is doing. `named` = he named it. */
+interface Trail { id: number; name: string; named: boolean }
+
+/** A trail's first name, from the site it started on: "wowhead.com" becomes "WOWHEAD". He can rename it. */
+function trailNameFor(url: string): string {
+  try {
+    const h = new URL(url).hostname.replace(/^www\./, '');
+    const parts = h.split('.');
+    return (parts.length > 1 ? parts[parts.length - 2] : parts[0]).toUpperCase().slice(0, 24);
+  } catch { return 'TRAIL'; }
 }
 
 const isWeb = (u: string) => /^https?:\/\//i.test(u);
@@ -69,6 +84,8 @@ export class AangBrowser {
   private tabs: Tab[] = [];
   private active: number | null = null;
   private seq = 0;
+  private trails: Trail[] = [];
+  private trailSeq = 0;
   private closed: string[] = [];
   private inset = { left: 30, top: 66, right: 8, bottom: 8 };
   /** The tab drawer is open: the page is shown as a still picture under it, so the drawer can lie over it. */
@@ -367,8 +384,22 @@ export class AangBrowser {
     if (!w || w.isDestroyed()) return null;
     const url = isWeb(address) ? address : addressFor(address);
     if (!url) return null;
-    const tab: Tab = { id: ++this.seq, view: null, opener, title: 'New tab', url, favicon: '', loading: true, audible: false, muted: false, crashed: false, scrollY: 0, zoom: 0, lastSeen: Date.now(), blocked: null };
-    this.tabs.push(tab);
+    // "You don't have to start a trail. A link you open from a page joins that page's trail" (sheet 3). A loose
+    // page that opens a link starts one, named after its site; nothing is ever sorted by guesswork here.
+    let trail: number | null = null;
+    const from = opener !== null ? this.tabs.find((x) => x.id === opener) : undefined;
+    if (from) {
+      if (from.trail === null && !from.done) { from.trail = this.addTrail(trailNameFor(from.url)); }
+      trail = from.done ? null : from.trail;
+    } else if (this.pendingTrail !== null) { trail = this.pendingTrail; }
+    this.pendingTrail = null;
+    const tab: Tab = { id: ++this.seq, view: null, opener, title: 'New tab', url, favicon: '', loading: true, audible: false, muted: false, crashed: false, scrollY: 0, zoom: 0, lastSeen: Date.now(), blocked: null, trail, done: false };
+    // A child sits right under the last tab of its trail, so the trail reads top to bottom.
+    if (from) {
+      let at = this.tabs.indexOf(from);
+      while (at + 1 < this.tabs.length && this.tabs[at + 1]!.opener !== null && this.tabs[at + 1]!.trail === trail && trail !== null) at++;
+      this.tabs.splice(at + 1, 0, tab);
+    } else this.tabs.push(tab);
     this.wake(tab);
     if (focus) this.activate(tab.id); else this.changed();
     return tab.id;
@@ -398,6 +429,7 @@ export class AangBrowser {
     const [t] = this.tabs.splice(i, 1);
     if (isWeb(t!.url)) { this.closed.push(t!.url); if (this.closed.length > 25) this.closed.shift(); }
     this.closeView(t!);
+    this.tidyTrails();
     if (this.active === id) {
       const next = this.tabs[Math.min(i, this.tabs.length - 1)];
       this.active = null;
@@ -412,9 +444,48 @@ export class AangBrowser {
     if (act === 'show') this.activate(id);
     else if (act === 'close') this.close(id);
     else if (act === 'mute') { t.muted = !t.muted; t.view?.webContents.setAudioMuted(t.muted); this.changed(); }
+    else if (act === 'reload') { if (t.view && !t.crashed) t.view.webContents.reload(); else if (t.id === this.active) this.act('reload'); }
+    else if (act === 'done') this.markDone(id, true);
+    else if (act === 'undone') this.markDone(id, false);
   }
 
   reopen(): void { const u = this.closed.pop(); if (u) this.newTab(u); }
+
+  // ------------------------------------------------------------------ trails and the done shelf (sheet 3 section 3)
+  /** "+ New trail": the next tab he opens starts it. */
+  private pendingTrail: number | null = null;
+  private addTrail(name: string): number { const id = ++this.trailSeq; this.trails.push({ id, name, named: false }); return id; }
+  /** A trail with nothing left in it goes. */
+  private tidyTrails(): void { this.trails = this.trails.filter((tr) => tr.id === this.pendingTrail || this.tabs.some((t) => t.trail === tr.id && !t.done)); }
+  newTrail(): void {
+    this.pendingTrail = this.addTrail('NEW TRAIL');
+    this.newTab(HOME);
+    this.win?.webContents.send('browser:focusslot');
+  }
+  renameTrail(id: number, name: string): void {
+    const tr = this.trails.find((x) => x.id === id);
+    const n = String(name).replace(/\s+/g, ' ').trim().slice(0, 24).toUpperCase();
+    if (!tr || !n) return;
+    tr.name = n; tr.named = true;          // his name: Qwen never renames it
+    this.changed();
+  }
+  /** Move a tab into a trail, out to loose (null), or into a brand-new trail ('new'). */
+  moveTab(tabId: number, to: number | null | 'new'): void {
+    const t = this.tabs.find((x) => x.id === tabId);
+    if (!t) return;
+    t.trail = to === 'new' ? this.addTrail(trailNameFor(t.url)) : (to !== null && this.trails.some((x) => x.id === to) ? to : null);
+    t.done = false;
+    this.tidyTrails();
+    this.changed();
+  }
+  /** "Done is a quest turn-in": it drops to the DONE shelf. It is not closed, so he can always look back. */
+  markDone(tabId: number, done: boolean): void {
+    const t = this.tabs.find((x) => x.id === tabId);
+    if (!t) return;
+    t.done = done;
+    this.tidyTrails();
+    this.changed();
+  }
 
   private cur(): Tab | undefined { return this.tabs.find((x) => x.id === this.active); }
 
@@ -517,8 +588,9 @@ export class AangBrowser {
       active: Math.max(0, this.tabs.findIndex((x) => x.id === this.active)),
       tabs: this.tabs.filter((t) => isWeb(t.url)).map((t) => ({
         url: t.url, title: t.title, opener: t.opener === null ? null : this.tabs.findIndex((x) => x.id === t.opener),
-        scrollY: Math.round(t.scrollY), zoom: t.zoom, muted: t.muted,
+        scrollY: Math.round(t.scrollY), zoom: t.zoom, muted: t.muted, trail: t.trail, done: t.done,
       })),
+      trails: this.trails,
       closed: this.closed.slice(-25),
     };
     try { writeFileAtomic(this.file, JSON.stringify(data)); } catch (e) { console.error('shell: browser: the tabs could not be saved: ' + (e as Error).message); }
@@ -534,12 +606,18 @@ export class AangBrowser {
       const ids: number[] = [];
       for (const t of list) {
         const tab: Tab = { id: ++this.seq, view: null, opener: null, title: String(t.title ?? t.url).slice(0, 300), url: t.url, favicon: '',
-          loading: false, audible: false, muted: t.muted === true, crashed: false, scrollY: Number(t.scrollY) || 0, zoom: Number(t.zoom) || 0, lastSeen: Date.now(), blocked: null };
+          loading: false, audible: false, muted: t.muted === true, crashed: false, scrollY: Number(t.scrollY) || 0, zoom: Number(t.zoom) || 0, lastSeen: Date.now(), blocked: null,
+          trail: Number.isInteger(t.trail) ? t.trail : null, done: t.done === true };
         ids.push(tab.id);
         this.tabs.push(tab);
       }
       list.forEach((t: { opener?: unknown }, i: number) => { const o = Number(t.opener); if (Number.isInteger(o) && o >= 0 && o < ids.length && o !== i) this.tabs[i]!.opener = ids[o]!; });
       if (Array.isArray(s.closed)) this.closed = s.closed.filter((u: unknown) => typeof u === 'string' && isWeb(u as string)).slice(-25);
+      if (Array.isArray(s.trails)) this.trails = s.trails.filter((x: Partial<Trail>) => Number.isInteger(x?.id) && typeof x?.name === 'string')
+        .map((x: Trail) => ({ id: x.id, name: x.name.slice(0, 24), named: x.named === true }));
+      this.trailSeq = this.trails.reduce((m, x) => Math.max(m, x.id), 0);
+      for (const t of this.tabs) if (t.trail !== null && !this.trails.some((x) => x.id === t.trail)) t.trail = null;
+      this.tidyTrails();
       const a = Math.min(Math.max(0, Number(s.active) || 0), this.tabs.length - 1);
       this.activate(this.tabs[a]!.id);
       return true;
@@ -555,7 +633,8 @@ export class AangBrowser {
     w.webContents.send('browser:tabs', {
       active: this.active,
       canBack: Boolean(wc?.navigationHistory.canGoBack()), canForward: Boolean(wc?.navigationHistory.canGoForward()),
-      tabs: this.tabs.map((x) => ({ id: x.id, opener: x.opener, title: x.title, url: x.url, favicon: x.favicon, loading: x.loading, audible: x.audible, muted: x.muted, crashed: x.crashed, asleep: !x.view, blocked: x.blocked })),
+      tabs: this.tabs.map((x) => ({ id: x.id, opener: x.opener, title: x.title, url: x.url, favicon: x.favicon, loading: x.loading, audible: x.audible, muted: x.muted, crashed: x.crashed, asleep: !x.view, blocked: x.blocked, trail: x.trail, done: x.done })),
+      trails: this.trails,
       adsPaused: (() => { try { return this.paused.has(new URL(t?.url ?? '').hostname.replace(/^www\./, '')); } catch { return false; } })(),
       adsOn: Boolean(this.ads),
       sounds: this.sounds,
