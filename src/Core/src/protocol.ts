@@ -99,6 +99,16 @@ export type ToBody =
   | { t: 'snip' }
   /** 6.17 Highlight from the pet's menu: read what he has selected in the app in front. */
   | { t: 'highlight' }
+  /** 6.17 the drop: a file is being dragged over the pet (on) or has left (off). */
+  | { t: 'drop.hover'; on: boolean }
+  /** 6.17: files dropped on the pet, paths only. The brain checks them before anything reads them. */
+  | { t: 'drop'; files: string[] }
+  /** 6.17: "Remember it" on a dropped file, from the bubble. */
+  | { t: 'drop.keep'; path: string }
+  /** 6.17: the brain's verdict, so the balloon can airbend it in (or spit it back out). */
+  | { t: 'drop.go'; name: string; refused?: string; folder?: boolean }
+  /** 6.17: what Qwen made of it. `summary` is empty when Qwen could not read it (in a game, or not running). */
+  | { t: 'drop.done'; name: string; path: string; summary: string; kb: number; from: string; more: number }
   /** Window 2's Settings (6.15 pass 2): the pet owns the switches; the Shell asks, sets and is told. */
   | { t: 'settings.get' }
   | { t: 'settings.set'; key: 'quietGame' | 'mute' | 'seeWindow' | 'usage' | 'autostart'; on: boolean }
@@ -292,6 +302,16 @@ export type FromBody =
   | { t: 'snip' }
   /** 6.17 Highlight from the pet's menu: read what he has selected in the app in front. */
   | { t: 'highlight' }
+  /** 6.17 the drop: a file is being dragged over the pet (on) or has left (off). */
+  | { t: 'drop.hover'; on: boolean }
+  /** 6.17: files dropped on the pet, paths only. The brain checks them before anything reads them. */
+  | { t: 'drop'; files: string[] }
+  /** 6.17: "Remember it" on a dropped file, from the bubble. */
+  | { t: 'drop.keep'; path: string }
+  /** 6.17: the brain's verdict, so the balloon can airbend it in (or spit it back out). */
+  | { t: 'drop.go'; name: string; refused?: string; folder?: boolean }
+  /** 6.17: what Qwen made of it. `summary` is empty when Qwen could not read it (in a game, or not running). */
+  | { t: 'drop.done'; name: string; path: string; summary: string; kb: number; from: string; more: number }
   /** Window 2's Settings (6.15 pass 2): the pet owns the switches; the Shell asks, sets and is told. */
   | { t: 'settings.get' }
   | { t: 'settings.set'; key: 'quietGame' | 'mute' | 'seeWindow' | 'usage' | 'autostart'; on: boolean }

@@ -115,6 +115,9 @@ contextBridge.exposeInMainWorld('aang', {
   snipSend: () => ipcRenderer.send('snip:send'),
   snipBin: () => ipcRenderer.send('snip:bin'),
   snipCardSize: s => ipcRenderer.send('snip:cardsize', s),
+  /** 6.17 the drop: the bubble's two choices on a dropped file. Only the file the brain accepted counts. */
+  dropAsk: p => ipcRenderer.send('bubble:dropask', p),
+  dropKeep: p => ipcRenderer.send('bubble:dropkeep', p),
 
   // --- window 2, the desk (6.15). Named doors only, each the same message the C# Panel sends.
   deskPanel: () => ipcRenderer.send('desk:panel'),
