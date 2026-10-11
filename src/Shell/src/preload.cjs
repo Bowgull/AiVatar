@@ -121,6 +121,7 @@ contextBridge.exposeInMainWorld('aang', {
   deskHistory: a => ipcRenderer.send('desk:history', a),
   deskForgetTurn: id => ipcRenderer.send('desk:forgetturn', id),
   deskCopy: text => ipcRenderer.send('desk:copy', text),
+  deskUndo: () => ipcRenderer.send('desk:undo'),
   /** Which tab to open on, when the pet's menu asked for a particular one. */
   onDeskTab(fn) {
     const h = (_e, n) => fn(n);

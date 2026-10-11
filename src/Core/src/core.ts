@@ -1826,6 +1826,12 @@ export class Core {
       }
       case 'hush': this.send(ws, { t: 'hush.reply', text: this.hush(Number(m.minutes)) }); break;
       case 'panel': this.send(ws, this.panelData()); break;
+      case 'undo.last': {
+        const r = this.undoLastThing();
+        this.sendTo('desktop', { t: 'whisper', text: r.detail });
+        this.send(ws, this.panelData());
+        break;
+      }
       case 'history': {
         const q = typeof m.q === 'string' ? m.q.slice(0, 200) : '';
         const before = typeof m.before === 'number' && Number.isInteger(m.before) && m.before > 0 ? m.before : 0;

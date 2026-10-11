@@ -135,6 +135,11 @@ function did() {
     tl.append(ev);
   }
   body.append(tl);
+  const keys = h('div', 'keys');
+  const undo = key('Undo the last one', '', () => window.aang?.deskUndo?.());
+  undo.append(h('span', 'k', 'Z'));
+  keys.append(undo);
+  body.append(keys);
   foot.textContent = 'Gold square: done. Grey: failed or undone.';
   foot.hidden = false;
 }
@@ -206,7 +211,14 @@ function jobs() {
   card.append(keys, h('div', 'left', `${list.length} ${list.length === 1 ? 'IS' : 'ARE'} WAITING ON YOU`));
   body.append(card);
 }
+// Ctrl+F: straight to History with the search box focused, from any tab.
 window.addEventListener('keydown', (e) => {
+  if (e.ctrlKey && !e.altKey && e.key.toLowerCase() === 'f') { e.preventDefault(); show(5); }
+});
+window.addEventListener('keydown', (e) => {
+  if (tab === 2 && e.key.toLowerCase() === 'z' && !e.ctrlKey && !e.altKey && !(e.target instanceof HTMLInputElement)) {
+    e.preventDefault(); window.aang?.deskUndo?.(); return;
+  }
   if (tab !== 4 || !data?.jobs?.length || e.target instanceof HTMLInputElement) return;
   const j = data.jobs[Math.min(jobAt, data.jobs.length - 1)];
   const map = { a: 'apply', x: 'skip', o: 'open', z: 'undo' };
@@ -245,7 +257,13 @@ function paintFound() {
   list.replaceChildren();
   const words = query.toLowerCase().split(/\s+/).filter((w) => w.length > 1);
   if (!found.length) list.append(h('p', 'empty-line', query ? 'Nothing matches that.' : 'No history yet. Everything we say to each other will be here.'));
+  let prev = 0;
   for (const t of found) {
+    // The forged divider at every gap of 30 minutes or more (ConversationView's rule), labelled with the
+    // day and the part of it: "TUESDAY 30 SEPT · MORNING" (sheet 2, part 4).
+    const at = +new Date(t.ts);
+    if (prev && at - prev >= 30 * 60000) list.append(dayDivider(new Date(at)));
+    prev = at || prev;
     const mine = t.who === 'you';
     const turn = h('div', 'turn' + (mine ? ' r' : ''));
     const d = new Date(t.ts);
@@ -253,7 +271,10 @@ function paintFound() {
     const bub = h('div', 'bub ' + (mine ? 'you' : 'aang'));
     marked(bub, t.text, words);
     const bar = h('div', 'hoverbar');
-    bar.append(key('Copy', '', () => window.aang?.deskCopy?.(t.text)),
+    // Sheet 2's hover actions: reply to it, add it as context (both put a chip on the typing box), copy, forget.
+    bar.append(key('Reply to this', '', () => window.aang?.replyToTurn?.(t.id, t.text)),
+      key('Add as context', '', () => window.aang?.pinTurn?.(t.id, t.text)),
+      key('Copy', '', () => window.aang?.deskCopy?.(t.text)),
       key('Forget', 'danger', () => { window.aang?.deskForgetTurn?.(t.id); setTimeout(() => window.aang?.deskHistory?.({ q: query }), 300); }));
     bub.append(bar);
     turn.append(bub);
@@ -265,6 +286,14 @@ function paintFound() {
     list.append(keys);
   }
 }
+function dayDivider(d) {
+  const part = d.getHours() < 12 ? 'MORNING' : d.getHours() < 17 ? 'AFTERNOON' : 'EVENING';
+  const day = d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' }).replace(',', '').toUpperCase();
+  const r = h('div', 'daydiv');
+  r.append(h('i', 'endcap'), h('i', 'bar'), h('span', '', `${day} \u00b7 ${part}`), h('i', 'bar'), h('i', 'endcap'));
+  return r;
+}
+
 /** Put the text in, with the searched words marked, without ever treating the text as markup. */
 function marked(into, text, words) {
   if (!words.length) { into.append(text); return; }
