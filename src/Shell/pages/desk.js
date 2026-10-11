@@ -1,0 +1,315 @@
+// Step 6.15: window 2, the desk. Pass 1.
+//
+// Ports the C# Panel (PanelWindow.cs) into sheet 6's look: What I know, What I may do, What I did,
+// Drafts, Jobs and History. Everything comes from ONE `panel.reply`, worked out by the brain without
+// the model, exactly as the Panel gets it; every button sends the same message the Panel sends, so the
+// brain does not know or care which window asked. Settings is pass 2: those switches belong to the pet
+// (Body), and a tab whose switches do nothing is worse than no tab.
+//
+// Built with textContent throughout, never innerHTML from data: facts, drafts and history are his words
+// and outside content, and none of it may ever become markup.
+import { HOLD_MS } from './asks.js';
+
+const el = (id) => document.getElementById(id);
+const body = el('body'), foot = el('foot');
+const tabs = [...document.querySelectorAll('.tab')];
+
+/** @type {any} the last panel.reply */
+let data = null;
+let tab = 0;
+
+
+/** Make an element with a class and optional text. */
+function h(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+function key(label, cls, onClick) {
+  const b = h('button', 'key sm' + (cls ? ' ' + cls : ''), label);
+  b.type = 'button';
+  b.addEventListener('click', onClick);
+  return b;
+}
+function ruleMajor() {
+  const r = h('div', 'rule-major');
+  r.append(h('i', 'endcap'), h('i', 'bar'), h('i', 'endcap'));
+  return r;
+}
+function ruleTitled(text) {
+  const r = h('div', 'rule-titled');
+  r.append(h('i', 'bar'), h('span', '', text), h('i', 'bar'));
+  return r;
+}
+/** "today", "yesterday", "4 Oct": the way the sheet writes when. */
+function whenOf(iso) {
+  const d = new Date(iso);
+  if (isNaN(+d)) return String(iso ?? '');
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const that = new Date(d); that.setHours(0, 0, 0, 0);
+  const days = Math.round((+today - +that) / 86400000);
+  if (days === 0) return 'today';
+  if (days === 1) return 'yesterday';
+  return d.toLocaleDateString('en-CA', { day: 'numeric', month: 'short' });
+}
+const times = (n) => (n === 1 ? 'once' : n === 2 ? 'twice' : `${n} times`);
+
+// ---------------------------------------------------------------- the tabs
+function show(n) {
+  tab = n;
+  tabs.forEach((t, i) => { t.classList.toggle('on', i === n); t.setAttribute('aria-selected', String(i === n)); });
+  foot.hidden = true;
+  body.replaceChildren();
+  body.scrollTop = 0;
+  if (!data && n !== 5 && n !== 6) { body.append(h('p', 'empty-line', 'Asking Aang...')); return; }
+  if (data?.notice) body.append(h('p', 'notice', data.notice));
+  [know, mayDo, did, drafts, jobs, history, settings][n]?.();
+}
+tabs.forEach((t, i) => t.addEventListener('click', () => show(i)));
+
+// 0. What I know. "Forget" sits on the row the mouse is on, so the wrong one can never be forgotten.
+function know() {
+  const facts = data.facts ?? [];
+  body.append(h('p', 't-eyebrow', `${facts.length} ${facts.length === 1 ? 'THING' : 'THINGS'} · NEWEST FIRST`),
+    h('h3', 't-display', 'What I know about you'), ruleMajor());
+  if (!facts.length) body.append(h('p', 'empty-line', 'Nothing yet. Tell me about yourself and I will keep it here.'));
+  for (const f of facts) {
+    const row = h('div', 'row'), left = h('div');
+    const meta = h('div', 'meta');
+    meta.append('Confirmed ', h('b', '', times(f.times)), ' · last seen ', h('b', '', whenOf(f.seen)));
+    left.append(h('div', 'main', f.text), meta);
+    const act = h('span', 'act');
+    act.append(key('Forget', 'danger', () => window.aang?.deskForgetFact?.(f.id)));
+    row.append(left, act);
+    body.append(row);
+  }
+  body.append(h('p', 't-hint', 'Forgetting one stops him using it from his next answer. "Undo that" brings it back.'));
+}
+
+// 1. What I may do. The things that ALWAYS ask are shown as their own tags, so the limits are visible.
+function mayDo() {
+  const trust = data.trust ?? [];
+  body.append(h('h3', 't-display', 'What I may do without asking'), ruleMajor());
+  if (!trust.length) body.append(h('p', 'empty-line', 'Nothing yet. When you say "Always" to something, it shows up here.'));
+  for (const t of trust) {
+    const row = h('div', 'row'), left = h('div'), meta = h('div', 'meta');
+    meta.append('For example ', h('b', '', t.example || '-'), ' · since ', h('b', '', whenOf(t.since)));
+    left.append(h('div', 'main', t.kind.charAt(0).toUpperCase() + t.kind.slice(1)), meta);
+    const act = h('span', 'act');
+    act.append(key('Take this back', '', () => window.aang?.deskRevoke?.(t.kind)));
+    row.append(left, act);
+    body.append(row);
+  }
+  body.append(ruleTitled('Always asks, no matter what'));
+  const tags = h('div', 'alwaysask');
+  for (const s of ['Deleting files', 'Force quitting an app', 'Sending email', 'Anything with the lever']) tags.append(h('span', '', s));
+  body.append(tags, h('p', 't-hint', 'Taking one back means he asks again next time. Deleting files, force quits and sending mail always ask.'));
+}
+
+// 2. What I did. Claude jobs first, each with a coloured state, then the log as a timeline.
+function did() {
+  body.append(h('h3', 't-display', 'What I did'), ruleTitled('Claude jobs'));
+  const sessions = data.sessions ?? [];
+  if (!sessions.length) body.append(h('p', 'empty-line', 'No Claude jobs yet. Ask me to start one and it will show here.'));
+  for (const s of sessions) {
+    const state = /need|wait/i.test(s.state) ? 'needs' : /work|run/i.test(s.state) ? 'working' : /done|finish/i.test(s.state) ? 'done' : 'ended';
+    const row = h('div', 'job'), mid = h('div');
+    mid.append(h('div', 'nm', s.name), h('div', 'last', s.last || `Started ${whenOf(s.since)}`));
+    const chip = h('span', 'chip ' + ({ needs: 'careful', working: 'off', done: 'good', ended: 'off' })[state],
+      ({ needs: 'NEEDS YOU', working: 'WORKING', done: 'DONE', ended: 'ENDED' })[state]);
+    if (state === 'working') chip.style.cssText = 'background:#C8E8FF;color:#1a2a3a;text-shadow:none';
+    row.append(h('i', 'dot ' + state), mid, chip);
+    body.append(row);
+  }
+  body.append(ruleMajor(), ruleTitled('Everything else, newest first'));
+  const lines = String(data.actions ?? '').split('\n').filter(Boolean);
+  const tl = h('div', 'tl');
+  for (const line of lines) {
+    // "2:41 PM  Opened Chrome", or "Tue 2:41 PM  ..." over several days (actionlog.ts formatAction).
+    const at = line.indexOf('  ');
+    const when = at > 0 ? line.slice(0, at) : '';
+    const what = at > 0 ? line.slice(at + 2) : line;
+    const ev = h('div', 'ev' + (/\(failed/.test(what) ? ' undo' : /undid|put it back/i.test(what) ? ' undo' : ''));
+    ev.append(h('div', 'when', when.toUpperCase()), h('div', 'what', what));
+    tl.append(ev);
+  }
+  body.append(tl);
+  foot.textContent = 'Gold square: done. Grey: failed or undone.';
+  foot.hidden = false;
+}
+
+// 3. Drafts: the letter itself. Never-written-to addresses flagged; Send is the lever.
+function drafts() {
+  const list = data.drafts ?? [];
+  if (!data.mail) { body.append(h('p', 'empty-line', 'Email is not connected, so there are no drafts.')); return; }
+  body.append(h('p', 't-eyebrow', list.length ? `${list.length} ${list.length === 1 ? 'DRAFT' : 'DRAFTS'} WAITING · NOTHING SENT YET` : 'NOTHING WAITING'));
+  if (!list.length) body.append(h('p', 'empty-line', 'No drafts. When I write an email for you, it waits here for your yes.'));
+  for (const d of list) {
+    const card = h('div', 'mailcard');
+    const hdr = h('div', 'hdr');
+    const to = h('div', '', (d.to ?? []).join(', '));
+    if ((d.newTo ?? []).length) {
+      const n = h('span', 'newto');
+      n.append(h('span', 'chip careful', 'NEVER WRITTEN TO BEFORE'));
+      to.append(n);
+    }
+    hdr.append(h('span', '', 'TO'), to, h('span', '', 'SUBJECT'), h('div', '', d.subject || '(no subject)'));
+    const act = (action) => window.aang?.deskMail?.({ id: d.id, hash: d.hash, action });
+    const keys = h('div', 'keys');
+    keys.append(lever(d.status === 'confirm' ? 'Hold to really send' : 'Hold to send', () => act('send')),
+      key('Save as Gmail draft', '', () => act('save')), key('Discard', 'danger', () => act('discard')));
+    card.append(hdr, h('div', 'letter', d.body), keys);
+    body.append(card);
+  }
+}
+
+/** Sheet 5's lever, held for HOLD_MS. Letting go stops it dead; a held key cannot cheat it. */
+function lever(label, done) {
+  const l = h('div', 'lever');
+  l.tabIndex = 0;
+  l.append(h('i', 'fillbar'), h('i', 'knob'), h('span', 'txt', label), h('span', 'hold', 'HOLD'));
+  let from = 0, raf = 0;
+  const stop = () => { cancelAnimationFrame(raf); raf = 0; l.style.setProperty('--fill', '0%'); };
+  const paint = () => {
+    const k = Math.min(1, (performance.now() - from) / HOLD_MS);
+    l.style.setProperty('--fill', (k * 100).toFixed(1) + '%');
+    if (k >= 1) { stop(); done(); return; }
+    raf = requestAnimationFrame(paint);
+  };
+  const start = () => { if (raf) return; from = performance.now(); raf = requestAnimationFrame(paint); };
+  l.addEventListener('pointerdown', (e) => { l.setPointerCapture?.(e.pointerId); start(); });
+  for (const ev of ['pointerup', 'pointercancel', 'pointerleave', 'blur']) l.addEventListener(ev, stop);
+  l.addEventListener('keydown', (e) => { if ((e.key === ' ' || e.key === 'Enter') && !e.repeat) { e.preventDefault(); start(); } });
+  l.addEventListener('keyup', (e) => { if (e.key === ' ' || e.key === 'Enter') stop(); });
+  return l;
+}
+
+// 4. Jobs: the C# card, one at a time, A / X / O / Z as today.
+let jobAt = 0;
+function jobs() {
+  const list = data.jobs ?? [];
+  if (!list.length) { body.append(h('p', 'empty-line', 'No jobs waiting on you. New ones from the job hunt land here.')); return; }
+  jobAt = Math.min(jobAt, list.length - 1);
+  const j = list[jobAt];
+  const card = h('div', 'jobcard');
+  const chip = h('span', 'chip ' + (j.verdict === 'apply' ? 'good' : j.verdict === 'skip' ? 'off' : 'normal'),
+    `${j.verdict.toUpperCase()} · ${j.score}`);
+  card.append(h('div', 'ttl', j.title), h('div', 'where', [j.company, j.location, j.salary].filter(Boolean).join(' · ')));
+  const c = h('div'); c.style.marginTop = '10px'; c.append(chip);
+  card.append(c, h('div', 'why', j.reason));
+  const go = (action) => { window.aang?.deskJob?.({ id: action === 'undo' ? 'undo' : j.id, action }); };
+  const keys = h('div', 'keys');
+  const k = (label, letter, cls, f) => { const b = key(label, cls, f); b.append(h('span', 'k', letter)); return b; };
+  keys.append(k('Apply', 'A', 'primary', () => go('apply')), k('Skip', 'X', '', () => go('skip')),
+    k('Open', 'O', '', () => go('open')), k('Undo', 'Z', '', () => go('undo')));
+  card.append(keys, h('div', 'left', `${list.length} ${list.length === 1 ? 'IS' : 'ARE'} WAITING ON YOU`));
+  body.append(card);
+}
+window.addEventListener('keydown', (e) => {
+  if (tab !== 4 || !data?.jobs?.length || e.target instanceof HTMLInputElement) return;
+  const j = data.jobs[Math.min(jobAt, data.jobs.length - 1)];
+  const map = { a: 'apply', x: 'skip', o: 'open', z: 'undo' };
+  const action = map[e.key.toLowerCase()];
+  if (!action || e.ctrlKey || e.altKey || e.metaKey) return;
+  e.preventDefault();
+  window.aang?.deskJob?.({ id: action === 'undo' ? 'undo' : j.id, action });
+});
+
+// 5. History: today's search box words kept. Results in the two voices, matches highlighted.
+let query = '', found = [], searchTimer = 0;
+function history() {
+  const slot = h('div', 'searchslot');
+  const input = h('input', 'q');
+  input.type = 'search';
+  input.placeholder = 'Search everything you and Aang have said...';
+  input.value = query;
+  input.setAttribute('aria-label', 'Search everything you and Aang have said');
+  const count = h('span', 'chip normal', `${found.length} FOUND`);
+  count.hidden = !query;
+  slot.append(h('span', 'lab', 'FIND'), input, count);
+  const list = h('div');
+  list.id = 'found';
+  body.append(slot, list);
+  input.addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => { query = input.value.trim(); window.aang?.deskHistory?.({ q: query }); }, 250);
+  });
+  paintFound();
+  if (!found.length) window.aang?.deskHistory?.({ q: query });
+  input.focus();
+}
+function paintFound() {
+  const list = el('found');
+  if (!list) return;
+  list.replaceChildren();
+  const words = query.toLowerCase().split(/\s+/).filter((w) => w.length > 1);
+  if (!found.length) list.append(h('p', 'empty-line', query ? 'Nothing matches that.' : 'No history yet. Everything we say to each other will be here.'));
+  for (const t of found) {
+    const mine = t.who === 'you';
+    const turn = h('div', 'turn' + (mine ? ' r' : ''));
+    const d = new Date(t.ts);
+    turn.append(h('p', 'who', `${mine ? 'YOU' : 'AANG'} · ${isNaN(+d) ? '' : d.toLocaleString('en-CA', { weekday: 'short', hour: 'numeric', minute: '2-digit' }).toUpperCase()}`));
+    const bub = h('div', 'bub ' + (mine ? 'you' : 'aang'));
+    marked(bub, t.text, words);
+    const bar = h('div', 'hoverbar');
+    bar.append(key('Copy', '', () => window.aang?.deskCopy?.(t.text)),
+      key('Forget', 'danger', () => { window.aang?.deskForgetTurn?.(t.id); setTimeout(() => window.aang?.deskHistory?.({ q: query }), 300); }));
+    bub.append(bar);
+    turn.append(bub);
+    list.append(turn);
+  }
+  if (found.length) {
+    const keys = h('div', 'keys');
+    keys.append(key('Copy all of it', '', () => window.aang?.deskCopy?.(found.map((t) => `${t.who === 'you' ? 'You' : 'Aang'}: ${t.text}`).join('\n\n'))));
+    list.append(keys);
+  }
+}
+/** Put the text in, with the searched words marked, without ever treating the text as markup. */
+function marked(into, text, words) {
+  if (!words.length) { into.append(text); return; }
+  const re = new RegExp('(' + words.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')', 'gi');
+  let last = 0;
+  for (const m of text.matchAll(re)) {
+    into.append(text.slice(last, m.index), h('mark', '', m[0]));
+    last = (m.index ?? 0) + m[0].length;
+  }
+  into.append(text.slice(last));
+}
+
+// 6. Settings. The switches are the pet's own (quiet in WoW, mute, what he can see, usage bars, start
+// with Windows), and moving them here is pass 2. Until then this opens the pet's Settings page, rather
+// than showing switches that would do nothing.
+function settings() {
+  body.append(h('h3', 't-display', 'Settings'), ruleMajor(),
+    h('p', 'empty-line', 'Your switches still live in the pet\u2019s own Settings page for now: quiet while WoW has focus, mute, what he can see, the usage bars and start with Windows.'));
+  const keys = h('div', 'keys');
+  keys.append(key('Open settings', 'primary', () => window.aang?.deskSettings?.()));
+  body.append(keys);
+}
+
+// ---------------------------------------------------------------- what the brain says
+window.aang?.onMessage?.((m) => {
+  if (!m || typeof m !== 'object') return;
+  if (m.t === 'panel.reply') {
+    data = m;
+    const nd = (m.drafts ?? []).length, nj = (m.jobs ?? []).length;
+    el('ndrafts').hidden = !nd; el('ndrafts').textContent = String(nd);
+    el('njobs').hidden = !nj; el('njobs').textContent = String(nj);
+    if (tab !== 5) show(tab);
+    return;
+  }
+  if (m.t === 'history.reply' && typeof m.q === 'string') {
+    if (m.q !== query) return;                         // a stale answer to an older search
+    found = [...(m.items ?? [])].reverse();            // newest first from the brain; read oldest first
+    if (tab === 5) {
+      const c = body.querySelector('.searchslot .chip');
+      if (c) { c.textContent = `${found.length} FOUND`; c.hidden = !query; }
+      paintFound();
+    }
+  }
+});
+window.aang?.onDeskTab?.((n) => { if (Number.isInteger(n) && n >= 0 && n <= 6) show(n); window.aang?.deskPanel?.(); });
+
+show(0);
+window.aang?.deskPanel?.();

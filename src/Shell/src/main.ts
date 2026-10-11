@@ -222,6 +222,21 @@ const link = new CoreLink({
     }
     // He clicked Aang. The pet does not open a box of its own any more; it asks for this one.
     if (m.t === 'typebox') { if (!input?.visible) openTypeBox(); return; }
+    // 6.15: the pet's "Panel..." menu, with the new front end on, opens window 2 instead of the C# Panel.
+    if (m.t === 'desk.open') {
+      // Tab 6, Settings, is still the pet's own window until pass 2; the pet answers that one.
+      if (m.tab !== 6) openDesk(typeof m.tab === 'number' ? m.tab : 0);
+      return;
+    }
+    // A page of history goes ONLY to the window that asked for it. Both the bubble's scroll-back and the
+    // desk's History tab ask for it, the brain answers on the one link, and a desk search landing in the
+    // scroll-back would put search results into the conversation he is reading.
+    if (m.t === 'history.reply') {
+      const who = historyAsks.shift();
+      if (who === 'desk') windows.get('desk')?.webContents.send('brain:message', m);
+      else bubble?.send('brain:message', m);
+      return;
+    }
     if (m.t === 'popout.close') { popout?.close(); drm?.close(); return; }
     if (m.t === 'panel.reply') {
       jobsWaiting = Array.isArray((m as Record<string, unknown>).jobs) ? ((m as { jobs: unknown[] }).jobs).length : 0;
@@ -665,8 +680,42 @@ app.whenReady().then(async () => {
   ipcMain.on('input:size', (e, s) => {
     if (fromInput(e) && s && typeof s === 'object') input?.resize(Number(s.width) || 0, Number(s.height) || 0);
   });
+  // ---- window 2, the desk (6.15): each door sends exactly what the C# Panel sends.
+  ipcMain.on('desk:panel', (e) => { if (fromDesk(e)) link?.send({ t: 'panel' }); });
+  ipcMain.on('desk:settings', (e) => { if (fromDesk(e)) link?.send({ t: 'desk.open', tab: 6 }); });
+  ipcMain.on('desk:forgetfact', (e, id) => {
+    if (fromDesk(e) && Number.isFinite(Number(id))) link?.send({ t: 'forget.fact', id: Number(id) });
+  });
+  ipcMain.on('desk:revoke', (e, kind) => {
+    if (fromDesk(e) && typeof kind === 'string' && kind) link?.send({ t: 'revoke', kind: kind.slice(0, 200) });
+  });
+  ipcMain.on('desk:mail', (e, a) => {
+    if (!fromDesk(e) || !a || typeof a !== 'object') return;
+    const action = String(a.action ?? '');
+    if (!['send', 'save', 'discard'].includes(action)) return;
+    // The hash is the brain's own check that he is sending the draft he is looking at; passed through untouched.
+    link?.send({ t: 'mail.act', id: String(a.id ?? ''), hash: String(a.hash ?? ''), action: action as 'send' | 'save' | 'discard' });
+  });
+  ipcMain.on('desk:job', (e, a) => {
+    if (!fromDesk(e) || !a || typeof a !== 'object') return;
+    const action = String(a.action ?? '');
+    if (!['apply', 'skip', 'open', 'undo'].includes(action)) return;
+    link?.send({ t: 'job.act', id: String(a.id ?? ''), action: action as 'apply' | 'skip' | 'open' | 'undo' });
+  });
+  ipcMain.on('desk:history', (e, a) => {
+    if (!fromDesk(e)) return;
+    historyAsks.push('desk');
+    link?.send({ t: 'history', q: String(a?.q ?? '').slice(0, 200) });
+  });
+  ipcMain.on('desk:forgetturn', (e, id) => {
+    if (fromDesk(e) && Number.isFinite(Number(id))) link?.send({ t: 'forget.turn', id: Number(id) });
+  });
+  ipcMain.on('desk:copy', (e, text) => {
+    if (fromDesk(e) && typeof text === 'string' && text) clipboard.writeText(text.slice(0, 200_000));
+  });
   ipcMain.on('bubble:older', (e, a) => {
     if (!fromBubble(e)) return;
+    historyAsks.push('bubble');
     const before = Number(a?.before);
     link?.send({ t: 'history', q: '', ...(Number.isFinite(before) ? { before } : {}) });
   });
@@ -746,6 +795,26 @@ function fromPopout(e: Electron.IpcMainEvent): boolean {
 function fromInput(e: Electron.IpcMainEvent): boolean {
   const w = input?.window();
   return Boolean(w && !w.isDestroyed() && e.sender === w.webContents);
+}
+
+/** Did this come from window 2, the desk? Its own check, like every other window's. */
+function fromDesk(e: Electron.IpcMainEvent): boolean {
+  const w = windows.get('desk');
+  return Boolean(w && !w.isDestroyed() && e.sender === w.webContents);
+}
+
+/** Who asked for each page of history still on its way, oldest first. */
+const historyAsks: ('desk' | 'bubble')[] = [];
+
+/**
+ * Window 2 (6.15). The C# Panel's size: 820 x 560, never smaller than 640 x 420. A normal window with a
+ * frame, because it is something he opens and moves, not part of the pet.
+ */
+function openDesk(tab: number): void {
+  const had = windows.get('desk');
+  const w = open('desk', 'desk.html', { width: 820, height: 560, minWidth: 640, minHeight: 420, backgroundColor: '#24160D', autoHideMenuBar: true });
+  const send = () => { if (!w.isDestroyed()) w.webContents.send('desk:tab', tab); };
+  if (had && !had.isDestroyed()) send(); else w.webContents.once('did-finish-load', send);
 }
 
 function fromBubble(e: Electron.IpcMainEvent): boolean {
