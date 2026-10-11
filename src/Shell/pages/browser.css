@@ -168,3 +168,30 @@ body.drawer-open .drawer{transform:none;visibility:visible;transition:transform 
 .key.ink{background:#0B0718;color:var(--gold-lit);box-shadow:0 var(--lip) 0 var(--outline),inset 0 3px 0 rgba(150,110,200,.25),0 8px 14px rgba(0,0,0,.4)}
 /* In the drawer the tab you are on is a whole parchment plaque: there is no page beside it to join. */
 .drawer .tp.on{margin-right:0;border-right-width:2.5px;border-radius:7px}
+
+/* ---- the ⋯ settings menu (2026-10-11): top right, beside Windows' own buttons; a wood panel in groups ---- */
+.band .menukey{margin-left:2px;-webkit-app-region:no-drag}
+.band .menukey[aria-expanded="true"]{top:3px;box-shadow:0 0 0 var(--outline),inset 0 3px 0 rgba(0,0,0,.45)}
+.menu{position:absolute;right:146px;top:calc(100% + 4px);z-index:40;width:330px;max-height:calc(100vh - 80px);overflow-y:auto;box-sizing:border-box;
+  padding:8px 10px 10px;border-style:solid;border-width:8px;border-image:url(art/browser/trayframe.png) 4 repeat;-webkit-app-region:no-drag;
+  background:radial-gradient(90% 30% at 12% 0%,rgba(255,200,120,.10),transparent 70%),url(art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated;
+  box-shadow:0 14px 30px rgba(0,0,0,.6);scrollbar-width:thin;scrollbar-color:#6a4a2a transparent}
+.menu[hidden]{display:none}
+.menu .grp+.grp{margin-top:10px;padding-top:10px;border-top:3px solid rgba(0,0,0,.45);box-shadow:0 1px 0 rgba(255,224,150,.10) inset}
+.menu .gh{font:400 9px var(--label);letter-spacing:1.5px;color:var(--gold);text-shadow:1px 1px 0 #000;margin:0 4px 6px}
+.menu .mrow{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;box-sizing:border-box;padding:7px 8px;border-radius:5px;
+  background:none;border:none;font:600 13.5px var(--body);color:#E6DCC8;text-shadow:1px 1px 0 rgba(0,0,0,.7);text-align:left;cursor:pointer}
+.menu button.mrow:hover:not(:disabled),.menu .sw-row:hover{background:rgba(255,224,150,.08)}
+.menu .mrow kbd{font:400 9px var(--label);letter-spacing:.5px;color:#bfae8a}
+.menu .mrow i{font:400 8.5px var(--label);font-style:normal;letter-spacing:.5px;color:#8a7a62;margin-left:6px}
+.menu .mrow.soon{color:#8a7a62;cursor:default}
+.menu .mrow small{display:block;font:500 11.5px var(--body);color:#a8977a;margin-top:2px}
+.menu .gate .sw{opacity:.55}
+.menu .zk{display:flex;align-items:center;gap:6px}
+.menu .zk b{font:400 10px var(--label);color:var(--gold-lit);min-width:38px;text-align:center}
+.menu .zb{min-width:26px;height:24px;padding:0 6px;border-radius:5px;border:2px solid var(--outline);cursor:pointer;font:700 13px var(--body);color:#e8e0f5;
+  background:#4A2C6E;box-shadow:inset 0 2px 0 rgba(190,150,240,.35),0 2px 0 var(--outline)}
+.menu .zb.wide{font:400 9px var(--label)}
+.menu .zb:active{transform:translateY(2px);box-shadow:inset 0 2px 0 rgba(190,150,240,.35)}
+.menu .sw{flex:0 0 auto}
+.menu .sw:disabled{cursor:default}

@@ -31,6 +31,8 @@ const KEEP_MS = 24 * 60 * 60 * 1000;
 export interface AdBlock {
   /** Stop blocking, for example when he turns the switch off. */
   stop(): void;
+  /** Start again after a stop (the browser's "Block ads" switch back on). */
+  start(): void;
   /** How many lists were actually loaded. Zero means it is not blocking anything. */
   lists: number;
   /** 6.22: stop blocking ads on one site (on = paused), or start again. Kept by the caller. */
@@ -100,6 +102,7 @@ export async function blockAds(session: Session, stateDir: string, opts: { cosme
     return {
       lists: got,
       stop: () => { try { blocker.disableBlockingInSession(session); } catch { /* already off */ } },
+      start: () => { try { blocker.enableBlockingInSession(session); } catch { /* already on */ } },
       // An exception rule for the whole page on that site, the way uBlock's per-site switch works.
       pause: (host: string, on: boolean) => {
         const h = String(host).toLowerCase().replace(/^www\./, '');
