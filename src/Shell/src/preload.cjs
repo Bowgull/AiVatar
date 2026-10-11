@@ -126,6 +126,11 @@ contextBridge.exposeInMainWorld('aang', {
   onBrowserTabs(fn) { const h = (_e, s) => fn(s); ipcRenderer.on('browser:tabs', h); return () => ipcRenderer.removeListener('browser:tabs', h); },
   browserAskReply: a => ipcRenderer.send('browser:askreply', a),
   browserAdPause: on => ipcRenderer.send('browser:adpause', on),
+  /** Find on page: the word, and whether this is Enter (next) or Shift+Enter (back). */
+  browserFind: a => ipcRenderer.send('browser:find', a),
+  browserFindStop: () => ipcRenderer.send('browser:findstop'),
+  onBrowserFindOpen(fn) { const h = () => fn(); ipcRenderer.on('browser:findopen', h); return () => ipcRenderer.removeListener('browser:findopen', h); },
+  onBrowserFound(fn) { const h = (_e, r) => fn(r); ipcRenderer.on('browser:found', h); return () => ipcRenderer.removeListener('browser:found', h); },
   /** A switch in the browser's ⋯ menu: ads, popups, sounds. */
   browserPref: a => ipcRenderer.send('browser:pref', a),
   onBrowserAsk(fn) { const h = (_e, a) => fn(a); ipcRenderer.on('browser:ask', h); return () => ipcRenderer.removeListener('browser:ask', h); },
