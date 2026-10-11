@@ -303,7 +303,7 @@ function tabMenu(t, x, y) {
   if (t.trail != null) item('Take out of the trail', () => window.aang?.browserTrail?.({ act: 'move', tab: t.id, to: null }), { sub: true });
   sep();
   item('Open in Chrome', () => {}, { soon: true });
-  item('Pop out over WoW', () => window.aang?.browserPopout?.(t.id));
+  item('Popout', () => window.aang?.browserPopout?.(t.id));
   sep();
   item('Close', () => { tap(0.7); window.aang?.browserTab?.({ id: t.id, act: 'close' }); });
   document.body.append(m);
@@ -337,7 +337,7 @@ function buildRow(t, kid) {
     // The pop-out keycap, only on video tabs: a video site, or anything playing sound right now.
     if (!t.done && (t.audible || VIDEO_SITE.test(hostOf(t.url)))) {
       const p = document.createElement('button'); p.type = 'button'; p.className = 'pip';
-      p.title = 'Pops this page into its own window'; p.setAttribute('aria-label', 'Pop out over WoW');
+      p.title = 'Pops this page into its own window'; p.setAttribute('aria-label', 'Popout');
       p.addEventListener('click', (e) => { e.stopPropagation(); window.aang?.browserPopout?.(t.id); });
       row.append(p);
     }
