@@ -325,6 +325,8 @@ export class AangBrowser {
     wc.on('did-stop-loading', () => { tab.loading = false; this.sendTabs(); });
     wc.on('did-navigate', (_e, u) => { tab.url = u; tab.scrollY = 0; this.changed(); });
     wc.on('did-navigate-in-page', (_e, u) => { tab.url = u; this.changed(); });
+    // Find on page: how many matches, and which one is lit. Only the tab he is looking at reports.
+    wc.on('found-in-page', (_e, r) => { if (tab.id === this.active) this.win?.webContents.send('browser:found', { at: r.activeMatchOrdinal, of: r.matches }); });
     wc.on('audio-state-changed', (e) => { tab.audible = (e as unknown as { audible: boolean }).audible; this.sendTabs(); });
     // A crashed page goes blank and anything that pokes it hangs (tested 2026-10-04): mark it, never touch it.
     wc.on('render-process-gone', () => { tab.crashed = true; tab.loading = false; this.place(); this.sendTabs(); });
@@ -382,6 +384,7 @@ export class AangBrowser {
     this.active = id;
     t.lastSeen = Date.now();
     this.place();
+    for (const x of this.tabs) if (x.id !== id && x.view) { try { x.view.webContents.stopFindInPage('clearSelection'); } catch { /* gone */ } }
     // With the drawer open the page stays hidden under it; closing the drawer shows whichever tab is current.
     if (!this.drawerOpen) t.view!.setVisible(true);
     for (const x of this.tabs) if (x.id !== id && x.view) x.view.setVisible(false);
@@ -452,6 +455,16 @@ export class AangBrowser {
     }
   }
 
+  /** Find on page (Ctrl+F): a new word searches from the top; Enter goes to the next, Shift+Enter back. */
+  find(text: string, next: boolean, back: boolean): void {
+    const wc = this.cur()?.view?.webContents;
+    if (!wc) return;
+    const q = String(text).slice(0, 200);
+    if (!q) { wc.stopFindInPage('clearSelection'); this.win?.webContents.send('browser:found', { at: 0, of: 0 }); return; }
+    wc.findInPage(q, { forward: !back, findNext: !next });
+  }
+  findStop(): void { this.cur()?.view?.webContents.stopFindInPage('keepSelection'); }
+
   /** The browser's keys, from the page or the frame. True when the key was ours. */
   key(i: Electron.Input): boolean {
     if (i.type !== 'keyDown') return false;
@@ -460,6 +473,7 @@ export class AangBrowser {
     if (c && k === 't') { this.act('newtab'); return true; }
     if (c && k === 'w') { this.act('close'); return true; }
     if (c && k === 'l') { this.win?.webContents.focus(); this.win?.webContents.send('browser:focusslot'); return true; }
+    if (c && k === 'f') { this.win?.webContents.focus(); this.win?.webContents.send('browser:findopen'); return true; }
     if ((c && k === 'r') || k === 'f5') { this.act('reload'); return true; }
     if (i.alt && k === 'arrowleft') { this.act('back'); return true; }
     if (i.alt && k === 'arrowright') { this.act('forward'); return true; }
