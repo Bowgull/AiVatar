@@ -29,6 +29,39 @@
       <!-- Shown only while Aang is the one driving (6.25); you driving is the normal case, so it says nothing. -->
       <span class="who" id="who" hidden>AANG IS DRIVING</span>
     </div>
+    <!-- The browser's settings, top right like any app's (his ask, 2026-10-11). Organised by what they are about. -->
+    <button class="rnd menukey" id="menukey" type="button" aria-label="Browser settings" aria-expanded="false" aria-haspopup="true"><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges" aria-hidden="true"><path d="M0 3h1v1H0zM3 3h1v1H3zM6 3h1v1H6z" fill="#e8e0f5"/></svg></button>
+    <div class="menu" id="menu" role="menu" hidden>
+      <div class="grp">
+        <div class="gh">THIS PAGE</div>
+        <div class="mrow zoom"><span>Zoom</span><span class="zk"><button type="button" class="zb" id="zout" aria-label="Zoom out">&minus;</button><b id="zpct">100%</b><button type="button" class="zb" id="zin" aria-label="Zoom in">+</button><button type="button" class="zb wide" id="zreset">Reset</button></span></div>
+        <button type="button" class="mrow soon" disabled><span>Find on this page</span><i>SOON</i></button>
+        <button type="button" class="mrow soon" disabled><span>Print</span><i>SOON</i></button>
+        <button type="button" class="mrow soon" disabled><span>Open in Chrome</span><i>SOON</i></button>
+      </div>
+      <div class="grp">
+        <div class="gh">TABS</div>
+        <button type="button" class="mrow" id="m-newtab"><span>New tab</span><kbd>CTRL T</kbd></button>
+        <button type="button" class="mrow" id="m-reopen"><span>Reopen closed tab</span><kbd>CTRL SHIFT T</kbd></button>
+      </div>
+      <div class="grp">
+        <div class="gh">YOUR THINGS</div>
+        <button type="button" class="mrow soon" disabled><span>History</span><i>SOON</i></button>
+        <button type="button" class="mrow soon" disabled><span>Downloads</span><i>SOON</i></button>
+        <button type="button" class="mrow soon" disabled><span>Bring bookmarks from Chrome</span><i>SOON</i></button>
+      </div>
+      <div class="grp">
+        <div class="gh">PROTECTION</div>
+        <div class="mrow sw-row"><span>Block ads</span><button class="sw" type="button" role="switch" data-pref="ads" aria-label="Block ads"><i class="bed"><i class="nub"></i></i></button></div>
+        <div class="mrow sw-row"><span>Block popups</span><button class="sw" type="button" role="switch" data-pref="popups" aria-label="Block popups"><i class="bed"><i class="nub"></i></i></button></div>
+        <div class="mrow sw-row soon"><span>Keep history <i>SOON</i></span><button class="sw" type="button" role="switch" aria-label="Keep history" disabled><i class="bed"><i class="nub"></i></i></button></div>
+        <div class="mrow sw-row gate"><span>Let Aang act without asking<small>Stays off. That is the gate.</small></span><button class="sw" type="button" role="switch" aria-checked="false" aria-label="Let Aang act without asking" disabled><i class="bed"><i class="nub"></i></i></button></div>
+      </div>
+      <div class="grp">
+        <div class="gh">SOUND</div>
+        <div class="mrow sw-row"><span>Little wood sounds</span><button class="sw" type="button" role="switch" data-pref="sounds" aria-label="Little wood sounds"><i class="bed"><i class="nub"></i></i></button></div>
+      </div>
+    </div>
     <!-- 6.22: a website's ask hangs from the band, joined to it, so it is plainly the browser's and not the page's. -->
     <div class="bandchip" id="askchip" hidden>
       <div class="q" id="askq"></div>

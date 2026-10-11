@@ -89,20 +89,28 @@ export class AangBrowser {
   private askSeq = 0;
   /** The little wood sounds (new tab, close, download done). Off until he turns them on in Settings. */
   sounds = false;
+  /** The ⋯ menu's switches (sheet 3 section 10), kept between runs. Block ads and Block popups start on. */
+  prefs = { ads: true, popups: true };
   private readonly prefsFile: string;
   constructor(o: BrowserOptions) {
     this.o = o;
     this.file = path.join(o.stateDir, 'browser-tabs.json');
     this.pausedFile = path.join(o.stateDir, 'adblock-paused.json');
     this.prefsFile = path.join(o.stateDir, 'browser-prefs.json');
-    try { if (existsSync(this.prefsFile)) this.sounds = JSON.parse(readFileSync(this.prefsFile, 'utf8'))?.sounds === true; } catch { /* defaults */ }
+    try {
+      if (existsSync(this.prefsFile)) {
+        const p = JSON.parse(readFileSync(this.prefsFile, 'utf8'));
+        this.sounds = p?.sounds === true;
+        this.prefs = { ads: p?.ads !== false, popups: p?.popups !== false };
+      }
+    } catch { /* defaults */ }
     denyPermissions(this.ses);
     this.permissions();
     this.downloads();
     this.phish = new PhishCheck(o.stateDir);
     void this.phish.start();
     try { if (existsSync(this.pausedFile)) this.paused = new Set(JSON.parse(readFileSync(this.pausedFile, 'utf8'))); } catch { /* none paused */ }
-    void blockAds(this.ses, o.stateDir, { cosmetic: true }).then((b) => { this.ads = b; if (b) for (const h of this.paused) b.pause(h, true); });
+    void blockAds(this.ses, o.stateDir, { cosmetic: true }).then((b) => { this.ads = b; if (b) { for (const h of this.paused) b.pause(h, true); if (!this.prefs.ads) b.stop(); } });
   }
 
   /**
@@ -180,7 +188,24 @@ export class AangBrowser {
 
   setSounds(on: boolean): void {
     this.sounds = on;
-    try { writeFileAtomic(this.prefsFile, JSON.stringify({ sounds: on })); } catch { /* best effort */ }
+    this.savePrefs();
+    this.sendTabs();
+  }
+
+  private savePrefs(): void {
+    try { writeFileAtomic(this.prefsFile, JSON.stringify({ sounds: this.sounds, ...this.prefs })); } catch { /* best effort */ }
+  }
+
+  /** A switch in the ⋯ menu. Only the ones that exist; "Let Aang act without asking" is not one of them. */
+  setPref(key: string, on: boolean): void {
+    if (key === 'sounds') { this.setSounds(on); return; }
+    if (key === 'ads') {
+      this.prefs.ads = on;
+      if (on) this.ads?.start(); else this.ads?.stop();
+      this.cur()?.view?.webContents.reload();
+    } else if (key === 'popups') this.prefs.popups = on;
+    else return;
+    this.savePrefs();
     this.sendTabs();
   }
 
@@ -283,7 +308,13 @@ export class AangBrowser {
     wc.on('will-attach-webview', (e) => e.preventDefault());
     // A link that opens a new window becomes a tab under the one it came from. Web pages only.
     // A middle click or Ctrl+click opens it behind, the way every browser does.
-    wc.setWindowOpenHandler(({ url: u, disposition }) => { if (isWeb(u)) this.newTab(u, tab.id, disposition !== 'background-tab'); return { action: 'deny' }; });
+    // "Block popups" (on unless he turns it off): a page opening a new WINDOW by itself is refused; a link he
+    // opens in a new tab still opens as a tab.
+    wc.setWindowOpenHandler(({ url: u, disposition }) => {
+      if (this.prefs.popups && disposition === 'new-window') { console.log('shell: browser: popup refused'); return { action: 'deny' }; }
+      if (isWeb(u)) this.newTab(u, tab.id, disposition !== 'background-tab');
+      return { action: 'deny' };
+    });
     // 6.22: a listed site never loads, whether it is a link, a redirect or anything else.
     wc.on('will-navigate', (e, u) => { if (!isWeb(u)) { e.preventDefault(); return; } const l = this.listed(u); if (l.length) { e.preventDefault(); this.block(tab, u, l); } });
     wc.on('will-redirect', (e, u, _inPage, isMain) => { if (!isMain) return; const l = isWeb(u) ? this.listed(u) : ['NOT A WEB PAGE']; if (l.length) { e.preventDefault(); this.block(tab, u, l); } });
@@ -514,6 +545,9 @@ export class AangBrowser {
       adsPaused: (() => { try { return this.paused.has(new URL(t?.url ?? '').hostname.replace(/^www\./, '')); } catch { return false; } })(),
       adsOn: Boolean(this.ads),
       sounds: this.sounds,
+      prefs: this.prefs,
+      // The page's zoom as he would say it: 100%, 120%... (Chromium's level is 20% per step).
+      zoomPct: wc ? Math.round(Math.pow(1.2, wc.getZoomLevel()) * 100) : 100,
     });
     if (t) w.setTitle(`${t.title} - Aang Browser`);
   }

@@ -31,12 +31,17 @@ el('newtab').addEventListener('click', () => { tap(); window.aang?.browserAct?.(
 // itself; the picture arrives first, then the drawer slides, so nothing ever slides under the real page.
 const frozen = el('frozen');
 let drawerOpen = false, drawerWait = 0;
+// The drawer and the ⋯ menu both lie over the page, so the page is pictured while EITHER is open.
+const over = new Set();
+function freeze(who) { const was = over.size; over.add(who); if (!was) window.aang?.browserAct?.('drawer-open'); }
+function unfreeze(who, after = 0) { over.delete(who); setTimeout(() => { if (!over.size) window.aang?.browserAct?.('drawer-close'); }, after); }
 function openDrawer() {
   if (drawerOpen) return;
+  closeMenu();
   drawerOpen = true;
   el('drawerkey').setAttribute('aria-expanded', 'true');
   el('rail').setAttribute('aria-hidden', 'false');
-  window.aang?.browserAct?.('drawer-open');
+  freeze('drawer');
   // If the picture is slow (a heavy page), slide anyway after a moment: the drawer is what he asked for.
   drawerWait = setTimeout(() => document.body.classList.add('drawer-open'), 400);
 }
@@ -48,16 +53,57 @@ function closeDrawer() {
   el('rail').setAttribute('aria-hidden', 'true');
   document.body.classList.remove('drawer-open');
   // The live page comes back once the drawer has slid away (its 150 ms), never under it.
-  setTimeout(() => { if (!drawerOpen) window.aang?.browserAct?.('drawer-close'); }, 150);
+  unfreeze('drawer', 150);
 }
+
+// ---- the ⋯ menu: the browser's settings, grouped. Its switches are real: ads, popups, sounds.
+const menu = el('menu'), menukey = el('menukey');
+let menuOpen = false;
+function openMenu() {
+  if (menuOpen) return;
+  closeDrawer();
+  menuOpen = true;
+  menukey.setAttribute('aria-expanded', 'true');
+  paintMenu();
+  menu.hidden = false;
+  freeze('menu');
+}
+function closeMenu() {
+  if (!menuOpen) return;
+  menuOpen = false;
+  menukey.setAttribute('aria-expanded', 'false');
+  menu.hidden = true;
+  unfreeze('menu');
+}
+function paintMenu() {
+  el('zpct').textContent = (state.zoomPct ?? 100) + '%';
+  const prefs = { ...(state.prefs ?? { ads: true, popups: true }), sounds: state.sounds === true };
+  for (const sw of menu.querySelectorAll('.sw[data-pref]')) {
+    const on = prefs[sw.dataset.pref] === true;
+    sw.classList.toggle('on', on);
+    sw.setAttribute('aria-checked', String(on));
+  }
+}
+menukey.addEventListener('click', (e) => { e.stopPropagation(); menuOpen ? closeMenu() : openMenu(); });
+menu.addEventListener('click', (e) => e.stopPropagation());
+for (const sw of menu.querySelectorAll('.sw[data-pref]')) {
+  sw.addEventListener('click', () => window.aang?.browserPref?.({ key: sw.dataset.pref, on: !sw.classList.contains('on') }));
+}
+el('zin').addEventListener('click', () => window.aang?.browserAct?.('zoomin'));
+el('zout').addEventListener('click', () => window.aang?.browserAct?.('zoomout'));
+el('zreset').addEventListener('click', () => window.aang?.browserAct?.('zoomreset'));
+el('m-newtab').addEventListener('click', () => { closeMenu(); tap(); window.aang?.browserAct?.('newtab'); });
+el('m-reopen').addEventListener('click', () => { closeMenu(); window.aang?.browserAct?.('reopen'); });
+document.addEventListener('click', () => closeMenu());
 window.aang?.onBrowserFrozen?.((src) => {
   if (typeof src === 'string' && src.startsWith('data:image/')) { frozen.src = src; frozen.hidden = false; }
   else if (src === null) { frozen.hidden = true; frozen.removeAttribute('src'); }
   if (drawerOpen) { clearTimeout(drawerWait); document.body.classList.add('drawer-open'); }
+  if (over.size === 0) { frozen.hidden = true; }
 });
 el('drawerkey').addEventListener('click', () => (drawerOpen ? closeDrawer() : openDrawer()));
 // A click on the page (its picture) puts the drawer away, as clicking outside any drawer does.
-page.addEventListener('pointerdown', () => closeDrawer());
+page.addEventListener('pointerdown', () => { closeDrawer(); closeMenu(); });
 el('newtab').addEventListener('click', () => closeDrawer());
 
 // ---- the little wood sounds: off until he turns them on in Settings. Made here, no sound files.
@@ -99,6 +145,7 @@ window.aang?.onBrowserFocusSlot?.(() => editSlot());
 window.addEventListener('keydown', (e) => {
   const c = e.ctrlKey || e.metaKey, k = e.key.toLowerCase();
   const send = (a) => { e.preventDefault(); window.aang?.browserAct?.(a); };
+  if (k === 'escape' && menuOpen) { e.preventDefault(); closeMenu(); return; }
   if (k === 'escape' && drawerOpen) { e.preventDefault(); closeDrawer(); return; }
   if (c && e.shiftKey && k === 't') send('reopen');
   else if (c && k === 't') { tap(); send('newtab'); }
@@ -266,6 +313,7 @@ window.aang?.onBrowserTabs?.((s) => {
   if (!s || !Array.isArray(s.tabs)) return;
   state = s;
   paintMarks(s.marks);
+  if (menuOpen) paintMenu();
   const t = s.tabs.find((x) => x.id === s.active);
   paintTabs();
   if (edit.hidden) paintUrl(t?.url ?? '');
