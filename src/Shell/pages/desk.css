@@ -202,6 +202,21 @@ html,body{margin:0;height:100%;background:var(--wood2);overflow:hidden}
 .m-addon{background:linear-gradient(180deg,#ffd2b0,var(--orange))}
 .empty-src{font:italic 500 13px var(--body);color:#7a6a52;padding:6px 10px}
 
+/* ---- the charts (6.18), sheet 7 section 2 lifted ---- */
+.chart{position:relative;margin:6px 0 4px;max-width:560px}
+.chart svg{display:block;width:100%;height:auto;overflow:visible}
+.chart .axis{font:400 9px var(--label);fill:#8a6a2a;letter-spacing:.5px}
+.chart .lab{font:600 13px var(--body);fill:#271c10}
+.chart .val{font:700 13px var(--body);fill:#271c10}
+.chart .base{stroke:#5a4834;stroke-width:2}
+.chart .m{stroke:var(--outline);stroke-width:2.5}
+.chart .m:hover{filter:brightness(1.12)}
+.legend{display:flex;gap:14px;margin:0 0 4px}
+.legend span{display:inline-flex;align-items:center;gap:6px;font:600 12.5px var(--body);color:#4e3d28}
+.legend i{width:12px;height:12px;border-radius:3px;border:2px solid var(--outline)}
+.stat{font:500 13.5px var(--body);color:#4e3d28;margin:0 0 6px}
+.stat b{font:800 20px var(--body);color:#271c10}
+
 /* sheet 2, part 4: the forged divider at a 30-minute gap */
 .daydiv{display:flex;align-items:center;margin:22px 0 18px}
 .daydiv .bar{flex:1;height:6px;background:linear-gradient(180deg,var(--gold-deep) 0 3px,var(--gold-lit) 3px 6px);

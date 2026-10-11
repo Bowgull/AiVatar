@@ -259,7 +259,12 @@ export type ToBody =
       /** 4.5: jobs still waiting on him, newest first, for the card stack. Only status 'new': anything he
        *  has already decided on is not a decision he still owes. */
       jobs?: { id: string; title: string; company: string; location: string; salary: string;
-               score: number; verdict: 'apply' | 'maybe' | 'skip'; reason: string; url: string; at: string }[] }
+               score: number; verdict: 'apply' | 'maybe' | 'skip'; reason: string; url: string; at: string }[];
+      /** 6.18 charts: every job card by stage, and replies per week by who answered (Claude or Qwen). */
+      jobStages?: Record<string, number>;
+      usage?: { week: string; claude: number; qwen: number }[];
+      /** His Claude week right now, 0..1, for the box above the use chart (one scale per chart, never two). */
+      quotaWeek?: number }
   /** The Panel's History tab: past turns, newest first, matching `q` (all of its words). */
   | { t: 'history.reply'; q: string; items: { id: number; ts: string; who: 'you' | 'Aang'; text: string }[];
       /** Echoed back so the Body knows this is an older page and not a fresh search. */
