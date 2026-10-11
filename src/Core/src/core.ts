@@ -2698,7 +2698,9 @@ export class Core {
       const means = meansOf(tool, input);
       const hold = needsHold(tool);
       const exact = exactOf(tool, input);
-      for (const c of askAt) this.send(c, { t: 'permission', id, tool, question, remembers: kind?.says, ...(means ? { means } : {}), ...(exact ? { exact } : {}), ...(hold ? { hold: true } : {}) });
+      const s = (k: string) => typeof input?.[k] === 'string' ? String(input[k]) : '';
+      const draft = tool === 'mcp__aang__mail_send' ? { to: s('to').slice(0, 300), subject: s('subject').slice(0, 300), body: s('body').slice(0, 20_000), fresh: s('fresh').slice(0, 300) } : null;
+      for (const c of askAt) this.send(c, { t: 'permission', id, tool, question, remembers: kind?.says, ...(means ? { means } : {}), ...(exact ? { exact } : {}), ...(draft ? { draft } : {}), ...(hold ? { hold: true } : {}) });
     });
   }
 

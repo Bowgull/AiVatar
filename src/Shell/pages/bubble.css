@@ -136,6 +136,16 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
    running past the frame, which is what LayoutChoices guards against in the
    C# ("Start Claude on the job hunt" is a long verb). */
 .asks{margin:10px 0 0;gap:9px;flex-wrap:wrap}
+/* ---- an email waiting to be sent (6.14, sheet 13 / sheet 6's mail card) ---- */
+.mailcard{margin:8px 0 0}
+.mailcard[hidden]{display:none}
+.mailcard .hdr{display:grid;grid-template-columns:52px 1fr;gap:4px 10px;align-items:center;margin-bottom:8px}
+.mailcard .hdr span{font:400 9.5px var(--label);letter-spacing:1px;color:#8a6a2a}
+.mailcard .hdr div{font:600 14px var(--body);color:#271c10;overflow-wrap:anywhere}
+.mailcard .newto{font:700 10px var(--body);padding:2px 6px;border-radius:4px;border:2px solid var(--outline);vertical-align:1px}
+.mailcard .letter{background:rgba(255,255,255,.45);border:3px solid rgba(90,60,25,.35);border-radius:8px;padding:10px 12px;
+  font:500 14px/1.6 var(--body);color:#271c10;white-space:pre-wrap;overflow-wrap:anywhere;max-height:260px;overflow-y:auto;
+  scrollbar-width:thin;scrollbar-color:var(--plum-edge) transparent;-webkit-user-select:text;user-select:text}
 /* ---- 6.11 on the desktop: the reply's own formatting, sheet 1's dividers ---- */
 .said .r-p{margin:0 0 8px}
 .said .r-p:last-child{margin-bottom:0}
