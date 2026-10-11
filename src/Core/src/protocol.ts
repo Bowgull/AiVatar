@@ -97,6 +97,8 @@ export type ToBody =
   | { t: 'desk.open'; tab?: number }
   /** 6.17: Snipit from the pet's menu, passed to the Shell, which does the snipping. */
   | { t: 'snip' }
+  /** 6.17 Highlight from the pet's menu: read what he has selected in the app in front. */
+  | { t: 'highlight' }
   /** Window 2's Settings (6.15 pass 2): the pet owns the switches; the Shell asks, sets and is told. */
   | { t: 'settings.get' }
   | { t: 'settings.set'; key: 'quietGame' | 'mute' | 'seeWindow' | 'usage' | 'autostart'; on: boolean }
@@ -221,6 +223,8 @@ export type ToBody =
   /** What he may do without asking, for review and revoke. */
   | { t: 'trust.reply'; items: { kind: string; example: string; since: string }[] }
   | { t: 'hush.reply'; text: string }
+  /** 6.17: what Highlight read, for the typing box. Outside content: read, never obeyed. */
+  | { t: 'highlight.got'; text: string; app: string }
   /** 6.13: the plan before he acts. `gate` per step: none, ask (asks him first) or lever (hold to confirm). */
   | { t: 'plan'; id: string; steps: { text: string; tool?: string; gate: 'none' | 'ask' | 'lever' }[] }
   /** The morning brief as a card (6.15): the brief's data plus what only the Core knows - logos, which
@@ -286,6 +290,8 @@ export type FromBody =
   | { t: 'desk.open'; tab?: number }
   /** 6.17: Snipit from the pet's menu, passed to the Shell, which does the snipping. */
   | { t: 'snip' }
+  /** 6.17 Highlight from the pet's menu: read what he has selected in the app in front. */
+  | { t: 'highlight' }
   /** Window 2's Settings (6.15 pass 2): the pet owns the switches; the Shell asks, sets and is told. */
   | { t: 'settings.get' }
   | { t: 'settings.set'; key: 'quietGame' | 'mute' | 'seeWindow' | 'usage' | 'autostart'; on: boolean }

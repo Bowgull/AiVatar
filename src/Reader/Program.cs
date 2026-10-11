@@ -27,6 +27,7 @@ static class Program
     static int Main(string[] args)
     {
         if (Array.IndexOf(args, "--act") >= 0) return Act.Run(args);     // acting in an app: see Act.cs
+        if (Array.IndexOf(args, "--selection") >= 0) return Selection();  // 6.17 Highlight: what he has selected
         Clock.Restart();
         long hwnd = Arg(args, "--hwnd", 0);
         int max = (int)Arg(args, "--max", 3000);
@@ -45,6 +46,42 @@ static class Program
             if (partialText.Length > 0) Emit(true, partialKind, partialApp, partialText, partialNodes, "partial: that window stopped answering part way");
             else Emit(false, "empty", ClassName(new IntPtr(hwnd)), "", 0, "that window took too long to answer");
         }
+        return 0;
+    }
+
+    /// <summary>
+    /// 6.17 Highlight: the text he has selected in the app in front, through UI Automation's TextPattern.
+    /// The pet's menu does not take focus (WS_EX_NOACTIVATE), so the app keeps its selection while he picks
+    /// Highlight. Tries the focused element, then up to three parents (an editor's caret often sits in a
+    /// child of the element that owns the text). Read only: nothing is copied, typed or changed.
+    /// </summary>
+    static int Selection()
+    {
+        Clock.Restart();
+        var worker = new Thread(() =>
+        {
+            try
+            {
+                var el = AutomationElement.FocusedElement;
+                string app = "";
+                try { app = ClassName(new IntPtr(el.Current.NativeWindowHandle)); } catch { /* no handle */ }
+                for (int up = 0; el != null && up < 4; up++)
+                {
+                    if (el.TryGetCurrentPattern(TextPattern.Pattern, out var p))
+                    {
+                        var sel = ((TextPattern)p).GetSelection();
+                        var text = string.Join(Environment.NewLine, sel.Select(r => r.GetText(20_000))).Trim();
+                        if (text.Length > 0) { Emit(true, "selection", app, Cap(text, 20_000), 0, null); return; }
+                    }
+                    el = TreeWalker.ControlViewWalker.GetParent(el);
+                }
+                Emit(false, "empty", app, "", 0, "nothing selected that this app will tell me about");
+            }
+            catch (Exception e) { Emit(false, "empty", "", "", 0, "could not read the selection: " + e.Message); }
+        }) { IsBackground = true };
+        worker.SetApartmentState(ApartmentState.MTA);
+        worker.Start();
+        if (!worker.Join(2000) && !emitted) Emit(false, "empty", "", "", 0, "that app took too long to answer");
         return 0;
     }
 

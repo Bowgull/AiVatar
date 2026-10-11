@@ -2677,6 +2677,11 @@ sealed class PetWindow : Form
             // first (as for the typing box), so the Shell's overlay can take the keyboard.
             snipItem.Click += (_, _) => { Win32.AllowSetForegroundWindow(Win32.ASFW_ANY); _ = link.SendAsync(new { t = "snip" }); };
             aangMenu.DropDownItems.Insert(0, snipItem);
+            // Highlight: no key (his decision). The pet never takes focus, so the app in front keeps its
+            // selection while he picks this; the brain reads it through the window reader.
+            var highlightItem = new ToolStripMenuItem("Highlight") { Tag = "avatar" };
+            highlightItem.Click += (_, _) => _ = link.SendAsync(new { t = "highlight" });
+            aangMenu.DropDownItems.Insert(1, highlightItem);
         }
         var settingsMenu = GoldMenu.Header("Settings");
         settingsMenu.DropDownItems.AddRange(new ToolStripItem[] { hushMenu, modelMenu, savingItem, quietItem, seeWindowItem, muteItem, autostartItem, coreItem, shellItem });
