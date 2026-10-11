@@ -73,7 +73,8 @@ function paintTabs() {
   const open = new Set(state.tabs.map((t) => t.id));
   for (const t of state.tabs) {
     const row = document.createElement('div');
-    row.className = 'tp' + (t.id === state.active ? ' on' : '') + (t.crashed ? ' crash' : '') + (t.opener && open.has(t.opener) ? ' kid' : '');
+    const asleep = t.asleep && t.id !== state.active;
+    row.className = 'tp' + (t.id === state.active ? ' on' : '') + (t.crashed ? ' crash' : '') + (asleep ? ' sleep' : '') + (t.opener && open.has(t.opener) ? ' kid' : '');
     row.title = t.url;
     row.tabIndex = 0;
     if (t.loading && !t.crashed) row.append(Object.assign(document.createElement('i'), { className: 'arc' }));
@@ -81,6 +82,8 @@ function paintTabs() {
     const title = document.createElement('span'); title.className = 't'; title.textContent = t.title || t.url;
     row.append(title);
     if (t.crashed) { const c = document.createElement('span'); c.className = 'cr'; c.textContent = 'CRASHED'; row.append(c); }
+    // Sheet 3: asleep is sunk flush into the wood, colour drained. Click and it wakes where it was.
+    if (asleep) { const z = document.createElement('span'); z.className = 'zz'; z.textContent = 'ASLEEP'; row.append(z); }
     if (t.audible || t.muted) {
       // Sheet 3: a real button. Press it to mute; pressed in, with a red slash, when muted.
       const s = document.createElement('button'); s.type = 'button'; s.className = 'spk' + (t.muted ? ' muted' : '');
