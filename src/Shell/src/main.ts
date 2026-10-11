@@ -606,15 +606,16 @@ app.whenReady().then(async () => {
     return { turn, preview: String(o.preview ?? '').slice(0, 80) };
   };
 
+  // The same two actions from window 2's History tab (6.15): a past turn goes on the typing box as a chip.
   ipcMain.on('bubble:replyto', (e, a) => {
-    if (!fromBubble(e)) return;
+    if (!fromBubble(e) && !fromDesk(e)) return;
     const c = chipOf(a); if (!c) return;
     replyTo = c;
     if (!input?.visible) openTypeBox();
     sendChips();
   });
   ipcMain.on('bubble:pin', (e, a) => {
-    if (!fromBubble(e)) return;
+    if (!fromBubble(e) && !fromDesk(e)) return;
     const c = chipOf(a); if (!c) return;
     // Pinning the same turn twice is a no-op rather than a duplicate chip.
     if (!pinned.some((p) => p.turn === c.turn)) pinned.push(c);
@@ -718,6 +719,7 @@ app.whenReady().then(async () => {
   ipcMain.on('desk:forgetturn', (e, id) => {
     if (fromDesk(e) && Number.isFinite(Number(id))) link?.send({ t: 'forget.turn', id: Number(id) });
   });
+  ipcMain.on('desk:undo', (e) => { if (fromDesk(e)) link?.send({ t: 'undo.last' }); });
   ipcMain.on('desk:copy', (e, text) => {
     if (fromDesk(e) && typeof text === 'string' && text) clipboard.writeText(text.slice(0, 200_000));
   });

@@ -320,6 +320,8 @@ export type FromBody =
    * `undo` puts the last one back to undecided, which is what makes triaging by keyboard safe to do fast.
    */
   | { t: 'job.act'; id: string; action: 'open' | 'apply' | 'skip' | 'undo' }
+  /** Window 2's "Undo the last one" (6.15): the same undo stack the undo_last tool uses. His press is the yes. */
+  | { t: 'undo.last' }
   /**
    * 4.5: he pressed a file or link chip in the Panel's history.
    *
