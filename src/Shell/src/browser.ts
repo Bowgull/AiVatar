@@ -53,9 +53,10 @@ const isWeb = (u: string) => /^https?:\/\//i.test(u);
 const HOME = 'https://www.google.com';
 /** A tab not looked at for this long, and not playing sound, goes to sleep. */
 const SLEEP_AFTER_MS = 30 * 60_000;
-// The band's height (Windows draws its buttons over it), the theatre strip's, and the page area's colour.
+// The band's height (Windows draws its own buttons over it, see-through on the wood) and the page area's colour.
 const BAND_HEIGHT = 58;
-const THEATRE_STRIP = 30;
+/** The page's corners, rounded natively so it sits in the carved recess (the research: Flow browser does this). */
+const PAGE_RADIUS = 6;
 const PAGE_COLOUR = '#f6f3ee';
 
 /** Every call into a page, with a deadline: a crashed page never answers, and must never hang Aang. */
@@ -69,7 +70,9 @@ export class AangBrowser {
   private active: number | null = null;
   private seq = 0;
   private closed: string[] = [];
-  private inset = { left: 268, top: 66 };
+  private inset = { left: 30, top: 66, right: 8, bottom: 8 };
+  /** The tab drawer is open: the page is shown as a still picture under it, so the drawer can lie over it. */
+  private drawerOpen = false;
   private timers: NodeJS.Timeout[] = [];
   private saveSoon: NodeJS.Timeout | null = null;
   private readonly o: BrowserOptions;
@@ -181,11 +184,25 @@ export class AangBrowser {
     this.sendTabs();
   }
 
-  /** Theatre: the frame folds down to a thin strip, so Windows' own buttons shrink to fit it. */
-  theatre(on: boolean): void {
+  /**
+   * The tab drawer (2026-10-11, his pick: it slides OVER the page, opened by clicking the wood tab). A page is a
+   * native view drawn above the frame, so no HTML can cover it. While the drawer is open the page is shown as a
+   * still picture of itself in the frame and the live view is hidden; closing puts the live page straight back.
+   */
+  async drawer(open: boolean): Promise<void> {
     const w = this.win;
+    const t = this.cur();
     if (!w || w.isDestroyed()) return;
-    try { w.setTitleBarOverlay({ color: '#3a2414', symbolColor: '#FFE096', height: on ? THEATRE_STRIP : BAND_HEIGHT }); } catch { /* not on this OS */ }
+    this.drawerOpen = open;
+    if (!open) { this.place(); if (t?.view) t.view.setVisible(true); w.webContents.send('browser:frozen', null); return; }
+    let shot: string | null = null;
+    if (t?.view && !t.crashed && !t.blocked) {
+      try { const img = await within(t.view.webContents.capturePage(), 600, null); if (img && !img.isEmpty()) shot = 'data:image/jpeg;base64,' + img.toJPEG(82).toString('base64'); }
+      catch { /* no picture: the page area shows its own colour */ }
+    }
+    if (!this.drawerOpen) return;               // closed again while the picture was taken
+    w.webContents.send('browser:frozen', shot);
+    if (t?.view) t.view.setVisible(false);
   }
 
   isFrame(sender: Electron.WebContents): boolean { return Boolean(this.win && !this.win.isDestroyed() && sender === this.win.webContents); }
@@ -203,7 +220,9 @@ export class AangBrowser {
       width: Math.min(1440, wa.width - 80), height: Math.min(900, wa.height - 60), minWidth: 720, minHeight: 480,
       show: false, backgroundColor: '#24160D', title: 'Aang Browser',
       // The carved band IS the title bar; Windows draws its own buttons over the band's right end.
-      titleBarStyle: 'hidden', titleBarOverlay: { color: '#3a2414', symbolColor: '#FFE096', height: BAND_HEIGHT },
+      // See-through (the research: Flow browser), so Windows' own minimise, maximise and close sit ON the wood
+      // with their real hover and snap layouts, instead of on a flat block that looked stuck on.
+      titleBarStyle: 'hidden', titleBarOverlay: { color: 'rgba(0,0,0,0)', symbolColor: '#FFE096', height: BAND_HEIGHT },
       webPreferences: { ...SAFE_WEB_PREFERENCES, preload: this.o.preloadPath },
     });
     lockDown(w.webContents);
@@ -228,9 +247,10 @@ export class AangBrowser {
   }
 
   /** 6.19: the frame says how big its rail and band are; everything else follows from the window. */
-  setInsets(left: number, top: number): void {
-    if (!Number.isFinite(left) || !Number.isFinite(top)) return;
-    this.inset = { left: Math.max(0, Math.round(left)), top: Math.max(0, Math.round(top)) };
+  setInsets(left: number, top: number, right = 0, bottom = 0): void {
+    if (![left, top, right, bottom].every(Number.isFinite)) return;
+    const c = (n: number) => Math.max(0, Math.round(n));
+    this.inset = { left: c(left), top: c(top), right: c(right), bottom: c(bottom) };
     this.place();
   }
 
@@ -243,7 +263,7 @@ export class AangBrowser {
     if (!t?.view) return;
     // A crashed page is moved out of the way so the frame's own plate shows; it is never touched.
     if (t.crashed || t.blocked) { t.view.setBounds({ x: 0, y: 0, width: 0, height: 0 }); return; }
-    t.view.setBounds({ x: this.inset.left, y: this.inset.top, width: Math.max(0, cw - this.inset.left), height: Math.max(0, ch - this.inset.top) });
+    t.view.setBounds({ x: this.inset.left, y: this.inset.top, width: Math.max(0, cw - this.inset.left - this.inset.right), height: Math.max(0, ch - this.inset.top - this.inset.bottom) });
   }
 
   /** Give a tab a live page, at its address, then put it back where it was scrolled. */
@@ -256,6 +276,7 @@ export class AangBrowser {
     // A new view paints white until its page draws; that white is the flash between pages. Paint it the
     // page area's own colour instead, and keep it in the window, hidden, so switching to it is instant.
     view.setBackgroundColor(PAGE_COLOUR);
+    try { view.setBorderRadius(PAGE_RADIUS); } catch { /* an older runtime: square corners */ }
     view.setVisible(false);
     this.win?.contentView.addChildView(view);
     tab.view = view; tab.crashed = false; tab.loading = true;
@@ -330,7 +351,8 @@ export class AangBrowser {
     this.active = id;
     t.lastSeen = Date.now();
     this.place();
-    t.view!.setVisible(true);
+    // With the drawer open the page stays hidden under it; closing the drawer shows whichever tab is current.
+    if (!this.drawerOpen) t.view!.setVisible(true);
     for (const x of this.tabs) if (x.id !== id && x.view) x.view.setVisible(false);
     if (!t.crashed) t.view!.webContents.focus();
     this.changed();
@@ -391,8 +413,8 @@ export class AangBrowser {
       case 'newtab': this.newTab(HOME); this.win?.webContents.send('browser:focusslot'); break;
       case 'close': if (t) this.close(t.id); break;
       case 'reopen': this.reopen(); break;
-      case 'theatre-on': this.theatre(true); break;
-      case 'theatre-off': this.theatre(false); break;
+      case 'drawer-open': void this.drawer(true); break;
+      case 'drawer-close': void this.drawer(false); break;
       // The red plate: the safe way out, or (the held lever) in anyway, for this site, this run.
       case 'phishback': if (t) { t.blocked = null; if (wc?.navigationHistory.canGoBack()) { this.place(); wc.navigationHistory.goBack(); } else this.close(t.id); } break;
       case 'phishopen': if (t?.blocked) { try { this.letThrough.add(new URL(t.blocked.url).hostname); } catch { /* bad url */ } const u = t.blocked.url; t.blocked = null; this.place(); void wc?.loadURL(u); } break;

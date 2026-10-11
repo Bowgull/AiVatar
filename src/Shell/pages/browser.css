@@ -92,20 +92,12 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--wood2);font:500 
   color:var(--ink-text);background:linear-gradient(180deg,#F0DCB4,var(--parch2));border:3px solid var(--outline);box-shadow:0 4px 0 rgba(0,0,0,.45)}
 .toast[hidden]{display:none}
 
-/* ---- polish (2026-10-11): presses on the way down, hover on everything, theatre ---- */
+/* ---- polish (2026-10-11): presses on the way down, hover on everything ---- */
 .rnd:hover:not(.dim){filter:brightness(1.15)}
-.rnd .scr{width:15px;height:11px;border:2.5px solid #e8e0f5;border-radius:2px;box-sizing:border-box;display:block}
-.rnd.on{top:3px;box-shadow:0 0 0 var(--outline),inset 0 3px 0 rgba(0,0,0,.45);background:linear-gradient(180deg,var(--plum-deep),var(--plum))}
 .tp{transition:filter .12s ease-out}
 .tp:hover:not(.on){filter:brightness(1.12)}
 .tp:active:not(.on){top:2px;box-shadow:0 1px 0 var(--outline),inset 0 2px 0 rgba(150,110,200,.4)}
 .slot .who[hidden]{display:none}
-.strip{flex:0 0 auto;height:30px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;
-  background:linear-gradient(180deg,#5e3c21,var(--wood1));border-bottom:3px solid var(--outline);-webkit-app-region:drag}
-.strip[hidden]{display:none}
-.strip .key{-webkit-app-region:no-drag;height:22px;padding:0 10px;font-size:12px;box-shadow:0 2px 0 var(--outline)}
-body.theatre .band,body.theatre .loading,body.theatre .rail{display:none}
-body.theatre .body3{grid-template-columns:1fr}
 
 /* ---- added: a real window ---- */
 .bw{height:100vh;box-sizing:border-box;display:flex;flex-direction:column;border-radius:0;box-shadow:none;border:none}
@@ -123,3 +115,56 @@ body.theatre .body3{grid-template-columns:1fr}
 .loading.busy i{width:62%;animation:load 1.4s ease-in-out infinite}
 @keyframes load{0%{transform:translateX(-100%)}100%{transform:translateX(170%)}}
 @media (prefers-reduced-motion:reduce){.arc,.loading.busy i{animation:none}}
+
+/* ==== the 2026-10-11 look (his picks; research_notes/Browser UI UX polish/findings.md, DECIDED SET) ====
+   Real pixel art at one size: every art pixel is 2 screen pixels, light from the top-left. */
+.bw{background:url(art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated}
+/* The band: the hand-drawn plank, no gold caps (they meant nothing). Windows' own buttons sit on it, see-through. */
+.band{background:url(art/browser/band.png) repeat-x 0 0/128px 58px;border-bottom:4px solid var(--outline);box-shadow:none;padding-left:12px}
+.band .cap{display:none}
+.rnd svg{display:block}
+/* The quiet plaque: a small shield on a normal site, red words only when something is wrong. */
+.slot .lock{display:grid;place-items:center;min-width:26px;height:22px;box-sizing:border-box;padding:0 6px;background:var(--wood-plaque);color:#bfae8a;
+  box-shadow:inset 0 2px 0 rgba(0,0,0,.6)}
+.slot .lock svg{display:block}
+.slot .lock.bad{background:var(--red);color:#2e0b06;box-shadow:none}
+.slot .lock[hidden]{display:none}
+/* The page, set INTO the wood: a carved recess around it, the page view's own corners rounded to match. */
+.body3{display:block;position:relative}
+.well{position:absolute;inset:0;display:flex;padding:6px 8px 8px 0}
+.recess{flex:1;min-width:0;display:flex;border-style:solid;border-width:8px;border-image:url(art/browser/recess.png) 4 repeat;image-rendering:pixelated}
+.pg3{flex:1;min-width:0;border-radius:6px;background:#f6f3ee;overflow:hidden;position:relative}
+.pg3 .frozen{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:0 0;image-rendering:auto}
+.pg3 .frozen[hidden]{display:none}
+/* The wood tab on the left edge (V4-A): brass straps, the arrow dead centre, the tab count under it. */
+.hnd{width:30px;flex:0 0 auto;display:flex;align-items:flex-start;padding-top:60px;box-sizing:border-box}
+.hnd button{width:22px;height:96px;padding:0;border:none;cursor:pointer;position:relative;-webkit-app-region:no-drag;
+  background:url(art/browser/handle.png) no-repeat 0 0/22px 96px;image-rendering:pixelated;transition:filter .12s ease-out}
+.hnd button:hover{filter:brightness(1.18)}
+.hnd button:active{transform:translateX(1px)}
+.hnd .n{position:absolute;left:0;right:2px;bottom:24px;text-align:center;font:400 10px var(--label);color:var(--gold-lit)}
+body.drawer-open .hnd button{filter:brightness(1.25)}
+/* The drawer: the tray's own wood (the band's grain one shade darker, planks running down), brass-nailed
+   frame, one faint lamp in its top corner. It lies OVER the page; the page shows as a still picture under it. */
+.drawer{position:absolute;left:0;top:0;bottom:0;width:300px;box-sizing:border-box;padding:14px 14px 14px 12px;z-index:30;
+  overflow-y:auto;scrollbar-width:thin;scrollbar-color:#6a4a2a transparent;
+  background:radial-gradient(90% 40% at 12% 0%,rgba(255,200,120,.10),transparent 70%),url(art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated;
+  border-style:solid;border-width:8px;border-left-width:0;border-image:url(art/browser/trayframe.png) 4 repeat;
+  box-shadow:12px 0 28px rgba(0,0,0,.55);
+  transform:translateX(-104%);visibility:hidden;transition:transform .15s cubic-bezier(.3,0,.8,.15),visibility 0s linear .15s}
+body.drawer-open .drawer{transform:none;visibility:visible;transition:transform .26s cubic-bezier(.32,.72,0,1),visibility 0s}
+@media (prefers-reduced-motion:reduce){.drawer,body.drawer-open .drawer{transition:none}}
+/* Bookmarks: their own sunk shelf on plum velvet (V8), logo and name on carved plaques, no count. */
+.shelf-bk{border-style:solid;border-width:8px;border-image:url(art/browser/velvetframe.png) 4 repeat;padding:6px 6px 8px;margin:0 -2px 16px;
+  background:url(art/browser/velvet.png) 0 0/96px 96px;image-rendering:pixelated}
+.shelf-bk .lab{font:400 9px var(--label);letter-spacing:1px;color:#d9c3ef;margin:0 2px 6px}
+.shelf-bk .row{display:flex;flex-wrap:wrap;gap:5px}
+.shelf-bk .empty{font:500 12px/1.4 var(--body);color:#cdbbe0;margin:0 2px}
+.mark{display:flex;align-items:center;gap:6px;font:600 11px var(--body);color:#E6DCC8;padding:4px 7px;border-radius:5px;cursor:pointer;
+  background:var(--wood-plaque);border:2px solid var(--outline);box-shadow:inset 0 2px 0 rgba(0,0,0,.6);text-shadow:1px 1px 0 rgba(0,0,0,.7);white-space:nowrap}
+.mark img{width:13px;height:13px;border-radius:3px}
+/* New tab: the sheet's key, in ink with gold letters, so it can never be mistaken for a tab. */
+.drawer .newtab{display:flex;align-items:center;gap:8px;width:100%;box-sizing:border-box;margin-bottom:10px}
+.key.ink{background:#0B0718;color:var(--gold-lit);box-shadow:0 var(--lip) 0 var(--outline),inset 0 3px 0 rgba(150,110,200,.25),0 8px 14px rgba(0,0,0,.4)}
+/* In the drawer the tab you are on is a whole parchment plaque: there is no page beside it to join. */
+.drawer .tp.on{margin-right:0;border-right-width:2.5px;border-radius:7px}
