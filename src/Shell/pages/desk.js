@@ -362,7 +362,12 @@ function brief() {
     h('div', 'day', String(b.day ?? '').replace(',', ' \u00b7').toUpperCase()));
   const counts = h('div', 'counts');
   counts.append(h('span', '', `${b.events.length} TODAY`), h('span', 'mail', `${b.unread.length} UNREAD`));
-  banner.append(counts, h('i', 'sun'));
+  // His face where the sheet drew a sun (his call, 2026-10-11): Aang greeting you, in the same glowing medallion.
+  const sun = h('span', 'sun');
+  const face = document.createElement('img');
+  face.src = 'art/aang-face.png'; face.alt = 'Aang';
+  sun.append(face);
+  banner.append(counts, sun);
   const page = h('div', 'page tex');
   page.append(ruleTitled('Today'));
   const cal = h('div', 'cal');
