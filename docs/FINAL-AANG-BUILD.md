@@ -1746,7 +1746,7 @@ far easier to prove while there is nothing on screen to confuse it with.
 
 ---
 
-### `[~]` 6.11 Rich replies  **BUILT 2026-10-04**; live on Discord now, on the desktop at 6.12  **BLOCKS 6.12**
+### `[x]` 6.11 Rich replies  **BUILT 2026-10-04** (Discord), **2026-10-11** (desktop, new bubble)
 
 **Why:** the biggest daily win. `voice.ts` line 18 forbids formatting because the GDI bubble cannot
 draw it, and a lint strips any markdown. The result is walls of prose.
@@ -1784,6 +1784,16 @@ and brackets that close after the stop, and the case is a named test. Found by a
 **Tables flatten properly** for the plain path, which is new ground: before this the model never
 produced one. The separator row goes rather than becoming a line of dashes, rows become "a - b", and
 the hole it leaves is closed.
+
+**THE DESKTOP HALF, BUILT 2026-10-11 (checked in a browser tab).** The Shell now says in its hello that its
+bubble draws the replies (`bubble: true` when AANG_NEW_BUBBLE is on), and `canDraw()` returns rich for
+the desktop while such a Shell is connected; the prompt is untouched, so the cache is too. The bubble
+reads the reply into blocks (`pages/rich.js`, 3 tests: heading, bullet rows with carved grooves, bold,
+inline code, small tables, a forged rule) and builds every element with textContent; **a reply quoting
+HTML stays the characters it is**, tested. Words still fade in at the same pace, counted the way they
+are drawn. **present_list rows** now show in the bubble too: the rare plaque, one row per thing, a
+coloured chip. **An old bug found on the way:** the balloon measured itself before the file chips (and
+now the rows) were added, so they sat below its edge; it measures last now.
 
 ---
 
