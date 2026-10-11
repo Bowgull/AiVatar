@@ -128,6 +128,8 @@ contextBridge.exposeInMainWorld('aang', {
   browserAdPause: on => ipcRenderer.send('browser:adpause', on),
   onBrowserAsk(fn) { const h = (_e, a) => fn(a); ipcRenderer.on('browser:ask', h); return () => ipcRenderer.removeListener('browser:ask', h); },
   onBrowserDownload(fn) { const h = (_e, d) => fn(d); ipcRenderer.on('browser:download', h); return () => ipcRenderer.removeListener('browser:download', h); },
+  /** The tab drawer is open: a still picture of the page to show under it (or null to drop it). */
+  onBrowserFrozen(fn) { const h = (_e, s) => fn(s); ipcRenderer.on('browser:frozen', h); return () => ipcRenderer.removeListener('browser:frozen', h); },
   onBrowserFocusSlot(fn) { const h = () => fn(); ipcRenderer.on('browser:focusslot', h); return () => ipcRenderer.removeListener('browser:focusslot', h); },
 
   // --- Snipit (6.17): the overlay and the corner card. Named doors only.
