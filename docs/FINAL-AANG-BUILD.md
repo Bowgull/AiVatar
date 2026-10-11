@@ -2611,7 +2611,7 @@ after 30 minutes unseen, never one playing sound. **A crashed tab's Reload rebui
 snapshot** rather than reloading the dead one. Only http and https ever go into or come out of the file.
 **Not kept:** what he had typed in a form (a page's own fields are not Aang's to copy).
 
-### `[ ]` 6.22 Protection  **BLOCKS 6.26**
+### `[x]` 6.22 Protection  **BUILT 2026-10-11**  **BLOCKS 6.26**
 
 Ghostery with a visible per-site pause; phishing lists (Phishing.Database, URLhaus, OpenPhish) on
 every load; downloads marked so Defender scans them; **passkeys hidden** so sites fall back to a
@@ -2619,6 +2619,21 @@ password and code, because passkeys hang in Electron and poison later attempts (
 **chips** for routine asks and a **lever** for serious ones, never in the page area. Sheet 3: a *website's*
 ask is a parchment chip hanging from the top band; *Aang's* asks come in his bubble (from Aang on screen; the browser has no Aang button, his call 2026-10-04)
 (keycaps routine, lever serious), per his bubble rule. Notifications and location are refused unasked.
+
+**BUILT 2026-10-11 (type-checked, 1 phishing test; not yet seen on his screen).** **Fake sites:** OpenPhish,
+URLhaus and Phishing.Database, refreshed daily and kept on this PC (`phish.ts`), checked before any page
+loads: typed, linked, redirected or restored. A match never loads; sheet 3's red plate shows instead
+(STOPPED, FAKE SITE, which lists named it, Go back), the plaque reads BLOCKED, and going in anyway is the red
+**held** lever, for that site, this run only. No "take me to the real one": nothing knows the real address
+for an arbitrary fake. **Ads:** the same Ghostery lists as the pop-out, on his browsing session; click the
+SECURE plaque for "Block ads on this site", a per-site pause kept between runs. **Passkeys hidden** by the
+tab's only script (`tabpreload.cjs`, which exposes nothing to the page): sites fall back to a password and a
+code instead of hanging. **Downloads** go to Downloads with the Mark of the Web, so Defender and SmartScreen
+check them; a note in the band says so. **Asks:** fullscreen just works; camera and microphone ask through a
+parchment chip hanging from the band, "Allow for this call" or No, never always, unanswered in 2 minutes
+means no; every other permission is refused unasked. Because a page is a native view drawn over the frame,
+the page moves down while a chip, the ads panel or a note is showing. **Not built:** Aang's own asks in the
+browser (6.25), lookalike-domain warnings.
 
 ### `[ ]` 6.23 His stuff
 

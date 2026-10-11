@@ -26,6 +26,22 @@
       <span class="who" id="who">YOU ARE DRIVING</span>
     </div>
     <i class="cap"></i>
+    <!-- 6.22: a website's ask hangs from the band, joined to it, so it is plainly the browser's and not the page's. -->
+    <div class="bandchip" id="askchip" hidden>
+      <div class="q" id="askq"></div>
+      <p class="m" id="askm"></p>
+      <div class="keys">
+        <button class="key primary sm" id="askyes" type="button">Allow for this call<span class="k">A</span></button>
+        <button class="key sm" id="askno" type="button">No<span class="k">Z</span></button>
+      </div>
+    </div>
+    <!-- The SECURE plaque's own little panel: the one place ads can be let through, one site at a time. -->
+    <div class="bandchip site" id="sitepanel" hidden>
+      <div class="q" id="sitehost"></div>
+      <label class="adrow"><button class="sw" id="adsw" type="button" role="switch" aria-checked="true"><i class="bed"><i class="nub"></i></i></button>
+        <span><b>Block ads on this site</b><small id="adnote"></small></span></label>
+    </div>
+    <div class="toast" id="toast" hidden></div>
   </div>
   <div class="loading" id="loading"><i></i></div>
   <div class="body3">
@@ -34,6 +50,17 @@
       <div id="tabs"></div>
     </nav>
     <div class="pg3" id="page">
+      <div class="plate" id="phishplate" hidden>
+        <span class="plq red">STOPPED &middot; FAKE SITE</span>
+        <h3 id="phishtitle">This site is on a list of fake sites</h3>
+        <p id="phishtext"></p>
+        <div class="lists" id="phishlists"></div>
+        <p>Lists are sometimes wrong, so you can still go in, but it takes the held lever.</p>
+        <div class="keys">
+          <button class="key primary sm" id="phishback" type="button">Go back<span class="k">A</span></button>
+        </div>
+        <div class="keys" style="margin-top:16px" id="phishlever"></div>
+      </div>
       <div class="plate" id="crashplate" hidden>
         <i class="cracks"></i>
         <span class="plq red">THIS PAGE CRASHED</span>

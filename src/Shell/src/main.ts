@@ -421,7 +421,7 @@ app.whenReady().then(async () => {
       }
       console.log('shell: the new typing box is on; Ctrl+Plus belongs to the Shell');
 
-      aangBrowser = new AangBrowser({ origin: pages.origin, preloadPath: path.join(HERE, 'preload.cjs'), stateDir: STATE_DIR });
+      aangBrowser = new AangBrowser({ origin: pages.origin, preloadPath: path.join(HERE, 'preload.cjs'), stateDir: STATE_DIR, tabPreloadPath: path.join(HERE, 'tabpreload.cjs') });
 
       // 6.17: Snipit, on Ctrl+Shift+Plus (his key). The snip lands on the typing box as a chip, never sent by itself.
       snipper = new Snipper({
@@ -731,6 +731,8 @@ app.whenReady().then(async () => {
   ipcMain.on('browser:insets', (e, r) => { if (aangBrowser?.isFrame(e.sender) && r) aangBrowser.setInsets(Number(r.left), Number(r.top)); });
   ipcMain.on('browser:act', (e, a) => { if (aangBrowser?.isFrame(e.sender) && typeof a === 'string') aangBrowser.act(a); });
   ipcMain.on('browser:go', (e, text) => { if (aangBrowser?.isFrame(e.sender) && typeof text === 'string') aangBrowser.go(text.slice(0, 2000)); });
+  ipcMain.on('browser:askreply', (e, a) => { if (aangBrowser?.isFrame(e.sender) && a && Number.isInteger(a.id)) aangBrowser.answer(a.id, a.allow === true); });
+  ipcMain.on('browser:adpause', (e, on) => { if (aangBrowser?.isFrame(e.sender)) aangBrowser.pauseAds(on === true); });
   ipcMain.on('browser:tab', (e, a) => { if (aangBrowser?.isFrame(e.sender) && a && Number.isInteger(a.id)) aangBrowser.tabAct(a.id, String(a.act)); });
 
   // ---- 6.17 Snipit: the overlay says where the box is; the card says Send or Bin it.
