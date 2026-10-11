@@ -774,7 +774,7 @@ app.whenReady().then(async () => {
     if (fromInput(e) && s && typeof s === 'object') input?.resize(Number(s.width) || 0, Number(s.height) || 0);
   });
   // ---- 6.19/6.20 the browser frame. Only the frame page may drive it, never a tab.
-  ipcMain.on('browser:insets', (e, r) => { if (aangBrowser?.isFrame(e.sender) && r) aangBrowser.setInsets(Number(r.left), Number(r.top)); });
+  ipcMain.on('browser:insets', (e, r) => { if (aangBrowser?.isFrame(e.sender) && r) aangBrowser.setInsets(Number(r.left), Number(r.top), Number(r.right) || 0, Number(r.bottom) || 0); });
   ipcMain.on('browser:act', (e, a) => { if (aangBrowser?.isFrame(e.sender) && typeof a === 'string') aangBrowser.act(a); });
   ipcMain.on('browser:go', (e, text) => { if (aangBrowser?.isFrame(e.sender) && typeof text === 'string') aangBrowser.go(text.slice(0, 2000)); });
   ipcMain.on('browser:askreply', (e, a) => { if (aangBrowser?.isFrame(e.sender) && a && Number.isInteger(a.id)) aangBrowser.answer(a.id, a.allow === true); });

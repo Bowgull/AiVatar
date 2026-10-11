@@ -3,8 +3,11 @@
 <head>
 <meta charset="utf-8">
 <!-- 6.20: the browser's frame, sheet 3. The pages themselves are separate views placed in the page area;
-     this frame only ever shows the band, the rail and its own plates. Favicons are the only outside
-     images (img-src https:), drawn by <img>, nothing else from the internet. -->
+     this frame only ever shows the band, the drawer and its own plates. Favicons are the only outside
+     images (img-src https:), drawn by <img>, nothing else from the internet.
+     2026-10-11 look (his picks, research_notes/Browser UI UX polish/findings.md, DECIDED SET): real pixel-art
+     band, no gold caps, Windows' own buttons see-through on the wood, the page set into a carved recess, the
+     tabs in a drawer that slides over the page from a wood tab, bookmarks on velvet, an ink New tab key. -->
 <meta http-equiv="Content-Security-Policy"
       content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' data: https:;
                font-src 'self'; style-src-attr 'unsafe-inline'; form-action 'none'; base-uri 'none'">
@@ -15,19 +18,17 @@
 <body>
 <div class="bw">
   <div class="band" id="band">
-    <i class="cap"></i>
-    <button class="rnd" id="back" type="button" aria-label="Back">&#8249;</button>
-    <button class="rnd" id="fwd" type="button" aria-label="Forward">&#8250;</button>
-    <button class="rnd" id="reload" type="button" aria-label="Reload">&#10227;</button>
-    <button class="rnd" id="theatre" type="button" aria-label="Theatre: hide the frame for watching" title="Theatre: hide the frame for watching"><i class="scr"></i></button>
+    <button class="rnd" id="back" type="button" aria-label="Back"><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges" aria-hidden="true"><path d="M5 0h1v1H5zM4 0h1v1H4zM4 1h1v1H4zM3 1h1v1H3zM3 2h1v1H3zM2 2h1v1H2zM2 3h1v1H2zM1 3h1v1H1zM3 4h1v1H3zM2 4h1v1H2zM4 5h1v1H4zM3 5h1v1H3zM5 6h1v1H5zM4 6h1v1H4z" fill="#e8e0f5"/></svg></button>
+    <button class="rnd" id="fwd" type="button" aria-label="Forward"><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges" aria-hidden="true"><path d="M1 0h1v1H1zM2 0h1v1H2zM2 1h1v1H2zM3 1h1v1H3zM3 2h1v1H3zM4 2h1v1H4zM4 3h1v1H4zM5 3h1v1H5zM3 4h1v1H3zM4 4h1v1H4zM2 5h1v1H2zM3 5h1v1H3zM1 6h1v1H1zM2 6h1v1H2z" fill="#e8e0f5"/></svg></button>
+    <button class="rnd" id="reload" type="button" aria-label="Reload"><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges" aria-hidden="true"><path d="M2 0h3v1H2zM6 0h1v3H6zM1 1h1v1H1zM5 1h1v1H5zM4 2h2v1H4zM0 2h1v3H0zM6 4h1v1H6zM1 5h1v1H1zM5 5h1v1H5zM2 6h3v1H2z" fill="#e8e0f5"/></svg></button>
     <div class="slot" id="slot">
-      <span class="lock" id="lock">SECURE</span>
+      <!-- Quiet on a normal site (a small shield: click it for this site's ad switch); red, in words, only when something is wrong. -->
+      <span class="lock" id="lock" title="This site"></span>
       <span class="url" id="url"></span>
       <input class="edit" id="edit" type="text" spellcheck="false" autocomplete="off" aria-label="Search or type a web address" hidden>
-      <!-- Shown only while Aang is the one driving (6.23 onwards); you driving is the normal case, so it says nothing. -->
+      <!-- Shown only while Aang is the one driving (6.25); you driving is the normal case, so it says nothing. -->
       <span class="who" id="who" hidden>AANG IS DRIVING</span>
     </div>
-    <i class="cap"></i>
     <!-- 6.22: a website's ask hangs from the band, joined to it, so it is plainly the browser's and not the page's. -->
     <div class="bandchip" id="askchip" hidden>
       <div class="q" id="askq"></div>
@@ -37,7 +38,7 @@
         <button class="key sm" id="askno" type="button">No<span class="k">Z</span></button>
       </div>
     </div>
-    <!-- The SECURE plaque's own little panel: the one place ads can be let through, one site at a time. -->
+    <!-- The plaque's own little panel: the one place ads can be let through, one site at a time. -->
     <div class="bandchip site" id="sitepanel" hidden>
       <div class="q" id="sitehost"></div>
       <label class="adrow"><button class="sw" id="adsw" type="button" role="switch" aria-checked="true"><i class="bed"><i class="nub"></i></i></button>
@@ -45,39 +46,46 @@
     </div>
     <div class="toast" id="toast" hidden></div>
   </div>
-  <!-- Theatre: the band and rail fold away and only this thin strip stays, to drag the window and to come back. -->
-  <div class="strip" id="strip" hidden>
-    <button class="key sm" id="untheatre" type="button">Show the frame</button>
-  </div>
   <div class="loading" id="loading"><i></i></div>
   <div class="body3">
-    <nav class="rail" id="rail" aria-label="Tabs">
-      <button class="key sm newtab" id="newtab" type="button">+ New tab<span class="k">Ctrl T</span></button>
-      <div id="tabs"></div>
-    </nav>
-    <div class="pg3" id="page">
-      <div class="plate" id="phishplate" hidden>
-        <span class="plq red">STOPPED &middot; FAKE SITE</span>
-        <h3 id="phishtitle">This site is on a list of fake sites</h3>
-        <p id="phishtext"></p>
-        <div class="lists" id="phishlists"></div>
-        <p>Lists are sometimes wrong, so you can still go in, but it takes the held lever.</p>
-        <div class="keys">
-          <button class="key primary sm" id="phishback" type="button">Go back<span class="k">A</span></button>
-        </div>
-        <div class="keys" style="margin-top:16px" id="phishlever"></div>
-      </div>
-      <div class="plate" id="crashplate" hidden>
-        <i class="cracks"></i>
-        <span class="plq red">THIS PAGE CRASHED</span>
-        <h3 id="crashtitle">This page stopped working</h3>
-        <p>The page broke, not your PC. Reload brings it back.</p>
-        <div class="keys">
-          <button class="key primary sm" id="crashreload" type="button">Reload<span class="k">A</span></button>
-          <button class="key sm" id="crashclose" type="button">Close the tab<span class="k">Z</span></button>
+    <div class="well">
+      <div class="hnd"><button type="button" id="drawerkey" aria-label="Show the tabs" aria-expanded="false"><span class="n" id="tabcount"></span></button></div>
+      <div class="recess">
+        <div class="pg3" id="page">
+          <img class="frozen" id="frozen" alt="" hidden>
+          <div class="plate" id="phishplate" hidden>
+            <span class="plq red">STOPPED &middot; FAKE SITE</span>
+            <h3 id="phishtitle">This site is on a list of fake sites</h3>
+            <p id="phishtext"></p>
+            <div class="lists" id="phishlists"></div>
+            <p>Lists are sometimes wrong, so you can still go in, but it takes the held lever.</p>
+            <div class="keys">
+              <button class="key primary sm" id="phishback" type="button">Go back<span class="k">A</span></button>
+            </div>
+            <div class="keys" style="margin-top:16px" id="phishlever"></div>
+          </div>
+          <div class="plate" id="crashplate" hidden>
+            <i class="cracks"></i>
+            <span class="plq red">THIS PAGE CRASHED</span>
+            <h3 id="crashtitle">This page stopped working</h3>
+            <p>The page broke, not your PC. Reload brings it back.</p>
+            <div class="keys">
+              <button class="key primary sm" id="crashreload" type="button">Reload<span class="k">A</span></button>
+              <button class="key sm" id="crashclose" type="button">Close the tab<span class="k">Z</span></button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
+    <!-- The tab drawer: sheet 3's rail, in the tray's own wood, sliding over the page. -->
+    <nav class="drawer" id="rail" aria-label="Tabs" aria-hidden="true">
+      <div class="shelf-bk">
+        <div class="lab">BOOKMARKS</div>
+        <div class="row" id="marks"></div>
+      </div>
+      <button class="key sm newtab ink" id="newtab" type="button">+ New tab<span class="k">Ctrl T</span></button>
+      <div id="tabs"></div>
+    </nav>
   </div>
 </div>
 <script src="browser.js" type="module"></script>
