@@ -534,6 +534,12 @@ function lever(k) {
 /** His answer. Sent once, then the keys go away so nothing can be answered twice. */
 function answer(choice) {
   if (!asking) return;
+  // The brain is the thing that is down: these are answered here, never sent.
+  if (asking.t === 'brain.down') {
+    if (choice === 'retry') window.aang?.retryBrain?.();
+    else if (choice === 'log') window.aang?.showBrainLog?.();
+    return;
+  }
   // For consent, saying yes means asking the same thing again with `once`, so what was asked has to
   // travel with the answer. The bubble is the only place that still knows it.
   window.aang?.answerAsk?.({
@@ -634,6 +640,27 @@ function showBrief(b) {
   card.append(keys);
   card.hidden = false;
 }
+
+// ---------------------------------------------------------------- when the brain is down (6.14b)
+// Restarts are normal (the Core restarts several times a day), so nothing shows for the first 8 s: a
+// quick restart is never announced. Past that, ONE MOMENT; past a minute, STILL DOWN with Try again.
+// Never while he is in a game. When it comes back, one quiet line, and only if he was told it was down.
+let downTimers = [], toldDown = false;
+function dropBrainAsks() {
+  for (let i = waiting.length - 1; i >= 0; i--) if (waiting[i].t === 'brain.wait' || waiting[i].t === 'brain.down') waiting.splice(i, 1);
+}
+window.aang?.onConnected?.((up) => {
+  downTimers.forEach(clearTimeout); downTimers = [];
+  if (up) {
+    const was = asking && (asking.t === 'brain.wait' || asking.t === 'brain.down');
+    dropBrainAsks();
+    if (was) { asking = null; asks.hidden = true; asks.replaceChildren(); if (!showTopAsk()) { bubble.hidden = true; snapShut(); window.aang?.bubbleHidden?.(); } }
+    if (toldDown) { toldDown = false; showWhisper({ text: 'I\u2019m back. Nothing was lost.' }); }
+    return;
+  }
+  const tell = (t) => { if (quiet) return; dropBrainAsks(); toldDown = true; queueAsk({ t, id: t }); showTopAsk(); };
+  downTimers.push(setTimeout(() => tell('brain.wait'), 8000), setTimeout(() => tell('brain.down'), 60000));
+});
 
 // ---------------------------------------------------------------- what the brain says
 window.aang?.onMessage?.(m => {

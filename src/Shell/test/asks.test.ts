@@ -116,3 +116,13 @@ test('approvals in plain words: a command comes off the question and sits one ta
   const old = askFrom({ t: 'permission', id: 'p2', tool: 'PowerShell', question: 'run this: ls', means: 'Exactly this: ls' });
   assert.equal(old?.question, 'run this: ls', 'without `exact` nothing is hidden: never lose the command');
 });
+
+test('when the brain is down it says so in his voice, and never claims what it cannot know (6.14b)', () => {
+  const wait = askFrom({ t: 'brain.wait' });
+  assert.equal(wait?.plaque, 'ONE MOMENT');
+  assert.match(String(wait?.means), /Nothing you said is lost/);
+  const down = askFrom({ t: 'brain.down' });
+  assert.equal(down?.plaque, 'STILL DOWN');
+  assert.deepEqual(down?.keys.map((k: { choice: string }) => k.choice), ['retry', 'log']);
+  assert.ok(!/three tries/.test(String(down?.question)), 'the Shell cannot count the restarts, so it does not say three');
+});
