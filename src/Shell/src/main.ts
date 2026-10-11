@@ -15,6 +15,7 @@ import path from 'node:path';
 import { CoreLink } from './link.ts';
 import { Bubble, wantsNewBubble } from './bubble.ts';
 import { InputBox } from './input.ts';
+import { Snipper } from './snip.ts';
 import { bubbleAt, headOf, inputAt, moved, readPetAt } from './anchor.ts';
 import type { PetAt } from './anchor.ts';
 import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown, wrongSettings } from './safety.ts';
@@ -223,6 +224,7 @@ const link = new CoreLink({
     // He clicked Aang. The pet does not open a box of its own any more; it asks for this one.
     if (m.t === 'typebox') { if (!input?.visible) openTypeBox(); return; }
     // 6.15: the pet's "Panel..." menu, with the new front end on, opens window 2 instead of the C# Panel.
+    if (m.t === 'snip') { void snipper?.start(); return; }
     if (m.t === 'desk.open') {
       openDesk(typeof m.tab === 'number' ? m.tab : 0);
       return;
@@ -406,6 +408,16 @@ app.whenReady().then(async () => {
         if (!globalShortcut.register(key, onHotkey)) console.error(`shell: could not take ${key}; another program has it`);
       }
       console.log('shell: the new typing box is on; Ctrl+Plus belongs to the Shell');
+
+      // 6.17: Snipit, on Ctrl+Shift+Plus (his key). The snip lands on the typing box as a chip, never sent by itself.
+      snipper = new Snipper({
+        origin: pages.origin, preloadPath: path.join(HERE, 'preload.cjs'),
+        dir: path.join(app.getPath('pictures'), 'Aang snips'),
+        onSend: (file) => { snips.push({ file, name: path.basename(file) }); while (snips.length > 4) snips.shift(); if (!input?.visible) openTypeBox(); sendChips(); },
+      });
+      for (const key of ['Control+Shift+=', 'Control+Shift+numadd']) {
+        if (!globalShortcut.register(key, () => { void snipper?.start(); })) console.error(`shell: could not take ${key} for Snipit; another program has it`);
+      }
     }
 
     drm = new DrmRuntime({
@@ -605,7 +617,7 @@ app.whenReady().then(async () => {
    */
   let replyTo: { turn: number; preview: string } | null = null;
   const pinned: { turn: number; preview: string }[] = [];
-  const sendChips = () => input?.send('input:chips', { replyTo, pinned });
+  const sendChips = () => input?.send('input:chips', { replyTo, pinned, snips: snips.map((s) => ({ name: s.name })) });
   const chipOf = (a: unknown) => {
     const o = (a ?? {}) as Record<string, unknown>;
     const turn = Number(o.turn);
@@ -635,6 +647,7 @@ app.whenReady().then(async () => {
     if (!fromInput(e)) return;
     const o = (a ?? {}) as Record<string, unknown>;
     if (o.kind === 'reply') replyTo = null;
+    else if (o.kind === 'snip') { const i = snips.findIndex((s) => s.name === o.name); if (i >= 0) snips.splice(i, 1); }
     else {
       const turn = Number(o.turn);
       const i = pinned.findIndex((p) => p.turn === turn);
@@ -646,8 +659,11 @@ app.whenReady().then(async () => {
   ipcMain.on('input:submit', (e, a) => {
     if (!fromInput(e) || !a || typeof a.text !== 'string' || !a.text.trim()) return;
     const mode = ['auto', 'quick', 'smart', 'deep'].includes(a.mode) ? a.mode : inputMode;
+    // 6.17: a snip rides along as its path, with plain words saying what it is, so the brain looks at the
+    // picture with its ordinary file reader (asked once, like any file) before answering.
+    const attached = snips.length ? '\n\n' + snips.map((s) => `[He attached a screenshot he snipped: ${s.file}. Look at it with Read before you answer.]`).join('\n') : '';
     const sent = link?.send({
-      t: 'submit', id: 's' + Date.now(), text: a.text.slice(0, 20_000), mode,
+      t: 'submit', id: 's' + Date.now(), text: a.text.slice(0, 20_000) + attached, mode,
       ...(replyTo ? { replyTo: replyTo.turn } : {}),
       ...(pinned.length ? { context: pinned.map((p) => p.turn) } : {}),
     });
@@ -661,6 +677,7 @@ app.whenReady().then(async () => {
     // The reply was about ONE message, so it goes once it is said. Pins stay: they ride along with
     // every message until he takes them off (protocol.ts).
     replyTo = null;
+    snips.length = 0;                                     // a snip goes with one message, like a reply
     sendChips();
     // The bubble shows what he ASKED above the answer, as the old one does (BubbleView.Asked, set from
     // `lastText`). The brain never sends his own words back, and the old box knew them because it was
@@ -687,6 +704,15 @@ app.whenReady().then(async () => {
   ipcMain.on('input:size', (e, s) => {
     if (fromInput(e) && s && typeof s === 'object') input?.resize(Number(s.width) || 0, Number(s.height) || 0);
   });
+  // ---- 6.17 Snipit: the overlay says where the box is; the card says Send or Bin it.
+  ipcMain.on('snip:done', (e, r) => {
+    if (!snipper?.isOverlay(e.sender)) return;
+    const ok = r && typeof r === 'object' && ['x', 'y', 'w', 'h', 'vw', 'vh'].every((k) => Number.isFinite(Number(r[k])));
+    snipper.done(ok ? { x: +r.x, y: +r.y, w: +r.w, h: +r.h, vw: +r.vw, vh: +r.vh } : null);
+  });
+  ipcMain.on('snip:send', (e) => { if (snipper?.isCard(e.sender)) snipper.send(); });
+  ipcMain.on('snip:bin', (e) => { if (snipper?.isCard(e.sender)) snipper.bin(); });
+  // The pet's gold menu "Snipit" row comes through the brain, like the typing box does.
   // ---- window 2, the desk (6.15): each door sends exactly what the C# Panel sends.
   // 6.14b: "Try again" and "Show what went wrong" from the bubble when the brain will not come back.
   ipcMain.on('bubble:retry', (e) => { if (fromBubble(e)) link?.tryNow(); });
@@ -829,6 +855,10 @@ function fromDesk(e: Electron.IpcMainEvent): boolean {
   return Boolean(w && !w.isDestroyed() && e.sender === w.webContents);
 }
 
+/** 6.17: Snipit, and the snips waiting on the typing box to go with his next message. */
+let snipper: Snipper | null = null;
+const snips: { file: string; name: string }[] = [];
+
 /** Who asked for each page of history still on its way, oldest first. */
 const historyAsks: ('desk' | 'bubble')[] = [];
 
@@ -849,7 +879,7 @@ function fromBubble(e: Electron.IpcMainEvent): boolean {
 }
 
 app.on('will-quit', () => globalShortcut.unregisterAll());
-app.on('before-quit', () => { input?.destroy(); link.stop(); hotkey?.release(); ads?.stop(); popout?.close(); bubble?.close(); drm?.close(); pages?.close(); });
+app.on('before-quit', () => { snipper?.close(); input?.destroy(); link.stop(); hotkey?.release(); ads?.stop(); popout?.close(); bubble?.close(); drm?.close(); pages?.close(); });
 
 // Nothing a page does may take the Shell down silently.
 process.on('uncaughtException', e => console.error('shell: uncaught: ' + (e as Error).message));
