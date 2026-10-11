@@ -23,7 +23,35 @@ window.addEventListener('load', report);
 el('back').addEventListener('click', () => window.aang?.browserAct?.('back'));
 el('fwd').addEventListener('click', () => window.aang?.browserAct?.('forward'));
 el('reload').addEventListener('click', () => window.aang?.browserAct?.('reload'));
-el('newtab').addEventListener('click', () => window.aang?.browserAct?.('newtab'));
+el('newtab').addEventListener('click', () => { tap(); window.aang?.browserAct?.('newtab'); });
+
+// ---- theatre: the band and the rail fold away for watching; the strip's key brings them back.
+function theatre(on) {
+  document.body.classList.toggle('theatre', on);
+  el('strip').hidden = !on;
+  el('theatre').classList.toggle('on', on);
+  window.aang?.browserAct?.(on ? 'theatre-on' : 'theatre-off');
+  report();
+}
+el('theatre').addEventListener('click', () => theatre(true));
+el('untheatre').addEventListener('click', () => theatre(false));
+
+// ---- the little wood sounds: off until he turns them on in Settings. Made here, no sound files.
+let audio = null;
+function tap(pitch = 1) {
+  if (!state.sounds) return;
+  try {
+    audio ??= new AudioContext();
+    const now = audio.currentTime, len = Math.floor(audio.sampleRate * 0.05);
+    const buf = audio.createBuffer(1, len, audio.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 6);
+    const src = audio.createBufferSource(); src.buffer = buf;
+    const f = audio.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 900 * pitch; f.Q.value = 6;
+    const g = audio.createGain(); g.gain.setValueAtTime(0.35, now);
+    src.connect(f).connect(g).connect(audio.destination);
+    src.start(now);
+  } catch { /* no sound, no harm */ }
+}
 el('crashreload').addEventListener('click', () => window.aang?.browserAct?.('reload'));
 el('crashclose').addEventListener('click', () => window.aang?.browserAct?.('close'));
 
@@ -48,8 +76,8 @@ window.addEventListener('keydown', (e) => {
   const c = e.ctrlKey || e.metaKey, k = e.key.toLowerCase();
   const send = (a) => { e.preventDefault(); window.aang?.browserAct?.(a); };
   if (c && e.shiftKey && k === 't') send('reopen');
-  else if (c && k === 't') send('newtab');
-  else if (c && k === 'w') send('close');
+  else if (c && k === 't') { tap(); send('newtab'); }
+  else if (c && k === 'w') { tap(0.7); send('close'); }
   else if (c && k === 'l') { e.preventDefault(); editSlot(); }
   else if ((c && k === 'r') || k === 'f5') send('reload');
 });
@@ -73,10 +101,28 @@ function paintUrl(u) {
 }
 
 const SPEAKER = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 6h3l4-3v10l-4-3H2z" fill="#2a1c00"/><path d="M11 5c1.5 1.5 1.5 4.5 0 6" stroke="#2a1c00" stroke-width="1.8" fill="none"/></svg>';
+// Rows are kept and only redrawn when something about that tab changed, so a title or a spinner on one
+// tab never rebuilds the whole rail (that rebuild was the flicker, and it dropped the hover under the mouse).
+const rows = new Map();
 function paintTabs() {
-  tabsBox.replaceChildren();
   const open = new Set(state.tabs.map((t) => t.id));
+  const want = [];
   for (const t of state.tabs) {
+    const sig = JSON.stringify([t.id === state.active, t.crashed, t.asleep, t.loading, t.favicon, t.title, t.url, t.audible, t.muted, t.opener && open.has(t.opener)]);
+    let r = rows.get(t.id);
+    if (!r || r.sig !== sig) {
+      const fresh = buildRow(t, open);
+      if (r) r.el.replaceWith(fresh);
+      r = { sig, el: fresh };
+      rows.set(t.id, r);
+    }
+    want.push(r.el);
+  }
+  for (const [id, r] of rows) if (!open.has(id)) { r.el.remove(); rows.delete(id); }
+  want.forEach((node, i) => { if (tabsBox.children[i] !== node) tabsBox.insertBefore(node, tabsBox.children[i] ?? null); });
+}
+function buildRow(t, open) {
+  {
     const row = document.createElement('div');
     const asleep = t.asleep && t.id !== state.active;
     row.className = 'tp' + (t.id === state.active ? ' on' : '') + (t.crashed ? ' crash' : '') + (asleep ? ' sleep' : '') + (t.opener && open.has(t.opener) ? ' kid' : '');
@@ -98,11 +144,13 @@ function paintTabs() {
       row.append(s);
     }
     const x = document.createElement('button'); x.type = 'button'; x.className = 'x'; x.textContent = '×'; x.setAttribute('aria-label', 'Close tab');
-    x.addEventListener('click', (e) => { e.stopPropagation(); window.aang?.browserTab?.({ id: t.id, act: 'close' }); });
+    x.addEventListener('click', (e) => { e.stopPropagation(); tap(0.7); window.aang?.browserTab?.({ id: t.id, act: 'close' }); });
     row.append(x);
-    row.addEventListener('click', () => window.aang?.browserTab?.({ id: t.id, act: 'show' }));
-    row.addEventListener('auxclick', (e) => { if (e.button === 1) window.aang?.browserTab?.({ id: t.id, act: 'close' }); });
-    tabsBox.append(row);
+    // A tab switches on the press, not the release, the way Chrome does; its buttons keep their own clicks.
+    row.addEventListener('pointerdown', (e) => { if (e.button === 0 && !e.target.closest('button')) window.aang?.browserTab?.({ id: t.id, act: 'show' }); });
+    row.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); window.aang?.browserTab?.({ id: t.id, act: 'show' }); } });
+    row.addEventListener('auxclick', (e) => { if (e.button === 1) { tap(0.7); window.aang?.browserTab?.({ id: t.id, act: 'close' }); } });
+    return row;
   }
 }
 
@@ -143,6 +191,7 @@ document.addEventListener('click', (e) => { if (!el('sitepanel').contains(e.targ
 window.aang?.onBrowserDownload?.((d) => {
   if (!d) return;
   const t = el('toast');
+  if (d.state === 'completed') tap(1.4);
   t.textContent = d.state === 'completed' ? `Downloaded ${d.name} to your Downloads. Windows checks it before it opens.` : `${d.name} did not finish downloading.`;
   t.hidden = false;
   setTimeout(() => { t.hidden = true; }, 6000);

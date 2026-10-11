@@ -309,6 +309,8 @@ const link = new CoreLink({
       liveAsk = m as Record<string, unknown>;
       input?.send('input:ask', liveAsk);
     }
+    // The browser's own switch rides along with the pet's: the Shell keeps it, not the pet.
+    if (m.t === 'settings') { lastSettings = m as Record<string, unknown>; (m as Record<string, unknown>).browserSounds = aangBrowser?.sounds ?? false; }
     for (const w of windows.values()) if (!w.isDestroyed()) w.webContents.send('brain:message', m);
     // The bubble is not in `windows`: it is made on demand and has its own lifetime, so it is told
     // separately rather than being swept up by a loop that does not know about it.
@@ -766,6 +768,11 @@ app.whenReady().then(async () => {
   ipcMain.on('desk:setting', (e, a) => {
     if (!fromDesk(e) || !a || typeof a !== 'object') return;
     const key = String(a.key ?? '');
+    if (key === 'browserSounds') {
+      aangBrowser?.setSounds(a.on === true);
+      if (lastSettings) windows.get('desk')?.webContents.send('brain:message', { ...lastSettings, browserSounds: a.on === true });
+      return;
+    }
     if (!['quietGame', 'mute', 'seeWindow', 'usage', 'autostart'].includes(key)) return;
     link?.send({ t: 'settings.set', key: key as 'quietGame' | 'mute' | 'seeWindow' | 'usage' | 'autostart', on: a.on === true });
   });
@@ -900,6 +907,8 @@ function fromDesk(e: Electron.IpcMainEvent): boolean {
 let snipper: Snipper | null = null;
 /** 6.19/6.20: Aang's browser, made when the pages are being served. */
 let aangBrowser: AangBrowser | null = null;
+/** The pet's last answer about its switches, so the browser's own switch can be shown beside them. */
+let lastSettings: Record<string, unknown> | null = null;
 const snips: { file: string; name: string }[] = [];
 const highlights: { text: string; app: string }[] = [];
 /** Tell the typing box what chips it carries; set once the box exists (see sendChips). */
