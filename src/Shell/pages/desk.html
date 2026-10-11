@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- Step 6.15: window 2, the desk. Sheet 6's frame and sheet 2's tab strip, lifted rule for rule.
+     Nothing from the internet is ever shown here, so there is no frame-src and no remote image. -->
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' data:;
+               font-src 'self'; style-src-attr 'unsafe-inline';
+               form-action 'none'; base-uri 'none'">
+<title>Aang</title>
+<link rel="stylesheet" href="cockpit.css">
+<link rel="stylesheet" href="desk.css">
+</head>
+<body>
+<div class="desk">
+  <div class="tabs" role="tablist" id="tabs">
+    <button class="tab" role="tab" data-tab="0">WHAT I KNOW</button>
+    <button class="tab" role="tab" data-tab="1">WHAT I MAY DO</button>
+    <button class="tab" role="tab" data-tab="2">WHAT I DID</button>
+    <button class="tab" role="tab" data-tab="3">DRAFTS<i id="ndrafts" hidden></i></button>
+    <button class="tab" role="tab" data-tab="4">JOBS<i id="njobs" hidden></i></button>
+    <button class="tab" role="tab" data-tab="5">HISTORY</button>
+    <button class="tab" role="tab" data-tab="6">SETTINGS</button>
+  </div>
+  <div class="body tex" id="body" role="tabpanel"></div>
+  <div class="foot" id="foot" hidden></div>
+</div>
+<script src="desk.js" type="module"></script>
+</body>
+</html>

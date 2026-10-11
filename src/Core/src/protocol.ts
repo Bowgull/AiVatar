@@ -80,6 +80,8 @@ export type ToBody =
   | { t: 'summon' } | { t: 'dismiss' } | { t: 'refocus' }
   /** The pet was clicked and the new front end is on, so the Shell opens its typing box. */
   | { t: 'typebox' }
+  /** Window 2 (6.15): the pet's Panel menu with the new front end on, so the Shell opens the desk. */
+  | { t: 'desk.open'; tab?: number }
   /** He picked a mode in the new typing box. The PET writes it to body.json; nothing else may. */
   | { t: 'mode'; mode: Mode }
   /** The bubble was clicked on a message naming a window (a Claude session): bring it forward. */
@@ -247,6 +249,7 @@ export type FromBody =
   | { t: 'summon' } | { t: 'dismiss' } | { t: 'refocus' }
   /** The pet was clicked and the new front end is on, so the Shell opens its typing box. */
   | { t: 'typebox' }
+  | { t: 'desk.open'; tab?: number }
   /** He picked a mode in the new typing box. The PET writes it to body.json; nothing else may. */
   | { t: 'mode'; mode: Mode }
   /** The bubble was clicked on a message naming a window (a Claude session): bring it forward. */
