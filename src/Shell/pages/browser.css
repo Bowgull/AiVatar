@@ -92,6 +92,21 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--wood2);font:500 
   color:var(--ink-text);background:linear-gradient(180deg,#F0DCB4,var(--parch2));border:3px solid var(--outline);box-shadow:0 4px 0 rgba(0,0,0,.45)}
 .toast[hidden]{display:none}
 
+/* ---- polish (2026-10-11): presses on the way down, hover on everything, theatre ---- */
+.rnd:hover:not(.dim){filter:brightness(1.15)}
+.rnd .scr{width:15px;height:11px;border:2.5px solid #e8e0f5;border-radius:2px;box-sizing:border-box;display:block}
+.rnd.on{top:3px;box-shadow:0 0 0 var(--outline),inset 0 3px 0 rgba(0,0,0,.45);background:linear-gradient(180deg,var(--plum-deep),var(--plum))}
+.tp{transition:filter .12s ease-out}
+.tp:hover:not(.on){filter:brightness(1.12)}
+.tp:active:not(.on){top:2px;box-shadow:0 1px 0 var(--outline),inset 0 2px 0 rgba(150,110,200,.4)}
+.slot .who[hidden]{display:none}
+.strip{flex:0 0 auto;height:30px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(180deg,#5e3c21,var(--wood1));border-bottom:3px solid var(--outline);-webkit-app-region:drag}
+.strip[hidden]{display:none}
+.strip .key{-webkit-app-region:no-drag;height:22px;padding:0 10px;font-size:12px;box-shadow:0 2px 0 var(--outline)}
+body.theatre .band,body.theatre .loading,body.theatre .rail{display:none}
+body.theatre .body3{grid-template-columns:1fr}
+
 /* ---- added: a real window ---- */
 .bw{height:100vh;box-sizing:border-box;display:flex;flex-direction:column;border-radius:0;box-shadow:none;border:none}
 .band{-webkit-app-region:drag;padding-right:150px;height:58px;box-sizing:border-box;flex:0 0 auto}

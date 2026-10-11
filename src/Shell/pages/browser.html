@@ -19,11 +19,13 @@
     <button class="rnd" id="back" type="button" aria-label="Back">&#8249;</button>
     <button class="rnd" id="fwd" type="button" aria-label="Forward">&#8250;</button>
     <button class="rnd" id="reload" type="button" aria-label="Reload">&#10227;</button>
+    <button class="rnd" id="theatre" type="button" aria-label="Theatre: hide the frame for watching" title="Theatre: hide the frame for watching"><i class="scr"></i></button>
     <div class="slot" id="slot">
       <span class="lock" id="lock">SECURE</span>
       <span class="url" id="url"></span>
       <input class="edit" id="edit" type="text" spellcheck="false" autocomplete="off" aria-label="Search or type a web address" hidden>
-      <span class="who" id="who">YOU ARE DRIVING</span>
+      <!-- Shown only while Aang is the one driving (6.23 onwards); you driving is the normal case, so it says nothing. -->
+      <span class="who" id="who" hidden>AANG IS DRIVING</span>
     </div>
     <i class="cap"></i>
     <!-- 6.22: a website's ask hangs from the band, joined to it, so it is plainly the browser's and not the page's. -->
@@ -42,6 +44,10 @@
         <span><b>Block ads on this site</b><small id="adnote"></small></span></label>
     </div>
     <div class="toast" id="toast" hidden></div>
+  </div>
+  <!-- Theatre: the band and rail fold away and only this thin strip stays, to drag the window and to come back. -->
+  <div class="strip" id="strip" hidden>
+    <button class="key sm" id="untheatre" type="button">Show the frame</button>
   </div>
   <div class="loading" id="loading"><i></i></div>
   <div class="body3">
