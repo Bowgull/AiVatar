@@ -110,8 +110,10 @@ contextBridge.exposeInMainWorld('aang', {
 
   // --- window 2, the desk (6.15). Named doors only, each the same message the C# Panel sends.
   deskPanel: () => ipcRenderer.send('desk:panel'),
-  /** Settings are still the pet's own window until pass 2: ask the pet to open it. */
+  /** Settings are the pet's own: ask where they stand, set one, or run one of its two actions. */
   deskSettings: () => ipcRenderer.send('desk:settings'),
+  deskSetting: a => ipcRenderer.send('desk:setting', a),
+  deskSettingDo: what => ipcRenderer.send('desk:settingdo', what),
   deskForgetFact: id => ipcRenderer.send('desk:forgetfact', id),
   deskRevoke: kind => ipcRenderer.send('desk:revoke', kind),
   deskMail: a => ipcRenderer.send('desk:mail', a),
