@@ -63,9 +63,9 @@ function show(n) {
   foot.hidden = true;
   body.replaceChildren();
   body.scrollTop = 0;
-  if (!data && n !== 5 && n !== 6 && n !== 7 && n !== 8) { body.append(h('p', 'empty-line', 'Asking Aang...')); return; }
+  if (!data && n !== 4 && n !== 5) { body.append(h('p', 'empty-line', 'Asking Aang...')); return; }
   if (data?.notice) body.append(h('p', 'notice', data.notice));
-  [know, mayDo, did, drafts, jobs, history, settings, brief, searchAll][n]?.();
+  [know, didView, jobsView, settingsView, searchAll, brief][n]?.();
 }
 tabs.forEach((t, i) => t.addEventListener('click', () => show(i)));
 
@@ -214,13 +214,13 @@ function jobs() {
 }
 // Ctrl+F: one search over everything (6.18), from any tab, box focused.
 window.addEventListener('keydown', (e) => {
-  if (e.ctrlKey && !e.altKey && e.key.toLowerCase() === 'f') { e.preventDefault(); show(8); }
+  if (e.ctrlKey && !e.altKey && e.key.toLowerCase() === 'f') { e.preventDefault(); show(4); }
 });
 window.addEventListener('keydown', (e) => {
-  if (tab === 2 && e.key.toLowerCase() === 'z' && !e.ctrlKey && !e.altKey && !(e.target instanceof HTMLInputElement)) {
+  if (tab === 1 && e.key.toLowerCase() === 'z' && !e.ctrlKey && !e.altKey && !(e.target instanceof HTMLInputElement)) {
     e.preventDefault(); window.aang?.deskUndo?.(); return;
   }
-  if (tab !== 4 || !data?.jobs?.length || e.target instanceof HTMLInputElement) return;
+  if (tab !== 2 || !data?.jobs?.length || e.target instanceof HTMLInputElement) return;
   const j = data.jobs[Math.min(jobAt, data.jobs.length - 1)];
   const map = { a: 'apply', x: 'skip', o: 'open', z: 'undo' };
   const action = map[e.key.toLowerCase()];
@@ -347,7 +347,86 @@ function settings() {
   body.append(keys);
 }
 
-// 8. Search over everything (6.18, sheet 7). One box over five places, grouped by where each hit lives,
+// ---------------------------------------------------------------- the four tabs (his call, 2026-10-11)
+/** What I did: anything waiting on him first (drafts), then the jobs, the use chart and the timeline. */
+function didView() {
+  const waiting = (data.drafts ?? []).length;
+  if (waiting && data.mail) {
+    body.append(ruleTitled('Waiting on you'));
+    drafts();
+    body.append(ruleMajor());
+  }
+  did();
+  if (data.usage?.length) {
+    body.append(ruleTitled('Claude and Qwen, replies per week'));
+    if (typeof data.quotaWeek === 'number') {
+      const st = h('div', 'stat');
+      const b = h('b', '', `${Math.round(data.quotaWeek * 100)}%`);
+      st.append(b, h('span', '', ' of your Claude week used. Qwen\u2019s replies cost no quota.'));
+      body.append(st);
+    }
+    body.append(useChart(data.usage));
+  }
+}
+/** Jobs: where every job is, then the card. */
+function jobsView() {
+  const s = data.jobStages ?? {};
+  const total = Object.values(s).reduce((a, b) => a + b, 0);
+  if (total) {
+    body.append(h('p', 't-eyebrow', 'JOB HUNT \u00b7 WHERE EACH ONE IS'), stageChart(s), ruleMajor());
+  }
+  jobs();
+}
+/** Settings: the switches, then what he may do without asking. */
+function settingsView() {
+  settings();
+  if (!data) return;
+  body.append(ruleMajor());
+  mayDo();
+}
+
+// ---------------------------------------------------------------- the charts (6.18, sheet 7)
+// Drawn on the parchment, every bar with the black outline the rest of Aang has, every number written on
+// the chart so nothing depends on colour, one scale per chart. Built as SVG elements, never as markup.
+const SVG = 'http://www.w3.org/2000/svg';
+const sv = (tag, attrs = {}, text) => { const e = document.createElementNS(SVG, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, String(v)); if (text !== undefined) e.textContent = text; return e; };
+function stageChart(s) {
+  const rows = [['new', 'New'], ['approved', 'Approved'], ['sent', 'Sent to apply'], ['applied', 'Applied'], ['stuck', 'Needs you'], ['skipped', 'Skipped']];
+  const max = Math.max(1, ...rows.map(([k]) => s[k] ?? 0));
+  const W = 560, rowH = 34, x0 = 150, x1 = 500;
+  const svg = sv('svg', { viewBox: `0 0 ${W} ${rows.length * rowH + 6}`, role: 'img', 'aria-label': 'Jobs by stage' });
+  rows.forEach(([k, label], i) => {
+    const n = s[k] ?? 0, y = i * rowH + 4, w = Math.max(n ? 6 : 0, (x1 - x0) * n / max);
+    svg.append(sv('text', { x: x0 - 10, y: y + 20, 'text-anchor': 'end', class: 'lab' }, label + (k === 'stuck' && n ? ' !' : '')));
+    const bar = sv('rect', { x: x0, y: y + 4, width: w, height: 22, rx: 4, class: 'm', fill: k === 'stuck' ? 'var(--orange)' : k === 'skipped' ? '#B9B3C9' : 'var(--gold)' });
+    bar.append(sv('title', {}, `${label}: ${n}`));
+    svg.append(bar, sv('text', { x: x0 + w + 8, y: y + 20, class: 'val' }, String(n)));
+  });
+  const c = h('div', 'chart'); c.append(svg); return c;
+}
+function useChart(weeks) {
+  const max = Math.max(1, ...weeks.map((w) => Math.max(w.claude, w.qwen)));
+  const W = 560, H = 210, base = 180, top = 16, gw = (W - 60) / weeks.length;
+  const svg = sv('svg', { viewBox: `0 0 ${W} ${H + 24}`, role: 'img', 'aria-label': 'Replies per week, Claude and Qwen' });
+  svg.append(sv('line', { x1: 40, y1: base, x2: W - 10, y2: base, class: 'base' }));
+  weeks.forEach((wk, i) => {
+    const gx = 50 + i * gw;
+    [['claude', '#E88A6A', 'Claude'], ['qwen', '#966EC8', 'Qwen']].forEach(([k, fill, name], j) => {
+      const n = wk[k], hgt = (base - top) * n / max, bx = gx + j * (gw * .36) + 4, bw = gw * .32;
+      const bar = sv('rect', { x: bx, y: base - hgt, width: bw, height: Math.max(n ? 3 : 0, hgt), rx: 3, class: 'm', fill });
+      bar.append(sv('title', {}, `${name}, week of ${wk.week}: ${n}`));
+      svg.append(bar);
+      if (n) svg.append(sv('text', { x: bx + bw / 2, y: base - hgt - 5, 'text-anchor': 'middle', class: 'val' }, String(n)));
+    });
+    const d = new Date(wk.week + 'T12:00:00');
+    svg.append(sv('text', { x: gx + gw * .34, y: base + 18, 'text-anchor': 'middle', class: 'axis' }, d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }).toUpperCase()));
+  });
+  const legend = h('div', 'legend');
+  for (const [name, fill] of [['Claude', '#E88A6A'], ['Qwen', '#966EC8']]) { const s = h('span'); const i = h('i'); i.style.background = fill; s.append(i, name); legend.append(s); }
+  const c = h('div', 'chart'); c.append(legend, svg); return c;
+}
+
+// 4. Search over everything (6.18, sheet 7). One box over five places, grouped by where each hit lives,
 // with a count pill per place so an empty place says so. Nothing here goes to a model.
 let sq = '', sres = null, sTimer = 0;
 const PLACES = [['addons', 'Addons', 'm-addon', 'ADD'], ['talk', 'Conversations', 'm-talk', ''], ['vault', 'Vault', 'm-vault', 'NOTE'], ['facts', 'What I know', 'm-mem', 'FACT'], ['jobs', 'Jobs', 'm-job', 'JOB']];
@@ -370,7 +449,16 @@ function searchAll() {
 function paintSearch() {
   const out = el('sres'); if (!out) return;
   out.replaceChildren();
-  if (!sq || !sres) { out.append(h('p', 'empty-line', 'One box for what I know, your vault, our conversations, jobs and addons. Searching costs nothing: it all stays on this PC.')); return; }
+  // An empty box is the recent conversation: History's job, now that it lives here.
+  if (!sq || !sres) {
+    out.append(h('p', 't-hint', 'One box for what I know, your vault, our conversations, jobs and addons. Searching costs nothing: it all stays on this PC.'));
+    out.append(ruleTitled('Lately'));
+    const list = h('div'); list.id = 'found'; out.append(list);
+    query = '';
+    paintFound();
+    if (!found.length) window.aang?.deskHistory?.({ q: '' });
+    return;
+  }
   const words = sq.toLowerCase().split(/\s+/).filter((w) => w.length > 1);
   const pills = h('div', 'srcs');
   for (const [k, label] of PLACES) { const n = (sres[k] ?? []).length; const p = h('span', n ? '' : 'none'); p.append(h('b', '', String(n)), ' ' + label); pills.append(p); }
@@ -388,10 +476,10 @@ function paintSearch() {
       const ttl = h('div', 'ttl'), sn = h('div', 'sn');
       let how = '', go = null;
       if (k === 'addons') { marked(ttl, x.title, words); sn.textContent = `Version ${x.version}`; go = () => show(0); go = null; }
-      if (k === 'talk') { marked(ttl, x.text, words); sn.textContent = new Date(x.ts).toLocaleString('en-CA', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }); how = x.how.toUpperCase(); go = () => { sq && (query = sq); show(5); window.aang?.deskHistory?.({ q: sq }); }; }
+      if (k === 'talk') { marked(ttl, x.text, words); sn.textContent = new Date(x.ts).toLocaleString('en-CA', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }); how = x.how.toUpperCase(); go = null; }
       if (k === 'vault') { marked(ttl, x.title, words); marked(sn, x.head, words); how = x.how.toUpperCase(); go = () => window.aang?.openThing?.({ kind: 'file', value: x.path }); }
       if (k === 'facts') { marked(ttl, x.text, words); go = () => show(0); }
-      if (k === 'jobs') { marked(ttl, x.title, words); sn.textContent = `${x.company} \u00b7 ${x.status}`; go = () => show(4); }
+      if (k === 'jobs') { marked(ttl, x.title, words); sn.textContent = `${x.company} \u00b7 ${x.status}`; go = () => show(2); }
       mid.append(ttl); if (sn.textContent) mid.append(sn);
       row.append(medal, mid, h('span', 'how', how));
       if (go) { row.addEventListener('click', go); row.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); }); row.style.cursor = 'pointer'; }
@@ -476,27 +564,30 @@ window.aang?.onMessage?.((m) => {
     const nd = (m.drafts ?? []).length, nj = (m.jobs ?? []).length;
     el('ndrafts').hidden = !nd; el('ndrafts').textContent = String(nd);
     el('njobs').hidden = !nj; el('njobs').textContent = String(nj);
-    if (tab !== 5) show(tab);
+    if (tab !== 4) show(tab);
     return;
   }
-  if (m.t === 'search.reply' && typeof m.q === 'string') { if (m.q === sq) { sres = m; if (tab === 8) paintSearch(); } return; }
-  if (m.t === 'brief.card' && m.card) { briefCard = m.card; if (tab === 7) show(7); return; }
+  if (m.t === 'search.reply' && typeof m.q === 'string') { if (m.q === sq) { sres = m; if (tab === 4) paintSearch(); } return; }
+  if (m.t === 'brief.card' && m.card) { briefCard = m.card; if (tab === 5) show(5); return; }
   if (m.t === 'settings') {
     sets = m;
-    if (tab === 6) show(6);
+    if (tab === 3) show(3);
     return;
   }
   if (m.t === 'history.reply' && typeof m.q === 'string') {
     if (m.q !== query) return;                         // a stale answer to an older search
     found = [...(m.items ?? [])].reverse();            // newest first from the brain; read oldest first
-    if (tab === 5) {
+    if (tab === 4 && !sq) {
       const c = body.querySelector('.searchslot .chip');
       if (c) { c.textContent = `${found.length} FOUND`; c.hidden = !query; }
       paintFound();
     }
   }
 });
-window.aang?.onDeskTab?.((n) => { if (Number.isInteger(n) && n >= 0 && n <= 8) show(n); window.aang?.deskPanel?.(); });
+// The pet's menu still names the old seven (Panel 0, Permissions 1, Activity 2) and the brief card asks
+// for 7; each lands where that thing lives now.
+const FROM_OLD = { 0: 0, 1: 3, 2: 1, 3: 1, 4: 2, 5: 4, 6: 3, 7: 5 };
+window.aang?.onDeskTab?.((n) => { const v = FROM_OLD[n]; if (v !== undefined) show(v); window.aang?.deskPanel?.(); });
 
 show(0);
 window.aang?.deskPanel?.();

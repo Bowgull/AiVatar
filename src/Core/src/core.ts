@@ -770,8 +770,31 @@ export class Core {
       jobs: new Jobs(this.cfg.stateDir).cards.filter(c => c.status === 'new').reverse().slice(0, 10)
         .map(c => ({ id: c.id, title: c.title, company: c.company, location: c.location, salary: c.salary,
                      score: c.score, verdict: c.verdict, reason: c.reason, url: c.url, at: c.at })),
+      jobStages: (() => { const s: Record<string, number> = {}; for (const c of new Jobs(this.cfg.stateDir).cards) s[c.status] = (s[c.status] ?? 0) + 1; return s; })(),
+      usage: this.usageByWeek(),
+      ...(this.policy.last ? { quotaWeek: this.policy.last.week } : {}),
       ...(notice ? { notice } : {}),
     };
+  }
+
+  /**
+   * 6.18: Aang's replies per week for the last six weeks, by who answered: Claude, or Qwen (tier "local").
+   * Counted from his own memory, so it is what really happened, not an estimate.
+   */
+  private usageByWeek(): { week: string; claude: number; qwen: number }[] {
+    const db = this.memory.handle();
+    if (!db) return [];
+    try {
+      const rows = db.prepare(`SELECT ts, tier FROM turns WHERE role = 'assistant' AND ts >= ? `).all(new Date(Date.now() - 42 * 86400_000).toISOString()) as { ts: string; tier: string | null }[];
+      const weeks = new Map<string, { claude: number; qwen: number }>();
+      const monday = (d: Date) => { const x = new Date(d); x.setHours(0, 0, 0, 0); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x.toISOString().slice(0, 10); };
+      for (let i = 5; i >= 0; i--) weeks.set(monday(new Date(Date.now() - i * 7 * 86400_000)), { claude: 0, qwen: 0 });
+      for (const r of rows) {
+        const w = weeks.get(monday(new Date(r.ts))); if (!w) continue;
+        if (/^(local|qwen)/i.test(r.tier ?? '')) w.qwen++; else w.claude++;
+      }
+      return [...weeks.entries()].map(([week, v]) => ({ week, ...v }));
+    } catch { return []; }
   }
 
   private async briefFor(ws: WebSocket): Promise<void> {
