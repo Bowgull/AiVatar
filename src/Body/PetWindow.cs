@@ -158,6 +158,25 @@ sealed class PetWindow : Form
         ph = (int)Math.Round((H + Extra) * scale);
 
         Text = "Aang Body";
+        // 6.17: drop a file on Aang. The pet only notices it and passes the paths on; the brain checks them
+        // and the Shell's balloon does the airbending. Only with the new front end, which draws it.
+        if (NewFrontEnd)
+        {
+            AllowDrop = true;
+            DragEnter += (_, e) =>
+            {
+                if (e.Data?.GetDataPresent(DataFormats.FileDrop) != true) { e.Effect = DragDropEffects.None; return; }
+                e.Effect = DragDropEffects.Copy;
+                _ = link.SendAsync(new { t = "drop.hover", on = true });
+            };
+            DragOver += (_, e) => { if (e.Data?.GetDataPresent(DataFormats.FileDrop) == true) e.Effect = DragDropEffects.Copy; };
+            DragLeave += (_, _) => _ = link.SendAsync(new { t = "drop.hover", on = false });
+            DragDrop += (_, e) =>
+            {
+                if (e.Data?.GetData(DataFormats.FileDrop) is string[] files && files.Length > 0)
+                    _ = link.SendAsync(new { t = "drop", files = files.Take(8).ToArray() });
+            };
+        }
         FormBorderStyle = FormBorderStyle.None;
         StartPosition = FormStartPosition.Manual;
         ShowInTaskbar = false;

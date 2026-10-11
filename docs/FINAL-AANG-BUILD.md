@@ -2485,6 +2485,22 @@ asked once; it needs "Let him see which app I'm in" on. **Nothing is copied and 
 touched.** The plan's copy-then-restore fallback is NOT built: apps whose text UI Automation cannot see get
 a plain "I can't see anything highlighted there" instead. Checked: the reader answers in under 100 ms.
 
+**PASS 3: THE DROP, BUILT 2026-10-11 (checked in a browser tab with the brain's messages faked; the
+real drag needs his desktop).** The pet accepts a file dragged onto it (new front end only) and passes the
+paths on. The brain checks it (`drop.ts`, 3 tests): **refused outright** is everything `offLimits()` refuses
+(other people's files, SSH/cloud keys, .env, browser profiles, Aang's own login) plus his own memory folder
+and key or password files by kind (.pem, id_rsa, .kdbx...). The balloon plays sheet 13's choreography with
+coucou's timings: DROP IT ON ME with the type chips, the air ball on its spring, lock-on hop, squash, the
+spiral in, two chews, the ride along the reading bar ("QWEN IS READING ...") **held at 92% until Qwen has
+actually finished**, the gold check, then "<name> is ready. <Qwen's one sentence> What should I do with it?"
+with **Ask Aang about it** (a pale-blue FILE chip on the typing box; his message carries the path, marked
+as data), **Remember it** (a copy in Aang's folder in his vault, the original untouched) and **Not now**.
+A refused file is spat back out with a red flash and a red plaque. **Honest limits:** Qwen reads text files
+(the first 6 KB); a PDF, picture or Word file is judged by its NAME only and the sentence says it is a
+guess. Folders stop after the chew and say folders come next. **Not built yet:** folders with the plan
+first, Give it to Claude, Black out (9.F1), links and videos, his ring glowing pale blue. The bubble and
+typing box only ever name the one file the brain itself accepted.
+
 **Taking things in ("ingestion", his yes to all, 2026-10-10):** a file, a whole folder, a web link or a
 video. Qwen reads first, on this PC, for free; Claude only on "Go deeper", which says its cost first.
 A YouTube link is read through its transcript. Everything read is untrusted text: read, never obeyed.

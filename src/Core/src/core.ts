@@ -13,6 +13,7 @@ import { Jobs, SWEEP_REQUEST, cleanField, safeUrl, scoreOf, verdictFor } from '.
 import type { Rubric } from './jobs.ts';
 import type { BriefCard, FromBody, Mode, StructuredList, ToBody } from './protocol.ts';
 import { Logos, brandDomain, isPersonal, senderDomain } from './logos.ts';
+import { SUMMARY_SYSTEM, checkDrop, firstPart, keepCopy, summaryPrompt } from './drop.ts';
 import { Lane } from './lane.ts';
 import type { LaneEvent } from './lane.ts';
 import { Backup } from './backup.ts';
@@ -1986,6 +1987,15 @@ export class Core {
         if (watching) this.activity.record(m.foreground ?? '', m.title ?? '', Date.now(), typeof m.hwnd === 'number' ? m.hwnd : 0);
         break;
       }
+      case 'drop.hover': this.sendTo('desktop', { t: 'drop.hover', on: m.on === true }); break;
+      case 'drop': void this.dropped(Array.isArray(m.files) ? m.files.map(String).slice(0, 8) : []).catch(e => console.error('drop failed: ' + (e as Error).message)); break;
+      case 'drop.keep': {
+        // Only the file the brain itself just accepted: the page cannot name any other path.
+        if (!this.lastDrop || String(m.path ?? '') !== this.lastDrop) break;
+        try { keepCopy(this.lastDrop); this.sendTo('desktop', { t: 'whisper', text: 'Kept a copy in my folder in your vault. The original is untouched.' }); }
+        catch (e) { this.sendTo('desktop', { t: 'whisper', text: 'I couldn\u2019t copy it: ' + (e as Error).message }); }
+        break;
+      }
       case 'highlight': void this.highlight().catch(e => console.error('highlight failed: ' + (e as Error).message)); break;
       case 'plan.reply': this.answerPlan(String(m.id ?? ''), m.go === true); break;
       case 'permission.reply': this.answerPermission(m.id, m.choice === 'always' || m.choice === 'once' ? m.choice : 'no'); break;
@@ -2728,6 +2738,33 @@ export class Core {
     if (!r.ok) { this.sendTo('desktop', { t: 'whisper', text: 'I can\u2019t see anything highlighted there. Select some text, then pick Highlight.' }); return; }
     this.tainted = true;
     this.sendTo('desktop', { t: 'highlight.got', text: r.text.slice(0, 20_000), app: String(app).slice(0, 80) });
+  }
+
+  /** The last file dropped and accepted: the only path "Remember it" or "Ask Aang about it" may name. */
+  private lastDrop: string | null = null;
+
+  /**
+   * 6.17: a file dropped on the pet. Checked first (drop.ts: other people's files, keys, browser profiles
+   * and his own memory are refused outright), then Qwen reads the start of it on this PC for nothing, and
+   * the balloon asks what he wants. Dropping a file IS the yes to look at it; nothing else happens to it.
+   */
+  private async dropped(files: string[]): Promise<void> {
+    const file = files[0];
+    if (!file) return;
+    const c = checkDrop(file, this.cfg.stateDir);
+    this.sendTo('desktop', { t: 'drop.go', name: c.name, ...(c.ok ? {} : { refused: c.why ?? 'I won\u2019t open that.' }), ...(c.ok && c.kind === 'folder' ? { folder: true } : {}) });
+    if (!c.ok || c.kind === 'folder') return;
+    let kb = 0;
+    try { kb = Math.max(1, Math.round(statSync(file).size / 1024)); } catch { /* gone */ }
+    const head = firstPart(file);
+    let summary = '';
+    try {
+      const { askLocal } = await import('./local.ts');
+      const r = await askLocal(summaryPrompt(c.name, kb, head), { system: SUMMARY_SYSTEM, maxTokens: 120, timeoutMs: 60_000 });
+      if (r.ok) summary = r.text.split('\n').map(s => s.trim()).filter(Boolean)[0]?.slice(0, 240) ?? '';
+    } catch { /* Qwen is a nicety here: the file is still ready */ }
+    this.lastDrop = file;
+    this.sendTo('desktop', { t: 'drop.done', name: c.name, path: file, summary, kb, from: path.basename(path.dirname(file)), more: files.length - 1 });
   }
 
   /** The plan waiting for his Go, if any. One at a time, like a permission. */

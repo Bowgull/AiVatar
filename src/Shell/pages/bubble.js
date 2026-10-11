@@ -808,6 +808,185 @@ function showResearch(r, turnRow) {
   card.hidden = false;
 }
 
+// ---------------------------------------------------------------- the drop (6.17 pass 3, sheet 13)
+// coucou's drop choreography (MIT, github.com/Louis-CFM/coucou, windows/src/upload/sequence.ts): same
+// phases and timings, redrawn in Aang's world, lifted from the approved sheet. An air ball chases the file
+// and locks on, airbends it in with a squash and two chews, then rides the reading bar while Qwen reads it
+// (held at 92% until Qwen has actually finished), pops a gold check, and the balloon asks what to do.
+// A refused file is spat back out with a red flash and a plain refusal. Nothing happens on the drop alone.
+const ZW = 380, REST_Y = 74, BY = 78, BX0 = 18, BX1 = ZW - 30;
+const eOut = (t) => 1 - Math.pow(1 - t, 3), eIn = (t) => t * t * t, eInOut = (t) => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+const eBack = (t) => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); };
+const seg = (t, a, b) => Math.max(0, Math.min(1, (t - a) / (b - a))), lerp = (a, b, t) => a + (b - a) * t;
+const curve = (u) => u < .4 ? .6 * eOut(u / .4) : u < .85 ? .6 + .32 * eInOut((u - .4) / .45) : .92 + .08 * eIn((u - .85) / .15);
+let D = null, dropLoop = 0;
+const $d = (id) => document.getElementById(id);
+function zoneEls() {
+  card.replaceChildren();
+  const z = document.createElement('div'); z.className = 'zone'; z.id = 'zone';
+  const zl = document.createElement('div'); zl.className = 'zl'; zl.id = 'zl';
+  const b = document.createElement('b'); b.textContent = 'DROP IT ON ME';
+  const zc = document.createElement('div'); zc.className = 'zc';
+  for (const k of ['PDF', 'PICTURE', 'NOTES', 'FOLDER', 'LINK']) { const s = document.createElement('span'); s.textContent = k; zc.append(s); }
+  zl.append(b, zc);
+  const bar = document.createElement('div'); bar.className = 'bar'; bar.id = 'bar';
+  const bl = document.createElement('div'); bl.className = 'bl'; bl.id = 'bl';
+  const bt = document.createElement('div'); bt.className = 'bt'; const bf = document.createElement('i'); bf.id = 'bf'; bt.append(bf);
+  const bp = document.createElement('span'); bp.className = 'bp'; bp.id = 'bp'; bp.textContent = '0%';
+  bar.append(bl, bt, bp);
+  const orb = document.createElement('div'); orb.className = 'orb'; orb.id = 'orb'; orb.append(document.createElement('i'), document.createElement('i'), document.createElement('i'));
+  const gf = document.createElement('div'); gf.className = 'gf'; gf.id = 'gf';
+  const ck = document.createElement('div'); ck.className = 'ck'; ck.id = 'ck'; ck.textContent = '\u2713';
+  z.append(zl, bar, orb, gf, ck);
+  card.append(z);
+  card.hidden = false;
+}
+function startDrop() {
+  if (D) return;
+  asking = null; asks.hidden = true;
+  who.textContent = ''; who.hidden = true; who.classList.remove('plaque');
+  scroller.hidden = true; working.hidden = true; tools.hidden = true;
+  bubble.classList.add('wide');
+  zoneEls();
+  // The file is over the pet, just right of the balloon: the ball rests on that side.
+  D = { drop: null, cx: ZW - 36, cy: REST_Y, bx: ZW - 40, vx: 0, tilt: 0, locked: false, lockAt: -9, over: true, dx: ZW - 36, dy: REST_Y, verdict: null, result: null, heldAt: 0 };
+  bubble.classList.remove('enter'); void bubble.offsetWidth; bubble.classList.add('enter');
+  show(); fit(); reportSize();
+  clearTimeout(hideTimer);
+  dropLoop = setInterval(dropTick, 16);
+}
+function endDrop() { clearInterval(dropLoop); dropLoop = 0; D = null; }
+function setOrb(x, y, d, sx, sy, rot) {
+  const o = $d('orb'); if (!o) return;
+  Object.assign(o.style, { width: d + 'px', height: d + 'px', left: (x - d / 2) + 'px', top: (y - d / 2) + 'px', transform: `rotate(${rot}deg) scale(${sx},${sy})` });
+  o.classList.toggle('small', d < 24);
+}
+function doDrop(verdict) {
+  if (!D) startDrop();
+  if (!D || D.drop !== null) return;
+  D.verdict = verdict;
+  D.drop = performance.now() / 1000;
+  const g = $d('gf');
+  if (g) {
+    const ext = (verdict.name.split('.').pop() || 'FILE').slice(0, 4).toUpperCase();
+    g.textContent = verdict.folder ? 'DIR' : ext;
+    g.style.background = verdict.refused ? '#B9B3C9' : verdict.folder ? '#FFC43C' : '#F2C1A6';
+    g.style.display = 'grid';
+  }
+}
+function dropTick() {
+  if (!D) return;
+  const z = $d('zone'); if (!z) { endDrop(); return; }
+  const now = performance.now() / 1000, dt = 1 / 60, gf = $d('gf');
+  if (D.drop === null) {
+    const tx = Math.max(30, Math.min(ZW - 30, D.cx)), dist = Math.hypot(D.cx - D.bx, D.cy - REST_Y);
+    if (!D.locked && dist < 60) { D.locked = true; D.lockAt = now; }
+    if (D.locked && dist > 90) D.locked = false;
+    const resp = D.locked ? .18 : .35, damp = D.locked ? .75 : .7, k = Math.pow(2 * Math.PI / resp, 2), c = 2 * damp * Math.sqrt(k);
+    for (let i = 0; i < 4; i++) { const ac = k * (tx - D.bx) - c * D.vx; D.vx += ac * dt / 4; D.bx += D.vx * dt / 4; }
+    D.tilt = lerp(D.tilt, Math.max(-.18, Math.min(.18, D.vx * .0015)), .2);
+    const hop = D.locked ? -6 * Math.sin(Math.PI * seg(now, D.lockAt, D.lockAt + .15)) : 0;
+    z.classList.toggle('over', D.over);
+    z.style.background = D.over ? 'rgba(200,232,255,.22)' : 'transparent';
+    setOrb(D.bx, REST_Y + hop, D.locked ? 48 : 42, 1, 1, D.tilt * 57);
+    return;
+  }
+  // Reading waits for Qwen: the clock is held at 92% until the result is in, then carries on from there.
+  const PS = 1.30, PE = PS + 2.4, HOLD = PS + 2.4 * .85;
+  let s = now - D.drop;
+  const reject = !!D.verdict.refused;
+  if (!reject && !D.verdict.folder && !D.result && s >= HOLD) { if (!D.heldAt) D.heldAt = now; s = HOLD; }
+  else if (D.heldAt && D.result) { D.drop += now - D.heldAt; D.heldAt = 0; s = now - D.drop; }
+  let x = D.bx, y = REST_Y, d = 44, sx = 1, sy = 1;
+  if (s < .08) { const q = eOut(seg(s, 0, .08)); sy = lerp(1, .92, q); sx = lerp(1, 1.06, q); }
+  else if (s < .38) { const q = eInOut(seg(s, .08, .38)); sy = lerp(.92, 1.06, q); sx = lerp(1.06, .97, q); }
+  else if (s < .65) { const q = seg(s, .38, .65); sy = q < .26 ? lerp(1.06, .82, eOut(q / .26)) : q < .74 ? lerp(.82, 1.1, eOut((q - .26) / .48)) : lerp(1.1, 1, eInOut((q - .74) / .26)); sx = 2 - sy; }
+  const sk = seg(s, .08, .38);
+  if (gf && (!reject || s < .45)) {
+    const e = eIn(sk), ang = e * Math.PI * 3, r = (1 - e) * 16;
+    gf.style.display = sk < 1 ? 'grid' : 'none';
+    gf.style.left = (lerp(D.dx, x, e) + Math.cos(ang) * r - 15) + 'px';
+    gf.style.top = (lerp(D.dy, y, e) + Math.sin(ang) * r - 19) + 'px';
+    gf.style.transform = `rotate(${ang * 57}deg) scale(${1 - e * .92})`;
+  }
+  if (reject) {
+    if (s >= .45 && gf) { const q = seg(s, .45, .95); gf.style.display = q < 1 ? 'grid' : 'none'; gf.style.left = (lerp(x, ZW + 30, eOut(q)) - 15) + 'px'; gf.style.top = (y - 19 - Math.sin(Math.PI * q) * 55) + 'px'; gf.style.transform = `rotate(${-q * 540}deg) scale(${.4 + q * .6})`; }
+    z.style.background = `rgba(255,90,74,${.28 * Math.sin(Math.PI * seg(s, .35, 1.05))})`;
+    z.style.borderColor = '#c0392b';
+    setOrb(x, y, d, sx, sy, 0);
+    if (s > 1.15) { const v = D.verdict; endDrop(); dropRefused(v); }
+    return;
+  }
+  if (s >= .65 && s < .93) { const q = ((s - .65) % .14) / .14; sy = 1 - .09 * Math.sin(Math.PI * q); sx = 1 + .06 * Math.sin(Math.PI * q); }
+  if (D.verdict.folder && s >= 1.0) { const v = D.verdict; endDrop(); dropFolder(v); return; }
+  if (s >= .93 && s < PS) { const q = eInOut(seg(s, .93, 1.28)); x = lerp(D.bx, BX0, q); y = lerp(REST_Y, BY, q); d = lerp(44, 14, q); if (s < 1.28) { const q2 = seg(s, .93, 1.28); sy = 1 + .12 * Math.sin(Math.PI * q2); sx = 1 - .06 * Math.sin(Math.PI * q2); } }
+  const bl = $d('bl'), bf = $d('bf'), bp = $d('bp'), ck = $d('ck');
+  if (bl && !bl.textContent) bl.textContent = 'QWEN IS READING ' + D.verdict.name.toUpperCase();
+  if (s >= PS) {
+    const p = curve(seg(s, PS, PE));
+    x = lerp(BX0, BX1, p); y = BY; d = 14;
+    bf.style.width = (p * 100) + '%'; bp.textContent = Math.round(p * 100) + '%';
+    const v = (curve(seg(s + .01, PS, PE)) - p) / .01, st = Math.max(0, Math.min(1, v * .18));
+    sx = 1 + .25 * st; sy = 1 - .15 * st;
+    z.style.background = `rgba(200,232,255,${p * .5})`;
+  }
+  if (s >= PE) {
+    x = BX1; y = BY - 8 * Math.sin(Math.PI * seg(s, PE, PE + .2));
+    ck.style.transform = `scale(${eBack(seg(s, PE, PE + .25))})`;
+    z.style.borderColor = '#7fb6e6'; bp.textContent = '';
+    z.style.background = `rgba(200,232,255,${.5 + .2 * Math.sin(Math.PI * seg(s, PE, PE + .4))})`;
+  }
+  if (s >= PE + .25) { const q = eInOut(seg(s, PE + .25, PE + .7)); x = lerp(BX1, ZW / 2, q); y = lerp(BY, REST_Y - 14, q); d = lerp(14, 44, eBack(seg(s, PE + .25, PE + .7))); }
+  $d('zl').style.opacity = String(1 - seg(s, .93, 1.13));
+  $d('bar').style.opacity = String(seg(s, 1.05, 1.30) * (1 - seg(s, PE + .25, PE + .45)));
+  setOrb(x, y, d, sx, sy, 0);
+  if (s >= PE + .85) { const r = D.result; endDrop(); dropReady(r); }
+}
+function dropMessage(plaqueText, plaqueClass, lines, keys) {
+  // Its own block, like the brief: the reply area caps its height to the reply's lines and clipped this.
+  card.replaceChildren();
+  scroller.hidden = true;
+  who.textContent = plaqueText; who.hidden = false; who.classList.add('plaque');
+  who.classList.toggle('red', plaqueClass === 'red');
+  const body = document.createElement('div'); body.className = 'dropmsg';
+  for (const [b, rest] of lines) { const p = document.createElement('p'); if (b) { const x = document.createElement('b'); x.textContent = b; p.append(x, ' '); } p.append(rest); body.append(p); }
+  card.append(body);
+  card.hidden = false;
+  asks.replaceChildren();
+  for (const k of keys) {
+    const btn = document.createElement('button');
+    btn.className = 'key sm' + (k.primary ? ' primary' : '');
+    btn.type = 'button'; btn.textContent = k.label;
+    const tag = document.createElement('span'); tag.className = 'k'; tag.textContent = k.key; btn.append(tag);
+    btn.addEventListener('click', k.go);
+    asks.append(btn);
+  }
+  asks.hidden = !keys.length;
+  if (keys.length) { asks.classList.add('guard'); setTimeout(() => asks.classList.remove('guard'), 600); }
+  reveal.start('', false); reveal.skip();
+  fit(); reportSize();
+  // A plain message goes by itself after a while; one with choices stays until he picks.
+  clearTimeout(hideTimer);
+  if (!keys.length) hideTimer = setTimeout(() => goAway(), 12000);
+}
+function dropRefused(v) {
+  dropMessage('I WON\u2019T OPEN THAT', 'red', [['', v.refused]], []);
+}
+function dropFolder(v) {
+  dropMessage('A WHOLE FOLDER', '', [[v.name, 'is a folder. Reading whole folders comes next, with the plan first; for now drop the files you want me to look at.']], []);
+}
+function dropReady(r) {
+  if (!r) return;
+  const plaque = `${r.name} \u00b7 ${r.kb} KB \u00b7 FROM ${r.from}`.toUpperCase();
+  const lines = [[`${r.name} is ready.`, (r.summary ? r.summary + ' ' : '') + 'What should I do with it?']];
+  if (r.more > 0) lines.push(['', `You dropped ${r.more + 1}; I read the first. Drop the others one at a time.`]);
+  dropMessage(plaque, '', lines, [
+    { label: 'Ask Aang about it', key: 'A', primary: true, go: () => { window.aang?.dropAsk?.(r.path); releaseMouse(); goAway(); } },
+    { label: 'Remember it', key: 'X', go: () => { window.aang?.dropKeep?.(r.path); releaseMouse(); goAway(); } },
+    { label: 'Not now', key: 'Z', go: () => { releaseMouse(); goAway(); } },
+  ]);
+}
+
 // ---------------------------------------------------------------- what the brain says
 window.aang?.onMessage?.(m => {
   if (!m || typeof m !== 'object') return;
@@ -818,6 +997,11 @@ window.aang?.onMessage?.(m => {
   // An ask takes priority: it is the one thing that must be answered before anything else happens.
   // It joins the queue rather than replacing what is there, and the queue decides which is on top.
   if (askFrom(m)) { queueAsk(m); showTopAsk(); return; }
+
+  // 6.17: a file over the pet, dropped, judged, and read.
+  if (m.t === 'drop.hover') { if (m.on) startDrop(); else if (D && D.drop === null) { endDrop(); card.hidden = true; scroller.hidden = false; goAway(); } return; }
+  if (m.t === 'drop.go' && typeof m.name === 'string') { doDrop({ name: m.name, refused: m.refused ?? '', folder: m.folder === true }); return; }
+  if (m.t === 'drop.done' && typeof m.path === 'string') { if (D) D.result = m; else dropReady(m); return; }
 
   if (m.t === 'whisper' && typeof m.text === 'string') {
     if (!bubble.hidden && !bubble.classList.contains('whisper')) { whisperNext = m; return; }
@@ -864,7 +1048,7 @@ window.aang?.onMessage?.(m => {
       scheduleHide();
       return;
     }
-    who.classList.remove('plaque');
+    who.classList.remove('plaque', 'red');
     // Muted means he never wants Aang starting a conversation. An ANSWER is not that, so only the
     // proactive ones are held - the brain marks them, and this is the one place it matters here.
     if (m.proactive && muted) return;
