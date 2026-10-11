@@ -95,6 +95,8 @@ export type ToBody =
   | { t: 'typebox' }
   /** Window 2 (6.15): the pet's Panel menu with the new front end on, so the Shell opens the desk. */
   | { t: 'desk.open'; tab?: number }
+  /** 6.17: Snipit from the pet's menu, passed to the Shell, which does the snipping. */
+  | { t: 'snip' }
   /** Window 2's Settings (6.15 pass 2): the pet owns the switches; the Shell asks, sets and is told. */
   | { t: 'settings.get' }
   | { t: 'settings.set'; key: 'quietGame' | 'mute' | 'seeWindow' | 'usage' | 'autostart'; on: boolean }
@@ -282,6 +284,8 @@ export type FromBody =
   /** The pet was clicked and the new front end is on, so the Shell opens its typing box. */
   | { t: 'typebox' }
   | { t: 'desk.open'; tab?: number }
+  /** 6.17: Snipit from the pet's menu, passed to the Shell, which does the snipping. */
+  | { t: 'snip' }
   /** Window 2's Settings (6.15 pass 2): the pet owns the switches; the Shell asks, sets and is told. */
   | { t: 'settings.get' }
   | { t: 'settings.set'; key: 'quietGame' | 'mute' | 'seeWindow' | 'usage' | 'autostart'; on: boolean }
