@@ -82,6 +82,13 @@ export class CoreLink {
     setTimeout(() => this.connect(), wait).unref?.();
   }
 
+  /** "Try again": stop waiting out the back-off and try the brain right now. */
+  tryNow(): void {
+    if (this.stopped || this.connected) return;
+    this.pause = 250;
+    this.connect();
+  }
+
   send(msg: Record<string, unknown>): boolean {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return false;
     this.ws.send(JSON.stringify(msg));

@@ -123,6 +123,9 @@ contextBridge.exposeInMainWorld('aang', {
   deskCopy: text => ipcRenderer.send('desk:copy', text),
   deskUndo: () => ipcRenderer.send('desk:undo'),
   deskBrief: () => ipcRenderer.send('desk:brief'),
+  /** 6.14b: the brain is down. Try reaching it now, or open its log. */
+  retryBrain: () => ipcRenderer.send('bubble:retry'),
+  showBrainLog: () => ipcRenderer.send('bubble:log'),
   /** From the bubble's brief card: open window 2 on the whole brief. */
   openDesk: tab => ipcRenderer.send('bubble:desk', tab),
   /** Which tab to open on, when the pet's menu asked for a particular one. */

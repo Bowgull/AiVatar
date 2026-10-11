@@ -301,7 +301,11 @@ const link = new CoreLink({
     bubble?.send('brain:message', m);
     input?.send('brain:message', m);
   },
-  onConnected: up => { for (const w of windows.values()) if (!w.isDestroyed()) w.webContents.send('brain:connected', up); },
+  onConnected: up => {
+    for (const w of windows.values()) if (!w.isDestroyed()) w.webContents.send('brain:connected', up);
+    // 6.14b: the bubble says so when the brain is down, so it has to hear it too.
+    bubble?.send('brain:connected', up);
+  },
 });
 
 /** Make a window with the safe settings, locked down, showing one of the Shell's own pages. */
@@ -681,6 +685,13 @@ app.whenReady().then(async () => {
     if (fromInput(e) && s && typeof s === 'object') input?.resize(Number(s.width) || 0, Number(s.height) || 0);
   });
   // ---- window 2, the desk (6.15): each door sends exactly what the C# Panel sends.
+  // 6.14b: "Try again" and "Show what went wrong" from the bubble when the brain will not come back.
+  ipcMain.on('bubble:retry', (e) => { if (fromBubble(e)) link?.tryNow(); });
+  ipcMain.on('bubble:log', (e) => {
+    if (!fromBubble(e)) return;
+    // The brain's own log, kept by the pet (CoreSupervisor) in his Aang folder. Opened in his own editor.
+    void shell.openPath(path.join(process.env.APPDATA ?? os.homedir(), 'Aang', 'core.log'));
+  });
   ipcMain.on('desk:panel', (e) => { if (fromDesk(e)) link?.send({ t: 'panel' }); });
   ipcMain.on('desk:settings', (e) => { if (fromDesk(e)) link?.send({ t: 'settings.get' }); });
   ipcMain.on('desk:setting', (e, a) => {
