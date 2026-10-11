@@ -104,3 +104,15 @@ test('a reminder coming due is a short ask: Got it, or Snooze 5 min (6.12, sheet
   assert.deepEqual(a.keys.map((k: { choice: string }) => k.choice), ['ok', 'snooze']);
   assert.equal(askFrom({ t: 'bubble', text: 'Reminder: hi', stream: false }), null, 'an ordinary reply is not an ask');
 });
+
+test('approvals in plain words: a command comes off the question and sits one tap away (sheet 13)', () => {
+  const a = askFrom({ t: 'permission', id: 'p1', tool: 'PowerShell', question: 'run this: rm -r ./old',
+    means: 'A command is an instruction typed straight to your computer. I do not recognise this one, so read it before you say yes. Exactly this: rm -r ./old',
+    exact: 'rm -r ./old' });
+  assert.ok(a);
+  assert.ok(!a.question.includes('rm -r'), 'no code in the question');
+  assert.ok(!String(a.means).includes('rm -r'), 'no code in the explaining line');
+  assert.equal(a.exact, 'rm -r ./old', 'the exact command is still there, one tap away');
+  const old = askFrom({ t: 'permission', id: 'p2', tool: 'PowerShell', question: 'run this: ls', means: 'Exactly this: ls' });
+  assert.equal(old?.question, 'run this: ls', 'without `exact` nothing is hidden: never lose the command');
+});

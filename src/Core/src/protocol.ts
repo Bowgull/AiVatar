@@ -149,6 +149,12 @@ export type ToBody =
        */
       means?: string;
       /**
+       * For a command, its exact text on its own. The cockpit keeps code out of the balloon and puts this
+       * one tap away ("See the exact command", sheet 13); `means` still carries it for the old bubble and
+       * Discord, which show it inline.
+       */
+      exact?: string;
+      /**
        * This one has to be HELD, not clicked (sheet 5, section 2): it sends, buys, deletes, or closes
        * someone else's app. A reflex click must not be able to do it. Decided by the Core, never by the
        * window drawing the question.

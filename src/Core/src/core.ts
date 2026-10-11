@@ -57,7 +57,7 @@ import { dueNudges, nudgeText, torontoDay } from './resurface.ts';
 import type { Fetch } from './google.ts';
 import { MailService, MailStore, renderMailCard } from './mail.ts';
 import type { DraftInput, MailDraft } from './mail.ts';
-import { meansOf } from './plain.ts';
+import { exactOf, meansOf } from './plain.ts';
 import { checkAddons, saveDigest, weeklySweep } from './watch.ts';
 
 export interface CoreConfig {
@@ -2626,7 +2626,8 @@ export class Core {
       // exact text. See plain.ts - a question he cannot read is not consent.
       const means = meansOf(tool, input);
       const hold = needsHold(tool);
-      for (const c of askAt) this.send(c, { t: 'permission', id, tool, question, remembers: kind?.says, ...(means ? { means } : {}), ...(hold ? { hold: true } : {}) });
+      const exact = exactOf(tool, input);
+      for (const c of askAt) this.send(c, { t: 'permission', id, tool, question, remembers: kind?.says, ...(means ? { means } : {}), ...(exact ? { exact } : {}), ...(hold ? { hold: true } : {}) });
     });
   }
 

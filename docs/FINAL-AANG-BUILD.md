@@ -2047,7 +2047,13 @@ while he builds). 112 tests in the Shell.
   Measured in a browser tab: 416 x 116 folded, 556 x 275 open. Decided from the text, not measured
   lines, so it cannot flip while a reply is still arriving. **Voice change needs a fresh session** (the
   resume landmine in CLAUDE.md).
-- **Still owed:** whisper size, approvals in plain words, now playing, his eyes going to the balloon.
+- **Approvals in plain words, built 2026-10-11:** the Core now sends a command's text on its own as
+  `exact` (`plain.ts` `exactOf`); the balloon takes it off the question ("run a command I do not
+  recognise") and the explaining line, and shows it only on "See the exact command". Without `exact`
+  nothing is hidden, so the command can never be lost; the old bubble and Discord still show it inline.
+  **Two old bugs found doing it:** the explaining line sat inside the reply's line cap and was clipped
+  away on every ask, and it lingered under the next reply. Both fixed. Checked in a browser tab.
+- **Still owed:** whisper size, now playing, his eyes going to the balloon.
 
 ---
 
