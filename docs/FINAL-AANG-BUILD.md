@@ -3238,6 +3238,13 @@ on a phone. After 9.A0 because every button and menu needs that one list behind 
   made, so every card carries an image Aang renders in his own look (parchment, wood, plaques,
   Silkscreen and Figtree, his sprite), plus accent strips, his app emoji, per-speaker avatars, role
   colours, forum tags and a drawn server icon.
+- **THE REORGANISATION (his interview, 2026-10-11): 10 channels.** #home (home card pinned, the quiet
+  log under it; replaces #log; KEPT, his call), #aang, #capture, #needs-you (EVERYTHING waiting on him,
+  the one that always buzzes), #drafts (kept separate, his call), forum #claude-jobs, forum #jobs (the
+  four job channels become one: paste links there, posts tagged Found / Applied / Skipped; stuck items
+  go to #needs-you), forum #library (recipes, guides, saved videos, ideas, notes; filter by tag on the
+  phone), #lists, #gaming. Grouping (by what needs him, or by part of life) and plain names vs names
+  with a symbol are picked from sheet 15.
 - **Making and deleting channels when he asks.** Aang already has Manage Channels (he built the
   layout); asking for it in chat is new. Deleting cannot be undone, so it takes the held confirm.
 
