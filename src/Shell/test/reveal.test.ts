@@ -142,3 +142,22 @@ test('clearing leaves nothing behind for the next message to inherit', () => {
   r.tick();
   assert.equal(r.text, '', 'and a stray tick afterwards does not resurrect it');
 });
+
+test('the cockpit pace: whole words, one every 38 ms, never faster because more is waiting', async () => {
+  const { WORD_MS, wordEnd } = await import('../pages/reveal.js');
+  assert.equal(WORD_MS, 38);
+  assert.equal(wordEnd('one two three', 1), 4, 'a word ends after the space that follows it');
+  assert.equal(wordEnd('one two three', 9), 13);
+
+  const fast = clock(); const a = new Reveal(fast.now, { wordMs: WORD_MS });
+  a.start('w '.repeat(500), false);
+  fast.advance(38 * 5); a.tick();
+  const slow = clock(); const b = new Reveal(slow.now, { wordMs: WORD_MS });
+  b.start('w w ', true);
+  slow.advance(38 * 2); b.tick();
+  b.append('w '.repeat(50), true);
+  slow.advance(38 * 3); b.tick();
+  assert.equal(a.text, 'w '.repeat(5), 'five words after five beats, however much is waiting');
+  assert.equal(b.text, a.text, 'and the same for one dribbling in');
+  assert.ok(!/\S$/.test('one tw'.slice(0, wordEnd('one two', 1))), 'never stops mid-word');
+});

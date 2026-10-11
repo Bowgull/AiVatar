@@ -22,6 +22,24 @@ export const PER_TICK = 2;
 export const TICK_MS = 50;
 /** 40 a second, against roughly 20 for comfortable prose reading. */
 export const CHARS_PER_SECOND = (PER_TICK * 1000) / TICK_MS;
+/**
+ * The cockpit's pace (sheet 13, the Smoother look he approved 2026-10-10): whole words fading in, one
+ * every 38 ms, instead of letters ticking. The rule above is unchanged: a fixed pace, never faster
+ * because more is waiting. Only the unit moved from characters to words.
+ */
+export const WORD_MS = 38;
+
+/**
+ * Where the nth word ends, counting the space after it, so the shown part never stops mid-word.
+ * @param {string} text @param {number} n @returns {number}
+ */
+export function wordEnd(text, n) {
+  if (n <= 0) return 0;
+  const re = /\S+\s*/g;
+  let m, i = 0;
+  while ((m = re.exec(text))) if (++i === n) return m.index + m[0].length;
+  return text.length;
+}
 
 export class Reveal {
   /** Everything there is to say, including the part not shown yet. */
@@ -31,9 +49,13 @@ export class Reveal {
   #more = false;
   #startedAt = 0;
   #now;
+  #wordMs = 0;
 
-  /** @param {() => number} [now] a clock, so the pace can be tested without waiting in real time */
-  constructor(now = Date.now) { this.#now = now; }
+  /**
+   * @param {() => number} [now] a clock, so the pace can be tested without waiting in real time
+   * @param {{wordMs?: number}} [opt] reveal by whole words at this pace instead of 2 characters a tick
+   */
+  constructor(now = Date.now, opt = {}) { this.#now = now; this.#wordMs = opt.wordMs ?? 0; }
 
   /** What to put on screen right now. */
   get text() { return this.#full.slice(0, this.#shownChars); }
@@ -75,6 +97,11 @@ export class Reveal {
    */
   tick() {
     if (!this.#startedAt) return;
+    if (this.#wordMs) {
+      const words = Math.floor((this.#now() - this.#startedAt) / this.#wordMs);
+      this.#shownChars = wordEnd(this.#full, words);
+      return;
+    }
     const ticks = Math.floor((this.#now() - this.#startedAt) / TICK_MS);
     this.#shownChars = Math.min(this.#full.length, ticks * PER_TICK);
   }

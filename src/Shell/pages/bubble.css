@@ -9,7 +9,7 @@
    a test asserts them there. */
 
 :root{
-  --line-h:23px;          /* BubbleView.LineH */
+  --line-h:24px;          /* was BubbleView.LineH 23; 24 in the Smoother look (sheet 13) */
   --bubble-pad:12px;      /* BubbleView.Pad */
   --collapsed-lines:6;    /* BubbleView.CollapsedLines */
   --expanded-lines:12;    /* BubbleView.ExpandedLines */
@@ -33,7 +33,7 @@ html,body{
    window's right edge and the tail would be clipped off by it, exactly as the copy keys once were.
    main.ts is told how much of the window is this reserved room (bubble:size `pad`) so the PANEL still
    lands where it has always landed, not shifted up and left by the tail. */
-.wrap{position:relative;align-self:flex-end;margin:0 78px 56px 6px;pointer-events:none}
+.wrap{position:relative;align-self:flex-end;margin:0 78px 56px 14px;pointer-events:none}
 /* 78 and 56, not 70 and 46: the tail needs its exact reach PLUS slack, or its ink line sits on the
    window edge and the hard shadow under the tip is clipped away by `overflow:hidden`. */
 .wrap .tools{pointer-events:none;z-index:3}   /* above the parchment, which comes after it */
@@ -48,7 +48,7 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
 #bubble{
   position:relative;
   margin:0;               /* the wrapper holds the margin now */
-  padding:10px 14px 12px;
+  padding:14px 17px 15px;   /* Smoother look, sheet 13 */
   /* Sized to its text, like the painted one, not stretched to the window. The widths are the painted
      ones: BubbleView draws Left = 6 to Right = 262, so 256 across; a long reply widens by WideExtra
      (160) to 416; the scroll-back widens by ScrollbackExtra (300) to 556.
@@ -239,7 +239,7 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
 #bubble{background:none;border:none;box-shadow:none}
 /* The noise texture is painted by .tex::before on #bubble and still works, since it is clipped to
    the same rounded box the SVG draws. */
-.skin{position:absolute;left:0;top:0;z-index:0;pointer-events:none;display:block}
+.skin{position:absolute;left:0;top:0;z-index:0;pointer-events:none;display:block;overflow:visible}
 .skin[hidden]{display:none}
 /* The shape lives outside #bubble, so hiding the bubble does not hide it. Belt and braces with the
    0x0 guard in paintSkin: a stale shape can never outlive the words it was drawn for. */
@@ -276,3 +276,29 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
    scroll-back's, shown only when he has reached the top with nothing above it. Quiet caption
    weight, in the parchment ink, centred, as the sheet draws it. */
 .empty-line{margin:6px 4px;text-align:center;font:500 13px/1.5 var(--body);color:var(--ink-dim)}
+
+/* ---- the cockpit's motion and the Smoother look (sheet 13, approved 2026-10-10) ------------------
+   While the balloon grows or shrinks it has an explicit size (bubble.js place), and the content keeps
+   its FINAL width so text never rewraps mid-grow; the parchment's own clipping hides whatever is not
+   inside the shape yet. */
+#bubble.sizing > :not(.tools){width:var(--cw);box-sizing:border-box}
+.said{font-size:15.5px}
+/* Words fade in one by one at the reveal's pace. */
+.said .w{transition:opacity .28s ease}
+.said .w.o{opacity:0}
+/* New content in 160 ms after the grow starts, over 300 ms. Old content out in 160 ms before a shrink. */
+#bubble.enter > *{animation:fillin .3s ease-out .16s both}
+@keyframes fillin{from{opacity:0}}
+#bubble.leaving > *{opacity:0;transition:opacity .16s ease-out}
+/* Keys that lift on hover and spring on press. Colours and weight unchanged. */
+#bubble .key{transition:top .14s cubic-bezier(.32,1.6,.5,1),box-shadow .14s ease,transform .18s cubic-bezier(.32,1.4,.5,1)}
+#bubble .key:hover{transform:translateY(-1.5px)}
+#bubble .key:active{transform:none}
+.chip{border-radius:999px}
+/* The 600 ms click guard on a fresh set of keys. */
+.asks.guard{pointer-events:none}
+@media (prefers-reduced-motion:reduce){
+  .said .w{transition:none}
+  #bubble.enter > *{animation:none}
+  #bubble .key{transition:none}
+}

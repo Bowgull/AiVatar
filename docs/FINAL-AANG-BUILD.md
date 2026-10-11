@@ -11,6 +11,12 @@ only a pointer here.
 pop-out, paid video proven to play on Shadow, the everyday browser, a critical path and 34 steps, including a parity list so nothing he already has is lost).
 Phase 8 steps 4 and 6 now live in Phase 6.
 
+**What changed in 1.3 (2026-10-10, later the same day):** the cockpit was demoed in his real look and
+approved ("everything looks amazing"). Two new approved mockups: **`docs/cockpit/sheet-13-cockpit.html`**
+(the balloon as a cockpit, every moment, with a Current / Smoother switch) and
+**`docs/cockpit/sheet-14-comes-alive.html`** (his sprite levelled up in code). Their rules are folded into
+6.12, 6.12b, 6.13 to 6.18, 9.A7 and 9.P below, and every step that touches them is checked against them.
+
 **What changed in 1.2 (2026-10-10, his interview, research only, nothing built):** a new **Phase 9**
 after the browser (away mode, making files, and the animation upgrade); step **L**, the everyday test
 of Qwen and Claude together, right after 6.12b; **K8**, two cheap fixes for any gap; a new ground rule
@@ -814,7 +820,8 @@ rule and they are not optional.
      |
      |-> PHASE 9, after 6.27 (his order, 2026-10-10):
               9.A away mode  (9.A0 one list of everything Aang can do comes first;
-                              S3 the Mac bridge fixes before 9.A6)
+                              S3 the Mac bridge fixes before 9.A6;
+                              9.A7 driving Claude from the balloon at the desk)
               9.F making files
               9.P Aang comes alive (the animation upgrade)
 ```
@@ -1555,6 +1562,13 @@ ports them starts by reading the code.
 | Several monitors and display scaling | `PetWindow` | 6.10b |
 | The tray menu, grouped Window / Aang / Settings | `GoldMenu` | **stays C#**, restyled to sheet 2 in 6.18b |
 
+### Approved 2026-10-10: the cockpit and the living sprite
+
+`sheet-13-cockpit.html` (the balloon as a cockpit: every moment, the typing box, the airbending drop,
+Current / Smoother) and `sheet-14-comes-alive.html` (the sprite levelled up in code). Both are working
+pages built from the real `balloon.js` and `cockpit.css`, so "compare against the sheet" applies to them
+like sheets 1 to 12: open the sheet, open the build, put them side by side.
+
 ### Mockups still to draw
 
 The definition of done compares every step against a mockup, so **a step cannot start until its
@@ -1974,6 +1988,52 @@ hotkey: only the process that RECEIVED the input may hand the foreground on, and
 pet. `Win32.AllowSetForegroundWindow(ASFW_ANY)` before sending `typebox` passes that right across.
 Confirmed working on his desktop.
 
+**THE COCKPIT, AS DEMOED AND APPROVED (2026-10-10). Mockup: `sheet-13-cockpit.html`.** Built from his
+real `balloon.js`, `cockpit.css` tokens and keycaps, so the sheet IS the look. What 6.12 now also owes:
+- **One shape, three sizes.** *Whisper*: one quiet line beside his head (Claude's current step, now
+  playing, "Sent", "Kept"). *Speak*: the normal balloon, 256 or 416. *Open*: up to 556 for cards, lists,
+  plans. Always the same comic balloon; the tail keeps aiming at him at every size.
+- **Grows, then fills.** The balloon grows on a 520 ms spring (slight overshoot) and shrinks in 340 ms
+  ease-out; old content fades out in 160 ms, new content fades in over 300 ms starting 160 ms into the
+  grow. The path is regenerated every frame, never scaled. Nothing pops.
+- **The look is Smoother** (his pick of the two on sheet 13; confirm if wrong): ink line 4 not 5,
+  corner 19 not 15, a soft blurred shadow under the hard contact one, gentler plaques, pill chips,
+  buttons that lift 1.5 px on hover and spring on press, rows and keys easing in 50-60 ms apart, reply
+  words fading in one by one (38 ms per word) instead of letters ticking. Colours and the keycap weight
+  are unchanged.
+- **Chat details kept:** reading pace (click to finish), file and link chips, right-click a reply
+  (reply, add as context, copy, forget), scroll up for older turns with the 30-minute divider, copy and
+  rate on hover.
+- **Long answers:** a short summary first; "Show more" grows the same balloon to fit the rest.
+- **Approvals in plain words, never code.** "Claude wants to delete 3 old test files." The exact command
+  is one tap away ("See the exact command"). Code itself never lives in the balloon.
+- **A 600 ms click guard** on every new set of keys, so a moving mouse in WoW cannot hit Allow.
+- **Now playing** is a whisper with play, pause and skip (Spotify already exists).
+- **Reminders** show as a short ask with Got it and Snooze 5 min (`reminders.ts` already exists).
+- **He looks at it.** When the balloon opens his eyes go to it; when it closes they come back. His eyes
+  do NOT follow the mouse (his decision: in WoW the mouse never stops, so they would twitch all game).
+- **Cut by him from the demo, do not build:** "quiet in a fight" as a new feature (quiet mode already
+  exists), dragging Aang onto a window, a tucked-at-the-edge peek, an auto-close countdown line, a
+  weekly recap, screen recording.
+
+**COCKPIT PASS 1, 2026-10-11. Checked in a browser tab, NOT yet on his real desktop** (Aang is off
+while he builds). 112 tests in the Shell.
+- **Grows, then fills: built.** `bubble.js` `growTo`, lifted from the sheet: 520 ms spring, 340 ms
+  close, path regenerated every frame. Measured: a two-line reply grows 218 -> 463 (the overshoot) ->
+  416 and settles; a short reply after it shrinks 354 -> 256. Going away now shrinks to nothing
+  instead of vanishing. The window grows FIRST (with 12% spare for the overshoot) and shrinks LAST,
+  so the shape is never clipped. Text keeps its final width while the shape moves, so it never rewraps.
+- **Driven by a timer, not requestAnimationFrame**, which stalled in the test pane exactly as it froze
+  the sheet's marquee. A balloon stuck half-grown is worse than any frame rate.
+- **Words fade in, 38 ms each** (`reveal.js` `WORD_MS`, tested). Same rule as 4.2: a fixed pace, never
+  faster because more is waiting. The whole reply is laid out from the first frame with the unshown
+  words invisible, so the balloon is sized once instead of growing a line at a time.
+- **Smoother look:** ink 4, corners 19, the soft shadow, gentler lip, padding 14/17/15, 15.5 px type
+  on a 24 px line, keys that lift 1.5 px and spring, pill chips.
+- **The 600 ms click guard** on every new set of keys.
+- **Still owed:** whisper and open sizes, summary plus "Show more", approvals in plain words, now
+  playing, reminders, his eyes going to the balloon.
+
 ---
 
 ### `[ ]` 6.12b The new typing box
@@ -1983,6 +2043,28 @@ segments, hover sentences and crossfade, pinned and reply and suggestion chips, 
 scaling change, the consent row.
 
 **Done when:** every typing-box row is ticked, and his hands do not notice the change.
+
+**CHANGED BY HIM, 2026-10-10 (sheet 13, "Open the typing box"):**
+- **The three starter chips are OUT.** "I want just an area to chat with Aang." That parity row is dropped.
+- **It hugs the text.** One line at rest, one line taller per line typed, up to 5, then it scrolls.
+  Replaces the 111 px resting height. Width stays 256, edges matched to the balloon.
+- **No jiggle.** Height is measured on a hidden twin and changes only when the line COUNT changes,
+  with a 140 ms ease-out and no overshoot. (Setting the height on every keystroke made it shake.)
+- **One continuous piece** in the Smoother look: field and strip read as one rounded box, no seam;
+  softer plum field; a soft purple focus glow while typing.
+- **Helper text short and readable:** 12 px, bright, never cut off. Modes: "Qwen first, Claude if
+  needed" (Auto), "Free, on this PC" (Qwen), "Claude, fast and light" (Quick), "Claude, for most jobs"
+  (Smart), "Claude, big thinking" (Deep). Quota: "31% of week, on pace".
+- **Mode colours:** see 6.16.
+- **Who you are talking to** shows as a pinned chip ("To Claude - Aang repo", "Replying to: ...") and
+  anything snipped or dropped arrives as a chip.
+
+**BUILT 2026-10-11, checked in a browser tab, not yet on his desktop:** starters removed; one line at
+rest, up to 5, then it scrolls; measured on a hidden twin, so 30 keystrokes made 5 height changes, not
+30; the window grows before the field and shrinks after it; the one-piece Smoother box with the focus
+glow; helper text 12 px and bright. **Auto says "Aang picks for you"** until Qwen is really on the pill
+(6.16), because "Qwen first" would be untrue today: Auto does not route to Qwen yet. Mode colours stay
+for 6.16.
 
 **PASS 1, 2026-10-04. Tested on his real desktop, recorded, with screenshots.** 7 new tests, 100 in the
 Shell. Ctrl+Plus, typing straight away, Enter, and the new bubble answering all work end to end.
@@ -2103,11 +2185,21 @@ literal command, never a paraphrase. **His rule for every coucou idea: where an 
 shows how something looks or moves and coucou differs, show him both and he picks.** Coucou's code is
 MIT; its character, name, sounds and art are not, and are never copied.
 
+**Demoed 2026-10-10 (sheet 13):** "Three things at once" shows the open ask with "1 OF 3" and the others
+as parchment edges labelled NEXT and THEN; answering slides the next up; clicking an edge jumps to it.
+"The plan, before he acts" lists the steps and marks which will ASK FIRST and which need the LEVER;
+on Go the same card becomes the live checklist (done rows dim, the current row gold with a moving
+shimmer, NOW / DONE on the right) and stops at the first ask.
+
 ---
 
 ### `[ ]` 6.14 Buttons on answers that act
 
 The callback bridge: a button on a card runs a real Aang action through the existing trust gate.
+
+**Demoed 2026-10-10 (sheet 13):** anything that cannot be undone uses the lever: press and hold 800 ms
+while a gold fill crosses the key; a click does nothing; "Show me first" lists exactly what goes.
+Every key row has the 600 ms click guard.
 
 ---
 
@@ -2119,6 +2211,9 @@ cheap." From the 2026-10-03 design, dropped in the first draft of 1.1.
 **The change:** every failure says plainly what is wrong in Aang's voice, with a way to retry: *"My
 brain stopped and I am restarting it. Nothing you said is lost."* Never a blank window, never an
 endless spinner. Every empty tab and list says what will appear there and how.
+
+**Demoed 2026-10-10 (sheet 13, "Something broke"):** ONE MOMENT, then STILL DOWN with Try again and Show
+what went wrong, worded exactly as sheet 5.
 
 ---
 
@@ -2137,6 +2232,11 @@ a sender their mail was opened. People's personal addresses always get the lette
 files from the internet: show them only as images, never inline SVG. Some sites block automated fetches
 (CurseForge's main site sits behind a Cloudflare check), which is why the fallbacks exist.
 
+**Demoed 2026-10-10 (sheet 13), these also open in the balloon itself, not only in window 2:** the
+morning brief (two columns: today, needs a reply, overnight, your Claude week), the job card (logo,
+role, score, three reasons, Apply / Save / Skip; Apply goes to the plan in 6.13), and the email draft
+card (whole message, To, Cc, Subject, attachments as chips, **hold to send**, Change it, Not now).
+
 ---
 
 ### `[ ]` 6.15b Research cards
@@ -2144,11 +2244,18 @@ files from the internet: show them only as images, never inline SVG. Some sites 
 Phase 7 already produces findings; they become cards in his look. One card type first, the one
 Phase 7 makes most.
 
+**Demoed 2026-10-10 (sheet 13):** three cards across the open balloon, each with a picture strip, its
+source (GITHUB, 4.2K STARS), a one-line finding and a verdict chip (Borrow / Avoid). Keys: Go deeper
+(Claude, says what it costs first), Remember it, Done. Links and videos sent to him arrive the same way
+after Qwen reads them (see 6.17 and K2).
+
 ---
 
 ### `[ ]` 6.16 The palette move and the local model on the strip
 
-Qwen takes the purple; the three Claude modes move to the warm end. **A `Qwen` mode on the pill** and
+Qwen takes the purple; the three Claude modes move to the warm end. **Exact colours, picked by him
+2026-10-10 on sheet 13:** Auto gold `#FFC43C`, Qwen purple `#A970FF`, Quick peach `#FFB37A`, Smart
+orange `#FF8040`, Deep burnt orange `#C95E28` with light text. **A `Qwen` mode on the pill** and
 a `[qwen]` marker, by its real name (decision 8), never "local" or "free". **This is Phase 8 step 6; done once, here.**
 
 ---
@@ -2170,6 +2277,40 @@ what he got, asks what to do, and it goes from there as a normal chat. Nothing g
   **Test in 6.17:** that the gold menu opening does not clear the highlight in Chrome, Discord, Notepad.
 - Drop: drag onto Aang; Qwen reads the name and first page and suggests a next step.
 
+**THE DROP, REDESIGNED 2026-10-10 (his words: the sheet-7 version "is boring i hate it").** Rebuilt on
+coucou's drop choreography (MIT, `github.com/Louis-CFM/coucou`, `windows/src/upload/sequence.ts`), same
+phases and timings, in Aang's world. Demoed on sheet 13 (drag the files onto Aang, or "Drop a file"):
+1. **Pick up a file:** the balloon opens as a dashed "DROP IT ON ME" spot with type chips (PDF, PICTURE,
+   NOTES, FOLDER, LINK) and his ring glows pale blue. An **air ball** (pale blue, spinning arcs) chases
+   the file along the spot on a spring (response 0.35 s free, 0.18 s locked), tilting with its speed.
+2. **Get close (under 60 px, slow):** it locks on with a 6 px hop and grows a little; the spot washes
+   pale blue.
+3. **Drop:** squash (0.92 / 1.06), the file spirals into the ball over 0.3 s (airbending it in), a squeeze,
+   then two quick "chews" 0.14 s each.
+4. **Read:** the ball shrinks to 14 px and **rides the reading bar**: "QWEN IS READING OCTUP OFFER.PDF",
+   with coucou's curve (fast to 60% in 40% of the time, an unhurried middle, a last push), stretching with
+   its speed; the parchment washes pale blue as it fills.
+5. **Done:** a flash, a gold check pops (overshoot), the ball hops, grows back, and the balloon asks:
+   "Octup offer.pdf is ready. ..." with the four choices below.
+6. **Refused files** (keys and passwords, `.env`, browser profiles, his memory file, anyone else's
+   data): the wind spits it back out, the spot flashes red, and the plain red refusal from sheet 7.
+   **Folders** stop after the chew and show the plan first (6.13): what he'll skip, who reads it, where
+   notes go.
+
+**Where anything handed to him can go (his yes to all four, 2026-10-10):** the same keys on a snip, a
+highlight or a drop:
+- **Ask Aang about it** (the gold key is his best guess: "What is this error?", "Draft a reply", "Sum it up").
+- **Give it to Claude:** pick which Claude chat (or a new one), then the typing box opens with the item
+  and the session pinned as chips. (Sending into a running session needs K8's `--resume`.)
+- **Black out private bits:** 9.F1.
+- **Remember it:** a copy goes to Aang's own folder in his vault and is read by the existing reader
+  (3.3); originals are never changed.
+
+**Taking things in ("ingestion", his yes to all, 2026-10-10):** a file, a whole folder, a web link or a
+video. Qwen reads first, on this PC, for free; Claude only on "Go deeper", which says its cost first.
+A YouTube link is read through its transcript. Everything read is untrusted text: read, never obeyed.
+Folders always show the plan first and skip anything that looks private.
+
 ---
 
 ### `[ ]` 6.18 Search over everything, and the charts
@@ -2178,6 +2319,9 @@ One search box over memory, the vault, conversations, jobs and addons. Charts: t
 Claude use week over week, addon drift (no table buttons, his call). **Cut 2026-10-04 (his call):** the
 before-and-after file view, the live Claude Code job window, and comparing two jobs; each is a question
 in the bubble instead, and undo already exists. Mockup: sheet 7. A daily saved quota reading, so the usage chart can later show the percent week over week.
+
+**Demoed 2026-10-10 (sheet 13, "Search everything"):** the search opens in the balloon itself: a plum
+field, then results grouped as CHATS, JOBS, FILES (and NOTES, ADDONS), each row tappable.
 
 ---
 
@@ -2309,6 +2453,10 @@ blocks anything. Do them in any gap.
 - **Reading addon data safely (2026-10-10):** parse SavedVariables with `luaparse` (MIT), which builds a
   syntax tree **without running any Lua**. Never `lupa` or anything that executes the file: addons can
   write those files. Read-only.
+
+- **Game updates in the balloon (demoed 2026-10-10, sheet 13):** only what affects him, with "+14
+  changes that don't touch you" folded away. **Apex Legends is new (he plays a lot of it):** add its
+  patch notes beside WoW's. Not researched yet: find an official, readable source first.
 
 ### `[ ]` K4 Qwen does a little more (Phase 8, narrowed)
 - **Thinking on for background work** (`thinkHard` on `askLocal`): measured 5/5 at five steps.
@@ -3054,6 +3202,23 @@ a real certificate, saved to his iPhone home screen, push notifications on iOS 1
 and no paid Apple account. **Test first whether Face ID through a passkey works there**, which could
 replace the PIN. A native iPhone app is ruled out: see "Not doing".
 
+### `[ ]` 9.A7 Driving Claude from the balloon, at the desk  (his order 2026-10-10: stays in Phase 9)
+
+The desk version of everything 9.A does on Discord, demoed on sheet 13 ("Driving Claude" and "More
+moments"). Shares 9.A0 to 9.A2's plumbing; only the drawing is new.
+- **Claude is working:** a whisper with the current step; click it and it opens into the live step list
+  (6.13's checklist), with "Send it a message" (typing box pinned to that session) and "Shrink".
+- **Claude asks permission:** plain words, the exact command one tap away, Allow / Not now / Always in
+  a folder; the lever for anything that cannot be undone.
+- **Claude asks a question:** "CLAUDE ASKS - 1 OF 2", the choices as numbered keys, plus "Type my own".
+- **Two Claude chats at once:** each in its own row with its own name chip; a yes only reaches its row.
+- **Answered in Claude's own window:** the balloon drops the question by itself ("Cleared").
+- **Claude finished:** "Done!", a hop, and "Next job" (typing box pinned to that session), "What
+  changed?", "Done for now".
+- **Welcome back** (his 2026-10-06 away-mode answer): one summary of what happened while he was gone.
+- **Notes from his phone while the PC was off:** "You left 3 notes from your phone. Want me to pick them
+  up?" with File them / One at a time / Later (9.A4).
+
 ## 9.F Making files
 
 **Rule from his feedback (2026-10-08): no plain defaults, no AI slop.** The design is decided before the
@@ -3096,8 +3261,27 @@ speed per move (`Anim.cs`).
 - **Reacting to real things:** think while Claude works, spin when a job finishes, nap when he is idle,
   wave when he returns. clawd-on-desk's event-to-state table is the reference, **read only, it is AGPL**.
 - **Physics and pokes:** pick him up and toss him and he lands; poke him and he is annoyed; fast clicks
-  make him dizzy; he turns to face the mouse. A single click waits out the double-click interval before
-  acting, so a double-click can cancel it (coucou).
+  make him dizzy. A single click waits out the double-click interval before acting, so a double-click
+  can cancel it (coucou).
+
+**Prototyped 2026-10-10: `sheet-14-comes-alive.html`** (his real frames, each upgrade on a switch).
+Measured from his frames: the art is a 112 px grid doubled; `idle` bakes the blink and the breath into
+one 2.67 s loop (frames 0-3 rest, 4-10 up 2 px, 11-12 rest, 13-15 blink), which is why he feels like a
+metronome. His eyes are rows 53-55: left x50-53 (white, 2 px pupil, white), right x58-62 (with a cyan
+shine). What the prototype proves in code alone:
+- **Natural timing:** rest a random 1.6-3.4 s, breathe in 0.9-1.6 s; no metronome.
+- **Random blinks** from his own blink frames (13-15), stamped on any pose including the raised one,
+  every 2.2-5.4 s, 22% doubled, plus a blink on every move change (coucou's timing).
+- **Eyes move by recolouring 2 pupil pixels:** left, right, happy (^), wide. **He looks at what matters
+  (the balloon when it opens, the typing box when he types, you when you come back), NEVER the mouse**
+  (his decision 2026-10-10).
+- **Hops and a one-row squash** at the waist, on the pixel grid; hover a couple of seconds for happy
+  eyes; three clicks in 1.7 s for dizzy.
+
+**New art, if wanted (PixelLab, how he made Aang; he is fine buying one month, about $12, cancelled the
+same day):** generate at his true 112 px size, not 224. Spend it on building blocks, not one move per
+alert: in-between moves, anticipation and settle frames, a head turn, small idle moves, reactions.
+About 165 of the month's 2,000 generations.
 
 ---
 
@@ -3131,6 +3315,10 @@ Recorded so they do not quietly come back.
 
 | | why |
 |---|---|
+| **Cut from the cockpit by him, 2026-10-10** | Starter chips in the typing box; a new "quiet in a fight" feature (quiet mode already exists); dragging Aang onto a window; a tucked-at-the-edge peek; an auto-close countdown line; a weekly recap; screen recording ("never mind"). |
+| **Code inside the balloon** | His call 2026-10-10: plain words always; the exact command is one tap away for safety, real code stays in Claude. |
+| **Aang's eyes following the mouse** | His call 2026-10-10: in WoW the mouse never stops, so his eyes would twitch all game. He looks at what matters instead (9.P). |
+| **A local model writing Aang's code** | His call 2026-10-10: code stays with Claude for now; he will research more. Evidence in `research_notes/Always on, repos and tools/`. |
 | **Katara, and Momo with it** (WHAT-IS-LEFT.md §8) | **His decision, 2026-10-04: "no katara".** The second sprite is not being built. Momo only existed to carry messages between the two sprites, so it goes too. |
 | ~~**The PIN for approvals** (old 2.10)~~ **REVERSED for final actions from the phone, his yes 2026-10-10 (9.A1).** Still no PIN at the desk. | Original reason: prompt injection cannot tap a button. Discord two-factor, the owner-only check and the per-draft hash already cover a stolen account. Away mode changed that: final actions approved remotely raise the stakes of a stolen phone or account. |
 | **Old 2.12, 2.15 and 2.18 as separate fixes** | Each is only reachable through the open connection; S1 closes all three. |
