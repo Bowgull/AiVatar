@@ -276,7 +276,7 @@ function paint() {
   fit();
   reportSize();
   // Copy and rate are for a FINISHED reply only: offering to copy half a sentence is a trap.
-  tools.hidden = !reveal.done || !reveal.whole;
+  tools.hidden = !reveal.done || !reveal.whole || bubble.classList.contains('whisper');
   paintChips();
 }
 
@@ -302,6 +302,7 @@ function startTicking() {
 // and, as in the old one, never while the mouse is on it, and never while it is asking him something.
 let hideTimer = 0;
 function holdFor(text) {
+  if (bubble.classList.contains('whisper')) return 10000;
   const base = Math.min(20000, Math.max(3000, 2500 + 45 * text.length));
   return lineCount() > 6 || summaryOf(text) ? Math.max(base, 60000) : base;
 }
@@ -321,6 +322,8 @@ function goAway() {
       bubble.hidden = true;
       snapShut();
       releaseMouse();
+      // A whisper that arrived while he was reading waits its turn, then shows.
+      if (whisperNext) { const w = whisperNext; whisperNext = null; showWhisper(w); return; }
       // The WINDOW goes too: a hidden page in a shown window is still a window on his desktop.
       window.aang?.bubbleHidden?.();
     });
@@ -429,6 +432,8 @@ function showAsk(m) {
   const a = askFrom(m);
   if (!a) return false;
   asking = m;
+  bubble.classList.remove('whisper');
+  mediaRow.hidden = true;
   // The question goes where a reply goes, so his eye does not have to move for it.
   reveal.start(a.question, false);
   reveal.skip();                                  // a question is never revealed slowly
@@ -546,6 +551,45 @@ function answer(choice) {
   paintEdges();
 }
 
+// ---------------------------------------------------------------- the whisper (sheet 13)
+// One quiet line beside his head, the smallest of the balloon's three sizes: now playing, and the like.
+// Never over something he is reading: it waits until that has gone.
+let whisperNext = null;
+const mediaRow = document.createElement('div');
+mediaRow.className = 'media';
+mediaRow.hidden = true;
+for (const [key, label, path] of [
+  ['previous', 'Back', 'M7 6v12M18 6l-8 6 8 6z'],
+  ['playpause', 'Play or pause', 'M8 6v12M15 6v12'],
+  ['next', 'Skip', 'M17 6v12M6 6l8 6-8 6z'],
+]) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'mkey';
+  b.setAttribute('aria-label', label);
+  b.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="${path}" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  b.addEventListener('click', (e) => { e.stopPropagation(); window.aang?.media?.(key); });
+  mediaRow.append(b);
+}
+scroller.after(mediaRow);
+
+function showWhisper(w) {
+  reveal.start(w.text, false);
+  reveal.skip();
+  expanded = false;
+  bubble.classList.remove('wide', 'widest');
+  bubble.classList.add('whisper');
+  who.hidden = true;
+  working.hidden = true;
+  asks.hidden = true;
+  for (const id of ['means', 'exact']) { const e = document.getElementById(id); if (e) e.hidden = true; }
+  mediaRow.hidden = w.controls !== 'media';
+  bubble.classList.remove('enter'); void bubble.offsetWidth; bubble.classList.add('enter');
+  show();
+  paint();
+  scheduleHide();
+}
+
 // ---------------------------------------------------------------- what the brain says
 window.aang?.onMessage?.(m => {
   if (!m || typeof m !== 'object') return;
@@ -557,7 +601,16 @@ window.aang?.onMessage?.(m => {
   // It joins the queue rather than replacing what is there, and the queue decides which is on top.
   if (askFrom(m)) { queueAsk(m); showTopAsk(); return; }
 
+  if (m.t === 'whisper' && typeof m.text === 'string') {
+    if (!bubble.hidden && !bubble.classList.contains('whisper')) { whisperNext = m; return; }
+    showWhisper(m);
+    return;
+  }
+
   if (m.t === 'bubble' && typeof m.text === 'string') {
+    // A real reply takes the balloon back from a whisper.
+    bubble.classList.remove('whisper');
+    mediaRow.hidden = true;
     // Muted means he never wants Aang starting a conversation. An ANSWER is not that, so only the
     // proactive ones are held - the brain marks them, and this is the one place it matters here.
     if (m.proactive && muted) return;

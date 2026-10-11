@@ -568,6 +568,10 @@ app.whenReady().then(async () => {
   // Another page of his own history. `before` is a row id, so there is no limit: every time he reaches
   // the top it asks for the ones older than the oldest it has, until the database runs out.
   ipcMain.on('bubble:clickable', (e, on) => { if (fromBubble(e)) bubble?.setClickable(on === true); });
+  ipcMain.on('bubble:media', (e, key) => {
+    if (!fromBubble(e) || (key !== 'playpause' && key !== 'next' && key !== 'previous')) return;
+    link?.send({ t: 'media', key });
+  });
   ipcMain.on('bubble:hidden', (e) => { if (fromBubble(e)) { bubble?.setClickable(false); bubble?.hide(); } });
 
   // ---- the typing box (6.12b). Its own sender check, like the bubble's.

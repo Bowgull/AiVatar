@@ -85,6 +85,8 @@ contextBridge.exposeInMainWorld('aang', {
   bubbleClickable: on => ipcRenderer.send('bubble:clickable', on),
   /** The bubble has finished saying its piece and gone; the window can go too. */
   bubbleHidden: () => ipcRenderer.send('bubble:hidden'),
+  /** A media key from the now-playing whisper: playpause, next or previous. */
+  media: key => ipcRenderer.send('bubble:media', key),
   /**
    * Where Aang's head is, so the tail can point at it.
    *

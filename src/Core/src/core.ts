@@ -427,7 +427,12 @@ export class Core {
     if (!sp.connected) return { ok: false, detail: 'Spotify is not connected yet. Joshua signs in once by double-clicking tools\\spotify-setup.cmd.' };
     if (!await this.askPermission('mcp__aang__play_music', { what })) return { ok: false, detail: this.whyNot() + ' Nothing was played.' };
     for (let attempt = 0; attempt < 3; attempt++) {
-      try { return { ok: true, detail: await sp.play(what, kind) }; }
+      try {
+        const detail = await sp.play(what, kind);
+        // Now playing, as a whisper with controls (sheet 13). Only for something actually started.
+        if (detail.startsWith('Playing ')) this.sendTo('desktop', { t: 'whisper', text: detail.replace(/ on Spotify\.$/, ''), controls: 'media' });
+        return { ok: true, detail };
+      }
       catch (e) {
         if (e instanceof SpotifyError && e.kind === 'device' && attempt < 2) {
           // Spotify is not open anywhere: open the app here (he already allowed music) and try again once it is up.
@@ -1850,6 +1855,9 @@ export class Core {
         break;
       }
       case 'fact.reply': this.answerFact(m.id, m.keep); break;
+      case 'media':
+        if (m.key === 'playpause' || m.key === 'next' || m.key === 'previous') void this.hands('media', m.key);
+        break;
       case 'reminder.reply': {
         const text = this.firedReminders.get(m.id);
         this.firedReminders.delete(m.id);

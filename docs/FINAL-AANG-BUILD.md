@@ -2053,7 +2053,13 @@ while he builds). 112 tests in the Shell.
   nothing is hidden, so the command can never be lost; the old bubble and Discord still show it inline.
   **Two old bugs found doing it:** the explaining line sat inside the reply's line cap and was clipped
   away on every ask, and it lingered under the next reply. Both fixed. Checked in a browser tab.
-- **Still owed:** whisper size, now playing, his eyes going to the balloon.
+- **The whisper size and Now playing, built 2026-10-11:** a new `whisper` message (one line, sized to
+  itself up to 340); `play_music` sends one when something actually starts, with back, play/pause and
+  skip, which go to the Core as `media` and through `hands()` (asked once, like media_key). A whisper
+  never covers something he is reading: it waits until that reply has gone, then shows for 10 s.
+  Checked in a browser tab: 254 x 82, the play/pause key sends `playpause`.
+- **Still owed:** his eyes going to the balloon (Body sprite work). The "open" size is the 556 width
+  used by Show more.
 
 ---
 

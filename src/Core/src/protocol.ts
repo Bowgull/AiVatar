@@ -94,6 +94,9 @@ export type ToBody =
       what?: string;
       /** Set when the session is on the MacBook, so the click routes there instead of to a window here. */
       host?: 'mac' }
+  /** One quiet line beside his head (the cockpit's whisper size, 6.12): now playing, and the like.
+   *  `controls: 'media'` adds back, play/pause and skip. */
+  | { t: 'whisper'; text: string; controls?: 'media' }
   | { t: 'bubble'; text: string; stream: boolean; id?: string; who?: string; proactive?: boolean;
       /** The row this message was stored as, when it was stored. What a right-click acts on. */
       turn?: number;
@@ -318,6 +321,8 @@ export type FromBody =
   | { t: 'fact.reply'; id: number; keep: boolean }
   /** His answer to a reminder: "Got it" ends it, "Snooze" brings the same words back in five minutes. */
   | { t: 'reminder.reply'; id: string; snooze: boolean }
+  /** A media key pressed on the now-playing whisper. Goes through hands(), so it is asked once like media_key. */
+  | { t: 'media'; key: 'playpause' | 'next' | 'previous' }
   | { t: 'backup.reply'; now: boolean }
   /** The Body is closing and is asking the Core to stop cleanly. Windows cannot send a real SIGTERM
    *  from .NET, so this socket is the only way to ask politely rather than terminate. */
