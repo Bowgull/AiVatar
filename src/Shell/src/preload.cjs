@@ -126,6 +126,8 @@ contextBridge.exposeInMainWorld('aang', {
   onBrowserTabs(fn) { const h = (_e, s) => fn(s); ipcRenderer.on('browser:tabs', h); return () => ipcRenderer.removeListener('browser:tabs', h); },
   browserAskReply: a => ipcRenderer.send('browser:askreply', a),
   browserAdPause: on => ipcRenderer.send('browser:adpause', on),
+  /** Send a video tab to the pop-out over WoW. */
+  browserPopout: id => ipcRenderer.send('browser:popout', id),
   /** Trails: new, rename, or move a tab ({act, id?, name?, tab?, to?}). */
   browserTrail: a => ipcRenderer.send('browser:trail', a),
   /** Find on page: the word, and whether this is Enter (next) or Shift+Enter (back). */
