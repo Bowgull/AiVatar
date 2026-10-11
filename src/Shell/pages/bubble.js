@@ -303,12 +303,14 @@ function startTicking() {
 let hideTimer = 0;
 function holdFor(text) {
   if (bubble.classList.contains('whisper')) return 10000;
+  if (!card.hidden) return 120000;                  // the brief is read, not glanced at
   const base = Math.min(20000, Math.max(3000, 2500 + 45 * text.length));
   return lineCount() > 6 || summaryOf(text) ? Math.max(base, 60000) : base;
 }
 function scheduleHide() {
   clearTimeout(hideTimer);
-  if (bubble.hidden || asking || !reveal.done || !reveal.whole || overNow || reading) return;
+  if (bubble.hidden || asking || overNow || reading) return;
+  if (card.hidden && (!reveal.done || !reveal.whole)) return;
   hideTimer = setTimeout(goAway, holdFor(reveal.whole));
 }
 function goAway() {
@@ -590,6 +592,49 @@ function showWhisper(w) {
   scheduleHide();
 }
 
+// ---------------------------------------------------------------- the morning brief (6.15, sheet 13)
+// Today at a glance in the open size: Today, Needs a reply, Overnight, Your Claude week. Built with
+// textContent only: subjects and sender names are other people's words. A logo is a data URL the Core
+// already checked and kept (logos.ts), drawn by <img>.
+const card = document.createElement('div');
+card.className = 'briefcard';
+card.hidden = true;
+scroller.after(card);
+const T = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
+const timeOf = (iso) => new Date(iso).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit' }).replace(/\s?[ap]\.?m\.?/i, '');
+function medal(u) {
+  const m = T('span', 'med');
+  if (u.logo && /^data:image\//.test(u.logo)) { const i = document.createElement('img'); i.src = u.logo; i.alt = ''; m.classList.add('logo'); m.append(i); }
+  else m.textContent = (u.from.trim()[0] ?? '?').toUpperCase();
+  return m;
+}
+function showBrief(b) {
+  card.replaceChildren();
+  const sec = (h) => { const s = T('div', 'bsec'); s.append(T('div', 'h', h)); grid.append(s); return s; };
+  const row = (s, lead, text) => { const r = T('div', 'brow'); r.append(lead, T('span', 'bt', text)); s.append(r); };
+  const grid = T('div', 'brief');
+  const today = sec('TODAY');
+  if (!b.events.length) row(today, T('span', 'chip off', '-'), 'Nothing on the calendar');
+  for (const e of b.events.slice(0, 5)) row(today, T('span', 'chip', e.allDay ? 'ALL DAY' : timeOf(e.start)), e.title);
+  const reply = sec('NEEDS A REPLY');
+  if (!b.unread.length) row(reply, T('span', 'chip good', '0'), 'Nothing unread');
+  for (const u of b.unread.slice(0, 4)) row(reply, medal(u), u.from + (u.job ? '  \u00b7 JOB' : ''));
+  if (b.jobsNew > 0) { const o = sec('OVERNIGHT'); row(o, T('span', 'chip good', String(b.jobsNew)), b.jobsNew === 1 ? 'New job match' : 'New job matches'); }
+  if (typeof b.week === 'number') {
+    const w = sec('YOUR CLAUDE WEEK');
+    const pct = Math.round(b.week * 100);
+    const resets = b.weekResetsAt ? 'resets ' + new Date(b.weekResetsAt * 1000).toLocaleDateString('en-CA', { weekday: 'long' }) : '';
+    row(w, T('span', 'chip ' + (b.week >= 0.5 ? 'careful' : 'good'), pct + '%'), resets);
+  }
+  card.append(grid);
+  const keys = T('div', 'keys');
+  const k = (label, letter, cls, fn) => { const x = T('button', 'key sm' + (cls ? ' ' + cls : ''), label); x.type = 'button'; x.append(T('span', 'k', letter)); x.addEventListener('click', fn); keys.append(x); };
+  k('Got it', 'A', 'primary', () => { releaseMouse(); goAway(); });
+  k('Open the whole brief', 'X', '', () => { window.aang?.openDesk?.(7); releaseMouse(); goAway(); });
+  card.append(keys);
+  card.hidden = false;
+}
+
 // ---------------------------------------------------------------- what the brain says
 window.aang?.onMessage?.(m => {
   if (!m || typeof m !== 'object') return;
@@ -611,6 +656,27 @@ window.aang?.onMessage?.(m => {
     // A real reply takes the balloon back from a whisper.
     bubble.classList.remove('whisper');
     mediaRow.hidden = true;
+    card.hidden = true;
+    scroller.hidden = false;
+    // The morning brief arrives as a card at the desk; the text stays for Discord and the old bubble.
+    if (m.brief && typeof m.brief === 'object' && Array.isArray(m.brief.events)) {
+      reveal.start('', false);
+      who.textContent = ((m.brief.day ?? '').split(',')[0] + ' - GOOD MORNING').toUpperCase();
+      who.hidden = false;
+      who.classList.add('plaque');
+      scroller.hidden = true;
+      working.hidden = true;
+      bubble.classList.add('wide', 'widest');
+      showBrief(m.brief);
+      tools.hidden = true;
+      bubble.classList.remove('enter'); void bubble.offsetWidth; bubble.classList.add('enter');
+      show();
+      fit();
+      reportSize();
+      scheduleHide();
+      return;
+    }
+    who.classList.remove('plaque');
     // Muted means he never wants Aang starting a conversation. An ANSWER is not that, so only the
     // proactive ones are held - the brain marks them, and this is the one place it matters here.
     if (m.proactive && muted) return;

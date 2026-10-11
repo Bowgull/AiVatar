@@ -11,7 +11,8 @@ import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { MAC_LISTENER_PORT, macSetupScript } from './macsetup.ts';
 import { Jobs, SWEEP_REQUEST, cleanField, safeUrl, scoreOf, verdictFor } from './jobs.ts';
 import type { Rubric } from './jobs.ts';
-import type { FromBody, Mode, StructuredList, ToBody } from './protocol.ts';
+import type { BriefCard, FromBody, Mode, StructuredList, ToBody } from './protocol.ts';
+import { Logos, brandDomain, isPersonal, senderDomain } from './logos.ts';
 import { Lane } from './lane.ts';
 import type { LaneEvent } from './lane.ts';
 import { Backup } from './backup.ts';
@@ -770,6 +771,44 @@ export class Core {
   private async briefFor(ws: WebSocket): Promise<void> {
     const svc = this.mail();
     this.send(ws, { t: 'brief.reply', text: svc ? await svc.brief() : Core.NO_GOOGLE });
+    // The desktop also gets it as a card (window 2, 6.15); Discord keeps the text it has always had.
+    if (svc && this.kindOfSocket(ws) === 'desktop') {
+      const card = await this.briefCard().catch(() => null);
+      if (card) this.send(ws, { t: 'brief.card', card });
+    }
+  }
+
+  private logos: Logos | null = null;
+  /**
+   * The brief as a card: the mail service's data plus what only the Core knows. Logos are looked up
+   * once per company and kept (logos.ts says why that matters); a sender matching a company the job hunt
+   * is tracking is tagged JOB; new job matches are counted for "Overnight"; the week is his Claude quota.
+   */
+  private async briefCard(): Promise<BriefCard | null> {
+    const svc = this.mail();
+    if (!svc) return null;
+    const d = await svc.briefData();
+    this.logos ??= new Logos(this.cfg.stateDir);
+    const domains = d.unread.map(u => senderDomain(u.address)).filter((x): x is string => !!x);
+    await this.logos.ensure(domains.map(brandDomain));
+    const cards = new Jobs(this.cfg.stateDir).cards;
+    const companies = [...new Set(cards.map(c => c.company.trim().toLowerCase()).filter(c => c.length >= 3))];
+    const dayAgo = Date.now() - 24 * 3600_000;
+    const q = this.policy.last;
+    return {
+      day: new Date().toLocaleDateString('en-CA', { timeZone: 'America/Toronto', weekday: 'long', day: 'numeric', month: 'long' }),
+      events: d.events,
+      unread: d.unread.map(u => {
+        const dom = senderDomain(u.address);
+        const logo = dom && !isPersonal(dom) ? this.logos!.get(brandDomain(dom)) : null;
+        const hay = `${u.from} ${dom ?? ''}`.toLowerCase();
+        return { from: u.from, subject: u.subject, at: u.at, ...(logo ? { logo } : {}), ...(companies.some(c => hay.includes(c)) ? { job: true } : {}) };
+      }),
+      jobsNew: cards.filter(c => c.status === 'new' && Date.parse(c.at) > dayAgo).length,
+      week: q ? q.week : null,
+      weekResetsAt: q ? q.weekResetsAt : null,
+      ...(d.error ? { error: d.error } : {}),
+    };
   }
 
   // ------------------------------------------------------------------ acting inside apps (UI Automation)
@@ -1458,7 +1497,12 @@ export class Core {
     };
     this.reminders.start();
     // Once a day, after 7:00 Toronto time, the morning brief is posted on its own (no model, no quota). Only when signed in.
-    this.briefTimer = setInterval(() => { void this.mail()?.dailyBrief().then(t => { if (t) this.announce(t); }).catch(() => { /* tried again in ten minutes */ }); }, 10 * 60_000);
+    // At the desk it arrives as the card (sheet 13); away, Discord gets the text as before.
+    this.briefTimer = setInterval(() => { void this.mail()?.dailyBrief().then(async t => {
+      if (!t) return;
+      const card = this.whereHeIs() === 'discord' ? null : await this.briefCard().catch(() => null);
+      this.announce(t, card ? { brief: card } : {});
+    }).catch(() => { /* tried again in ten minutes */ }); }, 10 * 60_000);
     // Facts read out of his documents, offered one at a time when he is not busy and not in a game.
     // offerFact() does the deciding; this only gives it a chance to. Five minutes because none of these
     // is urgent - they came out of documents he already has - and a question at a bad moment costs far
@@ -2400,7 +2444,7 @@ export class Core {
     setTimeout(() => this.offerFact(), 45_000).unref?.();
   }
 
-  announce(text: string, opts: { asked?: boolean; focus?: string; jobCwd?: string; image?: { data: string; mimeType: string }; blocking?: boolean; done?: boolean; host?: 'mac'; reminder?: string } = {}): void {
+  announce(text: string, opts: { asked?: boolean; focus?: string; jobCwd?: string; image?: { data: string; mimeType: string }; blocking?: boolean; done?: boolean; host?: 'mac'; reminder?: string; brief?: BriefCard } = {}): void {
     // Whatever is said last is what a reply is most likely about, whether it lands now or only once hush/quiet
     // lets it through - see withAnnounced().
     this.lastAnnounced = { text, at: Date.now() };
@@ -2412,7 +2456,7 @@ export class Core {
       t: 'bubble', text, stream: false, proactive: true, asked: opts.asked === true, ...(opts.focus ? { focus: opts.focus, link: 'Claude' } : {}),
       ...(opts.jobCwd ? { jobCwd: opts.jobCwd } : {}), ...(opts.image ? { image: opts.image } : {}),
       ...(blocking ? { blocking: true } : {}), ...(done ? { done: true } : {}), ...(opts.host ? { host: opts.host } : {}),
-      ...(opts.reminder ? { reminder: opts.reminder } : {}),
+      ...(opts.reminder ? { reminder: opts.reminder } : {}), ...(opts.brief ? { brief: opts.brief } : {}),
     };
     /**
      * Store it as a turn, and carry the row id out with the message.

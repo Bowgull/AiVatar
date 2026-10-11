@@ -2315,7 +2315,20 @@ now also open to window 2); the forged divider at every 30-minute gap, labelled 
 MORNING"; Ctrl+F from any tab goes to History with the box focused; "Undo the last one" (Z) on What I
 did, through a new `undo.last` that uses the same undo stack as the undo_last tool and says the result
 as a whisper. All checked in a browser tab.
-**PASS 2 still owes:** the morning brief (sheet 6 section 7, with the sender logos).
+**THE MORNING BRIEF, BUILT 2026-10-11. Checked in a browser tab with sample data.** Still no model.
+`mail.ts` `briefData()` gives the calendar and unread mail as fields; the Core adds what only it knows
+(`briefCard`): sender logos, a JOB tag on mail from a company the job hunt tracks, new job matches in the
+last day ("Overnight"), and his Claude week. **At the desk** the daily brief arrives as sheet 13's card in
+the balloon (Today, Needs a reply, Overnight, Your Claude week; Got it, Open the whole brief); **away**,
+Discord gets the same text as always. **Open the whole brief** shows sheet 6's version in window 2 (the
+banner, the timeline with a line for now and a gem on game nights, the inbox with medallions, NO QUOTA).
+**Sender logos** (`logos.ts`, 5 tests): BIMI first, then the site's icon, then the letter; once per company,
+kept on this PC for 30 days, never per email; people's addresses always get the letter; **never a private
+address**: the domain comes from a From line anyone can write, so names and every address they resolve to
+are checked before any request, redirects are refused, and only real images under 200 KB are kept, drawn
+by <img>. Weather and "talents changed in the patch" from the sheet are NOT built: no free source is
+wired for weather, and the patch line belongs to K3.
+**6.15 is now built end to end; what is left is his look at it on the desktop.**
 
 **The change:** ports the scroll-back and Panel rows of the parity list. The 30-minute divider
 becomes the forged end-cap rule; right-click becomes hover buttons; text can be selected; Ctrl+F
