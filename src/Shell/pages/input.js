@@ -20,7 +20,7 @@ const box = el('box'), modeBtn = el('mode'), savingBtn = el('saving'), segs = el
 let history = new History([]);
 let mode = 'auto';
 let working = false;
-const MAX_LINES = 4;            // InputWindow.MaxLinesShown
+const MAX_LINES = 5;            // sheet 13: one line at rest, one more per line typed, up to 5, then it scrolls
 
 const LABEL = { auto: 'Auto', quick: 'Quick', smart: 'Smart', deep: 'Deep' };
 function paintMode() {
@@ -88,7 +88,8 @@ function paintPace(five, weekResetsAt) {
  * worth more than bars at the moment you are asking what something is.
  */
 const MEANING = {
-  auto: 'Auto: I choose', quick: 'Quick: fastest', smart: 'Smart: thinks more', deep: 'Deep: most thorough',
+  // Sheet 13's words. Auto becomes "Qwen first, Claude if needed" in 6.16, when Qwen is actually on it.
+  auto: 'Aang picks for you', quick: 'Claude, fast and light', smart: 'Claude, for most jobs', deep: 'Claude, big thinking',
 };
 function wireHints() {
   const hint = document.getElementById('hint');
@@ -135,7 +136,6 @@ function paintAsk(a) {
   row.textContent = '';
   strip.classList.toggle('asking', Boolean(pendingAsk));
   row.hidden = !pendingAsk;
-  paintStarters();
   if (!pendingAsk) return;
   const q = document.createElement('b');
   // One line, cut rather than wrapped: the strip is one line tall and a question that reflows it
@@ -177,58 +177,55 @@ window.aang?.onFailed?.((f) => {
 /**
  * Three things to tap when the box is empty.
  *
- * Ported from InputWindow.DrawSuggestions and ShowingSuggestions: three equal chips splitting the row,
- * shown only when the box is EMPTY and nothing else is using that row, and clicking one FILLS the box
- * rather than sending it, with the caret at the end. Quieter than a pin, in the C#'s own words,
- * "because a pin is something he chose, these are only offers".
+ *
+ * (The three starter chips that followed here are gone: "I want just an area to chat with Aang",
+ * sheet 13, 2026-10-10.)
  */
-let starters = [];
-function paintStarters() {
-  const row = document.getElementById('starters');
-  if (!row) return;
-  // Never while he is typing, and never on top of a chip row or a question: one row, one job.
-  const show = starters.length > 0 && box.value.length === 0 && !pendingAsk
-    && !(pinnedRow && pinnedRow.childElementCount);
-  row.hidden = !show;
-  if (!show) { row.textContent = ''; return; }
-  // Rebuilt only when the list actually changed, so it does not flicker on every keystroke.
-  const key = starters.map((s) => s.label).join('|');
-  if (row.dataset.key === key) return;
-  row.dataset.key = key;
-  row.textContent = '';
-  for (const s of starters) {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'starter';
-    b.tabIndex = -1;                       // Tab belongs to the text, not to the offers
-    b.textContent = s.label;
-    b.title = s.text;
-    b.addEventListener('click', () => {
-      setText(s.text);                     // fills, never sends: his next key can still change it
-      box.focus();
-      paintStarters();
-    });
-    row.append(b);
-  }
-}
-box.addEventListener('input', paintStarters);
 
-/** Grow with the text, up to six lines, then scroll - the old box's rule. */
-function grow() {
-  box.style.height = 'auto';
-  const line = parseFloat(getComputedStyle(box).lineHeight) || 22;
-  const pad = box.offsetHeight - box.clientHeight + parseFloat(getComputedStyle(box).paddingTop) + parseFloat(getComputedStyle(box).paddingBottom);
-  const max = line * MAX_LINES + pad;
-  const want = Math.min(box.scrollHeight + (box.offsetHeight - box.clientHeight), max);
-  box.style.height = want + 'px';
-  box.style.overflowY = box.scrollHeight + (box.offsetHeight - box.clientHeight) > max ? 'auto' : 'hidden';
-  reportSize();
+/**
+ * Hug the text: one line at rest, one line taller per line typed, up to five, then it scrolls (sheet 13).
+ *
+ * NO JIGGLE. Measured on a hidden twin rather than by setting the real field to 'auto' and back on every
+ * key, and the height changes only when the LINE COUNT does, over 140 ms with no overshoot. Setting it on
+ * every keystroke made the box shake as he typed (seen on the sheet, 2026-10-10).
+ */
+const twin = document.createElement('textarea');
+twin.setAttribute('aria-hidden', 'true');
+twin.tabIndex = -1;
+twin.rows = 1;
+twin.className = 'field twin';
+document.body.append(twin);
+let lastLines = 0;
+function grow(force) {
+  const cs = getComputedStyle(box);
+  twin.style.width = box.getBoundingClientRect().width + 'px';
+  twin.value = box.value || ' ';
+  const line = parseFloat(cs.lineHeight) || 22;
+  const pad = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+  const edge = parseFloat(cs.borderTopWidth) + parseFloat(cs.borderBottomWidth);
+  const lines = Math.max(1, Math.round((twin.scrollHeight - pad) / line));
+  if (lines === lastLines && force !== true) return;
+  const growing = lines > lastLines;
+  lastLines = lines;
+  box.style.height = (Math.min(MAX_LINES, lines) * line + pad + edge) + 'px';
+  box.style.overflowY = lines > MAX_LINES ? 'auto' : 'hidden';
+  // The window grows BEFORE the field does and shrinks after it, so the strip is never clipped mid-ease.
+  if (growing) reportSizeFor(box); else setTimeout(reportSize, 150);
+}
+/** The frame's size once the field has reached its new height, so the window can be ready for it. */
+function reportSizeFor(field) {
+  const r = el('frame').getBoundingClientRect();
+  const extra = parseFloat(field.style.height) - field.getBoundingClientRect().height;
+  sendSize(Math.ceil(r.width), Math.ceil(r.height + Math.max(0, extra)));
 }
 
 let lastSize = '';
 function reportSize() {
   const r = el('frame').getBoundingClientRect();
-  const size = { width: Math.ceil(r.width), height: Math.ceil(r.height) };
+  sendSize(Math.ceil(r.width), Math.ceil(r.height));
+}
+function sendSize(width, height) {
+  const size = { width, height };
   const key = size.width + 'x' + size.height;
   if (key === lastSize) return;
   lastSize = key;
@@ -291,12 +288,11 @@ function paintChips({ replyTo, pinned } = {}) {
       () => window.aang?.dropChip?.({ kind: 'pin', turn: p.turn })));
   }
   pinnedRow.hidden = !pinnedRow.childElementCount;
-  paintStarters();
   reportSize();                       // the row changes how tall the box is
 }
 window.aang?.onChips?.(paintChips);
 
-box.addEventListener('input', grow);
+box.addEventListener('input', () => grow());
 box.addEventListener('keydown', (e) => {
   // An ask takes the keys first, exactly as InputWindow.ProcessCmdKey does: Enter answers yes ONLY on
   // an empty box, so a half-typed message is never thrown away by a question arriving; Esc says no.
@@ -370,12 +366,11 @@ window.aang?.onInputState?.((s) => {
   if (Array.isArray(s.history)) history = new History(s.history);
   if (typeof s.mode === 'string' && MODES.includes(s.mode)) mode = s.mode;
   if (typeof s.saving === 'boolean') savingBtn.hidden = !s.saving;
-  if (Array.isArray(s.starters)) { starters = s.starters.filter(x => x && x.label && x.text); paintStarters(); }
   if (typeof s.week === 'number') paintSegs(s.week, s.level);
   if (typeof s.five === 'number' || typeof s.weekResetsAt === 'number') paintPace(s.five, s.weekResetsAt);
   paintMode();
   // Opened: the caret at the end of whatever draft is there, ready for the very next key.
-  if (s.opened) { box.focus(); box.selectionStart = box.selectionEnd = box.value.length; grow(); }
+  if (s.opened) { box.focus(); box.selectionStart = box.selectionEnd = box.value.length; grow(true); }
 });
 window.aang?.onMessage?.((m) => {
   // A finished reply or a failure ends the turn; streaming parts do not. `claude.working` is about
@@ -386,7 +381,7 @@ window.aang?.onMessage?.((m) => {
 
 paintMode();
 paintSegs(0);
-grow();
+grow(true);
 
 // THE CARET LIVES IN THE TEXT FIELD, from the moment the page loads and every time the window comes to
 // the front. The main process focuses the WINDOW on the hotkey; that is not the same as focusing the

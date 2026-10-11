@@ -3,7 +3,7 @@
 // The reveal pace, the collapse thresholds and the skip-versus-expand rule all live in reveal.ts, which
 // is tested. This file is the part that needs a screen: measuring real lines of real text, and the
 // clicks.
-import { Reveal, TICK_MS, hasMore, linesShown, scrolls } from './reveal.js';
+import { Reveal, TICK_MS, WORD_MS, hasMore, linesShown, scrolls } from './reveal.js';
 import { balloonPath, paintBalloon, PAD_R, PAD_B, DEFAULT_AIM, WIDEST_AFTER_LINES } from './balloon.js';
 import { HOLD_MS, askFrom } from './asks.js';
 import { find as findEntities } from './entities.js';
@@ -14,7 +14,10 @@ const bubble = el('bubble'), said = el('said'), scroller = el('scroller'), more 
 const skin = el('skin');
 const working = el('working'), doing = el('doing'), asks = el('asks'), tools = el('tools'), who = el('who');
 
-const reveal = new Reveal();
+// Whole words fading in at a fixed pace (sheet 13, Smoother). The full reply is laid out from the first
+// frame with the unshown words invisible, so the balloon is sized ONCE for the whole thing and grows
+// once, rather than jumping a line at a time as letters tick in.
+const reveal = new Reveal(Date.now, { wordMs: WORD_MS });
 let expanded = false;
 let lineHeight = 23;          // measured below; BubbleView.LineH until then
 let turn = null;              // the stored row this reply became, for reachback
@@ -91,22 +94,98 @@ function paintSkin(w, h) {
   paintBalloon(skin, w + PAD_R, h + PAD_B, d, ++shapeId);
 }
 
-let lastSize = '';
-function reportSize() {
+// ---------------------------------------------------------------- growing, never popping (sheet 13)
+// One balloon, regenerated every frame at the size it has reached, never scaled. It grows on a 520 ms
+// spring with a slight overshoot and shrinks in 340 ms, both lifted verbatim from the approved sheet.
+// The WINDOW changes first when growing and last when shrinking: it is placed by its bottom-right
+// corner, so a window bigger than the shape costs nothing, and one smaller than it clips it.
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const ease = {
+  open: (t) => { const c1 = 1.70158 * 1.1, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); },
+  close: (t) => 1 - Math.pow(1 - t, 3),
+};
+/** The open ease peaks 11.8% past its target, so the window holds that much spare while growing. */
+const OVERSHOOT = 1.12;
+let cur = { w: 0, h: 0 }, goal = { w: 0, h: 0 }, anim = 0;
+// A timer, not requestAnimationFrame: rAF stalls in a window the system thinks is not being looked at
+// (it froze the sheet's own marquee at 0), and a balloon frozen half-grown is worse than any frame rate.
+const frame = (f) => setTimeout(() => f(performance.now()), 16);
+
+/** The size the content wants, measured with the animation's own sizes taken off for a moment. */
+function natural() {
+  const sw = bubble.style.width, sh = bubble.style.height;
+  bubble.style.width = ''; bubble.style.height = '';
+  bubble.classList.remove('sizing');
   const r = bubble.getBoundingClientRect();
-  paintSkin(r.width, r.height);
+  bubble.style.width = sw; bubble.style.height = sh;
+  if (sw) bubble.classList.add('sizing');
+  return { w: Math.ceil(r.width), h: Math.ceil(r.height) };
+}
+
+/** Draw the shape at w x h. The content inside keeps its final width, so text never rewraps mid-grow. */
+function place(w, h) {
+  bubble.style.width = w + 'px';
+  bubble.style.height = h + 'px';
+  bubble.classList.add('sizing');
+  paintSkin(w, h);
+}
+
+function growTo(w, h, done) {
+  clearTimeout(anim);
+  const from = { ...cur }, bigger = w * h >= from.w * from.h;
+  const ms = reduceMotion ? 0 : (bigger ? 520 : 340), fn = bigger ? ease.open : ease.close;
+  const cs = getComputedStyle(bubble);
+  if (w > 0) bubble.style.setProperty('--cw', Math.max(0, w - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)) + 'px');
+  if (bigger) sendWindow(Math.max(from.w, Math.ceil(from.w + (w - from.w) * OVERSHOOT)),
+                         Math.max(from.h, Math.ceil(from.h + (h - from.h) * OVERSHOOT)));
+  const t0 = performance.now();
+  const f = (now) => {
+    const k = ms ? Math.min(1, (now - t0) / ms) : 1, e = fn(k);
+    cur = { w: Math.max(0, from.w + (w - from.w) * e), h: Math.max(0, from.h + (h - from.h) * e) };
+    place(Math.round(cur.w), Math.round(cur.h));
+    if (k < 1) { anim = frame(f); return; }
+    cur = { w, h };
+    place(w, h);
+    if (w > 0) sendWindow(w, h);
+    done?.();
+  };
+  f(t0);
+}
+
+/** Gone at once, no shrink: for the times the bubble is cleared rather than finished with. */
+function snapShut() {
+  clearTimeout(anim);
+  cur = { w: 0, h: 0 }; goal = { w: 0, h: 0 };
+  bubble.style.width = ''; bubble.style.height = '';
+  bubble.classList.remove('sizing', 'leaving');
+  skin.innerHTML = ''; lastShape = ''; lastSize = '';
+}
+
+let lastSize = '';
+/** The content changed: grow or shrink the balloon to what it now wants. */
+function reportSize() {
+  if (bubble.hidden) return;
+  const n = natural();
+  if (n.w === goal.w && n.h === goal.h) return;
+  goal = n;
+  growTo(n.w, n.h);
+}
+
+/** Tell the Shell how big the window must be for a shape of sw x sh. */
+function sendWindow(sw, sh) {
+  const r = { width: sw, height: sh };
   // Round up: a half pixel short clips the frame's bottom edge.
   // 6 px of margin on the left, 78 on the right: the extra 72 is the room the TAIL hangs in
   // (bubble.css `.wrap`), its reach plus slack so the ink line is not on the window edge. Same
   // below: 18 above for the copy and rate keys, 56 under for the tail, of which 38 is new. Without the top room the keys sat outside the window and could never be
   // seen (first sweep, 2026-10-04); the tail would go the same way.
-  const width = Math.ceil(r.width) + 6 + 78;
+  // 14 on the left, not 6: the Smoother look's soft shadow spreads past the ink line.
+  const width = Math.ceil(r.width) + 14 + 78;
   const height = Math.ceil(r.height) + 18 + 56 + 6;
   const key = width + 'x' + height;
   if (key === lastSize) return;               // resizing a window is not free
   lastSize = key;
-  const t = said.getBoundingClientRect();
-  console.info(`bubble: box ${Math.round(r.width)}x${Math.round(r.height)} text ${Math.round(t.width)}w scroll ${said.scrollWidth} wide=${bubble.classList.contains('wide')} asking window=${innerWidth}x${innerHeight} -> ${width}x${height}`);
+  console.info(`bubble: shape ${Math.round(r.width)}x${Math.round(r.height)} wide=${bubble.classList.contains('wide')} window=${innerWidth}x${innerHeight} -> ${width}x${height}`);
   // `pad` is how much of that size is tail room beyond the shape the window used to be. The Shell
   // places the window by the OLD shape and then grows it right and down, so adding a tail does not
   // move the panel one pixel from where it has always sat beside him.
@@ -141,8 +220,33 @@ function paintChips() {
 }
 
 /** Paint whatever is revealed so far. */
+/** The words of the current reply, laid out in full, each hidden until its turn. */
+let laidOut = '', words = [];
+function paintWords() {
+  if (laidOut !== reveal.whole) {
+    laidOut = reveal.whole;
+    said.replaceChildren();
+    words = [];
+    let at = 0;
+    for (const part of reveal.whole.split(/(\s+)/)) {
+      if (!part) continue;
+      if (/^\s+$/.test(part)) said.append(part);
+      else {
+        const s = document.createElement('span');
+        s.className = 'w o';
+        s.textContent = part;
+        said.append(s);
+        words.push({ s, end: at + part.length });
+      }
+      at += part.length;
+    }
+  }
+  const upTo = reveal.text.length;
+  for (const w of words) if (w.end <= upTo) w.s.classList.remove('o');
+}
+
 function paint() {
-  said.textContent = reveal.text;
+  paintWords();
   // Over one line of text, the bubble widens, which is what BubbleView does at WideAfterLines = 1.
   // Wide is decided ONCE per reply, measured at the narrow width, and never undone - BubbleView.Show:
   // `if (!Wide) Wide = Wrap(t).Count > WideAfterLines; // measured at the narrow width`. Toggling it
@@ -193,14 +297,24 @@ function scheduleHide() {
 }
 function goAway() {
   if (asking || overNow) return;
-  bubble.hidden = true;
-  releaseMouse();
-  // The WINDOW goes too: a hidden page in a shown window is still a window on his desktop.
-  window.aang?.bubbleHidden?.();
+  // Content out over 160 ms, then the balloon shrinks away in 340 ms. Anything new arriving meanwhile
+  // takes `leaving` off (show), and growTo cancels the shrink, so a reply is never hidden under him.
+  bubble.classList.add('leaving');
+  setTimeout(() => {
+    if (!bubble.classList.contains('leaving')) return;
+    growTo(0, 0, () => {
+      bubble.hidden = true;
+      snapShut();
+      releaseMouse();
+      // The WINDOW goes too: a hidden page in a shown window is still a window on his desktop.
+      window.aang?.bubbleHidden?.();
+    });
+  }, reduceMotion ? 0 : 160);
 }
 
 function show() {
   bubble.hidden = false;
+  bubble.classList.remove('leaving');
   // Measured from the real font at the real size, once there is something to measure. A guess here
   // would make "six lines" mean five and a half.
   const h = parseFloat(getComputedStyle(said).lineHeight);
@@ -331,6 +445,10 @@ function showAsk(m) {
     asks.append(b);
   }
   asks.hidden = false;
+  // A 600 ms guard on every new set of keys, so a mouse already moving in his game cannot land on Allow
+  // the instant it appears (sheet 13).
+  asks.classList.add('guard');
+  setTimeout(() => asks.classList.remove('guard'), 600);
   working.hidden = true;
   show();
   fit();
@@ -421,6 +539,8 @@ window.aang?.onMessage?.(m => {
       reveal.start(m.text, m.stream === true);
       expanded = false;
       bubble.classList.remove('wide', 'widest');
+      // New content fades in 160 ms into the grow, over 300 ms (sheet 13). Restarted, not stacked.
+      bubble.classList.remove('enter'); void bubble.offsetWidth; bubble.classList.add('enter');
     }
     turn = typeof m.turn === 'number' ? m.turn : null;
     // Only on the finished reply, like the rows: a streamed delta is the same reply arriving again.
@@ -476,6 +596,7 @@ window.aang?.onMessage?.(m => {
     paintBack();
     expanded = false;
     bubble.hidden = true;
+    snapShut();
     releaseMouse();
     working.hidden = true;
     asks.hidden = true;
@@ -507,7 +628,7 @@ bubble.addEventListener('contextmenu', e => {
     ['Reply to this', () => { if (turn !== null) window.aang?.replyToTurn?.(turn, reveal.whole); }],
     ['Add as context', () => { if (turn !== null) window.aang?.pinTurn?.(turn, reveal.whole); }],
     // Forget is last and set apart, as it is in the old menu: it is the one that removes something.
-    ['Forget this', () => { if (turn !== null) window.aang?.forgetTurn?.(turn); reveal.clear(); paint(); bubble.hidden = true; }],
+    ['Forget this', () => { if (turn !== null) window.aang?.forgetTurn?.(turn); reveal.clear(); paint(); bubble.hidden = true; snapShut(); }],
   ]) {
     const b = document.createElement('button');
     b.className = 'mrow';
@@ -593,7 +714,7 @@ bubble.addEventListener('click', e => {
   if (focusWindow) {
     window.aang?.focusWindow?.(focusWindow);
     focusWindow = null;
-    reveal.clear(); paint(); bubble.hidden = true;
+    reveal.clear(); paint(); bubble.hidden = true; snapShut();
     window.aang?.bubbleHidden?.();
     return;
   }
