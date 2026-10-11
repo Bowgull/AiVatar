@@ -1799,6 +1799,8 @@ export class Core {
       // same reason `summon` does: the two programs do not talk to each other, only to the brain.
       case 'summon': case 'dismiss': case 'refocus': case 'typebox': this.sendTo('desktop', { t: m.t }); break;
       case 'desk.open': this.sendTo('desktop', { t: 'desk.open', ...(typeof m.tab === 'number' ? { tab: m.tab } : {}) }); break;
+      // Window 2's Settings: between the Shell and the pet, which owns them. Passed through as they are.
+      case 'settings.get': case 'settings.set': case 'settings.do': case 'settings': this.sendTo('desktop', m); break;
       // The new bubble was clicked on a message that names a window; the pet has the Win32 side.
       case 'bubble.focus': this.sendTo('desktop', { t: 'bubble.focus', focus: m.focus }); break;
       // The mode he picked in the new box. Relayed so the PET can write it to body.json: the pet is

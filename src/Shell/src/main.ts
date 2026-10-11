@@ -224,8 +224,7 @@ const link = new CoreLink({
     if (m.t === 'typebox') { if (!input?.visible) openTypeBox(); return; }
     // 6.15: the pet's "Panel..." menu, with the new front end on, opens window 2 instead of the C# Panel.
     if (m.t === 'desk.open') {
-      // Tab 6, Settings, is still the pet's own window until pass 2; the pet answers that one.
-      if (m.tab !== 6) openDesk(typeof m.tab === 'number' ? m.tab : 0);
+      openDesk(typeof m.tab === 'number' ? m.tab : 0);
       return;
     }
     // A page of history goes ONLY to the window that asked for it. Both the bubble's scroll-back and the
@@ -682,7 +681,16 @@ app.whenReady().then(async () => {
   });
   // ---- window 2, the desk (6.15): each door sends exactly what the C# Panel sends.
   ipcMain.on('desk:panel', (e) => { if (fromDesk(e)) link?.send({ t: 'panel' }); });
-  ipcMain.on('desk:settings', (e) => { if (fromDesk(e)) link?.send({ t: 'desk.open', tab: 6 }); });
+  ipcMain.on('desk:settings', (e) => { if (fromDesk(e)) link?.send({ t: 'settings.get' }); });
+  ipcMain.on('desk:setting', (e, a) => {
+    if (!fromDesk(e) || !a || typeof a !== 'object') return;
+    const key = String(a.key ?? '');
+    if (!['quietGame', 'mute', 'seeWindow', 'usage', 'autostart'].includes(key)) return;
+    link?.send({ t: 'settings.set', key: key as 'quietGame' | 'mute' | 'seeWindow' | 'usage' | 'autostart', on: a.on === true });
+  });
+  ipcMain.on('desk:settingdo', (e, what) => {
+    if (fromDesk(e) && (what === 'hotkey' || what === 'undock')) link?.send({ t: 'settings.do', what });
+  });
   ipcMain.on('desk:forgetfact', (e, id) => {
     if (fromDesk(e) && Number.isFinite(Number(id))) link?.send({ t: 'forget.fact', id: Number(id) });
   });

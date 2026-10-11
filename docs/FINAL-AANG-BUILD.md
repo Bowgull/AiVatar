@@ -2304,8 +2304,14 @@ front end is on (`desk.open`, the same route as `typebox`; "desk" was already ta
 switches that do nothing is worse than none. **A collision fixed on the way:** both the bubble's
 scroll-back and the desk ask for `history`, the brain answers on one link, so a desk search would have
 landed in the conversation he was reading; replies now go only to the window that asked.
-**PASS 2 owes:** Settings moved here (the pet's switches over messages), the morning brief, Reply to this
-and Add as context on History turns, the forged 30-minute divider, Ctrl+F, "Undo the last one".
+**SETTINGS MOVED IN, 2026-10-11 (pass 2, first part):** the five switches and two buttons, word for
+word and grouped as sheet 6 draws them. The pet stays their only owner: window 2 asks (`settings.get`),
+sets (`settings.set`) and runs the two actions (`settings.do`), and a switch shows its new state only
+once the pet answers with `settings`. The C# Panel's getters and setters became one shared copy
+(`GetSettingValue`, `SetSettingValue`, `RunSettingAction`). With the new front end on, every Panel menu
+item now opens window 2. Checked in a browser tab.
+**PASS 2 still owes:** the morning brief, Reply to this and Add as context on History turns, the forged
+30-minute divider, Ctrl+F, "Undo the last one".
 
 **The change:** ports the scroll-back and Panel rows of the parity list. The 30-minute divider
 becomes the forged end-cap rule; right-click becomes hover buttons; text can be selected; Ctrl+F

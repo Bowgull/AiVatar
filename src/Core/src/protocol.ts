@@ -82,6 +82,11 @@ export type ToBody =
   | { t: 'typebox' }
   /** Window 2 (6.15): the pet's Panel menu with the new front end on, so the Shell opens the desk. */
   | { t: 'desk.open'; tab?: number }
+  /** Window 2's Settings (6.15 pass 2): the pet owns the switches; the Shell asks, sets and is told. */
+  | { t: 'settings.get' }
+  | { t: 'settings.set'; key: 'quietGame' | 'mute' | 'seeWindow' | 'usage' | 'autostart'; on: boolean }
+  | { t: 'settings.do'; what: 'hotkey' | 'undock' }
+  | { t: 'settings'; quietGame: boolean; mute: boolean; seeWindow: boolean; usage: boolean; autostart: boolean }
   /** He picked a mode in the new typing box. The PET writes it to body.json; nothing else may. */
   | { t: 'mode'; mode: Mode }
   /** The bubble was clicked on a message naming a window (a Claude session): bring it forward. */
@@ -250,6 +255,11 @@ export type FromBody =
   /** The pet was clicked and the new front end is on, so the Shell opens its typing box. */
   | { t: 'typebox' }
   | { t: 'desk.open'; tab?: number }
+  /** Window 2's Settings (6.15 pass 2): the pet owns the switches; the Shell asks, sets and is told. */
+  | { t: 'settings.get' }
+  | { t: 'settings.set'; key: 'quietGame' | 'mute' | 'seeWindow' | 'usage' | 'autostart'; on: boolean }
+  | { t: 'settings.do'; what: 'hotkey' | 'undock' }
+  | { t: 'settings'; quietGame: boolean; mute: boolean; seeWindow: boolean; usage: boolean; autostart: boolean }
   /** He picked a mode in the new typing box. The PET writes it to body.json; nothing else may. */
   | { t: 'mode'; mode: Mode }
   /** The bubble was clicked on a message naming a window (a Claude session): bring it forward. */
