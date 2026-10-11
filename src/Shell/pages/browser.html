@@ -26,6 +26,10 @@
       <span class="lock" id="lock" title="This site"></span>
       <span class="url" id="url"></span>
       <input class="edit" id="edit" type="text" spellcheck="false" autocomplete="off" aria-label="Search or type a web address" hidden>
+      <!-- Find on page (Ctrl+F): the slot becomes the find field, so nothing hangs down under the page. -->
+      <span class="findtag" id="findtag" hidden>FIND</span>
+      <input class="edit" id="find" type="text" spellcheck="false" autocomplete="off" aria-label="Find on this page" hidden>
+      <span class="findn" id="findn" hidden></span>
       <!-- Shown only while Aang is the one driving (6.25); you driving is the normal case, so it says nothing. -->
       <span class="who" id="who" hidden>AANG IS DRIVING</span>
     </div>
@@ -35,7 +39,7 @@
       <div class="grp">
         <div class="gh">THIS PAGE</div>
         <div class="mrow zoom"><span>Zoom</span><span class="zk"><button type="button" class="zb" id="zout" aria-label="Zoom out">&minus;</button><b id="zpct">100%</b><button type="button" class="zb" id="zin" aria-label="Zoom in">+</button><button type="button" class="zb wide" id="zreset">Reset</button></span></div>
-        <button type="button" class="mrow soon" disabled><span>Find on this page</span><i>SOON</i></button>
+        <button type="button" class="mrow" id="m-find"><span>Find on this page</span><kbd>CTRL F</kbd></button>
         <button type="button" class="mrow soon" disabled><span>Print</span><i>SOON</i></button>
         <button type="button" class="mrow soon" disabled><span>Open in Chrome</span><i>SOON</i></button>
       </div>

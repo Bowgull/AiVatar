@@ -94,6 +94,7 @@ el('zout').addEventListener('click', () => window.aang?.browserAct?.('zoomout'))
 el('zreset').addEventListener('click', () => window.aang?.browserAct?.('zoomreset'));
 el('m-newtab').addEventListener('click', () => { closeMenu(); tap(); window.aang?.browserAct?.('newtab'); });
 el('m-reopen').addEventListener('click', () => { closeMenu(); window.aang?.browserAct?.('reopen'); });
+el('m-find').addEventListener('click', () => { closeMenu(); setTimeout(openFind, 0); });
 document.addEventListener('click', () => closeMenu());
 window.aang?.onBrowserFrozen?.((src) => {
   if (typeof src === 'string' && src.startsWith('data:image/')) { frozen.src = src; frozen.hidden = false; }
@@ -133,13 +134,49 @@ function editSlot() {
   edit.focus(); edit.select();
 }
 function closeSlot() { edit.hidden = true; urlEl.hidden = false; }
-el('slot').addEventListener('click', () => { if (edit.hidden) editSlot(); });
+el('slot').addEventListener('click', (e) => { if (finding || lock.contains(e.target)) return; if (edit.hidden) editSlot(); });
 edit.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && edit.value.trim()) { window.aang?.browserGo?.(edit.value.trim()); closeSlot(); }
   if (e.key === 'Escape') closeSlot();
 });
 edit.addEventListener('blur', () => setTimeout(closeSlot, 120));
 window.aang?.onBrowserFocusSlot?.(() => editSlot());
+
+// ---- find on page (Ctrl+F). Typing searches as he types; Enter is the next match, Shift+Enter the one before;
+// Esc, or clicking away, puts the slot back as it was.
+const findBox = el('find'), findTag = el('findtag'), findN = el('findn');
+let finding = false;
+function openFind() {
+  closeSlot(); closeMenu(); closeDrawer();
+  finding = true;
+  urlEl.hidden = true; lock.hidden = true;
+  findTag.hidden = false; findBox.hidden = false; findN.hidden = false;
+  findN.textContent = ''; findN.classList.remove('none');
+  findBox.focus(); findBox.select();
+  if (findBox.value) window.aang?.browserFind?.({ text: findBox.value });
+}
+function closeFind() {
+  if (!finding) return;
+  finding = false;
+  findTag.hidden = true; findBox.hidden = true; findN.hidden = true;
+  urlEl.hidden = false;
+  window.aang?.browserFindStop?.();
+  const t = state.tabs.find((x) => x.id === state.active);
+  paintUrl(t?.url ?? '');
+}
+findBox.addEventListener('input', () => window.aang?.browserFind?.({ text: findBox.value }));
+findBox.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); window.aang?.browserFind?.({ text: findBox.value, next: true, back: e.shiftKey }); }
+  if (e.key === 'Escape') { e.preventDefault(); closeFind(); }
+});
+findBox.addEventListener('blur', () => setTimeout(() => { if (document.activeElement !== findBox) closeFind(); }, 150));
+window.aang?.onBrowserFindOpen?.(() => openFind());
+window.aang?.onBrowserFound?.((r) => {
+  if (!finding || !r) return;
+  const none = findBox.value && r.of === 0;
+  findN.classList.toggle('none', Boolean(none));
+  findN.textContent = !findBox.value ? '' : none ? 'NONE' : `${r.at} OF ${r.of}`;
+});
 
 // The browser's keys work here too, when the frame has the keyboard.
 window.addEventListener('keydown', (e) => {
@@ -151,6 +188,7 @@ window.addEventListener('keydown', (e) => {
   else if (c && k === 't') { tap(); send('newtab'); }
   else if (c && k === 'w') { tap(0.7); send('close'); }
   else if (c && k === 'l') { e.preventDefault(); editSlot(); }
+  else if (c && k === 'f') { e.preventDefault(); openFind(); }
   else if ((c && k === 'r') || k === 'f5') send('reload');
 });
 
@@ -316,7 +354,7 @@ window.aang?.onBrowserTabs?.((s) => {
   if (menuOpen) paintMenu();
   const t = s.tabs.find((x) => x.id === s.active);
   paintTabs();
-  if (edit.hidden) paintUrl(t?.url ?? '');
+  if (edit.hidden && !finding) paintUrl(t?.url ?? '');
   el('back').classList.toggle('dim', !s.canBack);
   el('fwd').classList.toggle('dim', !s.canForward);
   loading.classList.toggle('busy', Boolean(t?.loading));

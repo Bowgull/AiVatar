@@ -785,6 +785,8 @@ app.whenReady().then(async () => {
   ipcMain.on('browser:go', (e, text) => { if (aangBrowser?.isFrame(e.sender) && typeof text === 'string') aangBrowser.go(text.slice(0, 2000)); });
   ipcMain.on('browser:askreply', (e, a) => { if (aangBrowser?.isFrame(e.sender) && a && Number.isInteger(a.id)) aangBrowser.answer(a.id, a.allow === true); });
   ipcMain.on('browser:adpause', (e, on) => { if (aangBrowser?.isFrame(e.sender)) aangBrowser.pauseAds(on === true); });
+  ipcMain.on('browser:find', (e, a) => { if (aangBrowser?.isFrame(e.sender) && a && typeof a.text === 'string') aangBrowser.find(a.text, a.next === true, a.back === true); });
+  ipcMain.on('browser:findstop', (e) => { if (aangBrowser?.isFrame(e.sender)) aangBrowser.findStop(); });
   ipcMain.on('browser:pref', (e, a) => { if (aangBrowser?.isFrame(e.sender) && a && typeof a.key === 'string') aangBrowser.setPref(a.key, a.on === true); });
   ipcMain.on('browser:tab', (e, a) => { if (aangBrowser?.isFrame(e.sender) && a && Number.isInteger(a.id)) aangBrowser.tabAct(a.id, String(a.act)); });
 
