@@ -3243,8 +3243,12 @@ on a phone. After 9.A0 because every button and menu needs that one list behind 
   the one that always buzzes), #drafts (kept separate, his call), forum #claude-jobs, forum #jobs (the
   four job channels become one: paste links there, posts tagged Found / Applied / Skipped; stuck items
   go to #needs-you), forum #library (recipes, guides, saved videos, ideas, notes; filter by tag on the
-  phone), #lists, #gaming. Grouping (by what needs him, or by part of life) and plain names vs names
-  with a symbol are picked from sheet 15.
+  phone), #lists, #gaming. **PICKED on sheet 15: grouped BY WHAT NEEDS HIM** (Needs you: needs-you,
+  drafts / Talk: aang, capture / Running: claude-jobs, jobs / Kept: library, lists / At a glance: home,
+  gaming), **names WITH SYMBOLS** (✦ home, ▸ aang, + capture, ! needs-you, ✉ drafts, ⚙ claude-jobs,
+  ◎ jobs, ❖ library, ☰ lists, ▲ gaming). **Old channels: move, then delete** (his call): Aang copies
+  recipes, guides and job posts into the new forums, shows him what moved, and deletes the old
+  channels only after he holds confirm.
 - **Making and deleting channels when he asks.** Aang already has Manage Channels (he built the
   layout); asking for it in chat is new. Deleting cannot be undone, so it takes the held confirm.
 
