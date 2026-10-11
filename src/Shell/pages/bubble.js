@@ -3,7 +3,7 @@
 // The reveal pace, the collapse thresholds and the skip-versus-expand rule all live in reveal.ts, which
 // is tested. This file is the part that needs a screen: measuring real lines of real text, and the
 // clicks.
-import { Reveal, TICK_MS, WORD_MS, hasMore, linesShown, scrolls } from './reveal.js';
+import { Reveal, TICK_MS, WORD_MS, hasMore, linesShown, scrolls, summaryOf } from './reveal.js';
 import { balloonPath, paintBalloon, PAD_R, PAD_B, DEFAULT_AIM, WIDEST_AFTER_LINES } from './balloon.js';
 import { HOLD_MS, askFrom } from './asks.js';
 import { find as findEntities } from './entities.js';
@@ -45,11 +45,20 @@ function lineCount() {
 /** Clip the text to the right number of lines and decide whether the arrow belongs. */
 function fit() {
   const total = lineCount();
-  const shown = linesShown(total, expanded);
+  // A summarised answer shows all of whatever is laid out (the short version, or everything), and its
+  // key is always there: Show more, then Show less.
+  const summarised = summaryOf(reveal.whole) !== null && !asking;
+  const shown = summarised ? total : linesShown(total, expanded);
   scroller.style.maxHeight = `${shown * lineHeight}px`;
   scroller.classList.toggle('scrolls', scrolls(total, expanded));
-  more.hidden = !hasMore(total, expanded);
+  more.hidden = summarised ? false : !hasMore(total, expanded);
+  more.classList.toggle('labelled', summarised);
+  more.classList.toggle('open', summarised && expanded);
+  moreLabel.textContent = summarised ? (expanded ? 'SHOW LESS' : 'SHOW MORE') : '';
 }
+const moreLabel = document.createElement('span');
+moreLabel.className = 'label';
+more.prepend(moreLabel);
 
 /**
  * Tell the Shell how big this actually is, so the window fits the drawn shape.
@@ -223,12 +232,16 @@ function paintChips() {
 /** The words of the current reply, laid out in full, each hidden until its turn. */
 let laidOut = '', words = [];
 function paintWords() {
-  if (laidOut !== reveal.whole) {
-    laidOut = reveal.whole;
+  // Folded to its short version until he asks for the rest (summaryOf). The short version is the start of
+  // the whole text, so the words already revealed stay revealed when it opens.
+  const short = expanded ? null : summaryOf(reveal.whole);
+  const visible = short ?? reveal.whole;
+  if (laidOut !== visible) {
+    laidOut = visible;
     said.replaceChildren();
     words = [];
     let at = 0;
-    for (const part of reveal.whole.split(/(\s+)/)) {
+    for (const part of visible.split(/(\s+)/)) {
       if (!part) continue;
       if (/^\s+$/.test(part)) said.append(part);
       else {
@@ -288,7 +301,7 @@ function startTicking() {
 let hideTimer = 0;
 function holdFor(text) {
   const base = Math.min(20000, Math.max(3000, 2500 + 45 * text.length));
-  return lineCount() > 6 ? Math.max(base, 60000) : base;
+  return lineCount() > 6 || summaryOf(text) ? Math.max(base, 60000) : base;
 }
 function scheduleHide() {
   clearTimeout(hideTimer);
@@ -784,6 +797,13 @@ window.aang?.onPage?.((d) => {
 
 more.addEventListener('click', () => {
   expanded = !expanded;
+  // Opening a summarised answer goes to the open size, 556, as the sheet does; closing it goes back.
+  if (summaryOf(reveal.whole)) {
+    bubble.classList.toggle('widest', expanded);
+    if (expanded) bubble.classList.add('wide');
+    paint();
+    return;
+  }
   fit();
 });
 

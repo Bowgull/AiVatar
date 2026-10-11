@@ -133,6 +133,27 @@ export class Reveal {
 export const COLLAPSED_LINES = 6;
 
 /**
+ * A long answer starts as its short version (sheet 13, approved 2026-10-10).
+ *
+ * The voice asks Aang to open anything past about four lines with a one or two sentence short version as
+ * its own paragraph. So: two or more paragraphs AND long enough to be worth folding, then the first
+ * paragraph is what shows until he taps Show more. Decided from the text, not measured lines, so it cannot
+ * flip while the reply is still arriving and changing size.
+ */
+export const SUMMARY_AFTER_CHARS = 280;
+
+/** @param {string} text @returns {string | null} the short version, or null if the whole thing shows */
+export function summaryOf(text) {
+  const t = String(text ?? '');
+  if (t.length <= SUMMARY_AFTER_CHARS) return null;
+  const m = /\n\s*\n/.exec(t);
+  if (!m || m.index === 0) return null;
+  const first = t.slice(0, m.index).trimEnd();
+  // A "short version" that is most of the answer is not one.
+  return first.length > 0 && first.length <= t.length * 0.6 ? first : null;
+}
+
+/**
  * @param {number} total lines the text actually needs
  * @param {boolean} expanded he has clicked the arrow
  * @returns {number}

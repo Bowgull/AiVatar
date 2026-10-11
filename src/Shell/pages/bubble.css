@@ -114,6 +114,11 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
 .more[hidden]{display:none}
 /* Sheet 5: 30x19, and the bob is 1.5s to 4px. Both were slightly off here. */
 .more .arrow{display:block;margin:0 auto;width:30px;height:19px;animation:bob 1.5s ease-in-out infinite}
+/* Show more / Show less on a summarised answer (sheet 13): the label in the pixel face over the arrow,
+   and no arrow once it is open. */
+.more .label{display:block;font:400 9.5px var(--label);letter-spacing:1px;color:var(--ink-dim)}
+.more:not(.labelled) .label{display:none}
+.more.open .arrow{display:none}
 @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(4px)}}
 
 /* ---- working ------------------------------------------------------------- */

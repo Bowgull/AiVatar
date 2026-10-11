@@ -2040,8 +2040,14 @@ while he builds). 112 tests in the Shell.
   bubble message); the balloon shows REMINDER with Got it and Snooze 5 min; `reminder.reply` snoozes by
   re-adding the same words five minutes on. One held by hush comes back as plain text (no id). Checked
   in a browser tab; the Core side is type-checked, not yet run live.
-- **Still owed:** whisper and open sizes, summary plus "Show more", approvals in plain words, now
-  playing, his eyes going to the balloon.
+- **Long answers fold to their short version, built 2026-10-11:** `voice.ts` now asks for a one or two
+  sentence short version as its own paragraph on anything past about four lines; `summaryOf`
+  (`reveal.js`, tested) folds a reply of two or more paragraphs over 280 characters to that first
+  paragraph, with SHOW MORE under it; opening goes to the open size (556), SHOW LESS folds it back.
+  Measured in a browser tab: 416 x 116 folded, 556 x 275 open. Decided from the text, not measured
+  lines, so it cannot flip while a reply is still arriving. **Voice change needs a fresh session** (the
+  resume landmine in CLAUDE.md).
+- **Still owed:** whisper size, approvals in plain words, now playing, his eyes going to the balloon.
 
 ---
 
