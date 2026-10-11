@@ -16,6 +16,7 @@ import { CoreLink } from './link.ts';
 import { Bubble, wantsNewBubble } from './bubble.ts';
 import { InputBox } from './input.ts';
 import { Snipper } from './snip.ts';
+import { AangBrowser } from './browser.ts';
 import { bubbleAt, headOf, inputAt, moved, readPetAt } from './anchor.ts';
 import type { PetAt } from './anchor.ts';
 import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown, wrongSettings } from './safety.ts';
@@ -225,6 +226,7 @@ const link = new CoreLink({
     if (m.t === 'typebox') { if (!input?.visible) openTypeBox(); return; }
     // 6.15: the pet's "Panel..." menu, with the new front end on, opens window 2 instead of the C# Panel.
     if (m.t === 'snip') { void snipper?.start(); return; }
+    if (m.t === 'browser') { aangBrowser?.open(); return; }
     // 6.17: remember which file the brain accepted, so the bubble can only ever name that one.
     if (m.t === 'drop.done' && typeof m.path === 'string') lastDropPath = m.path;
     // 6.17 Highlight: the text lands on the typing box as a chip; it goes with his next message.
@@ -418,6 +420,8 @@ app.whenReady().then(async () => {
         if (!globalShortcut.register(key, onHotkey)) console.error(`shell: could not take ${key}; another program has it`);
       }
       console.log('shell: the new typing box is on; Ctrl+Plus belongs to the Shell');
+
+      aangBrowser = new AangBrowser({ origin: pages.origin, preloadPath: path.join(HERE, 'preload.cjs') });
 
       // 6.17: Snipit, on Ctrl+Shift+Plus (his key). The snip lands on the typing box as a chip, never sent by itself.
       snipper = new Snipper({
@@ -723,6 +727,12 @@ app.whenReady().then(async () => {
   ipcMain.on('input:size', (e, s) => {
     if (fromInput(e) && s && typeof s === 'object') input?.resize(Number(s.width) || 0, Number(s.height) || 0);
   });
+  // ---- 6.19/6.20 the browser frame. Only the frame page may drive it, never a tab.
+  ipcMain.on('browser:insets', (e, r) => { if (aangBrowser?.isFrame(e.sender) && r) aangBrowser.setInsets(Number(r.left), Number(r.top)); });
+  ipcMain.on('browser:act', (e, a) => { if (aangBrowser?.isFrame(e.sender) && typeof a === 'string') aangBrowser.act(a); });
+  ipcMain.on('browser:go', (e, text) => { if (aangBrowser?.isFrame(e.sender) && typeof text === 'string') aangBrowser.go(text.slice(0, 2000)); });
+  ipcMain.on('browser:tab', (e, a) => { if (aangBrowser?.isFrame(e.sender) && a && Number.isInteger(a.id)) aangBrowser.tabAct(a.id, String(a.act)); });
+
   // ---- 6.17 Snipit: the overlay says where the box is; the card says Send or Bin it.
   ipcMain.on('snip:done', (e, r) => {
     if (!snipper?.isOverlay(e.sender)) return;
@@ -886,6 +896,8 @@ function fromDesk(e: Electron.IpcMainEvent): boolean {
 
 /** 6.17: Snipit, and the snips waiting on the typing box to go with his next message. */
 let snipper: Snipper | null = null;
+/** 6.19/6.20: Aang's browser, made when the pages are being served. */
+let aangBrowser: AangBrowser | null = null;
 const snips: { file: string; name: string }[] = [];
 const highlights: { text: string; app: string }[] = [];
 /** Tell the typing box what chips it carries; set once the box exists (see sendChips). */
@@ -914,7 +926,7 @@ function fromBubble(e: Electron.IpcMainEvent): boolean {
 }
 
 app.on('will-quit', () => globalShortcut.unregisterAll());
-app.on('before-quit', () => { snipper?.close(); input?.destroy(); link.stop(); hotkey?.release(); ads?.stop(); popout?.close(); bubble?.close(); drm?.close(); pages?.close(); });
+app.on('before-quit', () => { aangBrowser?.closeAll(); snipper?.close(); input?.destroy(); link.stop(); hotkey?.release(); ads?.stop(); popout?.close(); bubble?.close(); drm?.close(); pages?.close(); });
 
 // Nothing a page does may take the Shell down silently.
 process.on('uncaughtException', e => console.error('shell: uncaught: ' + (e as Error).message));

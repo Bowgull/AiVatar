@@ -1879,7 +1879,7 @@ export class Core {
       // 6.12b: the Shell caught the hotkey and has its box open already; the pet only moves.
       // `typebox` is the pet asking the Shell to open the new typing box. It goes through here for the
       // same reason `summon` does: the two programs do not talk to each other, only to the brain.
-      case 'summon': case 'dismiss': case 'refocus': case 'typebox': case 'snip': this.sendTo('desktop', { t: m.t }); break;
+      case 'summon': case 'dismiss': case 'refocus': case 'typebox': case 'snip': case 'browser': this.sendTo('desktop', { t: m.t }); break;
       case 'desk.open': this.sendTo('desktop', { t: 'desk.open', ...(typeof m.tab === 'number' ? { tab: m.tab } : {}) }); break;
       // Window 2's Settings: between the Shell and the pet, which owns them. Passed through as they are.
       case 'settings.get': case 'settings.set': case 'settings.do': case 'settings': this.sendTo('desktop', m); break;

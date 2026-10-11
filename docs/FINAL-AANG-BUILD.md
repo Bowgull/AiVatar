@@ -2565,6 +2565,12 @@ with Windows monitor scaling and drag, **exists nowhere and is written by hand.*
 
 **Done when:** a view tracks a resizing, dragging layout with no tearing at his scaling.
 
+**BUILT 2026-10-11 (`src/Shell/src/browser.ts`), type-checked; not yet seen on his screen.** The frame page
+reports its insets once (rail width, band height) with a ResizeObserver; every window resize, maximise and
+restore is then answered in the main process, synchronously, from the window's own content size, so the page
+never lags a frame behind the frame. Electron's device-independent pixels carry his monitor scaling. A crashed
+tab's view is moved out of the way (never touched) so the frame's own plate shows.
+
 ### `[ ]` 6.20 The browser shell  **BLOCKS 6.21**
 
 **Vertical tab rail** (the chunky style forces it: thick outlines eat width faster than flat tabs),
@@ -2572,6 +2578,20 @@ Top band is only back, forward, reload and the address slot (sheet 3; no Aang bu
 2026-10-04). The slot says who is driving in words: YOU ARE DRIVING / AANG IS READING / AANG IS DRIVING.
 address bar that searches and never carries commands, back and forward, reopen closed tab, find, zoom.
 Borrowed from **Min** (Apache-2.0) and Tree Style Tab's tree logic.
+
+**PASS 1, BUILT 2026-10-11 (type-checked, 2 address tests; not yet seen on his screen).** Opened from **Browser**
+in the pet's AANG menu. Sheet 3's carved band is the title bar (Windows draws its buttons over its right end):
+back, forward, reload and the address slot (SECURE / NOT SECURE plaque, the real domain bright and the rest
+dimmed, YOU ARE DRIVING). Click the slot and it becomes a field: a site goes to the site, anything else is a
+Google search, and **no other scheme is ever opened** (javascript:, file:, chrome:, data: become a search).
+The rail: + New tab, then the tabs as plaques, the one you are on in parchment and joined to the page, a tab
+opened from another indented under it, a gold arc while loading, the speaker keycap that mutes, a dashed
+CRASHED plaque and sheet 3's crash plate in the page area. Keys: Ctrl+T, Ctrl+W, Ctrl+Shift+T, Ctrl+L, Ctrl+R/F5,
+Alt+Left/Right, Ctrl+Plus/Minus/0, Ctrl+Tab. **Safety:** his browsing has its own session
+(`persist:aang-browser`); tabs get no preload and the safe preferences, may only be web pages, cannot attach
+webviews, and every permission a site asks for is refused until 6.22. Background tabs may sleep (unlike the
+pop-out). **Not yet:** trails, Aang's tabs box, the DONE shelf, find in page, the ad blocker and the asks (6.22),
+never losing a tab (6.21), the pop-out keycap on video tabs.
 
 ### `[ ]` 6.21 Never lose a tab  **BLOCKS 6.22**
 
