@@ -1986,6 +1986,7 @@ export class Core {
         if (watching) this.activity.record(m.foreground ?? '', m.title ?? '', Date.now(), typeof m.hwnd === 'number' ? m.hwnd : 0);
         break;
       }
+      case 'highlight': void this.highlight().catch(e => console.error('highlight failed: ' + (e as Error).message)); break;
       case 'plan.reply': this.answerPlan(String(m.id ?? ''), m.go === true); break;
       case 'permission.reply': this.answerPermission(m.id, m.choice === 'always' || m.choice === 'once' ? m.choice : 'no'); break;
       case 'clipboard': {
@@ -2712,6 +2713,22 @@ export class Core {
   private refused = '';
   private refuse(why: string): Promise<boolean> { this.refused = why; return Promise.resolve(false); }
   private whyNot(): string { return `Not done: ${this.refused || 'Joshua said no in the bubble'}.`; }
+
+  /**
+   * 6.17 Highlight: what he has selected in the app in front, onto his typing box. Reading another app's
+   * text is reading his windows, so it goes through the same yes as read_window, asked once. Nothing is
+   * copied and his clipboard is never touched. What comes back is outside content.
+   */
+  private async highlight(): Promise<void> {
+    if (!this.activity.watching) { this.sendTo('desktop', { t: 'whisper', text: 'Turn on "Let him see which app I\u2019m in" first, then I can read what you highlight.' }); return; }
+    const app = this.activity.current()?.process || 'the app in front';
+    if (!await this.askPermission('mcp__aang__read_window', { app })) { this.sendTo('desktop', { t: 'whisper', text: 'Okay, I won\u2019t read it.' }); return; }
+    const { readSelection } = await import('./selection.ts');
+    const r = await readSelection();
+    if (!r.ok) { this.sendTo('desktop', { t: 'whisper', text: 'I can\u2019t see anything highlighted there. Select some text, then pick Highlight.' }); return; }
+    this.tainted = true;
+    this.sendTo('desktop', { t: 'highlight.got', text: r.text.slice(0, 20_000), app: String(app).slice(0, 80) });
+  }
 
   /** The plan waiting for his Go, if any. One at a time, like a permission. */
   private planWait: { id: string; resolve: (go: boolean) => void; timer: NodeJS.Timeout } | null = null;
