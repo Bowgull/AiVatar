@@ -15,8 +15,13 @@
 // The one real rule comic lettering states (Blambot): a tail follows an imaginary line to the CENTRE
 // of the balloon. It is not placed at a chosen angle. `mouthOn` is what enforces that.
 
-/** The ink line. 4 would land on whole device pixels at 125%; 5 reads better against 15px text. */
-export const OW = 5;
+/**
+ * The ink line. Was 5; the Smoother look he picked on sheet 13 (2026-10-10) is 4, with corners of 19
+ * instead of 15 and a soft shadow under the hard one. Colours and the carve are unchanged.
+ */
+export const OW = 4;
+/** Corner radius, Smoother look. */
+export const RADIUS = 19;
 /**
  * How far along the line to his head the tail stops.
  *
@@ -55,7 +60,7 @@ export const TAIL_MIN = 26, TAIL_MAX = 46;
  */
 export function balloonPath(w, h, head, opt = {}) {
   const x0 = OW / 2, y0 = OW / 2, x1 = w - OW / 2, y1 = h - OW / 2;
-  const r = Math.min(opt.r ?? 15, (y1 - y0) / 2, (x1 - x0) / 2);
+  const r = Math.min(opt.r ?? RADIUS, (y1 - y0) / 2, (x1 - x0) / 2);
   const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
   const dx = head.x - cx, dy = head.y - cy;
 
@@ -122,14 +127,16 @@ export function paintBalloon(svg, w, h, d, uid) {
     + `<stop offset="1" stop-color="#DEC28C"/></linearGradient>`
     + `<clipPath id="bc${uid}"><path d="${d}"/></clipPath>`
     + `</defs>`
-    // 1. the hard contact shadow: the same shape, near-black, dropped 4px
-    + `<path d="${d}" fill="rgba(0,0,0,.62)" transform="translate(0,4)"/>`
+    + `<filter id="sf${uid}" x="-20%" y="-20%" width="140%" height="160%"><feGaussianBlur stdDeviation="7"/></filter>`
+    // 1. a soft shadow far under it, then the hard contact shadow (Smoother look, sheet 13)
+    + `<path d="${d}" fill="rgba(10,5,20,.45)" transform="translate(0,9)" filter="url(#sf${uid})"/>`
+    + `<path d="${d}" fill="rgba(0,0,0,.42)" transform="translate(0,3)"/>`
     // 2. the parchment
     + `<path d="${d}" fill="url(#bg${uid})"/>`
     // 3 and 4. the lit top lip and the shaded bottom, clipped so they stay inside the edge
     + `<g clip-path="url(#bc${uid})">`
-    + `<path d="${d}" fill="none" stroke="rgba(255,255,255,.62)" stroke-width="9" transform="translate(0,5)"/>`
-    + `<path d="${d}" fill="none" stroke="rgba(150,110,60,.38)" stroke-width="9" transform="translate(0,-6)"/>`
+    + `<path d="${d}" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="12" transform="translate(0,6)"/>`
+    + `<path d="${d}" fill="none" stroke="rgba(150,110,60,.26)" stroke-width="12" transform="translate(0,-6)"/>`
     + `</g>`
     // 5. the ink line, last, so nothing is drawn across it
     + `<path d="${d}" fill="none" stroke="#120A05" stroke-width="${OW}" stroke-linejoin="round"/>`;

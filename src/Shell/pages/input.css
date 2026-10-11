@@ -114,19 +114,31 @@ textarea.field::placeholder{color:#8E7FA8}
    "Allow Deep ..." cut in half is the gibberish he objected to. */
 .strip.asking .usage,.strip.asking .hint,.strip.asking .pill{display:none}
 
-/* ---- the three starters (ported from InputWindow.DrawSuggestions) ------------------------
-   Three equal chips splitting the row, only when the box is empty. Deliberately QUIETER than a pin:
-   "a pin is something he chose, these are only offers", so no gold fill, just a dim outline on the
-   wood. The label is cut rather than wrapped, which is why they are about twelve characters. */
-.starters{display:flex;gap:4px;padding:0 0 6px}
-.starters[hidden]{display:none}
-.starter{flex:1 1 0;min-width:0;cursor:pointer;
-  font:500 11px var(--body);color:#D9C3A4;
-  background:rgba(0,0,0,.26);border:1px solid rgba(217,195,164,.42);border-radius:4px;
-  padding:5px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.starter:hover{background:rgba(255,224,150,.14);color:#F2E3C8;border-color:rgba(255,224,150,.6)}
-
 /* ---- the brain is not answering (6.14b). Orange, like an ask: it needs him, but it is not an ask. */
 .failrow{color:var(--orange)}
 .failrow b{color:var(--orange)}
 .failrow[hidden]{display:none}
+
+/* ---- sheet 13, the Smoother look (approved 2026-10-10) ------------------------------------------
+   One line at rest and it hugs the text (input.js grow). The field and the strip read as ONE rounded
+   piece with no seam, the plum is softer, and a soft purple glow shows while he types. 140 ms, no
+   overshoot: a box that springs under his hands reads as a jiggle. */
+.field{min-height:0;border-radius:13px;border:1.5px solid rgba(0,0,0,.45);padding:9px 12px;
+  background:linear-gradient(180deg,#331d52,#4A2C6E);box-shadow:inset 0 2px 4px rgba(0,0,0,.45);
+  transition:height .14s ease-out,box-shadow .2s}
+.field:focus{box-shadow:inset 0 2px 4px rgba(0,0,0,.45),0 0 0 2px rgba(150,110,200,.55),0 0 12px rgba(150,110,200,.35)}
+.box{border-width:3px;border-bottom:none;border-radius:20px 20px 0 0;padding:7px 7px 5px;
+  background:linear-gradient(180deg,#5d3d24,#4f321d);box-shadow:inset 0 2px 0 rgba(255,220,170,.16)}
+.strip{border-width:3px;border-top:none;border-radius:0 0 20px 20px;padding:2px 12px 6px;min-height:24px;
+  background:linear-gradient(180deg,#4f321d,#3e2716);box-shadow:inset 0 -3px 0 rgba(0,0,0,.35)}
+.pill.sm{border-width:2px;padding:2px 10px;box-shadow:0 2px 0 var(--outline),inset 0 2px 0 rgba(255,255,255,.3);
+  transition:transform .15s cubic-bezier(.32,1.6,.5,1)}
+.pill.sm:hover{transform:translateY(-1px)}
+.segs i{border-width:1px;border-radius:3px;height:9px}
+/* The helper text: short, bright, 12 px, never cut off. */
+.hint{font:600 12px var(--body);color:#F1E4CC;max-width:none;overflow:visible;text-overflow:clip;
+  text-shadow:0 1px 0 rgba(0,0,0,.6)}
+/* The measuring twin: the field's exact type and padding, never seen and never focused. */
+textarea.twin{position:absolute;left:-9999px;top:0;visibility:hidden;height:auto;overflow:hidden;
+  transition:none;pointer-events:none}
+@media (prefers-reduced-motion:reduce){.field{transition:none}}
