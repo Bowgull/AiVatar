@@ -593,7 +593,8 @@ app.whenReady().then(async () => {
   // bar. Only http, https and a real file path; anything else is refused rather than handed to the
   // shell, because `openPath` and `openExternal` will both cheerfully run things.
   ipcMain.on('bubble:open', (e, t) => {
-    if (!fromBubble(e) || !t || typeof t !== 'object') return;
+    // Window 2's search results (6.18) open a vault note the same way, through the same checks.
+    if ((!fromBubble(e) && !fromDesk(e)) || !t || typeof t !== 'object') return;
     const value = String(t.value ?? '');
     if (t.kind === 'link') {
       if (!/^https?:\/\//i.test(value)) { console.error('shell: refused a chip that was not http'); return; }
@@ -788,6 +789,7 @@ app.whenReady().then(async () => {
   });
   ipcMain.on('desk:undo', (e) => { if (fromDesk(e)) link?.send({ t: 'undo.last' }); });
   ipcMain.on('desk:brief', (e) => { if (fromDesk(e)) link?.send({ t: 'brief' }); });
+  ipcMain.on('desk:search', (e, q) => { if (fromDesk(e) && typeof q === 'string' && q.trim()) link?.send({ t: 'search', q: q.trim().slice(0, 200) }); });
   ipcMain.on('bubble:desk', (e, tab) => { if (fromBubble(e) && Number.isInteger(tab) && tab >= 0 && tab <= 7) openDesk(tab); });
   ipcMain.on('desk:copy', (e, text) => {
     if (fromDesk(e) && typeof text === 'string' && text) clipboard.writeText(text.slice(0, 200_000));

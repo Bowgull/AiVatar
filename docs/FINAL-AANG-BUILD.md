@@ -2508,7 +2508,7 @@ Folders always show the plan first and skip anything that looks private.
 
 ---
 
-### `[ ]` 6.18 Search over everything, and the charts
+### `[~]` 6.18 Search over everything, and the charts  **SEARCH BUILT 2026-10-11**
 
 One search box over memory, the vault, conversations, jobs and addons. Charts: the job hunt by stage,
 Claude use week over week, addon drift (no table buttons, his call). **Cut 2026-10-04 (his call):** the
@@ -2517,6 +2517,15 @@ in the bubble instead, and undo already exists. Mockup: sheet 7. A daily saved q
 
 **Demoed 2026-10-10 (sheet 13, "Search everything"):** the search opens in the balloon itself: a plum
 field, then results grouped as CHATS, JOBS, FILES (and NOTES, ADDONS), each row tappable.
+
+**PASS 1: SEARCH, BUILT 2026-10-11 (browser tab with sample results; the brain side type-checked).** One box
+in window 2, sheet 7's look, opened by **Ctrl+F from any tab** (it was History's; one box over everything
+replaces it). The brain (`searchAll`) asks five places separately, no model: What I know (every word must
+match), conversations (exact words, then meaning), the vault (its existing meaning and word index), jobs
+and installed addons. Count pills say which places had nothing; hits are grouped, matches marked, and
+WORDS / MEANING says which index found it. A vault note opens through the same checked door as a chip; a
+conversation hit opens History on it; a fact or job opens its tab. **Not built: the balloon version of the
+search from sheet 13**, and "Ask Aang about these".
 
 ---
 

@@ -174,6 +174,34 @@ html,body{margin:0;height:100%;background:var(--wood2);overflow:hidden}
   border:2px solid var(--outline);background:var(--green)}
 .freebar span{font:500 13px var(--body);color:#2f5a3a}
 
+/* ---- search over everything (6.18), sheet 7 section 1 lifted ---- */
+.sbox{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:9px;
+  background:var(--wood-plaque);border:3px solid var(--outline);box-shadow:inset 0 4px 0 rgba(0,0,0,.7),0 1px 0 rgba(255,224,150,.2)}
+.sbox .glass{width:18px;height:18px;border-radius:50%;border:3px solid var(--gold);position:relative;flex:0 0 auto}
+.sbox .glass::after{content:"";position:absolute;width:3px;height:9px;background:var(--gold);right:-6px;bottom:-8px;transform:rotate(-45deg);border-radius:2px}
+.sbox .q{flex:1;font:600 17px var(--body);color:var(--gold-lit);background:none;border:none;outline:none;min-width:0;caret-color:var(--gold-lit)}
+.sbox .q::placeholder{color:#a08a5a}
+.sbox .k{font:400 9.5px var(--label);color:#a08a5a;letter-spacing:1px}
+.srcs{display:flex;gap:7px;flex-wrap:wrap;margin:12px 0 4px}
+.srcs span{font:700 12.5px var(--body);padding:5px 10px;border-radius:999px;border:2.5px solid var(--outline);
+  background:var(--gold-lit);color:#2a1c00;box-shadow:0 2px 0 var(--outline)}
+.srcs span.none{background:#cdbf9f;color:#6a5a44;box-shadow:none}
+.srcs span b{font-weight:900}
+.hit{display:grid;grid-template-columns:38px 1fr auto;gap:12px;align-items:center;padding:10px 10px;border-radius:7px}
+.hit+.hit{border-top:3px solid rgba(90,60,25,.22)}
+.hit:hover,.hit:focus-visible{background:rgba(255,255,255,.35);box-shadow:inset 0 0 0 2.5px rgba(201,140,20,.55);outline:none}
+.hit .ttl{font:700 15px var(--body);color:#271c10;overflow-wrap:anywhere}
+.hit .sn{font:500 13px/1.45 var(--body);color:#4e3d28;margin-top:2px}
+.hit mark{background:linear-gradient(rgba(255,196,60,.75),rgba(255,196,60,.75));color:inherit;padding:0 2px;border-radius:2px}
+.hit .how{font:400 8.5px var(--label);letter-spacing:.5px;color:#8a6a2a;text-align:right;white-space:nowrap}
+.hit .medal{width:34px;height:34px;font:400 9px var(--label);color:#2a1c08}
+.m-mem{background:linear-gradient(180deg,#fff0c4,var(--gold))}
+.m-vault{background:linear-gradient(180deg,#d9c8f4,var(--plum-edge))}
+.m-talk{background:linear-gradient(180deg,#f8e8cc,#d8bf8c)}
+.m-job{background:linear-gradient(180deg,#bff2cc,var(--green))}
+.m-addon{background:linear-gradient(180deg,#ffd2b0,var(--orange))}
+.empty-src{font:italic 500 13px var(--body);color:#7a6a52;padding:6px 10px}
+
 /* sheet 2, part 4: the forged divider at a 30-minute gap */
 .daydiv{display:flex;align-items:center;margin:22px 0 18px}
 .daydiv .bar{flex:1;height:6px;background:linear-gradient(180deg,var(--gold-deep) 0 3px,var(--gold-lit) 3px 6px);

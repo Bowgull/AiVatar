@@ -14,6 +14,10 @@ import type { Rubric } from './jobs.ts';
 import type { BriefCard, FromBody, Mode, StructuredList, ToBody } from './protocol.ts';
 import { Logos, brandDomain, isPersonal, senderDomain } from './logos.ts';
 import { SUMMARY_SYSTEM, checkDrop, firstPart, keepCopy, summaryPrompt } from './drop.ts';
+import { searchDocs } from './docs.ts';
+import { addonDirs, installed } from './addons.ts';
+/** Where WoW lives on this PC; the same default the addon check uses (watch.ts). */
+const WOW_DEFAULT_ROOT = 'C:\\Program Files (x86)\\World of Warcraft';
 import { Lane } from './lane.ts';
 import type { LaneEvent } from './lane.ts';
 import { Backup } from './backup.ts';
@@ -1987,6 +1991,7 @@ export class Core {
         if (watching) this.activity.record(m.foreground ?? '', m.title ?? '', Date.now(), typeof m.hwnd === 'number' ? m.hwnd : 0);
         break;
       }
+      case 'search': void this.searchAll(String(m.q ?? '').slice(0, 200)).then(r => this.send(ws, r)).catch(e => console.error('search failed: ' + (e as Error).message)); break;
       case 'drop.hover': this.sendTo('desktop', { t: 'drop.hover', on: m.on === true }); break;
       case 'drop': void this.dropped(Array.isArray(m.files) ? m.files.map(String).slice(0, 8) : []).catch(e => console.error('drop failed: ' + (e as Error).message)); break;
       case 'drop.keep': {
@@ -2738,6 +2743,30 @@ export class Core {
     if (!r.ok) { this.sendTo('desktop', { t: 'whisper', text: 'I can\u2019t see anything highlighted there. Select some text, then pick Highlight.' }); return; }
     this.tainted = true;
     this.sendTo('desktop', { t: 'highlight.got', text: r.text.slice(0, 20_000), app: String(app).slice(0, 80) });
+  }
+
+  /**
+   * 6.18: one box over five places (sheet 7). What I know, the vault (meaning and words, already indexed),
+   * conversations (words, then meaning), jobs and addons. No model: every index is on this PC, so a search
+   * costs nothing. Each place is searched separately so an empty one can say so.
+   */
+  private async searchAll(q: string): Promise<ToBody> {
+    const words = q.toLowerCase().split(/\s+/).filter(w => w.length > 1);
+    const has = (s: string) => words.length > 0 && words.every(w => s.toLowerCase().includes(w));
+    const facts = words.length ? this.memory.list(500).filter(f => has(f.text)).slice(0, 6).map(f => ({ id: f.id, text: f.text })) : [];
+    const talk: { ts: string; who: 'you' | 'Aang'; text: string; how: 'words' | 'meaning' }[] = [];
+    if (words.length) {
+      const seen = new Set<string>();
+      const add = (h: { ts: string; who: 'you' | 'Aang'; text: string }, how: 'words' | 'meaning') => { const k = h.text.slice(0, 80); if (seen.has(k) || talk.length >= 6) return; seen.add(k); talk.push({ ts: h.ts, who: h.who, text: h.text.slice(0, 220), how }); };
+      for (const h of this.memory.search(q, 6)) add(h, 'words');
+      try { for (const h of await this.memory.recall(q, 4)) add(h, 'meaning'); } catch { /* meaning search is a bonus */ }
+    }
+    let vault: { title: string; path: string; head: string; how: 'words' | 'meaning' }[] = [];
+    try { const db = this.memory.handle(); if (db && words.length) vault = (await searchDocs(db, q, 6)).map(d => ({ title: d.title, path: d.path, head: d.head.slice(0, 200), how: d.how })); } catch { /* no vault index */ }
+    const jobs = words.length ? new Jobs(this.cfg.stateDir).cards.filter(c => has(`${c.title} ${c.company} ${c.location}`)).slice(0, 6).map(c => ({ id: c.id, title: c.title, company: c.company, status: c.status })) : [];
+    let addons: { title: string; version: string }[] = [];
+    try { if (words.length) addons = addonDirs(WOW_DEFAULT_ROOT).flatMap(d => installed(d)).filter(a => !a.partOf && has(`${a.title} ${a.folder}`)).slice(0, 6).map(a => ({ title: a.title, version: a.version })); } catch { /* no WoW here */ }
+    return { t: 'search.reply', q, facts, talk, vault, jobs, addons };
   }
 
   /** The last file dropped and accepted: the only path "Remember it" or "Ask Aang about it" may name. */
