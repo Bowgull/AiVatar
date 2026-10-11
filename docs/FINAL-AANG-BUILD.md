@@ -2290,7 +2290,22 @@ what went wrong, worded exactly as sheet 5.
 
 ---
 
-### `[ ]` 6.15 Window 2: the scroll back and the seven tabs
+### `[~]` 6.15 Window 2: the scroll back and the seven tabs  **PASS 1 BUILT 2026-10-11**
+
+**PASS 1, 2026-10-11. Checked in a browser tab with sample data, not on his desktop.** `pages/desk.*`,
+sheet 6's CSS lifted rule for rule. What I know (Forget on the row under the mouse), What I may do (Take
+this back, plus the always-asks tags), What I did (Claude jobs with coloured states, the log as a
+timeline), Drafts (the letter itself, never-written-to flagged, **Send is the hold lever**), Jobs (the C#
+card, A / X / O / Z kept, keys only on that tab and never while typing), History (today's search words,
+the two voices, matches marked, Copy and Forget on hover, Copy all of it). Every button sends exactly the
+message the C# Panel sends. Opened from the pet's Panel / Permissions / Activity menu items when the new
+front end is on (`desk.open`, the same route as `typebox`; "desk" was already taken by presence).
+**Settings hands off to the pet's own page** until pass 2: the switches are the pet's, and a tab of
+switches that do nothing is worse than none. **A collision fixed on the way:** both the bubble's
+scroll-back and the desk ask for `history`, the brain answers on one link, so a desk search would have
+landed in the conversation he was reading; replies now go only to the window that asked.
+**PASS 2 owes:** Settings moved here (the pet's switches over messages), the morning brief, Reply to this
+and Add as context on History turns, the forged 30-minute divider, Ctrl+F, "Undo the last one".
 
 **The change:** ports the scroll-back and Panel rows of the parity list. The 30-minute divider
 becomes the forged end-cap rule; right-click becomes hover buttons; text can be selected; Ctrl+F
