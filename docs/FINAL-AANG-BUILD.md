@@ -2648,6 +2648,32 @@ Copies Chrome's HTTPS-First mode; costs one click, once, on the odd old site.
 **Still to do from decision 18:** before a risky file type (.exe, .msi, a script) downloads from a site he has not
 trusted before, ask once in a chip; only he edits the trusted list.
 
+### `[ ]` 6.22b Browser fixes and everyday polish  **ADDED 2026-10-11, his call: "I agree with it all"**
+
+Found by reading the code after the 2026-10-11 look went in (not yet seen failing on his screen). Bugs first.
+
+**Bugs**
+1. **A page's own fullscreen** (YouTube's button): the video must fill the whole screen, band and drawer hidden,
+   and come back exactly when it exits. Today it likely fills only the page area under the band.
+2. **Right-click on a page**: a real menu in the wood style. Open link in new tab, Copy link, Copy, Paste, Save
+   image, Copy image, Search for the selected words, Back, Reload. Never clipped at the window edge.
+3. **Failed pages** (no internet, unknown address, refused): Aang's own plate in the page area, in plain words,
+   with Try again, instead of Chromium's grey error page.
+4. **The mouse's back and forward side buttons** go back and forward.
+5. **The window remembers its size and place** between opens (and stays on a screen that still exists).
+
+**Everyday polish**
+6. **Address bar suggestions** as he types: open tabs first ("switch to tab"), then pages he has been to, then
+   search; local, instant; the top match only changes when he types (the research's rule).
+7. **Add a bookmark**: a star in the slot puts the page on the velvet shelf; click it again to take it off.
+8. **Link preview**: hovering a link shows its real address in a small plaque at the bottom-left, as Chrome does.
+9. **Reload becomes Stop** while a page is loading.
+10. **Zoom hint**: when a page is not at 100%, the slot says so (e.g. "120%"); a click puts it back.
+11. **Drag tabs**: reorder within the drawer, drag a tab onto a trail's heading to put it in that trail, onto empty
+    wood to start a new trail, or out of a trail to make it loose. Neighbours slide aside (~150 ms). Renaming a
+    trail stays a click on its name (built).
+12. **PDFs** open in the browser, not as a download (check the viewer works with the tab's safe settings).
+
 ### `[ ]` 6.23 His stuff
 
 Bitwarden filling from the main process (Min's adapter), Floccus bookmarks and open tabs with the Mac,
