@@ -87,7 +87,8 @@
   --parch1:#ECD5A8;     --parch2:#DEC28C;
   --ink-text:#2E2216;   --ink-dim:#5A4834;
   --wood1:#4A2E1A;      --wood2:#24160D;      --wood-plaque:#1A0F09;
-  --mode-quick:#00D1FF; --mode-smart:#3D9BFF; --mode-deep:#A970FF; --mode-saving:#8E879E;
+  /* 6.16, his picks on sheet 13 (2026-10-10): Qwen takes the purple, the Claude modes move to the warm end. */
+  --mode-quick:#FFB37A; --mode-smart:#FF8040; --mode-deep:#C95E28; --mode-saving:#8E879E; --mode-qwen:#A970FF;
   --avatar-glow:#C8E8FF;
 
   /* ---- the chunk ---- */
@@ -287,9 +288,10 @@
 .pill:active{top:4px;box-shadow:0 0 0 var(--outline),inset 0 3px 0 rgba(255,255,255,.3)}
 .pill.auto{background:var(--gold)}
 .pill.local{background:var(--green)}
-.pill.quick{background:var(--mode-quick)}
-.pill.smart{background:var(--mode-smart);color:#06182e}
-.pill.deep{background:var(--mode-deep);color:#1d0b33}
+.pill.quick{background:var(--mode-quick);color:#3a1708}
+.pill.smart{background:var(--mode-smart);color:#2a0f02}
+.pill.deep{background:var(--mode-deep);color:#FFF1E6}
+.pill.qwen{background:var(--mode-qwen);color:#1d0b33}
 .pill.saving{background:var(--mode-saving);color:#15121b}
 
 /* ---------------------------------------------------------------- rows */
