@@ -51,7 +51,7 @@ function fit() {
   const shown = summarised ? total : linesShown(total, expanded);
   // An ask's explaining line and its exact command sit inside the scroller, under the question, so a cap
   // sized to the question's own lines clipped them away entirely. An ask is never capped.
-  scroller.style.maxHeight = asking ? 'none' : `${shown * lineHeight}px`;
+  scroller.style.maxHeight = asking || livePlan ? 'none' : `${shown * lineHeight}px`;
   scroller.classList.toggle('scrolls', scrolls(total, expanded));
   more.hidden = summarised ? false : !hasMore(total, expanded);
   more.classList.toggle('labelled', summarised);
@@ -304,6 +304,7 @@ let hideTimer = 0;
 function holdFor(text) {
   if (bubble.classList.contains('whisper')) return 10000;
   if (!card.hidden) return 120000;                  // the brief is read, not glanced at
+  if (livePlan) return 600000;                      // a job is running: the checklist stays until the reply
   const base = Math.min(20000, Math.max(3000, 2500 + 45 * text.length));
   return lineCount() > 6 || summaryOf(text) ? Math.max(base, 60000) : base;
 }
@@ -451,6 +452,9 @@ function showAsk(m) {
   }
   means.textContent = a.means ?? '';
   means.hidden = !a.means;
+  // A plan's steps, under the question (6.13). The same list becomes the live checklist on Go.
+  paintPlan(m.t === 'plan' ? m : null, -1);
+  if (m.t === 'plan') bubble.classList.add('wide');
   // The exact command, one tap away: never code in the balloon unless he asks to see it.
   let exact = document.getElementById('exact');
   if (!exact) {
@@ -548,6 +552,8 @@ function answer(choice) {
     ...(asking.t === 'consent' ? { text: asking.text, mode: asking.wanted } : {}),
     ...(typeof asking.reminder === 'string' ? { reminder: asking.reminder } : {}),
   });
+  // On Go the plan card stays and becomes the live checklist; the tools that run tick it off.
+  if (asking.t === 'plan') { livePlan = choice === 'go' ? { steps: asking.steps, at: 0 } : null; }
   // Off the queue, then show whatever is behind it. Nothing in the stack disappears on its own.
   const done = asking;
   asking = null;
@@ -557,6 +563,42 @@ function answer(choice) {
   asks.replaceChildren();
   if (waiting.length) { showTopAsk(); return; }
   paintEdges();
+  if (livePlan) {
+    who.textContent = 'THE PLAN'; said.textContent = 'On it.';
+    paintPlan(livePlan, 0); fit(); reportSize();
+  }
+}
+
+// ---------------------------------------------------------------- the plan and its live checklist (6.13)
+let livePlan = null;
+const planList = document.createElement('div');
+planList.className = 'plan';
+planList.hidden = true;
+scroller.append(planList);
+/** Draw the steps. `at` is the step running now; -1 means not started (the plan card itself). */
+function paintPlan(p, at) {
+  planList.replaceChildren();
+  planList.hidden = !p;
+  if (!p) return;
+  p.steps.forEach((s, i) => {
+    const row = document.createElement('div');
+    row.className = 'step' + (at < 0 ? '' : i < at ? ' done' : i === at ? ' now' : '');
+    const n = document.createElement('span'); n.className = 'n'; n.textContent = String(i + 1);
+    const t = document.createElement('span'); t.className = 'st'; t.textContent = s.text;
+    row.append(n, t);
+    const tag = at < 0 ? (s.gate === 'lever' ? 'LEVER' : s.gate === 'ask' ? 'ASK FIRST' : '') : (i < at ? 'DONE' : i === at ? 'NOW' : '');
+    if (tag) { const g = document.createElement('span'); g.className = 'gate ' + (tag === 'LEVER' ? 'held' : tag === 'ASK FIRST' ? 'ask' : tag.toLowerCase()); g.textContent = tag; row.append(g); }
+    planList.append(row);
+  });
+}
+/** A tool started: move the checklist on to the step that uses it, or simply to the next one. */
+function planTool(name) {
+  if (!livePlan) return;
+  const short = String(name ?? '').replace(/^mcp__aang__/, '');
+  const next = livePlan.steps.findIndex((s, i) => i >= livePlan.at && s.tool && s.tool.replace(/^mcp__aang__/, '') === short);
+  if (next >= 0) livePlan.at = next;
+  paintPlan(livePlan, livePlan.at);
+  fit(); reportSize();
 }
 
 // ---------------------------------------------------------------- the whisper (sheet 13)
@@ -685,6 +727,8 @@ window.aang?.onMessage?.(m => {
     mediaRow.hidden = true;
     card.hidden = true;
     scroller.hidden = false;
+    // The reply is the end of the job: the checklist has done its work.
+    if (!m.stream) { livePlan = null; paintPlan(null, -1); }
     // The morning brief arrives as a card at the desk; the text stays for Discord and the old bubble.
     if (m.brief && typeof m.brief === 'object' && Array.isArray(m.brief.events)) {
       reveal.start('', false);
@@ -749,7 +793,7 @@ window.aang?.onMessage?.(m => {
     return;
   }
 
-  if (m.t === 'tool' && typeof m.label === 'string') { doing.textContent = m.label; return; }
+  if (m.t === 'tool' && typeof m.label === 'string') { doing.textContent = m.label; planTool(m.name); return; }
 
   // A page of older turns. Keeping his place is the point: if the list grew above him and the view
   // stayed where it was, he would be thrown back to where he started every time.

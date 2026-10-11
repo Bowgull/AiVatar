@@ -2244,7 +2244,7 @@ status lines are rewritten, and a week of his real chats reads like Aang to him.
 
 ---
 
-### `[ ]` 6.13 Several things waiting, and the plan before acting
+### `[x]` 6.13 Several things waiting, and the plan before acting  **BUILT 2026-10-11**
 
 **Why:** today a new message **replaces** the last, so three things needing him means he sees one.
 And plan-before-action is the single biggest gap the research found.
@@ -2263,6 +2263,16 @@ as parchment edges labelled NEXT and THEN; answering slides the next up; clickin
 "The plan, before he acts" lists the steps and marks which will ASK FIRST and which need the LEVER;
 on Go the same card becomes the live checklist (done rows dim, the current row gold with a moving
 shimmer, NOW / DONE on the right) and stops at the first ask.
+
+**BUILT 2026-10-11, checked in a browser tab; the brain side type-checked, not run live.** "Three things at
+once" was already built in 6.12 (the queue, NEXT / THEN edges, 1 OF 3). **The plan before acting:** a new
+tool, `show_plan`, which the model is told to call FIRST for a job of three or more steps that changes
+something (never for questions, reading, or one or two quick actions). Each step's mark comes from the
+SAME rules as the permission gate, never from the model: a held tool is LEVER, one he has not said Always
+to is ASK FIRST, the rest just happen. The plan grants nothing; every step still asks for itself. He gets
+Go / Not now (2 minutes, then it counts as not now); on Go the card becomes the live checklist, moved on
+by the tools as they start, and cleared by the reply. **Only at the desk**: away there is no Go button
+yet (9.D), so a job carries on as today and each step asks for itself.
 
 ---
 
