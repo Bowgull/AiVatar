@@ -136,6 +136,35 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
    running past the frame, which is what LayoutChoices guards against in the
    C# ("Start Claude on the job hunt" is a long verb). */
 .asks{margin:10px 0 0;gap:9px;flex-wrap:wrap}
+/* ---- 6.11 on the desktop: the reply's own formatting, sheet 1's dividers ---- */
+.said .r-p{margin:0 0 8px}
+.said .r-p:last-child{margin-bottom:0}
+.said .r-h{font:700 16px/1.3 var(--display);color:var(--carve-ink);margin:0 0 6px;letter-spacing:.2px}
+.said .r-li{position:relative;padding:5px 0 5px 16px}
+.said .r-li::before{content:"";position:absolute;left:2px;top:13px;width:7px;height:7px;border-radius:2px;
+  background:var(--gold);border:1.5px solid var(--outline)}
+/* carved grooves between rows */
+.said .r-li+.r-li,.said .r-row+.r-row{border-top:3px solid rgba(90,60,25,.22)}
+.said .r-row{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:10px;padding:5px 0}
+.said .r-row:first-child .cell,.said :not(.r-row)+.r-row .cell{font-weight:700}
+.said .r-hr{height:6px;margin:10px 0;border-radius:3px;border-top:2px solid var(--outline);border-bottom:2px solid var(--outline);
+  background:linear-gradient(180deg,var(--gold-deep) 0 3px,var(--gold-lit) 3px 6px)}
+.said b{font-weight:700;color:#1d140a}
+.said code{font:600 13px ui-monospace,Consolas,monospace;background:rgba(0,0,0,.08);padding:1px 5px;border-radius:4px}
+/* present_list rows */
+.rlist{margin:10px 0 0}
+.rlist[hidden]{display:none}
+.rlist .plaque{display:inline-block;background:var(--wood-plaque);border-radius:6px;padding:5px 9px;margin:0 0 6px;
+  font:400 10px var(--label);color:var(--gold);letter-spacing:1px;border:3px solid var(--outline)}
+.rlist .plaque.tone-careful{color:var(--orange)} .rlist .plaque.tone-stop{color:var(--red)}
+.rlist .lrow{display:flex;align-items:center;gap:10px;padding:7px 2px}
+.rlist .lrow+.lrow{border-top:3px solid rgba(90,60,25,.22)}
+.rlist .lmid{flex:1;min-width:0}
+.rlist .lt{font:700 14.5px/1.35 var(--body);color:#271c10}
+.rlist .ls{font:500 12.5px var(--body);color:#5a4834;margin-top:1px}
+.rlist .chip{flex:none}
+.rlist .chip.stop{background:var(--red)} .rlist .chip.off{background:#6d6579;color:#f0edf5}
+.rlist .lmore{font:400 9.5px var(--label);letter-spacing:1px;color:#8a6a2a;margin-top:6px}
 /* ---- the plan, then the live checklist (6.13, sheet 13) ---- */
 .plan{display:flex;flex-direction:column;gap:5px;margin:8px 0 0}
 .plan[hidden]{display:none}

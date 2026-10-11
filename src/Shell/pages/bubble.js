@@ -6,6 +6,7 @@
 import { Reveal, TICK_MS, WORD_MS, hasMore, linesShown, scrolls, summaryOf } from './reveal.js';
 import { balloonPath, paintBalloon, PAD_R, PAD_B, DEFAULT_AIM, WIDEST_AFTER_LINES } from './balloon.js';
 import { HOLD_MS, askFrom } from './asks.js';
+import { blocks, shownWords } from './rich.js';
 import { find as findEntities } from './entities.js';
 import { Scrollback, atTop } from './scrollback.js';
 
@@ -242,22 +243,61 @@ function paintWords() {
     laidOut = visible;
     said.replaceChildren();
     words = [];
-    let at = 0;
-    for (const part of visible.split(/(\s+)/)) {
-      if (!part) continue;
-      if (/^\s+$/.test(part)) said.append(part);
-      else {
+    // 6.11: the reply's own light formatting, as blocks (rich.js). Every element is built here with
+    // textContent; the reply's text never becomes markup.
+    const wordsInto = (host, text) => {
+      for (const part of text.split(/(\s+)/)) {
+        if (!part) continue;
+        if (/^\s+$/.test(part)) { host.append(' '); continue; }
         const s = document.createElement('span');
         s.className = 'w o';
         s.textContent = part;
-        said.append(s);
-        words.push({ s, end: at + part.length });
+        host.append(s);
+        words.push(s);
       }
-      at += part.length;
+    };
+    const runsInto = (host, rs) => {
+      for (const r of rs) {
+        const into = r.bold ? document.createElement('b') : r.code ? document.createElement('code') : host;
+        wordsInto(into, r.text);
+        if (into !== host) host.append(into);
+      }
+    };
+    for (const b of blocks(visible)) {
+      const el = document.createElement('div');
+      el.className = 'r-' + b.kind;
+      if (b.kind === 'row') for (const c of b.cells ?? []) { const cell = document.createElement('span'); cell.className = 'cell'; runsInto(cell, c); el.append(cell); }
+      else runsInto(el, b.runs);
+      said.append(el);
     }
   }
-  const upTo = reveal.text.length;
-  for (const w of words) if (w.end <= upTo) w.s.classList.remove('o');
+  const n = shownWords(reveal.text);
+  words.forEach((s, i) => { if (i < n || reveal.done) s.classList.remove('o'); });
+}
+
+/**
+ * The rows Aang attached with present_list (6.11): a carved plaque only when something is urgent, then one
+ * row per thing with a coloured chip. Shown once the reply has finished, like the file chips.
+ */
+let replyList = null;
+function paintList() {
+  let box = document.getElementById('rlist');
+  if (!box) { box = document.createElement('div'); box.id = 'rlist'; box.className = 'rlist'; scroller.after(box); }
+  box.replaceChildren();
+  box.hidden = !(replyList && reveal.done);
+  if (box.hidden) return;
+  const T = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
+  if (replyList.header?.text) box.append(T('span', 'plaque tone-' + (replyList.header.tone ?? 'normal'), replyList.header.text));
+  for (const it of replyList.items ?? []) {
+    const row = T('div', 'lrow');
+    const mid = T('div', 'lmid');
+    mid.append(T('div', 'lt', it.title ?? ''));
+    if (it.subtitle) mid.append(T('div', 'ls', it.subtitle));
+    row.append(mid);
+    if (it.chipText) row.append(T('span', 'chip ' + ({ good: 'good', careful: 'careful', stop: 'stop', inactive: 'off' }[it.chipTone] ?? 'normal'), it.chipText));
+    box.append(row);
+  }
+  if (replyList.moreCount) box.append(T('div', 'lmore', `${replyList.moreCount} more`));
 }
 
 function paint() {
@@ -273,11 +313,14 @@ function paint() {
   // makes it flip between two sizes and settle on the wrong one.
   if (bubble.classList.contains('wide') && !bubble.classList.contains('widest')
       && lineCount() > WIDEST_AFTER_LINES) bubble.classList.add('widest');
-  fit();
-  reportSize();
   // Copy and rate are for a FINISHED reply only: offering to copy half a sentence is a trap.
   tools.hidden = !reveal.done || !reveal.whole || bubble.classList.contains('whisper');
   paintChips();
+  paintList();
+  // Measured LAST, once the chips and the list rows are in: measuring first left the balloon sized for
+  // the words alone, with the rows hidden below its edge (found 2026-10-11).
+  fit();
+  reportSize();
 }
 
 // The reveal runs on its own clock and works out how much should be visible from the elapsed time, so
@@ -775,6 +818,9 @@ window.aang?.onMessage?.(m => {
       bubble.classList.remove('enter'); void bubble.offsetWidth; bubble.classList.add('enter');
     }
     turn = typeof m.turn === 'number' ? m.turn : null;
+    // The list rides on the finished reply only; a new reply starts without the last one's.
+    if (!m.stream) replyList = m.list && Array.isArray(m.list.items) ? m.list : null;
+    else if (!same) replyList = null;
     // Only on the finished reply, like the rows: a streamed delta is the same reply arriving again.
     if (!m.stream) focusWindow = typeof m.focus === 'string' && m.focus ? m.focus : null;
     // HIS QUESTION, not the model's name. The old bubble puts what he asked here, dimmed and cut at 50

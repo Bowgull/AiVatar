@@ -56,7 +56,8 @@ export class CoreLink {
       this.pause = 500;
       this.connected = true;
       this.o.onConnected?.(true);
-      this.send({ t: 'hello', v: 1, client: 'desktop', shell: true, pid: process.pid });
+      // `bubble`: this Shell is drawing the replies (AANG_NEW_BUBBLE), so they may keep their formatting (6.11).
+      this.send({ t: 'hello', v: 1, client: 'desktop', shell: true, pid: process.pid, bubble: process.env.AANG_NEW_BUBBLE === '1' });
     });
     ws.on('message', d => {
       // Nothing the brain sends may throw out of here and take the Shell with it.
