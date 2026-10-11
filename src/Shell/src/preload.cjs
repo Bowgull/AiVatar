@@ -126,6 +126,8 @@ contextBridge.exposeInMainWorld('aang', {
   onBrowserTabs(fn) { const h = (_e, s) => fn(s); ipcRenderer.on('browser:tabs', h); return () => ipcRenderer.removeListener('browser:tabs', h); },
   browserAskReply: a => ipcRenderer.send('browser:askreply', a),
   browserAdPause: on => ipcRenderer.send('browser:adpause', on),
+  /** A switch in the browser's ⋯ menu: ads, popups, sounds. */
+  browserPref: a => ipcRenderer.send('browser:pref', a),
   onBrowserAsk(fn) { const h = (_e, a) => fn(a); ipcRenderer.on('browser:ask', h); return () => ipcRenderer.removeListener('browser:ask', h); },
   onBrowserDownload(fn) { const h = (_e, d) => fn(d); ipcRenderer.on('browser:download', h); return () => ipcRenderer.removeListener('browser:download', h); },
   /** The tab drawer is open: a still picture of the page to show under it (or null to drop it). */
