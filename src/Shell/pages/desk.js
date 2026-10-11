@@ -277,14 +277,43 @@ function marked(into, text, words) {
   into.append(text.slice(last));
 }
 
-// 6. Settings. The switches are the pet's own (quiet in WoW, mute, what he can see, usage bars, start
-// with Windows), and moving them here is pass 2. Until then this opens the pet's Settings page, rather
-// than showing switches that would do nothing.
+// 6. Settings: today's five switches and two buttons, word for word, grouped (sheet 6 section 6). The
+// pet owns them; this asks where they stand, and a switch shows its new state only once the pet says so.
+let sets = null;
+const GROUPS = [
+  ['While you play', [
+    ['quietGame', 'Stay quiet while WoW has focus', 'He holds anything that is not urgent until you come out of the game'],
+    ['mute', 'Mute: nothing unprompted', 'He only speaks when you speak to him']]],
+  ['What he can see', [
+    ['seeWindow', 'Let him see which app I\u2019m in', 'Only the name of the app at the front, never what is in it'],
+    ['usage', 'Show the usage bars under the box', 'The ten segments that show how much Claude you have left this week']]],
+  ['This computer', [
+    ['autostart', 'Start with Windows', 'He is there when Shadow starts']]],
+];
 function settings() {
-  body.append(h('h3', 't-display', 'Settings'), ruleMajor(),
-    h('p', 'empty-line', 'Your switches still live in the pet\u2019s own Settings page for now: quiet while WoW has focus, mute, what he can see, the usage bars and start with Windows.'));
+  body.append(h('h3', 't-display', 'Settings'));
+  if (!sets) { body.append(h('p', 'empty-line', 'Asking the pet...')); window.aang?.deskSettings?.(); return; }
+  for (const [title, rows] of GROUPS) {
+    body.append(ruleTitled(title));
+    const list = h('div', 'setlist');
+    for (const [k, label, line] of rows) {
+      const row = h('div', 'setrow');
+      const sw = h('button', 'sw' + (sets[k] ? ' on' : ''));
+      sw.type = 'button';
+      sw.setAttribute('role', 'switch');
+      sw.setAttribute('aria-checked', String(!!sets[k]));
+      sw.setAttribute('aria-label', label);
+      const bed = h('i', 'bed'); bed.append(h('i', 'nub')); sw.append(bed);
+      sw.addEventListener('click', () => window.aang?.deskSetting?.({ key: k, on: !sets[k] }));
+      const text = h('div'); text.append(h('b', '', label), h('span', '', line));
+      row.append(sw, text);
+      list.append(row);
+    }
+    body.append(list);
+  }
   const keys = h('div', 'keys');
-  keys.append(key('Open settings', 'primary', () => window.aang?.deskSettings?.()));
+  keys.append(key('Change the hide and show key...', '', () => window.aang?.deskSettingDo?.('hotkey')),
+    key('Bring him off the edge (undock)', '', () => window.aang?.deskSettingDo?.('undock')));
   body.append(keys);
 }
 
@@ -297,6 +326,11 @@ window.aang?.onMessage?.((m) => {
     el('ndrafts').hidden = !nd; el('ndrafts').textContent = String(nd);
     el('njobs').hidden = !nj; el('njobs').textContent = String(nj);
     if (tab !== 5) show(tab);
+    return;
+  }
+  if (m.t === 'settings') {
+    sets = m;
+    if (tab === 6) show(6);
     return;
   }
   if (m.t === 'history.reply' && typeof m.q === 'string') {

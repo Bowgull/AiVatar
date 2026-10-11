@@ -513,12 +513,48 @@ sealed class PetWindow : Form
     }
 
     /// <summary>The Panel: made once, then hidden and shown. Every time it is shown it asks the Core for a fresh copy.</summary>
+    /// <summary>The five switches, one copy, for the C# Panel and for window 2 (6.15 pass 2).</summary>
+    bool GetSettingValue(string key) => key switch
+    {
+        "quietGame" => forcedQuiet != false, "mute" => cfg.Muted, "seeWindow" => cfg.SeeActiveWindow,
+        "usage" => cfg.ShowUsage, "autostart" => Autostart.IsOn(), _ => false,
+    };
+
+    void SetSettingValue(string key, bool on)
+    {
+        switch (key)
+        {
+            case "quietGame": forcedQuiet = on ? null : false; ApplyQuiet(); break;
+            case "mute": SetMuted(on); break;
+            case "seeWindow":
+                cfg.SeeActiveWindow = on; cfg.Save(); seeWindowItem.Checked = on;
+                sentWindow = ""; windowSentAt = DateTime.MinValue; PollForeground();
+                break;
+            case "usage": cfg.ShowUsage = on; cfg.Save(); input.SetUsageShown(on); break;
+            case "autostart": Autostart.Set(on); break;
+        }
+    }
+
+    void RunSettingAction(string what)
+    {
+        if (what == "hotkey") AskForHotkey();
+        else if (what == "undock") Undock(moveToStand: true);
+        else if (what == "claude") Hands.Arrange("Claude", "front");
+    }
+
+    /// <summary>Tell window 2 where the switches stand. The pet stays their only owner and writer.</summary>
+    void SendSettings() => _ = link.SendAsync(new
+    {
+        t = "settings",
+        quietGame = GetSettingValue("quietGame"), mute = GetSettingValue("mute"), seeWindow = GetSettingValue("seeWindow"),
+        usage = GetSettingValue("usage"), autostart = GetSettingValue("autostart"),
+    });
+
     void OpenPanel()
     {
         // 6.15: with the new front end on, window 2 (the Shell's desk) replaces this Panel. Same route as
-        // the typing box: through the brain to the Shell. Settings stay here until window 2 has them
-        // (pass 2), so that tab still opens the C# Panel. Nothing is retired until he has used it (6.18b).
-        if (NewFrontEnd && panelTab != 6)
+        // the typing box: through the brain to the Shell. Nothing is retired until he has used it (6.18b).
+        if (NewFrontEnd)
         {
             var tab = panelTab; panelTab = 0;
             _ = link.SendAsync(new { t = "desk.open", tab });
@@ -528,26 +564,9 @@ sealed class PetWindow : Form
         {
             panel = new PanelWindow(payload => link.SendAsync(payload))
             {
-                GetSetting = key => key switch
-                {
-                    "quietGame" => forcedQuiet != false, "mute" => cfg.Muted, "seeWindow" => cfg.SeeActiveWindow,
-                    "usage" => cfg.ShowUsage, "autostart" => Autostart.IsOn(), _ => false,
-                },
-                SetSetting = (key, on) =>
-                {
-                    switch (key)
-                    {
-                        case "quietGame": forcedQuiet = on ? null : false; ApplyQuiet(); break;
-                        case "mute": SetMuted(on); break;
-                        case "seeWindow":
-                            cfg.SeeActiveWindow = on; cfg.Save(); seeWindowItem.Checked = on;
-                            sentWindow = ""; windowSentAt = DateTime.MinValue; PollForeground();
-                            break;
-                        case "usage": cfg.ShowUsage = on; cfg.Save(); input.SetUsageShown(on); break;
-                        case "autostart": Autostart.Set(on); break;
-                    }
-                },
-                RunAction = what => { if (what == "hotkey") AskForHotkey(); else if (what == "undock") Undock(moveToStand: true); else if (what == "claude") Hands.Arrange("Claude", "front"); },
+                GetSetting = GetSettingValue,
+                SetSetting = SetSettingValue,
+                RunAction = RunSettingAction,
             };
             // Right-clicking a message in the Panel's scrollback puts it on the type box, where he can see
             // what is attached before he sends anything.
@@ -623,10 +642,17 @@ sealed class PetWindow : Form
                 case "dismiss":
                     if (dock != DockEdge.None && !peeking) Peek();
                     break;
-                // Window 2's Settings tab, until pass 2 moves the switches there: they are the pet's own, so
-                // the pet opens its Settings page. Any other tab is the Shell's to open.
-                case "desk.open":
-                    if (m.TryGetProperty("tab", out var dt) && dt.TryGetInt32(out var dtab) && dtab == 6) { panelTab = 6; OpenPanel(); }
+                // Window 2's Settings tab (6.15 pass 2). The switches are the pet's own: it reads them, sets
+                // them and runs the two actions, and says where they stand after every change.
+                case "settings.get":
+                    SendSettings();
+                    break;
+                case "settings.set":
+                    if (Str(m, "key") is string sk && sk is "quietGame" or "mute" or "seeWindow" or "usage" or "autostart")
+                    { SetSettingValue(sk, Bool(m, "on")); SendSettings(); }
+                    break;
+                case "settings.do":
+                    if (Str(m, "what") is string sw && sw is "hotkey" or "undock") RunSettingAction(sw);
                     break;
                 // The Shell's typing box closed by Esc, by sending, or by Ctrl+Plus: give the keyboard back
                 // to the window he was in, as the old box did with ForceForeground(previous). Without this
