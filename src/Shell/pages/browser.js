@@ -9,9 +9,14 @@ let state = { active: null, tabs: [], canBack: false, canForward: false };
 const page = el('page');
 function report() {
   const r = page.getBoundingClientRect();
-  window.aang?.browserInsets?.({ left: r.left, top: r.top });
+  // A page is a native view drawn ON TOP of this frame, so anything hanging below the band (a site's ask,
+  // the ads panel, a download note) would sit hidden behind it. While one shows, the page moves down past it.
+  let top = r.top;
+  for (const id of ['askchip', 'sitepanel', 'toast']) { const x = el(id); if (x && !x.hidden) top = Math.max(top, x.getBoundingClientRect().bottom + 6); }
+  window.aang?.browserInsets?.({ left: r.left, top });
 }
 new ResizeObserver(report).observe(page);
+new MutationObserver(() => requestAnimationFrame(report)).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['hidden'] });
 window.addEventListener('load', report);
 
 // ---- the band
@@ -101,6 +106,65 @@ function paintTabs() {
   }
 }
 
+// ---- 6.22: a website's ask, hanging from the band. For this call only; there is no "always" for these.
+let askId = null;
+window.aang?.onBrowserAsk?.((a) => {
+  if (!a || !Number.isInteger(a.id)) return;
+  askId = a.id;
+  el('askq').textContent = a.what || 'Allow this?';
+  el('askm').textContent = `${a.host || 'This site'} wants it for what you are doing now. You are asked again next time.`;
+  el('askchip').hidden = false;
+});
+const answerAsk = (allow) => { if (askId === null) return; window.aang?.browserAskReply?.({ id: askId, allow }); askId = null; el('askchip').hidden = true; };
+el('askyes').addEventListener('click', () => answerAsk(true));
+el('askno').addEventListener('click', () => answerAsk(false));
+
+// ---- the SECURE plaque's panel: let ads through on one site, or block them again
+lock.addEventListener('click', (e) => {
+  e.stopPropagation();
+  const t = state.tabs.find((x) => x.id === state.active);
+  let host = '';
+  try { host = new URL(t?.url ?? '').hostname.replace(/^www\./, ''); } catch { /* none */ }
+  if (!host) return;
+  el('sitehost').textContent = host;
+  paintAdSwitch();
+  el('sitepanel').hidden = !el('sitepanel').hidden;
+});
+function paintAdSwitch() {
+  const on = state.adsOn && !state.adsPaused;
+  el('adsw').classList.toggle('on', on);
+  el('adsw').setAttribute('aria-checked', String(on));
+  el('adnote').textContent = !state.adsOn ? 'The block lists are still loading.' : state.adsPaused ? 'Paused here. Ads show on this site.' : 'On. Ads and trackers are stopped here.';
+}
+el('adsw').addEventListener('click', (e) => { e.preventDefault(); if (state.adsOn) window.aang?.browserAdPause?.(!state.adsPaused); });
+document.addEventListener('click', (e) => { if (!el('sitepanel').contains(e.target) && e.target !== lock) el('sitepanel').hidden = true; });
+
+// ---- a finished download, said once in the band
+window.aang?.onBrowserDownload?.((d) => {
+  if (!d) return;
+  const t = el('toast');
+  t.textContent = d.state === 'completed' ? `Downloaded ${d.name} to your Downloads. Windows checks it before it opens.` : `${d.name} did not finish downloading.`;
+  t.hidden = false;
+  setTimeout(() => { t.hidden = true; }, 6000);
+});
+
+// ---- the red plate's lever: held, never one click (sheet 3 section 6)
+function redLever() {
+  const box = el('phishlever');
+  box.replaceChildren();
+  const l = document.createElement('div');
+  l.className = 'lever red'; l.tabIndex = 0;
+  l.append(Object.assign(document.createElement('i'), { className: 'fillbar' }), Object.assign(document.createElement('i'), { className: 'knob' }),
+    Object.assign(document.createElement('span'), { className: 'txt', textContent: 'Open it anyway' }), Object.assign(document.createElement('span'), { className: 'hold', textContent: 'HOLD' }));
+  let from = 0, raf = 0;
+  const stop = () => { cancelAnimationFrame(raf); raf = 0; l.style.setProperty('--fill', '0%'); };
+  const paint = () => { const k = Math.min(1, (performance.now() - from) / 800); l.style.setProperty('--fill', (k * 100).toFixed(1) + '%'); if (k >= 1) { stop(); window.aang?.browserAct?.('phishopen'); return; } raf = requestAnimationFrame(paint); };
+  l.addEventListener('pointerdown', (e) => { l.setPointerCapture?.(e.pointerId); if (!raf) { from = performance.now(); raf = requestAnimationFrame(paint); } });
+  for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) l.addEventListener(ev, stop);
+  box.append(l);
+}
+el('phishback').addEventListener('click', () => window.aang?.browserAct?.('phishback'));
+
 window.aang?.onBrowserTabs?.((s) => {
   if (!s || !Array.isArray(s.tabs)) return;
   state = s;
@@ -112,5 +176,18 @@ window.aang?.onBrowserTabs?.((s) => {
   loading.classList.toggle('busy', Boolean(t?.loading));
   const crashed = Boolean(t?.crashed);
   el('crashplate').hidden = !crashed;
+  // A listed site: the red plate where the page would be, and the plaque turns red.
+  const b = t?.blocked;
+  el('phishplate').hidden = !b;
+  if (b) {
+    let host = b.url;
+    try { host = new URL(b.url).hostname; } catch { /* keep the text */ }
+    el('phishtitle').textContent = 'This site is on a list of fake or harmful sites';
+    el('phishtext').replaceChildren(Object.assign(document.createElement('b'), { textContent: host }), ` is named by ${b.lists.length === 1 ? 'one list' : b.lists.length + ' lists'} of known fake login pages and harmful downloads. It was stopped before anything loaded.`);
+    el('phishlists').replaceChildren(...b.lists.map((n) => Object.assign(document.createElement('span'), { textContent: n })));
+    if (!el('phishlever').childElementCount) redLever();
+    lock.hidden = false; lock.textContent = 'BLOCKED'; lock.classList.add('bad');
+  } else el('phishlever').replaceChildren();
+  if (!el('sitepanel').hidden) paintAdSwitch();
   if (crashed) el('crashtitle').textContent = `${(t.title || 'This page').slice(0, 60)} stopped working`;
 });

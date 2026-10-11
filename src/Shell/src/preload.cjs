@@ -114,6 +114,10 @@ contextBridge.exposeInMainWorld('aang', {
   browserGo: text => ipcRenderer.send('browser:go', text),
   browserTab: a => ipcRenderer.send('browser:tab', a),
   onBrowserTabs(fn) { const h = (_e, s) => fn(s); ipcRenderer.on('browser:tabs', h); return () => ipcRenderer.removeListener('browser:tabs', h); },
+  browserAskReply: a => ipcRenderer.send('browser:askreply', a),
+  browserAdPause: on => ipcRenderer.send('browser:adpause', on),
+  onBrowserAsk(fn) { const h = (_e, a) => fn(a); ipcRenderer.on('browser:ask', h); return () => ipcRenderer.removeListener('browser:ask', h); },
+  onBrowserDownload(fn) { const h = (_e, d) => fn(d); ipcRenderer.on('browser:download', h); return () => ipcRenderer.removeListener('browser:download', h); },
   onBrowserFocusSlot(fn) { const h = () => fn(); ipcRenderer.on('browser:focusslot', h); return () => ipcRenderer.removeListener('browser:focusslot', h); },
 
   // --- Snipit (6.17): the overlay and the corner card. Named doors only.
