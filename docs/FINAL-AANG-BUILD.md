@@ -2160,6 +2160,13 @@ turns `$null` into `""` for a string parameter, so `FindWindowW($null, …)` fin
 correctly gone. And a run where he is using the machine starts from the wrong window and proves nothing
 about the first steps.
 
+**PASS 2 CHECKED 2026-10-11, by reading the code:** every row below now exists. Reply and pinned chips
+(`input.js` paintChips, `main.ts` bubble:replyto / bubble:pin), the ask row in the strip (the consent
+row's successor, `paintAsk`), the pace tick and hover sentences, PageUp/PageDown (`input:page`), and
+Ctrl+1-4 sent on as `mode` so the pet stays the only writer of `body.json`. The draft survives a scaling
+change by construction: the box is hidden, never destroyed, and Electron does not reload a page on a DPI
+change (the C# rebuilt its window, which is why the old row existed). The suggestion chips were cut by
+him. **Left: seeing it on his desktop.** The original list, for the record:
 **STILL TO DO (pass 2)**, after the 2026-10-04 evening round above: reply and pinned chips (and with them the bubble's "Reply to this" and "Add as
 context"); the three suggestion chips when empty; the pace tick and the hover sentence on the strip; the
 draft surviving a scaling change; the consent row; Ctrl+1-4 persisting (the pet must stay the one writer of
