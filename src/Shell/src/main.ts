@@ -397,6 +397,12 @@ function open(kind: string, page: string, opts: Electron.BrowserWindowConstructo
   return win;
 }
 
+// Every window of Aang's wears his own pixel-art face in the taskbar, not Electron's atom (his ask, 2026-10-11).
+// One app id so Windows groups them under that icon. The .ico keeps his pixels sharp at each size.
+const AANG_ICON = path.join(HERE, '..', 'assets', 'aang.ico');
+app.setAppUserModelId('Aang');
+app.on('browser-window-created', (_e, w) => { try { w.setIcon(AANG_ICON); } catch { /* the default icon */ } });
+
 app.whenReady().then(async () => {
   // No Electron menu bar. Aang's windows are his own look, and File/Edit/View is not it. It also
   // removes the built-in reload and developer-tools shortcuts from every window he draws.
