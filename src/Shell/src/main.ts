@@ -720,6 +720,8 @@ app.whenReady().then(async () => {
     if (fromDesk(e) && Number.isFinite(Number(id))) link?.send({ t: 'forget.turn', id: Number(id) });
   });
   ipcMain.on('desk:undo', (e) => { if (fromDesk(e)) link?.send({ t: 'undo.last' }); });
+  ipcMain.on('desk:brief', (e) => { if (fromDesk(e)) link?.send({ t: 'brief' }); });
+  ipcMain.on('bubble:desk', (e, tab) => { if (fromBubble(e) && Number.isInteger(tab) && tab >= 0 && tab <= 7) openDesk(tab); });
   ipcMain.on('desk:copy', (e, text) => {
     if (fromDesk(e) && typeof text === 'string' && text) clipboard.writeText(text.slice(0, 200_000));
   });

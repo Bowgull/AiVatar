@@ -59,12 +59,13 @@ const times = (n) => (n === 1 ? 'once' : n === 2 ? 'twice' : `${n} times`);
 function show(n) {
   tab = n;
   tabs.forEach((t, i) => { t.classList.toggle('on', i === n); t.setAttribute('aria-selected', String(i === n)); });
+  if (n === 7) window.aang?.deskBrief?.();
   foot.hidden = true;
   body.replaceChildren();
   body.scrollTop = 0;
-  if (!data && n !== 5 && n !== 6) { body.append(h('p', 'empty-line', 'Asking Aang...')); return; }
+  if (!data && n !== 5 && n !== 6 && n !== 7) { body.append(h('p', 'empty-line', 'Asking Aang...')); return; }
   if (data?.notice) body.append(h('p', 'notice', data.notice));
-  [know, mayDo, did, drafts, jobs, history, settings][n]?.();
+  [know, mayDo, did, drafts, jobs, history, settings, brief][n]?.();
 }
 tabs.forEach((t, i) => t.addEventListener('click', () => show(i)));
 
@@ -346,6 +347,64 @@ function settings() {
   body.append(keys);
 }
 
+// 7. The morning brief, whole (sheet 6 section 7). Not one of the seven tabs: it opens from the balloon's
+// "Open the whole brief". A wooden banner for the day, the calendar as a carved timeline with a line for
+// now, and the inbox as rows with a medallion per sender.
+let briefCard = null;
+function brief() {
+  if (!briefCard) { body.append(h('p', 'empty-line', 'Asking Aang for today...')); window.aang?.deskBrief?.(); return; }
+  const b = briefCard;
+  body.replaceChildren();
+  const wrap = h('div', 'brief');
+  const banner = h('div', 'banner');
+  const hour = new Date().getHours();
+  banner.append(h('div', 'hi', hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'),
+    h('div', 'day', String(b.day ?? '').replace(',', ' \u00b7').toUpperCase()));
+  const counts = h('div', 'counts');
+  counts.append(h('span', '', `${b.events.length} TODAY`), h('span', 'mail', `${b.unread.length} UNREAD`));
+  banner.append(counts, h('i', 'sun'));
+  const page = h('div', 'page tex');
+  page.append(ruleTitled('Today'));
+  const cal = h('div', 'cal');
+  const now = Date.now();
+  let nowDrawn = false;
+  if (!b.events.length) cal.append(h('p', 'empty-line', 'Nothing on the calendar today.'));
+  for (const e of b.events) {
+    const start = e.start ? Date.parse(e.start) : 0, end = e.end ? Date.parse(e.end) : start;
+    if (!nowDrawn && start > now) { cal.append(nowLine()); nowDrawn = true; }
+    const game = /\b(raid|mythic|m\+|wow|apex|game night|gaming)\b/i.test(e.title);
+    const ev = h('div', 'ev2' + (end && end < now ? ' past' : '') + (game ? ' game' : ''));
+    const what = h('div', 'what', e.title);
+    const mins = start && end ? Math.round((end - start) / 60000) : 0;
+    const small = [mins ? (mins >= 60 ? `${Math.round(mins / 60 * 10) / 10} ${mins === 60 ? 'hour' : 'hours'}` : `${mins} minutes`) : '', e.where].filter(Boolean).join(' \u00b7 ');
+    if (small) what.append(h('small', '', small));
+    ev.append(h('span', 't', e.allDay ? 'ALL DAY' : new Date(start).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })), h('i', 'rail'), what);
+    cal.append(ev);
+  }
+  if (b.events.length && !nowDrawn) cal.append(nowLine());
+  page.append(cal, ruleMajor());
+  const ut = ruleTitled('Unread'); ut.style.marginTop = '0'; page.append(ut);
+  if (!b.unread.length) page.append(h('p', 'empty-line', 'Nothing unread in the last two days.'));
+  for (const u of b.unread) {
+    const row = h('div', 'mailrow' + (u.job ? ' job' : ''));
+    const med = h('span', 'medal' + (u.logo ? ' logo' : ''));
+    if (u.logo && /^data:image\//.test(u.logo)) { const i = document.createElement('img'); i.src = u.logo; i.alt = u.from; med.append(i); }
+    else { med.textContent = (u.from.trim()[0] ?? '?').toUpperCase(); med.style.background = 'linear-gradient(180deg,var(--gold-lit),var(--gold))'; }
+    const mid = h('div'); mid.append(h('div', 'from', u.from), h('div', 'subj', u.subject));
+    const d = new Date(u.at), today = new Date();
+    const when = d.toDateString() === today.toDateString() ? d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }).toUpperCase() : 'YESTERDAY';
+    row.append(med, mid, h('span', 'when', u.at ? when : ''));
+    page.append(row);
+  }
+  const free = h('div', 'freebar');
+  free.append(h('b', '', 'NO QUOTA'), h('span', '', 'Worked out without Claude or Qwen. It cost nothing.'));
+  page.append(free);
+  if (b.error) page.append(h('p', 't-hint', 'Part of this could not be read just now: ' + b.error));
+  wrap.append(banner, page);
+  body.append(wrap);
+}
+function nowLine() { const n = h('div', 'nowline'); n.append(h('span', 'lab', 'NOW'), h('i', 'ln')); return n; }
+
 // ---------------------------------------------------------------- what the brain says
 window.aang?.onMessage?.((m) => {
   if (!m || typeof m !== 'object') return;
@@ -357,6 +416,7 @@ window.aang?.onMessage?.((m) => {
     if (tab !== 5) show(tab);
     return;
   }
+  if (m.t === 'brief.card' && m.card) { briefCard = m.card; if (tab === 7) show(7); return; }
   if (m.t === 'settings') {
     sets = m;
     if (tab === 6) show(6);
@@ -372,7 +432,7 @@ window.aang?.onMessage?.((m) => {
     }
   }
 });
-window.aang?.onDeskTab?.((n) => { if (Number.isInteger(n) && n >= 0 && n <= 6) show(n); window.aang?.deskPanel?.(); });
+window.aang?.onDeskTab?.((n) => { if (Number.isInteger(n) && n >= 0 && n <= 7) show(n); window.aang?.deskPanel?.(); });
 
 show(0);
 window.aang?.deskPanel?.();
