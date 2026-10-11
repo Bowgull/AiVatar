@@ -811,6 +811,7 @@ rule and they are not optional.
      |-> 6.10 the look -> 6.10b pet and windows move together
      |        -> 6.11 rich replies -> 6.12 new bubble -> 6.12b typing box   = AANG CAN FORMAT
      |        -> L  the everyday test, Qwen and Claude together (added 2026-10-10)
+     |        -> V  Aang's voice (added 2026-10-11)
      |        -> 6.15 window 2 -> 6.18b retire the old windows             = REBUILD COMPLETE
      |
      |-> 6.19 tab positioning -> 6.20 browser shell -> 6.21 never lose a tab
@@ -819,7 +820,8 @@ rule and they are not optional.
                Aang starts reading his signed-in tabs under decision 42)
      |
      |-> PHASE 9, after 6.27 (his order, 2026-10-10):
-              9.A away mode  (9.A0 one list of everything Aang can do comes first;
+              9.A away mode  (9.A0 one list of everything Aang can do comes first,
+                              then 9.D Discord made for his phone;
                               S3 the Mac bridge fixes before 9.A6;
                               9.A7 driving Claude from the balloon at the desk)
               9.F making files
@@ -827,7 +829,10 @@ rule and they are not optional.
 ```
 
 **Any gap, from 2026-10-10:** K8 (free quota numbers from the status line; Discord replies that
-continue the real session instead of opening a new one).
+continue the real session instead of opening a new one). From 2026-10-11: K9 (search all his notes),
+K10 (activity log, tool sandbox, real button clicks), and the Apex and creator feeds in K3.
+
+**Right after L, from 2026-10-11:** V, Aang's voice.
 
 **Off the path, any gap:** 6.6 to 6.9 (skipping, "put X on", Simkl marking, the Mac helper), 6.13,
 6.14, 6.14b, 6.15b, 6.16 to 6.18 (the rest of the cockpit), 6.23 to 6.25 (his stuff, extras, Aang's intelligence in the
@@ -2166,8 +2171,40 @@ many mistakes the checks caught. Candidates: Qwen3.5-35B-A3B, Qwen3.8-27B, Gemma
 research more. The evidence (reviewers catch about half of bugs; "please check this" framing lowers
 detection) is in the research notes.
 
+**Qwen reliability (added 2026-10-11, GitHub pass):** call Qwen through `lmstudio-js` (MIT, LM Studio's
+own SDK) for schema-forced output and its tool loop, and run `jsonrepair` (ISC) on anything nearly
+valid before giving up and handing to Claude. Notes: `research_notes/GitHub for the AI OS/`.
+
 **Done when:** he has scored all 30, and each job type has a written verdict: Qwen alone, Qwen with
 hand-off, or Claude.
+
+---
+
+### `[ ]` V Aang's voice  (added 2026-10-11, his order: right after L)
+
+**Why:** the baseline (`research_notes/Aang personality/baseline.md`) found him flat ("Hey. What's
+up?", "Cool.") and about 200 of his 501 stored lines are not him at all: 105 "Claude Code finished..."
+lines, 63 identical "Claude Code is waiting on you in Aang.", 30 quota nags. After L, because L shows
+how he sounds on real tasks, and this is mostly a prompt plus the status-line cleanup, so it is cheap.
+
+**His answers (2026-10-11):**
+- **Between "inspired by" and "very Aang"**: close to the show, still his assistant. He asked for
+  **more Aang** than the research's 1-in-10 budget; the exact level is picked from samples on sheet 15.
+- **Match his style** (length, lowercase, bluntness, energy), **dry humour**, **pushes back**.
+  **Light swearing, never at him.** Never copies typos or anger.
+- **Status lines in Aang's own words, short**, merged so the same line is never said twice:
+  "claude's done with the bubble fix, 3 files changed."
+- **Qwen's voice: decided by test L**, not now.
+
+**Rules from the research** (`research_notes/Aang personality/research-voice.md`, every claim sourced):
+a dry touch about 1 reply in 5 to 8, never twice running, never during errors or when he is annoyed;
+pushback is one plain line, answer first, no flattery, holds once under pressure, gives way fast to a
+real reason; 6 to 10 short example replies written in his rhythm (2 to 10 examples barely differ);
+"flameo, hotman" is Aang's but a one-episode joke, so rare. Fixed, hand-written rules only: this
+stays inside the binding memory-architecture verdict (no evolving personality, no optimising on ratings).
+
+**Done when:** he has picked a level on sheet 15, the prompt and examples are in `voice.ts`, the
+status lines are rewritten, and a week of his real chats reads like Aang to him.
 
 ---
 
@@ -2456,7 +2493,18 @@ blocks anything. Do them in any gap.
 
 - **Game updates in the balloon (demoed 2026-10-10, sheet 13):** only what affects him, with "+14
   changes that don't touch you" folded away. **Apex Legends is new (he plays a lot of it):** add its
-  patch notes beside WoW's. Not researched yet: find an official, readable source first.
+  patch notes beside WoW's.
+- **Apex, researched 2026-10-11** (`research_notes/GitHub for the AI OS/`):
+  - **Patch notes, no key:** the Steam news feed for app 1172470
+    (`store.steampowered.com/feeds/news/app/1172470/`). Only the changes that touch his legends and guns.
+  - **"What's the ranked map?"** on ask: apexlegendsapi.com `/maprotation?version=2` (ranked and pubs).
+    Free key from their portal, **which he gets himself**; sent in a header, never in the address.
+    Unofficial, 5 a second; credit "Data from apexlegendsstatus.com".
+- **Creators he follows, a list he edits by telling Aang** (his yes, 2026-10-11), starting with
+  **HisWattson**. YouTube's channel feed needs no key
+  (`youtube.com/feeds/videos.xml?channel_id=UCu6xqwLxixO-UidWIQzTHlg`), checked every 15 to 30 minutes.
+  Last 15 items only; Shorts and streams are mixed in.
+- **Where pings land:** a whisper at the desk, Discord when he is away. The one-notification rule.
 
 ### `[ ]` K4 Qwen does a little more (Phase 8, narrowed)
 - **Thinking on for background work** (`thinkHard` on `askLocal`): measured 5/5 at five steps.
@@ -2480,6 +2528,20 @@ prompt change. Not a 30-question suite, and never run routinely (his test-budget
 ### `[ ]` K7 Job and interview prep, when it is needed
 When a real interview lands: Aang reads the email's attachments. Prep itself happens in chat; no
 meeting-booking feature.
+
+### `[ ]` K9 Search all his notes  (added 2026-10-11, GitHub pass, his yes)
+`qmd` (tobi/qmd, MIT, Node): keyword plus meaning search plus a local reranker over `Brain/*.md`,
+the reports and research notes. Its models use the graphics card, so it **indexes only when no game is
+running**.
+
+### `[ ]` K10 Seeing and acting more safely  (added 2026-10-11, his yes to all three)
+- **ActivityWatch** (MPL-2.0): which app he is in and when he is away, no screen recording, near-zero
+  cost. Feeds 9.A3's "at the PC or away". Window titles hold private text: local only, never sent out.
+- **sandbox-runtime** (Anthropic, Apache-2.0): file and network limits for Aang's tools. **On the Mac
+  helper first** (no setup). On Windows it creates a user account and firewall rules: an admin change
+  **he runs himself**, never Aang.
+- **FlaUI** (MIT, C#): the body reads and clicks real app controls without screenshots. Never inside
+  a game.
 
 ### `[ ]` K8 Two cheap fixes, any gap  (added 2026-10-10, his call: "cheap fixes now, in a gap")
 - **Free, always-fresh quota numbers.** Claude Code passes every status line command
@@ -3132,6 +3194,33 @@ JSON channel and MCP) and coucou (`PillCatalog.swift` as the single source of tr
 phone and Qwen all call the same entries, through the same trust gate. The existing tools are pointed
 at it, not rewritten. A short, named list is also a smaller ask for Qwen than 57 full tool schemas
 (`route.ts:17`: "Picking the right one of 45 tools is where the small model fails").
+
+### `[ ]` 9.D Discord, made for his phone  (added 2026-10-11, his order: right after 9.A0)
+
+**Why:** he uses Discord mostly on his iPhone, and today it gets plain text in a few channels. He wants
+it "tricked out", in Aang's design language as far as Discord allows, with features that actually help
+on a phone. After 9.A0 because every button and menu needs that one list behind it; before 9.A1 to
+9.A3 so away mode is built on the new Discord, not rebuilt.
+
+**From the research** (`research_notes/Discord on the phone/findings.md`, sourced):
+- **Cards (Components V2)** with Aang's plum accent, pixel-art thumbnails and a parchment banner image.
+  Discord fixes the fonts, text colour and card shape, so the look lives in colours and images.
+  40 parts and about 4,000 characters per card.
+- **Buttons on cards** (one tap, Aang's sprites as **app emoji**, up to 2,000).
+- **Separate speakers**: Aang, Claude and Job Hunt each with their own name and picture, through
+  webhooks the BOT owns (plain webhooks drop buttons).
+- **One live card per job** (his yes): step, files changed, waiting or done, Stop and Open. A normal
+  message edited every 10 to 30 seconds, never an interaction reply (those lock after 15 minutes).
+- **What buzzes his phone** (his pick): things that need him **and** finished jobs. Everything else is
+  posted silently (flag 4096). Watch out: an active Discord on the PC holds back phone pushes.
+- **Short pop-up forms** (1 to 3 fields) for things like editing a draft; **long-press > Apps** to send
+  any message to Aang.
+- **Skipped on a phone:** Activities (cannot reach a Tailscale page), "only you" messages for anything
+  worth keeping, polls, slash commands (he does not use them; plain typing and buttons instead), big forms.
+- **The channel layout is redesigned with him** from a phone mockup (sheet 15). A pinned home card
+  with buttons is shown there; **he decides on it from the mockup**.
+
+**Done when:** sheet 15 is approved, and a week of real use from his phone works without opening the PC.
 
 ### `[ ]` 9.A1 Approvals done right  (from coucou's source, MIT)
 
