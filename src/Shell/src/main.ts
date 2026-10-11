@@ -235,21 +235,7 @@ const link = new CoreLink({
   stateDir: STATE_DIR,
   onMessage: m => {
     // "Put X on": the one message the pop-out answers to. Everything else is passed to the windows.
-    if (m.t === 'popout.open' && typeof m.url === 'string') {
-      // Paid video goes to the separate castLabs process: hardware acceleration has to be off for it,
-      // and that is process-wide. Everything else plays in the ordinary pop-out (step 6.4).
-      const paid = serviceFor(m.url);
-      if (paid) {
-        if (!paid.ready) { console.error(`shell: ${notReadyBecause(paid.id)}`); return; }
-        popout?.close();                       // one at a time, across both runtimes (decision 34)
-        const why = drm?.open(m.url);
-        if (why) console.error(`shell: ${why}`);
-        return;
-      }
-      drm?.close();
-      if (!popout?.open(m.url)) console.error(`shell: nothing playable in ${String(m.url).slice(0, 80)}`);
-      return;
-    }
+    if (m.t === 'popout.open' && typeof m.url === 'string') { openPopout(m.url); return; }
     // He clicked Aang. The pet does not open a box of its own any more; it asks for this one.
     if (m.t === 'typebox') { if (!input?.visible) openTypeBox(); return; }
     // 6.15: the pet's "Panel..." menu, with the new front end on, opens window 2 instead of the C# Panel.
@@ -785,6 +771,12 @@ app.whenReady().then(async () => {
   ipcMain.on('browser:go', (e, text) => { if (aangBrowser?.isFrame(e.sender) && typeof text === 'string') aangBrowser.go(text.slice(0, 2000)); });
   ipcMain.on('browser:askreply', (e, a) => { if (aangBrowser?.isFrame(e.sender) && a && Number.isInteger(a.id)) aangBrowser.answer(a.id, a.allow === true); });
   ipcMain.on('browser:adpause', (e, on) => { if (aangBrowser?.isFrame(e.sender)) aangBrowser.pauseAds(on === true); });
+  // 6.20: a video tab's pop-out keycap, or "Pop out over WoW" on its menu. The tab pauses so it is not heard twice.
+  ipcMain.on('browser:popout', (e, id) => {
+    if (!aangBrowser?.isFrame(e.sender) || !Number.isInteger(id)) return;
+    const url = aangBrowser.urlOf(id);
+    if (url && openPopout(url)) aangBrowser.pauseMedia(id);
+  });
   ipcMain.on('browser:trail', (e, a) => {
     if (!aangBrowser?.isFrame(e.sender) || !a || typeof a !== 'object') return;
     if (a.act === 'new') aangBrowser.newTrail();
@@ -941,6 +933,23 @@ app.whenReady().then(async () => {
 app.on('window-all-closed', () => { /* deliberately nothing */ });
 
 /** A message is only acted on if it really came from the pop-out's own page. */
+/** "Put X on": into the pop-out over WoW. Paid video goes to the separate castLabs process: hardware acceleration
+ *  has to be off for it, and that is process-wide. Everything else plays in the ordinary pop-out (step 6.4).
+ *  True when something is now playing. */
+function openPopout(url: string): boolean {
+  const paid = serviceFor(url);
+  if (paid) {
+    if (!paid.ready) { console.error(`shell: ${notReadyBecause(paid.id)}`); return false; }
+    popout?.close();                       // one at a time, across both runtimes (decision 34)
+    const why = drm?.open(url);
+    if (why) { console.error(`shell: ${why}`); return false; }
+    return true;
+  }
+  drm?.close();
+  if (!popout?.open(url)) { console.error(`shell: nothing playable in ${String(url).slice(0, 80)}`); return false; }
+  return true;
+}
+
 function fromPopout(e: Electron.IpcMainEvent): boolean {
   const w = popout?.window;
   return Boolean(w && e.sender === w.webContents);
