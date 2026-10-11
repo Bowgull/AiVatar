@@ -508,6 +508,10 @@ app.whenReady().then(async () => {
    */
   function answerAsk(a: Record<string, unknown>): void {
     const choice = String(a.choice ?? '');
+    if (typeof a.reminder === 'string' && a.reminder) {
+      link?.send({ t: 'reminder.reply', id: a.reminder, snooze: choice === 'snooze' });
+      return;
+    }
     if (a.t === 'permission') {
       if (choice === 'show') { link?.send({ t: 'submit', id: 'show-' + Date.now(), text: 'show me that first' }); return; }
       const picked = choice === 'yes' ? 'once' : choice === 'always' ? 'always' : 'no';
