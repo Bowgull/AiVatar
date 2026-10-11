@@ -63,9 +63,9 @@ function show(n) {
   foot.hidden = true;
   body.replaceChildren();
   body.scrollTop = 0;
-  if (!data && n !== 5 && n !== 6 && n !== 7) { body.append(h('p', 'empty-line', 'Asking Aang...')); return; }
+  if (!data && n !== 5 && n !== 6 && n !== 7 && n !== 8) { body.append(h('p', 'empty-line', 'Asking Aang...')); return; }
   if (data?.notice) body.append(h('p', 'notice', data.notice));
-  [know, mayDo, did, drafts, jobs, history, settings, brief][n]?.();
+  [know, mayDo, did, drafts, jobs, history, settings, brief, searchAll][n]?.();
 }
 tabs.forEach((t, i) => t.addEventListener('click', () => show(i)));
 
@@ -212,9 +212,9 @@ function jobs() {
   card.append(keys, h('div', 'left', `${list.length} ${list.length === 1 ? 'IS' : 'ARE'} WAITING ON YOU`));
   body.append(card);
 }
-// Ctrl+F: straight to History with the search box focused, from any tab.
+// Ctrl+F: one search over everything (6.18), from any tab, box focused.
 window.addEventListener('keydown', (e) => {
-  if (e.ctrlKey && !e.altKey && e.key.toLowerCase() === 'f') { e.preventDefault(); show(5); }
+  if (e.ctrlKey && !e.altKey && e.key.toLowerCase() === 'f') { e.preventDefault(); show(8); }
 });
 window.addEventListener('keydown', (e) => {
   if (tab === 2 && e.key.toLowerCase() === 'z' && !e.ctrlKey && !e.altKey && !(e.target instanceof HTMLInputElement)) {
@@ -347,6 +347,60 @@ function settings() {
   body.append(keys);
 }
 
+// 8. Search over everything (6.18, sheet 7). One box over five places, grouped by where each hit lives,
+// with a count pill per place so an empty place says so. Nothing here goes to a model.
+let sq = '', sres = null, sTimer = 0;
+const PLACES = [['addons', 'Addons', 'm-addon', 'ADD'], ['talk', 'Conversations', 'm-talk', ''], ['vault', 'Vault', 'm-vault', 'NOTE'], ['facts', 'What I know', 'm-mem', 'FACT'], ['jobs', 'Jobs', 'm-job', 'JOB']];
+function searchAll() {
+  const box = h('div', 'sbox');
+  const input = h('input', 'q');
+  input.type = 'search'; input.value = sq; input.placeholder = 'Search everything';
+  input.setAttribute('aria-label', 'Search everything: what I know, your vault, our conversations, jobs and addons');
+  box.append(h('i', 'glass'), input, h('span', 'k', 'ENTER OPENS'));
+  const out = h('div'); out.id = 'sres';
+  body.append(box, out);
+  input.addEventListener('input', () => {
+    clearTimeout(sTimer);
+    sTimer = setTimeout(() => { sq = input.value.trim(); if (sq.length > 1) window.aang?.deskSearch?.(sq); else { sres = null; paintSearch(); } }, 250);
+  });
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { const first = out.querySelector('.hit'); if (first) first.click(); } });
+  paintSearch();
+  input.focus();
+}
+function paintSearch() {
+  const out = el('sres'); if (!out) return;
+  out.replaceChildren();
+  if (!sq || !sres) { out.append(h('p', 'empty-line', 'One box for what I know, your vault, our conversations, jobs and addons. Searching costs nothing: it all stays on this PC.')); return; }
+  const words = sq.toLowerCase().split(/\s+/).filter((w) => w.length > 1);
+  const pills = h('div', 'srcs');
+  for (const [k, label] of PLACES) { const n = (sres[k] ?? []).length; const p = h('span', n ? '' : 'none'); p.append(h('b', '', String(n)), ' ' + label); pills.append(p); }
+  out.append(pills);
+  const empty = [];
+  for (const [k, label, medalClass, medalText] of PLACES) {
+    const list = sres[k] ?? [];
+    if (!list.length) { empty.push(label); continue; }
+    out.append(ruleTitled(label));
+    for (const x of list) {
+      const row = h('div', 'hit');
+      row.tabIndex = 0;
+      const medal = h('span', 'medal ' + medalClass, k === 'talk' ? (x.who === 'you' ? 'YOU' : 'AANG') : medalText);
+      const mid = h('div');
+      const ttl = h('div', 'ttl'), sn = h('div', 'sn');
+      let how = '', go = null;
+      if (k === 'addons') { marked(ttl, x.title, words); sn.textContent = `Version ${x.version}`; go = () => show(0); go = null; }
+      if (k === 'talk') { marked(ttl, x.text, words); sn.textContent = new Date(x.ts).toLocaleString('en-CA', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }); how = x.how.toUpperCase(); go = () => { sq && (query = sq); show(5); window.aang?.deskHistory?.({ q: sq }); }; }
+      if (k === 'vault') { marked(ttl, x.title, words); marked(sn, x.head, words); how = x.how.toUpperCase(); go = () => window.aang?.openThing?.({ kind: 'file', value: x.path }); }
+      if (k === 'facts') { marked(ttl, x.text, words); go = () => show(0); }
+      if (k === 'jobs') { marked(ttl, x.title, words); sn.textContent = `${x.company} \u00b7 ${x.status}`; go = () => show(4); }
+      mid.append(ttl); if (sn.textContent) mid.append(sn);
+      row.append(medal, mid, h('span', 'how', how));
+      if (go) { row.addEventListener('click', go); row.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); }); row.style.cursor = 'pointer'; }
+      out.append(row);
+    }
+  }
+  if (empty.length) out.append(h('p', 'empty-src', `Nothing in ${empty.join(' or ')} matches "${sq}".`));
+}
+
 // 7. The morning brief, whole (sheet 6 section 7). Not one of the seven tabs: it opens from the balloon's
 // "Open the whole brief". A wooden banner for the day, the calendar as a carved timeline with a line for
 // now, and the inbox as rows with a medallion per sender.
@@ -425,6 +479,7 @@ window.aang?.onMessage?.((m) => {
     if (tab !== 5) show(tab);
     return;
   }
+  if (m.t === 'search.reply' && typeof m.q === 'string') { if (m.q === sq) { sres = m; if (tab === 8) paintSearch(); } return; }
   if (m.t === 'brief.card' && m.card) { briefCard = m.card; if (tab === 7) show(7); return; }
   if (m.t === 'settings') {
     sets = m;
@@ -441,7 +496,7 @@ window.aang?.onMessage?.((m) => {
     }
   }
 });
-window.aang?.onDeskTab?.((n) => { if (Number.isInteger(n) && n >= 0 && n <= 7) show(n); window.aang?.deskPanel?.(); });
+window.aang?.onDeskTab?.((n) => { if (Number.isInteger(n) && n >= 0 && n <= 8) show(n); window.aang?.deskPanel?.(); });
 
 show(0);
 window.aang?.deskPanel?.();

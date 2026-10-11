@@ -134,6 +134,7 @@ contextBridge.exposeInMainWorld('aang', {
   deskCopy: text => ipcRenderer.send('desk:copy', text),
   deskUndo: () => ipcRenderer.send('desk:undo'),
   deskBrief: () => ipcRenderer.send('desk:brief'),
+  deskSearch: q => ipcRenderer.send('desk:search', q),
   /** 6.14b: the brain is down. Try reaching it now, or open its log. */
   retryBrain: () => ipcRenderer.send('bubble:retry'),
   showBrainLog: () => ipcRenderer.send('bubble:log'),
