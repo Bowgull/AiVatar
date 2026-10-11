@@ -16,7 +16,7 @@
 
 /**
  * @typedef {{ label: string, key: 'A'|'X'|'Z', choice: string, tone?: 'primary'|'warn', hold?: boolean }} AskKey
- * @typedef {{ plaque?: string, question: string, means?: string, exact?: string, keys: AskKey[] }} Ask
+ * @typedef {{ plaque?: string, question: string, means?: string, exact?: string, mail?: { to: string, subject: string, body: string, fresh: string }, keys: AskKey[] }} Ask
  */
 
 /**
@@ -25,6 +25,22 @@
  */
 export function askFrom(m) {
   if (!m || typeof m !== 'object') return null;
+
+  // 6.14, sheet 13: an email waiting to be sent shows the letter itself. Hold to send, Change it, Not now.
+  // Still the same permission underneath: the hold is the lever, and nothing is sent without it.
+  if (m.t === 'permission' && m.draft && typeof m.draft === 'object') {
+    const d = m.draft;
+    return {
+      plaque: d.fresh ? 'EMAIL TO SOMEONE NEW' : 'EMAIL DRAFT',
+      question: String(d.subject || '(no subject)'),
+      mail: { to: String(d.to ?? ''), subject: String(d.subject ?? ''), body: String(d.body ?? ''), fresh: String(d.fresh ?? '') },
+      keys: [
+        { label: 'Hold to send', key: 'A', choice: 'yes', hold: true },
+        { label: 'Change it', key: 'X', choice: 'change' },
+        { label: 'Not now', key: 'Z', choice: 'no', tone: 'warn' },
+      ],
+    };
+  }
 
   if (m.t === 'permission') {
     /** @type {AskKey[]} */

@@ -495,6 +495,22 @@ function showAsk(m) {
   }
   means.textContent = a.means ?? '';
   means.hidden = !a.means;
+  // An email: the letter itself under the subject (6.14). Built with textContent: it is his words to send.
+  let mail = document.getElementById('mailcard');
+  if (!mail) { mail = document.createElement('div'); mail.id = 'mailcard'; mail.className = 'mailcard'; (document.getElementById('exact') ?? means).after(mail); }
+  mail.replaceChildren();
+  mail.hidden = !a.mail;
+  if (a.mail) {
+    const hdr = document.createElement('div'); hdr.className = 'hdr';
+    const lab = (t) => { const s = document.createElement('span'); s.textContent = t; return s; };
+    const val = (t) => { const d = document.createElement('div'); d.textContent = t; return d; };
+    const to = val(a.mail.to);
+    if (a.mail.fresh) { const c = document.createElement('span'); c.className = 'chip careful newto'; c.textContent = 'NEVER WRITTEN TO BEFORE'; to.append(' ', c); }
+    hdr.append(lab('TO'), to);
+    const letter = document.createElement('div'); letter.className = 'letter'; letter.textContent = a.mail.body;
+    mail.append(hdr, letter);
+    bubble.classList.add('wide', 'widest');
+  }
   // A plan's steps, under the question (6.13). The same list becomes the live checklist on Go.
   paintPlan(m.t === 'plan' ? m : null, -1);
   if (m.t === 'plan') bubble.classList.add('wide');
@@ -675,7 +691,7 @@ function showWhisper(w) {
   who.hidden = true;
   working.hidden = true;
   asks.hidden = true;
-  for (const id of ['means', 'exact']) { const e = document.getElementById(id); if (e) e.hidden = true; }
+  for (const id of ['means', 'exact', 'mailcard']) { const e = document.getElementById(id); if (e) e.hidden = true; }
   mediaRow.hidden = w.controls !== 'media';
   bubble.classList.remove('enter'); void bubble.offsetWidth; bubble.classList.add('enter');
   show();
@@ -813,7 +829,7 @@ window.aang?.onMessage?.(m => {
       expanded = false;
       bubble.classList.remove('wide', 'widest');
       // An ask's explaining line and command belong to the ask, never to the reply that follows it.
-      for (const id of ['means', 'exact']) { const e = document.getElementById(id); if (e) e.hidden = true; }
+      for (const id of ['means', 'exact', 'mailcard']) { const e = document.getElementById(id); if (e) e.hidden = true; }
       // New content fades in 160 ms into the grow, over 300 ms (sheet 13). Restarted, not stacked.
       bubble.classList.remove('enter'); void bubble.offsetWidth; bubble.classList.add('enter');
     }

@@ -126,3 +126,13 @@ test('when the brain is down it says so in his voice, and never claims what it c
   assert.deepEqual(down?.keys.map((k: { choice: string }) => k.choice), ['retry', 'log']);
   assert.ok(!/three tries/.test(String(down?.question)), 'the Shell cannot count the restarts, so it does not say three');
 });
+
+test('an email waiting to be sent shows the letter, and sending is still the held lever (6.14)', () => {
+  const a = askFrom({ t: 'permission', id: 'p9', tool: 'mcp__aang__mail_send', question: 'SEND this email...', hold: true,
+    draft: { to: 'careers@octup.com', subject: 'Application', body: 'Hi team,', fresh: 'careers@octup.com' } });
+  assert.equal(a?.plaque, 'EMAIL TO SOMEONE NEW');
+  assert.equal(a?.mail?.body, 'Hi team,');
+  const send = a?.keys.find((k: { choice: string }) => k.choice === 'yes');
+  assert.equal(send?.hold, true, 'a sent email cannot be taken back: hold, never a click');
+  assert.ok(!a?.keys.some((k: { choice: string }) => k.choice === 'always'), 'never an Always on sending email');
+});

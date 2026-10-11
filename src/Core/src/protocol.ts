@@ -179,6 +179,9 @@ export type ToBody =
        * Discord, which show it inline.
        */
       exact?: string;
+      /** An email waiting to be sent (6.14, sheet 13): the cockpit shows the letter itself. `fresh` is any
+       *  address he has never written to. The question and `means` still carry it for the old bubble. */
+      draft?: { to: string; subject: string; body: string; fresh: string };
       /**
        * This one has to be HELD, not clicked (sheet 5, section 2): it sends, buys, deletes, or closes
        * someone else's app. A reflex click must not be able to do it. Decided by the Core, never by the
