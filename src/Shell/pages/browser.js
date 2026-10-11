@@ -445,6 +445,7 @@ function redLever() {
   box.append(l);
 }
 el('phishback').addEventListener('click', () => window.aang?.browserAct?.('phishback'));
+el('phishreal').addEventListener('click', () => window.aang?.browserAct?.('phishreal'));
 
 window.aang?.onBrowserTabs?.((s) => {
   if (!s || !Array.isArray(s.tabs)) return;
@@ -465,8 +466,15 @@ window.aang?.onBrowserTabs?.((s) => {
   if (b) {
     let host = b.url;
     try { host = new URL(b.url).hostname; } catch { /* keep the text */ }
-    el('phishtitle').textContent = 'This site is on a list of fake or harmful sites';
-    el('phishtext').replaceChildren(Object.assign(document.createElement('b'), { textContent: host }), ` is named by ${b.lists.length === 1 ? 'one list' : b.lists.length + ' lists'} of known fake login pages and harmful downloads. It was stopped before anything loaded.`);
+    el('phishreal').hidden = !b.real;
+    if (b.real) {
+      // A look-alike: on no list yet, but wearing the name of a site he really uses.
+      el('phishtitle').textContent = `This is not ${b.real}`;
+      el('phishtext').replaceChildren(Object.assign(document.createElement('b'), { textContent: host }), ` is dressed up to look like ${b.real}, a site you use. It was stopped before anything loaded. The real one is one press away.`);
+    } else {
+      el('phishtitle').textContent = 'This site is on a list of fake or harmful sites';
+      el('phishtext').replaceChildren(Object.assign(document.createElement('b'), { textContent: host }), ` is named by ${b.lists.length === 1 ? 'one list' : b.lists.length + ' lists'} of known fake login pages and harmful downloads. It was stopped before anything loaded.`);
+    }
     el('phishlists').replaceChildren(...b.lists.map((n) => Object.assign(document.createElement('span'), { textContent: n })));
     if (!el('phishlever').childElementCount) redLever();
     lock.hidden = false; lock.textContent = 'BLOCKED'; lock.classList.add('bad');
