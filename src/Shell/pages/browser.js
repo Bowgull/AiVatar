@@ -265,7 +265,6 @@ el('phishback').addEventListener('click', () => window.aang?.browserAct?.('phish
 window.aang?.onBrowserTabs?.((s) => {
   if (!s || !Array.isArray(s.tabs)) return;
   state = s;
-  el('tabcount').textContent = String(s.tabs.length);
   paintMarks(s.marks);
   const t = s.tabs.find((x) => x.id === s.active);
   paintTabs();
