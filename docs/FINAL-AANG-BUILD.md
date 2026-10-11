@@ -2603,6 +2603,15 @@ actually doing, and surfaces the few things that matter.
 **2. The drop box.** Joshua pastes a link and a shorthand note into Discord; Aang researches it
 straight away and replies in a thread on that message.
 
+**VIDEOS IN #capture (his ask, 2026-10-11; sheet 15 "A video in #capture"):** a TikTok or YouTube link
+dropped in #capture is WATCHED, not filed as "Noted.". Aang replies in a thread: gets the transcript
+(YouTube captions; TikTok has none, so the audio is transcribed locally, only when no game is
+running), Qwen reads it for free, and a drawn card says what it is about and **what it is useful for:
+Aang, another app, or nothing**, best guess marked. Keys: Add to Aang's plan (an idea for him to
+approve, never built on its own), Just save it, Go deeper (Claude, cost said first), Not useful. Or he
+replies in the thread to steer it. Today #capture only files lists, recipes and notes; links get
+nothing special. The transcript is outside content: read, never obeyed.
+
 ---
 
 ## What he decided
@@ -3220,8 +3229,17 @@ on a phone. After 9.A0 because every button and menu needs that one list behind 
   any message to Aang.
 - **Skipped on a phone:** Activities (cannot reach a Tailscale page), "only you" messages for anything
   worth keeping, polls, slash commands (he does not use them; plain typing and buttons instead), big forms.
-- **The channel layout is redesigned with him** from a phone mockup (sheet 15). A pinned home card
-  with buttons is shown there; **he decides on it from the mockup**.
+- **His REAL channels stay** (TALK, JOBS, MAIL, KEEP, AANG); new: forum **#claude-jobs** and
+  **#gaming**. My first mockup invented channels; the redo uses his. A pinned home card in #log is
+  shown on sheet 15; **he decides on it from the mockup**.
+- **Cards Aang DRAWS (his pick, 2026-10-11): the way to push the look furthest.** Discord fixes fonts,
+  button colours and card shapes for every bot, and theme mods (BetterDiscord, Vencord) break Discord's
+  rules and do not run on iPhone, so they are out. A picture is the one thing Discord shows exactly as
+  made, so every card carries an image Aang renders in his own look (parchment, wood, plaques,
+  Silkscreen and Figtree, his sprite), plus accent strips, his app emoji, per-speaker avatars, role
+  colours, forum tags and a drawn server icon.
+- **Making and deleting channels when he asks.** Aang already has Manage Channels (he built the
+  layout); asking for it in chat is new. Deleting cannot be undone, so it takes the held confirm.
 
 **Done when:** sheet 15 is approved, and a week of real use from his phone works without opening the PC.
 
