@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- 6.20: the browser's frame, sheet 3. The pages themselves are separate views placed in the page area;
+     this frame only ever shows the band, the rail and its own plates. Favicons are the only outside
+     images (img-src https:), drawn by <img>, nothing else from the internet. -->
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' data: https:;
+               font-src 'self'; style-src-attr 'unsafe-inline'; form-action 'none'; base-uri 'none'">
+<title>Aang Browser</title>
+<link rel="stylesheet" href="cockpit.css">
+<link rel="stylesheet" href="browser.css">
+</head>
+<body>
+<div class="bw">
+  <div class="band" id="band">
+    <i class="cap"></i>
+    <button class="rnd" id="back" type="button" aria-label="Back">&#8249;</button>
+    <button class="rnd" id="fwd" type="button" aria-label="Forward">&#8250;</button>
+    <button class="rnd" id="reload" type="button" aria-label="Reload">&#10227;</button>
+    <div class="slot" id="slot">
+      <span class="lock" id="lock">SECURE</span>
+      <span class="url" id="url"></span>
+      <input class="edit" id="edit" type="text" spellcheck="false" autocomplete="off" aria-label="Search or type a web address" hidden>
+      <span class="who" id="who">YOU ARE DRIVING</span>
+    </div>
+    <i class="cap"></i>
+  </div>
+  <div class="loading" id="loading"><i></i></div>
+  <div class="body3">
+    <nav class="rail" id="rail" aria-label="Tabs">
+      <button class="key sm newtab" id="newtab" type="button">+ New tab<span class="k">Ctrl T</span></button>
+      <div id="tabs"></div>
+    </nav>
+    <div class="pg3" id="page">
+      <div class="plate" id="crashplate" hidden>
+        <i class="cracks"></i>
+        <span class="plq red">THIS PAGE CRASHED</span>
+        <h3 id="crashtitle">This page stopped working</h3>
+        <p>The page broke, not your PC. Reload brings it back.</p>
+        <div class="keys">
+          <button class="key primary sm" id="crashreload" type="button">Reload<span class="k">A</span></button>
+          <button class="key sm" id="crashclose" type="button">Close the tab<span class="k">Z</span></button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="browser.js" type="module"></script>
+</body>
+</html>

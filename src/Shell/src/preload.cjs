@@ -108,6 +108,14 @@ contextBridge.exposeInMainWorld('aang', {
     return () => ipcRenderer.removeListener('bubble:aim', h);
   },
 
+  // --- the browser frame (6.19, 6.20). Named doors only; the tabs themselves get no preload at all.
+  browserInsets: r => ipcRenderer.send('browser:insets', r),
+  browserAct: a => ipcRenderer.send('browser:act', a),
+  browserGo: text => ipcRenderer.send('browser:go', text),
+  browserTab: a => ipcRenderer.send('browser:tab', a),
+  onBrowserTabs(fn) { const h = (_e, s) => fn(s); ipcRenderer.on('browser:tabs', h); return () => ipcRenderer.removeListener('browser:tabs', h); },
+  onBrowserFocusSlot(fn) { const h = () => fn(); ipcRenderer.on('browser:focusslot', h); return () => ipcRenderer.removeListener('browser:focusslot', h); },
+
   // --- Snipit (6.17): the overlay and the corner card. Named doors only.
   onSnipShot(fn) { const h = (_e, url) => fn(url); ipcRenderer.on('snip:shot', h); return () => ipcRenderer.removeListener('snip:shot', h); },
   snipDone: r => ipcRenderer.send('snip:done', r),

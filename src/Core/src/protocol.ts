@@ -97,6 +97,8 @@ export type ToBody =
   | { t: 'desk.open'; tab?: number }
   /** 6.17: Snipit from the pet's menu, passed to the Shell, which does the snipping. */
   | { t: 'snip' }
+  /** 6.20: open Aang's browser, from the pet's menu. */
+  | { t: 'browser' }
   /** 6.17 Highlight from the pet's menu: read what he has selected in the app in front. */
   | { t: 'highlight' }
   /** 6.17 the drop: a file is being dragged over the pet (on) or has left (off). */
@@ -314,6 +316,8 @@ export type FromBody =
   | { t: 'desk.open'; tab?: number }
   /** 6.17: Snipit from the pet's menu, passed to the Shell, which does the snipping. */
   | { t: 'snip' }
+  /** 6.20: open Aang's browser, from the pet's menu. */
+  | { t: 'browser' }
   /** 6.17 Highlight from the pet's menu: read what he has selected in the app in front. */
   | { t: 'highlight' }
   /** 6.17 the drop: a file is being dragged over the pet (on) or has left (off). */
