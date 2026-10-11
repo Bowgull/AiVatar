@@ -2058,8 +2058,12 @@ while he builds). 112 tests in the Shell.
   skip, which go to the Core as `media` and through `hands()` (asked once, like media_key). A whisper
   never covers something he is reading: it waits until that reply has gone, then shows for 10 s.
   Checked in a browser tab: 254 x 82, the play/pause key sends `playpause`.
-- **Still owed:** his eyes going to the balloon (Body sprite work). The "open" size is the 556 width
-  used by Show more.
+- **The glance, built 2026-10-11 (his call):** "only if aang is talking he should look at me but the
+  quick glance is a nice touch". So eyes do NOT stay on the balloon: when a reply starts he turns to it
+  for 500 ms (the "look" animation's own head-turn frames, look_12, or look_4 when docked left), then
+  faces him while he talks. Body builds clean; not yet seen on his desktop.
+- **6.12 is now built end to end; what is left is HIS look at it on the real desktop.** The "open" size
+  is the 556 width used by Show more.
 
 ---
 

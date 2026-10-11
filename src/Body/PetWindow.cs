@@ -835,9 +835,16 @@ sealed class PetWindow : Form
     {
         var hold = stream ? 0 : Math.Clamp(2500 + 45 * text.Length, 3000, 20000);
         bubble.Show(text, stream, hold);
-        if (anim.State is "idle" or "think") anim.Play("talk");
+        // A reply starting: a quick glance at the balloon, then back to facing him while he talks (his
+        // call, 2026-10-11: "only if aang is talking he should look at me but the quick glance is a nice
+        // touch"). Uses the head-turn frames the "look" animation already has, so no new art.
+        if (anim.State is "idle" or "think") { anim.Play("talk"); glanceUntil = DateTime.UtcNow.AddMilliseconds(GlanceMs); }
         dirty = true;
     }
+
+    /// <summary>How long the glance at a new balloon lasts. Short: a touch, not a look away from him.</summary>
+    const int GlanceMs = 500;
+    DateTime glanceUntil = DateTime.MinValue;
 
     // ------------------------------------------------------------------ quiet mode
 
@@ -1039,7 +1046,11 @@ sealed class PetWindow : Form
             {
                 bubble.Draw(g, tick);
                 var standing = new Rectangle(246, 86, 224, 224);
-                var frame = sprites.Frame(anim.State, anim.Frame);
+                // The glance: look_12 turns his head left, toward a balloon on that side; docked on the left the
+                // balloon is to his right, so look_4.
+                var frame = DateTime.UtcNow < glanceUntil && !flipX
+                    ? sprites.Frame("look", dock == DockEdge.Left ? 4 : 12)
+                    : sprites.Frame(anim.State, anim.Frame);
                 Bitmap? mirrored = null;
                 if (flipX)
                 {
