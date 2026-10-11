@@ -712,6 +712,7 @@ app.whenReady().then(async () => {
   });
   ipcMain.on('snip:send', (e) => { if (snipper?.isCard(e.sender)) snipper.send(); });
   ipcMain.on('snip:bin', (e) => { if (snipper?.isCard(e.sender)) snipper.bin(); });
+  ipcMain.on('snip:cardsize', (e, s) => { if (snipper?.isCard(e.sender) && s) snipper.fitCard(Number(s.width) || 0, Number(s.height) || 0); });
   // The pet's gold menu "Snipit" row comes through the brain, like the typing box does.
   // ---- window 2, the desk (6.15): each door sends exactly what the C# Panel sends.
   // 6.14b: "Try again" and "Show what went wrong" from the bubble when the brain will not come back.

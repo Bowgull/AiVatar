@@ -114,6 +114,7 @@ contextBridge.exposeInMainWorld('aang', {
   onSnipCard(fn) { const h = (_e, s) => fn(s); ipcRenderer.on('snip:card', h); return () => ipcRenderer.removeListener('snip:card', h); },
   snipSend: () => ipcRenderer.send('snip:send'),
   snipBin: () => ipcRenderer.send('snip:bin'),
+  snipCardSize: s => ipcRenderer.send('snip:cardsize', s),
 
   // --- window 2, the desk (6.15). Named doors only, each the same message the C# Panel sends.
   deskPanel: () => ipcRenderer.send('desk:panel'),

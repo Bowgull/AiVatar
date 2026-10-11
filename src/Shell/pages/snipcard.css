@@ -1,7 +1,7 @@
 /* 6.17: the corner card. His ask card in miniature: wood frame, the SNIPIT plaque in pale blue, the snip
    framed, Send and Bin it keycaps, and a bobbing pixel pointer saying "this is yours to send". */
 html,body{margin:0;background:transparent;overflow:hidden;font:500 14px var(--body)}
-.card{margin:8px;padding:9px;border-radius:12px;border:var(--ow) solid var(--outline);
+.card{margin:8px;width:268px;box-sizing:border-box;padding:9px;border-radius:12px;border:var(--ow) solid var(--outline);
   background:linear-gradient(180deg,#56371F,var(--wood1));box-shadow:0 4px 0 rgba(0,0,0,.6),inset 0 3px 0 rgba(255,220,170,.18);
   animation:in .42s cubic-bezier(.32,1.3,.5,1) both}
 @keyframes in{from{opacity:0;transform:translateY(16px) scale(.9)}}
