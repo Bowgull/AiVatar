@@ -25,6 +25,7 @@ import path from 'node:path';
 import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown } from './safety.ts';
 import { addressFor } from './address.ts';
 import { writeFileAtomic } from './atomic.ts';
+import { lookalike } from './lookalike.ts';
 import { PhishCheck } from './phish.ts';
 import { blockAds, type AdBlock } from './skip/ads.ts';
 
@@ -46,7 +47,7 @@ interface Tab {
   zoom: number;
   lastSeen: number;
   /** 6.22: stopped before loading because a list names it: which lists. */
-  blocked: { url: string; lists: string[] } | null;
+  blocked: { url: string; lists: string[]; real?: string } | null;
   /** Sheet 3 section 3: the trail it belongs to (null = a loose tab), and whether he turned it in. */
   trail: number | null;
   done: boolean;
@@ -65,6 +66,8 @@ function trailNameFor(url: string): string {
 }
 
 const isWeb = (u: string) => /^https?:\/\//i.test(u);
+/** How a look-alike is named on the red plate's list chips. */
+const LOOKS_LIKE = 'LOOKS LIKE ';
 const HOME = 'https://www.google.com';
 /** A tab not looked at for this long, and not playing sound, goes to sleep. */
 const SLEEP_AFTER_MS = 30 * 60_000;
@@ -178,11 +181,16 @@ export class AangBrowser {
   /** Is this address on a list, and has he not chosen to go anyway? Returns the lists, or none. */
   private listed(u: string): string[] {
     try { if (this.letThrough.has(new URL(u).hostname)) return []; } catch { return []; }
-    return this.phish.check(u);
+    const lists = this.phish.check(u);
+    if (lists.length) return lists;
+    // On no list yet, but dressed up as a site he really uses (6.22's last piece).
+    const real = lookalike(u);
+    return real ? [LOOKS_LIKE + real.toUpperCase()] : [];
   }
   /** Stop a tab at a listed address: nothing loads, the frame shows the red plate instead. */
   private block(tab: Tab, url: string, lists: string[]): void {
-    tab.blocked = { url, lists };
+    const like = lists.find((l) => l.startsWith(LOOKS_LIKE));
+    tab.blocked = { url, lists, ...(like ? { real: like.slice(LOOKS_LIKE.length).toLowerCase() } : {}) };
     tab.url = url;
     tab.loading = false;
     if (tab.view) { try { tab.view.webContents.stop(); } catch { /* gone */ } }
@@ -530,6 +538,8 @@ export class AangBrowser {
       case 'drawer-close': void this.drawer(false); break;
       // The red plate: the safe way out, or (the held lever) in anyway, for this site, this run.
       case 'phishback': if (t) { t.blocked = null; if (wc?.navigationHistory.canGoBack()) { this.place(); wc.navigationHistory.goBack(); } else this.close(t.id); } break;
+      // A look-alike: the real site, typed fresh, never the link that led here.
+      case 'phishreal': if (t?.blocked?.real) { const u = 'https://' + t.blocked.real + '/'; t.blocked = null; this.place(); void wc?.loadURL(u); } break;
       case 'phishopen': if (t?.blocked) { try { this.letThrough.add(new URL(t.blocked.url).hostname); } catch { /* bad url */ } const u = t.blocked.url; t.blocked = null; this.place(); void wc?.loadURL(u); } break;
     }
   }
