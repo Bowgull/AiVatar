@@ -136,6 +136,25 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
    running past the frame, which is what LayoutChoices guards against in the
    C# ("Start Claude on the job hunt" is a long verb). */
 .asks{margin:10px 0 0;gap:9px;flex-wrap:wrap}
+/* ---- the plan, then the live checklist (6.13, sheet 13) ---- */
+.plan{display:flex;flex-direction:column;gap:5px;margin:8px 0 0}
+.plan[hidden]{display:none}
+.plan .step{display:flex;align-items:center;gap:9px;padding:6px 9px;border-radius:7px;
+  background:rgba(255,255,255,.28);border:2px solid rgba(90,60,25,.25);font:500 14px/1.35 var(--body);color:var(--ink-text)}
+.plan .n{flex:none;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;
+  font:700 11px var(--body);background:var(--parch2);border:2px solid var(--outline);color:#2a1c00}
+.plan .st{flex:1;min-width:0}
+.plan .gate{flex:none;font:400 9px var(--label);letter-spacing:.5px;padding:3px 6px;border-radius:4px;border:2px solid var(--outline)}
+.plan .gate.ask{background:var(--orange);color:#2e1200}
+.plan .gate.held{background:var(--red);color:#2e0b06}
+.plan .gate.now{background:var(--gold);color:#2a1c00}
+.plan .gate.done{background:var(--green);color:#163a24}
+.plan .step.done{opacity:.55}
+/* the running step: gold, with a shimmer moving across it */
+.plan .step.now{background:linear-gradient(90deg,rgba(255,196,60,.35),rgba(255,224,150,.65),rgba(255,196,60,.35));
+  background-size:200% 100%;animation:shimmer 1.6s linear infinite;border-color:var(--gold-deep)}
+@keyframes shimmer{from{background-position:200% 0}to{background-position:0 0}}
+@media (prefers-reduced-motion:reduce){.plan .step.now{animation:none}}
 /* ---- the morning brief in the balloon (6.15, sheet 13): two columns of short sections ---- */
 .briefcard[hidden]{display:none}
 .briefcard .brief{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 16px}
