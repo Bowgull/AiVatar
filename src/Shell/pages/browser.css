@@ -359,7 +359,11 @@ body.drawer-open .drawer{transform:none;visibility:visible;transition:transform 
 .drawer .sx{width:20px;height:20px;border:none;border-radius:50%;background:rgba(255,226,140,.1);color:#d8ccb4;cursor:pointer;font:700 11px var(--body)}
 
 /* ---- Trail clean up at the bottom of the drawer: the panel (dark ink, raised, gold caps) above the broom ---- */
-.drawer .tidyfoot{position:sticky;bottom:-14px;margin:10px -14px -14px -12px;padding:10px 14px 12px 12px;
+/* Always at the very bottom of the drawer (his call): the drawer is a column, the foot takes the space that is left
+   above it, and stays pinned while a long list scrolls under it. */
+.drawer{display:flex;flex-direction:column}
+.drawer>*{flex:0 0 auto}
+.drawer .tidyfoot{position:sticky;bottom:-14px;margin:auto -14px -14px -12px;padding:10px 14px 12px 12px;
   background:linear-gradient(180deg,rgba(26,16,9,0),rgba(26,16,9,.92) 22%),url(art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated}
 .drawer .tidyrow{display:flex;align-items:center;justify-content:space-between}
 .drawer .cap-dim{font:400 9px var(--label);letter-spacing:1.5px;color:#bfae8a}
