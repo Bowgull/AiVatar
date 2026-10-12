@@ -9,6 +9,9 @@ const { contextBridge } = require('electron');
 try {
   contextBridge.executeInMainWorld({
     func: () => {
+      // Google's sign-in pages are left exactly as the browser is: hiding things there looks like a disguise, and
+      // Google refuses disguised browsers (research, 2026-10-12). Its page handles passkeys itself.
+      if (/^accounts\.(google|youtube)\.com$/i.test(location.hostname)) return;
       try { Object.defineProperty(window, 'PublicKeyCredential', { value: undefined, configurable: false, writable: false }); } catch { /* already gone */ }
       // FedCM (Chrome's built-in "Sign in with Google" prompt) has no screen in Electron and hangs like passkeys did.
       // Without it, Google's button falls back to its normal popup, which works (2026-10-12).
