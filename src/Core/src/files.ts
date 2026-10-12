@@ -31,6 +31,24 @@ const MAX_BYTES = 2_000_000;
 
 export interface Protected { stateDir: string; dataDir: string }
 
+/** Aang's own settings folder (%APPDATA%\\Aang): his tokens live here. Never read by his tools (S2 2.19). */
+const AANG_STATE = process.env.AANG_STATE_DIR ?? path.join(process.env.APPDATA ?? path.join(os.homedir(), 'AppData', 'Roaming'), 'Aang');
+/** Aang's own source code, the security code included (S2 2.2). */
+export const AANG_APP = process.env.AANG_APP_DIR ?? path.join(os.homedir(), 'Documents', 'AangApp');
+/**
+ * Places a program can hide in so it runs again later (S2 2.3, MITRE T1547.001 and T1546.013): the Startup
+ * folder, and the two folders PowerShell reads a profile from every time it starts.
+ */
+export function persistenceDirs(): string[] {
+  const home = os.homedir();
+  const roaming = process.env.APPDATA ?? path.join(home, 'AppData', 'Roaming');
+  return [
+    path.join(roaming, 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup'),
+    path.join(home, 'Documents', 'WindowsPowerShell'),
+    path.join(home, 'Documents', 'PowerShell'),
+  ];
+}
+
 /**
  * Joshua's Obsidian vault, and the one folder inside it Aang may write to.
  *
@@ -158,6 +176,9 @@ export function offLimits(file: string): string | null {
   // transcripts could get him to read anything he has ever been told.
   if (under(path.join(home, '.claude'))) return 'that is my own Claude login and session history';
   if (/[\\/]\.env(\.[^\\/]*)?$/.test(lower)) return 'a .env file holds keys and passwords';
+  // S2 2.19: Aang's own settings folder holds the Google token, which can send mail as him, and the
+  // Discord token. None of his own tools may read it, with or without a yes.
+  if (under(AANG_STATE)) return 'that is my own settings folder, where the keys to your accounts are kept';
 
   // Browser profiles: Login Data, Cookies and Local State are where saved passwords and session
   // cookies live. The whole profile folder goes, because the file names move between versions.
@@ -177,6 +198,9 @@ export function refusal(file: string, p: Protected): string | null {
   if (under(p.stateDir)) return 'that is my own settings and permissions folder, and I never write to it myself';
   if (under(path.join(p.dataDir, 'aang.db')) || /[\\/]aang\.db(-wal|-shm)?$/.test(full)) return 'that is my memory database; memory changes go through remember and forget';
   if (under(UNDO_DIR)) return 'that is where my undo copies are kept';
+  // S2 2.2: a page or a document must never be able to rewrite who Aang is or the code that keeps him
+  // safe. Copilot was attacked exactly this way (CVE-2025-53773). Changes to himself go through
+  // start_claude's "self" kind, on a branch Joshua reviews.
   // Read the whole vault, write only to my own folder in it. Everything else there is Joshua's.
   if (under(VAULT_DIR) && !under(VAULT_WRITABLE)) {
     return 'that is Joshua\'s vault. I read it, but the only part of it I write to is 10_Projects/Aang';
@@ -186,6 +210,9 @@ export function refusal(file: string, p: Protected): string | null {
     if (under(sys)) return 'that is part of Windows or an installed program';
   }
   if (!path.isAbsolute(file)) return 'give the full path, starting with the drive, so there is no doubt which file it is';
+  if (under(path.join(p.dataDir, 'Brain'))) return 'that is my Brain folder, who I am and what I know; it changes only through remember and correct';
+  if (under(AANG_APP)) return 'that is my own source code; changes to me go through a Claude session he reviews';
+  if (persistenceDirs().some(under)) return 'that folder makes things run by themselves every time Windows or PowerShell starts';
   return null;
 }
 

@@ -8,7 +8,7 @@ import { WebSocket } from 'ws';
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, Client, EmbedBuilder, Events, GatewayIntentBits, MessageFlags, PermissionFlagsBits } from 'discord.js';
 import { DiscordAdapter } from './discord.ts';
 import type { Button, ButtonPress, CoreLink, Gateway, Incoming, OutEmbed, OutMsg } from './discord.ts';
-import { LAYOUT, NEEDED, FORBIDDEN, slug } from './discord-logic.ts';
+import { LAYOUT, NEEDED, FORBIDDEN, noPreview, slug } from './discord-logic.ts';
 
 const STYLE = { primary: ButtonStyle.Primary, secondary: ButtonStyle.Secondary, success: ButtonStyle.Success, danger: ButtonStyle.Danger } as const;
 
@@ -101,7 +101,7 @@ export class DiscordGateway implements Gateway {
 
   async createPost(forumId: string, title: string, content: string): Promise<string> {
     const forum: any = await this.client.channels.fetch(forumId);
-    const post = await forum.threads.create({ name: title.slice(0, 100), message: { content } });
+    const post = await forum.threads.create({ name: title.slice(0, 100), message: { content, flags: MessageFlags.SuppressEmbeds } });
     return post.id;
   }
 
@@ -109,14 +109,20 @@ export class DiscordGateway implements Gateway {
     const channel: any = await this.client.channels.fetch(channelId);
     const files = msg.files?.map(f => ({ attachment: f.data, name: f.name }));
     // Nothing Aang posts may ping anyone: card text comes from web pages, and "@everyone" in a job title must stay text.
-    const sent = await channel.send({ content: msg.content, embeds: this.embeds(msg), components: this.rows(msg), allowedMentions: { parse: [] }, ...(files ? { files } : {}), ...(msg.silent ? { flags: MessageFlags.SuppressNotifications } : {}) });
+    // S2 2.9: no link previews. A planted link in a message Aang sends would otherwise be fetched by Discord
+    // the moment it posts, with whatever the address carries, and nobody has to click. A message with our own
+    // card keeps the card, and its links are wrapped in <> instead, which Discord never previews.
+    const own = this.embeds(msg);
+    const flags = (msg.silent ? MessageFlags.SuppressNotifications : 0) | (own.length ? 0 : MessageFlags.SuppressEmbeds);
+    const sent = await channel.send({ content: own.length ? noPreview(msg.content) : msg.content, embeds: own, components: this.rows(msg), allowedMentions: { parse: [] }, ...(files ? { files } : {}), ...(flags ? { flags } : {}) });
     return sent.id;
   }
 
   async edit(channelId: string, messageId: string, msg: OutMsg): Promise<void> {
     const channel: any = await this.client.channels.fetch(channelId);
     const m = await channel.messages.fetch(messageId);
-    await m.edit({ content: msg.content ?? '', embeds: this.embeds(msg), components: this.rows(msg), allowedMentions: { parse: [] } });
+    const own = this.embeds(msg);
+    await m.edit({ content: own.length ? noPreview(msg.content ?? '') : msg.content ?? '', embeds: own, components: this.rows(msg), allowedMentions: { parse: [] }, ...(own.length ? {} : { flags: MessageFlags.SuppressEmbeds }) });
   }
 
   async pin(channelId: string, messageId: string): Promise<void> {
@@ -162,7 +168,8 @@ export class WsCoreLink implements CoreLink {
   // to 'always' - the same thing a plain "yes" always meant before the desktop bubble grew a third option.
   // Found live, 2026-09-22: this still sent the old {allow} shape after core.ts moved to {choice}, so every
   // "Yes" pressed in Discord was silently read as "no".
-  permission(id: string, allow: boolean) { this.send({ t: 'permission.reply', id, choice: allow ? 'always' : 'no' }); }
+  // S2 2.11: a yes from his phone is for this once. "Always" is only ever given at the desktop, where he can read it.
+  permission(id: string, allow: boolean) { this.send({ t: 'permission.reply', id, choice: allow ? 'once' : 'no' }); }
   runOnMac(text: string) { this.send({ t: 'mac.run', text }); }
   stop() { this.send({ t: 'stop' }); }
   status() { this.send({ t: 'status' }); }

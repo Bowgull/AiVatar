@@ -971,7 +971,9 @@ with tests in `test/startup-spend.test.ts`, `test/quota.test.ts` and `test/captu
 **What the work found:** remembering only his "not now" would still have repeated the 40% warning at
 every restart, so `warned` and `offered` are saved too. A test caught that before it shipped.
 
-### `[ ]` S2 The eleven small security fixes  **BLOCKS 6.25**  (added 2026-10-04, decision 47)
+### `[x]` S2 The eleven small security fixes  **DONE 2026-10-12**  (added 2026-10-04, decision 47)
+
+**DONE 2026-10-12.** All eleven, each with a test that tries the attack and is refused (`src/Core/test/s2.test.ts`, 12 tests). Full suite compared against the commit before: no new failures (21 failing before, 20 after, all older). Notes: 2.4's "his project folders" means Documents, Desktop and Downloads; 2.5 does not count look_up_web's own answer as outside content, so research jobs can look up several things; 2.8 removes Send from a Discord card too long to show whole.
 
 Real and reachable through a poisoned email, web page or screen, but each is small: about a day in
 total. They must land before Aang reads his signed-in tabs (decision 42, step 6.25).

@@ -43,7 +43,7 @@ export class PhishCheck {
           else console.error(`shell: phishing list ${l.name} said ${r.status}`);
         } catch (e) { console.error(`shell: phishing list ${l.name} did not load: ${(e as Error).message}`); }
       }
-      this.add(l.name, l.kind, text);
+      await this.addSoftly(l.name, l.kind, text);
     }
     this.ready = true;
     console.log(`shell: phishing lists: ${this.domains.size} domains, ${this.urls.size} addresses`);
@@ -52,13 +52,23 @@ export class PhishCheck {
   /** Put one list's lines in. Comments and blanks are skipped; nothing in a list is ever run or opened. */
   /** How many known fake sites and addresses the lists hold, for Settings. */
   count(): number { return this.domains.size + this.urls.size; }
-  add(name: string, kind: 'urls' | 'domains', text: string): void {
-    for (const raw of text.split(/\r?\n/)) {
-      const line = raw.trim();
-      if (!line || line.startsWith('#')) continue;
-      if (kind === 'domains') { const d = line.toLowerCase().replace(/^www\./, ''); if (/^[a-z0-9.-]+\.[a-z]{2,}$/.test(d)) this.mark(this.domains, d, name); }
-      else { const n = norm(line); if (n) this.mark(this.urls, n.url, name); }
+  add(name: string, kind: 'urls' | 'domains', text: string): void { for (const raw of text.split(/\r?\n/)) this.line(name, kind, raw); }
+  /**
+   * The same, 5,000 lines at a time with a breath in between (2026-10-12, his "make it fast"): in one go,
+   * 386,000 lines held up everything else the browser does for a moment as it started.
+   */
+  async addSoftly(name: string, kind: 'urls' | 'domains', text: string): Promise<void> {
+    const lines = text.split(/\r?\n/);
+    for (let i = 0; i < lines.length; i += 5000) {
+      for (let j = i; j < Math.min(lines.length, i + 5000); j++) this.line(name, kind, lines[j]!);
+      await new Promise<void>((r) => setImmediate(r));
     }
+  }
+  private line(name: string, kind: 'urls' | 'domains', raw: string): void {
+    const line = raw.trim();
+    if (!line || line.startsWith('#')) return;
+    if (kind === 'domains') { const d = line.toLowerCase().replace(/^www\./, ''); if (/^[a-z0-9.-]+\.[a-z]{2,}$/.test(d)) this.mark(this.domains, d, name); }
+    else { const n = norm(line); if (n) this.mark(this.urls, n.url, name); }
   }
   private mark(m: Map<string, string[]>, key: string, name: string): void { const a = m.get(key); if (!a) m.set(key, [name]); else if (!a.includes(name)) a.push(name); }
 

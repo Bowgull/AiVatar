@@ -8,6 +8,7 @@
 // folder" once is a small, reversible promise. Saying yes to "run anything in a shell" is not, so the
 // shell is trusted one program at a time: agreeing to `git` says nothing about `rm`.
 import { existsSync, readFileSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { writeFileAtomic } from './atomic.ts';
 import { plainProgram } from './plain.ts';
@@ -60,6 +61,50 @@ export class TrustStore {
   }
 
   revokeAll(): void { this.data = {}; this.save(); }
+}
+
+/** Files that run code when opened (S2 2.13). Opening one asks every time, never on an earlier yes. */
+export const RUNNABLE = /\.(exe|msi|msix|appx|bat|cmd|com|scr|pif|ps1|psm1|vbs|vbe|js|jse|wsf|wsh|hta|cpl|jar|reg|lnk|url|py|pyw|sh)$/i;
+
+/** The command with its leading "cd somewhere;" scaffolding taken off, as programOf reads it. */
+function withoutCd(command: string): string {
+  let cleaned = (command ?? '').trim();
+  for (let i = 0; i < 4; i++) {
+    const next = cleaned.replace(/^\s*(?:cd|pushd|set-location|sl)\s+(?:"[^"]*"|'[^']*'|[^;&\r\n]+)\s*(?:;|&&|\r?\n)\s*/i, '');
+    if (next === cleaned) break;
+    cleaned = next;
+  }
+  return cleaned.trim();
+}
+
+/** S2 2.4: does the command do more than run one program? ; | & $( a backtick > or a new line. */
+export function chained(command: string): boolean { return /[;|&`>\r\n]|\$\(/.test(withoutCd(command)); }
+
+/** The folders a trusted program may read without asking (S2 2.4): his own work, not the whole disk. */
+export function hisFolders(): string[] {
+  const home = os.homedir();
+  return ['Documents', 'Desktop', 'Downloads'].map((d) => path.join(home, d));
+}
+export function inHisFolders(p: string): boolean {
+  const full = path.resolve(p).toLowerCase();
+  return hisFolders().some((d) => { const x = path.resolve(d).toLowerCase(); return full === x || full.startsWith(x + path.sep); });
+}
+
+/**
+ * The paths a command names after its program, as full paths. A command starts in his home folder, so a
+ * relative path is read from there: ".ssh\\id_rsa" is his SSH key, not a harmless name.
+ */
+export function commandPaths(command: string): string[] {
+  const rest = withoutCd(command).replace(/^("[^"]+"|'[^']+'|\S+)\s*/, '');
+  const out: string[] = [];
+  for (const m of rest.matchAll(/"([^"]+)"|'([^']+)'|(\S+)/g)) {
+    const t = (m[1] ?? m[2] ?? m[3] ?? '').replace(/^-[\w-]+[:=]/, '');
+    if (!t || /^-/.test(t) || /^[a-z][a-z0-9+.-]*:\/\//i.test(t)) continue;
+    if (!/[\\/]/.test(t) && !/^[.~]/.test(t)) continue;
+    const home = os.homedir();
+    out.push(t.startsWith('~') ? path.join(home, t.slice(1)) : path.isAbsolute(t) || /^[A-Za-z]:/.test(t) ? path.resolve(t) : path.resolve(home, t));
+  }
+  return out;
 }
 
 /** The first word of a shell command: the program being run, which is what gets trusted. */
@@ -128,6 +173,13 @@ export function kindOf(tool: string, input: Record<string, unknown>): { kind: st
       // Added stop-process/taskkill/kill 2026-10-03: force-quitting loses whatever was unsaved in the
       // program, which belongs with deleting and installing rather than with listing a folder.
       if (/^(rm|del|rmdir|rd|format|diskpart|reg|shutdown|takeown|icacls|winget|choco|npm|pip|curl|wget|stop-process|taskkill|kill)$/.test(program)) return null;
+      // S2 2.3: scheduling something or changing an environment variable makes it outlive this turn. Ask every time.
+      if (/^(schtasks|setx|at|register-scheduledtask|new-scheduledtask|set-itemproperty|new-itemproperty)$/.test(program)) return null;
+      // S2 2.4: a trusted program is trusted on its own. Chained, piped, redirected or substituted, the
+      // line is something else and asks every time (the Gemini CLI bug).
+      if (chained(s('command'))) return null;
+      // ...and it may read only inside his own folders without asking.
+      if (commandPaths(s('command')).some((p) => !inHisFolders(p))) return null;
       // The CATEGORY stays the exact program name - it is a security boundary. Only the wording he reads
       // on the button is made plain. See plainProgram.
       return { kind: `run ${program}`, says: plainProgram(program) || `run ${program} commands` };
@@ -135,6 +187,8 @@ export function kindOf(tool: string, input: Record<string, unknown>): { kind: st
     case 'mcp__aang__open': {
       const what = s('what');
       if (/^https?:/i.test(what)) return { kind: 'open links', says: 'open links' };
+      // S2 2.13: a program or a script runs code, so opening one asks every time.
+      if (RUNNABLE.test(what.trim().replace(/["']/g, ''))) return null;
       if (/[\\/]/.test(what)) return { kind: 'open files', says: 'open files and folders' };
       return { kind: 'open apps', says: 'open apps' };
     }

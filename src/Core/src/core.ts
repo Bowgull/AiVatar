@@ -27,12 +27,13 @@ import { TOKEN_HEADER, clearToken, newToken, sameToken } from './token.ts';
 import { MODELS, pickLane } from './route.ts';
 import type { Lane as LaneName } from './route.ts';
 import { editExact, offLimits, refusal, undoLast, writeWhole } from './files.ts';
+import { commandPaths } from './trust.ts';
 import { describeMatches, isBrowser, listControlsText, needsCare, pickControl, runAct } from './uia.ts';
 import type { ActRunner } from './uia.ts';
 import { copyThing, deleteThing, emptyOldTrash, listFolder, makeFolder, moveThing } from './organise.ts';
 import type { Result as OrganiseResult } from './organise.ts';
 import type { Doers } from './tools.ts';
-import { TOOL_NAMES, QUICK_TOOLS, fetchDayWeather, QUICK_HIDDEN, BUILTIN_SHELL, BUILTIN_WRITE, PLAYWRIGHT_SERVER, SHELL_TOOLS, WEB_PROMPT, WEB_TOOLS, describeCall, describeForLog, isLauncher, makeToolServer, reachesNetwork } from './tools.ts';
+import { TOOL_NAMES, QUICK_TOOLS, fetchDayWeather, QUICK_HIDDEN, BUILTIN_SHELL, BUILTIN_WRITE, PLAYWRIGHT_SERVER, SHELL_TOOLS, WEB_PROMPT, WEB_TOOLS, describeCall, describeForLog, isLauncher, makeToolServer, reachesNetwork, untypedAddresses } from './tools.ts';
 import { HookServer, HookTracker, isLoopback } from './hooks.ts';
 import { Reminders } from './reminders.ts';
 import { SessionStore } from './sessions.ts';
@@ -61,7 +62,7 @@ import { DEFAULT_DUBS, dubFor, isPlan, nameLeftOver, readChannels, readDubs, rea
 import type { Channels, Dub, DubTable, WatchPlan, Where } from './puton.ts';
 import { dueNudges, nudgeText, torontoDay } from './resurface.ts';
 import type { Fetch } from './google.ts';
-import { MailService, MailStore, renderMailCard } from './mail.ts';
+import { MailService, MailStore, fitsCard, renderMailCard } from './mail.ts';
 import type { DraftInput, MailDraft } from './mail.ts';
 import { exactOf, meansOf } from './plain.ts';
 import { checkAddons, saveDigest, weeklySweep } from './watch.ts';
@@ -413,6 +414,12 @@ export class Core {
       why: turn => this.whyText(turn),
       permissions: () => this.permissionsText(),
       revoke: kind => this.revokeText(kind),
+      outsideGate: async (tool, input) => {
+        if (!this.tainted) return null;
+        console.log(`asking before ${tool}: this turn has read outside content`);
+        return await this.askPermission(tool, input) ? null : this.whyNot();
+      },
+      markOutside: () => { this.tainted = true; },
     };
   }
 
@@ -697,6 +704,8 @@ export class Core {
       return { ok: true, detail: `The draft to ${d.to.join(', ')} is in #drafts on his Discord with Send, Save as Gmail draft and Discard buttons. It is NOT sent. Tell him it is waiting there, in one short sentence; do not repeat the draft.` };
     }
     if (where === 'desktop') {
+      // S2 2.8: the bubble shows up to 20,000 characters; past that he could not read what he approves.
+      if (d.body.length > 20_000) return { ok: true, detail: 'The draft is too long to show him whole, so it was NOT sent and he was not asked. Tell him to save it as a Gmail draft and send it from Gmail.' };
       const said = await this.askPermission('mcp__aang__mail_send', { to: d.to.join(', '), subject: d.subject, body: d.body, fresh: d.newTo.join(', ') });
       if (!said) { await svc.act(d.id, d.hash, 'discard'); return { ok: true, detail: `He did not approve it, so the draft was discarded and nothing was sent. ${this.whyNot()}` }; }
       let a = await svc.act(d.id, d.hash, 'send');
@@ -710,6 +719,9 @@ export class Core {
   /** A button on a draft card in Discord, or the brief he asked for. Both come from the Discord connection. */
   private async mailAct(ws: WebSocket, id: string, hash: string, action: 'send' | 'save' | 'discard'): Promise<void> {
     const svc = this.mail(); if (!svc) return;
+    // S2 2.8: Send from a Discord card only when the card showed the whole email.
+    const want = action === 'send' && this.kindOfSocket(ws) === 'discord' ? svc.store.get(id) : null;
+    if (want && !fitsCard(want)) { this.send(ws, this.cardOf({ ...want, note: 'Too long to show whole here, so it was not sent. Open it on the desktop to send it.' })); return; }
     const r = await svc.act(id, hash, action);
     this.actions.add({ tool: 'mail', did: `${action === 'send' ? 'sent' : action === 'save' ? 'saved as a Gmail draft' : 'discarded'} an email draft${r.draft ? ` to ${r.draft.to.join(', ').slice(0, 80)}` : ''}`, ok: !r.note, note: r.note });
     if (r.draft) this.send(ws, this.cardOf({ ...r.draft, ...(r.note ? { note: r.note } : {}) }));
@@ -1178,7 +1190,16 @@ export class Core {
    * ends nothing runs on an earlier "yes": he is asked again. Remembered trust is for his own requests; a
    * page that tells Aang to "open this link" should not find the door already open.
    */
-  private tainted = false;
+  private outside = false;
+  /** True once something other than look_up_web's own answer marked the turn (S2 2.5). */
+  private outsideNotWeb = false;
+  private webMarking = false;
+  private get tainted(): boolean { return this.outside; }
+  private set tainted(v: boolean) {
+    this.outside = v;
+    if (!v) this.outsideNotWeb = false;
+    else if (!this.webMarking) this.outsideNotWeb = true;
+  }
 
   /** The only way to a command line, and it always goes through the gate. */
   private async run(command: string): Promise<{ ok: boolean; output: string }> {
@@ -1627,8 +1648,15 @@ export class Core {
    * session that holds Joshua's files only ever sees the few sentences that come back.
    */
   private webLane: Lane | null = null;
-  private lookUpWeb(question: string): Promise<string> {
-    this.tainted = true;                        // a page's words are about to enter the turn
+  private async lookUpWeb(question: string): Promise<string> {
+    // S2 2.5. His own words for this turn: the message he sent, and any background job's task.
+    const typed = [this.active?.sub?.text ?? '', ...this.tasks.running().map(t => t.task)].join('\n');
+    const strange = untypedAddresses(question, typed);
+    if (this.outsideNotWeb || strange.length) {
+      console.log(`asking before a lookup: ${strange.length ? 'it names ' + strange.join(', ') : 'this turn has read outside content'}`);
+      if (!await this.askPermission('mcp__aang__look_up_web', { question })) return this.whyNot() + ' Nothing was looked up.';
+    }
+    this.webMarking = true; this.tainted = true; this.webMarking = false;   // a page's words are about to enter the turn
     if (!this.webLane) {
       this.webLane = new Lane({
         // No MCP server: it must not be able to call look_up_web (which would recurse into itself), and
@@ -2713,6 +2741,13 @@ export class Core {
     if (isShell && isLauncher(String(input?.command ?? ''))) {
       console.log('refused a shell launch; open is the tool for that');
       return this.refuse('a safety rule stopped it: apps, files and links are started with the open tool, never through a command. Joshua was not asked and did not say no. Use open instead');
+    }
+    if (isShell) {
+      const never = commandPaths(String(input?.command ?? '')).map(p => offLimits(p)).find(Boolean);
+      if (never) {
+        console.log('refused a shell command that names an off-limits path');
+        return this.refuse(`a safety rule stopped it: ${never}. Joshua was not asked and did not say no`);
+      }
     }
     if (isShell && reachesNetwork(String(input?.command ?? ''))) {
       console.log('refused a shell command that reaches the network; look_up_web is the only way out');
