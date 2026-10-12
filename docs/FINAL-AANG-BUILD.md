@@ -2718,6 +2718,20 @@ one-time bookmark import. Passwords reach Bitwarden through each Mac browser's o
 - **Trails:** a grip to drag a whole trail; drag tabs between trails, loose or reordered, with a gold drop line; the ··· menu offers Rename, Collapse, Stash, Ungroup and Close (with Undo). The Stash is a chest with restore and forget.
 - **Shield, option C:** dim gold at rest, full colour on point, glowing blue when a popup is blocked (open it or allow the site), red when wrong.
 
+**BUILT 2026-10-12, History and Downloads (his picks):**
+- **Downloads tray (`dlist.ts`):**
+  - The arrow key is hidden until something downloads. Then it pops in and pushes ⋯ over, like a Mac dock icon.
+  - It hides again at whichever comes first: the browser closes, an hour passes with no new download, or Clear list.
+  - The tray drops open for 5 seconds when a download finishes, and stays while the mouse is on it. It shows this run's newest 5.
+  - Each file has a paper icon in its type's colour. A gold bar and an ✕ while it's coming in; a ring on the key fills meanwhile.
+  - Click a file to open it. The folder button shows it in Explorer. Drag a file out to Claude, Aang, a folder or the desktop (`startDrag`).
+  - The page only ever names a download by its number, never a path.
+- **Your things tab (`pages/things.*`, `thingspreload.cjs`):**
+  - History (`visits.ts`): 90 days, only on this PC. Search box, grouped by day. Each entry has an x. Clear history offers Last hour, Today or Everything.
+  - Downloads: the full list (200), with open, show and forget.
+  - History also feeds the address suggestions.
+  - ⋯ menu entries, plus Ctrl+H and Ctrl+J.
+
 ### `[ ]` 6.24 Everyday extras
 
 Downloads list, print, PDF, a screen-share picker for calls, spellcheck.

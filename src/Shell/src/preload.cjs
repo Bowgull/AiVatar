@@ -159,6 +159,11 @@ contextBridge.exposeInMainWorld('aang', {
   pageMenuPick: id => ipcRenderer.send('pagemenu:pick', id),
   pageMenuSize: r => ipcRenderer.send('pagemenu:size', r),
   onBrowserAsk(fn) { const h = (_e, a) => fn(a); ipcRenderer.on('browser:ask', h); return () => ipcRenderer.removeListener('browser:ask', h); },
+  /** The downloads tray: act on one by its number (open, show, stop, forget) or the tray (clear, folder, page); drag one out. */
+  browserDl: a => ipcRenderer.send('browser:dl', a),
+  browserDlDrag: id => ipcRenderer.send('browser:dldrag', id),
+  browserDlHello: () => ipcRenderer.send('browser:dlhello'),
+  onBrowserDls(fn) { const h = (_e, d) => fn(d); ipcRenderer.on('browser:dls', h); return () => ipcRenderer.removeListener('browser:dls', h); },
   onBrowserDownload(fn) { const h = (_e, d) => fn(d); ipcRenderer.on('browser:download', h); return () => ipcRenderer.removeListener('browser:download', h); },
   /** The tab drawer is open: a still picture of the page to show under it (or null to drop it). */
   onBrowserFrozen(fn) { const h = (_e, s) => fn(s); ipcRenderer.on('browser:frozen', h); return () => ipcRenderer.removeListener('browser:frozen', h); },
