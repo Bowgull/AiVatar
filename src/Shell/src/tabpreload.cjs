@@ -10,10 +10,13 @@ try {
   contextBridge.executeInMainWorld({
     func: () => {
       try { Object.defineProperty(window, 'PublicKeyCredential', { value: undefined, configurable: false, writable: false }); } catch { /* already gone */ }
+      // FedCM (Chrome's built-in "Sign in with Google" prompt) has no screen in Electron and hangs like passkeys did.
+      // Without it, Google's button falls back to its normal popup, which works (2026-10-12).
+      try { Object.defineProperty(window, 'IdentityCredential', { value: undefined, configurable: false, writable: false }); } catch { /* already gone */ }
       const creds = navigator.credentials;
       if (creds) {
         const refuse = (orig) => function (opts) {
-          if (opts && opts.publicKey) return Promise.reject(new DOMException('Passkeys are not available in this browser.', 'NotSupportedError'));
+          if (opts && (opts.publicKey || opts.identity)) return Promise.reject(new DOMException('Passkeys are not available in this browser.', 'NotSupportedError'));
           return orig.apply(this, arguments);
         };
         try { creds.create = refuse(creds.create.bind(creds)); creds.get = refuse(creds.get.bind(creds)); } catch { /* read-only here */ }

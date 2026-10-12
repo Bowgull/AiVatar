@@ -29,6 +29,10 @@ import { lookalike } from './lookalike.ts';
 import { softEdge } from './winedge.ts';
 import { isBar, parseBookmarks, type Mark } from './bookmarks.ts';
 import { Vault, fillScript, type Login } from './vault.ts';
+import { createHmac, randomBytes } from 'node:crypto';
+
+/** A site name scrambled with this PC's own key: the file alone says nothing about where he has accounts. */
+const scramble = (key: string, host: string) => createHmac('sha256', key).update(host.toLowerCase()).digest('hex').slice(0, 32);
 import { PhishCheck } from './phish.ts';
 import { failureWords, isRisky, upgrade } from './secure.ts';
 import { blockAds, type AdBlock } from './skip/ads.ts';
@@ -78,7 +82,12 @@ function trailNameFor(url: string): string {
 const isWeb = (u: string) => /^https?:\/\//i.test(u);
 /** How a look-alike is named on the red plate's list chips. */
 const LOOKS_LIKE = 'LOOKS LIKE ';
-const HOME = 'https://www.google.com';
+/** Where a new tab opens until he sets his own in Settings (2026-10-12: not Google). */
+const DEFAULT_HOME = 'https://search.brave.com/';
+/** A plain Chrome's name for itself: Google refuses sign-in to anything calling itself Electron (his yes, 2026-10-12). */
+const CHROME_UA = (v: string) => `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${v} Safari/537.36`;
+/** A popup that opens within this long of his click or key press is his (Chrome's own rule); later ones are a page's. */
+const GESTURE_MS = 1000;
 /** A tab not looked at for this long, and not playing sound, goes to sleep. */
 const SLEEP_AFTER_MS = 30 * 60_000;
 // The band's height (Windows draws its own buttons over it, see-through on the wood) and the page area's colour.
@@ -126,7 +135,18 @@ export class AangBrowser {
   /** The little wood sounds (new tab, close, download done). Off until he turns them on in Settings. */
   sounds = false;
   /** The ⋯ menu's switches (sheet 3 section 10), kept between runs. Block ads and Block popups start on. */
-  prefs = { ads: true, popups: true };
+  prefs = { ads: true, popups: true, home: DEFAULT_HOME };
+  /** His home page, or the default. Web pages only. */
+  private get HOME(): string { return isWeb(this.prefs.home) ? this.prefs.home : DEFAULT_HOME; }
+  /** Sites he let open popups by themselves ("Allow popups on this site"). Kept between runs. */
+  private popupOk = new Set<string>();
+  private readonly popupOkFile: string;
+  /** When he last clicked or pressed a key in each tab: Chrome's user-activation rule for popups. */
+  private lastGesture = new Map<number, number>();
+  /** Scrambled list of the sites he has Bitwarden logins for (no names, no passwords), for the gold key. */
+  private readonly sitesFile: string;
+  private sites: Set<string> | null = null;
+  private siteKey = '';
   private readonly prefsFile: string;
   /** 6.23: his logins from Bitwarden, filled when he clicks the key. */
   private readonly vault = new Vault();
@@ -154,6 +174,17 @@ export class AangBrowser {
     this.prefsFile = path.join(o.stateDir, 'browser-prefs.json');
     this.placeFile = path.join(o.stateDir, 'browser-window.json');
     this.marksFile = path.join(o.stateDir, 'browser-bookmarks.json');
+    this.popupOkFile = path.join(o.stateDir, 'browser-popups-ok.json');
+    this.sitesFile = path.join(o.stateDir, 'vault-sites.json');
+    try { if (existsSync(this.popupOkFile)) this.popupOk = new Set((JSON.parse(readFileSync(this.popupOkFile, 'utf8')) as unknown[]).filter((x): x is string => typeof x === 'string')); } catch { /* none */ }
+    try {
+      if (existsSync(this.sitesFile)) {
+        const v = JSON.parse(readFileSync(this.sitesFile, 'utf8'));
+        if (typeof v?.key === 'string' && Array.isArray(v.sites)) { this.siteKey = v.key; this.sites = new Set(v.sites.filter((x: unknown) => typeof x === 'string')); }
+      }
+    } catch { /* none yet */ }
+    // Plain Chrome, everywhere in his browsing session.
+    this.ses.setUserAgent(CHROME_UA(process.versions.chrome));
     try {
       if (existsSync(this.marksFile)) {
         const a = JSON.parse(readFileSync(this.marksFile, 'utf8'));
@@ -170,7 +201,7 @@ export class AangBrowser {
       if (existsSync(this.prefsFile)) {
         const p = JSON.parse(readFileSync(this.prefsFile, 'utf8'));
         this.sounds = p?.sounds === true;
-        this.prefs = { ads: p?.ads !== false, popups: p?.popups !== false };
+        this.prefs = { ads: p?.ads !== false, popups: p?.popups !== false, home: typeof p?.home === 'string' && isWeb(p.home) ? p.home.slice(0, 2000) : DEFAULT_HOME };
       }
     } catch { /* defaults */ }
     denyPermissions(this.ses);
@@ -305,6 +336,17 @@ export class AangBrowser {
     try { writeFileAtomic(this.prefsFile, JSON.stringify({ sounds: this.sounds, ...this.prefs })); } catch { /* best effort */ }
   }
 
+  /** His home page, typed into Settings: a web address only. Empty puts the default back. */
+  setHome(text: string): void {
+    const t = String(text ?? '').trim();
+    const u = t ? addressFor(t) : DEFAULT_HOME;
+    if (!u || !isWeb(u)) { this.note('That is not a web address.'); return; }
+    this.prefs.home = u;
+    this.savePrefs();
+    this.note(t ? 'Home page saved.' : 'Home page set back to Brave Search.');
+    this.sendTabs();
+  }
+
   /** A switch in the ⋯ menu. Only the ones that exist; "Let Aang act without asking" is not one of them. */
   setPref(key: string, on: boolean): void {
     if (key === 'sounds') { this.setSounds(on); return; }
@@ -358,7 +400,8 @@ export class AangBrowser {
       // The carved band IS the title bar; Windows draws its own buttons over the band's right end.
       // See-through (the research: Flow browser), so Windows' own minimise, maximise and close sit ON the wood
       // with their real hover and snap layouts, instead of on a flat block that looked stuck on.
-      titleBarStyle: 'hidden', titleBarOverlay: { color: 'rgba(0,0,0,0)', symbolColor: '#FFE096', height: BAND_HEIGHT },
+      // His pick (2026-10-12): Aang draws his own bold gold minimise, maximise and close on the band; Windows' were too thin.
+      titleBarStyle: 'hidden',
       webPreferences: { ...SAFE_WEB_PREFERENCES, preload: this.o.preloadPath },
     });
     lockDown(w.webContents);
@@ -368,8 +411,8 @@ export class AangBrowser {
     const keepSoon = () => { if (keep) clearTimeout(keep); keep = setTimeout(() => this.keepPlace(), 800); };
     w.on('resize', () => { this.place(); keepSoon(); });
     w.on('move', keepSoon);
-    w.on('maximize', () => { this.place(); keepSoon(); });
-    w.on('unmaximize', () => { this.place(); keepSoon(); });
+    w.on('maximize', () => { this.place(); keepSoon(); this.sendTabs(); });
+    w.on('unmaximize', () => { this.place(); keepSoon(); this.sendTabs(); });
     w.on('close', () => { this.keepPlace(); void this.snapshot(); });
     // 6.22b bug 4: the mouse's back and forward side buttons.
     w.on('app-command', (_e, cmd) => { if (cmd === 'browser-backward') this.sideNav('back'); else if (cmd === 'browser-forward') this.sideNav('forward'); });
@@ -385,7 +428,7 @@ export class AangBrowser {
     });
     w.once('ready-to-show', () => w.show());
     w.webContents.once('did-finish-load', () => {
-      if (!this.restore()) this.newTab(url ?? HOME);
+      if (!this.restore()) this.newTab(url ?? this.HOME);
       else if (url) this.newTab(url);
     });
     this.win = w;
@@ -435,11 +478,34 @@ export class AangBrowser {
     // A middle click or Ctrl+click opens it behind, the way every browser does.
     // "Block popups" (on unless he turns it off): a page opening a new WINDOW by itself is refused; a link he
     // opens in a new tab still opens as a tab.
+    // Popups (his pick, 2026-10-12, Chrome's rule): one opened within a second of his click or key press is his, and
+    // opens as a real small window that keeps its link to the page (Sign in with Google needs that). One a page opens
+    // by itself is blocked, unless he allowed popups on that site; a chip offers that.
+    wc.on('input-event', (_e, i) => { if (i.type === 'mouseDown' || i.type === 'keyDown') this.lastGesture.set(tab.id, Date.now()); });
     wc.setWindowOpenHandler(({ url: u, disposition }) => {
-      if (this.prefs.popups && disposition === 'new-window') { console.log('shell: browser: popup refused'); return { action: 'deny' }; }
-      if (isWeb(u)) this.newTab(u, tab.id, disposition !== 'background-tab');
+      if (!isWeb(u)) return { action: 'deny' };
+      if (disposition === 'new-window') {
+        let site = '';
+        try { site = new URL(wc.getURL()).hostname.replace(/^www\./, ''); } catch { /* none */ }
+        const his = Date.now() - (this.lastGesture.get(tab.id) ?? 0) < GESTURE_MS;
+        if (this.listed(u).length) return { action: 'deny' };
+        if (!this.prefs.popups || his || this.popupOk.has(site)) {
+          return { action: 'allow', overrideBrowserWindowOptions: { width: 520, height: 680, autoHideMenuBar: true, backgroundColor: PAGE_COLOUR,
+            title: 'Aang Browser', webPreferences: { ...SAFE_WEB_PREFERENCES, session: this.ses, preload: this.o.tabPreloadPath } } };
+        }
+        console.log('shell: browser: popup blocked');
+        this.ask({ host: site, what: 'Popup blocked', text: `${site || 'This page'} tried to open a window by itself.`, yes: 'Allow popups on this site', no: 'Keep blocking' }, (allow) => {
+          if (!allow || !site) return;
+          this.popupOk.add(site);
+          try { writeFileAtomic(this.popupOkFile, JSON.stringify([...this.popupOk])); } catch { /* best effort */ }
+          this.newTab(u, tab.id, true);
+        });
+        return { action: 'deny' };
+      }
+      this.newTab(u, tab.id, disposition !== 'background-tab');
       return { action: 'deny' };
     });
+    wc.on('did-create-window', (pw) => this.popupWindow(pw));
     // 6.22: a listed site never loads, whether it is a link, a redirect or anything else.
     wc.on('will-navigate', (e, u) => {
       if (!isWeb(u)) { e.preventDefault(); return; }
@@ -606,7 +672,7 @@ export class AangBrowser {
     if (this.active === id) {
       const next = this.tabs[Math.min(i, this.tabs.length - 1)];
       this.active = null;
-      if (next) this.activate(next.id); else this.newTab(HOME);
+      if (next) this.activate(next.id); else this.newTab(this.HOME);
     } else this.changed();
   }
 
@@ -623,6 +689,27 @@ export class AangBrowser {
   }
 
   reopen(): void { const u = this.closed.pop(); if (u) this.newTab(u); }
+
+  /**
+   * A popup he opened (Sign in with Google and the like): the same safety as a tab. Its real address is its title,
+   * so a fake sign-in window cannot hide where it is. Web pages only, fake sites refused, no popups of its own
+   * except the same Chrome rule, and it closes itself when the sign-in is done.
+   */
+  private popupWindow(pw: BrowserWindow): void {
+    const pwc = pw.webContents;
+    softEdge(pw);
+    const name = () => { try { const u = new URL(pwc.getURL()); pw.setTitle(`${u.protocol === 'https:' ? '' : 'NOT SECURE  '}${u.hostname}  -  ${pwc.getTitle()}`.slice(0, 200)); } catch { /* not yet */ } };
+    pwc.on('page-title-updated', name);
+    pwc.on('did-navigate', name);
+    const stop = (e: Electron.Event, u: string) => {
+      if (!isWeb(u)) { e.preventDefault(); return; }
+      if (this.listed(u).length) { e.preventDefault(); pw.close(); this.note('A popup tried to open a site on the fake-site lists. It was closed.'); }
+    };
+    pwc.on('will-navigate', stop);
+    pwc.on('will-redirect', (e, u, _inPage, isMain) => { if (isMain) stop(e, u); });
+    pwc.setWindowOpenHandler(({ url: u }) => { if (isWeb(u) && !this.listed(u).length) this.newTab(u, this.active, true); return { action: 'deny' }; });
+    pwc.on('will-attach-webview', (e) => e.preventDefault());
+  }
 
   // ------------------------------------------------------------------ 6.22b: side buttons, the window's place, the right-click menu
   private sideNav(dir: 'back' | 'forward'): void {
@@ -744,7 +831,28 @@ export class AangBrowser {
     if (wc && !t!.crashed && !t!.blocked && !t!.failed && !t!.lent && t!.url.startsWith('https:')) {
       has = await within(wc.executeJavaScript("!!document.querySelector('input[type=password]')", true) as Promise<boolean>, 800, false) === true;
     }
-    if (has !== this.hasLogin) { this.hasLogin = has; this.sendTabs(); }
+    // His pick: the key shows only where Bitwarden has a login for this site. Until the vault has been opened once
+    // there is no list yet, so it shows on any login page, plain, so he can open it the first time.
+    let known = false;
+    if (has && this.sites) { let host = ''; try { host = new URL(t!.url).hostname; } catch { /* none */ } known = this.siteKnown(host); has = known; }
+    if (has !== this.hasLogin || known !== this.loginKnown) { this.hasLogin = has; this.loginKnown = known; this.sendTabs(); }
+  }
+  private loginKnown = false;
+  /** The site and its parent domains, scrambled with this PC's own key, against the list. */
+  private siteKnown(host: string): boolean {
+    if (!this.sites || !host) return false;
+    const parts = host.toLowerCase().split('.');
+    for (let i = 0; i < parts.length - 1; i++) if (this.sites.has(scramble(this.siteKey, parts.slice(i).join('.')))) return true;
+    return false;
+  }
+  /** After an unlock: which sites have logins, kept only as scrambled names. */
+  private async learnSites(): Promise<void> {
+    const hosts = await this.vault.loginHosts();
+    if (!hosts) return;
+    if (!this.siteKey) this.siteKey = randomBytes(32).toString('hex');
+    this.sites = new Set(hosts.map((h) => scramble(this.siteKey, h)));
+    try { writeFileAtomic(this.sitesFile, JSON.stringify({ key: this.siteKey, sites: [...this.sites] })); } catch { /* best effort */ }
+    void this.lookForLogin();
   }
   private note(text: string): void { this.win?.webContents.send('browser:download', { name: '', state: 'note', text }); }
   /** He clicked the key. */
@@ -766,6 +874,7 @@ export class AangBrowser {
     if (!f) return;
     const ok = await this.vault.unlock(password);
     if (!ok) { this.win?.webContents.send('browser:vault', { mode: 'unlock', host: f.host, wrong: true }); return; }
+    void this.learnSites();
     await this.vaultList();
   }
   private async vaultList(): Promise<void> {
@@ -884,7 +993,7 @@ export class AangBrowser {
   private tidyTrails(): void { this.trails = this.trails.filter((tr) => tr.id === this.pendingTrail || this.tabs.some((t) => t.trail === tr.id && !t.done)); }
   newTrail(): void {
     this.pendingTrail = this.addTrail('NEW TRAIL');
-    this.newTab(HOME);
+    this.newTab(this.HOME);
     this.win?.webContents.send('browser:focusslot');
   }
   renameTrail(id: number, name: string): void {
@@ -940,12 +1049,16 @@ export class AangBrowser {
       case 'zoomin': if (wc && t) { t.zoom = Math.min(5, wc.getZoomLevel() + 0.5); wc.setZoomLevel(t.zoom); this.changed(); } break;
       case 'zoomout': if (wc && t) { t.zoom = Math.max(-5, wc.getZoomLevel() - 0.5); wc.setZoomLevel(t.zoom); this.changed(); } break;
       case 'zoomreset': if (wc && t) { t.zoom = 0; wc.setZoomLevel(0); this.changed(); } break;
-      case 'newtab': this.newTab(HOME); this.win?.webContents.send('browser:focusslot'); break;
+      case 'newtab': this.newTab(this.HOME); this.win?.webContents.send('browser:focusslot'); break;
       case 'close': if (t) this.close(t.id); break;
       case 'reopen': this.reopen(); break;
       case 'reclaim': this.onReclaim?.(); break;
       case 'drawer-open': void this.drawer(true); break;
       case 'importmarks': void this.importMarks(); break;
+      case 'winmin': this.win?.minimize(); break;
+      case 'winmax': if (this.win) { if (this.win.isMaximized()) this.win.unmaximize(); else this.win.maximize(); } break;
+      case 'winclose': this.win?.close(); break;
+      case 'homehere': { const u = t?.url; if (u && isWeb(u)) { this.prefs.home = u; this.savePrefs(); this.note('This page is your home page now.'); this.sendTabs(); } break; }
       case 'star': this.toggleMark(); break;
       case 'vault': void this.vaultKey(); break;
       case 'vaultcancel': this.vaultCancel(); break;
@@ -1084,6 +1197,9 @@ export class AangBrowser {
       marks: [...this.marks.filter((m) => isBar(m.folder)), ...this.marks.filter((m) => !isBar(m.folder))].slice(0, 24).map((m) => ({ title: m.title, url: m.url })),
       markCount: this.marks.length,
       hasLogin: this.hasLogin,
+      loginKnown: this.loginKnown,
+      maximized: Boolean(w.isMaximized()),
+      home: this.HOME,
       starred: Boolean(t && this.marks.some((m) => m.url === t.url)),
       // The page's zoom as he would say it: 100%, 120%... (Chromium's level is 20% per step).
       zoomPct: wc ? Math.round(Math.pow(1.2, wc.getZoomLevel()) * 100) : 100,
