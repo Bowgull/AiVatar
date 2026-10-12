@@ -112,7 +112,26 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--wood2);font:500 
 /* 6.23: the vault key, beside the star, only on a page with a password box. */
 .slot .vkey{flex:0 0 auto;display:grid;place-items:center;width:26px;height:24px;padding:0;border:none;border-radius:6px;background:none;cursor:pointer}
 .slot .vkey[hidden]{display:none}
-.slot .vkey svg path{fill:var(--gold)}
+.slot .vkey svg path{fill:#bfae8a}
+.slot .vkey.known svg path{fill:var(--gold)}
+/* One soft pulse when the key first shows on a site he has a login for. */
+.slot .vkey.pulse{animation:vpulse 1.4s ease-out 1}
+@keyframes vpulse{0%{box-shadow:0 0 0 0 rgba(255,196,60,.65)}70%{box-shadow:0 0 0 8px rgba(255,196,60,0)}100%{box-shadow:0 0 0 0 rgba(255,196,60,0)}}
+@media (prefers-reduced-motion:reduce){.slot .vkey.pulse{animation:none}}
+/* His window buttons, B (2026-10-12): bold gold pixel symbols on the wood, a soft glow on hover, red for close. */
+.winkeys{position:absolute;right:10px;top:0;height:100%;display:flex;align-items:center;gap:4px;-webkit-app-region:no-drag}
+.wk{width:40px;height:34px;display:grid;place-items:center;padding:0;border:none;border-radius:8px;background:none;cursor:pointer}
+.wk svg path{fill:var(--gold-lit)}
+.wk:hover{background:rgba(255,224,150,.12)}
+.wk.close:hover{background:rgba(255,90,74,.85)}
+.wk.close:hover svg path{fill:#fff}
+.wk:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
+.wk .g-rest{display:none}
+body.maxed .wk .g-max{display:none}
+body.maxed .wk .g-rest{display:inline}
+.homerow small{display:block;font:500 11.5px var(--body);color:#a8977a;margin-top:2px;word-break:break-all}
+.homeset{display:flex;gap:6px;padding:0 8px 6px}
+.homeset input{flex:1;min-width:0;padding:5px 8px;border-radius:5px;border:2px solid var(--outline);background:#0B0718;color:#F0E6FF;font:500 12.5px var(--body)}
 .slot .vkey:hover{background:rgba(255,224,150,.10)}
 .bandchip.vault{left:auto;right:170px;width:320px}
 .bandchip.vault .vpw{display:block;width:100%;box-sizing:border-box;margin-top:8px;padding:8px 10px;border-radius:8px;border:2px solid #6b5132;background:#fffaf0;font:600 14px var(--body);color:#271c10}
@@ -124,8 +143,9 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--wood2);font:500 
 .bandchip.vault .vrow:hover{background:#ffeec8}
 /* 6.23: the bookmark star at the slot's right end. Hollow until the page is on the shelf, then gold. */
 .slot .star{flex:0 0 auto;display:grid;place-items:center;width:26px;height:24px;padding:0;border:none;border-radius:6px;background:none;cursor:pointer}
-.slot .star svg path{fill:#5d5378}
-.slot .star:hover svg path{fill:#bfae8a}
+.slot .star{width:30px}
+.slot .star svg path{fill:#6e628c}
+.slot .star:hover svg path{fill:#9f93bd}
 .slot .star.on svg path{fill:var(--gold)}
 .slot .star:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
 .tp .x{flex:0 0 auto;width:18px;height:18px;border-radius:50%;border:none;padding:0;cursor:pointer;opacity:0;

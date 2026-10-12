@@ -68,6 +68,23 @@ export class Vault {
     } catch { return null; }
   }
 
+  /** Every site he has a login for (host names only), so the key can glow without unlocking. */
+  async loginHosts(): Promise<string[] | null> {
+    if (!this.session) return null;
+    const r = await bw(['list', 'items'], { BW_SESSION: this.session }, 60_000);
+    if (!r.ok) return null;
+    try {
+      const out = new Set<string>();
+      for (const i of JSON.parse(r.out) as { type: number; login?: { uris?: { uri?: string }[] } }[]) {
+        if (i.type !== 1) continue;
+        for (const u of i.login?.uris ?? []) {
+          try { const h = new URL(/^[a-z]+:\/\//i.test(u.uri ?? '') ? u.uri! : 'https://' + u.uri).hostname.replace(/^www\./, ''); if (h) out.add(h); } catch { /* not an address */ }
+        }
+      }
+      return [...out];
+    } catch { return null; }
+  }
+
   /** One login's username and password, for one fill. */
   async secret(id: string): Promise<{ username: string; password: string } | null> {
     if (!this.session || !/^[0-9a-f-]{36}$/i.test(id)) return null;

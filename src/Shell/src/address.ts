@@ -15,4 +15,6 @@ export function addressFor(input: string): string | null {
   if (/^localhost(:\d+)?(\/.*)?$/i.test(t)) return 'http://' + t;
   return searchFor(t);
 }
-export const searchFor = (q: string): string => `https://www.google.com/search?q=${encodeURIComponent(q)}`;
+/** Brave Search with its AI answer off (his pick, 2026-10-12, research_notes/Search engine for Aang browser): its own
+ *  index, the least filtering of the free engines, and !g still jumps to Google. */
+export const searchFor = (q: string): string => `https://search.brave.com/search?q=${encodeURIComponent(q)}&summary=0`;

@@ -77,6 +77,7 @@ function closeMenu() {
 }
 function paintMenu() {
   el('zpct').textContent = (state.zoomPct ?? 100) + '%';
+  el('homenow').textContent = String(state.home ?? '').replace(/^https:\/\//, '').replace(/\/$/, '');
   const prefs = { ...(state.prefs ?? { ads: true, popups: true }), sounds: state.sounds === true };
   for (const sw of menu.querySelectorAll('.sw[data-pref]')) {
     const on = prefs[sw.dataset.pref] === true;
@@ -96,6 +97,12 @@ el('m-newtab').addEventListener('click', () => { closeMenu(); tap(); window.aang
 el('m-reopen').addEventListener('click', () => { closeMenu(); window.aang?.browserAct?.('reopen'); });
 el('m-find').addEventListener('click', () => { closeMenu(); setTimeout(openFind, 0); });
 el('m-import').addEventListener('click', () => { closeMenu(); window.aang?.browserAct?.('importmarks'); });
+el('homeform').addEventListener('submit', (e) => { e.preventDefault(); window.aang?.browserHome?.(el('homein').value); el('homein').value = ''; closeMenu(); });
+el('homehere').addEventListener('click', () => { window.aang?.browserAct?.('homehere'); closeMenu(); });
+// His own window buttons. Double-clicking the band still maximises (Windows does that for the drag area).
+el('wmin').addEventListener('click', () => window.aang?.browserAct?.('winmin'));
+el('wmax').addEventListener('click', () => window.aang?.browserAct?.('winmax'));
+el('wclose').addEventListener('click', () => window.aang?.browserAct?.('winclose'));
 el('vkey').addEventListener('click', (e) => { e.stopPropagation(); window.aang?.browserAct?.('vault'); });
 // The vault's chip: the master password box (unlock) or the account list (pick). The password goes to the Shell
 // and the box is emptied at once; nothing here keeps it.
@@ -491,7 +498,14 @@ window.aang?.onBrowserTabs?.((s) => {
   if (!s || !Array.isArray(s.tabs)) return;
   state = s;
   paintMarks(s.marks);
-  el('vkey').hidden = s.hasLogin !== true;
+  // The key: only where Bitwarden has a login here; gold with one soft pulse when it first shows.
+  const vk = el('vkey');
+  const showKey = s.hasLogin === true;
+  if (showKey && vk.hidden) { vk.classList.remove('pulse'); void vk.offsetWidth; if (s.loginKnown) vk.classList.add('pulse'); }
+  vk.hidden = !showKey;
+  vk.classList.toggle('known', s.loginKnown === true);
+  document.body.classList.toggle('maxed', s.maximized === true);
+  el('wmax').setAttribute('aria-label', s.maximized ? 'Restore' : 'Maximise');
   el('star').classList.toggle('on', s.starred === true);
   el('star').setAttribute('aria-pressed', String(s.starred === true));
   el('star').setAttribute('aria-label', s.starred ? 'Take this page off your bookmarks' : 'Bookmark this page');
