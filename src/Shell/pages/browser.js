@@ -77,28 +77,71 @@ function closeMenu() {
 }
 function paintMenu() {
   el('zpct').textContent = (state.zoomPct ?? 100) + '%';
-  el('homenow').textContent = String(state.home ?? '').replace(/^https:\/\//, '').replace(/\/$/, '');
-  const prefs = { ...(state.prefs ?? { ads: true, popups: true }), sounds: state.sounds === true };
-  for (const sw of menu.querySelectorAll('.sw[data-pref]')) {
-    const on = prefs[sw.dataset.pref] === true;
-    sw.classList.toggle('on', on);
-    sw.setAttribute('aria-checked', String(on));
-  }
 }
 menukey.addEventListener('click', (e) => { e.stopPropagation(); menuOpen ? closeMenu() : openMenu(); });
 menu.addEventListener('click', (e) => e.stopPropagation());
-for (const sw of menu.querySelectorAll('.sw[data-pref]')) {
-  sw.addEventListener('click', () => window.aang?.browserPref?.({ key: sw.dataset.pref, on: !sw.classList.contains('on') }));
-}
+
 el('zin').addEventListener('click', () => window.aang?.browserAct?.('zoomin'));
 el('zout').addEventListener('click', () => window.aang?.browserAct?.('zoomout'));
 el('zreset').addEventListener('click', () => window.aang?.browserAct?.('zoomreset'));
 el('m-newtab').addEventListener('click', () => { closeMenu(); tap(); window.aang?.browserAct?.('newtab'); });
 el('m-reopen').addEventListener('click', () => { closeMenu(); window.aang?.browserAct?.('reopen'); });
 el('m-find').addEventListener('click', () => { closeMenu(); setTimeout(openFind, 0); });
-el('m-import').addEventListener('click', () => { closeMenu(); window.aang?.browserAct?.('importmarks'); });
-el('homeform').addEventListener('submit', (e) => { e.preventDefault(); window.aang?.browserHome?.(el('homein').value); el('homein').value = ''; closeMenu(); });
-el('homehere').addEventListener('click', () => { window.aang?.browserAct?.('homehere'); closeMenu(); });
+el('m-print').addEventListener('click', () => { closeMenu(); window.aang?.browserAct?.('print'); });
+el('m-tidy').addEventListener('click', () => { closeMenu(); openDrawer(); window.aang?.browserAct?.('tidy'); });
+el('m-marks').addEventListener('click', () => { closeMenu(); window.aang?.browserAct?.('bookmarks'); });
+el('m-settings').addEventListener('click', () => { closeMenu(); window.aang?.browserAct?.('settings'); });
+// ---- Trail clean up: the broom at the bottom of the drawer, the panel just above it
+el('broom').addEventListener('click', () => window.aang?.browserAct?.('tidy'));
+el('tidykeep').addEventListener('click', () => window.aang?.browserAct?.('tidykeep'));
+el('tidyundo').addEventListener('click', () => window.aang?.browserAct?.('tidyundo'));
+el('tidypanel').addEventListener('click', (e) => { if (state.tidy?.phase === 'working' && !e.target.closest('button')) window.aang?.browserAct?.('tidyundo'); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && state.tidy?.phase === 'working') window.aang?.browserAct?.('tidyundo'); });
+let tidyTick = null;
+function paintTidy() {
+  const td = state.tidy;
+  el('tidypanel').hidden = !td;
+  el('broom').disabled = Boolean(td);
+  const live = state.tabs.filter((t) => !t.done && !String(t.url).startsWith('aang:')).length;
+  el('tabcount').textContent = `${live} TAB${live === 1 ? '' : 'S'}`;
+  document.getElementById('tabs').classList.toggle('tidying', td?.phase === 'working');
+  clearInterval(tidyTick);
+  if (!td) return;
+  const working = td.phase === 'working';
+  el('tidytitle').textContent = working ? 'AANG IS TIDYING' : 'TIDIED';
+  el('tidyprog').hidden = !working;
+  el('tidykeys').hidden = working;
+  if (working) {
+    el('tidyline').textContent = (td.text || 'Sorting your tabs.') + ' Keep browsing: nothing closes until you keep it.';
+    el('tidydim').textContent = td.waiting ? 'WAITING FOR WOW TO CLOSE' : 'ESC OR CLICK HERE TO STOP';
+  } else {
+    const parts = [];
+    if (td.created) parts.push(`${td.created} trail${td.created === 1 ? '' : 's'} made`);
+    if (td.doubles) parts.push(`${td.doubles} double${td.doubles === 1 ? '' : 's'} closing`);
+    if (td.stashed) parts.push(`${td.stashed} old trail${td.stashed === 1 ? '' : 's'} put in the Stash`);
+    el('tidyline').textContent = (parts.length ? parts.join(', ') + '.' : 'Already tidy: nothing to change.') + (td.text ? ' ' + td.text : '');
+    const tick = () => { const s = Math.max(0, Math.ceil((td.keepAt - Date.now()) / 1000)); el('tidydim').textContent = `KEEPS ITSELF IN ${s} SECOND${s === 1 ? '' : 'S'}`; };
+    tick(); tidyTick = setInterval(tick, 500);
+  }
+}
+// ---- the Stash: the chest at the bottom of the list; click it to see the trails put away
+el('chest').addEventListener('click', () => { el('stashlist').hidden = !el('stashlist').hidden; paintStash(); });
+function paintStash() {
+  const st = Array.isArray(state.stash) ? state.stash : [];
+  el('stash').hidden = !st.length;
+  el('stashn').textContent = `${st.length} trail${st.length === 1 ? '' : 's'} put away. Click to bring one back.`;
+  if (!st.length) el('stashlist').hidden = true;
+  if (el('stashlist').hidden) return;
+  el('stashlist').replaceChildren(...st.map((s) => {
+    const row = document.createElement('div'); row.className = 'srow';
+    const b = Object.assign(document.createElement('button'), { type: 'button', className: 'sback', textContent: `${s.name} (${s.count} tab${s.count === 1 ? '' : 's'})`, title: 'Bring it back' });
+    b.addEventListener('click', () => window.aang?.browserTrail?.({ act: 'stash', id: s.id, what: 'restore' }));
+    const x = Object.assign(document.createElement('button'), { type: 'button', className: 'sx', textContent: 'x', title: 'Let it go for good' });
+    x.addEventListener('click', () => window.aang?.browserTrail?.({ act: 'stash', id: s.id, what: 'forget' }));
+    row.append(b, x);
+    return row;
+  }));
+}
 // His own window buttons. Double-clicking the band still maximises (Windows does that for the drag area).
 el('wmin').addEventListener('click', () => window.aang?.browserAct?.('winmin'));
 el('wmax').addEventListener('click', () => window.aang?.browserAct?.('winmax'));
@@ -240,6 +283,8 @@ window.addEventListener('keydown', (e) => {
 /** The address as sheet 3 draws it: the real domain bright, the rest dimmed. */
 function paintUrl(u) {
   urlEl.replaceChildren();
+  // The browser's own pages (Settings) say their name, with no shield: they are not websites.
+  if (String(u).startsWith('aang:')) { urlEl.append(Object.assign(document.createElement('b'), { textContent: 'Settings' })); lock.hidden = true; return; }
   let parsed = null;
   try { parsed = new URL(u); } catch { /* not a URL */ }
   if (!parsed) { urlEl.textContent = u; lock.hidden = true; return; }
@@ -284,9 +329,15 @@ function paintTabs() {
   for (const tr of trails) { const tabs = live.filter((t) => t.trail === tr.id); if (tabs.length) groups.push({ id: tr.id, trail: tr, tabs }); }
   const done = state.tabs.filter((t) => t.done);
   const rowFor = (t, kid) => {
-    const sig = JSON.stringify([t.id === state.active, t.crashed, t.asleep, t.loading, t.favicon, t.title, t.url, t.audible, t.muted, kid, t.done, t.lent]);
+    const dup = Boolean(state.tidy?.dup?.includes(t.id));
+    const sig = JSON.stringify([t.id === state.active, t.crashed, t.asleep, t.loading, t.favicon, t.title, t.url, t.audible, t.muted, kid, t.done, t.lent, dup]);
     let r = rows.get(t.id);
-    if (!r || r.sig !== sig) { const fresh = buildRow(t, kid); if (r) r.el.replaceWith(fresh); r = { sig, el: fresh }; rows.set(t.id, r); }
+    if (!r || r.sig !== sig) {
+      const fresh = buildRow(t, kid);
+      if (dup) { fresh.classList.add('dup'); fresh.append(Object.assign(document.createElement('span'), { className: 'dupchip', textContent: 'X2 CLOSING' })); }
+      fresh.draggable = true; fresh.dataset.tab = String(t.id); fresh.dataset.trail = t.trail == null ? '' : String(t.trail);
+      if (r) r.el.replaceWith(fresh); r = { sig, el: fresh }; rows.set(t.id, r);
+    }
     return r.el;
   };
   const want = [];
@@ -294,6 +345,7 @@ function paintTabs() {
     if (g.id !== null) want.push(headFor(g.trail, g.tabs.length));
     const inGroup = new Set(g.tabs.map((t) => t.id));
     // Only inside a trail does a tab sit under the one it came from; loose tabs are a flat list.
+    if (g.trail?.collapsed) continue;
     for (const t of g.tabs) want.push(rowFor(t, g.id !== null && Boolean(t.opener && inGroup.has(t.opener))));
   }
   let shelf = document.getElementById('doneshelf');
@@ -325,7 +377,14 @@ function headFor(tr, n) {
     box.addEventListener('blur', () => done(true));
     nm.replaceWith(box); box.focus(); box.select();
   });
-  h.replaceChildren(nm, Object.assign(document.createElement('span'), { className: 'n', textContent: String(n) }));
+  const grip = Object.assign(document.createElement('i'), { className: 'grip', title: 'Drag to move this trail' });
+  const more = Object.assign(document.createElement('button'), { type: 'button', className: 'thm', textContent: '\u00b7\u00b7\u00b7', title: 'Trail options' });
+  more.addEventListener('click', (e) => { e.stopPropagation(); trailMenu(tr, e.clientX, e.clientY); });
+  h.classList.toggle('fresh', tr.fresh === true);
+  h.classList.toggle('shut', tr.collapsed === true);
+  h.draggable = true;
+  h.dataset.trail = String(tr.id);
+  h.replaceChildren(grip, nm, Object.assign(document.createElement('span'), { className: 'n', textContent: `${n} TAB${n === 1 ? '' : 'S'}` }), more);
   return h;
 }
 
@@ -368,7 +427,7 @@ function turnIn(id) {
   if (r) r.append(Object.assign(document.createElement('span'), { className: 'quest', textContent: 'QUEST COMPLETE' }));
   setTimeout(() => { tap(1.25); window.aang?.browserTab?.({ id, act: 'done' }); }, 850);
 }
-el('newtrail').addEventListener('click', () => { closeDrawer(); window.aang?.browserTrail?.({ act: 'new' }); });
+
 
 function buildRow(t, kid) {
   {
@@ -422,7 +481,7 @@ function paintMarks(list) {
   const box = el('marks');
   box.replaceChildren();
   if (!Array.isArray(list) || !list.length) {
-    box.append(Object.assign(document.createElement('p'), { className: 'empty', textContent: 'Your bookmarks land here. Bring them from Chrome in the ⋯ menu, or press the star on a page.' }));
+    box.append(Object.assign(document.createElement('p'), { className: 'empty', textContent: 'Your bookmarks land here. Press the book in the address bar, or bring them from Chrome in Settings.' }));
     return;
   }
   for (const b of list.slice(0, 24)) {
@@ -479,6 +538,12 @@ window.aang?.onBrowserDownload?.((d) => {
   if (!d) return;
   const t = el('toast');
   if (d.state === 'completed') tap(1.4);
+  if (d.undo === 'trailclose') {
+    t.replaceChildren(String(d.text ?? ''), Object.assign(document.createElement('button'), { type: 'button', className: 'undo', textContent: 'Undo', onclick: () => { window.aang?.browserAct?.('trailundo'); t.hidden = true; } }));
+    t.hidden = false;
+    setTimeout(() => { t.hidden = true; }, 8000);
+    return;
+  }
   t.textContent = d.state === 'note' ? String(d.text ?? '') : d.state === 'completed' ? `Downloaded ${d.name} to your Downloads. Windows checks it before it opens.` : `${d.name} did not finish downloading.`;
   t.hidden = false;
   setTimeout(() => { t.hidden = true; }, 6000);
@@ -510,6 +575,8 @@ window.aang?.onBrowserTabs?.((s) => {
   if (!s || !Array.isArray(s.tabs)) return;
   state = s;
   paintMarks(s.marks);
+  paintTidy();
+  paintStash();
   // The key: only where Bitwarden has a login here; gold with one soft pulse when it first shows.
   const vk = el('vkey');
   const showKey = s.hasLogin === true;
@@ -574,4 +641,87 @@ window.aang?.onBrowserTabs?.((s) => {
   if (pop) el('popurl').textContent = pop;
   if (!el('sitepanel').hidden) paintAdSwitch();
   if (crashed) el('crashtitle').textContent = `${(t.title || 'This page').slice(0, 60)} stopped working`;
+});
+
+
+// ---- the trail menu (the ··· on a trail's name): wood, like the tab's menu, the glove on what you point at
+function trailMenu(tr, x, y) {
+  closeTabMenu();
+  const m = document.createElement('div'); m.id = 'tabmenu'; m.className = 'tabmenu'; m.setAttribute('role', 'menu');
+  const item = (label, go, cls = '') => {
+    const b = Object.assign(document.createElement('button'), { type: 'button', className: cls, textContent: label });
+    b.setAttribute('role', 'menuitem');
+    b.addEventListener('click', () => { closeTabMenu(); go(); });
+    m.append(b);
+  };
+  const sep = () => m.append(Object.assign(document.createElement('div'), { className: 'sep' }));
+  const n = state.tabs.filter((t) => t.trail === tr.id).length;
+  item('Rename', () => heads.get(tr.id)?.querySelector('.nm')?.click());
+  item(tr.collapsed ? 'Open it up' : 'Collapse', () => window.aang?.browserTrail?.({ act: 'trail', id: tr.id, what: 'collapse' }));
+  item('Move to the Stash', () => window.aang?.browserTrail?.({ act: 'trail', id: tr.id, what: 'stash' }));
+  item('Ungroup (keep the tabs)', () => window.aang?.browserTrail?.({ act: 'trail', id: tr.id, what: 'ungroup' }));
+  sep();
+  item(`Close the trail and its ${n} tab${n === 1 ? '' : 's'}`, () => window.aang?.browserTrail?.({ act: 'trail', id: tr.id, what: 'close' }), 'danger');
+  document.body.append(m);
+  const r = m.getBoundingClientRect();
+  m.style.left = Math.max(4, Math.min(x, innerWidth - r.width - 4)) + 'px';
+  m.style.top = Math.max(4, Math.min(y, innerHeight - r.height - 4)) + 'px';
+  setTimeout(() => document.addEventListener('pointerdown', (e) => { if (!m.contains(e.target)) closeTabMenu(); }, { once: true }), 0);
+}
+
+// ---- dragging (2026-10-12): a tab into another trail, out to loose, or up and down; a whole trail by its heading.
+// A gold line shows where it will land. Nothing moves until the drop.
+const dropLine = Object.assign(document.createElement('div'), { className: 'dropline' });
+let dragging = null;   // { kind: 'tab' | 'trail', id }
+tabsBox.addEventListener('dragstart', (e) => {
+  const row = e.target.closest?.('.tp[data-tab]'), head = e.target.closest?.('.th[data-trail]');
+  if (row) dragging = { kind: 'tab', id: Number(row.dataset.tab) };
+  else if (head) dragging = { kind: 'trail', id: Number(head.dataset.trail) };
+  else return;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', '');
+  (row || head).classList.add('lifted');
+});
+tabsBox.addEventListener('dragend', () => { dragging = null; dropLine.remove(); for (const x of tabsBox.querySelectorAll('.lifted')) x.classList.remove('lifted'); });
+/** Where a drop at this point lands: the element it goes before, and the trail it joins. */
+function landing(y) {
+  const items = [...tabsBox.children].filter((n) => n.matches('.tp[data-tab], .th[data-trail]'));
+  if (dragging?.kind === 'trail') {
+    const heads = items.filter((n) => n.matches('.th'));
+    const before = heads.find((h) => y < h.getBoundingClientRect().top + h.offsetHeight / 2) ?? null;
+    return { node: before, trail: null, before: before ? Number(before.dataset.trail) : null };
+  }
+  for (const n of items) {
+    const r = n.getBoundingClientRect();
+    if (y < r.top + r.height / 2) {
+      if (n.matches('.th')) {
+        // above a heading: the end of whatever group sits above it
+        const prev = items[items.indexOf(n) - 1];
+        return { node: n, trail: prev?.matches('.tp') && prev.dataset.trail ? Number(prev.dataset.trail) : null, before: null, atEnd: true };
+      }
+      return { node: n, trail: n.dataset.trail ? Number(n.dataset.trail) : null, before: Number(n.dataset.tab) };
+    }
+    // over the lower half of a heading: the start of that trail
+    if (n.matches('.th') && y < r.bottom) {
+      const first = items[items.indexOf(n) + 1];
+      return { node: first ?? null, trail: Number(n.dataset.trail), before: first?.matches('.tp') && first.dataset.trail === n.dataset.trail ? Number(first.dataset.tab) : null };
+    }
+  }
+  const last = items[items.length - 1];
+  return { node: null, trail: last?.matches('.tp') && last.dataset.trail ? Number(last.dataset.trail) : null, before: null };
+}
+tabsBox.addEventListener('dragover', (e) => {
+  if (!dragging) return;
+  e.preventDefault();
+  const l = landing(e.clientY);
+  if (l.node) tabsBox.insertBefore(dropLine, l.node); else tabsBox.append(dropLine);
+});
+tabsBox.addEventListener('drop', (e) => {
+  if (!dragging) return;
+  e.preventDefault();
+  const l = landing(e.clientY);
+  if (dragging.kind === 'trail') window.aang?.browserTrail?.({ act: 'movetrail', id: dragging.id, before: l.before });
+  else window.aang?.browserTrail?.({ act: 'place', tab: dragging.id, trail: l.trail, before: l.before });
+  dropLine.remove();
+  dragging = null;
 });

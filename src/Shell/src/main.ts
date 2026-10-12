@@ -253,6 +253,7 @@ const link = new CoreLink({
     // 6.15: the pet's "Panel..." menu, with the new front end on, opens window 2 instead of the C# Panel.
     if (m.t === 'snip') { void snipper?.start(); return; }
     if (m.t === 'browser') { aangBrowser?.open(); return; }
+    if (m.t === 'tidy.answer' && Number.isInteger(m.id)) { aangBrowser?.tidyAnswer(Number(m.id), { ok: m.ok === true, text: typeof m.text === 'string' ? m.text : '', why: typeof m.why === 'string' ? m.why : '' }); return; }
     // 6.17: remember which file the brain accepted, so the bubble can only ever name that one.
     if (m.t === 'drop.done' && typeof m.path === 'string') lastDropPath = m.path;
     // 6.17 Highlight: the text lands on the typing box as a chip; it goes with his next message.
@@ -466,8 +467,10 @@ app.whenReady().then(async () => {
       }
       console.log('shell: the new typing box is on; Ctrl+Plus belongs to the Shell');
 
-      aangBrowser = new AangBrowser({ origin: pages.origin, preloadPath: path.join(HERE, 'preload.cjs'), stateDir: STATE_DIR, tabPreloadPath: path.join(HERE, 'tabpreload.cjs') });
+      aangBrowser = new AangBrowser({ origin: pages.origin, preloadPath: path.join(HERE, 'preload.cjs'), stateDir: STATE_DIR, tabPreloadPath: path.join(HERE, 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, 'settingspreload.cjs') });
       aangBrowser.onReclaim = () => popout?.returnTab();
+      // Trail clean up asks Qwen through the brain; the answer comes back as tidy.answer.
+      aangBrowser.onTidyAsk = (id, prompt) => { if (!link?.send({ t: 'tidy.ask', id, prompt })) aangBrowser?.tidyAnswer(id, { ok: false, why: 'offline' }); };
 
       // 6.17: Snipit, on Ctrl+Shift+Plus (his key). The snip lands on the typing box as a chip, never sent by itself.
       snipper = new Snipper({
@@ -812,6 +815,12 @@ app.whenReady().then(async () => {
     if (a.act === 'new') aangBrowser.newTrail();
     else if (a.act === 'rename' && Number.isInteger(a.id) && typeof a.name === 'string') aangBrowser.renameTrail(a.id, a.name);
     else if (a.act === 'move' && Number.isInteger(a.tab)) aangBrowser.moveTab(a.tab, a.to === 'new' ? 'new' : Number.isInteger(a.to) ? a.to : null);
+    // Dragging (2026-10-12): a tab into a trail or loose, before another tab; a whole trail before another trail.
+    else if (a.act === 'place' && Number.isInteger(a.tab)) aangBrowser.placeTab(a.tab, Number.isInteger(a.trail) ? a.trail : null, Number.isInteger(a.before) ? a.before : null);
+    else if (a.act === 'movetrail' && Number.isInteger(a.id)) aangBrowser.moveTrail(a.id, Number.isInteger(a.before) ? a.before : null);
+    // The trail menu, and the Stash.
+    else if (a.act === 'trail' && Number.isInteger(a.id) && ['collapse', 'stash', 'ungroup', 'close'].includes(a.what)) aangBrowser.trailAct(a.id, a.what);
+    else if (a.act === 'stash' && Number.isInteger(a.id) && (a.what === 'restore' || a.what === 'forget')) aangBrowser.stashAct(a.id, a.what);
   });
   ipcMain.on('browser:find', (e, a) => { if (aangBrowser?.isFrame(e.sender) && a && typeof a.text === 'string') aangBrowser.find(a.text, a.next === true, a.back === true); });
   ipcMain.on('pagemenu:pick', (e, id) => { if (aangBrowser?.isMenu(e.sender)) aangBrowser.menuPick(typeof id === 'string' ? id.slice(0, 20) : ''); });
@@ -829,6 +838,11 @@ app.whenReady().then(async () => {
   ipcMain.on('browser:vaultunlock', (e, a) => { if (aangBrowser?.isFrame(e.sender) && a && typeof a.pw === 'string' && a.pw.length <= 1024) void aangBrowser.vaultUnlock(a.pw); });
   ipcMain.on('browser:vaultpick', (e, a) => { if (aangBrowser?.isFrame(e.sender) && a && typeof a.id === 'string') void aangBrowser.vaultPick(a.id.slice(0, 64)); });
   ipcMain.on('browser:home', (e, text) => { if (aangBrowser?.isFrame(e.sender) && typeof text === 'string') aangBrowser.setHome(text.slice(0, 2000)); });
+  // The Settings tab: only its own page may use these.
+  ipcMain.handle('settings:get', (e) => aangBrowser?.isSettings(e.sender) ? aangBrowser.settingsData() : null);
+  ipcMain.on('settings:set', (e, a) => { if (aangBrowser?.isSettings(e.sender) && a && typeof a.key === 'string') aangBrowser.setSetting(a.key.slice(0, 20), a.value); });
+  ipcMain.on('settings:remove', (e, a) => { if (aangBrowser?.isSettings(e.sender) && a && typeof a.list === 'string' && typeof a.value === 'string') aangBrowser.removeEntry(a.list, a.value); });
+  ipcMain.on('settings:act', (e, a) => { if (aangBrowser?.isSettings(e.sender) && typeof a === 'string') aangBrowser.settingsAct(a.slice(0, 20)); });
   ipcMain.on('browser:findstop', (e) => { if (aangBrowser?.isFrame(e.sender)) aangBrowser.findStop(); });
   ipcMain.on('browser:pref', (e, a) => { if (aangBrowser?.isFrame(e.sender) && a && typeof a.key === 'string') aangBrowser.setPref(a.key, a.on === true); });
   ipcMain.on('browser:tab', (e, a) => { if (aangBrowser?.isFrame(e.sender) && a && Number.isInteger(a.id)) aangBrowser.tabAct(a.id, String(a.act)); });

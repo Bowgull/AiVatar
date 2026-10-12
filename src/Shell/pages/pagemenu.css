@@ -10,3 +10,9 @@ html,body{margin:0;background:var(--wood2);overflow:hidden;user-select:none}
 .pm button i{font:400 8.5px var(--label);font-style:normal;color:#8a7a62;flex:0 0 auto;align-self:center}
 .pm button span{overflow:hidden;text-overflow:ellipsis}
 .pm .sep{height:3px;margin:5px 2px;background:rgba(0,0,0,.45)}
+
+/* 2026-10-12: the glove on the item you point at (FFX), the same as every menu in the browser */
+.pm button{position:relative;transition:padding-left .08s ease-out}
+.pm button:hover:not(:disabled),.pm button:focus-visible{background:none;color:#ffe28c;padding-left:34px}
+.pm button:hover:not(:disabled)::before,.pm button:focus-visible::before{content:"";position:absolute;left:4px;top:50%;width:24px;height:18px;margin-top:-9px;
+  background:url(art/browser/hand.png) 0 0/24px 18px;image-rendering:pixelated}
