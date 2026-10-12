@@ -78,9 +78,9 @@ let gameQuiet = false;
 let escHeld = false;
 /** Ctrl+C is held only while the mouse is on a showing bubble: it copies the reply (his call, 2026-10-12). */
 let copyHeld = false;
-/** Ctrl+Shift+P pins and unpins the popout; held only while the popout is up, so other programs keep it otherwise. */
+/** Ctrl+Alt+P pins (was Ctrl+Shift+P: another program on this PC catches that one before Aang sees it, 2026-10-12) and unpins the popout; held only while the popout is up, so other programs keep it otherwise. */
 let pinHeld = false;
-/** TEMPORARY (2026-10-12): his Ctrl+Shift+P did nothing; this shows whether the key arrives. Remove once found. */
+/** TEMPORARY (2026-10-12): Ctrl+Shift+P never arrived; this checks Ctrl+Alt+P does. Remove once found. */
 let pinTraced = '';
 function pinTrace(what: string): void {
   if (what === pinTraced) return;
@@ -116,10 +116,10 @@ function watchBusyOnce(): void {
   else if (!overBubble && copyHeld) { globalShortcut.unregister('Control+C'); copyHeld = false; }
   const popUp = Boolean(popout?.window?.isVisible());
   if (popUp && !pinHeld) {
-    pinHeld = globalShortcut.register('Control+Shift+P', () => { pinTrace('pressed, pinned before: ' + popout?.pinned); popout?.togglePin(); pinTrace('pinned after: ' + popout?.pinned); });
-    pinTrace(pinHeld ? 'Ctrl+Shift+P claimed' : 'Ctrl+Shift+P REFUSED by Windows');
+    pinHeld = globalShortcut.register('Control+Alt+P', () => { pinTrace('pressed, pinned before: ' + popout?.pinned); popout?.togglePin(); pinTrace('pinned after: ' + popout?.pinned); });
+    pinTrace(pinHeld ? 'Ctrl+Alt+P claimed' : 'Ctrl+Alt+P REFUSED by Windows');
   }
-  else if (!popUp && pinHeld) { globalShortcut.unregister('Control+Shift+P'); pinHeld = false; pinTrace('let go (popout closed)'); }
+  else if (!popUp && pinHeld) { globalShortcut.unregister('Control+Alt+P'); pinHeld = false; pinTrace('let go (popout closed)'); }
   if (snipper?.open) { escHeld = false; return; }
   const wantEsc = showing && !gameQuiet;
   if (wantEsc && !escHeld) escHeld = globalShortcut.register('Escape', () => bubble?.send('bubble:dismiss', 'esc'));

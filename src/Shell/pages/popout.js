@@ -125,7 +125,7 @@ window.aang.onPopoutPinned?.((on) => {
   if (pinSay) clearTimeout(pinSay);
   const was = what.dataset.was ?? what.textContent;
   what.dataset.was = was;
-  what.textContent = on ? 'PINNED: CLICKS GO TO YOUR GAME. CTRL+SHIFT+P TO UNPIN' : 'UNPINNED';
+  what.textContent = on ? 'PINNED: CLICKS GO TO YOUR GAME. CTRL+ALT+P TO UNPIN' : 'UNPINNED';
   frame.classList.remove('faded');
   pinSay = setTimeout(() => { what.textContent = what.dataset.was ?? ''; delete what.dataset.was; if (pinned || player.state.playing) frame.classList.add('faded'); }, 2000);
 });
