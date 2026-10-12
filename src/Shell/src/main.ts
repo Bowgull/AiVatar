@@ -259,6 +259,13 @@ const link = new CoreLink({
     // 6.15: the pet's "Panel..." menu, with the new front end on, opens window 2 instead of the C# Panel.
     if (m.t === 'snip') { void snipper?.start(); return; }
     if (m.t === 'browser') { aangBrowser?.open(); return; }
+    // 6.25a: a driving step from the brain; the answer goes back with the same id.
+    if (m.t === 'drive' && Number.isInteger(m.id) && typeof m.op === 'string') {
+      const id = Number(m.id);
+      if (!aangBrowser) { link?.send({ t: 'drive.result', id, ok: false, error: 'the browser is not running' }); return; }
+      void aangBrowser.drive(m.op.slice(0, 12), (m.a && typeof m.a === 'object') ? m.a as Record<string, unknown> : {}).then((r) => link?.send({ t: 'drive.result', id, ...r }));
+      return;
+    }
     if (m.t === 'tidy.answer' && Number.isInteger(m.id)) { aangBrowser?.tidyAnswer(Number(m.id), { ok: m.ok === true, text: typeof m.text === 'string' ? m.text : '', why: typeof m.why === 'string' ? m.why : '' }); return; }
     // 6.17: remember which file the brain accepted, so the bubble can only ever name that one.
     if (m.t === 'drop.done' && typeof m.path === 'string') lastDropPath = m.path;
@@ -479,6 +486,7 @@ app.whenReady().then(async () => {
       aangBrowser = new AangBrowser({ origin: pages.origin, preloadPath: path.join(HERE, 'preload.cjs'), stateDir: STATE_DIR, tabPreloadPath: path.join(HERE, 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, 'thingspreload.cjs') });
       aangBrowser.onReclaim = () => popout?.returnTab();
       // Trail clean up asks Qwen through the brain; the answer comes back as tidy.answer.
+      aangBrowser.onDriverStop = (j) => { link?.send({ t: 'drive.stopped', job: j.id }); };
       aangBrowser.onTidyAsk = (id, prompt) => { if (!link?.send({ t: 'tidy.ask', id, prompt })) aangBrowser?.tidyAnswer(id, { ok: false, why: 'offline' }); };
 
       // 6.17: Snipit, on Ctrl+Shift+Plus (his key). The snip lands on the typing box as a chip, never sent by itself.
@@ -799,6 +807,8 @@ app.whenReady().then(async () => {
   ipcMain.on('browser:insets', (e, r) => { if (aangBrowser?.isFrame(e.sender) && r) aangBrowser.setInsets(Number(r.left), Number(r.top), Number(r.right) || 0, Number(r.bottom) || 0); });
   // A tab's page has drawn (tabpreload.cjs): the only thing a website's tab ever sends, and it carries nothing.
   ipcMain.on('tab:painted', (e) => aangBrowser?.painted(e.sender));
+  // 6.25a: STOP, close, watch or open one of Aang's pages, from the drawer or the address bar.
+  ipcMain.on('browser:driver', (e, a) => { if (aangBrowser?.isFrame(e.sender) && a && typeof a.act === 'string' && Number.isInteger(a.id)) aangBrowser.driverAct(a.act.slice(0, 10), a.id); });
   ipcMain.on('browser:act', (e, a) => { if (aangBrowser?.isFrame(e.sender) && typeof a === 'string') aangBrowser.act(a); });
   ipcMain.on('browser:go', (e, text) => { if (aangBrowser?.isFrame(e.sender) && typeof text === 'string') aangBrowser.go(text.slice(0, 2000)); });
   ipcMain.on('browser:askreply', (e, a) => { if (aangBrowser?.isFrame(e.sender) && a && Number.isInteger(a.id)) aangBrowser.answer(a.id, a.allow === true); });
