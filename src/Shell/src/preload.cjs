@@ -138,6 +138,7 @@ contextBridge.exposeInMainWorld('aang', {
   /** Send a video tab to the pop-out over WoW. */
   browserPopout: id => ipcRenderer.send('browser:popout', id),
   browserToMac: id => ipcRenderer.send('browser:tomac', id),
+  browserHome: text => ipcRenderer.send('browser:home', text),
   // --- 6.23 the vault: the frame's unlock box and account picker
   browserVaultUnlock: pw => ipcRenderer.send('browser:vaultunlock', { pw }),
   browserVaultPick: id => ipcRenderer.send('browser:vaultpick', { id }),

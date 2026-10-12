@@ -2689,6 +2689,18 @@ app-command. 5: the window's place in `browser-window.json`, used only if it sti
 Bitwarden filling from the main process (Min's adapter), Floccus bookmarks and open tabs with the Mac,
 one-time bookmark import. Passwords reach Bitwarden through each Mac browser's own Export button.
 
+**BUILT 2026-10-12 (his yes to start 6.23; his picks):**
+- **Bitwarden:** Bitwarden's official signed CLI, 2026.9.0, is in `%LOCALAPPDATA%\Programs\BitwardenCLI`. He runs `bw login` himself. A key in the slot fills only when he clicks it; if there are several logins, he picks one. He types his master password into the frame's chip, and it goes once to bw through its environment, never logged and never sent to the brain. The vault unlocks for 30 minutes and locks when the browser closes. The key shows only on sites he has a login for: after an unlock Aang keeps a list of those site names scrambled with an HMAC key on this PC, and the key pulses gold once (`vault.ts`).
+- **Bookmarks:** "Bring bookmarks from Chrome" in the ⋯ menu reads only the file he picks from Chrome's Export (`bookmarks.ts`). The book in the slot adds or removes the page.
+- **Search and home:** Brave Search, AI answer off (`research_notes/Search engine for Aang browser`). The home page is set in Settings and defaults to Brave.
+- **Google sign-in:**
+  - The browser now identifies itself as plain Chrome.
+  - FedCM is hidden, the same way passkeys were.
+  - Popups follow Chrome's rule. One opened within 1 second of his click is allowed, as a real window titled with its real address, with the fake-site checks applied. One a page opens by itself is blocked, and a chip offers "Allow popups on this site".
+- **Window buttons:** Aang draws his own minimise, maximise and close: bold gold pixel symbols, red when hovering close. Windows' snap menu on hover is gone; Win+Z still works.
+- **Window edges:** the window edge is dark wood and round (`winedge.ts`). The taskbar icon is a close-up of the whole face.
+- **Not built:** Floccus sync with the Mac.
+
 ### `[ ]` 6.24 Everyday extras
 
 Downloads list, print, PDF, a screen-share picker for calls, spellcheck.
