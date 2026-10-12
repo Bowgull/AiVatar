@@ -2701,6 +2701,21 @@ one-time bookmark import. Passwords reach Bitwarden through each Mac browser's o
 - **Window edges:** the window edge is dark wood and round (`winedge.ts`). The taskbar icon is a close-up of the whole face.
 - **Not built:** Floccus sync with the Mac.
 
+**BUILT 2026-10-12, the browser's organisation and Settings (his design, many mockup rounds):**
+- **Materials:** all pop-ups are the browser's wood. The slate panels are shelved for another build (`tools/pixelart/shelved-slate`).
+- **Settings tab:**
+  - Its own page (`pages/settings.*`) with its own small preload (`settingspreload.cjs`, settings doors only), pinned to its page.
+  - Sections: General (home page, search engine Brave/DuckDuckGo/Google/Yandex, AI box on/off, startup), Bookmarks (import, remove), Passwords (Bitwarden state, lock now), Privacy & protection (ads, popups, exception lists with an x each, the Aang gate), Sound and About.
+  - Dark ink cards raised on darker recessed wood, gold arrow caps, FFX glove choices.
+- **The ⋯ menu shrank** to New tab, Reopen, Zoom, Find, Print, Trail clean up, Bookmarks, History/Downloads (SOON) and Settings. Every menu shows the glove on the item you point at.
+- **Trail clean up (`tidy.ts`):**
+  - The broom sits at the bottom of the drawer, with the panel above it.
+  - Doubles are marked, then closed on Keep. Trails untouched for 14 days go to the Stash.
+  - Qwen (through the brain, `tidy.ask`) sorts loose tabs and names Aang's trails. It waits while WoW runs, and groups by site if Qwen is down.
+  - Keep or Undo, which auto-keeps after 10 seconds.
+- **Trails:** a grip to drag a whole trail; drag tabs between trails, loose or reordered, with a gold drop line; the ··· menu offers Rename, Collapse, Stash, Ungroup and Close (with Undo). The Stash is a chest with restore and forget.
+- **Shield, option C:** dim gold at rest, full colour on point, glowing blue when a popup is blocked (open it or allow the site), red when wrong.
+
 ### `[ ]` 6.24 Everyday extras
 
 Downloads list, print, PDF, a screen-share picker for calls, spellcheck.

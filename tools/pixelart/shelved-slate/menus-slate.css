@@ -1,0 +1,19 @@
+/* The rule, applied: every menu that pops up is slate with the gold arrow caps, and its choices are white words
+   with the FFX glove on the one you point at. Lettering: Figtree for items, Silkscreen for group labels and keys. */
+.pmock{position:absolute;left:560px;top:320px;z-index:60}
+.menu,.tabmenu,.pm{border:8px solid transparent !important;border-image:url(art/browser/slateframe.png) 4 repeat !important;border-radius:0 !important;
+  background:url(art/browser/cap3_tl.png) left -2px top -2px/22px 22px no-repeat,url(art/browser/cap3_tr.png) right -2px top -2px/22px 22px no-repeat,
+    url(art/browser/cap3_bl.png) left -2px bottom -2px/22px 22px no-repeat,url(art/browser/cap3_br.png) right -2px bottom -2px/22px 22px no-repeat,
+    url(art/browser/slate.png) 0 0/96px 96px !important;
+  background-origin:border-box !important;image-rendering:pixelated;box-shadow:0 8px 0 rgba(0,0,0,.35),0 14px 28px rgba(0,0,0,.55) !important;padding:10px 14px !important}
+.menu .gh{color:#ffe28c !important;font:400 9px var(--label);letter-spacing:2px}
+.menu .grp+.grp{border-top:2px solid rgba(0,0,0,.3) !important;box-shadow:inset 0 1px 0 rgba(255,255,255,.05) !important}
+.menu .mrow,.tabmenu button,.pm button{background:none !important;border:none !important;box-shadow:none !important;color:#e6edff !important;font:700 13.5px var(--body) !important;
+  text-shadow:2px 2px 0 #000 !important;position:relative;padding:5px 6px 5px 30px !important;border-radius:0 !important}
+.menu .mrow:hover,.tabmenu button:hover,.pm button:hover,.tabmenu button.on,.pm button.on{color:#ffe28c !important}
+.tabmenu button.on::before,.pm button.on::before,.menu .mrow:hover::before{content:"";position:absolute;left:2px;top:50%;width:24px;height:18px;margin-top:-9px;
+  background:url(art/browser/hand.png) 0 0/24px 18px;image-rendering:pixelated}
+.menu .mrow kbd,.pm button i,.tabmenu button i{color:#b7c2b4 !important;text-shadow:none !important}
+.menu .mrow.soon{color:#7f8a80 !important}
+.tabmenu .sep,.pm .sep{background:rgba(0,0,0,.35) !important;height:2px !important}
+.menu .zb{background:#1c2622 !important;border:2px solid #0c100e !important;color:#e6edff !important;border-radius:6px !important}

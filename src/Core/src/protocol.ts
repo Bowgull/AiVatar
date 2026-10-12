@@ -140,6 +140,8 @@ export type ToBody =
   | { t: 'bubble.busy'; on: boolean }
   /** The pet could not bring that Claude window forward: it was closed. */
   | { t: 'bubble.focus.failed' }
+  /** The browser's Trail clean up: Qwen's grouping, or why there is none ('game' means wait until WoW is closed). */
+  | { t: 'tidy.answer'; id: number; ok: boolean; text?: string; why?: string }
   /** An ask he never answered ran out (the brain said no for him): take it off the bubble. */
   | { t: 'ask.expired'; id: string }
 
@@ -372,6 +374,8 @@ export type FromBody =
   | { t: 'bubble.busy'; on: boolean }
   /** The pet could not bring that Claude window forward: it was closed. */
   | { t: 'bubble.focus.failed' }
+  /** The browser's Trail clean up asks Qwen to sort loose tabs (numbered site and title lines only). */
+  | { t: 'tidy.ask'; id: number; prompt: string }
   /**
    * Where the pet IS (step 6.10b), so the Shell can hang its windows off him. Sent by the C# Body when
    * he is dragged, docked, rescaled or moved between displays - on a change, never on a timer.
