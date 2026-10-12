@@ -129,17 +129,20 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--wood2);font:500 
 .slot .lock svg{display:block}
 .slot .lock.bad{background:var(--red);color:#2e0b06;box-shadow:none}
 .slot .lock[hidden]{display:none}
-/* The page, set INTO the wood: a carved recess around it, the page view's own corners rounded to match. */
+/* The FLOATING PAGE (his pick, 2026-10-12): no frame; the page floats on the wood with round corners and a soft
+   shadow under it. The page view's own corners are rounded to match (PAGE_RADIUS in browser.ts). The shadow is
+   drawn here, outside the page's edge, where the native page view does not cover it. */
 .body3{display:block;position:relative}
-.well{position:absolute;inset:0;display:flex;padding:6px 8px 8px 0}
-.recess{flex:1;min-width:0;display:flex;border-style:solid;border-width:8px;border-image:url(art/browser/recess.png) 4 repeat;image-rendering:pixelated}
-.pg3{flex:1;min-width:0;border-radius:6px;background:#f6f3ee;overflow:hidden;position:relative}
+.well{position:absolute;inset:0;display:flex;padding:0}
+.recess{flex:1;min-width:0;display:flex}
+.pg3{flex:1;min-width:0;margin:26px 30px 30px 20px;border-radius:16px;background:#f6f3ee;overflow:hidden;position:relative;
+  box-shadow:0 0 0 2px rgba(20,12,6,.9),0 6px 0 rgba(0,0,0,.35),0 18px 34px rgba(0,0,0,.55)}
 .pg3 .frozen{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:0 0;image-rendering:auto}
 .pg3 .frozen[hidden]{display:none}
-/* The wood tab on the left edge (V4-A): brass straps, the arrow dead centre, the tab count under it. */
-.hnd{width:30px;flex:0 0 auto;display:flex;align-items:flex-start;padding-top:60px;box-sizing:border-box}
-.hnd button{width:22px;height:96px;padding:0;border:none;cursor:pointer;position:relative;-webkit-app-region:no-drag;
-  background:url(art/browser/handle.png) no-repeat 0 0/22px 96px;image-rendering:pixelated;transition:filter .12s ease-out}
+/* The wood tab on the left edge, bigger and softened (2026-10-12): round outer corners, a rounded arrow, soft rivets. */
+.hnd{width:40px;flex:0 0 auto;display:flex;align-items:flex-start;padding-top:80px;box-sizing:border-box}
+.hnd button{width:32px;height:128px;padding:0;border:none;cursor:pointer;position:relative;-webkit-app-region:no-drag;
+  background:url(art/browser/handle3.png) no-repeat 0 0/32px 128px;image-rendering:pixelated;transition:filter .12s ease-out}
 .hnd button:hover{filter:brightness(1.18)}
 .hnd button:active{transform:translateX(1px)}
 .hnd .n{position:absolute;left:0;right:2px;bottom:24px;text-align:center;font:400 10px var(--label);color:var(--gold-lit)}
