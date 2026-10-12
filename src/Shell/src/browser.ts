@@ -19,7 +19,7 @@
 //    never runs anything (address.ts, tested).
 //  - Tabs get NO preload and the safe preferences: a website can never reach Aang's doors.
 //  - Every permission a site asks for is refused until 6.22 adds the asks (chips and the lever).
-import { BrowserWindow, WebContentsView, app, clipboard, dialog, screen, session as electronSession } from 'electron';
+import { BrowserWindow, WebContentsView, app, clipboard, dialog, nativeImage, screen, session as electronSession, shell } from 'electron';
 import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown } from './safety.ts';
@@ -31,6 +31,8 @@ import { softEdge } from './winedge.ts';
 import { isBar, parseBookmarks, type Mark } from './bookmarks.ts';
 import { Vault, fillScript, type Login } from './vault.ts';
 import { createHmac, randomBytes } from 'node:crypto';
+import { Visits, search as searchVisits } from './visits.ts';
+import { Downloads, kindOf, trayOf, type Dl } from './dlist.ts';
 
 /** A site name scrambled with this PC's own key: the file alone says nothing about where he has accounts. */
 const scramble = (key: string, host: string) => createHmac('sha256', key).update(host.toLowerCase()).digest('hex').slice(0, 32);
@@ -38,12 +40,12 @@ import { PhishCheck } from './phish.ts';
 import { failureWords, isRisky, upgrade } from './secure.ts';
 import { blockAds, type AdBlock } from './skip/ads.ts';
 
-export interface BrowserOptions { origin: string; preloadPath: string; stateDir: string; tabPreloadPath: string; settingsPreloadPath: string }
+export interface BrowserOptions { origin: string; preloadPath: string; stateDir: string; tabPreloadPath: string; settingsPreloadPath: string; thingsPreloadPath: string }
 
 interface Tab {
   id: number;
-  /** One of the browser's own pages (Settings), not a website: it gets its own small preload and never navigates. */
-  internal?: 'settings';
+  /** One of the browser's own pages (Settings, Your things), not a website: it gets its own small preload and never navigates. */
+  internal?: 'settings' | 'things';
   /** null while the tab is asleep: its page is closed to save memory, its snapshot kept. */
   view: WebContentsView | null;
   opener: number | null;
@@ -211,6 +213,16 @@ export class AangBrowser {
   private menu: BrowserWindow | null = null;
   private menuFor: { tab: number; p: Electron.ContextMenuParams } | null = null;
   private menuItems: unknown[] | null = null;
+  /** History (2026-10-12): every page he opened, 90 days, only on this PC. */
+  private readonly visits: Visits;
+  /** Downloads (2026-10-12): the list behind the tray and the Downloads page; the live ones and how far along they are. */
+  private readonly dls: Downloads;
+  private readonly live = new Map<number, Electron.DownloadItem>();
+  private readonly got = new Map<number, { got: number; total: number; rate: number }>();
+  /** The tray holds only downloads since this: the browser opening, or his Clear list. */
+  private traySince = Date.now();
+  private trayTimer: NodeJS.Timeout | null = null;
+  private dlSendTimer: NodeJS.Timeout | null = null;
   /** The mouse's side buttons can arrive twice (window and page): one press, one step. */
   private lastNav = 0;
   constructor(o: BrowserOptions) {
@@ -256,6 +268,8 @@ export class AangBrowser {
     } catch { /* none yet */ }
     this.httpOkFile = path.join(o.stateDir, 'browser-http-ok.json');
     this.trustedFile = path.join(o.stateDir, 'download-trusted.json');
+    this.visits = new Visits(path.join(o.stateDir, 'browser-history.json'));
+    this.dls = new Downloads(path.join(o.stateDir, 'browser-downloads.json'));
     const loadSet = (f: string) => { try { if (existsSync(f)) { const a = JSON.parse(readFileSync(f, 'utf8')); if (Array.isArray(a)) return new Set(a.filter((x: unknown) => typeof x === 'string')); } } catch { /* none */ } return new Set<string>(); };
     this.httpOk = loadSet(this.httpOkFile);
     this.trusted = loadSet(this.trustedFile);
@@ -316,6 +330,20 @@ export class AangBrowser {
       while (existsSync(to)) { const p = path.parse(base); to = path.join(dir, `${p.name} (${n++})${p.ext}`); }
       item.setSavePath(to);
       const from = item.getURL();
+      let fromSite = '';
+      try { fromSite = new URL(wc?.getURL() || from).hostname.replace(/^www\./, ''); } catch { /* unknown */ }
+      const d = this.dls.start(to, fromSite, item.getTotalBytes());
+      this.live.set(d.id, item);
+      let lastGot = 0, lastAt = Date.now();
+      item.on('updated', () => {
+        const now = Date.now(), g = item.getReceivedBytes();
+        const rate = now > lastAt ? ((g - lastGot) / (now - lastAt)) * 1000 : 0;
+        const was = this.got.get(d.id)?.rate ?? rate;
+        this.got.set(d.id, { got: g, total: item.getTotalBytes(), rate: was * 0.7 + rate * 0.3 });
+        lastGot = g; lastAt = now;
+        this.sendDownloads();
+      });
+      this.sendDownloads(true);
       // Decision 18: a program or a script from a site he has not trusted waits for one yes in a chip. The site
       // is the page he was on (a download often comes from some other server behind it). Unanswered = no.
       if (isRisky(base)) {
@@ -336,7 +364,13 @@ export class AangBrowser {
           try { writeFileSync(to + ':Zone.Identifier', `[ZoneTransfer]\r\nZoneId=3\r\nHostUrl=${isWeb(from) ? from : 'about:internet'}\r\n`); }
           catch (e) { console.error('shell: could not mark the download for Defender: ' + (e as Error).message); }
         }
-        this.win?.webContents.send('browser:download', { name: path.basename(to), state });
+        this.live.delete(d.id); this.got.delete(d.id);
+        d.state = state === 'completed' ? 'done' : state === 'cancelled' ? 'stopped' : 'failed';
+        if (state === 'completed') { try { d.size = statSync(to).size; } catch { /* keep */ } }
+        this.dls.save();
+        this.sendDownloads(state === 'completed' ? 'pop' : true);
+        if (state === 'completed') this.win?.webContents.send('browser:download', { name: d.name, state, quiet: true });
+        else if (state === 'interrupted') this.win?.webContents.send('browser:download', { name: d.name, state });
       });
     });
   }
@@ -456,6 +490,8 @@ export class AangBrowser {
     }
     const wa = screen.getPrimaryDisplay().workArea;
     const was = this.savedPlace();
+    // A new run: the download tray starts empty (its key hidden) until something downloads.
+    this.traySince = Date.now();
     const w = new BrowserWindow({
       width: Math.min(1440, wa.width - 80), height: Math.min(900, wa.height - 60), minWidth: 720, minHeight: 480,
       ...(was ? { x: was.x, y: was.y, width: was.width, height: was.height } : {}),
@@ -476,7 +512,7 @@ export class AangBrowser {
     w.on('move', keepSoon);
     w.on('maximize', () => { this.place(); keepSoon(); this.sendTabs(); });
     w.on('unmaximize', () => { this.place(); keepSoon(); this.sendTabs(); });
-    w.on('close', () => { this.keepPlace(); void this.snapshot(); });
+    w.on('close', () => { this.keepPlace(); void this.snapshot(); this.visits.flush(); });
     // 6.22b bug 4: the mouse's back and forward side buttons.
     w.on('app-command', (_e, cmd) => { if (cmd === 'browser-backward') this.sideNav('back'); else if (cmd === 'browser-forward') this.sideNav('forward'); });
     // A page in fullscreen: leaving the window's fullscreen (F11, a snap) ends it too.
@@ -525,7 +561,7 @@ export class AangBrowser {
 
   /** Give a tab a live page, at its address, then put it back where it was scrolled. */
   private wake(tab: Tab): void {
-    if (tab.internal === 'settings') { this.wakeSettings(tab); return; }
+    if (tab.internal) { this.wakeSettings(tab); return; }
     // The safe preferences, but a tab in the background may sleep: unlike the pop-out it has no reason to
     // keep painting over his game. NOT lockDown(): that pins a window to one page, and a browser navigates.
     // tabpreload.cjs exposes nothing to the page; it only hides passkeys, which hang in Electron (6.22).
@@ -612,7 +648,7 @@ export class AangBrowser {
       else this.fail(tab, { kind: 'error', url, ...failureWords(code, host) });
     });
     wc.on('did-start-navigation', (d) => { const x = d as unknown as { url: string; isMainFrame: boolean }; if (!x.isMainFrame || !isWeb(x.url)) return; const l = this.listed(x.url); if (l.length) this.block(tab, x.url, l); });
-    wc.on('page-title-updated', (_e, title) => { tab.title = title; this.changed(); });
+    wc.on('page-title-updated', (_e, title) => { tab.title = title; this.visits.name(wc.getURL(), title); this.changed(); });
     wc.on('page-favicon-updated', (_e, icons) => {
       tab.favicon = icons.find((i) => /^https?:|^data:image\//.test(i)) ?? '';
       this.sendTabs();
@@ -621,8 +657,8 @@ export class AangBrowser {
     });
     wc.on('did-start-loading', () => { tab.loading = true; if (tab.crashed) { tab.crashed = false; this.place(); } this.sendTabs(); });
     wc.on('did-stop-loading', () => { tab.loading = false; this.sendTabs(); });
-    wc.on('did-navigate', (_e, u, status) => { tab.url = u; tab.scrollY = 0; if (status > 0) tab.upgraded = null; this.changed(); });
-    wc.on('did-navigate-in-page', (_e, u) => { tab.url = u; this.changed(); });
+    wc.on('did-navigate', (_e, u, status) => { tab.url = u; tab.scrollY = 0; if (status > 0) tab.upgraded = null; if (status < 400) this.visits.add(u, ''); this.changed(); });
+    wc.on('did-navigate-in-page', (_e, u, main) => { tab.url = u; if (main) this.visits.add(u, wc.getTitle()); this.changed(); });
     // Find on page: how many matches, and which one is lit. Only the tab he is looking at reports.
     wc.on('found-in-page', (_e, r) => { if (tab.id === this.active) this.win?.webContents.send('browser:found', { at: r.activeMatchOrdinal, of: r.matches }); });
     // 6.22b bug 1: a page's own fullscreen (a video's button) fills the whole screen, band and drawer gone; it
@@ -669,17 +705,18 @@ export class AangBrowser {
    * nothing can navigate it anywhere, and typing an address while on it opens a new tab instead.
    */
   private wakeSettings(tab: Tab): void {
-    const view = new WebContentsView({ webPreferences: { ...SAFE_WEB_PREFERENCES, preload: this.o.settingsPreloadPath } });
+    const things = tab.internal === 'things';
+    const view = new WebContentsView({ webPreferences: { ...SAFE_WEB_PREFERENCES, preload: things ? this.o.thingsPreloadPath : this.o.settingsPreloadPath } });
     const wc = view.webContents;
     lockDown(wc);
     view.setBackgroundColor('#24160D');
     try { view.setBorderRadius(PAGE_RADIUS); } catch { /* square */ }
     view.setVisible(false);
     this.win?.contentView.addChildView(view);
-    tab.view = view; tab.crashed = false; tab.loading = false; tab.title = 'Settings';
+    tab.view = view; tab.crashed = false; tab.loading = false; tab.title = things ? 'Your things' : 'Settings';
     wc.on('before-input-event', (e, input) => { if (this.key(input)) e.preventDefault(); });
     wc.on('render-process-gone', () => { tab.crashed = true; this.place(); this.sendTabs(); });
-    void wc.loadURL(`${this.o.origin}/settings.html`).catch(() => {});
+    void wc.loadURL(`${this.o.origin}/${things ? 'things' : 'settings'}.html`).catch(() => {});
   }
   isSettings(sender: Electron.WebContents): boolean { return this.tabs.some((t) => t.internal === 'settings' && t.view?.webContents === sender); }
   /** Open Settings (or bring its tab forward), at a section. */
@@ -744,6 +781,95 @@ export class AangBrowser {
       const t = [...this.tabs].filter((x) => isWeb(x.url)).sort((a, b) => b.lastSeen - a.lastSeen)[0];
       if (t) this.setSetting('home', t.url);
     }
+  }
+
+  // ------------------------------------------------------------------ Your things: History and Downloads (2026-10-12)
+  isThings(sender: Electron.WebContents): boolean { return this.tabs.some((t) => t.internal === 'things' && t.view?.webContents === sender); }
+  /** Open Your things (or bring its tab forward), at History or Downloads. */
+  openThings(section: 'history' | 'downloads' = 'history'): void {
+    if (!this.win || this.win.isDestroyed()) return;
+    let t = this.tabs.find((x) => x.internal === 'things');
+    if (!t) {
+      t = { id: ++this.seq, internal: 'things', view: null, opener: null, title: 'Your things', url: 'aang:things', favicon: '', loading: false, audible: false, muted: false, crashed: false,
+        scrollY: 0, zoom: 0, lastSeen: Date.now(), blocked: null, trail: null, done: false, lent: false, upgraded: null, failed: null, blockedPopup: null };
+      this.tabs.push(t);
+    }
+    this.activate(t.id);
+    const wc = t.view?.webContents;
+    if (wc) { const go = () => wc.send('things:section', section); if (wc.isLoading()) wc.once('did-finish-load', go); else go(); }
+  }
+  /** One page of History, newest first, for what he typed. Plain data. */
+  historyPage(q: string, offset: number): { items: { url: string; title: string; at: number; favicon: string }[]; more: boolean } {
+    const r = searchVisits(this.visits.list, String(q ?? '').slice(0, 200), Math.max(0, Math.min(100_000, Math.floor(offset) || 0)), 100);
+    return { items: r.items.map((v) => ({ ...v, favicon: this.iconOf(v.url) })), more: r.more };
+  }
+  /** His History changes: take one page off, or clear the last hour, today, or everything. */
+  historyAct(act: string, url?: string, at?: number): void {
+    const now = Date.now();
+    if (act === 'forget' && typeof url === 'string' && Number.isFinite(at)) this.visits.forget(url, Number(at));
+    else if (act === 'clearhour') this.visits.clear(now - 3_600_000);
+    else if (act === 'cleartoday') { const d = new Date(now); d.setHours(0, 0, 0, 0); this.visits.clear(d.getTime()); }
+    else if (act === 'clearall') this.visits.clear(0);
+    else return;
+    this.pushThings('history');
+  }
+  /** Open a page from History: always a new tab, so Your things stays where it was. */
+  openFromThings(url: string): void { if (isWeb(url)) this.newTab(url); }
+  private dlView(d: Dl): Record<string, unknown> {
+    const g = this.got.get(d.id);
+    const left = g && g.total > 0 && g.rate > 1 ? Math.round((g.total - g.got) / g.rate) : null;
+    return { id: d.id, name: d.name, kind: kindOf(d.name), site: d.site, size: d.size, at: d.at, state: d.state,
+      got: g?.got ?? 0, total: g?.total ?? d.size, left, gone: d.state === 'done' && !existsSync(d.file) };
+  }
+  /** The Downloads page: every download kept (200), newest first. */
+  downloadsPage(): Record<string, unknown>[] { return [...this.dls.list].reverse().map((d) => this.dlView(d)); }
+  private pushThings(what: 'history' | 'downloads'): void {
+    const wc = this.tabs.find((x) => x.internal === 'things')?.view?.webContents;
+    if (wc && !wc.isDestroyed()) wc.send('things:changed', what);
+  }
+  /**
+   * The tray in the band: this run's newest 5. Its key shows only while the tray has something (2026-10-12, his ask).
+   * pop: a download just finished, so the tray drops open by itself for a moment. Progress goes out at most 4 times a second.
+   */
+  private sendDownloads(pop: boolean | 'pop' = false): void {
+    const go = () => {
+      this.dlSendTimer = null;
+      const tray = trayOf(this.dls.list, this.traySince, Date.now());
+      this.win?.webContents.send('browser:dls', { items: tray.map((d) => this.dlView(d)), pop: pop === 'pop' });
+      this.pushThings('downloads');
+      // When nothing is coming in, the tray empties an hour after the newest download: look again then.
+      if (this.trayTimer) { clearTimeout(this.trayTimer); this.trayTimer = null; }
+      if (tray.length && !tray.some((d) => d.state === 'going')) this.trayTimer = setTimeout(() => this.sendDownloads(true), Math.max(1000, tray[0].at + 60 * 60_000 - Date.now() + 500));
+    };
+    if (pop) { if (this.dlSendTimer) clearTimeout(this.dlSendTimer); go(); return; }
+    if (!this.dlSendTimer) this.dlSendTimer = setTimeout(go, 250);
+  }
+  /** The frame asks again (it just loaded). */
+  resendDownloads(): void { this.sendDownloads(true); }
+  /** His click on a download: open it, show it in its folder, stop it, take it off the list; or the tray's own two. */
+  dlAct(act: string, id: number): void {
+    if (act === 'clear') { this.traySince = Date.now(); this.sendDownloads(true); return; }
+    if (act === 'folder') { void shell.openPath(app.getPath('downloads')); return; }
+    if (act === 'page') { this.openThings('downloads'); return; }
+    const d = this.dls.get(id);
+    if (!d) return;
+    if (act === 'stop') { this.live.get(id)?.cancel(); return; }
+    if (act === 'forget') { if (d.state !== 'going') { this.dls.remove(id); this.sendDownloads(true); } return; }
+    // Only files this browser saved, and only once they are whole. Windows checks them (the Mark of the Web) as they open.
+    if (d.state !== 'done' || !existsSync(d.file)) { this.sendDownloads(true); return; }
+    if (act === 'open') void shell.openPath(d.file).then((err) => { if (err) this.note(`${d.name} could not be opened: ${err}`); });
+    else if (act === 'show') shell.showItemInFolder(d.file);
+  }
+  /**
+   * Drag a finished download out of the tray or the page, into Claude, Aang, a folder or the desktop. Only a file on
+   * this browser's own list: the page names a number, never a path. The picture under the mouse is its paper icon.
+   */
+  dlDrag(sender: Electron.WebContents, id: number): void {
+    const d = this.dls.get(id);
+    if (!d || d.state !== 'done' || !existsSync(d.file)) return;
+    let icon = nativeImage.createFromPath(path.join(path.dirname(this.o.preloadPath), '..', 'pages', 'art', 'browser', `file_${kindOf(d.name)}.png`));
+    if (icon.isEmpty()) icon = nativeImage.createFromDataURL('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMB/6XqRwAAAABJRU5ErkJggg==');
+    try { sender.startDrag({ file: d.file, icon }); } catch (e) { console.error('shell: drag failed: ' + (e as Error).message); }
   }
 
   /** Put a tab to sleep: its page closes, its snapshot stays, the plaque sinks. */
@@ -1211,6 +1337,7 @@ export class AangBrowser {
     const seen = new Set(out.map((x) => x.url));
     for (const t of this.tabs) if (!t.internal && isWeb(t.url) && hit(t.title, t.url) && !seen.has(t.url)) { out.push({ kind: 'tab', title: t.title, url: t.url, id: t.id }); seen.add(t.url); }
     for (const m of this.marks) if (hit(m.title, m.url) && !seen.has(m.url)) { out.push({ kind: 'mark', title: m.title, url: m.url }); seen.add(m.url); if (out.length >= 9) break; }
+    for (let i = this.visits.list.length - 1, n = 0; i >= 0 && n < 3000 && out.length < 9; i--, n++) { const v = this.visits.list[i]; if (hit(v.title, v.url) && !seen.has(v.url)) { out.push({ kind: 'history', title: v.title || v.url, url: v.url }); seen.add(v.url); } }
     for (const u of [...this.closed].reverse()) if (hit('', u) && !seen.has(u)) { out.push({ kind: 'closed', title: u, url: u }); seen.add(u); if (out.length >= 9) break; }
     return out.slice(0, 9).map((x) => ({ ...x, favicon: this.iconOf(x.url) }));
   }
@@ -1485,6 +1612,8 @@ export class AangBrowser {
       case 'importmarks': void this.importMarks(); break;
       case 'settings': this.openSettings(); break;
       case 'bookmarks': this.openSettings('bookmarks'); break;
+      case 'history': this.openThings('history'); break;
+      case 'downloads': this.openThings('downloads'); break;
       case 'print': if (wc && t && !t.internal) wc.print({}); break;
       case 'tidy': this.tidyStart(); break;
       case 'tidykeep': this.tidyKeep(); break;
@@ -1540,6 +1669,8 @@ export class AangBrowser {
     if (c && i.shift && k === 't') { this.act('reopen'); return true; }
     if (c && k === 't') { this.act('newtab'); return true; }
     if (c && k === 'w') { this.act('close'); return true; }
+    if (c && !i.shift && k === 'h') { this.act('history'); return true; }
+    if (c && !i.shift && k === 'j') { this.act('downloads'); return true; }
     if (c && k === 'l') { this.win?.webContents.focus(); this.win?.webContents.send('browser:focusslot'); return true; }
     if (c && k === 'f') { this.win?.webContents.focus(); this.win?.webContents.send('browser:findopen'); return true; }
     if ((c && k === 'r') || k === 'f5') { this.act('reload'); return true; }

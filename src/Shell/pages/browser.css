@@ -415,6 +415,47 @@ body.drawer-open .drawer{transform:none;visibility:visible;transition:transform 
 .linkpeek{position:absolute;left:64px;bottom:6px;z-index:5;max-width:min(70%,760px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
   font:600 12px var(--body);color:#efe4cc;background:#120a05e6;border:2px solid #000;border-radius:6px;padding:2px 9px;pointer-events:none}
 .linkpeek[hidden]{display:none}
+/* ---- downloads (2026-10-12): the key pops in only while the tray has something, and pushes the ⋯ key over ---- */
+.band .dlkey{margin-left:2px;-webkit-app-region:no-drag;overflow:hidden;transition:width .22s cubic-bezier(.3,1.5,.5,1),margin .22s,opacity .15s,transform .22s cubic-bezier(.3,1.6,.5,1),border-width .22s}
+.band .dlkey.away{width:0;min-width:0;padding:0;margin-left:-9px;border-width:0;box-shadow:none;opacity:0;transform:scale(.2);pointer-events:none}
+.band .dlkey.glow{box-shadow:0 3px 0 var(--outline),0 0 0 2px #ffe28c,0 0 14px 4px rgba(255,214,110,.75)}
+.band .dlkey.glow svg path{fill:#ffe28c}
+.band .dlkey[aria-expanded="true"]{top:3px;box-shadow:0 0 0 var(--outline),inset 0 3px 0 rgba(0,0,0,.45)}
+.band .dlkey .ring{position:absolute;inset:2px;border-radius:6px;pointer-events:none;background:conic-gradient(#ffe28c var(--p,0%),rgba(0,0,0,0) 0);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;padding:2px;opacity:.9}
+.band .dlkey .ring[hidden]{display:none}
+.dltray{position:absolute;right:186px;top:calc(100% + 4px);z-index:40;width:380px;box-sizing:border-box;padding:8px 10px 6px;-webkit-app-region:no-drag;
+  border-style:solid;border-width:8px;border-image:url(art/browser/trayframe.png) 4 repeat;
+  background:radial-gradient(90% 30% at 12% 0%,rgba(255,200,120,.10),transparent 70%),url(art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated;
+  box-shadow:0 14px 30px rgba(0,0,0,.6);transform-origin:80% 0;animation:dldrop .16s ease-out}
+.dltray[hidden]{display:none}
+@keyframes dldrop{from{transform:translateY(-8px) scaleY(.9);opacity:0}}
+.dltray .gh{display:flex;justify-content:space-between;align-items:baseline;font:400 9px var(--label);letter-spacing:1.5px;color:var(--gold);text-shadow:1px 1px 0 #000;margin:2px 4px 8px}
+.dltray .gh span{font:500 11px var(--body);letter-spacing:0;color:#a8977a;text-shadow:none}
+.drow{position:relative;display:flex;align-items:center;gap:12px;padding:7px 8px 7px 10px;border-radius:6px;image-rendering:auto;cursor:grab;transition:padding-left .08s}
+.drow+.drow{margin-top:2px}
+.drow .dt{flex:1;min-width:0}
+.drow .dt b{display:block;font:700 13.5px var(--body);color:#E6DCC8;text-shadow:1px 1px 0 rgba(0,0,0,.7);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.drow .dt small{display:block;font:500 11.5px var(--body);color:#a8977a;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.drow:hover:not(.gone):not(.going){padding-left:36px;background:rgba(255,224,150,.07)}
+.drow:hover:not(.gone):not(.going) .dt b{color:#ffe28c}
+.drow:hover:not(.gone):not(.going)::before{content:"";position:absolute;left:5px;top:50%;width:24px;height:18px;margin-top:-9px;background:url(art/browser/hand.png) 0 0/24px 18px;image-rendering:pixelated}
+.drow.going{cursor:default}
+.drow.gone{opacity:.45;cursor:default}
+.drow.gone .dt b{text-decoration:line-through}
+.fb{position:relative;flex:0 0 auto;width:26px;height:31px;box-sizing:border-box;background:#e9d8b0;border:2px solid #120A05;border-radius:2px 7px 2px 2px;box-shadow:2px 2px 0 rgba(0,0,0,.45)}
+.fb::before{content:"";position:absolute;right:-2px;top:-2px;width:8px;height:8px;background:linear-gradient(225deg,#2a1a0e 50%,#bfa877 50%);border-left:2px solid #120A05;border-bottom:2px solid #120A05;border-radius:0 7px 0 0}
+.fb b{position:absolute;left:-2px;right:-2px;bottom:3px;height:11px;background:var(--c);border:2px solid #120A05;font:400 7px/11px var(--label);color:#120A05;text-align:center;letter-spacing:.3px}
+.fb.zip{--c:#d9a536}.fb.pdf{--c:#d8553f}.fb.img{--c:#5fb36a}.fb.exe{--c:#8f8fb8}.fb.doc{--c:#5a8fd8}.fb.av{--c:#c46fc4}.fb.file{--c:#bfae8a}
+.bar{display:block;height:8px;margin:4px 0 3px;border-radius:4px;background:#1a0f07;border:2px solid #120A05;box-shadow:inset 0 2px 0 rgba(0,0,0,.6);overflow:hidden}
+.bar i{display:block;height:100%;background:linear-gradient(180deg,#ffe596,#e0a83a);box-shadow:inset 0 -2px 0 rgba(0,0,0,.25);transition:width .25s}
+.dx{flex:0 0 auto;display:grid;place-items:center;width:28px;height:28px;border:none;border-radius:6px;background:none;cursor:pointer}
+.dx svg path{fill:#bfae8a}
+.dx:hover{background:rgba(255,224,150,.12)}.dx:hover svg path{fill:#ffe28c}
+.dfoot{display:flex;justify-content:space-between;margin-top:8px;padding-top:8px;border-top:3px solid rgba(0,0,0,.45);box-shadow:0 1px 0 rgba(255,224,150,.10) inset}
+.dfoot button{background:none;border:none;font:600 12.5px var(--body);color:#d8ccb4;text-shadow:1px 1px 0 #000;padding:4px 6px;cursor:pointer;border-radius:4px}
+.dfoot button:hover{color:#ffe28c}
+
 /* address suggestions: the wood menu, hanging under the slot; the glove on the chosen row */
 .suggest{position:absolute;left:150px;right:190px;top:calc(100% - 2px);z-index:45;padding:6px 8px;border-style:solid;border-width:8px;
   border-image:url(art/browser/trayframe.png) 4 repeat;background:url(art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated;box-shadow:0 14px 30px rgba(0,0,0,.6)}

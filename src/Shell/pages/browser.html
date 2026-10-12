@@ -37,6 +37,8 @@
       <span class="who" id="who" hidden>AANG IS DRIVING</span>
     </div>
     <!-- The browser's settings, top right like any app's (his ask, 2026-10-11). Organised by what they are about. -->
+    <!-- Downloads (his ask, 2026-10-12): the key is only here while the tray has something; it pops in and pushes ⋯ over. -->
+    <button class="rnd dlkey away" id="dlkey" type="button" aria-label="Downloads" aria-expanded="false" tabindex="-1"><svg viewBox="0 0 7 8" width="14" height="16" shape-rendering="crispEdges" aria-hidden="true"><path d="M2 0h3v2H2zM0 2h7v1H0zM1 3h5v1H1zM2 4h3v1H2zM3 5h1v1H3zM0 7h7v1H0z" fill="#e8e0f5"/></svg><i class="ring" id="dlring" hidden></i></button>
     <button class="rnd menukey" id="menukey" type="button" aria-label="Browser settings" aria-expanded="false" aria-haspopup="true"><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges" aria-hidden="true"><path d="M0 3h1v1H0zM3 3h1v1H3zM6 3h1v1H6z" fill="#e8e0f5"/></svg></button>
     <!-- His own window buttons (2026-10-12, B): bold gold pixel symbols on the wood. -->
     <div class="winkeys">
@@ -62,8 +64,8 @@
       <div class="grp">
         <div class="gh">YOUR THINGS</div>
         <button type="button" class="mrow" id="m-marks"><span>Bookmarks</span></button>
-        <button type="button" class="mrow soon" disabled><span>History</span><i>SOON</i></button>
-        <button type="button" class="mrow soon" disabled><span>Downloads</span><i>SOON</i></button>
+        <button type="button" class="mrow" id="m-history"><span>History</span><kbd>CTRL H</kbd></button>
+        <button type="button" class="mrow" id="m-downloads"><span>Downloads</span><kbd>CTRL J</kbd></button>
       </div>
       <div class="grp">
         <button type="button" class="mrow" id="m-settings"><span>Settings</span></button>
@@ -101,6 +103,12 @@
       </div>
       <label class="adrow"><button class="sw" id="adsw" type="button" role="switch" aria-checked="true"><i class="bed"><i class="nub"></i></i></button>
         <span><b>Block ads on this site</b><small id="adnote"></small></span></label>
+    </div>
+    <!-- The downloads tray: this run's newest 5. Drag a file out to use it anywhere. -->
+    <div class="dltray" id="dltray" role="dialog" aria-label="Downloads" hidden>
+      <div class="gh">DOWNLOADS<span>Drag a file out to use it anywhere</span></div>
+      <div id="dlrows"></div>
+      <div class="dfoot"><button type="button" id="dlfolder">Open Downloads folder</button><button type="button" id="dlall">See all</button><button type="button" id="dlclear">Clear list</button></div>
     </div>
     <div class="toast" id="toast" hidden></div>
   </div>

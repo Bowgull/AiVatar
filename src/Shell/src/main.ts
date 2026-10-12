@@ -467,7 +467,7 @@ app.whenReady().then(async () => {
       }
       console.log('shell: the new typing box is on; Ctrl+Plus belongs to the Shell');
 
-      aangBrowser = new AangBrowser({ origin: pages.origin, preloadPath: path.join(HERE, 'preload.cjs'), stateDir: STATE_DIR, tabPreloadPath: path.join(HERE, 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, 'settingspreload.cjs') });
+      aangBrowser = new AangBrowser({ origin: pages.origin, preloadPath: path.join(HERE, 'preload.cjs'), stateDir: STATE_DIR, tabPreloadPath: path.join(HERE, 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, 'thingspreload.cjs') });
       aangBrowser.onReclaim = () => popout?.returnTab();
       // Trail clean up asks Qwen through the brain; the answer comes back as tidy.answer.
       aangBrowser.onTidyAsk = (id, prompt) => { if (!link?.send({ t: 'tidy.ask', id, prompt })) aangBrowser?.tidyAnswer(id, { ok: false, why: 'offline' }); };
@@ -842,6 +842,17 @@ app.whenReady().then(async () => {
   ipcMain.handle('settings:get', (e) => aangBrowser?.isSettings(e.sender) ? aangBrowser.settingsData() : null);
   ipcMain.on('settings:set', (e, a) => { if (aangBrowser?.isSettings(e.sender) && a && typeof a.key === 'string') aangBrowser.setSetting(a.key.slice(0, 20), a.value); });
   ipcMain.on('settings:remove', (e, a) => { if (aangBrowser?.isSettings(e.sender) && a && typeof a.list === 'string' && typeof a.value === 'string') aangBrowser.removeEntry(a.list, a.value); });
+  // Downloads tray (frame) and Your things (its own tab): a download is named by its number, never by a path.
+  ipcMain.on('browser:dl', (e, a) => { if (aangBrowser?.isFrame(e.sender) && a && typeof a.act === 'string') aangBrowser.dlAct(a.act.slice(0, 10), Number(a.id) || 0); });
+  ipcMain.on('browser:dldrag', (e, id) => { if (aangBrowser?.isFrame(e.sender) && Number.isInteger(id)) aangBrowser.dlDrag(e.sender, id); });
+  ipcMain.on('browser:dlhello', (e) => { if (aangBrowser?.isFrame(e.sender)) aangBrowser.resendDownloads(); });
+  ipcMain.handle('things:history', (e, a) => aangBrowser?.isThings(e.sender) && a ? aangBrowser.historyPage(String(a.q ?? ''), Number(a.offset) || 0) : null);
+  ipcMain.handle('things:downloads', (e) => aangBrowser?.isThings(e.sender) ? aangBrowser.downloadsPage() : null);
+  ipcMain.on('things:hist', (e, a) => { if (aangBrowser?.isThings(e.sender) && a && typeof a.act === 'string') aangBrowser.historyAct(a.act.slice(0, 12), typeof a.url === 'string' ? a.url.slice(0, 2000) : undefined, Number(a.at)); });
+  ipcMain.on('things:dl', (e, a) => { if (aangBrowser?.isThings(e.sender) && a && typeof a.act === 'string') aangBrowser.dlAct(a.act.slice(0, 10), Number(a.id) || 0); });
+  ipcMain.on('things:dldrag', (e, id) => { if (aangBrowser?.isThings(e.sender) && Number.isInteger(id)) aangBrowser.dlDrag(e.sender, id); });
+  ipcMain.on('things:open', (e, url) => { if (aangBrowser?.isThings(e.sender) && typeof url === 'string') aangBrowser.openFromThings(url.slice(0, 2000)); });
+  ipcMain.on('things:go', (e, where) => { if (aangBrowser?.isThings(e.sender) && where === 'bookmarks') aangBrowser.act('bookmarks'); });
   ipcMain.on('settings:act', (e, a) => { if (aangBrowser?.isSettings(e.sender) && typeof a === 'string') aangBrowser.settingsAct(a.slice(0, 20)); });
   ipcMain.handle('browser:suggest', (e, text) => aangBrowser?.isFrame(e.sender) && typeof text === 'string' ? aangBrowser.suggest(text) : []);
   ipcMain.on('browser:findstop', (e) => { if (aangBrowser?.isFrame(e.sender)) aangBrowser.findStop(); });
