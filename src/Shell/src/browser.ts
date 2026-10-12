@@ -86,6 +86,13 @@ const LOOKS_LIKE = 'LOOKS LIKE ';
 const DEFAULT_HOME = 'https://search.brave.com/';
 /** A plain Chrome's name for itself: Google refuses sign-in to anything calling itself Electron (his yes, 2026-10-12). */
 const CHROME_UA = (v: string) => `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${v} Safari/537.36`;
+/**
+ * Google's sign-in pages get the browser's HONEST name (Electron's own, untouched). Measured by two other Electron
+ * browsers in 2026 (Orca: a Chrome disguise was refused 12 of 12 times, the honest name 0 of 12; Ostia the same) and
+ * it is what Google's own 2020 rules for browsers ask: no pretending to be Chrome. Everywhere else, plain Chrome.
+ * research_notes/Google sign-in in Aang browser.
+ */
+const GOOGLE_AUTH = /^https:\/\/accounts\.(google|youtube)\.com(\/|$)/i;
 /** A popup that opens within this long of his click or key press is his (Chrome's own rule); later ones are a page's. */
 const GESTURE_MS = 1000;
 /** A tab not looked at for this long, and not playing sound, goes to sleep. */
@@ -148,6 +155,16 @@ export class AangBrowser {
   private sites: Set<string> | null = null;
   private siteKey = '';
   private readonly prefsFile: string;
+  /** Electron's own name for itself, kept for Google's sign-in pages. */
+  private honestUA = '';
+  /** A page's own name for the browser follows where it is going: honest on Google's sign-in, Chrome elsewhere. */
+  private nameFor(wc: Electron.WebContents): void {
+    wc.on('did-start-navigation', (d) => {
+      const x = d as unknown as { url: string; isMainFrame: boolean; isSameDocument: boolean };
+      if (!x.isMainFrame || x.isSameDocument) return;
+      wc.setUserAgent(GOOGLE_AUTH.test(x.url) ? this.honestUA : CHROME_UA(process.versions.chrome));
+    });
+  }
   /** 6.23: his logins from Bitwarden, filled when he clicks the key. */
   private readonly vault = new Vault();
   /** The tab and site a fill was started for: a fill never lands on a page that changed since. */
@@ -183,8 +200,11 @@ export class AangBrowser {
         if (typeof v?.key === 'string' && Array.isArray(v.sites)) { this.siteKey = v.key; this.sites = new Set(v.sites.filter((x: unknown) => typeof x === 'string')); }
       }
     } catch { /* none yet */ }
-    // Plain Chrome, everywhere in his browsing session.
+    // Plain Chrome, everywhere in his browsing session, except Google's sign-in pages (above).
+    this.honestUA = this.ses.getUserAgent();
     this.ses.setUserAgent(CHROME_UA(process.versions.chrome));
+    this.ses.webRequest.onBeforeSendHeaders({ urls: ['https://accounts.google.com/*', 'https://accounts.youtube.com/*'] },
+      (d, cb) => cb({ requestHeaders: { ...d.requestHeaders, 'User-Agent': this.honestUA } }));
     try {
       if (existsSync(this.marksFile)) {
         const a = JSON.parse(readFileSync(this.marksFile, 'utf8'));
@@ -474,6 +494,7 @@ export class AangBrowser {
     this.win?.contentView.addChildView(view);
     tab.view = view; tab.crashed = false; tab.loading = true;
     wc.on('will-attach-webview', (e) => e.preventDefault());
+    this.nameFor(wc);
     // A link that opens a new window becomes a tab under the one it came from. Web pages only.
     // A middle click or Ctrl+click opens it behind, the way every browser does.
     // "Block popups" (on unless he turns it off): a page opening a new WINDOW by itself is refused; a link he
@@ -698,6 +719,8 @@ export class AangBrowser {
   private popupWindow(pw: BrowserWindow): void {
     const pwc = pw.webContents;
     softEdge(pw);
+    this.nameFor(pwc);
+    try { if (GOOGLE_AUTH.test(pwc.getURL())) pwc.setUserAgent(this.honestUA); } catch { /* not yet */ }
     const name = () => { try { const u = new URL(pwc.getURL()); pw.setTitle(`${u.protocol === 'https:' ? '' : 'NOT SECURE  '}${u.hostname}  -  ${pwc.getTitle()}`.slice(0, 200)); } catch { /* not yet */ } };
     pwc.on('page-title-updated', name);
     pwc.on('did-navigate', name);
