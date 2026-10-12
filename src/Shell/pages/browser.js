@@ -385,7 +385,9 @@ window.aang?.onBrowserAsk?.((a) => {
   if (!a || !Number.isInteger(a.id)) return;
   askId = a.id;
   el('askq').textContent = a.what || 'Allow this?';
-  el('askm').textContent = `${a.host || 'This site'} wants it for what you are doing now. You are asked again next time.`;
+  el('askm').textContent = a.text || `${a.host || 'This site'} wants it for what you are doing now. You are asked again next time.`;
+  el('askyes').firstChild.textContent = a.yes || 'Allow for this call';
+  el('askno').firstChild.textContent = a.no || 'No';
   el('askchip').hidden = false;
 });
 const answerAsk = (allow) => { if (askId === null) return; window.aang?.browserAskReply?.({ id: askId, allow }); askId = null; el('askchip').hidden = true; };
@@ -440,6 +442,9 @@ function redLever() {
 el('phishback').addEventListener('click', () => window.aang?.browserAct?.('phishback'));
 el('reclaim').addEventListener('click', () => window.aang?.browserAct?.('reclaim'));
 el('phishreal').addEventListener('click', () => window.aang?.browserAct?.('phishreal'));
+el('failgo').addEventListener('click', () => window.aang?.browserAct?.('httpok'));
+el('failretry').addEventListener('click', () => window.aang?.browserAct?.('failretry'));
+el('failback').addEventListener('click', () => window.aang?.browserAct?.('failback'));
 
 window.aang?.onBrowserTabs?.((s) => {
   if (!s || !Array.isArray(s.tabs)) return;
@@ -474,6 +479,21 @@ window.aang?.onBrowserTabs?.((s) => {
     if (!el('phishlever').childElementCount) redLever();
     lock.hidden = false; lock.textContent = 'BLOCKED'; lock.classList.add('bad');
   } else el('phishlever').replaceChildren();
+  // The page did not load: the wood plate, in plain words.
+  const f = t?.failed;
+  el('failplate').hidden = !f;
+  if (f) {
+    let host = f.url;
+    try { host = new URL(f.url).hostname; } catch { /* keep the text */ }
+    const insecure = f.kind === 'insecure';
+    el('failplq').textContent = insecure ? 'NOT SECURE' : 'DID NOT LOAD';
+    el('failplq').classList.toggle('gold', !insecure);
+    el('failtitle').textContent = f.title;
+    if (insecure) el('failtext').replaceChildren(Object.assign(document.createElement('b'), { textContent: host }), " has no secure version, so what you send it could be read along the way. Fine for reading. Don't type a password here.");
+    else el('failtext').textContent = f.text;
+    el('failgo').hidden = !insecure;
+    el('failretry').hidden = insecure || !f.retry;
+  }
   if (!el('sitepanel').hidden) paintAdSwitch();
   if (crashed) el('crashtitle').textContent = `${(t.title || 'This page').slice(0, 60)} stopped working`;
 });

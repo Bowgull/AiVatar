@@ -27,6 +27,7 @@ import { addressFor } from './address.ts';
 import { writeFileAtomic } from './atomic.ts';
 import { lookalike } from './lookalike.ts';
 import { PhishCheck } from './phish.ts';
+import { failureWords, isRisky, upgrade } from './secure.ts';
 import { blockAds, type AdBlock } from './skip/ads.ts';
 
 export interface BrowserOptions { origin: string; preloadPath: string; stateDir: string; tabPreloadPath: string }
@@ -53,6 +54,10 @@ interface Tab {
   /** Sheet 3 section 3: the trail it belongs to (null = a loose tab), and whether he turned it in. */
   trail: number | null;
   done: boolean;
+  /** HTTPS-first: the plain http address this load was upgraded from, until the secure one answers. */
+  upgraded: string | null;
+  /** The page did not load: no secure version (`insecure`), or any other failure, in plain words (6.22b bug 3). */
+  failed: { kind: 'insecure' | 'error'; url: string; title: string; text: string; retry: boolean } | null;
 }
 
 /** A trail (Horse Browser's idea, sheet 3): pages that belong to one thing he is doing. `named` = he named it. */
@@ -108,6 +113,12 @@ export class AangBrowser {
   /** Sites he chose to open anyway, past a list, with the held lever. This run only. */
   private readonly letThrough = new Set<string>();
   private readonly asks = new Map<number, (allow: boolean) => void>();
+  /** HTTPS-first: sites he chose to open without a secure version. Kept between runs. */
+  private readonly httpOkFile: string;
+  private httpOk = new Set<string>();
+  /** Decision 18: sites he let download a program. Only his click on the chip adds to it. Kept between runs. */
+  private readonly trustedFile: string;
+  private trusted = new Set<string>();
   private askSeq = 0;
   /** The little wood sounds (new tab, close, download done). Off until he turns them on in Settings. */
   sounds = false;
@@ -119,6 +130,11 @@ export class AangBrowser {
     this.file = path.join(o.stateDir, 'browser-tabs.json');
     this.pausedFile = path.join(o.stateDir, 'adblock-paused.json');
     this.prefsFile = path.join(o.stateDir, 'browser-prefs.json');
+    this.httpOkFile = path.join(o.stateDir, 'browser-http-ok.json');
+    this.trustedFile = path.join(o.stateDir, 'download-trusted.json');
+    const loadSet = (f: string) => { try { if (existsSync(f)) { const a = JSON.parse(readFileSync(f, 'utf8')); if (Array.isArray(a)) return new Set(a.filter((x: unknown) => typeof x === 'string')); } } catch { /* none */ } return new Set<string>(); };
+    this.httpOk = loadSet(this.httpOkFile);
+    this.trusted = loadSet(this.trustedFile);
     try {
       if (existsSync(this.prefsFile)) {
         const p = JSON.parse(readFileSync(this.prefsFile, 'utf8'));
@@ -148,12 +164,17 @@ export class AangBrowser {
       const what = types.includes('video') && types.includes('audio') ? 'Camera and microphone?' : types.includes('video') ? 'Your camera?' : 'Your microphone?';
       let host = '';
       try { host = new URL(wc.getURL()).hostname.replace(/^www\./, ''); } catch { /* unknown */ }
-      const id = ++this.askSeq;
-      const timer = setTimeout(() => { const f = this.asks.get(id); if (f) { this.asks.delete(id); f(false); } }, 120_000);
-      this.asks.set(id, (allow) => { clearTimeout(timer); done(allow); });
-      this.win.webContents.send('browser:ask', { id, host, what });
+      this.ask({ host, what }, done);
     });
     this.ses.setPermissionCheckHandler((_wc, permission) => permission === 'fullscreen');
+  }
+  /** Hang a chip from the band and wait for his answer. Unanswered in 2 minutes means no. */
+  private ask(a: { host: string; what: string; text?: string; yes?: string; no?: string }, done: (allow: boolean) => void): void {
+    if (!this.win || this.win.isDestroyed()) { done(false); return; }
+    const id = ++this.askSeq;
+    const timer = setTimeout(() => { const f = this.asks.get(id); if (f) { this.asks.delete(id); f(false); } }, 120_000);
+    this.asks.set(id, (allow) => { clearTimeout(timer); done(allow); });
+    this.win.webContents.send('browser:ask', { id, ...a });
   }
   /** His answer to the chip. */
   answer(id: number, allow: boolean): void { const f = this.asks.get(id); if (f) { this.asks.delete(id); f(allow); } }
@@ -163,13 +184,28 @@ export class AangBrowser {
    * so Windows Defender and SmartScreen check them before anything opens them, exactly as for Chrome.
    */
   private downloads(): void {
-    this.ses.on('will-download', (_e, item) => {
+    this.ses.on('will-download', (_e, item, wc) => {
       const dir = app.getPath('downloads');
       const base = item.getFilename().replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_') || 'download';
       let to = path.join(dir, base), n = 1;
       while (existsSync(to)) { const p = path.parse(base); to = path.join(dir, `${p.name} (${n++})${p.ext}`); }
       item.setSavePath(to);
       const from = item.getURL();
+      // Decision 18: a program or a script from a site he has not trusted waits for one yes in a chip. The site
+      // is the page he was on (a download often comes from some other server behind it). Unanswered = no.
+      if (isRisky(base)) {
+        let site = '';
+        try { site = new URL(wc?.getURL() || from).hostname.replace(/^www\./, ''); } catch { /* unknown */ }
+        if (!site || !this.trusted.has(site)) {
+          item.pause();
+          this.ask({ host: site, what: `Download ${base}?`, text: `It is a program, and ${site || 'this site'} has not given you one before. Only say yes if you meant to get it.`, yes: 'Download, trust this site', no: 'No' }, (allow) => {
+            if (item.getState() !== 'progressing') return;
+            if (!allow) { item.cancel(); return; }
+            if (site) { this.trusted.add(site); try { writeFileAtomic(this.trustedFile, JSON.stringify([...this.trusted])); } catch { /* best effort */ } }
+            item.resume();
+          });
+        }
+      }
       item.once('done', (_ev, state) => {
         if (state === 'completed') {
           try { writeFileSync(to + ':Zone.Identifier', `[ZoneTransfer]\r\nZoneId=3\r\nHostUrl=${isWeb(from) ? from : 'about:internet'}\r\n`); }
@@ -196,6 +232,21 @@ export class AangBrowser {
     tab.url = url;
     tab.loading = false;
     if (tab.view) { try { tab.view.webContents.stop(); } catch { /* gone */ } }
+    this.place();
+    this.changed();
+  }
+
+  /** HTTPS-first: the address to really load, the secure one when it exists. Remembers what it upgraded. */
+  private secured(tab: Tab, url: string): string {
+    const up = upgrade(url, this.httpOk);
+    tab.upgraded = up ? url : null;
+    return up ?? url;
+  }
+  /** The page did not load: the frame's own plate shows where it would be. */
+  private fail(tab: Tab, f: NonNullable<Tab['failed']>): void {
+    tab.failed = f;
+    tab.loading = false;
+    tab.upgraded = null;
     this.place();
     this.changed();
   }
@@ -248,7 +299,7 @@ export class AangBrowser {
     this.drawerOpen = open;
     if (!open) { this.place(); if (t?.view && !t.lent) t.view.setVisible(true); w.webContents.send('browser:frozen', null); return; }
     let shot: string | null = null;
-    if (t?.view && !t.crashed && !t.blocked && !t.lent) {
+    if (t?.view && !t.crashed && !t.blocked && !t.failed && !t.lent) {
       try { const img = await within(t.view.webContents.capturePage(), 600, null); if (img && !img.isEmpty()) shot = 'data:image/jpeg;base64,' + img.toJPEG(82).toString('base64'); }
       catch { /* no picture: the page area shows its own colour */ }
     }
@@ -314,7 +365,7 @@ export class AangBrowser {
     const t = this.cur();
     if (!t?.view || t.lent) return;
     // A crashed page is moved out of the way so the frame's own plate shows; it is never touched.
-    if (t.crashed || t.blocked) { t.view.setBounds({ x: 0, y: 0, width: 0, height: 0 }); return; }
+    if (t.crashed || t.blocked || t.failed) { t.view.setBounds({ x: 0, y: 0, width: 0, height: 0 }); return; }
     t.view.setBounds({ x: this.inset.left, y: this.inset.top, width: Math.max(0, cw - this.inset.left - this.inset.right), height: Math.max(0, ch - this.inset.top - this.inset.bottom) });
   }
 
@@ -343,14 +394,50 @@ export class AangBrowser {
       return { action: 'deny' };
     });
     // 6.22: a listed site never loads, whether it is a link, a redirect or anything else.
-    wc.on('will-navigate', (e, u) => { if (!isWeb(u)) { e.preventDefault(); return; } const l = this.listed(u); if (l.length) { e.preventDefault(); this.block(tab, u, l); } });
-    wc.on('will-redirect', (e, u, _inPage, isMain) => { if (!isMain) return; const l = isWeb(u) ? this.listed(u) : ['NOT A WEB PAGE']; if (l.length) { e.preventDefault(); this.block(tab, u, l); } });
+    wc.on('will-navigate', (e, u) => {
+      if (!isWeb(u)) { e.preventDefault(); return; }
+      const l = this.listed(u);
+      if (l.length) { e.preventDefault(); this.block(tab, u, l); return; }
+      const up = upgrade(u, this.httpOk);
+      if (up) { e.preventDefault(); tab.upgraded = u; setTimeout(() => { if (!wc.isDestroyed()) void wc.loadURL(up).catch(() => {}); }, 0); }
+    });
+    wc.on('will-redirect', (e, u, _inPage, isMain) => {
+      if (!isMain) return;
+      const l = isWeb(u) ? this.listed(u) : ['NOT A WEB PAGE'];
+      if (l.length) { e.preventDefault(); this.block(tab, u, l); return; }
+      const up = upgrade(u, this.httpOk);
+      if (!up) return;
+      e.preventDefault();
+      // The secure version sent us straight back to the plain one: it has no secure version.
+      let back = false;
+      try { back = tab.upgraded !== null && new URL(tab.upgraded).hostname === new URL(u).hostname; } catch { /* no */ }
+      if (back) { this.fail(tab, { kind: 'insecure', url: u, title: "This site isn't secure", text: '', retry: false }); return; }
+      tab.upgraded = u;
+      setTimeout(() => { if (!wc.isDestroyed()) void wc.loadURL(up).catch(() => {}); }, 0);
+    });
+    // A new page clears the last failure; a different site forgets the upgrade.
+    wc.on('did-start-navigation', (d) => {
+      const x = d as unknown as { url: string; isMainFrame: boolean; isSameDocument: boolean };
+      if (!x.isMainFrame || x.isSameDocument) return;
+      if (tab.failed) { tab.failed = null; this.place(); this.changed(); }
+      try { if (tab.upgraded && new URL(tab.upgraded).hostname !== new URL(x.url).hostname) tab.upgraded = null; } catch { tab.upgraded = null; }
+    });
+    // The page did not load: Aang's own plate instead of Chromium's grey page. Cancelled loads (-3) are not failures.
+    wc.on('did-fail-load', (_e, code, _desc, url, isMain) => {
+      if (!isMain || code === -3 || !isWeb(url)) return;
+      let host = '';
+      try { host = new URL(url).hostname; } catch { /* keep */ }
+      let wasUp = false;
+      try { wasUp = tab.upgraded !== null && url.startsWith('https:') && new URL(tab.upgraded).hostname === host; } catch { /* no */ }
+      if (wasUp && code !== -106 && code !== -105) this.fail(tab, { kind: 'insecure', url: tab.upgraded!, title: "This site isn't secure", text: '', retry: false });
+      else this.fail(tab, { kind: 'error', url, ...failureWords(code, host) });
+    });
     wc.on('did-start-navigation', (d) => { const x = d as unknown as { url: string; isMainFrame: boolean }; if (!x.isMainFrame || !isWeb(x.url)) return; const l = this.listed(x.url); if (l.length) this.block(tab, x.url, l); });
     wc.on('page-title-updated', (_e, title) => { tab.title = title; this.changed(); });
     wc.on('page-favicon-updated', (_e, icons) => { tab.favicon = icons.find((i) => /^https?:|^data:image\//.test(i)) ?? ''; this.sendTabs(); });
     wc.on('did-start-loading', () => { tab.loading = true; if (tab.crashed) { tab.crashed = false; this.place(); } this.sendTabs(); });
     wc.on('did-stop-loading', () => { tab.loading = false; this.sendTabs(); });
-    wc.on('did-navigate', (_e, u) => { tab.url = u; tab.scrollY = 0; this.changed(); });
+    wc.on('did-navigate', (_e, u, status) => { tab.url = u; tab.scrollY = 0; if (status > 0) tab.upgraded = null; this.changed(); });
     wc.on('did-navigate-in-page', (_e, u) => { tab.url = u; this.changed(); });
     // Find on page: how many matches, and which one is lit. Only the tab he is looking at reports.
     wc.on('found-in-page', (_e, r) => { if (tab.id === this.active) this.win?.webContents.send('browser:found', { at: r.activeMatchOrdinal, of: r.matches }); });
@@ -368,7 +455,7 @@ export class AangBrowser {
     const l = this.listed(tab.url);
     if (l.length) { this.block(tab, tab.url, l); return; }
     tab.blocked = null;
-    void wc.loadURL(tab.url);
+    void wc.loadURL(this.secured(tab, tab.url)).catch(() => {});
   }
 
   /** Put a tab to sleep: its page closes, its snapshot stays, the plaque sinks. */
@@ -404,7 +491,7 @@ export class AangBrowser {
       trail = from.done ? null : from.trail;
     } else if (this.pendingTrail !== null) { trail = this.pendingTrail; }
     this.pendingTrail = null;
-    const tab: Tab = { id: ++this.seq, view: null, opener, title: 'New tab', url, favicon: '', loading: true, audible: false, muted: false, crashed: false, scrollY: 0, zoom: 0, lastSeen: Date.now(), blocked: null, trail, done: false, lent: false };
+    const tab: Tab = { id: ++this.seq, view: null, opener, title: 'New tab', url, favicon: '', loading: true, audible: false, muted: false, crashed: false, scrollY: 0, zoom: 0, lastSeen: Date.now(), blocked: null, trail, done: false, lent: false, upgraded: null, failed: null };
     // A child sits right under the last tab of its trail, so the trail reads top to bottom.
     if (from) {
       let at = this.tabs.indexOf(from);
@@ -481,7 +568,7 @@ export class AangBrowser {
    */
   lend(id: number): { view: WebContentsView; url: string; title: string } | null {
     const t = this.tabs.find((x) => x.id === id);
-    if (!t?.view || t.crashed || t.blocked || t.lent) return null;
+    if (!t?.view || t.crashed || t.blocked || t.failed || t.lent) return null;
     t.lent = true;
     try { this.win?.contentView.removeChildView(t.view); } catch { /* not shown */ }
     try { t.view.webContents.stopFindInPage('clearSelection'); } catch { /* gone */ }
@@ -554,8 +641,8 @@ export class AangBrowser {
     t.crashed = false;
     const l = this.listed(url);
     if (l.length) { this.block(t, url, l); return; }
-    t.blocked = null; this.place();
-    void t.view.webContents.loadURL(url);
+    t.blocked = null; t.failed = null; this.place();
+    void t.view.webContents.loadURL(this.secured(t, url)).catch(() => {});
     t.view.webContents.focus();
   }
 
@@ -582,6 +669,14 @@ export class AangBrowser {
       case 'phishback': if (t) { t.blocked = null; if (wc?.navigationHistory.canGoBack()) { this.place(); wc.navigationHistory.goBack(); } else this.close(t.id); } break;
       // A look-alike: the real site, typed fresh, never the link that led here.
       case 'phishreal': if (t?.blocked?.real) { const u = 'https://' + t.blocked.real + '/'; t.blocked = null; this.place(); void wc?.loadURL(u); } break;
+      // A failed page: try again; or, with no secure version, open the plain one and remember the site.
+      case 'failretry': if (t?.failed && wc) { const u = t.failed.url; t.failed = null; this.place(); void wc.loadURL(this.secured(t, u)).catch(() => {}); } break;
+      case 'httpok': if (t?.failed?.kind === 'insecure' && wc) {
+        const u = t.failed.url;
+        try { this.httpOk.add(new URL(u).hostname); writeFileAtomic(this.httpOkFile, JSON.stringify([...this.httpOk])); } catch { /* best effort */ }
+        t.failed = null; t.upgraded = null; this.place(); void wc.loadURL(u).catch(() => {});
+      } break;
+      case 'failback': if (t) { t.failed = null; if (wc?.navigationHistory.canGoBack()) { this.place(); wc.navigationHistory.goBack(); } else this.close(t.id); } break;
       case 'phishopen': if (t?.blocked) { try { this.letThrough.add(new URL(t.blocked.url).hostname); } catch { /* bad url */ } const u = t.blocked.url; t.blocked = null; this.place(); void wc?.loadURL(u); } break;
     }
   }
@@ -667,7 +762,7 @@ export class AangBrowser {
       for (const t of list) {
         const tab: Tab = { id: ++this.seq, view: null, opener: null, title: String(t.title ?? t.url).slice(0, 300), url: t.url, favicon: '',
           loading: false, audible: false, muted: t.muted === true, crashed: false, scrollY: Number(t.scrollY) || 0, zoom: Number(t.zoom) || 0, lastSeen: Date.now(), blocked: null,
-          trail: Number.isInteger(t.trail) ? t.trail : null, done: false, lent: false };
+          trail: Number.isInteger(t.trail) ? t.trail : null, done: false, lent: false, upgraded: null, failed: null };
         ids.push(tab.id);
         this.tabs.push(tab);
       }
@@ -693,7 +788,7 @@ export class AangBrowser {
     w.webContents.send('browser:tabs', {
       active: this.active,
       canBack: Boolean(wc?.navigationHistory.canGoBack()), canForward: Boolean(wc?.navigationHistory.canGoForward()),
-      tabs: this.tabs.map((x) => ({ id: x.id, opener: x.opener, title: x.title, url: x.url, favicon: x.favicon, loading: x.loading, audible: x.audible, muted: x.muted, crashed: x.crashed, asleep: !x.view, blocked: x.blocked, trail: x.trail, done: x.done, lent: x.lent })),
+      tabs: this.tabs.map((x) => ({ id: x.id, opener: x.opener, title: x.title, url: x.url, favicon: x.favicon, loading: x.loading, audible: x.audible, muted: x.muted, crashed: x.crashed, asleep: !x.view, blocked: x.blocked, failed: x.failed, trail: x.trail, done: x.done, lent: x.lent })),
       trails: this.trails,
       adsPaused: (() => { try { return this.paused.has(new URL(t?.url ?? '').hostname.replace(/^www\./, '')); } catch { return false; } })(),
       adsOn: Boolean(this.ads),

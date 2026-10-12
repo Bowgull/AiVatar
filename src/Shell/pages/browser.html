@@ -111,6 +111,17 @@
               <button class="key primary sm" id="reclaim" type="button">Bring it back<span class="k">A</span></button>
             </div>
           </div>
+          <!-- The page did not load: no secure version, or no internet, a wrong address, a site that did not answer. -->
+          <div class="plate" id="failplate" hidden>
+            <span class="plq" id="failplq">NOT SECURE</span>
+            <h3 id="failtitle">This site isn't secure</h3>
+            <p id="failtext"></p>
+            <div class="keys">
+              <button class="key primary sm" id="failgo" type="button">Continue to the site<span class="k">A</span></button>
+              <button class="key primary sm" id="failretry" type="button">Try again<span class="k">A</span></button>
+              <button class="key sm" id="failback" type="button">Go back<span class="k">Z</span></button>
+            </div>
+          </div>
           <div class="plate" id="crashplate" hidden>
             <i class="cracks"></i>
             <span class="plq red">THIS PAGE CRASHED</span>

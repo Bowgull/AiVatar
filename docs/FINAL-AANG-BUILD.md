@@ -2640,13 +2640,16 @@ of another domain, foreign letters, 1-for-l and one-keystroke typos), the red pl
 "Take me to the real one"; 0 false alarms over 159 everyday sites. The SECURE plaque became a quiet shield, red
 words only when something is wrong (his pick, the research: praising the normal case teaches nothing).
 
-**Added 2026-10-11, NOT BUILT: HTTPS-first** (his call). Every address is tried on its secure version first,
+**Added 2026-10-11, BUILT 2026-10-12: HTTPS-first** (his call; `secure.ts`, tested off screen: example.com upgraded, a site with a broken secure version got the plate, his router address left alone). Every address is tried on its secure version first,
 silently. A site with no secure version gets a wood plate, "This site isn't secure", and one click continues and
 is remembered for that site. Addresses on his own home network (router pages and the like) are left alone.
 Copies Chrome's HTTPS-First mode; costs one click, once, on the odd old site.
 
-**Still to do from decision 18:** before a risky file type (.exe, .msi, a script) downloads from a site he has not
-trusted before, ask once in a chip; only he edits the trusted list.
+**BUILT 2026-10-12, decision 18:** a program, installer or script (.exe, .msi, .bat, .ps1, .iso and the rest) from a
+site he has not trusted waits, paused, for one yes in the chip ("Download, trust this site" or No; unanswered in 2
+minutes means no). The site is the page he was on. Only his click adds to the list (`download-trusted.json`).
+Tested: putty.exe from a new site asked, No cancelled it, nothing landed in Downloads. **Not built:** a menu row to
+see and remove trusted sites (6.23 Settings).
 
 ### `[ ]` 6.22b Browser fixes and everyday polish  **ADDED 2026-10-11, his call: "I agree with it all"**
 
