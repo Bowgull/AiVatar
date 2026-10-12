@@ -114,9 +114,11 @@ app.whenReady().then(async () => {
   win = new BaseWindow({
     ...box, minWidth: MIN.width, minHeight: MIN.height,
     frame: false, transparent: false, backgroundColor: '#24160D', thickFrame: true,
-    alwaysOnTop: true, show: false, title: 'Aang',
+    alwaysOnTop: true, show: false, title: 'Aang', icon: path.join(HERE, '..', 'assets', 'aang.ico'),
   });
   win.setAlwaysOnTop(true, 'screen-saver');
+  // Aang's face on the taskbar, never Electron's atom (his rule).
+  try { win.setAppDetails({ appId: 'Aang', appIconPath: path.join(HERE, '..', 'assets', 'aang.ico'), appIconIndex: 0, relaunchDisplayName: 'Aang' }); } catch { /* not Windows */ }
 
   views = stack({
     window: win,

@@ -387,7 +387,12 @@ function open(kind: string, page: string, opts: Electron.BrowserWindowConstructo
 // One app id so Windows groups them under that icon. The .ico keeps his pixels sharp at each size.
 const AANG_ICON = path.join(HERE, '..', 'assets', 'aang.ico');
 app.setAppUserModelId('Aang');
-app.on('browser-window-created', (_e, w) => { try { w.setIcon(AANG_ICON); } catch { /* the default icon */ } });
+// setIcon alone is not enough: Windows groups the taskbar button by the app id and can still show electron.exe's
+// atom for the group. setAppDetails puts Aang's face on the taskbar button itself (his rule: always Aang's face).
+app.on('browser-window-created', (_e, w) => {
+  try { w.setIcon(AANG_ICON); } catch { /* the default icon */ }
+  try { w.setAppDetails({ appId: 'Aang', appIconPath: AANG_ICON, appIconIndex: 0, relaunchDisplayName: 'Aang' }); } catch { /* not Windows */ }
+});
 
 app.whenReady().then(async () => {
   // No Electron menu bar. Aang's windows are his own look, and File/Edit/View is not it. It also
@@ -797,6 +802,8 @@ app.whenReady().then(async () => {
     else if (a.act === 'move' && Number.isInteger(a.tab)) aangBrowser.moveTab(a.tab, a.to === 'new' ? 'new' : Number.isInteger(a.to) ? a.to : null);
   });
   ipcMain.on('browser:find', (e, a) => { if (aangBrowser?.isFrame(e.sender) && a && typeof a.text === 'string') aangBrowser.find(a.text, a.next === true, a.back === true); });
+  ipcMain.on('pagemenu:pick', (e, id) => { if (aangBrowser?.isMenu(e.sender)) aangBrowser.menuPick(typeof id === 'string' ? id.slice(0, 20) : ''); });
+  ipcMain.on('pagemenu:size', (e, r) => { if (aangBrowser?.isMenu(e.sender) && r) aangBrowser.menuSize(Number(r.w) || 0, Number(r.h) || 0); });
   ipcMain.on('browser:findstop', (e) => { if (aangBrowser?.isFrame(e.sender)) aangBrowser.findStop(); });
   ipcMain.on('browser:pref', (e, a) => { if (aangBrowser?.isFrame(e.sender) && a && typeof a.key === 'string') aangBrowser.setPref(a.key, a.on === true); });
   ipcMain.on('browser:tab', (e, a) => { if (aangBrowser?.isFrame(e.sender) && a && Number.isInteger(a.id)) aangBrowser.tabAct(a.id, String(a.act)); });

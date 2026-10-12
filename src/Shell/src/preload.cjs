@@ -142,6 +142,10 @@ contextBridge.exposeInMainWorld('aang', {
   onBrowserFound(fn) { const h = (_e, r) => fn(r); ipcRenderer.on('browser:found', h); return () => ipcRenderer.removeListener('browser:found', h); },
   /** A switch in the browser's ⋯ menu: ads, popups, sounds. */
   browserPref: a => ipcRenderer.send('browser:pref', a),
+  // --- 6.22b: the page's right-click menu, its own little window
+  onPageMenu(fn) { const h = (_e, items) => fn(items); ipcRenderer.on('pagemenu:items', h); return () => ipcRenderer.removeListener('pagemenu:items', h); },
+  pageMenuPick: id => ipcRenderer.send('pagemenu:pick', id),
+  pageMenuSize: r => ipcRenderer.send('pagemenu:size', r),
   onBrowserAsk(fn) { const h = (_e, a) => fn(a); ipcRenderer.on('browser:ask', h); return () => ipcRenderer.removeListener('browser:ask', h); },
   onBrowserDownload(fn) { const h = (_e, d) => fn(d); ipcRenderer.on('browser:download', h); return () => ipcRenderer.removeListener('browser:download', h); },
   /** The tab drawer is open: a still picture of the page to show under it (or null to drop it). */

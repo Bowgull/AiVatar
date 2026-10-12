@@ -2655,6 +2655,13 @@ see and remove trusted sites (6.23 Settings).
 
 Found by reading the code after the 2026-10-11 look went in (not yet seen failing on his screen). Bugs first.
 
+**BUILT 2026-10-12: bugs 1 to 5** (tested off screen on the real browser class, not yet on his screen).
+1: the page's fullscreen fills the whole screen and comes back to the exact page area (`fullTab`). 2: right-click
+opens `pagemenu.html`, its own small wood window placed at the pointer and flipped at screen edges; link, image,
+selected words, text box and page items. 3: one wood plate for every failed load, in plain words (`secure.ts`
+failureWords), Try again; a bad security certificate never gets a way in. 4: the mouse side buttons via Windows'
+app-command. 5: the window's place in `browser-window.json`, used only if it still lands on a screen.
+
 **Bugs**
 1. **A page's own fullscreen** (YouTube's button): the video must fill the whole screen, band and drawer hidden,
    and come back exactly when it exits. Today it likely fills only the page area under the band.

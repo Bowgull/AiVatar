@@ -19,11 +19,11 @@
 //    never runs anything (address.ts, tested).
 //  - Tabs get NO preload and the safe preferences: a website can never reach Aang's doors.
 //  - Every permission a site asks for is refused until 6.22 adds the asks (chips and the lever).
-import { BrowserWindow, WebContentsView, app, screen, session as electronSession } from 'electron';
+import { BrowserWindow, WebContentsView, app, clipboard, screen, session as electronSession } from 'electron';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown } from './safety.ts';
-import { addressFor } from './address.ts';
+import { addressFor, searchFor } from './address.ts';
 import { writeFileAtomic } from './atomic.ts';
 import { lookalike } from './lookalike.ts';
 import { PhishCheck } from './phish.ts';
@@ -125,11 +125,22 @@ export class AangBrowser {
   /** The ⋯ menu's switches (sheet 3 section 10), kept between runs. Block ads and Block popups start on. */
   prefs = { ads: true, popups: true };
   private readonly prefsFile: string;
+  /** 6.22b bug 5: where the window was, kept between opens. */
+  private readonly placeFile: string;
+  /** 6.22b bug 1: the tab whose page asked for fullscreen (a video's own button): it fills the whole screen. */
+  private fullTab: number | null = null;
+  /** 6.22b bug 2: the right-click menu's own little window, kept hidden between uses. */
+  private menu: BrowserWindow | null = null;
+  private menuFor: { tab: number; p: Electron.ContextMenuParams } | null = null;
+  private menuItems: unknown[] | null = null;
+  /** The mouse's side buttons can arrive twice (window and page): one press, one step. */
+  private lastNav = 0;
   constructor(o: BrowserOptions) {
     this.o = o;
     this.file = path.join(o.stateDir, 'browser-tabs.json');
     this.pausedFile = path.join(o.stateDir, 'adblock-paused.json');
     this.prefsFile = path.join(o.stateDir, 'browser-prefs.json');
+    this.placeFile = path.join(o.stateDir, 'browser-window.json');
     this.httpOkFile = path.join(o.stateDir, 'browser-http-ok.json');
     this.trustedFile = path.join(o.stateDir, 'download-trusted.json');
     const loadSet = (f: string) => { try { if (existsSync(f)) { const a = JSON.parse(readFileSync(f, 'utf8')); if (Array.isArray(a)) return new Set(a.filter((x: unknown) => typeof x === 'string')); } } catch { /* none */ } return new Set<string>(); };
@@ -319,8 +330,10 @@ export class AangBrowser {
       return;
     }
     const wa = screen.getPrimaryDisplay().workArea;
+    const was = this.savedPlace();
     const w = new BrowserWindow({
       width: Math.min(1440, wa.width - 80), height: Math.min(900, wa.height - 60), minWidth: 720, minHeight: 480,
+      ...(was ? { x: was.x, y: was.y, width: was.width, height: was.height } : {}),
       show: false, backgroundColor: '#24160D', title: 'Aang Browser',
       // The carved band IS the title bar; Windows draws its own buttons over the band's right end.
       // See-through (the research: Flow browser), so Windows' own minimise, maximise and close sit ON the wood
@@ -329,11 +342,21 @@ export class AangBrowser {
       webPreferences: { ...SAFE_WEB_PREFERENCES, preload: this.o.preloadPath },
     });
     lockDown(w.webContents);
-    w.on('resize', () => this.place());
-    w.on('maximize', () => this.place());
-    w.on('unmaximize', () => this.place());
-    w.on('close', () => { void this.snapshot(); });
+    if (was?.maximized) w.once('ready-to-show', () => w.maximize());
+    let keep: NodeJS.Timeout | null = null;
+    const keepSoon = () => { if (keep) clearTimeout(keep); keep = setTimeout(() => this.keepPlace(), 800); };
+    w.on('resize', () => { this.place(); keepSoon(); });
+    w.on('move', keepSoon);
+    w.on('maximize', () => { this.place(); keepSoon(); });
+    w.on('unmaximize', () => { this.place(); keepSoon(); });
+    w.on('close', () => { this.keepPlace(); void this.snapshot(); });
+    // 6.22b bug 4: the mouse's back and forward side buttons.
+    w.on('app-command', (_e, cmd) => { if (cmd === 'browser-backward') this.sideNav('back'); else if (cmd === 'browser-forward') this.sideNav('forward'); });
+    // A page in fullscreen: leaving the window's fullscreen (F11, a snap) ends it too.
+    w.on('leave-full-screen', () => { const t = this.tabs.find((x) => x.id === this.fullTab); if (t?.view) void within(t.view.webContents.executeJavaScript('document.fullscreenElement&&document.exitFullscreen().catch(()=>{});true', true), 500, null); });
     w.on('closed', () => {
+      if (this.menu && !this.menu.isDestroyed()) this.menu.destroy();
+      this.menu = null; this.fullTab = null;
       for (const t of this.tabs) if (!t.lent) this.closeView(t);
       this.tabs = []; this.active = null; this.win = null;
       this.timers.forEach(clearInterval); this.timers = [];
@@ -366,6 +389,7 @@ export class AangBrowser {
     if (!t?.view || t.lent) return;
     // A crashed page is moved out of the way so the frame's own plate shows; it is never touched.
     if (t.crashed || t.blocked || t.failed) { t.view.setBounds({ x: 0, y: 0, width: 0, height: 0 }); return; }
+    if (this.fullTab === t.id) { t.view.setBounds({ x: 0, y: 0, width: cw, height: ch }); return; }
     t.view.setBounds({ x: this.inset.left, y: this.inset.top, width: Math.max(0, cw - this.inset.left - this.inset.right), height: Math.max(0, ch - this.inset.top - this.inset.bottom) });
   }
 
@@ -441,6 +465,25 @@ export class AangBrowser {
     wc.on('did-navigate-in-page', (_e, u) => { tab.url = u; this.changed(); });
     // Find on page: how many matches, and which one is lit. Only the tab he is looking at reports.
     wc.on('found-in-page', (_e, r) => { if (tab.id === this.active) this.win?.webContents.send('browser:found', { at: r.activeMatchOrdinal, of: r.matches }); });
+    // 6.22b bug 1: a page's own fullscreen (a video's button) fills the whole screen, band and drawer gone; it
+    // comes back exactly as it was when the page leaves fullscreen (its button, or Esc).
+    wc.on('enter-html-full-screen', () => {
+      const w = this.win;
+      if (!w || w.isDestroyed() || tab.lent) return;
+      this.fullTab = tab.id;
+      try { view.setBorderRadius(0); } catch { /* square anyway */ }
+      w.setFullScreen(true);
+      this.place();
+    });
+    wc.on('leave-html-full-screen', () => {
+      if (this.fullTab !== tab.id) return;
+      this.fullTab = null;
+      try { view.setBorderRadius(PAGE_RADIUS); } catch { /* an older runtime */ }
+      if (this.win && !this.win.isDestroyed() && this.win.isFullScreen()) this.win.setFullScreen(false);
+      this.place();
+    });
+    // 6.22b bug 2: right-click on the page opens Aang's own wood menu.
+    wc.on('context-menu', (_e, p) => this.pageMenu(tab, p));
     wc.on('audio-state-changed', (e) => { tab.audible = (e as unknown as { audible: boolean }).audible; this.sendTabs(); });
     // A crashed page goes blank and anything that pokes it hangs (tested 2026-10-04): mark it, never touch it.
     wc.on('render-process-gone', () => { tab.crashed = true; tab.loading = false; this.place(); this.sendTabs(); });
@@ -557,6 +600,117 @@ export class AangBrowser {
   }
 
   reopen(): void { const u = this.closed.pop(); if (u) this.newTab(u); }
+
+  // ------------------------------------------------------------------ 6.22b: side buttons, the window's place, the right-click menu
+  private sideNav(dir: 'back' | 'forward'): void {
+    const now = Date.now();
+    if (now - this.lastNav < 250) return;
+    this.lastNav = now;
+    this.act(dir);
+  }
+
+  /** Where the window was last time, if that spot is still on a screen he has. */
+  private savedPlace(): { x: number; y: number; width: number; height: number; maximized: boolean } | null {
+    try {
+      if (!existsSync(this.placeFile)) return null;
+      const p = JSON.parse(readFileSync(this.placeFile, 'utf8'));
+      const r = { x: Math.round(p.x), y: Math.round(p.y), width: Math.round(p.width), height: Math.round(p.height) };
+      if (!Object.values(r).every(Number.isFinite) || r.width < 720 || r.height < 480) return null;
+      // At least a good piece of the band must land on a screen, or it opens where it opens by default.
+      const ok = screen.getAllDisplays().some((d) => {
+        const a = d.workArea;
+        const w = Math.min(r.x + r.width, a.x + a.width) - Math.max(r.x, a.x);
+        return w >= 200 && r.y >= a.y - 8 && r.y + 40 <= a.y + a.height;
+      });
+      return ok ? { ...r, maximized: p.maximized === true } : null;
+    } catch { return null; }
+  }
+  private keepPlace(): void {
+    const w = this.win;
+    if (!w || w.isDestroyed() || w.isMinimized() || w.isFullScreen()) return;
+    const b = w.getNormalBounds();
+    try { writeFileAtomic(this.placeFile, JSON.stringify({ ...b, maximized: w.isMaximized() })); } catch { /* best effort */ }
+  }
+
+  /** Build the right-click menu for what was clicked: a link, a picture, selected words, a text box, or the page. */
+  private pageMenu(tab: Tab, p: Electron.ContextMenuParams): void {
+    const w = this.win;
+    const wc = tab.view?.webContents;
+    if (!w || w.isDestroyed() || !wc || tab.lent) return;
+    type Item = { id: string; label: string; key?: string; off?: boolean } | { sep: true };
+    const items: Item[] = [];
+    const sep = () => { if (items.length && !('sep' in items[items.length - 1]!)) items.push({ sep: true }); };
+    if (p.linkURL && isWeb(p.linkURL)) { items.push({ id: 'linktab', label: 'Open link in new tab' }, { id: 'linkcopy', label: 'Copy link' }); sep(); }
+    if (p.mediaType === 'image' && p.srcURL && /^(https?:|data:image\/)/.test(p.srcURL)) { items.push({ id: 'imgsave', label: 'Save image' }, { id: 'imgcopy', label: 'Copy image' }); sep(); }
+    const words = p.selectionText.replace(/\s+/g, ' ').trim();
+    if (p.isEditable) {
+      const f = p.editFlags;
+      items.push({ id: 'cut', label: 'Cut', key: 'CTRL X', off: !f.canCut }, { id: 'copy', label: 'Copy', key: 'CTRL C', off: !f.canCopy },
+        { id: 'paste', label: 'Paste', key: 'CTRL V', off: !f.canPaste }, { id: 'selectall', label: 'Select all', key: 'CTRL A', off: !f.canSelectAll });
+      sep();
+    } else if (words) {
+      items.push({ id: 'copy', label: 'Copy', key: 'CTRL C' }, { id: 'search', label: `Search for "${words.length > 28 ? words.slice(0, 27) + '…' : words}"` });
+      sep();
+    }
+    items.push({ id: 'back', label: 'Back', key: 'ALT ←', off: !wc.navigationHistory.canGoBack() }, { id: 'reload', label: 'Reload', key: 'CTRL R' });
+    this.menuFor = { tab: tab.id, p };
+    this.menuItems = items;
+    const m = this.ensureMenu();
+    if (!m.webContents.isLoading()) m.webContents.send('pagemenu:items', items);
+  }
+  private ensureMenu(): BrowserWindow {
+    if (this.menu && !this.menu.isDestroyed()) return this.menu;
+    const m = new BrowserWindow({
+      parent: this.win ?? undefined, frame: false, show: false, resizable: false, movable: false, minimizable: false, maximizable: false,
+      fullscreenable: false, skipTaskbar: true, width: 220, height: 120, backgroundColor: '#3A2414', title: 'Menu',
+      webPreferences: { ...SAFE_WEB_PREFERENCES, preload: this.o.preloadPath },
+    });
+    lockDown(m.webContents);
+    m.on('blur', () => this.hideMenu());
+    m.webContents.once('did-finish-load', () => { if (this.menuItems) m.webContents.send('pagemenu:items', this.menuItems); });
+    void m.loadURL(`${this.o.origin}/pagemenu.html`);
+    this.menu = m;
+    return m;
+  }
+  private hideMenu(): void { this.menuItems = null; if (this.menu && !this.menu.isDestroyed() && this.menu.isVisible()) this.menu.hide(); }
+  isMenu(sender: Electron.WebContents): boolean { return Boolean(this.menu && !this.menu.isDestroyed() && sender === this.menu.webContents); }
+  /** The menu measured itself: put it at the pointer, flipped so it never leaves the screen. */
+  menuSize(width: number, height: number): void {
+    const m = this.menu;
+    if (!m || m.isDestroyed() || !this.menuItems) return;
+    const w = Math.min(340, Math.max(160, Math.round(width))), h = Math.min(600, Math.max(30, Math.round(height)));
+    const pt = screen.getCursorScreenPoint();
+    const a = screen.getDisplayNearestPoint(pt).workArea;
+    const x = pt.x + w > a.x + a.width ? Math.max(a.x, pt.x - w) : pt.x;
+    const y = pt.y + h > a.y + a.height ? Math.max(a.y, pt.y - h) : pt.y;
+    m.setBounds({ x, y, width: w, height: h });
+    m.show();
+    m.focus();
+  }
+  /** He picked something (or '' for nothing). Everything happens to the tab he right-clicked. */
+  menuPick(id: string): void {
+    const f = this.menuFor;
+    this.menuFor = null;
+    this.hideMenu();
+    const t = f ? this.tabs.find((x) => x.id === f.tab) : undefined;
+    const wc = t?.view?.webContents;
+    if (!f || !t || !wc || wc.isDestroyed()) return;
+    const p = f.p;
+    wc.focus();
+    switch (id) {
+      case 'linktab': if (isWeb(p.linkURL)) this.newTab(p.linkURL, t.id, false); break;
+      case 'linkcopy': if (isWeb(p.linkURL)) clipboard.writeText(p.linkURL); break;
+      case 'imgsave': if (p.srcURL) wc.downloadURL(p.srcURL); break;
+      case 'imgcopy': wc.copyImageAt(p.x, p.y); break;
+      case 'cut': wc.cut(); break;
+      case 'copy': wc.copy(); break;
+      case 'paste': wc.paste(); break;
+      case 'selectall': wc.selectAll(); break;
+      case 'search': { const q = p.selectionText.replace(/\s+/g, ' ').trim().slice(0, 400); if (q) this.newTab(searchFor(q), t.id, true); break; }
+      case 'back': if (wc.navigationHistory.canGoBack()) wc.navigationHistory.goBack(); break;
+      case 'reload': wc.reload(); break;
+    }
+  }
 
   // ------------------------------------------------------------------ lending a tab to the popout ("take the tab with you")
   /** Set by main: bring a lent tab back from the popout (the popout closes and hands it over). */
