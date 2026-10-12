@@ -171,6 +171,10 @@ export class AangBrowser {
   private vaultFor: { tab: number; host: string } | null = null;
   /** Does the page he is looking at have a password box? Then the key shows in the slot. */
   private hasLogin = false;
+  /** Each site's icon, kept as a small picture so bookmarks always carry their icons, as in any browser. */
+  private readonly iconsFile: string;
+  private icons = new Map<string, string>();
+  private iconsBusy = false;
   /** 6.23: his bookmarks. The bar ones show on the velvet shelf; all of them are kept. */
   private readonly marksFile: string;
   private marks: Mark[] = [];
@@ -191,6 +195,9 @@ export class AangBrowser {
     this.prefsFile = path.join(o.stateDir, 'browser-prefs.json');
     this.placeFile = path.join(o.stateDir, 'browser-window.json');
     this.marksFile = path.join(o.stateDir, 'browser-bookmarks.json');
+    this.iconsFile = path.join(o.stateDir, 'browser-favicons.json');
+    try { if (existsSync(this.iconsFile)) for (const [h, d] of Object.entries(JSON.parse(readFileSync(this.iconsFile, 'utf8')) as Record<string, unknown>)) if (typeof d === 'string' && d.startsWith('data:image/')) this.icons.set(h, d); } catch { /* none yet */ }
+    setTimeout(() => { void this.fillMarkIcons(); }, 5000);
     this.popupOkFile = path.join(o.stateDir, 'browser-popups-ok.json');
     this.sitesFile = path.join(o.stateDir, 'vault-sites.json');
     try { if (existsSync(this.popupOkFile)) this.popupOk = new Set((JSON.parse(readFileSync(this.popupOkFile, 'utf8')) as unknown[]).filter((x): x is string => typeof x === 'string')); } catch { /* none */ }
@@ -568,7 +575,12 @@ export class AangBrowser {
     });
     wc.on('did-start-navigation', (d) => { const x = d as unknown as { url: string; isMainFrame: boolean }; if (!x.isMainFrame || !isWeb(x.url)) return; const l = this.listed(x.url); if (l.length) this.block(tab, x.url, l); });
     wc.on('page-title-updated', (_e, title) => { tab.title = title; this.changed(); });
-    wc.on('page-favicon-updated', (_e, icons) => { tab.favicon = icons.find((i) => /^https?:|^data:image\//.test(i)) ?? ''; this.sendTabs(); });
+    wc.on('page-favicon-updated', (_e, icons) => {
+      tab.favicon = icons.find((i) => /^https?:|^data:image\//.test(i)) ?? '';
+      this.sendTabs();
+      // Keep it for the site's bookmark, so the shelf shows it even before he visits again.
+      try { const host = new URL(wc.getURL()).hostname; if (tab.favicon && !this.icons.has(host)) void this.keepIcon(host, tab.favicon); } catch { /* none */ }
+    });
     wc.on('did-start-loading', () => { tab.loading = true; if (tab.crashed) { tab.crashed = false; this.place(); } this.sendTabs(); });
     wc.on('did-stop-loading', () => { tab.loading = false; this.sendTabs(); });
     wc.on('did-navigate', (_e, u, status) => { tab.url = u; tab.scrollY = 0; if (status > 0) tab.upgraded = null; this.changed(); });
@@ -928,6 +940,58 @@ export class AangBrowser {
   }
   vaultCancel(): void { this.vaultFor = null; this.win?.webContents.send('browser:vault', null); }
 
+  // ------------------------------------------------------------------ site icons for the bookmarks
+  /** Fetch one icon through his own browsing session and keep it as a small data picture. Images only, 64 KB at most. */
+  private async iconData(url: string): Promise<string | null> {
+    if (url.startsWith('data:image/')) return url.length < 90_000 ? url : null;
+    if (!isWeb(url) || this.listed(url).length) return null;
+    try {
+      const r = await within(this.ses.fetch(url, { signal: AbortSignal.timeout(6000) }), 7000, null);
+      const type = r?.headers.get('content-type')?.split(';')[0]?.trim() ?? '';
+      if (!r?.ok || !/^image\//.test(type) || type === 'image/svg+xml') return null;
+      const buf = Buffer.from(await r.arrayBuffer());
+      if (!buf.length || buf.length > 64 * 1024) return null;
+      return `data:${type};base64,${buf.toString('base64')}`;
+    } catch { return null; }
+  }
+  private async keepIcon(host: string, url: string): Promise<void> {
+    const d = await this.iconData(url);
+    if (!d) return;
+    this.icons.set(host, d);
+    if (this.icons.size > 400) this.icons.delete(this.icons.keys().next().value!);
+    try { writeFileAtomic(this.iconsFile, JSON.stringify(Object.fromEntries(this.icons))); } catch { /* best effort */ }
+    this.sendTabs();
+  }
+  /** Bookmarks of sites he has not visited yet: ask the site for its icon (its page's icon link, else /favicon.ico). */
+  private async fillMarkIcons(): Promise<void> {
+    if (this.iconsBusy) return;
+    this.iconsBusy = true;
+    try {
+      for (const m of this.marks.slice(0, 60)) {
+        let u: URL;
+        try { u = new URL(m.url); } catch { continue; }
+        if (this.icons.has(u.hostname)) continue;
+        let link: string | null = null;
+        try {
+          const r = await within(this.ses.fetch(u.origin + '/', { signal: AbortSignal.timeout(6000) }), 7000, null);
+          if (r?.ok) {
+            const html = (await r.text()).slice(0, 300_000);
+            const tag = [...html.matchAll(/<link\b[^>]*>/gi)].map((x) => x[0]).find((x) => /rel\s*=\s*["']?[^"'>]*\bicon\b/i.test(x) && !/mask-icon/i.test(x));
+            const href = tag && /href\s*=\s*["']([^"']+)["']/i.exec(tag)?.[1];
+            if (href) link = new URL(href.replace(/&amp;/g, '&'), u.origin + '/').href;
+          }
+        } catch { /* fall back to /favicon.ico */ }
+        let d = link ? await this.iconData(link) : null;
+        if (!d) d = await this.iconData(u.origin + '/favicon.ico');
+        if (d) { this.icons.set(u.hostname, d); this.sendTabs(); }
+      }
+      try { writeFileAtomic(this.iconsFile, JSON.stringify(Object.fromEntries(this.icons))); } catch { /* best effort */ }
+    } finally { this.iconsBusy = false; }
+  }
+  private iconOf(url: string): string {
+    try { const h = new URL(url).hostname; return this.icons.get(h) ?? this.icons.get(h.replace(/^www\./, '')) ?? this.icons.get('www.' + h) ?? ''; } catch { return ''; }
+  }
+
   // ------------------------------------------------------------------ 6.23 bookmarks
   private saveMarks(): void { try { writeFileAtomic(this.marksFile, JSON.stringify(this.marks)); } catch { /* best effort */ } }
   /**
@@ -956,6 +1020,7 @@ export class AangBrowser {
       w.webContents.send('browser:download', { name: '', state: 'note', text: `Those bookmarks could not be read: ${(e as Error).message}` });
       return;
     }
+    if (added) void this.fillMarkIcons();
     w.webContents.send('browser:download', { name: '', state: 'note', text: added ? `Brought in ${added} bookmarks. The bar ones are on the shelf in the drawer.` : 'Nothing new in that file: you already have all of them.' });
     this.sendTabs();
   }
@@ -1217,7 +1282,7 @@ export class AangBrowser {
       sounds: this.sounds,
       prefs: this.prefs,
       // The shelf: the bar ones first, as in Chrome, then the rest. Only what the shelf can show is sent.
-      marks: [...this.marks.filter((m) => isBar(m.folder)), ...this.marks.filter((m) => !isBar(m.folder))].slice(0, 24).map((m) => ({ title: m.title, url: m.url })),
+      marks: [...this.marks.filter((m) => isBar(m.folder)), ...this.marks.filter((m) => !isBar(m.folder))].slice(0, 24).map((m) => ({ title: m.title, url: m.url, favicon: this.iconOf(m.url) })),
       markCount: this.marks.length,
       hasLogin: this.hasLogin,
       loginKnown: this.loginKnown,
