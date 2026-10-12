@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- The browser's Settings page (2026-10-12): opens as its own tab. Everything the ⋯ menu used to carry that is
+     not a quick everyday action lives here, in sections. Drawn with textContent; nothing from a website. -->
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' data:; font-src 'self'; form-action 'none'; base-uri 'none'">
+<title>Settings</title>
+<link rel="stylesheet" href="cockpit.css">
+<link rel="stylesheet" href="settings.css">
+</head>
+<body>
+<div class="set">
+  <nav class="side" aria-label="Settings sections">
+    <h1>Settings</h1>
+    <a data-sec="general" class="on"><i><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges"><path d="M3 0h1v1H3zM2 1h3v1H2zM1 2h5v1H1zM0 3h7v1H0zM1 4h5v3H4V5H3v2H1z"/></svg></i>General</a>
+    <a data-sec="bookmarks"><i><svg viewBox="0 0 9 8" width="16" height="14" shape-rendering="crispEdges"><path d="M1 0h2v1H1zM6 0h2v1H6zM0 1h4v4H0zM5 1h4v4H5zM0 5h1v1H0zM8 5h1v1H8zM0 6h4v1H0zM5 6h4v1H5zM3 7h3v1H3z"/></svg></i>Bookmarks</a>
+    <a data-sec="passwords"><i><svg viewBox="0 0 7 8" width="12" height="14" shape-rendering="crispEdges"><path d="M1 1h3v1H1zM0 2h1v2H0zM4 2h1v2H4zM1 4h3v1H1zM3 5h1v2H3zM4 5h2v1H4zM4 6h1v1H4z"/></svg></i>Passwords</a>
+    <a data-sec="privacy"><i><svg viewBox="0 0 7 8" width="12" height="14" shape-rendering="crispEdges"><path d="M0 0h7v4H6v1H5v1H4v1H3V6H2V5H1V4H0z"/></svg></i>Privacy &amp; protection</a>
+    <a data-sec="sound"><i><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges"><path d="M3 0h1v7H3zM2 1h1v5H2zM0 2h2v3H0zM5 1h1v1H5zM5 5h1v1H5zM6 2h1v3H6z"/></svg></i>Sound</a>
+    <a data-sec="about"><i><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges"><path d="M3 0h1v1H3zM2 2h2v4H2zM2 6h3v1H2z"/></svg></i>About</a>
+  </nav>
+  <main class="main" id="main">
+    <section data-sec="general">
+      <h2>General</h2>
+      <p class="lead">What opens, and where your searches go.</p>
+      <div class="card">
+        <h3>HOME PAGE</h3>
+        <div class="row"><div class="t"><b>Home page</b><small>Every new tab opens here.</small></div>
+          <form class="field" id="homeform" autocomplete="off"><input id="homein" type="text" spellcheck="false" aria-label="Home page address" value="reddit.com"><button class="btn gold" type="submit">Save</button></form></div>
+        <div class="row"><div class="t"><b>Use the page I was on</b><small>Makes the page in your last tab the home page.</small></div><button class="btn" id="homehere" type="button">Use it</button></div>
+      </div>
+      <div class="card">
+        <h3>SEARCH</h3>
+        <div class="row"><div class="t"><b>Search engine</b><small>Brave has its own index and filters the least. Type !g before a search to send it to Google.</small></div>
+          <div class="choice" role="radiogroup" aria-label="Search engine"><button class="on" type="button">Brave</button><button type="button">DuckDuckGo</button><button type="button">Google</button></div></div>
+        <div class="row"><div class="t"><b>AI answer box</b><small>Brave's own AI summary at the top of results. Off: plain results only.</small></div><button class="sw" type="button" role="switch" aria-checked="false" aria-label="AI answer box"><i class="bed"><i class="nub"></i></i></button></div>
+      </div>
+      <div class="card">
+        <h3>STARTUP</h3>
+        <div class="row"><div class="t"><b>When the browser opens</b><small>Your tabs always come back, as they were.</small></div>
+          <div class="choice" role="radiogroup" aria-label="On startup"><button class="on" type="button">My tabs</button><button type="button">Home page</button></div></div>
+      </div>
+    </section>
+  </main>
+</div>
+</body>
+</html>
