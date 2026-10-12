@@ -810,6 +810,9 @@ export class AangBrowser {
     if (!this.drawerOpen) t.view!.setVisible(true);
     for (const x of this.tabs) if (x.id !== id && x.view && !x.lent) x.view.setVisible(false);
     if (!t.crashed) t.view!.webContents.focus();
+    // The drawer is open: the page area is a still picture, so take a fresh one of the tab now in front. Without this
+    // a closed tab stayed on screen until the drawer shut (his report, 2026-10-12).
+    if (this.drawerOpen) void this.drawer(true);
     this.changed();
   }
 
