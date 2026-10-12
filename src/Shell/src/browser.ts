@@ -1365,7 +1365,11 @@ export class AangBrowser {
     t.lent = false;
     view.setVisible(false);
     w.contentView.addChildView(view);
-    if (t.id === this.active) this.activate(t.id); else this.changed();
+    // At its full size but out of sight for a moment, so the site redoes its layout (popout size to tab size)
+    // where he cannot see it, then shown already settled (2026-10-12, the odd resize coming back).
+    const [cw, ch] = w.getContentSize();
+    view.setBounds({ x: this.inset.left, y: this.inset.top, width: Math.max(0, cw - this.inset.left - this.inset.right), height: Math.max(0, ch - this.inset.top - this.inset.bottom) });
+    setTimeout(() => { if (t.view !== view || t.lent) return; if (t.id === this.active) this.activate(t.id); else this.changed(); }, 250);
   }
 
   isLent(id: number): boolean { return Boolean(this.tabs.find((x) => x.id === id)?.lent); }

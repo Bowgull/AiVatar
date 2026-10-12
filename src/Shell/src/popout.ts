@@ -145,13 +145,15 @@ export class Popout {
     this.lent = null;
     clearInterval(l.poll); clearInterval(l.cursor);
     const wc = l.view.webContents;
-    if (!wc.isDestroyed()) {
-      void within(wc.executeJavaScript(UNPIN_JS, true), 400, null);
-      if (l.css) void wc.removeInsertedCSS(l.css).catch(() => {});
-    }
+    // The page is made itself again BEFORE it goes back (2026-10-12): handing it over first showed it for a moment
+    // as one giant player, then snapping back, which is the odd resize he saw.
+    const undone = wc.isDestroyed() ? Promise.resolve() : Promise.all([
+      within(wc.executeJavaScript(UNPIN_JS, true), 400, null),
+      l.css ? wc.removeInsertedCSS(l.css).catch(() => {}) : Promise.resolve(),
+    ]);
     try { this.window?.contentView.removeChildView(l.view); } catch { /* not here */ }
     try { this.window?.setFullScreenable(true); } catch { /* gone */ }
-    l.back(l.view);
+    void undone.then(() => l.back(l.view), () => l.back(l.view));
   }
 
   get window(): BrowserWindow | null { return this.win?.isDestroyed() ? null : this.win; }
@@ -418,7 +420,7 @@ function within<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
  * of the page shows: no header, no "Next:" panel, no scrollbar. No fullscreen request, so no timing to get wrong.
  * True when there was a video. Tested on a YouTube Mix page 2026-10-11: the video filled the view exactly.
  */
-const FOCUS_JS = `(() => {
+export const FOCUS_JS = `(() => {
   const vs = [...document.querySelectorAll('video')].filter(v => v.offsetWidth * v.offsetHeight > 0);
   vs.sort((a, b) => (b.paused ? 0 : 1) - (a.paused ? 0 : 1) || b.offsetWidth * b.offsetHeight - a.offsetWidth * a.offsetHeight);
   const v = vs[0];
@@ -427,14 +429,22 @@ const FOCUS_JS = `(() => {
   for (const old of document.querySelectorAll('[data-aang-player]')) old.removeAttribute('data-aang-player');
   const player = v.closest('.html5-video-player, [data-a-target="video-player"], .video-player, .player') || v;
   player.setAttribute('data-aang-player', '');
+  // Twitch (2026-10-12): its columns use transform and contain, which trap a fixed box inside them, so chat and
+  // the side bar showed around the video. Every box above the player is marked and those tricks are switched off.
+  for (const old of document.querySelectorAll('[data-aang-path]')) old.removeAttribute('data-aang-path');
+  for (let a = player.parentElement; a && a !== document.documentElement; a = a.parentElement) a.setAttribute('data-aang-path', '');
   document.documentElement.classList.add('aang-bare');
   return true;
 })()`;
 /** Undo the pin when the tab goes back to the browser: the page is exactly as it was. */
-const UNPIN_JS = `(() => { document.documentElement.classList.remove('aang-bare');
-  for (const el of document.querySelectorAll('[data-aang-player]')) el.removeAttribute('data-aang-player'); return true; })()`;
+export const UNPIN_JS = `(() => { document.documentElement.classList.remove('aang-bare');
+  for (const el of document.querySelectorAll('[data-aang-player],[data-aang-path]')) { el.removeAttribute('data-aang-player'); el.removeAttribute('data-aang-path'); }
+  return true; })()`;
 /** The bare picture (his pick): the player over everything, the video filling it, the site's own buttons hidden. Captions stay. */
-const BARE_CSS = `html.aang-bare, html.aang-bare body { overflow:hidden !important; }
+export const BARE_CSS = `html.aang-bare, html.aang-bare body { overflow:hidden !important; background:#000 !important; }
+html.aang-bare [data-aang-path] { transform:none !important; filter:none !important; contain:none !important; will-change:auto !important; perspective:none !important; backdrop-filter:none !important; }
+html.aang-bare body * { visibility:hidden !important; }
+html.aang-bare [data-aang-player], html.aang-bare [data-aang-player] video, html.aang-bare .ytp-caption-window-container, html.aang-bare .ytp-caption-window-container *, html.aang-bare .player-captions-container, html.aang-bare .player-captions-container * { visibility:visible !important; }
 html.aang-bare [data-aang-player] { position:fixed !important; left:0 !important; top:0 !important; width:100vw !important; height:100vh !important; max-width:none !important; max-height:none !important; z-index:2147483646 !important; background:#000 !important; margin:0 !important; transform:none !important; }
 html.aang-bare [data-aang-player] video { position:fixed !important; left:0 !important; top:0 !important; width:100vw !important; height:100vh !important; object-fit:contain !important; background:#000 !important; margin:0 !important; transform:none !important; }
 html.aang-bare .html5-video-container { position:absolute !important; inset:0 !important; width:100% !important; height:100% !important; }
