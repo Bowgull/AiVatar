@@ -37,6 +37,8 @@ contextBridge.exposeInMainWorld('aang', {
   },
   /** Out of the way, still playing. */
   popoutHide: () => ipcRenderer.send('popout:hide'),
+  popoutPin: () => ipcRenderer.send('popout:pin'),
+  onPopoutPinned(fn) { const h = (_e, on) => fn(on === true); ipcRenderer.on('popout:pinned', h); return () => ipcRenderer.removeListener('popout:pinned', h); },
   popoutClose: () => ipcRenderer.send('popout:close'),
   /** How see-through the window is, 0.2 to 1. The window's own doing, so it works for paid services
    *  too, where Aang cannot reach inside the player at all. */
@@ -106,6 +108,8 @@ contextBridge.exposeInMainWorld('aang', {
     ipcRenderer.on('bubble:page', h);
     return () => ipcRenderer.removeListener('bubble:page', h);
   },
+  /** Ctrl+C was pressed with the mouse on the bubble (the Shell holds the key only then). */
+  onBubbleCopy(fn) { const h = () => fn(); ipcRenderer.on('bubble:copy', h); return () => ipcRenderer.removeListener('bubble:copy', h); },
   /** Esc, or a click away from everything of ours: let the message go (parity with the old bubble, 2026-10-11). */
   onDismiss(fn) {
     const h = (_e, why) => fn(why);
@@ -133,6 +137,7 @@ contextBridge.exposeInMainWorld('aang', {
   onPopoutWake(fn) { const h = () => fn(); ipcRenderer.on('popout:wake', h); return () => ipcRenderer.removeListener('popout:wake', h); },
   /** Send a video tab to the pop-out over WoW. */
   browserPopout: id => ipcRenderer.send('browser:popout', id),
+  browserToMac: id => ipcRenderer.send('browser:tomac', id),
   /** Trails: new, rename, or move a tab ({act, id?, name?, tab?, to?}). */
   browserTrail: a => ipcRenderer.send('browser:trail', a),
   /** Find on page: the word, and whether this is Enter (next) or Shift+Enter (back). */

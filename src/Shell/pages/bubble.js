@@ -322,8 +322,9 @@ function paint() {
   // makes it flip between two sizes and settle on the wrong one.
   if (bubble.classList.contains('wide') && !bubble.classList.contains('widest')
       && lineCount() > WIDEST_AFTER_LINES) bubble.classList.add('widest');
-  // Copy and rate are for a FINISHED reply only: offering to copy half a sentence is a trap.
-  tools.hidden = !reveal.done || !reveal.whole || bubble.classList.contains('whisper');
+  // No Copy key on the bubble any more: it came up on every reply and was too big (his call, 2026-10-12).
+  // Copying is the right-click menu's Copy text, or Ctrl+C with the mouse on the bubble.
+  tools.hidden = true;
   paintChips();
   paintList();
   markLink();
@@ -1358,6 +1359,8 @@ function dismiss() {
   goAway();
 }
 window.aang?.onDismiss?.(() => dismiss());
+// Ctrl+C with the mouse on the bubble: the whole finished reply. Half a sentence is never copied.
+window.aang?.onBubbleCopy?.(() => { if (reveal.done && reveal.whole) window.aang?.copyText?.(reveal.whole); });
 window.addEventListener('aang:say', (e) => onSay(e.detail));
 
 /** Draw the scroll-back: his turns and Aang's, oldest first, above whatever is being said now. */

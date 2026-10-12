@@ -114,6 +114,21 @@ el('play').addEventListener('click', () => player.playPause());
 el('mute').addEventListener('click', () => player.toggleMute());
 el('full').addEventListener('click', () => window.aang.popoutFullscreen());
 el('mac').addEventListener('click', () => window.aang.popoutToMac());
+el('pin').addEventListener('click', () => window.aang.popoutPin());
+// Pinned: clicks go through to the game and the controls stay away. The bar says so for two seconds.
+let pinned = false, pinSay = null;
+window.aang.onPopoutPinned?.((on) => {
+  pinned = on;
+  frame.classList.toggle('pinned', on);
+  const what = el('what');
+  if (!what) return;
+  if (pinSay) clearTimeout(pinSay);
+  const was = what.dataset.was ?? what.textContent;
+  what.dataset.was = was;
+  what.textContent = on ? 'PINNED: CLICKS GO TO YOUR GAME. CTRL+SHIFT+P TO UNPIN' : 'UNPINNED';
+  frame.classList.remove('faded');
+  pinSay = setTimeout(() => { what.textContent = what.dataset.was ?? ''; delete what.dataset.was; if (pinned || player.state.playing) frame.classList.add('faded'); }, 2000);
+});
 el('seethroughicon').addEventListener('click', () => {
   // A tap on the half-moon goes back to solid, which is the one he will want most often.
   seeThrough = 1;
@@ -191,6 +206,7 @@ let fadeTimer = null;
 let fadingAllowed = true;
 
 function showChrome() {
+  if (pinned) return;
   frame.classList.remove('faded');
   if (fadeTimer) clearTimeout(fadeTimer);
   if (!fadingAllowed || !player.state.playing) return;
