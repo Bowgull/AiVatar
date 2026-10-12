@@ -63,6 +63,8 @@ interface Tab {
   done: boolean;
   /** HTTPS-first: the plain http address this load was upgraded from, until the secure one answers. */
   upgraded: string | null;
+  /** The last popup this page opened by itself and was blocked: the shield glows blue until he looks (2026-10-12). */
+  blockedPopup: { url: string; site: string } | null;
   /** The page did not load: no secure version (`insecure`), or any other failure, in plain words (6.22b bug 3). */
   failed: { kind: 'insecure' | 'error'; url: string; title: string; text: string; retry: boolean } | null;
 }
@@ -521,13 +523,11 @@ export class AangBrowser {
           return { action: 'allow', overrideBrowserWindowOptions: { width: 520, height: 680, autoHideMenuBar: true, backgroundColor: PAGE_COLOUR,
             title: 'Aang Browser', webPreferences: { ...SAFE_WEB_PREFERENCES, session: this.ses, preload: this.o.tabPreloadPath } } };
         }
+        // His call (2026-10-12): no chip. The shield glows one solid blue; he clicks it to see what was blocked and
+        // can open it or allow the site, so a popup he was actually waiting for is one click away.
         console.log('shell: browser: popup blocked');
-        this.ask({ host: site, what: 'Popup blocked', text: `${site || 'This page'} tried to open a window by itself.`, yes: 'Allow popups on this site', no: 'Keep blocking' }, (allow) => {
-          if (!allow || !site) return;
-          this.popupOk.add(site);
-          try { writeFileAtomic(this.popupOkFile, JSON.stringify([...this.popupOk])); } catch { /* best effort */ }
-          this.newTab(u, tab.id, true);
-        });
+        tab.blockedPopup = { url: u, site };
+        this.sendTabs();
         return { action: 'deny' };
       }
       this.newTab(u, tab.id, disposition !== 'background-tab');
@@ -561,6 +561,7 @@ export class AangBrowser {
       const x = d as unknown as { url: string; isMainFrame: boolean; isSameDocument: boolean };
       if (!x.isMainFrame || x.isSameDocument) return;
       if (tab.failed) { tab.failed = null; this.place(); this.changed(); }
+      if (tab.blockedPopup) { tab.blockedPopup = null; this.sendTabs(); }   // a new page: the old popup is old news
       try { if (tab.upgraded && new URL(tab.upgraded).hostname !== new URL(x.url).hostname) tab.upgraded = null; } catch { tab.upgraded = null; }
     });
     // The page did not load: Aang's own plate instead of Chromium's grey page. Cancelled loads (-3) are not failures.
@@ -656,7 +657,7 @@ export class AangBrowser {
       trail = from.done ? null : from.trail;
     } else if (this.pendingTrail !== null) { trail = this.pendingTrail; }
     this.pendingTrail = null;
-    const tab: Tab = { id: ++this.seq, view: null, opener, title: 'New tab', url, favicon: '', loading: true, audible: false, muted: false, crashed: false, scrollY: 0, zoom: 0, lastSeen: Date.now(), blocked: null, trail, done: false, lent: false, upgraded: null, failed: null };
+    const tab: Tab = { id: ++this.seq, view: null, opener, title: 'New tab', url, favicon: '', loading: true, audible: false, muted: false, crashed: false, scrollY: 0, zoom: 0, lastSeen: Date.now(), blocked: null, trail, done: false, lent: false, upgraded: null, failed: null, blockedPopup: null };
     // A child sits right under the last tab of its trail, so the trail reads top to bottom.
     if (from) {
       let at = this.tabs.indexOf(from);
@@ -1143,6 +1144,14 @@ export class AangBrowser {
       case 'reclaim': this.onReclaim?.(); break;
       case 'drawer-open': void this.drawer(true); break;
       case 'importmarks': void this.importMarks(); break;
+      // The blue shield: open the popup he was looking for (as a tab, beside the page), or allow the site from now on.
+      case 'popupopen': case 'popupallow': if (t?.blockedPopup) {
+        const bp = t.blockedPopup;
+        t.blockedPopup = null;
+        if (what === 'popupallow' && bp.site) { this.popupOk.add(bp.site); try { writeFileAtomic(this.popupOkFile, JSON.stringify([...this.popupOk])); } catch { /* best effort */ } }
+        if (!this.listed(bp.url).length) this.newTab(bp.url, t.id, true);
+        this.sendTabs();
+      } break;
       case 'winmin': this.win?.minimize(); break;
       case 'winmax': if (this.win) { if (this.win.isMaximized()) this.win.unmaximize(); else this.win.maximize(); } break;
       case 'winclose': this.win?.close(); break;
@@ -1249,7 +1258,7 @@ export class AangBrowser {
       for (const t of list) {
         const tab: Tab = { id: ++this.seq, view: null, opener: null, title: String(t.title ?? t.url).slice(0, 300), url: t.url, favicon: '',
           loading: false, audible: false, muted: t.muted === true, crashed: false, scrollY: Number(t.scrollY) || 0, zoom: Number(t.zoom) || 0, lastSeen: Date.now(), blocked: null,
-          trail: Number.isInteger(t.trail) ? t.trail : null, done: false, lent: false, upgraded: null, failed: null };
+          trail: Number.isInteger(t.trail) ? t.trail : null, done: false, lent: false, upgraded: null, failed: null, blockedPopup: null };
         ids.push(tab.id);
         this.tabs.push(tab);
       }
@@ -1275,7 +1284,7 @@ export class AangBrowser {
     w.webContents.send('browser:tabs', {
       active: this.active,
       canBack: Boolean(wc?.navigationHistory.canGoBack()), canForward: Boolean(wc?.navigationHistory.canGoForward()),
-      tabs: this.tabs.map((x) => ({ id: x.id, opener: x.opener, title: x.title, url: x.url, favicon: x.favicon, loading: x.loading, audible: x.audible, muted: x.muted, crashed: x.crashed, asleep: !x.view, blocked: x.blocked, failed: x.failed, trail: x.trail, done: x.done, lent: x.lent })),
+      tabs: this.tabs.map((x) => ({ id: x.id, opener: x.opener, title: x.title, url: x.url, favicon: x.favicon, loading: x.loading, audible: x.audible, muted: x.muted, crashed: x.crashed, asleep: !x.view, blocked: x.blocked, failed: x.failed, trail: x.trail, done: x.done, lent: x.lent, popup: x.blockedPopup?.url ?? null })),
       trails: this.trails,
       adsPaused: (() => { try { return this.paused.has(new URL(t?.url ?? '').hostname.replace(/^www\./, '')); } catch { return false; } })(),
       adsOn: Boolean(this.ads),
