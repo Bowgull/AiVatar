@@ -353,7 +353,7 @@ export class Popout {
   }
 
   /**
-   * Pinned (his ask, 2026-10-12, Ctrl+Shift+P): every click goes through to the game, and nothing on the popout
+   * Pinned (his ask, 2026-10-12, Ctrl+Alt+P): every click goes through to the game, and nothing on the popout
    * wakes. The same key unpins. The bar says which it is for two seconds.
    */
   pinned = false;
