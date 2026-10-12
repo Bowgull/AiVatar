@@ -168,8 +168,21 @@ body.maxed .wk .g-rest{display:inline}
 .slot .lock svg{display:block}
 .slot .lock:not(.bad){color:var(--gold)}
 /* The shield picture sits on the slot itself, no plaque behind it, at 1:1 so every pixel stays crisp. */
-.slot .lock:not(.bad){background:none;border:none;box-shadow:none;padding:0;min-width:32px;height:36px;margin:-6px 0}
-.slot .lock .shield{display:block;image-rendering:pixelated}
+.slot .lock:not(.bad){background:none;border:none;box-shadow:none;padding:0;min-width:24px;height:24px;margin:0}
+.slot .lock .shieldbox{display:grid}
+.slot .lock .shieldbox img{grid-area:1/1;display:block;image-rendering:pixelated}
+.slot .lock .s-hover,.slot .lock .s-popup{visibility:hidden}
+.slot .lock:hover .s-rest,.slot .lock.open .s-rest{visibility:hidden}
+.slot .lock:hover .s-hover,.slot .lock.open .s-hover{visibility:visible}
+/* caught a popup: one solid air blue, glowing softly until he looks */
+.slot .lock.popup .s-rest,.slot .lock.popup .s-hover{visibility:hidden}
+.slot .lock.popup .s-popup{visibility:visible;animation:popglow 1.8s ease-in-out infinite}
+@keyframes popglow{0%,100%{filter:drop-shadow(0 0 0 rgba(140,195,255,0))}50%{filter:drop-shadow(0 0 5px rgba(140,195,255,.95))}}
+@media (prefers-reduced-motion:reduce){.slot .lock.popup .s-popup{animation:none;filter:drop-shadow(0 0 4px rgba(140,195,255,.9))}}
+.poprow{margin:8px 0 10px;padding:8px 10px;border-radius:8px;background:rgba(70,130,210,.14);border:2px solid rgba(70,130,210,.5)}
+.poprow[hidden]{display:none}
+.poprow b{display:block;font:800 13.5px var(--body);color:#271c10}
+.poprow small{display:block;font:500 12px var(--body);color:#4e3d28;word-break:break-all;margin:2px 0 6px}
 .slot .lock.bad{background:var(--red);color:#2e0b06;box-shadow:none}
 .slot .lock[hidden]{display:none}
 /* The FLOATING PAGE (his pick, 2026-10-12): no frame; the page floats on the wood with round corners and a soft

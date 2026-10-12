@@ -262,7 +262,11 @@ const VIDEO_SITE = /(^|\.)(youtube\.com|youtu\.be|twitch\.tv|crunchyroll\.com|ne
 const hostOf = (u) => { try { return new URL(u).hostname; } catch { return ''; } };
 // The site shield (his pick, 2026-10-12): hand-built pixel art, mirror-perfect, Aang's arrow on a gold-rimmed shield.
 // Shown at its exact pixel size, never scaled. tools/pixelart/shield/bar_arrow.py makes it.
-const SHIELD = '<img class="shield" src="art/browser/shield_bar.png" width="32" height="36" alt="">';
+// Option C (his pick, 2026-10-12, from how every browser does it): one quiet colour at rest; the full-colour shield
+// while he points at it or its panel is open; solid blue when it caught a popup; red when something is wrong.
+const SHIELD = '<span class="shieldbox"><img class="s-rest" src="art/browser/shield_rest.png" width="20" height="23" alt="">'
+  + '<img class="s-hover" src="art/browser/shield_hover.png" width="20" height="23" alt="">'
+  + '<img class="s-popup" src="art/browser/shield_popup.png" width="20" height="23" alt=""></span>';
 const SPEAKER = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 6h3l4-3v10l-4-3H2z" fill="#2a1c00"/><path d="M11 5c1.5 1.5 1.5 4.5 0 6" stroke="#2a1c00" stroke-width="1.8" fill="none"/></svg>';
 // Rows are kept and only redrawn when something about that tab changed, so a title or a spinner on one
 // tab never rebuilds the whole rail (that rebuild was the flicker, and it dropped the hover under the mouse).
@@ -457,6 +461,7 @@ lock.addEventListener('click', (e) => {
   el('sitehost').textContent = host;
   paintAdSwitch();
   el('sitepanel').hidden = !el('sitepanel').hidden;
+  lock.classList.toggle('open', !el('sitepanel').hidden);
 });
 function paintAdSwitch() {
   const on = state.adsOn && !state.adsPaused;
@@ -465,7 +470,9 @@ function paintAdSwitch() {
   el('adnote').textContent = !state.adsOn ? 'The block lists are still loading.' : state.adsPaused ? 'Paused here. Ads show on this site.' : 'On. Ads and trackers are stopped here.';
 }
 el('adsw').addEventListener('click', (e) => { e.preventDefault(); if (state.adsOn) window.aang?.browserAdPause?.(!state.adsPaused); });
-document.addEventListener('click', (e) => { if (!el('sitepanel').contains(e.target) && !lock.contains(e.target)) el('sitepanel').hidden = true; });
+document.addEventListener('click', (e) => { if (!el('sitepanel').contains(e.target) && !lock.contains(e.target)) { el('sitepanel').hidden = true; lock.classList.remove('open'); } });
+el('popopen').addEventListener('click', () => { window.aang?.browserAct?.('popupopen'); el('sitepanel').hidden = true; lock.classList.remove('open'); });
+el('popallow').addEventListener('click', () => { window.aang?.browserAct?.('popupallow'); el('sitepanel').hidden = true; lock.classList.remove('open'); });
 
 // ---- a finished download, said once in the band
 window.aang?.onBrowserDownload?.((d) => {
@@ -559,6 +566,12 @@ window.aang?.onBrowserTabs?.((s) => {
     el('failgo').hidden = !insecure;
     el('failretry').hidden = insecure || !f.retry;
   }
+  // A popup this page opened by itself was blocked: the shield glows blue, and its panel says what it was.
+  const pop = t?.popup ?? null;
+  lock.classList.toggle('popup', Boolean(pop) && !t?.blocked);
+  if (pop && !t?.blocked) lock.title = 'A popup was blocked. Click to see it.';
+  el('poprow').hidden = !pop;
+  if (pop) el('popurl').textContent = pop;
   if (!el('sitepanel').hidden) paintAdSwitch();
   if (crashed) el('crashtitle').textContent = `${(t.title || 'This page').slice(0, 60)} stopped working`;
 });
