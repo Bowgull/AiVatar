@@ -364,7 +364,13 @@ body.drawer-open .drawer{transform:none;visibility:visible;transition:transform 
 .drawer{display:flex;flex-direction:column}
 .drawer>*{flex:0 0 auto}
 .drawer .tidyfoot{position:sticky;bottom:-14px;margin:auto -14px -14px -12px;padding:10px 14px 12px 12px;
-  background:linear-gradient(180deg,rgba(26,16,9,0),rgba(26,16,9,.92) 22%),url(art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated}
+  background:none;pointer-events:none}
+/* No backing strip (it read as a dark bar, his note): the broom sits straight on the wood. Only its own parts take
+   the pointer, and the list keeps room at its end so the last tab never hides behind it. */
+.drawer .tidyfoot>*{pointer-events:auto}
+.drawer .tidyrow{pointer-events:none}
+.drawer .tidyrow .broom{pointer-events:auto}
+.drawer #tabs{padding-bottom:44px}
 .drawer .tidyrow{display:flex;align-items:center;justify-content:space-between}
 .drawer .cap-dim{font:400 9px var(--label);letter-spacing:1.5px;color:#bfae8a}
 .drawer .broom{width:38px;height:38px;padding:0;border:none;border-radius:8px;cursor:pointer;
@@ -374,7 +380,7 @@ body.drawer-open .drawer{transform:none;visibility:visible;transition:transform 
 .drawer .tidyrow{justify-content:flex-end}
 .drawer #tabcount{display:none}
 .drawer .broom{opacity:.28;filter:grayscale(1) brightness(.8);transition:opacity .15s,filter .15s}
-.drawer .tidyfoot:hover .broom:not(:disabled),.drawer .broom:focus-visible{opacity:1;filter:none}
+.drawer .broom:hover:not(:disabled),.drawer .broom:focus-visible{opacity:1;filter:none}
 .drawer .broom:hover:not(:disabled){background-image:url(art/browser/tidy_broom2.png);background-color:rgba(255,226,140,.10)}
 .drawer .broom:disabled{opacity:.5;cursor:default}
 .drawer .tidypanel{position:relative;margin:0 0 10px;padding:10px 14px;border:8px solid transparent;border-image:url(art/browser/trayframe.png) 4 repeat;
