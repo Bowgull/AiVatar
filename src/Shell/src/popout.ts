@@ -87,11 +87,16 @@ export class Popout {
     const wc = view.webContents;
     // The page swallows the mouse, so the popout's own page never sees it cross the picture: watch the cursor
     // from here, and wake the controls when it is over the window (Flow browser does the same for its sidebar).
+    // Only a real move wakes them (2026-10-12): in WoW the pointer sits still, or is put back in one spot while
+    // he turns the camera, and the controls kept coming back over the game though he never pointed at them.
+    let last = electronScreen.getCursorScreenPoint();
     const cursor = setInterval(() => {
       const win = this.window;
-      if (!win || !win.isVisible()) return;
+      if (!win || !win.isVisible() || this.pinned) return;
       const p = electronScreen.getCursorScreenPoint(), b = win.getBounds();
-      if (p.x >= b.x && p.x < b.x + b.width && p.y >= b.y && p.y < b.y + b.height) win.webContents.send('popout:wake');
+      const moved = Math.abs(p.x - last.x) + Math.abs(p.y - last.y) >= 6;
+      last = p;
+      if (moved && p.x >= b.x && p.x < b.x + b.width && p.y >= b.y && p.y < b.y + b.height) win.webContents.send('popout:wake');
     }, 150);
     // What the video is doing, twice a second, for the controls. Numbers only; the page's own words never travel.
     const poll = setInterval(() => {
@@ -197,8 +202,10 @@ export class Popout {
       ...box,
       minWidth: MIN.width,
       minHeight: MIN.height,
-      // No Windows title bar: the wooden grab bar in the page is the title bar (sheet 4, section 1).
-      frame: false,
+      // No Windows title bar: the wooden grab bar in the page is the title bar (sheet 4, section 1). A HIDDEN
+      // title bar rather than frame:false, exactly as the browser does it: Windows 11 then rounds the corners
+      // and draws its soft edge and shadow. frame:false gave hard square corners (his eyes, 2026-10-12).
+      titleBarStyle: 'hidden',
       // Opaque (decision 45). The see-through slider in 6.5 turns it on when he wants it.
       transparent: false,
       // The wood colour, so nothing flashes before the page draws. Windows rounds the corners and draws the
@@ -343,6 +350,25 @@ export class Popout {
     w.setFullScreen(!w.isFullScreen());
   }
 
+  /**
+   * Pinned (his ask, 2026-10-12, Ctrl+Shift+P): every click goes through to the game, and nothing on the popout
+   * wakes. The same key unpins. The bar says which it is for two seconds.
+   */
+  pinned = false;
+  togglePin(): void {
+    const w = this.window;
+    if (!w || !w.isVisible()) return;
+    this.pinned = !this.pinned;
+    w.setIgnoreMouseEvents(this.pinned || this.deps.settings().clickThrough);
+    w.webContents.send('popout:pinned', this.pinned);
+  }
+
+  /** Sent to the MacBook: it stops here (overstimulation, his words), and a lent tab goes home paused. */
+  pauseAndClose(): void {
+    if (this.lent) this.tabCommand({ func: 'pause' });
+    this.close();
+  }
+
   /** What is playing, so it can be handed to the MacBook (step 6.9). */
   get link(): string | null { return this.showing?.link ?? null; }
 
@@ -351,7 +377,7 @@ export class Popout {
     const w = this.window;
     if (!w) return;
     w.setAlwaysOnTop(set.alwaysOnTop, 'screen-saver');
-    w.setIgnoreMouseEvents(set.clickThrough);
+    w.setIgnoreMouseEvents(set.clickThrough || this.pinned);
     w.webContents.send('popout:settings', set);
   }
 
@@ -364,6 +390,7 @@ export class Popout {
   }
 
   close(): void {
+    this.pinned = false;
     this.returnTab();
     this.pending && clearTimeout(this.pending);
     this.showing = null;

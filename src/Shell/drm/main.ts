@@ -113,7 +113,8 @@ app.whenReady().then(async () => {
 
   win = new BaseWindow({
     ...box, minWidth: MIN.width, minHeight: MIN.height,
-    frame: false, transparent: false, backgroundColor: '#24160D', thickFrame: true,
+    // A hidden title bar, not frame:false: Windows 11 rounds the corners and draws the soft edge (2026-10-12).
+    titleBarStyle: 'hidden', transparent: false, backgroundColor: '#24160D', thickFrame: true,
     alwaysOnTop: true, show: false, title: 'Aang', icon: path.join(HERE, '..', 'assets', 'aang.ico'),
   });
   win.setAlwaysOnTop(true, 'screen-saver');

@@ -76,6 +76,10 @@ let ackWait: { id: string; timer: NodeJS.Timeout } | null = null;
 /** He is in a game (the pet's quiet). Esc is never taken from a game. */
 let gameQuiet = false;
 let escHeld = false;
+/** Ctrl+C is held only while the mouse is on a showing bubble: it copies the reply (his call, 2026-10-12). */
+let copyHeld = false;
+/** Ctrl+Shift+P pins and unpins the popout; held only while the popout is up, so other programs keep it otherwise. */
+let pinHeld = false;
 let busySent = '';
 /**
  * Parity with the old pet (2026-10-11). Four times a second: tell the pet where our windows are, so a click on the
@@ -94,6 +98,14 @@ function watchBusy(): void {
   const key = r ? `${r.x},${r.y},${r.width},${r.height}` : '';
   if (key !== busySent) { busySent = key; link?.send(r ? { t: 'bubble.busy', on: true, x: r.x, y: r.y, w: r.width, h: r.height } : { t: 'bubble.busy', on: false }); }
   // The snip overlay takes Esc itself (it unregisters ours first), so ours is simply let go of while it is up.
+  const bw = bubble?.window();
+  let overBubble = false;
+  if (showing && bw && !bw.isDestroyed()) { const p = screen.getCursorScreenPoint(), b = bw.getBounds(); overBubble = p.x >= b.x && p.x < b.x + b.width && p.y >= b.y && p.y < b.y + b.height; }
+  if (overBubble && !copyHeld) copyHeld = globalShortcut.register('Control+C', () => bubble?.send('bubble:copy', null));
+  else if (!overBubble && copyHeld) { globalShortcut.unregister('Control+C'); copyHeld = false; }
+  const popUp = Boolean(popout?.window?.isVisible());
+  if (popUp && !pinHeld) pinHeld = globalShortcut.register('Control+Shift+P', () => popout?.togglePin());
+  else if (!popUp && pinHeld) { globalShortcut.unregister('Control+Shift+P'); pinHeld = false; }
   if (snipper?.open) { escHeld = false; return; }
   const wantEsc = showing && !gameQuiet;
   if (wantEsc && !escHeld) escHeld = globalShortcut.register('Escape', () => bubble?.send('bubble:dismiss', 'esc'));
@@ -804,6 +816,15 @@ app.whenReady().then(async () => {
   ipcMain.on('browser:find', (e, a) => { if (aangBrowser?.isFrame(e.sender) && a && typeof a.text === 'string') aangBrowser.find(a.text, a.next === true, a.back === true); });
   ipcMain.on('pagemenu:pick', (e, id) => { if (aangBrowser?.isMenu(e.sender)) aangBrowser.menuPick(typeof id === 'string' ? id.slice(0, 20) : ''); });
   ipcMain.on('pagemenu:size', (e, r) => { if (aangBrowser?.isMenu(e.sender) && r) aangBrowser.menuSize(Number(r.w) || 0, Number(r.h) || 0); });
+  // A tab sent to the MacBook stops here: both playing at once is overstimulation (his call, 2026-10-12).
+  ipcMain.on('browser:tomac', (e, id) => {
+    if (!aangBrowser?.isFrame(e.sender) || !Number.isInteger(id)) return;
+    const url = aangBrowser.urlOf(id);
+    if (!url) return;
+    link?.send({ t: 'watch.tomac', url });
+    if (aangBrowser.isLent(id)) popout?.pauseAndClose();
+    aangBrowser.pauseMedia(id);
+  });
   ipcMain.on('browser:findstop', (e) => { if (aangBrowser?.isFrame(e.sender)) aangBrowser.findStop(); });
   ipcMain.on('browser:pref', (e, a) => { if (aangBrowser?.isFrame(e.sender) && a && typeof a.key === 'string') aangBrowser.setPref(a.key, a.on === true); });
   ipcMain.on('browser:tab', (e, a) => { if (aangBrowser?.isFrame(e.sender) && a && Number.isInteger(a.id)) aangBrowser.tabAct(a.id, String(a.act)); });
@@ -923,8 +944,9 @@ app.whenReady().then(async () => {
     // Step 6.9. The brain holds the Mac's address and key; the Shell only says which link, and the Mac
     // itself refuses anything that is not a site on its own list.
     const url = popout?.link;
-    if (url) link?.send({ t: 'watch.tomac', url });
+    if (url) { link?.send({ t: 'watch.tomac', url }); popout?.pauseAndClose(); }
   });
+  ipcMain.on('popout:pin', e => { if (fromPopout(e)) popout?.togglePin(); });
 
   link.start();
   // NOTHING IS OPENED ON STARTUP.

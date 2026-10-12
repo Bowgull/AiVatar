@@ -1207,6 +1207,10 @@ export class Core {
     });
   }
   readonly hooks = new HookTracker();
+  /** The program in front, as the pet last said (its process name). Kept whether or not he lets Aang watch windows. */
+  private fgProcess = '';
+  /** He is looking at the Claude app on this PC: it already shows him its own news, so Aang does not repeat it (his call, 2026-10-12). */
+  private inClaude(): boolean { return this.fgProcess.toLowerCase() === CLAUDE_WINDOW.toLowerCase(); }
   /**
    * A directory only Aang's own chat lanes ever use as their session cwd - never a real folder he opens in
    * Claude Code himself. Once settingSources included 'user' (for Agent Skills, 2026-09-22), Aang's own
@@ -1480,7 +1484,7 @@ export class Core {
         mine.updatedAt = Date.now();
         this.saveLaunched();
         this.pushClaudeWorking();
-        if (news) void this.announceJob(news, mine.cwd, { asked: true, focus: CLAUDE_WINDOW });
+        if (news && !(this.inClaude() && !remote)) void this.announceJob(news, mine.cwd, { asked: true, focus: CLAUDE_WINDOW });
         return;
       }
       // A session he started himself, outside Aang, still gets the same two tiers - his rule, 2026-09-22:
@@ -1491,7 +1495,8 @@ export class Core {
       // for it" exists for should not swallow them either. No jobCwd: there is no Panel tab for a session Aang
       // did not launch; a click on the icon takes him to Claude (here, or on the Mac).
       // A MacBook session (it came over Tailscale) says so, and a click brings Claude forward on the Mac, not here.
-      if (said) {
+      // Not while he is in the Claude app on this PC: he can already see it there. A MacBook session still says so.
+      if (said && !(this.inClaude() && !remote)) {
         const text = remote ? said.text.replace(/^Claude Code/, 'Claude Code on the MacBook') : said.text;
         const where = remote ? { host: 'mac' as const } : { focus: CLAUDE_WINDOW };
         this.announce(text, said.kind === 'waiting' ? { asked: true, blocking: true, ...where } : { asked: true, done: true, ...where });
@@ -2013,6 +2018,7 @@ export class Core {
       case 'stop': void this.stopActive(m.id); break;
       case 'rate': this.rate(m.id, m.value); break;
       case 'presence': {
+        this.fgProcess = String(m.foreground ?? '');
         this.setSilent(m.quiet === true, this.muted);
         const watching = m.watching !== false;
         if (watching !== this.activity.watching) { this.activity.watching = watching; if (!watching) this.activity.clear(); }

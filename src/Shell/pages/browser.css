@@ -245,6 +245,9 @@ body.drawer-open .drawer{transform:none;visibility:visible;transition:transform 
 /* The Popout key shows only while he points at a video tab (2026-10-11). */
 .tp .pip{display:none}
 .tp:hover .pip,.tp:focus-within .pip{display:block}
+/* Send to Mac: the same keycap with a pixel laptop instead of the picture-in-picture box. */
+.tp .pip.tomac::before,.tp .pip.tomac::after{content:none}
+.tp .pip.tomac svg{display:block;margin:0 auto}
 
 .tp .zz.lent{color:var(--gold-lit)}
 .plate .plq.gold{color:var(--gold)}
