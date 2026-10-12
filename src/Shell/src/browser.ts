@@ -756,7 +756,7 @@ export class AangBrowser {
     this.vaultFor = { tab: t.id, host };
     const s = await this.vault.state();
     if (s === 'missing') { this.note("Bitwarden's tool is not on this PC yet."); return; }
-    if (s === 'signed-out') { this.note('Sign in to Bitwarden once first: open a terminal and type  bw login  (Aang never types it for you).'); return; }
+    if (s === 'signed-out') { this.note('Sign in to Bitwarden once first, yourself: in PowerShell run  & "$env:LOCALAPPDATA\Programs\BitwardenCLI\bw.exe" login'); return; }
     if (s === 'locked') { this.win?.webContents.send('browser:vault', { mode: 'unlock', host }); return; }
     await this.vaultList();
   }
