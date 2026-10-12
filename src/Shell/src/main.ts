@@ -9,7 +9,7 @@
 // A crash in here must never take the pet or the brain with it. It is its own process, supervised from
 // the tray, and it holds nothing the others need.
 import { app, BrowserWindow, Menu, clipboard, globalShortcut, ipcMain, screen, session, shell } from 'electron';
-import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { CoreLink } from './link.ts';
@@ -80,14 +80,7 @@ let escHeld = false;
 let copyHeld = false;
 /** Ctrl+Alt+P pins (was Ctrl+Shift+P: another program on this PC catches that one before Aang sees it, 2026-10-12) and unpins the popout; held only while the popout is up, so other programs keep it otherwise. */
 let pinHeld = false;
-/** TEMPORARY (2026-10-12): Ctrl+Shift+P never arrived; this checks Ctrl+Alt+P does. Remove once found. */
-let pinTraced = '';
-function pinTrace(what: string): void {
-  if (what === pinTraced) return;
-  pinTraced = what;
-  try { appendFileSync(path.join(os.tmpdir(), 'aang-pin.log'), `${new Date().toISOString()} ${what}
-`); } catch { /* diagnostic only */ }
-}
+
 let busySent = '';
 /**
  * Parity with the old pet (2026-10-11). Four times a second: tell the pet where our windows are, so a click on the
@@ -96,7 +89,7 @@ let busySent = '';
  * hide, because the bubble shows and hides from a dozen places.
  */
 function watchBusy(): void {
-  try { watchBusyOnce(); } catch (e) { pinTrace('watcher error: ' + (e as Error).message); }
+  try { watchBusyOnce(); } catch (e) { console.error('shell: watcher: ' + (e as Error).message); }
 }
 function watchBusyOnce(): void {
   const wins = [bubble?.window(), input?.visible ? input.window() : null].filter((w): w is BrowserWindow => Boolean(w && !w.isDestroyed() && w.isVisible()));
@@ -116,10 +109,9 @@ function watchBusyOnce(): void {
   else if (!overBubble && copyHeld) { globalShortcut.unregister('Control+C'); copyHeld = false; }
   const popUp = Boolean(popout?.window?.isVisible());
   if (popUp && !pinHeld) {
-    pinHeld = globalShortcut.register('Control+Alt+P', () => { pinTrace('pressed, pinned before: ' + popout?.pinned); popout?.togglePin(); pinTrace('pinned after: ' + popout?.pinned); });
-    pinTrace(pinHeld ? 'Ctrl+Alt+P claimed' : 'Ctrl+Alt+P REFUSED by Windows');
+    pinHeld = globalShortcut.register('Control+Alt+P', () => popout?.togglePin());
   }
-  else if (!popUp && pinHeld) { globalShortcut.unregister('Control+Alt+P'); pinHeld = false; pinTrace('let go (popout closed)'); }
+  else if (!popUp && pinHeld) { globalShortcut.unregister('Control+Alt+P'); pinHeld = false; }
   if (snipper?.open) { escHeld = false; return; }
   const wantEsc = showing && !gameQuiet;
   if (wantEsc && !escHeld) escHeld = globalShortcut.register('Escape', () => bubble?.send('bubble:dismiss', 'esc'));
