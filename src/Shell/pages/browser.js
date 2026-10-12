@@ -23,7 +23,17 @@ window.addEventListener('load', report);
 // ---- the band
 el('back').addEventListener('click', () => window.aang?.browserAct?.('back'));
 el('fwd').addEventListener('click', () => window.aang?.browserAct?.('forward'));
-el('reload').addEventListener('click', () => window.aang?.browserAct?.('reload'));
+const RELOADGLYPH = el('reload').innerHTML;
+const STOPGLYPH = '<svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges" aria-hidden="true"><path d="M0 0h2v1H0zM5 0h2v1H5zM1 1h2v1H1zM4 1h2v1H4zM2 2h3v1H2zM3 3h1v1H3zM2 4h3v1H2zM1 5h2v1H1zM4 5h2v1H4zM0 6h2v1H0zM5 6h2v1H5z" fill="#e8e0f5"/></svg>';
+el('reload').addEventListener('click', () => window.aang?.browserAct?.(el('reload').dataset.mode === 'stop' ? 'stop' : 'reload'));
+el('zoomhint').addEventListener('click', (e) => { e.stopPropagation(); window.aang?.browserAct?.('zoomreset'); });
+// ---- link preview: shows the real address while he points at a link
+window.aang?.onBrowserHover?.((u) => {
+  const p = el('linkpeek');
+  if (!u) { p.hidden = true; return; }
+  p.textContent = String(u);
+  p.hidden = false;
+});
 el('newtab').addEventListener('click', () => { tap(); window.aang?.browserAct?.('newtab'); });
 
 // ---- the tab drawer (2026-10-11): click the wood tab and sheet 3's rail slides out OVER the page. The live page
@@ -223,10 +233,48 @@ function editSlot() {
 }
 function closeSlot() { edit.hidden = true; urlEl.hidden = false; }
 el('slot').addEventListener('click', (e) => { if (finding || lock.contains(e.target)) return; if (edit.hidden) editSlot(); });
-edit.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && edit.value.trim()) { window.aang?.browserGo?.(edit.value.trim()); closeSlot(); }
-  if (e.key === 'Escape') closeSlot();
+// ---- address suggestions (6.22b item 6): tabs first ("switch to it"), then bookmarks, then recently closed.
+// The first row is always what he typed, so Enter does what he typed unless he arrows to something else.
+let sugg = [], pick = 0, suggSeq = 0;
+const sbox = el('suggest');
+function hideSuggest() { if (!sbox.hidden) { sbox.hidden = true; unfreeze('suggest'); } sugg = []; }
+function paintSuggest() {
+  if (!sugg.length) { hideSuggest(); return; }
+  const LABEL = { search: 'SEARCH', go: 'GO', tab: 'SWITCH TO TAB', mark: 'BOOKMARK', closed: 'CLOSED' };
+  sbox.replaceChildren(...sugg.map((s, i) => {
+    const row = document.createElement('div');
+    row.className = 'srow' + (i === pick ? ' on' : '');
+    row.setAttribute('role', 'option');
+    if (s.favicon) { const im = document.createElement('img'); im.src = s.favicon; im.alt = ''; row.append(im); }
+    row.append(Object.assign(document.createElement('span'), { className: 'st', textContent: s.title || s.url }));
+    if (s.kind !== 'search' && s.kind !== 'go') row.append(Object.assign(document.createElement('span'), { className: 'su', textContent: String(s.url).replace(/^https?:\/\/(www\.)?/, '') }));
+    row.append(Object.assign(document.createElement('i'), { textContent: LABEL[s.kind] ?? '' }));
+    row.addEventListener('mousedown', (e) => { e.preventDefault(); choose(i); });
+    return row;
+  }));
+  if (sbox.hidden) { sbox.hidden = false; freeze('suggest'); }
+}
+function choose(i) {
+  const s = sugg[i];
+  if (!s) return;
+  if (s.kind === 'tab' && Number.isInteger(s.id)) window.aang?.browserTab?.({ id: s.id, act: 'show' });
+  else if (s.kind === 'search' || s.kind === 'go') window.aang?.browserGo?.(edit.value.trim());
+  else window.aang?.browserGo?.(s.url);
+  hideSuggest(); closeSlot();
+}
+edit.addEventListener('input', () => {
+  const seq = ++suggSeq;
+  const text = edit.value;
+  if (!text.trim()) { hideSuggest(); return; }
+  window.aang?.browserSuggest?.(text).then((list) => { if (seq !== suggSeq || edit.hidden) return; sugg = Array.isArray(list) ? list : []; pick = 0; paintSuggest(); });
 });
+edit.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowDown' && sugg.length) { pick = (pick + 1) % sugg.length; paintSuggest(); e.preventDefault(); return; }
+  if (e.key === 'ArrowUp' && sugg.length) { pick = (pick - 1 + sugg.length) % sugg.length; paintSuggest(); e.preventDefault(); return; }
+  if (e.key === 'Enter' && edit.value.trim()) { if (sugg.length && pick > 0) choose(pick); else { window.aang?.browserGo?.(edit.value.trim()); hideSuggest(); closeSlot(); } }
+  if (e.key === 'Escape') { hideSuggest(); closeSlot(); }
+});
+edit.addEventListener('blur', () => setTimeout(hideSuggest, 120));
 edit.addEventListener('blur', () => setTimeout(closeSlot, 120));
 window.aang?.onBrowserFocusSlot?.(() => editSlot());
 
@@ -596,6 +644,17 @@ window.aang?.onBrowserTabs?.((s) => {
   el('back').classList.toggle('dim', !s.canBack);
   el('fwd').classList.toggle('dim', !s.canForward);
   loading.classList.toggle('busy', Boolean(t?.loading));
+  // Reload becomes Stop while the page loads (6.22b item 9).
+  const busy = Boolean(t?.loading);
+  if (el('reload').dataset.mode !== (busy ? 'stop' : 'reload')) {
+    el('reload').dataset.mode = busy ? 'stop' : 'reload';
+    el('reload').innerHTML = busy ? STOPGLYPH : RELOADGLYPH;
+    el('reload').setAttribute('aria-label', busy ? 'Stop loading' : 'Reload');
+  }
+  // The zoom hint (6.22b item 10): only when the page is not at 100%; a click puts it back.
+  const z = Number(s.zoomPct ?? 100);
+  el('zoomhint').hidden = z === 100 || !t || String(t.url).startsWith('aang:');
+  el('zoomhint').textContent = z + '%';
   const crashed = Boolean(t?.crashed);
   el('crashplate').hidden = !crashed;
   el('lentplate').hidden = !t?.lent;

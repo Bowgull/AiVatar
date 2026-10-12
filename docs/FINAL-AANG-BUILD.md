@@ -2672,6 +2672,8 @@ app-command. 5: the window's place in `browser-window.json`, used only if it sti
 4. **The mouse's back and forward side buttons** go back and forward.
 5. **The window remembers its size and place** between opens (and stays on a screen that still exists).
 
+**BUILT 2026-10-12, items 6 to 12.** Item 6: suggestions from open tabs, bookmarks and recently closed tabs, with what he typed always on top. Item 7: the book (built earlier). Item 8: link preview in the wood under the page. Item 9: Reload turns into Stop. Item 10: the zoom plaque. Item 11: dragging (built earlier). Item 12: PDFs open in the browser's own viewer (`plugins: true`). Tested off screen; the link preview still needs checking on his screen.
+
 **Everyday polish**
 6. **Address bar suggestions** as he types: open tabs first ("switch to tab"), then pages he has been to, then
    search; local, instant; the top match only changes when he types (the research's rule).

@@ -26,6 +26,7 @@
       <span class="lock" id="lock" title="This site"></span>
       <span class="url" id="url"></span>
       <button class="vkey" id="vkey" type="button" aria-label="Fill a login from Bitwarden" title="Fill a login from Bitwarden" hidden><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges" aria-hidden="true"><path d="M1 1h3v1H1zM0 2h1v2H0zM4 2h1v2H4zM1 4h3v1H1zM3 5h1v2H3zM4 5h2v1H4zM4 6h1v1H4z"/></svg></button>
+      <button class="zoomhint" id="zoomhint" type="button" title="Zoom: click to go back to 100%" hidden></button>
       <button class="star" id="star" type="button" aria-label="Bookmark this page" aria-pressed="false"><svg viewBox="0 0 9 8" width="18" height="16" shape-rendering="crispEdges" aria-hidden="true"><path d="M1 0h2v1H1zM6 0h2v1H6zM0 1h4v4H0zM5 1h4v4H5zM0 5h1v1H0zM8 5h1v1H8zM0 6h4v1H0zM5 6h4v1H5zM3 7h3v1H3z"/></svg></button>
       <input class="edit" id="edit" type="text" spellcheck="false" autocomplete="off" aria-label="Search or type a web address" hidden>
       <!-- Find on page (Ctrl+F): the slot becomes the find field, so nothing hangs down under the page. -->
@@ -43,6 +44,8 @@
       <button class="wk" id="wmax" type="button" aria-label="Maximise"><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges" aria-hidden="true"><path class="g-max" d="M0 0h7v2H0zM0 2h1v5H0zM6 2h1v5H6zM1 6h5v1H1z"/><path class="g-rest" d="M2 0h5v1H2zM6 1h1v4H6zM0 2h5v1H0zM0 3h1v4H0zM4 3h1v4H4zM1 6h3v1H1z"/></svg></button>
       <button class="wk close" id="wclose" type="button" aria-label="Close"><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges" aria-hidden="true"><path d="M0 0h2v1H0zM5 0h2v1H5zM0 1h3v1H0zM4 1h3v1H4zM1 2h5v1H1zM2 3h3v1H2zM1 4h5v1H1zM0 5h3v1H0zM4 5h3v1H4zM0 6h2v1H0zM5 6h2v1H5z"/></svg></button>
     </div>
+    <!-- Address suggestions, hanging under the slot while he types. -->
+    <div class="suggest" id="suggest" role="listbox" hidden></div>
     <div class="menu" id="menu" role="menu" hidden>
       <div class="grp">
         <div class="gh">THIS PAGE</div>
@@ -105,6 +108,8 @@
   <div class="body3">
     <div class="well">
       <div class="hnd"><button type="button" id="drawerkey" aria-label="Show the tabs" aria-expanded="false"></button></div>
+      <!-- Link preview: the real address of the link he points at, in the wood under the page. -->
+      <div class="linkpeek" id="linkpeek" hidden></div>
       <div class="recess">
         <div class="pg3" id="page">
           <img class="frozen" id="frozen" alt="" hidden>

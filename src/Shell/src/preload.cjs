@@ -139,6 +139,8 @@ contextBridge.exposeInMainWorld('aang', {
   browserPopout: id => ipcRenderer.send('browser:popout', id),
   browserToMac: id => ipcRenderer.send('browser:tomac', id),
   browserHome: text => ipcRenderer.send('browser:home', text),
+  browserSuggest: text => ipcRenderer.invoke('browser:suggest', text),
+  onBrowserHover(fn) { const h = (_e, u) => fn(u); ipcRenderer.on('browser:hover', h); return () => ipcRenderer.removeListener('browser:hover', h); },
   // --- 6.23 the vault: the frame's unlock box and account picker
   browserVaultUnlock: pw => ipcRenderer.send('browser:vaultunlock', { pw }),
   browserVaultPick: id => ipcRenderer.send('browser:vaultpick', { id }),
