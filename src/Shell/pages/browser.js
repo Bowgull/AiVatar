@@ -47,7 +47,7 @@ function freeze(who) { const was = over.size; over.add(who); if (!was) window.aa
 function unfreeze(who, after = 0) { over.delete(who); setTimeout(() => { if (!over.size) window.aang?.browserAct?.('drawer-close'); }, after); }
 function openDrawer() {
   if (drawerOpen) return;
-  closeMenu();
+  closeMenu(); closeDl();
   drawerOpen = true;
   el('drawerkey').setAttribute('aria-expanded', 'true');
   el('rail').setAttribute('aria-hidden', 'false');
@@ -73,6 +73,7 @@ function openMenu() {
   if (menuOpen) return;
   closeDrawer();
   menuOpen = true;
+  closeDl();
   menukey.setAttribute('aria-expanded', 'true');
   paintMenu();
   menu.hidden = false;
@@ -101,6 +102,8 @@ el('m-print').addEventListener('click', () => { closeMenu(); window.aang?.browse
 el('m-tidy').addEventListener('click', () => { closeMenu(); openDrawer(); window.aang?.browserAct?.('tidy'); });
 el('m-marks').addEventListener('click', () => { closeMenu(); window.aang?.browserAct?.('bookmarks'); });
 el('m-settings').addEventListener('click', () => { closeMenu(); window.aang?.browserAct?.('settings'); });
+el('m-history').addEventListener('click', () => { closeMenu(); window.aang?.browserAct?.('history'); });
+el('m-downloads').addEventListener('click', () => { closeMenu(); window.aang?.browserAct?.('downloads'); });
 // ---- Trail clean up: the broom at the bottom of the drawer, the panel just above it
 el('broom').addEventListener('click', () => window.aang?.browserAct?.('tidy'));
 el('tidykeep').addEventListener('click', () => window.aang?.browserAct?.('tidykeep'));
@@ -240,7 +243,7 @@ const sbox = el('suggest');
 function hideSuggest() { if (!sbox.hidden) { sbox.hidden = true; unfreeze('suggest'); } sugg = []; }
 function paintSuggest() {
   if (!sugg.length) { hideSuggest(); return; }
-  const LABEL = { search: 'SEARCH', go: 'GO', tab: 'SWITCH TO TAB', mark: 'BOOKMARK', closed: 'CLOSED' };
+  const LABEL = { search: 'SEARCH', go: 'GO', tab: 'SWITCH TO TAB', mark: 'BOOKMARK', history: 'HISTORY', closed: 'CLOSED' };
   sbox.replaceChildren(...sugg.map((s, i) => {
     const row = document.createElement('div');
     row.className = 'srow' + (i === pick ? ' on' : '');
@@ -318,6 +321,7 @@ window.aang?.onBrowserFound?.((r) => {
 window.addEventListener('keydown', (e) => {
   const c = e.ctrlKey || e.metaKey, k = e.key.toLowerCase();
   const send = (a) => { e.preventDefault(); window.aang?.browserAct?.(a); };
+  if (k === 'escape' && dlOpen) { e.preventDefault(); closeDl(); return; }
   if (k === 'escape' && menuOpen) { e.preventDefault(); closeMenu(); return; }
   if (k === 'escape' && drawerOpen) { e.preventDefault(); closeDrawer(); return; }
   if (c && e.shiftKey && k === 't') send('reopen');
@@ -326,13 +330,15 @@ window.addEventListener('keydown', (e) => {
   else if (c && k === 'l') { e.preventDefault(); editSlot(); }
   else if (c && k === 'f') { e.preventDefault(); openFind(); }
   else if ((c && k === 'r') || k === 'f5') send('reload');
+  else if (c && !e.shiftKey && k === 'h') send('history');
+  else if (c && !e.shiftKey && k === 'j') send('downloads');
 });
 
 /** The address as sheet 3 draws it: the real domain bright, the rest dimmed. */
 function paintUrl(u) {
   urlEl.replaceChildren();
   // The browser's own pages (Settings) say their name, with no shield: they are not websites.
-  if (String(u).startsWith('aang:')) { urlEl.append(Object.assign(document.createElement('b'), { textContent: 'Settings' })); lock.hidden = true; return; }
+  if (String(u).startsWith('aang:')) { urlEl.append(Object.assign(document.createElement('b'), { textContent: String(u) === 'aang:things' ? 'Your things' : 'Settings' })); lock.hidden = true; return; }
   let parsed = null;
   try { parsed = new URL(u); } catch { /* not a URL */ }
   if (!parsed) { urlEl.textContent = u; lock.hidden = true; return; }
@@ -586,6 +592,7 @@ window.aang?.onBrowserDownload?.((d) => {
   if (!d) return;
   const t = el('toast');
   if (d.state === 'completed') tap(1.4);
+  if (d.quiet) return;   // the tray says it now
   if (d.undo === 'trailclose') {
     t.replaceChildren(String(d.text ?? ''), Object.assign(document.createElement('button'), { type: 'button', className: 'undo', textContent: 'Undo', onclick: () => { window.aang?.browserAct?.('trailundo'); t.hidden = true; } }));
     t.hidden = false;
@@ -784,3 +791,99 @@ tabsBox.addEventListener('drop', (e) => {
   dropLine.remove();
   dragging = null;
 });
+
+// ---- downloads (his design, 2026-10-12): the key pops in only while the tray has something; a finished
+// download drops the tray open for a few seconds (it stays while the mouse is on it); a file drags out anywhere.
+const dlkey = el('dlkey'), dltray = el('dltray'), dlrows = el('dlrows');
+let dls = [], dlOpen = false, dlAuto = null, dlHover = false;
+const SVG_FOLDER = '<svg viewBox="0 0 8 7" width="16" height="14" shape-rendering="crispEdges" aria-hidden="true"><path d="M0 0h3v1h5v6H0z"/></svg>';
+const SVG_X = '<svg viewBox="0 0 7 7" width="12" height="12" shape-rendering="crispEdges" aria-hidden="true"><path d="M0 0h2v1H0zM5 0h2v1H5zM0 1h3v1H0zM4 1h3v1H4zM1 2h5v1H1zM2 3h3v1H2zM1 4h5v1H1zM0 5h3v1H0zM4 5h3v1H4zM0 6h2v1H0zM5 6h2v1H5z"/></svg>';
+const EXT = { zip: 'ZIP', pdf: 'PDF', img: 'IMG', exe: 'EXE', doc: 'DOC', av: 'A/V', file: 'FILE' };
+function mb(n) { return n >= 1e9 ? (n / 1e9).toFixed(1) + ' GB' : n >= 1e6 ? (n / 1e6).toFixed(1) + ' MB' : n >= 1e3 ? Math.round(n / 1e3) + ' KB' : (n || 0) + ' B'; }
+function ago(t) {
+  const s = Math.max(0, (Date.now() - t) / 1000);
+  if (s < 50) return 'just now';
+  if (s < 3600) return Math.round(s / 60) + ' min ago';
+  return Math.round(s / 3600) + ' h ago';
+}
+function badge(kind) {
+  const b = Object.assign(document.createElement('i'), { className: 'fb ' + (EXT[kind] ? kind : 'file') });
+  b.append(Object.assign(document.createElement('b'), { textContent: EXT[kind] ?? 'FILE' }));
+  return b;
+}
+function paintDls() {
+  dlrows.replaceChildren();
+  for (const d of dls) {
+    const row = Object.assign(document.createElement('div'), { className: 'drow' + (d.state === 'going' ? ' going' : '') + (d.gone || d.state === 'stopped' || d.state === 'failed' ? ' gone' : '') });
+    const t = Object.assign(document.createElement('span'), { className: 'dt' });
+    t.append(Object.assign(document.createElement('b'), { textContent: d.name }));
+    if (d.state === 'going') {
+      const pct = d.total > 0 ? Math.min(100, Math.round((d.got / d.total) * 100)) : 0;
+      const bar = Object.assign(document.createElement('span'), { className: 'bar' });
+      bar.append(Object.assign(document.createElement('i'), { style: `width:${d.total > 0 ? pct : 30}%` }));
+      const left = d.left == null ? '' : d.left < 60 ? ` · ${d.left} s left` : ` · ${Math.ceil(d.left / 60)} min left`;
+      t.append(bar, Object.assign(document.createElement('small'), { textContent: d.total > 0 ? `${pct}% · ${mb(d.got)} of ${mb(d.total)}${left}` : `${mb(d.got)} so far` }));
+      const x = Object.assign(document.createElement('button'), { type: 'button', className: 'dx', title: 'Stop', innerHTML: SVG_X });
+      x.addEventListener('click', (e) => { e.stopPropagation(); window.aang?.browserDl?.({ act: 'stop', id: d.id }); });
+      row.append(badge(d.kind), t, x);
+    } else {
+      const why = d.gone ? 'Moved or deleted' : d.state === 'stopped' ? 'Stopped' : d.state === 'failed' ? 'Did not finish' : `${mb(d.size)}${d.site ? ' · ' + d.site : ''} · ${ago(d.at)}`;
+      t.append(Object.assign(document.createElement('small'), { textContent: why }));
+      row.append(badge(d.kind), t);
+      if (!row.classList.contains('gone')) {
+        const f = Object.assign(document.createElement('button'), { type: 'button', className: 'dx', title: 'Show in folder', innerHTML: SVG_FOLDER });
+        f.addEventListener('click', (e) => { e.stopPropagation(); closeDl(); window.aang?.browserDl?.({ act: 'show', id: d.id }); });
+        row.append(f);
+        row.title = 'Click to open. Drag it into Claude, Aang, a folder or the desktop.';
+        row.draggable = true;
+        row.addEventListener('dragstart', (e) => { e.preventDefault(); window.aang?.browserDlDrag?.(d.id); });
+        row.addEventListener('click', () => { closeDl(); window.aang?.browserDl?.({ act: 'open', id: d.id }); });
+      }
+    }
+    dlrows.append(row);
+  }
+  // The key's ring fills while a download is coming in.
+  const going = dls.filter((d) => d.state === 'going' && d.total > 0);
+  const ring = el('dlring');
+  ring.hidden = !going.length;
+  if (going.length) ring.style.setProperty('--p', Math.round(going.reduce((a, d) => a + d.got, 0) / going.reduce((a, d) => a + d.total, 0) * 100) + '%');
+}
+function openDl(auto = false) {
+  if (!dls.length) return;
+  if (!dlOpen) {
+    if (!auto) { closeMenu(); closeDrawer(); }
+    dlOpen = true;
+    dlkey.setAttribute('aria-expanded', 'true');
+    dltray.hidden = false;
+    freeze('dl');
+  }
+  clearTimeout(dlAuto); dlAuto = null;
+  if (auto) dlAuto = setTimeout(function fold() { if (dlHover) { dlAuto = setTimeout(fold, 1500); return; } closeDl(); }, 5000);
+}
+function closeDl() {
+  clearTimeout(dlAuto); dlAuto = null;
+  if (!dlOpen) return;
+  dlOpen = false;
+  dlkey.setAttribute('aria-expanded', 'false');
+  dltray.hidden = true;
+  unfreeze('dl');
+}
+dltray.addEventListener('mouseenter', () => { dlHover = true; });
+dltray.addEventListener('mouseleave', () => { dlHover = false; });
+dltray.addEventListener('click', (e) => e.stopPropagation());
+dlkey.addEventListener('click', (e) => { e.stopPropagation(); dlkey.classList.remove('glow'); dlOpen && !dlAuto ? closeDl() : openDl(); });
+el('dlfolder').addEventListener('click', () => { closeDl(); window.aang?.browserDl?.({ act: 'folder' }); });
+el('dlall').addEventListener('click', () => { closeDl(); window.aang?.browserDl?.({ act: 'page' }); });
+el('dlclear').addEventListener('click', () => { closeDl(); window.aang?.browserDl?.({ act: 'clear' }); });
+document.addEventListener('click', () => { if (dlOpen && !dlAuto) closeDl(); });
+page.addEventListener('pointerdown', () => closeDl());
+window.aang?.onBrowserDls?.((d) => {
+  dls = Array.isArray(d?.items) ? d.items : [];
+  const show = dls.length > 0;
+  dlkey.classList.toggle('away', !show);
+  dlkey.tabIndex = show ? 0 : -1;
+  if (!show) { dlkey.classList.remove('glow'); closeDl(); return; }
+  paintDls();
+  if (d.pop) { dlkey.classList.add('glow'); openDl(true); }
+});
+window.aang?.browserDlHello?.();

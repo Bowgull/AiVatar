@@ -1,0 +1,45 @@
+/* Your things (2026-10-12): on top of settings.css (the same recessed wood, ink cards and gold caps). */
+.search{display:flex;align-items:center;gap:12px;margin:0 0 22px;padding:10px 16px;border:8px solid transparent;border-image:url(art/browser/trayframe.png) 4 repeat;
+  background:#0b0806;box-shadow:inset 0 3px 0 rgba(0,0,0,.6);image-rendering:pixelated}
+.search input{flex:1;border:none;background:none;outline:none;color:#fff;font:600 15px var(--body);image-rendering:auto}
+.search input::placeholder{color:#8a7a62}
+.search input::-webkit-search-cancel-button{filter:invert(.7) sepia(1)}
+.search svg path{fill:#bfae8a}
+.hrow{position:relative;display:flex;align-items:center;gap:14px;padding:8px 24px;border-top:1px solid rgba(255,255,255,.05);image-rendering:auto;cursor:pointer;transition:padding-left .08s}
+.card h3+.hrow,.card h3+div>.hrow:first-child{border-top:none}
+.hrow time{flex:0 0 64px;font:400 9px var(--label);letter-spacing:1px;color:#9f94b4}
+.hrow .fav{flex:0 0 auto;width:16px;height:16px;border-radius:3px;display:grid;place-items:center;font:800 10px var(--body);color:#fff;background:#5a4a6a;overflow:hidden}
+.hrow .fav img{width:16px;height:16px}
+.hrow span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 14px var(--body);color:#efe4cc}
+.hrow small{color:#9f94b4;font:500 12.5px var(--body);white-space:nowrap;max-width:240px;overflow:hidden;text-overflow:ellipsis}
+.hrow:hover,.hrow:focus-visible{padding-left:54px;outline:none}
+.hrow:hover span,.hrow:focus-visible span{color:#ffe28c}
+.hrow:hover::before,.hrow:focus-visible::before{content:"";position:absolute;left:22px;top:50%;width:24px;height:18px;margin-top:-9px;background:url(art/browser/hand.png) 0 0/24px 18px;image-rendering:pixelated}
+.hrow .x{opacity:0}.hrow:hover .x,.hrow:focus-within .x{opacity:1}
+.foot{display:flex;align-items:center;gap:12px;margin-top:-6px}
+.foot .grow{flex:1}
+.pick.danger{color:#ff9a8a}
+.clear{display:flex;gap:8px;align-items:center}
+.clear b{font:400 9px var(--label);letter-spacing:1.5px;color:#ffe28c;margin-right:4px}
+.empty.pad{padding:4px 24px 18px}
+/* downloads: the same paper icons as the tray */
+.drow{position:relative;display:flex;align-items:center;gap:14px;padding:9px 24px;border-top:1px solid rgba(255,255,255,.05);image-rendering:auto;cursor:grab;transition:padding-left .08s}
+.card h3+div>.drow:first-child{border-top:none}
+.drow .dt{flex:1;min-width:0}
+.drow .dt b{display:block;font:700 14px var(--body);color:#efe4cc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.drow .dt small{display:block;font:500 12px var(--body);color:#9f94b4;margin-top:1px}
+.drow:hover:not(.gone){padding-left:54px}
+.drow:hover:not(.gone) .dt b{color:#ffe28c}
+.drow:hover:not(.gone)::before{content:"";position:absolute;left:22px;top:50%;width:24px;height:18px;margin-top:-9px;background:url(art/browser/hand.png) 0 0/24px 18px;image-rendering:pixelated}
+.drow.gone{opacity:.5;cursor:default}
+.drow.gone .dt b{text-decoration:line-through}
+.drow .act{display:flex;gap:4px;opacity:0}.drow:hover .act,.drow:focus-within .act{opacity:1}
+.dx{flex:0 0 auto;display:grid;place-items:center;width:28px;height:28px;border:none;border-radius:6px;background:none;cursor:pointer}
+.dx svg path{fill:#bfae8a}
+.dx:hover{background:rgba(255,224,150,.12)}.dx:hover svg path{fill:#ffe28c}
+.fb{position:relative;flex:0 0 auto;width:26px;height:31px;box-sizing:border-box;background:#e9d8b0;border:2px solid #120A05;border-radius:2px 7px 2px 2px;box-shadow:2px 2px 0 rgba(0,0,0,.45)}
+.fb::before{content:"";position:absolute;right:-2px;top:-2px;width:8px;height:8px;background:linear-gradient(225deg,#2a1a0e 50%,#bfa877 50%);border-left:2px solid #120A05;border-bottom:2px solid #120A05;border-radius:0 7px 0 0}
+.fb b{position:absolute;left:-2px;right:-2px;bottom:3px;height:11px;background:var(--c);border:2px solid #120A05;font:400 7px/11px var(--label);color:#120A05;text-align:center;letter-spacing:.3px}
+.fb.zip{--c:#d9a536}.fb.pdf{--c:#d8553f}.fb.img{--c:#5fb36a}.fb.exe{--c:#8f8fb8}.fb.doc{--c:#5a8fd8}.fb.av{--c:#c46fc4}.fb.file{--c:#bfae8a}
+.bar{display:block;height:8px;margin:4px 0 3px;border-radius:4px;background:#1a0f07;border:2px solid #120A05;overflow:hidden}
+.bar i{display:block;height:100%;background:linear-gradient(180deg,#ffe596,#e0a83a)}
