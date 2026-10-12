@@ -163,9 +163,10 @@ body.maxed .wk .g-rest{display:inline}
 .band .cap{display:none}
 .rnd svg{display:block}
 /* The quiet plaque: a small shield on a normal site, red words only when something is wrong. */
-.slot .lock{display:grid;place-items:center;min-width:26px;height:22px;box-sizing:border-box;padding:0 6px;background:var(--wood-plaque);color:#bfae8a;
+.slot .lock{display:grid;place-items:center;min-width:30px;height:28px;box-sizing:border-box;padding:0 6px;background:var(--wood-plaque);color:#bfae8a;
   box-shadow:inset 0 2px 0 rgba(0,0,0,.6)}
 .slot .lock svg{display:block}
+.slot .lock:not(.bad){color:var(--gold)}
 .slot .lock.bad{background:var(--red);color:#2e0b06;box-shadow:none}
 .slot .lock[hidden]{display:none}
 /* The FLOATING PAGE (his pick, 2026-10-12): no frame; the page floats on the wood with round corners and a soft
