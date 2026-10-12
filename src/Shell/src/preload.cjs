@@ -138,6 +138,10 @@ contextBridge.exposeInMainWorld('aang', {
   /** Send a video tab to the pop-out over WoW. */
   browserPopout: id => ipcRenderer.send('browser:popout', id),
   browserToMac: id => ipcRenderer.send('browser:tomac', id),
+  // --- 6.23 the vault: the frame's unlock box and account picker
+  browserVaultUnlock: pw => ipcRenderer.send('browser:vaultunlock', { pw }),
+  browserVaultPick: id => ipcRenderer.send('browser:vaultpick', { id }),
+  onBrowserVault(fn) { const h = (_e, v) => fn(v); ipcRenderer.on('browser:vault', h); return () => ipcRenderer.removeListener('browser:vault', h); },
   /** Trails: new, rename, or move a tab ({act, id?, name?, tab?, to?}). */
   browserTrail: a => ipcRenderer.send('browser:trail', a),
   /** Find on page: the word, and whether this is Enter (next) or Shift+Enter (back). */
