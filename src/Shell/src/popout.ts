@@ -11,6 +11,7 @@
 //     GPU's drawing load from ~29% to 47%, an opaque one costs nothing).
 //   - Hidden outright when not in use rather than made invisible, so it costs nothing while away.
 import { BrowserWindow, screen as electronScreen, type WebContentsView } from 'electron';
+import { softEdge } from './winedge.ts';
 import path from 'node:path';
 import { embedFor, titleFor, type Embed } from './embed.ts';
 import { CHROME, MIN, firstTime, hold169, ontoScreen, preset, snapToEdges, type Box } from './geometry.ts';
@@ -219,6 +220,7 @@ export class Popout {
       webPreferences: prefs,
     });
 
+    softEdge(this.win);
     // Above a fullscreen game, not merely above ordinary windows.
     if (set.alwaysOnTop) this.win.setAlwaysOnTop(true, 'screen-saver');
     // His decision 32: a normal clickable window. Click-through is the optional switch, never default.

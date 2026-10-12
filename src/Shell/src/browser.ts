@@ -26,6 +26,7 @@ import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown } from './safety.ts';
 import { addressFor, searchFor } from './address.ts';
 import { writeFileAtomic } from './atomic.ts';
 import { lookalike } from './lookalike.ts';
+import { softEdge } from './winedge.ts';
 import { PhishCheck } from './phish.ts';
 import { failureWords, isRisky, upgrade } from './secure.ts';
 import { blockAds, type AdBlock } from './skip/ads.ts';
@@ -80,8 +81,8 @@ const HOME = 'https://www.google.com';
 const SLEEP_AFTER_MS = 30 * 60_000;
 // The band's height (Windows draws its own buttons over it, see-through on the wood) and the page area's colour.
 const BAND_HEIGHT = 58;
-/** The page's corners, rounded natively so it sits in the carved recess (the research: Flow browser does this). */
-const PAGE_RADIUS = 6;
+/** The page's corners, rounded natively: the floating page (2026-10-12) has big soft corners (Flow browser does this). */
+const PAGE_RADIUS = 16;
 const PAGE_COLOUR = '#f6f3ee';
 
 /** Every call into a page, with a deadline: a crashed page never answers, and must never hang Aang. */
@@ -342,6 +343,7 @@ export class AangBrowser {
       webPreferences: { ...SAFE_WEB_PREFERENCES, preload: this.o.preloadPath },
     });
     lockDown(w.webContents);
+    softEdge(w);
     if (was?.maximized) w.once('ready-to-show', () => w.maximize());
     let keep: NodeJS.Timeout | null = null;
     const keepSoon = () => { if (keep) clearTimeout(keep); keep = setTimeout(() => this.keepPlace(), 800); };
