@@ -1,0 +1,12 @@
+/* 6.22b bug 2: the page's right-click menu, in the tab menu's own wood (browser.css .tabmenu, sheet 3 section 7). */
+html,body{margin:0;background:var(--wood2);overflow:hidden;user-select:none}
+.pm{display:inline-block;min-width:210px;max-width:320px;box-sizing:border-box;padding:6px;
+  background:linear-gradient(180deg,#56371F,var(--wood2));border:3px solid var(--outline);
+  box-shadow:inset 0 3px 0 rgba(255,224,150,.14)}
+.pm button{display:flex;justify-content:space-between;gap:16px;width:100%;padding:7px 9px;border:none;border-radius:5px;background:none;cursor:pointer;
+  font:600 13px var(--body);color:#E6DCC8;text-shadow:1px 1px 0 rgba(0,0,0,.7);text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pm button:hover:not(:disabled),.pm button:focus-visible{background:rgba(255,224,150,.10);outline:none}
+.pm button:disabled{color:#8a7a62;cursor:default}
+.pm button i{font:400 8.5px var(--label);font-style:normal;color:#8a7a62;flex:0 0 auto;align-self:center}
+.pm button span{overflow:hidden;text-overflow:ellipsis}
+.pm .sep{height:3px;margin:5px 2px;background:rgba(0,0,0,.45)}
