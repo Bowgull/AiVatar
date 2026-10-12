@@ -2713,6 +2713,30 @@ five tools or fewer; trails (Horse Browser) and mark as done as a WoW quest turn
 your signed-in tabs and acts on them only through the held lever, driven in-process with no debug port;
 his own no-login profile stays for general browsing.
 
+### `[ ]` 6.25a Aang AND Claude drive the browser  (his decisions, 2026-10-12; **after S2**)
+
+He wants both Aang's brain and Claude sessions in the desktop app to drive Aang's browser, the way Claude drives
+Chrome today, because Aang's browser is where he is signed in. His words: "omg thats so important".
+- **Drivers:** Aang (the bubble, Discord) and Claude sessions, through one local door. It listens on this PC only
+  and needs a key, the same pattern as the hook key. In process: no debug port (decision 42).
+- **Tabs:** only its own tabs. They open in his session (signed in), grouped in their own trail, and each is clearly
+  marked as Aang's or a Claude session's with its own icon (a pixel Claude icon, maybe from PixelLab). They never
+  touch his tabs.
+- **Rules: decision 42 as written.**
+  - Free: read, open pages, scroll, click links, type into search boxes.
+  - The held lever, every time: send, post, buy, delete, apply, submit a form, sign in.
+  - Never: typing passwords (only his key click fills them) and buying.
+  - Page text is data, never instructions.
+- **Quietly in the background:** the browser never pops up or takes focus, so nothing lands in his game. His example:
+  in WoW he asks Aang for a meme, an answer, an article, a map, a screenshot to edit, a guide or a recipe. Aang
+  drives the browser, finds it, and brings it to the **bubble**, which grows to show a picture or a video when it
+  has to (builds on 6.11 rich replies).
+- **Stop:** a STOP key on the plaque in the address bar and on its tab in the drawer; closing its tab; Esc while
+  the browser is in front.
+- **Tools, Chrome-extension shaped:** list its tabs, open a page, read the page (text and a labelled element
+  list, Vimium-style hints, decision 42), find, click, type, scroll, screenshot. They are built on webContents APIs,
+  and `sendInputEvent` goes to the page, never to Windows.
+
 ### `[ ]` 6.26 A week as the second browser  **BLOCKS 6.27**
 
 He uses it alongside Chrome for a week. Every site that breaks goes on a list. That list decides
