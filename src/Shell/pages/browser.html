@@ -105,6 +105,11 @@
     <!-- The plaque's own little panel: the one place ads can be let through, one site at a time. -->
     <div class="bandchip site" id="sitepanel" hidden>
       <div class="q" id="sitehost"></div>
+      <div class="poprow" id="poprow" hidden>
+        <b>Popup blocked</b><small id="popurl"></small>
+        <div class="keys"><button class="key primary sm" id="popopen" type="button">Open it<span class="k">A</span></button>
+          <button class="key sm" id="popallow" type="button">Always allow here<span class="k">Z</span></button></div>
+      </div>
       <label class="adrow"><button class="sw" id="adsw" type="button" role="switch" aria-checked="true"><i class="bed"><i class="nub"></i></i></button>
         <span><b>Block ads on this site</b><small id="adnote"></small></span></label>
     </div>
