@@ -33,7 +33,10 @@ export class Vault {
   private session: string | null = null;
   private timer: NodeJS.Timeout | null = null;
 
-  async state(): Promise<VaultState> {
+  /** The last answer state() gave, for drawing a page without waiting on Bitwarden (2 seconds or more). */
+  known: VaultState = 'locked';
+  async state(): Promise<VaultState> { return (this.known = await this.check()); }
+  private async check(): Promise<VaultState> {
     if (!existsSync(BW)) return 'missing';
     const r = await bw(['status'], this.session ? { BW_SESSION: this.session } : {});
     try {

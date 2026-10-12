@@ -673,7 +673,7 @@ export class DiscordAdapter {
       const channelId = [...this.pending.values()].at(-1)?.channelId ?? this.state.channels['needs-you'];
       if (!channelId) return;
       this.asked.set(ev.id, channelId);
-      const sub = ev.remembers ? ` Yes means I can ${ev.remembers} from now on.` : '';
+      const sub = ' Yes is for this once.';
       await this.gw.send(channelId, {
         content: `Can I ${ev.question}?${sub}`,
         buttons: [{ id: `perm:${ev.id}:yes`, label: 'Yes', style: 'success' }, { id: `perm:${ev.id}:no`, label: 'No', style: 'danger' }],

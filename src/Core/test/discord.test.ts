@@ -188,7 +188,7 @@ test('a permission question becomes buttons, only he can press them, and only on
   core.emit({ t: 'permission', id: 'perm7', tool: 'mcp__aang__open', question: 'open chrome', remembers: 'open apps' });
   await tick();
   const q = gw.to('aang').at(-1)!;
-  assert.match(q.content!, /^Can I open chrome\? Yes means I can open apps from now on\./);
+  assert.match(q.content!, /^Can I open chrome\? Yes is for this once\./);
   assert.deepEqual(q.buttons!.map(b => b.label), ['Yes', 'No']);
   assert.deepEqual(gw.press('perm:perm7:yes', STRANGER), ['That is not yours to answer.']); await tick();
   assert.equal(core.perms.length, 0, 'a stranger cannot approve anything');
