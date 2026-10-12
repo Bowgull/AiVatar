@@ -170,6 +170,9 @@ el('crashclose').addEventListener('click', () => window.aang?.browserAct?.('clos
 
 // ---- the address slot: shows the address; click it and it becomes a field. Enter searches or goes.
 function editSlot() {
+  // The drawer or the menu hides the page under them; typing an address means he wants the page, so they go
+  // (found 2026-10-12: a search loaded under the open drawer and he had to click the tab to see it).
+  closeDrawer(); closeMenu();
   const t = state.tabs.find((x) => x.id === state.active);
   urlEl.hidden = true; edit.hidden = false;
   edit.value = t?.url ?? '';
