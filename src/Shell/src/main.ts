@@ -843,6 +843,7 @@ app.whenReady().then(async () => {
   ipcMain.on('settings:set', (e, a) => { if (aangBrowser?.isSettings(e.sender) && a && typeof a.key === 'string') aangBrowser.setSetting(a.key.slice(0, 20), a.value); });
   ipcMain.on('settings:remove', (e, a) => { if (aangBrowser?.isSettings(e.sender) && a && typeof a.list === 'string' && typeof a.value === 'string') aangBrowser.removeEntry(a.list, a.value); });
   ipcMain.on('settings:act', (e, a) => { if (aangBrowser?.isSettings(e.sender) && typeof a === 'string') aangBrowser.settingsAct(a.slice(0, 20)); });
+  ipcMain.handle('browser:suggest', (e, text) => aangBrowser?.isFrame(e.sender) && typeof text === 'string' ? aangBrowser.suggest(text) : []);
   ipcMain.on('browser:findstop', (e) => { if (aangBrowser?.isFrame(e.sender)) aangBrowser.findStop(); });
   ipcMain.on('browser:pref', (e, a) => { if (aangBrowser?.isFrame(e.sender) && a && typeof a.key === 'string') aangBrowser.setPref(a.key, a.on === true); });
   ipcMain.on('browser:tab', (e, a) => { if (aangBrowser?.isFrame(e.sender) && a && Number.isInteger(a.id)) aangBrowser.tabAct(a.id, String(a.act)); });

@@ -529,7 +529,8 @@ export class AangBrowser {
     // The safe preferences, but a tab in the background may sleep: unlike the pop-out it has no reason to
     // keep painting over his game. NOT lockDown(): that pins a window to one page, and a browser navigates.
     // tabpreload.cjs exposes nothing to the page; it only hides passkeys, which hang in Electron (6.22).
-    const view = new WebContentsView({ webPreferences: { ...SAFE_WEB_PREFERENCES, backgroundThrottling: true, session: this.ses, preload: this.o.tabPreloadPath } });
+    // plugins: Chromium's own PDF viewer, so a PDF opens in the tab instead of downloading (6.22b item 12).
+    const view = new WebContentsView({ webPreferences: { ...SAFE_WEB_PREFERENCES, backgroundThrottling: true, session: this.ses, preload: this.o.tabPreloadPath, plugins: true } });
     const wc = view.webContents;
     // A new view paints white until its page draws; that white is the flash between pages. Paint it the
     // page area's own colour instead, and keep it in the window, hidden, so switching to it is instant.
@@ -643,6 +644,8 @@ export class AangBrowser {
     });
     // 6.22b bug 2: right-click on the page opens Aang's own wood menu.
     wc.on('context-menu', (_e, p) => this.pageMenu(tab, p));
+    // Link preview (6.22b item 8): the real address of the link he points at, shown in the wood under the page.
+    wc.on('update-target-url', (_e, u) => { if (tab.id === this.active) this.win?.webContents.send('browser:hover', isWeb(u) ? u.slice(0, 600) : ''); });
     wc.on('audio-state-changed', (e) => { tab.audible = (e as unknown as { audible: boolean }).audible; this.sendTabs(); });
     // A crashed page goes blank and anything that pokes it hangs (tested 2026-10-04): mark it, never touch it.
     wc.on('render-process-gone', () => { tab.crashed = true; tab.loading = false; this.place(); this.sendTabs(); });
@@ -1194,6 +1197,24 @@ export class AangBrowser {
   }
 
   isLent(id: number): boolean { return Boolean(this.tabs.find((x) => x.id === id)?.lent); }
+  /**
+   * Address suggestions as he types (6.22b item 6). Local and instant: his open tabs first ("switch to it"), then his
+   * bookmarks, then tabs he closed lately. The first row is always what he typed, so Enter never surprises him.
+   */
+  suggest(text: string): { kind: string; title: string; url: string; id?: number }[] {
+    const q = String(text ?? '').trim().toLowerCase().slice(0, 200);
+    if (!q) return [];
+    const typed = addressFor(q);
+    const out: { kind: string; title: string; url: string; id?: number }[] = [];
+    if (typed) out.push({ kind: typed.startsWith('https://search.brave.com') || typed.includes('/search?') || typed.includes('duckduckgo.com/?q=') || typed.includes('yandex.com/search') ? 'search' : 'go', title: String(text).trim().slice(0, 200), url: typed });
+    const hit = (title: string, url: string) => title.toLowerCase().includes(q) || url.toLowerCase().replace(/^https?:\/\/(www\.)?/, '').includes(q);
+    const seen = new Set(out.map((x) => x.url));
+    for (const t of this.tabs) if (!t.internal && isWeb(t.url) && hit(t.title, t.url) && !seen.has(t.url)) { out.push({ kind: 'tab', title: t.title, url: t.url, id: t.id }); seen.add(t.url); }
+    for (const m of this.marks) if (hit(m.title, m.url) && !seen.has(m.url)) { out.push({ kind: 'mark', title: m.title, url: m.url }); seen.add(m.url); if (out.length >= 9) break; }
+    for (const u of [...this.closed].reverse()) if (hit('', u) && !seen.has(u)) { out.push({ kind: 'closed', title: u, url: u }); seen.add(u); if (out.length >= 9) break; }
+    return out.slice(0, 9).map((x) => ({ ...x, favicon: this.iconOf(x.url) }));
+  }
+
   /** A tab's address, for the pop-out. */
   urlOf(id: number): string | null { const t = this.tabs.find((x) => x.id === id); return t && isWeb(t.url) ? t.url : null; }
   /** Pause whatever the tab is playing (it went to the pop-out). With a deadline: a dead page never hangs Aang. */
