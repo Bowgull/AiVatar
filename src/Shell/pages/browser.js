@@ -336,6 +336,7 @@ window.addEventListener('keydown', (e) => {
   const c = e.ctrlKey || e.metaKey, k = e.key.toLowerCase();
   const send = (a) => { e.preventDefault(); window.aang?.browserAct?.(a); };
   if (k === 'escape' && dlOpen) { e.preventDefault(); closeDl(); return; }
+  if (k === 'escape' && state.watching) { e.preventDefault(); window.aang?.browserDriver?.({ act: state.watching.working ? 'stop' : 'unwatch', id: state.watching.working ? state.watching.job : 0 }); return; }
   if (k === 'escape' && menuOpen) { e.preventDefault(); closeMenu(); return; }
   if (k === 'escape' && drawerOpen) { e.preventDefault(); closeDrawer(); return; }
   if (c && e.shiftKey && k === 't') send('reopen');
@@ -427,6 +428,7 @@ function paintTabs() {
   for (const [id, r] of rows) if (!open.has(id)) { r.el.remove(); rows.delete(id); }
   for (const [id, h] of heads) if (!groups.some((g) => g.id === id)) { h.remove(); heads.delete(id); }
   if (!done.length && shelf) shelf.remove();
+  want.push(...driverNodes());
   want.forEach((node, i) => { if (tabsBox.children[i] !== node) tabsBox.insertBefore(node, tabsBox.children[i] ?? null); });
   while (tabsBox.children.length > want.length) tabsBox.lastElementChild.remove();
 }
@@ -664,7 +666,9 @@ window.aang?.onBrowserTabs?.((s) => {
   const t = s.tabs.find((x) => x.id === s.active);
   paintTabs();
   // Where he asked to go shows at once, dimmed, until the page arrives (only for his own typed or opened addresses).
-  if (edit.hidden && !finding) paintUrl(t?.pending || t?.url || '');
+  // Watching one of Aang's pages: the slot shows his page's address, and who is driving.
+  if (edit.hidden && !finding) paintUrl(s.watching ? s.watching.url : (t?.pending || t?.url || ''));
+  paintWho();
   el('slot').classList.toggle('pending', Boolean(t?.pending));
   el('back').classList.toggle('dim', !s.canBack);
   el('fwd').classList.toggle('dim', !s.canForward);
@@ -969,4 +973,58 @@ function reloadWant(busy) {
   reloadBtn.dataset.mode = want;
   reloadBtn.innerHTML = busy ? STOPGLYPH : RELOADGLYPH;
   reloadBtn.setAttribute('aria-label', busy ? 'Stop loading' : 'Reload');
+}
+
+// ---- 6.25a: Aang's and Claude sessions' own trails: their icon, their pages, and the brick-red STOP while they work.
+const CLAUDE_IC = '<svg viewBox="0 0 9 9" width="16" height="16" shape-rendering="crispEdges" aria-hidden="true"><path d="M4 0h1v3H4zM4 6h1v3H4zM0 4h3v1H0zM6 4h3v1H6zM1 1h1v1H1zM2 2h1v1H2zM7 1h1v1H7zM6 2h1v1H6zM1 7h1v1H1zM2 6h1v1H2zM7 7h1v1H7zM6 6h1v1H6zM3 3h3v3H3z" fill="#E07A4F"/></svg>';
+const STOP_IC = '<svg viewBox="0 0 7 7" width="12" height="12" shape-rendering="crispEdges" aria-hidden="true"><path d="M1 1h5v5H1z" fill="#ffe4dc"/></svg>';
+function driverIcon(kind) {
+  const ic = Object.assign(document.createElement('span'), { className: 'who-ic' });
+  if (kind === 'claude') ic.innerHTML = CLAUDE_IC;
+  else ic.append(Object.assign(document.createElement('img'), { src: 'art/aang-face.png', alt: '' }));
+  return ic;
+}
+function stopKey(jobId, big = false) {
+  const b = Object.assign(document.createElement('button'), { type: 'button', className: 'stopk' + (big ? ' big' : ''), title: 'Stop', innerHTML: STOP_IC });
+  b.setAttribute('aria-label', 'Stop');
+  b.addEventListener('click', (e) => { e.stopPropagation(); window.aang?.browserDriver?.({ act: 'stop', id: jobId }); });
+  return b;
+}
+function driverNodes() {
+  const out = [];
+  for (const j of Array.isArray(state.drivers) ? state.drivers : []) {
+    const h = document.createElement('div'); h.className = 'th driver';
+    const nm = Object.assign(document.createElement('span'), { className: 'nm', textContent: j.name });
+    const n = Object.assign(document.createElement('span'), { className: 'n', textContent: `${j.pages.length} TAB${j.pages.length === 1 ? '' : 'S'}` });
+    const more = Object.assign(document.createElement('button'), { type: 'button', className: 'thm', textContent: '\u00d7', title: 'Close these' });
+    more.addEventListener('click', (e) => { e.stopPropagation(); window.aang?.browserDriver?.({ act: 'close', id: j.id }); });
+    h.append(driverIcon(j.kind), nm, n);
+    if (j.working) h.append(stopKey(j.id)); else h.append(more);
+    out.push(h);
+    for (const p of j.pages) {
+      const row = document.createElement('div');
+      row.className = 'tp drv' + (state.watching?.page === p.id ? ' on' : '');
+      row.title = p.url; row.tabIndex = 0;
+      if (p.favicon) { const i = document.createElement('img'); i.className = 'fi'; i.alt = ''; i.src = p.favicon; i.referrerPolicy = 'no-referrer'; i.onerror = () => i.remove(); row.append(i); }
+      row.append(Object.assign(document.createElement('span'), { className: 't', textContent: p.title || p.url }));
+      row.addEventListener('click', () => window.aang?.browserDriver?.({ act: 'watch', id: p.id }));
+      row.addEventListener('dblclick', () => window.aang?.browserDriver?.({ act: 'open', id: p.id }));
+      out.push(row);
+    }
+  }
+  return out;
+}
+// The live picture while he watches one of Aang's pages; the address bar says who is driving, with STOP.
+const watchpic = el('watchpic');
+window.aang?.onBrowserWatch?.((src) => {
+  if (typeof src === 'string' && src.startsWith('data:image/')) { watchpic.src = src; watchpic.hidden = false; }
+  else if (src === null) { watchpic.hidden = true; watchpic.removeAttribute('src'); }
+});
+function paintWho() {
+  const w = state.watching, who = el('who');
+  if (!w) { who.hidden = true; who.replaceChildren(); return false; }
+  who.hidden = false;
+  const label = w.kind === 'claude' ? 'CLAUDE IS DRIVING' : 'AANG IS DRIVING';
+  who.replaceChildren(driverIcon(w.kind), label, ...(w.working ? [stopKey(w.job, true)] : []));
+  return true;
 }

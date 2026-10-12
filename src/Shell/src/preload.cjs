@@ -161,6 +161,9 @@ contextBridge.exposeInMainWorld('aang', {
   onBrowserAsk(fn) { const h = (_e, a) => fn(a); ipcRenderer.on('browser:ask', h); return () => ipcRenderer.removeListener('browser:ask', h); },
   /** The downloads tray: act on one by its number (open, show, stop, forget) or the tray (clear, folder, page); drag one out. */
   browserDl: a => ipcRenderer.send('browser:dl', a),
+  /** 6.25a: Aang's own pages: stop, close, watch, unwatch or open one ({act, id}). */
+  browserDriver: a => ipcRenderer.send('browser:driver', a),
+  onBrowserWatch(fn) { const h = (_e, src) => fn(src); ipcRenderer.on('browser:watch', h); return () => ipcRenderer.removeListener('browser:watch', h); },
   browserDlDrag: id => ipcRenderer.send('browser:dldrag', id),
   browserDlHello: () => ipcRenderer.send('browser:dlhello'),
   onBrowserDls(fn) { const h = (_e, d) => fn(d); ipcRenderer.on('browser:dls', h); return () => ipcRenderer.removeListener('browser:dls', h); },

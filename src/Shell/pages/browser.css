@@ -481,3 +481,17 @@ body.drawer-open .drawer{transform:none;visibility:visible;transition:transform 
 @media (prefers-reduced-motion:reduce){.arc.burst{display:none}}
 /* the address he asked for, shown at once and dimmed until the page arrives */
 .slot.pending .url{opacity:.55}
+
+/* ---- 6.25a: Aang's and Claude sessions' own trails, and the brick-red STOP (his pick, 2026-10-12) ---- */
+.drawer .th.driver .nm{color:#ffe28c}
+.drawer .th .who-ic{width:18px;height:18px;flex:0 0 auto;display:grid;place-items:center}
+.drawer .th .who-ic img{width:18px;height:18px;image-rendering:pixelated}
+.stopk{order:4;margin-left:4px;width:24px;height:24px;flex:0 0 auto;border-radius:6px;border:2.5px solid var(--outline);display:grid;place-items:center;cursor:pointer;padding:0;
+  background:linear-gradient(180deg,#b5452f,#7a2416);box-shadow:0 3px 0 var(--outline),inset 0 2px 0 rgba(255,170,140,.45);position:relative;top:0;transition:top .05s,box-shadow .05s}
+.stopk:hover{filter:brightness(1.15)}
+.stopk:active{top:3px;box-shadow:0 0 0 var(--outline),inset 0 2px 0 rgba(255,170,140,.45)}
+.stopk.big{width:26px;height:26px}
+.slot .who{display:inline-flex;align-items:center;gap:8px;color:#ffe28c;-webkit-app-region:no-drag}
+.slot .who img{width:16px;height:16px;image-rendering:pixelated}
+.tp.drv{box-shadow:inset 3px 0 0 #ffe28c}
+.watchpic{z-index:2;background:#24160d}
