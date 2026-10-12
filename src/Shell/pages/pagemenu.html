@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- 6.22b bug 2: the menu you get by right-clicking a page. Its own small window, so it is never cut off at the
+     browser's edge and nothing in the page can draw over it. The page's words (a link, the selected text)
+     arrive as plain data and are drawn with textContent. -->
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'self'; script-src 'self'; font-src 'self'; form-action 'none'; base-uri 'none'">
+<title>Menu</title>
+<link rel="stylesheet" href="cockpit.css">
+<link rel="stylesheet" href="pagemenu.css">
+</head>
+<body>
+<div class="pm" id="pm" role="menu"></div>
+<script src="pagemenu.js"></script>
+</body>
+</html>
