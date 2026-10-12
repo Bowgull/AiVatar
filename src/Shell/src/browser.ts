@@ -72,6 +72,13 @@ interface Tab {
   blockedPopup: { url: string; site: string } | null;
   /** The page did not load: no secure version (`insecure`), or any other failure, in plain words (6.22b bug 3). */
   failed: { kind: 'insecure' | 'error'; url: string; title: string; text: string; retry: boolean } | null;
+  /** Loading (2026-10-12, his design): waiting for the site, then loading, then idle; how far along, 0 to 1. */
+  phase?: 'idle' | 'waiting' | 'loading';
+  prog?: number;
+  /** Where he asked to go, shown in the address slot at once, dimmed, until the page arrives. */
+  pending?: string | null;
+  /** The page in this view has drawn something since it woke: only then is there an old page to hold. */
+  drawn?: boolean;
 }
 
 /** A trail (Horse Browser's idea, sheet 3): pages that belong to one thing he is doing. `named` = he named it. */
@@ -119,6 +126,8 @@ const BAND_HEIGHT = 58;
 /** The page's corners, rounded natively: the floating page (2026-10-12) has big soft corners (Flow browser does this). */
 const PAGE_RADIUS = 16;
 const PAGE_COLOUR = '#f6f3ee';
+/** The soft fade between pages (his pick, option 5): fade length, when a slow site dims, when a page counts as instant. */
+const VEIL_FADE_MS = 250, VEIL_DIM_MS = 1500, VEIL_INSTANT_MS = 300, VEIL_MAX_MS = 8000;
 
 /** Every call into a page, with a deadline: a crashed page never answers, and must never hang Aang. */
 function within<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
@@ -503,6 +512,7 @@ export class AangBrowser {
     const t = this.cur();
     if (!w || w.isDestroyed()) return;
     this.drawerOpen = open;
+    if (open) this.veilDown(0);
     if (!open) { if (this.hideTimer) { clearTimeout(this.hideTimer); this.hideTimer = null; } this.place(); if (t?.view && !t.lent) t.view.setVisible(true); w.webContents.send('browser:frozen', null); return; }
     const p = this.peekShot;
     this.peekShot = null;
@@ -551,7 +561,7 @@ export class AangBrowser {
     w.on('move', keepSoon);
     w.on('maximize', () => { this.place(); keepSoon(); this.sendTabs(); });
     w.on('unmaximize', () => { this.place(); keepSoon(); this.sendTabs(); });
-    w.on('close', () => { this.keepPlace(); void this.snapshot(); this.visits.flush(); });
+    w.on('close', () => { this.keepPlace(); void this.snapshot(); this.visits.flush(); this.veil = null; try { this.curtain?.webContents.close(); } catch { /* gone */ } this.curtain = null; });
     // 6.22b bug 4: the mouse's back and forward side buttons.
     w.on('app-command', (_e, cmd) => { if (cmd === 'browser-backward') this.sideNav('back'); else if (cmd === 'browser-forward') this.sideNav('forward'); });
     // A page in fullscreen: leaving the window's fullscreen (F11, a snap) ends it too.
@@ -593,9 +603,81 @@ export class AangBrowser {
     const t = this.cur();
     if (!t?.view || t.lent) return;
     // A crashed page is moved out of the way so the frame's own plate shows; it is never touched.
-    if (t.crashed || t.blocked || t.failed) { t.view.setBounds({ x: 0, y: 0, width: 0, height: 0 }); return; }
-    if (this.fullTab === t.id) { t.view.setBounds({ x: 0, y: 0, width: cw, height: ch }); return; }
+    if (t.crashed || t.blocked || t.failed) { t.view.setBounds({ x: 0, y: 0, width: 0, height: 0 }); this.veilDown(0); return; }
+    if (this.fullTab === t.id) { t.view.setBounds({ x: 0, y: 0, width: cw, height: ch }); this.veilDown(0); return; }
     t.view.setBounds({ x: this.inset.left, y: this.inset.top, width: Math.max(0, cw - this.inset.left - this.inset.right), height: Math.max(0, ch - this.inset.top - this.inset.bottom) });
+    if (this.veil?.up && this.curtain) this.curtain.setBounds(t.view.getBounds());
+  }
+
+  // ------------------------------------------------------------------ the soft fade between pages (his pick, 2026-10-12)
+  /**
+   * Option 5 from the loading demo. When a page starts to change, a picture of the old page is laid over it in a
+   * see-through layer of Aang's own (the curtain), so there is never a blank flash; a slow site dims it a little;
+   * the moment the new page first draws, the curtain fades out over 0.25 s and the new page is underneath. A page
+   * that arrives at once (Back, a fast site) just switches. A tab with nothing drawn yet shows the wood instead.
+   */
+  private curtain: WebContentsView | null = null;
+  private curtainReady: Promise<unknown> = Promise.resolve();
+  private veil: { tab: number; nav: number; at: number; up: boolean; dimT: NodeJS.Timeout | null; capT: NodeJS.Timeout | null } | null = null;
+  private veilSeq = 0;
+  private curtainView(): WebContentsView | null {
+    const w = this.win;
+    if (!w || w.isDestroyed()) return null;
+    if (this.curtain && !this.curtain.webContents.isDestroyed()) return this.curtain;
+    const v = new WebContentsView({ webPreferences: { ...SAFE_WEB_PREFERENCES } });
+    lockDown(v.webContents);
+    v.setBackgroundColor('#00000000');
+    try { v.setBorderRadius(PAGE_RADIUS); } catch { /* square */ }
+    v.setVisible(false);
+    w.contentView.addChildView(v);
+    this.curtain = v;
+    this.curtainReady = v.webContents.loadURL(`${this.o.origin}/curtain.html`).catch(() => {});
+    return v;
+  }
+  private async veilUp(t: Tab): Promise<void> {
+    if (this.veil?.tab === t.id) return;                       // a redirect inside one change keeps the same curtain
+    if (t.id !== this.active || !t.view || t.lent || t.internal || this.drawerOpen || this.fullTab === t.id || t.crashed || t.blocked || t.failed) return;
+    this.veilDown(0);
+    const v = this.curtainView();
+    if (!v) return;
+    const nav = ++this.veilSeq;
+    this.veil = { tab: t.id, nav, at: Date.now(), up: false, dimT: null, capT: null };
+    // The hover picture if it is fresh and of this page; otherwise a new one. Nothing drawn yet: the wood.
+    const p = this.peekShot;
+    const shot = !t.drawn ? null : p && p.tab === t.id && Date.now() - p.at < 1500 ? p.shot : await this.shotOf(t);
+    await this.curtainReady;
+    if (this.veil?.nav !== nav) return;                         // the new page drew first: a plain switch
+    const ok = await within(v.webContents.executeJavaScript(`curtainShow(${JSON.stringify(shot)})`), 400, false);
+    const vl = this.veil;
+    if (!ok || vl?.nav !== nav || !t.view || t.id !== this.active || this.drawerOpen) { if (vl?.nav === nav) this.veil = null; return; }
+    v.setBounds(t.view.getBounds());
+    this.win?.contentView.addChildView(v);                      // to the top, over the page
+    v.setVisible(true);
+    vl.up = true;
+    vl.dimT = setTimeout(() => { if (this.veil?.nav === nav) void v.webContents.executeJavaScript('curtainDim()').catch(() => {}); }, VEIL_DIM_MS);
+    vl.capT = setTimeout(() => { if (this.veil?.nav === nav) this.veilDown(VEIL_FADE_MS); }, VEIL_MAX_MS);
+  }
+  private veilDown(fade: number): void {
+    const vl = this.veil;
+    this.veil = null;
+    if (!vl) return;
+    if (vl.dimT) clearTimeout(vl.dimT);
+    if (vl.capT) clearTimeout(vl.capT);
+    const v = this.curtain;
+    if (!v || v.webContents.isDestroyed() || !vl.up) return;
+    // A page that came at once just switches: fading it would only add a wait that was not there.
+    const ms = Date.now() - vl.at < VEIL_INSTANT_MS ? 0 : fade;
+    if (!ms) { v.setVisible(false); return; }
+    void v.webContents.executeJavaScript(`curtainFade(${ms})`).catch(() => {});
+    setTimeout(() => { if (!this.veil?.up) v.setVisible(false); }, ms + 30);
+  }
+  /** The tab's page has drawn its first content (from tabpreload.cjs): the curtain can go. */
+  painted(sender: Electron.WebContents): void {
+    const t = this.tabs.find((x) => x.view?.webContents === sender);
+    if (!t) return;
+    t.drawn = true;
+    if (t.phase !== 'idle') { t.prog = Math.max(t.prog ?? 0, 0.7); this.sendTabs(); }
+    if (this.veil?.tab === t.id) this.veilDown(VEIL_FADE_MS);
   }
 
   /** Give a tab a live page, at its address, then put it back where it was scrolled. */
@@ -613,7 +695,7 @@ export class AangBrowser {
     try { view.setBorderRadius(PAGE_RADIUS); } catch { /* an older runtime: square corners */ }
     view.setVisible(false);
     this.win?.contentView.addChildView(view);
-    tab.view = view; tab.crashed = false; tab.loading = true;
+    tab.view = view; tab.crashed = false; tab.loading = true; tab.drawn = false;
     wc.on('will-attach-webview', (e) => e.preventDefault());
     this.nameFor(wc);
     // A link that opens a new window becomes a tab under the one it came from. Web pages only.
@@ -678,6 +760,7 @@ export class AangBrowser {
     });
     // The page did not load: Aang's own plate instead of Chromium's grey page. Cancelled loads (-3) are not failures.
     wc.on('did-fail-load', (_e, code, _desc, url, isMain) => {
+      if (isMain) { tab.pending = null; if (this.veil?.tab === tab.id) this.veilDown(0); }
       if (!isMain || code === -3 || !isWeb(url)) return;
       let host = '';
       try { host = new URL(url).hostname; } catch { /* keep */ }
@@ -695,8 +778,26 @@ export class AangBrowser {
       try { const host = new URL(wc.getURL()).hostname; if (tab.favicon && !this.icons.has(host)) void this.keepIcon(host, tab.favicon); } catch { /* none */ }
     });
     wc.on('did-start-loading', () => { tab.loading = true; if (tab.crashed) { tab.crashed = false; this.place(); } this.sendTabs(); });
-    wc.on('did-stop-loading', () => { tab.loading = false; this.sendTabs(); });
-    wc.on('did-navigate', (_e, u, status) => { tab.url = u; tab.scrollY = 0; if (status > 0) tab.upgraded = null; if (status < 400) this.visits.add(u, ''); this.changed(); });
+    wc.on('did-stop-loading', () => {
+      tab.loading = false; tab.phase = 'idle'; tab.prog = 1; tab.pending = null; tab.drawn = true;
+      if (this.veil?.tab === tab.id) this.veilDown(VEIL_FADE_MS);
+      this.sendTabs();
+    });
+    // The loading steps (2026-10-12): the click, the site answering, the page read, the page drawn (painted()).
+    wc.on('did-start-navigation', (d) => {
+      const x = d as unknown as { url: string; isMainFrame: boolean; isSameDocument: boolean };
+      if (!x.isMainFrame || x.isSameDocument) return;
+      tab.phase = 'waiting'; tab.prog = 0.08;
+      if (isWeb(x.url)) void this.veilUp(tab);
+      this.sendTabs();
+    });
+    wc.on('dom-ready', () => { if (tab.phase !== 'idle') { tab.prog = Math.max(tab.prog ?? 0, 0.55); this.sendTabs(); } });
+    wc.on('did-navigate', (_e, u, status) => {
+      tab.url = u; tab.scrollY = 0; if (status > 0) tab.upgraded = null; if (status < 400) this.visits.add(u, '');
+      tab.pending = null;
+      if (tab.phase !== 'idle') { tab.phase = 'loading'; tab.prog = Math.max(tab.prog ?? 0, 0.35); }
+      this.changed();
+    });
     wc.on('did-navigate-in-page', (_e, u, main) => { tab.url = u; if (main) this.visits.add(u, wc.getTitle()); this.changed(); });
     // Find on page: how many matches, and which one is lit. Only the tab he is looking at reports.
     wc.on('found-in-page', (_e, r) => { if (tab.id === this.active) this.win?.webContents.send('browser:found', { at: r.activeMatchOrdinal, of: r.matches }); });
@@ -958,6 +1059,7 @@ export class AangBrowser {
       while (at + 1 < this.tabs.length && this.tabs[at + 1]!.opener !== null && this.tabs[at + 1]!.trail === trail && trail !== null) at++;
       this.tabs.splice(at + 1, 0, tab);
     } else this.tabs.push(tab);
+    tab.pending = url;
     this.wake(tab);
     if (focus) this.activate(tab.id); else this.changed();
     return tab.id;
@@ -977,6 +1079,7 @@ export class AangBrowser {
       return;
     }
     if (!t.view) this.wake(t);                         // an asleep tab wakes exactly where it was left
+    if (this.veil && this.veil.tab !== id) this.veilDown(0);
     this.active = id;
     t.lastSeen = Date.now();
     this.place();
@@ -984,6 +1087,8 @@ export class AangBrowser {
     // With the drawer open the page stays hidden under it; closing the drawer shows whichever tab is current.
     if (!this.drawerOpen) t.view!.setVisible(true);
     for (const x of this.tabs) if (x.id !== id && x.view && !x.lent) x.view.setVisible(false);
+    // A tab still loading with nothing drawn yet (a new tab, a tab waking up): the wood, never a white flash.
+    if (!this.drawerOpen && t.phase && t.phase !== 'idle' && !t.drawn) void this.veilUp(t);
     if (!t.crashed) t.view!.webContents.focus();
     // The drawer is open: the page area is a still picture, so take a fresh one of the tab now in front. Without this
     // a closed tab stayed on screen until the drawer shut (his report, 2026-10-12).
@@ -1647,6 +1752,7 @@ export class AangBrowser {
     const l = this.listed(url);
     if (l.length) { this.block(t, url, l); return; }
     t.blocked = null; t.failed = null; this.place();
+    t.pending = url;
     void t.view.webContents.loadURL(this.secured(t, url)).catch(() => {});
     t.view.webContents.focus();
   }
@@ -1823,7 +1929,7 @@ export class AangBrowser {
     w.webContents.send('browser:tabs', {
       active: this.active,
       canBack: Boolean(wc?.navigationHistory.canGoBack()), canForward: Boolean(wc?.navigationHistory.canGoForward()),
-      tabs: this.tabs.map((x) => ({ id: x.id, opener: x.opener, title: x.title, url: x.url, favicon: x.favicon, loading: x.loading, audible: x.audible, muted: x.muted, crashed: x.crashed, asleep: !x.view, blocked: x.blocked, failed: x.failed, trail: x.trail, done: x.done, lent: x.lent, popup: x.blockedPopup?.url ?? null })),
+      tabs: this.tabs.map((x) => ({ id: x.id, opener: x.opener, title: x.title, url: x.url, favicon: x.favicon, loading: x.loading, phase: x.phase ?? (x.loading ? 'loading' : 'idle'), prog: x.prog ?? 0, pending: x.pending ?? null, audible: x.audible, muted: x.muted, crashed: x.crashed, asleep: !x.view, blocked: x.blocked, failed: x.failed, trail: x.trail, done: x.done, lent: x.lent, popup: x.blockedPopup?.url ?? null })),
       trails: this.trails,
       tidy: this.tidyState(),
       stash: this.stash.map((s) => ({ id: s.id, name: s.name, count: s.tabs.length })),

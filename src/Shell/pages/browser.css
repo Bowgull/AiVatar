@@ -27,8 +27,17 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--wood2);font:500 
 .slot .who{font:400 9px var(--label);letter-spacing:1px;color:var(--plum-edge);flex:0 0 auto;
   border-left:2px solid #241a3a;padding-left:9px}
 .loading{height:6px;background:#0B0718;border-bottom:3px solid var(--outline);overflow:hidden}
-.loading i{display:block;height:100%;width:0;
+/* The gold bar (2026-10-12, his design from the research): full width, slid in from the left so the pixel gold stays
+   crisp; real steps plus a creep; stripes drift backwards inside it (a wait feels shorter), faster on a slow site. */
+.loading{position:relative}
+.loading i{position:absolute;inset:0;display:block;transform:translateX(-100%);opacity:0;will-change:transform,opacity;
   background:linear-gradient(180deg,var(--gold-deep) 0 3px,var(--gold-lit) 3px 6px);box-shadow:2px 0 0 var(--outline)}
+.loading i::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(-60deg,transparent 0 8px,rgba(255,255,255,.38) 8px 12px);
+  background-size:28px 100%;animation:ribs 1.6s linear infinite}
+.loading.slow i::after{animation-duration:.8s}
+.loading.fail i{background:linear-gradient(180deg,#6b5a40 0 3px,#9a8a6a 3px 6px)}
+.loading.fail i::after{display:none}
+@keyframes ribs{from{background-position:0 0}to{background-position:-28px 0}}
 .body3{display:grid;grid-template-columns:262px 1fr}
 .rail{background:linear-gradient(180deg,var(--wood1),var(--wood2));border-right:var(--ow) solid var(--outline);padding:10px 9px 14px}
 .rail .newtab{display:flex;align-items:center;gap:8px;width:100%;margin-bottom:10px}
@@ -151,9 +160,7 @@ body.maxed .wk .g-rest{display:inline}
 .tp .x{flex:0 0 auto;width:18px;height:18px;border-radius:50%;border:none;padding:0;cursor:pointer;opacity:0;
   font:700 13px/18px var(--body);color:inherit;background:rgba(0,0,0,.28)}
 .tp:hover .x,.tp.on .x{opacity:1}
-.loading.busy i{width:62%;animation:load 1.4s ease-in-out infinite}
-@keyframes load{0%{transform:translateX(-100%)}100%{transform:translateX(170%)}}
-@media (prefers-reduced-motion:reduce){.arc,.loading.busy i{animation:none}}
+@media (prefers-reduced-motion:reduce){.arc,.loading i::after{animation:none}}
 
 /* ==== the 2026-10-11 look (his picks; research_notes/Browser UI UX polish/findings.md, DECIDED SET) ====
    Real pixel art at one size: every art pixel is 2 screen pixels, light from the top-left. */
@@ -467,3 +474,10 @@ body.drawer-open .drawer{transform:none;visibility:visible;transition:transform 
 .suggest .srow i{margin-left:auto;flex:0 0 auto;font:400 8.5px var(--label);font-style:normal;letter-spacing:1px;color:#bfae8a}
 .suggest .srow.on .st,.suggest .srow:hover .st{color:#ffe28c}
 .suggest .srow.on::before{content:"";position:absolute;left:4px;top:50%;width:24px;height:18px;margin-top:-9px;background:url(art/browser/hand.png) 0 0/24px 18px;image-rendering:pixelated}
+/* the tab ring: dim while waiting for the site, gold once it answers, a small burst when done */
+.arc.wait{border-top-color:#8a7a62;border-right-color:#8a7a62}
+.arc.burst{animation:arcburst .375s ease-out forwards;border-color:var(--gold)}
+@keyframes arcburst{from{transform:scale(1);opacity:1}to{transform:scale(1.8);opacity:0}}
+@media (prefers-reduced-motion:reduce){.arc.burst{display:none}}
+/* the address he asked for, shown at once and dimmed until the page arrives */
+.slot.pending .url{opacity:.55}

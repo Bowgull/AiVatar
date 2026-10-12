@@ -398,7 +398,7 @@ function paintTabs() {
   const done = state.tabs.filter((t) => t.done);
   const rowFor = (t, kid) => {
     const dup = Boolean(state.tidy?.dup?.includes(t.id));
-    const sig = JSON.stringify([t.id === state.active, t.crashed, t.asleep, t.loading, t.favicon, t.title, t.url, t.audible, t.muted, kid, t.done, t.lent, dup]);
+    const sig = JSON.stringify([t.id === state.active, t.crashed, t.asleep, t.loading, t.phase, t.favicon, t.title, t.url, t.audible, t.muted, kid, t.done, t.lent, dup]);
     let r = rows.get(t.id);
     if (!r || r.sig !== sig) {
       const fresh = buildRow(t, kid);
@@ -504,7 +504,9 @@ function buildRow(t, kid) {
     row.className = 'tp' + (t.id === state.active ? ' on' : '') + (t.crashed ? ' crash' : '') + (asleep ? ' sleep' : '') + (kid ? ' kid' : '') + (t.done ? ' done' : '');
     row.title = t.url;
     row.tabIndex = 0;
-    if (t.loading && !t.crashed) row.append(Object.assign(document.createElement('i'), { className: 'arc' }));
+    const ph = t.phase ?? (t.loading ? 'loading' : 'idle');
+    if (ph !== 'idle' && !t.crashed) row.append(Object.assign(document.createElement('i'), { className: 'arc' + (ph === 'waiting' ? ' wait' : '') }));
+    else if (ringWas.get(t.id) && ringWas.get(t.id) !== 'idle' && !t.crashed) { const b = Object.assign(document.createElement('i'), { className: 'arc burst' }); row.append(b); setTimeout(() => b.remove(), 400); }
     else if (t.favicon) { const i = document.createElement('img'); i.className = 'fi'; i.alt = ''; i.src = t.favicon; i.referrerPolicy = 'no-referrer'; i.onerror = () => i.remove(); row.append(i); }
     const title = document.createElement('span'); title.className = 't'; title.textContent = t.title || t.url;
     row.append(title);
@@ -661,17 +663,17 @@ window.aang?.onBrowserTabs?.((s) => {
   if (menuOpen) paintMenu();
   const t = s.tabs.find((x) => x.id === s.active);
   paintTabs();
-  if (edit.hidden && !finding) paintUrl(t?.url ?? '');
+  // Where he asked to go shows at once, dimmed, until the page arrives (only for his own typed or opened addresses).
+  if (edit.hidden && !finding) paintUrl(t?.pending || t?.url || '');
+  el('slot').classList.toggle('pending', Boolean(t?.pending));
   el('back').classList.toggle('dim', !s.canBack);
   el('fwd').classList.toggle('dim', !s.canForward);
-  loading.classList.toggle('busy', Boolean(t?.loading));
-  // Reload becomes Stop while the page loads (6.22b item 9).
-  const busy = Boolean(t?.loading);
-  if (el('reload').dataset.mode !== (busy ? 'stop' : 'reload')) {
-    el('reload').dataset.mode = busy ? 'stop' : 'reload';
-    el('reload').innerHTML = busy ? STOPGLYPH : RELOADGLYPH;
-    el('reload').setAttribute('aria-label', busy ? 'Stop loading' : 'Reload');
-  }
+  barFor(t);
+  for (const x of s.tabs) ringWas.set(x.id, x.phase ?? (x.loading ? 'loading' : 'idle'));
+  // Reload becomes Stop the moment a page starts (6.22b item 9). Two guards, as in Chrome: a double-click cannot
+  // stop the load it just started, and Stop waits to turn back while the mouse rests on it.
+  const busy = Boolean(t && (t.phase ? t.phase !== 'idle' : t.loading));
+  reloadWant(busy);
   // The zoom hint (6.22b item 10): only when the page is not at 100%; a click puts it back.
   const z = Number(s.zoomPct ?? 100);
   el('zoomhint').hidden = z === 100 || !t || String(t.url).startsWith('aang:');
@@ -901,3 +903,70 @@ window.aang?.onBrowserDls?.((d) => {
   if (d.pop) { dlkey.classList.add('glow'); openDl(true); }
 });
 window.aang?.browserDlHello?.();
+
+// ---- the gold bar (2026-10-12, his design from the research): 8% the moment he clicks, real steps as the site
+// answers (35%), the page is read (55%) and first draws (70%); a creep between, never past 90% and never stalling;
+// done: a quick sweep to full, a moment, a fade. Nothing moving for 5 s: the stripes speed up. A failure dulls it.
+const barEl = loading.querySelector('i');
+const ringWas = new Map();
+let bar = { id: null, on: false, v: 0, real: 0, lastStep: 0 }, creepT = null, doneT = null;
+function barTo(v, ms = 250, ease = 'cubic-bezier(.2,0,0,1)') {
+  bar.v = Math.min(1, Math.max(bar.v, v));
+  barEl.style.transition = `transform ${ms}ms ${ease}, opacity 140ms`;
+  barEl.style.opacity = '1';
+  barEl.style.transform = `translateX(${((bar.v - 1) * 100).toFixed(2)}%)`;
+}
+function barHide(now = false) {
+  clearInterval(creepT); creepT = null; clearTimeout(doneT);
+  bar.on = false; loading.classList.remove('slow');
+  if (now) { barEl.style.transition = 'none'; barEl.style.opacity = '0'; barEl.style.transform = 'translateX(-100%)'; bar.v = 0; loading.classList.remove('fail'); return; }
+  barEl.style.transition = 'opacity 200ms'; barEl.style.opacity = '0';
+  doneT = setTimeout(() => { barEl.style.transition = 'none'; barEl.style.transform = 'translateX(-100%)'; bar.v = 0; loading.classList.remove('fail'); }, 220);
+}
+function barStart(id, v) {
+  clearTimeout(doneT); loading.classList.remove('fail', 'slow');
+  barEl.style.transition = 'none'; barEl.style.transform = 'translateX(-100%)'; bar.v = 0;
+  bar = { id, on: true, v: 0, real: v, lastStep: performance.now() };
+  void barEl.offsetWidth;
+  barTo(Math.max(0.08, v), 120);
+  clearInterval(creepT);
+  creepT = setInterval(() => {
+    if (!bar.on) return;
+    if (bar.v < 0.9) barTo(bar.v + (0.9 - bar.v) * 0.035, 400, 'linear');
+    loading.classList.toggle('slow', performance.now() - bar.lastStep > 5000);
+  }, 200);
+}
+function barFor(t) {
+  const phase = t ? (t.phase ?? (t.loading ? 'loading' : 'idle')) : 'idle';
+  const prog = Number(t?.prog) || 0;
+  if (!t || t.id !== bar.id) {                 // another tab is in front: show its own state, no animation from the last
+    if (phase === 'idle' || !t) { barHide(true); bar.id = t?.id ?? null; return; }
+    barStart(t.id, prog); return;
+  }
+  if (phase === 'idle') {
+    if (!bar.on) return;
+    if (t.failed) { loading.classList.add('fail'); clearInterval(creepT); creepT = null; bar.on = false; barEl.style.transition = 'opacity 300ms'; barEl.style.opacity = '0'; doneT = setTimeout(() => barHide(true), 320); return; }
+    clearInterval(creepT); creepT = null; bar.on = false;
+    barTo(1, 150, 'cubic-bezier(.5,0,1,1)');    // speeds up into the end
+    doneT = setTimeout(() => barHide(false), 300);
+    return;
+  }
+  if (!bar.on || prog < bar.real - 0.01) { barStart(t.id, prog); return; }   // a new page started
+  if (prog > bar.real) { bar.real = prog; bar.lastStep = performance.now(); loading.classList.remove('slow'); barTo(prog, 250); }
+}
+// ---- Reload / Stop
+let reloadMode = 'reload', reloadAt = 0, reloadHover = false, reloadLater = null;
+const reloadBtn = el('reload');
+reloadBtn.addEventListener('pointerenter', () => { reloadHover = true; });
+reloadBtn.addEventListener('pointerleave', () => { reloadHover = false; if (reloadLater) { const w = reloadLater; reloadLater = null; reloadWant(w); } });
+reloadBtn.addEventListener('click', (e) => { if (reloadMode === 'stop' && performance.now() - reloadAt < 500) e.stopImmediatePropagation(); }, true);
+function reloadWant(busy) {
+  const want = busy ? 'stop' : 'reload';
+  if (want === reloadMode) { reloadLater = null; return; }
+  // Stop turning back into Reload under a resting mouse would make his next click a reload he did not mean.
+  if (!busy && reloadHover && performance.now() - reloadAt < 1350) { reloadLater = false; setTimeout(() => { if (reloadLater === false) { reloadLater = null; reloadWant(false); } }, 1350); return; }
+  reloadMode = want; reloadAt = performance.now();
+  reloadBtn.dataset.mode = want;
+  reloadBtn.innerHTML = busy ? STOPGLYPH : RELOADGLYPH;
+  reloadBtn.setAttribute('aria-label', busy ? 'Stop loading' : 'Reload');
+}

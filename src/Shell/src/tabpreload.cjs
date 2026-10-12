@@ -1,10 +1,21 @@
-// 6.22: the only script a browser tab gets, and it exposes NOTHING to the page: no doors, no ipc.
+// 6.22: the only script a browser tab gets, and it exposes NOTHING to the page: no doors. It sends one fixed
+// message of its own, "painted", when the page first draws (2026-10-12, the soft fade between pages); the page
+// cannot reach it or put anything in it.
 //
 // Its one job is passkeys. In Electron on Windows a site sees passkey support, shows its passkey button,
 // and the call then never settles: no Windows Security dialog, no error, the page just hangs (research,
 // "Aang browser daily driver/passwords_and_passkeys.md"). Telling the page there are no passkeys makes a
 // well-built site fall back to a password and a code instead. Plain CommonJS, like preload.cjs.
-const { contextBridge } = require('electron');
+const { contextBridge, ipcRenderer } = require('electron');
+
+try {
+  let said = false;
+  const po = new PerformanceObserver((list) => {
+    if (said) return;
+    if (list.getEntries().some((e) => e.name === 'first-contentful-paint' || e.name === 'first-paint')) { said = true; po.disconnect(); ipcRenderer.send('tab:painted'); }
+  });
+  po.observe({ type: 'paint', buffered: true });
+} catch { /* no paint timing here: the Shell falls back to the page finishing */ }
 
 try {
   contextBridge.executeInMainWorld({
