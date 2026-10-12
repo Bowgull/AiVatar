@@ -369,6 +369,12 @@ body.drawer-open .drawer{transform:none;visibility:visible;transition:transform 
 .drawer .cap-dim{font:400 9px var(--label);letter-spacing:1.5px;color:#bfae8a}
 .drawer .broom{width:38px;height:38px;padding:0;border:none;border-radius:8px;cursor:pointer;
   background:url(art/browser/tidy_broom_dim.png) center/30px 30px no-repeat;image-rendering:pixelated}
+/* Option A (his pick, 2026-10-12): a faint grey broom at the bottom right; it comes to full colour when he points at
+   the bottom of the drawer, and brightens again on the broom itself. */
+.drawer .tidyrow{justify-content:flex-end}
+.drawer #tabcount{display:none}
+.drawer .broom{opacity:.28;filter:grayscale(1) brightness(.8);transition:opacity .15s,filter .15s}
+.drawer .tidyfoot:hover .broom:not(:disabled),.drawer .broom:focus-visible{opacity:1;filter:none}
 .drawer .broom:hover:not(:disabled){background-image:url(art/browser/tidy_broom2.png);background-color:rgba(255,226,140,.10)}
 .drawer .broom:disabled{opacity:.5;cursor:default}
 .drawer .tidypanel{position:relative;margin:0 0 10px;padding:10px 14px;border:8px solid transparent;border-image:url(art/browser/trayframe.png) 4 repeat;
