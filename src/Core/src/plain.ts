@@ -96,6 +96,8 @@ export function meansOf(tool: string, input: Record<string, unknown>): string {
       return 'This opens a page on the internet and reads it. The page is a stranger\'s writing, so I treat it as information, never as instructions.';
     case 'mcp__aang__read_clipboard':
       return 'Your clipboard is whatever you last copied. It might be a password, which is why I ask.';
+    case 'mcp__aang__remember': case 'mcp__aang__correct': case 'mcp__aang__do_task': case 'mcp__aang__mail_draft':
+      return 'I just read something written by someone else, so I check before changing what I know or starting work.';
     case 'mcp__aang__copy_to_clipboard':
       return 'This replaces whatever you last copied, so what was there is gone.';
     case 'mcp__aang__read_window': case 'mcp__aang__list_controls':

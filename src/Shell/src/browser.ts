@@ -112,7 +112,8 @@ const GOOGLE_AUTH = /^https:\/\/accounts\.(google|youtube)\.com(\/|$)/i;
 /** A popup that opens within this long of his click or key press is his (Chrome's own rule); later ones are a page's. */
 const GESTURE_MS = 1000;
 /** A tab not looked at for this long, and not playing sound, goes to sleep. */
-const SLEEP_AFTER_MS = 30 * 60_000;
+// 2 hours (his call, 2026-10-12: fewer reloads when going back to a tab). Was 30 minutes. This PC has 16 GB.
+const SLEEP_AFTER_MS = 2 * 60 * 60_000;
 // The band's height (Windows draws its own buttons over it, see-through on the wood) and the page area's colour.
 const BAND_HEIGHT = 58;
 /** The page's corners, rounded natively: the floating page (2026-10-12) has big soft corners (Flow browser does this). */
@@ -135,6 +136,41 @@ export class AangBrowser {
   private inset = { left: 30, top: 66, right: 8, bottom: 8 };
   /** The tab drawer is open: the page is shown as a still picture under it, so the drawer can lie over it. */
   private drawerOpen = false;
+  /**
+   * 2026-10-12, his "the window glitches when I click ⋯": the picture of the page used to be taken AFTER the
+   * click (up to 600 ms), and the live page was hidden before the frame had painted it, so the page area
+   * flashed. Now the picture is taken while his mouse is on the way (hover), and the live page is hidden only
+   * when the frame says the picture is on screen.
+   */
+  private peekShot: { tab: number; url: string; at: number; shot: string } | null = null;
+  private peeking = false;
+  private hideTimer: NodeJS.Timeout | null = null;
+  private async shotOf(t: Tab): Promise<string | null> {
+    if (!t.view || t.crashed || t.blocked || t.failed || t.lent) return null;
+    try {
+      const img = await within(t.view.webContents.capturePage(), 600, null);
+      if (!img || img.isEmpty()) return null;
+      // At the page's own size on screen: a high-DPI picture is four times the bytes for nothing he can see.
+      const b = t.view.getBounds();
+      const fit = img.getSize().width > b.width * 1.25 && b.width > 0 ? img.resize({ width: b.width, quality: 'good' }) : img;
+      return 'data:image/jpeg;base64,' + fit.toJPEG(80).toString('base64');
+    } catch { return null; }
+  }
+  /** The mouse is heading for something that will cover the page: take its picture now. */
+  async peek(): Promise<void> {
+    const t = this.cur();
+    if (!t || this.drawerOpen || this.peeking) return;
+    if (this.peekShot && this.peekShot.tab === t.id && Date.now() - this.peekShot.at < 700) return;
+    this.peeking = true;
+    try { const shot = await this.shotOf(t); this.peekShot = shot ? { tab: t.id, url: t.url, at: Date.now(), shot } : null; }
+    finally { this.peeking = false; }
+  }
+  /** The frame has painted the picture: now the live page can go. */
+  private frozenReady(): void {
+    if (this.hideTimer) { clearTimeout(this.hideTimer); this.hideTimer = null; }
+    const t = this.cur();
+    if (this.drawerOpen && t?.view && !t.lent) t.view.setVisible(false);
+  }
   private timers: NodeJS.Timeout[] = [];
   private saveSoon: NodeJS.Timeout | null = null;
   private readonly o: BrowserOptions;
@@ -467,15 +503,18 @@ export class AangBrowser {
     const t = this.cur();
     if (!w || w.isDestroyed()) return;
     this.drawerOpen = open;
-    if (!open) { this.place(); if (t?.view && !t.lent) t.view.setVisible(true); w.webContents.send('browser:frozen', null); return; }
-    let shot: string | null = null;
-    if (t?.view && !t.crashed && !t.blocked && !t.failed && !t.lent) {
-      try { const img = await within(t.view.webContents.capturePage(), 600, null); if (img && !img.isEmpty()) shot = 'data:image/jpeg;base64,' + img.toJPEG(82).toString('base64'); }
-      catch { /* no picture: the page area shows its own colour */ }
-    }
+    if (!open) { if (this.hideTimer) { clearTimeout(this.hideTimer); this.hideTimer = null; } this.place(); if (t?.view && !t.lent) t.view.setVisible(true); w.webContents.send('browser:frozen', null); return; }
+    const p = this.peekShot;
+    this.peekShot = null;
+    // A picture taken on the hover is good if it is the same page and under 1.5 seconds old.
+    let shot = t && p && p.tab === t.id && p.url === t.url && Date.now() - p.at < 1500 && !t.loading ? p.shot : null;
+    if (!shot && t) shot = await this.shotOf(t);
     if (!this.drawerOpen) return;               // closed again while the picture was taken
     w.webContents.send('browser:frozen', shot);
-    if (t?.view && !t.lent) t.view.setVisible(false);
+    if (!shot) { this.frozenReady(); return; }
+    // The frame answers 'frozen-ready' once the picture is painted; never wait more than a moment for it.
+    if (this.hideTimer) clearTimeout(this.hideTimer);
+    this.hideTimer = setTimeout(() => this.frozenReady(), 250);
   }
 
   isFrame(sender: Electron.WebContents): boolean { return Boolean(this.win && !this.win.isDestroyed() && sender === this.win.webContents); }
@@ -732,9 +771,16 @@ export class AangBrowser {
     const wc = t.view?.webContents;
     if (wc) { const go = () => wc.send('settings:section', String(section).slice(0, 20)); if (wc.isLoading()) wc.once('did-finish-load', go); else go(); }
   }
+  private vaultChecking = false;
   /** Everything Settings shows. Plain data only. */
   async settingsData(): Promise<Record<string, unknown>> {
-    const vault = await this.vault.state();
+    // The Bitwarden check takes over 2 seconds (it starts a whole program), so Settings draws with the last
+    // known answer and is updated when the fresh one comes in.
+    const vault = this.vault.known;
+    if (!this.vaultChecking) {
+      this.vaultChecking = true;
+      void this.vault.state().then((v) => { this.vaultChecking = false; if (v !== vault) this.pushSettings(); }, () => { this.vaultChecking = false; });
+    }
     return {
       home: this.prefs.home !== DEFAULT_HOME ? this.prefs.home : '', homeNow: this.HOME,
       search: this.prefs.search, aiBox: this.prefs.aiBox, startup: this.prefs.startup,
@@ -1327,6 +1373,7 @@ export class AangBrowser {
    * Address suggestions as he types (6.22b item 6). Local and instant: his open tabs first ("switch to it"), then his
    * bookmarks, then tabs he closed lately. The first row is always what he typed, so Enter never surprises him.
    */
+  private preconnected = '';
   suggest(text: string): { kind: string; title: string; url: string; id?: number }[] {
     const q = String(text ?? '').trim().toLowerCase().slice(0, 200);
     if (!q) return [];
@@ -1339,6 +1386,15 @@ export class AangBrowser {
     for (const m of this.marks) if (hit(m.title, m.url) && !seen.has(m.url)) { out.push({ kind: 'mark', title: m.title, url: m.url }); seen.add(m.url); if (out.length >= 9) break; }
     for (let i = this.visits.list.length - 1, n = 0; i >= 0 && n < 3000 && out.length < 9; i--, n++) { const v = this.visits.list[i]; if (hit(v.title, v.url) && !seen.has(v.url)) { out.push({ kind: 'history', title: v.title || v.url, url: v.url }); seen.add(v.url); } }
     for (const u of [...this.closed].reverse()) if (hit('', u) && !seen.has(u)) { out.push({ kind: 'closed', title: u, url: u }); seen.add(u); if (out.length >= 9) break; }
+    // Start connecting to where Enter will go while he is still typing, as Chrome does: the address lookup and
+    // the secure handshake are done by the time he presses it. A connection only, nothing is fetched or sent.
+    const first = out[0];
+    if (first?.url && isWeb(first.url)) {
+      try {
+        const origin = new URL(first.url).origin;
+        if (origin !== this.preconnected) { this.preconnected = origin; this.ses.preconnect({ url: origin, numSockets: 1 }); }
+      } catch { /* not an address */ }
+    }
     return out.slice(0, 9).map((x) => ({ ...x, favicon: this.iconOf(x.url) }));
   }
 
@@ -1609,6 +1665,8 @@ export class AangBrowser {
       case 'reopen': this.reopen(); break;
       case 'reclaim': this.onReclaim?.(); break;
       case 'drawer-open': void this.drawer(true); break;
+      case 'peek': void this.peek(); break;
+      case 'frozen-ready': this.frozenReady(); break;
       case 'importmarks': void this.importMarks(); break;
       case 'settings': this.openSettings(); break;
       case 'bookmarks': this.openSettings('bookmarks'); break;

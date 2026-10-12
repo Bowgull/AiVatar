@@ -136,3 +136,9 @@ export function chunkMessage(text: string, max = MAX): string[] {
 
 /** Discord channel names: lower-case, dashes, no spaces. */
 export const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '');
+
+/** S2 2.9: wrap every bare link in <>, which Discord never previews. For a message that carries our own card. */
+export function noPreview(text: string | undefined): string | undefined {
+  if (text == null) return text;
+  return text.replace(/(^|[^<])(https?:\/\/[^\s<>]+)/gi, (_m, pre, url) => `${pre}<${url}>`);
+}

@@ -195,12 +195,26 @@ vaultpw.addEventListener('keydown', (e) => { if (e.key === 'Escape') { vaultpw.v
 el('star').addEventListener('click', (e) => { e.stopPropagation(); tap(1.2); window.aang?.browserAct?.('star'); });
 document.addEventListener('click', () => closeMenu());
 window.aang?.onBrowserFrozen?.((src) => {
-  if (typeof src === 'string' && src.startsWith('data:image/')) { frozen.src = src; frozen.hidden = false; }
+  if (typeof src === 'string' && src.startsWith('data:image/')) {
+    // Tell the Shell only once the picture is really on screen, so the live page never vanishes into a gap.
+    frozen.src = src; frozen.hidden = false;
+    frozen.decode().catch(() => {}).then(() => requestAnimationFrame(() => requestAnimationFrame(() => window.aang?.browserAct?.('frozen-ready'))));
+  }
   else if (src === null) { frozen.hidden = true; frozen.removeAttribute('src'); }
   if (drawerOpen) { clearTimeout(drawerWait); document.body.classList.add('drawer-open'); }
   if (over.size === 0) { frozen.hidden = true; }
 });
 el('drawerkey').addEventListener('click', () => (drawerOpen ? closeDrawer() : openDrawer()));
+// His ask (2026-10-12): resting the mouse on the handle opens the drawer, as other apps do. A short wait, so
+// passing over it on the way somewhere does nothing; dragging a tab onto it opens it too.
+let hoverOpen = 0;
+const handle = el('drawerkey');
+handle.addEventListener('pointerenter', () => { window.aang?.browserAct?.('peek'); clearTimeout(hoverOpen); if (!drawerOpen) hoverOpen = setTimeout(openDrawer, 400); });
+handle.addEventListener('pointerleave', () => clearTimeout(hoverOpen));
+handle.addEventListener('pointerdown', () => clearTimeout(hoverOpen));
+handle.addEventListener('dragenter', () => { if (!drawerOpen) openDrawer(); });
+// Anything that will cover the page: take its picture while the mouse is on the way, so the click is instant.
+for (const id of ['menukey', 'dlkey', 'slot']) el(id)?.addEventListener('pointerenter', () => window.aang?.browserAct?.('peek'));
 // A click on the page (its picture) puts the drawer away, as clicking outside any drawer does.
 page.addEventListener('pointerdown', () => { closeDrawer(); closeMenu(); });
 el('newtab').addEventListener('click', () => closeDrawer());

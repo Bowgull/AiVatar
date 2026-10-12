@@ -9,7 +9,7 @@
 // A crash in here must never take the pet or the brain with it. It is its own process, supervised from
 // the tray, and it holds nothing the others need.
 import { app, BrowserWindow, Menu, clipboard, globalShortcut, ipcMain, screen, session, shell } from 'electron';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { CoreLink } from './link.ts';
@@ -80,6 +80,14 @@ let escHeld = false;
 let copyHeld = false;
 /** Ctrl+Shift+P pins and unpins the popout; held only while the popout is up, so other programs keep it otherwise. */
 let pinHeld = false;
+/** TEMPORARY (2026-10-12): his Ctrl+Shift+P did nothing; this shows whether the key arrives. Remove once found. */
+let pinTraced = '';
+function pinTrace(what: string): void {
+  if (what === pinTraced) return;
+  pinTraced = what;
+  try { appendFileSync(path.join(os.tmpdir(), 'aang-pin.log'), `${new Date().toISOString()} ${what}
+`); } catch { /* diagnostic only */ }
+}
 let busySent = '';
 /**
  * Parity with the old pet (2026-10-11). Four times a second: tell the pet where our windows are, so a click on the
@@ -88,6 +96,9 @@ let busySent = '';
  * hide, because the bubble shows and hides from a dozen places.
  */
 function watchBusy(): void {
+  try { watchBusyOnce(); } catch (e) { pinTrace('watcher error: ' + (e as Error).message); }
+}
+function watchBusyOnce(): void {
   const wins = [bubble?.window(), input?.visible ? input.window() : null].filter((w): w is BrowserWindow => Boolean(w && !w.isDestroyed() && w.isVisible()));
   const showing = Boolean(bubble?.window()?.isVisible());
   let r: Electron.Rectangle | null = null;
@@ -104,8 +115,11 @@ function watchBusy(): void {
   if (overBubble && !copyHeld) copyHeld = globalShortcut.register('Control+C', () => bubble?.send('bubble:copy', null));
   else if (!overBubble && copyHeld) { globalShortcut.unregister('Control+C'); copyHeld = false; }
   const popUp = Boolean(popout?.window?.isVisible());
-  if (popUp && !pinHeld) pinHeld = globalShortcut.register('Control+Shift+P', () => popout?.togglePin());
-  else if (!popUp && pinHeld) { globalShortcut.unregister('Control+Shift+P'); pinHeld = false; }
+  if (popUp && !pinHeld) {
+    pinHeld = globalShortcut.register('Control+Shift+P', () => { pinTrace('pressed, pinned before: ' + popout?.pinned); popout?.togglePin(); pinTrace('pinned after: ' + popout?.pinned); });
+    pinTrace(pinHeld ? 'Ctrl+Shift+P claimed' : 'Ctrl+Shift+P REFUSED by Windows');
+  }
+  else if (!popUp && pinHeld) { globalShortcut.unregister('Control+Shift+P'); pinHeld = false; pinTrace('let go (popout closed)'); }
   if (snipper?.open) { escHeld = false; return; }
   const wantEsc = showing && !gameQuiet;
   if (wantEsc && !escHeld) escHeld = globalShortcut.register('Escape', () => bubble?.send('bubble:dismiss', 'esc'));
@@ -400,6 +414,9 @@ function open(kind: string, page: string, opts: Electron.BrowserWindowConstructo
 // One app id so Windows groups them under that icon. The .ico keeps his pixels sharp at each size.
 const AANG_ICON = path.join(HERE, '..', 'assets', 'aang.ico');
 app.setAppUserModelId('Aang');
+// Big downloads come down in several pieces at once where the server allows it (his ask, 2026-10-12).
+// Chromium's own feature, off by default in Chrome; set before the app is ready, as switches must be.
+app.commandLine.appendSwitch('enable-features', 'ParallelDownloading');
 // setIcon alone is not enough: Windows groups the taskbar button by the app id and can still show electron.exe's
 // atom for the group. setAppDetails puts Aang's face on the taskbar button itself (his rule: always Aang's face).
 app.on('browser-window-created', (_e, w) => {

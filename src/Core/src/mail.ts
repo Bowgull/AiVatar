@@ -199,13 +199,20 @@ export class MailStore {
 // ------------------------------------------------------------------ the card he sees
 
 export interface CardView { content: string; buttons: { id: string; label: string; style: 'primary' | 'secondary' | 'success' | 'danger' }[] }
+/**
+ * S2 2.8: what he approves is what is sent. A Discord card holds about 1,900 characters, so a longer email
+ * cannot be shown whole there, and then it cannot be sent from there either: it says to open it on the desktop.
+ */
+export const CARD_BODY = 1300;
+export function fitsCard(d: { body: string }): boolean { return d.body.length <= CARD_BODY; }
+
 export function renderMailCard(d: MailDraft): CardView {
   const head = { pending: 'Email draft. Nothing is sent until you tap Send.', confirm: 'Email draft. One more check before it goes.', sent: 'Sent.', saved: 'Saved to your Gmail drafts. Not sent.', discarded: 'Discarded. Not sent.' }[d.status];
   const lines = [
     `**${head}**`,
     `To: ${d.to.join(', ')}${d.newTo.length ? `   ⚠ new address: ${d.newTo.join(', ')}` : ''}`,
     `Subject: ${d.subject}`,
-    '', d.body.length > 1300 ? d.body.slice(0, 1300) + `\n[…${d.body.length - 1300} more characters; the whole thing is used if you send it]` : d.body,
+    '', fitsCard(d) ? d.body : d.body.slice(0, CARD_BODY) + `\n[…${d.body.length - CARD_BODY} more characters. Too long to show whole here, so open it on the desktop to send it.]`,
     ...(d.status === 'confirm' ? ['', `You have not written to ${d.newTo.join(', ')} through me before. Send it anyway?`] : []),
     ...(d.note ? ['', d.note] : []),
   ];
@@ -214,7 +221,7 @@ export function renderMailCard(d: MailDraft): CardView {
   return {
     content: lines.join('\n').slice(0, 1900),
     buttons: !open ? [] : [
-      { id: tag('send'), label: d.status === 'confirm' ? 'Yes, send to the new address' : d.newTo.length ? 'Send…' : 'Send', style: 'success' },
+      ...(fitsCard(d) ? [{ id: tag('send'), label: d.status === 'confirm' ? 'Yes, send to the new address' : d.newTo.length ? 'Send…' : 'Send', style: 'success' as const }] : []),
       { id: tag('save'), label: 'Save as Gmail draft', style: 'secondary' },
       { id: tag('discard'), label: 'Discard', style: 'danger' },
     ],
