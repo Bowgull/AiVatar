@@ -825,6 +825,9 @@ app.whenReady().then(async () => {
     if (aangBrowser.isLent(id)) popout?.pauseAndClose();
     aangBrowser.pauseMedia(id);
   });
+  // 6.23: his master password goes from the frame straight to the vault, once. Never logged, never to the brain.
+  ipcMain.on('browser:vaultunlock', (e, a) => { if (aangBrowser?.isFrame(e.sender) && a && typeof a.pw === 'string' && a.pw.length <= 1024) void aangBrowser.vaultUnlock(a.pw); });
+  ipcMain.on('browser:vaultpick', (e, a) => { if (aangBrowser?.isFrame(e.sender) && a && typeof a.id === 'string') void aangBrowser.vaultPick(a.id.slice(0, 64)); });
   ipcMain.on('browser:findstop', (e) => { if (aangBrowser?.isFrame(e.sender)) aangBrowser.findStop(); });
   ipcMain.on('browser:pref', (e, a) => { if (aangBrowser?.isFrame(e.sender) && a && typeof a.key === 'string') aangBrowser.setPref(a.key, a.on === true); });
   ipcMain.on('browser:tab', (e, a) => { if (aangBrowser?.isFrame(e.sender) && a && Number.isInteger(a.id)) aangBrowser.tabAct(a.id, String(a.act)); });

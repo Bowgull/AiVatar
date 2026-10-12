@@ -25,6 +25,8 @@
       <!-- Quiet on a normal site (a small shield: click it for this site's ad switch); red, in words, only when something is wrong. -->
       <span class="lock" id="lock" title="This site"></span>
       <span class="url" id="url"></span>
+      <button class="vkey" id="vkey" type="button" aria-label="Fill a login from Bitwarden" title="Fill a login from Bitwarden" hidden><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges" aria-hidden="true"><path d="M1 1h3v1H1zM0 2h1v2H0zM4 2h1v2H4zM1 4h3v1H1zM3 5h1v2H3zM4 5h2v1H4zM4 6h1v1H4z"/></svg></button>
+      <button class="star" id="star" type="button" aria-label="Bookmark this page" aria-pressed="false"><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges" aria-hidden="true"><path d="M3 0h1v2h3v1H6v1h1v3H6V6H5V5H2v1H1v1H0V4h1V3H0V2h3z"/></svg></button>
       <input class="edit" id="edit" type="text" spellcheck="false" autocomplete="off" aria-label="Search or type a web address" hidden>
       <!-- Find on page (Ctrl+F): the slot becomes the find field, so nothing hangs down under the page. -->
       <span class="findtag" id="findtag" hidden>FIND</span>
@@ -52,7 +54,7 @@
         <div class="gh">YOUR THINGS</div>
         <button type="button" class="mrow soon" disabled><span>History</span><i>SOON</i></button>
         <button type="button" class="mrow soon" disabled><span>Downloads</span><i>SOON</i></button>
-        <button type="button" class="mrow soon" disabled><span>Bring bookmarks from Chrome</span><i>SOON</i></button>
+        <button type="button" class="mrow" id="m-import"><span>Bring bookmarks from Chrome</span></button>
       </div>
       <div class="grp">
         <div class="gh">PROTECTION</div>
@@ -67,6 +69,19 @@
       </div>
     </div>
     <!-- 6.22: a website's ask hangs from the band, joined to it, so it is plainly the browser's and not the page's. -->
+    <!-- 6.23: Bitwarden. The master password is typed HERE, in Aang's own frame, never into a website. -->
+    <div class="bandchip vault" id="vaultchip" hidden>
+      <div class="q" id="vaultq">Unlock Bitwarden</div>
+      <p class="m" id="vaultm"></p>
+      <form id="vaultform" autocomplete="off">
+        <input class="vpw" id="vaultpw" type="password" autocomplete="off" spellcheck="false" aria-label="Bitwarden master password" maxlength="1024">
+        <div class="keys">
+          <button class="key primary sm" id="vaultgo" type="submit">Unlock<span class="k">A</span></button>
+          <button class="key sm" id="vaultno" type="button">Cancel<span class="k">Z</span></button>
+        </div>
+      </form>
+      <div class="vlist" id="vaultlist" hidden></div>
+    </div>
     <div class="bandchip" id="askchip" hidden>
       <div class="q" id="askq"></div>
       <p class="m" id="askm"></p>

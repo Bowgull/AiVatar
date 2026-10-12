@@ -12,7 +12,7 @@ function report() {
   // A page is a native view drawn ON TOP of this frame, so anything hanging below the band (a site's ask,
   // the ads panel, a download note) would sit hidden behind it. While one shows, the page moves down past it.
   let top = r.top;
-  for (const id of ['askchip', 'sitepanel', 'toast']) { const x = el(id); if (x && !x.hidden) top = Math.max(top, x.getBoundingClientRect().bottom + 6); }
+  for (const id of ['askchip', 'vaultchip', 'sitepanel', 'toast']) { const x = el(id); if (x && !x.hidden) top = Math.max(top, x.getBoundingClientRect().bottom + 6); }
   // All four sides now: the page sits inside the carved recess, with wood on every side of it.
   window.aang?.browserInsets?.({ left: r.left, top, right: window.innerWidth - r.right, bottom: window.innerHeight - r.bottom });
 }
@@ -95,6 +95,41 @@ el('zreset').addEventListener('click', () => window.aang?.browserAct?.('zoomrese
 el('m-newtab').addEventListener('click', () => { closeMenu(); tap(); window.aang?.browserAct?.('newtab'); });
 el('m-reopen').addEventListener('click', () => { closeMenu(); window.aang?.browserAct?.('reopen'); });
 el('m-find').addEventListener('click', () => { closeMenu(); setTimeout(openFind, 0); });
+el('m-import').addEventListener('click', () => { closeMenu(); window.aang?.browserAct?.('importmarks'); });
+el('vkey').addEventListener('click', (e) => { e.stopPropagation(); window.aang?.browserAct?.('vault'); });
+// The vault's chip: the master password box (unlock) or the account list (pick). The password goes to the Shell
+// and the box is emptied at once; nothing here keeps it.
+const vaultpw = el('vaultpw');
+window.aang?.onBrowserVault?.((v) => {
+  const chip = el('vaultchip');
+  vaultpw.value = '';
+  if (!v) { chip.hidden = true; return; }
+  const unlock = v.mode === 'unlock';
+  el('vaultq').textContent = unlock ? (v.wrong ? 'That password did not open it' : 'Unlock Bitwarden') : 'Which login?';
+  el('vaultm').textContent = unlock ? `Your Bitwarden master password, to fill a login on ${v.host}. It stays open 30 minutes.` : `You have more than one login for ${v.host}.`;
+  el('vaultform').hidden = !unlock;
+  const list = el('vaultlist');
+  list.hidden = unlock;
+  list.replaceChildren();
+  if (!unlock && Array.isArray(v.logins)) for (const l of v.logins) {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'vrow';
+    b.append(Object.assign(document.createElement('b'), { textContent: l.username || '(no username)' }), Object.assign(document.createElement('small'), { textContent: l.name }));
+    b.addEventListener('click', () => window.aang?.browserVaultPick?.(l.id));
+    list.append(b);
+  }
+  if (!unlock) { const c = document.createElement('button'); c.type = 'button'; c.className = 'key sm'; c.textContent = 'Cancel'; c.addEventListener('click', () => window.aang?.browserAct?.('vaultcancel')); list.append(c); }
+  chip.hidden = false;
+  if (unlock) setTimeout(() => vaultpw.focus(), 0);
+});
+el('vaultform').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const pw = vaultpw.value;
+  vaultpw.value = '';
+  if (pw) window.aang?.browserVaultUnlock?.(pw);
+});
+el('vaultno').addEventListener('click', () => { vaultpw.value = ''; window.aang?.browserAct?.('vaultcancel'); });
+vaultpw.addEventListener('keydown', (e) => { if (e.key === 'Escape') { vaultpw.value = ''; window.aang?.browserAct?.('vaultcancel'); } });
+el('star').addEventListener('click', (e) => { e.stopPropagation(); tap(1.2); window.aang?.browserAct?.('star'); });
 document.addEventListener('click', () => closeMenu());
 window.aang?.onBrowserFrozen?.((src) => {
   if (typeof src === 'string' && src.startsWith('data:image/')) { frozen.src = src; frozen.hidden = false; }
@@ -371,10 +406,10 @@ function paintMarks(list) {
   const box = el('marks');
   box.replaceChildren();
   if (!Array.isArray(list) || !list.length) {
-    box.append(Object.assign(document.createElement('p'), { className: 'empty', textContent: 'Your bookmarks land here when they come over from Chrome.' }));
+    box.append(Object.assign(document.createElement('p'), { className: 'empty', textContent: 'Your bookmarks land here. Bring them from Chrome in the ⋯ menu, or press the star on a page.' }));
     return;
   }
-  for (const b of list.slice(0, 12)) {
+  for (const b of list.slice(0, 24)) {
     if (!b || typeof b.url !== 'string') continue;
     const m = document.createElement('button');
     m.type = 'button'; m.className = 'mark'; m.title = b.url;
@@ -425,7 +460,7 @@ window.aang?.onBrowserDownload?.((d) => {
   if (!d) return;
   const t = el('toast');
   if (d.state === 'completed') tap(1.4);
-  t.textContent = d.state === 'completed' ? `Downloaded ${d.name} to your Downloads. Windows checks it before it opens.` : `${d.name} did not finish downloading.`;
+  t.textContent = d.state === 'note' ? String(d.text ?? '') : d.state === 'completed' ? `Downloaded ${d.name} to your Downloads. Windows checks it before it opens.` : `${d.name} did not finish downloading.`;
   t.hidden = false;
   setTimeout(() => { t.hidden = true; }, 6000);
 });
@@ -456,6 +491,11 @@ window.aang?.onBrowserTabs?.((s) => {
   if (!s || !Array.isArray(s.tabs)) return;
   state = s;
   paintMarks(s.marks);
+  el('vkey').hidden = s.hasLogin !== true;
+  el('star').classList.toggle('on', s.starred === true);
+  el('star').setAttribute('aria-pressed', String(s.starred === true));
+  el('star').setAttribute('aria-label', s.starred ? 'Take this page off your bookmarks' : 'Bookmark this page');
+  el('star').title = s.starred ? 'Bookmarked. Click to take it off.' : 'Bookmark this page';
   if (menuOpen) paintMenu();
   const t = s.tabs.find((x) => x.id === s.active);
   paintTabs();

@@ -19,14 +19,16 @@
 //    never runs anything (address.ts, tested).
 //  - Tabs get NO preload and the safe preferences: a website can never reach Aang's doors.
 //  - Every permission a site asks for is refused until 6.22 adds the asks (chips and the lever).
-import { BrowserWindow, WebContentsView, app, clipboard, screen, session as electronSession } from 'electron';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { BrowserWindow, WebContentsView, app, clipboard, dialog, screen, session as electronSession } from 'electron';
+import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown } from './safety.ts';
 import { addressFor, searchFor } from './address.ts';
 import { writeFileAtomic } from './atomic.ts';
 import { lookalike } from './lookalike.ts';
 import { softEdge } from './winedge.ts';
+import { isBar, parseBookmarks, type Mark } from './bookmarks.ts';
+import { Vault, fillScript, type Login } from './vault.ts';
 import { PhishCheck } from './phish.ts';
 import { failureWords, isRisky, upgrade } from './secure.ts';
 import { blockAds, type AdBlock } from './skip/ads.ts';
@@ -126,6 +128,15 @@ export class AangBrowser {
   /** The ⋯ menu's switches (sheet 3 section 10), kept between runs. Block ads and Block popups start on. */
   prefs = { ads: true, popups: true };
   private readonly prefsFile: string;
+  /** 6.23: his logins from Bitwarden, filled when he clicks the key. */
+  private readonly vault = new Vault();
+  /** The tab and site a fill was started for: a fill never lands on a page that changed since. */
+  private vaultFor: { tab: number; host: string } | null = null;
+  /** Does the page he is looking at have a password box? Then the key shows in the slot. */
+  private hasLogin = false;
+  /** 6.23: his bookmarks. The bar ones show on the velvet shelf; all of them are kept. */
+  private readonly marksFile: string;
+  private marks: Mark[] = [];
   /** 6.22b bug 5: where the window was, kept between opens. */
   private readonly placeFile: string;
   /** 6.22b bug 1: the tab whose page asked for fullscreen (a video's own button): it fills the whole screen. */
@@ -142,6 +153,14 @@ export class AangBrowser {
     this.pausedFile = path.join(o.stateDir, 'adblock-paused.json');
     this.prefsFile = path.join(o.stateDir, 'browser-prefs.json');
     this.placeFile = path.join(o.stateDir, 'browser-window.json');
+    this.marksFile = path.join(o.stateDir, 'browser-bookmarks.json');
+    try {
+      if (existsSync(this.marksFile)) {
+        const a = JSON.parse(readFileSync(this.marksFile, 'utf8'));
+        if (Array.isArray(a)) this.marks = a.filter((m: Partial<Mark>) => typeof m?.url === 'string' && isWeb(m.url) && typeof m.title === 'string')
+          .map((m: Mark) => ({ title: m.title.slice(0, 200), url: m.url, folder: String(m.folder ?? '').slice(0, 80) })).slice(0, 5000);
+      }
+    } catch { /* none yet */ }
     this.httpOkFile = path.join(o.stateDir, 'browser-http-ok.json');
     this.trustedFile = path.join(o.stateDir, 'download-trusted.json');
     const loadSet = (f: string) => { try { if (existsSync(f)) { const a = JSON.parse(readFileSync(f, 'utf8')); if (Array.isArray(a)) return new Set(a.filter((x: unknown) => typeof x === 'string')); } } catch { /* none */ } return new Set<string>(); };
@@ -358,6 +377,7 @@ export class AangBrowser {
     w.on('leave-full-screen', () => { const t = this.tabs.find((x) => x.id === this.fullTab); if (t?.view) void within(t.view.webContents.executeJavaScript('document.fullscreenElement&&document.exitFullscreen().catch(()=>{});true', true), 500, null); });
     w.on('closed', () => {
       if (this.menu && !this.menu.isDestroyed()) this.menu.destroy();
+      this.vault.lock();                          // closing the browser locks the vault
       this.menu = null; this.fullTab = null;
       for (const t of this.tabs) if (!t.lent) this.closeView(t);
       this.tabs = []; this.active = null; this.win = null;
@@ -371,7 +391,8 @@ export class AangBrowser {
     this.win = w;
     void w.loadURL(`${this.o.origin}/browser.html`);
     // The continuous snapshot, and putting idle tabs to sleep.
-    this.timers.push(setInterval(() => { void this.snapshot(); }, 8000), setInterval(() => this.sleepIdle(), 60_000));
+    this.timers.push(setInterval(() => { void this.snapshot(); }, 8000), setInterval(() => this.sleepIdle(), 60_000),
+      setInterval(() => { void this.lookForLogin(); }, 1500));
   }
 
   /** 6.19: the frame says how big its rail and band are; everything else follows from the window. */
@@ -714,6 +735,109 @@ export class AangBrowser {
     }
   }
 
+  // ------------------------------------------------------------------ 6.23 the vault (Bitwarden)
+  /** A password box on the page he is looking at? Read-only, with a deadline. Secure pages only. */
+  private async lookForLogin(): Promise<void> {
+    const t = this.cur();
+    const wc = t?.view?.webContents;
+    let has = false;
+    if (wc && !t!.crashed && !t!.blocked && !t!.failed && !t!.lent && t!.url.startsWith('https:')) {
+      has = await within(wc.executeJavaScript("!!document.querySelector('input[type=password]')", true) as Promise<boolean>, 800, false) === true;
+    }
+    if (has !== this.hasLogin) { this.hasLogin = has; this.sendTabs(); }
+  }
+  private note(text: string): void { this.win?.webContents.send('browser:download', { name: '', state: 'note', text }); }
+  /** He clicked the key. */
+  async vaultKey(): Promise<void> {
+    const t = this.cur();
+    if (!t || !t.view || !t.url.startsWith('https:')) { this.note('Logins are only filled on secure pages.'); return; }
+    let host = '';
+    try { host = new URL(t.url).hostname; } catch { return; }
+    this.vaultFor = { tab: t.id, host };
+    const s = await this.vault.state();
+    if (s === 'missing') { this.note("Bitwarden's tool is not on this PC yet."); return; }
+    if (s === 'signed-out') { this.note('Sign in to Bitwarden once first: open a terminal and type  bw login  (Aang never types it for you).'); return; }
+    if (s === 'locked') { this.win?.webContents.send('browser:vault', { mode: 'unlock', host }); return; }
+    await this.vaultList();
+  }
+  /** His master password, straight from the frame's box. Used once by bw, never kept, never logged. */
+  async vaultUnlock(password: string): Promise<void> {
+    const f = this.vaultFor;
+    if (!f) return;
+    const ok = await this.vault.unlock(password);
+    if (!ok) { this.win?.webContents.send('browser:vault', { mode: 'unlock', host: f.host, wrong: true }); return; }
+    await this.vaultList();
+  }
+  private async vaultList(): Promise<void> {
+    const f = this.vaultFor;
+    const t = f ? this.tabs.find((x) => x.id === f.tab) : undefined;
+    if (!f || !t) return;
+    const logins: Login[] | null = await this.vault.loginsFor(t.url);
+    if (logins === null) { this.note('Bitwarden did not answer. Try the key again.'); return; }
+    if (!logins.length) { this.win?.webContents.send('browser:vault', null); this.note(`No saved login for ${f.host} in your Bitwarden.`); return; }
+    if (logins.length === 1) { await this.vaultPick(logins[0]!.id); return; }
+    this.win?.webContents.send('browser:vault', { mode: 'pick', host: f.host, logins });
+  }
+  /** Fill one login into the page, if it is still the page he clicked the key on. */
+  async vaultPick(id: string): Promise<void> {
+    const f = this.vaultFor;
+    this.vaultFor = null;
+    this.win?.webContents.send('browser:vault', null);
+    const t = f ? this.tabs.find((x) => x.id === f.tab) : undefined;
+    const wc = t?.view?.webContents;
+    if (!f || !t || !wc || wc.isDestroyed() || t.blocked || t.failed) return;
+    let host = '';
+    try { host = new URL(wc.getURL()).hostname; } catch { /* none */ }
+    if (host !== f.host || !wc.getURL().startsWith('https:')) { this.note('The page changed, so nothing was filled. Click the key again.'); return; }
+    const s = await this.vault.secret(id);
+    if (!s) { this.note('Bitwarden did not give that login back. Try the key again.'); return; }
+    const did = await within(wc.executeJavaScriptInIsolatedWorld(1001, [{ code: fillScript(s.username, s.password) }]) as Promise<number>, 2000, 0);
+    if (!did) this.note('No login box found on this page to fill.');
+  }
+  vaultCancel(): void { this.vaultFor = null; this.win?.webContents.send('browser:vault', null); }
+
+  // ------------------------------------------------------------------ 6.23 bookmarks
+  private saveMarks(): void { try { writeFileAtomic(this.marksFile, JSON.stringify(this.marks)); } catch { /* best effort */ } }
+  /**
+   * "Bring bookmarks from Chrome": he picks the file Chrome's Export bookmarks made (in his Drive or Downloads).
+   * Only the file he picks is read. New ones are added; ones he already has are left as they are.
+   */
+  async importMarks(): Promise<void> {
+    const w = this.win;
+    if (!w || w.isDestroyed()) return;
+    const drive = 'G:\\My Drive';
+    const r = await dialog.showOpenDialog(w, {
+      title: 'Pick the bookmarks file Chrome exported', buttonLabel: 'Bring them in',
+      defaultPath: existsSync(drive) ? drive : app.getPath('downloads'),
+      filters: [{ name: 'Bookmarks file', extensions: ['html', 'htm'] }], properties: ['openFile'],
+    });
+    const file = r.filePaths[0];
+    if (r.canceled || !file) return;
+    let added = 0;
+    try {
+      if (statSync(file).size > 20 * 1024 * 1024) throw new Error('that file is too big to be a bookmarks file');
+      const have = new Set(this.marks.map((m) => m.url));
+      for (const m of parseBookmarks(readFileSync(file, 'utf8'))) if (!have.has(m.url)) { this.marks.push(m); have.add(m.url); added++; }
+      this.marks = this.marks.slice(0, 5000);
+      this.saveMarks();
+    } catch (e) {
+      w.webContents.send('browser:download', { name: '', state: 'note', text: `Those bookmarks could not be read: ${(e as Error).message}` });
+      return;
+    }
+    w.webContents.send('browser:download', { name: '', state: 'note', text: added ? `Brought in ${added} bookmarks. The bar ones are on the shelf in the drawer.` : 'Nothing new in that file: you already have all of them.' });
+    this.sendTabs();
+  }
+  /** The star in the slot: the page he is on goes onto the shelf, or comes off it. */
+  toggleMark(): void {
+    const t = this.cur();
+    if (!t || !isWeb(t.url)) return;
+    const i = this.marks.findIndex((m) => m.url === t.url);
+    if (i >= 0) this.marks.splice(i, 1);
+    else this.marks.unshift({ title: (t.title || t.url).slice(0, 200), url: t.url, folder: 'Bookmarks bar' });
+    this.saveMarks();
+    this.sendTabs();
+  }
+
   // ------------------------------------------------------------------ lending a tab to the popout ("take the tab with you")
   /** Set by main: bring a lent tab back from the popout (the popout closes and hands it over). */
   onReclaim: (() => void) | null = null;
@@ -821,6 +945,11 @@ export class AangBrowser {
       case 'reopen': this.reopen(); break;
       case 'reclaim': this.onReclaim?.(); break;
       case 'drawer-open': void this.drawer(true); break;
+      case 'importmarks': void this.importMarks(); break;
+      case 'star': this.toggleMark(); break;
+      case 'vault': void this.vaultKey(); break;
+      case 'vaultcancel': this.vaultCancel(); break;
+      case 'vaultlock': this.vault.lock(); this.note('Bitwarden is locked.'); break;
       case 'drawer-close': void this.drawer(false); break;
       // The red plate: the safe way out, or (the held lever) in anyway, for this site, this run.
       case 'phishback': if (t) { t.blocked = null; if (wc?.navigationHistory.canGoBack()) { this.place(); wc.navigationHistory.goBack(); } else this.close(t.id); } break;
@@ -951,6 +1080,11 @@ export class AangBrowser {
       adsOn: Boolean(this.ads),
       sounds: this.sounds,
       prefs: this.prefs,
+      // The shelf: the bar ones first, as in Chrome, then the rest. Only what the shelf can show is sent.
+      marks: [...this.marks.filter((m) => isBar(m.folder)), ...this.marks.filter((m) => !isBar(m.folder))].slice(0, 24).map((m) => ({ title: m.title, url: m.url })),
+      markCount: this.marks.length,
+      hasLogin: this.hasLogin,
+      starred: Boolean(t && this.marks.some((m) => m.url === t.url)),
       // The page's zoom as he would say it: 100%, 120%... (Chromium's level is 20% per step).
       zoomPct: wc ? Math.round(Math.pow(1.2, wc.getZoomLevel()) * 100) : 100,
     });
