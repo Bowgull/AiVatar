@@ -142,6 +142,8 @@ export type ToBody =
   | { t: 'bubble.focus.failed' }
   /** The browser's Trail clean up: Qwen's grouping, or why there is none ('game' means wait until WoW is closed). */
   | { t: 'tidy.answer'; id: number; ok: boolean; text?: string; why?: string }
+  /** 6.25a: one driving step for the browser (open, read, click, type, scroll, picture, start, finish). */
+  | { t: 'drive'; id: number; op: string; a: Record<string, unknown> }
   /** An ask he never answered ran out (the brain said no for him): take it off the bubble. */
   | { t: 'ask.expired'; id: string }
 
@@ -376,6 +378,9 @@ export type FromBody =
   | { t: 'bubble.focus.failed' }
   /** The browser's Trail clean up asks Qwen to sort loose tabs (numbered site and title lines only). */
   | { t: 'tidy.ask'; id: number; prompt: string }
+  /** 6.25a: the browser's answer to a driving step, and his STOP on a job. */
+  | { t: 'drive.result'; id: number; ok: boolean; [k: string]: unknown }
+  | { t: 'drive.stopped'; job: number }
   /**
    * Where the pet IS (step 6.10b), so the Shell can hang its windows off him. Sent by the C# Body when
    * he is dragged, docked, rescaled or moved between displays - on a change, never on a timer.

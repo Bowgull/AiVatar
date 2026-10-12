@@ -154,6 +154,7 @@ export const HOLD_TO_CONFIRM: readonly string[] = [
   'mcp__aang__mail_send',      // once it is sent it is sent
   'mcp__aang__force_quit',     // destroys unsaved work in someone else's app
   'mcp__aang__delete_file',    // undo_file_change covers edits, not a deletion
+  'mcp__aang__browse_act',     // 6.25a: send, post, apply, submit, sign in on a website (decision 42: the held lever)
 ];
 
 /** Does this ask have to be held rather than clicked? */

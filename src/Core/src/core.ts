@@ -27,6 +27,7 @@ import { TOKEN_HEADER, clearToken, newToken, sameToken } from './token.ts';
 import { MODELS, pickLane } from './route.ts';
 import type { Lane as LaneName } from './route.ts';
 import { editExact, offLimits, refusal, undoLast, writeWhole } from './files.ts';
+import { cleanJobName, pageReport } from './drive.ts';
 import { commandPaths } from './trust.ts';
 import { describeMatches, isBrowser, listControlsText, needsCare, pickControl, runAct } from './uia.ts';
 import type { ActRunner } from './uia.ts';
@@ -420,7 +421,92 @@ export class Core {
         return await this.askPermission(tool, input) ? null : this.whyNot();
       },
       markOutside: () => { this.tainted = true; },
+      browse: (a) => this.browse(a),
     };
+  }
+
+  // ------------------------------------------------------------------ 6.25a: Aang drives his browser
+  private drivePending = new Map<number, { resolve: (m: Record<string, unknown>) => void; timer: NodeJS.Timeout }>();
+  private driveSeq = 0;
+  /** This turn's job (one trail in his drawer), and the links the pages it read offered. */
+  private driveJob: { job: number; turn: Turn | null; stopped: boolean } | null = null;
+  private pageLinks = new Set<string>();
+  /** The last thing found, kept for the bubble (6.25a part 2). */
+  lastFound: { png: string; url: string; title: string; video: boolean } | null = null;
+  private requestDrive(op: string, a: Record<string, unknown>, ms = 45_000): Promise<Record<string, unknown>> {
+    if (this.clientsOf('desktop').length === 0) return Promise.resolve({ ok: false, error: 'the browser is not running' });
+    const id = ++this.driveSeq;
+    return new Promise(resolve => {
+      const timer = setTimeout(() => { this.drivePending.delete(id); resolve({ ok: false, error: 'the browser did not answer in time' }); }, ms);
+      timer.unref?.();
+      this.drivePending.set(id, { resolve, timer });
+      this.sendTo('desktop', { t: 'drive', id, op, a });
+    });
+  }
+  /** One job per turn: its name is his words, so the trail in the drawer says what it is for. */
+  private async jobForTurn(): Promise<number | null> {
+    const turn = this.active;
+    if (this.driveJob && this.driveJob.turn === turn && !this.driveJob.stopped) return this.driveJob.job;
+    const r = await this.requestDrive('start', { kind: 'aang', name: cleanJobName(turn?.sub?.text ?? 'aang') });
+    if (!r.ok || typeof r.job !== 'number') return null;
+    this.driveJob = { job: r.job, turn, stopped: false };
+    this.pageLinks.clear();
+    return r.job;
+  }
+  private async browse(a: { action: string; url?: string; page?: number; n?: number; text?: string; enter?: boolean; what?: string }): Promise<{ ok: boolean; text: string; image?: { data: string; mimeType: string } }> {
+    const fail = (why: string) => ({ ok: false, text: `Not done: ${why}.` });
+    if (this.driveJob?.stopped && this.driveJob.turn === this.active) return fail('Joshua pressed STOP, so stop browsing and tell him where you got to');
+    const job = await this.jobForTurn();
+    if (job === null) return fail('the browser is not running');
+    const page = Number.isInteger(a.page) ? a.page : undefined;
+    switch (a.action) {
+      case 'open': {
+        const url = String(a.url ?? '').trim();
+        // S2 2.5's rule, for pages: once something from outside is in the turn, an address that came from neither
+        // him nor a link on a page already read asks first. That is how a page would smuggle his data out.
+        const typed = [this.active?.sub?.text ?? '', ...this.tasks.running().map(t => t.task)].join('\n');
+        if (this.tainted && !this.pageLinks.has(url) && untypedAddresses(url, typed).length) {
+          if (!await this.askPermission('mcp__aang__browse_open', { url })) return fail(this.whyNot().replace(/^Not done: /, '').replace(/\.$/, ''));
+        }
+        const r = await this.requestDrive('open', { job, url });
+        if (!r.ok) return fail(String(r.error ?? 'it did not open'));
+        return { ok: true, text: `Opened page ${r.page}: ${String(r.title ?? '')} (${String(r.url ?? url)}). Read it next.` };
+      }
+      case 'read': {
+        if (page === undefined) return fail('give the page number');
+        const r = await this.requestDrive('read', { page });
+        if (!r.ok) return fail(String(r.error ?? 'it could not be read'));
+        this.tainted = true;                                          // the page's words are now in the turn
+        const items = Array.isArray(r.items) ? r.items as { n: number; kind: string; label: string; href: string; weight: string }[] : [];
+        for (const it of items) if (it.href) this.pageLinks.add(it.href);
+        return { ok: true, text: pageReport(page, r as never, items) };
+      }
+      case 'click': case 'type': {
+        if (page === undefined || !Number.isInteger(a.n)) return fail('give the page and the control number');
+        const args = { job, page, n: a.n, text: a.text ?? '', enter: a.enter === true };
+        let r = await this.requestDrive(a.action, args);
+        if (r.needs === 'lever') {
+          if (!await this.askPermission('mcp__aang__browse_act', { what: String(r.what ?? 'do that') })) return fail(this.whyNot().replace(/^Not done: /, '').replace(/\.$/, ''));
+          r = await this.requestDrive(a.action, { ...args, allowed: true });
+        }
+        if (!r.ok) return fail(String(r.error ?? 'it did not work'));
+        return { ok: true, text: `Done. Page ${page} is now: ${String(r.title ?? '')} (${String(r.url ?? '')}). Read it again before the next step.` };
+      }
+      case 'scroll': {
+        if (page === undefined) return fail('give the page number');
+        const r = await this.requestDrive('scroll', { page, down: a.what !== 'up' });
+        return r.ok ? { ok: true, text: 'Scrolled. Read the page again to see what is there now.' } : fail(String(r.error ?? 'it did not scroll'));
+      }
+      case 'picture': {
+        if (page === undefined) return fail('give the page number');
+        const what = a.what && /^\d+$/.test(a.what) ? Number(a.what) : a.what === 'view' ? 'view' : 'best';
+        const r = await this.requestDrive('picture', { page, what }, 30_000);
+        if (!r.ok || typeof r.png !== 'string') return fail(String(r.error ?? 'no picture came back'));
+        this.lastFound = { png: r.png, url: String(r.url ?? ''), title: String(r.title ?? ''), video: r.video === true };
+        return { ok: true, text: `That is the picture from ${String(r.title ?? 'the page')}${r.video ? ' (a video)' : ''}.`, image: { data: r.png, mimeType: 'image/png' } };
+      }
+      default: return fail('unknown step');
+    }
   }
 
   private protectedPaths() { return { stateDir: this.cfg.stateDir, dataDir: this.cfg.dataDir }; }
@@ -2094,6 +2180,16 @@ export class Core {
         if (h) { clearTimeout(h.timer); this.handsPending.delete(m.id); h.resolve({ ok: m.ok === true, detail: String(m.detail ?? '') }); }
         break;
       }
+      case 'drive.result': {
+        const p = this.drivePending.get(Number(m.id));
+        if (p) { clearTimeout(p.timer); this.drivePending.delete(Number(m.id)); p.resolve(m as unknown as Record<string, unknown>); }
+        break;
+      }
+      case 'drive.stopped': {
+        // He pressed STOP: the turn that was driving stops too, and later steps are refused.
+        if (this.driveJob && this.driveJob.job === Number(m.job)) { this.driveJob.stopped = true; void this.stopActive(); }
+        break;
+      }
       case 'look': {
         const l = this.looking;
         if (l && l.id === m.id) { clearTimeout(l.timer); this.looking = null; l.resolve(m); }
@@ -2300,6 +2396,7 @@ export class Core {
   }
 
   private finishTurn(turn: Turn): void {
+    if (this.driveJob && this.driveJob.turn === turn) { void this.requestDrive('finish', { job: this.driveJob.job }, 5000); this.driveJob = null; }
     if (turn.flush) clearTimeout(turn.flush);
     if (turn.watchdog) clearTimeout(turn.watchdog);
     if (this.active === turn) this.next();

@@ -2770,6 +2770,25 @@ Chrome today, because Aang's browser is where he is signed in. His words: "omg t
   list, Vimium-style hints, decision 42), find, click, type, scroll, screenshot. They are built on webContents APIs,
   and `sendInputEvent` goes to the page, never to Windows.
 
+**His interview, 2026-10-12 (his example: in WoW, "get a map to show me the fastest route from Crossroads to Thunder Bluff"):**
+- **In WoW, the existing icon system, nothing new:**
+  - No icon while Aang works (his call; I offered a grey "?").
+  - Result ready: the tick, glow and sound. One click shows it.
+  - Needs him (a held-lever step): the "!".
+  - Nothing pops over the game by itself. Clicking shows the result in the bubble, never the browser.
+- **The bubble grows to fit**, capped so it never covers the game:
+  - It shows a sized-down version of what he asked for.
+  - A key opens it full size in the popout, with the same moving, see-through and pin.
+- **What comes back:** BOTH the thing itself (the map, image or video, cut out at full quality) first, and a picture of the whole page one click away.
+- **Picture and video controls (his final cut, after three mockup rounds):**
+  - Only two small icons, bottom right of the picture or video: **copy** (the picture, or the video's link) and **popout**.
+  - They show only while the mouse is on it, like the popout. The video's own controls (play key over it, time bar) hover-only too. At rest: just the content.
+  - The site's business name ("Wowhead", "YouTube", "LinkedIn") sits under it in brown, bottom right. Clicking it opens the page.
+  - No purple keys. Save and "the whole page" were dropped.
+- **Videos:** play in the bubble.
+- **His tabs:** kept in Aang's own trail, closed by themselves after a day. Trail clean up tidies them too.
+- **Browser closed when a job starts:** Aang works hidden. His tabs are there next time the browser opens.
+
 ### `[ ]` 6.26 A week as the second browser  **BLOCKS 6.27**
 
 He uses it alongside Chrome for a week. Every site that breaks goes on a list. That list decides

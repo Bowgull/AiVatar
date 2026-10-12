@@ -32,6 +32,7 @@ import { isBar, parseBookmarks, type Mark } from './bookmarks.ts';
 import { Vault, fillScript, type Login } from './vault.ts';
 import { createHmac, randomBytes } from 'node:crypto';
 import { Visits, search as searchVisits } from './visits.ts';
+import { Driver, type Job } from './driver.ts';
 import { Downloads, kindOf, trayOf, type Dl } from './dlist.ts';
 
 /** A site name scrambled with this PC's own key: the file alone says nothing about where he has accounts. */
@@ -258,6 +259,13 @@ export class AangBrowser {
   private menu: BrowserWindow | null = null;
   private menuFor: { tab: number; p: Electron.ContextMenuParams } | null = null;
   private menuItems: unknown[] | null = null;
+  /** 6.25a: the pages Aang (and Claude sessions) drive, in hidden windows of their own. */
+  readonly driver: Driver;
+  /** Set by main: he pressed STOP on a job, so the brain stops that turn. */
+  onDriverStop: ((j: Job) => void) | null = null;
+  /** The driver page he is watching in the page area (a live picture), or none. */
+  private watching: number | null = null;
+  private watchTimer: NodeJS.Timeout | null = null;
   /** History (2026-10-12): every page he opened, 90 days, only on this PC. */
   private readonly visits: Visits;
   /** Downloads (2026-10-12): the list behind the tray and the Downloads page; the live ones and how far along they are. */
@@ -314,6 +322,7 @@ export class AangBrowser {
     this.httpOkFile = path.join(o.stateDir, 'browser-http-ok.json');
     this.trustedFile = path.join(o.stateDir, 'download-trusted.json');
     this.visits = new Visits(path.join(o.stateDir, 'browser-history.json'));
+    this.driver = new Driver({ ses: this.ses, preload: o.tabPreloadPath, listed: (u) => this.listed(u), changed: () => this.sendTabs(), stopped: (j) => this.onDriverStop?.(j) });
     this.dls = new Downloads(path.join(o.stateDir, 'browser-downloads.json'));
     const loadSet = (f: string) => { try { if (existsSync(f)) { const a = JSON.parse(readFileSync(f, 'utf8')); if (Array.isArray(a)) return new Set(a.filter((x: unknown) => typeof x === 'string')); } } catch { /* none */ } return new Set<string>(); };
     this.httpOk = loadSet(this.httpOkFile);
@@ -369,6 +378,8 @@ export class AangBrowser {
    */
   private downloads(): void {
     this.ses.on('will-download', (_e, item, wc) => {
+      // Aang's own pages never download (decision 42: he reads and clicks; files are not his to fetch).
+      if (wc && this.driver?.owns(wc)) { item.cancel(); return; }
       const dir = app.getPath('downloads');
       const base = item.getFilename().replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_') || 'download';
       let to = path.join(dir, base), n = 1;
@@ -1079,6 +1090,7 @@ export class AangBrowser {
       return;
     }
     if (!t.view) this.wake(t);                         // an asleep tab wakes exactly where it was left
+    if (this.watching !== null) this.unwatch(false);
     if (this.veil && this.veil.tab !== id) this.veilDown(0);
     this.active = id;
     t.lastSeen = Date.now();
@@ -1931,6 +1943,8 @@ export class AangBrowser {
       canBack: Boolean(wc?.navigationHistory.canGoBack()), canForward: Boolean(wc?.navigationHistory.canGoForward()),
       tabs: this.tabs.map((x) => ({ id: x.id, opener: x.opener, title: x.title, url: x.url, favicon: x.favicon, loading: x.loading, phase: x.phase ?? (x.loading ? 'loading' : 'idle'), prog: x.prog ?? 0, pending: x.pending ?? null, audible: x.audible, muted: x.muted, crashed: x.crashed, asleep: !x.view, blocked: x.blocked, failed: x.failed, trail: x.trail, done: x.done, lent: x.lent, popup: x.blockedPopup?.url ?? null })),
       trails: this.trails,
+      drivers: this.driver.view(),
+      watching: this.watching === null ? null : (() => { const p = this.driver.page(this.watching!); const j = p ? this.driver.job(p.job) : undefined; return p && j ? { page: p.id, job: j.id, kind: j.kind, working: j.working, url: p.url, title: p.title } : null; })(),
       tidy: this.tidyState(),
       stash: this.stash.map((s) => ({ id: s.id, name: s.name, count: s.tabs.length })),
       adsPaused: (() => { try { return this.paused.has(new URL(t?.url ?? '').hostname.replace(/^www\./, '')); } catch { return false; } })(),
@@ -1951,5 +1965,82 @@ export class AangBrowser {
     if (t) w.setTitle(`${t.title} - Aang Browser`);
   }
 
-  closeAll(): void { if (this.win && !this.win.isDestroyed()) { void this.snapshot(); this.win.close(); } }
+  closeAll(): void { this.driver.closeAll(); if (this.win && !this.win.isDestroyed()) { void this.snapshot(); this.win.close(); } }
+
+  // ------------------------------------------------------------------ 6.25a: what the brain asks of the driver
+  /**
+   * One driving step, asked by the brain. The rules are checked HERE, on the browser side, whatever the brain says:
+   * a "never" control is refused outright; a "lever" one comes back as needs:'lever' until the brain has his held
+   * yes and asks again with allowed. Every answer is plain data; page text is marked as the page's own words.
+   */
+  async drive(op: string, a: Record<string, unknown>): Promise<Record<string, unknown>> {
+    const num = (k: string) => { const v = Number(a?.[k]); if (!Number.isInteger(v)) throw new Error(`${k} must be a number`); return v; };
+    const d = this.driver;
+    try {
+      switch (op) {
+        case 'start': { const j = d.startJob(a?.kind === 'claude' ? 'claude' : 'aang', String(a?.name ?? '')); return { ok: true, job: j.id }; }
+        case 'finish': d.finish(num('job')); return { ok: true };
+        case 'open': return { ok: true, ...(await d.open(num('job'), String(a?.url ?? '').slice(0, 2000))) };
+        case 'read': return { ok: true, ...(await d.read(num('page'))) };
+        case 'click': case 'type': {
+          const page = num('page'), n = num('n');
+          const w = op === 'click' ? d.weightOf(page, n, 'click') : d.weightOf(page, n, 'type');
+          const we = op === 'type' && a?.enter === true ? d.weightOf(page, n, 'enter') : 'free';
+          const worst = w === 'never' || we === 'never' ? 'never' : w === 'lever' || we === 'lever' ? 'lever' : 'free';
+          if (worst === 'never') return { ok: false, error: `that is ${d.describe(page, n)}, and buying, passwords and card details are never done for him. He has to do it himself` };
+          if (worst === 'lever' && a?.allowed !== true) return { ok: false, needs: 'lever', what: `${op === 'click' ? 'press' : 'fill in and send'} ${d.describe(page, n)}` };
+          const r = op === 'click' ? await d.click(page, n) : await d.type(page, n, String(a?.text ?? ''), a?.enter === true);
+          return { ok: true, ...r };
+        }
+        case 'scroll': await d.scroll(num('page'), a?.down !== false); return { ok: true };
+        case 'picture': {
+          const what = a?.what === 'view' ? 'view' : Number.isInteger(Number(a?.what)) ? Number(a?.what) : 'best';
+          const r = await d.picture(num('page'), what);
+          const p = d.page(num('page'));
+          return { ok: true, png: r.png.toString('base64'), video: r.video, width: r.width, height: r.height, url: p?.url ?? '', title: p?.title ?? '' };
+        }
+        case 'close': d.close(num('page')); return { ok: true };
+        default: return { ok: false, error: 'unknown step' };
+      }
+    } catch (e) { return { ok: false, error: (e as Error).message }; }
+  }
+
+  // ------------------------------------------------------------------ 6.25a: his view of Aang's pages
+  /** The drawer and the address bar: STOP a job, close it, watch one of its pages, or open a page as his own tab. */
+  driverAct(act: string, id: number): void {
+    if (act === 'stop') this.driver.stop(id);
+    else if (act === 'close') { if (this.watching !== null && this.driver.page(this.watching)?.job === id) this.unwatch(); this.driver.closeJob(id); }
+    else if (act === 'watch') this.watch(id);
+    else if (act === 'unwatch') this.unwatch();
+    else if (act === 'open') { const p = this.driver.page(id); if (p && isWeb(p.url)) { this.unwatch(false); this.newTab(p.url); } }
+    this.sendTabs();
+  }
+  /** A live picture of one of Aang's pages in the page area: his own tab steps aside, nothing is handed over. */
+  private watch(pageId: number): void {
+    const w = this.win;
+    if (!w || w.isDestroyed() || !this.driver.page(pageId)) return;
+    this.watching = pageId;
+    const t = this.cur();
+    if (t?.view && !t.lent) t.view.setVisible(false);
+    this.veilDown(0);
+    const tick = async () => {
+      if (this.watching !== pageId) return;
+      const src = await this.driver.glance(pageId);
+      if (this.watching !== pageId || !this.win || this.win.isDestroyed()) return;
+      this.win.webContents.send('browser:watch', src);
+      this.watchTimer = setTimeout(() => void tick(), 700);
+    };
+    if (this.watchTimer) clearTimeout(this.watchTimer);
+    void tick();
+    this.sendTabs();
+  }
+  private unwatch(show = true): void {
+    if (this.watching === null) return;
+    this.watching = null;
+    if (this.watchTimer) { clearTimeout(this.watchTimer); this.watchTimer = null; }
+    this.win?.webContents.send('browser:watch', null);
+    const t = this.cur();
+    if (show && t?.view && !t.lent && !this.drawerOpen) { this.place(); t.view.setVisible(true); }
+    this.sendTabs();
+  }
 }
