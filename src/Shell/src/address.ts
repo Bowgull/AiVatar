@@ -15,6 +15,20 @@ export function addressFor(input: string): string | null {
   if (/^localhost(:\d+)?(\/.*)?$/i.test(t)) return 'http://' + t;
   return searchFor(t);
 }
-/** Brave Search with its AI answer off (his pick, 2026-10-12, research_notes/Search engine for Aang browser): its own
- *  index, the least filtering of the free engines, and !g still jumps to Google. */
-export const searchFor = (q: string): string => `https://search.brave.com/search?q=${encodeURIComponent(q)}&summary=0`;
+/** His search engine and whether its AI answer box shows (Settings > General). Brave with the box off is the
+ *  default (his pick, 2026-10-12, research_notes/Search engine for Aang browser): its own index, the least
+ *  filtering of the free engines, and !g still jumps to Google. */
+export type Engine = 'brave' | 'ddg' | 'google' | 'yandex';
+let engine: Engine = 'brave';
+let aiBox = false;
+export function setSearch(e: Engine, ai: boolean): void { engine = e === 'ddg' || e === 'google' || e === 'yandex' ? e : 'brave'; aiBox = ai === true; }
+export const searchFor = (q: string): string => {
+  const s = encodeURIComponent(q);
+  if (engine === 'ddg') return aiBox ? `https://duckduckgo.com/?q=${s}` : `https://noai.duckduckgo.com/?q=${s}`;
+  // Yandex (his ask, 2026-10-12): note it removes sites Russia bans (research_notes/Search engine for Aang browser).
+  if (engine === 'yandex') return `https://yandex.com/search/?text=${s}`;
+  if (engine === 'google') return aiBox ? `https://www.google.com/search?q=${s}` : `https://www.google.com/search?q=${s}&udm=14`;
+  return `https://search.brave.com/search?q=${s}&summary=${aiBox ? 1 : 0}`;
+};
+/** Where a search engine's own front page is, for the default home page. */
+export const engineHome = (): string => engine === 'yandex' ? 'https://yandex.com/' : engine === 'ddg' ? 'https://duckduckgo.com/' : engine === 'google' ? 'https://www.google.com/' : 'https://search.brave.com/';

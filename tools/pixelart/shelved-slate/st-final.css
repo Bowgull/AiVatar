@@ -1,0 +1,23 @@
+/* Settings, his picks (2026-10-12): Ocarina slate panels, round, with the FIRST mockup's gold corner caps (no band);
+   FFX choices (words + the white glove); the brand lettering only: Cinzel headings, Figtree text, Silkscreen labels. */
+.card{position:relative;border:none;border-radius:12px;background:linear-gradient(180deg,#2e3e37,#1f2a25);box-shadow:0 6px 16px rgba(0,0,0,.5);overflow:visible}
+.card::before,.card::after{content:"";position:absolute;width:16px;height:16px;background-size:16px 16px;image-rendering:pixelated;pointer-events:none;top:0}
+.card::before{left:0;background-image:url(art/browser/cap_tl.png)}
+.card::after{right:0;background-image:url(art/browser/cap_tr.png)}
+.card .cb1,.card .cb2{position:absolute;bottom:0;width:16px;height:16px;background-size:16px 16px;image-rendering:pixelated;pointer-events:none}
+.card .cb1{left:0;background-image:url(art/browser/cap_bl.png)} .card .cb2{right:0;background-image:url(art/browser/cap_br.png)}
+.card h3{font:400 10px var(--label);letter-spacing:2px;color:#ffe28c;padding:18px 28px 4px}
+.row{border-top:1px solid rgba(255,226,140,.12);padding:12px 28px}
+.row .t b{font:700 15px var(--body);color:#fff4e0}
+.row .t small{font:500 12.5px var(--body);color:#b7c2b4}
+.main h2{font:700 24px var(--display);color:#ffe28c}
+.btn,.choice button{background:none;border:none;box-shadow:none;font:700 14.5px var(--body);color:#e6edff;text-shadow:2px 2px 0 #000;padding:4px 6px;position:relative;border-radius:0}
+.btn.gold{background:none;box-shadow:none}
+.btn.gold,.choice button.on{color:#ffe28c;padding-left:30px}
+.btn.gold::before,.choice button.on::before{content:"";position:absolute;left:0;top:50%;width:24px;height:18px;margin-top:-9px;background:url(art/browser/hand.png) 0 0/24px 18px;image-rendering:pixelated}
+.btn:hover,.choice button:hover{color:#fff}
+.field input{font:600 14px var(--body);border:none;border-bottom:2px solid #e6edff;background:transparent;border-radius:0;color:#fff;box-shadow:none;width:240px}
+.side a.on{background:rgba(255,226,140,.10);color:#ffe28c;box-shadow:none;position:relative;padding-left:36px}
+.side a.on::before{content:"";position:absolute;left:8px;top:50%;width:24px;height:18px;margin-top:-9px;background:url(art/browser/hand.png) 0 0/24px 18px;image-rendering:pixelated}
+.side a.on i{display:none}
+.choice button.on{background:none;border-color:transparent}

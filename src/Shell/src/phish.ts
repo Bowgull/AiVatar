@@ -50,6 +50,8 @@ export class PhishCheck {
   }
 
   /** Put one list's lines in. Comments and blanks are skipped; nothing in a list is ever run or opened. */
+  /** How many known fake sites and addresses the lists hold, for Settings. */
+  count(): number { return this.domains.size + this.urls.size; }
   add(name: string, kind: 'urls' | 'domains', text: string): void {
     for (const raw of text.split(/\r?\n/)) {
       const line = raw.trim();

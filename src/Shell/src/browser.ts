@@ -23,7 +23,8 @@ import { BrowserWindow, WebContentsView, app, clipboard, dialog, screen, session
 import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown } from './safety.ts';
-import { addressFor, searchFor } from './address.ts';
+import { addressFor, engineHome, searchFor, setSearch, type Engine } from './address.ts';
+import { TIDY_SYSTEM, bySite, doubles, readTidy, staleTrails, tidyPrompt, type TidyTab } from './tidy.ts';
 import { writeFileAtomic } from './atomic.ts';
 import { lookalike } from './lookalike.ts';
 import { softEdge } from './winedge.ts';
@@ -37,10 +38,12 @@ import { PhishCheck } from './phish.ts';
 import { failureWords, isRisky, upgrade } from './secure.ts';
 import { blockAds, type AdBlock } from './skip/ads.ts';
 
-export interface BrowserOptions { origin: string; preloadPath: string; stateDir: string; tabPreloadPath: string }
+export interface BrowserOptions { origin: string; preloadPath: string; stateDir: string; tabPreloadPath: string; settingsPreloadPath: string }
 
 interface Tab {
   id: number;
+  /** One of the browser's own pages (Settings), not a website: it gets its own small preload and never navigates. */
+  internal?: 'settings';
   /** null while the tab is asleep: its page is closed to save memory, its snapshot kept. */
   view: WebContentsView | null;
   opener: number | null;
@@ -70,7 +73,16 @@ interface Tab {
 }
 
 /** A trail (Horse Browser's idea, sheet 3): pages that belong to one thing he is doing. `named` = he named it. */
-interface Trail { id: number; name: string; named: boolean }
+interface Trail { id: number; name: string; named: boolean; collapsed?: boolean; fresh?: boolean }
+/** A trail put away in the Stash (by Tidy or by him): its pages, ready to come back. Never closed for good by Aang. */
+interface Stashed { id: number; name: string; tabs: { url: string; title: string }[]; at: number }
+/** Everything Tidy changed, so Undo can put it all back exactly. */
+interface TidyRun {
+  id: number; phase: 'working' | 'review'; text: string; waiting: boolean;
+  trails: Trail[]; order: { id: number; trail: number | null }[];
+  dup: number[]; stashed: number[]; created: number[]; keepAt: number;
+  timer: NodeJS.Timeout | null; retry: NodeJS.Timeout | null;
+}
 
 /** A trail's first name, from the site it started on: "wowhead.com" becomes "WOWHEAD". He can rename it. */
 function trailNameFor(url: string): string {
@@ -144,9 +156,20 @@ export class AangBrowser {
   /** The little wood sounds (new tab, close, download done). Off until he turns them on in Settings. */
   sounds = false;
   /** The ⋯ menu's switches (sheet 3 section 10), kept between runs. Block ads and Block popups start on. */
-  prefs = { ads: true, popups: true, home: DEFAULT_HOME };
-  /** His home page, or the default. Web pages only. */
-  private get HOME(): string { return isWeb(this.prefs.home) ? this.prefs.home : DEFAULT_HOME; }
+  prefs = { ads: true, popups: true, home: DEFAULT_HOME, search: 'brave' as Engine, aiBox: false, startup: 'tabs' as 'tabs' | 'home' };
+  /** His home page, or his search engine's front page. Web pages only. */
+  private get HOME(): string { return isWeb(this.prefs.home) && this.prefs.home !== DEFAULT_HOME ? this.prefs.home : engineHome(); }
+  /** The Stash (Tidy and the trail menu put trails here). Kept between runs. */
+  private stash: Stashed[] = [];
+  private stashSeq = 0;
+  private readonly stashFile: string;
+  /** The tidy in progress or waiting for Keep or Undo. */
+  private tidy: TidyRun | null = null;
+  private tidySeq = 0;
+  /** Set by main: ask Qwen (through the brain) to sort the tabs. The answer comes back to tidyAnswer(). */
+  onTidyAsk: ((id: number, prompt: string, system: string) => void) | null = null;
+  /** Set by main: the browser is closing a trail's tabs, keep them a moment for Undo. */
+  private lastClosed: { trail: Trail; tabs: { url: string; title: string }[] } | null = null;
   /** Sites he let open popups by themselves ("Allow popups on this site"). Kept between runs. */
   private popupOk = new Set<string>();
   private readonly popupOkFile: string;
@@ -201,6 +224,16 @@ export class AangBrowser {
     try { if (existsSync(this.iconsFile)) for (const [h, d] of Object.entries(JSON.parse(readFileSync(this.iconsFile, 'utf8')) as Record<string, unknown>)) if (typeof d === 'string' && d.startsWith('data:image/')) this.icons.set(h, d); } catch { /* none yet */ }
     setTimeout(() => { void this.fillMarkIcons(); }, 5000);
     this.popupOkFile = path.join(o.stateDir, 'browser-popups-ok.json');
+    this.stashFile = path.join(o.stateDir, 'browser-stash.json');
+    try {
+      if (existsSync(this.stashFile)) {
+        const a = JSON.parse(readFileSync(this.stashFile, 'utf8'));
+        if (Array.isArray(a)) this.stash = a.filter((s: Partial<Stashed>) => Number.isInteger(s?.id) && typeof s?.name === 'string' && Array.isArray(s?.tabs)).slice(0, 50)
+          .map((s: Stashed) => ({ id: s.id, name: s.name.slice(0, 24), at: Number(s.at) || 0, tabs: s.tabs.filter((t) => typeof t?.url === 'string' && isWeb(t.url)).slice(0, 80).map((t) => ({ url: t.url, title: String(t.title ?? t.url).slice(0, 200) })) }));
+      }
+    } catch { /* none yet */ }
+    this.stashSeq = this.stash.reduce((m, s) => Math.max(m, s.id), 0);
+    setSearch(this.prefs.search, this.prefs.aiBox);
     this.sitesFile = path.join(o.stateDir, 'vault-sites.json');
     try { if (existsSync(this.popupOkFile)) this.popupOk = new Set((JSON.parse(readFileSync(this.popupOkFile, 'utf8')) as unknown[]).filter((x): x is string => typeof x === 'string')); } catch { /* none */ }
     try {
@@ -230,7 +263,8 @@ export class AangBrowser {
       if (existsSync(this.prefsFile)) {
         const p = JSON.parse(readFileSync(this.prefsFile, 'utf8'));
         this.sounds = p?.sounds === true;
-        this.prefs = { ads: p?.ads !== false, popups: p?.popups !== false, home: typeof p?.home === 'string' && isWeb(p.home) ? p.home.slice(0, 2000) : DEFAULT_HOME };
+        this.prefs = { ads: p?.ads !== false, popups: p?.popups !== false, home: typeof p?.home === 'string' && isWeb(p.home) ? p.home.slice(0, 2000) : DEFAULT_HOME,
+          search: ['ddg', 'google', 'yandex'].includes(p?.search) ? p.search : 'brave', aiBox: p?.aiBox === true, startup: p?.startup === 'home' ? 'home' : 'tabs' };
       }
     } catch { /* defaults */ }
     denyPermissions(this.ses);
@@ -457,7 +491,8 @@ export class AangBrowser {
     });
     w.once('ready-to-show', () => w.show());
     w.webContents.once('did-finish-load', () => {
-      if (!this.restore()) this.newTab(url ?? this.HOME);
+      // Startup (Settings > General): his tabs as they were, or a fresh home page.
+      if (this.prefs.startup === 'home' || !this.restore()) this.newTab(url ?? this.HOME);
       else if (url) this.newTab(url);
     });
     this.win = w;
@@ -490,6 +525,7 @@ export class AangBrowser {
 
   /** Give a tab a live page, at its address, then put it back where it was scrolled. */
   private wake(tab: Tab): void {
+    if (tab.internal === 'settings') { this.wakeSettings(tab); return; }
     // The safe preferences, but a tab in the background may sleep: unlike the pop-out it has no reason to
     // keep painting over his game. NOT lockDown(): that pins a window to one page, and a browser navigates.
     // tabpreload.cjs exposes nothing to the page; it only hides passkeys, which hang in Electron (6.22).
@@ -622,6 +658,89 @@ export class AangBrowser {
     if (l.length) { this.block(tab, tab.url, l); return; }
     tab.blocked = null;
     void wc.loadURL(this.secured(tab, tab.url)).catch(() => {});
+  }
+
+  /**
+   * The Settings tab (his design, 2026-10-12): the browser's own page in a tab. It has its own small preload with
+   * only the settings doors, lives in Aang's own session (never his browsing one), and is pinned to its page:
+   * nothing can navigate it anywhere, and typing an address while on it opens a new tab instead.
+   */
+  private wakeSettings(tab: Tab): void {
+    const view = new WebContentsView({ webPreferences: { ...SAFE_WEB_PREFERENCES, preload: this.o.settingsPreloadPath } });
+    const wc = view.webContents;
+    lockDown(wc);
+    view.setBackgroundColor('#24160D');
+    try { view.setBorderRadius(PAGE_RADIUS); } catch { /* square */ }
+    view.setVisible(false);
+    this.win?.contentView.addChildView(view);
+    tab.view = view; tab.crashed = false; tab.loading = false; tab.title = 'Settings';
+    wc.on('before-input-event', (e, input) => { if (this.key(input)) e.preventDefault(); });
+    wc.on('render-process-gone', () => { tab.crashed = true; this.place(); this.sendTabs(); });
+    void wc.loadURL(`${this.o.origin}/settings.html`).catch(() => {});
+  }
+  isSettings(sender: Electron.WebContents): boolean { return this.tabs.some((t) => t.internal === 'settings' && t.view?.webContents === sender); }
+  /** Open Settings (or bring its tab forward), at a section. */
+  openSettings(section = 'general'): void {
+    if (!this.win || this.win.isDestroyed()) return;
+    let t = this.tabs.find((x) => x.internal === 'settings');
+    if (!t) {
+      t = { id: ++this.seq, internal: 'settings', view: null, opener: null, title: 'Settings', url: 'aang:settings', favicon: '', loading: false, audible: false, muted: false, crashed: false,
+        scrollY: 0, zoom: 0, lastSeen: Date.now(), blocked: null, trail: null, done: false, lent: false, upgraded: null, failed: null, blockedPopup: null };
+      this.tabs.push(t);
+    }
+    this.activate(t.id);
+    const wc = t.view?.webContents;
+    if (wc) { const go = () => wc.send('settings:section', String(section).slice(0, 20)); if (wc.isLoading()) wc.once('did-finish-load', go); else go(); }
+  }
+  /** Everything Settings shows. Plain data only. */
+  async settingsData(): Promise<Record<string, unknown>> {
+    const vault = await this.vault.state();
+    return {
+      home: this.prefs.home !== DEFAULT_HOME ? this.prefs.home : '', homeNow: this.HOME,
+      search: this.prefs.search, aiBox: this.prefs.aiBox, startup: this.prefs.startup,
+      ads: this.prefs.ads, popups: this.prefs.popups, sounds: this.sounds,
+      popupOk: [...this.popupOk].sort(), trusted: [...this.trusted].sort(), httpOk: [...this.httpOk].sort(),
+      marks: this.marks.slice(0, 400).map((m) => ({ title: m.title, url: m.url, favicon: this.iconOf(m.url) })), markCount: this.marks.length,
+      vault, phish: this.phish.count(),
+      versions: { electron: process.versions.electron, chrome: process.versions.chrome },
+    };
+  }
+  private pushSettings(): void {
+    const wc = this.tabs.find((x) => x.internal === 'settings')?.view?.webContents;
+    if (wc && !wc.isDestroyed()) void this.settingsData().then((d) => { if (!wc.isDestroyed()) wc.send('settings:data', d); });
+  }
+  /** A change made in Settings. Only these keys; anything else is ignored. */
+  setSetting(key: string, value: unknown): void {
+    switch (key) {
+      case 'home': this.setHome(String(value ?? '')); break;
+      case 'search': this.prefs.search = value === 'ddg' || value === 'google' || value === 'yandex' ? value : 'brave'; setSearch(this.prefs.search, this.prefs.aiBox); this.savePrefs(); break;
+      case 'aiBox': this.prefs.aiBox = value === true; setSearch(this.prefs.search, this.prefs.aiBox); this.savePrefs(); break;
+      case 'startup': this.prefs.startup = value === 'home' ? 'home' : 'tabs'; this.savePrefs(); break;
+      case 'ads': case 'popups': case 'sounds': this.setPref(key, value === true); break;
+      default: return;
+    }
+    this.sendTabs();
+    this.pushSettings();
+  }
+  /** Take one entry off a list he made (sites allowed popups, trusted for downloads, opened without https, bookmarks). */
+  removeEntry(list: string, value: string): void {
+    const v = String(value ?? '').slice(0, 2000);
+    const save = (f: string, s: Set<string>) => { try { writeFileAtomic(f, JSON.stringify([...s])); } catch { /* best effort */ } };
+    if (list === 'popupOk' && this.popupOk.delete(v)) save(this.popupOkFile, this.popupOk);
+    else if (list === 'trusted' && this.trusted.delete(v)) save(this.trustedFile, this.trusted);
+    else if (list === 'httpOk' && this.httpOk.delete(v)) save(this.httpOkFile, this.httpOk);
+    else if (list === 'marks') { const i = this.marks.findIndex((m) => m.url === v); if (i >= 0) { this.marks.splice(i, 1); this.saveMarks(); } }
+    else return;
+    this.sendTabs();
+    this.pushSettings();
+  }
+  settingsAct(act: string): void {
+    if (act === 'import') void this.importMarks().then(() => this.pushSettings());
+    else if (act === 'lockvault') { this.vault.lock(); this.pushSettings(); }
+    else if (act === 'homehere') {
+      const t = [...this.tabs].filter((x) => isWeb(x.url)).sort((a, b) => b.lastSeen - a.lastSeen)[0];
+      if (t) this.setSetting('home', t.url);
+    }
   }
 
   /** Put a tab to sleep: its page closes, its snapshot stays, the plaque sinks. */
@@ -1046,7 +1165,7 @@ export class AangBrowser {
    */
   lend(id: number): { view: WebContentsView; url: string; title: string } | null {
     const t = this.tabs.find((x) => x.id === id);
-    if (!t?.view || t.crashed || t.blocked || t.failed || t.lent) return null;
+    if (!t?.view || t.internal || t.crashed || t.blocked || t.failed || t.lent) return null;
     t.lent = true;
     try { this.win?.contentView.removeChildView(t.view); } catch { /* not shown */ }
     try { t.view.webContents.stopFindInPage('clearSelection'); } catch { /* gone */ }
@@ -1101,6 +1220,196 @@ export class AangBrowser {
     this.tidyTrails();
     this.changed();
   }
+  /** Drag a tab: into a trail (or loose, null), placed before another tab (or at the end of its group). */
+  placeTab(tabId: number, trail: number | null, before: number | null): void {
+    const i = this.tabs.findIndex((x) => x.id === tabId);
+    if (i < 0) return;
+    const t = this.tabs[i]!;
+    t.trail = trail !== null && this.trails.some((x) => x.id === trail) ? trail : null;
+    t.done = false;
+    this.tabs.splice(i, 1);
+    const j = before !== null ? this.tabs.findIndex((x) => x.id === before) : -1;
+    if (j >= 0) this.tabs.splice(j, 0, t);
+    else {
+      // the end of its group: after the last tab already in that trail (or after the last loose tab)
+      let k = -1;
+      this.tabs.forEach((x, n) => { if (x.trail === t.trail) k = n; });
+      this.tabs.splice(k + 1, 0, t);
+    }
+    this.tidyTrails();
+    this.changed();
+  }
+  /** Drag a trail by its heading: put it before another trail (or last). */
+  moveTrail(id: number, before: number | null): void {
+    const i = this.trails.findIndex((x) => x.id === id);
+    if (i < 0 || id === before) return;
+    const [tr] = this.trails.splice(i, 1);
+    const j = before !== null ? this.trails.findIndex((x) => x.id === before) : -1;
+    if (j >= 0) this.trails.splice(j, 0, tr!); else this.trails.push(tr!);
+    this.changed();
+  }
+  /** The trail menu: collapse, put in the Stash, ungroup (tabs stay), or close it with its tabs (Undo for a while). */
+  trailAct(id: number, act: string): void {
+    const tr = this.trails.find((x) => x.id === id);
+    if (!tr) return;
+    const own = this.tabs.filter((t) => t.trail === id);
+    if (act === 'collapse') { tr.collapsed = !tr.collapsed; this.changed(); return; }
+    if (act === 'ungroup') { for (const t of own) t.trail = null; this.trails = this.trails.filter((x) => x.id !== id); this.changed(); return; }
+    if (act === 'stash') { this.stashTrail(id); this.changed(); this.note(`${tr.name} is in the Stash.`); return; }
+    if (act === 'close') {
+      this.lastClosed = { trail: { ...tr }, tabs: own.filter((t) => isWeb(t.url)).map((t) => ({ url: t.url, title: t.title })) };
+      for (const t of own) this.close(t.id);
+      this.trails = this.trails.filter((x) => x.id !== id);
+      this.changed();
+      this.win?.webContents.send('browser:download', { name: '', state: 'note', text: `Closed ${tr.name} and its ${own.length} tabs.`, undo: 'trailclose' });
+    }
+  }
+  /** Undo for "close the trail": its pages come back, asleep, in a trail of the same name. */
+  undoTrailClose(): void {
+    const c = this.lastClosed;
+    this.lastClosed = null;
+    if (!c) return;
+    this.reviveTrail(c.trail.name, c.tabs, c.trail.named);
+  }
+  private reviveTrail(name: string, pages: { url: string; title: string }[], named = false): number {
+    const id = ++this.trailSeq;
+    this.trails.push({ id, name, named });
+    for (const p of pages) {
+      if (!isWeb(p.url)) continue;
+      this.tabs.push({ id: ++this.seq, view: null, opener: null, title: p.title, url: p.url, favicon: '', loading: false, audible: false, muted: false, crashed: false,
+        scrollY: 0, zoom: 0, lastSeen: Date.now(), blocked: null, trail: id, done: false, lent: false, upgraded: null, failed: null, blockedPopup: null });
+    }
+    this.changed();
+    return id;
+  }
+  /** Put a trail away: its tabs close (their pages kept in the Stash), never lost. */
+  private stashTrail(id: number): number | null {
+    const tr = this.trails.find((x) => x.id === id);
+    if (!tr) return null;
+    const own = this.tabs.filter((t) => t.trail === id && !t.lent);
+    const s: Stashed = { id: ++this.stashSeq, name: tr.name, tabs: own.filter((t) => isWeb(t.url)).map((t) => ({ url: t.url, title: t.title })), at: Date.now() };
+    this.stash.unshift(s);
+    this.stash = this.stash.slice(0, 50);
+    for (const t of own) { const i = this.tabs.indexOf(t); if (i >= 0) { this.closeView(t); this.tabs.splice(i, 1); } }
+    this.trails = this.trails.filter((x) => x.id !== id);
+    if (!this.tabs.some((t) => t.id === this.active)) { const n = this.tabs[0]; this.active = null; if (n) this.activate(n.id); else this.newTab(this.HOME); }
+    this.saveStash();
+    return s.id;
+  }
+  private saveStash(): void { try { writeFileAtomic(this.stashFile, JSON.stringify(this.stash)); } catch { /* best effort */ } }
+  /** Bring a stashed trail back (its pages wake when he opens them), or let it go. */
+  stashAct(id: number, act: 'restore' | 'forget'): void {
+    const i = this.stash.findIndex((s) => s.id === id);
+    if (i < 0) return;
+    const [s] = this.stash.splice(i, 1);
+    if (act === 'restore') this.reviveTrail(s!.name, s!.tabs, true);
+    this.saveStash();
+    this.changed();
+  }
+
+  // ------------------------------------------------------------------ Trail clean up (Tidy)
+  private tidyTabs(): TidyTab[] {
+    return this.tabs.filter((t) => isWeb(t.url) && !t.internal).map((t) => ({ id: t.id, url: t.url, title: t.title, trail: t.trail, lastSeen: t.lastSeen, active: t.id === this.active, audible: t.audible, lent: t.lent }));
+  }
+  /**
+   * The broom (or Trail clean up in the menu). The instant part happens at once: doubles are marked (closed only on
+   * Keep), trails untouched for two weeks go into the Stash. Then Qwen sorts the loose tabs and names Aang's trails;
+   * while WoW is in front it waits, and says so. Everything is undoable until he keeps it.
+   */
+  tidyStart(): void {
+    if (this.tidy) return;
+    const run: TidyRun = { id: ++this.tidySeq, phase: 'working', text: '', waiting: false, trails: this.trails.map((x) => ({ ...x })),
+      order: this.tabs.map((t) => ({ id: t.id, trail: t.trail })), dup: [], stashed: [], created: [], keepAt: 0, timer: null, retry: null };
+    this.tidy = run;
+    const tabs = this.tidyTabs();
+    run.dup = doubles(tabs);
+    for (const id of staleTrails(this.trails, tabs, Date.now())) { const s = this.stashTrail(id); if (s !== null) run.stashed.push(s); }
+    this.askQwen(run);
+    this.changed();
+  }
+  private askQwen(run: TidyRun): void {
+    const tabs = this.tidyTabs().filter((t) => t.trail === null && !run.dup.includes(t.id));
+    const unnamed = this.trails.filter((tr) => !tr.named).map((tr) => ({ trail: tr, titles: this.tabs.filter((t) => t.trail === tr.id).map((t) => t.title) }));
+    run.text = `Sorting ${tabs.length} loose tab${tabs.length === 1 ? '' : 's'}.`;
+    if (!tabs.length && !unnamed.length) { this.tidyApply(run, { groups: [], names: [] }); return; }
+    (run as TidyRun & { loose?: TidyTab[]; unnamed?: Trail[] }).loose = tabs;
+    (run as TidyRun & { loose?: TidyTab[]; unnamed?: Trail[] }).unnamed = unnamed.map((u) => u.trail);
+    if (!this.onTidyAsk) { this.tidyApply(run, { groups: bySite(tabs), names: [] }, 'Qwen is not connected, so tabs were grouped by site.'); return; }
+    this.onTidyAsk(run.id, tidyPrompt(tabs, unnamed), TIDY_SYSTEM);
+  }
+  /** Qwen's answer (or why there is none). */
+  tidyAnswer(id: number, r: { ok: boolean; text?: string; why?: string }): void {
+    const run = this.tidy;
+    if (!run || run.id !== id || run.phase !== 'working') return;
+    const x = run as TidyRun & { loose?: TidyTab[]; unnamed?: Trail[] };
+    if (r.ok) { this.tidyApply(run, readTidy(String(r.text ?? ''), x.loose ?? [], x.unnamed ?? [])); return; }
+    if (r.why === 'game') {
+      // The card belongs to the game: wait, and try again every 30 seconds until he is out.
+      run.waiting = true; run.text = 'Qwen waits until you are out of WoW.';
+      if (run.retry) clearTimeout(run.retry);
+      run.retry = setTimeout(() => { if (this.tidy === run && run.phase === 'working') { run.waiting = false; this.askQwen(run); this.changed(); } }, 30_000);
+      this.changed();
+      return;
+    }
+    this.tidyApply(run, { groups: bySite(x.loose ?? []), names: [] }, 'Qwen was not available, so tabs were grouped by site.');
+  }
+  private tidyApply(run: TidyRun, plan: { groups: { name: string; tabs: number[] }[]; names: { trail: number; name: string }[] }, note = ''): void {
+    if (this.tidy !== run) return;
+    for (const g of plan.groups) {
+      const tid = ++this.trailSeq;
+      this.trails.push({ id: tid, name: g.name, named: false, fresh: true });
+      run.created.push(tid);
+      for (const id of g.tabs) { const t = this.tabs.find((x) => x.id === id); if (t && t.trail === null) t.trail = tid; }
+    }
+    for (const n of plan.names) { const tr = this.trails.find((x) => x.id === n.trail); if (tr && !tr.named) { tr.name = n.name; tr.fresh = true; } }
+    run.phase = 'review';
+    run.waiting = false;
+    run.text = note;
+    run.keepAt = Date.now() + 10_000;
+    run.timer = setTimeout(() => this.tidyKeep(), 10_000);
+    this.changed();
+  }
+  /** Keep: the doubles close now; the NEW marks fade. */
+  tidyKeep(): void {
+    const run = this.tidy;
+    if (!run) return;
+    if (run.timer) clearTimeout(run.timer);
+    if (run.retry) clearTimeout(run.retry);
+    this.tidy = null;
+    for (const id of run.dup) if (this.tabs.some((t) => t.id === id)) this.close(id);
+    setTimeout(() => { for (const tr of this.trails) tr.fresh = false; this.changed(); }, 8000);
+    this.changed();
+  }
+  /** Undo (or Stop): everything goes back exactly as it was, stashed trails included. */
+  tidyUndo(): void {
+    const run = this.tidy;
+    if (!run) return;
+    if (run.timer) clearTimeout(run.timer);
+    if (run.retry) clearTimeout(run.retry);
+    this.tidy = null;
+    for (const sid of run.stashed) {
+      const i = this.stash.findIndex((s) => s.id === sid);
+      if (i < 0) continue;
+      const [s] = this.stash.splice(i, 1);
+      const old = run.trails.find((x) => x.name === s!.name);
+      const tid = this.reviveTrail(s!.name, s!.tabs, old?.named ?? false);
+      if (old) { const tr = this.trails.find((x) => x.id === tid); if (tr) tr.id = old.id; for (const t of this.tabs) if (t.trail === tid) t.trail = old.id; }
+    }
+    this.saveStash();
+    const pos = new Map(run.order.map((o, n) => [o.id, n]));
+    for (const t of this.tabs) { const o = run.order.find((x) => x.id === t.id); if (o) t.trail = o.trail; }
+    this.tabs.sort((a, b) => (pos.get(a.id) ?? 1e9) - (pos.get(b.id) ?? 1e9));
+    const revived = this.trails.filter((x) => !run.trails.some((y) => y.id === x.id) && !run.created.includes(x.id));
+    this.trails = [...run.trails.map((x) => ({ ...x })), ...revived];
+    this.tidyTrails();
+    this.changed();
+  }
+  private tidyState(): Record<string, unknown> | null {
+    const r = this.tidy;
+    if (!r) return null;
+    return { phase: r.phase, text: r.text, waiting: r.waiting, dup: r.dup, created: r.created.length, stashed: r.stashed.length, doubles: r.dup.length, keepAt: r.keepAt };
+  }
+
   /** "Done is a quest turn-in": it drops to the DONE shelf. It is not closed, so he can always look back. */
   markDone(tabId: number, done: boolean): void {
     const t = this.tabs.find((x) => x.id === tabId);
@@ -1116,7 +1425,7 @@ export class AangBrowser {
     const url = addressFor(address);
     const t = this.cur();
     if (!url) return;
-    if (!t?.view) { this.newTab(url); return; }
+    if (!t?.view || t.internal) { this.newTab(url); return; }
     t.crashed = false;
     const l = this.listed(url);
     if (l.length) { this.block(t, url, l); return; }
@@ -1144,6 +1453,13 @@ export class AangBrowser {
       case 'reclaim': this.onReclaim?.(); break;
       case 'drawer-open': void this.drawer(true); break;
       case 'importmarks': void this.importMarks(); break;
+      case 'settings': this.openSettings(); break;
+      case 'bookmarks': this.openSettings('bookmarks'); break;
+      case 'print': if (wc && t && !t.internal) wc.print({}); break;
+      case 'tidy': this.tidyStart(); break;
+      case 'tidykeep': this.tidyKeep(); break;
+      case 'tidyundo': this.tidyUndo(); break;
+      case 'trailundo': this.undoTrailClose(); break;
       // The blue shield: open the popup he was looking for (as a tab, beside the page), or allow the site from now on.
       case 'popupopen': case 'popupallow': if (t?.blockedPopup) {
         const bp = t.blockedPopup;
@@ -1265,7 +1581,7 @@ export class AangBrowser {
       list.forEach((t: { opener?: unknown }, i: number) => { const o = Number(t.opener); if (Number.isInteger(o) && o >= 0 && o < ids.length && o !== i) this.tabs[i]!.opener = ids[o]!; });
       if (Array.isArray(s.closed)) this.closed = s.closed.filter((u: unknown) => typeof u === 'string' && isWeb(u as string)).slice(-25);
       if (Array.isArray(s.trails)) this.trails = s.trails.filter((x: Partial<Trail>) => Number.isInteger(x?.id) && typeof x?.name === 'string')
-        .map((x: Trail) => ({ id: x.id, name: x.name.slice(0, 24), named: x.named === true }));
+        .map((x: Trail) => ({ id: x.id, name: x.name.slice(0, 24), named: x.named === true, collapsed: x.collapsed === true }));
       this.trailSeq = this.trails.reduce((m, x) => Math.max(m, x.id), 0);
       for (const t of this.tabs) if (t.trail !== null && !this.trails.some((x) => x.id === t.trail)) t.trail = null;
       this.tidyTrails();
@@ -1286,6 +1602,8 @@ export class AangBrowser {
       canBack: Boolean(wc?.navigationHistory.canGoBack()), canForward: Boolean(wc?.navigationHistory.canGoForward()),
       tabs: this.tabs.map((x) => ({ id: x.id, opener: x.opener, title: x.title, url: x.url, favicon: x.favicon, loading: x.loading, audible: x.audible, muted: x.muted, crashed: x.crashed, asleep: !x.view, blocked: x.blocked, failed: x.failed, trail: x.trail, done: x.done, lent: x.lent, popup: x.blockedPopup?.url ?? null })),
       trails: this.trails,
+      tidy: this.tidyState(),
+      stash: this.stash.map((s) => ({ id: s.id, name: s.name, count: s.tabs.length })),
       adsPaused: (() => { try { return this.paused.has(new URL(t?.url ?? '').hostname.replace(/^www\./, '')); } catch { return false; } })(),
       adsOn: Boolean(this.ads),
       sounds: this.sounds,

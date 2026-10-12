@@ -310,3 +310,81 @@ body.drawer-open .drawer{transform:none;visibility:visible;transition:transform 
 
 .tp .zz.lent{color:var(--gold-lit)}
 .plate .plq.gold{color:var(--gold)}
+
+
+/* ---- 2026-10-12: menus in the browser's wood, choices pointed at by the FFX glove (no caps on menus: his call) ---- */
+.menu .mrow,.tabmenu button{position:relative}
+.menu button.mrow:hover:not(:disabled),.tabmenu button:hover:not(:disabled){background:none !important;color:#ffe28c;padding-left:34px}
+.menu button.mrow:hover:not(:disabled)::before,.tabmenu button:hover:not(:disabled)::before{content:"";position:absolute;left:4px;top:50%;width:24px;height:18px;margin-top:-9px;
+  background:url(art/browser/hand.png) 0 0/24px 18px;image-rendering:pixelated}
+.menu button.mrow,.tabmenu button{transition:padding-left .08s ease-out}
+.tabmenu button.danger{color:#ff9a8a}
+.tabmenu button.danger:hover{color:#ffb4a6}
+
+/* ---- the trail heading: a grip (drag), the name (rename), the count, the menu ---- */
+.drawer .th .grip{width:8px;height:14px;flex:0 0 auto;background:radial-gradient(circle,#bfae8a 1px,transparent 1.5px) 0 0/4px 4px;opacity:0;cursor:grab}
+.drawer .th:hover .grip{opacity:1}
+.drawer .th .thm{order:3;background:none;border:none;color:#bfae8a;font:700 14px var(--body);cursor:pointer;padding:0 4px;opacity:0}
+.drawer .th:hover .thm,.drawer .th .thm:focus-visible{opacity:1}
+.drawer .th .thm:hover{color:#ffe28c}
+.drawer .th::after{order:2}
+.drawer .th.fresh .nm::after{content:"  \2726 NEW";font:400 8.5px var(--label);color:#cfe8ff;letter-spacing:1px}
+.drawer .th.shut .nm::before{content:"\25B8 ";color:#bfae8a}
+.drawer .lifted{opacity:.45}
+.drawer .dropline{height:4px;margin:-2px 0 4px;border-radius:2px;background:#ffe28c;box-shadow:0 0 8px #ffe28c;pointer-events:none}
+.tp.dup{opacity:.55}
+.tp.dup .t{text-decoration:line-through}
+.dupchip{flex:0 0 auto;margin-left:auto;font:400 8.5px var(--label);color:#2a1c00;background:#ffe28c;border-radius:4px;padding:2px 5px}
+/* the gust: Aang's air sweeping down the drawer while Qwen sorts; loose tabs shimmer until they are placed */
+#tabs{position:relative}
+#tabs.tidying::after{content:"";position:absolute;left:-12px;right:-12px;height:90px;top:0;pointer-events:none;
+  background:linear-gradient(180deg,transparent,rgba(200,232,255,.18) 45%,rgba(255,255,255,.30) 50%,rgba(200,232,255,.18) 55%,transparent);animation:gust 2.2s ease-in-out infinite}
+@keyframes gust{0%{transform:translateY(-90px)}100%{transform:translateY(600px)}}
+#tabs.tidying .tp[data-trail=""]{filter:saturate(.6) brightness(1.12)}
+@media (prefers-reduced-motion:reduce){#tabs.tidying::after{animation:none;display:none}}
+
+/* ---- the Stash: a chest at the bottom of the list ---- */
+.drawer .stash{display:flex;align-items:center;gap:10px;margin:14px 0 6px}
+.drawer .stash[hidden],.drawer .stashlist[hidden]{display:none}
+.drawer .chest{flex:0 0 auto;width:30px;height:26px;padding:0;border-radius:5px;cursor:pointer;background:linear-gradient(180deg,#a8743e,#6e4422);border:2.5px solid var(--outline);
+  box-shadow:inset 0 8px 0 rgba(0,0,0,.25);position:relative}
+.drawer .chest::after{content:"";position:absolute;left:10px;top:7px;width:5px;height:6px;background:#ffe28c;border-radius:1px}
+.drawer .chest:hover{filter:brightness(1.15)}
+.drawer .stash .s1{font:700 13px var(--display);color:#ffe28c}
+.drawer .stash .s2{font:500 12px var(--body);color:#c9c2a8}
+.drawer .stashlist{display:grid;gap:4px;margin:0 0 8px 40px}
+.drawer .srow{display:flex;align-items:center;gap:6px}
+.drawer .sback{flex:1;text-align:left;background:none;border:none;color:#efe4cc;font:700 12.5px var(--body);text-shadow:1px 1px 0 #000;cursor:pointer;padding:3px 4px}
+.drawer .sback:hover{color:#ffe28c}
+.drawer .sx{width:20px;height:20px;border:none;border-radius:50%;background:rgba(255,226,140,.1);color:#d8ccb4;cursor:pointer;font:700 11px var(--body)}
+
+/* ---- Trail clean up at the bottom of the drawer: the panel (dark ink, raised, gold caps) above the broom ---- */
+.drawer .tidyfoot{position:sticky;bottom:-14px;margin:10px -14px -14px -12px;padding:10px 14px 12px 12px;
+  background:linear-gradient(180deg,rgba(26,16,9,0),rgba(26,16,9,.92) 22%),url(art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated}
+.drawer .tidyrow{display:flex;align-items:center;justify-content:space-between}
+.drawer .cap-dim{font:400 9px var(--label);letter-spacing:1.5px;color:#bfae8a}
+.drawer .broom{width:38px;height:38px;padding:0;border:none;border-radius:8px;cursor:pointer;
+  background:url(art/browser/tidy_broom_dim.png) center/30px 30px no-repeat;image-rendering:pixelated}
+.drawer .broom:hover:not(:disabled){background-image:url(art/browser/tidy_broom2.png);background-color:rgba(255,226,140,.10)}
+.drawer .broom:disabled{opacity:.5;cursor:default}
+.drawer .tidypanel{position:relative;margin:0 0 10px;padding:10px 14px;border:8px solid transparent;border-image:url(art/browser/trayframe.png) 4 repeat;
+  background:url(art/browser/ink.png) 0 0/64px 64px;box-shadow:0 4px 0 #120a05,0 9px 0 rgba(0,0,0,.35),0 16px 26px rgba(0,0,0,.6)}
+.drawer .tidypanel[hidden]{display:none}
+.drawer .tidypanel>.caps{position:absolute;inset:-10px;pointer-events:none;
+  background:url(art/browser/cap3_tl.png) left top/22px 22px no-repeat,url(art/browser/cap3_tr.png) right top/22px 22px no-repeat,
+    url(art/browser/cap3_bl.png) left bottom/22px 22px no-repeat,url(art/browser/cap3_br.png) right bottom/22px 22px no-repeat}
+.drawer .cap-title{font:700 13px var(--display);color:#ffe28c;letter-spacing:1px;text-shadow:0 2px 0 #000}
+.drawer .cap-line{font:500 12.5px/1.45 var(--body);color:#e8e0f0;margin-top:4px}
+.drawer .tidypanel .cap-dim{margin-top:6px;color:#c9bfdc}
+.drawer .prog{height:6px;border-radius:3px;background:#06040c;margin-top:8px;overflow:hidden}
+.drawer .prog[hidden],.drawer .ffxw[hidden]{display:none}
+.drawer .prog i{display:block;height:100%;width:40%;background:linear-gradient(90deg,#c98c14,#ffe28c);box-shadow:0 0 8px rgba(255,226,140,.6);animation:prog 1.6s ease-in-out infinite alternate}
+@keyframes prog{from{transform:translateX(-10%)}to{transform:translateX(160%)}}
+.drawer .ffxw{display:flex;gap:18px;margin-top:10px}
+.drawer .ffxw button{background:none;border:none;font:700 14px var(--body);color:#e6edff;text-shadow:2px 2px 0 #000;cursor:pointer;padding:2px 4px;position:relative}
+.drawer .ffxw button.on,.drawer .ffxw button:hover{color:#ffe28c;padding-left:30px}
+.drawer .ffxw button:hover~button.on,.drawer .ffxw:hover button.on:not(:hover){color:#e6edff;padding-left:4px}
+.drawer .ffxw button.on::before,.drawer .ffxw button:hover::before{content:"";position:absolute;left:0;top:50%;width:24px;height:18px;margin-top:-9px;background:url(art/browser/hand.png) 0 0/24px 18px;image-rendering:pixelated}
+.drawer .ffxw:hover button.on:not(:hover)::before{display:none}
+/* the toast's Undo */
+.toast .undo{margin-left:10px;background:none;border:none;color:#ffe28c;font:700 13px var(--body);cursor:pointer;text-decoration:underline}
