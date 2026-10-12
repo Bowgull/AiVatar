@@ -813,7 +813,8 @@ export class AangBrowser {
     this.changed();
   }
 
-  close(id: number): void {
+  /** Close a tab. Closing his last tab closes the window, as in every browser (his note, 2026-10-12). */
+  close(id: number, lastClosesWindow = true): void {
     const i = this.tabs.findIndex((x) => x.id === id);
     if (i < 0) return;
     // A tab playing in the popout comes back first, so its page is closed here and nowhere else.
@@ -825,7 +826,12 @@ export class AangBrowser {
     if (this.active === id) {
       const next = this.tabs[Math.min(i, this.tabs.length - 1)];
       this.active = null;
-      if (next) this.activate(next.id); else this.newTab(this.HOME);
+      if (next) this.activate(next.id);
+      else if (lastClosesWindow && this.win && !this.win.isDestroyed()) {
+        // Nothing left: remember an empty window (so the closed tabs do not come back next time) and close it.
+        try { writeFileAtomic(this.file, JSON.stringify({ v: 1, at: new Date().toISOString(), active: 0, tabs: [], trails: [], closed: this.closed.slice(-25) })); } catch { /* best effort */ }
+        this.win.close();
+      } else this.newTab(this.HOME);
     } else this.changed();
   }
 
@@ -1258,7 +1264,7 @@ export class AangBrowser {
     if (act === 'stash') { this.stashTrail(id); this.changed(); this.note(`${tr.name} is in the Stash.`); return; }
     if (act === 'close') {
       this.lastClosed = { trail: { ...tr }, tabs: own.filter((t) => isWeb(t.url)).map((t) => ({ url: t.url, title: t.title })) };
-      for (const t of own) this.close(t.id);
+      for (const t of own) this.close(t.id, false);
       this.trails = this.trails.filter((x) => x.id !== id);
       this.changed();
       this.win?.webContents.send('browser:download', { name: '', state: 'note', text: `Closed ${tr.name} and its ${own.length} tabs.`, undo: 'trailclose' });
@@ -1478,7 +1484,7 @@ export class AangBrowser {
       case 'vaultlock': this.vault.lock(); this.note('Bitwarden is locked.'); break;
       case 'drawer-close': void this.drawer(false); break;
       // The red plate: the safe way out, or (the held lever) in anyway, for this site, this run.
-      case 'phishback': if (t) { t.blocked = null; if (wc?.navigationHistory.canGoBack()) { this.place(); wc.navigationHistory.goBack(); } else this.close(t.id); } break;
+      case 'phishback': if (t) { t.blocked = null; if (wc?.navigationHistory.canGoBack()) { this.place(); wc.navigationHistory.goBack(); } else this.close(t.id, false); } break;
       // A look-alike: the real site, typed fresh, never the link that led here.
       case 'phishreal': if (t?.blocked?.real) { const u = 'https://' + t.blocked.real + '/'; t.blocked = null; this.place(); void wc?.loadURL(u); } break;
       // A failed page: try again; or, with no secure version, open the plain one and remember the site.
@@ -1488,7 +1494,7 @@ export class AangBrowser {
         try { this.httpOk.add(new URL(u).hostname); writeFileAtomic(this.httpOkFile, JSON.stringify([...this.httpOk])); } catch { /* best effort */ }
         t.failed = null; t.upgraded = null; this.place(); void wc.loadURL(u).catch(() => {});
       } break;
-      case 'failback': if (t) { t.failed = null; if (wc?.navigationHistory.canGoBack()) { this.place(); wc.navigationHistory.goBack(); } else this.close(t.id); } break;
+      case 'failback': if (t) { t.failed = null; if (wc?.navigationHistory.canGoBack()) { this.place(); wc.navigationHistory.goBack(); } else this.close(t.id, false); } break;
       case 'phishopen': if (t?.blocked) { try { this.letThrough.add(new URL(t.blocked.url).hostname); } catch { /* bad url */ } const u = t.blocked.url; t.blocked = null; this.place(); void wc?.loadURL(u); } break;
     }
   }
@@ -1544,7 +1550,7 @@ export class AangBrowser {
 
   /** Write every tab to disk. Scroll is asked of each live page with a deadline; a page that does not answer keeps its last. */
   private async snapshot(): Promise<void> {
-    if (!this.tabs.length) return;
+    if (!this.tabs.length) return;   // nothing to keep; closing the last tab already wrote the empty snapshot
     await Promise.all(this.tabs.map(async (t) => {
       if (!t.view || t.crashed) return;
       const y = await within(t.view.webContents.executeJavaScript('window.scrollY', true) as Promise<number>, 800, t.scrollY);
