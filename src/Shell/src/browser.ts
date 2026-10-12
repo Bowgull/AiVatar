@@ -741,6 +741,7 @@ export class AangBrowser {
     if (t.id === this.active) this.activate(t.id); else this.changed();
   }
 
+  isLent(id: number): boolean { return Boolean(this.tabs.find((x) => x.id === id)?.lent); }
   /** A tab's address, for the pop-out. */
   urlOf(id: number): string | null { const t = this.tabs.find((x) => x.id === id); return t && isWeb(t.url) ? t.url : null; }
   /** Pause whatever the tab is playing (it went to the pop-out). With a deadline: a dead page never hangs Aang. */

@@ -17,6 +17,8 @@ export interface ShellBridge {
   popoutOpacity(v: number): void;
   popoutFullscreen(): void;
   popoutToMac(): void;
+  popoutPin(): void;
+  onPopoutPinned(fn: (on: boolean) => void): () => void;
   /** How many pixels of the window are Aang's own chrome, measured by the page. */
   popoutChrome(px: number): void;
   /** Where the openings, endings and sponsor bits are in what is playing. */

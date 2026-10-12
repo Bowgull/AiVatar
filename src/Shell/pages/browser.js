@@ -302,6 +302,7 @@ function tabMenu(t, x, y) {
   sep();
   item('Open in Chrome', () => {}, { soon: true });
   item('Popout', () => window.aang?.browserPopout?.(t.id));
+  item('Send to Mac', () => window.aang?.browserToMac?.(t.id));
   sep();
   item('Close', () => { tap(0.7); window.aang?.browserTab?.({ id: t.id, act: 'close' }); });
   document.body.append(m);
@@ -338,7 +339,12 @@ function buildRow(t, kid) {
       const p = document.createElement('button'); p.type = 'button'; p.className = 'pip';
       p.title = 'Pops this page into its own window'; p.setAttribute('aria-label', 'Popout');
       p.addEventListener('click', (e) => { e.stopPropagation(); window.aang?.browserPopout?.(t.id); });
-      row.append(p);
+      // Send to the MacBook, beside it: the same keycap, on hover only (his ask, 2026-10-12). It stops here.
+      const m = document.createElement('button'); m.type = 'button'; m.className = 'pip tomac';
+      m.title = 'Send to the MacBook. It stops playing here.'; m.setAttribute('aria-label', 'Send to Mac');
+      m.innerHTML = '<svg viewBox="0 0 7 7" width="12" height="12" shape-rendering="crispEdges" aria-hidden="true"><path d="M0 0h7v1H0zM0 1h1v2H0zM6 1h1v2H6zM0 3h7v1H0zM0 5h7v1H0z" fill="#2a1c00"/></svg>';
+      m.addEventListener('click', (e) => { e.stopPropagation(); window.aang?.browserToMac?.(t.id); });
+      row.append(p, m);
     }
     if (t.audible || t.muted) {
       // Sheet 3: a real button. Press it to mute; pressed in, with a red slash, when muted.
