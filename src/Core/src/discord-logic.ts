@@ -30,28 +30,31 @@ export interface CategoryDef { name: string; channels: ChannelDef[] }
  */
 export const LAYOUT: CategoryDef[] = [
   { name: 'NEEDS YOU', channels: [
-    // Discord strips "!" and "+" from channel names (found live 2026-10-13: they became "-needs-you" and "-capture"),
-    // so these two use symbols from the same dingbat family as the others, which it keeps.
-    { key: 'needs-you', name: '❢-needs-you', kind: 'text', topic: 'Everything waiting on you: a question, an approval, a captcha. The one that always buzzes.', was: ['needs-you', '-needs-you'], buzz: true },
-    { key: 'drafts', name: '✉-drafts', kind: 'text', topic: 'Email drafts waiting for a yes. Nothing is sent without a button press.', was: ['drafts'], buzz: true },
+    // Colour emoji (his pick, 2026-10-13: Discord has no channel icons, emoji in the name are the nearest thing). Discord
+    // strips ASCII "!" and "+" from names (found live the same day), so never use those.
+    { key: 'needs-you', name: '❗-needs-you', kind: 'text', topic: 'Everything waiting on you: a question, an approval, a captcha. The one that always buzzes.', was: ['needs-you', '-needs-you'], buzz: true },
+    { key: 'drafts', name: '📨-drafts', kind: 'text', topic: 'Email drafts waiting for a yes. Nothing is sent without a button press.', was: ['drafts'], buzz: true },
   ] },
   { name: 'TALK', channels: [
-    { key: 'aang', name: '▸-aang', kind: 'text', topic: 'Talk to Aang.', was: ['aang'], buzz: true },
-    { key: 'capture', name: '✚-capture', kind: 'text', topic: 'Drop anything: notes, links, recipes, videos. Aang files it.', was: ['capture', '-capture'] },
+    { key: 'aang', name: '🌀-aang', kind: 'text', topic: 'Talk to Aang.', was: ['aang'], buzz: true },
+    { key: 'capture', name: '📥-capture', kind: 'text', topic: 'Drop anything: notes, links, recipes, videos. Aang files it.', was: ['capture', '-capture'] },
   ] },
   { name: 'RUNNING', channels: [
-    { key: 'claude-jobs', name: '⚙-claude-jobs', kind: 'forum', topic: 'One post per Claude job, kept current. Buzzes when one is done.', tags: ['Working', 'Needs you', 'Done'], buzz: true },
-    { key: 'jobs', name: '◎-jobs', kind: 'forum', topic: 'Paste job links here. One post per job.', tags: ['Found', 'Applied', 'Skipped'] },
+    { key: 'claude-jobs', name: '⚙️-claude-jobs', kind: 'forum', topic: 'One post per Claude job, kept current. Buzzes when one is done.', tags: ['Working', 'Needs you', 'Done'], buzz: true },
+    { key: 'jobs', name: '💼-jobs', kind: 'forum', topic: 'Paste job links here. One post per job.', tags: ['Found', 'Applied', 'Skipped'] },
   ] },
   { name: 'KEPT', channels: [
-    { key: 'library', name: '❖-library', kind: 'forum', topic: 'Recipes, guides, saved videos, ideas and notes. Filter by tag.', tags: ['Recipe', 'Guide', 'Video', 'Idea', 'Note'] },
-    { key: 'lists', name: '☰-lists', kind: 'text', topic: 'The grocery list and other lists.', was: ['lists'] },
+    { key: 'library', name: '📚-library', kind: 'forum', topic: 'Recipes, guides, saved videos, ideas and notes. Filter by tag.', tags: ['Recipe', 'Guide', 'Video', 'Idea', 'Note'] },
+    { key: 'lists', name: '📝-lists', kind: 'text', topic: 'The grocery list and other lists.', was: ['lists'] },
   ] },
   { name: 'AT A GLANCE', channels: [
-    { key: 'home', name: '✦-home', kind: 'text', topic: 'The home card, pinned and kept current, and a quiet log of what Aang did.', was: ['log'] },
-    { key: 'gaming', name: '▲-gaming', kind: 'text', topic: 'Apex ranked map, creator uploads, patch notes.' },
+    { key: 'home', name: '🏠-home', kind: 'text', topic: 'The home card, pinned and kept current, and a quiet log of what Aang did.', was: ['log'] },
+    { key: 'gaming', name: '🎮-gaming', kind: 'text', topic: 'Apex ranked map, creator uploads, patch notes.' },
   ] },
 ];
+
+/** 9.D D2: the channels that may buzz his phone (sheet 15: the green ones). Everything else is posted silently. */
+export const BUZZ_KEYS: ReadonlySet<string> = new Set(LAYOUT.flatMap(c => c.channels.filter(d => d.buzz).map(d => d.key)));
 
 /** Old channels whose contents move into a new forum, then are deleted once he says yes. */
 export const MERGED: Record<string, string> = { 'job-inbox': 'jobs', 'job-digest': 'jobs', applied: 'jobs', recipes: 'library', guides: 'library' };
@@ -77,7 +80,7 @@ export interface LayoutPlan {
  * it is renamed only from an old plain name, and only once (`renamed`), because Discord may store a symbol
  * differently and a channel can be renamed only twice in ten minutes.
  */
-export function planLayout(existing: ChannelInfo[], renamed: ReadonlySet<string> = new Set(), known: Readonly<Record<string, string>> = {}): LayoutPlan {
+export function planLayout(existing: ChannelInfo[], namedAs: Readonly<Record<string, string>> = {}, known: Readonly<Record<string, string>> = {}): LayoutPlan {
   const cats = existing.filter(c => c.kind === 'category');
   const catByName = (n: string) => cats.find(c => c.name.toLowerCase() === n.toLowerCase()) ?? null;
   const used = new Set<string>();
@@ -93,7 +96,9 @@ export function planLayout(existing: ChannelInfo[], renamed: ReadonlySet<string>
       const found = byId ?? existing.filter(x => x.kind !== 'category' && !used.has(x.id) && names.includes(x.name))
         .sort((a, b) => (BigInt(a.id) < BigInt(b.id) ? -1 : 1))[0] ?? null;
       if (found) used.add(found.id);
-      const rename = !!found && found.name !== def.name && !renamed.has(def.key) && [def.key, ...(def.was ?? [])].includes(found.name);
+      // Renamed toward a name only ONCE (namedAs remembers it): Discord may store it differently, and a channel can be
+      // renamed only twice in ten minutes, so trying again on every start would never end.
+      const rename = !!found && found.name !== def.name && namedAs[def.key] !== def.name;
       const moveTo = !!found && (!c || found.parentId !== c.id);
       const have = new Set(found?.tags ?? []);
       plan.channels.push({ def, category: cat.name, id: found?.id ?? null, rename, moveTo, addTags: def.kind === 'forum' && found ? (def.tags ?? []).filter(t => !have.has(t)) : [] });
