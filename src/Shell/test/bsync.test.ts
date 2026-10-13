@@ -104,3 +104,14 @@ test('M6: joining tabs keeps trails together', () => {
   assert.deepEqual(j.tabs.map(t => [t.url, t.trail]), [['https://a.com/', 1], ['https://b.com/', 2]]);
   assert.deepEqual(j.trails, [{ id: 1, name: 'A' }, { id: 2, name: 'B' }]);
 });
+
+test('M6 fix: on the first sync, bookmarks neither side ever changed still travel, and none is lost', async () => {
+  const { a, b, up } = pair();
+  b.m = [{ title: 'Wowhead', url: 'https://www.wowhead.com/', folder: 'Bar' }, { title: 'Reddit', url: 'https://www.reddit.com/', folder: '' }];
+  a.m = [{ title: 'GitHub', url: 'https://github.com/', folder: '' }];
+  await up();
+  await wait(50);
+  const urls = (l: { url: string }[]) => l.map(x => x.url).sort();
+  assert.deepEqual(urls(a.m), ['https://github.com/', 'https://www.reddit.com/', 'https://www.wowhead.com/']);
+  assert.deepEqual(urls(b.m), urls(a.m), 'both end with all of them');
+});

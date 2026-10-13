@@ -20,7 +20,8 @@
 //  - Tabs get NO preload and the safe preferences: a website can never reach Aang's doors.
 //  - Every permission a site asks for is refused until 6.22 adds the asks (chips and the lever).
 import { BrowserWindow, WebContentsView, app, clipboard, desktopCapturer, dialog, nativeImage, screen, session as electronSession, shell, webContents as allWebContents, type DesktopCapturerSource } from 'electron';
-import { existsSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+import { execFile } from 'node:child_process';
 import path from 'node:path';
 import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown } from './safety.ts';
 import { addressFor, engineHome, searchFor, setSearch, type Engine } from './address.ts';
@@ -28,7 +29,7 @@ import { TIDY_SYSTEM, bySite, doubles, readTidy, staleTrails, tidyPrompt, type T
 import { writeFileAtomic } from './atomic.ts';
 import { lookalike } from './lookalike.ts';
 import { softEdge } from './winedge.ts';
-import { isBar, parseBookmarks, type Mark } from './bookmarks.ts';
+import { isBar, parseBookmarks, parseChromeBookmarks, parseSafariBookmarks, type Mark } from './bookmarks.ts';
 import { BW_LOGIN, Vault, fillScript, type Login } from './vault.ts';
 import { createHmac, randomBytes } from 'node:crypto';
 import { Visits, search as searchVisits, forAang, type Visit } from './visits.ts';
@@ -1068,7 +1069,7 @@ export class AangBrowser {
       popupOk: [...this.popupOk].sort(), trusted: [...this.trusted].sort(), httpOk: [...this.httpOk].sort(),
       marks: this.marks.slice(0, 400).map((m) => ({ title: m.title, url: m.url, favicon: this.iconOf(m.url) })), markCount: this.marks.length,
       vault, phish: this.phish.count(),
-      versions: { electron: process.versions.electron, chrome: process.versions.chrome },
+      versions: { electron: process.versions.electron, chrome: process.versions.chrome }, mac: process.platform === 'darwin',
     };
   }
   private pushSettings(): void {
@@ -1102,6 +1103,7 @@ export class AangBrowser {
   }
   settingsAct(act: string): void {
     if (act === 'import') void this.importMarks().then(() => this.pushSettings());
+    else if (act === 'import-chrome' || act === 'import-safari') void this.importFrom(act === 'import-chrome' ? 'chrome' : 'safari').then(() => this.pushSettings());
     else if (act === 'lockvault') { this.vault.lock(); this.pushSettings(); }
     else if (act === 'homehere') {
       const t = [...this.tabs].filter((x) => isWeb(x.url)).sort((a, b) => b.lastSeen - a.lastSeen)[0];
@@ -1733,6 +1735,48 @@ export class AangBrowser {
     }
     if (added) void this.fillMarkIcons();
     w.webContents.send('browser:download', { name: '', state: 'note', text: added ? `Brought in ${added} bookmarks. The bar ones are on the shelf in the drawer.` : 'Nothing new in that file: you already have all of them.' });
+    this.sendTabs();
+  }
+  /**
+   * 2026-10-13, his ask: straight from Chrome or Safari on this machine, no export first. Only their bookmarks file is
+   * read. Safari's needs macOS's Full Disk Access for Aang, which only he can give: the right page opens for him.
+   */
+  async importFrom(source: 'chrome' | 'safari'): Promise<void> {
+    const say = (text: string) => { const w = this.win; if (w && !w.isDestroyed()) w.webContents.send('browser:download', { name: '', state: 'note', text }); };
+    let found: Mark[] = [];
+    try {
+      if (source === 'chrome') {
+        const base = process.platform === 'darwin'
+          ? path.join(app.getPath('home'), 'Library', 'Application Support', 'Google', 'Chrome')
+          : path.join(process.env.LOCALAPPDATA ?? '', 'Google', 'Chrome', 'User Data');
+        const profiles = existsSync(base) ? readdirSync(base).filter((d) => d === 'Default' || /^Profile \d+$/.test(d)) : [];
+        for (const p of profiles) {
+          // Bookmarks on this computer, and (newer Chrome) the ones that come with his Google account.
+          for (const name of ['Bookmarks', 'AccountBookmarks']) {
+            const f = path.join(base, p, name);
+            if (existsSync(f) && statSync(f).size < 20 * 1024 * 1024) found.push(...parseChromeBookmarks(readFileSync(f, 'utf8')));
+          }
+        }
+        if (!profiles.length) { say('Chrome is not on this computer, or it has no bookmarks yet.'); return; }
+      } else {
+        if (process.platform !== 'darwin') return;
+        const f = path.join(app.getPath('home'), 'Library', 'Safari', 'Bookmarks.plist');
+        const json = await new Promise<string>((res, rej) => execFile('/usr/bin/plutil', ['-convert', 'json', '-o', '-', f], { maxBuffer: 32 * 1024 * 1024, timeout: 15_000 }, (e, out) => (e ? rej(e) : res(String(out)))));
+        found = parseSafariBookmarks(json);
+      }
+    } catch (e) {
+      if (source === 'safari') {
+        say('Safari keeps its bookmarks private. In the window that opens, turn on Aang under Full Disk Access, then press this again.');
+        void shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles');
+      } else say(`Chrome's bookmarks could not be read: ${(e as Error).message}`);
+      return;
+    }
+    const have = new Set(this.marks.map((m) => m.url));
+    let added = 0;
+    for (const m of found) if (!have.has(m.url)) { this.marks.push(m); have.add(m.url); added++; }
+    this.marks = this.marks.slice(0, 5000);
+    if (added) { this.saveMarks(); void this.fillMarkIcons(); }
+    say(added ? `Brought in ${added} bookmarks from ${source === 'chrome' ? 'Chrome' : 'Safari'}. The bar ones are on the shelf in the drawer.` : `Nothing new in ${source === 'chrome' ? 'Chrome' : 'Safari'}: you already have all of them.`);
     this.sendTabs();
   }
   /** The star in the slot: the page he is on goes onto the shelf, or comes off it. */

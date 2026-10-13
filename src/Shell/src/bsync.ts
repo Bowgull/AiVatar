@@ -208,7 +208,18 @@ export class BrowserSync {
           break;
         case 'bsync.cookies': for (const r of Array.isArray(m.list) ? m.list : []) await this.takeCookie(r.key, r.at, r.c); this.save(); break;
         case 'bsync.full': {
-          if (m.marks?.at > this.s.marksAt) { t.setMarks(m.marks.list); this.s.marksAt = m.marks.at; }
+          // Bookmarks after time apart are joined, never replaced (found 2026-10-13: on the first sync neither side had
+          // a change time, so neither took the other's and the Mac stayed empty). A bookmark removed on one machine
+          // while apart can come back; one he made is never lost.
+          if (Array.isArray(m.marks?.list)) {
+            const mine = t.marks();
+            const have = new Set(mine.map(x => x.url));
+            const add = m.marks.list.filter(x => x && typeof x.url === 'string' && !have.has(x.url));
+            const base = m.marks.at > this.s.marksAt ? m.marks.list : mine;
+            const extra = m.marks.at > this.s.marksAt ? mine.filter(x => !m.marks.list.some(y => y.url === x.url)) : add;
+            if (extra.length || base !== mine) t.setMarks([...base, ...extra]);
+            this.s.marksAt = Math.max(this.s.marksAt, m.marks.at);
+          }
           if (m.prefs?.at > this.s.prefsAt) { t.setPrefs(m.prefs.data); this.s.prefsAt = m.prefs.at; }
           if (m.tabs?.snap) {
             const mine = { at: this.s.tabsAt, snap: keptTabs(t.tabSnap()) };
