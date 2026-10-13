@@ -392,6 +392,9 @@ export class Popout {
     if (!w || !w.isVisible()) return;
     this.pinned = !this.pinned;
     w.setIgnoreMouseEvents(this.pinned || this.deps.settings().clickThrough);
+    // The Mac (his report, 2026-10-13: pinned was not click-through there): said again a moment later, once the click
+    // on the pin button itself is over, so it holds.
+    if (process.platform === 'darwin') setTimeout(() => { if (!w.isDestroyed()) w.setIgnoreMouseEvents(this.pinned || this.deps.settings().clickThrough); }, 150);
     w.webContents.send('popout:pinned', this.pinned);
     // Pinned means clicks go through to his game: the site's own controls stay away too (his ask, 2026-10-13).
     const wc = this.lent?.view.webContents;
@@ -421,7 +424,21 @@ export class Popout {
     const w = this.window;
     if (!w) return;
     // Hidden outright rather than made invisible: a window nobody can see still costs the GPU.
-    if (w.isVisible()) w.hide(); else w.show();
+    if (w.isVisible()) w.hide(); else { w.show(); w.setIgnoreMouseEvents(this.pinned || this.deps.settings().clickThrough); }
+  }
+
+  /** For a look from the PC (M6): what the pop-out is doing, whether the site's controls show, and its picture. */
+  async diag(): Promise<Record<string, unknown>> {
+    const w = this.window;
+    if (!w) return { open: false };
+    const wc = this.lent?.view.webContents;
+    const live = wc && !wc.isDestroyed() ? wc : null;
+    const page = live ? await within(live.executeJavaScript(`(() => { const c = document.documentElement.classList;
+      const vis = (s) => [...document.querySelectorAll(s)].filter(e => { const r = e.getBoundingClientRect(), st = getComputedStyle(e); return r.width * r.height > 0 && st.visibility !== 'hidden' && st.display !== 'none' && st.opacity !== '0'; }).map(e => (e.className && String(e.className).slice(0, 60)) || e.tagName);
+      return { url: location.href.slice(0, 200), bare: c.contains('aang-bare'), pinned: c.contains('aang-pinned'), showing: vis('[data-aang-player] *:not(video)').slice(0, 30) }; })()`, true), 800, null) : null;
+    let shot: string | null = null;
+    try { const img = live ? await within(live.capturePage(), 1500, null) : null; if (img && !img.isEmpty()) shot = img.resize({ width: Math.min(960, img.getSize().width) }).toJPEG(70).toString('base64'); } catch { /* none */ }
+    return { open: true, visible: w.isVisible(), pinned: this.pinned, bounds: w.getBounds(), lent: Boolean(this.lent), page, shot };
   }
 
   close(): void {
@@ -507,6 +524,9 @@ html.aang-bare [data-aang-player] video { position:fixed !important; left:0 !imp
 html.aang-bare .html5-video-container { position:absolute !important; inset:0 !important; width:100% !important; height:100% !important; }
 html.aang-bare [data-aang-fill] { position:absolute !important; inset:0 !important; width:100% !important; height:100% !important; max-width:none !important; max-height:none !important; transform:none !important; }
 html.aang-pinned .ytp-chrome-bottom, html.aang-pinned .ytp-chrome-top, html.aang-pinned .ytp-gradient-bottom, html.aang-pinned .ytp-gradient-top, html.aang-pinned [data-a-target="player-controls"], html.aang-pinned .video-player__overlay, html.aang-pinned [data-aang-player] video::-webkit-media-controls { display:none !important; }
+html.aang-pinned [data-aang-player] *, html.aang-pinned body { pointer-events:none !important; }
+html.aang-pinned [data-aang-player] * { visibility:hidden !important; }
+html.aang-pinned [data-aang-player] video, html.aang-pinned .ytp-caption-window-container, html.aang-pinned .ytp-caption-window-container *, html.aang-pinned .player-captions-container, html.aang-pinned .player-captions-container * { visibility:visible !important; }
 html.aang-bare .ytp-pause-overlay,html.aang-bare .ytp-ce-element,html.aang-bare .ytp-endscreen-content,html.aang-bare .ytp-watermark,html.aang-bare .ytp-paid-content-overlay,html.aang-bare .ytp-overflow-button,html.aang-bare .ytp-cards-teaser,html.aang-bare .ytp-iv-player-content{display:none !important}`;
 const STATE_JS = `(() => { const v = window.__aangVideo; if (!v || !v.isConnected) { return null; }
   return { at: v.currentTime, length: v.duration, paused: v.paused, volume: v.volume, muted: v.muted }; })()`;
