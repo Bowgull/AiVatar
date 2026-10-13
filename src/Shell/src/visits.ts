@@ -102,10 +102,23 @@ export class Visits {
       }
     } catch { /* none yet */ }
   }
-  add(url: string, title: string): void { this.list = addVisit(this.list, url, title, Date.now()); this.save(); }
+  /** M6: told of each change, so the other machine's browser gets it too. */
+  onChange: ((c: { op: 'add'; v: Visit } | { op: 'forget'; url: string; at: number } | { op: 'clear'; from: number }) => void) | null = null;
+  add(url: string, title: string): void {
+    const n = this.list.length, last = this.list[n - 1];
+    this.list = addVisit(this.list, url, title, Date.now()); this.save();
+    const now = this.list[this.list.length - 1];
+    if (now && (this.list.length !== n || now !== last)) this.onChange?.({ op: 'add', v: { ...now } });
+  }
   name(url: string, title: string): void { nameVisit(this.list, url, title); this.save(); }
-  forget(url: string, at: number): void { this.list = forget(this.list, url, at); this.save(true); }
-  clear(from: number): void { this.list = clearSince(this.list, from); this.save(true); }
+  forget(url: string, at: number): void { this.list = forget(this.list, url, at); this.save(true); this.onChange?.({ op: 'forget', url, at }); }
+  clear(from: number): void { this.list = clearSince(this.list, from); this.save(true); this.onChange?.({ op: 'clear', from }); }
+  /** M6: visits from the other machine, put in time order. */
+  merge(list: Visit[]): void {
+    if (!list.length) return;
+    this.list = prune([...this.list, ...list.filter((v) => counts(v.url) && !neverKeep(v.url))].sort((x, y) => x.at - y.at), Date.now());
+    this.save();
+  }
   /** Written a few seconds after the last change (a page load names itself in bursts); right away for a removal. */
   save(now = false): void {
     if (this.timer) clearTimeout(this.timer);
