@@ -310,7 +310,9 @@ ${factsBlock(await this.factsFor(m))}`;
         if (data) cal.push(Buffer.from(data.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8'));
       } catch { /* the invite could not be fetched: the block simply has no invite, nothing is guessed */ }
     }
-    return factsOf(m.payload, cal);
+    // Dates in words are read against the day it was SENT ("Thursday" in an email from Tuesday).
+    const sent = new Date(Number(m.internalDate) || Date.parse(header(m, 'Date')) || Date.now());
+    return factsOf(m.payload, cal, sent);
   }
 
   /** Turns a request into a card. Sends nothing, saves nothing to Gmail. */
