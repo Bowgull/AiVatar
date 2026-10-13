@@ -1,7 +1,8 @@
 // E8, the email assistant (his yes, 2026-10-13): transcripts for videos with no captions (Loom, Vimeo, a video attached
 // to an email, a YouTube video without captions), heard by speech-to-text on this PC: whisper.cpp v1.9.4 (MIT, official
-// ggml-org build) with the large-v3-turbo 8-bit model, both pinned by their published fingerprints, in tools\whisper
-// (not in git). Free and private: the audio never leaves the PC, and no quota is used.
+// ggml-org build, CUDA 12: whisper-cublas-12.4.0-bin-x64.zip, sha256 af520ddd...c272a7, which carries its own cuBLAS)
+// with the large-v3-turbo 8-bit model (sha256 317eb69c...e259a1), both pinned by their published fingerprints, in
+// tools\whisper (not in git). Measured 2026-10-13 on his RTX 2000 Ada: two minutes of speech heard in 3.5 seconds. Free and private: the audio never leaves the PC, and no quota is used.
 //   - Never while a game is running (it would take the graphics card from WoW), and only with room on the card; one
 //     transcript at a time.
 //   - A link is fetched with yt-dlp (already on this PC) with no config, no playlist, no running anything, 500 MB at
