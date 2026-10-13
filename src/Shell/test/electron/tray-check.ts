@@ -19,6 +19,8 @@ setTimeout(() => { console.log('HARNESS TIMEOUT'); app.exit(3); }, 120_000).unre
 app.on('window-all-closed', () => { /* the test decides */ });
 const state = mkdtempSync(path.join(os.tmpdir(), 'tray-check-'));
 app.setPath('userData', state);
+// The tone tabs are muted one by one as they open: they still count as playing, but nothing reaches his speakers
+// (2026-10-13, a test beeped once; muting the whole app hides the sound from Chromium altogether).
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const OUT = path.resolve(process.argv[process.argv.length - 1] ?? os.tmpdir());
 mkdirSync(OUT, { recursive: true });
@@ -34,9 +36,16 @@ const check = (what: string, ok: boolean, d = '') => { console.log(`${ok ? 'PASS
 
 app.whenReady().then(async () => {
   // A page that keeps changing, like a stream.
-  const srv = http.createServer((_q, r) => _q.url === '/slow' ? setTimeout(() => r.writeHead(200, { 'Content-Type': 'text/html' }).end('<!doctype html><title>Slow</title><body style="background:#432">slow page</body>'), 900) : r.writeHead(200, { 'Content-Type': 'text/html' }).end('<!doctype html><title>Live</title><body style="margin:0;background:#123"><div id=n style="font:80px sans-serif;color:#fff">0</div><script>let i=0;setInterval(()=>n.textContent=++i,50)</script>'));
+  // A second of a 440 Hz tone, looped: a tab that really makes sound.
+  const rate = 8000, n = rate, wav = Buffer.alloc(44 + n * 2);
+  wav.write('RIFF', 0); wav.writeUInt32LE(36 + n * 2, 4); wav.write('WAVEfmt ', 8); wav.writeUInt32LE(16, 16); wav.writeUInt16LE(1, 20); wav.writeUInt16LE(1, 22);
+  wav.writeUInt32LE(rate, 24); wav.writeUInt32LE(rate * 2, 28); wav.writeUInt16LE(2, 32); wav.writeUInt16LE(16, 34); wav.write('data', 36); wav.writeUInt32LE(n * 2, 40);
+  for (let i = 0; i < n; i++) wav.writeInt16LE(Math.round(Math.sin(2 * Math.PI * 440 * i / rate) * 3000), 44 + i * 2);
+  const toneHtml = '<!doctype html><title>Tone</title><audio autoplay loop src="data:audio/wav;base64,' + wav.toString('base64') + '"></audio>';
+  const srv = http.createServer((_q, r) => _q.url === '/tone' ? r.writeHead(200, { 'Content-Type': 'text/html' }).end(toneHtml) : _q.url === '/slow' ? setTimeout(() => r.writeHead(200, { 'Content-Type': 'text/html' }).end('<!doctype html><title>Slow</title><body style="background:#432">slow page</body>'), 900) : r.writeHead(200, { 'Content-Type': 'text/html' }).end('<!doctype html><title>Live</title><body style="margin:0;background:#123"><div id=n style="font:80px sans-serif;color:#fff">0</div><script>let i=0;setInterval(()=>n.textContent=++i,50)</script>'));
   await new Promise<void>(r => srv.listen(0, '127.0.0.1', () => r()));
   const live = `http://127.0.0.1:${(srv.address() as any).port}/`;
+  const tone = `http://127.0.0.1:${(srv.address() as any).port}/tone`;
   const slow = `http://127.0.0.1:${(srv.address() as any).port}/slow`;
   const pages = await servePages(path.join(HERE, '..', '..', 'pages'));
   const b = new AangBrowser({ origin: pages.origin, stateDir: state, preloadPath: path.join(HERE, '..', '..', 'src', 'preload.cjs'),
@@ -79,6 +88,14 @@ app.whenReady().then(async () => {
   check('the new tab ends up in front', fresh.view?.getVisible() === true && !old.view?.getVisible());
   check('the list is still open after a new tab', any.trayV.getVisible() === true);
   b.tray(false);
+  // One video at a time (his rule, 2026-10-13): a second tab making sound pauses the first.
+  const mute = (id: number | null) => any.tabs.find((x: any) => x.id === id)?.view?.webContents.setAudioMuted(true);
+  const t1 = b.newTab(tone)!; mute(t1); await wait(2500);
+  const first = any.tabs.find((x: any) => x.id === t1);
+  const playing1 = await first.view.webContents.executeJavaScript('!document.querySelector("audio").paused');
+  mute(b.newTab(tone)); await wait(2500);
+  const paused1 = await first.view.webContents.executeJavaScript('document.querySelector("audio").paused');
+  check('a second tab with sound pauses the first', playing1 === true && paused1 === true, `first was playing: ${playing1}, then paused: ${paused1}`);
   // A paid site on the only tab: it goes to the paid-video window, and the browser stays open.
   let paid = '';
   b.onPaid = (u) => { paid = u; return true; };

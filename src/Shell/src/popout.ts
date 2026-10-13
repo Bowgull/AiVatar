@@ -73,7 +73,23 @@ export class Popout {
   setStage(r: { x: number; y: number; width: number; height: number }): void {
     if (![r.x, r.y, r.width, r.height].every(Number.isFinite)) return;
     this.stage = { x: Math.round(r.x), y: Math.round(r.y), width: Math.max(0, Math.round(r.width)), height: Math.max(0, Math.round(r.height)) };
+    const w = this.window;
+    if (w) { const [cw, ch] = w.getContentSize(); this.gap = { right: Math.max(0, cw - this.stage.x - this.stage.width), bottom: Math.max(0, ch - this.stage.y - this.stage.height) }; }
     this.lent?.view.setBounds(this.stage);
+  }
+  /** The bar and edges around the picture, from the page's last measure: the picture follows the window from them. */
+  private gap = { right: 0, bottom: 0 };
+  /**
+   * His report (2026-10-13): resizing felt laggy. The picture waited for the page to measure itself and say so. Now it
+   * follows the window synchronously on every resize step, from the window's own size; the page's measure still
+   * corrects it a moment later if the bar changed.
+   */
+  private follow(): void {
+    const w = this.window, v = this.lent?.view;
+    if (!w || !v) return;
+    const [cw, ch] = w.getContentSize();
+    this.stage = { ...this.stage, width: Math.max(0, cw - this.stage.x - this.gap.right), height: Math.max(0, ch - this.stage.y - this.gap.bottom) };
+    v.setBounds(this.stage);
   }
 
   /** Take a live tab in. Whatever was playing before goes (one at a time, decision 34). */
@@ -238,7 +254,7 @@ export class Popout {
     this.win.setIgnoreMouseEvents(set.clickThrough);
     lockDown(this.win.webContents, { openExternally: true });
 
-    this.win.on('resize', () => this.afterDrag());
+    this.win.on('resize', () => { this.follow(); this.afterDrag(); });
     this.win.on('move', () => this.afterDrag());
     // Closing the window by any route gives a lent tab back first, so the page is never lost with it.
     this.win.on('close', () => this.returnTab());

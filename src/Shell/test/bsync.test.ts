@@ -115,3 +115,14 @@ test('M6 fix: on the first sync, bookmarks neither side ever changed still trave
   assert.deepEqual(urls(a.m), ['https://github.com/', 'https://www.reddit.com/', 'https://www.wowhead.com/']);
   assert.deepEqual(urls(b.m), urls(a.m), 'both end with all of them');
 });
+
+test('one video at a time: something starting on one machine pauses the other', async () => {
+  const { a, b, sa, up } = pair();
+  let paused = 0;
+  (b as any).pauseAll = () => { paused++; };
+  void a;
+  await up();
+  sa.mediaStarted();
+  await wait(20);
+  assert.equal(paused, 1);
+});
