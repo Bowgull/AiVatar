@@ -31,7 +31,7 @@ import { softEdge } from './winedge.ts';
 import { isBar, parseBookmarks, type Mark } from './bookmarks.ts';
 import { Vault, fillScript, type Login } from './vault.ts';
 import { createHmac, randomBytes } from 'node:crypto';
-import { Visits, search as searchVisits } from './visits.ts';
+import { Visits, search as searchVisits, forAang } from './visits.ts';
 import { Driver, type Job } from './driver.ts';
 import { Downloads, kindOf, trayOf, type Dl } from './dlist.ts';
 
@@ -1987,6 +1987,11 @@ export class AangBrowser {
     const d = this.driver;
     try {
       switch (op) {
+        // His browsing history, for Aang, only when he asks (2026-10-13): titles and addresses, never a money site.
+        case 'history': {
+          const days = Number(a?.days); const q = String(a?.q ?? '').slice(0, 200);
+          return { ok: true, items: forAang(this.visits.list, q, Number.isFinite(days) ? days : 14, 15, Date.now()) };
+        }
         case 'start': { const j = d.startJob(a?.kind === 'claude' ? 'claude' : 'aang', String(a?.name ?? '')); return { ok: true, job: j.id }; }
         case 'finish': d.finish(num('job')); return { ok: true };
         case 'open': return { ok: true, ...(await d.open(num('job'), String(a?.url ?? '').slice(0, 2000))) };

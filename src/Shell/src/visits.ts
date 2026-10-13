@@ -14,7 +14,19 @@ const MAX = 20_000;
 export function counts(url: string): boolean { return /^https?:\/\//i.test(url) && url.length <= 2000; }
 
 /** Add a visit. The same page again within a minute is one visit (reloads, redirects, fragments). */
+/**
+ * Banking and money sites are never kept in his history (his call, 2026-10-13), so they can never reach Aang
+ * either. Banks and credit unions (Canadian first), cards, payments, brokers and crypto.
+ */
+const MONEY_HOSTS = /(^|\.)(rbc|royalbank|rbcroyalbank|td|tdcanadatrust|tdbank|easyweb|scotiabank|scotiaonline|bmo|cibc|nbc|bnc|desjardins|tangerine|simplii|eqbank|pcfinancial|motusbank|meridiancu|vancity|atb|hsbc|chase|bankofamerica|wellsfargo|citi|citibank|capitalone|americanexpress|amex|paypal|interac|wise|revolut|venmo|cash|koho|neofinancial|mogo|wealthsimple|questrade|qtrade|interactivebrokers|fidelity|vanguard|schwab|robinhood|coinbase|binance|kraken|crypto|stripe|moneris|square|afterpay|klarna|affirm|turbotax|wealthica)\.(com|ca|co|net|org|app)$/i;
+export function neverKeep(url: string): boolean {
+  let host = '';
+  try { host = new URL(url).hostname.toLowerCase(); } catch { return false; }
+  return MONEY_HOSTS.test(host) || /(^|[.-])(bank|banque|creditunion|caisse)([.-]|$)/.test(host) || /online-?banking|onlinebanking/.test(host);
+}
+
 export function addVisit(list: Visit[], url: string, title: string, now: number): Visit[] {
+  if (neverKeep(url)) return list;
   if (!counts(url)) return list;
   const last = list[list.length - 1];
   const same = (a: string) => a.replace(/#.*$/, '') === url.replace(/#.*$/, '');
@@ -52,6 +64,27 @@ export function search(list: Visit[], q: string, offset: number, limit: number):
 }
 
 /** Take one visit off (by its address and time), or clear a stretch: the last hour, today, or everything. */
+/**
+ * For Aang, only when he asks (2026-10-13): the pages whose title or address hold every word, newest first, from
+ * the last `days` days, one line per page (the same page visited again counts once). Titles and addresses only;
+ * no page text is kept.
+ */
+export function forAang(list: Visit[], q: string, days: number, limit: number, now: number): { title: string; url: string; at: number }[] {
+  const words = q.toLowerCase().split(/\s+/).filter((w) => w.length > 1).slice(0, 8);
+  const from = now - Math.max(1, Math.min(90, days)) * 86_400_000;
+  const seen = new Set<string>(), out: { title: string; url: string; at: number }[] = [];
+  for (let i = list.length - 1; i >= 0 && out.length < limit; i--) {
+    const v = list[i]!;
+    if (v.at < from) continue;                     // skipped, not stopped: an out-of-order entry must not hide newer ones
+    if (neverKeep(v.url) || seen.has(v.url)) continue;
+    const s = (v.title + ' ' + v.url.replace(/^https?:\/\/(www\.)?/, '')).toLowerCase();
+    if (words.length && !words.every((w) => s.includes(w))) continue;
+    seen.add(v.url);
+    out.push({ title: v.title.slice(0, 160), url: v.url.slice(0, 300), at: v.at });
+  }
+  return out;
+}
+
 export function forget(list: Visit[], url: string, at: number): Visit[] { return list.filter((v) => !(v.url === url && v.at === at)); }
 export function clearSince(list: Visit[], from: number): Visit[] { return from <= 0 ? [] : list.filter((v) => v.at < from); }
 
@@ -64,7 +97,7 @@ export class Visits {
     try {
       if (existsSync(file)) {
         const a = JSON.parse(readFileSync(file, 'utf8'));
-        if (Array.isArray(a)) this.list = prune(a.filter((v: Partial<Visit>) => typeof v?.url === 'string' && counts(v.url) && Number.isFinite(v.at))
+        if (Array.isArray(a)) this.list = prune(a.filter((v: Partial<Visit>) => typeof v?.url === 'string' && counts(v.url) && !neverKeep(v.url) && Number.isFinite(v.at))
           .map((v: Visit) => ({ url: v.url, title: String(v.title ?? '').slice(0, 300), at: Number(v.at) })).sort((x, y) => x.at - y.at), Date.now());
       }
     } catch { /* none yet */ }
