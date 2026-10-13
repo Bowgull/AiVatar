@@ -435,10 +435,13 @@ export class Popout {
     const live = wc && !wc.isDestroyed() ? wc : null;
     const page = live ? await within(live.executeJavaScript(`(() => { const c = document.documentElement.classList;
       const vis = (s) => [...document.querySelectorAll(s)].filter(e => { const r = e.getBoundingClientRect(), st = getComputedStyle(e); return r.width * r.height > 0 && st.visibility !== 'hidden' && st.display !== 'none' && st.opacity !== '0'; }).map(e => (e.className && String(e.className).slice(0, 60)) || e.tagName);
-      return { url: location.href.slice(0, 200), bare: c.contains('aang-bare'), pinned: c.contains('aang-pinned'), showing: vis('[data-aang-player] *:not(video)').slice(0, 30) }; })()`, true), 800, null) : null;
+      return { url: location.href.slice(0, 200), bare: c.contains('aang-bare'), pinned: c.contains('aang-pinned'), showing: vis('[data-aang-player] *:not(video)').slice(0, 30),
+        menus: [...document.querySelectorAll('[role="menu"],[role="dialog"],.tw-balloon,[data-a-target*="settings"],[data-popper-placement]')].slice(0, 12).map(e => { const st = getComputedStyle(e), r = e.getBoundingClientRect(); return { what: (e.getAttribute('data-a-target') || e.getAttribute('role') || String(e.className).slice(0, 40)), inPlayer: !!e.closest('[data-aang-player]'), shown: st.visibility !== 'hidden' && st.display !== 'none', size: Math.round(r.width) + 'x' + Math.round(r.height) }; }) }; })()`, true), 800, null) : null;
     let shot: string | null = null;
     try { const img = live ? await within(live.capturePage(), 1500, null) : null; if (img && !img.isEmpty()) shot = img.resize({ width: Math.min(960, img.getSize().width) }).toJPEG(70).toString('base64'); } catch { /* none */ }
-    return { open: true, visible: w.isVisible(), pinned: this.pinned, bounds: w.getBounds(), lent: Boolean(this.lent), page, shot };
+    let bar: string | null = null;
+    try { const img = await within(w.webContents.capturePage(), 1500, null); if (img && !img.isEmpty()) bar = img.resize({ width: Math.min(960, img.getSize().width) }).toJPEG(70).toString('base64'); } catch { /* none */ }
+    return { open: true, visible: w.isVisible(), pinned: this.pinned, bounds: w.getBounds(), lent: Boolean(this.lent), page, shot, bar };
   }
 
   close(): void {
@@ -524,6 +527,8 @@ html.aang-bare [data-aang-player] video { position:fixed !important; left:0 !imp
 html.aang-bare .html5-video-container { position:absolute !important; inset:0 !important; width:100% !important; height:100% !important; }
 html.aang-bare [data-aang-fill] { position:absolute !important; inset:0 !important; width:100% !important; height:100% !important; max-width:none !important; max-height:none !important; transform:none !important; }
 html.aang-pinned .ytp-chrome-bottom, html.aang-pinned .ytp-chrome-top, html.aang-pinned .ytp-gradient-bottom, html.aang-pinned .ytp-gradient-top, html.aang-pinned [data-a-target="player-controls"], html.aang-pinned .video-player__overlay, html.aang-pinned [data-aang-player] video::-webkit-media-controls { display:none !important; }
+html.aang-bare:not(.aang-pinned) :is([role="menu"], [role="dialog"], [role="listbox"], .tw-balloon, [data-a-target="player-settings-menu"], [data-a-target^="player-settings"], [class*="ReactModal"], [data-popper-placement]), html.aang-bare:not(.aang-pinned) :is([role="menu"], [role="dialog"], [role="listbox"], .tw-balloon, [data-a-target="player-settings-menu"], [data-a-target^="player-settings"], [class*="ReactModal"], [data-popper-placement]) * { visibility:visible !important; }
+html.aang-bare:not(.aang-pinned) :is([role="menu"], [role="dialog"], [role="listbox"], .tw-balloon, [data-a-target="player-settings-menu"], [class*="ReactModal"], [data-popper-placement]) { z-index:2147483647 !important; }
 html.aang-pinned [data-aang-player] *, html.aang-pinned body { pointer-events:none !important; }
 html.aang-pinned [data-aang-player] * { visibility:hidden !important; }
 html.aang-pinned [data-aang-player] video, html.aang-pinned .ytp-caption-window-container, html.aang-pinned .ytp-caption-window-container *, html.aang-pinned .player-captions-container, html.aang-pinned .player-captions-container * { visibility:visible !important; }
