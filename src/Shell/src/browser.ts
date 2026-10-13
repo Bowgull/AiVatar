@@ -954,6 +954,16 @@ export class AangBrowser {
     }
     this.createPane(undefined, t, spot);
   }
+  /** "Move to a new window" from the tab's right-click menu: a new window a little down and right of this one. */
+  newWindowFor(tabId: number): void {
+    const t = this.tabs.find((x) => x.id === tabId);
+    const src = t ? this.paneOfTab(t) : undefined;
+    if (!t || t.lent || !this.alive(src) || this.paneTabs(src).length < 2) return;
+    this.pane = src;
+    this.tray(false);
+    const b = src.win.isMaximized() ? { x: src.win.getBounds().x + 80, y: src.win.getBounds().y + 80, width: 1200, height: 800 } : src.win.getNormalBounds();
+    this.createPane(undefined, t, { x: b.x + 48, y: b.y + 48, width: b.width, height: b.height });
+  }
   /** A tab into another window: its live page is handed across; the window it left shows its next tab, or closes. */
   private moveTo(t: Tab, to: Pane): void {
     const from = this.paneOfTab(t);
@@ -1582,6 +1592,7 @@ export class AangBrowser {
     else if (act === 'close') this.close(id);
     else if (act === 'mute') { t.muted = !t.muted; t.view?.webContents.setAudioMuted(t.muted); this.changed(); }
     else if (act === 'reload') { if (t.view && !t.crashed) t.view.webContents.reload(); else if (t.id === this.active) this.act('reload'); }
+    else if (act === 'newwindow') this.newWindowFor(id);
     else if (act === 'done') this.markDone(id, true);
     else if (act === 'undone') this.markDone(id, false);
   }

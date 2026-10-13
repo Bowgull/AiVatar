@@ -264,10 +264,11 @@ el('crashreload').addEventListener('click', () => window.aang?.browserAct?.('rel
 el('crashclose').addEventListener('click', () => window.aang?.browserAct?.('close'));
 
 // ---- the address slot: shows the address; click it and it becomes a field. Enter searches or goes.
-function editSlot() {
-  // The drawer or the menu hides the page under them; typing an address means he wants the page, so they go
-  // (found 2026-10-12: a search loaded under the open drawer and he had to click the tab to see it).
-  closeDrawer(); closeMenu();
+function editSlot(keepList = false) {
+  // The menu hides the page under it; typing an address means he wants the page, so it goes. The tab list floats over a
+  // LIVE page now, so a new tab (or Ctrl+L) leaves it open: it closes when his mouse leaves it (his ask, 2026-10-13).
+  if (!keepList) closeDrawer();
+  closeMenu();
   const t = state.tabs.find((x) => x.id === state.active);
   urlEl.hidden = true; edit.hidden = false;
   edit.value = t?.url ?? '';
@@ -360,7 +361,7 @@ edit.addEventListener('keydown', (e) => {
 });
 edit.addEventListener('blur', () => setTimeout(hideSuggest, 120));
 edit.addEventListener('blur', () => setTimeout(closeSlot, 120));
-window.aang?.onBrowserFocusSlot?.(() => editSlot());
+window.aang?.onBrowserFocusSlot?.(() => editSlot(true));
 
 // ---- find on page (Ctrl+F). Typing searches as he types; Enter is the next match, Shift+Enter the one before;
 // Esc, or clicking away, puts the slot back as it was.
@@ -549,6 +550,8 @@ function tabMenu(t, x, y) {
   sep();
   item('Open in Chrome', () => {}, { soon: true });
   item('Popout', () => window.aang?.browserPopout?.(t.id));
+  // The same as dragging it out of the window (his ask, 2026-10-13).
+  item('Open in new window', () => window.aang?.browserTab?.({ id: t.id, act: 'newwindow' }));
   item(OTHER.label, () => window.aang?.browserToMac?.(t.id));
   // His ask (2026-10-13): the page as a full tab in Aang's browser on the other machine, brought to the front there.
   item(OTHER.open, () => window.aang?.browserOpenOther?.(t.id));
