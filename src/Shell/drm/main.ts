@@ -115,9 +115,11 @@ app.whenReady().then(async () => {
     ...box, minWidth: MIN.width, minHeight: MIN.height,
     // A hidden title bar, not frame:false: Windows 11 rounds the corners and draws the soft edge (2026-10-12).
     titleBarStyle: 'hidden', transparent: false, backgroundColor: '#24160D', thickFrame: true,
-    alwaysOnTop: true, show: false, title: 'Aang', icon: path.join(HERE, '..', 'assets', 'aang.ico'),
+    // Over WoW on the PC; on the Mac (M6) an ordinary window he can put full screen.
+    alwaysOnTop: process.platform !== 'darwin', show: false, title: 'Aang', icon: path.join(HERE, '..', 'assets', 'aang.ico'),
   });
-  win.setAlwaysOnTop(true, 'screen-saver');
+  if (process.platform === 'darwin') win.setWindowButtonVisibility(false);   // the bar's own buttons, as on the PC
+  else win.setAlwaysOnTop(true, 'screen-saver');
   // Aang's face on the taskbar, never Electron's atom (his rule).
   try { win.setAppDetails({ appId: 'Aang', appIconPath: path.join(HERE, '..', 'assets', 'aang.ico'), appIconIndex: 0, relaunchDisplayName: 'Aang' }); } catch { /* not Windows */ }
 

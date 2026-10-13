@@ -593,6 +593,7 @@ app.whenReady().then(async () => {
 
       aangBrowser = new AangBrowser({ origin: pages.origin, preloadPath: path.join(HERE, 'preload.cjs'), stateDir: STATE_DIR, tabPreloadPath: path.join(HERE, 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, 'thingspreload.cjs') });
       aangBrowser.onReclaim = () => popout?.returnTab();
+      aangBrowser.onPaid = (url) => openPopout(url);
       // M6: one browser on both machines. Changes go to the brain, which passes them to the Mac's browser.
       aangBrowser.startSync((m) => link.send(m as never), (s) => console.log('shell: ' + s));
       // 6.27: links from Windows. Aang.exe --url checks each one and leaves it as a file here; each opens as a tab,

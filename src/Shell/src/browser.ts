@@ -39,6 +39,7 @@ import { Downloads, kindOf, trayOf, type Dl } from './dlist.ts';
 /** A site name scrambled with this PC's own key: the file alone says nothing about where he has accounts. */
 const scramble = (key: string, host: string) => createHmac('sha256', key).update(host.toLowerCase()).digest('hex').slice(0, 32);
 import { PhishCheck } from './phish.ts';
+import { serviceFor } from './services.ts';
 import { failureWords, isRisky, upgrade } from './secure.ts';
 import { blockAds, type AdBlock } from './skip/ads.ts';
 
@@ -929,6 +930,25 @@ export class AangBrowser {
       else this.fail(tab, { kind: 'error', url, ...failureWords(code, host) });
     });
     wc.on('did-start-navigation', (d) => { const x = d as unknown as { url: string; isMainFrame: boolean }; if (!x.isMainFrame || !isWeb(x.url)) return; const l = this.listed(x.url); if (l.length) this.block(tab, x.url, l); });
+    // Paid video (2026-10-13, his ask): this browser has no Widevine, so Netflix, Crave, Disney+, Prime and Crunchyroll
+    // open in the paid-video window instead, by themselves. The tab goes back to where it was, or closes if that was
+    // all it had. Not a page it was already on, so a service's own page that is open stays put.
+    wc.on('did-start-navigation', (d) => {
+      const x = d as unknown as { url: string; isMainFrame: boolean; isSameDocument: boolean };
+      if (!x.isMainFrame || x.isSameDocument || !this.onPaid) return;
+      const paid = serviceFor(x.url);
+      if (!paid?.ready) return;
+      let was = '';
+      try { was = new URL(wc.getURL()).hostname; } catch { /* a new tab */ }
+      if (was && serviceFor('https://' + was + '/')?.id === paid.id) return;
+      wc.stop();
+      if (!this.onPaid(x.url)) return;
+      setTimeout(() => {
+        if (wc.isDestroyed()) return;
+        if (wc.navigationHistory.canGoBack()) wc.navigationHistory.goBack(); else this.close(tab.id);
+      }, 0);
+      this.note(`${paid.label.charAt(0)}${paid.label.slice(1).toLowerCase()} opened in the paid-video window.`);
+    });
     wc.on('page-title-updated', (_e, title) => { tab.title = title; this.visits.name(wc.getURL(), title); this.changed(); });
     wc.on('page-favicon-updated', (_e, icons) => {
       tab.favicon = icons.find((i) => /^https?:|^data:image\//.test(i)) ?? '';
@@ -1573,6 +1593,8 @@ export class AangBrowser {
     } finally { this.iconsBusy = false; }
   }
   // ------------------------------------------------------------------ M6 one browser on both machines (bsync.ts)
+  /** Set by main: open a paid service in the paid-video window. True if it opened. */
+  onPaid: ((url: string) => boolean) | null = null;
   /** The sync with the browser on his other machine (startSync). */
   sync: BrowserSync | null = null;
   /** M6: start syncing with the other machine's browser. `send` reaches it through the brain. */

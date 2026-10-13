@@ -33,11 +33,12 @@ test('nothing else gets into the DRM runtime, however video-like', () => {
   }
 });
 
-test('Netflix is recognised but not ready, and the reason names the error', () => {
-  const n = serviceFor('https://www.netflix.com/watch/1')!;
-  assert.equal(n.ready, false);
-  assert.match(notReadyBecause('netflix'), /M7121-1331/);
-  // Still allowed into the runtime: he will see Netflix's own refusal rather than nothing at all.
+test('2026-10-13: Netflix is ready now the runtime is signed; Crave (with Bell Media sign-in) and Disney+ are in', () => {
+  assert.equal(serviceFor('https://www.netflix.com/watch/1')!.ready, true);
+  assert.equal(serviceFor('https://www.crave.ca/en/movie/x')?.id, 'crave');
+  assert.equal(serviceFor('https://account.bellmedia.ca/login')?.id, 'crave');
+  assert.equal(serviceFor('https://www.disneyplus.com/en-ca/home')?.id, 'disney');
+  assert.equal(serviceFor('https://www.maxdisneyplus.com.evil.example/'), null);
   assert.equal(allowedInDrm('https://www.netflix.com/watch/1'), true);
 });
 
