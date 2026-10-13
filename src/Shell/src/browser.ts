@@ -341,6 +341,15 @@ export class AangBrowser {
     this.phish = new PhishCheck(o.stateDir);
     void this.phish.start();
     try { if (existsSync(this.pausedFile)) this.paused = new Set(JSON.parse(readFileSync(this.pausedFile, 'utf8'))); } catch { /* none paused */ }
+    // Stay signed in (his report, 2026-10-13: Reddit logged him out). Chromium keeps new and changed cookies in
+    // memory and writes them to disk in batches, so a hard stop of the Shell throws away whatever had not been
+    // written yet - and a login cookie is exactly the kind that changes quietly. Nothing in Aang ever deletes a
+    // cookie; they were simply lost. So every change is written within two seconds, and once more on the way out.
+    let cookieWrite: NodeJS.Timeout | null = null;
+    this.ses.cookies.on('changed', () => {
+      if (cookieWrite) clearTimeout(cookieWrite);
+      cookieWrite = setTimeout(() => { cookieWrite = null; this.ses.cookies.flushStore().catch(() => { /* next change tries again */ }); }, 2000);
+    });
     void blockAds(this.ses, o.stateDir, { cosmetic: true }).then((b) => { this.ads = b; if (b) { for (const h of this.paused) b.pause(h, true); if (!this.prefs.ads) b.stop(); } });
   }
 
@@ -1965,7 +1974,7 @@ export class AangBrowser {
     if (t) w.setTitle(`${t.title} - Aang Browser`);
   }
 
-  closeAll(): void { this.driver.closeAll(); if (this.win && !this.win.isDestroyed()) { void this.snapshot(); this.win.close(); } }
+  closeAll(): void { void this.ses.cookies.flushStore().catch(() => {}); this.driver.closeAll(); if (this.win && !this.win.isDestroyed()) { void this.snapshot(); this.win.close(); } }
 
   // ------------------------------------------------------------------ 6.25a: what the brain asks of the driver
   /**
