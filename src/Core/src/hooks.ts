@@ -225,9 +225,13 @@ export class HookServer {
     req.on('error', () => { /* client vanished */ });
   }
 
+  /** M6: a WebSocket asking to come in (the Mac's browser sync). Unset: every upgrade is refused. */
+  upgrade: ((req: http.IncomingMessage, socket: import('node:stream').Duplex, head: Buffer) => void) | null = null;
+
   private listen(host: string): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       const s = http.createServer((req, res) => this.handle(req, res));
+      s.on('upgrade', (req, socket, head) => { if (this.upgrade) this.upgrade(req, socket, head); else socket.destroy(); });
       s.once('error', reject);
       s.listen(this.port, host, () => { this.servers.push(s); resolve(); });
     });

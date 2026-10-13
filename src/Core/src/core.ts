@@ -11,7 +11,7 @@ import path from 'node:path';
 import { parseFromBody } from './protocol.ts';
 import { reportWriteFailure, rotateIfBig, writeFileAtomic } from './atomic.ts';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
-import { MAC_LISTENER_PORT, macSetupScript, FRONT_DESK_PORT, type DeskPayload } from './macsetup.ts';
+import { MAC_LISTENER_PORT, macBrowserBundle, macSetupScript, FRONT_DESK_PORT, type DeskPayload } from './macsetup.ts';
 import { Jobs, SWEEP_REQUEST, cleanField, safeUrl, scoreOf, verdictFor } from './jobs.ts';
 import type { Rubric } from './jobs.ts';
 import type { BriefCard, FromBody, Mode, StructuredList, ToBody } from './protocol.ts';
@@ -39,6 +39,7 @@ import type { Result as OrganiseResult } from './organise.ts';
 import type { Doers } from './tools.ts';
 import { TOOL_NAMES, QUICK_TOOLS, fetchDayWeather, QUICK_HIDDEN, BUILTIN_SHELL, BUILTIN_WRITE, PLAYWRIGHT_SERVER, SHELL_TOOLS, WEB_PROMPT, WEB_TOOLS, describeCall, describeForLog, isLauncher, makeToolServer, makeTools, reachesNetwork, untypedAddresses } from './tools.ts';
 import { Actions } from './actions.ts';
+import { BrowserSyncHub } from './bsynchub.ts';
 import { APEX_STEAM, Feeds, apexMap, channelOf, parseSteamFeed, parseYouTubeFeed, type Creator } from './feeds.ts';
 import { clock as videoClock, diagnose, readVideo, videoUrl, type Diagnosis, type VideoRead } from './watchvideo.ts';
 import { HookServer, HookTracker, isLoopback } from './hooks.ts';
@@ -1700,9 +1701,13 @@ export class Core {
         'avatar-claude.png': readFileSync(path.join(here, '..', 'assets', 'speakers', 'claude.png')),
         'avatar-jobhunt.png': readFileSync(path.join(here, '..', 'assets', 'speakers', 'jobhunt.png')),
       };
+      // M6: Aang's browser for the Mac, packed from this PC's own Shell, and the key its sync uses.
+      let browser: DeskPayload['browser'];
+      try { browser = { bundle: macBrowserBundle(path.join(here, '..', '..', 'Shell')), bsyncKey: this.keyFile('bsync.key') }; }
+      catch (e) { console.error('mac-setup: the Mac browser could not be packed: ' + (e as Error).message); }
       writeFileAtomic(path.join(this.cfg.stateDir, 'frontdesk.json'), JSON.stringify({ mac, port: FRONT_DESK_PORT }));
       console.log(`mac-setup: the front desk goes to the MacBook (${mac}); Discord moves there at the next start`);
-      return { token, key, port: FRONT_DESK_PORT, files };
+      return { token, key, port: FRONT_DESK_PORT, files, ...(browser ? { browser } : {}) };
     } catch (e) { console.error('mac-setup: front desk skipped: ' + (e as Error).message); return null; }
   }
 
@@ -1794,6 +1799,8 @@ export class Core {
     }, this.keyFile('hook.key'), code => this.setupFor(code),
     // M2: the MacBook's "is Shadow on?" (one Aang across both machines). Up, and whether he is at this PC.
     () => ({ up: true, atDesk: this.atDesk && this.clientsOf('desktop').length > 0 }));
+    // M6: the Mac's browser syncs with this PC's through here (bsynchub.ts).
+    this.hookServer.upgrade = (req, socket, head) => this.bsync.upgrade(req, socket, head);
     try {
       await this.hookServer.start();
       if (this.hookServer.tailnet) console.log(`hooks: also listening on Tailscale ${this.hookServer.tailnet}:${this.cfg.port + 1}`);
@@ -2083,6 +2090,12 @@ export class Core {
   private atDesk = true;
   /** The Electron Shell's connections: the only desktop client that can actually show the pop-out. */
   private readonly shells = new WeakSet<WebSocket>();
+  private shellUp(): boolean { return !!this.wss && [...this.wss.clients].some(c => c.readyState === c.OPEN && this.shells.has(c)); }
+  /** M6: browser changes between the PC's browser and the Mac's. Passed on, never kept. */
+  private readonly bsync = new BrowserSyncHub({
+    key: () => this.keyFile('bsync.key'), macAddr: () => this.macAddr,
+    toShell: m => this.sendToShells(m as never), shellUp: () => this.shellUp(),
+  });
   /** The last place the pet said it was, for a Shell that connects afterwards. Never persisted: a
    *  position from a previous run is worse than none, since the pet is placed afresh at startup. */
   private lastPetAt: PetAt | null = null;
@@ -2166,11 +2179,15 @@ export class Core {
   }
 
   private onBody(ws: WebSocket, m: FromBody): void {
+    // M6: the PC's browser talking to the Mac's. Only a Shell may, and nothing here reads it.
+    if (typeof m.t === 'string' && (m.t as string).startsWith('bsync.')) { if (this.shells.has(ws)) this.bsync.fromShell(m as never); return; }
     switch (m.t) {
       case 'hello': {
         this.clientKind.set(ws, m.client === 'discord' ? 'discord' : 'desktop');
         if (m.shell === true) {
           this.shells.add(ws);
+          this.bsync.shellChanged(true);
+          ws.once('close', () => this.bsync.shellChanged(this.shellUp()));
           if (m.bubble === true) this.drawingShells.add(ws);
           if (this.lastPetAt) this.send(ws, this.lastPetAt);
           if (this.lastBubbleState) this.send(ws, this.lastBubbleState);

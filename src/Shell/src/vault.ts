@@ -13,9 +13,17 @@
 //    isolated world the page cannot see into. Nothing is submitted for him.
 import { execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
-export const BW = path.join(process.env.LOCALAPPDATA ?? '', 'Programs', 'BitwardenCLI', 'bw.exe');
+// M6: on the Mac, the same official tool, put by the Mac setup in Aang's own folder.
+export const BW = process.platform === 'darwin'
+  ? path.join(os.homedir(), 'Library', 'Application Support', 'AangListener', 'bw', 'bw')
+  : path.join(process.env.LOCALAPPDATA ?? '', 'Programs', 'BitwardenCLI', 'bw.exe');
+/** How he signs in to it once, himself, on this machine. */
+export const BW_LOGIN = process.platform === 'darwin'
+  ? 'in Terminal run  "$HOME/Library/Application Support/AangListener/bw/bw" login'
+  : 'in PowerShell run  & "$env:LOCALAPPDATA\\Programs\\BitwardenCLI\\bw.exe" login';
 const LOCK_AFTER_MS = 30 * 60_000;
 
 export interface Login { id: string; name: string; username: string }

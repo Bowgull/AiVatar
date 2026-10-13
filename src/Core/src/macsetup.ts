@@ -10,6 +10,11 @@
 // starting a chat message, the same as Joshua typing it himself. Reporting back still goes through the hooks
 // already wired (SessionStart/Stop/etc.), not through this endpoint.
 
+import { execFileSync } from 'node:child_process';
+import { readFileSync, unlinkSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+
 export const MAC_LISTENER_PORT = 47840;
 export const HOOK_EVENTS = ['SessionStart', 'UserPromptSubmit', 'Notification', 'Stop', 'SessionEnd'];
 
@@ -176,8 +181,30 @@ const HOOKS_JXA = String.raw`function run(argv) {
 }`.replace('EVENTS', JSON.stringify(HOOK_EVENTS));
 
 /** M3: the MacBook front desk, when this setup should install it. Files are the exact source that runs there. */
-export interface DeskPayload { token: string; key: string; port: number; files: Record<string, string | Buffer> }
+export interface DeskPayload {
+  token: string; key: string; port: number; files: Record<string, string | Buffer>;
+  /** M6: Aang's browser for the Mac: its code and pages packed (tar.gz), and the key its sync uses */
+  browser?: { bundle: Buffer; bsyncKey: string };
+}
+/** M6: the browser engine on the Mac, pinned. The fingerprint is from Electron's own SHASUMS256.txt for this release. */
+/** M6: Bitwarden's official command-line tool for Intel Macs, pinned (the digest GitHub lists for the release asset). */
+export const BITWARDEN_MAC = { version: '2026.9.0', sha256: 'd2a1865c2c1f49c34e6f1b38a42c5b95dcf22e34f81121c4962ebda32f708a3e' };
+export const ELECTRON_MAC = { version: '44.7.0', sha256: '4fe494a7159b10a81e2098dab388719582065e99e604c4510bb117e282213566' };
 export const FRONT_DESK_PORT = 47841;
+
+/**
+ * M6: the Mac browser's code and pages, packed as tar.gz: the Shell's src and pages as they are on this PC, and the
+ * Mac app's package.json and lockfile (Shell/mac-pkg). Windows' own tar (bsdtar), so a drive letter is never read
+ * as a remote host the way GNU tar would.
+ */
+export function macBrowserBundle(shellDir: string): Buffer {
+  const out = path.join(os.tmpdir(), `aang-mac-browser-${process.pid}-${Date.now()}.tgz`);
+  const tar = process.platform === 'win32' ? path.join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'tar.exe') : 'tar';
+  try {
+    execFileSync(tar, ['-czf', out, '-C', shellDir, 'src', 'pages', '-C', path.join(shellDir, 'mac-pkg'), 'package.json', 'package-lock.json'], { stdio: 'ignore', timeout: 60_000 });
+    return readFileSync(out);
+  } finally { try { unlinkSync(out); } catch { /* gone */ } }
+}
 
 /** The whole bash script the Mac runs. `shadow` is this PC's Tailscale address. */
 export function macSetupScript(shadow: string, hookPort: number, hookKey: string, frontKey: string, desk: DeskPayload | null = null): string {
@@ -199,12 +226,12 @@ ${desk ? `DISCORD_TOKEN=${q(desk.token)}; DESK_KEY=${q(desk.key)}; DESK_PORT=${d
 DIR="$HOME/Library/Application Support/AangListener"; PLIST="$HOME/Library/LaunchAgents/com.aang.listener.plist"
 mkdir -p "$HOME/.claude" "$DIR" "$HOME/Library/LaunchAgents"
 
-echo "1/5  Claude Code hooks, so Aang hears when a session is done or needs you"
+echo "1/6  Claude Code hooks, so Aang hears when a session is done or needs you"
 osascript -l JavaScript - "$SHADOW" "$HOOK_PORT" "$HOOK_KEY" <<'JXA'
 ${HOOKS_JXA}
 JXA
 
-echo "2/5  The one-job listener, so clicking Aang's icon brings Claude forward, and the job hunt can start here"
+echo "2/6  The one-job listener, so clicking Aang's icon brings Claude forward, and the job hunt can start here"
 cat > "$DIR/listen.pl" <<'PERL'
 ${LISTENER}PERL
 cat > "$DIR/run.applescript" <<'APPLESCRIPT'
@@ -255,7 +282,7 @@ chmod 600 "$HBPLIST"
 launchctl bootout "gui/$(id -u)/com.aang.heartbeat" 2>/dev/null || true
 start_agent "$HBPLIST"
 
-echo "3/5  Node.js for Aang's Mac side (his yes, 2026-10-13): kept in Aang's own folder, no admin password"
+echo "3/6  Node.js for Aang's Mac side (his yes, 2026-10-13): kept in Aang's own folder, no admin password"
 # The newest long-term-support Node for Intel Macs, from nodejs.org, checked against Node's own SHA-256 list
 # before it is unpacked. A mismatch is thrown away. Skipped when it is already there.
 NODE_DIR="$DIR/node"
@@ -282,7 +309,7 @@ else
   fi
 fi
 
-${desk ? `echo "4/5  Aang's front desk (M3): the one connection to Discord, always on, on this Mac"
+${desk ? `echo "4/6  Aang's front desk (M3): the one connection to Discord, always on, on this Mac"
 FD="$DIR/frontdesk"; mkdir -p "$FD"
 # The Discord bot's token and the front desk's key go into files only you can read (printf is built into bash).
 ( umask 077; printf '%s' "$DISCORD_TOKEN" > "$DIR/discord.token"; printf '%s' "$DESK_KEY" > "$DIR/frontdesk.key"; printf '{"shadow":"%s","port":%s}\\n' "$SHADOW" "$DESK_PORT" > "$DIR/frontdesk.json" )
@@ -329,7 +356,58 @@ FDXML
 else
   echo "     Node is not here, so the front desk was not started."
 fi
-` : ''}echo "5/5  Checking the line back to Aang"
+` : ''}${desk?.browser ? `echo "5/6  Aang's browser (M6): the same browser as on the PC, kept in step with it"
+( umask 077; printf '%s' ${q(desk.browser.bsyncKey)} > "$DIR/bsync.key" )
+BR="$DIR/browser"; mkdir -p "$BR"
+EV=${ELECTRON_MAC.version}; ZIP="electron-v$EV-darwin-x64.zip"; SUM=${ELECTRON_MAC.sha256}
+if [ ! -d "$BR/engine-$EV/Electron.app" ]; then
+  echo "     Downloading the browser engine (about 110 MB, once)..."
+  rm -rf "$BR"/engine-*; curl -fsSL -o "$BR/$ZIP" "https://github.com/electron/electron/releases/download/v$EV/$ZIP" || true
+  # Exactly the engine Aang was built for: its fingerprint is fixed in Aang's own code, not fetched alongside it.
+  if [ "$(shasum -a 256 "$BR/$ZIP" 2>/dev/null | cut -d' ' -f1)" = "$SUM" ]; then mkdir -p "$BR/engine-$EV" && ditto -x -k "$BR/$ZIP" "$BR/engine-$EV"; else echo "     The engine download did not match its fingerprint; nothing was installed."; fi
+  rm -f "$BR/$ZIP"
+fi
+if [ -d "$BR/engine-$EV/Electron.app" ] && [ -x "$NODE_DIR/bin/node" ]; then
+  APP="$HOME/Applications/Aang.app"; mkdir -p "$HOME/Applications"
+  osascript -e 'quit app "Aang"' >/dev/null 2>&1 || true; sleep 1
+  rm -rf "$APP.new"; ditto "$BR/engine-$EV/Electron.app" "$APP.new"
+  RES="$APP.new/Contents/Resources"; mkdir -p "$RES/app"
+  printf '%s' '${b64(desk.browser.bundle)}' | /usr/bin/base64 -D | tar -xzf - -C "$RES/app"
+  if ( cd "$RES/app" && PATH="$NODE_DIR/bin:$PATH" npm ci --omit=dev --ignore-scripts --no-audit --no-fund --cache "$DIR/npm-cache" >"$DIR/npm-browser.log" 2>&1 ); then
+    PB=/usr/libexec/PlistBuddy; PL="$APP.new/Contents/Info.plist"
+    $PB -c "Set :CFBundleName Aang" -c "Set :CFBundleDisplayName Aang" -c "Set :CFBundleIdentifier com.aang.browser" "$PL"
+    $PB -c "Delete :CFBundleURLTypes" "$PL" >/dev/null 2>&1 || true
+    $PB -c "Add :CFBundleURLTypes array" -c "Add :CFBundleURLTypes:0 dict" -c "Add :CFBundleURLTypes:0:CFBundleURLName string Web site URL" -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes array" -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes:0 string http" -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes:1 string https" "$PL"
+    # Aang's face is the icon, never the Electron atom (his rule).
+    IS="$BR/aang.iconset"; rm -rf "$IS"; mkdir -p "$IS"; FACE="$RES/app/pages/art/aang-face.png"
+    for s in 16 32 128 256 512; do d=$((s*2)); sips -z $s $s "$FACE" --out "$IS/icon_$s"x"$s.png" >/dev/null 2>&1; sips -z $d $d "$FACE" --out "$IS/icon_$s"x"$s@2x.png" >/dev/null 2>&1; done
+    iconutil -c icns "$IS" -o "$RES/electron.icns" >/dev/null 2>&1 || true
+    codesign --force --deep -s - "$APP.new" >/dev/null 2>&1 || true
+    rm -rf "$APP"; mv "$APP.new" "$APP"
+    /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$APP" >/dev/null 2>&1 || true
+    # In the Dock, once (his yes).
+    if ! defaults read com.apple.dock persistent-apps 2>/dev/null | grep -q "Applications/Aang.app"; then
+      defaults write com.apple.dock persistent-apps -array-add "<dict><key>tile-data</key><dict><key>file-data</key><dict><key>_CFURLString</key><string>file://$APP/</string><key>_CFURLStringType</key><integer>15</integer></dict></dict></dict>"
+      killall Dock >/dev/null 2>&1 || true
+    fi
+    echo "     Aang's browser is in your Dock. The first time it opens, macOS asks whether Aang may be your default browser."
+    # His yes: Bitwarden's key-fill here too. Bitwarden's own official tool, pinned by its fingerprint; he signs in to it himself.
+    BWV=${BITWARDEN_MAC.version}; BWSUM=${BITWARDEN_MAC.sha256}
+    if [ "$(cat "$DIR/bw/version" 2>/dev/null)" != "$BWV" ]; then
+      curl -fsSL -o "$DIR/bw.zip" "https://github.com/bitwarden/clients/releases/download/cli-v$BWV/bw-macos-$BWV.zip" || true
+      if [ "$(shasum -a 256 "$DIR/bw.zip" 2>/dev/null | cut -d' ' -f1)" = "$BWSUM" ]; then
+        rm -rf "$DIR/bw"; mkdir -p "$DIR/bw"; ditto -x -k "$DIR/bw.zip" "$DIR/bw"; chmod 700 "$DIR/bw/bw"; printf '%s' "$BWV" > "$DIR/bw/version"
+        echo "     Bitwarden's tool is installed. Sign in to it once, yourself:  \\"$DIR/bw/bw\\" login"
+      else echo "     Bitwarden's tool did not match its fingerprint; it was not installed."; fi
+      rm -f "$DIR/bw.zip"
+    fi
+  else
+    rm -rf "$APP.new"
+    echo "     Installing the browser's libraries failed; nothing was changed. What npm said:"
+    grep -i "error" "$DIR/npm-browser.log" | head -6 | sed 's/^/       /'
+  fi
+fi
+` : ''}echo "6/6  Checking the line back to Aang"
 CODE=$(curl -s -m 5 -o /dev/null -w '%{http_code}' -X POST --data '{}' "http://$SHADOW:$HOOK_PORT/hook?e=Ping&k=$HOOK_KEY" || true)
 if [ "$CODE" = "204" ]; then echo "     Aang heard this Mac."; else echo "     Aang did not answer (got '$CODE'). Is the Windows firewall rule in, and Tailscale on here?"; fi
 sleep 12
