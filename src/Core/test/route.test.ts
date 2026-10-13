@@ -20,9 +20,18 @@ test('the refusals Quick really gave are caught', () => {
   assert.ok(!REFUSES.test('Opened the route in Maps.'));
 });
 
-test('casual chat stays on Quick', () => {
-  assert.deepEqual(pickLane('whats the time', 'auto', false, false), { lane: 'quick', needsConsent: false });
-  assert.equal(pickLane('i had a rough week', 'auto', false, false).lane, 'quick');
+// His rule, 2026-10-13: Quick (the small model) only for plain small talk. It was answering facts confidently wrong and
+// "refusing" things it simply had no tool for. Everything else goes to Smart, at the PC too.
+test('only plain small talk stays on Quick', () => {
+  for (const t of ['hey bud', 'hi', 'thanks man', 'good night', 'how are you', 'lol nice', 'morning!', 'checking in bud', 'yo aang'])
+    assert.deepEqual(pickLane(t, 'auto', false, false), { lane: 'quick', needsConsent: false }, t);
+  for (const t of ['whats the time', 'i had a rough week', 'yup', 'yes', 'my home address is [address] avenue toronto', 'tell me a one line fun fact', 'are you there?', 'hey bud, whats on my calendar'])
+    assert.equal(pickLane(t, 'auto', false, false).lane, 'smart', t);
+});
+
+test('the quick model saying it is blocked, or not sure, is caught too (2026-10-13)', () => {
+  for (const t of ["Hmm, the tool's blocked on my end.", "I'm not sure, but it might be Thursday.", 'That is not available from here.', "I don't know your home address yet."])
+    assert.ok(REFUSES.test(t), t);
 });
 
 test('hard or long work escalates to Smart in Auto', () => {
@@ -35,14 +44,9 @@ test('a request to DO something goes to Smart - his real ones that Quick fumbled
   for (const t of ['Get me directions from [address] avenue to [address] commons Burlington', 'make a not of this in logs',
     'opne claude on my pc', 'open that email in a browser tab', 'send me a screenshot of my screen', 'play something chill'])
     assert.equal(pickLane(t, 'auto', false, false).lane, 'smart', t);
-  assert.equal(pickLane('are you there?', 'auto', false, false).lane, 'quick', 'chat stays cheap');
-  assert.equal(pickLane('tell me a one line fun fact', 'auto', false, false).lane, 'quick');
 });
 
-test('everyday idioms that happen to contain an ACT word do not escalate - his real false positives, 2026-09-22', () => {
-  for (const t of ['on that note, how are you', 'I went for a run this morning', 'I want to go to bed', 'ugh, going to bed now'])
-    assert.equal(pickLane(t, 'auto', false, false).lane, 'quick', t);
-  // but the same words, meant as real requests, still escalate - the fix must not go too far the other way
+test('real requests with everyday words still go to Smart (and so does anything that is not plain small talk)', () => {
   assert.equal(pickLane('I need to set a reminder for tomorrow', 'auto', false, false).lane, 'smart');
   assert.equal(pickLane('can you check my email', 'auto', false, false).lane, 'smart');
   assert.equal(pickLane('close notepad for me', 'auto', false, false).lane, 'smart');
@@ -53,8 +57,8 @@ test('where he asked is the strongest signal: Discord is away, so it gets Smart 
   // wrong "I can't do that" costs him the errand. In the bubble he is at the PC and speed is the point.
   assert.equal(pickLane('whats the time', 'auto', false, false, 'discord').lane, 'smart', 'away: right beats fast');
   assert.equal(pickLane('are you there?', 'auto', false, false, 'discord').lane, 'smart');
-  assert.equal(pickLane('whats the time', 'auto', false, false, 'desktop').lane, 'quick', 'at the PC: still fast');
-  assert.equal(pickLane('whats the time', 'auto', false, false).lane, 'quick', 'no channel given behaves as the desktop did');
+  assert.equal(pickLane('hey bud', 'auto', false, false, 'desktop').lane, 'quick', 'at the PC: small talk stays fast');
+  assert.equal(pickLane('whats the time', 'auto', false, false, 'desktop').lane, 'smart', 'at the PC: a fact goes to Smart (2026-10-13)');
   // his own "spend less" still wins over all of it
   assert.equal(pickLane('open notepad', 'auto', true, false, 'discord').lane, 'quick', 'saving quota is never overridden');
 });
