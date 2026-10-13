@@ -41,6 +41,7 @@ export class BrowserSyncHub {
     this.log('browser sync: the Mac\'s browser connected');
     ws.on('message', raw => {
       let m: any; try { m = JSON.parse(String(raw)); } catch { return; }
+      if (m?.t === 'diag.reply') { const w = this.looks.get(String(m.id)); if (w) { this.looks.delete(String(m.id)); w(m); } return; }
       if (m && typeof m.t === 'string' && m.t.startsWith('bsync.') && this.o.shellUp()) this.o.toShell(m);
     });
     ws.on('close', () => { if (this.mac === ws) { this.mac = null; if (this.o.shellUp()) this.o.toShell({ t: 'bsync.down' }); } });
@@ -60,5 +61,17 @@ export class BrowserSyncHub {
     if (up) this.hello(); else this.toMac({ t: 'bsync.down' });
   }
   get macConnected(): boolean { return !!this.mac; }
+
+  /** His yes (2026-10-13): a picture of the Mac browser's own window and its log, for Claude to check a fix. */
+  private looks = new Map<string, (m: any) => void>(); private lookSeq = 0;
+  look(): Promise<any | null> {
+    if (!this.mac) return Promise.resolve(null);
+    const id = 'look' + ++this.lookSeq;
+    return new Promise(res => {
+      const t = setTimeout(() => { this.looks.delete(id); res(null); }, 15_000);
+      this.looks.set(id, m => { clearTimeout(t); res(m); });
+      this.toMac({ t: 'diag.ask', id });
+    });
+  }
   close(): void { try { this.mac?.close(); } catch { /* gone */ } this.wss.close(); }
 }

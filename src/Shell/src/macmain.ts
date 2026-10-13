@@ -11,6 +11,7 @@ import path from 'node:path';
 import { WebSocket } from 'ws';
 import { servePages } from './pageserver.ts';
 import { AangBrowser } from './browser.ts';
+import { wireBrowser } from './browseripc.ts';
 
 const HERE = import.meta.dirname;
 const LISTENER = path.join(os.homedir(), 'Library', 'Application Support', 'AangListener');
@@ -46,12 +47,16 @@ app.whenReady().then(async () => {
   ]));
   try { app.dock?.setIcon(nativeImage.createFromPath(path.join(HERE, '..', 'pages', 'art', 'aang-face.png'))); } catch { /* the app's own icon stays */ }
 
+  // Every button, menu and page of the browser, the same wiring as on the PC.
+  wireBrowser(() => browser);
   const stateDir = app.getPath('userData');
   const pages = await servePages(path.join(HERE, '..', 'pages'));
   browser = new AangBrowser({
     origin: pages.origin, stateDir, preloadPath: path.join(HERE, 'preload.cjs'), tabPreloadPath: path.join(HERE, 'tabpreload.cjs'),
     settingsPreloadPath: path.join(HERE, 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, 'thingspreload.cjs'),
   });
+  // Tidy asks Aang's brain, which is on the PC: from the Mac it says it is not reachable yet (until M7 links them).
+  browser.onTidyAsk = (id) => browser?.tidyAnswer(id, { ok: false, why: 'offline' });
   browser.open(waiting.shift());
   for (const u of waiting.splice(0)) browser.open(u);
 
@@ -71,7 +76,17 @@ app.whenReady().then(async () => {
     if (!key || !/^100\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(shadow)) { console.log('aang: no sync key or PC address yet; run the Mac setup again'); return; }
     const s = new WebSocket(`ws://${shadow}:${SYNC_PORT}/bsync`, { headers: { 'x-aang-key': key }, maxPayload: 64 * 1024 * 1024 });
     ws = s;
-    s.on('message', (raw) => { let m: any; try { m = JSON.parse(String(raw)); } catch { return; } if (typeof m?.t === 'string' && m.t.startsWith('bsync.')) void sync.got(m).catch((e: Error) => console.error('aang: sync: ' + e.message)); });
+    s.on('message', (raw) => {
+      let m: any; try { m = JSON.parse(String(raw)); } catch { return; }
+      if (typeof m?.t === 'string' && m.t.startsWith('bsync.')) void sync.got(m).catch((e: Error) => console.error('aang: sync: ' + e.message));
+      // His yes (2026-10-13): Claude may look at this browser's own window and its log, when it asks.
+      else if (m?.t === 'diag.ask' && browser) {
+        void browser.look().then((l) => {
+          let log = ''; try { log = readFileSync(path.join(app.getPath('userData'), 'aang.log'), 'utf8').split('\n').slice(-150).join('\n'); } catch { /* none */ }
+          if (s.readyState === WebSocket.OPEN) s.send(JSON.stringify({ t: 'diag.reply', id: String(m.id ?? ''), ...l, log, versions: { electron: process.versions.electron, macos: process.getSystemVersion?.() ?? '' } }));
+        }).catch((e: Error) => console.error('aang: look: ' + e.message));
+      }
+    });
     s.on('close', () => { if (ws === s) { ws = null; void sync.link(false); setTimeout(connect, 15_000); } });
     s.on('error', () => { /* close follows */ });
   };
