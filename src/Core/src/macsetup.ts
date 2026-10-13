@@ -288,7 +288,9 @@ if [ -x "$NODE_DIR/bin/node" ]; then
   # Exactly the versions in the lockfile, each checked against its fingerprint; no install scripts are run.
   # M4: this includes Claude's engine for the Mac (about 230 MB the first time, his OK 2026-10-13).
   echo "     Installing (the first time this downloads about 230 MB, so it can take a few minutes)..."
-  if ( cd "$FD" && PATH="$NODE_DIR/bin:$PATH" npm ci --omit=dev --ignore-scripts --no-audit --no-fund >/dev/null 2>&1 ); then
+  # Its own download cache (2026-10-13): his ~/.npm had files he could not write (an old sudo install), and npm ci
+  # failed on them. Aang's folder is always his own.
+  if ( cd "$FD" && PATH="$NODE_DIR/bin:$PATH" npm ci --omit=dev --ignore-scripts --no-audit --no-fund --cache "$DIR/npm-cache" >"$DIR/npm.log" 2>&1 ); then
     FDPLIST="$HOME/Library/LaunchAgents/com.aang.frontdesk.plist"
     cat > "$FDPLIST" <<FDXML
 <?xml version="1.0" encoding="UTF-8"?>
@@ -318,7 +320,8 @@ FDXML
       echo "       \\"$FD/node_modules/@anthropic-ai/claude-agent-sdk-darwin-x64/claude\\""
     fi
   else
-    echo "     Installing the front desk's libraries failed; nothing was started. Run this setup again later."
+    echo "     Installing the front desk's libraries failed; nothing was changed. What npm said:"
+    grep -i "error" "$DIR/npm.log" | head -6 | sed 's/^/       /'
   fi
 else
   echo "     Node is not here, so the front desk was not started."
