@@ -851,7 +851,20 @@ export class AangBrowser {
     this.curtainReady = v.webContents.loadURL(`${this.o.origin}/curtain.html`).catch(() => {});
     return v;
   }
-  private async veilUp(t: Tab): Promise<void> {
+  /**
+   * `from`: the page he was looking at when he opened a new tab (2026-10-13, his ask: no glitchy blank frame). It stays on
+   * screen until the curtain holds its picture, then the new tab is swapped in underneath and fades in as it draws.
+   */
+  private async veilUp(t: Tab, from?: Tab): Promise<void> {
+    // However this ends, the new tab ends up shown and the one it came from hidden.
+    const swap = () => {
+      if (!from || t.id !== this.active || !t.view) return;
+      if (!this.drawerOpen) t.view.setVisible(true);
+      if (from.view && from.id !== this.active && !from.lent) from.view.setVisible(false);
+    };
+    try { await this.veilUpInner(t, from); } finally { swap(); }
+  }
+  private async veilUpInner(t: Tab, from?: Tab): Promise<void> {
     if (this.veil?.tab === t.id) return;                       // a redirect inside one change keeps the same curtain
     if (t.id !== this.active || !t.view || t.lent || t.internal || this.drawerOpen || this.fullTab === t.id || t.crashed || t.blocked || t.failed) return;
     this.veilDown(0);
@@ -861,7 +874,7 @@ export class AangBrowser {
     this.veil = { tab: t.id, nav, at: Date.now(), up: false, dimT: null, capT: null };
     // The hover picture if it is fresh and of this page; otherwise a new one. Nothing drawn yet: the wood.
     const p = this.peekShot;
-    const shot = !t.drawn ? null : p && p.tab === t.id && Date.now() - p.at < 1500 ? p.shot : await this.shotOf(t);
+    const shot = !t.drawn ? (from ? await this.shotOf(from) : null) : p && p.tab === t.id && Date.now() - p.at < 1500 ? p.shot : await this.shotOf(t);
     await this.curtainReady;
     if (this.veil?.nav !== nav) return;                         // the new page drew first: a plain switch
     const ok = await within(v.webContents.executeJavaScript(`curtainShow(${JSON.stringify(shot)})`), 400, false);
@@ -1295,6 +1308,7 @@ export class AangBrowser {
   activate(id: number): void {
     const w = this.win;
     const t = this.tabs.find((x) => x.id === id);
+    const prev = this.cur();
     if (!w || w.isDestroyed() || !t) return;
     // Every live tab stays in the window; switching only shows one and hides the rest. Placed first, then
     // shown, so it never appears for a moment at the last tab's size.
@@ -1312,11 +1326,14 @@ export class AangBrowser {
     t.lastSeen = Date.now();
     this.place();
     for (const x of this.tabs) if (x.id !== id && x.view) { try { x.view.webContents.stopFindInPage('clearSelection'); } catch { /* gone */ } }
+    // A tab still loading with nothing drawn yet (a new tab, a tab waking up): the page he was on stays until the
+    // curtain holds its picture, then the new one fades in as it draws, never a blank frame (his ask, 2026-10-13).
+    const fresh = !this.drawerOpen && Boolean(t.phase) && t.phase !== 'idle' && !t.drawn;
+    const hold = fresh && prev && prev.id !== id && prev.view && !prev.lent && !prev.crashed && !prev.blocked && !prev.failed && prev.view.getVisible() ? prev : undefined;
     // With the drawer open the page stays hidden under it; closing the drawer shows whichever tab is current.
-    if (!this.drawerOpen) t.view!.setVisible(true);
-    for (const x of this.tabs) if (x.id !== id && x.view && !x.lent) x.view.setVisible(false);
-    // A tab still loading with nothing drawn yet (a new tab, a tab waking up): the wood, never a white flash.
-    if (!this.drawerOpen && t.phase && t.phase !== 'idle' && !t.drawn) void this.veilUp(t);
+    if (!this.drawerOpen && !hold) t.view!.setVisible(true);
+    for (const x of this.tabs) if (x.id !== id && x !== hold && x.view && !x.lent) x.view.setVisible(false);
+    if (fresh) void this.veilUp(t, hold);
     if (!t.crashed) t.view!.webContents.focus();
     // The drawer is open: the page area is a still picture, so take a fresh one of the tab now in front. Without this
     // a closed tab stayed on screen until the drawer shut (his report, 2026-10-12).

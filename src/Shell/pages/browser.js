@@ -241,7 +241,8 @@ handle.addEventListener('dragenter', () => { if (!drawerOpen) openDrawer(); });
 for (const id of ['menukey', 'dlkey', 'slot']) el(id)?.addEventListener('pointerenter', () => window.aang?.browserAct?.('peek'));
 // A click on the page (its picture) puts the drawer away, as clicking outside any drawer does.
 page.addEventListener('pointerdown', () => { closeDrawer(); closeMenu(); });
-el('newtab').addEventListener('click', () => closeDrawer());
+// A new tab from the list keeps the list open (his ask, 2026-10-13); it goes when the mouse leaves it.
+el('newtab').addEventListener('click', () => { if (!SOLO) closeDrawer(); });
 
 // ---- the little wood sounds: off until he turns them on in Settings. Made here, no sound files.
 let audio = null;
