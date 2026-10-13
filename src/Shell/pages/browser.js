@@ -83,7 +83,7 @@ window.aang?.onBrowserTray?.((s) => { if (!SOLO && s && s.open === false && draw
 if (SOLO) {
   // The list goes a moment after the mouse leaves it (not while a menu of its own or a rename is open).
   let leaveT = 0;
-  document.documentElement.addEventListener('mouseleave', () => { clearTimeout(leaveT); leaveT = setTimeout(() => { if (!document.querySelector('.th input') && !document.getElementById('tabmenu')) closeDrawer(); }, 350); });
+  document.documentElement.addEventListener('mouseleave', () => { clearTimeout(leaveT); leaveT = setTimeout(() => { if (!dragging && !document.querySelector('.th input') && !document.getElementById('tabmenu')) closeDrawer(); }, 350); });
   document.documentElement.addEventListener('mouseenter', () => clearTimeout(leaveT));
   drawerOpen = true;
   document.body.classList.add('drawer-open');
@@ -880,7 +880,13 @@ tabsBox.addEventListener('dragstart', (e) => {
   e.dataTransfer.setData('text/plain', '');
   (row || head).classList.add('lifted');
 });
-tabsBox.addEventListener('dragend', () => { dragging = null; dropLine.remove(); for (const x of tabsBox.querySelectorAll('.lifted')) x.classList.remove('lifted'); });
+tabsBox.addEventListener('dragend', (e) => {
+  const was = dragging;
+  dragging = null; dropLine.remove(); for (const x of tabsBox.querySelectorAll('.lifted')) x.classList.remove('lifted');
+  // Let go where nothing took it (2026-10-13, his ask): outside the window it becomes its own window, like Chrome; on
+  // another Aang browser window it joins that one. Let go anywhere else inside its own window, nothing happens.
+  if (was?.kind === 'tab' && e.dataTransfer?.dropEffect === 'none') window.aang?.browserTearOut?.(was.id);
+});
 /** Where a drop at this point lands: the element it goes before, and the trail it joins. */
 function landing(y) {
   const items = [...tabsBox.children].filter((n) => n.matches('.tp[data-tab], .th[data-trail]'));

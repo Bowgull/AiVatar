@@ -246,7 +246,7 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
 .briefcard .brief{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 16px}
 .briefcard .bsec .h{font:400 9.5px var(--label);letter-spacing:1px;color:#8a6a2a;margin-bottom:4px}
 .briefcard .brow{display:flex;align-items:center;gap:8px;font:500 13.5px/20px var(--body);padding:2px 0;color:var(--ink-text)}
-.briefcard .bt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.briefcard .btx{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .briefcard .chip{font:700 11.5px var(--body);padding:3px 8px;border-radius:5px;border:2.5px solid var(--outline);
   color:#231700;text-shadow:0 1px 0 rgba(255,255,255,.4);white-space:nowrap;background:var(--gold);flex:none}
 .briefcard .chip.off{background:#6d6579;color:#f0edf5;text-shadow:none}
