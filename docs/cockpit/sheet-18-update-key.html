@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sheet 18: the update key</title>
+<!-- Built on the REAL browser styles (src/Shell/pages), so the key behaves exactly like the downloads key. -->
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<link rel="stylesheet" href="../../src/Shell/pages/browser.css">
+<style>
+html,body{margin:0;background:#16101f;color:#e8e0f5;font:500 15px/1.5 var(--body)}
+.wrap{max-width:1040px;margin:0 auto;padding:22px 18px 60px}
+.lab{font:400 11px var(--label);letter-spacing:.1em;color:var(--gold)}
+h1{font:600 34px var(--display);color:var(--gold);margin:4px 0 6px}
+.lede{color:#c9bfd9;max-width:780px;margin:0 0 16px}
+/* the browser, as it really is, at a fixed size */
+.stage{position:relative;height:430px;border-radius:12px;overflow:hidden;border:4px solid var(--outline);box-shadow:4px 4px 0 var(--outline)}
+.stage .bw{height:100%}
+.stage .band{padding-right:150px}
+.page{flex:1;margin:8px 10px 10px;border-radius:14px;background:#f4f1ea;border:3px solid var(--outline);display:grid;place-items:center;color:#9a8f7e;font:600 15px var(--body)}
+/* the update key: the downloads key's own pop-in, its own colours */
+.band .upkey{margin-left:2px;overflow:hidden;transition:width .22s cubic-bezier(.3,1.5,.5,1),margin .22s,opacity .15s,transform .22s cubic-bezier(.3,1.6,.5,1),border-width .22s}
+.band .upkey.away{width:0;min-width:0;padding:0;margin-left:-9px;border-width:0;box-shadow:none;opacity:0;transform:scale(.2);pointer-events:none}
+.band .upkey[aria-expanded="true"]{top:3px;box-shadow:0 0 0 var(--outline),inset 0 3px 0 rgba(0,0,0,.45)}
+/* its age, Chrome's idea in Aang's colours: gold when new, amber after 4 days, brick red after a week */
+.band .upkey.age0{background:linear-gradient(180deg,#FFE096,#C98C14)}
+.band .upkey.age1{background:linear-gradient(180deg,#FFC27A,#C9661B)}
+.band .upkey.age2{background:linear-gradient(180deg,#d9654b,#7a2416)}
+.band .upkey svg path{fill:#2a1c00}
+.band .upkey.age2 svg path{fill:#fff1e6}
+.band .upkey.glow{box-shadow:0 3px 0 var(--outline),0 0 0 2px #ffe28c,0 0 14px 4px rgba(255,214,110,.75)}
+.band .upkey.age2.pulse{animation:uppulse 2.4s ease-in-out infinite}
+@keyframes uppulse{50%{box-shadow:0 3px 0 var(--outline),0 0 0 2px rgba(255,140,110,.7),0 0 12px 3px rgba(220,90,60,.55)}}
+/* the drop panel: the downloads tray's own frame and drop */
+.uptray{right:150px;width:330px}
+.uptray .ver{display:flex;align-items:center;gap:10px;margin:2px 4px 10px}
+.uptray .ver b{font:600 17px var(--display);color:#F1E4CC;text-shadow:1px 1px 0 #000}
+.uptray .ver small{display:block;font:500 12px var(--body);color:#a8977a}
+.uptray .lines{margin:0 4px 10px;font:500 13px/1.45 var(--body);color:#E6DCC8}
+.uptray .lines div{display:flex;gap:8px;align-items:flex-start;margin:3px 0}
+.uptray .tick{flex:none;width:14px;height:14px;margin-top:2px;border:2px solid var(--outline);border-radius:3px;background:#6fbf6a;position:relative}
+.uptray .tick::after{content:"";position:absolute;left:3px;top:0;width:3px;height:7px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.uptray .keys{display:flex;gap:8px;margin:4px 4px 6px}
+.uptray .note{margin:6px 4px 2px;font:500 11.5px var(--body);color:#a8977a}
+.uptray .note a{color:#FFE096}
+.curtain{position:absolute;inset:66px 10px 10px;border-radius:14px;display:grid;place-items:center;background:url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated;border:3px solid var(--outline)}
+.curtain[hidden]{display:none}
+.curtain p{font:400 11px var(--label);letter-spacing:2px;color:var(--gold);text-shadow:1px 1px 0 #000}
+.whisper{position:absolute;right:16px;bottom:16px;padding:9px 14px;border-radius:12px;background:linear-gradient(180deg,#F6E6C6,#DEC28C);border:3px solid var(--outline);color:#2a1c10;font:600 13.5px var(--body);box-shadow:0 4px 0 var(--outline)}
+.whisper[hidden]{display:none}
+/* the controls under the stage */
+.panel{margin-top:16px;padding:14px 16px;border-radius:12px;background:#221833;border:2px solid #120a05}
+.panel h2{font:600 18px var(--display);color:var(--gold);margin:0 0 6px}
+.row{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+.row .gl{width:100%;font:400 10px var(--label);letter-spacing:.1em;color:#a98b5a}
+.pick{font:600 13px var(--body);padding:7px 12px;border-radius:8px;border:2.5px solid var(--outline);background:linear-gradient(180deg,var(--plum),var(--plum-deep));color:#f3eaff;cursor:pointer;box-shadow:0 3px 0 var(--outline)}
+.pick[aria-pressed="true"]{background:linear-gradient(180deg,var(--gold-light),var(--gold-deep));color:#2a1c00}
+.now{color:#e8dcc4;min-height:24px}
+.notes{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px}
+.notes div{background:#1a1228;border-radius:10px;padding:10px 12px;font-size:13.5px;color:#c9bfd9}
+.notes b{display:block;color:var(--gold);font:600 14px var(--display);margin-bottom:2px}
+@media (max-width:700px){.stage{height:520px}.uptray{right:10px;width:auto;left:10px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="lab">A WORKING DEMO ON THE REAL BROWSER BAND</div>
+  <h1>The Update Key</h1>
+  <p class="lede">Sheet 18 (2026-10-13). Nothing updates on its own. When a newer browser engine is out, a key pops into the band exactly like your downloads key does, pushing the settings key over. You pick the moment. Click it to see what it is, then Restart now or Later. It changes colour the longer it waits, Chrome's idea in Aang's colours.</p>
+
+  <div class="stage" id="stage">
+    <div class="bw">
+      <div class="band" id="band">
+        <div class="slot" style="flex:1;display:flex;align-items:center;gap:8px;min-width:0">
+          <span class="lock"></span><span class="url" style="color:#e8e0f5">wowhead.com/classic</span>
+        </div>
+        <button class="rnd upkey away age0" id="upkey" type="button" aria-label="Update ready" aria-expanded="false"></button>
+        <button class="rnd dlkey away" id="dlkey" type="button" aria-label="Downloads"><svg viewBox="0 0 7 8" width="14" height="16" shape-rendering="crispEdges"><path d="M2 0h3v2H2zM0 2h7v1H0zM1 3h5v1H1zM2 4h3v1H2zM3 5h1v1H3zM0 7h7v1H0z" fill="#e8e0f5"/></svg></button>
+        <button class="rnd menukey" type="button" aria-label="Browser settings"><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges"><path d="M0 3h1v1H0zM3 3h1v1H3zM6 3h1v1H6z" fill="#e8e0f5"/></svg></button>
+        <div class="winkeys">
+          <button class="wk" type="button"><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges"><path d="M0 5h7v2H0z"/></svg></button>
+          <button class="wk" type="button"><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges"><path d="M0 0h7v2H0zM0 2h1v5H0zM6 2h1v5H6zM1 6h5v1H1z"/></svg></button>
+          <button class="wk close" type="button"><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges"><path d="M0 0h2v1H0zM5 0h2v1H5zM0 1h3v1H0zM4 1h3v1H4zM1 2h5v1H1zM2 3h3v1H2zM1 4h5v1H1zM0 5h3v1H0zM4 5h3v1H4zM0 6h2v1H0zM5 6h2v1H5z"/></svg></button>
+        </div>
+        <div class="dltray uptray" id="uptray" hidden>
+          <div class="gh">UPDATE READY<span>Waiting since <i id="since">today</i></span></div>
+          <div class="ver"><span id="bigicon"></span><span><b id="vname">Browser engine 44.9.0</b><small id="vkind">A small security update</small></span></div>
+          <div class="lines">
+            <div><span class="tick"></span>Downloaded and checked against Electron's own fingerprints</div>
+            <div><span class="tick"></span>Passed all of Aang's tests on this PC</div>
+            <div><span class="tick"></span>Your tabs come back after the restart</div>
+          </div>
+          <div class="keys">
+            <button class="key primary" id="go" type="button">Restart now<span class="k">A</span></button>
+            <button class="key" id="later" type="button">Later<span class="k">Z</span></button>
+          </div>
+          <div class="note">If the new one ever fails to start, Aang goes back to the old one by himself. <a href="#">What changed</a></div>
+        </div>
+      </div>
+      <div class="page">your page</div>
+    </div>
+    <div class="curtain" id="curtain" hidden><p>UPDATING THE BROWSER, BACK IN A MOMENT</p></div>
+    <div class="whisper" id="whisper" hidden>Updated the browser to 44.9.0.</div>
+  </div>
+
+  <div class="panel">
+    <h2>Show me</h2>
+    <p class="now" id="now">Pick one.</p>
+    <div class="row"><span class="gl">1. WHEN IT SHOWS</span>
+      <button class="pick" data-s="none">No update: nothing there</button>
+      <button class="pick" data-s="pop">An update is ready: it pops in</button>
+      <button class="pick" data-s="both">With downloads showing too</button>
+    </div>
+    <div class="row"><span class="gl">2. THE ICON (PICK ONE)</span>
+      <button class="pick" data-i="arrow" aria-pressed="true">A: up arrow</button>
+      <button class="pick" data-i="sphere">B: FFX save sphere</button>
+      <button class="pick" data-i="renew">C: two turning arrows</button>
+    </div>
+    <div class="row"><span class="gl">3. THE LONGER IT WAITS</span>
+      <button class="pick" data-a="0" aria-pressed="true">New: gold</button>
+      <button class="pick" data-a="1">4 days: amber</button>
+      <button class="pick" data-a="2">A week: brick red, slow pulse</button>
+    </div>
+    <div class="row"><span class="gl">4. CLICK IT</span>
+      <button class="pick" data-s="open">Open the panel</button>
+      <button class="pick" data-s="big">A big update (45.0)</button>
+      <button class="pick" data-s="restart">Restart now</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>What's going on here</h2>
+    <div class="notes">
+      <div><b>Only when needed</b>The key is not there at all until a newer engine is out. Then it pops in with the downloads key's own spring and glows once, pushing the settings key over.</div>
+      <div><b>You pick the moment</b>Nothing restarts on its own. Restart now, or Later and it stays. Like Chrome, it changes colour the longer it waits: gold, then amber after 4 days, then brick red after a week.</div>
+      <div><b>Ready before it asks</b>By the time the key shows, the engine is already downloaded, checked against Electron's fingerprints and tested on your PC, so Restart takes seconds.</div>
+      <div><b>A big update</b>Same key, but the panel says it's a big one and lists what might change. Still your click.</div>
+      <div><b>Safety net</b>If the new engine fails to start, the pet goes back to the old one by himself and never offers that version again.</div>
+    </div>
+  </div>
+</div>
+<script>
+const $ = (id) => document.getElementById(id);
+const ICONS = {
+  arrow: '<svg viewBox="0 0 7 8" width="14" height="16" shape-rendering="crispEdges"><path d="M3 0h1v1H3zM2 1h3v1H2zM1 2h5v1H1zM0 3h7v1H0zM2 4h3v3H2zM0 7h7v1H0z"/></svg>',
+  sphere: '<svg viewBox="0 0 9 9" width="18" height="18" shape-rendering="crispEdges"><path d="M3 0h3v1H3zM1 1h2v1H1zM6 1h2v1H6zM1 2h1v1H1zM7 2h1v1H7zM0 3h1v3H0zM8 3h1v3H8zM1 6h1v1H1zM7 6h1v1H7zM1 7h2v1H1zM6 7h2v1H6zM3 8h3v1H3zM3 2h2v1H3zM2 3h1v2H2zM4 4h1v1H4z"/></svg>',
+  renew: '<svg viewBox="0 0 9 9" width="18" height="18" shape-rendering="crispEdges"><path d="M3 0h4v1H3zM2 1h1v1H2zM7 1h1v2H7zM1 2h1v3H1zM6 2h3v1H6zM0 6h3v1H0zM7 4h1v3H7zM6 7h1v1H6zM1 6h1v1H1zM2 8h4v1H2zM2 7h1v1H2z"/></svg>',
+};
+let icon = 'arrow', age = 0, timers = [];
+const later = (f, ms) => timers.push(setTimeout(f, ms));
+function paintKey() {
+  const k = $('upkey');
+  k.innerHTML = ICONS[icon];
+  k.classList.remove('age0', 'age1', 'age2', 'pulse');
+  k.classList.add('age' + age);
+  if (age === 2) k.classList.add('pulse');
+  $('bigicon').innerHTML = ICONS[icon].replace(/width="\d+" height="\d+"/, 'width="30" height="30"').replace('<path', '<path fill="#FFC43C"');
+  $('since').textContent = ['today', '4 days', '8 days'][age];
+}
+function reset() {
+  timers.forEach(clearTimeout); timers = [];
+  $('upkey').classList.add('away'); $('upkey').classList.remove('glow'); $('upkey').setAttribute('aria-expanded', 'false');
+  $('dlkey').classList.add('away'); $('uptray').hidden = true; $('curtain').hidden = true; $('whisper').hidden = true;
+  $('vname').textContent = 'Browser engine 44.9.0'; $('vkind').textContent = 'A small security update';
+}
+function pop() { later(() => { const k = $('upkey'); k.classList.remove('away'); k.classList.add('glow'); later(() => k.classList.remove('glow'), 1600); }, 300); }
+function openTray() { $('upkey').classList.remove('away'); $('upkey').setAttribute('aria-expanded', 'true'); $('uptray').hidden = false; }
+const S = {
+  none() { $('now').textContent = 'No update: there is no key at all. The band looks exactly as it does today.'; },
+  pop() { $('now').textContent = 'A newer engine is out and already tested: the key pops in and glows once, pushing the settings key over.'; pop(); },
+  both() { $('now').textContent = 'With the downloads key showing too, they sit side by side; update first, then downloads, then settings.'; $('dlkey').classList.remove('away'); pop(); },
+  open() { $('now').textContent = 'Click it: the panel drops like the downloads tray. Everything is already done except the restart.'; openTray(); },
+  big() { $('now').textContent = 'A big update: same key, but the panel says so plainly. Still only on your click.'; $('vname').textContent = 'Browser engine 45.0.0'; $('vkind').textContent = 'A big update: new Chromium, some things may look different'; openTray(); },
+  restart() {
+    $('now').textContent = 'Restart now: the browser closes, the wood curtain shows for a few seconds, your tabs come back, and Aang says it in one line. The key is gone.';
+    openTray(); later(() => { $('uptray').hidden = true; $('curtain').hidden = false; }, 500);
+    later(() => { $('curtain').hidden = true; $('upkey').classList.add('away'); $('whisper').hidden = false; }, 3200);
+    later(() => { $('whisper').hidden = true; }, 7000);
+  },
+};
+document.querySelectorAll('[data-s]').forEach((b) => b.addEventListener('click', () => { reset(); paintKey(); document.querySelectorAll('[data-s]').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); S[b.dataset.s](); }));
+document.querySelectorAll('[data-i]').forEach((b) => b.addEventListener('click', () => { icon = b.dataset.i; document.querySelectorAll('[data-i]').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); paintKey(); }));
+document.querySelectorAll('[data-a]').forEach((b) => b.addEventListener('click', () => { age = Number(b.dataset.a); document.querySelectorAll('[data-a]').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); paintKey(); $('upkey').classList.remove('away'); }));
+$('upkey').addEventListener('click', () => { $('uptray').hidden ? openTray() : ($('uptray').hidden = true, $('upkey').setAttribute('aria-expanded', 'false')); });
+$('later').addEventListener('click', () => { $('uptray').hidden = true; $('upkey').setAttribute('aria-expanded', 'false'); $('now').textContent = 'Later: the panel closes, the key stays until you choose.'; });
+$('go').addEventListener('click', () => { reset(); paintKey(); S.restart(); });
+paintKey();
+setTimeout(() => { reset(); paintKey(); S.pop(); }, 400);
+</script>
+</body>
+</html>
