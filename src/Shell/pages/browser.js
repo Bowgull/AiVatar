@@ -3,8 +3,8 @@
 // addresses are the websites' own words.
 // "Send to" names the OTHER machine: the MacBook from the PC, the PC from the Mac (M6, his report 2026-10-13).
 const OTHER = window.aang?.platform === 'darwin'
-  ? { label: 'Send to PC', title: 'Send to your PC. It stops playing here.' }
-  : { label: 'Send to Mac', title: 'Send to the MacBook. It stops playing here.' };
+  ? { label: 'Send to PC', title: 'Send to your PC. It stops playing here.', open: 'Open on PC' }
+  : { label: 'Send to Mac', title: 'Send to the MacBook. It stops playing here.', open: 'Open on Mac' };
 const el = (id) => document.getElementById(id);
 // The tab list floats in its own see-through layer above the live page (his ask, 2026-10-13: Twitch froze under the
 // old drawer, which showed a picture of the page). This same page, opened with ?tray, is that layer: only the list.
@@ -549,6 +549,8 @@ function tabMenu(t, x, y) {
   item('Open in Chrome', () => {}, { soon: true });
   item('Popout', () => window.aang?.browserPopout?.(t.id));
   item(OTHER.label, () => window.aang?.browserToMac?.(t.id));
+  // His ask (2026-10-13): the page as a full tab in Aang's browser on the other machine, brought to the front there.
+  item(OTHER.open, () => window.aang?.browserOpenOther?.(t.id));
   sep();
   item('Close', () => { tap(0.7); window.aang?.browserTab?.({ id: t.id, act: 'close' }); });
   document.body.append(m);

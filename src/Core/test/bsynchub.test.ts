@@ -34,9 +34,17 @@ test('M6: the Mac with the key gets in; a wrong key or a web page does not; mess
     await wait(50);
     assert.deepEqual(toShell.map(m => m.t), ['bsync.hello', 'bsync.marks'], 'only sync messages pass');
     assert.equal(got[1].t, 'bsync.prefs');
+    // Open on PC (from the Mac) and Open on Mac (from the PC): a full tab on the other side.
+    mac.send(JSON.stringify({ t: 'open.onpc', url: 'https://www.twitch.tv/' }));
+    mac.send(JSON.stringify({ t: 'open.onpc', url: 'javascript:alert(1)' }));
+    assert.equal(hub.openOnMac('https://www.youtube.com/'), true);
+    await wait(50);
+    assert.deepEqual(toShell.filter(m => m.t === 'browser.open').map(m => m.url), ['https://www.twitch.tv/'], 'web addresses only');
+    assert.equal(got.find(m => m.t === 'tab.open')?.url, 'https://www.youtube.com/');
+    const n = got.length;
     shell = false; hub.shellChanged(false);
     await wait(30);
-    assert.equal(got[2].t, 'bsync.down', 'the Mac is told the PC browser went away');
+    assert.equal(got[n].t, 'bsync.down', 'the Mac is told the PC browser went away');
     mac.close();
   } finally { hub.close(); srv.close(); }
 });

@@ -20,6 +20,8 @@ export interface PopoutWiring {
   sendToOther: (url: string) => void;
   /** True while the browser has no Widevine of its own: paid services then play in the separate castLabs window. */
   paidSeparately: () => boolean;
+  /** "Open on Mac" / "Open on PC": the page as a full tab in the other machine's browser, brought to the front. */
+  openOnOther: (url: string) => void;
   /** What the pop-out is playing, for the brain. */
   playback?: (s: { playing: boolean; at: number; length: number; ended: boolean }) => void;
 }
@@ -57,6 +59,15 @@ export function wirePopout(o: PopoutWiring): void {
     let label = 'PAGE';
     try { label = new URL(url).hostname.replace(/^www\./, '').split('.').slice(-2, -1)[0]!.toUpperCase().slice(0, 14); } catch { /* keep PAGE */ }
     p.openTab(lent.view, { url, title: lent.title.slice(0, 80) || url, label }, (view) => o.browser()?.giveBack(id, view));
+  });
+  // "Open on Mac" / "Open on PC" from a tab's menu: a full tab over there, and this one pauses.
+  ipcMain.on('browser:openother', (e, id) => {
+    const b = o.browser();
+    if (!b?.isFrame(e.sender) || !Number.isInteger(id)) return;
+    const url = b.urlOf(id);
+    if (!url) return;
+    o.openOnOther(url);
+    b.pauseMedia(id);
   });
   // A tab sent to the other machine stops here.
   ipcMain.on('browser:tomac', (e, id) => {
