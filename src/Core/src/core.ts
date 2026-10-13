@@ -50,7 +50,7 @@ import { TOOL_NAMES, QUICK_TOOLS, fetchDayWeather, QUICK_HIDDEN, BUILTIN_SHELL, 
 import { Actions } from './actions.ts';
 import { BrowserSyncHub } from './bsynchub.ts';
 import { APEX_STEAM, Feeds, apexMap, channelOf, parseSteamFeed, parseYouTubeFeed, type Creator } from './feeds.ts';
-import { clock as videoClock, diagnose, readVideo, videoUrl, type Diagnosis, type VideoRead } from './watchvideo.ts';
+import { clock as videoClock, diagnose, readVideo, siteOf as siteOfVideo, videoUrl, type Diagnosis, type VideoRead } from './watchvideo.ts';
 import { HookServer, HookTracker, isLoopback } from './hooks.ts';
 import { Reminders } from './reminders.ts';
 import { SessionStore } from './sessions.ts';
@@ -1582,8 +1582,16 @@ export class Core {
    * nothing.
    */
   async watchVideo(url: string): Promise<{ ok: true; by: 'Qwen' | 'Claude'; read: VideoRead; d: Diagnosis } | { ok: false; why: string }> {
-    let read: VideoRead;
-    try { read = await readVideo(url); } catch (e) { return { ok: false, why: (e as Error).message }; }
+    let read: VideoRead | null = null;
+    let failed = '';
+    try { read = await readVideo(url); } catch (e) { failed = (e as Error).message; }
+    // E8 (2026-10-13): no captions (a TikTok's caption is often only hashtags): the card is judged from what is SAID,
+    // heard on this PC, free. While a game runs it cannot be heard, and the caption is used as before.
+    if ((!read || read.from !== 'transcript') && sttReady()) {
+      const h = await transcribe({ url });
+      if (h.ok) read = { meta: read?.meta ?? { url, site: siteOfVideo(url), title: '', author: '', seconds: h.seconds }, text: h.text.slice(0, 24_000), from: 'transcript' };
+    }
+    if (!read) return { ok: false, why: failed || 'that video could not be read' };
     this.videos.set(url, read);
     while (this.videos.size > 30) this.videos.delete(this.videos.keys().next().value!);
     const q = await diagnose(read);
