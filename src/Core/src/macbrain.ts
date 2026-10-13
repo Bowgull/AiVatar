@@ -29,6 +29,7 @@ import { Grocery, applyListCommand, looksLikeRecipe, parseListCommand, type List
 import { ACT, HARD, MODELS } from './route.ts';
 import type { Gateway, Incoming } from './discord.ts';
 import { MacPowers, lastSaid } from './macpowers.ts';
+import { MacJobs } from './macjobs.ts';
 
 /** How long a message waits for the PC before the Mac answers it. The heartbeat calls the PC off after 30 s. */
 export const HOLD_MS = 45_000;
@@ -159,7 +160,7 @@ const MAC_WEB_PROMPT = [
 ].join('\n');
 
 export interface MacBrainOpts {
-  gw: Pick<Gateway, 'send' | 'edit' | 'typing'>;
+  gw: Pick<Gateway, 'send' | 'edit' | 'typing' | 'createPost' | 'setPostTags'>;
   dir: string;
   log?: (s: string) => void;
   /** For tests: what answers a question (default: Claude on the Mac) */
@@ -181,10 +182,13 @@ export class MacBrain {
 
   /** M4b: email, calendar, driving the Mac, Claude Code jobs (macpowers.ts). The listener's folder is the brain's parent. */
   readonly powers: MacPowers;
+  /** M4b: Claude Code jobs on the Mac, each with its post in claude-jobs; a reply there continues it. */
+  readonly jobs: MacJobs;
   constructor(o: MacBrainOpts) {
     this.o = o; this.log = o.log ?? console.log;
     this.file = n => path.join(o.dir, n);
     this.powers = new MacPowers(path.dirname(o.dir));
+    this.jobs = new MacJobs({ gw: o.gw, dir: o.dir, log: this.log, forum: () => (this.brief ? Object.entries(this.brief.listen).find(([, k]) => k === 'claude-jobs')?.[0] : undefined) });
     mkdirSync(o.dir, { recursive: true, mode: 0o700 });
     try { this.brief = checkBrief(JSON.parse(readFileSync(this.file('brief.json'), 'utf8'))); } catch { /* none yet */ }
     try { const h = JSON.parse(readFileSync(this.file('handled.json'), 'utf8')); if (Array.isArray(h)) this.handled = h; } catch { /* none */ }
@@ -237,6 +241,8 @@ export class MacBrain {
     const key = b.listen[m.channelId];
     const text = m.content.trim();
     const say = (content: string, extra: { files?: { name: string; data: Buffer }[]; silent?: boolean } = {}) => this.o.gw.send(m.channelId, { content: content.slice(0, 1900), ...extra });
+    // A reply in a Claude job's post on the Mac: the same session goes on, in the background (his pick).
+    if (!key && text && this.jobs.byThread(m.channelId)) { await this.jobs.continue(m.channelId, text); return 'done'; }
     if (!key) return 'keep';                                       // a thread (a video, a Claude job): the PC's
     if (!ANSWERS_IN.has(key) || m.attachments?.length || m.replyTo || (key === 'capture' && looksLikeRecipe(text))) {
       if (!this.noted.has(m.channelId)) { this.noted.add(m.channelId); await say('Your PC is off, so this one waits for it. It picks it up the moment it is back.', { silent: true }); }
@@ -283,17 +289,8 @@ export class MacBrain {
    * here instead). "Needs you" buzzes in claude-jobs; "done" is said quietly, with the last thing Claude wrote.
    */
   async jobEvent(event: string, body: any): Promise<void> {
-    const b = this.brief;
-    const ch = b ? Object.entries(b.listen).find(([, k]) => k === 'claude-jobs')?.[0] : undefined;
-    if (!ch) return;
-    const where = typeof body?.cwd === 'string' ? path.basename(body.cwd).slice(0, 60) : 'a job';
-    if (event === 'Notification') {
-      const said = String(body?.message ?? 'it needs you').slice(0, 300);
-      await this.o.gw.send(ch, { content: `A Claude job on the Mac (${where}) needs you: ${said}`, loud: true } as never);
-    } else if (event === 'Stop') {
-      const said = typeof body?.transcript_path === 'string' ? lastSaid(body.transcript_path) : '';
-      await this.o.gw.send(ch, { content: `A Claude job on the Mac (${where}) is done.${said ? '\n' + said : ''}`.slice(0, 1900), silent: true } as never);
-    }
+    const said = event === 'Stop' && typeof body?.transcript_path === 'string' ? lastSaid(body.transcript_path) : '';
+    await this.jobs.hook(event, { session_id: body?.session_id, cwd: body?.cwd, message: body?.message, lastSaid: said });
   }
 
   // ---- the five tools. Each takes the turn it is in: what he typed, what was made, whether the web was used.
@@ -438,7 +435,12 @@ class WarmClaude {
           }),
         tool('start_claude', 'Start a job in Claude on the Mac (his job hunt, browsing, a longer task): the task is typed into a new Claude chat there and sent.',
           { task: z.string().describe('the job, in his words, complete enough to act on') },
-          async ({ task }) => self.turn.outside ? ok(OUTSIDE_NO) : ok(await brain.powers!.startClaude(task))),
+          async ({ task }) => {
+            if (self.turn.outside) return ok(OUTSIDE_NO);
+            // His job hunt drives his Chrome (Claude in Chrome), which lives in the Claude app: typed in there.
+            if (/job ?hunt|job search|apply|browse|in chrome/i.test(task)) return ok(await brain.powers!.startClaude(task));
+            return ok(await brain.jobs.start(task));
+          }),
       ],
     });
     const q = query({
