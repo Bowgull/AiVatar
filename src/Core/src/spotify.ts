@@ -60,7 +60,7 @@ export class Spotify {
     t.accessToken = j.access_token; t.expiresAt = this.now() + (Number(j.expires_in) || 3600) * 1000 - 60_000;
     if (j.refresh_token) t.refreshToken = j.refresh_token;                 // PKCE sign-ins rotate the refresh token
     try { writeFileSync(this.file, JSON.stringify(t, null, 2)); } catch { /* refreshes again next time */ }
-    return t.accessToken;
+    return String(j.access_token);
   }
 
   private async call(method: string, path: string, body?: unknown): Promise<any> {

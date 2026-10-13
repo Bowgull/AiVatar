@@ -21,8 +21,17 @@ const LISTENER = String.raw`#!/usr/bin/perl
 # bring the Claude app forward, or type one message into a new Claude chat. It cannot run anything else.
 # To remove it: ~/Library/Application Support/AangListener/uninstall.sh
 use strict; use warnings; use IO::Socket::INET; use File::Basename;
-my ($key, $port) = @ARGV;
+my ($port) = @ARGV;
 my $dir = dirname($0);
+# M1 (2026-10-13): the key and the one address allowed to call (the Shadow PC's) are read from files only this
+# user can read. They used to be on the command line, where any program on this Mac could see the key with ps.
+sub slurp { my ($f) = @_; open(my $fh, '<', "$dir/$f") or return ''; local $/; my $v = <$fh> // ''; close $fh; $v =~ s/\s+//g; return $v }
+my $key = slurp('key');
+my $shadow = slurp('shadow');
+unless (length($key) >= 20 && $shadow =~ /^100\.\d{1,3}\.\d{1,3}\.\d{1,3}$/) { sleep 30; exit 1 }
+# Compared in constant time: every character is looked at whatever happens, so the time an answer takes never
+# says how much of a guessed key was right.
+sub same { my ($x, $y) = @_; return 0 unless defined $x && defined $y && length($x) == length($y); my $d = 0; $d |= ord(substr($x, $_, 1)) ^ ord(substr($y, $_, 1)) for 0 .. length($x) - 1; return $d == 0 }
 my ($ip) = (qx{/sbin/ifconfig} =~ /inet (100\.(?:6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.\d+\.\d+)/);
 unless ($ip) { sleep 30; exit 1 }                      # Tailscale is not up yet; launchd starts this again
 my $srv = IO::Socket::INET->new(LocalAddr => $ip, LocalPort => $port, Listen => 5, ReuseAddr => 1) or do { sleep 30; exit 1 };
@@ -48,7 +57,8 @@ while (my $c = $srv->accept) {
     while (my $h = <$c>) { last if $h =~ /^\r?\n\z/; $clen = $1 if $h =~ /^Content-Length:\s*(\d+)/i; }
     alarm 0;
   };
-  my $ok = $peer =~ /^100\./ && $path ne '' && $qkey eq $key;
+  # Only the Shadow PC itself, by its exact Tailscale address; any other machine on the tailnet is refused.
+  my $ok = $peer eq $shadow && $path ne '' && same($qkey, $key);
   my $body = '';
   if ($ok && ($path eq '/run' || $path eq '/open') && $clen > 0) { my $n = $clen > 4000 ? 4000 : $clen; read $c, $body, $n; }
   if ($ok && $path eq '/front' && time - $lastFront >= 2) { $lastFront = time; system('/usr/bin/open', '-a', 'Claude'); }
@@ -84,17 +94,30 @@ const RUN_APPLESCRIPT = String.raw`on run argv
   set thePath to item 1 of argv
   set theText to (read POSIX file thePath as «class utf8»)
   tell application "Claude" to activate
-  delay 1.5
-  tell application "System Events"
-    tell process "Claude"
-      keystroke "n" using {command down}
-      delay 0.8
-      keystroke theText
-      delay 0.3
-      keystroke return
-    end tell
-  end tell
+  -- M1 (2026-10-13): keystrokes go to whatever app is in FRONT, so it checks that Claude really is, before every
+  -- one, instead of a blind 1.5 second pause. If something else is in front at any point, nothing more is typed.
+  if not my claudeInFront(6) then return "Claude did not come to the front; nothing typed"
+  tell application "System Events" to keystroke "n" using {command down}
+  delay 0.8
+  if not my claudeInFront(2) then return "Claude left the front; nothing typed"
+  tell application "System Events" to keystroke theText
+  delay 0.3
+  if not my claudeInFront(1) then return "Claude left the front; not sent"
+  tell application "System Events" to keystroke return
+  return "typed"
 end run
+
+on claudeInFront(secs)
+  repeat (secs * 10) times
+    tell application "System Events"
+      if exists process "Claude" then
+        if frontmost of process "Claude" then return true
+      end if
+    end tell
+    delay 0.1
+  end repeat
+  return false
+end claudeInFront
 `;
 
 /** Merges Aang's five hooks into ~/.claude/settings.json (backing it up first), keeping everything else. */
@@ -142,19 +165,22 @@ cat > "$DIR/listen.pl" <<'PERL'
 ${LISTENER}PERL
 cat > "$DIR/run.applescript" <<'APPLESCRIPT'
 ${RUN_APPLESCRIPT}APPLESCRIPT
+# M1: the key and Shadow's address go into files only you can read (printf is built into bash, so the key never
+# appears on any command line).
+( umask 077; printf '%s' "$FRONT_KEY" > "$DIR/key"; printf '%s' "$SHADOW" > "$DIR/shadow" )
 cat > "$DIR/uninstall.sh" <<'UNINSTALL'
 #!/bin/bash
 launchctl bootout "gui/$(id -u)/com.aang.listener" 2>/dev/null || true
 rm -f "$HOME/Library/LaunchAgents/com.aang.listener.plist"; rm -rf "$HOME/Library/Application Support/AangListener"
 echo "Aang's listener is gone. (Its Claude Code hooks are in ~/.claude/settings.json; the file from before is kept next to it.)"
 UNINSTALL
-chmod 700 "$DIR" "$DIR/uninstall.sh"
+chmod 700 "$DIR" "$DIR/uninstall.sh"; chmod 600 "$DIR/key" "$DIR/shadow"
 cat > "$PLIST" <<PLISTXML
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
   <key>Label</key><string>com.aang.listener</string>
-  <key>ProgramArguments</key><array><string>/usr/bin/perl</string><string>$DIR/listen.pl</string><string>$FRONT_KEY</string><string>$PORT</string></array>
+  <key>ProgramArguments</key><array><string>/usr/bin/perl</string><string>$DIR/listen.pl</string><string>$PORT</string></array>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
   <key>ThrottleInterval</key><integer>30</integer>
