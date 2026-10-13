@@ -2246,6 +2246,12 @@ files only he can read (`umask 077`), never the command line; only Shadow's exac
 key compare is constant-time; `/run` checks Claude is really in front before each keystroke, with no blind pause.
 The old Mac key was retired (it had been visible to `ps`). **Live once he re-runs the Mac setup.**
 
+**M2 BUILT 2026-10-13:** the Shadow PC answers `GET /alive` on the hook listener (`{up, atDesk}`, the hook key from
+anywhere but this PC, refused to web pages). The Mac runs `heartbeat.sh` (launchd `com.aang.heartbeat`) every 10 s and
+writes `shadow.state` ("on|off|unknown desk|away <time>"); three misses in a row mean off. The key sits in a private
+curl config file, never on a command line. Tested: 4 tests, and the real script run against a stand-in Shadow
+(`test/heartbeat-live.ts`): on, away, still on after two misses, off after three. **Live once he re-runs the Mac setup.**
+
 **Order inside M:** M1 the listener findings closed; M2 the Mac knows whether Shadow is on (a heartbeat over
 Tailscale); M3 the Discord connection moves to the Mac; M4 the Mac brain (Claude Code with Aang's personality and a
 memory copy) and the per-kind handling; M5 one memory, synced both ways; M6 Aang's browser on the Mac with full sync;

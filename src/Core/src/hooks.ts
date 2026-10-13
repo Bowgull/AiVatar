@@ -184,8 +184,11 @@ export class HookServer {
   tailnet: string | null = null;
   /** GET /mac-setup?c=<one-time code>: the MacBook's setup script, or null when the code is wrong or used. */
   private readonly setup: ((code: string) => string | null) | null;
-  constructor(port: number, onEvent: (ev: any, from: string) => void, key: string | null = null, setup: ((code: string) => string | null) | null = null) {
-    this.port = port; this.onEvent = onEvent; this.key = key; this.setup = setup;
+  /** M2: GET /alive answers this (is the brain up, is he at this PC). Null: no such door. */
+  private readonly alive: (() => Record<string, unknown>) | null;
+  constructor(port: number, onEvent: (ev: any, from: string) => void, key: string | null = null, setup: ((code: string) => string | null) | null = null,
+    alive: (() => Record<string, unknown>) | null = null) {
+    this.port = port; this.onEvent = onEvent; this.key = key; this.setup = setup; this.alive = alive;
   }
 
   private handle(req: http.IncomingMessage, res: http.ServerResponse): void {
@@ -195,14 +198,21 @@ export class HookServer {
       res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' }).end(script);
       return;
     }
-    if (req.method !== 'POST' || !req.url?.startsWith('/hook')) { res.writeHead(404).end(); return; }
+    const isAlive = req.method === 'GET' && (req.url === '/alive' || req.url?.startsWith('/alive?')) && this.alive !== null;
+    if (!isAlive && (req.method !== 'POST' || !req.url?.startsWith('/hook'))) { res.writeHead(404).end(); return; }
     // The same lock as the Core's socket (step S1). A web page can POST across origins to localhost
     // without a preflight when the content type is plain, so loopback alone is not proof this came
     // from Claude Code. curl, which is what the hooks actually use, sends no Origin.
     if (req.headers.origin) { res.writeHead(403).end(); return; }
     if (!isLoopback(req.socket.remoteAddress ?? '')) {
-      const k = new URL(req.url, 'http://x').searchParams.get('k') ?? '';
+      const k = new URL(req.url ?? '/', 'http://x').searchParams.get('k') ?? '';
       if (!this.key || !sameKey(k, this.key)) { res.writeHead(403).end(); return; }
+    }
+    // M2 (2026-10-13): the MacBook asks every few seconds whether the big brain is up. It learns only that, and
+    // whether he is at this PC; nothing else about him or his work is in the answer.
+    if (isAlive) {
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }).end(JSON.stringify(this.alive!()));
+      return;
     }
     let body = '';
     req.on('data', d => { body += d; if (body.length > 64_000) req.destroy(); });
