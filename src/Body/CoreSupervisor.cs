@@ -24,7 +24,9 @@ sealed class CoreSupervisor : IDisposable
         string? Dir,        // working directory
         string? Exe,        // the program to run
         string Args,
-        string GiveUpSays); // what Aang says out loud when it has crashed too often
+        string GiveUpSays,  // what Aang says out loud when it has crashed too often
+        Func<string, string>? PickExe = null,          // 6.28: choose the program afresh at every start (the Shell's engine)
+        Action<string, TimeSpan>? AfterExit = null);   // 6.28: told what ran and for how long, at every exit
 
     readonly ChildSpec spec;
     readonly CancellationTokenSource cts = new();
@@ -62,7 +64,10 @@ sealed class CoreSupervisor : IDisposable
             Dir: dir,
             Exe: dir == null ? null : Path.Combine(dir, "node_modules", "electron", "dist", "electron.exe"),
             Args: "src/main.ts",
-            GiveUpSays: "My windows keep crashing"));
+            GiveUpSays: "My windows keep crashing",
+            // 6.28: an updated engine if the brain has tested one, rolled back if it dies early (EnginePointer).
+            PickExe: dir == null ? null : fallback => EnginePointer.Pick(dir, fallback),
+            AfterExit: dir == null ? null : (ran, ranFor) => EnginePointer.AfterExit(dir, ran, ranFor)));
     }
 
     /// <summary>Walk up to the repo's src/Shell, the same way the Core is found.</summary>
@@ -157,7 +162,8 @@ sealed class CoreSupervisor : IDisposable
             {
                 if (PortInUse()) { Set($"a {spec.Name} is already running"); await Task.Delay(5000, cts.Token); continue; }
                 var started = DateTime.UtcNow;
-                var psi = new ProcessStartInfo(spec.Exe, spec.Args)
+                var exe = spec.PickExe?.Invoke(spec.Exe) ?? spec.Exe;
+                var psi = new ProcessStartInfo(exe, spec.Args)
                 {
                     WorkingDirectory = spec.Dir, UseShellExecute = false, CreateNoWindow = true,
                     RedirectStandardOutput = true, RedirectStandardError = true,
@@ -218,6 +224,7 @@ sealed class CoreSupervisor : IDisposable
                 Set($"{spec.Name} started (pid {child.Id})");
                 await child.WaitForExitAsync(cts.Token);
                 Set($"{spec.Name} exited with code {child.ExitCode}");
+                try { spec.AfterExit?.Invoke(exe, DateTime.UtcNow - started); } catch (Exception e) { Set("after-exit check failed: " + e.Message); }
                 // Let the readers finish the tail of the output before the writer goes away. Without this the
                 // dispose races them, which is the leak that started all of the above.
                 try { await Task.WhenAll(pipes).WaitAsync(TimeSpan.FromSeconds(5)); } catch { /* a slow tail must not block the restart */ }
