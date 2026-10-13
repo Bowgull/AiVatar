@@ -1705,7 +1705,7 @@ export class Core {
         'discord-client.ts': readFileSync(path.join(here, 'discord-client.ts'), 'utf8'),
         'discord-logic.ts': readFileSync(path.join(here, 'discord-logic.ts'), 'utf8'),
         // M4: the Mac answering as Aang while this PC is off, and the small pieces it shares with this PC.
-        ...Object.fromEntries(['macbrain.ts', 'macpowers.ts', 'macjobs.ts', 'google.ts', 'mail.ts', 'addresses.ts', 'lists.ts', 'atomic.ts', 'route.ts'].map(f => [f, readFileSync(path.join(here, f), 'utf8')])),
+        ...Object.fromEntries(['macbrain.ts', 'macpowers.ts', 'macjobs.ts', 'weather.ts', 'briefcard.ts', 'google.ts', 'mail.ts', 'addresses.ts', 'lists.ts', 'atomic.ts', 'route.ts'].map(f => [f, readFileSync(path.join(here, f), 'utf8')])),
         'package.json': readFileSync(path.join(pkg, 'package.json'), 'utf8'),
         'package-lock.json': readFileSync(path.join(pkg, 'package-lock.json'), 'utf8'),
         // 9.D D4: the speakers' pictures, made once with their webhooks
@@ -2345,7 +2345,16 @@ export class Core {
         const recent = this.memory.history('', 10).reverse().map(h => ({ who: h.who, text: h.text.slice(0, 600) }));
         // M5: and the conversation further back, so "what did we talk about" works from the Mac too.
         const talk = this.memory.history('', 400).reverse().map(h => ({ who: h.who, text: h.text.slice(0, 400), ts: h.ts }));
-        this.send(ws, { t: 'mac.brief', id: String(m.id ?? '').slice(0, 40), prompt: buildMacPrompt(this.memory.profile(), this.memory.learned()), facts: this.memory.list(400).map(f => f.text), recent, talk });
+        // His pick (2026-10-13): the Mac sends the morning brief when Shadow is off. What only the PC knows goes with it:
+        // the day the PC already sent one, the companies his job hunt tracks (to tag their email), new matches, what waits.
+        const jobCards = new Jobs(this.cfg.stateDir).cards;
+        const morning = {
+          sentDay: this.mail()?.store.briefDay ?? '',
+          companies: [...new Set(jobCards.map(c => c.company.trim().toLowerCase()).filter(c => c.length >= 3))].slice(0, 200),
+          jobsNew: jobCards.filter(c => c.status === 'new' && Date.parse(c.at) > Date.now() - 24 * 3600_000).length,
+          waiting: this.homeData().waiting,
+        };
+        this.send(ws, { t: 'mac.brief', id: String(m.id ?? '').slice(0, 40), prompt: buildMacPrompt(this.memory.profile(), this.memory.learned()), facts: this.memory.list(400).map(f => f.text), recent, talk, morning });
         break;
       }
       // M4: what he said to the Mac, and asked it to remember, while this PC was off.

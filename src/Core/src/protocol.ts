@@ -291,7 +291,9 @@ export type ToBody =
   // 9.A0: the one list of everything Aang can do, and the answer to running one by name.
   | { t: 'card.png'; id: string; ok: boolean; png?: string; error?: string }
   | { t: 'home.data'; id: string; week: number | null; pace: string; running: number; waiting: string[] }
-  | { t: 'mac.brief'; id: string; prompt: string; facts: string[]; recent: { who: 'you' | 'Aang'; text: string }[]; talk: { who: 'you' | 'Aang'; text: string; ts: string }[] }
+  | { t: 'mac.brief'; id: string; prompt: string; facts: string[]; recent: { who: 'you' | 'Aang'; text: string }[]; talk: { who: 'you' | 'Aang'; text: string; ts: string }[];
+      /** The Mac's morning brief when Shadow is off: what only the PC knows. */
+      morning?: { sentDay: string; companies: string[]; jobsNew: number; waiting: string[] } }
   | { t: 'away.reply'; text: string }
   | { t: 'puton.reply'; text: string }
   | { t: 'away.set' }

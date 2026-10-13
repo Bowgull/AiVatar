@@ -8,6 +8,7 @@
 // Rules Joshua set (2026-09-21): only he can speak to Aang; anything that acts is approved with a button on that
 // exact thing; missed messages are read back when Shadow next starts; and quiet hours make messages silent,
 // never lost.
+import { briefCardData } from './briefcard.ts';
 import path from 'node:path';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { clock as videoClock, videoUrl } from './watchvideo.ts';
@@ -119,7 +120,7 @@ export interface CoreLink {
   /** A reply to a Claude Code job's update: continue that job (by its folder) with his words. */
   claudeReply(cwd: string, text: string): void;
   /** M4: Aang's voice, his facts and the last few lines, for the Mac; and what the Mac said and saved. */
-  macBrief?(): Promise<{ prompt: string; facts: string[]; recent: { who: 'you' | 'Aang'; text: string }[]; talk?: { who: 'you' | 'Aang'; text: string; ts: string }[] } | null>;
+  macBrief?(): Promise<{ prompt: string; facts: string[]; recent: { who: 'you' | 'Aang'; text: string }[]; talk?: { who: 'you' | 'Aang'; text: string; ts: string }[]; morning?: import('./macbrain.ts').MacMorning } | null>;
   macHandled?(items: import('./macbrain.ts').Handled[]): void;
   onEvent(cb: (m: any) => void): void;
 }
@@ -888,7 +889,7 @@ export class DiscordAdapter {
       const d = await this.link.macBrief();
       if (!d) return;
       const listen = Object.fromEntries(LISTEN_CHANNELS.map(k => [this.state.channels[k], k] as const).filter(([id]) => !!id));
-      await this.gw.macBrief({ ownerId: this.state.ownerId, listen, prompt: d.prompt, facts: d.facts, recent: d.recent, talk: d.talk ?? [], grocery: this.grocery.s, at: Date.now() });
+      await this.gw.macBrief({ ownerId: this.state.ownerId, listen, prompt: d.prompt, facts: d.facts, recent: d.recent, talk: d.talk ?? [], ...(d.morning ? { morning: d.morning } : {}), grocery: this.grocery.s, at: Date.now() });
     } catch (e) { this.log('discord: could not brief the Mac: ' + (e as Error).message); }
   }
 
@@ -1083,23 +1084,10 @@ export class DiscordAdapter {
    * email WITH its subject. Built only from the brief's own fields; every word goes onto the card as text.
    */
   private async briefPost(channelId: string, text: string, b: any, silent: boolean): Promise<void> {
-    const s = (v: unknown, n: number) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
-    const unread: any[] = Array.isArray(b.unread) ? b.unread : [];
-    const job = unread.filter(u => u?.job).slice(0, 4).map(u => ({ tag: 'REPLY', who: s(u.from, 40), what: s(u.subject, 90) }));
-    const fresh = Number(b.jobsNew) || 0;
-    if (fresh > 0) job.push({ tag: 'NEW', who: `${fresh} job match${fresh === 1 ? '' : 'es'}`, what: '' });
-    const waiting = (Array.isArray(b.waiting) ? b.waiting : []).slice(0, 4).map((w: unknown) => ({ tag: 'WAITING', who: s(w, 90), what: '' }));
-    // Times written out with am or pm, in Toronto: never a bare "2:00" that could be read two ways.
-    const at = (iso: unknown) => { const d = new Date(String(iso ?? '')); return Number.isNaN(d.getTime()) ? '' : d.toLocaleTimeString('en-US', { timeZone: 'America/Toronto', hour: 'numeric', minute: '2-digit' }).toLowerCase(); };
-    const today = (Array.isArray(b.events) ? b.events : []).slice(0, 6).map((e: any) => ({ tm: e?.allDay ? 'all day' : at(e?.start), title: s(e?.title, 70), where: s(e?.where, 50) }));
-    const rest = unread.filter(u => !u?.job);
-    const other = rest.slice(0, 4).map(u => ({ who: s(u.from, 40), what: s(u.subject, 90) }));
-    const w = b.weather;
-    const weather = w && typeof w === 'object' ? `${Math.round(Number(w.low))} to ${Math.round(Number(w.high))} degrees, ${s(w.words, 40).toLowerCase()}${Number(w.rain) >= 30 ? `, ${Math.round(Number(w.rain))}% chance of rain` : ''}` : '';
-    const data = { day: s(b.day, 40), weather, job, waiting, today, other, more: Math.max(0, rest.length - other.length) };
+    const { data, waiting } = briefCardData(b ?? {});
     const msg = await this.drawn('brief', data, 0xFFC43C, {
       content: text.slice(0, 1900), silent,
-      ...(waiting.length ? { buttons: [{ id: 'home:waiting', label: "What's waiting", style: 'primary' as const }] } : {}),
+      ...(waiting ? { buttons: [{ id: 'home:waiting', label: "What's waiting", style: 'primary' as const }] } : {}),
     });
     await this.gw.send(channelId, msg);
   }

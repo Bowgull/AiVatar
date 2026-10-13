@@ -50,6 +50,8 @@ export class MacPowers {
   inbox(query?: string): Promise<string> { return this.mail.inbox(query || 'in:inbox', 10); }
   read(id: string): Promise<string> { return this.mail.read(String(id).slice(0, 40)); }
   agenda(days: number): Promise<string> { return this.mail.agenda(days); }
+  /** The morning brief's fields (no model), for the Mac's brief when Shadow is off. */
+  briefData() { return this.mail.briefData(); }
   /** A draft, saved in his Gmail drafts. Never sent: there is no send from the Mac. */
   async draft(input: { to: string[]; subject: string; body: string; replyToId?: string }): Promise<string> {
     const p = await this.mail.propose(input);
