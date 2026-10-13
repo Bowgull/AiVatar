@@ -191,7 +191,14 @@ export class HookServer {
     this.port = port; this.onEvent = onEvent; this.key = key; this.setup = setup; this.alive = alive;
   }
 
+  /** M6: GET /mac-look from this PC only: the Mac browser's window and log, saved for Claude. Null: no such door. */
+  look: (() => Promise<Record<string, unknown> | null>) | null = null;
+
   private handle(req: http.IncomingMessage, res: http.ServerResponse): void {
+    if (req.method === 'GET' && req.url === '/mac-look' && this.look && !req.headers.origin && isLoopback(req.socket.remoteAddress ?? '')) {
+      void this.look().then(r => res.writeHead(r ? 200 : 503, { 'Content-Type': 'application/json' }).end(JSON.stringify(r ?? { error: 'the Mac browser is not connected' })), () => res.writeHead(500).end());
+      return;
+    }
     if (req.method === 'GET' && req.url?.startsWith('/mac-setup')) {
       const script = this.setup?.(new URL(req.url, 'http://x').searchParams.get('c') ?? '') ?? null;
       if (!script) { res.writeHead(404).end(); return; }

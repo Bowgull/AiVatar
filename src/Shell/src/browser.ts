@@ -165,6 +165,16 @@ export class AangBrowser {
   private peekShot: { tab: number; url: string; at: number; shot: string } | null = null;
   private peeking = false;
   private hideTimer: NodeJS.Timeout | null = null;
+  /** M6, his yes (2026-10-13): a picture of this browser's own window and the page in it, for Claude to check a fix. */
+  async look(): Promise<{ frame: string | null; page: string | null; size: string }> {
+    const w = this.win;
+    if (!w || w.isDestroyed()) return { frame: null, page: null, size: 'the window is closed' };
+    const img = await within(w.webContents.capturePage(), 2000, null);
+    const t = this.cur();
+    const b = w.getBounds();
+    return { frame: img && !img.isEmpty() ? img.toPNG().toString('base64') : null, page: t ? await this.shotOf(t) : null, size: `${b.width}x${b.height} at ${b.x},${b.y}; drawer ${this.drawerOpen ? 'open' : 'shut'}; ${this.tabs.length} tabs` };
+  }
+
   private async shotOf(t: Tab): Promise<string | null> {
     if (!t.view || t.crashed || t.blocked || t.failed || t.lent) return null;
     try {
@@ -695,6 +705,9 @@ export class AangBrowser {
     });
     lockDown(w.webContents);
     softEdge(w);
+    // M6: on the Mac, 'hidden' still shows the red, yellow and green buttons, floating over the band's left end (his
+    // report, 2026-10-13). Aang's own gold buttons are the window's buttons on both machines.
+    if (process.platform === 'darwin') w.setWindowButtonVisibility(false);
     if (was?.maximized) w.once('ready-to-show', () => w.maximize());
     let keep: NodeJS.Timeout | null = null;
     const keepSoon = () => { if (keep) clearTimeout(keep); keep = setTimeout(() => this.keepPlace(), 800); };

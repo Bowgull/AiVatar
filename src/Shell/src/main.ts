@@ -17,6 +17,7 @@ import { Bubble, wantsNewBubble } from './bubble.ts';
 import { InputBox } from './input.ts';
 import { Snipper } from './snip.ts';
 import { AangBrowser } from './browser.ts';
+import { wireBrowser } from './browseripc.ts';
 import { EngineUpdates } from './engineupdate.ts';
 import { CardRenderer } from './cardrender.ts';
 import { Wheel } from './wheelwin.ts';
@@ -1051,14 +1052,8 @@ app.whenReady().then(async () => {
   ipcMain.on('input:size', (e, s) => {
     if (fromInput(e) && s && typeof s === 'object') input?.resize(Number(s.width) || 0, Number(s.height) || 0);
   });
-  // ---- 6.19/6.20 the browser frame. Only the frame page may drive it, never a tab.
-  ipcMain.on('browser:insets', (e, r) => { if (aangBrowser?.isFrame(e.sender) && r) aangBrowser.setInsets(Number(r.left), Number(r.top), Number(r.right) || 0, Number(r.bottom) || 0); });
-  // A tab's page has drawn (tabpreload.cjs): the only thing a website's tab ever sends, and it carries nothing.
-  ipcMain.on('tab:painted', (e) => aangBrowser?.painted(e.sender));
-  // 6.25a: STOP, close, watch or open one of Aang's pages, from the drawer or the address bar.
-  ipcMain.on('browser:driver', (e, a) => { if (aangBrowser?.isFrame(e.sender) && a && typeof a.act === 'string' && Number.isInteger(a.id)) aangBrowser.driverAct(a.act.slice(0, 10), a.id); });
-  ipcMain.on('browser:act', (e, a) => { if (aangBrowser?.isFrame(e.sender) && typeof a === 'string') aangBrowser.act(a); });
-  ipcMain.on('browser:go', (e, text) => { if (aangBrowser?.isFrame(e.sender) && typeof text === 'string') aangBrowser.go(text.slice(0, 2000)); });
+  // ---- 6.19/6.20 the browser frame: the shared wiring (browseripc.ts), then what only the PC has.
+  wireBrowser(() => aangBrowser);
   // 6.28: his Restart now on the update key. Never during a call or a game; the band says why.
   ipcMain.on('browser:updatego', (e) => {
     if (!aangBrowser?.isFrame(e.sender) || !engineUpdates) return;
@@ -1067,10 +1062,6 @@ app.whenReady().then(async () => {
     aangBrowser.closeAll();
     setTimeout(() => app.exit(0), 1500);     // the pet starts the Shell again, on the new engine
   });
-  ipcMain.on('browser:askreply', (e, a) => { if (aangBrowser?.isFrame(e.sender) && a && Number.isInteger(a.id)) aangBrowser.answer(a.id, a.allow === true); });
-  // 6.24: his pick in the screen-share panel. Only an id the panel was given can be shared.
-  ipcMain.on('browser:sharereply', (e, a) => { if (aangBrowser?.isFrame(e.sender) && a && Number.isInteger(a.id)) aangBrowser.shareAnswer(a.id, typeof a.source === 'string' ? a.source.slice(0, 200) : null, a.sound === true); });
-  ipcMain.on('browser:adpause', (e, on) => { if (aangBrowser?.isFrame(e.sender)) aangBrowser.pauseAds(on === true); });
   // 6.20: a video tab's pop-out keycap, or "Pop out over WoW" on its menu. The tab pauses so it is not heard twice.
   // "Take the tab with you" (2026-10-11): any video on any site. The live tab itself moves into the popout, so
   // nothing reloads and his login comes along; closing the popout hands it back. Paid services are the one
@@ -1089,21 +1080,6 @@ app.whenReady().then(async () => {
   });
   ipcMain.on('popout:stage', (e, r) => { if (fromPopout(e) && r && typeof r === 'object') popout?.setStage(r); });
   ipcMain.on('popout:tabcmd', (e, c) => { if (fromPopout(e) && c && typeof c === 'object') popout?.tabCommand(c); });
-  ipcMain.on('browser:trail', (e, a) => {
-    if (!aangBrowser?.isFrame(e.sender) || !a || typeof a !== 'object') return;
-    if (a.act === 'new') aangBrowser.newTrail();
-    else if (a.act === 'rename' && Number.isInteger(a.id) && typeof a.name === 'string') aangBrowser.renameTrail(a.id, a.name);
-    else if (a.act === 'move' && Number.isInteger(a.tab)) aangBrowser.moveTab(a.tab, a.to === 'new' ? 'new' : Number.isInteger(a.to) ? a.to : null);
-    // Dragging (2026-10-12): a tab into a trail or loose, before another tab; a whole trail before another trail.
-    else if (a.act === 'place' && Number.isInteger(a.tab)) aangBrowser.placeTab(a.tab, Number.isInteger(a.trail) ? a.trail : null, Number.isInteger(a.before) ? a.before : null);
-    else if (a.act === 'movetrail' && Number.isInteger(a.id)) aangBrowser.moveTrail(a.id, Number.isInteger(a.before) ? a.before : null);
-    // The trail menu, and the Stash.
-    else if (a.act === 'trail' && Number.isInteger(a.id) && ['collapse', 'stash', 'ungroup', 'close'].includes(a.what)) aangBrowser.trailAct(a.id, a.what);
-    else if (a.act === 'stash' && Number.isInteger(a.id) && (a.what === 'restore' || a.what === 'forget')) aangBrowser.stashAct(a.id, a.what);
-  });
-  ipcMain.on('browser:find', (e, a) => { if (aangBrowser?.isFrame(e.sender) && a && typeof a.text === 'string') aangBrowser.find(a.text, a.next === true, a.back === true); });
-  ipcMain.on('pagemenu:pick', (e, id) => { if (aangBrowser?.isMenu(e.sender)) aangBrowser.menuPick(typeof id === 'string' ? id.slice(0, 20) : ''); });
-  ipcMain.on('pagemenu:size', (e, r) => { if (aangBrowser?.isMenu(e.sender) && r) aangBrowser.menuSize(Number(r.w) || 0, Number(r.h) || 0); });
   // A tab sent to the MacBook stops here: both playing at once is overstimulation (his call, 2026-10-12).
   ipcMain.on('browser:tomac', (e, id) => {
     if (!aangBrowser?.isFrame(e.sender) || !Number.isInteger(id)) return;
@@ -1113,30 +1089,6 @@ app.whenReady().then(async () => {
     if (aangBrowser.isLent(id)) popout?.pauseAndClose();
     aangBrowser.pauseMedia(id);
   });
-  // 6.23: his master password goes from the frame straight to the vault, once. Never logged, never to the brain.
-  ipcMain.on('browser:vaultunlock', (e, a) => { if (aangBrowser?.isFrame(e.sender) && a && typeof a.pw === 'string' && a.pw.length <= 1024) void aangBrowser.vaultUnlock(a.pw); });
-  ipcMain.on('browser:vaultpick', (e, a) => { if (aangBrowser?.isFrame(e.sender) && a && typeof a.id === 'string') void aangBrowser.vaultPick(a.id.slice(0, 64)); });
-  ipcMain.on('browser:home', (e, text) => { if (aangBrowser?.isFrame(e.sender) && typeof text === 'string') aangBrowser.setHome(text.slice(0, 2000)); });
-  // The Settings tab: only its own page may use these.
-  ipcMain.handle('settings:get', (e) => aangBrowser?.isSettings(e.sender) ? aangBrowser.settingsData() : null);
-  ipcMain.on('settings:set', (e, a) => { if (aangBrowser?.isSettings(e.sender) && a && typeof a.key === 'string') aangBrowser.setSetting(a.key.slice(0, 20), a.value); });
-  ipcMain.on('settings:remove', (e, a) => { if (aangBrowser?.isSettings(e.sender) && a && typeof a.list === 'string' && typeof a.value === 'string') aangBrowser.removeEntry(a.list, a.value); });
-  // Downloads tray (frame) and Your things (its own tab): a download is named by its number, never by a path.
-  ipcMain.on('browser:dl', (e, a) => { if (aangBrowser?.isFrame(e.sender) && a && typeof a.act === 'string') aangBrowser.dlAct(a.act.slice(0, 10), Number(a.id) || 0); });
-  ipcMain.on('browser:dldrag', (e, id) => { if (aangBrowser?.isFrame(e.sender) && Number.isInteger(id)) aangBrowser.dlDrag(e.sender, id); });
-  ipcMain.on('browser:dlhello', (e) => { if (aangBrowser?.isFrame(e.sender)) aangBrowser.resendDownloads(); });
-  ipcMain.handle('things:history', (e, a) => aangBrowser?.isThings(e.sender) && a ? aangBrowser.historyPage(String(a.q ?? ''), Number(a.offset) || 0) : null);
-  ipcMain.handle('things:downloads', (e) => aangBrowser?.isThings(e.sender) ? aangBrowser.downloadsPage() : null);
-  ipcMain.on('things:hist', (e, a) => { if (aangBrowser?.isThings(e.sender) && a && typeof a.act === 'string') aangBrowser.historyAct(a.act.slice(0, 12), typeof a.url === 'string' ? a.url.slice(0, 2000) : undefined, Number(a.at)); });
-  ipcMain.on('things:dl', (e, a) => { if (aangBrowser?.isThings(e.sender) && a && typeof a.act === 'string') aangBrowser.dlAct(a.act.slice(0, 10), Number(a.id) || 0); });
-  ipcMain.on('things:dldrag', (e, id) => { if (aangBrowser?.isThings(e.sender) && Number.isInteger(id)) aangBrowser.dlDrag(e.sender, id); });
-  ipcMain.on('things:open', (e, url) => { if (aangBrowser?.isThings(e.sender) && typeof url === 'string') aangBrowser.openFromThings(url.slice(0, 2000)); });
-  ipcMain.on('things:go', (e, where) => { if (aangBrowser?.isThings(e.sender) && where === 'bookmarks') aangBrowser.act('bookmarks'); });
-  ipcMain.on('settings:act', (e, a) => { if (aangBrowser?.isSettings(e.sender) && typeof a === 'string') aangBrowser.settingsAct(a.slice(0, 20)); });
-  ipcMain.handle('browser:suggest', (e, text) => aangBrowser?.isFrame(e.sender) && typeof text === 'string' ? aangBrowser.suggest(text) : []);
-  ipcMain.on('browser:findstop', (e) => { if (aangBrowser?.isFrame(e.sender)) aangBrowser.findStop(); });
-  ipcMain.on('browser:pref', (e, a) => { if (aangBrowser?.isFrame(e.sender) && a && typeof a.key === 'string') aangBrowser.setPref(a.key, a.on === true); });
-  ipcMain.on('browser:tab', (e, a) => { if (aangBrowser?.isFrame(e.sender) && a && Number.isInteger(a.id)) aangBrowser.tabAct(a.id, String(a.act)); });
 
   // ---- 6.17 Snipit: the overlay says where the box is; the card says Send or Bin it.
   ipcMain.on('snip:done', (e, r) => {
