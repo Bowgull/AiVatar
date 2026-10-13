@@ -18,6 +18,7 @@ import { InputBox } from './input.ts';
 import { Snipper } from './snip.ts';
 import { AangBrowser } from './browser.ts';
 import { wireBrowser } from './browseripc.ts';
+import { wirePopout } from './popoutipc.ts';
 import { EngineUpdates } from './engineupdate.ts';
 import { CardRenderer } from './cardrender.ts';
 import { Wheel } from './wheelwin.ts';
@@ -675,11 +676,6 @@ app.whenReady().then(async () => {
     console.error('shell: the page server would not start, so the pop-out is unavailable: ' + (e as Error).message);
   }
 
-  ipcMain.on('popout:hide', e => { if (fromPopout(e)) popout?.toggleHidden(); });
-  ipcMain.on('popout:close', e => { if (fromPopout(e)) popout?.close(); });
-  ipcMain.on('popout:opacity', (e, v) => { if (fromPopout(e) && typeof v === 'number') popout?.setOpacity(v); });
-  ipcMain.on('popout:fullscreen', e => { if (fromPopout(e)) popout?.toggleFullscreen(); });
-  ipcMain.on('popout:chrome', (e, px) => { if (fromPopout(e) && typeof px === 'number') popout?.setChrome(px); });
   // Step 6.8. The page reports seconds; the brain converts to the percentage Simkl wants, because the
   // page is the least trustworthy place to do arithmetic that decides what gets marked watched.
   // Step 6.12. Only the clipboard and a rating: the bubble can say what Aang said and what Joshua
@@ -1055,6 +1051,12 @@ app.whenReady().then(async () => {
   });
   // ---- 6.19/6.20 the browser frame: the shared wiring (browseripc.ts), then what only the PC has.
   wireBrowser(() => aangBrowser);
+  // The pop-out: the same wiring on the PC and the Mac (popoutipc.ts). "Send to" goes to the MacBook from here.
+  wirePopout({
+    popout: () => popout, browser: () => aangBrowser, open: (url) => openPopout(url), stopPaid: () => drm?.close(),
+    sendToOther: (url) => link?.send({ t: 'watch.tomac', url }),
+    playback: (s) => link?.send({ t: 'watch.state', ...s }),
+  });
   // 6.28: his Restart now on the update key. Never during a call or a game; the band says why.
   ipcMain.on('browser:updatego', (e) => {
     if (!aangBrowser?.isFrame(e.sender) || !engineUpdates) return;
@@ -1062,33 +1064,6 @@ app.whenReady().then(async () => {
     if (!r.ok) { e.sender.send('browser:updatewhy', r.why ?? 'Not right now.'); return; }
     aangBrowser.closeAll();
     setTimeout(() => app.exit(0), 1500);     // the pet starts the Shell again, on the new engine
-  });
-  // 6.20: a video tab's pop-out keycap, or "Pop out over WoW" on its menu. The tab pauses so it is not heard twice.
-  // "Take the tab with you" (2026-10-11): any video on any site. The live tab itself moves into the popout, so
-  // nothing reloads and his login comes along; closing the popout hands it back. Paid services are the one
-  // exception: their protected video only plays in the castLabs popout, so for those the address goes there.
-  ipcMain.on('browser:popout', (e, id) => {
-    if (!aangBrowser?.isFrame(e.sender) || !Number.isInteger(id) || !popout) return;
-    const url = aangBrowser.urlOf(id);
-    if (!url) return;
-    if (serviceFor(url)) { if (openPopout(url)) aangBrowser.pauseMedia(id); return; }
-    drm?.close();
-    const lent = aangBrowser.lend(id);
-    if (!lent) { if (openPopout(url)) aangBrowser.pauseMedia(id); return; }
-    let label = 'PAGE';
-    try { label = new URL(url).hostname.replace(/^www\./, '').split('.').slice(-2, -1)[0]!.toUpperCase().slice(0, 14); } catch { /* keep PAGE */ }
-    popout.openTab(lent.view, { url, title: lent.title.slice(0, 80) || url, label }, (view) => aangBrowser?.giveBack(id, view));
-  });
-  ipcMain.on('popout:stage', (e, r) => { if (fromPopout(e) && r && typeof r === 'object') popout?.setStage(r); });
-  ipcMain.on('popout:tabcmd', (e, c) => { if (fromPopout(e) && c && typeof c === 'object') popout?.tabCommand(c); });
-  // A tab sent to the MacBook stops here: both playing at once is overstimulation (his call, 2026-10-12).
-  ipcMain.on('browser:tomac', (e, id) => {
-    if (!aangBrowser?.isFrame(e.sender) || !Number.isInteger(id)) return;
-    const url = aangBrowser.urlOf(id);
-    if (!url) return;
-    link?.send({ t: 'watch.tomac', url });
-    if (aangBrowser.isLent(id)) popout?.pauseAndClose();
-    aangBrowser.pauseMedia(id);
   });
 
   // ---- 6.17 Snipit: the overlay says where the box is; the card says Send or Bin it.
@@ -1191,24 +1166,6 @@ app.whenReady().then(async () => {
     if (!fromBubble(e) || typeof name !== 'string' || !name) return;
     link?.send({ t: 'bubble.focus', focus: name.slice(0, 200) });
   });
-  ipcMain.on('popout:playback', (e, s) => {
-    if (!fromPopout(e) || !s || typeof s !== 'object') return;
-    link?.send({
-      t: 'watch.state',
-      playing: s.playing === true,
-      at: Number(s.at) || 0,
-      length: Number(s.length) || 0,
-      ended: s.ended === true,
-    });
-  });
-  ipcMain.on('popout:tomac', e => {
-    if (!fromPopout(e)) return;
-    // Step 6.9. The brain holds the Mac's address and key; the Shell only says which link, and the Mac
-    // itself refuses anything that is not a site on its own list.
-    const url = popout?.link;
-    if (url) { link?.send({ t: 'watch.tomac', url }); popout?.pauseAndClose(); }
-  });
-  ipcMain.on('popout:pin', e => { if (fromPopout(e)) popout?.togglePin(); });
 
   link.start();
   // NOTHING IS OPENED ON STARTUP.
