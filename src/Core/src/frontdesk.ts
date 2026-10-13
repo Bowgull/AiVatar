@@ -25,6 +25,8 @@ import type { Handled } from './macbrain.ts';
 export interface DeskBrain {
   handle(m: Incoming): Promise<'done' | 'keep' | 'skip'>;
   setBrief(x: unknown): boolean;
+  /** The PC just went away: get ready to answer (start Claude). */
+  prewarm?(): void;
   pending(): Handled[];
   took(n: number): void;
   shadowBack(): void;
@@ -50,6 +52,8 @@ export interface FrontDeskOpts {
   brain?: DeskBrain;
   /** how long a message waits for Shadow before the brain takes it (macbrain.ts HOLD_MS) */
   holdMs?: number;
+  /** True when the heartbeat says the PC is off: then there is nothing to wait for (his report, 2026-10-13: slow). */
+  shadowOff?: () => boolean;
 }
 
 /** Same length and same bytes, compared without an early exit. */
@@ -81,11 +85,14 @@ export async function startFrontDesk(o: FrontDeskOpts): Promise<{ close: () => P
     if (queue.length > MAX_QUEUE) queue = queue.slice(-MAX_QUEUE);
     saveQueue();
     log(`front desk: Shadow is off; kept a message (${queue.length} waiting)`);
-    if (o.brain) setTimeout(() => void tick(), holdMs + 200).unref?.();
+    if (o.brain) setTimeout(() => void tick(), (pcGone() ? 0 : holdMs) + 200).unref?.();
   });
 
   // ---- M4: the Mac answers what Shadow has not taken
   const holdMs = o.holdMs ?? 45_000;
+  // The PC is gone when the heartbeat says so, or when it has not been connected for longer than the wait itself.
+  let goneSince = Date.now();
+  const pcGone = () => !shadow && (o.shadowOff?.() === true || Date.now() - goneSince > holdMs);
   const kept = new Set<string>();              // the brain looked and left it for Shadow
   let working = false;
   async function tick(): Promise<void> {
@@ -94,7 +101,8 @@ export async function startFrontDesk(o: FrontDeskOpts): Promise<{ close: () => P
     try {
       for (;;) {
         if (shadow) break;
-        const m = queue.find(x => !kept.has(x.id) && Date.now() - (x.createdAt || 0) >= holdMs);
+        const hold = pcGone() ? 0 : holdMs;
+        const m = queue.find(x => !kept.has(x.id) && Date.now() - (x.createdAt || 0) >= hold);
         if (!m) break;
         queue = queue.filter(x => x !== m); saveQueue();
         let r: 'done' | 'keep' | 'skip' = 'keep';
@@ -105,7 +113,10 @@ export async function startFrontDesk(o: FrontDeskOpts): Promise<{ close: () => P
       }
     } finally { working = false; }
   }
-  if (o.brain) { const t = setInterval(() => void tick(), 5000); t.unref?.(); timers.push(t); }
+  if (o.brain) {
+    const t = setInterval(() => { if (pcGone()) o.brain?.prewarm?.(); void tick(); }, 2000);
+    t.unref?.(); timers.push(t);
+  }
   let handingHandled = false;           // sent, waiting for Shadow to say it applied them
   function flushHandled(): void {
     if (!o.brain || handingHandled) return;
@@ -166,7 +177,7 @@ export async function startFrontDesk(o: FrontDeskOpts): Promise<{ close: () => P
       try { reply({ ok: true, value: await call(x.op, x.args ?? []) }); }
       catch (e) { reply({ ok: false, error: (e as Error).message || 'failed' }); }
     });
-    ws.on('close', () => { if (shadow === ws) { shadow = null; log('front desk: Shadow went away'); } });
+    ws.on('close', () => { if (shadow === ws) { shadow = null; goneSince = Date.now(); log('front desk: Shadow went away'); } });
     ws.on('error', () => { /* close follows */ });
   });
 
@@ -234,7 +245,9 @@ async function main(dir: string): Promise<void> {
     brain = new MacBrain({ gw, dir: path.join(dir, 'brain') });
     console.log(`front desk: the Mac answers after ${HOLD_MS / 1000} s when Shadow is off`);
   } catch (e) { console.error('front desk: the Mac cannot answer by itself: ' + (e as Error).message); }
-  await startFrontDesk({ gw, host, port: cfg.port, key: read('frontdesk.key'), shadow: cfg.shadow, queueFile: path.join(dir, 'queue.json'), ...(brain ? { brain } : {}) });
+  // The heartbeat's verdict (heartbeat.sh writes "on|off|unknown ..." every 10 s).
+  const shadowOff = () => { try { return readFileSync(path.join(dir, 'shadow.state'), 'utf8').trim().split(/\s+/)[0] === 'off'; } catch { return false; } };
+  await startFrontDesk({ gw, host, port: cfg.port, key: read('frontdesk.key'), shadow: cfg.shadow, queueFile: path.join(dir, 'queue.json'), shadowOff, ...(brain ? { brain } : {}) });
   console.log(`front desk: listening for Shadow on ${host}:${cfg.port}`);
 }
 

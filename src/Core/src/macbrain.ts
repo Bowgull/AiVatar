@@ -17,7 +17,7 @@
 // name a site he did not type (a page cannot use it to send his notes anywhere). A made file is drawn with
 // scripts off and the network shut, so a page's words cannot reach out of it either. Nothing here can send email,
 // post anywhere but his own channel, or buy anything.
-import { createSdkMcpServer, query, tool } from '@anthropic-ai/claude-agent-sdk';
+import { createSdkMcpServer, query, tool, type Query, type SDKUserMessage } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
 import { execFile } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -207,7 +207,14 @@ export class MacBrain {
     this.remembered = this.remembered.filter(t => !done.some(d => d.kind === 'remember' && d.text === t));
   }
   /** The PC is back: the next time it goes, a fresh conversation, and the waiting notes may be said again. */
-  shadowBack(): void { this.session = null; this.noted.clear(); this.stopper?.abort(); }
+  shadowBack(): void { this.session = null; this.noted.clear(); this.stopper?.abort(); this.resetWarm(true); }
+  // ---- the warm Claude (see WarmClaude below)
+  private warm: WarmClaude | null = null;
+  warmClaude(): WarmClaude { if (!this.warm || !this.warm.alive) { this.warm?.close(); this.warm = new WarmClaude(this); } return this.warm; }
+  /** Stop the warm Claude; `fresh` also forgets the conversation it was in. */
+  resetWarm(fresh: boolean): void { this.warm?.close(); this.warm = null; if (fresh) this.session = null; }
+  /** The PC just went: start Claude now, so the first message does not wait for it (needs a brief to answer with). */
+  prewarm(): void { if (this.brief && !this.o.answer && (!this.warm || !this.warm.alive)) { try { this.warmClaude().start(); this.log('mac brain: Claude is ready while the PC is away'); } catch (e) { this.log('mac brain: could not start Claude: ' + (e as Error).message); } } }
 
   /** One message he sent while the PC was off. 'keep' leaves it for the PC; 'done' means the Mac dealt with it. */
   async handle(m: Incoming): Promise<'done' | 'keep' | 'skip'> {
@@ -223,7 +230,7 @@ export class MacBrain {
       return 'keep';
     }
     if (!text) return 'skip';
-    if (/^(stop|\/stop)$/i.test(text)) { this.stopper?.abort(); return 'done'; }
+    if (/^(stop|\/stop)$/i.test(text)) { this.stopper?.abort(); this.warm?.interrupt(); return 'done'; }
 
     const cmd = parseListCommand(text);
     if (cmd && this.grocery) {
@@ -325,61 +332,115 @@ export interface Turn { typed: string; looked: boolean; files: { name: string; d
 
 const ok = (text: string) => ({ content: [{ type: 'text' as const, text }] });
 
-/** Claude on the Mac, as Aang, with the five tools and nothing else. */
-async function claudeAnswer(brain: MacBrain, text: string): Promise<{ text: string; files: { name: string; data: Buffer }[] }> {
-  const turn: Turn = { typed: text, looked: false, files: [] };
-  const server = createSdkMcpServer({
-    name: 'aang', version: '1.0.0',
-    tools: [
-      tool('remember', 'Save something Joshua wants kept: a fact about him, his plans, how he likes things.', { fact: z.string() }, async ({ fact }) => ok(brain.remember(fact))),
-      tool('search_memory', 'Look through what you know about Joshua.', { query: z.string() }, async ({ query: q }) => ok(brain.searchMemory(q))),
-      tool('forget', 'Forget something about Joshua when he asks, or when he corrects it (then remember the new version).', { what: z.string().describe('words from the thing to forget') }, async ({ what }) => ok(brain.forget(what))),
-      tool('what_we_talked_about', 'Search what you and Joshua said to each other before, on any machine.', { query: z.string() }, async ({ query: q }) => ok(brain.pastTalk(q))),
-      tool('look_up_web', 'One quick lookup on the web: anything current, or anything you are not sure of.', { question: z.string() }, async ({ question }) => {
-        const no = brain.lookupAllowed(turn, question);
-        if (no) return ok(no);
-        turn.looked = true;
-        return ok(await webLookup(brain, question));
-      }),
-      tool('make_file', 'Make a PDF or a picture (PNG) from self-contained HTML and CSS you write. No scripts and no outside images: they are blocked. Use a clear layout and real headings.',
-        { kind: z.enum(['pdf', 'picture']), name: z.string().describe('a short file name, no extension'), html: z.string() },
-        async ({ kind, name, html }) => { try { return ok(await brain.makeFile(turn, kind, name, html)); } catch (e) { return ok('Could not make it: ' + (e as Error).message); } }),
-      tool('save_for_shadow', 'Save a request for his PC: anything that needs the PC, and research deeper than one lookup. It starts by itself when the PC is back.',
-        { request: z.string().describe('the request, in his words, complete enough to act on later') }, async ({ request }) => ok(brain.saveForShadow(request))),
-    ],
-  });
-  const smart = ACT.test(text) || HARD.test(text) || /\b(pdf|graphic|picture|poster|flyer|image)\b/i.test(text);
-  const stopper = brain.startTurn();
-  const timer = setTimeout(() => stopper.abort(), 4 * 60_000);
-  const run = async (resume: string | null) => {
-    let out = '', failed = '';
+/**
+ * Claude on the Mac, as Aang, with his tools and nothing else, KEPT RUNNING while the PC is away (his report,
+ * 2026-10-13: "REALLY slow"). Starting Claude for every message cost many seconds on this 2-core Mac; one session is
+ * started when the PC goes, each message is handed to it, and it stops when the PC is back (so it never sits in the
+ * Mac's memory otherwise). Quick model for chat, the stronger one when he asks for something to be done.
+ */
+class WarmClaude {
+  private q: Query | null = null;
+  private inbox: SDKUserMessage[] = [];
+  private wake: (() => void) | null = null;
+  private waiting: ((r: { text?: string; err?: string }) => void) | null = null;
+  private readonly stop = new AbortController();
+  private closed = false;
+  private model = MODELS.quick.model;
+  turn: Turn = { typed: '', looked: false, files: [] };
+  private readonly brain: MacBrain;
+  constructor(brain: MacBrain) { this.brain = brain; }
+  get alive(): boolean { return Boolean(this.q) && !this.closed; }
+
+  start(): void {
+    if (this.q || this.closed) return;
+    const self = this, brain = this.brain;
+    async function* prompts(): AsyncGenerator<SDKUserMessage> {
+      while (!self.closed) {
+        if (!self.inbox.length) await new Promise<void>(r => (self.wake = r));
+        while (self.inbox.length) yield self.inbox.shift()!;
+      }
+    }
+    const server = createSdkMcpServer({
+      name: 'aang', version: '1.0.0',
+      tools: [
+        tool('remember', 'Save something Joshua wants kept: a fact about him, his plans, how he likes things.', { fact: z.string() }, async ({ fact }) => ok(brain.remember(fact))),
+        tool('search_memory', 'Look through what you know about Joshua.', { query: z.string() }, async ({ query: q }) => ok(brain.searchMemory(q))),
+        tool('forget', 'Forget something about Joshua when he asks, or when he corrects it (then remember the new version).', { what: z.string().describe('words from the thing to forget') }, async ({ what }) => ok(brain.forget(what))),
+        tool('what_we_talked_about', 'Search what you and Joshua said to each other before, on any machine.', { query: z.string() }, async ({ query: q }) => ok(brain.pastTalk(q))),
+        tool('look_up_web', 'One quick lookup on the web: anything current, or anything you are not sure of.', { question: z.string() }, async ({ question }) => {
+          const no = brain.lookupAllowed(self.turn, question);
+          if (no) return ok(no);
+          self.turn.looked = true;
+          return ok(await webLookup(brain, question));
+        }),
+        tool('make_file', 'Make a PDF or a picture (PNG) from self-contained HTML and CSS you write. No scripts and no outside images: they are blocked. Use a clear layout and real headings.',
+          { kind: z.enum(['pdf', 'picture']), name: z.string().describe('a short file name, no extension'), html: z.string() },
+          async ({ kind, name, html }) => { try { return ok(await brain.makeFile(self.turn, kind, name, html)); } catch (e) { return ok('Could not make it: ' + (e as Error).message); } }),
+        tool('save_for_shadow', 'Save a request for his PC: anything that needs the PC, and research deeper than one lookup. It starts by itself when the PC is back.',
+          { request: z.string().describe('the request, in his words, complete enough to act on later') }, async ({ request }) => ok(brain.saveForShadow(request))),
+      ],
+    });
     const q = query({
-      prompt: text,
+      prompt: prompts(),
       options: {
-        model: (smart ? MODELS.smart : MODELS.quick).model,
+        model: this.model,
         systemPrompt: { type: 'custom', prompt: brain.systemPrompt(), snapshot: false },
-        settingSources: [], tools: [],                                // no built-in tools at all: only the five
+        settingSources: [], tools: [],                                // no built-in tools at all: only Aang's own
         mcpServers: { aang: server as never }, allowedTools: TOOLS.map(t => 'mcp__aang__' + t),
         permissionMode: 'default', canUseTool: async () => ({ behavior: 'deny' as const, message: 'Not available on the Mac.' }),
-        maxTurns: 8, cwd: brain.workDir, abortController: stopper,
-        ...(resume ? { resume } : {}),
-        ...(smart ? {} : { thinking: { type: 'disabled' } as never }),
+        maxTurns: 8, cwd: brain.workDir, abortController: this.stop,
+        ...(brain.resumeId ? { resume: brain.resumeId } : {}),
+        thinking: { type: 'disabled' } as never,                      // the first word fast: this is chat from his phone
         env: { ...process.env, ENABLE_CLAUDEAI_MCP_SERVERS: 'false', ENABLE_TOOL_SEARCH: 'false' },
       },
     });
-    for await (const m of q as AsyncIterable<any>) {
-      if (m.session_id && m.type === 'system') brain.resumeId = String(m.session_id);
-      if (m.type === 'result') { if (m.subtype === 'success') out = String(m.result ?? ''); else failed = String(m.errors?.join?.('; ') || m.subtype); }
-    }
-    if (failed && !out) throw new Error(failed);
-    return out;
-  };
-  try {
-    let said: string;
-    try { said = await run(brain.resumeId); }
-    catch (e) { if (!brain.resumeId || stopper.signal.aborted) throw e; brain.resumeId = null; said = await run(null); }   // a resume that will not load: start fresh
-    return { text: said.replace(/^Done\.\s+(?=\S)/, ''), files: turn.files };
-  } finally { clearTimeout(timer); }
+    this.q = q;
+    void (async () => {
+      let why = 'Claude on the Mac stopped';
+      try {
+        for await (const m of q as AsyncIterable<any>) {
+          if (m.session_id && m.type === 'system') brain.resumeId = String(m.session_id);
+          if (m.type === 'result') {
+            const w = this.waiting; this.waiting = null;
+            w?.(m.subtype === 'success' ? { text: String(m.result ?? '') } : { err: String(m.errors?.join?.('; ') || m.subtype) });
+          }
+        }
+      } catch (e) { why = (e as Error).message || why; }
+      finally {
+        this.q = null; this.closed = true;
+        const w = this.waiting; this.waiting = null; w?.({ err: why });
+      }
+    })();
+  }
+
+  async ask(text: string, smart: boolean): Promise<{ text: string; files: { name: string; data: Buffer }[] }> {
+    this.start();
+    const q = this.q;
+    if (!q) throw new Error('Claude on the Mac would not start');
+    const want = (smart ? MODELS.smart : MODELS.quick).model;
+    if (want !== this.model) { try { await q.setModel(want); this.model = want; } catch { /* stays on the quick one */ } }
+    this.turn = { typed: text, looked: false, files: [] };
+    const said = await new Promise<string>((res, rej) => {
+      const timer = setTimeout(() => { void q.interrupt().catch(() => {}); rej(new Error('it took too long')); }, 4 * 60_000);
+      this.waiting = (r) => { clearTimeout(timer); if (r.err !== undefined) rej(new Error(r.err)); else res(r.text ?? ''); };
+      this.inbox.push({ type: 'user', message: { role: 'user', content: text }, parent_tool_use_id: null } as SDKUserMessage);
+      const w = this.wake; this.wake = null; w?.();
+    });
+    return { text: said.replace(/^Done\.\s+(?=\S)/, ''), files: this.turn.files };
+  }
+  interrupt(): void { void this.q?.interrupt().catch(() => {}); }
+  close(): void { this.closed = true; this.stop.abort(); const w = this.wake; this.wake = null; w?.(); this.q = null; }
+}
+
+async function claudeAnswer(brain: MacBrain, text: string): Promise<{ text: string; files: { name: string; data: Buffer }[] }> {
+  const smart = ACT.test(text) || HARD.test(text) || /\b(pdf|graphic|picture|poster|flyer|image)\b/i.test(text);
+  try { return await brain.warmClaude().ask(text, smart); }
+  catch (e) {
+    // A conversation that will not load again (or a session that died): start fresh once, then give up.
+    if (!brain.resumeId && !/stopped|would not start/.test((e as Error).message)) throw e;
+    brain.resetWarm(true);
+    return brain.warmClaude().ask(text, smart);
+  }
 }
 
 /** The web, read by a Claude that has the web and nothing else: no memory, no tools of Aang's, no conversation. */
