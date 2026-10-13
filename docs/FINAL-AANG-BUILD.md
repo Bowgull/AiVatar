@@ -1550,7 +1550,7 @@ ports them starts by reading the code.
 | Right-click a message: reply to it, add as context, copy, forget (4.3b) | `BubbleView`, `ConversationView` | 6.12, 6.15 |
 | Files and links in a message become pressable chips (4.5) | `Entities` | 6.12, 6.15 |
 | "Working on it" dots and the tool label | `bubble.dots`, `tool` | 6.12, then the checklist in 6.13 |
-| **Working**: the Avatar State glow on his arrow and eyes. **Stuck waiting on him (4.4)**: a halo outline around his whole body, quiet at the desk, looming with a burst and sound when a game has focus, held until dealt with | `PetWindow` (drawn on the sprite) | **stays C#, nothing to rebuild.** 6.12 only checks it still works once the bubble is Electron |
+| **Working**: the Avatar State glow on his arrow and eyes. **Stuck waiting on him (4.4)**: a halo outline around his whole body, quiet at the desk, looming with a burst and sound when a game has focus, held until dealt with | `PetWindow` (drawn on the sprite) | **stays C#; the pet's gate now feeds the Electron bubble** (NewFrontEndGate: Hold, the glow and the sounds run first, then the words are handed over; timers included, 2026-10-13) |
 | Lists with coloured status rows (`present_list`) | `StructuredList` | 6.11 |
 | Asks in plain language: permission, consent, a fact to remember, a backup | `permission`, `consent`, `fact.ask`, `backup.ask` | 6.12 |
 | Quiet mode, mute, hush | `quiet`, `mute`, `hush` | 6.12 |
@@ -1946,7 +1946,7 @@ of browser-tab checking had hidden. **Every visual step from here ends with it.*
 
 **6.12 parity rows now done:** the steady pace, the A/X/Z keycaps, the downward arrow, scrolling into
 memory, right-click (2 of 4; the other 2 need 6.12b's typing box), entity chips, the dots and tool label,
-the asks, quiet and mute, copy and rate. **Left:** the 4.4 halo and Avatar State glow, which stay C# and
+the asks, quiet and mute, copy on hover (the ratings were removed 2026-10-04). **Left:** the 4.4 halo and Avatar State glow, which stay C# and
 only need checking once the bubble is Electron - and that is a check on the real app, with him. Plus checking the 4.4 halo and the Avatar State glow still work once the bubble
 is Electron - those stay C# and are only verified here.
 

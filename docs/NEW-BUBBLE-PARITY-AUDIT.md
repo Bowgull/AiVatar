@@ -1,5 +1,14 @@
 # New bubble vs old Aang: what got lost (audit, 2026-10-11)
 
+**Status 2026-10-13: closed.** Re-audited against the code; everything below is fixed or an intended change
+(sheet 16's click-to-cockpit replaces click-to-dismiss and click-to-Claude). The last fixes: timers get the pet's
+sound, glow and quest mark and wait out a game; an old reply no longer replays when he leaves the dock, and a new one
+waits until he is out; "waiting, number N in line"; a held Claude message keeps its link and Open Claude key; an
+expired question leaves nothing behind (bubble and typing box); the crash message falls back to the old bubble when
+the brain or the windows are down; the brain-down card and timers follow the hidden rule; an expanded message holds
+five minutes and the scroll-back closes after five idle minutes; error lines are drawn. Hover restarting the full
+hold is kept as is (it is the gentler of the two).
+
 Read from the code only, nothing run live. PW = src/Body/PetWindow.cs, BV = src/Body/BubbleView.cs, bjs = src/Shell/pages/bubble.js, main = src/Shell/src/main.ts, core = src/Core/src/core.ts.
 
 ## Root cause

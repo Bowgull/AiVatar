@@ -143,7 +143,7 @@ streaming site.** Netflix's ToS forbids automated access.
 - **The sprite.** Ten animation states, per-pixel alpha, click-through where transparent, ~0.7% of one
   core. Never steals focus. Quiet while WoW has focus.
 - **The bubble.** Streaming text, thinking dots inside 100 ms, tool receipts ("checking the weather"),
-  "...v" to expand to 12 lines with a scrollbar, copy and rate on hover, yes/no buttons when there is a
+  "...v" to expand to 12 lines with a scrollbar, copy on hover (ratings removed 2026-10-04), yes/no buttons when there is a
   real decision. Buttons appear only for decisions - Joshua's rule.
 - **The input box.** Click Aang or press the hotkey **he chose by pressing it**. Enter sends,
   Ctrl+Enter newline, Esc stops, Up/Down recall.

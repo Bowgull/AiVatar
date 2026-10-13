@@ -387,12 +387,15 @@ function holdFor(text) {
   if (!card.hidden) return 120000;                  // the brief is read, not glanced at
   if (livePlan) return 600000;                      // a job is running: the checklist stays until the reply
   if (holdOverride) return holdOverride;           // a line the pet says carries its own time, as before
+  if (expanded) return 300000;                     // opened up to read: five minutes, as the old bubble did
   const base = Math.min(20000, Math.max(3000, 2500 + 45 * text.length));
   return lineCount() > 6 || summaryOf(text) ? Math.max(base, 60000) : base;
 }
 function scheduleHide() {
   clearTimeout(hideTimer);
-  if (bubble.hidden || asking || overNow || reading || docked) return;
+  if (bubble.hidden || asking || overNow || docked) return;
+  // Scrolled back into his history and walked away: it closes after five quiet minutes, as before.
+  if (reading) { hideTimer = setTimeout(goAway, 300000); return; }
   if (card.hidden && (!reveal.done || !reveal.whole)) return;
   hideTimer = setTimeout(goAway, holdFor(reveal.whole));
 }
@@ -449,6 +452,17 @@ function rank(m) {
   if (m.t === 'fact.ask' || m.t === 'backup.ask') return 3;
   return 4;
 }
+/**
+ * The last question timed out and nothing else is waiting: the whole thing goes - the question, its rows,
+ * its plan - not just its keys (parity re-audit, 2026-10-13: the words stayed up for seconds with no way to
+ * answer them).
+ */
+function askGone() {
+  asking = null;
+  asks.hidden = true; asks.replaceChildren();
+  choiceList(null); paintPlan(null, -1);
+  goAway();
+}
 /** Put one in the queue, keeping that order, oldest first within a rank. */
 function queueAsk(m) {
   // The same question arriving twice is one question, not two.
@@ -462,7 +476,7 @@ function queueAsk(m) {
     const i = waiting.indexOf(m);
     if (i < 0) return;
     waiting.splice(i, 1);
-    if (asking === m) { asking = null; asks.hidden = true; asks.replaceChildren(); if (!showTopAsk()) scheduleHide(); }
+    if (asking === m) { if (!showTopAsk()) askGone(); }
     else paintEdges();
   }, ttl);
   waiting.push(m);
@@ -821,7 +835,7 @@ window.aang?.onConnected?.((up) => {
     if (toldDown) { toldDown = false; showWhisper({ text: 'I\u2019m back. Nothing was lost.' }); }
     return;
   }
-  const tell = (t) => { if (quiet) return; dropBrainAsks(); toldDown = true; queueAsk({ t, id: t }); showTopAsk(); };
+  const tell = (t) => { if (quiet || petHidden) return; dropBrainAsks(); toldDown = true; queueAsk({ t, id: t }); showTopAsk(); };
   downTimers.push(setTimeout(() => tell('brain.wait'), 8000), setTimeout(() => tell('brain.down'), 60000));
 });
 
@@ -1056,7 +1070,7 @@ function onBrain(m) {
   if (askFrom(m)) {
     // He hid Aang: he cannot see it, so the pet answers no for him (PetWindow, the Clippy rule). A fact or
     // a backup offer is also skipped while muted, exactly as the old pet did.
-    if (petHidden && m.t !== 'plan') return;
+    if (petHidden && m.t !== 'plan' && m.t !== 'timer.done') return;
     if (muted && (m.t === 'fact.ask' || m.t === 'backup.ask')) return;
     // Sheet 17: in a game a timer going off is the pet's sound, glow and quest mark; the card waits here and
     // comes out when he leaves the game. A permission is NOT held: Aang is stuck until it is answered.
@@ -1093,7 +1107,7 @@ function onBrain(m) {
   if (m.t === 'bubble.focus.failed') { window.dispatchEvent(new CustomEvent('aang:say', { detail: { t: 'bubble', text: 'That Claude window is closed now.', stream: false, fromPet: true, hold: 4000 } })); return; }
   if (m.t === 'ask.expired' && m.id != null) {
     const i = waiting.findIndex((w) => String(w.id ?? '') === String(m.id));
-    if (i >= 0) { waiting.splice(i, 1); if (!showTopAsk()) { asks.hidden = true; scheduleHide(); } }
+    if (i >= 0) { waiting.splice(i, 1); if (!showTopAsk()) askGone(); }
     return;
   }
   if (m.t === 'bubble.state') {
@@ -1193,6 +1207,17 @@ function onBrain(m) {
     return;
   }
 
+  // Sent while another turn is running: say where his message is in line (parity re-audit, 2026-10-13).
+  if (m.t === 'queued' && Number.isFinite(m.position)) {
+    doing.textContent = m.position > 1 ? `waiting, number ${m.position} in line` : 'waiting, next in line';
+    working.hidden = false; show(); fit(); reportSize();
+    return;
+  }
+  // An error the brain sent only to this window: said like any line of his, held a little longer.
+  if (m.t === 'error' && typeof m.message === 'string') {
+    onBrain({ t: 'bubble', text: (m.message + (typeof m.next === 'string' && m.next ? ' ' + m.next : '')).trim(), stream: false, fromPet: true, hold: 12000 });
+    return;
+  }
   if (m.t === 'bubble.dots') {
     working.hidden = m.on === false;
     doing.textContent = typeof m.doing === 'string' ? m.doing : '';
