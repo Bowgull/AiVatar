@@ -280,7 +280,10 @@ const link = new CoreLink({
     // Sheet 17: the brain's list of running timers is the truth; the windows follow it.
     if (m.t === 'timer.state' && Array.isArray(m.timers)) { timerWins?.sync(m.timers as TimerData[]); return; }
     // Sheet 17's wheel, from the pet: held on Aang, then let go.
-    if (m.t === 'wheel.open') { wheel?.open({ x: Number(m.x) || 0, y: Number(m.y) || 0 }); return; }
+    // Holding on Aang clears the stage first (his ask, 2026-10-13): the bubble and the typing box go, so the wheel is
+    // the only thing up. A question waiting on him stays (the bubble's dismiss never drops an ask). The keyboard is
+    // handed back to the window he was in when the box closes.
+    if (m.t === 'wheel.open') { if (input?.visible) input.close(); bubble?.send('bubble:dismiss', 'wheel'); wheel?.open({ x: Number(m.x) || 0, y: Number(m.y) || 0 }); return; }
     if (m.t === 'wheel.release') { wheel?.release({ x: Number(m.x) || 0, y: Number(m.y) || 0 }); return; }
     if (m.t === 'quiet.toggle') return;            // for the pet, not for us
     // Sheet 17: the notes. The windows on his screen follow the list; the bubble's board gets it too.
