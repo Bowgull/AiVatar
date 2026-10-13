@@ -15,7 +15,9 @@ const HARD = /\b(write|code|debug|refactor|research|compare|analy[sz]e|plan|arch
  * Maps yourself" and "I can't write to logs", with the tool to do it sitting right there (2026-09-22). Picking the
  * right one of 45 tools is where the small model fails, so doing goes to Smart; chat stays cheap on Quick.
  */
-export const ACT = /\b(open|opne|oepn|play|paly|plya|put on|send|snd|sned|e-?mail|text|message|remind|note|log|save|make|create|move|rename|copy|delete|remove|tidy|clean up|organi[sz]e|find|look up|search|show me|get me|pull up|download|install|start|launch|run|close|quit|fix|set|turn (on|off)|book|schedule|add|draft|reply|directions|navigate|go to|check|screenshot|apply|cancel|undo)\b/i;
+// 2026-10-12: + get, fastest, route, map, watch, "how do I get", "where is": "whats the fastest way from undercity to
+// thunder bluff?" and "get anderson paak tiny desk on youtube" both went to Quick, which fumbled them.
+export const ACT = /\b(open|opne|oepn|play|paly|plya|put on|get|fastest|quickest|route|map|watch|stream|latest|news|price|how (do|can|would|should) i (get|go|reach|make|fix)|where('?s| is| are| can i| do i)|send|snd|sned|e-?mail|text|message|remind|note|log|save|make|create|move|rename|copy|delete|remove|tidy|clean up|organi[sz]e|find|look up|search|show me|get me|pull up|download|install|start|launch|run|close|quit|fix|set|turn (on|off)|book|schedule|add|draft|reply|directions|navigate|go to|check|screenshot|apply|cancel|undo)\b/i;
 
 /**
  * Everyday idioms that happen to contain an ACT word but plainly are not a request - found live (2026-09-22):
@@ -26,8 +28,14 @@ export const ACT = /\b(open|opne|oepn|play|paly|plya|put on|send|snd|sned|e-?mai
  */
 const KNOWN_ASIDE = /\bon that note\b|\b(went|going|go)\s+for\s+a\s+run\b|\bgo(ing)?\s+to\s+(bed|sleep)\b|\b(so|pretty|really)\s+close\b|\bi'?m\s+close\b/i;
 
+/**
+ * "put on" as he actually types it fast (2026-10-12: "camn you oput on naruto?" went to Quick, which has no watch
+ * tool, and came back as a generic question): a stray letter before it, or the space in the wrong place.
+ */
+const PUT_ON = /\b[a-z]?pu+t+\s*(it\s+|that\s+|this\s+|some\s+|something\s+)?on\b|\bpu ton\b/i;
+
 function actsOnIt(text: string): boolean {
-  return ACT.test(text) && !KNOWN_ASIDE.test(text);
+  return (ACT.test(text) || PUT_ON.test(text)) && !KNOWN_ASIDE.test(text);
 }
 
 export interface Choice { lane: Lane; needsConsent: boolean }

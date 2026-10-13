@@ -1348,7 +1348,9 @@ bubble.addEventListener('click', e => {
   // The old bubble's order (PetWindow:1316): a question waits for its answer; Aang still working means
   // stop; otherwise the click lets the message go.
   if (asking) return;
-  if (!working.hidden) { window.aang?.bubbleStop?.(); return; }
+  // A click NEVER stops him (his rule, 2026-10-12: a click on the bubble while he worked killed a finished answer).
+  // Stopping is Esc in the typing box, or the Stop key; a click while he works does nothing.
+  if (!working.hidden) return;
   dismiss();
 });
 
@@ -1374,6 +1376,8 @@ function paintBack() {
   }
   box.hidden = !reading;
   if (!reading) return;
+  // Older turns arrive at the top: keep what he is looking at where it was.
+  const fromBottom = box.scrollHeight - box.scrollTop;
   box.replaceChildren();
   // 6.14b: an empty list says what will appear there and how, instead of an empty box (sheet 5 section 9).
   // Only when he has actually reached the top with nothing above, never over a history that has turns.
@@ -1389,6 +1393,12 @@ function paintBack() {
     p.className = 'turn ' + (t.who === 'you' ? 'mine' : 'his');
     p.textContent = t.text;
     box.append(p);
+  }
+  box.scrollTop = Math.max(0, box.scrollHeight - fromBottom);
+  if (!box.dataset.wired) {
+    box.dataset.wired = '1';
+    // At the top of the history: the next page, for as far back as he wants to go.
+    box.addEventListener('scroll', () => { if (box.scrollTop < 8) { const ask = back.wants(true); if (ask) window.aang?.olderTurns?.(ask); } }, { passive: true });
   }
 }
 
@@ -1418,6 +1428,8 @@ scroller.addEventListener('scroll', pullOlder, { passive: true });
 window.aang?.onPage?.((d) => {
   if (bubble.hidden) return;
   if (d > 0 && !more.hidden && !expanded) { expanded = true; fit(); return; }
+  const hist = document.getElementById('back');
+  if (reading && hist && !hist.hidden) { hist.scrollTop += d * 6 * lineHeight; if (hist.scrollTop < 8) { const ask = back.wants(true); if (ask) window.aang?.olderTurns?.(ask); } return; }
   scroller.classList.add('scrolls');
   scroller.scrollTop += d * 6 * lineHeight;
   pullOlder();

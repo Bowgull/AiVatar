@@ -116,6 +116,18 @@ interface Turn {
   escalated?: boolean;
   /** This turn claimed ignorance without looking and was sent back to look. Only ever once. */
   relooked?: boolean;
+  /** Some of this turn's words are on screen already (Quick is held back until its first sentence passes). */
+  shown?: boolean;
+  /** Quick started to say it could not: nothing more of it is shown; the finish hands the turn to Smart. */
+  refused?: boolean;
+}
+
+/**
+ * His rule, 2026-10-12, after "where— streaming service" reached the bubble: Aang NEVER uses an em dash (or a dash
+ * used as one). Done in code, on the stream and on the final reply, because a prompt is not a guarantee.
+ */
+export function undash(t: string): string {
+  return t.replace(/\s*—\s*/g, ', ').replace(/\s+–\s+/g, ', ').replace(/,\s*,/g, ',').replace(/,\s*([.!?])/g, '$1');
 }
 
 const SAYS_FAILED = /\b(couldn'?t|could not|didn'?t|did not|failed|not work|wasn'?t able|unable|can'?t|cannot|no luck|error)\b/i;
@@ -2048,7 +2060,7 @@ export class Core {
       case 'history': {
         const q = typeof m.q === 'string' ? m.q.slice(0, 200) : '';
         const before = typeof m.before === 'number' && Number.isInteger(m.before) && m.before > 0 ? m.before : 0;
-        this.send(ws, { t: 'history.reply', q, before, items: this.memory.history(q, 200, before) });
+        this.send(ws, { t: 'history.reply', q, before, items: this.memory.history(q, q ? 60 : 12, before) });   // 12 a page (was 200: one page ran the bubble off the screen)
         break;
       }
       case 'claude.front': void this.frontOnMac(); break;
@@ -2256,10 +2268,9 @@ export class Core {
     // A job reading a web page must not have that forgotten because he said something: while one runs, the
     // "read outside content, ask again" flag can only be switched on, never off.
     if (!this.tasks.running().length) this.tainted = false;
-    const text = escalated
-      ? this.withWaiting(this.withKnown(lane, this.withAnnounced(this.withLook(this.withPointedAt(sub)))))
-      : this.withWaiting(this.withKnown(lane, this.withRecap(lane, this.withAnnounced(this.withLook(this.withPointedAt(sub))))));
+    const text = this.withWaiting(this.withKnown(lane, this.withRecap(lane, this.withAnnounced(this.withLook(this.withPointedAt(sub))), sub, escalated)));
     this.lastLane = lane;
+    this.laneUsed.add(lane);
     this.lane(lane).send(text);
     // 5.6: write down what he said NOW, not when the answer comes back.
     //
@@ -2360,12 +2371,24 @@ export class Core {
    * needs no recap of itself. Not every message - only right after a genuine handoff, from `recent` (which
    * already spans every lane), so a normal same-lane exchange costs nothing extra.
    */
-  private withRecap(lane: LaneName, text: string): string {
-    if (this.lastLane === null || this.lastLane === lane) return text;
-    const last = [...this.recent.values()].slice(-2);
-    if (!last.length) return text;
-    const lines = last.map(t => `Joshua: ${t.user}\nYou (as ${MODELS[t.lane].label}): ${t.reply}`).join('\n');
-    return `<recap>\nWhat was just said, a moment ago, on a different lane than this one - not part of this session's own history:\n${lines}\n</recap>\n\n${text}`;
+  /** Lanes that have had a message since the Core started: a lane's first one gets the recap (2026-10-12). */
+  private laneUsed = new Set<LaneName>();
+  /**
+   * 2026-10-12, his "the conversation feels disconnected": the recap used to come from memory only (gone on every
+   * restart, 7 to 15 a day) and was skipped on a handoff from Quick, so "yup" reached Smart with nothing before it.
+   * Now it is read from the saved conversation itself, and given on a lane switch, on a handoff, and on a lane's
+   * first message after a start. The last few exchanges from the past three hours, never his current message.
+   */
+  private withRecap(lane: LaneName, text: string, sub: Submission | null, escalated = false): string {
+    const switched = this.lastLane !== null && this.lastLane !== lane;
+    if (!switched && !escalated && this.laneUsed.has(lane)) return text;
+    const cutoff = Date.now() - 3 * 3_600_000;
+    const rows = this.memory.history('', 8, sub?.askedTurn ?? 0)
+      .filter(r => Date.parse(r.ts.replace(' ', 'T') + 'Z') >= cutoff)
+      .reverse();
+    if (!rows.length) return text;
+    const lines = rows.map(r => `${r.who === 'you' ? 'Joshua' : 'You'}: ${r.text.length > 400 ? r.text.slice(0, 400) + '...' : r.text}`).join('\n');
+    return `<recap>\nThe conversation just before this message, oldest first (it may not be in this session's own history). His message below follows on from it:\n${lines}\n</recap>\n\n${text}`;
   }
 
   /** The fact list each lane was last shown, so it is sent again only when it has changed. */
@@ -2438,6 +2461,7 @@ export class Core {
     const t = this.active;
     if (!t || !t.sub || (id && t.sub.id !== id)) return;
     t.stopped = true;
+    console.log(`stopped: he stopped the turn on ${t.lane} after ${Date.now() - t.startedAt}ms`);
     if (t.flush) { clearTimeout(t.flush); t.flush = null; }
     // Clear the bubble immediately; the model may take a moment to acknowledge the interrupt.
     this.toTurn(t.sub, { t: 'bubble.clear' });
@@ -2469,8 +2493,16 @@ export class Core {
       if (!turn.flush) turn.flush = setTimeout(() => {
         turn.flush = null;
         // Hide reasoning even mid-stream; while the model is still "thinking aloud" the bubble keeps its dots.
-        const visible = stripReasoning(turn.buf);
-        if (!turn.stopped && visible) this.toTurn(sub, { t: 'bubble', text: visible, stream: true, id: sub.id, who: MODELS[turn.lane].label });
+        const visible = undash(stripReasoning(turn.buf));
+        // Quick's "I can't" is never shown (2026-10-12: it streamed onto his screen before the check at the finish
+        // could hand the turn to Smart). Quick is held back until its first sentence is out and clean; once it starts
+        // to refuse, nothing more of it reaches the bubble.
+        if (turn.lane === 'quick' && !turn.escalated && !this.policy.saving) {
+          if (turn.refused) return;
+          if (REFUSES.test(visible)) { turn.refused = true; return; }
+          if (!turn.shown && !(visible.length >= 160 || (visible.length >= 30 && /[.!?](\s|$)/.test(visible)))) return;
+        }
+        if (!turn.stopped && visible) { turn.shown = true; this.toTurn(sub, { t: 'bubble', text: visible, stream: true, id: sub.id, who: MODELS[turn.lane].label }); }
       }, FLUSH_MS);
       return;
     }
@@ -2486,7 +2518,7 @@ export class Core {
     if (turn.flush) { clearTimeout(turn.flush); turn.flush = null; }
     // The reply must not contradict a real send. If it does not even say so, it is wrong, not just imprecise -
     // replace it outright rather than let a false "still waiting" reach him.
-    let reply = linted.cleaned;
+    let reply = undash(linted.cleaned);
     // The safety net under the routing: Quick answering "I can't" / "do it yourself" is never shown. Smart gets
     // the same request instead - a structural fix, not a prompt one (voice.ts: prompts are not guarantees). Not
     // while saving quota: Smart is never chosen silently then.
@@ -2494,6 +2526,8 @@ export class Core {
     if (turn.lane === 'quick' && !turn.escalated && !this.policy.saving && !didSomething && REFUSES.test(reply)) {
       console.log('escalating: Quick said it could not; handing the turn to Smart');
       if (turn.watchdog) clearTimeout(turn.watchdog);
+      // Anything Quick already showed goes before Smart's dots appear: never a refusal with dots under it.
+      if (turn.shown) this.toTurn(sub, { t: 'bubble.clear' });
       this.active = null;
       this.begin(sub, 'smart', turn.ackMs, true);
       return;
@@ -2509,6 +2543,7 @@ export class Core {
     if (!turn.relooked && !turn.escalated && !this.policy.saving && !didSomething && !usedTools && GUESSED.test(reply)) {
       console.log('re-asking: he said he did not know without looking anything up');
       if (turn.watchdog) clearTimeout(turn.watchdog);
+      if (turn.shown) this.toTurn(sub, { t: 'bubble.clear' });
       this.active = null;
       this.relookPending = true;
       this.begin(sub, turn.lane, turn.ackMs, false, true);
