@@ -993,6 +993,12 @@ export class DiscordAdapter {
           if (this.state.channels['claude-jobs']) { await this.claudeNews(ev, channel === 'needs-you' || ev.blocking === true); return; }
           await this.postJob(ev.jobCwd, channel, ev.text, !loud, ev.image); return;
         }
+        // E7: a reminder with a link (Join, Open in Waze) gets it as a button too.
+        if (Array.isArray(ev.links) && ev.links.length && this.state.channels[channel]) {
+          const buttons: Button[] = ev.links.filter((l: any) => typeof l?.url === 'string' && /^https:\/\//.test(l.url)).slice(0, 4).map((l: any, i: number) => ({ id: `link:${i}`, label: String(l.label ?? 'Open').slice(0, 40), style: 'success' as const, url: l.url }));
+          await this.gw.send(this.state.channels[channel]!, { content: ev.text.slice(0, 1900), ...(loud ? {} : { silent: true }), buttons });
+          return;
+        }
         await this.say(channel, ev.text, !loud);
       }
       return;
@@ -1018,11 +1024,19 @@ export class DiscordAdapter {
       if (msg.files?.length) await this.gw.send(p.channelId, msg);
       return;
     }
+    if (ev?.t === 'links.show' && typeof ev.id === 'string' && Array.isArray(ev.links)) {
+      const p = this.pending.get(ev.id);
+      if (!p) return;
+      const buttons: Button[] = ev.links.filter((l: any) => typeof l?.url === 'string' && /^https:\/\//.test(l.url) && typeof l?.label === 'string').slice(0, 4)
+        .map((l: any, i: number) => ({ id: `link:${i}`, label: String(l.label).slice(0, 40), style: 'secondary' as const, url: l.url }));
+      if (buttons.length) await this.gw.send(p.channelId, { content: '', buttons, silent: true });
+      return;
+    }
     // E3 (sheet 21 board 2): one email, gone through, with a button for each thing Aang can do with it.
     if (ev?.t === 'card.show' && typeof ev.id === 'string' && ev.kind === 'email' && typeof ev.email === 'string' && /^[\w-]{1,80}$/.test(ev.email)) {
       const p = this.pending.get(ev.id);
       if (!p) return;
-      const label: Record<string, string> = { book: 'Book it', transcripts: 'Transcripts', prep: 'Prep', reply: 'Reply', files: 'Files' };
+      const label: Record<string, string> = { book: 'Book it', drive: 'Drive time', transcripts: 'Transcripts', prep: 'Prep', reply: 'Reply', files: 'Files' };
       const acts = (Array.isArray(ev.acts) ? ev.acts : []).filter((a: unknown): a is string => typeof a === 'string' && a in label);
       const buttons: Button[] = acts.map((a: string) => ({ id: `em:${a}:${ev.email}`, label: label[a]!, style: a === 'book' ? 'success' as const : a === 'prep' ? 'primary' as const : 'secondary' as const }));
       if (typeof ev.join === 'string' && /^https:\/\//.test(ev.join)) buttons.unshift({ id: 'em:join', label: 'Join call', style: 'success', url: ev.join });
@@ -1172,7 +1186,7 @@ export class DiscordAdapter {
       return;
     }
     // E3: a button on an email's card is asked of Aang in words, as if he typed it; its own tools then ask him as usual.
-    const em = /^em:(book|transcripts|prep|reply|files):([\w-]{1,80})$/.exec(b.customId);
+    const em = /^em:(book|drive|transcripts|prep|reply|files):([\w-]{1,80})$/.exec(b.customId);
     if (em) { await b.keep(); this.ask(`em${Date.now()}`, b.channelId, promptFor(em[1] as EmailAct, em[2]!), { mode: 'smart' }); return; }
     if (b.customId === 'home:away') { await b.keep(); this.link.stepAway?.(); await this.gw.send(b.channelId, { content: 'Okay. Everything comes here until you are back at the PC.', silent: true }); return; }
     if (b.customId === 'home:puton') { await b.keep(); this.state.putOnNext = true; this.save(); await this.post('aang', { content: 'What should I put on? Tell me here.' }); return; }

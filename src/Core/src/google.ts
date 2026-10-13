@@ -20,7 +20,7 @@ export class GoogleError extends Error {
 
 export interface Part { partId?: string; mimeType?: string; filename?: string; body?: { data?: string; size?: number; attachmentId?: string }; parts?: Part[]; headers?: { name: string; value: string }[] }
 export interface Message { id: string; threadId: string; snippet?: string; internalDate?: string; labelIds?: string[]; payload?: Part }
-export interface CalEvent { id: string; iCalUID?: string; summary?: string; location?: string; start?: { dateTime?: string; date?: string }; end?: { dateTime?: string; date?: string }; status?: string; attendees?: { email: string; self?: boolean; responseStatus?: string }[] }
+export interface CalEvent { id: string; iCalUID?: string; hangoutLink?: string; description?: string; summary?: string; location?: string; start?: { dateTime?: string; date?: string }; end?: { dateTime?: string; date?: string }; status?: string; attendees?: { email: string; self?: boolean; responseStatus?: string }[] }
 
 export class Google {
   private t: Tokens | null = null;
