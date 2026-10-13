@@ -4,6 +4,7 @@
 // band. He clicks Restart now when it suits him; the pet starts the new engine as a TRIAL and goes back to the old
 // one by itself if it dies in its first three minutes (src/Body/EnginePointer.cs). A major version is never
 // prepared here: that needs the castLabs DRM engine and a look first.
+import { createRequire } from 'node:module';
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { createWriteStream, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync, unlinkSync } from 'node:fs';
@@ -21,6 +22,9 @@ export interface UpdateOptions {
   quietNow: () => boolean;
   changed: (r: Ready | null) => void;
 }
+/** Running on castLabs' engine (Widevine, VMP-signed): only it has the components API (checked 2026-10-13: stock 44.7.0 has none). */
+export const onCastlabs = (): boolean => { try { return Boolean(createRequire(import.meta.url)('electron').components); } catch { return false; } };
+
 interface Pointer { version: string; dir: string; status: 'trial' | 'good'; previous: { version: string; dir: string } | null; at: string }
 
 const VERSION = /^(\d+)\.(\d+)\.(\d+)$/;
@@ -112,6 +116,9 @@ export class EngineUpdates {
   /** Is there a newer engine? Get it ready, quietly. */
   async check(): Promise<void> {
     if (this.busy || this.o.quietNow()) return;
+    // One engine (his yes, 2026-10-13): the browser runs on castLabs' engine so paid video plays in its tabs. A stock
+    // Electron update would take Widevine away, so none is offered; castLabs' own come in their own step.
+    if (onCastlabs()) return;
     this.busy = true;
     try {
       const cur = process.versions.electron;

@@ -18,6 +18,8 @@ export interface PopoutWiring {
   stopPaid: () => void;
   /** "Send to Mac" on the PC, "Send to PC" on the Mac: the address goes to the other machine. */
   sendToOther: (url: string) => void;
+  /** True while the browser has no Widevine of its own: paid services then play in the separate castLabs window. */
+  paidSeparately: () => boolean;
   /** What the pop-out is playing, for the brain. */
   playback?: (s: { playing: boolean; at: number; length: number; ended: boolean }) => void;
 }
@@ -48,7 +50,7 @@ export function wirePopout(o: PopoutWiring): void {
     if (!b?.isFrame(e.sender) || !Number.isInteger(id) || !p) return;
     const url = b.urlOf(id);
     if (!url) return;
-    if (serviceFor(url)) { if (o.open(url)) b.pauseMedia(id); return; }
+    if (serviceFor(url) && o.paidSeparately()) { if (o.open(url)) b.pauseMedia(id); return; }
     o.stopPaid();
     const lent = b.lend(id);
     if (!lent) { if (o.open(url)) b.pauseMedia(id); return; }
