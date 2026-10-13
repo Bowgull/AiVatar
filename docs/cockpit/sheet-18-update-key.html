@@ -23,14 +23,34 @@ h1{font:600 34px var(--display);color:var(--gold);margin:4px 0 6px}
 .band .upkey.away{width:0;min-width:0;padding:0;margin-left:-9px;border-width:0;box-shadow:none;opacity:0;transform:scale(.2);pointer-events:none}
 .band .upkey[aria-expanded="true"]{top:3px;box-shadow:0 0 0 var(--outline),inset 0 3px 0 rgba(0,0,0,.45)}
 /* its age, Chrome's idea in Aang's colours: gold when new, amber after 4 days, brick red after a week */
-.band .upkey.age0{background:linear-gradient(180deg,#FFE096,#C98C14)}
-.band .upkey.age1{background:linear-gradient(180deg,#FFC27A,#C9661B)}
-.band .upkey.age2{background:linear-gradient(180deg,#d9654b,#7a2416)}
-.band .upkey svg path{fill:#2a1c00}
-.band .upkey.age2 svg path{fill:#fff1e6}
-.band .upkey.glow{box-shadow:0 3px 0 var(--outline),0 0 0 2px #ffe28c,0 0 14px 4px rgba(255,214,110,.75)}
-.band .upkey.age2.pulse{animation:uppulse 2.4s ease-in-out infinite}
-@keyframes uppulse{50%{box-shadow:0 3px 0 var(--outline),0 0 0 2px rgba(255,140,110,.7),0 0 12px 3px rgba(220,90,60,.55)}}
+.band .upkey svg{display:block;image-rendering:pixelated;filter:drop-shadow(1px 1px 0 rgba(0,0,0,.55))}
+/* the arrival: one glint sweeps across the key, like an item being got, then it settles */
+.band .upkey::before{content:"";position:absolute;inset:-2px;border-radius:8px;pointer-events:none;opacity:0;
+  background:linear-gradient(115deg,transparent 35%,rgba(255,240,190,.85) 50%,transparent 65%) -60px 0/200% 100% no-repeat}
+.band .upkey.glow::before{animation:glint .9s ease-out .15s 1}
+@keyframes glint{0%{opacity:1;background-position:-60px 0}100%{opacity:1;background-position:60px 0}}
+/* idle: the icon bobs a pixel every few seconds, the way a quest marker hovers */
+.band .upkey svg{animation:bob 4s ease-in-out infinite}
+@keyframes bob{0%,80%,100%{transform:translateY(0)}88%{transform:translateY(-2px)}}
+/* style A: the plum key stays, the icon ages gold, amber, ember; at a week a soft warm breath, never a flash */
+.st-plum .upkey.age2{animation:breath 3.2s ease-in-out infinite}
+@keyframes breath{50%{box-shadow:0 3px 0 var(--outline),0 0 10px 2px rgba(255,120,70,.45)}}
+/* style B: the plum key, a small cut gem in its top-right corner carries the age */
+.upkey .gem{position:absolute;right:-3px;top:-3px;width:9px;height:9px;transform:rotate(45deg);border:2px solid var(--outline);display:none;box-shadow:0 0 6px currentColor}
+.st-gem .upkey .gem{display:block}
+.st-gem .upkey.age0 .gem{background:#FFC43C;color:rgba(255,196,60,.6)}
+.st-gem .upkey.age1 .gem{background:#F0913A;color:rgba(240,145,58,.6)}
+.st-gem .upkey.age2 .gem{background:#E0553A;color:rgba(224,85,58,.75);animation:gemglow 2.4s ease-in-out infinite}
+@keyframes gemglow{50%{box-shadow:0 0 10px 3px rgba(224,85,58,.7)}}
+/* style C: a wood key like the band, a gold ring around it fills over the week */
+.st-ring .upkey{background:url(../../src/Shell/pages/art/browser/band.png) 0 0/128px 58px;image-rendering:pixelated}
+.upkey .agering{position:absolute;inset:-5px;border-radius:11px;pointer-events:none;display:none;
+  background:conic-gradient(var(--ringc,#FFC43C) var(--ringp,15%),rgba(0,0,0,.35) 0);
+  -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 calc(100% - 3px));mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 calc(100% - 3px))}
+.st-ring .upkey .agering{display:block}
+.st-ring .upkey.age0{--ringp:15%;--ringc:#FFC43C}
+.st-ring .upkey.age1{--ringp:55%;--ringc:#F0913A}
+.st-ring .upkey.age2{--ringp:100%;--ringc:#E0553A}
 /* the drop panel: the downloads tray's own frame and drop */
 .uptray{right:150px;width:330px}
 .uptray .ver{display:flex;align-items:center;gap:10px;margin:2px 4px 10px}
@@ -111,15 +131,24 @@ h1{font:600 34px var(--display);color:var(--gold);margin:4px 0 6px}
       <button class="pick" data-s="pop">An update is ready: it pops in</button>
       <button class="pick" data-s="both">With downloads showing too</button>
     </div>
-    <div class="row"><span class="gl">2. THE ICON (PICK ONE)</span>
-      <button class="pick" data-i="arrow" aria-pressed="true">A: up arrow</button>
-      <button class="pick" data-i="sphere">B: FFX save sphere</button>
-      <button class="pick" data-i="renew">C: two turning arrows</button>
+    <div class="row"><span class="gl">2. THE ICON, HAND-DRAWN FROM YOUR GAMES (PICK ONE)</span>
+      <button class="pick" data-i="anvil" aria-pressed="true">Anvil + spark (Stardew upgrade)</button>
+      <button class="pick" data-i="quest">Gold "?" (WoW turn-in)</button>
+      <button class="pick" data-i="chest">Chest + glint (Zelda)</button>
+      <button class="pick" data-i="block">"!" block (Mario 64)</button>
+      <button class="pick" data-i="rune">Rune stone (WoW hearth)</button>
+      <button class="pick" data-i="ocarina">Ocarina + note (Majora)</button>
+      <button class="pick" data-i="sparkle">Sparkles (pixelarticons)</button>
+    </div>
+    <div class="row"><span class="gl">2b. THE COLOURS AND THE GLOW (PICK ONE)</span>
+      <button class="pick" data-c="plum" aria-pressed="true">A: plum key, the icon ages</button>
+      <button class="pick" data-c="gem">B: plum key, a corner gem ages</button>
+      <button class="pick" data-c="ring">C: wood key, a gold ring fills</button>
     </div>
     <div class="row"><span class="gl">3. THE LONGER IT WAITS</span>
       <button class="pick" data-a="0" aria-pressed="true">New: gold</button>
       <button class="pick" data-a="1">4 days: amber</button>
-      <button class="pick" data-a="2">A week: brick red, slow pulse</button>
+      <button class="pick" data-a="2">A week: ember red, a slow breath</button>
     </div>
     <div class="row"><span class="gl">4. CLICK IT</span>
       <button class="pick" data-s="open">Open the panel</button>
@@ -132,7 +161,9 @@ h1{font:600 34px var(--display);color:var(--gold);margin:4px 0 6px}
     <h2>What's going on here</h2>
     <div class="notes">
       <div><b>Only when needed</b>The key is not there at all until a newer engine is out. Then it pops in with the downloads key's own spring and glows once, pushing the settings key over.</div>
-      <div><b>You pick the moment</b>Nothing restarts on its own. Restart now, or Later and it stays. Like Chrome, it changes colour the longer it waits: gold, then amber after 4 days, then brick red after a week.</div>
+      <div><b>You pick the moment</b>Nothing restarts on its own. Restart now, or Later and it stays. Like Chrome, it tells you how long it has waited: gold, then amber after 4 days, then ember after a week.</div>
+      <div><b>The glow, redone</b>It arrives with one glint across the key, like getting an item, then the icon just bobs a pixel now and then, the way a quest marker hovers. No flashing. A soft warm breath only after a week.</div>
+      <div><b>Three colour styles</b>A: the plum key stays and the icon itself ages. B: the plum key stays, a small cut gem in its corner ages. C: a wood key like the band, and a gold ring around it fills over the week.</div>
       <div><b>Ready before it asks</b>By the time the key shows, the engine is already downloaded, checked against Electron's fingerprints and tested on your PC, so Restart takes seconds.</div>
       <div><b>A big update</b>Same key, but the panel says it's a big one and lists what might change. Still your click.</div>
       <div><b>Safety net</b>If the new engine fails to start, the pet goes back to the old one by himself and never offers that version again.</div>
@@ -141,20 +172,109 @@ h1{font:600 34px var(--display);color:var(--gold);margin:4px 0 6px}
 </div>
 <script>
 const $ = (id) => document.getElementById(id);
-const ICONS = {
-  arrow: '<svg viewBox="0 0 7 8" width="14" height="16" shape-rendering="crispEdges"><path d="M3 0h1v1H3zM2 1h3v1H2zM1 2h5v1H1zM0 3h7v1H0zM2 4h3v3H2zM0 7h7v1H0z"/></svg>',
-  sphere: '<svg viewBox="0 0 9 9" width="18" height="18" shape-rendering="crispEdges"><path d="M3 0h3v1H3zM1 1h2v1H1zM6 1h2v1H6zM1 2h1v1H1zM7 2h1v1H7zM0 3h1v3H0zM8 3h1v3H8zM1 6h1v1H1zM7 6h1v1H7zM1 7h2v1H1zM6 7h2v1H6zM3 8h3v1H3zM3 2h2v1H3zM2 3h1v2H2zM4 4h1v1H4z"/></svg>',
-  renew: '<svg viewBox="0 0 9 9" width="18" height="18" shape-rendering="crispEdges"><path d="M3 0h4v1H3zM2 1h1v1H2zM7 1h1v2H7zM1 2h1v3H1zM6 2h3v1H6zM0 6h3v1H0zM7 4h1v3H7zM6 7h1v1H6zM1 6h1v1H1zM2 8h4v1H2zM2 7h1v1H2z"/></svg>',
+// Every icon drawn by hand for Aang, pixel by pixel, after the moment in his games it comes from. Nothing copied.
+// o outline, then the icon's own colours; Y/y/D are the gold that ages (gold, then amber, then ember).
+const PAL = { o: '#120A05', W: '#F4EBD8', s: '#C9CDD6', S: '#8A8F9C', t: '#5F6472', b: '#8A5A2E', B: '#C68A4A', p: '#4A2C6E', P: '#7E57B5', r: '#6E7A92', R: '#9AA6BE', c: '#3E6E8E', C: '#79B6D6' };
+const DRAW = {
+  anvil: [
+    '.........Y..',
+    '........YyY.',
+    '.........Y..',
+    '..oooooooooo',
+    'ooSssssssssO',
+    '.ottSSSSSSto',
+    '...ottSSSto.',
+    '....oSSSo...',
+    '...oSSSSSo..',
+    '..ooooooooo.'],
+  quest: [
+    '..oooooo..',
+    '.oYYYYyyo.',
+    'oYYyooyyyo',
+    'oYyo..oyyo',
+    '.oo...oyyo',
+    '.....oyyo.',
+    '....oyyo..',
+    '....oyDo..',
+    '.....oo...',
+    '....oooo..',
+    '....oyDo..',
+    '....oooo..'],
+  chest: [
+    '..........Y.',
+    '..oooooooYyY',
+    '.oBBBBBBBoY.',
+    'oBbbbbbbbBo.',
+    'oooooooooooo',
+    'oBbbboyoBbbo',
+    'oBbbboDoBbbo',
+    'oBbbbbbbBbbo',
+    'oooooooooooo'],
+  block: [
+    'oooooooooo',
+    'oPPPPPPPPo',
+    'oPppYYppPo',
+    'oPppYyppPo',
+    'oPppYyppPo',
+    'oPppyDppPo',
+    'oPppppppPo',
+    'oPppYDppPo',
+    'oPPPPPPPPo',
+    'oooooooooo'],
+  rune: [
+    '...oooooo...',
+    '..oRRRRRRo..',
+    '.oRrrYYrrRo.',
+    'oRrrrYrrrrRo',
+    'oRrrrYyYrrRo',
+    'oRrrrYrrYrro',
+    'oRrrrYrrrrro',
+    '.oRrrYrrrro.',
+    '..orrrrrro..',
+    '...oooooo...'],
+  ocarina: [
+    '.........Yo.',
+    '.........Yo.',
+    '.......YYY..',
+    '...oooo.Y...',
+    '.ooCCCCoo...',
+    'oCCcCCcCCo..',
+    'oCcccccCCCoo',
+    'oCcCccCcccCo',
+    '.ooccccccoo.',
+    '...oooooo...'],
+  sparkle: [
+    '....o.......',
+    '...oYo......',
+    '...oYo...o..',
+    '.ooYyYoo.Yo.',
+    'oYYyDyYYoYyo',
+    '.ooYyYoo.Yo.',
+    '...oYo...o..',
+    '...oYo......',
+    '....o..o....',
+    '......oYo...',
+    '.......o....'],
 };
-let icon = 'arrow', age = 0, timers = [];
+const AGE = [ { Y: '#FFE096', y: '#FFC43C', D: '#C98C14' }, { Y: '#FFC98A', y: '#F0913A', D: '#B8571A' }, { Y: '#FF9A7A', y: '#E0553A', D: '#9A2A18' } ];
+function pixelIcon(name, px, age) {
+  const rows = DRAW[name], h = rows.length, w = Math.max(...rows.map((r) => r.length));
+  const pal = { ...PAL, ...AGE[age] };
+  let r = '';
+  rows.forEach((row, y) => { [...row].forEach((ch, x) => { const c = ch === 'O' ? PAL.o : pal[ch]; if (c && ch !== '.') r += `<rect x="${x}" y="${y}" width="1" height="1" fill="${c}"/>`; }); });
+  return `<svg viewBox="0 0 ${w} ${h}" width="${w * px}" height="${h * px}" shape-rendering="crispEdges">${r}</svg>`;
+}
+let icon = 'anvil', look = 'plum', age = 0, timers = [];
 const later = (f, ms) => timers.push(setTimeout(f, ms));
 function paintKey() {
   const k = $('upkey');
-  k.innerHTML = ICONS[icon];
-  k.classList.remove('age0', 'age1', 'age2', 'pulse');
+  // Style A ages the icon itself; B keeps the icon gold and ages the gem; C keeps it gold and fills the ring.
+  k.innerHTML = pixelIcon(icon, 2, look === 'plum' ? age : 0) + '<i class="gem"></i><i class="agering"></i>';
+  k.classList.remove('age0', 'age1', 'age2');
   k.classList.add('age' + age);
-  if (age === 2) k.classList.add('pulse');
-  $('bigicon').innerHTML = ICONS[icon].replace(/width="\d+" height="\d+"/, 'width="30" height="30"').replace('<path', '<path fill="#FFC43C"');
+  $('stage').classList.remove('st-plum', 'st-gem', 'st-ring');
+  $('stage').classList.add('st-' + look);
+  $('bigicon').innerHTML = pixelIcon(icon, 3, 0);
   $('since').textContent = ['today', '4 days', '8 days'][age];
 }
 function reset() {
@@ -180,6 +300,7 @@ const S = {
 };
 document.querySelectorAll('[data-s]').forEach((b) => b.addEventListener('click', () => { reset(); paintKey(); document.querySelectorAll('[data-s]').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); S[b.dataset.s](); }));
 document.querySelectorAll('[data-i]').forEach((b) => b.addEventListener('click', () => { icon = b.dataset.i; document.querySelectorAll('[data-i]').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); paintKey(); }));
+document.querySelectorAll('[data-c]').forEach((b) => b.addEventListener('click', () => { look = b.dataset.c; document.querySelectorAll('[data-c]').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); paintKey(); $('upkey').classList.remove('away'); }));
 document.querySelectorAll('[data-a]').forEach((b) => b.addEventListener('click', () => { age = Number(b.dataset.a); document.querySelectorAll('[data-a]').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); paintKey(); $('upkey').classList.remove('away'); }));
 $('upkey').addEventListener('click', () => { $('uptray').hidden ? openTray() : ($('uptray').hidden = true, $('upkey').setAttribute('aria-expanded', 'false')); });
 $('later').addEventListener('click', () => { $('uptray').hidden = true; $('upkey').setAttribute('aria-expanded', 'false'); $('now').textContent = 'Later: the panel closes, the key stays until you choose.'; });
