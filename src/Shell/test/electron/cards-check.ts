@@ -33,6 +33,10 @@ app.whenReady().then(async () => {
     ['brief', { day: 'Wednesday, October 15', weather: '', job: [], waiting: [], today: [], other: [], more: 0 }],
     ['inbox', { unread: 2, count: 5, rows: [{ tag: 'JOB', who: 'Rhea Patel', what: 'Next steps and the product demo', unread: true }, { tag: '', who: 'Sam', what: 'Saturday?', unread: true }, { tag: '', who: 'Amazon', what: 'Your order has shipped', unread: false }], more: 2 }],
     ['week', { title: 'YOUR WEEK', range: 'Oct 14 to Oct 17', days: [{ name: 'WEDNESDAY, OCT 14', items: [{ tm: '10:30 am', title: 'Dentist', where: 'Queen St' }] }, { name: 'THURSDAY, OCT 15', items: [] }, { name: 'FRIDAY, OCT 16', items: [{ tm: '2:00 pm', title: 'Demo with Rhea', where: '220 King St W' }] }] }],
+    ['email', { from: 'Rhea Patel', sent: 'Tue, Oct 13, 8:41 am', subject: 'Next steps and the product demo', summary: 'She wants a demo of your design work Friday, and sent two videos and a brief to read first.', rows: [
+      { icon: 'cal', w: 'Fri, Oct 16, 2:00 pm to 3:00 pm', m: 'invite' }, { icon: 'pin', w: '220 King St W, Toronto', m: '' }, { icon: 'call', w: 'Zoom call', m: 'link in the email' },
+      { icon: 'video', w: '2 videos', m: 'Product tour, Customer story' }, { icon: 'file', w: 'Demo brief.pdf', m: '' }, { icon: 'ask', w: 'Asks', m: 'confirm by Wednesday; bring 2 case studies' },
+      { icon: 'check', w: 'CHECK', m: '"Thursday at 2": am or pm is not written' }] }],
     ['quota', { what: 'a background job: prep for the demo', low: 0.02, high: 0.05, week: 0.34, resetsAt: 1792368000 }],
     ['home', { tiles: [{ k: 'CLAUDE THIS WEEK', v: '34%, on pace', fill: 0.34 }, { k: 'NEXT 5 HOURS', v: '12% used', fill: 0.12 }, { k: 'RUNNING', v: 'nothing' }, { k: 'WAITING ON YOU', v: '2 things', tone: 'warn' }, { k: 'YOUR PC', v: 'On', tone: 'good' }] }],
   ];
