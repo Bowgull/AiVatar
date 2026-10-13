@@ -1306,21 +1306,35 @@ function onSay(m) { if (m && typeof m.text === 'string') onBrain(m); }
 function closeMenu() { document.getElementById('turnmenu')?.remove(); }
 
 bubble.addEventListener('contextmenu', e => {
-  if (!reveal.whole || !reveal.done) return;
+  // His report (2026-10-13): right-click did nothing in his scroll-back. Any message now, the one showing or one from
+  // his history (each row knows its own turn), and whatever he has highlighted.
+  const sel = String(window.getSelection?.() ?? '').trim();
+  const row = e.target?.closest?.('p.turn[data-id]');
+  const past = row ? back.turns.find((t) => String(t.id) === row.dataset.id) : null;
+  const text = past ? past.text : (reveal.whole || '');
+  const id = past ? past.id : turn;
+  if (!sel && !text) return;
   e.preventDefault();
   closeMenu();
   const menu = document.createElement('div');
   menu.id = 'turnmenu';
   menu.className = 'wood turnmenu';
-  for (const [label, go] of [
-    ['Copy text', () => window.aang?.copyText?.(reveal.whole)],
-    // Both open the typing box if it is shut, because the chip is only useful next to the words he is
-    // about to write. `turn` is the row the brain gave this message: a real binding, never a guess.
-    ['Reply to this', () => { if (turn !== null) window.aang?.replyToTurn?.(turn, reveal.whole); }],
-    ['Add as context', () => { if (turn !== null) window.aang?.pinTurn?.(turn, reveal.whole); }],
+  const items = [];
+  if (sel) items.push(['Copy selection', () => window.aang?.copyText?.(sel)]);
+  if (text) items.push(['Copy text', () => window.aang?.copyText?.(text)]);
+  // Both open the typing box if it is shut, because the chip is only useful next to the words he is
+  // about to write. The id is the row the brain gave this message: a real binding, never a guess.
+  if (text && id !== null && id !== undefined) items.push(
+    ['Reply to this', () => window.aang?.replyToTurn?.(id, text)],
+    ['Add as context', () => window.aang?.pinTurn?.(id, text)],
     // Forget is last and set apart, as it is in the old menu: it is the one that removes something.
-    ['Forget this', () => { if (turn !== null) window.aang?.forgetTurn?.(turn); reveal.clear(); paint(); bubble.hidden = true; snapShut(); }],
-  ]) {
+    ['Forget this', () => {
+      window.aang?.forgetTurn?.(id);
+      if (past) { const i = back.turns.indexOf(past); if (i >= 0) back.turns.splice(i, 1); row.remove(); }
+      else { reveal.clear(); paint(); bubble.hidden = true; snapShut(); }
+    }],
+  );
+  for (const [label, go] of items) {
     const b = document.createElement('button');
     b.className = 'mrow';
     b.textContent = label;
@@ -1796,6 +1810,7 @@ function paintBack() {
   for (const t of back.turns) {
     const p = document.createElement('p');
     p.className = 'turn ' + (t.who === 'you' ? 'mine' : 'his');
+    p.dataset.id = String(t.id);              // so a right-click knows which message it is
     p.textContent = t.text;
     box.append(p);
   }
