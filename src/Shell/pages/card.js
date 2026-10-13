@@ -115,6 +115,48 @@ const DRAW = {
     card.append(col, el('div', 'drawn', 'DRAWN BY AANG'));
     return card;
   },
+  // His inbox (sheet 21 board 2b): who and what, JOB where his hunt knows them, unread count on the plaque line.
+  inbox(d) {
+    const card = el('div', 'parch'), col = el('div', 'col');
+    const top = el('div', 'row'); top.style.alignItems = 'center'; top.style.gap = '8px';
+    const unread = Number(d.unread) || 0;
+    top.append(el('div', 'plaque', 'INBOX'), el('div', 'meta', unread ? `${unread} unread` : `${Number(d.count) || 0} shown`));
+    col.append(top);
+    const rows = Array.isArray(d.rows) ? d.rows : [];
+    for (const r of rows.slice(0, 7)) {
+      const li = el('div', 'li'), body = el('span');
+      body.append(el('span', 'w', str(r.who, 40)), ' ', el('span', 'm', str(r.what, 90)));
+      if (r.tag) li.append(el('span', 't', str(r.tag, 6)));
+      li.append(body);
+      col.append(li);
+    }
+    if (!rows.length) col.append(el('div', 'text', 'Nothing here.'));
+    if (Number(d.more) > 0) { const li = el('div', 'li'); li.append(el('span', 'm', `+ ${Number(d.more)} more`)); col.append(li); }
+    card.append(col, el('div', 'drawn', 'DRAWN BY AANG'));
+    return card;
+  },
+  // His day or his week (sheet 21 board 2b): each day, then its times. A day with nothing says so.
+  week(d) {
+    const card = el('div', 'parch'), col = el('div', 'col');
+    const top = el('div', 'row'); top.style.alignItems = 'center'; top.style.gap = '8px';
+    top.append(el('div', 'plaque', str(d.title || 'YOUR WEEK', 16)), el('div', 'meta', str(d.range, 40)));
+    col.append(top);
+    const days = Array.isArray(d.days) ? d.days : [];
+    for (const day of days.slice(0, 14)) {
+      if (days.length > 1) col.append(el('div', 'sec', str(day.name, 24)));
+      const items = Array.isArray(day.items) ? day.items : [];
+      if (!items.length) { const li = el('div', 'li'); li.append(el('span', 'm', 'Nothing booked')); col.append(li); continue; }
+      for (const e of items.slice(0, 6)) {
+        const li = el('div', 'li'), body = el('span');
+        body.append(el('span', 'w', str(e.title, 70)));
+        if (e.where) body.append(' ', el('span', 'm', str(e.where, 50)));
+        li.append(el('span', 'tm', str(e.tm, 12)), body);
+        col.append(li);
+      }
+    }
+    card.append(col, el('div', 'drawn', 'DRAWN BY AANG'));
+    return card;
+  },
   // The home card (sheet 15 board 4), on the browser's pixel wood.
   home(d) {
     const card = el('div', 'wood');

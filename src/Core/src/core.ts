@@ -1,5 +1,6 @@
 // The Core: talks to the Body over a localhost WebSocket, keeps one warm Claude session per model lane,
 // streams replies, enforces the voice linter and grounding rule, and applies Joshua's quota rule.
+import { inboxCardData, weekCardData } from './briefcard.ts';
 import { Choices, choiceKey } from './choices.ts';
 import { Timers, parseTimerCommand, sayDuration, MAX_MS } from './timers.ts';
 import { Notes, parseNoteCommand, linesHtml } from './notes.ts';
@@ -423,9 +424,9 @@ export class Core {
       followCreator: ch => this.followCreator(ch),
       unfollowCreator: w => { const c = this.feeds.unfollow(w); return Promise.resolve(c ? { ok: true, detail: `Stopped following ${c.name}.` } : { ok: false, detail: `You do not follow anyone called "${w}". You follow: ${this.feeds.creators.map(x => x.name).join(', ') || 'nobody'}.` }); },
       apexMap: () => this.apexRanked(),
-      mailInbox: (query, max) => this.mailRead('mcp__aang__mail_inbox', { query: query ?? '' }, m => m.inbox(query || 'in:inbox', max ?? 10)),
+      mailInbox: (query, max) => this.mailRead('mcp__aang__mail_inbox', { query: query ?? '' }, m => m.inbox(query || 'in:inbox', max ?? 10, rows => this.cardForTurn('inbox', inboxCardData(rows, this.jobCompanies())))),
       mailRead: id => this.mailRead('mcp__aang__mail_read', { id }, m => m.read(id)),
-      calendar: days => this.mailRead('mcp__aang__calendar_today', { days: days ?? 1 }, m => m.agenda(days ?? 1)),
+      calendar: days => this.mailRead('mcp__aang__calendar_today', { days: days ?? 1 }, m => m.agenda(days ?? 1, (ev, from, n) => this.cardForTurn('week', weekCardData(ev, from, n)))),
       mailDraft: input => this.mailDraft(input),
       tasks: {
         start: (task, name, deep) => this.startTask(task, name, deep),
@@ -937,6 +938,18 @@ export class Core {
       }
       return [...weeks.entries()].map(([week, v]) => ({ week, ...v }));
     } catch { return []; }
+  }
+
+  /** Sheet 21: a drawn card that goes with the answer to a question he asked in Discord (his email, his week). */
+  private cardForTurn(kind: 'inbox' | 'week', data: Record<string, unknown>): void {
+    const sub = this.active?.sub;
+    const ws = sub?.socket;
+    if (!sub || !ws || ws.readyState !== ws.OPEN || this.kindOfSocket(ws) !== 'discord') return;
+    this.send(ws, { t: 'card.show', id: sub.id, kind, data });
+  }
+  /** The companies his job hunt tracks, lower case, to tag their email JOB. */
+  private jobCompanies(): string[] {
+    try { return [...new Set(new Jobs(this.cfg.stateDir).cards.map(c => c.company.trim().toLowerCase()).filter(c => c.length >= 3))]; } catch { return []; }
   }
 
   private async briefFor(ws: WebSocket): Promise<void> {
