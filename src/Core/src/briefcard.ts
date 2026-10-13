@@ -18,6 +18,34 @@ export const atToronto = (iso: unknown): string => {
   return Number.isNaN(d.getTime()) ? '' : d.toLocaleTimeString('en-US', { timeZone: 'America/Toronto', hour: 'numeric', minute: '2-digit' }).toLowerCase();
 };
 
+/** Sheet 21 board 2b: the inbox card. Names only (never the address), subjects as written, JOB where his hunt knows them. */
+export function inboxCardData(rows: { from: string; subject: string; unread: boolean }[], companies: string[]): Record<string, unknown> {
+  const name = (f: string) => s(String(f ?? '').replace(/<[^>]*>/g, '').replace(/"/g, ''), 40) || 'Someone';
+  const shown = rows.slice(0, 7).map(r => ({ tag: companies.some(c => String(r.from ?? '').toLowerCase().includes(c)) ? 'JOB' : '', who: name(r.from), what: s(r.subject, 90), unread: r.unread }));
+  return { unread: rows.filter(r => r.unread).length, count: rows.length, rows: shown, more: Math.max(0, rows.length - shown.length) };
+}
+
+/**
+ * Sheet 21 board 2b: the week card. Grouped by his day in Toronto; an all-day event is a DATE, not a time, so it is
+ * read as that date (noon UTC, never shifted into the day before). Every time says am or pm.
+ */
+export function weekCardData(events: { summary?: string; location?: string; start?: { dateTime?: string; date?: string } }[], from: Date, days: number): Record<string, unknown> {
+  const dayKey = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: 'America/Toronto' });
+  const nameOf = (key: string) => new Date(key + 'T12:00:00Z').toLocaleDateString('en-CA', { timeZone: 'UTC', weekday: 'long' }).toUpperCase();
+  const short = (key: string) => new Date(key + 'T12:00:00Z').toLocaleDateString('en-CA', { timeZone: 'UTC', month: 'short', day: 'numeric' });
+  const keys: string[] = [];
+  for (let i = 0; i < Math.max(1, Math.min(14, days)); i++) keys.push(dayKey(new Date(from.getTime() + i * 86_400_000)));
+  const by = new Map<string, { tm: string; title: string; where: string; sort: string }[]>(keys.map(k => [k, []]));
+  for (const e of events) {
+    const key = e.start?.dateTime ? dayKey(new Date(e.start.dateTime)) : String(e.start?.date ?? '');
+    const list = by.get(key);
+    if (!list) continue;
+    list.push({ tm: e.start?.dateTime ? atToronto(e.start.dateTime) : 'all day', title: s(e.summary ?? '(no title)', 70), where: s(e.location, 50), sort: e.start?.dateTime ?? '' });
+  }
+  const out = keys.map(k => ({ name: `${nameOf(k)}, ${short(k).toUpperCase()}`, items: (by.get(k) ?? []).sort((a, b) => a.sort.localeCompare(b.sort)).slice(0, 6).map(({ tm, title, where }) => ({ tm, title, where })) }));
+  return { title: keys.length === 1 ? 'TODAY' : 'YOUR WEEK', range: keys.length === 1 ? short(keys[0]!) : `${short(keys[0]!)} to ${short(keys[keys.length - 1]!)}`, days: out };
+}
+
 export function briefCardData(b: BriefInput): { data: Record<string, unknown>; text: string; waiting: number } {
   const unread = Array.isArray(b.unread) ? b.unread : [];
   const job = unread.filter(u => u?.job).slice(0, 4).map(u => ({ tag: 'REPLY', who: s(u.from, 40), what: s(u.subject, 90) }));

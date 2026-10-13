@@ -304,6 +304,8 @@ export type ToBody =
   /** The morning brief as a card (6.15): the brief's data plus what only the Core knows - logos, which
    *  senders are companies he is tracking, new job matches overnight, and his Claude week. */
   | { t: 'brief.card'; card: BriefCard }
+  /** Sheet 21: a drawn card that goes with his question in Discord (his email, his week). Discord only. */
+  | { t: 'card.show'; id: string; kind: 'inbox' | 'week'; data: Record<string, unknown> }
   /** An email draft waiting for his tap (or its new state), for Discord. `id` is the draft; the buttons carry its hash. */
   | { t: 'mail.card'; id: string; content: string; buttons: { id: string; label: string; style: 'primary' | 'secondary' | 'success' | 'danger' }[] }
   /** Everything the Panel shows, worked out without the model. `notice`: something to say at the top (a draft that would not send). */
