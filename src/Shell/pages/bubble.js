@@ -1303,7 +1303,13 @@ function onSay(m) { if (m && typeof m.text === 'string') onBrain(m); }
 // The same actions the old bubble offers on a right-click (4.3b). All four now: Copy and Forget work
 // within the bubble, and "Reply to this" and "Add as context" put something into the typing box, which
 // is ours as of 6.12b - so they stopped being impossible and arrived here (2026-10-04).
-function closeMenu() { document.getElementById('turnmenu')?.remove(); }
+// His report (2026-10-13): nothing in this menu did anything. A mouse-down ANYWHERE closed it, its own rows included,
+// so the row was gone before its click landed (copy "never copied"). Now only a mouse-down outside the menu closes it.
+let menuAway = null;
+function closeMenu() {
+  document.getElementById('turnmenu')?.remove();
+  if (menuAway) { document.removeEventListener('pointerdown', menuAway, true); menuAway = null; }
+}
 
 bubble.addEventListener('contextmenu', e => {
   // His report (2026-10-13): right-click did nothing in his scroll-back. Any message now, the one showing or one from
@@ -1345,7 +1351,10 @@ bubble.addEventListener('contextmenu', e => {
   menu.style.left = Math.max(4, Math.min(e.clientX, window.innerWidth - 150)) + 'px';
   menu.style.top = Math.max(4, Math.min(e.clientY, window.innerHeight - 80)) + 'px';
   document.body.append(menu);
-  setTimeout(() => document.addEventListener('pointerdown', closeMenu, { once: true }), 0);
+  setTimeout(() => {
+    menuAway = (ev) => { if (!menu.contains(ev.target)) closeMenu(); };
+    document.addEventListener('pointerdown', menuAway, true);
+  }, 0);
 });
 window.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu(); });
 
