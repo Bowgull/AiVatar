@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sheet 20: the site shield</title>
+<!-- 2026-10-13, his note: "the arrow is impossible to read". Today's shield is 32 by 36 art squeezed into 20 by 23,
+     so its 1-pixel arrow smears. These are drawn at their real size on a 10 by 12 grid, 2 screen pixels per pixel,
+     exactly like the band's own keys (7 by 7 at 2). Shown in the REAL address field. -->
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<link rel="stylesheet" href="../../src/Shell/pages/browser.css">
+<style>
+html,body{margin:0;height:auto;overflow:auto;background:#16101f;color:#e8e0f5;font:500 15px/1.5 var(--body)}
+.wrap{max-width:1040px;margin:0 auto;padding:22px 18px 60px}
+.lab{font:400 11px var(--label);letter-spacing:.1em;color:var(--gold)}
+h1{font:600 34px var(--display);color:var(--gold);margin:4px 0 6px}
+.lede{color:#c9bfd9;max-width:800px;margin:0 0 16px}
+.stage{position:relative;height:120px;border-radius:12px;overflow:hidden;border:4px solid var(--outline);box-shadow:4px 4px 0 var(--outline)}
+.stage .bw{height:100%}
+.page{flex:1;margin:8px 10px 10px;border-radius:14px;background:#f4f1ea;border:3px solid var(--outline)}
+.slot .lock .sh{display:grid;place-items:center;width:24px;height:24px}
+.slot .lock .sh svg{display:block}
+.slot .lock .sh .hov{display:none}
+.slot .lock:hover .sh .rest{display:none}
+.slot .lock:hover .sh .hov{display:block}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:14px}
+.card{background:#221833;border:2px solid #120a05;border-radius:12px;padding:12px;cursor:pointer}
+.card[aria-pressed="true"]{outline:3px solid var(--gold);outline-offset:-3px}
+.card h3{margin:0 0 4px;font:600 15px var(--display);color:var(--gold)}
+.card p{margin:0 0 10px;font-size:13px;color:#c9bfd9}
+.card .big{display:flex;gap:14px;align-items:end;padding:10px;border-radius:8px;background:#0B0718}
+.card .big svg,.card .big img{display:block;image-rendering:pixelated}
+.card small{display:block;font:400 9px var(--label);letter-spacing:1px;color:#8a80a5;margin-top:4px;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="lab">SHEET 20 . IN THE REAL ADDRESS FIELD</div>
+  <h1>The Site Shield</h1>
+  <p class="lede">Same shield, same arrow, redrawn at its real size so every pixel lands on a pixel: a bold 2-pixel arrow you can read at a glance. Pick a card to put it in the field above; hover the shield there to see its hover colours.</p>
+
+  <div class="stage">
+    <div class="bw">
+      <div class="band">
+        <button class="rnd" type="button" aria-label="Reload"><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges" aria-hidden="true"><path d="M2 0h3v1H2zM6 0h1v3H6zM1 1h1v1H1zM5 1h1v1H5zM4 2h2v1H4zM0 2h1v3H0zM6 4h1v1H6zM1 5h1v1H1zM5 5h1v1H5zM2 6h3v1H2z" fill="#e8e0f5"/></svg></button>
+        <div class="slot">
+          <span class="lock" id="lock"><span class="sh" id="sh"></span></span>
+          <span class="url"><b>wowhead.com</b>/classic</span>
+        </div>
+        <button class="rnd menukey" type="button" aria-label="Browser settings"><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges" aria-hidden="true"><path d="M0 3h1v1H0zM3 3h1v1H3zM6 3h1v1H6z" fill="#e8e0f5"/></svg></button>
+      </div>
+      <div class="page"></div>
+    </div>
+  </div>
+
+  <div class="grid" id="grid"></div>
+</div>
+<script>
+// The shield, 10 by 12, symmetric. o rim, f field, a arrow: a clear pixel of field on every side of the arrow.
+const SHAPE = [
+  'oooooooooo',
+  'offffffffo',
+  'offfaafffo',
+  'offfaafffo',
+  'offfaafffo',
+  'ofaaaaaafo',
+  'offaaaaffo',
+  '.offaaffo.',
+  '.offffffo.',
+  '..offffo..',
+  '...offo...',
+  '....oo....',
+];
+const LOOKS = {
+  gold: { name: 'A: gold rim, cream arrow', say: 'Gold rim and a plum field, so the shape stands out on the dark field; the arrow in warm cream.',
+    rest: { o: '#C98C14', f: '#4A2C6E', a: '#FFE096' }, hover: { o: '#FFC43C', f: '#5E3A8C', a: '#FFF4D6' } },
+  quiet: { name: 'B: one colour, like the keys', say: 'One quiet gold, the arrow cut out of the shield, like the band\'s other glyphs. Lights up on hover.',
+    rest: { o: '#bfae8a', f: '#bfae8a', a: '#0B0718' }, hover: { o: '#FFC43C', f: '#FFC43C', a: '#0B0718' } },
+  blue: { name: 'C: blue arrow, as on hover today', say: 'Today\'s colours, the blue arrow on a gold-rimmed shield, but crisp and bold.',
+    rest: { o: '#8a7448', f: '#18225C', a: '#8FB4F2' }, hover: { o: '#FFC43C', f: '#22307A', a: '#C8DCFF' } },
+};
+function svg(pal, px) {
+  let r = '';
+  SHAPE.forEach((row, y) => [...row].forEach((ch, x) => { const c = pal[ch]; if (ch !== '.' && c) r += `<rect x="${x}" y="${y}" width="1" height="1" fill="${c}"/>`; }));
+  return `<svg viewBox="0 0 10 12" width="${10 * px}" height="${12 * px}" shape-rendering="crispEdges">${r}</svg>`;
+}
+const grid = document.getElementById('grid');
+let pickd = 'gold';
+function put() {
+  const L = LOOKS[pickd];
+  document.getElementById('sh').innerHTML = svg(L.rest, 2).replace('<svg', '<svg class="rest"') + svg(L.hover, 2).replace('<svg', '<svg class="hov"');
+  grid.querySelectorAll('.card').forEach((c) => c.setAttribute('aria-pressed', String(c.dataset.k === pickd)));
+}
+grid.innerHTML = Object.entries(LOOKS).map(([k, L]) => `<div class="card" data-k="${k}" role="button" tabindex="0"><h3>${L.name}</h3><p>${L.say}</p>
+  <div class="big"><span>${svg(L.rest, 2)}<small>REAL SIZE</small></span><span>${svg(L.rest, 6)}<small>REST</small></span><span>${svg(L.hover, 6)}<small>HOVER</small></span></div></div>`).join('')
+  + `<div class="card" data-k="now"><h3>Today</h3><p>32 by 36 art squeezed into 20 by 23: the arrow smears.</p><div class="big"><span><img src="../../src/Shell/pages/art/browser/shield_rest.png" width="20" height="23" alt=""><small>REAL SIZE</small></span><span><img src="../../src/Shell/pages/art/browser/shield_rest.png" width="60" height="69" alt=""><small>REST</small></span><span><img src="../../src/Shell/pages/art/browser/shield_hover.png" width="60" height="69" alt=""><small>HOVER</small></span></div></div>`;
+grid.addEventListener('click', (e) => { const c = e.target.closest('.card'); if (!c) return; if (c.dataset.k === 'now') { pickd = 'now'; document.getElementById('sh').innerHTML = '<img src="../../src/Shell/pages/art/browser/shield_rest.png" width="20" height="23" alt="">'; grid.querySelectorAll('.card').forEach((x) => x.setAttribute('aria-pressed', String(x === c))); return; } pickd = c.dataset.k; put(); });
+put();
+</script>
+</body>
+</html>

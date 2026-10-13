@@ -478,17 +478,26 @@ body.drawer-open .drawer{transform:none;visibility:visible;transition:transform 
 .dfoot button{background:none;border:none;font:600 12.5px var(--body);color:#d8ccb4;text-shadow:1px 1px 0 #000;padding:4px 6px;cursor:pointer;border-radius:4px}
 .dfoot button:hover{color:#ffe28c}
 
-/* address suggestions: the wood menu, hanging under the slot; the glove on the chosen row */
-.suggest{position:absolute;left:150px;right:190px;top:calc(100% - 2px);z-index:45;padding:6px 8px;border-style:solid;border-width:8px;
-  border-image:url(art/browser/trayframe.png) 4 repeat;background:url(art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated;box-shadow:0 14px 30px rgba(0,0,0,.6)}
+/* address suggestions, sheet 19 A (his pick, 2026-10-13): the address field opens. The slot and its list are ONE
+   dark piece, the way Chrome, Arc and Firefox do it, so it is plainly the field talking and not the band. A small
+   glyph says what each row is; the part he has not typed is bold; the chosen row is a plum bar with a gold edge
+   and one word at its right. No glove. Placed by browser.js exactly under the slot, exactly as wide. */
+.slot.open{border-radius:8px 8px 0 0;border-bottom-color:transparent;position:relative;z-index:46}
+.suggest{position:absolute;z-index:45;box-sizing:border-box;padding:4px 0 6px;background:#0B0718;border:3px solid var(--outline);border-top:none;
+  border-radius:0 0 10px 10px;box-shadow:0 12px 26px rgba(0,0,0,.55);-webkit-app-region:no-drag}
 .suggest[hidden]{display:none}
-.suggest .srow{display:flex;align-items:center;gap:10px;padding:6px 8px 6px 34px;border-radius:5px;cursor:pointer;position:relative;image-rendering:auto}
-.suggest .srow img{width:16px;height:16px;border-radius:3px;flex:0 0 auto}
-.suggest .st{font:700 13.5px var(--body);color:#efe4cc;text-shadow:1px 1px 0 #000;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:45%}
-.suggest .su{flex:1;min-width:0;font:500 12px var(--body);color:#a8977a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.suggest .srow i{margin-left:auto;flex:0 0 auto;font:400 8.5px var(--label);font-style:normal;letter-spacing:1px;color:#bfae8a}
-.suggest .srow.on .st,.suggest .srow:hover .st{color:#ffe28c}
-.suggest .srow.on::before{content:"";position:absolute;left:4px;top:50%;width:24px;height:18px;margin-top:-9px;background:url(art/browser/hand.png) 0 0/24px 18px;image-rendering:pixelated}
+.suggest::before{content:"";display:block;height:1px;margin:0 12px 4px;background:rgba(150,110,200,.25)}
+.suggest .srow{display:flex;align-items:center;gap:10px;height:34px;padding:0 12px;cursor:pointer;position:relative;white-space:nowrap}
+.suggest .sg{flex:0 0 18px;display:grid;place-items:center}
+.suggest .sg svg{display:block}
+.suggest .sg svg path{fill:#8a80a5}
+.suggest .st{font:500 13.5px var(--body);color:#d9d0ec;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:0 1 auto;max-width:55%}
+.suggest .st b{font-weight:800;color:#F0E6FF}
+.suggest .su{flex:1;min-width:0;font:500 12px var(--body);color:#6e628c;overflow:hidden;text-overflow:ellipsis}
+.suggest .sa{margin-left:auto;flex:0 0 auto;font:600 11.5px var(--body);color:var(--gold-lit);visibility:hidden}
+.suggest .srow.on{background:linear-gradient(90deg,rgba(126,87,181,.45),rgba(74,44,110,.25));box-shadow:inset 3px 0 0 var(--gold)}
+.suggest .srow.on .sa{visibility:visible}
+.suggest .srow.on .sg svg path{fill:var(--gold-lit)}
 /* the tab ring: dim while waiting for the site, gold once it answers, a small burst when done */
 .arc.wait{border-top-color:#8a7a62;border-right-color:#8a7a62}
 .arc.burst{animation:arcburst .375s ease-out forwards;border-color:var(--gold)}
