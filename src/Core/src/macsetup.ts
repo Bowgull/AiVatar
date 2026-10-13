@@ -185,12 +185,12 @@ SHADOW=${q(shadow)}; HOOK_PORT=${hookPort}; HOOK_KEY=${q(hookKey)}; FRONT_KEY=${
 DIR="$HOME/Library/Application Support/AangListener"; PLIST="$HOME/Library/LaunchAgents/com.aang.listener.plist"
 mkdir -p "$HOME/.claude" "$DIR" "$HOME/Library/LaunchAgents"
 
-echo "1/3  Claude Code hooks, so Aang hears when a session is done or needs you"
+echo "1/4  Claude Code hooks, so Aang hears when a session is done or needs you"
 osascript -l JavaScript - "$SHADOW" "$HOOK_PORT" "$HOOK_KEY" <<'JXA'
 ${HOOKS_JXA}
 JXA
 
-echo "2/3  The one-job listener, so clicking Aang's icon brings Claude forward, and the job hunt can start here"
+echo "2/4  The one-job listener, so clicking Aang's icon brings Claude forward, and the job hunt can start here"
 cat > "$DIR/listen.pl" <<'PERL'
 ${LISTENER}PERL
 cat > "$DIR/run.applescript" <<'APPLESCRIPT'
@@ -240,7 +240,34 @@ chmod 600 "$HBPLIST"
 launchctl bootout "gui/$(id -u)/com.aang.heartbeat" 2>/dev/null || true
 launchctl bootstrap "gui/$(id -u)" "$HBPLIST"
 
-echo "3/3  Checking the line back to Aang"
+echo "3/4  Node.js for Aang's Mac side (his yes, 2026-10-13): kept in Aang's own folder, no admin password"
+# The newest long-term-support Node for Intel Macs, from nodejs.org, checked against Node's own SHA-256 list
+# before it is unpacked. A mismatch is thrown away. Skipped when it is already there.
+NODE_DIR="$DIR/node"
+if [ -x "$NODE_DIR/bin/node" ]; then
+  echo "     Node is already here: $("$NODE_DIR/bin/node" -v)"
+else
+  VER=$(/usr/bin/curl -fsS -m 30 https://nodejs.org/dist/index.json | /usr/bin/perl -MJSON::PP -e 'my $a = decode_json(join("", <STDIN>)); for my $r (@$a) { if ($r->{lts} && grep { $_ eq "osx-x64-tar" } @{$r->{files}}) { print $r->{version}; last } }') || VER=""
+  if [ -z "$VER" ]; then
+    echo "     Could not reach nodejs.org; Node was not installed (run this setup again later)."
+  else
+    F="node-$VER-darwin-x64.tar.gz"; T=$(mktemp -d)
+    if /usr/bin/curl -fsS -m 900 -o "$T/$F" "https://nodejs.org/dist/$VER/$F" && /usr/bin/curl -fsS -m 30 -o "$T/SUMS" "https://nodejs.org/dist/$VER/SHASUMS256.txt"; then
+      WANT=$(grep " $F\$" "$T/SUMS" | cut -d' ' -f1) || WANT=""
+      GOT=$(shasum -a 256 "$T/$F" | cut -d' ' -f1)
+      if [ -n "$WANT" ] && [ "$WANT" = "$GOT" ]; then
+        mkdir -p "$NODE_DIR" && tar -xzf "$T/$F" -C "$NODE_DIR" --strip-components 1 && echo "     Node $VER installed and checked against nodejs.org's fingerprint."
+      else
+        echo "     Node's download did not match its fingerprint, so it was thrown away. Nothing installed."
+      fi
+    else
+      echo "     Node's download failed; nothing installed (run this setup again later)."
+    fi
+    rm -rf "$T"
+  fi
+fi
+
+echo "4/4  Checking the line back to Aang"
 CODE=$(curl -s -m 5 -o /dev/null -w '%{http_code}' -X POST --data '{}' "http://$SHADOW:$HOOK_PORT/hook?e=Ping&k=$HOOK_KEY" || true)
 if [ "$CODE" = "204" ]; then echo "     Aang heard this Mac."; else echo "     Aang did not answer (got '$CODE'). Is the Windows firewall rule in, and Tailscale on here?"; fi
 sleep 12
