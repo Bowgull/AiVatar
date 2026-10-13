@@ -789,7 +789,7 @@ function medal(u) {
 function showBrief(b) {
   card.replaceChildren();
   const sec = (h) => { const s = T('div', 'bsec'); s.append(T('div', 'h', h)); grid.append(s); return s; };
-  const row = (s, lead, text) => { const r = T('div', 'brow'); r.append(lead, T('span', 'bt', text)); s.append(r); };
+  const row = (s, lead, text) => { const r = T('div', 'brow'); r.append(lead, T('span', 'btx', text)); s.append(r); };
   const grid = T('div', 'brief');
   const today = sec('TODAY');
   if (!b.events.length) row(today, T('span', 'chip off', '-'), 'Nothing on the calendar');
