@@ -835,10 +835,10 @@ rule and they are not optional.
 Done in order, top to bottom. Nothing below is dropped; the "any gap" list at the end is done between steps or
 folded in where it fits, never skipped. **Where we are: 9.D, D4 built, waiting on his Mac paste + Manage Webhooks.**
 
-0. **Now (his asks, 2026-10-13):** ~~tab dragging~~ -> quota measured (on; read after a day) -> **C** drawn Discord
-   cards: morning brief, email and calendar, Claude job updates, quota warning ("might be high quota, OK?") + quota meter
-   on the home card (mockups first) -> brief changes (job hunt first, waiting on you, today, other email with subjects;
-   the Mac sends it when Shadow is off) -> **E** the email assistant (section "E Email assistant").
+0. **Now (his asks, 2026-10-13):** ~~tab dragging~~ -> quota measured (on; read after a day) -> ~~**C** drawn Discord
+   cards (sheet 21, approved): C1 quota ask + 5-hour meter, C2 morning brief in his order + the Mac sends it when Shadow
+   is off, C3 week and inbox cards, C4 Mac Claude jobs as one card edited in place~~ (DONE 2026-10-13; sessions he starts
+   himself on the PC still post plain lines: his call) -> **E** the email assistant (section "E Email assistant").
 1. **9.D Discord** (approved sheet 15): ~~D1 channels~~ ~~D2 buzz~~ ~~D3 drawn cards~~ ~~D4 speakers~~ (live after his Mac
    paste and Manage Webhooks) -> **D5** live Claude job cards -> **D6** home card -> **D7** #capture videos -> **D8** gaming
    feeds -> **D9** the wheel's Away (DONE). Then the old channels are deleted by HIS button.
