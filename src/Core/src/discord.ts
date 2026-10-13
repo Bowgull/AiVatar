@@ -236,9 +236,10 @@ export class DiscordAdapter {
         }
         out[d.key] = ch.id;
         if (ch.rename || ch.moveTo || ch.addTags.length) {
-          try {
-            await this.gw.editChannel(ch.id, { ...(ch.rename ? { name: d.name } : {}), ...(ch.moveTo ? { parentId: catId } : {}), ...(ch.rename ? { topic: d.topic } : {}), ...(ch.addTags.length ? { addTags: ch.addTags } : {}) });
-          } catch (e) { this.log(`discord: could not tidy #${d.key}: ${(e as Error).message}`); }
+          // In the background: Discord allows two renames of a channel in ten minutes and makes the next one wait,
+          // and a slow rename must never keep Discord from starting (found 2026-10-13).
+          const id = ch.id, spec = { ...(ch.rename ? { name: d.name } : {}), ...(ch.moveTo ? { parentId: catId } : {}), ...(ch.rename ? { topic: d.topic } : {}), ...(ch.addTags.length ? { addTags: ch.addTags } : {}) };
+          void this.gw.editChannel(id, spec).catch(e => this.log(`discord: could not tidy #${d.key} yet: ${(e as Error).message}`));
           if (ch.rename) renamed.add(d.key);
         }
       }

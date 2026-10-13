@@ -63,8 +63,9 @@ export function frontDeskConfig(stateDir: string): { url: string; key: string } 
 }
 
 /** Start Discord if Joshua has set it up (a token file, or the Mac front desk). Never throws: Aang runs without it. */
-export async function startDiscord(stateDir: string, port: number, log: (s: string) => void = console.log): Promise<DiscordAdapter | null> {
+export async function startDiscord(stateDir: string, port: number, log: (s: string) => void = console.log, attempt = 0): Promise<DiscordAdapter | null> {
   const jobDir = folderFor('job hunt');
+  let made: { close: () => void } | null = null;
   const tokenFile = path.join(stateDir, 'discord.token');
   const desk = frontDeskConfig(stateDir);
   if (process.env.AANG_DISCORD === '0' || (!desk && !existsSync(tokenFile))) return null;
@@ -73,6 +74,7 @@ export async function startDiscord(stateDir: string, port: number, log: (s: stri
     if (desk) {
       const { FrontDeskGateway } = await import('./frontdesk-link.ts');
       const fd = new FrontDeskGateway({ url: desk.url, key: desk.key, log });
+      made = fd;
       log('discord: waiting for the front desk on the MacBook');
       await fd.ready;
       gw = fd;
@@ -92,5 +94,13 @@ export async function startDiscord(stateDir: string, port: number, log: (s: stri
     await adapter.start();
     log('discord: connected');
     return adapter;
-  } catch (e) { log('discord: could not start: ' + (e as Error).message); return null; }
+  } catch (e) {
+    // Never left down until the next restart (found 2026-10-13): close this attempt's connection, so two never
+    // fight over the front desk, and try again by itself, after a minute, then up to every five.
+    try { made?.close(); } catch { /* gone */ }
+    const wait = Math.min(5 * 60_000, 60_000 * 2 ** Math.min(attempt, 3));
+    log(`discord: could not start: ${(e as Error).message}. Trying again in ${Math.round(wait / 60_000)} min.`);
+    setTimeout(() => { void startDiscord(stateDir, port, log, attempt + 1); }, wait).unref?.();
+    return null;
+  }
 }
