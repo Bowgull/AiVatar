@@ -1953,8 +1953,9 @@ export class Core {
       const lf = path.join(dir, `${stamp}-log.txt`); writeFileSync(lf, String(r.log ?? '')); out.log = lf;
       // The pop-out too (his report, 2026-10-13: Twitch's controls show while pinned): its state, and its picture.
       if (r.popout && typeof r.popout === 'object') {
-        const { shot, ...pop } = r.popout as Record<string, unknown>;
+        const { shot, bar, ...pop } = r.popout as Record<string, unknown>;
         if (typeof shot === 'string') { const f = path.join(dir, `${stamp}-popout.jpg`); writeFileSync(f, Buffer.from(shot, 'base64')); pop.picture = f; }
+        if (typeof bar === 'string') { const f = path.join(dir, `${stamp}-popout-frame.jpg`); writeFileSync(f, Buffer.from(bar, 'base64')); pop.frame = f; }
         out.popout = pop;
       }
       return out;
