@@ -12,6 +12,9 @@ import { GoogleError } from './google.ts';
 import type { CalEvent, Google, Message, Part } from './google.ts';
 import { factsBlock, factsOf, partsOf, type EmailFacts } from './emailfacts.ts';
 import { MAX_BYTES, kindOfFile } from './attachments.ts';
+
+const MIMES: Record<string, string> = { pdf: 'application/pdf', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', txt: 'text/plain', csv: 'text/csv', md: 'text/markdown', html: 'text/html', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation', zip: 'application/zip', ics: 'text/calendar' };
+export const mimeOfName = (n: string) => MIMES[(/\.([a-z0-9]+)$/i.exec(n)?.[1] ?? '').toLowerCase()] ?? 'application/octet-stream';
 import type { SeenEmail } from './emailcard.ts';
 
 const TZ = 'America/Toronto';
@@ -96,26 +99,57 @@ export function fence(m: Message): string {
 
 // ------------------------------------------------------------------ writing: the draft and its hash
 
-export interface DraftInput { to: string[]; subject: string; body: string; replyToId?: string }
+export interface DraftInput {
+  to: string[]; subject: string; body: string; replyToId?: string;
+  /** E6 (his ask, 2026-10-13: "full email control"): CC, files, forwarding. Every address and file is shown before it goes. */
+  cc?: string[];
+  /** Files to attach: one of an email's attachments (by its name), or a file on this machine Aang may read. */
+  attach?: { emailId?: string; name?: string; path?: string }[];
+  /** Forward this email (its id): the subject becomes "Fwd: ...", and the original is quoted under his words. */
+  forwardOf?: string;
+}
+/** A file on a draft: what it is, and the fingerprint of the exact bytes he approved (checked again at send). */
+export interface DraftFile { name: string; mime: string; size: number; sha: string; src: { email: string; att: string } | { path: string } }
 export type DraftStatus = 'pending' | 'confirm' | 'sent' | 'saved' | 'discarded';
 export interface MailDraft {
   id: string; to: string[]; subject: string; body: string; threadId?: string; inReplyTo?: string; references?: string;
   hash: string; status: DraftStatus; /** addresses he has never written to */ newTo: string[]; note?: string; createdAt: number;
+  cc?: string[]; files?: DraftFile[]; forwardOf?: string;
 }
 
-export const hashDraft = (d: { to: string[]; subject: string; body: string; threadId?: string }): string =>
-  createHash('sha256').update(JSON.stringify([d.to.map(x => x.toLowerCase()), d.subject, d.body, d.threadId ?? ''])).digest('hex').slice(0, 16);
+/** What he approves: every address, the words, and each file's exact bytes (by fingerprint). A draft with no CC and no
+ *  files hashes exactly as before, so drafts made before E6 still match their cards. */
+export const hashDraft = (d: { to: string[]; subject: string; body: string; threadId?: string; cc?: string[]; files?: { name: string; sha: string }[] }): string =>
+  createHash('sha256').update(JSON.stringify([d.to.map(x => x.toLowerCase()), d.subject, d.body, d.threadId ?? '',
+    ...(d.cc?.length || d.files?.length ? [(d.cc ?? []).map(x => x.toLowerCase()), (d.files ?? []).map(f => `${f.name}:${f.sha}`)] : [])])).digest('hex').slice(0, 16);
+export const shaOf = (b: Buffer) => createHash('sha256').update(b).digest('hex');
+/** Gmail takes 25 MB with encoding; files are kept under this so a message never bounces. */
+export const MAX_FILES_BYTES = 18 * 1024 * 1024;
 
 /** The message Gmail is given: plain text, UTF-8, every header value checked to be one line. */
-export function mimeRaw(d: MailDraft, from: string): string {
+export function mimeRaw(d: MailDraft, from: string, files: Buffer[] = []): string {
   const one = (s: string) => s.replace(/[\r\n]+/g, ' ');
   const subject = /^[\x20-\x7e]*$/.test(d.subject) ? one(d.subject) : `=?UTF-8?B?${Buffer.from(one(d.subject), 'utf8').toString('base64')}?=`;
-  const body = Buffer.from(d.body.replace(/\r?\n/g, '\r\n'), 'utf8').toString('base64').replace(/(.{76})/g, '$1\r\n');
-  const lines = [
-    `From: ${one(from)}`, `To: ${d.to.map(one).join(', ')}`, `Subject: ${subject}`,
+  const b64lines = (b: Buffer) => b.toString('base64').replace(/(.{76})/g, '$1\r\n');
+  const body = b64lines(Buffer.from(d.body.replace(/\r?\n/g, '\r\n'), 'utf8'));
+  const head = [
+    `From: ${one(from)}`, `To: ${d.to.map(one).join(', ')}`, ...(d.cc?.length ? [`Cc: ${d.cc.map(one).join(', ')}`] : []), `Subject: ${subject}`,
     ...(d.inReplyTo ? [`In-Reply-To: ${one(d.inReplyTo)}`, `References: ${one(d.references ? d.references + ' ' + d.inReplyTo : d.inReplyTo)}`] : []),
-    'MIME-Version: 1.0', 'Content-Type: text/plain; charset="UTF-8"', 'Content-Transfer-Encoding: base64', '', body,
+    'MIME-Version: 1.0',
   ];
+  const meta = d.files ?? [];
+  // E6: with files, a multipart message: the words first, then each file. File names are written the safe way (RFC 2231).
+  const lines = !meta.length ? [...head, 'Content-Type: text/plain; charset="UTF-8"', 'Content-Transfer-Encoding: base64', '', body] : (() => {
+    const bound = 'aang-' + createHash('sha256').update(d.id + d.hash).digest('hex').slice(0, 24);
+    const name = (n: string) => `filename*=UTF-8''${encodeURIComponent(n).replace(/['()*]/g, c => '%' + c.charCodeAt(0).toString(16).toUpperCase())}`;
+    const out = [...head, `Content-Type: multipart/mixed; boundary="${bound}"`, '', `--${bound}`, 'Content-Type: text/plain; charset="UTF-8"', 'Content-Transfer-Encoding: base64', '', body];
+    meta.forEach((f, i) => {
+      const mime = /^[\w.+-]+\/[\w.+-]+$/.test(f.mime) ? f.mime : 'application/octet-stream';
+      out.push(`--${bound}`, `Content-Type: ${mime}`, `Content-Disposition: attachment; ${name(f.name)}`, 'Content-Transfer-Encoding: base64', '', b64lines(files[i] ?? Buffer.alloc(0)));
+    });
+    out.push(`--${bound}--`, '');
+    return out;
+  })();
   return Buffer.from(lines.join('\r\n'), 'utf8').toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
@@ -124,6 +158,7 @@ export function mimeRaw(d: MailDraft, from: string): string {
 interface StoreFile { drafts: Record<string, MailDraft>; known: string[]; proposed: number[]; briefDay?: string }
 const MAX_PROPOSED_PER_HOUR = 10;
 const MAX_RECIPIENTS = 5;
+const MAX_CC = 5;
 
 export type Decision =
   | { do: 'send' | 'save'; draft: MailDraft }
@@ -152,16 +187,20 @@ export class MailStore {
   learn(emails: string[]) { for (const e of emails.map(x => x.toLowerCase())) if (!this.s.known.includes(e)) this.s.known.push(e); this.s.known = this.s.known.slice(-2000); this.save(); }
 
   /** A proposal is checked before it can become a card. `knownExtra`: addresses that count as known for this one (who he is replying to). */
-  propose(input: { to: string[]; subject: string; body: string; threadId?: string; inReplyTo?: string; references?: string }, knownExtra: string[] = []): { ok: true; draft: MailDraft; replaced: MailDraft[] } | { ok: false; why: string } {
+  propose(input: { to: string[]; subject: string; body: string; threadId?: string; inReplyTo?: string; references?: string; cc?: string[]; files?: DraftFile[]; forwardOf?: string }, knownExtra: string[] = []): { ok: true; draft: MailDraft; replaced: MailDraft[] } | { ok: false; why: string } {
     const to = [...new Set(input.to.map(x => x.trim().toLowerCase()))];
     if (!to.length) return { ok: false, why: 'A draft needs someone to send it to.' };
     if (to.length > MAX_RECIPIENTS) return { ok: false, why: `At most ${MAX_RECIPIENTS} recipients in one draft.` };
-    const bad = to.find(x => !isEmail(x));
+    const cc = [...new Set((input.cc ?? []).map(x => x.trim().toLowerCase()))].filter(x => !to.includes(x));
+    if (cc.length > MAX_CC) return { ok: false, why: `At most ${MAX_CC} people on CC in one draft.` };
+    const bad = [...to, ...cc].find(x => !isEmail(x));
     if (bad) return { ok: false, why: `"${bad.slice(0, 60)}" is not an email address.` };
+    const files = (input.files ?? []).slice(0, 10);
+    if (files.reduce((n, f) => n + f.size, 0) > MAX_FILES_BYTES) return { ok: false, why: 'The files together are too big for one email (18 MB). Send fewer, or share a link.' };
     const subject = input.subject.replace(HIDDEN, '').replace(/[\r\n]+/g, ' ').trim();
     const body = input.body.replace(HIDDEN, '').replace(/\r/g, '').trim();
     if (!subject || subject.length > 200) return { ok: false, why: 'A draft needs a subject of up to 200 characters.' };
-    if (!body || body.length > 8000) return { ok: false, why: 'A draft needs a body of up to 8000 characters.' };
+    if (!body || body.length > 20_000) return { ok: false, why: 'A draft needs a body of up to 20,000 characters.' };
     const hourAgo = this.now() - 3_600_000;
     this.s.proposed = this.s.proposed.filter(t => t > hourAgo);
     if (this.s.proposed.length >= MAX_PROPOSED_PER_HOUR) return { ok: false, why: `That is ${MAX_PROPOSED_PER_HOUR} drafts in an hour. I stop there so a runaway cannot fill your Discord; try again later.` };
@@ -172,7 +211,8 @@ export class MailStore {
     const id = createHash('sha256').update(`${this.now()}|${Math.random()}`).digest('hex').slice(0, 8);
     const draft: MailDraft = {
       id, to, subject, body, ...(input.threadId ? { threadId: input.threadId } : {}), ...(input.inReplyTo ? { inReplyTo: input.inReplyTo } : {}), ...(input.references ? { references: input.references } : {}),
-      hash: hashDraft({ to, subject, body, ...(input.threadId ? { threadId: input.threadId } : {}) }), status: 'pending', newTo: to.filter(x => !ok.has(x)), createdAt: this.now(),
+      ...(cc.length ? { cc } : {}), ...(files.length ? { files } : {}), ...(input.forwardOf ? { forwardOf: input.forwardOf } : {}),
+      hash: hashDraft({ to, subject, body, ...(input.threadId ? { threadId: input.threadId } : {}), ...(cc.length ? { cc } : {}), ...(files.length ? { files } : {}) }), status: 'pending', newTo: [...to, ...cc].filter(x => !ok.has(x)), createdAt: this.now(),
     };
     this.s.drafts[id] = draft;
     // Old, finished drafts are not kept for ever.
@@ -198,7 +238,7 @@ export class MailStore {
   finish(id: string, status: 'sent' | 'saved', note?: string) {
     const d = this.get(id); if (!d) return;
     d.status = status; if (note) d.note = note;
-    if (status === 'sent') this.learn(d.to); else this.save();
+    if (status === 'sent') this.learn([...d.to, ...(d.cc ?? [])]); else this.save();
   }
 }
 
@@ -217,7 +257,10 @@ export function renderMailCard(d: MailDraft): CardView {
   const lines = [
     `**${head}**`,
     `To: ${d.to.join(', ')}${d.newTo.length ? `   ⚠ new address: ${d.newTo.join(', ')}` : ''}`,
+    ...(d.cc?.length ? [`Cc: ${d.cc.join(', ')}`] : []),
     `Subject: ${d.subject}`,
+    ...(d.files?.length ? [`Attached: ${d.files.map(f => `${f.name} (${Math.max(1, Math.round(f.size / 1024))} KB)`).join(', ')}`] : []),
+    ...(d.forwardOf ? ['(A forward: the original email is quoted under the words.)'] : []),
     '', fitsCard(d) ? d.body : d.body.slice(0, CARD_BODY) + `\n[…${d.body.length - CARD_BODY} more characters. Too long to show whole here, so open it on the desktop to send it.]`,
     ...(d.status === 'confirm' ? ['', `You have not written to ${d.newTo.join(', ')} through me before. Send it anyway?`] : []),
     ...(d.note ? ['', d.note] : []),
@@ -357,8 +400,53 @@ export class MailService {
   }
 
   /** Turns a request into a card. Sends nothing, saves nothing to Gmail. */
+  /**
+   * E6: a file on this machine, read only if the caller's rules allow it (core.ts: never an off-limits path, never a
+   * program; the Mac: only his home folder). Null: no files from this machine at all.
+   */
+  readLocal: ((p: string) => { ok: true; buf: Buffer; name: string } | { ok: false; why: string }) | null = null;
+
+  /** The exact bytes of each file on a draft, checked against what he approved. A file that changed stops the send. */
+  async filesFor(d: MailDraft): Promise<{ ok: true; bufs: Buffer[] } | { ok: false; why: string }> {
+    const bufs: Buffer[] = [];
+    for (const f of d.files ?? []) {
+      let buf: Buffer | null = null;
+      if ('email' in f.src) { const r = await this.attachmentBytes(f.src.email, f.src.att); if (r.ok) buf = r.buf; }
+      else if (this.readLocal) { const r = this.readLocal(f.src.path); if (r.ok) buf = r.buf; }
+      if (!buf) return { ok: false, why: `${f.name} could not be read again, so nothing was sent.` };
+      if (shaOf(buf) !== f.sha) return { ok: false, why: `${f.name} changed after you approved it, so nothing was sent. Ask me for the draft again.` };
+      bufs.push(buf);
+    }
+    return { ok: true, bufs };
+  }
+
   async propose(input: DraftInput): Promise<{ ok: true; draft: MailDraft; replaced: MailDraft[] } | { ok: false; why: string }> {
     let threadId: string | undefined, inReplyTo: string | undefined, references: string | undefined; const known: string[] = [];
+    let subject = input.subject, body = input.body;
+    // A forward: "Fwd:" and the original quoted under his words, the way Gmail does it. A new thread, not a reply.
+    if (input.forwardOf) {
+      try {
+        const m = await this.g.message(input.forwardOf, 'full');
+        const orig = header(m, 'Subject');
+        subject = input.subject?.trim() || (/^fwd?:/i.test(orig) ? orig : `Fwd: ${orig}`);
+        body = `${input.body.trim()}\n\n---------- Forwarded message ---------\nFrom: ${header(m, 'From')}\nDate: ${header(m, 'Date')}\nSubject: ${orig}\nTo: ${header(m, 'To')}\n\n${bodyOf(m.payload) || cleanText(m.snippet ?? '', 2000)}`;
+      } catch (e) { return { ok: false, why: e instanceof GoogleError ? e.message : 'I could not find the email to forward.' }; }
+    }
+    // Files: each one fetched now, fingerprinted, never a program; its fingerprint is part of what he approves.
+    const files: DraftFile[] = [];
+    for (const a of (input.attach ?? []).slice(0, 10)) {
+      if (a.emailId) {
+        const r = await this.attachmentBytes(a.emailId, a.name);
+        if (!r.ok) return { ok: false, why: r.why };
+        files.push({ name: r.name, mime: r.mime || 'application/octet-stream', size: r.buf.length, sha: shaOf(r.buf), src: { email: a.emailId, att: r.name } });
+      } else if (a.path) {
+        if (!this.readLocal) return { ok: false, why: 'Files from this machine cannot be attached here.' };
+        const r = this.readLocal(a.path);
+        if (!r.ok) return { ok: false, why: r.why };
+        if (kindOfFile(r.name, '') === 'never') return { ok: false, why: `${r.name} is a program or script; Aang never sends those.` };
+        files.push({ name: r.name, mime: mimeOfName(r.name), size: r.buf.length, sha: shaOf(r.buf), src: { path: a.path } });
+      }
+    }
     if (input.replyToId) {
       try {
         const m = await this.g.message(input.replyToId, 'metadata');
@@ -366,7 +454,8 @@ export class MailService {
         for (const a of [...parseAddresses(header(m, 'Reply-To')), ...parseAddresses(header(m, 'From'))]) known.push(a.email);
       } catch (e) { return { ok: false, why: e instanceof GoogleError ? e.message : 'I could not find the email you are replying to.' }; }
     }
-    return this.store.propose({ to: input.to, subject: input.subject, body: input.body, ...(threadId ? { threadId } : {}), ...(inReplyTo ? { inReplyTo } : {}), ...(references ? { references } : {}) }, known);
+    return this.store.propose({ to: input.to, subject, body, ...(threadId ? { threadId } : {}), ...(inReplyTo ? { inReplyTo } : {}), ...(references ? { references } : {}),
+      ...(input.cc?.length ? { cc: input.cc } : {}), ...(files.length ? { files } : {}), ...(input.forwardOf ? { forwardOf: input.forwardOf } : {}) }, known);
   }
 
   /** A button press. The only place mail leaves. */
@@ -376,7 +465,9 @@ export class MailService {
     if (d.do === 'discard') return { draft: d.draft, note: '' };
     if (d.do === 'confirm') return { draft: d.draft, note: '' };
     try {
-      const raw = mimeRaw(d.draft, this.g.account);
+      const got = await this.filesFor(d.draft);
+      if (!got.ok) return { draft: d.draft, note: got.why };
+      const raw = mimeRaw(d.draft, this.g.account, got.bufs);
       if (d.do === 'send') { await this.g.send(raw, d.draft.threadId); this.store.finish(d.draft.id, 'sent'); return { draft: this.store.get(d.draft.id), note: '' }; }
       await this.g.saveDraft(raw, d.draft.threadId); this.store.finish(d.draft.id, 'saved');
       return { draft: this.store.get(d.draft.id), note: '' };
