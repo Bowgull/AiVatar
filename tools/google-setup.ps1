@@ -4,6 +4,7 @@
 #    tokens in %APPDATA%\Aang\google.json, readable by this Windows user only, then deletes the downloaded copy.
 # 2. Opens the Google sign-in in your browser (PKCE, loopback redirect). You approve once.
 # 3. Aang can read mail and calendar and write DRAFTS. He cannot send: the code has no send path without your tap.
+#    Since E4 (2026-10-13) also: tidy the inbox and book or answer calendar events, each only after your yes.
 $ErrorActionPreference = 'Stop'
 $dir = Join-Path $env:APPDATA 'Aang'
 $store = Join-Path $dir 'google.json'
@@ -49,7 +50,9 @@ $state = Rand 16
 $tcp = New-Object Net.Sockets.TcpListener([Net.IPAddress]::Loopback, 0); $tcp.Start()
 $port = $tcp.LocalEndpoint.Port; $tcp.Stop()
 $redirect = "http://127.0.0.1:$port/"
-$scopes = 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.compose https://www.googleapis.com/auth/calendar.readonly'
+# E4 (his yes, 2026-10-13): gmail.modify (archive, label, mark read, Trash: never a permanent delete; every change asks
+# him first) and calendar.events (book a meeting or answer an invite, each one approved). Still no send without his tap.
+$scopes = 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.compose https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/calendar.events'
 $q = @{
     client_id = $c.client_id; redirect_uri = $redirect; response_type = 'code'; scope = $scopes
     code_challenge = $challenge; code_challenge_method = 'S256'; state = $state
