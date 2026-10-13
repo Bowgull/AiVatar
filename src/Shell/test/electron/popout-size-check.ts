@@ -36,7 +36,11 @@ app.whenReady().then(async () => {
   const html = `<!doctype html><title>Watch</title><body style="margin:0"><header style="height:60px">site header</header>
     <div class="html5-video-player" style="width:640px;height:360px;position:relative"><video style="width:100%;height:100%;background:#123"></video>
     <div class="ytp-chrome-bottom" style="position:absolute;bottom:0;left:0;right:0;height:40px">quality, captions</div></div><aside>Up next</aside>`;
-  const srv = http.createServer((_q, r) => r.writeHead(200, { 'Content-Type': 'text/html' }).end(html));
+  const twitch = `<!doctype html><title>Mande</title><body style="margin:0"><nav style="height:50px">twitch nav</nav>
+    <div data-a-target="video-player" style="width:700px;height:394px;position:relative"><div class="video-player__container" style="position:relative;height:394px">
+    <video style="width:100%;height:100%;background:#213"></video><div class="video-player__overlay" style="position:absolute;inset:0">
+    <div data-a-target="player-controls" style="position:absolute;left:0;right:0;bottom:0;height:40px">pause quality</div></div></div></div><aside>chat</aside>`;
+  const srv = http.createServer((q, r) => r.writeHead(200, { 'Content-Type': 'text/html' }).end(q.url === '/twitch' ? twitch : html));
   await new Promise<void>(r => srv.listen(0, '127.0.0.1', () => r()));
   const pages = await servePages(path.join(HERE, '..', '..', 'pages'));
   const p = new Popout({ pages, preloadPath: path.join(HERE, '..', '..', 'src', 'preload.cjs'), settings: () => ({ ...readSettings(state), alwaysOnTop: false, clickThrough: false }), remembered: () => null, remember: () => {} });
@@ -67,6 +71,20 @@ app.whenReady().then(async () => {
   check('the rest of the page is hidden', header === 'hidden', header);
   const dup = await w.webContents.executeJavaScript(`['ctrl','mute','vol'].map(id => document.getElementById(id)?.hidden)`);
   check("Aang's duplicate buttons are gone", dup.every(Boolean), JSON.stringify(dup));
+  // Twitch's layout (his screenshot, 2026-10-13): the controls live in a box with the old player's fixed height.
+  const tv = new WebContentsView();
+  await tv.webContents.loadURL(`http://127.0.0.1:${(srv.address() as any).port}/twitch`);
+  p.openTab(tv, { url: 'https://www.twitch.tv/mande', title: 'Mande', label: 'TWITCH' }, () => {});
+  await wait(2000);
+  const bar = () => tv.webContents.executeJavaScript(`(() => { const c = document.querySelector('[data-a-target=player-controls]'); const r = c.getBoundingClientRect(); return { bottom: Math.round(r.bottom), vh: innerHeight, shown: getComputedStyle(c).display !== 'none' }; })()`);
+  const tb = await bar();
+  check("Twitch's controls sit at the bottom edge", Math.abs(tb.bottom - tb.vh) <= 2 && tb.shown, JSON.stringify(tb));
+  p.togglePin();
+  await wait(300);
+  check('pinned: the controls stay away', (await bar()).shown === false);
+  p.togglePin();
+  await wait(300);
+  check('unpinned: they come back', (await bar()).shown === true);
   p.close(); srv.close(); pages.close();
   console.log(bad ? `${bad} failed` : 'all passed');
   setTimeout(() => app.exit(bad ? 1 : 0), 300);
