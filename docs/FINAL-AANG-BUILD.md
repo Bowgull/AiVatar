@@ -3773,6 +3773,13 @@ the connection) and 9.A0 (buttons call the action registry). **Build order:**
   New: ⚙ claude-jobs (forum), ◎ jobs (forum, tags Found / Applied / Skipped), ❖ library (forum, tags Recipe / Guide /
   Video / Idea / Note), ▲ gaming. Old job-inbox, job-digest, applied, recipes and guides are COPIED into the new
   forums, he sees what moved, and they are deleted only after his yes.
+  **D1 BUILT 2026-10-13** (`discord-logic.ts` LAYOUT + `planLayout`, `discord.ts` layout/moveOld/deleteOld): channels are
+  found by key, never by name; renamed only from an old plain name and only once (Discord may store a symbol
+  differently, and a channel can be renamed only twice in ten minutes). Job cards are one post each in ◎ jobs, tagged
+  Found / Applied / Skipped as they move; recipes are library posts tagged Recipe; the log is ✦ home. The old channels'
+  contents move once (recipes and guides post by post; jobs redrawn from Aang's own job list), then two button presses
+  delete them. The Mac front desk only gained plain operations (list, create, edit, delete, posts, tags), so layout
+  changes never need another Mac setup. 586 tests.
 - **D2 What buzzes:** green ones only (needs-you, drafts, aang replies, claude-jobs when done); everything else silent.
 - **D3 Cards Aang draws:** pictures rendered on Shadow in his look (parchment, wood, plaques, Silkscreen + Figtree,
   "DRAWN BY AANG"), attached to the card; accent strips; his sprite as the avatar.
