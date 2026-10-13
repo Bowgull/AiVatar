@@ -119,7 +119,7 @@ export interface CoreLink {
   /** A reply to a Claude Code job's update: continue that job (by its folder) with his words. */
   claudeReply(cwd: string, text: string): void;
   /** M4: Aang's voice, his facts and the last few lines, for the Mac; and what the Mac said and saved. */
-  macBrief?(): Promise<{ prompt: string; facts: string[]; recent: { who: 'you' | 'Aang'; text: string }[] } | null>;
+  macBrief?(): Promise<{ prompt: string; facts: string[]; recent: { who: 'you' | 'Aang'; text: string }[]; talk?: { who: 'you' | 'Aang'; text: string; ts: string }[] } | null>;
   macHandled?(items: import('./macbrain.ts').Handled[]): void;
   onEvent(cb: (m: any) => void): void;
 }
@@ -886,7 +886,7 @@ export class DiscordAdapter {
       const d = await this.link.macBrief();
       if (!d) return;
       const listen = Object.fromEntries(LISTEN_CHANNELS.map(k => [this.state.channels[k], k] as const).filter(([id]) => !!id));
-      await this.gw.macBrief({ ownerId: this.state.ownerId, listen, prompt: d.prompt, facts: d.facts, recent: d.recent, grocery: this.grocery.s, at: Date.now() });
+      await this.gw.macBrief({ ownerId: this.state.ownerId, listen, prompt: d.prompt, facts: d.facts, recent: d.recent, talk: d.talk ?? [], grocery: this.grocery.s, at: Date.now() });
     } catch (e) { this.log('discord: could not brief the Mac: ' + (e as Error).message); }
   }
 
@@ -900,7 +900,7 @@ export class DiscordAdapter {
       if (h.kind === 'list') { const cmd = parseListCommand(String(h.text)); if (cmd) { applyListCommand(this.grocery, cmd); listChanged = true; } }
       else if (h.kind === 'capture') { try { capture(String(h.text)); } catch { /* the note is still in Discord */ } }
     }
-    const forCore = items.filter(h => h.kind === 'turn' || h.kind === 'remember');
+    const forCore = items.filter(h => h.kind === 'turn' || h.kind === 'remember' || h.kind === 'forget');
     if (forCore.length) this.link.macHandled?.(forCore);
     if (listChanged) await this.refreshList().catch(() => {});
     const later = items.filter(h => h.kind === 'later');

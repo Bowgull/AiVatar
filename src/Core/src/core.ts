@@ -2291,7 +2291,9 @@ export class Core {
       case 'mac.brief': {
         if (this.kindOfSocket(ws) !== 'discord') break;
         const recent = this.memory.history('', 10).reverse().map(h => ({ who: h.who, text: h.text.slice(0, 600) }));
-        this.send(ws, { t: 'mac.brief', id: String(m.id ?? '').slice(0, 40), prompt: buildMacPrompt(this.memory.profile(), this.memory.learned()), facts: this.memory.list(400).map(f => f.text), recent });
+        // M5: and the conversation further back, so "what did we talk about" works from the Mac too.
+        const talk = this.memory.history('', 400).reverse().map(h => ({ who: h.who, text: h.text.slice(0, 400), ts: h.ts }));
+        this.send(ws, { t: 'mac.brief', id: String(m.id ?? '').slice(0, 40), prompt: buildMacPrompt(this.memory.profile(), this.memory.learned()), facts: this.memory.list(400).map(f => f.text), recent, talk });
         break;
       }
       // M4: what he said to the Mac, and asked it to remember, while this PC was off.
@@ -2300,6 +2302,7 @@ export class Core {
         let said = 0, kept = 0;
         for (const h of m.items.slice(0, 500) as any[]) {
           if (h?.kind === 'remember' && typeof h.text === 'string') { this.memory.remember(h.text.slice(0, 500), 'mac'); kept++; }
+          else if (h?.kind === 'forget' && typeof h.text === 'string') { this.memory.forget(h.text.slice(0, 300)); kept++; }
           else if (h?.kind === 'turn' && typeof h.user === 'string' && typeof h.aang === 'string') { this.memory.saveTurn(h.user.slice(0, 4000), h.aang.slice(0, 4000), 'mac'); said++; }
         }
         console.log(`mac: took ${said} exchange(s) and ${kept} thing(s) to remember from the Mac`);

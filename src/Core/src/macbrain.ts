@@ -33,7 +33,7 @@ import type { Gateway, Incoming } from './discord.ts';
 export const HOLD_MS = 45_000;
 /** The channels the Mac answers in. The rest wait for the PC. */
 const ANSWERS_IN = new Set(['aang', 'capture', 'lists']);
-const TOOLS = ['remember', 'search_memory', 'look_up_web', 'make_file', 'save_for_shadow'];
+const TOOLS = ['remember', 'forget', 'search_memory', 'what_we_talked_about', 'look_up_web', 'make_file', 'save_for_shadow'];
 export const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 
 /** What the PC tells the Mac, every ten minutes and after a list change, so the Mac is ready the moment it goes. */
@@ -46,6 +46,8 @@ export interface MacBrief {
   facts: string[];
   /** the last few lines of conversation, oldest first */
   recent: { who: 'you' | 'Aang'; text: string }[];
+  /** M5: the conversation further back, for "what did we talk about", oldest first */
+  talk?: { who: 'you' | 'Aang'; text: string; ts: string }[];
   grocery: ListState | null;
   at: number;
 }
@@ -54,6 +56,7 @@ export interface MacBrief {
 export type Handled =
   | { kind: 'turn'; user: string; aang: string; at: number }
   | { kind: 'remember'; text: string; at: number }
+  | { kind: 'forget'; text: string; at: number }
   | { kind: 'list'; text: string; at: number }
   | { kind: 'capture'; text: string; at: number }
   | { kind: 'later'; text: string; at: number };
@@ -73,6 +76,7 @@ export function checkBrief(x: any): MacBrief | null {
     ownerId: x.ownerId, listen, prompt: str(x.prompt, 60_000),
     facts: Array.isArray(x.facts) ? x.facts.slice(0, 600).map((f: unknown) => str(f, 500)) : [],
     recent: Array.isArray(x.recent) ? x.recent.slice(-12).map((r: any) => ({ who: r?.who === 'you' ? 'you' as const : 'Aang' as const, text: str(r?.text, 600) })) : [],
+    talk: Array.isArray(x.talk) ? x.talk.slice(-400).map((r: any) => ({ who: r?.who === 'you' ? 'you' as const : 'Aang' as const, text: str(r?.text, 400), ts: str(r?.ts, 30) })) : [],
     grocery, at: Number(x.at) || Date.now(),
   };
 }
@@ -123,7 +127,8 @@ export const chromeRender: Render = async (kind, html) => {
 const MAC_SITUATION = `<right_now>
 His Shadow PC is off, so you are answering from his MacBook, in Discord. Here you have exactly these tools:
 - remember: save something he wants kept. It is merged into the PC's memory when the PC is back.
-- search_memory: look through what you know about him.
+- search_memory: look through what you know about him. forget: drop something he asks you to forget or corrects.
+- what_we_talked_about: search what you two said before.
 - look_up_web: one quick lookup on the web per message.
 - make_file: make a PDF or a picture from HTML you write (simple, self-contained HTML and CSS, no scripts, no
   outside images). It is attached to your reply.
@@ -262,6 +267,24 @@ export class MacBrain {
     this.did({ kind: 'remember', text: t, at: Date.now() });
     return 'Saved. It is merged into the PC\'s memory when the PC is back.';
   }
+  /** M5: forgotten here at once (it stops being used), and on the PC when it is back. */
+  forget(what: string): string {
+    const t = what.trim().toLowerCase().slice(0, 300);
+    if (!t) return 'Nothing to forget.';
+    const gone = (f: string) => f.toLowerCase().includes(t);
+    const was = [...this.remembered, ...(this.brief?.facts ?? [])].filter(gone);
+    if (!was.length) return 'Nothing in his memory matches that.';
+    this.remembered = this.remembered.filter(f => !gone(f));
+    if (this.brief) this.brief.facts = this.brief.facts.filter(f => !gone(f));
+    this.did({ kind: 'forget', text: t, at: Date.now() });
+    return `Forgot: ${was.join('; ')}. The PC forgets it too when it is back.`;
+  }
+  /** M5: what they talked about, from the PC's conversation (the last few hundred lines). */
+  pastTalk(q: string): string {
+    const talk = this.brief?.talk ?? [];
+    const hits = searchFacts(talk.map((r, n) => `${n}|${r.text}`), q, 8).map(h => talk[Number(h.slice(0, h.indexOf('|')))]!);
+    return hits.length ? hits.map(r => `${r.ts.slice(0, 10)} ${r.who}: ${r.text}`).join('\n') : 'Nothing in the conversation matches that.';
+  }
   searchMemory(q: string): string {
     const hits = searchFacts([...this.remembered, ...(this.brief?.facts ?? [])], q);
     return hits.length ? hits.map(h => '- ' + h).join('\n') : 'Nothing in his memory matches that.';
@@ -310,6 +333,8 @@ async function claudeAnswer(brain: MacBrain, text: string): Promise<{ text: stri
     tools: [
       tool('remember', 'Save something Joshua wants kept: a fact about him, his plans, how he likes things.', { fact: z.string() }, async ({ fact }) => ok(brain.remember(fact))),
       tool('search_memory', 'Look through what you know about Joshua.', { query: z.string() }, async ({ query: q }) => ok(brain.searchMemory(q))),
+      tool('forget', 'Forget something about Joshua when he asks, or when he corrects it (then remember the new version).', { what: z.string().describe('words from the thing to forget') }, async ({ what }) => ok(brain.forget(what))),
+      tool('what_we_talked_about', 'Search what you and Joshua said to each other before, on any machine.', { query: z.string() }, async ({ query: q }) => ok(brain.pastTalk(q))),
       tool('look_up_web', 'One quick lookup on the web: anything current, or anything you are not sure of.', { question: z.string() }, async ({ question }) => {
         const no = brain.lookupAllowed(turn, question);
         if (no) return ok(no);

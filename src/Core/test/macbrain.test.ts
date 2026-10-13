@@ -154,3 +154,14 @@ test('M4: the front desk hands an untaken message to the Mac, keeps what it leav
     assert.equal(await fd.macBrief(BRIEF), true);
   } finally { fd?.close(); await desk.close(); }
 });
+
+test('M5: forgetting from the Mac stops it being used at once, and tells the PC; old talk can be searched', () => {
+  const { b } = brain();
+  b.setBrief({ ...BRIEF, talk: [{ who: 'you', text: 'we should try the ramen place on queen street', ts: '2026-10-10 18:00:00' }, { who: 'Aang', text: 'Noted, ramen on Queen.', ts: '2026-10-10 18:00:05' }] });
+  assert.match(b.forget('cat is called'), /Momo/);
+  assert.match(b.searchMemory('cat name'), /Nothing/);
+  assert.deepEqual(b.pending().map(h => h.kind), ['forget']);
+  assert.match(b.forget('a thing that is not there'), /Nothing/);
+  assert.match(b.pastTalk('ramen place'), /2026-10-10 you: we should try the ramen/);
+  assert.match(b.pastTalk('sushi'), /Nothing/);
+});

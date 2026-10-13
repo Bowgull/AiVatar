@@ -838,7 +838,7 @@ folded in where it fits, never skipped. **Where we are: 9.D, D4 built, waiting o
 1. **9.D Discord** (approved sheet 15): ~~D1 channels~~ ~~D2 buzz~~ ~~D3 drawn cards~~ ~~D4 speakers~~ (live after his Mac
    paste and Manage Webhooks) -> **D5** live Claude job cards -> **D6** home card -> **D7** #capture videos -> **D8** gaming
    feeds -> **D9** the wheel's Away (DONE). Then the old channels are deleted by HIS button.
-2. **M Aang on the MacBook:** ~~M1 listener fixes~~ ~~M2 heartbeat~~ ~~M3 front desk~~ ~~M4 Aang answers from the Mac (built; live after the Mac paste)~~ ->
+2. **M Aang on the MacBook:** ~~M1 listener fixes~~ ~~M2 heartbeat~~ ~~M3 front desk~~ ~~M4 Aang answers from the Mac~~ ~~M5 one memory~~ ->
    when Shadow is off -> **M5** one memory on both -> **M6** Aang's browser on the Mac, everything synced -> **M7** bubble,
    typing box, notes, timers on the Mac (mockups first) -> **M8** notices that follow him and jump to the right session
    (mockups first) -> **M9** the new pet for both machines (mockups first).
@@ -2301,6 +2301,12 @@ replies and threads wait for Shadow, with one line said once. Shadow briefs the 
 facts, last lines, the list). On waking, Shadow takes what the Mac did once: memory, conversation, list, notes, and
 saved requests started with a line. No final actions exist on the Mac yet (the PIN is 9.A1). **Live once he re-runs
 the Mac setup** (about 230 MB the first time, his OK).
+
+**M5 BUILT 2026-10-13:** his memory is small (15 facts, ~900 lines), so "one memory" is the PC's memory, copied
+whole to the Mac every 10 minutes and on every reconnect (facts, profile, the last 400 lines of conversation), with
+every change the Mac makes (remember, forget, what was said) applied on the PC once when it wakes. From the Mac he
+can now forget or correct, and ask what they talked about before. The PC stays the one source of truth; nothing is
+merged by guesswork. **Live once he re-runs the Mac setup.**
 
 **Order inside M:** M1 the listener findings closed; M2 the Mac knows whether Shadow is on (a heartbeat over
 Tailscale); M3 the Discord connection moves to the Mac; M4 the Mac brain (Claude Code with Aang's personality and a
