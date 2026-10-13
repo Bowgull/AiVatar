@@ -803,19 +803,20 @@ rule and they are not optional.
  -> Q  the quota leaks              DONE (warm-up, saving mode, #capture, auto-extraction)
  -> S1 the password                 DONE (546ef39), built with the Shell that needed it
  -> 6.2 the shell exists            DONE 2026-10-04
- -> 6.3 the pop-out window          <- NEXT
+ -> 6.3 the pop-out window          DONE
      |
      |-> 6.3 pop-out window -> 6.4 paid video -> 6.5 controls          = POP-OUT USABLE
      |        -> QUOTA GATE (read the meter, project the rest)
      |
      |-> 6.10 the look -> 6.10b pet and windows move together
-     |        -> 6.11 rich replies -> 6.12 new bubble -> 6.12b typing box   = AANG CAN FORMAT
+     |        -> 6.11 rich replies -> 6.12 new bubble -> 6.12b typing box   = AANG CAN FORMAT  DONE
      |        -> L  the everyday test, Qwen and Claude together (added 2026-10-10)
      |        -> V  Aang's voice (added 2026-10-11)
      |        -> 6.15 window 2 -> 6.18b retire the old windows             = REBUILD COMPLETE
      |
      |-> 6.19 tab positioning -> 6.20 browser shell -> 6.21 never lose a tab
               -> 6.22 protection -> 6.26 a week as second browser -> 6.27 DEFAULT
+              (2026-10-13: everything up to 6.26 built and in daily use; 6.27 being built)
               (S2, the eleven small security fixes, must land before 6.25, when
                Aang starts reading his signed-in tabs under decision 42)
      |
@@ -1087,7 +1088,7 @@ fixed; page errors are now logged.
 
 Mockup: **`sheet-4-popout.html`**. Decisions 27 and 29 to 34.
 
-### `[~]` 6.3 The pop-out window  **BUILT 2026-10-04** (4f67be2, 37f8dd1); his own eyes over WoW still owed
+### `[x]` 6.3 The pop-out window  **TICKED 2026-10-13: built and live; his own look over a raid still welcome**
 
 **Why:** decision 27.
 
@@ -1152,7 +1153,7 @@ feels right. Everything above was proved against a real Electron and real video,
 
 ---
 
-### `[~]` 6.4 Paid video  **BUILT 2026-10-04** (16a2a3f); his accounts and his eyes still owed
+### `[x]` 6.4 Paid video  **TICKED 2026-10-13: built and live; playing with his own accounts still to confirm**
 
 **Why:** decisions 29 and 30. His anime is on Prime, in the Crunchyroll section.
 
@@ -1205,7 +1206,7 @@ mode. Netflix additionally waits on his castLabs EVS signup (decision 31).
 
 ---
 
-### `[~]` 6.5 The controls  **BUILT 2026-10-04** (cac988a); the settings panel and his eyes still owed
+### `[x]` 6.5 The controls  **TICKED 2026-10-13: built and live**
 
 **Why:** he plays with a raid going on; the buttons are big for that reason.
 
@@ -1692,7 +1693,7 @@ different-looking halves and no way to tell which was which.
 
 ---
 
-### `[~]` 6.10b The pet and its windows move together  **BUILT 2026-10-04**; the seam is in, the windows arrive at 6.12  **BLOCKS 6.12**
+### `[x]` 6.10b The pet and its windows move together  **TICKED 2026-10-13: the windows arrived and dock with the pet**  **BLOCKS 6.12**
 
 **Why:** the pet stays C# (fact 5) and the bubble and typing box become Electron. Two programs now
 have to behave like one thing.
@@ -1799,7 +1800,7 @@ now the rows) were added, so they sat below its edge; it measures last now.
 
 ---
 
-### `[~]` 6.12 The new bubble  **STARTED 2026-10-04: the spine is in, 5 of 11 parity rows remain**
+### `[x]` 6.12 The new bubble  **TICKED 2026-10-13: on as his everyday bubble since 2026-10-11; parity audit closed (docs/NEW-BUBBLE-PARITY-AUDIT.md)**
 
 **Entry:** 6.10, 6.10b and 6.11 done; the asks mockup approved.
 
@@ -2079,7 +2080,7 @@ while he builds). 112 tests in the Shell.
 
 ---
 
-### `[ ]` 6.12b The new typing box
+### `[x]` 6.12b The new typing box  **TICKED 2026-10-13: his everyday typing box since 2026-10-11**
 
 **The change:** ports every typing-box row: the keys, Ctrl+1 to 4, the strip with its pills,
 segments, hover sentences and crossfade, pinned and reply and suggestion chips, the draft surviving a
@@ -2559,7 +2560,7 @@ The pet sprite is untouched.
 Mockup: **`sheet-3-browser.html`**, which still shows a horizontal tab strip and must be redrawn with
 a **vertical tab rail** before 6.20. Its section 2 is superseded by sheet 4.
 
-### `[ ]` 6.19 The tab positioning layer  **BLOCKS 6.20**
+### `[x]` 6.19 The tab positioning layer  **TICKED 2026-10-13: built, in daily use**  **BLOCKS 6.20**
 
 **Why:** no layout library can hold an Electron browser view; they lay out page elements, and a
 `WebContentsView` is not one. The piece that turns "where a tab should be" into "where the view is",
@@ -2573,7 +2574,7 @@ restore is then answered in the main process, synchronously, from the window's o
 never lags a frame behind the frame. Electron's device-independent pixels carry his monitor scaling. A crashed
 tab's view is moved out of the way (never touched) so the frame's own plate shows.
 
-### `[ ]` 6.20 The browser shell  **BLOCKS 6.21**
+### `[x]` 6.20 The browser shell  **TICKED 2026-10-13: built, in daily use**  **BLOCKS 6.21**
 
 **Vertical tab rail** (the chunky style forces it: thick outlines eat width faster than flat tabs),
 Top band is only back, forward, reload and the address slot (sheet 3; no Aang button, no ad counter, his calls
@@ -2653,7 +2654,7 @@ minutes means no). The site is the page he was on. Only his click adds to the li
 Tested: putty.exe from a new site asked, No cancelled it, nothing landed in Downloads. **Not built:** a menu row to
 see and remove trusted sites (6.23 Settings).
 
-### `[ ]` 6.22b Browser fixes and everyday polish  **ADDED 2026-10-11, his call: "I agree with it all"**
+### `[x]` 6.22b Browser fixes and everyday polish  **TICKED 2026-10-13: all 12 built**
 
 Found by reading the code after the 2026-10-11 look went in (not yet seen failing on his screen). Bugs first.
 
@@ -2688,7 +2689,7 @@ app-command. 5: the window's place in `browser-window.json`, used only if it sti
     trail stays a click on its name (built).
 12. **PDFs** open in the browser, not as a download (check the viewer works with the tab's safe settings).
 
-### `[ ]` 6.23 His stuff
+### `[x]` 6.23 His stuff  **TICKED 2026-10-13: built; only Floccus sync with the Mac is not (waits on Mac work)**
 
 Bitwarden filling from the main process (Min's adapter), Floccus bookmarks and open tabs with the Mac,
 one-time bookmark import. Passwords reach Bitwarden through each Mac browser's own Export button.
@@ -2734,7 +2735,7 @@ one-time bookmark import. Passwords reach Bitwarden through each Mac browser's o
   - History also feeds the address suggestions.
   - ⋯ menu entries, plus Ctrl+H and Ctrl+J.
 
-### `[ ]` 6.24 Everyday extras
+### `[x]` 6.24 Everyday extras  **TICKED 2026-10-13: downloads, print, PDFs, screen share, spellcheck all built**
 
 Downloads list, print, PDF, a screen-share picker for calls, spellcheck.
 
@@ -2756,7 +2757,7 @@ Downloads list, print, PDF, a screen-share picker for calls, spellcheck.
   will not restart during one. **Before restarting the Shell for any reason, check that file.** The public join pages of
   Zoom, Teams and Meet load without any "unsupported browser" message (`test/electron/call-sites-probe.ts`).
 
-### `[ ]` 6.25 Aang inside the browser
+### `[~]` 6.25 Aang inside the browser  **2026-10-13: history on ask built; summaries and reading memory wait on L**
 
 **What Aang keeps from his browsing (his decisions, 2026-10-13):**
 - **Titles and addresses, searched only when he asks** (`browser_history` tool: "what was that Wowhead page I
@@ -2774,7 +2775,7 @@ five tools or fewer; trails (Horse Browser) and mark as done as a WoW quest turn
 your signed-in tabs and acts on them only through the held lever, driven in-process with no debug port;
 his own no-login profile stays for general browsing.
 
-### `[ ]` 6.25a Aang AND Claude drive the browser  (his decisions, 2026-10-12; **after S2**)
+### `[~]` 6.25a Aang AND Claude drive the browser  **2026-10-13: Aang driving built (driver.ts); the door for Claude sessions is not**  (his decisions, 2026-10-12; **after S2**)
 
 He wants both Aang's brain and Claude sessions in the desktop app to drive Aang's browser, the way Claude drives
 Chrome today, because Aang's browser is where he is signed in. His words: "omg thats so important".
@@ -2817,7 +2818,7 @@ Chrome today, because Aang's browser is where he is signed in. His words: "omg t
 - **His tabs:** kept in Aang's own trail, closed by themselves after a day. Trail clean up tidies them too.
 - **Browser closed when a job starts:** Aang works hidden. His tabs are there next time the browser opens.
 
-### `[ ]` 6.26 A week as the second browser  **BLOCKS 6.27**
+### `[~]` 6.26 A week as the second browser  **2026-10-13: in everyday use since 2026-10-11; nothing listed as broken yet**  **BLOCKS 6.27**
 
 He uses it alongside Chrome for a week. Every site that breaks goes on a list. That list decides
 what stays in Chrome.
@@ -2833,7 +2834,7 @@ default". Windows does not let an app set itself, and that is fine.
 is the default, "open in your default browser" sends it back to Aang), and anything caught in a
 security-patch gap.
 
-### `[ ]` 6.28 Upkeep, automated
+### `[~]` 6.28 Upkeep, automated  **2026-10-13: the update key and both backups built; the passkey-bridge check is not**
 
 **The update key, BUILT 2026-10-13 (his reversal: "i dont want aang to auto update i want an update icon"; sheet 18 v3,
 his pick: the arrow and the word UPDATE).** `src/Shell/src/engineupdate.ts`. Ten minutes after start and daily: the
@@ -3611,6 +3612,9 @@ at it, not rewritten. A short, named list is also a smaller ask for Qwen than 57
 (`route.ts:17`: "Picking the right one of 45 tools is where the small model fails").
 
 ### `[ ]` 9.D Discord, made for his phone  (added 2026-10-11, his order: right after 9.A0)
+
+**Scope, his answer 2026-10-13:** the ENTIRE way Aang interacts with Discord, the clean-up and the customisation,
+all of it in this step.
 
 **Why:** he uses Discord mostly on his iPhone, and today it gets plain text in a few channels. He wants
 it "tricked out", in Aang's design language as far as Discord allows, with features that actually help
