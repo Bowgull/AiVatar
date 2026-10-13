@@ -34,9 +34,10 @@ const check = (what: string, ok: boolean, d = '') => { console.log(`${ok ? 'PASS
 
 app.whenReady().then(async () => {
   // A page that keeps changing, like a stream.
-  const srv = http.createServer((_q, r) => r.writeHead(200, { 'Content-Type': 'text/html' }).end('<!doctype html><title>Live</title><body style="margin:0;background:#123"><div id=n style="font:80px sans-serif;color:#fff">0</div><script>let i=0;setInterval(()=>n.textContent=++i,50)</script>'));
+  const srv = http.createServer((_q, r) => _q.url === '/slow' ? setTimeout(() => r.writeHead(200, { 'Content-Type': 'text/html' }).end('<!doctype html><title>Slow</title><body style="background:#432">slow page</body>'), 900) : r.writeHead(200, { 'Content-Type': 'text/html' }).end('<!doctype html><title>Live</title><body style="margin:0;background:#123"><div id=n style="font:80px sans-serif;color:#fff">0</div><script>let i=0;setInterval(()=>n.textContent=++i,50)</script>'));
   await new Promise<void>(r => srv.listen(0, '127.0.0.1', () => r()));
   const live = `http://127.0.0.1:${(srv.address() as any).port}/`;
+  const slow = `http://127.0.0.1:${(srv.address() as any).port}/slow`;
   const pages = await servePages(path.join(HERE, '..', '..', 'pages'));
   const b = new AangBrowser({ origin: pages.origin, stateDir: state, preloadPath: path.join(HERE, '..', '..', 'src', 'preload.cjs'),
     tabPreloadPath: path.join(HERE, '..', '..', 'src', 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, '..', '..', 'src', 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, '..', '..', 'src', 'thingspreload.cjs') });
@@ -65,6 +66,19 @@ app.whenReady().then(async () => {
   await wait(300);
   check('it puts away', tray.getVisible() === false);
 
+  // A new tab (his ask, 2026-10-13): the list stays open, and the page he was on stays until the new one fades in;
+  // never a moment with no page at all.
+  b.tray(true, { x: 42, y: 62 });
+  await wait(800);
+  const old = any.cur();
+  const seen: string[] = [];
+  b.newTab(slow);
+  const fresh = any.cur();
+  for (let i = 0; i < 100; i++) { seen.push(`${old.view?.getVisible() ? 'A' : '-'}${fresh.view?.getVisible() ? 'B' : '-'}`); await wait(20); }
+  check('never a blank frame while the new tab opens', !seen.includes('--'), [...new Set(seen)].join(' '));
+  check('the new tab ends up in front', fresh.view?.getVisible() === true && !old.view?.getVisible());
+  check('the list is still open after a new tab', any.trayV.getVisible() === true);
+  b.tray(false);
   // A paid site on the only tab: it goes to the paid-video window, and the browser stays open.
   let paid = '';
   b.onPaid = (u) => { paid = u; return true; };
@@ -72,7 +86,7 @@ app.whenReady().then(async () => {
   await wait(2500);
   check('Prime went to the paid-video window', paid.startsWith('https://www.primevideo.com'));
   check('the browser window is still open', Boolean(any.win && !any.win.isDestroyed()));
-  check('its tab went back to the home page', any.tabs.length === 1 && String(any.cur()?.url ?? '').startsWith(live), any.cur()?.url);
+  check('its tab stays where it was (nothing loads there)', !String(any.cur()?.url ?? '').includes('primevideo'), any.cur()?.url);
 
   b.closeAll(); srv.close(); pages.close();
   console.log(bad ? `${bad} failed` : 'all passed');
