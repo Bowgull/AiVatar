@@ -18,6 +18,7 @@ import { InputBox } from './input.ts';
 import { Snipper } from './snip.ts';
 import { AangBrowser } from './browser.ts';
 import { EngineUpdates } from './engineupdate.ts';
+import { CardRenderer } from './cardrender.ts';
 import { Wheel } from './wheelwin.ts';
 import { NoteWindows } from './notewin.ts';
 import type { NoteData } from './notewin.ts';
@@ -295,6 +296,14 @@ const link = new CoreLink({
     if (m.t === 'snip') { void snipper?.start(); return; }
     if (m.t === 'browser') { aangBrowser?.open(); return; }
     // 6.25a: a driving step from the brain; the answer goes back with the same id.
+    if (m.t === 'drive' && Number.isInteger(m.id) && m.op === 'card') {
+      // 9.D D3: a card Aang draws for Discord, rendered off screen. Needs no browser window.
+      const id = Number(m.id), a = (m.a && typeof m.a === 'object') ? m.a as Record<string, unknown> : {};
+      if (!pages) { link?.send({ t: 'drive.result', id, ok: false, error: 'the pages are not ready' }); return; }
+      cards ??= new CardRenderer(pages.origin);
+      void cards.render(String(a.kind ?? ''), a.data).then((r) => link?.send({ t: 'drive.result', id, ...r }));
+      return;
+    }
     if (m.t === 'drive' && Number.isInteger(m.id) && typeof m.op === 'string') {
       const id = Number(m.id);
       if (!aangBrowser) { link?.send({ t: 'drive.result', id, ok: false, error: 'the browser is not running' }); return; }
@@ -1299,6 +1308,8 @@ let snipper: Snipper | null = null;
 /** 6.19/6.20: Aang's browser, made when the pages are being served. */
 let aangBrowser: AangBrowser | null = null;
 let engineUpdates: EngineUpdates | null = null;
+/** 9.D D3: draws the cards Aang posts to Discord. Made on first use. */
+let cards: CardRenderer | null = null;
 /** The pet's last answer about its switches, so the browser's own switch can be shown beside them. */
 let lastSettings: Record<string, unknown> | null = null;
 const snips: { file: string; name: string }[] = [];

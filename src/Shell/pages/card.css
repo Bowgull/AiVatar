@@ -1,0 +1,44 @@
+/* 9.D D3: the cards Aang draws. Wood is ALWAYS the browser's pixel-painted wood (his rule, 2026-10-13: "no more flat
+   browns"); parchment, the dark outline, Silkscreen plaques and Figtree text are sheet 15's. Drawn at 2x for phones. */
+@font-face{font-family:Figtree;src:url(fonts/Figtree.woff2) format('woff2');font-weight:300 900}
+@font-face{font-family:Silkscreen;src:url(fonts/Silkscreen-Regular.woff2) format('woff2')}
+html,body{margin:0;background:transparent}
+body{font-family:Figtree,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+#card{display:inline-block;padding:2px}
+
+.parch{position:relative;width:340px;box-sizing:border-box;border-radius:9px;border:3px solid #120A05;padding:11px 13px 13px;
+  background:linear-gradient(180deg,#F6E6C6 0%,#ECD5A8 45%,#DEC28C 100%);
+  box-shadow:inset 0 3px 0 rgba(255,255,255,.55),inset 0 -4px 0 rgba(150,110,60,.35),0 3px 0 #120A05}
+.row{display:flex;gap:10px}
+.col{display:flex;flex-direction:column;gap:7px;flex:1;min-width:0}
+.plaque{align-self:flex-start;font:400 10px Silkscreen,monospace;letter-spacing:1px;color:#FFC43C;background:#1A0F09;
+  border:2px solid #120A05;border-radius:5px;padding:3px 7px;box-shadow:inset 0 2px 0 rgba(0,0,0,.6)}
+.plaque.warn{color:#fff;background:#C95E28;box-shadow:none}
+.plaque.done{color:#1d3a24;background:#78E696;box-shadow:none}
+.head{font-size:17px;font-weight:800;color:#2E2216;line-height:1.2;overflow-wrap:anywhere}
+.sub{font-size:13px;font-weight:600;color:#5A4834;line-height:1.35;overflow-wrap:anywhere}
+.text{font-size:13.5px;font-weight:500;color:#5A4834;line-height:1.4;overflow-wrap:anywhere}
+.bars{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:4px}
+.bars i{height:9px;border-radius:2px;border:1.5px solid #120A05;background:#C9B286}
+.bars i.done{background:#78E696}
+.bars i.now{background:#FFC43C}
+.sprite{width:72px;height:72px;image-rendering:pixelated;align-self:flex-end;flex:0 0 auto}
+.drawn{position:absolute;right:7px;top:5px;font:400 7.5px Silkscreen,monospace;color:#8a6a2a}
+
+/* the home card: a panel of pixel-painted wood, the same as the browser's band and tray */
+.wood{position:relative;width:340px;box-sizing:border-box;border-radius:9px;border:3px solid #120A05;padding:9px;
+  background:url(art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated;
+  box-shadow:inset 0 3px 0 rgba(255,220,170,.18),inset 0 -3px 0 rgba(0,0,0,.45),0 3px 0 #120A05}
+.wood .top{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.wood .top img{width:28px;height:28px;image-rendering:pixelated}
+.wood .top b{font:400 13px Silkscreen,monospace;color:#FFC43C;letter-spacing:1px;flex:1;text-shadow:1px 1px 0 #000}
+.wood .top small{font-size:11px;font-weight:700;color:#E6D2B0;text-shadow:1px 1px 0 #000}
+.tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;image-rendering:auto}
+.tile{background:linear-gradient(180deg,#F6E6C6,#DEC28C);border:2.5px solid #120A05;border-radius:7px;padding:6px 8px}
+.tile .k{font:400 8.5px Silkscreen,monospace;color:#8a6a2a}
+.tile .v{font-size:16px;font-weight:800;color:#2E2216}
+.tile .v.warn{color:#C95E28}
+.tile .v.good{color:#2f7a4a}
+.tile .bars{margin-top:4px}
+.tile .bars i{height:7px;border-width:1px}
+.wood .drawn{top:auto;bottom:3px;right:9px;color:#C9A878;text-shadow:1px 1px 0 #000}

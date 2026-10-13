@@ -2128,6 +2128,13 @@ export class Core {
       case 'panel': this.send(ws, this.panelData()); break;
       // 9.A0: only his own clients reach this socket (the S1 lock); each action still asks, as it does for the model.
       case 'action.list': this.send(ws, { t: 'action.list', actions: this.registry.list() }); break;
+      // 9.D D3: Discord asks for a card Aang draws; the Shell paints it, the picture goes back to Discord only.
+      case 'card.draw': {
+        const id = String(m.id ?? '').slice(0, 40);
+        void this.requestDrive('card', { kind: String(m.kind ?? ''), data: m.data ?? {} }, 15_000)
+          .then(r => this.send(ws, { t: 'card.png', id, ok: r.ok === true && typeof r.png === 'string', ...(typeof r.png === 'string' ? { png: r.png } : {}), ...(r.error ? { error: String(r.error) } : {}) }));
+        break;
+      }
       case 'action.run': {
         const id = String(m.id ?? '').slice(0, 80);
         void this.registry.run(String(m.name ?? ''), m.args ?? {}).then(r => this.send(ws, { t: 'action.result', id, ...r }));

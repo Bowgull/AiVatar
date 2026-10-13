@@ -32,6 +32,8 @@ export interface OutEmbed {
   title?: string; description?: string; /** decimal, e.g. 0x57F287 */ color?: number;
   fields?: { name: string; value: string; inline?: boolean }[];
   footer?: string;
+  /** 9.D D3: a picture inside the card, e.g. 'attachment://card.png' (the file goes in OutMsg.files) */
+  image?: string;
 }
 export interface OutMsg { content?: string; silent?: boolean;
   /** 9.D D2: may buzz even outside the green channels (a finished Claude job's post). Rare on purpose. */
@@ -79,6 +81,8 @@ export interface Gateway {
 }
 
 export interface CoreLink {
+  /** 9.D D3: a card Aang draws, as a PNG; null when it could not be drawn. Optional: without it, plain text. */
+  drawCard?(kind: 'job' | 'needs' | 'home', data: unknown): Promise<Buffer | null>;
   submit(id: string, text: string, opts?: { ephemeral?: boolean; mode?: 'auto' | 'smart' }): void;
   permission(id: string, allow: boolean): void;
   /** Type this into a new chat in the Claude app on the MacBook. Answered by a mac.run.reply event, never a
@@ -108,6 +112,8 @@ export interface State { ownerId: string | null; channels: Record<string, string
   old?: { name: string; id: string; into: string }[]; oldCats?: { name: string; id: string }[]; moved?: boolean;
   /** 9.D: job cards that are their own post in the jobs forum (post id), so their tags follow the job */
   jobPosts?: string[];
+  /** 9.D: the one message in home that offers deleting the old channels */
+  oldOffer?: string;
   /** 2026-10-13: the one-time fix for the empty channel copies has run */
   fixedCopies?: boolean; deckId?: string; recipes?: Record<string, string[]>; /** email draft id -> where its card is, so a change edits the card in place */ mail?: Record<string, { c: string; m: string }>; /** Claude job folder -> where its last update is, so a reply there continues that job */ jobs?: Record<string, { c: string; m: string }> }
 
@@ -204,7 +210,11 @@ export class DiscordAdapter {
       const moved = await this.moveOld().catch(e => { this.log('discord: moving the old channels failed: ' + (e as Error).message); return null; });
       const home = this.state.channels['home'];
       if ((moved || (this.state.old ?? []).length) && home) {
-        await this.gw.send(home, { content: moved ?? `The old channels (${(this.state.old ?? []).map(o => '#' + o.name).join(', ')}) are still there.`, buttons: [{ id: 'old:delete', label: 'Delete the old channels', style: 'danger' }, { id: 'old:keep', label: 'Keep them for now', style: 'secondary' }], silent: true });
+        // Posted once; on later starts the same message is brought up to date, never posted again.
+        const offer: OutMsg = { content: moved ?? `The old channels (${(this.state.old ?? []).map(o => '#' + o.name).join(', ')}) are still there.`, buttons: [{ id: 'old:delete', label: 'Delete the old channels', style: 'danger' }, { id: 'old:keep', label: 'Keep them for now', style: 'secondary' }], silent: true };
+        let kept = false;
+        if (this.state.oldOffer) { try { await this.gw.edit(home, this.state.oldOffer, offer); kept = true; } catch { /* it was deleted: post it again */ } }
+        if (!kept) { this.state.oldOffer = await this.gw.send(home, offer); this.save(); }
       }
       // Only what changes after this start is news.
       this.lastShortlist = this.opts.shortlistFile ? fileStamp(this.opts.shortlistFile) : 0;
@@ -256,6 +266,21 @@ export class DiscordAdapter {
     this.state.old = plan.old;
     this.state.oldCats = plan.oldCategories;
     return out;
+  }
+
+  /**
+   * 9.D D3: a message carrying a card Aang draws (sheet 15): the picture inside an embed with its accent strip, and the
+   * plain words kept as the message text, which is what his phone's notification shows. Without a picture (the Shell is
+   * not running), the same words go out on their own.
+   */
+  private async drawn(kind: 'job' | 'needs' | 'home', data: unknown, accent: number, msg: OutMsg): Promise<OutMsg> {
+    const png = await this.link.drawCard?.(kind, data).catch(() => null) ?? null;
+    if (!png) return msg;
+    return { ...msg, embed: { ...(msg.embed ?? {}), color: accent, image: 'attachment://card.png' }, files: [...(msg.files ?? []), { name: 'card.png', data: png }] };
+  }
+  private async post(channel: string, msg: OutMsg): Promise<string | null> {
+    const id = this.state.channels[channel]; if (!id) return null;
+    return this.gw.send(id, msg);
   }
 
   /** 9.D D2: may a message here buzz his phone? Only in the green channels. */
@@ -607,7 +632,8 @@ export class DiscordAdapter {
       if (e.status === 'applied') { if (post) await this.gw.send(post, { content: `Submitted: ${line}`, silent: true }); else await this.say('home', `Submitted: ${line}`, true); }
       else {
         if (post) await this.gw.send(post, { content: `Stuck: ${line}`, silent: true }); else await this.say('home', `Stuck: ${line}`, true);
-        await this.say('needs-you', `Need input on the job hunt: ${label}${at ? ' at ' + at : ''}. ${e.note || 'It stopped and needs you.'}`, false);
+        await this.post('needs-you', await this.drawn('needs', { title: `The job hunt is stuck: ${label}${at ? ' at ' + at : ''}`, text: e.note || 'It stopped and needs you.' }, 0xC95E28,
+          { content: `Need input on the job hunt: ${label}${at ? ' at ' + at : ''}. ${e.note || 'It stopped and needs you.'}`, silent: false }));
       }
     }
     if (news) this.jobs.save();

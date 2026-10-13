@@ -3789,6 +3789,12 @@ the connection) and 9.A0 (buttons call the action registry). **Build order:**
 - **D3 Cards Aang draws:** (his note 2026-10-13: the wood is the browser's PIXEL-PAINTED wood, band.png / tray.png, never
   flat browns like the sheet 15 home card) pictures rendered on Shadow in his look (parchment, wood, plaques, Silkscreen + Figtree,
   "DRAWN BY AANG"), attached to the card; accent strips; his sprite as the avatar.
+  **D3 BUILT 2026-10-13:** `pages/card.html|css|js` draws a card from JSON in its #fragment (text only, never markup):
+  `job` (plaque, headline, step bars, Aang), `needs` (NEEDS YOU) and `home` (on the browser's pixel-painted wood, his rule).
+  `Shell/src/cardrender.ts` renders it off screen at 2x with a see-through background; the brain asks through the
+  drive door (`card`), Discord through `card.draw` on its link; the picture goes inside the embed (`image`) with the
+  accent strip, and the plain words stay as the message text for the phone notification. Without the Shell, plain
+  text. First use: the job hunt's "stuck" post in needs-you. 8 renderer checks (cards-check.ts) + 589 brain tests.
 - **D4 Separate speakers:** Aang, Claude and Job Hunt through bot-owned webhooks (plain webhooks drop buttons).
 - **D5 One live card per Claude job** in #claude-jobs (board 2): step bar, files, Stop / Open on PC / What changed,
   edited in place; its questions in #needs-you with Allow once / No / Exact command; replying continues the session.
