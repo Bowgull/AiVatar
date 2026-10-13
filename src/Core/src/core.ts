@@ -37,7 +37,8 @@ import type { ActRunner } from './uia.ts';
 import { copyThing, deleteThing, emptyOldTrash, listFolder, makeFolder, moveThing } from './organise.ts';
 import type { Result as OrganiseResult } from './organise.ts';
 import type { Doers } from './tools.ts';
-import { TOOL_NAMES, QUICK_TOOLS, fetchDayWeather, QUICK_HIDDEN, BUILTIN_SHELL, BUILTIN_WRITE, PLAYWRIGHT_SERVER, SHELL_TOOLS, WEB_PROMPT, WEB_TOOLS, describeCall, describeForLog, isLauncher, makeToolServer, reachesNetwork, untypedAddresses } from './tools.ts';
+import { TOOL_NAMES, QUICK_TOOLS, fetchDayWeather, QUICK_HIDDEN, BUILTIN_SHELL, BUILTIN_WRITE, PLAYWRIGHT_SERVER, SHELL_TOOLS, WEB_PROMPT, WEB_TOOLS, describeCall, describeForLog, isLauncher, makeToolServer, makeTools, reachesNetwork, untypedAddresses } from './tools.ts';
+import { Actions } from './actions.ts';
 import { HookServer, HookTracker, isLoopback } from './hooks.ts';
 import { Reminders } from './reminders.ts';
 import { SessionStore } from './sessions.ts';
@@ -279,15 +280,25 @@ export class Core {
   /** Built fresh per lane: one in-process MCP server cannot serve two live queries. Sharing it made
    *  Aang's own tools fail with "the aang server failed to connect" the moment a second lane started. */
   private tools(forWorker = false) {
+    return makeToolServer(...this.toolArgs(forWorker));
+  }
+  private toolArgs(forWorker = false): Parameters<typeof makeTools> {
     const doers = this.doers();
-    return makeToolServer(
+    return [
       this.memory, this.hooks, this.reminders, q => this.lookUpWeb(q), this.activity,
       (what, withApp) => this.open(what, withApp), () => this.readClipboard(), cmd => this.run(cmd), () => this.readScreen(), () => this.lookAtScreen(),
       (task, where, name, kind) => this.startClaude(task, where, name, kind),
       // A job never starts more jobs, and its actions are recorded as its own.
       forWorker ? { ...doers, tasks: undefined, report: (tool, input, failed, text) => this.reportAction(tool, input, failed, text, true) } : doers,
-    );
+    ];
   }
+
+  /**
+   * 9.A0: the one list of everything Aang can do, for the bubble, Discord, the phone and Qwen. The same wrapped action
+   * objects the model calls, so every gate is the same. Built once, on first use.
+   */
+  private actionsCache: Actions | null = null;
+  get registry(): Actions { return this.actionsCache ??= new Actions(makeTools(...this.toolArgs())); }
 
   // ------------------------------------------------------------------ the background worker
 
@@ -2115,6 +2126,13 @@ export class Core {
       }
       case 'hush': this.send(ws, { t: 'hush.reply', text: this.hush(Number(m.minutes)) }); break;
       case 'panel': this.send(ws, this.panelData()); break;
+      // 9.A0: only his own clients reach this socket (the S1 lock); each action still asks, as it does for the model.
+      case 'action.list': this.send(ws, { t: 'action.list', actions: this.registry.list() }); break;
+      case 'action.run': {
+        const id = String(m.id ?? '').slice(0, 80);
+        void this.registry.run(String(m.name ?? ''), m.args ?? {}).then(r => this.send(ws, { t: 'action.result', id, ...r }));
+        break;
+      }
       case 'undo.last': {
         const r = this.undoLastThing();
         this.sendTo('desktop', { t: 'whisper', text: r.detail });
