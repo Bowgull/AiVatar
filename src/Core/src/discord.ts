@@ -10,6 +10,7 @@
 // never lost.
 import path from 'node:path';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { clock as videoClock, videoUrl } from './watchvideo.ts';
 import { writeFileAtomic } from './atomic.ts';
 import { Budget, LISTEN_CHANNELS, NEEDED, FORBIDDEN, chunkMessage, kindOf, newPairing, tryPair, planLayout, BUZZ_KEYS } from './discord-logic.ts';
 import type { Pairing } from './discord-logic.ts';
@@ -73,6 +74,8 @@ export interface Gateway {
   postsOf(forumId: string, limit: number): Promise<PostInfo[]>;
   /** Set a forum post's tags by name (tags the forum does not have are ignored). */
   setPostTags(postId: string, tags: string[]): Promise<void>;
+  /** 9.D D7: a thread on one of his messages; returns the thread's id. */
+  startThread?(channelId: string, messageId: string, name: string): Promise<string>;
   /** The bytes of an attachment he sent. */
   download(url: string): Promise<Buffer>;
   typing(channelId: string): Promise<void>;
@@ -89,8 +92,11 @@ export interface CoreLink {
   homeData?(): Promise<{ week: number | null; pace: string; running: number; waiting: string[] } | null>;
   stepAway?(): void;
   putOn?(words: string): void;
+  /** 9.D D7: watch a video, and add an idea to Aang's plan. Optional for older links. */
+  watchVideo?(url: string): Promise<any | null>;
+  addIdea?(text: string): void;
   /** 9.D D3: a card Aang draws, as a PNG; null when it could not be drawn. Optional: without it, plain text. */
-  drawCard?(kind: 'job' | 'needs' | 'home', data: unknown): Promise<Buffer | null>;
+  drawCard?(kind: 'job' | 'needs' | 'home' | 'watched', data: unknown): Promise<Buffer | null>;
   submit(id: string, text: string, opts?: { ephemeral?: boolean; mode?: 'auto' | 'smart' }): void;
   permission(id: string, allow: boolean): void;
   /** Type this into a new chat in the Claude app on the MacBook. Answered by a mac.run.reply event, never a
@@ -124,6 +130,8 @@ export interface State { ownerId: string | null; channels: Record<string, string
   oldOffer?: string;
   /** 9.D D5: each Claude job's own post in claude-jobs and its one live card, by the job's folder */
   claudePosts?: Record<string, { post: string; card: string; title: string; state: 'working' | 'waiting' | 'done' }>;
+  /** 9.D D7: videos he dropped in capture, by key: where its thread is and what Aang made of it */
+  videos?: Record<string, { url: string; thread: string; title: string; kind: string; shows: string }>;
   /** 9.D D6: the pinned home card in home */
   homeCard?: string;
   /** 9.D D6: "Put a show on" was pressed: his next words in aang are the show */
@@ -291,7 +299,7 @@ export class DiscordAdapter {
    * plain words kept as the message text, which is what his phone's notification shows. Without a picture (the Shell is
    * not running), the same words go out on their own.
    */
-  private async drawn(kind: 'job' | 'needs' | 'home', data: unknown, accent: number, msg: OutMsg): Promise<OutMsg> {
+  private async drawn(kind: 'job' | 'needs' | 'home' | 'watched', data: unknown, accent: number, msg: OutMsg): Promise<OutMsg> {
     const png = await this.link.drawCard?.(kind, data).catch(() => null) ?? null;
     if (!png) return msg;
     return { ...msg, embed: { ...(msg.embed ?? {}), color: accent, image: 'attachment://card.png' }, files: [...(msg.files ?? []), { name: 'card.png', data: png }] };
@@ -306,6 +314,39 @@ export class DiscordAdapter {
    * the job moves: working, waiting on him, done. Its tag follows (Working / Needs you / Done). A question also goes to
    * needs-you, which buzzes; "done" buzzes once, in the post. Anything he writes in the post goes to that job.
    */
+  /**
+   * 9.D D7 (sheet 15 board 3): a video in capture. In a thread on his message: "Watching it...", then a drawn card that
+   * says what it is, what it shows and what it could be useful for, with Add to Aang's plan / Just save it / Go deeper /
+   * Not useful. Replying in the thread steers Aang about it.
+   */
+  private async watchVideoIn(m: Incoming, url: string): Promise<void> {
+    let thread = m.channelId;
+    try { if (this.gw.startThread) thread = await this.gw.startThread(m.channelId, m.id, 'about this video'); } catch { /* answer in the channel */ }
+    await this.gw.send(thread, { content: 'Watching it...', silent: true });
+    const r = await this.link.watchVideo!(url);
+    if (!r || !r.ok) { await this.gw.send(thread, { content: `I could not watch that one: ${r?.why ?? 'the PC did not answer'}. The link is kept here.`, silent: true }); return; }
+    const d = r.d as { kind: string; title: string; shows: string; useful: { who: string; what: string }[]; best: number };
+    const len = r.seconds ? `${videoClock(r.seconds)}, ` : '';
+    const from = r.from === 'transcript' ? 'read from the transcript' : r.from === 'description' ? 'read from its description' : 'read from its caption';
+    const key = Buffer.from(url).toString('base64url').slice(-24);
+    const title = d.title || r.title || 'A video';
+    this.state.videos = { ...(this.state.videos ?? {}), [key]: { url, thread, title, kind: d.kind, shows: d.shows } };
+    const keys = Object.keys(this.state.videos); for (const k of keys.slice(0, Math.max(0, keys.length - 50))) delete this.state.videos[k];
+    this.save();
+    const words = `${title}: ${d.kind}. ${d.shows}`;
+    const msg = await this.drawn('watched', { meta: `${len}${from}`, title, kind: d.kind, shows: d.shows, useful: d.useful, best: d.best }, 0x966EC8, {
+      content: `${words.slice(0, 1500)}\n-# ${r.by === 'Qwen' ? 'Qwen read it on your PC, for free.' : 'Claude read it, because Qwen could not just now.'} Go deeper uses Claude and says the cost first.`,
+      silent: true,
+      buttons: [
+        { id: `vid:plan:${key}`, label: "Add to Aang's plan", style: 'primary' },
+        { id: `vid:save:${key}`, label: 'Just save it', style: 'secondary' },
+        { id: `vid:deep:${key}`, label: 'Go deeper', style: 'secondary' },
+        { id: `vid:bin:${key}`, label: 'Not useful', style: 'secondary' },
+      ],
+    });
+    await this.gw.send(thread, msg);
+  }
+
   private homeTimer: NodeJS.Timeout | null = null;
   /**
    * 9.D D6 (sheet 15 board 4): one card pinned at the top of home, drawn on the pixel wood, edited in place, never
@@ -480,6 +521,10 @@ export class DiscordAdapter {
     if (/^(stop|\/stop)$/i.test(text)) { this.link.stop(); await this.gw.send(m.channelId, { content: 'Stopped.' }); return; }
 
     if (key === 'drafts') { await this.draftReply(m, text); return; }
+    // 9.D D7: talking in a video's thread steers Aang about that video.
+    const vid = Object.values(this.state.videos ?? {}).find(v => v.thread === m.channelId);
+    if (vid) { this.ask('vt' + m.id, m.channelId, `About the video "${vid.title}" (${vid.url}), which I dropped in capture: ${text}`); return; }
+    if (key === 'capture' && videoUrl(text) && this.link.watchVideo) { await this.watchVideoIn(m, videoUrl(text)!); return; }
     if (key === 'aang' && this.state.putOnNext) {
       this.state.putOnNext = false; this.save();
       if (this.link.putOn) { this.link.putOn(text); await this.gw.send(m.channelId, { content: `Putting on ${text.slice(0, 100)}.` }); return; }
@@ -975,6 +1020,28 @@ export class DiscordAdapter {
 
   private async press(b: ButtonPress): Promise<void> {
     if (b.userId !== this.state.ownerId) { await b.ack('That is not yours to answer.'); return; }
+    const vb = /^vid:(plan|save|deep|go|no|bin):([\w-]+)$/.exec(b.customId);
+    if (vb) {
+      const v = this.state.videos?.[vb[2]!];
+      if (!v) { await b.ack('That video is no longer on the list.'); return; }
+      if (vb[1] === 'plan') { this.link.addIdea?.(`${v.title} (${v.kind}): ${v.shows} ${v.url}`); await b.ack("Added to Aang's plan as an idea for you to approve. Nothing gets built on its own."); return; }
+      if (vb[1] === 'save') {
+        const lib = this.state.channels['library'];
+        if (lib) await this.gw.createPost(lib, v.title, `${v.kind}. ${v.shows}\n${v.url}`, ['Video']);
+        await b.ack(lib ? 'Saved to 📚 library.' : 'There is no library to save it in.');
+        return;
+      }
+      if (vb[1] === 'deep') {
+        await b.keep();
+        await this.gw.send(b.channelId, { content: 'Going deeper uses Claude (Smart): about as much as one long chat, a small part of your week. Go?', buttons: [{ id: `vid:go:${vb[2]}`, label: 'Yes, go deeper', style: 'primary' }, { id: `vid:no:${vb[2]}`, label: 'No', style: 'secondary' }], silent: true });
+        return;
+      }
+      if (vb[1] === 'go') { await b.ack('Going deeper.'); this.ask('vd' + Date.now(), v.thread, `Go deeper on this video for me: ${v.url} ("${v.title}"). Use watch_video to read it, then tell me what is worth knowing or using.`, { mode: 'smart' }); return; }
+      if (vb[1] === 'no') { await b.ack('Okay, left as it is.'); return; }
+      delete this.state.videos![vb[2]!]; this.save();
+      await b.ack('Binned. Nothing kept.');
+      return;
+    }
     if (b.customId === 'home:waiting') {
       const d = await this.link.homeData?.() ?? null;
       await b.keep();

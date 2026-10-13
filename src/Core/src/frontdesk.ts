@@ -131,6 +131,7 @@ export async function startFrontDesk(o: FrontDeskOpts): Promise<{ close: () => P
       case 'editChannel': return o.gw.editChannel(s(0), a[1] as any);
       case 'deleteChannel': return o.gw.deleteChannel(s(0));
       case 'postsOf': return o.gw.postsOf(s(0), Math.max(1, Math.min(200, Number(a[1]) || 50)));
+      case 'startThread': if (!o.gw.startThread) throw new Error('no threads here'); return o.gw.startThread(s(0), s(1), s(2));
       case 'setPostTags': return o.gw.setPostTags(s(0), Array.isArray(a[1]) ? (a[1] as unknown[]).map(String).slice(0, 5) : []);
       case 'download': return Buffer.from(await o.gw.download(s(0))).toString('base64');
       case 'typing': return o.gw.typing(s(0));
