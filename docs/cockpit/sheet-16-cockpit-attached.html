@@ -339,6 +339,11 @@ body.smooth #box .hint{transition:opacity .2s}
 #box .strip,body.smooth #box .strip{background:linear-gradient(180deg,rgba(0,0,0,.28),rgba(0,0,0,.4)),url(art/tray.png) 0 64px/128px 256px;image-rendering:pixelated}
 .snipcard{background:linear-gradient(180deg,rgba(0,0,0,.35),rgba(0,0,0,.45)),url(art/tray.png) 0 0/128px 256px;image-rendering:pixelated}
 .snipcard .ptr{display:none}
+/* the field you type in: the same pixel wood, a shade darker and sunk in, cream text (his ask: no black or purple) */
+#box textarea,body.smooth #box textarea{background:linear-gradient(180deg,rgba(0,0,0,.22),rgba(0,0,0,.12)),url(art/tray.png) 0 128px/128px 256px;image-rendering:pixelated;color:#f6e9cc;border:2px solid rgba(0,0,0,.6);box-shadow:inset 0 3px 0 rgba(0,0,0,.45),inset 0 -2px 0 rgba(255,220,170,.12)}
+#box textarea::placeholder{color:#cbb489}
+body.smooth #box textarea:focus{box-shadow:inset 0 3px 0 rgba(0,0,0,.45),0 0 0 2px rgba(255,214,110,.55),0 0 10px rgba(255,214,110,.3)}
+#box .segs i:not(.on){background:rgba(0,0,0,.35)}
 .capped{overflow:hidden}
 </style>
 
