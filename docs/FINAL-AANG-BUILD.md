@@ -3691,7 +3691,7 @@ Everything open comes along, **one Discord forum post per project**. He can star
 phone. An unanswered decision re-pings **every 15 minutes**. Logins: Aang pings him to log in himself.
 Pause when he takes over; resume on "go" or 2 minutes idle. A welcome-back summary in the bubble.
 
-### `[ ]` 9.A0 One list of everything Aang can do  **BLOCKS the rest of 9.A**  (his yes, 2026-10-10)
+### `[x]` 9.A0 One list of everything Aang can do  **BUILT 2026-10-13**  **BLOCKS the rest of 9.A**  (his yes, 2026-10-10)
 
 **Why:** today the 57 tools are reachable only by a Claude model, and `discord.ts` has **no** tool
 access, so every action from Discord costs a whole Claude session. Two well-regarded projects
@@ -3702,6 +3702,13 @@ JSON channel and MCP) and coucou (`PillCatalog.swift` as the single source of tr
 phone and Qwen all call the same entries, through the same trust gate. The existing tools are pointed
 at it, not rewritten. A short, named list is also a smaller ask for Qwen than 57 full tool schemas
 (`route.ts:17`: "Picking the right one of 45 tools is where the small model fails").
+
+**BUILT 2026-10-13:** `tools.ts` `makeTools()` returns the action list already wrapped in its gates; the model's MCP
+server and the new registry (`actions.ts`) both use it, so nothing was rewritten and no path skips a check.
+`Core.registry` lists every action (name, label, description, JSON schema of its parameters) and runs one by name,
+checking parameters against its own schema first (unknown names, missing or extra parameters refused). His clients
+reach it over the socket (`action.list`, `action.run` -> `action.result`). 4 tests, including the gate: after old
+words come back, `remember` asks first and a no stops it. Next consumers: 9.D (Discord buttons), the bubble, Qwen.
 
 ### `[ ]` 9.D Discord, made for his phone  (added 2026-10-11, his order: right after 9.A0)
 
