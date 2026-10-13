@@ -2286,7 +2286,15 @@ export class Core {
       // 9.D D6: what the home card in Discord shows, and what "What's waiting" lists.
       case 'home.data': this.send(ws, { t: 'home.data', id: String(m.id ?? '').slice(0, 40), ...this.homeData() }); break;
       // 9.D D6: "Stepping away" from Discord. He is away until he touches the PC again (the pet says so then).
-      case 'away': this.atDesk = false; this.send(ws, { t: 'away.reply', text: 'Okay. Everything comes here until you are back at the PC.' }); break;
+      case 'away': {
+        // 9.D D9: from the wheel or from Discord. The pet is told, so the first touch of the PC after this brings him
+        // back; until then everything goes to Discord.
+        this.atDesk = false;
+        this.sendTo('desktop', { t: 'away.set' });
+        this.send(ws, { t: 'away.reply', text: 'Okay. Everything comes here until you are back at the PC.' });
+        if (this.kindOfSocket(ws) === 'desktop') this.sendTo('discord', { t: 'bubble', text: 'You stepped away. I am here; everything comes to Discord until you are back at the PC.', stream: false, proactive: true });
+        break;
+      }
       // 9.D D6: "Put a show on" from Discord: the same as saying "put X on".
       case 'puton': { const words = String(m.words ?? '').slice(0, 200).trim(); if (words) void this.putOn(words).then(r => this.send(ws, { t: 'puton.reply', text: r.detail })); break; }
       // 9.D D5: "Open on PC" on a Claude job's card: the Claude app comes forward where that job runs.

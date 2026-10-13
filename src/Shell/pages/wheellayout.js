@@ -22,7 +22,7 @@ export function layoutWheel(s) {
     const a = towards + spread / 2 - i * (spread / Math.max(1, s.n - 1));
     out.push({ x: s.cx + RADIUS * Math.cos(a), y: s.cy - RADIUS * Math.sin(a) });
   }
-  // Quiet always goes at the bottom end (his ask): the last disc is the lower end of the fan.
+  // Away (was Quiet) always goes at the bottom end (his ask): the last disc is the lower end of the fan.
   if (out.length > 1 && out[0].y > out[out.length - 1].y) out.reverse();
   // Slide the fan back on screen if any part of it is off.
   const left = Math.min(...out.map((p) => p.x - HALF)), right = Math.max(...out.map((p) => p.x + HALF));

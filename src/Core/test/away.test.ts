@@ -224,3 +224,20 @@ test('a reply to any other message is ordinary chat, as before', async () => {
   assert.equal(core.submits.length, 1);
   assert.equal(core.claudeReplies.length, 0);
 });
+
+test("9.D D9: the wheel's Away tells the pet and says so in Discord", async () => {
+  await withCore(48612, async (core, discord) => {
+    const pc = new WebSocket(`ws://127.0.0.1:${core.cfg.port}/body`);
+    const inbox: any[] = [];
+    pc.on('message', d => inbox.push(JSON.parse(String(d))));
+    await new Promise<void>(r => pc.once('open', () => r()));
+    pc.send(JSON.stringify({ t: 'hello', v: 1, client: 'desktop' }));
+    await wait(60);
+    pc.send(JSON.stringify({ t: 'away' }));
+    await wait(80);
+    pc.close();
+    assert.ok(inbox.some(m => m.t === 'away.set'), 'the pet is told he stepped away');
+    assert.equal(core.atDesk, false);
+    assert.ok(discord.inbox.some(m => m.t === 'bubble' && /stepped away/.test(m.text)), 'Discord hears it');
+  });
+});
