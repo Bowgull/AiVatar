@@ -147,9 +147,9 @@ app.whenReady().then(async () => {
       else if (m?.t === 'watch.open' && typeof m.url === 'string' && /^https:\/\//.test(m.url)) openPopRef?.(m.url);
       // His yes (2026-10-13): Claude may look at this browser's own window and its log, when it asks.
       else if (m?.t === 'diag.ask' && browser) {
-        void browser.look().then((l) => {
+        void Promise.all([browser.look(), popout.diag().catch(() => null)]).then(([l, pop]) => {
           let log = ''; try { log = readFileSync(path.join(app.getPath('userData'), 'aang.log'), 'utf8').split('\n').slice(-150).join('\n'); } catch { /* none */ }
-          if (s.readyState === WebSocket.OPEN) s.send(JSON.stringify({ t: 'diag.reply', id: String(m.id ?? ''), ...l, log, versions: { electron: process.versions.electron, macos: process.getSystemVersion?.() ?? '' } }));
+          if (s.readyState === WebSocket.OPEN) s.send(JSON.stringify({ t: 'diag.reply', id: String(m.id ?? ''), ...l, popout: pop, log, versions: { electron: process.versions.electron, macos: process.getSystemVersion?.() ?? '' } }));
         }).catch((e: Error) => console.error('aang: look: ' + e.message));
       }
     });
