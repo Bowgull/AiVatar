@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- Sheet 17: one sticky note on his screen. Drag it by its top, resize it from the corner, right-click for more. -->
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' data:;
+               font-src 'self'; style-src-attr 'unsafe-inline'; form-action 'none'; base-uri 'none'">
+<title>Note</title>
+<link rel="stylesheet" href="cockpit.css">
+<link rel="stylesheet" href="notefonts.css">
+<link rel="stylesheet" href="notepaper.css">
+<link rel="stylesheet" href="note.css">
+</head>
+<body>
+<div class="sticky paper" id="paper"></div>
+<div class="grab" id="grab" title="Drag"></div>
+<span class="grip" id="grip" title="Resize"></span>
+<span class="pintag">PINNED</span>
+<script src="note.js" type="module"></script>
+</body>
+</html>

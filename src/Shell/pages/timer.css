@@ -1,0 +1,40 @@
+/* Sheet 17's running timer (approved 2026-10-12): the hand-drawn hourglass on a small wood plate, +1 / pause /
+   stop floating under it on hover, see-through and pin on right-click. The window is larger than the plate so
+   the keys and the menu have room; everywhere else lets the mouse through to the game. */
+html,body{margin:0;background:transparent;overflow:hidden;font:500 14px var(--body);user-select:none}
+.tw{position:absolute;left:6px;top:6px;display:flex;align-items:center;gap:7px;padding:4px 9px 4px 6px;border:3px solid var(--outline);
+  border-radius:12px;background:linear-gradient(180deg,rgba(0,0,0,.15),rgba(0,0,0,.35)),url(art/browser/band.png) 0 0/128px 58px;
+  image-rendering:pixelated;box-shadow:0 4px 0 var(--outline),0 8px 14px rgba(0,0,0,.45);cursor:grab}
+.tw.held{cursor:grabbing}
+.hgl{display:block;filter:drop-shadow(2px 2px 0 rgba(0,0,0,.6))}
+#glass{display:block;line-height:0}
+.twr{display:flex;flex-direction:column;line-height:1.1}
+.twl{font:600 11px var(--display);color:#F1E4CC;text-shadow:1px 1px 0 #000;max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tmv{font:400 15px var(--label);color:var(--gold);letter-spacing:2px;text-shadow:2px 2px 0 #000}
+.tw.paused .tmv{opacity:.55}
+/* The keys hang under the plate. An invisible bridge fills the gap so moving down onto them never loses the
+   hover, they come in at once, and they wait half a second before going (his test, 2026-10-12: they faded in and
+   out with no rhythm and were hard to catch). */
+.tw::after{content:"";position:absolute;left:-6px;right:-6px;top:100%;height:12px}
+.trow{position:absolute;left:50%;top:100%;transform:translate(-50%,6px);display:flex;gap:4px;padding:5px;border:3px solid var(--outline);
+  border-radius:9px;background:linear-gradient(180deg,#56371F,var(--wood2));box-shadow:0 3px 0 var(--outline);
+  opacity:0;visibility:hidden;transition:opacity .15s ease .5s,visibility 0s linear .65s}
+.tw:hover .trow,.trow:hover{opacity:1;visibility:visible;transition:opacity .12s ease 0s,visibility 0s}
+.tb{font:400 9px var(--label);letter-spacing:1px;padding:4px 7px 3px;border:2.5px solid var(--outline);border-radius:6px;
+  background:linear-gradient(180deg,var(--plum),var(--plum-deep));color:#f3eaff;cursor:pointer}
+.tb.stop{background:linear-gradient(180deg,#b5452f,#7a2416)}
+/* pinned, like the pop-out: the mouse goes through it; Ctrl+Alt+P over it unpins */
+body.pinned .tw{cursor:default;outline:2px dashed rgba(255,224,150,.45);outline-offset:3px}
+body.pinned .trow{display:none}
+/* the right-click menu, the notes' menu in miniature */
+.nmenu{position:absolute;left:6px;width:168px;padding:8px;border-radius:12px;background:linear-gradient(180deg,#56371F,var(--wood2));
+  border:3px solid var(--outline);box-shadow:0 4px 0 rgba(0,0,0,.6),0 14px 28px rgba(0,0,0,.6);display:flex;flex-direction:column;gap:6px}
+.nmenu[hidden]{display:none}
+.nm-lab{font:400 8px var(--label);color:#c7b28c;letter-spacing:1.5px}
+.nm-slide{display:flex;align-items:center;gap:8px}.nm-slide input{flex:1;accent-color:#FFC43C}.nm-slide span{font:400 9px var(--label);color:#FFE096;width:34px;text-align:right}
+.nm-sep{height:2px;background:rgba(0,0,0,.4);margin:2px 0}
+.mrow2{display:block;width:100%;text-align:left;padding:7px 9px;border:0;border-radius:6px;background:none;font:400 10px var(--label);
+  color:#E6DCC8;letter-spacing:.5px;cursor:pointer;text-shadow:1px 1px 0 rgba(0,0,0,.75)}
+.mrow2:hover{background:rgba(255,224,150,.12)}
+.mrow2.warn{color:var(--orange)}
+@media (prefers-reduced-motion:reduce){.trow{transition:none}}

@@ -104,6 +104,29 @@ export function askFrom(m) {
     };
   }
 
+  // Sheet 17: a timer ran out. Got it, or five more minutes with the same name.
+  if (m.t === 'timer.done') {
+    const s = Math.round(Number(m.total) / 1000) || 0, h = Math.floor(s / 3600), mi = Math.floor(s / 60) % 60, sec = s % 60;
+    /** @param {number} n @param {string} w */
+    const part = (n, w) => n ? `${n} ${w}${n === 1 ? '' : 's'}` : '';
+    const dur = [part(h, 'hour'), part(mi, 'minute'), h ? '' : part(sec, 'second')].filter(Boolean).join(' ') || 'time';
+    const label = typeof m.label === 'string' ? m.label.trim() : '';
+    return {
+      plaque: 'TIME\u2019S UP',
+      question: label ? `${label}. Your ${dur} ${s === 1 ? 'is' : 'are'} up.` : `Your ${dur} ${s === 1 ? 'is' : 'are'} up.`,
+      keys: [
+        { label: 'Got it', key: 'A', choice: 'ok', tone: 'primary' },
+        { label: '5 more', key: 'Z', choice: 'more' },
+      ],
+    };
+  }
+
+  // Sheet 16: pick one of a few, with the FFX glove. The list itself is drawn by the bubble (choiceList);
+  // there are no keys under it, "Something else" is the last row.
+  if (m.t === 'choice' && Array.isArray(m.options) && m.options.length) {
+    return { question: String(m.question ?? 'Which one?'), keys: [] };
+  }
+
   // 6.13, sheet 13 "The plan, before he acts": the steps, each marked, then Go.
   if (m.t === 'plan' && Array.isArray(m.steps)) {
     return {

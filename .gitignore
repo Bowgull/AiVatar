@@ -17,3 +17,7 @@ snaps-permission/
 snaps-jobs/
 snaps-more/
 tests/out/
+
+# Scratch screenshots taken at the repo root while checking the live UI (halo-*, live-*, tail-*, box-*).
+# App assets live under src/Shell/pages/art and docs/cockpit/art, never here.
+/*.png

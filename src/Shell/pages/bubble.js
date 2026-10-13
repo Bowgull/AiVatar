@@ -9,6 +9,7 @@ import { HOLD_MS, askFrom } from './asks.js';
 import { blocks, shownWords } from './rich.js';
 import { find as findEntities } from './entities.js';
 import { Scrollback, atTop } from './scrollback.js';
+import { buildPaper, openMenu, previewLines, tickCount, paintNote } from './notepaper.js';
 
 const el = id => document.getElementById(id);
 const bubble = el('bubble'), said = el('said'), scroller = el('scroller'), more = el('more');
@@ -383,12 +384,13 @@ function holdFor(text) {
 }
 function scheduleHide() {
   clearTimeout(hideTimer);
-  if (bubble.hidden || asking || overNow || reading) return;
+  if (bubble.hidden || asking || overNow || reading || docked) return;
   if (card.hidden && (!reveal.done || !reveal.whole)) return;
   hideTimer = setTimeout(goAway, holdFor(reveal.whole));
 }
 function goAway() {
-  if (asking || overNow) return;
+  if (asking || overNow || docked) return;
+  closeBoard();
   // Content out over 160 ms, then the balloon shrinks away in 340 ms. Anything new arriving meanwhile
   // takes `leaving` off (show), and growTo cancels the shrink, so a reply is never hidden under him.
   bubble.classList.add('leaving');
@@ -528,7 +530,9 @@ function showAsk(m) {
   reveal.start(a.question, false);
   reveal.skip();                                  // a question is never revealed slowly
   who.textContent = a.plaque ?? '';
+  setSpeaker('aang');
   said.textContent = a.question;
+  choiceList(m);
   // The explaining line, quieter, under the question. Joshua, 2026-10-03: "im just seeing gibberish".
   let means = document.getElementById('means');
   if (!means) {
@@ -592,7 +596,7 @@ function showAsk(m) {
     b.addEventListener('click', () => answer(k.choice));
     asks.append(b);
   }
-  asks.hidden = false;
+  asks.hidden = a.keys.length === 0;
   // A 600 ms guard on every new set of keys, so a mouse already moving in his game cannot land on Allow
   // the instant it appears (sheet 13).
   asks.classList.add('guard');
@@ -654,6 +658,7 @@ function answer(choice) {
     // A consent ask carries the words it is about, because saying yes means asking them again.
     ...(asking.t === 'consent' ? { text: asking.text, mode: asking.wanted } : {}),
     ...(typeof asking.reminder === 'string' ? { reminder: asking.reminder } : {}),
+    ...(asking.t === 'timer.done' ? { label: String(asking.label ?? '') } : {}),
   });
   // On Go the plan card stays and becomes the live checklist; the tools that run tick it off.
   if (asking.t === 'plan') { livePlan = choice === 'go' ? { steps: asking.steps, at: 0 } : null; }
@@ -1093,7 +1098,7 @@ function onBrain(m) {
     // A real reply takes the balloon back from a whisper.
     bubble.classList.remove('whisper');
     mediaRow.hidden = true;
-    card.hidden = true;
+    card.hidden = true; closeBoard();
     scroller.hidden = false;
     // The reply is the end of the job: the checklist has done its work.
     if (!m.stream) { livePlan = null; paintPlan(null, -1); }
@@ -1166,6 +1171,8 @@ function onBrain(m) {
     const line = m.proactive ? '' : asked.replace(/\s+/g, ' ').trim();
     who.textContent = line.length > 50 ? line.slice(0, 49).trimEnd() + '…' : line;
     who.hidden = !who.textContent;
+    paintChange(!m.stream);
+    if (!m.stream) setSpeaker(focusWindow || macSession ? 'claude' : m.proactive || m.fromPet ? 'aang' : null, macSession ? 'MAC' : 'PC');
     working.hidden = true;
     show();
     paint();
@@ -1203,7 +1210,33 @@ function onBrain(m) {
   if (m.t === 'quiet') { quiet = m.on === true; return; }
   if (m.t === 'mute') { muted = m.on === true; return; }
 
+  if (m.t === 'choice.used' && typeof m.key === 'string') { chgKey = m.key; return; }
+  // Sheet 17: the notes. The list keeps the board current; "show my notes" opens it.
+  if (m.t === 'notes.state' && Array.isArray(m.notes)) {
+    notesAll = m.notes;
+    if (boardOpen && !editingNote && !card.hidden) showBoard();
+    if (editingNote && !notesAll.some((n) => n.id === editingNote)) showBoard();
+    return;
+  }
+  if (m.t === 'notes.board') { openBoard(); return; }
+  // Sheet 17: "set a timer" with no time, or the wheel's Timer: the dial.
+  if (m.t === 'timer.setup') {
+    closeBoard();
+    reveal.start('', false);
+    who.textContent = ''; who.hidden = true; who.classList.remove('plaque');
+    scroller.hidden = true; working.hidden = true; tools.hidden = true;
+    bubble.classList.remove('whisper');
+    bubble.classList.add('wide');
+    showTimerSet();
+    bubble.classList.remove('enter'); void bubble.offsetWidth; bubble.classList.add('enter');
+    show(); fit(); reportSize(); scheduleHide();
+    return;
+  }
+
   if (m.t === 'bubble.clear') {
+    setSpeaker(null);
+    chg.hidden = true; chgKey = null;
+    choiceList(null);
     reveal.clear();
     back.clear();
     reading = false;
@@ -1313,6 +1346,7 @@ window.addEventListener('mousemove', e => {
 // Whenever the bubble goes away, let go of the mouse at once rather than waiting for a move that may
 // never come: a window that is hidden must never still be holding clicks.
 function releaseMouse() {
+  if (pullingNote) return;                 // a note is being dragged out: keep the mouse until it lands
   if (!overNow) return;
   overNow = false;
   document.getElementById('wrap')?.classList.remove('over');
@@ -1331,19 +1365,15 @@ window.addEventListener('blur', releaseMouse);
 // arriving it shows the rest, and only once there is nothing left to reveal does it expand. Doing both
 // would expand a bubble he was only trying to finish reading. reveal.skip() returns which happened.
 bubble.addEventListener('click', e => {
-  if (e.target.closest('.tool, .key, .more')) return;     // those have their own jobs
+  if (e.target.closest('.tool, .key, .more, .opt, .chg')) return;     // those have their own jobs
+  // Sheet 17: the notes board, a note being edited, its menu and the timer dial are things he works IN.
+  // A click there was docking the typing box over them and taking the keyboard away (his test, 2026-10-12).
+  if (e.target.closest('.boardwrap, .nmini, .bignote, .inline, .ctitle, .tset, .newk, .bcap')) return;
   // "Need input in Claude": take him straight to that session's window, and let the reply go. This
   // sits ABOVE skip-reveal for the same reason the C# puts it there - it is a decision, not
   // impatience with the typing.
-  if (focusWindow) {
-    window.aang?.focusWindow?.(focusWindow);
-    focusWindow = null;
-    reveal.clear(); paint(); bubble.hidden = true; snapShut();
-    window.aang?.bubbleHidden?.();
-    return;
-  }
-  // A Claude session on his MacBook: Claude comes forward there (the pet's icon did this; 2026-09-22).
-  if (macSession) { macSession = false; window.aang?.macFront?.(); dismiss(); return; }
+  // Sheet 16: a Claude message no longer jumps to Claude on a click. The click opens the cockpit like any
+  // other message; bringing Claude forward is the "Open Claude" key that shows on hover (openClaude).
   if (reveal.skip()) { paint(); return; }
   // The old bubble's order (PetWindow:1316): a question waits for its answer; Aang still working means
   // stop; otherwise the click lets the message go.
@@ -1351,8 +1381,342 @@ bubble.addEventListener('click', e => {
   // A click NEVER stops him (his rule, 2026-10-12: a click on the bubble while he worked killed a finished answer).
   // Stopping is Esc in the typing box, or the Stop key; a click while he works does nothing.
   if (!working.hidden) return;
-  dismiss();
+  openCockpit();
 });
+
+// ---------------------------------------------------------------- the cockpit (sheet 16)
+// A click on a message opens the cockpit: his typing box docks right under the bubble, and what he types
+// answers this message. No Reply key. While it is open the bubble never fades; Esc or a click elsewhere
+// closes the box, and the bubble goes with it.
+let docked = false;
+function openCockpit(bind = true) {
+  docked = true;
+  clearTimeout(hideTimer);
+  const r = bubble.getBoundingClientRect();
+  window.aang?.dockBox?.({ right: r.right, bottom: r.bottom, turn: bind ? turn : null });
+}
+
+/**
+ * Sheet 16's choices: the FFX glove points at the row under the mouse, plum number keys show on hover, and
+ * "Something else" is always last (it docks his box so he can say what). His rule: Aang asks once and
+ * remembers; the reply after a remembered pick gets a gold "change" link (paintChange).
+ */
+function choiceList(m) {
+  let list = document.getElementById('opts');
+  if (!list) { list = document.createElement('div'); list.id = 'opts'; list.className = 'opts glove'; scroller.after(list); }
+  list.replaceChildren();
+  list.hidden = m?.t !== 'choice';
+  if (list.hidden) return;
+  const rows = m.options.slice(0, 4).map((o, i) => ({ label: String(o.label ?? ''), hint: o.hint ? String(o.hint) : '', pick: String(i), kc: String(i + 1) }));
+  rows.push({ label: 'Something else\u2026', hint: '', pick: 'other', kc: 'T', other: true });
+  const all = [];
+  for (const r of rows) {
+    const d = T('div', 'opt' + (r.other ? ' other' : ''));
+    const s = T('span', 'lab', r.label);
+    if (r.hint) s.append(T('small', 'hint', r.hint));
+    d.append(s, T('span', 'kc', r.kc));
+    d.addEventListener('mouseenter', () => all.forEach((x) => x.classList.toggle('on', x === d)));
+    d.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (list.classList.contains('guard')) return;
+      list.hidden = true;
+      answer(r.pick);
+      if (r.other) openCockpit(false);
+    });
+    all.push(d);
+    list.append(d);
+  }
+  all[0].classList.add('on');
+  // The same 600 ms guard as the keys: a mouse already moving in his game cannot land on a pick.
+  list.classList.add('guard');
+  setTimeout(() => list.classList.remove('guard'), 600);
+}
+
+/**
+ * Sheet 17's notes board (approved 2026-10-12): six notes a page on wood, all the same size, gold arrows when
+ * there are more. Click one to open it and type; right-click it for colour, text and more; drag one out of the
+ * bubble and it sticks on the screen. The brain keeps them; this only draws them and says what changed.
+ */
+/** @type {any[]} */
+let notesAll = [];
+let boardOpen = false, boardPage = 0, pullingNote = false;
+/** @type {string|null} */
+let editingNote = null;
+const PER_PAGE = 6;
+function openBoard() {
+  reveal.start('', false);
+  who.textContent = ''; who.hidden = true; who.classList.remove('plaque');
+  scroller.hidden = true; working.hidden = true; tools.hidden = true;
+  bubble.classList.remove('whisper');
+  bubble.classList.add('wide', 'widest');
+  boardOpen = true; editingNote = null; boardPage = 0;
+  showBoard();
+  bubble.classList.remove('enter'); void bubble.offsetWidth; bubble.classList.add('enter');
+  show(); fit(); reportSize(); scheduleHide();
+}
+function closeBoard() { boardOpen = false; editingNote = null; typing(false); }
+/**
+ * The bubble never takes the keyboard on its own (so WoW keeps it). A note or the timer's name is the one place he
+ * types in it: a press there asks for the keyboard, puts the caret where he pressed, and it is handed back to the
+ * window he was in when he leaves the note, goes back to the board, or the bubble goes.
+ */
+let typingOn = false;
+function typing(on) {
+  if (on === typingOn) return;
+  typingOn = on;
+  window.aang?.bubbleTyping?.(on);
+}
+function typeHere(e) {
+  const t = /** @type {HTMLElement} */ (e.target);
+  const field = t.closest?.('[contenteditable="true"]');
+  if (!field || typingOn) return;
+  typing(true);
+  const x = e.clientX, y = e.clientY;
+  // The window takes the keyboard a moment after asking; then the caret goes where he pressed.
+  setTimeout(() => {
+    /** @type {HTMLElement} */ (field).focus();
+    const r = document.caretRangeFromPoint?.(x, y);
+    if (r && field.contains(r.startContainer)) { const s = getSelection(); s?.removeAllRanges(); s?.addRange(r); }
+  }, 60);
+}
+card.addEventListener('pointerdown', typeHere);
+function newNoteId() { return 'n' + Date.now().toString(36) + Math.floor(Math.random() * 1296).toString(36); }
+function showBoard() {
+  editingNote = null;
+  typing(false);
+  notesAll = notesAll.filter((n) => !n.fresh);          // a new note he never wrote in is dropped
+  card.replaceChildren();
+  const pages = Math.max(1, Math.ceil(notesAll.length / PER_PAGE));
+  boardPage = Math.min(boardPage, pages - 1);
+  const shown = notesAll.slice(boardPage * PER_PAGE, boardPage * PER_PAGE + PER_PAGE);
+  const head = T('div', 'ctitle', 'NOTES');
+  if (pages > 1) { const d = T('span', 'bdots'); for (let i = 0; i < pages; i++) d.append(T('i', i === boardPage ? 'on' : '')); head.append(d); }
+  const add = T('button', 'newk', '+ NEW'); add.type = 'button';
+  add.addEventListener('click', () => {
+    // Blank, with "Title" and "Write here" hints. Nothing is kept until he writes something: an empty note that
+    // he walks away from simply is not there (his test: a "New note" appearing straight away made no sense).
+    const n = { id: newNoteId(), title: '', html: '', col: 'parchment', font: 'figtree', size: 'm', updated: Date.now(), fresh: true };
+    notesAll = [n, ...notesAll];
+    openNote(n.id, true);
+  });
+  head.append(add);
+  const wrap = T('div', 'boardwrap');
+  if (pages > 1) {
+    const l = T('button', 'bcap l' + (boardPage === 0 ? ' off' : ''), '◀'); l.type = 'button';
+    const r = T('button', 'bcap r' + (boardPage >= pages - 1 ? ' off' : ''), '▶'); r.type = 'button';
+    l.addEventListener('click', () => { if (boardPage > 0) { boardPage--; showBoard(); } });
+    r.addEventListener('click', () => { if (boardPage < pages - 1) { boardPage++; showBoard(); } });
+    wrap.append(l, r);
+  }
+  const grid = T('div', 'board');
+  if (!notesAll.length) grid.append(T('div', 'bempty', 'No notes yet. Say "make a note for raid: flasks, food" or press + NEW.'));
+  for (const n of shown) grid.append(miniNote(n));
+  if (notesAll.length) for (let i = shown.length; i < PER_PAGE; i++) grid.append(T('div', 'nmini slot'));
+  wrap.append(grid);
+  card.append(head, wrap);
+  card.hidden = false;
+  fit(); reportSize();
+}
+function miniNote(n) {
+  const el = T('div', 'nmini' + (n.out ? ' gone' : ''));
+  paintNote(el, n);
+  el.style.setProperty('--r', [-3, 2, -1.5, 3, -2.5, 1][n.id.charCodeAt(n.id.length - 1) % 6] + 'deg');
+  el.append(T('span', 'pin'));
+  const inner = T('div', 'nmi');
+  inner.append(T('b', '', n.title));
+  for (const l of previewLines(n.html).slice(0, 3)) inner.append(T('span', 'ml' + (l.done ? ' done' : ''), l.t));
+  el.append(inner);
+  const tc = tickCount(n.html);
+  if (tc.all > 1) el.append(T('span', 'tickc', `${tc.done}/${tc.all}`));
+  if (n.out) el.append(T('span', 'onscreen', 'ON SCREEN'));
+  pullable(el, n);
+  return el;
+}
+/** Drag a note off the board: inside the bubble it lifts and follows; out of the bubble it becomes a note on the screen. */
+function pullable(el, n) {
+  let down = null, out = false;
+  el.addEventListener('pointerdown', (e) => { if (e.button !== 0) return; e.preventDefault(); down = { x: e.clientX, y: e.clientY }; out = false; el.setPointerCapture(e.pointerId); });
+  el.addEventListener('pointermove', (e) => {
+    if (!down) return;
+    const dx = e.clientX - down.x, dy = e.clientY - down.y;
+    if (!el.classList.contains('lifting') && Math.hypot(dx, dy) > 6) { el.classList.add('lifting'); pullingNote = true; }
+    if (!el.classList.contains('lifting')) return;
+    const outside = e.clientX < 0 || e.clientY < 0 || e.clientX > innerWidth || e.clientY > innerHeight;
+    if (outside && !out) { out = true; el.style.visibility = 'hidden'; window.aang?.notesPull?.({ phase: 'start', id: n.id, x: e.screenX, y: e.screenY }); }
+    if (out) window.aang?.notesPull?.({ phase: 'move', id: n.id, x: e.screenX, y: e.screenY });
+    else el.style.transform = `translate(${dx}px,${dy}px) rotate(${Math.max(-12, Math.min(12, dx * 0.08))}deg) scale(1.06)`;
+  });
+  el.addEventListener('pointerup', (e) => {
+    const lifted = el.classList.contains('lifting');
+    el.classList.remove('lifting'); el.style.transform = ''; pullingNote = false;
+    if (out) { window.aang?.notesPull?.({ phase: 'end', id: n.id, x: e.screenX, y: e.screenY }); el.style.visibility = ''; el.classList.add('gone'); down = null; return; }
+    down = null;
+    if (!lifted) openNote(n.id);
+  });
+  el.addEventListener('contextmenu', (e) => { e.preventDefault(); openNote(n.id); const p = card.querySelector('.bignote'); if (p) p.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: e.clientX, clientY: e.clientY })); });
+}
+function openNote(id, focusTitle = false) {
+  const n = notesAll.find((x) => x.id === id);
+  if (!n) { showBoard(); return; }
+  editingNote = id;
+  card.replaceChildren();
+  const head = T('div', 'ctitle');
+  const back = T('button', 'back', '◀ BOARD'); back.type = 'button';
+  back.addEventListener('click', () => { paper.flush(); showBoard(); });
+  head.append(back, T('span', 'hint2', 'Type anywhere. Right-click for colour, text and more.'));
+  const sheet = T('div', 'bignote paper');
+  const menuHost = T('div', 'inline');
+  card.append(head, sheet, menuHost);
+  const paper = buildPaper(sheet, n, (changed) => {
+    const empty = !(changed.title ?? '').trim() && !(sheet.querySelector('.nbody')?.textContent ?? '').trim();
+    if (changed.fresh && empty) return;                  // still blank: not a note yet
+    delete changed.fresh;
+    if (!changed.title) changed.title = 'Note';
+    window.aang?.notesSave?.(changed); fit(); reportSize();
+  });
+  sheet.addEventListener('input', () => { fit(); reportSize(); });
+  sheet.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    const part = /** @type {HTMLElement} */ (e.target).closest?.('.ntitle') ? 'title' : 'body';
+    const m = openMenu(menuHost, { x: 0, y: 0 }, paper, n, 'board', (what) => {
+      if (what === 'delete') { window.aang?.notesDelete?.(n.id); notesAll = notesAll.filter((x) => x.id !== n.id); showBoard(); }
+      else if (what === 'out') { paper.flush(); const r = bubble.getBoundingClientRect(); window.aang?.notesPull?.({ phase: 'start', id: n.id, x: window.screenX + r.left - 240, y: window.screenY + r.top + 20 }); window.aang?.notesPull?.({ phase: 'end', id: n.id, x: window.screenX + r.left - 240, y: window.screenY + r.top + 20 }); showBoard(); }
+    }, part);
+    fit(); reportSize();
+    const watch = new MutationObserver(() => { if (!menuHost.contains(m)) { watch.disconnect(); fit(); reportSize(); } });
+    watch.observe(menuHost, { childList: true });
+  });
+  card.hidden = false;
+  fit(); reportSize();
+  if (focusTitle) { typing(true); setTimeout(() => { const t = paper.title; t.focus(); const r = document.createRange(); r.selectNodeContents(t); const s = getSelection(); s?.removeAllRanges(); s?.addRange(r); }, 60); }
+}
+
+/**
+ * Sheet 17's timer dial (approved 2026-10-12): his kitchen dial, presets, a wood "SET A TIMER" plaque, and
+ * backdrop B, a soft wood panel behind the dial only. Drag the knob or roll the mouse wheel on it.
+ */
+let dialMin = 10;
+function showTimerSet() {
+  card.replaceChildren();
+  const NS = 'http://www.w3.org/2000/svg';
+  const wrap = T('div', 'tset');
+  const plaque = T('div', 'tplaque');
+  plaque.append(T('span', '', 'SET A TIMER'));
+  const panel = T('div', 'dialwrap');
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 200 200'); svg.setAttribute('class', 'dial');
+  panel.append(svg);
+  const presets = T('div', 'presets');
+  const pre = [5, 10, 15, 30, 60].map((p) => { const b = T('span', 'pre', p === 60 ? '1H' : p + 'M'); b.dataset.p = String(p); presets.append(b); return b; });
+  const name = T('div', 'tname');
+  const nameIn = T('span', 'tin', '');
+  nameIn.contentEditable = 'true'; nameIn.spellcheck = false; nameIn.dataset.ph = 'What for? (optional)';
+  name.append(T('span', '', 'FOR'), nameIn);
+  const keys = T('div', 'keys');
+  const go = T('button', 'key sm primary', 'Start'); go.type = 'button'; go.append(T('span', 'k', 'A'));
+  keys.append(go);
+  wrap.append(plaque, panel, presets, name, keys);
+  card.append(wrap);
+  card.hidden = false;
+  const paint = () => {
+    const m = dialMin, a = m / 60 * Math.PI * 2 - Math.PI / 2, r = 62, x = 100 + r * Math.cos(a), y = 100 + r * Math.sin(a);
+    let s = '<circle cx="100" cy="100" r="86" fill="#2b1b10" stroke="#120A05" stroke-width="6"/>';
+    for (let i = 0; i < 60; i++) { const t = i / 60 * Math.PI * 2 - Math.PI / 2, r1 = i % 5 ? 76 : 70; s += `<line x1="${100 + r1 * Math.cos(t)}" y1="${100 + r1 * Math.sin(t)}" x2="${100 + 82 * Math.cos(t)}" y2="${100 + 82 * Math.sin(t)}" stroke="${i % 5 ? '#6b4a2a' : '#e0c48c'}" stroke-width="${i % 5 ? 1.5 : 3}"/>`; }
+    for (const q of [0, 15, 30, 45]) { const t = q / 60 * Math.PI * 2 - Math.PI / 2; s += `<text x="${100 + 55 * Math.cos(t)}" y="${104 + 55 * Math.sin(t)}" text-anchor="middle" class="dn">${q || 60}</text>`; }
+    s += `<path d="${m >= 60 ? 'M100 38 A62 62 0 1 1 99.9 38' : `M100 38 A62 62 0 ${m > 30 ? 1 : 0} 1 ${x} ${y}`}" fill="none" stroke="#966EC8" stroke-width="10" stroke-linecap="round"/>`;
+    s += `<circle cx="${x}" cy="${y}" r="11" fill="#FFC43C" stroke="#120A05" stroke-width="4"/>`;
+    s += `<text x="100" y="98" text-anchor="middle" class="dt">${m >= 60 ? '1:00:00' : m + ':00'}</text><text x="100" y="120" text-anchor="middle" class="dsub">MINUTES</text>`;
+    svg.innerHTML = s;
+    pre.forEach((b) => b.classList.toggle('on', Number(b.dataset.p) === m));
+  };
+  paint();
+  let drag = false;
+  const at = (e) => {
+    const r = svg.getBoundingClientRect(), x = e.clientX - r.left - r.width / 2, y = e.clientY - r.top - r.height / 2;
+    let a = Math.atan2(y, x) + Math.PI / 2; if (a < 0) a += Math.PI * 2;
+    let m = Math.round(a / (Math.PI * 2) * 60); if (m === 0 && dialMin > 45) m = 60;
+    dialMin = Math.max(1, m); paint();
+  };
+  svg.addEventListener('pointerdown', (e) => { drag = true; svg.setPointerCapture(e.pointerId); at(e); });
+  svg.addEventListener('pointermove', (e) => { if (drag) at(e); });
+  svg.addEventListener('pointerup', () => { drag = false; });
+  svg.addEventListener('wheel', (e) => { e.preventDefault(); dialMin = Math.max(1, Math.min(60, dialMin + (e.deltaY < 0 ? 1 : -1))); paint(); }, { passive: false });
+  pre.forEach((b) => b.addEventListener('click', () => { dialMin = Number(b.dataset.p); paint(); }));
+  go.addEventListener('click', () => {
+    window.aang?.timerStart?.({ ms: dialMin * 60_000, label: (nameIn.textContent ?? '').trim().slice(0, 40) });
+    typing(false);
+    card.hidden = true; card.replaceChildren(); releaseMouse(); goAway();
+  });
+}
+
+/** A remembered choice was used for this reply: a gold "change" link under it forgets the pick. */
+let chgKey = null;
+const chg = document.createElement('button');
+chg.type = 'button';
+chg.className = 'chg';
+chg.textContent = 'change';
+chg.hidden = true;
+scroller.after(chg);
+chg.addEventListener('click', (e) => {
+  e.stopPropagation();
+  if (chg.dataset.key) window.aang?.forgetChoice?.(chg.dataset.key);
+  chg.hidden = true;
+});
+function paintChange(final) {
+  if (!final) { if (!chgKey) chg.hidden = true; return; }
+  chg.hidden = !chgKey;
+  if (chgKey) { chg.dataset.key = chgKey; chgKey = null; }
+}
+window.aang?.onUndock?.((why) => {
+  docked = false;
+  if (why === 'sent') return;                     // he answered: the bubble stays for the reply
+  if (!asking && working.hidden) dismiss();
+});
+
+/**
+ * Who is talking, on asks and on what Aang or Claude start (sheet 16): a small face and the name, straight
+ * on the parchment, no plate. Replies to him carry his own question instead (the .who line), not this.
+ * A Claude message also gets a PC or MAC chip and, on hover, the "Open Claude" key.
+ */
+const CLAUDE_MARK = 'M4 0h1v3H4zM4 6h1v3H4zM0 4h3v1H0zM6 4h3v1H6zM1 1h1v1H1zM2 2h1v1H2zM7 1h1v1H7zM6 2h1v1H6zM1 7h1v1H1zM2 6h1v1H2zM7 7h1v1H7zM6 6h1v1H6zM3 3h3v3H3z';
+const speaker = document.createElement('div');
+speaker.id = 'speaker';
+speaker.hidden = true;
+who.parentElement.before(speaker);
+function setSpeaker(kind, machine) {
+  // His call (2026-10-12): Aang's own face and name on every message was noise. Only Claude is named.
+  if (kind !== 'claude') kind = null;
+  speaker.replaceChildren();
+  speaker.hidden = !kind;
+  speaker.className = 'speaker' + (kind === 'claude' ? ' claude' : '');
+  if (!kind) return;
+  if (kind === 'claude') {
+    const NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 9 9'); svg.setAttribute('shape-rendering', 'crispEdges'); svg.setAttribute('class', 'clk');
+    const path = document.createElementNS(NS, 'path'); path.setAttribute('d', CLAUDE_MARK); path.setAttribute('fill', '#E07A4F');
+    svg.append(path);
+    speaker.append(svg, T('span', 'nm', 'CLAUDE'), T('span', 'mc' + (machine === 'MAC' ? ' mac' : ''), machine));
+    const k = T('button', 'key sm okey', 'Open Claude');
+    k.type = 'button';
+    k.addEventListener('click', (e) => { e.stopPropagation(); openClaude(); });
+    speaker.append(k);
+    return;
+  }
+  const img = document.createElement('img'); img.src = 'art/aang-face.png'; img.alt = '';
+  speaker.append(img, T('span', 'nm', 'AANG'));
+}
+/** The hover key on a Claude message: that session's window comes forward, on the PC or on the Mac. */
+function openClaude() {
+  if (focusWindow) {
+    window.aang?.focusWindow?.(focusWindow);
+    focusWindow = null;
+    reveal.clear(); paint(); bubble.hidden = true; snapShut();
+    window.aang?.bubbleHidden?.();
+    return;
+  }
+  if (macSession) { macSession = false; window.aang?.macFront?.(); dismiss(); }
+}
 
 /** Let the message go now: a click on it, Esc, or a click away from everything of ours. Never a question. */
 function dismiss() {

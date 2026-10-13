@@ -3689,8 +3689,8 @@ Mockup: `docs/cockpit/sheet-16-cockpit-attached.html`, built from sheet 13's own
   bubble. No Reply button. The box keeps its own size (256 wide, one line, grows only with lots of text, up to 5).
 - **Box look:** outer frame in the browser's top-bar pixel wood (`band.png`), the typing area stays purple.
 - **Closing:** Esc or a click elsewhere. Untouched, it fades after its reading time, never while pointed at.
-- **Who is asking:** only on asks and on what Aang or Claude start: a small face and "AANG" or "CLAUDE", straight on
-  the parchment, no plate. Replies keep his own question on top (sheet 8).
+- **Who is asking:** Claude only (his call after seeing it live, 2026-10-12: no Aang face or name, ever). A small
+  Claude mark and "CLAUDE", straight on the parchment, no plate. Replies keep his own question on top (sheet 8).
 - **Claude messages:** clicking opens the cockpit; a key on hover ("Open Claude", PC or MAC) brings that window forward.
   A small PC or MAC chip on every Claude row and question.
 - **Choices:** the FFX glove only, plum number keys on hover, "Something else". After a pick: one line "... from now
@@ -3711,6 +3711,47 @@ Mockup: `docs/cockpit/sheet-16-cockpit-attached.html`, built from sheet 13's own
   after that he does it and says so in one line with a gold "change" link ("Putting Naruto on the Mac, like last
   time."). First case: which machine a show goes on. This PC means Aang's browser or the popout; the Mac means
   Chrome on the MacBook. "on the Mac" / "on the PC" in his words always overrides.
+
+### Sheet 17: the bubble as a mini OS (research + interview, 2026-10-12)
+
+Research: `Aang/reports/Aang bubble as a mini OS.md`. Mockup: `docs/cockpit/sheet-17-bubble-os.html` (four layouts).
+- **Timers:** "set a timer for X" / "10m food", parsed in plain code, no Claude call. Countdown on the bubble; at the
+  end his done sound, a hop, Got it / 5 more.
+- **Notes:** "note: ..." saves one, no Claude call. They live in the bubble and any one can be pulled out and stuck on
+  the screen (drag, right-click puts it back). **Aang always knows them** (his pick, knowing it costs a little quota per
+  message): keep the block small.
+- **Already have / not wanted:** Spotify controls exist (play_music, media keys, now-playing line); the reverse-engineered
+  GitHub clients break Spotify's rules, skip. No calculator, no sound buttons, no "next up" line, no Discord previews,
+  no priority count, no clipboard history, no action keys, no scenes, no project launcher, no PC/Mac handoff.
+- **Held messages in WoW:** already designed (the icon on Aang, click to see it); restore it in the new bubble (parity).
+- **Wheel (sheet 17c):** the FIRST mockup's fan of wood discs (he hated the ring of 17b), mouse hold on Aang, mouse
+  only. Slots: **Timer, Notes, Browser, Music, Snip, Quiet**. Never add slots he has not named: ask first. Icons: pixelarticons (MIT, downloaded with his yes 2026-10-12, docs/cockpit/art/pixelarticons with its LICENSE), each painted its own colour (timer gold, notes rose, browser sky, music plum, snip green, quiet moon silver) with a dark outline. Set-timer screen: his kitchen dial, presets 5M/10M/15M/30M/1H, a wood "SET A TIMER" plaque, and backdrop B (a soft wood panel behind the dial only).
+- **Home: dropped.** The wheel is the way in.
+- **Timer:** said loosely, or set by hand on the **kitchen dial** (drag the knob or roll the mouse wheel). Running: a
+  hand-built pixel hourglass (wood caps, posts, glass, falling sand) in a wood plate he can drag **anywhere**; +1, pause,
+  stop on hover; right-click for see-through and pin.
+- **Notes:** said loosely ("hey make a note for raid: flasks, food" makes ticks; a sentence stays plain text). Free text,
+  not just lists. A notes board in the bubble; open one to type on it. **Right-click menu** holds everything: colour,
+  bold, italic, underline, strike, header, ticks, bullet and numbered lists, size S/M/L, font (plain, handwritten, fancy,
+  pixel), and on the screen see-through (slider), pin, put back, delete. Colours only show in that menu.
+- **Colours:** six one-tone schemes, pin matches paper: Parchment, Sage, Rose, Sky, Plum, Stone (Night dropped).
+- **On the screen:** pulled out of the bubble by a real drag; drag by its top; resize from the corner; all start the
+  same size; drop on Aang to put back.
+- **Pin (notes and the timer), like the pop-out:** the mouse goes through it to the game. Ctrl+Alt+P toggles the pinned
+  thing under the mouse; with nothing under the mouse it does the pop-out as now.
+
+**Sheet 17 BUILT (2026-10-12), live in the Release build:** timers (core timers.ts, Shell timerwin.ts + pages/timer.*,
+hourglass.js, the dial in bubble.js), notes (core notes.ts with cleanHtml; Shell notewin.ts, pages/note.*, notepaper.*,
+notefonts.css + fonts/notes/, the board in bubble.js; Aang knows them through withNotes), and the wheel (PetWindow.cs
+hold detection, Shell wheelwin.ts + pages/wheel.*; Quiet via quiet.toggle to the pet). After his first look: note font
+buttons show only the font name in its own face, the tick button has a tick, size is A-/A+ by one pixel (10 to 28).
+Not yet: the done sound and hop for timers (new-bubble sounds are a parity item), the song name on the Music disc
+(no now-playing reader yet), the saved-choices list in the desk.
+
+**Vault backup, silent and daily (his call, 2026-10-12, built):** the "Back it up?" ask is gone. It nagged because Aang's
+own Captured and Research folders keep the vault always changed, and the "not now" was lost on every brain restart.
+Now core.ts autoBackup() commits and pushes once a day when something changed (same fixed git verbs, his private
+CereBro-Vault repo), logs it in What I did, and only speaks up if it fails.
 
 ### `[ ]` 9.A7 Driving Claude from the balloon, at the desk  (his order 2026-10-10: stays in Phase 9)
 

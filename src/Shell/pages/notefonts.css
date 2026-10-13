@@ -1,0 +1,7 @@
+/* Sheet 17: the note fonts (his pick, 2026-10-12), bundled like the cockpit's three. See fonts/CREDITS.txt. */
+@font-face{font-family:"Caveat";src:url("fonts/notes/Caveat.ttf") format("truetype");font-weight:400 700;font-display:block}
+@font-face{font-family:"Patrick Hand";src:url("fonts/notes/PatrickHand.ttf") format("truetype");font-display:block}
+@font-face{font-family:"IM Fell English";src:url("fonts/notes/IMFellEnglish.ttf") format("truetype");font-display:block}
+@font-face{font-family:"Special Elite";src:url("fonts/notes/SpecialElite.ttf") format("truetype");font-display:block}
+@font-face{font-family:"VT323";src:url("fonts/notes/VT323.ttf") format("truetype");font-display:block}
+@font-face{font-family:"Press Start 2P";src:url("fonts/notes/PressStart2P.ttf") format("truetype");font-display:block}

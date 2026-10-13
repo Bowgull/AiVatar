@@ -136,6 +136,10 @@ export type ToBody =
   | { t: 'pet.say'; text: string; hold?: number; focus?: string; host?: 'mac'; link?: string }
   /** He clicked somewhere that is not the pet (the pet's mouse hook sees it); the Shell decides if it was outside its windows. */
   | { t: 'outside.click'; x: number; y: number }
+  /** Sheet 17's wheel: held on Aang, and let go (physical screen pixels); and the Quiet disc. */
+  | { t: 'wheel.open'; x: number; y: number }
+  | { t: 'wheel.release'; x: number; y: number }
+  | { t: 'quiet.toggle' }
   /** The new bubble is showing something (or the typing box is open), so the pet must not tuck away under it. */
   | { t: 'bubble.busy'; on: boolean }
   /** The pet could not bring that Claude window forward: it was closed. */
@@ -265,6 +269,20 @@ export type ToBody =
   | { t: 'highlight.got'; text: string; app: string }
   /** 6.13: the plan before he acts. `gate` per step: none, ask (asks him first) or lever (hold to confirm). */
   | { t: 'plan'; id: string; steps: { text: string; tool?: string; gate: 'none' | 'ask' | 'lever' }[] }
+  /** Sheet 17: every running timer, after any change and when a Shell connects. Times are epoch ms. */
+  | { t: 'timer.state'; timers: { id: string; label: string; total: number; end: number; paused: number }[] }
+  /** Sheet 17: every note, newest first, after any change and when a Shell connects. */
+  | { t: 'notes.state'; notes: import('./notes.ts').Note[] }
+  /** Sheet 17: "show my notes": the bubble opens the board. */
+  | { t: 'notes.board' }
+  /** Sheet 17: "set a timer" with no time: the bubble shows the dial. */
+  | { t: 'timer.setup' }
+  /** Sheet 17: a timer ran out. The bubble asks Got it / 5 more. */
+  | { t: 'timer.done'; id: string; label: string; total: number }
+  /** Sheet 16: pick one of 2 to 4 options (the glove list), plus "Something else". */
+  | { t: 'choice'; id: string; question: string; options: { label: string; hint?: string }[] }
+  /** A remembered choice was used (or just saved): the reply gets a gold "change" link that forgets it. */
+  | { t: 'choice.used'; key: string; pick: string; fresh: boolean }
   /** The morning brief as a card (6.15): the brief's data plus what only the Core knows - logos, which
    *  senders are companies he is tracking, new job matches overnight, and his Claude week. */
   | { t: 'brief.card'; card: BriefCard }
@@ -372,6 +390,10 @@ export type FromBody =
   | { t: 'pet.say'; text: string; hold?: number; focus?: string; host?: 'mac'; link?: string }
   /** He clicked somewhere that is not the pet (the pet's mouse hook sees it); the Shell decides if it was outside its windows. */
   | { t: 'outside.click'; x: number; y: number }
+  /** Sheet 17's wheel: held on Aang, and let go (physical screen pixels); and the Quiet disc. */
+  | { t: 'wheel.open'; x: number; y: number }
+  | { t: 'wheel.release'; x: number; y: number }
+  | { t: 'quiet.toggle' }
   /** The new bubble is showing something (or the typing box is open), so the pet must not tuck away under it. */
   | { t: 'bubble.busy'; on: boolean }
   /** The pet could not bring that Claude window forward: it was closed. */
@@ -439,6 +461,16 @@ export type FromBody =
   | { t: 'job.act'; id: string; action: 'open' | 'apply' | 'skip' | 'undo' }
   /** 6.13: his answer to a plan. */
   | { t: 'plan.reply'; id: string; go: boolean }
+  /** Sheet 17: a timer set on the dial, the keys on the hourglass, and "5 more" when one goes off. */
+  | { t: 'timer.start'; ms: number; label: string }
+  | { t: 'timer.act'; id: string; action: 'add' | 'pause' | 'stop' }
+  /** Sheet 17: a note saved from the editor, the screen, or a new one; and a note deleted. */
+  | { t: 'notes.save'; note: unknown }
+  | { t: 'notes.delete'; id: string }
+  /** His pick from a choice list: the option's index, or -1 for "Something else". */
+  | { t: 'choice.reply'; id: string; pick: number }
+  /** The gold "change" link under a remembered choice: forget it, so Aang asks next time. */
+  | { t: 'choice.forget'; key: string }
   /** Window 2's "Undo the last one" (6.15): the same undo stack the undo_last tool uses. His press is the yes. */
   | { t: 'undo.last' }
   /**

@@ -91,6 +91,10 @@ sealed class PetWindow : Form
     bool? forcedQuiet;
     DateTime wakeUntil = DateTime.MinValue;
     Point dragStart, startLoc;
+    // Sheet 17's wheel (2026-10-12): hold the mouse on Aang without moving and the wheel opens; let go on a disc.
+    // The Shell draws it; the pet only notices the hold and says where the mouse was let go.
+    DateTime holdAt;
+    bool wheelOpen;
     int tick;
 
     /// <summary>Not readonly: a change to Windows' display scaling rebuilds it, because the box bakes the
@@ -862,6 +866,10 @@ sealed class PetWindow : Form
                 case "quiet":
                     forcedQuiet = Bool(m, "on"); ApplyQuiet();
                     break;
+                // Sheet 17: the wheel's Quiet disc. Quiet if he is not, back to normal if he is.
+                case "quiet.toggle":
+                    forcedQuiet = quiet ? false : true; ApplyQuiet();
+                    break;
                 case "job.hunt.reply":
                     Note(Bool(m, "onMac") ? "Running on your MacBook." : "Your MacBook is not reachable - running it here.");
                     break;
@@ -1121,6 +1129,13 @@ sealed class PetWindow : Form
         {
             var now = DateTime.UtcNow;
             tick++;
+            // Held still on Aang for a beat: the wheel. Moving first means a drag, as before.
+            if (NewFrontEnd && dragging && !moved && !wheelOpen && (now - holdAt).TotalMilliseconds >= 300)
+            {
+                wheelOpen = true;
+                var c = Cursor.Position;
+                _ = link.SendAsync(new { t = "wheel.open", x = c.X, y = c.Y });
+            }
             // Esc and the click-away watcher belong to the STATE, not to whichever call opened it. Arming
             // them at each entry point meant any path that did not know to arm them produced a bubble with
             // no way out, which is how the conversation shipped stuck (2026-10-02).
@@ -1272,6 +1287,7 @@ sealed class PetWindow : Form
             return;
         }
         dragging = true; moved = false;
+        holdAt = DateTime.UtcNow; wheelOpen = false;
         dragStart = Cursor.Position; startLoc = Location;
         Capture = true;
     }
@@ -1280,6 +1296,7 @@ sealed class PetWindow : Form
     {
         base.OnMouseMove(e);
         if (thumbDrag) { if (bubble.ScrollToY(BubblePoint(e.Location).Y)) dirty = true; return; }
+        if (wheelOpen) return;                                   // pointing at a disc, not dragging him
         if (!dragging)
         {
             var hp = BubblePoint(e.Location);
@@ -1374,6 +1391,14 @@ sealed class PetWindow : Form
         }
 
         if (thumbDrag) { thumbDrag = false; Capture = false; return; }
+        if (wheelOpen)
+        {
+            // Let go: the Shell picks whichever disc is under the mouse (or none, which closes the wheel).
+            wheelOpen = false; dragging = false; Capture = false;
+            var c = Cursor.Position;
+            _ = link.SendAsync(new { t = "wheel.release", x = c.X, y = c.Y });
+            return;
+        }
         if (!dragging) return;
         dragging = false; Capture = false;
         if (moved) { AfterDrag(); return; }
