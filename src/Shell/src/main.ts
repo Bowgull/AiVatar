@@ -132,8 +132,11 @@ function watchBusyOnce(): void {
   if (snipper?.open) { escHeld = false; return; }
   // Not while the typing box is up: a global Esc would beat the box to it, and the box's own Esc closes the
   // cockpit (or stops Aang) itself.
-  const wantEsc = showing && !gameQuiet && !input?.visible;
-  if (wantEsc && !escHeld) escHeld = globalShortcut.register('Escape', () => bubble?.send('bubble:dismiss', 'esc'));
+  // His ask, 2026-10-13: a box that opened without the keyboard (a click on a message, say) still closes on Esc. Its own
+  // Esc cannot hear it then, so Esc is held for it, never in a game, and let go the moment the box has the keyboard.
+  const boxDeaf = Boolean(input?.visible && !input.focused);
+  const wantEsc = !gameQuiet && ((showing && !input?.visible) || boxDeaf);
+  if (wantEsc && !escHeld) escHeld = globalShortcut.register('Escape', () => { if (input?.visible && !input.focused) input.close(false); else bubble?.send('bubble:dismiss', 'esc'); });
   else if (!wantEsc && escHeld) { globalShortcut.unregister('Escape'); escHeld = false; }
 }
 /** The mode the typing box sends with. Starts from the pet's own settings, which the pet still owns. */
@@ -329,7 +332,9 @@ const link = new CoreLink({
     // Parity with the old pet (2026-10-11). The pet's gate: in a game, Esc belongs to the game.
     if (m.t === 'bubble.state') { gameQuiet = m.quiet === true; bubbleMuted = m.muted === true; bubbleHidden = m.hidden === true; }
     // He clicked away from everything of ours (the pet's mouse hook saw it): the bubble lets go, as the old one did.
-    if (m.t === 'outside.click') { bubble?.send('bubble:dismiss', 'outside'); return; }
+    // A click away from everything of Aang's (the pet watches the mouse). His ask, 2026-10-13: an accidentally opened
+    // typing box closes on it too, keeping the draft, even when it never got the keyboard and so never lost it.
+    if (m.t === 'outside.click') { bubble?.send('bubble:dismiss', 'outside'); if (input?.visible) input.close(false); return; }
     // A page of history goes ONLY to the window that asked for it. Both the bubble's scroll-back and the
     // desk's History tab ask for it, the brain answers on the one link, and a desk search landing in the
     // scroll-back would put search results into the conversation he is reading.
