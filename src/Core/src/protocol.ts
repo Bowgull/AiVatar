@@ -67,6 +67,8 @@ export interface BriefCard {
   weather?: { now: number; high: number; low: number; words: string; rain: number };
   week: number | null;
   weekResetsAt: number | null;
+  /** Sheet 21: what is waiting on him (Claude jobs that need him, a question), for the Discord card's second section. */
+  waiting?: string[];
   error?: string;
 }
 
