@@ -30,6 +30,8 @@ import { ACT, HARD, MODELS } from './route.ts';
 import type { Gateway, Incoming } from './discord.ts';
 import { MacPowers, lastSaid } from './macpowers.ts';
 import { MacJobs } from './macjobs.ts';
+import { briefCardData } from './briefcard.ts';
+import { fetchDayWeather } from './weather.ts';
 
 /** How long a message waits for the PC before the Mac answers it. The heartbeat calls the PC off after 30 s. */
 export const HOLD_MS = 45_000;
@@ -53,8 +55,11 @@ export interface MacBrief {
   /** M5: the conversation further back, for "what did we talk about", oldest first */
   talk?: { who: 'you' | 'Aang'; text: string; ts: string }[];
   grocery: ListState | null;
+  /** His pick (2026-10-13): what the Mac's morning brief needs that only the PC knows. */
+  morning?: MacMorning;
   at: number;
 }
+export interface MacMorning { sentDay: string; companies: string[]; jobsNew: number; waiting: string[] }
 
 /** What the Mac did while the PC was off, handed to the PC when it is back, once. */
 export type Handled =
@@ -84,6 +89,12 @@ export function checkBrief(x: any): MacBrief | null {
     recent: Array.isArray(x.recent) ? x.recent.slice(-12).map((r: any) => ({ who: r?.who === 'you' ? 'you' as const : 'Aang' as const, text: str(r?.text, 600) })) : [],
     talk: Array.isArray(x.talk) ? x.talk.slice(-400).map((r: any) => ({ who: r?.who === 'you' ? 'you' as const : 'Aang' as const, text: str(r?.text, 400), ts: str(r?.ts, 30) })) : [],
     grocery, at: Number(x.at) || Date.now(),
+    ...(x.morning && typeof x.morning === 'object' ? { morning: {
+      sentDay: str(x.morning.sentDay, 12),
+      companies: Array.isArray(x.morning.companies) ? x.morning.companies.slice(0, 200).map((c: unknown) => str(c, 80).toLowerCase()).filter((c: string) => c.length >= 3) : [],
+      jobsNew: Math.max(0, Math.min(999, Number(x.morning.jobsNew) || 0)),
+      waiting: Array.isArray(x.morning.waiting) ? x.morning.waiting.slice(0, 8).map((w: unknown) => str(w, 120)) : [],
+    } } : {}),
   };
 }
 
@@ -168,6 +179,10 @@ export interface MacBrainOpts {
   /** For tests: what answers a question (default: Claude on the Mac) */
   answer?: (brain: MacBrain, text: string) => Promise<{ text: string; files: { name: string; data: Buffer }[] }>;
   render?: Render;
+  /** Draws one of Aang's cards as a PNG (the Mac's Aang browser does it), or null. Without it: words only. */
+  draw?: (kind: string, data: unknown) => Promise<Buffer | null>;
+  /** For tests: the clock. */
+  now?: () => Date;
 }
 
 export class MacBrain {
@@ -219,6 +234,35 @@ export class MacBrain {
 
   /** What the PC has not been given yet. */
   pending(): Handled[] { return this.handled.slice(); }
+  /**
+   * His pick (2026-10-13): the morning brief comes from the Mac when Shadow is off. Once a day after 7:00 Toronto time,
+   * never on a day the PC already sent it, the same card and words as the PC's (briefcard.ts). No model, no quota.
+   */
+  private morningBusy = false;
+  async morning(): Promise<void> {
+    const b = this.brief, m = b?.morning;
+    if (!b || !m || this.morningBusy || !this.powers?.mailConnected) return;
+    const now = this.o.now?.() ?? new Date();
+    const day = now.toLocaleDateString('en-CA', { timeZone: 'America/Toronto' });
+    const hour = Number(now.toLocaleTimeString('en-GB', { timeZone: 'America/Toronto', hour: '2-digit', hour12: false }).slice(0, 2));
+    let sent = ''; try { sent = readFileSync(this.file('brief-day'), 'utf8').trim(); } catch { /* never */ }
+    if (hour < 7 || m.sentDay === day || sent === day) return;
+    const ch = Object.entries(b.listen).find(([, k]) => k === 'aang')?.[0];
+    if (!ch) return;
+    this.morningBusy = true;
+    try {
+      writeFileAtomic(this.file('brief-day'), day);              // first: never twice, even if a step below fails
+      const d = await this.powers.briefData();
+      const weather = await fetchDayWeather().catch(() => null);
+      const unread = d.unread.map(u => ({ from: u.from, subject: u.subject, job: m.companies.some(c => `${u.from} ${u.address}`.toLowerCase().includes(c)) }));
+      const { data, text } = briefCardData({ day: now.toLocaleDateString('en-CA', { timeZone: 'America/Toronto', weekday: 'long', day: 'numeric', month: 'long' }), events: d.events, unread, jobsNew: m.jobsNew, waiting: m.waiting, weather });
+      const png = await this.o.draw?.('brief', data).catch(() => null) ?? null;
+      await this.o.gw.send(ch, png ? { content: text, embed: { color: 0xFFC43C, image: 'attachment://card.png' }, files: [{ name: 'card.png', data: png }] } as never : { content: text } as never);
+      this.log(`mac brain: sent the morning brief${png ? ' (drawn)' : ''}`);
+    } catch (e) { this.log('mac brain: the morning brief failed: ' + (e as Error).message); }
+    finally { this.morningBusy = false; }
+  }
+
   /** His week's use (0 to 1) as Claude last reported it on this Mac. */
   week: number | null = null;
   /** Any message from a Claude call: the week's use when it says, and the cost when the call is done. */

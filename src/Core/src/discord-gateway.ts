@@ -92,7 +92,7 @@ export class WsCoreLink implements CoreLink {
   }
   /** M4: what the Mac needs to answer as Aang while this PC is off; null if the brain does not answer. */
   private macWait = new Map<string, (d: any) => void>(); private macSeq = 0;
-  macBrief(): Promise<{ prompt: string; facts: string[]; recent: { who: 'you' | 'Aang'; text: string }[]; talk?: { who: 'you' | 'Aang'; text: string; ts: string }[] } | null> {
+  macBrief(): Promise<{ prompt: string; facts: string[]; recent: { who: 'you' | 'Aang'; text: string }[]; talk?: { who: 'you' | 'Aang'; text: string; ts: string }[]; morning?: import('./macbrain.ts').MacMorning } | null> {
     if (this.ws?.readyState !== WebSocket.OPEN) return Promise.resolve(null);
     const id = 'mac' + ++this.macSeq;
     return new Promise(res => {

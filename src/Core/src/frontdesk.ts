@@ -30,6 +30,8 @@ export interface DeskBrain {
   prewarm?(): void;
   /** A Claude Code job on this Mac said something while the PC was unreachable. */
   jobEvent?(event: string, body: unknown): Promise<void>;
+  /** His pick (2026-10-13): the morning brief, from the Mac, while the PC is off. Checks the time itself. */
+  morning?(): Promise<void>;
   pending(): Handled[];
   took(n: number): void;
   shadowBack(): void;
@@ -48,6 +50,8 @@ export type FromShadow = { id: number; op: string; args: unknown[] } | { op: 'ta
 const MAX_QUEUE = 500;
 /** M4b: where this Mac's Claude Code hooks go when the PC does not answer. Loopback only. */
 export const LOCAL_HOOK_PORT = 47842;
+/** Sheet 21: the Mac's Aang browser draws cards for the front desk here. Loopback only, with the hook key. */
+export const MAC_CARD_PORT = 47843;
 const PRESS_WAIT_MS = 2000;      // Discord allows 3 s to answer a press; say "wait" before that if Shadow is slow
 
 export interface FrontDeskOpts {
@@ -122,7 +126,7 @@ export async function startFrontDesk(o: FrontDeskOpts): Promise<{ close: () => P
     } finally { working = false; }
   }
   if (o.brain) {
-    const t = setInterval(() => { if (pcGone()) o.brain?.prewarm?.(); void tick(); }, 2000);
+    const t = setInterval(() => { if (pcGone()) { o.brain?.prewarm?.(); void o.brain?.morning?.(); } void tick(); }, 2000);
     t.unref?.(); timers.push(t);
   }
   let handingHandled = false;           // sent, waiting for Shadow to say it applied them
@@ -270,7 +274,16 @@ async function main(dir: string): Promise<void> {
   let brain: DeskBrain | undefined;
   try {
     const { MacBrain, HOLD_MS } = await import('./macbrain.ts');
-    brain = new MacBrain({ gw, dir: path.join(dir, 'brain') });
+    // Cards are drawn by the Mac's Aang browser, through its door on this Mac only (macmain.ts, port 47843).
+    const cardKey = (() => { try { return read('hook.key'); } catch { return ''; } })();
+    const draw = async (kind: string, data: unknown): Promise<Buffer | null> => {
+      if (cardKey.length < 20) return null;
+      const r = await fetch(`http://127.0.0.1:${MAC_CARD_PORT}/card`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-aang-key': cardKey }, body: JSON.stringify({ kind, data }), signal: AbortSignal.timeout(20_000) }).catch(() => null);
+      if (!r?.ok) return null;
+      const j: any = await r.json().catch(() => null);
+      return typeof j?.png === 'string' ? Buffer.from(j.png, 'base64') : null;
+    };
+    brain = new MacBrain({ gw, dir: path.join(dir, 'brain'), draw });
     console.log(`front desk: the Mac answers after ${HOLD_MS / 1000} s when Shadow is off`);
   } catch (e) { console.error('front desk: the Mac cannot answer by itself: ' + (e as Error).message); }
   // The heartbeat's verdict (heartbeat.sh writes "on|off|unknown ..." every 10 s).
