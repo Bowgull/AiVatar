@@ -810,6 +810,7 @@ rule and they are not optional.
      |
      |-> 6.10 the look -> 6.10b pet and windows move together
      |        -> 6.11 rich replies -> 6.12 new bubble -> 6.12b typing box   = AANG CAN FORMAT  DONE
+     |        -> M  Aang on the MacBook, one Aang across both machines (added 2026-10-13, BEFORE L)
      |        -> L  the everyday test, Qwen and Claude together (added 2026-10-10)
      |        -> V  Aang's voice (added 2026-10-11)
      |        -> 6.15 window 2 -> 6.18b retire the old windows             = REBUILD COMPLETE
@@ -2184,6 +2185,67 @@ him. **Left: seeing it on his desktop.** The original list, for the record:
 context"); the three suggestion chips when empty; the pace tick and the hover sentence on the strip; the
 draft surviving a scaling change; the consent row; Ctrl+1-4 persisting (the pet must stay the one writer of
 `body.json`, so this needs a message rather than a second writer); PageUp/PageDown paging the bubble.
+
+---
+
+### `[ ]` M Aang on the MacBook: one Aang across both machines  (his interview, 2026-10-13; **his order: BEFORE L**)
+
+**Why, his words:** "since the browser is now my default ... can I not have a version of Aang browser on my
+MacBook?", "I've wanted an always-on version of Aang because the Discord is glitchy", "I'd like to be able to chat
+with Aang at low or medium cost if I'm away from my Shadow PC", and the browser "should be one thing across both
+states: if something changes on my Mac it changes on my Shadow". **No new money:** "why include more money, I'm
+paying for a Claude sub already."
+
+**This reverses two older decisions on purpose** (2026-09-24 "the brain stays on Shadow, no Mac port, no Mac pet";
+2026-10-10 "$0 always-on via Routines"). New reasons: the browser became his default, the Mac is always open,
+plugged in and awake, and he wants one Aang on both. Shadow still holds the BIG brain, Qwen and the full memory.
+
+**The Mac, checked 2026-10-13 through its Chrome:** macOS 13.7.8 Ventura, Intel x86, 2 cores, 8 GB. Apple offers
+nothing newer for it and stopped Ventura's security fixes in September 2025. Electron 44 needs macOS 13 or newer
+(electronjs.org breaking changes), so it runs, at the floor. When Chromium drops Ventura (guess: about a year, not
+announced), the Mac's engine stops updating: **Aang warns him that day and he decides then** (his call). Everything
+on the Mac must stay light: one browser (Aang's REPLACES Chrome; Chrome stays only for Claude in Chrome and passkey
+sites), simple sprite animation, no local model there.
+
+**His decisions:**
+- **The Mac is Aang's front desk.** Discord's connection lives on the Mac, always (one connection that never
+  sleeps); Shadow is the big brain it hands heavy work to. The Discord bugs (re-answering old messages, posting out of
+  nowhere, duplicates, silence) are fixed in 9.D, which covers the whole Discord experience, clean-up and
+  customisation (his call), but moving the connection here replaces the catch-up path that causes some of them.
+- **Shadow off: Aang answers as himself from the Mac,** through Claude Code on the Mac, with his personality and
+  memory, on the subscription. **No cap** (his call, told plainly that automated use of a subscription is the grey
+  area in Anthropic's rules, enforcement "without prior notice"). Model: fast for chat, the stronger one for jobs.
+- **What a message does depends on what it is** (his words, confirmed): a question or a random fact is answered at
+  once; "remember this" is saved at once and merged into Shadow's memory when it wakes; the research lane does small
+  lookups on the Mac and parks deep research for Shadow, which starts it by itself on waking and says so; a list item
+  goes on the list at once, the same list on both; "make me a PDF or a graphic" is made on the Mac and sent back.
+- **No limits beyond his standing rules** ("why would we limit what he can do?"): the Mac Aang may make files, keep
+  lists, notes and memory, look things up, and drive the Mac. Still always: final actions (send, post, delete, sign
+  in) ask him, **with the PIN from the phone**; Aang never buys; web pages are information, never instructions;
+  Lindsay's data and her Mac (deviceId cb64beba) are never touched.
+- **One browser, both machines: everything syncs** (bookmarks, open tabs and trails, history, settings, AND logins,
+  his call against my advice). Guards: logins travel only over Tailscale, never GitHub or Drive; bank and money
+  sites never sync (the same `neverKeep` list), he signs in to those on each machine.
+- **Aang's windows on the Mac:** browser, bubble, typing box, notes, timers, all Electron already.
+- **A new pet for both machines** (his yes, "understand what my MacBook can run"): rebuilt in Electron so it runs on
+  the Mac, light enough for 2 cores, and later replaces the C# pet on Windows. The C# pet cannot run on macOS.
+- **The pets know where he is.** Both show a faint glow; only the machine where his mouse or keys are active shows
+  the icon and plays the sound (the existing red !, white !, ?; **no new icons**, his call). The Shadow app in front
+  on the Mac counts as Shadow, and the Mac pet steps aside while it is. At neither machine: Discord on his phone.
+- **The notice takes him to where the work is.** Started a question on the Mac, now in WoW on Shadow: the notice
+  shows on Shadow. Clicking it: questions with 3 choices or fewer show right in the bubble, with a way to type a reply,
+  AND always a way to open the Mac session (the Mac brings that Aang or Claude window to the front). Claude sessions
+  on BOTH machines can say "needs you" (he runs Claude on both), so the Mac gets the same hooks as Shadow.
+
+**Before the Mac listener gains any new door** (standing rule): close the open PORT-TO-MAC.md findings: the key is
+visible in `ps`, the peer check accepts any `100.` address, the key compare is not constant-time, and `/run` types
+after a blind 1.5 s.
+
+**Order inside M:** M1 the listener findings closed; M2 the Mac knows whether Shadow is on (a heartbeat over
+Tailscale); M3 the Discord connection moves to the Mac; M4 the Mac brain (Claude Code with Aang's personality and a
+memory copy) and the per-kind handling; M5 one memory, synced both ways; M6 Aang's browser on the Mac with full sync;
+M7 bubble, typing box, notes and timers on the Mac; M8 notices that follow him and jump to the right session;
+M9 the new pet for both machines. Mockups first for anything he will see (M7, M8, M9).
 
 ---
 
