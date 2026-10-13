@@ -3681,6 +3681,32 @@ a real certificate, saved to his iPhone home screen, push notifications on iOS 1
 and no paid Apple account. **Test first whether Face ID through a passkey works there**, which could
 replace the PIN. A native iPhone app is ruled out: see "Not doing".
 
+### Sheet 16: the cockpit, attached (his interview, 2026-10-12)
+
+Mockup: `docs/cockpit/sheet-16-cockpit-attached.html`, built from sheet 13's own pieces. Research behind it:
+`Aang/reports/Aang conversation flow.md` and `Aang/reports/Aang bubble cockpit.md`.
+- **One piece:** clicking a message (or hovering it) opens the cockpit, and his typing box docks right under the
+  bubble. No Reply button. The box keeps its own size (256 wide, one line, grows only with lots of text, up to 5).
+- **Box look:** outer frame in the browser's top-bar pixel wood (`band.png`), the typing area stays purple.
+- **Closing:** Esc or a click elsewhere. Untouched, it fades after its reading time, never while pointed at.
+- **Who is asking:** only on asks and on what Aang or Claude start: a small face and "AANG" or "CLAUDE", straight on
+  the parchment, no plate. Replies keep his own question on top (sheet 8).
+- **Claude messages:** clicking opens the cockpit; a key on hover ("Open Claude", PC or MAC) brings that window forward.
+  A small PC or MAC chip on every Claude row and question.
+- **Choices:** the FFX glove only, plum number keys on hover, "Something else". After a pick: one line "... from now
+  on" with a gold "change" link; every saved choice listed in the desk.
+- **Stop:** a key (or Esc) stops Aang; stopping a Claude session is a hold lever. A click never means stop.
+- **Queue:** levers first, then newest first, the rest peeking behind.
+- **Home:** opening it himself with nothing waiting shows a small home above the box (Claude rows by machine, playing,
+  next reminder, carry on), rows only when they have something.
+- **Never a scroll bar** in the bubble: a long reply gets the bobbing down arrow, or the bubble grows.
+- **Grow speed:** the springy 0.5 s for big opens, about 0.3 s for small steps.
+- **Snipit stays chips** on the typing box. No keys in the bubble, no guessing (wasted Qwen and Claude tokens).
+  The snip card loses its gold arrow.
+- **Voice:** built from his real messages, within step V's rules (light swearing never at him, proper grammar, no
+  em dashes ever, no bot phrases).
+- **Open:** height A (small when he speaks, big when he opens it) or B (big whenever it needs).
+
 ### `[ ]` 9.A7 Driving Claude from the balloon, at the desk  (his order 2026-10-10: stays in Phase 9)
 
 The desk version of everything 9.A does on Discord, demoed on sheet 13 ("Driving Claude" and "More
