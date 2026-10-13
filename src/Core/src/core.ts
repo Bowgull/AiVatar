@@ -1816,6 +1816,12 @@ export class Core {
       if (typeof r.frame === 'string') { const f = path.join(dir, `${stamp}-window.png`); writeFileSync(f, Buffer.from(r.frame, 'base64')); out.window = f; }
       if (typeof r.page === 'string' && r.page.startsWith('data:image/jpeg;base64,')) { const f = path.join(dir, `${stamp}-page.jpg`); writeFileSync(f, Buffer.from(r.page.slice(23), 'base64')); out.page = f; }
       const lf = path.join(dir, `${stamp}-log.txt`); writeFileSync(lf, String(r.log ?? '')); out.log = lf;
+      // The pop-out too (his report, 2026-10-13: Twitch's controls show while pinned): its state, and its picture.
+      if (r.popout && typeof r.popout === 'object') {
+        const { shot, ...pop } = r.popout as Record<string, unknown>;
+        if (typeof shot === 'string') { const f = path.join(dir, `${stamp}-popout.jpg`); writeFileSync(f, Buffer.from(shot, 'base64')); pop.picture = f; }
+        out.popout = pop;
+      }
       return out;
     };
     try {
