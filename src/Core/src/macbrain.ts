@@ -63,7 +63,9 @@ export type Handled =
   | { kind: 'forget'; text: string; at: number }
   | { kind: 'list'; text: string; at: number }
   | { kind: 'capture'; text: string; at: number }
-  | { kind: 'later'; text: string; at: number };
+  | { kind: 'later'; text: string; at: number }
+  /** What one Claude call on the Mac cost (measuring quota, his ask 2026-10-13). */
+  | { kind: 'usage'; what: string; in: number; out: number; cacheRead: number; cacheWrite: number; week: number | null; at: number };
 
 const str = (x: unknown, max: number) => String(x ?? '').slice(0, max);
 
@@ -188,7 +190,7 @@ export class MacBrain {
     this.o = o; this.log = o.log ?? console.log;
     this.file = n => path.join(o.dir, n);
     this.powers = new MacPowers(path.dirname(o.dir));
-    this.jobs = new MacJobs({ gw: o.gw, dir: o.dir, log: this.log, forum: () => (this.brief ? Object.entries(this.brief.listen).find(([, k]) => k === 'claude-jobs')?.[0] : undefined) });
+    this.jobs = new MacJobs({ gw: o.gw, dir: o.dir, log: this.log, meter: (m) => this.meter('job', m), forum: () => (this.brief ? Object.entries(this.brief.listen).find(([, k]) => k === 'claude-jobs')?.[0] : undefined) });
     mkdirSync(o.dir, { recursive: true, mode: 0o700 });
     try { this.brief = checkBrief(JSON.parse(readFileSync(this.file('brief.json'), 'utf8'))); } catch { /* none yet */ }
     try { const h = JSON.parse(readFileSync(this.file('handled.json'), 'utf8')); if (Array.isArray(h)) this.handled = h; } catch { /* none */ }
@@ -217,6 +219,18 @@ export class MacBrain {
 
   /** What the PC has not been given yet. */
   pending(): Handled[] { return this.handled.slice(); }
+  /** His week's use (0 to 1) as Claude last reported it on this Mac. */
+  week: number | null = null;
+  /** Any message from a Claude call: the week's use when it says, and the cost when the call is done. */
+  meter(what: string, m: any): void {
+    const w = m?.type === 'rate_limit_event' ? (m.rate_limit_info ?? m)?.unifiedWindows?.seven_day?.utilization : undefined;
+    if (typeof w === 'number') this.week = w;
+    if (m?.type !== 'result') return;
+    const u = m.usage ?? {};
+    const h = { kind: 'usage' as const, what, in: u.input_tokens ?? 0, out: u.output_tokens ?? 0, cacheRead: u.cache_read_input_tokens ?? 0, cacheWrite: u.cache_creation_input_tokens ?? 0, week: this.week, at: Date.now() };
+    this.log(`mac usage: ${what}: in ${h.in}, read ${h.cacheRead}, wrote ${h.cacheWrite}, out ${h.out}${h.week !== null ? `, week ${Math.round(h.week * 1000) / 10}%` : ''}`);
+    this.did(h);
+  }
   /** The PC applied the first n. */
   took(n: number): void {
     const done = this.handled.slice(0, Math.max(0, Math.min(this.handled.length, n)));
@@ -463,6 +477,7 @@ class WarmClaude {
       try {
         for await (const m of q as AsyncIterable<any>) {
           if (m.session_id && m.type === 'system') brain.resumeId = String(m.session_id);
+          brain.meter('chat', m);
           if (m.type === 'result') {
             const w = this.waiting; this.waiting = null;
             w?.(m.subtype === 'success' ? { text: String(m.result ?? '') } : { err: String(m.errors?.join?.('; ') || m.subtype) });
@@ -522,7 +537,7 @@ async function webLookup(brain: MacBrain, question: string): Promise<string> {
         env: { ...process.env, ENABLE_CLAUDEAI_MCP_SERVERS: 'false', ENABLE_TOOL_SEARCH: 'false' },
       },
     });
-    for await (const m of q as AsyncIterable<any>) if (m.type === 'result' && m.subtype === 'success') out = String(m.result ?? '');
+    for await (const m of q as AsyncIterable<any>) { brain.meter('web', m); if (m.type === 'result' && m.subtype === 'success') out = String(m.result ?? ''); }
   } catch (e) { return 'The lookup failed: ' + (e as Error).message; }
   finally { clearTimeout(t); }
   return out || 'Nothing came back from that lookup.';
