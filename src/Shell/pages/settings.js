@@ -5,11 +5,45 @@ const S = window.settings;
 let data = null;
 
 // ---- sections: the left list; the glove points at the open one
+let current = 'general';
 function show(sec) {
+  if ($('#find').value) { $('#find').value = ''; find(); }
   const name = ['general', 'bookmarks', 'passwords', 'privacy', 'sound', 'about'].includes(sec) ? sec : 'general';
   for (const el of document.querySelectorAll('section[data-sec]')) el.hidden = el.dataset.sec !== name;
   for (const a of document.querySelectorAll('.side a')) a.classList.toggle('on', a.dataset.sec === name);
+  current = name;
 }
+
+// ---- search settings: every section at once, only the rows whose words match (all of what he typed)
+function find() {
+  const words = $('#find').value.toLowerCase().split(/\s+/).filter(Boolean);
+  const secs = [...document.querySelectorAll('section[data-sec]')];
+  for (const el of document.querySelectorAll('.nomatch')) el.classList.remove('nomatch');
+  if (!words.length) { $('#nofind').hidden = true; for (const s of secs) s.hidden = s.dataset.sec !== current; for (const a of document.querySelectorAll('.side a')) a.classList.toggle('on', a.dataset.sec === current); return; }
+  const hit = (t) => { const s = t.toLowerCase(); return words.every((w) => s.includes(w)); };
+  let any = false;
+  for (const s of secs) {
+    s.hidden = false;
+    const head = s.querySelector('h2')?.textContent ?? '';
+    let secHit = false;
+    for (const card of s.querySelectorAll('.card')) {
+      const title = card.querySelector('h3')?.textContent ?? '';
+      const rows = [...card.querySelectorAll('.row')].filter((r) => !r.hidden);
+      let cardHit = false;
+      if (rows.length) for (const r of rows) { const ok = hit(head + ' ' + title + ' ' + r.textContent); r.classList.toggle('nomatch', !ok); cardHit ||= ok; }
+      else cardHit = hit(head + ' ' + card.textContent);
+      card.classList.toggle('nomatch', !cardHit);
+      secHit ||= cardHit;
+    }
+    s.classList.toggle('nomatch', !secHit);
+    for (const p of s.querySelectorAll(':scope > h2, :scope > .lead')) p.classList.toggle('nomatch', !secHit);
+    any ||= secHit;
+  }
+  for (const a of document.querySelectorAll('.side a')) a.classList.remove('on');
+  $('#nofind').hidden = any;
+}
+$('#find').addEventListener('input', find);
+$('#find').addEventListener('keydown', (e) => { if (e.key === 'Escape') { $('#find').value = ''; find(); } });
 for (const a of document.querySelectorAll('.side a')) a.addEventListener('click', (e) => { e.preventDefault(); show(a.dataset.sec); });
 S?.onSection?.((s) => show(String(s)));
 show(location.hash.slice(1));
