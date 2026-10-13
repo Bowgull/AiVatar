@@ -651,7 +651,7 @@ sealed class PetWindow : Form
                 return;
             }
             if (NewFrontEnd && tp.GetString() is "bubble" or "bubble.dots" or "bubble.clear" or "tool"
-                or "permission" or "fact.ask" or "backup.ask" or "consent")
+                or "permission" or "fact.ask" or "backup.ask" or "consent" or "timer.done")
             {
                 // Parity with the old pet (2026-10-11): the new bubble only DRAWS. Everything else the pet did
                 // with a message still happens here, by the same rules as case "bubble" below: muted and
@@ -958,6 +958,15 @@ sealed class PetWindow : Form
             if (cfg.Muted && kind == "backup.ask") { _ = link.SendAsync(new { t = "backup.reply", now = false }); return false; }
             if (peeking) Reveal(greet: false);        // a question cannot be answered by a head at the edge
             anim.Play("look");
+            return true;
+        }
+        // Sheet 17: a timer he set has run out. His needs-you sound, the Avatar State glow and the quest mark
+        // over his head, at the desk AND in a game: a timer that goes off silently is not a timer, and the
+        // sound is the whole point of setting one. The card with Got it / 5 more waits while he is in a game
+        // (the Shell holds it), so nothing covers his screen mid-fight. Muting still silences it (TriggerGlow).
+        if (kind == "timer.done")
+        {
+            TriggerUrgent();
             return true;
         }
         if (kind == "bubble.dots" && peeking && working) Reveal(greet: false);
