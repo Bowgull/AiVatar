@@ -172,7 +172,8 @@ const HOOKS_JXA = String.raw`function run(argv) {
     var kept = (hooks[e] || []).map(function (m) { var n = {}; for (var k in m) n[k] = m[k]; n.hooks = (m.hooks || []).filter(function (h) { return !isAang(h); }); return n; })
       .filter(function (m) { return m.hooks.length > 0; });
     kept.push({ hooks: [{ type: 'command', timeout: 5,
-      command: 'curl -s -m 2 -X POST -H "Content-Type: application/json" --data-binary @- "http://' + host + ':' + port + '/hook?e=' + e + '&k=' + key + '" || exit 0' }] });
+      // M4b: the PC first; if it does not answer (it is off), this Mac's own front desk, so the news still reaches Discord.
+      command: 'p=$(cat); printf %s "$p" | curl -s -m 2 -X POST -H "Content-Type: application/json" --data-binary @- "http://' + host + ':' + port + '/hook?e=' + e + '&k=' + key + '" || printf %s "$p" | curl -s -m 2 -X POST -H "Content-Type: application/json" --data-binary @- "http://127.0.0.1:47842/hook?e=' + e + '&k=' + key + '"; exit 0' }] });
     hooks[e] = kept;
   });
   settings.hooks = hooks;
@@ -183,6 +184,8 @@ const HOOKS_JXA = String.raw`function run(argv) {
 /** M3: the MacBook front desk, when this setup should install it. Files are the exact source that runs there. */
 export interface DeskPayload {
   token: string; key: string; port: number; files: Record<string, string | Buffer>;
+  /** M4b: his Google access (google.json), when he picked email and calendar on the Mac */
+  google?: string;
   /** M6: Aang's browser for the Mac: its code and pages packed (tar.gz), and the key its sync uses */
   browser?: { bundle: Buffer; bsyncKey: string; castlabsSig: Buffer };
 }
@@ -314,7 +317,9 @@ fi
 ${desk ? `echo "4/6  Aang's front desk (M3): the one connection to Discord, always on, on this Mac"
 FD="$DIR/frontdesk"; mkdir -p "$FD"
 # The Discord bot's token and the front desk's key go into files only you can read (printf is built into bash).
-( umask 077; printf '%s' "$DISCORD_TOKEN" > "$DIR/discord.token"; printf '%s' "$DESK_KEY" > "$DIR/frontdesk.key"; printf '{"shadow":"%s","port":%s}\\n' "$SHADOW" "$DESK_PORT" > "$DIR/frontdesk.json" )
+( umask 077; printf '%s' "$DISCORD_TOKEN" > "$DIR/discord.token"; printf '%s' "$DESK_KEY" > "$DIR/frontdesk.key"; printf '{"shadow":"%s","port":%s}\\n' "$SHADOW" "$DESK_PORT" > "$DIR/frontdesk.json"; printf '%s' "$HOOK_KEY" > "$DIR/hook.key" )
+${desk.google ? `# M4b (his pick): his Gmail and Calendar access, for Aang while the PC is off. Only you can read it.
+( umask 077; printf '%s' '${b64(desk.google)}' | /usr/bin/base64 -D > "$DIR/google.json" )` : 'rm -f "$DIR/google.json"'}
 ${deskFiles}
 if [ -x "$NODE_DIR/bin/node" ]; then
   # Exactly the versions in the lockfile, each checked against its fingerprint; no install scripts are run.

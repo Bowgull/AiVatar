@@ -1694,7 +1694,7 @@ export class Core {
         'discord-client.ts': readFileSync(path.join(here, 'discord-client.ts'), 'utf8'),
         'discord-logic.ts': readFileSync(path.join(here, 'discord-logic.ts'), 'utf8'),
         // M4: the Mac answering as Aang while this PC is off, and the small pieces it shares with this PC.
-        ...Object.fromEntries(['macbrain.ts', 'addresses.ts', 'lists.ts', 'atomic.ts', 'route.ts'].map(f => [f, readFileSync(path.join(here, f), 'utf8')])),
+        ...Object.fromEntries(['macbrain.ts', 'macpowers.ts', 'google.ts', 'mail.ts', 'addresses.ts', 'lists.ts', 'atomic.ts', 'route.ts'].map(f => [f, readFileSync(path.join(here, f), 'utf8')])),
         'package.json': readFileSync(path.join(pkg, 'package.json'), 'utf8'),
         'package-lock.json': readFileSync(path.join(pkg, 'package-lock.json'), 'utf8'),
         // 9.D D4: the speakers' pictures, made once with their webhooks
@@ -1707,7 +1707,10 @@ export class Core {
       catch (e) { console.error('mac-setup: the Mac browser could not be packed: ' + (e as Error).message); }
       writeFileAtomic(path.join(this.cfg.stateDir, 'frontdesk.json'), JSON.stringify({ mac, port: FRONT_DESK_PORT }));
       console.log(`mac-setup: the front desk goes to the MacBook (${mac}); Discord moves there at the next start`);
-      return { token, key, port: FRONT_DESK_PORT, files, ...(browser ? { browser } : {}) };
+      // M4b (his pick, 2026-10-13): his Gmail and Calendar on the Mac too, for while this PC is off.
+      let google = '';
+      try { google = readFileSync(path.join(this.cfg.stateDir, 'google.json'), 'utf8'); } catch { /* not signed in here */ }
+      return { token, key, port: FRONT_DESK_PORT, files, ...(browser ? { browser } : {}), ...(google ? { google } : {}) };
     } catch (e) { console.error('mac-setup: front desk skipped: ' + (e as Error).message); return null; }
   }
 
