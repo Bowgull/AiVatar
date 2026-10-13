@@ -286,6 +286,7 @@ export type ToBody =
   // 9.A0: the one list of everything Aang can do, and the answer to running one by name.
   | { t: 'card.png'; id: string; ok: boolean; png?: string; error?: string }
   | { t: 'home.data'; id: string; week: number | null; pace: string; running: number; waiting: string[] }
+  | { t: 'mac.brief'; id: string; prompt: string; facts: string[]; recent: { who: 'you' | 'Aang'; text: string }[] }
   | { t: 'away.reply'; text: string }
   | { t: 'puton.reply'; text: string }
   | { t: 'away.set' }
@@ -483,6 +484,8 @@ export type FromBody =
   | { t: 'card.draw'; id: string; kind: string; data?: unknown }
   | { t: 'claude.open'; cwd: string }
   | { t: 'home.data'; id: string }
+  | { t: 'mac.brief'; id: string }
+  | { t: 'mac.handled'; items: unknown[] }
   | { t: 'away' }
   | { t: 'puton'; words: string }
   | { t: 'video.watch'; id: string; url: string }

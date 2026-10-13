@@ -55,7 +55,7 @@ import { TrustStore, kindOf, needsHold } from './trust.ts';
 import { launch, openedText, resolve as resolveOpen } from './open.ts';
 import { vaultState, backupVault } from './backup-vault.ts';
 import { runCommand } from './run.ts';
-import { buildSystemPrompt, lint, stripReasoning } from './voice.ts';
+import { buildMacPrompt, buildSystemPrompt, lint, stripReasoning } from './voice.ts';
 import type { CanDraw } from './voice.ts';
 import type { PetAt } from './protocol.ts';
 import { MAX_SEND_BYTES, clock, mimeOf, statusText, whyNotSend } from './phone.ts';
@@ -1692,6 +1692,8 @@ export class Core {
         'frontdesk.ts': readFileSync(path.join(here, 'frontdesk.ts'), 'utf8'),
         'discord-client.ts': readFileSync(path.join(here, 'discord-client.ts'), 'utf8'),
         'discord-logic.ts': readFileSync(path.join(here, 'discord-logic.ts'), 'utf8'),
+        // M4: the Mac answering as Aang while this PC is off, and the small pieces it shares with this PC.
+        ...Object.fromEntries(['macbrain.ts', 'addresses.ts', 'lists.ts', 'atomic.ts', 'route.ts'].map(f => [f, readFileSync(path.join(here, f), 'utf8')])),
         'package.json': readFileSync(path.join(pkg, 'package.json'), 'utf8'),
         'package-lock.json': readFileSync(path.join(pkg, 'package-lock.json'), 'utf8'),
         // 9.D D4: the speakers' pictures, made once with their webhooks
@@ -2285,6 +2287,24 @@ export class Core {
       case 'idea.add': { const text = String(m.text ?? '').slice(0, 800); if (text.trim()) this.addIdea(text); break; }
       // 9.D D6: what the home card in Discord shows, and what "What's waiting" lists.
       case 'home.data': this.send(ws, { t: 'home.data', id: String(m.id ?? '').slice(0, 40), ...this.homeData() }); break;
+      // M4: Aang's voice, his facts and the last few lines, for the Mac to answer with while this PC is off.
+      case 'mac.brief': {
+        if (this.kindOfSocket(ws) !== 'discord') break;
+        const recent = this.memory.history('', 10).reverse().map(h => ({ who: h.who, text: h.text.slice(0, 600) }));
+        this.send(ws, { t: 'mac.brief', id: String(m.id ?? '').slice(0, 40), prompt: buildMacPrompt(this.memory.profile(), this.memory.learned()), facts: this.memory.list(400).map(f => f.text), recent });
+        break;
+      }
+      // M4: what he said to the Mac, and asked it to remember, while this PC was off.
+      case 'mac.handled': {
+        if (this.kindOfSocket(ws) !== 'discord' || !Array.isArray(m.items)) break;
+        let said = 0, kept = 0;
+        for (const h of m.items.slice(0, 500) as any[]) {
+          if (h?.kind === 'remember' && typeof h.text === 'string') { this.memory.remember(h.text.slice(0, 500), 'mac'); kept++; }
+          else if (h?.kind === 'turn' && typeof h.user === 'string' && typeof h.aang === 'string') { this.memory.saveTurn(h.user.slice(0, 4000), h.aang.slice(0, 4000), 'mac'); said++; }
+        }
+        console.log(`mac: took ${said} exchange(s) and ${kept} thing(s) to remember from the Mac`);
+        break;
+      }
       // 9.D D6: "Stepping away" from Discord. He is away until he touches the PC again (the pet says so then).
       case 'away': {
         // 9.D D9: from the wheel or from Discord. The pet is told, so the first touch of the PC after this brings him

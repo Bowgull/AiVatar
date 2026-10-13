@@ -48,6 +48,13 @@ export class FrontDeskGateway implements Gateway {
           if (x.queued) this.raw({ op: 'taken', n: 1 });
           return;
         }
+        // M4: what the Mac did while this PC was off. Applied, then acknowledged, so it is never applied twice.
+        if (x.ev === 'handled') {
+          const items = Array.isArray(x.items) ? x.items : [];
+          if (!this.handledCb || !items.length) return;
+          void Promise.resolve(this.handledCb(items)).then(() => this.raw({ op: 'handled.took', n: items.length }), e => this.o.log('discord: could not take what the Mac did: ' + (e as Error).message));
+          return;
+        }
         if (x.ev === 'button') {
           const { pressId, ...b } = x.b;
           const press: ButtonPress = { ...(b as any), ack: (note: string) => this.call('press.ack', [pressId, note]), keep: () => this.call('press.keep', [pressId]) };
@@ -82,6 +89,11 @@ export class FrontDeskGateway implements Gateway {
 
   onMessage(cb: (m: Incoming) => void): void { this.msgCbs.push(cb); }
   onButton(cb: (b: ButtonPress) => void): void { this.btnCbs.push(cb); }
+  private handledCb: ((items: import('./macbrain.ts').Handled[]) => Promise<void> | void) | null = null;
+  /** M4: what the Mac answered or saved while this PC was off. */
+  onHandled(cb: (items: import('./macbrain.ts').Handled[]) => Promise<void> | void): void { this.handledCb = cb; }
+  /** M4: what the Mac needs to answer as Aang while this PC is off. True if the Mac took it. */
+  macBrief(b: import('./macbrain.ts').MacBrief) { return this.call<boolean>('brief', [b]); }
   ensureLayout() { return this.call<Record<string, string>>('ensureLayout', [], 60_000); }
   send(channelId: string, msg: OutMsg) { return this.call<string>('send', [channelId, toWire(msg)], 60_000); }
   edit(channelId: string, messageId: string, msg: OutMsg) { return this.call<void>('edit', [channelId, messageId, toWire(msg)]); }

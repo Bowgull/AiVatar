@@ -8,7 +8,7 @@ export const MODELS: Record<Lane, { model: string; label: string }> = {
   deep: { model: 'claude-opus-5', label: 'Deep' },
 };
 
-const HARD = /\b(write|code|debug|refactor|research|compare|analy[sz]e|plan|architecture|explain (why|how)|step by step|in detail|pros and cons|design)\b/i;
+export const HARD = /\b(write|code|debug|refactor|research|compare|analy[sz]e|plan|architecture|explain (why|how)|step by step|in detail|pros and cons|design)\b/i;
 
 /**
  * A request to DO something, not to chat. These went to Quick (Haiku, no thinking) and came back as "plug it into
