@@ -939,3 +939,31 @@ test('9.D D6: one home card, pinned in home, edited in place; its three buttons 
   assert.deepEqual(shows, ['frieren']);
   assert.equal(core.submits.length, 0, 'the show name never became a chat turn');
 });
+
+test('9.D D7: a video in capture is watched in a thread, says what it is, and its four buttons do what they say', async () => {
+  const { gw, core } = await make({ paired: true });
+  const ideas: string[] = [];
+  (gw as any).startThread = async () => 'thread-v';
+  (core as any).addIdea = (t: string) => ideas.push(t);
+  (core as any).watchVideo = async () => ({ ok: true, by: 'Qwen', title: 'Lemon pasta', seconds: 48, from: 'transcript',
+    d: { kind: 'recipe', title: 'Lemon pasta in 10 minutes', shows: 'A quick lemon pasta.', useful: [{ who: 'you', what: 'dinner tonight' }], best: 0 } });
+  gw.say('capture', OWNER, 'https://www.youtube.com/watch?v=abc123XYZ'); await tick(); await tick();
+  const card = gw.at('thread-v').find(m => m.buttons?.some(b => b.id.startsWith('vid:')))!;
+  assert.match(card.content!, /recipe\. A quick lemon pasta/, 'what it is, first');
+  assert.match(card.content!, /Qwen read it on your PC, for free/);
+  assert.deepEqual(card.buttons!.map(b => b.label), ["Add to Aang's plan", 'Just save it', 'Go deeper', 'Not useful']);
+  assert.equal(core.submits.length, 0, 'no Claude turn just to watch it');
+  const id = (l: string) => card.buttons!.find(b => b.label === l)!.id;
+  assert.match(gw.press(id("Add to Aang's plan"), OWNER, 'thread-v')[0]!, /idea for you to approve/); await tick();
+  assert.match(ideas[0]!, /Lemon pasta in 10 minutes \(recipe\)/);
+  gw.press(id('Just save it'), OWNER, 'thread-v'); await tick();
+  assert.deepEqual([gw.posts.at(-1)!.forumId, gw.posts.at(-1)!.tags], ['ch-library', ['Video']]);
+  gw.press(id('Go deeper'), OWNER, 'thread-v'); await tick();
+  const ask = gw.at('thread-v').at(-1)!;
+  assert.match(ask.content!, /uses Claude/);
+  gw.press(ask.buttons![0]!.id, OWNER, 'thread-v'); await tick();
+  assert.match(core.submits.at(-1)!.text, /Use watch_video/);
+  assert.equal(core.submits.at(-1)!.opts?.mode, 'smart');
+  gw.sayIn('thread-v', 'capture', OWNER, 'would this work with gluten free pasta?'); await tick();
+  assert.match(core.submits.at(-1)!.text, /About the video "Lemon pasta in 10 minutes"/, 'his words in the thread are about that video');
+});

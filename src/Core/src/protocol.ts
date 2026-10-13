@@ -288,6 +288,7 @@ export type ToBody =
   | { t: 'home.data'; id: string; week: number | null; pace: string; running: number; waiting: string[] }
   | { t: 'away.reply'; text: string }
   | { t: 'puton.reply'; text: string }
+  | { t: 'video.card'; id: string; ok: boolean; by?: string; title?: string; author?: string; seconds?: number | null; from?: string; d?: unknown; why?: string }
   | { t: 'action.list'; actions: { name: string; label: string; description: string; params: unknown }[] }
   | { t: 'action.result'; id: string; ok: boolean; text: string; image?: { data: string; mimeType: string } }
   /** The morning brief as a card (6.15): the brief's data plus what only the Core knows - logos, which
@@ -482,6 +483,8 @@ export type FromBody =
   | { t: 'home.data'; id: string }
   | { t: 'away' }
   | { t: 'puton'; words: string }
+  | { t: 'video.watch'; id: string; url: string }
+  | { t: 'idea.add'; text: string }
   | { t: 'action.run'; id: string; name: string; args?: Record<string, unknown> }
   /** The gold "change" link under a remembered choice: forget it, so Aang asks next time. */
   | { t: 'choice.forget'; key: string }

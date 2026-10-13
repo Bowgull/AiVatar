@@ -85,6 +85,7 @@ export class FrontDeskGateway implements Gateway {
   editChannel(id: string, spec: { name?: string; parentId?: string | null; topic?: string; addTags?: string[] }) { return this.call<void>('editChannel', [id, spec]); }
   deleteChannel(id: string) { return this.call<void>('deleteChannel', [id]); }
   postsOf(forumId: string, limit: number) { return this.call<import('./discord.ts').PostInfo[]>('postsOf', [forumId, limit], 90_000); }
+  startThread(channelId: string, messageId: string, name: string) { return this.call<string>('startThread', [channelId, messageId, name]); }
   setPostTags(postId: string, tags: string[]) { return this.call<void>('setPostTags', [postId, tags]); }
   async download(url: string) { return Buffer.from(await this.call<string>('download', [url], 90_000), 'base64'); }
   typing(channelId: string) { return this.call<void>('typing', [channelId]); }

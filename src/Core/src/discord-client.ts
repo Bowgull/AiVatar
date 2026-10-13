@@ -168,6 +168,12 @@ export class DiscordGateway implements Gateway {
     }
     return out;
   }
+  async startThread(channelId: string, messageId: string, name: string): Promise<string> {
+    const channel: any = await this.client.channels.fetch(channelId);
+    const m = await channel.messages.fetch(messageId);
+    const t = await m.startThread({ name: name.slice(0, 100) || 'about this', autoArchiveDuration: 1440 });
+    return t.id;
+  }
   async setPostTags(postId: string, tags: string[]): Promise<void> {
     const t: any = await this.client.channels.fetch(postId);
     const forum: any = t.parentId ? await this.client.channels.fetch(t.parentId) : null;

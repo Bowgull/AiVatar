@@ -3853,6 +3853,14 @@ the connection) and 9.A0 (buttons call the action registry). **Build order:**
   draws it; the Mac marks it Off when Shadow is off in M4.
 - **D7 #capture videos** (board 3): watched from the transcript by Qwen, a card with Useful for, and Add to plan /
   Just save it / Go deeper (cost first) / Not useful, in a thread.
+  **D7 BUILT 2026-10-13** (`watchvideo.ts`, `Core.watchVideo`, `DiscordAdapter.watchVideoIn`): a YouTube, TikTok or
+  Instagram link in 📥 capture gets a thread on his message: "Watching it...", then a drawn `watched` card with the
+  quick diagnosis he asked for: **What it is** (recipe, tutorial, game clip...), what it shows, and Useful for (best guess
+  marked). Read from YouTube's own captions (only ever its own transcript address), else the description, else the
+  caption. **Qwen** diagnoses it for free; when Qwen cannot (a game, or off), **Claude Quick does it at once** (his call),
+  in a lane with NO tools. Buttons: Add to Aang's plan (`ideas-for-aang.md`, his to approve), Just save it (📚 library,
+  tag Video), Go deeper (cost first, then Smart with the new `watch_video` action, which marks the turn as outside
+  content), Not useful. His words in the thread go to Aang about that video. 10 tests + the card painter.
 - **D8 #gaming:** Apex ranked map and creator uploads (K3's feeds).
 - **D9 Away from the wheel:** the Quiet slot becomes Away; talking moves to Discord; sessions resumed and answered there.
 - Voice is step V (after L), not here.

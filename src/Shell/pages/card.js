@@ -34,6 +34,24 @@ const DRAW = {
     card.append(col, el('div', 'drawn', 'DRAWN BY AANG'));
     return card;
   },
+  // A video he dropped in #capture (sheet 15 board 3): what it is, what it shows, what it could be useful for.
+  watched(d) {
+    const card = el('div', 'parch'), col = el('div', 'col');
+    const top = el('div', 'row'); top.style.alignItems = 'center'; top.style.gap = '6px';
+    top.append(el('div', 'plaque', 'WATCHED IT'), el('div', 'meta', str(d.meta, 60)));
+    col.append(top, el('div', 'head', str(d.title, 90)));
+    if (d.kind) col.append(el('div', 'kind', 'What it is: ' + str(d.kind, 30)));
+    col.append(el('div', 'text', str(d.shows, 300)), el('div', 'rule'), el('div', 'lbl', 'USEFUL FOR'));
+    const list = Array.isArray(d.useful) ? d.useful.slice(0, 3) : [];
+    list.forEach((u, i) => {
+      const row = el('div', 'use' + (i === d.best ? ' best' : ''));
+      if (i === d.best) row.append(el('span', 'tag', 'BEST GUESS'));
+      row.append(el('span', null, `${str(u.who, 20)}: ${str(u.what, 60)}`));
+      col.append(row);
+    });
+    card.append(col, el('div', 'drawn', 'DRAWN BY AANG'));
+    return card;
+  },
   // The home card (sheet 15 board 4), on the browser's pixel wood.
   home(d) {
     const card = el('div', 'wood');
