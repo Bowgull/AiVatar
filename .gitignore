@@ -24,3 +24,6 @@ tests/out/
 
 # Browser engines Aang downloads for an update he chose (6.28); the pointer and the engines live only on this PC.
 src/Shell/engines/
+
+# E8: speech-to-text program and voice model (downloaded, pinned by fingerprint), not kept in git
+tools/whisper/
