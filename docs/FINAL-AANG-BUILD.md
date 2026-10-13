@@ -841,8 +841,9 @@ assistant" (status list) and "Loose ends and new asks (2026-10-13)".**
    is off, C3 week and inbox cards, C4 Mac Claude jobs as one card edited in place~~ (DONE 2026-10-13; sessions he starts
    himself on the PC still post plain lines: his call) -> **E** the email assistant (section "E Email assistant":
    E1-E8 DONE 2026-10-13; next E9, E10, the zero-mistakes comparison + proofreading, the extras, E11).
-   **Also from 2026-10-13:** ~~models + routing~~ (Haiku 5.5 / Sonnet 5.5, Quick only small talk), browser extensions
-   (interview), sync gaps (decide with him), Opus 5.5 (SDK update, his OK): see "Loose ends and new asks".
+   **Also from 2026-10-13:** ~~models + routing~~ (Haiku 5.5 / Sonnet 5.5, Quick only small talk), **SY** sync
+   everything (his yes), **X** browser extensions (7TV, Dark Reader), Opus 5.5 (SDK update, his OK): see "Loose ends
+   and new asks". Order: E9 -> E10 -> the two zero-mistakes pieces -> SY -> X -> the email extras -> E11.
 1. ~~**9.D Discord**~~ (approved sheet 15): ~~D1 channels~~ ~~D2 buzz~~ ~~D3 drawn cards~~ ~~D4 speakers~~ ~~D5 live Claude
    job cards~~ ~~D6 home card~~ ~~D7 #capture videos~~ ~~D8 gaming feeds~~ ~~D9 the wheel's Away~~ ~~the old channels
    deleted by HIS button (2026-10-13)~~. DONE.
@@ -3129,13 +3130,17 @@ E9 prep jobs with research -> E10 unsubscribe sweep and tidy-up list -> E11 the 
 
 ## Loose ends and new asks (2026-10-13, so nothing is lost)
 
-- **Browser extensions** (his ask: "can I get regular Google extensions?"): to research and interview. Electron runs
-  only part of Chrome's extension system; many work, some do not. Interview first: which extensions he uses.
-- **Sync gaps** (his words: "if I do something here in Aang and its browser it should sync across machines"). Synced
-  today: bookmarks, browser settings, open tabs and trails, history, logins (not money sites), one video at a time.
-  NOT synced: per-site choices (popups allowed, trusted downloads, http-ok, ad-block paused), the Stash, the downloads
-  list, tab zoom, window sizes and extra windows, pop-out and skip settings; outside the browser, his TomTom key and
-  home (E11) and the Google sign-in (copied only at a Mac paste, not live). To decide with him what must sync.
+- **X Browser extensions** (his ask: "can I get regular Google extensions?"; his answers 2026-10-13): the password
+  manager (Bitwarden, built in) and ad blocking (built in) cover those; he wants **7TV** (Twitch emotes, on his Mac
+  Chrome) and **dark mode / page tools** (Dark Reader and the like). His PC Chrome has only Claude + Google's own.
+  Electron runs only part of Chrome's extension system: install from the Chrome Web Store (an open-source add-on,
+  to vet), test 7TV and Dark Reader for real, say plainly which work. Synced across machines like everything else.
+- **SY Sync everything** (his words: "if I do something here in Aang and its browser it should sync across machines";
+  his pick: "Yes, everything", 2026-10-13). Synced today: bookmarks, browser settings, open tabs and trails, history,
+  logins (not money sites), one video at a time. TO ADD: per-site choices (popups allowed, trusted downloads, http-ok,
+  ad-block paused), the Stash, the downloads list, tab zoom, pop-out and skip settings, extensions; outside the
+  browser, his TomTom key and home (E11) and the Google sign-in kept live. NOT window sizes (screens differ). Money
+  sites still never travel.
 - **Opus 5.5:** needs Claude Code 2.1.280+, the bundled agent SDK has 2.1.278: an SDK update (a download, his OK).
 - **Quota:** read a day of numbers (turns.jsonl outTokens/week, usage-mac.jsonl) and show him: the new routing costs.
 - **Browser windows** come back as ONE window after a restart (tabs are never lost).
