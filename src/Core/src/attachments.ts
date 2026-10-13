@@ -74,7 +74,7 @@ export function docxText(buf: Buffer): string | null {
 // ------------------------------------------------------------------ PDF (unpdf, once he has said yes)
 
 /** A PDF's text, or null when there is no PDF reader yet or the PDF has no text (a scan: say so, do not guess). */
-export async function pdfText(buf: Buffer): Promise<{ text: string; pages: number } | null> {
+export async function pdfText(buf: Buffer): Promise<{ text: string; pages: number } | 'broken' | null> {
   let mod: any;
   try { mod = await import('unpdf' as string); } catch { return null; }
   try {
@@ -82,7 +82,7 @@ export async function pdfText(buf: Buffer): Promise<{ text: string; pages: numbe
     const r = await mod.extractText(doc, { mergePages: false });
     const pages: string[] = Array.isArray(r.text) ? r.text : [String(r.text ?? '')];
     return { text: pages.map((t, i) => `[page ${i + 1}]\n${t}`).join('\n\n'), pages: Number(r.totalPages) || pages.length };
-  } catch { return null; }
+  } catch { return 'broken'; }
 }
 
 // ------------------------------------------------------------------ one attachment, read
@@ -111,7 +111,8 @@ export async function readAttachment(name: string, mime: string, buf: Buffer): P
   }
   if (kind === 'pdf') {
     const r = await pdfText(buf);
-    if (r === null) return { why: `${name} is a PDF, and Aang does not have a PDF reader yet (it waits for his yes to add one). It can be saved for you to open.` };
+    if (r === null) return { why: `${name} is a PDF, and the PDF reader is not installed here. It can be saved for you to open.` };
+    if (r === 'broken') return { why: `${name} could not be read as a PDF (it may be damaged or locked with a password). It can be saved for you to open.` };
     if (!r.text.replace(/\[page \d+\]/g, '').trim()) return { why: `${name} is a PDF of ${r.pages} page${r.pages === 1 ? '' : 's'} with no text in it (a scan or pictures). It can be saved for you to open.` };
     return { text: fence(cleanText(r.text, 60_000)) };
   }
