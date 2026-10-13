@@ -10,7 +10,7 @@ import { toolLabel } from './tools.ts';
 export type LaneEvent =
   | { t: 'delta'; text: string; reset: boolean }
   | { t: 'tool'; name: string; phase: 'start' | 'done'; label: string }
-  | { t: 'result'; ok: boolean; text: string; ms: number; ttftMs: number | null; ctxTokens: number; cacheReadTokens: number; cacheWriteTokens: number; tools: string[]; subtype: string; served?: string[] }
+  | { t: 'result'; ok: boolean; text: string; ms: number; ttftMs: number | null; ctxTokens: number; cacheReadTokens: number; cacheWriteTokens: number; outTokens: number; tools: string[]; subtype: string; served?: string[] }
   | { t: 'quota'; quota: Quota }
   | { t: 'error'; message: string };
 
@@ -320,6 +320,7 @@ export class Lane {
               // should already be cached by the API by default, but "should" is not the same as seeing it.
               cacheReadTokens: u.cache_read_input_tokens ?? 0,
               cacheWriteTokens: u.cache_creation_input_tokens ?? 0,
+              outTokens: u.output_tokens ?? 0,
               tools: [...this.toolsUsed],
               // Which model ACTUALLY answered. On a subscription the SDK can serve a different model than
               // asked for, with HTTP success and no error, for an id it does not know or under load

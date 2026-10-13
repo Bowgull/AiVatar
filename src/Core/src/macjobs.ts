@@ -24,8 +24,8 @@ export class MacJobs {
   private jobs: Job[] = [];
   private readonly file: string;
   private running = 0;
-  private readonly o: { gw: Gw; dir: string; forum: () => string | undefined; log: (s: string) => void; run?: typeof query };
-  constructor(o: { gw: Gw; dir: string; forum: () => string | undefined; log: (s: string) => void; run?: typeof query }) {
+  private readonly o: { gw: Gw; dir: string; forum: () => string | undefined; log: (s: string) => void; run?: typeof query; meter?: (m: unknown) => void };
+  constructor(o: { gw: Gw; dir: string; forum: () => string | undefined; log: (s: string) => void; run?: typeof query; meter?: (m: unknown) => void }) {
     this.o = o;
     this.file = path.join(o.dir, 'jobs.json');
     try { if (existsSync(this.file)) { const a = JSON.parse(readFileSync(this.file, 'utf8')); if (Array.isArray(a)) this.jobs = a; } } catch { /* none */ }
@@ -105,6 +105,7 @@ export class MacJobs {
         },
       });
       for await (const m of q as AsyncIterable<any>) {
+        this.o.meter?.(m);
         if (m.type === 'system' && m.session_id && !job) {
           job = await this.postFor(String(m.session_id), cwd, title, `Working on: ${title}`, 'Working') ?? undefined;
         }
