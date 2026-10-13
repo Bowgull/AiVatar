@@ -1,5 +1,7 @@
 // The Core: talks to the Body over a localhost WebSocket, keeps one warm Claude session per model lane,
 // streams replies, enforces the voice linter and grounding rule, and applies Joshua's quota rule.
+import { SURE, Travel, mins, sayDrive, sayFound, wazeLink, type Place } from './travel.ts';
+import { findLinks } from './emailfacts.ts';
 import { checkFilter, describeFilter, gmailFilter, type FilterAsk } from './filters.ts';
 import { MAX_FILES_BYTES } from './mail.ts';
 import { approvalText, pickSource, planFromInvite, planFromWords, readBack, responseOf, sayPlanTime, type Answer } from './booking.ts';
@@ -436,6 +438,8 @@ export class Core {
       calendarBook: (a) => this.calendarBook(a),
       calendarUndo: () => this.calendarUndo(),
       mailFilter: (a) => this.mailFilter(a),
+      driveTime: (a) => this.driveTime(a),
+      setHome: (address) => this.setHome(address),
       calendar: days => this.mailRead('mcp__aang__calendar_today', { days: days ?? 1 }, m => m.agenda(days ?? 1, (ev, from, n) => this.cardForTurn('week', weekCardData(ev, from, n)))),
       mailDraft: input => this.mailDraft(input),
       tasks: {
@@ -913,6 +917,99 @@ export class Core {
       return { ok: true, detail: `${plan.answer === 'add' ? 'Added to his calendar' : `He ${responseOf(plan.answer)} it`}: ${sayPlanTime(plan)}. Read back from Google and it matches. Tell him in one line; he can say "undo that".` };
     } catch (e) { return { ok: false, detail: `Google refused it: ${(e as Error).message}. Nothing changed.` }; }
   }
+  // ---------------------------------------------------------------- E7: drive times, home, leave-by and call reminders
+  private travelSvc: Travel | null = null;
+  private travel(): Travel { return (this.travelSvc ??= new Travel(this.cfg.stateDir)); }
+  private static readonly NO_TOMTOM = 'Drive times need his TomTom key. Tell him to run tools\\tomtom-setup.cmd once (free account at developer.tomtom.com, no card); nothing was looked up.';
+
+  /** His home, looked up and said back; kept only after he confirms what TomTom found. */
+  private async setHome(address: string): Promise<{ ok: boolean; detail: string }> {
+    const t = this.travel();
+    if (!t.ready) return { ok: false, detail: Core.NO_TOMTOM };
+    let p: Place | null = null;
+    try { p = await t.find(address); } catch (e) { return { ok: false, detail: `The address could not be looked up: ${(e as Error).message}.` }; }
+    if (!p) return { ok: false, detail: 'TomTom found nothing for that address. Ask him to check it.' };
+    if (!await this.askPermission('mcp__aang__set_home', { address }, { question: 'keep this as your home for drive times', means: sayFound(p), once: true })) return { ok: false, detail: this.whyNot() + ' Home was not saved.' };
+    t.setHome(p);
+    return { ok: true, detail: `Home saved: ${p.found}. Drive times now start there.` };
+  }
+
+  /**
+   * How long the drive is, with traffic, and a Waze link. The place comes from code (the email's invite or its
+   * addresses) or his own words; what TomTom found is always said, a weak match marked CHECK. With an invite and
+   * arriveBy, the leave-by for its start (the time is the invite's own, read by code).
+   */
+  private async driveTime(a: { emailId?: string; to?: string; from?: string; arriveBy?: boolean }): Promise<{ ok: boolean; detail: string }> {
+    const t = this.travel();
+    if (!t.ready) return { ok: false, detail: Core.NO_TOMTOM };
+    let dest = (a.to ?? '').trim(), arriveBy: string | undefined;
+    if (a.emailId) {
+      const seen = await this.mail()?.seenEmail(String(a.emailId).slice(0, 40));
+      if (!seen) return { ok: false, detail: 'That email could not be found. Read it with mail_read first.' };
+      const inv = seen.facts.invites.find(i => !i.cancelled);
+      const place = inv?.where && !/^https?:/i.test(inv.where) ? inv.where : seen.facts.addresses[0];
+      if (!dest) dest = place ?? '';
+      if (a.arriveBy && inv?.start?.iso) arriveBy = inv.start.iso;
+    }
+    if (!dest) return { ok: false, detail: 'There is no address to drive to. Ask him where.' };
+    try {
+      const to = await t.find(dest);
+      if (!to) return { ok: false, detail: `TomTom found nothing for "${dest}". Ask him to check the address.` };
+      const from = a.from?.trim() ? await t.find(a.from.trim()) : t.home;
+      if (!from) return { ok: false, detail: a.from ? `TomTom found nothing for "${a.from}".` : 'His home address is not set yet. Ask him for it (set_home), or where he is leaving from.' };
+      const r = await t.route(from, to, arriveBy ? { arriveBy } : undefined);
+      const words = [sayDrive(r, to, arriveBy), sayFound(to), ...(a.from?.trim() ? [`From: ${(from as Place).found}.`] : [])].join(' ');
+      this.linksForTurn(words, [{ label: 'Open in Waze', url: wazeLink(to) }]);
+      return { ok: true, detail: `${words}\nWaze: ${wazeLink(to)}\nSay this in a line or two, keeping the times exactly as written; in Discord an Open in Waze button is already under it.` };
+    } catch (e) { return { ok: false, detail: `The drive could not be worked out: ${(e as Error).message}.` }; }
+  }
+  /** Link buttons that go with this turn's answer in Discord (Open in Waze, Join). The desk shows the link as a chip. */
+  private linksForTurn(content: string, links: { label: string; url: string }[]): void {
+    const sub = this.active?.sub, ws = sub?.socket;
+    if (!sub || !ws || ws.readyState !== ws.OPEN || this.kindOfSocket(ws) !== 'discord') return;
+    this.send(ws, { t: 'links.show', id: sub.id, links: links.filter(l => /^https:\/\//.test(l.url)).slice(0, 4) });
+  }
+
+  /**
+   * His picks: a leave-by reminder (with traffic, checked again shortly before) for anything in his calendar with a
+   * place, and a Join reminder for calls. Told once each, at the PC or in Discord, wherever he is.
+   */
+  private toldTrips = new Set<string>();
+  private async tripTick(): Promise<void> {
+    const svc = this.mail(); if (!svc) return;
+    const now = Date.now();
+    let events: CalEvent[] = [];
+    try { events = await svc.google.events(new Date(now).toISOString(), new Date(now + 3 * 3_600_000).toISOString(), 15); } catch { return; }
+    for (const e of events) {
+      if (e.status === 'cancelled' || !e.start?.dateTime) continue;
+      const start = Date.parse(e.start.dateTime), title = e.summary ?? 'your meeting';
+      const when = new Date(start).toLocaleTimeString('en-US', { timeZone: 'America/Toronto', hour: 'numeric', minute: '2-digit' }).toLowerCase();
+      // A call: its link, 5 minutes before.
+      const call = e.hangoutLink ?? findLinks('', `${e.location ?? ''}\n${e.description ?? ''}`).find(l => l.kind === 'call')?.url;
+      const callKey = `call:${e.id}:${start}`;
+      if (call && start - now <= 5 * 60_000 && start - now > -5 * 60_000 && !this.toldTrips.has(callKey)) {
+        this.toldTrips.add(callKey);
+        this.announce(`Your call "${title}" starts at ${when}. Join: ${call}`, { asked: true, links: [{ label: 'Join call', url: call }] });
+      }
+      // A place: leave-by with traffic, said about 15 minutes before it is time to go.
+      const where = e.location && !/^https?:/i.test(e.location) ? e.location : '';
+      const t = this.travel();
+      if (!where || !t.ready || !t.home) continue;
+      const key = `trip:${e.id}:${start}`;
+      if (this.toldTrips.has(key) || start - now > 3 * 3_600_000) continue;
+      try {
+        const to = await t.find(where);
+        if (!to || to.score < SURE) continue;                 // never a reminder built on a doubtful place
+        const r = await t.route(t.home, to, { arriveBy: new Date(start).toISOString() });
+        const leave = Date.parse(r.departAt);
+        if (leave - now > 15 * 60_000) continue;              // not yet: checked again next tick, with fresh traffic
+        this.toldTrips.add(key);
+        const lv = new Date(leave).toLocaleTimeString('en-US', { timeZone: 'America/Toronto', hour: 'numeric', minute: '2-digit' }).toLowerCase();
+        this.announce(`Leave by ${lv} for "${title}" at ${when} (${mins(r.seconds)} with traffic, to ${to.found}). Waze: ${wazeLink(to)}`, { asked: true, links: [{ label: 'Open in Waze', url: wazeLink(to) }] });
+      } catch { /* tried again next tick */ }
+    }
+  }
+
   /** E6: a Gmail filter, said in plain words and asked every time; the last one made here can be undone. */
   private lastFilter: { id: string; said: string } | null = null;
   private async mailFilter(a: FilterAsk & { undo?: boolean }): Promise<{ ok: boolean; detail: string }> {
@@ -959,7 +1056,7 @@ export class Core {
     const svc = this.mail(); if (!svc) return { ok: false, detail: Core.NO_GOOGLE };
     const seen = await svc.seenEmail(String(id).slice(0, 40));
     if (!seen) return { ok: false, detail: 'That email could not be found. Read it with mail_read first.' };
-    const card = emailCardData(seen, summary, asks, svc.google.has('calendar.events'));
+    const card = emailCardData(seen, summary, asks, svc.google.has('calendar.events'), this.travel().ready && Boolean(this.travel().home));
     const sub = this.active?.sub, ws = sub?.socket;
     if (sub && ws && ws.readyState === ws.OPEN && this.kindOfSocket(ws) === 'discord') {
       this.send(ws, { t: 'card.show', id: sub.id, kind: 'email', data: card.data, email: seen.id, acts: card.acts, ...(card.join ? { join: card.join } : {}) });
@@ -1878,7 +1975,7 @@ export class Core {
         'discord-client.ts': readFileSync(path.join(here, 'discord-client.ts'), 'utf8'),
         'discord-logic.ts': readFileSync(path.join(here, 'discord-logic.ts'), 'utf8'),
         // M4: the Mac answering as Aang while this PC is off, and the small pieces it shares with this PC.
-        ...Object.fromEntries(['macbrain.ts', 'macpowers.ts', 'macjobs.ts', 'weather.ts', 'briefcard.ts', 'google.ts', 'mail.ts', 'emailfacts.ts', 'attachments.ts', 'emailcard.ts', 'booking.ts', 'addresses.ts', 'lists.ts', 'atomic.ts', 'route.ts'].map(f => [f, readFileSync(path.join(here, f), 'utf8')])),
+        ...Object.fromEntries(['macbrain.ts', 'macpowers.ts', 'macjobs.ts', 'weather.ts', 'briefcard.ts', 'google.ts', 'mail.ts', 'emailfacts.ts', 'attachments.ts', 'emailcard.ts', 'booking.ts', 'filters.ts', 'travel.ts', 'addresses.ts', 'lists.ts', 'atomic.ts', 'route.ts'].map(f => [f, readFileSync(path.join(here, f), 'utf8')])),
         'package.json': readFileSync(path.join(pkg, 'package.json'), 'utf8'),
         'package-lock.json': readFileSync(path.join(pkg, 'package-lock.json'), 'utf8'),
         // 9.D D4: the speakers' pictures, made once with their webhooks
@@ -2054,6 +2151,8 @@ export class Core {
     // more than the same question later.
     // Sheet 17 timers: checked every second, because a timer that goes off late is a broken timer.
     this.timerTick = setInterval(() => this.fireTimers(), 1000);
+    // E7: leave-by and Join reminders, every five minutes (only when he has a TomTom key or a call is near).
+    this.feedTimers.push(setInterval(() => { void this.tripTick().catch(() => {}); }, 5 * 60_000));
     this.timerTick.unref?.();
     this.factTimer = setInterval(() => this.offerFact(), 5 * 60_000);
     // 9.D D8: 🎮 gaming. Creators every 20 minutes, Apex news every 2 hours (each sixth look).
@@ -3265,7 +3364,7 @@ export class Core {
     setTimeout(() => this.offerFact(), 45_000).unref?.();
   }
 
-  announce(text: string, opts: { asked?: boolean; focus?: string; jobCwd?: string; image?: { data: string; mimeType: string }; blocking?: boolean; done?: boolean; host?: 'mac'; reminder?: string; brief?: BriefCard; research?: import('./watch.ts').ResearchCard & { file?: string } } = {}): void {
+  announce(text: string, opts: { links?: { label: string; url: string }[]; asked?: boolean; focus?: string; jobCwd?: string; image?: { data: string; mimeType: string }; blocking?: boolean; done?: boolean; host?: 'mac'; reminder?: string; brief?: BriefCard; research?: import('./watch.ts').ResearchCard & { file?: string } } = {}): void {
     // Whatever is said last is what a reply is most likely about, whether it lands now or only once hush/quiet
     // lets it through - see withAnnounced().
     this.lastAnnounced = { text, at: Date.now() };
@@ -3279,7 +3378,7 @@ export class Core {
       // 9.D D5: the job's own name, so its post in claude-jobs is called what he calls it.
       ...(opts.jobCwd ? { jobName: this.launched.find(l => l.cwd.toLowerCase() === opts.jobCwd!.toLowerCase())?.name ?? '' } : {}),
       ...(blocking ? { blocking: true } : {}), ...(done ? { done: true } : {}), ...(opts.host ? { host: opts.host } : {}),
-      ...(opts.reminder ? { reminder: opts.reminder } : {}), ...(opts.brief ? { brief: opts.brief } : {}), ...(opts.research ? { research: opts.research } : {}),
+      ...(opts.reminder ? { reminder: opts.reminder } : {}), ...(opts.brief ? { brief: opts.brief } : {}), ...(opts.links?.length ? { links: opts.links } : {}), ...(opts.research ? { research: opts.research } : {}),
     };
     /**
      * Store it as a turn, and carry the row id out with the message.
