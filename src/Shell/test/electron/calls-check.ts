@@ -173,6 +173,27 @@ app.whenReady().then(async () => {
   const c = await bjs<any>(`({ off: document.getElementById('upgo').disabled, why: document.getElementById('upwhy').textContent })`);
   check('in a call, Restart now is off and says why', c.off === true && /call/.test(c.why), c.why);
 
+  // ================================================================== part 4: search suggestions, sheet 19 A
+  ipcMain.handle('browser:suggest', () => [
+    { kind: 'search', title: 'wowhe', url: '' },
+    { kind: 'tab', title: 'Wowhead Classic: Thunder Bluff', url: 'https://www.wowhead.com/classic/zone=1638', id: 1 },
+    { kind: 'mark', title: 'Wowhead: patch notes', url: 'https://www.wowhead.com/news/patch-notes' },
+    { kind: 'history', title: 'Wowhead talent calculator', url: 'https://www.wowhead.com/classic/talent-calc' },
+    { kind: 'closed', title: 'https://www.wowhead.com/classic/guide/onyxia', url: 'https://www.wowhead.com/classic/guide/onyxia' },
+  ]);
+  await bjs(`document.getElementById('uptray').hidden = true; document.getElementById('slot').click(); true`);
+  await wait(200);
+  await bjs(`(() => { const e = document.getElementById('edit'); e.value = 'wowhe'; e.dispatchEvent(new Event('input')); return true; })()`);
+  await wait(400);
+  const sgs = await bjs<any>(`(() => { const s = document.getElementById('slot').getBoundingClientRect(), g = document.getElementById('suggest').getBoundingClientRect();
+    const rows = [...document.querySelectorAll('#suggest .srow')];
+    return { shown: !document.getElementById('suggest').hidden, rows: rows.length, left: Math.round(g.left - s.left), width: Math.round(g.width - s.width), top: Math.round(g.top - s.bottom),
+      glyphs: document.querySelectorAll('#suggest .sg svg').length, bold: rows[1]?.querySelector('.st b')?.textContent, act: rows[0]?.querySelector('.sa')?.textContent, glove: getComputedStyle(rows[0], '::before').backgroundImage }; })()`);
+  check('the suggestions hang exactly under the address field, as wide as it', sgs.shown && sgs.left === 0 && sgs.width === 0 && sgs.top === 0, JSON.stringify({ l: sgs.left, w: sgs.width, t: sgs.top }));
+  check('every row has its glyph, no glove', sgs.rows === 5 && sgs.glyphs === 5 && !/hand/.test(String(sgs.glove)), String(sgs.glove));
+  check('the part not typed is bold, and the chosen row says what Enter does', sgs.bold === 'ad Classic: Thunder Bluff' && sgs.act === 'Search', `${sgs.bold} / ${sgs.act}`);
+  writeFileSync(path.join(OUT, 'suggestions.png'), (await b.webContents.capturePage()).toPNG());
+
   check('no page errors', pageErrors.length === 0, pageErrors.slice(0, 3).join(' | '));
   const failed = results.filter((x) => !x.ok);
   console.log(`\n${results.length - failed.length}/${results.length} passed`);

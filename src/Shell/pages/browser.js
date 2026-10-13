@@ -254,22 +254,64 @@ el('slot').addEventListener('click', (e) => { if (finding || lock.contains(e.tar
 // The first row is always what he typed, so Enter does what he typed unless he arrows to something else.
 let sugg = [], pick = 0, suggSeq = 0;
 const sbox = el('suggest');
-function hideSuggest() { if (!sbox.hidden) { sbox.hidden = true; unfreeze('suggest'); } sugg = []; }
+function hideSuggest() { if (!sbox.hidden) { sbox.hidden = true; el('slot').classList.remove('open'); unfreeze('suggest'); } sugg = []; }
+// Sheet 19 A: one small glyph per kind, on the band's own 7 by 7 grid (the bookmark is the star's own shape).
+const SUG_GLYPH = {
+  search: ['0 0 7 7', 'M1 0h3v1H1zM0 1h1v3H0zM4 1h1v3H4zM1 4h3v1H1zM4 5h2v1H4zM5 6h2v1H5z'],
+  go: ['0 0 7 7', 'M1 0h1v1H1zM2 0h1v1H2zM2 1h1v1H2zM3 1h1v1H3zM3 2h1v1H3zM4 2h1v1H4zM4 3h1v1H4zM5 3h1v1H5zM3 4h1v1H3zM4 4h1v1H4zM2 5h1v1H2zM3 5h1v1H3zM1 6h1v1H1zM2 6h1v1H2z'],
+  tab: ['0 0 7 7', 'M1 0h3v1H1zM0 1h7v1H0zM0 2h1v4H0zM6 2h1v4H6zM0 6h7v1H0z'],
+  mark: ['0 0 9 8', 'M1 0h2v1H1zM6 0h2v1H6zM0 1h4v4H0zM5 1h4v4H5zM0 5h1v1H0zM8 5h1v1H8zM0 6h4v1H0zM5 6h4v1H5zM3 7h3v1H3z'],
+  history: ['0 0 7 7', 'M1 0h5v1H1zM0 1h1v5H0zM6 1h1v5H6zM3 1h1v3H3zM4 3h1v1H4zM1 6h5v1H1z'],
+  closed: ['0 0 7 7', 'M2 0h1v1H2zM1 1h2v1H1zM0 2h7v1H0zM1 3h2v1H1zM6 3h1v3H6zM2 4h1v1H2zM2 6h4v1H2z'],
+};
+const SUG_ACT = { search: 'Search', go: 'Go', tab: 'Switch to tab', mark: 'Open', history: 'Open', closed: 'Reopen' };
+const SVGNS = 'http://www.w3.org/2000/svg';
+/** The title with what he has NOT typed in bold (Chrome's rule), built from text nodes only. */
+function boldRest(span, text, typed) {
+  const at = typed ? text.toLowerCase().indexOf(typed.toLowerCase()) : -1;
+  const b = (t) => { if (t) span.append(Object.assign(document.createElement('b'), { textContent: t })); };
+  if (at < 0) { b(text); return; }
+  b(text.slice(0, at));
+  span.append(document.createTextNode(text.slice(at, at + typed.length)));
+  b(text.slice(at + typed.length));
+}
+/** The list hangs exactly under the slot, exactly as wide, so it reads as the field's own. */
+function placeSuggest() {
+  const band = el('band').getBoundingClientRect(), s = el('slot').getBoundingClientRect();
+  sbox.style.left = Math.round(s.left - band.left) + 'px';
+  sbox.style.width = Math.round(s.width) + 'px';
+  sbox.style.top = Math.round(s.bottom - band.top) + 'px';
+}
 function paintSuggest() {
   if (!sugg.length) { hideSuggest(); return; }
-  const LABEL = { search: 'SEARCH', go: 'GO', tab: 'SWITCH TO TAB', mark: 'BOOKMARK', history: 'HISTORY', closed: 'CLOSED' };
+  const typed = edit.value.trim();
   sbox.replaceChildren(...sugg.map((s, i) => {
     const row = document.createElement('div');
     row.className = 'srow' + (i === pick ? ' on' : '');
     row.setAttribute('role', 'option');
-    if (s.favicon) { const im = document.createElement('img'); im.src = s.favicon; im.alt = ''; row.append(im); }
-    row.append(Object.assign(document.createElement('span'), { className: 'st', textContent: s.title || s.url }));
-    if (s.kind !== 'search' && s.kind !== 'go') row.append(Object.assign(document.createElement('span'), { className: 'su', textContent: String(s.url).replace(/^https?:\/\/(www\.)?/, '') }));
-    row.append(Object.assign(document.createElement('i'), { textContent: LABEL[s.kind] ?? '' }));
+    row.setAttribute('aria-selected', String(i === pick));
+    const [vb, d] = SUG_GLYPH[s.kind] ?? SUG_GLYPH.go;
+    const wide = vb === '0 0 9 8';
+    const svg = document.createElementNS(SVGNS, 'svg');
+    svg.setAttribute('viewBox', vb); svg.setAttribute('width', wide ? '18' : '14'); svg.setAttribute('height', wide ? '16' : '14');
+    svg.setAttribute('shape-rendering', 'crispEdges'); svg.setAttribute('aria-hidden', 'true');
+    const path = document.createElementNS(SVGNS, 'path'); path.setAttribute('d', d); svg.append(path);
+    row.append(Object.assign(document.createElement('span'), { className: 'sg' }));
+    row.lastChild.append(svg);
+    const st = Object.assign(document.createElement('span'), { className: 'st' });
+    const bare = String(s.url ?? '').replace(/^https?:\/\/(www\.)?/, '');
+    const onlyUrl = !s.title || s.title === s.url;      // a closed tab has no title: say the address once
+    if (s.kind === 'search' || s.kind === 'go') st.textContent = typed; else boldRest(st, onlyUrl ? bare : String(s.title), typed);
+    row.append(st);
+    const where = s.kind === 'search' ? 'Search the web' : s.kind === 'go' || onlyUrl ? '' : bare;
+    if (where) row.append(Object.assign(document.createElement('span'), { className: 'su', textContent: where }));
+    row.append(Object.assign(document.createElement('span'), { className: 'sa', textContent: SUG_ACT[s.kind] ?? 'Open' }));
     row.addEventListener('mousedown', (e) => { e.preventDefault(); choose(i); });
+    row.addEventListener('mouseenter', () => { if (pick !== i) { pick = i; sbox.querySelectorAll('.srow').forEach((r, j) => { r.classList.toggle('on', j === i); r.setAttribute('aria-selected', String(j === i)); }); } });
     return row;
   }));
-  if (sbox.hidden) { sbox.hidden = false; freeze('suggest'); }
+  placeSuggest();
+  if (sbox.hidden) { sbox.hidden = false; el('slot').classList.add('open'); freeze('suggest'); }
 }
 function choose(i) {
   const s = sugg[i];
