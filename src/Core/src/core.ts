@@ -1270,6 +1270,22 @@ export class Core {
 
   private readonly startedAt = new Date();
   /** How things are, from what the Core already knows. No model, so it costs nothing. */
+  /** 9.D D6: the home card's numbers. Only counts and short names, never anything a page wrote. */
+  private homeData(): { week: number | null; pace: string; running: number; waiting: string[] } {
+    const q = this.policy.last;
+    let pace = '';
+    if (q) {
+      const left = Math.max(0, Math.min(1, (q.weekResetsAt - Date.now()) / (7 * 86_400_000)));
+      pace = q.week <= (1 - left) + 0.05 ? 'on pace' : 'ahead of pace';
+    }
+    const live = this.launched.filter(l => l.state !== 'ended' && l.state !== 'done');
+    const waiting = [
+      ...live.filter(l => l.state === 'needs you').map(l => `${l.name} needs you`),
+      ...(this.permission ? ['a question in the bubble'] : []),
+    ].slice(0, 8);
+    return { week: q ? q.week : null, pace, running: live.filter(l => l.state === 'working' || l.state === 'waiting').length, waiting };
+  }
+
   private status(): string {
     return statusText({
       now: new Date(), startedAt: this.startedAt,
@@ -2156,6 +2172,12 @@ export class Core {
         break;
       }
       case 'claude.front': void this.frontOnMac(); break;
+      // 9.D D6: what the home card in Discord shows, and what "What's waiting" lists.
+      case 'home.data': this.send(ws, { t: 'home.data', id: String(m.id ?? '').slice(0, 40), ...this.homeData() }); break;
+      // 9.D D6: "Stepping away" from Discord. He is away until he touches the PC again (the pet says so then).
+      case 'away': this.atDesk = false; this.send(ws, { t: 'away.reply', text: 'Okay. Everything comes here until you are back at the PC.' }); break;
+      // 9.D D6: "Put a show on" from Discord: the same as saying "put X on".
+      case 'puton': { const words = String(m.words ?? '').slice(0, 200).trim(); if (words) void this.putOn(words).then(r => this.send(ws, { t: 'puton.reply', text: r.detail })); break; }
       // 9.D D5: "Open on PC" on a Claude job's card: the Claude app comes forward where that job runs.
       case 'claude.open': {
         const cwd = typeof m.cwd === 'string' ? m.cwd : '';

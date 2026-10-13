@@ -3845,6 +3845,12 @@ the connection) and 9.A0 (buttons call the action registry). **Build order:**
   can stop a Claude session from Discord yet) and What changed (needs the job's diff); added when they can work.
 - **D6 Home card** pinned in ✦ home (board 4): Claude this week, running, waiting on you, your PC; What's waiting /
   Stepping away / Put a show on.
+  **D6 BUILT 2026-10-13** (`DiscordAdapter.refreshHome`, `Core.homeData`): one drawn home card on the pixel wood, pinned
+  in 🏠 home, edited in place on start, every 10 minutes and on every Claude job's news, never reposted, always silent.
+  Tiles: Claude this week (% and pace), running Claude jobs, things waiting on him, his PC. Buttons: What's waiting
+  (lists them), Stepping away (he is away until he touches the PC; everything comes to Discord), Put a show on (his next
+  words in 🌀 aang are the show, the same as "put X on", never a chat turn). "Your PC" always reads On while Shadow
+  draws it; the Mac marks it Off when Shadow is off in M4.
 - **D7 #capture videos** (board 3): watched from the transcript by Qwen, a card with Useful for, and Add to plan /
   Just save it / Go deeper (cost first) / Not useful, in a thread.
 - **D8 #gaming:** Apex ranked map and creator uploads (K3's feeds).
