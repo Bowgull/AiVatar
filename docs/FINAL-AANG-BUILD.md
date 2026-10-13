@@ -2252,6 +2252,15 @@ writes `shadow.state` ("on|off|unknown desk|away <time>"); three misses in a row
 curl config file, never on a command line. Tested: 4 tests, and the real script run against a stand-in Shadow
 (`test/heartbeat-live.ts`): on, away, still on after two misses, off after three. **Live once he re-runs the Mac setup.**
 
+**M3 BUILT 2026-10-13:** split at the existing `Gateway` interface. The Mac runs `frontdesk.ts` (launchd
+`com.aang.frontdesk`, Node 24, discord.js + ws from a pinned lockfile, `npm ci --ignore-scripts`): the ONE Discord
+connection. Shadow's `FrontDeskGateway` drives it over Tailscale (port 47841, key header, Shadow's exact address only).
+Shadow off: his messages wait on the Mac in `queue.json`, in order; button presses are answered at once ("Shadow is
+asleep"). Shadow on: the queue is handed over and each message leaves it only after Shadow took it, so nothing is lost or
+answered twice; Discord's history is never read back (the old catch-up, the replay bug). A slow press is deferred at
+2 s so it never shows as failed. Shadow never logs in to Discord itself once `frontdesk.json` exists. 9 tests with a
+pretend Discord over a real socket. The full Discord redesign is still 9.D.
+
 **Order inside M:** M1 the listener findings closed; M2 the Mac knows whether Shadow is on (a heartbeat over
 Tailscale); M3 the Discord connection moves to the Mac; M4 the Mac brain (Claude Code with Aang's personality and a
 memory copy) and the per-kind handling; M5 one memory, synced both ways; M6 Aang's browser on the Mac with full sync;

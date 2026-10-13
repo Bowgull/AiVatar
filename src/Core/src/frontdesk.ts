@@ -1,0 +1,173 @@
+// M3 (his interview, 2026-10-13): Aang's front desk, on the MacBook. The Mac is always on, so it holds the ONE
+// connection to Discord, and it never sleeps. Shadow's brain drives it over Tailscale (frontdesk-link.ts):
+//
+//   Shadow on:  every message and button press goes straight to Shadow; Shadow sends, edits and pins through here.
+//   Shadow off: his messages wait here, in order, in a file. A button press is answered at once ("Shadow is
+//               asleep") so Discord never shows "this interaction failed". When Shadow connects, it gets the queue
+//               once, says how many it took, and only those are removed.
+//
+// That replaces the old catch-up (Shadow reading Discord's history back on every start), which is where messages
+// got answered twice. Only the Shadow PC's exact Tailscale address, with the front-desk key, may connect.
+//
+// Run on the Mac: node frontdesk.ts <folder>   (the folder holds discord.token, frontdesk.key and frontdesk.json)
+import { timingSafeEqual } from 'node:crypto';
+import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { WebSocketServer, type WebSocket } from 'ws';
+import type { ButtonPress, Gateway, Incoming, OutMsg } from './discord.ts';
+
+/** What crosses the wire. Files and downloads travel as base64. */
+export type ToShadow =
+  | { ev: 'hello'; queued: number }
+  | { ev: 'message'; m: Incoming; queued?: boolean }
+  | { ev: 'button'; b: Omit<ButtonPress, 'ack' | 'keep'> & { pressId: string } }
+  | { id: number; ok: true; value: unknown }
+  | { id: number; ok: false; error: string };
+export type FromShadow = { id: number; op: string; args: unknown[] } | { op: 'taken'; n: number };
+
+const MAX_QUEUE = 500;
+const PRESS_WAIT_MS = 2000;      // Discord allows 3 s to answer a press; say "wait" before that if Shadow is slow
+
+export interface FrontDeskOpts {
+  gw: Gateway; host: string; port: number; key: string; shadow: string; queueFile: string;
+  log?: (s: string) => void;
+}
+
+/** Same length and same bytes, compared without an early exit. */
+function sameKey(a: string, b: string): boolean {
+  const x = Buffer.from(a), y = Buffer.from(b);
+  return x.length === y.length && x.length > 0 && timingSafeEqual(x, y);
+}
+
+const toWire = (msg: OutMsg) => ({ ...msg, ...(msg.files ? { files: msg.files.map(f => ({ name: f.name, data: Buffer.from(f.data).toString('base64') })) } : {}) });
+export const fromWire = (msg: any): OutMsg => ({ ...msg, ...(msg?.files ? { files: msg.files.map((f: any) => ({ name: String(f.name), data: Buffer.from(String(f.data), 'base64') })) } : {}) });
+export { toWire };
+
+export async function startFrontDesk(o: FrontDeskOpts): Promise<{ close: () => Promise<void>; queued: () => number }> {
+  const log = o.log ?? ((s: string) => console.log(s));
+  let queue: Incoming[] = [];
+  try { const q = JSON.parse(readFileSync(o.queueFile, 'utf8')); if (Array.isArray(q)) queue = q; } catch { /* none waiting */ }
+  const saveQueue = () => { try { writeFileSync(o.queueFile + '.tmp', JSON.stringify(queue)); renameSync(o.queueFile + '.tmp', o.queueFile); } catch (e) { log('front desk: could not save the queue: ' + (e as Error).message); } };
+  const presses = new Map<string, ButtonPress & { done: boolean }>();
+  let pressSeq = 0;
+  let shadow: WebSocket | null = null;
+  const send = (x: ToShadow) => { if (shadow && shadow.readyState === shadow.OPEN) { shadow.send(JSON.stringify(x)); return true; } return false; };
+
+  o.gw.onMessage(m => {
+    if (m.isBot) return;
+    if (send({ ev: 'message', m })) return;
+    // Shadow is asleep: keep it, in order, for when it wakes. Oldest go first if it ever overflows.
+    queue.push(m);
+    if (queue.length > MAX_QUEUE) queue = queue.slice(-MAX_QUEUE);
+    saveQueue();
+    log(`front desk: Shadow is off; kept a message (${queue.length} waiting)`);
+  });
+
+  o.gw.onButton(b => {
+    if (!shadow) {
+      void b.ack('Shadow is asleep, so nothing happened. Press it again once it is on.').catch(() => {});
+      return;
+    }
+    const pressId = String(++pressSeq);
+    const p = { ...b, done: false };
+    presses.set(pressId, p);
+    // If Shadow has not answered in 2 s, tell Discord to wait, so the press never shows as failed.
+    setTimeout(() => { if (!p.done) void b.keep().catch(() => {}); }, PRESS_WAIT_MS).unref?.();
+    setTimeout(() => presses.delete(pressId), 15 * 60_000).unref?.();
+    const { ack: _a, keep: _k, ...plain } = b;
+    send({ ev: 'button', b: { ...plain, pressId } });
+  });
+
+  const wss = new WebSocketServer({
+    host: o.host, port: o.port, maxPayload: 32 * 1024 * 1024,
+    verifyClient: ({ req }, done) => {
+      const peer = String(req.socket.remoteAddress ?? '').replace(/^::ffff:/, '');
+      const key = String(req.headers['x-aang-key'] ?? '');
+      if (peer === o.shadow && sameKey(key, o.key)) return done(true);
+      log(`front desk: refused a connection from ${peer}`);
+      done(false, 403, 'Forbidden');
+    },
+  });
+  await new Promise<void>((res, rej) => { wss.once('listening', () => res()); wss.once('error', rej); });
+
+  wss.on('connection', ws => {
+    // One Shadow at a time: a new connection replaces an old one that never said goodbye.
+    if (shadow && shadow !== ws) { try { shadow.close(); } catch { /* gone */ } }
+    shadow = ws;
+    log(`front desk: Shadow connected (${queue.length} waiting)`);
+    const handing = queue.slice();
+    send({ ev: 'hello', queued: handing.length });
+    for (const m of handing) send({ ev: 'message', m, queued: true });
+    ws.on('message', async raw => {
+      let x: FromShadow;
+      try { x = JSON.parse(String(raw)); } catch { return; }
+      if (!('id' in x)) {
+        if (x.op !== 'taken') return;
+        // Only what Shadow says it took leaves the queue; anything that arrived meanwhile stays.
+        const n = Math.max(0, Math.min(queue.length, Number(x.n) || 0));
+        queue = queue.slice(n); saveQueue();
+        return;
+      }
+      const reply = (r: { ok: true; value: unknown } | { ok: false; error: string }) => { if (ws.readyState === ws.OPEN) ws.send(JSON.stringify({ id: x.id, ...r })); };
+      try { reply({ ok: true, value: await call(x.op, x.args ?? []) }); }
+      catch (e) { reply({ ok: false, error: (e as Error).message || 'failed' }); }
+    });
+    ws.on('close', () => { if (shadow === ws) { shadow = null; log('front desk: Shadow went away'); } });
+    ws.on('error', () => { /* close follows */ });
+  });
+
+  async function call(op: string, a: unknown[]): Promise<unknown> {
+    const s = (i: number) => String(a[i] ?? '');
+    switch (op) {
+      case 'ensureLayout': return o.gw.ensureLayout();
+      case 'send': return o.gw.send(s(0), fromWire(a[1]));
+      case 'edit': return o.gw.edit(s(0), s(1), fromWire(a[2]));
+      case 'pin': return o.gw.pin(s(0), s(1));
+      case 'createPost': return o.gw.createPost(s(0), s(1), s(2));
+      case 'download': return Buffer.from(await o.gw.download(s(0))).toString('base64');
+      case 'typing': return o.gw.typing(s(0));
+      case 'fetchSince': return o.gw.fetchSince(s(0), a[1] === null ? null : s(1), Math.max(1, Math.min(100, Number(a[2]) || 1)));
+      case 'permissions': return o.gw.permissions();
+      case 'press.ack': case 'press.keep': {
+        const p = presses.get(s(0));
+        if (!p) throw new Error('that button press is too old');
+        if (op === 'press.ack') { p.done = true; await p.ack(s(1)); presses.delete(s(0)); } else { p.done = true; await p.keep(); }
+        return null;
+      }
+      default: throw new Error(`no such thing: ${op}`);
+    }
+  }
+
+  return {
+    queued: () => queue.length,
+    close: () => new Promise<void>(res => { for (const c of wss.clients) c.terminate(); wss.close(() => res()); }),
+  };
+}
+
+/** This Mac's Tailscale address (100.64.0.0/10), or null. */
+export function tailnetAddress(): string | null {
+  for (const list of Object.values(os.networkInterfaces())) for (const a of list ?? []) {
+    if (a.family === 'IPv4' && /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(a.address)) return a.address;
+  }
+  return null;
+}
+
+async function main(dir: string): Promise<void> {
+  process.on('unhandledRejection', e => console.error('front desk: unhandled: ' + String((e as Error)?.message ?? e)));
+  process.on('uncaughtException', e => console.error('front desk: uncaught: ' + e.message));
+  const read = (f: string) => readFileSync(path.join(dir, f), 'utf8').trim();
+  const cfg = JSON.parse(read('frontdesk.json')) as { shadow: string; port: number };
+  const host = tailnetAddress();
+  if (!host) { console.error('front desk: Tailscale is not up yet; trying again shortly'); process.exit(1); }
+  const { DiscordGateway } = await import('./discord-client.ts');
+  const gw = new DiscordGateway(read('discord.token'));
+  await gw.login();
+  console.log('front desk: connected to Discord');
+  await startFrontDesk({ gw, host, port: cfg.port, key: read('frontdesk.key'), shadow: cfg.shadow, queueFile: path.join(dir, 'queue.json') });
+  console.log(`front desk: listening for Shadow on ${host}:${cfg.port}`);
+}
+
+if (process.argv[1] && path.basename(process.argv[1]) === 'frontdesk.ts' && process.argv[2] && existsSync(process.argv[2])) {
+  main(process.argv[2]).catch(e => { console.error('front desk: could not start: ' + (e as Error).message); process.exit(1); });
+}

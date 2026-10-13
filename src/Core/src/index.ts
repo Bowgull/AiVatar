@@ -47,6 +47,6 @@ core.onShutdownRequest = () => { void shutdown('the Body is closing'); };
 await core.start();
 // Discord, if Joshua has set it up. It connects OUT to Discord and back into this Core, and Aang runs without it.
 // Loaded only when used, so Aang without Discord carries none of it.
-if (existsSync(path.join(core.cfg.stateDir, 'discord.token'))) {
+if (existsSync(path.join(core.cfg.stateDir, 'discord.token')) || existsSync(path.join(core.cfg.stateDir, 'frontdesk.json'))) {
   void import('./discord-gateway.ts').then(d => d.startDiscord(core.cfg.stateDir, core.cfg.port)).catch(e => console.error('discord: ' + (e as Error).message));
 }

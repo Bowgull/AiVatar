@@ -1,0 +1,11 @@
+{
+  "name": "aang-frontdesk",
+  "private": true,
+  "description": "Aang's front desk on the MacBook (M3): the one Discord connection. Installed by the Mac setup with npm ci.",
+  "type": "module",
+  "engines": { "node": ">=24" },
+  "dependencies": {
+    "discord.js": "14.27.0",
+    "ws": "8.21.3"
+  }
+}
