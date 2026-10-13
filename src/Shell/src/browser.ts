@@ -680,7 +680,60 @@ export class AangBrowser {
     this.hideTimer = setTimeout(() => this.frozenReady(), 250);
   }
 
-  isFrame(sender: Electron.WebContents): boolean { return Boolean(this.win && !this.win.isDestroyed() && sender === this.win.webContents); }
+  /** The frame, or the tab list's own layer (it sends the same tab clicks). */
+  isFrame(sender: Electron.WebContents): boolean { return this.isMainFrame(sender) || Boolean(this.trayV && !this.trayV.webContents.isDestroyed() && sender === this.trayV.webContents); }
+  isMainFrame(sender: Electron.WebContents): boolean { return Boolean(this.win && !this.win.isDestroyed() && sender === this.win.webContents); }
+
+  // ------------------------------------------------------------------ the tab list, floating over the live page
+  /**
+   * His ask (2026-10-13): Twitch froze under the drawer (it showed a picture of the page), and the page must not get
+   * smaller either. So the list is drawn in its own see-through layer ABOVE the live page: the video stays full size
+   * and keeps playing under its edge. The layer is the frame's own page (?tray), so it is the same list, the same
+   * clicks, the same drag and drop.
+   */
+  private trayV: WebContentsView | null = null;
+  private trayOn = false;
+  private trayAt = { x: 42, y: 62 };
+  private trayView(): WebContentsView | null {
+    const w = this.win;
+    if (!w || w.isDestroyed()) return null;
+    if (this.trayV && !this.trayV.webContents.isDestroyed()) return this.trayV;
+    const v = new WebContentsView({ webPreferences: { ...SAFE_WEB_PREFERENCES, preload: this.o.preloadPath } });
+    lockDown(v.webContents);
+    v.setBackgroundColor('#00000000');
+    v.setVisible(false);
+    v.webContents.on('did-finish-load', () => this.sendTabs());
+    v.webContents.on('before-input-event', (e, input) => { if (this.key(input)) e.preventDefault(); });
+    void v.webContents.loadURL(`${this.o.origin}/browser.html?tray=1`);
+    this.trayV = v;
+    return v;
+  }
+  /** Open the list where the frame says (beside its handle, under the band), or put it away. */
+  tray(open: boolean, at?: { x?: unknown; y?: unknown }): void {
+    const w = this.win;
+    if (!w || w.isDestroyed()) return;
+    if (!open) {
+      if (this.trayV && !this.trayV.webContents.isDestroyed()) this.trayV.setVisible(false);
+      if (this.trayOn) { this.trayOn = false; w.webContents.send('browser:tray', { open: false }); w.webContents.focus(); }
+      return;
+    }
+    const v = this.trayView();
+    if (!v) return;
+    const n = (x: unknown, d: number) => (Number.isFinite(Number(x)) ? Math.max(0, Math.round(Number(x))) : d);
+    this.trayAt = { x: n(at?.x, this.trayAt.x), y: n(at?.y, this.trayAt.y) };
+    this.trayOn = true;
+    this.placeTray();
+    w.contentView.addChildView(v);             // to the top, over the page
+    v.setVisible(true);
+    v.webContents.focus();
+    this.sendTabs();
+  }
+  private placeTray(): void {
+    const w = this.win, v = this.trayV;
+    if (!w || w.isDestroyed() || !v || !this.trayOn) return;
+    const [cw, ch] = w.getContentSize();
+    v.setBounds({ x: this.trayAt.x, y: this.trayAt.y, width: Math.max(0, Math.min(340, cw - this.trayAt.x)), height: Math.max(0, ch - this.trayAt.y) });
+  }
 
   /** Open the window (or bring it forward), optionally on an address. Coming back, every tab comes back. */
   open(url?: string): void {
@@ -713,7 +766,7 @@ export class AangBrowser {
     if (was?.maximized) w.once('ready-to-show', () => w.maximize());
     let keep: NodeJS.Timeout | null = null;
     const keepSoon = () => { if (keep) clearTimeout(keep); keep = setTimeout(() => this.keepPlace(), 800); };
-    w.on('resize', () => { this.place(); keepSoon(); });
+    w.on('resize', () => { this.place(); this.placeTray(); keepSoon(); });
     w.on('move', keepSoon);
     w.on('maximize', () => { this.place(); keepSoon(); this.sendTabs(); });
     w.on('unmaximize', () => { this.place(); keepSoon(); this.sendTabs(); });
@@ -731,7 +784,7 @@ export class AangBrowser {
       if (this.share) this.shareAnswer(this.share.id, null, false);
       this.menu = null; this.fullTab = null;
       for (const t of this.tabs) if (!t.lent) this.closeView(t);
-      this.tabs = []; this.active = null; this.win = null;
+      this.tabs = []; this.active = null; this.win = null; this.trayV = null; this.trayOn = false;
       this.timers.forEach(clearInterval); this.timers = [];
     });
     w.once('ready-to-show', () => w.show());
@@ -866,7 +919,10 @@ export class AangBrowser {
     // Popups (his pick, 2026-10-12, Chrome's rule): one opened within a second of his click or key press is his, and
     // opens as a real small window that keeps its link to the page (Sign in with Google needs that). One a page opens
     // by itself is blocked, unless he allowed popups on that site; a chip offers that.
-    wc.on('input-event', (_e, i) => { if (i.type === 'mouseDown' || i.type === 'keyDown') this.lastGesture.set(tab.id, Date.now()); });
+    wc.on('input-event', (_e, i) => {
+      if (i.type === 'mouseDown' || i.type === 'keyDown') this.lastGesture.set(tab.id, Date.now());
+      if (i.type === 'mouseDown' && this.trayOn) this.tray(false);       // a click on the page puts the list away
+    });
     wc.setWindowOpenHandler(({ url: u, disposition }) => {
       if (!isWeb(u)) return { action: 'deny' };
       if (disposition === 'new-window') {
@@ -892,6 +948,7 @@ export class AangBrowser {
     // 6.22: a listed site never loads, whether it is a link, a redirect or anything else.
     wc.on('will-navigate', (e, u) => {
       if (!isWeb(u)) { e.preventDefault(); return; }
+      if (this.toPaid(u)) { e.preventDefault(); return; }
       const l = this.listed(u);
       if (l.length) { e.preventDefault(); this.block(tab, u, l); return; }
       const up = upgrade(u, this.httpOk);
@@ -899,6 +956,7 @@ export class AangBrowser {
     });
     wc.on('will-redirect', (e, u, _inPage, isMain) => {
       if (!isMain) return;
+      if (isWeb(u) && this.toPaid(u)) { e.preventDefault(); return; }
       const l = isWeb(u) ? this.listed(u) : ['NOT A WEB PAGE'];
       if (l.length) { e.preventDefault(); this.block(tab, u, l); return; }
       const up = upgrade(u, this.httpOk);
@@ -931,25 +989,6 @@ export class AangBrowser {
       else this.fail(tab, { kind: 'error', url, ...failureWords(code, host) });
     });
     wc.on('did-start-navigation', (d) => { const x = d as unknown as { url: string; isMainFrame: boolean }; if (!x.isMainFrame || !isWeb(x.url)) return; const l = this.listed(x.url); if (l.length) this.block(tab, x.url, l); });
-    // Paid video (2026-10-13, his ask): this browser has no Widevine, so Netflix, Crave, Disney+, Prime and Crunchyroll
-    // open in the paid-video window instead, by themselves. The tab goes back to where it was, or closes if that was
-    // all it had. Not a page it was already on, so a service's own page that is open stays put.
-    wc.on('did-start-navigation', (d) => {
-      const x = d as unknown as { url: string; isMainFrame: boolean; isSameDocument: boolean };
-      if (!x.isMainFrame || x.isSameDocument || !this.onPaid) return;
-      const paid = serviceFor(x.url);
-      if (!paid?.ready) return;
-      let was = '';
-      try { was = new URL(wc.getURL()).hostname; } catch { /* a new tab */ }
-      if (was && serviceFor('https://' + was + '/')?.id === paid.id) return;
-      wc.stop();
-      if (!this.onPaid(x.url)) return;
-      setTimeout(() => {
-        if (wc.isDestroyed()) return;
-        if (wc.navigationHistory.canGoBack()) wc.navigationHistory.goBack(); else this.close(tab.id);
-      }, 0);
-      this.note(`${paid.label.charAt(0)}${paid.label.slice(1).toLowerCase()} opened in the paid-video window.`);
-    });
     wc.on('page-title-updated', (_e, title) => { tab.title = title; this.visits.name(wc.getURL(), title); this.changed(); });
     wc.on('page-favicon-updated', (_e, icons) => {
       tab.favicon = icons.find((i) => /^https?:|^data:image\//.test(i)) ?? '';
@@ -1224,6 +1263,7 @@ export class AangBrowser {
     if (!w || w.isDestroyed()) return null;
     const url = isWeb(address) ? address : addressFor(address);
     if (!url) return null;
+    if (this.toPaid(url)) return null;
     // "You don't have to start a trail. A link you open from a page joins that page's trail" (sheet 3). A loose
     // page that opens a link starts one, named after its site; nothing is ever sorted by guesswork here.
     let trail: number | null = null;
@@ -1597,6 +1637,19 @@ export class AangBrowser {
   // ------------------------------------------------------------------ M6 one browser on both machines (bsync.ts)
   /** Set by main: open a paid service in the paid-video window. True if it opened. */
   onPaid: ((url: string) => boolean) | null = null;
+  /**
+   * Paid video (2026-10-13, his ask): this browser has no Widevine, so Netflix, Crave, Disney+, Prime and Crunchyroll
+   * open in the paid-video window instead, by themselves. Caught BEFORE a load starts (a link, an address he typed,
+   * a bookmark, a redirect): stopping a load from inside its own start event crashed the browser (his Mac, and the
+   * PC's window closed). True when it went there, and nothing should load here.
+   */
+  private toPaid(url: string): boolean {
+    const paid = serviceFor(url);
+    if (!paid?.ready || !this.onPaid) return false;
+    if (!this.onPaid(url)) return false;
+    this.note(`${paid.label.charAt(0)}${paid.label.slice(1).toLowerCase()} opened in the paid-video window.`);
+    return true;
+  }
   /** The sync with the browser on his other machine (startSync). */
   sync: BrowserSync | null = null;
   /** M6: start syncing with the other machine's browser. `send` reaches it through the brain. */
@@ -2093,6 +2146,7 @@ export class AangBrowser {
     const url = addressFor(address);
     const t = this.cur();
     if (!url) return;
+    if (this.toPaid(url)) return;
     if (!t?.view || t.internal) { this.newTab(url); return; }
     t.crashed = false;
     const l = this.listed(url);
@@ -2289,7 +2343,9 @@ export class AangBrowser {
     if (!w || w.isDestroyed()) return;
     const t = this.cur();
     const wc = t?.view?.webContents;
-    w.webContents.send('browser:tabs', {
+    const tray = this.trayV && !this.trayV.webContents.isDestroyed() ? this.trayV.webContents : null;
+    const send = (data: Record<string, unknown>) => { w.webContents.send('browser:tabs', data); tray?.send('browser:tabs', data); };
+    send({
       active: this.active,
       update: this.update, inCall: this.inCall,
       canBack: Boolean(wc?.navigationHistory.canGoBack()), canForward: Boolean(wc?.navigationHistory.canGoForward()),

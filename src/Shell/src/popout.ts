@@ -223,6 +223,8 @@ export class Popout {
     });
 
     softEdge(this.win);
+    // On the Mac the wooden bar's own buttons are the window's buttons; macOS's floating ones stay hidden (M6).
+    if (process.platform === 'darwin') this.win.setWindowButtonVisibility(false);
     // Above a fullscreen game, not merely above ordinary windows.
     if (set.alwaysOnTop) this.win.setAlwaysOnTop(true, 'screen-saver');
     // His decision 32: a normal clickable window. Click-through is the optional switch, never default.

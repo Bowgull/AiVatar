@@ -1,13 +1,22 @@
 // 6.20: the browser's frame. Draws the rail and the address slot from the tab list the Shell sends, and
 // tells the Shell where the page area is (6.19). Everything is built with textContent: titles and
 // addresses are the websites' own words.
+// "Send to" names the OTHER machine: the MacBook from the PC, the PC from the Mac (M6, his report 2026-10-13).
+const OTHER = window.aang?.platform === 'darwin'
+  ? { label: 'Send to PC', title: 'Send to your PC. It stops playing here.' }
+  : { label: 'Send to Mac', title: 'Send to the MacBook. It stops playing here.' };
 const el = (id) => document.getElementById(id);
+// The tab list floats in its own see-through layer above the live page (his ask, 2026-10-13: Twitch froze under the
+// old drawer, which showed a picture of the page). This same page, opened with ?tray, is that layer: only the list.
+const SOLO = new URLSearchParams(location.search).has('tray');
+if (SOLO) document.documentElement.classList.add('solo');
 const tabsBox = el('tabs'), urlEl = el('url'), lock = el('lock'), edit = el('edit'), loading = el('loading');
 let state = { active: null, tabs: [], canBack: false, canForward: false };
 
 // ---- 6.19: where the page area is. Measured, then the Shell keeps it in place on every resize itself.
 const page = el('page');
 function report() {
+  if (SOLO) return;                         // the tray layer has no page area of its own
   const r = page.getBoundingClientRect();
   // A page is a native view drawn ON TOP of this frame, so anything hanging below the band (a site's ask,
   // the ads panel, a download note) would sit hidden behind it. While one shows, the page moves down past it.
@@ -45,25 +54,36 @@ let drawerOpen = false, drawerWait = 0;
 const over = new Set();
 function freeze(who) { const was = over.size; over.add(who); if (!was) window.aang?.browserAct?.('drawer-open'); }
 function unfreeze(who, after = 0) { over.delete(who); setTimeout(() => { if (!over.size) window.aang?.browserAct?.('drawer-close'); }, after); }
+// The list itself is drawn by the tray layer; here the handle only asks for it, and says where it goes.
+function trayRect() {
+  const k = el('drawerkey').getBoundingClientRect(), b = document.querySelector('.body3').getBoundingClientRect();
+  return { x: Math.round(k.right + 2), y: Math.round(b.top), h: Math.round(window.innerHeight - b.top) };
+}
 function openDrawer() {
-  if (drawerOpen) return;
+  if (drawerOpen || SOLO) return;
   closeMenu(); closeDl();
   drawerOpen = true;
   el('drawerkey').setAttribute('aria-expanded', 'true');
-  el('rail').setAttribute('aria-hidden', 'false');
-  freeze('drawer');
-  // If the picture is slow (a heavy page), slide anyway after a moment: the drawer is what he asked for.
-  drawerWait = setTimeout(() => document.body.classList.add('drawer-open'), 400);
+  document.body.classList.add('tray-open');
+  window.aang?.browserTray?.({ open: true, ...trayRect() });
 }
 function closeDrawer() {
+  if (SOLO) { window.aang?.browserTray?.({ open: false }); return; }
   if (!drawerOpen) return;
+  trayShut();
+  window.aang?.browserTray?.({ open: false });
+}
+function trayShut() {
   drawerOpen = false;
-  clearTimeout(drawerWait);
   el('drawerkey').setAttribute('aria-expanded', 'false');
-  el('rail').setAttribute('aria-hidden', 'true');
-  document.body.classList.remove('drawer-open');
-  // The live page comes back once the drawer has slid away (its 150 ms), never under it.
-  unfreeze('drawer', 150);
+  document.body.classList.remove('tray-open');
+}
+// The tray closed by itself (Esc in it, a click on the page, a tab picked): the handle follows.
+window.aang?.onBrowserTray?.((s) => { if (!SOLO && s && s.open === false && drawerOpen) trayShut(); });
+if (SOLO) {
+  drawerOpen = true;
+  document.body.classList.add('drawer-open');
+  el('rail').setAttribute('aria-hidden', 'false');
 }
 
 // ---- the ⋯ menu: the browser's settings, grouped. Its switches are real: ads, popups, sounds.
@@ -524,7 +544,7 @@ function tabMenu(t, x, y) {
   sep();
   item('Open in Chrome', () => {}, { soon: true });
   item('Popout', () => window.aang?.browserPopout?.(t.id));
-  item('Send to Mac', () => window.aang?.browserToMac?.(t.id));
+  item(OTHER.label, () => window.aang?.browserToMac?.(t.id));
   sep();
   item('Close', () => { tap(0.7); window.aang?.browserTab?.({ id: t.id, act: 'close' }); });
   document.body.append(m);
@@ -565,7 +585,7 @@ function buildRow(t, kid) {
       p.addEventListener('click', (e) => { e.stopPropagation(); window.aang?.browserPopout?.(t.id); });
       // Send to the MacBook, beside it: the same keycap, on hover only (his ask, 2026-10-12). It stops here.
       const m = document.createElement('button'); m.type = 'button'; m.className = 'pip tomac';
-      m.title = 'Send to the MacBook. It stops playing here.'; m.setAttribute('aria-label', 'Send to Mac');
+      m.title = OTHER.title; m.setAttribute('aria-label', OTHER.label);
       m.innerHTML = '<svg viewBox="0 0 7 7" width="12" height="12" shape-rendering="crispEdges" aria-hidden="true"><path d="M0 0h7v1H0zM0 1h1v2H0zM6 1h1v2H6zM0 3h7v1H0zM0 5h7v1H0z" fill="#2a1c00"/></svg>';
       m.addEventListener('click', (e) => { e.stopPropagation(); window.aang?.browserToMac?.(t.id); });
       row.append(p, m);

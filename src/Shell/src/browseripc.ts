@@ -7,7 +7,9 @@ import type { AangBrowser } from './browser.ts';
 export function wireBrowser(get: () => AangBrowser | null): void {
   const b = () => get() as AangBrowser;
   // ---- 6.19/6.20 the browser frame. Only the frame page may drive it, never a tab.
-  ipcMain.on('browser:insets', (e, r) => { if (b()?.isFrame(e.sender) && r) b().setInsets(Number(r.left), Number(r.top), Number(r.right) || 0, Number(r.bottom) || 0); });
+  // The tab list floating over the page: open (where the frame says) or closed.
+  ipcMain.on('browser:tray', (e, a) => { if (b()?.isFrame(e.sender) && a && typeof a === 'object') b().tray(a.open === true, a); });
+  ipcMain.on('browser:insets', (e, r) => { if (b()?.isMainFrame(e.sender) && r) b().setInsets(Number(r.left), Number(r.top), Number(r.right) || 0, Number(r.bottom) || 0); });
   // A tab's page has drawn (tabpreload.cjs): the only thing a website's tab ever sends, and it carries nothing.
   ipcMain.on('tab:painted', (e) => b()?.painted(e.sender));
   // 6.25a: STOP, close, watch or open one of Aang's pages, from the drawer or the address bar.

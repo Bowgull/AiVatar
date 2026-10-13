@@ -4,7 +4,7 @@
 // tabs, history and logins. Money sites never travel. When the PC is off it works on its own and catches up later.
 //
 // Run as the "Aang" app the Mac setup makes (Aang.app in ~/Applications). It can be his default browser (his yes).
-import { app, ipcMain, Menu, nativeImage } from 'electron';
+import { app, globalShortcut, ipcMain, Menu, nativeImage } from 'electron';
 import { appendFileSync, existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -13,6 +13,12 @@ import { servePages } from './pageserver.ts';
 import { AangBrowser } from './browser.ts';
 import { wireBrowser } from './browseripc.ts';
 import { DrmRuntime } from './drmrunner.ts';
+import { Popout, popoutFile } from './popout.ts';
+import { wirePopout } from './popoutipc.ts';
+import { readSettings } from './settings.ts';
+import { FindSkips } from './skip/find.ts';
+import { DEFAULT_SKIPS, withDefaults, type SkipSettings } from './skip/settings.ts';
+import { holdHotkey } from './hotkey.ts';
 import { serviceFor } from './services.ts';
 
 const HERE = import.meta.dirname;
@@ -69,11 +75,40 @@ app.whenReady().then(async () => {
     if (why) { console.error('aang: ' + why); return false; }
     return true;
   };
-  ipcMain.on('browser:popout', (e, id) => {
-    if (!browser?.isFrame(e.sender) || !Number.isInteger(id)) return;
-    const url = browser.urlOf(id);
-    if (url && serviceFor(url)) browser.onPaid?.(url);
+  let openPopRef: ((url: string) => boolean) | null = null;
+  let ws: WebSocket | null = null;
+  // The pop-out, as on the PC (his report, 2026-10-13: "the pop-out is a very important feature"): its keys, pin,
+  // play and click-through. Ctrl+Shift+V hides and shows it; Ctrl+Alt+P pins it while it is up.
+  const popSettings = readSettings(stateDir);
+  let skipSettings: SkipSettings = DEFAULT_SKIPS;
+  try { const f = path.join(stateDir, 'skips.json'); if (existsSync(f)) skipSettings = withDefaults(JSON.parse(readFileSync(f, 'utf8'))); } catch { /* defaults */ }
+  const popout = new Popout({
+    pages, preloadPath: path.join(HERE, 'preload.cjs'),
+    remembered: () => { try { const j = JSON.parse(readFileSync(popoutFile(stateDir), 'utf8')); return ['x', 'y', 'width', 'height'].every((k) => Number.isFinite(j?.[k])) ? { x: j.x, y: j.y, width: j.width, height: j.height } : null; } catch { return null; } },
+    remember: (box) => { if (popSettings.rememberSize) { try { writeFileSync(popoutFile(stateDir), JSON.stringify(box)); } catch { /* next time */ } } },
+    settings: () => popSettings, skips: new FindSkips(stateDir), skipSettings: () => skipSettings,
   });
+  openPopRef = (url: string) => openPop(url);
+  const openPop = (url: string): boolean => {
+    if (serviceFor(url)) return browser?.onPaid?.(url) ?? false;
+    drm.close();
+    return Boolean(popout.open(url));
+  };
+  browser.onReclaim = () => popout.returnTab();
+  wirePopout({
+    popout: () => popout, browser: () => browser, open: openPop, stopPaid: () => drm.close(),
+    // "Send to PC": through the brain, which puts it in the PC's pop-out.
+    sendToOther: (url) => { if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ t: 'watch.topc', url })); else console.log('aang: the PC is not reachable, so it was not sent'); },
+  });
+  const hk = holdHotkey(stateDir, () => popout.toggleHidden());
+  if (hk.active) console.log(`aang: ${hk.active} hides and shows the pop-out`);
+  let pinHeld = false;
+  setInterval(() => {
+    const up = Boolean(popout.window?.isVisible());
+    if (up && !pinHeld) pinHeld = globalShortcut.register('Control+Alt+P', () => popout.togglePin());
+    else if (!up && pinHeld) { globalShortcut.unregister('Control+Alt+P'); pinHeld = false; }
+  }, 500).unref?.();
+  app.on('before-quit', () => { popout.close(); hk.release(); });
   app.on('before-quit', () => drm.close());
   browser.open(waiting.shift());
   for (const u of waiting.splice(0)) browser.open(u);
@@ -88,7 +123,6 @@ app.whenReady().then(async () => {
   // ---- the sync, through the brain on the PC
   const read = (f: string) => { try { return readFileSync(path.join(LISTENER, f), 'utf8').trim(); } catch { return ''; } };
   const key = read('bsync.key'), shadow = read('shadow');
-  let ws: WebSocket | null = null;
   const sync = browser.startSync((m) => { if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(m)); }, (s) => console.log('aang: ' + s));
   const connect = () => {
     if (!key || !/^100\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(shadow)) { console.log('aang: no sync key or PC address yet; run the Mac setup again'); return; }
@@ -97,6 +131,8 @@ app.whenReady().then(async () => {
     s.on('message', (raw) => {
       let m: any; try { m = JSON.parse(String(raw)); } catch { return; }
       if (typeof m?.t === 'string' && m.t.startsWith('bsync.')) void sync.got(m).catch((e: Error) => console.error('aang: sync: ' + e.message));
+      // "Send to Mac" from the PC: it plays here, in the pop-out.
+      else if (m?.t === 'watch.open' && typeof m.url === 'string' && /^https:\/\//.test(m.url)) openPopRef?.(m.url);
       // His yes (2026-10-13): Claude may look at this browser's own window and its log, when it asks.
       else if (m?.t === 'diag.ask' && browser) {
         void browser.look().then((l) => {

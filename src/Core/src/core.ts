@@ -2257,7 +2257,8 @@ export class Core {
       // The mode he picked in the new box. Relayed so the PET can write it to body.json: the pet is
       // the only writer of that file, and two writers of one file is how it gets truncated.
       case 'mode': this.sendTo('desktop', { t: 'mode', mode: m.mode }); break;
-      case 'watch.tomac': void this.openOnMac(String(m.url ?? '')).then(r => {
+      // M6: Aang's browser on the Mac plays it in its own pop-out; the Mac's Chrome is the fallback when it is closed.
+      case 'watch.tomac': if (/^https:\/\//.test(String(m.url ?? '')) && this.bsync.sendToMac(String(m.url))) break; void this.openOnMac(String(m.url ?? '')).then(r => {
         if (!r.ok) this.sendTo('desktop', { t: 'bubble', text: r.detail, stream: false, proactive: true });
       }); break;
       case 'mac.run': void this.runOnMac(String(m.text ?? '').slice(0, 4000)).then(ok => this.send(ws, { t: 'mac.run.reply', ok })); break;
