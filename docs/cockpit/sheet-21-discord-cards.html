@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 21 - Discord cards</title>
+<!-- Sheet 21 (2026-10-13, his picks): the cards Aang draws for Discord, part 2. Built on the approved sheet-15 card
+     language (pages/card.css): parchment, the dark outline, Silkscreen plaques, Figtree text, and the browser's
+     pixel-painted wood for panels. Every name, time and place on this sheet is SAMPLE data, not his. -->
+<link rel="stylesheet" href="../../src/Shell/pages/card.css">
+<style>
+  body{margin:0;background:#1e1f22;color:#dbdee1;font-family:Figtree,system-ui,sans-serif;padding:28px 34px 40px}
+  h1{font:400 20px Silkscreen,monospace;color:#FFC43C;letter-spacing:2px;margin:0 0 4px}
+  .lead{color:#b5bac1;font-size:14px;margin:0 0 22px;max-width:1100px;line-height:1.45}
+  .boards{display:grid;grid-template-columns:repeat(3,440px);gap:26px 30px;align-items:start}
+  .board{background:#313338;border-radius:10px;padding:14px 14px 16px;box-shadow:0 2px 0 #111214}
+  .board h2{font:400 11px Silkscreen,monospace;color:#949ba4;letter-spacing:1.5px;margin:0 0 10px}
+  .board .why{font-size:12.5px;color:#949ba4;line-height:1.4;margin:10px 2px 0}
+  /* how Discord shows a bot message: name, APP tag, time, then the picture in an embed with a colour strip */
+  .msg{display:flex;gap:12px}
+  .av{width:40px;height:40px;border-radius:50%;background:#2b2d31 url(../../src/Shell/pages/art/aang-face.png) center/30px no-repeat;image-rendering:pixelated;flex:0 0 auto}
+  .who{font-weight:700;color:#f2f3f5;font-size:15px}
+  .who .app{font:700 10px system-ui;background:#5865F2;color:#fff;border-radius:3px;padding:1px 4px;margin:0 6px;vertical-align:2px}
+  .who time{font-weight:500;font-size:12px;color:#949ba4}
+  .body{min-width:0}
+  .say{font-size:14.5px;color:#dbdee1;margin:3px 0 6px}
+  .embed{border-left:4px solid #FFC43C;background:#2b2d31;border-radius:4px;padding:8px 10px 10px;display:inline-block}
+  .embed.warn{border-color:#C95E28}.embed.good{border-color:#78E696}
+  .btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+  .btns b{font:500 13.5px system-ui;color:#fff;background:#4E5058;border-radius:4px;padding:6px 14px}
+  .btns b.p{background:#5865F2}.btns b.g{background:#248046}.btns b.r{background:#DA373C}
+  /* parts these cards add to the sheet-15 language */
+  .sec{font:400 9.5px Silkscreen,monospace;color:#8a6a2a;letter-spacing:1px;margin-top:3px}
+  .li{display:flex;align-items:flex-start;gap:7px;font-size:13px;font-weight:600;color:#4e3d28;line-height:1.3}
+  .li .t{font:400 9px Silkscreen,monospace;color:#2A1C08;background:#FFC43C;border:1.5px solid #120A05;border-radius:4px;padding:1px 4px;flex:0 0 auto;margin-top:1px}
+  .li .t.job{background:#9fd3ff}.li .t.now{background:#C95E28;color:#fff}.li .t.ok{background:#78E696}
+  .li .w{font-weight:800;color:#2E2216}
+  .li .m{color:#7a6448;font-weight:600}
+  .li .tm{font:400 9.5px Silkscreen,monospace;color:#5A4834;min-width:40px;margin-top:2px}
+  .ico{width:16px;height:16px;flex:0 0 auto;shape-rendering:crispEdges;margin-top:0}
+  .found{display:flex;flex-direction:column;gap:6px;border:2px solid rgba(18,10,5,.3);border-radius:8px;padding:7px 8px;background:rgba(255,255,255,.22)}
+  .weather{display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;color:#5A4834}
+  .shot{height:84px;border:2.5px solid #120A05;border-radius:6px;background:linear-gradient(135deg,#2b2d31,#3d4a5c);display:flex;align-items:center;justify-content:center;font:400 9px Silkscreen,monospace;color:#9aa4b2}
+  .meter{display:grid;grid-template-columns:repeat(20,1fr);gap:2px}
+  .meter i{height:10px;border:1.2px solid #120A05;border-radius:2px;background:#C9B286}
+  .meter i.on{background:#78E696}.meter i.est{background:#FFC43C}
+  .scale{display:flex;justify-content:space-between;font:400 8px Silkscreen,monospace;color:#8a6a2a}
+  .note{font-size:12px;color:#7a6448;font-weight:600;line-height:1.35}
+</style>
+</head>
+<body>
+<h1>SHEET 21 - DISCORD CARDS</h1>
+<p class="lead">Your four picks, drawn in the same card style as the job and home cards you approved on sheet 15. Each is a picture Aang draws; the buttons under it are Discord's own (Discord draws those, so they look like this). Every name, time and place here is made up for the mockup.</p>
+
+<div class="boards">
+
+<!-- 1. MORNING BRIEF -->
+<div class="board">
+  <h2>1 - MORNING BRIEF</h2>
+  <div class="msg"><div class="av"></div><div class="body">
+    <div class="who">Aang<span class="app">APP</span><time>Today at 7:02 AM</time></div>
+    <div class="embed"><div class="parch"><div class="col">
+      <div class="row" style="align-items:center;gap:8px"><div class="plaque">MORNING BRIEF</div><div class="meta">Tue Oct 14</div></div>
+      <div class="weather"><svg class="ico" viewBox="0 0 16 16"><path fill="#FFC43C" d="M6 3h4v1h1v1h1v4h-1v1h-1v1H6v-1H5V9H4V5h1V4h1z"/><path fill="#120A05" d="M6 2h4v1H6zM5 3h1v1H5zM10 3h1v1h-1zM4 4h1v1H4zM11 4h1v1h-1zM3 5h1v4H3zM12 5h1v4h-1zM4 9h1v1H4zM11 9h1v1h-1zM5 10h1v1H5zM10 10h1v1h-1zM6 11h4v1H6z"/></svg>9 to 14 degrees, rain after 4 pm</div>
+      <div class="sec">JOB HUNT</div>
+      <div class="li"><span class="t now">TODAY</span><span><span class="w">Interview, Northwind</span> <span class="m">2:00 pm, video call</span></span></div>
+      <div class="li"><span class="t job">REPLY</span><span><span class="w">Rhea Patel</span> <span class="m">Next steps and the demo</span></span></div>
+      <div class="li"><span class="t job">NEW</span><span><span class="w">3 job matches</span> <span class="m">best: Product Designer, Lumen</span></span></div>
+      <div class="sec">WAITING ON YOU</div>
+      <div class="li"><span class="t">CLAUDE</span><span><span class="w">Portfolio update</span> <span class="m">wants your OK to publish</span></span></div>
+      <div class="li"><span class="t">DRAFT</span><span><span class="w">Reply to Sam</span> <span class="m">ready to send</span></span></div>
+      <div class="sec">TODAY</div>
+      <div class="li"><span class="tm">10:30</span><span class="w">Dentist</span></div>
+      <div class="li"><span class="tm">2:00</span><span class="w">Interview, Northwind</span></div>
+      <div class="sec">OTHER EMAIL</div>
+      <div class="li"><span class="w">Amazon</span><span class="m">Your order has shipped</span></div>
+      <div class="li"><span class="w">Blizzard</span><span class="m">Patch 1.15.8 notes</span></div>
+      <div class="li"><span class="m">+ 4 more</span></div>
+    </div><div class="drawn">DRAWN BY AANG</div></div></div>
+    <div class="btns"><b class="p">Go through Rhea's email</b><b>Interview prep</b><b>See matches</b><b>Got it</b></div>
+  </div></div>
+  <p class="why">Your order: job hunt first, then what's waiting on you, then today, then other email with its subject. Sent by the Mac when Shadow is off. The buttons change with what's in it.</p>
+</div>
+
+<!-- 2. ONE EMAIL, GONE THROUGH -->
+<div class="board">
+  <h2>2 - AN EMAIL, GONE THROUGH</h2>
+  <div class="msg"><div class="av"></div><div class="body">
+    <div class="who">Aang<span class="app">APP</span><time>Today at 9:14 AM</time></div>
+    <div class="say">Here's everything in Rhea's email.</div>
+    <div class="embed"><div class="parch"><div class="col">
+      <div class="row" style="align-items:center;gap:8px"><div class="plaque">WENT THROUGH IT</div><div class="meta">Rhea Patel, 8:41 am</div></div>
+      <div class="head">Next steps and the product demo</div>
+      <div class="text">She wants to meet Thursday to see a demo of your design work, and sent two videos about the product and a deck to read first.</div>
+      <div class="found">
+        <div class="li"><svg class="ico" viewBox="0 0 16 16"><path fill="#120A05" d="M2 3h12v11H2z"/><path fill="#F6E6C6" d="M3 6h10v7H3z"/><path fill="#C95E28" d="M3 4h10v2H3z"/><path fill="#120A05" d="M4 1h1v3H4zM11 1h1v3h-1zM5 8h2v2H5zM9 8h2v2H9z"/></svg><span><span class="w">Thu Oct 16, 2:00 to 3:00 pm</span> <span class="m">invite, not answered</span></span></div>
+        <div class="li"><svg class="ico" viewBox="0 0 16 16"><path fill="#120A05" d="M5 1h6v1h1v1h1v5h-1v2h-1v2h-1v2H9v1H7v-1H6v-2H5v-2H4V8H3V3h1V2h1z"/><path fill="#DA373C" d="M5 2h6v1h1v5h-1v2h-1v2H9v1H7v-1H6v-2H5V8H4V3h1z"/><path fill="#F6E6C6" d="M7 4h2v1h1v2H9v1H7V7H6V5h1z"/></svg><span><span class="w">220 King St W, Toronto</span> <span class="m">24 min now, leave by 1:25</span></span></div>
+        <div class="li"><svg class="ico" viewBox="0 0 16 16"><path fill="#120A05" d="M1 3h14v10H1z"/><path fill="#DA373C" d="M2 4h12v8H2z"/><path fill="#fff" d="M6 6h1v1h1v1h1v1H8v1H7v1H6z"/></svg><span><span class="w">2 videos</span> <span class="m">Product tour (8 min), Customer story (12 min)</span></span></div>
+        <div class="li"><svg class="ico" viewBox="0 0 16 16"><path fill="#120A05" d="M3 1h7v1h1v1h1v1h1v11H3z"/><path fill="#F6E6C6" d="M4 2h6v3h3v9H4z"/><path fill="#C95E28" d="M5 8h6v1H5zM5 10h6v1H5zM5 12h4v1H5z"/></svg><span><span class="w">Demo brief.pdf</span> <span class="m">6 pages, opened</span></span></div>
+        <div class="li"><svg class="ico" viewBox="0 0 16 16"><path fill="#120A05" d="M5 1h6v1h1v1h1v4h-1v1h-1v1h-1v2H6V8h1V7h1V6h1V5h1V3H6v1H5v1H3V3h1V2h1zM6 12h4v3H6z"/><path fill="#FFC43C" d="M6 2h5v1h1v4h-1v1h-1v1H9v1H7V8h1V7h1V6h1V5h1V3h-1V2z"/></svg><span><span class="w">She asks</span> <span class="m">confirm by Wednesday; bring 2 case studies</span></span></div>
+      </div>
+    </div><div class="drawn">DRAWN BY AANG</div></div></div>
+    <div class="btns"><b class="g">Book it</b><b>Drive time</b><b>Transcripts</b><b class="p">Prep</b><b>Reply</b><b>Files</b></div>
+  </div></div>
+  <p class="why">Only when you ask ("check my email", or an email by name). One card, a button for each thing Aang can do. Booking and Reply always show you everything and wait for your yes.</p>
+</div>
+
+<!-- 2b. YOUR DAY / YOUR INBOX -->
+<div class="board">
+  <h2>2B - YOUR DAY AND YOUR INBOX</h2>
+  <div class="msg"><div class="av"></div><div class="body">
+    <div class="who">Aang<span class="app">APP</span><time>Today at 12:05 PM</time></div>
+    <div class="embed"><div class="parch"><div class="col">
+      <div class="row" style="align-items:center;gap:8px"><div class="plaque">YOUR WEEK</div><div class="meta">Oct 14 to 17</div></div>
+      <div class="sec">TUESDAY</div>
+      <div class="li"><span class="tm">10:30</span><span class="w">Dentist</span><span class="m">Queen St, 12 min</span></div>
+      <div class="li"><span class="tm">2:00</span><span class="w">Interview, Northwind</span><span class="m">video</span></div>
+      <div class="sec">THURSDAY</div>
+      <div class="li"><span class="tm">2:00</span><span class="w">Demo with Rhea</span><span class="m">King St W, 24 min</span></div>
+      <div class="sec">FRIDAY</div>
+      <div class="li"><span class="m">Nothing booked</span></div>
+    </div><div class="drawn">DRAWN BY AANG</div></div></div>
+  </div></div>
+  <div class="msg" style="margin-top:14px"><div class="av"></div><div class="body">
+    <div class="embed"><div class="parch"><div class="col">
+      <div class="row" style="align-items:center;gap:8px"><div class="plaque">INBOX</div><div class="meta">6 unread</div></div>
+      <div class="li"><span class="t job">JOB</span><span><span class="w">Rhea Patel</span> <span class="m">Next steps and the product demo</span></span></div>
+      <div class="li"><span class="t job">JOB</span><span><span class="w">Lumen Careers</span> <span class="m">Your application was received</span></span></div>
+      <div class="li"><span class="w">Sam</span><span class="m">Saturday?</span></div>
+      <div class="li"><span class="w">Amazon</span><span class="m">Your order has shipped</span></div>
+      <div class="li"><span class="m">+ 2 newsletters</span></div>
+    </div><div class="drawn">DRAWN BY AANG</div></div></div>
+    <div class="btns"><b class="p">Rhea</b><b>Lumen</b><b>Sam</b><b>Tidy up</b></div>
+  </div></div>
+  <p class="why">When you ask about your day or your email. Drive times show for anything with a place, from home. A name button goes through that email (card 2).</p>
+</div>
+
+<!-- 3. CLAUDE JOB UPDATES -->
+<div class="board">
+  <h2>3 - CLAUDE JOB UPDATES</h2>
+  <div class="msg"><div class="av"></div><div class="body">
+    <div class="who">Aang<span class="app">APP</span><time>Today at 3:40 PM</time></div>
+    <div class="embed"><div class="parch"><div class="row"><div class="col">
+      <div class="plaque">WORKING</div>
+      <div class="head">Demo plan for Rhea</div>
+      <div class="sub">Step 3 of 5: reading the demo brief</div>
+      <div class="bars"><i class="done"></i><i class="done"></i><i class="now"></i><i></i><i></i></div>
+    </div><img class="sprite" src="../../src/Shell/pages/art/aang-face.png" alt=""></div><div class="drawn">DRAWN BY AANG</div></div></div>
+  </div></div>
+  <div class="msg" style="margin-top:12px"><div class="av"></div><div class="body">
+    <div class="embed warn"><div class="parch"><div class="col">
+      <div class="plaque warn">NEEDS YOU</div>
+      <div class="head">Demo plan for Rhea</div>
+      <div class="text">Claude wants to send the plan to Rhea by email. That needs your OK first.</div>
+      <div class="shot">PICTURE OF THE SCREEN, WHEN THERE IS ONE</div>
+    </div><div class="drawn">DRAWN BY AANG</div></div></div>
+    <div class="btns"><b class="p">Reply in the post</b></div>
+  </div></div>
+  <div class="msg" style="margin-top:12px"><div class="av"></div><div class="body">
+    <div class="embed good"><div class="parch"><div class="row"><div class="col">
+      <div class="plaque done">DONE</div>
+      <div class="head">Demo plan for Rhea</div>
+      <div class="sub">A 12-minute demo in 4 parts, with the two case studies she asked for. Saved to Prep.</div>
+      <div class="bars"><i class="done"></i><i class="done"></i><i class="done"></i><i class="done"></i><i class="done"></i></div>
+    </div><img class="sprite" src="../../src/Shell/pages/art/aang-face.png" alt=""></div><div class="drawn">DRAWN BY AANG</div></div></div>
+    <div class="btns"><b class="p">Demo plan.pdf</b><b>Keep going</b></div>
+  </div></div>
+  <p class="why">One post per job in claude-jobs; the card updates in place (Working, Needs you, Done) so the post doesn't fill with messages. Reply in the post to steer it.</p>
+</div>
+
+<!-- 4. QUOTA WARNING + METER -->
+<div class="board">
+  <h2>4 - QUOTA: THE ASK AND THE METER</h2>
+  <div class="msg"><div class="av"></div><div class="body">
+    <div class="who">Aang<span class="app">APP</span><time>Today at 9:16 AM</time></div>
+    <div class="embed warn"><div class="parch"><div class="col">
+      <div class="plaque warn">MIGHT BE HIGH QUOTA</div>
+      <div class="head">Prep for Rhea's demo, with research</div>
+      <div class="text">Reading the deck, both videos, and looking up Rhea and the company. About 3 to 5% of your week.</div>
+      <div class="sec">YOUR WEEK</div>
+      <div class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="est"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="scale"><span>USED 34%</span><span>THIS JOB</span><span>RESETS SAT</span></div>
+    </div><div class="drawn">DRAWN BY AANG</div></div></div>
+    <div class="btns"><b class="g">Go ahead</b><b>Not now</b></div>
+  </div></div>
+  <div class="msg" style="margin-top:14px"><div class="av"></div><div class="body">
+    <div class="who">Aang<span class="app">APP</span><time>pinned in home</time></div>
+    <div class="embed"><div class="wood"><div class="top"><img src="../../src/Shell/pages/art/aang-face.png" alt=""><b>HOME</b><small>pinned, kept current</small></div>
+      <div class="tiles">
+        <div class="tile"><div class="k">SHADOW</div><div class="v good">On</div></div>
+        <div class="tile"><div class="k">WAITING ON YOU</div><div class="v warn">2</div></div>
+        <div class="tile"><div class="k">YOUR WEEK</div><div class="v">34% used</div><div class="bars"><i class="done"></i><i class="done"></i><i class="done"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
+        <div class="tile"><div class="k">NEXT 5 HOURS</div><div class="v">12% used</div><div class="bars"><i class="done"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
+      </div><div class="drawn">DRAWN BY AANG</div></div></div>
+  </div></div>
+  <p class="why">The ask comes before anything big, never cuts anything: Go ahead or Not now. The meter tiles live on the home card you already have.</p>
+</div>
+
+</div>
+</body>
+</html>
