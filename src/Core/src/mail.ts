@@ -268,6 +268,8 @@ export interface BriefData {
 export class MailService {
   readonly store: MailStore;
   private readonly g: Google;
+  /** E5: the Google connection itself, for the calendar booking (core.ts), which does its own asking. */
+  get google(): Google { return this.g; }
   private readonly now: () => Date;
   constructor(g: Google, store: MailStore, now: () => Date = () => new Date()) { this.g = g; this.store = store; this.now = now; }
 

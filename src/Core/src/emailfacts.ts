@@ -294,6 +294,9 @@ export interface FoundDate {
   date?: string;
   /** Anything that makes it NOT certain. Empty means code is sure. */
   unsure: string[];
+  /** When am or pm was not written: both moments, so he can say which (E5 never picks for him). */
+  am?: string;
+  pm?: string;
 }
 const WEEKDAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 const torontoDay = (ms: number) => new Date(ms).toLocaleDateString('en-CA', { timeZone: 'America/Toronto' });
@@ -333,7 +336,7 @@ export function findDates(text: string, sent: Date): FoundDate[] {
         const h = st.get('hour')!;
         const am = h === 12 ? ms - 12 * 3_600_000 : ms, pm = h === 12 ? ms : ms + 12 * 3_600_000;
         unsure.push('am or pm is not written');
-        out.push({ text: raw, means: `${sayMoment(am)} OR ${new Date(pm).toLocaleTimeString('en-US', { timeZone: 'America/Toronto', hour: 'numeric', minute: '2-digit' })}, Toronto time`, unsure });
+        out.push({ text: raw, means: `${sayMoment(am)} OR ${new Date(pm).toLocaleTimeString('en-US', { timeZone: 'America/Toronto', hour: 'numeric', minute: '2-digit' })}, Toronto time`, unsure, am: new Date(am).toISOString(), pm: new Date(pm).toISOString() });
       }
     } else {
       const part = /\b(morning|afternoon|evening|tonight|noon|lunch|end of (?:the )?day|eod)\b/i.exec(raw)?.[1];

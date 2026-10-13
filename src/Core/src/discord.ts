@@ -1022,9 +1022,9 @@ export class DiscordAdapter {
     if (ev?.t === 'card.show' && typeof ev.id === 'string' && ev.kind === 'email' && typeof ev.email === 'string' && /^[\w-]{1,80}$/.test(ev.email)) {
       const p = this.pending.get(ev.id);
       if (!p) return;
-      const label: Record<string, string> = { transcripts: 'Transcripts', prep: 'Prep', reply: 'Reply', files: 'Files' };
+      const label: Record<string, string> = { book: 'Book it', transcripts: 'Transcripts', prep: 'Prep', reply: 'Reply', files: 'Files' };
       const acts = (Array.isArray(ev.acts) ? ev.acts : []).filter((a: unknown): a is string => typeof a === 'string' && a in label);
-      const buttons: Button[] = acts.map((a: string) => ({ id: `em:${a}:${ev.email}`, label: label[a]!, style: a === 'prep' ? 'primary' as const : 'secondary' as const }));
+      const buttons: Button[] = acts.map((a: string) => ({ id: `em:${a}:${ev.email}`, label: label[a]!, style: a === 'book' ? 'success' as const : a === 'prep' ? 'primary' as const : 'secondary' as const }));
       if (typeof ev.join === 'string' && /^https:\/\//.test(ev.join)) buttons.unshift({ id: 'em:join', label: 'Join call', style: 'success', url: ev.join });
       const d = ev.data ?? {};
       const msg = await this.drawn('email', d, 0xFFC43C, { content: `${String(d.from ?? '')}: ${String(d.subject ?? '')}`.slice(0, 300), buttons });
@@ -1094,8 +1094,10 @@ export class DiscordAdapter {
         return;
       }
       const sub = ' Yes is for this once.';
+      // E5: what he is saying yes to, all of it (a booking's day, time, source, place, who is told, clashes, doubts).
+      const means = typeof ev.means === 'string' && ev.means.trim() ? `\n${ev.means.trim().slice(0, 1500)}` : '';
       await this.gw.send(channelId, {
-        content: `Can I ${ev.question}?${sub}`,
+        content: `Can I ${ev.question}?${sub}${means}`.slice(0, 1990),
         buttons: [{ id: `perm:${ev.id}:yes`, label: 'Yes', style: 'success' }, { id: `perm:${ev.id}:no`, label: 'No', style: 'danger' }],
       });
     }
@@ -1170,7 +1172,7 @@ export class DiscordAdapter {
       return;
     }
     // E3: a button on an email's card is asked of Aang in words, as if he typed it; its own tools then ask him as usual.
-    const em = /^em:(transcripts|prep|reply|files):([\w-]{1,80})$/.exec(b.customId);
+    const em = /^em:(book|transcripts|prep|reply|files):([\w-]{1,80})$/.exec(b.customId);
     if (em) { await b.keep(); this.ask(`em${Date.now()}`, b.channelId, promptFor(em[1] as EmailAct, em[2]!), { mode: 'smart' }); return; }
     if (b.customId === 'home:away') { await b.keep(); this.link.stepAway?.(); await this.gw.send(b.channelId, { content: 'Okay. Everything comes here until you are back at the PC.', silent: true }); return; }
     if (b.customId === 'home:puton') { await b.keep(); this.state.putOnNext = true; this.save(); await this.post('aang', { content: 'What should I put on? Tell me here.' }); return; }
