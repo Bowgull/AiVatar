@@ -203,3 +203,11 @@ test('9.D: the plain channel operations work through the Mac front desk', async 
     assert.deepEqual(gw.gone, ['old1']);
   } finally { fd.close(); await desk.close(); }
 });
+
+test('9.D D4: the speakers\' pictures reach the Mac byte for byte', () => {
+  const png = readFileSync(path.join(import.meta.dirname, '..', 'assets', 'speakers', 'claude.png'));
+  const s2 = macSetupScript('100.91.66.119', 47832, 'h'.repeat(24), 'm'.repeat(24), { token: 'T', key: 'K'.repeat(24), port: FRONT_DESK_PORT, files: { 'avatar-claude.png': png } });
+  const line = s2.split('\n').find(l => l.endsWith('> "$FD/avatar-claude.png"'))!;
+  const b64 = /printf '%s' '([A-Za-z0-9+/=]+)'/.exec(line)![1]!;
+  assert.ok(Buffer.from(b64, 'base64').equals(png));
+});

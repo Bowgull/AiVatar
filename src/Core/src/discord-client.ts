@@ -5,6 +5,18 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, Client, EmbedBuilder, Events, GatewayIntentBits, MessageFlags, PermissionFlagsBits } from 'discord.js';
 import type { Button, ButtonPress, Gateway, Incoming, OutMsg, PostInfo } from './discord.ts';
 import type { ChannelInfo } from './discord-logic.ts';
+import { existsSync, readFileSync } from 'node:fs';
+import path from 'node:path';
+
+/** 9.D D4: the separate speakers, each a webhook Aang made in the channel, with its own name and picture. */
+const SPEAKERS = { claude: 'Claude', jobhunt: 'Job Hunt' } as const;
+function avatar(as: keyof typeof SPEAKERS): Buffer | null {
+  // Beside this file on the Mac (the setup puts them there); in the repo, in assets/speakers.
+  for (const f of [path.join(import.meta.dirname, `avatar-${as}.png`), path.join(import.meta.dirname, '..', 'assets', 'speakers', `${as}.png`)]) {
+    try { if (existsSync(f)) return readFileSync(f); } catch { /* next */ }
+  }
+  return null;
+}
 import { LAYOUT, NEEDED, FORBIDDEN, noPreview, slug } from './discord-logic.ts';
 
 const STYLE = { primary: ButtonStyle.Primary, secondary: ButtonStyle.Secondary, success: ButtonStyle.Success, danger: ButtonStyle.Danger } as const;
@@ -163,6 +175,28 @@ export class DiscordGateway implements Gateway {
     await t.setAppliedTags(tagIds(forum, tags));
   }
 
+  // ---- 9.D D4: Claude and Job Hunt as their own senders
+  private hooks = new Map<string, any>();
+  private noHooks = false;
+  /** The webhook for this speaker in this channel (or a forum post's forum), made once by Aang; null without the permission. */
+  private async hookFor(channel: any, as: keyof typeof SPEAKERS): Promise<any | null> {
+    if (this.noHooks) return null;
+    const base: any = channel.isThread?.() ? await this.client.channels.fetch(channel.parentId) : channel;
+    const key = `${base.id}:${as}`;
+    if (this.hooks.has(key)) return this.hooks.get(key);
+    try {
+      const mine = (await base.fetchWebhooks()).find((w: any) => w.owner?.id === this.client.user?.id && w.name === SPEAKERS[as]);
+      const h = mine ?? await base.createWebhook({ name: SPEAKERS[as], ...(avatar(as) ? { avatar: avatar(as) } : {}), reason: 'Aang: a separate speaker (Claude or Job Hunt)' });
+      this.hooks.set(key, h);
+      return h;
+    } catch (e) {
+      // No Manage Webhooks yet: everything still goes out, as Aang. Said once, not on every message.
+      this.noHooks = true;
+      console.log('front desk: speaking as Aang only (' + (e as Error).message + ')');
+      return null;
+    }
+  }
+
   async send(channelId: string, msg: OutMsg): Promise<string> {
     const channel: any = await this.client.channels.fetch(channelId);
     const files = msg.files?.map(f => ({ attachment: f.data, name: f.name }));
@@ -172,15 +206,27 @@ export class DiscordGateway implements Gateway {
     // card keeps the card, and its links are wrapped in <> instead, which Discord never previews.
     const own = this.embeds(msg);
     const flags = (msg.silent ? MessageFlags.SuppressNotifications : 0) | (own.length ? 0 : MessageFlags.SuppressEmbeds);
-    const sent = await channel.send({ content: own.length ? noPreview(msg.content) : msg.content, embeds: own, components: this.rows(msg), allowedMentions: { parse: [] }, ...(files ? { files } : {}), ...(flags ? { flags } : {}) });
+    const body = { content: own.length ? noPreview(msg.content) : msg.content, embeds: own, components: this.rows(msg), allowedMentions: { parse: [] }, ...(files ? { files } : {}), ...(flags ? { flags } : {}) };
+    const hook = msg.as ? await this.hookFor(channel, msg.as) : null;
+    if (hook) {
+      const sent = await hook.send({ ...body, ...(channel.isThread?.() ? { threadId: channel.id } : {}) });
+      return sent.id;
+    }
+    const sent = await channel.send(body);
     return sent.id;
   }
 
   async edit(channelId: string, messageId: string, msg: OutMsg): Promise<void> {
     const channel: any = await this.client.channels.fetch(channelId);
-    const m = await channel.messages.fetch(messageId);
     const own = this.embeds(msg);
-    await m.edit({ content: own.length ? noPreview(msg.content ?? '') : msg.content ?? '', embeds: own, components: this.rows(msg), allowedMentions: { parse: [] }, ...(own.length ? {} : { flags: MessageFlags.SuppressEmbeds }) });
+    const body = { content: own.length ? noPreview(msg.content ?? '') : msg.content ?? '', embeds: own, components: this.rows(msg), allowedMentions: { parse: [] }, ...(own.length ? {} : { flags: MessageFlags.SuppressEmbeds }) };
+    const m = await channel.messages.fetch(messageId);
+    // A message one of the speakers sent is changed through that speaker's webhook; Aang's own, directly.
+    if (m.webhookId) {
+      const hook = msg.as ? await this.hookFor(channel, msg.as) : null;
+      if (hook && hook.id === m.webhookId) { await hook.editMessage(messageId, { ...body, ...(channel.isThread?.() ? { threadId: channel.id } : {}) }); return; }
+    }
+    await m.edit(body);
   }
 
   async pin(channelId: string, messageId: string): Promise<void> {

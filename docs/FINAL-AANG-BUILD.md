@@ -3796,6 +3796,13 @@ the connection) and 9.A0 (buttons call the action registry). **Build order:**
   accent strip, and the plain words stay as the message text for the phone notification. Without the Shell, plain
   text. First use: the job hunt's "stuck" post in needs-you. 8 renderer checks (cards-check.ts) + 589 brain tests.
 - **D4 Separate speakers:** Aang, Claude and Job Hunt through bot-owned webhooks (plain webhooks drop buttons).
+  **D4 BUILT 2026-10-13** (he left the choice to me: "whatever makes most sense and is most practical and visually
+  appealing"): real separate senders. `OutMsg.as` ('claude' | 'jobhunt'); the Mac's `discord-client.ts` posts those
+  through a webhook Aang made in that channel (or the post's forum), with its own name and pixel avatar
+  (`assets/speakers/`, `tools/pixelart/speakers.py`), and edits them through the same webhook; buttons still work
+  (app-owned webhooks). Claude's updates come from Claude; job cards, results and the stuck post from Job Hunt. Needs
+  **Manage Webhooks** on Aang's role (moved from FORBIDDEN to NEEDED; only webhooks Aang made are ever used); without it
+  everything still posts, as Aang, and the self-check names the missing permission.
 - **D5 One live card per Claude job** in #claude-jobs (board 2): step bar, files, Stop / Open on PC / What changed,
   edited in place; its questions in #needs-you with Allow once / No / Exact command; replying continues the session.
 - **D6 Home card** pinned in ✦ home (board 4): Claude this week, running, waiting on you, your PC; What's waiting /

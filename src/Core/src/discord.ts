@@ -37,7 +37,9 @@ export interface OutEmbed {
 }
 export interface OutMsg { content?: string; silent?: boolean;
   /** 9.D D2: may buzz even outside the green channels (a finished Claude job's post). Rare on purpose. */
-  loud?: boolean; buttons?: Button[]; files?: { name: string; data: Buffer }[]; embed?: OutEmbed }
+  loud?: boolean;
+  /** 9.D D4: who says it. Claude and Job Hunt post as their own senders (webhooks Aang made); unset is Aang. */
+  as?: 'claude' | 'jobhunt'; buttons?: Button[]; files?: { name: string; data: Buffer }[]; embed?: OutEmbed }
 export interface ButtonPress {
   customId: string; userId: string; channelId: string;
   /** the message the button is on */
@@ -528,14 +530,14 @@ export class DiscordAdapter {
     }
     if (!where) return;
     card.channelId = where;
-    card.messageId = await this.gw.send(where, { content: view.content, embed: view.embed, buttons: view.buttons, silent });
+    card.messageId = await this.gw.send(where, { content: view.content, embed: view.embed, buttons: view.buttons, silent, as: 'jobhunt' });
     this.jobs.save();
   }
   private isJobPost(id: string): boolean { return (this.state.jobPosts ?? []).includes(id); }
   private async redrawCard(card: Card): Promise<void> {
     if (!card.channelId || !card.messageId) return;
     const view = renderCard(card);
-    try { await this.gw.edit(card.channelId, card.messageId, { content: view.content, embed: view.embed, buttons: view.buttons }); } catch { /* the card was deleted */ }
+    try { await this.gw.edit(card.channelId, card.messageId, { content: view.content, embed: view.embed, buttons: view.buttons, as: 'jobhunt' }); } catch { /* the card was deleted */ }
     if (this.isJobPost(card.channelId)) await this.gw.setPostTags(card.channelId, [tagFor(card)]).catch(() => {});
   }
 
@@ -629,11 +631,11 @@ export class DiscordAdapter {
       const label = e.title || card?.title || 'A job', at = e.company || card?.company || '';
       const line = `${label}${at ? ' at ' + at : ''}\n${e.url}${e.note ? '\n' + e.note : ''}`;
       const post = card?.channelId && this.isJobPost(card.channelId) ? card.channelId : null;
-      if (e.status === 'applied') { if (post) await this.gw.send(post, { content: `Submitted: ${line}`, silent: true }); else await this.say('home', `Submitted: ${line}`, true); }
+      if (e.status === 'applied') { if (post) await this.gw.send(post, { content: `Submitted: ${line}`, silent: true, as: 'jobhunt' }); else await this.say('home', `Submitted: ${line}`, true); }
       else {
-        if (post) await this.gw.send(post, { content: `Stuck: ${line}`, silent: true }); else await this.say('home', `Stuck: ${line}`, true);
+        if (post) await this.gw.send(post, { content: `Stuck: ${line}`, silent: true, as: 'jobhunt' }); else await this.say('home', `Stuck: ${line}`, true);
         await this.post('needs-you', await this.drawn('needs', { title: `The job hunt is stuck: ${label}${at ? ' at ' + at : ''}`, text: e.note || 'It stopped and needs you.' }, 0xC95E28,
-          { content: `Need input on the job hunt: ${label}${at ? ' at ' + at : ''}. ${e.note || 'It stopped and needs you.'}`, silent: false }));
+          { content: `Need input on the job hunt: ${label}${at ? ' at ' + at : ''}. ${e.note || 'It stopped and needs you.'}`, silent: false, as: 'jobhunt' }));
       }
     }
     if (news) this.jobs.save();
@@ -647,7 +649,7 @@ export class DiscordAdapter {
     if (left === 0) { await this.gw.send(channelId, { content: `Today's limit of ${this.jobs.cap(this.now())} is used. Say "cap 8 today" to raise it, up to 8; otherwise these wait for tomorrow.` }); return; }
     const { taken, waiting } = this.jobs.takeForApply(this.now());
     for (const c of taken) await this.redrawCard(c);
-    for (const c of taken) if (c.channelId && this.isJobPost(c.channelId)) await this.gw.send(c.channelId, { content: `Sent to apply: ${c.title} at ${c.company}`, silent: true }).catch(() => {});
+    for (const c of taken) if (c.channelId && this.isJobPost(c.channelId)) await this.gw.send(c.channelId, { content: `Sent to apply: ${c.title} at ${c.company}`, silent: true, as: 'jobhunt' }).catch(() => {});
     await this.gw.send(channelId, { content: `Sending ${taken.length} to apply${waiting ? `, ${waiting} more wait for tomorrow or a higher limit` : ''}. Aang will open a Claude session with them; press Enter there to start.` });
     this.ask('apply' + Date.now(), channelId, applyPrompt(taken));
   }
@@ -751,7 +753,7 @@ export class DiscordAdapter {
   private async postJob(cwd: string, channel: string, text: string, silent: boolean, image?: { data: string; mimeType: string }): Promise<void> {
     const channelId = this.state.channels[channel]; if (!channelId) return;
     const files = image ? [{ name: 'screen.jpg', data: Buffer.from(image.data, 'base64') }] : undefined;
-    const id = await this.gw.send(channelId, { content: text.slice(0, 1900), silent, ...(files ? { files } : {}) });
+    const id = await this.gw.send(channelId, { content: text.slice(0, 1900), silent, as: 'claude', ...(files ? { files } : {}) });
     this.state.jobs = { ...(this.state.jobs ?? {}), [cwd]: { c: channelId, m: id } };
     const keys = Object.keys(this.state.jobs);
     for (const k of keys.slice(0, Math.max(0, keys.length - 40))) delete this.state.jobs[k];

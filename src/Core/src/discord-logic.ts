@@ -115,9 +115,11 @@ export function planLayout(existing: ChannelInfo[], namedAs: Readonly<Record<str
 
 /** The permissions Aang needs, by the names discord.js uses. Anything outside this is reported, not assumed. */
 export const NEEDED = ['ViewChannel', 'ManageChannels', 'SendMessages', 'SendMessagesInThreads', 'CreatePublicThreads',
-  'EmbedLinks', 'AttachFiles', 'ReadMessageHistory', 'AddReactions'] as const;
+  'EmbedLinks', 'AttachFiles', 'ReadMessageHistory', 'AddReactions', 'ManageWebhooks'] as const;
 /** Permissions he must NOT have: anything that destroys or takes over. */
-export const FORBIDDEN = ['Administrator', 'ManageGuild', 'ManageRoles', 'KickMembers', 'BanMembers', 'MentionEveryone', 'ManageWebhooks'] as const;
+// ManageWebhooks moved to NEEDED for 9.D D4 (2026-10-13, approved sheet 15: Claude and Job Hunt as their own senders).
+// Aang only ever uses the webhooks he made himself (discord-client.ts hookFor checks the owner).
+export const FORBIDDEN = ['Administrator', 'ManageGuild', 'ManageRoles', 'KickMembers', 'BanMembers', 'MentionEveryone'] as const;
 
 // ------------------------------------------------------------------ who may speak to him
 
