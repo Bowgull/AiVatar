@@ -3836,6 +3836,13 @@ the connection) and 9.A0 (buttons call the action registry). **Build order:**
   everything still posts, as Aang, and the self-check names the missing permission.
 - **D5 One live card per Claude job** in #claude-jobs (board 2): step bar, files, Stop / Open on PC / What changed,
   edited in place; its questions in #needs-you with Allow once / No / Exact command; replying continues the session.
+  **D5 BUILT 2026-10-13** (`DiscordAdapter.claudeNews`): a Claude job's news (anything with a job folder) goes to its
+  own post in ⚙️ claude-jobs, named what he calls the job, with ONE drawn `job` card from Claude, edited in place:
+  working (silent), waiting on him (card edited, tag Needs you, and a drawn question in ❗ needs-you that buzzes),
+  done (tag Done, one loud "Done:" in the post). A finished folder starting new work gets a new post. Anything he writes
+  in the post, or a reply to the card or the question, reaches that job (`claude.reply`). **Open on PC** brings the
+  Claude app forward where the job runs (`claude.open`, the Mac or this PC). **Not built, on purpose:** Stop (nothing
+  can stop a Claude session from Discord yet) and What changed (needs the job's diff); added when they can work.
 - **D6 Home card** pinned in ✦ home (board 4): Claude this week, running, waiting on you, your PC; What's waiting /
   Stepping away / Put a show on.
 - **D7 #capture videos** (board 3): watched from the transcript by Qwen, a card with Useful for, and Add to plan /

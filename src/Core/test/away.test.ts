@@ -193,9 +193,10 @@ test('a job update becomes one message (with a picture when there is one), remem
 
   core.emit({ t: 'bubble', text: 'The self job is done. Branch aang/timer.', proactive: true, asked: true, jobCwd: 'C:\\jobs\\b', image: { data: Buffer.from('x').toString('base64'), mimeType: 'image/jpeg' } });
   await tick();
-  const withPic = gw.to('aang').at(-1)!;
-  assert.equal(withPic.files?.length, 1);
-  assert.equal(withPic.files![0]!.name, 'screen.jpg');
+  // 9.D D5: a job's news lives in its own post in claude-jobs; the picture goes there too.
+  const withPic = gw.sent.filter(s => s.msg.files?.some(f => f.name === 'screen.jpg')).at(-1)!;
+  assert.ok(withPic, 'the picture is posted');
+  assert.ok(!withPic.channelId.startsWith('ch-'), 'inside the job post, not a channel');
 });
 
 test('replying to a job update tells THAT job, not ordinary chat, and only he can do it', async () => {

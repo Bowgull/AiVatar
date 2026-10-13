@@ -219,7 +219,10 @@ export class DiscordGateway implements Gateway {
   async edit(channelId: string, messageId: string, msg: OutMsg): Promise<void> {
     const channel: any = await this.client.channels.fetch(channelId);
     const own = this.embeds(msg);
-    const body = { content: own.length ? noPreview(msg.content ?? '') : msg.content ?? '', embeds: own, components: this.rows(msg), allowedMentions: { parse: [] }, ...(own.length ? {} : { flags: MessageFlags.SuppressEmbeds }) };
+    // 9.D D5: a new drawing replaces the old one (attachments: [] drops the old picture), so a live card's picture
+    // changes with its words.
+    const files = msg.files?.map(f => ({ attachment: f.data, name: f.name }));
+    const body = { content: own.length ? noPreview(msg.content ?? '') : msg.content ?? '', embeds: own, components: this.rows(msg), allowedMentions: { parse: [] }, ...(own.length ? {} : { flags: MessageFlags.SuppressEmbeds }), ...(files ? { files, attachments: [] } : {}) };
     const m = await channel.messages.fetch(messageId);
     // A message one of the speakers sent is changed through that speaker's webhook; Aang's own, directly.
     if (m.webhookId) {
