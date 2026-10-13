@@ -19,7 +19,7 @@
 //    never runs anything (address.ts, tested).
 //  - Tabs get NO preload and the safe preferences: a website can never reach Aang's doors.
 //  - Every permission a site asks for is refused until 6.22 adds the asks (chips and the lever).
-import { BrowserWindow, WebContentsView, app, clipboard, dialog, nativeImage, screen, session as electronSession, shell } from 'electron';
+import { BrowserWindow, WebContentsView, app, clipboard, desktopCapturer, dialog, nativeImage, screen, session as electronSession, shell, webContents as allWebContents, type DesktopCapturerSource } from 'electron';
 import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown } from './safety.ts';
@@ -109,6 +109,8 @@ const LOOKS_LIKE = 'LOOKS LIKE ';
 /** Where a new tab opens until he sets his own in Settings (2026-10-12: not Google). */
 const DEFAULT_HOME = 'https://search.brave.com/';
 /** A plain Chrome's name for itself: Google refuses sign-in to anything calling itself Electron (his yes, 2026-10-12). */
+/** A web address's site, without www. Empty when it is not one. */
+const hostOf = (u: string): string => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return ''; } };
 const CHROME_UA = (v: string) => `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${v} Safari/537.36`;
 /**
  * Google's sign-in pages get the browser's HONEST name (Electron's own, untouched). Measured by two other Electron
@@ -201,6 +203,13 @@ export class AangBrowser {
   private readonly trustedFile: string;
   private trusted = new Set<string>();
   private askSeq = 0;
+  /**
+   * 6.24 calls (Zoom, Teams, Meet): camera and microphone he allowed on a site, kept only while a tab is still on
+   * that site, so one call does not ask five times (they ask again for every device switch). Never written to disk.
+   */
+  private readonly mediaOk = new Map<string, Set<string>>();
+  /** 6.24: the screen-share picker waiting for his pick. One at a time. */
+  private share: { id: number; sources: Map<string, DesktopCapturerSource>; audio: boolean; done: (s: Electron.Streams | null) => void; timer: NodeJS.Timeout } | null = null;
   /** The little wood sounds (new tab, close, download done). Off until he turns them on in Settings. */
   sounds = false;
   /** The ⋯ menu's switches (sheet 3 section 10), kept between runs. Block ads and Block popups start on. */
@@ -337,6 +346,8 @@ export class AangBrowser {
     } catch { /* defaults */ }
     denyPermissions(this.ses);
     this.permissions();
+    this.screenShare();
+    this.spelling();
     this.downloads();
     this.phish = new PhishCheck(o.stateDir);
     void this.phish.start();
@@ -361,14 +372,89 @@ export class AangBrowser {
   private permissions(): void {
     this.ses.setPermissionRequestHandler((wc, permission, done, details) => {
       if (permission === 'fullscreen') { done(true); return; }
-      if (permission !== 'media' || !this.win || this.win.isDestroyed()) { done(false); return; }
-      const types = ((details as { mediaTypes?: string[] }).mediaTypes ?? []);
+      // Sharing the screen: the picker below is the real ask, every time, so Chromium's own gate just lets it reach it.
+      if (permission === 'display-capture') { done(!this.driver?.owns(wc)); return; }
+      if (permission === 'speaker-selection') { done(!this.driver?.owns(wc) && Boolean(this.mediaOk.get(hostOf(wc.getURL()))?.has('audio'))); return; }
+      if (permission !== 'media' || !this.win || this.win.isDestroyed() || this.driver?.owns(wc)) { done(false); return; }
+      const asked = (details as { mediaTypes?: string[] }).mediaTypes ?? [];
+      // A screen share arrives here first as "media" with no camera or microphone named (measured 2026-10-13,
+      // Electron 44). Nothing is granted by letting it through: the picker below is where he says yes or no.
+      if (!asked.length) { done(true); return; }
+      const types = asked.filter((x) => x === 'audio' || x === 'video');
+      const host = hostOf((details as { requestingUrl?: string }).requestingUrl || wc.getURL());
+      if (!host || !types.length) { done(false); return; }
+      // Already allowed on this site during this call: no second ask.
+      const ok = this.mediaOk.get(host);
+      if (ok && types.every((x) => ok.has(x))) { done(true); return; }
       const what = types.includes('video') && types.includes('audio') ? 'Camera and microphone?' : types.includes('video') ? 'Your camera?' : 'Your microphone?';
-      let host = '';
-      try { host = new URL(wc.getURL()).hostname.replace(/^www\./, ''); } catch { /* unknown */ }
-      this.ask({ host, what }, done);
+      const top = hostOf(wc.getURL());
+      const text = `${host}${top && top !== host ? ` (inside ${top})` : ''} wants it for what you are doing now. It stops when you leave the site.`;
+      this.ask({ host, what, text }, (allow) => {
+        if (allow) { const s = this.mediaOk.get(host) ?? new Set<string>(); for (const x of types) s.add(x); this.mediaOk.set(host, s); }
+        done(allow);
+      });
     });
-    this.ses.setPermissionCheckHandler((_wc, permission) => permission === 'fullscreen');
+    // Calls ask "may I?" before they ask for real (Teams, Zoom). Yes only where he already said yes, on this site.
+    this.ses.setPermissionCheckHandler((wc, permission, origin, details) => {
+      if (permission === 'fullscreen') return true;
+      if ((permission !== 'media' && permission !== 'speaker-selection') || (wc && this.driver?.owns(wc))) return false;
+      const ok = this.mediaOk.get(hostOf(origin));
+      if (!ok) return false;
+      // Picking which speakers the call plays through comes with the microphone, as in Chrome.
+      if (permission === 'speaker-selection') return ok.has('audio');
+      const t = (details as { mediaType?: string }).mediaType;
+      return t === 'audio' || t === 'video' ? ok.has(t) : ok.size > 0;
+    });
+  }
+
+  /**
+   * 6.24: sharing his screen in a call. The site never chooses: he picks one screen or one window in a panel that
+   * hangs from the band, every time, and his own sound goes only if he ticks it. Unanswered in 2 minutes means no.
+   * Aang's own pages can never share anything.
+   */
+  private screenShare(): void {
+    this.ses.setDisplayMediaRequestHandler((req, done) => {
+      const deny = () => { try { done(null); } catch { /* the page went away */ } };
+      let wc: Electron.WebContents | undefined;
+      try { wc = req.frame ? allWebContents.fromFrame(req.frame) : undefined; } catch { wc = undefined; }
+      if (!wc || this.driver?.owns(wc) || !req.videoRequested || !this.win || this.win.isDestroyed() || this.share) { deny(); return; }
+      const host = hostOf(req.securityOrigin) || hostOf(wc.getURL());
+      void desktopCapturer.getSources({ types: ['screen', 'window'], thumbnailSize: { width: 320, height: 180 } }).then((list) => {
+        if (!this.win || this.win.isDestroyed() || this.share) { deny(); return; }
+        const own = this.win.getMediaSourceId();
+        const sources = list.filter((s) => s.name.trim() && s.id !== own);
+        if (!sources.length) { deny(); return; }
+        const id = ++this.askSeq;
+        const timer = setTimeout(() => this.shareAnswer(id, null, false), 120_000);
+        this.share = { id, sources: new Map(sources.map((s) => [s.id, s])), audio: req.audioRequested, done, timer };
+        this.win.webContents.send('browser:share', {
+          id, host, audio: req.audioRequested,
+          sources: sources.map((s) => ({ id: s.id, name: s.name.slice(0, 120), kind: s.id.startsWith('screen:') ? 'screen' : 'window', thumb: s.thumbnail.isEmpty() ? '' : s.thumbnail.toDataURL() })),
+        });
+      }, deny);
+    });
+  }
+  /** His pick from the share panel: one of the sources it showed, or nothing. */
+  shareAnswer(id: number, sourceId: string | null, sound: boolean): void {
+    const s = this.share;
+    if (!s || s.id !== id) return;
+    this.share = null;
+    clearTimeout(s.timer);
+    const src = sourceId ? s.sources.get(sourceId) : undefined;
+    if (this.win && !this.win.isDestroyed()) this.win.webContents.send('browser:share', { id, gone: true });
+    try { s.done(src ? { video: src, ...(s.audio && sound ? { audio: 'loopback' as const } : {}) } : null); } catch { /* the page went away */ }
+  }
+
+  /**
+   * 6.24 spellcheck: Canadian and American English, like Chrome's. Chromium fetches the word lists from Google's
+   * own dictionary server the first time, exactly as Chrome does. Suggestions are in the right-click menu.
+   */
+  private spelling(): void {
+    try {
+      const want = ['en-CA', 'en-US'].filter((l) => this.ses.availableSpellCheckerLanguages.includes(l));
+      if (want.length) this.ses.setSpellCheckerLanguages(want);
+      this.ses.setSpellCheckerEnabled(true);
+    } catch { /* no spellcheck is better than no browser */ }
   }
   /** Hang a chip from the band and wait for his answer. Unanswered in 2 minutes means no. */
   private ask(a: { host: string; what: string; text?: string; yes?: string; no?: string }, done: (allow: boolean) => void): void {
@@ -589,6 +675,8 @@ export class AangBrowser {
     w.on('closed', () => {
       if (this.menu && !this.menu.isDestroyed()) this.menu.destroy();
       this.vault.lock();                          // closing the browser locks the vault
+      this.mediaOk.clear();                       // and ends every call's camera and microphone
+      if (this.share) this.shareAnswer(this.share.id, null, false);
       this.menu = null; this.fullTab = null;
       for (const t of this.tabs) if (!t.lent) this.closeView(t);
       this.tabs = []; this.active = null; this.win = null;
@@ -1218,6 +1306,14 @@ export class AangBrowser {
     if (p.linkURL && isWeb(p.linkURL)) { items.push({ id: 'linktab', label: 'Open link in new tab' }, { id: 'linkcopy', label: 'Copy link' }); sep(); }
     if (p.mediaType === 'image' && p.srcURL && /^(https?:|data:image\/)/.test(p.srcURL)) { items.push({ id: 'imgsave', label: 'Save image' }, { id: 'imgcopy', label: 'Copy image' }); sep(); }
     const words = p.selectionText.replace(/\s+/g, ' ').trim();
+    // A misspelled word: Chrome's suggestions first, then teach it the word.
+    if (p.isEditable && p.misspelledWord) {
+      const sug = p.dictionarySuggestions.slice(0, 5);
+      sug.forEach((s, i) => items.push({ id: 'spell' + i, label: s }));
+      if (!sug.length) items.push({ id: 'nospell', label: 'No suggestions', off: true });
+      items.push({ id: 'learn', label: `Add "${p.misspelledWord.length > 20 ? p.misspelledWord.slice(0, 19) + '…' : p.misspelledWord}" to dictionary` });
+      sep();
+    }
     if (p.isEditable) {
       const f = p.editFlags;
       items.push({ id: 'cut', label: 'Cut', key: 'CTRL X', off: !f.canCut }, { id: 'copy', label: 'Copy', key: 'CTRL C', off: !f.canCopy },
@@ -1284,6 +1380,12 @@ export class AangBrowser {
       case 'search': { const q = p.selectionText.replace(/\s+/g, ' ').trim().slice(0, 400); if (q) this.newTab(searchFor(q), t.id, true); break; }
       case 'back': if (wc.navigationHistory.canGoBack()) wc.navigationHistory.goBack(); break;
       case 'reload': wc.reload(); break;
+      case 'learn': if (p.misspelledWord) wc.session.addWordToSpellCheckerDictionary(p.misspelledWord); break;
+      default: {
+        const m = /^spell([0-4])$/.exec(id);
+        const s = m ? p.dictionarySuggestions[Number(m[1])] : undefined;
+        if (s) wc.replaceMisspelling(s);
+      }
     }
   }
 
@@ -1943,6 +2045,8 @@ export class AangBrowser {
 
   /** The rail and the band redraw from this. Plain data only. */
   private sendTabs(): void {
+    // A site's camera and microphone end when no tab is on it any more.
+    if (this.mediaOk.size) { const on = new Set(this.tabs.map((t) => hostOf(t.url))); for (const h of [...this.mediaOk.keys()]) if (!on.has(h)) this.mediaOk.delete(h); }
     const w = this.win;
     if (!w || w.isDestroyed()) return;
     const t = this.cur();

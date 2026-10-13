@@ -992,6 +992,8 @@ app.whenReady().then(async () => {
   ipcMain.on('browser:act', (e, a) => { if (aangBrowser?.isFrame(e.sender) && typeof a === 'string') aangBrowser.act(a); });
   ipcMain.on('browser:go', (e, text) => { if (aangBrowser?.isFrame(e.sender) && typeof text === 'string') aangBrowser.go(text.slice(0, 2000)); });
   ipcMain.on('browser:askreply', (e, a) => { if (aangBrowser?.isFrame(e.sender) && a && Number.isInteger(a.id)) aangBrowser.answer(a.id, a.allow === true); });
+  // 6.24: his pick in the screen-share panel. Only an id the panel was given can be shared.
+  ipcMain.on('browser:sharereply', (e, a) => { if (aangBrowser?.isFrame(e.sender) && a && Number.isInteger(a.id)) aangBrowser.shareAnswer(a.id, typeof a.source === 'string' ? a.source.slice(0, 200) : null, a.sound === true); });
   ipcMain.on('browser:adpause', (e, on) => { if (aangBrowser?.isFrame(e.sender)) aangBrowser.pauseAds(on === true); });
   // 6.20: a video tab's pop-out keycap, or "Pop out over WoW" on its menu. The tab pauses so it is not heard twice.
   // "Take the tab with you" (2026-10-11): any video on any site. The live tab itself moves into the popout, so

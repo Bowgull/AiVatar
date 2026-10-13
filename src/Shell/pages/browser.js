@@ -12,7 +12,7 @@ function report() {
   // A page is a native view drawn ON TOP of this frame, so anything hanging below the band (a site's ask,
   // the ads panel, a download note) would sit hidden behind it. While one shows, the page moves down past it.
   let top = r.top;
-  for (const id of ['askchip', 'vaultchip', 'sitepanel', 'toast']) { const x = el(id); if (x && !x.hidden) top = Math.max(top, x.getBoundingClientRect().bottom + 6); }
+  for (const id of ['askchip', 'sharechip', 'vaultchip', 'sitepanel', 'toast']) { const x = el(id); if (x && !x.hidden) top = Math.max(top, x.getBoundingClientRect().bottom + 6); }
   // All four sides now: the page sits inside the carved recess, with wood on every side of it.
   window.aang?.browserInsets?.({ left: r.left, top, right: window.innerWidth - r.right, bottom: window.innerHeight - r.bottom });
 }
@@ -581,6 +581,48 @@ window.aang?.onBrowserAsk?.((a) => {
 const answerAsk = (allow) => { if (askId === null) return; window.aang?.browserAskReply?.({ id: askId, allow }); askId = null; el('askchip').hidden = true; };
 el('askyes').addEventListener('click', () => answerAsk(true));
 el('askno').addEventListener('click', () => answerAsk(false));
+
+// ---- 6.24: the screen-share picker. He picks one screen or one window; nothing is shared until he clicks Share.
+let shareId = null, sharePick = null;
+window.aang?.onBrowserShare?.((a) => {
+  if (!a || !Number.isInteger(a.id)) return;
+  if (a.gone) { if (shareId === a.id) { shareId = null; el('sharechip').hidden = true; } return; }
+  shareId = a.id; sharePick = null;
+  el('shareq').textContent = `Share your screen with ${a.host || 'this site'}?`;
+  const fill = (box, kind) => {
+    box.replaceChildren();
+    for (const s of (Array.isArray(a.sources) ? a.sources : []).filter((x) => x.kind === kind)) {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'stile'; b.setAttribute('aria-pressed', 'false');
+      const img = document.createElement('img');
+      img.className = 'th'; img.alt = '';
+      if (typeof s.thumb === 'string' && s.thumb.startsWith('data:image/')) img.src = s.thumb;
+      b.append(img, Object.assign(document.createElement('span'), { textContent: String(s.name ?? ''), title: String(s.name ?? '') }));
+      b.addEventListener('click', () => {
+        sharePick = String(s.id);
+        el('sharechip').querySelectorAll('.stile').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+        el('shareyes').disabled = false;
+      });
+      b.addEventListener('dblclick', () => { sharePick = String(s.id); answerShare(true); });
+      box.append(b);
+    }
+    return box.childElementCount;
+  };
+  el('sharescreens-h').hidden = !fill(el('sharescreens'), 'screen');
+  el('sharewins-h').hidden = !fill(el('sharewins'), 'window');
+  el('sharesound').checked = false;
+  el('sharesoundrow').hidden = a.audio !== true;
+  el('shareyes').disabled = true;
+  el('sharechip').hidden = false;
+});
+const answerShare = (yes) => {
+  if (shareId === null) return;
+  window.aang?.browserShareReply?.({ id: shareId, source: yes ? sharePick : null, sound: el('sharesound').checked });
+  shareId = null; sharePick = null; el('sharechip').hidden = true;
+};
+el('shareyes').addEventListener('click', () => answerShare(true));
+el('shareno').addEventListener('click', () => answerShare(false));
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && shareId !== null) { answerShare(false); e.preventDefault(); } });
 
 // ---- the SECURE plaque's panel: let ads through on one site, or block them again
 lock.addEventListener('click', (e) => {

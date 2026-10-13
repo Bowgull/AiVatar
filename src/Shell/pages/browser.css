@@ -86,6 +86,21 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--wood2);font:500 
 .bandchip .m{font:500 13px/1.45 var(--body);color:#4e3d28;margin:4px 0 0}
 .bandchip .keys{display:flex;gap:8px;margin-top:10px}
 .bandchip.site{left:200px;width:300px}
+/* 6.24: the screen-share picker. Pictures of each screen and window on the same parchment as every ask. */
+.bandchip.share{width:584px;max-width:calc(100% - 180px);box-sizing:border-box}
+.bandchip.share .sgl{font:400 9px var(--label);letter-spacing:1.5px;color:#6b5132;margin:10px 0 5px}
+.bandchip.share .sgl[hidden],.bandchip.share .sgrid:empty{display:none}
+.bandchip.share .sgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:8px;max-height:236px;overflow-y:auto;padding:2px}
+.bandchip.share .stile{display:flex;flex-direction:column;gap:4px;padding:5px;border-radius:8px;border:2px solid #6b5132;background:#fff6e4;cursor:pointer;text-align:left;font:700 12px/1.25 var(--body);color:#271c10;min-width:0}
+.bandchip.share .stile:hover{background:#ffeec8}
+.bandchip.share .stile[aria-pressed="true"]{border-color:var(--outline);background:#FFE6A6;box-shadow:0 0 0 3px var(--gold)}
+.bandchip.share .stile:focus-visible{outline:2px solid var(--gold-deep);outline-offset:2px}
+.bandchip.share .stile .th{display:block;width:100%;aspect-ratio:16/9;object-fit:contain;border-radius:4px;background:#2a1c10;border:1px solid #6b5132;box-sizing:border-box}
+.bandchip.share .stile span{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.bandchip.share .ssound{display:flex;align-items:center;gap:8px;margin-top:10px;font:600 13px var(--body);color:#271c10;cursor:pointer}
+.bandchip.share .ssound[hidden]{display:none}
+.bandchip.share .ssound input{width:16px;height:16px;accent-color:var(--gold-deep)}
+.bandchip.share .key:disabled{opacity:.5;cursor:default}
 .adrow{display:flex;align-items:center;gap:10px;margin-top:8px;cursor:pointer}
 .adrow b{display:block;font:700 14px var(--body);color:var(--carve-ink)}
 .adrow small{display:block;font:500 12px var(--body);color:#5a4834}
