@@ -239,6 +239,8 @@ export interface TurnRecord {
   tools: string[]; fixed: string[]; flags: string[];
   /** Which model actually answered. Absent means the SDK did not say. See `served` in lane.ts. */
   served?: string[];
+  /** Measuring quota (his ask, 2026-10-13): what the answer wrote, and his week and 5-hour use right after it (0 to 1). */
+  outTokens?: number; week?: number; five?: number;
 }
 
 const FLUSH_MS = 40;            // batch streamed text into ~40 ms paints
@@ -2339,6 +2341,11 @@ export class Core {
           if (h?.kind === 'remember' && typeof h.text === 'string') { this.memory.remember(h.text.slice(0, 500), 'mac'); kept++; }
           else if (h?.kind === 'forget' && typeof h.text === 'string') { this.memory.forget(h.text.slice(0, 300)); kept++; }
           else if (h?.kind === 'turn' && typeof h.user === 'string' && typeof h.aang === 'string') { this.memory.saveTurn(h.user.slice(0, 4000), h.aang.slice(0, 4000), 'mac'); said++; }
+          // What each Claude call on the Mac cost, kept next to the PC's own turns (measuring quota, 2026-10-13).
+          else if (h?.kind === 'usage') {
+            const n = (x: unknown) => (Number.isFinite(Number(x)) ? Number(x) : 0);
+            try { appendFileSync(path.join(this.cfg.stateDir, 'usage-mac.jsonl'), JSON.stringify({ ts: new Date(n(h.at)).toISOString(), what: String(h.what ?? '').slice(0, 20), in: n(h.in), out: n(h.out), cacheRead: n(h.cacheRead), cacheWrite: n(h.cacheWrite), week: h.week === null ? null : n(h.week) }) + '\n'); } catch { /* best effort */ }
+          }
         }
         console.log(`mac: took ${said} exchange(s) and ${kept} thing(s) to remember from the Mac`);
         break;
@@ -2914,6 +2921,8 @@ export class Core {
       cacheReadTokens: e.cacheReadTokens, cacheWriteTokens: e.cacheWriteTokens,
       tools: e.tools, fixed: linted.fixed, flags,
       ...(e.served?.length ? { served: e.served } : {}),
+      outTokens: e.outTokens,
+      ...(this.policy.last ? { week: this.policy.last.week, five: this.policy.last.five } : {}),
     });
     // A subscription can be served a different model than asked for, with no error
     // (anthropics/claude-agent-sdk-typescript#355). Nothing here could have noticed before.
