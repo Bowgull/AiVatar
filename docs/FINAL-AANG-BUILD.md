@@ -3061,6 +3061,24 @@ feature" (his call, 2026-10-13).
   a fake-email warning on the card (look-alike sender or links, the browser's phishing lists); video-call links (Zoom,
   Meet, Teams) go into the calendar event, and the reminder before the call carries a **Join** button, in Discord AND
   surfacing from Aang's bubble at the PC, opening the call in Aang's browser.
+- **ZERO MISTAKES (his rule, 2026-10-13: "NEVER EVER make a mistake, a typo, book anything wrong, get a date wrong...
+  if it does this product fails").** No model is trusted alone with a date, a time, a place, a name or an address:
+  1. **The email's own data first:** an invite's calendar file (.ics) or Google's own event is read by CODE, never by
+     the model. Prose ("Thursday at 2") is resolved by code against the email's sent date and time zone.
+  2. **Two reads must agree:** Claude's reading and the code's reading are compared; any difference is not guessed,
+     it is shown as "I'm not sure" with both, and he picks.
+  3. **The source beside every fact:** the card and every approval show the exact words from the email next to what
+     Aang made of them ("'Thursday at 2' -> Thu Oct 16, 2:00 pm, Toronto"), weekday and time zone always written out,
+     both zones when they differ.
+  4. **Copied, never retyped:** names, addresses, emails, links, phone numbers are copied character for character
+     from the source; recipients only from the thread or his contacts.
+  5. **After booking, read it back:** the event is fetched from Google and compared field by field with what he
+     approved; any difference is told at once, with Undo.
+  6. **Drafts proofread twice:** a spellcheck by code plus a second proofreading pass, and the approval shows any word
+     the checks were unsure of.
+  7. **A test set before it ships:** real-world formats (Gmail, Outlook and Apple invites, forwarded invites, time
+     zones, all-day events, "next Tuesday", 24-hour times, European dates) run offline on every change.
+  Nothing books or sends without his tap, so a mistake can only reach the world after he has seen it beside its source.
 - **Limits, told to him:** linked Google Docs/Drive files wait for Drive access (security 1.1/1.2); password-protected
   PDFs and pages behind other sign-ins cannot be read; very long threads are summarised. Anything can also be asked in
   plain words; the buttons are shortcuts.
