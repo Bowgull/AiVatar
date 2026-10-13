@@ -290,9 +290,9 @@ body.smooth #box .segs i{border-width:1px;border-radius:3px;height:9px}
 body.smooth #box .hint{transition:opacity .2s}
 @media (prefers-reduced-motion:reduce){.step.now::after,.dots i,.np .bars i,.more svg,.snipcard .ptr{animation:none}.snipcard{transition:none}}
 
-.who{display:inline-flex;align-items:center;gap:7px;background:var(--wood-plaque);border-radius:6px;padding:4px 10px 4px 5px;margin:0 0 9px;font:400 10.5px var(--label);color:var(--gold);letter-spacing:1px;text-shadow:2px 2px 0 rgba(0,0,0,.85);border:3px solid var(--outline);box-shadow:inset 0 4px 0 rgba(0,0,0,.65)}
-.who img{width:22px;height:22px;image-rendering:pixelated;margin:-2px 0}
-.who.claude{color:#cfe2ff}
+.who{display:flex;align-items:center;gap:7px;margin:0 0 6px;font:400 10px var(--label);color:#6b4318;letter-spacing:1.5px}
+.who img{width:20px;height:20px;image-rendering:pixelated}
+.who.claude{color:#8a3e1c}
 .who .clk{width:18px;height:18px}
 .asked{font:500 12px var(--body);color:#7a6440;margin:0 0 4px}
 .dock{margin-top:11px;display:flex;align-items:flex-end;gap:8px;padding:8px 8px 8px 12px;border-radius:10px;background:#1c1328;border:3px solid var(--outline);box-shadow:inset 0 3px 0 rgba(0,0,0,.55)}
@@ -333,6 +333,13 @@ body.smooth #box .hint{transition:opacity .2s}
 .saved .chg{color:#9a6a00;text-decoration:underline;font-weight:700;margin-left:8px;cursor:pointer}
 @media (prefers-reduced-motion:reduce){.zelda .opt.on .cur,.mario .opt.on .cur,.dock .caret{animation:none}}
 
+
+/* sheet 16b: the hand-drawn pixel wood (the browser's own tray art) on the box and the snip card */
+#box .b,body.smooth #box .b{background:url(art/tray.png) 0 0/128px 256px;image-rendering:pixelated}
+#box .strip,body.smooth #box .strip{background:linear-gradient(180deg,rgba(0,0,0,.28),rgba(0,0,0,.4)),url(art/tray.png) 0 64px/128px 256px;image-rendering:pixelated}
+.snipcard{background:linear-gradient(180deg,rgba(0,0,0,.35),rgba(0,0,0,.45)),url(art/tray.png) 0 0/128px 256px;image-rendering:pixelated}
+.snipcard .ptr{display:none}
+.capped{overflow:hidden}
 </style>
 
 <div class="wrap">
@@ -370,26 +377,25 @@ body.smooth #box .hint{transition:opacity .2s}
     <div class="group"><div class="gl">2. HOW TALL</div><div class="scen">
       <button class="key" data-s="hA">A: small when he speaks</button>
       <button class="key" data-s="hA2">A: big when you open it</button>
-      <button class="key" data-s="hAwow">A: big, with WoW in front</button>
+      <button class="key" data-s="hAwow">A: WoW in front (down arrow)</button>
       <button class="key" data-s="hB">B: big whenever it needs</button>
     </div></div>
-    <div class="group"><div class="gl">3. POINTING AT A CHOICE</div><div class="scen">
-      <button class="key" data-s="cGold">Gold row + number keys</button>
-      <button class="key" data-s="cGlove">The FFX glove</button>
-      <button class="key" data-s="cZelda">Zelda: the arrow</button>
-      <button class="key" data-s="cMario">Mario 64: the star</button>
-      <button class="key" data-s="cStardew">Stardew: carved bars</button>
+    <div class="group"><div class="gl">3. A CHOICE, WITH THE FFX GLOVE</div><div class="scen">
+      <button class="key" data-s="cGlove">Naruto where?</button>
+    </div></div>
+    <div class="group"><div class="gl">4. SNIPIT</div><div class="scen">
+      <button class="key" data-s="snipcard">The snip card, no arrow, in wood</button>
     </div></div>
   </div>
 
   <div class="panel">
     <h2>What's going on here</h2>
     <div class="notes">
-      <div><b>One piece</b>The bubble and your box are one thing. A click on the bubble opens the cockpit: your box slides out inside the bottom of it. No Reply button.</div>
+      <div><b>One piece</b>Your typing box (sheet 14, unchanged) docks right under the bubble when you click it. No Reply button.</div>
       <div><b>Closing</b>Esc or a click anywhere else. Untouched, a message fades after its reading time, never while you point at it.</div>
-      <div><b>Who is asking</b>Only on asks and on things Aang or Claude start: a face and AANG or CLAUDE. A reply keeps your own question on top.</div>
+      <div><b>Who is asking</b>Only on asks and on things Aang or Claude start: a small face and the name, straight on the parchment. No plate behind it. A reply keeps your own question on top.</div>
       <div><b>Remembered</b>After a pick: one line, "from now on", with a gold change link. Every saved choice is listed in the desk.</div>
-      <div><b>Height A</b>Small when he speaks by himself. Big (about two thirds of the screen) when you opened it. A third while WoW is in front. Past that it scrolls inside.</div>
+      <div><b>Height A</b>Small when he speaks by himself. Big (about two thirds of the screen) when you opened it. With WoW in front it stays low and a long answer folds under the bobbing down arrow. Never a scroll bar.</div>
       <div><b>Height B</b>Big whenever the content needs it, his own messages too.</div>
     </div></div>
   </div>
@@ -674,49 +680,45 @@ const MORE={
 };
 Object.assign(S,MORE);
 
-/* ---------- sheet 16 scenes ---------- */
+/* ---------- sheet 16 scenes (16b: the real box, no scroll bars, the glove) ---------- */
 const FACE='<img src="art/aang-face.png" alt="">';
 const CLAUDEIC='<svg class="clk" viewBox="0 0 9 9" shape-rendering="crispEdges"><path d="M4 0h1v3H4zM4 6h1v3H4zM0 4h3v1H0zM6 4h3v1H6zM1 1h1v1H1zM2 2h1v1H2zM7 1h1v1H7zM6 2h1v1H6zM1 7h1v1H1zM2 6h1v1H2zM7 7h1v1H7zM6 6h1v1H6zM3 3h3v3H3z" fill="#E07A4F"/></svg>';
-const WHO=(k)=>k==='claude'?`<span class="who claude">${CLAUDEIC}CLAUDE</span>`:`<span class="who">${FACE}AANG</span>`;
-const DOCK=(t)=>`<div class="dock"><span class="ph">${t?`<b>${t}</b>`:'Talk to Aang...'}<span class="caret"></span></span><span class="pill">AUTO</span></div>`;
+const WHO=(k)=>k==='claude'?`<div class="who claude">${CLAUDEIC}CLAUDE</div>`:`<div class="who">${FACE}AANG</div>`;
+const MOREK=`<button class="more" id="more">SHOW MORE<svg width="30" height="19" viewBox="0 0 30 19"><path d="M3 3 L15 15 L27 3" fill="none" stroke="#5A4834" stroke-width="4" stroke-linejoin="round"/></svg></button>`;
+/* The cockpit: the same bubble, and sheet 14's own typing box docked right under it, as wide as the bubble. */
+function dockBox(){const w=WID[size]==='auto'?256:WID[size];openBox();box.style.width=w+'px';box.style.left=(CORNER.x-w)+'px';box.style.top=(CORNER.y+4)+'px'}
+function cockpitOn(html,sz){show(sz,html,()=>{});later(dockBox,560);NOW.textContent='The cockpit is on: your box docks under the bubble. Esc or a click elsewhere closes it.'}
 const MSG=`${WHO('claude')}<p class="say">The job hunt on the PC finished. 4 new matches, one at 91%.</p>`;
-function cockpitOn(base,sz){show(sz||'wide',base+DOCK(''),()=>{});NOW.textContent='Clicked: the cockpit is on. Your box is part of the bubble now. Esc or a click elsewhere closes it.'}
+const ROUTE=`<p class="say">Zeppelin from Undercity to Orgrimmar, then the Thunder Bluff zeppelin from Orgrimmar. Skip the run through the Barrens, it's slower.</p>`;
+const MAPI=`<img class="mapimg" src="art/map-tb.png" alt=""><p class="site">Wowhead</p>`;
 const S16={
-  msg(){NOW.textContent='Something Aang or Claude starts: just the message, with who it is from. Nothing to press yet. Click it to open the cockpit.';
-    show('speak',MSG,()=>{bub.onclick=()=>{bub.onclick=null;cockpitOn(MSG,'wide')}})},
-  cockpit(){NOW.textContent='Click the message: it opens into the cockpit, your box at the bottom, ready to type. No Reply button.';
-    show('speak',MSG,()=>{later(()=>cockpitOn(MSG,'wide'),900)})},
-  home(){NOW.textContent='You open it yourself (hotkey or click Aang) and nothing is waiting: a small home. Rows only show when they have something.';
+  msg(){NOW.textContent='Something Aang or Claude starts: just the message and who it is from. Click it to open the cockpit.';
+    show('speak',MSG,()=>{bub.onclick=()=>{bub.onclick=null;cockpitOn(MSG,'speak')}})},
+  cockpit(){NOW.textContent='Clicking the message: your typing box docks right under the bubble, ready to type.';
+    show('speak',MSG,()=>{later(()=>cockpitOn(MSG,'speak'),900)})},
+  home(){NOW.textContent='You open it yourself and nothing is waiting: a small home above your box. Rows only show when they have something.';
     show('open',`${WHO('aang')}
       <div class="homerow"><span class="dots"><i></i><i></i><i></i></span><span class="t">Job hunt <small>Reading 3 postings</small></span><span class="m">PC</span></div>
       <div class="homerow"><span class="bang">!</span><span class="t">Waymark <small>Wants to delete 2 old files</small></span><span class="m mac">MAC</span></div>
       <div class="hsep"></div>
       <div class="homerow"><span class="chip">PLAYING</span><span class="t">Lofi Girl <small>YouTube, in the pop-out</small></span></div>
       <div class="homerow"><span class="chip off">8:00</span><span class="t">Raid with the guild</span></div>
-      <div class="homerow"><span class="chip good">CARRY ON</span><span class="t">Fastest way, Undercity to Thunder Bluff</span></div>
-      ${DOCK('')}`)},
+      <div class="homerow"><span class="chip good">CARRY ON</span><span class="t">Fastest way, Undercity to Thunder Bluff</span></div>`,()=>{});later(dockBox,560)},
   hA(){NOW.textContent='Version A, Aang speaking up by himself: it stays small. Click it and it can grow.';
     show('speak',`${WHO('aang')}<p class="say">Found the route you asked about earlier. Want the map?</p>`)},
-  hA2(){NOW.textContent='Version A, you opened it: up to about two thirds of the screen. The map, the answer, your box. Past the top it scrolls inside.';
-    show('open',`<p class="asked">whats the fastest way from undercity to thunder bluff?</p><div class="scrollin" style="max-height:240px"><p class="say">Zeppelin from Undercity to Orgrimmar, then the Thunder Bluff zeppelin from Orgrimmar. Skip the run through the Barrens, it's slower.</p><img class="mapimg" src="art/map-tb.png" alt=""><p class="site">Wowhead</p><p class="say">If the zeppelin just left, fly from Orgrimmar to Crossroads and run west. About 4 minutes.</p></div>${DOCK('')}`)},
-  hAwow(){NOW.textContent='Version A with WoW in front: the same thing, capped at about a third of the screen. It scrolls inside; the game stays clear.';
-    show('open',`<p class="asked">whats the fastest way from undercity to thunder bluff?</p><div class="scrollin" style="max-height:150px"><p class="say">Zeppelin from Undercity to Orgrimmar, then the Thunder Bluff zeppelin from Orgrimmar. Skip the run through the Barrens, it's slower.</p><img class="mapimg" src="art/map-tb.png" alt=""><p class="site">Wowhead</p></div>${DOCK('')}`)},
+  hA2(){NOW.textContent='Version A, you opened it: the bubble grows to fit the map and the answer. No scroll bar.';
+    show('open',`<p class="asked">whats the fastest way from undercity to thunder bluff?</p>${ROUTE}${MAPI}`,()=>{});later(dockBox,560)},
+  hAwow(){NOW.textContent='Version A with WoW in front: it stays low. The answer shows first; the bobbing arrow grows it to the map when you want it.';
+    const sum=`<p class="asked">whats the fastest way from undercity to thunder bluff?</p>${ROUTE}${MOREK}`;
+    show('wide',sum,()=>{on('more',()=>show('open',`<p class="asked">whats the fastest way from undercity to thunder bluff?</p>${ROUTE}${MAPI}`))})},
   hB(){NOW.textContent='Version B: big whenever the content needs it, even when Aang speaks up by himself.';
-    show('open',`${WHO('aang')}<div class="scrollin" style="max-height:290px"><p class="say">Found the route you asked about earlier. Zeppelin to Orgrimmar, then on to Thunder Bluff.</p><img class="mapimg" src="art/map-tb.png" alt=""><p class="site">Wowhead</p></div>`)},
+    show('open',`${WHO('aang')}<p class="say">Found the route you asked about earlier. Zeppelin to Orgrimmar, then on to Thunder Bluff.</p>${MAPI}`)},
+  cGlove(){NOW.textContent='The FFX glove points at the choice under your mouse. Plum number keys on hover. Pick one and he remembers it.';
+    const OPTS=[['Crunchyroll','You watched it there last week'],['Netflix',''],['A file on this PC','']];
+    const body=`${WHO('aang')}<p class="say">Naruto where?</p><div class="opts glove hov">${OPTS.map(([o,h],k)=>`<div class="opt ${k===0?'on':''}" data-k="${k}"><span>${o}${h?`<small style="display:block;font:500 12px var(--body);color:#7a6440">${h}</small>`:''}</span><span class="kc">${k+1}</span></div>`).join('')}<div class="opt" data-k="t"><span style="color:#7a6440">Something else...</span><span class="kc">T</span></div></div>`;
+    show('wide',body,()=>{const os=[...inner.querySelectorAll('.opt')];os.forEach(o=>{o.onmouseenter=()=>{os.forEach(x=>x.classList.toggle('on',x===o))};o.onclick=()=>{if(o.dataset.k==='t'){dockBox();return}const n=OPTS[+o.dataset.k][0];show('whisper',W(`<span class="saved"><span class="chip good">Saved</span> Naruto plays on ${n} from now on.<span class="chg">change</span></span>`))}})})},
+  snipcard(){S.snip()},
 };
-const OPTS=[['Crunchyroll','You watched it there last week'],['Netflix',''],['A file on this PC','']];
-const ARROW='<svg class="cur" viewBox="0 0 6 8" width="15" height="20" shape-rendering="crispEdges"><path d="M0 0h1v8H0zM1 1h1v6H1zM2 2h1v4H2zM3 3h2v2H3z" fill="#1d6b3a"/><path d="M1 2h1v4H1zM2 3h1v2H2z" fill="#4fd17a"/></svg>';
-const STAR='<svg class="cur" viewBox="0 0 11 11" width="20" height="20" shape-rendering="crispEdges"><path d="M5 0h1v2H5zM4 2h3v2H4zM0 4h11v1H0zM1 5h9v1H1zM2 6h7v1H2zM2 7h3v1H2zM6 7h3v1H6zM1 8h3v1H1zM7 8h3v1H7zM1 9h2v1H1zM8 9h2v1H8z" fill="#120A05"/><path d="M5 1h1v2H5zM4 3h3v2H4zM1 4h9v1H1zM2 5h7v1H2zM3 6h5v1H3zM3 7h1v1H3zM7 7h1v1H7z" fill="#ffd23f"/><path d="M4 5h1v1H4zM6 5h1v1H6z" fill="#120A05"/></svg>';
-function choice(style,why){NOW.textContent=why;
-  const body=`${WHO('aang')}<p class="say">Naruto where?</p><div class="opts ${style} hov">${OPTS.map(([o,h],k)=>`<div class="opt ${k===0?'on':''}" data-k="${k}">${style==='zelda'?ARROW:style==='mario'?STAR:''}<span>${o}${h?`<small style="display:block;font:500 12px var(--body);color:#7a6440">${h}</small>`:''}</span><span class="kc">${k+1}</span></div>`).join('')}<div class="opt" data-k="t"><span style="color:#7a6440">Something else...</span><span class="kc">T</span></div></div>`;
-  show('wide',body,()=>{const os=[...inner.querySelectorAll('.opt')];os.forEach(o=>{o.onmouseenter=()=>{os.forEach(x=>x.classList.toggle('on',x===o))};o.onclick=()=>{if(o.dataset.k==='t'){cockpitOn(`${WHO('aang')}<p class="say">Naruto where?</p>`,'wide');return}const n=OPTS[+o.dataset.k][0];show('whisper',W(`<span class="saved"><span class="chip good">Saved</span> Naruto plays on ${n} from now on.<span class="chg">change</span></span>`))}})})}
-Object.assign(S16,{
-  cGold(){choice('gold','Gold row + number keys: the row under your mouse glows soft gold; plum number keys show on hover. Press 1, 2, 3 or T.')},
-  cGlove(){choice('glove','The FFX glove, as in the browser menus: it points at the row under your mouse.')},
-  cZelda(){choice('zelda','Ocarina of Time: a green pixel arrow nudges beside the choice, which turns green.')},
-  cMario(){choice('mario','Mario 64: a spinning pixel star marks the choice, like the file select.')},
-  cStardew(){choice('stardew','Stardew: each choice is its own carved bar; the one you point at lights up warm.')},
-});
 Object.assign(S,S16);
 
 
