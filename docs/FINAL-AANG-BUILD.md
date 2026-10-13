@@ -833,17 +833,22 @@ rule and they are not optional.
 ### THE ORDER FROM HERE  (written 2026-10-13, his ask: "don't miss any steps, make sure all critical path steps are in a plan")
 
 Done in order, top to bottom. Nothing below is dropped; the "any gap" list at the end is done between steps or
-folded in where it fits, never skipped. **Where we are: 9.D, D4 built, waiting on his Mac paste + Manage Webhooks.**
+folded in where it fits, never skipped. **Where we are (2026-10-13, evening): E1-E8 built; next E9. See "E Email
+assistant" (status list) and "Loose ends and new asks (2026-10-13)".**
 
 0. **Now (his asks, 2026-10-13):** ~~tab dragging~~ -> quota measured (on; read after a day) -> ~~**C** drawn Discord
    cards (sheet 21, approved): C1 quota ask + 5-hour meter, C2 morning brief in his order + the Mac sends it when Shadow
    is off, C3 week and inbox cards, C4 Mac Claude jobs as one card edited in place~~ (DONE 2026-10-13; sessions he starts
-   himself on the PC still post plain lines: his call) -> **E** the email assistant (section "E Email assistant").
-1. **9.D Discord** (approved sheet 15): ~~D1 channels~~ ~~D2 buzz~~ ~~D3 drawn cards~~ ~~D4 speakers~~ (live after his Mac
-   paste and Manage Webhooks) -> **D5** live Claude job cards -> **D6** home card -> **D7** #capture videos -> **D8** gaming
-   feeds -> **D9** the wheel's Away (DONE). Then the old channels are deleted by HIS button.
-2. **M Aang on the MacBook:** ~~M1 listener fixes~~ ~~M2 heartbeat~~ ~~M3 front desk~~ ~~M4 Aang answers from the Mac~~ ~~M5 one memory~~ ~~M6 the browser on the Mac + paid video~~ ->
-   when Shadow is off -> **M5** one memory on both -> **M6** Aang's browser on the Mac, everything synced -> **M7** bubble,
+   himself on the PC still post plain lines: his call) -> **E** the email assistant (section "E Email assistant":
+   E1-E8 DONE 2026-10-13; next E9, E10, the zero-mistakes comparison + proofreading, the extras, E11).
+   **Also from 2026-10-13:** ~~models + routing~~ (Haiku 5.5 / Sonnet 5.5, Quick only small talk), browser extensions
+   (interview), sync gaps (decide with him), Opus 5.5 (SDK update, his OK): see "Loose ends and new asks".
+1. ~~**9.D Discord**~~ (approved sheet 15): ~~D1 channels~~ ~~D2 buzz~~ ~~D3 drawn cards~~ ~~D4 speakers~~ ~~D5 live Claude
+   job cards~~ ~~D6 home card~~ ~~D7 #capture videos~~ ~~D8 gaming feeds~~ ~~D9 the wheel's Away~~ ~~the old channels
+   deleted by HIS button (2026-10-13)~~. DONE.
+2. **M Aang on the MacBook:** ~~M1 listener fixes~~ ~~M2 heartbeat~~ ~~M3 front desk~~ ~~M4 Aang answers from the Mac~~
+   ~~M4b Mac powers (email, calendar, drive the Mac, Claude jobs continued from their post)~~ ~~M5 one memory~~ ~~M6 the
+   browser on the Mac + paid video (castLabs, EVS-signed)~~ -> **M7** bubble,
    typing box, notes, timers on the Mac (mockups first) -> **M8** notices that follow him and jump to the right session
    (mockups first) -> **M9** the new pet for both machines (mockups first).
 3. **S3 leftover:** move the Mac listener's key from the address into a header (the rest of S3 was done in M1).
@@ -3095,6 +3100,52 @@ Google sign-in (`gmail.modify`, `calendar.events`; his click) -> E5 book and ans
 attachments, forward, filters -> E7 TomTom + Waze + home + leave-by reminders (his key) -> E8 speech-to-text on the PC ->
 E9 prep jobs with research -> E10 unsubscribe sweep and tidy-up list -> E11 the same on the Mac.
 
+**Status (2026-10-13, evening):**
+- [x] **E1** code reads each email's facts (`emailfacts.ts`): invites in their own zone (Windows/Outlook zone names, unknown
+  zones flagged NOT SURE, the clock-change hours flagged), real link targets (Safe Links / Google redirects unwrapped),
+  videos, call links, maps, files, phones (order numbers refused), addresses. **E1b** dates in words with chrono-node
+  2.10.1 (pinned; his yes): am/pm missing gives both, weekday/date mismatch and 05/06 dates flagged, relative days say so.
+- [x] **E2** attachments (`attachments.ts`): pictures, text, Word (own zip reader, no library), PDF (unpdf 1.8.1, pinned;
+  his yes); programs, macro documents and zips never opened; save to Downloads with the Mark of the Web; send to phone.
+- [x] **E3** the card (`emailcard.ts`, sheet 21 board 2): code's facts, the model's summary and asks, CHECK rows; buttons
+  Book it, Drive time, Transcripts, Prep, Reply, Files, Join call (each only when it applies). At the desk: words.
+- [x] **E4** his sign-in now has `gmail.modify`, `calendar.events`, `gmail.settings.basic` (he ran it twice).
+- [x] **E5** book / accept / decline / maybe (`booking.ts`): time only from code, everything shown, clash check, read back
+  from Google, undo; never trusted away.
+- [x] **E6** CC, attachments (fingerprinted, checked again at send), forwards; Gmail filters in plain words, asked
+  every time, undoable, never forwarding (`filters.ts`). Mac saves drafts only (no send from the Mac).
+- [x] **E7** TomTom drive times (his key, tools\tomtom-setup.cmd), addresses near home, place names by place search,
+  weak match = CHECK; Open in Waze; leave-by and Join reminders. **His home: not saved yet** (Quick had no tool; fixed).
+- [x] **E8** speech-to-text: whisper.cpp v1.9.4 CUDA 12 + large-v3-turbo q8 (pinned, tools\whisper, his yes to both
+  downloads): 2 min of speech in 3.5 s. Caption-less videos, Loom/Vimeo, attached videos and voice notes; #capture
+  cards judged from what is said.
+- [ ] **NOT YET BUILT from the zero-mistakes rules:** rule 2 as an automatic COMPARISON (today the model is shown code's
+  reading and told to trust it; nothing checks its words against code's), and rule 6, drafts proofread twice (a code
+  spellcheck + a second pass, unsure words shown on the approval). Both before E11.
+- [ ] **E9** prep jobs -> **E10** sweep and tidy -> the extras (whole thread, owe-a-reply reminders, remember people,
+  fake-email warning) -> **E11** the Mac (incl. his TomTom key and home reaching the Mac).
+
+---
+
+## Loose ends and new asks (2026-10-13, so nothing is lost)
+
+- **Browser extensions** (his ask: "can I get regular Google extensions?"): to research and interview. Electron runs
+  only part of Chrome's extension system; many work, some do not. Interview first: which extensions he uses.
+- **Sync gaps** (his words: "if I do something here in Aang and its browser it should sync across machines"). Synced
+  today: bookmarks, browser settings, open tabs and trails, history, logins (not money sites), one video at a time.
+  NOT synced: per-site choices (popups allowed, trusted downloads, http-ok, ad-block paused), the Stash, the downloads
+  list, tab zoom, window sizes and extra windows, pop-out and skip settings; outside the browser, his TomTom key and
+  home (E11) and the Google sign-in (copied only at a Mac paste, not live). To decide with him what must sync.
+- **Opus 5.5:** needs Claude Code 2.1.280+, the bundled agent SDK has 2.1.278: an SDK update (a download, his OK).
+- **Quota:** read a day of numbers (turns.jsonl outTokens/week, usage-mac.jsonl) and show him: the new routing costs.
+- **Browser windows** come back as ONE window after a restart (tabs are never lost).
+- **Test temp folders:** the Core tests leave hundreds of `aang-mail-*`, `aang-route-*` folders in %TEMP%: clean the
+  tests up so they remove their own.
+- **Done today, for the record:** tab dragging + Open in new window; new tab keeps the tab list open; pop-out pinned is
+  click-through on the Mac, Twitch's own menus show (he: "the popout works well"); the bubble's right-click works on any
+  message incl. the scroll-back (real-mouse test); Quick only for small talk, Haiku 5.5 / Sonnet 5.5; the old Discord
+  channels deleted (his button, 2026-10-13).
+
 ---
 
 ## Leftovers kept, off the critical path (added 2026-10-04, decision 47)
@@ -3854,7 +3905,7 @@ checking parameters against its own schema first (unknown names, missing or extr
 reach it over the socket (`action.list`, `action.run` -> `action.result`). 4 tests, including the gate: after old
 words come back, `remember` asks first and a no stops it. Next consumers: 9.D (Discord buttons), the bubble, Qwen.
 
-### `[ ]` 9.D Discord, made for his phone  (added 2026-10-11, his order: right after 9.A0)
+### `[x]` 9.D Discord, made for his phone  (added 2026-10-11, his order: right after 9.A0)
 
 **Scope, his answer 2026-10-13:** the ENTIRE way Aang interacts with Discord, the clean-up and the customisation,
 all of it in this step.
