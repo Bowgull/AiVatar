@@ -6,6 +6,13 @@ body{background:linear-gradient(180deg,rgba(0,0,0,.42),rgba(0,0,0,.32)),url(art/
 [hidden]{display:none !important}
 .set{display:grid;grid-template-columns:240px 1fr;min-height:100%;image-rendering:auto}
 .side{padding:28px 14px}
+/* Search settings (2026-10-13, his ask): a field under the title, like every browser's. */
+.find{display:block;box-sizing:border-box;width:calc(100% - 16px);margin:0 8px 16px;padding:7px 10px;border:2px solid rgba(239,228,204,.35);border-radius:8px;
+  background:rgba(0,0,0,.35);color:#fff;font:600 14px var(--body);outline:none}
+.find::placeholder{color:#a99fbd}
+.find:focus{border-color:#ffe28c}
+.nomatch{display:none !important}
+.nofind{font:600 15px var(--body);color:#d8ccb4;margin:28px 24px}
 .side h1{font:700 22px var(--display);color:#ffe28c;margin:0 8px 20px;text-shadow:0 2px 0 #000}
 .side a{display:flex;align-items:center;gap:10px;padding:9px 12px 9px 36px;margin:2px 0;border-radius:8px;color:#d8ccb4;text-decoration:none;font:700 14px var(--body);
   text-shadow:1px 1px 0 #000;position:relative;cursor:pointer}
