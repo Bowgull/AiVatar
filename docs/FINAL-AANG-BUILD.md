@@ -838,7 +838,7 @@ folded in where it fits, never skipped. **Where we are: 9.D, D4 built, waiting o
 1. **9.D Discord** (approved sheet 15): ~~D1 channels~~ ~~D2 buzz~~ ~~D3 drawn cards~~ ~~D4 speakers~~ (live after his Mac
    paste and Manage Webhooks) -> **D5** live Claude job cards -> **D6** home card -> **D7** #capture videos -> **D8** gaming
    feeds -> **D9** the wheel's Away (DONE). Then the old channels are deleted by HIS button.
-2. **M Aang on the MacBook:** ~~M1 listener fixes~~ ~~M2 heartbeat~~ ~~M3 front desk~~ ~~M4 Aang answers from the Mac~~ ~~M5 one memory~~ ->
+2. **M Aang on the MacBook:** ~~M1 listener fixes~~ ~~M2 heartbeat~~ ~~M3 front desk~~ ~~M4 Aang answers from the Mac~~ ~~M5 one memory~~ ~~M6 the browser on the Mac + paid video~~ ->
    when Shadow is off -> **M5** one memory on both -> **M6** Aang's browser on the Mac, everything synced -> **M7** bubble,
    typing box, notes, timers on the Mac (mockups first) -> **M8** notices that follow him and jump to the right session
    (mockups first) -> **M9** the new pet for both machines (mockups first).
@@ -2307,6 +2307,16 @@ whole to the Mac every 10 minutes and on every reconnect (facts, profile, the la
 every change the Mac makes (remember, forget, what was said) applied on the PC once when it wakes. From the Mac he
 can now forget or correct, and ask what they talked about before. The PC stays the one source of truth; nothing is
 merged by guesswork. **Live once he re-runs the Mac setup.**
+
+**M6 BUILT 2026-10-13:** Aang.app on the Mac (Electron 44.7.0, pinned; Aang's face; in the Dock; offered as the
+default browser), the same browser code as the PC, with the buttons' wiring shared (browseripc.ts). Bookmarks,
+settings, the SAME open tabs (his pick), history and logins sync through the brain over Tailscale (bsync.ts,
+bsynchub.ts): passed on, never stored; money sites and Aang's own pages never travel; after time apart both catch up
+(newer wins, tabs joined, no login swapped). Bitwarden's official CLI on the Mac (pinned). GET /mac-look (this PC
+only, his yes) saves a picture of the Mac browser's window and its log for Claude. **Paid video, both machines:** his
+free castLabs EVS account (Bowgull); the PC's castLabs runtime and the Mac's copy are VMP-signed "streaming"
+(1374 days); Netflix ready, Crave (+ Bell Media sign-in) and Disney+ added; a paid site in a tab opens the paid-video
+window by itself. He wants Aang and Claude able to see his machines more broadly (2026-10-13): plan it later.
 
 **Order inside M:** M1 the listener findings closed; M2 the Mac knows whether Shadow is on (a heartbeat over
 Tailscale); M3 the Discord connection moves to the Mac; M4 the Mac brain (Claude Code with Aang's personality and a
