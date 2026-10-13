@@ -837,7 +837,7 @@ folded in where it fits, never skipped. **Where we are: 9.D, D4 built, waiting o
 
 1. **9.D Discord** (approved sheet 15): ~~D1 channels~~ ~~D2 buzz~~ ~~D3 drawn cards~~ ~~D4 speakers~~ (live after his Mac
    paste and Manage Webhooks) -> **D5** live Claude job cards -> **D6** home card -> **D7** #capture videos -> **D8** gaming
-   feeds -> **D9** the wheel's Away. Then the old channels are deleted by HIS button.
+   feeds -> **D9** the wheel's Away (DONE). Then the old channels are deleted by HIS button.
 2. **M Aang on the MacBook:** ~~M1 listener fixes~~ ~~M2 heartbeat~~ ~~M3 front desk~~ -> **M4** Aang answers from the Mac
    when Shadow is off -> **M5** one memory on both -> **M6** Aang's browser on the Mac, everything synced -> **M7** bubble,
    typing box, notes, timers on the Mac (mockups first) -> **M8** notices that follow him and jump to the right session
@@ -3870,7 +3870,7 @@ the connection) and 9.A0 (buttons call the action registry). **Build order:**
   pubs, with time left). **The map needs his free key from apexlegendsapi.com, which he gets himself**, saved as
   `apex.key` in the Aang settings folder; it is sent in a header, never the address. Not yet: filtering patch notes to
   just his legends and guns (needs his picks).
-- **D9 Away from the wheel:** the Quiet slot becomes Away; talking moves to Discord; sessions resumed and answered there.
+- **D9 Away from the wheel: DONE 2026-10-13.** The Quiet slot is now Away (moon kept). It tells the pet (away.set) and posts "You stepped away" in Discord; the first touch of the PC after 4 seconds brings him back. Live in Release.
 - Voice is step V (after L), not here.
 
 ### `[ ]` 9.A1 Approvals done right  (from coucou's source, MIT)
