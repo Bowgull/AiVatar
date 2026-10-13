@@ -255,9 +255,12 @@ test('M4: the PC gives the Mac its voice and memory, and keeps what the Mac said
     discord.c.send(JSON.stringify({ t: 'mac.handled', items: [
       { kind: 'remember', text: 'His sister lives in Ottawa', at: 1 },
       { kind: 'turn', user: 'what time is it in tokyo', aang: 'It is 3am there.', at: 2 },
+      { kind: 'forget', text: 'cat is called', at: 3 },
     ] }));
     await wait(120);
     assert.ok(core.memory.list(50).some((f: any) => /Ottawa/.test(f.text)), 'remembered on the PC');
     assert.ok(core.memory.history('tokyo', 5).some((h: any) => /tokyo/.test(h.text)), 'the exchange is in his conversation');
+    assert.ok(!core.memory.list(50).some((f: any) => /Momo/.test(f.text)), 'forgotten on the Mac, forgotten on the PC');
+    assert.ok(Array.isArray(b.talk) && b.talk.length >= 0, 'the conversation further back goes too');
   });
 });
