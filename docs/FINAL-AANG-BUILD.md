@@ -2241,6 +2241,11 @@ sites), simple sprite animation, no local model there.
 visible in `ps`, the peer check accepts any `100.` address, the key compare is not constant-time, and `/run` types
 after a blind 1.5 s.
 
+**M1 BUILT 2026-10-13** (`macsetup.ts`, 4 new tests running the real Perl): the key and Shadow's address are read from
+files only he can read (`umask 077`), never the command line; only Shadow's exact Tailscale address is answered; the
+key compare is constant-time; `/run` checks Claude is really in front before each keystroke, with no blind pause.
+The old Mac key was retired (it had been visible to `ps`). **Live once he re-runs the Mac setup.**
+
 **Order inside M:** M1 the listener findings closed; M2 the Mac knows whether Shadow is on (a heartbeat over
 Tailscale); M3 the Discord connection moves to the Mac; M4 the Mac brain (Claude Code with Aang's personality and a
 memory copy) and the per-kind handling; M5 one memory, synced both ways; M6 Aang's browser on the Mac with full sync;
