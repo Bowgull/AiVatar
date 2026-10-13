@@ -184,11 +184,13 @@ const HOOKS_JXA = String.raw`function run(argv) {
 export interface DeskPayload {
   token: string; key: string; port: number; files: Record<string, string | Buffer>;
   /** M6: Aang's browser for the Mac: its code and pages packed (tar.gz), and the key its sync uses */
-  browser?: { bundle: Buffer; bsyncKey: string };
+  browser?: { bundle: Buffer; bsyncKey: string; castlabsSig: Buffer };
 }
 /** M6: the browser engine on the Mac, pinned. The fingerprint is from Electron's own SHASUMS256.txt for this release. */
 /** M6: Bitwarden's official command-line tool for Intel Macs, pinned (the digest GitHub lists for the release asset). */
 export const BITWARDEN_MAC = { version: '2026.9.0', sha256: 'd2a1865c2c1f49c34e6f1b38a42c5b95dcf22e34f81121c4962ebda32f708a3e' };
+/** Paid video on the Mac: castLabs' Electron for Content Security, Intel build, pinned (GitHub's digest for the asset). */
+export const CASTLABS_MAC = { version: '44.5.1', sha256: 'f3ebb426b24fd47dfb86fcd6ea3170f8d5058c4b1c5cb2ee35993fea32ecf454' };
 export const ELECTRON_MAC = { version: '44.7.0', sha256: '4fe494a7159b10a81e2098dab388719582065e99e604c4510bb117e282213566' };
 export const FRONT_DESK_PORT = 47841;
 
@@ -201,7 +203,7 @@ export function macBrowserBundle(shellDir: string): Buffer {
   const out = path.join(os.tmpdir(), `aang-mac-browser-${process.pid}-${Date.now()}.tgz`);
   const tar = process.platform === 'win32' ? path.join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'tar.exe') : 'tar';
   try {
-    execFileSync(tar, ['-czf', out, '-C', shellDir, 'src', 'pages', '-C', path.join(shellDir, 'mac-pkg'), 'package.json', 'package-lock.json'], { stdio: 'ignore', timeout: 60_000 });
+    execFileSync(tar, ['-czf', out, '-C', shellDir, 'src', 'pages', 'drm', '-C', path.join(shellDir, 'mac-pkg'), 'package.json', 'package-lock.json'], { stdio: 'ignore', timeout: 60_000 });
     return readFileSync(out);
   } finally { try { unlinkSync(out); } catch { /* gone */ } }
 }
@@ -391,6 +393,22 @@ if [ -d "$BR/engine-$EV/Electron.app" ] && [ -x "$NODE_DIR/bin/node" ]; then
       killall Dock >/dev/null 2>&1 || true
     fi
     echo "     Aang's browser is in your Dock. The first time it opens, macOS asks whether Aang may be your default browser."
+    # Paid video (2026-10-13): castLabs' engine for Intel Macs, pinned, with the streaming signature made on the PC
+    # with his free castLabs account (the signature is a small file tied to exactly this engine). Signed for macOS
+    # afterwards, in that order, as castLabs says.
+    DV=${CASTLABS_MAC.version}; DZIP="castlabs-$DV-darwin-x64.zip"; DSUM=${CASTLABS_MAC.sha256}
+    if [ ! -f "$BR/drm-$DV/signed" ]; then
+      echo "     Downloading the paid-video engine (about 135 MB, once)..."
+      curl -fsSL -o "$BR/$DZIP" "https://github.com/castlabs/electron-releases/releases/download/v$DV%2Bwvcus/electron-v$DV%2Bwvcus-darwin-x64.zip" || true
+      if [ "$(shasum -a 256 "$BR/$DZIP" 2>/dev/null | cut -d' ' -f1)" = "$DSUM" ]; then
+        rm -rf "$BR/drm-$DV"; mkdir -p "$BR/drm-$DV"; ditto -x -k "$BR/$DZIP" "$BR/drm-$DV"
+        printf '%s' '${b64(desk.browser.castlabsSig)}' | /usr/bin/base64 -D > "$BR/drm-$DV/Electron.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/Electron Framework.sig"
+        codesign --force --deep -s - "$BR/drm-$DV/Electron.app" >/dev/null 2>&1 || true
+        touch "$BR/drm-$DV/signed"
+        echo "     Paid video is ready: Netflix, Crave, Disney+, Prime and Crunchyroll open in their own window."
+      else echo "     The paid-video engine did not match its fingerprint; it was not installed."; fi
+      rm -f "$BR/$DZIP"
+    fi
     # His yes: Bitwarden's key-fill here too. Bitwarden's own official tool, pinned by its fingerprint; he signs in to it himself.
     BWV=${BITWARDEN_MAC.version}; BWSUM=${BITWARDEN_MAC.sha256}
     if [ "$(cat "$DIR/bw/version" 2>/dev/null)" != "$BWV" ]; then

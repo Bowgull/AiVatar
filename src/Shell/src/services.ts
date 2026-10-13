@@ -7,13 +7,19 @@
 //
 // It is an allow-list on the HOST, never on the whole address, because a path can be anything.
 
-/** The services he actually uses (decision 29). Netflix waits on castLabs signing (decision 31). */
+/**
+ * The services he actually uses (decision 29; Crave and Disney+ added 2026-10-13, his ask). Netflix waited on castLabs
+ * signing (decision 31) until 2026-10-13: he made the free EVS account and the runtime carries a production
+ * "streaming" signature now (checked with verify-pkg). Crave signs in on Bell Media's own page, so that host is here too.
+ */
 export const PAID_SERVICES = [
   { id: 'prime', label: 'PRIME', hosts: ['primevideo.com', 'amazon.com', 'amazon.ca', 'amazon.co.uk'], ready: true },
   { id: 'crunchyroll', label: 'CRUNCHYROLL', hosts: ['crunchyroll.com'], ready: true },
   // Netflix rejects a development build outright with error M7121-1331. It only works once the app is
   // signed through castLabs' free EVS, which is his to sign up for (decision 31).
-  { id: 'netflix', label: 'NETFLIX', hosts: ['netflix.com'], ready: false },
+  { id: 'netflix', label: 'NETFLIX', hosts: ['netflix.com'], ready: true },
+  { id: 'crave', label: 'CRAVE', hosts: ['crave.ca', 'bellmedia.ca'], ready: true },
+  { id: 'disney', label: 'DISNEY+', hosts: ['disneyplus.com'], ready: true },
 ] as const;
 
 export type ServiceId = typeof PAID_SERVICES[number]['id'];

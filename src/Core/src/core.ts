@@ -1703,7 +1703,7 @@ export class Core {
       };
       // M6: Aang's browser for the Mac, packed from this PC's own Shell, and the key its sync uses.
       let browser: DeskPayload['browser'];
-      try { browser = { bundle: macBrowserBundle(path.join(here, '..', '..', 'Shell')), bsyncKey: this.keyFile('bsync.key') }; }
+      try { browser = { bundle: macBrowserBundle(path.join(here, '..', '..', 'Shell')), bsyncKey: this.keyFile('bsync.key'), castlabsSig: readFileSync(path.join(here, '..', '..', 'Shell', 'mac-pkg', 'castlabs-44.5.1-darwin-x64.sig')) }; }
       catch (e) { console.error('mac-setup: the Mac browser could not be packed: ' + (e as Error).message); }
       writeFileAtomic(path.join(this.cfg.stateDir, 'frontdesk.json'), JSON.stringify({ mac, port: FRONT_DESK_PORT }));
       console.log(`mac-setup: the front desk goes to the MacBook (${mac}); Discord moves there at the next start`);

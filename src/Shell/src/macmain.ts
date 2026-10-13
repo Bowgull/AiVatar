@@ -4,7 +4,7 @@
 // tabs, history and logins. Money sites never travel. When the PC is off it works on its own and catches up later.
 //
 // Run as the "Aang" app the Mac setup makes (Aang.app in ~/Applications). It can be his default browser (his yes).
-import { app, Menu, nativeImage } from 'electron';
+import { app, ipcMain, Menu, nativeImage } from 'electron';
 import { appendFileSync, existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -12,6 +12,8 @@ import { WebSocket } from 'ws';
 import { servePages } from './pageserver.ts';
 import { AangBrowser } from './browser.ts';
 import { wireBrowser } from './browseripc.ts';
+import { DrmRuntime } from './drmrunner.ts';
+import { serviceFor } from './services.ts';
 
 const HERE = import.meta.dirname;
 const LISTENER = path.join(os.homedir(), 'Library', 'Application Support', 'AangListener');
@@ -57,6 +59,22 @@ app.whenReady().then(async () => {
   });
   // Tidy asks Aang's brain, which is on the PC: from the Mac it says it is not reachable yet (until M7 links them).
   browser.onTidyAsk = (id) => browser?.tidyAnswer(id, { ok: false, why: 'offline' });
+  // Paid video (2026-10-13): Netflix, Crave, Disney+, Prime and Crunchyroll play in the castLabs window, signed for
+  // streaming on his own free castLabs account. Hardware acceleration stays on: there is no Shadow capture here.
+  const drm = new DrmRuntime({ shellDir: path.join(HERE, '..'), stateDir });
+  browser.onPaid = (url) => {
+    const paid = serviceFor(url);
+    if (!paid?.ready) return false;
+    const why = drm.open(url, 'narrow');
+    if (why) { console.error('aang: ' + why); return false; }
+    return true;
+  };
+  ipcMain.on('browser:popout', (e, id) => {
+    if (!browser?.isFrame(e.sender) || !Number.isInteger(id)) return;
+    const url = browser.urlOf(id);
+    if (url && serviceFor(url)) browser.onPaid?.(url);
+  });
+  app.on('before-quit', () => drm.close());
   browser.open(waiting.shift());
   for (const u of waiting.splice(0)) browser.open(u);
 
