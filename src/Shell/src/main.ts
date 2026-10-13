@@ -73,6 +73,10 @@ function rememberBox(box: Box): void {
 let pages: PageServer | null = null;
 let popout: Popout | null = null;
 let timerWins: TimerWindows | null = null;
+/** A message held back from the bubble only (he is tucked in the dock); everything else still gets it. */
+let notForBubble: unknown = null;
+/** The pet's gate, as last told: muted, and Aang hidden. gameQuiet is the third. */
+let bubbleMuted = false, bubbleHidden = false;
 let noteWins: NoteWindows | null = null;
 let wheel: Wheel | null = null;
 /** The brain's notes as last sent: the board, and the notes stuck on his screen, both draw from this. */
@@ -310,7 +314,7 @@ const link = new CoreLink({
     }
     if (m.t === 'ack' && ackWait && m.id === ackWait.id) { clearTimeout(ackWait.timer); ackWait = null; }
     // Parity with the old pet (2026-10-11). The pet's gate: in a game, Esc belongs to the game.
-    if (m.t === 'bubble.state') gameQuiet = m.quiet === true;
+    if (m.t === 'bubble.state') { gameQuiet = m.quiet === true; bubbleMuted = m.muted === true; bubbleHidden = m.hidden === true; }
     // He clicked away from everything of ours (the pet's mouse hook saw it): the bubble lets go, as the old one did.
     if (m.t === 'outside.click') { bubble?.send('bubble:dismiss', 'outside'); return; }
     // A page of history goes ONLY to the window that asked for it. Both the bubble's scroll-back and the
@@ -373,8 +377,21 @@ const link = new CoreLink({
     }
     // The last finished reply, kept so tucking away does not destroy something he has not read.
     // Only finished ones: a streamed part is the same reply arriving again, not another thing said.
-    if (m.t === 'bubble' && typeof m.text === 'string' && !m.stream) heldBubble = m;
+    if (m.t === 'bubble' && typeof m.text === 'string' && !m.stream) {
+      heldBubble = m;
+      // He is tucked into the dock at the desk: the pet is sliding him out to say it. Drawn now, it would
+      // sit beside the tucked head for the 600 ms slide, then jump and start over (parity re-audit). So it
+      // waits for him to be out, and comes out once, in the right place. Not in a game (the bubble holds it
+      // there itself), and not what the pet drops (muted or hidden). A safety net shows it anyway.
+      const dropped = (m as Record<string, unknown>).proactive === true && (bubbleMuted || bubbleHidden);
+      if (petAt?.peeking && !gameQuiet && !dropped) {
+        const held = m;
+        setTimeout(() => { if (heldBubble === held && petAt?.peeking) { heldBubble = null; bubble?.send('brain:message', held); bubble?.show(); } }, 2500);
+        notForBubble = m;                          // the desk and the typing box still hear it now
+      }
+    }
     if (m.t === 'bubble.clear') heldBubble = null;
+    if (m.t === 'ask.expired' && liveAsk && String(liveAsk.id ?? '') === String(m.id ?? '')) { liveAsk = null; input?.send('input:ask', null); }
     // An ask also goes to the typing box, so it can be answered from there. The bubble still shows it
     // in full with its keycaps; the box gets a one-line version for when he is already typing.
     if (m.t === 'permission' || m.t === 'consent' || m.t === 'fact.ask' || m.t === 'backup.ask') {
@@ -386,7 +403,7 @@ const link = new CoreLink({
     for (const w of windows.values()) if (!w.isDestroyed()) w.webContents.send('brain:message', m);
     // The bubble is not in `windows`: it is made on demand and has its own lifetime, so it is told
     // separately rather than being swept up by a loop that does not know about it.
-    bubble?.send('brain:message', m);
+    if (notForBubble !== m) bubble?.send('brain:message', m);
     input?.send('brain:message', m);
   },
   onConnected: up => {
@@ -838,7 +855,13 @@ app.whenReady().then(async () => {
     if (!fromBubble(e) || (key !== 'playpause' && key !== 'next' && key !== 'previous')) return;
     link?.send({ t: 'media', key });
   });
-  ipcMain.on('bubble:hidden', (e) => { if (fromBubble(e)) { bubble?.setClickable(false); bubble?.hide(); } });
+  ipcMain.on('bubble:hidden', (e) => {
+    if (!fromBubble(e)) return;
+    bubble?.setClickable(false); bubble?.hide();
+    // It was said and it went: nothing to say again the next time he comes out of the dock (parity re-audit,
+    // 2026-10-13: the last old reply replayed over his hello).
+    heldBubble = null;
+  });
 
   // ---- the typing box (6.12b). Its own sender check, like the bubble's.
   /**

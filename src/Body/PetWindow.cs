@@ -167,7 +167,14 @@ sealed class PetWindow : Form
         if (NewFrontEnd)
         {
             // Parity (2026-10-11): the pet's own lines are drawn by the new bubble, not lost.
-            BubbleView.Forward = (text, hold) => _ = link.SendAsync(new { t = "pet.say", text, hold });
+            BubbleView.Forward = (text, hold) =>
+            {
+                // Down: the brain (no link to relay it) or the windows (nothing to draw it). The old bubble
+                // draws it instead - this is exactly when "my brain stopped" has to reach him.
+                if (!link.IsConnected || supervisor?.GivenUp == true || shell?.GivenUp == true) return false;
+                _ = link.SendAsync(new { t = "pet.say", text, hold });
+                return true;
+            };
             AllowDrop = true;
             DragEnter += (_, e) =>
             {
@@ -1125,7 +1132,7 @@ sealed class PetWindow : Form
         // PlayRest() (Tick(), below). This one call bypassed PlayRest() and forced idle unconditionally,
         // directly against the very next comment's own intent: a working session is what quiet must NOT hide.
         PlayRest();
-        if (!quiet && !peeking && heldText != null) { ShowBubble(heldText, false); heldText = null; }
+        if (!quiet && !peeking && heldText != null) ReleaseHeld();
         dirty = true;
         _ = link.SendAsync(new { t = "presence", quiet, foreground, title = foregroundTitle, watching = cfg.SeeActiveWindow, hwnd = foregroundHwnd });
     }
@@ -2109,6 +2116,25 @@ sealed class PetWindow : Form
     }
     string? heldFocus, heldHost;   // where the waiting session is: a window here ("Claude"), or "mac"
 
+    /// <summary>
+    /// Say a held message now that he is out. In the new bubble it goes with the Claude session it is about, so it
+    /// still has the bold Claude link, the CLAUDE chip and the Open Claude key (parity re-audit, 2026-10-13: it came
+    /// out as plain words).
+    /// </summary>
+    void ReleaseHeld()
+    {
+        var text = heldText; var focus = heldFocus; var host = heldHost;
+        heldText = null;
+        if (text == null) return;
+        if (NewFrontEnd && link.IsConnected && (focus != null || host == "mac"))
+        {
+            var hold = Math.Clamp(2500 + 45 * text.Length, 3000, 20000);
+            _ = link.SendAsync(new { t = "pet.say", text, hold, focus, host, link = "Claude" });
+            return;
+        }
+        ShowBubble(text, false);
+    }
+
     /// <summary>Nothing left waiting: the icon, the glow (burst or ambient) and its schedule all stop together.</summary>
     void ClearBadge()
     {
@@ -2191,7 +2217,7 @@ sealed class PetWindow : Form
         var now = DateTime.UtcNow;
         engagedAt = now; nextIdleAt = now.AddMilliseconds(IdleEveryMs);
         if (dockHint != null) { ShowBubble(dockHint, false); dockHint = null; }
-        else if (heldText != null && !quiet) { ShowBubble(heldText, false); heldText = null; }
+        else if (heldText != null && !quiet) ReleaseHeld();
         else if (greetOnArrive && !inputAfterSlide) ShowBubble(Greeting(), false);
         greetOnArrive = false;
         if (inputAfterSlide) { inputAfterSlide = false; OpenInput(userAsked: true); }

@@ -360,7 +360,9 @@ sealed class BubbleView : IDisposable
         MinH, scrollback ? ScrollbackMaxH : ExpandedMaxH + AskRow + AskedRowH + RowsH);
 
     /// <summary>With the new front end on: where the pet's own lines go instead of being drawn here.</summary>
-    public static Action<string, int>? Forward;
+    /// <summary>Hands a line to the new bubble. False when nothing can draw it there (the brain or the windows
+    /// are down), and then the old bubble draws it, so a crash message is never lost (parity re-audit, 2026-10-13).</summary>
+    public static Func<string, int, bool>? Forward;
 
     public void Show(string t, bool stream, int holdMs)
     {
@@ -370,7 +372,12 @@ sealed class BubbleView : IDisposable
         // caller, present and future.
         // ...but the WORDS are not lost (parity, 2026-10-11): every line the pet says itself - notes, errors,
         // hellos, a held message coming out - goes to the new bubble to be drawn there.
-        if (PetWindow.NewFrontEnd) { if (!stream && t.Length > 0) Forward?.Invoke(t, holdMs); return; }
+        if (PetWindow.NewFrontEnd)
+        {
+            if (stream || t.Length == 0) return;
+            if (Forward?.Invoke(t, holdMs) == true) return;
+            // Nothing can draw it in the new bubble: fall through and draw it here, the old way.
+        }
         // The next piece of the same reply (or its final form) carries on from what is already shown.
         var same = Visible && !Dots && full.Length > 0 && t.StartsWith(full, StringComparison.Ordinal);
         Dots = false; receipt = "";
