@@ -143,3 +143,7 @@ textarea.field::placeholder{color:#8E7FA8}
 textarea.twin{position:absolute;left:-9999px;top:0;visibility:hidden;height:auto;overflow:hidden;
   transition:none;pointer-events:none}
 @media (prefers-reduced-motion:reduce){.field{transition:none}}
+/* Sheet 16 (his pick, 2026-10-12): the frame is the browser's own top-bar pixel wood; the purple field he
+   loves stays exactly as it is. */
+.box{background:url(art/browser/band.png) 0 0/128px 58px;image-rendering:pixelated}
+.strip{background:linear-gradient(180deg,rgba(0,0,0,.18),rgba(0,0,0,.28)),url(art/browser/band.png) 0 29px/128px 58px;image-rendering:pixelated}

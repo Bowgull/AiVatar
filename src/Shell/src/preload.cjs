@@ -67,6 +67,40 @@ contextBridge.exposeInMainWorld('aang', {
   bubbleStop: () => ipcRenderer.send('bubble:stop'),
   /** A click on a message about a Claude session on his MacBook brings Claude forward there. */
   macFront: () => ipcRenderer.send('bubble:macfront'),
+  /** Sheet 16: a click on a message docks the typing box under the drawn bubble (its window coordinates). */
+  dockBox: r => ipcRenderer.send('bubble:dock', r),
+  /** Sheet 17: the bubble may take the keyboard only while he types in a note or the timer's name. */
+  bubbleTyping: on => ipcRenderer.send('bubble:typing', on),
+  /** Sheet 17, the notes board in the bubble: save an edit, delete, and drag one out onto the screen. */
+  notesSave: n => ipcRenderer.send('bubble:notesave', n),
+  notesDelete: id => ipcRenderer.send('bubble:notedelete', id),
+  notesPull: a => ipcRenderer.send('bubble:notepull', a),
+  /** Sheet 17, a note stuck on the screen: its data, and what it can ask for. It only ever speaks for itself. */
+  onNoteData(fn) { const h = (_e, n) => fn(n); ipcRenderer.on('note:data', h); return () => ipcRenderer.removeListener('note:data', h); },
+  noteSave: n => ipcRenderer.send('note:save', n),
+  noteMove: a => ipcRenderer.send('note:move', a),
+  noteMenu: open => ipcRenderer.send('note:menu', open),
+  noteOpacity: n => ipcRenderer.send('note:opacity', n),
+  notePin: on => ipcRenderer.send('note:pin', on),
+  noteBack: () => ipcRenderer.send('note:back'),
+  noteDelete: () => ipcRenderer.send('note:delete'),
+  /** Sheet 17's wheel: what to draw, where he points, where he let go; and which disc that was. */
+  onWheel(fn) { const h = (_e, m) => fn(m); ipcRenderer.on('wheel', h); return () => ipcRenderer.removeListener('wheel', h); },
+  wheelPick: slot => ipcRenderer.send('wheel:pick', slot),
+  /** Sheet 17: Start on the timer dial in the bubble. */
+  timerStart: a => ipcRenderer.send('bubble:timerstart', a),
+  /** Sheet 17, the timer window: its timer, its pin, and the few things it can ask for. */
+  onTimerData(fn) { const h = (_e, t) => fn(t); ipcRenderer.on('timer:data', h); return () => ipcRenderer.removeListener('timer:data', h); },
+  onTimerPinned(fn) { const h = (_e, on) => fn(on); ipcRenderer.on('timer:pinned', h); return () => ipcRenderer.removeListener('timer:pinned', h); },
+  timerClickable: on => ipcRenderer.send('timer:clickable', on),
+  timerAct: a => ipcRenderer.send('timer:act', a),
+  timerDrag: a => ipcRenderer.send('timer:drag', a),
+  timerOpacity: n => ipcRenderer.send('timer:opacity', n),
+  timerPin: on => ipcRenderer.send('timer:pin', on),
+  /** The gold "change" link under a remembered choice: Aang forgets it and asks next time. */
+  forgetChoice: key => ipcRenderer.send('bubble:choiceforget', key),
+  /** The docked box closed: 'sent' when he answered (the bubble stays), anything else lets it go. */
+  onUndock(fn) { const h = (_e, why) => fn(why); ipcRenderer.on('bubble:undock', h); return () => ipcRenderer.removeListener('bubble:undock', h); },
   /** How big the drawn bubble actually is, measured by the page, so the window can fit it. */
   bubbleSize: s => ipcRenderer.send('bubble:size', s),
   /** His answer to an ask: yes, no, always, show, skip. Named, so a page cannot invent a new one. */
