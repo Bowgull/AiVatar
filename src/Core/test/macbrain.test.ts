@@ -273,3 +273,21 @@ test('sheet 21: the morning brief from the Mac, once a day after 7, never when t
   await b.morning();
   assert.equal(gw.sent.length, 1, 'the PC sent it today');
 });
+
+test('sheet 21: a Claude job on the Mac keeps ONE card in its post, edited from needs you to done', async () => {
+  const gw = new Desk();
+  const drew: string[] = [];
+  const b = new MacBrain({ gw, dir: tmp(), log: () => {}, draw: async (kind, data: any) => { drew.push(`${kind}:${data.plaque}:${data.done ? 'done' : ''}`); return Buffer.from('PNG'); } });
+  b.setBrief({ ...BRIEF, listen: { ...BRIEF.listen, '20500': 'claude-jobs' } });
+  await b.jobEvent('Notification', { session_id: 's1', cwd: '/Users/j/site', message: 'May I publish?' });
+  assert.equal(gw.posts.length, 1, 'one post for the session');
+  const cards = gw.sent.filter(x => (x.msg as any).files?.length);
+  assert.equal(cards.length, 1, 'the card is posted once');
+  await b.jobEvent('Stop', { session_id: 's1', cwd: '/Users/j/site' });
+  assert.equal(gw.posts.length, 1, 'still one post');
+  assert.equal(gw.sent.filter(x => (x.msg as any).files?.length).length, 1, 'no second card');
+  assert.equal(gw.edits.length, 1, 'the same card, edited');
+  assert.match(String((gw.edits[0]!.msg as any).content), /^Done/);
+  assert.deepEqual(drew, ['job:NEEDS YOU:', 'job:CLAUDE JOB:done']);
+  assert.deepEqual(gw.tags.at(-1)![1], ['Done']);
+});
