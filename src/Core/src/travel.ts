@@ -37,14 +37,29 @@ export class Travel {
     return r.json();
   }
 
-  /** Where an address is, and what TomTom understood it to be. Canada and the US first. */
+  /**
+   * Where a place is, and what TomTom understood it to be. Canada and the US first, near his home (else Toronto).
+   * A street address ("220 King St W") goes to the address lookup, which says how exact the match is. A place's name
+   * ("Toronto City Hall") goes to the place search (2026-10-13: the address lookup sent that one to Windsor, then to
+   * the island airport); a named place counts as sure only when its name is what he said.
+   */
   async find(text: string): Promise<Place | null> {
     const q = text.replace(/\s+/g, ' ').trim().slice(0, 200);
     if (!q) return null;
-    const j = await this.get(`https://api.tomtom.com/search/2/geocode/${encodeURIComponent(q)}.json?key=${encodeURIComponent(this.key())}&limit=1&countrySet=CA,US&language=en-US`);
+    const near = this.home ?? { lat: 43.65, lon: -79.38 };
+    const common = `key=${encodeURIComponent(this.key())}&limit=1&countrySet=CA,US&language=en-US&lat=${near.lat}&lon=${near.lon}`;
+    if (/^\s*\d+[A-Za-z]?\b/.test(q)) {
+      const j = await this.get(`https://api.tomtom.com/search/2/geocode/${encodeURIComponent(q)}.json?${common}`);
+      const r = j?.results?.[0];
+      if (!r?.position) return null;
+      return { text: q, lat: Number(r.position.lat), lon: Number(r.position.lon), found: String(r.address?.freeformAddress ?? ''), score: Number(r.matchConfidence?.score ?? 0) };
+    }
+    const j = await this.get(`https://api.tomtom.com/search/2/search/${encodeURIComponent(q)}.json?${common}&typeahead=false`);
     const r = j?.results?.[0];
     if (!r?.position) return null;
-    return { text: q, lat: Number(r.position.lat), lon: Number(r.position.lon), found: String(r.address?.freeformAddress ?? ''), score: Number(r.matchConfidence?.score ?? r.score ?? 0) };
+    const name = String(r.poi?.name ?? '').trim();
+    const same = name && name.toLowerCase() === q.toLowerCase().replace(/,.*$/, '').trim();
+    return { text: q, lat: Number(r.position.lat), lon: Number(r.position.lon), found: [name, String(r.address?.freeformAddress ?? '')].filter(Boolean).join(', '), score: same ? 1 : 0.5 };
   }
 
   /** The drive, with traffic: now, leaving at a time, or arriving by a time (then departAt is the leave-by). */

@@ -11,6 +11,11 @@ function fake() {
   const asked: string[] = [];
   const fetcher = async (url: string) => {
     asked.push(url);
+    if (url.includes('/search/2/search/')) {
+      const q = decodeURIComponent(url.split('/search/2/search/')[1]!.split('.json')[0]!);
+      if (q.includes('nowhere')) return { ok: true, status: 200, json: async () => ({ results: [] }) };
+      return { ok: true, status: 200, json: async () => ({ results: [{ type: 'POI', poi: { name: q === 'Toronto City Hall' ? 'Toronto City Hall' : 'Some Cafe' }, position: { lat: 43.6534, lon: -79.3841 }, address: { freeformAddress: '100 Queen Street West, Toronto ON' } }] }) };
+    }
     if (url.includes('/geocode/')) {
       const q = decodeURIComponent(url.split('/geocode/')[1]!.split('.json')[0]!);
       if (q.includes('nowhere')) return { ok: true, status: 200, json: async () => ({ results: [] }) };
@@ -43,10 +48,14 @@ test('a place is said back as TomTom found it; a weak match is a CHECK', async (
   const p = (await t.find('220 King St W, Toronto'))!;
   assert.equal(sayFound(p), 'CHECK: not a clear match. You said "220 King St W, Toronto"; TomTom found: 220 King Street West, Toronto ON M5H 1K4.');
   assert.match(asked[0]!, /countrySet=CA,US/);
+  assert.match(asked[0]!, /&lat=43\.65&lon=-79\.38/, 'near Toronto until his home is set');
   assert.equal(await t.find('nowhere at all'), null);
   const home = (await t.find('1 Home Rd'))!;
   assert.equal(sayFound(home).startsWith('CHECK'), false);
   t.setHome(home);
+  const named = (await t.find('Toronto City Hall'))!;
+  assert.equal(sayFound(named), 'You said "Toronto City Hall"; TomTom found: Toronto City Hall, 100 Queen Street West, Toronto ON.', 'a place by its name: the place search');
+  assert.match(sayFound((await t.find('the cafe near work'))!), /^CHECK: not a clear match/, 'a name that is not the place found: CHECK');
   assert.equal(t.home?.found, '1 Home Rd, Toronto ON');
 });
 
