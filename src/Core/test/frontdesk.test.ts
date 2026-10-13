@@ -211,3 +211,11 @@ test('9.D D4: the speakers\' pictures reach the Mac byte for byte', () => {
   const b64 = /printf '%s' '([A-Za-z0-9+/=]+)'/.exec(line)![1]!;
   assert.ok(Buffer.from(b64, 'base64').equals(png));
 });
+
+test('found live: when the Mac refuses this PC, it is said once, plainly, instead of waiting in silence', async () => {
+  const { desk } = await rig(48517);
+  let told = 0;
+  const fd = new FrontDeskGateway({ url: 'ws://127.0.0.1:48517', key: 'wrong'.padEnd(24, 'x'), log: () => {}, retryMs: 50, onRefused: () => { told++; } });
+  try { await wait(400); assert.equal(told, 1, 'once, not on every retry'); }
+  finally { fd.close(); await desk.close(); }
+});
