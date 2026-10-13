@@ -8,6 +8,7 @@
 // pop-out and the other way round.
 import { spawn, type ChildProcess } from 'node:child_process';
 import { existsSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 export interface DrmDeps {
@@ -20,7 +21,10 @@ export interface DrmDeps {
 
 /** Where castLabs Electron lives. Installed as `electron-drm` so it sits beside the stock one. */
 export const drmElectron = (shellDir: string) =>
-  path.join(shellDir, 'node_modules', 'electron-drm', 'dist', 'electron.exe');
+  process.platform === 'darwin'
+    // M6: on the Mac, the castLabs app the Mac setup put beside Aang's browser, VMP-signed for streaming.
+    ? path.join(os.homedir(), 'Library', 'Application Support', 'AangListener', 'browser', 'drm-44.5.1', 'Electron.app', 'Contents', 'MacOS', 'Electron')
+    : path.join(shellDir, 'node_modules', 'electron-drm', 'dist', 'electron.exe');
 
 export class DrmRuntime {
   private child: ChildProcess | null = null;
