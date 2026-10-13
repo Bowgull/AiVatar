@@ -11,6 +11,23 @@ function bars(steps, at, done) {
   return b;
 }
 
+// Sheet 21's little pixel icons, drawn from fixed shapes (never from data).
+const ICONS = {
+  cal: [['#120A05', 'M2 3h12v11H2z'], ['#F6E6C6', 'M3 6h10v7H3z'], ['#C95E28', 'M3 4h10v2H3z'], ['#120A05', 'M4 1h1v3H4zM11 1h1v3h-1zM5 8h2v2H5zM9 8h2v2H9z']],
+  pin: [['#120A05', 'M5 1h6v1h1v1h1v5h-1v2h-1v2h-1v2H9v1H7v-1H6v-2H5v-2H4V8H3V3h1V2h1z'], ['#DA373C', 'M5 2h6v1h1v5h-1v2h-1v2H9v1H7v-1H6v-2H5V8H4V3h1z'], ['#F6E6C6', 'M7 4h2v1h1v2H9v1H7V7H6V5h1z']],
+  video: [['#120A05', 'M1 3h14v10H1z'], ['#DA373C', 'M2 4h12v8H2z'], ['#fff', 'M6 6h1v1h1v1h1v1H8v1H7v1H6z']],
+  call: [['#120A05', 'M1 4h10v8H1zM11 6h1V5h1V4h2v8h-2v-1h-1v-1h-1z'], ['#78E696', 'M2 5h8v6H2z']],
+  file: [['#120A05', 'M3 1h7v1h1v1h1v1h1v11H3z'], ['#F6E6C6', 'M4 2h6v3h3v9H4z'], ['#C95E28', 'M5 8h6v1H5zM5 10h6v1H5zM5 12h4v1H5z']],
+  ask: [['#120A05', 'M5 1h6v1h1v1h1v4h-1v1h-1v1h-1v2H6V8h1V7h1V6h1V5h1V3H6v1H5v1H3V3h1V2h1zM6 12h4v3H6z'], ['#FFC43C', 'M6 2h5v1h1v4h-1v1h-1v1H9v1H7V8h1V7h1V6h1V5h1V3h-1V2z']],
+};
+function icon(kind) {
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('viewBox', '0 0 16 16'); svg.setAttribute('class', 'ico');
+  for (const [fill, d] of ICONS[kind] ?? ICONS.ask) { const p = document.createElementNS(ns, 'path'); p.setAttribute('fill', fill); p.setAttribute('d', d); svg.append(p); }
+  return svg;
+}
+
 const DRAW = {
   // A Claude job, live (sheet 15 board 2): plaque, headline, the step it is on, a bar per step, Aang.
   job(d) {
@@ -153,6 +170,31 @@ const DRAW = {
         li.append(el('span', 'tm', str(e.tm, 12)), body);
         col.append(li);
       }
+    }
+    card.append(col, el('div', 'drawn', 'DRAWN BY AANG'));
+    return card;
+  },
+  // One email, gone through (sheet 21 board 2): code's facts in the box, Aang's summary above, CHECK where code is unsure.
+  email(d) {
+    const card = el('div', 'parch'), col = el('div', 'col');
+    const top = el('div', 'row'); top.style.alignItems = 'center'; top.style.gap = '8px';
+    top.style.paddingRight = '64px';            // room for DRAWN BY AANG in the corner
+    top.append(el('div', 'plaque', 'WENT THROUGH IT'), el('div', 'meta', `${str(d.from, 40)}${d.sent ? ', ' + str(d.sent, 30) : ''}`));
+    col.append(top, el('div', 'head', str(d.subject, 120)));
+    if (d.summary) col.append(el('div', 'text', str(d.summary, 320)));
+    const rows = Array.isArray(d.rows) ? d.rows : [];
+    if (rows.length) {
+      const box = el('div', 'found');
+      for (const r of rows.slice(0, 9)) {
+        const li = el('div', 'li'), body = el('span');
+        if (r.icon === 'check') li.append(el('span', 'chk', 'CHECK'));
+        else li.append(icon(r.icon));
+        if (r.icon !== 'check') body.append(el('span', 'w', str(r.w, 90)), ' ');
+        body.append(el('span', 'm', str(r.m, 160)));
+        li.append(body);
+        box.append(li);
+      }
+      col.append(box);
     }
     card.append(col, el('div', 'drawn', 'DRAWN BY AANG'));
     return card;

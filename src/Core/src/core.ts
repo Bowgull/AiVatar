@@ -1,5 +1,6 @@
 // The Core: talks to the Body over a localhost WebSocket, keeps one warm Claude session per model lane,
 // streams replies, enforces the voice linter and grounding rule, and applies Joshua's quota rule.
+import { emailCardData } from './emailcard.ts';
 import { readAttachment, safeFileName } from './attachments.ts';
 import { inboxCardData, weekCardData } from './briefcard.ts';
 import { Choices, choiceKey } from './choices.ts';
@@ -428,6 +429,7 @@ export class Core {
       mailInbox: (query, max) => this.mailRead('mcp__aang__mail_inbox', { query: query ?? '' }, m => m.inbox(query || 'in:inbox', max ?? 10, rows => this.cardForTurn('inbox', inboxCardData(rows, this.jobCompanies())))),
       mailRead: id => this.mailRead('mcp__aang__mail_read', { id }, m => m.read(id)),
       mailAttachment: (id, name, save) => this.mailAttachment(id, name, save),
+      emailCard: (id, summary, asks) => this.emailCard(id, summary, asks),
       calendar: days => this.mailRead('mcp__aang__calendar_today', { days: days ?? 1 }, m => m.agenda(days ?? 1, (ev, from, n) => this.cardForTurn('week', weekCardData(ev, from, n)))),
       mailDraft: input => this.mailDraft(input),
       tasks: {
@@ -835,6 +837,23 @@ export class Core {
     const r = await readAttachment(got.name, got.mime, got.buf);
     if (r.why) return { ok: false, detail: r.why };
     return { ok: true, detail: r.text ?? '', ...(r.image ? { image: r.image } : {}) };
+  }
+
+  /**
+   * E3 (sheet 21 board 2): one email as a card. Facts from code, summary and asks from the model. In Discord it is drawn
+   * with its buttons; at the desk the model says it in words (the bubble's own card comes with the desk's design).
+   */
+  private async emailCard(id: string, summary: string, asks: string[]): Promise<{ ok: boolean; detail: string }> {
+    const svc = this.mail(); if (!svc) return { ok: false, detail: Core.NO_GOOGLE };
+    const seen = await svc.seenEmail(String(id).slice(0, 40));
+    if (!seen) return { ok: false, detail: 'That email could not be found. Read it with mail_read first.' };
+    const card = emailCardData(seen, summary, asks);
+    const sub = this.active?.sub, ws = sub?.socket;
+    if (sub && ws && ws.readyState === ws.OPEN && this.kindOfSocket(ws) === 'discord') {
+      this.send(ws, { t: 'card.show', id: sub.id, kind: 'email', data: card.data, email: seen.id, acts: card.acts, ...(card.join ? { join: card.join } : {}) });
+      return { ok: true, detail: 'The card is in his Discord with its buttons. Say one short line at most; do not repeat what is on the card.' };
+    }
+    return { ok: true, detail: `He is not in Discord, so there is no card: tell him this in a few short lines, exactly as written here (the dates and times are code's, do not change them):\n${card.words}` };
   }
 
   private cardOf(d: MailDraft): ToBody { const v = renderMailCard(d); return { t: 'mail.card', id: d.id, content: v.content, buttons: v.buttons }; }
@@ -1746,7 +1765,7 @@ export class Core {
         'discord-client.ts': readFileSync(path.join(here, 'discord-client.ts'), 'utf8'),
         'discord-logic.ts': readFileSync(path.join(here, 'discord-logic.ts'), 'utf8'),
         // M4: the Mac answering as Aang while this PC is off, and the small pieces it shares with this PC.
-        ...Object.fromEntries(['macbrain.ts', 'macpowers.ts', 'macjobs.ts', 'weather.ts', 'briefcard.ts', 'google.ts', 'mail.ts', 'emailfacts.ts', 'attachments.ts', 'addresses.ts', 'lists.ts', 'atomic.ts', 'route.ts'].map(f => [f, readFileSync(path.join(here, f), 'utf8')])),
+        ...Object.fromEntries(['macbrain.ts', 'macpowers.ts', 'macjobs.ts', 'weather.ts', 'briefcard.ts', 'google.ts', 'mail.ts', 'emailfacts.ts', 'attachments.ts', 'emailcard.ts', 'addresses.ts', 'lists.ts', 'atomic.ts', 'route.ts'].map(f => [f, readFileSync(path.join(here, f), 'utf8')])),
         'package.json': readFileSync(path.join(pkg, 'package.json'), 'utf8'),
         'package-lock.json': readFileSync(path.join(pkg, 'package-lock.json'), 'utf8'),
         // 9.D D4: the speakers' pictures, made once with their webhooks
