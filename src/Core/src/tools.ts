@@ -138,7 +138,9 @@ export const QUICK_TOOLS = ['mcp__aang__get_time', 'mcp__aang__get_weather', 'mc
   'mcp__aang__what_we_talked_about', 'mcp__aang__remember', 'mcp__aang__forget', 'mcp__aang__what_you_know',
   'mcp__aang__set_reminder', 'mcp__aang__list_reminders', 'mcp__aang__cancel_reminder',
   'mcp__aang__look_up_web', 'mcp__aang__what_im_doing', 'mcp__aang__claude_code_status',
-  'mcp__aang__what_did_you_do', 'mcp__aang__my_abilities', 'mcp__aang__my_permissions', 'mcp__aang__browser_history'];
+  'mcp__aang__what_did_you_do', 'mcp__aang__my_abilities', 'mcp__aang__my_permissions', 'mcp__aang__browser_history',
+  // E7 (2026-10-13: "my home address is ..." reached Quick, which had no way to save it and said it was blocked).
+  'mcp__aang__set_home', 'mcp__aang__drive_time'];
 
 /** The ones Quick must not even see, so its shelf is 16 tools and not 52. */
 export const QUICK_HIDDEN = TOOL_NAMES.filter(t => !QUICK_TOOLS.includes(t));
