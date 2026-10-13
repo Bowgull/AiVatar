@@ -2318,6 +2318,14 @@ free castLabs EVS account (Bowgull); the PC's castLabs runtime and the Mac's cop
 (1374 days); Netflix ready, Crave (+ Bell Media sign-in) and Disney+ added; a paid site in a tab opens the paid-video
 window by itself. He wants Aang and Claude able to see his machines more broadly (2026-10-13): plan it later.
 
+**M4b BUILT 2026-10-13 (his picks, after Aang told him "I can't do much from the Mac"):** while Shadow is off the
+Mac answers at once (no 45 s wait when the heartbeat says off) from one warm Claude kept running while the PC is away,
+and can: read his email and calendar (google.json copied to the Mac by the setup, Tailscale only) and save drafts in
+Gmail (never send: no send path exists on the Mac); open apps, files, folders and web pages, list, read and make files
+in his home folder (never delete, overwrite, hidden or Library), look at the Mac's screen; start Claude Code jobs on
+the Mac, whose hooks fall back to the Mac's front desk (127.0.0.1:47842) when the PC is off, so "needs you" and "done"
+still reach claude-jobs. After an email, web page or file in a message, nothing is opened, written or started in it.
+
 **Order inside M:** M1 the listener findings closed; M2 the Mac knows whether Shadow is on (a heartbeat over
 Tailscale); M3 the Discord connection moves to the Mac; M4 the Mac brain (Claude Code with Aang's personality and a
 memory copy) and the per-kind handling; M5 one memory, synced both ways; M6 Aang's browser on the Mac with full sync;
