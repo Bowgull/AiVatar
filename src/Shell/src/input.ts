@@ -67,9 +67,10 @@ export class InputBox {
    * file. `focus()` on both the window and its contents, because a focused window whose page has not
    * been told is a window with no caret in it.
    */
-  open(at: { x: number; y: number } | null, state: Record<string, unknown>): void {
+  open(at: { x: number; y: number } | null, state: Record<string, unknown>, docked = false): void {
     const w = this.window();
     if (!w || w.isDestroyed()) return;
+    this.docked = docked;
     if (at) w.setPosition(Math.round(at.x), Math.round(at.y));
     this.openedAt = Date.now();
     if (w.isMinimized()) w.restore();      // close() minimizes to give the keyboard back
@@ -93,6 +94,7 @@ export class InputBox {
     const w = this.win;
     if (!w || w.isDestroyed() || !w.isVisible()) return;
     w.hide();
+    if (this.docked) { this.docked = false; this.onUndock?.(); }
     // The pet knows which window he was in and hands the keyboard straight back to it. Minimizing to
     // let Windows pick "the next window" was tried first and handed it to Discord instead of the window
     // he had come from (sweep, 2026-10-04) - in a game, his movement keys would go into Discord.
@@ -101,6 +103,13 @@ export class InputBox {
   }
   /** Set by main.ts: ask the pet to give the keyboard back to the window he came from. */
   onGiveBack: (() => void) | null = null;
+  /**
+   * Sheet 16's cockpit: opened by a click on a message, the box sits right UNDER the bubble. Then it grows
+   * downward, not upward, or its first extra line would climb into the bubble he is replying to.
+   */
+  docked = false;
+  /** Set by main.ts: the cockpit closed (Esc, a click elsewhere, or sent), so the bubble can let go too. */
+  onUndock: (() => void) | null = null;
 
   send(channel: string, payload: unknown): void {
     const w = this.win;
@@ -127,7 +136,7 @@ export class InputBox {
     if (nh === oldH) return;
     // It grows UPWARD as he types more lines, so its bottom stays put and it never walks down off the
     // screen or under the taskbar.
-    w.setBounds({ x, y: y - (nh - oldH), width, height: nh });
+    w.setBounds({ x, y: this.docked ? y : y - (nh - oldH), width, height: nh });
   }
 
   destroy(): void {

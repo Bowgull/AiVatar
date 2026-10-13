@@ -17,7 +17,12 @@ import { Bubble, wantsNewBubble } from './bubble.ts';
 import { InputBox } from './input.ts';
 import { Snipper } from './snip.ts';
 import { AangBrowser } from './browser.ts';
-import { bubbleAt, headOf, inputAt, moved, readPetAt } from './anchor.ts';
+import { Wheel } from './wheelwin.ts';
+import { NoteWindows } from './notewin.ts';
+import type { NoteData } from './notewin.ts';
+import { TimerWindows } from './timerwin.ts';
+import type { TimerData } from './timerwin.ts';
+import { INPUT_FRAME_INSET, bubbleAt, headOf, inputAt, moved, readPetAt } from './anchor.ts';
 import type { PetAt } from './anchor.ts';
 import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown, wrongSettings } from './safety.ts';
 import { snapshotOnce } from './snapshot.ts';
@@ -67,6 +72,11 @@ function rememberBox(box: Box): void {
 
 let pages: PageServer | null = null;
 let popout: Popout | null = null;
+let timerWins: TimerWindows | null = null;
+let noteWins: NoteWindows | null = null;
+let wheel: Wheel | null = null;
+/** The brain's notes as last sent: the board, and the notes stuck on his screen, both draw from this. */
+let notesLatest: NoteData[] = [];
 /** The new bubble (step 6.12). Null unless he has switched it on: see wantsNewBubble. */
 let bubble: Bubble | null = null;
 /** The new typing box (step 6.12b). Same switch as the bubble: they replace the old ones together. */
@@ -107,13 +117,16 @@ function watchBusyOnce(): void {
   if (showing && bw && !bw.isDestroyed()) { const p = screen.getCursorScreenPoint(), b = bw.getBounds(); overBubble = p.x >= b.x && p.x < b.x + b.width && p.y >= b.y && p.y < b.y + b.height; }
   if (overBubble && !copyHeld) copyHeld = globalShortcut.register('Control+C', () => bubble?.send('bubble:copy', null));
   else if (!overBubble && copyHeld) { globalShortcut.unregister('Control+C'); copyHeld = false; }
-  const popUp = Boolean(popout?.window?.isVisible());
+  // Ctrl+Alt+P pins or unpins whatever is under the mouse: a timer if one is there, otherwise the pop-out (sheet 17).
+  const popUp = Boolean(popout?.window?.isVisible()) || Boolean(timerWins?.any) || Boolean(noteWins?.any);
   if (popUp && !pinHeld) {
-    pinHeld = globalShortcut.register('Control+Alt+P', () => popout?.togglePin());
+    pinHeld = globalShortcut.register('Control+Alt+P', () => { const p = screen.getCursorScreenPoint(); if (timerWins?.togglePinAt(p) || noteWins?.togglePinAt(p)) return; popout?.togglePin(); });
   }
   else if (!popUp && pinHeld) { globalShortcut.unregister('Control+Alt+P'); pinHeld = false; }
   if (snipper?.open) { escHeld = false; return; }
-  const wantEsc = showing && !gameQuiet;
+  // Not while the typing box is up: a global Esc would beat the box to it, and the box's own Esc closes the
+  // cockpit (or stops Aang) itself.
+  const wantEsc = showing && !gameQuiet && !input?.visible;
   if (wantEsc && !escHeld) escHeld = globalShortcut.register('Escape', () => bubble?.send('bubble:dismiss', 'esc'));
   else if (!wantEsc && escHeld) { globalShortcut.unregister('Escape'); escHeld = false; }
 }
@@ -149,18 +162,22 @@ function onHotkey(): void {
  * a `typebox` message. Before this, a click opened the pet's OWN box instead, so which box he got
  * depended on how he asked for it.
  */
-function openTypeBox(): void {
+function openTypeBox(dock: { x: number; y: number } | null = null): void {
   if (!input) return;
   const body = readJson(path.join(STATE_DIR, 'body.json')) as Record<string, unknown> | null;
-  const at = petAt ? inputAt(petAt, { width: 268, height: 112 }) : null;
+  // Opened any way other than a click on a message, it is not a reply to that message any more.
+  if (!dock) dockedTurn = null;
+  const at = dock ?? (petAt ? inputAt(petAt, { width: 268, height: 112 }) : null);
   input.open(at, {
     history: readJson(HISTORY_FILE()) ?? [],
     mode: inputMode,
     saving: body?.Saving === true,
     week: lastWeek, level: lastLevel, five: lastFive, weekResetsAt: lastWeekResetsAt,
     starters: starters(),
-  });
+  }, Boolean(dock));
 }
+/** The message he clicked to open the cockpit (sheet 16): what he types next answers it. No chip, no Reply key. */
+let dockedTurn: number | null = null;
 /** The last finished reply, so tucking away into the edge holds it rather than destroying it. */
 let heldBubble: Record<string, unknown> | null = null;
 /** The five-hour window, 0..1, and the unix second the week resets. Both feed the strip. */
@@ -256,6 +273,14 @@ const link = new CoreLink({
   onMessage: m => {
     // "Put X on": the one message the pop-out answers to. Everything else is passed to the windows.
     if (m.t === 'popout.open' && typeof m.url === 'string') { openPopout(m.url); return; }
+    // Sheet 17: the brain's list of running timers is the truth; the windows follow it.
+    if (m.t === 'timer.state' && Array.isArray(m.timers)) { timerWins?.sync(m.timers as TimerData[]); return; }
+    // Sheet 17's wheel, from the pet: held on Aang, then let go.
+    if (m.t === 'wheel.open') { wheel?.open({ x: Number(m.x) || 0, y: Number(m.y) || 0 }); return; }
+    if (m.t === 'wheel.release') { wheel?.release({ x: Number(m.x) || 0, y: Number(m.y) || 0 }); return; }
+    if (m.t === 'quiet.toggle') return;            // for the pet, not for us
+    // Sheet 17: the notes. The windows on his screen follow the list; the bubble's board gets it too.
+    if (m.t === 'notes.state' && Array.isArray(m.notes)) { notesLatest = m.notes as NoteData[]; noteWins?.sync(notesLatest); }
     // He clicked Aang. The pet does not open a box of its own any more; it asks for this one.
     if (m.t === 'typebox') { if (!input?.visible) openTypeBox(); return; }
     // 6.15: the pet's "Panel..." menu, with the new front end on, opens window 2 instead of the C# Panel.
@@ -476,6 +501,37 @@ app.whenReady().then(async () => {
       // when this switch is on, so there is exactly one owner and no fight over it.
       input = new InputBox({ origin: pages.origin, preloadPath: path.join(HERE, 'preload.cjs') });
       input.onGiveBack = () => link?.send({ t: 'refocus' });
+      // The cockpit closed: the bubble it was docked under lets go too (Esc or a click elsewhere closes both).
+      input.onUndock = () => { dockedTurn = null; bubble?.send('bubble:undock', null); };
+      // Sheet 17's wheel: hold the mouse on Aang, let go on a disc. His six, nothing else.
+      wheel = new Wheel({
+        origin: pages.origin, preloadPath: path.join(HERE, 'preload.cjs'),
+        pick: (slot) => {
+          if (slot === 'TIMER') bubble?.send('brain:message', { t: 'timer.setup' });
+          else if (slot === 'NOTES') bubble?.send('brain:message', { t: 'notes.board' });
+          else if (slot === 'BROWSER') aangBrowser?.open();
+          else if (slot === 'MUSIC') bubble?.send('brain:message', { t: 'whisper', text: 'Music', controls: 'media' });
+          else if (slot === 'SNIP') void snipper?.start();
+          else if (slot === 'QUIET') link?.send({ t: 'quiet.toggle' });
+        },
+      });
+      wheel.warm();
+      // Sheet 17: each note he pulled out onto his screen is its own window.
+      noteWins = new NoteWindows({
+        origin: pages.origin, preloadPath: path.join(HERE, 'preload.cjs'),
+        save: (n) => link?.send({ t: 'notes.save', note: n }),
+        overAang: (p) => {
+          const b = bubble?.window();
+          if (b && !b.isDestroyed() && b.isVisible()) { const r = b.getBounds(); if (p.x >= r.x && p.x < r.x + r.width && p.y >= r.y && p.y < r.y + r.height) return true; }
+          const s = petAt?.sprite;
+          return !!s && p.x >= s.x && p.x < s.x + s.width && p.y >= s.y && p.y < s.y + s.height;
+        },
+      });
+      // Sheet 17: each running timer is its own small window, put wherever he last left one.
+      timerWins = new TimerWindows({
+        origin: pages.origin, preloadPath: path.join(HERE, 'preload.cjs'), spotFile: path.join(STATE_DIR, 'timer-spot.json'),
+        near: () => petAt ? { x: petAt.sprite.x - 240, y: petAt.sprite.y + 10 } : null,
+      });
       input.window();
       const body = readJson(path.join(STATE_DIR, 'body.json')) as Record<string, unknown> | null;
       if (typeof body?.Mode === 'string') inputMode = body.Mode;
@@ -621,6 +677,10 @@ app.whenReady().then(async () => {
   function answerAsk(a: Record<string, unknown>): void {
     const choice = String(a.choice ?? '');
     if (a.t === 'plan') { link?.send({ t: 'plan.reply', id: String(a.id ?? ''), go: choice === 'go' }); return; }
+    // Sheet 17: "5 more" when a timer goes off is just a new five-minute timer with the same name.
+    if (a.t === 'timer.done') { if (choice === 'more') link?.send({ t: 'timer.start', ms: 5 * 60_000, label: String(a.label ?? '').slice(0, 40) }); return; }
+    // Sheet 16's glove list: the option's number, or -1 for "Something else".
+    if (a.t === 'choice') { const n = Number(choice); link?.send({ t: 'choice.reply', id: String(a.id ?? ''), pick: Number.isInteger(n) && n >= 0 && n < 4 ? n : -1 }); return; }
     if (typeof a.reminder === 'string' && a.reminder) {
       link?.send({ t: 'reminder.reply', id: a.reminder, snooze: choice === 'snooze' });
       return;
@@ -683,6 +743,96 @@ app.whenReady().then(async () => {
   });
   // Another page of his own history. `before` is a row id, so there is no limit: every time he reaches
   // the top it asks for the ones older than the oldest it has, until the database runs out.
+  // Sheet 16: a click on a message opens the cockpit. The page says where its drawn bubble is (window
+  // coordinates); the box goes right under it, its right edge on the bubble's, at its own 256 width.
+  ipcMain.on('bubble:dock', (e, a) => {
+    if (!fromBubble(e) || !a || typeof a !== 'object' || !input) return;
+    const w = bubble?.window();
+    if (!w || w.isDestroyed()) return;
+    const right = Number(a.right), bottom = Number(a.bottom);
+    if (!Number.isFinite(right) || !Number.isFinite(bottom)) return;
+    const [wx, wy] = w.getPosition();
+    const area = screen.getDisplayNearestPoint({ x: wx, y: wy }).workArea;
+    const width = 268, x = Math.round(wx + right - width + INPUT_FRAME_INSET);
+    const y = Math.round(wy + bottom + 4);
+    const turn = Number(a.turn);
+    dockedTurn = Number.isInteger(turn) ? turn : null;
+    openTypeBox({ x: Math.min(Math.max(x, area.x), area.x + area.width - width), y: Math.min(y, area.y + area.height - 70) });
+  });
+  // Sheet 17: the dial's Start, and the timer windows' own few requests. Each checked against its sender.
+  ipcMain.on('bubble:timerstart', (e, a) => {
+    if (!fromBubble(e) || !a || typeof a !== 'object') return;
+    const ms = Number(a.ms);
+    if (!Number.isFinite(ms) || ms < 1000 || ms > 24 * 3_600_000) return;
+    link?.send({ t: 'timer.start', ms: Math.round(ms), label: String(a.label ?? '').slice(0, 40) });
+  });
+  // Sheet 17 notes. From the bubble's board: edits, deletes, and a note dragged out onto the screen.
+  const noteOk = (n: unknown): n is NoteData => !!n && typeof n === 'object' && typeof (n as NoteData).id === 'string' && /^n[a-z0-9]{1,20}$/.test((n as NoteData).id);
+  ipcMain.on('bubble:notesave', (e, n) => {
+    if (!fromBubble(e) || !noteOk(n)) return;
+    // The board never moves a note on the screen: where it is stays whatever it was.
+    const was = notesLatest.find((x) => x.id === n.id);
+    link?.send({ t: 'notes.save', note: { ...n, out: was?.out } });
+  });
+  // Sheet 17: typing in a note in the bubble. The bubble is never focusable otherwise, so WoW keeps the keyboard;
+  // when he is done, the keyboard goes back to the window he was in.
+  let bubbleTyping = false;
+  ipcMain.on('bubble:typing', (e, on) => {
+    if (!fromBubble(e)) return;
+    const want = on === true;
+    if (want === bubbleTyping) return;
+    bubbleTyping = want;
+    const w = bubble?.window();
+    if (!w || w.isDestroyed()) return;
+    bubble?.setFocusable(want);
+    if (want) { w.focus(); w.webContents.focus(); }
+    else link?.send({ t: 'refocus' });
+  });
+  ipcMain.on('bubble:notedelete', (e, id) => { if (fromBubble(e) && typeof id === 'string') link?.send({ t: 'notes.delete', id }); });
+  ipcMain.on('bubble:notepull', (e, a) => {
+    if (!fromBubble(e) || !a || typeof a !== 'object') return;
+    const n = notesLatest.find((x) => x.id === a.id);
+    const x = Number(a.x), y = Number(a.y);
+    if (!n || !Number.isFinite(x) || !Number.isFinite(y)) return;
+    noteWins?.pull(n, { x, y }, String(a.phase ?? ''));
+  });
+  // From a note on the screen: each one only ever speaks for its own note.
+  ipcMain.on('note:save', (e, n) => {
+    const v = noteWins?.of(e.sender);
+    if (!v || !noteOk(n) || n.id !== v.id) return;
+    link?.send({ t: 'notes.save', note: { ...n, out: v.note.out } });
+  });
+  ipcMain.on('note:move', (e, a) => {
+    if (!noteWins?.of(e.sender) || !a || typeof a !== 'object') return;
+    noteWins.move(e.sender, a.kind === 'resize' ? 'resize' : 'drag', String(a.phase ?? ''), Number(a.dx) || 0, Number(a.dy) || 0);
+  });
+  ipcMain.on('note:menu', (e, a) => {
+    const open = a === true || (!!a && typeof a === 'object' && (a as { open?: unknown }).open === true);
+    const at = a && typeof a === 'object' ? { x: Number((a as { x?: unknown }).x) || 0, y: Number((a as { y?: unknown }).y) || 0 } : null;
+    noteWins?.menu(e.sender, open, at);
+  });
+  ipcMain.on('note:opacity', (e, n) => { noteWins?.setOpacity(e.sender, Number(n)); });
+  ipcMain.on('note:pin', (e) => { const v = noteWins?.of(e.sender); if (v) noteWins!.setPinned(v.id, true); });
+  ipcMain.on('note:back', (e) => { const v = noteWins?.of(e.sender); if (v) noteWins!.back(v.id); });
+  ipcMain.on('note:delete', (e) => { const v = noteWins?.of(e.sender); if (v) link?.send({ t: 'notes.delete', id: v.id }); });
+  ipcMain.on('wheel:pick', (e, slot) => { if (wheel?.owns(e.sender)) wheel.picked(e.sender, typeof slot === 'string' ? slot.slice(0, 12) : ''); });
+  ipcMain.on('timer:clickable', (e, on) => { if (timerWins?.owns(e.sender)) timerWins.clickable(e.sender, on === true); });
+  ipcMain.on('timer:opacity', (e, n) => { if (timerWins?.owns(e.sender)) timerWins.opacity(e.sender, Number(n)); });
+  ipcMain.on('timer:pin', (e) => { if (timerWins?.owns(e.sender)) timerWins.pin(e.sender); });
+  ipcMain.on('timer:drag', (e, a) => {
+    if (!timerWins?.owns(e.sender) || !a || typeof a !== 'object') return;
+    timerWins.drag(e.sender, String(a.phase ?? ''), Number(a.dx) || 0, Number(a.dy) || 0);
+  });
+  ipcMain.on('timer:act', (e, a) => {
+    const id = timerWins?.idOf(e.sender);
+    if (!id || !a || typeof a !== 'object') return;
+    const action = a.action === 'add' || a.action === 'pause' || a.action === 'stop' ? a.action : null;
+    if (action) link?.send({ t: 'timer.act', id, action });
+  });
+  ipcMain.on('bubble:choiceforget', (e, key) => {
+    if (!fromBubble(e) || typeof key !== 'string' || !key) return;
+    link?.send({ t: 'choice.forget', key: key.slice(0, 60) });
+  });
   ipcMain.on('bubble:clickable', (e, on) => { if (fromBubble(e)) bubble?.setClickable(on === true); });
   ipcMain.on('bubble:media', (e, key) => {
     if (!fromBubble(e) || (key !== 'playpause' && key !== 'next' && key !== 'previous')) return;
@@ -754,7 +904,7 @@ app.whenReady().then(async () => {
     const sid = 's' + Date.now();
     const sent = link?.send({
       t: 'submit', id: sid, text: a.text.slice(0, 20_000) + attached, mode,
-      ...(replyTo ? { replyTo: replyTo.turn } : {}),
+      ...(replyTo ? { replyTo: replyTo.turn } : dockedTurn !== null ? { replyTo: dockedTurn } : {}),
       ...(pinned.length ? { context: pinned.map((p) => p.turn) } : {}),
     });
     // The brain was not there to take it. link.send returns false and the message is gone unless we
@@ -784,6 +934,8 @@ app.whenReady().then(async () => {
     // `lastText`). The brain never sends his own words back, and the old box knew them because it was
     // the same program; the Shell has to carry them across itself.
     bubble?.send('brain:message', { t: 'asked', text: a.text });
+    // Sent from the cockpit: the bubble stays for the answer, so the box leaves without taking it along.
+    if (input?.docked) { input.docked = false; dockedTurn = null; bubble?.send('bubble:undock', 'sent'); }
     input?.close();                                      // the old box closes on send too
   });
   ipcMain.on('input:history', (e, list) => {

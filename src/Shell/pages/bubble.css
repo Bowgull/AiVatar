@@ -459,3 +459,75 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
 .wrap:not(.over) #asks,.wrap:not(.over) #count{display:none}
 /* The word a click acts on (a Claude session), as the old bubble drew it. */
 #said .link{font-weight:800;color:#E88A6A;text-decoration:underline;text-underline-offset:2px}
+/* ---- sheet 16: who is talking, straight on the parchment, no plate ---- */
+.speaker{display:flex;align-items:center;gap:7px;margin:0 0 6px;font:400 10px var(--label);color:#6b4318;letter-spacing:1.5px}
+.speaker[hidden]{display:none}
+.speaker img{width:20px;height:20px;image-rendering:pixelated}
+.speaker.claude{color:#8a3e1c}
+.speaker .clk{width:18px;height:18px}
+.speaker .mc{font:400 8px var(--label);letter-spacing:1px;color:#6b4318;border:1.5px solid rgba(107,67,24,.55);border-radius:4px;padding:2px 4px 1px}
+.speaker .mc.mac{color:#5b2f8f;border-color:rgba(91,47,143,.5)}
+/* "Open Claude" only while the pointer is on the bubble. */
+.speaker .okey{margin-left:auto;opacity:0;pointer-events:none;transition:opacity .15s}
+#bubble:hover .speaker .okey{opacity:1;pointer-events:auto}
+/* ---- sheet 16: choices with the FFX glove, plum number keys on hover ---- */
+.opts{display:grid;gap:4px;margin-top:9px}
+.opts[hidden]{display:none}
+.opts.guard{pointer-events:none}
+.opt{position:relative;display:flex;align-items:center;gap:10px;padding:7px 10px 7px 38px;border-radius:8px;font:600 15px var(--body);color:#2a1c10;cursor:pointer}
+.opt .hint{display:block;font:500 12px var(--body);color:#7a6440}
+.opt.other .lab{color:#7a6440}
+.opt .kc{margin-left:auto;font:400 9px var(--label);width:22px;height:22px;border-radius:5px;display:grid;place-items:center;border:2px solid var(--outline);background:linear-gradient(180deg,var(--plum),var(--plum-deep));color:#f3eaff;box-shadow:0 2px 0 var(--outline);opacity:0;flex:none}
+.opts:hover .kc{opacity:1}
+.glove .opt.on{color:#7a3d10}
+.glove .opt.on::before{content:"";position:absolute;left:6px;top:50%;width:26px;height:20px;margin-top:-10px;background:url(art/browser/hand.png) 0 0/26px 20px;image-rendering:pixelated;filter:drop-shadow(1px 1px 0 rgba(0,0,0,.6))}
+/* the gold "change" link under a reply that used a remembered pick */
+.chg{display:block;margin:6px 0 0;padding:0;border:0;background:none;font:700 13px var(--body);color:#9a6a00;text-decoration:underline;cursor:pointer}
+.chg[hidden]{display:none}
+
+/* ---- sheet 17: the timer dial, with backdrop B (a soft wood panel behind the dial only) ---- */
+.tset{display:flex;flex-direction:column;align-items:stretch}
+.tplaque{display:flex;align-items:center;justify-content:center;margin:0 auto 10px;width:max-content;padding:5px 14px;border:3px solid var(--outline);border-radius:8px;
+  background:linear-gradient(180deg,rgba(0,0,0,.1),rgba(0,0,0,.3)),url(art/browser/band.png) 0 0/128px 58px;image-rendering:pixelated;box-shadow:0 3px 0 var(--outline),inset 0 2px 0 rgba(255,220,170,.15)}
+.tplaque span{font:600 14px var(--display);color:var(--gold);letter-spacing:2px;text-shadow:2px 2px 0 #000}
+.dialwrap{width:236px;margin:0 auto 12px;padding:10px 0;display:grid;place-items:center;border-radius:18px;
+  background:linear-gradient(180deg,rgba(255,240,210,.18),rgba(0,0,0,.12)),url(art/browser/band.png) 0 0/128px 58px;image-rendering:pixelated;
+  border:3px solid rgba(18,10,5,.55);box-shadow:inset 0 3px 0 rgba(255,220,170,.18),inset 0 -3px 0 rgba(0,0,0,.25)}
+.dial{width:190px;height:190px;cursor:grab;touch-action:none;image-rendering:auto}
+.dial .dt{font:400 22px var(--label);fill:#FFC43C}.dial .dsub{font:400 8px var(--label);fill:#a98b5a;letter-spacing:2px}.dial .dn{font:400 9px var(--label);fill:#a98b5a}
+.presets{display:flex;gap:7px;justify-content:center;margin-bottom:12px}
+.pre{font:400 10px var(--label);letter-spacing:1px;padding:6px 10px 5px;border:2.5px solid var(--outline);border-radius:7px;background:linear-gradient(180deg,var(--plum),var(--plum-deep));color:#f3eaff;cursor:pointer;box-shadow:0 3px 0 var(--outline),inset 0 2px 0 rgba(255,255,255,.18)}
+.pre.on{background:linear-gradient(180deg,var(--gold-light),var(--gold-deep));color:#2a1c00}
+.tname{display:flex;align-items:center;gap:8px;margin:0 0 10px;font:400 9px var(--label);color:#7a6440;letter-spacing:1px}
+.tin{flex:1;font:600 14px var(--body);color:#2a1c10;border-bottom:2px dashed rgba(90,52,18,.4);outline:none;padding:2px 2px;min-height:20px}
+.tin:empty::before{content:attr(data-ph);color:#a8916a;font-weight:500}
+
+/* ---- sheet 17: the notes board (six a page, all one size, gold arrows when there are more) ---- */
+.ctitle{font:600 15px var(--display);color:#5a3412;letter-spacing:.5px;margin:0 0 10px;display:flex;align-items:center;gap:8px}
+.ctitle .back{font:400 9px var(--label);color:#7a3d10;cursor:pointer;letter-spacing:1px;border:2px solid rgba(122,61,16,.45);border-radius:5px;padding:3px 6px 2px;background:none}
+.hint2{margin-left:auto;font:500 11.5px var(--body);color:#7a6440;letter-spacing:0}
+.newk{margin-left:auto;font:400 9px var(--label);letter-spacing:1px;color:#2a1c00;background:linear-gradient(180deg,var(--gold-light),var(--gold-deep));border:2.5px solid var(--outline);border-radius:6px;padding:4px 7px 3px;cursor:pointer;box-shadow:0 2px 0 var(--outline)}
+.bdots{display:inline-flex;gap:4px;margin-left:4px}.bdots i{width:7px;height:7px;border-radius:50%;border:1.5px solid #5a3412}.bdots i.on{background:var(--gold-deep)}
+.boardwrap{position:relative}
+.board{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-auto-rows:104px;gap:18px 14px;padding:20px 16px 14px;border:4px solid var(--outline);border-radius:10px;
+  background:linear-gradient(180deg,rgba(0,0,0,.12),rgba(0,0,0,.3)),url(art/browser/band.png) 0 0/128px 58px;image-rendering:pixelated;box-shadow:inset 0 3px 0 rgba(255,220,170,.14)}
+.bempty{grid-column:1/-1;align-self:center;text-align:center;font:500 13px var(--body);color:#F1E4CC;text-shadow:1px 1px 0 #000}
+.bcap{position:absolute;top:50%;margin-top:-17px;width:24px;height:34px;z-index:3;border:3px solid var(--outline);border-radius:8px;background:linear-gradient(180deg,var(--gold-light),var(--gold-deep));
+  display:grid;place-items:center;font-size:11px;color:#2a1c00;cursor:pointer;box-shadow:0 3px 0 var(--outline);padding:0}
+.bcap.l{left:-14px}.bcap.r{right:-14px}.bcap.off{opacity:.35;pointer-events:none}
+.nmini{position:relative;min-width:0;padding:14px 10px 8px;background:linear-gradient(180deg,var(--pa),var(--pb));border:3px solid var(--outline);border-radius:5px;color:var(--ink2);
+  font:600 12.5px/17px var(--nf,'Figtree');transform:rotate(var(--r,0deg));box-shadow:3px 4px 0 rgba(0,0,0,.45);cursor:grab;touch-action:none;transition:transform .15s,box-shadow .15s;image-rendering:auto;user-select:none}
+.nmini:hover{transform:rotate(0deg) translateY(-3px);box-shadow:4px 7px 0 rgba(0,0,0,.45)}
+.nmini.lifting{transition:none;cursor:grabbing;z-index:20}
+.nmini.gone{opacity:.45}
+.nmini .pin{position:absolute;top:-9px;left:50%;margin-left:-8.5px;width:17px;height:17px;box-sizing:border-box;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,var(--pinl),var(--pin) 70%);border:2.5px solid var(--outline);box-shadow:1px 2px 0 rgba(0,0,0,.4)}
+.nmi{height:100%;overflow:hidden}
+.nmini b{display:block;font:600 13px var(--display);margin:0 0 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nmini .ml{display:block;font-size:11.5px;line-height:16px;color:var(--sub2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nmini .ml.done{text-decoration:line-through;opacity:.6}
+.tickc{position:absolute;right:7px;bottom:5px;font:400 8px var(--label);color:var(--sub2);letter-spacing:1px}
+.onscreen{position:absolute;left:7px;bottom:5px;font:400 7px var(--label);color:var(--sub2);letter-spacing:1px}
+.nmini.slot{background:rgba(0,0,0,.14);border:3px dashed rgba(255,224,150,.18);box-shadow:none;transform:none;cursor:default}
+.bignote{padding:20px 20px 16px;box-shadow:4px 5px 0 rgba(0,0,0,.4)}
+.inline .nmenu{position:static;width:auto;margin-top:12px}

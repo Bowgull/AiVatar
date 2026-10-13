@@ -1,0 +1,11 @@
+/* Sheet 17's wheel (approved 2026-10-12): wood discs, a gold ring on the one under the mouse, pixel icons in their
+   own colours with a dark outline, the name above in pixel letters. */
+html,body{margin:0;background:transparent;overflow:hidden;width:100%;height:100%}
+.disc{position:absolute;width:62px;height:62px;margin:-31px 0 0 -31px;border-radius:50%;border:3px solid var(--outline);box-sizing:border-box;
+  background:url(art/browser/band.png) 0 0/128px 58px;image-rendering:pixelated;display:grid;place-items:center;
+  box-shadow:0 4px 0 var(--outline),0 8px 16px rgba(0,0,0,.5);transform:scale(0);transition:transform .22s cubic-bezier(.32,1.5,.5,1),box-shadow .15s}
+.disc.in{transform:scale(1)}
+.disc.on{box-shadow:0 0 0 3px var(--gold),0 4px 0 var(--outline),0 8px 16px rgba(0,0,0,.5);transform:scale(1.1)}
+.disc span{position:absolute;top:-15px;font:400 8px var(--label);color:var(--gold-light);white-space:nowrap;text-shadow:1px 1px 0 #000;letter-spacing:1px}
+.gi{filter:drop-shadow(1.5px 0 0 #120A05) drop-shadow(-1.5px 0 0 #120A05) drop-shadow(0 1.5px 0 #120A05) drop-shadow(0 -1.5px 0 #120A05) drop-shadow(2px 3px 0 rgba(0,0,0,.55))}
+@media (prefers-reduced-motion:reduce){.disc{transition:none}}

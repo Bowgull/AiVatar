@@ -18,6 +18,7 @@ const TYPES: Record<string, string> = {
   '.png': 'image/png',
   '.svg': 'image/svg+xml',
   '.woff2': 'font/woff2',
+  '.ttf': 'font/ttf',
 };
 
 export interface PageServer {

@@ -41,3 +41,18 @@ the arrows and the replacement character. That covers English, accented names, a
 cockpit draws. It does NOT include latin-ext (U+0100 and up), which is Polish, Czech, Turkish and the
 like. If a name ever renders as empty boxes, that is why, and the fix is to fetch the latin-ext file
 for that face too.
+
+
+The note fonts (sheet 17, added 2026-10-12, downloaded with Joshua's yes)
+=======================================================================
+
+Six extra faces for his sticky notes, picked from the right-click menu. TTF straight from Google's own
+fonts repository, in fonts/notes/ with each licence beside it. Bundled for the same three reasons as above.
+
+Caveat.ttf           "Caveat" by Impallari Type       ofl/caveat         SIL OFL 1.1  (OFL-Caveat.txt)        Handwritten
+PatrickHand.ttf      "Patrick Hand" by P. Wagesreiter ofl/patrickhand    SIL OFL 1.1  (OFL-PatrickHand.txt)   Marker
+IMFellEnglish.ttf    "IM FELL English" by I. Marini    ofl/imfellenglish  SIL OFL 1.1  (OFL-IMFellEnglish.txt) Storybook
+SpecialElite.ttf     "Special Elite" by Astigmatic     apache/specialelite Apache 2.0  (LICENSE-SpecialElite.txt) Typewriter
+VT323.ttf            "VT323" by Peter Hull             ofl/vt323          SIL OFL 1.1  (OFL-VT323.txt)         Terminal
+PressStart2P.ttf     "Press Start 2P" by CodeMan38     ofl/pressstart2p   SIL OFL 1.1  (OFL-PressStart2P.txt)  Arcade
+Source: https://github.com/google/fonts

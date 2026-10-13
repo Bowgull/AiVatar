@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- Sheet 17: one running timer. A hand-drawn hourglass on a wood plate he can put anywhere on his screen. -->
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' data:;
+               font-src 'self'; style-src-attr 'unsafe-inline'; form-action 'none'; base-uri 'none'">
+<title>Timer</title>
+<link rel="stylesheet" href="cockpit.css">
+<link rel="stylesheet" href="timer.css">
+</head>
+<body>
+<div class="tw" id="tw">
+  <span id="glass"></span>
+  <div class="twr"><span class="twl" id="label">Timer</span><span class="tmv" id="left">0:00</span></div>
+  <div class="trow" id="keys">
+    <button class="tb" id="add" type="button" title="One more minute">+1</button>
+    <button class="tb" id="pause" type="button" title="Pause">II</button>
+    <button class="tb stop" id="stop" type="button" title="Stop">X</button>
+  </div>
+</div>
+<div class="nmenu" id="menu" hidden>
+  <div class="nm-lab">SEE-THROUGH</div>
+  <div class="nm-slide"><input type="range" min="25" max="100" value="100" id="see"><span id="seev">100%</span></div>
+  <div class="nm-sep"></div>
+  <button class="mrow2" id="pin" type="button">Pin</button>
+  <button class="mrow2 warn" id="mstop" type="button">Stop</button>
+</div>
+<script src="timer.js" type="module"></script>
+</body>
+</html>
