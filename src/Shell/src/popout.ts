@@ -53,6 +53,7 @@ export class Popout {
     this.chrome = px;
     const w = this.window;
     if (!w) return;
+    w.setAspectRatio(16 / 9, { width: 0, height: this.chrome });
     const b = w.getBounds();
     const { width, height } = hold169(b.width, b.height, 'width', this.chrome);
     if (height !== b.height) w.setBounds({ ...b, width, height });
@@ -104,7 +105,7 @@ export class Popout {
       void within(wc.executeJavaScript(STATE_JS, true), 600, null).then((s) => {
         if (s && typeof s === 'object') this.window?.webContents.send('popout:tabstate', cleanState(s as Record<string, unknown>));
         // The next video (autoplay) can be a new player: pin it again, so it stays the bare picture.
-        else void within(wc.executeJavaScript(FOCUS_JS, true), 600, false);
+        else void within(wc.executeJavaScript(FOCUS_JS, true), 600, false).then((ok) => { if (ok) void within(wc.executeJavaScript(BEST_QUALITY_JS, true), 1500, null); });
       });
     }, 500);
     const lent = { view, back, poll, cursor, css: null as string | null };
@@ -119,7 +120,10 @@ export class Popout {
     const focus = () => {
       if (this.lent !== lent) return;
       if (!this.window?.isVisible()) { setTimeout(focus, 150); return; }
-      void within(wc.executeJavaScript(FOCUS_JS, true), 1500, false).then((ok) => { if (!ok && ++tries < 10) setTimeout(focus, 500); });
+      void within(wc.executeJavaScript(FOCUS_JS, true), 1500, false).then((ok) => {
+        if (!ok && ++tries < 10) { setTimeout(focus, 500); return; }
+        if (ok) void within(wc.executeJavaScript(BEST_QUALITY_JS, true), 1500, null);
+      });
     };
     w.show();
     focus();
@@ -223,6 +227,9 @@ export class Popout {
     });
 
     softEdge(this.win);
+    // His report (2026-10-13): resizing was glitchy. Aang let the drag happen, then snapped the window back to 16 by 9
+    // after each move, fighting his mouse. Now the window itself keeps 16 by 9 (the picture) plus the bar while he drags.
+    this.win.setAspectRatio(16 / 9, { width: 0, height: this.chrome });
     // On the Mac the wooden bar's own buttons are the window's buttons; macOS's floating ones stay hidden (M6).
     if (process.platform === 'darwin') this.win.setWindowButtonVisibility(false);
     // Above a fullscreen game, not merely above ordinary windows.
@@ -315,6 +322,9 @@ export class Popout {
       const { width, height } = hold169(b.width, b.height, 'width', this.chrome);
       let box: Box = snapToEdges({ ...b, width, height }, area);
 
+      // Within 3 pixels is the window's own rounding of the shape it holds: leave it, never a jump under his mouse.
+      const near = (a: number, c: number) => Math.abs(a - c) <= 3;
+      if (near(box.width, b.width) && near(box.height, b.height)) box = { ...box, width: b.width, height: b.height };
       const moved = box.x !== b.x || box.y !== b.y || box.width !== b.width || box.height !== b.height;
       if (moved) {
         this.correcting = true;
@@ -442,16 +452,35 @@ export const FOCUS_JS = `(() => {
 export const UNPIN_JS = `(() => { document.documentElement.classList.remove('aang-bare');
   for (const el of document.querySelectorAll('[data-aang-player],[data-aang-path]')) { el.removeAttribute('data-aang-player'); el.removeAttribute('data-aang-path'); }
   return true; })()`;
-/** The bare picture (his pick): the player over everything, the video filling it, the site's own buttons hidden. Captions stay. */
+/**
+ * Never a lower picture because the window is small (his rule, 2026-10-13): YouTube is told to play its best quality
+ * (its own player's methods, on its own page); Twitch is told to remember Source as his choice, which its player reads,
+ * and he can pick any quality in Twitch's own menu (now shown). Returns what it did, for the log.
+ */
+export const BEST_QUALITY_JS = `(() => {
+  try {
+    const p = document.getElementById('movie_player');
+    if (p && typeof p.getAvailableQualityLevels === 'function') {
+      const best = (p.getAvailableQualityLevels() || []).filter(q => q !== 'auto')[0];
+      if (best) { if (p.setPlaybackQualityRange) p.setPlaybackQualityRange(best, best); if (p.setPlaybackQuality) p.setPlaybackQuality(best); return 'youtube ' + best; }
+    }
+    if (/(^|\\.)twitch\\.tv$/.test(location.hostname)) { localStorage.setItem('video-quality', JSON.stringify({ default: 'chunked' })); return 'twitch source'; }
+  } catch (e) { return 'quality: ' + e.message; }
+  return null;
+})()`;
+/**
+ * The bare picture (his pick): the player over everything, the video filling it. The site's own controls show when
+ * he moves the mouse over the video and hide again by themselves (2026-10-13, his ask: quality, captions, speed live
+ * in YouTube's and Twitch's own menus, so Aang's duplicate buttons are gone). Captions stay.
+ */
 export const BARE_CSS = `html.aang-bare, html.aang-bare body { overflow:hidden !important; background:#000 !important; }
 html.aang-bare [data-aang-path] { transform:none !important; filter:none !important; contain:none !important; will-change:auto !important; perspective:none !important; backdrop-filter:none !important; }
 html.aang-bare body * { visibility:hidden !important; }
-html.aang-bare [data-aang-player], html.aang-bare [data-aang-player] video, html.aang-bare .ytp-caption-window-container, html.aang-bare .ytp-caption-window-container *, html.aang-bare .player-captions-container, html.aang-bare .player-captions-container * { visibility:visible !important; }
+html.aang-bare [data-aang-player], html.aang-bare [data-aang-player] *, html.aang-bare .ytp-caption-window-container, html.aang-bare .ytp-caption-window-container *, html.aang-bare .player-captions-container, html.aang-bare .player-captions-container * { visibility:visible !important; }
 html.aang-bare [data-aang-player] { position:fixed !important; left:0 !important; top:0 !important; width:100vw !important; height:100vh !important; max-width:none !important; max-height:none !important; z-index:2147483646 !important; background:#000 !important; margin:0 !important; transform:none !important; }
 html.aang-bare [data-aang-player] video { position:fixed !important; left:0 !important; top:0 !important; width:100vw !important; height:100vh !important; object-fit:contain !important; background:#000 !important; margin:0 !important; transform:none !important; }
 html.aang-bare .html5-video-container { position:absolute !important; inset:0 !important; width:100% !important; height:100% !important; }
-html.aang-bare .ytp-chrome-bottom,html.aang-bare .ytp-chrome-top,html.aang-bare .ytp-gradient-top,html.aang-bare .ytp-gradient-bottom,html.aang-bare .ytp-pause-overlay,html.aang-bare .ytp-ce-element,html.aang-bare .ytp-endscreen-content,html.aang-bare .ytp-watermark,html.aang-bare .ytp-paid-content-overlay,html.aang-bare .ytp-overflow-button,html.aang-bare .ytp-cards-teaser,html.aang-bare .ytp-iv-player-content{display:none !important}
-html.aang-bare video::-webkit-media-controls{display:none !important}`;
+html.aang-bare .ytp-pause-overlay,html.aang-bare .ytp-ce-element,html.aang-bare .ytp-endscreen-content,html.aang-bare .ytp-watermark,html.aang-bare .ytp-paid-content-overlay,html.aang-bare .ytp-overflow-button,html.aang-bare .ytp-cards-teaser,html.aang-bare .ytp-iv-player-content{display:none !important}`;
 const STATE_JS = `(() => { const v = window.__aangVideo; if (!v || !v.isConnected) { return null; }
   return { at: v.currentTime, length: v.duration, paused: v.paused, volume: v.volume, muted: v.muted }; })()`;
 /** The page's numbers, checked: it is someone else's page, so nothing it says is trusted as anything but a number. */

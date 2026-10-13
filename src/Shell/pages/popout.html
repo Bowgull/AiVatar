@@ -32,7 +32,9 @@
         <button class="undo" id="skipundo">Undo</button>
       </div>
     </div>
-    <div class="ctrl" id="ctrl">
+    <!-- 2026-10-13, his ask: the site's own player controls show in the picture, so Aang's play, scrub, time, mute and
+         volume are gone (kept hidden here only so the page's scripts still find them). -->
+    <div class="ctrl" id="ctrl" hidden>
       <button class="ico gold" id="play" title="Play and pause">
         <svg viewBox="0 0 16 16" id="playicon" shape-rendering="crispEdges"><path d="M4 3h3v10H4zM9 3h3v10H9z"/></svg>
       </button>
@@ -42,10 +44,10 @@
       <span class="tnum" id="time">0:00 / 0:00</span>
     </div>
     <div class="ctrl" id="ctrl2" style="border-top:none;padding-top:0">
-      <button class="ico sm" id="mute" title="Mute">
+      <button class="ico sm" id="mute" title="Mute" hidden>
 <svg viewBox="0 0 7 7" width="12" height="12" shape-rendering="crispEdges" aria-hidden="true"><path d="M3 0h1v1h-1zM2 1h1v1h-1zM3 1h1v1h-1zM5 1h1v1h-1zM0 2h1v1h-1zM1 2h1v1h-1zM2 2h1v1h-1zM3 2h1v1h-1zM6 2h1v1h-1zM0 3h1v1h-1zM1 3h1v1h-1zM2 3h1v1h-1zM3 3h1v1h-1zM6 3h1v1h-1zM0 4h1v1h-1zM1 4h1v1h-1zM2 4h1v1h-1zM3 4h1v1h-1zM6 4h1v1h-1zM2 5h1v1h-1zM3 5h1v1h-1zM5 5h1v1h-1zM3 6h1v1h-1z" fill="#e8e0f5"/></svg>
       </button>
-      <div class="track short" id="vol" title="Volume">
+      <div class="track short" id="vol" title="Volume" hidden>
         <i class="fill" id="volfill"></i><i class="knob" id="volknob"></i>
       </div>
       <button class="ico sm" id="seethroughicon" title="See-through"><svg viewBox="0 0 7 7" width="12" height="12" shape-rendering="crispEdges" aria-hidden="true"><path d="M2 0h1v1h-1zM3 0h1v1h-1zM4 0h1v1h-1zM1 1h1v1h-1zM2 1h1v1h-1zM5 1h1v1h-1zM0 2h1v1h-1zM1 2h1v1h-1zM2 2h1v1h-1zM6 2h1v1h-1zM0 3h1v1h-1zM1 3h1v1h-1zM2 3h1v1h-1zM6 3h1v1h-1zM0 4h1v1h-1zM1 4h1v1h-1zM2 4h1v1h-1zM6 4h1v1h-1zM1 5h1v1h-1zM2 5h1v1h-1zM5 5h1v1h-1zM2 6h1v1h-1zM3 6h1v1h-1zM4 6h1v1h-1z" fill="#FFE096"/></svg></button>
