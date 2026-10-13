@@ -27,6 +27,7 @@ app.whenReady().then(async () => {
   const cases: [string, unknown][] = [
     ['job', { headline: 'Claude is on it', sub: 'Step 4 of 6: waiting on you', steps: 6, at: 4 }],
     ['needs', { title: 'Delete 3 old test files?', text: 'They test the old bubble, which the new one replaced. Nothing else uses them.' }],
+    ['watched', { meta: '0:48, read from the transcript', title: 'Lemon pasta in 10 minutes', kind: 'recipe', shows: 'A quick lemon pasta with butter and parmesan.', useful: [{ who: 'you', what: 'dinner tonight' }, { who: 'Aang', what: 'nothing, just for fun' }], best: 0 }],
     ['home', { tiles: [{ k: 'CLAUDE THIS WEEK', v: '31%, on pace', fill: 0.31 }, { k: 'RUNNING', v: '1 Claude job' }, { k: 'WAITING ON YOU', v: '2 things', tone: 'warn' }, { k: 'YOUR PC', v: 'On', tone: 'good' }] }],
   ];
   for (const [kind, data] of cases) {

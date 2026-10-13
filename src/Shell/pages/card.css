@@ -25,6 +25,15 @@ body{font-family:Figtree,system-ui,sans-serif;-webkit-font-smoothing:antialiased
 .sprite{width:72px;height:72px;image-rendering:pixelated;align-self:flex-end;flex:0 0 auto}
 .drawn{position:absolute;right:7px;top:5px;font:400 7.5px Silkscreen,monospace;color:#8a6a2a}
 
+/* a watched video */
+.meta{font-size:11.5px;font-weight:700;color:#5A4834}
+.kind{font-size:12.5px;font-weight:800;color:#8a4a1a}
+.rule{height:2px;background:rgba(18,10,5,.25);border-radius:1px}
+.lbl{font:400 9.5px Silkscreen,monospace;color:#8a6a2a;letter-spacing:1px}
+.use{display:flex;align-items:center;gap:8px;border:2px solid rgba(18,10,5,.35);border-radius:8px;padding:5px 8px;font-size:13.5px;font-weight:600;color:#4e3d28}
+.use.best{background:rgba(255,196,60,.35);border-color:#120A05;font-weight:700;color:#2E2216}
+.use .tag{font:400 9px Silkscreen,monospace;color:#2A1C08;background:#FFC43C;border:1.5px solid #120A05;border-radius:4px;padding:1px 5px}
+
 /* the home card: a panel of pixel-painted wood, the same as the browser's band and tray */
 .wood{position:relative;width:340px;box-sizing:border-box;border-radius:9px;border:3px solid #120A05;padding:9px;
   background:url(art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated;

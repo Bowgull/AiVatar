@@ -5,7 +5,7 @@
 import { BrowserWindow } from 'electron';
 import { SAFE_WEB_PREFERENCES, lockDown } from './safety.ts';
 
-export const CARD_KINDS = new Set(['job', 'needs', 'home']);
+export const CARD_KINDS = new Set(['job', 'needs', 'home', 'watched']);
 
 export class CardRenderer {
   private win: BrowserWindow | null = null;

@@ -24,6 +24,7 @@ export class WsCoreLink implements CoreLink {
     ws.on('open', () => ws.send(JSON.stringify({ t: 'hello', v: 1, client: 'discord' })));
     ws.on('message', d => {
       let m: any; try { m = JSON.parse(String(d)); } catch { return; }
+      if (m?.t === 'video.card') { const w = this.videoWait.get(String(m.id)); if (w) { this.videoWait.delete(String(m.id)); w(m); } return; }
       if (m?.t === 'home.data') { const w = this.homeWait.get(String(m.id)); if (w) { this.homeWait.delete(String(m.id)); w(m); } return; }
       if (m?.t === 'card.png') { const w = this.cardWait.get(String(m.id)); if (w) { this.cardWait.delete(String(m.id)); w(m.ok && typeof m.png === 'string' ? Buffer.from(m.png, 'base64') : null); } return; }
       for (const cb of this.cbs) cb(m);
@@ -64,6 +65,18 @@ export class WsCoreLink implements CoreLink {
   claudeReply(cwd: string, text: string) { this.send({ t: 'claude.reply', cwd, text }); }
   openClaude(cwd: string) { this.send({ t: 'claude.open', cwd }); }
   stepAway() { this.send({ t: 'away' }); }
+  addIdea(text: string) { this.send({ t: 'idea.add', text }); }
+  /** 9.D D7: watch a video and say what it is. Up to two minutes: Qwen reads it, or Claude Quick when it cannot. */
+  private videoWait = new Map<string, (d: any) => void>(); private videoSeq = 0;
+  watchVideo(url: string): Promise<any | null> {
+    if (this.ws?.readyState !== WebSocket.OPEN) return Promise.resolve(null);
+    const id = 'vid' + ++this.videoSeq;
+    return new Promise(res => {
+      const t = setTimeout(() => { this.videoWait.delete(id); res(null); }, 150_000);
+      this.videoWait.set(id, d => { clearTimeout(t); res(d); });
+      this.send({ t: 'video.watch', id, url });
+    });
+  }
   putOn(words: string) { this.send({ t: 'puton', words }); }
   /** 9.D D6: the home card's numbers from the brain, or null if it does not answer. */
   private homeWait = new Map<string, (d: any) => void>(); private homeSeq = 0;

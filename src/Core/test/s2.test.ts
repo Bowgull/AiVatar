@@ -85,9 +85,9 @@ test('2.6 after outside content, remember, correct, do_task and drafts ask first
   c.memory.close();
 });
 
-test('2.7 search_memory, what_we_talked_about, claude_code_status and browser_history mark the turn', () => {
+test('2.7 search_memory, what_we_talked_about, claude_code_status, browser_history and watch_video mark the turn', () => {
   const src = readFileSync(path.join(import.meta.dirname, '..', 'src', 'tools.ts'), 'utf8');
-  assert.match(src, /BRINGS_OUTSIDE = new Set\(\['search_memory', 'what_we_talked_about', 'claude_code_status', 'browser_history'\]\)/);
+  assert.match(src, /BRINGS_OUTSIDE = new Set\(\['search_memory', 'what_we_talked_about', 'claude_code_status', 'browser_history', 'watch_video'\]\)/);
   const c = core();
   c.doers().markOutside();
   assert.equal(c.tainted, true);
