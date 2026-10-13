@@ -287,6 +287,8 @@ const link = new CoreLink({
   onMessage: m => {
     // M6: the Mac's browser, through the brain. Only the browser's sync reads these; no window ever sees them.
     if (typeof m.t === 'string' && m.t.startsWith('bsync.')) { void aangBrowser?.sync?.got(m as never).catch((e: Error) => console.error('shell: browser sync: ' + e.message)); return; }
+    // "Open on PC" from the Mac's browser (through the brain): a full tab here, brought to the front.
+    if (m.t === 'browser.open' && typeof m.url === 'string') { aangBrowser?.openForward(m.url); return; }
     // "Put X on": the one message the pop-out answers to. Everything else is passed to the windows.
     if (m.t === 'popout.open' && typeof m.url === 'string') { openPopout(m.url); return; }
     // Sheet 17: the brain's list of running timers is the truth; the windows follow it.
@@ -597,6 +599,7 @@ app.whenReady().then(async () => {
 
       aangBrowser = new AangBrowser({ origin: pages.origin, preloadPath: path.join(HERE, 'preload.cjs'), stateDir: STATE_DIR, tabPreloadPath: path.join(HERE, 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, 'thingspreload.cjs') });
       aangBrowser.onReclaim = () => popout?.returnTab();
+      aangBrowser.onOpenOther = (url) => link?.send({ t: 'open.onmac', url });
       // One engine (his yes, 2026-10-13): on castLabs' engine paid video plays right in the tab. Only on the stock
       // engine do paid services still go to the separate paid-video window.
       if (!onCastlabs()) aangBrowser.onPaid = (url) => openPopout(url);
@@ -1060,6 +1063,7 @@ app.whenReady().then(async () => {
   wirePopout({
     popout: () => popout, browser: () => aangBrowser, open: (url) => openPopout(url), stopPaid: () => drm?.close(), paidSeparately: () => !onCastlabs(),
     sendToOther: (url) => link?.send({ t: 'watch.tomac', url }),
+    openOnOther: (url) => link?.send({ t: 'open.onmac', url }),
     playback: (s) => link?.send({ t: 'watch.state', ...s }),
   });
   // 6.28: his Restart now on the update key. Never during a call or a game; the band says why.

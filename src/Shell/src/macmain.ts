@@ -103,8 +103,10 @@ app.whenReady().then(async () => {
     return Boolean(popout.open(url));
   };
   browser.onReclaim = () => popout.returnTab();
+  browser.onOpenOther = (url) => { if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ t: 'open.onpc', url })); };
   wirePopout({
     popout: () => popout, browser: () => browser, open: openPop, stopPaid: () => drm.close(), paidSeparately: () => !onCastlabs(),
+    openOnOther: (url) => { if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ t: 'open.onpc', url })); else console.log('aang: the PC is not reachable, so it was not opened there'); },
     // "Send to PC": through the brain, which puts it in the PC's pop-out.
     sendToOther: (url) => { if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ t: 'watch.topc', url })); else console.log('aang: the PC is not reachable, so it was not sent'); },
   });
@@ -139,6 +141,8 @@ app.whenReady().then(async () => {
     s.on('message', (raw) => {
       let m: any; try { m = JSON.parse(String(raw)); } catch { return; }
       if (typeof m?.t === 'string' && m.t.startsWith('bsync.')) void sync.got(m).catch((e: Error) => console.error('aang: sync: ' + e.message));
+      // "Open on Mac" from the PC: a full tab here, and Aang comes to the front.
+      else if (m?.t === 'tab.open' && typeof m.url === 'string' && /^https?:\/\//.test(m.url)) { browser?.openForward(m.url); app.focus({ steal: true }); }
       // "Send to Mac" from the PC: it plays here, in the pop-out.
       else if (m?.t === 'watch.open' && typeof m.url === 'string' && /^https:\/\//.test(m.url)) openPopRef?.(m.url);
       // His yes (2026-10-13): Claude may look at this browser's own window and its log, when it asks.
