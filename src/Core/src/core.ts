@@ -1632,7 +1632,9 @@ export class Core {
         const where = remote ? { host: 'mac' as const } : { focus: CLAUDE_WINDOW };
         this.announce(text, said.kind === 'waiting' ? { asked: true, blocking: true, ...where } : { asked: true, done: true, ...where });
       }
-    }, this.keyFile('hook.key'), code => this.setupFor(code));
+    }, this.keyFile('hook.key'), code => this.setupFor(code),
+    // M2: the MacBook's "is Shadow on?" (one Aang across both machines). Up, and whether he is at this PC.
+    () => ({ up: true, atDesk: this.atDesk && this.clientsOf('desktop').length > 0 }));
     try {
       await this.hookServer.start();
       if (this.hookServer.tailnet) console.log(`hooks: also listening on Tailscale ${this.hookServer.tailnet}:${this.cfg.port + 1}`);

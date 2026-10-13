@@ -120,6 +120,36 @@ on claudeInFront(secs)
 end claudeInFront
 `;
 
+/**
+ * M2 (2026-10-13): the Mac's heartbeat. Every 10 seconds it asks the Shadow PC whether the big brain is up and
+ * writes the answer to shadow.state, one line: "on|off|unknown desk|away <unix time>". The rest of Aang on this Mac
+ * (Discord, answering while Shadow sleeps, the notices) reads that file. Three misses in a row (about 30 s) mean
+ * off; one answer means on. The key lives in alive.curl, a file only he can read, never on a command line.
+ */
+const HEARTBEAT = String.raw`#!/bin/bash
+# Aang's heartbeat on this Mac: is the Shadow PC's brain up? The answer is in shadow.state.
+DIR="$(cd "$(dirname "$0")" && pwd)"
+state=unknown; desk=away; miss=0; last=""
+while true; do
+  body=$(/usr/bin/curl -s -m 4 -K "$DIR/alive.curl" 2>/dev/null)
+  if [[ "$body" == *'"up":true'* ]]; then
+    miss=0; state=on
+    if [[ "$body" == *'"atDesk":true'* ]]; then desk=desk; else desk=away; fi
+  else
+    miss=$((miss + 1))
+    if [ "$miss" -ge 3 ]; then state=off; desk=away; fi
+  fi
+  line="$state $desk"
+  if [ "$line" != "$last" ]; then
+    printf '%s %s
+' "$line" "$(date +%s)" > "$DIR/shadow.state.tmp" && mv -f "$DIR/shadow.state.tmp" "$DIR/shadow.state"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') shadow $line" >> "$DIR/heartbeat.log"
+    last="$line"
+  fi
+  sleep 10
+done
+`;
+
 /** Merges Aang's five hooks into ~/.claude/settings.json (backing it up first), keeping everything else. */
 const HOOKS_JXA = String.raw`function run(argv) {
   ObjC.import('Foundation');
@@ -168,13 +198,18 @@ ${RUN_APPLESCRIPT}APPLESCRIPT
 # M1: the key and Shadow's address go into files only you can read (printf is built into bash, so the key never
 # appears on any command line).
 ( umask 077; printf '%s' "$FRONT_KEY" > "$DIR/key"; printf '%s' "$SHADOW" > "$DIR/shadow" )
+# M2: the heartbeat's address, with the hook key, in a curl config file only you can read.
+( umask 077; printf 'url = "http://%s:%s/alive?k=%s"\n' "$SHADOW" "$HOOK_PORT" "$HOOK_KEY" > "$DIR/alive.curl" )
+cat > "$DIR/heartbeat.sh" <<'HEARTBEAT'
+${HEARTBEAT}HEARTBEAT
 cat > "$DIR/uninstall.sh" <<'UNINSTALL'
 #!/bin/bash
 launchctl bootout "gui/$(id -u)/com.aang.listener" 2>/dev/null || true
-rm -f "$HOME/Library/LaunchAgents/com.aang.listener.plist"; rm -rf "$HOME/Library/Application Support/AangListener"
+launchctl bootout "gui/$(id -u)/com.aang.heartbeat" 2>/dev/null || true
+rm -f "$HOME/Library/LaunchAgents/com.aang.listener.plist" "$HOME/Library/LaunchAgents/com.aang.heartbeat.plist"; rm -rf "$HOME/Library/Application Support/AangListener"
 echo "Aang's listener is gone. (Its Claude Code hooks are in ~/.claude/settings.json; the file from before is kept next to it.)"
 UNINSTALL
-chmod 700 "$DIR" "$DIR/uninstall.sh"; chmod 600 "$DIR/key" "$DIR/shadow"
+chmod 700 "$DIR" "$DIR/uninstall.sh" "$DIR/heartbeat.sh"; chmod 600 "$DIR/key" "$DIR/shadow" "$DIR/alive.curl"
 cat > "$PLIST" <<PLISTXML
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -189,10 +224,27 @@ PLISTXML
 chmod 600 "$PLIST"
 launchctl bootout "gui/$(id -u)/com.aang.listener" 2>/dev/null || true
 launchctl bootstrap "gui/$(id -u)" "$PLIST"
+HBPLIST="$HOME/Library/LaunchAgents/com.aang.heartbeat.plist"
+cat > "$HBPLIST" <<HBXML
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>Label</key><string>com.aang.heartbeat</string>
+  <key>ProgramArguments</key><array><string>/bin/bash</string><string>$DIR/heartbeat.sh</string></array>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>ThrottleInterval</key><integer>30</integer>
+</dict></plist>
+HBXML
+chmod 600 "$HBPLIST"
+launchctl bootout "gui/$(id -u)/com.aang.heartbeat" 2>/dev/null || true
+launchctl bootstrap "gui/$(id -u)" "$HBPLIST"
 
 echo "3/3  Checking the line back to Aang"
 CODE=$(curl -s -m 5 -o /dev/null -w '%{http_code}' -X POST --data '{}' "http://$SHADOW:$HOOK_PORT/hook?e=Ping&k=$HOOK_KEY" || true)
 if [ "$CODE" = "204" ]; then echo "     Aang heard this Mac."; else echo "     Aang did not answer (got '$CODE'). Is the Windows firewall rule in, and Tailscale on here?"; fi
+sleep 12
+if [ -f "$DIR/shadow.state" ]; then echo "     Heartbeat: Shadow is $(cut -d' ' -f1 "$DIR/shadow.state")."; else echo "     Heartbeat: no answer yet (it checks every 10 seconds)."; fi
 echo "Done. Restart the Claude app on this Mac so its sessions pick up the hooks."
 `;
 }
