@@ -50,7 +50,7 @@ test("Aang's own chat lanes loading Agent Skills does not make his own turns loo
   // before it reaches HookTracker; a hook event from any other cwd (a real session of his) must still work.
   await withCore(48000, async core => {
     const post = (cwd: string, id: string) =>
-      fetch(`http://127.0.0.1:48002/hook`, {
+      fetch(`http://127.0.0.1:${core.cfg.port + 1}/hook`, {          // the hook listener is the Core's port + 1
         method: 'POST', body: JSON.stringify({ hook_event_name: 'SessionStart', session_id: id, cwd }),
       });
     await post(core.selfCwd(), 'self-session');

@@ -58,19 +58,21 @@ test('a question asked on the desktop is answered there only', async () => {
 
 test('"where" means the desktop as a whole: a second desktop window (the Body) sees what the first one asked', async () => {
   const { core, desk, phone, done } = await setup(48144);
-  const body = await client(48130);                                // the Body, next to a client that submits
-  await wait(100);
-  desk.c.send(JSON.stringify({ t: 'submit', id: 'b9', text: 'open paint' }));
-  await wait(100);
-  const asked = core.askPermission('mcp__aang__open', { what: 'paint' });
-  await wait(100);
-  assert.equal(body.of('permission').length, 1, 'the Body shows the question');
-  assert.equal(desk.of('permission').length, 1);
-  assert.equal(phone.of('permission').length, 0, 'Discord does not');
-  body.c.send(JSON.stringify({ t: 'permission.reply', id: body.of('permission')[0].id, choice: 'no' }));
-  assert.equal(await asked, false);
-  body.c.close();
-  await done();
+  // The same Core's port: this said 48130 after the Core moved to 48144, so it never connected and the Core
+  // was never stopped, which hung the whole suite.
+  const body = await client(48144).catch(async (e) => { await done(); throw e; });   // the Body, next to a client that submits
+  try {
+    await wait(100);
+    desk.c.send(JSON.stringify({ t: 'submit', id: 'b9', text: 'open paint' }));
+    await wait(100);
+    const asked = core.askPermission('mcp__aang__open', { what: 'paint' });
+    await wait(100);
+    assert.equal(body.of('permission').length, 1, 'the Body shows the question');
+    assert.equal(desk.of('permission').length, 1);
+    assert.equal(phone.of('permission').length, 0, 'Discord does not');
+    body.c.send(JSON.stringify({ t: 'permission.reply', id: body.of('permission')[0].id, choice: 'no' }));
+    assert.equal(await asked, false);
+  } finally { body.c.close(); await done(); }
 });
 
 test('present_list rides the reply\'s own bubble message, and clears once it has', async () => {
@@ -329,12 +331,14 @@ test('a reply to something Aang said unprompted carries what was actually said, 
 test('away but Discord is not connected: the desktop still gets it rather than nobody', async () => {
   const core: any = new Core({ port: 48146, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
   await core.start();
-  const desk = await client(48140);
-  desk.c.send(JSON.stringify({ t: 'desk', active: false }));
-  await wait(100);
-  core.announce('Reminder: stretch');
-  await wait(100);
-  assert.equal(desk.of('bubble').length, 1);
-  desk.c.close();
-  await core.stop();
+  try {
+    const desk = await client(48146);                                // the Core's own port (it said 48140)
+    try {
+      desk.c.send(JSON.stringify({ t: 'desk', active: false }));
+      await wait(100);
+      core.announce('Reminder: stretch');
+      await wait(100);
+      assert.equal(desk.of('bubble').length, 1);
+    } finally { desk.c.close(); }
+  } finally { await core.stop(); }
 });
