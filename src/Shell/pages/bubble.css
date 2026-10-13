@@ -25,6 +25,10 @@ html,body{
   -webkit-user-select:none;user-select:none;
   font:500 15px/1.6 var(--body);
 }
+/* 2026-10-12, his "the text is paper thin": a see-through window draws text without ClearType, so the words get
+   one weight heavier and a shade darker, and the parchment grain sits faintly behind them. */
+#bubble,#bubble .t-body{font-weight:600;color:#21160a}
+#bubble.tex::before{opacity:.03}
 #bubble{pointer-events:auto}
 /* The wrapper carries the bubble's place in the window, so the copy and rate keys can sit on its top
    edge outside the parchment's clipping. */
@@ -344,7 +348,10 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
 /* ---- the scroll-back (parity row) ----------------------------------------
    His turns and Aang's, above whatever is being said now. Sheet 2's two
    voices: his own pressed IN, Aang's on the parchment he speaks on. */
-.back{display:flex;flex-direction:column;gap:7px;margin:0 0 9px}
+/* 2026-10-12: the history has a height of its own and scrolls inside it (no bar showing, his rule), so the bubble
+   never grows off the screen however far back he goes. */
+.back{display:flex;flex-direction:column;gap:7px;margin:0 0 9px;max-height:340px;overflow-y:auto;scrollbar-width:none;overscroll-behavior:contain}
+.back::-webkit-scrollbar{display:none}
 .back[hidden]{display:none}
 .turn{margin:0;font:500 14px/1.5 var(--body);white-space:pre-wrap;overflow-wrap:anywhere}
 /* His own, pressed into the parchment rather than sitting on it. */

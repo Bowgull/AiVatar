@@ -235,7 +235,9 @@ function placeWindows(): void {
   const b = bubble?.window();
   if (b && !b.isDestroyed()) {
     const [width, height] = b.getSize();
-    const box = bubbleAt(petAt, { width, height });
+    // Placed by the shape without its tail room, exactly as on a resize (it used the full size here, so the bubble
+    // jumped 72 px further left and 38 up every time he moved).
+    const box = bubbleAt(petAt, { width: width - 72, height: height - 38 });
     b.setPosition(box.x, box.y);
   }
   for (const [name, w] of windows) {

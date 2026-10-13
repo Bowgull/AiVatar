@@ -74,9 +74,16 @@ export const BUBBLE_FROM_SPRITE = {
    * him - "its just a little too far" (2026-10-04). 72 puts the panel's edge 16 px from his actual
    * art, which is a gutter you can see rather than an accident of the frame's padding.
    */
-  right: 72,
-  /** Bottom edge of the bubble, relative to the sprite's TOP edge: 124 - 86. */
-  bottom: 38,
+  right: 96,
+  /**
+   * Bottom edge of the bubble, relative to the frame's top. Was 38 (124 - 86).
+   *
+   * 2026-10-12, his screenshot: "the bubble far as fuck away from his head". The window has carried 78 px of tail
+   * room on the right and 62 underneath since the tail went in, and the drawn panel sits inside that, so with 72/38
+   * its corner landed 46 px left of and 82 px above his head, further than the 46 px tail can reach. 96/80 puts the
+   * corner just off his shoulder (24 px left of and 16 px above his head's centre at 1x), where the tail meets him.
+   */
+  bottom: 80,
 } as const;
 
 /**

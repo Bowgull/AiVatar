@@ -25,13 +25,13 @@ test('the bubble hangs beside his ART, not inside his frame', () => {
   // The C# offset was 16 (BubbleView Right 262 minus Dock SpriteX 246), measured against the 224 px
   // frame. His drawing is 49 px wide starting at x 88 in that frame, so 16 left a 72 px hole between
   // the panel and him. 72 puts its edge a deliberate 16 px from his art instead.
-  assert.equal(BUBBLE_FROM_SPRITE.right, 72);
-  assert.equal(BUBBLE_FROM_SPRITE.bottom, 124 - 86);
+  assert.equal(BUBBLE_FROM_SPRITE.right, 96);
+  assert.equal(BUBBLE_FROM_SPRITE.bottom, 80);
 
   const b = bubbleAt(at(), { width: 256, height: 150 });
-  assert.equal(b.x + b.width, FX + 72, 'its right edge is 72 px into the frame');
-  assert.equal(b.x + b.width, 1400 - 16, 'which is 16 px clear of his art');
-  assert.equal(b.y + b.height, FY + 38, 'its bottom sits 38px below the frame top');
+  // 2026-10-12: moved in to his shoulder (the window's tail room is added on top of this anchor; see anchor.ts).
+  assert.equal(b.x + b.width, FX + 96, 'its anchor is 96 px into the frame');
+  assert.equal(b.y + b.height, FY + 80, 'and 80 px below the frame top');
 });
 
 test('it grows up and to the left, which is why he never gets pushed across the screen', () => {
@@ -46,8 +46,8 @@ test('display scaling moves it with him, because the offsets are his pixels not 
   // At 150% the sprite is reported bigger and in different screen pixels; the gap between him and the
   // bubble has to grow by the same amount or the tail stops touching him.
   const b = bubbleAt(at({ sprite: { x: 1400, y: 600, width: 73, height: 187 }, scale: 1.5 }), { width: 384, height: 225 });
-  assert.equal(b.x + b.width, 1400 - 88 * 1.5 + 72 * 1.5, 'the art inset scales too');
-  assert.equal(b.y + b.height, 600 - 78 * 1.5 + 38 * 1.5);
+  assert.equal(b.x + b.width, 1400 - 88 * 1.5 + 96 * 1.5, 'the art inset scales too');
+  assert.equal(b.y + b.height, 600 - 78 * 1.5 + 80 * 1.5);
 });
 
 test('it is never pushed off the screen, even standing in a corner', () => {
@@ -67,7 +67,7 @@ test('a second monitor is just another set of coordinates, including a negative 
   const left = { x: -1920, y: 0, width: 1920, height: 1040 };
   const b = bubbleAt(at({ sprite: { x: -500, y: 300, width: 49, height: 125 }, screen: left }), { width: 400, height: 300 });
   assert.ok(b.x >= left.x && b.x + b.width <= left.x + left.width, JSON.stringify(b));
-  assert.equal(b.x + b.width, -500 - 88 + 72, 'negative coordinates are just coordinates');
+  assert.equal(b.x + b.width, -500 - 88 + 96, 'negative coordinates are just coordinates');
 });
 
 test('a window bigger than the screen loses its end, not its beginning', () => {
