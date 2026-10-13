@@ -847,3 +847,20 @@ test('9.D D2: only the green channels may buzz his phone; everything else goes o
   assert.equal(by('ch-needs-you'), false);
   assert.equal(by('some-post'), false, 'a finished job may say so, when the code says loud');
 });
+
+test('9.D D3: a card Aang draws goes out as a picture inside the card, with the plain words kept for the phone notification', async () => {
+  const { a, gw, core, appliedFile, shortlistFile } = await makeJobs();
+  const drawn: { kind: string; data: any }[] = [];
+  (core as any).drawCard = async (kind: string, data: any) => { drawn.push({ kind, data }); return Buffer.from('PNG'); };
+  writeFileSync(shortlistFile, JSON.stringify([{ title: 'Onb', company: 'Beta', url: 'https://jobs.example.com/2' }]));
+  await a.scanShortlist();
+  writeFileSync(appliedFile, JSON.stringify([{ url: 'https://jobs.example.com/2', title: 'Onb', company: 'Beta', status: 'stuck', note: 'reCAPTCHA on the last step' }]));
+  await a.scanApplied();
+  const need = gw.to('needs-you').at(-1)!;
+  assert.equal(drawn[0]?.kind, 'needs');
+  assert.match(drawn[0]!.data.title, /Onb at Beta/);
+  assert.equal(need.embed?.image, 'attachment://card.png');
+  assert.equal(need.files?.[0]?.name, 'card.png');
+  assert.match(need.content!, /^Need input on the job hunt/, 'the words stay, for the notification');
+  assert.equal(need.silent, false, 'needs-you buzzes');
+});
