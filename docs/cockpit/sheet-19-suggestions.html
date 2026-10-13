@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sheet 19: search suggestions</title>
+<!-- 2026-10-13. The band is the REAL browser band (markup from src/Shell/pages/browser.html, styled by the real
+     cockpit.css + browser.css). Only the suggestion list is new. -->
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<link rel="stylesheet" href="../../src/Shell/pages/browser.css">
+<style>
+html,body{margin:0;height:auto;overflow:auto;background:#16101f;color:#e8e0f5;font:500 15px/1.5 var(--body)}
+.wrap{max-width:1040px;margin:0 auto;padding:22px 18px 60px}
+.lab{font:400 11px var(--label);letter-spacing:.1em;color:var(--gold)}
+h1{font:600 34px var(--display);color:var(--gold);margin:4px 0 6px}
+.lede{color:#c9bfd9;max-width:800px;margin:0 0 16px}
+.stage{position:relative;height:420px;border-radius:12px;overflow:hidden;border:4px solid var(--outline);box-shadow:4px 4px 0 var(--outline)}
+.stage .bw{height:100%}
+.page{flex:1;margin:8px 10px 10px;border-radius:14px;background:#f4f1ea;border:3px solid var(--outline);display:grid;place-items:center;color:#9a8f7e;font:600 15px var(--body)}
+.slot .edit{display:block}
+
+/* ---------- the list, shared bones: one row per result, a small glyph saying what kind it is, the title with the
+   part he has NOT typed in bold (Chrome's rule), the address quiet after it. No labels in capitals, no glove. ---------- */
+.sg{position:absolute;z-index:45;top:0;left:0;width:300px;box-sizing:border-box;display:none}
+.sg.show{display:block}
+.sg .r{display:flex;align-items:center;gap:10px;height:34px;padding:0 12px;cursor:pointer;position:relative;white-space:nowrap}
+.sg .g{flex:0 0 14px;display:grid;place-items:center}
+.sg .g svg{display:block}
+.sg .fav{width:16px;height:16px;border-radius:3px;flex:0 0 16px}
+.sg .t{font:500 13.5px var(--body);overflow:hidden;text-overflow:ellipsis;min-width:0;flex:0 1 auto;max-width:55%}
+.sg .t b{font-weight:800}
+.sg .u{font:500 12px var(--body);overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1}
+.sg .act{margin-left:auto;font:600 11.5px var(--body);opacity:0;flex:0 0 auto}
+.sg .r.on .act{opacity:1}
+
+/* A: the slot opens. The address field and its list become ONE dark piece (Chrome, Arc, Firefox all do this):
+   it is plainly the field talking, not the band. The chosen row is a soft plum bar with a gold edge. */
+.o-ink .slot{border-radius:8px 8px 0 0;border-bottom-color:transparent;position:relative;z-index:46}
+.o-ink .sg{background:#0B0718;border:3px solid var(--outline);border-top:none;border-radius:0 0 10px 10px;padding:4px 0 6px;box-shadow:0 12px 26px rgba(0,0,0,.55)}
+.o-ink .sg::before{content:"";display:block;height:1px;margin:0 12px 4px;background:rgba(150,110,200,.25)}
+.o-ink .sg .g svg path{fill:#8a80a5}
+.o-ink .sg .t{color:#d9d0ec}
+.o-ink .sg .t b{color:#F0E6FF}
+.o-ink .sg .u{color:#6e628c}
+.o-ink .sg .act{color:var(--gold-lit)}
+.o-ink .sg .r.on{background:linear-gradient(90deg,rgba(126,87,181,.45),rgba(74,44,110,.25));box-shadow:inset 3px 0 0 var(--gold)}
+.o-ink .sg .r.on .g svg path{fill:var(--gold-lit)}
+
+/* B: parchment, like every ask that hangs from the band (camera, screen share, downloads that need a yes). The
+   chosen row is pressed into the paper. */
+.o-parch .sg{background:linear-gradient(180deg,#F0DCB4,var(--parch2));border:3px solid var(--outline);border-radius:0 0 10px 10px;padding:6px 0;box-shadow:0 6px 0 rgba(0,0,0,.45),0 14px 24px rgba(0,0,0,.45);margin-top:-2px}
+.o-parch .sg .g svg path{fill:#8a6a44}
+.o-parch .sg .t{color:#4e3d28}
+.o-parch .sg .t b{color:#271c10}
+.o-parch .sg .u{color:#8a6a44}
+.o-parch .sg .act{color:#6b4a1c}
+.o-parch .sg .r.on{background:rgba(120,80,30,.16);box-shadow:inset 0 2px 0 rgba(90,60,20,.25),inset 3px 0 0 #b07a2a}
+.o-parch .sg .r.on .g svg path{fill:#6b4a1c}
+
+/* C: a stone slate (the jade slate shelved for another build): cool and quiet against the warm wood, so the
+   list never blends into the band. The chosen row lights like a carved rune. */
+.o-slate .sg{background:linear-gradient(180deg,#2B3A3A,#1E2A2B);border:3px solid var(--outline);border-radius:0 0 10px 10px;padding:6px 0;box-shadow:inset 0 2px 0 rgba(160,210,190,.18),0 14px 26px rgba(0,0,0,.55);margin-top:-2px}
+.o-slate .sg .g svg path{fill:#7FA89B}
+.o-slate .sg .t{color:#cfe2da}
+.o-slate .sg .t b{color:#F2FBF7}
+.o-slate .sg .u{color:#6f8e85}
+.o-slate .sg .act{color:#9EE0C8}
+.o-slate .sg .r.on{background:rgba(120,200,170,.14);box-shadow:inset 3px 0 0 #6FD3AE}
+.o-slate .sg .r.on .g svg path{fill:#B9F0DC}
+
+/* Today: the band's own wood, the glove on the chosen row, kinds in capitals. For comparison. */
+.o-now .sg{border-style:solid;border-width:8px;border-image:url(../../src/Shell/pages/art/browser/trayframe.png) 4 repeat;background:url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated;box-shadow:0 14px 30px rgba(0,0,0,.6);padding:6px 8px;margin-top:-2px}
+.o-now .sg .r{padding-left:34px;height:auto;padding-top:6px;padding-bottom:6px;border-radius:5px}
+.o-now .sg .g{display:none}
+.o-now .sg .t{color:#efe4cc;text-shadow:1px 1px 0 #000;font-weight:700}
+.o-now .sg .u{color:#a8977a}
+.o-now .sg .act{opacity:1;font:400 8.5px var(--label);letter-spacing:1px;color:#bfae8a;text-transform:uppercase}
+.o-now .sg .r.on .t{color:#ffe28c}
+.o-now .sg .r.on::before{content:"";position:absolute;left:4px;top:50%;width:24px;height:18px;margin-top:-9px;background:url(../../src/Shell/pages/art/browser/hand.png) 0 0/24px 18px;image-rendering:pixelated}
+
+.panel{margin-top:16px;padding:14px 16px;border-radius:12px;background:#221833;border:2px solid #120a05}
+.panel h2{font:600 18px var(--display);color:var(--gold);margin:0 0 6px}
+.prow{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.prow .gl{width:100%;font:400 10px var(--label);letter-spacing:.1em;color:#a98b5a}
+.pick{font:600 13px var(--body);padding:7px 12px;border-radius:8px;border:2.5px solid var(--outline);background:linear-gradient(180deg,var(--plum),var(--plum-deep));color:#f3eaff;cursor:pointer;box-shadow:0 3px 0 var(--outline)}
+.pick[aria-pressed="true"]{background:linear-gradient(180deg,var(--gold-light),var(--gold-deep));color:#2a1c00}
+.now{color:#e8dcc4;margin:0}
+.notes{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px}
+.notes div{background:#1a1228;border-radius:10px;padding:10px 12px;font-size:13.5px;color:#c9bfd9}
+.notes b{display:block;color:var(--gold);font:600 14px var(--display);margin-bottom:2px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="lab">SHEET 19 . ON THE REAL BROWSER BAND</div>
+  <h1>Search Suggestions</h1>
+  <p class="lede">Its job: while you type, show the few places you probably mean, make the chosen one obvious, and say what kind each one is at a glance. Today it's the same wood as the band, so it reads as part of the band, and the glove is a game cursor doing a highlight's job. Use the arrow keys on the sheet, or hover the rows.</p>
+
+  <div class="stage o-ink" id="stage">
+    <div class="bw">
+      <div class="band" id="band">
+        <button class="rnd" type="button" aria-label="Back"><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges" aria-hidden="true"><path d="M5 0h1v1H5zM4 0h1v1H4zM4 1h1v1H4zM3 1h1v1H3zM3 2h1v1H3zM2 2h1v1H2zM2 3h1v1H2zM1 3h1v1H1zM3 4h1v1H3zM2 4h1v1H2zM4 5h1v1H4zM3 5h1v1H3zM5 6h1v1H5zM4 6h1v1H4z" fill="#e8e0f5"/></svg></button>
+        <button class="rnd" type="button" aria-label="Forward"><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges" aria-hidden="true"><path d="M1 0h1v1H1zM2 0h1v1H2zM2 1h1v1H2zM3 1h1v1H3zM3 2h1v1H3zM4 2h1v1H4zM4 3h1v1H4zM5 3h1v1H5zM3 4h1v1H3zM4 4h1v1H4zM2 5h1v1H2zM3 5h1v1H3zM1 6h1v1H1zM2 6h1v1H2z" fill="#e8e0f5"/></svg></button>
+        <button class="rnd" type="button" aria-label="Reload"><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges" aria-hidden="true"><path d="M2 0h3v1H2zM6 0h1v3H6zM1 1h1v1H1zM5 1h1v1H5zM4 2h2v1H4zM0 2h1v3H0zM6 4h1v1H6zM1 5h1v1H1zM5 5h1v1H5zM2 6h3v1H2z" fill="#e8e0f5"/></svg></button>
+        <div class="slot" id="slot">
+          <span class="lock"><span class="shieldbox"><img class="s-rest" src="../../src/Shell/pages/art/browser/shield_rest.png" width="20" height="23" alt=""><img class="s-hover" src="../../src/Shell/pages/art/browser/shield_hover.png" width="20" height="23" alt=""><img class="s-popup" src="../../src/Shell/pages/art/browser/shield_popup.png" width="20" height="23" alt=""></span></span>
+          <input class="edit" id="edit" type="text" value="wowhe" spellcheck="false" aria-label="Search or type a web address">
+        </div>
+        <button class="rnd menukey" type="button" aria-label="Browser settings"><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges" aria-hidden="true"><path d="M0 3h1v1H0zM3 3h1v1H3zM6 3h1v1H6z" fill="#e8e0f5"/></svg></button>
+        <div class="winkeys">
+          <button class="wk" type="button" aria-label="Minimise"><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges" aria-hidden="true"><path d="M0 5h7v2H0z"/></svg></button>
+          <button class="wk" type="button" aria-label="Maximise"><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges" aria-hidden="true"><path class="g-max" d="M0 0h7v2H0zM0 2h1v5H0zM6 2h1v5H6zM1 6h5v1H1z"/><path class="g-rest" d="M2 0h5v1H2zM6 1h1v4H6zM0 2h5v1H0zM0 3h1v4H0zM4 3h1v4H4zM1 6h3v1H1z"/></svg></button>
+          <button class="wk close" type="button" aria-label="Close"><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges" aria-hidden="true"><path d="M0 0h2v1H0zM5 0h2v1H5zM0 1h3v1H0zM4 1h3v1H4zM1 2h5v1H1zM2 3h3v1H2zM1 4h5v1H1zM0 5h3v1H0zM4 5h3v1H4zM0 6h2v1H0zM5 6h2v1H5z"/></svg></button>
+        </div>
+        <div class="sg show" id="sg" role="listbox"></div>
+      </div>
+      <div class="page">your page</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Pick a look</h2>
+    <p class="now" id="now"></p>
+    <div class="prow"><span class="gl">THE LIST (PICK ONE)</span>
+      <button class="pick" data-o="ink" aria-pressed="true">A: the field opens (my pick)</button>
+      <button class="pick" data-o="parch">B: parchment, like the asks</button>
+      <button class="pick" data-o="slate">C: stone slate</button>
+      <button class="pick" data-o="now">Today: wood and the glove</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>What changes in all three</h2>
+    <div class="notes">
+      <div><b>No glove</b>The chosen row is a highlight bar with a thin gold edge, the way every list in a browser marks it. The glove stays where it means "your cursor is here" in the drawer.</div>
+      <div><b>A glyph, not a label</b>A tiny pixel glyph on the left says what each row is: magnifier for a search, a tab, the star for a bookmark, a clock for history, an arrow back for a closed tab. Same 7 by 7 grid as the band's keys.</div>
+      <div><b>What you haven't typed is bold</b>Chrome's rule. Your eye jumps to the part that's new, so you see what Enter will finish.</div>
+      <div><b>One word, only on the chosen row</b>"Switch to tab", "Search", "Open" shows at the right of the chosen row only, so the list stays calm.</div>
+      <div><b>Lined up with the field</b>The list is exactly as wide as the address field and starts at its left edge, so it reads as the field's own list.</div>
+    </div>
+  </div>
+</div>
+<script>
+const $ = (id) => document.getElementById(id);
+const G = {
+  search: ['0 0 7 7', 'M1 0h3v1H1zM0 1h1v3H0zM4 1h1v3H4zM1 4h3v1H1zM4 5h2v1H4zM5 6h2v1H5z'],
+  tab: ['0 0 7 7', 'M1 0h3v1H1zM0 1h7v1H0zM0 2h1v4H0zM6 2h1v4H6zM0 6h7v1H0z'],
+  mark: ['0 0 9 8', 'M1 0h2v1H1zM6 0h2v1H6zM0 1h4v4H0zM5 1h4v4H5zM0 5h1v1H0zM8 5h1v1H8zM0 6h4v1H0zM5 6h4v1H5zM3 7h3v1H3z'],
+  history: ['0 0 7 7', 'M1 0h5v1H1zM0 1h1v5H0zM6 1h1v5H6zM3 1h1v3H3zM4 3h1v1H4zM1 6h5v1H1z'],
+  closed: ['0 0 7 7', 'M2 0h1v1H2zM1 1h2v1H1zM0 2h7v1H0zM1 3h2v1H1zM6 3h1v3H6zM2 4h1v1H2zM2 6h4v1H2z'],
+};
+const ACT = { search: 'Search', tab: 'Switch to tab', mark: 'Open', history: 'Open', closed: 'Reopen' };
+const typed = 'wowhe';
+const ROWS = [
+  { k: 'search', t: 'wowhe', u: 'Search Brave' },
+  { k: 'tab', t: 'Wowhead Classic: Thunder Bluff', u: 'wowhead.com/classic/zone=1638' },
+  { k: 'mark', t: 'Wowhead: patch notes', u: 'wowhead.com/news/patch-notes' },
+  { k: 'history', t: 'Wowhead talent calculator', u: 'wowhead.com/classic/talent-calc' },
+  { k: 'closed', t: 'Wowhead: Onyxia attunement guide', u: 'wowhead.com/classic/guide/onyxia' },
+];
+let on = 1;
+const esc = (x) => x.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+function title(t) {
+  // The part he typed stays plain; the rest is bold.
+  const i = t.toLowerCase().indexOf(typed);
+  return i < 0 ? `<b>${esc(t)}</b>` : `<b>${esc(t.slice(0, i))}</b>${esc(t.slice(i, i + typed.length))}<b>${esc(t.slice(i + typed.length))}</b>`;
+}
+function paint() {
+  const now = $('stage').classList.contains('o-now');
+  $('sg').innerHTML = ROWS.map((r, i) => {
+    const [vb, d] = G[r.k];
+    const w = vb.endsWith('9 8') ? 18 : 14, h = vb.endsWith('9 8') ? 16 : 14;
+    const act = now ? { search: 'SEARCH', tab: 'SWITCH TO TAB', mark: 'BOOKMARK', history: 'HISTORY', closed: 'CLOSED' }[r.k] : ACT[r.k];
+    return `<div class="r${i === on ? ' on' : ''}" data-i="${i}" role="option"><span class="g"><svg viewBox="${vb}" width="${w}" height="${h}" shape-rendering="crispEdges"><path d="${d}"/></svg></span>`
+      + `<span class="t">${r.k === 'search' ? esc(r.t) : title(r.t)}</span><span class="u">${esc(r.u)}</span><span class="act">${act}</span></div>`;
+  }).join('');
+}
+// The list hangs exactly under the field, as wide as it.
+function place() {
+  const b = $('band').getBoundingClientRect(), s = $('slot').getBoundingClientRect(), sg = $('sg');
+  sg.style.left = Math.round(s.left - b.left) + 'px';
+  sg.style.width = Math.round(s.width) + 'px';
+  sg.style.top = Math.round(s.bottom - b.top) + 'px';
+}
+const SAY = {
+  ink: 'A: the address field and its list become one dark piece, like Chrome, Arc and Firefox. It is plainly the field talking.',
+  parch: 'B: parchment, the same paper as every ask that hangs from the band. Warm, and clearly a note, not the band.',
+  slate: 'C: a cool stone slate against the warm wood, so it never blends in. The chosen row lights like a rune.',
+  now: 'Today: the band\'s own wood and the glove, kinds in capitals. For comparison.',
+};
+document.querySelectorAll('[data-o]').forEach((b) => b.addEventListener('click', () => {
+  $('stage').className = 'stage o-' + b.dataset.o;
+  document.querySelectorAll('[data-o]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+  $('now').textContent = SAY[b.dataset.o];
+  paint(); place();
+}));
+$('sg').addEventListener('mouseover', (e) => { const r = e.target.closest('.r'); if (r) { on = Number(r.dataset.i); paint(); } });
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowDown') { on = (on + 1) % ROWS.length; paint(); e.preventDefault(); }
+  if (e.key === 'ArrowUp') { on = (on - 1 + ROWS.length) % ROWS.length; paint(); e.preventDefault(); }
+});
+addEventListener('resize', place);
+$('now').textContent = SAY.ink;
+paint(); place();
+</script>
+</body>
+</html>
