@@ -285,6 +285,9 @@ export type ToBody =
   | { t: 'choice.used'; key: string; pick: string; fresh: boolean }
   // 9.A0: the one list of everything Aang can do, and the answer to running one by name.
   | { t: 'card.png'; id: string; ok: boolean; png?: string; error?: string }
+  | { t: 'home.data'; id: string; week: number | null; pace: string; running: number; waiting: string[] }
+  | { t: 'away.reply'; text: string }
+  | { t: 'puton.reply'; text: string }
   | { t: 'action.list'; actions: { name: string; label: string; description: string; params: unknown }[] }
   | { t: 'action.result'; id: string; ok: boolean; text: string; image?: { data: string; mimeType: string } }
   /** The morning brief as a card (6.15): the brief's data plus what only the Core knows - logos, which
@@ -476,6 +479,9 @@ export type FromBody =
   | { t: 'action.list' }
   | { t: 'card.draw'; id: string; kind: string; data?: unknown }
   | { t: 'claude.open'; cwd: string }
+  | { t: 'home.data'; id: string }
+  | { t: 'away' }
+  | { t: 'puton'; words: string }
   | { t: 'action.run'; id: string; name: string; args?: Record<string, unknown> }
   /** The gold "change" link under a remembered choice: forget it, so Aang asks next time. */
   | { t: 'choice.forget'; key: string }
