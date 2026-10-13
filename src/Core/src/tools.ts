@@ -492,7 +492,13 @@ export function describeCall(tool: string, input: Record<string, unknown>): stri
   }
 }
 
-export function makeToolServer(
+/**
+ * 9.A0 (his yes, 2026-10-10): every action Aang has, as one list, already wrapped in its gates (ask first after
+ * outside content, mark the turn when old words come back, write to the activity log). The model gets it as an MCP
+ * server (makeToolServer); the bubble, Discord and Qwen get the SAME list through the registry (actions.ts). Nothing
+ * is rewritten: these are the exact objects the model calls, so every path goes through the same checks.
+ */
+export function makeTools(
   memory: Memory, hooks?: HookTracker, reminders?: Reminders,
   lookUpWeb?: (q: string) => Promise<string>, activity?: ActivityLog,
   openThing?: (what: string, withApp?: string) => Promise<{ ok: boolean; detail: string }>,
@@ -528,9 +534,7 @@ export function makeToolServer(
     },
   };
 
-  return createSdkMcpServer({
-    name: 'aang',
-    tools: ([
+  return ([
       tool('get_time', 'Current local date and time in Toronto. Use for any question about the time or date.', {},
         async () => ok(formatTime())),
       tool('get_weather', 'Current weather in Toronto. Use for any question about the weather or what to wear.', {},
@@ -924,7 +928,14 @@ export function makeToolServer(
           { which: z.string().describe('the job\'s name, or "it"') },
           async ({ which }) => ok(await doers.tasks!.stop(which))),
       ] : []),
-    ] as any[]).map(guarded).map(logged),
-  });
+    ] as any[]).map(guarded).map(logged) as AangTool[];
+}
+
+/** One action as the registry and the MCP server both see it: the SDK's own tool object. */
+export interface AangTool { name: string; description: string; inputSchema: Record<string, z.ZodTypeAny>; handler: (args: any, extra: unknown) => Promise<{ content: { type: string; text?: string; data?: string; mimeType?: string }[]; isError?: boolean }> }
+
+/** Aang's tools as an in-process MCP server, for the model. Built fresh per lane (see Core.tools). */
+export function makeToolServer(...a: Parameters<typeof makeTools>) {
+  return createSdkMcpServer({ name: 'aang', tools: makeTools(...a) as any[] });
 }
 
