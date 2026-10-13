@@ -377,6 +377,9 @@ export class Popout {
     this.pinned = !this.pinned;
     w.setIgnoreMouseEvents(this.pinned || this.deps.settings().clickThrough);
     w.webContents.send('popout:pinned', this.pinned);
+    // Pinned means clicks go through to his game: the site's own controls stay away too (his ask, 2026-10-13).
+    const wc = this.lent?.view.webContents;
+    if (wc && !wc.isDestroyed()) void within(wc.executeJavaScript(`document.documentElement.classList.toggle('aang-pinned', ${this.pinned}); true`, true), 800, null);
   }
 
   /** Sent to the MacBook: it stops here (overstimulation, his words), and a lent tab goes home paused. */
@@ -443,6 +446,11 @@ export const FOCUS_JS = `(() => {
   player.setAttribute('data-aang-player', '');
   // Twitch (2026-10-12): its columns use transform and contain, which trap a fixed box inside them, so chat and
   // the side bar showed around the video. Every box above the player is marked and those tricks are switched off.
+  // Twitch (his screenshot, 2026-10-13): its controls sit in a box that kept the old player's height, so they floated
+  // halfway up the picture. Every box between the player and the video fills the player too, so the controls land at
+  // the bottom edge, where the site put them.
+  for (const old of document.querySelectorAll('[data-aang-fill]')) old.removeAttribute('data-aang-fill');
+  for (let a = v.parentElement; a && a !== player; a = a.parentElement) a.setAttribute('data-aang-fill', '');
   for (const old of document.querySelectorAll('[data-aang-path]')) old.removeAttribute('data-aang-path');
   for (let a = player.parentElement; a && a !== document.documentElement; a = a.parentElement) a.setAttribute('data-aang-path', '');
   document.documentElement.classList.add('aang-bare');
@@ -450,7 +458,8 @@ export const FOCUS_JS = `(() => {
 })()`;
 /** Undo the pin when the tab goes back to the browser: the page is exactly as it was. */
 export const UNPIN_JS = `(() => { document.documentElement.classList.remove('aang-bare');
-  for (const el of document.querySelectorAll('[data-aang-player],[data-aang-path]')) { el.removeAttribute('data-aang-player'); el.removeAttribute('data-aang-path'); }
+  document.documentElement.classList.remove('aang-pinned');
+  for (const el of document.querySelectorAll('[data-aang-player],[data-aang-path],[data-aang-fill]')) { el.removeAttribute('data-aang-player'); el.removeAttribute('data-aang-path'); el.removeAttribute('data-aang-fill'); }
   return true; })()`;
 /**
  * Never a lower picture because the window is small (his rule, 2026-10-13): YouTube is told to play its best quality
@@ -480,6 +489,8 @@ html.aang-bare [data-aang-player], html.aang-bare [data-aang-player] *, html.aan
 html.aang-bare [data-aang-player] { position:fixed !important; left:0 !important; top:0 !important; width:100vw !important; height:100vh !important; max-width:none !important; max-height:none !important; z-index:2147483646 !important; background:#000 !important; margin:0 !important; transform:none !important; }
 html.aang-bare [data-aang-player] video { position:fixed !important; left:0 !important; top:0 !important; width:100vw !important; height:100vh !important; object-fit:contain !important; background:#000 !important; margin:0 !important; transform:none !important; }
 html.aang-bare .html5-video-container { position:absolute !important; inset:0 !important; width:100% !important; height:100% !important; }
+html.aang-bare [data-aang-fill] { position:absolute !important; inset:0 !important; width:100% !important; height:100% !important; max-width:none !important; max-height:none !important; transform:none !important; }
+html.aang-pinned .ytp-chrome-bottom, html.aang-pinned .ytp-chrome-top, html.aang-pinned .ytp-gradient-bottom, html.aang-pinned .ytp-gradient-top, html.aang-pinned [data-a-target="player-controls"], html.aang-pinned .video-player__overlay, html.aang-pinned [data-aang-player] video::-webkit-media-controls { display:none !important; }
 html.aang-bare .ytp-pause-overlay,html.aang-bare .ytp-ce-element,html.aang-bare .ytp-endscreen-content,html.aang-bare .ytp-watermark,html.aang-bare .ytp-paid-content-overlay,html.aang-bare .ytp-overflow-button,html.aang-bare .ytp-cards-teaser,html.aang-bare .ytp-iv-player-content{display:none !important}`;
 const STATE_JS = `(() => { const v = window.__aangVideo; if (!v || !v.isConnected) { return null; }
   return { at: v.currentTime, length: v.duration, paused: v.paused, volume: v.volume, muted: v.muted }; })()`;
