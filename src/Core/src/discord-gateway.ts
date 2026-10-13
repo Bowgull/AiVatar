@@ -81,7 +81,7 @@ export class WsCoreLink implements CoreLink {
   putOn(words: string) { this.send({ t: 'puton', words }); }
   /** 9.D D6: the home card's numbers from the brain, or null if it does not answer. */
   private homeWait = new Map<string, (d: any) => void>(); private homeSeq = 0;
-  homeData(): Promise<{ week: number | null; pace: string; running: number; waiting: string[] } | null> {
+  homeData(): Promise<{ week: number | null; five?: number | null; pace: string; running: number; waiting: string[] } | null> {
     if (this.ws?.readyState !== WebSocket.OPEN) return Promise.resolve(null);
     const id = 'home' + ++this.homeSeq;
     return new Promise(res => {

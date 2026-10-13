@@ -230,6 +230,9 @@ export type ToBody =
       /** An email waiting to be sent (6.14, sheet 13): the cockpit shows the letter itself. `fresh` is any
        *  address he has never written to. The question and `means` still carry it for the old bubble. */
       draft?: { to: string; subject: string; body: string; fresh: string };
+      /** C1 (sheet 21, his ask 2026-10-13): this one might use a lot of quota. What it is, the estimate as a share of his
+       *  week (low and high, 0 to 1), where the week stands, and when it resets. Never an "always": asked every time. */
+      quota?: { what: string; low: number; high: number; week: number | null; resetsAt: number };
       /**
        * This one has to be HELD, not clicked (sheet 5, section 2): it sends, buys, deletes, or closes
        * someone else's app. A reflex click must not be able to do it. Decided by the Core, never by the

@@ -458,6 +458,7 @@ export class Core {
         return await this.askPermission(tool, input) ? null : this.whyNot();
       },
       markOutside: () => { this.tainted = true; },
+      quotaGate: async (tool, input) => (await this.askQuota(tool, input)) ? null : this.whyNot(),
       browse: (a) => this.browse(a),
     };
   }
@@ -1371,7 +1372,7 @@ export class Core {
   }
 
   /** 9.D D6: the home card's numbers. Only counts and short names, never anything a page wrote. */
-  private homeData(): { week: number | null; pace: string; running: number; waiting: string[] } {
+  private homeData(): { week: number | null; five: number | null; pace: string; running: number; waiting: string[] } {
     const q = this.policy.last;
     let pace = '';
     if (q) {
@@ -1383,7 +1384,7 @@ export class Core {
       ...live.filter(l => l.state === 'needs you').map(l => `${l.name} needs you`),
       ...(this.permission ? ['a question in the bubble'] : []),
     ].slice(0, 8);
-    return { week: q ? q.week : null, pace, running: live.filter(l => l.state === 'working' || l.state === 'waiting').length, waiting };
+    return { week: q ? q.week : null, five: q ? q.five : null, pace, running: live.filter(l => l.state === 'working' || l.state === 'waiting').length, waiting };
   }
 
   private status(): string {
@@ -3250,7 +3251,36 @@ export class Core {
     return true;
   }
 
-  private askPermission(tool: string, input: Record<string, unknown>): Promise<boolean> {
+  /**
+   * C1 (sheet 21, his ask 2026-10-13): "might be high quota, OK?" before a big job, never cutting anything. The estimate
+   * is what jobs like it really cost before (measured, weekBefore/weekAfter), else a plain range.
+   */
+  private estimateCost(tool: string, input: Record<string, unknown>): { low: number; high: number; what: string } {
+    const s = (k: string) => (typeof input?.[k] === 'string' ? String(input[k]) : '');
+    if (tool === 'mcp__aang__start_claude') {
+      const kind = s('kind');
+      const what = `a Claude session${s('name') ? ': ' + s('name').slice(0, 60) : ''}`;
+      return kind === 'job hunt' ? { low: 0.03, high: 0.08, what } : kind === 'browse' ? { low: 0.02, high: 0.06, what } : { low: 0.02, high: 0.05, what };
+    }
+    const deep = input?.deep === true;
+    const past = this.tasks.list().filter(t => t.weekBefore !== undefined && t.weekAfter !== undefined && Boolean(t.deep) === deep)
+      .map(t => Math.max(0, t.weekAfter! - t.weekBefore!)).slice(-8);
+    const what = `a background job${s('name') ? ': ' + s('name').slice(0, 60) : ''}`;
+    if (past.length >= 3) {
+      const sorted = [...past].sort((a, b) => a - b);
+      return { low: Math.max(0.005, sorted[0]!), high: Math.max(0.01, sorted[sorted.length - 1]!), what };
+    }
+    return deep ? { low: 0.02, high: 0.06, what } : { low: 0.01, high: 0.03, what };
+  }
+  private askQuota(tool: string, input: Record<string, unknown>): Promise<boolean> {
+    const est = this.estimateCost(tool, input);
+    const q = this.policy.last;
+    const pct = (n: number) => `${Math.max(1, Math.round(n * 100))}%`;
+    const question = `start ${est.what}? It might use a lot of quota, about ${pct(est.low)} to ${pct(est.high)} of your week${q ? ` (you are at ${Math.round(q.week * 100)}%)` : ''}`;
+    return this.askPermission(tool, input, { question, quota: { what: est.what, low: est.low, high: est.high, week: q ? q.week : null, resetsAt: q?.weekResetsAt ?? 0 } });
+  }
+
+  private askPermission(tool: string, input: Record<string, unknown>, opts?: { question?: string; quota?: { what: string; low: number; high: number; week: number | null; resetsAt: number } }): Promise<boolean> {
     // Belt and braces: if the main session ever reaches for a web tool directly, refuse it outright
     // rather than asking Joshua. Untrusted page content must not enter the session that holds his files.
     if (WEB_TOOLS.includes(tool)) {
@@ -3295,7 +3325,8 @@ export class Core {
     // Reading is not acting: the read tools stay trusted after a page was read. Anything that does
     // something asks again once outside content is in the turn.
     const acts = !['mcp__aang__read_window', 'mcp__aang__read_clipboard', 'mcp__aang__look_at_window', 'mcp__aang__mail_inbox', 'mcp__aang__mail_read', 'mcp__aang__calendar_today'].includes(tool);
-    if (kind && this.trust.allowed(kind.kind) && !(this.tainted && acts)) return Promise.resolve(this.granted(tool));
+    // A quota ask is never trusted away: it is asked every time, with that job's cost (his rule).
+    if (!opts?.quota && kind && this.trust.allowed(kind.kind) && !(this.tainted && acts)) return Promise.resolve(this.granted(tool));
     if (kind && this.tainted && acts && this.trust.allowed(kind.kind)) console.log(`asking again for "${kind.kind}": this turn has read outside content`);
 
     // Asked where he asked for the thing; with no turn behind it, wherever he is.
@@ -3305,7 +3336,7 @@ export class Core {
     if (this.permission) return this.refuse('another question is already waiting for his answer in the bubble');
     this.refused = '';
     const id = `perm${++this.permissionSeq}`;
-    const question = describeCall(tool, input);
+    const question = opts?.question ?? describeCall(tool, input);
     return new Promise<boolean>(resolve => {
       const timer = setTimeout(() => { this.refused = 'he did not answer the question in the bubble in time'; this.answerPermission(id, 'no'); this.sendTo('desktop', { t: 'ask.expired', id }); }, PERMISSION_TIMEOUT_MS);
       timer.unref?.();
@@ -3315,7 +3346,7 @@ export class Core {
           // Three real choices (2026-09-22, was a binary yes/no where yes silently meant forever):
           // once does the thing and forgets it; always does the thing and trusts the whole kind from
           // now on; no declines. Only always writes to trust.
-          if (choice === 'always' && kind) this.trust.allow(kind.kind, question);
+          if (choice === 'always' && kind && !opts?.quota) this.trust.allow(kind.kind, question);
           if (choice === 'no' && !this.refused) this.refused = 'Joshua said no in the bubble';
           resolve(choice === 'no' ? false : this.granted(tool));
         },
@@ -3328,7 +3359,7 @@ export class Core {
       const exact = exactOf(tool, input);
       const s = (k: string) => typeof input?.[k] === 'string' ? String(input[k]) : '';
       const draft = tool === 'mcp__aang__mail_send' ? { to: s('to').slice(0, 300), subject: s('subject').slice(0, 300), body: s('body').slice(0, 20_000), fresh: s('fresh').slice(0, 300) } : null;
-      for (const c of askAt) this.send(c, { t: 'permission', id, tool, question, remembers: kind?.says, ...(means ? { means } : {}), ...(exact ? { exact } : {}), ...(draft ? { draft } : {}), ...(hold ? { hold: true } : {}) });
+      for (const c of askAt) this.send(c, { t: 'permission', id, tool, question, ...(opts?.quota ? { quota: opts.quota } : { remembers: kind?.says }), ...(means ? { means } : {}), ...(exact ? { exact } : {}), ...(draft ? { draft } : {}), ...(hold ? { hold: true } : {}) });
     });
   }
 
