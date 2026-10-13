@@ -830,6 +830,37 @@ rule and they are not optional.
               9.P Aang comes alive (the animation upgrade)
 ```
 
+### THE ORDER FROM HERE  (written 2026-10-13, his ask: "don't miss any steps, make sure all critical path steps are in a plan")
+
+Done in order, top to bottom. Nothing below is dropped; the "any gap" list at the end is done between steps or
+folded in where it fits, never skipped. **Where we are: 9.D, D4 built, waiting on his Mac paste + Manage Webhooks.**
+
+1. **9.D Discord** (approved sheet 15): ~~D1 channels~~ ~~D2 buzz~~ ~~D3 drawn cards~~ ~~D4 speakers~~ (live after his Mac
+   paste and Manage Webhooks) -> **D5** live Claude job cards -> **D6** home card -> **D7** #capture videos -> **D8** gaming
+   feeds -> **D9** the wheel's Away. Then the old channels are deleted by HIS button.
+2. **M Aang on the MacBook:** ~~M1 listener fixes~~ ~~M2 heartbeat~~ ~~M3 front desk~~ -> **M4** Aang answers from the Mac
+   when Shadow is off -> **M5** one memory on both -> **M6** Aang's browser on the Mac, everything synced -> **M7** bubble,
+   typing box, notes, timers on the Mac (mockups first) -> **M8** notices that follow him and jump to the right session
+   (mockups first) -> **M9** the new pet for both machines (mockups first).
+3. **S3 leftover:** move the Mac listener's key from the address into a header (the rest of S3 was done in M1).
+4. **L** the everyday test, Qwen and Claude together (spends quota: needs his go) -> **6.16** Qwen on the strip (Auto
+   finally routes to Qwen) -> **6.25** page summaries (after L) -> **K4** Qwen does a little more.
+5. **V** Aang's voice.
+6. **6.15 pass 2** the desk's own Settings -> **6.17 pass 2** the rest of snip, grab, drag and drop -> **6.18b** retire the old
+   C# windows (his verdict first) = REBUILD COMPLETE.
+7. **6.26** close the week as second browser (list what broke) -> **6.27** he clicks Set default (built; his click).
+8. **Phase 9, the rest:** **9.A1** approvals done right -> **9.A2** answering Claude's questions from Discord -> **9.A3**
+   stepping away on Discord (largely D9 + M4: check what is left) -> **9.A4** (superseded by M3/M4: close it) -> **9.A5**
+   Routines (superseded by M4, his choice: close it) -> **9.A6** the private page (his design, later) -> **9.A7** driving
+   Claude from the balloon -> **6.25a** the door for Claude sessions to drive the browser -> **9.F1** blacking out
+   screenshots -> **9.F2** decks -> **9.F3** documents -> **9.F4** photocraft on the Mac -> **9.P** Aang comes alive (with M9).
+
+**Any gap, never skipped** (each is its own step below): K1 small fixes, K2 the research loop, K3 addons + Apex and
+creator feeds (D8 uses them), K5 job hunt measured, K6 memory check, K7 interview prep (when needed), K8 cheap fixes,
+K9 search all notes, K10 ActivityWatch + **sandbox-runtime for Aang's tools** + FlaUI, 6.6 Twitch ads (his call), 6.7 the
+Canada lookup (needs a key he does not have), 6.28 the passkey-bridge check, and the slow memory test that flakes when
+the whole suite runs at once.
+
 **Any gap, from 2026-10-10:** K8 (free quota numbers from the status line; Discord replies that
 continue the real session instead of opening a new one). From 2026-10-11: K9 (search all his notes),
 K10 (activity log, tool sandbox, real button clicks), and the Apex and creator feeds in K3.
@@ -999,7 +1030,7 @@ total. They must land before Aang reads his signed-in tabs (decision 42, step 6.
 
 **Done when:** each has a test that tries the attack and is refused.
 
-### `[ ]` S3 The Mac bridge fixes  **when Mac work resumes**  (added 2026-10-04, decision 47)
+### `[~]` S3 The Mac bridge fixes  **2026-10-13: done in M1 (key off the command line, constant-time compare, Shadow's exact address); left: the key from the URL to a header**
 
 Low risk today: the listener binds only to the Mac's Tailscale address, so only his own devices reach it.
 When Mac work comes back: check the real tailnet range `100.64.0.0/10` (or `tailscale whois`) instead of
