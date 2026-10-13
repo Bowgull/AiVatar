@@ -124,7 +124,10 @@ const MAX_RECIPIENTS = 5;
 
 export type Decision =
   | { do: 'send' | 'save'; draft: MailDraft }
-  | { do: 'confirm' | 'discard' | 'none'; draft: MailDraft | null; why: string };
+  // One member each, so checking `do` narrows: a send or a save always has its draft, and the checker can see it.
+  | { do: 'confirm'; draft: MailDraft | null; why: string }
+  | { do: 'discard'; draft: MailDraft | null; why: string }
+  | { do: 'none'; draft: MailDraft | null; why: string };
 
 export class MailStore {
   private s: StoreFile = { drafts: {}, known: [], proposed: [] };

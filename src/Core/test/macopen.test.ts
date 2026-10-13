@@ -107,6 +107,48 @@ test('the door is rate-limited and capped, like the other two', () => {
   assert.equal(doors?.[1], '/front|/run|/open', 'exactly three things the Mac will do');
 });
 
+// ---- M1 (2026-10-13): the four open findings from PORT-TO-MAC.md, closed before the Mac gains any new door.
+import { macSetupScript } from '../src/macsetup.ts';
+
+test('M1: the key is never on a command line where ps could show it', () => {
+  const setup = macSetupScript('100.101.102.103', 47832, 'HOOKKEY_abcdefghijklmnop', 'FRONTKEY_abcdefghijklmnop');
+  const plist = /<key>ProgramArguments<\/key><array>([\s\S]*?)<\/array>/.exec(setup)?.[1] ?? '';
+  assert.ok(plist.includes('listen.pl'), 'the plist still starts the listener');
+  assert.doesNotMatch(plist, /FRONT_KEY|FRONTKEY/, 'no key among the listener\'s arguments');
+  assert.match(setup, /umask 077; printf '%s' "\$FRONT_KEY" > "\$DIR\/key"/, 'the key goes into a file only he can read');
+  assert.match(listener(), /my \(\$port\) = @ARGV;/, 'the listener takes only the port from its arguments');
+});
+
+test('M1: only the Shadow PC\'s exact address is answered, not any tailnet machine', () => {
+  const l = listener();
+  assert.match(l, /my \$ok = \$peer eq \$shadow && /);
+  assert.doesNotMatch(l, /\$peer =~ \/\^100/, 'the old "any 100. address" check is gone');
+});
+
+test('M1: the key compare takes the same time however much of a guess is right', t => {
+  if (!havePerl) { t.skip('no perl on this machine'); return; }
+  const same = /(sub same \{[^\n]*\})/.exec(listener())?.[1];
+  assert.ok(same, 'the constant-time compare should be in the listener');
+  const run = (a: string, b: string) => execFileSync('perl', ['-e', `${same}\nprint(same($ARGV[0], $ARGV[1]) ? "yes" : "no")`, '--', a, b], { encoding: 'utf8' }).trim();
+  assert.equal(run('abcdefghijklmnopqrstuvwx', 'abcdefghijklmnopqrstuvwx'), 'yes');
+  assert.equal(run('abcdefghijklmnopqrstuvwx', 'abcdefghijklmnopqrstuvwy'), 'no', 'one character off');
+  assert.equal(run('abcdefghijklmnopqrstuvwx', 'abcdefghijklmnopqrstuvw'), 'no', 'one character short');
+  assert.equal(run('abcdefghijklmnopqrstuvwx', ''), 'no');
+  assert.match(listener(), /same\(\$qkey, \$key\)/, 'and it is what the door uses');
+  assert.doesNotMatch(listener(), /\$qkey eq \$key/, 'not the old early-exit compare');
+});
+
+test('M1: /run checks Claude is really in front before every keystroke, with no blind pause', () => {
+  const as = /const RUN_APPLESCRIPT = String\.raw`([\s\S]*?)`;/.exec(source)?.[1] ?? '';
+  assert.doesNotMatch(as, /delay 1\.5/, 'the blind 1.5 second pause is gone');
+  const steps = as.split('\n');
+  for (const k of ['keystroke "n"', 'keystroke theText', 'keystroke return']) {
+    const at = steps.findIndex((l) => l.includes(k));
+    assert.ok(at > 0, `${k} is there`);
+    assert.match(steps[at - 1] + steps[at - 2], /claudeInFront/, `${k} is checked right before`);
+  }
+});
+
 test('the address is handed over as a list, never to a shell', () => {
   // system() with one string goes through a shell; system() with a list does not. That difference is
   // the whole defence against anything clever inside the address.
