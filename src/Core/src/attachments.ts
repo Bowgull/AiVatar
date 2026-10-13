@@ -17,13 +17,15 @@ const TEXTY = /\.(txt|csv|tsv|md|markdown|ics|vcf|json|xml|html?|log|rtf)$/i;
 /** Bigger than this is not read here (he can still save it and open it himself). */
 export const MAX_BYTES = 25 * 1024 * 1024;
 
-export type FileKind = 'image' | 'pdf' | 'docx' | 'text' | 'never' | 'archive' | 'other';
+export type FileKind = 'image' | 'pdf' | 'docx' | 'text' | 'media' | 'never' | 'archive' | 'other';
 export function kindOfFile(name: string, mime: string): FileKind {
   const n = name.toLowerCase(), m = (mime || '').toLowerCase();
   if (NEVER_OPEN.test(n)) return 'never';
   if (ARCHIVE.test(n) || /zip|x-rar|x-7z|x-tar|gzip/.test(m)) return 'archive';
   if (IMAGE.test(m) || /\.(png|jpe?g|gif|webp)$/.test(n)) return 'image';
   if (m === 'application/pdf' || n.endsWith('.pdf')) return 'pdf';
+  // E8: heard by speech-to-text on the PC (core.ts), not read here.
+  if (/^(video|audio)\//.test(m) || /\.(mp4|mov|m4v|webm|mkv|avi|mp3|m4a|wav|ogg|opus|aac|flac)$/.test(n)) return 'media';
   if (n.endsWith('.docx') || m === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') return 'docx';
   if (TEXTY.test(n) || m.startsWith('text/')) return 'text';
   return 'other';
