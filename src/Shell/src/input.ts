@@ -61,6 +61,8 @@ export class InputBox {
 
   private openedAt = 0;
   get visible(): boolean { return Boolean(this.win && !this.win.isDestroyed() && this.win.isVisible()); }
+  /** It has the keyboard. False when it opened without it (Windows did not hand it over). */
+  get focused(): boolean { return Boolean(this.win && !this.win.isDestroyed() && this.win.isFocused()); }
 
   /**
    * Show it and take the keyboard. CALL ONLY FROM THE HOTKEY HANDLER, synchronously: see the top of the
