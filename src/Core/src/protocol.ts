@@ -288,6 +288,7 @@ export type ToBody =
   | { t: 'home.data'; id: string; week: number | null; pace: string; running: number; waiting: string[] }
   | { t: 'away.reply'; text: string }
   | { t: 'puton.reply'; text: string }
+  | { t: 'gaming.post'; kind: 'upload' | 'news'; videoId?: string; title: string; channel?: string; thumb?: string; link?: string; summary?: string }
   | { t: 'video.card'; id: string; ok: boolean; by?: string; title?: string; author?: string; seconds?: number | null; from?: string; d?: unknown; why?: string }
   | { t: 'action.list'; actions: { name: string; label: string; description: string; params: unknown }[] }
   | { t: 'action.result'; id: string; ok: boolean; text: string; image?: { data: string; mimeType: string } }

@@ -3862,6 +3862,14 @@ the connection) and 9.A0 (buttons call the action registry). **Build order:**
   tag Video), Go deeper (cost first, then Smart with the new `watch_video` action, which marks the turn as outside
   content), Not useful. His words in the thread go to Aang about that video. 10 tests + the card painter.
 - **D8 #gaming:** Apex ranked map and creator uploads (K3's feeds).
+  **D8 BUILT 2026-10-13** (`feeds.ts`, `Core.checkFeeds`, `DiscordAdapter.gamingPost`): creators he follows (YouTube's
+  public channel feed, HisWattson first) checked every 20 minutes, Apex patch notes (Steam's feed, Steam links only)
+  every 2 hours. The first look at any feed only remembers what is there: no flood. New ones go to 🎮 gaming, silent,
+  with the thumbnail and Watch on PC (puts it on) / Later (📚 library, tag Video); a quiet line in the bubble when he is
+  at the PC. New actions: follow_creator, unfollow_creator (he edits the list by telling Aang), apex_map (ranked and
+  pubs, with time left). **The map needs his free key from apexlegendsapi.com, which he gets himself**, saved as
+  `apex.key` in the Aang settings folder; it is sent in a header, never the address. Not yet: filtering patch notes to
+  just his legends and guns (needs his picks).
 - **D9 Away from the wheel:** the Quiet slot becomes Away; talking moves to Discord; sessions resumed and answered there.
 - Voice is step V (after L), not here.
 

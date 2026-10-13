@@ -967,3 +967,19 @@ test('9.D D7: a video in capture is watched in a thread, says what it is, and it
   gw.sayIn('thread-v', 'capture', OWNER, 'would this work with gluten free pasta?'); await tick();
   assert.match(core.submits.at(-1)!.text, /About the video "Lemon pasta in 10 minutes"/, 'his words in the thread are about that video');
 });
+
+test('9.D D8: a new upload lands in gaming silently with its picture; Watch on PC puts it on, Later saves it', async () => {
+  const { gw, core } = await make({ paired: true });
+  const on: string[] = []; (core as any).putOn = (w: string) => on.push(w);
+  core.emit({ t: 'gaming.post', kind: 'upload', videoId: 'abc123XYZ01', title: 'Full Tryhard Lifeline', channel: 'HisWattson', thumb: Buffer.from('jpg').toString('base64') }); await tick();
+  const m = gw.to('gaming').at(-1)!;
+  assert.equal(m.content, 'HisWattson just posted');
+  assert.equal(m.silent, true);
+  assert.equal(m.embed?.image, 'attachment://thumb.jpg');
+  gw.press('gm:watch:abc123XYZ01', OWNER, 'ch-gaming'); await tick();
+  assert.deepEqual(on, ['https://www.youtube.com/watch?v=abc123XYZ01']);
+  gw.press('gm:later:abc123XYZ01', OWNER, 'ch-gaming'); await tick();
+  assert.deepEqual(gw.posts.at(-1)!.tags, ['Video']);
+  core.emit({ t: 'gaming.post', kind: 'news', title: 'Season 27 patch notes', link: 'https://evil.test/x', summary: 'x' }); await tick();
+  assert.doesNotMatch(gw.to('gaming').at(-1)!.content ?? '', /evil/, 'news only ever links to Steam');
+});
