@@ -718,6 +718,7 @@ export class AangBrowser {
     w.webContents.once('did-finish-load', () => {
       // Startup (Settings > General): his tabs as they were, or a fresh home page.
       if (this.prefs.startup === 'home' || !this.restore()) this.newTab(url ?? this.HOME);
+      else if (url) this.newTab(url);                       // his tabs come back, and the link he clicked opens on top
       else if (url) this.newTab(url);
     });
     this.win = w;

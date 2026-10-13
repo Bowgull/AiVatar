@@ -9,7 +9,7 @@
 // A crash in here must never take the pet or the brain with it. It is its own process, supervised from
 // the tray, and it holds nothing the others need.
 import { app, BrowserWindow, Menu, clipboard, globalShortcut, ipcMain, screen, session, shell } from 'electron';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, unlinkSync, watch, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { CoreLink } from './link.ts';
@@ -564,6 +564,27 @@ app.whenReady().then(async () => {
 
       aangBrowser = new AangBrowser({ origin: pages.origin, preloadPath: path.join(HERE, 'preload.cjs'), stateDir: STATE_DIR, tabPreloadPath: path.join(HERE, 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, 'thingspreload.cjs') });
       aangBrowser.onReclaim = () => popout?.returnTab();
+      // 6.27: links from Windows. Aang.exe --url checks each one and leaves it as a file here; each opens as a tab,
+      // then the file goes. Checked again here: http and https only. A link left while Aang was off for more than
+      // ten minutes is dropped rather than popping up long after he clicked it.
+      {
+        const dir = path.join(STATE_DIR, 'open-urls');
+        const take = () => {
+          let names: string[] = [];
+          try { names = readdirSync(dir).sort(); } catch { return; }
+          for (const n of names) {
+            const f = path.join(dir, n);
+            if (n === 'browser.flag') { try { unlinkSync(f); } catch { /* taken */ } aangBrowser?.open(); continue; }
+            if (!n.endsWith('.url')) continue;
+            let u = '', old = false;
+            try { old = Date.now() - statSync(f).mtimeMs > 10 * 60_000; u = readFileSync(f, 'utf8').trim(); unlinkSync(f); } catch { continue; }
+            if (old || u.length > 8192) continue;
+            try { const x = new URL(u); if (x.protocol === 'http:' || x.protocol === 'https:') aangBrowser?.open(x.href); } catch { /* not an address */ }
+          }
+        };
+        try { mkdirSync(dir, { recursive: true }); watch(dir, () => setTimeout(take, 60)); } catch (e) { console.error('shell: cannot watch for links: ' + (e as Error).message); }
+        take();
+      }
       // 6.28 the update key: a newer engine, downloaded, checked and tested quietly, waits for his Restart now.
       engineUpdates = new EngineUpdates({
         shellDir: path.join(HERE, '..'), stateDir: STATE_DIR,

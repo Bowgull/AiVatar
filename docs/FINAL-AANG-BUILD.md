@@ -2823,7 +2823,17 @@ Chrome today, because Aang's browser is where he is signed in. His words: "omg t
 He uses it alongside Chrome for a week. Every site that breaks goes on a list. That list decides
 what stays in Chrome.
 
-### `[ ]` 6.27 The default browser
+### `[x]` 6.27 The default browser  **BUILT 2026-10-13 (his yes); he clicks "Set default" in Windows Settings**
+
+**Built:** `src/Body/DefaultBrowser.cs`. `Aang.exe --register-browser` writes the per-user keys (ProgID AangBrowserURL
+with `"Aang.exe" --url -- "%1"`, StartMenuInternet\AangBrowser with Capabilities for http and https, and
+RegisteredApplications), then opens Settings on Aang Browser. `--unregister-browser` removes it all. A link: only
+the single argument after `--`, only an absolute http or https address (7 tests, including `--gpu-launcher`-style
+and file:, javascript:, ms-settings: links), written as a file into `%APPDATA%\Aang\open-urls`; the Shell checks it
+again and opens it as a tab (his tabs come back too if the browser was closed). A link older than 10 minutes, left
+while Aang was off, is dropped. Tested live: a real link opened as a tab; a fake switch was refused and logged.
+If the repo ever moves, run `--register-browser` again (the command points at the Release build).
+
 
 Register (StartMenuInternet, Capabilities, RegisteredApplications, all per-user), harden incoming
 links against the known attack where a link smuggles in startup instructions (`--` before `%1`,
