@@ -27,6 +27,10 @@ class Desk {
   async send(ch: string, msg: OutMsg) { this.sent.push({ ch, msg }); return 'm' + this.sent.length; }
   async edit(ch: string, id: string, msg: OutMsg) { this.edits.push({ ch, id, msg }); }
   async typing() {}
+  posts: { forum: string; title: string; content: string; tags: string[] }[] = [];
+  tags: [string, string[]][] = [];
+  async createPost(forum: string, title: string, content: string, tags: string[] = []) { this.posts.push({ forum, title, content, tags }); return 'thread' + this.posts.length; }
+  async setPostTags(id: string, t: string[]) { this.tags.push([id, t]); }
 }
 const msg = (id: string, channelId: string, content: string, extra: Partial<Incoming> = {}): Incoming =>
   ({ id, channelId, channelName: '', authorId: OWNER, isBot: false, content, createdAt: 0, ...extra });
@@ -206,4 +210,34 @@ test('M4b: a Claude job on the Mac that cannot reach the PC tells the front desk
     assert.equal(got[0]![0], 'Notification');
     assert.equal(got[0]![1].message, 'Claude needs your permission');
   } finally { await desk.close(); }
+});
+
+test('M4b jobs: a job gets its post, its answer lands there, and a reply in the post continues the SAME session', async () => {
+  const { MacJobs } = await import('../src/macjobs.ts');
+  const gw = new Desk();
+  const asked: { prompt: string; resume?: string }[] = [];
+  const run = ((a: any) => { asked.push({ prompt: a.prompt, resume: a.options.resume }); return (async function* () { yield { type: 'system', session_id: 'sess-1' }; yield { type: 'result', subtype: 'success', result: 'Made the list.' }; })(); }) as any;
+  const jobs = new MacJobs({ gw: gw as any, dir: tmp(), forum: () => '20500', log: () => {}, run });
+  assert.match(await jobs.start('make a packing list for Banff'), /Started it on the Mac/);
+  await wait(50);
+  assert.equal(gw.posts.length, 1);
+  assert.equal(gw.posts[0]!.forum, '20500');
+  assert.deepEqual(gw.posts[0]!.tags, ['Working']);
+  assert.ok(gw.sent.some(s => s.ch === 'thread1' && s.msg.content === 'Made the list.'), 'the answer is posted in its post');
+  assert.equal(await jobs.continue('thread1', 'add a rain jacket'), true);
+  await wait(50);
+  assert.deepEqual(asked[1], { prompt: 'add a rain jacket', resume: 'sess-1' }, 'his reply goes into the same session');
+  assert.equal(gw.posts.length, 1, 'no second post');
+  assert.equal(await jobs.continue('some-other-thread', 'hi'), false);
+});
+
+test('M4b jobs: a session he runs himself on the Mac gets a post when it needs him', async () => {
+  const { MacJobs } = await import('../src/macjobs.ts');
+  const gw = new Desk();
+  const jobs = new MacJobs({ gw: gw as any, dir: tmp(), forum: () => '20500', log: () => {} });
+  await jobs.hook('Notification', { session_id: 's9', cwd: '/Users/j/code/site', message: 'Claude needs your permission to use Bash' });
+  assert.equal(gw.posts.length, 1);
+  assert.match(gw.posts[0]!.title, /site/);
+  assert.deepEqual(gw.posts[0]!.tags, ['Needs you']);
+  assert.equal(jobs.byThread('thread1')?.session, 's9');
 });

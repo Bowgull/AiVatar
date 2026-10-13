@@ -138,6 +138,8 @@ sealed class CoreSupervisor : IDisposable
 
     /// <summary>True once the Core has died too often to keep restarting. Restarting Aang clears it.</summary>
     public bool GivenUp { get; private set; }
+    /// <summary>The child is up right now (started and not exited).</summary>
+    public bool Running { get { try { return child is { HasExited: false }; } catch { return false; } } }
 
     /// <summary>Records a death and says whether that is now a loop rather than bad luck.</summary>
     bool TooManyDeaths(DateTime now)

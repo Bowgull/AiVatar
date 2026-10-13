@@ -169,9 +169,12 @@ sealed class PetWindow : Form
             // Parity (2026-10-11): the pet's own lines are drawn by the new bubble, not lost.
             BubbleView.Forward = (text, hold) =>
             {
-                // Down: the brain (no link to relay it) or the windows (nothing to draw it). The old bubble
-                // draws it instead - this is exactly when "my brain stopped" has to reach him.
-                if (!link.IsConnected || supervisor?.GivenUp == true || shell?.GivenUp == true) return false;
+                // The windows are down: nothing else can draw it, so the old bubble does.
+                if (shell == null || shell.GivenUp || !shell.Running) return false;
+                // The brain is down but the windows are up: the new bubble already says so itself (ONE MOMENT,
+                // then STILL DOWN with Try again). Drawing the old bubble too put two bubbles on screen
+                // (his report, 2026-10-13), so the line is dropped here.
+                if (!link.IsConnected || supervisor?.GivenUp == true) return true;
                 _ = link.SendAsync(new { t = "pet.say", text, hold });
                 return true;
             };
