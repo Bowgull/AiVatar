@@ -286,6 +286,8 @@ FD="$DIR/frontdesk"; mkdir -p "$FD"
 ${deskFiles}
 if [ -x "$NODE_DIR/bin/node" ]; then
   # Exactly the versions in the lockfile, each checked against its fingerprint; no install scripts are run.
+  # M4: this includes Claude's engine for the Mac (about 230 MB the first time, his OK 2026-10-13).
+  echo "     Installing (the first time this downloads about 230 MB, so it can take a few minutes)..."
   if ( cd "$FD" && PATH="$NODE_DIR/bin:$PATH" npm ci --omit=dev --ignore-scripts --no-audit --no-fund >/dev/null 2>&1 ); then
     FDPLIST="$HOME/Library/LaunchAgents/com.aang.frontdesk.plist"
     cat > "$FDPLIST" <<FDXML
@@ -307,8 +309,16 @@ FDXML
     launchctl bootstrap "gui/$(id -u)" "$FDPLIST"
     sleep 8
     if grep -q "listening for Shadow" "$DIR/frontdesk.log" 2>/dev/null; then echo "     The front desk is connected to Discord and waiting for Shadow."; else echo "     The front desk started; it may still be connecting (see $DIR/frontdesk.log)."; fi
+    # M4: the Mac answers as Aang with the Claude sign-in already on this Mac. Only whether it exists is checked;
+    # the sign-in itself is never read here.
+    if security find-generic-password -s "Claude Code-credentials" >/dev/null 2>&1; then
+      echo "     The Mac can answer as Aang while Shadow is off (Claude is signed in here)."
+    else
+      echo "     To let the Mac answer while Shadow is off, sign in to Claude once. Paste this, then follow the sign-in:"
+      echo "       \\"$FD/node_modules/@anthropic-ai/claude-agent-sdk-darwin-x64/claude\\""
+    fi
   else
-    echo "     Installing the front desk's two libraries failed; nothing was started. Run this setup again later."
+    echo "     Installing the front desk's libraries failed; nothing was started. Run this setup again later."
   fi
 else
   echo "     Node is not here, so the front desk was not started."

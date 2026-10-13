@@ -241,3 +241,23 @@ test("9.D D9: the wheel's Away tells the pet and says so in Discord", async () =
     assert.ok(discord.inbox.some(m => m.t === 'bubble' && /stepped away/.test(m.text)), 'Discord hears it');
   });
 });
+
+test('M4: the PC gives the Mac its voice and memory, and keeps what the Mac said and saved', async () => {
+  await withCore(48640, async (core, discord) => {
+    core.memory.remember('His cat is called Momo');
+    discord.c.send(JSON.stringify({ t: 'mac.brief', id: 'mac1' }));
+    await wait(120);
+    const b = discord.inbox.find(m => m.t === 'mac.brief');
+    assert.ok(b, 'the brief comes back');
+    assert.equal(b.id, 'mac1');
+    assert.match(b.prompt, /You are Aang/);
+    assert.ok(b.facts.some((f: string) => /Momo/.test(f)));
+    discord.c.send(JSON.stringify({ t: 'mac.handled', items: [
+      { kind: 'remember', text: 'His sister lives in Ottawa', at: 1 },
+      { kind: 'turn', user: 'what time is it in tokyo', aang: 'It is 3am there.', at: 2 },
+    ] }));
+    await wait(120);
+    assert.ok(core.memory.list(50).some((f: any) => /Ottawa/.test(f.text)), 'remembered on the PC');
+    assert.ok(core.memory.history('tokyo', 5).some((h: any) => /tokyo/.test(h.text)), 'the exchange is in his conversation');
+  });
+});
