@@ -101,7 +101,7 @@ export interface CoreLink {
   watchVideo?(url: string): Promise<any | null>;
   addIdea?(text: string): void;
   /** 9.D D3: a card Aang draws, as a PNG; null when it could not be drawn. Optional: without it, plain text. */
-  drawCard?(kind: 'job' | 'needs' | 'home' | 'watched' | 'quota' | 'brief', data: unknown): Promise<Buffer | null>;
+  drawCard?(kind: 'job' | 'needs' | 'home' | 'watched' | 'quota' | 'brief' | 'inbox' | 'week', data: unknown): Promise<Buffer | null>;
   submit(id: string, text: string, opts?: { ephemeral?: boolean; mode?: 'auto' | 'smart' }): void;
   permission(id: string, allow: boolean): void;
   /** Type this into a new chat in the Claude app on the MacBook. Answered by a mac.run.reply event, never a
@@ -313,7 +313,7 @@ export class DiscordAdapter {
    * plain words kept as the message text, which is what his phone's notification shows. Without a picture (the Shell is
    * not running), the same words go out on their own.
    */
-  private async drawn(kind: 'job' | 'needs' | 'home' | 'watched' | 'quota' | 'brief', data: unknown, accent: number, msg: OutMsg): Promise<OutMsg> {
+  private async drawn(kind: 'job' | 'needs' | 'home' | 'watched' | 'quota' | 'brief' | 'inbox' | 'week', data: unknown, accent: number, msg: OutMsg): Promise<OutMsg> {
     const png = await this.link.drawCard?.(kind, data).catch(() => null) ?? null;
     if (!png) return msg;
     return { ...msg, embed: { ...(msg.embed ?? {}), color: accent, image: 'attachment://card.png' }, files: [...(msg.files ?? []), { name: 'card.png', data: png }] };
@@ -1007,6 +1007,14 @@ export class DiscordAdapter {
       // Asked for: a fresh card where he asked. After a revoke there is no request: the card he pressed is updated.
       const channelId = this.replyTo.trust.shift() ?? this.trustCard?.channelId ?? this.state.channels['aang'];
       if (channelId) await this.showTrust(channelId, ev.items);
+      return;
+    }
+    // Sheet 21: the drawn card that goes with his question (his email, his week), in the channel he asked in.
+    if (ev?.t === 'card.show' && typeof ev.id === 'string' && (ev.kind === 'inbox' || ev.kind === 'week')) {
+      const p = this.pending.get(ev.id);
+      if (!p) return;
+      const msg = await this.drawn(ev.kind, ev.data ?? {}, 0xFFC43C, { content: '' });
+      if (msg.files?.length) await this.gw.send(p.channelId, msg);
       return;
     }
     if (ev?.t === 'brief.reply' && typeof ev.text === 'string') {

@@ -66,6 +66,7 @@ body{font-family:Figtree,system-ui,sans-serif;-webkit-font-smoothing:antialiased
 .li{display:flex;align-items:flex-start;gap:7px;font-size:13px;font-weight:600;color:#4e3d28;line-height:1.3}
 .li .t{font:400 9px Silkscreen,monospace;color:#2A1C08;background:#9fd3ff;border:1.5px solid #120A05;border-radius:4px;padding:1px 4px;flex:0 0 auto;margin-top:1px}
 .li .t.wait{background:#FFC43C}
+.li .w{white-space:nowrap}
 .li .w{font-weight:800;color:#2E2216}
 .li .m{color:#7a6448;font-weight:600}
 .li .tm{font:400 9.5px Silkscreen,monospace;color:#5A4834;min-width:58px;margin-top:2px;flex:0 0 auto}
