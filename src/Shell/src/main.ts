@@ -489,6 +489,17 @@ app.whenReady().then(async () => {
   // No Electron menu bar. Aang's windows are his own look, and File/Edit/View is not it. It also
   // removes the built-in reload and developer-tools shortcuts from every window he draws.
   Menu.setApplicationMenu(null);
+  // Aang's own windows always draw at 100% (2026-10-13). Chromium keeps one zoom per HOST and saves it, and they all
+  // share 127.0.0.1: a 2x from the card drawer, or a Ctrl+wheel over the bubble, made the typing box twice its size and
+  // cut it off, after every restart. Reset on every load (which also wipes the saved value) and on any zoom attempt.
+  // The browser's tabs live in their own session and keep their zoom.
+  app.on('web-contents-created', (_e, wc) => {
+    if (wc.session !== session.defaultSession) return;
+    const one = () => { try { if (!wc.isDestroyed() && wc.getZoomFactor() !== 1) wc.setZoomFactor(1); } catch { /* gone */ } };
+    wc.on('did-finish-load', one);
+    wc.on('zoom-changed', one);
+    void wc.setVisualZoomLevelLimits(1, 1).catch(() => {});
+  });
 
   // BEFORE ANYTHING ELSE: a copy of his settings and his memory as they are right now, taken once.
   // The git tag keeps the old code; this keeps the old data, which the tag cannot (step 6.0, his
