@@ -18,7 +18,7 @@ export class GoogleError extends Error {
   constructor(message: string, kind: 'signin' | 'none' | 'api' = 'api') { super(message); this.kind = kind; }
 }
 
-export interface Part { mimeType?: string; filename?: string; body?: { data?: string; size?: number }; parts?: Part[]; headers?: { name: string; value: string }[] }
+export interface Part { partId?: string; mimeType?: string; filename?: string; body?: { data?: string; size?: number; attachmentId?: string }; parts?: Part[]; headers?: { name: string; value: string }[] }
 export interface Message { id: string; threadId: string; snippet?: string; internalDate?: string; labelIds?: string[]; payload?: Part }
 export interface CalEvent { id: string; summary?: string; location?: string; start?: { dateTime?: string; date?: string }; end?: { dateTime?: string; date?: string }; status?: string; attendees?: { email: string; self?: boolean; responseStatus?: string }[] }
 
@@ -115,6 +115,11 @@ export class Google {
   async message(id: string, format: 'full' | 'metadata' = 'full'): Promise<Message> {
     const meta = format === 'metadata' ? '&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date&metadataHeaders=To&metadataHeaders=Reply-To&metadataHeaders=Message-ID&metadataHeaders=References' : '';
     return this.call('GET', `${Google.G}/messages/${encodeURIComponent(id)}?format=${format}${meta}`);
+  }
+  /** E1: one attachment's bytes (base64url), by the message and its attachment id. Reading only (gmail.readonly). */
+  async attachment(messageId: string, attachmentId: string): Promise<string> {
+    const j = await this.call('GET', `${Google.G}/messages/${encodeURIComponent(messageId)}/attachments/${encodeURIComponent(attachmentId)}`);
+    return String(j.data ?? '');
   }
   /** Sends. Only mail.ts calls this, and only for a draft whose hash he approved. */
   async send(raw: string, threadId?: string): Promise<{ id: string }> {

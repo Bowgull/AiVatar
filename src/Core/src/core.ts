@@ -1718,7 +1718,7 @@ export class Core {
         'discord-client.ts': readFileSync(path.join(here, 'discord-client.ts'), 'utf8'),
         'discord-logic.ts': readFileSync(path.join(here, 'discord-logic.ts'), 'utf8'),
         // M4: the Mac answering as Aang while this PC is off, and the small pieces it shares with this PC.
-        ...Object.fromEntries(['macbrain.ts', 'macpowers.ts', 'macjobs.ts', 'weather.ts', 'briefcard.ts', 'google.ts', 'mail.ts', 'addresses.ts', 'lists.ts', 'atomic.ts', 'route.ts'].map(f => [f, readFileSync(path.join(here, f), 'utf8')])),
+        ...Object.fromEntries(['macbrain.ts', 'macpowers.ts', 'macjobs.ts', 'weather.ts', 'briefcard.ts', 'google.ts', 'mail.ts', 'emailfacts.ts', 'addresses.ts', 'lists.ts', 'atomic.ts', 'route.ts'].map(f => [f, readFileSync(path.join(here, f), 'utf8')])),
         'package.json': readFileSync(path.join(pkg, 'package.json'), 'utf8'),
         'package-lock.json': readFileSync(path.join(pkg, 'package-lock.json'), 'utf8'),
         // 9.D D4: the speakers' pictures, made once with their webhooks
