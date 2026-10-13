@@ -32,10 +32,12 @@ export interface SyncTarget {
   tabSnap(): TabSnap; setTabs(s: TabSnap): void;
   visits(): Visit[]; addVisits(list: Visit[]): void; forgetVisit(url: string, at: number): void; clearVisits(from: number): void;
   cookies(): Promise<SyncCookie[]>; setCookie(c: SyncCookie): Promise<void>; removeCookie(c: SyncCookie): Promise<void>;
+  /** The other machine started playing something: stop here (one video at a time, his rule). */
+  pauseAll?(): void;
 }
 
 export type SyncMsg =
-  | { t: 'bsync.hello' } | { t: 'bsync.down' }
+  | { t: 'bsync.hello' } | { t: 'bsync.down' } | { t: 'bsync.media' }
   | { t: 'bsync.full'; marks: { at: number; list: Mark[] }; prefs: { at: number; data: Record<string, unknown> }; tabs: { at: number; snap: TabSnap }; visits: Visit[]; cookies: Record<string, { at: number; c: SyncCookie | null }> }
   | { t: 'bsync.marks'; at: number; list: Mark[] }
   | { t: 'bsync.prefs'; at: number; data: Record<string, unknown> }
@@ -163,6 +165,9 @@ export class BrowserSync {
     }, 1500);
   }
 
+  /** Something started playing on this machine: the other one stops (one video at a time). */
+  mediaStarted(): void { this.send({ t: 'bsync.media' }); }
+
   // ---- the other machine is there
   /** The link to the other machine came up (or went down). Up: both send everything. */
   async link(up: boolean): Promise<void> {
@@ -198,6 +203,7 @@ export class BrowserSync {
       switch (m.t) {
         case 'bsync.hello': this.connected = true; await this.sendFull(); break;
         case 'bsync.down': this.connected = false; break;
+        case 'bsync.media': t.pauseAll?.(); break;
         case 'bsync.marks': if (m.at > this.s.marksAt && Array.isArray(m.list)) { t.setMarks(m.list); this.s.marksAt = m.at; this.save(); } break;
         case 'bsync.prefs': if (m.at > this.s.prefsAt && m.data && typeof m.data === 'object') { t.setPrefs(m.data); this.s.prefsAt = m.at; this.save(); } break;
         case 'bsync.tabs': if (m.at > this.s.tabsAt && m.snap) { this.applyTabs(m.snap); this.s.tabsAt = m.at; this.save(); } break;
