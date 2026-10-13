@@ -30,12 +30,14 @@ export interface CategoryDef { name: string; channels: ChannelDef[] }
  */
 export const LAYOUT: CategoryDef[] = [
   { name: 'NEEDS YOU', channels: [
-    { key: 'needs-you', name: '!-needs-you', kind: 'text', topic: 'Everything waiting on you: a question, an approval, a captcha. The one that always buzzes.', was: ['needs-you'], buzz: true },
+    // Discord strips "!" and "+" from channel names (found live 2026-10-13: they became "-needs-you" and "-capture"),
+    // so these two use symbols from the same dingbat family as the others, which it keeps.
+    { key: 'needs-you', name: '❢-needs-you', kind: 'text', topic: 'Everything waiting on you: a question, an approval, a captcha. The one that always buzzes.', was: ['needs-you', '-needs-you'], buzz: true },
     { key: 'drafts', name: '✉-drafts', kind: 'text', topic: 'Email drafts waiting for a yes. Nothing is sent without a button press.', was: ['drafts'], buzz: true },
   ] },
   { name: 'TALK', channels: [
     { key: 'aang', name: '▸-aang', kind: 'text', topic: 'Talk to Aang.', was: ['aang'], buzz: true },
-    { key: 'capture', name: '+-capture', kind: 'text', topic: 'Drop anything: notes, links, recipes, videos. Aang files it.', was: ['capture'] },
+    { key: 'capture', name: '✚-capture', kind: 'text', topic: 'Drop anything: notes, links, recipes, videos. Aang files it.', was: ['capture', '-capture'] },
   ] },
   { name: 'RUNNING', channels: [
     { key: 'claude-jobs', name: '⚙-claude-jobs', kind: 'forum', topic: 'One post per Claude job, kept current. Buzzes when one is done.', tags: ['Working', 'Needs you', 'Done'], buzz: true },
@@ -75,7 +77,7 @@ export interface LayoutPlan {
  * it is renamed only from an old plain name, and only once (`renamed`), because Discord may store a symbol
  * differently and a channel can be renamed only twice in ten minutes.
  */
-export function planLayout(existing: ChannelInfo[], renamed: ReadonlySet<string> = new Set()): LayoutPlan {
+export function planLayout(existing: ChannelInfo[], renamed: ReadonlySet<string> = new Set(), known: Readonly<Record<string, string>> = {}): LayoutPlan {
   const cats = existing.filter(c => c.kind === 'category');
   const catByName = (n: string) => cats.find(c => c.name.toLowerCase() === n.toLowerCase()) ?? null;
   const used = new Set<string>();
@@ -85,7 +87,11 @@ export function planLayout(existing: ChannelInfo[], renamed: ReadonlySet<string>
     plan.categories.push({ name: cat.name, id: c?.id ?? null });
     for (const def of cat.channels) {
       const names = [def.name, def.key, ...(def.was ?? [])];
-      const found = existing.find(x => x.kind !== 'category' && !used.has(x.id) && names.includes(x.name)) ?? null;
+      // The channel Aang already knows comes first: a name Discord changed can never make a second one. Otherwise by
+      // name, and when two share a name, the OLDEST (the one with his history in it).
+      const byId = known[def.key] ? existing.find(x => x.id === known[def.key] && x.kind !== 'category' && !used.has(x.id)) : undefined;
+      const found = byId ?? existing.filter(x => x.kind !== 'category' && !used.has(x.id) && names.includes(x.name))
+        .sort((a, b) => (BigInt(a.id) < BigInt(b.id) ? -1 : 1))[0] ?? null;
       if (found) used.add(found.id);
       const rename = !!found && found.name !== def.name && !renamed.has(def.key) && [def.key, ...(def.was ?? [])].includes(found.name);
       const moveTo = !!found && (!c || found.parentId !== c.id);
@@ -94,6 +100,10 @@ export function planLayout(existing: ChannelInfo[], renamed: ReadonlySet<string>
     }
   }
   for (const x of existing) if (x.kind !== 'category' && !used.has(x.id) && MERGED[x.name]) plan.old.push({ name: x.name, id: x.id, into: MERGED[x.name]! });
+  // A second channel carrying one of Aang's own names (the empty copies a stripped symbol made, 2026-10-13): offered
+  // for deletion with the old channels, never used, never touched before his yes.
+  const ours = new Set(LAYOUT.flatMap(c => c.channels.flatMap(d => [d.name, d.key, ...(d.was ?? [])])));
+  for (const x of existing) if (x.kind !== 'category' && !used.has(x.id) && !MERGED[x.name] && ours.has(x.name)) plan.old.push({ name: `${x.name} (an empty copy)`, id: x.id, into: 'none' });
   for (const name of OLD_CATEGORIES) { const c = catByName(name); if (c) plan.oldCategories.push({ name, id: c.id }); }
   return plan;
 }
