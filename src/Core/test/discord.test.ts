@@ -909,3 +909,33 @@ test('9.D D5: a Claude job is one post with one live card: working, waiting on h
   assert.deepEqual(opened, [cwd]);
   assert.ok(a.state.claudePosts?.[cwd]);
 });
+
+test('9.D D6: one home card, pinned in home, edited in place; its three buttons do what they say', async () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'aang-dc-'));
+  writeFileSync(path.join(dir, 'discord.json'), JSON.stringify({ ownerId: OWNER, channels: {}, lastSeen: {} }));
+  const gw = new FakeGateway(), core: any = new FakeCore();
+  let away = 0; const shows: string[] = [];
+  core.homeData = async () => ({ week: 0.31, pace: 'on pace', running: 1, waiting: ['the bubble grows needs you'] });
+  core.stepAway = () => { away++; }; core.putOn = (w: string) => shows.push(w);
+  const a = new DiscordAdapter(gw, core, dir, { typingMs: 1_000_000, scanMs: 0 });
+  await a.start();
+  const card = gw.to('home').find(m => m.buttons?.some(b => b.id === 'home:waiting'))!;
+  assert.match(card.content!, /31% of the week, 1 running, 1 waiting on you/);
+  assert.deepEqual(card.buttons!.map(b => b.label), ["What's waiting", 'Stepping away', 'Put a show on']);
+  assert.equal(card.silent, true);
+  assert.equal(gw.pins.length >= 1, true, 'pinned');
+  const posted = gw.to('home').length;
+  await a.refreshHome();
+  assert.equal(gw.to('home').length, posted, 'kept current by editing, never posted again');
+  assert.ok(gw.edits.some(e => e.channelId === 'ch-home'));
+
+  gw.press('home:waiting', OWNER, 'ch-home'); await tick();
+  assert.match(gw.to('home').at(-1)!.content!, /Waiting on you:\n- the bubble grows needs you/);
+  gw.press('home:away', OWNER, 'ch-home'); await tick();
+  assert.equal(away, 1);
+  gw.press('home:puton', OWNER, 'ch-home'); await tick();
+  assert.match(gw.to('aang').at(-1)!.content!, /What should I put on/);
+  gw.say('aang', OWNER, 'frieren'); await tick();
+  assert.deepEqual(shows, ['frieren']);
+  assert.equal(core.submits.length, 0, 'the show name never became a chat turn');
+});

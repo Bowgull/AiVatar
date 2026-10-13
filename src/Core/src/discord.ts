@@ -85,6 +85,10 @@ export interface Gateway {
 export interface CoreLink {
   /** 9.D D5: bring the Claude app forward where this job runs. Optional for older links. */
   openClaude?(cwd: string): void;
+  /** 9.D D6: the home card's numbers; he steps away; put a show on. Optional for older links. */
+  homeData?(): Promise<{ week: number | null; pace: string; running: number; waiting: string[] } | null>;
+  stepAway?(): void;
+  putOn?(words: string): void;
   /** 9.D D3: a card Aang draws, as a PNG; null when it could not be drawn. Optional: without it, plain text. */
   drawCard?(kind: 'job' | 'needs' | 'home', data: unknown): Promise<Buffer | null>;
   submit(id: string, text: string, opts?: { ephemeral?: boolean; mode?: 'auto' | 'smart' }): void;
@@ -120,6 +124,10 @@ export interface State { ownerId: string | null; channels: Record<string, string
   oldOffer?: string;
   /** 9.D D5: each Claude job's own post in claude-jobs and its one live card, by the job's folder */
   claudePosts?: Record<string, { post: string; card: string; title: string; state: 'working' | 'waiting' | 'done' }>;
+  /** 9.D D6: the pinned home card in home */
+  homeCard?: string;
+  /** 9.D D6: "Put a show on" was pressed: his next words in aang are the show */
+  putOnNext?: boolean;
   /** 2026-10-13: the one-time fix for the empty channel copies has run */
   fixedCopies?: boolean; deckId?: string; recipes?: Record<string, string[]>; /** email draft id -> where its card is, so a change edits the card in place */ mail?: Record<string, { c: string; m: string }>; /** Claude job folder -> where its last update is, so a reply there continues that job */ jobs?: Record<string, { c: string; m: string }> }
 
@@ -212,6 +220,10 @@ export class DiscordAdapter {
     } else {
       await this.ensureDeck();
       if (this.opts.catchUp !== false) await this.catchUp();
+      // 9.D D6: the home card, pinned in home and kept current.
+      await this.refreshHome().catch(e => this.log('discord: home card failed: ' + (e as Error).message));
+      this.homeTimer = setInterval(() => { void this.refreshHome().catch(() => {}); }, 10 * 60_000);
+      this.homeTimer.unref?.();
       // 9.D: the old channels' contents move once; deleting them waits for his two yeses.
       const moved = await this.moveOld().catch(e => { this.log('discord: moving the old channels failed: ' + (e as Error).message); return null; });
       const home = this.state.channels['home'];
@@ -294,6 +306,34 @@ export class DiscordAdapter {
    * the job moves: working, waiting on him, done. Its tag follows (Working / Needs you / Done). A question also goes to
    * needs-you, which buzzes; "done" buzzes once, in the post. Anything he writes in the post goes to that job.
    */
+  private homeTimer: NodeJS.Timeout | null = null;
+  /**
+   * 9.D D6 (sheet 15 board 4): one card pinned at the top of home, drawn on the pixel wood, edited in place, never
+   * posted again: Claude this week, what is running, what waits on him, his PC. Buttons: What's waiting, Stepping away,
+   * Put a show on. Silent always (home is not a channel that buzzes).
+   */
+  async refreshHome(): Promise<void> {
+    const home = this.state.channels['home']; if (!home) return;
+    const d = await this.link.homeData?.() ?? null;
+    if (!d) return;
+    const pct = d.week === null ? null : Math.round(d.week * 100);
+    const tiles = [
+      { k: 'CLAUDE THIS WEEK', v: pct === null ? 'not known yet' : `${pct}%${d.pace ? ', ' + d.pace : ''}`, ...(pct === null ? {} : { fill: d.week }) },
+      { k: 'RUNNING', v: d.running === 0 ? 'nothing' : `${d.running} Claude job${d.running === 1 ? '' : 's'}` },
+      { k: 'WAITING ON YOU', v: d.waiting.length === 0 ? 'nothing' : `${d.waiting.length} thing${d.waiting.length === 1 ? '' : 's'}`, ...(d.waiting.length ? { tone: 'warn' } : {}) },
+      { k: 'YOUR PC', v: 'On', tone: 'good' },
+    ];
+    const words = `Home: ${pct === null ? '' : `${pct}% of the week, `}${d.running} running, ${d.waiting.length} waiting on you.`;
+    const msg = await this.drawn('home', { tiles }, 0xFFC43C, { content: words, silent: true, buttons: [
+      { id: 'home:waiting', label: "What's waiting", style: 'primary' },
+      { id: 'home:away', label: 'Stepping away', style: 'secondary' },
+      { id: 'home:puton', label: 'Put a show on', style: 'secondary' },
+    ] });
+    if (this.state.homeCard) { try { await this.gw.edit(home, this.state.homeCard, msg); return; } catch { /* deleted: post and pin again */ } }
+    this.state.homeCard = await this.gw.send(home, msg); this.save();
+    try { await this.gw.pin(home, this.state.homeCard); } catch { /* pinning is a nicety */ }
+  }
+
   async claudeNews(ev: any, needsHim: boolean): Promise<void> {
     const forum = this.state.channels['claude-jobs']; if (!forum) return;
     const cwd = String(ev.jobCwd);
@@ -328,6 +368,7 @@ export class DiscordAdapter {
       if (q) { this.state.jobs = { ...(this.state.jobs ?? {}), [cwd]: { c: this.state.channels['needs-you']!, m: q } }; this.save(); }
     }
     if (state === 'done') await this.gw.send(p.post, { content: `Done: ${text.slice(0, 1800)}`, as: 'claude', loud: true });
+    void this.refreshHome().catch(() => {});
   }
   /** A short stable key for a job's folder, for its buttons. */
   private claudeKey(cwd: string): string { return Buffer.from(cwd.toLowerCase()).toString('base64url').slice(-40); }
@@ -439,6 +480,10 @@ export class DiscordAdapter {
     if (/^(stop|\/stop)$/i.test(text)) { this.link.stop(); await this.gw.send(m.channelId, { content: 'Stopped.' }); return; }
 
     if (key === 'drafts') { await this.draftReply(m, text); return; }
+    if (key === 'aang' && this.state.putOnNext) {
+      this.state.putOnNext = false; this.save();
+      if (this.link.putOn) { this.link.putOn(text); await this.gw.send(m.channelId, { content: `Putting on ${text.slice(0, 100)}.` }); return; }
+    }
     // 9.D D5: anything he writes in a Claude job's post is for that job.
     if (key === 'claude-jobs') {
       const cwd = Object.entries(this.state.claudePosts ?? {}).find(([, p]) => p.post === m.channelId)?.[0];
@@ -930,6 +975,14 @@ export class DiscordAdapter {
 
   private async press(b: ButtonPress): Promise<void> {
     if (b.userId !== this.state.ownerId) { await b.ack('That is not yours to answer.'); return; }
+    if (b.customId === 'home:waiting') {
+      const d = await this.link.homeData?.() ?? null;
+      await b.keep();
+      await this.gw.send(b.channelId, { content: !d ? 'I could not ask the PC just now.' : d.waiting.length ? 'Waiting on you:\n' + d.waiting.map(w => '- ' + w).join('\n') : 'Nothing is waiting on you.', silent: true });
+      return;
+    }
+    if (b.customId === 'home:away') { await b.keep(); this.link.stepAway?.(); await this.gw.send(b.channelId, { content: 'Okay. Everything comes here until you are back at the PC.', silent: true }); return; }
+    if (b.customId === 'home:puton') { await b.keep(); this.state.putOnNext = true; this.save(); await this.post('aang', { content: 'What should I put on? Tell me here.' }); return; }
     const cj = /^cj:open:([\w-]+)$/.exec(b.customId);
     if (cj) {
       const cwd = Object.keys(this.state.claudePosts ?? {}).find(c => this.claudeKey(c) === cj[1]);
