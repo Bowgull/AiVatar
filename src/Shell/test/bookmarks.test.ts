@@ -32,3 +32,17 @@ test('Chrome export: web bookmarks with their folders, scripts and repeats dropp
   assert.equal(isBar('Bookmarks bar'), true);
   assert.equal(isBar('WoW'), false);
 });
+
+test('2026-10-13: Chrome\'s own file and Safari\'s are read directly; the bar lands on the shelf, the Reading List does not come', async () => {
+  const { parseChromeBookmarks, parseSafariBookmarks, isBar } = await import('../src/bookmarks.ts');
+  const chrome = JSON.stringify({ roots: {
+    bookmark_bar: { type: 'folder', name: 'Bookmarks bar', children: [{ type: 'url', name: 'Wowhead', url: 'https://www.wowhead.com/' }, { type: 'folder', name: 'Games', children: [{ type: 'url', name: 'Steam', url: 'https://store.steampowered.com/' }] }] },
+    other: { type: 'folder', name: 'Other', children: [{ type: 'url', name: 'Bad', url: 'javascript:alert(1)' }, { type: 'url', name: 'GitHub', url: 'https://github.com/' }] },
+  } });
+  const c = parseChromeBookmarks(chrome);
+  assert.deepEqual(c.map(m => [m.title, m.folder]), [['Wowhead', 'Bookmarks bar'], ['Steam', 'Games'], ['GitHub', '']]);
+  assert.equal(isBar(c[0]!.folder), true);
+  const s = parseSafariBookmarks(JSON.stringify({ Children: [{ Title: 'BookmarksBar', Children: [{ WebBookmarkType: 'WebBookmarkTypeLeaf', URLString: 'https://a.com/', URIDictionary: { title: 'A' } }] }, { Title: 'com.apple.ReadingList', Children: [{ WebBookmarkType: 'WebBookmarkTypeLeaf', URLString: 'https://b.com/', URIDictionary: { title: 'B' } }] }] }));
+  assert.deepEqual(s.map(m => m.url), ['https://a.com/']);
+  assert.deepEqual(parseChromeBookmarks('not json'), []);
+});

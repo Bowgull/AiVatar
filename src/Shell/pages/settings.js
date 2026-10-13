@@ -80,6 +80,7 @@ function paint(d) {
   chips('popupOk', d.popupOk ?? [], 'popupOk');
   chips('trusted', d.trusted ?? [], 'trusted');
   chips('httpOk', d.httpOk ?? [], 'httpOk');
+  for (const r of document.querySelectorAll('[data-mac]')) r.hidden = !d.mac;
   $('#versions').textContent = `Chromium ${d.versions?.chrome ?? ''} (Electron ${d.versions?.electron ?? ''}).`;
 }
 S?.onData?.(paint);
