@@ -1,5 +1,6 @@
 // The Core: talks to the Body over a localhost WebSocket, keeps one warm Claude session per model lane,
 // streams replies, enforces the voice linter and grounding rule, and applies Joshua's quota rule.
+import { readAttachment, safeFileName } from './attachments.ts';
 import { inboxCardData, weekCardData } from './briefcard.ts';
 import { Choices, choiceKey } from './choices.ts';
 import { Timers, parseTimerCommand, sayDuration, MAX_MS } from './timers.ts';
@@ -426,6 +427,7 @@ export class Core {
       apexMap: () => this.apexRanked(),
       mailInbox: (query, max) => this.mailRead('mcp__aang__mail_inbox', { query: query ?? '' }, m => m.inbox(query || 'in:inbox', max ?? 10, rows => this.cardForTurn('inbox', inboxCardData(rows, this.jobCompanies())))),
       mailRead: id => this.mailRead('mcp__aang__mail_read', { id }, m => m.read(id)),
+      mailAttachment: (id, name, save) => this.mailAttachment(id, name, save),
       calendar: days => this.mailRead('mcp__aang__calendar_today', { days: days ?? 1 }, m => m.agenda(days ?? 1, (ev, from, n) => this.cardForTurn('week', weekCardData(ev, from, n)))),
       mailDraft: input => this.mailDraft(input),
       tasks: {
@@ -807,6 +809,32 @@ export class Core {
     if (!await this.askPermission(tool, input)) return { ok: false, detail: this.whyNot() + ' Nothing was read.' };
     this.tainted = true;
     return { ok: true, detail: await run(svc) };
+  }
+
+  /**
+   * E2: open an attachment (read it into the turn: other people's words, so the turn is marked), or save it to his
+   * Downloads with the Mark of the Web, so Windows checks it as it would a browser download, and send_to_phone can take it.
+   */
+  private async mailAttachment(id: string, name: string | undefined, save: boolean): Promise<{ ok: boolean; detail: string; image?: { data: string; mimeType: string } }> {
+    const svc = this.mail(); if (!svc) return { ok: false, detail: Core.NO_GOOGLE };
+    if (!await this.askPermission('mcp__aang__mail_attachment', { id, name: name ?? '', save })) return { ok: false, detail: this.whyNot() + ' Nothing was opened.' };
+    this.tainted = true;
+    const got = await svc.attachmentBytes(id, name);
+    if (!got.ok) return { ok: false, detail: got.why };
+    if (save) {
+      const dir = path.join(os.homedir(), 'Downloads');
+      const base = safeFileName(got.name);
+      let to = path.join(dir, base), n = 1;
+      while (existsSync(to)) { const p = path.parse(base); to = path.join(dir, `${p.name} (${n++})${p.ext}`); }
+      try {
+        writeFileSync(to, got.buf);
+        if (process.platform === 'win32') { try { writeFileSync(to + ':Zone.Identifier', '[ZoneTransfer]\r\nZoneId=3\r\n'); } catch { /* Defender still scans it */ } }
+      } catch (e) { return { ok: false, detail: `It could not be saved: ${(e as Error).message}` }; }
+      return { ok: true, detail: `Saved to ${to}. To send it to his phone, use send_to_phone with that path.` };
+    }
+    const r = await readAttachment(got.name, got.mime, got.buf);
+    if (r.why) return { ok: false, detail: r.why };
+    return { ok: true, detail: r.text ?? '', ...(r.image ? { image: r.image } : {}) };
   }
 
   private cardOf(d: MailDraft): ToBody { const v = renderMailCard(d); return { t: 'mail.card', id: d.id, content: v.content, buttons: v.buttons }; }
@@ -1718,7 +1746,7 @@ export class Core {
         'discord-client.ts': readFileSync(path.join(here, 'discord-client.ts'), 'utf8'),
         'discord-logic.ts': readFileSync(path.join(here, 'discord-logic.ts'), 'utf8'),
         // M4: the Mac answering as Aang while this PC is off, and the small pieces it shares with this PC.
-        ...Object.fromEntries(['macbrain.ts', 'macpowers.ts', 'macjobs.ts', 'weather.ts', 'briefcard.ts', 'google.ts', 'mail.ts', 'emailfacts.ts', 'addresses.ts', 'lists.ts', 'atomic.ts', 'route.ts'].map(f => [f, readFileSync(path.join(here, f), 'utf8')])),
+        ...Object.fromEntries(['macbrain.ts', 'macpowers.ts', 'macjobs.ts', 'weather.ts', 'briefcard.ts', 'google.ts', 'mail.ts', 'emailfacts.ts', 'attachments.ts', 'addresses.ts', 'lists.ts', 'atomic.ts', 'route.ts'].map(f => [f, readFileSync(path.join(here, f), 'utf8')])),
         'package.json': readFileSync(path.join(pkg, 'package.json'), 'utf8'),
         'package-lock.json': readFileSync(path.join(pkg, 'package-lock.json'), 'utf8'),
         // 9.D D4: the speakers' pictures, made once with their webhooks
