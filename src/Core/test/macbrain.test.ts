@@ -241,3 +241,35 @@ test('M4b jobs: a session he runs himself on the Mac gets a post when it needs h
   assert.deepEqual(gw.posts[0]!.tags, ['Needs you']);
   assert.equal(jobs.byThread('thread1')?.session, 's9');
 });
+
+test('sheet 21: the morning brief from the Mac, once a day after 7, never when the PC already sent it, in his order', async () => {
+  const gw = new Desk();
+  let clock = new Date('2026-10-14T10:30:00Z');                    // 6:30 am in Toronto
+  const drawn: { kind: string; data: any }[] = [];
+  const b = new MacBrain({ gw, dir: tmp(), log: () => {}, now: () => clock, draw: async (kind, data) => { drawn.push({ kind, data }); return Buffer.from('PNG'); } });
+  (b as any).powers = { mailConnected: true, briefData: async () => ({
+    events: [{ title: 'Dentist', start: '2026-10-14T14:30:00Z', end: null, allDay: false, where: 'Queen St' }],
+    unread: [{ from: 'Rhea Patel', address: 'rhea@northwind.com', subject: 'Next steps', at: 1 }, { from: 'Amazon', address: 'ship@amazon.ca', subject: 'Shipped', at: 2 }],
+  }) };
+  b.setBrief({ ...BRIEF, morning: { sentDay: '', companies: ['northwind'], jobsNew: 2, waiting: ['Portfolio update needs you'] } });
+  await b.morning();
+  assert.equal(gw.sent.length, 0, 'not before 7:00 Toronto time');
+  clock = new Date('2026-10-14T11:05:00Z');                         // 7:05 am
+  await b.morning();
+  assert.equal(gw.sent.length, 1, 'sent once');
+  assert.equal(gw.sent[0]!.ch, '20100', 'into #aang');
+  const d = drawn[0]!.data;
+  assert.equal(drawn[0]!.kind, 'brief');
+  assert.deepEqual(d.job.map((r: any) => r.who), ['Rhea Patel', '2 job matches'], 'job hunt first: her company is one he tracks');
+  assert.equal(d.waiting[0].who, 'Portfolio update needs you');
+  assert.equal(d.today[0].tm, '10:30 am', 'the time in Toronto, with am or pm');
+  assert.deepEqual(d.other.map((o: any) => o.what), ['Shipped'], 'other email with its subject');
+  assert.match(String(gw.sent[0]!.msg.content), /Job hunt[\s\S]*Waiting on you[\s\S]*Today[\s\S]*Other email/, 'the words in the same order');
+  await b.morning();
+  assert.equal(gw.sent.length, 1, 'never twice in a day');
+  // The next day, but the PC already sent it before it went off: nothing from the Mac.
+  clock = new Date('2026-10-15T12:00:00Z');
+  b.setBrief({ ...BRIEF, morning: { sentDay: '2026-10-15', companies: [], jobsNew: 0, waiting: [] } });
+  await b.morning();
+  assert.equal(gw.sent.length, 1, 'the PC sent it today');
+});

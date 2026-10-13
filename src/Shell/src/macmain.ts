@@ -21,10 +21,15 @@ import { FindSkips } from './skip/find.ts';
 import { DEFAULT_SKIPS, withDefaults, type SkipSettings } from './skip/settings.ts';
 import { holdHotkey } from './hotkey.ts';
 import { serviceFor } from './services.ts';
+import { CardRenderer } from './cardrender.ts';
+import http from 'node:http';
+import { timingSafeEqual } from 'node:crypto';
 
 const HERE = import.meta.dirname;
 const LISTENER = path.join(os.homedir(), 'Library', 'Application Support', 'AangListener');
 const SYNC_PORT = 47832;   // the brain's hook port on the PC
+/** Sheet 21: the front desk on this Mac asks here for a drawn card (frontdesk.ts MAC_CARD_PORT). */
+const CARD_PORT = 47843;
 
 app.setName('Aang');
 // Started from the Dock there is no terminal: what it says goes to a log beside its settings (aang.log, kept small).
@@ -69,6 +74,29 @@ app.whenReady().then(async () => {
     origin: pages.origin, stateDir, preloadPath: path.join(HERE, 'preload.cjs'), tabPreloadPath: path.join(HERE, 'tabpreload.cjs'),
     settingsPreloadPath: path.join(HERE, 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, 'thingspreload.cjs'),
   });
+  // Sheet 21 (his pick, 2026-10-13): while Shadow is off, the Mac's front desk posts the morning brief and the like as
+  // the same drawn cards. It cannot draw (it has no browser engine), so it asks here. Only from this Mac (loopback),
+  // only with the hook key the setup wrote, never from a web page (no Origin), small bodies, one card at a time.
+  {
+    const cardKey = (() => { try { return readFileSync(path.join(LISTENER, 'hook.key'), 'utf8').trim(); } catch { return ''; } })();
+    const cards = new CardRenderer(pages.origin);
+    const same = (a: string, b: string) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
+    let busy: Promise<unknown> = Promise.resolve();
+    const srv = http.createServer((req, res) => {
+      const peer = String(req.socket.remoteAddress ?? '');
+      const key = String(req.headers['x-aang-key'] ?? '');
+      if (req.method !== 'POST' || req.url !== '/card' || req.headers.origin || !/^(127\.0\.0\.1|::1|::ffff:127\.0\.0\.1)$/.test(peer) || cardKey.length < 20 || !same(key, cardKey)) { res.writeHead(403).end(); return; }
+      let body = '';
+      req.on('data', (d) => { body += d; if (body.length > 64_000) req.destroy(); });
+      req.on('end', () => {
+        let j: any = null; try { j = JSON.parse(body); } catch { /* not JSON */ }
+        if (!j || typeof j.kind !== 'string') { res.writeHead(400).end(); return; }
+        busy = busy.then(() => cards.render(j.kind, j.data).then((r) => res.writeHead(r.ok ? 200 : 422, { 'content-type': 'application/json' }).end(JSON.stringify(r)), () => res.writeHead(500).end()));
+      });
+    });
+    srv.on('error', (e) => console.error('aang: the card door would not open: ' + (e as Error).message));
+    if (cardKey.length >= 20) srv.listen(CARD_PORT, '127.0.0.1');
+  }
   // Tidy asks Aang's brain, which is on the PC: from the Mac it says it is not reachable yet (until M7 links them).
   browser.onTidyAsk = (id) => browser?.tidyAnswer(id, { ok: false, why: 'offline' });
   // Paid video (2026-10-13): Netflix, Crave, Disney+, Prime and Crunchyroll play in the castLabs window, signed for
