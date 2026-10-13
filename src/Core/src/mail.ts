@@ -11,6 +11,7 @@ import { writeFileAtomic } from './atomic.ts';
 import { GoogleError } from './google.ts';
 import type { CalEvent, Google, Message, Part } from './google.ts';
 import { factsBlock, factsOf, partsOf, type EmailFacts } from './emailfacts.ts';
+import { MAX_BYTES, kindOfFile } from './attachments.ts';
 
 const TZ = 'America/Toronto';
 
@@ -301,6 +302,26 @@ ${factsBlock(await this.factsFor(m))}`;
     });
     return r;
   }
+  /**
+   * E2: one attachment of an email, by its name as the email lists it (exactly, else ignoring case; with no name and
+   * one attachment, that one). Programs are refused before a single byte is fetched. Reading only (gmail.readonly).
+   */
+  async attachmentBytes(id: string, name?: string): Promise<{ ok: true; name: string; mime: string; buf: Buffer } | { ok: false; why: string }> {
+    try {
+      const m = await this.g.message(id, 'full');
+      const all = partsOf(m.payload).attachments;
+      if (!all.length) return { ok: false, why: 'That email has no attachments.' };
+      const want = String(name ?? '').trim();
+      const a = want ? (all.find(x => x.name === want) ?? all.find(x => x.name.toLowerCase() === want.toLowerCase())) : all.length === 1 ? all[0] : undefined;
+      if (!a) return { ok: false, why: `Which one? It has: ${all.map(x => `"${x.name}"`).join(', ')}.` };
+      if (kindOfFile(a.name, a.mimeType) === 'never') return { ok: false, why: `${a.name} is a program or script. Aang never opens those, whoever sent it.` };
+      if (a.size > MAX_BYTES) return { ok: false, why: `${a.name} is too big (${Math.round(a.size / 1048576)} MB) to fetch here. He can open it in Gmail.` };
+      const data = a.inlineData ?? (a.attachmentId ? await this.g.attachment(m.id, a.attachmentId) : '');
+      if (!data) return { ok: false, why: `${a.name} could not be fetched.` };
+      return { ok: true, name: a.name, mime: a.mimeType, buf: Buffer.from(data.replace(/-/g, '+').replace(/_/g, '/'), 'base64') };
+    } catch (e) { return { ok: false, why: e instanceof GoogleError ? e.message : 'The attachment could not be fetched.' }; }
+  }
+
   /** The facts of one email. An invite kept as an attachment is fetched (reading only) so its own data is used. */
   async factsFor(m: Message): Promise<EmailFacts> {
     const cal: string[] = [];

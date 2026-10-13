@@ -122,7 +122,7 @@ export function meansOf(tool: string, input: Record<string, unknown>): string {
       return 'This writes a fact into my memory so I still know it tomorrow. You can see and delete anything I remember.';
     case 'mcp__aang__forget':
       return 'This drops something from my memory. It is hidden rather than destroyed, so it can be brought back.';
-    case 'mcp__aang__mail_inbox': case 'mcp__aang__mail_read':
+    case 'mcp__aang__mail_inbox': case 'mcp__aang__mail_read': case 'mcp__aang__mail_attachment':
       return 'Reading only. I can never send an email on my own: a draft always waits for your tap.';
     case 'mcp__aang__mail_send':
       return 'This actually sends it. Once it has gone it cannot be called back. The full wording is above.';
