@@ -52,6 +52,27 @@ const DRAW = {
     card.append(col, el('div', 'drawn', 'DRAWN BY AANG'));
     return card;
   },
+  // "Might be high quota" (sheet 21 board 4): what it is, the estimate in words, and his week as twenty cells: used,
+  // this job's likely share, the rest. Asked every time before a big job; the buttons are Discord's own.
+  quota(d) {
+    const card = el('div', 'parch'), col = el('div', 'col');
+    const pct = (n) => Math.max(1, Math.round(Number(n) * 100));
+    col.append(el('div', 'plaque warn', 'MIGHT BE HIGH QUOTA'), el('div', 'head', str(d.what, 120).replace(/^./, (c) => c.toUpperCase())));
+    col.append(el('div', 'text', `About ${pct(d.low)} to ${pct(d.high)}% of your week.`));
+    if (typeof d.week === 'number') {
+      col.append(el('div', 'sec', 'YOUR WEEK'));
+      const m = el('div', 'meter');
+      const used = Math.round(Math.max(0, Math.min(1, d.week)) * 20);
+      const est = Math.max(1, Math.round(Math.max(0, Number(d.high) || 0) * 20));
+      for (let i = 0; i < 20; i++) m.append(el('i', i < used ? 'on' : i < used + est ? 'est' : ''));
+      const sc = el('div', 'scale');
+      const day = d.resetsAt ? new Date(Number(d.resetsAt) * (Number(d.resetsAt) < 1e12 ? 1000 : 1)).toLocaleDateString('en-CA', { weekday: 'short' }).toUpperCase() : '';
+      sc.append(el('span', null, `USED ${Math.round(d.week * 100)}%`), el('span', null, 'THIS JOB'), el('span', null, day ? `RESETS ${day}` : ''));
+      col.append(m, sc);
+    }
+    card.append(col, el('div', 'drawn', 'DRAWN BY AANG'));
+    return card;
+  },
   // The home card (sheet 15 board 4), on the browser's pixel wood.
   home(d) {
     const card = el('div', 'wood');

@@ -93,14 +93,14 @@ export interface CoreLink {
   /** 9.D D5: bring the Claude app forward where this job runs. Optional for older links. */
   openClaude?(cwd: string): void;
   /** 9.D D6: the home card's numbers; he steps away; put a show on. Optional for older links. */
-  homeData?(): Promise<{ week: number | null; pace: string; running: number; waiting: string[] } | null>;
+  homeData?(): Promise<{ week: number | null; five?: number | null; pace: string; running: number; waiting: string[] } | null>;
   stepAway?(): void;
   putOn?(words: string): void;
   /** 9.D D7: watch a video, and add an idea to Aang's plan. Optional for older links. */
   watchVideo?(url: string): Promise<any | null>;
   addIdea?(text: string): void;
   /** 9.D D3: a card Aang draws, as a PNG; null when it could not be drawn. Optional: without it, plain text. */
-  drawCard?(kind: 'job' | 'needs' | 'home' | 'watched', data: unknown): Promise<Buffer | null>;
+  drawCard?(kind: 'job' | 'needs' | 'home' | 'watched' | 'quota', data: unknown): Promise<Buffer | null>;
   submit(id: string, text: string, opts?: { ephemeral?: boolean; mode?: 'auto' | 'smart' }): void;
   permission(id: string, allow: boolean): void;
   /** Type this into a new chat in the Claude app on the MacBook. Answered by a mac.run.reply event, never a
@@ -312,7 +312,7 @@ export class DiscordAdapter {
    * plain words kept as the message text, which is what his phone's notification shows. Without a picture (the Shell is
    * not running), the same words go out on their own.
    */
-  private async drawn(kind: 'job' | 'needs' | 'home' | 'watched', data: unknown, accent: number, msg: OutMsg): Promise<OutMsg> {
+  private async drawn(kind: 'job' | 'needs' | 'home' | 'watched' | 'quota', data: unknown, accent: number, msg: OutMsg): Promise<OutMsg> {
     const png = await this.link.drawCard?.(kind, data).catch(() => null) ?? null;
     if (!png) return msg;
     return { ...msg, embed: { ...(msg.embed ?? {}), color: accent, image: 'attachment://card.png' }, files: [...(msg.files ?? []), { name: 'card.png', data: png }] };
@@ -396,6 +396,8 @@ export class DiscordAdapter {
     const pct = d.week === null ? null : Math.round(d.week * 100);
     const tiles = [
       { k: 'CLAUDE THIS WEEK', v: pct === null ? 'not known yet' : `${pct}%${d.pace ? ', ' + d.pace : ''}`, ...(pct === null ? {} : { fill: d.week }) },
+      // Sheet 21 (his pick): the 5-hour window too, so a big job's ask can be judged at a glance.
+      ...(typeof d.five === 'number' ? [{ k: 'NEXT 5 HOURS', v: `${Math.round(d.five * 100)}% used`, fill: d.five }] : []),
       { k: 'RUNNING', v: d.running === 0 ? 'nothing' : `${d.running} Claude job${d.running === 1 ? '' : 's'}` },
       { k: 'WAITING ON YOU', v: d.waiting.length === 0 ? 'nothing' : `${d.waiting.length} thing${d.waiting.length === 1 ? '' : 's'}`, ...(d.waiting.length ? { tone: 'warn' } : {}) },
       { k: 'YOUR PC', v: 'On', tone: 'good' },
@@ -1054,6 +1056,16 @@ export class DiscordAdapter {
       const channelId = [...this.pending.values()].at(-1)?.channelId ?? this.state.channels['needs-you'];
       if (!channelId) return;
       this.asked.set(ev.id, channelId);
+      // C1 (sheet 21): the quota ask, drawn, with Go ahead / Not now. Asked every time; there is no "always".
+      if (ev.quota && typeof ev.quota === 'object') {
+        const qd = ev.quota;
+        const msg = await this.drawn('quota', { what: String(qd.what ?? '').slice(0, 120), low: Number(qd.low) || 0, high: Number(qd.high) || 0, week: typeof qd.week === 'number' ? qd.week : null, resetsAt: Number(qd.resetsAt) || 0 }, 0xC95E28, {
+          content: `Can I ${ev.question}?`,
+          buttons: [{ id: `perm:${ev.id}:yes`, label: 'Go ahead', style: 'success' }, { id: `perm:${ev.id}:no`, label: 'Not now', style: 'secondary' }],
+        });
+        await this.gw.send(channelId, msg);
+        return;
+      }
       const sub = ' Yes is for this once.';
       await this.gw.send(channelId, {
         content: `Can I ${ev.question}?${sub}`,

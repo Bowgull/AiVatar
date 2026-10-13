@@ -252,6 +252,8 @@ export interface Doers {
    * a draft) asks him first. Returns null to go ahead, or the reason it did not.
    */
   outsideGate?(tool: string, input: Record<string, unknown>): Promise<string | null>;
+  /** C1: a big job asks him first, with what it might cost of his week ("might be high quota, OK?"). Null = go. */
+  quotaGate?(tool: string, input: Record<string, unknown>): Promise<string | null>;
   /** S2 2.7: what these tools return can hold someone else's words (a pasted page, a session's output). */
   markOutside?(): void;
   /** 6.25a: drive Aang's browser, in its own hidden tabs. */
@@ -267,6 +269,8 @@ export interface Doers {
 
 /** S2 2.6: these change what Aang knows or start work, so after outside content they ask first. */
 export const CHANGES_AFTER_OUTSIDE = new Set(['remember', 'correct', 'do_task', 'mail_draft']);
+/** C1: the jobs that can use a lot of his week; each asks first with its estimated cost. */
+export const QUOTA_ASKS = new Set(['do_task', 'start_claude']);
 /** S2 2.7: these return old conversation or a session's output, which may hold someone else's words. */
 export const BRINGS_OUTSIDE = new Set(['search_memory', 'what_we_talked_about', 'claude_code_status', 'browser_history', 'watch_video']);
 
@@ -514,6 +518,12 @@ export function makeTools(
   // back old words or a session's output mark the turn as having read outside content.
   const guarded = (t: any) => {
     if (!doers) return t;
+    // C1 (his ask, 2026-10-13: "let me know beforehand"): the big jobs ask with their cost every time. That yes is
+    // also the yes the outside-content rule wants, so it is asked once, not twice.
+    if (QUOTA_ASKS.has(t.name) && doers.quotaGate) return { ...t, handler: async (a: any, x: unknown) => {
+      const no = await doers.quotaGate!('mcp__aang__' + t.name, a ?? {});
+      return no ? fail(no) : t.handler(a, x);
+    } };
     if (CHANGES_AFTER_OUTSIDE.has(t.name)) return { ...t, handler: async (a: any, x: unknown) => {
       const no = await doers.outsideGate?.('mcp__aang__' + t.name, a ?? {});
       return no ? fail(no) : t.handler(a, x);
