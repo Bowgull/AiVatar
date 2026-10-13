@@ -40,7 +40,7 @@ export class FrontDeskGateway implements Gateway {
       let x: ToShadow;
       try { x = JSON.parse(String(raw)); } catch { return; }
       if ('ev' in x) {
-        if (x.ev === 'hello') { if (x.queued) this.o.log(`discord: ${x.queued} message(s) waited on the Mac while Shadow was off`); this.firstOpen(); return; }
+        if (x.ev === 'hello') { if (x.queued) this.o.log(`discord: ${x.queued} message(s) waited on the Mac while Shadow was off`); this.firstOpen(); for (const cb of this.helloCbs) cb(); return; }
         if (x.ev === 'message') {
           const m = x.m;
           for (const cb of this.msgCbs) cb(m);
@@ -89,6 +89,9 @@ export class FrontDeskGateway implements Gateway {
 
   onMessage(cb: (m: Incoming) => void): void { this.msgCbs.push(cb); }
   onButton(cb: (b: ButtonPress) => void): void { this.btnCbs.push(cb); }
+  private readonly helloCbs: (() => void)[] = [];
+  /** Every time the Mac's front desk (re)connects, e.g. after it was updated. */
+  onHello(cb: () => void): void { this.helloCbs.push(cb); }
   private handledCb: ((items: import('./macbrain.ts').Handled[]) => Promise<void> | void) | null = null;
   /** M4: what the Mac answered or saved while this PC was off. */
   onHandled(cb: (items: import('./macbrain.ts').Handled[]) => Promise<void> | void): void { this.handledCb = cb; }

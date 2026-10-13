@@ -86,6 +86,7 @@ export interface Gateway {
   /** M4, the Mac's front desk only: what the Mac needs to answer while this PC is off, and what it did. */
   macBrief?(b: import('./macbrain.ts').MacBrief): Promise<boolean>;
   onHandled?(cb: (items: import('./macbrain.ts').Handled[]) => Promise<void> | void): void;
+  onHello?(cb: () => void): void;
 }
 
 export interface CoreLink {
@@ -224,6 +225,8 @@ export class DiscordAdapter {
     this.gw.onButton(b => { void this.press(b).catch(e => this.log('discord: button failed: ' + (e as Error).message)); });
     this.link.onEvent(ev => { void this.fromCore(ev).catch(e => this.log('discord: core event failed: ' + (e as Error).message)); });
     this.gw.onHandled?.(items => this.applyMac(items));
+    // M4: a front desk that just (re)started, e.g. updated by the Mac setup, is briefed at once, not in ten minutes.
+    this.gw.onHello?.(() => { if (this.started) void this.sendMacBrief(); });
 
     this.state.channels = await this.layout();
     this.save();
@@ -239,6 +242,7 @@ export class DiscordAdapter {
       await this.refreshHome().catch(e => this.log('discord: home card failed: ' + (e as Error).message));
       // M4: the Mac is kept ready to answer, on the same ten minutes.
       void this.sendMacBrief();
+      this.started = true;
       this.homeTimer = setInterval(() => { void this.refreshHome().catch(() => {}); void this.sendMacBrief(); }, 10 * 60_000);
       this.homeTimer.unref?.();
       // 9.D: the old channels' contents move once; deleting them waits for his two yeses.
@@ -379,6 +383,7 @@ export class DiscordAdapter {
   }
 
   private homeTimer: NodeJS.Timeout | null = null;
+  private started = false;
   /**
    * 9.D D6 (sheet 15 board 4): one card pinned at the top of home, drawn on the pixel wood, edited in place, never
    * posted again: Claude this week, what is running, what waits on him, his PC. Buttons: What's waiting, Stepping away,
