@@ -2740,6 +2740,16 @@ Downloads list, print, PDF, a screen-share picker for calls, spellcheck.
 
 ### `[ ]` 6.25 Aang inside the browser
 
+**What Aang keeps from his browsing (his decisions, 2026-10-13):**
+- **Titles and addresses, searched only when he asks** (`browser_history` tool: "what was that Wowhead page I
+  had open yesterday"). Never in every message, never brought up unasked. **BUILT 2026-10-13.** The history file
+  stays in the browser; the tool marks the turn as outside content (titles are written by websites).
+- **Banking and money sites are never kept** (`visits.ts` neverKeep: banks, credit unions, cards, payments,
+  brokers, crypto), so they cannot reach Aang. Existing entries are purged on load. **BUILT 2026-10-13.**
+- **Short summaries of pages he stays on: AFTER step L**, once Qwen's writing is measured on his real tasks. When
+  built: Qwen only (no quota), pages he stayed on a minute or more, a daily cap, never while gaming, always behind
+  anything he asks Qwen for. Qwen writes them with no tools; they are kept as information, never facts.
+
 Reader and summariser (Readability, Turndown, Qwen); searchable reading memory (SQLite FTS5 plus
 sqlite-vec); a labelled element index borrowed from Vimium's link hints, so "click B7" is how he acts;
 five tools or fewer; trails (Horse Browser) and mark as done as a WoW quest turn-in (decision 43); **decision 42**: Aang reads
@@ -2806,6 +2816,13 @@ is the default, "open in your default browser" sends it back to Aang), and anyth
 security-patch gap.
 
 ### `[ ]` 6.28 Upkeep, automated
+
+**His decisions (2026-10-13):** small engine updates (same major, e.g. Electron 44.5 to 44.7) install themselves,
+only after the tests pass, with an automatic rollback if anything breaks; a major version asks him first. The
+memory backup runs at start AND every 24 hours (built). The vault backup is silent and daily (built). **Addons:**
+Aang still never installs them (his CurseForge key is for a read-only helper; CurseForge refuses apps that install);
+CurseForge's own app does it: Settings > Addons > Updates, then "Auto Install Updates" on his WoW install.
+As of 2026-10-13 the browser is on Electron 44.5.1 and 44.6.0 and 44.7.0 are out.
 
 Electron and castLabs upgrades flagged automatically; filter lists refreshed daily; a monthly check on
 whether the Windows passkey bridge (`@clerk/electron-passkeys`, 0.0.3) is ready.
