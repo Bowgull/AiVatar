@@ -107,7 +107,7 @@ export function frontDeskConfig(stateDir: string): { url: string; key: string } 
 }
 
 /** Start Discord if Joshua has set it up (a token file, or the Mac front desk). Never throws: Aang runs without it. */
-export async function startDiscord(stateDir: string, port: number, log: (s: string) => void = console.log, attempt = 0): Promise<DiscordAdapter | null> {
+export async function startDiscord(stateDir: string, port: number, log: (s: string) => void = console.log, attempt = 0, onRefused?: () => void): Promise<DiscordAdapter | null> {
   const jobDir = folderFor('job hunt');
   let made: { close: () => void } | null = null;
   const tokenFile = path.join(stateDir, 'discord.token');
@@ -117,7 +117,7 @@ export async function startDiscord(stateDir: string, port: number, log: (s: stri
     let gw: import('./discord.ts').Gateway;
     if (desk) {
       const { FrontDeskGateway } = await import('./frontdesk-link.ts');
-      const fd = new FrontDeskGateway({ url: desk.url, key: desk.key, log });
+      const fd = new FrontDeskGateway({ url: desk.url, key: desk.key, log, ...(onRefused ? { onRefused } : {}) });
       made = fd;
       log('discord: waiting for the front desk on the MacBook');
       await fd.ready;
@@ -144,7 +144,7 @@ export async function startDiscord(stateDir: string, port: number, log: (s: stri
     try { made?.close(); } catch { /* gone */ }
     const wait = Math.min(5 * 60_000, 60_000 * 2 ** Math.min(attempt, 3));
     log(`discord: could not start: ${(e as Error).message}. Trying again in ${Math.round(wait / 60_000)} min.`);
-    setTimeout(() => { void startDiscord(stateDir, port, log, attempt + 1); }, wait).unref?.();
+    setTimeout(() => { void startDiscord(stateDir, port, log, attempt + 1, onRefused); }, wait).unref?.();
     return null;
   }
 }

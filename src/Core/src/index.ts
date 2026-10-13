@@ -48,5 +48,6 @@ await core.start();
 // Discord, if Joshua has set it up. It connects OUT to Discord and back into this Core, and Aang runs without it.
 // Loaded only when used, so Aang without Discord carries none of it.
 if (existsSync(path.join(core.cfg.stateDir, 'discord.token')) || existsSync(path.join(core.cfg.stateDir, 'frontdesk.json'))) {
-  void import('./discord-gateway.ts').then(d => d.startDiscord(core.cfg.stateDir, core.cfg.port)).catch(e => console.error('discord: ' + (e as Error).message));
+  void import('./discord-gateway.ts').then(d => d.startDiscord(core.cfg.stateDir, core.cfg.port, console.log, 0,
+    () => core.announce('Discord is cut off: the front desk on your MacBook stopped recognising this PC. Run the Mac setup again and it reconnects by itself.'))).catch(e => console.error('discord: ' + (e as Error).message));
 }

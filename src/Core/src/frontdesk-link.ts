@@ -16,9 +16,10 @@ export class FrontDeskGateway implements Gateway {
   private firstOpen: () => void = () => {};
   /** Resolves the first time the Mac answers. */
   readonly ready: Promise<void>;
-  private readonly o: { url: string; key: string; log: (s: string) => void; retryMs?: number };
+  private readonly o: { url: string; key: string; log: (s: string) => void; retryMs?: number; onRefused?: () => void };
+  private toldRefused = false;
 
-  constructor(o: { url: string; key: string; log?: (s: string) => void; retryMs?: number }) {
+  constructor(o: { url: string; key: string; log?: (s: string) => void; retryMs?: number; onRefused?: () => void }) {
     this.o = { log: console.log, ...o };
     this.ready = new Promise(r => { this.firstOpen = r; });
     this.connect();
@@ -28,7 +29,13 @@ export class FrontDeskGateway implements Gateway {
     if (this.closed) return;
     const ws = new WebSocket(this.o.url, { headers: { 'x-aang-key': this.o.key }, maxPayload: 32 * 1024 * 1024 });
     this.ws = ws;
-    ws.on('open', () => { this.o.log('discord: connected to the front desk on the MacBook'); });
+    ws.on('open', () => { this.toldRefused = false; this.o.log('discord: connected to the front desk on the MacBook'); });
+    // Found 2026-10-13: the Mac refused this PC (its key no longer matched) and Discord just waited, saying nothing.
+    // Now it is said once, plainly, so he knows to run the Mac setup again.
+    ws.on('unexpected-response', (_req, res) => {
+      if (res.statusCode === 403 && !this.toldRefused) { this.toldRefused = true; this.o.log('discord: the MacBook front desk refused this PC (its key does not match); run the Mac setup again'); this.o.onRefused?.(); }
+      try { ws.terminate(); } catch { /* gone */ }
+    });
     ws.on('message', raw => {
       let x: ToShadow;
       try { x = JSON.parse(String(raw)); } catch { return; }
