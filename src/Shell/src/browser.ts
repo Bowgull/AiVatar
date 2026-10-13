@@ -20,7 +20,7 @@
 //  - Tabs get NO preload and the safe preferences: a website can never reach Aang's doors.
 //  - Every permission a site asks for is refused until 6.22 adds the asks (chips and the lever).
 import { BrowserWindow, WebContentsView, app, clipboard, desktopCapturer, dialog, nativeImage, screen, session as electronSession, shell, webContents as allWebContents, type DesktopCapturerSource } from 'electron';
-import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown } from './safety.ts';
 import { addressFor, engineHome, searchFor, setSearch, type Engine } from './address.ts';
@@ -62,6 +62,8 @@ interface Tab {
   scrollY: number;
   zoom: number;
   lastSeen: number;
+  /** 6.24: a call is live in this tab (he allowed its camera, mic or a screen share): never slowed, never put to sleep. */
+  call?: boolean;
   /** 6.22: stopped before loading because a list names it: which lists. */
   blocked: { url: string; lists: string[]; real?: string } | null;
   /** Sheet 3 section 3: the trail it belongs to (null = a loose tab), and whether he turned it in. */
@@ -124,6 +126,11 @@ const GESTURE_MS = 1000;
 /** A tab not looked at for this long, and not playing sound, goes to sleep. */
 // 2 hours (his call, 2026-10-12: fewer reloads when going back to a tab). Was 30 minutes. This PC has 16 GB.
 const SLEEP_AFTER_MS = 2 * 60 * 60_000;
+/**
+ * 6.24, his interviews ("if it ever glitches and can't read my mic or my camera I'm in trouble"): the call sites run
+ * with no ad blocking at all, so a filter list can never break a call. Their subdomains too.
+ */
+const CALL_SITES = ['zoom.us', 'zoom.com', 'teams.microsoft.com', 'teams.live.com', 'teams.cloud.microsoft', 'meet.google.com', 'webex.com'];
 // The band's height (Windows draws its own buttons over it, see-through on the wood) and the page area's colour.
 const BAND_HEIGHT = 58;
 /** The page's corners, rounded natively: the floating page (2026-10-12) has big soft corners (Flow browser does this). */
@@ -209,7 +216,9 @@ export class AangBrowser {
    */
   private readonly mediaOk = new Map<string, Set<string>>();
   /** 6.24: the screen-share picker waiting for his pick. One at a time. */
-  private share: { id: number; sources: Map<string, DesktopCapturerSource>; audio: boolean; done: (s: Electron.Streams | null) => void; timer: NodeJS.Timeout } | null = null;
+  /** Sites he is sharing his screen with right now (with or without camera). */
+  private readonly shareHosts = new Set<string>();
+  private share: { id: number; host: string; sources: Map<string, DesktopCapturerSource>; audio: boolean; done: (s: Electron.Streams | null) => void; timer: NodeJS.Timeout } | null = null;
   /** The little wood sounds (new tab, close, download done). Off until he turns them on in Settings. */
   sounds = false;
   /** The ⋯ menu's switches (sheet 3 section 10), kept between runs. Block ads and Block popups start on. */
@@ -361,7 +370,9 @@ export class AangBrowser {
       if (cookieWrite) clearTimeout(cookieWrite);
       cookieWrite = setTimeout(() => { cookieWrite = null; this.ses.cookies.flushStore().catch(() => { /* next change tries again */ }); }, 2000);
     });
-    void blockAds(this.ses, o.stateDir, { cosmetic: true }).then((b) => { this.ads = b; if (b) { for (const h of this.paused) b.pause(h, true); if (!this.prefs.ads) b.stop(); } });
+    void blockAds(this.ses, o.stateDir, { cosmetic: true }).then((b) => { this.ads = b; if (b) { for (const h of [...this.paused, ...CALL_SITES]) b.pause(h, true); if (!this.prefs.ads) b.stop(); } });
+    this.callFile = path.join(o.stateDir, 'in-call.json');
+    try { unlinkSync(this.callFile); } catch { /* none left over */ }
   }
 
   /**
@@ -392,6 +403,7 @@ export class AangBrowser {
       this.ask({ host, what, text }, (allow) => {
         if (allow) { const s = this.mediaOk.get(host) ?? new Set<string>(); for (const x of types) s.add(x); this.mediaOk.set(host, s); }
         done(allow);
+        if (allow) this.sendTabs();             // the tab becomes a call tab at once
       });
     });
     // Calls ask "may I?" before they ask for real (Teams, Zoom). Yes only where he already said yes, on this site.
@@ -426,7 +438,7 @@ export class AangBrowser {
         if (!sources.length) { deny(); return; }
         const id = ++this.askSeq;
         const timer = setTimeout(() => this.shareAnswer(id, null, false), 120_000);
-        this.share = { id, sources: new Map(sources.map((s) => [s.id, s])), audio: req.audioRequested, done, timer };
+        this.share = { id, host, sources: new Map(sources.map((s) => [s.id, s])), audio: req.audioRequested, done, timer };
         this.win.webContents.send('browser:share', {
           id, host, audio: req.audioRequested,
           sources: sources.map((s) => ({ id: s.id, name: s.name.slice(0, 120), kind: s.id.startsWith('screen:') ? 'screen' : 'window', thumb: s.thumbnail.isEmpty() ? '' : s.thumbnail.toDataURL() })),
@@ -434,6 +446,23 @@ export class AangBrowser {
       }, deny);
     });
   }
+  /** In a call right now? Restarting the browser would drop it, so the update key waits and so must anything else. */
+  inCall = false;
+  private callFile = '';
+  private callNow(on: boolean): void {
+    if (on === this.inCall) return;
+    this.inCall = on;
+    console.log(`shell: browser: ${on ? 'a call started' : 'no call now'}`);
+    try { if (on) writeFileAtomic(this.callFile, JSON.stringify({ since: new Date().toISOString() })); else unlinkSync(this.callFile); } catch { /* best effort */ }
+    this.onCall?.(on);
+  }
+  /** 6.28: a tested engine waiting for his Restart now (the update key), or null. */
+  private update: { version: string; since: number } | null = null;
+  setUpdate(u: { version: string; since: number } | null): void { this.update = u; this.sendTabs(); }
+  /** The browser window is open. */
+  get showing(): boolean { return Boolean(this.win && !this.win.isDestroyed()); }
+  /** Told when a call starts or ends (the update key). */
+  onCall?: (on: boolean) => void;
   /** His pick from the share panel: one of the sources it showed, or nothing. */
   shareAnswer(id: number, sourceId: string | null, sound: boolean): void {
     const s = this.share;
@@ -443,6 +472,7 @@ export class AangBrowser {
     const src = sourceId ? s.sources.get(sourceId) : undefined;
     if (this.win && !this.win.isDestroyed()) this.win.webContents.send('browser:share', { id, gone: true });
     try { s.done(src ? { video: src, ...(s.audio && sound ? { audio: 'loopback' as const } : {}) } : null); } catch { /* the page went away */ }
+    if (src && s.host) { this.shareHosts.add(s.host); this.sendTabs(); }
   }
 
   /**
@@ -676,6 +706,8 @@ export class AangBrowser {
       if (this.menu && !this.menu.isDestroyed()) this.menu.destroy();
       this.vault.lock();                          // closing the browser locks the vault
       this.mediaOk.clear();                       // and ends every call's camera and microphone
+      this.shareHosts.clear();
+      this.callNow(false);
       if (this.share) this.shareAnswer(this.share.id, null, false);
       this.menu = null; this.fullTab = null;
       for (const t of this.tabs) if (!t.lent) this.closeView(t);
@@ -1142,7 +1174,7 @@ export class AangBrowser {
   private sleepIdle(): void {
     const now = Date.now();
     let any = false;
-    for (const t of this.tabs) if (t.view && !t.lent && t.id !== this.active && !t.audible && now - t.lastSeen > SLEEP_AFTER_MS) { this.sleep(t); any = true; }
+    for (const t of this.tabs) if (t.view && !t.lent && !t.call && t.id !== this.active && !t.audible && now - t.lastSeen > SLEEP_AFTER_MS) { this.sleep(t); any = true; }
     if (any) this.sendTabs();
   }
 
@@ -2046,13 +2078,28 @@ export class AangBrowser {
   /** The rail and the band redraw from this. Plain data only. */
   private sendTabs(): void {
     // A site's camera and microphone end when no tab is on it any more.
-    if (this.mediaOk.size) { const on = new Set(this.tabs.map((t) => hostOf(t.url))); for (const h of [...this.mediaOk.keys()]) if (!on.has(h)) this.mediaOk.delete(h); }
+    if (this.mediaOk.size || this.shareHosts.size) {
+      const on = new Set(this.tabs.map((t) => hostOf(t.url)));
+      for (const h of [...this.mediaOk.keys()]) if (!on.has(h)) this.mediaOk.delete(h);
+      for (const h of [...this.shareHosts]) if (!on.has(h)) this.shareHosts.delete(h);
+    }
+    // A tab with a live call runs at full speed even behind other tabs, and never sleeps (see sleepIdle).
+    let calls = false;
+    for (const t of this.tabs) {
+      const h = hostOf(t.url);
+      const c = Boolean(t.view) && (this.mediaOk.has(h) || this.shareHosts.has(h));
+      if (t.view && Boolean(t.call) !== c) { try { t.view.webContents.setBackgroundThrottling(!c); } catch { /* gone */ } }
+      t.call = c;
+      calls ||= c;
+    }
+    this.callNow(calls);
     const w = this.win;
     if (!w || w.isDestroyed()) return;
     const t = this.cur();
     const wc = t?.view?.webContents;
     w.webContents.send('browser:tabs', {
       active: this.active,
+      update: this.update, inCall: this.inCall,
       canBack: Boolean(wc?.navigationHistory.canGoBack()), canForward: Boolean(wc?.navigationHistory.canGoForward()),
       tabs: this.tabs.map((x) => ({ id: x.id, opener: x.opener, title: x.title, url: x.url, favicon: x.favicon, loading: x.loading, phase: x.phase ?? (x.loading ? 'loading' : 'idle'), prog: x.prog ?? 0, pending: x.pending ?? null, audible: x.audible, muted: x.muted, crashed: x.crashed, asleep: !x.view, blocked: x.blocked, failed: x.failed, trail: x.trail, done: x.done, lent: x.lent, popup: x.blockedPopup?.url ?? null })),
       trails: this.trails,

@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
 <link rel="stylesheet" href="../../src/Shell/pages/browser.css">
 <style>
-html,body{margin:0;background:#16101f;color:#e8e0f5;font:500 15px/1.5 var(--body)}
+html,body{margin:0;height:auto;overflow:auto;background:#16101f;color:#e8e0f5;font:500 15px/1.5 var(--body)}
 .wrap{max-width:1040px;margin:0 auto;padding:22px 18px 60px}
 .lab{font:400 11px var(--label);letter-spacing:.1em;color:var(--gold)}
 h1{font:600 34px var(--display);color:var(--gold);margin:4px 0 6px}
@@ -95,7 +95,7 @@ h1{font:600 34px var(--display);color:var(--gold);margin:4px 0 6px}
           <span class="url"><b>wowhead.com</b>/classic</span>
           <button class="star" type="button" aria-label="Bookmark this page"><svg viewBox="0 0 9 8" width="18" height="16" shape-rendering="crispEdges" aria-hidden="true"><path d="M1 0h2v1H1zM6 0h2v1H6zM0 1h4v4H0zM5 1h4v4H5zM0 5h1v1H0zM8 5h1v1H8zM0 6h4v1H0zM5 6h4v1H5zM3 7h3v1H3z"/></svg></button>
         </div>
-        <button class="rnd upkey away age0" id="upkey" type="button" aria-label="Update ready" aria-expanded="false"><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges" aria-hidden="true"><path d="M3 0h1v1H3zM2 1h3v1H2zM1 2h5v1H1zM0 3h7v1H0zM2 4h3v3H2z"/></svg><span class="w">UPDATE</span></button>
+        <button class="rnd upkey away age0" id="upkey" type="button" aria-label="Update ready" aria-expanded="false"><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges" aria-hidden="true"><path id="upglyph" d="M3 0h1v1H3zM2 1h3v1H2zM1 2h5v1H1zM0 3h7v1H0zM2 4h3v3H2z"/></svg><span class="w">UPDATE</span></button>
         <button class="rnd dlkey away" id="dlkey" type="button" aria-label="Downloads"><svg viewBox="0 0 7 8" width="14" height="16" shape-rendering="crispEdges" aria-hidden="true"><path d="M2 0h3v2H2zM0 2h7v1H0zM1 3h5v1H1zM2 4h3v1H2zM3 5h1v1H3zM0 7h7v1H0z" fill="#e8e0f5"/></svg></button>
         <button class="rnd menukey" type="button" aria-label="Browser settings"><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges" aria-hidden="true"><path d="M0 3h1v1H0zM3 3h1v1H3zM6 3h1v1H6z" fill="#e8e0f5"/></svg></button>
         <div class="winkeys">
@@ -130,6 +130,11 @@ h1{font:600 34px var(--display);color:var(--gold);margin:4px 0 6px}
     <div class="prow"><span class="gl">1. THE SHAPE (PICK ONE)</span>
       <button class="pick" data-sh="word" aria-pressed="true">A: arrow + the word UPDATE (my pick)</button>
       <button class="pick" data-sh="icon">B: just the arrow</button>
+    </div>
+    <div class="prow"><span class="gl">1b. THE GLYPH (TWO MORE IDEAS)</span>
+      <button class="pick" data-g="up" aria-pressed="true">Up arrow (building this one)</button>
+      <button class="pick" data-g="power">Restart symbol: what you'll do</button>
+      <button class="pick" data-g="lift">Arrow out of a tray: new version, ready</button>
     </div>
     <div class="prow"><span class="gl">2. THE LONGER IT WAITS</span>
       <button class="pick" data-a="0" aria-pressed="true">New: gold arrow</button>
@@ -172,6 +177,8 @@ const G = {
   down: 'M2 0h3v2H2zM0 2h7v1H0zM1 3h5v1H1zM2 4h3v1H2zM3 5h1v1H3zM0 7h7v1H0z',
   menu: 'M0 3h1v1H0zM3 3h1v1H3zM6 3h1v1H6z',
   up: 'M3 0h1v1H3zM2 1h3v1H2zM1 2h5v1H1zM0 3h7v1H0zM2 4h3v3H2z',
+  power: 'M3 0h1v3H3zM1 1h1v1H1zM5 1h1v1H5zM0 2h1v3H0zM6 2h1v3H6zM1 5h1v1H1zM5 5h1v1H5zM2 6h3v1H2z',
+  lift: 'M3 0h1v1H3zM2 1h3v1H2zM1 2h5v1H1zM3 3h1v2H3zM0 4h1v2H0zM6 4h1v2H6zM0 6h7v1H0z',
 };
 const cells = [
   ['reload', 7, '#e8e0f5', 'no', 'Circling arrows', 'Already your Reload key.'],
@@ -219,6 +226,7 @@ const S = {
 const pressOnly = (sel, b) => document.querySelectorAll(sel).forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
 document.querySelectorAll('[data-s]').forEach((b) => b.addEventListener('click', () => { reset(); paintKey(); pressOnly('[data-s]', b); S[b.dataset.s](); }));
 document.querySelectorAll('[data-sh]').forEach((b) => b.addEventListener('click', () => { shape = b.dataset.sh; pressOnly('[data-sh]', b); paintKey(); show(); }));
+document.querySelectorAll('[data-g]').forEach((b) => b.addEventListener('click', () => { $('upglyph').setAttribute('d', G[b.dataset.g]); pressOnly('[data-g]', b); show(); }));
 document.querySelectorAll('[data-a]').forEach((b) => b.addEventListener('click', () => { age = Number(b.dataset.a); pressOnly('[data-a]', b); paintKey(); show(); }));
 $('upkey').addEventListener('click', () => { $('uptray').hidden ? openTray() : ($('uptray').hidden = true, $('upkey').setAttribute('aria-expanded', 'false')); });
 $('later').addEventListener('click', () => { $('uptray').hidden = true; $('upkey').setAttribute('aria-expanded', 'false'); $('now').textContent = 'Later: the panel closes, the key stays until you choose.'; });

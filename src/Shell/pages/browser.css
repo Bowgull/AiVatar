@@ -510,3 +510,32 @@ body.drawer-open .drawer{transform:none;visibility:visible;transition:transform 
 .slot .who img{width:16px;height:16px;image-rendering:pixelated}
 .tp.drv{box-shadow:inset 3px 0 0 #ffe28c}
 .watchpic{z-index:2;background:#24160d}
+
+/* 6.28 the update key (sheet 18, his pick 2026-10-13: the arrow and the word). The downloads key's own size, pop-in
+   and glow; the arrow and word are gold when new, amber after 4 days, and the key warms to ember after a week.
+   Nothing moves while it waits. */
+.band .upkey{margin-left:2px;-webkit-app-region:no-drag;overflow:hidden;white-space:nowrap;transition:width .22s cubic-bezier(.3,1.5,.5,1),margin .22s,opacity .15s,transform .22s cubic-bezier(.3,1.6,.5,1),border-width .22s}
+.band .upkey.word{width:auto;padding:0 11px 0 9px;display:flex;align-items:center;gap:7px}
+.band .upkey.away{width:0;min-width:0;padding:0;margin-left:-9px;border-width:0;box-shadow:none;opacity:0;transform:scale(.2);pointer-events:none}
+.band .upkey[aria-expanded="true"]{top:3px;box-shadow:0 0 0 var(--outline),inset 0 3px 0 rgba(0,0,0,.45)}
+.band .upkey svg{display:block}
+.band .upkey svg path{fill:var(--ink,#FFE096)}
+.band .upkey .w{font:400 10px var(--label);letter-spacing:1.2px;color:var(--ink,#FFE096);text-shadow:1px 1px 0 #000;line-height:1}
+.band .upkey.age0{--ink:#FFE096}
+.band .upkey.age1{--ink:#FFB060}
+.band .upkey.age2{--ink:#FFF1E0;background:linear-gradient(180deg,#B8452E,#7A2418);box-shadow:0 3px 0 var(--outline),inset 0 2px 0 rgba(255,170,140,.45)}
+.band .upkey.glow{box-shadow:0 3px 0 var(--outline),0 0 0 2px #ffe28c,0 0 14px 4px rgba(255,214,110,.75)}
+@media (prefers-reduced-motion:reduce){.band .upkey{transition:none}}
+.uptray{width:340px}
+.uptray .ver{margin:0 4px 8px}
+.uptray .ver b{display:block;font:600 17px var(--display);color:#F1E4CC;text-shadow:1px 1px 0 #000}
+.uptray .ver small{display:block;font:500 12px var(--body);color:#a8977a}
+.uptray .lines{margin:0 4px 10px;font:500 13px/1.45 var(--body);color:#E6DCC8}
+.uptray .lines div{display:flex;gap:8px;align-items:flex-start;margin:3px 0}
+.uptray .tick{flex:none;width:14px;height:14px;margin-top:2px;border:2px solid var(--outline);border-radius:3px;background:#6fbf6a;position:relative;box-sizing:border-box}
+.uptray .tick::after{content:"";position:absolute;left:3px;top:0;width:3px;height:7px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.uptray .keys{display:flex;gap:8px;margin:4px 4px 6px}
+.uptray .key:disabled{opacity:.5;cursor:default}
+.uptray .upwhy{margin:0 4px 8px;font:600 13px var(--body);color:#FFB060}
+.uptray .upwhy[hidden]{display:none}
+.uptray .note{margin:6px 4px 2px;font:500 11.5px var(--body);color:#a8977a}
