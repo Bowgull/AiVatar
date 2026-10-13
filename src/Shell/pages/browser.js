@@ -420,9 +420,9 @@ const hostOf = (u) => { try { return new URL(u).hostname; } catch { return ''; }
 // Shown at its exact pixel size, never scaled. tools/pixelart/shield/bar_arrow.py makes it.
 // Option C (his pick, 2026-10-12, from how every browser does it): one quiet colour at rest; the full-colour shield
 // while he points at it or its panel is open; solid blue when it caught a popup; red when something is wrong.
-const SHIELD = '<span class="shieldbox"><img class="s-rest" src="art/browser/shield_rest.png" width="20" height="23" alt="">'
-  + '<img class="s-hover" src="art/browser/shield_hover.png" width="20" height="23" alt="">'
-  + '<img class="s-popup" src="art/browser/shield_popup.png" width="20" height="23" alt=""></span>';
+const SHIELD = '<span class="shieldbox"><img class="s-rest" src="art/browser/shield_rest.png" width="20" height="24" alt="">'
+  + '<img class="s-hover" src="art/browser/shield_hover.png" width="20" height="24" alt="">'
+  + '<img class="s-popup" src="art/browser/shield_popup.png" width="20" height="24" alt=""></span>';
 const SPEAKER = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 6h3l4-3v10l-4-3H2z" fill="#2a1c00"/><path d="M11 5c1.5 1.5 1.5 4.5 0 6" stroke="#2a1c00" stroke-width="1.8" fill="none"/></svg>';
 // Rows are kept and only redrawn when something about that tab changed, so a title or a spinner on one
 // tab never rebuilds the whole rail (that rebuild was the flicker, and it dropped the hover under the mouse).
