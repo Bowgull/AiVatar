@@ -1059,7 +1059,14 @@ export class AangBrowser {
     wc.on('context-menu', (_e, p) => this.pageMenu(tab, p));
     // Link preview (6.22b item 8): the real address of the link he points at, shown in the wood under the page.
     wc.on('update-target-url', (_e, u) => { if (tab.id === this.active) this.win?.webContents.send('browser:hover', isWeb(u) ? u.slice(0, 600) : ''); });
-    wc.on('audio-state-changed', (e) => { tab.audible = (e as unknown as { audible: boolean }).audible; this.sendTabs(); });
+    // One video at a time (his rule, 2026-10-13): when this tab starts making sound, every other one stops, here and on
+    // the other machine. Sound, not just playing: a silent hover preview (YouTube's front page) stops nothing.
+    wc.on('audio-state-changed', (e) => {
+      const was = tab.audible;
+      tab.audible = (e as unknown as { audible: boolean }).audible;
+      if (tab.audible && !was && !tab.call) this.onePlaying(tab);
+      this.sendTabs();
+    });
     // A crashed page goes blank and anything that pokes it hangs (tested 2026-10-04): mark it, never touch it.
     wc.on('render-process-gone', () => { tab.crashed = true; tab.loading = false; this.place(); this.sendTabs(); });
     // The keys work wherever the keyboard is, page or frame.
@@ -1727,6 +1734,7 @@ export class AangBrowser {
       } catch { return { tabs: [], trails: [] }; }
     },
     setTabs: (snap: TabSnap) => this.takeTabs(snap),
+    pauseAll: () => this.pauseAll(),
     visits: () => this.visits.list.slice(),
     addVisits: (list: Visit[]) => this.visits.merge(list),
     forgetVisit: (url: string, at: number) => { const cb = this.visits.onChange; this.visits.onChange = null; this.visits.forget(url, at); this.visits.onChange = cb; },
@@ -1946,6 +1954,16 @@ export class AangBrowser {
     return out.slice(0, 9).map((x) => ({ ...x, favicon: this.iconOf(x.url) }));
   }
 
+  /** Everything else that plays pauses: other tabs (the pop-out's lent one too), never a call. And the other machine. */
+  private onePlaying(tab: Tab): void {
+    for (const x of this.tabs) if (x !== tab && x.view && !x.call) this.pauseMedia(x.id);
+    this.onMediaStarted?.();
+    this.sync?.mediaStarted();
+  }
+  /** Set by main: something started playing in a tab, so anything Aang plays elsewhere (the pop-out) stops. */
+  onMediaStarted: (() => void) | null = null;
+  /** The other machine started playing something: everything here pauses, never a call. */
+  pauseAll(): void { for (const x of this.tabs) if (x.view && !x.call) this.pauseMedia(x.id); this.onMediaStarted?.(); }
   /** A tab's address, for the pop-out. */
   urlOf(id: number): string | null { const t = this.tabs.find((x) => x.id === id); return t && isWeb(t.url) ? t.url : null; }
   /** Pause whatever the tab is playing (it went to the pop-out). With a deadline: a dead page never hangs Aang. */
