@@ -3055,6 +3055,15 @@ feature" (his call, 2026-10-13).
   Lands in all three: a file in Discord, a folder per meeting under Documents\Prep on the PC, and a ready note in the bubble.
 - **Mac:** the same, with the same rules, when Shadow is off.
 - **Account:** bocas.joshua@gmail.com only.
+- **Added the same day (his picks):** read the WHOLE thread, not just the last email; when booking, warn if it clashes
+  with his calendar; owe-a-reply reminders ("confirm by Wednesday" -> a reminder the day before if he hasn't; and when
+  someone hasn't answered him); remember people (who they are, company, role, what was said) for prep and replies;
+  a fake-email warning on the card (look-alike sender or links, the browser's phishing lists); video-call links (Zoom,
+  Meet, Teams) go into the calendar event, and the reminder before the call carries a **Join** button, in Discord AND
+  surfacing from Aang's bubble at the PC, opening the call in Aang's browser.
+- **Limits, told to him:** linked Google Docs/Drive files wait for Drive access (security 1.1/1.2); password-protected
+  PDFs and pages behind other sign-ins cannot be read; very long threads are summarised. Anything can also be asked in
+  plain words; the buttons are shortcuts.
 - **Model:** Claude (an email is someone else's words; only Claude with Aang's guards acts on it). Qwen does the cheap
   parts that need no tools: transcript summaries.
 
