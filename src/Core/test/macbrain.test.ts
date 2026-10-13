@@ -181,3 +181,29 @@ test('M4 speed: when the heartbeat says the PC is off, the Mac answers at once i
     assert.ok(warmed >= 1, 'Claude was started as soon as the PC was known to be off');
   } finally { await desk.close(); }
 });
+
+test('M4b: on the Mac only his home folder, never hidden or Library, never outside', async () => {
+  const { safePath } = await import('../src/macpowers.ts');
+  const home = os.homedir();
+  assert.equal(safePath('~/Documents/plan.txt'), path.join(home, 'Documents', 'plan.txt'));
+  assert.equal(safePath('Desktop'), path.join(home, 'Desktop'));
+  for (const bad of ['/etc/passwd', '~/../other', '~/.ssh/id_rsa', '~/Library/Keychains/x', '~/Documents/.secret', '/Users/someoneelse/x', ''])
+    assert.equal(safePath(bad), null, bad);
+});
+
+test('M4b: a Claude job on the Mac that cannot reach the PC tells the front desk, which tells Discord', async () => {
+  const gw = { onMessage() {}, onButton() {} } as any;
+  const got: [string, any][] = [];
+  const fakeBrain = { async handle() { return 'keep' as const; }, setBrief: () => true, pending: () => [], took: () => {}, shadowBack: () => {}, async jobEvent(e: string, b: any) { got.push([e, b]); } };
+  const HK = 'h'.repeat(24);
+  const desk = await startFrontDesk({ gw, host: '127.0.0.1', port: 48690, key: KEY, shadow: '127.0.0.1', queueFile: path.join(tmp(), 'q.json'), log: () => {}, brain: fakeBrain, hookKey: HK, hookPort: 48691 });
+  try {
+    const post = (k: string) => fetch(`http://127.0.0.1:48691/hook?e=Notification&k=${k}`, { method: 'POST', body: JSON.stringify({ message: 'Claude needs your permission', cwd: '/Users/j/jobhunt' }) });
+    assert.equal((await post('wrong'.repeat(5))).status, 403, 'a wrong key');
+    assert.equal((await post(HK)).status, 204);
+    await wait(50);
+    assert.equal(got.length, 1);
+    assert.equal(got[0]![0], 'Notification');
+    assert.equal(got[0]![1].message, 'Claude needs your permission');
+  } finally { await desk.close(); }
+});

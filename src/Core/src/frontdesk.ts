@@ -14,6 +14,7 @@
 //
 // Run on the Mac: node frontdesk.ts <folder>   (the folder holds discord.token, frontdesk.key and frontdesk.json)
 import { timingSafeEqual } from 'node:crypto';
+import http from 'node:http';
 import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -27,6 +28,8 @@ export interface DeskBrain {
   setBrief(x: unknown): boolean;
   /** The PC just went away: get ready to answer (start Claude). */
   prewarm?(): void;
+  /** A Claude Code job on this Mac said something while the PC was unreachable. */
+  jobEvent?(event: string, body: unknown): Promise<void>;
   pending(): Handled[];
   took(n: number): void;
   shadowBack(): void;
@@ -43,6 +46,8 @@ export type ToShadow =
 export type FromShadow = { id: number; op: string; args: unknown[] } | { op: 'taken'; n: number } | { op: 'handled.took'; n: number };
 
 const MAX_QUEUE = 500;
+/** M4b: where this Mac's Claude Code hooks go when the PC does not answer. Loopback only. */
+export const LOCAL_HOOK_PORT = 47842;
 const PRESS_WAIT_MS = 2000;      // Discord allows 3 s to answer a press; say "wait" before that if Shadow is slow
 
 export interface FrontDeskOpts {
@@ -54,6 +59,9 @@ export interface FrontDeskOpts {
   holdMs?: number;
   /** True when the heartbeat says the PC is off: then there is nothing to wait for (his report, 2026-10-13: slow). */
   shadowOff?: () => boolean;
+  /** M4b: the Mac's Claude Code hooks fall back to this Mac (127.0.0.1 only, with the hook key) when the PC is off. */
+  hookKey?: string;
+  hookPort?: number;
 }
 
 /** Same length and same bytes, compared without an early exit. */
@@ -213,9 +221,29 @@ export async function startFrontDesk(o: FrontDeskOpts): Promise<{ close: () => P
     }
   }
 
+  // M4b: this Mac's own Claude Code hooks, when they could not reach the PC. Loopback only, the hook key, small bodies.
+  let hookSrv: http.Server | null = null;
+  if (o.hookKey && o.hookPort && o.brain?.jobEvent) {
+    const hk = o.hookKey;
+    hookSrv = http.createServer((req, res) => {
+      const u = new URL(req.url ?? '/', 'http://x');
+      const peer = String(req.socket.remoteAddress ?? '');
+      if (req.method !== 'POST' || u.pathname !== '/hook' || req.headers.origin || !/^(127\.0\.0\.1|::1|::ffff:127\.0\.0\.1)$/.test(peer) || !sameKey(u.searchParams.get('k') ?? '', hk)) { res.writeHead(403).end(); return; }
+      let body = '';
+      req.on('data', d => { body += d; if (body.length > 64_000) req.destroy(); });
+      req.on('end', () => {
+        res.writeHead(204).end();
+        let j: unknown = {}; try { j = JSON.parse(body || '{}'); } catch { /* not JSON */ }
+        void o.brain?.jobEvent?.(String(u.searchParams.get('e') ?? ''), j).catch(e => log('front desk: job news failed: ' + (e as Error).message));
+      });
+    });
+    hookSrv.on('error', e => log('front desk: the job door would not open: ' + (e as Error).message));
+    hookSrv.listen(o.hookPort, '127.0.0.1');
+  }
+
   return {
     queued: () => queue.length,
-    close: () => new Promise<void>(res => { for (const t of timers) clearInterval(t); for (const c of wss.clients) c.terminate(); wss.close(() => res()); }),
+    close: () => new Promise<void>(res => { for (const t of timers) clearInterval(t); hookSrv?.close(); for (const c of wss.clients) c.terminate(); wss.close(() => res()); }),
   };
 }
 
@@ -247,7 +275,8 @@ async function main(dir: string): Promise<void> {
   } catch (e) { console.error('front desk: the Mac cannot answer by itself: ' + (e as Error).message); }
   // The heartbeat's verdict (heartbeat.sh writes "on|off|unknown ..." every 10 s).
   const shadowOff = () => { try { return readFileSync(path.join(dir, 'shadow.state'), 'utf8').trim().split(/\s+/)[0] === 'off'; } catch { return false; } };
-  await startFrontDesk({ gw, host, port: cfg.port, key: read('frontdesk.key'), shadow: cfg.shadow, queueFile: path.join(dir, 'queue.json'), shadowOff, ...(brain ? { brain } : {}) });
+  let hookKey = ''; try { hookKey = read('hook.key'); } catch { /* an older setup: no job news while the PC is off */ }
+  await startFrontDesk({ gw, host, port: cfg.port, key: read('frontdesk.key'), shadow: cfg.shadow, queueFile: path.join(dir, 'queue.json'), shadowOff, ...(brain ? { brain } : {}), ...(hookKey.length >= 20 ? { hookKey, hookPort: LOCAL_HOOK_PORT } : {}) });
   console.log(`front desk: listening for Shadow on ${host}:${cfg.port}`);
 }
 
