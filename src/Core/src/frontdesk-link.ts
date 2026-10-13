@@ -79,7 +79,13 @@ export class FrontDeskGateway implements Gateway {
   send(channelId: string, msg: OutMsg) { return this.call<string>('send', [channelId, toWire(msg)], 60_000); }
   edit(channelId: string, messageId: string, msg: OutMsg) { return this.call<void>('edit', [channelId, messageId, toWire(msg)]); }
   pin(channelId: string, messageId: string) { return this.call<void>('pin', [channelId, messageId]); }
-  createPost(forumId: string, title: string, content: string) { return this.call<string>('createPost', [forumId, title, content]); }
+  createPost(forumId: string, title: string, content: string, tags: string[] = []) { return this.call<string>('createPost', [forumId, title, content, tags]); }
+  channelList() { return this.call<import('./discord-logic.ts').ChannelInfo[]>('channelList', []); }
+  createChannel(spec: { name: string; kind: 'category' | 'text' | 'forum'; parentId?: string | null; topic?: string; tags?: string[] }) { return this.call<string>('createChannel', [spec]); }
+  editChannel(id: string, spec: { name?: string; parentId?: string | null; topic?: string; addTags?: string[] }) { return this.call<void>('editChannel', [id, spec]); }
+  deleteChannel(id: string) { return this.call<void>('deleteChannel', [id]); }
+  postsOf(forumId: string, limit: number) { return this.call<import('./discord.ts').PostInfo[]>('postsOf', [forumId, limit], 90_000); }
+  setPostTags(postId: string, tags: string[]) { return this.call<void>('setPostTags', [postId, tags]); }
   async download(url: string) { return Buffer.from(await this.call<string>('download', [url], 90_000), 'base64'); }
   typing(channelId: string) { return this.call<void>('typing', [channelId]); }
   fetchSince(channelId: string, afterId: string | null, limit: number) { return this.call<Incoming[]>('fetchSince', [channelId, afterId, limit]); }

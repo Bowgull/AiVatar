@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { DiscordAdapter } from '../src/discord.ts';
 import type { ButtonPress, CoreLink, Gateway, Incoming, OutMsg } from '../src/discord.ts';
-import { Budget, LAYOUT, chunkMessage, inQuietHours, kindOf, newPairing, tryPair, BALANCED } from '../src/discord-logic.ts';
+import { Budget, LAYOUT, planLayout, chunkMessage, inQuietHours, kindOf, newPairing, tryPair, BALANCED } from '../src/discord-logic.ts';
 
 const OWNER = '1111', STRANGER = '9999';
 
@@ -18,14 +18,30 @@ class FakeGateway implements Gateway {
   private btnCb: (b: ButtonPress) => void = () => {};
   onMessage(cb: (m: Incoming) => void) { this.msgCb = cb; }
   onButton(cb: (b: ButtonPress) => void) { this.btnCb = cb; }
-  async ensureLayout() { const out: Record<string, string> = {}; for (const c of LAYOUT) for (const ch of c.channels) out[ch.name] = 'ch-' + ch.name; return out; }
+  async ensureLayout() { const out: Record<string, string> = {}; for (const c of LAYOUT) for (const ch of c.channels) out[ch.key] = 'ch-' + ch.key; return out; }
+  // 9.D: the plain channel operations. A channel made from the layout gets the id ch-<key>, so tests read the same.
+  existing: import('../src/discord-logic.ts').ChannelInfo[] = [];
+  created: { name: string; kind: string; parentId?: string | null; tags?: string[] }[] = []; edited: { id: string; spec: any }[] = []; deleted: string[] = [];
+  forumPosts = new Map<string, import('../src/discord.ts').PostInfo[]>(); tagsOf = new Map<string, string[]>();
+  async channelList() { return this.existing; }
+  async createChannel(spec: { name: string; kind: 'category' | 'text' | 'forum'; parentId?: string | null; tags?: string[] }) {
+    this.created.push(spec);
+    if (spec.kind === 'category') return 'cat-' + spec.name;
+    const def = LAYOUT.flatMap(c => c.channels).find(d => d.name === spec.name);
+    return 'ch-' + (def?.key ?? spec.name);
+  }
+  async editChannel(id: string, spec: any) { this.edited.push({ id, spec }); }
+  async deleteChannel(id: string) { this.deleted.push(id); }
+  async postsOf(forumId: string) { return this.forumPosts.get(forumId) ?? []; }
+  async setPostTags(postId: string, tags: string[]) { this.tagsOf.set(postId, tags); }
+
   edits: { channelId: string; messageId: string; msg: OutMsg }[] = []; pins: string[] = []; failEdit = false; failPin = false;
   async send(channelId: string, msg: OutMsg) { this.sent.push({ channelId, msg }); return 'm' + this.sent.length; }
   async edit(channelId: string, messageId: string, msg: OutMsg) { if (this.failEdit) throw new Error('gone'); this.edits.push({ channelId, messageId, msg }); }
   downloads: Record<string, Buffer> = {};
   async download(url: string) { const b = this.downloads[url]; if (!b) throw new Error('download failed (404)'); return b; }
-  posts: { forumId: string; title: string; content: string }[] = [];
-  async createPost(forumId: string, title: string, content: string) { this.posts.push({ forumId, title, content }); return 'post' + this.posts.length; }
+  posts: { forumId: string; title: string; content: string; tags: string[] }[] = [];
+  async createPost(forumId: string, title: string, content: string, tags: string[] = []) { this.posts.push({ forumId, title, content, tags }); return 'post' + this.posts.length; }
   async pin(channelId: string, messageId: string) { if (this.failPin) throw new Error('missing permission'); this.pins.push(messageId); }
   async typing() {}
   async fetchSince(channelId: string, after: string | null, limit: number) {
@@ -41,6 +57,12 @@ class FakeGateway implements Gateway {
   }
   press(customId: string, userId: string, channelId = 'ch-aang') { const acks: string[] = []; this.btnCb({ customId, userId, channelId, ack: async n => { acks.push(n); }, keep: async () => { acks.push('(kept)'); } }); return acks; }
   to(channel: string) { return this.sent.filter(s => s.channelId === 'ch-' + channel).map(s => s.msg); }
+  /** A message he writes inside a post of a forum (9.D: job links go in a post in the jobs forum). */
+  sayIn(postId: string, forumKey: string, author: string, content: string, id = String(Math.random())) {
+    const m: Incoming = { id, channelId: postId, channelName: 'a post', parentId: 'ch-' + forumKey, authorId: author, isBot: false, content, createdAt: Date.now() };
+    this.msgCb(m); return m;
+  }
+  at(id: string) { return this.sent.filter(s => s.channelId === id).map(s => s.msg); }
 }
 
 class FakeCore implements CoreLink {
@@ -81,11 +103,34 @@ async function make(opts: { paired?: boolean; now?: Date } = {}) {
 
 // ---------------------------------------------------------------- logic
 
-test('the server is small and every channel has one job', () => {
-  const names = LAYOUT.flatMap(c => c.channels.map(x => x.name));
-  assert.deepEqual(names, ['aang', 'capture', 'job-inbox', 'job-digest', 'applied', 'needs-you', 'drafts', 'lists', 'recipes', 'guides', 'log']);
-  assert.equal(new Set(names).size, names.length);
-  assert.equal(LAYOUT.find(c => c.name === 'KEEP')!.channels.find(x => x.name === 'recipes')!.kind, 'forum');
+test('9.D: the ten channels of sheet 15, grouped by what needs him, and only the green ones buzz', () => {
+  assert.deepEqual(LAYOUT.map(c => c.name), ['NEEDS YOU', 'TALK', 'RUNNING', 'KEPT', 'AT A GLANCE']);
+  const keys = LAYOUT.flatMap(c => c.channels.map(x => x.key));
+  assert.deepEqual(keys, ['needs-you', 'drafts', 'aang', 'capture', 'claude-jobs', 'jobs', 'library', 'lists', 'home', 'gaming']);
+  assert.equal(new Set(LAYOUT.flatMap(c => c.channels.map(x => x.name))).size, 10);
+  const all = LAYOUT.flatMap(c => c.channels);
+  assert.deepEqual(all.filter(c => c.kind === 'forum').map(c => c.key), ['claude-jobs', 'jobs', 'library']);
+  assert.deepEqual(all.filter(c => c.buzz).map(c => c.key), ['needs-you', 'drafts', 'aang', 'claude-jobs']);
+  assert.deepEqual(all.find(c => c.key === 'jobs')!.tags, ['Found', 'Applied', 'Skipped']);
+});
+
+test('9.D: the old server is renamed in place, nothing is deleted, and the old job and recipe channels are marked to move', () => {
+  const old = [
+    { id: 'c1', name: 'TALK', kind: 'category' as const, parentId: null }, { id: 'c2', name: 'AANG', kind: 'category' as const, parentId: null },
+    { id: 'a', name: 'aang', kind: 'text' as const, parentId: 'c1' }, { id: 'l', name: 'log', kind: 'text' as const, parentId: 'c2' },
+    { id: 'r', name: 'recipes', kind: 'forum' as const, parentId: 'x' }, { id: 'jd', name: 'job-digest', kind: 'text' as const, parentId: 'x' },
+    { id: 'z', name: 'random-other', kind: 'text' as const, parentId: null },
+  ];
+  const plan = planLayout(old);
+  const by = (k: string) => plan.channels.find(c => c.def.key === k)!;
+  assert.deepEqual([by('aang').id, by('aang').rename], ['a', true], '#aang keeps its history, gets its symbol');
+  assert.deepEqual([by('home').id, by('home').rename, by('home').moveTo], ['l', true, true], '#log becomes home, moved to its group');
+  assert.equal(by('library').id, null, 'a new forum');
+  assert.deepEqual(plan.old.map(o => [o.name, o.into]), [['recipes', 'library'], ['job-digest', 'jobs']]);
+  assert.deepEqual(plan.oldCategories.map(c => c.name), ['AANG']);
+  assert.ok(!plan.old.some(o => o.name === 'random-other'), 'a channel he made himself is never touched');
+  // Already renamed once: never renamed again, even if Discord stored the name differently.
+  assert.equal(planLayout(old, new Set(['aang'])).channels.find(c => c.def.key === 'aang')!.rename, false);
 });
 
 test('a pairing code only counts when it is the six digits, and a few wrong tries lock it', () => {
@@ -163,7 +208,7 @@ test('his message goes to the Core, and the finished reply comes back to the sam
 
 test('it ignores every channel but the ones he talks in, and other bots', async () => {
   const { gw, core } = await make({ paired: true });
-  gw.say('log', OWNER, 'hello'); gw.say('applied', OWNER, 'hello'); await tick();
+  gw.say('home', OWNER, 'hello'); gw.say('gaming', OWNER, 'hello'); await tick();
   gw.say('aang', OWNER, 'hi', 'b1', true);                 // even a message that carries his own id, if it came from a bot or webhook
   assert.equal(core.submits.length, 0);
 });
@@ -215,7 +260,7 @@ test('the permissions it was given are checked, in both directions', async () =>
   const gw = new FakeGateway(), core = new FakeCore();
   gw.perms = gw.perms.filter(p => p !== 'AddReactions').concat(['Administrator']);
   await new DiscordAdapter(gw, core, dir, { typingMs: 1_000_000 }).start();
-  const log = gw.to('log').map(m => m.content).join('\n');
+  const log = gw.to('home').map(m => m.content).join('\n');
   assert.match(log, /Missing permissions: AddReactions/);
   assert.match(log, /should not have: Administrator/);
 });
@@ -249,7 +294,7 @@ test('if the deck was deleted, a new one is posted; if pinning is refused he is 
   gw.failEdit = true; gw.failPin = true;
   await new DiscordAdapter(gw, core, dir, { typingMs: 1_000_000 }).start();
   assert.equal(deckOf(gw).length, 1, 'posted again');
-  assert.match(gw.to('log').map(m => m.content).join('\n'), /Pin Messages/);
+  assert.match(gw.to('home').map(m => m.content).join('\n'), /Pin Messages/);
 });
 
 test('the deck is only for him, and Status asks the Core without a model and answers where he pressed', async () => {
@@ -362,14 +407,14 @@ test('the list survives a restart: the next start edits the same message', async
 
 const PASTA = 'Lemon Pasta\nIngredients\n- 200 g spaghetti\n- 2 cloves garlic, minced\n- 3 tbsp olive oil\n\nInstructions\nBoil the pasta. Toss with everything else and eat it while it is hot.';
 
-test('a pasted recipe becomes a #recipes post, and one button adds its ingredients to the list, once', async () => {
+test('a pasted recipe becomes a library post tagged Recipe, and one button adds its ingredients to the list, once', async () => {
   const { gw, core } = await make({ paired: true });
   gw.say('capture', OWNER, PASTA); await tick();
   assert.equal(core.submits.length, 0, 'no model call');
   assert.equal(gw.posts.length, 1);
-  assert.deepEqual([gw.posts[0]!.forumId, gw.posts[0]!.title], ['ch-recipes', 'Lemon Pasta']);
+  assert.deepEqual([gw.posts[0]!.forumId, gw.posts[0]!.title, gw.posts[0]!.tags], ['ch-library', 'Lemon Pasta', ['Recipe']]);
   assert.match(gw.posts[0]!.content, /Boil the pasta/, 'the whole recipe is kept');
-  const reply = gw.to('capture').find(m => m.content?.startsWith('Filed in #recipes'))!;
+  const reply = gw.to('capture').find(m => m.content?.startsWith('Filed in ❖ library'))!;
   assert.equal(reply.buttons![0]!.label, 'Add 3 ingredients to the grocery list');
   const acks = gw.press(reply.buttons![0]!.id, OWNER); await tick();
   assert.match(acks[0]!, /^Added 3 to the grocery list/);
@@ -402,45 +447,48 @@ async function makeJobs() {
 }
 const VERDICT = '{"title":"Onboarding Lead","company":"Acme","location":"Toronto","salary":"$88K","laneFit":"match","payFit":"meets","locationFit":"fit","exclusions":[],"reason":"Right lane."}';
 const cardsIn = (gw: FakeGateway, ch: string) => gw.to(ch).filter(m => m.buttons?.some(b => b.id.startsWith('job:')));
+const cardsAt = (gw: FakeGateway, id: string) => gw.at(id).filter(m => m.buttons?.some(b => b.id.startsWith('job:')));
+/** 9.D: every job is its own post in the jobs forum; these are the cards inside those posts. */
+const jobPostCards = (gw: FakeGateway) => gw.sent.filter(x => x.channelId.startsWith('post') && x.msg.buttons?.some(b => b.id.startsWith('job:'))).map(x => x.msg);
 
-test('a link pasted in #job-inbox is vetted by Aang privately, and comes back as a card with Open, Approve and Skip', async () => {
+test('a link pasted in a post in ◎ jobs is vetted by Aang privately, and comes back as a card with Open, Approve and Skip', async () => {
   const { gw, core } = await makeJobs();
-  gw.say('job-inbox', OWNER, 'check this https://jobs.example.com/onboarding-lead please'); await tick();
+  gw.sayIn('thread-jobs', 'jobs', OWNER, 'check this https://jobs.example.com/onboarding-lead please'); await tick();
   assert.equal(core.submits.length, 1);
   assert.match(core.submits[0]!.text, /Vet this job posting/);
   assert.match(core.submits[0]!.text, /PAYFLOOR-TEST 80K/, 'his criteria are inside the question');
   assert.deepEqual(core.submits[0]!.opts, { ephemeral: true, mode: 'smart' }, 'not kept as something he said');
   core.emit({ t: 'bubble', text: 'Here you go: ' + VERDICT, stream: false, id: core.submits[0]!.id }); await tick();
-  const card = cardsIn(gw, 'job-inbox')[0]!;
+  const card = cardsAt(gw, 'thread-jobs')[0]!;
   assert.equal(card.embed?.title, 'Onboarding Lead at Acme');
   assert.equal(card.embed?.fields?.find(f => f.name === 'Match')?.value, '100% · Looks good');
   assert.deepEqual(card.buttons!.map(b => b.label), ['Open', 'Approve', 'Skip']);
-  assert.ok(!gw.to('job-inbox').some(m => m.content?.startsWith('Here you go')), 'the raw reply is not posted');
-  gw.say('job-inbox', OWNER, 'https://jobs.example.com/onboarding-lead'); await tick();
+  assert.ok(!gw.at('thread-jobs').some(m => m.content?.startsWith('Here you go')), 'the raw reply is not posted');
+  gw.sayIn('thread-jobs', 'jobs', OWNER, 'https://jobs.example.com/onboarding-lead'); await tick();
   assert.equal(core.submits.length, 1, 'a link already in the list is not vetted twice');
-  assert.match(gw.to('job-inbox').at(-1)!.content!, /already have that one/);
+  assert.match(gw.at('thread-jobs').at(-1)!.content!, /already have that one/);
 });
 
 test('a vetting reply that is not a verdict is shown as it is, not turned into a card', async () => {
   const { gw, core } = await makeJobs();
-  gw.say('job-inbox', OWNER, 'https://jobs.example.com/x'); await tick();
+  gw.sayIn('thread-jobs', 'jobs', OWNER, 'https://jobs.example.com/x'); await tick();
   core.emit({ t: 'bubble', text: 'I could not open that page.', stream: false, id: core.submits[0]!.id }); await tick();
-  assert.equal(cardsIn(gw, 'job-inbox').length, 0);
-  assert.match(gw.to('job-inbox').at(-1)!.content!, /could not read a verdict[\s\S]*could not open that page/);
+  assert.equal(cardsAt(gw, 'thread-jobs').length, 0);
+  assert.match(gw.at('thread-jobs').at(-1)!.content!, /could not read a verdict[\s\S]*could not open that page/);
 });
 
-test('text in #job-inbox with no link is just a message to Aang', async () => {
+test('text in a ◎ jobs post with no link is just a message to Aang', async () => {
   const { gw, core } = await makeJobs();
-  gw.say('job-inbox', OWNER, 'which of these is best?'); await tick();
+  gw.sayIn('thread-jobs', 'jobs', OWNER, 'which of these is best?'); await tick();
   assert.equal(core.submits.length, 1);
   assert.doesNotMatch(core.submits[0]!.text, /Vet this/);
 });
 
 test('Approve, Undo and Skip edit the card in place, and only he can press them', async () => {
   const { gw, core } = await makeJobs();
-  gw.say('job-inbox', OWNER, 'https://jobs.example.com/a'); await tick();
+  gw.sayIn('thread-jobs', 'jobs', OWNER, 'https://jobs.example.com/a'); await tick();
   core.emit({ t: 'bubble', text: VERDICT, stream: false, id: core.submits[0]!.id }); await tick();
-  const [ok, no] = [cardsIn(gw, 'job-inbox')[0]!.buttons![1]!.id, cardsIn(gw, 'job-inbox')[0]!.buttons![2]!.id];
+  const [ok, no] = [cardsAt(gw, 'thread-jobs')[0]!.buttons![1]!.id, cardsAt(gw, 'thread-jobs')[0]!.buttons![2]!.id];
   assert.deepEqual(gw.press(ok, STRANGER), ['That is not yours to answer.']);
   assert.equal(gw.edits.length, 0);
   assert.deepEqual(gw.press(ok, OWNER), ['(kept)']); await tick();
@@ -456,7 +504,7 @@ test('Approve, Undo and Skip edit the card in place, and only he can press them'
   assert.equal(gw.edits.at(-1)!.msg.embed?.fields?.find(f => f.name === 'Stage')?.value, 'Skipped');
 });
 
-test('the sweep shortlist becomes cards in #job-digest once each, silently, with one loud summary', async () => {
+test('the sweep shortlist becomes one post per job in ◎ jobs, tagged Found, silently, with one quiet note in home', async () => {
   const { a, gw, shortlistFile } = await makeJobs();
   assert.equal(await a.scanShortlist(), 0, 'no file yet');
   writeFileSync(shortlistFile, JSON.stringify([
@@ -465,26 +513,27 @@ test('the sweep shortlist becomes cards in #job-digest once each, silently, with
     { title: 'Evil', company: 'C', url: 'javascript:alert(1)' },
   ]));
   assert.equal(await a.scanShortlist(), 2);
-  assert.equal(cardsIn(gw, 'job-digest').length, 2);
-  assert.ok(cardsIn(gw, 'job-digest').every(m => m.silent === true), 'each card is silent');
-  const summary = gw.to('job-digest').find(m => /2 new jobs/.test(m.content ?? ''))!;
-  assert.equal(summary.silent, false, 'one message that does make a sound');
+  assert.equal(jobPostCards(gw).length, 2);
+  assert.deepEqual(gw.posts.map(p => [p.forumId, p.tags]), [['ch-jobs', ['Found']], ['ch-jobs', ['Found']]]);
+  assert.ok(jobPostCards(gw).every(m => m.silent === true), 'each card is silent');
+  const summary = gw.to('home').find(m => /2 new jobs/.test(m.content ?? ''))!;
+  assert.equal(summary.silent, true, 'jobs is not one of the channels that buzz (sheet 15)');
   assert.equal(await a.scanShortlist(), 0, 'unchanged file: nothing');
   writeFileSync(shortlistFile, JSON.stringify([{ title: 'CSM', company: 'A', url: 'https://jobs.example.com/1' }, { title: 'New', company: 'D', url: 'https://jobs.example.com/4' }]));
   const fs = await import('node:fs'); fs.utimesSync(shortlistFile, new Date(), new Date(Date.now() + 5000));
   assert.equal(await a.scanShortlist(), 1, 'only the new one');
 });
 
-test('a job found outside #job-inbox (job.card) becomes the same kind of card, once', async () => {
+test('a job found outside ◎ jobs (job.card) becomes the same kind of card in its own post, once', async () => {
   const { a, gw, core } = await makeJobs();
   core.emit({ t: 'job.card', url: 'https://jobs.example.com/mail1', title: 'CSM', company: 'Acme', location: 'Remote', salary: '$90K', score: 85, verdict: 'apply', reason: 'From an email he forwarded.' }); await tick();
-  const found = cardsIn(gw, 'job-digest');
+  const found = jobPostCards(gw);
   assert.equal(found.length, 1);
   assert.equal(found[0]!.embed?.fields?.find(f => f.name === 'Match')?.value, '85% · Looks good');
   assert.equal(a.jobs.isSeen('https://jobs.example.com/mail1'), true);
   // The same job again (e.g. a second forward) does not make a second card.
   core.emit({ t: 'job.card', url: 'https://jobs.example.com/mail1', title: 'CSM', company: 'Acme', location: '', salary: '', score: 85, verdict: 'apply', reason: '' }); await tick();
-  assert.equal(cardsIn(gw, 'job-digest').length, 1);
+  assert.equal(jobPostCards(gw).length, 1);
 });
 
 test('Apply approved sends only approved jobs, no more than the cap, to a Claude session; the rest wait', async () => {
@@ -503,7 +552,7 @@ test('Apply approved sends only approved jobs, no more than the cap, to a Claude
   assert.equal((prompt.match(/^\d\. /gm) ?? []).length, 5, 'five, the daily limit');
   assert.match(prompt, /CAPTCHA/);
   assert.match(gw.to('aang').at(-1)!.content!, /Sending 5 to apply, 2 more wait/);
-  assert.equal(gw.to('applied').length, 5, 'one line per job in #applied');
+  assert.equal(gw.sent.filter(x => x.channelId.startsWith('post') && /^Sent to apply/.test(x.msg.content ?? '')).length, 5, 'one line in each job\'s own post');
   gw.press('deck:apply', OWNER); await tick();
   assert.match(gw.to('aang').at(-1)!.content!, /limit of 5 is used/);
   assert.equal(core.submits.length, 1, 'a second tap sends nothing');
@@ -542,7 +591,7 @@ test('files sent from his phone are saved on the PC; programs and huge files are
 test('every action Aang takes leaves a silent receipt line in #log', async () => {
   const { gw, core } = await make({ paired: true });
   core.emit({ t: 'action', text: '2:31 pm  write to …/notes.txt' }); await tick();
-  const line = gw.to('log').find(m => m.content === '2:31 pm  write to …/notes.txt')!;
+  const line = gw.to('home').find(m => m.content === '2:31 pm  write to …/notes.txt')!;
   assert.ok(line);
   assert.equal(line.silent, true);
 });
@@ -671,14 +720,14 @@ test('replying to a draft with his own wording replaces it and needs approving a
   assert.equal(core.submits.length, 0, 'nothing in #drafts is ever sent to Aang');
 });
 
-test('application results: submitted goes to #applied and updates the card; stuck is loud and goes to #needs-you; each is told once', async () => {
+test('application results: each goes into its job\'s post and its tag follows; stuck is loud and goes to #needs-you; each is told once', async () => {
   const { a, gw, appliedFile, shortlistFile } = await makeJobs();
   writeFileSync(shortlistFile, JSON.stringify([{ title: 'CSM', company: 'Acme', url: 'https://jobs.example.com/1' }, { title: 'Onb', company: 'Beta', url: 'https://jobs.example.com/2' }]));
   await a.scanShortlist();
   for (const c of a.jobs.cards) gw.press(`job:ok:${c.id}`, OWNER);
   await tick(); gw.press('deck:apply', OWNER); await tick();
   assert.equal(a.jobs.cards.every(c => c.status === 'sent'), true);
-  const appliedBefore = gw.to('applied').length;
+  const before = gw.sent.length;
 
   writeFileSync(appliedFile, JSON.stringify([
     { url: 'https://jobs.example.com/1', title: 'CSM', company: 'Acme', status: 'submitted', note: 'Confirmation: received' },
@@ -686,11 +735,15 @@ test('application results: submitted goes to #applied and updates the card; stuc
     { url: 'https://jobs.example.com/99', title: 'Other', company: 'Gamma', status: 'submitted', note: 'a job that was not from a card' },
   ]));
   assert.equal(await a.scanApplied(), 3);
-  const lines = gw.to('applied').slice(appliedBefore);
-  assert.match(lines[0]!.content!, /^Submitted: CSM at Acme\nhttps:\/\/jobs\.example\.com\/1\nConfirmation: received$/);
-  assert.match(lines[1]!.content!, /^Stuck: Onb at Beta/);
-  assert.match(lines[2]!.content!, /^Submitted: Other at Gamma/);
-  assert.ok(lines.every(l => l.silent === true));
+  const lines = gw.sent.slice(before).filter(x => /^(Submitted|Stuck):/.test(x.msg.content ?? ''));
+  assert.match(lines[0]!.msg.content!, /^Submitted: CSM at Acme\nhttps:\/\/jobs\.example\.com\/1\nConfirmation: received$/);
+  assert.equal(lines[0]!.channelId, a.jobs.byUrl('https://jobs.example.com/1')!.channelId, 'into that job\'s own post');
+  assert.match(lines[1]!.msg.content!, /^Stuck: Onb at Beta/);
+  assert.match(lines[2]!.msg.content!, /^Submitted: Other at Gamma/);
+  assert.equal(lines[2]!.channelId, 'ch-home', 'a job with no card of its own goes to home');
+  assert.deepEqual(gw.tagsOf.get(a.jobs.byUrl('https://jobs.example.com/1')!.channelId!), ['Applied'], 'its tag follows');
+  const lines2 = lines.map(l => l.msg);
+  assert.ok(lines2.every(l => l.silent === true));
   const need = gw.to('needs-you').at(-1)!;
   assert.match(need.content!, /^Need input on the job hunt: Onb at Beta\. reCAPTCHA on the last step/);
   assert.equal(need.silent, false, 'stuck makes a sound');

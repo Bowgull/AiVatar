@@ -134,6 +134,12 @@ class FakeGateway implements Gateway {
   onMessage(cb: (m: Incoming) => void) { this.msgCb = cb; }
   onButton(cb: (b: ButtonPress) => void) { this.btnCb = cb; }
   async ensureLayout() { return { aang: 'ch-aang', capture: 'ch-capture', 'job-inbox': 'ch-job-inbox', 'job-digest': 'ch-job-digest', applied: 'ch-applied', 'needs-you': 'ch-needs-you', drafts: 'ch-drafts', lists: 'ch-lists', recipes: 'ch-recipes', guides: 'ch-guides', log: 'ch-log' }; }
+  async channelList() { return []; }
+  async createChannel(spec: { name: string; kind: string }) { if (spec.kind === 'category') return 'cat'; const { LAYOUT } = await import('../src/discord-logic.ts'); return 'ch-' + (LAYOUT.flatMap(c => c.channels).find(d => d.name === spec.name)?.key ?? spec.name); }
+  async editChannel() {}
+  async deleteChannel() {}
+  async postsOf() { return []; }
+  async setPostTags() {}
   async send(channelId: string, msg: OutMsg) { const id = 'm' + (this.sent.length + 1); this.sent.push({ channelId, msg }); return id; }
   async edit() { /* not used here */ }
   async pin() { /* not used here */ }
