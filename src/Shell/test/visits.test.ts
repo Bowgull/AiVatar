@@ -55,3 +55,28 @@ test('file kinds for the paper icons', () => {
   assert.equal(kindOf('setup.exe'), 'exe');
   assert.equal(kindOf('notes'), 'file');
 });
+
+import { neverKeep, forAang } from '../src/visits.ts';
+
+test('2026-10-13: banking and money sites are never kept, and never reach Aang', () => {
+  for (const u of ['https://www1.royalbank.com/cgi-bin', 'https://easyweb.td.com/waw/idp', 'https://www.scotiabank.com/ca', 'https://www.paypal.com/myaccount',
+    'https://my.wealthsimple.com/app', 'https://www.tangerine.ca/app', 'https://online.desjardins.com/x', 'https://bank.example.org/login', 'https://www.coinbase.com/home'])
+    assert.equal(neverKeep(u), true, u);
+  for (const u of ['https://www.wowhead.com/classic', 'https://www.reddit.com/r/wow', 'https://www.bankrate.com/', 'https://www.youtube.com/watch?v=1', 'https://github.com/Bowgull'])
+    assert.equal(neverKeep(u), false, u);
+  assert.deepEqual(addVisit([], 'https://www.paypal.com/x', 'PayPal', 1000), []);
+});
+
+test('2026-10-13: Aang finds a page by its words, newest first, once each, within the days asked', () => {
+  const now = 100 * 86_400_000;
+  let list = addVisit([], 'https://www.wowhead.com/thunder-bluff', 'Thunder Bluff - Wowhead', now - 3 * 86_400_000);
+  list = addVisit(list, 'https://www.reddit.com/r/wow', 'r/wow', now - 2 * 86_400_000);
+  list = addVisit(list, 'https://www.wowhead.com/thunder-bluff', 'Thunder Bluff - Wowhead', now - 86_400_000);
+  list = addVisit(list, 'https://old.example.com/', 'Old page', now - 30 * 86_400_000);
+  const hits = forAang(list, 'wowhead thunder', 14, 15, now);
+  assert.equal(hits.length, 1);
+  assert.equal(hits[0]!.at, now - 86_400_000);
+  assert.equal(forAang(list, '', 14, 15, now).length, 2);
+  assert.equal(forAang(list, 'old', 14, 15, now).length, 0);
+  assert.equal(forAang(list, 'old', 40, 15, now).length, 1);
+});
