@@ -87,3 +87,9 @@ test('a PDF is read with unpdf, page by page; a PDF with no text says so', async
   const broken = await readAttachment('broken.pdf', 'application/pdf', Buffer.from('%PDF-1.4 not really'));
   assert.match(broken.why ?? '', /could not be read as a PDF/, 'a broken PDF is said to be unreadable');
 });
+
+test('E8: videos and voice notes are marked to be heard (on the PC), not read here', () => {
+  for (const [n, m] of [['demo.mp4', ''], ['note.m4a', ''], ['call.webm', ''], ['clip', 'video/quicktime'], ['memo', 'audio/mpeg']] as [string, string][])
+    assert.equal(kindOfFile(n, m), 'media', n + ' ' + m);
+  assert.equal(kindOfFile('setup.exe', 'video/mp4'), 'never', 'a program dressed as a video is still never opened');
+});
