@@ -67,6 +67,7 @@ export const TOOL_LABELS: Record<string, string> = {
   email_card: 'laying out that email',
   calendar_book: 'checking your calendar',
   calendar_undo: 'putting that back',
+  mail_filter: 'setting up that rule',
   calendar_today: 'looking at your calendar',
   mail_draft: 'drafting that email',
   write_file: 'writing that file',
@@ -109,7 +110,7 @@ export const TOOL_NAMES = ['mcp__aang__get_time', 'mcp__aang__get_weather', 'mcp
   'mcp__aang__what_did_you_do', 'mcp__aang__undo_last', 'mcp__aang__my_permissions', 'mcp__aang__revoke_permission',
   'mcp__aang__list_folder', 'mcp__aang__move_file', 'mcp__aang__copy_file', 'mcp__aang__make_folder', 'mcp__aang__delete_file', 'mcp__aang__copy_to_clipboard',
   'mcp__aang__list_controls', 'mcp__aang__press_control', 'mcp__aang__fill_control',
-  'mcp__aang__mail_inbox', 'mcp__aang__mail_read', 'mcp__aang__mail_attachment', 'mcp__aang__email_card', 'mcp__aang__calendar_book', 'mcp__aang__calendar_undo', 'mcp__aang__calendar_today', 'mcp__aang__mail_draft', 'mcp__aang__play_music', 'mcp__aang__watch_next', 'mcp__aang__watch', 'mcp__aang__set_dub',
+  'mcp__aang__mail_inbox', 'mcp__aang__mail_read', 'mcp__aang__mail_attachment', 'mcp__aang__email_card', 'mcp__aang__calendar_book', 'mcp__aang__calendar_undo', 'mcp__aang__mail_filter', 'mcp__aang__calendar_today', 'mcp__aang__mail_draft', 'mcp__aang__play_music', 'mcp__aang__watch_next', 'mcp__aang__watch', 'mcp__aang__set_dub',
   'mcp__aang__do_task', 'mcp__aang__tell_task', 'mcp__aang__task_status', 'mcp__aang__stop_task', 'mcp__aang__present_list', 'mcp__aang__show_plan',
   'mcp__aang__browse', 'mcp__aang__ask_choice', 'mcp__aang__browser_history', 'mcp__aang__watch_video',
   'mcp__aang__follow_creator', 'mcp__aang__unfollow_creator', 'mcp__aang__apex_map'];
@@ -212,12 +213,14 @@ export interface Doers {
   /** E5: book a meeting from an email, or answer its invite, after his yes; then read it back. And undo the last one. */
   calendarBook?(input: { id: string; answer: 'accept' | 'decline' | 'maybe' | 'add'; words?: string; pick?: 'am' | 'pm'; title?: string; minutes?: number }): Promise<{ ok: boolean; detail: string }>;
   calendarUndo?(): Promise<{ ok: boolean; detail: string }>;
+  /** E6: a Gmail filter after his yes (shown in plain words), or undo the last one. */
+  mailFilter?(input: { from?: string; to?: string; subject?: string; words?: string; hasAttachment?: boolean; actions: ('archive' | 'read' | 'star' | 'important' | 'trash' | 'label')[]; label?: string; undo?: boolean }): Promise<{ ok: boolean; detail: string }>;
   /** E3: lay one email out as a card (code's facts, the model's summary and the sender's asks), with its buttons. */
   emailCard?(id: string, summary: string, asks: string[]): Promise<{ ok: boolean; detail: string }>;
   /** E2: open (read) one attachment of an email, or save it to his Downloads so it can be sent to his phone. */
   mailAttachment?(id: string, name: string | undefined, save: boolean): Promise<{ ok: boolean; detail: string; image?: { data: string; mimeType: string } }>;
   calendar(days?: number): Promise<{ ok: boolean; detail: string }>;
-  mailDraft(input: { to: string[]; subject: string; body: string; replyToId?: string }): Promise<{ ok: boolean; detail: string }>;
+  mailDraft(input: { to: string[]; subject: string; body: string; replyToId?: string; cc?: string[]; attach?: { emailId?: string; name?: string; path?: string }[]; forwardOf?: string }): Promise<{ ok: boolean; detail: string }>;
   playMusic(what: string, kind?: 'track' | 'playlist' | 'artist' | 'album'): Promise<{ ok: boolean; detail: string }>;
   watchNext(show?: string, open?: boolean): Promise<{ ok: boolean; detail: string }>;
   /** Step 6.7: the ONE way anything is put on. Code reads his words before any model is asked. */
@@ -472,7 +475,7 @@ export function describeCall(tool: string, input: Record<string, unknown>): stri
     case 'mcp__aang__watch': return `put ${short(s('url'), 90)} on`;
     case 'mcp__aang__mail_draft': return `draft an email to ${short(Array.isArray(input?.to) ? (input.to as unknown[]).join(', ') : '', 60)}: ${short(s('subject'), 60)}`;
     // The whole email is in the question: what he approves is what is sent.
-    case 'mcp__aang__mail_send': return `SEND this email to ${short(s('to'), 100)}${s('fresh') ? ` (NEW address: ${short(s('fresh'), 60)})` : ''}. Subject: ${short(s('subject'), 100)}. It says: ${short(s('body'), 700)}`;
+    case 'mcp__aang__mail_send': return `SEND this email to ${short(s('to'), 100)}${s('cc') ? `, CC ${short(s('cc'), 100)}` : ''}${s('fresh') ? ` (NEW address: ${short(s('fresh'), 60)})` : ''}. Subject: ${short(s('subject'), 100)}.${s('files') ? ` Attached: ${short(s('files'), 200)}.` : ''} It says: ${short(s('body'), 700)}`;
     // Anything unknown: show whatever looks like the thing being done, never a bare tool name.
     default: {
       const detail = s('command') || s('file_path') || s('path') || s('url') || s('query');
@@ -754,6 +757,10 @@ export function makeTools(
       tool('calendar_book', 'Book a meeting from an email he went through, or answer its invite: accept, decline, maybe, or add (put it in his calendar without answering anyone). The TIME COMES FROM CODE: with an invite, leave words out and the invite is used. Without one, give `words`: one of the dates code read in that email, by its exact words (mail_read lists them). Give `pick` am or pm ONLY if he said it. Never give a time yourself. He is shown everything and says yes before anything changes; after that it is read back from Google.',
         { id: z.string().describe('the email id'), answer: z.enum(['accept', 'decline', 'maybe', 'add']), words: z.string().optional().describe('the date exactly as code read it, when there is no invite'), pick: z.enum(['am', 'pm']).optional().describe('only if HE said am or pm'), title: z.string().optional().describe('a title for a meeting with no invite'), minutes: z.number().optional().describe('length, default 60, for a meeting with no invite') },
         async (a) => { if (!doers?.calendarBook) return fail('Not available right now.'); const r = await doers.calendarBook(a); return r.ok ? ok(r.detail) : fail(r.detail); }),
+      tool('mail_filter', 'Make a Gmail filter he asked for: a standing rule for NEW email (archive, mark read, star, mark important, Trash, or a label). He is shown exactly what it will do, in plain words, and says yes first. It can never forward mail. undo=true removes the last filter made here.',
+        { from: z.string().optional(), to: z.string().optional(), subject: z.string().optional(), words: z.string().optional().describe('words in the email'), hasAttachment: z.boolean().optional(),
+          actions: z.array(z.enum(['archive', 'read', 'star', 'important', 'trash', 'label'])), label: z.string().optional().describe('the label name, for "label"'), undo: z.boolean().optional() },
+        async (a) => { if (!doers?.mailFilter) return fail('Not available right now.'); const r = await doers.mailFilter(a); return r.ok ? ok(r.detail) : fail(r.detail); }),
       tool('calendar_undo', 'Undo the last thing calendar_book did: an event Aang added goes to Google Calendar\'s bin; an invite answer goes back to how it was. He is asked first.', {},
         async () => { if (!doers?.calendarUndo) return fail('Not available right now.'); const r = await doers.calendarUndo(); return r.ok ? ok(r.detail) : fail(r.detail); }),
       tool('email_card', 'After you have read an email he asked you to go through (mail_read), lay it out for him: call this ONCE with a summary in one or two plain sentences and what the sender asks HIM to do (short, each its own item). The card itself shows the dates, times, places, call links, videos and files exactly as code read them: never write a date, time, place or address in your summary or asks.',
@@ -771,8 +778,11 @@ export function makeTools(
         { days: z.number().optional().describe('how many days from today, default 1, at most 14') },
         async ({ days }) => { if (!doers) return fail('The calendar is not available right now.'); const r = await doers.calendar(days); return r.ok ? ok(r.detail) : fail(r.detail); }),
       tool('mail_draft', 'Write an email or a reply FOR HIM TO APPROVE. It is shown to him with a Send button; nothing is sent until he taps it, so never say it was sent, say it is waiting for him. For a reply, give replyToId (the id from mail_inbox) and the sender is filled in as the recipient if you leave `to` as that person. Write it in his voice: short, plain, no filler. One recipient unless he said otherwise.',
-        { to: z.array(z.string()).describe('recipient email addresses'), subject: z.string(), body: z.string().describe('the email text, plain, no subject line inside it'), replyToId: z.string().optional().describe('the id of the email being answered') },
-        async ({ to, subject, body, replyToId }) => { if (!doers) return fail('Email is not available right now.'); const r = await doers.mailDraft({ to, subject, body, ...(replyToId ? { replyToId } : {}) }); return r.ok ? ok(r.detail) : fail(r.detail); }),
+        { to: z.array(z.string()).describe('recipient email addresses'), subject: z.string(), body: z.string().describe('the email text, plain, no subject line inside it; for a forward, only his own words (the original is added under them)'), replyToId: z.string().optional().describe('the id of the email being answered'),
+          cc: z.array(z.string()).optional().describe('CC addresses, only ones he named or that are on the thread'),
+          attach: z.array(z.object({ emailId: z.string().optional(), name: z.string().optional(), path: z.string().optional() })).optional().describe('files to attach: an attachment of an email (emailId + its name as listed), or a file on this PC by its full path (one Aang made, or one he named)'),
+          forwardOf: z.string().optional().describe('forward this email (its id): give `to`, and his words in body; to pass its attachments on, list them in attach') },
+        async ({ to, subject, body, replyToId, cc, attach, forwardOf }) => { if (!doers) return fail('Email is not available right now.'); const r = await doers.mailDraft({ to, subject, body, ...(replyToId ? { replyToId } : {}), ...(cc?.length ? { cc } : {}), ...(attach?.length ? { attach } : {}), ...(forwardOf ? { forwardOf } : {}) }); return r.ok ? ok(r.detail) : fail(r.detail); }),
       tool('watch_next', 'What he is watching and where he got to, from his Simkl list: "what am I watching", "where was I on Frieren", "what is next". This ANSWERS, it does not put anything on - to actually put something on, including the next episode, use `watch`.',
         { show: z.string().optional().describe('the show, in his words; leave out for all of them') },
         async ({ show }) => { if (!doers) return fail('The watch list is not available right now.'); const r = await doers.watchNext(show, false); return r.ok ? ok(r.detail) : fail(r.detail); }),

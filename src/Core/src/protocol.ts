@@ -231,7 +231,7 @@ export type ToBody =
       exact?: string;
       /** An email waiting to be sent (6.14, sheet 13): the cockpit shows the letter itself. `fresh` is any
        *  address he has never written to. The question and `means` still carry it for the old bubble. */
-      draft?: { to: string; subject: string; body: string; fresh: string };
+      draft?: { to: string; subject: string; body: string; fresh: string; /** E6: CC and the files, as he will see them */ cc?: string; files?: string };
       /** C1 (sheet 21, his ask 2026-10-13): this one might use a lot of quota. What it is, the estimate as a share of his
        *  week (low and high, 0 to 1), where the week stands, and when it resets. Never an "always": asked every time. */
       quota?: { what: string; low: number; high: number; week: number | null; resetsAt: number };

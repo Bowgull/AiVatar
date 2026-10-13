@@ -52,7 +52,8 @@ $port = $tcp.LocalEndpoint.Port; $tcp.Stop()
 $redirect = "http://127.0.0.1:$port/"
 # E4 (his yes, 2026-10-13): gmail.modify (archive, label, mark read, Trash: never a permanent delete; every change asks
 # him first) and calendar.events (book a meeting or answer an invite, each one approved). Still no send without his tap.
-$scopes = 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.compose https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/calendar.events'
+# E6: gmail.settings.basic, for Gmail filters he approves one by one (never forwarding, never a permanent delete).
+$scopes = 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.compose https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/gmail.settings.basic'
 $q = @{
     client_id = $c.client_id; redirect_uri = $redirect; response_type = 'code'; scope = $scopes
     code_challenge = $challenge; code_challenge_method = 'S256'; state = $state

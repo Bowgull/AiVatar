@@ -17,7 +17,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, 
 import os from 'node:os';
 import path from 'node:path';
 import { Google } from './google.ts';
-import { MailService, MailStore, mimeRaw } from './mail.ts';
+import { MAX_FILES_BYTES, MailService, MailStore, mimeRaw } from './mail.ts';
 
 const HOME = os.homedir();
 const run = (cmd: string, args: string[], ms = 20_000) => new Promise<{ ok: boolean; out: string }>(res =>
@@ -43,6 +43,17 @@ export class MacPowers {
     this.dir = dir;
     this.google = new Google(path.join(dir, 'google.json'));
     this.mail = new MailService(this.google, new MailStore(path.join(dir, 'brain', 'mail.json')));
+    // E6: a file from the Mac may go on a draft only from his home folder (no hidden folders, no Library), 18 MB at most.
+    this.mail.readLocal = (p: string) => {
+      const f = safePath(p);
+      if (!f) return { ok: false, why: 'Only files in your home folder can be attached from the Mac.' };
+      try {
+        const st = statSync(f);
+        if (!st.isFile()) return { ok: false, why: 'That is a folder, not a file.' };
+        if (st.size > MAX_FILES_BYTES) return { ok: false, why: 'That file is too big for an email (18 MB).' };
+        return { ok: true, buf: readFileSync(f), name: path.basename(f) };
+      } catch { return { ok: false, why: 'There is no such file in your home folder.' }; }
+    };
   }
   get mailConnected(): boolean { return this.google.connected; }
 
@@ -55,11 +66,13 @@ export class MacPowers {
   /** The morning brief's fields (no model), for the Mac's brief when Shadow is off. */
   briefData() { return this.mail.briefData(); }
   /** A draft, saved in his Gmail drafts. Never sent: there is no send from the Mac. */
-  async draft(input: { to: string[]; subject: string; body: string; replyToId?: string }): Promise<string> {
+  async draft(input: { to: string[]; subject: string; body: string; replyToId?: string; cc?: string[]; attach?: { emailId?: string; name?: string; path?: string }[]; forwardOf?: string }): Promise<string> {
     const p = await this.mail.propose(input);
     if (!p.ok) return p.why;
     try {
-      await this.google.saveDraft(mimeRaw(p.draft, this.google.account), p.draft.threadId);
+      const got = await this.mail.filesFor(p.draft);
+      if (!got.ok) return got.why;
+      await this.google.saveDraft(mimeRaw(p.draft, this.google.account, got.bufs), p.draft.threadId);
       const fresh = p.draft.newTo.length ? ` (you have never written to ${p.draft.newTo.join(', ')} before)` : '';
       return `Saved in your Gmail drafts, not sent${fresh}. He sends it from Gmail himself.`;
     } catch (e) { return 'The draft could not be saved: ' + (e as Error).message; }
