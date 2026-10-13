@@ -89,7 +89,7 @@ async function rig(port: number) {                                        // por
   await core.start();
   const c = new WebSocket(`ws://127.0.0.1:${port}/body`); const inbox: any[] = [];
   let answer = true;
-  c.on('message', d => { const m = JSON.parse(String(d)); inbox.push(m); if (m.t === 'permission') c.send(JSON.stringify({ t: 'permission.reply', id: m.id, allow: answer })); });
+  c.on('message', d => { const m = JSON.parse(String(d)); inbox.push(m); if (m.t === 'permission') c.send(JSON.stringify({ t: 'permission.reply', id: m.id, choice: answer ? 'always' : 'no' })); });
   await new Promise<void>(r => c.once('open', () => r()));
   await wait(80);
   const done = async () => { c.close(); await core.stop(); };

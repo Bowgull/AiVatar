@@ -218,7 +218,8 @@ test('a result updates the card, counts against the cap, and a sent job cannot b
   assert.equal(j.recordResult('https://jobs.example.com/1', 'stuck', 'a CAPTCHA')!.status, 'stuck');
   assert.equal(j.left(NOW), 4, 'stuck still counts today');
   assert.equal(j.recordResult('https://jobs.example.com/1', 'stuck', 'a CAPTCHA'), null, 'the same news twice changes nothing');
-  assert.equal(j.recordResult('https://jobs.example.com/1', 'applied', 'Confirmation 42')!.status, 'applied');
+  // The test's own clock, not the real one: this passed only on 2026-09-22, the day it was written.
+  assert.equal(j.recordResult('https://jobs.example.com/1', 'applied', 'Confirmation 42', NOW)!.status, 'applied');
   assert.equal(c.appliedAt, '2026-09-22', 'the day it was first heard, not just buried in the result text');
   let v = renderCard(c);
   assert.equal(v.embed.fields?.find(f => f.name === 'Result')?.value, 'Confirmation 42');

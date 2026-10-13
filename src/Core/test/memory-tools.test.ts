@@ -8,6 +8,10 @@ import { Memory } from '../src/memory.ts';
 import { describeWeatherCode, fetchWeather, toolLabel } from '../src/tools.ts';
 import { parseFromBody } from '../src/protocol.ts';
 
+// Since 2.2 (2026-10-01) the Brain folder is read from Drive when it is there, which made these tests read
+// Joshua's REAL profile. Point it somewhere that does not exist, so only each test's own Brain folder is used.
+process.env.AANG_BRAIN_DIR = path.join(os.tmpdir(), 'aang-no-drive-brain-' + process.pid);
+
 function tempData(): string {
   const dir = mkdtempSync(path.join(os.tmpdir(), 'aang-mem-'));
   const db = new DatabaseSync(path.join(dir, 'aang.db'));
@@ -60,8 +64,10 @@ test('memory saves turns that search can then find', () => {
 test('memory reads profile files and survives a missing database', () => {
   const dir = tempData();
   assert.match(new Memory(dir).profile(), /Toronto/);
+  // Since step 0.2 (2026-10-01) a missing database is rebuilt empty rather than left missing, so Aang never runs
+  // with no memory at all; an empty one simply finds nothing.
   const empty = new Memory(mkdtempSync(path.join(os.tmpdir(), 'aang-none-')));
-  assert.equal(empty.available, false);
+  assert.equal(empty.available, true);
   assert.deepEqual(empty.search('anything'), []);
   assert.equal(empty.profile(), '');
 });

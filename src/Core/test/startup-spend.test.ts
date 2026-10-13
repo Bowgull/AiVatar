@@ -41,7 +41,8 @@ test('Q4: it still runs when deliberately switched on', async () => {
 async function warmed(port: number, poke: boolean): Promise<boolean> {
   const core: any = new Core({ port, dataDir: tmp(), stateDir: tmp() });
   let sent = 0;
-  core.lane = () => ({ send: () => { sent++; } });
+  // Since 2026-10-05 the warm-up is Lane.warm (a fork that is never saved), not send; either one counts as spending.
+  core.lane = () => ({ send: () => { sent++; }, warm: async () => { sent++; return null; } });
   try {
     await core.start();
     if (poke) core.onBody({ readyState: 1, send() {} }, { t: 'poked' });
@@ -62,7 +63,8 @@ test('Q1: clicking Aang warms the lane', async () => {
 test('Q1: it warms once, not on every click', async () => {
   const core: any = new Core({ port: 48308, dataDir: tmp(), stateDir: tmp() });
   let sent = 0;
-  core.lane = () => ({ send: () => { sent++; } });
+  // Since 2026-10-05 the warm-up is Lane.warm (a fork that is never saved), not send; either one counts as spending.
+  core.lane = () => ({ send: () => { sent++; }, warm: async () => { sent++; return null; } });
   const ws: any = { readyState: 1, send() {} };
   try {
     await core.start();
