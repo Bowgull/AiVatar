@@ -130,3 +130,27 @@ test('a whole email: the invite is the source for the meeting, and the block the
   assert.match(block, /Demo brief\.pdf \(application\/pdf, 178 KB\)/);
   assert.match(block, /416-555-0199/);
 });
+
+test('dates in words: read against the day it was sent, in Toronto, and every doubt said out loud', async () => {
+  const { findDates } = await import('../src/emailfacts.ts');
+  const sent = new Date('2026-10-13T16:00:00Z');                       // Tuesday, October 13, noon in Toronto
+  const one = (t: string) => findDates(t, sent)[0]!;
+  const a = one('Can we meet Thursday at 2?');
+  assert.equal(a.iso, undefined, 'no am or pm: no single moment is claimed');
+  assert.match(a.means, /Thursday, October 15, 2026 at 2:00 AM OR 2:00 PM, Toronto time/);
+  assert.ok(a.unsure.some(u => /am or pm is not written/.test(u)));
+  assert.ok(a.unsure.some(u => /worked out from when the email was sent \(Tuesday, October 13, 2026\)/.test(u)));
+  const b = one('Friday, Oct 16 at 2pm works.');
+  assert.equal(b.iso, '2026-10-16T18:00:00.000Z');
+  assert.deepEqual(b.unsure, [], 'a full date, a weekday that matches, am/pm written: sure');
+  const c = one('See you Thursday, Oct 16 at 2pm.');
+  assert.ok(c.unsure.some(u => /it says Thursday, but October 16, 2026 is a Friday/.test(u)), 'a weekday that does not match its date');
+  const d = one('Deadline 05/06/2027 at 17:00');
+  assert.ok(d.unsure.some(u => /month\/day or day\/month/.test(u)));
+  assert.equal(one('the call is at 14:00 on Oct 16').iso, '2026-10-16T18:00:00.000Z', '24-hour times are sure');
+  const e = one('next Tuesday morning');
+  assert.equal(e.date, '2026-10-20');
+  assert.match(e.means, /Tuesday, October 20, 2026, morning \(no exact time\)/);
+  assert.equal(findDates('Old news\nOn Mon, Oct 5, 2026 at 9:00 AM Rhea wrote:\n> Friday at 3pm', sent).length, 0, 'quoted older messages are left out');
+  assert.equal(findDates('see https://example.com/2026/10/16/at-2pm', sent).length, 0, 'links are not dates');
+});

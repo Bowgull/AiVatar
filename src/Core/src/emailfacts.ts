@@ -8,6 +8,7 @@
 //     words it came from, so the card and every approval can show the source beside what Aang made of it.
 //   - Nothing here acts. It only reads. The model is shown these facts as read by code, beside its own reading.
 import type { Part } from './google.ts';
+import * as chrono from 'chrono-node';
 
 // ------------------------------------------------------------------ time zones
 
@@ -280,11 +281,74 @@ export function findAddresses(text: string): string[] {
   return [...out].slice(0, 8);
 }
 
+// ------------------------------------------------------------------ dates written in words (chrono-node, his yes 2026-10-13)
+
+export interface FoundDate {
+  /** Exactly as the email wrote it. */
+  text: string;
+  /** What it means, said plainly, in Toronto time; with both readings when it could be either. */
+  means: string;
+  /** The moment, when a time was written and is certain. */
+  iso?: string;
+  /** The day (YYYY-MM-DD), when only a day was written. */
+  date?: string;
+  /** Anything that makes it NOT certain. Empty means code is sure. */
+  unsure: string[];
+}
+const WEEKDAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+const torontoDay = (ms: number) => new Date(ms).toLocaleDateString('en-CA', { timeZone: 'America/Toronto' });
+const sayDay = (key: string) => new Date(key + 'T12:00:00Z').toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+const sayMoment = (ms: number) => new Date(ms).toLocaleString('en-US', { timeZone: 'America/Toronto', weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+
+/**
+ * Dates and times written in words ("Thursday at 2", "Oct 16 at 2pm", "tomorrow"), read against the day the email was
+ * SENT, in Toronto. Never smoothed over: a time with no am or pm gives both; a weekday that does not match its date,
+ * a date like 05/06 that reads two ways, and a day worked out from "tomorrow" or "Thursday" are all said.
+ */
+export function findDates(text: string, sent: Date): FoundDate[] {
+  // Old messages quoted under "On ... wrote:" are older news; links are not dates.
+  const body = text.split(/\n(?:On .{5,200} wrote:|-{2,}\s*Original Message\s*-{2,}|From: .+\nSent: )/i)[0]!.replace(/https?:\/\/\S+/g, ' ');
+  const ref = { instant: sent, timezone: offsetAt(sent.getTime(), 'America/Toronto') };
+  const sentDay = sayDay(torontoDay(sent.getTime()));
+  const out: FoundDate[] = [];
+  for (const r of chrono.casual.parse(body, ref, { forwardDate: true }).slice(0, 12)) {
+    const st = r.start, raw = r.text.replace(/\s+/g, ' ').trim();
+    if (raw.length < 3 || /^\d{1,4}$/.test(raw)) continue;
+    const unsure: string[] = [];
+    const ms = st.date().getTime();
+    const relative = !st.isCertain('day') || !st.isCertain('month');
+    if (relative) unsure.push(`the day is worked out from when the email was sent (${sentDay})`);
+    // The weekday it names must be the weekday of the date it names.
+    const named = WEEKDAYS.find(w => new RegExp(`\\b${w.slice(0, 3)}(?:${w.slice(3)})?\\b`, 'i').test(raw));
+    const key = torontoDay(ms);
+    const realWd = WEEKDAYS[new Date(key + 'T12:00:00Z').getUTCDay()]!;
+    if (named && st.isCertain('day') && named !== realWd) unsure.push(`it says ${named[0]!.toUpperCase() + named.slice(1)}, but ${sayDay(key).replace(/^\w+, /, '')} is a ${realWd[0]!.toUpperCase() + realWd.slice(1)}`);
+    // 05/06 is May 6 in Canada's and the US's way, June 5 in Europe's.
+    const slash = /\b(\d{1,2})[/.](\d{1,2})(?:[/.]\d{2,4})?\b/.exec(raw);
+    if (slash && Number(slash[1]) <= 12 && Number(slash[2]) <= 12 && slash[1] !== slash[2]) unsure.push(`written as ${slash[0]}: it could be month/day or day/month`);
+    if (st.isCertain('hour')) {
+      if (st.isCertain('meridiem') || st.get('hour')! >= 13 || st.get('hour') === 0) {
+        out.push({ text: raw, means: sayMoment(ms) + ' Toronto time', iso: new Date(ms).toISOString(), unsure });
+      } else {
+        const h = st.get('hour')!;
+        const am = h === 12 ? ms - 12 * 3_600_000 : ms, pm = h === 12 ? ms : ms + 12 * 3_600_000;
+        unsure.push('am or pm is not written');
+        out.push({ text: raw, means: `${sayMoment(am)} OR ${new Date(pm).toLocaleTimeString('en-US', { timeZone: 'America/Toronto', hour: 'numeric', minute: '2-digit' })}, Toronto time`, unsure });
+      }
+    } else {
+      const part = /\b(morning|afternoon|evening|tonight|noon|lunch|end of (?:the )?day|eod)\b/i.exec(raw)?.[1];
+      out.push({ text: raw, means: `${sayDay(key)}${part ? `, ${part.toLowerCase()} (no exact time)` : ' (no time given)'}`, date: key, unsure });
+    }
+  }
+  return out;
+}
+
 // ------------------------------------------------------------------ one email, all of it
 
 export interface Attachment { name: string; mimeType: string; size: number; attachmentId?: string; inlineData?: string; partId?: string }
 export interface EmailFacts {
   invites: Invite[];
+  dates: FoundDate[];
   links: FoundLink[];
   phones: FoundPhone[];
   addresses: string[];
@@ -310,7 +374,7 @@ export function partsOf(payload: Part | undefined): { calendars: Attachment[]; a
 }
 
 /** Everything code can read out of one email. `calendarText` is each calendar part's text, already fetched. */
-export function factsOf(payload: Part | undefined, calendarText: string[]): EmailFacts {
+export function factsOf(payload: Part | undefined, calendarText: string[], sent: Date = new Date()): EmailFacts {
   const p = partsOf(payload);
   const invites = calendarText.flatMap(t => parseInvites(t)).slice(0, 5);
   const text = `${p.plain}\n${p.html.replace(/<(br|\/p|\/div|\/tr|\/li)\b[^>]*>/gi, '\n').replace(/<[^>]+>/g, ' ')}`;
@@ -318,6 +382,7 @@ export function factsOf(payload: Part | undefined, calendarText: string[]): Emai
   const links = findLinks(p.html, `${p.plain}\n${invites.map(i => `${i.description}\n${i.where}`).join('\n')}`);
   return {
     invites, links,
+    dates: findDates(p.plain || decoded, sent),
     phones: findPhones(decoded),
     addresses: [...new Set([...invites.map(i => i.where).filter(w => findAddresses(w).length || /\d/.test(w)).filter(w => !/^https?:/i.test(w)), ...findAddresses(decoded)])].slice(0, 8),
     attachments: p.attachments.map(({ inlineData: _d, ...a }) => a).slice(0, 20),
@@ -350,6 +415,8 @@ export function factsBlock(f: EmailFacts): string {
     if (i.attendees.length) out.push(`  Invited: ${i.attendees.map(a => a.name ? `${a.name} <${a.email}>` : a.email).join(', ')}`);
     if (i.recurring) out.push(`  Repeats: ${i.recurring}`);
   }
+  if (f.dates.length) out.push('Dates and times written in the email (read against the day it was sent):',
+    ...f.dates.map(d => `  "${d.text}" -> ${d.means}${d.unsure.length ? `   NOT SURE: ${d.unsure.join('; ')}` : ''}`));
   const by = (k: LinkKind) => f.links.filter(l => l.kind === k);
   for (const [k, label] of [['call', 'Call links'], ['video', 'Videos'], ['map', 'Map links'], ['file', 'Shared files'], ['link', 'Other links']] as [LinkKind, string][]) {
     const ls = by(k).slice(0, k === 'link' ? 12 : 8);
