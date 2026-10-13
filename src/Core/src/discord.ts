@@ -103,7 +103,9 @@ export interface State { ownerId: string | null; channels: Record<string, string
   /** 9.D: old channels still to move from and, with his yes, delete */
   old?: { name: string; id: string; into: string }[]; oldCats?: { name: string; id: string }[]; moved?: boolean;
   /** 9.D: job cards that are their own post in the jobs forum (post id), so their tags follow the job */
-  jobPosts?: string[]; deckId?: string; recipes?: Record<string, string[]>; /** email draft id -> where its card is, so a change edits the card in place */ mail?: Record<string, { c: string; m: string }>; /** Claude job folder -> where its last update is, so a reply there continues that job */ jobs?: Record<string, { c: string; m: string }> }
+  jobPosts?: string[];
+  /** 2026-10-13: the one-time fix for the empty channel copies has run */
+  fixedCopies?: boolean; deckId?: string; recipes?: Record<string, string[]>; /** email draft id -> where its card is, so a change edits the card in place */ mail?: Record<string, { c: string; m: string }>; /** Claude job folder -> where its last update is, so a reply there continues that job */ jobs?: Record<string, { c: string; m: string }> }
 
 /** The pinned buttons in #aang. Status costs nothing; the job hunt goes through Aang like anything he types. */
 export const DECK: Button[] = [
@@ -213,7 +215,15 @@ export class DiscordAdapter {
    * their history stays; new ones are created; nothing is ever deleted here. Returns key -> channel id.
    */
   async layout(): Promise<Record<string, string>> {
-    const plan = planLayout(await this.gw.channelList(), new Set(this.state.renamed ?? []));
+    // One-time fix (2026-10-13): Discord stripped "!" and "+", a restart then made empty copies of #needs-you and
+    // #capture, and Aang began using the copies. Forget them once, so the older channels (his history) are found
+    // again by name and get the symbols Discord keeps; the copies are offered for deletion.
+    if (!this.state.fixedCopies) {
+      for (const k of ['needs-you', 'capture']) delete this.state.channels[k];
+      this.state.renamed = (this.state.renamed ?? []).filter(k => k !== 'needs-you' && k !== 'capture');
+      this.state.fixedCopies = true;
+    }
+    const plan = planLayout(await this.gw.channelList(), new Set(this.state.renamed ?? []), this.state.channels ?? {});
     const out: Record<string, string> = {};
     const renamed = new Set(this.state.renamed ?? []);
     for (const cat of plan.categories) {
