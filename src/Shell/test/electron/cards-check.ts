@@ -29,12 +29,14 @@ app.whenReady().then(async () => {
     ['needs', { title: 'Delete 3 old test files?', text: 'They test the old bubble, which the new one replaced. Nothing else uses them.' }],
     ['watched', { meta: '0:48, read from the transcript', title: 'Lemon pasta in 10 minutes', kind: 'recipe', shows: 'A quick lemon pasta with butter and parmesan.', useful: [{ who: 'you', what: 'dinner tonight' }, { who: 'Aang', what: 'nothing, just for fun' }], best: 0 }],
     ['home', { tiles: [{ k: 'CLAUDE THIS WEEK', v: '31%, on pace', fill: 0.31 }, { k: 'RUNNING', v: '1 Claude job' }, { k: 'WAITING ON YOU', v: '2 things', tone: 'warn' }, { k: 'YOUR PC', v: 'On', tone: 'good' }] }],
+    ['quota', { what: 'a background job: prep for the demo', low: 0.02, high: 0.05, week: 0.34, resetsAt: 1792368000 }],
+    ['home', { tiles: [{ k: 'CLAUDE THIS WEEK', v: '34%, on pace', fill: 0.34 }, { k: 'NEXT 5 HOURS', v: '12% used', fill: 0.12 }, { k: 'RUNNING', v: 'nothing' }, { k: 'WAITING ON YOU', v: '2 things', tone: 'warn' }, { k: 'YOUR PC', v: 'On', tone: 'good' }] }],
   ];
   for (const [kind, data] of cases) {
     const res = await r.render(kind, data);
     if (!res.ok || !res.png) { check(`${kind} card draws`, false, res.error); continue; }
     const buf = Buffer.from(res.png, 'base64');
-    writeFileSync(path.join(OUT, `card-${kind}.png`), buf);
+    writeFileSync(path.join(OUT, `card-${kind}-${cases.findIndex((c) => c[1] === data)}.png`), buf);
     const img = nativeImage.createFromBuffer(buf), size = img.getSize();
     check(`${kind} card draws at 2x`, size.width >= 680 && size.width <= 700, `${size.width}x${size.height}`);
     const corner = img.toBitmap()[3];
