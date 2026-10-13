@@ -835,6 +835,10 @@ rule and they are not optional.
 Done in order, top to bottom. Nothing below is dropped; the "any gap" list at the end is done between steps or
 folded in where it fits, never skipped. **Where we are: 9.D, D4 built, waiting on his Mac paste + Manage Webhooks.**
 
+0. **Now (his asks, 2026-10-13):** ~~tab dragging~~ -> quota measured (on; read after a day) -> **C** drawn Discord
+   cards: morning brief, email and calendar, Claude job updates, quota warning ("might be high quota, OK?") + quota meter
+   on the home card (mockups first) -> brief changes (job hunt first, waiting on you, today, other email with subjects;
+   the Mac sends it when Shadow is off) -> **E** the email assistant (section "E Email assistant").
 1. **9.D Discord** (approved sheet 15): ~~D1 channels~~ ~~D2 buzz~~ ~~D3 drawn cards~~ ~~D4 speakers~~ (live after his Mac
    paste and Manage Webhooks) -> **D5** live Claude job cards -> **D6** home card -> **D7** #capture videos -> **D8** gaming
    feeds -> **D9** the wheel's Away (DONE). Then the old channels are deleted by HIS button.
@@ -3015,6 +3019,54 @@ whether the Windows passkey bridge (`@clerk/electron-passkeys`, 0.0.3) is ready.
 
 ---
 
+
+---
+
+## E Email assistant (his interview, 2026-10-13: "Aang is a personal assistant and should act as such")
+
+**Why:** an email from Rhea held a calendar invite, two videos, an address and a lot of detail, and Aang could only
+read its text. Today (measured 2026-10-13): plain text only, link targets thrown away (`htmlToText`), attachments named
+never opened, calendar read only, drafts plain text with no CC or attachments, no drive times, prep after an email asks
+first. Scopes: `gmail.readonly`, `gmail.compose`, `calendar.readonly`. This SUPERSEDES K7's "no meeting-booking
+feature" (his call, 2026-10-13).
+
+**His answers:**
+- **Trigger:** nothing until he says "check my emails" or names an email. No background reading.
+- **The card:** one card per email gone through: what was found (meeting, place, people, videos, files, links, dates,
+  asks), then a button per action: Book it, Drive time, Transcripts, Prep, Reply. Drawn (mockup first, with the C cards).
+- **Calendar:** book meetings and answer invites, each one approved (shown: time, place, who). Needs ONE new Google
+  sign-in by him for `calendar.events`.
+- **Sending:** show everything (whole email, every recipient incl. CC, every attachment), nothing sends until he taps
+  Send; from the phone the PIN too once 9.A1 is built. Replies may attach files and CC people.
+- **Inbox changes: nothing without asking.** He drives everything. Forwarding and Gmail filters always ask, shown in
+  plain words. An **unsubscribe sweep** and a **tidy-up** (archive, label, mark read, Trash) are shown as ONE ticked
+  list; he unticks what to keep; one tap does the rest. Trash only, never emptied. Needs `gmail.modify`.
+- **Attachments:** opened and read (PDF, documents, pictures) when he asks about that email; sent to his phone on ask.
+  Programs and scripts are never opened; anything risky still asks.
+- **Videos:** captions where they exist (`watch_video`); with no captions (Loom, Vimeo, an attached video) speech-to-text
+  on the PC's graphics card, free, waiting while WoW is in front like Qwen.
+- **Drive times:** TomTom routing (live and predicted traffic, a leave-by time; he makes a free TomTom developer account
+  himself, no card, and pastes the key once) plus an **Open in Waze** button. Starts from his home address, which he
+  tells Aang once; "from work" or any place on ask. Waze has no traffic service an app may use (checked 2026-10-13).
+- **Leave-by reminder** before a meeting with a place: a Discord ping and the bubble at the PC, traffic checked shortly
+  before.
+- **Prep** (a briefing, a demo plan): researched on the web too (company, the people, the product), warned first when
+  big ("might be high quota, OK?"). Runs as a background job on Shadow (on the Mac as a Claude job when Shadow is off).
+  Lands in all three: a file in Discord, a folder per meeting under Documents\Prep on the PC, and a ready note in the bubble.
+- **Mac:** the same, with the same rules, when Shadow is off.
+- **Account:** bocas.joshua@gmail.com only.
+- **Model:** Claude (an email is someone else's words; only Claude with Aang's guards acts on it). Qwen does the cheap
+  parts that need no tools: transcript summaries.
+
+**Security, unchanged:** every email, attachment, transcript and page is DATA. CHANGES_AFTER_OUTSIDE stays: after reading
+one, anything that acts asks him (the card's buttons ARE that ask). Never a permanent delete. Lindsay's Job Hunt folder
+and Lindsay's Mac stay excluded.
+
+**Build order:** E1 keep links, pull out addresses, dates, phones, video links, invites (.ics and Google invites) ->
+E2 attachments (download, read text, send to phone) -> E3 the card with its buttons (after the mockup) -> E4 the new
+Google sign-in (`gmail.modify`, `calendar.events`; his click) -> E5 book and answer invites -> E6 replies with CC and
+attachments, forward, filters -> E7 TomTom + Waze + home + leave-by reminders (his key) -> E8 speech-to-text on the PC ->
+E9 prep jobs with research -> E10 unsubscribe sweep and tidy-up list -> E11 the same on the Mac.
 
 ---
 
