@@ -11,7 +11,7 @@ import path from 'node:path';
 import { parseFromBody } from './protocol.ts';
 import { reportWriteFailure, rotateIfBig, writeFileAtomic } from './atomic.ts';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
-import { MAC_LISTENER_PORT, macSetupScript } from './macsetup.ts';
+import { MAC_LISTENER_PORT, macSetupScript, FRONT_DESK_PORT, type DeskPayload } from './macsetup.ts';
 import { Jobs, SWEEP_REQUEST, cleanField, safeUrl, scoreOf, verdictFor } from './jobs.ts';
 import type { Rubric } from './jobs.ts';
 import type { BriefCard, FromBody, Mode, StructuredList, ToBody } from './protocol.ts';
@@ -1544,7 +1544,37 @@ export class Core {
     const ts = this.hookServer?.tailnet;
     if (!ts) return null;
     console.log('mac-setup: served the MacBook its setup script (the code is now used up)');
-    return macSetupScript(ts, this.cfg.port + 1, this.keyFile('hook.key'), this.keyFile('mac-front.key'));
+    return macSetupScript(ts, this.cfg.port + 1, this.keyFile('hook.key'), this.keyFile('mac-front.key'), this.frontDeskFor());
+  }
+
+  /**
+   * M3: the MacBook front desk's part of the setup, when Discord is set up here and the Mac's address is known. Writes
+   * this PC's half (frontdesk.json + frontdesk.key in the state folder), so the next start drives Discord through the
+   * Mac instead of logging in itself: never two connections.
+   */
+  private frontDeskFor(): DeskPayload | null {
+    const tokenFile = path.join(this.cfg.stateDir, 'discord.token');
+    const mac = this.macAddr;
+    if (!mac || !existsSync(tokenFile)) return null;
+    try {
+      const token = readFileSync(tokenFile, 'utf8').trim();
+      if (!token) return null;
+      const keyFile = path.join(this.cfg.stateDir, 'frontdesk.key');
+      let key = '';
+      try { key = readFileSync(keyFile, 'utf8').trim(); } catch { /* first time */ }
+      if (key.length < 20) { key = randomBytes(24).toString('base64url'); writeFileAtomic(keyFile, key); }
+      const here = import.meta.dirname, pkg = path.join(here, '..', 'frontdesk-pkg');
+      const files: Record<string, string> = {
+        'frontdesk.ts': readFileSync(path.join(here, 'frontdesk.ts'), 'utf8'),
+        'discord-client.ts': readFileSync(path.join(here, 'discord-client.ts'), 'utf8'),
+        'discord-logic.ts': readFileSync(path.join(here, 'discord-logic.ts'), 'utf8'),
+        'package.json': readFileSync(path.join(pkg, 'package.json'), 'utf8'),
+        'package-lock.json': readFileSync(path.join(pkg, 'package-lock.json'), 'utf8'),
+      };
+      writeFileAtomic(path.join(this.cfg.stateDir, 'frontdesk.json'), JSON.stringify({ mac, port: FRONT_DESK_PORT }));
+      console.log(`mac-setup: the front desk goes to the MacBook (${mac}); Discord moves there at the next start`);
+      return { token, key, port: FRONT_DESK_PORT, files };
+    } catch (e) { console.error('mac-setup: front desk skipped: ' + (e as Error).message); return null; }
   }
 
   /** VACUUM INTO, verify, commit, push - see backup.ts. A quiet receipt in #log either way; a spoken word only

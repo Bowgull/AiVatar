@@ -105,7 +105,7 @@ test('2.8 an email too long to show whole cannot be sent from a Discord card', (
 
 test('2.9 no link previews on what Aang sends to Discord', () => {
   assert.equal(noPreview('see https://evil.example/?d=x and <https://ok.example>'), 'see <https://evil.example/?d=x> and <https://ok.example>');
-  const src = readFileSync(path.join(import.meta.dirname, '..', 'src', 'discord-gateway.ts'), 'utf8');
+  const src = readFileSync(path.join(import.meta.dirname, '..', 'src', 'discord-client.ts'), 'utf8');   // the connection moved here for M3 (it runs on the Mac)
   assert.match(src, /MessageFlags\.SuppressEmbeds/);
 });
 

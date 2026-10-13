@@ -175,22 +175,33 @@ const HOOKS_JXA = String.raw`function run(argv) {
   return 'Claude Code hooks written to ' + path;
 }`.replace('EVENTS', JSON.stringify(HOOK_EVENTS));
 
+/** M3: the MacBook front desk, when this setup should install it. Files are the exact source that runs there. */
+export interface DeskPayload { token: string; key: string; port: number; files: Record<string, string> }
+export const FRONT_DESK_PORT = 47841;
+
 /** The whole bash script the Mac runs. `shadow` is this PC's Tailscale address. */
-export function macSetupScript(shadow: string, hookPort: number, hookKey: string, frontKey: string): string {
+export function macSetupScript(shadow: string, hookPort: number, hookKey: string, frontKey: string, desk: DeskPayload | null = null): string {
   const q = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`;
+  const b64 = (s: string) => Buffer.from(s, 'utf8').toString('base64');
+  // Each file goes over as base64 on one line, so nothing in it can ever be read by the shell.
+  const deskFiles = desk ? Object.entries(desk.files).map(([name, text]) => {
+    if (!/^[a-z][a-z0-9.-]*$/.test(name)) throw new Error(`bad front desk file name: ${name}`);
+    return `printf '%s' '${b64(text)}' | /usr/bin/base64 -D > "$FD/${name}"`;
+  }).join('\n') : '';
   return `#!/bin/bash
 # Aang: MacBook setup. Written by Aang on the Shadow PC; served once. Safe to run again.
 set -e
 SHADOW=${q(shadow)}; HOOK_PORT=${hookPort}; HOOK_KEY=${q(hookKey)}; FRONT_KEY=${q(frontKey)}; PORT=${MAC_LISTENER_PORT}
+${desk ? `DISCORD_TOKEN=${q(desk.token)}; DESK_KEY=${q(desk.key)}; DESK_PORT=${desk.port}` : ''}
 DIR="$HOME/Library/Application Support/AangListener"; PLIST="$HOME/Library/LaunchAgents/com.aang.listener.plist"
 mkdir -p "$HOME/.claude" "$DIR" "$HOME/Library/LaunchAgents"
 
-echo "1/4  Claude Code hooks, so Aang hears when a session is done or needs you"
+echo "1/5  Claude Code hooks, so Aang hears when a session is done or needs you"
 osascript -l JavaScript - "$SHADOW" "$HOOK_PORT" "$HOOK_KEY" <<'JXA'
 ${HOOKS_JXA}
 JXA
 
-echo "2/4  The one-job listener, so clicking Aang's icon brings Claude forward, and the job hunt can start here"
+echo "2/5  The one-job listener, so clicking Aang's icon brings Claude forward, and the job hunt can start here"
 cat > "$DIR/listen.pl" <<'PERL'
 ${LISTENER}PERL
 cat > "$DIR/run.applescript" <<'APPLESCRIPT'
@@ -206,7 +217,8 @@ cat > "$DIR/uninstall.sh" <<'UNINSTALL'
 #!/bin/bash
 launchctl bootout "gui/$(id -u)/com.aang.listener" 2>/dev/null || true
 launchctl bootout "gui/$(id -u)/com.aang.heartbeat" 2>/dev/null || true
-rm -f "$HOME/Library/LaunchAgents/com.aang.listener.plist" "$HOME/Library/LaunchAgents/com.aang.heartbeat.plist"; rm -rf "$HOME/Library/Application Support/AangListener"
+launchctl bootout "gui/$(id -u)/com.aang.frontdesk" 2>/dev/null || true
+rm -f "$HOME/Library/LaunchAgents/com.aang.listener.plist" "$HOME/Library/LaunchAgents/com.aang.heartbeat.plist" "$HOME/Library/LaunchAgents/com.aang.frontdesk.plist"; rm -rf "$HOME/Library/Application Support/AangListener"
 echo "Aang's listener is gone. (Its Claude Code hooks are in ~/.claude/settings.json; the file from before is kept next to it.)"
 UNINSTALL
 chmod 700 "$DIR" "$DIR/uninstall.sh" "$DIR/heartbeat.sh"; chmod 600 "$DIR/key" "$DIR/shadow" "$DIR/alive.curl"
@@ -240,7 +252,7 @@ chmod 600 "$HBPLIST"
 launchctl bootout "gui/$(id -u)/com.aang.heartbeat" 2>/dev/null || true
 launchctl bootstrap "gui/$(id -u)" "$HBPLIST"
 
-echo "3/4  Node.js for Aang's Mac side (his yes, 2026-10-13): kept in Aang's own folder, no admin password"
+echo "3/5  Node.js for Aang's Mac side (his yes, 2026-10-13): kept in Aang's own folder, no admin password"
 # The newest long-term-support Node for Intel Macs, from nodejs.org, checked against Node's own SHA-256 list
 # before it is unpacked. A mismatch is thrown away. Skipped when it is already there.
 NODE_DIR="$DIR/node"
@@ -267,7 +279,41 @@ else
   fi
 fi
 
-echo "4/4  Checking the line back to Aang"
+${desk ? `echo "4/5  Aang's front desk (M3): the one connection to Discord, always on, on this Mac"
+FD="$DIR/frontdesk"; mkdir -p "$FD"
+# The Discord bot's token and the front desk's key go into files only you can read (printf is built into bash).
+( umask 077; printf '%s' "$DISCORD_TOKEN" > "$DIR/discord.token"; printf '%s' "$DESK_KEY" > "$DIR/frontdesk.key"; printf '{"shadow":"%s","port":%s}\\n' "$SHADOW" "$DESK_PORT" > "$DIR/frontdesk.json" )
+${deskFiles}
+if [ -x "$NODE_DIR/bin/node" ]; then
+  # Exactly the versions in the lockfile, each checked against its fingerprint; no install scripts are run.
+  if ( cd "$FD" && PATH="$NODE_DIR/bin:$PATH" npm ci --omit=dev --ignore-scripts --no-audit --no-fund >/dev/null 2>&1 ); then
+    FDPLIST="$HOME/Library/LaunchAgents/com.aang.frontdesk.plist"
+    cat > "$FDPLIST" <<FDXML
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>Label</key><string>com.aang.frontdesk</string>
+  <key>ProgramArguments</key><array><string>$NODE_DIR/bin/node</string><string>$FD/frontdesk.ts</string><string>$DIR</string></array>
+  <key>WorkingDirectory</key><string>$FD</string>
+  <key>StandardOutPath</key><string>$DIR/frontdesk.log</string>
+  <key>StandardErrorPath</key><string>$DIR/frontdesk.log</string>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>ThrottleInterval</key><integer>10</integer>
+</dict></plist>
+FDXML
+    chmod 600 "$FDPLIST" "$DIR/discord.token" "$DIR/frontdesk.key"
+    launchctl bootout "gui/$(id -u)/com.aang.frontdesk" 2>/dev/null || true
+    launchctl bootstrap "gui/$(id -u)" "$FDPLIST"
+    sleep 8
+    if grep -q "listening for Shadow" "$DIR/frontdesk.log" 2>/dev/null; then echo "     The front desk is connected to Discord and waiting for Shadow."; else echo "     The front desk started; it may still be connecting (see $DIR/frontdesk.log)."; fi
+  else
+    echo "     Installing the front desk's two libraries failed; nothing was started. Run this setup again later."
+  fi
+else
+  echo "     Node is not here, so the front desk was not started."
+fi
+` : ''}echo "5/5  Checking the line back to Aang"
 CODE=$(curl -s -m 5 -o /dev/null -w '%{http_code}' -X POST --data '{}' "http://$SHADOW:$HOOK_PORT/hook?e=Ping&k=$HOOK_KEY" || true)
 if [ "$CODE" = "204" ]; then echo "     Aang heard this Mac."; else echo "     Aang did not answer (got '$CODE'). Is the Windows firewall rule in, and Tailscale on here?"; fi
 sleep 12

@@ -111,6 +111,12 @@ export interface AdapterOpts {
   inboxDir?: string;
   /** how often the shortlist is checked; 0 turns the timer off (tests call scanShortlist themselves) */
   scanMs?: number;
+  /**
+   * M3: false when the MacBook front desk holds the connection. It keeps what he said while Shadow was off and
+   * hands each message over exactly once, so reading Discord's history back (where old messages were answered
+   * again) is not done at all.
+   */
+  catchUp?: boolean;
 }
 
 export class DiscordAdapter {
@@ -163,7 +169,7 @@ export class DiscordAdapter {
       this.log(`discord: not paired yet. Send the code ${this.pairing.code} to Aang in #aang within 10 minutes.`);
     } else {
       await this.ensureDeck();
-      await this.catchUp();
+      if (this.opts.catchUp !== false) await this.catchUp();
       // Only what changes after this start is news.
       this.lastShortlist = this.opts.shortlistFile ? fileStamp(this.opts.shortlistFile) : 0;
       this.lastDrafts = this.opts.draftsFile ? fileStamp(this.opts.draftsFile) : 0;

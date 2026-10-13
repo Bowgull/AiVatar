@@ -5,146 +5,10 @@ import os from 'node:os';
 import path from 'node:path';
 import { folderFor } from './claude.ts';
 import { WebSocket } from 'ws';
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, Client, EmbedBuilder, Events, GatewayIntentBits, MessageFlags, PermissionFlagsBits } from 'discord.js';
 import { DiscordAdapter } from './discord.ts';
-import type { Button, ButtonPress, CoreLink, Gateway, Incoming, OutEmbed, OutMsg } from './discord.ts';
-import { LAYOUT, NEEDED, FORBIDDEN, noPreview, slug } from './discord-logic.ts';
-
-const STYLE = { primary: ButtonStyle.Primary, secondary: ButtonStyle.Secondary, success: ButtonStyle.Success, danger: ButtonStyle.Danger } as const;
-
-export class DiscordGateway implements Gateway {
-  private readonly client: Client;
-  private guild: any = null;
-  private readonly token: string;
-  constructor(token: string) {
-    this.token = token;
-    this.client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
-  }
-
-  async login(): Promise<void> {
-    await new Promise<void>((resolve, reject) => {
-      this.client.once(Events.ClientReady, () => resolve());
-      this.client.login(this.token).catch(reject);
-    });
-    const guilds = [...this.client.guilds.cache.values()];
-    if (guilds.length !== 1) throw new Error(`Aang should be in exactly one Discord server; he is in ${guilds.length}.`);
-    this.guild = guilds[0];
-  }
-
-  close(): void { void this.client.destroy(); }
-
-  private map(m: any): Incoming {
-    const attachments = [...(m.attachments?.values?.() ?? [])].map((a: any) => ({ name: String(a.name ?? 'file'), url: String(a.url), size: Number(a.size ?? 0) }));
-    return { id: m.id, channelId: m.channelId, channelName: m.channel?.name ?? '', authorId: m.author?.id ?? '', isBot: !!m.author?.bot || !!m.webhookId, content: m.content ?? '', createdAt: m.createdTimestamp ?? 0, ...(attachments.length ? { attachments } : {}), ...(m.reference?.messageId ? { replyTo: String(m.reference.messageId) } : {}) };
-  }
-
-  /** Fetch an attachment Discord is hosting for a message he sent. Only Discord's own hosts are ever fetched. */
-  async download(url: string): Promise<Buffer> {
-    const host = new URL(url).hostname;
-    if (!/(^|\.)(discordapp\.com|discordapp\.net|discord\.com)$/.test(host)) throw new Error('not a Discord attachment link');
-    const res = await fetch(url, { signal: AbortSignal.timeout(60_000) });
-    if (!res.ok) throw new Error(`download failed (${res.status})`);
-    return Buffer.from(await res.arrayBuffer());
-  }
-
-  onMessage(cb: (m: Incoming) => void): void { this.client.on(Events.MessageCreate, m => cb(this.map(m))); }
-
-  onButton(cb: (b: ButtonPress) => void): void {
-    this.client.on(Events.InteractionCreate, (i: any) => {
-      if (!i.isButton()) return;
-      cb({
-        customId: i.customId, userId: i.user.id, channelId: i.channelId, messageId: i.message?.id,
-        ack: async (note: string) => { await i.update({ content: `${i.message.content}\n${note}`, components: [] }); },
-        keep: async () => { await i.deferUpdate(); },
-      });
-    });
-  }
-
-  async ensureLayout(): Promise<Record<string, string>> {
-    const channels = await this.guild.channels.fetch();
-    const out: Record<string, string> = {};
-    for (const cat of LAYOUT) {
-      let parent: any = [...channels.values()].find((c: any) => c && c.type === ChannelType.GuildCategory && c.name.toLowerCase() === cat.name.toLowerCase());
-      if (!parent) parent = await this.guild.channels.create({ name: cat.name, type: ChannelType.GuildCategory });
-      for (const def of cat.channels) {
-        let ch: any = [...channels.values()].find((c: any) => c && c.name === slug(def.name) && c.parentId === parent.id);
-        if (!ch) ch = await this.guild.channels.create({ name: slug(def.name), type: def.kind === 'forum' ? ChannelType.GuildForum : ChannelType.GuildText, parent: parent.id, topic: def.topic });
-        out[def.name] = ch.id;
-      }
-    }
-    return out;
-  }
-
-  /** Discord allows 5 buttons to a row and 5 rows to a message. */
-  private rows(msg: OutMsg) {
-    const rows: ActionRowBuilder<ButtonBuilder>[] = [];
-    for (let i = 0; i < (msg.buttons?.length ?? 0) && rows.length < 5; i += 5) {
-      rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(msg.buttons!.slice(i, i + 5).map((b: Button) => {
-        const btn = new ButtonBuilder().setLabel(b.label.slice(0, 80));
-        return b.url ? btn.setStyle(ButtonStyle.Link).setURL(b.url) : btn.setCustomId(b.id).setStyle(STYLE[b.style]).setDisabled(b.disabled === true);
-      })));
-    }
-    return rows;
-  }
-
-  private embeds(msg: OutMsg): EmbedBuilder[] {
-    if (!msg.embed) return [];
-    const e = msg.embed;
-    const b = new EmbedBuilder();
-    if (e.title) b.setTitle(e.title.slice(0, 256));
-    if (e.description) b.setDescription(e.description.slice(0, 4096));
-    if (e.color !== undefined) b.setColor(e.color);
-    if (e.footer) b.setFooter({ text: e.footer.slice(0, 2048) });
-    if (e.fields?.length) b.addFields(e.fields.slice(0, 25).map(f => ({ name: f.name.slice(0, 256), value: f.value.slice(0, 1024) || '​', inline: f.inline === true })));
-    return [b];
-  }
-
-  async createPost(forumId: string, title: string, content: string): Promise<string> {
-    const forum: any = await this.client.channels.fetch(forumId);
-    const post = await forum.threads.create({ name: title.slice(0, 100), message: { content, flags: MessageFlags.SuppressEmbeds } });
-    return post.id;
-  }
-
-  async send(channelId: string, msg: OutMsg): Promise<string> {
-    const channel: any = await this.client.channels.fetch(channelId);
-    const files = msg.files?.map(f => ({ attachment: f.data, name: f.name }));
-    // Nothing Aang posts may ping anyone: card text comes from web pages, and "@everyone" in a job title must stay text.
-    // S2 2.9: no link previews. A planted link in a message Aang sends would otherwise be fetched by Discord
-    // the moment it posts, with whatever the address carries, and nobody has to click. A message with our own
-    // card keeps the card, and its links are wrapped in <> instead, which Discord never previews.
-    const own = this.embeds(msg);
-    const flags = (msg.silent ? MessageFlags.SuppressNotifications : 0) | (own.length ? 0 : MessageFlags.SuppressEmbeds);
-    const sent = await channel.send({ content: own.length ? noPreview(msg.content) : msg.content, embeds: own, components: this.rows(msg), allowedMentions: { parse: [] }, ...(files ? { files } : {}), ...(flags ? { flags } : {}) });
-    return sent.id;
-  }
-
-  async edit(channelId: string, messageId: string, msg: OutMsg): Promise<void> {
-    const channel: any = await this.client.channels.fetch(channelId);
-    const m = await channel.messages.fetch(messageId);
-    const own = this.embeds(msg);
-    await m.edit({ content: own.length ? noPreview(msg.content ?? '') : msg.content ?? '', embeds: own, components: this.rows(msg), allowedMentions: { parse: [] }, ...(own.length ? {} : { flags: MessageFlags.SuppressEmbeds }) });
-  }
-
-  async pin(channelId: string, messageId: string): Promise<void> {
-    const channel: any = await this.client.channels.fetch(channelId);
-    const m = await channel.messages.fetch(messageId);
-    await m.pin();
-  }
-
-  async typing(channelId: string): Promise<void> { const c: any = await this.client.channels.fetch(channelId); await c.sendTyping(); }
-
-  async fetchSince(channelId: string, afterId: string | null, limit: number): Promise<Incoming[]> {
-    const c: any = await this.client.channels.fetch(channelId);
-    const got = await c.messages.fetch(afterId ? { after: afterId, limit } : { limit: 1 });
-    return [...got.values()].map((m: any) => this.map(m)).sort((a, b) => a.createdAt - b.createdAt);
-  }
-
-  async permissions(): Promise<string[]> {
-    const me = await this.guild.members.fetchMe();
-    return [...NEEDED, ...FORBIDDEN, 'Administrator'].filter((n, i, a) => a.indexOf(n) === i)
-      .filter(n => (PermissionFlagsBits as any)[n] !== undefined && me.permissions.has((PermissionFlagsBits as any)[n]));
-  }
-}
+import type { CoreLink } from './discord.ts';
+import { DiscordGateway } from './discord-client.ts';
+export { DiscordGateway };
 
 /** Aang's own Core, as a client of its local connection - the same one the desktop Body uses. */
 export class WsCoreLink implements CoreLink {
@@ -185,17 +49,42 @@ export class WsCoreLink implements CoreLink {
   close() { this.closed = true; this.ws?.close(); }
 }
 
-/** Start Discord if Joshua has set it up (a token file exists). Never throws: Aang runs without it. */
+/**
+ * M3: the MacBook's front desk, if it has been set up (frontdesk.json beside the key). Then the Mac holds the one
+ * connection to Discord and this PC never logs in to Discord itself, so there are never two connections answering.
+ */
+export function frontDeskConfig(stateDir: string): { url: string; key: string } | null {
+  try {
+    const c = JSON.parse(readFileSync(path.join(stateDir, 'frontdesk.json'), 'utf8'));
+    const key = readFileSync(path.join(stateDir, 'frontdesk.key'), 'utf8').trim();
+    if (typeof c?.mac !== 'string' || !/^100\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(c.mac) || !Number.isInteger(c.port) || key.length < 20) return null;
+    return { url: `ws://${c.mac}:${c.port}`, key };
+  } catch { return null; }
+}
+
+/** Start Discord if Joshua has set it up (a token file, or the Mac front desk). Never throws: Aang runs without it. */
 export async function startDiscord(stateDir: string, port: number, log: (s: string) => void = console.log): Promise<DiscordAdapter | null> {
   const jobDir = folderFor('job hunt');
   const tokenFile = path.join(stateDir, 'discord.token');
-  if (process.env.AANG_DISCORD === '0' || !existsSync(tokenFile)) return null;
+  const desk = frontDeskConfig(stateDir);
+  if (process.env.AANG_DISCORD === '0' || (!desk && !existsSync(tokenFile))) return null;
   try {
-    const token = readFileSync(tokenFile, 'utf8').trim();
-    if (!token) return null;
-    const gw = new DiscordGateway(token);
-    await gw.login();
+    let gw: import('./discord.ts').Gateway;
+    if (desk) {
+      const { FrontDeskGateway } = await import('./frontdesk-link.ts');
+      const fd = new FrontDeskGateway({ url: desk.url, key: desk.key, log });
+      log('discord: waiting for the front desk on the MacBook');
+      await fd.ready;
+      gw = fd;
+    } else {
+      const token = readFileSync(tokenFile, 'utf8').trim();
+      if (!token) return null;
+      const dg = new DiscordGateway(token);
+      await dg.login();
+      gw = dg;
+    }
     const adapter = new DiscordAdapter(gw, new WsCoreLink(port), stateDir, {
+      catchUp: !desk,
       log, shortlistFile: path.join(jobDir, 'shortlist.json'), draftsFile: path.join(jobDir, 'drafts.json'),
       answersFile: path.join(jobDir, 'answers-approved.json'), appliedFile: path.join(jobDir, 'applied.json'), criteriaFile: path.join(jobDir, 'memory', 'project_job_search_criteria.md'),
       inboxDir: path.join(os.homedir(), 'Documents', 'AangInbox'),
