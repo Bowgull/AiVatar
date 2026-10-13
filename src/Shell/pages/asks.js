@@ -33,7 +33,7 @@ export function askFrom(m) {
     return {
       plaque: d.fresh ? 'EMAIL TO SOMEONE NEW' : 'EMAIL DRAFT',
       question: String(d.subject || '(no subject)'),
-      mail: { to: String(d.to ?? ''), subject: String(d.subject ?? ''), body: String(d.body ?? ''), fresh: String(d.fresh ?? '') },
+      mail: { to: String(d.to ?? ''), subject: String(d.subject ?? ''), body: String(d.body ?? ''), fresh: String(d.fresh ?? ''), cc: String(d.cc ?? ''), files: String(d.files ?? '') },
       keys: [
         { label: 'Hold to send', key: 'A', choice: 'yes', hold: true },
         { label: 'Change it', key: 'X', choice: 'change' },

@@ -125,6 +125,11 @@ export class Google {
     const j = await this.call('GET', `${Google.G}/messages/${encodeURIComponent(messageId)}/attachments/${encodeURIComponent(attachmentId)}`);
     return String(j.data ?? '');
   }
+  // E6: labels and filters (gmail.modify, gmail.settings.basic). Each filter is made only after his yes (core.ts).
+  async labels(): Promise<{ id: string; name: string }[]> { const j = await this.call('GET', `${Google.G}/labels`); return j.labels ?? []; }
+  async createLabel(name: string): Promise<{ id: string; name: string }> { return this.call('POST', `${Google.G}/labels`, { name, labelListVisibility: 'labelShow', messageListVisibility: 'show' }); }
+  async createFilter(body: unknown): Promise<{ id: string }> { return this.call('POST', `${Google.G}/settings/filters`, body); }
+  async deleteFilter(id: string): Promise<void> { await this.call('DELETE', `${Google.G}/settings/filters/${encodeURIComponent(id)}`); }
   /** Sends. Only mail.ts calls this, and only for a draft whose hash he approved. */
   async send(raw: string, threadId?: string): Promise<{ id: string }> {
     return this.call('POST', `${Google.G}/messages/send`, { raw, ...(threadId ? { threadId } : {}) });

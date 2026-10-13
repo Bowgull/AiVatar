@@ -1,5 +1,7 @@
 // The Core: talks to the Body over a localhost WebSocket, keeps one warm Claude session per model lane,
 // streams replies, enforces the voice linter and grounding rule, and applies Joshua's quota rule.
+import { checkFilter, describeFilter, gmailFilter, type FilterAsk } from './filters.ts';
+import { MAX_FILES_BYTES } from './mail.ts';
 import { approvalText, pickSource, planFromInvite, planFromWords, readBack, responseOf, sayPlanTime, type Answer } from './booking.ts';
 import { emailCardData } from './emailcard.ts';
 import { readAttachment, safeFileName } from './attachments.ts';
@@ -433,6 +435,7 @@ export class Core {
       emailCard: (id, summary, asks) => this.emailCard(id, summary, asks),
       calendarBook: (a) => this.calendarBook(a),
       calendarUndo: () => this.calendarUndo(),
+      mailFilter: (a) => this.mailFilter(a),
       calendar: days => this.mailRead('mcp__aang__calendar_today', { days: days ?? 1 }, m => m.agenda(days ?? 1, (ev, from, n) => this.cardForTurn('week', weekCardData(ev, from, n)))),
       mailDraft: input => this.mailDraft(input),
       tasks: {
@@ -804,7 +807,22 @@ export class Core {
     if (this.mailSvc) return this.mailSvc;
     const g = new Google(path.join(this.cfg.stateDir, 'google.json'), this.googleFetch);
     if (!g.connected) return null;
-    return (this.mailSvc = new MailService(g, new MailStore(path.join(this.cfg.stateDir, 'mail.json'))));
+    const svc = new MailService(g, new MailStore(path.join(this.cfg.stateDir, 'mail.json')));
+    // E6: a file on this PC may go on a draft only under the same rule as everything else Aang reads: never an
+    // off-limits path (his keys, other people's data, Aang's own state), never a folder, never past 18 MB.
+    svc.readLocal = (p: string) => {
+      const file = String(p ?? '').trim();
+      if (!file || !path.isAbsolute(file)) return { ok: false, why: 'A file to attach needs its full path.' };
+      const never = offLimits(file);
+      if (never) return { ok: false, why: `That file cannot be attached: ${never}.` };
+      try {
+        const st = statSync(file);
+        if (!st.isFile()) return { ok: false, why: 'That is a folder, not a file.' };
+        if (st.size > MAX_FILES_BYTES) return { ok: false, why: 'That file is too big for an email (18 MB).' };
+        return { ok: true, buf: readFileSync(file), name: path.basename(file) };
+      } catch { return { ok: false, why: `There is no file at ${file}.` }; }
+    };
+    return (this.mailSvc = svc);
   }
   private static readonly NO_GOOGLE = 'Google is not connected yet. Joshua signs in once by double-clicking tools\\google-setup.cmd.';
 
@@ -895,6 +913,34 @@ export class Core {
       return { ok: true, detail: `${plan.answer === 'add' ? 'Added to his calendar' : `He ${responseOf(plan.answer)} it`}: ${sayPlanTime(plan)}. Read back from Google and it matches. Tell him in one line; he can say "undo that".` };
     } catch (e) { return { ok: false, detail: `Google refused it: ${(e as Error).message}. Nothing changed.` }; }
   }
+  /** E6: a Gmail filter, said in plain words and asked every time; the last one made here can be undone. */
+  private lastFilter: { id: string; said: string } | null = null;
+  private async mailFilter(a: FilterAsk & { undo?: boolean }): Promise<{ ok: boolean; detail: string }> {
+    const svc = this.mail(); if (!svc) return { ok: false, detail: Core.NO_GOOGLE };
+    const g = svc.google;
+    if (!g.has('gmail.settings.basic')) return { ok: false, detail: 'Gmail filters need one more Google permission. Tell him to run tools\\google-setup.cmd once and click Allow; nothing was changed.' };
+    if (a.undo) {
+      const f = this.lastFilter;
+      if (!f) return { ok: false, detail: 'No filter was made in this run of Aang. He can remove filters in Gmail settings.' };
+      if (!await this.askPermission('mcp__aang__mail_filter', { undo: true }, { question: 'remove this Gmail filter', means: f.said, once: true })) return { ok: false, detail: this.whyNot() };
+      try { await g.deleteFilter(f.id); this.lastFilter = null; return { ok: true, detail: 'The filter is removed.' }; } catch (e) { return { ok: false, detail: `Gmail refused: ${(e as Error).message}` }; }
+    }
+    const bad = checkFilter(a);
+    if (bad) return { ok: false, detail: bad };
+    const said = describeFilter(a);
+    if (!await this.askPermission('mcp__aang__mail_filter', { ...a }, { question: 'make a Gmail filter', means: said, once: true })) return { ok: false, detail: this.whyNot() + ' No filter was made.' };
+    try {
+      let labelId: string | undefined;
+      if (a.actions.includes('label') && a.label) {
+        const name = a.label.trim().slice(0, 60);
+        labelId = (await g.labels()).find(l => l.name.toLowerCase() === name.toLowerCase())?.id ?? (await g.createLabel(name)).id;
+      }
+      const made = await g.createFilter(gmailFilter(a, labelId));
+      this.lastFilter = { id: made.id, said };
+      return { ok: true, detail: `Made. ${said} He can say "undo that filter".` };
+    } catch (e) { return { ok: false, detail: `Gmail refused it: ${(e as Error).message}. Nothing was made.` }; }
+  }
+
   private async calendarUndo(): Promise<{ ok: boolean; detail: string }> {
     const svc = this.mail(); if (!svc) return { ok: false, detail: Core.NO_GOOGLE };
     const b = this.lastBooking;
@@ -944,11 +990,12 @@ export class Core {
     if (where === 'desktop') {
       // S2 2.8: the bubble shows up to 20,000 characters; past that he could not read what he approves.
       if (d.body.length > 20_000) return { ok: true, detail: 'The draft is too long to show him whole, so it was NOT sent and he was not asked. Tell him to save it as a Gmail draft and send it from Gmail.' };
-      const said = await this.askPermission('mcp__aang__mail_send', { to: d.to.join(', '), subject: d.subject, body: d.body, fresh: d.newTo.join(', ') });
+      const said = await this.askPermission('mcp__aang__mail_send', { to: d.to.join(', '), subject: d.subject, body: d.body, fresh: d.newTo.join(', '),
+        cc: (d.cc ?? []).join(', '), files: (d.files ?? []).map(f => `${f.name} (${Math.max(1, Math.round(f.size / 1024))} KB)`).join(', ') });
       if (!said) { await svc.act(d.id, d.hash, 'discard'); return { ok: true, detail: `He did not approve it, so the draft was discarded and nothing was sent. ${this.whyNot()}` }; }
       let a = await svc.act(d.id, d.hash, 'send');
       if (a.draft?.status === 'confirm') a = await svc.act(d.id, d.hash, 'send');          // the question already named the new address
-      if (a.draft?.status === 'sent') { const detail = `Sent to ${d.to.join(', ')}.`; this.mailOutcome = { detail, sent: true }; return { ok: true, detail }; }
+      if (a.draft?.status === 'sent') { const detail = `Sent to ${d.to.join(', ')}${d.cc?.length ? `, CC ${d.cc.join(', ')}` : ''}${d.files?.length ? `, with ${d.files.length} file${d.files.length === 1 ? '' : 's'}` : ''}.`; this.mailOutcome = { detail, sent: true }; return { ok: true, detail }; }
       return { ok: false, detail: a.note || 'It was not sent.' };
     }
     return { ok: true, detail: 'The draft is kept but there is nowhere to show it to him right now, so it was NOT sent. Say so.' };
@@ -3502,7 +3549,7 @@ export class Core {
       const hold = needsHold(tool);
       const exact = exactOf(tool, input);
       const s = (k: string) => typeof input?.[k] === 'string' ? String(input[k]) : '';
-      const draft = tool === 'mcp__aang__mail_send' ? { to: s('to').slice(0, 300), subject: s('subject').slice(0, 300), body: s('body').slice(0, 20_000), fresh: s('fresh').slice(0, 300) } : null;
+      const draft = tool === 'mcp__aang__mail_send' ? { to: s('to').slice(0, 300), subject: s('subject').slice(0, 300), body: s('body').slice(0, 20_000), fresh: s('fresh').slice(0, 300), cc: s('cc').slice(0, 400), files: s('files').slice(0, 600) } : null;
       for (const c of askAt) this.send(c, { t: 'permission', id, tool, question, ...(opts?.quota ? { quota: opts.quota } : opts?.once ? {} : { remembers: kind?.says }), ...(means ? { means } : {}), ...(exact ? { exact } : {}), ...(draft ? { draft } : {}), ...(hold ? { hold: true } : {}) });
     });
   }
