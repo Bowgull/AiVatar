@@ -8,6 +8,7 @@
 // Rules Joshua set (2026-09-21): only he can speak to Aang; anything that acts is approved with a button on that
 // exact thing; missed messages are read back when Shadow next starts; and quiet hours make messages silent,
 // never lost.
+import { promptFor, type EmailAct } from './emailcard.ts';
 import { briefCardData } from './briefcard.ts';
 import path from 'node:path';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -101,7 +102,7 @@ export interface CoreLink {
   watchVideo?(url: string): Promise<any | null>;
   addIdea?(text: string): void;
   /** 9.D D3: a card Aang draws, as a PNG; null when it could not be drawn. Optional: without it, plain text. */
-  drawCard?(kind: 'job' | 'needs' | 'home' | 'watched' | 'quota' | 'brief' | 'inbox' | 'week', data: unknown): Promise<Buffer | null>;
+  drawCard?(kind: 'job' | 'needs' | 'home' | 'watched' | 'quota' | 'brief' | 'inbox' | 'week' | 'email', data: unknown): Promise<Buffer | null>;
   submit(id: string, text: string, opts?: { ephemeral?: boolean; mode?: 'auto' | 'smart' }): void;
   permission(id: string, allow: boolean): void;
   /** Type this into a new chat in the Claude app on the MacBook. Answered by a mac.run.reply event, never a
@@ -313,7 +314,7 @@ export class DiscordAdapter {
    * plain words kept as the message text, which is what his phone's notification shows. Without a picture (the Shell is
    * not running), the same words go out on their own.
    */
-  private async drawn(kind: 'job' | 'needs' | 'home' | 'watched' | 'quota' | 'brief' | 'inbox' | 'week', data: unknown, accent: number, msg: OutMsg): Promise<OutMsg> {
+  private async drawn(kind: 'job' | 'needs' | 'home' | 'watched' | 'quota' | 'brief' | 'inbox' | 'week' | 'email', data: unknown, accent: number, msg: OutMsg): Promise<OutMsg> {
     const png = await this.link.drawCard?.(kind, data).catch(() => null) ?? null;
     if (!png) return msg;
     return { ...msg, embed: { ...(msg.embed ?? {}), color: accent, image: 'attachment://card.png' }, files: [...(msg.files ?? []), { name: 'card.png', data: png }] };
@@ -1017,6 +1018,19 @@ export class DiscordAdapter {
       if (msg.files?.length) await this.gw.send(p.channelId, msg);
       return;
     }
+    // E3 (sheet 21 board 2): one email, gone through, with a button for each thing Aang can do with it.
+    if (ev?.t === 'card.show' && typeof ev.id === 'string' && ev.kind === 'email' && typeof ev.email === 'string' && /^[\w-]{1,80}$/.test(ev.email)) {
+      const p = this.pending.get(ev.id);
+      if (!p) return;
+      const label: Record<string, string> = { transcripts: 'Transcripts', prep: 'Prep', reply: 'Reply', files: 'Files' };
+      const acts = (Array.isArray(ev.acts) ? ev.acts : []).filter((a: unknown): a is string => typeof a === 'string' && a in label);
+      const buttons: Button[] = acts.map((a: string) => ({ id: `em:${a}:${ev.email}`, label: label[a]!, style: a === 'prep' ? 'primary' as const : 'secondary' as const }));
+      if (typeof ev.join === 'string' && /^https:\/\//.test(ev.join)) buttons.unshift({ id: 'em:join', label: 'Join call', style: 'success', url: ev.join });
+      const d = ev.data ?? {};
+      const msg = await this.drawn('email', d, 0xFFC43C, { content: `${String(d.from ?? '')}: ${String(d.subject ?? '')}`.slice(0, 300), buttons });
+      await this.gw.send(p.channelId, msg);
+      return;
+    }
     if (ev?.t === 'brief.reply' && typeof ev.text === 'string') {
       const channelId = this.replyTo.brief.shift() ?? this.state.channels['aang'];
       if (!channelId) return;
@@ -1155,6 +1169,9 @@ export class DiscordAdapter {
       await this.gw.send(b.channelId, { content: !d ? 'I could not ask the PC just now.' : d.waiting.length ? 'Waiting on you:\n' + d.waiting.map(w => '- ' + w).join('\n') : 'Nothing is waiting on you.', silent: true });
       return;
     }
+    // E3: a button on an email's card is asked of Aang in words, as if he typed it; its own tools then ask him as usual.
+    const em = /^em:(transcripts|prep|reply|files):([\w-]{1,80})$/.exec(b.customId);
+    if (em) { await b.keep(); this.ask(`em${Date.now()}`, b.channelId, promptFor(em[1] as EmailAct, em[2]!), { mode: 'smart' }); return; }
     if (b.customId === 'home:away') { await b.keep(); this.link.stepAway?.(); await this.gw.send(b.channelId, { content: 'Okay. Everything comes here until you are back at the PC.', silent: true }); return; }
     if (b.customId === 'home:puton') { await b.keep(); this.state.putOnNext = true; this.save(); await this.post('aang', { content: 'What should I put on? Tell me here.' }); return; }
     const cj = /^cj:open:([\w-]+)$/.exec(b.customId);

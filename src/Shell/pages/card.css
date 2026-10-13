@@ -11,7 +11,7 @@ body{font-family:Figtree,system-ui,sans-serif;-webkit-font-smoothing:antialiased
   box-shadow:inset 0 3px 0 rgba(255,255,255,.55),inset 0 -4px 0 rgba(150,110,60,.35),0 3px 0 #120A05}
 .row{display:flex;gap:10px}
 .col{display:flex;flex-direction:column;gap:7px;flex:1;min-width:0}
-.plaque{align-self:flex-start;font:400 10px Silkscreen,monospace;letter-spacing:1px;color:#FFC43C;background:#1A0F09;
+.plaque{align-self:flex-start;white-space:nowrap;flex:0 0 auto;font:400 10px Silkscreen,monospace;letter-spacing:1px;color:#FFC43C;background:#1A0F09;
   border:2px solid #120A05;border-radius:5px;padding:3px 7px;box-shadow:inset 0 2px 0 rgba(0,0,0,.6)}
 .plaque.warn{color:#fff;background:#C95E28;box-shadow:none}
 .plaque.done{color:#1d3a24;background:#78E696;box-shadow:none}
@@ -67,6 +67,12 @@ body{font-family:Figtree,system-ui,sans-serif;-webkit-font-smoothing:antialiased
 .li .t{font:400 9px Silkscreen,monospace;color:#2A1C08;background:#9fd3ff;border:1.5px solid #120A05;border-radius:4px;padding:1px 4px;flex:0 0 auto;margin-top:1px}
 .li .t.wait{background:#FFC43C}
 .li .w{white-space:nowrap}
+
+/* sheet 21 board 2: an email, gone through */
+.found{display:flex;flex-direction:column;gap:6px;border:2px solid rgba(18,10,5,.3);border-radius:8px;padding:7px 8px;background:rgba(255,255,255,.22)}
+.found .li .w{white-space:normal}
+.ico{width:16px;height:16px;flex:0 0 auto;shape-rendering:crispEdges}
+.li .chk{font:400 9px Silkscreen,monospace;color:#fff;background:#C95E28;border:1.5px solid #120A05;border-radius:4px;padding:1px 4px;flex:0 0 auto;margin-top:1px}
 .li .w{font-weight:800;color:#2E2216}
 .li .m{color:#7a6448;font-weight:600}
 .li .tm{font:400 9.5px Silkscreen,monospace;color:#5A4834;min-width:58px;margin-top:2px;flex:0 0 auto}

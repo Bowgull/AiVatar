@@ -12,6 +12,7 @@ import { GoogleError } from './google.ts';
 import type { CalEvent, Google, Message, Part } from './google.ts';
 import { factsBlock, factsOf, partsOf, type EmailFacts } from './emailfacts.ts';
 import { MAX_BYTES, kindOfFile } from './attachments.ts';
+import type { SeenEmail } from './emailcard.ts';
 
 const TZ = 'America/Toronto';
 
@@ -297,10 +298,27 @@ export class MailService {
   async read(id: string): Promise<string> {
     const r = await this.wrap(async () => {
       const m = await this.g.message(id, 'full');
-      return `${fence(m)}
-${factsBlock(await this.factsFor(m))}`;
+      const facts = await this.factsFor(m);
+      this.remember(m, facts);
+      return `${fence(m)}\n${factsBlock(facts)}`;
     });
     return r;
+  }
+  /** E3: the emails read lately, with what code read out of them, so the card is built from code's facts, never retyped. */
+  readonly seen = new Map<string, SeenEmail>();
+  private remember(m: Message, facts: EmailFacts): void {
+    const from = header(m, 'From');
+    this.seen.set(m.id, {
+      id: m.id, fromName: from.replace(/<[^>]*>/g, '').replace(/"/g, '').trim(), fromEmail: (/<([^>]+)>/.exec(from)?.[1] ?? from).trim().toLowerCase(),
+      subject: header(m, 'Subject'), sentMs: Number(m.internalDate) || Date.parse(header(m, 'Date')) || 0, facts,
+    });
+    while (this.seen.size > 30) this.seen.delete(this.seen.keys().next().value!);
+  }
+  /** One email's card facts: from the ones just read, or read now. */
+  async seenEmail(id: string): Promise<SeenEmail | null> {
+    const have = this.seen.get(id);
+    if (have) return have;
+    try { const m = await this.g.message(id, 'full'); this.remember(m, await this.factsFor(m)); return this.seen.get(m.id) ?? null; } catch { return null; }
   }
   /**
    * E2: one attachment of an email, by its name as the email lists it (exactly, else ignoring case; with no name and
