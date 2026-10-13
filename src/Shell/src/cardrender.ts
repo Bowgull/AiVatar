@@ -2,7 +2,7 @@
 // exactly as made, so Aang's look (pixel-painted wood, parchment, plaques, Silkscreen and Figtree) lives in these.
 // pages/card.html draws one card from data in its #fragment (text only, never markup); this window renders it off
 // screen at 2x and hands back a PNG. One window, reused; one card at a time.
-import { BrowserWindow } from 'electron';
+import { BrowserWindow, session } from 'electron';
 import { SAFE_WEB_PREFERENCES, lockDown } from './safety.ts';
 
 export const CARD_KINDS = new Set(['job', 'needs', 'home', 'watched']);
@@ -49,7 +49,9 @@ export class CardRenderer {
     if (this.win && !this.win.isDestroyed()) return this.win;
     const w = new BrowserWindow({
       show: false, width: 1400, height: 2400, frame: false, transparent: true, backgroundColor: '#00000000',
-      webPreferences: { ...SAFE_WEB_PREFERENCES, offscreen: true, zoomFactor: 2 },
+      // Its own in-memory session (2026-10-13): Chromium saves a page's zoom for its whole HOST, and every Aang page
+      // is on 127.0.0.1, so this 2x leaked onto the typing box and the bubble and stayed there across restarts.
+      webPreferences: { ...SAFE_WEB_PREFERENCES, offscreen: true, zoomFactor: 2, session: session.fromPartition('aang-cards') },
     });
     lockDown(w.webContents);
     this.win = w;
