@@ -2738,6 +2738,19 @@ one-time bookmark import. Passwords reach Bitwarden through each Mac browser's o
 
 Downloads list, print, PDF, a screen-share picker for calls, spellcheck.
 
+**BUILT 2026-10-13 (his ask: "ensure the browser can use things like zoom and teams"):**
+- **Spellcheck:** Canadian and American English (Chromium's own word lists, fetched from Google the first time, as
+  Chrome does). Right-click a red-underlined word: up to five suggestions, then "Add to dictionary".
+- **Screen sharing:** a parchment panel hangs from the band with pictures of every screen and window. He picks
+  one, every time; the site never chooses. "Share my computer's sound too" shows only when the call asks for sound,
+  and is off by default. Esc or Cancel shares nothing; unanswered in 2 minutes means no. Aang's own pages can never share.
+- **Calls:** a yes to camera or microphone now lasts while a tab is still on that site (it was one ask per request,
+  and Teams and Zoom ask several times per call). It ends when he leaves the site or closes the browser; never on disk.
+  Calls that check first ("may I?") are told yes only where he already said yes. Picking speakers comes with the mic.
+- **Measured (test/electron/calls-check.ts, 20/20):** a screen share reaches Chromium's permission gate as "media"
+  with no devices named, so that case goes on to the picker. Sites see a Chrome user agent, but the browser brand list
+  says "Chromium", not "Google Chrome". Teams and Zoom both support Chromium browsers; to be confirmed on a real call.
+
 ### `[ ]` 6.25 Aang inside the browser
 
 **What Aang keeps from his browsing (his decisions, 2026-10-13):**
