@@ -31,6 +31,13 @@ class FakeDiscord implements Gateway {
   async typing() {}
   async fetchSince() { this.fetched++; return []; }
   async permissions() { return ['SendMessages']; }
+  made: any[] = []; tags: [string, string[]][] = []; gone: string[] = [];
+  async channelList() { return [{ id: 'c1', name: 'aang', kind: 'text' as const, parentId: null }]; }
+  async createChannel(spec: any) { this.made.push(spec); return 'new1'; }
+  async editChannel(id: string, spec: any) { this.made.push({ id, ...spec }); }
+  async deleteChannel(id: string) { this.gone.push(id); }
+  async postsOf() { return [{ id: 'p1', title: 'Pasta', content: 'boil it', createdAt: 1 }]; }
+  async setPostTags(id: string, t: string[]) { this.tags.push([id, t]); }
   say(id: string, content: string) { this.msg!({ id, channelId: 'c1', channelName: 'aang', authorId: 'josh', isBot: false, content, createdAt: Date.now() }); }
   press(id: string) { this.btn!({ customId: id, userId: 'josh', channelId: 'c1', messageId: 'm1', ack: async (n: string) => { this.acks.push(n); }, keep: async () => { this.keeps++; } }); }
 }
@@ -178,4 +185,21 @@ test('M3 setup: the Discord token and the key are never on a command line, and t
 test('M3 setup: valid bash with the front desk in it', t => {
   try { execFileSync('bash', ['-c', 'true']); } catch { t.skip('no bash'); return; }
   execFileSync('bash', ['-n'], { input: setup, stdio: ['pipe', 'pipe', 'pipe'] });
+});
+
+test('9.D: the plain channel operations work through the Mac front desk', async () => {
+  const { gw, desk } = await rig(48515);
+  const fd = link(48515);
+  try {
+    await fd.ready;
+    assert.deepEqual((await fd.channelList()).map(c => c.name), ['aang']);
+    assert.equal(await fd.createChannel({ name: '❖-library', kind: 'forum', tags: ['Recipe'] }), 'new1');
+    await fd.editChannel('c1', { name: '▸-aang' });
+    assert.deepEqual(gw.made.map(m => m.name), ['❖-library', '▸-aang']);
+    assert.deepEqual((await fd.postsOf('f1', 10)).map(p => p.title), ['Pasta']);
+    await fd.setPostTags('p1', ['Applied']);
+    assert.deepEqual(gw.tags, [['p1', ['Applied']]]);
+    await fd.deleteChannel('old1');
+    assert.deepEqual(gw.gone, ['old1']);
+  } finally { fd.close(); await desk.close(); }
 });

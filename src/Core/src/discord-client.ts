@@ -3,7 +3,8 @@
 // Tailscale (frontdesk.ts on the Mac, frontdesk-link.ts here). Only types come from discord.ts, so the Mac needs
 // discord.js and discord-logic.ts and nothing more.
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, Client, EmbedBuilder, Events, GatewayIntentBits, MessageFlags, PermissionFlagsBits } from 'discord.js';
-import type { Button, ButtonPress, Gateway, Incoming, OutMsg } from './discord.ts';
+import type { Button, ButtonPress, Gateway, Incoming, OutMsg, PostInfo } from './discord.ts';
+import type { ChannelInfo } from './discord-logic.ts';
 import { LAYOUT, NEEDED, FORBIDDEN, noPreview, slug } from './discord-logic.ts';
 
 const STYLE = { primary: ButtonStyle.Primary, secondary: ButtonStyle.Secondary, success: ButtonStyle.Success, danger: ButtonStyle.Danger } as const;
@@ -31,7 +32,7 @@ export class DiscordGateway implements Gateway {
 
   private map(m: any): Incoming {
     const attachments = [...(m.attachments?.values?.() ?? [])].map((a: any) => ({ name: String(a.name ?? 'file'), url: String(a.url), size: Number(a.size ?? 0) }));
-    return { id: m.id, channelId: m.channelId, channelName: m.channel?.name ?? '', authorId: m.author?.id ?? '', isBot: !!m.author?.bot || !!m.webhookId, content: m.content ?? '', createdAt: m.createdTimestamp ?? 0, ...(attachments.length ? { attachments } : {}), ...(m.reference?.messageId ? { replyTo: String(m.reference.messageId) } : {}) };
+    return { id: m.id, channelId: m.channelId, channelName: m.channel?.name ?? '', authorId: m.author?.id ?? '', isBot: !!m.author?.bot || !!m.webhookId, content: m.content ?? '', createdAt: m.createdTimestamp ?? 0, ...(attachments.length ? { attachments } : {}), ...(m.reference?.messageId ? { replyTo: String(m.reference.messageId) } : {}), ...(m.channel?.isThread?.() && m.channel?.parentId ? { parentId: String(m.channel.parentId) } : {}) };
   }
 
   /** Fetch an attachment Discord is hosting for a message he sent. Only Discord's own hosts are ever fetched. */
@@ -100,10 +101,65 @@ export class DiscordGateway implements Gateway {
     return [b];
   }
 
-  async createPost(forumId: string, title: string, content: string): Promise<string> {
+  async createPost(forumId: string, title: string, content: string, tags: string[] = []): Promise<string> {
     const forum: any = await this.client.channels.fetch(forumId);
-    const post = await forum.threads.create({ name: title.slice(0, 100), message: { content, flags: MessageFlags.SuppressEmbeds } });
+    const applied = tagIds(forum, tags);
+    const post = await forum.threads.create({ name: title.slice(0, 100), message: { content, flags: MessageFlags.SuppressEmbeds, allowedMentions: { parse: [] } }, ...(applied.length ? { appliedTags: applied } : {}) });
     return post.id;
+  }
+
+  // ---- 9.D: plain channel operations; the layout decisions are made on Shadow (planLayout)
+  async channelList(): Promise<ChannelInfo[]> {
+    const all = await this.guild.channels.fetch();
+    return [...all.values()].filter(Boolean).map((c: any) => ({
+      id: c.id, name: c.name,
+      kind: c.type === ChannelType.GuildCategory ? 'category' : c.type === ChannelType.GuildText ? 'text' : c.type === ChannelType.GuildForum ? 'forum' : 'other',
+      parentId: c.parentId ?? null,
+      ...(c.type === ChannelType.GuildForum ? { tags: (c.availableTags ?? []).map((t: any) => t.name) } : {}),
+    }));
+  }
+  async createChannel(spec: { name: string; kind: 'category' | 'text' | 'forum'; parentId?: string | null; topic?: string; tags?: string[] }): Promise<string> {
+    const type = spec.kind === 'category' ? ChannelType.GuildCategory : spec.kind === 'forum' ? ChannelType.GuildForum : ChannelType.GuildText;
+    const ch = await this.guild.channels.create({
+      name: spec.name, type, ...(spec.parentId ? { parent: spec.parentId } : {}), ...(spec.topic ? { topic: spec.topic } : {}),
+      ...(spec.kind === 'forum' && spec.tags?.length ? { availableTags: spec.tags.slice(0, 20).map(name => ({ name: name.slice(0, 20) })) } : {}),
+    });
+    return ch.id;
+  }
+  async editChannel(id: string, spec: { name?: string; parentId?: string | null; topic?: string; addTags?: string[] }): Promise<void> {
+    const ch: any = await this.client.channels.fetch(id);
+    if (spec.name && spec.name !== ch.name) await ch.setName(spec.name);
+    if (spec.parentId !== undefined && spec.parentId !== ch.parentId) await ch.setParent(spec.parentId, { lockPermissions: false });
+    if (spec.topic !== undefined && ch.topic !== spec.topic && typeof ch.setTopic === 'function') await ch.setTopic(spec.topic);
+    if (spec.addTags?.length && ch.type === ChannelType.GuildForum) {
+      const have = (ch.availableTags ?? []) as any[];
+      const add = spec.addTags.filter(n => !have.some(t => t.name === n)).map(name => ({ name: name.slice(0, 20) }));
+      if (add.length) await ch.setAvailableTags([...have, ...add].slice(0, 20));
+    }
+  }
+  async deleteChannel(id: string): Promise<void> {
+    const ch: any = await this.client.channels.fetch(id);
+    if (ch.guildId !== this.guild.id) throw new Error('not a channel in his server');
+    await ch.delete('Joshua said yes to removing the old channels');
+  }
+  async postsOf(forumId: string, limit: number): Promise<PostInfo[]> {
+    const forum: any = await this.client.channels.fetch(forumId);
+    const active = await forum.threads.fetchActive();
+    const archived = await forum.threads.fetchArchived({ limit: Math.min(100, limit) });
+    const threads = [...active.threads.values(), ...archived.threads.values()].sort((a: any, b: any) => (b.createdTimestamp ?? 0) - (a.createdTimestamp ?? 0)).slice(0, limit);
+    const out: PostInfo[] = [];
+    for (const t of threads as any[]) {
+      let content = '';
+      try { const first = await t.fetchStarterMessage(); content = first?.content ?? ''; } catch { /* the opening message was deleted */ }
+      out.push({ id: t.id, title: t.name, content, createdAt: t.createdTimestamp ?? 0 });
+    }
+    return out;
+  }
+  async setPostTags(postId: string, tags: string[]): Promise<void> {
+    const t: any = await this.client.channels.fetch(postId);
+    const forum: any = t.parentId ? await this.client.channels.fetch(t.parentId) : null;
+    if (!forum) return;
+    await t.setAppliedTags(tagIds(forum, tags));
   }
 
   async send(channelId: string, msg: OutMsg): Promise<string> {
@@ -145,4 +201,10 @@ export class DiscordGateway implements Gateway {
     return [...NEEDED, ...FORBIDDEN, 'Administrator'].filter((n, i, a) => a.indexOf(n) === i)
       .filter(n => (PermissionFlagsBits as any)[n] !== undefined && me.permissions.has((PermissionFlagsBits as any)[n]));
   }
+}
+
+/** A forum's tag ids for these tag names; names it does not have are left out. */
+function tagIds(forum: any, names: string[]): string[] {
+  const all = (forum?.availableTags ?? []) as any[];
+  return names.map(n => all.find(t => t.name.toLowerCase() === n.toLowerCase())?.id).filter(Boolean).slice(0, 5);
 }

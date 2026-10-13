@@ -9,43 +9,94 @@ import { randomInt } from 'node:crypto';
 // ------------------------------------------------------------------ the server
 
 export interface ChannelDef {
-  /** Discord channel names are lower-case with dashes. */
+  /** What Aang's code calls it. Never changes, whatever the channel is named on Discord. */
+  key: string;
+  /** What it is called on Discord (lower case, dashes; symbols as he picked them). */
   name: string;
   kind: 'text' | 'forum';
   topic: string;
+  /** A forum's tags. */
+  tags?: string[];
+  /** Plain names it had before 2026-10-13, so the old channel is renamed in place and keeps its history. */
+  was?: string[];
+  /** Messages here may buzz his phone (sheet 15: the green ones). */
+  buzz?: boolean;
 }
 export interface CategoryDef { name: string; channels: ChannelDef[] }
 
 /**
- * A quiet server: few channels, each with one job. The channel a message lands in is the strongest hint Aang
- * has about what it is. Only what is built is created; the rest of the design is in docs/ROADMAP.md.
+ * 9.D, sheet 15 board 1 (approved 2026-10-13): ten channels grouped by what needs him, with symbols. Only the green
+ * ones buzz. Channels that already exist are renamed in place, so nothing he has there is lost.
  */
 export const LAYOUT: CategoryDef[] = [
+  { name: 'NEEDS YOU', channels: [
+    { key: 'needs-you', name: '!-needs-you', kind: 'text', topic: 'Everything waiting on you: a question, an approval, a captcha. The one that always buzzes.', was: ['needs-you'], buzz: true },
+    { key: 'drafts', name: '✉-drafts', kind: 'text', topic: 'Email drafts waiting for a yes. Nothing is sent without a button press.', was: ['drafts'], buzz: true },
+  ] },
   { name: 'TALK', channels: [
-    { name: 'aang', kind: 'text', topic: 'Ask Aang anything.' },
-    { name: 'capture', kind: 'text', topic: 'Paste anything here: recipes, lists, notes, links. Aang files it.' },
+    { key: 'aang', name: '▸-aang', kind: 'text', topic: 'Talk to Aang.', was: ['aang'], buzz: true },
+    { key: 'capture', name: '+-capture', kind: 'text', topic: 'Drop anything: notes, links, recipes, videos. Aang files it.', was: ['capture'] },
   ] },
-  { name: 'JOBS', channels: [
-    { name: 'job-inbox', kind: 'text', topic: 'Paste job links. Aang vets each one.' },
-    { name: 'job-digest', kind: 'text', topic: 'What the job hunt found.' },
-    { name: 'applied', kind: 'text', topic: 'One line per application, with its confirmation.' },
-    { name: 'needs-you', kind: 'text', topic: 'Only things blocked on Joshua: a captcha, an essay, an approval. Reply to one to answer that Claude job.' },
+  { name: 'RUNNING', channels: [
+    { key: 'claude-jobs', name: '⚙-claude-jobs', kind: 'forum', topic: 'One post per Claude job, kept current. Buzzes when one is done.', tags: ['Working', 'Needs you', 'Done'], buzz: true },
+    { key: 'jobs', name: '◎-jobs', kind: 'forum', topic: 'Paste job links here. One post per job.', tags: ['Found', 'Applied', 'Skipped'] },
   ] },
-  { name: 'MAIL', channels: [
-    { name: 'drafts', kind: 'text', topic: 'Email drafts waiting for a yes. Nothing is sent without a button press.' },
+  { name: 'KEPT', channels: [
+    { key: 'library', name: '❖-library', kind: 'forum', topic: 'Recipes, guides, saved videos, ideas and notes. Filter by tag.', tags: ['Recipe', 'Guide', 'Video', 'Idea', 'Note'] },
+    { key: 'lists', name: '☰-lists', kind: 'text', topic: 'The grocery list and other lists.', was: ['lists'] },
   ] },
-  { name: 'KEEP', channels: [
-    { name: 'lists', kind: 'text', topic: 'The grocery list and other lists.' },
-    { name: 'recipes', kind: 'forum', topic: 'One post per recipe.' },
-    { name: 'guides', kind: 'forum', topic: 'Guides and how-tos Aang writes.' },
-  ] },
-  { name: 'AANG', channels: [
-    { name: 'log', kind: 'text', topic: 'A receipt of what Aang did, plus errors and whether Shadow is on.' },
+  { name: 'AT A GLANCE', channels: [
+    { key: 'home', name: '✦-home', kind: 'text', topic: 'The home card, pinned and kept current, and a quiet log of what Aang did.', was: ['log'] },
+    { key: 'gaming', name: '▲-gaming', kind: 'text', topic: 'Apex ranked map, creator uploads, patch notes.' },
   ] },
 ];
 
-/** Channels whose messages are things Joshua says to Aang. */
-export const LISTEN_CHANNELS = ['aang', 'capture', 'lists', 'job-inbox', 'drafts', 'needs-you'] as const;
+/** Old channels whose contents move into a new forum, then are deleted once he says yes. */
+export const MERGED: Record<string, string> = { 'job-inbox': 'jobs', 'job-digest': 'jobs', applied: 'jobs', recipes: 'library', guides: 'library' };
+/** Old categories, deleted with the old channels when they are empty. */
+export const OLD_CATEGORIES = ['JOBS', 'MAIL', 'KEEP', 'AANG'];
+
+/** Channels (by key) whose messages are things Joshua says to Aang. */
+export const LISTEN_CHANNELS = ['aang', 'capture', 'lists', 'jobs', 'drafts', 'needs-you'] as const;
+
+/** A channel as Discord has it. */
+export interface ChannelInfo { id: string; name: string; kind: 'category' | 'text' | 'forum' | 'other'; parentId: string | null; tags?: string[] }
+
+export interface LayoutPlan {
+  categories: { name: string; id: string | null }[];
+  channels: { def: ChannelDef; category: string; id: string | null; rename: boolean; moveTo: boolean; addTags: string[] }[];
+  /** Old channels to copy from and then (with his yes) delete. */
+  old: { name: string; id: string; into: string }[];
+  oldCategories: { name: string; id: string }[];
+}
+
+/**
+ * What has to change on Discord to match LAYOUT. Pure. A channel is found by its new name, its key or an old name;
+ * it is renamed only from an old plain name, and only once (`renamed`), because Discord may store a symbol
+ * differently and a channel can be renamed only twice in ten minutes.
+ */
+export function planLayout(existing: ChannelInfo[], renamed: ReadonlySet<string> = new Set()): LayoutPlan {
+  const cats = existing.filter(c => c.kind === 'category');
+  const catByName = (n: string) => cats.find(c => c.name.toLowerCase() === n.toLowerCase()) ?? null;
+  const used = new Set<string>();
+  const plan: LayoutPlan = { categories: [], channels: [], old: [], oldCategories: [] };
+  for (const cat of LAYOUT) {
+    const c = catByName(cat.name);
+    plan.categories.push({ name: cat.name, id: c?.id ?? null });
+    for (const def of cat.channels) {
+      const names = [def.name, def.key, ...(def.was ?? [])];
+      const found = existing.find(x => x.kind !== 'category' && !used.has(x.id) && names.includes(x.name)) ?? null;
+      if (found) used.add(found.id);
+      const rename = !!found && found.name !== def.name && !renamed.has(def.key) && [def.key, ...(def.was ?? [])].includes(found.name);
+      const moveTo = !!found && (!c || found.parentId !== c.id);
+      const have = new Set(found?.tags ?? []);
+      plan.channels.push({ def, category: cat.name, id: found?.id ?? null, rename, moveTo, addTags: def.kind === 'forum' && found ? (def.tags ?? []).filter(t => !have.has(t)) : [] });
+    }
+  }
+  for (const x of existing) if (x.kind !== 'category' && !used.has(x.id) && MERGED[x.name]) plan.old.push({ name: x.name, id: x.id, into: MERGED[x.name]! });
+  for (const name of OLD_CATEGORIES) { const c = catByName(name); if (c) plan.oldCategories.push({ name, id: c.id }); }
+  return plan;
+}
 
 /** The permissions Aang needs, by the names discord.js uses. Anything outside this is reported, not assumed. */
 export const NEEDED = ['ViewChannel', 'ManageChannels', 'SendMessages', 'SendMessagesInThreads', 'CreatePublicThreads',

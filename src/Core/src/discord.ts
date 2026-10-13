@@ -11,7 +11,7 @@
 import path from 'node:path';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { writeFileAtomic } from './atomic.ts';
-import { Budget, LAYOUT, LISTEN_CHANNELS, NEEDED, FORBIDDEN, chunkMessage, kindOf, newPairing, tryPair } from './discord-logic.ts';
+import { Budget, LISTEN_CHANNELS, NEEDED, FORBIDDEN, chunkMessage, kindOf, newPairing, tryPair, planLayout } from './discord-logic.ts';
 import type { Pairing } from './discord-logic.ts';
 import { capture } from './capture.ts';
 import { Grocery, looksLikeRecipe, parseListCommand, parseRecipe } from './lists.ts';
@@ -20,7 +20,10 @@ import type { Card } from './jobs.ts';
 import { attachmentProblem, safeAttachmentName } from './phone.ts';
 
 export interface Attachment { name: string; url: string; size: number }
-export interface Incoming { id: string; channelId: string; channelName: string; authorId: string; isBot: boolean; content: string; createdAt: number; attachments?: Attachment[]; /** the message this one replies to */ replyTo?: string }
+export interface Incoming { id: string; channelId: string; channelName: string; authorId: string; isBot: boolean; content: string; createdAt: number; attachments?: Attachment[]; /** the message this one replies to */ replyTo?: string; /** for a message in a forum post: the forum */ parentId?: string }
+/** 9.D: a forum post, as read back for moving it. */
+export interface PostInfo { id: string; title: string; content: string; createdAt: number }
+export type { ChannelInfo } from './discord-logic.ts';
 /** With `url` it is a link button that opens the page and needs no answer from us. */
 export interface Button { id: string; label: string; style: 'primary' | 'secondary' | 'success' | 'danger'; url?: string; /** greyed out and cannot be pressed */ disabled?: boolean }
 /** A real Discord embed, for anything that is a record to scan rather than a line to read - a job card first
@@ -52,7 +55,18 @@ export interface Gateway {
   /** Pin a message. May reject if the permission is missing. */
   pin(channelId: string, messageId: string): Promise<void>;
   /** Start a post in a forum channel; returns the id of the post (a thread), which more messages can be sent to. */
-  createPost(forumId: string, title: string, content: string): Promise<string>;
+  createPost(forumId: string, title: string, content: string, tags?: string[]): Promise<string>;
+  // 9.D: the plain channel operations the layout is built from. The decisions stay on Shadow (planLayout), so the
+  // Mac front desk only ever does these and rarely needs updating.
+  channelList(): Promise<import('./discord-logic.ts').ChannelInfo[]>;
+  createChannel(spec: { name: string; kind: 'category' | 'text' | 'forum'; parentId?: string | null; topic?: string; tags?: string[] }): Promise<string>;
+  editChannel(id: string, spec: { name?: string; parentId?: string | null; topic?: string; addTags?: string[] }): Promise<void>;
+  /** Only ever after his yes. */
+  deleteChannel(id: string): Promise<void>;
+  /** A forum's posts, newest first: title and opening message. */
+  postsOf(forumId: string, limit: number): Promise<PostInfo[]>;
+  /** Set a forum post's tags by name (tags the forum does not have are ignored). */
+  setPostTags(postId: string, tags: string[]): Promise<void>;
   /** The bytes of an attachment he sent. */
   download(url: string): Promise<Buffer>;
   typing(channelId: string): Promise<void>;
@@ -83,7 +97,13 @@ export interface CoreLink {
   onEvent(cb: (m: any) => void): void;
 }
 
-export interface State { ownerId: string | null; channels: Record<string, string>; lastSeen: Record<string, string>; deckId?: string; recipes?: Record<string, string[]>; /** email draft id -> where its card is, so a change edits the card in place */ mail?: Record<string, { c: string; m: string }>; /** Claude job folder -> where its last update is, so a reply there continues that job */ jobs?: Record<string, { c: string; m: string }> }
+export interface State { ownerId: string | null; channels: Record<string, string>; lastSeen: Record<string, string>;
+  /** 9.D: channels (by key) already renamed once from their old plain names */
+  renamed?: string[];
+  /** 9.D: old channels still to move from and, with his yes, delete */
+  old?: { name: string; id: string; into: string }[]; oldCats?: { name: string; id: string }[]; moved?: boolean;
+  /** 9.D: job cards that are their own post in the jobs forum (post id), so their tags follow the job */
+  jobPosts?: string[]; deckId?: string; recipes?: Record<string, string[]>; /** email draft id -> where its card is, so a change edits the card in place */ mail?: Record<string, { c: string; m: string }>; /** Claude job folder -> where its last update is, so a reply there continues that job */ jobs?: Record<string, { c: string; m: string }> }
 
 /** The pinned buttons in #aang. Status costs nothing; the job hunt goes through Aang like anything he types. */
 export const DECK: Button[] = [
@@ -154,13 +174,13 @@ export class DiscordAdapter {
   private now() { return (this.opts.now ?? (() => new Date()))(); }
 
   async start(): Promise<void> {
-    try { const s = JSON.parse(readFileSync(this.stateFile, 'utf8')); this.state = { ownerId: s.ownerId ?? null, channels: s.channels ?? {}, lastSeen: s.lastSeen ?? {}, ...(s.deckId ? { deckId: s.deckId } : {}), ...(s.recipes ? { recipes: s.recipes } : {}), ...(s.mail ? { mail: s.mail } : {}), ...(s.jobs ? { jobs: s.jobs } : {}) }; }
+    try { const s = JSON.parse(readFileSync(this.stateFile, 'utf8')); this.state = { ...s, ownerId: s.ownerId ?? null, channels: s.channels ?? {}, lastSeen: s.lastSeen ?? {} }; }
     catch { /* first run */ }
     this.gw.onMessage(m => { void this.handle(m).catch(e => this.log('discord: message failed: ' + (e as Error).message)); });
     this.gw.onButton(b => { void this.press(b).catch(e => this.log('discord: button failed: ' + (e as Error).message)); });
     this.link.onEvent(ev => { void this.fromCore(ev).catch(e => this.log('discord: core event failed: ' + (e as Error).message)); });
 
-    this.state.channels = await this.gw.ensureLayout();
+    this.state.channels = await this.layout();
     this.save();
     await this.selfCheck();
     if (!this.state.ownerId) {
@@ -170,6 +190,12 @@ export class DiscordAdapter {
     } else {
       await this.ensureDeck();
       if (this.opts.catchUp !== false) await this.catchUp();
+      // 9.D: the old channels' contents move once; deleting them waits for his two yeses.
+      const moved = await this.moveOld().catch(e => { this.log('discord: moving the old channels failed: ' + (e as Error).message); return null; });
+      const home = this.state.channels['home'];
+      if ((moved || (this.state.old ?? []).length) && home) {
+        await this.gw.send(home, { content: moved ?? `The old channels (${(this.state.old ?? []).map(o => '#' + o.name).join(', ')}) are still there.`, buttons: [{ id: 'old:delete', label: 'Delete the old channels', style: 'danger' }, { id: 'old:keep', label: 'Keep them for now', style: 'secondary' }], silent: true });
+      }
       // Only what changes after this start is news.
       this.lastShortlist = this.opts.shortlistFile ? fileStamp(this.opts.shortlistFile) : 0;
       this.lastDrafts = this.opts.draftsFile ? fileStamp(this.opts.draftsFile) : 0;
@@ -179,7 +205,81 @@ export class DiscordAdapter {
         this.scanTimer.unref?.();
       }
     }
-    await this.say('log', this.state.ownerId ? 'Yip yip.' : 'Aang is online and waiting to be paired.', true);
+    await this.say('home', this.state.ownerId ? 'Yip yip.' : 'Aang is online and waiting to be paired.', true);
+  }
+
+  /**
+   * 9.D (sheet 15, approved 2026-10-13): make the server match LAYOUT. Existing channels are renamed in place, so
+   * their history stays; new ones are created; nothing is ever deleted here. Returns key -> channel id.
+   */
+  async layout(): Promise<Record<string, string>> {
+    const plan = planLayout(await this.gw.channelList(), new Set(this.state.renamed ?? []));
+    const out: Record<string, string> = {};
+    const renamed = new Set(this.state.renamed ?? []);
+    for (const cat of plan.categories) {
+      const catId = cat.id ?? await this.gw.createChannel({ name: cat.name, kind: 'category' });
+      for (const ch of plan.channels.filter(c => c.category === cat.name)) {
+        const d = ch.def;
+        if (!ch.id) {
+          out[d.key] = await this.gw.createChannel({ name: d.name, kind: d.kind, parentId: catId, topic: d.topic, ...(d.tags ? { tags: d.tags } : {}) });
+          continue;
+        }
+        out[d.key] = ch.id;
+        if (ch.rename || ch.moveTo || ch.addTags.length) {
+          try {
+            await this.gw.editChannel(ch.id, { ...(ch.rename ? { name: d.name } : {}), ...(ch.moveTo ? { parentId: catId } : {}), ...(ch.rename ? { topic: d.topic } : {}), ...(ch.addTags.length ? { addTags: ch.addTags } : {}) });
+          } catch (e) { this.log(`discord: could not tidy #${d.key}: ${(e as Error).message}`); }
+          if (ch.rename) renamed.add(d.key);
+        }
+      }
+    }
+    this.state.renamed = [...renamed];
+    this.state.old = plan.old;
+    this.state.oldCats = plan.oldCategories;
+    return out;
+  }
+
+  /** Which of his channels (by key) a message is in; a message in a forum post counts as the forum. */
+  private keyOf(channelId: string, parentId?: string): string | null {
+    for (const [k, id] of Object.entries(this.state.channels)) if (id === channelId || (parentId && id === parentId)) return k;
+    return null;
+  }
+
+  /**
+   * 9.D: what is in the old channels moves into the new forums, once. Recipes and guides are copied post by post into
+   * the library with their tag; the job cards are drawn again from Aang's own job list, one post each, so nothing is
+   * lost in a copy. The old channels stay until he presses delete (twice: it cannot be undone).
+   */
+  async moveOld(): Promise<string | null> {
+    const old = this.state.old ?? [];
+    if (!old.length || this.state.moved) return null;
+    let library = 0, jobs = 0;
+    const lib = this.state.channels['library'];
+    for (const o of old.filter(x => x.into === 'library' && lib)) {
+      const tag = o.name === 'recipes' ? 'Recipe' : 'Guide';
+      for (const p of (await this.gw.postsOf(o.id, 200)).reverse()) {
+        const parts = chunkMessage(p.content || p.title);
+        const post = await this.gw.createPost(lib!, p.title, parts[0] ?? p.title, [tag]);
+        for (const more of parts.slice(1)) await this.gw.send(post, { content: more, silent: true });
+        library++;
+      }
+    }
+    if (this.state.channels['jobs'] && old.some(x => x.into === 'jobs')) {
+      for (const card of this.jobs.cards) { await this.postCard(card, '', true); jobs++; }
+    }
+    this.state.moved = true; this.save();
+    const names = old.map(o => '#' + o.name).join(', ');
+    return `Moved ${library} recipe${library === 1 ? '' : 's'} and guide${library === 1 ? '' : 's'} into ❖ library and ${jobs} job${jobs === 1 ? '' : 's'} into ◎ jobs. The old channels (${names}) are still there until you say.`;
+  }
+
+  /** His second yes: the old channels go, then their categories if they are empty. */
+  private async deleteOld(): Promise<string> {
+    let n = 0;
+    for (const o of this.state.old ?? []) { try { await this.gw.deleteChannel(o.id); n++; } catch (e) { this.log(`discord: could not delete #${o.name}: ${(e as Error).message}`); } }
+    const left = await this.gw.channelList().catch(() => []);
+    for (const c of this.state.oldCats ?? []) if (!left.some(x => x.parentId === c.id)) { try { await this.gw.deleteChannel(c.id); } catch { /* not empty after all */ } }
+    this.state.old = []; this.state.oldCats = []; this.save();
+    return `Deleted ${n} old channel${n === 1 ? '' : 's'}.`;
   }
 
   /** One pinned message of buttons in #aang: edited in place if it is still there, otherwise posted and pinned again. */
@@ -192,7 +292,7 @@ export class DiscordAdapter {
     this.state.deckId = await this.gw.send(channel, { content: DECK_TEXT, buttons: DECK, silent: true });
     this.save();
     try { await this.gw.pin(channel, this.state.deckId); }
-    catch { await this.say('log', 'I could not pin the command deck in #aang. Give my role the Pin Messages permission and it will pin next start. It works unpinned.', true); }
+    catch { await this.say('home', 'I could not pin the command deck in #aang. Give my role the Pin Messages permission and it will pin next start. It works unpinned.', true); }
   }
 
   /** Tell #log if the permissions he was given are wrong, in either direction. */
@@ -200,14 +300,14 @@ export class DiscordAdapter {
     const has = new Set(await this.gw.permissions());
     const missing = NEEDED.filter(p => !has.has(p));
     const extra = FORBIDDEN.filter(p => has.has(p));
-    if (missing.length) await this.say('log', `Missing permissions: ${missing.join(', ')}. Add them under Server Settings, Roles, Aang.`, false);
-    if (extra.length) await this.say('log', `Permissions Aang does not need and should not have: ${extra.join(', ')}. Please switch them off.`, false);
+    if (missing.length) await this.say('home', `Missing permissions: ${missing.join(', ')}. Add them under Server Settings, Roles, Aang.`, false);
+    if (extra.length) await this.say('home', `Permissions Aang does not need and should not have: ${extra.join(', ')}. Please switch them off.`, false);
   }
 
   /** Read back what he said while Shadow was off, in order. */
   private async catchUp(): Promise<void> {
     for (const name of LISTEN_CHANNELS) {
-      const id = this.state.channels[name]; if (!id) continue;
+      const id = this.state.channels[name]; if (!id || name === 'jobs') continue;      // a forum has no messages of its own
       const last = this.state.lastSeen[id] ?? null;
       const found = await this.gw.fetchSince(id, last, 50);
       if (last === null) { if (found.at(-1)) { this.state.lastSeen[id] = found.at(-1)!.id; this.save(); } continue; }   // no replay of old history
@@ -232,7 +332,9 @@ export class DiscordAdapter {
       return;
     }
     if (m.authorId !== this.state.ownerId) { this.log(`discord: ignored a message from someone else (${m.authorId})`); return; }
-    if (!(LISTEN_CHANNELS as readonly string[]).includes(m.channelName)) return;
+    // 9.D: by key, never by name: the names now carry symbols and could be renamed again.
+    const key = this.keyOf(m.channelId, m.parentId);
+    if (!key || !(LISTEN_CHANNELS as readonly string[]).includes(key)) return;
 
     this.state.lastSeen[m.channelId] = m.id; this.save();
     if (m.attachments?.length) await this.receive(m);
@@ -240,10 +342,10 @@ export class DiscordAdapter {
     if (!text) return;
     if (/^(stop|\/stop)$/i.test(text)) { this.link.stop(); await this.gw.send(m.channelId, { content: 'Stopped.' }); return; }
 
-    if (m.channelName === 'drafts') { await this.draftReply(m, text); return; }          // #drafts is for changing drafts, never for chat
+    if (key === 'drafts') { await this.draftReply(m, text); return; }          // #drafts is for changing drafts, never for chat
     if (m.replyTo && await this.claudeReplyTo(m, text)) return;
-    if (await this.file(m.channelId, m.channelName, text)) return;
-    if (await this.jobTalk(m.channelId, m.channelName, text)) return;
+    if (await this.file(m.channelId, key, text)) return;
+    if (await this.jobTalk(m.channelId, key, text)) return;
     this.ask('d' + m.id, m.channelId, text);
   }
 
@@ -291,7 +393,7 @@ export class DiscordAdapter {
       return true;
     }
     if (await this.controls(channelId, text)) return true;
-    if (channelName !== 'job-inbox') return false;
+    if (channelName !== 'jobs') return false;
     const urls = extractUrls(text);
     if (!urls.length) return false;
     for (const url of urls) {
@@ -361,21 +463,38 @@ export class DiscordAdapter {
     await this.postCard(this.jobs.add(parsed, this.now()), v.channelId, false);
   }
 
+  /**
+   * 9.D: a job is its own post in ◎ jobs, tagged Found, Applied or Skipped as it moves, with its card inside. A card for
+   * a link he pasted in a post of his own goes into that post. `channelId` '' means "a new post".
+   */
   private async postCard(card: Card, channelId: string, silent: boolean): Promise<void> {
     const view = renderCard(card);
-    card.channelId = channelId;
-    card.messageId = await this.gw.send(channelId, { content: view.content, embed: view.embed, buttons: view.buttons, silent });
+    let where = channelId;
+    const forum = this.state.channels['jobs'];
+    if (!where && forum) {
+      where = await this.gw.createPost(forum, `${card.title || 'A job'}${card.company ? ' at ' + card.company : ''}`.slice(0, 100), card.url, [tagFor(card)]);
+      this.state.jobPosts = [...(this.state.jobPosts ?? []), where].slice(-500); this.save();
+    } else if (where && forum && this.keyOf(where) === null && !this.isJobPost(where)) {
+      // a link pasted inside a post he started in ◎ jobs: that post becomes the job
+      this.state.jobPosts = [...(this.state.jobPosts ?? []), where].slice(-500); this.save();
+      await this.gw.setPostTags(where, [tagFor(card)]).catch(() => {});
+    }
+    if (!where) return;
+    card.channelId = where;
+    card.messageId = await this.gw.send(where, { content: view.content, embed: view.embed, buttons: view.buttons, silent });
     this.jobs.save();
   }
+  private isJobPost(id: string): boolean { return (this.state.jobPosts ?? []).includes(id); }
   private async redrawCard(card: Card): Promise<void> {
     if (!card.channelId || !card.messageId) return;
     const view = renderCard(card);
     try { await this.gw.edit(card.channelId, card.messageId, { content: view.content, embed: view.embed, buttons: view.buttons }); } catch { /* the card was deleted */ }
+    if (this.isJobPost(card.channelId)) await this.gw.setPostTags(card.channelId, [tagFor(card)]).catch(() => {});
   }
 
   /** New entries in the sweep's shortlist become cards in #job-digest, once each. */
   async scanShortlist(): Promise<number> {
-    const file = this.opts.shortlistFile; const where = this.state.channels['job-digest'];
+    const file = this.opts.shortlistFile; const where = this.state.channels['jobs'];
     if (!file || !where) return 0;
     const stamp = fileStamp(file);
     if (!stamp || stamp === this.lastShortlist) return 0;
@@ -386,9 +505,9 @@ export class DiscordAdapter {
       // job gets a fixed "the sweep already screened this" score rather than no score at all.
       const score = e.score ?? SWEEP_SCORE;
       const card = this.jobs.add({ url: e.url, title: e.title, company: e.company, location: e.location, salary: e.salary, score, verdict: verdictFor(score), reason: e.reason || 'On the sweep shortlist.' }, this.now());
-      await this.postCard(card, where, true);
+      await this.postCard(card, '', true);
     }
-    if (fresh.length) await this.say('job-digest', `${fresh.length} new job${fresh.length > 1 ? 's' : ''} from the sweep. Approve the ones you want, then tap Apply approved in #aang.`, false);
+    if (fresh.length) await this.say('home', `${fresh.length} new job${fresh.length > 1 ? 's' : ''} from the sweep in ◎ jobs. Approve the ones you want, then tap Apply approved in ▸ aang.`, true);
     return fresh.length;
   }
 
@@ -462,9 +581,10 @@ export class DiscordAdapter {
       if (card) await this.redrawCard(card);
       const label = e.title || card?.title || 'A job', at = e.company || card?.company || '';
       const line = `${label}${at ? ' at ' + at : ''}\n${e.url}${e.note ? '\n' + e.note : ''}`;
-      if (e.status === 'applied') { await this.say('applied', `Submitted: ${line}`, true); }
+      const post = card?.channelId && this.isJobPost(card.channelId) ? card.channelId : null;
+      if (e.status === 'applied') { if (post) await this.gw.send(post, { content: `Submitted: ${line}`, silent: true }); else await this.say('home', `Submitted: ${line}`, true); }
       else {
-        await this.say('applied', `Stuck: ${line}`, true);
+        if (post) await this.gw.send(post, { content: `Stuck: ${line}`, silent: true }); else await this.say('home', `Stuck: ${line}`, true);
         await this.say('needs-you', `Need input on the job hunt: ${label}${at ? ' at ' + at : ''}. ${e.note || 'It stopped and needs you.'}`, false);
       }
     }
@@ -474,13 +594,12 @@ export class DiscordAdapter {
 
   /** "Apply approved": the approved jobs that fit under today's cap go to a Claude session, and nothing else does. */
   private async applyApproved(channelId: string): Promise<void> {
-    if (!this.jobs.approved().length) { await this.gw.send(channelId, { content: 'Nothing is approved yet. Approve jobs in #job-digest or #job-inbox first.' }); return; }
+    if (!this.jobs.approved().length) { await this.gw.send(channelId, { content: 'Nothing is approved yet. Approve jobs in ◎ jobs first.' }); return; }
     const left = this.jobs.left(this.now());
     if (left === 0) { await this.gw.send(channelId, { content: `Today's limit of ${this.jobs.cap(this.now())} is used. Say "cap 8 today" to raise it, up to 8; otherwise these wait for tomorrow.` }); return; }
     const { taken, waiting } = this.jobs.takeForApply(this.now());
     for (const c of taken) await this.redrawCard(c);
-    const applied = this.state.channels['applied'];
-    if (applied) for (const c of taken) await this.gw.send(applied, { content: `Sent to apply: ${c.title} at ${c.company}\n${c.url}`, silent: true });
+    for (const c of taken) if (c.channelId && this.isJobPost(c.channelId)) await this.gw.send(c.channelId, { content: `Sent to apply: ${c.title} at ${c.company}`, silent: true }).catch(() => {});
     await this.gw.send(channelId, { content: `Sending ${taken.length} to apply${waiting ? `, ${waiting} more wait for tomorrow or a higher limit` : ''}. Aang will open a Claude session with them; press Enter there to start.` });
     this.ask('apply' + Date.now(), channelId, applyPrompt(taken));
   }
@@ -542,11 +661,11 @@ export class DiscordAdapter {
   }
 
   private async fileRecipe(channelId: string, text: string): Promise<void> {
-    const forum = this.state.channels['recipes'];
-    if (!forum) { await this.gw.send(channelId, { content: 'There is no #recipes channel to file it in.' }); return; }
+    const forum = this.state.channels['library'];
+    if (!forum) { await this.gw.send(channelId, { content: 'There is no ❖ library to file it in.' }); return; }
     const r = parseRecipe(text);
     const parts = chunkMessage(r.body);
-    const post = await this.gw.createPost(forum, r.title, parts[0] ?? r.body);
+    const post = await this.gw.createPost(forum, r.title, parts[0] ?? r.body, ['Recipe']);
     for (const more of parts.slice(1)) await this.gw.send(post, { content: more, silent: true });
     let buttons: Button[] | undefined;
     if (r.ingredients.length >= 2) {
@@ -556,7 +675,7 @@ export class DiscordAdapter {
       this.state.recipes = all; this.save();
       buttons = [{ id: `recipe:add:${key}`, label: `Add ${r.ingredients.length} ingredients to the grocery list`, style: 'primary' }];
     }
-    await this.gw.send(channelId, { content: `Filed in #recipes: ${r.title}.`, ...(buttons ? { buttons } : {}) });
+    await this.gw.send(channelId, { content: `Filed in ❖ library: ${r.title}.`, ...(buttons ? { buttons } : {}) });
   }
 
   /** Put a request to Aang and remember which channel the answer belongs in. */
@@ -617,7 +736,7 @@ export class DiscordAdapter {
       }
       return;
     }
-    if (ev?.t === 'action' && typeof ev.text === 'string') { await this.say('log', ev.text, true); return; }
+    if (ev?.t === 'action' && typeof ev.text === 'string') { await this.say('home', ev.text, true); return; }
     if (ev?.t === 'actions.reply' && typeof ev.text === 'string') {
       const channelId = this.replyTo.actions.shift() ?? this.state.channels['aang'];
       if (channelId) await this.gw.send(channelId, { content: ('What I did, newest last:\n' + ev.text).slice(0, 1900) });
@@ -653,11 +772,11 @@ export class DiscordAdapter {
       return;
     }
     if (ev?.t === 'job.card' && typeof ev.url === 'string') {
-      // A job found outside #job-inbox (an email, a link pasted in chat) - scored, then the same kind of card.
-      const where = this.state.channels['job-digest'];
+      // A job found outside ◎ jobs (an email, a link pasted in chat) - scored, then the same kind of card, its own post.
+      const where = this.state.channels['jobs'];
       if (where && !this.jobs.isSeen(ev.url)) {
         const card = this.jobs.add({ url: ev.url, title: String(ev.title ?? ''), company: String(ev.company ?? ''), location: String(ev.location ?? ''), salary: String(ev.salary ?? ''), score: Number(ev.score) || 0, verdict: ev.verdict === 'apply' || ev.verdict === 'skip' ? ev.verdict : 'maybe', reason: String(ev.reason ?? '') }, this.now());
-        await this.postCard(card, where, false);
+        await this.postCard(card, '', false);
       }
       return;
     }
@@ -705,6 +824,14 @@ export class DiscordAdapter {
 
   private async press(b: ButtonPress): Promise<void> {
     if (b.userId !== this.state.ownerId) { await b.ack('That is not yours to answer.'); return; }
+    if (b.customId === 'old:keep') { await b.ack('Kept. Say "delete the old channels" whenever you want them gone.'); return; }
+    if (b.customId === 'old:delete') {
+      // Deleting cannot be undone, so it is asked twice.
+      await b.ack('Sure? This cannot be undone.');
+      await this.gw.send(b.channelId, { content: `Delete ${(this.state.old ?? []).map(o => '#' + o.name).join(', ')} for good? Everything in them is already in the new forums.`, buttons: [{ id: 'old:delete2', label: 'Yes, delete them', style: 'danger' }, { id: 'old:keep', label: 'Keep them', style: 'secondary' }] });
+      return;
+    }
+    if (b.customId === 'old:delete2') { await b.keep(); await b.ack(await this.deleteOld()); return; }
     if (b.customId.startsWith('deck:')) {
       await b.keep();
       if (b.customId === 'deck:status') { this.statusFor.push(b.channelId); this.link.status(); }
@@ -773,3 +900,6 @@ export class DiscordAdapter {
 
   get pairingCode(): string | null { return this.pairing?.code ?? (existsSync(this.pairFile) ? readFileSync(this.pairFile, 'utf8').trim() : null); }
 }
+
+/** 9.D: the jobs forum tag for where a job is. */
+function tagFor(card: Card): string { return card.status === 'applied' ? 'Applied' : card.status === 'skipped' ? 'Skipped' : 'Found'; }
