@@ -15,7 +15,7 @@ import { writeFileAtomic } from './atomic.ts';
 import { Budget, LISTEN_CHANNELS, NEEDED, FORBIDDEN, chunkMessage, kindOf, newPairing, tryPair, planLayout, BUZZ_KEYS } from './discord-logic.ts';
 import type { Pairing } from './discord-logic.ts';
 import { capture } from './capture.ts';
-import { Grocery, looksLikeRecipe, parseListCommand, parseRecipe } from './lists.ts';
+import { Grocery, applyListCommand, looksLikeRecipe, parseListCommand, parseRecipe } from './lists.ts';
 import { Drafts, Jobs, SWEEP_REQUEST, applyPrompt, extractUrls, fileStamp, parseVerdict, readAppliedFile, readDraftsFile, readShortlist, renderCard, renderDraft, verdictFor, vetPrompt } from './jobs.ts';
 import type { Card } from './jobs.ts';
 import { attachmentProblem, safeAttachmentName } from './phone.ts';
@@ -83,6 +83,9 @@ export interface Gateway {
   fetchSince(channelId: string, afterId: string | null, limit: number): Promise<Incoming[]>;
   /** The bot's own permissions in the server, by discord.js name. */
   permissions(): Promise<string[]>;
+  /** M4, the Mac's front desk only: what the Mac needs to answer while this PC is off, and what it did. */
+  macBrief?(b: import('./macbrain.ts').MacBrief): Promise<boolean>;
+  onHandled?(cb: (items: import('./macbrain.ts').Handled[]) => Promise<void> | void): void;
 }
 
 export interface CoreLink {
@@ -114,6 +117,9 @@ export interface CoreLink {
   brief(): void;
   /** A reply to a Claude Code job's update: continue that job (by its folder) with his words. */
   claudeReply(cwd: string, text: string): void;
+  /** M4: Aang's voice, his facts and the last few lines, for the Mac; and what the Mac said and saved. */
+  macBrief?(): Promise<{ prompt: string; facts: string[]; recent: { who: 'you' | 'Aang'; text: string }[] } | null>;
+  macHandled?(items: import('./macbrain.ts').Handled[]): void;
   onEvent(cb: (m: any) => void): void;
 }
 
@@ -217,6 +223,7 @@ export class DiscordAdapter {
     this.gw.onMessage(m => { void this.handle(m).catch(e => this.log('discord: message failed: ' + (e as Error).message)); });
     this.gw.onButton(b => { void this.press(b).catch(e => this.log('discord: button failed: ' + (e as Error).message)); });
     this.link.onEvent(ev => { void this.fromCore(ev).catch(e => this.log('discord: core event failed: ' + (e as Error).message)); });
+    this.gw.onHandled?.(items => this.applyMac(items));
 
     this.state.channels = await this.layout();
     this.save();
@@ -230,7 +237,9 @@ export class DiscordAdapter {
       if (this.opts.catchUp !== false) await this.catchUp();
       // 9.D D6: the home card, pinned in home and kept current.
       await this.refreshHome().catch(e => this.log('discord: home card failed: ' + (e as Error).message));
-      this.homeTimer = setInterval(() => { void this.refreshHome().catch(() => {}); }, 10 * 60_000);
+      // M4: the Mac is kept ready to answer, on the same ten minutes.
+      void this.sendMacBrief();
+      this.homeTimer = setInterval(() => { void this.refreshHome().catch(() => {}); void this.sendMacBrief(); }, 10 * 60_000);
       this.homeTimer.unref?.();
       // 9.D: the old channels' contents move once; deleting them waits for his two yeses.
       const moved = await this.moveOld().catch(e => { this.log('discord: moving the old channels failed: ' + (e as Error).message); return null; });
@@ -825,20 +834,7 @@ export class DiscordAdapter {
   private async file(channelId: string, channelName: string, text: string): Promise<boolean> {
     const cmd = parseListCommand(text);
     if (cmd) {
-      let said: string;
-      if (cmd.op === 'add') {
-        const r = this.grocery.add(cmd.items);
-        const parts: string[] = [];
-        if (r.added.length) parts.push(`Added ${r.added.join(', ')}`);
-        if (r.had.length) parts.push(`${r.had.join(', ')} ${r.had.length > 1 ? 'were' : 'was'} already on it`);
-        if (r.full.length) parts.push(`no room for ${r.full.join(', ')} (the list holds 24)`);
-        said = parts.join('. ') + '.';
-      } else if (cmd.op === 'remove') {
-        const gone = this.grocery.remove(cmd.items);
-        said = gone.length ? `Took ${gone.join(', ')} off the grocery list.` : 'Nothing on the grocery list matched that.';
-      } else if (cmd.op === 'clear') {
-        said = `Cleared the grocery list (${this.grocery.clearAll()} items).`;
-      } else said = 'Here it is.';
+      const said = applyListCommand(this.grocery, cmd);
       await this.refreshList(cmd.op === 'show');
       await this.gw.send(channelId, { content: said });
       return true;
@@ -873,6 +869,42 @@ export class DiscordAdapter {
     const id = await this.gw.send(where, { content: view.content, buttons: view.buttons, silent: true });
     this.grocery.remember(id, where);
     try { await this.gw.pin(where, id); } catch { /* pinning is a nicety */ }
+    void this.sendMacBrief();
+  }
+
+  // ---------------------------------------------------------------- M4: the Mac answers while this PC is off
+
+  /** What the Mac needs to answer as Aang: who he is, where to listen, Aang's voice and memory, the list. */
+  async sendMacBrief(): Promise<void> {
+    if (!this.gw.macBrief || !this.link.macBrief || !this.state.ownerId) return;
+    try {
+      const d = await this.link.macBrief();
+      if (!d) return;
+      const listen = Object.fromEntries(LISTEN_CHANNELS.map(k => [this.state.channels[k], k] as const).filter(([id]) => !!id));
+      await this.gw.macBrief({ ownerId: this.state.ownerId, listen, prompt: d.prompt, facts: d.facts, recent: d.recent, grocery: this.grocery.s, at: Date.now() });
+    } catch (e) { this.log('discord: could not brief the Mac: ' + (e as Error).message); }
+  }
+
+  /**
+   * What the Mac did while this PC was off, applied once: list changes and notes here, what he said and asked it to
+   * remember in memory, and anything it saved for the PC started now, with a line to say so.
+   */
+  async applyMac(items: import('./macbrain.ts').Handled[]): Promise<void> {
+    let listChanged = false;
+    for (const h of items) {
+      if (h.kind === 'list') { const cmd = parseListCommand(String(h.text)); if (cmd) { applyListCommand(this.grocery, cmd); listChanged = true; } }
+      else if (h.kind === 'capture') { try { capture(String(h.text)); } catch { /* the note is still in Discord */ } }
+    }
+    const forCore = items.filter(h => h.kind === 'turn' || h.kind === 'remember');
+    if (forCore.length) this.link.macHandled?.(forCore);
+    if (listChanged) await this.refreshList().catch(() => {});
+    const later = items.filter(h => h.kind === 'later');
+    const aang = this.state.channels['aang'];
+    if (aang) for (const [i, h] of later.entries()) {
+      await this.gw.send(aang, { content: `Your PC is back. Starting what you asked for on the Mac: ${String(h.text).slice(0, 300)}` });
+      this.ask(`mac${h.at}-${i}`, aang, String(h.text));
+    }
+    this.log(`discord: took ${items.length} thing(s) the Mac did while this PC was off`);
   }
 
   private async fileRecipe(channelId: string, text: string): Promise<void> {

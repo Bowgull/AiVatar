@@ -1,11 +1,17 @@
 {
   "name": "aang-frontdesk",
   "private": true,
-  "description": "Aang's front desk on the MacBook (M3): the one Discord connection. Installed by the Mac setup with npm ci.",
+  "description": "Aang front desk on the MacBook (M3) and, since M4, the Mac answering as Aang while Shadow is off. Installed by the Mac setup with npm ci.",
   "type": "module",
-  "engines": { "node": ">=24" },
+  "engines": {
+    "node": ">=24"
+  },
   "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "0.3.278",
+    "@anthropic-ai/sdk": "0.127.0",
+    "@modelcontextprotocol/sdk": "1.30.0",
     "discord.js": "14.27.0",
-    "ws": "8.21.3"
+    "ws": "8.21.3",
+    "zod": "4.6.5"
   }
 }

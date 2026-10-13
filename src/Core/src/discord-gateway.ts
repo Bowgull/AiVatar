@@ -25,6 +25,7 @@ export class WsCoreLink implements CoreLink {
     ws.on('message', d => {
       let m: any; try { m = JSON.parse(String(d)); } catch { return; }
       if (m?.t === 'video.card') { const w = this.videoWait.get(String(m.id)); if (w) { this.videoWait.delete(String(m.id)); w(m); } return; }
+      if (m?.t === 'mac.brief') { const w = this.macWait.get(String(m.id)); if (w) { this.macWait.delete(String(m.id)); w(m); } return; }
       if (m?.t === 'home.data') { const w = this.homeWait.get(String(m.id)); if (w) { this.homeWait.delete(String(m.id)); w(m); } return; }
       if (m?.t === 'card.png') { const w = this.cardWait.get(String(m.id)); if (w) { this.cardWait.delete(String(m.id)); w(m.ok && typeof m.png === 'string' ? Buffer.from(m.png, 'base64') : null); } return; }
       for (const cb of this.cbs) cb(m);
@@ -89,6 +90,18 @@ export class WsCoreLink implements CoreLink {
       this.send({ t: 'home.data', id });
     });
   }
+  /** M4: what the Mac needs to answer as Aang while this PC is off; null if the brain does not answer. */
+  private macWait = new Map<string, (d: any) => void>(); private macSeq = 0;
+  macBrief(): Promise<{ prompt: string; facts: string[]; recent: { who: 'you' | 'Aang'; text: string }[] } | null> {
+    if (this.ws?.readyState !== WebSocket.OPEN) return Promise.resolve(null);
+    const id = 'mac' + ++this.macSeq;
+    return new Promise(res => {
+      const t = setTimeout(() => { this.macWait.delete(id); res(null); }, 15_000);
+      this.macWait.set(id, d => { clearTimeout(t); res(typeof d.prompt === 'string' ? { prompt: d.prompt, facts: d.facts ?? [], recent: d.recent ?? [] } : null); });
+      this.send({ t: 'mac.brief', id });
+    });
+  }
+  macHandled(items: import('./macbrain.ts').Handled[]) { this.send({ t: 'mac.handled', items }); }
   onEvent(cb: (m: any) => void) { this.cbs.push(cb); }
   close() { this.closed = true; this.ws?.close(); }
 }

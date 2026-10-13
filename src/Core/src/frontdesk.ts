@@ -5,6 +5,9 @@
 //   Shadow off: his messages wait here, in order, in a file. A button press is answered at once ("Shadow is
 //               asleep") so Discord never shows "this interaction failed". When Shadow connects, it gets the queue
 //               once, says how many it took, and only those are removed.
+//   M4: a message Shadow has not taken after HOLD_MS goes to the Mac's own brain (macbrain.ts), which answers it
+//               or leaves it in the queue for Shadow. It leaves the queue while the Mac works on it, so Shadow can
+//               never get it as well. What the Mac did is handed to Shadow when it connects, once.
 //
 // That replaces the old catch-up (Shadow reading Discord's history back on every start), which is where messages
 // got answered twice. Only the Shadow PC's exact Tailscale address, with the front-desk key, may connect.
@@ -16,15 +19,26 @@ import os from 'node:os';
 import path from 'node:path';
 import { WebSocketServer, type WebSocket } from 'ws';
 import type { ButtonPress, Gateway, Incoming, OutMsg } from './discord.ts';
+import type { Handled } from './macbrain.ts';
+
+/** The Mac's brain, as the front desk sees it (macbrain.ts). */
+export interface DeskBrain {
+  handle(m: Incoming): Promise<'done' | 'keep' | 'skip'>;
+  setBrief(x: unknown): boolean;
+  pending(): Handled[];
+  took(n: number): void;
+  shadowBack(): void;
+}
 
 /** What crosses the wire. Files and downloads travel as base64. */
 export type ToShadow =
   | { ev: 'hello'; queued: number }
   | { ev: 'message'; m: Incoming; queued?: boolean }
   | { ev: 'button'; b: Omit<ButtonPress, 'ack' | 'keep'> & { pressId: string } }
+  | { ev: 'handled'; items: Handled[] }
   | { id: number; ok: true; value: unknown }
   | { id: number; ok: false; error: string };
-export type FromShadow = { id: number; op: string; args: unknown[] } | { op: 'taken'; n: number };
+export type FromShadow = { id: number; op: string; args: unknown[] } | { op: 'taken'; n: number } | { op: 'handled.took'; n: number };
 
 const MAX_QUEUE = 500;
 const PRESS_WAIT_MS = 2000;      // Discord allows 3 s to answer a press; say "wait" before that if Shadow is slow
@@ -32,6 +46,10 @@ const PRESS_WAIT_MS = 2000;      // Discord allows 3 s to answer a press; say "w
 export interface FrontDeskOpts {
   gw: Gateway; host: string; port: number; key: string; shadow: string; queueFile: string;
   log?: (s: string) => void;
+  /** M4: answers while Shadow is off. Without it, messages only wait. */
+  brain?: DeskBrain;
+  /** how long a message waits for Shadow before the brain takes it (macbrain.ts HOLD_MS) */
+  holdMs?: number;
 }
 
 /** Same length and same bytes, compared without an early exit. */
@@ -50,6 +68,7 @@ export async function startFrontDesk(o: FrontDeskOpts): Promise<{ close: () => P
   try { const q = JSON.parse(readFileSync(o.queueFile, 'utf8')); if (Array.isArray(q)) queue = q; } catch { /* none waiting */ }
   const saveQueue = () => { try { writeFileSync(o.queueFile + '.tmp', JSON.stringify(queue)); renameSync(o.queueFile + '.tmp', o.queueFile); } catch (e) { log('front desk: could not save the queue: ' + (e as Error).message); } };
   const presses = new Map<string, ButtonPress & { done: boolean }>();
+  const timers: NodeJS.Timeout[] = [];
   let pressSeq = 0;
   let shadow: WebSocket | null = null;
   const send = (x: ToShadow) => { if (shadow && shadow.readyState === shadow.OPEN) { shadow.send(JSON.stringify(x)); return true; } return false; };
@@ -62,7 +81,37 @@ export async function startFrontDesk(o: FrontDeskOpts): Promise<{ close: () => P
     if (queue.length > MAX_QUEUE) queue = queue.slice(-MAX_QUEUE);
     saveQueue();
     log(`front desk: Shadow is off; kept a message (${queue.length} waiting)`);
+    if (o.brain) setTimeout(() => void tick(), holdMs + 200).unref?.();
   });
+
+  // ---- M4: the Mac answers what Shadow has not taken
+  const holdMs = o.holdMs ?? 45_000;
+  const kept = new Set<string>();              // the brain looked and left it for Shadow
+  let working = false;
+  async function tick(): Promise<void> {
+    if (working || shadow || !o.brain) return;
+    working = true;
+    try {
+      for (;;) {
+        if (shadow) break;
+        const m = queue.find(x => !kept.has(x.id) && Date.now() - (x.createdAt || 0) >= holdMs);
+        if (!m) break;
+        queue = queue.filter(x => x !== m); saveQueue();
+        let r: 'done' | 'keep' | 'skip' = 'keep';
+        try { r = await o.brain.handle(m); } catch (e) { log('front desk: the Mac could not handle a message: ' + (e as Error).message); }
+        if (r === 'keep') { kept.add(m.id); queue = [...queue, m].sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0)); saveQueue(); }
+        else log(`front desk: the Mac ${r === 'done' ? 'answered' : 'skipped'} a message while Shadow was off`);
+        flushHandled();
+      }
+    } finally { working = false; }
+  }
+  if (o.brain) { const t = setInterval(() => void tick(), 5000); t.unref?.(); timers.push(t); }
+  let handingHandled = false;           // sent, waiting for Shadow to say it applied them
+  function flushHandled(): void {
+    if (!o.brain || handingHandled) return;
+    const items = o.brain.pending();
+    if (items.length && send({ ev: 'handled', items })) handingHandled = true;
+  }
 
   o.gw.onButton(b => {
     if (!shadow) {
@@ -99,10 +148,14 @@ export async function startFrontDesk(o: FrontDeskOpts): Promise<{ close: () => P
     const handing = queue.slice();
     send({ ev: 'hello', queued: handing.length });
     for (const m of handing) send({ ev: 'message', m, queued: true });
+    kept.clear();
+    o.brain?.shadowBack();
+    handingHandled = false; flushHandled();
     ws.on('message', async raw => {
       let x: FromShadow;
       try { x = JSON.parse(String(raw)); } catch { return; }
       if (!('id' in x)) {
+        if (x.op === 'handled.took') { o.brain?.took(Number(x.n) || 0); handingHandled = false; flushHandled(); return; }
         if (x.op !== 'taken') return;
         // Only what Shadow says it took leaves the queue; anything that arrived meanwhile stays.
         const n = Math.max(0, Math.min(queue.length, Number(x.n) || 0));
@@ -137,6 +190,8 @@ export async function startFrontDesk(o: FrontDeskOpts): Promise<{ close: () => P
       case 'typing': return o.gw.typing(s(0));
       case 'fetchSince': return o.gw.fetchSince(s(0), a[1] === null ? null : s(1), Math.max(1, Math.min(100, Number(a[2]) || 1)));
       case 'permissions': return o.gw.permissions();
+      // M4: what the Mac needs to answer as Aang while Shadow is off. False when the Mac has no brain.
+      case 'brief': return o.brain ? o.brain.setBrief(a[0]) : false;
       case 'press.ack': case 'press.keep': {
         const p = presses.get(s(0));
         if (!p) throw new Error('that button press is too old');
@@ -149,7 +204,7 @@ export async function startFrontDesk(o: FrontDeskOpts): Promise<{ close: () => P
 
   return {
     queued: () => queue.length,
-    close: () => new Promise<void>(res => { for (const c of wss.clients) c.terminate(); wss.close(() => res()); }),
+    close: () => new Promise<void>(res => { for (const t of timers) clearInterval(t); for (const c of wss.clients) c.terminate(); wss.close(() => res()); }),
   };
 }
 
@@ -172,7 +227,14 @@ async function main(dir: string): Promise<void> {
   const gw = new DiscordGateway(read('discord.token'));
   await gw.login();
   console.log('front desk: connected to Discord');
-  await startFrontDesk({ gw, host, port: cfg.port, key: read('frontdesk.key'), shadow: cfg.shadow, queueFile: path.join(dir, 'queue.json') });
+  // M4: the Mac's own brain, if its engine is installed. Without it the front desk still holds messages for Shadow.
+  let brain: DeskBrain | undefined;
+  try {
+    const { MacBrain, HOLD_MS } = await import('./macbrain.ts');
+    brain = new MacBrain({ gw, dir: path.join(dir, 'brain') });
+    console.log(`front desk: the Mac answers after ${HOLD_MS / 1000} s when Shadow is off`);
+  } catch (e) { console.error('front desk: the Mac cannot answer by itself: ' + (e as Error).message); }
+  await startFrontDesk({ gw, host, port: cfg.port, key: read('frontdesk.key'), shadow: cfg.shadow, queueFile: path.join(dir, 'queue.json'), ...(brain ? { brain } : {}) });
   console.log(`front desk: listening for Shadow on ${host}:${cfg.port}`);
 }
 

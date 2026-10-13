@@ -100,6 +100,24 @@ export class Grocery {
 export interface Recipe { title: string; body: string; ingredients: string[] }
 
 /** A pasted recipe is one that says so, or one that has an ingredients list. Everything else is a normal message. */
+/** Do a list command and say what happened, in the words he sees. The PC and the Mac (M4) answer the same way. */
+export function applyListCommand(g: Grocery, cmd: ListCommand): string {
+  if (cmd.op === 'add') {
+    const r = g.add(cmd.items);
+    const parts: string[] = [];
+    if (r.added.length) parts.push(`Added ${r.added.join(', ')}`);
+    if (r.had.length) parts.push(`${r.had.join(', ')} ${r.had.length > 1 ? 'were' : 'was'} already on it`);
+    if (r.full.length) parts.push(`no room for ${r.full.join(', ')} (the list holds 24)`);
+    return parts.join('. ') + '.';
+  }
+  if (cmd.op === 'remove') {
+    const gone = g.remove(cmd.items);
+    return gone.length ? `Took ${gone.join(', ')} off the grocery list.` : 'Nothing on the grocery list matched that.';
+  }
+  if (cmd.op === 'clear') return `Cleared the grocery list (${g.clearAll()} items).`;
+  return 'Here it is.';
+}
+
 export function looksLikeRecipe(text: string): boolean {
   const t = text.trim();
   return /^recipe\b\s*:?/i.test(t) || (t.length > 80 && /^\W*ingredients\b/im.test(t));
