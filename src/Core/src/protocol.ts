@@ -172,6 +172,8 @@ export type ToBody =
       reminder?: string;
       /** The morning brief as a card (6.15): the cockpit draws this instead of the text. */
       brief?: BriefCard;
+      /** E7: links that go with it as buttons in Discord (Join, Open in Waze); at the desk they show as chips. */
+      links?: { label: string; url: string }[];
       /** The weekly sweep as a card (6.15b), with where its note was written. */
       research?: import('./watch.ts').ResearchCard & { file?: string };
       /** Something he asked to be told about: shown even in quiet mode. */
@@ -305,6 +307,8 @@ export type ToBody =
    *  senders are companies he is tracking, new job matches overnight, and his Claude week. */
   | { t: 'brief.card'; card: BriefCard }
   /** Sheet 21: a drawn card that goes with his question in Discord (his email, his week). Discord only. */
+  /** E7: link buttons that go with his answer in Discord (Open in Waze, Join). */
+  | { t: 'links.show'; id: string; links: { label: string; url: string }[] }
   | { t: 'card.show'; id: string; kind: 'inbox' | 'week' | 'email'; data: Record<string, unknown>;
       /** E3: the email the card is about, the buttons that apply to it, and a call's own link for Join. */
       email?: string; acts?: string[]; join?: string }

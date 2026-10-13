@@ -68,6 +68,8 @@ export const TOOL_LABELS: Record<string, string> = {
   calendar_book: 'checking your calendar',
   calendar_undo: 'putting that back',
   mail_filter: 'setting up that rule',
+  drive_time: 'checking the drive',
+  set_home: 'looking up that address',
   calendar_today: 'looking at your calendar',
   mail_draft: 'drafting that email',
   write_file: 'writing that file',
@@ -110,7 +112,7 @@ export const TOOL_NAMES = ['mcp__aang__get_time', 'mcp__aang__get_weather', 'mcp
   'mcp__aang__what_did_you_do', 'mcp__aang__undo_last', 'mcp__aang__my_permissions', 'mcp__aang__revoke_permission',
   'mcp__aang__list_folder', 'mcp__aang__move_file', 'mcp__aang__copy_file', 'mcp__aang__make_folder', 'mcp__aang__delete_file', 'mcp__aang__copy_to_clipboard',
   'mcp__aang__list_controls', 'mcp__aang__press_control', 'mcp__aang__fill_control',
-  'mcp__aang__mail_inbox', 'mcp__aang__mail_read', 'mcp__aang__mail_attachment', 'mcp__aang__email_card', 'mcp__aang__calendar_book', 'mcp__aang__calendar_undo', 'mcp__aang__mail_filter', 'mcp__aang__calendar_today', 'mcp__aang__mail_draft', 'mcp__aang__play_music', 'mcp__aang__watch_next', 'mcp__aang__watch', 'mcp__aang__set_dub',
+  'mcp__aang__mail_inbox', 'mcp__aang__mail_read', 'mcp__aang__mail_attachment', 'mcp__aang__email_card', 'mcp__aang__calendar_book', 'mcp__aang__calendar_undo', 'mcp__aang__mail_filter', 'mcp__aang__drive_time', 'mcp__aang__set_home', 'mcp__aang__calendar_today', 'mcp__aang__mail_draft', 'mcp__aang__play_music', 'mcp__aang__watch_next', 'mcp__aang__watch', 'mcp__aang__set_dub',
   'mcp__aang__do_task', 'mcp__aang__tell_task', 'mcp__aang__task_status', 'mcp__aang__stop_task', 'mcp__aang__present_list', 'mcp__aang__show_plan',
   'mcp__aang__browse', 'mcp__aang__ask_choice', 'mcp__aang__browser_history', 'mcp__aang__watch_video',
   'mcp__aang__follow_creator', 'mcp__aang__unfollow_creator', 'mcp__aang__apex_map'];
@@ -213,6 +215,9 @@ export interface Doers {
   /** E5: book a meeting from an email, or answer its invite, after his yes; then read it back. And undo the last one. */
   calendarBook?(input: { id: string; answer: 'accept' | 'decline' | 'maybe' | 'add'; words?: string; pick?: 'am' | 'pm'; title?: string; minutes?: number }): Promise<{ ok: boolean; detail: string }>;
   calendarUndo?(): Promise<{ ok: boolean; detail: string }>;
+  /** E7: drive time with traffic (TomTom) and a Waze link; his home address, set once and confirmed. */
+  driveTime?(input: { emailId?: string; to?: string; from?: string; arriveBy?: boolean }): Promise<{ ok: boolean; detail: string }>;
+  setHome?(address: string): Promise<{ ok: boolean; detail: string }>;
   /** E6: a Gmail filter after his yes (shown in plain words), or undo the last one. */
   mailFilter?(input: { from?: string; to?: string; subject?: string; words?: string; hasAttachment?: boolean; actions: ('archive' | 'read' | 'star' | 'important' | 'trash' | 'label')[]; label?: string; undo?: boolean }): Promise<{ ok: boolean; detail: string }>;
   /** E3: lay one email out as a card (code's facts, the model's summary and the sender's asks), with its buttons. */
@@ -757,6 +762,12 @@ export function makeTools(
       tool('calendar_book', 'Book a meeting from an email he went through, or answer its invite: accept, decline, maybe, or add (put it in his calendar without answering anyone). The TIME COMES FROM CODE: with an invite, leave words out and the invite is used. Without one, give `words`: one of the dates code read in that email, by its exact words (mail_read lists them). Give `pick` am or pm ONLY if he said it. Never give a time yourself. He is shown everything and says yes before anything changes; after that it is read back from Google.',
         { id: z.string().describe('the email id'), answer: z.enum(['accept', 'decline', 'maybe', 'add']), words: z.string().optional().describe('the date exactly as code read it, when there is no invite'), pick: z.enum(['am', 'pm']).optional().describe('only if HE said am or pm'), title: z.string().optional().describe('a title for a meeting with no invite'), minutes: z.number().optional().describe('length, default 60, for a meeting with no invite') },
         async (a) => { if (!doers?.calendarBook) return fail('Not available right now.'); const r = await doers.calendarBook(a); return r.ok ? ok(r.detail) : fail(r.detail); }),
+      tool('drive_time', 'How long the drive is, with traffic, and a Waze link. To an email\'s place: give emailId and leave `to` out (the place code read in that email is used; with an invite, arriveBy=true gives the leave-by time for its start). Or `to`: an address he gave. From his home unless he says `from`. Never type an address yourself from memory.',
+        { emailId: z.string().optional(), to: z.string().optional(), from: z.string().optional().describe('only if he said where he leaves from'), arriveBy: z.boolean().optional().describe('true: when to leave to arrive by the invite\'s start') },
+        async (a) => { if (!doers?.driveTime) return fail('Not available right now.'); const r = await doers.driveTime(a); return r.ok ? ok(r.detail) : fail(r.detail); }),
+      tool('set_home', 'Set his home address, the start for drive times and leave-by reminders, ONLY when he gives it. It is looked up and what was found is shown to him to confirm before it is kept.',
+        { address: z.string() },
+        async ({ address }) => { if (!doers?.setHome) return fail('Not available right now.'); const r = await doers.setHome(address); return r.ok ? ok(r.detail) : fail(r.detail); }),
       tool('mail_filter', 'Make a Gmail filter he asked for: a standing rule for NEW email (archive, mark read, star, mark important, Trash, or a label). He is shown exactly what it will do, in plain words, and says yes first. It can never forward mail. undo=true removes the last filter made here.',
         { from: z.string().optional(), to: z.string().optional(), subject: z.string().optional(), words: z.string().optional().describe('words in the email'), hasAttachment: z.boolean().optional(),
           actions: z.array(z.enum(['archive', 'read', 'star', 'important', 'trash', 'label'])), label: z.string().optional().describe('the label name, for "label"'), undo: z.boolean().optional() },
