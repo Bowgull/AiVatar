@@ -41,6 +41,8 @@ export class BrowserSyncHub {
     this.log('browser sync: the Mac\'s browser connected');
     ws.on('message', raw => {
       let m: any; try { m = JSON.parse(String(raw)); } catch { return; }
+      // "Send to PC" from the Mac's browser: it plays in this PC's pop-out. Web addresses only.
+      if (m?.t === 'watch.topc') { const u = String(m.url ?? ''); if (/^https?:\/\//.test(u) && u.length < 4000 && this.o.shellUp()) this.o.toShell({ t: 'popout.open', url: u }); return; }
       if (m?.t === 'diag.reply') { const w = this.looks.get(String(m.id)); if (w) { this.looks.delete(String(m.id)); w(m); } return; }
       if (m && typeof m.t === 'string' && m.t.startsWith('bsync.') && this.o.shellUp()) this.o.toShell(m);
     });
@@ -61,6 +63,8 @@ export class BrowserSyncHub {
     if (up) this.hello(); else this.toMac({ t: 'bsync.down' });
   }
   get macConnected(): boolean { return !!this.mac; }
+  /** "Send to Mac": into the Mac browser's pop-out, if it is running. False: it is not. */
+  sendToMac(url: string): boolean { if (!this.mac || this.mac.readyState !== this.mac.OPEN) return false; this.toMac({ t: 'watch.open', url }); return true; }
 
   /** His yes (2026-10-13): a picture of the Mac browser's own window and its log, for Claude to check a fix. */
   private looks = new Map<string, (m: any) => void>(); private lookSeq = 0;

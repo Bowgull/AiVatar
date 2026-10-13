@@ -114,6 +114,7 @@ el('play').addEventListener('click', () => player.playPause());
 el('mute').addEventListener('click', () => player.toggleMute());
 el('full').addEventListener('click', () => window.aang.popoutFullscreen());
 el('mac').addEventListener('click', () => window.aang.popoutToMac());
+if (window.aang?.platform === 'darwin') el('mac').title = 'Send this to your PC. It stops playing here.';
 el('pin').addEventListener('click', () => window.aang.popoutPin());
 // Pinned: clicks go through to the game and the controls stay away. The bar says so for two seconds.
 let pinned = false, pinSay = null;

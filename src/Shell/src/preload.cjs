@@ -13,6 +13,8 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('aang', {
+  /** M6: which machine this window is on ('darwin' on the Mac), so "Send to" names the other one. */
+  platform: process.platform,
   /** Hear messages from the brain. Returns a function that stops listening. */
   onMessage(fn) {
     const h = (_e, m) => fn(m);
@@ -159,6 +161,9 @@ contextBridge.exposeInMainWorld('aang', {
   // --- the browser frame (6.19, 6.20). Named doors only; the tabs themselves get no preload at all.
   browserInsets: r => ipcRenderer.send('browser:insets', r),
   browserAct: a => ipcRenderer.send('browser:act', a),
+  /** The tab list in its own layer above the live page (2026-10-13): open (with where it goes) or close. */
+  browserTray: a => ipcRenderer.send('browser:tray', a),
+  onBrowserTray(fn) { const h = (_e, s) => fn(s); ipcRenderer.on('browser:tray', h); return () => ipcRenderer.removeListener('browser:tray', h); },
   browserGo: text => ipcRenderer.send('browser:go', text),
   browserTab: a => ipcRenderer.send('browser:tab', a),
   onBrowserTabs(fn) { const h = (_e, s) => fn(s); ipcRenderer.on('browser:tabs', h); return () => ipcRenderer.removeListener('browser:tabs', h); },

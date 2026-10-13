@@ -224,7 +224,13 @@ body.maxed .wk .g-rest{display:inline}
 .hnd button:hover{filter:brightness(1.18)}
 .hnd button:active{transform:translateX(1px)}
 .hnd .n{position:absolute;left:0;right:2px;bottom:24px;text-align:center;font:400 10px var(--label);color:var(--gold-lit)}
-body.drawer-open .hnd button{filter:brightness(1.25)}
+body.drawer-open .hnd button,body.tray-open .hnd button{filter:brightness(1.25)}
+/* The tray layer (?tray): only the list, on a see-through page, laid over the live page by the Shell. */
+html.solo,html.solo body{background:transparent !important}
+html.solo .bw{background:none;border:0;box-shadow:none;border-radius:0;height:100%}
+html.solo .band,html.solo .loading,html.solo .well{display:none !important}
+html.solo .body3{display:block;height:100%;position:relative}
+html.solo .drawer{top:0;bottom:0;left:0;transform:none;visibility:visible;transition:none}
 /* The drawer: the tray's own wood (the band's grain one shade darker, planks running down), brass-nailed
    frame, one faint lamp in its top corner. It lies OVER the page; the page shows as a still picture under it. */
 .drawer{position:absolute;left:0;top:0;bottom:0;width:300px;box-sizing:border-box;padding:14px 14px 14px 12px;z-index:30;
