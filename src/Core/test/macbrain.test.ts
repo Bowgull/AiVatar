@@ -165,3 +165,19 @@ test('M5: forgetting from the Mac stops it being used at once, and tells the PC;
   assert.match(b.pastTalk('ramen place'), /2026-10-10 you: we should try the ramen/);
   assert.match(b.pastTalk('sushi'), /Nothing/);
 });
+
+test('M4 speed: when the heartbeat says the PC is off, the Mac answers at once instead of waiting 45 s', async () => {
+  const gw = { msg: null as ((m: Incoming) => void) | null, onMessage(cb: (m: Incoming) => void) { this.msg = cb; }, onButton() {}, async send() { return 'x'; } } as any;
+  const seen: number[] = [];
+  let warmed = 0;
+  const fakeBrain = { async handle() { seen.push(Date.now()); return 'done' as const; }, setBrief: () => true, pending: () => [], took: () => {}, shadowBack: () => {}, prewarm: () => { warmed++; } };
+  const desk = await startFrontDesk({ gw, host: '127.0.0.1', port: 48680, key: KEY, shadow: '127.0.0.1', queueFile: path.join(tmp(), 'q.json'), log: () => {}, brain: fakeBrain, holdMs: 45_000, shadowOff: () => true });
+  try {
+    const at = Date.now();
+    gw.msg({ id: '1', channelId: '20100', channelName: '', authorId: OWNER, isBot: false, content: 'hey', createdAt: at });
+    await wait(2600);
+    assert.equal(seen.length, 1, 'answered');
+    assert.ok(seen[0]! - at < 1500, `in ${seen[0]! - at} ms, not 45 s`);
+    assert.ok(warmed >= 1, 'Claude was started as soon as the PC was known to be off');
+  } finally { await desk.close(); }
+});
