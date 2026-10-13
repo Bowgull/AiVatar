@@ -109,6 +109,8 @@ function trailNameFor(url: string): string {
 }
 
 const isWeb = (u: string) => /^https?:\/\//i.test(u);
+/** The right-click item that sends a page to the other machine's browser. */
+const OTHER_OPEN = process.platform === 'darwin' ? 'Open on PC' : 'Open on Mac';
 /** How a look-alike is named on the red plate's list chips. */
 const LOOKS_LIKE = 'LOOKS LIKE ';
 /** Where a new tab opens until he sets his own in Settings (2026-10-12: not Google). */
@@ -1421,7 +1423,7 @@ export class AangBrowser {
     type Item = { id: string; label: string; key?: string; off?: boolean } | { sep: true };
     const items: Item[] = [];
     const sep = () => { if (items.length && !('sep' in items[items.length - 1]!)) items.push({ sep: true }); };
-    if (p.linkURL && isWeb(p.linkURL)) { items.push({ id: 'linktab', label: 'Open link in new tab' }, { id: 'linkcopy', label: 'Copy link' }); sep(); }
+    if (p.linkURL && isWeb(p.linkURL)) { items.push({ id: 'linktab', label: 'Open link in new tab' }, ...(this.onOpenOther ? [{ id: 'linkother', label: `${OTHER_OPEN.replace('Open', 'Open link')}` }] : []), { id: 'linkcopy', label: 'Copy link' }); sep(); }
     if (p.mediaType === 'image' && p.srcURL && /^(https?:|data:image\/)/.test(p.srcURL)) { items.push({ id: 'imgsave', label: 'Save image' }, { id: 'imgcopy', label: 'Copy image' }); sep(); }
     const words = p.selectionText.replace(/\s+/g, ' ').trim();
     // A misspelled word: Chrome's suggestions first, then teach it the word.
@@ -1442,6 +1444,8 @@ export class AangBrowser {
       sep();
     }
     items.push({ id: 'back', label: 'Back', key: 'ALT ←', off: !wc.navigationHistory.canGoBack() }, { id: 'reload', label: 'Reload', key: 'CTRL R' });
+    // His ask (2026-10-13): this page (or the link) as a full tab in Aang's browser on the other machine.
+    if (this.onOpenOther && isWeb(tab.url)) { sep(); items.push({ id: 'openother', label: OTHER_OPEN }); }
     this.menuFor = { tab: tab.id, p };
     this.menuItems = items;
     const m = this.ensureMenu();
@@ -1489,6 +1493,8 @@ export class AangBrowser {
     switch (id) {
       case 'linktab': if (isWeb(p.linkURL)) this.newTab(p.linkURL, t.id, false); break;
       case 'linkcopy': if (isWeb(p.linkURL)) clipboard.writeText(p.linkURL); break;
+      case 'linkother': if (isWeb(p.linkURL)) this.onOpenOther?.(p.linkURL); break;
+      case 'openother': if (isWeb(t.url)) { this.onOpenOther?.(t.url); this.pauseMedia(t.id); } break;
       case 'imgsave': if (p.srcURL) wc.downloadURL(p.srcURL); break;
       case 'imgcopy': wc.copyImageAt(p.x, p.y); break;
       case 'cut': wc.cut(); break;
@@ -1639,6 +1645,19 @@ export class AangBrowser {
     } finally { this.iconsBusy = false; }
   }
   // ------------------------------------------------------------------ M6 one browser on both machines (bsync.ts)
+  /** Set by main: "Open on Mac" / "Open on PC", a full tab in the other machine's browser. */
+  onOpenOther: ((url: string) => void) | null = null;
+  /** A page sent here from the other machine: a new tab, and the window comes to the front. */
+  openForward(url: string): void {
+    if (!isWeb(url)) return;
+    this.open(url);
+    const w = this.win;
+    if (!w || w.isDestroyed()) return;
+    // Windows only lets a window jump in front of the one he is using with a nudge: on top for a moment, then not.
+    if (w.isMinimized()) w.restore();
+    w.setAlwaysOnTop(true); w.show(); w.focus();
+    setTimeout(() => { if (!w.isDestroyed()) w.setAlwaysOnTop(false); }, 400);
+  }
   /** Set by main: open a paid service in the paid-video window. True if it opened. */
   onPaid: ((url: string) => boolean) | null = null;
   /**

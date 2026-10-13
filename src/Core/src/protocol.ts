@@ -356,6 +356,7 @@ export type FromBody =
   /** The pop-out's "send to the MacBook" keycap (step 6.9). The Mac opens it in its own browser, which
    *  is the fallback for paid video that will not play on Shadow at all. */
   | { t: 'watch.tomac'; url: string }
+  | { t: 'open.onmac'; url: string }
   | { t: 'summon' } | { t: 'dismiss' } | { t: 'refocus' }
   /** The pet was clicked and the new front end is on, so the Shell opens its typing box. */
   | { t: 'typebox' }

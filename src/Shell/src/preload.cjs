@@ -179,6 +179,7 @@ contextBridge.exposeInMainWorld('aang', {
   /** Send a video tab to the pop-out over WoW. */
   browserPopout: id => ipcRenderer.send('browser:popout', id),
   browserToMac: id => ipcRenderer.send('browser:tomac', id),
+  browserOpenOther: id => ipcRenderer.send('browser:openother', id),
   browserHome: text => ipcRenderer.send('browser:home', text),
   browserSuggest: text => ipcRenderer.invoke('browser:suggest', text),
   onBrowserHover(fn) { const h = (_e, u) => fn(u); ipcRenderer.on('browser:hover', h); return () => ipcRenderer.removeListener('browser:hover', h); },
