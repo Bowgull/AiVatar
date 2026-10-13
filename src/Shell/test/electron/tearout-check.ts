@@ -85,6 +85,23 @@ app.whenReady().then(async () => {
   check('the empty window closed, the browser goes on', any.panes.length === 1 && b.showing && any.tabs.length === 2);
   check('still the same page', (await bee.view.webContents.executeJavaScript('window.born')) === born);
 
+  // The right-click "Move to a new window": the same, a little down and right
+  b.newTab(base + '/');
+  await wait(1500);
+  b.tabAct(beeId, 'newwindow');
+  await wait(2500);
+  const C = any.panes.find((p: any) => p !== A);
+  check('Move to a new window: it gets a window of its own', any.panes.length === 2 && bee.pane === C?.id && C?.active === beeId);
+  check('still the same page after the menu move', (await bee.view.webContents.executeJavaScript('window.born')) === born);
+  C.win.setPosition(-12000, 100);
+  const a3 = A.win.getBounds();
+  pointer = { x: a3.x + 300, y: a3.y + 300 };
+  b.tearOut(beeId);
+  await wait(1500);
+  check('and back again by dragging', any.panes.length === 1 && bee.pane === A.id);
+  for (const t of any.tabs.filter((x: any) => x.id !== beeId && x.id !== left.id)) b.close(t.id);
+  await wait(500);
+
   // (4) the only tab in its window: the window moves
   b.close(left.id);
   await wait(500);
