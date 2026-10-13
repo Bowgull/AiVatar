@@ -864,3 +864,14 @@ test('9.D D3: a card Aang draws goes out as a picture inside the card, with the 
   assert.match(need.content!, /^Need input on the job hunt/, 'the words stay, for the notification');
   assert.equal(need.silent, false, 'needs-you buzzes');
 });
+
+test('9.D D4: job cards and their news come from Job Hunt, and Aang may make his speakers (Manage Webhooks is needed, not forbidden)', async () => {
+  const { a, gw, shortlistFile } = await makeJobs();
+  writeFileSync(shortlistFile, JSON.stringify([{ title: 'CSM', company: 'A', url: 'https://jobs.example.com/1' }]));
+  await a.scanShortlist();
+  assert.ok(gw.sent.filter(x => x.msg.buttons?.some(b => b.id.startsWith('job:'))).every(x => x.msg.as === 'jobhunt'));
+  const { NEEDED, FORBIDDEN } = await import('../src/discord-logic.ts');
+  assert.ok((NEEDED as readonly string[]).includes('ManageWebhooks'));
+  assert.ok(!(FORBIDDEN as readonly string[]).includes('ManageWebhooks'));
+  assert.ok((FORBIDDEN as readonly string[]).includes('Administrator'), 'the rest of the forbidden list stands');
+});
