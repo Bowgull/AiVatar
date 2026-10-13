@@ -5,7 +5,7 @@ import { Timers, parseTimerCommand, sayDuration, MAX_MS } from './timers.ts';
 import { Notes, parseNoteCommand, linesHtml } from './notes.ts';
 import { WebSocketServer } from 'ws';
 import type { WebSocket } from 'ws';
-import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync, unlinkSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { parseFromBody } from './protocol.ts';
@@ -1801,6 +1801,18 @@ export class Core {
     () => ({ up: true, atDesk: this.atDesk && this.clientsOf('desktop').length > 0 }));
     // M6: the Mac's browser syncs with this PC's through here (bsynchub.ts).
     this.hookServer.upgrade = (req, socket, head) => this.bsync.upgrade(req, socket, head);
+    // His yes (2026-10-13): Claude may look at the Mac browser's window. Saved in the Aang folder, on this PC only.
+    this.hookServer.look = async () => {
+      const r = await this.bsync.look();
+      if (!r) return null;
+      const dir = path.join(this.cfg.dataDir, 'mac-look'); mkdirSync(dir, { recursive: true });
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const out: Record<string, unknown> = { size: r.size, versions: r.versions };
+      if (typeof r.frame === 'string') { const f = path.join(dir, `${stamp}-window.png`); writeFileSync(f, Buffer.from(r.frame, 'base64')); out.window = f; }
+      if (typeof r.page === 'string' && r.page.startsWith('data:image/jpeg;base64,')) { const f = path.join(dir, `${stamp}-page.jpg`); writeFileSync(f, Buffer.from(r.page.slice(23), 'base64')); out.page = f; }
+      const lf = path.join(dir, `${stamp}-log.txt`); writeFileSync(lf, String(r.log ?? '')); out.log = lf;
+      return out;
+    };
     try {
       await this.hookServer.start();
       if (this.hookServer.tailnet) console.log(`hooks: also listening on Tailscale ${this.hookServer.tailnet}:${this.cfg.port + 1}`);
