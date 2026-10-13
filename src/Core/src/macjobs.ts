@@ -15,8 +15,9 @@ import { writeFileAtomic } from './atomic.ts';
 import { MODELS } from './route.ts';
 import type { Gateway } from './discord.ts';
 
-interface Job { session: string; cwd: string; thread: string; title: string; at: number }
-type Gw = Pick<Gateway, 'send' | 'createPost' | 'setPostTags'>;
+interface Job { session: string; cwd: string; thread: string; title: string; at: number; card?: string; state?: 'working' | 'waiting' | 'done' }
+type Gw = Pick<Gateway, 'send' | 'edit' | 'createPost' | 'setPostTags'>;
+type Draw = (kind: string, data: unknown) => Promise<Buffer | null>;
 
 export const slugOf = (task: string) => task.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'job';
 
@@ -24,8 +25,8 @@ export class MacJobs {
   private jobs: Job[] = [];
   private readonly file: string;
   private running = 0;
-  private readonly o: { gw: Gw; dir: string; forum: () => string | undefined; log: (s: string) => void; run?: typeof query; meter?: (m: unknown) => void };
-  constructor(o: { gw: Gw; dir: string; forum: () => string | undefined; log: (s: string) => void; run?: typeof query; meter?: (m: unknown) => void }) {
+  private readonly o: { gw: Gw; dir: string; forum: () => string | undefined; log: (s: string) => void; run?: typeof query; meter?: (m: unknown) => void; draw?: Draw };
+  constructor(o: { gw: Gw; dir: string; forum: () => string | undefined; log: (s: string) => void; run?: typeof query; meter?: (m: unknown) => void; draw?: Draw }) {
     this.o = o;
     this.file = path.join(o.dir, 'jobs.json');
     try { if (existsSync(this.file)) { const a = JSON.parse(readFileSync(this.file, 'utf8')); if (Array.isArray(a)) this.jobs = a; } } catch { /* none */ }
@@ -46,6 +47,23 @@ export class MacJobs {
     this.jobs.push(job); this.save();
     return job;
   }
+  /**
+   * Sheet 21 board 3 (his pick): ONE card per job that changes in place, Working, Needs you, Done, the same card the
+   * PC draws (the Mac's Aang browser draws it). Without a picture, the words alone, still edited in place.
+   */
+  private async show(job: Job, state: 'working' | 'waiting' | 'done', sub: string): Promise<void> {
+    job.state = state;
+    const first = sub.replace(/\s+/g, ' ').trim().slice(0, 160);
+    const words = state === 'done' ? `Done: ${first}` : state === 'waiting' ? `Needs you: ${first}` : first || 'Working on it.';
+    const png = await this.o.draw?.('job', { plaque: state === 'waiting' ? 'NEEDS YOU' : 'CLAUDE JOB', headline: state === 'done' ? `${job.title}. Done.` : job.title, sub: first, done: state === 'done' }).catch(() => null) ?? null;
+    const color = state === 'done' ? 0x78E696 : state === 'waiting' ? 0xFF8040 : 0x966EC8;
+    const msg = (png ? { content: words, silent: true, embed: { color, image: 'attachment://card.png' }, files: [{ name: 'card.png', data: png }] } : { content: words, silent: true }) as never;
+    let edited = false;
+    if (job.card) { try { await this.o.gw.edit(job.thread, job.card, msg); edited = true; } catch { /* the card was deleted: post it again */ } }
+    if (!edited) { try { job.card = await this.o.gw.send(job.thread, msg); } catch { /* the post is gone */ } }
+    await this.o.gw.setPostTags(job.thread, [state === 'done' ? 'Done' : state === 'waiting' ? 'Needs you' : 'Working']).catch(() => {});
+    this.save();
+  }
   private async say(job: Job, text: string, tag?: string, loud = false): Promise<void> {
     await this.o.gw.send(job.thread, { content: text.slice(0, 1900), ...(loud ? { loud: true } : { silent: true }) } as never);
     if (tag) await this.o.gw.setPostTags(job.thread, [tag]).catch(() => {});
@@ -57,11 +75,16 @@ export class MacJobs {
     if (!session) return;
     const where = path.basename(cwd) || 'a session';
     if (event === 'Notification') {
-      const j = await this.postFor(session, cwd, `On the Mac: ${where}`, `Claude needs you: ${String(body.message ?? '').slice(0, 300)}\nReply here to answer it.`, 'Needs you');
-      if (j && this.bySession(session) && j.at < Date.now() - 1000) await this.say(j, `Claude needs you: ${String(body.message ?? '').slice(0, 300)}`, 'Needs you', true);
+      const asked = String(body.message ?? '').slice(0, 300);
+      const fresh = !this.bySession(session);
+      const j = await this.postFor(session, cwd, `On the Mac: ${where}`, `Claude needs you: ${asked}\nReply here to answer it.`, 'Needs you');
+      if (!j) return;
+      await this.show(j, 'waiting', asked);
+      if (!fresh) await this.say(j, `Claude needs you: ${asked}`, undefined, true);
     } else if (event === 'Stop') {
       const said = String(body.lastSaid ?? '');
-      await this.postFor(session, cwd, `On the Mac: ${where}`, `Done.${said ? '\n' + said : ''}\nReply here to keep it going.`, 'Done');
+      const j = await this.postFor(session, cwd, `On the Mac: ${where}`, `Done.${said ? '\n' + said : ''}\nReply here to keep it going.`, 'Done');
+      if (j) await this.show(j, 'done', said || 'Finished.');
     }
   }
 
@@ -108,13 +131,14 @@ export class MacJobs {
         this.o.meter?.(m);
         if (m.type === 'system' && m.session_id && !job) {
           job = await this.postFor(String(m.session_id), cwd, title, `Working on: ${title}`, 'Working') ?? undefined;
+          if (job) await this.show(job, 'working', resume ? 'Picking it up again.' : 'Working on it.');
         }
         if (m.type === 'result') { if (m.subtype === 'success') out = String(m.result ?? ''); else why = String(m.errors?.join?.('; ') || m.subtype); }
       }
     } catch (e) { why = (e as Error).message; }
     finally { this.running--; }
     if (!job) { this.o.log('mac jobs: a job ended before it had a post: ' + (why || 'no answer')); return; }
-    if (out) await this.say(job, out, 'Done');
-    else await this.say(job, `It stopped: ${why || 'no answer came back'}.`, 'Needs you', true);
+    if (out) { await this.show(job, 'done', out); await this.say(job, out); }
+    else { await this.show(job, 'waiting', `It stopped: ${why || 'no answer came back'}.`); await this.say(job, `It stopped: ${why || 'no answer came back'}.`, undefined, true); }
   }
 }

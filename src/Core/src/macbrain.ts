@@ -205,7 +205,7 @@ export class MacBrain {
     this.o = o; this.log = o.log ?? console.log;
     this.file = n => path.join(o.dir, n);
     this.powers = new MacPowers(path.dirname(o.dir));
-    this.jobs = new MacJobs({ gw: o.gw, dir: o.dir, log: this.log, meter: (m) => this.meter('job', m), forum: () => (this.brief ? Object.entries(this.brief.listen).find(([, k]) => k === 'claude-jobs')?.[0] : undefined) });
+    this.jobs = new MacJobs({ gw: o.gw, dir: o.dir, log: this.log, meter: (m) => this.meter('job', m), ...(o.draw ? { draw: o.draw } : {}), forum: () => (this.brief ? Object.entries(this.brief.listen).find(([, k]) => k === 'claude-jobs')?.[0] : undefined) });
     mkdirSync(o.dir, { recursive: true, mode: 0o700 });
     try { this.brief = checkBrief(JSON.parse(readFileSync(this.file('brief.json'), 'utf8'))); } catch { /* none yet */ }
     try { const h = JSON.parse(readFileSync(this.file('handled.json'), 'utf8')); if (Array.isArray(h)) this.handled = h; } catch { /* none */ }
