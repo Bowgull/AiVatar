@@ -176,13 +176,13 @@ const HOOKS_JXA = String.raw`function run(argv) {
 }`.replace('EVENTS', JSON.stringify(HOOK_EVENTS));
 
 /** M3: the MacBook front desk, when this setup should install it. Files are the exact source that runs there. */
-export interface DeskPayload { token: string; key: string; port: number; files: Record<string, string> }
+export interface DeskPayload { token: string; key: string; port: number; files: Record<string, string | Buffer> }
 export const FRONT_DESK_PORT = 47841;
 
 /** The whole bash script the Mac runs. `shadow` is this PC's Tailscale address. */
 export function macSetupScript(shadow: string, hookPort: number, hookKey: string, frontKey: string, desk: DeskPayload | null = null): string {
   const q = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`;
-  const b64 = (s: string) => Buffer.from(s, 'utf8').toString('base64');
+  const b64 = (s: string | Buffer) => (typeof s === 'string' ? Buffer.from(s, 'utf8') : s).toString('base64');
   // Each file goes over as base64 on one line, so nothing in it can ever be read by the shell.
   const deskFiles = desk ? Object.entries(desk.files).map(([name, text]) => {
     if (!/^[a-z][a-z0-9.-]*$/.test(name)) throw new Error(`bad front desk file name: ${name}`);

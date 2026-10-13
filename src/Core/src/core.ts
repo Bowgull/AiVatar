@@ -1575,12 +1575,15 @@ export class Core {
       try { key = readFileSync(keyFile, 'utf8').trim(); } catch { /* first time */ }
       if (key.length < 20) { key = randomBytes(24).toString('base64url'); writeFileAtomic(keyFile, key); }
       const here = import.meta.dirname, pkg = path.join(here, '..', 'frontdesk-pkg');
-      const files: Record<string, string> = {
+      const files: Record<string, string | Buffer> = {
         'frontdesk.ts': readFileSync(path.join(here, 'frontdesk.ts'), 'utf8'),
         'discord-client.ts': readFileSync(path.join(here, 'discord-client.ts'), 'utf8'),
         'discord-logic.ts': readFileSync(path.join(here, 'discord-logic.ts'), 'utf8'),
         'package.json': readFileSync(path.join(pkg, 'package.json'), 'utf8'),
         'package-lock.json': readFileSync(path.join(pkg, 'package-lock.json'), 'utf8'),
+        // 9.D D4: the speakers' pictures, made once with their webhooks
+        'avatar-claude.png': readFileSync(path.join(here, '..', 'assets', 'speakers', 'claude.png')),
+        'avatar-jobhunt.png': readFileSync(path.join(here, '..', 'assets', 'speakers', 'jobhunt.png')),
       };
       writeFileAtomic(path.join(this.cfg.stateDir, 'frontdesk.json'), JSON.stringify({ mac, port: FRONT_DESK_PORT }));
       console.log(`mac-setup: the front desk goes to the MacBook (${mac}); Discord moves there at the next start`);
