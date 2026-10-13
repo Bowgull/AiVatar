@@ -138,7 +138,7 @@ async function rig(port: number) {                                          // p
   let answer = true;
   c.on('message', d => {
     const m = JSON.parse(String(d)); inbox.push(m);
-    if (m.t === 'permission') c.send(JSON.stringify({ t: 'permission.reply', id: m.id, allow: answer }));
+    if (m.t === 'permission') c.send(JSON.stringify({ t: 'permission.reply', id: m.id, choice: answer ? 'always' : 'no' }));
     if (m.t === 'hands.request') c.send(JSON.stringify({ t: 'hands', id: m.id, ok: true, detail: `(stand-in) ${m.action}` }));
   });
   await new Promise<void>(r => c.once('open', () => r()));

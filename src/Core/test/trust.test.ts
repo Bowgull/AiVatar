@@ -61,7 +61,8 @@ test('deleting and installing are never trusted in advance, however often he say
 test('ordinary commands are trusted by program', () => {
   assert.deepEqual(kindOf('PowerShell', { command: 'git status' })?.kind, 'run git');
   assert.deepEqual(kindOf('Bash', { command: 'dotnet build' })?.kind, 'run dotnet');
-  assert.match(kindOf('Bash', { command: 'git status' })?.says ?? '', /run git commands/);
+  // What the button SAYS is plain English since ad7f447 (2026-10-03); the trust kind above stays exact.
+  assert.match(kindOf('Bash', { command: 'git status' })?.says ?? '', /use git, which keeps the history of your code/);
 });
 
 test('opening is trusted in three coarse kinds', () => {
