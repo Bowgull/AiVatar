@@ -547,7 +547,8 @@ app.whenReady().then(async () => {
           else if (slot === 'BROWSER') aangBrowser?.open();
           else if (slot === 'MUSIC') bubble?.send('brain:message', { t: 'whisper', text: 'Music', controls: 'media' });
           else if (slot === 'SNIP') void snipper?.start();
-          else if (slot === 'QUIET') link?.send({ t: 'quiet.toggle' });
+          // 9.D D9 (his ask, 2026-10-13): the wheel's last disc is Away. Talking moves to Discord until he is back.
+          else if (slot === 'AWAY') link?.send({ t: 'away' });
         },
       });
       wheel.warm();

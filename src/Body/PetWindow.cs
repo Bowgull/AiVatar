@@ -877,6 +877,13 @@ sealed class PetWindow : Form
                 case "quiet.toggle":
                     forcedQuiet = quiet ? false : true; ApplyQuiet();
                     break;
+                // 9.D D9: he stepped away (the wheel's Away, or Discord). Away now; the first touch of the PC after a few
+                // seconds' grace (the click that chose Away must not count) brings him back.
+                case "away.set":
+                    awayFrom = DateTime.UtcNow.AddSeconds(4);
+                    sentDesk = false;
+                    Log.Write("at desk=False (he stepped away)");
+                    break;
                 case "job.hunt.reply":
                     Note(Bool(m, "onMac") ? "Running on your MacBook." : "Your MacBook is not reachable - running it here.");
                     break;
@@ -1046,9 +1053,18 @@ sealed class PetWindow : Form
     /// </summary>
     static readonly TimeSpan AwayAfter = TimeSpan.FromMinutes(5);
     bool? sentDesk;
+    /// <summary>9.D D9: set when he says he is stepping away; cleared by the first input after it.</summary>
+    DateTime? awayFrom;
     void ReportDesk()
     {
         var active = Win32.IdleFor() < AwayAfter;
+        if (awayFrom is DateTime since)
+        {
+            var now = DateTime.UtcNow;
+            // Back only when there has been input AFTER the grace began: idle time shorter than the time since then.
+            if (now > since && Win32.IdleFor() < now - since) awayFrom = null;
+            else active = false;
+        }
         if (active == sentDesk) return;
         sentDesk = active;
         Log.Write($"at desk={active}");
