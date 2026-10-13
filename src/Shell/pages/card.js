@@ -73,6 +73,48 @@ const DRAW = {
     card.append(col, el('div', 'drawn', 'DRAWN BY AANG'));
     return card;
   },
+  // The morning brief (sheet 21 board 1): job hunt, waiting on you, today, other email with its subject.
+  brief(d) {
+    const card = el('div', 'parch'), col = el('div', 'col');
+    const top = el('div', 'row'); top.style.alignItems = 'center'; top.style.gap = '8px';
+    top.append(el('div', 'plaque', 'MORNING BRIEF'), el('div', 'meta', str(d.day, 40)));
+    col.append(top);
+    if (d.weather) { const w = el('div', 'weather'); w.append(el('i'), el('span', null, str(d.weather, 80))); col.append(w); }
+    const list = (x) => (Array.isArray(x) ? x : []);
+    const tagged = (title, rows, cls) => {
+      if (!rows.length) return;
+      col.append(el('div', 'sec', title));
+      for (const r of rows.slice(0, 5)) {
+        const li = el('div', 'li'), body = el('span');
+        body.append(el('span', 'w', str(r.who, 90)));
+        if (r.what) body.append(' ', el('span', 'm', str(r.what, 90)));
+        li.append(el('span', 't' + (cls ? ' ' + cls : ''), str(r.tag, 10)), body);
+        col.append(li);
+      }
+    };
+    tagged('JOB HUNT', list(d.job), '');
+    tagged('WAITING ON YOU', list(d.waiting), 'wait');
+    const today = list(d.today);
+    if (today.length) {
+      col.append(el('div', 'sec', 'TODAY'));
+      for (const e of today.slice(0, 6)) {
+        const li = el('div', 'li'), body = el('span');
+        body.append(el('span', 'w', str(e.title, 70)));
+        if (e.where) body.append(' ', el('span', 'm', str(e.where, 50)));
+        li.append(el('span', 'tm', str(e.tm, 12)), body);
+        col.append(li);
+      }
+    }
+    const other = list(d.other);
+    if (other.length) {
+      col.append(el('div', 'sec', 'OTHER EMAIL'));
+      for (const o of other.slice(0, 4)) { const li = el('div', 'li'); li.append(el('span', 'w', str(o.who, 40)), el('span', 'm', str(o.what, 90))); col.append(li); }
+      if (Number(d.more) > 0) { const li = el('div', 'li'); li.append(el('span', 'm', `+ ${Number(d.more)} more`)); col.append(li); }
+    }
+    if (!list(d.job).length && !list(d.waiting).length && !today.length && !other.length) col.append(el('div', 'text', 'Nothing new this morning.'));
+    card.append(col, el('div', 'drawn', 'DRAWN BY AANG'));
+    return card;
+  },
   // The home card (sheet 15 board 4), on the browser's pixel wood.
   home(d) {
     const card = el('div', 'wood');

@@ -29,6 +29,8 @@ app.whenReady().then(async () => {
     ['needs', { title: 'Delete 3 old test files?', text: 'They test the old bubble, which the new one replaced. Nothing else uses them.' }],
     ['watched', { meta: '0:48, read from the transcript', title: 'Lemon pasta in 10 minutes', kind: 'recipe', shows: 'A quick lemon pasta with butter and parmesan.', useful: [{ who: 'you', what: 'dinner tonight' }, { who: 'Aang', what: 'nothing, just for fun' }], best: 0 }],
     ['home', { tiles: [{ k: 'CLAUDE THIS WEEK', v: '31%, on pace', fill: 0.31 }, { k: 'RUNNING', v: '1 Claude job' }, { k: 'WAITING ON YOU', v: '2 things', tone: 'warn' }, { k: 'YOUR PC', v: 'On', tone: 'good' }] }],
+    ['brief', { day: 'Tuesday, October 14', weather: '9 to 14 degrees, light rain, 60% chance of rain', job: [{ tag: 'REPLY', who: 'Rhea Patel', what: 'Next steps and the demo' }, { tag: 'NEW', who: '3 job matches', what: '' }], waiting: [{ tag: 'WAITING', who: 'Portfolio update needs you', what: '' }], today: [{ tm: '10:30 am', title: 'Dentist', where: 'Queen St' }, { tm: 'all day', title: 'Mom birthday', where: '' }], other: [{ who: 'Amazon', what: 'Your order has shipped' }], more: 4 }],
+    ['brief', { day: 'Wednesday, October 15', weather: '', job: [], waiting: [], today: [], other: [], more: 0 }],
     ['quota', { what: 'a background job: prep for the demo', low: 0.02, high: 0.05, week: 0.34, resetsAt: 1792368000 }],
     ['home', { tiles: [{ k: 'CLAUDE THIS WEEK', v: '34%, on pace', fill: 0.34 }, { k: 'NEXT 5 HOURS', v: '12% used', fill: 0.12 }, { k: 'RUNNING', v: 'nothing' }, { k: 'WAITING ON YOU', v: '2 things', tone: 'warn' }, { k: 'YOUR PC', v: 'On', tone: 'good' }] }],
   ];
