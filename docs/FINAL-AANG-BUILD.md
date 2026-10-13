@@ -838,7 +838,7 @@ folded in where it fits, never skipped. **Where we are: 9.D, D4 built, waiting o
 1. **9.D Discord** (approved sheet 15): ~~D1 channels~~ ~~D2 buzz~~ ~~D3 drawn cards~~ ~~D4 speakers~~ (live after his Mac
    paste and Manage Webhooks) -> **D5** live Claude job cards -> **D6** home card -> **D7** #capture videos -> **D8** gaming
    feeds -> **D9** the wheel's Away (DONE). Then the old channels are deleted by HIS button.
-2. **M Aang on the MacBook:** ~~M1 listener fixes~~ ~~M2 heartbeat~~ ~~M3 front desk~~ -> **M4** Aang answers from the Mac
+2. **M Aang on the MacBook:** ~~M1 listener fixes~~ ~~M2 heartbeat~~ ~~M3 front desk~~ ~~M4 Aang answers from the Mac (built; live after the Mac paste)~~ ->
    when Shadow is off -> **M5** one memory on both -> **M6** Aang's browser on the Mac, everything synced -> **M7** bubble,
    typing box, notes, timers on the Mac (mockups first) -> **M8** notices that follow him and jump to the right session
    (mockups first) -> **M9** the new pet for both machines (mockups first).
@@ -2291,6 +2291,16 @@ asleep"). Shadow on: the queue is handed over and each message leaves it only af
 answered twice; Discord's history is never read back (the old catch-up, the replay bug). A slow press is deferred at
 2 s so it never shows as failed. Shadow never logs in to Discord itself once `frontdesk.json` exists. 9 tests with a
 pretend Discord over a real socket. The full Discord redesign is still 9.D.
+
+**M4 BUILT 2026-10-13** (`macbrain.ts`, 10 tests): a message Shadow has not taken after 45 s goes to the Mac's
+brain. List items and capture notes are done at once. Questions are answered by Claude on the Mac (his sign-in there,
+Haiku for chat, Sonnet when he asks it to do something), with NO built-in tools: only remember, search memory, one
+web lookup per message (a separate Claude with the web and nothing else; no site he did not type), make a PDF or
+picture (the Mac's Chrome, headless, scripts and network off), and save for the PC. Job and draft channels, files,
+replies and threads wait for Shadow, with one line said once. Shadow briefs the Mac every 10 minutes (voice,
+facts, last lines, the list). On waking, Shadow takes what the Mac did once: memory, conversation, list, notes, and
+saved requests started with a line. No final actions exist on the Mac yet (the PIN is 9.A1). **Live once he re-runs
+the Mac setup** (about 230 MB the first time, his OK).
 
 **Order inside M:** M1 the listener findings closed; M2 the Mac knows whether Shadow is on (a heartbeat over
 Tailscale); M3 the Discord connection moves to the Mac; M4 the Mac brain (Claude Code with Aang's personality and a
