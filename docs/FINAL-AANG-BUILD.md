@@ -3708,6 +3708,11 @@ at it, not rewritten. A short, named list is also a smaller ask for Qwen than 57
 **Scope, his answer 2026-10-13:** the ENTIRE way Aang interacts with Discord, the clean-up and the customisation,
 all of it in this step.
 
+**Folded in, his ask 2026-10-13 (acknowledge only, build it here):** the wheel's **Quiet** slot becomes **Away**. Pressing
+it starts away mode: talking to Aang moves to Discord, and from there he drives an Aang session or a Claude session,
+resumes sessions (`claude -p --resume`, the K8 fix), answers their decisions, and everything surfaces the way he already
+decided for away mode (one place at a time, final actions with the PIN). Ends as decided: he touches the PC again.
+
 **Why:** he uses Discord mostly on his iPhone, and today it gets plain text in a few channels. He wants
 it "tricked out", in Aang's design language as far as Discord allows, with features that actually help
 on a phone. After 9.A0 because every button and menu needs that one list behind it; before 9.A1 to
