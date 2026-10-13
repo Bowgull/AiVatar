@@ -100,7 +100,7 @@ export interface CoreLink {
   watchVideo?(url: string): Promise<any | null>;
   addIdea?(text: string): void;
   /** 9.D D3: a card Aang draws, as a PNG; null when it could not be drawn. Optional: without it, plain text. */
-  drawCard?(kind: 'job' | 'needs' | 'home' | 'watched' | 'quota', data: unknown): Promise<Buffer | null>;
+  drawCard?(kind: 'job' | 'needs' | 'home' | 'watched' | 'quota' | 'brief', data: unknown): Promise<Buffer | null>;
   submit(id: string, text: string, opts?: { ephemeral?: boolean; mode?: 'auto' | 'smart' }): void;
   permission(id: string, allow: boolean): void;
   /** Type this into a new chat in the Claude app on the MacBook. Answered by a mac.run.reply event, never a
@@ -312,7 +312,7 @@ export class DiscordAdapter {
    * plain words kept as the message text, which is what his phone's notification shows. Without a picture (the Shell is
    * not running), the same words go out on their own.
    */
-  private async drawn(kind: 'job' | 'needs' | 'home' | 'watched' | 'quota', data: unknown, accent: number, msg: OutMsg): Promise<OutMsg> {
+  private async drawn(kind: 'job' | 'needs' | 'home' | 'watched' | 'quota' | 'brief', data: unknown, accent: number, msg: OutMsg): Promise<OutMsg> {
     const png = await this.link.drawCard?.(kind, data).catch(() => null) ?? null;
     if (!png) return msg;
     return { ...msg, embed: { ...(msg.embed ?? {}), color: accent, image: 'attachment://card.png' }, files: [...(msg.files ?? []), { name: 'card.png', data: png }] };
@@ -985,6 +985,8 @@ export class DiscordAdapter {
         const kind = kindOf(ev);
         const loud = this.budget.loud(kind, this.now());
         const channel = kind === 'asked' && /^Need input/i.test(ev.text) ? 'needs-you' : 'aang';
+        // The morning brief, drawn (sheet 21 board 1).
+        if (ev.brief && typeof ev.brief === 'object' && this.state.channels['aang']) { await this.briefPost(this.state.channels['aang'], ev.text, ev.brief, !loud); return; }
         if (typeof ev.jobCwd === 'string' && ev.jobCwd) {
           if (this.state.channels['claude-jobs']) { await this.claudeNews(ev, channel === 'needs-you' || ev.blocking === true); return; }
           await this.postJob(ev.jobCwd, channel, ev.text, !loud, ev.image); return;
@@ -1008,7 +1010,9 @@ export class DiscordAdapter {
     }
     if (ev?.t === 'brief.reply' && typeof ev.text === 'string') {
       const channelId = this.replyTo.brief.shift() ?? this.state.channels['aang'];
-      if (channelId) await this.gw.send(channelId, { content: ev.text.slice(0, 1900) });
+      if (!channelId) return;
+      if (ev.card && typeof ev.card === 'object') { await this.briefPost(channelId, ev.text, ev.card, false); return; }
+      await this.gw.send(channelId, { content: ev.text.slice(0, 1900) });
       return;
     }
     if (ev?.t === 'mail.card' && typeof ev.id === 'string' && typeof ev.content === 'string') { await this.mailCard(ev.id, ev.content, Array.isArray(ev.buttons) ? ev.buttons : []); return; }
@@ -1072,6 +1076,32 @@ export class DiscordAdapter {
         buttons: [{ id: `perm:${ev.id}:yes`, label: 'Yes', style: 'success' }, { id: `perm:${ev.id}:no`, label: 'No', style: 'danger' }],
       });
     }
+  }
+
+  /**
+   * Sheet 21 board 1 (his order, 2026-10-13): job hunt first, then what is waiting on him, then today, then the other
+   * email WITH its subject. Built only from the brief's own fields; every word goes onto the card as text.
+   */
+  private async briefPost(channelId: string, text: string, b: any, silent: boolean): Promise<void> {
+    const s = (v: unknown, n: number) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
+    const unread: any[] = Array.isArray(b.unread) ? b.unread : [];
+    const job = unread.filter(u => u?.job).slice(0, 4).map(u => ({ tag: 'REPLY', who: s(u.from, 40), what: s(u.subject, 90) }));
+    const fresh = Number(b.jobsNew) || 0;
+    if (fresh > 0) job.push({ tag: 'NEW', who: `${fresh} job match${fresh === 1 ? '' : 'es'}`, what: '' });
+    const waiting = (Array.isArray(b.waiting) ? b.waiting : []).slice(0, 4).map((w: unknown) => ({ tag: 'WAITING', who: s(w, 90), what: '' }));
+    // Times written out with am or pm, in Toronto: never a bare "2:00" that could be read two ways.
+    const at = (iso: unknown) => { const d = new Date(String(iso ?? '')); return Number.isNaN(d.getTime()) ? '' : d.toLocaleTimeString('en-US', { timeZone: 'America/Toronto', hour: 'numeric', minute: '2-digit' }).toLowerCase(); };
+    const today = (Array.isArray(b.events) ? b.events : []).slice(0, 6).map((e: any) => ({ tm: e?.allDay ? 'all day' : at(e?.start), title: s(e?.title, 70), where: s(e?.where, 50) }));
+    const rest = unread.filter(u => !u?.job);
+    const other = rest.slice(0, 4).map(u => ({ who: s(u.from, 40), what: s(u.subject, 90) }));
+    const w = b.weather;
+    const weather = w && typeof w === 'object' ? `${Math.round(Number(w.low))} to ${Math.round(Number(w.high))} degrees, ${s(w.words, 40).toLowerCase()}${Number(w.rain) >= 30 ? `, ${Math.round(Number(w.rain))}% chance of rain` : ''}` : '';
+    const data = { day: s(b.day, 40), weather, job, waiting, today, other, more: Math.max(0, rest.length - other.length) };
+    const msg = await this.drawn('brief', data, 0xFFC43C, {
+      content: text.slice(0, 1900), silent,
+      ...(waiting.length ? { buttons: [{ id: 'home:waiting', label: "What's waiting", style: 'primary' as const }] } : {}),
+    });
+    await this.gw.send(channelId, msg);
   }
 
   /** An email draft card: the first time it goes to #drafts, every later change edits that same message. */

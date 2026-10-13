@@ -941,8 +941,15 @@ export class Core {
 
   private async briefFor(ws: WebSocket): Promise<void> {
     const svc = this.mail();
-    this.send(ws, { t: 'brief.reply', text: svc ? await svc.brief() : Core.NO_GOOGLE });
-    // The desktop also gets it as a card (window 2, 6.15); Discord keeps the text it has always had.
+    const text = svc ? await svc.brief() : Core.NO_GOOGLE;
+    // Discord draws it as a card (sheet 21), the text kept for his phone's notification and for when it cannot draw.
+    if (svc && this.kindOfSocket(ws) === 'discord') {
+      const card = await this.briefCard().catch(() => null);
+      this.send(ws, { t: 'brief.reply', text, ...(card ? { card } : {}) });
+      return;
+    }
+    this.send(ws, { t: 'brief.reply', text });
+    // The desktop also gets it as a card (window 2, 6.15).
     if (svc && this.kindOfSocket(ws) === 'desktop') {
       const card = await this.briefCard().catch(() => null);
       if (card) this.send(ws, { t: 'brief.card', card });
@@ -978,6 +985,7 @@ export class Core {
         return { from: u.from, subject: u.subject, at: u.at, ...(logo ? { logo } : {}), ...(companies.some(c => hay.includes(c)) ? { job: true } : {}) };
       }),
       jobsNew: cards.filter(c => c.status === 'new' && Date.parse(c.at) > dayAgo).length,
+      waiting: this.homeData().waiting,
       week: q ? q.week : null,
       weekResetsAt: q ? q.weekResetsAt : null,
       ...(d.error ? { error: d.error } : {}),
@@ -1860,10 +1868,10 @@ export class Core {
     };
     this.reminders.start();
     // Once a day, after 7:00 Toronto time, the morning brief is posted on its own (no model, no quota). Only when signed in.
-    // At the desk it arrives as the card (sheet 13); away, Discord gets the text as before.
+    // At the desk it arrives as the card (sheet 13); away, Discord draws its own card (sheet 21), the text riding along.
     this.briefTimer = setInterval(() => { void this.mail()?.dailyBrief().then(async t => {
       if (!t) return;
-      const card = this.whereHeIs() === 'discord' ? null : await this.briefCard().catch(() => null);
+      const card = await this.briefCard().catch(() => null);
       this.announce(t, card ? { brief: card } : {});
     }).catch(() => { /* tried again in ten minutes */ }); }, 10 * 60_000);
     // Facts read out of his documents, offered one at a time when he is not busy and not in a game.
