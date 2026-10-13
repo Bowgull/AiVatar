@@ -29,9 +29,10 @@ import { writeFileAtomic } from './atomic.ts';
 import { lookalike } from './lookalike.ts';
 import { softEdge } from './winedge.ts';
 import { isBar, parseBookmarks, type Mark } from './bookmarks.ts';
-import { Vault, fillScript, type Login } from './vault.ts';
+import { BW_LOGIN, Vault, fillScript, type Login } from './vault.ts';
 import { createHmac, randomBytes } from 'node:crypto';
-import { Visits, search as searchVisits, forAang } from './visits.ts';
+import { Visits, search as searchVisits, forAang, type Visit } from './visits.ts';
+import { BrowserSync, type SyncCookie, type SyncMsg, type TabSnap } from './bsync.ts';
 import { Driver, type Job } from './driver.ts';
 import { Downloads, kindOf, trayOf, type Dl } from './dlist.ts';
 
@@ -366,7 +367,10 @@ export class AangBrowser {
     // written yet - and a login cookie is exactly the kind that changes quietly. Nothing in Aang ever deletes a
     // cookie; they were simply lost. So every change is written within two seconds, and once more on the way out.
     let cookieWrite: NodeJS.Timeout | null = null;
-    this.ses.cookies.on('changed', () => {
+    this.ses.cookies.on('changed', (_e, cookie, cause, removed) => {
+      // M6: a login changed here; the other machine's browser gets it. Removals only when something removed it on
+      // purpose (a sign-out, a site clearing it): an expired cookie expires on its own on the other machine too.
+      if (!removed || cause === 'explicit') this.sync?.cookie(cookie as SyncCookie, removed);
       if (cookieWrite) clearTimeout(cookieWrite);
       cookieWrite = setTimeout(() => { cookieWrite = null; this.ses.cookies.flushStore().catch(() => { /* next change tries again */ }); }, 2000);
     });
@@ -612,6 +616,7 @@ export class AangBrowser {
 
   private savePrefs(): void {
     try { writeFileAtomic(this.prefsFile, JSON.stringify({ sounds: this.sounds, ...this.prefs })); } catch { /* best effort */ }
+    this.sync?.changed('prefs');
   }
 
   /** His home page, typed into Settings: a web address only. Empty puts the default back. */
@@ -1255,6 +1260,7 @@ export class AangBrowser {
       else if (lastClosesWindow && this.win && !this.win.isDestroyed()) {
         // Nothing left: remember an empty window (so the closed tabs do not come back next time) and close it.
         try { writeFileAtomic(this.file, JSON.stringify({ v: 1, at: new Date().toISOString(), active: 0, tabs: [], trails: [], closed: this.closed.slice(-25) })); } catch { /* best effort */ }
+        this.sync?.changed('tabs');
         this.win.close();
       } else this.newTab(this.HOME);
     } else this.changed();
@@ -1464,7 +1470,7 @@ export class AangBrowser {
     this.vaultFor = { tab: t.id, host };
     const s = await this.vault.state();
     if (s === 'missing') { this.note("Bitwarden's tool is not on this PC yet."); return; }
-    if (s === 'signed-out') { this.note('Sign in to Bitwarden once first, yourself: in PowerShell run  & "$env:LOCALAPPDATA\\Programs\\BitwardenCLI\\bw.exe" login'); return; }
+    if (s === 'signed-out') { this.note('Sign in to Bitwarden once first, yourself: ' + BW_LOGIN); return; }
     if (s === 'locked') { this.win?.webContents.send('browser:vault', { mode: 'unlock', host }); return; }
     await this.vaultList();
   }
@@ -1553,12 +1559,117 @@ export class AangBrowser {
       try { writeFileAtomic(this.iconsFile, JSON.stringify(Object.fromEntries(this.icons))); } catch { /* best effort */ }
     } finally { this.iconsBusy = false; }
   }
+  // ------------------------------------------------------------------ M6 one browser on both machines (bsync.ts)
+  /** The sync with the browser on his other machine (startSync). */
+  sync: BrowserSync | null = null;
+  /** M6: start syncing with the other machine's browser. `send` reaches it through the brain. */
+  startSync(send: (m: SyncMsg) => void, log?: (s: string) => void): BrowserSync {
+    this.sync = new BrowserSync({ target: this.syncTarget, send, stateDir: this.o.stateDir, ...(log ? { log } : {}) });
+    this.visits.onChange = (c) => { if (c.op === 'add') this.sync?.visited([c.v]); else if (c.op === 'forget') this.sync?.forgot(c.url, c.at); else this.sync?.cleared(c.from); };
+    return this.sync;
+  }
+  /** What the sync needs from this browser: plain reads, and quiet writes that do not reload or say anything. */
+  readonly syncTarget = {
+    marks: () => this.marks.map((m) => ({ ...m })),
+    setMarks: (list: Mark[]) => {
+      this.marks = (Array.isArray(list) ? list : []).filter((m) => typeof m?.url === 'string' && isWeb(m.url) && typeof m.title === 'string')
+        .slice(0, 5000).map((m) => ({ title: String(m.title).slice(0, 300), url: m.url, folder: String(m.folder ?? '').slice(0, 100) }));
+      this.saveMarks(); this.sendTabs(); this.pushSettings();
+    },
+    prefs: () => ({ sounds: this.sounds, ...this.prefs }) as Record<string, unknown>,
+    setPrefs: (p: Record<string, unknown>) => {
+      const adsWas = this.prefs.ads;
+      this.sounds = p.sounds === true;
+      this.prefs = { ads: p.ads !== false, popups: p.popups !== false, home: typeof p.home === 'string' && isWeb(p.home) ? p.home.slice(0, 2000) : DEFAULT_HOME,
+        search: p.search === 'ddg' || p.search === 'google' || p.search === 'yandex' ? p.search : 'brave', aiBox: p.aiBox === true, startup: p.startup === 'home' ? 'home' : 'tabs' };
+      setSearch(this.prefs.search, this.prefs.aiBox);
+      if (adsWas !== this.prefs.ads) { if (this.prefs.ads) this.ads?.start(); else this.ads?.stop(); }
+      this.savePrefs(); this.sendTabs(); this.pushSettings();
+    },
+    tabSnap: (): TabSnap => {
+      if (this.win && !this.win.isDestroyed() && this.tabs.length) {
+        return { tabs: this.tabs.filter((t) => !t.internal && isWeb(t.url)).map((t) => ({ url: t.url, title: t.title, trail: t.trail, done: t.done })), trails: this.trails.map((x) => ({ id: x.id, name: x.name })) };
+      }
+      try {
+        const s = JSON.parse(readFileSync(this.file, 'utf8'));
+        return { tabs: (Array.isArray(s?.tabs) ? s.tabs : []).filter((t: any) => typeof t?.url === 'string' && isWeb(t.url)).map((t: any) => ({ url: t.url, title: String(t.title ?? t.url), trail: Number.isInteger(t.trail) ? t.trail : null, done: t.done === true })),
+          trails: (Array.isArray(s?.trails) ? s.trails : []).filter((x: any) => Number.isInteger(x?.id)).map((x: any) => ({ id: x.id, name: String(x.name ?? '') })) };
+      } catch { return { tabs: [], trails: [] }; }
+    },
+    setTabs: (snap: TabSnap) => this.takeTabs(snap),
+    visits: () => this.visits.list.slice(),
+    addVisits: (list: Visit[]) => this.visits.merge(list),
+    forgetVisit: (url: string, at: number) => { const cb = this.visits.onChange; this.visits.onChange = null; this.visits.forget(url, at); this.visits.onChange = cb; },
+    clearVisits: (from: number) => { const cb = this.visits.onChange; this.visits.onChange = null; this.visits.clear(from); this.visits.onChange = cb; },
+    cookies: async () => (await this.ses.cookies.get({})) as SyncCookie[],
+    setCookie: async (c: SyncCookie) => {
+      await this.ses.cookies.set({
+        url: `${c.secure ? 'https' : 'http'}://${String(c.domain ?? '').replace(/^\./, '')}${c.path || '/'}`, name: c.name, value: c.value,
+        ...(c.hostOnly ? {} : { domain: c.domain }), path: c.path || '/', secure: c.secure === true, httpOnly: c.httpOnly === true,
+        ...(c.expirationDate ? { expirationDate: c.expirationDate } : {}), ...(c.sameSite ? { sameSite: c.sameSite } : {}),
+      });
+    },
+    removeCookie: async (c: SyncCookie) => { await this.ses.cookies.remove(`https://${String(c.domain ?? '').replace(/^\./, '')}${c.path || '/'}`, c.name); },
+  };
+
+  /**
+   * M6: the other machine's tabs, made the tabs here ("the same tabs on both", his pick). The window closed: they are
+   * written down and open next time. Open: tabs here that are gone there close (never one in a call or playing in
+   * the popout), new ones arrive asleep, and a tab that went somewhere else there goes there here. What he is looking
+   * at stays in front unless it closed.
+   */
+  private takeTabs(snap: TabSnap): void {
+    const want = (snap?.tabs ?? []).filter((t) => typeof t?.url === 'string' && isWeb(t.url)).slice(0, 80);
+    const trails = (snap?.trails ?? []).filter((x) => Number.isInteger(x?.id)).map((x) => ({ id: x.id, name: String(x.name ?? '').slice(0, 24) || 'Trail', named: true }));
+    if (!this.win || this.win.isDestroyed()) {
+      let closed: string[] = [];
+      try { const s = JSON.parse(readFileSync(this.file, 'utf8')); if (Array.isArray(s?.closed)) closed = s.closed; } catch { /* none */ }
+      try { writeFileAtomic(this.file, JSON.stringify({ v: 1, at: new Date().toISOString(), active: 0, tabs: want.map((t) => ({ url: t.url, title: t.title, opener: null, scrollY: 0, zoom: 0, muted: false, trail: t.trail, done: t.done })), trails, closed })); } catch { /* best effort */ }
+      return;
+    }
+    const live = this.tabs.filter((t) => !t.internal);
+    const fixed = (t: Tab) => t.call === true || t.lent;
+    if (want.length === live.length) {
+      want.forEach((w, i) => {
+        const t = live[i]!;
+        if (t.url !== w.url && !fixed(t)) {
+          t.title = w.title.slice(0, 300); t.blocked = null; t.failed = null;
+          if (t.view) { t.pending = w.url; void t.view.webContents.loadURL(this.secured(t, w.url)).catch(() => {}); } else t.url = w.url;
+        }
+      });
+    } else {
+      const need = want.map((w) => w.url);
+      for (const t of live) {
+        const k = need.indexOf(t.url);
+        if (k >= 0) need.splice(k, 1);
+        else if (!fixed(t)) this.close(t.id, false);
+      }
+      for (const u of need) {
+        const w = want.find((x) => x.url === u)!;
+        this.tabs.push({ id: ++this.seq, view: null, opener: null, title: w.title.slice(0, 300) || u, url: u, favicon: '', loading: false, audible: false, muted: false, crashed: false,
+          scrollY: 0, zoom: 0, lastSeen: Date.now(), blocked: null, trail: null, done: false, lent: false, upgraded: null, failed: null, blockedPopup: null });
+      }
+    }
+    this.trails = trails;
+    this.trailSeq = Math.max(this.trailSeq, ...trails.map((x) => x.id), 0);
+    const left = want.slice();
+    for (const t of this.tabs) {
+      if (t.internal) continue;
+      const k = left.findIndex((w) => w.url === t.url);
+      if (k < 0) continue;
+      const [w] = left.splice(k, 1);
+      t.trail = w!.trail !== null && trails.some((x) => x.id === w!.trail) ? w!.trail : null; t.done = w!.done;
+    }
+    this.tidyTrails();
+    if (this.active === null && this.tabs.length) this.activate(this.tabs[0]!.id); else this.changed();
+  }
+
   private iconOf(url: string): string {
     try { const h = new URL(url).hostname; return this.icons.get(h) ?? this.icons.get(h.replace(/^www\./, '')) ?? this.icons.get('www.' + h) ?? ''; } catch { return ''; }
   }
 
   // ------------------------------------------------------------------ 6.23 bookmarks
-  private saveMarks(): void { try { writeFileAtomic(this.marksFile, JSON.stringify(this.marks)); } catch { /* best effort */ } }
+  private saveMarks(): void { try { writeFileAtomic(this.marksFile, JSON.stringify(this.marks)); } catch { /* best effort */ } this.sync?.changed('marks'); }
   /**
    * "Bring bookmarks from Chrome": he picks the file Chrome's Export bookmarks made (in his Drive or Downloads).
    * Only the file he picks is read. New ones are added; ones he already has are left as they are.
@@ -2046,6 +2157,7 @@ export class AangBrowser {
       closed: this.closed.slice(-25),
     };
     try { writeFileAtomic(this.file, JSON.stringify(data)); } catch (e) { console.error('shell: browser: the tabs could not be saved: ' + (e as Error).message); }
+    this.sync?.changed('tabs');
   }
 
   /** Bring every tab back from the last snapshot. Only the one he was on loads; the rest come back asleep. */

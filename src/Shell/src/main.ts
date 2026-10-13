@@ -280,6 +280,8 @@ const link = new CoreLink({
   port: PORT,
   stateDir: STATE_DIR,
   onMessage: m => {
+    // M6: the Mac's browser, through the brain. Only the browser's sync reads these; no window ever sees them.
+    if (typeof m.t === 'string' && m.t.startsWith('bsync.')) { void aangBrowser?.sync?.got(m as never).catch((e: Error) => console.error('shell: browser sync: ' + e.message)); return; }
     // "Put X on": the one message the pop-out answers to. Everything else is passed to the windows.
     if (m.t === 'popout.open' && typeof m.url === 'string') { openPopout(m.url); return; }
     // Sheet 17: the brain's list of running timers is the truth; the windows follow it.
@@ -590,6 +592,8 @@ app.whenReady().then(async () => {
 
       aangBrowser = new AangBrowser({ origin: pages.origin, preloadPath: path.join(HERE, 'preload.cjs'), stateDir: STATE_DIR, tabPreloadPath: path.join(HERE, 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, 'thingspreload.cjs') });
       aangBrowser.onReclaim = () => popout?.returnTab();
+      // M6: one browser on both machines. Changes go to the brain, which passes them to the Mac's browser.
+      aangBrowser.startSync((m) => link.send(m as never), (s) => console.log('shell: ' + s));
       // 6.27: links from Windows. Aang.exe --url checks each one and leaves it as a file here; each opens as a tab,
       // then the file goes. Checked again here: http and https only. A link left while Aang was off for more than
       // ten minutes is dropped rather than popping up long after he clicked it.
