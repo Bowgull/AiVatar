@@ -347,6 +347,28 @@ export class DiscordAdapter {
     await this.gw.send(thread, msg);
   }
 
+  /**
+   * 9.D D8 (sheet 15 board 4): 🎮 gaming. A new upload from a creator he follows: its picture, title, Watch on PC and
+   * Later. Apex patch notes: the title, a short summary and the link. Always silent (gaming does not buzz).
+   */
+  private async gamingPost(ev: any): Promise<void> {
+    const where = this.state.channels['gaming']; if (!where) return;
+    if (ev.kind === 'upload' && /^[\w-]{6,20}$/.test(String(ev.videoId))) {
+      const files = typeof ev.thumb === 'string' && ev.thumb ? [{ name: 'thumb.jpg', data: Buffer.from(ev.thumb, 'base64') }] : [];
+      await this.gw.send(where, {
+        content: `${String(ev.channel ?? 'A creator').slice(0, 80)} just posted`, silent: true,
+        embed: { title: String(ev.title ?? '').slice(0, 200), color: 0x966EC8, ...(files.length ? { image: 'attachment://thumb.jpg' } : {}) },
+        ...(files.length ? { files } : {}),
+        buttons: [{ id: `gm:watch:${ev.videoId}`, label: 'Watch on PC', style: 'secondary' }, { id: `gm:later:${ev.videoId}`, label: 'Later', style: 'secondary' }],
+      });
+      return;
+    }
+    if (ev.kind === 'news' && /^https:\/\/store\.steampowered\.com\//.test(String(ev.link))) {
+      await this.gw.send(where, { content: `Apex patch notes: ${String(ev.title).slice(0, 200)}\n${ev.link}`, silent: true,
+        embed: { title: String(ev.title).slice(0, 200), description: String(ev.summary ?? '').slice(0, 400), color: 0xDA373C, footer: 'Apex Legends news, from Steam' } });
+    }
+  }
+
   private homeTimer: NodeJS.Timeout | null = null;
   /**
    * 9.D D6 (sheet 15 board 4): one card pinned at the top of home, drawn on the pixel wood, edited in place, never
@@ -932,6 +954,7 @@ export class DiscordAdapter {
       }
       return;
     }
+    if (ev?.t === 'gaming.post') { await this.gamingPost(ev); return; }
     if (ev?.t === 'action' && typeof ev.text === 'string') { await this.say('home', ev.text, true); return; }
     if (ev?.t === 'actions.reply' && typeof ev.text === 'string') {
       const channelId = this.replyTo.actions.shift() ?? this.state.channels['aang'];
@@ -1020,6 +1043,15 @@ export class DiscordAdapter {
 
   private async press(b: ButtonPress): Promise<void> {
     if (b.userId !== this.state.ownerId) { await b.ack('That is not yours to answer.'); return; }
+    const gm = /^gm:(watch|later):([\w-]{6,20})$/.exec(b.customId);
+    if (gm) {
+      const url = `https://www.youtube.com/watch?v=${gm[2]}`;
+      if (gm[1] === 'watch') { this.link.putOn?.(url); await b.ack('Putting it on, on your PC.'); return; }
+      const lib = this.state.channels['library'];
+      if (lib) await this.gw.createPost(lib, 'Watch later', url, ['Video']);
+      await b.ack(lib ? 'Saved for later in 📚 library.' : 'Saved.');
+      return;
+    }
     const vb = /^vid:(plan|save|deep|go|no|bin):([\w-]+)$/.exec(b.customId);
     if (vb) {
       const v = this.state.videos?.[vb[2]!];

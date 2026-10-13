@@ -39,6 +39,7 @@ import type { Result as OrganiseResult } from './organise.ts';
 import type { Doers } from './tools.ts';
 import { TOOL_NAMES, QUICK_TOOLS, fetchDayWeather, QUICK_HIDDEN, BUILTIN_SHELL, BUILTIN_WRITE, PLAYWRIGHT_SERVER, SHELL_TOOLS, WEB_PROMPT, WEB_TOOLS, describeCall, describeForLog, isLauncher, makeToolServer, makeTools, reachesNetwork, untypedAddresses } from './tools.ts';
 import { Actions } from './actions.ts';
+import { APEX_STEAM, Feeds, apexMap, channelOf, parseSteamFeed, parseYouTubeFeed, type Creator } from './feeds.ts';
 import { clock as videoClock, diagnose, readVideo, videoUrl, type Diagnosis, type VideoRead } from './watchvideo.ts';
 import { HookServer, HookTracker, isLoopback } from './hooks.ts';
 import { Reminders } from './reminders.ts';
@@ -416,6 +417,9 @@ export class Core {
       askChoice: (question, options, remember) => this.askChoice(question, options, remember),
       browserHistory: (query, days) => this.browserHistory(query, days),
       watchVideo: url => this.videoWords(url),
+      followCreator: ch => this.followCreator(ch),
+      unfollowCreator: w => { const c = this.feeds.unfollow(w); return Promise.resolve(c ? { ok: true, detail: `Stopped following ${c.name}.` } : { ok: false, detail: `You do not follow anyone called "${w}". You follow: ${this.feeds.creators.map(x => x.name).join(', ') || 'nobody'}.` }); },
+      apexMap: () => this.apexRanked(),
       mailInbox: (query, max) => this.mailRead('mcp__aang__mail_inbox', { query: query ?? '' }, m => m.inbox(query || 'in:inbox', max ?? 10)),
       mailRead: id => this.mailRead('mcp__aang__mail_read', { id }, m => m.read(id)),
       calendar: days => this.mailRead('mcp__aang__calendar_today', { days: days ?? 1 }, m => m.agenda(days ?? 1)),
@@ -1313,6 +1317,56 @@ export class Core {
     } catch (e) { console.error('ideas: could not save: ' + (e as Error).message); }
   }
 
+  // ---- 9.D D8: 🎮 gaming feeds
+  private feedsStore: Feeds | null = null;
+  private get feeds(): Feeds { return this.feedsStore ??= new Feeds(this.cfg.stateDir); }
+  private readonly feedTimers: NodeJS.Timeout[] = [];
+  private feedTick = 0;
+  private async feedText(url: string): Promise<string> {
+    const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 Aang', 'Accept-Language': 'en' }, signal: AbortSignal.timeout(20_000) });
+    if (!r.ok) throw new Error(`${new URL(url).hostname} said ${r.status}`);
+    return r.text();
+  }
+  /** New uploads (and, when `news`, new Apex patch notes) go to 🎮 gaming, silently; a quiet line if he is at the PC. */
+  async checkFeeds(news: boolean): Promise<void> {
+    for (const c of this.feeds.creators) {
+      try {
+        const fresh = this.feeds.freshUploads(c, parseYouTubeFeed(await this.feedText(`https://www.youtube.com/feeds/videos.xml?channel_id=${c.id}`)));
+        for (const u of fresh) {
+          let thumb = '';
+          try {
+            const r = await fetch(`https://i.ytimg.com/vi/${u.videoId}/hqdefault.jpg`, { signal: AbortSignal.timeout(15_000) });
+            const b = Buffer.from(await r.arrayBuffer());
+            if (r.ok && b.length < 400_000) thumb = b.toString('base64');
+          } catch { /* the card goes without a picture */ }
+          this.sendTo('discord', { t: 'gaming.post', kind: 'upload', videoId: u.videoId, title: u.title, channel: u.channel || c.name, ...(thumb ? { thumb } : {}) });
+          if (this.whereHeIs() === 'desktop') this.announce(`${u.channel || c.name} just posted: ${u.title}`);
+        }
+      } catch (e) { console.log(`gaming: could not check ${c.name}: ${(e as Error).message}`); }
+    }
+    if (!news) return;
+    try {
+      for (const n of this.feeds.freshNews(parseSteamFeed(await this.feedText(APEX_STEAM)))) {
+        this.sendTo('discord', { t: 'gaming.post', kind: 'news', title: n.title, link: n.link, summary: n.summary });
+        if (this.whereHeIs() === 'desktop') this.announce(`Apex patch notes: ${n.title}`);
+      }
+    } catch (e) { console.log('gaming: could not check Apex news: ' + (e as Error).message); }
+  }
+  private async followCreator(channel: string): Promise<{ ok: boolean; detail: string }> {
+    let c: Creator | null = null;
+    try { c = await channelOf(channel, u => this.feedText(u)); } catch (e) { return { ok: false, detail: `I could not open that channel: ${(e as Error).message}.` }; }
+    if (!c) return { ok: false, detail: 'I need their YouTube channel link or @handle.' };
+    return this.feeds.follow(c) ? { ok: true, detail: `Following ${c.name}. New uploads go to 🎮 gaming.` } : { ok: true, detail: `You already follow ${c.name}.` };
+  }
+  private async apexRanked(): Promise<{ ok: boolean; detail: string }> {
+    let key = '';
+    try { key = readFileSync(path.join(this.cfg.stateDir, 'apex.key'), 'utf8').trim(); } catch { /* not yet */ }
+    if (!key) return { ok: false, detail: 'I need a free key from apexlegendsapi.com first. He signs up there himself and puts the key in a file called apex.key in the Aang settings folder. Say that plainly.' };
+    try {
+      return { ok: true, detail: await apexMap(key, async (u, h) => { const r = await fetch(u, { headers: h, signal: AbortSignal.timeout(15_000) }); if (!r.ok) throw new Error(`the map service said ${r.status}`); return r.json(); }) };
+    } catch (e) { return { ok: false, detail: `I could not get the map: ${(e as Error).message}.` }; }
+  }
+
   /** 9.D D6: the home card's numbers. Only counts and short names, never anything a page wrote. */
   private homeData(): { week: number | null; pace: string; running: number; waiting: string[] } {
     const q = this.policy.last;
@@ -1787,6 +1841,9 @@ export class Core {
     this.timerTick = setInterval(() => this.fireTimers(), 1000);
     this.timerTick.unref?.();
     this.factTimer = setInterval(() => this.offerFact(), 5 * 60_000);
+    // 9.D D8: 🎮 gaming. Creators every 20 minutes, Apex news every 2 hours (each sixth look).
+    this.feedTimers.push(setTimeout(() => void this.checkFeeds(true), 2 * 60_000), setInterval(() => void this.checkFeeds(++this.feedTick % 6 === 0), 20 * 60_000));
+    for (const t of this.feedTimers) t.unref?.();
     this.factTimer.unref?.();
     // The vault backup, silent and daily (his call, 2026-10-12). Checked hourly; autoBackup() saves once a day
     // has passed since the last save and something changed.
@@ -1836,6 +1893,7 @@ export class Core {
     if (this.checkpointTimer) clearInterval(this.checkpointTimer);
     if (this.briefTimer) clearInterval(this.briefTimer);
     if (this.factTimer) clearInterval(this.factTimer);
+    for (const t of this.feedTimers) clearTimeout(t);
     if (this.backupTimer) clearInterval(this.backupTimer);
     if (this.nudgeTimer) clearInterval(this.nudgeTimer);
     if (this.watchTimer) clearTimeout(this.watchTimer);
