@@ -11,7 +11,7 @@
 import path from 'node:path';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { writeFileAtomic } from './atomic.ts';
-import { Budget, LISTEN_CHANNELS, NEEDED, FORBIDDEN, chunkMessage, kindOf, newPairing, tryPair, planLayout } from './discord-logic.ts';
+import { Budget, LISTEN_CHANNELS, NEEDED, FORBIDDEN, chunkMessage, kindOf, newPairing, tryPair, planLayout, BUZZ_KEYS } from './discord-logic.ts';
 import type { Pairing } from './discord-logic.ts';
 import { capture } from './capture.ts';
 import { Grocery, looksLikeRecipe, parseListCommand, parseRecipe } from './lists.ts';
@@ -33,7 +33,9 @@ export interface OutEmbed {
   fields?: { name: string; value: string; inline?: boolean }[];
   footer?: string;
 }
-export interface OutMsg { content?: string; silent?: boolean; buttons?: Button[]; files?: { name: string; data: Buffer }[]; embed?: OutEmbed }
+export interface OutMsg { content?: string; silent?: boolean;
+  /** 9.D D2: may buzz even outside the green channels (a finished Claude job's post). Rare on purpose. */
+  loud?: boolean; buttons?: Button[]; files?: { name: string; data: Buffer }[]; embed?: OutEmbed }
 export interface ButtonPress {
   customId: string; userId: string; channelId: string;
   /** the message the button is on */
@@ -98,8 +100,10 @@ export interface CoreLink {
 }
 
 export interface State { ownerId: string | null; channels: Record<string, string>; lastSeen: Record<string, string>;
-  /** 9.D: channels (by key) already renamed once from their old plain names */
+  /** 9.D: channels (by key) already renamed once from their old plain names (before emoji) */
   renamed?: string[];
+  /** 9.D: the name each channel (by key) was last renamed toward, so it is tried once per name */
+  namedAs?: Record<string, string>;
   /** 9.D: old channels still to move from and, with his yes, delete */
   old?: { name: string; id: string; into: string }[]; oldCats?: { name: string; id: string }[]; moved?: boolean;
   /** 9.D: job cards that are their own post in the jobs forum (post id), so their tags follow the job */
@@ -154,7 +158,11 @@ export class DiscordAdapter {
   private readonly budget: Budget;
 
   constructor(gw: Gateway, link: CoreLink, dir: string, opts: AdapterOpts = {}) {
-    this.gw = gw; this.link = link; this.dir = dir; this.opts = opts;
+    // 9.D D2 (sheet 15): only the green channels may buzz his phone. Enforced here, once, for every message Aang
+    // sends, so no new feature can forget it: anything else goes out silent.
+    const send = (channelId: string, msg: OutMsg) => gw.send(channelId, this.buzzes(channelId) || msg.loud ? msg : { ...msg, silent: true });
+    this.gw = new Proxy(gw, { get: (t: any, p) => p === 'send' ? send : typeof t[p] === 'function' ? t[p].bind(t) : t[p] }) as Gateway;
+    this.link = link; this.dir = dir; this.opts = opts;
     this.budget = opts.budget ?? new Budget();
     this.grocery = new Grocery(dir);
     this.jobs = new Jobs(dir);
@@ -220,12 +228,12 @@ export class DiscordAdapter {
     // again by name and get the symbols Discord keeps; the copies are offered for deletion.
     if (!this.state.fixedCopies) {
       for (const k of ['needs-you', 'capture']) delete this.state.channels[k];
-      this.state.renamed = (this.state.renamed ?? []).filter(k => k !== 'needs-you' && k !== 'capture');
+
       this.state.fixedCopies = true;
     }
-    const plan = planLayout(await this.gw.channelList(), new Set(this.state.renamed ?? []), this.state.channels ?? {});
+    const namedAs = { ...(this.state.namedAs ?? {}) };
+    const plan = planLayout(await this.gw.channelList(), namedAs, this.state.channels ?? {});
     const out: Record<string, string> = {};
-    const renamed = new Set(this.state.renamed ?? []);
     for (const cat of plan.categories) {
       const catId = cat.id ?? await this.gw.createChannel({ name: cat.name, kind: 'category' });
       for (const ch of plan.channels.filter(c => c.category === cat.name)) {
@@ -240,15 +248,18 @@ export class DiscordAdapter {
           // and a slow rename must never keep Discord from starting (found 2026-10-13).
           const id = ch.id, spec = { ...(ch.rename ? { name: d.name } : {}), ...(ch.moveTo ? { parentId: catId } : {}), ...(ch.rename ? { topic: d.topic } : {}), ...(ch.addTags.length ? { addTags: ch.addTags } : {}) };
           void this.gw.editChannel(id, spec).catch(e => this.log(`discord: could not tidy #${d.key} yet: ${(e as Error).message}`));
-          if (ch.rename) renamed.add(d.key);
+          if (ch.rename) namedAs[d.key] = d.name;
         }
       }
     }
-    this.state.renamed = [...renamed];
+    this.state.namedAs = namedAs;
     this.state.old = plan.old;
     this.state.oldCats = plan.oldCategories;
     return out;
   }
+
+  /** 9.D D2: may a message here buzz his phone? Only in the green channels. */
+  private buzzes(channelId: string): boolean { const k = this.keyOf(channelId); return !!k && BUZZ_KEYS.has(k); }
 
   /** Which of his channels (by key) a message is in; a message in a forum post counts as the forum. */
   private keyOf(channelId: string, parentId?: string): string | null {

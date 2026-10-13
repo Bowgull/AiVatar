@@ -129,8 +129,10 @@ test('9.D: the old server is renamed in place, nothing is deleted, and the old j
   assert.deepEqual(plan.old.map(o => [o.name, o.into]), [['recipes', 'library'], ['job-digest', 'jobs']]);
   assert.deepEqual(plan.oldCategories.map(c => c.name), ['AANG']);
   assert.ok(!plan.old.some(o => o.name === 'random-other'), 'a channel he made himself is never touched');
-  // Already renamed once: never renamed again, even if Discord stored the name differently.
-  assert.equal(planLayout(old, new Set(['aang'])).channels.find(c => c.def.key === 'aang')!.rename, false);
+  // Already renamed toward this name once: never again, even if Discord stored the name differently.
+  const aangName = LAYOUT.flatMap(c => c.channels).find(d => d.key === 'aang')!.name;
+  assert.equal(planLayout(old, { aang: aangName }).channels.find(c => c.def.key === 'aang')!.rename, false);
+  assert.equal(planLayout(old, { aang: '▸-aang' }).channels.find(c => c.def.key === 'aang')!.rename, true, 'a new name is tried once');
 });
 
 test('9.D, found live: a name Discord changed never makes a second channel, and two of a name means the older one', () => {
@@ -143,8 +145,8 @@ test('9.D, found live: a name Discord changed never makes a second channel, and 
   const pick = (p: ReturnType<typeof planLayout>) => p.channels.find(c => c.def.key === 'needs-you')!;
   assert.equal(pick(planLayout(now)).id, '100', 'the older one wins');
   assert.equal(pick(planLayout(now)).rename, true, 'and it gets the symbol Discord keeps');
-  assert.equal(pick(planLayout(now, new Set(), { 'needs-you': '200' })).id, '200', 'the one Aang already knows comes first, whatever its name');
-  assert.ok(!LAYOUT.flatMap(c => c.channels).some(d => /^[!+]/.test(d.name)), 'no symbol Discord strips');
+  assert.equal(pick(planLayout(now, {}, { 'needs-you': '200' })).id, '200', 'the one Aang already knows comes first, whatever its name');
+  assert.ok(!LAYOUT.flatMap(c => c.channels).some(d => /[!+]/.test(d.name)), 'no symbol Discord strips');
   assert.deepEqual(planLayout(now).old.map(o => [o.id, o.into]), [['900', 'none']], 'the empty copy is offered for deletion, never used');
 });
 
@@ -829,4 +831,19 @@ test('a thought in #capture is written down for free; a question still goes to A
 
   gw.say('capture', OWNER, 'aang remind me about the raid'); await tick();
   assert.equal(core.submits.length, 2);                       // and so is anything aimed at him
+});
+
+test('9.D D2: only the green channels may buzz his phone; everything else goes out silent, whatever asked for it', async () => {
+  const { a, gw } = await make({ paired: true });
+  await (a as any).gw.send('ch-home', { content: 'a quiet note' });
+  await (a as any).gw.send('ch-gaming', { content: 'new upload' });
+  await (a as any).gw.send('ch-aang', { content: 'a reply' });
+  await (a as any).gw.send('ch-needs-you', { content: 'needs you' });
+  await (a as any).gw.send('some-post', { content: 'job done', loud: true });
+  const by = (id: string) => gw.sent.filter(s => s.channelId === id).at(-1)!.msg.silent === true;
+  assert.equal(by('ch-home'), true);
+  assert.equal(by('ch-gaming'), true);
+  assert.equal(by('ch-aang'), false, 'a reply in aang may buzz');
+  assert.equal(by('ch-needs-you'), false);
+  assert.equal(by('some-post'), false, 'a finished job may say so, when the code says loud');
 });

@@ -3781,7 +3781,13 @@ the connection) and 9.A0 (buttons call the action registry). **Build order:**
   delete them. The Mac front desk only gained plain operations (list, create, edit, delete, posts, tags), so layout
   changes never need another Mac setup. 586 tests.
 - **D2 What buzzes:** green ones only (needs-you, drafts, aang replies, claude-jobs when done); everything else silent.
-- **D3 Cards Aang draws:** pictures rendered on Shadow in his look (parchment, wood, plaques, Silkscreen + Figtree,
+  **D2 BUILT 2026-10-13:** every message Aang sends passes one guard (`DiscordAdapter` constructor): outside the green
+  channels (BUZZ_KEYS: needs-you, drafts, aang, claude-jobs) it goes out silent, whatever the caller asked; `loud`
+  is the one exception, for a finished Claude job's post. **Names are colour emoji** (his pick, 2026-10-13: Discord has
+  no channel icons): ❗ needs-you, 📨 drafts, 🌀 aang, 📥 capture, ⚙️ claude-jobs, 💼 jobs, 📚 library, 📝 lists, 🏠 home,
+  🎮 gaming. Renaming is tried once per target name (`namedAs`), so a name Discord stores differently never loops.
+- **D3 Cards Aang draws:** (his note 2026-10-13: the wood is the browser's PIXEL-PAINTED wood, band.png / tray.png, never
+  flat browns like the sheet 15 home card) pictures rendered on Shadow in his look (parchment, wood, plaques, Silkscreen + Figtree,
   "DRAWN BY AANG"), attached to the card; accent strips; his sprite as the avatar.
 - **D4 Separate speakers:** Aang, Claude and Job Hunt through bot-owned webhooks (plain webhooks drop buttons).
 - **D5 One live card per Claude job** in #claude-jobs (board 2): step bar, files, Stop / Open on PC / What changed,
