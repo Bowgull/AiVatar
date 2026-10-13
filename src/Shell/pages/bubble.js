@@ -577,6 +577,9 @@ function showAsk(m) {
     const to = val(a.mail.to);
     if (a.mail.fresh) { const c = document.createElement('span'); c.className = 'chip careful newto'; c.textContent = 'NEVER WRITTEN TO BEFORE'; to.append(' ', c); }
     hdr.append(lab('TO'), to);
+    // E6: everyone it goes to, and every file, before the hold sends it.
+    if (a.mail.cc) hdr.append(lab('CC'), val(a.mail.cc));
+    if (a.mail.files) hdr.append(lab('FILES'), val(a.mail.files));
     const letter = document.createElement('div'); letter.className = 'letter'; letter.textContent = a.mail.body;
     mail.append(hdr, letter);
     bubble.classList.add('wide', 'widest');

@@ -219,7 +219,7 @@ export function kindOf(tool: string, input: Record<string, unknown>): { kind: st
     case 'mcp__aang__copy_to_clipboard': return { kind: 'write clipboard', says: 'put text on your clipboard' };
     case 'mcp__aang__send_to_phone': return { kind: 'send to Discord', says: 'send files and pictures of your window to your Discord' };
     // E5: never trusted away: every booking and every undo asks, with everything shown (askPermission once: true).
-    case 'mcp__aang__calendar_book': case 'mcp__aang__calendar_undo': return null;
+    case 'mcp__aang__calendar_book': case 'mcp__aang__calendar_undo': case 'mcp__aang__mail_filter': return null;
     case 'mcp__aang__mail_inbox': case 'mcp__aang__mail_read': case 'mcp__aang__mail_attachment': return { kind: 'read email', says: 'read your email (never send it: a draft always waits for your tap)' };
     case 'mcp__aang__calendar_today': return { kind: 'read calendar', says: 'read your calendar' };
     case 'mcp__aang__play_music': return { kind: 'play music', says: 'play music on your Spotify' };
