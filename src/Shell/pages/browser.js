@@ -81,6 +81,10 @@ function trayShut() {
 // The tray closed by itself (Esc in it, a click on the page, a tab picked): the handle follows.
 window.aang?.onBrowserTray?.((s) => { if (!SOLO && s && s.open === false && drawerOpen) trayShut(); });
 if (SOLO) {
+  // The list goes a moment after the mouse leaves it (not while a menu of its own or a rename is open).
+  let leaveT = 0;
+  document.documentElement.addEventListener('mouseleave', () => { clearTimeout(leaveT); leaveT = setTimeout(() => { if (!document.querySelector('.th input') && !document.getElementById('tabmenu')) closeDrawer(); }, 350); });
+  document.documentElement.addEventListener('mouseenter', () => clearTimeout(leaveT));
   drawerOpen = true;
   document.body.classList.add('drawer-open');
   el('rail').setAttribute('aria-hidden', 'false');
@@ -602,7 +606,8 @@ function buildRow(t, kid) {
     x.addEventListener('click', (e) => { e.stopPropagation(); tap(0.7); window.aang?.browserTab?.({ id: t.id, act: 'close' }); });
     row.append(x);
     // A tab switches on the press, not the release, the way Chrome does; its buttons keep their own clicks.
-    row.addEventListener('pointerdown', (e) => { if (e.button === 0 && !e.target.closest('button')) { window.aang?.browserTab?.({ id: t.id, act: 'show' }); closeDrawer(); } });
+    // His ask (2026-10-13): picking a tab shows it and the list stays, so he can look through tabs; it goes when the mouse leaves it.
+    row.addEventListener('pointerdown', (e) => { if (e.button === 0 && !e.target.closest('button')) window.aang?.browserTab?.({ id: t.id, act: 'show' }); });
     row.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); window.aang?.browserTab?.({ id: t.id, act: 'show' }); } });
     row.addEventListener('auxclick', (e) => { if (e.button === 1) { tap(0.7); window.aang?.browserTab?.({ id: t.id, act: 'close' }); } });
     row.addEventListener('contextmenu', (e) => { e.preventDefault(); tabMenu(t, e.clientX, e.clientY); });
@@ -624,7 +629,7 @@ function paintMarks(list) {
     m.type = 'button'; m.className = 'mark'; m.title = b.url;
     if (b.favicon) { const i = document.createElement('img'); i.alt = ''; i.src = b.favicon; i.referrerPolicy = 'no-referrer'; i.onerror = () => i.remove(); m.append(i); }
     m.append(String(b.title || b.url).slice(0, 24));
-    m.addEventListener('click', () => { window.aang?.browserGo?.(b.url); closeDrawer(); });
+    m.addEventListener('click', () => { window.aang?.browserGo?.(b.url); });
     box.append(m);
   }
 }

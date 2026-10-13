@@ -728,6 +728,7 @@ export class AangBrowser {
     v.webContents.focus();
     this.sendTabs();
   }
+  private raiseTray(): void { if (this.trayOn && this.trayV && this.win && !this.win.isDestroyed()) this.win.contentView.addChildView(this.trayV); }
   private placeTray(): void {
     const w = this.win, v = this.trayV;
     if (!w || w.isDestroyed() || !v || !this.trayOn) return;
@@ -866,6 +867,7 @@ export class AangBrowser {
     if (!ok || vl?.nav !== nav || !t.view || t.id !== this.active || this.drawerOpen) { if (vl?.nav === nav) this.veil = null; return; }
     v.setBounds(t.view.getBounds());
     this.win?.contentView.addChildView(v);                      // to the top, over the page
+    this.raiseTray();                                           // but never over the open tab list
     v.setVisible(true);
     vl.up = true;
     vl.dimT = setTimeout(() => { if (this.veil?.nav === nav) void v.webContents.executeJavaScript('curtainDim()').catch(() => {}); }, VEIL_DIM_MS);
@@ -909,6 +911,7 @@ export class AangBrowser {
     try { view.setBorderRadius(PAGE_RADIUS); } catch { /* an older runtime: square corners */ }
     view.setVisible(false);
     this.win?.contentView.addChildView(view);
+    this.raiseTray();                                   // a waking tab never covers the open tab list
     tab.view = view; tab.crashed = false; tab.loading = true; tab.drawn = false;
     wc.on('will-attach-webview', (e) => e.preventDefault());
     this.nameFor(wc);
@@ -1072,6 +1075,7 @@ export class AangBrowser {
     try { view.setBorderRadius(PAGE_RADIUS); } catch { /* square */ }
     view.setVisible(false);
     this.win?.contentView.addChildView(view);
+    this.raiseTray();
     tab.view = view; tab.crashed = false; tab.loading = false; tab.title = things ? 'Your things' : 'Settings';
     wc.on('before-input-event', (e, input) => { if (this.key(input)) e.preventDefault(); });
     wc.on('render-process-gone', () => { tab.crashed = true; this.place(); this.sendTabs(); });
