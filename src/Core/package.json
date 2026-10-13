@@ -17,6 +17,7 @@
     "@playwright/mcp": "0.0.82",
     "chrono-node": "2.10.1",
     "discord.js": "^14.27.0",
+    "unpdf": "1.8.1",
     "ws": "^8.18.0",
     "zod": "^4.0.0"
   },

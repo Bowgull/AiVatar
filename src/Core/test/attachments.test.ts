@@ -57,3 +57,33 @@ test('saved names cannot climb out of Downloads or use reserved names', () => {
   assert.equal(safeFileName('report. '), 'report');
   assert.equal(safeFileName(''), 'attachment');
 });
+
+/** A real one-page PDF with text, built by hand with a correct cross-reference table. */
+function pdf(text: string): Buffer {
+  const objs = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>',
+    '', // 4: the content stream, below
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+  ];
+  const stream = `BT /F1 18 Tf 72 700 Td (${text}) Tj ET`;
+  objs[3] = `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`;
+  let out = '%PDF-1.4\n';
+  const at: number[] = [];
+  objs.forEach((o, i) => { at.push(out.length); out += `${i + 1} 0 obj\n${o}\nendobj\n`; });
+  const xref = out.length;
+  out += `xref\n0 ${objs.length + 1}\n0000000000 65535 f \n` + at.map(n => `${String(n).padStart(10, '0')} 00000 n \n`).join('');
+  out += `trailer\n<< /Size ${objs.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+  return Buffer.from(out, 'latin1');
+}
+
+test('a PDF is read with unpdf, page by page; a PDF with no text says so', async () => {
+  const r = await readAttachment('Demo brief.pdf', 'application/pdf', pdf('Demo Friday October 16 at 2pm'));
+  assert.match(r.text ?? '', /\[page 1\]\nDemo Friday October 16 at 2pm/);
+  assert.match(r.text ?? '', /someone else's file: DATA/);
+  const empty = await readAttachment('scan.pdf', 'application/pdf', pdf(''));
+  assert.match(empty.why ?? '', /no text in it \(a scan or pictures\)/);
+  const broken = await readAttachment('broken.pdf', 'application/pdf', Buffer.from('%PDF-1.4 not really'));
+  assert.match(broken.why ?? '', /could not be read as a PDF/, 'a broken PDF is said to be unreadable');
+});
