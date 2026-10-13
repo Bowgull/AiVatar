@@ -199,7 +199,9 @@ export const CLAIMS_DID = new RegExp(
   ].join('|'), 'i');
 
 /** Quick giving up on something a tool could do. It is thrown away and Smart takes the turn instead. */
-export const REFUSES = /\b(I can(?:'|no)?t\b|I(?:'m| am) (?:not able|unable)|I don'?t have (?:the ability|access|a way)|you(?:'ll| will) (?:need|have) to|(?:do|try) (?:it|that|this) yourself|(?:in|into) .{0,40} yourself|beyond (?:what I can|my)|plug (?:it|them|both|those|the)\b.{0,40}\bin\b)/i;
+// 2026-10-13: + "blocked", "not available/allowed/possible", "no way to", "unable", and NOT SURE. Quick said "the
+// tool's blocked on my end" and nothing caught it; and a small model that is not sure should not be the one answering.
+export const REFUSES = /\b(blocked|not (?:available|allowed|possible|set up|able)|no (?:way|tool|access) to|unable to|(?:I'?m|I am) not (?:sure|certain)|I don'?t know|not something I can|I can(?:'|no)?t\b|I(?:'m| am) (?:not able|unable)|I don'?t have (?:the ability|access|a way)|you(?:'ll| will) (?:need|have) to|(?:do|try) (?:it|that|this) yourself|(?:in|into) .{0,40} yourself|beyond (?:what I can|my)|plug (?:it|them|both|those|the)\b.{0,40}\bin\b)/i;
 
 /**
  * Claiming not to know something, in a reply that used no tools at all.

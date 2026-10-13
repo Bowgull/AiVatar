@@ -2,9 +2,11 @@ import type { Mode } from './protocol.ts';
 
 export type Lane = 'quick' | 'smart' | 'deep';
 
+// His yes (2026-10-13): each lane on the newest model of the same size, checked live first (both answered as
+// themselves). Opus 5.5 needs a newer Claude Code than the SDK bundles (2.1.280+): Deep stays on Opus 5 until then.
 export const MODELS: Record<Lane, { model: string; label: string }> = {
-  quick: { model: 'claude-haiku-4-5-20251001', label: 'Quick' },
-  smart: { model: 'claude-sonnet-5', label: 'Smart' },
+  quick: { model: 'claude-haiku-5-5', label: 'Quick' },
+  smart: { model: 'claude-sonnet-5-5', label: 'Smart' },
   deep: { model: 'claude-opus-5', label: 'Deep' },
 };
 
@@ -60,6 +62,15 @@ export type Channel = 'desktop' | 'discord';
  *
  * Saving quota still wins over all of this: it is his own explicit "spend less" and is never overridden.
  */
+/**
+ * His rule (2026-10-13: "why is the quick model constantly telling me things confidently wrong and refusing to do
+ * things?"): the small model only gets plain small talk. A greeting, thanks, a goodbye, "how are you". Everything
+ * else - a fact, a question, his stuff, anything to do, even a bare "yes" (it usually answers something just asked)
+ * - goes to Smart. Quick was answering "my home address is ..." without the tool to save it.
+ */
+export const SMALL_TALK = /^\s*(?:(?:hey|hi|hiya|hello|yo|sup|morning|evening|afternoon|good (?:morning|night|evening|afternoon)|gm|gn|night|nite|thanks?(?: (?:you|so much|a lot))?|thx|ty|tysm|cheers|lol|lmao|haha+|hehe+|nice|cool|sweet|awesome|bye|later|cya|see ya|how are (?:you|ya|u)|how'?s it going|how you doing|what'?s up|wassup|whats good|checking in|love you|gg)(?:,? (?:bud|buddy|man|aang|dude|bro|pal|my guy|my man|homie))?[\s!.?~]*)+$/i;
+export const isSmallTalk = (text: string) => text.length <= 80 && SMALL_TALK.test(text);
+
 export function pickLane(text: string, mode: Mode, saving: boolean, once: boolean, channel: Channel = 'desktop'): Choice {
   if (mode === 'quick') return { lane: 'quick', needsConsent: false };
   if (mode === 'smart' || mode === 'deep') {
@@ -67,5 +78,5 @@ export function pickLane(text: string, mode: Mode, saving: boolean, once: boolea
   }
   if (saving) return { lane: 'quick', needsConsent: false };
   if (channel === 'discord') return { lane: 'smart', needsConsent: false };
-  return { lane: text.length > 500 || HARD.test(text) || actsOnIt(text) ? 'smart' : 'quick', needsConsent: false };
+  return { lane: isSmallTalk(text) ? 'quick' : 'smart', needsConsent: false };
 }

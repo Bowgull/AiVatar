@@ -17,6 +17,9 @@ test('the requests that failed on Quick go to Smart; chat stays on Quick', () =>
   const lane = (t: string) => pickLane(t, 'auto', false, false, 'desktop').lane;
   for (const t of ['whats the fastest way from undercity to thunder bluff?', 'camn you oput on naruto?', 'get anderson paak tiny desk on youtube', 'how do i get to booty bay'])
     assert.equal(lane(t), 'smart', t);
-  for (const t of ['yup', 'how are you', 'lol nice', 'thanks man', 'output on the screen is weird'])
+  for (const t of ['how are you', 'lol nice', 'thanks man'])
     assert.equal(lane(t), 'quick', t);
+  // 2026-10-13: only plain small talk is Quick now; "yup" usually answers something just asked, so it needs Smart.
+  for (const t of ['yup', 'output on the screen is weird'])
+    assert.equal(lane(t), 'smart', t);
 });
