@@ -1645,6 +1645,9 @@ export class Core {
     // reboots are unpredictable, so "back up nightly" would often just not happen; "back up at start" always
     // does. Deferred a few seconds so it can never delay the very first message getting through.
     setTimeout(() => this.runBackup(), 5_000).unref?.();
+    // And every 24 hours while he stays up (his ask, 2026-10-13): the brain can run for days without a restart,
+    // and a backup that only happens at start would then not happen at all.
+    setInterval(() => this.runBackup(), 24 * 3_600_000).unref?.();
     // Something happened to his memory on the way up: it was missing, or damaged and restored, or
     // built from nothing. He says so himself rather than leaving it in a log, because the failure
     // this replaces was Aang starting with no memory at all and talking to Joshua as a stranger
