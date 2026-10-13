@@ -133,6 +133,21 @@ test('9.D: the old server is renamed in place, nothing is deleted, and the old j
   assert.equal(planLayout(old, new Set(['aang'])).channels.find(c => c.def.key === 'aang')!.rename, false);
 });
 
+test('9.D, found live: a name Discord changed never makes a second channel, and two of a name means the older one', () => {
+  // Discord stripped "!" so #needs-you became "-needs-you"; the next start did not recognise it and made another.
+  const now = [
+    { id: '100', name: '-needs-you', kind: 'text' as const, parentId: 'c' },        // his, with history
+    { id: '900', name: '-needs-you', kind: 'text' as const, parentId: 'c' },        // the empty copy
+    { id: '200', name: 'mystery-name', kind: 'text' as const, parentId: 'c' },
+  ];
+  const pick = (p: ReturnType<typeof planLayout>) => p.channels.find(c => c.def.key === 'needs-you')!;
+  assert.equal(pick(planLayout(now)).id, '100', 'the older one wins');
+  assert.equal(pick(planLayout(now)).rename, true, 'and it gets the symbol Discord keeps');
+  assert.equal(pick(planLayout(now, new Set(), { 'needs-you': '200' })).id, '200', 'the one Aang already knows comes first, whatever its name');
+  assert.ok(!LAYOUT.flatMap(c => c.channels).some(d => /^[!+]/.test(d.name)), 'no symbol Discord strips');
+  assert.deepEqual(planLayout(now).old.map(o => [o.id, o.into]), [['900', 'none']], 'the empty copy is offered for deletion, never used');
+});
+
 test('a pairing code only counts when it is the six digits, and a few wrong tries lock it', () => {
   const p = newPairing(0);
   assert.match(p.code, /^\d{6}$/);
