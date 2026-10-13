@@ -164,6 +164,7 @@ contextBridge.exposeInMainWorld('aang', {
   onBrowserTabs(fn) { const h = (_e, s) => fn(s); ipcRenderer.on('browser:tabs', h); return () => ipcRenderer.removeListener('browser:tabs', h); },
   browserAskReply: a => ipcRenderer.send('browser:askreply', a),
   browserShareReply: a => ipcRenderer.send('browser:sharereply', a),
+  browserUpdateGo: () => ipcRenderer.send('browser:updatego'),
   browserAdPause: on => ipcRenderer.send('browser:adpause', on),
   /** The popout page: where its picture area is (a lent tab is laid over it), and the controls for that tab. */
   popoutStage: r => ipcRenderer.send('popout:stage', r),
@@ -194,6 +195,7 @@ contextBridge.exposeInMainWorld('aang', {
   pageMenuPick: id => ipcRenderer.send('pagemenu:pick', id),
   pageMenuSize: r => ipcRenderer.send('pagemenu:size', r),
   onBrowserAsk(fn) { const h = (_e, a) => fn(a); ipcRenderer.on('browser:ask', h); return () => ipcRenderer.removeListener('browser:ask', h); },
+  onBrowserUpdateWhy(fn) { const h = (_e, a) => fn(a); ipcRenderer.on('browser:updatewhy', h); return () => ipcRenderer.removeListener('browser:updatewhy', h); },
   onBrowserShare(fn) { const h = (_e, a) => fn(a); ipcRenderer.on('browser:share', h); return () => ipcRenderer.removeListener('browser:share', h); },
   /** The downloads tray: act on one by its number (open, show, stop, forget) or the tray (clear, folder, page); drag one out. */
   browserDl: a => ipcRenderer.send('browser:dl', a),

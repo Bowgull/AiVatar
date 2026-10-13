@@ -150,6 +150,29 @@ app.whenReady().then(async () => {
   const esc = said.at(-1)?.a;
   check('Esc cancels and shares nothing', esc?.id === 8 && esc?.source === null, JSON.stringify(esc));
 
+  // ================================================================== part 3: the update key (6.28)
+  const tabsMsg = (update: unknown, inCall = false) => b.webContents.send('browser:tabs', { active: 1, canBack: false, canForward: false, tabs: [{ id: 1, title: 'Wowhead', url: 'https://www.wowhead.com/classic', favicon: '', loading: false }], update, inCall });
+  tabsMsg(null);
+  await wait(300);
+  check('no update: no key', await bjs<boolean>(`document.getElementById('upkey').classList.contains('away')`));
+  tabsMsg({ version: '44.8.1', since: Date.now() - 5 * 86_400_000 });
+  await wait(500);
+  const k = await bjs<any>(`(() => { const k = document.getElementById('upkey'), m = document.getElementById('menukey'); const a = k.getBoundingClientRect(), c = m.getBoundingClientRect();
+    return { away: k.classList.contains('away'), title: k.title, age: k.className, mid: Math.round(a.top + a.height / 2), menuMid: Math.round(c.top + c.height / 2), h: Math.round(a.height), before: a.right <= c.left }; })()`);
+  check('an update: the key pops in, beside the settings key', !k.away && k.before, k.age);
+  check('the key sits level with the other keys', k.mid === k.menuMid && k.h === 33, `centre ${k.mid} vs ${k.menuMid}, ${k.h} tall`);
+  check('hovering it says what it is, briefly', k.title === 'Browser update ready, waiting 5 days', k.title);
+  check('after 4 days it is amber', /\bage1\b/.test(k.age));
+  await bjs(`document.getElementById('upkey').click(); true`);
+  await wait(300);
+  const t = await bjs<any>(`(() => { const t = document.getElementById('uptray'), k = document.getElementById('upkey'); return { open: !t.hidden, name: document.getElementById('upname').textContent, edge: Math.round(t.getBoundingClientRect().right - k.getBoundingClientRect().right), go: !document.getElementById('upgo').disabled }; })()`);
+  check('clicking it drops the panel under it', t.open && Math.abs(t.edge) <= 1 && t.name === 'Browser engine 44.8.1', JSON.stringify(t));
+  writeFileSync(path.join(OUT, 'update-panel.png'), (await b.webContents.capturePage()).toPNG());
+  tabsMsg({ version: '44.8.1', since: Date.now() }, true);
+  await wait(200);
+  const c = await bjs<any>(`({ off: document.getElementById('upgo').disabled, why: document.getElementById('upwhy').textContent })`);
+  check('in a call, Restart now is off and says why', c.off === true && /call/.test(c.why), c.why);
+
   check('no page errors', pageErrors.length === 0, pageErrors.slice(0, 3).join(' | '));
   const failed = results.filter((x) => !x.ok);
   console.log(`\n${results.length - failed.length}/${results.length} passed`);

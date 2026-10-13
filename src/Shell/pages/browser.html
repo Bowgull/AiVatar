@@ -38,6 +38,9 @@
     </div>
     <!-- The browser's settings, top right like any app's (his ask, 2026-10-11). Organised by what they are about. -->
     <!-- Downloads (his ask, 2026-10-12): the key is only here while the tray has something; it pops in and pushes ⋯ over. -->
+    <!-- 6.28 the update key (sheet 18, his pick 2026-10-13: the arrow and the word): only here once a newer engine is
+         downloaded, checked and tested. It pops in like the downloads key; it warms with age; he picks the moment. -->
+    <button class="rnd upkey word away" id="upkey" type="button" aria-label="Browser update ready" aria-expanded="false" tabindex="-1"><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges" aria-hidden="true"><path d="M3 0h1v1H3zM2 1h3v1H2zM1 2h5v1H1zM0 3h7v1H0zM2 4h3v3H2z"/></svg><span class="w">UPDATE</span></button>
     <button class="rnd dlkey away" id="dlkey" type="button" aria-label="Downloads" aria-expanded="false" tabindex="-1"><svg viewBox="0 0 7 8" width="14" height="16" shape-rendering="crispEdges" aria-hidden="true"><path d="M2 0h3v2H2zM0 2h7v1H0zM1 3h5v1H1zM2 4h3v1H2zM3 5h1v1H3zM0 7h7v1H0z" fill="#e8e0f5"/></svg><i class="ring" id="dlring" hidden></i></button>
     <button class="rnd menukey" id="menukey" type="button" aria-label="Browser settings" aria-expanded="false" aria-haspopup="true"><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges" aria-hidden="true"><path d="M0 3h1v1H0zM3 3h1v1H3zM6 3h1v1H6z" fill="#e8e0f5"/></svg></button>
     <!-- His own window buttons (2026-10-12, B): bold gold pixel symbols on the wood. -->
@@ -119,6 +122,21 @@
         <span><b>Block ads on this site</b><small id="adnote"></small></span></label>
     </div>
     <!-- The downloads tray: this run's newest 5. Drag a file out to use it anywhere. -->
+    <div class="dltray uptray" id="uptray" role="dialog" aria-label="Browser update" hidden>
+      <div class="gh">UPDATE READY<span id="upsince"></span></div>
+      <div class="ver"><b id="upname"></b><small>A small update to the browser engine</small></div>
+      <div class="lines">
+        <div><span class="tick"></span>Downloaded and checked against Electron's own fingerprints</div>
+        <div><span class="tick"></span>Passed Aang's checks on this PC</div>
+        <div><span class="tick"></span>Your tabs come back after the restart</div>
+      </div>
+      <p class="upwhy" id="upwhy" hidden></p>
+      <div class="keys">
+        <button class="key primary sm" id="upgo" type="button">Restart now</button>
+        <button class="key sm" id="uplater" type="button">Later</button>
+      </div>
+      <div class="note">If the new one ever fails to start, Aang goes back to the old one by himself.</div>
+    </div>
     <div class="dltray" id="dltray" role="dialog" aria-label="Downloads" hidden>
       <div class="gh">DOWNLOADS<span>Drag a file out to use it anywhere</span></div>
       <div id="dlrows"></div>

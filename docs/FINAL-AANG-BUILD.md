@@ -2750,6 +2750,11 @@ Downloads list, print, PDF, a screen-share picker for calls, spellcheck.
 - **Measured (test/electron/calls-check.ts, 20/20):** a screen share reaches Chromium's permission gate as "media"
   with no devices named, so that case goes on to the picker. Sites see a Chrome user agent, but the browser brand list
   says "Chromium", not "Google Chrome". Teams and Zoom both support Chromium browsers; to be confirmed on a real call.
+- **Calls hardened (his: "interviews are happening constantly, this is very important"):** a tab with a live call
+  (camera, mic or screen share allowed) is never slowed in the background and never put to sleep; ad blocking is off
+  on Zoom, Teams, Meet and Webex; `in-call.json` in the state folder exists while a call is live, and the update key
+  will not restart during one. **Before restarting the Shell for any reason, check that file.** The public join pages of
+  Zoom, Teams and Meet load without any "unsupported browser" message (`test/electron/call-sites-probe.ts`).
 
 ### `[ ]` 6.25 Aang inside the browser
 
@@ -2829,6 +2834,16 @@ is the default, "open in your default browser" sends it back to Aang), and anyth
 security-patch gap.
 
 ### `[ ]` 6.28 Upkeep, automated
+
+**The update key, BUILT 2026-10-13 (his reversal: "i dont want aang to auto update i want an update icon"; sheet 18 v3,
+his pick: the arrow and the word UPDATE).** `src/Shell/src/engineupdate.ts`. Ten minutes after start and daily: the
+newest Electron of the SAME major, downloaded beside the old one, checked against Electron's SHASUMS256, unpacked
+with Windows' tar, then run through `test/electron/calls-check.ts` (27 checks) on the new engine. Never in a game or
+a call. Only then does the key pop into the band (hover: "Browser update ready"). Gold, amber after 4 days, ember
+after a week. Restart now writes `engines/current.json` as a trial and quits; the pet starts the new engine and rolls
+back if it dies within 3 minutes; after 5 minutes on it the Shell marks it good and keeps only it and the one before.
+Restart now is off during a call. A new major is never prepared by itself. The older paragraph below is superseded
+where it says small updates install themselves.
 
 **His decisions (2026-10-13):** small engine updates (same major, e.g. Electron 44.5 to 44.7) install themselves,
 only after the tests pass, with an automatic rollback if anything breaks; a major version asks him first. The

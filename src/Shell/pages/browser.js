@@ -1070,3 +1070,39 @@ function paintWho() {
   who.replaceChildren(driverIcon(w.kind), label, ...(w.working ? [stopKey(w.job, true)] : []));
   return true;
 }
+
+// ---- 6.28 the update key (sheet 18). The Shell sends `update` with the tabs once a newer engine is tested.
+{
+  const key = el('upkey'), tray = el('uptray');
+  let shownFor = null;
+  const DAY = 86_400_000;
+  const place = () => { const b = el('band').getBoundingClientRect(), k = key.getBoundingClientRect(); tray.style.right = Math.max(8, Math.round(b.right - k.right)) + 'px'; };
+  // Like the downloads tray: the page is shown as a still picture while it is open, so the tray is never behind it.
+  const close = () => { if (tray.hidden) return; tray.hidden = true; key.setAttribute('aria-expanded', 'false'); unfreeze('up'); };
+  window.aang?.onBrowserTabs?.((s) => {
+    const u = s && s.update;
+    if (!u || typeof u.version !== 'string') { key.classList.add('away'); key.tabIndex = -1; close(); shownFor = null; return; }
+    const days = Math.floor((Date.now() - (Number(u.since) || Date.now())) / DAY);
+    const age = days >= 7 ? 2 : days >= 4 ? 1 : 0;
+    key.classList.remove('age0', 'age1', 'age2'); key.classList.add('age' + age);
+    key.title = days >= 1 ? `Browser update ready, waiting ${days} day${days === 1 ? '' : 's'}` : 'Browser update ready';
+    el('upname').textContent = 'Browser engine ' + u.version;
+    el('upsince').textContent = days >= 1 ? `Waiting ${days} day${days === 1 ? '' : 's'}` : 'Ready today';
+    const call = s.inCall === true;
+    el('upgo').disabled = call;
+    el('upwhy').hidden = !call;
+    if (call) el('upwhy').textContent = "You're in a call. Restart when it's over.";
+    if (shownFor !== u.version) {
+      // It arrives: the downloads key's pop-in and its one glow, then it settles.
+      shownFor = u.version;
+      key.classList.remove('away'); key.tabIndex = 0;
+      key.classList.add('glow'); setTimeout(() => key.classList.remove('glow'), 1600);
+    }
+  });
+  key.addEventListener('click', (e) => { e.stopPropagation(); if (tray.hidden) { closeMenu(); closeDrawer(); closeDl(); tray.hidden = false; key.setAttribute('aria-expanded', 'true'); place(); freeze('up'); } else close(); });
+  el('uplater').addEventListener('click', close);
+  el('upgo').addEventListener('click', () => { el('upgo').disabled = true; window.aang?.browserUpdateGo?.(); });
+  window.aang?.onBrowserUpdateWhy?.((why) => { el('upwhy').textContent = String(why ?? ''); el('upwhy').hidden = false; el('upgo').disabled = false; });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !tray.hidden) close(); });
+  document.addEventListener('mousedown', (e) => { if (!tray.hidden && !tray.contains(e.target) && !key.contains(e.target)) close(); });
+}

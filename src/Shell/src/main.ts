@@ -17,6 +17,7 @@ import { Bubble, wantsNewBubble } from './bubble.ts';
 import { InputBox } from './input.ts';
 import { Snipper } from './snip.ts';
 import { AangBrowser } from './browser.ts';
+import { EngineUpdates } from './engineupdate.ts';
 import { Wheel } from './wheelwin.ts';
 import { NoteWindows } from './notewin.ts';
 import type { NoteData } from './notewin.ts';
@@ -563,6 +564,22 @@ app.whenReady().then(async () => {
 
       aangBrowser = new AangBrowser({ origin: pages.origin, preloadPath: path.join(HERE, 'preload.cjs'), stateDir: STATE_DIR, tabPreloadPath: path.join(HERE, 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, 'thingspreload.cjs') });
       aangBrowser.onReclaim = () => popout?.returnTab();
+      // 6.28 the update key: a newer engine, downloaded, checked and tested quietly, waits for his Restart now.
+      engineUpdates = new EngineUpdates({
+        shellDir: path.join(HERE, '..'), stateDir: STATE_DIR,
+        quietNow: () => gameQuiet || aangBrowser?.inCall === true,
+        changed: (r) => aangBrowser?.setUpdate(r),
+      });
+      aangBrowser.setUpdate(engineUpdates.ready);
+      aangBrowser.onCall = (on) => { if (!on && engineUpdates && !engineUpdates.ready) void engineUpdates.check(); };
+      engineUpdates.start();
+      {
+        const done = engineUpdates.justUpdated();
+        if (done) {
+          if (done.browser) aangBrowser.open();
+          setTimeout(() => bubble?.send('brain:message', { t: 'whisper', text: `Updated the browser to ${done.to}.` }), 4000);
+        }
+      }
       // Trail clean up asks Qwen through the brain; the answer comes back as tidy.answer.
       aangBrowser.onDriverStop = (j) => { link?.send({ t: 'drive.stopped', job: j.id }); };
       aangBrowser.onTidyAsk = (id, prompt) => { if (!link?.send({ t: 'tidy.ask', id, prompt })) aangBrowser?.tidyAnswer(id, { ok: false, why: 'offline' }); };
@@ -991,6 +1008,14 @@ app.whenReady().then(async () => {
   ipcMain.on('browser:driver', (e, a) => { if (aangBrowser?.isFrame(e.sender) && a && typeof a.act === 'string' && Number.isInteger(a.id)) aangBrowser.driverAct(a.act.slice(0, 10), a.id); });
   ipcMain.on('browser:act', (e, a) => { if (aangBrowser?.isFrame(e.sender) && typeof a === 'string') aangBrowser.act(a); });
   ipcMain.on('browser:go', (e, text) => { if (aangBrowser?.isFrame(e.sender) && typeof text === 'string') aangBrowser.go(text.slice(0, 2000)); });
+  // 6.28: his Restart now on the update key. Never during a call or a game; the band says why.
+  ipcMain.on('browser:updatego', (e) => {
+    if (!aangBrowser?.isFrame(e.sender) || !engineUpdates) return;
+    const r = engineUpdates.restartNow(aangBrowser.showing);
+    if (!r.ok) { e.sender.send('browser:updatewhy', r.why ?? 'Not right now.'); return; }
+    aangBrowser.closeAll();
+    setTimeout(() => app.exit(0), 1500);     // the pet starts the Shell again, on the new engine
+  });
   ipcMain.on('browser:askreply', (e, a) => { if (aangBrowser?.isFrame(e.sender) && a && Number.isInteger(a.id)) aangBrowser.answer(a.id, a.allow === true); });
   // 6.24: his pick in the screen-share panel. Only an id the panel was given can be shared.
   ipcMain.on('browser:sharereply', (e, a) => { if (aangBrowser?.isFrame(e.sender) && a && Number.isInteger(a.id)) aangBrowser.shareAnswer(a.id, typeof a.source === 'string' ? a.source.slice(0, 200) : null, a.sound === true); });
@@ -1252,6 +1277,7 @@ function fromDesk(e: Electron.IpcMainEvent): boolean {
 let snipper: Snipper | null = null;
 /** 6.19/6.20: Aang's browser, made when the pages are being served. */
 let aangBrowser: AangBrowser | null = null;
+let engineUpdates: EngineUpdates | null = null;
 /** The pet's last answer about its switches, so the browser's own switch can be shown beside them. */
 let lastSettings: Record<string, unknown> | null = null;
 const snips: { file: string; name: string }[] = [];
