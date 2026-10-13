@@ -191,6 +191,9 @@ export function macSetupScript(shadow: string, hookPort: number, hookKey: string
   return `#!/bin/bash
 # Aang: MacBook setup. Written by Aang on the Shadow PC; served once. Safe to run again.
 set -e
+# macOS can still be removing the old copy right after bootout; starting again too soon fails with "Input/output
+# error" (seen 2026-10-13). So: try again for a while before giving up.
+start_agent() { for i in 1 2 3 4 5 6 7 8; do launchctl bootstrap "gui/$(id -u)" "$1" 2>/dev/null && return 0; sleep 2; done; launchctl bootstrap "gui/$(id -u)" "$1"; }
 SHADOW=${q(shadow)}; HOOK_PORT=${hookPort}; HOOK_KEY=${q(hookKey)}; FRONT_KEY=${q(frontKey)}; PORT=${MAC_LISTENER_PORT}
 ${desk ? `DISCORD_TOKEN=${q(desk.token)}; DESK_KEY=${q(desk.key)}; DESK_PORT=${desk.port}` : ''}
 DIR="$HOME/Library/Application Support/AangListener"; PLIST="$HOME/Library/LaunchAgents/com.aang.listener.plist"
@@ -235,7 +238,7 @@ cat > "$PLIST" <<PLISTXML
 PLISTXML
 chmod 600 "$PLIST"
 launchctl bootout "gui/$(id -u)/com.aang.listener" 2>/dev/null || true
-launchctl bootstrap "gui/$(id -u)" "$PLIST"
+start_agent "$PLIST"
 HBPLIST="$HOME/Library/LaunchAgents/com.aang.heartbeat.plist"
 cat > "$HBPLIST" <<HBXML
 <?xml version="1.0" encoding="UTF-8"?>
@@ -250,7 +253,7 @@ cat > "$HBPLIST" <<HBXML
 HBXML
 chmod 600 "$HBPLIST"
 launchctl bootout "gui/$(id -u)/com.aang.heartbeat" 2>/dev/null || true
-launchctl bootstrap "gui/$(id -u)" "$HBPLIST"
+start_agent "$HBPLIST"
 
 echo "3/5  Node.js for Aang's Mac side (his yes, 2026-10-13): kept in Aang's own folder, no admin password"
 # The newest long-term-support Node for Intel Macs, from nodejs.org, checked against Node's own SHA-256 list
@@ -308,7 +311,7 @@ if [ -x "$NODE_DIR/bin/node" ]; then
 FDXML
     chmod 600 "$FDPLIST" "$DIR/discord.token" "$DIR/frontdesk.key"
     launchctl bootout "gui/$(id -u)/com.aang.frontdesk" 2>/dev/null || true
-    launchctl bootstrap "gui/$(id -u)" "$FDPLIST"
+    start_agent "$FDPLIST"
     sleep 8
     if grep -q "listening for Shadow" "$DIR/frontdesk.log" 2>/dev/null; then echo "     The front desk is connected to Discord and waiting for Shadow."; else echo "     The front desk started; it may still be connecting (see $DIR/frontdesk.log)."; fi
     # M4: the Mac answers as Aang with the Claude sign-in already on this Mac. Only whether it exists is checked;
