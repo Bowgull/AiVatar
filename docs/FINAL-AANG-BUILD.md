@@ -3765,6 +3765,28 @@ on a phone. After 9.A0 because every button and menu needs that one list behind 
 
 **Done when:** sheet 15 is approved, and a week of real use from his phone works without opening the PC.
 
+**APPROVED 2026-10-13** (his words: "Approved, build it"; home card: "Keep it"). He also said Discord IS away mode,
+so it needs no mode of its own: the wheel's Away just moves talking to Discord. Builds on M3 (the Mac front desk holds
+the connection) and 9.A0 (buttons call the action registry). **Build order:**
+- **D1 Channels:** the ten, grouped by what needs him, names with symbols (sheet 15 board 1). Kept channels are
+  RENAMED in place (history kept): log becomes ✦ home, and aang, capture, needs-you, drafts, lists get their symbols.
+  New: ⚙ claude-jobs (forum), ◎ jobs (forum, tags Found / Applied / Skipped), ❖ library (forum, tags Recipe / Guide /
+  Video / Idea / Note), ▲ gaming. Old job-inbox, job-digest, applied, recipes and guides are COPIED into the new
+  forums, he sees what moved, and they are deleted only after his yes.
+- **D2 What buzzes:** green ones only (needs-you, drafts, aang replies, claude-jobs when done); everything else silent.
+- **D3 Cards Aang draws:** pictures rendered on Shadow in his look (parchment, wood, plaques, Silkscreen + Figtree,
+  "DRAWN BY AANG"), attached to the card; accent strips; his sprite as the avatar.
+- **D4 Separate speakers:** Aang, Claude and Job Hunt through bot-owned webhooks (plain webhooks drop buttons).
+- **D5 One live card per Claude job** in #claude-jobs (board 2): step bar, files, Stop / Open on PC / What changed,
+  edited in place; its questions in #needs-you with Allow once / No / Exact command; replying continues the session.
+- **D6 Home card** pinned in ✦ home (board 4): Claude this week, running, waiting on you, your PC; What's waiting /
+  Stepping away / Put a show on.
+- **D7 #capture videos** (board 3): watched from the transcript by Qwen, a card with Useful for, and Add to plan /
+  Just save it / Go deeper (cost first) / Not useful, in a thread.
+- **D8 #gaming:** Apex ranked map and creator uploads (K3's feeds).
+- **D9 Away from the wheel:** the Quiet slot becomes Away; talking moves to Discord; sessions resumed and answered there.
+- Voice is step V (after L), not here.
+
 ### `[ ]` 9.A1 Approvals done right  (from coucou's source, MIT)
 
 - **A yes is tied to one exact request.** A fingerprint (SHA-256 of session, tool, command, input);
