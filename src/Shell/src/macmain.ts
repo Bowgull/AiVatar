@@ -13,6 +13,7 @@ import { servePages } from './pageserver.ts';
 import { AangBrowser } from './browser.ts';
 import { wireBrowser } from './browseripc.ts';
 import { DrmRuntime } from './drmrunner.ts';
+import { onCastlabs } from './engineupdate.ts';
 import { Popout, popoutFile } from './popout.ts';
 import { wirePopout } from './popoutipc.ts';
 import { readSettings } from './settings.ts';
@@ -57,6 +58,11 @@ app.whenReady().then(async () => {
 
   // Every button, menu and page of the browser, the same wiring as on the PC.
   wireBrowser(() => browser);
+  // castLabs' engine: Widevine must be loaded before a paid page asks for it (castLabs' own rule).
+  if (onCastlabs()) {
+    try { const c = (await import('electron') as any).components; await Promise.race([c.whenReady(), new Promise((r) => setTimeout(r, 15_000))]); console.log('aang: widevine ' + JSON.stringify(c.status())); }
+    catch (e) { console.error('aang: widevine did not load: ' + (e as Error).message); }
+  }
   const stateDir = app.getPath('userData');
   const pages = await servePages(path.join(HERE, '..', 'pages'));
   browser = new AangBrowser({
@@ -68,7 +74,9 @@ app.whenReady().then(async () => {
   // Paid video (2026-10-13): Netflix, Crave, Disney+, Prime and Crunchyroll play in the castLabs window, signed for
   // streaming on his own free castLabs account. Hardware acceleration stays on: there is no Shadow capture here.
   const drm = new DrmRuntime({ shellDir: path.join(HERE, '..'), stateDir });
-  browser.onPaid = (url) => {
+  // One engine (his yes, 2026-10-13): Aang.app is built on castLabs' engine, so paid video plays right in the tab;
+  // only an Aang.app on the stock engine still sends it to the separate window.
+  if (!onCastlabs()) browser.onPaid = (url) => {
     const paid = serviceFor(url);
     if (!paid?.ready) return false;
     const why = drm.open(url, 'narrow');
@@ -96,7 +104,7 @@ app.whenReady().then(async () => {
   };
   browser.onReclaim = () => popout.returnTab();
   wirePopout({
-    popout: () => popout, browser: () => browser, open: openPop, stopPaid: () => drm.close(),
+    popout: () => popout, browser: () => browser, open: openPop, stopPaid: () => drm.close(), paidSeparately: () => !onCastlabs(),
     // "Send to PC": through the brain, which puts it in the PC's pop-out.
     sendToOther: (url) => { if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ t: 'watch.topc', url })); else console.log('aang: the PC is not reachable, so it was not sent'); },
   });

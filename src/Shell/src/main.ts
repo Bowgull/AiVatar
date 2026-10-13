@@ -19,7 +19,7 @@ import { Snipper } from './snip.ts';
 import { AangBrowser } from './browser.ts';
 import { wireBrowser } from './browseripc.ts';
 import { wirePopout } from './popoutipc.ts';
-import { EngineUpdates } from './engineupdate.ts';
+import { EngineUpdates, onCastlabs } from './engineupdate.ts';
 import { CardRenderer } from './cardrender.ts';
 import { Wheel } from './wheelwin.ts';
 import { NoteWindows } from './notewin.ts';
@@ -42,6 +42,9 @@ import { blockAds, type AdBlock } from './skip/ads.ts';
 import type { Box } from './geometry.ts';
 
 const PORT = Number(process.env.AANG_PORT ?? 47831);
+// One engine (his yes, 2026-10-13): on castLabs' engine, paid video plays in the browser's tabs. Shadow cannot capture a
+// protected picture drawn as an overlay (6.1, black box), so that one overlay is turned off; acceleration stays on.
+if (onCastlabs()) app.commandLine.appendSwitch('disable-direct-composition-video-overlays');
 const STATE_DIR = process.env.AANG_STATE_DIR
   ?? path.join(process.env.APPDATA ?? path.join(os.homedir(), 'AppData', 'Roaming'), 'Aang');
 const DATA_DIR = process.env.AANG_DATA_DIR ?? path.join(os.homedir(), 'Documents', 'Aang');
@@ -594,7 +597,9 @@ app.whenReady().then(async () => {
 
       aangBrowser = new AangBrowser({ origin: pages.origin, preloadPath: path.join(HERE, 'preload.cjs'), stateDir: STATE_DIR, tabPreloadPath: path.join(HERE, 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, 'thingspreload.cjs') });
       aangBrowser.onReclaim = () => popout?.returnTab();
-      aangBrowser.onPaid = (url) => openPopout(url);
+      // One engine (his yes, 2026-10-13): on castLabs' engine paid video plays right in the tab. Only on the stock
+      // engine do paid services still go to the separate paid-video window.
+      if (!onCastlabs()) aangBrowser.onPaid = (url) => openPopout(url);
       // M6: one browser on both machines. Changes go to the brain, which passes them to the Mac's browser.
       aangBrowser.startSync((m) => link.send(m as never), (s) => console.log('shell: ' + s));
       // 6.27: links from Windows. Aang.exe --url checks each one and leaves it as a file here; each opens as a tab,
@@ -1053,7 +1058,7 @@ app.whenReady().then(async () => {
   wireBrowser(() => aangBrowser);
   // The pop-out: the same wiring on the PC and the Mac (popoutipc.ts). "Send to" goes to the MacBook from here.
   wirePopout({
-    popout: () => popout, browser: () => aangBrowser, open: (url) => openPopout(url), stopPaid: () => drm?.close(),
+    popout: () => popout, browser: () => aangBrowser, open: (url) => openPopout(url), stopPaid: () => drm?.close(), paidSeparately: () => !onCastlabs(),
     sendToOther: (url) => link?.send({ t: 'watch.tomac', url }),
     playback: (s) => link?.send({ t: 'watch.state', ...s }),
   });

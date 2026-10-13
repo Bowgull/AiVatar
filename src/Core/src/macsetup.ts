@@ -369,10 +369,29 @@ if [ ! -d "$BR/engine-$EV/Electron.app" ]; then
   if [ "$(shasum -a 256 "$BR/$ZIP" 2>/dev/null | cut -d' ' -f1)" = "$SUM" ]; then mkdir -p "$BR/engine-$EV" && ditto -x -k "$BR/$ZIP" "$BR/engine-$EV"; else echo "     The engine download did not match its fingerprint; nothing was installed."; fi
   rm -f "$BR/$ZIP"
 fi
-if [ -d "$BR/engine-$EV/Electron.app" ] && [ -x "$NODE_DIR/bin/node" ]; then
+# One engine (his yes, 2026-10-13): Aang's browser is built on castLabs' engine for Intel Macs, so paid video plays
+# right in its tabs. Pinned, with the streaming signature made on the PC
+# with his free castLabs account (the signature is a small file tied to exactly this engine). Signed for macOS
+# afterwards, in that order, as castLabs says.
+DV=${CASTLABS_MAC.version}; DZIP="castlabs-$DV-darwin-x64.zip"; DSUM=${CASTLABS_MAC.sha256}
+if [ ! -f "$BR/drm-$DV/signed" ]; then
+  echo "     Downloading the engine that plays paid video (about 135 MB, once)..."
+  curl -fsSL -o "$BR/$DZIP" "https://github.com/castlabs/electron-releases/releases/download/v$DV%2Bwvcus/electron-v$DV%2Bwvcus-darwin-x64.zip" || true
+  if [ "$(shasum -a 256 "$BR/$DZIP" 2>/dev/null | cut -d' ' -f1)" = "$DSUM" ]; then
+    rm -rf "$BR/drm-$DV"; mkdir -p "$BR/drm-$DV"; ditto -x -k "$BR/$DZIP" "$BR/drm-$DV"
+    printf '%s' '${b64(desk.browser.castlabsSig)}' | /usr/bin/base64 -D > "$BR/drm-$DV/Electron.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/Electron Framework.sig"
+    codesign --force --deep -s - "$BR/drm-$DV/Electron.app" >/dev/null 2>&1 || true
+    touch "$BR/drm-$DV/signed"
+    echo "     Netflix, Crave, Disney+, Prime and Crunchyroll play right in Aang's browser."
+  else echo "     The paid-video engine did not match its fingerprint; it was not installed."; fi
+  rm -f "$BR/$DZIP"
+fi
+# The base for Aang.app: the signed castLabs engine when it is here, the stock one otherwise.
+BASE="$BR/engine-$EV/Electron.app"; [ -f "$BR/drm-$DV/signed" ] && BASE="$BR/drm-$DV/Electron.app"
+if [ -d "$BASE" ] && [ -x "$NODE_DIR/bin/node" ]; then
   APP="$HOME/Applications/Aang.app"; mkdir -p "$HOME/Applications"
   osascript -e 'quit app "Aang"' >/dev/null 2>&1 || true; sleep 1
-  rm -rf "$APP.new"; ditto "$BR/engine-$EV/Electron.app" "$APP.new"
+  rm -rf "$APP.new"; ditto "$BASE" "$APP.new"
   RES="$APP.new/Contents/Resources"; mkdir -p "$RES/app"
   printf '%s' '${b64(desk.browser.bundle)}' | /usr/bin/base64 -D | tar -xzf - -C "$RES/app"
   if ( cd "$RES/app" && PATH="$NODE_DIR/bin:$PATH" npm ci --omit=dev --ignore-scripts --no-audit --no-fund --cache "$DIR/npm-cache" >"$DIR/npm-browser.log" 2>&1 ); then
@@ -393,22 +412,6 @@ if [ -d "$BR/engine-$EV/Electron.app" ] && [ -x "$NODE_DIR/bin/node" ]; then
       killall Dock >/dev/null 2>&1 || true
     fi
     echo "     Aang's browser is in your Dock. The first time it opens, macOS asks whether Aang may be your default browser."
-    # Paid video (2026-10-13): castLabs' engine for Intel Macs, pinned, with the streaming signature made on the PC
-    # with his free castLabs account (the signature is a small file tied to exactly this engine). Signed for macOS
-    # afterwards, in that order, as castLabs says.
-    DV=${CASTLABS_MAC.version}; DZIP="castlabs-$DV-darwin-x64.zip"; DSUM=${CASTLABS_MAC.sha256}
-    if [ ! -f "$BR/drm-$DV/signed" ]; then
-      echo "     Downloading the paid-video engine (about 135 MB, once)..."
-      curl -fsSL -o "$BR/$DZIP" "https://github.com/castlabs/electron-releases/releases/download/v$DV%2Bwvcus/electron-v$DV%2Bwvcus-darwin-x64.zip" || true
-      if [ "$(shasum -a 256 "$BR/$DZIP" 2>/dev/null | cut -d' ' -f1)" = "$DSUM" ]; then
-        rm -rf "$BR/drm-$DV"; mkdir -p "$BR/drm-$DV"; ditto -x -k "$BR/$DZIP" "$BR/drm-$DV"
-        printf '%s' '${b64(desk.browser.castlabsSig)}' | /usr/bin/base64 -D > "$BR/drm-$DV/Electron.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/Electron Framework.sig"
-        codesign --force --deep -s - "$BR/drm-$DV/Electron.app" >/dev/null 2>&1 || true
-        touch "$BR/drm-$DV/signed"
-        echo "     Paid video is ready: Netflix, Crave, Disney+, Prime and Crunchyroll open in their own window."
-      else echo "     The paid-video engine did not match its fingerprint; it was not installed."; fi
-      rm -f "$BR/$DZIP"
-    fi
     # His yes: Bitwarden's key-fill here too. Bitwarden's own official tool, pinned by its fingerprint; he signs in to it himself.
     BWV=${BITWARDEN_MAC.version}; BWSUM=${BITWARDEN_MAC.sha256}
     if [ "$(cat "$DIR/bw/version" 2>/dev/null)" != "$BWV" ]; then
