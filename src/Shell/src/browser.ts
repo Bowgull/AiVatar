@@ -1,6 +1,8 @@
 // Steps 6.19, 6.20 and 6.21: Aang's browser.
 //
-// One window. Its frame (the carved band and the tab rail, sheet 3) is a page of ours; each tab is its own
+// One window at first; dragging a tab out makes another (his ask, 2026-10-13). Each window is a Pane: its frame, its
+// tabs, its tray, its curtain. The rest (bookmarks, history, trails, the snapshot) is the one browser's. Its frame (the
+// carved band and the tab rail, sheet 3) is a page of ours; each tab is its own
 // WebContentsView, placed by hand in the page area. That placing is step 6.19: no layout library can hold a
 // browser view, because a view is not a page element. The frame tells us once how wide the rail is and how
 // tall the band is (its insets); from then on every resize is answered here, synchronously, from the window's
@@ -48,6 +50,8 @@ export interface BrowserOptions { origin: string; preloadPath: string; stateDir:
 
 interface Tab {
   id: number;
+  /** The window it is in (a Pane's id). */
+  pane: number;
   /** One of the browser's own pages (Settings, Your things), not a website: it gets its own small preload and never navigates. */
   internal?: 'settings' | 'things';
   /** null while the tab is asleep: its page is closed to save memory, its snapshot kept. */
@@ -86,6 +90,33 @@ interface Tab {
   /** The page in this view has drawn something since it woke: only then is there an old page to hold. */
   drawn?: boolean;
 }
+
+/**
+ * One browser window and what belongs to it alone (2026-10-13, tab dragging). Everything that used to be "the" window,
+ * the tab in front, the tray, the curtain, is per window. The browser works in one pane at a time (`this.pane`): every
+ * way in (a frame's message, a tab's event, a window's event) first says which window it is about.
+ */
+interface Pane {
+  id: number;
+  win: BrowserWindow | null;
+  active: number | null;
+  inset: { left: number; top: number; right: number; bottom: number };
+  drawerOpen: boolean;
+  peekShot: { tab: number; url: string; at: number; shot: string } | null;
+  peeking: boolean;
+  hideTimer: NodeJS.Timeout | null;
+  trayV: WebContentsView | null;
+  trayOn: boolean;
+  trayAt: { x: number; y: number };
+  curtain: WebContentsView | null;
+  curtainReady: Promise<unknown>;
+  veil: { tab: number; nav: number; at: number; up: boolean; dimT: NodeJS.Timeout | null; capT: NodeJS.Timeout | null } | null;
+  fullTab: number | null;
+  watching: number | null;
+  watchTimer: NodeJS.Timeout | null;
+}
+const newPane = (id: number): Pane => ({ id, win: null, active: null, inset: { left: 30, top: 66, right: 8, bottom: 8 }, drawerOpen: false, peekShot: null, peeking: false,
+  hideTimer: null, trayV: null, trayOn: false, trayAt: { x: 42, y: 62 }, curtain: null, curtainReady: Promise.resolve(), veil: null, fullTab: null, watching: null, watchTimer: null });
 
 /** A trail (Horse Browser's idea, sheet 3): pages that belong to one thing he is doing. `named` = he named it. */
 interface Trail { id: number; name: string; named: boolean; collapsed?: boolean; fresh?: boolean }
@@ -150,25 +181,63 @@ function within<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
 }
 
 export class AangBrowser {
-  private win: BrowserWindow | null = null;
+  /** Every open window, and the one being worked in right now. With none open, `pane` is the last one (closed). */
+  private panes: Pane[] = [];
+  private pane: Pane = newPane(0);
+  private paneSeq = 0;
+  /** The window he used last (focus), where a link from Aang or the other machine opens. */
+  private focused: Pane | null = null;
+  private get win(): BrowserWindow | null { return this.pane.win; }
+  private set win(v: BrowserWindow | null) { this.pane.win = v; }
+  private get active(): number | null { return this.pane.active; }
+  private set active(v: number | null) { this.pane.active = v; }
+  private get inset() { return this.pane.inset; }
+  private set inset(v) { this.pane.inset = v; }
+  private get drawerOpen(): boolean { return this.pane.drawerOpen; }
+  private set drawerOpen(v: boolean) { this.pane.drawerOpen = v; }
+  private get peekShot() { return this.pane.peekShot; }
+  private set peekShot(v) { this.pane.peekShot = v; }
+  private get peeking(): boolean { return this.pane.peeking; }
+  private set peeking(v: boolean) { this.pane.peeking = v; }
+  private get hideTimer() { return this.pane.hideTimer; }
+  private set hideTimer(v) { this.pane.hideTimer = v; }
+  private get trayV() { return this.pane.trayV; }
+  private set trayV(v) { this.pane.trayV = v; }
+  private get trayOn(): boolean { return this.pane.trayOn; }
+  private set trayOn(v: boolean) { this.pane.trayOn = v; }
+  private get trayAt() { return this.pane.trayAt; }
+  private set trayAt(v) { this.pane.trayAt = v; }
+  private get curtain() { return this.pane.curtain; }
+  private set curtain(v) { this.pane.curtain = v; }
+  private get curtainReady() { return this.pane.curtainReady; }
+  private set curtainReady(v) { this.pane.curtainReady = v; }
+  private get veil() { return this.pane.veil; }
+  private set veil(v) { this.pane.veil = v; }
+  private get fullTab() { return this.pane.fullTab; }
+  private set fullTab(v) { this.pane.fullTab = v; }
+  private get watching() { return this.pane.watching; }
+  private set watching(v) { this.pane.watching = v; }
+  private get watchTimer() { return this.pane.watchTimer; }
+  private set watchTimer(v) { this.pane.watchTimer = v; }
+  private paneOfTab(t: Tab): Pane | undefined { return this.panes.find((p) => p.id === t.pane); }
+  /** The tabs in one window, in their order. */
+  private paneTabs(p: Pane = this.pane): Tab[] { return this.tabs.filter((t) => t.pane === p.id); }
+  /** Work in the window this tab is in. False if that window is gone. */
+  private inTab(t: Tab): boolean { const p = this.paneOfTab(t); if (p) this.pane = p; return Boolean(p); }
+  private alive(p: Pane | null | undefined): p is Pane & { win: BrowserWindow } { return Boolean(p?.win && !p.win.isDestroyed()); }
+  /** The window he used last, or any open one. */
+  private lastPane(): Pane | undefined { return this.alive(this.focused) && this.panes.includes(this.focused) ? this.focused : this.panes.filter((p) => this.alive(p)).pop(); }
   private tabs: Tab[] = [];
-  private active: number | null = null;
   private seq = 0;
   private trails: Trail[] = [];
   private trailSeq = 0;
   private closed: string[] = [];
-  private inset = { left: 30, top: 66, right: 8, bottom: 8 };
-  /** The tab drawer is open: the page is shown as a still picture under it, so the drawer can lie over it. */
-  private drawerOpen = false;
   /**
    * 2026-10-12, his "the window glitches when I click ⋯": the picture of the page used to be taken AFTER the
    * click (up to 600 ms), and the live page was hidden before the frame had painted it, so the page area
    * flashed. Now the picture is taken while his mouse is on the way (hover), and the live page is hidden only
    * when the frame says the picture is on screen.
    */
-  private peekShot: { tab: number; url: string; at: number; shot: string } | null = null;
-  private peeking = false;
-  private hideTimer: NodeJS.Timeout | null = null;
   /** M6, his yes (2026-10-13): a picture of this browser's own window and the page in it, for Claude to check a fix. */
   async look(): Promise<{ frame: string | null; page: string | null; size: string }> {
     const w = this.win;
@@ -192,12 +261,12 @@ export class AangBrowser {
   }
   /** The mouse is heading for something that will cover the page: take its picture now. */
   async peek(): Promise<void> {
-    const t = this.cur();
-    if (!t || this.drawerOpen || this.peeking) return;
-    if (this.peekShot && this.peekShot.tab === t.id && Date.now() - this.peekShot.at < 700) return;
-    this.peeking = true;
-    try { const shot = await this.shotOf(t); this.peekShot = shot ? { tab: t.id, url: t.url, at: Date.now(), shot } : null; }
-    finally { this.peeking = false; }
+    const t = this.cur(), P = this.pane;
+    if (!t || P.drawerOpen || P.peeking) return;
+    if (P.peekShot && P.peekShot.tab === t.id && Date.now() - P.peekShot.at < 700) return;
+    P.peeking = true;
+    try { const shot = await this.shotOf(t); P.peekShot = shot ? { tab: t.id, url: t.url, at: Date.now(), shot } : null; }
+    finally { P.peeking = false; }
   }
   /** The frame has painted the picture: now the live page can go. */
   private frozenReady(): void {
@@ -287,7 +356,6 @@ export class AangBrowser {
   /** 6.22b bug 5: where the window was, kept between opens. */
   private readonly placeFile: string;
   /** 6.22b bug 1: the tab whose page asked for fullscreen (a video's own button): it fills the whole screen. */
-  private fullTab: number | null = null;
   /** 6.22b bug 2: the right-click menu's own little window, kept hidden between uses. */
   private menu: BrowserWindow | null = null;
   private menuFor: { tab: number; p: Electron.ContextMenuParams } | null = null;
@@ -297,8 +365,6 @@ export class AangBrowser {
   /** Set by main: he pressed STOP on a job, so the brain stops that turn. */
   onDriverStop: ((j: Job) => void) | null = null;
   /** The driver page he is watching in the page area (a live picture), or none. */
-  private watching: number | null = null;
-  private watchTimer: NodeJS.Timeout | null = null;
   /** History (2026-10-12): every page he opened, 90 days, only on this PC. */
   private readonly visits: Visits;
   /** Downloads (2026-10-12): the list behind the tray and the Downloads page; the live ones and how far along they are. */
@@ -401,6 +467,7 @@ export class AangBrowser {
   private permissions(): void {
     this.ses.setPermissionRequestHandler((wc, permission, done, details) => {
       if (permission === 'fullscreen') { done(true); return; }
+      this.inWc(wc);
       // Sharing the screen: the picker below is the real ask, every time, so Chromium's own gate just lets it reach it.
       if (permission === 'display-capture') { done(!this.driver?.owns(wc)); return; }
       if (permission === 'speaker-selection') { done(!this.driver?.owns(wc) && Boolean(this.mediaOk.get(hostOf(wc.getURL()))?.has('audio'))); return; }
@@ -447,12 +514,16 @@ export class AangBrowser {
       const deny = () => { try { done(null); } catch { /* the page went away */ } };
       let wc: Electron.WebContents | undefined;
       try { wc = req.frame ? allWebContents.fromFrame(req.frame) : undefined; } catch { wc = undefined; }
+      if (wc) this.inWc(wc);
       if (!wc || this.driver?.owns(wc) || !req.videoRequested || !this.win || this.win.isDestroyed() || this.share) { deny(); return; }
       const host = hostOf(req.securityOrigin) || hostOf(wc.getURL());
+      const P = this.pane;
       void desktopCapturer.getSources({ types: ['screen', 'window'], thumbnailSize: { width: 320, height: 180 } }).then((list) => {
+        this.pane = P;
         if (!this.win || this.win.isDestroyed() || this.share) { deny(); return; }
-        const own = this.win.getMediaSourceId();
-        const sources = list.filter((s) => s.name.trim() && s.id !== own);
+        // None of Aang's own browser windows can be shared.
+        const own = new Set(this.panes.filter((p) => this.alive(p)).map((p) => p.win!.getMediaSourceId()));
+        const sources = list.filter((s) => s.name.trim() && !own.has(s.id));
         if (!sources.length) { deny(); return; }
         const id = ++this.askSeq;
         const timer = setTimeout(() => this.shareAnswer(id, null, false), 120_000);
@@ -478,7 +549,7 @@ export class AangBrowser {
   private update: { version: string; since: number } | null = null;
   setUpdate(u: { version: string; since: number } | null): void { this.update = u; this.sendTabs(); }
   /** The browser window is open. */
-  get showing(): boolean { return Boolean(this.win && !this.win.isDestroyed()); }
+  get showing(): boolean { return this.panes.some((p) => this.alive(p)); }
   /** Told when a call starts or ends (the update key). */
   onCall?: (on: boolean) => void;
   /** His pick from the share panel: one of the sources it showed, or nothing. */
@@ -504,6 +575,8 @@ export class AangBrowser {
       this.ses.setSpellCheckerEnabled(true);
     } catch { /* no spellcheck is better than no browser */ }
   }
+  /** Work in the window of the tab this page is in (a site asking for something). */
+  private inWc(wc: Electron.WebContents): void { const t = this.tabs.find((x) => x.view?.webContents === wc); if (t) this.inTab(t); }
   /** Hang a chip from the band and wait for his answer. Unanswered in 2 minutes means no. */
   private ask(a: { host: string; what: string; text?: string; yes?: string; no?: string }, done: (allow: boolean) => void): void {
     if (!this.win || this.win.isDestroyed()) { done(false); return; }
@@ -523,6 +596,7 @@ export class AangBrowser {
     this.ses.on('will-download', (_e, item, wc) => {
       // Aang's own pages never download (decision 42: he reads and clicks; files are not his to fetch).
       if (wc && this.driver?.owns(wc)) { item.cancel(); return; }
+      if (wc) this.inWc(wc);
       const dir = app.getPath('downloads');
       const base = item.getFilename().replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_') || 'download';
       let to = path.join(dir, base), n = 1;
@@ -663,7 +737,7 @@ export class AangBrowser {
    * still picture of itself in the frame and the live view is hidden; closing puts the live page straight back.
    */
   async drawer(open: boolean): Promise<void> {
-    const w = this.win;
+    const w = this.win, P = this.pane;
     const t = this.cur();
     if (!w || w.isDestroyed()) return;
     this.drawerOpen = open;
@@ -674,17 +748,28 @@ export class AangBrowser {
     // A picture taken on the hover is good if it is the same page and under 1.5 seconds old.
     let shot = t && p && p.tab === t.id && p.url === t.url && Date.now() - p.at < 1500 && !t.loading ? p.shot : null;
     if (!shot && t) shot = await this.shotOf(t);
+    this.pane = P;
     if (!this.drawerOpen) return;               // closed again while the picture was taken
     w.webContents.send('browser:frozen', shot);
     if (!shot) { this.frozenReady(); return; }
     // The frame answers 'frozen-ready' once the picture is painted; never wait more than a moment for it.
     if (this.hideTimer) clearTimeout(this.hideTimer);
-    this.hideTimer = setTimeout(() => this.frozenReady(), 250);
+    this.hideTimer = setTimeout(() => { this.pane = P; this.frozenReady(); }, 250);
   }
 
   /** The frame, or the tab list's own layer (it sends the same tab clicks). */
-  isFrame(sender: Electron.WebContents): boolean { return this.isMainFrame(sender) || Boolean(this.trayV && !this.trayV.webContents.isDestroyed() && sender === this.trayV.webContents); }
-  isMainFrame(sender: Electron.WebContents): boolean { return Boolean(this.win && !this.win.isDestroyed() && sender === this.win.webContents); }
+  // These also say which window the message is about: every frame message is checked here first, so from here on the
+  // browser works in that window.
+  isFrame(sender: Electron.WebContents): boolean {
+    const p = this.panes.find((x) => (this.alive(x) && sender === x.win!.webContents) || (x.trayV && !x.trayV.webContents.isDestroyed() && sender === x.trayV.webContents));
+    if (p) this.pane = p;
+    return Boolean(p);
+  }
+  isMainFrame(sender: Electron.WebContents): boolean {
+    const p = this.panes.find((x) => this.alive(x) && sender === x.win!.webContents);
+    if (p) this.pane = p;
+    return Boolean(p);
+  }
 
   // ------------------------------------------------------------------ the tab list, floating over the live page
   /**
@@ -693,9 +778,6 @@ export class AangBrowser {
    * and keeps playing under its edge. The layer is the frame's own page (?tray), so it is the same list, the same
    * clicks, the same drag and drop.
    */
-  private trayV: WebContentsView | null = null;
-  private trayOn = false;
-  private trayAt = { x: 42, y: 62 };
   private trayView(): WebContentsView | null {
     const w = this.win;
     if (!w || w.isDestroyed()) return null;
@@ -704,8 +786,9 @@ export class AangBrowser {
     lockDown(v.webContents);
     v.setBackgroundColor('#00000000');
     v.setVisible(false);
+    const P = this.pane;
     v.webContents.on('did-finish-load', () => this.sendTabs());
-    v.webContents.on('before-input-event', (e, input) => { if (this.key(input)) e.preventDefault(); });
+    v.webContents.on('before-input-event', (e, input) => { this.pane = P; if (this.key(input)) e.preventDefault(); });
     void v.webContents.loadURL(`${this.o.origin}/browser.html?tray=1`);
     this.trayV = v;
     return v;
@@ -740,19 +823,32 @@ export class AangBrowser {
 
   /** Open the window (or bring it forward), optionally on an address. Coming back, every tab comes back. */
   open(url?: string): void {
-    if (this.win && !this.win.isDestroyed()) {
-      if (this.win.isMinimized()) this.win.restore();
-      this.win.show(); this.win.focus();
+    const p = this.lastPane();
+    if (p) {
+      this.pane = p;
+      if (p.win!.isMinimized()) p.win!.restore();
+      p.win!.show(); p.win!.focus();
       if (url) this.newTab(url);
       return;
     }
+    this.createPane(url);
+  }
+
+  /**
+   * A browser window. The first one brings his tabs back (or his home page); one made by dragging a tab out of another
+   * (`bring`) opens where he let go and takes that tab, live, nothing reloaded.
+   */
+  private createPane(url?: string, bring?: Tab, at?: { x: number; y: number; width: number; height: number }): void {
+    const first = !this.panes.some((x) => this.alive(x));
     const wa = screen.getPrimaryDisplay().workArea;
-    const was = this.savedPlace();
+    const was = first ? this.savedPlace() : null;
     // A new run: the download tray starts empty (its key hidden) until something downloads.
-    this.traySince = Date.now();
+    if (first) this.traySince = Date.now();
+    const p = newPane(++this.paneSeq);
     const w = new BrowserWindow({
       width: Math.min(1440, wa.width - 80), height: Math.min(900, wa.height - 60), minWidth: 720, minHeight: 480,
       ...(was ? { x: was.x, y: was.y, width: was.width, height: was.height } : {}),
+      ...(at ? { x: Math.round(at.x), y: Math.round(at.y), width: Math.max(720, Math.round(at.width)), height: Math.max(480, Math.round(at.height)) } : {}),
       show: false, backgroundColor: '#24160D', title: 'Aang Browser',
       // The carved band IS the title bar; Windows draws its own buttons over the band's right end.
       // See-through (the research: Flow browser), so Windows' own minimise, maximise and close sit ON the wood
@@ -761,6 +857,10 @@ export class AangBrowser {
       titleBarStyle: 'hidden',
       webPreferences: { ...SAFE_WEB_PREFERENCES, preload: this.o.preloadPath },
     });
+    p.win = w;
+    this.panes.push(p);
+    this.pane = p;
+    this.focused = p;
     lockDown(w.webContents);
     softEdge(w);
     // M6: on the Mac, 'hidden' still shows the red, yellow and green buttons, floating over the band's left end (his
@@ -768,17 +868,38 @@ export class AangBrowser {
     if (process.platform === 'darwin') w.setWindowButtonVisibility(false);
     if (was?.maximized) w.once('ready-to-show', () => w.maximize());
     let keep: NodeJS.Timeout | null = null;
-    const keepSoon = () => { if (keep) clearTimeout(keep); keep = setTimeout(() => this.keepPlace(), 800); };
-    w.on('resize', () => { this.place(); this.placeTray(); keepSoon(); });
+    // Where the first window was is kept for next time; the others are made by dragging and open where they are dropped.
+    const keepSoon = () => { if (keep) clearTimeout(keep); keep = setTimeout(() => { this.pane = p; if (this.panes[0] === p) this.keepPlace(); }, 800); };
+    w.on('focus', () => { this.focused = p; });
+    w.on('resize', () => { this.pane = p; this.place(); this.placeTray(); keepSoon(); });
     w.on('move', keepSoon);
-    w.on('maximize', () => { this.place(); keepSoon(); this.sendTabs(); });
-    w.on('unmaximize', () => { this.place(); keepSoon(); this.sendTabs(); });
-    w.on('close', () => { this.keepPlace(); void this.snapshot(); this.visits.flush(); this.veil = null; try { this.curtain?.webContents.close(); } catch { /* gone */ } this.curtain = null; });
+    w.on('maximize', () => { this.pane = p; this.place(); keepSoon(); this.sendTabs(); });
+    w.on('unmaximize', () => { this.pane = p; this.place(); keepSoon(); this.sendTabs(); });
+    w.on('close', () => { this.pane = p; if (this.panes[0] === p) this.keepPlace(); void this.snapshot(); this.visits.flush(); this.veil = null; try { this.curtain?.webContents.close(); } catch { /* gone */ } this.curtain = null; });
     // 6.22b bug 4: the mouse's back and forward side buttons.
-    w.on('app-command', (_e, cmd) => { if (cmd === 'browser-backward') this.sideNav('back'); else if (cmd === 'browser-forward') this.sideNav('forward'); });
+    w.on('app-command', (_e, cmd) => { this.pane = p; if (cmd === 'browser-backward') this.sideNav('back'); else if (cmd === 'browser-forward') this.sideNav('forward'); });
     // A page in fullscreen: leaving the window's fullscreen (F11, a snap) ends it too.
-    w.on('leave-full-screen', () => { const t = this.tabs.find((x) => x.id === this.fullTab); if (t?.view) void within(t.view.webContents.executeJavaScript('document.fullscreenElement&&document.exitFullscreen().catch(()=>{});true', true), 500, null); });
+    w.on('leave-full-screen', () => { const t = this.tabs.find((x) => x.id === p.fullTab); if (t?.view) void within(t.view.webContents.executeJavaScript('document.fullscreenElement&&document.exitFullscreen().catch(()=>{});true', true), 500, null); });
     w.on('closed', () => {
+      this.pane = p;
+      const others = this.panes.filter((x) => x !== p && this.alive(x));
+      if (others.length) {
+        // One of several windows: its tabs close (Reopen closed tab brings them back), the browser goes on.
+        for (const t of this.paneTabs(p)) {
+          if (t.lent) { t.pane = others[0]!.id; continue; }       // playing in the popout: it comes back to another window
+          if (isWeb(t.url)) { this.closed.push(t.url); if (this.closed.length > 25) this.closed.shift(); }
+          this.closeView(t);
+        }
+        this.tabs = this.tabs.filter((t) => t.pane !== p.id);
+        if (p.watchTimer) clearTimeout(p.watchTimer);
+        p.win = null; p.trayV = null; p.trayOn = false;
+        this.panes = others;
+        if (this.focused === p) this.focused = null;
+        this.pane = others[others.length - 1]!;
+        this.tidyTrails();
+        this.changed();
+        return;
+      }
       if (this.menu && !this.menu.isDestroyed()) this.menu.destroy();
       this.vault.lock();                          // closing the browser locks the vault
       this.mediaOk.clear();                       // and ends every call's camera and microphone
@@ -788,20 +909,79 @@ export class AangBrowser {
       this.menu = null; this.fullTab = null;
       for (const t of this.tabs) if (!t.lent) this.closeView(t);
       this.tabs = []; this.active = null; this.win = null; this.trayV = null; this.trayOn = false;
+      this.panes = []; this.focused = null;
       this.timers.forEach(clearInterval); this.timers = [];
     });
     w.once('ready-to-show', () => w.show());
     w.webContents.once('did-finish-load', () => {
+      this.pane = p;
+      // Made by dragging a tab out: that tab moves in, live.
+      if (bring) { if (this.tabs.includes(bring) && !bring.lent && this.paneOfTab(bring)) this.moveTo(bring, p); else this.newTab(this.HOME); return; }
       // Startup (Settings > General): his tabs as they were, or a fresh home page.
+      if (!first) { this.newTab(url ?? this.HOME); return; }
       if (this.prefs.startup === 'home' || !this.restore()) this.newTab(url ?? this.HOME);
       else if (url) this.newTab(url);                       // his tabs come back, and the link he clicked opens on top
-      else if (url) this.newTab(url);
     });
-    this.win = w;
     void w.loadURL(`${this.o.origin}/browser.html`);
-    // The continuous snapshot, and putting idle tabs to sleep.
-    this.timers.push(setInterval(() => { void this.snapshot(); }, 8000), setInterval(() => this.sleepIdle(), 60_000),
+    // The continuous snapshot, and putting idle tabs to sleep: once for the whole browser.
+    if (first) this.timers.push(setInterval(() => { void this.snapshot(); }, 8000), setInterval(() => this.sleepIdle(), 60_000),
       setInterval(() => { void this.lookForLogin(); }, 1500));
+  }
+
+  /**
+   * His ask (2026-10-13): a tab dragged out of the list and let go outside its window becomes its own window there, like
+   * Chrome; let go on another of Aang's browser windows, it joins that one. Its page goes with it, still playing,
+   * nothing reloaded. The only tab in its window: the window itself moves there.
+   */
+  tearOut(tabId: number): void {
+    const t = this.tabs.find((x) => x.id === tabId);
+    const src = t ? this.paneOfTab(t) : undefined;
+    if (!t || t.lent || !this.alive(src)) return;
+    const pt = screen.getCursorScreenPoint();
+    const inside = (w: BrowserWindow) => { const b = w.getBounds(); return pt.x >= b.x && pt.x < b.x + b.width && pt.y >= b.y && pt.y < b.y + b.height; };
+    if (inside(src.win)) return;                               // let go inside its own window: nothing happens
+    this.pane = src;
+    this.tray(false);
+    const into = this.panes.find((x) => x !== src && this.alive(x) && inside(x.win!));
+    if (into) { this.moveTo(t, into); into.win!.focus(); return; }
+    const b = src.win.isMaximized() ? { width: 1200, height: 800 } : src.win.getNormalBounds();
+    const spot = { x: pt.x - 140, y: pt.y - 24, width: b.width, height: b.height };
+    if (this.paneTabs(src).length === 1) {
+      if (src.win.isMaximized()) src.win.unmaximize();
+      src.win.setBounds(spot);
+      src.win.focus();
+      return;
+    }
+    this.createPane(undefined, t, spot);
+  }
+  /** A tab into another window: its live page is handed across; the window it left shows its next tab, or closes. */
+  private moveTo(t: Tab, to: Pane): void {
+    const from = this.paneOfTab(t);
+    if (!from || from === to || !this.alive(to)) return;
+    this.pane = from;
+    if (from.veil?.tab === t.id) this.veilDown(0);
+    if (from.fullTab === t.id) from.fullTab = null;
+    if (from.watching !== null && from.active === t.id) this.unwatch(false);
+    const at = this.paneTabs(from).indexOf(t);
+    if (t.view) {
+      try { if (this.alive(from)) from.win!.contentView.removeChildView(t.view); } catch { /* not shown */ }
+      t.view.setVisible(false);
+      to.win!.contentView.addChildView(t.view);
+    }
+    t.pane = to.id;
+    t.opener = null;
+    // Last in the list of its new window.
+    this.tabs.splice(this.tabs.indexOf(t), 1);
+    this.tabs.push(t);
+    if (from.active === t.id) {
+      from.active = null;
+      const rest = this.paneTabs(from);
+      const next = rest[Math.min(Math.max(0, at), rest.length - 1)];
+      if (next) this.activate(next.id);
+      else if (this.alive(from)) from.win!.close();
+    }
+    this.pane = to;
+    this.activate(t.id);
   }
 
   /** 6.19: the frame says how big its rail and band are; everything else follows from the window. */
@@ -833,9 +1013,6 @@ export class AangBrowser {
    * the moment the new page first draws, the curtain fades out over 0.25 s and the new page is underneath. A page
    * that arrives at once (Back, a fast site) just switches. A tab with nothing drawn yet shows the wood instead.
    */
-  private curtain: WebContentsView | null = null;
-  private curtainReady: Promise<unknown> = Promise.resolve();
-  private veil: { tab: number; nav: number; at: number; up: boolean; dimT: NodeJS.Timeout | null; capT: NodeJS.Timeout | null } | null = null;
   private veilSeq = 0;
   private curtainView(): WebContentsView | null {
     const w = this.win;
@@ -856,8 +1033,10 @@ export class AangBrowser {
    * screen until the curtain holds its picture, then the new tab is swapped in underneath and fades in as it draws.
    */
   private async veilUp(t: Tab, from?: Tab): Promise<void> {
+    const P = this.pane;
     // However this ends, the new tab ends up shown and the one it came from hidden.
     const swap = () => {
+      this.pane = P;
       if (!from || t.id !== this.active || !t.view) return;
       if (!this.drawerOpen) t.view.setVisible(true);
       if (from.view && from.id !== this.active && !from.lent) from.view.setVisible(false);
@@ -865,6 +1044,7 @@ export class AangBrowser {
     try { await this.veilUpInner(t, from); } finally { swap(); }
   }
   private async veilUpInner(t: Tab, from?: Tab): Promise<void> {
+    const P = this.pane;
     if (this.veil?.tab === t.id) return;                       // a redirect inside one change keeps the same curtain
     if (t.id !== this.active || !t.view || t.lent || t.internal || this.drawerOpen || this.fullTab === t.id || t.crashed || t.blocked || t.failed) return;
     this.veilDown(0);
@@ -875,9 +1055,11 @@ export class AangBrowser {
     // The hover picture if it is fresh and of this page; otherwise a new one. Nothing drawn yet: the wood.
     const p = this.peekShot;
     const shot = !t.drawn ? (from ? await this.shotOf(from) : null) : p && p.tab === t.id && Date.now() - p.at < 1500 ? p.shot : await this.shotOf(t);
-    await this.curtainReady;
+    await P.curtainReady;
+    this.pane = P;
     if (this.veil?.nav !== nav) return;                         // the new page drew first: a plain switch
     const ok = await within(v.webContents.executeJavaScript(`curtainShow(${JSON.stringify(shot)})`), 400, false);
+    this.pane = P;
     const vl = this.veil;
     if (!ok || vl?.nav !== nav || !t.view || t.id !== this.active || this.drawerOpen) { if (vl?.nav === nav) this.veil = null; return; }
     v.setBounds(t.view.getBounds());
@@ -885,8 +1067,8 @@ export class AangBrowser {
     this.raiseTray();                                           // but never over the open tab list
     v.setVisible(true);
     vl.up = true;
-    vl.dimT = setTimeout(() => { if (this.veil?.nav === nav) void v.webContents.executeJavaScript('curtainDim()').catch(() => {}); }, VEIL_DIM_MS);
-    vl.capT = setTimeout(() => { if (this.veil?.nav === nav) this.veilDown(VEIL_FADE_MS); }, VEIL_MAX_MS);
+    vl.dimT = setTimeout(() => { if (P.veil?.nav === nav) void v.webContents.executeJavaScript('curtainDim()').catch(() => {}); }, VEIL_DIM_MS);
+    vl.capT = setTimeout(() => { this.pane = P; if (this.veil?.nav === nav) this.veilDown(VEIL_FADE_MS); }, VEIL_MAX_MS);
   }
   private veilDown(fade: number): void {
     const vl = this.veil;
@@ -900,12 +1082,13 @@ export class AangBrowser {
     const ms = Date.now() - vl.at < VEIL_INSTANT_MS ? 0 : fade;
     if (!ms) { v.setVisible(false); return; }
     void v.webContents.executeJavaScript(`curtainFade(${ms})`).catch(() => {});
-    setTimeout(() => { if (!this.veil?.up) v.setVisible(false); }, ms + 30);
+    const P = this.pane;
+    setTimeout(() => { if (!P.veil?.up) v.setVisible(false); }, ms + 30);
   }
   /** The tab's page has drawn its first content (from tabpreload.cjs): the curtain can go. */
   painted(sender: Electron.WebContents): void {
     const t = this.tabs.find((x) => x.view?.webContents === sender);
-    if (!t) return;
+    if (!t || !this.inTab(t)) return;
     t.drawn = true;
     if (t.phase !== 'idle') { t.prog = Math.max(t.prog ?? 0, 0.7); this.sendTabs(); }
     if (this.veil?.tab === t.id) this.veilDown(VEIL_FADE_MS);
@@ -925,9 +1108,12 @@ export class AangBrowser {
     view.setBackgroundColor(PAGE_COLOUR);
     try { view.setBorderRadius(PAGE_RADIUS); } catch { /* an older runtime: square corners */ }
     view.setVisible(false);
+    this.inTab(tab);
     this.win?.contentView.addChildView(view);
     this.raiseTray();                                   // a waking tab never covers the open tab list
     tab.view = view; tab.crashed = false; tab.loading = true; tab.drawn = false;
+    // Every event from this page is about the window the tab is in NOW (it can be dragged to another).
+    const on = ((ev: string, fn: (...a: any[]) => void) => wc.on(ev as 'destroyed', (...a: any[]) => { this.inTab(tab); fn(...a); })) as unknown as Electron.WebContents['on'];
     wc.on('will-attach-webview', (e) => e.preventDefault());
     this.nameFor(wc);
     // A link that opens a new window becomes a tab under the one it came from. Web pages only.
@@ -937,11 +1123,12 @@ export class AangBrowser {
     // Popups (his pick, 2026-10-12, Chrome's rule): one opened within a second of his click or key press is his, and
     // opens as a real small window that keeps its link to the page (Sign in with Google needs that). One a page opens
     // by itself is blocked, unless he allowed popups on that site; a chip offers that.
-    wc.on('input-event', (_e, i) => {
+    on('input-event', (_e, i) => {
       if (i.type === 'mouseDown' || i.type === 'keyDown') this.lastGesture.set(tab.id, Date.now());
       if (i.type === 'mouseDown' && this.trayOn) this.tray(false);       // a click on the page puts the list away
     });
     wc.setWindowOpenHandler(({ url: u, disposition }) => {
+      this.inTab(tab);
       if (!isWeb(u)) return { action: 'deny' };
       if (disposition === 'new-window') {
         let site = '';
@@ -962,9 +1149,9 @@ export class AangBrowser {
       this.newTab(u, tab.id, disposition !== 'background-tab');
       return { action: 'deny' };
     });
-    wc.on('did-create-window', (pw) => this.popupWindow(pw));
+    on('did-create-window', (pw) => this.popupWindow(pw));
     // 6.22: a listed site never loads, whether it is a link, a redirect or anything else.
-    wc.on('will-navigate', (e, u) => {
+    on('will-navigate', (e, u) => {
       if (!isWeb(u)) { e.preventDefault(); return; }
       if (this.toPaid(u)) { e.preventDefault(); return; }
       const l = this.listed(u);
@@ -972,7 +1159,7 @@ export class AangBrowser {
       const up = upgrade(u, this.httpOk);
       if (up) { e.preventDefault(); tab.upgraded = u; setTimeout(() => { if (!wc.isDestroyed()) void wc.loadURL(up).catch(() => {}); }, 0); }
     });
-    wc.on('will-redirect', (e, u, _inPage, isMain) => {
+    on('will-redirect', (e, u, _inPage, isMain) => {
       if (!isMain) return;
       if (isWeb(u) && this.toPaid(u)) { e.preventDefault(); return; }
       const l = isWeb(u) ? this.listed(u) : ['NOT A WEB PAGE'];
@@ -988,7 +1175,7 @@ export class AangBrowser {
       setTimeout(() => { if (!wc.isDestroyed()) void wc.loadURL(up).catch(() => {}); }, 0);
     });
     // A new page clears the last failure; a different site forgets the upgrade.
-    wc.on('did-start-navigation', (d) => {
+    on('did-start-navigation', (d) => {
       const x = d as unknown as { url: string; isMainFrame: boolean; isSameDocument: boolean };
       if (!x.isMainFrame || x.isSameDocument) return;
       if (tab.failed) { tab.failed = null; this.place(); this.changed(); }
@@ -996,7 +1183,7 @@ export class AangBrowser {
       try { if (tab.upgraded && new URL(tab.upgraded).hostname !== new URL(x.url).hostname) tab.upgraded = null; } catch { tab.upgraded = null; }
     });
     // The page did not load: Aang's own plate instead of Chromium's grey page. Cancelled loads (-3) are not failures.
-    wc.on('did-fail-load', (_e, code, _desc, url, isMain) => {
+    on('did-fail-load', (_e, code, _desc, url, isMain) => {
       if (isMain) { tab.pending = null; if (this.veil?.tab === tab.id) this.veilDown(0); }
       if (!isMain || code === -3 || !isWeb(url)) return;
       let host = '';
@@ -1006,41 +1193,41 @@ export class AangBrowser {
       if (wasUp && code !== -106 && code !== -105) this.fail(tab, { kind: 'insecure', url: tab.upgraded!, title: "This site isn't secure", text: '', retry: false });
       else this.fail(tab, { kind: 'error', url, ...failureWords(code, host) });
     });
-    wc.on('did-start-navigation', (d) => { const x = d as unknown as { url: string; isMainFrame: boolean }; if (!x.isMainFrame || !isWeb(x.url)) return; const l = this.listed(x.url); if (l.length) this.block(tab, x.url, l); });
-    wc.on('page-title-updated', (_e, title) => { tab.title = title; this.visits.name(wc.getURL(), title); this.changed(); });
-    wc.on('page-favicon-updated', (_e, icons) => {
+    on('did-start-navigation', (d) => { const x = d as unknown as { url: string; isMainFrame: boolean }; if (!x.isMainFrame || !isWeb(x.url)) return; const l = this.listed(x.url); if (l.length) this.block(tab, x.url, l); });
+    on('page-title-updated', (_e, title) => { tab.title = title; this.visits.name(wc.getURL(), title); this.changed(); });
+    on('page-favicon-updated', (_e, icons) => {
       tab.favicon = icons.find((i) => /^https?:|^data:image\//.test(i)) ?? '';
       this.sendTabs();
       // Keep it for the site's bookmark, so the shelf shows it even before he visits again.
       try { const host = new URL(wc.getURL()).hostname; if (tab.favicon && !this.icons.has(host)) void this.keepIcon(host, tab.favicon); } catch { /* none */ }
     });
-    wc.on('did-start-loading', () => { tab.loading = true; if (tab.crashed) { tab.crashed = false; this.place(); } this.sendTabs(); });
-    wc.on('did-stop-loading', () => {
+    on('did-start-loading', () => { tab.loading = true; if (tab.crashed) { tab.crashed = false; this.place(); } this.sendTabs(); });
+    on('did-stop-loading', () => {
       tab.loading = false; tab.phase = 'idle'; tab.prog = 1; tab.pending = null; tab.drawn = true;
       if (this.veil?.tab === tab.id) this.veilDown(VEIL_FADE_MS);
       this.sendTabs();
     });
     // The loading steps (2026-10-12): the click, the site answering, the page read, the page drawn (painted()).
-    wc.on('did-start-navigation', (d) => {
+    on('did-start-navigation', (d) => {
       const x = d as unknown as { url: string; isMainFrame: boolean; isSameDocument: boolean };
       if (!x.isMainFrame || x.isSameDocument) return;
       tab.phase = 'waiting'; tab.prog = 0.08;
       if (isWeb(x.url)) void this.veilUp(tab);
       this.sendTabs();
     });
-    wc.on('dom-ready', () => { if (tab.phase !== 'idle') { tab.prog = Math.max(tab.prog ?? 0, 0.55); this.sendTabs(); } });
-    wc.on('did-navigate', (_e, u, status) => {
+    on('dom-ready', () => { if (tab.phase !== 'idle') { tab.prog = Math.max(tab.prog ?? 0, 0.55); this.sendTabs(); } });
+    on('did-navigate', (_e, u, status) => {
       tab.url = u; tab.scrollY = 0; if (status > 0) tab.upgraded = null; if (status < 400) this.visits.add(u, '');
       tab.pending = null;
       if (tab.phase !== 'idle') { tab.phase = 'loading'; tab.prog = Math.max(tab.prog ?? 0, 0.35); }
       this.changed();
     });
-    wc.on('did-navigate-in-page', (_e, u, main) => { tab.url = u; if (main) this.visits.add(u, wc.getTitle()); this.changed(); });
+    on('did-navigate-in-page', (_e, u, main) => { tab.url = u; if (main) this.visits.add(u, wc.getTitle()); this.changed(); });
     // Find on page: how many matches, and which one is lit. Only the tab he is looking at reports.
-    wc.on('found-in-page', (_e, r) => { if (tab.id === this.active) this.win?.webContents.send('browser:found', { at: r.activeMatchOrdinal, of: r.matches }); });
+    on('found-in-page', (_e, r) => { if (tab.id === this.active) this.win?.webContents.send('browser:found', { at: r.activeMatchOrdinal, of: r.matches }); });
     // 6.22b bug 1: a page's own fullscreen (a video's button) fills the whole screen, band and drawer gone; it
     // comes back exactly as it was when the page leaves fullscreen (its button, or Esc).
-    wc.on('enter-html-full-screen', () => {
+    on('enter-html-full-screen', () => {
       const w = this.win;
       if (!w || w.isDestroyed() || tab.lent) return;
       this.fullTab = tab.id;
@@ -1048,7 +1235,7 @@ export class AangBrowser {
       w.setFullScreen(true);
       this.place();
     });
-    wc.on('leave-html-full-screen', () => {
+    on('leave-html-full-screen', () => {
       if (this.fullTab !== tab.id) return;
       this.fullTab = null;
       try { view.setBorderRadius(PAGE_RADIUS); } catch { /* an older runtime */ }
@@ -1056,22 +1243,22 @@ export class AangBrowser {
       this.place();
     });
     // 6.22b bug 2: right-click on the page opens Aang's own wood menu.
-    wc.on('context-menu', (_e, p) => this.pageMenu(tab, p));
+    on('context-menu', (_e, p) => this.pageMenu(tab, p));
     // Link preview (6.22b item 8): the real address of the link he points at, shown in the wood under the page.
-    wc.on('update-target-url', (_e, u) => { if (tab.id === this.active) this.win?.webContents.send('browser:hover', isWeb(u) ? u.slice(0, 600) : ''); });
+    on('update-target-url', (_e, u) => { if (tab.id === this.active) this.win?.webContents.send('browser:hover', isWeb(u) ? u.slice(0, 600) : ''); });
     // One video at a time (his rule, 2026-10-13): when this tab starts making sound, every other one stops, here and on
     // the other machine. Sound, not just playing: a silent hover preview (YouTube's front page) stops nothing.
-    wc.on('audio-state-changed', (e) => {
+    on('audio-state-changed', (e) => {
       const was = tab.audible;
       tab.audible = (e as unknown as { audible: boolean }).audible;
       if (tab.audible && !was && !tab.call) this.onePlaying(tab);
       this.sendTabs();
     });
     // A crashed page goes blank and anything that pokes it hangs (tested 2026-10-04): mark it, never touch it.
-    wc.on('render-process-gone', () => { tab.crashed = true; tab.loading = false; this.place(); this.sendTabs(); });
+    on('render-process-gone', () => { tab.crashed = true; tab.loading = false; this.place(); this.sendTabs(); });
     // The keys work wherever the keyboard is, page or frame.
     // Not while it is lent to the popout: Ctrl+W there must not close a tab in here.
-    wc.on('before-input-event', (e, input) => { if (!tab.lent && this.key(input)) e.preventDefault(); });
+    on('before-input-event', (e, input) => { if (!tab.lent && this.key(input)) e.preventDefault(); });
     // Back where it was: the zoom at once, the scroll once the page has drawn.
     if (tab.zoom) wc.setZoomLevel(tab.zoom);
     if (tab.muted) wc.setAudioMuted(true);
@@ -1096,24 +1283,26 @@ export class AangBrowser {
     view.setBackgroundColor('#24160D');
     try { view.setBorderRadius(PAGE_RADIUS); } catch { /* square */ }
     view.setVisible(false);
+    this.inTab(tab);
     this.win?.contentView.addChildView(view);
     this.raiseTray();
     tab.view = view; tab.crashed = false; tab.loading = false; tab.title = things ? 'Your things' : 'Settings';
-    wc.on('before-input-event', (e, input) => { if (this.key(input)) e.preventDefault(); });
-    wc.on('render-process-gone', () => { tab.crashed = true; this.place(); this.sendTabs(); });
+    wc.on('before-input-event', (e, input) => { this.inTab(tab); if (this.key(input)) e.preventDefault(); });
+    wc.on('render-process-gone', () => { this.inTab(tab); tab.crashed = true; this.place(); this.sendTabs(); });
     void wc.loadURL(`${this.o.origin}/${things ? 'things' : 'settings'}.html`).catch(() => {});
   }
-  isSettings(sender: Electron.WebContents): boolean { return this.tabs.some((t) => t.internal === 'settings' && t.view?.webContents === sender); }
+  isSettings(sender: Electron.WebContents): boolean { const t = this.tabs.find((x) => x.internal === 'settings' && x.view?.webContents === sender); if (t) this.inTab(t); return Boolean(t); }
   /** Open Settings (or bring its tab forward), at a section. */
   openSettings(section = 'general'): void {
     if (!this.win || this.win.isDestroyed()) return;
     let t = this.tabs.find((x) => x.internal === 'settings');
     if (!t) {
       t = { id: ++this.seq, internal: 'settings', view: null, opener: null, title: 'Settings', url: 'aang:settings', favicon: '', loading: false, audible: false, muted: false, crashed: false,
-        scrollY: 0, zoom: 0, lastSeen: Date.now(), blocked: null, trail: null, done: false, lent: false, upgraded: null, failed: null, blockedPopup: null };
+        scrollY: 0, zoom: 0, lastSeen: Date.now(), blocked: null, trail: null, done: false, lent: false, upgraded: null, failed: null, blockedPopup: null, pane: this.pane.id };
       this.tabs.push(t);
     }
     this.activate(t.id);
+    this.win?.focus();
     const wc = t.view?.webContents;
     if (wc) { const go = () => wc.send('settings:section', String(section).slice(0, 20)); if (wc.isLoading()) wc.once('did-finish-load', go); else go(); }
   }
@@ -1177,17 +1366,18 @@ export class AangBrowser {
   }
 
   // ------------------------------------------------------------------ Your things: History and Downloads (2026-10-12)
-  isThings(sender: Electron.WebContents): boolean { return this.tabs.some((t) => t.internal === 'things' && t.view?.webContents === sender); }
+  isThings(sender: Electron.WebContents): boolean { const t = this.tabs.find((x) => x.internal === 'things' && x.view?.webContents === sender); if (t) this.inTab(t); return Boolean(t); }
   /** Open Your things (or bring its tab forward), at History or Downloads. */
   openThings(section: 'history' | 'downloads' = 'history'): void {
     if (!this.win || this.win.isDestroyed()) return;
     let t = this.tabs.find((x) => x.internal === 'things');
     if (!t) {
       t = { id: ++this.seq, internal: 'things', view: null, opener: null, title: 'Your things', url: 'aang:things', favicon: '', loading: false, audible: false, muted: false, crashed: false,
-        scrollY: 0, zoom: 0, lastSeen: Date.now(), blocked: null, trail: null, done: false, lent: false, upgraded: null, failed: null, blockedPopup: null };
+        scrollY: 0, zoom: 0, lastSeen: Date.now(), blocked: null, trail: null, done: false, lent: false, upgraded: null, failed: null, blockedPopup: null, pane: this.pane.id };
       this.tabs.push(t);
     }
     this.activate(t.id);
+    this.win?.focus();
     const wc = t.view?.webContents;
     if (wc) { const go = () => wc.send('things:section', section); if (wc.isLoading()) wc.once('did-finish-load', go); else go(); }
   }
@@ -1228,7 +1418,8 @@ export class AangBrowser {
     const go = () => {
       this.dlSendTimer = null;
       const tray = trayOf(this.dls.list, this.traySince, Date.now());
-      this.win?.webContents.send('browser:dls', { items: tray.map((d) => this.dlView(d)), pop: pop === 'pop' });
+      const data = { items: tray.map((d) => this.dlView(d)), pop: pop === 'pop' };
+      for (const p of this.panes) if (this.alive(p)) p.win!.webContents.send('browser:dls', data);
       this.pushThings('downloads');
       // When nothing is coming in, the tray empties an hour after the newest download: look again then.
       if (this.trayTimer) { clearTimeout(this.trayTimer); this.trayTimer = null; }
@@ -1273,14 +1464,15 @@ export class AangBrowser {
   }
   private closeView(tab: Tab): void {
     if (!tab.view) return;
-    try { this.win?.contentView.removeChildView(tab.view); } catch { /* not shown */ }
+    const p = this.paneOfTab(tab);
+    try { if (this.alive(p)) p.win!.contentView.removeChildView(tab.view); } catch { /* not shown */ }
     try { tab.view.webContents.close(); } catch { /* gone */ }
     tab.view = null;
   }
   private sleepIdle(): void {
     const now = Date.now();
     let any = false;
-    for (const t of this.tabs) if (t.view && !t.lent && !t.call && t.id !== this.active && !t.audible && now - t.lastSeen > SLEEP_AFTER_MS) { this.sleep(t); any = true; }
+    for (const t of this.tabs) if (t.view && !t.lent && !t.call && !this.panes.some((p) => p.active === t.id) && !t.audible && now - t.lastSeen > SLEEP_AFTER_MS) { this.sleep(t); any = true; }
     if (any) this.sendTabs();
   }
 
@@ -1299,7 +1491,7 @@ export class AangBrowser {
       trail = from.done ? null : from.trail;
     } else if (this.pendingTrail !== null) { trail = this.pendingTrail; }
     this.pendingTrail = null;
-    const tab: Tab = { id: ++this.seq, view: null, opener, title: 'New tab', url, favicon: '', loading: true, audible: false, muted: false, crashed: false, scrollY: 0, zoom: 0, lastSeen: Date.now(), blocked: null, trail, done: false, lent: false, upgraded: null, failed: null, blockedPopup: null };
+    const tab: Tab = { id: ++this.seq, view: null, opener, title: 'New tab', url, favicon: '', loading: true, audible: false, muted: false, crashed: false, scrollY: 0, zoom: 0, lastSeen: Date.now(), blocked: null, trail, done: false, lent: false, upgraded: null, failed: null, blockedPopup: null, pane: this.pane.id };
     // A child sits right under the last tab of its trail, so the trail reads top to bottom.
     if (from) {
       let at = this.tabs.indexOf(from);
@@ -1313,16 +1505,22 @@ export class AangBrowser {
   }
 
   activate(id: number): void {
-    const w = this.win;
     const t = this.tabs.find((x) => x.id === id);
+    if (!t) return;
+    // A tab in another window (picked from the address suggestions): that window comes forward.
+    const other = t.pane !== this.pane.id;
+    if (!this.inTab(t)) return;
+    const w = this.win;
     const prev = this.cur();
-    if (!w || w.isDestroyed() || !t) return;
+    if (!w || w.isDestroyed()) return;
+    if (other) w.focus();
+    const mine = this.paneTabs();
     // Every live tab stays in the window; switching only shows one and hides the rest. Placed first, then
     // shown, so it never appears for a moment at the last tab's size.
     if (t.lent) {
       // Its page is in the popout: the frame shows "playing in the popout" where it was.
       this.active = id;
-      for (const x of this.tabs) if (x.view && !x.lent) x.view.setVisible(false);
+      for (const x of mine) if (x.view && !x.lent) x.view.setVisible(false);
       this.changed();
       return;
     }
@@ -1332,14 +1530,14 @@ export class AangBrowser {
     this.active = id;
     t.lastSeen = Date.now();
     this.place();
-    for (const x of this.tabs) if (x.id !== id && x.view) { try { x.view.webContents.stopFindInPage('clearSelection'); } catch { /* gone */ } }
+    for (const x of mine) if (x.id !== id && x.view) { try { x.view.webContents.stopFindInPage('clearSelection'); } catch { /* gone */ } }
     // A tab still loading with nothing drawn yet (a new tab, a tab waking up): the page he was on stays until the
     // curtain holds its picture, then the new one fades in as it draws, never a blank frame (his ask, 2026-10-13).
     const fresh = !this.drawerOpen && Boolean(t.phase) && t.phase !== 'idle' && !t.drawn;
     const hold = fresh && prev && prev.id !== id && prev.view && !prev.lent && !prev.crashed && !prev.blocked && !prev.failed && prev.view.getVisible() ? prev : undefined;
     // With the drawer open the page stays hidden under it; closing the drawer shows whichever tab is current.
     if (!this.drawerOpen && !hold) t.view!.setVisible(true);
-    for (const x of this.tabs) if (x.id !== id && x !== hold && x.view && !x.lent) x.view.setVisible(false);
+    for (const x of mine) if (x.id !== id && x !== hold && x.view && !x.lent) x.view.setVisible(false);
     if (fresh) void this.veilUp(t, hold);
     if (!t.crashed) t.view!.webContents.focus();
     // The drawer is open: the page area is a still picture, so take a fresh one of the tab now in front. Without this
@@ -1352,6 +1550,8 @@ export class AangBrowser {
   close(id: number, lastClosesWindow = true): void {
     const i = this.tabs.findIndex((x) => x.id === id);
     if (i < 0) return;
+    this.inTab(this.tabs[i]!);
+    const at = this.paneTabs().indexOf(this.tabs[i]!);
     // A tab playing in the popout comes back first, so its page is closed here and nowhere else.
     if (this.tabs[i]!.lent) this.onReclaim?.();
     const [t] = this.tabs.splice(i, 1);
@@ -1359,13 +1559,16 @@ export class AangBrowser {
     this.closeView(t!);
     this.tidyTrails();
     if (this.active === id) {
-      const next = this.tabs[Math.min(i, this.tabs.length - 1)];
+      const rest = this.paneTabs();
+      const next = rest[Math.min(Math.max(0, at), rest.length - 1)];
       this.active = null;
       if (next) this.activate(next.id);
       else if (lastClosesWindow && this.win && !this.win.isDestroyed()) {
-        // Nothing left: remember an empty window (so the closed tabs do not come back next time) and close it.
-        try { writeFileAtomic(this.file, JSON.stringify({ v: 1, at: new Date().toISOString(), active: 0, tabs: [], trails: [], closed: this.closed.slice(-25) })); } catch { /* best effort */ }
-        this.sync?.changed('tabs');
+        // Nothing left in the whole browser: remember an empty window (so the closed tabs do not come back next time).
+        if (!this.tabs.length) {
+          try { writeFileAtomic(this.file, JSON.stringify({ v: 1, at: new Date().toISOString(), active: 0, tabs: [], trails: [], closed: this.closed.slice(-25) })); } catch { /* best effort */ }
+          this.sync?.changed('tabs');
+        }
         this.win.close();
       } else this.newTab(this.HOME);
     } else this.changed();
@@ -1478,7 +1681,7 @@ export class AangBrowser {
   private ensureMenu(): BrowserWindow {
     if (this.menu && !this.menu.isDestroyed()) return this.menu;
     const m = new BrowserWindow({
-      parent: this.win ?? undefined, frame: false, show: false, resizable: false, movable: false, minimizable: false, maximizable: false,
+      frame: false, show: false, alwaysOnTop: true, resizable: false, movable: false, minimizable: false, maximizable: false,
       fullscreenable: false, skipTaskbar: true, width: 220, height: 120, backgroundColor: '#3A2414', title: 'Menu',
       webPreferences: { ...SAFE_WEB_PREFERENCES, preload: this.o.preloadPath },
     });
@@ -1511,7 +1714,7 @@ export class AangBrowser {
     this.hideMenu();
     const t = f ? this.tabs.find((x) => x.id === f.tab) : undefined;
     const wc = t?.view?.webContents;
-    if (!f || !t || !wc || wc.isDestroyed()) return;
+    if (!f || !t || !wc || wc.isDestroyed() || !this.inTab(t)) return;
     const p = f.p;
     wc.focus();
     switch (id) {
@@ -1540,6 +1743,8 @@ export class AangBrowser {
   // ------------------------------------------------------------------ 6.23 the vault (Bitwarden)
   /** A password box on the page he is looking at? Read-only, with a deadline. Secure pages only. */
   private async lookForLogin(): Promise<void> {
+    const lp = this.lastPane();
+    if (lp) this.pane = lp;
     const t = this.cur();
     const wc = t?.view?.webContents;
     let has = false;
@@ -1577,7 +1782,9 @@ export class AangBrowser {
     let host = '';
     try { host = new URL(t.url).hostname; } catch { return; }
     this.vaultFor = { tab: t.id, host };
+    const P = this.pane;
     const s = await this.vault.state();
+    this.pane = P;
     if (s === 'missing') { this.note("Bitwarden's tool is not on this PC yet."); return; }
     if (s === 'signed-out') { this.note('Sign in to Bitwarden once first, yourself: ' + BW_LOGIN); return; }
     if (s === 'locked') { this.win?.webContents.send('browser:vault', { mode: 'unlock', host }); return; }
@@ -1587,7 +1794,9 @@ export class AangBrowser {
   async vaultUnlock(password: string): Promise<void> {
     const f = this.vaultFor;
     if (!f) return;
+    const P = this.pane;
     const ok = await this.vault.unlock(password);
+    this.pane = P;
     if (!ok) { this.win?.webContents.send('browser:vault', { mode: 'unlock', host: f.host, wrong: true }); return; }
     void this.learnSites();
     await this.vaultList();
@@ -1597,6 +1806,7 @@ export class AangBrowser {
     const t = f ? this.tabs.find((x) => x.id === f.tab) : undefined;
     if (!f || !t) return;
     const logins: Login[] | null = await this.vault.loginsFor(t.url);
+    if (!this.inTab(t)) return;
     if (logins === null) { this.note('Bitwarden did not answer. Try the key again.'); return; }
     if (!logins.length) { this.win?.webContents.send('browser:vault', null); this.note(`No saved login for ${f.host} in your Bitwarden.`); return; }
     if (logins.length === 1) { await this.vaultPick(logins[0]!.id); return; }
@@ -1606,8 +1816,9 @@ export class AangBrowser {
   async vaultPick(id: string): Promise<void> {
     const f = this.vaultFor;
     this.vaultFor = null;
-    this.win?.webContents.send('browser:vault', null);
     const t = f ? this.tabs.find((x) => x.id === f.tab) : undefined;
+    if (t) this.inTab(t);
+    this.win?.webContents.send('browser:vault', null);
     const wc = t?.view?.webContents;
     if (!f || !t || !wc || wc.isDestroyed() || t.blocked || t.failed) return;
     let host = '';
@@ -1724,7 +1935,7 @@ export class AangBrowser {
       this.savePrefs(); this.sendTabs(); this.pushSettings();
     },
     tabSnap: (): TabSnap => {
-      if (this.win && !this.win.isDestroyed() && this.tabs.length) {
+      if (this.panes.some((p) => this.alive(p)) && this.tabs.length) {
         return { tabs: this.tabs.filter((t) => !t.internal && isWeb(t.url)).map((t) => ({ url: t.url, title: t.title, trail: t.trail, done: t.done })), trails: this.trails.map((x) => ({ id: x.id, name: x.name })) };
       }
       try {
@@ -1759,7 +1970,9 @@ export class AangBrowser {
   private takeTabs(snap: TabSnap): void {
     const want = (snap?.tabs ?? []).filter((t) => typeof t?.url === 'string' && isWeb(t.url)).slice(0, 80);
     const trails = (snap?.trails ?? []).filter((x) => Number.isInteger(x?.id)).map((x) => ({ id: x.id, name: String(x.name ?? '').slice(0, 24) || 'Trail', named: true }));
-    if (!this.win || this.win.isDestroyed()) {
+    const home = this.panes.find((p) => this.alive(p));
+    if (home) this.pane = home;
+    if (!home) {
       let closed: string[] = [];
       try { const s = JSON.parse(readFileSync(this.file, 'utf8')); if (Array.isArray(s?.closed)) closed = s.closed; } catch { /* none */ }
       try { writeFileAtomic(this.file, JSON.stringify({ v: 1, at: new Date().toISOString(), active: 0, tabs: want.map((t) => ({ url: t.url, title: t.title, opener: null, scrollY: 0, zoom: 0, muted: false, trail: t.trail, done: t.done })), trails, closed })); } catch { /* best effort */ }
@@ -1782,10 +1995,11 @@ export class AangBrowser {
         if (k >= 0) need.splice(k, 1);
         else if (!fixed(t)) this.close(t.id, false);
       }
+      this.pane = home;
       for (const u of need) {
         const w = want.find((x) => x.url === u)!;
         this.tabs.push({ id: ++this.seq, view: null, opener: null, title: w.title.slice(0, 300) || u, url: u, favicon: '', loading: false, audible: false, muted: false, crashed: false,
-          scrollY: 0, zoom: 0, lastSeen: Date.now(), blocked: null, trail: null, done: false, lent: false, upgraded: null, failed: null, blockedPopup: null });
+          scrollY: 0, zoom: 0, lastSeen: Date.now(), blocked: null, trail: null, done: false, lent: false, upgraded: null, failed: null, blockedPopup: null, pane: this.pane.id });
       }
     }
     this.trails = trails;
@@ -1799,7 +2013,16 @@ export class AangBrowser {
       t.trail = w!.trail !== null && trails.some((x) => x.id === w!.trail) ? w!.trail : null; t.done = w!.done;
     }
     this.tidyTrails();
-    if (this.active === null && this.tabs.length) this.activate(this.tabs[0]!.id); else this.changed();
+    // Any window left without a tab in front shows its first one; a window left with no tabs at all closes.
+    for (const p of [...this.panes]) {
+      if (!this.alive(p) || this.tabs.some((t) => t.id === p.active)) continue;
+      this.pane = p;
+      p.active = null;
+      const n = this.paneTabs(p)[0];
+      if (n) this.activate(n.id); else if (p !== home) p.win!.close();
+    }
+    this.pane = home;
+    this.changed();
   }
 
   private iconOf(url: string): string {
@@ -1843,7 +2066,8 @@ export class AangBrowser {
    * read. Safari's needs macOS's Full Disk Access for Aang, which only he can give: the right page opens for him.
    */
   async importFrom(source: 'chrome' | 'safari'): Promise<void> {
-    const say = (text: string) => { const w = this.win; if (w && !w.isDestroyed()) w.webContents.send('browser:download', { name: '', state: 'note', text }); };
+    const P = this.pane;
+    const say = (text: string) => { const w = P.win; if (w && !w.isDestroyed()) w.webContents.send('browser:download', { name: '', state: 'note', text }); };
     let found: Mark[] = [];
     try {
       if (source === 'chrome') {
@@ -1901,7 +2125,7 @@ export class AangBrowser {
    */
   lend(id: number): { view: WebContentsView; url: string; title: string } | null {
     const t = this.tabs.find((x) => x.id === id);
-    if (!t?.view || t.internal || t.crashed || t.blocked || t.failed || t.lent) return null;
+    if (!t?.view || t.internal || t.crashed || t.blocked || t.failed || t.lent || !this.inTab(t)) return null;
     t.lent = true;
     try { this.win?.contentView.removeChildView(t.view); } catch { /* not shown */ }
     try { t.view.webContents.stopFindInPage('clearSelection'); } catch { /* gone */ }
@@ -1912,7 +2136,8 @@ export class AangBrowser {
   /** The popout hands the tab back: into the window, where it was. If the tab or the window is gone, the page closes. */
   giveBack(id: number, view: WebContentsView): void {
     const t = this.tabs.find((x) => x.id === id);
-    const w = this.win;
+    if (t) this.inTab(t);
+    const w = t ? this.paneOfTab(t)?.win : null;
     if (!t || t.view !== view || !w || w.isDestroyed()) { try { view.webContents.close(); } catch { /* gone */ } if (t) { t.view = null; t.lent = false; } return; }
     t.lent = false;
     view.setVisible(false);
@@ -1921,7 +2146,7 @@ export class AangBrowser {
     // where he cannot see it, then shown already settled (2026-10-12, the odd resize coming back).
     const [cw, ch] = w.getContentSize();
     view.setBounds({ x: this.inset.left, y: this.inset.top, width: Math.max(0, cw - this.inset.left - this.inset.right), height: Math.max(0, ch - this.inset.top - this.inset.bottom) });
-    setTimeout(() => { if (t.view !== view || t.lent) return; if (t.id === this.active) this.activate(t.id); else this.changed(); }, 250);
+    setTimeout(() => { if (t.view !== view || t.lent || !this.inTab(t)) return; if (t.id === this.active) this.activate(t.id); else this.changed(); }, 250);
   }
 
   isLent(id: number): boolean { return Boolean(this.tabs.find((x) => x.id === id)?.lent); }
@@ -2056,7 +2281,7 @@ export class AangBrowser {
     for (const p of pages) {
       if (!isWeb(p.url)) continue;
       this.tabs.push({ id: ++this.seq, view: null, opener: null, title: p.title, url: p.url, favicon: '', loading: false, audible: false, muted: false, crashed: false,
-        scrollY: 0, zoom: 0, lastSeen: Date.now(), blocked: null, trail: id, done: false, lent: false, upgraded: null, failed: null, blockedPopup: null });
+        scrollY: 0, zoom: 0, lastSeen: Date.now(), blocked: null, trail: id, done: false, lent: false, upgraded: null, failed: null, blockedPopup: null, pane: this.pane.id });
     }
     this.changed();
     return id;
@@ -2071,7 +2296,15 @@ export class AangBrowser {
     this.stash = this.stash.slice(0, 50);
     for (const t of own) { const i = this.tabs.indexOf(t); if (i >= 0) { this.closeView(t); this.tabs.splice(i, 1); } }
     this.trails = this.trails.filter((x) => x.id !== id);
-    if (!this.tabs.some((t) => t.id === this.active)) { const n = this.tabs[0]; this.active = null; if (n) this.activate(n.id); else this.newTab(this.HOME); }
+    const was = this.pane;
+    for (const p of this.panes) {
+      if (!this.alive(p) || this.tabs.some((t) => t.id === p.active)) continue;
+      this.pane = p;
+      p.active = null;
+      const n = this.paneTabs(p)[0];
+      if (n) this.activate(n.id); else this.newTab(this.HOME);
+    }
+    this.pane = was;
     this.saveStash();
     return s.id;
   }
@@ -2088,7 +2321,7 @@ export class AangBrowser {
 
   // ------------------------------------------------------------------ Trail clean up (Tidy)
   private tidyTabs(): TidyTab[] {
-    return this.tabs.filter((t) => isWeb(t.url) && !t.internal).map((t) => ({ id: t.id, url: t.url, title: t.title, trail: t.trail, lastSeen: t.lastSeen, active: t.id === this.active, audible: t.audible, lent: t.lent }));
+    return this.tabs.filter((t) => isWeb(t.url) && !t.internal).map((t) => ({ id: t.id, url: t.url, title: t.title, trail: t.trail, lastSeen: t.lastSeen, active: this.panes.some((p) => p.active === t.id), audible: t.audible, lent: t.lent }));
   }
   /**
    * The broom (or Trail clean up in the menu). The instant part happens at once: doubles are marked (closed only on
@@ -2307,14 +2540,16 @@ export class AangBrowser {
     if (c && k === '0') { this.act('zoomreset'); return true; }
     // Ctrl+1 to 8 go to that tab, Ctrl+9 to the last, as in Chrome.
     if (c && !i.shift && /^[1-9]$/.test(k)) {
-      const n = k === '9' ? this.tabs[this.tabs.length - 1] : this.tabs[Number(k) - 1];
+      const mine = this.paneTabs();
+      const n = k === '9' ? mine[mine.length - 1] : mine[Number(k) - 1];
       if (n) this.activate(n.id);
       return true;
     }
     if (k === 'escape' && this.cur()?.loading) { this.act('stop'); return false; }
     if (c && k === 'tab') {
-      const i2 = this.tabs.findIndex((x) => x.id === this.active);
-      const n = this.tabs[(i2 + (i.shift ? -1 : 1) + this.tabs.length) % this.tabs.length];
+      const mine = this.paneTabs();
+      const i2 = mine.findIndex((x) => x.id === this.active);
+      const n = mine[(i2 + (i.shift ? -1 : 1) + mine.length) % mine.length];
       if (n) this.activate(n.id);
       return true;
     }
@@ -2339,7 +2574,8 @@ export class AangBrowser {
     }));
     const data = {
       v: 1, at: new Date().toISOString(),
-      active: Math.max(0, this.tabs.findIndex((x) => x.id === this.active)),
+      // Every window's tabs; next time they all come back in one window, the one he used last in front.
+      active: Math.max(0, this.tabs.findIndex((x) => x.id === (this.lastPane()?.active ?? this.active))),
       tabs: this.tabs.filter((t) => isWeb(t.url)).map((t) => ({
         url: t.url, title: t.title, opener: t.opener === null ? null : this.tabs.findIndex((x) => x.id === t.opener),
         scrollY: Math.round(t.scrollY), zoom: t.zoom, muted: t.muted, trail: t.trail, done: t.done,
@@ -2362,7 +2598,7 @@ export class AangBrowser {
       for (const t of list) {
         const tab: Tab = { id: ++this.seq, view: null, opener: null, title: String(t.title ?? t.url).slice(0, 300), url: t.url, favicon: '',
           loading: false, audible: false, muted: t.muted === true, crashed: false, scrollY: Number(t.scrollY) || 0, zoom: Number(t.zoom) || 0, lastSeen: Date.now(), blocked: null,
-          trail: Number.isInteger(t.trail) ? t.trail : null, done: false, lent: false, upgraded: null, failed: null, blockedPopup: null };
+          trail: Number.isInteger(t.trail) ? t.trail : null, done: false, lent: false, upgraded: null, failed: null, blockedPopup: null, pane: this.pane.id };
         ids.push(tab.id);
         this.tabs.push(tab);
       }
@@ -2397,8 +2633,15 @@ export class AangBrowser {
       calls ||= c;
     }
     this.callNow(calls);
+    const was = this.pane;
+    for (const p of this.panes) { this.pane = p; this.sendPane(); }
+    this.pane = was;
+  }
+  /** One window's frame (and its tray) redraws from this. */
+  private sendPane(): void {
     const w = this.win;
     if (!w || w.isDestroyed()) return;
+    const mine = this.paneTabs();
     const t = this.cur();
     const wc = t?.view?.webContents;
     const tray = this.trayV && !this.trayV.webContents.isDestroyed() ? this.trayV.webContents : null;
@@ -2407,8 +2650,9 @@ export class AangBrowser {
       active: this.active,
       update: this.update, inCall: this.inCall,
       canBack: Boolean(wc?.navigationHistory.canGoBack()), canForward: Boolean(wc?.navigationHistory.canGoForward()),
-      tabs: this.tabs.map((x) => ({ id: x.id, opener: x.opener, title: x.title, url: x.url, favicon: x.favicon, loading: x.loading, phase: x.phase ?? (x.loading ? 'loading' : 'idle'), prog: x.prog ?? 0, pending: x.pending ?? null, audible: x.audible, muted: x.muted, crashed: x.crashed, asleep: !x.view, blocked: x.blocked, failed: x.failed, trail: x.trail, done: x.done, lent: x.lent, popup: x.blockedPopup?.url ?? null })),
-      trails: this.trails,
+      tabs: mine.map((x) => ({ id: x.id, opener: x.opener, title: x.title, url: x.url, favicon: x.favicon, loading: x.loading, phase: x.phase ?? (x.loading ? 'loading' : 'idle'), prog: x.prog ?? 0, pending: x.pending ?? null, audible: x.audible, muted: x.muted, crashed: x.crashed, asleep: !x.view, blocked: x.blocked, failed: x.failed, trail: x.trail, done: x.done, lent: x.lent, popup: x.blockedPopup?.url ?? null })),
+      // The trails with a tab in this window (or the one about to start here).
+      trails: this.trails.filter((tr) => tr.id === this.pendingTrail || mine.some((x) => x.trail === tr.id)),
       drivers: this.driver.view(),
       watching: this.watching === null ? null : (() => { const p = this.driver.page(this.watching!); const j = p ? this.driver.job(p.job) : undefined; return p && j ? { page: p.id, job: j.id, kind: j.kind, working: j.working, url: p.url, title: p.title } : null; })(),
       tidy: this.tidyState(),
@@ -2431,7 +2675,13 @@ export class AangBrowser {
     if (t) w.setTitle(`${t.title} - Aang Browser`);
   }
 
-  closeAll(): void { void this.ses.cookies.flushStore().catch(() => {}); this.driver.closeAll(); if (this.win && !this.win.isDestroyed()) { void this.snapshot(); this.win.close(); } }
+  closeAll(): void {
+    void this.ses.cookies.flushStore().catch(() => {});
+    this.driver.closeAll();
+    const open = this.panes.filter((p) => this.alive(p));
+    if (open.length) void this.snapshot();
+    for (const p of open) p.win!.close();
+  }
 
   // ------------------------------------------------------------------ 6.25a: what the brain asks of the driver
   /**
@@ -2494,9 +2744,11 @@ export class AangBrowser {
     const t = this.cur();
     if (t?.view && !t.lent) t.view.setVisible(false);
     this.veilDown(0);
+    const P = this.pane;
     const tick = async () => {
-      if (this.watching !== pageId) return;
+      if (P.watching !== pageId) return;
       const src = await this.driver.glance(pageId);
+      this.pane = P;
       if (this.watching !== pageId || !this.win || this.win.isDestroyed()) return;
       this.win.webContents.send('browser:watch', src);
       this.watchTimer = setTimeout(() => void tick(), 700);

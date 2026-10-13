@@ -58,5 +58,7 @@ export function wireBrowser(get: () => AangBrowser | null): void {
   ipcMain.handle('browser:suggest', (e, text) => b()?.isFrame(e.sender) && typeof text === 'string' ? b().suggest(text) : []);
   ipcMain.on('browser:findstop', (e) => { if (b()?.isFrame(e.sender)) b().findStop(); });
   ipcMain.on('browser:pref', (e, a) => { if (b()?.isFrame(e.sender) && a && typeof a.key === 'string') b().setPref(a.key, a.on === true); });
+  // His ask (2026-10-13): a tab let go outside its window becomes a window of its own (or joins the one it was dropped on).
+  ipcMain.on('browser:tearout', (e, id) => { if (b()?.isFrame(e.sender) && Number.isInteger(id)) b().tearOut(id); });
   ipcMain.on('browser:tab', (e, a) => { if (b()?.isFrame(e.sender) && a && Number.isInteger(a.id)) b().tabAct(a.id, String(a.act)); });
 }

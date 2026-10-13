@@ -189,6 +189,7 @@ contextBridge.exposeInMainWorld('aang', {
   onBrowserVault(fn) { const h = (_e, v) => fn(v); ipcRenderer.on('browser:vault', h); return () => ipcRenderer.removeListener('browser:vault', h); },
   /** Trails: new, rename, or move a tab ({act, id?, name?, tab?, to?}). */
   browserTrail: a => ipcRenderer.send('browser:trail', a),
+  browserTearOut: id => ipcRenderer.send('browser:tearout', id),
   /** Find on page: the word, and whether this is Enter (next) or Shift+Enter (back). */
   browserFind: a => ipcRenderer.send('browser:find', a),
   browserFindStop: () => ipcRenderer.send('browser:findstop'),
