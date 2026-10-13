@@ -1,7 +1,7 @@
 // Gmail and Calendar over plain REST. The sign-in (tools/google-setup.cmd) leaves the tokens in %APPDATA%\Aang\google.json.
 // The network call is injected so tests never touch Google. This file only moves bytes; every rule about what may be
 // sent lives in mail.ts.
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, statSync } from 'node:fs';
 
 export type Fetch = (url: string, init?: { method?: string; headers?: Record<string, string>; body?: string }) => Promise<{ ok: boolean; status: number; json(): Promise<any>; text(): Promise<string> }>;
 
@@ -20,7 +20,7 @@ export class GoogleError extends Error {
 
 export interface Part { partId?: string; mimeType?: string; filename?: string; body?: { data?: string; size?: number; attachmentId?: string }; parts?: Part[]; headers?: { name: string; value: string }[] }
 export interface Message { id: string; threadId: string; snippet?: string; internalDate?: string; labelIds?: string[]; payload?: Part }
-export interface CalEvent { id: string; summary?: string; location?: string; start?: { dateTime?: string; date?: string }; end?: { dateTime?: string; date?: string }; status?: string; attendees?: { email: string; self?: boolean; responseStatus?: string }[] }
+export interface CalEvent { id: string; iCalUID?: string; summary?: string; location?: string; start?: { dateTime?: string; date?: string }; end?: { dateTime?: string; date?: string }; status?: string; attendees?: { email: string; self?: boolean; responseStatus?: string }[] }
 
 export class Google {
   private t: Tokens | null = null;
@@ -38,8 +38,12 @@ export class Google {
   /** Whether the grant includes a scope (a client signed in before a scope was added would not). */
   has(scope: string): boolean { return (this.load()?.scope ?? '').split(' ').some(s => s.endsWith('/' + scope)); }
 
+  /** When the sign-in file was last read: a new sign-in (google-setup.cmd) is picked up without a restart. */
+  private readAt = 0;
   private load(): Tokens | null {
-    if (this.t) return this.t;
+    let mtime = 0; try { mtime = statSync(this.file).mtimeMs; } catch { /* not there */ }
+    if (this.t && mtime <= this.readAt) return this.t;
+    this.t = null; this.readAt = mtime;
     try {
       if (!existsSync(this.file)) return null;
       const j = JSON.parse(readFileSync(this.file, 'utf8'));
@@ -131,6 +135,21 @@ export class Google {
   }
 
   // ---------------------------------------------------------------- Calendar
+
+  // E5 (his yes, 2026-10-13): book and answer, each after his yes. Needs calendar.events (the new sign-in).
+  private static readonly C = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
+  /** The event an invite already put in his calendar (Gmail adds them), by the invite's own id. */
+  async eventByUid(uid: string): Promise<CalEvent | null> {
+    const j = await this.call('GET', `${Google.C}?iCalUID=${encodeURIComponent(uid)}&showDeleted=false`);
+    return (j.items ?? []).find((e: CalEvent) => e.status !== 'cancelled') ?? null;
+  }
+  async getEvent(id: string): Promise<CalEvent> { return this.call('GET', `${Google.C}/${encodeURIComponent(id)}`); }
+  /** A new event in his calendar only: nobody is invited, nobody is emailed. */
+  async insertEvent(body: Record<string, unknown>): Promise<CalEvent> { return this.call('POST', `${Google.C}?sendUpdates=none`, body); }
+  /** His own answer to an invite; the organizer is told (that is what answering means). */
+  async answerEvent(id: string, attendees: unknown[]): Promise<CalEvent> { return this.call('PATCH', `${Google.C}/${encodeURIComponent(id)}?sendUpdates=all`, { attendees }); }
+  /** Undo of an event Aang added: it goes to Google Calendar's own bin, where it can be restored. */
+  async deleteEvent(id: string): Promise<void> { await this.call('DELETE', `${Google.C}/${encodeURIComponent(id)}?sendUpdates=none`); }
 
   async events(fromIso: string, toIso: string, max = 25): Promise<CalEvent[]> {
     const j = await this.call('GET', `https://www.googleapis.com/calendar/v3/calendars/primary/events?singleEvents=true&orderBy=startTime&maxResults=${max}&timeMin=${encodeURIComponent(fromIso)}&timeMax=${encodeURIComponent(toIso)}`);

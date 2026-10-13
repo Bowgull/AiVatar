@@ -1,5 +1,6 @@
 // The Core: talks to the Body over a localhost WebSocket, keeps one warm Claude session per model lane,
 // streams replies, enforces the voice linter and grounding rule, and applies Joshua's quota rule.
+import { approvalText, pickSource, planFromInvite, planFromWords, readBack, responseOf, sayPlanTime, type Answer } from './booking.ts';
 import { emailCardData } from './emailcard.ts';
 import { readAttachment, safeFileName } from './attachments.ts';
 import { inboxCardData, weekCardData } from './briefcard.ts';
@@ -72,7 +73,7 @@ import { gameRunning } from './gpu.ts';
 import { DEFAULT_DUBS, dubFor, isPlan, nameLeftOver, readChannels, readDubs, readWords, rememberChannel, setDub } from './puton.ts';
 import type { Channels, Dub, DubTable, WatchPlan, Where } from './puton.ts';
 import { dueNudges, nudgeText, torontoDay } from './resurface.ts';
-import type { Fetch } from './google.ts';
+import type { CalEvent, Fetch } from './google.ts';
 import { MailService, MailStore, fitsCard, renderMailCard } from './mail.ts';
 import type { DraftInput, MailDraft } from './mail.ts';
 import { exactOf, meansOf } from './plain.ts';
@@ -430,6 +431,8 @@ export class Core {
       mailRead: id => this.mailRead('mcp__aang__mail_read', { id }, m => m.read(id)),
       mailAttachment: (id, name, save) => this.mailAttachment(id, name, save),
       emailCard: (id, summary, asks) => this.emailCard(id, summary, asks),
+      calendarBook: (a) => this.calendarBook(a),
+      calendarUndo: () => this.calendarUndo(),
       calendar: days => this.mailRead('mcp__aang__calendar_today', { days: days ?? 1 }, m => m.agenda(days ?? 1, (ev, from, n) => this.cardForTurn('week', weekCardData(ev, from, n)))),
       mailDraft: input => this.mailDraft(input),
       tasks: {
@@ -843,11 +846,74 @@ export class Core {
    * E3 (sheet 21 board 2): one email as a card. Facts from code, summary and asks from the model. In Discord it is drawn
    * with its buttons; at the desk the model says it in words (the bubble's own card comes with the desk's design).
    */
+  /**
+   * E5 (his rule: never book anything wrong). The time is code's (the invite, or a date code read in the email's
+   * words); he sees the weekday, date, time, where it came from, the place, who is told and any clash, and says yes;
+   * then Google's copy is read back and compared field by field. Every booking asks: none is ever trusted away.
+   */
+  private lastBooking: { kind: 'added'; eventId: string; title: string } | { kind: 'answered'; eventId: string; title: string; before: unknown[] } | null = null;
+  private async calendarBook(a: { id: string; answer: Answer; words?: string; pick?: 'am' | 'pm'; title?: string; minutes?: number }): Promise<{ ok: boolean; detail: string }> {
+    const svc = this.mail(); if (!svc) return { ok: false, detail: Core.NO_GOOGLE };
+    const g = svc.google;
+    if (!g.has('calendar.events')) return { ok: false, detail: 'Booking needs the new Google sign-in (calendar.events). Tell him to run tools\\google-setup.cmd once and click Allow; nothing was booked.' };
+    const seen = await svc.seenEmail(String(a.id).slice(0, 40));
+    if (!seen) return { ok: false, detail: 'That email could not be found. Read it with mail_read first.' };
+    const src = pickSource(seen.facts, a.words);
+    if ('why' in src) return { ok: false, detail: src.why };
+    const plan = 'invite' in src ? planFromInvite(src.invite, a.answer) : planFromWords(src.date, a.title || seen.subject, a.minutes ?? 60, a.pick);
+    if ('why' in plan) return { ok: false, detail: plan.why };
+    if (plan.answer !== 'add' && !plan.uid) return { ok: false, detail: 'There is no invite to answer; use answer "add" to put it in his calendar.' };
+    let existing: CalEvent | null = null;
+    try { if (plan.uid) existing = await g.eventByUid(plan.uid); } catch (e) { return { ok: false, detail: `His calendar could not be checked: ${(e as Error).message}. Nothing was booked.` }; }
+    if (plan.answer !== 'add' && !existing) return { ok: false, detail: 'That invite is not in his Google Calendar, so it cannot be answered from here. Offer answer "add" to put it in his calendar (the sender is not told), or he can answer in Gmail.' };
+    if (plan.answer === 'add' && existing) return { ok: false, detail: `"${plan.title}" is already in his calendar. Offer accept, decline or maybe instead.` };
+    let around: CalEvent[] = [];
+    try {
+      const from = plan.start.dateTime ?? plan.start.date + 'T00:00:00Z', to = plan.end.dateTime ?? (plan.end.date ?? plan.start.date) + 'T23:59:59Z';
+      around = await g.events(new Date(Date.parse(from) - 1).toISOString(), new Date(Date.parse(to) + 1).toISOString(), 25);
+    } catch { /* no clash check: said in the approval */ around = []; }
+    const ask = approvalText(plan, around.filter(e => e.id !== existing?.id));
+    const said = await this.askPermission('mcp__aang__calendar_book', { id: a.id, answer: a.answer }, { question: ask.question, means: ask.means, once: true });
+    if (!said) return { ok: false, detail: this.whyNot() + ' Nothing was booked.' };
+    try {
+      let ev: CalEvent;
+      if (plan.answer === 'add') {
+        ev = await g.insertEvent({ summary: plan.title, ...(plan.where ? { location: plan.where } : {}), start: plan.start.dateTime ? { dateTime: plan.start.dateTime, timeZone: 'America/Toronto' } : plan.start, end: plan.end.dateTime ? { dateTime: plan.end.dateTime, timeZone: 'America/Toronto' } : plan.end, description: `Added by Aang from an email from ${seen.fromName || seen.fromEmail}: "${seen.subject}". Time from ${plan.source}.` });
+        this.lastBooking = { kind: 'added', eventId: ev.id, title: plan.title };
+      } else {
+        const me = g.account.toLowerCase();
+        const before = (existing!.attendees ?? []).map(x => ({ ...x }));
+        const want = responseOf(plan.answer)!;
+        const att = (existing!.attendees ?? []).map(x => (x.self || x.email.toLowerCase() === me ? { ...x, responseStatus: want } : x));
+        if (!att.some(x => x.self || x.email.toLowerCase() === me)) att.push({ email: me, responseStatus: want } as never);
+        ev = await g.answerEvent(existing!.id, att);
+        this.lastBooking = { kind: 'answered', eventId: existing!.id, title: plan.title, before };
+      }
+      const fresh = await g.getEvent(ev.id).catch(() => ev);
+      const wrong = readBack(plan, fresh, g.account);
+      if (wrong.length) return { ok: true, detail: `It was ${plan.answer === 'add' ? 'added' : 'answered'}, BUT Google's copy does not match what he approved: ${wrong.join('; ')}. Tell him exactly this, and offer to undo it.` };
+      return { ok: true, detail: `${plan.answer === 'add' ? 'Added to his calendar' : `He ${responseOf(plan.answer)} it`}: ${sayPlanTime(plan)}. Read back from Google and it matches. Tell him in one line; he can say "undo that".` };
+    } catch (e) { return { ok: false, detail: `Google refused it: ${(e as Error).message}. Nothing changed.` }; }
+  }
+  private async calendarUndo(): Promise<{ ok: boolean; detail: string }> {
+    const svc = this.mail(); if (!svc) return { ok: false, detail: Core.NO_GOOGLE };
+    const b = this.lastBooking;
+    if (!b) return { ok: false, detail: 'Nothing was booked in this run of Aang, so there is nothing to undo here. He can change it in Google Calendar.' };
+    const q = b.kind === 'added' ? `take "${b.title}" back out of your calendar (it goes to Google Calendar's bin)` : `put your answer to "${b.title}" back as it was (the organizer is told)`;
+    if (!await this.askPermission('mcp__aang__calendar_undo', {}, { question: q, once: true })) return { ok: false, detail: this.whyNot() };
+    try {
+      if (b.kind === 'added') await svc.google.deleteEvent(b.eventId);
+      else await svc.google.answerEvent(b.eventId, b.before);
+      this.lastBooking = null;
+      return { ok: true, detail: 'Undone.' };
+    } catch (e) { return { ok: false, detail: `Google refused the undo: ${(e as Error).message}.` }; }
+  }
+
   private async emailCard(id: string, summary: string, asks: string[]): Promise<{ ok: boolean; detail: string }> {
     const svc = this.mail(); if (!svc) return { ok: false, detail: Core.NO_GOOGLE };
     const seen = await svc.seenEmail(String(id).slice(0, 40));
     if (!seen) return { ok: false, detail: 'That email could not be found. Read it with mail_read first.' };
-    const card = emailCardData(seen, summary, asks);
+    const card = emailCardData(seen, summary, asks, svc.google.has('calendar.events'));
     const sub = this.active?.sub, ws = sub?.socket;
     if (sub && ws && ws.readyState === ws.OPEN && this.kindOfSocket(ws) === 'discord') {
       this.send(ws, { t: 'card.show', id: sub.id, kind: 'email', data: card.data, email: seen.id, acts: card.acts, ...(card.join ? { join: card.join } : {}) });
@@ -1765,7 +1831,7 @@ export class Core {
         'discord-client.ts': readFileSync(path.join(here, 'discord-client.ts'), 'utf8'),
         'discord-logic.ts': readFileSync(path.join(here, 'discord-logic.ts'), 'utf8'),
         // M4: the Mac answering as Aang while this PC is off, and the small pieces it shares with this PC.
-        ...Object.fromEntries(['macbrain.ts', 'macpowers.ts', 'macjobs.ts', 'weather.ts', 'briefcard.ts', 'google.ts', 'mail.ts', 'emailfacts.ts', 'attachments.ts', 'emailcard.ts', 'addresses.ts', 'lists.ts', 'atomic.ts', 'route.ts'].map(f => [f, readFileSync(path.join(here, f), 'utf8')])),
+        ...Object.fromEntries(['macbrain.ts', 'macpowers.ts', 'macjobs.ts', 'weather.ts', 'briefcard.ts', 'google.ts', 'mail.ts', 'emailfacts.ts', 'attachments.ts', 'emailcard.ts', 'booking.ts', 'addresses.ts', 'lists.ts', 'atomic.ts', 'route.ts'].map(f => [f, readFileSync(path.join(here, f), 'utf8')])),
         'package.json': readFileSync(path.join(pkg, 'package.json'), 'utf8'),
         'package-lock.json': readFileSync(path.join(pkg, 'package-lock.json'), 'utf8'),
         // 9.D D4: the speakers' pictures, made once with their webhooks
@@ -3357,7 +3423,7 @@ export class Core {
     return this.askPermission(tool, input, { question, quota: { what: est.what, low: est.low, high: est.high, week: q ? q.week : null, resetsAt: q?.weekResetsAt ?? 0 } });
   }
 
-  private askPermission(tool: string, input: Record<string, unknown>, opts?: { question?: string; quota?: { what: string; low: number; high: number; week: number | null; resetsAt: number } }): Promise<boolean> {
+  private askPermission(tool: string, input: Record<string, unknown>, opts?: { question?: string; means?: string; once?: boolean; quota?: { what: string; low: number; high: number; week: number | null; resetsAt: number } }): Promise<boolean> {
     // Belt and braces: if the main session ever reaches for a web tool directly, refuse it outright
     // rather than asking Joshua. Untrusted page content must not enter the session that holds his files.
     if (WEB_TOOLS.includes(tool)) {
@@ -3403,7 +3469,7 @@ export class Core {
     // something asks again once outside content is in the turn.
     const acts = !['mcp__aang__read_window', 'mcp__aang__read_clipboard', 'mcp__aang__look_at_window', 'mcp__aang__mail_inbox', 'mcp__aang__mail_read', 'mcp__aang__calendar_today'].includes(tool);
     // A quota ask is never trusted away: it is asked every time, with that job's cost (his rule).
-    if (!opts?.quota && kind && this.trust.allowed(kind.kind) && !(this.tainted && acts)) return Promise.resolve(this.granted(tool));
+    if (!opts?.quota && !opts?.once && kind && this.trust.allowed(kind.kind) && !(this.tainted && acts)) return Promise.resolve(this.granted(tool));
     if (kind && this.tainted && acts && this.trust.allowed(kind.kind)) console.log(`asking again for "${kind.kind}": this turn has read outside content`);
 
     // Asked where he asked for the thing; with no turn behind it, wherever he is.
@@ -3423,7 +3489,7 @@ export class Core {
           // Three real choices (2026-09-22, was a binary yes/no where yes silently meant forever):
           // once does the thing and forgets it; always does the thing and trusts the whole kind from
           // now on; no declines. Only always writes to trust.
-          if (choice === 'always' && kind && !opts?.quota) this.trust.allow(kind.kind, question);
+          if (choice === 'always' && kind && !opts?.quota && !opts?.once) this.trust.allow(kind.kind, question);
           if (choice === 'no' && !this.refused) this.refused = 'Joshua said no in the bubble';
           resolve(choice === 'no' ? false : this.granted(tool));
         },
@@ -3431,12 +3497,12 @@ export class Core {
       };
       // `means` is the plain-English second line: what this KIND of thing is, and for a command, the
       // exact text. See plain.ts - a question he cannot read is not consent.
-      const means = meansOf(tool, input);
+      const means = opts?.means ?? meansOf(tool, input);
       const hold = needsHold(tool);
       const exact = exactOf(tool, input);
       const s = (k: string) => typeof input?.[k] === 'string' ? String(input[k]) : '';
       const draft = tool === 'mcp__aang__mail_send' ? { to: s('to').slice(0, 300), subject: s('subject').slice(0, 300), body: s('body').slice(0, 20_000), fresh: s('fresh').slice(0, 300) } : null;
-      for (const c of askAt) this.send(c, { t: 'permission', id, tool, question, ...(opts?.quota ? { quota: opts.quota } : { remembers: kind?.says }), ...(means ? { means } : {}), ...(exact ? { exact } : {}), ...(draft ? { draft } : {}), ...(hold ? { hold: true } : {}) });
+      for (const c of askAt) this.send(c, { t: 'permission', id, tool, question, ...(opts?.quota ? { quota: opts.quota } : opts?.once ? {} : { remembers: kind?.says }), ...(means ? { means } : {}), ...(exact ? { exact } : {}), ...(draft ? { draft } : {}), ...(hold ? { hold: true } : {}) });
     });
   }
 

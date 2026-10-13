@@ -6,7 +6,7 @@ import type { EmailFacts, IcsTime } from './emailfacts.ts';
 
 export interface SeenEmail { id: string; fromName: string; fromEmail: string; subject: string; sentMs: number; facts: EmailFacts }
 export interface CardRow { icon: 'cal' | 'pin' | 'call' | 'video' | 'file' | 'ask' | 'check'; w: string; m: string }
-export type EmailAct = 'transcripts' | 'prep' | 'reply' | 'files';
+export type EmailAct = 'book' | 'transcripts' | 'prep' | 'reply' | 'files';
 
 const s = (v: unknown, n: number) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
 const TZ = 'America/Toronto';
@@ -28,7 +28,7 @@ const CALL_NAMES: Record<string, string> = { 'zoom.us': 'Zoom', 'meet.google.com
 const callName = (site: string) => CALL_NAMES[site] ?? CALL_NAMES[Object.keys(CALL_NAMES).find(k => site.endsWith(k)) ?? ''] ?? site;
 
 /** The card's data and its buttons. `summary` and `asks` are the model's words; everything else is code's. */
-export function emailCardData(e: SeenEmail, summary: string, asks: string[]): { data: Record<string, unknown>; acts: EmailAct[]; join: string | null; words: string } {
+export function emailCardData(e: SeenEmail, summary: string, asks: string[], canBook = false): { data: Record<string, unknown>; acts: EmailAct[]; join: string | null; words: string } {
   const f = e.facts;
   const rows: CardRow[] = [];
   const checks: string[] = [];
@@ -61,6 +61,8 @@ export function emailCardData(e: SeenEmail, summary: string, asks: string[]): { 
   for (const c of checks.slice(0, 3)) rows.push({ icon: 'check', w: 'CHECK', m: s(c, 120) });
 
   const acts: EmailAct[] = [];
+  // E5: Book it, when there is something to book (a live invite, or a date with a time written) and he has signed in for it.
+  if (canBook && (f.invites.some(i => !i.cancelled) || f.dates.some(d => d.iso || (d.am && d.pm)))) acts.push('book');
   if (videos.length) acts.push('transcripts');
   acts.push('prep', 'reply');
   if (files.length) acts.push('files');
@@ -73,6 +75,7 @@ export function emailCardData(e: SeenEmail, summary: string, asks: string[]): { 
 /** What a button asks Aang to do, in words, as if he typed it (the model then uses its own tools, with their asks). */
 export function promptFor(act: EmailAct, id: string): string {
   switch (act) {
+    case 'book': return `Book the meeting in email ${id}: if it has an invite, accept it (calendar_book answer accept); if not, add it from the date code read (calendar_book answer add with its exact words), and if am or pm is not written, ask me which first.`;
     case 'transcripts': return `Get the transcripts of the videos in email ${id} (watch_video on each video link mail_read lists) and give me two lines on each.`;
     case 'prep': return `Help me prep for what email ${id} is about: start a background job that reads the email, its attachments and its videos, researches the company and the people, and writes me a short briefing.`;
     case 'reply': return `Draft a reply to email ${id}. If what I want to say is not clear from what we have talked about, ask me first.`;
