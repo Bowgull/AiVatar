@@ -3705,7 +3705,12 @@ Mockup: `docs/cockpit/sheet-16-cockpit-attached.html`, built from sheet 13's own
   The snip card loses its gold arrow.
 - **Voice:** built from his real messages, within step V's rules (light swearing never at him, proper grammar, no
   em dashes ever, no bot phrases).
-- **Open:** height A (small when he speaks, big when he opens it) or B (big whenever it needs).
+- **Height: A** (his "pick what makes Aang most usable and dynamic"): small when Aang speaks up by himself, as big
+  as the content needs (about two thirds of the screen) once he clicks or opens it; low with WoW in front.
+- **Ask once, remember, then confirm (his rule for most decisions):** the first time Aang needs a choice he asks;
+  after that he does it and says so in one line with a gold "change" link ("Putting Naruto on the Mac, like last
+  time."). First case: which machine a show goes on. This PC means Aang's browser or the popout; the Mac means
+  Chrome on the MacBook. "on the Mac" / "on the PC" in his words always overrides.
 
 ### `[ ]` 9.A7 Driving Claude from the balloon, at the desk  (his order 2026-10-10: stays in Phase 9)
 
