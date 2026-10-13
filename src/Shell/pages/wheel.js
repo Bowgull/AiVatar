@@ -17,7 +17,7 @@ const SLOTS = [
   ['globe', 'BROWSER', ['#DDF0FF', '#7FB8EA', '#3C6E9E']],
   ['music', 'MUSIC', ['#EBDDFF', '#B48CEB', '#6E46A8']],
   ['snip', 'SNIP', ['#E2F5CF', '#8FD07A', '#3E8A4E']],
-  ['moon', 'QUIET', ['#F2F2FF', '#C9CDEA', '#7C82B0']],
+  ['moon', 'AWAY', ['#F2F2FF', '#C9CDEA', '#7C82B0']],     // 9.D D9: was QUIET; stepping away moves talking to Discord
 ];
 const HIT = 40;
 const NS = 'http://www.w3.org/2000/svg';
