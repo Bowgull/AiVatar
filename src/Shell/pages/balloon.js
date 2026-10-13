@@ -30,12 +30,12 @@ export const RADIUS = 19;
  * short tail - which is correct. The first build used 0.62 of a GUESSED 96px and came out 80px past
  * his head, like a wire. The distance now comes from the Shell, which knows where he actually is.
  */
-export const REACH = 0.55;
+export const REACH = 0.75;   // 2026-10-12: was .55; with the panel moved in, the tail now meets his head
 
 const n = (v) => (Math.round(v * 10) / 10);
 
 /** The shortest and longest a tail may be, measured from the edge it leaves. */
-export const TAIL_MIN = 26, TAIL_MAX = 46;
+export const TAIL_MIN = 26, TAIL_MAX = 58;   // was 46; still inside the 62 px of tail room under the panel
 
 /**
  * The balloon outline, body and tail, as one closed path.

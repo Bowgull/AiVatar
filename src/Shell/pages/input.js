@@ -393,7 +393,9 @@ window.aang?.onInputState?.((s) => {
 window.aang?.onMessage?.((m) => {
   // A finished reply or a failure ends the turn; streaming parts do not. `claude.working` is about
   // Claude Code jobs, not Aang's own turn, and is deliberately NOT used here.
-  if ((m?.t === 'bubble' && m.stream !== true) || m?.t === 'error') working = false;
+  // A stop ends it too (the brain says idle): before 2026-10-12 a stopped turn left Esc stuck meaning "stop".
+  if ((m?.t === 'bubble' && m.stream !== true) || m?.t === 'error' || m?.t === 'bubble.clear' || (m?.t === 'state' && m.state === 'idle')) working = false;
+  if (m?.t === 'state' && m.state === 'think') working = true;     // a handoff to Smart is still his turn: Esc stops it
   if (m?.t === 'quota' && typeof m.week === 'number') { paintSegs(m.week, m.level); paintPace(m.five, m.weekResetsAt); }
 });
 

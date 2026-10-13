@@ -85,6 +85,8 @@ export class Lane {
   private resumeProved = false;
   /** One replay per message, so a bad resume cannot loop. */
   private replayed = false;
+  /** He stopped this message: its error result is the stop, not a dead session. */
+  private interrupted = false;
   /** The message we were carrying when a resume failed, so it is re-sent rather than swallowed. */
   private pendingText: string | null = null;
 
@@ -207,6 +209,7 @@ export class Lane {
     if (!this.q) this.start();
     this.pendingText = text;
     this.replayed = false;
+    this.interrupted = false;
     this.sentAt = Date.now(); this.firstTokenAt = null; this.toolsUsed = []; this.text = ''; this.resetNextText = false;
     this.inbox.push({ type: 'user', message: { role: 'user', content: text }, parent_tool_use_id: null } as SDKUserMessage);
     this.wake?.();
@@ -236,6 +239,10 @@ export class Lane {
   }
 
   async interrupt(): Promise<void> {
+    // He stopped it: the error result that follows is that stop, NOT a dead session (2026-10-12: a stop was read as
+    // a failed resume, the session id was wiped and the question quietly re-run in a fresh one, its answer thrown away).
+    this.interrupted = true;
+    this.pendingText = null;
     try { await this.q?.interrupt(); } catch { /* nothing running */ }
   }
 
@@ -284,7 +291,7 @@ export class Lane {
           case 'result': {
             // A dead session id does not throw: the SDK comes back with an error result before Claude
             // ever speaks. Seen as result/error_during_execution +1.1s after start, with a stale id.
-            if (m.subtype !== 'success' && this.startedWithResume && !this.resumeProved && !this.replayed) {
+            if (m.subtype !== 'success' && this.startedWithResume && !this.resumeProved && !this.replayed && !this.interrupted) {
               const dead = this.startedWithResume;
               this.replayed = true;
               this.startedWithResume = undefined;
@@ -297,6 +304,7 @@ export class Lane {
               if (replay !== null && !this.closed) { this.send(replay); return; }
             }
             this.resumeProved = true;
+            this.interrupted = false;
             this.pendingText = null;              // delivered; nothing left to replay
             const u = m.usage ?? {};
             this.listener({
