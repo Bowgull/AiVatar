@@ -284,6 +284,7 @@ export type ToBody =
   /** A remembered choice was used (or just saved): the reply gets a gold "change" link that forgets it. */
   | { t: 'choice.used'; key: string; pick: string; fresh: boolean }
   // 9.A0: the one list of everything Aang can do, and the answer to running one by name.
+  | { t: 'card.png'; id: string; ok: boolean; png?: string; error?: string }
   | { t: 'action.list'; actions: { name: string; label: string; description: string; params: unknown }[] }
   | { t: 'action.result'; id: string; ok: boolean; text: string; image?: { data: string; mimeType: string } }
   /** The morning brief as a card (6.15): the brief's data plus what only the Core knows - logos, which
@@ -473,6 +474,7 @@ export type FromBody =
   /** His pick from a choice list: the option's index, or -1 for "Something else". */
   | { t: 'choice.reply'; id: string; pick: number }
   | { t: 'action.list' }
+  | { t: 'card.draw'; id: string; kind: string; data?: unknown }
   | { t: 'action.run'; id: string; name: string; args?: Record<string, unknown> }
   /** The gold "change" link under a remembered choice: forget it, so Aang asks next time. */
   | { t: 'choice.forget'; key: string }

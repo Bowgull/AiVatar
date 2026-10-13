@@ -97,6 +97,7 @@ export class DiscordGateway implements Gateway {
     if (e.description) b.setDescription(e.description.slice(0, 4096));
     if (e.color !== undefined) b.setColor(e.color);
     if (e.footer) b.setFooter({ text: e.footer.slice(0, 2048) });
+    if (e.image && /^attachment:\/\/[\w.-]+$/.test(e.image)) b.setImage(e.image);
     if (e.fields?.length) b.addFields(e.fields.slice(0, 25).map(f => ({ name: f.name.slice(0, 256), value: f.value.slice(0, 1024) || '​', inline: f.inline === true })));
     return [b];
   }

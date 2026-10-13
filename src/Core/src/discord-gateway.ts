@@ -22,11 +22,27 @@ export class WsCoreLink implements CoreLink {
     this.ws = ws;
     // Say who this is, so the Core sends Discord only what belongs here (see Core.whereHeIs).
     ws.on('open', () => ws.send(JSON.stringify({ t: 'hello', v: 1, client: 'discord' })));
-    ws.on('message', d => { let m: any; try { m = JSON.parse(String(d)); } catch { return; } for (const cb of this.cbs) cb(m); });
+    ws.on('message', d => {
+      let m: any; try { m = JSON.parse(String(d)); } catch { return; }
+      if (m?.t === 'card.png') { const w = this.cardWait.get(String(m.id)); if (w) { this.cardWait.delete(String(m.id)); w(m.ok && typeof m.png === 'string' ? Buffer.from(m.png, 'base64') : null); } return; }
+      for (const cb of this.cbs) cb(m);
+    });
     ws.on('close', () => { if (!this.closed) setTimeout(() => this.connect(), 2000).unref?.(); });
     ws.on('error', () => { /* close follows */ });
   }
   private send(o: object) { if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(o)); }
+  /** 9.D D3: a card Aang draws, as a PNG, or null when it could not be drawn (then Discord gets plain text). */
+  private cardSeq = 0;
+  private readonly cardWait = new Map<string, (png: Buffer | null) => void>();
+  drawCard(kind: string, data: unknown): Promise<Buffer | null> {
+    if (this.ws?.readyState !== WebSocket.OPEN) return Promise.resolve(null);
+    const id = 'card' + ++this.cardSeq;
+    return new Promise(res => {
+      const t = setTimeout(() => { this.cardWait.delete(id); res(null); }, 20_000);
+      this.cardWait.set(id, png => { clearTimeout(t); res(png); });
+      this.send({ t: 'card.draw', id, kind, data });
+    });
+  }
   submit(id: string, text: string, opts: { ephemeral?: boolean; mode?: 'auto' | 'smart' } = {}) { this.send({ t: 'submit', id, text, mode: opts.mode ?? 'auto', ...(opts.ephemeral ? { ephemeral: true } : {}) }); }
   // Discord's own Yes/No only ever offers a binary choice (no verb button, no separate "always"), so yes maps
   // to 'always' - the same thing a plain "yes" always meant before the desktop bubble grew a third option.
