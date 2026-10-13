@@ -83,6 +83,8 @@ export interface Gateway {
 }
 
 export interface CoreLink {
+  /** 9.D D5: bring the Claude app forward where this job runs. Optional for older links. */
+  openClaude?(cwd: string): void;
   /** 9.D D3: a card Aang draws, as a PNG; null when it could not be drawn. Optional: without it, plain text. */
   drawCard?(kind: 'job' | 'needs' | 'home', data: unknown): Promise<Buffer | null>;
   submit(id: string, text: string, opts?: { ephemeral?: boolean; mode?: 'auto' | 'smart' }): void;
@@ -116,6 +118,8 @@ export interface State { ownerId: string | null; channels: Record<string, string
   jobPosts?: string[];
   /** 9.D: the one message in home that offers deleting the old channels */
   oldOffer?: string;
+  /** 9.D D5: each Claude job's own post in claude-jobs and its one live card, by the job's folder */
+  claudePosts?: Record<string, { post: string; card: string; title: string; state: 'working' | 'waiting' | 'done' }>;
   /** 2026-10-13: the one-time fix for the empty channel copies has run */
   fixedCopies?: boolean; deckId?: string; recipes?: Record<string, string[]>; /** email draft id -> where its card is, so a change edits the card in place */ mail?: Record<string, { c: string; m: string }>; /** Claude job folder -> where its last update is, so a reply there continues that job */ jobs?: Record<string, { c: string; m: string }> }
 
@@ -285,6 +289,49 @@ export class DiscordAdapter {
     return this.gw.send(id, msg);
   }
 
+  /**
+   * 9.D D5 (sheet 15 board 2): one post per Claude job in claude-jobs, holding ONE drawn card that is edited in place as
+   * the job moves: working, waiting on him, done. Its tag follows (Working / Needs you / Done). A question also goes to
+   * needs-you, which buzzes; "done" buzzes once, in the post. Anything he writes in the post goes to that job.
+   */
+  async claudeNews(ev: any, needsHim: boolean): Promise<void> {
+    const forum = this.state.channels['claude-jobs']; if (!forum) return;
+    const cwd = String(ev.jobCwd);
+    const state: 'working' | 'waiting' | 'done' = ev.done === true ? 'done' : needsHim ? 'waiting' : 'working';
+    // "Done:" is said once, by the card: Claude's own leading "Done." is dropped so it never reads "Done: Done."
+    const text = String(ev.text ?? '').trim().replace(state === 'done' ? /^done[.!:,]?\s*/i : /^$/, '');
+    const posts = this.state.claudePosts ?? {};
+    let p = posts[cwd];
+    const title = (String(ev.jobName ?? '').trim() || path.basename(cwd) || 'Claude job').slice(0, 90);
+    // A finished job's folder starting new work is a new job: a new post.
+    if (!p || (p.state === 'done' && state !== 'done')) {
+      const post = await this.gw.createPost(forum, title, `A Claude job, working in ${cwd}.`.slice(0, 1900), ['Working']);
+      p = { post, card: '', title, state };
+    }
+    p.state = state;
+    const first = text.split(/\n/)[0]!.slice(0, 160);
+    const words = state === 'done' ? `Done: ${first}` : state === 'waiting' ? `Needs you: ${first}` : first;
+    const msg = await this.drawn('job', { plaque: state === 'waiting' ? 'NEEDS YOU' : 'CLAUDE JOB', headline: state === 'done' ? `${title}. Done.` : title, sub: first, done: state === 'done' },
+      state === 'done' ? 0x78E696 : state === 'waiting' ? 0xFF8040 : 0x966EC8,
+      { content: words, as: 'claude', silent: true, buttons: [{ id: `cj:open:${this.claudeKey(cwd)}`, label: 'Open on PC', style: 'secondary' }] });
+    let edited = false;
+    if (p.card) { try { await this.gw.edit(p.post, p.card, msg); edited = true; } catch { /* the card was deleted: post it again */ } }
+    if (!edited) p.card = await this.gw.send(p.post, msg);
+    await this.gw.setPostTags(p.post, [state === 'done' ? 'Done' : state === 'waiting' ? 'Needs you' : 'Working']).catch(() => {});
+    this.state.claudePosts = { ...posts, [cwd]: p };
+    // Replies to the card (or to the question in needs-you) reach this job, as before.
+    this.state.jobs = { ...(this.state.jobs ?? {}), [cwd]: { c: p.post, m: p.card } };
+    this.save();
+    if (ev.image?.data) await this.gw.send(p.post, { files: [{ name: 'screen.jpg', data: Buffer.from(String(ev.image.data), 'base64') }], silent: true, as: 'claude' }).catch(() => {});
+    if (state === 'waiting') {
+      const q = await this.post('needs-you', await this.drawn('needs', { title: `${title} needs you`, text: text.slice(0, 380) }, 0xC95E28, { content: `Claude needs you: ${first}`, as: 'claude' }));
+      if (q) { this.state.jobs = { ...(this.state.jobs ?? {}), [cwd]: { c: this.state.channels['needs-you']!, m: q } }; this.save(); }
+    }
+    if (state === 'done') await this.gw.send(p.post, { content: `Done: ${text.slice(0, 1800)}`, as: 'claude', loud: true });
+  }
+  /** A short stable key for a job's folder, for its buttons. */
+  private claudeKey(cwd: string): string { return Buffer.from(cwd.toLowerCase()).toString('base64url').slice(-40); }
+
   /** 9.D D2: may a message here buzz his phone? Only in the green channels. */
   private buzzes(channelId: string): boolean { const k = this.keyOf(channelId); return !!k && BUZZ_KEYS.has(k); }
 
@@ -391,7 +438,13 @@ export class DiscordAdapter {
     if (!text) return;
     if (/^(stop|\/stop)$/i.test(text)) { this.link.stop(); await this.gw.send(m.channelId, { content: 'Stopped.' }); return; }
 
-    if (key === 'drafts') { await this.draftReply(m, text); return; }          // #drafts is for changing drafts, never for chat
+    if (key === 'drafts') { await this.draftReply(m, text); return; }
+    // 9.D D5: anything he writes in a Claude job's post is for that job.
+    if (key === 'claude-jobs') {
+      const cwd = Object.entries(this.state.claudePosts ?? {}).find(([, p]) => p.post === m.channelId)?.[0];
+      if (cwd) { await this.gw.send(m.channelId, { content: 'Telling Claude...', as: 'claude' }); this.link.claudeReply(cwd, text); }
+      return;
+    }          // #drafts is for changing drafts, never for chat
     if (m.replyTo && await this.claudeReplyTo(m, text)) return;
     if (await this.file(m.channelId, key, text)) return;
     if (await this.jobTalk(m.channelId, key, text)) return;
@@ -781,7 +834,10 @@ export class DiscordAdapter {
         const kind = kindOf(ev);
         const loud = this.budget.loud(kind, this.now());
         const channel = kind === 'asked' && /^Need input/i.test(ev.text) ? 'needs-you' : 'aang';
-        if (typeof ev.jobCwd === 'string' && ev.jobCwd) { await this.postJob(ev.jobCwd, channel, ev.text, !loud, ev.image); return; }
+        if (typeof ev.jobCwd === 'string' && ev.jobCwd) {
+          if (this.state.channels['claude-jobs']) { await this.claudeNews(ev, channel === 'needs-you' || ev.blocking === true); return; }
+          await this.postJob(ev.jobCwd, channel, ev.text, !loud, ev.image); return;
+        }
         await this.say(channel, ev.text, !loud);
       }
       return;
@@ -874,6 +930,14 @@ export class DiscordAdapter {
 
   private async press(b: ButtonPress): Promise<void> {
     if (b.userId !== this.state.ownerId) { await b.ack('That is not yours to answer.'); return; }
+    const cj = /^cj:open:([\w-]+)$/.exec(b.customId);
+    if (cj) {
+      const cwd = Object.keys(this.state.claudePosts ?? {}).find(c => this.claudeKey(c) === cj[1]);
+      if (!cwd) { await b.ack('That job is no longer on the list.'); return; }
+      this.link.openClaude?.(cwd);
+      await b.keep();
+      return;
+    }
     if (b.customId === 'old:keep') { await b.ack('Kept. Say "delete the old channels" whenever you want them gone.'); return; }
     if (b.customId === 'old:delete') {
       // Deleting cannot be undone, so it is asked twice.

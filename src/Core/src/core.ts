@@ -2156,6 +2156,14 @@ export class Core {
         break;
       }
       case 'claude.front': void this.frontOnMac(); break;
+      // 9.D D5: "Open on PC" on a Claude job's card: the Claude app comes forward where that job runs.
+      case 'claude.open': {
+        const cwd = typeof m.cwd === 'string' ? m.cwd : '';
+        const job = this.launched.find(l => l.cwd.toLowerCase() === cwd.toLowerCase());
+        const onMac = job?.sessionId ? this.hooks.sessions.get(job.sessionId)?.host === 'mac' : false;
+        if (onMac) void this.frontOnMac(); else void this.open('Claude');
+        break;
+      }
       case 'claude.reply': {
         const cwd = typeof m.cwd === 'string' ? m.cwd : '', text = typeof m.text === 'string' ? m.text.trim() : '';
         const job = this.launched.find(l => l.state !== 'ended' && l.cwd.toLowerCase() === cwd.toLowerCase());
@@ -2862,6 +2870,8 @@ export class Core {
     const msg: Extract<ToBody, { t: 'bubble' }> = {
       t: 'bubble', text, stream: false, proactive: true, asked: opts.asked === true, ...(opts.focus ? { focus: opts.focus, link: 'Claude' } : {}),
       ...(opts.jobCwd ? { jobCwd: opts.jobCwd } : {}), ...(opts.image ? { image: opts.image } : {}),
+      // 9.D D5: the job's own name, so its post in claude-jobs is called what he calls it.
+      ...(opts.jobCwd ? { jobName: this.launched.find(l => l.cwd.toLowerCase() === opts.jobCwd!.toLowerCase())?.name ?? '' } : {}),
       ...(blocking ? { blocking: true } : {}), ...(done ? { done: true } : {}), ...(opts.host ? { host: opts.host } : {}),
       ...(opts.reminder ? { reminder: opts.reminder } : {}), ...(opts.brief ? { brief: opts.brief } : {}), ...(opts.research ? { research: opts.research } : {}),
     };

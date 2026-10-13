@@ -875,3 +875,37 @@ test('9.D D4: job cards and their news come from Job Hunt, and Aang may make his
   assert.ok(!(FORBIDDEN as readonly string[]).includes('ManageWebhooks'));
   assert.ok((FORBIDDEN as readonly string[]).includes('Administrator'), 'the rest of the forbidden list stands');
 });
+
+test('9.D D5: a Claude job is one post with one live card: working, waiting on him, done; tags follow; replies reach the job', async () => {
+  const { a, gw, core } = await make({ paired: true });
+  const opened: string[] = [];
+  (core as any).openClaude = (cwd: string) => opened.push(cwd);
+  const cwd = 'C:\Users\Shadow\Documents\AangApp';
+  core.emit({ t: 'bubble', proactive: true, text: 'Started on the bubble that grows.', jobCwd: cwd, jobName: 'the bubble grows', id: 'p1' }); await tick();
+  assert.equal(gw.posts.length, 1);
+  assert.deepEqual([gw.posts[0]!.forumId, gw.posts[0]!.title, gw.posts[0]!.tags], ['ch-claude-jobs', 'the bubble grows', ['Working']]);
+  const post = 'post1';
+  const card = gw.at(post).find(m => m.buttons?.some(b => b.id.startsWith('cj:open:')))!;
+  assert.equal(card.as, 'claude');
+  assert.equal(card.silent, true, 'working news never buzzes');
+
+  core.emit({ t: 'bubble', proactive: true, asked: true, text: 'Need input in Claude on the bubble grows: delete 3 old tests?', jobCwd: cwd, jobName: 'the bubble grows', id: 'p2' }); await tick();
+  assert.equal(gw.posts.length, 1, 'the same post, not a new one');
+  assert.match(gw.edits.at(-1)!.msg.content!, /^Needs you:/, 'the card is edited in place');
+  assert.deepEqual(gw.tagsOf.get(post), ['Needs you']);
+  const q = gw.to('needs-you').at(-1)!;
+  assert.match(q.content!, /^Claude needs you/);
+  assert.notEqual(q.silent, true, 'a question buzzes');
+
+  core.emit({ t: 'bubble', proactive: true, done: true, text: 'Done. 3 files changed, all 112 tests pass.', jobCwd: cwd, jobName: 'the bubble grows', id: 'p3' }); await tick();
+  assert.deepEqual(gw.tagsOf.get(post), ['Done']);
+  const done = gw.at(post).at(-1)!;
+  assert.match(done.content!, /^Done: 3 files changed/);
+  assert.equal(done.loud, true, 'done buzzes, once');
+
+  gw.sayIn(post, 'claude-jobs', OWNER, 'now update the plan too'); await tick();
+  assert.deepEqual(core.claudeReplies.at(-1), { cwd, text: 'now update the plan too' });
+  gw.press(card.buttons!.find(b => b.id.startsWith('cj:open:'))!.id, OWNER); await tick();
+  assert.deepEqual(opened, [cwd]);
+  assert.ok(a.state.claudePosts?.[cwd]);
+});

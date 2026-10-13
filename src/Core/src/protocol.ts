@@ -475,6 +475,7 @@ export type FromBody =
   | { t: 'choice.reply'; id: string; pick: number }
   | { t: 'action.list' }
   | { t: 'card.draw'; id: string; kind: string; data?: unknown }
+  | { t: 'claude.open'; cwd: string }
   | { t: 'action.run'; id: string; name: string; args?: Record<string, unknown> }
   /** The gold "change" link under a remembered choice: forget it, so Aang asks next time. */
   | { t: 'choice.forget'; key: string }

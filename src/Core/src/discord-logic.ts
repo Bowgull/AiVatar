@@ -62,7 +62,7 @@ export const MERGED: Record<string, string> = { 'job-inbox': 'jobs', 'job-digest
 export const OLD_CATEGORIES = ['JOBS', 'MAIL', 'KEEP', 'AANG'];
 
 /** Channels (by key) whose messages are things Joshua says to Aang. */
-export const LISTEN_CHANNELS = ['aang', 'capture', 'lists', 'jobs', 'drafts', 'needs-you'] as const;
+export const LISTEN_CHANNELS = ['aang', 'capture', 'lists', 'jobs', 'drafts', 'needs-you', 'claude-jobs'] as const;
 
 /** A channel as Discord has it. */
 export interface ChannelInfo { id: string; name: string; kind: 'category' | 'text' | 'forum' | 'other'; parentId: string | null; tags?: string[] }
