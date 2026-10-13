@@ -40,6 +40,14 @@ let reading = false;          // he has scrolled up into his history; the bubble
  * Aang appearing by himself. So a reply still shows while muted, and only a proactive one is held.
  */
 let quiet = false, muted = false;
+/** Sheet 17: asks that arrived while he was in a game. They come out when he leaves it. */
+const heldAsks = [];
+/** Leaving the game: anything held comes out now, newest last so the oldest is answered first. */
+function releaseHeldAsks() {
+  if (!heldAsks.length) return;
+  for (const a of heldAsks.splice(0)) queueAsk(a);
+  showTopAsk();
+}
 /** He hid Aang (the Clippy rule): nothing unprompted until he brings him back. The pet says so. */
 let petHidden = false;
 /** The proactive message the pet is holding for him while he is in a game, kept whole (a brief stays a card). */
@@ -1050,6 +1058,9 @@ function onBrain(m) {
     // a backup offer is also skipped while muted, exactly as the old pet did.
     if (petHidden && m.t !== 'plan') return;
     if (muted && (m.t === 'fact.ask' || m.t === 'backup.ask')) return;
+    // Sheet 17: in a game a timer going off is the pet's sound, glow and quest mark; the card waits here and
+    // comes out when he leaves the game. A permission is NOT held: Aang is stuck until it is answered.
+    if (quiet && m.t === 'timer.done') { heldAsks.push(m); while (heldAsks.length > 3) heldAsks.shift(); return; }
     queueAsk(m); showTopAsk(); return;
   }
 
@@ -1086,7 +1097,9 @@ function onBrain(m) {
     return;
   }
   if (m.t === 'bubble.state') {
+    const wasQuiet = quiet;
     quiet = m.quiet === true; muted = m.muted === true; petHidden = m.hidden === true;
+    if (wasQuiet && !quiet) releaseHeldAsks();
     if (!quiet) heldMsg = null;          // the pet says the held one itself, through pet.say
     return;
   }
@@ -1207,7 +1220,7 @@ function onBrain(m) {
   }
 
   // Quiet and mute change nothing about a reply, only about Aang speaking up by himself.
-  if (m.t === 'quiet') { quiet = m.on === true; return; }
+  if (m.t === 'quiet') { const was = quiet; quiet = m.on === true; if (was && !quiet) releaseHeldAsks(); return; }
   if (m.t === 'mute') { muted = m.on === true; return; }
 
   if (m.t === 'choice.used' && typeof m.key === 'string') { chgKey = m.key; return; }
