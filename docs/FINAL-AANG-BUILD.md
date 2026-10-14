@@ -832,20 +832,52 @@ rule and they are not optional.
 
 ### THE ORDER FROM HERE  (written 2026-10-13, his ask: "don't miss any steps, make sure all critical path steps are in a plan")
 
-**2026-10-14 update (his words: "drop the discord work for now"; naming: "I'll figure out a name change eventually").**
-Done today: Toronto time everywhere; the tab list closes only on mouse-out; closing the browser keeps every tab, trail
-and window; no more fake "Done"; links open through Windows' link handler (Explorer opened his Documents folder);
-"put it on the Mac" (PC or MacBook, popout or full browser asked every time, notices keep their link, plain asks);
-pictures above messages (channel picture, site and sender icons via DuckDuckGo); the raised wood lip (sheet 22 D);
-X dark mode (Dark Reader 4.9.133 in its own world, per-site switch, Settings, synced, on the Mac's list).
-Building now: **the Lantern brief** (sheets 23/24 B: rules + Haiku "needs a reply", the rest hidden incl. security
-alerts; morning/afternoon/evening Stardew pixel weather; rows open in place with buttons, Aang digs only on a press;
-"Open the brief" dropped; burnt orange = third choice colour). Brain side done, bubble side next.
-Then: the **wood swap** (every solid brown in Aang becomes pixel wood: light for bars and frames, dark behind content;
-the browser: light wood top and bottom edges, darker wood behind the page, mockups of both first).
-**Parked (his call):** the browser's name and logo (sheets 25/26; kite and lantern were the strongest marks; research in
-research_notes/naming/), and ALL Discord work: the Discord brief and email cards following the new brief, 9.A2, 9.A3,
-K8's Discord replies. The Mac still builds its own brief unfiltered; fix that with the Discord work.
+**2026-10-14, where we are (end of day).** His words: "drop the discord work for now"; naming: "I'll figure out a
+name change eventually"; the Mac: "as a rule always help me update the mac side".
+
+**Done and live today:**
+- Toronto time everywhere; the tab list closes only on mouse-out; closing the browser keeps every tab, trail and window;
+  no more fake "Done"; links open through Windows' link handler (Explorer opened his Documents folder).
+- "Put it on the Mac": PC or MacBook, popout or full browser asked every time, notices keep their link, plain asks.
+- Pictures above messages (channel picture, site and sender icons via DuckDuckGo).
+- Browser: raised wood lip (sheet 22 D), lamp-lit wood behind the page and a light bottom edge (sheet 27 C), the shield's
+  panel hangs from the shield over a still picture of the page, the open tab list always stays on top, every way of
+  opening it brings it to the front, app links (Claude, Zoom, Teams...) ask "Open ...?" then open the app.
+- X dark mode (Dark Reader 4.9.133 in its own world, per-site switch, Settings, synced, on the Mac's list).
+- **The Lantern brief** (sheets 23/24 B): only mail where a person is waiting on him (rules then Haiku), the rest hidden incl.
+  security alerts; morning/afternoon/evening Stardew pixel weather; rows open in place, Aang digs only on a press; "brief"
+  shows it now. Burnt orange = third choice colour.
+- **The wood swap** (sheet 27): every flat brown is pixel wood (menus, plates, desk, timer row, snip card, carved tags).
+- **SY** (browser part): popups allowed, trusted downloads, http exceptions, ads paused, stashed trails now sync too.
+  Aang's own settings sync comes with the Mac bubble (M7).
+- **S3**: the Mac listener's key travels in a header, not the address.
+- **6.25a the Claude door**: Claude Code drives Aang's browser through an MCP connector (`aang-browser`, registered on the
+  PC; the Mac setup registers it on the Mac) and a locked local door; Claude's own tabs, grouped under its task name
+  ("JOB SCAN") with STOP; banks refused; Aang's tabs off limits. On the Mac the connector starts the browser quietly.
+- **Driver v2** (research_notes/driver-upgrades): 20 tools; lasting numbers with roles/states/values, shadow DOM, wait for
+  quiet, check after every action, only-what-changed reads, find, keys/dropdowns/back/forward, job cards as data,
+  whole-list collection, numbered pictures, per-site notes, a person's pace on LinkedIn/Indeed/Glassdoor, a security page
+  stops the session, a CAPTCHA box on a form becomes "needs Josh".
+- **Job-hunt parity** (research_notes/job-hunt-skill/analysis.md): LinkedIn's new layout read from its words, built-in paced
+  board sweep (boards.md presets), resume upload behind his yes, one-call form check, the skill's aang-browser guide ships to
+  the Mac; the **job digest**: his skill's own filters, only new postings, near misses kept, full list in a file
+  (40 jobs: 913 characters instead of 8,224).
+- Job scan request: alert emails, then the official Indeed/ZipRecruiter connectors, then LinkedIn notifications and search
+  in the Aang browser, Mac only, never send. Research: research_notes/job-hunt-safety (stealth tools rejected; Reddit API
+  needs his own approval request since Nov 2025).
+
+**Waiting on him:** run the latest Mac update and one real scan (measure quota before/after and compare results with his
+last Chrome scan); whether to draft the Reddit access request; the job-hunt research verdict (deep research running on
+what gets interviews in 2026: channels, speed, referrals, ATS, ghost jobs, AI tools).
+
+**Next, in order:** the job-hunt changes the research supports (his pick first) -> E9 prep from an email -> E10 sweep and
+tidy -> the zero-mistakes checks (dates, times, names; draft proofreading) -> the email extras -> E11 email on the Mac ->
+X 7TV -> M7 (Mac bubble, typing box, notes, timers; Aang's settings sync) -> M8 notices that follow him -> M9 the new pet
+-> L (needs his go: quota) -> V voice, 6.25 page summaries -> finishing the rebuild.
+
+**Parked (his call):** Aang's page in the browser (sheet 28; option A recommended; research_notes/aangs-page); the browser's
+name and logo (sheets 25/26, research_notes/naming); ALL Discord work (the Discord brief and email cards, 9.A2, 9.A3, K8's
+Discord replies; the Mac still sends the old unfiltered brief).
 
 Done in order, top to bottom. Nothing below is dropped; the "any gap" list at the end is done between steps or
 folded in where it fits, never skipped. **Where we are (2026-10-13, evening): E1-E8 built; next E9. See "E Email
