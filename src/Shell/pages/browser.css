@@ -554,3 +554,11 @@ body.drawer-open .drawer{transform:none;visibility:visible;transition:transform 
 .uptray .upwhy{margin:0 4px 8px;font:600 13px var(--body);color:#FFB060}
 .uptray .upwhy[hidden]{display:none}
 .uptray .note{margin:6px 4px 2px;font:500 11.5px var(--body);color:#a8977a}
+
+/* Sheet 22, his pick D (2026-10-14): a raised wood lip across the top, a full-width strip to grab the window by.
+   The band grows by 14px; the buttons and the address sit where they did, under the lip. */
+.band{height:72px;padding-top:14px;background-position:0 14px}
+.band::before{content:"";position:absolute;left:0;right:0;top:0;height:14px;pointer-events:none;
+  background:url(art/browser/band.png) repeat-x 0 -8px/128px 58px;image-rendering:pixelated;filter:brightness(1.18);
+  box-shadow:inset 0 2px 0 rgba(255,224,150,.22),inset 0 -2px 0 rgba(0,0,0,.5)}
+.winkeys{top:14px;height:calc(100% - 14px)}
