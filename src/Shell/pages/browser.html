@@ -126,8 +126,9 @@
     <!-- The downloads tray: this run's newest 5. Drag a file out to use it anywhere. -->
     <div class="dltray uptray" id="uptray" role="dialog" aria-label="Browser update" hidden>
       <div class="gh">UPDATE READY<span id="upsince"></span></div>
-      <div class="ver"><b id="upname"></b><small>A small update to the browser engine</small></div>
-      <div class="lines">
+      <div class="ver"><b id="upname"></b><small id="upkind">A small update to the browser engine</small></div>
+      <ul class="upnotes" id="upnotes" hidden></ul>
+      <div class="lines" id="uplines">
         <div><span class="tick"></span>Downloaded and checked against Electron's own fingerprints</div>
         <div><span class="tick"></span>Passed Aang's checks on this PC</div>
         <div><span class="tick"></span>Your tabs come back after the restart</div>
