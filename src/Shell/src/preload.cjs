@@ -109,6 +109,8 @@ contextBridge.exposeInMainWorld('aang', {
   answerAsk: a => ipcRenderer.send('bubble:answer', a),
   /** Open a file or link he pressed a chip for. The main process decides HOW; the page only says which. */
   openThing: t => ipcRenderer.send('bubble:open', t),
+  // Sheet 24: a button under an opened brief row. Only which row and which button; the brain writes the words.
+  briefAct: a => ipcRenderer.send('bubble:briefact', a),
   /** Forget one stored message, by the row the brain gave it. */
   forgetTurn: id => ipcRenderer.send('bubble:forget', id),
   /**

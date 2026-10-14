@@ -818,6 +818,12 @@ app.whenReady().then(async () => {
   // link from a reply is exactly the kind of thing that should land in a browser with a visible address
   // bar. Only http, https and a real file path; anything else is refused rather than handed to the
   // shell, because `openPath` and `openExternal` will both cheerfully run things.
+  ipcMain.on('bubble:briefact', (e, a) => {
+    if (!fromBubble(e) || !a || typeof a !== 'object') return;
+    const item = Number(a.item), act = String(a.act ?? '');
+    if (!Number.isInteger(item) || item < 0 || item > 200 || !['through', 'reply', 'prep', 'drive', 'matches'].includes(act)) return;
+    link?.send({ t: 'brief.act', item, act });
+  });
   ipcMain.on('bubble:open', (e, t) => {
     // Window 2's search results (6.18) open a vault note the same way, through the same checks.
     if ((!fromBubble(e) && !fromDesk(e)) || !t || typeof t !== 'object') return;

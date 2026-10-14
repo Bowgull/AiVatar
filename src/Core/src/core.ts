@@ -38,6 +38,9 @@ import { Memory } from './memory.ts';
 import { QuotaPolicy } from './quota.ts';
 import { TOKEN_HEADER, clearToken, newToken, sameToken } from './token.ts';
 import { MODELS, pickLane } from './route.ts';
+import { query } from '@anthropic-ai/claude-agent-sdk';
+import { JUDGE_SYSTEM, waitingOnHim, type BriefMail } from './briefmail.ts';
+import { fetchDayParts } from './weather.ts';
 import type { Lane as LaneName } from './route.ts';
 import { editExact, offLimits, refusal, undoLast, writeWhole } from './files.ts';
 import { cleanJobName, pageReport } from './drive.ts';
@@ -1325,16 +1328,24 @@ export class Core {
     const companies = [...new Set(cards.map(c => c.company.trim().toLowerCase()).filter(c => c.length >= 3))];
     const dayAgo = Date.now() - 24 * 3600_000;
     const q = this.policy.last;
-    const weather = await fetchDayWeather().catch(() => null);
-    return {
+    const [weather, parts] = await Promise.all([fetchDayWeather().catch(() => null), fetchDayParts().catch(() => null)]);
+    // Only mail where a person is waiting on him (his answers, 2026-10-14): rules, then Haiku. The rest is hidden.
+    const mail: BriefMail[] = d.unread.map(u => {
+      const dom = senderDomain(u.address);
+      const hay = `${u.from} ${dom ?? ''}`.toLowerCase();
+      return { ...u, ...(companies.some(c => hay.includes(c)) ? { job: true } : {}) };
+    });
+    const waiting = await waitingOnHim(mail, p => this.judgeMail(p));
+    const card: BriefCard = {
       ...(weather ? { weather } : {}),
+      ...(parts ? { parts: parts.parts, rainFrom: parts.rainFrom, rainIsSnow: parts.rainIsSnow } : {}),
       day: new Date().toLocaleDateString('en-CA', { timeZone: 'America/Toronto', weekday: 'long', day: 'numeric', month: 'long' }),
       events: d.events,
-      unread: d.unread.map(u => {
-        const dom = senderDomain(u.address);
+      unread: waiting.map(w => {
+        const address = d.unread.find(u => u.id === w.id)?.address ?? '';
+        const dom = senderDomain(address);
         const logo = dom && !isPersonal(dom) ? this.logos!.get(brandDomain(dom)) : null;
-        const hay = `${u.from} ${dom ?? ''}`.toLowerCase();
-        return { from: u.from, subject: u.subject, at: u.at, ...(logo ? { logo } : {}), ...(companies.some(c => hay.includes(c)) ? { job: true } : {}) };
+        return { from: w.from, subject: w.subject, at: w.at, id: w.id, why: w.why, ...(logo ? { logo } : {}), ...(w.job ? { job: true } : {}) };
       }),
       jobsNew: cards.filter(c => c.status === 'new' && Date.parse(c.at) > dayAgo).length,
       waiting: this.homeData().waiting,
@@ -1342,6 +1353,59 @@ export class Core {
       weekResetsAt: q ? q.weekResetsAt : null,
       ...(d.error ? { error: d.error } : {}),
     };
+    this.lastBrief = card;
+    return card;
+  }
+  /** The brief last sent, so a button under one of its rows knows what it is about (sheet 24). */
+  private lastBrief: BriefCard | null = null;
+
+  /**
+   * Haiku sorts the brief's mail (briefmail.ts): no tools, no memory, no conversation, one turn. Its answer is read
+   * strictly there. Null when it could not answer, and the rules' list stands.
+   */
+  private async judgeMail(prompt: string): Promise<string | null> {
+    const stop = new AbortController();
+    const t = setTimeout(() => stop.abort(), 60_000);
+    try {
+      let out: string | null = null;
+      const q = query({
+        prompt,
+        options: {
+          model: MODELS.quick.model, systemPrompt: { type: 'custom', prompt: JUDGE_SYSTEM, snapshot: false } as never,
+          settingSources: [], tools: [], allowedTools: [], maxTurns: 1, persistSession: false, abortController: stop,
+          canUseTool: async () => ({ behavior: 'deny' as const, message: 'No tools here.' }),
+          cwd: this.selfCwd(), thinking: { type: 'disabled' } as never,
+          env: { ...process.env, ENABLE_CLAUDEAI_MCP_SERVERS: 'false', ENABLE_TOOL_SEARCH: 'false' },
+        },
+      });
+      for await (const m of q as AsyncIterable<any>) if (m.type === 'result' && m.subtype === 'success') out = String(m.result ?? '');
+      return out;
+    } catch (e) { console.log('brief: Haiku could not sort the mail: ' + (e as Error).message); return null; }
+    finally { clearTimeout(t); }
+  }
+
+  /**
+   * A button under an opened brief row (sheet 24). Aang writes the request from the row HE sent: the bubble only
+   * says which row and which button, so nothing on the page can put words in his mouth.
+   */
+  private briefAct(ws: WebSocket, item: number, act: string): void {
+    const b = this.lastBrief;
+    if (!b || !Number.isInteger(item) || item < 0) return;
+    const mails = b.unread, evs = b.events;
+    let text = '';
+    if (item < mails.length) {
+      const u = mails[item]!;
+      const id = /^[\w-]{6,40}$/.test(u.id ?? '') ? ` (email id ${u.id})` : '';
+      if (act === 'through') text = `Go through the email from ${u.from}${id} and lay it out for me.`;
+      else if (act === 'reply') text = `Draft a reply to the email from ${u.from}${id}. Show it to me before anything is sent.`;
+    } else if (item < mails.length + evs.length) {
+      const e = evs[item - mails.length]!;
+      const when = e.start ? new Date(e.start).toLocaleTimeString('en-US', { timeZone: 'America/Toronto', hour: 'numeric', minute: '2-digit' }) : 'today';
+      if (act === 'prep') text = `Prep me for "${e.title}" at ${when} today.`;
+      else if (act === 'drive' && e.where) text = `How long is the drive to ${e.where} for "${e.title}" at ${when}?`;
+    } else if (act === 'matches') text = 'Show me the new job matches.';
+    if (!text) return;
+    this.submit({ id: 'b' + Date.now(), text, mode: 'smart', once: false, socket: ws });
   }
 
   // ------------------------------------------------------------------ acting inside apps (UI Automation)
@@ -2844,6 +2908,15 @@ export class Core {
           this.send(ws, { t: 'bubble', text: say, stream: false, id, who: 'Aang' });
           break;
         }
+        // Sheet 24: "brief", "show me my brief", "morning brief": the brief card now, in plain code (only its mail sort asks Haiku).
+        if (m.ephemeral !== true && /^(show\s+(me\s+)?)?((my|the|today'?s)\s+)?(morning\s+)?brief[.!?]?$/i.test(text) && this.kindOfSocket(ws) === 'desktop') {
+          this.send(ws, { t: 'ack', id });
+          void this.briefCard().then(card => {
+            if (card) this.send(ws, { t: 'bubble', text: 'Your brief', stream: false, id, who: 'Aang', brief: card });
+            else this.send(ws, { t: 'bubble', text: Core.NO_GOOGLE, stream: false, id, who: 'Aang' });
+          }).catch(e => this.send(ws, { t: 'bubble', text: 'The brief could not be put together: ' + (e as Error).message, stream: false, id, who: 'Aang' }));
+          break;
+        }
         // Sheet 17: notes are plain code too. "hey make a note for raid: flasks, food", "add potions to my raid note".
         const noteCmd = m.ephemeral !== true && !timerCmd ? parseNoteCommand(text) : null;
         if (noteCmd) {
@@ -2893,6 +2966,7 @@ export class Core {
           ...(m.ephemeral === true ? { ephemeral: true } : {}) });
         break;
       }
+      case 'brief.act': this.briefAct(ws, Number(m.item), String(m.act ?? '')); break;
       case 'stop': void this.stopActive(m.id); break;
       case 'rate': this.rate(m.id, m.value); break;
       case 'presence': {
