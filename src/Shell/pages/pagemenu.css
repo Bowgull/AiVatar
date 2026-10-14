@@ -16,3 +16,8 @@ html,body{margin:0;background:var(--wood2);overflow:hidden;user-select:none}
 .pm button:hover:not(:disabled),.pm button:focus-visible{background:none;color:#ffe28c;padding-left:34px}
 .pm button:hover:not(:disabled)::before,.pm button:focus-visible::before{content:"";position:absolute;left:4px;top:50%;width:24px;height:18px;margin-top:-9px;
   background:url(art/browser/hand.png) 0 0/24px 18px;image-rendering:pixelated}
+
+/* ---- sheet 27, the wood swap (his rule, 2026-10-14): no flat browns. Light wood for bars and frames, dark wood behind
+   content, "carved" (very dark wood) for the small name tags. ---- */
+html,body{background:linear-gradient(rgba(0,0,0,.15),rgba(0,0,0,.25)),url(art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated}
+.pm{background:linear-gradient(rgba(0,0,0,.15),rgba(0,0,0,.25)),url(art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated}
