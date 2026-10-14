@@ -53,6 +53,7 @@ const PAL = {
   jade:   { name: 'JADE',   light: '#A8F0B8', main: '#5CC985', shade: '#2E9460', vein: '#1D6A44', out: '#103A26', wind: '#E9F5D8', windOut: '#55703E' },
   sky:    { name: 'SKY',    light: '#FFFFFF', main: '#D6ECFF', shade: '#9CC6EE', vein: '#5E8FC4', out: '#2C4C78', wind: '#FFE7A8', windOut: '#9C6A1E' },
 };
+PAL.gold = { name: 'GOLD', light: '#FFF2A0', main: '#FFC43C', shade: '#C98C14', vein: '#8A5A0A', out: '#3A2208', wind: '#966EC8', windOut: '#2C1848' };
 const GOLD = { rim: '#E8A92C', rimLit: '#FFE28C', rimDark: '#9C6410', rimOut: '#3A2208', wood: '#5A3418', grain: '#6E4422', grainDark: '#45260F' };
 
 // A leaf: centred at (cx,cy), length L, turned by `a` (radians). Lit half on the upper-left, shaded half lower-right.
@@ -86,6 +87,16 @@ const IDEAS = [
       g.restore();
       leaf(g, p, 16, 15.5, 16, Math.PI * 0.22);
     }, ring: true },
+  { key: 'velvet', name: 'PLUM VELVET BADGE', draw(g, p) {
+      g.beginPath(); g.arc(16, 16, 14.5, 0, Math.PI * 2); g.fillStyle = GOLD.rim; g.fill();
+      g.beginPath(); g.arc(16, 16, 14.5, Math.PI * 0.75, Math.PI * 1.75); g.lineWidth = 2; g.strokeStyle = GOLD.rimLit; g.stroke();
+      g.beginPath(); g.arc(16, 16, 14.5, Math.PI * 1.75, Math.PI * 2.75); g.strokeStyle = GOLD.rimDark; g.stroke();
+      g.save(); g.beginPath(); g.arc(16, 16, 11.8, 0, Math.PI * 2); g.clip();
+      g.fillStyle = '#4A2C6E'; g.fillRect(0, 0, N, N);
+      for (let y = 0; y < N; y += 2) for (let x = (y / 2) % 2; x < N; x += 3) { g.fillStyle = (x + y) % 5 ? '#553480' : '#2C1848'; g.fillRect(x, y, 1, 1); }
+      g.restore();
+      leaf(g, p, 16, 15.5, 16, Math.PI * 0.22);
+    }, ring: true, only: ['gold', 'autumn'] },
   { key: 'glider', name: 'LEAF AS A GLIDER', draw(g, p) {
       g.strokeStyle = p.wind; g.lineCap = 'round'; g.lineWidth = 1.6;
       for (const [x, y, l] of [[2, 12, 7], [1, 17, 9], [3, 22, 6]]) { g.beginPath(); g.moveTo(x, y); g.lineTo(x + l, y); g.stroke(); }
@@ -123,10 +134,22 @@ function art(idea, p) {
 function show(src, scale) { const c = document.createElement('canvas'); c.width = c.height = N * scale; const g = c.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(src, 0, 0, N * scale, N * scale); return c; }
 
 const host = document.getElementById('ideas');
-for (const idea of IDEAS) {
+{
+  const h = document.createElement('h2'); h.textContent = "IN AANG'S OWN PALETTE ONLY (WOOD, GOLD, PLUM, BURNT ORANGE)"; host.append(h);
+  const why = document.createElement('p'); why.className = 'why'; why.textContent = 'No new colours: the wood badge with the autumn leaf, plum velvet with a gold leaf, plum velvet with the autumn leaf, and the glider in gold with plum wind.'; host.append(why);
+  const row = document.createElement('div'); row.className = 'row'; host.append(row);
+  for (const [ik, pk, label] of [['badge', 'autumn', 'WOOD + AUTUMN'], ['velvet', 'gold', 'PLUM + GOLD'], ['velvet', 'autumn', 'PLUM + AUTUMN'], ['glider', 'gold', 'GLIDER, GOLD + PLUM']]) {
+    const a = art(IDEAS.find((i) => i.key === ik), PAL[pk]);
+    const card = document.createElement('div'); card.className = 'card'; card.append(show(a, 4));
+    const sizes = document.createElement('div'); sizes.className = 'sizes';
+    for (const [sc, l] of [[1, '32'], [0.5, '16']]) { const w = document.createElement('div'); const cv = document.createElement('canvas'); cv.width = cv.height = N * sc; const g = cv.getContext('2d'); g.imageSmoothingEnabled = sc >= 1 ? false : true; g.drawImage(a, 0, 0, N * sc, N * sc); w.append(cv); const sp = document.createElement('span'); sp.textContent = l; w.append(sp); sizes.append(w); }
+    card.append(sizes); const t = document.createElement('div'); t.className = 'tag'; t.textContent = label; card.append(t); row.append(card);
+  }
+}
+for (const idea of IDEAS.filter((i) => i.key !== 'velvet')) {
   const h = document.createElement('h2'); h.textContent = idea.name; host.append(h);
   const row = document.createElement('div'); row.className = 'row'; host.append(row);
-  for (const k of Object.keys(PAL)) {
+  for (const k of ['autumn', 'jade', 'sky']) {
     const a = art(idea, PAL[k]);
     const card = document.createElement('div'); card.className = 'card';
     card.append(show(a, 4));
