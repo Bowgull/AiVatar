@@ -142,3 +142,36 @@ export function uploadable(file: string, home: string, size: number): string | n
   if (!(size > 0) || size > 10 * 1024 * 1024) return 'the file is empty or over 10 MB';
   return null;
 }
+
+// ---- the job digest (2026-10-14, his "lighter but as powerful"): his skill's own filters (li_extract.js, verbatim),
+// only new postings, near misses kept, and the full list in a file instead of the conversation.
+export const HOT = /customer success|client success|customer experience|client services|client relationship|account manager|account coordinator|account service|onboarding|implementation|enablement|activation|partner success|partner manager|renewals|customer operations|guest experience|student success|engagement manager|operations coordinator|project coordinator|program coordinator|vendor manager|event coordinator|event manager|relationship manager|order management|sales support|production coordinator|campaign manager|technical account|customer support|customer service|logistics coordinator|supply chain coordinator|catering|field marketing|client operations|solutions manager|delivery manager/i;
+export const SKIP = /senior|\bsr\b|director|\bvp\b|vice|head of|principal|staff|architect|engineer|developer|bilingu|french|intern|\bSAP\b|oracle|netsuite|workday|technician|driver|store manager|warehouse|sales rep|account executive|business development|territory|nurse|clinical|payroll|recruit|estimator|legal|junior|restaurant manager|assistant manager|cook|server|cashier|analyst|consultant|erp/i;
+export const AWAY = /Quebec|QC\b|Montr|Vancouver|BC\b|Alberta|Calgary|Edmonton|Manitoba|Winnipeg|Halifax|Nova Scotia|Saskatchewan|Victoria/i;
+/** Titles that are roles like his but not in his lane words: shown as near misses so an odd title is never lost. */
+const ROLEISH = /\b(manager|coordinator|specialist|associate|representative|advisor|partner|lead|success|client|customer|account|operations|program|project)\b/i;
+
+export interface Posting { title: string; company?: string; location?: string; posted?: string; salary?: string; easyApply?: string; url?: string; text?: string; keyword?: string }
+export const postingKey = (p: Posting) => String(p.url || `${p.title}|${p.company ?? ''}|${p.location ?? ''}`).toLowerCase().trim();
+
+/** Sort postings: new ones that match his lanes, near misses, and the rest (counted only). */
+export function digest(list: Posting[], seen: Set<string>): { match: Posting[]; near: Posting[]; isNew: number; old: number; skipped: number; away: number } {
+  const match: Posting[] = [], near: Posting[] = [];
+  let isNew = 0, old = 0, skipped = 0, away = 0;
+  for (const p of list) {
+    const k = postingKey(p);
+    if (!k || seen.has(k)) { old++; continue; }
+    isNew++;
+    const title = p.title || String(p.text ?? '').split(' | ')[0] || '';
+    const where = `${p.location ?? ''} ${p.text ?? ''}`;
+    if (SKIP.test(title)) { skipped++; continue; }
+    if (AWAY.test(where)) { away++; continue; }
+    if (HOT.test(title)) match.push(p); else if (ROLEISH.test(title)) near.push(p); else skipped++;
+  }
+  return { match, near, isNew, old, skipped, away };
+}
+/** One short line per posting. */
+export function line(p: Posting): string {
+  const t = p.title || String(p.text ?? '').split(' | ')[0] || '';
+  return [t, p.company, p.location, p.salary, p.posted, p.easyApply ? 'Easy Apply' : '', p.url].filter(Boolean).map((x) => String(x).replace(/\s+/g, ' ').trim()).join(' | ').slice(0, 260);
+}

@@ -2940,6 +2940,8 @@ export class AangBrowser {
     try { writeFileAtomic(path.join(this.o.stateDir, 'driver-notes.json'), JSON.stringify(n)); } catch { /* best effort */ }
   }
 
+  /** A driven page's site, for naming its job list. */
+  pageHost(id: number): string { try { return new URL(this.driver.page(id)?.url ?? '').hostname.replace(/^www\./, ''); } catch { return 'page'; } }
   /** The page a sweep runs on, or null. */
   sweepPage(id: number): number | null { return this.driver.sweepPage(id); }
   /** The job a driven page belongs to, or null. */
