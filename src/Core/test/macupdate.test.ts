@@ -45,13 +45,20 @@ test('the update keeps the old Aang, says which version is installed, and puts t
   assert.match(byHand, /mv "\$OLD" "\$RB\/Samara\.app"[\s\S]*rm -rf "\$OLD"/, 'the old Aang.app is moved aside, then gone');
   assert.doesNotMatch(byHand, /mv "\$APP" "\$APP\.prev"/, 'no second copy is ever left in Applications (the Dock opened it: two Samaras)');
   // Smooth updates (2026-10-14: "it doesnt just freeze my computer"): made in the background first, then swapped in.
-  assert.match(update, /if \[ "\$PHASE" != "prepare" \]; then\necho "1\/6/, 'getting ready skips every other step');
-  assert.match(update, /if \[ "\$PHASE" = "prepare" \]; then\n    if build_app "\$STAGE\/Samara\.app"; then printf '%s' '0123456789abcdef' > "\$STAGE\/version"/, 'getting ready builds Samara aside');
+  assert.match(update, /if \[ "\$PHASE" != "prepare" \] && \[ "\$PHASE" != "swap" \]; then\necho "1\/6/, 'getting ready, and the swap itself, skip the slower steps');
+  // Extremely smooth (2026-10-14): Samara opens the moment it is in place; the rest follows in the background.
+  const opensAt = update.indexOf('[ "$PHASE" = "swap" ] && open -a "$APP"'), mcpAt = update.indexOf('aang-browser');
+  assert.ok(opensAt > 0 && opensAt < mcpAt, 'Samara is back before Claude\'s door and the rest are set up');
+  assert.match(update, /\[ "\$PHASE" = "swap" \] && \{ nohup \/usr\/sbin\/taskpolicy -b \/bin\/bash "\$0" post/, 'the rest runs after, at low priority');
+  assert.match(update, /if \[ "\$PHASE" != "post" \]; then\necho "5\/6/, 'and does not touch Samara');
+  assert.match(update, /\[ "\$PHASE" = "post" \] && \{ echo "The rest is done."; exit 0; \}/);
+  assert.match(update, /case "\$PHASE" in prepare\|post\) ;; \*\) trap/, 'only a swap opens Samara again');
+  assert.match(update, /codesign --verify --deep "\$STAGE\/Samara\.app"/, 'macOS checks the new app while it gets ready');
+  assert.match(update, /if \[ "\$PHASE" = "prepare" \]; then\n    if build_app "\$STAGE\/Samara\.app"; then[\s\S]{0,300}printf '%s' '0123456789abcdef' > "\$STAGE\/version"/, 'getting ready builds Samara aside');
   assert.match(update, /\[ "\$PHASE" = "swap" \] && \[ -d "\$STAGE\/Samara\.app" \] && \[ "\$\(cat "\$STAGE\/version" 2>\/dev\/null\)" = '0123456789abcdef' \]; then NEWAPP="\$STAGE\/Samara\.app"/, 'Restart now only swaps the ready one in');
   assert.match(update, /cp -cR "\$APP" "\$NEWAPP"/, 'a clone of the app, not a fresh 300 MB copy');
   assert.match(update, /if \[ "\$OLDLOCK" != "\$NEWLOCK" \] \|\| \[ ! -d "\$RES\/app\/node_modules" \]; then/, 'libraries only when their list changed');
   assert.match(update, /\.lock-installed/, 'the front desk too');
-  assert.match(update, /\[ "\$PHASE" = "prepare" \] \|\| trap/, 'getting ready never opens anything');
   // One Samara in the Dock, ever.
   assert.match(byHand, /\*Applications\/Aang\.app\*\|\*Applications\/Samara\.app\*\) \$PB -c "Delete :persistent-apps:\$i"/);
   assert.match(byHand, /Add :persistent-apps:\$POS dict/);
