@@ -65,10 +65,10 @@ const TOOLS = [
     inputSchema: { type: 'object', properties: { page: { type: 'integer' }, within: { type: 'integer', description: 'a control number; reads only its section' }, changes: { type: 'boolean' } }, required: ['page'] } },
   { name: 'browser_find', description: 'Find words on a page: the lines that contain them, and the controls whose names do. Cheaper than reading a whole long page.',
     inputSchema: { type: 'object', properties: { page: { type: 'integer' }, text: { type: 'string' } }, required: ['page', 'text'] } },
-  { name: 'browser_jobs', description: 'The job postings on this page as clean data: title, company, location, posted, salary, link (LinkedIn, Indeed and most career sites). Far cheaper and more exact than reading the page and picking them out yourself.',
-    inputSchema: { type: 'object', properties: { page: { type: 'integer' } }, required: ['page'] } },
-  { name: 'browser_collect_jobs', description: "Scroll through a whole job list collecting every posting (LinkedIn only draws what is on screen, so reading once misses most). At a person's pace; takes a minute or two. max: how many, default 60.",
-    inputSchema: { type: 'object', properties: { page: { type: 'integer' }, max: { type: 'integer' } }, required: ['page'] } },
+  { name: 'browser_jobs', description: "The job postings on this page, sorted by Joshua's own job-hunt filters (his lane words, skip list, area): you get the NEW ones that match, one line each (title | company | location | pay | posted | Easy Apply | link), the near misses, and counts of the rest. The full list, every posting, is written to a file in his job-hunt folder (named in the answer) so nothing is lost. seen: true also shows postings seen in earlier scans.",
+    inputSchema: { type: 'object', properties: { page: { type: 'integer' }, seen: { type: 'boolean' } }, required: ['page'] } },
+  { name: 'browser_collect_jobs', description: "Scroll through a whole job list collecting every posting (LinkedIn only draws what is on screen, so reading once misses most), at a person's pace, then the same sorted digest as browser_jobs (new matches, near misses, counts; full list in a file). max: how many, default 60.",
+    inputSchema: { type: 'object', properties: { page: { type: 'integer' }, max: { type: 'integer' }, seen: { type: 'boolean' } }, required: ['page'] } },
   { name: 'browser_sweep', description: "Search a job board for many keywords, the way the job-hunt skill's board_loop.js did: open the board's site first (any page on it), then call this with the keywords. Searches only (never sends anything), at the board's own spacing (Indeed 11 s and up), backs off and stops a board that pushes back. Built-in for Indeed, Eluta, SimplyHired, ZipRecruiter, Glassdoor, Job Bank, Jobs.ca, We Work Remotely, Hcareers; for another board give path (with {q} for the keyword, e.g. /jobs?q={q}&l=Toronto) and card (the CSS selector of one posting). Never LinkedIn (use browser_collect_jobs there). Runs in the background: poll browser_sweep_status.",
     inputSchema: { type: 'object', properties: { page: { type: 'integer' }, keywords: { type: 'array', items: { type: 'string' } }, path: { type: 'string' }, card: { type: 'string' }, spacing: { type: 'number', description: 'seconds between searches; never below the board\u2019s own' } }, required: ['page', 'keywords'] } },
   { name: 'browser_sweep_status', description: 'How a sweep is going: keywords done, postings found, coverage per keyword (count, error or blocked). When done, it returns every posting found (text and link).',
@@ -103,6 +103,8 @@ const TOOLS = [
 
 const line = (i) => `[${i.n}] ${i.role && i.role !== i.kind ? `${i.kind}/${i.role}` : i.kind}${i.state ? ` {${i.state}}` : ''}${i.weight && i.weight !== 'free' ? ` (${i.weight === 'lever' ? 'asks Joshua' : 'never'})` : ''}: ${i.label}${i.value ? ` = "${i.value}"` : ''}${i.href ? ` -> ${i.href}` : ''}${i.ctx ? `  [in: ${i.ctx}]` : ''}${i.view === false ? '  (below/above the screen)' : ''}`;
 const done = (r) => `${r.changed && r.changed.length ? 'What happened: ' + r.changed.join('; ') + '.' : 'Done.'} Now on: ${r.title} (${r.url}).${r.waited ? ` (Waited ${r.waited} s first: a person's pace on this site.)` : ''}`;
+// The job digest: new matches one per line, near misses, counts; the full list stays in the file it names.
+const digestText = (r) => `${r.summary}\n\n${WORDS(`NEW MATCHES (${(r.match || []).length}):\n${(r.match || []).join('\n') || '(none)'}\n\nNEAR MISSES (titles like his roles but not in his lane words; check for odd titles):\n${(r.near || []).join('\n') || '(none)'}`)}`;
 const text = (t, isError = false) => ({ content: [{ type: 'text', text: t }], ...(isError ? { isError: true } : {}) });
 async function call(name, a) {
   if (name === 'browser_history') {
@@ -128,10 +130,10 @@ async function call(name, a) {
     return text(`${r.title}\n${r.url}\n\n${WORDS(r.text + (r.more ? '\n[more below: scroll]' : ''))}${same}\n\nControls (numbers stay the same while the control is on the page):\n${items}`);
   }
   if (name === 'browser_jobs' || name === 'browser_collect_jobs') {
-    const r = await step(name === 'browser_jobs' ? 'jobs' : 'collect', { page, ...(name === 'browser_collect_jobs' ? { max: Number(a.max) || 60 } : {}) });
+    const r = await step(name === 'browser_jobs' ? 'jobs' : 'collect', { page, ...(name === 'browser_collect_jobs' ? { max: Number(a.max) || 60 } : {}), ...(a.seen === true ? { seen: true } : {}) });
     if (!r.ok) return text(r.error, true);
-    const note = name === 'browser_collect_jobs' ? `\n(${r.jobs.length} postings after ${r.scrolls} scrolls${r.end ? ', the end of the list' : ''}.)` : '';
-    return text(`${WORDS(JSON.stringify(r.jobs, null, 1))}${note}`);
+    const note = name === 'browser_collect_jobs' ? ` (${r.scrolls} scrolls${r.end ? ', the end of the list' : ''})` : '';
+    return text(digestText(r) + note);
   }
   if (name === 'browser_sweep') {
     const r = await step('sweep', { page, keywords: Array.isArray(a.keywords) ? a.keywords : [], ...(a.path ? { path: String(a.path) } : {}), ...(a.card ? { card: String(a.card) } : {}), ...(a.spacing ? { spacing: Number(a.spacing) } : {}) });
@@ -142,7 +144,7 @@ async function call(name, a) {
     if (!r.ok) return text(r.error, true);
     const cov = Object.entries(r.coverage || {}).map(([k, v]) => `${k}: ${v}`).join('\n');
     const head = `${r.board}: ${r.finished}/${r.total} keywords, ${r.postings} postings${r.done ? ', done' : ', still running'}${r.stopped ? `. STOPPED: ${r.stopped}` : ''}.\nCoverage:\n${cov}`;
-    return text(r.done ? `${head}\n\n${WORDS((r.cards || []).map((c) => `${c.text}${c.url ? ' -> ' + c.url : ''}  [${c.keyword}]`).join('\n'))}` : head);
+    return text(r.done ? `${head}\n\n${digestText(r)}` : head);
   }
   if (name === 'browser_check_form') {
     const r = await step('form', { page, ...(Number.isInteger(a.within) ? { within: a.within } : {}) });

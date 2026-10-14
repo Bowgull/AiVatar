@@ -13,7 +13,9 @@
 // The connector Claude Code starts is claude-door-mcp.mjs; it reads the port and key from claude-door.json.
 import http from 'node:http';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
-import { chmodSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
+import { digest, line, postingKey, type Posting } from './driverrules.ts';
 import path from 'node:path';
 import { writeFileAtomic } from './atomic.ts';
 import { neverKeep } from './visits.ts';
@@ -31,6 +33,32 @@ export function doorAllows(req: { method?: string; url?: string; headers: Record
   if (host !== `127.0.0.1:${port}` && host !== `localhost:${port}`) return false;
   const k = String(req.headers['x-aang-key'] ?? '');
   return key.length >= 40 && k.length === key.length && timingSafeEqual(Buffer.from(k), Buffer.from(key));
+}
+
+/**
+ * The job digest (2026-10-14, his "lighter but as powerful"): what a Claude session gets back from a job list is the
+ * NEW postings that match his skill's own filters, one short line each, the near misses, and counts of the rest. The
+ * whole list goes to a file in his job-hunt folder, so nothing is thrown away and the conversation stays small.
+ */
+function jobDigest(stateDir: string, source: string, list: Posting[], showSeen: boolean): Record<string, unknown> {
+  const seenFile = path.join(stateDir, 'job-seen.json');
+  let seenAt: Record<string, number> = {};
+  try { seenAt = JSON.parse(readFileSync(seenFile, 'utf8')); } catch { /* none yet */ }
+  const now = Date.now();
+  for (const [k, t] of Object.entries(seenAt)) if (now - t > 60 * 86_400_000) delete seenAt[k];
+  const d = digest(list, showSeen ? new Set() : new Set(Object.keys(seenAt)));
+  for (const p of list) { const k = postingKey(p); if (k && !seenAt[k]) seenAt[k] = now; }
+  const keys = Object.keys(seenAt); if (keys.length > 30_000) for (const k of keys.slice(0, keys.length - 30_000)) delete seenAt[k];
+  try { writeFileAtomic(seenFile, JSON.stringify(seenAt)); } catch { /* best effort */ }
+  const dir = path.join(process.env.JOB_HUNT_DATA || path.join(os.homedir(), 'job-hunt-data'), 'aang-browser');
+  const stamp = new Date().toLocaleString('sv-SE', { timeZone: 'America/Toronto' }).replace(/[: ]/g, '-').slice(0, 19);
+  const file = path.join(dir, `${stamp}-${source.replace(/[^a-z0-9.-]+/gi, '_').slice(0, 40)}.json`);
+  try { if (!existsSync(dir)) mkdirSync(dir, { recursive: true }); writeFileSync(file, JSON.stringify({ source, at: new Date().toISOString(), counts: { cards: list.length, new: d.isNew, seenBefore: d.old, match: d.match.length, near: d.near.length, skipped: d.skipped, outOfArea: d.away }, match: d.match, near: d.near, all: list }, null, 1)); }
+  catch { /* the summary still comes back */ }
+  return {
+    summary: `${source}: ${list.length} postings, ${d.isNew} new (${d.old} seen before). ${d.match.length} match his lanes, ${d.near.length} near misses, ${d.skipped} skipped by his skip list, ${d.away} outside his area. Full list: ${file}`,
+    match: d.match.map(line), near: d.near.slice(0, 15).map(line), file,
+  };
 }
 
 export function startClaudeDoor(getBrowser: () => AangBrowser | null, stateDir: string, port = CLAUDE_DOOR_PORT): http.Server {
@@ -69,6 +97,15 @@ export function startClaudeDoor(getBrowser: () => AangBrowser | null, stateDir: 
             }
           }
           if (op === 'start' && out.ok === true && Number.isInteger(out.job)) mine.add(out.job as number);
+          // Job lists come back as a digest; the full list is in a file (unless he asked for everything: raw: true).
+          if (out.ok === true && (op === 'jobs' || op === 'collect' || (op === 'sweep_status' && out.done === true)) && (m.a as Record<string, unknown> | undefined)?.raw !== true) {
+            const list = (op === 'sweep_status' ? (out.cards as Posting[] | undefined) : (out.jobs as Posting[] | undefined)) ?? [];
+            let src = op === 'sweep_status' ? String(out.board ?? 'sweep') : '';
+            if (!src) { const b2 = getBrowser(); const pg = Number((m.a as Record<string, unknown>)?.page); src = b2?.pageHost(pg) ?? 'page'; }
+            const dg = jobDigest(stateDir, src, list, (m.a as Record<string, unknown> | undefined)?.seen === true);
+            const { cards: _c, jobs: _j, ...rest } = out as Record<string, unknown>;
+            out = { ...rest, ...dg };
+          }
         } catch (e) { out = { ok: false, error: (e as Error).message }; }
         const json = JSON.stringify(out);
         res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' }).end(json);
