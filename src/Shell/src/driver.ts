@@ -164,6 +164,62 @@ const SELECT_JS = (n: number, want: string) => `(() => {
   return { native: true, found: true, picked: o.textContent.trim() };
 })()`;
 
+
+/**
+ * Driver v2 part 2: job cards as clean data (title, company, location, posted, salary, link), from LinkedIn's and Indeed's
+ * own card markup, or, on any other site, from links that look like job postings. Read-only. The words are the site's.
+ */
+const JOBS_JS = `(() => {
+  ${DEEP}
+  const t = (e) => (e ? String(e.innerText || e.textContent || '').replace(/\\s+/g, ' ').trim() : '');
+  const first = (card, sels) => { for (const s of sels) { const e = card.querySelector(s); if (e && t(e)) return t(e); } return ''; };
+  const pay = (card) => { const m = /(\\$|CA\\$|C\\$|USD|CAD)\\s?[\\d,.]+\\s?[kK]?(\\s?\\/\\s?(yr|hr|year|hour))?(\\s?(-|–|to)\\s?(\\$|CA\\$|C\\$)?\\s?[\\d,.]+\\s?[kK]?)?(\\s?\\/?\\s?(yr|year|hr|hour|an hour|a year|annually))?/.exec(t(card)); return m ? m[0].trim() : ''; };
+  const out = []; const seen = new Set();
+  const add = (j) => { if (!j.url || !j.title || seen.has(j.url)) return; seen.add(j.url); out.push(Object.fromEntries(Object.entries(j).map(([k, v]) => [k, String(v || '').slice(0, 160)]))); };
+  const host = location.hostname;
+  if (/linkedin\\.com$/.test(host)) {
+    for (const c of __deep('[data-occludable-job-id], [data-job-id], .job-card-container, .jobs-search-results__list-item, .base-card')) {
+      const a = c.querySelector('a[href*="/jobs/view/"], a[href*="currentJobId="], a.base-card__full-link');
+      const id = c.getAttribute('data-occludable-job-id') || c.getAttribute('data-job-id') || (a && (/\\/jobs\\/view\\/(?:[^/?]*-)?(\\d+)/.exec(a.href) || /currentJobId=(\\d+)/.exec(a.href) || [])[1]);
+      if (!id) continue;
+      add({ title: first(c, ['.job-card-list__title', '.job-card-container__link strong', '.job-card-list__title--link', '.base-search-card__title', 'a[href*="/jobs/view/"] strong', 'a[href*="/jobs/view/"]']).replace(/ with verification$/i, ''),
+        company: first(c, ['.artdeco-entity-lockup__subtitle', '.job-card-container__primary-description', '.base-search-card__subtitle', '.job-card-container__company-name']),
+        location: first(c, ['.job-card-container__metadata-item', '.artdeco-entity-lockup__caption', '.job-search-card__location']),
+        posted: first(c, ['time', '.job-card-container__listed-time', '.job-search-card__listdate']), salary: pay(c), url: 'https://www.linkedin.com/jobs/view/' + id + '/' });
+    }
+  } else if (/indeed\\./.test(host)) {
+    for (const c of __deep('.job_seen_beacon, [data-jk], .jobsearch-ResultsList > li')) {
+      const inner = c.querySelector('[data-jk]'); const jk = c.getAttribute('data-jk') || (inner && inner.getAttribute('data-jk'));
+      if (!jk) continue;
+      add({ title: first(c, ['h2.jobTitle span[title]', 'h2.jobTitle', 'h2 a span', '[class*=jobTitle]']),
+        company: first(c, ['[data-testid=company-name]', '.companyName', '[class*=companyName]']),
+        location: first(c, ['[data-testid=text-location]', '.companyLocation', '[class*=companyLocation]']),
+        posted: first(c, ['[data-testid=myJobsStateDate]', '.date', 'span.date']), salary: first(c, ['[data-testid*=salary]', '.salary-snippet-container', '.salaryOnly']) || pay(c), url: location.origin + '/viewjob?jk=' + jk });
+    }
+  }
+  if (!out.length) {
+    for (const a of __deep('a[href]')) {
+      const h = String(a.href || '');
+      if (!/\\/jobs?\\/|\\/careers?\\/|viewjob|greenhouse\\.io|lever\\.co|myworkdayjobs|ashbyhq|smartrecruiters|workable\\.com|\\/positions?\\//i.test(h) || !__vis(a)) continue;
+      const title = t(a); if (title.length < 6 || title.length > 140 || /^(see|view|show) (all|more)|^jobs?$|^careers?$|^search/i.test(title)) continue;
+      const card = a.closest('li, article, tr, [class*=card], [class*=job], [class*=posting]') || a.parentElement;
+      const lines = String(card && card.innerText || '').split('\\n').map((l) => l.trim()).filter((l) => l && l !== title);
+      add({ title, company: lines[0] || '', location: lines.find((l) => /remote|hybrid|on-?site|toronto|ontario|canada|, [A-Z]{2}\\b/i.test(l)) || '', posted: lines.find((l) => /ago|posted|today|yesterday|\\d{4}-\\d{2}/i.test(l)) || '', salary: pay(card || a), url: h.split('#')[0] });
+    }
+  }
+  return out.slice(0, 120);
+})()`;
+
+/** Scrolls the list the job cards sit in (LinkedIn's left column scrolls on its own), or the page. True if it moved. */
+const SCROLL_LIST_JS = `(() => {
+  ${DEEP}
+  const card = __deep('[data-occludable-job-id], [data-job-id], .job-card-container, .job_seen_beacon, [data-jk]')[0];
+  let box = card ? card.parentElement : null;
+  while (box && box !== document.body) { const s = getComputedStyle(box); if (/(auto|scroll)/.test(s.overflowY) && box.scrollHeight > box.clientHeight + 4) break; box = box.parentElement; }
+  if (box && box !== document.body) { const was = box.scrollTop; box.scrollBy(0, Math.round(box.clientHeight * 0.9)); return box.scrollTop !== was; }
+  const was = scrollY; window.scrollBy(0, Math.round(innerHeight * 0.9)); return scrollY !== was;
+})()`;
+
 /** The best picture or video on the page, for "get me a map": the biggest one in view. */
 const BEST_MEDIA_JS = `(() => {
   const all = [...document.querySelectorAll('img, video, canvas, svg, picture, iframe[src*="youtube"], iframe[src*="twitch"]')];
@@ -326,6 +382,38 @@ export class Driver {
       return { title: r.title, url: r.url, text: d.lines.join('\n').slice(0, 7000), more: false, unchanged: { lines: d.sameLines, controls: d.sameItems }, items: d.items as typeof items };
     }
     return { title: r.title, url: r.url, text: r.text, more: r.more, items };
+  }
+
+  /** Job cards on this page as clean data. Read-only. */
+  async jobCards(pageId: number): Promise<{ jobs: Record<string, string>[] }> {
+    const { p, wc } = this.wcOf(pageId);
+    this.checkChallenge(p, await this.state(wc, null));
+    return { jobs: await wc.executeJavaScriptInIsolatedWorld(WORLD, [{ code: JOBS_JS }]) as Record<string, string>[] };
+  }
+
+  /**
+   * Scroll through a list of jobs collecting every card, merged by link, so a list that only draws what is on screen
+   * (LinkedIn's) is never half-read. A person's pace between scrolls; stops when nothing new comes twice, or at max.
+   */
+  async collectJobs(pageId: number, max = 60): Promise<{ jobs: Record<string, string>[]; scrolls: number; end: boolean }> {
+    const { p, wc } = this.wcOf(pageId);
+    const all = new Map<string, Record<string, string>>();
+    let still = 0, scrolls = 0, end = false;
+    for (let round = 0; round < 15 && all.size < max; round++) {
+      const st = await this.state(wc, null);
+      this.checkChallenge(p, st);
+      const got = await wc.executeJavaScriptInIsolatedWorld(WORLD, [{ code: JOBS_JS }]) as Record<string, string>[];
+      const before = all.size;
+      for (const j of got) if (!all.has(j.url!)) all.set(j.url!, j);
+      still = all.size === before ? still + 1 : 0;
+      if (still >= 2) { end = true; break; }
+      const moved = await wc.executeJavaScriptInIsolatedWorld(WORLD, [{ code: SCROLL_LIST_JS }]) as boolean;
+      if (!moved) { still++; if (still >= 2) { end = true; break; } }
+      scrolls++;
+      await this.settle(wc);
+      await new Promise((r) => setTimeout(r, 1500 + Math.random() * 2500));
+    }
+    return { jobs: [...all.values()].slice(0, max), scrolls, end };
   }
 
   /** Find words on the page: the lines that have them, and the controls whose names do. */
