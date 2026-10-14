@@ -41,7 +41,9 @@ test('M2: the heartbeat never puts the key on a command line', () => {
   const hb = /cat > "\$DIR\/heartbeat\.sh" <<'HEARTBEAT'\n([\s\S]*?)HEARTBEAT\n/.exec(setup)?.[1] ?? '';
   assert.match(hb, /curl -s -m 4 -K "\$DIR\/alive\.curl"/, 'the address and key come from a config file');
   assert.doesNotMatch(hb, /HOOKKEY|[?&]k=/, 'no key in the script itself');
-  assert.match(setup, /umask 077; printf 'url = "http:\/\/%s:%s\/alive\?k=%s"/, 'the config file is written private');
+  assert.match(setup, /umask 077; printf 'url = "http:\/\/%s:%s\/alive"\nheader = "x-aang-key: %s"/, 'the config file is written private, the key as a header (audit L6)');
+  assert.match(setup, /umask 077; printf 'header = "x-aang-key: %s"\n' "\$HOOK_KEY" > "\$DIR\/hook\.curl"/, 'the hooks read their key from a private file too');
+  assert.doesNotMatch(setup, /[?&]k=\$HOOK_KEY|'&k=' \+ key/, 'no key in any address');
   const plist = /<key>Label<\/key><string>com\.aang\.heartbeat<\/string>[\s\S]*?<\/array>/.exec(setup)?.[0] ?? '';
   assert.ok(plist.includes('heartbeat.sh'));
   assert.doesNotMatch(plist, /HOOKKEY|FRONTKEY/);
