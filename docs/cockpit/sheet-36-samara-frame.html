@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 36 - Samara frame</title>
+<!-- Sheet 36 (2026-10-14): his ask, "all good logos these days are encased somehow? the samara does feel a little empty".
+     Five ways to give the lantern something to sit in, each lit (Samara open) and unlit (closed), crisp pixel art drawn
+     on a 64 grid (the Mac's Dock shows it at 1024 = 64 x 16), in Aang's own colours. -->
+<style>
+  @font-face{font-family:Cinzel;src:url(../../src/Shell/pages/fonts/Cinzel.woff2) format("woff2");font-weight:400 900}
+  @font-face{font-family:Figtree;src:url(../../src/Shell/pages/fonts/Figtree.woff2) format("woff2");font-weight:300 900}
+  @font-face{font-family:Silkscreen;src:url(../../src/Shell/pages/fonts/Silkscreen-Regular.woff2) format("woff2")}
+  html,body{background:#17110c;margin:0}
+  body{color:#e8dcc4;font-family:Figtree,sans-serif;padding:24px}
+  h1{font:400 20px Silkscreen,monospace;color:#FFC43C;letter-spacing:2px;margin:0 0 4px}
+  .lead{color:#b9a684;font-size:14px;margin:0 0 20px;max-width:1150px;line-height:1.5}
+  canvas{image-rendering:pixelated;display:block}
+  .opt{background:#24170e url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;border:3px solid #0d0703;border-radius:12px;padding:16px;margin-bottom:20px;max-width:1150px}
+  .opt h2{font:400 11px Silkscreen,monospace;color:#FFC43C;letter-spacing:1.5px;margin:0 0 2px}
+  .opt .nm{font:700 22px Cinzel,serif;color:#fbe7bf;text-shadow:2px 2px 0 #000;margin:0 0 6px}
+  .opt p{font-size:13.5px;color:#c9b48c;line-height:1.45;margin:0 0 12px;max-width:760px}
+  .row{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-end}
+  .cell{display:flex;flex-direction:column;align-items:center;gap:6px;font:400 8px Silkscreen,monospace;color:#a8977a}
+  .light{background:#eef0f4;border-radius:10px;padding:10px}
+  .dark{background:#1c1c22;border-radius:10px;padding:10px}
+  .dock{display:flex;gap:10px;align-items:flex-end;padding:8px 12px;border-radius:20px;background:rgba(60,60,66,.55);border:1px solid rgba(255,255,255,.18)}
+  .wall{padding:14px 16px;border-radius:10px;background:linear-gradient(135deg,#3b4a6b,#7a5a7e 55%,#c78a5a)}
+  .ph{width:64px;height:64px;border-radius:14px}
+</style>
+</head>
+<body>
+<h1>SHEET 36 - GIVING THE LANTERN A HOME</h1>
+<p class="lead">Five ways to frame Samara's lantern so the icon feels finished, not empty. Each shown lit (Samara open) and unlit (closed): only the lantern changes, the frame stays.
+Big, then in your Dock next to other apps.</p>
+<div id="list"></div>
+<script src="samara-pixel.js"></script>
+<script>
+const N = 64;
+Object.assign(C, { gr1: '#3E5424', gr2: '#2E3E1A' });
+// the lantern on its own, lit or unlit, at size s, placed with its top-left at (ox, oy)
+const UNLIT = { '#FFF0C8': '#B9A483', '#F5C66A': '#9C8664', '#D98A2E': '#7E6747', '#9A4E16': '#4E3B26', '#FFC43C': '#8C7A4E', '#E0961E': '#6E5C38', '#FFE07A': '#9C8A5A', '#FF8040': '#7A5038', '#C95E28': '#5E3C28', '#8A3A14': '#3E2618' };
+function lamp(s, lit) { const g = lantern(grid(s), s, { leaf: true }); return lit ? g : g.map((r) => r.map((c) => (c ? UNLIT[c] || c : c))); }
+function put(dst, src, ox, oy) { src.forEach((r, y) => r.forEach((c, x) => { if (c && dst[y + oy] && x + ox < dst.length && x + ox >= 0) dst[y + oy][x + ox] = c; })); return dst; }
+function haloOn(g, mask, k, cols) { const n = g.length; for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) { if (mask[y][x]) continue; let d = 99; for (let yy = y - k; yy <= y + k; yy++) for (let xx = x - k; xx <= x + k; xx++) if (mask[yy]?.[xx]) d = Math.min(d, Math.max(Math.abs(xx - x), Math.abs(yy - y))); if (d <= k && cols[d - 1]) g[y][x] = cols[d - 1]; } return g; }
+const WARM = ['rgba(255,196,60,.55)', 'rgba(255,160,50,.30)', 'rgba(255,140,40,.15)', 'rgba(255,130,40,.07)'];
+const shine = (g, cx, cy, r, col) => { for (let y = 0; y < g.length; y++) for (let x = 0; x < g.length; x++) { const d = Math.hypot(x + .5 - cx, (y + .5 - cy) * 1.1) / r; if (d < 1 && g[y][x]) { const k = d < .45 ? 0 : d < .75 ? 1 : (x + y) % 2 ? 2 : -1; if (k >= 0) g[y][x] = col[k]; } } return g; };
+
+const OPTS = [
+  { tag: '1 - THE WOOD TILE', why: 'A carved block of Samara\'s dark wood, rounded, with the lantern glowing on it and its light warming the wood behind. Matches the browser\'s own frame.',
+    draw(lit) { const g = tile(N, [C.e1, C.e2, C.e3, C.e4], C.e4); if (lit) shine(g, 32, 30, 26, ['#7A4A24', '#5E391C', '#4E2F16']); const L = lamp(44, lit); return put(g, L, 10, 9); } },
+  { tag: '2 - THE ARCHED WINDOW', why: 'A wooden window with a round top and a night sky inside, the lantern hanging in it, a couple of stars. Ghibli, cosy, and a shape nobody else uses.',
+    draw(lit) {
+      const g = grid(N), inArch = (x, y, inset) => { const l = 6 + inset, r = 57 - inset, top = 6 + inset, bot = 61 - inset, cx = 32, ry = 26 - inset; if (x < l || x > r || y > bot) return false; if (y >= top + ry) return true; return Math.hypot((x + .5 - cx) / ((r - l + 1) / 2), (y + .5 - (top + ry)) / ry) <= 1; };
+      for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (inArch(x, y, 0)) g[y][x] = inArch(x, y, 4) ? (y < 26 ? C.k3 : y < 44 ? C.k4 : C.k5) : (inArch(x, y, 2) ? C.w4 : C.w3);
+      for (let x = 6; x <= 57; x++) { g[58][x] = C.w2; g[59][x] = C.w3; g[60][x] = C.w4; g[61][x] = C.w5; }
+      if (lit) shine(g, 32, 32, 22, ['#4A2C6E', '#3A2258', '#2C1848']);
+      for (const [x, y] of [[16, 20], [47, 16], [50, 34]]) if (g[y][x] && g[y][x] !== C.w3) g[y][x] = C.sky;
+      return outline(put(g, lamp(40, lit), 12, 12), C.o);
+    } },
+  { tag: '3 - THE LANTERN POST', why: 'No box at all: the lantern hangs from a small wooden post with a curled arm, on a tuft of grass. The post makes the shape whole, like a Stardew lamppost.',
+    draw(lit) {
+      const g = grid(N), box = (x0, y0, x1, y1, c) => { for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) g[y][x] = c; };
+      box(8, 6, 12, 58, C.w3); box(8, 6, 9, 58, C.w2); box(11, 6, 12, 58, C.w4);
+      box(8, 6, 44, 10, C.w3); box(8, 6, 44, 7, C.w2); box(40, 10, 44, 13, C.w4);
+      box(4, 56, 18, 60, C.gr1); box(6, 54, 9, 56, C.gr1); box(13, 53, 16, 56, C.gr1); box(4, 59, 18, 60, C.gr2);
+      box(41, 10, 43, 14, C.w5);                                   // the hook the lantern hangs from
+      const post = outline(g, C.o);
+      const L = lamp(42, lit), lm = grid(N); put(lm, L, 21, 13);
+      if (lit) haloOn(post, lm.map((r) => r.map((c) => !!c)), 4, WARM);
+      return put(post, L, 21, 13);
+    } },
+  { tag: '4 - THE POOL OF LIGHT', why: 'The lantern alone, with a soft round pool of warm light behind it, like lamplight on a wall. Barely a frame; when it is unlit the pool is a faint shadow.',
+    draw(lit) { const g = grid(N); for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const d = Math.hypot(x + .5 - 32, y + .5 - 32) / 29; if (d <= 1) g[y][x] = lit ? (d < .55 ? 'rgba(255,190,90,.38)' : d < .8 ? 'rgba(255,170,70,.24)' : 'rgba(255,150,60,.12)') : (d < .8 ? 'rgba(120,100,80,.20)' : 'rgba(120,100,80,.10)'); } return put(g, lamp(48, lit), 8, 8); } },
+  { tag: '5 - THE MAPLE BADGE', why: 'A big maple leaf in dark wood behind the lantern: Samara is a maple seed, so the leaf says the name. A shape no other app has.',
+    draw(lit) { const g = grid(N); for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const px = (x + .5 - 32) / 30, py = (y + .5 - 34) / 30; if (inPoly(px, py, PTS)) g[y][x] = x < 32 ? C.e1 : C.e2; }
+      const o = outline(g, C.o); if (lit) shine(o, 32, 32, 20, ['#8A5A2E', '#6E4422', '#5A3820']); return put(o, lamp(40, lit), 12, 10); } },
+];
+const PH = ['#4a7bd0', '#e2e2e2', '#5865f2', '#2f2f35', '#e0b23a'];
+const list = document.getElementById('list');
+for (const o of OPTS) {
+  const d = document.createElement('div'); d.className = 'opt';
+  d.innerHTML = `<h2>${o.tag}</h2><div class="nm">Samara</div><p>${o.why}</p>`;
+  const row = document.createElement('div'); row.className = 'row';
+  const cell = (g, s, label, cls) => { const c = document.createElement('div'); c.className = 'cell'; const b = document.createElement('div'); b.className = cls; b.append(paint(g, s)); c.append(b, Object.assign(document.createElement('span'), { textContent: label })); return c; };
+  const lit = o.draw(true), dim = o.draw(false);
+  row.append(cell(lit, 3, 'OPEN (LIT)', 'dark'), cell(dim, 3, 'CLOSED (UNLIT)', 'dark'), cell(lit, 3, 'ON LIGHT', 'light'));
+  const w = document.createElement('div'); w.className = 'wall'; const dk = document.createElement('div'); dk.className = 'dock';
+  PH.slice(0, 2).forEach((c) => dk.append(Object.assign(document.createElement('div'), { className: 'ph', style: `background:${c}` }))); dk.append(paint(lit, 1)); PH.slice(2).forEach((c) => dk.append(Object.assign(document.createElement('div'), { className: 'ph', style: `background:${c}` })));
+  w.append(dk); const wc = document.createElement('div'); wc.className = 'cell'; wc.append(w, Object.assign(document.createElement('span'), { textContent: 'IN YOUR DOCK' })); row.append(wc);
+  d.append(row); list.append(d);
+}
+</script>
+</body>
+</html>
