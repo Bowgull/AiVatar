@@ -735,7 +735,10 @@ el('darksw').addEventListener('click', (e) => { e.preventDefault(); if (state.da
 document.addEventListener('click', (e) => { if (!el('sitepanel').contains(e.target) && !lock.contains(e.target)) { el('sitepanel').hidden = true; lock.classList.remove('open'); } });
 // The shield's panel sits OVER the page, like the ... menu, on a still picture of it (his report, 2026-10-14: pushing the live
 // page down to make room left a big white bar above it). However it closes, the live page comes back.
-new MutationObserver(() => { if (el('sitepanel').hidden) unfreeze('site'); else freeze('site'); }).observe(el('sitepanel'), { attributes: true, attributeFilter: ['hidden'] });
+// Only on a real change: every click anywhere sets hidden again, and a stray "unfreeze" put the live page back over the open
+// tab list (his screenshot, 2026-10-14).
+let siteOver = false;
+new MutationObserver(() => { const open = !el('sitepanel').hidden; if (open === siteOver) return; siteOver = open; if (open) freeze('site'); else unfreeze('site'); }).observe(el('sitepanel'), { attributes: true, attributeFilter: ['hidden'] });
 el('popopen').addEventListener('click', () => { window.aang?.browserAct?.('popupopen'); el('sitepanel').hidden = true; lock.classList.remove('open'); });
 el('popallow').addEventListener('click', () => { window.aang?.browserAct?.('popupallow'); el('sitepanel').hidden = true; lock.classList.remove('open'); });
 

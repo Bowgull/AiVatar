@@ -1091,6 +1091,7 @@ export class AangBrowser {
       try { if (this.alive(from)) from.win!.contentView.removeChildView(t.view); } catch { /* not shown */ }
       t.view.setVisible(false);
       to.win!.contentView.addChildView(t.view);
+      if (to.trayOn && to.trayV) to.win!.contentView.addChildView(to.trayV);   // the open tab list stays on top
     }
     t.pane = to.id;
     t.opener = null;
@@ -2274,6 +2275,7 @@ export class AangBrowser {
     t.lent = false;
     view.setVisible(false);
     w.contentView.addChildView(view);
+    this.raiseTray();                                   // back from the popout, never over the open tab list (2026-10-14)
     // At its full size but out of sight for a moment, so the site redoes its layout (popout size to tab size)
     // where he cannot see it, then shown already settled (2026-10-12, the odd resize coming back).
     const [cw, ch] = w.getContentSize();
