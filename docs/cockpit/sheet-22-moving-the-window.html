@@ -1,0 +1,91 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Moving the browser</title>
+<style>
+:root{--ink:#f3e6c8;--muted:#b9a684;--grab:rgba(110,230,120,.32);--grabline:#7fe58a;--bg:#17110c}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 "Segoe UI",system-ui,sans-serif;padding:28px}
+h1{font-size:24px;margin:0 0 4px}
+.sub{color:var(--muted);margin:0 0 26px}
+.board{margin:0 0 34px}
+.board h2{font-size:18px;margin:0 0 4px}
+.board p{margin:0 0 10px;color:var(--muted);max-width:1000px}
+.cost{display:inline-block;font-size:12px;padding:2px 8px;border-radius:6px;background:#3a2a1a;color:var(--ink);margin-left:8px;vertical-align:2px}
+.band{position:relative;width:1280px;height:120px;background:url(sheet-22-frame.png) 0 0/1280px 1000px no-repeat;border-radius:10px;overflow:hidden}
+.full{position:relative;width:640px;height:500px;background:url(sheet-22-frame.png) 0 0/640px 500px no-repeat;border-radius:10px;overflow:hidden}
+.g{position:absolute;background:var(--grab);outline:2px dashed var(--grabline);outline-offset:-2px}
+.tag{position:absolute;font-size:12px;font-weight:600;background:#0d2a10;color:#bff5c4;padding:2px 7px;border-radius:5px;white-space:nowrap}
+.wood{position:absolute;background:url(sheet-22-band.png) 0 0/auto 100%}
+.row{display:flex;gap:26px;align-items:flex-start}
+.legend{display:flex;gap:10px;align-items:center;color:var(--muted);margin-bottom:22px}
+.legend i{width:26px;height:14px;background:var(--grab);outline:2px dashed var(--grabline);outline-offset:-2px}
+.pick{border:2px solid #d9a441;border-radius:12px;padding:16px 18px;background:#22180f;max-width:1240px}
+</style></head><body>
+<h1>Sheet 22: making the browser easy to move</h1>
+<p class="sub">Your real browser, as it is now. Nothing about the look changes unless the option says so.</p>
+<div class="legend"><i></i> = where you can grab and drag the window</div>
+
+<div class="board">
+  <h2>Today</h2>
+  <p>Only the thin wood strips above and below the buttons, and the bit of wood between the buttons, can be grabbed. About 10 pixels tall. That is why it is fiddly.</p>
+  <div class="band">
+    <div class="g" style="left:0;top:0;width:1280px;height:6px"></div>
+    <div class="g" style="left:0;top:48px;width:1280px;height:10px"></div>
+    <div class="g" style="left:1086px;top:6px;width:12px;height:42px"></div>
+    <div class="g" style="left:128px;top:6px;width:10px;height:42px"></div>
+    <div class="tag" style="left:560px;top:72px">tiny grab strips</div>
+  </div>
+</div>
+
+<div class="board">
+  <h2>Option A: the wood around the page becomes a handle<span class="cost">no look change</span></h2>
+  <p>The wood frame around the page (top, sides, bottom) is already there and big. Make all of it grabbable. The page itself and the tab tray handle still click like normal. This is the biggest target for zero visual change.</p>
+  <div class="full">
+    <div class="g" style="left:0;top:33px;width:640px;height:14px"></div>
+    <div class="g" style="left:15px;top:47px;width:15px;height:440px"></div>
+    <div class="g" style="left:0;top:137px;width:15px;height:350px"></div>
+    <div class="g" style="left:625px;top:47px;width:15px;height:440px"></div>
+    <div class="g" style="left:0;top:486px;width:640px;height:14px"></div>
+    <div class="tag" style="left:190px;top:240px;background:#0d2a10">grab anywhere on the wood</div>
+  </div>
+</div>
+
+<div class="board">
+  <h2>Option B: a narrower address bar<span class="cost">small look change</span></h2>
+  <p>The address bar shrinks to about 60% and sits in the middle, like Safari. The wood on both sides of it becomes grab space. Web addresses still fit; long ones fade at the end like now.</p>
+  <div class="band">
+    <div class="wood" style="left:138px;top:5px;width:220px;height:44px"></div>
+    <div class="wood" style="left:868px;top:5px;width:220px;height:44px"></div>
+    <div class="g" style="left:132px;top:0;width:230px;height:58px"></div>
+    <div class="g" style="left:864px;top:0;width:230px;height:58px"></div>
+    <div class="tag" style="left:190px;top:72px">grab here</div>
+    <div class="tag" style="left:930px;top:72px">or here</div>
+  </div>
+</div>
+
+<div class="board">
+  <h2>Option C: a carved grip plaque<span class="cost">small look change</span></h2>
+  <p>A small carved wood piece with grip notches, left of the back button, like the handle on a drawer. Obvious where to grab. Small target though.</p>
+  <div class="band" style="background-position:44px 0">
+    <div class="wood" style="left:0;top:0;width:44px;height:58px"></div>
+    <div style="position:absolute;left:8px;top:9px;width:28px;height:38px;border-radius:7px;background:#5a3a1e;box-shadow:inset 0 2px 0 #8a5d32,inset 0 -2px 0 #2b1a0c,0 0 0 2px #2b1a0c">
+      <div style="position:absolute;left:8px;top:8px;width:12px;height:22px;background:radial-gradient(circle,#2b1a0c 2px,transparent 2.5px) 0 0/6px 6px"></div>
+    </div>
+    <div class="g" style="left:4px;top:5px;width:36px;height:48px"></div>
+    <div class="tag" style="left:4px;top:72px">grip</div>
+  </div>
+</div>
+
+<div class="board">
+  <h2>Option D: a taller wood lip on top<span class="cost">look change</span></h2>
+  <p>The top wood band grows by about 14 pixels, a raised ridge above the buttons. A full-width grab strip, but the browser gets a bit taller and the page a bit shorter.</p>
+  <div class="band" style="background-position:0 16px">
+    <div class="wood" style="left:0;top:0;width:1280px;height:16px;filter:brightness(1.15)"></div>
+    <div class="g" style="left:0;top:0;width:1280px;height:20px"></div>
+    <div class="tag" style="left:560px;top:84px">full-width ridge</div>
+  </div>
+</div>
+
+<div class="pick">
+  <b>My suggestion:</b> A first. It keeps the look you like exactly as it is and gives you a big handle on every side. Add B too if you still want more room up top. C and D change the look, so only if A and B are not enough.<br>
+  Also, either way: double-clicking the wood will maximize or restore, and dragging to a screen edge snaps it, like normal Windows windows.
+</div>
+</body></html>
