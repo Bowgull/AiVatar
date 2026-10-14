@@ -244,6 +244,8 @@ export interface SetupOpts {
   update?: boolean;
   /** Samara's changelog (his ask, 2026-10-14), kept on the Mac too, beside Aang's other Mac files. */
   changelog?: string;
+  /** The PC's public update key (PEM): the Mac runs only updates signed with its private half (code audit M4). */
+  signPub?: string;
 }
 
 /** The whole bash script the Mac runs. `shadow` is this PC's Tailscale address. */
@@ -274,7 +276,9 @@ SHADOW=${q(shadow)}; HOOK_PORT=${hookPort}; HOOK_KEY=${q(hookKey)}; FRONT_KEY=${
 ${desk ? `DISCORD_TOKEN=${q(desk.token)}; DESK_KEY=${q(desk.key)}; DESK_PORT=${desk.port}` : ''}
 DIR="$HOME/Library/Application Support/AangListener"; PLIST="$HOME/Library/LaunchAgents/com.aang.listener.plist"
 mkdir -p "$HOME/.claude" "$DIR" "$HOME/Library/LaunchAgents"
-
+${opts.signPub ? `# The PC's update stamp (2026-10-14): from now on the Mac runs only updates signed with the PC's own key.
+printf '%s' '${b64(opts.signPub)}' | /usr/bin/base64 -D > "$DIR/update-sign.pub"
+` : ''}
 NODE_DIR="$DIR/node"
 # Getting an update ready only makes the new Samara (below); everything else happens when he presses Restart now.
 if [ "$PHASE" != "prepare" ] && [ "$PHASE" != "swap" ]; then
@@ -581,7 +585,8 @@ ${opts.changelog ? `    # Samara's changelog, the same one as on the PC (his ask
   fi
 fi
 fi
-` : ''}${opts.update ? `[ "$PHASE" = "post" ] && { echo "The rest is done."; exit 0; }
+` : ''}${opts.update ? `# The update script holds Aang's keys, so it is not left lying on disk once its last part is done (2026-10-14).
+[ "$PHASE" = "post" ] && { echo "The rest is done."; rm -f "$0"; exit 0; }
 echo "Update done. Opening Samara again."
 APP="$HOME/Applications/Samara.app"; BR="$DIR/browser"
 [ -d "$APP" ] && open -a "$APP"

@@ -5,10 +5,11 @@
 //
 // Run as the "Aang" app the Mac setup makes (Aang.app in ~/Applications). It can be his default browser (his yes).
 import { startClaudeDoor } from './claudedoor.ts';
-import { app, globalShortcut, ipcMain, Menu, nativeImage, powerMonitor } from 'electron';
+import { app, globalShortcut, ipcMain, Menu, nativeImage, powerMonitor, session } from 'electron';
+import { denyPermissions } from './safety.ts';
 import { appendFileSync, chmodSync, existsSync, openSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
-import { createHash } from 'node:crypto';
+import { createHash, verify as verifySig } from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
 import { WebSocket } from 'ws';
@@ -58,6 +59,9 @@ app.on('open-url', (e, u) => { e.preventDefault(); openUrl(u); });
 if (!app.requestSingleInstanceLock()) app.quit();
 
 app.whenReady().then(async () => {
+  // Nothing outside the tabs (the popout, Aang's cards) may use the camera, mic, location or the rest (code audit,
+  // 2026-10-14); the tabs keep their own ask-per-site rules.
+  denyPermissions(session.defaultSession, []);
   // The Mac's own menu, so Cmd+C, Cmd+V, Cmd+Q and the rest work as on every Mac app.
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     { role: 'appMenu' }, { role: 'editMenu' }, { role: 'windowMenu' },
@@ -213,6 +217,19 @@ app.whenReady().then(async () => {
   const prepare = (m: any) => {
     const script = String(m.script ?? ''), sha = createHash('sha256').update(script).digest('hex');
     if (!offered || m.version !== offered.version || sha !== m.sha256 || !script.startsWith('#!/bin/bash')) { console.error('aang: the update did not check out; not used'); preparing = ''; return; }
+    // Signed by the PC (code audit M4, 2026-10-14): once the Mac holds the PC's public key, an update without the
+    // PC's signature is never run, whoever sends it. The key arrives with the first update that carries it.
+    let pub = ''; try { pub = readFileSync(path.join(LISTENER, 'update-sign.pub'), 'utf8'); } catch { /* not yet */ }
+    if (pub) {
+      let good = false;
+      try { good = verifySig(null, Buffer.from(script), pub, Buffer.from(String(m.sig ?? ''), 'base64')); } catch { good = false; }
+      if (!good) {
+        console.error('aang: the update was not signed by the PC; not used');
+        preparing = '';
+        if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ t: 'update.report', ok: false, version: m.version, outcome: "the update did not carry the PC's signature, so it was not used", installed: installed(), updateLog: '', aangLog: '' }));
+        return;
+      }
+    }
     try {
       writeFileSync(SCRIPT, script); chmodSync(SCRIPT, 0o700);
       const log = path.join(LISTENER, 'update-prepare.log'), out = openSync(log, 'w');

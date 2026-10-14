@@ -716,7 +716,10 @@ export class AangBrowser {
       }
       item.once('done', (_ev, state) => {
         if (state === 'completed') {
-          try { writeFileSync(to + ':Zone.Identifier', `[ZoneTransfer]\r\nZoneId=3\r\nHostUrl=${isWeb(from) ? from : 'about:internet'}\r\n`); }
+          // Marked "from the internet", so the system checks it before it runs: Windows' zone mark, or on the Mac
+          // Apple's quarantine flag (Gatekeeper asks before opening it), the way Safari marks downloads (2026-10-14).
+          if (process.platform === 'darwin') execFile('/usr/bin/xattr', ['-w', 'com.apple.quarantine', `0081;${Math.floor(Date.now() / 1000).toString(16)};Samara;`, to], (e) => { if (e) console.error('shell: could not mark the download for Gatekeeper: ' + e.message); });
+          else try { writeFileSync(to + ':Zone.Identifier', `[ZoneTransfer]\r\nZoneId=3\r\nHostUrl=${isWeb(from) ? from : 'about:internet'}\r\n`); }
           catch (e) { console.error('shell: could not mark the download for Defender: ' + (e as Error).message); }
         }
         this.live.delete(d.id); this.got.delete(d.id);
