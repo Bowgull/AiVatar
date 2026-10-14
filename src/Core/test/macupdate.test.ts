@@ -93,3 +93,12 @@ test('the hub passes the Mac\'s version and its Restart now to the brain, and th
     mac.close();
   } finally { hub.close(); srv.close(); }
 });
+
+test('Samara is signed with a lasting signature made once on the Mac (macOS then remembers what he allowed)', () => {
+  assert.match(update, /SIGN_ID="Samara on this Mac"/);
+  assert.match(update, /security find-certificate -c "\$SIGN_ID"/, 'made only once');
+  assert.match(update, /extendedKeyUsage=critical,codeSigning/);
+  assert.match(update, /sign_app "\$NEWAPP"/);
+  assert.match(update, /codesign --force --deep -s "\$SIGNER" "\$1" >\/dev\/null 2>&1 \|\| codesign --force --deep -s - "\$1"/, 'falls back to the old signing, never blocks an update');
+  assert.doesNotMatch(update, /codesign --force --deep -s - "\$NEWAPP"/);
+});

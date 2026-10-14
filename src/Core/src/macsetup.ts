@@ -428,6 +428,24 @@ if [ ! -d "$BR/engine-$EV/Electron.app" ]; then
   if [ "$(shasum -a 256 "$BR/$ZIP" 2>/dev/null | cut -d' ' -f1)" = "$SUM" ]; then mkdir -p "$BR/engine-$EV" && ditto -x -k "$BR/$ZIP" "$BR/engine-$EV"; else echo "     The engine download did not match its fingerprint; nothing was installed."; fi
   rm -f "$BR/$ZIP"
 fi
+# A lasting signature (his yes, 2026-10-14: macOS asked for the microphone again after every update). Samara used to be
+# signed with a throwaway signature each time, so macOS saw a new app and forgot what he allowed. Now it is signed with
+# a certificate made once on this Mac and kept in his own login keychain, so macOS knows Samara across updates, and no
+# other program can pose as it to borrow its permissions. If it cannot be made, the old signing is used.
+SIGN_ID="Samara on this Mac"; SIGNER=-
+make_signer() {
+  if security find-certificate -c "$SIGN_ID" "$HOME/Library/Keychains/login.keychain-db" >/dev/null 2>&1; then return 0; fi
+  T="$(mktemp -d)"
+  printf '%s\\n' '[req]' 'distinguished_name=dn' 'x509_extensions=ext' 'prompt=no' '[dn]' "CN=$SIGN_ID" '[ext]' 'basicConstraints=critical,CA:false' 'keyUsage=critical,digitalSignature' 'extendedKeyUsage=critical,codeSigning' > "$T/c.cnf"
+  /usr/bin/openssl req -x509 -newkey rsa:2048 -nodes -days 3650 -keyout "$T/k.pem" -out "$T/c.pem" -config "$T/c.cnf" >/dev/null 2>&1 || { rm -rf "$T"; return 1; }
+  PW="$(LC_ALL=C tr -dc A-Za-z0-9 </dev/urandom | head -c 24)"
+  /usr/bin/openssl pkcs12 -export -inkey "$T/k.pem" -in "$T/c.pem" -out "$T/i.p12" -passout "pass:$PW" >/dev/null 2>&1 || { rm -rf "$T"; return 1; }
+  security import "$T/i.p12" -k "$HOME/Library/Keychains/login.keychain-db" -P "$PW" -T /usr/bin/codesign >/dev/null 2>&1 || { rm -rf "$T"; return 1; }
+  rm -rf "$T"
+  echo "     Samara now has a lasting signature on this Mac, so macOS remembers what you allowed it."
+}
+sign_app() { codesign --force --deep -s "$SIGNER" "$1" >/dev/null 2>&1 || codesign --force --deep -s - "$1" >/dev/null 2>&1 || true; }
+make_signer && SIGNER="$SIGN_ID"
 # One engine (his yes, 2026-10-13): Aang's browser is built on castLabs' engine for Intel Macs, so paid video plays
 # right in its tabs. Pinned, with the streaming signature made on the PC
 # with his free castLabs account (the signature is a small file tied to exactly this engine). Signed for macOS
@@ -439,7 +457,7 @@ if [ ! -f "$BR/drm-$DV/signed" ]; then
   if [ "$(shasum -a 256 "$BR/$DZIP" 2>/dev/null | cut -d' ' -f1)" = "$DSUM" ]; then
     rm -rf "$BR/drm-$DV"; mkdir -p "$BR/drm-$DV"; ditto -x -k "$BR/$DZIP" "$BR/drm-$DV"
     printf '%s' '${b64(desk.browser.castlabsSig)}' | /usr/bin/base64 -D > "$BR/drm-$DV/Electron.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/Electron Framework.sig"
-    codesign --force --deep -s - "$BR/drm-$DV/Electron.app" >/dev/null 2>&1 || true
+    sign_app "$BR/drm-$DV/Electron.app"
     touch "$BR/drm-$DV/signed"
     echo "     Netflix, Crave, Disney+, Prime and Crunchyroll play right in Samara."
   else echo "     The paid-video engine did not match its fingerprint; it was not installed."; fi
@@ -487,7 +505,7 @@ if [ -d "$BASE" ] && [ -x "$NODE_DIR/bin/node" ]; then
       for s in 16 32 128 256 512; do d=$((s*2)); sips -z $s $s "$FACE" --out "$IS/icon_$s"x"$s.png" >/dev/null 2>&1; sips -z $d $d "$FACE" --out "$IS/icon_$s"x"$s@2x.png" >/dev/null 2>&1; done
     fi
     iconutil -c icns "$IS" -o "$RES/electron.icns" >/dev/null 2>&1 || true
-    codesign --force --deep -s - "$NEWAPP" >/dev/null 2>&1 || true
+    sign_app "$NEWAPP"
     return 0
   }
   # His UPDATE key, step one (2026-10-14: "when i hit update it doesnt just freeze my computer"): the new Samara is
