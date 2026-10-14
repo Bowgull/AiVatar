@@ -85,6 +85,26 @@ export function carriesData(u: string): string {
   return '';
 }
 /** Does this text look like his personal details (AI lockdown G3)? An email, a phone number, or one of his own words. */
+/**
+ * Words on a page aimed at an AI assistant (2026-10-14): "ignore your previous instructions", "you are now an AI
+ * agent", fake system or assistant turns, "don't tell the user". A real page talks to people, never to the model
+ * reading it. Returns the first such phrase, or ''.
+ */
+const AI_TALK = [
+  /\b(ignore|disregard|forget|override)\s+(all\s+|any\s+)?(of\s+)?(the\s+|your\s+|my\s+)?(previous|prior|above|earlier|preceding|original|system)\s+(instructions?|prompts?|rules|directions|guidelines)/i,
+  /\b(you are|you're|act as)\s+(now\s+)?(an?\s+)?(ai|ai assistant|language model|llm|claude|chatgpt|gpt|gemini|browser agent)\b(?![-\s]*(powered|driven|enthusiast|company|startup|team|first|native|tools?|products?|platform))/i,
+  /\b(system prompt|developer message|new instructions|hidden instructions?)\b/i,
+  /(^|\n)\s*(system|assistant)\s*:/i,
+  /<\/?\s*(system|instructions?|assistant|user_query|im_start)\b/i,
+  /\b(do not|don't|never)\s+(tell|inform|alert)\s+(the\s+)?(user|human|joshua)\b/i,
+  /\b(attention|note|message)\s+(to|for)\s+(the\s+|any\s+)?(ai|assistant|llm|ai agent|claude|chatgpt|model)\b/i,
+];
+export function talksToAI(text: string): string {
+  const t = String(text ?? '');
+  for (const re of AI_TALK) { const m = re.exec(t); if (m) return t.slice(m.index, m.index + 80).replace(/\s+/g, ' ').trim(); }
+  return '';
+}
+
 export function personal(text: string, words: string[] = []): string {
   const t = String(text ?? '');
   if (/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i.test(t)) return 'an email address';

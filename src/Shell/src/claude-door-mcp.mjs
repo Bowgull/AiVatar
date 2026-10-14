@@ -164,7 +164,7 @@ async function call(name, a) {
   const page = Number(a.page);
   if (name === 'browser_extract') {
     const r = await step('extract', { page, kind: String(a.kind ?? '') });
-    return r.ok ? text(WORDS(`${r.title}\n${r.url}
+    return r.ok ? text((r.warn ? `SAMARA WARNS: ${r.warn}\n` : '') + WORDS(`${r.title}\n${r.url}
 \n${(r.lines || []).join('\n')}${r.more ? '\n[cut short: the rest left out]' : ''}`)) : text(r.error, true);
   }
   if (name === 'browser_hover' || name === 'browser_drag') {
@@ -186,7 +186,7 @@ async function call(name, a) {
     if (!r.ok) return text(r.error, true);
     const items = (r.items || []).map(line).join('\n');
     const same = r.unchanged ? `\n(${r.unchanged.lines} lines and ${r.unchanged.controls} controls are the same as your last read, not repeated.)` : '';
-    return text(`Page ${page}.${same}\n\n${WORDS(`${r.title}\n${r.url}\n\n${r.text}${r.more ? '\n[more below: scroll]' : ''}\n\nControls (numbers stay the same while the control is on the page):\n${items}`)}`);
+    return text(`Page ${page}.${same}${r.warn ? `\nSAMARA WARNS: ${r.warn}` : ''}\n\n${WORDS(`${r.title}\n${r.url}\n\n${r.text}${r.more ? '\n[more below: scroll]' : ''}\n\nControls (numbers stay the same while the control is on the page):\n${items}`)}`);
   }
   if (name === 'browser_jobs' || name === 'browser_collect_jobs') {
     const r = await step(name === 'browser_jobs' ? 'jobs' : 'collect', { page, ...(name === 'browser_collect_jobs' ? { max: Number(a.max) || 60 } : {}), ...(a.seen === true ? { seen: true } : {}) });
