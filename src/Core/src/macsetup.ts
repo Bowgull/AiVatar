@@ -467,9 +467,12 @@ if [ -d "$BASE" ] && [ -x "$NODE_DIR/bin/node" ]; then
     $PB -c "Set :CFBundleDisplayName Samara" "$PL" >/dev/null 2>&1 || $PB -c "Add :CFBundleDisplayName string Samara" "$PL"
     $PB -c "Delete :CFBundleURLTypes" "$PL" >/dev/null 2>&1 || true
     $PB -c "Add :CFBundleURLTypes array" -c "Add :CFBundleURLTypes:0 dict" -c "Add :CFBundleURLTypes:0:CFBundleURLName string Web site URL" -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes array" -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes:0 string http" -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes:1 string https" "$PL"
-    # Samara's lantern is the icon (his pick, sheet 33 L1): each size its own crisp pixel art, never resized here.
+    # Samara's lantern is the icon (his picks, 2026-10-14): the lantern alone, nothing behind it, UNLIT here (the Dock
+    # while Samara is closed); Samara lights it while it runs. Each size its own crisp pixel art, never resized here.
     IS="$BR/samara.iconset"; rm -rf "$IS"; mkdir -p "$IS"; SI="$RES/app/pages/art/samara"
-    if [ -f "$SI/samara-1024.png" ]; then
+    if [ -f "$SI/samara-unlit-1024.png" ]; then
+      for s in 16 32 128 256 512; do d=$((s*2)); cp "$SI/samara-unlit-$s.png" "$IS/icon_$s"x"$s.png"; cp "$SI/samara-unlit-$d.png" "$IS/icon_$s"x"$s@2x.png"; done
+    elif [ -f "$SI/samara-1024.png" ]; then
       for s in 16 32 128 256 512; do d=$((s*2)); cp "$SI/samara-$s.png" "$IS/icon_$s"x"$s.png"; cp "$SI/samara-$d.png" "$IS/icon_$s"x"$s@2x.png"; done
     else
       FACE="$RES/app/pages/art/aang-face.png"

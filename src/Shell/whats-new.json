@@ -65,6 +65,11 @@
       "at": "2026-10-14T14:14:57-04:00",
       "kind": "feature",
       "text": "Check for updates is now in Samara's own menu."
+    },
+    {
+      "at": "2026-10-14T14:17:19-04:00",
+      "kind": "feature",
+      "text": "Samara's icon is now just the lantern: lit and glowing while Samara is open, unlit when it's closed."
     }
   ]
 }
