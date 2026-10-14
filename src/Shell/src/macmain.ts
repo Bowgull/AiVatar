@@ -201,6 +201,29 @@ app.whenReady().then(async () => {
       void s;
     }
   };
+  // The report (his rule, 2026-10-14: a failed update must say why, so it can be fixed). After an update ran, once
+  // the outcome is known (this Aang marked itself good, or the old one came back), what the update printed and the
+  // end of Aang's own log go to the PC, which keeps them for Claude. Once per update run.
+  const UPLOG = path.join(LISTENER, 'update.log'), UPSENT = path.join(LISTENER, 'update.reported');
+  const reportUpdate = () => {
+    try {
+      const ran = statSync(UPLOG).mtimeMs;
+      let sent = 0; try { sent = Number(readFileSync(UPSENT, 'utf8')) || 0; } catch { /* never */ }
+      if (ran <= sent || ws?.readyState !== WebSocket.OPEN) return;
+      const log = readFileSync(UPLOG, 'utf8'), i = installed(), failed = failedUpdates();
+      const rolledBack = /putting the old one back/.test(log), tried = (/"version":"([0-9a-f]+)"/.exec(log) ?? [])[1] ?? '';
+      const ok = !rolledBack && i.status === 'good' && !/npm (ERR|error)|failed; nothing was changed|did not match its fingerprint/i.test(log);
+      const outcome = rolledBack ? 'the new Aang did not start, so the old one was put back'
+        : /Installing the browser's libraries failed/.test(log) ? "installing the browser's libraries failed, so nothing was changed"
+        : /did not match its fingerprint/.test(log) ? 'a download did not match its fingerprint, so it was not installed'
+        : i.status === 'trial' ? 'it started but had not run a minute yet' : ok ? 'installed and running' : 'the update stopped part way (see its log)';
+      let aangLog = ''; try { aangLog = readFileSync(path.join(app.getPath('userData'), 'aang.log'), 'utf8').split('\n').slice(-200).join('\n'); } catch { /* none */ }
+      ws.send(JSON.stringify({ t: 'update.report', ok, version: i.version || tried || offered?.version || '', outcome, installed: i, failed: failed.slice(-5), updateLog: log.slice(-60_000), aangLog }));
+      writeFileSync(UPSENT, String(ran));
+      console.log(`aang: sent the update report (${outcome})`);
+    } catch { /* no update has run */ }
+  };
+  setTimeout(reportUpdate, 75_000);
   ipcMain.on('browser:updatego', (e) => {
     if (!browser?.isFrame(e.sender) || !offered) return;
     if (browser.inCall) { browser.updateWhy("You're in a call. Restart when it's over."); return; }
@@ -233,7 +256,7 @@ app.whenReady().then(async () => {
         }).catch((e: Error) => console.error('aang: look: ' + e.message));
       }
     });
-    s.on('open', () => { const i = installed(); s.send(JSON.stringify({ t: 'update.have', version: i.version, commit: i.commit })); });
+    s.on('open', () => { const i = installed(); s.send(JSON.stringify({ t: 'update.have', version: i.version, commit: i.commit })); if (process.uptime() > 75) reportUpdate(); });
     s.on('close', () => { if (ws === s) { ws = null; void sync.link(false); setTimeout(connect, 15_000); } });
     s.on('error', () => { /* close follows */ });
   };

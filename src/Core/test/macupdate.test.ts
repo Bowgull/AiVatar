@@ -51,7 +51,7 @@ test('both scripts are valid bash', t => {
 test('the hub passes the Mac\'s version and its Restart now to the brain, and the answer back', async () => {
   const KEY = 's'.repeat(24), seen: any[] = [];
   const hub = new BrowserSyncHub({ key: () => KEY, macAddr: () => '127.0.0.1', toShell: () => {}, shellUp: () => false, log: () => {},
-    onUpdate: (m, reply) => { seen.push(m.t); reply(m.t === 'update.have' ? { t: 'update.offer', version: 'f'.repeat(16), notes: ['A change'] } : { t: 'update.script', script: '#!/bin/bash' }); } });
+    onUpdate: (m, reply) => { seen.push(m.t); if (m.t !== 'update.report') reply(m.t === 'update.have' ? { t: 'update.offer', version: 'f'.repeat(16), notes: ['A change'] } : { t: 'update.script', script: '#!/bin/bash' }); } });
   const srv = http.createServer((_q, r) => r.writeHead(404).end());
   srv.on('upgrade', (q, s, h) => hub.upgrade(q, s, h));
   await new Promise<void>(r => srv.listen(48671, '127.0.0.1', () => r()));
@@ -62,8 +62,9 @@ test('the hub passes the Mac\'s version and its Restart now to the brain, and th
     await new Promise(r => mac.once('open', r));
     mac.send(JSON.stringify({ t: 'update.have', version: 'a'.repeat(16), commit: '' }));
     mac.send(JSON.stringify({ t: 'update.get', version: 'f'.repeat(16) }));
+    mac.send(JSON.stringify({ t: 'update.report', ok: false, outcome: 'the new Aang did not start', updateLog: 'x' }));
     await new Promise(r => setTimeout(r, 100));
-    assert.deepEqual(seen, ['update.have', 'update.get']);
+    assert.deepEqual(seen, ['update.have', 'update.get', 'update.report'], 'a failed update reports back to the brain');
     assert.deepEqual(got.map(m => m.t), ['update.offer', 'update.script']);
     mac.close();
   } finally { hub.close(); srv.close(); }
