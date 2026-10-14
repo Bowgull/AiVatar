@@ -62,7 +62,8 @@ app.whenReady().then(async () => {
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     { role: 'appMenu' }, { role: 'editMenu' }, { role: 'windowMenu' },
   ]));
-  try { app.dock?.setIcon(nativeImage.createFromPath(path.join(HERE, '..', 'pages', 'art', 'samara', 'samara-512.png'))); } catch { /* the app's own icon stays */ }
+  // His pick (2026-10-14): the lantern is lit while Samara runs; the app's own icon (the Dock when it is closed) is unlit.
+  try { app.dock?.setIcon(nativeImage.createFromPath(path.join(HERE, '..', 'pages', 'art', 'samara', 'samara-lit-512.png'))); } catch { /* the app's own icon stays */ }
 
   // Every button, menu and page of the browser, the same wiring as on the PC.
   wireBrowser(() => browser);
