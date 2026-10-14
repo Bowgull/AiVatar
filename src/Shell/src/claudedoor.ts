@@ -20,7 +20,7 @@ import { neverKeep } from './visits.ts';
 import type { AangBrowser } from './browser.ts';
 
 export const CLAUDE_DOOR_PORT = 47851;
-const OPS = new Set(['start', 'finish', 'open', 'read', 'click', 'type', 'scroll', 'picture', 'close', 'history']);
+const OPS = new Set(['start', 'finish', 'open', 'read', 'find', 'click', 'type', 'key', 'select', 'back', 'forward', 'scroll', 'picture', 'close', 'history']);
 
 /** Is this request allowed through the door at all? Pure, so it can be tested without a server. */
 export function doorAllows(req: { method?: string; url?: string; headers: Record<string, string | string[] | undefined>; peer: string }, key: string, port: number): boolean {
