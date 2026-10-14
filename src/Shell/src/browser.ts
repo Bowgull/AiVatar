@@ -169,6 +169,18 @@ const APP_LINKS: Record<string, string> = {
   claude: 'the Claude app', mailto: 'your email app', zoommtg: 'Zoom', zoomus: 'Zoom', msteams: 'Microsoft Teams',
   slack: 'Slack', discord: 'Discord', spotify: 'Spotify',
 };
+/**
+ * In front, every time (his rule, 2026-10-14: "when I click the browser from the wheel or the tray, anything, it should
+ * ALWAYS come forward"). Windows refuses a plain focus() while another app has him, and only flashes the taskbar; on top
+ * for a moment, then not, is the nudge it accepts. On the Mac the app itself has to take focus.
+ */
+export function bringFront(w: BrowserWindow): void {
+  if (!w || w.isDestroyed()) return;
+  if (w.isMinimized()) w.restore();
+  if (process.platform === 'darwin') app.focus({ steal: true });
+  w.setAlwaysOnTop(true); w.show(); w.moveTop(); w.focus();
+  setTimeout(() => { if (!w.isDestroyed()) w.setAlwaysOnTop(false); }, 400);
+}
 export function appOf(u: string): string | null {
   const m = /^([a-z][a-z0-9+.-]*):/i.exec(String(u ?? ''));
   return m && u.length <= 4000 ? APP_LINKS[m[1]!.toLowerCase()] ?? null : null;
@@ -899,8 +911,7 @@ export class AangBrowser {
     const p = this.lastPane();
     if (p) {
       this.pane = p;
-      if (p.win!.isMinimized()) p.win!.restore();
-      p.win!.show(); p.win!.focus();
+      bringFront(p.win!);
       if (url) this.newTab(url);
       return;
     }
@@ -987,7 +998,7 @@ export class AangBrowser {
       this.panes = []; this.focused = null; this.quitting = false;
       this.timers.forEach(clearInterval); this.timers = [];
     });
-    w.once('ready-to-show', () => w.show());
+    w.once('ready-to-show', () => bringFront(w));
     w.webContents.once('did-finish-load', () => {
       this.pane = p;
       // Made by dragging a tab out: that tab moves in, live.
@@ -1980,9 +1991,7 @@ export class AangBrowser {
     const w = this.win;
     if (!w || w.isDestroyed()) return;
     // Windows only lets a window jump in front of the one he is using with a nudge: on top for a moment, then not.
-    if (w.isMinimized()) w.restore();
-    w.setAlwaysOnTop(true); w.show(); w.focus();
-    setTimeout(() => { if (!w.isDestroyed()) w.setAlwaysOnTop(false); }, 400);
+    bringFront(w);
   }
   /** Set by main: open a paid service in the paid-video window. True if it opened. */
   onPaid: ((url: string) => boolean) | null = null;
