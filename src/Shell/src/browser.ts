@@ -2399,13 +2399,25 @@ export class AangBrowser {
     say(added ? `Brought in ${added} bookmarks from ${source === 'chrome' ? 'Chrome' : 'Safari'}. The bar ones are on the shelf in the drawer.` : `Nothing new in ${source === 'chrome' ? 'Chrome' : 'Safari'}: you already have all of them.`);
     this.sendTabs();
   }
-  /** The star in the slot: the page he is on goes onto the shelf, or comes off it. */
+  /** The star in the slot: the page he is on goes onto the shelf (its panel then opens to name it). Already there: nothing
+   *  changes here; the panel opens to rename or remove it (his ask, 2026-10-14: "edit the name it saves as"). */
   toggleMark(): void {
     const t = this.cur();
     if (!t || !isWeb(t.url)) return;
+    if (this.marks.some((m) => m.url === t.url)) return;
+    this.marks.unshift({ title: (t.title || t.url).slice(0, 200), url: t.url, folder: 'Bookmarks bar' });
+    this.saveMarks();
+    this.sendTabs();
+  }
+  /** From the star's panel: rename the bookmark for the page he is on, or take it off. */
+  markAct(act: string, title?: string): void {
+    const t = this.cur();
+    if (!t || !isWeb(t.url)) return;
     const i = this.marks.findIndex((m) => m.url === t.url);
-    if (i >= 0) this.marks.splice(i, 1);
-    else this.marks.unshift({ title: (t.title || t.url).slice(0, 200), url: t.url, folder: 'Bookmarks bar' });
+    if (i < 0) return;
+    if (act === 'remove') this.marks.splice(i, 1);
+    else if (act === 'rename') { const name = String(title ?? '').replace(/\s+/g, ' ').trim().slice(0, 200); this.marks[i] = { ...this.marks[i]!, title: name || t.title || t.url }; }
+    else return;
     this.saveMarks();
     this.sendTabs();
   }
@@ -2995,6 +3007,7 @@ export class AangBrowser {
       maximized: Boolean(w.isMaximized()),
       home: this.HOME,
       starred: Boolean(t && this.marks.some((m) => m.url === t.url)),
+      markTitle: (t && this.marks.find((m) => m.url === t.url)?.title) ?? '',
       // The page's zoom as he would say it: 100%, 120%... (Chromium's level is 20% per step).
       zoomPct: wc ? Math.round(Math.pow(1.2, wc.getZoomLevel()) * 100) : 100,
     });

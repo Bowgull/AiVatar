@@ -111,6 +111,12 @@
         <button class="key sm" id="shareno" type="button">Cancel<span class="k">Z</span></button>
       </div>
     </div>
+    <!-- The star's own panel (his ask, 2026-10-14): name the bookmark as it is saved, or take it off. -->
+    <div class="bandchip markpanel" id="markpanel" hidden>
+      <div class="q" id="markhead">Bookmark saved</div>
+      <input class="markname" id="markname" type="text" maxlength="200" spellcheck="false" autocomplete="off" aria-label="Bookmark name">
+      <div class="keys"><button class="key primary sm" id="markdone" type="button">Done</button><button class="key sm burnt" id="markremove" type="button">Remove</button></div>
+    </div>
     <!-- The plaque's own little panel: the one place ads can be let through, one site at a time. -->
     <div class="bandchip site" id="sitepanel" hidden>
       <div class="q"><img id="sitefav" alt="" hidden><span id="sitehost"></span></div>
