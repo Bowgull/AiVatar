@@ -231,7 +231,7 @@ export interface Doers {
   playMusic(what: string, kind?: 'track' | 'playlist' | 'artist' | 'album'): Promise<{ ok: boolean; detail: string }>;
   watchNext(show?: string, open?: boolean): Promise<{ ok: boolean; detail: string }>;
   /** Step 6.7: the ONE way anything is put on. Code reads his words before any model is asked. */
-  putOn(words: string, dub?: boolean): Promise<{ ok: boolean; detail: string }>;
+  putOn(words: string, dub?: boolean, device?: 'pc' | 'mac', how?: 'popout' | 'browser'): Promise<{ ok: boolean; detail: string }>;
   setDubPreference(want: 'sub' | 'dub', title?: string, category?: string): Promise<{ ok: boolean; detail: string }>;
   /** Something acting has finished: for the activity log. */
   report(tool: string, input: Record<string, unknown>, failed: boolean, text: string): void;
@@ -479,7 +479,8 @@ export function describeCall(tool: string, input: Record<string, unknown>): stri
     case 'mcp__aang__play_music': return `play ${short(s('what'), 60)} on Spotify`;
     case 'mcp__aang__watch_next': return 'look at your watch list on Simkl';
     // The address is shown, because what he is agreeing to is a page opening, possibly over his game.
-    case 'mcp__aang__watch': return `put ${short(s('url'), 90)} on`;
+    // Plain (2026-10-14, his "I can't understand that AI language"): the video's name and the machine, never the address.
+    case 'mcp__aang__watch': return `put ${s('title') ? `"${short(s('title'), 60)}"` : 'this video'} on ${s('device') === 'mac' ? 'your MacBook' : 'this PC'}${s('how') === 'popout' ? ' in the popout' : s('how') === 'browser' ? ' in the browser' : ''}`;
     case 'mcp__aang__mail_draft': return `draft an email to ${short(Array.isArray(input?.to) ? (input.to as unknown[]).join(', ') : '', 60)}: ${short(s('subject'), 60)}`;
     // The whole email is in the question: what he approves is what is sent.
     case 'mcp__aang__mail_send': return `SEND this email to ${short(s('to'), 100)}${s('cc') ? `, CC ${short(s('cc'), 100)}` : ''}${s('fresh') ? ` (NEW address: ${short(s('fresh'), 60)})` : ''}. Subject: ${short(s('subject'), 100)}.${s('files') ? ` Attached: ${short(s('files'), 200)}.` : ''} It says: ${short(s('body'), 700)}`;
@@ -799,12 +800,14 @@ export function makeTools(
       tool('watch_next', 'What he is watching and where he got to, from his Simkl list: "what am I watching", "where was I on Frieren", "what is next". This ANSWERS, it does not put anything on - to actually put something on, including the next episode, use `watch`.',
         { show: z.string().optional().describe('the show, in his words; leave out for all of them') },
         async ({ show }) => { if (!doers) return fail('The watch list is not available right now.'); const r = await doers.watchNext(show, false); return r.ok ? ok(r.detail) : fail(r.detail); }),
-      tool('watch', 'Put something on to watch: "put asmongold on", "put on twitch", "put the next episode of Frieren on", "put this on" with a link, "put some lofi on youtube". ONE tool for all of it - his words are read by code first, so give them to you as he said them rather than working out a link yourself. Where it opens is decided here, not by you: over his game if a game is up, otherwise an ordinary tab. If it comes back saying it is not sure what to put on, say that line to him and ask; do NOT invent a link.',
+      tool('watch', 'Put something on to watch: "put asmongold on", "put on twitch", "put the next episode of Frieren on", "put this on" with a link, "put some lofi on youtube". ONE tool for all of it - his words are read by code first, so give them as he said them rather than working out a link yourself. "Put it on" about something you just told him (a new video) or a message he replied to: put the link of that message in `words` - it is in the <just said> or <replying to> part. Never look a link up on the web when it is already there. Set `device` to "mac" when he says Mac or MacBook, "pc" otherwise. Set `how` ONLY when his words say popout or full browser; leave it out and he is shown the choice himself. If it comes back saying it is not sure what to put on, say that line to him and ask; do NOT invent a link.',
         {
           words: z.string().describe('what he said, in his own words, including any link he pasted'),
           dub: z.boolean().optional().describe('ONLY if he said sub or dub for this one. Leave it out otherwise: his saved preference is used.'),
+          device: z.enum(['pc', 'mac']).optional().describe('"mac" when he says Mac or MacBook; otherwise leave out (this PC)'),
+          how: z.enum(['popout', 'browser']).optional().describe('ONLY when his words say popout, or full browser / a tab. Leave out otherwise: he picks.'),
         },
-        async ({ words, dub }) => { if (!doers) return fail('Watching is not available right now.'); const r = await doers.putOn(words, dub); return r.ok ? ok(r.detail) : fail(r.detail); }),
+        async ({ words, dub, device, how }) => { if (!doers) return fail('Watching is not available right now.'); const r = await doers.putOn(words, dub, device, how); return r.ok ? ok(r.detail) : fail(r.detail); }),
       tool('set_dub', 'Remember whether he wants subs or a dub, when he says so as a preference ("always dub anime", "I watch Frieren subbed", "dub from now on"). Give the show for just that show, or the kind ("anime") for that kind, or neither for everything.',
         {
           want: z.enum(['sub', 'dub']),

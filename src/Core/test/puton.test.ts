@@ -153,3 +153,12 @@ test('a hand-edited or older file is filled in, not thrown on', () => {
   assert.deepEqual(t.categories, { anime: 'dub' }, 'and a bad row is dropped rather than kept');
   assert.deepEqual(t.shows, {});
 });
+
+// 2026-10-14, the Wattson video: the yes box names the video and the machine, never the web address.
+test('the watch question is plain: the video and the machine', async () => {
+  const { describeCall } = await import('../src/tools.ts');
+  const q = describeCall('mcp__aang__watch', { url: 'https://www.youtube.com/watch?v=abc', title: "HisWattson's new video", device: 'mac', how: 'popout' });
+  assert.equal(q, `put "HisWattson's new video" on your MacBook in the popout`);
+  assert.ok(!/https?:/.test(q));
+  assert.equal(describeCall('mcp__aang__watch', { url: 'https://x.com/a' }), 'put this video on this PC');
+});

@@ -456,7 +456,7 @@ export class Core {
       },
       playMusic: (what, kind) => this.playMusic(what, kind),
       watchNext: (show, open) => this.watchNext(show, open),
-      putOn: (words, dub) => this.putOn(words, dub),
+      putOn: (words, dub, device, how) => this.putOn(words, dub, device, how),
       setDubPreference: (want, title, category) => this.setDubPreference(want, title, category),
       listFolder: dir => this.listFolderSafe(dir),
       uiList: app => this.uiList(app),
@@ -668,7 +668,7 @@ export class Core {
    * up means the pop-out over it, nothing up means an ordinary tab. Way 6 of the old plan, Aang moving
    * the window himself, is deliberately gone.
    */
-  private async putOn(words: string, dub?: boolean): Promise<{ ok: boolean; detail: string }> {
+  private async putOn(words: string, dub?: boolean, device: 'pc' | 'mac' = 'pc', how?: 'popout' | 'browser'): Promise<{ ok: boolean; detail: string }> {
     const prefs = this.watchPrefs();
     let plan = readWords(words, prefs.channels);
 
@@ -696,27 +696,84 @@ export class Core {
       settled.dub = dub;
     }
 
-    const game = await gameRunning();
-    if (!await this.askPermission('mcp__aang__watch', { url: settled.url })) {
-      return { ok: false, detail: this.whyNot() + ' Nothing was opened.' };
+    // 2026-10-14, the Wattson video: "put it on the Mac for me" asked him twice in words he could not read, then
+    // opened his Documents folder on the PC. Now: the machine is a real choice (device), he picks popout or full
+    // browser himself every time (his call), and the question names the video and the machine.
+    const own = this.ownLinks.get(settled.url);
+    const title = own?.title || settled.what;
+    const onMac = device === 'mac';
+    const game = onMac ? { running: false } : await gameRunning();
+    if (!how) {
+      // His pick here IS his yes: the box names the video and the machine, and nothing opens without a click.
+      const pick = await this.pickOne(`${title}${onMac ? ' on your MacBook' : ''}?`, [
+        { label: 'Popout', hint: onMac ? 'A small window on the Mac' : game.running ? 'Over your game' : 'A small window' },
+        { label: 'Full browser', hint: onMac ? 'A tab in your Mac browser' : 'A tab in your Aang browser' },
+      ]);
+      if (pick === 'away') return { ok: false, detail: 'He is away from the desk. Ask him in one short line: popout or full browser? Then call watch again with `how` set.' };
+      if (pick === null) return { ok: false, detail: 'He did not pick, so nothing was opened. Say so in one short line.' };
+      how = pick === 0 ? 'popout' : 'browser';
+    } else {
+      // His words already said how. A link Aang showed him itself, or one he typed, does not need a second yes
+      // because a web search happened in the same turn (the taint is about links a PAGE handed over).
+      const mine = !!own || this.typedByHim(settled.url);
+      if (!await this.askPermission('mcp__aang__watch', { url: settled.url, title, device, how }, mine ? { mine: true } : undefined)) {
+        return { ok: false, detail: this.whyNot() + ' Nothing was opened.' };
+      }
     }
-    // The pop-out only if the program that shows it is actually connected. The pet is a desktop client
-    // too and ignores this message, so "any desktop client" would report a video over his game that
-    // nothing was showing. Without the Shell it opens in a tab, and says why.
-    const shell = this.shellConnected();
-    const where: Where = game.running && shell ? 'popout' : 'tab';
-    if (where === 'popout') {
-      this.sendTo('desktop', { t: 'popout.open', url: settled.url, title: settled.what });
+    let said: string;
+    if (onMac) {
+      // The Mac's own Aang browser if it is running; otherwise Chrome there, through the front desk.
+      const sent = how === 'popout' ? this.bsync.sendToMac(settled.url) : this.bsync.openOnMac(settled.url);
+      if (sent) {
+        this.reportAction('mcp__aang__watch', { mac: settled.url, how }, false, `Sent ${title} to the MacBook's ${how === 'popout' ? 'popout' : 'browser'}.`);
+        said = how === 'popout' ? 'in the popout on your MacBook' : 'in your Aang browser on your MacBook';
+      } else {
+        const r = await this.openOnMac(settled.url);
+        if (!r.ok) return { ok: false, detail: `Could not put it on your MacBook: ${r.detail.replace(/\.$/, '')}. Nothing was opened.` };
+        said = 'in Chrome on your MacBook, because the Aang browser there is not open';
+      }
+    } else if (how === 'popout') {
+      // The pop-out only if the program that shows it is actually connected. The pet is a desktop client
+      // too and ignores this message.
+      if (!this.shellConnected()) return { ok: false, detail: 'The popout is not running on this PC, so nothing was opened.' };
+      this.sendTo('desktop', { t: 'popout.open', url: settled.url, title });
+      said = game.running ? 'in the popout, over your game' : 'in the popout';
+    } else if (this.shellConnected()) {
+      this.sendToShells({ t: 'browser.open', url: settled.url });
+      said = 'in your Aang browser';
     } else {
       const r = await this.open(settled.url);
       if (!r.ok) return r;
+      said = 'in your web browser';
     }
     // Something else was put on, so whatever Aang thought was playing no longer is.
     if (settled.service !== 'your watch list') this.playing = null;
     this.rememberChannelFrom(words, settled, prefs);
-    const how = settled.exact ? 'Put on' : 'Opened the search for';
-    const note = where === 'popout' ? ', over your game' : game.running && !shell ? ' in a tab, because the pop-out is not running' : '';
-    return { ok: true, detail: `${how} ${settled.what} on ${settled.service}${note}.` };
+    const verb = settled.exact ? 'Put on' : 'Opened the search for';
+    return { ok: true, detail: `${verb} ${title} ${said}.` };
+  }
+
+  /**
+   * Links Aang put in front of him himself (a new upload, 2026-10-14), with their titles. "Put it on" about one
+   * of these is his own request about Aang's own news, not a link a page slipped in.
+   */
+  private ownLinks = new Map<string, { title: string; thumb?: string; at: number }>();
+  private rememberLink(url: string, title: string, thumb?: string): void {
+    this.ownLinks.set(url, { title, ...(thumb ? { thumb } : {}), at: Date.now() });
+    while (this.ownLinks.size > 200) this.ownLinks.delete(this.ownLinks.keys().next().value as string);
+  }
+  /** The link is in what he himself typed this turn. */
+  private typedByHim(url: string): boolean {
+    const t = this.active?.sub?.text ?? '';
+    return !!t && t.includes(url);
+  }
+  /** One plain choice, his pick by number. 'away': he is not at the desk to see it. */
+  private async pickOne(question: string, options: { label: string; hint?: string }[]): Promise<number | null | 'away'> {
+    const r = await this.askChoice(question, options);
+    if (!r.ok) return /away from the desk/.test(r.detail) ? 'away' : null;
+    const m = /He picked "([^"]+)"/.exec(r.detail);
+    const i = options.findIndex(o => o.label === m?.[1]);
+    return i >= 0 ? i : null;
   }
 
   /**
@@ -1664,7 +1721,9 @@ export class Core {
             if (r.ok && b.length < 400_000) thumb = b.toString('base64');
           } catch { /* the card goes without a picture */ }
           this.sendTo('discord', { t: 'gaming.post', kind: 'upload', videoId: u.videoId, title: u.title, channel: u.channel || c.name, ...(thumb ? { thumb } : {}) });
-          if (this.whereHeIs() === 'desktop') this.announce(`${u.channel || c.name} just posted: ${u.title}`);
+          const url = `https://www.youtube.com/watch?v=${u.videoId}`;
+          if (this.whereHeIs() === 'desktop') this.announce(`${u.channel || c.name} just posted: ${u.title}`, { about: { url, title: `${u.channel || c.name}'s new video` } });
+          else this.rememberLink(url, `${u.channel || c.name}'s new video`);
         }
       } catch (e) { console.log(`gaming: could not check ${c.name}: ${(e as Error).message}`); }
     }
@@ -2971,7 +3030,9 @@ export class Core {
    * and only within a few minutes: a reply that arrives much later is more likely about something else, and
    * forcing stale context onto it would be its own kind of wrong.
    */
-  private lastAnnounced: { text: string; at: number } | null = null;
+  private lastAnnounced: { text: string; at: number; url?: string } | null = null;
+  /** The link each of his notices was about, by its stored row, so Reply on an older one still knows it. */
+  private linkOfTurn = new Map<number, string>();
   private static readonly ANNOUNCED_WINDOW_MS = 10 * 60_000;
   /**
    * The turns Joshua pointed at: one he pressed Reply on, and any he pinned.
@@ -2993,7 +3054,7 @@ export class Core {
       parts.push([
         '<replying to>',
         'He pressed Reply on this exact message. It is what he is answering.',
-        say(quoted),
+        say(quoted) + (this.linkOfTurn.has(quoted.id) ? `\nIts link: ${this.linkOfTurn.get(quoted.id)}` : ''),
         '</replying to>',
       ].join('\n'));
     }
@@ -3037,7 +3098,7 @@ export class Core {
     const a = this.lastAnnounced;
     this.lastAnnounced = null;                          // used once, whether or not this reply turns out to be about it
     if (!a || Date.now() - a.at > Core.ANNOUNCED_WINDOW_MS) return text;
-    return `<just said>\nWhat you told him, unprompted, a moment ago - he may well be replying to this:\n${a.text}\n</just said>\n\n${text}`;
+    return `<just said>\nWhat you told him, unprompted, a moment ago - he may well be replying to this:\n${a.text}${a.url ? `\nIts link: ${a.url}` : ''}\n</just said>\n\n${text}`;
   }
 
   /**
@@ -3407,10 +3468,11 @@ export class Core {
     setTimeout(() => this.offerFact(), 45_000).unref?.();
   }
 
-  announce(text: string, opts: { links?: { label: string; url: string }[]; asked?: boolean; focus?: string; jobCwd?: string; image?: { data: string; mimeType: string }; blocking?: boolean; done?: boolean; host?: 'mac'; reminder?: string; brief?: BriefCard; research?: import('./watch.ts').ResearchCard & { file?: string } } = {}): void {
+  announce(text: string, opts: { links?: { label: string; url: string }[]; asked?: boolean; focus?: string; jobCwd?: string; image?: { data: string; mimeType: string }; blocking?: boolean; done?: boolean; host?: 'mac'; reminder?: string; brief?: BriefCard; research?: import('./watch.ts').ResearchCard & { file?: string }; about?: { url: string; title: string; thumb?: string } } = {}): void {
     // Whatever is said last is what a reply is most likely about, whether it lands now or only once hush/quiet
-    // lets it through - see withAnnounced().
-    this.lastAnnounced = { text, at: Date.now() };
+    // lets it through - see withAnnounced(). Its link goes with it (2026-10-14): "put it on" needs no search.
+    this.lastAnnounced = { text, at: Date.now(), ...(opts.about ? { url: opts.about.url } : {}) };
+    if (opts.about) this.rememberLink(opts.about.url, opts.about.title, opts.about.thumb);
     // Hush holds everything, even what he asked to be told about; it comes out when the hush ends.
     if (this.hushUntil > Date.now()) { this.pending.push(text); while (this.pending.length > 8) this.pending.shift(); return; }
     const blocking = opts.blocking ?? Core.BLOCKING.test(text);
@@ -3437,7 +3499,7 @@ export class Core {
      */
     const remember = (): void => {
       const row = this.memory.saveSaid(text);
-      if (row !== null) msg.turn = row;
+      if (row !== null) { msg.turn = row; if (opts.about) { this.linkOfTurn.set(row, opts.about.url); while (this.linkOfTurn.size > 300) this.linkOfTurn.delete(this.linkOfTurn.keys().next().value as number); } }
     };
     // Away from the PC: Discord, and only Discord. It keeps its own quiet hours, which make it silent, not lost.
     if (this.whereHeIs() === 'discord') { remember(); this.sendTo('discord', msg); return; }
@@ -3613,7 +3675,7 @@ export class Core {
     return this.askPermission(tool, input, { question, quota: { what: est.what, low: est.low, high: est.high, week: q ? q.week : null, resetsAt: q?.weekResetsAt ?? 0 } });
   }
 
-  private askPermission(tool: string, input: Record<string, unknown>, opts?: { question?: string; means?: string; once?: boolean; quota?: { what: string; low: number; high: number; week: number | null; resetsAt: number } }): Promise<boolean> {
+  private askPermission(tool: string, input: Record<string, unknown>, opts?: { question?: string; means?: string; once?: boolean; mine?: boolean; quota?: { what: string; low: number; high: number; week: number | null; resetsAt: number } }): Promise<boolean> {
     // Belt and braces: if the main session ever reaches for a web tool directly, refuse it outright
     // rather than asking Joshua. Untrusted page content must not enter the session that holds his files.
     if (WEB_TOOLS.includes(tool)) {
@@ -3659,8 +3721,10 @@ export class Core {
     // something asks again once outside content is in the turn.
     const acts = !['mcp__aang__read_window', 'mcp__aang__read_clipboard', 'mcp__aang__look_at_window', 'mcp__aang__mail_inbox', 'mcp__aang__mail_read', 'mcp__aang__calendar_today'].includes(tool);
     // A quota ask is never trusted away: it is asked every time, with that job's cost (his rule).
-    if (!opts?.quota && !opts?.once && kind && this.trust.allowed(kind.kind) && !(this.tainted && acts)) return Promise.resolve(this.granted(tool));
-    if (kind && this.tainted && acts && this.trust.allowed(kind.kind)) console.log(`asking again for "${kind.kind}": this turn has read outside content`);
+    // `mine`: the thing acted on came from Aang's own news or from his own typing, not from a page (2026-10-14).
+    const outside = this.tainted && acts && !opts?.mine;
+    if (!opts?.quota && !opts?.once && kind && this.trust.allowed(kind.kind) && !outside) return Promise.resolve(this.granted(tool));
+    if (kind && outside && this.trust.allowed(kind.kind)) console.log(`asking again for "${kind.kind}": this turn has read outside content`);
 
     // Asked where he asked for the thing; with no turn behind it, wherever he is.
     const turnSocket = this.active?.sub?.socket;
