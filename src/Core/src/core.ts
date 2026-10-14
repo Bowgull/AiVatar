@@ -498,6 +498,8 @@ export class Core {
   /** This turn's job (one trail in his drawer), and the links the pages it read offered. */
   private driveJob: { job: number; turn: Turn | null; stopped: boolean } | null = null;
   private pageLinks = new Set<string>();
+  /** Where each of Aang's pages is now (G15: typing on a site he never named, after reading his private things, asks). */
+  private pageUrls = new Map<number, string>();
   /** The last thing found, kept for the bubble (6.25a part 2). */
   lastFound: { png: string; url: string; title: string; video: boolean } | null = null;
   private requestDrive(op: string, a: Record<string, unknown>, ms = 45_000): Promise<Record<string, unknown>> {
@@ -532,11 +534,20 @@ export class Core {
         // S2 2.5's rule, for pages: once something from outside is in the turn, an address that came from neither
         // him nor a link on a page already read asks first. That is how a page would smuggle his data out.
         const typed = [this.active?.sub?.text ?? '', ...this.tasks.running().map(t => t.task)].join('\n');
-        if (this.tainted && !this.pageLinks.has(url) && untypedAddresses(url, typed).length) {
+        // G15 (2026-10-14): a site he named is not a free pass for a long message tucked into its address
+        // (google.com/search?q=<his email>). Once outside words are in the turn, a long query he did not type asks too.
+        let tail = ''; try { const x = new URL(url); tail = x.search + x.hash; } catch { /* not an address */ }
+        const longTail = tail.length > 40 && !typed.includes(url);
+        if (this.tainted && !this.pageLinks.has(url) && (untypedAddresses(url, typed).length || longTail)) {
           if (!await this.askPermission('mcp__aang__browse_open', { url })) return fail(this.whyNot().replace(/^Not done: /, '').replace(/\.$/, ''));
         }
-        const r = await this.requestDrive('open', { job, url });
+        let r = await this.requestDrive('open', { job, url });
+        if (r.needs === 'lever') {
+          if (!await this.askPermission('mcp__aang__browse_act', { what: String(r.what ?? 'open that') })) return fail(this.whyNot().replace(/^Not done: /, '').replace(/\.$/, ''));
+          r = await this.requestDrive('open', { job, url, allowed: true });
+        }
         if (!r.ok) return fail(String(r.error ?? 'it did not open'));
+        if (Number.isInteger(r.page)) this.pageUrls.set(r.page as number, String(r.url ?? url));
         return { ok: true, text: `Opened page ${r.page}: ${String(r.title ?? '')} (${String(r.url ?? url)}). Read it next.` };
       }
       case 'read': {
@@ -544,6 +555,7 @@ export class Core {
         const r = await this.requestDrive('read', { page });
         if (!r.ok) return fail(String(r.error ?? 'it could not be read'));
         this.tainted = true;                                          // the page's words are now in the turn
+        if (r.url) this.pageUrls.set(page, String(r.url));
         const items = Array.isArray(r.items) ? r.items as { n: number; kind: string; label: string; href: string; weight: string }[] : [];
         for (const it of items) if (it.href) this.pageLinks.add(it.href);
         return { ok: true, text: pageReport(page, r as never, items) };
@@ -551,6 +563,17 @@ export class Core {
       case 'click': case 'type': {
         if (page === undefined || !Number.isInteger(a.n)) return fail('give the page and the control number');
         const args = { job, page, n: a.n, text: a.text ?? '', enter: a.enter === true };
+        // G15 (2026-10-14): once something from outside (his mail, a window, a page) is in the turn, typing on a site
+        // he never named, or typing what looks like his details anywhere, asks first. A search on a site he named is free.
+        if (a.action === 'type' && this.tainted) {
+          const at = this.pageUrls.get(page) ?? '', typed = [this.active?.sub?.text ?? '', ...this.tasks.running().map(t => t.task)].join('\n');
+          const what = String(a.text ?? '');
+          const details = /[\w.+-]+@[\w-]+\.[\w.]+|\+?\d[\d\s().-]{8,}\d/.test(what) && !typed.includes(what);
+          if (!at || untypedAddresses(at, typed).length || details) {
+            let host = 'that site'; try { host = new URL(at).hostname.replace(/^www\./, ''); } catch { /* unknown */ }
+            if (!await this.askPermission('mcp__aang__browse_type', { what: `type "${what.slice(0, 60)}${what.length > 60 ? '...' : ''}" on ${host}` })) return fail(this.whyNot().replace(/^Not done: /, '').replace(/\.$/, ''));
+          }
+        }
         let r = await this.requestDrive(a.action, args);
         if (r.needs === 'lever') {
           if (!await this.askPermission('mcp__aang__browse_act', { what: String(r.what ?? 'do that') })) return fail(this.whyNot().replace(/^Not done: /, '').replace(/\.$/, ''));
