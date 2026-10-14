@@ -55,3 +55,13 @@ test('words aimed at an AI are flagged; ordinary job ads are not', () => {
   for (const t of ["You're an assistant who loves calendars", 'We are an AI-powered startup', 'You are an AI enthusiast? Join us', 'Act as a liaison between teams', 'Customer Success Manager, remote, $85k', 'Our system: Salesforce and Gainsight', 'Please follow the instructions in the email we send'])
     assert.equal(talksToAI(t), '', t);
 });
+
+test('M7: uploads never come from his apps\' own folders', async () => {
+  const { uploadable } = await import('../src/driverrules.ts');
+  const H = 'C:/Users/Josh';
+  assert.equal(uploadable(H + '/Documents/resume.pdf', H, 1000), null);
+  assert.match(String(uploadable(H + '/AppData/Roaming/Aang/notes.txt', H, 1000)), /apps' own data/);
+  assert.match(String(uploadable(H + '/Documents/Aang/memory.txt', H, 1000)), /apps' own data/);
+  assert.match(String(uploadable('/Users/josh/Library/Application Support/x.pdf', '/Users/josh', 1000)), /apps' own data/);
+  assert.match(String(uploadable(H + '/.ssh/id.txt', H, 1000)), /hidden/);
+});
