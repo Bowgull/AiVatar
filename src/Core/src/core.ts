@@ -2615,7 +2615,7 @@ export class Core {
    *  character's name; a new feature bumps the middle number; a fix the last. Which it is comes from the plain-words
    *  lines this release adds (whats-new.json "kind": major, feature or fix). The first named release is 1.0.0 Gojo. */
   private macReleaseNo(version: string, commit: string): { label: string; name: string } {
-    const f = path.join(this.cfg.stateDir, 'mac-releases.json');
+    const f = path.join(this.cfg.dataDir, 'mac-releases.json');
     type Rel = { semver: string; name: string; version: string; commit: string; at: string };
     let list: Rel[] = [];
     try { const j = JSON.parse(readFileSync(f, 'utf8')); if (Array.isArray(j)) list = j.filter((x: Rel) => typeof x?.semver === 'string'); } catch { /* the first */ }
@@ -2639,7 +2639,7 @@ export class Core {
    *  (Aang reads it there) and copied to the Mac with every update. Written from mac-releases.json + whats-new.json. */
   changelogText(): string {
     let list: { semver: string; name: string; at: string }[] = [];
-    try { list = (JSON.parse(readFileSync(path.join(this.cfg.stateDir, 'mac-releases.json'), 'utf8')) as any[]).filter(x => typeof x?.semver === 'string'); } catch { /* none yet */ }
+    try { list = (JSON.parse(readFileSync(path.join(this.cfg.dataDir, 'mac-releases.json'), 'utf8')) as any[]).filter(x => typeof x?.semver === 'string'); } catch { /* none yet */ }
     const items = this.whatsNew();
     const day = (iso: string) => new Date(iso).toLocaleDateString('en-CA', { timeZone: 'America/Toronto', year: 'numeric', month: 'long', day: 'numeric' });
     const tag = (k: string) => (k === 'major' ? 'Big change' : k === 'feature' ? 'New' : 'Fix');
