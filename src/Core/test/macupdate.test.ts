@@ -32,17 +32,29 @@ const update = macSetupScript('100.x.x.1', 47832, 'h'.repeat(24), 'm'.repeat(24)
 const byHand = macSetupScript('100.x.x.1', 47832, 'h'.repeat(24), 'm'.repeat(24), desk, { release });
 
 test('the update keeps the old Aang, says which version is installed, and puts the old one back if the new one fails', () => {
-  assert.match(update, /mv "\$APP" "\$APP\.prev"/, 'the old Aang is kept');
+  assert.match(update, /mv "\$APP" "\$RB\/Samara\.app"/, 'the old Samara is kept, outside Applications');
   assert.match(update, /"version":"0123456789abcdef","commit":"abc123def456","status":"trial"/, 'on trial until it has run');
   assert.match(update, /trap 'open -a "\$HOME\/Applications\/Samara\.app"/, 'Aang always opens again');
-  assert.match(update, /pgrep -f "Samara\.app\/Contents\/MacOS\/"[\s\S]*mv "\$APP\.prev" "\$APP"[\s\S]*failed-updates\.txt/, 'the old one goes back, and that version is not offered again');
+  assert.match(update, /pgrep -f "Samara\.app\/Contents\/MacOS\/"[\s\S]*mv "\$BR\/rollback\/Samara\.app" "\$APP"[\s\S]*failed-updates\.txt/, 'the old one goes back, and that version is not offered again');
   const end = update.search(/^exit 0$/m);
   assert.ok(end > 0 && end < update.indexOf('6/6  Checking the line back'), 'the update ends before the setup checks at the end');
   assert.match(byHand, /"status":"good"/, 'run by hand: installed as good');
   // Samara (2026-10-14): what he sees is Samara; inside it stays Aang, so his logins and default browser carry over.
   assert.match(byHand, /CFBundleName Aang" -c "Set :CFBundleIdentifier com\.aang\.browser"/, 'the inside name and id are unchanged');
   assert.match(byHand, /CFBundleDisplayName Samara/);
-  assert.match(byHand, /mv "\$OLD" "\$APP\.prev"[\s\S]*rm -rf "\$OLD"/, 'the old Aang.app is moved aside, then gone');
+  assert.match(byHand, /mv "\$OLD" "\$RB\/Samara\.app"[\s\S]*rm -rf "\$OLD"/, 'the old Aang.app is moved aside, then gone');
+  assert.doesNotMatch(byHand, /mv "\$APP" "\$APP\.prev"/, 'no second copy is ever left in Applications (the Dock opened it: two Samaras)');
+  // Smooth updates (2026-10-14: "it doesnt just freeze my computer"): made in the background first, then swapped in.
+  assert.match(update, /if \[ "\$PHASE" != "prepare" \]; then\necho "1\/6/, 'getting ready skips every other step');
+  assert.match(update, /if \[ "\$PHASE" = "prepare" \]; then\n    if build_app "\$STAGE\/Samara\.app"; then printf '%s' '0123456789abcdef' > "\$STAGE\/version"/, 'getting ready builds Samara aside');
+  assert.match(update, /\[ "\$PHASE" = "swap" \] && \[ -d "\$STAGE\/Samara\.app" \] && \[ "\$\(cat "\$STAGE\/version" 2>\/dev\/null\)" = '0123456789abcdef' \]; then NEWAPP="\$STAGE\/Samara\.app"/, 'Restart now only swaps the ready one in');
+  assert.match(update, /cp -cR "\$APP" "\$NEWAPP"/, 'a clone of the app, not a fresh 300 MB copy');
+  assert.match(update, /if \[ "\$OLDLOCK" != "\$NEWLOCK" \] \|\| \[ ! -d "\$RES\/app\/node_modules" \]; then/, 'libraries only when their list changed');
+  assert.match(update, /\.lock-installed/, 'the front desk too');
+  assert.match(update, /\[ "\$PHASE" = "prepare" \] \|\| trap/, 'getting ready never opens anything');
+  // One Samara in the Dock, ever.
+  assert.match(byHand, /\*Applications\/Aang\.app\*\|\*Applications\/Samara\.app\*\) \$PB -c "Delete :persistent-apps:\$i"/);
+  assert.match(byHand, /Add :persistent-apps:\$POS dict/);
   assert.match(byHand, /samara-\$s\.png/, 'the lantern icon, size by size');
   assert.doesNotMatch(byHand, /trap 'open -a/, 'by hand, nothing reopens by itself');
 });

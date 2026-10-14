@@ -257,9 +257,12 @@ export function macSetupScript(shadow: string, hookPort: number, hookKey: string
   return `#!/bin/bash
 # Aang: MacBook setup. Written by Aang on the Shadow PC; served once. Safe to run again.
 set -e
-${opts.update ? `# Started by his UPDATE key: whatever happens, Aang opens again at the end.
-trap 'open -a "$HOME/Applications/Samara.app" >/dev/null 2>&1 || true' EXIT
-` : ''}# macOS can still be removing the old copy right after bootout; starting again too soon fails with "Input/output
+${opts.update ? `# Started by his UPDATE key, in two steps (2026-10-14): "prepare" makes the new Samara in the background while he
+# works; "swap", when he presses Restart now, puts it in place. After a swap, whatever happens, Samara opens again.
+PHASE="$1"
+[ "$PHASE" = "prepare" ] || trap 'open -a "$HOME/Applications/Samara.app" >/dev/null 2>&1 || true' EXIT
+` : `PHASE=""
+`}# macOS can still be removing the old copy right after bootout; starting again too soon fails with "Input/output
 # error" (seen 2026-10-13). So: try again for a while before giving up.
 start_agent() { for i in 1 2 3 4 5 6 7 8; do launchctl bootstrap "gui/$(id -u)" "$1" 2>/dev/null && return 0; sleep 2; done; launchctl bootstrap "gui/$(id -u)" "$1"; }
 SHADOW=${q(shadow)}; HOOK_PORT=${hookPort}; HOOK_KEY=${q(hookKey)}; FRONT_KEY=${q(frontKey)}; PORT=${MAC_LISTENER_PORT}
@@ -267,6 +270,9 @@ ${desk ? `DISCORD_TOKEN=${q(desk.token)}; DESK_KEY=${q(desk.key)}; DESK_PORT=${d
 DIR="$HOME/Library/Application Support/AangListener"; PLIST="$HOME/Library/LaunchAgents/com.aang.listener.plist"
 mkdir -p "$HOME/.claude" "$DIR" "$HOME/Library/LaunchAgents"
 
+NODE_DIR="$DIR/node"
+# Getting an update ready only makes the new Samara (below); everything else happens when he presses Restart now.
+if [ "$PHASE" != "prepare" ]; then
 echo "1/6  Claude Code hooks, so Aang hears when a session is done or needs you"
 osascript -l JavaScript - "$SHADOW" "$HOOK_PORT" "$HOOK_KEY" <<'JXA'
 ${HOOKS_JXA}
@@ -326,7 +332,6 @@ start_agent "$HBPLIST"
 echo "3/6  Node.js for Aang's Mac side (his yes, 2026-10-13): kept in Aang's own folder, no admin password"
 # The newest long-term-support Node for Intel Macs, from nodejs.org, checked against Node's own SHA-256 list
 # before it is unpacked. A mismatch is thrown away. Skipped when it is already there.
-NODE_DIR="$DIR/node"
 if [ -x "$NODE_DIR/bin/node" ]; then
   echo "     Node is already here: $("$NODE_DIR/bin/node" -v)"
 else
@@ -363,7 +368,9 @@ if [ -x "$NODE_DIR/bin/node" ]; then
   echo "     Installing (the first time this downloads about 230 MB, so it can take a few minutes)..."
   # Its own download cache (2026-10-13): his ~/.npm had files he could not write (an old sudo install), and npm ci
   # failed on them. Aang's folder is always his own.
-  if ( cd "$FD" && PATH="$NODE_DIR/bin:$PATH" npm ci --omit=dev --ignore-scripts --no-audit --no-fund --cache "$DIR/npm-cache" >"$DIR/npm.log" 2>&1 ); then
+  # Only when its list of libraries changed (2026-10-14: reinstalling them every update made it slow).
+  FDLOCK="$(shasum -a 256 "$FD/package-lock.json" | cut -d' ' -f1)"
+  if [ -d "$FD/node_modules" ] && [ "$(cat "$FD/.lock-installed" 2>/dev/null)" = "$FDLOCK" ] || ( cd "$FD" && PATH="$NODE_DIR/bin:$PATH" npm ci --omit=dev --ignore-scripts --no-audit --no-fund --cache "$DIR/npm-cache" >"$DIR/npm.log" 2>&1 && printf '%s' "$FDLOCK" > "$FD/.lock-installed" ); then
     FDPLIST="$HOME/Library/LaunchAgents/com.aang.frontdesk.plist"
     cat > "$FDPLIST" <<FDXML
 <?xml version="1.0" encoding="UTF-8"?>
@@ -399,7 +406,8 @@ FDXML
 else
   echo "     Node is not here, so the front desk was not started."
 fi
-` : ''}${desk?.browser ? `echo "5/6  Samara, Aang's browser (M6): the same browser as on the PC, kept in step with it"
+` : ''}fi
+${desk?.browser ? `echo "5/6  Samara, Aang's browser (M6): the same browser as on the PC, kept in step with it"
 ( umask 077; printf '%s' ${q(desk.browser.bsyncKey)} > "$DIR/bsync.key" )
 BR="$DIR/browser"; mkdir -p "$BR"
 EV=${ELECTRON_MAC.version}; ZIP="electron-v$EV-darwin-x64.zip"; SUM=${ELECTRON_MAC.sha256}
@@ -433,12 +441,26 @@ fi
 BASE="$BR/engine-$EV/Electron.app"; [ -f "$BR/drm-$DV/signed" ] && BASE="$BR/drm-$DV/Electron.app"
 if [ -d "$BASE" ] && [ -x "$NODE_DIR/bin/node" ]; then
   APP="$HOME/Applications/Samara.app"; OLD="$HOME/Applications/Aang.app"; mkdir -p "$HOME/Applications"
-  osascript -e 'quit app id "com.aang.browser"' >/dev/null 2>&1 || true; sleep 1
-  rm -rf "$APP.new"; ditto "$BASE" "$APP.new"
-  RES="$APP.new/Contents/Resources"; mkdir -p "$RES/app"
-  printf '%s' '${b64(desk.browser.bundle)}' | /usr/bin/base64 -D | tar -xzf - -C "$RES/app"
-  if ( cd "$RES/app" && PATH="$NODE_DIR/bin:$PATH" npm ci --omit=dev --ignore-scripts --no-audit --no-fund --cache "$DIR/npm-cache" >"$DIR/npm-browser.log" 2>&1 ); then
-    PB=/usr/libexec/PlistBuddy; PL="$APP.new/Contents/Info.plist"
+  PB=/usr/libexec/PlistBuddy
+  # The copy kept to undo a bad update lives here, outside Applications, so the Dock and Spotlight never open it
+  # (2026-10-14: a Samara.app.prev beside it was what the Dock kept opening, a second Samara).
+  RB="$BR/rollback"; STAGE="$BR/staged"; mkdir -p "$RB"; rm -rf "$APP.prev"
+  # build_app DEST: a whole Samara.app made at DEST, while Samara keeps running. Quick when only Samara's own code
+  # changed: a copy-on-write clone of the app that is here (instant on the Mac's disk) with the new code put in, and
+  # its libraries reinstalled only when their list changed.
+  build_app() {
+    NEWAPP="$1"; rm -rf "$NEWAPP"; mkdir -p "$(dirname "$NEWAPP")"
+    ENGINE="$(basename "$(dirname "$BASE")")"
+    if [ -d "$APP" ] && [ "$(cat "$APP/Contents/Resources/aang-engine" 2>/dev/null)" = "$ENGINE" ]; then cp -cR "$APP" "$NEWAPP" 2>/dev/null || { rm -rf "$NEWAPP"; ditto "$APP" "$NEWAPP"; }; else ditto "$BASE" "$NEWAPP"; fi
+    RES="$NEWAPP/Contents/Resources"; mkdir -p "$RES/app"; printf '%s' "$ENGINE" > "$RES/aang-engine"
+    OLDLOCK="$(shasum -a 256 "$RES/app/package-lock.json" 2>/dev/null | cut -d' ' -f1)"
+    rm -rf "$RES/app/src" "$RES/app/pages" "$RES/app/drm"
+    printf '%s' '${b64(desk.browser.bundle)}' | /usr/bin/base64 -D | tar -xzf - -C "$RES/app"
+    NEWLOCK="$(shasum -a 256 "$RES/app/package-lock.json" | cut -d' ' -f1)"
+    if [ "$OLDLOCK" != "$NEWLOCK" ] || [ ! -d "$RES/app/node_modules" ]; then
+      ( cd "$RES/app" && PATH="$NODE_DIR/bin:$PATH" npm ci --omit=dev --ignore-scripts --no-audit --no-fund --cache "$DIR/npm-cache" >"$DIR/npm-browser.log" 2>&1 ) || return 1
+    fi
+    PL="$NEWAPP/Contents/Info.plist"
     $PB -c "Set :CFBundleName Aang" -c "Set :CFBundleIdentifier com.aang.browser" "$PL"
     $PB -c "Set :CFBundleDisplayName Samara" "$PL" >/dev/null 2>&1 || $PB -c "Add :CFBundleDisplayName string Samara" "$PL"
     $PB -c "Delete :CFBundleURLTypes" "$PL" >/dev/null 2>&1 || true
@@ -452,24 +474,50 @@ if [ -d "$BASE" ] && [ -x "$NODE_DIR/bin/node" ]; then
       for s in 16 32 128 256 512; do d=$((s*2)); sips -z $s $s "$FACE" --out "$IS/icon_$s"x"$s.png" >/dev/null 2>&1; sips -z $d $d "$FACE" --out "$IS/icon_$s"x"$s@2x.png" >/dev/null 2>&1; done
     fi
     iconutil -c icns "$IS" -o "$RES/electron.icns" >/dev/null 2>&1 || true
-    codesign --force --deep -s - "$APP.new" >/dev/null 2>&1 || true
-    # The one that was here is kept as Samara.app.prev, so a new one that will not start can be undone. The first time,
-    # that is the old Aang.app, which is then gone from Applications.
-    rm -rf "$APP.prev"; if [ -d "$APP" ]; then mv "$APP" "$APP.prev"; elif [ -d "$OLD" ]; then mv "$OLD" "$APP.prev"; fi; mv "$APP.new" "$APP"; rm -rf "$OLD"
+    codesign --force --deep -s - "$NEWAPP" >/dev/null 2>&1 || true
+    return 0
+  }
+  # His UPDATE key, step one (2026-10-14: "when i hit update it doesnt just freeze my computer"): the new Samara is
+  # made in the background, at low priority, while he keeps working. Restart now then only swaps it in.
+  if [ "$PHASE" = "prepare" ]; then
+    if build_app "$STAGE/Samara.app"; then printf '%s' '${rel?.version ?? ''}' > "$STAGE/version"; echo "Ready: ${rel?.version ?? ''}"; exit 0; fi
+    rm -rf "$STAGE"; echo "Getting the update ready failed. What npm said:"; grep -i "error" "$DIR/npm-browser.log" | head -6; exit 1
+  fi
+  NEWAPP=""
+  if [ "$PHASE" = "swap" ] && [ -d "$STAGE/Samara.app" ] && [ "$(cat "$STAGE/version" 2>/dev/null)" = '${rel?.version ?? ''}' ]; then NEWAPP="$STAGE/Samara.app"
+  elif build_app "$APP.new"; then NEWAPP="$APP.new"; fi
+  if [ -n "$NEWAPP" ]; then
+    osascript -e 'quit app id "com.aang.browser"' >/dev/null 2>&1 || true
+    for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do pgrep -f "Applications/(Samara|Aang).app/Contents/MacOS/" >/dev/null 2>&1 || break; sleep 0.5; done
+    # The one that was here is kept in the rollback folder, so a new one that will not start can be undone. The first
+    # time, that is the old Aang.app, which is then gone from Applications.
+    rm -rf "$RB/Samara.app"; if [ -d "$APP" ]; then mv "$APP" "$RB/Samara.app"; elif [ -d "$OLD" ]; then mv "$OLD" "$RB/Samara.app"; fi
+    mv "$NEWAPP" "$APP"; rm -rf "$OLD" "$STAGE" "$APP.new"
 ${rel ? `    cp "$BR/installed.json" "$BR/installed.prev.json" 2>/dev/null || rm -f "$BR/installed.prev.json"
     printf '%s' '{"version":"${rel.version}","commit":"${rel.commit}","status":"${opts.update ? 'trial' : 'good'}"}' > "$BR/installed.json"` : ''}
     /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$APP" >/dev/null 2>&1 || true
-    # In the Dock, once (his yes). The old Aang.app's spot in the Dock now points at Samara.app.
-    DP="$HOME/Library/Preferences/com.apple.dock.plist"; i=0; MOVED=""
-    while u=$($PB -c "Print :persistent-apps:$i:tile-data:file-data:_CFURLString" "$DP" 2>/dev/null); do
-      case "$u" in *Applications/Aang.app*) $PB -c "Set :persistent-apps:$i:tile-data:file-data:_CFURLString file://$APP/" "$DP" >/dev/null 2>&1 && MOVED=1;; esac
-      i=$((i+1))
+    # In the Dock, exactly once, where Aang's icon was (his yes). Old entries for Aang.app or Samara.app are taken out
+    # (2026-10-14: a stale one opened the old copy, so Samara showed twice) and one fresh entry goes in their place.
+    DP="$BR/dock.plist"; defaults export com.apple.dock "$DP" 2>/dev/null || true
+    N=0; while $PB -c "Print :persistent-apps:$N" "$DP" >/dev/null 2>&1; do N=$((N+1)); done
+    MATCH=0; POS=$N; i=$((N-1))
+    while [ $i -ge 0 ]; do
+      u="$($PB -c "Print :persistent-apps:$i:tile-data:file-data:_CFURLString" "$DP" 2>/dev/null || true)"
+      case "$u" in *Applications/Aang.app*|*Applications/Samara.app*) MATCH=$((MATCH+1)); POS=$i;; esac
+      i=$((i-1))
     done
-    if [ -n "$MOVED" ]; then killall cfprefsd >/dev/null 2>&1 || true; killall Dock >/dev/null 2>&1 || true; fi
-    if ! defaults read com.apple.dock persistent-apps 2>/dev/null | grep -q "Applications/Samara.app"; then
-      defaults write com.apple.dock persistent-apps -array-add "<dict><key>tile-data</key><dict><key>file-data</key><dict><key>_CFURLString</key><string>file://$APP/</string><key>_CFURLStringType</key><integer>15</integer></dict></dict></dict>"
+    if [ $MATCH -ne 1 ] || [ ! -f "$BR/dock-samara" ]; then
+      i=$((N-1))
+      while [ $i -ge 0 ]; do
+        u="$($PB -c "Print :persistent-apps:$i:tile-data:file-data:_CFURLString" "$DP" 2>/dev/null || true)"
+        case "$u" in *Applications/Aang.app*|*Applications/Samara.app*) $PB -c "Delete :persistent-apps:$i" "$DP";; esac
+        i=$((i-1))
+      done
+      $PB -c "Add :persistent-apps:$POS dict" -c "Add :persistent-apps:$POS:tile-type string file-tile" -c "Add :persistent-apps:$POS:tile-data dict" -c "Add :persistent-apps:$POS:tile-data:file-data dict" -c "Add :persistent-apps:$POS:tile-data:file-data:_CFURLString string file://$APP/" -c "Add :persistent-apps:$POS:tile-data:file-data:_CFURLStringType integer 15" "$DP"
+      defaults import com.apple.dock "$DP" && touch "$BR/dock-samara"
       killall Dock >/dev/null 2>&1 || true
     fi
+    rm -f "$DP"
     echo "     Samara is in your Dock. The first time it opens, macOS asks whether Samara may be your default browser."
     # 6.25a (his yes, 2026-10-14): Claude Code on this Mac gets the door into this browser, as "aang-browser".
     # 2026-10-14: the claude command was not found on his Mac the first time, so nothing was added. Now: the command if it
@@ -524,9 +572,9 @@ ${rel ? `for t in 40 60 120; do
   sleep $t
   grep -q '"status":"good"' "$BR/installed.json" 2>/dev/null && break
   if ! pgrep -f "Samara.app/Contents/MacOS/" >/dev/null 2>&1; then
-    if [ -d "$APP.prev" ]; then
-      echo "The new Aang did not start; putting the old one back."
-      rm -rf "$APP"; mv "$APP.prev" "$APP"
+    if [ -d "$BR/rollback/Samara.app" ]; then
+      echo "The new Samara did not start; putting the old one back."
+      rm -rf "$APP"; mv "$BR/rollback/Samara.app" "$APP"
       if [ -f "$BR/installed.prev.json" ]; then mv "$BR/installed.prev.json" "$BR/installed.json"; else rm -f "$BR/installed.json"; fi
       echo "${rel.version}" >> "$BR/failed-updates.txt"
       open -a "$APP"
