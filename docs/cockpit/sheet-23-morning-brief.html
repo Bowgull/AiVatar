@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 23 - Morning brief</title>
+<!-- Sheet 23 (2026-10-14): the morning brief redone. His answers: the desk bubble first; "needs a reply" = rules then
+     Aang checks; everything else hidden; weather as morning / afternoon / evening. Built from his language: parchment,
+     the browser's pixel wood, plum and gold, Cinzel / Figtree / Silkscreen, pixel art at 2 CSS px per art pixel, light
+     from the top-left. Every name, time and place here is SAMPLE data. -->
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<style>
+  html,body{background:#17110c !important}
+  body{margin:0;color:#e8dcc4;font-family:var(--body);padding:28px 34px 44px;pointer-events:auto}
+  h1{font:400 20px var(--label);color:var(--gold);letter-spacing:2px;margin:0 0 4px}
+  .lead{color:#b9a684;font-size:14px;margin:0 0 24px;max-width:1240px;line-height:1.5}
+  .boards{display:grid;grid-template-columns:repeat(2,620px);gap:30px 34px;align-items:start}
+  .board h2{font:400 11px var(--label);color:#c9b48c;letter-spacing:1.5px;margin:0 0 4px}
+  .board .why{font-size:13px;color:#b9a684;line-height:1.45;margin:0 2px 12px;max-width:600px}
+  .grain{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .2  0 0 0 0 .13  0 0 0 0 .05  0 0 0 .22 0'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E")}
+  .px{image-rendering:pixelated;display:block}
+
+  /* ---------- the speech bubble (as the desk draws it) ---------- */
+  .bub{position:relative;width:560px;border-radius:16px;padding:0;box-shadow:0 5px 0 rgba(0,0,0,.5),0 18px 34px rgba(0,0,0,.45)}
+  .bub::before{content:"";position:absolute;left:96px;top:-26px;width:34px;height:30px;background:inherit;clip-path:polygon(0 0,100% 100%,0 100%)}
+  .parch{background-color:var(--parch1);border:3px solid #3a2410}
+  .parch.grain{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .35  0 0 0 0 .22  0 0 0 0 .08  0 0 0 .16 0'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E"),linear-gradient(180deg,#f0dcb2,#e2c690)}
+
+  /* ---------- A: the journal page ---------- */
+  .a .plank{height:62px;border-radius:13px 13px 0 0;background:url(../../src/Shell/pages/art/browser/band.png) repeat-x 0 0/128px 62px;image-rendering:pixelated;
+    border-bottom:3px solid #2a170a;display:flex;align-items:center;padding:0 14px 0 18px;gap:12px;box-shadow:inset 0 2px 0 rgba(255,224,150,.18)}
+  .a .date{flex:1;min-width:0}
+  .a .date small{display:block;font:400 10px var(--label);letter-spacing:2px;color:#ffd36b;text-shadow:1px 1px 0 #000}
+  .a .date b{display:block;font:700 21px/1.1 var(--display);color:#fbe7bf;text-shadow:2px 2px 0 #1a0d05}
+  .slots{display:flex;gap:6px}
+  .slot3{width:62px;height:46px;border-radius:7px;background:#1b0f07;box-shadow:inset 0 3px 0 rgba(0,0,0,.6),0 1px 0 rgba(255,220,160,.15);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px}
+  .slot3 i{font:400 8px var(--label);letter-spacing:1px;color:#b89a6a;font-style:normal}
+  .slot3 .row{display:flex;align-items:center;gap:4px}
+  .slot3 b{font:700 14px var(--body);color:#fbe7bf}
+  .a .say{font:italic 500 13px var(--body);color:#6a4a22;padding:8px 18px 0}
+  .a .body{padding:4px 18px 14px}
+  .sect{display:flex;align-items:center;gap:8px;margin:12px 0 4px;font:400 10px var(--label);letter-spacing:2px;color:#8a5a1a}
+  .sect::after{content:"";flex:1;height:4px;background:radial-gradient(circle,#a7834f 1.2px,transparent 1.6px) 0 50%/8px 4px repeat-x}
+  .sect .n{font:700 11px var(--body);letter-spacing:0;color:#fff4dc;background:#8a3e1c;border-radius:9px;padding:0 7px;line-height:17px}
+  .item{display:flex;align-items:center;gap:11px;padding:6px 8px;margin:0 -8px;border-radius:8px;position:relative}
+  .item:hover,.item.hov{background:rgba(120,80,30,.12)}
+  .item.hov::before{content:"";position:absolute;left:-26px;top:50%;margin-top:-9px;width:24px;height:18px;background:url(../../src/Shell/pages/art/browser/hand.png) 0 0/24px 18px;image-rendering:pixelated}
+  .tile{width:30px;height:30px;flex:none;border-radius:7px;background:#e9d2a2;box-shadow:inset 0 0 0 2px #b38a52,0 2px 0 #9b7442;display:grid;place-items:center}
+  .tile.round{border-radius:50%;background:#efe0c0}
+  .txt{flex:1;min-width:0}
+  .txt b{display:block;font:700 14.5px/1.25 var(--body);color:#2a1c0c;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .txt span{display:block;font:500 12.5px/1.3 var(--body);color:#6a5236;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .when{flex:none;font:700 13px var(--body);color:#8a3e1c;text-align:right}
+  .when small{display:block;font:400 8.5px var(--label);letter-spacing:1px;color:#9a7a4a}
+  .keys{display:flex;gap:9px;align-items:center;padding:4px 18px 16px}
+  .key{font:700 13px var(--body);padding:8px 14px;border-radius:9px;border:3px solid #2a170a;box-shadow:0 4px 0 #2a170a;background:linear-gradient(180deg,var(--gold-lit),var(--gold));color:#2a1c00}
+  .key.plum{background:linear-gradient(180deg,#5d3a88,var(--plum));color:#f1e8ff}
+  .meter{margin-left:auto;font:400 9px var(--label);letter-spacing:1px;color:#8a6a3a;display:flex;align-items:center;gap:6px}
+  .meter i{display:inline-flex;gap:2px}
+  .meter i u{width:6px;height:9px;background:#cdb07e;border:1px solid #8a6a3a;text-decoration:none}
+  .meter i u.on{background:#78c88a}
+
+  /* ---------- B: the lantern (dark) ---------- */
+  .b{background:#20140c url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;image-rendering:auto;border:3px solid #0d0703;color:#ecdcbc}
+  .b::before{background:#2a1a0f}
+  .b .top{display:flex;gap:14px;padding:16px 18px 10px;align-items:stretch}
+  .b .date{flex:1}
+  .b .date small{display:block;font:400 10px var(--label);letter-spacing:2px;color:var(--gold)}
+  .b .date b{display:block;font:700 26px/1.05 var(--display);color:#fbe7bf;text-shadow:2px 2px 0 #000}
+  .b .date span{display:block;font:italic 500 13px var(--body);color:#c9b48c;margin-top:4px}
+  .lamp{display:flex;gap:4px;padding:6px;border-radius:10px;background:radial-gradient(ellipse at 50% 30%,rgba(255,196,90,.18),rgba(0,0,0,0) 70%),#140b05;box-shadow:inset 0 2px 0 rgba(0,0,0,.6)}
+  .lamp .c{width:58px;display:flex;flex-direction:column;align-items:center;gap:2px;padding:3px 0}
+  .lamp .c i{font:400 8px var(--label);letter-spacing:1px;color:#a88a5a;font-style:normal}
+  .lamp .c b{font:700 15px var(--body);color:#ffe9b8}
+  .lamp .c.now{background:rgba(255,200,100,.08);border-radius:7px;box-shadow:inset 0 0 0 1px rgba(255,210,120,.25)}
+  .b .body{padding:0 18px 6px}
+  .slip{background:#e9d3a6;border-radius:9px;padding:9px 12px 8px;margin:0 0 9px;box-shadow:0 3px 0 #0d0703,inset 0 0 0 2px rgba(120,80,30,.25);color:#2a1c0c;position:relative}
+  .slip h3{margin:0 0 4px;font:400 10px var(--label);letter-spacing:2px;color:#8a3e1c;display:flex;align-items:center;gap:7px}
+  .slip .item{padding:4px 6px;margin:0 -6px}
+  .b .keys{padding:2px 18px 16px}
+  .b .meter{color:#b89a6a}
+
+  /* ---------- C: the board ---------- */
+  .c3{background:#2a190e url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;border:3px solid #0d0703;padding:14px 14px 4px}
+  .c3::before{background:#3a2414}
+  .c3 .head{display:flex;align-items:center;gap:12px;margin:0 4px 12px}
+  .c3 .head b{font:700 22px var(--display);color:#fbe7bf;text-shadow:2px 2px 0 #000;flex:1}
+  .notes{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .note{background-color:#efdcb2;border-radius:6px;padding:16px 12px 10px;position:relative;box-shadow:0 4px 0 rgba(0,0,0,.45);color:#2a1c0c}
+  .note:nth-child(1){transform:rotate(-1deg)} .note:nth-child(2){transform:rotate(.8deg)} .note:nth-child(3){transform:rotate(.6deg)} .note:nth-child(4){transform:rotate(-.7deg)}
+  .note .tack{position:absolute;left:50%;top:-5px;margin-left:-7px}
+  .note h3{margin:0 0 6px;font:400 10px var(--label);letter-spacing:2px;color:#8a3e1c}
+  .note .item{padding:3px 4px;margin:0 -4px;gap:8px}
+  .note .txt b{font-size:13.5px} .note .txt span{font-size:12px}
+  .note.wide{grid-column:1 / -1}
+  .c3 .keys{padding:12px 4px 12px}
+
+  .set{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-end;background:#e8d3a6;border-radius:12px;padding:16px 18px;box-shadow:0 4px 0 #000}
+  .set div{display:flex;flex-direction:column;align-items:center;gap:6px;font:400 9px var(--label);letter-spacing:1px;color:#6a4a22}
+  .cut{font-size:13px;color:#c9b48c;line-height:1.55;background:#22170f;border-radius:10px;padding:14px 18px;max-width:600px}
+  .cut b{color:#fbe7bf}
+  .cut s{color:#8f7a5a}
+</style>
+</head>
+<body>
+<h1>SHEET 23 - MORNING BRIEF</h1>
+<p class="lead">Three ways to draw it in the bubble at your desk. Same content in all three: only what needs you (the junk is gone, see the right),
+your day as morning / afternoon / evening in new pixel weather icons, and your order: job hunt, then what is waiting on you, then today.
+Every name and time is made up for the mockup.</p>
+
+<div class="boards">
+  <!-- ======================= A ======================= -->
+  <div class="board">
+    <h2>A - THE JOURNAL PAGE</h2>
+    <p class="why">Zelda and Stardew's quest journal. The date is carved into the browser's wood plank with the day's weather set in it like slots in a menu bar. Each thing is a quest line with its own pixel icon, the hand points at the one under your mouse.</p>
+    <div class="bub parch grain a">
+      <div class="plank">
+        <div class="date"><small>WEDNESDAY</small><b>October 14</b></div>
+        <div class="slots">
+          <div class="slot3"><i>MORN</i><div class="row"><span data-icon="partly"></span><b>8°</b></div></div>
+          <div class="slot3"><i>AFTN</i><div class="row"><span data-icon="cloud"></span><b>14°</b></div></div>
+          <div class="slot3"><i>EVE</i><div class="row"><span data-icon="rain"></span><b>11°</b></div></div>
+        </div>
+      </div>
+      <div class="say">Rain from 4 pm. Bring a jacket if you head out.</div>
+      <div class="body">
+        <div class="sect">JOB HUNT <span class="n">3</span></div>
+        <div class="item hov"><div class="tile"><span data-icon="cal"></span></div><div class="txt"><b>Interview, Northwind</b><span>Video call with the design team</span></div><div class="when">2:00 pm<small>TODAY</small></div></div>
+        <div class="item"><div class="tile round"><span data-icon="who"></span></div><div class="txt"><b>Rhea Patel is waiting on you</b><span>Asks if Thursday works for the demo</span></div><div class="when">8:41 am<small>REPLY</small></div></div>
+        <div class="item"><div class="tile"><span data-icon="star"></span></div><div class="txt"><b>3 new job matches</b><span>Best: Product Designer at Lumen</span></div></div>
+        <div class="sect">WAITING ON YOU <span class="n">2</span></div>
+        <div class="item"><div class="tile"><span data-icon="claude"></span></div><div class="txt"><b>Portfolio update</b><span>Claude wants your OK to publish</span></div></div>
+        <div class="item"><div class="tile round"><span data-icon="who"></span></div><div class="txt"><b>Sam asked "Saturday?"</b><span>A reply is drafted and ready to send</span></div></div>
+        <div class="sect">TODAY</div>
+        <div class="item"><div class="tile"><span data-icon="tooth"></span></div><div class="txt"><b>Dentist</b><span>Queen St W, 12 min drive</span></div><div class="when">10:30 am</div></div>
+      </div>
+      <div class="keys"><span class="key">Got it</span><span class="key plum">Open the brief</span>
+        <span class="meter">WEEK <i><u class="on"></u><u class="on"></u><u class="on"></u><u class="on"></u><u></u><u></u><u></u><u></u><u></u><u></u></i> 40%</span></div>
+    </div>
+  </div>
+
+  <!-- ======================= B ======================= -->
+  <div class="board">
+    <h2>B - THE LANTERN (DARK)</h2>
+    <p class="why">The brief on dark wood, like the browser's tray, with a warm lamp glow over the day strip (your "moody light"). Each section is a parchment slip laid on the wood. Most dramatic, and it stands out from normal replies.</p>
+    <div class="bub b">
+      <div class="top">
+        <div class="date"><small>GOOD MORNING</small><b>Wednesday</b><span>October 14. Rain from 4 pm, bring a jacket.</span></div>
+        <div class="lamp">
+          <div class="c now"><i>MORN</i><span data-icon="partly"></span><b>8°</b></div>
+          <div class="c"><i>AFTN</i><span data-icon="cloud"></span><b>14°</b></div>
+          <div class="c"><i>EVE</i><span data-icon="rain"></span><b>11°</b></div>
+        </div>
+      </div>
+      <div class="body">
+        <div class="slip"><h3>JOB HUNT</h3>
+          <div class="item"><div class="tile"><span data-icon="cal"></span></div><div class="txt"><b>Interview, Northwind</b><span>Video call with the design team</span></div><div class="when">2:00 pm<small>TODAY</small></div></div>
+          <div class="item"><div class="tile round"><span data-icon="who"></span></div><div class="txt"><b>Rhea Patel is waiting on you</b><span>Asks if Thursday works for the demo</span></div><div class="when">REPLY</div></div>
+          <div class="item"><div class="tile"><span data-icon="star"></span></div><div class="txt"><b>3 new job matches</b><span>Best: Product Designer at Lumen</span></div></div>
+        </div>
+        <div class="slip"><h3>WAITING ON YOU</h3>
+          <div class="item"><div class="tile"><span data-icon="claude"></span></div><div class="txt"><b>Portfolio update</b><span>Claude wants your OK to publish</span></div></div>
+          <div class="item"><div class="tile round"><span data-icon="who"></span></div><div class="txt"><b>Sam asked "Saturday?"</b><span>A reply is drafted and ready to send</span></div></div>
+        </div>
+        <div class="slip"><h3>TODAY</h3>
+          <div class="item"><div class="tile"><span data-icon="tooth"></span></div><div class="txt"><b>Dentist</b><span>Queen St W, 12 min drive</span></div><div class="when">10:30 am</div></div>
+        </div>
+      </div>
+      <div class="keys"><span class="key">Got it</span><span class="key plum">Open the brief</span>
+        <span class="meter">WEEK <i><u class="on"></u><u class="on"></u><u class="on"></u><u class="on"></u><u></u><u></u><u></u><u></u><u></u><u></u></i> 40%</span></div>
+    </div>
+  </div>
+
+  <!-- ======================= C ======================= -->
+  <div class="board">
+    <h2>C - THE NOTICE BOARD</h2>
+    <p class="why">Stardew's town board: notes pinned to the wood, each a little crooked. Easiest to scan at a glance (four boxes), but holds less text per line.</p>
+    <div class="bub c3">
+      <div class="head"><b>Wednesday, Oct 14</b><span class="meter" style="margin:0;color:#b89a6a">WEEK 40%</span></div>
+      <div class="notes">
+        <div class="note"><span class="tack" data-icon="tack"></span><h3>THE DAY</h3>
+          <div style="display:flex;justify-content:space-between;text-align:center">
+            <div><span data-icon="partly" style="display:inline-block"></span><div style="font:700 13px var(--body)">8°</div><div style="font:400 8px var(--label);color:#8a6a3a">MORN</div></div>
+            <div><span data-icon="cloud" style="display:inline-block"></span><div style="font:700 13px var(--body)">14°</div><div style="font:400 8px var(--label);color:#8a6a3a">AFTN</div></div>
+            <div><span data-icon="rain" style="display:inline-block"></span><div style="font:700 13px var(--body)">11°</div><div style="font:400 8px var(--label);color:#8a6a3a">EVE</div></div>
+          </div>
+          <div style="font:italic 500 12px var(--body);color:#6a4a22;margin-top:6px">Rain from 4 pm.</div>
+        </div>
+        <div class="note"><span class="tack" data-icon="tack"></span><h3>TODAY</h3>
+          <div class="item"><div class="txt"><b>10:30 Dentist</b><span>Queen St W, 12 min</span></div></div>
+          <div class="item"><div class="txt"><b>2:00 Northwind</b><span>Interview, video call</span></div></div>
+        </div>
+        <div class="note wide"><span class="tack" data-icon="tack"></span><h3>JOB HUNT</h3>
+          <div class="item"><div class="tile round"><span data-icon="who"></span></div><div class="txt"><b>Rhea Patel is waiting on you</b><span>Asks if Thursday works for the demo</span></div><div class="when">REPLY</div></div>
+          <div class="item"><div class="tile"><span data-icon="star"></span></div><div class="txt"><b>3 new job matches</b><span>Best: Product Designer at Lumen</span></div></div>
+        </div>
+        <div class="note wide"><span class="tack" data-icon="tack"></span><h3>WAITING ON YOU</h3>
+          <div class="item"><div class="tile"><span data-icon="claude"></span></div><div class="txt"><b>Portfolio update</b><span>Claude wants your OK to publish</span></div></div>
+          <div class="item"><div class="tile round"><span data-icon="who"></span></div><div class="txt"><b>Sam asked "Saturday?"</b><span>Reply drafted, ready to send</span></div></div>
+        </div>
+      </div>
+      <div class="keys"><span class="key">Got it</span><span class="key plum">Open the brief</span></div>
+    </div>
+  </div>
+
+  <!-- ======================= icons + what was cut ======================= -->
+  <div class="board">
+    <h2>THE NEW WEATHER ICONS (AND THE OTHERS)</h2>
+    <p class="why">Real pixel art, drawn for Aang: one art pixel is 2 screen pixels, a dark outline, light from the top-left. These also go on the Discord brief and anywhere Aang talks weather.</p>
+    <div class="set">
+      <div><span data-icon="sun"></span>CLEAR</div><div><span data-icon="partly"></span>SOME SUN</div><div><span data-icon="cloud"></span>CLOUDY</div>
+      <div><span data-icon="rain"></span>RAIN</div><div><span data-icon="storm"></span>STORM</div><div><span data-icon="snow"></span>SNOW</div>
+      <div><span data-icon="fog"></span>FOG</div><div><span data-icon="moon"></span>CLEAR NIGHT</div>
+      <div><span data-icon="cal"></span>EVENT</div><div><span data-icon="star"></span>MATCHES</div><div><span data-icon="claude"></span>CLAUDE</div><div><span data-icon="tooth"></span>DENTIST</div>
+    </div>
+    <h2 style="margin-top:22px">WHAT THE BRIEF NO LONGER SHOWS</h2>
+    <div class="cut">
+      This morning's brief listed these under "Needs a reply". None of them needs you, so they are gone:<br>
+      <s>Pop's Cannabis: Surprise! A Birthday Gift Inside</s> (a promo)<br>
+      <s>Nokia API Hub: 85% of your quota</s> (an automatic alert)<br>
+      <s>JobOffer.com: New Top Jobs Alert</s> (a newsletter; real matches show as "new job matches")<br>
+      <s>Google: Security alert</s> (automatic)<br><br>
+      <b>How it decides:</b> code first drops no-reply senders, newsletters, promos and alerts. Then Aang (Haiku, a sliver of your week) reads what is left and keeps only mail where a real person is waiting on you, with one line saying what they want.
+    </div>
+  </div>
+</div>
+
+<script>
+// Pixel art: each icon is a grid; a dark outline is added round every coloured pixel; drawn at 2 CSS px per art pixel.
+const C = { Y:'#FFC43C', O:'#F08A2C', W:'#F7F3EA', G:'#B9B2C6', D:'#7A7290', B:'#4F9BE8', S:'#A9D2F5', L:'#FFE680', R:'#E2523F', P:'#966EC8', p:'#6B4A9A', K:'#E07A4F', T:'#F3EEE6', M:'#8E8A9C' };
+const ICONS = {
+  sun:   ['.....YY.....','..Y..YY..Y..','...Y....Y...','....OOOO....','...OYYYYO...','YY.OYYYYO.YY','YY.OYYYYO.YY','...OYYYYO...','....OOOO....','...Y....Y...','..Y..YY..Y..','.....YY.....'],
+  partly:['..Y.Y.......','...OOO......','YYOYYYO.....','..OYYYGGG...','.YOYYGWWWG..','...OGWWWWWGG','..GGWWWWWWWG','.GWWWWWWWWWG','.GWWWWWWWWWG','..GGGGGGGGG.','............','............'],
+  cloud: ['............','............','....GGG.....','...GWWWG....','..GWWWWWGG..','.GGWWWWWWWG.','GWWWWWWWWWWG','GWWWWWWWWWWG','.GGGGGGGGGG.','............','............','............'],
+  rain:  ['....GGG.....','...GWWWG....','..GWWWWWGG..','.GGWWWWWWWG.','GWWWWWWWWWWG','GWWWWWWWWWWG','.GGGGGGGGGG.','............','..B...B...B.','.B...B...B..','............','...B...B....'],
+  storm: ['....DDD.....','...DGGGD....','..DGGGGGDD..','.DDGGGGGGGD.','DGGGGGGGGGGD','DGGGGGGGGGGD','.DDDDLDDDDD.','.....LL.....','....LL......','.....LL.....','....L.......','............'],
+  snow:  ['....GGG.....','...GWWWG....','..GWWWWWGG..','.GGWWWWWWWG.','GWWWWWWWWWWG','.GGGGGGGGGG.','............','.S...S...S..','SSS.SSS.SSS.','.S...S...S..','............','...S...S....'],
+  fog:   ['............','..MMMMMMM...','............','MMMMMMMMMMM.','............','...MMMMMMMMM','............','.MMMMMMMMM..','............','....MMMMMM..','............','............'],
+  moon:  ['.........L..','....YYYY....','...YYY......','..YYY.....L.','..YY........','.YYY........','.YYY........','.YYYY.......','..YYYY....YY','..YYYYYYYYY.','....YYYYY...','............'],
+  cal:   ['R.R.R.R.R.','RRRRRRRRRR','RRRRRRRRRR','WWWWWWWWWW','WGWGWGWGWW','WWWWWWWWWW','WGWGWRRWWW','WWWWWRRWWW','WGWGWWWWWW','WWWWWWWWWW'],
+  star:  ['....Y.....','....Y.....','...YYY....','YYYYYYYYY.','.YYYYYYY..','..YYYYY...','..YYOYY...','.YYO.OYY..','.YO...OY..','..........'],
+  who:   ['...PPPP...','..PPPPPP..','..PPPPPP..','..PPPPPP..','...PPPP...','..........','.pppppppp.','pppppppppp','pppppppppp','..........'],
+  claude:['....K....','....K....','.K..K..K.','..K.K.K..','KKKKKKKKK','..K.K.K..','.K..K..K.','....K....','....K....'],
+  tooth: ['.TTT..TTT.','TTTTTTTTTT','TTTTTTTTTT','TTTTTTTTTT','.TTTTTTTT.','.TTTTTTTT.','.TTT..TTT.','.TT....TT.','.TT....TT.','..T....T..'],
+  tack:  ['.RRR.','RRRRR','RRRRR','.RRR.','..M..','..M..'],
+};
+function draw(name) {
+  const g = ICONS[name]; if (!g) return null;
+  const h = g.length + 2, w = Math.max(...g.map((r) => r.length)) + 2;
+  const at = (x, y) => (g[y - 1] && g[y - 1][x - 1] && g[y - 1][x - 1] !== '.') ? g[y - 1][x - 1] : null;
+  let rects = '';
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const c = at(x, y);
+    if (c) rects += `<rect x="${x}" y="${y}" width="1" height="1" fill="${C[c]}"/>`;
+    else if (at(x - 1, y) || at(x + 1, y) || at(x, y - 1) || at(x, y + 1)) rects += `<rect x="${x}" y="${y}" width="1" height="1" fill="#2a1a0c"/>`;
+  }
+  // light from the top-left: a one-pixel highlight on the top-left edge of each shape
+  return `<svg class="px" width="${w * 2}" height="${h * 2}" viewBox="0 0 ${w} ${h}" shape-rendering="crispEdges">${rects}</svg>`;
+}
+for (const s of document.querySelectorAll('[data-icon]')) { const svg = draw(s.dataset.icon); if (svg) s.innerHTML = svg; }
+</script>
+</body>
+</html>
