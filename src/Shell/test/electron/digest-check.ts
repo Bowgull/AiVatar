@@ -64,7 +64,7 @@ app.whenReady().then(async () => {
   const saved = file ? JSON.parse(readFileSync(file, 'utf8')) : null;
   check('the full list, all four, is in a file in his job-hunt folder', !!saved && saved.all.length === 4 && file.startsWith(data), file);
   const second = await tool('browser_jobs', { page });
-  check('a second look shows nothing new', /4 postings, 0 new \(4 seen before\)/.test(second.text), (/[^\n]*postings[^\n]*/.exec(second.text) ?? [''])[0]);
+  check('a second look shows nothing new', /4 postings, 0 new \(4 seen before, 0 duplicates\)/.test(second.text), (/[^\n]*postings[^\n]*/.exec(second.text) ?? [''])[0]);
   const o2 = await tool('browser_open', { url: `http://www.linkedin.com:${SITE}/jobs/search-results/?keywords=big`, task: 'Job scan' });
   const big = await tool('browser_jobs', { page: Number(/page (\d+)/.exec(o2.text)?.[1]) });
   const bigFile = /Full list: (\S+\.json)/.exec(big.text)?.[1] ?? '';

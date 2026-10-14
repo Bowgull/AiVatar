@@ -38,3 +38,20 @@ Greenhouse and similar forms embedded on a company page come back as words plus 
 
 ## Notes for next time
 `browser_note` site text keeps your own notes per site (where things are, what worked). They show up the next time you open that site. Never put Josh's private data in a note.
+
+## Job lists come back sorted (2026-10-14)
+`browser_jobs`, `browser_collect_jobs` and `browser_sweep_status` return a digest, not the raw cards: NEW postings that match his lanes one line each, near misses, and counts. The full list is saved in his job-hunt folder (`aang-browser/`), named in the answer. `seen: true` shows earlier ones again; `raw: true` returns every card.
+
+## Josh's changes to the job hunt (2026-10-14)
+These come from his own results (tracker, Aug 28 to Sep 24) plus research (Indeed Hiring Lab, Greenhouse, CareerPlug, Ashby, NBER). They are tweaks; everything else in the skill stays as it is.
+
+1. **LinkedIn and Easy Apply stay.** His good interviews (Octup, BIS Safety Software, BoomerangFX) came from small companies, two of them through LinkedIn Easy Apply. Keep scanning LinkedIn every run.
+2. **Account Executive roles are no longer skipped.** They come through with the flag "sales role: check the commission and quota". Remove "account executive" from li_extract.js BAD and any skip list. (BoomerangFX was an AE role.)
+3. **Rank mid-level first.** Small companies and mid-level roles ($75-100K) go to the top of the shortlist. Enterprise, strategic, mid-market, lead or $120K+ roles stay but go lower, marked "aims high". None of those got him an interview.
+4. **Fix two skip-list bugs in li_extract.js BAD:** "erp" also matches "Enterprise", and "intern" also matches "International" and "Internal". Use `\berp\b` and `\bintern\b`.
+5. **Ghost jobs:** drop postings older than 21 days or marked "Reposted". Drop Ontario postings that say they are not an existing vacancy. Note when a posting shows no pay range. The same job on two boards shows once.
+6. **Target companies:** `browser_check_companies` checks the companies Josh approved in `target-companies.json` (his job-hunt folder) on their own job boards. Run it ONLY when he asks or runs a scan. Never on your own, never on a timer: his rule is "NO AUTO SCANNING". Companies marked `watchable: false` have no free feed; list them for him to visit.
+7. **A person at each company:** for every shortlisted job, look (read-only, at a person's pace) for someone he knows there: 1st or 2nd degree connections, alumni, the hiring manager or recruiter. **Draft** a short ask or note for each one into `drafts.json`. Josh sends them himself; you never send. This replaces the old "never draft networking messages" rule.
+8. **Fewer, stronger applications:** 3 to 5 a week. Each one gets an honestly tailored resume (nothing invented) and a specific "why you" line.
+9. **Tracker:** every application records "Applied via" (Easy Apply, company form, referral, email). When a rejection comes the same day, log the knockout questions and the answers he gave. Keep applications.md and the Drive tracker in step.
+10. **Measure:** report the reply rate by channel ("Applied via"), not the number of applications.

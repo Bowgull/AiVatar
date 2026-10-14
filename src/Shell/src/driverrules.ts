@@ -146,32 +146,61 @@ export function uploadable(file: string, home: string, size: number): string | n
 // ---- the job digest (2026-10-14, his "lighter but as powerful"): his skill's own filters (li_extract.js, verbatim),
 // only new postings, near misses kept, and the full list in a file instead of the conversation.
 export const HOT = /customer success|client success|customer experience|client services|client relationship|account manager|account coordinator|account service|onboarding|implementation|enablement|activation|partner success|partner manager|renewals|customer operations|guest experience|student success|engagement manager|operations coordinator|project coordinator|program coordinator|vendor manager|event coordinator|event manager|relationship manager|order management|sales support|production coordinator|campaign manager|technical account|customer support|customer service|logistics coordinator|supply chain coordinator|catering|field marketing|client operations|solutions manager|delivery manager/i;
-export const SKIP = /senior|\bsr\b|director|\bvp\b|vice|head of|principal|staff|architect|engineer|developer|bilingu|french|intern|\bSAP\b|oracle|netsuite|workday|technician|driver|store manager|warehouse|sales rep|account executive|business development|territory|nurse|clinical|payroll|recruit|estimator|legal|junior|restaurant manager|assistant manager|cook|server|cashier|analyst|consultant|erp/i;
+export const SKIP = /senior|\bsr\b|director|\bvp\b|vice|head of|principal|staff|architect|engineer|developer|bilingu|french|\bintern\b|\bSAP\b|oracle|netsuite|workday|technician|driver|store manager|warehouse|sales rep|business development|territory|nurse|clinical|payroll|recruit|estimator|legal|junior|restaurant manager|assistant manager|cook|server|cashier|analyst|consultant|\berp\b/i;
 export const AWAY = /Quebec|QC\b|Montr|Vancouver|BC\b|Alberta|Calgary|Edmonton|Manitoba|Winnipeg|Halifax|Nova Scotia|Saskatchewan|Victoria/i;
 /** Titles that are roles like his but not in his lane words: shown as near misses so an odd title is never lost. */
 const ROLEISH = /\b(manager|coordinator|specialist|associate|representative|advisor|partner|lead|success|client|customer|account|operations|program|project)\b/i;
 
-export interface Posting { title: string; company?: string; location?: string; posted?: string; salary?: string; easyApply?: string; url?: string; text?: string; keyword?: string }
+// His data (tracker, Aug 28 to Sep 24 2026) on top of the research: 2 of 11 LinkedIn Easy Apply applications got good
+// interviews (Octup, BIS Safety Software), none of ~20 company-form ones did; his interviews are at small companies in
+// mid-level roles, while $120K+ enterprise and senior roles went nowhere. So: Account Executive comes through flagged
+// (BoomerangFX, his call 2026-10-14), mid-level is ranked first, high-level is kept but marked, stale/reposted is dropped.
+const SALES = /account executive/i;
+const HIGH = /enterprise|strategic|\bmajor\b|mid-?market|global|\blead\b|team lead|\bhead of\b|\bsenior\b|\bsr\.?\b/i;
+const STALE = /reposted|(\b[3-9]|\d{2,})\s+weeks?\s+ago|months?\s+ago|30\+\s+days|\b(2[2-9]|[3-9]\d)\s+days?\s+ago/i;
+export interface Posting { flags?: string[]; title: string; company?: string; location?: string; posted?: string; salary?: string; easyApply?: string; url?: string; text?: string; keyword?: string }
 export const postingKey = (p: Posting) => String(p.url || `${p.title}|${p.company ?? ''}|${p.location ?? ''}`).toLowerCase().trim();
 
-/** Sort postings: new ones that match his lanes, near misses, and the rest (counted only). */
-export function digest(list: Posting[], seen: Set<string>): { match: Posting[]; near: Posting[]; isNew: number; old: number; skipped: number; away: number } {
+/** The same job on another board: its title and company, plainly. */
+export const sameJobKey = (p: Posting) => (p.company ? `job:${String(p.title || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()}|${String(p.company).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()}` : '');
+/** The yearly top of a pay line ("CA$80K/yr - CA$95K/yr", "$40 an hour"), or null. */
+export function topPay(s: string): number | null {
+  const nums = [...String(s ?? '').matchAll(/\$\s?(\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)\s?([kK])?(\s?(?:\/|an?|per)\s?(?:hour|hr))?/g)].map((m) => { let v = Number(m[1]!.replace(/,/g, '')); if (m[2]) v *= 1000; if (m[3]) v *= 2080; return v; }).filter((v) => v >= 20_000);
+  return nums.length ? Math.max(...nums) : null;
+}
+
+/** Sort postings: new matches (mid-level first, flags on), near misses, and counts of the rest. */
+export function digest(list: Posting[], seen: Set<string>): { match: Posting[]; near: Posting[]; isNew: number; old: number; skipped: number; away: number; stale: number; dupes: number } {
   const match: Posting[] = [], near: Posting[] = [];
-  let isNew = 0, old = 0, skipped = 0, away = 0;
+  let isNew = 0, old = 0, skipped = 0, away = 0, stale = 0, dupes = 0;
+  const here = new Set<string>();
   for (const p of list) {
-    const k = postingKey(p);
-    if (!k || seen.has(k)) { old++; continue; }
+    const k = postingKey(p), k2 = sameJobKey(p);
+    if (!k || seen.has(k) || (k2 && seen.has(k2))) { old++; continue; }
+    if (k2 && here.has(k2)) { dupes++; continue; }
+    if (k2) here.add(k2);
     isNew++;
     const title = p.title || String(p.text ?? '').split(' | ')[0] || '';
     const where = `${p.location ?? ''} ${p.text ?? ''}`;
     if (SKIP.test(title)) { skipped++; continue; }
     if (AWAY.test(where)) { away++; continue; }
-    if (HOT.test(title)) match.push(p); else if (ROLEISH.test(title)) near.push(p); else skipped++;
+    if (STALE.test(`${p.posted ?? ''} ${p.text ?? ''}`)) { stale++; continue; }
+    const flags: string[] = [];
+    if (SALES.test(title)) flags.push('sales role: check the commission and quota');
+    const top = topPay(`${p.salary ?? ''} ${p.text ?? ''}`);
+    const high = HIGH.test(title) || (top !== null && top >= 120_000);
+    if (high) flags.push('aims high (enterprise or senior level): his interviews came from mid-level roles');
+    if (top !== null && top < 75_000) flags.push(`pay tops out at $${Math.round(top / 1000)}K`);
+    const q = { ...p, flags };
+    if (HOT.test(title) || SALES.test(title)) match.push(q); else if (ROLEISH.test(title)) near.push(q); else skipped++;
   }
-  return { match, near, isNew, old, skipped, away };
+  // Mid-level first: his interviews came from those; high-level and low-pay stay, below.
+  const rank = (p: Posting) => (p.flags?.some((f) => f.startsWith('aims high') || f.startsWith('pay tops')) ? 1 : 0);
+  match.sort((a, b) => rank(a) - rank(b));
+  return { match, near, isNew, old, skipped, away, stale, dupes };
 }
 /** One short line per posting. */
 export function line(p: Posting): string {
   const t = p.title || String(p.text ?? '').split(' | ')[0] || '';
-  return [t, p.company, p.location, p.salary, p.posted, p.easyApply ? 'Easy Apply' : '', p.url].filter(Boolean).map((x) => String(x).replace(/\s+/g, ' ').trim()).join(' | ').slice(0, 260);
+  return [t, p.company, p.location, p.salary, p.posted, p.easyApply ? 'Easy Apply' : '', p.url, ...(p.flags ?? []).map((f) => `[${f}]`)].filter(Boolean).map((x) => String(x).replace(/\s+/g, ' ').trim()).join(' | ').slice(0, 260);
 }
