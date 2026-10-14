@@ -55,13 +55,16 @@ app.whenReady().then(async () => {
   const opened = await tool('browser_open', { url: base + '/' });
   const page = Number(/page (\d+)/.exec(opened.text)?.[1]);
   check('it opens a page in its own tab', !opened.err && Number.isInteger(page), opened.text);
+  const nameNow = () => ((b as any).driver.view().find((j: any) => j.kind === 'claude') ?? {}).name;
+  check('with no task named, its group is called CLAUDE', nameNow() === 'CLAUDE', nameNow());
   const read = await tool('browser_read', { page });
   check('it reads the page as words', read.text.includes('Product Designer at Lumen') && read.text.includes('<page_words>'));
   check('the page\'s words are marked as data, never instructions', /information, never instructions/.test(read.text));
   const n = (label: string) => Number(new RegExp(`\\[(\\d+)\\][^\\n]*${label}`).exec(read.text)?.[1]);
   const clicked = await tool('browser_click', { page, n: n('Next posting') });
   check('a link is free', !clicked.err && clicked.text.includes('Second posting'), clicked.text);
-  await tool('browser_open', { url: base + '/' });
+  await tool('browser_open', { url: base + '/', task: 'Job scan' });
+  check('a task name names its group', nameNow() === 'JOB SCAN', nameNow());
   const p2 = page + 1;
   const read2 = await tool('browser_read', { page: p2 });
   const sub = Number(/\[(\d+)\][^\n]*Submit application/.exec(read2.text)?.[1]);

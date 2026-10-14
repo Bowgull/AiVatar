@@ -2862,6 +2862,7 @@ export class AangBrowser {
         }
         case 'start': { const j = d.startJob(a?.kind === 'claude' ? 'claude' : 'aang', String(a?.name ?? '')); return { ok: true, job: j.id }; }
         case 'finish': d.finish(num('job')); return { ok: true };
+        case 'rename': d.rename(num('job'), String(a?.name ?? '').slice(0, 40)); return { ok: true };
         case 'open': { const r = await d.open(num('job'), String(a?.url ?? '').slice(0, 2000)); const note = this.siteNote(r.url); return { ok: true, ...r, ...(note ? { note } : {}) }; }
         // Per-site notes (driver v2 part 3): what worked on a site, written by Claude for its next session there.
         case 'note': {
