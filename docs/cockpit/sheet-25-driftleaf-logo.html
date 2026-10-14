@@ -97,6 +97,27 @@ const IDEAS = [
       g.restore();
       leaf(g, p, 16, 15.5, 16, Math.PI * 0.22);
     }, ring: true, only: ['gold', 'autumn'] },
+  { key: 'tile', name: 'ITEM SLOT', draw(g, p) {
+      // a rounded-square slot like a Stardew/Zelda inventory square: gold frame, plum velvet, the leaf as the item
+      const rr = (x, y, w, h, r) => { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); };
+      rr(1.5, 1.5, 29, 29, 6); g.fillStyle = GOLD.rim; g.fill();
+      g.fillStyle = GOLD.rimLit; g.fillRect(4, 2, 24, 1.4); g.fillRect(2, 4, 1.4, 24);
+      g.fillStyle = GOLD.rimDark; g.fillRect(4, 28.6, 24, 1.4); g.fillRect(28.6, 4, 1.4, 24);
+      rr(4.5, 4.5, 23, 23, 3.5); g.fillStyle = '#4A2C6E'; g.fill();
+      g.save(); rr(4.5, 4.5, 23, 23, 3.5); g.clip();
+      for (let y = 4; y < 28; y += 2) for (let x = 4 + (y / 2) % 2; x < 28; x += 3) { g.fillStyle = (x + y) % 5 ? '#553480' : '#2C1848'; g.fillRect(x, y, 1, 1); }
+      g.restore();
+      leaf(g, p, 16, 15.5, 17, Math.PI * 0.22);
+    }, ring: true },
+  { key: 'woodtile', name: 'WOOD PLAQUE', draw(g, p) {
+      // the browser's own light wood as a carved square plaque, a plum inset, the leaf
+      const rr = (x, y, w, h, r) => { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); };
+      rr(1.5, 1.5, 29, 29, 5); g.fillStyle = '#8A5A30'; g.fill();
+      g.save(); rr(1.5, 1.5, 29, 29, 5); g.clip(); for (let y = 2; y < 31; y += 3) { g.fillStyle = y % 6 ? '#9C6A3A' : '#6E4422'; g.fillRect(0, y, N, 1); } g.restore();
+      rr(6, 6, 20, 20, 3); g.fillStyle = '#2C1848'; g.fill();
+      rr(7, 7, 18, 18, 2.5); g.fillStyle = '#4A2C6E'; g.fill();
+      leaf(g, p, 16, 15.5, 17, Math.PI * 0.22);
+    }, ring: true },
   { key: 'glider', name: 'LEAF AS A GLIDER', draw(g, p) {
       g.strokeStyle = p.wind; g.lineCap = 'round'; g.lineWidth = 1.6;
       for (const [x, y, l] of [[2, 12, 7], [1, 17, 9], [3, 22, 6]]) { g.beginPath(); g.moveTo(x, y); g.lineTo(x + l, y); g.stroke(); }
@@ -135,6 +156,18 @@ function show(src, scale) { const c = document.createElement('canvas'); c.width 
 
 const host = document.getElementById('ideas');
 {
+  {
+    const h = document.createElement('h2'); h.textContent = 'AWAY FROM FIREFOX: NO CIRCLE'; host.append(h);
+    const why = document.createElement('p'); why.className = 'why'; why.textContent = "Firefox is an orange shape round a purple circle. Shape is what you recognise first, so these drop the circle: an inventory slot like Stardew's and Zelda's, and a carved plaque in the browser's own wood. Same colours, nothing like Firefox."; host.append(why);
+    const row = document.createElement('div'); row.className = 'row'; host.append(row);
+    for (const [ik, pk, label] of [['tile', 'autumn', 'ITEM SLOT, AUTUMN'], ['tile', 'gold', 'ITEM SLOT, GOLD'], ['woodtile', 'autumn', 'WOOD PLAQUE, AUTUMN'], ['woodtile', 'gold', 'WOOD PLAQUE, GOLD']]) {
+      const a = art(IDEAS.find((i) => i.key === ik), PAL[pk]);
+      const card = document.createElement('div'); card.className = 'card'; card.append(show(a, 4));
+      const sizes = document.createElement('div'); sizes.className = 'sizes';
+      for (const [sc, l] of [[1, '32'], [0.5, '16']]) { const w = document.createElement('div'); const cv = document.createElement('canvas'); cv.width = cv.height = N * sc; const g = cv.getContext('2d'); g.imageSmoothingEnabled = sc >= 1 ? false : true; g.drawImage(a, 0, 0, N * sc, N * sc); w.append(cv); const sp = document.createElement('span'); sp.textContent = l; w.append(sp); sizes.append(w); }
+      card.append(sizes); const t = document.createElement('div'); t.className = 'tag'; t.textContent = label; card.append(t); row.append(card);
+    }
+  }
   const h = document.createElement('h2'); h.textContent = "IN AANG'S OWN PALETTE ONLY (WOOD, GOLD, PLUM, BURNT ORANGE)"; host.append(h);
   const why = document.createElement('p'); why.className = 'why'; why.textContent = 'No new colours: the wood badge with the autumn leaf, plum velvet with a gold leaf, plum velvet with the autumn leaf, and the glider in gold with plum wind.'; host.append(why);
   const row = document.createElement('div'); row.className = 'row'; host.append(row);
@@ -146,7 +179,7 @@ const host = document.getElementById('ideas');
     card.append(sizes); const t = document.createElement('div'); t.className = 'tag'; t.textContent = label; card.append(t); row.append(card);
   }
 }
-for (const idea of IDEAS.filter((i) => i.key !== 'velvet')) {
+for (const idea of IDEAS.filter((i) => !['velvet', 'tile', 'woodtile'].includes(i.key))) {
   const h = document.createElement('h2'); h.textContent = idea.name; host.append(h);
   const row = document.createElement('div'); row.className = 'row'; host.append(row);
   for (const k of ['autumn', 'jade', 'sky']) {
