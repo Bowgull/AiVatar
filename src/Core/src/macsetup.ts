@@ -258,7 +258,7 @@ export function macSetupScript(shadow: string, hookPort: number, hookKey: string
 # Aang: MacBook setup. Written by Aang on the Shadow PC; served once. Safe to run again.
 set -e
 ${opts.update ? `# Started by his UPDATE key: whatever happens, Aang opens again at the end.
-trap 'open -a "$HOME/Applications/Aang.app" >/dev/null 2>&1 || true' EXIT
+trap 'open -a "$HOME/Applications/Samara.app" >/dev/null 2>&1 || true' EXIT
 ` : ''}# macOS can still be removing the old copy right after bootout; starting again too soon fails with "Input/output
 # error" (seen 2026-10-13). So: try again for a while before giving up.
 start_agent() { for i in 1 2 3 4 5 6 7 8; do launchctl bootstrap "gui/$(id -u)" "$1" 2>/dev/null && return 0; sleep 2; done; launchctl bootstrap "gui/$(id -u)" "$1"; }
@@ -399,7 +399,7 @@ FDXML
 else
   echo "     Node is not here, so the front desk was not started."
 fi
-` : ''}${desk?.browser ? `echo "5/6  Aang's browser (M6): the same browser as on the PC, kept in step with it"
+` : ''}${desk?.browser ? `echo "5/6  Samara, Aang's browser (M6): the same browser as on the PC, kept in step with it"
 ( umask 077; printf '%s' ${q(desk.browser.bsyncKey)} > "$DIR/bsync.key" )
 BR="$DIR/browser"; mkdir -p "$BR"
 EV=${ELECTRON_MAC.version}; ZIP="electron-v$EV-darwin-x64.zip"; SUM=${ELECTRON_MAC.sha256}
@@ -423,39 +423,54 @@ if [ ! -f "$BR/drm-$DV/signed" ]; then
     printf '%s' '${b64(desk.browser.castlabsSig)}' | /usr/bin/base64 -D > "$BR/drm-$DV/Electron.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/Electron Framework.sig"
     codesign --force --deep -s - "$BR/drm-$DV/Electron.app" >/dev/null 2>&1 || true
     touch "$BR/drm-$DV/signed"
-    echo "     Netflix, Crave, Disney+, Prime and Crunchyroll play right in Aang's browser."
+    echo "     Netflix, Crave, Disney+, Prime and Crunchyroll play right in Samara."
   else echo "     The paid-video engine did not match its fingerprint; it was not installed."; fi
   rm -f "$BR/$DZIP"
 fi
-# The base for Aang.app: the signed castLabs engine when it is here, the stock one otherwise.
+# The base for Samara.app (his name for the browser, 2026-10-14; it was Aang.app): the signed castLabs engine when it
+# is here, the stock one otherwise. Inside it stays "Aang" (its bundle id, its name in package.json and the Keychain),
+# so his logins, history and default-browser choice carry over untouched. Only what he sees says Samara.
 BASE="$BR/engine-$EV/Electron.app"; [ -f "$BR/drm-$DV/signed" ] && BASE="$BR/drm-$DV/Electron.app"
 if [ -d "$BASE" ] && [ -x "$NODE_DIR/bin/node" ]; then
-  APP="$HOME/Applications/Aang.app"; mkdir -p "$HOME/Applications"
-  osascript -e 'quit app "Aang"' >/dev/null 2>&1 || true; sleep 1
+  APP="$HOME/Applications/Samara.app"; OLD="$HOME/Applications/Aang.app"; mkdir -p "$HOME/Applications"
+  osascript -e 'quit app id "com.aang.browser"' >/dev/null 2>&1 || true; sleep 1
   rm -rf "$APP.new"; ditto "$BASE" "$APP.new"
   RES="$APP.new/Contents/Resources"; mkdir -p "$RES/app"
   printf '%s' '${b64(desk.browser.bundle)}' | /usr/bin/base64 -D | tar -xzf - -C "$RES/app"
   if ( cd "$RES/app" && PATH="$NODE_DIR/bin:$PATH" npm ci --omit=dev --ignore-scripts --no-audit --no-fund --cache "$DIR/npm-cache" >"$DIR/npm-browser.log" 2>&1 ); then
     PB=/usr/libexec/PlistBuddy; PL="$APP.new/Contents/Info.plist"
-    $PB -c "Set :CFBundleName Aang" -c "Set :CFBundleDisplayName Aang" -c "Set :CFBundleIdentifier com.aang.browser" "$PL"
+    $PB -c "Set :CFBundleName Aang" -c "Set :CFBundleIdentifier com.aang.browser" "$PL"
+    $PB -c "Set :CFBundleDisplayName Samara" "$PL" >/dev/null 2>&1 || $PB -c "Add :CFBundleDisplayName string Samara" "$PL"
     $PB -c "Delete :CFBundleURLTypes" "$PL" >/dev/null 2>&1 || true
     $PB -c "Add :CFBundleURLTypes array" -c "Add :CFBundleURLTypes:0 dict" -c "Add :CFBundleURLTypes:0:CFBundleURLName string Web site URL" -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes array" -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes:0 string http" -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes:1 string https" "$PL"
-    # Aang's face is the icon, never the Electron atom (his rule).
-    IS="$BR/aang.iconset"; rm -rf "$IS"; mkdir -p "$IS"; FACE="$RES/app/pages/art/aang-face.png"
-    for s in 16 32 128 256 512; do d=$((s*2)); sips -z $s $s "$FACE" --out "$IS/icon_$s"x"$s.png" >/dev/null 2>&1; sips -z $d $d "$FACE" --out "$IS/icon_$s"x"$s@2x.png" >/dev/null 2>&1; done
+    # Samara's lantern is the icon (his pick, sheet 33 L1): each size its own crisp pixel art, never resized here.
+    IS="$BR/samara.iconset"; rm -rf "$IS"; mkdir -p "$IS"; SI="$RES/app/pages/art/samara"
+    if [ -f "$SI/samara-1024.png" ]; then
+      for s in 16 32 128 256 512; do d=$((s*2)); cp "$SI/samara-$s.png" "$IS/icon_$s"x"$s.png"; cp "$SI/samara-$d.png" "$IS/icon_$s"x"$s@2x.png"; done
+    else
+      FACE="$RES/app/pages/art/aang-face.png"
+      for s in 16 32 128 256 512; do d=$((s*2)); sips -z $s $s "$FACE" --out "$IS/icon_$s"x"$s.png" >/dev/null 2>&1; sips -z $d $d "$FACE" --out "$IS/icon_$s"x"$s@2x.png" >/dev/null 2>&1; done
+    fi
     iconutil -c icns "$IS" -o "$RES/electron.icns" >/dev/null 2>&1 || true
     codesign --force --deep -s - "$APP.new" >/dev/null 2>&1 || true
-    # The Aang that was here is kept as Aang.app.prev, so a new one that will not start can be undone.
-    rm -rf "$APP.prev"; if [ -d "$APP" ]; then mv "$APP" "$APP.prev"; fi; mv "$APP.new" "$APP"
+    # The one that was here is kept as Samara.app.prev, so a new one that will not start can be undone. The first time,
+    # that is the old Aang.app, which is then gone from Applications.
+    rm -rf "$APP.prev"; if [ -d "$APP" ]; then mv "$APP" "$APP.prev"; elif [ -d "$OLD" ]; then mv "$OLD" "$APP.prev"; fi; mv "$APP.new" "$APP"; rm -rf "$OLD"
 ${rel ? `    cp "$BR/installed.json" "$BR/installed.prev.json" 2>/dev/null || rm -f "$BR/installed.prev.json"
     printf '%s' '{"version":"${rel.version}","commit":"${rel.commit}","status":"${opts.update ? 'trial' : 'good'}"}' > "$BR/installed.json"` : ''}
     /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$APP" >/dev/null 2>&1 || true
-    # In the Dock, once (his yes).
-    if ! defaults read com.apple.dock persistent-apps 2>/dev/null | grep -q "Applications/Aang.app"; then
+    # In the Dock, once (his yes). The old Aang.app's spot in the Dock now points at Samara.app.
+    DP="$HOME/Library/Preferences/com.apple.dock.plist"; i=0; MOVED=""
+    while u=$($PB -c "Print :persistent-apps:$i:tile-data:file-data:_CFURLString" "$DP" 2>/dev/null); do
+      case "$u" in *Applications/Aang.app*) $PB -c "Set :persistent-apps:$i:tile-data:file-data:_CFURLString file://$APP/" "$DP" >/dev/null 2>&1 && MOVED=1;; esac
+      i=$((i+1))
+    done
+    if [ -n "$MOVED" ]; then killall cfprefsd >/dev/null 2>&1 || true; killall Dock >/dev/null 2>&1 || true; fi
+    if ! defaults read com.apple.dock persistent-apps 2>/dev/null | grep -q "Applications/Samara.app"; then
       defaults write com.apple.dock persistent-apps -array-add "<dict><key>tile-data</key><dict><key>file-data</key><dict><key>_CFURLString</key><string>file://$APP/</string><key>_CFURLStringType</key><integer>15</integer></dict></dict></dict>"
       killall Dock >/dev/null 2>&1 || true
     fi
-    echo "     Aang's browser is in your Dock. The first time it opens, macOS asks whether Aang may be your default browser."
+    echo "     Samara is in your Dock. The first time it opens, macOS asks whether Samara may be your default browser."
     # 6.25a (his yes, 2026-10-14): Claude Code on this Mac gets the door into this browser, as "aang-browser".
     # 2026-10-14: the claude command was not found on his Mac the first time, so nothing was added. Now: the command if it
     # is anywhere, else the entry is written into Claude Code's own settings file (~/.claude.json, its user-scope MCP
@@ -482,8 +497,8 @@ ${rel ? `    cp "$BR/installed.json" "$BR/installed.prev.json" 2>/dev/null || rm
       VER='try{console.log(require(process.argv[1]).version||0)}catch(e){console.log(0)}'; NEWV=$("$NODE_DIR/bin/node" -e "$VER" "$TC"); OLDV=$("$NODE_DIR/bin/node" -e "$VER" "$TCD")
       if [ "\${OLDV:-0}" -lt "\${NEWV:-0}" ]; then mkdir -p "$HOME/job-hunt-data"; cp "$TC" "$TCD" && echo "     Your approved company list is in job-hunt-data/target-companies.json"; fi
     fi
-    if [ -n "$ADDED" ]; then echo "     Claude Code here can now drive Aang's browser (aang-browser). Reopen a Claude session to see it."
-    else echo "     Could not add Aang's browser to Claude Code here."; fi
+    if [ -n "$ADDED" ]; then echo "     Claude Code here can now drive Samara (aang-browser). Reopen a Claude session to see it."
+    else echo "     Could not add Samara to Claude Code here."; fi
     # His yes: Bitwarden's key-fill here too. Bitwarden's own official tool, pinned by its fingerprint; he signs in to it himself.
     BWV=${BITWARDEN_MAC.version}; BWSUM=${BITWARDEN_MAC.sha256}
     if [ "$(cat "$DIR/bw/version" 2>/dev/null)" != "$BWV" ]; then
@@ -501,14 +516,14 @@ ${rel ? `    cp "$BR/installed.json" "$BR/installed.prev.json" 2>/dev/null || rm
   fi
 fi
 ` : ''}${opts.update ? `echo "Update done. Opening Aang again."
-APP="$HOME/Applications/Aang.app"; BR="$DIR/browser"
+APP="$HOME/Applications/Samara.app"; BR="$DIR/browser"
 [ -d "$APP" ] && open -a "$APP"
 # The new Aang marks itself good once it has run a minute. If it is not running and never got there, it did not
 # start: the old one goes back, and this version is not offered again.
 ${rel ? `for t in 40 60 120; do
   sleep $t
   grep -q '"status":"good"' "$BR/installed.json" 2>/dev/null && break
-  if ! pgrep -f "Aang.app/Contents/MacOS/" >/dev/null 2>&1; then
+  if ! pgrep -f "Samara.app/Contents/MacOS/" >/dev/null 2>&1; then
     if [ -d "$APP.prev" ]; then
       echo "The new Aang did not start; putting the old one back."
       rm -rf "$APP"; mv "$APP.prev" "$APP"

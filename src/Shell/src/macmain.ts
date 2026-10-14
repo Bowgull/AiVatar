@@ -62,7 +62,7 @@ app.whenReady().then(async () => {
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     { role: 'appMenu' }, { role: 'editMenu' }, { role: 'windowMenu' },
   ]));
-  try { app.dock?.setIcon(nativeImage.createFromPath(path.join(HERE, '..', 'pages', 'art', 'aang-face.png'))); } catch { /* the app's own icon stays */ }
+  try { app.dock?.setIcon(nativeImage.createFromPath(path.join(HERE, '..', 'pages', 'art', 'samara', 'samara-512.png'))); } catch { /* the app's own icon stays */ }
 
   // Every button, menu and page of the browser, the same wiring as on the PC.
   wireBrowser(() => browser);

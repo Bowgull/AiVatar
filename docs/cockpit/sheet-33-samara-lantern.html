@@ -227,7 +227,7 @@ for (const ic of ICONS) {
   const tabs = (grey) => { const t = document.createElement('div'); t.className = 'tabs' + (grey ? ' grey' : ''); const one = (dim, label) => { const d = document.createElement('div'); d.className = 'tab' + (dim ? ' dim' : ''); d.append(paint(a16, 1), document.createTextNode(label)); return d; }; t.append(one(false, 'Samara')); if (!grey) t.append(one(true, 'Jobs')); return t; };
   sec('MAC DOCK, DARK AND LIGHT WALLPAPER', dock(''), dock('light'));
   sec('WINDOWS TASKBAR: NORMAL 24 PX (DARK, LIGHT) AND 150% 32 PX', bar('', a24, 24), bar('light', a24, 24), bar('', a32, 32));
-  sec('BROWSER TAB 16 PX, AND IN GREY (THE SQUINT TEST)', tabs(false), tabs(true));
+  sec("THE BROWSER'S OWN PAGES (NEW TAB, SETTINGS) 16 PX, AND IN GREY (THE SQUINT TEST)", tabs(false), tabs(true));
   o.append(left, ctx); list.append(o);
 }
 </script>
