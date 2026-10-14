@@ -2610,20 +2610,36 @@ export class Core {
     const since = Date.now(); try { writeFileAtomic(f, JSON.stringify({ version, since })); } catch { /* best effort */ }
     return since;
   }
-  /** His versions (2026-10-14): each new one the Mac is offered gets the next number and a character's name. */
-  private macReleaseNo(version: string, commit: string): { n: number; name: string } {
+  /** His versions (2026-10-14), Semantic Versioning: MAJOR.MINOR.PATCH. A big change starts a new major and a new
+   *  character's name; a new feature bumps the middle number; a fix the last. Which it is comes from the plain-words
+   *  lines this release adds (whats-new.json "kind": major, feature or fix). The first named release is 1.0.0 Gojo. */
+  private macReleaseNo(version: string, commit: string): { label: string; name: string } {
     const f = path.join(this.cfg.stateDir, 'mac-releases.json');
-    let list: { n: number; name: string; version: string; commit: string; at: string }[] = [];
-    try { const j = JSON.parse(readFileSync(f, 'utf8')); if (Array.isArray(j)) list = j; } catch { /* the first */ }
+    type Rel = { semver: string; name: string; version: string; commit: string; at: string };
+    let list: Rel[] = [];
+    try { const j = JSON.parse(readFileSync(f, 'utf8')); if (Array.isArray(j)) list = j.filter((x: Rel) => typeof x?.semver === 'string'); } catch { /* the first */ }
     let e = list.find(x => x.version === version);
-    if (!e) { const n = list.length + 1; e = { n, name: releaseName(n), version, commit, at: new Date().toISOString() }; list.push(e); try { writeFileAtomic(f, JSON.stringify(list, null, 1)); } catch { /* best effort */ } }
-    return { n: e.n, name: e.name };
+    if (!e) {
+      const last = list[list.length - 1];
+      let semver = '1.0.0';
+      if (last) {
+        const [ma, mi, pa] = last.semver.split('.').map(Number) as [number, number, number];
+        const kinds = this.whatsNew().filter(x => Date.parse(x.at) > Date.parse(last.at)).map(x => x.kind);
+        semver = kinds.includes('major') ? `${ma + 1}.0.0` : kinds.includes('feature') ? `${ma}.${mi + 1}.0` : `${ma}.${mi}.${pa + 1}`;
+      }
+      e = { semver, name: releaseName(Number(semver.split('.')[0])), version, commit, at: new Date().toISOString() };
+      list.push(e);
+      try { writeFileAtomic(f, JSON.stringify(list, null, 1)); } catch { /* best effort */ }
+    }
+    return { label: e.semver, name: e.name };
+  }
+  private whatsNew(): { at: string; text: string; kind: string }[] {
+    try { return (JSON.parse(readFileSync(path.join(import.meta.dirname, '..', '..', 'Shell', 'whats-new.json'), 'utf8')).items ?? []).filter((x: any) => typeof x?.text === 'string').map((x: any) => ({ at: String(x.at), text: String(x.text), kind: ['major', 'feature', 'fix'].includes(x.kind) ? x.kind : 'fix' })); } catch { return []; }
   }
   /** What this update brings, in his words (Shell/whats-new.json, kept up with each change that reaches the Mac):
    *  the lines added since the version the Mac runs. */
   private macPlainNotes(fromCommit: string): string[] {
-    let items: { at: string; text: string }[] = [];
-    try { items = JSON.parse(readFileSync(path.join(import.meta.dirname, '..', '..', 'Shell', 'whats-new.json'), 'utf8')).items ?? []; } catch { /* none */ }
+    const items = this.whatsNew();
     const since = /^[0-9a-f]{6,40}$/.test(fromCommit) ? Date.parse(this.git(['show', '-s', '--format=%cI', fromCommit])) : NaN;
     const fresh = items.filter(i => typeof i?.text === 'string' && (!Number.isFinite(since) || Date.parse(i.at) > since)).map(i => i.text.slice(0, 160));
     const lines = (Number.isFinite(since) ? fresh : fresh.slice(-6)).slice(-12);
@@ -2642,7 +2658,7 @@ export class Core {
     const r = this.macRelease();
     if (!r.commit || r.version === this.macHas.version || !this.macShipped(r)) { if (this.macOffer !== null) reply({ t: 'update.none' }); this.macOffer = null; return; }
     const no = this.macReleaseNo(r.version, r.commit);
-    reply({ t: 'update.offer', version: r.version, commit: r.commit, since: this.macSince(r.version), n: no.n, name: no.name, notes: this.macPlainNotes(this.macHas.commit) });
+    reply({ t: 'update.offer', version: r.version, commit: r.commit, since: this.macSince(r.version), label: no.label, name: no.name, notes: this.macPlainNotes(this.macHas.commit) });
     if (this.macOffer !== r.version) console.log(`update key: the Mac runs ${this.macHas.version || 'an unknown version'}; offered ${r.version}`);
     this.macOffer = r.version;
   }

@@ -550,7 +550,9 @@ body.drawer-open .drawer{transform:none;visibility:visible;transition:transform 
 /* His ask (2026-10-14): a warm pulse on the word and arrow while an update waits, so he really notices it. Slow and
    soft (2.4 s), a glow that brightens and settles, never a blink. Stops while the tray is open. */
 @keyframes upwarm{0%,100%{text-shadow:1px 1px 0 #000;filter:none}50%{text-shadow:1px 1px 0 #000,0 0 6px rgba(255,196,60,.95),0 0 12px rgba(255,140,40,.6);filter:brightness(1.25)}}
-.band .upkey:not(.away):not([aria-expanded="true"]) .w,.band .upkey:not(.away):not([aria-expanded="true"]) svg{animation:upwarm 2.4s ease-in-out infinite}
+@keyframes upwarmarrow{0%,100%{filter:none}50%{filter:drop-shadow(0 0 3px rgba(255,196,60,.95)) drop-shadow(0 0 7px rgba(255,140,40,.6)) brightness(1.3)}}
+.band .upkey:not(.away):not([aria-expanded="true"]) .w{animation:upwarm 2.4s ease-in-out infinite}
+.band .upkey:not(.away):not([aria-expanded="true"]) svg{overflow:visible;animation:upwarmarrow 2.4s ease-in-out infinite}
 @media (prefers-reduced-motion:reduce){.band .upkey{transition:none}.band .upkey .w,.band .upkey svg{animation:none!important}}
 .uptray{width:340px}
 .uptray .ver{margin:0 4px 8px}
