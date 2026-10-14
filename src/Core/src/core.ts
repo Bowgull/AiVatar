@@ -22,6 +22,7 @@ import { parseFromBody } from './protocol.ts';
 import { reportWriteFailure, rotateIfBig, writeFileAtomic } from './atomic.ts';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
+import { releaseName } from './releasenames.ts';
 import { MAC_LISTENER_PORT, macBrowserBundle, macSetupScript, macSourceVersion, FRONT_DESK_PORT, type DeskPayload, type MacRelease } from './macsetup.ts';
 import { Jobs, SWEEP_REQUEST, cleanField, safeUrl, scoreOf, verdictFor } from './jobs.ts';
 import type { Rubric } from './jobs.ts';
@@ -2602,12 +2603,6 @@ export class Core {
     this.macReleaseCache = { at: Date.now(), r };
     return r;
   }
-  /** What is new since the Mac's version, in the words of the changes themselves (the commits that touched it). */
-  private macNotes(from: string): string[] {
-    const paths = ['src/Shell/src', 'src/Shell/pages', 'src/Shell/drm', 'src/Shell/mac-pkg', 'src/Core/src/macsetup.ts', ...Core.DESK_FILES.map(f => 'src/Core/src/' + f)];
-    const range = /^[0-9a-f]{6,40}$/.test(from) && this.git(['cat-file', '-t', from]) === 'commit' ? [`${from}..HEAD`] : ['-6'];
-    return this.git(['log', '--format=%s', ...range, '--', ...paths]).split(/\r?\n/).map(l => l.trim()).filter(Boolean).slice(0, 12);
-  }
   /** When this PC first had this version (how long the key has been waiting). */
   private macSince(version: string): number {
     const f = path.join(this.cfg.stateDir, 'mac-release.json');
@@ -2615,11 +2610,31 @@ export class Core {
     const since = Date.now(); try { writeFileAtomic(f, JSON.stringify({ version, since })); } catch { /* best effort */ }
     return since;
   }
+  /** His versions (2026-10-14): each new one the Mac is offered gets the next number and a character's name. */
+  private macReleaseNo(version: string, commit: string): { n: number; name: string } {
+    const f = path.join(this.cfg.stateDir, 'mac-releases.json');
+    let list: { n: number; name: string; version: string; commit: string; at: string }[] = [];
+    try { const j = JSON.parse(readFileSync(f, 'utf8')); if (Array.isArray(j)) list = j; } catch { /* the first */ }
+    let e = list.find(x => x.version === version);
+    if (!e) { const n = list.length + 1; e = { n, name: releaseName(n), version, commit, at: new Date().toISOString() }; list.push(e); try { writeFileAtomic(f, JSON.stringify(list, null, 1)); } catch { /* best effort */ } }
+    return { n: e.n, name: e.name };
+  }
+  /** What this update brings, in his words (Shell/whats-new.json, kept up with each change that reaches the Mac):
+   *  the lines added since the version the Mac runs. */
+  private macPlainNotes(fromCommit: string): string[] {
+    let items: { at: string; text: string }[] = [];
+    try { items = JSON.parse(readFileSync(path.join(import.meta.dirname, '..', '..', 'Shell', 'whats-new.json'), 'utf8')).items ?? []; } catch { /* none */ }
+    const since = /^[0-9a-f]{6,40}$/.test(fromCommit) ? Date.parse(this.git(['show', '-s', '--format=%cI', fromCommit])) : NaN;
+    const fresh = items.filter(i => typeof i?.text === 'string' && (!Number.isFinite(since) || Date.parse(i.at) > since)).map(i => i.text.slice(0, 160));
+    const lines = (Number.isFinite(since) ? fresh : fresh.slice(-6)).slice(-12);
+    return lines.length ? lines : ['Small fixes to keep things running smoothly.'];
+  }
   private macOfferNow(reply: (r: Record<string, unknown>) => void): void {
     if (!this.macHas) return;
     const r = this.macRelease();
     if (!r.commit || r.version === this.macHas.version) { if (this.macOffer !== null) reply({ t: 'update.none' }); this.macOffer = null; return; }
-    reply({ t: 'update.offer', version: r.version, commit: r.commit, since: this.macSince(r.version), notes: this.macNotes(this.macHas.commit) });
+    const no = this.macReleaseNo(r.version, r.commit);
+    reply({ t: 'update.offer', version: r.version, commit: r.commit, since: this.macSince(r.version), n: no.n, name: no.name, notes: this.macPlainNotes(this.macHas.commit) });
     if (this.macOffer !== r.version) console.log(`update key: the Mac runs ${this.macHas.version || 'an unknown version'}; offered ${r.version}`);
     this.macOffer = r.version;
   }
