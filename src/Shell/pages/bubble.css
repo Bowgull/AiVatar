@@ -465,6 +465,7 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
 .speaker img{width:20px;height:20px;image-rendering:pixelated}
 .speaker.claude{color:#8a3e1c}
 .speaker .clk{width:18px;height:18px}
+.speaker img.face{width:22px;height:22px;border-radius:50%;image-rendering:auto;object-fit:cover;box-shadow:0 0 0 1.5px rgba(107,67,24,.55)}
 .speaker .mc{font:400 8px var(--label);letter-spacing:1px;color:#6b4318;border:1.5px solid rgba(107,67,24,.55);border-radius:4px;padding:2px 4px 1px}
 .speaker .mc.mac{color:#5b2f8f;border-color:rgba(91,47,143,.5)}
 /* "Open Claude" only while the pointer is on the bubble. */
