@@ -2937,7 +2937,8 @@ export class AangBrowser {
           const worst = w === 'never' || we === 'never' ? 'never' : w === 'lever' || we === 'lever' ? 'lever' : 'free';
           if (worst === 'never') return { ok: false, error: `that is ${d.describe(page, n)}, and buying, passwords and card details are never done for him. He has to do it himself` };
           if (worst === 'lever' && a?.allowed !== true) return { ok: false, needs: 'lever', what: `${op === 'click' ? 'press' : 'fill in and send'} ${d.describe(page, n)}` };
-          const r = op === 'click' ? await d.click(page, n) : await d.type(page, n, String(a?.text ?? ''), a?.enter === true);
+          const r = op === 'click' ? await d.click(page, n, a?.allowed === true) : await d.type(page, n, String(a?.text ?? ''), a?.enter === true);
+          if ('needs' in r) return { ok: false, needs: r.needs, what: r.what };
           return { ok: true, ...r };
         }
         case 'scroll': await d.scroll(num('page'), a?.down !== false); return { ok: true };
