@@ -179,7 +179,7 @@ app.whenReady().then(async () => {
   // Smooth (2026-10-14: "when i hit update it doesnt just freeze my computer"): an offered update is fetched and the
   // new Samara made in the background at low priority (macOS background QoS), while he keeps working. Only then does
   // the key light up, with its number, its name and what it brings in plain words. Restart now just swaps it in.
-  let offered: { version: string; n: number; name: string; notes: string[]; since: number } | null = null;
+  let offered: { version: string; label: string; name: string; notes: string[]; since: number } | null = null;
   let preparing = '', readyFile: { version: string; sha: string } | null = null;
   const triedPrepare = new Set<string>();
   const STAGED = path.join(LISTENER, 'browser', 'staged', 'version'), SCRIPT = path.join(LISTENER, 'update.sh');
@@ -187,7 +187,7 @@ app.whenReady().then(async () => {
   const stagedVersion = () => { try { return readFileSync(STAGED, 'utf8').trim(); } catch { return ''; } };
   const showReady = () => {
     if (!offered || stagedVersion() !== offered.version || readyFile?.version !== offered.version) return;
-    browser?.setUpdate({ version: offered.version, since: offered.since, title: `Version ${offered.n}: ${offered.name}`, kind: 'Ready. Restart takes a few seconds.', checks: offered.notes });
+    browser?.setUpdate({ version: offered.version, since: offered.since, title: `Version ${offered.label}: ${offered.name}`, kind: 'Ready. Restart takes a few seconds.', checks: offered.notes });
   };
   const prepare = (m: any) => {
     const script = String(m.script ?? ''), sha = createHash('sha256').update(script).digest('hex');
@@ -211,7 +211,7 @@ app.whenReady().then(async () => {
     if (m.t === 'update.offer' && typeof m.version === 'string' && /^[0-9a-f]{6,64}$/.test(m.version)) {
       if (failedUpdates().includes(m.version)) { console.log(`aang: update ${m.version} failed to start before; not offered`); return; }
       const notes = (Array.isArray(m.notes) ? m.notes : []).map((x: unknown) => String(x).slice(0, 160)).slice(0, 12);
-      offered = { version: m.version, n: Number(m.n) || 0, name: String(m.name ?? '').slice(0, 40), notes, since: Number(m.since) || Date.now() };
+      offered = { version: m.version, label: /^\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(String(m.label)) ? String(m.label) : '', name: String(m.name ?? '').slice(0, 40), notes, since: Number(m.since) || Date.now() };
       if (stagedVersion() === m.version && readyFile?.version === m.version) { showReady(); return; }
       browser?.setUpdate(null);
       // Once per version per run: a failed one waits for the next start, never loops.

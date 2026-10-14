@@ -37,6 +37,8 @@ app.whenReady().then(async () => {
   await wait(500);
   const pulse = await js(`getComputedStyle(document.querySelector('#upkey .w')).animationName`);
   check('the word pulses warm while it waits', pulse === 'upwarm', String(pulse));
+  const arrow = await js(`getComputedStyle(document.querySelector('#upkey svg')).animationName`);
+  check('the arrow glows and pulses with it', arrow === 'upwarmarrow', String(arrow));
   await js(`document.getElementById('upkey').click()`); await wait(300);
   const still = await js(`getComputedStyle(document.querySelector('#upkey .w')).animationName`);
   check('and stops pulsing while the tray is open', still === 'none', String(still));
