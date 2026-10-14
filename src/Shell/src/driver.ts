@@ -535,7 +535,14 @@ export class Driver {
   }
 
   /** Open a page for a job. Never shown, never focused, muted. */
+  /** The secure address first (code audit M1, 2026-10-14), as his own tabs do: a session's pages never start on plain http. */
+  private secureFirst(url: string): string {
+    if (this.d.testLocal) return url;   // tests serve their pretend sites over plain http from this computer
+    try { const u = new URL(url); if (u.protocol === 'http:' && !privateHost(u.hostname)) { u.protocol = 'https:'; return u.href; } } catch { /* as is */ }
+    return url;
+  }
   async open(jobId: number, url: string): Promise<{ page: number; title: string; url: string; waited?: number; guest?: boolean }> {
+    url = this.secureFirst(url);
     const j = this.live(jobId);
     if (!isWeb(url)) throw new Error('only web addresses (http or https) can be opened');
     const why = this.why(url);
@@ -575,7 +582,12 @@ export class Driver {
     const elsewhere = (u: string) => { try { return siteOf(new URL(u).hostname) !== siteOf(new URL(p.url).hostname); } catch { return true; } };
     const leaks = (u: string) => !!j.sites && elsewhere(u) && carriesData(u) !== '';
     const outside = (u: string) => { if (p.guest) return false; if (this.loginRule(u) === false) return true; if (!j.sites || this.loginRule(u) === true) return false; try { return !j.sites.has(siteOf(new URL(u).hostname)); } catch { return false; } };
-    wc.on('will-navigate', (e, u) => { if (stop(u) || leaks(u)) { e.preventDefault(); p.blocked = u; } else if (outside(u)) { e.preventDefault(); p.handoff = u; } });
+    wc.on('will-navigate', (e, u) => {
+      if (stop(u) || leaks(u)) { e.preventDefault(); p.blocked = u; return; }
+      if (outside(u)) { e.preventDefault(); p.handoff = u; return; }
+      const safe = this.secureFirst(u);
+      if (safe !== u) { e.preventDefault(); setTimeout(() => { if (!wc.isDestroyed()) void wc.loadURL(safe).catch(() => {}); }, 0); }
+    });
     wc.on('will-redirect', (e, u) => { if (stop(u) || leaks(u)) { e.preventDefault(); p.blocked = u; } else if (outside(u)) { e.preventDefault(); p.handoff = u; } });
     this.listen(p);
     wc.on('page-title-updated', (_e, t) => { p.title = t.slice(0, 200); this.d.changed(); });
