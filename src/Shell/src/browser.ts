@@ -2862,7 +2862,15 @@ export class AangBrowser {
         }
         case 'start': { const j = d.startJob(a?.kind === 'claude' ? 'claude' : 'aang', String(a?.name ?? '')); return { ok: true, job: j.id }; }
         case 'finish': d.finish(num('job')); return { ok: true };
-        case 'open': return { ok: true, ...(await d.open(num('job'), String(a?.url ?? '').slice(0, 2000))) };
+        case 'open': { const r = await d.open(num('job'), String(a?.url ?? '').slice(0, 2000)); const note = this.siteNote(r.url); return { ok: true, ...r, ...(note ? { note } : {}) }; }
+        // Per-site notes (driver v2 part 3): what worked on a site, written by Claude for its next session there.
+        case 'note': {
+          const host = this.noteHost(String(a?.site ?? ''));
+          if (!host) return { ok: false, error: 'say which site (an address or a name like linkedin.com)' };
+          if (a?.text === undefined) return { ok: true, site: host, note: this.siteNote('https://' + host) };
+          this.setSiteNote(host, String(a.text));
+          return { ok: true, site: host, saved: true };
+        }
         case 'read': return { ok: true, ...(await d.read(num('page'), { ...(Number.isInteger(Number(a?.within)) && a?.within !== undefined ? { within: Number(a.within) } : {}), changes: a?.changes === true })) };
         case 'find': return { ok: true, ...(await d.find(num('page'), String(a?.q ?? '').slice(0, 200))) };
         case 'jobs': return { ok: true, ...(await d.jobCards(num('page'))) };
@@ -2894,7 +2902,7 @@ export class AangBrowser {
         }
         case 'scroll': await d.scroll(num('page'), a?.down !== false); return { ok: true };
         case 'picture': {
-          const what = a?.what === 'view' ? 'view' : Number.isInteger(Number(a?.what)) ? Number(a?.what) : 'best';
+          const what = a?.what === 'view' || a?.what === 'marks' ? a.what as 'view' | 'marks' : Number.isInteger(Number(a?.what)) ? Number(a?.what) : 'best';
           const r = await d.picture(num('page'), what);
           const p = d.page(num('page'));
           return { ok: true, png: r.png.toString('base64'), video: r.video, width: r.width, height: r.height, url: p?.url ?? '', title: p?.title ?? '' };
@@ -2903,6 +2911,24 @@ export class AangBrowser {
         default: return { ok: false, error: 'unknown step' };
       }
     } catch (e) { return { ok: false, error: (e as Error).message }; }
+  }
+
+  /** Notes per site for driving sessions, kept between runs. Claude's own words for its next visit. */
+  private notesOfSites: Record<string, string> | null = null;
+  private get siteNotes(): Record<string, string> {
+    if (!this.notesOfSites) { try { this.notesOfSites = JSON.parse(readFileSync(path.join(this.o.stateDir, 'driver-notes.json'), 'utf8')); } catch { this.notesOfSites = {}; } }
+    return this.notesOfSites!;
+  }
+  private noteHost(site: string): string {
+    const t = site.trim().toLowerCase();
+    try { return new URL(/^https?:/.test(t) ? t : 'https://' + t).hostname.replace(/^www\./, '').split('.').slice(-2).join('.'); } catch { return ''; }
+  }
+  private siteNote(url: string): string { const h = this.noteHost(url); return h ? this.siteNotes[h] ?? '' : ''; }
+  private setSiteNote(host: string, text: string): void {
+    const n = this.siteNotes;
+    const t = text.replace(/[\u0000-\u001f]+/g, ' ').trim().slice(0, 1500);
+    if (t) n[host] = t; else delete n[host];
+    try { writeFileAtomic(path.join(this.o.stateDir, 'driver-notes.json'), JSON.stringify(n)); } catch { /* best effort */ }
   }
 
   /** The job a driven page belongs to, or null. */

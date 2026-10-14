@@ -220,6 +220,23 @@ const SCROLL_LIST_JS = `(() => {
   const was = scrollY; window.scrollBy(0, Math.round(innerHeight * 0.9)); return scrollY !== was;
 })()`;
 
+
+/** Numbers drawn over every control in view, for a picture that shows which number is which. Removed right after. */
+const MARKS_JS = (on: boolean) => on ? `(() => {
+  ${DEEP}
+  const layer = document.createElement('div'); layer.id = '__aang_marks';
+  layer.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:2147483647';
+  for (const e of __deep('[data-aang-n]')) {
+    if (!__vis(e)) continue; const r = e.getBoundingClientRect(); if (r.bottom < 0 || r.top > innerHeight) continue;
+    const box = document.createElement('div');
+    box.style.cssText = 'position:fixed;border:2px solid #ff3b30;border-radius:3px;left:' + r.left + 'px;top:' + r.top + 'px;width:' + r.width + 'px;height:' + r.height + 'px';
+    const tag = document.createElement('div'); tag.textContent = e.getAttribute('data-aang-n');
+    tag.style.cssText = 'position:absolute;left:-2px;top:-16px;background:#ff3b30;color:#fff;font:bold 11px/14px Arial;padding:0 3px;border-radius:2px';
+    box.append(tag); layer.append(box);
+  }
+  document.documentElement.append(layer); return true;
+})()` : `(() => { const l = document.getElementById('__aang_marks'); if (l) l.remove(); return true; })()`;
+
 /** The best picture or video on the page, for "get me a map": the biggest one in view. */
 const BEST_MEDIA_JS = `(() => {
   const all = [...document.querySelectorAll('img, video, canvas, svg, picture, iframe[src*="youtube"], iframe[src*="twitch"]')];
@@ -343,6 +360,10 @@ export class Driver {
     throw new Error(`${host || 'the site'} is showing ${c}. This session is stopped: do not retry or try to get past it. Tell Joshua, and leave that site for a day.`);
   }
 
+  /** The frames of a page that hold another site's page (a Greenhouse or Workday form): 1, 2, 3... */
+  private frames(wc: WebContents): Electron.WebFrameMain[] {
+    try { return wc.mainFrame.framesInSubtree.filter((f) => f !== wc.mainFrame && f.parent === wc.mainFrame && /^https?:/i.test(f.url)).slice(0, 6); } catch { return []; }
+  }
   private async state(wc: WebContents, n: number | null): Promise<PageState> {
     return await wc.executeJavaScriptInIsolatedWorld(WORLD, [{ code: STATE_JS(n) }]) as PageState;
   }
@@ -370,6 +391,20 @@ export class Driver {
     const { p, wc } = this.wcOf(pageId);
     const r = await wc.executeJavaScriptInIsolatedWorld(WORLD, [{ code: READ_JS({ within: Number.isInteger(o.within) ? o.within! : null, maxText: 7000 }) }]) as { title: string; url: string; text: string; more: boolean; lines: string[]; items: (ReadItem & { formSearch: boolean; value: string; view: boolean })[] };
     this.checkChallenge(p, r);
+    // Frames holding another site's page (application forms): their controls numbered 10001+, 20001+, their words after.
+    if (!o.within) {
+      const fs = this.frames(wc);
+      // A frame from another site runs in its own process, which stalls in a hidden window and does not reliably take
+      // clicks or typing; so its words come back with its address, and Claude opens that address as its own page to act.
+      for (let k = 0; k < fs.length; k++) {
+        const words = await Promise.race([fs[k]!.executeJavaScript(`(() => { ${DEEP} return __lines(document.body).slice(0, 120).join('\\n').slice(0, 3000); })()`).catch(() => ''), new Promise((res) => setTimeout(() => res(''), 1500))]) as string;
+        if (!words) continue;
+        let fh = ''; try { fh = new URL(fs[k]!.url).hostname; } catch { /* none */ }
+        const head = `[A frame from ${fh}. To use anything in it, open its own address with browser_open: ${fs[k]!.url.slice(0, 300)}]`;
+        r.lines.push(head, ...words.split('\n'));
+        r.text += `\n\n${head}\n${words}`;
+      }
+    }
     // The numbers last as long as the controls do, so the old list is merged, not replaced.
     const known = new Map((this.items.get(p.id) ?? []).map((x) => [x.n, x]));
     for (const it of r.items) known.set(it.n, { n: it.n, kind: it.kind, label: it.label, href: it.href, formSearch: it.formSearch });
@@ -444,13 +479,18 @@ export class Driver {
     return `${it?.label ? `"${it.label}"` : 'a control'} on ${host || 'the page'}`;
   }
 
+  /** Where a control is on the page, scrolled into view. */
+  private async spot(wc: WebContents, n: number): Promise<{ x: number; y: number; w: number; h: number; left: number; top: number } | null> {
+    return await wc.executeJavaScriptInIsolatedWorld(WORLD, [{ code: SPOT_JS(n) }]) as { x: number; y: number; w: number; h: number; left: number; top: number } | null;
+  }
+
   /** Click a numbered control, the way a mouse would, inside the page (never on Windows itself). */
   async click(pageId: number, n: number): Promise<{ title: string; url: string; changed: string[]; waited?: number }> {
     const { p, wc } = this.wcOf(pageId);
     const it = this.items.get(p.id)?.find((x) => x.n === n);
     const waited = it?.kind === 'link' && it.href ? await this.pace(it.href) : 0;
     const before = await this.state(wc, n);
-    const at = await wc.executeJavaScriptInIsolatedWorld(WORLD, [{ code: SPOT_JS(n) }]) as { x: number; y: number } | null;
+    const at = await this.spot(wc, n);
     if (!at) throw new Error(`control ${n} is not on the page any more; read the page again`);
     wc.sendInputEvent({ type: 'mouseMove', x: at.x, y: at.y });
     wc.sendInputEvent({ type: 'mouseDown', x: at.x, y: at.y, button: 'left', clickCount: 1 });
@@ -518,7 +558,8 @@ export class Driver {
   /** Type into a numbered field, replacing what is there; Enter after, if asked. */
   async type(pageId: number, n: number, text: string, enter: boolean): Promise<{ title: string; url: string; changed: string[] }> {
     const { p, wc } = this.wcOf(pageId);
-    const ok = await wc.executeJavaScriptInIsolatedWorld(WORLD, [{ code: `(() => { ${DEEP} const e = __byN(${Number(n)}); if (!e) return false; e.scrollIntoView({ block: 'center' }); e.focus(); if (e.select) e.select(); return true; })()` }]);
+    const focusJs = (k: number) => `(() => { ${DEEP} const e = __byN(${Number(k)}); if (!e) return false; e.scrollIntoView({ block: 'center' }); e.focus(); if (e.select) e.select(); return true; })()`;
+    const ok = await wc.executeJavaScriptInIsolatedWorld(WORLD, [{ code: focusJs(n) }]);
     if (!ok) throw new Error(`field ${n} is not on the page any more; read the page again`);
     const before = await this.state(wc, n);
     wc.insertText(String(text).slice(0, 500));
@@ -540,8 +581,13 @@ export class Driver {
   }
 
   /** A picture: of one numbered control, of the best picture or video on the page ('best'), or of what is in view. */
-  async picture(pageId: number, what: number | 'best' | 'view'): Promise<{ png: Buffer; video: boolean; width: number; height: number }> {
+  async picture(pageId: number, what: number | 'best' | 'view' | 'marks'): Promise<{ png: Buffer; video: boolean; width: number; height: number }> {
     const { wc } = this.wcOf(pageId);
+    if (what === 'marks') {
+      await this.read(pageId);
+      await wc.executeJavaScriptInIsolatedWorld(WORLD, [{ code: MARKS_JS(true) }]);
+      try { return await this.picture(pageId, 'view'); } finally { await wc.executeJavaScriptInIsolatedWorld(WORLD, [{ code: MARKS_JS(false) }]).catch(() => {}); }
+    }
     let rect: { x: number; y: number; width: number; height: number } | undefined;
     let video = false;
     if (what === 'best') {

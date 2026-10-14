@@ -61,8 +61,10 @@ const TOOLS = [
     inputSchema: { type: 'object', properties: { page: { type: 'integer' } }, required: ['page'] } },
   { name: 'browser_scroll', description: 'Scroll a page down (or up with down: false), then read it again with changes: true.',
     inputSchema: { type: 'object', properties: { page: { type: 'integer' }, down: { type: 'boolean' } }, required: ['page'] } },
-  { name: 'browser_picture', description: 'A picture of the page as it looks (about 1,400 tokens). Only when the words are not enough: icons with no names, a layout question, a canvas.',
-    inputSchema: { type: 'object', properties: { page: { type: 'integer' } }, required: ['page'] } },
+  { name: 'browser_picture', description: 'A picture of the page as it looks (about 1,400 tokens). Only when the words are not enough: icons with no names, a layout question, a canvas. marks: true draws each control\'s number on it, so you can see which number is which.',
+    inputSchema: { type: 'object', properties: { page: { type: 'integer' }, marks: { type: 'boolean' } }, required: ['page'] } },
+  { name: 'browser_note', description: "Your notes for a site, kept for your next session there (what worked, where things are, what to avoid), up to 1500 characters. Give text to save (replaces the old note; empty text deletes it); leave text out to read it. Opening a page on that site shows the note automatically. Never put anything from Joshua's private data in a note.",
+    inputSchema: { type: 'object', properties: { site: { type: 'string', description: 'e.g. linkedin.com' }, text: { type: 'string' } }, required: ['site'] } },
   { name: 'browser_close', description: 'Close one of your pages when you are done with it.',
     inputSchema: { type: 'object', properties: { page: { type: 'integer' } }, required: ['page'] } },
   { name: 'browser_history', description: "Search Joshua's browsing history in Aang's browser (titles and addresses, never money sites). ONLY when he asks you to look at what he visited.",
@@ -77,11 +79,15 @@ async function call(name, a) {
     const r = await step('history', { q: String(a.query ?? ''), days: Number(a.days) || 14 });
     return r.ok ? text(JSON.stringify(r.items ?? [], null, 1)) : text(r.error, true);
   }
+  if (name === 'browser_note') {
+    const r = await step('note', { site: String(a.site ?? ''), ...(a.text !== undefined ? { text: String(a.text) } : {}) });
+    return r.ok ? text(r.saved ? `Saved your note for ${r.site}.` : (r.note ? `Your note for ${r.site}:\n${r.note}` : `No note for ${r.site} yet.`)) : text(r.error, true);
+  }
   if (name === 'browser_open') {
     const j = await myJob();
     if (j === null) return text("Could not start a session in Aang's browser.", true);
     const r = await step('open', { job: j, url: String(a.url ?? '') });
-    return r.ok ? text(`Opened page ${r.page}: ${r.title} (${r.url}).${r.waited ? ` (Waited ${r.waited} s first: a person's pace on this site.)` : ''} Read it with browser_read.`) : text(r.error, true);
+    return r.ok ? text(`Opened page ${r.page}: ${r.title} (${r.url}).${r.waited ? ` (Waited ${r.waited} s first: a person's pace on this site.)` : ''} Read it with browser_read.${r.note ? `\n\nYour own notes from earlier sessions on this site:\n${r.note}` : ''}`) : text(r.error, true);
   }
   const page = Number(a.page);
   if (name === 'browser_read') {
@@ -114,7 +120,7 @@ async function call(name, a) {
   if (name === 'browser_scroll') { const r = await step('scroll', { page, down: a.down !== false }); return r.ok ? text('Scrolled.') : text(r.error, true); }
   if (name === 'browser_close') { const r = await step('close', { page }); return r.ok ? text('Closed.') : text(r.error, true); }
   if (name === 'browser_picture') {
-    const r = await step('picture', { page, what: 'view' });
+    const r = await step('picture', { page, what: a.marks === true ? 'marks' : 'view' });
     return r.ok ? { content: [{ type: 'image', data: r.png, mimeType: 'image/png' }, { type: 'text', text: `${r.title} (${r.url})` }] } : text(r.error, true);
   }
   return text('No such tool.', true);
