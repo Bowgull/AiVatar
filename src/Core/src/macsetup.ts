@@ -419,11 +419,23 @@ if [ -d "$BASE" ] && [ -x "$NODE_DIR/bin/node" ]; then
     fi
     echo "     Aang's browser is in your Dock. The first time it opens, macOS asks whether Aang may be your default browser."
     # 6.25a (his yes, 2026-10-14): Claude Code on this Mac gets the door into this browser, as "aang-browser".
-    CL=$(command -v claude 2>/dev/null || find "$HOME/Library/Application Support/Claude/claude-code" -maxdepth 3 -name claude -type f -perm -u+x 2>/dev/null | sort | tail -1)
+    # 2026-10-14: the claude command was not found on his Mac the first time, so nothing was added. Now: the command if it
+    # is anywhere, else the entry is written into Claude Code's own settings file (~/.claude.json, its user-scope MCP
+    # servers), exactly what "claude mcp add --scope user" writes. A file that cannot be read is left alone.
+    DOOR="$APP/Contents/Resources/app/src/claude-door-mcp.mjs"
+    CL=$(command -v claude 2>/dev/null || true)
+    for c in "$HOME/.local/bin/claude" "$HOME/.claude/local/claude" /opt/homebrew/bin/claude /usr/local/bin/claude; do [ -z "$CL" ] && [ -x "$c" ] && CL="$c"; done
+    [ -z "$CL" ] && CL=$(find "$HOME/Library/Application Support/Claude" -maxdepth 6 -type f -name claude -perm -u+x 2>/dev/null | sort | tail -1)
+    ADDED=""
     if [ -n "$CL" ]; then
       "$CL" mcp remove --scope user aang-browser >/dev/null 2>&1 || true
-      if "$CL" mcp add --scope user aang-browser -- "$NODE_DIR/bin/node" "$APP/Contents/Resources/app/src/claude-door-mcp.mjs" >/dev/null 2>&1; then echo "     Claude Code here can now drive Aang's browser (aang-browser)."; else echo "     Could not add Aang's browser to Claude Code."; fi
-    else echo "     Claude Code was not found here, so Aang's browser was not added to it."; fi
+      "$CL" mcp add --scope user aang-browser -- "$NODE_DIR/bin/node" "$DOOR" >/dev/null 2>&1 && ADDED="yes"
+    fi
+    if [ -z "$ADDED" ]; then
+      "$NODE_DIR/bin/node" -e 'const fs=require("fs");const [p,cmd,arg]=process.argv.slice(1);let j={};if(fs.existsSync(p)){try{j=JSON.parse(fs.readFileSync(p,"utf8"))}catch(e){process.exit(2)}}j.mcpServers=j.mcpServers||{};j.mcpServers["aang-browser"]={type:"stdio",command:cmd,args:[arg],env:{}};fs.writeFileSync(p+".aang-tmp",JSON.stringify(j,null,2));fs.renameSync(p+".aang-tmp",p)' "$HOME/.claude.json" "$NODE_DIR/bin/node" "$DOOR" && ADDED="yes"
+    fi
+    if [ -n "$ADDED" ]; then echo "     Claude Code here can now drive Aang's browser (aang-browser). Reopen a Claude session to see it."
+    else echo "     Could not add Aang's browser to Claude Code here."; fi
     # His yes: Bitwarden's key-fill here too. Bitwarden's own official tool, pinned by its fingerprint; he signs in to it himself.
     BWV=${BITWARDEN_MAC.version}; BWSUM=${BITWARDEN_MAC.sha256}
     if [ "$(cat "$DIR/bw/version" 2>/dev/null)" != "$BWV" ]; then
