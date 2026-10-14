@@ -1,9 +1,25 @@
 {
   "note": "What each update brings, in plain words for Joshua. One line per change that reaches the Mac, newest last. The update key shows the lines added since the Mac's version.",
   "items": [
-    { "at": "2026-10-14T13:00:00-04:00", "text": "Your browser is now called Samara, with the lantern icon." },
-    { "at": "2026-10-14T13:40:00-04:00", "text": "Only one Samara in your Dock, always." },
-    { "at": "2026-10-14T13:40:00-04:00", "text": "Updates get ready quietly in the background, so pressing Restart now takes seconds instead of freezing your Mac." },
-    { "at": "2026-10-14T13:40:00-04:00", "text": "Each update now has a number and a name, and this list says what it brings." }
+    {
+      "at": "2026-10-14T13:00:00-04:00",
+      "text": "Your browser is now called Samara, with the lantern icon."
+    },
+    {
+      "at": "2026-10-14T13:40:00-04:00",
+      "text": "Only one Samara in your Dock, always."
+    },
+    {
+      "at": "2026-10-14T13:40:00-04:00",
+      "text": "Updates get ready quietly in the background, so pressing Restart now takes seconds instead of freezing your Mac."
+    },
+    {
+      "at": "2026-10-14T13:40:00-04:00",
+      "text": "Each update now has a number and a name, and this list says what it brings."
+    },
+    {
+      "at": "2026-10-14T13:55:00-04:00",
+      "text": "The UPDATE button glows warm so you notice it, and only shows up once the update is completely ready."
+    }
   ]
 }

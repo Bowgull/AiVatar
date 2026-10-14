@@ -2629,10 +2629,18 @@ export class Core {
     const lines = (Number.isFinite(since) ? fresh : fresh.slice(-6)).slice(-12);
     return lines.length ? lines : ['Small fixes to keep things running smoothly.'];
   }
+  /** Shipped (his ask, 2026-10-14: the key came up while Claude was still working): a version is offered only once
+   *  Claude marks it finished (mac-ship in his Aang folder holds that commit) and nothing the Mac runs is half-changed. */
+  private macShipped(r: MacRelease): boolean {
+    let ship = ''; try { ship = readFileSync(path.join(this.cfg.dataDir, 'mac-ship'), 'utf8').trim(); } catch { return false; }
+    if (!ship || !r.commit || !r.commit.startsWith(ship.slice(0, 12)) && !ship.startsWith(r.commit)) return false;
+    const dirty = this.git(['status', '--porcelain', '--', 'src/Shell/src', 'src/Shell/pages', 'src/Shell/drm', 'src/Shell/mac-pkg', 'src/Shell/whats-new.json', 'src/Core/src/macsetup.ts', ...Core.DESK_FILES.map(f => 'src/Core/src/' + f)]);
+    return dirty === '';
+  }
   private macOfferNow(reply: (r: Record<string, unknown>) => void): void {
     if (!this.macHas) return;
     const r = this.macRelease();
-    if (!r.commit || r.version === this.macHas.version) { if (this.macOffer !== null) reply({ t: 'update.none' }); this.macOffer = null; return; }
+    if (!r.commit || r.version === this.macHas.version || !this.macShipped(r)) { if (this.macOffer !== null) reply({ t: 'update.none' }); this.macOffer = null; return; }
     const no = this.macReleaseNo(r.version, r.commit);
     reply({ t: 'update.offer', version: r.version, commit: r.commit, since: this.macSince(r.version), n: no.n, name: no.name, notes: this.macPlainNotes(this.macHas.commit) });
     if (this.macOffer !== r.version) console.log(`update key: the Mac runs ${this.macHas.version || 'an unknown version'}; offered ${r.version}`);
@@ -2660,6 +2668,7 @@ export class Core {
     const ts = this.hookServer?.tailnet, r = this.macRelease();
     const desk = ts ? this.frontDeskFor() : null;
     if (!ts || !desk?.browser) { reply({ t: 'update.fail', why: "Your PC could not put the update together. Run the Mac code once instead." }); console.error('update key: no update for the Mac (no Tailscale address or nothing to send)'); return; }
+    if (!this.macShipped(r)) { reply({ t: 'update.fail', why: 'That update is not finished yet.' }); return; }
     if (String(m.version ?? '') !== r.version) { this.macOfferNow(reply); reply({ t: 'update.fail', why: 'A newer update just came in. Press Restart now again.' }); return; }
     const script = macSetupScript(ts, this.cfg.port + 1, this.keyFile('hook.key'), this.keyFile('mac-front.key'), desk, { release: r, update: true });
     reply({ t: 'update.script', version: r.version, sha256: createHash('sha256').update(script).digest('hex'), script });

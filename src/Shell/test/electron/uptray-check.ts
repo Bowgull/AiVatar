@@ -35,7 +35,11 @@ app.whenReady().then(async () => {
   b.setUpdate({ version: 'abc', since: Date.now() - 5 * 86_400_000, title: 'Aang update', kind: 'Aang, his browser and everything on this Mac',
     notes: ['Job hunt tweaks: AE flagged', 'STOP takes two presses'], checks: ['Comes from your PC over your locked, private connection', 'Checked against its fingerprint before it installs'] });
   await wait(500);
+  const pulse = await js(`getComputedStyle(document.querySelector('#upkey .w')).animationName`);
+  check('the word pulses warm while it waits', pulse === 'upwarm', String(pulse));
   await js(`document.getElementById('upkey').click()`); await wait(300);
+  const still = await js(`getComputedStyle(document.querySelector('#upkey .w')).animationName`);
+  check('and stops pulsing while the tray is open', still === 'none', String(still));
   const t = await js(`({ open: !document.getElementById('uptray').hidden, name: document.getElementById('upname').textContent, kind: document.getElementById('upkind').textContent,
     notes: [...document.querySelectorAll('#upnotes li')].map(l => l.textContent), ticks: [...document.querySelectorAll('#uplines .tick')].length, lines: document.getElementById('uplines').textContent,
     title: document.getElementById('upkey').title, age: document.getElementById('upkey').className })`);
