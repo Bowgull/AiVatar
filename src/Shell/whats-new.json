@@ -2,37 +2,37 @@
   "note": "What each update brings, in plain words for Joshua. One line per change that reaches the Mac, newest last, each with a kind: major (a big change: new major version and a new name), feature (bumps the middle number) or fix (the last number).",
   "items": [
     {
-      "at": "2026-10-14T13:00:00-04:00",
+      "at": "2026-10-14T13:10:00-04:00",
       "text": "Your browser is now called Samara, with the lantern icon.",
       "kind": "major"
     },
     {
-      "at": "2026-10-14T13:40:00-04:00",
+      "at": "2026-10-14T13:11:00-04:00",
       "text": "Only one Samara in your Dock, always.",
       "kind": "feature"
     },
     {
-      "at": "2026-10-14T13:40:00-04:00",
+      "at": "2026-10-14T13:12:00-04:00",
       "text": "Updates get ready quietly in the background, so pressing Restart now takes seconds instead of freezing your Mac.",
       "kind": "feature"
     },
     {
-      "at": "2026-10-14T13:40:00-04:00",
+      "at": "2026-10-14T13:13:00-04:00",
       "text": "Each update now has a number and a name, and this list says what it brings.",
       "kind": "feature"
     },
     {
-      "at": "2026-10-14T13:55:00-04:00",
+      "at": "2026-10-14T13:14:00-04:00",
       "text": "The UPDATE button glows warm so you notice it, and only shows up once the update is completely ready.",
       "kind": "feature"
     },
     {
-      "at": "2026-10-14T14:05:00-04:00",
+      "at": "2026-10-14T13:15:00-04:00",
       "kind": "feature",
       "text": "Versions now read like 1.0.0. A big update gets a new character's name; smaller ones keep the name and bump the number."
     },
     {
-      "at": "2026-10-14T14:15:00-04:00",
+      "at": "2026-10-14T13:16:00-04:00",
       "kind": "feature",
       "text": "A changelog of every Samara version is kept in your Aang folder on both computers, and Aang can read it to you."
     }
