@@ -21,7 +21,7 @@
   .groups .ai{grid-column:2 / span 5}.groups .use{grid-column:8 / span 2}
   .legend{margin-top:6px}
   .legend span{font:400 9.5px var(--label);letter-spacing:.5px;color:#ffe28c;text-align:center;line-height:1.25}
-  .site{padding-top:12px;padding-bottom:12px;border-top:2px solid rgba(255,255,255,.06)}
+  .site{padding-top:12px;padding-bottom:10px;border-top:2px solid rgba(255,255,255,.06)}
   .site b{display:flex;align-items:center;gap:9px;flex-wrap:wrap;font:700 15.5px var(--body);color:#fff2d6;text-shadow:1px 1px 0 #000;min-width:0}
   .site b small{flex-basis:100%;margin-left:29px;font:400 8.5px var(--label);letter-spacing:1px;color:#ff9a7a}
   .fav{flex:none;border-radius:4px;background:#fff;padding:2px;box-shadow:0 0 0 2px #120A05}
@@ -35,6 +35,12 @@
   /* asks: a plum ring, the icon half lit */
   .slot.ask{box-shadow:inset 0 0 0 2px #8f6ad8,inset 0 3px 0 rgba(0,0,0,.4)}
   .slot.ask .pix{opacity:.75;filter:none}
+  .slot.ask::after{content:"?";position:absolute;right:2px;top:2px;width:14px;height:14px;border-radius:3px;background:#5a3a9a;box-shadow:0 0 0 1.5px #120A05;
+    font:400 9px var(--label);color:#fff;line-height:14px;text-align:center}
+  /* the word under each slot */
+  .cell{display:flex;flex-direction:column;align-items:center;gap:5px}
+  .cell i{font:400 8.5px var(--label);letter-spacing:.5px;font-style:normal;color:#8a7f9e}
+  .cell.on i{color:#ffe28c}.cell.ask i{color:#c8b0ff}.cell.block i{color:#ff9a7a}.cell.never i{color:#ff9a7a}
   /* blocked: a small red mark in the corner, the icon dark */
   .slot.block::after{content:"";position:absolute;right:3px;top:3px;width:12px;height:12px;border-radius:3px;background:#C8402E;box-shadow:0 0 0 1.5px #120A05;
     -webkit-mask:linear-gradient(45deg,transparent 40%,#000 40% 60%,transparent 60%),linear-gradient(-45deg,transparent 40%,#000 40% 60%,transparent 60%);mask-composite:add}
@@ -71,19 +77,12 @@
     <div class="grid legend"><span></span><span>CLAUDE<br>+ AANG</span><span>MY<br>LOGIN</span><span>AD<br>BLOCK</span><span>POPUP<br>BLOCK</span><span>DARK<br>MODE</span><span></span><span>CAMERA</span><span>MIC</span></div>
     <div id="rows"></div>
     <div class="key4">
-      <span class="slot on"><i data-pix="camera"></i></span>On or allowed
+      <span class="slot on"><i data-pix="camera"></i></span>On / allowed
       <span class="slot"><i data-pix="camera"></i></span>Off
       <span class="slot ask"><i data-pix="camera"></i></span>Asks
       <span class="slot block"><i data-pix="camera"></i></span>Blocked
       <em>Click a slot to change it.</em>
     </div>
-  </div>
-  <p class="cap" style="margin-top:22px">TELLING "ALLOWED" FROM "ASKS": FOUR IDEAS (CAMERA SHOWN: ALLOWED, ASKS, BLOCKED)</p>
-  <div class="ideas">
-    <div class="idea"><b>1 &middot; Corner marks</b><div class="trio"><span class="slot on"><i data-pix="camera"></i></span><span class="slot on m-ask"><i data-pix="camera"></i></span><span class="slot block"><i data-pix="camera"></i></span></div><small>Asks gets a little purple "?" in the corner, like Blocked gets its red mark.</small></div>
-    <div class="idea"><b>2 &middot; Words under</b><div class="trio"><span class="w"><span class="slot on"><i data-pix="camera"></i></span><i>ALLOW</i></span><span class="w"><span class="slot ask"><i data-pix="camera"></i></span><i>ASK</i></span><span class="w"><span class="slot block"><i data-pix="camera"></i></span><i>BLOCK</i></span></div><small>A tiny label under every three-way slot.</small></div>
-    <div class="idea"><b>3 &middot; Asks breathes</b><div class="trio"><span class="slot on"><i data-pix="camera"></i></span><span class="slot ask breathe"><i data-pix="camera"></i></span><span class="slot block"><i data-pix="camera"></i></span></div><small>A slow purple glow, like the Update key's pulse. Waiting on you.</small></div>
-    <div class="idea"><b>4 &middot; Key colours</b><div class="trio"><span class="slot k-gold"><i data-pix="camera"></i></span><span class="slot k-plum"><i data-pix="camera"></i></span><span class="slot k-burnt"><i data-pix="camera"></i></span></div><small>Same as the shield's keys: gold Allow, plum Ask, burnt orange Block.</small></div>
   </div>
 <script type="module">
 import { pix, basePix, paintIcons } from './icons.js';
@@ -114,15 +113,18 @@ for (const [name, st, note] of SITES) {
     if (!c) { r.append(sl); return; }
     const s = st[i];
     if (!s) { r.append(sl); return; }
+    const cell = document.createElement('span'); const word = document.createElement('i');
+    const say = (st) => { cell.className = 'cell ' + (st || 'off'); word.textContent = c[1] === 2 ? (st === 'on' ? 'ON' : st === 'never' ? 'NEVER' : 'OFF') : ({ on: 'ALLOW', ask: 'ASK', block: 'BLOCK' })[st]; };
     sl.className = 'slot ' + (s === 'off' ? '' : s);
     sl.title = ['Claude and Aang', 'Use my login', 'Ad blocker', 'Popup blocker', 'Dark mode', '', 'Camera', 'Microphone'][i];
     if (s !== 'never') sl.append(icon(c[0]));
     if (s !== 'never') sl.onclick = () => {
       const order = c[1] === 2 ? ['on', ''] : ['on', 'ask', 'block'];
       const cur = order.find((x) => x && sl.classList.contains(x)) ?? '';
-      sl.className = 'slot ' + order[(order.indexOf(cur) + 1) % order.length];
+      const nx = order[(order.indexOf(cur) + 1) % order.length];
+      sl.className = 'slot ' + nx; say(nx);
     };
-    r.append(sl);
+    say(s === 'off' ? '' : s); cell.append(sl, word); r.append(cell);
   });
   rows.append(r);
 }
