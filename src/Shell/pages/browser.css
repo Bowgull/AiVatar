@@ -582,9 +582,9 @@ body.drawer-open .drawer{transform:none;visibility:visible;transition:transform 
 .upx .it{display:flex;gap:9px;align-items:flex-start;margin:4px 0;font:500 13px/1.4 var(--body);color:#2a1c0c}
 .upx .it small{display:block;font-size:11.5px;color:#7a5a36}
 .upx .it.opt{cursor:pointer}
-.upx .bx{flex:none;width:15px;height:15px;margin-top:2px;border:2px solid var(--outline);border-radius:3px;background:#6fbf6a;position:relative;box-sizing:border-box;box-shadow:0 1px 0 rgba(0,0,0,.4)}
+.upx .bx{flex:none;width:15px;height:15px;margin-top:2px;border:2px solid var(--outline);border-radius:3px;background:#3FBFAE;position:relative;box-sizing:border-box;box-shadow:0 0 6px rgba(159,240,230,.9),0 0 12px rgba(159,240,230,.4),0 1px 0 rgba(0,0,0,.4)}
 .upx .bx::after{content:"";position:absolute;left:3px;top:0;width:3px;height:7px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
-.upx .bx.off{background:#cdb78c}.upx .bx.off::after{display:none}
+.upx .bx.off{background:#cdb78c;box-shadow:0 1px 0 rgba(0,0,0,.4)}.upx .bx.off::after{display:none}
 .upx .dot{flex:none;width:7px;height:7px;margin:7px 4px 0 3px;background:#C95E28;box-shadow:1px 1px 0 var(--outline)}
 .upx .logday{display:block;font:500 11px var(--body);color:#7a5a36;margin:-2px 0 4px}
 .upx .logp{margin:4px 0;font:500 12px/1.4 var(--body);color:#5a4834}
