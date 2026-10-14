@@ -8,6 +8,7 @@ import { readFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import readline from 'node:readline';
+import { spawn } from 'node:child_process';
 
 const doorFile = process.env.AANG_DOOR_FILE || (process.platform === 'win32'
   ? path.join(process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming'), 'Aang', 'claude-door.json')
@@ -17,14 +18,32 @@ function door() {
   try { const d = JSON.parse(readFileSync(doorFile, 'utf8')); if (Number.isInteger(d.port) && typeof d.key === 'string') return d; } catch { /* below */ }
   return null;
 }
+async function knock(d, op, a) {
+  const r = await fetch(`http://127.0.0.1:${d.port}/drive`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-aang-key': d.key }, body: JSON.stringify({ op, a }), signal: AbortSignal.timeout(180_000) });
+  if (r.status === 403) return { ok: false, error: 'The door refused this connector. Aang may have restarted: try again.' };
+  return await r.json();
+}
+/**
+ * His ask (2026-10-14): if Aang's browser is not running, start it rather than give up. On the Mac it is its own app,
+ * opened in the background (-g: it never jumps in front of him) and waited for. On the PC it is part of Aang himself,
+ * which is always running when he is at the PC, so there it only says so.
+ */
+let launched = 0;
 async function step(op, a = {}) {
   const d = door();
-  if (!d) return { ok: false, error: "Aang's browser is not running on this machine (no door file). Ask Joshua to start Aang." };
-  try {
-    const r = await fetch(`http://127.0.0.1:${d.port}/drive`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-aang-key': d.key }, body: JSON.stringify({ op, a }), signal: AbortSignal.timeout(180_000) });
-    if (r.status === 403) return { ok: false, error: 'The door refused this connector. Aang may have restarted: start a new Claude session.' };
-    return await r.json();
-  } catch (e) { return { ok: false, error: "Aang's browser did not answer: " + e.message }; }
+  if (d) { try { return await knock(d, op, a); } catch { /* not running: below */ } }
+  if (process.platform !== 'darwin') return { ok: false, error: "Aang's browser is not running on this PC. Ask Joshua to start Aang." };
+  if (Date.now() - launched > 60_000) {
+    launched = Date.now();
+    try { spawn('/usr/bin/open', ['-g', '-a', 'Aang', '--args', '--quiet'], { stdio: 'ignore', detached: true }).unref(); } catch { /* below */ }
+  }
+  for (let i = 0; i < 40; i++) {
+    await new Promise((r) => setTimeout(r, 750));
+    const e = door();
+    if (!e) continue;
+    try { return await knock(e, op, a); } catch { /* still starting */ }
+  }
+  return { ok: false, error: "Aang's browser did not start on this Mac. Ask Joshua to open Aang from the Dock." };
 }
 
 // The group in his tab list is named for what Claude is doing ("JOB SCAN"), with Claude's icon; plain "CLAUDE" otherwise.

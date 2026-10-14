@@ -151,8 +151,12 @@ app.whenReady().then(async () => {
   }, 500).unref?.();
   app.on('before-quit', () => { popout.close(); hk.release(); });
   app.on('before-quit', () => drm.close());
-  browser.open(waiting.shift());
-  for (const u of waiting.splice(0)) browser.open(u);
+  // Started by a Claude session (claude-door-mcp.mjs: open -g -a Aang --args --quiet): the door is open, no window comes
+  // up over him. Claude's tabs are hidden ones anyway; his own window opens the first time he clicks Aang in the Dock.
+  if (!process.argv.includes('--quiet') || waiting.length) {
+    browser.open(waiting.shift());
+    for (const u of waiting.splice(0)) browser.open(u);
+  }
 
   // His yes (2026-10-13): Aang's browser is the Mac's default. macOS asks him once, in its own window.
   const asked = path.join(stateDir, 'asked-default.flag');
