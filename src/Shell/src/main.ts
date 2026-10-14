@@ -9,6 +9,7 @@
 // A crash in here must never take the pet or the brain with it. It is its own process, supervised from
 // the tray, and it holds nothing the others need.
 import { startClaudeDoor } from './claudedoor.ts';
+import { isRisky } from './secure.ts';
 import { app, BrowserWindow, Menu, clipboard, globalShortcut, ipcMain, powerMonitor, screen, session, shell } from 'electron';
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, unlinkSync, watch, writeFileSync } from 'node:fs';
 import os from 'node:os';
@@ -855,9 +856,11 @@ app.whenReady().then(async () => {
       return;
     }
     if (t.kind === 'file') {
-      // A drive path or a UNC share, which is what entities.js matched in the first place. Checked
-      // again here because the page is the least trustworthy side of this.
-      if (!/^(?:[A-Za-z]:\\|\\\\)/.test(value)) { console.error('shell: refused a chip that was not a path'); return; }
+      // A drive path only. Checked again here because the page is the least trustworthy side of this.
+      // Never a network share (code audit M9, 2026-10-14): opening \\server\x hands Windows' sign-in to that
+      // server and can run a program from it. A program or script is shown in its folder, never run.
+      if (!/^[A-Za-z]:\\/.test(value) || /^[A-Za-z]:\\.*[\\/]\.\.[\\/]/.test(value)) { console.error('shell: refused a chip that was not a local path'); return; }
+      if (isRisky(path.basename(value))) { shell.showItemInFolder(value); return; }
       void shell.openPath(value);
       return;
     }
