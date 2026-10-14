@@ -20,7 +20,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { parseFromBody } from './protocol.ts';
 import { reportWriteFailure, rotateIfBig, writeFileAtomic } from './atomic.ts';
-import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, createPrivateKey, createPublicKey, generateKeyPairSync, randomBytes, sign as signBytes, timingSafeEqual } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { releaseName } from './releasenames.ts';
 
@@ -2073,6 +2073,24 @@ export class Core {
   /** A secret shared with the MacBook, made once and kept in the data folder (gitignored there): hook.key is what
    *  the Mac's hooks send here, mac-front.key is what Aang sends the Mac's one-job listener. Two keys, so either
    *  one leaking only opens its own single door. */
+  /**
+   * The PC's update stamp (code audit M4, 2026-10-14): an Ed25519 key kept in the state folder (never in his Aang
+   * folder, which is backed up to git). Every Mac update is signed with it; the Mac keeps the public half and runs
+   * nothing that does not match.
+   */
+  private updateKeyCache: { key: import('node:crypto').KeyObject; pub: string } | null = null;
+  private updateKey(): { key: import('node:crypto').KeyObject; pub: string } {
+    if (this.updateKeyCache) return this.updateKeyCache;
+    const file = path.join(this.cfg.stateDir, 'mac-update-sign.pem');
+    let pem = '';
+    try { pem = readFileSync(file, 'utf8'); } catch { /* first time */ }
+    if (!pem) {
+      pem = generateKeyPairSync('ed25519').privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
+      mkdirSync(this.cfg.stateDir, { recursive: true }); writeFileAtomic(file, pem);
+    }
+    const key = createPrivateKey(pem);
+    return (this.updateKeyCache = { key, pub: createPublicKey(key).export({ type: 'spki', format: 'pem' }).toString() });
+  }
   private keyFile(name: string): string {
     const file = path.join(this.cfg.dataDir, name);
     try { const k = readFileSync(file, 'utf8').trim(); if (k.length >= 20) return k; } catch { /* first run */ }
@@ -2162,7 +2180,7 @@ export class Core {
     if (!ts) return null;
     console.log('mac-setup: served the MacBook its setup script (the code is now used up)');
     const r = this.macRelease(), f = this.frozen?.commit === r.commit ? this.frozen : null;
-    return (f?.setup ?? macSetupScript)(ts, this.cfg.port + 1, this.keyFile('hook.key'), this.keyFile('mac-front.key'), f ? this.frontDeskFor(f.root, f.bundle) : this.frontDeskFor(), { release: r, changelog: this.changelogText() });
+    return (f?.setup ?? macSetupScript)(ts, this.cfg.port + 1, this.keyFile('hook.key'), this.keyFile('mac-front.key'), f ? this.frontDeskFor(f.root, f.bundle) : this.frontDeskFor(), { release: r, changelog: this.changelogText(), signPub: this.updateKey().pub });
   }
 
   /**
@@ -2785,8 +2803,8 @@ export class Core {
     if (!ts || !f || !desk?.browser) { reply({ t: 'update.fail', why: "Your PC could not put the update together. Run the Mac code once instead." }); console.error('update key: no update for the Mac (no Tailscale address or nothing to send)'); return; }
     if (!this.macShipped(r)) { reply({ t: 'update.fail', why: 'That update is not finished yet.' }); return; }
     if (String(m.version ?? '') !== r.version) { this.macOfferNow(reply); reply({ t: 'update.fail', why: 'A newer update just came in. Press Restart now again.' }); return; }
-    const script = f.setup(ts, this.cfg.port + 1, this.keyFile('hook.key'), this.keyFile('mac-front.key'), desk, { release: r, update: true, changelog: this.changelogText() });
-    reply({ t: 'update.script', version: r.version, sha256: createHash('sha256').update(script).digest('hex'), script });
+    const script = f.setup(ts, this.cfg.port + 1, this.keyFile('hook.key'), this.keyFile('mac-front.key'), desk, { release: r, update: true, changelog: this.changelogText(), signPub: this.updateKey().pub });
+    reply({ t: 'update.script', version: r.version, sha256: createHash('sha256').update(script).digest('hex'), sig: signBytes(null, Buffer.from(script), this.updateKey().key).toString('base64'), script });
     console.log(`update key: sent the Mac update ${r.version} (${Math.round(script.length / 1024)} KB)`);
   }
   /** Every few minutes while the Mac is connected: a change made here lights its key without waiting for a reconnect. */

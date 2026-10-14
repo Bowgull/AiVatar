@@ -51,7 +51,7 @@ test('the update keeps the old Aang, says which version is installed, and puts t
   assert.ok(opensAt > 0 && opensAt < mcpAt, 'Samara is back before Claude\'s door and the rest are set up');
   assert.match(update, /\[ "\$PHASE" = "swap" \] && \{ nohup \/usr\/sbin\/taskpolicy -b \/bin\/bash "\$0" post/, 'the rest runs after, at low priority');
   assert.match(update, /if \[ "\$PHASE" != "post" \]; then\necho "5\/6/, 'and does not touch Samara');
-  assert.match(update, /\[ "\$PHASE" = "post" \] && \{ echo "The rest is done."; exit 0; \}/);
+  assert.match(update, /\[ "\$PHASE" = "post" \] && \{ echo "The rest is done."; rm -f "\$0"; exit 0; \}/);
   assert.match(update, /case "\$PHASE" in prepare\|post\) ;; \*\) trap/, 'only a swap opens Samara again');
   assert.match(update, /codesign --verify --deep "\$STAGE\/Samara\.app"/, 'macOS checks the new app while it gets ready');
   assert.match(update, /if \[ "\$PHASE" = "prepare" \]; then\n    if build_app "\$STAGE\/Samara\.app"; then[\s\S]{0,300}printf '%s' '0123456789abcdef' > "\$STAGE\/version"/, 'getting ready builds Samara aside');
