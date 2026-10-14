@@ -40,12 +40,12 @@ app.whenReady().then(async () => {
   const js = (x: string) => w.webContents.executeJavaScript(x, true);
   const lantern = await js(`document.getElementById('bubble').classList.contains('lantern')`);
   console.log((lantern ? 'PASS' : 'FAIL') + '  the brief is drawn on the dark wood');
-  await js(`document.querySelector('.lt-item.can .lt-head').click()`);
+  await js(`[...document.querySelectorAll('.lt-item.can')].find(r => r.textContent.includes('Rhea')).querySelector('.lt-head').click()`);
   await wait(400);
-  const opened = await js(`!document.querySelector('.lt-item.can .lt-open').hidden`);
+  const opened = await js(`![...document.querySelectorAll('.lt-item.can')].find(r => r.textContent.includes('Rhea')).querySelector('.lt-open').hidden`);
   console.log((opened ? 'PASS' : 'FAIL') + '  a click opens the row');
   if (process.env.SHOT) writeFileSync(process.env.SHOT.replace(/\.png$/, '-open.png'), (await w.webContents.capturePage()).toPNG());
-  await js(`document.querySelector('.lt-item.can .lt-open button').click()`);
+  await js(`[...document.querySelectorAll('.lt-item.can')].find(r => r.textContent.includes('Rhea')).querySelector('.lt-open button').click()`);
   const sent = await js(`JSON.stringify(window.__sent.filter(s => s[0] === 'briefAct').map(s => s[1][0]))`);
   console.log((sent === '[{"item":0,"act":"through"}]' ? 'PASS' : 'FAIL') + '  its button sends only the row and the button  -- ' + sent);
   pages.close();
