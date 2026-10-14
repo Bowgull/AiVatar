@@ -3,115 +3,107 @@
 <head>
 <meta charset="utf-8">
 <title>37 sites</title>
-<!-- Sheet 37 v2: Settings > Privacy, "Your sites", two ideas for him to pick (his answer: "draw both"). Inside the real
-     settings.css card (trayframe border, gold caps). A = a Zelda item row per site: lit = allowed, dim = asks, red cross =
-     blocked; click a slot to change it. B = a Stardew collection: every site a tile; pick one and its rules open beside
-     it, the same panel as the shield. -->
+<!-- Sheet 37 v3: Settings > Privacy, "Your sites", his pick A (item rows), fixed: every rule in the shield is here and works
+     the same way. The four on/off switches (Claude and Aang, my login, ad blocker, dark mode) are lit or dark; the three
+     three-way ones (camera, mic, popups) are gold Allow, plum Ask, or a red Block mark. Each site's real icon (Samara's
+     browser-favicons.json). Aang's own face stands for "Claude and Aang". Inside the real settings.css card. -->
 <link rel="stylesheet" href="../../../src/Shell/pages/cockpit.css">
 <link rel="stylesheet" href="../../../src/Shell/pages/settings.css">
 <style>
   html,body{margin:0;overflow:hidden!important;height:auto!important}
-  body{padding:16px 16px 0;width:1180px;display:flex;gap:22px;align-items:flex-start}
-  .col{flex:1;min-width:0}
+  body{padding:16px 16px 0;width:760px}
   .cap{font:400 10px Silkscreen,monospace;color:#FFC43C;letter-spacing:1.5px;margin:0 0 12px;text-shadow:1px 1px 0 #000}
   .card{margin:0}
-  .find{margin:6px 24px 10px;padding:7px 12px;border-radius:8px;background:#0B0718;border:2.5px solid #120A05;font:500 14px var(--body);color:#8a8099;box-shadow:inset 0 3px 0 rgba(0,0,0,.6)}
-  /* A: item rows */
-  .legend{display:grid;grid-template-columns:190px repeat(6,46px);gap:12px;padding:4px 24px 6px;font:400 8.5px var(--label);letter-spacing:.5px;color:#ffe28c;text-align:center}
-  .site{display:grid;grid-template-columns:190px repeat(6,46px);gap:12px;align-items:center;padding:12px 24px;border-top:2px solid rgba(255,255,255,.05)}
-  .site b{font:700 15.5px var(--body);color:#fff2d6;text-shadow:1px 1px 0 #000;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .site b small{display:block;font:400 8px var(--label);letter-spacing:1px;color:#ff9a7a;margin-top:2px}
-  .site b{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-  .site b small{flex-basis:100%;margin-left:26px}
+  .find{margin:6px 24px 12px;padding:8px 12px;border-radius:8px;background:#0B0718;border:2.5px solid #120A05;font:500 14px var(--body);color:#8a8099;box-shadow:inset 0 3px 0 rgba(0,0,0,.6)}
+  .grid{--cols:200px 46px 46px 46px 46px 18px 46px 46px 46px;display:grid;grid-template-columns:var(--cols);column-gap:12px;align-items:center}
+  .groups,.legend,.site{padding-left:24px;padding-right:24px}
+  .groups span{font:400 9px var(--label);letter-spacing:1.5px;color:#c9a35a;text-align:center;border-bottom:2px solid rgba(201,163,90,.35);padding-bottom:4px}
+  .groups .ai{grid-column:2 / span 4}.groups .use{grid-column:7 / span 3}
+  .legend{margin-top:6px}
+  .legend span{font:400 9.5px var(--label);letter-spacing:.5px;color:#ffe28c;text-align:center;line-height:1.25}
+  .site{padding-top:12px;padding-bottom:12px;border-top:2px solid rgba(255,255,255,.06)}
+  .site b{display:flex;align-items:center;gap:9px;flex-wrap:wrap;font:700 15.5px var(--body);color:#fff2d6;text-shadow:1px 1px 0 #000;min-width:0}
+  .site b small{flex-basis:100%;margin-left:29px;font:400 8.5px var(--label);letter-spacing:1px;color:#ff9a7a}
   .fav{flex:none;border-radius:4px;background:#fff;padding:2px;box-shadow:0 0 0 2px #120A05}
-  .tile .fav{border-radius:6px;padding:3px}
   .slot{width:46px;height:42px;border-radius:7px;display:grid;place-items:center;position:relative;cursor:pointer;
     background:#120a1e;box-shadow:inset 0 3px 0 rgba(0,0,0,.65),inset 0 0 0 2px #2a1f3a}
-  .slot.yes{background:radial-gradient(circle,rgba(255,196,60,.32),rgba(255,196,60,.05) 70%),#1f1530;box-shadow:inset 0 0 0 2px #FFC43C,0 0 8px rgba(255,196,60,.45)}
-  .slot.ask .pix{opacity:.38;filter:grayscale(.6)}
-  .slot.no .pix{opacity:.45;filter:grayscale(1)}
-  .slot.no::after{content:"";position:absolute;inset:6px;background:
-    linear-gradient(45deg,transparent 44%,#E0402A 44% 56%,transparent 56%),linear-gradient(-45deg,transparent 44%,#E0402A 44% 56%,transparent 56%);filter:drop-shadow(1px 1px 0 #000)}
-  .slot.lock{cursor:default}
-  .key3{display:flex;gap:16px;padding:8px 24px 16px;font:500 12.5px var(--body);color:#c9bfdc;align-items:center}
-  .key3 .slot{width:26px;height:24px;cursor:default}
-  .wait{margin:4px 24px 16px;padding:9px 12px;border-radius:8px;border:2px dashed rgba(159,240,230,.45);font:600 13px var(--body);color:#e6dcc8;display:flex;gap:10px;align-items:center}
-  .wait b{color:#9FF0E6}
-  /* B: collection tiles */
-  .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding:4px 24px 18px}
-  .tile{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 4px 8px;border-radius:9px;cursor:pointer;position:relative;
-    background:linear-gradient(rgba(0,0,0,.25),rgba(0,0,0,.35)),url(../../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;box-shadow:inset 0 0 0 2px #120A05,0 3px 0 #0b0610}
-  .tile span{font:700 11.5px var(--body);color:#f1e4cc;text-shadow:1px 1px 0 #000;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .tile.sel{box-shadow:inset 0 0 0 2px #FFC43C,0 0 10px rgba(255,196,60,.5),0 3px 0 #0b0610}
-  .tile.sel::before{content:"";position:absolute;left:-14px;top:12px;width:24px;height:18px;background:url(../../../src/Shell/pages/art/browser/hand.png) 0 0/24px 18px;image-rendering:pixelated}
-  .tile .dots{display:flex;gap:3px}
-  .tile .dots u{width:6px;height:6px;text-decoration:none;background:#4a3a5a}
-  .tile .dots u.y{background:#FFC43C}.tile .dots u.n{background:#E0402A}
-  .tile.bank{opacity:.7}
-  .bside{display:flex;gap:16px;align-items:flex-start}
-  .bside iframe{border:0;flex:none}
+  .slot .pix,.slot img{opacity:.32;filter:grayscale(.85)}
+  .slot img{width:27px;height:27px;image-rendering:pixelated}
+  /* on, or allowed: lit gold */
+  .slot.on{background:radial-gradient(circle,rgba(255,196,60,.32),rgba(255,196,60,.05) 70%),#1f1530;box-shadow:inset 0 0 0 2px #FFC43C,0 0 8px rgba(255,196,60,.45)}
+  .slot.on .pix,.slot.on img{opacity:1;filter:none}
+  /* asks: a plum ring, the icon half lit */
+  .slot.ask{box-shadow:inset 0 0 0 2px #8f6ad8,inset 0 3px 0 rgba(0,0,0,.4)}
+  .slot.ask .pix{opacity:.75;filter:none}
+  /* blocked: a small red mark in the corner, the icon dark */
+  .slot.block::after{content:"";position:absolute;right:3px;top:3px;width:12px;height:12px;border-radius:3px;background:#C8402E;box-shadow:0 0 0 1.5px #120A05;
+    -webkit-mask:linear-gradient(45deg,transparent 40%,#000 40% 60%,transparent 60%),linear-gradient(-45deg,transparent 40%,#000 40% 60%,transparent 60%);mask-composite:add}
+  .slot.block::before{content:"";position:absolute;right:3px;top:3px;width:12px;height:12px;border-radius:3px;background:#3a0f0a;box-shadow:0 0 0 1.5px #120A05}
+  .slot.never{cursor:default;box-shadow:inset 0 0 0 2px #6e1d10}
+  .slot.never::after{content:"";position:absolute;inset:8px;background:linear-gradient(45deg,transparent 45%,#C8402E 45% 55%,transparent 55%),linear-gradient(-45deg,transparent 45%,#C8402E 45% 55%,transparent 55%)}
+  .key4{display:flex;gap:18px;padding:12px 24px 18px;font:500 13px var(--body);color:#d9cfe9;align-items:center;flex-wrap:wrap}
+  .key4 .slot{width:30px;height:28px;cursor:default}
+  .key4 .slot .pix{transform:scale(.7)}
+  .key4 em{font-style:normal;margin-left:auto;color:#a99fbf}
 </style>
 </head>
 <body>
-<div class="col" style="flex:0 0 640px">
-  <p class="cap">A &middot; ITEM ROWS</p>
+  <p class="cap">SETTINGS &gt; PRIVACY &amp; PROTECTION</p>
   <div class="card"><i class="caps"></i>
     <h3>YOUR SITES</h3>
     <div class="find">Find a site</div>
-    <div class="legend"><span></span><span>AI</span><span>LOGIN</span><span>CAMERA</span><span>MIC</span><span>POPUPS</span><span>ADS</span></div>
+    <div class="grid groups"><span style="border:none"></span><span class="ai">SAMARA</span><span style="border:none"></span><span class="use">THIS SITE CAN USE</span></div>
+    <div class="grid legend"><span></span><span>CLAUDE<br>+ AANG</span><span>MY<br>LOGIN</span><span>AD<br>BLOCK</span><span>DARK<br>MODE</span><span></span><span>CAMERA</span><span>MIC</span><span>POPUPS</span></div>
     <div id="rows"></div>
-    <div class="key3"><span class="slot yes"><i data-pix="ai" data-scale="1.5"></i></span>Allowed <span class="slot ask"><i data-pix="ai" data-scale="1.5"></i></span>Asks <span class="slot no"><i data-pix="ai" data-scale="1.5"></i></span>Blocked <span style="margin-left:auto">Click a slot to change it.</span></div>
-    <div class="wait"><i data-pix="globe"></i><span><b>From your other computer:</b> github.com is trusted there. It asks once here.</span></div>
-  </div>
-</div>
-<div class="col" style="flex:.9">
-  <p class="cap">B &middot; COLLECTION</p>
-  <div class="card"><i class="caps"></i>
-    <h3>YOUR SITES</h3>
-    <div class="find">Find a site</div>
-    <div class="bside">
-      <div class="grid" id="tiles" style="flex:1"></div>
+    <div class="key4">
+      <span class="slot on"><i data-pix="camera"></i></span>On or allowed
+      <span class="slot"><i data-pix="camera"></i></span>Off
+      <span class="slot ask"><i data-pix="camera"></i></span>Asks
+      <span class="slot block"><i data-pix="camera"></i></span>Blocked
+      <em>Click a slot to change it.</em>
     </div>
   </div>
-  <p class="cap" style="margin-top:12px">PICK A TILE: ITS RULES OPEN (THE SAME PANEL AS THE SHIELD)</p>
-  <iframe src="shield.html?v=s" width="340" height="460" title="rules" style="border:0"></iframe>
-</div>
 <script type="module">
-import { pix, paintIcons } from './icons.js';
-const SITES = [
-  ['linkedin.com', 'job', ['yes', 'yes', 'ask', 'ask', 'no', 'no']],
-  ['meet.google.com', 'camera', ['yes', 'ask', 'yes', 'yes', 'no', 'no']],
-  ['youtube.com', 'play', ['yes', 'ask', 'ask', 'ask', 'no', 'yes']],
-  ['reddit.com', 'globe', ['no', 'no', 'ask', 'ask', 'no', 'no']],
-  ['rbc.com', 'key', ['no', 'no', '', '', '', ''], 'BANK: CHROME ONLY'],
-];
-const KINDS = ['ai', 'key', 'camera', 'mic', 'popup', 'ads'];
+import { pix, basePix, paintIcons } from './icons.js';
 // Each site's own icon, the one Samara keeps when he visits (browser-favicons.json), as bookmarks show it.
-const FAV = { 'linkedin.com': 'www.linkedin.com', 'meet.google.com': 'meet.google.com', 'youtube.com': 'www.youtube.com', 'reddit.com': 'www.reddit.com',
-  'rbc.com': 'www.rbc.com', 'github.com': 'github.com', 'twitch.tv': 'www.twitch.tv', 'spotify.com': 'open.spotify.com' };
-const fav = (name, size) => { const i = document.createElement('img'); i.src = `favicons/${FAV[name]}.ico`; i.width = size; i.height = size; i.className = 'fav'; i.alt = ''; return i; };
+const FAV = { 'linkedin.com': 'www.linkedin.com', 'meet.google.com': 'meet.google.com', 'youtube.com': 'www.youtube.com', 'reddit.com': 'www.reddit.com', 'rbc.com': 'www.rbc.com' };
+// Same order and kinds as the shield: four on/off, then three that allow, ask or block.
+const COLS = [['face', 2], ['key', 2], ['ads', 2], ['moon', 2], null, ['camera', 3], ['mic', 3], ['popup', 3]];
+const SITES = [
+  ['linkedin.com', ['on', 'on', 'on', 'off', null, 'ask', 'ask', 'block']],
+  ['meet.google.com', ['on', 'off', 'on', 'off', null, 'on', 'on', 'block']],
+  ['youtube.com', ['on', 'off', 'off', 'on', null, 'ask', 'ask', 'block']],
+  ['reddit.com', ['off', 'off', 'on', 'on', null, 'ask', 'ask', 'block']],
+  ['rbc.com', ['never', 'never', '', '', null, '', '', ''], 'BANK: CHROME ONLY'],
+];
+const icon = (k) => {
+  if (k === 'face') { const i = document.createElement('img'); i.src = '../../../src/Shell/pages/art/aang-face.png'; i.alt = ''; return i; }
+  return k === 'moon' ? basePix('moon', 2) : pix(k, 2.4);
+};
 const rows = document.getElementById('rows');
-for (const [name, , st, note] of SITES) {
-  const r = document.createElement('div'); r.className = 'site';
-  r.innerHTML = `<b><span class="nm">${name}</span>${note ? `<small>${note}</small>` : ''}</b>`; r.querySelector('b').prepend(fav(name, 18));
-  st.forEach((s, i) => {
+for (const [name, st, note] of SITES) {
+  const r = document.createElement('div'); r.className = 'grid site';
+  const b = document.createElement('b');
+  const f = document.createElement('img'); f.src = `favicons/${FAV[name]}.ico`; f.width = 20; f.height = 20; f.className = 'fav'; f.alt = '';
+  b.append(f, name); if (note) { const s = document.createElement('small'); s.textContent = note; b.append(s); }
+  r.append(b);
+  COLS.forEach((c, i) => {
     const sl = document.createElement('span');
+    if (!c) { r.append(sl); return; }
+    const s = st[i];
     if (!s) { r.append(sl); return; }
-    sl.className = 'slot ' + s + (note ? ' lock' : ''); sl.append(pix(KINDS[i], 2.4));
-    if (!note) sl.onclick = () => { const o = ['yes', 'ask', 'no']; const c = o.find((x) => sl.classList.contains(x)); sl.classList.remove(c); sl.classList.add(o[(o.indexOf(c) + 1) % 3]); };
+    sl.className = 'slot ' + (s === 'off' ? '' : s);
+    sl.title = ['Claude and Aang', 'Use my login', 'Ad blocker', 'Dark mode', '', 'Camera', 'Microphone', 'Popups'][i];
+    if (s !== 'never') sl.append(icon(c[0]));
+    if (s !== 'never') sl.onclick = () => {
+      const order = c[1] === 2 ? ['on', ''] : ['on', 'ask', 'block'];
+      const cur = order.find((x) => x && sl.classList.contains(x)) ?? '';
+      sl.className = 'slot ' + order[(order.indexOf(cur) + 1) % order.length];
+    };
     r.append(sl);
   });
   rows.append(r);
 }
-const tiles = document.getElementById('tiles');
-[...SITES, ['github.com', 'globe', ['yes', 'ask', 'ask', 'ask', 'no', 'no']], ['twitch.tv', 'play', ['yes', 'ask', 'ask', 'ask', 'no', 'yes']], ['spotify.com', 'play', ['yes', 'yes', 'ask', 'ask', 'no', 'no']]].forEach(([name, icon, st, note], i) => {
-  const t = document.createElement('div'); t.className = 'tile' + (i === 0 ? ' sel' : '') + (note ? ' bank' : '');
-  t.append(fav(name, 32));
-  const s = document.createElement('span'); s.textContent = name; t.append(s);
-  const d = document.createElement('i'); d.className = 'dots'; d.innerHTML = st.map((x) => `<u class="${x === 'yes' ? 'y' : x === 'no' ? 'n' : ''}"></u>`).join(''); t.append(d);
-  t.onclick = () => { for (const x of tiles.children) x.classList.remove('sel'); t.classList.add('sel'); };
-  tiles.append(t);
-});
 paintIcons();
 </script>
 </body>
