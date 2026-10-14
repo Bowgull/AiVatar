@@ -2887,6 +2887,19 @@ export class AangBrowser {
     } catch (e) { return { ok: false, error: (e as Error).message }; }
   }
 
+  /** The job a driven page belongs to, or null. */
+  pageJob(id: number): number | null { return this.driver.page(id)?.job ?? null; }
+  /**
+   * The held lever for a Claude session (the Claude door): asked in the band of the window he last used, every time.
+   * Null when no browser window is open to ask in; the door then says so instead of acting.
+   */
+  askForClaude(what: string): Promise<boolean | null> {
+    const p = this.lastPane();
+    if (!p) return Promise.resolve(null);
+    this.pane = p;
+    return new Promise((done) => this.ask({ host: 'Claude', what: `Let Claude ${what.slice(0, 120)}?`, text: 'A Claude session driving its own tab in your browser wants to do this. It only happens if you say yes, and only this once.', yes: 'Allow once', no: 'No' }, done));
+  }
+
   // ------------------------------------------------------------------ 6.25a: his view of Aang's pages
   /** The drawer and the address bar: STOP a job, close it, watch one of its pages, or open a page as his own tab. */
   driverAct(act: string, id: number): void {

@@ -8,6 +8,7 @@
 //
 // A crash in here must never take the pet or the brain with it. It is its own process, supervised from
 // the tray, and it holds nothing the others need.
+import { startClaudeDoor } from './claudedoor.ts';
 import { app, BrowserWindow, Menu, clipboard, globalShortcut, ipcMain, screen, session, shell } from 'electron';
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, unlinkSync, watch, writeFileSync } from 'node:fs';
 import os from 'node:os';
@@ -599,6 +600,8 @@ app.whenReady().then(async () => {
 
       aangBrowser = new AangBrowser({ origin: pages.origin, preloadPath: path.join(HERE, 'preload.cjs'), stateDir: STATE_DIR, tabPreloadPath: path.join(HERE, 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, 'thingspreload.cjs') });
       aangBrowser.onReclaim = () => popout?.returnTab();
+      // 6.25a: Claude sessions on this PC drive the browser through its own door (claudedoor.ts).
+      startClaudeDoor(() => aangBrowser, STATE_DIR);
       aangBrowser.onOpenOther = (url) => link?.send({ t: 'open.onmac', url });
       // One engine (his yes, 2026-10-13): on castLabs' engine paid video plays right in the tab. Only on the stock
       // engine do paid services still go to the separate paid-video window.
