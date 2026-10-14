@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 26 - Browser mark</title>
+<!-- Sheet 26 (2026-10-14): away from Firefox. Research (research_notes/naming/logo-differentiation.md): Firefox owns
+     "orange on a purple round field", and circles are every browser's shape. So: no circle, no orange-on-purple, the
+     object's own outline is the icon, one new accent nobody owns (jade, moss, or ink on parchment). Pixel art at 32x32
+     with an ink outline, light from the top-left. -->
+<style>
+  @font-face{font-family:Cinzel;src:url(../../src/Shell/pages/fonts/Cinzel.woff2) format("woff2");font-weight:400 900}
+  @font-face{font-family:Figtree;src:url(../../src/Shell/pages/fonts/Figtree.woff2) format("woff2");font-weight:300 900}
+  @font-face{font-family:Silkscreen;src:url(../../src/Shell/pages/fonts/Silkscreen-Regular.woff2) format("woff2")}
+  html,body{background:#17110c;margin:0}
+  body{color:#e8dcc4;font-family:Figtree,sans-serif;padding:24px 24px 40px}
+  h1{font:400 20px Silkscreen,monospace;color:#FFC43C;letter-spacing:2px;margin:0 0 4px}
+  .lead{color:#b9a684;font-size:14px;margin:0 0 22px;max-width:1100px;line-height:1.5}
+  .grid{display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start}
+  .opt{overflow:hidden}
+  .opt{background:#24170e url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;border:3px solid #0d0703;border-radius:12px;padding:16px;box-shadow:0 4px 0 #000;width:330px}
+  .opt h2{font:400 11px Silkscreen,monospace;color:#FFC43C;letter-spacing:1.5px;margin:0 0 2px}
+  .opt .nm{font:700 24px Cinzel,serif;color:#fbe7bf;text-shadow:2px 2px 0 #000;margin:0 0 6px}
+  .opt p{font-size:13px;color:#c9b48c;line-height:1.45;margin:0 0 12px}
+  .big{display:flex;justify-content:center;background:#140b05;border-radius:9px;padding:14px;box-shadow:inset 0 2px 0 rgba(0,0,0,.6)}
+  canvas{image-rendering:pixelated;display:block}
+  .tests{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+  .t{border-radius:7px;padding:8px 10px;display:flex;flex-direction:column;align-items:center;gap:4px}
+  .t span{font:400 8px Silkscreen,monospace;letter-spacing:1px}
+  .t.dark{background:#1c1c22;color:#8a8a99} .t.light{background:#eef0f4;color:#666}
+  .t .pair{display:flex;gap:8px;align-items:flex-end}
+  .verdict{font:600 12.5px Figtree;color:#9fe0a8;margin-top:10px}
+  .verdict.meh{color:#e8c36a}
+</style>
+</head>
+<body>
+<h1>SHEET 26 - A MARK THAT ISN'T FIREFOX</h1>
+<p class="lead">The research found Firefox owns two things: orange on purple, and a round shape. These drop both. Each mark's own outline is the icon (no circle behind it),
+and each adds one colour no browser owns. Under each: the squint test the research recommends, at real size, in grey, on a dark and a light taskbar.
+Your wood, gold and parchment stay. Plum stays inside the app, not in the mark.</p>
+<div class="grid" id="grid"></div>
+
+<script>
+const N = 32, INK = '#2B2118';
+const P = { parch: '#EADBB8', parchS: '#CDB78C', wood: '#9C6A3A', woodS: '#6E4422', woodD: '#4A2C14', gold: '#FFC43C', goldS: '#C98C14', goldL: '#FFE9A0',
+  jade: '#3E9C86', jadeS: '#2F7D6D', jadeD: '#1E5247', jadeL: '#8FD8C2', moss: '#7A9A48', mossS: '#5E7A3A', mossD: '#3E5424', mossL: '#B6D27A', glow: '#FFF3C0' };
+function leafShape(g, cx, cy, L, a, c) {
+  g.save(); g.translate(cx, cy); g.rotate(a); const w = L * 0.42, h = L / 2;
+  g.beginPath(); g.moveTo(0, -h); g.bezierCurveTo(w, -h * .45, w, h * .45, 0, h); g.bezierCurveTo(-w, h * .45, -w, -h * .45, 0, -h); g.fillStyle = c.main; g.fill();
+  g.beginPath(); g.moveTo(0, -h); g.bezierCurveTo(w, -h * .45, w, h * .45, 0, h); g.closePath(); g.fillStyle = c.shade; g.fill();
+  g.strokeStyle = c.dark; g.lineWidth = 1; g.beginPath(); g.moveTo(0, -h * .75); g.lineTo(0, h * .9); g.stroke();
+  g.restore();
+}
+const MARKS = [
+  { tag: 'RESEARCH PICK 1', name: 'Driftkite', why: 'A paper kite: parchment sail on wooden sticks, a jade leaf painted on it, a gold ribbon tail. A diamond with a tail reads at any size. New name keeps "drift".',
+    draw(g) {
+      g.beginPath(); g.moveTo(17, 1.5); g.lineTo(29, 12); g.lineTo(17, 24.5); g.lineTo(5, 12); g.closePath(); g.fillStyle = P.parch; g.fill();
+      g.beginPath(); g.moveTo(17, 1.5); g.lineTo(29, 12); g.lineTo(17, 24.5); g.closePath(); g.fillStyle = P.parchS; g.fill();
+      g.strokeStyle = P.woodS; g.lineWidth = 1.2; g.beginPath(); g.moveTo(17, 2.5); g.lineTo(17, 24); g.moveTo(6, 12); g.lineTo(28, 12); g.stroke();
+      leafShape(g, 17, 12, 11, Math.PI * .25, { main: P.jade, shade: P.jadeS, dark: P.jadeD });
+      g.strokeStyle = P.gold; g.lineWidth = 1.6; g.beginPath(); g.moveTo(17, 25); g.quadraticCurveTo(12, 27, 13, 29); g.quadraticCurveTo(9, 31, 4, 29.5); g.stroke();
+      g.fillStyle = P.gold; g.fillRect(12, 26, 3, 2); g.fillRect(7, 29, 3, 2);
+    }, ok: true },
+  { tag: 'RESEARCH PICK 2', name: 'Lampwick', why: 'A paper lantern glowing gold from inside, dark wood cap and base. The coziest, the most Stardew. Nothing like it among browsers. New name.',
+    draw(g) {
+      g.fillStyle = P.woodD; g.fillRect(12, 2, 8, 2); g.fillStyle = P.woodS; g.fillRect(10, 4, 12, 3);
+      g.beginPath(); g.roundRect(7, 7, 18, 17, 6); g.fillStyle = P.parch; g.fill();
+      const r = g.createRadialGradient(15, 14, 1, 16, 15, 9); r.addColorStop(0, P.glow); r.addColorStop(.5, P.gold); r.addColorStop(1, P.parchS);
+      g.beginPath(); g.roundRect(8, 8, 16, 15, 5); g.fillStyle = r; g.fill();
+      g.strokeStyle = P.goldS; g.lineWidth = 1; for (const x of [11.5, 16, 20.5]) { g.beginPath(); g.moveTo(x, 8); g.lineTo(x, 23); g.stroke(); }
+      g.fillStyle = P.woodS; g.fillRect(10, 24, 12, 3); g.fillStyle = P.woodD; g.fillRect(12, 27, 8, 1.5);
+      g.fillStyle = P.gold; g.fillRect(15, 28.5, 2, 3);
+    }, ok: true },
+  { tag: 'RESEARCH PICK 3', name: 'Driftleaf', why: 'Keeps the name. A wooden signpost whose arrow board is a moss-green leaf with a gold edge: finding your way, in the browser’s own wood.',
+    draw(g) {
+      g.fillStyle = P.wood; g.fillRect(13, 9, 5, 21); g.fillStyle = P.woodS; g.fillRect(16, 9, 2, 21);
+      g.fillStyle = P.mossS; g.fillRect(9, 28, 13, 3); g.fillStyle = P.moss; g.fillRect(10, 27, 3, 2); g.fillRect(17, 27, 4, 2);
+      g.save(); g.translate(16, 8); g.beginPath(); g.moveTo(-13, 0); g.bezierCurveTo(-6, -8, 7, -7, 14, 0); g.bezierCurveTo(7, 7, -6, 8, -13, 0); g.closePath();
+      g.fillStyle = P.moss; g.fill(); g.lineWidth = 1.6; g.strokeStyle = P.gold; g.stroke();
+      g.beginPath(); g.moveTo(-13, 0); g.bezierCurveTo(-6, 8, 7, 7, 14, 0); g.closePath(); g.fillStyle = P.mossS; g.fill();
+      g.strokeStyle = P.mossD; g.lineWidth = 1; g.beginPath(); g.moveTo(-10, 0); g.lineTo(11, 0); g.stroke(); g.restore();
+    }, ok: true },
+  { tag: 'ONE MORE', name: 'Driftleaf', why: 'Keeps the name. A maple seed, the leaf that actually drifts: it spins down on the wind. Lopsided wing shape, jade with a gold seed.',
+    draw(g) {
+      g.save(); g.translate(16, 16); g.rotate(-Math.PI * .22);
+      g.beginPath(); g.moveTo(-3, 9); g.bezierCurveTo(-9, -2, -6, -13, 2, -15); g.bezierCurveTo(9, -14, 8, -4, 4, 9); g.closePath(); g.fillStyle = P.jade; g.fill();
+      g.beginPath(); g.moveTo(1, 9); g.bezierCurveTo(4, -2, 6, -10, 2, -15); g.bezierCurveTo(9, -14, 8, -4, 4, 9); g.closePath(); g.fillStyle = P.jadeS; g.fill();
+      g.strokeStyle = P.jadeD; g.lineWidth = 1; for (const k of [-4, -1, 2]) { g.beginPath(); g.moveTo(0, 8); g.quadraticCurveTo(k, -2, k + 1, -12); g.stroke(); }
+      g.beginPath(); g.ellipse(0, 11, 4.5, 3.6, 0, 0, Math.PI * 2); g.fillStyle = P.gold; g.fill();
+      g.beginPath(); g.ellipse(1, 12, 3, 2.4, 0, 0, Math.PI * 2); g.fillStyle = P.goldS; g.fill();
+      g.restore();
+      g.strokeStyle = P.parch; g.lineWidth = 1.2; g.beginPath(); g.moveTo(3, 6); g.lineTo(8, 6); g.moveTo(2, 10); g.lineTo(6, 10); g.stroke();
+    }, ok: true },
+];
+function art(m) {
+  const c = document.createElement('canvas'); c.width = c.height = N; const g = c.getContext('2d'); m.draw(g);
+  const im = g.getImageData(0, 0, N, N), d = im.data;
+  for (let i = 0; i < d.length; i += 4) d[i + 3] = d[i + 3] >= 110 ? 255 : 0;
+  const solid = (x, y) => x >= 0 && y >= 0 && x < N && y < N && d[(y * N + x) * 4 + 3] === 255;
+  const out = new Uint8ClampedArray(d);
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (!solid(x, y) && (solid(x - 1, y) || solid(x + 1, y) || solid(x, y - 1) || solid(x, y + 1))) { const i = (y * N + x) * 4; out[i] = 0x2B; out[i + 1] = 0x21; out[i + 2] = 0x18; out[i + 3] = 255; }
+  im.data.set(out); g.putImageData(im, 0, 0); return c;
+}
+function show(src, scale, grey = false) {
+  const c = document.createElement('canvas'); c.width = c.height = Math.round(N * scale); const g = c.getContext('2d'); g.imageSmoothingEnabled = scale < 1;
+  if (grey) g.filter = 'grayscale(1)'; g.drawImage(src, 0, 0, c.width, c.height); return c;
+}
+const grid = document.getElementById('grid');
+for (const m of MARKS) {
+  const a = art(m);
+  const o = document.createElement('div'); o.className = 'opt';
+  o.innerHTML = `<h2>${m.tag}</h2><div class="nm">${m.name}</div><p>${m.why}</p>`;
+  const big = document.createElement('div'); big.className = 'big'; big.append(show(a, 5)); o.append(big);
+  const tests = document.createElement('div'); tests.className = 'tests';
+  for (const [cls, label, grey] of [['dark', 'DARK TASKBAR', false], ['light', 'LIGHT TASKBAR', false], ['dark', 'SQUINT: GREY', true]]) {
+    const t = document.createElement('div'); t.className = 't ' + cls;
+    const pair = document.createElement('div'); pair.className = 'pair'; pair.append(show(a, 1, grey), show(a, .5, grey));
+    const s = document.createElement('span'); s.textContent = label + ' 32 / 16'; t.append(pair, s); tests.append(t);
+  }
+  o.append(tests);
+  grid.append(o);
+}
+</script>
+</body>
+</html>
