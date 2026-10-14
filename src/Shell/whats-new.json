@@ -150,6 +150,11 @@
       "at": "2026-10-14T17:05:00-04:00",
       "text": "Sites trusted on one computer ask once on the other.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-10-14T18:10:00-04:00",
+      "text": "Update tick boxes now glow turquoise.",
+      "kind": "fix"
     }
   ]
 }

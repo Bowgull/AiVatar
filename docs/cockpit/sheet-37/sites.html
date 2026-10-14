@@ -11,14 +11,14 @@
 <link rel="stylesheet" href="../../../src/Shell/pages/settings.css">
 <style>
   html,body{margin:0;overflow:hidden!important;height:auto!important}
-  body{padding:16px 16px 0;width:760px}
+  body{padding:16px 16px 16px;width:820px}
   .cap{font:400 10px Silkscreen,monospace;color:#FFC43C;letter-spacing:1.5px;margin:0 0 12px;text-shadow:1px 1px 0 #000}
   .card{margin:0}
   .find{margin:6px 24px 12px;padding:8px 12px;border-radius:8px;background:#0B0718;border:2.5px solid #120A05;font:500 14px var(--body);color:#8a8099;box-shadow:inset 0 3px 0 rgba(0,0,0,.6)}
-  .grid{--cols:200px 46px 46px 46px 46px 18px 46px 46px 46px;display:grid;grid-template-columns:var(--cols);column-gap:12px;align-items:center}
+  .grid{--cols:200px 46px 46px 46px 46px 46px 18px 46px 46px;display:grid;grid-template-columns:var(--cols);column-gap:12px;align-items:center}
   .groups,.legend,.site{padding-left:24px;padding-right:24px}
   .groups span{font:400 9px var(--label);letter-spacing:1.5px;color:#c9a35a;text-align:center;border-bottom:2px solid rgba(201,163,90,.35);padding-bottom:4px}
-  .groups .ai{grid-column:2 / span 4}.groups .use{grid-column:7 / span 3}
+  .groups .ai{grid-column:2 / span 5}.groups .use{grid-column:8 / span 2}
   .legend{margin-top:6px}
   .legend span{font:400 9.5px var(--label);letter-spacing:.5px;color:#ffe28c;text-align:center;line-height:1.25}
   .site{padding-top:12px;padding-bottom:12px;border-top:2px solid rgba(255,255,255,.06)}
@@ -41,6 +41,21 @@
   .slot.block::before{content:"";position:absolute;right:3px;top:3px;width:12px;height:12px;border-radius:3px;background:#3a0f0a;box-shadow:0 0 0 1.5px #120A05}
   .slot.never{cursor:default;box-shadow:inset 0 0 0 2px #6e1d10}
   .slot.never::after{content:"";position:absolute;inset:8px;background:linear-gradient(45deg,transparent 45%,#C8402E 45% 55%,transparent 55%),linear-gradient(-45deg,transparent 45%,#C8402E 45% 55%,transparent 55%)}
+  .ideas{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  .idea{padding:12px;border-radius:10px;background:#140d20;box-shadow:inset 0 0 0 2px #2a1f3a}
+  .idea b{display:block;font:700 13.5px var(--body);color:#ffe28c;margin:0 0 10px}
+  .idea small{display:block;font:500 12px/1.4 var(--body);color:#c9bfdc;margin-top:10px}
+  .trio{display:flex;gap:8px;align-items:flex-start}
+  .trio .w{display:flex;flex-direction:column;align-items:center;gap:4px}
+  .trio .w i{font:400 8px var(--label);letter-spacing:.5px;color:#ffe28c;font-style:normal}
+  .slot.m-ask::after{content:"?";position:absolute;right:2px;top:2px;width:14px;height:14px;border-radius:3px;background:#5a3a9a;box-shadow:0 0 0 1.5px #120A05;
+    font:400 9px var(--label);color:#fff;display:grid;place-items:center;line-height:14px;text-align:center}
+  .slot.breathe{animation:breathe 2.2s ease-in-out infinite}
+  @keyframes breathe{0%,100%{box-shadow:inset 0 0 0 2px #8f6ad8}50%{box-shadow:inset 0 0 0 2px #b897ff,0 0 12px rgba(184,151,255,.75)}}
+  .slot.k-gold{background:linear-gradient(180deg,#ffd45a,#e0a520);box-shadow:inset 0 0 0 2px #120A05,0 3px 0 #120A05}
+  .slot.k-plum{background:linear-gradient(180deg,#6a4596,#3f2566);box-shadow:inset 0 0 0 2px #120A05,0 3px 0 #120A05}
+  .slot.k-burnt{background:linear-gradient(180deg,#e07a3e,#a84a1c);box-shadow:inset 0 0 0 2px #120A05,0 3px 0 #120A05}
+  .slot[class*="k-"] .pix{opacity:1;filter:none}
   .key4{display:flex;gap:18px;padding:12px 24px 18px;font:500 13px var(--body);color:#d9cfe9;align-items:center;flex-wrap:wrap}
   .key4 .slot{width:30px;height:28px;cursor:default}
   .key4 .slot .pix{transform:scale(.7)}
@@ -52,8 +67,8 @@
   <div class="card"><i class="caps"></i>
     <h3>YOUR SITES</h3>
     <div class="find">Find a site</div>
-    <div class="grid groups"><span style="border:none"></span><span class="ai">SAMARA</span><span style="border:none"></span><span class="use">THIS SITE CAN USE</span></div>
-    <div class="grid legend"><span></span><span>CLAUDE<br>+ AANG</span><span>MY<br>LOGIN</span><span>AD<br>BLOCK</span><span>DARK<br>MODE</span><span></span><span>CAMERA</span><span>MIC</span><span>POPUPS</span></div>
+    <div class="grid groups"><span style="border:none"></span><span class="ai">SAMARA</span><span style="border:none"></span><span class="use">CAN USE</span></div>
+    <div class="grid legend"><span></span><span>CLAUDE<br>+ AANG</span><span>MY<br>LOGIN</span><span>AD<br>BLOCK</span><span>POPUP<br>BLOCK</span><span>DARK<br>MODE</span><span></span><span>CAMERA</span><span>MIC</span></div>
     <div id="rows"></div>
     <div class="key4">
       <span class="slot on"><i data-pix="camera"></i></span>On or allowed
@@ -63,18 +78,25 @@
       <em>Click a slot to change it.</em>
     </div>
   </div>
+  <p class="cap" style="margin-top:22px">TELLING "ALLOWED" FROM "ASKS": FOUR IDEAS (CAMERA SHOWN: ALLOWED, ASKS, BLOCKED)</p>
+  <div class="ideas">
+    <div class="idea"><b>1 &middot; Corner marks</b><div class="trio"><span class="slot on"><i data-pix="camera"></i></span><span class="slot on m-ask"><i data-pix="camera"></i></span><span class="slot block"><i data-pix="camera"></i></span></div><small>Asks gets a little purple "?" in the corner, like Blocked gets its red mark.</small></div>
+    <div class="idea"><b>2 &middot; Words under</b><div class="trio"><span class="w"><span class="slot on"><i data-pix="camera"></i></span><i>ALLOW</i></span><span class="w"><span class="slot ask"><i data-pix="camera"></i></span><i>ASK</i></span><span class="w"><span class="slot block"><i data-pix="camera"></i></span><i>BLOCK</i></span></div><small>A tiny label under every three-way slot.</small></div>
+    <div class="idea"><b>3 &middot; Asks breathes</b><div class="trio"><span class="slot on"><i data-pix="camera"></i></span><span class="slot ask breathe"><i data-pix="camera"></i></span><span class="slot block"><i data-pix="camera"></i></span></div><small>A slow purple glow, like the Update key's pulse. Waiting on you.</small></div>
+    <div class="idea"><b>4 &middot; Key colours</b><div class="trio"><span class="slot k-gold"><i data-pix="camera"></i></span><span class="slot k-plum"><i data-pix="camera"></i></span><span class="slot k-burnt"><i data-pix="camera"></i></span></div><small>Same as the shield's keys: gold Allow, plum Ask, burnt orange Block.</small></div>
+  </div>
 <script type="module">
 import { pix, basePix, paintIcons } from './icons.js';
 // Each site's own icon, the one Samara keeps when he visits (browser-favicons.json), as bookmarks show it.
 const FAV = { 'linkedin.com': 'www.linkedin.com', 'meet.google.com': 'meet.google.com', 'youtube.com': 'www.youtube.com', 'reddit.com': 'www.reddit.com', 'rbc.com': 'www.rbc.com' };
 // Same order and kinds as the shield: four on/off, then three that allow, ask or block.
-const COLS = [['face', 2], ['key', 2], ['ads', 2], ['moon', 2], null, ['camera', 3], ['mic', 3], ['popup', 3]];
+const COLS = [['ai', 2], ['key', 2], ['ads', 2], ['popup', 2], ['moon', 2], null, ['camera', 3], ['mic', 3]];
 const SITES = [
-  ['linkedin.com', ['on', 'on', 'on', 'off', null, 'ask', 'ask', 'block']],
-  ['meet.google.com', ['on', 'off', 'on', 'off', null, 'on', 'on', 'block']],
-  ['youtube.com', ['on', 'off', 'off', 'on', null, 'ask', 'ask', 'block']],
-  ['reddit.com', ['off', 'off', 'on', 'on', null, 'ask', 'ask', 'block']],
-  ['rbc.com', ['never', 'never', '', '', null, '', '', ''], 'BANK: CHROME ONLY'],
+  ['linkedin.com', ['on', 'on', 'on', 'on', 'off', null, 'ask', 'ask']],
+  ['meet.google.com', ['on', 'off', 'on', 'on', 'off', null, 'on', 'on']],
+  ['youtube.com', ['on', 'off', 'off', 'on', 'on', null, 'ask', 'block']],
+  ['reddit.com', ['off', 'off', 'on', 'on', 'on', null, 'ask', 'ask']],
+  ['rbc.com', ['never', 'never', '', '', '', null, '', ''], 'BANK: CHROME ONLY'],
 ];
 const icon = (k) => {
   if (k === 'face') { const i = document.createElement('img'); i.src = '../../../src/Shell/pages/art/aang-face.png'; i.alt = ''; return i; }
@@ -93,7 +115,7 @@ for (const [name, st, note] of SITES) {
     const s = st[i];
     if (!s) { r.append(sl); return; }
     sl.className = 'slot ' + (s === 'off' ? '' : s);
-    sl.title = ['Claude and Aang', 'Use my login', 'Ad blocker', 'Dark mode', '', 'Camera', 'Microphone', 'Popups'][i];
+    sl.title = ['Claude and Aang', 'Use my login', 'Ad blocker', 'Popup blocker', 'Dark mode', '', 'Camera', 'Microphone'][i];
     if (s !== 'never') sl.append(icon(c[0]));
     if (s !== 'never') sl.onclick = () => {
       const order = c[1] === 2 ? ['on', ''] : ['on', 'ask', 'block'];
