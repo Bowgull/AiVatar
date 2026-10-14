@@ -21,6 +21,10 @@
   .site{display:grid;grid-template-columns:150px repeat(6,36px);gap:6px;align-items:center;padding:7px 24px;border-top:2px solid rgba(255,255,255,.05)}
   .site b{font:700 14.5px var(--body);color:#fff2d6;text-shadow:1px 1px 0 #000;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .site b small{display:block;font:400 8px var(--label);letter-spacing:1px;color:#ff9a7a;margin-top:2px}
+  .site b{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .site b small{flex-basis:100%;margin-left:26px}
+  .fav{flex:none;border-radius:4px;background:#fff;padding:2px;box-shadow:0 0 0 2px #120A05}
+  .tile .fav{border-radius:6px;padding:3px}
   .slot{width:36px;height:34px;border-radius:7px;display:grid;place-items:center;position:relative;cursor:pointer;
     background:#120a1e;box-shadow:inset 0 3px 0 rgba(0,0,0,.65),inset 0 0 0 2px #2a1f3a}
   .slot.yes{background:radial-gradient(circle,rgba(255,196,60,.32),rgba(255,196,60,.05) 70%),#1f1530;box-shadow:inset 0 0 0 2px #FFC43C,0 0 8px rgba(255,196,60,.45)}
@@ -79,13 +83,17 @@ const SITES = [
   ['meet.google.com', 'camera', ['yes', 'ask', 'yes', 'yes', 'no', 'no']],
   ['youtube.com', 'play', ['yes', 'ask', 'ask', 'ask', 'no', 'yes']],
   ['reddit.com', 'globe', ['no', 'no', 'ask', 'ask', 'no', 'no']],
-  ['rbc.com', 'key', ['no', 'no', '', '', '', ''], 'BANK: OPENS IN CHROME'],
+  ['rbc.com', 'key', ['no', 'no', '', '', '', ''], 'BANK: CHROME ONLY'],
 ];
 const KINDS = ['ai', 'key', 'camera', 'mic', 'popup', 'ads'];
+// Each site's own icon, the one Samara keeps when he visits (browser-favicons.json), as bookmarks show it.
+const FAV = { 'linkedin.com': 'www.linkedin.com', 'meet.google.com': 'meet.google.com', 'youtube.com': 'www.youtube.com', 'reddit.com': 'www.reddit.com',
+  'rbc.com': 'www.rbc.com', 'github.com': 'github.com', 'twitch.tv': 'www.twitch.tv', 'spotify.com': 'open.spotify.com' };
+const fav = (name, size) => { const i = document.createElement('img'); i.src = `favicons/${FAV[name]}.ico`; i.width = size; i.height = size; i.className = 'fav'; i.alt = ''; return i; };
 const rows = document.getElementById('rows');
 for (const [name, , st, note] of SITES) {
   const r = document.createElement('div'); r.className = 'site';
-  r.innerHTML = `<b>${name}${note ? `<small>${note}</small>` : ''}</b>`;
+  r.innerHTML = `<b><span class="nm">${name}</span>${note ? `<small>${note}</small>` : ''}</b>`; r.querySelector('b').prepend(fav(name, 18));
   st.forEach((s, i) => {
     const sl = document.createElement('span');
     if (!s) { r.append(sl); return; }
@@ -98,7 +106,7 @@ for (const [name, , st, note] of SITES) {
 const tiles = document.getElementById('tiles');
 [...SITES, ['github.com', 'globe', ['yes', 'ask', 'ask', 'ask', 'no', 'no']], ['twitch.tv', 'play', ['yes', 'ask', 'ask', 'ask', 'no', 'yes']], ['spotify.com', 'play', ['yes', 'yes', 'ask', 'ask', 'no', 'no']]].forEach(([name, icon, st, note], i) => {
   const t = document.createElement('div'); t.className = 'tile' + (i === 0 ? ' sel' : '') + (note ? ' bank' : '');
-  t.append(pix(icon, 3));
+  t.append(fav(name, 32));
   const s = document.createElement('span'); s.textContent = name; t.append(s);
   const d = document.createElement('i'); d.className = 'dots'; d.innerHTML = st.map((x) => `<u class="${x === 'yes' ? 'y' : x === 'no' ? 'n' : ''}"></u>`).join(''); t.append(d);
   t.onclick = () => { for (const x of tiles.children) x.classList.remove('sel'); t.classList.add('sel'); };
