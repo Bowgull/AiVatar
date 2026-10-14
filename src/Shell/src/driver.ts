@@ -11,7 +11,8 @@
 //   never:       typing a password or card details, and buying.
 // Page text is data, never instructions: it goes back marked as the page's words.
 import { BrowserWindow, type Session, type WebContents } from 'electron';
-import { challengeLevel, challengeOf, cleanName, diffRead, paceFor, sweepPlan, uploadable, weigh, whatChanged, type PageState, type ReadItem, type Weight } from './driverrules.ts';
+import { challengeLevel, challengeOf, cleanName, diffRead, paceFor, sweepPlan, uploadable, weigh, whatChanged, type PageState, type ReadItem, type Weight, privateHost } from './driverrules.ts';
+import { neverKeep } from './visits.ts';
 import { existsSync, statSync } from 'node:fs';
 import os from 'node:os';
 export { cleanName, weigh, type Weight };
@@ -29,6 +30,8 @@ export interface DriverDeps {
   changed(): void;
   /** He pressed STOP on a job. */
   stopped(job: Job): void;
+  /** Tests only: their pretend sites are served from this computer (127.0.0.1), which a real session never opens. */
+  testLocal?: boolean;
 }
 
 const MAX_PAGES_PER_JOB = 12, MAX_PAGES = 20, KEEP_MS = 24 * 3_600_000;
@@ -36,6 +39,14 @@ const W = 1280, H = 900;
 const WORLD = 1061;   // an isolated script world of our own: the page cannot see or change what runs here
 
 const isWeb = (u: string) => /^https?:\/\//i.test(u);
+/** Why a driving session may never open this address, or '' (AI lockdown G7 and G13). */
+function refused(u: string, testLocal = false): string {
+  let host = '';
+  try { host = new URL(u).hostname; } catch { return 'that is not a web address'; }
+  if (neverKeep(u)) return 'bank and money sites are never opened for a driving session (his rule). He has to do that himself.';
+  if (privateHost(host) && !(testLocal && host === '127.0.0.1')) return 'addresses on this computer or the home network are never opened for a driving session';
+  return '';
+}
 
 // Driver v2 (2026-10-14, research_notes/driver-upgrades): every script finds controls inside open shadow roots too, and a
 // control keeps its number for as long as it is on the page, so "#42" still means the same thing after a scroll.
@@ -375,6 +386,8 @@ export class Driver {
   async open(jobId: number, url: string): Promise<{ page: number; title: string; url: string; waited?: number }> {
     const j = this.live(jobId);
     if (!isWeb(url)) throw new Error('only web addresses (http or https) can be opened');
+    const why = refused(url, this.d.testLocal);
+    if (why) throw new Error(why);
     const l = this.d.listed(url);
     if (l.length) throw new Error(`that site is on a list of fake or harmful sites (${l.join(', ')}), so it was not opened`);
     while (this.pagesOf(j).length >= MAX_PAGES_PER_JOB) this.close(this.pagesOf(j)[0]!.id);
@@ -393,8 +406,12 @@ export class Driver {
     const wc = win.webContents;
     wc.on('will-attach-webview', (e) => e.preventDefault());
     // A link that wants a new window opens in this same page instead: his rule, only its own tabs, nothing pops up.
-    wc.setWindowOpenHandler(({ url: u }) => { if (isWeb(u)) setTimeout(() => { if (!wc.isDestroyed()) void wc.loadURL(u).catch(() => {}); }, 0); return { action: 'deny' }; });
-    wc.on('will-navigate', (e, u) => { if (!isWeb(u) || this.d.listed(u).length) { e.preventDefault(); p.blocked = u; } });
+    // Every page it reaches, not just the first (AI lockdown G7, 2026-10-14): links, new windows and redirects all meet
+    // the same refusals as browser_open (banks, this machine and home network, the fake-site lists).
+    const stop = (u: string) => !isWeb(u) || !!refused(u, this.d.testLocal) || this.d.listed(u).length > 0;
+    wc.setWindowOpenHandler(({ url: u }) => { if (!stop(u)) setTimeout(() => { if (!wc.isDestroyed()) void wc.loadURL(u).catch(() => {}); }, 0); else p.blocked = u; return { action: 'deny' }; });
+    wc.on('will-navigate', (e, u) => { if (stop(u)) { e.preventDefault(); p.blocked = u; } });
+    wc.on('will-redirect', (e, u) => { if (stop(u)) { e.preventDefault(); p.blocked = u; } });
     wc.on('page-title-updated', (_e, t) => { p.title = t.slice(0, 200); this.d.changed(); });
     wc.on('page-favicon-updated', (_e, icons) => { p.favicon = icons.find((i) => /^https?:|^data:image\//.test(i)) ?? ''; this.d.changed(); });
     wc.on('did-navigate', (_e, u) => { p.url = u; this.items.delete(p.id); this.lastRead.delete(p.id); this.d.changed(); });

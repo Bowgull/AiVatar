@@ -32,7 +32,7 @@ app.whenReady().then(async () => {
   const pages = await servePages(path.join(HERE, '..', '..', 'pages'));
   const state = mkdtempSync(path.join(os.tmpdir(), 'watch-'));
   const b = new AangBrowser({ origin: pages.origin, stateDir: state, preloadPath: path.join(HERE, '..', '..', 'src', 'preload.cjs'),
-    tabPreloadPath: path.join(HERE, '..', '..', 'src', 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, '..', '..', 'src', 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, '..', '..', 'src', 'thingspreload.cjs') });
+    tabPreloadPath: path.join(HERE, '..', '..', 'src', 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, '..', '..', 'src', 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, '..', '..', 'src', 'thingspreload.cjs'), testLocal: true });
   wireBrowser(() => b);
   b.open(`http://127.0.0.1:${SITE}/mine`); await wait(3000);
   const any = b as any;

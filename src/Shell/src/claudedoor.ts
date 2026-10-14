@@ -123,6 +123,8 @@ export function startClaudeDoor(getBrowser: () => AangBrowser | null, stateDir: 
           else if (op === 'open' && neverKeep(String(a.url ?? ''))) out = { ok: false, error: 'bank and money sites are never opened for a Claude session (his rule). He has to do that himself.' };
           else if (op !== 'start' && op !== 'history' && op !== 'note' && !(
             (op === 'open' || op === 'finish' || op === 'rename') ? mine.has(Number(a.job)) : op === 'sweep_status' ? mine.has(b.pageJob(b.sweepPage(Number(a.id)) ?? -1) ?? -1) : mine.has(b.pageJob(Number(a.page)) ?? -1))) out = { ok: false, error: 'that is not a page this Claude session opened' };
+          // His history is his (AI lockdown G10): a Claude session asks him every time, in Samara's band.
+          else if (op === 'history' && (await b.askForClaude('look through your browsing history')) !== true) out = { ok: false, error: 'Reading his history needs his OK each time, and he did not give it.' };
           else {
             const step = op === 'start' ? { kind: 'claude', name: String(a.name ?? 'Claude').slice(0, 40) } : { ...a, allowed: false };
             out = await b.drive(op, step);
