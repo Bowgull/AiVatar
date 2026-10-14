@@ -10,6 +10,7 @@ This replaces chrome-extension.md for all browser work. Samara (Aang's browser) 
 ## The tools (map from the old Chrome ones)
 | Old (Claude in Chrome) | Now (aang-browser) |
 |---|---|
+| (new, first) | `browser_plan` task "Job scan", sites (every site you will open), steps, wont ("apply, send anything, or sign in anywhere new"). Josh sees it and allows it (or unticks sites, or asks for a change: then make a new plan). The same plan again goes without asking. Tick his live checklist with `now: <step>`, and `done: true` at the end. |
 | tabs_create + navigate | `browser_open` url, **task "Job scan"** (names the group). Up to 12 pages. |
 | get_page_text / read_page | `browser_read` (words + numbered controls with state and value). After a scroll: `changes: true`. One part only: `within: <control>`. |
 | find | `browser_find` text |
