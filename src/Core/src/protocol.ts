@@ -86,6 +86,8 @@ export type ToBody =
       title?: string }
   /** Put it away. The video stops; `popout.hide` is the one that keeps it playing. */
   | { t: 'popout.close' }
+  /** A full tab in his PC's Aang browser, brought to the front ("put it on, full browser"). */
+  | { t: 'browser.open'; url: string }
   /** Passed straight through from the Body, to the Shell only (step 6.10b). The C# pet ignores it. */
   | PetAt
   /**
