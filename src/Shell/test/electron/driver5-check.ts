@@ -5,7 +5,7 @@
 // Run: npx electron test/electron/driver5-check.ts
 import { app, BrowserWindow, screen } from 'electron';
 import http from 'node:http';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -78,12 +78,15 @@ app.whenReady().then(async () => {
   const fm = await b.drive('form', { page: fp.page });
   const email = fm.fields?.find((f: any) => f.label === 'Email');
   check('the form check reads every field back, and flags the empty required one', fm.ok && email?.required && email?.value === '' && fm.fields.some((f: any) => f.label === 'First name' && f.value === 'Josh'), JSON.stringify(fm.fields));
-  const pdf = path.join(mkdtempSync(path.join(os.homedir(), 'AppData', 'Local', 'Temp', 'cv-')), 'Josh Bocas Resume.pdf');
+  // A throwaway folder in his home folder (AppData is now refused, code audit M7), removed at the end.
+  const cvDir = mkdtempSync(path.join(os.homedir(), 'aang-test-cv-'));
+  const pdf = path.join(cvDir, 'Josh Bocas Resume.pdf');
   writeFileSync(pdf, '%PDF-1.4\n% test resume\n' + 'x'.repeat(200));
   const ask = await b.drive('upload', { page: fp.page, n: cv?.n, file: pdf });
-  check('uploading asks him first', ask.ok === false && ask.needs === 'lever' && /Josh Bocas Resume\.pdf/.test(ask.what), JSON.stringify(ask));
+  check('uploading asks him first, naming the real file, its folder and size', ask.ok === false && ask.needs === 'lever' && /Josh Bocas Resume\.pdf \(from your aang-test-cv-\w+ folder, 1 KB\)/.test(ask.what), JSON.stringify(ask));
   const up = await b.drive('upload', { page: fp.page, n: cv?.n, file: pdf, allowed: true });
   check('with his yes, the resume goes in and the field says so', up.ok && /Josh Bocas Resume\.pdf/.test((up.changed ?? []).join()), JSON.stringify(up));
+  rmSync(cvDir, { recursive: true, force: true });
   const notMine = await b.drive('upload', { page: fp.page, n: cv?.n, file: 'C:\\Windows\\win.ini', allowed: true });
   check('a file from outside his folders is refused', notMine.ok === false && /home folder|PDF/.test(notMine.error), notMine.error);
 

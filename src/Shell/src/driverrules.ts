@@ -218,6 +218,9 @@ export function uploadable(file: string, home: string, size: number): string | n
   const h = String(home ?? '').replace(/\\/g, '/').replace(/\/+$/, '');
   if (!f || !h || !f.toLowerCase().startsWith(h.toLowerCase() + '/')) return 'only a file in his own home folder';
   if (f.split('/').some((part) => part.startsWith('.') || part === '..')) return 'not from a hidden folder';
+  // Never his apps' own folders (code audit M7, 2026-10-14): settings, keys, Aang's memory, Samara's data.
+  const rest = '/' + f.slice(h.length + 1).toLowerCase() + '/';
+  if (/\/(appdata|library|application data)\//.test(rest) || /^\/documents\/(aang|aangapp)\//.test(rest)) return 'not from a folder that holds your apps\' own data';
   if (!/\.(pdf|docx?|txt|rtf)$/i.test(f)) return 'only a PDF, Word or text file';
   if (!(size > 0) || size > 10 * 1024 * 1024) return 'the file is empty or over 10 MB';
   return null;
