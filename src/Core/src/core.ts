@@ -2133,7 +2133,7 @@ export class Core {
     const ts = this.hookServer?.tailnet;
     if (!ts) return null;
     console.log('mac-setup: served the MacBook its setup script (the code is now used up)');
-    return macSetupScript(ts, this.cfg.port + 1, this.keyFile('hook.key'), this.keyFile('mac-front.key'), this.frontDeskFor(), { release: this.macRelease() });
+    return macSetupScript(ts, this.cfg.port + 1, this.keyFile('hook.key'), this.keyFile('mac-front.key'), this.frontDeskFor(), { release: this.macRelease(), changelog: this.changelogText() });
   }
 
   /**
@@ -2194,6 +2194,7 @@ export class Core {
 
   async start(): Promise<void> {
     this.token = newToken(this.cfg.stateDir);
+    this.writeChangelog();
     await new Promise<void>((resolve, reject) => {
       this.wss = new WebSocketServer({
         host: '127.0.0.1', port: this.cfg.port, path: '/body',
@@ -2630,8 +2631,30 @@ export class Core {
       e = { semver, name: releaseName(Number(semver.split('.')[0])), version, commit, at: new Date().toISOString() };
       list.push(e);
       try { writeFileAtomic(f, JSON.stringify(list, null, 1)); } catch { /* best effort */ }
+      this.writeChangelog();
     }
     return { label: e.semver, name: e.name };
+  }
+  /** His ask (2026-10-14): one readable history of Samara, every version and what it brought, in his Aang folder
+   *  (Aang reads it there) and copied to the Mac with every update. Written from mac-releases.json + whats-new.json. */
+  changelogText(): string {
+    let list: { semver: string; name: string; at: string }[] = [];
+    try { list = (JSON.parse(readFileSync(path.join(this.cfg.stateDir, 'mac-releases.json'), 'utf8')) as any[]).filter(x => typeof x?.semver === 'string'); } catch { /* none yet */ }
+    const items = this.whatsNew();
+    const day = (iso: string) => new Date(iso).toLocaleDateString('en-CA', { timeZone: 'America/Toronto', year: 'numeric', month: 'long', day: 'numeric' });
+    const tag = (k: string) => (k === 'major' ? 'Big change' : k === 'feature' ? 'New' : 'Fix');
+    const out = ['# Samara Changelog', '', "Every version of Samara, Aang's browser, and what it brought. Newest first. Versions go MAJOR.MINOR.PATCH: a big change starts a new number and a new character's name, a new feature bumps the middle number, a fix the last.", ''];
+    const pending = list.length ? items.filter(i => Date.parse(i.at) > Date.parse(list[list.length - 1]!.at)) : items;
+    if (pending.length) out.push('## Coming next (not released yet)', '', ...pending.map(i => `- ${tag(i.kind)}: ${i.text}`), '');
+    for (let k = list.length - 1; k >= 0; k--) {
+      const r = list[k]!, from = k > 0 ? Date.parse(list[k - 1]!.at) : -Infinity;
+      const mine = items.filter(i => Date.parse(i.at) > from && Date.parse(i.at) <= Date.parse(r.at));
+      out.push(`## Version ${r.semver}: ${r.name}`, `*${day(r.at)}*`, '', ...(mine.length ? mine.map(i => `- ${tag(i.kind)}: ${i.text}`) : ['- Small fixes to keep things running smoothly.']), '');
+    }
+    return out.join('\n');
+  }
+  private writeChangelog(): void {
+    try { writeFileAtomic(path.join(this.cfg.dataDir, 'Samara Changelog.md'), this.changelogText()); } catch (e) { console.error('changelog: ' + (e as Error).message); }
   }
   private whatsNew(): { at: string; text: string; kind: string }[] {
     try { return (JSON.parse(readFileSync(path.join(import.meta.dirname, '..', '..', 'Shell', 'whats-new.json'), 'utf8')).items ?? []).filter((x: any) => typeof x?.text === 'string').map((x: any) => ({ at: String(x.at), text: String(x.text), kind: ['major', 'feature', 'fix'].includes(x.kind) ? x.kind : 'fix' })); } catch { return []; }
@@ -2686,7 +2709,7 @@ export class Core {
     if (!ts || !desk?.browser) { reply({ t: 'update.fail', why: "Your PC could not put the update together. Run the Mac code once instead." }); console.error('update key: no update for the Mac (no Tailscale address or nothing to send)'); return; }
     if (!this.macShipped(r)) { reply({ t: 'update.fail', why: 'That update is not finished yet.' }); return; }
     if (String(m.version ?? '') !== r.version) { this.macOfferNow(reply); reply({ t: 'update.fail', why: 'A newer update just came in. Press Restart now again.' }); return; }
-    const script = macSetupScript(ts, this.cfg.port + 1, this.keyFile('hook.key'), this.keyFile('mac-front.key'), desk, { release: r, update: true });
+    const script = macSetupScript(ts, this.cfg.port + 1, this.keyFile('hook.key'), this.keyFile('mac-front.key'), desk, { release: r, update: true, changelog: this.changelogText() });
     reply({ t: 'update.script', version: r.version, sha256: createHash('sha256').update(script).digest('hex'), script });
     console.log(`update key: sent the Mac update ${r.version} (${Math.round(script.length / 1024)} KB)`);
   }
