@@ -229,7 +229,8 @@ export class HookServer {
     // from Claude Code. curl, which is what the hooks actually use, sends no Origin.
     if (req.headers.origin) { res.writeHead(403).end(); return; }
     if (!isLoopback(req.socket.remoteAddress ?? '')) {
-      const k = new URL(req.url ?? '/', 'http://x').searchParams.get('k') ?? '';
+      // The key in a header, never on a command line (code audit L6, 2026-10-14); the old ?k= still works for older Macs.
+      const k = String(req.headers['x-aang-key'] ?? '') || (new URL(req.url ?? '/', 'http://x').searchParams.get('k') ?? '');
       if (!this.key || !sameKey(k, this.key)) { res.writeHead(403).end(); return; }
     }
     // M2 (2026-10-13): the MacBook asks every few seconds whether the big brain is up. It learns only that, and

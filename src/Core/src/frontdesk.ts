@@ -232,7 +232,7 @@ export async function startFrontDesk(o: FrontDeskOpts): Promise<{ close: () => P
     hookSrv = http.createServer((req, res) => {
       const u = new URL(req.url ?? '/', 'http://x');
       const peer = String(req.socket.remoteAddress ?? '');
-      if (req.method !== 'POST' || u.pathname !== '/hook' || req.headers.origin || !/^(127\.0\.0\.1|::1|::ffff:127\.0\.0\.1)$/.test(peer) || !sameKey(u.searchParams.get('k') ?? '', hk)) { res.writeHead(403).end(); return; }
+      if (req.method !== 'POST' || u.pathname !== '/hook' || req.headers.origin || !/^(127\.0\.0\.1|::1|::ffff:127\.0\.0\.1)$/.test(peer) || !sameKey(String(req.headers['x-aang-key'] ?? '') || (u.searchParams.get('k') ?? ''), hk)) { res.writeHead(403).end(); return; }
       let body = '';
       req.on('data', d => { body += d; if (body.length > 64_000) req.destroy(); });
       req.on('end', () => {

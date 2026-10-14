@@ -175,7 +175,7 @@ const HOOKS_JXA = String.raw`function run(argv) {
       .filter(function (m) { return m.hooks.length > 0; });
     kept.push({ hooks: [{ type: 'command', timeout: 5,
       // M4b: the PC first; if it does not answer (it is off), this Mac's own front desk, so the news still reaches Discord.
-      command: 'p=$(cat); printf %s "$p" | curl -s -m 2 -X POST -H "Content-Type: application/json" --data-binary @- "http://' + host + ':' + port + '/hook?e=' + e + '&k=' + key + '" || printf %s "$p" | curl -s -m 2 -X POST -H "Content-Type: application/json" --data-binary @- "http://127.0.0.1:47842/hook?e=' + e + '&k=' + key + '"; exit 0' }] });
+      command: 'p=$(cat); K="$HOME/Library/Application Support/AangListener/hook.curl"; printf %s "$p" | curl -s -m 2 -K "$K" -X POST -H "Content-Type: application/json" --data-binary @- "http://' + host + ':' + port + '/hook?e=' + e + '" || printf %s "$p" | curl -s -m 2 -K "$K" -X POST -H "Content-Type: application/json" --data-binary @- "http://127.0.0.1:47842/hook?e=' + e + '"; exit 0' }] });
     hooks[e] = kept;
   });
   settings.hooks = hooks;
@@ -191,6 +191,8 @@ export interface DeskPayload {
   /** M6: Aang's browser for the Mac: its code and pages packed (tar.gz), and the key its sync uses */
   browser?: { bundle: Buffer; bsyncKey: string; castlabsSig: Buffer };
 }
+/** Code audit L11: Node for the Mac, pinned to a version and fingerprint (from nodejs.org's SHASUMS256.txt, 2026-10-14). */
+const NODE_MAC = { version: 'v24.22.0', sha256: '495e3f273c645f3c4677d438304cdfc701729ea5dec5728f5c8e76a2dece4b91' };
 /** M6: the browser engine on the Mac, pinned. The fingerprint is from Electron's own SHASUMS256.txt for this release. */
 /** M6: Bitwarden's official command-line tool for Intel Macs, pinned (the digest GitHub lists for the release asset). */
 export const BITWARDEN_MAC = { version: '2026.9.0', sha256: 'd2a1865c2c1f49c34e6f1b38a42c5b95dcf22e34f81121c4962ebda32f708a3e' };
@@ -283,6 +285,9 @@ NODE_DIR="$DIR/node"
 # Getting an update ready only makes the new Samara (below); everything else happens when he presses Restart now.
 if [ "$PHASE" != "prepare" ] && [ "$PHASE" != "swap" ]; then
 echo "1/6  Claude Code hooks, so Aang hears when a session is done or needs you"
+# The hook key in a curl config file only he can read, sent as a header (code audit L6, 2026-10-14): never on a command
+# line, where other programs can see it.
+( umask 077; printf 'header = "x-aang-key: %s"\n' "$HOOK_KEY" > "$DIR/hook.curl" )
 osascript -l JavaScript - "$SHADOW" "$HOOK_PORT" "$HOOK_KEY" <<'JXA'
 ${HOOKS_JXA}
 JXA
@@ -296,7 +301,7 @@ ${RUN_APPLESCRIPT}APPLESCRIPT
 # appears on any command line).
 ( umask 077; printf '%s' "$FRONT_KEY" > "$DIR/key"; printf '%s' "$SHADOW" > "$DIR/shadow" )
 # M2: the heartbeat's address, with the hook key, in a curl config file only you can read.
-( umask 077; printf 'url = "http://%s:%s/alive?k=%s"\n' "$SHADOW" "$HOOK_PORT" "$HOOK_KEY" > "$DIR/alive.curl" )
+( umask 077; printf 'url = "http://%s:%s/alive"\nheader = "x-aang-key: %s"\n' "$SHADOW" "$HOOK_PORT" "$HOOK_KEY" > "$DIR/alive.curl" )
 cat > "$DIR/heartbeat.sh" <<'HEARTBEAT'
 ${HEARTBEAT}HEARTBEAT
 cat > "$DIR/uninstall.sh" <<'UNINSTALL'
@@ -339,29 +344,22 @@ launchctl bootout "gui/$(id -u)/com.aang.heartbeat" 2>/dev/null || true
 start_agent "$HBPLIST"
 
 echo "3/6  Node.js for Aang's Mac side (his yes, 2026-10-13): kept in Aang's own folder, no admin password"
-# The newest long-term-support Node for Intel Macs, from nodejs.org, checked against Node's own SHA-256 list
-# before it is unpacked. A mismatch is thrown away. Skipped when it is already there.
+# Node for Intel Macs, pinned (code audit L11, 2026-10-14): the version and its fingerprint are fixed in Aang's own code,
+# not read from the same website the download comes from. A mismatch is thrown away. Skipped when it is already there.
 if [ -x "$NODE_DIR/bin/node" ]; then
   echo "     Node is already here: $("$NODE_DIR/bin/node" -v)"
 else
-  VER=$(/usr/bin/curl -fsS -m 30 https://nodejs.org/dist/index.json | /usr/bin/perl -MJSON::PP -e 'my $a = decode_json(join("", <STDIN>)); for my $r (@$a) { if ($r->{lts} && grep { $_ eq "osx-x64-tar" } @{$r->{files}}) { print $r->{version}; last } }') || VER=""
-  if [ -z "$VER" ]; then
-    echo "     Could not reach nodejs.org; Node was not installed (run this setup again later)."
-  else
-    F="node-$VER-darwin-x64.tar.gz"; T=$(mktemp -d)
-    if /usr/bin/curl -fsS -m 900 -o "$T/$F" "https://nodejs.org/dist/$VER/$F" && /usr/bin/curl -fsS -m 30 -o "$T/SUMS" "https://nodejs.org/dist/$VER/SHASUMS256.txt"; then
-      WANT=$(grep " $F\$" "$T/SUMS" | cut -d' ' -f1) || WANT=""
-      GOT=$(shasum -a 256 "$T/$F" | cut -d' ' -f1)
-      if [ -n "$WANT" ] && [ "$WANT" = "$GOT" ]; then
-        mkdir -p "$NODE_DIR" && tar -xzf "$T/$F" -C "$NODE_DIR" --strip-components 1 && echo "     Node $VER installed and checked against nodejs.org's fingerprint."
-      else
-        echo "     Node's download did not match its fingerprint, so it was thrown away. Nothing installed."
-      fi
+  VER=${NODE_MAC.version}; F="node-$VER-darwin-x64.tar.gz"; T=$(mktemp -d)
+  if /usr/bin/curl -fsS -m 900 -o "$T/$F" "https://nodejs.org/dist/$VER/$F"; then
+    if [ "$(shasum -a 256 "$T/$F" | cut -d' ' -f1)" = "${NODE_MAC.sha256}" ]; then
+      mkdir -p "$NODE_DIR" && tar -xzf "$T/$F" -C "$NODE_DIR" --strip-components 1 && echo "     Node $VER installed and checked against the fingerprint in Aang's own code."
     else
-      echo "     Node's download failed; nothing installed (run this setup again later)."
+      echo "     Node's download did not match its fingerprint, so it was thrown away. Nothing installed."
     fi
-    rm -rf "$T"
+  else
+    echo "     Node's download failed; nothing installed (run this setup again later)."
   fi
+  rm -rf "$T"
 fi
 
 ${desk ? `echo "4/6  Aang's front desk (M3): the one connection to Discord, always on, on this Mac"
@@ -628,7 +626,7 @@ ${rel ? `for t in 40 60 120; do
 done` : ''}
 exit 0
 ` : ''}echo "6/6  Checking the line back to Aang"
-CODE=$(curl -s -m 5 -o /dev/null -w '%{http_code}' -X POST --data '{}' "http://$SHADOW:$HOOK_PORT/hook?e=Ping&k=$HOOK_KEY" || true)
+CODE=$(curl -s -m 5 -o /dev/null -w '%{http_code}' -K "$DIR/hook.curl" -X POST --data '{}' "http://$SHADOW:$HOOK_PORT/hook?e=Ping" || true)
 if [ "$CODE" = "204" ]; then echo "     Aang heard this Mac."; else echo "     Aang did not answer (got '$CODE'). Is the Windows firewall rule in, and Tailscale on here?"; fi
 sleep 12
 if [ -f "$DIR/shadow.state" ]; then echo "     Heartbeat: Shadow is $(cut -d' ' -f1 "$DIR/shadow.state")."; else echo "     Heartbeat: no answer yet (it checks every 10 seconds)."; fi
