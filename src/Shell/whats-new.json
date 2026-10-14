@@ -100,6 +100,26 @@
       "at": "2026-10-14T14:53:01-04:00",
       "kind": "fix",
       "text": "Bank sites stay blocked, no matter what."
+    },
+    {
+      "at": "2026-10-14T15:20:00-04:00",
+      "text": "Bank sites open in Chrome, with one big button.",
+      "kind": "feature"
+    },
+    {
+      "at": "2026-10-14T15:30:00-04:00",
+      "text": "Claude can read your tabs, but only if you say yes.",
+      "kind": "feature"
+    },
+    {
+      "at": "2026-10-14T15:30:00-04:00",
+      "text": "Claude can find hidden job details, like pay.",
+      "kind": "feature"
+    },
+    {
+      "at": "2026-10-14T15:30:00-04:00",
+      "text": "Shops and PayPal checkouts work as normal.",
+      "kind": "fix"
     }
   ]
 }

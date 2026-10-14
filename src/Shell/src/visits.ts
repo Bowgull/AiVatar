@@ -25,6 +25,17 @@ export function neverKeep(url: string): boolean {
   return MONEY_HOSTS.test(host) || /(^|[.-])(bank|banque|creditunion|caisse)([.-]|$)/.test(host) || /online-?banking|onlinebanking/.test(host);
 }
 
+/**
+ * The bank plate (2026-10-14): banks, brokers and crypto open in Chrome instead. Checkout services a shop sends him
+ * through (PayPal, Klarna, Afterpay, Stripe and the like) are not on it, so buying things still works. They are still
+ * never kept in his history.
+ */
+const CHECKOUT_HOSTS = /(^|\.)(paypal|paypalobjects|venmo|stripe|square|squareup|afterpay|klarna|affirm|moneris|interac|shopify|shop)\.(com|ca|co|net|app)$/i;
+export function bankSite(url: string): boolean {
+  if (!neverKeep(url)) return false;
+  try { return !CHECKOUT_HOSTS.test(new URL(url).hostname.toLowerCase().replace(/\.+$/, '')); } catch { return false; }
+}
+
 export function addVisit(list: Visit[], url: string, title: string, now: number): Visit[] {
   if (neverKeep(url)) return list;
   if (!counts(url)) return list;
