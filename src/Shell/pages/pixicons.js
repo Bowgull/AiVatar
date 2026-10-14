@@ -54,6 +54,7 @@ const ICONS2 = {
   mic: ['...kkkk...', '..kGGGDk..', '..kGGGDk..', '..kGGGDk..', '..kGGGDk..', 'k.kGGGDk.k', 'k..kDDk..k', '.k......k.', '..kkkkkk..', '....kk....', '..kkkkkk..'],
   popup: ['....ccccccc', '....cBBBBBc', 'cccccwwwwwc', 'cBBBcwwwwwc', 'cwwwcwwwwwc', 'cwwwccccccc', 'cwwwwwwc...', 'cggggggc...', 'cccccccc...'],
   globe: ['...bbbb...', '.bbBlBBbb.', '.bBllBBBb.', 'bBBlllBBBb', 'bBBBllBlBb', 'bBBBBBllBb', '.bBBBBlBb.', '.bbBBBBbb.', '...bbbb...'],
+  wont: ['cccccccc', 'cgggggdc', 'cgrggrdc', 'cggrrgdc', 'cggrrgdc', 'cgrggrdc', '.cgggdc.', '..cgdc..', '...cc...'],
   ads: ['........r.', '......rrR.', 'r...rrRRR.', 'rrrrRRRRR.', 'rRRRRRRRR.', 'rrrrRRRRR.', 'r...rrRRR.', '.r....rrR.', '.r......r.'],
 };
 

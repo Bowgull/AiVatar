@@ -21,6 +21,8 @@ export function wireBrowser(get: () => AangBrowser | null): void {
   ipcMain.on('browser:sharereply', (e, a) => { if (b()?.isFrame(e.sender) && a && Number.isInteger(a.id)) b().shareAnswer(a.id, typeof a.source === 'string' ? a.source.slice(0, 200) : null, a.sound === true); });
   ipcMain.on('browser:adpause', (e, on) => { if (b()?.isFrame(e.sender)) b().pauseAds(on === true); });
   ipcMain.on('browser:darkhere', (e, on) => { if (b()?.isFrame(e.sender)) b().setDarkHere(on === true); });
+  // Sheet 37: his answer to a Claude session's plan, from the band's plan tray.
+  ipcMain.on('browser:planreply', (e, a) => { if (b()?.isFrame(e.sender) && a && typeof a.id === 'string') b().planReply(a.id.slice(0, 40), a); });
   // Sheet 37: a rule for the site he is on, from the shield. Only these keys.
   ipcMain.on('browser:siterule', (e, a) => { if (b()?.isFrame(e.sender) && a && ['ai', 'login', 'ads', 'popups', 'dark', 'camera', 'mic'].includes(a.key)) b().setSiteRule(a.key, a.value); });
   ipcMain.on('browser:trail', (e, a) => {

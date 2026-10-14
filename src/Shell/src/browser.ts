@@ -29,7 +29,7 @@ import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown } from './safety.ts';
 import { addressFor, engineHome, searchFor, setSearch, type Engine } from './address.ts';
 import { TIDY_SYSTEM, bySite, doubles, readTidy, staleTrails, tidyPrompt, type TidyTab } from './tidy.ts';
 import { writeFileAtomic } from './atomic.ts';
-import { carriesData, personal, reachesIn, siteOf, JOB_SITES } from './driverrules.ts';
+import { carriesData, personal, reachesIn, siteOf, JOB_SITES, jobTask } from './driverrules.ts';
 import { SiteRules, siteKey, type Tri } from './siterules.ts';
 import { lookalike } from './lookalike.ts';
 import { softEdge } from './winedge.ts';
@@ -244,6 +244,11 @@ function within<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
   return Promise.race([p.catch(() => fallback), new Promise<T>((r) => setTimeout(() => r(fallback), ms))]);
 }
 
+/** Sheet 37: a Claude session's plan, as shown to him. */
+export interface PlanCard { id: string; task: string; sites: { site: string; login: boolean; favicon: string }[]; steps: string[]; wont: string }
+/** His answer: go (with the sites he kept), change (with his note, Claude redoes the plan), or neither (not now). */
+export interface PlanAnswer { go: boolean; change: boolean; keep: string[]; note: string; /** which card was answered */ card?: string }
+
 export class AangBrowser {
   /** Every open window, and the one being worked in right now. With none open, `pane` is the last one (closed). */
   private panes: Pane[] = [];
@@ -436,6 +441,17 @@ export class AangBrowser {
   readonly driver: Driver;
   /** Set by main: he pressed STOP on a job, so the brain stops that turn. */
   onDriverStop: ((j: Job) => void) | null = null;
+  /**
+   * Sheet 37, the plan card: where a Claude session's plan is shown when Claude's own window is not in front. The PC sets
+   * this to Aang's bubble; without it (the Mac until its own Aang exists) the plan drops from Samara's band.
+   */
+  onPlanAsk: ((card: PlanCard) => Promise<PlanAnswer | null>) | null = null;
+  /** The live checklist: a planned session moved on to another step, or finished. */
+  onPlanStep: ((card: string, at: number | null) => void) | null = null;
+  private planSeq = 0;
+  private planWait = new Map<string, (a: PlanAnswer | null) => void>();
+  /** Which card each planned job showed, for its live checklist. */
+  private planOfJob = new Map<number, string>();
   /** The driver page he is watching in the page area (a live picture), or none. */
   /** History (2026-10-12): every page he opened, 90 days, only on this PC. */
   private readonly visits: Visits;
@@ -3013,8 +3029,14 @@ export class AangBrowser {
           const days = Number(a?.days); const q = String(a?.q ?? '').slice(0, 200);
           return { ok: true, items: forAang(this.visits.list, q, Number.isFinite(days) ? days : 14, 15, Date.now()) };
         }
-        case 'start': { const j = d.startJob(a?.kind === 'claude' ? 'claude' : 'aang', String(a?.name ?? '')); return { ok: true, job: j.id }; }
+        case 'start': {
+          const pl = a?.plan as { login?: unknown; denied?: unknown; steps?: unknown } | undefined;
+          const plan = pl ? { login: Array.isArray(pl.login) ? pl.login.map(String) : [], denied: Array.isArray(pl.denied) ? pl.denied.map(String) : [], steps: Array.isArray(pl.steps) ? pl.steps.map(String) : [] } : undefined;
+          const j = d.startJob(a?.kind === 'claude' ? 'claude' : 'aang', String(a?.name ?? ''), plan);
+          return { ok: true, job: j.id };
+        }
         case 'finish': d.finish(num('job')); return { ok: true };
+        case 'planstep': return this.planStep(num('job'), a?.done === true ? null : num('at'));
         case 'rename': d.rename(num('job'), String(a?.name ?? '').slice(0, 40)); return { ok: true };
         case 'open': {
           const job = num('job'), url = String(a?.url ?? '').slice(0, 2000);
@@ -3160,6 +3182,60 @@ export class AangBrowser {
    * The held lever for a Claude session (the Claude door): asked in the band of the window he last used, every time.
    * Null when no browser window is open to ask in; the door then says so instead of acting.
    */
+  /**
+   * Show a plan and wait for his answer: in Aang's bubble when the PC has one, else dropped from Samara's band (opened
+   * if needed). Null when nothing could show it, or nobody answered in five minutes.
+   */
+  async askPlan(card: Omit<PlanCard, 'id'>): Promise<PlanAnswer | null> {
+    const c: PlanCard = { ...card, id: 'samara:' + ++this.planSeq };
+    if (this.onPlanAsk) { const a = await this.onPlanAsk(c); if (a) return this.planClean(c, a); }
+    if (!this.lastPane()) { this.open(); await new Promise((r) => setTimeout(r, 1500)); }
+    const p = this.lastPane();
+    if (!p || !this.win || this.win.isDestroyed()) return null;
+    this.pane = p;
+    const answer = new Promise<PlanAnswer | null>((done) => {
+      this.planWait.set(c.id, done);
+      setTimeout(() => { if (this.planWait.delete(c.id)) { done(null); this.win?.webContents.send('browser:plan', null); } }, 5 * 60_000);
+    });
+    this.win.webContents.send('browser:plan', c);
+    this.win.show();
+    const a = await answer;
+    return a ? this.planClean(c, a) : null;
+  }
+  /** His answer from the band's plan tray. Only a card that is waiting can be answered. */
+  planReply(id: string, a: { go?: unknown; change?: unknown; keep?: unknown; note?: unknown }): void {
+    const done = this.planWait.get(id);
+    if (!done) return;
+    this.planWait.delete(id);
+    this.win?.webContents.send('browser:plan', null);
+    done({ go: a.go === true, change: a.change === true, keep: Array.isArray(a.keep) ? a.keep.map(String) : [], note: String(a.note ?? '') });
+  }
+  /** Whatever came back, only the card's own sites can be kept, and the note is plain words, short. */
+  private planClean(c: PlanCard, a: PlanAnswer): PlanAnswer {
+    const ours = new Set(c.sites.map((x) => x.site));
+    return { card: c.id, go: a.go === true && a.change !== true, change: a.change === true, keep: a.keep.filter((x) => ours.has(x)).slice(0, 20), note: String(a.note ?? '').replace(/\s+/g, ' ').trim().slice(0, 500) };
+  }
+  /** The live checklist: Claude says which step it is on (or that it is done). */
+  planStep(jobId: number, at: number | null): { ok: boolean; step?: string } {
+    const j = this.driver.job(jobId);
+    if (!j?.planned || !j.steps) return { ok: false };
+    const card = this.planOfJob.get(jobId);
+    if (at === null) { if (card) this.onPlanStep?.(card, null); return { ok: true }; }
+    j.step = Math.max(0, Math.min(j.steps.length - 1, Math.round(at)));
+    if (card) this.onPlanStep?.(card, j.step);
+    this.sendTabs();
+    return { ok: true, step: j.steps[j.step] };
+  }
+  /** Remember which card a planned job came from. */
+  planJob(jobId: number, card: string): void { this.planOfJob.set(jobId, card); }
+  /** Would this plan site use his login? Only where his rules say so: the job sites for a job scan, or "use my login". */
+  planLogin(task: string, site: string): boolean {
+    const r = this.rules.login(site);
+    return r === true || (r === undefined && jobTask(task) && JOB_SITES.includes(siteOf(siteKey(site))));
+  }
+  /** The site's own icon for the card, if Samara has seen it. */
+  planIcon(site: string): string { return this.iconOf('https://' + siteKey(site) + '/'); }
+
   askForClaude(what: string): Promise<boolean | null> {
     const p = this.lastPane();
     if (!p) return Promise.resolve(null);
