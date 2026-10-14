@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 35 - Update, final</title>
+<!-- Sheet 35 (2026-10-14), his picks on sheet 34: parchment (2); drop the "5 changes, restart takes" line; never emoji
+     icons ("create something if you need"); no Remind me (the key's colours already escalate); the escalation becomes
+     gold (today), turquoise (1 day), red (3 days), red that swells out and shakes (4+ days); Check for updates now moves
+     to Samara's own ... menu; after an overnight update, a small drop-down near the top-right ... says what changed.
+     Real cockpit.css + browser.css; the new parts are drawn here. -->
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<link rel="stylesheet" href="../../src/Shell/pages/browser.css">
+<style>
+  html,body{background:#17110c;margin:0;overflow:auto!important;height:auto!important;min-height:100%}
+  body{color:#e8dcc4;font-family:Figtree,sans-serif;padding:24px}
+  h1{font:400 20px Silkscreen,monospace;color:#FFC43C;letter-spacing:2px;margin:0 0 4px}
+  .lead{color:#b9a684;font-size:14px;margin:0 0 20px;max-width:1150px;line-height:1.5}
+  .row{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start}
+  .stage{position:relative;width:392px;min-height:470px;background:#1a110a url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;border-radius:12px;border:3px solid #0d0703;padding:14px;box-sizing:border-box}
+  .stage.wide{width:auto;min-height:0}
+  .stage > h2{font:400 11px Silkscreen,monospace;color:#FFC43C;letter-spacing:1.5px;margin:0 0 12px}
+
+  /* ---- the tray (sheet 34 v2, parchment) ---- */
+  .upx{position:relative;right:auto;top:auto;width:356px;padding:0 0 8px;overflow:visible;
+    background:radial-gradient(120% 55% at 14% 0%,rgba(255,186,96,.30),rgba(255,160,70,.10) 45%,transparent 72%),url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;
+    box-shadow:0 14px 30px rgba(0,0,0,.6),inset 0 0 38px rgba(0,0,0,.55)}
+  .caps{position:absolute;inset:-8px;pointer-events:none;z-index:3;
+    background:url(../../src/Shell/pages/art/browser/cap3_tl.png) left top/22px 22px no-repeat,url(../../src/Shell/pages/art/browser/cap3_tr.png) right top/22px 22px no-repeat,
+      url(../../src/Shell/pages/art/browser/cap3_bl.png) left bottom/22px 22px no-repeat,url(../../src/Shell/pages/art/browser/cap3_br.png) right bottom/22px 22px no-repeat;image-rendering:pixelated}
+  .hd{display:flex;align-items:center;gap:10px;padding:9px 12px 8px;margin:0 0 10px;
+    background:url(../../src/Shell/pages/art/browser/band.png) repeat-x 0 -6px/128px 58px;image-rendering:pixelated;border-bottom:3px solid #120A05;box-shadow:0 3px 0 rgba(0,0,0,.35)}
+  .hd img{width:32px;height:32px;image-rendering:pixelated;filter:drop-shadow(0 0 6px rgba(255,190,90,.85)) drop-shadow(0 0 14px rgba(255,140,40,.45))}
+  .hd .t{display:flex;flex-direction:column;line-height:1.05}
+  .hd small{font:400 9px Silkscreen,monospace;letter-spacing:1.5px;color:#FFC43C;text-shadow:1px 1px 0 #000}
+  .hd b{font:700 19px Cinzel,serif;color:#fbe7bf;text-shadow:2px 2px 0 #000}
+  .hd .when{margin-left:auto;font:400 9px Silkscreen,monospace;color:#f1e4cc;text-shadow:1px 1px 0 #000;align-self:flex-start;margin-top:3px}
+  .list{margin:0 12px 10px;padding:8px 10px;border-radius:9px;background:#e9d3a6;box-shadow:0 3px 0 #0d0703,inset 0 0 0 2px rgba(120,80,30,.25);color:#2a1c0c}
+  .grp{font:400 9px Silkscreen,monospace;letter-spacing:1.5px;color:#8a3e1c;margin:6px 0 3px}
+  .it{display:flex;gap:9px;align-items:flex-start;margin:4px 0;font:500 13px/1.4 Figtree;color:#2a1c0c}
+  .it small{display:block;font-size:11.5px;color:#7a5a36}
+  .bx{flex:none;width:15px;height:15px;margin-top:2px;border:2px solid #120A05;border-radius:3px;background:#6fbf6a;position:relative;box-sizing:border-box;box-shadow:0 1px 0 rgba(0,0,0,.4)}
+  .bx::after{content:"";position:absolute;left:3px;top:0;width:3px;height:7px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+  .bx.off{background:#cdb78c}.bx.off::after{display:none}
+  .opt{cursor:pointer}
+  .foot{display:flex;align-items:center;gap:8px;margin:2px 12px 0}
+  .foot .sp{flex:1}
+  .more{width:30px;height:30px;border-radius:8px;border:2.5px solid #120A05;background:linear-gradient(180deg,#4A2C6E,#2C1848);cursor:pointer;box-shadow:0 3px 0 #120A05;display:grid;place-items:center;padding:0}
+  .more.on{filter:brightness(1.3);box-shadow:0 0 0 2px #FFC43C,0 3px 0 #120A05}
+  .upmenu{position:absolute;right:4px;bottom:46px;width:246px;z-index:60;padding:6px;border-radius:10px;
+    background:radial-gradient(120% 60% at 20% 0%,rgba(255,186,96,.16),transparent 70%),#1d120a;border:2.5px solid #120A05;box-shadow:0 10px 24px rgba(0,0,0,.7),inset 0 0 0 1px #6E4422}
+  .upmenu button{display:flex;width:100%;text-align:left;gap:10px;align-items:center;background:none;border:0;color:#E6DCC8;font:500 13px Figtree;padding:7px 8px;border-radius:6px;cursor:pointer}
+  .upmenu button:hover{background:#2c1d12}
+  .upmenu svg{flex:none;image-rendering:pixelated}
+  .upmenu hr{border:0;border-top:1px solid #3a2414;margin:4px 2px}
+  .upmenu .sw{margin-left:auto;width:30px;height:16px;border-radius:9px;background:#3a2a1c;border:2px solid #120A05;position:relative}
+  .upmenu .sw::after{content:"";position:absolute;left:2px;top:2px;width:8px;height:8px;border-radius:50%;background:#a8977a}
+  .upmenu .detail{margin:-2px 8px 6px 34px;font:500 11.5px/1.45 Figtree;color:#a8977a}
+
+  /* ---- the key's escalation, as it would be built ---- */
+  .bandstrip{display:flex;gap:18px;align-items:center;padding:12px 18px;border-radius:10px;background:url(../../src/Shell/pages/art/browser/band.png) repeat-x 0 0/128px 58px;image-rendering:pixelated;flex-wrap:wrap}
+  .kcol{display:flex;flex-direction:column;align-items:center;gap:8px}
+  .kcol span.l{font:400 9px Silkscreen,monospace;letter-spacing:1px;color:#f1e4cc;text-shadow:1px 1px 0 #000}
+  .band.demo{position:relative;background:none;border:0;padding:0;display:flex}
+  .band.demo .upkey{position:relative}
+  @keyframes upwarm{0%,100%{text-shadow:1px 1px 0 #000;filter:none}50%{text-shadow:1px 1px 0 #000,0 0 6px var(--glow),0 0 12px var(--glow2);filter:brightness(1.25)}}
+  @keyframes upwarmarrow{0%,100%{filter:none}50%{filter:drop-shadow(0 0 3px var(--glow)) drop-shadow(0 0 7px var(--glow2)) brightness(1.3)}}
+  .band.demo .upkey .w{animation:upwarm 2.4s ease-in-out infinite}
+  .band.demo .upkey svg{overflow:visible;animation:upwarmarrow 2.4s ease-in-out infinite}
+  .band.demo .upkey.d0{--ink:#FFE096;--glow:rgba(255,196,60,.95);--glow2:rgba(255,140,40,.6)}
+  .band.demo .upkey.d1{--ink:#9FF0E6;--glow:rgba(64,224,208,.95);--glow2:rgba(32,178,170,.65);background:linear-gradient(180deg,#1F6E6A,#124743);box-shadow:0 3px 0 var(--outline),inset 0 2px 0 rgba(160,255,240,.35)}
+  .band.demo .upkey.d3{--ink:#FFF1E0;--glow:rgba(255,120,90,.95);--glow2:rgba(200,40,30,.6);background:linear-gradient(180deg,#B8452E,#7A2418);box-shadow:0 3px 0 var(--outline),inset 0 2px 0 rgba(255,170,140,.45)}
+  /* 4+ days: every 6 s it swells out of the band and shakes, then settles. Never while he types or is in a call. */
+  @keyframes swellshake{0%,70%,100%{transform:none}74%{transform:scale(1.28) translateY(-3px)}78%{transform:scale(1.28) translateY(-3px) rotate(-7deg)}82%{transform:scale(1.28) translateY(-3px) rotate(7deg)}86%{transform:scale(1.28) translateY(-3px) rotate(-5deg)}90%{transform:scale(1.18) translateY(-2px) rotate(3deg)}95%{transform:scale(1.05)}}
+  .band.demo .upkey.d4{animation:swellshake 6s ease-in-out infinite;transform-origin:50% 60%;z-index:5}
+  .band.demo .upkey.d4::after{content:"";position:absolute;inset:-6px;border-radius:12px;pointer-events:none;animation:swellring 6s ease-out infinite}
+  @keyframes swellring{0%,72%{box-shadow:0 0 0 0 rgba(255,110,80,0)}78%{box-shadow:0 0 0 4px rgba(255,110,80,.55),0 0 18px 6px rgba(255,90,60,.45)}100%{box-shadow:0 0 0 14px rgba(255,110,80,0)}}
+
+  /* ---- after an overnight update: the drop-down by the ... key ---- */
+  .after{position:relative;width:560px;height:330px;border-radius:10px;overflow:hidden;background:#24160D}
+  .after .bar{height:58px;background:url(../../src/Shell/pages/art/browser/band.png) repeat-x 0 0/128px 58px;image-rendering:pixelated;border-bottom:4px solid #120A05;display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:0 14px}
+  .after .page{position:absolute;left:30px;right:8px;top:66px;bottom:8px;border-radius:8px;background:#f4f1ea;opacity:.9}
+  .after .drop{position:absolute;right:52px;top:64px;width:300px;z-index:4}
+  .after .drop .hd{margin-bottom:8px}
+  .after .drop .hd b{font-size:16px}
+  .menuk{width:32px;height:32px;border-radius:50%;border:2.5px solid #120A05;background:linear-gradient(180deg,#4A2C6E,#2C1848);display:grid;place-items:center;box-shadow:0 3px 0 #120A05}
+  .after .nub{position:absolute;right:62px;top:56px;width:14px;height:14px;transform:rotate(45deg);background:#5a3a1e;border-left:3px solid #120A05;border-top:3px solid #120A05;z-index:5}
+  .why{max-width:1150px;margin-top:22px;color:#c9b48c;font-size:13.5px;line-height:1.55}
+  .why b{color:#FFC43C}
+</style>
+</head>
+<body>
+<h1>SHEET 35 - THE UPDATE, FINAL PASS</h1>
+<p class="lead">Your picks from sheet 34: parchment, no "changes / restart takes" line, no Remind me, no emoji. The menu's icons are drawn pixel by pixel for Samara.
+Below: the key's new colours as days pass, and the drop-down you'd see after an overnight update.</p>
+
+<div class="row">
+  <div class="stage">
+    <h2>1. THE TRAY</h2>
+    <div class="dltray uptray upx">
+      <div class="caps"></div>
+      <div class="hd"><img src="../../src/Shell/pages/art/samara/samara-lantern-32.png" alt=""><div class="t"><small>UPDATE READY</small><b>Version 1.1.0: Gojo</b></div><span class="when">TODAY</span></div>
+      <div class="list">
+        <div class="grp">SAMARA</div>
+        <div class="it"><span class="bx"></span><span>Only one Samara in your Dock, always.</span></div>
+        <div class="it"><span class="bx"></span><span>Updates get ready in the background, so restarting takes seconds.</span></div>
+        <div class="grp">SAMARA'S ENGINE</div>
+        <div class="it"><span class="bx"></span><span>Chrome's newest security fixes.<small>Always included: they close known holes.</small></span></div>
+        <div class="it opt"><span class="bx"></span><span>Lock your saved logins with your computer's own lock.<small>Click to leave this out.</small></span></div>
+        <div class="it opt"><span class="bx off"></span><span>Close a back door other programs could use.<small>Left out. Click to put it back in.</small></span></div>
+      </div>
+      <div class="foot"><button class="key primary sm" type="button">Restart now</button><button class="key sm" type="button">Later</button><span class="sp"></span>
+        <button class="more" type="button" title="More"><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges"><path d="M0 3h1v1H0zM3 3h1v1H3zM6 3h1v1H6z" fill="#e8e0f5"/></svg></button></div>
+    </div>
+  </div>
+
+  <div class="stage">
+    <h2>2. THE &hellip; MENU (PIXEL ICONS)</h2>
+    <div class="dltray uptray upx">
+      <div class="caps"></div>
+      <div class="hd"><img src="../../src/Shell/pages/art/samara/samara-lantern-32.png" alt=""><div class="t"><small>UPDATE READY</small><b>Version 1.1.0: Gojo</b></div><span class="when">TODAY</span></div>
+      <div class="list">
+        <div class="grp">SAMARA</div>
+        <div class="it"><span class="bx"></span><span>Only one Samara in your Dock, always.</span></div>
+        <div class="it"><span class="bx"></span><span>Updates get ready in the background, so restarting takes seconds.</span></div>
+        <div class="grp">SAMARA'S ENGINE</div>
+        <div class="it"><span class="bx"></span><span>Chrome's newest security fixes.</span></div>
+      </div>
+      <div class="foot"><button class="key primary sm" type="button">Restart now</button><button class="key sm" type="button">Later</button><span class="sp"></span>
+        <button class="more on" type="button" title="More"><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges"><path d="M0 3h1v1H0zM3 3h1v1H3zM6 3h1v1H6z" fill="#e8e0f5"/></svg></button></div>
+      <div class="upmenu">
+        <!-- shield with a tick -->
+        <button type="button"><svg viewBox="0 0 9 9" width="16" height="16" shape-rendering="crispEdges"><path d="M1 0h7v1H1zM0 1h1v4H0zM8 1h1v4H8zM1 5h1v1H1zM7 5h1v1H7zM2 6h1v1H2zM6 6h1v1H6zM3 7h3v1H3z" fill="#120A05"/><path d="M1 1h7v4H7v1H6v1H3V6H2V5H1z" fill="#6fbf6a"/><path d="M2 3h1v1H2zM3 4h1v1H3zM4 3h1v1H4zM5 2h1v1H5zM6 1h1v1H6z" fill="#fff"/></svg> Checked and safe</button>
+        <div class="detail">From your own PC, every download matched its fingerprint, tested here. If it won't start, the old one comes back.</div>
+        <hr>
+        <!-- skip: two gold chevrons -->
+        <button type="button"><svg viewBox="0 0 9 9" width="16" height="16" shape-rendering="crispEdges"><path d="M0 1h1v1H0zM1 2h1v1H1zM2 3h1v1H2zM3 4h1v1H3zM2 5h1v1H2zM1 6h1v1H1zM0 7h1v1H0zM4 1h1v1H4zM5 2h1v1H5zM6 3h1v1H6zM7 4h1v1H7zM6 5h1v1H6zM5 6h1v1H5zM4 7h1v1H4z" fill="#FFC43C"/></svg> Skip this version</button>
+        <!-- every version: a little rolled scroll -->
+        <button type="button"><svg viewBox="0 0 9 9" width="16" height="16" shape-rendering="crispEdges"><path d="M1 0h6v1H1zM0 1h1v2H0zM8 1h1v6H8zM1 3h1v5H1zM2 8h6v1H2z" fill="#120A05"/><path d="M1 1h7v1H1zM2 2h6v6H2z" fill="#e9d3a6"/><path d="M1 2h1v1H1z" fill="#cdb78c"/><path d="M3 3h4v1H3zM3 5h4v1H3zM3 7h3v1H3z" fill="#8a3e1c"/></svg> Every version</button>
+        <!-- go back: a curved arrow -->
+        <button type="button"><svg viewBox="0 0 9 9" width="16" height="16" shape-rendering="crispEdges"><path d="M2 1h1v1H2zM1 2h1v1H1zM0 3h6v1H0zM6 4h1v1H6zM7 5h1v2H7zM6 7h1v1H6zM2 4h1v1H2zM3 5h1v0H3zM1 4h1v1H1z" fill="#C8E8FF"/><path d="M2 4h1v1H2z" fill="#C8E8FF"/></svg> Go back to the last version</button>
+        <hr>
+        <!-- overnight: a moon -->
+        <button type="button"><svg viewBox="0 0 9 9" width="16" height="16" shape-rendering="crispEdges"><path d="M3 0h3v1H3zM2 1h1v1H2zM1 2h1v5H1zM2 7h1v1H2zM3 8h4v1H3zM7 7h1v1H7zM5 2h1v1H5zM4 3h1v3H4zM5 6h2v1H5z" fill="#FFE096"/><path d="M3 1h2v1H3zM2 2h3v1H2zM2 3h2v4H2zM3 7h4v1H3z" fill="#FFC43C"/></svg> Update by itself overnight <span class="sw"></span></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row" style="margin-top:28px">
+  <div class="stage wide">
+    <h2>3. THE KEY AS DAYS PASS (LIVE: WATCH THE LAST ONE)</h2>
+    <div class="bandstrip">
+      <div class="kcol"><div class="band demo"><button class="rnd upkey word d0" type="button"><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges"><path d="M3 0h1v1H3zM2 1h3v1H2zM1 2h5v1H1zM0 3h7v1H0zM2 4h3v3H2z"/></svg><span class="w">UPDATE</span></button></div><span class="l">TODAY: GOLD</span></div>
+      <div class="kcol"><div class="band demo"><button class="rnd upkey word d1" type="button"><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges"><path d="M3 0h1v1H3zM2 1h3v1H2zM1 2h5v1H1zM0 3h7v1H0zM2 4h3v3H2z"/></svg><span class="w">UPDATE</span></button></div><span class="l">1 DAY: TURQUOISE</span></div>
+      <div class="kcol"><div class="band demo"><button class="rnd upkey word d3" type="button"><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges"><path d="M3 0h1v1H3zM2 1h3v1H2zM1 2h5v1H1zM0 3h7v1H0zM2 4h3v3H2z"/></svg><span class="w">UPDATE</span></button></div><span class="l">3 DAYS: RED</span></div>
+      <div class="kcol"><div class="band demo"><button class="rnd upkey word d3 d4" type="button"><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges"><path d="M3 0h1v1H3zM2 1h3v1H2zM1 2h5v1H1zM0 3h7v1H0zM2 4h3v3H2z"/></svg><span class="w">UPDATE</span></button></div><span class="l">4+ DAYS: SWELL AND SHAKE</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="row" style="margin-top:28px">
+  <div class="stage wide">
+    <h2>4. AFTER AN OVERNIGHT UPDATE: THE NEXT TIME YOU OPEN SAMARA</h2>
+    <div class="after">
+      <div class="bar"><div class="menuk"><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges"><path d="M0 3h1v1H0zM3 3h1v1H3zM6 3h1v1H6z" fill="#e8e0f5"/></svg></div></div>
+      <div class="page"></div>
+      <div class="nub"></div>
+      <div class="dltray uptray upx drop">
+        <div class="caps"></div>
+        <div class="hd"><img src="../../src/Shell/pages/art/samara/samara-lantern-32.png" alt=""><div class="t"><small>UPDATED WHILE YOU SLEPT</small><b>Version 1.1.0: Gojo</b></div></div>
+        <div class="list">
+          <div class="it"><span class="bx"></span><span>Only one Samara in your Dock, always.</span></div>
+          <div class="it"><span class="bx"></span><span>Chrome's newest security fixes.</span></div>
+          <div class="it"><span class="bx"></span><span>Your saved logins are locked with your computer's own lock.</span></div>
+        </div>
+        <div class="foot"><button class="key primary sm" type="button">Got it</button><button class="key sm" type="button">Every version</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="why">
+<b>Moved:</b> "Check for updates now" goes into Samara's own &hellip; menu (top right, beside settings). <b>The drop-down after an overnight update</b> hangs off that same &hellip; key,
+shows once, and goes away when you click Got it or click anywhere else. <b>The swell and shake</b> happens every few seconds only while the key is 4+ days old, and never while you're typing, in a game or in a call.
+</div>
+</body>
+</html>
