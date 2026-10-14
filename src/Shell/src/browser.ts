@@ -2960,7 +2960,7 @@ export class AangBrowser {
   // ------------------------------------------------------------------ 6.25a: his view of Aang's pages
   /** The drawer and the address bar: STOP a job, close it, watch one of its pages, or open a page as his own tab. */
   driverAct(act: string, id: number): void {
-    if (act === 'stop') this.driver.stop(id);
+    if (act === 'stop') this.driver.stop(id);   // only after he confirms it in the page (browser.js stopKey)
     else if (act === 'close') { if (this.watching !== null && this.driver.page(this.watching)?.job === id) this.unwatch(); this.driver.closeJob(id); }
     else if (act === 'watch') this.watch(id);
     else if (act === 'unwatch') this.unwatch();
@@ -2971,7 +2971,10 @@ export class AangBrowser {
   private watch(pageId: number): void {
     const w = this.win;
     if (!w || w.isDestroyed() || !this.driver.page(pageId)) return;
+    if (this.watching !== null && this.watching !== pageId) this.driver.watched(this.watching, null);
     this.watching = pageId;
+    const [cw, ch] = w.getContentSize();
+    this.driver.watched(pageId, { width: cw - this.inset.left - this.inset.right, height: ch - this.inset.top - this.inset.bottom });
     const t = this.cur();
     if (t?.view && !t.lent) t.view.setVisible(false);
     this.veilDown(0);
@@ -2990,6 +2993,7 @@ export class AangBrowser {
   }
   private unwatch(show = true): void {
     if (this.watching === null) return;
+    this.driver.watched(this.watching, null);
     this.watching = null;
     if (this.watchTimer) { clearTimeout(this.watchTimer); this.watchTimer = null; }
     this.win?.webContents.send('browser:watch', null);

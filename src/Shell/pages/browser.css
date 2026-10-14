@@ -216,6 +216,8 @@ body.maxed .wk .g-rest{display:inline}
 .pg3{flex:1;min-width:0;margin:26px 30px 30px 20px;border-radius:16px;background:#f6f3ee;overflow:hidden;position:relative;
   box-shadow:0 0 0 2px rgba(20,12,6,.9),0 6px 0 rgba(0,0,0,.35),0 18px 34px rgba(0,0,0,.55)}
 .pg3 .frozen{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:0 0;image-rendering:auto}
+/* Claude's page, watched: never stretched past its own size (it is laid out at the page area's size). */
+.pg3 .watchpic{object-fit:contain;object-position:50% 0}
 .pg3 .frozen[hidden]{display:none}
 /* The wood tab on the left edge, bigger and softened (2026-10-12): round outer corners, a rounded arrow, soft rivets. */
 .hnd{width:40px;flex:0 0 auto;display:flex;align-items:flex-start;padding-top:80px;box-sizing:border-box}
@@ -521,6 +523,7 @@ body.drawer-open .drawer{transform:none;visibility:visible;transition:transform 
 .stopk:hover{filter:brightness(1.15)}
 .stopk:active{top:3px;box-shadow:0 0 0 var(--outline),inset 0 2px 0 rgba(255,170,140,.45)}
 .stopk.big{width:26px;height:26px}
+.stopk.armed{width:auto;padding:0 6px;font:400 9px Silkscreen,monospace;letter-spacing:1px;color:#ffe4dc}
 .slot .who{display:inline-flex;align-items:center;gap:8px;color:#ffe28c;-webkit-app-region:no-drag}
 .slot .who img{width:16px;height:16px;image-rendering:pixelated}
 .tp.drv{box-shadow:inset 3px 0 0 #ffe28c}
