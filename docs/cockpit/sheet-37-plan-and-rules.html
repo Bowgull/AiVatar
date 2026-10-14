@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 37 - Plan card and site rules</title>
+<!-- Sheet 37 (2026-10-14), his design-round answers: site rules in BOTH the shield and Settings (AI never / AI may use my
+     login / camera, mic, popups, ads; Claude's notes stay hidden); the plan card shows where he is looking (Claude's
+     own form when Claude is in front, else Aang's bubble, the Mac's band until its bubble exists), untick + type a
+     change, only new or changed plans. Each panel is its own page with the real CSS of the place it lives. -->
+<style>
+  html,body{background:#17110c;margin:0}
+  body{color:#e8dcc4;font-family:Figtree,sans-serif;padding:24px;max-width:1320px}
+  h1{font:400 20px Silkscreen,monospace;color:#FFC43C;letter-spacing:2px;margin:0 0 4px}
+  h2{font:400 13px Silkscreen,monospace;color:#FFC43C;letter-spacing:1.5px;margin:30px 0 6px}
+  p{color:#cdbb9a;font-size:14.5px;line-height:1.5;margin:0 0 12px;max-width:1100px}
+  .stage{background:#1a110a url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;border-radius:12px;border:3px solid #0d0703;padding:10px;display:inline-block;vertical-align:top;box-shadow:0 10px 26px rgba(0,0,0,.5)}
+  iframe{border:0;display:block;background:transparent}
+  .flow{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0 6px}
+  .flow span{font:600 13px Figtree;color:#2a1c0c;background:#e9d3a6;border:2px solid #120A05;border-radius:8px;padding:6px 10px}
+  .flow i{color:#FFC43C;font-style:normal;align-self:center}
+</style>
+</head>
+<body>
+<h1>SHEET 37 &middot; PLAN CARD + SITE RULES</h1>
+<p>Your answers from the design round, drawn with the real Samara, bubble and Settings styles.</p>
+
+<h2>1 &middot; WHERE THE PLAN SHOWS</h2>
+<div class="flow"><span>Claude starts a task</span><i>&rarr;</i><span>Same task, same sites as before? It just goes.</span><i>&rarr;</i><span>Claude window in front? Ask inside Claude.</span><i>&rarr;</i><span>Otherwise: Aang's bubble (Mac: Samara's band for now)</span></div>
+<p>Any site that uses <b>your login</b> is always asked in Aang's bubble or Samara, never only in Claude's form. A setting in Claude can answer its form for you, so the form alone isn't proof it was you.</p>
+
+<h2>2 &middot; IN AANG'S BUBBLE</h2>
+<div class="stage"><iframe src="sheet-37/bubble.html" width="1240" height="480" title="bubble"></iframe></div>
+
+<h2>3 &middot; INSIDE CLAUDE, AND ON THE MAC FOR NOW</h2>
+<p>Claude draws its own box, so only the words and tick boxes are ours.</p>
+<div class="stage"><iframe src="sheet-37/claude.html" width="460" height="330" title="claude"></iframe></div>
+<div class="stage"><iframe src="sheet-37/band.html" width="420" height="420" title="band"></iframe></div>
+
+<h2>4 &middot; THE SHIELD: THIS SITE'S RULES</h2>
+<p>Click the shield next to the web address. The two switches at the top are there today; the rest is new.</p>
+<div class="stage"><iframe src="sheet-37/shield.html" width="360" height="470" title="shield"></iframe></div>
+
+<h2>5 &middot; SETTINGS: ALL YOUR SITES</h2>
+<p>"Your exceptions" becomes "Your sites": every site you set anything for, in one list. Click a cell to change it.</p>
+<div class="stage"><iframe src="sheet-37/settings.html" width="800" height="400" title="settings"></iframe></div>
+</body>
+</html>

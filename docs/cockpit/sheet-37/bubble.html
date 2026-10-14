@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>37C bubble</title>
+<!-- Sheet 37 C: the plan card in Aang's bubble, when Claude is NOT the window in front. It is the bubble's own 6.13 plan
+     card (bubble.css .plan, unchanged), with two additions: the sites as tick boxes, and a line to type a change. -->
+<link rel="stylesheet" href="../../../src/Shell/pages/cockpit.css">
+<link rel="stylesheet" href="../../../src/Shell/pages/notefonts.css">
+<link rel="stylesheet" href="../../../src/Shell/pages/notepaper.css">
+<link rel="stylesheet" href="../../../src/Shell/pages/bubble.css">
+<style>
+  html,body{background:transparent!important;margin:0;overflow:hidden!important;height:auto!important}
+  body{padding:12px;display:flex;gap:24px;align-items:flex-start}
+  .wrap{margin:0;align-self:flex-start}
+  /* balloon.js paints the paper behind #bubble in the app; its own gradient and edge, lifted verbatim */
+  #bubble{border-radius:18px;border:4px solid #120A05;background:linear-gradient(180deg,#F6E6C6 0%,#ECD5A8 45%,#DEC28C 100%)!important;
+    box-shadow:0 3px 0 rgba(0,0,0,.42),0 9px 14px rgba(10,5,20,.45),inset 0 6px 0 rgba(255,255,255,.5),inset 0 -6px 0 rgba(150,110,60,.26)}
+  body{display:flex!important;flex-direction:row!important;flex-wrap:nowrap!important;align-items:flex-start!important;justify-content:flex-start!important;width:auto!important;min-height:0!important}
+  .cap{font:400 10px Silkscreen,monospace;color:#FFC43C;letter-spacing:1.5px;margin:0 0 8px;text-shadow:1px 1px 0 #000}
+  .lbl{font:400 9px var(--label);letter-spacing:1.5px;color:#8a3e1c;margin:10px 0 4px}
+  .sites{display:flex;flex-direction:column;gap:4px}
+  .site{display:flex;align-items:center;gap:9px;font:600 14px var(--body);color:var(--ink-text)}
+  .site small{font:500 12px var(--body);color:var(--ink-dim)}
+  .bx{flex:none;width:16px;height:16px;border:2.5px solid var(--outline);border-radius:3px;background:#6fbf6a;position:relative;box-sizing:border-box;box-shadow:0 1px 0 rgba(0,0,0,.4)}
+  .bx::after{content:"";position:absolute;left:3px;top:0;width:3px;height:7px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+  .bx.off{background:#cdb78c}.bx.off::after{display:none}
+  .site.off{opacity:.55;text-decoration:line-through}
+  .wont{margin:8px 0 0;font:500 13px/1.4 var(--body);color:#6e1d10}
+  .note{margin:10px 0 0;display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;background:rgba(255,255,255,.55);border:2.5px solid rgba(90,60,25,.45);font:500 13.5px var(--body);color:#8a7a62}
+  .note.typed{color:#271c10}
+  .keys.asks{display:flex}
+</style>
+</head>
+<body>
+<div>
+  <p class="cap">A NEW PLAN</p>
+  <div class="wrap">
+    <div id="bubble" class="parch tex wide">
+      <p class="who">Claude &middot; Job scan</p>
+      <div class="scroller"><p class="said t-body">Claude wants to start a job scan. Untick anything you don't want.</p>
+        <div class="lbl">SITES</div>
+        <div class="sites">
+          <div class="site"><i class="bx"></i>LinkedIn <small>with your login</small></div>
+          <div class="site"><i class="bx"></i>Greenhouse, Lever, Ashby</div>
+          <div class="site"><i class="bx"></i>Job Bank</div>
+        </div>
+        <div class="lbl">STEPS</div>
+        <div class="plan">
+          <div class="step"><span class="n">1</span><span class="st">Search your 13 job types</span></div>
+          <div class="step"><span class="n">2</span><span class="st">Read the new posts</span></div>
+          <div class="step"><span class="n">3</span><span class="st">Save the list in your job folder</span></div>
+        </div>
+        <p class="wont">Won't apply, send anything, or sign in anywhere new.</p>
+        <div class="note">Anything to change? Type it here.</div>
+      </div>
+      <div class="keys asks"><button class="key sm primary" type="button">Go</button><button class="key sm" type="button">No</button></div>
+    </div>
+  </div>
+</div>
+<div>
+  <p class="cap">AFTER YOU UNTICK AND TYPE</p>
+  <div class="wrap">
+    <div id="bubble" class="parch tex wide">
+      <p class="who">Claude &middot; Job scan</p>
+      <div class="scroller"><p class="said t-body">Claude wants to start a job scan. Untick anything you don't want.</p>
+        <div class="lbl">SITES</div>
+        <div class="sites">
+          <div class="site off"><i class="bx off"></i>LinkedIn <small>with your login</small></div>
+          <div class="site"><i class="bx"></i>Greenhouse, Lever, Ashby</div>
+          <div class="site"><i class="bx"></i>Job Bank</div>
+        </div>
+        <div class="note typed">Only remote jobs this time</div>
+      </div>
+      <div class="keys asks"><button class="key sm primary" type="button">Send changes</button><button class="key sm" type="button">No</button></div>
+    </div>
+  </div>
+</div>
+<div>
+  <p class="cap">SAME PLAN AS LAST TIME</p>
+  <div class="wrap">
+    <div id="bubble" class="parch tex">
+      <p class="who">Claude &middot; Job scan</p>
+      <div class="scroller"><p class="said t-body">Job scan started. Same plan as last time.</p></div>
+      <div class="keys asks"><button class="key sm" type="button">Stop</button></div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>37B claude</title>
+<!-- Sheet 37 B: inside Claude, when Claude's window is in front. Claude draws this box itself (an MCP "elicitation"
+     form): we choose only the words and the fields. The look here is an approximation of Claude's own dialog. -->
+<style>
+  html,body{margin:0;background:transparent;overflow:hidden}
+  body{padding:12px;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+  .cap{font:400 10px Silkscreen,monospace;color:#FFC43C;letter-spacing:1.5px;margin:0 0 8px;text-shadow:1px 1px 0 #000}
+  .win{width:420px;background:#262624;border:1px solid #3d3d3a;border-radius:12px;color:#e8e6e0;padding:16px 18px;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+  .src{font-size:12px;color:#9c9a92;margin:0 0 6px}
+  h4{margin:0 0 10px;font-size:15px;font-weight:600;line-height:1.4}
+  .f{display:flex;align-items:center;gap:10px;margin:7px 0;font-size:14px}
+  .cb{width:16px;height:16px;border-radius:4px;background:#d97757;display:grid;place-items:center;color:#fff;font-size:11px}
+  .lab{font-size:12.5px;color:#9c9a92;margin:12px 0 5px}
+  .in{border:1px solid #4a4a46;border-radius:8px;padding:8px 10px;font-size:14px;color:#7d7b74;background:#1f1f1e}
+  .btns{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+  .b{padding:7px 14px;border-radius:8px;font-size:13.5px;border:1px solid #4a4a46;color:#e8e6e0}
+  .b.p{background:#e8e6e0;color:#1f1f1e;border-color:#e8e6e0}
+  .foot{font-size:11.5px;color:#9c9a92;margin-top:10px}
+</style>
+</head>
+<body>
+  <p class="cap">INSIDE CLAUDE</p>
+  <div class="win">
+    <p class="src">Samara asks</p>
+    <h4>Start a job scan? Untick anything you don't want. It won't apply, send anything, or sign in anywhere new.</h4>
+    <div class="f"><span class="cb">&#10003;</span>Greenhouse, Lever, Ashby</div>
+    <div class="f"><span class="cb">&#10003;</span>Job Bank</div>
+    <p class="lab">Anything to change?</p>
+    <div class="in">Only remote jobs this time</div>
+    <div class="btns"><span class="b">Decline</span><span class="b p">Submit</span></div>
+    <p class="foot">LinkedIn uses your login, so that one is asked in Aang's bubble instead.</p>
+  </div>
+</body>
+</html>
