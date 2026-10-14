@@ -40,6 +40,7 @@ import { Driver, type Job } from './driver.ts';
 import { Downloads, kindOf, trayOf, type Dl } from './dlist.ts';
 
 /** A site name scrambled with this PC's own key: the file alone says nothing about where he has accounts. */
+const SAMARA_ICON = path.join(import.meta.dirname, '..', 'pages', 'art', 'samara', 'samara.ico');
 const scramble = (key: string, host: string) => createHmac('sha256', key).update(host.toLowerCase()).digest('hex').slice(0, 32);
 import { PhishCheck } from './phish.ts';
 import { serviceFor } from './services.ts';
@@ -959,7 +960,7 @@ export class AangBrowser {
       width: Math.min(1440, wa.width - 80), height: Math.min(900, wa.height - 60), minWidth: 720, minHeight: 480,
       ...(was ? { x: was.x, y: was.y, width: was.width, height: was.height } : {}),
       ...(at ? { x: Math.round(at.x), y: Math.round(at.y), width: Math.max(720, Math.round(at.width)), height: Math.max(480, Math.round(at.height)) } : {}),
-      show: false, backgroundColor: '#24160D', title: 'Aang Browser',
+      show: false, backgroundColor: '#24160D', title: 'Samara',
       // The carved band IS the title bar; Windows draws its own buttons over the band's right end.
       // See-through (the research: Flow browser), so Windows' own minimise, maximise and close sit ON the wood
       // with their real hover and snap layouts, instead of on a flat block that looked stuck on.
@@ -967,6 +968,9 @@ export class AangBrowser {
       titleBarStyle: 'hidden',
       webPreferences: { ...SAFE_WEB_PREFERENCES, preload: this.o.preloadPath },
     });
+    // Samara (his name and his pick of icon, sheet 33 L1, 2026-10-14): the browser wears its own lantern and gets its
+    // own taskbar button; Aang's other windows keep his face.
+    try { w.setIcon(SAMARA_ICON); w.setAppDetails({ appId: 'Aang.Samara', appIconPath: SAMARA_ICON, appIconIndex: 0, relaunchDisplayName: 'Samara' }); } catch { /* not Windows */ }
     p.win = w;
     this.panes.push(p);
     this.pane = p;
@@ -1264,7 +1268,7 @@ export class AangBrowser {
         if (this.listed(u).length) return { action: 'deny' };
         if (!this.prefs.popups || his || this.popupOk.has(site)) {
           return { action: 'allow', overrideBrowserWindowOptions: { width: 520, height: 680, autoHideMenuBar: true, backgroundColor: PAGE_COLOUR,
-            title: 'Aang Browser', webPreferences: { ...SAFE_WEB_PREFERENCES, session: this.ses, preload: this.o.tabPreloadPath } } };
+            title: 'Samara', webPreferences: { ...SAFE_WEB_PREFERENCES, session: this.ses, preload: this.o.tabPreloadPath } } };
         }
         // His call (2026-10-12): no chip. The shield glows one solid blue; he clicks it to see what was blocked and
         // can open it or allow the site, so a popup he was actually waiting for is one click away.
@@ -2833,7 +2837,7 @@ export class AangBrowser {
       // The page's zoom as he would say it: 100%, 120%... (Chromium's level is 20% per step).
       zoomPct: wc ? Math.round(Math.pow(1.2, wc.getZoomLevel()) * 100) : 100,
     });
-    if (t) w.setTitle(`${t.title} - Aang Browser`);
+    if (t) w.setTitle(`${t.title} - Samara`);
   }
 
   /** Quitting: every window closes at once, and none of their tabs is dropped on the way out. */

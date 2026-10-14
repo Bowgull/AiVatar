@@ -712,7 +712,7 @@ export class Core {
       // His pick here IS his yes: the box names the video and the machine, and nothing opens without a click.
       const pick = await this.pickOne(`${title}${onMac ? ' on your MacBook' : ''}?`, [
         { label: 'Popout', hint: onMac ? 'A small window on the Mac' : game.running ? 'Over your game' : 'A small window' },
-        { label: 'Full browser', hint: onMac ? 'A tab in your Mac browser' : 'A tab in your Aang browser' },
+        { label: 'Full browser', hint: onMac ? 'A tab in Samara on your Mac' : 'A tab in Samara' },
       ]);
       if (pick === 'away') return { ok: false, detail: 'He is away from the desk. Ask him in one short line: popout or full browser? Then call watch again with `how` set.' };
       if (pick === null) return { ok: false, detail: 'He did not pick, so nothing was opened. Say so in one short line.' };
@@ -731,11 +731,11 @@ export class Core {
       const sent = how === 'popout' ? this.bsync.sendToMac(settled.url) : this.bsync.openOnMac(settled.url);
       if (sent) {
         this.reportAction('mcp__aang__watch', { mac: settled.url, how }, false, `Sent ${title} to the MacBook's ${how === 'popout' ? 'popout' : 'browser'}.`);
-        said = how === 'popout' ? 'in the popout on your MacBook' : 'in your Aang browser on your MacBook';
+        said = how === 'popout' ? 'in the popout on your MacBook' : 'in Samara on your MacBook';
       } else {
         const r = await this.openOnMac(settled.url);
         if (!r.ok) return { ok: false, detail: `Could not put it on your MacBook: ${r.detail.replace(/\.$/, '')}. Nothing was opened.` };
-        said = 'in Chrome on your MacBook, because the Aang browser there is not open';
+        said = 'in Chrome on your MacBook, because Samara is not open there';
       }
     } else if (how === 'popout') {
       // The pop-out only if the program that shows it is actually connected. The pet is a desktop client
@@ -745,7 +745,7 @@ export class Core {
       said = game.running ? 'in the popout, over your game' : 'in the popout';
     } else if (this.shellConnected()) {
       this.sendToShells({ t: 'browser.open', url: settled.url });
-      said = 'in your Aang browser';
+      said = 'in Samara';
     } else {
       const r = await this.open(settled.url);
       if (!r.ok) return r;

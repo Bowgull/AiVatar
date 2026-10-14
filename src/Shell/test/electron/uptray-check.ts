@@ -31,6 +31,7 @@ app.whenReady().then(async () => {
   b.open('about:blank'); await wait(2500);
   const w = (b as any).win as BrowserWindow;
   const js = (s: string) => w.webContents.executeJavaScript(s);
+  check('the window is called Samara', /Samara$/.test(w.getTitle()) && (await w.webContents.executeJavaScript('document.title')) === 'Samara', w.getTitle());
   b.setUpdate({ version: 'abc', since: Date.now() - 5 * 86_400_000, title: 'Aang update', kind: 'Aang, his browser and everything on this Mac',
     notes: ['Job hunt tweaks: AE flagged', 'STOP takes two presses'], checks: ['Comes from your PC over your locked, private connection', 'Checked against its fingerprint before it installs'] });
   await wait(500);
