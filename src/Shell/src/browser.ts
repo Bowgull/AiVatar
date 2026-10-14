@@ -21,7 +21,7 @@
 //    never runs anything (address.ts, tested).
 //  - Tabs get NO preload and the safe preferences: a website can never reach Aang's doors.
 //  - Every permission a site asks for is refused until 6.22 adds the asks (chips and the lever).
-import { BrowserWindow, WebContentsView, app, clipboard, desktopCapturer, dialog, nativeImage, screen, session as electronSession, shell, webContents as allWebContents, type DesktopCapturerSource } from 'electron';
+import { BrowserWindow, WebContentsView, app, clipboard, desktopCapturer, dialog, nativeImage, safeStorage, screen, session as electronSession, shell, webContents as allWebContents, type DesktopCapturerSource } from 'electron';
 import { existsSync, readFileSync, readdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { execFile } from 'node:child_process';
 import path from 'node:path';
@@ -52,6 +52,13 @@ export interface UpdateCard {
 }
 // His pick (2026-10-14): the lantern alone, lit and glowing, nothing behind it.
 const SAMARA_ICON = path.join(import.meta.dirname, '..', 'pages', 'art', 'samara', 'samara-lit.ico');
+/**
+ * The key that scrambles the list of sites Bitwarden has logins for, kept under the computer's own lock (code audit L10,
+ * 2026-10-14) instead of beside the list. Windows' own lock (DPAPI) never asks him anything; the Mac moves to its
+ * Keychain with the login lock, so it does not bring a new Keychain question with every update before then.
+ */
+const lockKey = (key: string): string => { try { return process.platform === 'win32' && safeStorage.isEncryptionAvailable() ? safeStorage.encryptString(key).toString('base64') : ''; } catch { return ''; } };
+const unlockKey = (locked: string): string => { try { return safeStorage.decryptString(Buffer.from(locked, 'base64')); } catch { return ''; } };
 const scramble = (key: string, host: string) => createHmac('sha256', key).update(host.toLowerCase()).digest('hex').slice(0, 32);
 import { PhishCheck } from './phish.ts';
 import { serviceFor } from './services.ts';
@@ -491,7 +498,10 @@ export class AangBrowser {
     try {
       if (existsSync(this.sitesFile)) {
         const v = JSON.parse(readFileSync(this.sitesFile, 'utf8'));
-        if (typeof v?.key === 'string' && Array.isArray(v.sites)) { this.siteKey = v.key; this.sites = new Set(v.sites.filter((x: unknown) => typeof x === 'string')); }
+        const key = typeof v?.keyLocked === 'string' ? unlockKey(v.keyLocked) : typeof v?.key === 'string' ? v.key : '';
+        if (key && Array.isArray(v.sites)) { this.siteKey = key; this.sites = new Set(v.sites.filter((x: unknown) => typeof x === 'string')); }
+        // An older file kept the key in plain text beside the list: lock it now (Windows), the list stays the same.
+        if (typeof v?.key === 'string' && key) { const locked = lockKey(key); if (locked) writeFileAtomic(this.sitesFile, JSON.stringify({ keyLocked: locked, sites: [...(this.sites ?? [])] })); }
       }
     } catch { /* none yet */ }
     // Plain Chrome, everywhere in his browsing session, except Google's sign-in pages (above).
@@ -2061,7 +2071,7 @@ export class AangBrowser {
     if (!hosts) return;
     if (!this.siteKey) this.siteKey = randomBytes(32).toString('hex');
     this.sites = new Set(hosts.map((h) => scramble(this.siteKey, h)));
-    try { writeFileAtomic(this.sitesFile, JSON.stringify({ key: this.siteKey, sites: [...this.sites] })); } catch { /* best effort */ }
+    try { const locked = lockKey(this.siteKey); writeFileAtomic(this.sitesFile, JSON.stringify({ ...(locked ? { keyLocked: locked } : { key: this.siteKey }), sites: [...this.sites] })); } catch { /* best effort */ }
     void this.lookForLogin();
   }
   private note(text: string): void { this.win?.webContents.send('browser:download', { name: '', state: 'note', text }); }
