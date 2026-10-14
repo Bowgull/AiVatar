@@ -458,6 +458,7 @@ export function describeCall(tool: string, input: Record<string, unknown>): stri
     case 'mcp__aang__forget': return `forget "${short(s('which'), 60)}"`;
     case 'mcp__aang__correct': return `change what I know to "${short(s('right'), 80)}"`;
     case 'mcp__aang__browse_act': return short(s('what'), 120);
+    case 'mcp__aang__browse_type': return short(s('what'), 120);
     case 'mcp__aang__browse_open': return `open ${short(s('url'), 90)} in my own tab`;
     case 'mcp__aang__do_task': return `start a background job: ${short(s('task'), 80)}`;
     case 'mcp__aang__set_reminder': return `set a reminder: ${short(s('text'), 70)}`;
