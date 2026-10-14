@@ -48,7 +48,8 @@ export interface UpdateCard {
   canBack?: boolean; overnight?: boolean;
   notes?: string[]; checks?: string[]; kind?: string;
 }
-const SAMARA_ICON = path.join(import.meta.dirname, '..', 'pages', 'art', 'samara', 'samara.ico');
+// His pick (2026-10-14): the lantern alone, lit and glowing, nothing behind it.
+const SAMARA_ICON = path.join(import.meta.dirname, '..', 'pages', 'art', 'samara', 'samara-lit.ico');
 const scramble = (key: string, host: string) => createHmac('sha256', key).update(host.toLowerCase()).digest('hex').slice(0, 32);
 import { PhishCheck } from './phish.ts';
 import { serviceFor } from './services.ts';
