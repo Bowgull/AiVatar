@@ -21,7 +21,7 @@ function report() {
   // A page is a native view drawn ON TOP of this frame, so anything hanging below the band (a site's ask,
   // the ads panel, a download note) would sit hidden behind it. While one shows, the page moves down past it.
   let top = r.top;
-  for (const id of ['askchip', 'sharechip', 'vaultchip', 'sitepanel', 'toast']) { const x = el(id); if (x && !x.hidden) top = Math.max(top, x.getBoundingClientRect().bottom + 6); }
+  for (const id of ['askchip', 'sharechip', 'vaultchip', 'toast']) { const x = el(id); if (x && !x.hidden) top = Math.max(top, x.getBoundingClientRect().bottom + 6); }
   // All four sides now: the page sits inside the carved recess, with wood on every side of it.
   window.aang?.browserInsets?.({ left: r.left, top, right: window.innerWidth - r.right, bottom: window.innerHeight - r.bottom });
 }
@@ -733,6 +733,9 @@ function paintDarkSwitch() {
 }
 el('darksw').addEventListener('click', (e) => { e.preventDefault(); if (state.darkAll !== false) window.aang?.browserDarkHere?.(!state.darkHere); });
 document.addEventListener('click', (e) => { if (!el('sitepanel').contains(e.target) && !lock.contains(e.target)) { el('sitepanel').hidden = true; lock.classList.remove('open'); } });
+// The shield's panel sits OVER the page, like the ... menu, on a still picture of it (his report, 2026-10-14: pushing the live
+// page down to make room left a big white bar above it). However it closes, the live page comes back.
+new MutationObserver(() => { if (el('sitepanel').hidden) unfreeze('site'); else freeze('site'); }).observe(el('sitepanel'), { attributes: true, attributeFilter: ['hidden'] });
 el('popopen').addEventListener('click', () => { window.aang?.browserAct?.('popupopen'); el('sitepanel').hidden = true; lock.classList.remove('open'); });
 el('popallow').addEventListener('click', () => { window.aang?.browserAct?.('popupallow'); el('sitepanel').hidden = true; lock.classList.remove('open'); });
 
