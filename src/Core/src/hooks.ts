@@ -194,14 +194,31 @@ export class HookServer {
   /** M6: GET /mac-look from this PC only: the Mac browser's window and log, saved for Claude. Null: no such door. */
   look: (() => Promise<Record<string, unknown> | null>) | null = null;
 
+  /**
+   * DNS rebinding (2026-10-14, code audit M5): a web page can point its own name at 127.0.0.1 and talk to this door
+   * as if it were the page's own site. The name it used is still in the Host header, so only this machine's own
+   * addresses are let in: 127.0.0.1, localhost, ::1 and its Tailscale address, on this port.
+   */
+  private hostOk(req: http.IncomingMessage): boolean {
+    const h = String(req.headers.host ?? '').toLowerCase();
+    return [`127.0.0.1:${this.port}`, `localhost:${this.port}`, `[::1]:${this.port}`, ...(this.tailnet ? [`${this.tailnet}:${this.port}`] : [])].includes(h);
+  }
+  /** Wrong setup codes: after 10 in 10 minutes the setup door stays shut for the rest of that time. */
+  private setupMisses: number[] = [];
+
   private handle(req: http.IncomingMessage, res: http.ServerResponse): void {
+    if (!this.hostOk(req)) { res.writeHead(403).end(); return; }
     if (req.method === 'GET' && req.url === '/mac-look' && this.look && !req.headers.origin && isLoopback(req.socket.remoteAddress ?? '')) {
       void this.look().then(r => res.writeHead(r ? 200 : 503, { 'Content-Type': 'application/json' }).end(JSON.stringify(r ?? { error: 'the Mac browser is not connected' })), () => res.writeHead(500).end());
       return;
     }
     if (req.method === 'GET' && req.url?.startsWith('/mac-setup')) {
+      if (req.headers.origin) { res.writeHead(403).end(); return; }   // curl on the Mac sends none; a web page always does
+      const now = Date.now();
+      this.setupMisses = this.setupMisses.filter(t => now - t < 10 * 60_000);
+      if (this.setupMisses.length >= 10) { res.writeHead(429).end(); return; }
       const script = this.setup?.(new URL(req.url, 'http://x').searchParams.get('c') ?? '') ?? null;
-      if (!script) { res.writeHead(404).end(); return; }
+      if (!script) { this.setupMisses.push(now); res.writeHead(404).end(); return; }
       res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' }).end(script);
       return;
     }
@@ -238,7 +255,7 @@ export class HookServer {
   private listen(host: string): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       const s = http.createServer((req, res) => this.handle(req, res));
-      s.on('upgrade', (req, socket, head) => { if (this.upgrade) this.upgrade(req, socket, head); else socket.destroy(); });
+      s.on('upgrade', (req, socket, head) => { if (this.upgrade && this.hostOk(req)) this.upgrade(req, socket, head); else socket.destroy(); });
       s.once('error', reject);
       s.listen(this.port, host, () => { this.servers.push(s); resolve(); });
     });
