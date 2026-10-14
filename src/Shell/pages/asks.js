@@ -15,7 +15,7 @@
 // third way out. Those three keys are what his hands already know.
 
 /**
- * @typedef {{ label: string, key: 'A'|'X'|'Z', choice: string, tone?: 'primary'|'warn', hold?: boolean }} AskKey
+ * @typedef {{ label: string, key: 'A'|'S'|'X'|'Z', choice: string, tone?: 'primary'|'warn'|'burnt', hold?: boolean }} AskKey
  * @typedef {{ plaque?: string, question: string, means?: string, exact?: string, mail?: { to: string, subject: string, body: string, fresh: string, cc?: string, files?: string }, keys: AskKey[] }} Ask
  */
 
@@ -125,6 +125,19 @@ export function askFrom(m) {
   // there are no keys under it, "Something else" is the last row.
   if (m.t === 'choice' && Array.isArray(m.options) && m.options.length) {
     return { question: String(m.question ?? 'Which one?'), keys: [] };
+  }
+
+  // Sheet 37: a Claude session's plan (Samara's door). Go, Change (a line to type), Not now in burnt orange.
+  if (m.t === 'plan' && m.samara && typeof m.samara === 'object') {
+    return {
+      plaque: '',
+      question: '',
+      keys: [
+        { label: 'Go', key: 'A', choice: 'go', tone: 'primary' },
+        { label: 'Change', key: 'S', choice: 'change' },
+        { label: 'Not now', key: 'Z', choice: 'no', tone: 'burnt' },
+      ],
+    };
   }
 
   // 6.13, sheet 13 "The plan, before he acts": the steps, each marked, then Go.

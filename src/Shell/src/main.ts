@@ -18,7 +18,7 @@ import { CoreLink } from './link.ts';
 import { Bubble, wantsNewBubble } from './bubble.ts';
 import { InputBox } from './input.ts';
 import { Snipper } from './snip.ts';
-import { AangBrowser, type UpdateCard } from './browser.ts';
+import { AangBrowser, type UpdateCard, type PlanAnswer } from './browser.ts';
 import { wireBrowser } from './browseripc.ts';
 import { wirePopout } from './popoutipc.ts';
 import { EngineUpdates, onCastlabs, type Ready } from './engineupdate.ts';
@@ -93,6 +93,8 @@ let wheel: Wheel | null = null;
 let notesLatest: NoteData[] = [];
 /** The new bubble (step 6.12). Null unless he has switched it on: see wantsNewBubble. */
 let bubble: Bubble | null = null;
+/** Sheet 37: Claude plans shown in the bubble, waiting for his answer. */
+const planWait = new Map<string, (a: PlanAnswer | null) => void>();
 /** The new typing box (step 6.12b). Same switch as the bubble: they replace the old ones together. */
 let input: InputBox | null = null;
 /** The message he just sent, until the brain says it has it (its `ack`). */
@@ -606,6 +608,17 @@ app.whenReady().then(async () => {
 
       aangBrowser = new AangBrowser({ origin: pages.origin, preloadPath: path.join(HERE, 'preload.cjs'), stateDir: STATE_DIR, tabPreloadPath: path.join(HERE, 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, 'thingspreload.cjs') });
       aangBrowser.onReclaim = () => popout?.returnTab();
+      // Sheet 37: a Claude session's plan goes to Aang's bubble on this PC (when Claude's own window is not in front),
+      // and his answer comes back. Five minutes unanswered means no answer.
+      aangBrowser.onPlanAsk = (card) => {
+        if (!bubble) return Promise.resolve(null);
+        return new Promise((done) => {
+          planWait.set(card.id, done);
+          setTimeout(() => { if (planWait.delete(card.id)) { done(null); bubble?.send('brain:message', { t: 'ask.expired', id: card.id }); } }, 5 * 60_000);
+          bubble!.send('brain:message', { t: 'plan', id: card.id, steps: card.steps.map((text) => ({ text })), samara: card });
+        });
+      };
+      aangBrowser.onPlanStep = (id, at) => bubble?.send('brain:message', { t: 'plan.step', id, at });
       // 6.25a: Claude sessions on this PC drive the browser through its own door (claudedoor.ts).
       startClaudeDoor(() => aangBrowser, STATE_DIR);
       aangBrowser.onOpenOther = (url) => link?.send({ t: 'open.onmac', url });
@@ -792,6 +805,12 @@ app.whenReady().then(async () => {
    */
   function answerAsk(a: Record<string, unknown>): void {
     const choice = String(a.choice ?? '');
+    // Sheet 37: his answer to a Claude session's plan goes to Samara, never to the brain.
+    if (a.t === 'plan' && String(a.id ?? '').startsWith('samara:')) {
+      const done = planWait.get(String(a.id)); planWait.delete(String(a.id));
+      done?.({ go: choice === 'go', change: choice === 'change', keep: Array.isArray(a.keep) ? a.keep.map(String).slice(0, 20) : [], note: String(a.note ?? '').slice(0, 500) });
+      return;
+    }
     if (a.t === 'plan') { link?.send({ t: 'plan.reply', id: String(a.id ?? ''), go: choice === 'go' }); return; }
     // Sheet 17: "5 more" when a timer goes off is just a new five-minute timer with the same name.
     if (a.t === 'timer.done') { if (choice === 'more') link?.send({ t: 'timer.start', ms: 5 * 60_000, label: String(a.label ?? '').slice(0, 40) }); return; }
