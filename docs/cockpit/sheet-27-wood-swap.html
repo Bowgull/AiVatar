@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 27 - Wood swap</title>
+<!-- Sheet 27 (2026-10-14): his rule, "anywhere in Aang that has a solid brown should now be light wood or dark wood".
+     Light wood (band.png) for bars, frames, handles; dark wood (tray.png) behind content. Part 1: the browser, light wood on
+     the top and bottom edges, three takes on the wood behind the page. Part 2: every flat brown left in Aang, today vs the wood
+     it would get. Nothing changes until he picks. -->
+<style>
+  @font-face{font-family:Cinzel;src:url(../../src/Shell/pages/fonts/Cinzel.woff2) format("woff2");font-weight:400 900}
+  @font-face{font-family:Figtree;src:url(../../src/Shell/pages/fonts/Figtree.woff2) format("woff2");font-weight:300 900}
+  @font-face{font-family:Silkscreen;src:url(../../src/Shell/pages/fonts/Silkscreen-Regular.woff2) format("woff2")}
+  :root{--band:url(../../src/Shell/pages/art/browser/band.png);--tray:url(../../src/Shell/pages/art/browser/tray.png);--frame:url(../../src/Shell/pages/art/browser/trayframe.png)}
+  html,body{background:#17110c;margin:0}
+  body{color:#e8dcc4;font-family:Figtree,sans-serif;padding:24px 24px 40px}
+  h1{font:400 20px Silkscreen,monospace;color:#FFC43C;letter-spacing:2px;margin:0 0 4px}
+  h2{font:400 12px Silkscreen,monospace;color:#c9b48c;letter-spacing:1.5px;margin:28px 0 6px}
+  .lead,.why{color:#b9a684;font-size:14px;line-height:1.5;max-width:1100px;margin:0 0 16px}
+  .row{display:flex;flex-wrap:wrap;gap:22px;align-items:flex-start}
+  .px{image-rendering:pixelated}
+
+  /* ---- part 1: the browser, small ---- */
+  .opt h3{font:400 11px Silkscreen,monospace;color:#FFC43C;letter-spacing:1.5px;margin:0 0 4px}
+  .opt p{font-size:13px;color:#b9a684;margin:0 0 8px;max-width:420px;line-height:1.4}
+  .win{width:420px;height:300px;border-radius:12px;overflow:hidden;border:3px solid #0d0703;display:flex;flex-direction:column;box-shadow:0 6px 0 #000}
+  .lip{height:9px;background:var(--band) repeat-x 0 -8px/128px 58px;image-rendering:pixelated;filter:brightness(1.18);box-shadow:inset 0 -2px 0 rgba(0,0,0,.5)}
+  .top{height:40px;background:var(--band) repeat-x 0 0/128px 40px;image-rendering:pixelated;display:flex;align-items:center;gap:6px;padding:0 9px;border-bottom:3px solid #0d0703}
+  .rb{width:22px;height:22px;border-radius:6px;background:linear-gradient(180deg,#5d3a88,#4A2C6E);border:2px solid #120a05;box-shadow:0 2px 0 #120a05}
+  .addr{flex:1;height:22px;border-radius:6px;background:#0B0718;border:2px solid #120a05}
+  .wk{width:10px;height:3px;background:#FFC43C;margin:0 4px}
+  .mid{flex:1;position:relative;padding:12px 12px 10px 22px}
+  .page{position:absolute;inset:12px 12px 10px 22px;border-radius:9px;background:#f6f3ee;box-shadow:0 6px 18px rgba(0,0,0,.55);padding:12px}
+  .page i{display:block;height:8px;border-radius:4px;background:#dfd9cf;margin:0 0 8px}
+  .page i:nth-child(1){width:55%;height:12px;background:#cfc7ba}
+  .page i:nth-child(3){width:80%} .page i:nth-child(4){width:65%}
+  .handle{position:absolute;left:0;top:40%;width:12px;height:44px;border-radius:0 6px 6px 0;background:var(--band) 0 0/128px 58px;image-rendering:pixelated;border:2px solid #120a05;border-left:0}
+  .bottom{height:12px;background:var(--band) repeat-x 0 -20px/128px 58px;image-rendering:pixelated;border-top:3px solid #0d0703}
+  .woodA{background:var(--tray) 0 0/128px 256px;image-rendering:pixelated}
+  .woodB{background:linear-gradient(rgba(0,0,0,.38),rgba(0,0,0,.38)),var(--tray) 0 0/128px 256px;image-rendering:pixelated}
+  .woodC{background:radial-gradient(ellipse 70% 60% at 50% 45%,rgba(255,190,110,.12),rgba(0,0,0,0) 60%),radial-gradient(ellipse 120% 100% at 50% 50%,rgba(0,0,0,0) 45%,rgba(0,0,0,.6)),var(--tray) 0 0/128px 256px;image-rendering:pixelated}
+
+  /* ---- part 2: the list ---- */
+  table{border-collapse:separate;border-spacing:0 10px;max-width:1100px}
+  td{vertical-align:middle;padding:0 14px 0 0}
+  td.what b{display:block;font:700 15px Figtree;color:#fbe7bf}
+  td.what span{display:block;font-size:12.5px;color:#a8977a}
+  .sw{width:150px;height:46px;border-radius:9px;border:3px solid #120a05;box-shadow:0 3px 0 #000;display:grid;place-items:center;font:400 9px Silkscreen,monospace;letter-spacing:1px;color:#fbe7bf;text-shadow:1px 1px 0 #000}
+  .arrow{font:700 18px Figtree;color:#7a6a50}
+  .tag{font:400 9px Silkscreen,monospace;letter-spacing:1px;padding:4px 7px;border-radius:5px;white-space:nowrap}
+  .tag.l{background:#c99a5c;color:#2a1600} .tag.d{background:#2a190e;color:#d9b77a;border:1px solid #6e4a28}
+  .flat1{background:linear-gradient(180deg,#56371F,#24160D)} .flat2{background:#24160D} .flat3{background:#1A0F09}
+  .light{background:var(--band) 0 0/128px 58px;image-rendering:pixelated}
+  .dark{background:linear-gradient(rgba(0,0,0,.15),rgba(0,0,0,.25)),var(--tray) 0 0/128px 256px;image-rendering:pixelated}
+  .carved{background:linear-gradient(rgba(0,0,0,.55),rgba(0,0,0,.55)),var(--tray) 0 0/128px 256px;image-rendering:pixelated;box-shadow:inset 0 3px 0 rgba(0,0,0,.7),0 3px 0 #000}
+</style>
+</head>
+<body>
+<h1>SHEET 27 - THE WOOD SWAP</h1>
+<p class="lead">Your rule: no flat browns anywhere. Light wood (the top band's wood) for bars, frames and handles. Dark wood (the wood around your pages) behind content.
+Part 1 is the browser. Part 2 is every flat brown left in Aang and the wood each would get. Nothing changes until you pick.</p>
+
+<h2>PART 1: THE BROWSER</h2>
+<p class="why">All three have light wood across the top (with the new lip) and a light-wood strip along the bottom edge. Only the wood behind the page changes.</p>
+<div class="row">
+  <div class="opt"><h3>A - TODAY'S PLANKS</h3><p>The wood you have now behind the page, just with the light-wood bottom edge added.</p>
+    <div class="win"><div class="lip"></div><div class="top"><span class="rb"></span><span class="rb"></span><span class="addr"></span><span class="rb"></span><span class="wk"></span></div>
+      <div class="mid woodA"><span class="handle"></span><div class="page"><i></i><i></i><i></i><i></i></div></div><div class="bottom"></div></div></div>
+  <div class="opt"><h3>B - DARKER PLANKS</h3><p>The same planks, shaded darker, so the light top and bottom stand out and the page floats more.</p>
+    <div class="win"><div class="lip"></div><div class="top"><span class="rb"></span><span class="rb"></span><span class="addr"></span><span class="rb"></span><span class="wk"></span></div>
+      <div class="mid woodB"><span class="handle"></span><div class="page"><i></i><i></i><i></i><i></i></div></div><div class="bottom"></div></div></div>
+  <div class="opt"><h3>C - LAMP-LIT</h3><p>Dark at the edges, a faint warm glow behind the page, like a lamp in a dark room (your "moody light").</p>
+    <div class="win"><div class="lip"></div><div class="top"><span class="rb"></span><span class="rb"></span><span class="addr"></span><span class="rb"></span><span class="wk"></span></div>
+      <div class="mid woodC"><span class="handle"></span><div class="page"><i></i><i></i><i></i><i></i></div></div><div class="bottom"></div></div></div>
+</div>
+
+<h2>PART 2: EVERY FLAT BROWN LEFT IN AANG</h2>
+<p class="why">Already pixel wood (nothing to do): the browser's top band, tab tray, menus and Settings; the typing box; the popout's bars; the timer; the wheel.
+These are the ones still flat. "Carved" is for the small dark name tags: a very dark wood, so it still reads as a slot cut into the wood.</p>
+<table>
+  <tr><td class="what"><b>Right-click menu on a message</b><span>In Aang's bubble (Copy, Reply, Pin, Forget)</span></td><td><div class="sw flat1">TODAY</div></td><td class="arrow">&rarr;</td><td><div class="sw dark">DARK WOOD</div></td><td><span class="tag d">DARK: BEHIND CONTENT</span></td></tr>
+  <tr><td class="what"><b>Right-click menu on a page</b><span>In the browser (Back, Copy, Save image...)</span></td><td><div class="sw flat1">TODAY</div></td><td class="arrow">&rarr;</td><td><div class="sw dark">DARK WOOD</div></td><td><span class="tag d">DARK: BEHIND CONTENT</span></td></tr>
+  <tr><td class="what"><b>Right-click menu on a tab</b><span>In the browser's tab list</span></td><td><div class="sw flat1">TODAY</div></td><td class="arrow">&rarr;</td><td><div class="sw dark">DARK WOOD</div></td><td><span class="tag d">DARK: BEHIND CONTENT</span></td></tr>
+  <tr><td class="what"><b>Notes and timer menus</b><span>The ... menu on a note, and on a timer</span></td><td><div class="sw flat1">TODAY</div></td><td class="arrow">&rarr;</td><td><div class="sw dark">DARK WOOD</div></td><td><span class="tag d">DARK: BEHIND CONTENT</span></td></tr>
+  <tr><td class="what"><b>Timer's button row</b><span>The little row of keys under a timer</span></td><td><div class="sw flat1">TODAY</div></td><td class="arrow">&rarr;</td><td><div class="sw light">LIGHT WOOD</div></td><td><span class="tag l">LIGHT: A BAR</span></td></tr>
+  <tr><td class="what"><b>Snip card</b><span>The frame round a screenshot you snipped</span></td><td><div class="sw flat1">TODAY</div></td><td class="arrow">&rarr;</td><td><div class="sw light">LIGHT WOOD</div></td><td><span class="tag l">LIGHT: A FRAME</span></td></tr>
+  <tr><td class="what"><b>The browser's "page could not load" plate</b><span>The panel shown when a site fails or is blocked</span></td><td><div class="sw flat1">TODAY</div></td><td class="arrow">&rarr;</td><td><div class="sw dark">DARK WOOD</div></td><td><span class="tag d">DARK: BEHIND CONTENT</span></td></tr>
+  <tr><td class="what"><b>The desk window (Aang's big window)</b><span>Its background, and the strip its tabs sit on</span></td><td><div class="sw flat2">TODAY</div></td><td class="arrow">&rarr;</td><td><div class="row" style="gap:6px;flex-wrap:nowrap"><div class="sw dark" style="width:96px">BACK: DARK</div><div class="sw light" style="width:96px">TABS: LIGHT</div></div></td><td><span class="tag d">BOTH</span></td></tr>
+  <tr><td class="what"><b>Small dark name tags</b><span>"GOOD MORNING", list titles, the snip label, the address bar's shield</span></td><td><div class="sw flat3">TODAY</div></td><td class="arrow">&rarr;</td><td><div class="sw carved">CARVED</div></td><td><span class="tag d">CARVED: A SLOT</span></td></tr>
+</table>
+</body>
+</html>
