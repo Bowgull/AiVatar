@@ -47,7 +47,7 @@ export class BrowserSyncHub {
       if (m?.t === 'watch.topc') { const u = String(m.url ?? ''); if (/^https?:\/\//.test(u) && u.length < 4000 && this.o.shellUp()) this.o.toShell({ t: 'popout.open', url: u }); return; }
       // "Open on PC" from the Mac's browser: a full tab in this PC's browser.
       if (m?.t === 'open.onpc') { const u = String(m.url ?? ''); if (/^https?:\/\//.test(u) && u.length < 4000 && this.o.shellUp()) this.o.toShell({ t: 'browser.open', url: u }); return; }
-      if ((m?.t === 'update.have' || m?.t === 'update.get') && this.o.onUpdate) { this.o.onUpdate(m, r => this.toMac(r)); return; }
+      if ((m?.t === 'update.have' || m?.t === 'update.get' || m?.t === 'update.report') && this.o.onUpdate) { this.o.onUpdate(m, r => this.toMac(r)); return; }
       if (m?.t === 'diag.reply') { const w = this.looks.get(String(m.id)); if (w) { this.looks.delete(String(m.id)); w(m); } return; }
       if (m && typeof m.t === 'string' && m.t.startsWith('bsync.') && this.o.shellUp()) this.o.toShell(m);
     });
