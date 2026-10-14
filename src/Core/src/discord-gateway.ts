@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { folderFor } from './claude.ts';
 import { WebSocket } from 'ws';
+import { TOKEN_HEADER, tokenFile } from './token.ts';
 import { DiscordAdapter } from './discord.ts';
 import type { CoreLink } from './discord.ts';
 import { DiscordGateway } from './discord-client.ts';
@@ -16,9 +17,12 @@ export class WsCoreLink implements CoreLink {
   private readonly cbs: ((m: any) => void)[] = [];
   private closed = false;
   private readonly port: number;
-  constructor(port: number) { this.port = port; this.connect(); }
+  private readonly stateDir: string;
+  constructor(port: number, stateDir = '') { this.port = port; this.stateDir = stateDir; this.connect(); }
   private connect() {
-    const ws = new WebSocket(`ws://127.0.0.1:${this.port}/body`);
+    // The brain's password for this run (code audit L5), read fresh on every connect: like every other part of Aang.
+    let token = ''; try { token = this.stateDir ? readFileSync(tokenFile(this.stateDir), 'utf8').trim() : ''; } catch { /* not written yet */ }
+    const ws = new WebSocket(`ws://127.0.0.1:${this.port}/body`, token ? { headers: { [TOKEN_HEADER]: token } } : {});
     this.ws = ws;
     // Say who this is, so the Core sends Discord only what belongs here (see Core.whereHeIs).
     ws.on('open', () => ws.send(JSON.stringify({ t: 'hello', v: 1, client: 'discord' })));
@@ -142,7 +146,7 @@ export async function startDiscord(stateDir: string, port: number, log: (s: stri
       await dg.login();
       gw = dg;
     }
-    const adapter = new DiscordAdapter(gw, new WsCoreLink(port), stateDir, {
+    const adapter = new DiscordAdapter(gw, new WsCoreLink(port, stateDir), stateDir, {
       catchUp: !desk,
       log, shortlistFile: path.join(jobDir, 'shortlist.json'), draftsFile: path.join(jobDir, 'drafts.json'),
       answersFile: path.join(jobDir, 'answers-approved.json'), appliedFile: path.join(jobDir, 'applied.json'), criteriaFile: path.join(jobDir, 'memory', 'project_job_search_criteria.md'),

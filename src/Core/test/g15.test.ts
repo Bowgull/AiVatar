@@ -10,7 +10,7 @@ import { Core } from '../src/core.ts';
 
 const tmp = () => mkdtempSync(path.join(os.tmpdir(), 'aang-g15-'));
 function core(asked: string): any {
-  const c: any = new Core({ port: 48210, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
+  const c: any = new Core({ testDoor: true, port: 48210, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
   c.active = { sub: { text: asked } };
   c.jobForTurn = async () => 1;
   c.sent = [] as unknown[];

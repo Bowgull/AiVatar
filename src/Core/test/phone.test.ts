@@ -53,7 +53,7 @@ test('files that hold secrets, and his own settings and memory, are never sent',
 });
 
 async function desktop(port: number, kind?: 'discord') {
-  const core: any = new Core({ port, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
+  const core: any = new Core({ testDoor: true, port, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
   await core.start();
   const conn = async (k?: 'discord') => {
     const c = new WebSocket(`ws://127.0.0.1:${port}/body`); const inbox: any[] = [];
@@ -114,7 +114,7 @@ test('send_to_phone: a no sends nothing; a missing file, a folder and a huge fil
 });
 
 test('send_to_phone with no Discord connected says there is nowhere to send it', async () => {
-  const core: any = new Core({ port: 48046, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
+  const core: any = new Core({ testDoor: true, port: 48046, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
   await core.start();
   const r = await core.sendToPhone('C:\\Users\\Shadow\\Documents\\a.txt');
   assert.match(r.detail, /nowhere to send/);

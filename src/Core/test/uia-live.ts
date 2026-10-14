@@ -24,7 +24,7 @@ const form = spawn('powershell.exe', ['-NoProfile', '-STA', '-ExecutionPolicy', 
 const APP = 'Aang UIA stand-in';
 
 const PORT = 47890;
-const core: any = new Core({ port: PORT, dataDir: tmp('aang-uia-data-'), stateDir: tmp('aang-uia-state-'), warm: false, consolidate: false });
+const core: any = new Core({ testDoor: true, port: PORT, dataDir: tmp('aang-uia-data-'), stateDir: tmp('aang-uia-state-'), warm: false, consolidate: false });
 let ws: WebSocket | null = null;
 try {
   for (let i = 0; i < 100 && !lines().includes('ready'); i++) await sleep(150);

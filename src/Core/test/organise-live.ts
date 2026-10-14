@@ -15,7 +15,7 @@ const tmp = (p: string) => mkdtempSync(path.join(os.tmpdir(), p));
 const fwd = (p: string) => p.split('\\').join('/');
 
 const PORT = 47872;
-const core: any = new Core({ port: PORT, dataDir: tmp('aang-org-data-'), stateDir: tmp('aang-org-state-'), warm: false, consolidate: false });
+const core: any = new Core({ testDoor: true, port: PORT, dataDir: tmp('aang-org-data-'), stateDir: tmp('aang-org-state-'), warm: false, consolidate: false });
 await core.start();
 const c = new WebSocket(`ws://127.0.0.1:${PORT}/body`);
 const inbox: any[] = [];

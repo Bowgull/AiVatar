@@ -54,7 +54,7 @@ if (execSync('tasklist /FI "IMAGENAME eq Aang.exe" /NH', { encoding: 'utf8' }).i
 const logFile = path.join(process.env.APPDATA ?? '', 'Aang', 'body.log');
 const logBefore = existsSync(logFile) ? readFileSync(logFile, 'utf8').length : 0;
 
-const core = new Core({ port: 47831, dataDir, stateDir: dataDir, warm: true });
+const core = new Core({ testDoor: true, port: 47831, dataDir, stateDir: dataDir, warm: true });
 await core.start();
 const body = spawn(bodyExe, ['--quiet=never'], { stdio: 'ignore' });
 

@@ -49,7 +49,7 @@ async function rig(port: number) {
   const db = new DatabaseSync(path.join(dataDir, 'aang.db'));   // Memory opens an existing database; it does not build the tables
   db.exec('CREATE TABLE facts (id INTEGER PRIMARY KEY, ts TEXT NOT NULL, text TEXT NOT NULL UNIQUE, source TEXT, last_seen TEXT, times_seen INTEGER DEFAULT 1, retired INTEGER DEFAULT 0); CREATE TABLE turns (id INTEGER PRIMARY KEY, ts TEXT NOT NULL, role TEXT NOT NULL, tier TEXT, text TEXT NOT NULL);');
   db.close();
-  const core: any = new Core({ port, dataDir, stateDir: tmp(), warm: false, consolidate: false });
+  const core: any = new Core({ testDoor: true, port, dataDir, stateDir: tmp(), warm: false, consolidate: false });
   await core.start();
   const conn = async (k?: 'discord') => {
     const c = new WebSocket(`ws://127.0.0.1:${port}/body`); const inbox: any[] = [];

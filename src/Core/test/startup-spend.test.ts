@@ -13,7 +13,7 @@ const tmp = () => mkdtempSync(path.join(os.tmpdir(), 'aang-spend-'));
 /** Starts a Core with fake timers, runs 25 s of them, and reports whether the catch-up ran. */
 async function studied(cfg: Record<string, unknown>, port: number): Promise<boolean> {
   mock.timers.enable({ apis: ['setTimeout'] });
-  const core: any = new Core({ port, dataDir: tmp(), stateDir: tmp(), warm: false, ...cfg });
+  const core: any = new Core({ testDoor: true, port, dataDir: tmp(), stateDir: tmp(), warm: false, ...cfg });
   let ran = false;
   core.catchUp = async () => { ran = true; };
   try {
@@ -39,7 +39,7 @@ test('Q4: it still runs when deliberately switched on', async () => {
 
 /** Starts a Core and reports whether the Quick lane was warmed, optionally after a poke. */
 async function warmed(port: number, poke: boolean): Promise<boolean> {
-  const core: any = new Core({ port, dataDir: tmp(), stateDir: tmp() });
+  const core: any = new Core({ testDoor: true, port, dataDir: tmp(), stateDir: tmp() });
   let sent = 0;
   // Since 2026-10-05 the warm-up is Lane.warm (a fork that is never saved), not send; either one counts as spending.
   core.lane = () => ({ send: () => { sent++; }, warm: async () => { sent++; return null; } });
@@ -61,7 +61,7 @@ test('Q1: clicking Aang warms the lane', async () => {
 });
 
 test('Q1: it warms once, not on every click', async () => {
-  const core: any = new Core({ port: 48308, dataDir: tmp(), stateDir: tmp() });
+  const core: any = new Core({ testDoor: true, port: 48308, dataDir: tmp(), stateDir: tmp() });
   let sent = 0;
   // Since 2026-10-05 the warm-up is Lane.warm (a fork that is never saved), not send; either one counts as spending.
   core.lane = () => ({ send: () => { sent++; }, warm: async () => { sent++; return null; } });
