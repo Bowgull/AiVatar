@@ -67,7 +67,10 @@ function openDrawer() {
   document.body.classList.add('tray-open');
   window.aang?.browserTray?.({ open: true, ...trayRect() });
 }
-function closeDrawer() {
+// His rule (2026-10-14): "the left tray should never close ever unless I move my mouse out of it - no clicks or
+// anything". So every other call is a no-op; only the tray's own mouse-out passes `byMouseOut`.
+function closeDrawer(byMouseOut = false) {
+  if (!byMouseOut) return;
   if (SOLO) { window.aang?.browserTray?.({ open: false }); return; }
   if (!drawerOpen) return;
   trayShut();
@@ -83,7 +86,7 @@ window.aang?.onBrowserTray?.((s) => { if (!SOLO && s && s.open === false && draw
 if (SOLO) {
   // The list goes a moment after the mouse leaves it (not while a menu of its own or a rename is open).
   let leaveT = 0;
-  document.documentElement.addEventListener('mouseleave', () => { clearTimeout(leaveT); leaveT = setTimeout(() => { if (!dragging && !document.querySelector('.th input') && !document.getElementById('tabmenu')) closeDrawer(); }, 350); });
+  document.documentElement.addEventListener('mouseleave', () => { clearTimeout(leaveT); leaveT = setTimeout(() => { if (!dragging && !document.querySelector('.th input') && !document.getElementById('tabmenu')) closeDrawer(true); }, 350); });
   document.documentElement.addEventListener('mouseenter', () => clearTimeout(leaveT));
   drawerOpen = true;
   document.body.classList.add('drawer-open');

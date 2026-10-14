@@ -838,7 +838,7 @@ export class AangBrowser {
    * A browser window. The first one brings his tabs back (or his home page); one made by dragging a tab out of another
    * (`bring`) opens where he let go and takes that tab, live, nothing reloaded.
    */
-  private createPane(url?: string, bring?: Tab, at?: { x: number; y: number; width: number; height: number }): void {
+  private createPane(url?: string, bring?: Tab | Tab[], at?: { x: number; y: number; width: number; height: number }): void {
     const first = !this.panes.some((x) => this.alive(x));
     const wa = screen.getPrimaryDisplay().workArea;
     const was = first ? this.savedPlace() : null;
@@ -875,7 +875,7 @@ export class AangBrowser {
     w.on('move', keepSoon);
     w.on('maximize', () => { this.pane = p; this.place(); keepSoon(); this.sendTabs(); });
     w.on('unmaximize', () => { this.pane = p; this.place(); keepSoon(); this.sendTabs(); });
-    w.on('close', () => { this.pane = p; if (this.panes[0] === p) this.keepPlace(); void this.snapshot(); this.visits.flush(); this.veil = null; try { this.curtain?.webContents.close(); } catch { /* gone */ } this.curtain = null; });
+    w.on('close', () => { this.pane = p; if (this.panes[0] === p) this.keepPlace(); if (!this.quitting) void this.snapshot(); this.visits.flush(); this.veil = null; try { this.curtain?.webContents.close(); } catch { /* gone */ } this.curtain = null; });
     // 6.22b bug 4: the mouse's back and forward side buttons.
     w.on('app-command', (_e, cmd) => { this.pane = p; if (cmd === 'browser-backward') this.sideNav('back'); else if (cmd === 'browser-forward') this.sideNav('forward'); });
     // A page in fullscreen: leaving the window's fullscreen (F11, a snap) ends it too.
@@ -883,6 +883,8 @@ export class AangBrowser {
     w.on('closed', () => {
       this.pane = p;
       const others = this.panes.filter((x) => x !== p && this.alive(x));
+      // Quitting: this window's tabs stay in the snapshot already taken; nothing is dropped or saved again.
+      if (others.length && this.quitting) { p.win = null; p.trayV = null; p.trayOn = false; this.panes = others; if (this.focused === p) this.focused = null; this.pane = others[others.length - 1]!; return; }
       if (others.length) {
         // One of several windows: its tabs close (Reopen closed tab brings them back), the browser goes on.
         for (const t of this.paneTabs(p)) {
@@ -909,14 +911,19 @@ export class AangBrowser {
       this.menu = null; this.fullTab = null;
       for (const t of this.tabs) if (!t.lent) this.closeView(t);
       this.tabs = []; this.active = null; this.win = null; this.trayV = null; this.trayOn = false;
-      this.panes = []; this.focused = null;
+      this.panes = []; this.focused = null; this.quitting = false;
       this.timers.forEach(clearInterval); this.timers = [];
     });
     w.once('ready-to-show', () => w.show());
     w.webContents.once('did-finish-load', () => {
       this.pane = p;
       // Made by dragging a tab out: that tab moves in, live.
-      if (bring) { if (this.tabs.includes(bring) && !bring.lent && this.paneOfTab(bring)) this.moveTo(bring, p); else this.newTab(this.HOME); return; }
+      if (bring) {
+        const list = (Array.isArray(bring) ? bring : [bring]).filter((t) => this.tabs.includes(t) && !t.lent && this.paneOfTab(t));
+        for (const t of list) this.moveTo(t, p);           // the last one moved ends up in front
+        if (!list.length) this.newTab(this.HOME);
+        return;
+      }
       // Startup (Settings > General): his tabs as they were, or a fresh home page.
       if (!first) { this.newTab(url ?? this.HOME); return; }
       if (this.prefs.startup === 'home' || !this.restore()) this.newTab(url ?? this.HOME);
@@ -960,7 +967,6 @@ export class AangBrowser {
     const src = t ? this.paneOfTab(t) : undefined;
     if (!t || t.lent || !this.alive(src) || this.paneTabs(src).length < 2) return;
     this.pane = src;
-    this.tray(false);
     const b = src.win.isMaximized() ? { x: src.win.getBounds().x + 80, y: src.win.getBounds().y + 80, width: 1200, height: 800 } : src.win.getNormalBounds();
     this.createPane(undefined, t, { x: b.x + 48, y: b.y + 48, width: b.width, height: b.height });
   }
@@ -1135,7 +1141,7 @@ export class AangBrowser {
     // by itself is blocked, unless he allowed popups on that site; a chip offers that.
     on('input-event', (_e, i) => {
       if (i.type === 'mouseDown' || i.type === 'keyDown') this.lastGesture.set(tab.id, Date.now());
-      if (i.type === 'mouseDown' && this.trayOn) this.tray(false);       // a click on the page puts the list away
+      // (2026-10-14, his rule: a click never closes the tab list; only his mouse leaving it does.)
     });
     wc.setWindowOpenHandler(({ url: u, disposition }) => {
       this.inTab(tab);
@@ -2578,21 +2584,31 @@ export class AangBrowser {
   /** Write every tab to disk. Scroll is asked of each live page with a deadline; a page that does not answer keeps its last. */
   private async snapshot(): Promise<void> {
     if (!this.tabs.length) return;   // nothing to keep; closing the last tab already wrote the empty snapshot
-    await Promise.all(this.tabs.map(async (t) => {
-      if (!t.view || t.crashed) return;
+    // Everything is taken NOW, before waiting on the pages (2026-10-14, his "it should remember what tabs were open"):
+    // closing the window emptied the tab list while this waited, and an EMPTY list was written, so nothing came back.
+    const keep = this.tabs.filter((t) => isWeb(t.url));
+    const windows = this.panes.filter((p) => this.alive(p) || p === this.pane);
+    const winOf = new Map(windows.map((p, i) => [p.id, i]));
+    const front = (this.lastPane() ?? this.pane).active;
+    const fronts = windows.map((p) => keep.findIndex((t) => t.id === p.active));
+    const trails = this.trails.map((x) => ({ ...x }));
+    const closed = this.closed.slice(-25);
+    await Promise.all(keep.map(async (t) => {
+      if (!t.view || t.crashed || t.view.webContents.isDestroyed()) return;
       const y = await within(t.view.webContents.executeJavaScript('window.scrollY', true) as Promise<number>, 800, t.scrollY);
       if (typeof y === 'number' && Number.isFinite(y)) t.scrollY = y;
     }));
     const data = {
       v: 1, at: new Date().toISOString(),
-      // Every window's tabs; next time they all come back in one window, the one he used last in front.
-      active: Math.max(0, this.tabs.findIndex((x) => x.id === (this.lastPane()?.active ?? this.active))),
-      tabs: this.tabs.filter((t) => isWeb(t.url)).map((t) => ({
-        url: t.url, title: t.title, opener: t.opener === null ? null : this.tabs.findIndex((x) => x.id === t.opener),
-        scrollY: Math.round(t.scrollY), zoom: t.zoom, muted: t.muted, trail: t.trail, done: t.done,
+      // Every window's tabs, each knowing its window (`win`), and the tab in front in each (`fronts`).
+      active: Math.max(0, keep.findIndex((x) => x.id === front)),
+      fronts,
+      tabs: keep.map((t) => ({
+        url: t.url, title: t.title, opener: t.opener === null ? null : keep.findIndex((x) => x.id === t.opener),
+        scrollY: Math.round(t.scrollY), zoom: t.zoom, muted: t.muted, trail: t.trail, done: t.done, win: winOf.get(t.pane) ?? 0,
       })),
-      trails: this.trails,
-      closed: this.closed.slice(-25),
+      trails,
+      closed,
     };
     try { writeFileAtomic(this.file, JSON.stringify(data)); } catch (e) { console.error('shell: browser: the tabs could not be saved: ' + (e as Error).message); }
     this.sync?.changed('tabs');
@@ -2620,8 +2636,22 @@ export class AangBrowser {
       this.trailSeq = this.trails.reduce((m, x) => Math.max(m, x.id), 0);
       for (const t of this.tabs) if (t.trail !== null && !this.trails.some((x) => x.id === t.trail)) t.trail = null;
       this.tidyTrails();
+      // Every window he had open comes back with its own tabs (2026-10-14). The first one is this window.
+      const wins = new Map<number, Tab[]>();
+      list.forEach((t: { win?: unknown }, i: number) => { const w = Math.max(0, Math.min(6, Number(t.win) || 0)); if (w > 0) { const a = wins.get(w) ?? []; a.push(this.tabs[i]!); wins.set(w, a); } });
+      const fronts: number[] = Array.isArray(s.fronts) ? s.fronts.map((n: unknown) => Number(n)) : [];
+      const here = this.tabs.filter((t) => ![...wins.values()].some((a) => a.includes(t)));
+      const want = this.tabs[Number(fronts[0])];
       const a = Math.min(Math.max(0, Number(s.active) || 0), this.tabs.length - 1);
-      this.activate(this.tabs[a]!.id);
+      this.activate((want && here.includes(want) ? want : here[0] ?? this.tabs[a]!).id);
+      const base = this.win?.getBounds();
+      let n = 0;
+      for (const [w, group] of wins) {
+        n++;
+        const front = this.tabs[Number(fronts[w])];
+        const ordered = front && group.includes(front) ? [...group.filter((x) => x !== front), front] : group;
+        this.createPane(undefined, ordered, base ? { x: base.x + 40 * n, y: base.y + 40 * n, width: base.width, height: base.height } : undefined);
+      }
       return true;
     } catch (e) { console.error('shell: browser: the saved tabs could not be read: ' + (e as Error).message); return false; }
   }
@@ -2686,11 +2716,13 @@ export class AangBrowser {
     if (t) w.setTitle(`${t.title} - Aang Browser`);
   }
 
+  /** Quitting: every window closes at once, and none of their tabs is dropped on the way out. */
+  private quitting = false;
   closeAll(): void {
     void this.ses.cookies.flushStore().catch(() => {});
     this.driver.closeAll();
     const open = this.panes.filter((p) => this.alive(p));
-    if (open.length) void this.snapshot();
+    if (open.length) { this.quitting = true; void this.snapshot(); }
     for (const p of open) p.win!.close();
   }
 
