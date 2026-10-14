@@ -25,7 +25,7 @@ const tmp = () => mkdtempSync(path.join(os.tmpdir(), 'aang-toolbudget-'));
 function laneOptions(name: 'quick' | 'smart') {
   // Port 48210: the suite's ports are spaced two apart because every Core also binds
   // cfg.port + 1 for its hook server, which is what caused the collisions in §1.3.
-  const core: any = new Core({ port: 48210, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
+  const core: any = new Core({ testDoor: true, port: 48210, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
   try {
     return core.lane(name).opts;
   } finally {

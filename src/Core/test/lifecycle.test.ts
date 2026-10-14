@@ -9,7 +9,7 @@ import { Core } from '../src/core.ts';
 const tmp = () => mkdtempSync(path.join(os.tmpdir(), 'aang-life-'));
 
 test('the Core stops promptly even while a client is still connected', async () => {
-  const core = new Core({ port: 48020, dataDir: tmp(), stateDir: tmp(), warm: false });
+  const core = new Core({ testDoor: true, port: 48020, dataDir: tmp(), stateDir: tmp(), warm: false });
   await core.start();
   const client = new WebSocket('ws://127.0.0.1:48020/body');
   await new Promise<void>(r => client.once('open', () => r()));
@@ -19,16 +19,16 @@ test('the Core stops promptly even while a client is still connected', async () 
 });
 
 test('the port is free again after stop, so a restarted Core can bind it', async () => {
-  const first = new Core({ port: 48022, dataDir: tmp(), stateDir: tmp(), warm: false });
+  const first = new Core({ testDoor: true, port: 48022, dataDir: tmp(), stateDir: tmp(), warm: false });
   await first.start();
   await first.stop();
-  const second = new Core({ port: 48022, dataDir: tmp(), stateDir: tmp(), warm: false });
+  const second = new Core({ testDoor: true, port: 48022, dataDir: tmp(), stateDir: tmp(), warm: false });
   await second.start();
   await second.stop();
 });
 
 test('garbage from a client never crashes the Core', async () => {
-  const core = new Core({ port: 48024, dataDir: tmp(), stateDir: tmp(), warm: false });
+  const core = new Core({ testDoor: true, port: 48024, dataDir: tmp(), stateDir: tmp(), warm: false });
   await core.start();
   const c = new WebSocket('ws://127.0.0.1:48024/body');
   await new Promise<void>(r => c.once('open', () => r()));
@@ -44,7 +44,7 @@ test('garbage from a client never crashes the Core', async () => {
 
 test('a rating is written to ratings.jsonl and a malformed one is ignored', async () => {
   const state = tmp();
-  const core = new Core({ port: 48026, dataDir: tmp(), stateDir: state, warm: false });
+  const core = new Core({ testDoor: true, port: 48026, dataDir: tmp(), stateDir: state, warm: false });
   await core.start();
   const c = new WebSocket('ws://127.0.0.1:48026/body');
   await new Promise<void>(r => c.once('open', () => r()));

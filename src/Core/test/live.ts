@@ -17,7 +17,7 @@ const dataDir = mkdtempSync(path.join(os.tmpdir(), 'aang-live-data-'));
 cpSync(path.join(realData, 'Brain'), path.join(dataDir, 'Brain'), { recursive: true });
 new DatabaseSync(path.join(realData, 'aang.db')).exec(`VACUUM INTO '${path.join(dataDir, 'aang.db').replace(/\\/g, '/')}'`);
 
-const core = new Core({
+const core = new Core({ testDoor: true,
   port: PORT,
   dataDir,
   stateDir: path.join(os.tmpdir(), 'aang-live-state'),

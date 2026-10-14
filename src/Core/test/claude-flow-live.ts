@@ -20,7 +20,7 @@ const ps = (file: string, ...a: string[]) => execFileSync('powershell.exe', ['-N
 
 const stateDir = tmp('aang-flow-state-');
 writeFileSync(path.join(stateDir, 'trust.json'), JSON.stringify({ 'start Claude sessions': { kind: 'start Claude sessions', example: 'test', since: '2026-09-21' } }));
-const core: any = new Core({ port: 47831, dataDir: tmp('aang-flow-data-'), stateDir, warm: false, consolidate: false });
+const core: any = new Core({ testDoor: true, port: 47831, dataDir: tmp('aang-flow-data-'), stateDir, warm: false, consolidate: false });
 await core.start();
 const body = spawn(path.join(root, 'src', 'Body', 'bin', 'Release', 'net10.0-windows', 'Aang.exe'), ['--quiet=always', '--no-core'], { stdio: 'ignore', env: { ...process.env, AANG_BODY_DIR: tmp('aang-flow-body-') } });
 const spy = new WebSocket('ws://127.0.0.1:47831/body');

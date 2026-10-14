@@ -23,7 +23,7 @@ async function client(port: number, kind?: 'discord') {
 }
 
 async function setup(port: number) {
-  const core: any = new Core({ port, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
+  const core: any = new Core({ testDoor: true, port, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
   core.lane = () => ({ send: () => {}, interrupt: async () => {} });       // no model in these tests
   await core.start();
   const desk = await client(port), phone = await client(port, 'discord');
@@ -134,7 +134,7 @@ test('switching lane mid-conversation carries a recap; staying on the same lane 
   // to arrive with no idea what was just said. Now the lane that is being switched TO gets a short recap of
   // the last exchange, and only on a genuine switch - not on every turn.
   const port = 48128;
-  const core: any = new Core({ port, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
+  const core: any = new Core({ testDoor: true, port, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
   const sent: { name: string; text: string }[] = [];
   core.lane = (name: string) => ({ send: (text: string) => sent.push({ name, text }), interrupt: async () => {} });
   await core.start();
@@ -168,7 +168,7 @@ test('a job-hunt STATUS QUESTION does not launch a new sweep; a real request sti
   // 2026-09-22: JOB_HUNT_RE matched "job hunt" anywhere, so "how's the job hunt going" launched a whole new
   // Mac sweep instead of just being answered. JOB_HUNT_QUESTION_RE excludes question-shaped phrasing.
   const port = 48126;
-  const core: any = new Core({ port, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
+  const core: any = new Core({ testDoor: true, port, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
   const macRuns: string[] = [];
   core.runOnMac = async (text: string) => { macRuns.push(text); return true; };
   core.lane = () => ({ send: () => {}, interrupt: async () => {} });   // the question path must not reach here for real
@@ -195,7 +195,7 @@ test('"job scan" is job-hunt-shaped too, and the local fallback is Claude, not t
   // worker - real evidence it cannot do this job at all (tasks.json: "Dropped, no job search run", it has no
   // Claude in Chrome). start_claude is the one path with real browser access, so that is the fallback now.
   const port = 48124;
-  const core: any = new Core({ port, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
+  const core: any = new Core({ testDoor: true, port, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
   core.runOnMac = async () => false;                        // Mac unreachable: force the local fallback
   const started: any[] = [];
   core.startClaude = async (...args: any[]) => { started.push(args); return 'opened'; };
@@ -218,7 +218,7 @@ test('a Claude session that goes quiet after starting is followed up on, once', 
   // The 90-second "press Enter" check only ever catches a session that NEVER got a session id. One that did
   // - Enter was pressed, or it got past the folder-trust prompt - and then produced no further hook events
   // was invisible: nothing was watching it again (2026-09-23, live: exactly this happened on a job hunt).
-  const core: any = new Core({ port: 48142, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
+  const core: any = new Core({ testDoor: true, port: 48142, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
   await core.start();
   try {
     const desk = await client(48142);
@@ -244,7 +244,7 @@ test('a continuous "Claude is working" signal reaches the desktop, once per real
   // are not the same as a live state the Body can render continuously (the glow/eyes). A fresh connection
   // gets told where things stand right now; an already-connected one hears again only when it changes.
   const port = 48122;
-  const core: any = new Core({ port, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
+  const core: any = new Core({ testDoor: true, port, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
   await core.start();
   try {
     // client() resolves once the socket is OPEN and 'hello' is sent, not once the server has replied -
@@ -295,7 +295,7 @@ test('a reply to something Aang said unprompted carries what was actually said, 
   // got nothing useful back - announce() text is UI-only, never in any lane's own conversation, so the model
   // genuinely had nothing to go on. withAnnounced() gives the next reply that context.
   const port = 48120;
-  const core: any = new Core({ port, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
+  const core: any = new Core({ testDoor: true, port, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
   const sent: string[] = [];
   core.lane = () => ({ send: (text: string) => sent.push(text), interrupt: async () => {} });
   await core.start();
@@ -329,7 +329,7 @@ test('a reply to something Aang said unprompted carries what was actually said, 
 });
 
 test('away but Discord is not connected: the desktop still gets it rather than nobody', async () => {
-  const core: any = new Core({ port: 48146, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
+  const core: any = new Core({ testDoor: true, port: 48146, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
   await core.start();
   try {
     const desk = await client(48146);                                // the Core's own port (it said 48140)

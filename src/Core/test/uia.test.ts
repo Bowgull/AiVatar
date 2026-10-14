@@ -85,7 +85,7 @@ function world(controls: Control[], proc = 'Notepad') {
 }
 
 async function rig(port: number) {                                        // ports two apart: a Core also listens on port + 1
-  const core: any = new Core({ port, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
+  const core: any = new Core({ testDoor: true, port, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
   await core.start();
   const c = new WebSocket(`ws://127.0.0.1:${port}/body`); const inbox: any[] = [];
   let answer = true;

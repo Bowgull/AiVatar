@@ -11,7 +11,7 @@ import { Core } from '../src/core.ts';
 const tmp = () => mkdtempSync(path.join(os.tmpdir(), 'aang-taint-'));
 
 function coreWithTrust(...kinds: string[]): any {
-  const core: any = new Core({ port: 48200, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
+  const core: any = new Core({ testDoor: true, port: 48200, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
   for (const k of kinds) core.trust.allow(k, 'test');
   return core;
 }
@@ -115,7 +115,7 @@ test('after reading a file, a remembered yes no longer opens the door', async ()
 
 test('a refused file read does not mark the turn', async () => {
   // Nothing was read, so nothing came in. Marking here would cost an extra question for no reason.
-  const core: any = new Core({ port: 48202, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
+  const core: any = new Core({ testDoor: true, port: 48202, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
   assert.equal(await core.askPermission('Read', { file_path: 'C:/Users/Shadow/.ssh/id_rsa' }), false, 'untrusted and no Body to ask');
   assert.equal(core.tainted, false);
   core.memory.close();

@@ -52,7 +52,7 @@ test('it plays the match on the device already playing, and says what', async ()
 
 test('music is asked once; with Spotify closed it opens the app and plays once it is up', async () => {
   const p = pretend([[], [{ id: 'pc', type: 'Computer', is_active: false }]]);
-  const core: any = new Core({ port: 48060, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
+  const core: any = new Core({ testDoor: true, port: 48060, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
   core.spotifyFetch = p.fetcher; core.spotifyWaitMs = 10;
   let launched = 0; core.spotifyLaunch = async () => { launched++; };
   signedIn(core.cfg.stateDir);
@@ -71,7 +71,7 @@ test('music is asked once; with Spotify closed it opens the app and plays once i
 });
 
 test('not signed in: it says how, and nothing is asked or requested', async () => {
-  const core: any = new Core({ port: 48062, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
+  const core: any = new Core({ testDoor: true, port: 48062, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
   core.spotifyFetch = async () => { throw new Error('no network in tests'); };
   await core.start();
   try { const r = await core.doers().playMusic('x'); assert.equal(r.ok, false); assert.match(r.detail, /spotify-setup\.cmd/); }

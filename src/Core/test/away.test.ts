@@ -20,7 +20,7 @@ const OWNER = 'owner1';
 // ------------------------------------------------------------------ Core: announce() carries the job and the picture
 
 async function withCore(port: number, fn: (core: any, desk: { c: WebSocket; inbox: any[] }) => Promise<void>) {
-  const core: any = new Core({ port, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
+  const core: any = new Core({ testDoor: true, port, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
   await core.start();
   const c = new WebSocket(`ws://127.0.0.1:${port}/body`);
   const inbox: any[] = [];
@@ -107,7 +107,7 @@ test('claude.reply finds the tracked job by its folder and continues it in the S
   writeFileSync(path.join(stateDir, 'launched.json'), JSON.stringify([
     { name: 'browsing job', cwd: jobDir, kind: 'browse', state: 'needs you', sessionId: 's1', startedAt: Date.now() },
   ]));
-  const core: any = new Core({ port: 48010, dataDir: tmp(), stateDir, warm: false, consolidate: false });
+  const core: any = new Core({ testDoor: true, port: 48010, dataDir: tmp(), stateDir, warm: false, consolidate: false });
   const calls: any[] = [];
   core.startClaude = async (...args: any[]) => { calls.push(args); return 'Opened a new Claude Code session in the Claude app for the browsing job.'; };
   await core.start();

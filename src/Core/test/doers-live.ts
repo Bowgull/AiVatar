@@ -17,7 +17,7 @@ const tmp = (p: string) => mkdtempSync(path.join(os.tmpdir(), p));
 const PORT = 47870;
 const stateDir = tmp('aang-doers-state-');
 const work = tmp('aang-doers-work-');
-const core: any = new Core({ port: PORT, dataDir: tmp('aang-doers-data-'), stateDir, warm: false, consolidate: false });
+const core: any = new Core({ testDoor: true, port: PORT, dataDir: tmp('aang-doers-data-'), stateDir, warm: false, consolidate: false });
 await core.start();
 
 const c = new WebSocket(`ws://127.0.0.1:${PORT}/body`);

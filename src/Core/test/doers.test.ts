@@ -40,7 +40,7 @@ test('the question says what will happen, and force quit says what it costs', ()
 });
 
 async function withCore(port: number, fn: (core: any, desk: { c: WebSocket; inbox: any[] }) => Promise<void>) {
-  const core: any = new Core({ port, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
+  const core: any = new Core({ testDoor: true, port, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
   await core.start();
   const c = new WebSocket(`ws://127.0.0.1:${port}/body`);
   const inbox: any[] = [];
@@ -109,7 +109,7 @@ test('windows: the request reaches the desktop, its answer comes back, and force
 });
 
 test('with no desktop connected, a window action says so instead of hanging', async () => {
-  const core: any = new Core({ port: 48160, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
+  const core: any = new Core({ testDoor: true, port: 48160, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
   await core.start();
   core.trust.allow('close apps', 'test');
   const r = await core.hands('close', 'notepad');

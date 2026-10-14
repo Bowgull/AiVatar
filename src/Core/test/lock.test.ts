@@ -16,7 +16,7 @@ import { Core } from '../src/core.ts';
 const tmp = () => mkdtempSync(path.join(os.tmpdir(), 'aang-lock-'));
 
 async function withCore(port: number, fn: () => Promise<void>) {
-  const core: any = new Core({ port, dataDir: tmp(), stateDir: tmp(), warm: false });
+  const core: any = new Core({ testDoor: true, port, dataDir: tmp(), stateDir: tmp(), warm: false });
   await core.start();
   try { await fn(); } finally { await core.stop(); }
 }
@@ -101,7 +101,7 @@ function connectWith(port: number, headers: Record<string, string>, origin?: str
 
 test('S1: a window with the password gets in even though it sends an origin', async () => {
   const stateDir = tmp();
-  const core: any = new Core({ port: 48330, dataDir: tmp(), stateDir, warm: false });
+  const core: any = new Core({ testDoor: true, port: 48330, dataDir: tmp(), stateDir, warm: false });
   await core.start();
   try {
     const token = readToken(stateDir)!;
@@ -117,13 +117,13 @@ test('S1: a window with the password gets in even though it sends an origin', as
 
 test('S1: the password is new each run and is cleared on a clean stop', async () => {
   const stateDir = tmp();
-  const a: any = new Core({ port: 48332, dataDir: tmp(), stateDir, warm: false });
+  const a: any = new Core({ testDoor: true, port: 48332, dataDir: tmp(), stateDir, warm: false });
   await a.start();
   const first = readFileSync(tokenFile(stateDir), 'utf8');
   await a.stop();
   assert.equal(existsSync(tokenFile(stateDir)), false, 'no stale password is left behind');
 
-  const b: any = new Core({ port: 48332, dataDir: tmp(), stateDir, warm: false });
+  const b: any = new Core({ testDoor: true, port: 48332, dataDir: tmp(), stateDir, warm: false });
   await b.start();
   const second = readFileSync(tokenFile(stateDir), 'utf8');
   await b.stop();

@@ -13,7 +13,7 @@ const tmp = () => mkdtempSync(path.join(os.tmpdir(), 'aang-act-'));
 const wait = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 async function withCore(port: number, fn: (core: any, c: WebSocket, inbox: any[]) => Promise<void>) {
-  const core: any = new Core({ port, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
+  const core: any = new Core({ testDoor: true, port, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
   await core.start();
   const c = new WebSocket(`ws://127.0.0.1:${port}/body`);
   const inbox: any[] = [];

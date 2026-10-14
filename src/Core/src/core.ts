@@ -94,6 +94,8 @@ import { checkAddons, saveDigest, weeklySweep } from './watch.ts';
 
 export interface CoreConfig {
   port: number;
+  /** Tests only: their stand-in pets connect without this run's password. The real brain (index.ts) never sets it. */
+  testDoor?: boolean;
   dataDir: string;
   stateDir: string;
   claudeExecutable?: string;
@@ -2264,9 +2266,10 @@ export class Core {
           // (which are browsers, and do send an Origin) apart from a web page that is not his.
           const given = String(req.headers[TOKEN_HEADER] ?? '');
           if (given && this.token && sameToken(given, this.token)) return done(true);
-          // His C# window, which sent neither until 2026-10-14 (code audit L5). Once the rebuilt pet sends the password and
-          // this line stops appearing, no-password connections get refused here.
-          if (!origin) { console.log("a program connected without the brain password (the old pet does this)"); return done(true); }
+          // Code audit L5 (2026-10-14): every part of Aang now sends this run's password (the pet, Samara, Discord). A
+          // program that sends none, or an old one, is turned away; the pet just rereads it and tries again 1.5 s later.
+          if (!origin && this.cfg.testDoor) return done(true);
+          if (!origin) { console.log(`turned away a program without this run's password (${given ? 'an old one' : 'none sent'})`); done(false, 401, 'Unauthorized'); return; }
           console.error(`refused a connection from a web page (origin ${String(origin).slice(0, 80)})`);
           done(false, 403, 'Forbidden');
         },
