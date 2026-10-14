@@ -41,7 +41,7 @@ app.whenReady().then(async () => {
   const state = mkdtempSync(path.join(os.tmpdir(), 'dig-'));
   const data = mkdtempSync(path.join(os.tmpdir(), 'jobdata-'));
   const b = new AangBrowser({ origin: pages.origin, stateDir: state, preloadPath: path.join(HERE, '..', '..', 'src', 'preload.cjs'),
-    tabPreloadPath: path.join(HERE, '..', '..', 'src', 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, '..', '..', 'src', 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, '..', '..', 'src', 'thingspreload.cjs') });
+    tabPreloadPath: path.join(HERE, '..', '..', 'src', 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, '..', '..', 'src', 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, '..', '..', 'src', 'thingspreload.cjs'), testLocal: true });
   process.env.JOB_HUNT_DATA = data;
   const door = startClaudeDoor(() => b, state, DOOR);
   await new Promise((r) => setTimeout(r, 300));

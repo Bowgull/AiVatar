@@ -36,7 +36,7 @@ app.whenReady().then(async () => {
   const base = `http://127.0.0.1:${(site.address() as any).port}`;
   const pages = await servePages(path.join(HERE, '..', '..', 'pages'));
   const b = new AangBrowser({ origin: pages.origin, stateDir: mkdtempSync(path.join(os.tmpdir(), 'drv4-')), preloadPath: path.join(HERE, '..', '..', 'src', 'preload.cjs'),
-    tabPreloadPath: path.join(HERE, '..', '..', 'src', 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, '..', '..', 'src', 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, '..', '..', 'src', 'thingspreload.cjs') }) as any;
+    tabPreloadPath: path.join(HERE, '..', '..', 'src', 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, '..', '..', 'src', 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, '..', '..', 'src', 'thingspreload.cjs'), testLocal: true }) as any;
   const job = (await b.drive('start', { kind: 'claude', name: 'test' })).job;
   const o = await b.drive('open', { job, url: base + '/careers' });
   await new Promise((r) => setTimeout(r, 800));
