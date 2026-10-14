@@ -2875,6 +2875,14 @@ export class AangBrowser {
         case 'read': return { ok: true, ...(await d.read(num('page'), { ...(Number.isInteger(Number(a?.within)) && a?.within !== undefined ? { within: Number(a.within) } : {}), changes: a?.changes === true })) };
         case 'find': return { ok: true, ...(await d.find(num('page'), String(a?.q ?? '').slice(0, 200))) };
         case 'jobs': return { ok: true, ...(await d.jobCards(num('page'))) };
+        case 'sweep': return { ok: true, ...d.startSweep(num('page'), { keywords: Array.isArray(a?.keywords) ? (a.keywords as unknown[]).map(String) : [], ...(a?.path ? { path: String(a.path) } : {}), ...(a?.card ? { card: String(a.card) } : {}), ...(Number(a?.spacing) ? { spacing: Number(a.spacing) } : {}) }) };
+        case 'sweep_status': return { ok: true, ...d.sweepStatus(num('id')) };
+        case 'form': return { ok: true, ...(await d.form(num('page'), a?.within === undefined ? undefined : num('within'))) };
+        case 'upload': {
+          const page = num('page'), n = num('n'), file = String(a?.file ?? '');
+          if (a?.allowed !== true) return { ok: false, needs: 'lever', what: `upload ${d.describeFile(file)} to ${d.describe(page, n).replace(/^.* on /, '')}` };
+          return { ok: true, ...(await d.upload(page, n, file)) };
+        }
         case 'collect': return { ok: true, ...(await d.collectJobs(num('page'), Math.max(1, Math.min(120, Number(a?.max) || 60)))) };
         case 'back': case 'forward': return { ok: true, ...(await d.history(num('page'), op === 'back')) };
         case 'select': return { ok: true, ...(await d.choose(num('page'), num('n'), String(a?.option ?? '').slice(0, 200))) };
@@ -2932,6 +2940,8 @@ export class AangBrowser {
     try { writeFileAtomic(path.join(this.o.stateDir, 'driver-notes.json'), JSON.stringify(n)); } catch { /* best effort */ }
   }
 
+  /** The page a sweep runs on, or null. */
+  sweepPage(id: number): number | null { return this.driver.sweepPage(id); }
   /** The job a driven page belongs to, or null. */
   pageJob(id: number): number | null { return this.driver.page(id)?.job ?? null; }
   /**
