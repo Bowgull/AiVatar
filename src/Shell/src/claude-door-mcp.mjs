@@ -43,6 +43,10 @@ const TOOLS = [
     inputSchema: { type: 'object', properties: { page: { type: 'integer' }, within: { type: 'integer', description: 'a control number; reads only its section' }, changes: { type: 'boolean' } }, required: ['page'] } },
   { name: 'browser_find', description: 'Find words on a page: the lines that contain them, and the controls whose names do. Cheaper than reading a whole long page.',
     inputSchema: { type: 'object', properties: { page: { type: 'integer' }, text: { type: 'string' } }, required: ['page', 'text'] } },
+  { name: 'browser_jobs', description: 'The job postings on this page as clean data: title, company, location, posted, salary, link (LinkedIn, Indeed and most career sites). Far cheaper and more exact than reading the page and picking them out yourself.',
+    inputSchema: { type: 'object', properties: { page: { type: 'integer' } }, required: ['page'] } },
+  { name: 'browser_collect_jobs', description: "Scroll through a whole job list collecting every posting (LinkedIn only draws what is on screen, so reading once misses most). At a person's pace; takes a minute or two. max: how many, default 60.",
+    inputSchema: { type: 'object', properties: { page: { type: 'integer' }, max: { type: 'integer' } }, required: ['page'] } },
   { name: 'browser_click', description: 'Click a numbered control. Links and ordinary buttons are free. Sending, posting, applying, submitting a form or signing in asks Joshua in his browser first, every time; passwords, card details and buying are never done. Says what changed afterwards, or that nothing did (then it probably did not work).',
     inputSchema: { type: 'object', properties: { page: { type: 'integer' }, n: { type: 'integer' } }, required: ['page', 'n'] } },
   { name: 'browser_type', description: 'Type into a numbered field, replacing what is there (search boxes and normal fields are free). enter: true presses Enter after. Never a password or card number. Says what changed.',
@@ -86,6 +90,12 @@ async function call(name, a) {
     const items = (r.items || []).map(line).join('\n');
     const same = r.unchanged ? `\n(${r.unchanged.lines} lines and ${r.unchanged.controls} controls are the same as your last read, not repeated.)` : '';
     return text(`${r.title}\n${r.url}\n\n${WORDS(r.text + (r.more ? '\n[more below: scroll]' : ''))}${same}\n\nControls (numbers stay the same while the control is on the page):\n${items}`);
+  }
+  if (name === 'browser_jobs' || name === 'browser_collect_jobs') {
+    const r = await step(name === 'browser_jobs' ? 'jobs' : 'collect', { page, ...(name === 'browser_collect_jobs' ? { max: Number(a.max) || 60 } : {}) });
+    if (!r.ok) return text(r.error, true);
+    const note = name === 'browser_collect_jobs' ? `\n(${r.jobs.length} postings after ${r.scrolls} scrolls${r.end ? ', the end of the list' : ''}.)` : '';
+    return text(`${WORDS(JSON.stringify(r.jobs, null, 1))}${note}`);
   }
   if (name === 'browser_find') {
     const r = await step('find', { page, q: String(a.text ?? '') });
