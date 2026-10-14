@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 31 - Samara icon</title>
+<!-- Sheet 31 (2026-10-14): his verdict on sheet 30, "all meh... I want something to use as an ICON... how is this going to
+     LOOK". He did not hate D (carved stamp) and E (leaf lantern). So: real app icons, drawn big and smooth (vector, 1024
+     grid), the way macOS and Windows icons are made, then shown where they live: the Mac dock, the Windows taskbar at
+     100% and 150%, and a 16 px tab. Neighbours are plain unbranded tiles, only there for scale and contrast. -->
+<style>
+  @font-face{font-family:Cinzel;src:url(../../src/Shell/pages/fonts/Cinzel.woff2) format("woff2");font-weight:400 900}
+  @font-face{font-family:Figtree;src:url(../../src/Shell/pages/fonts/Figtree.woff2) format("woff2");font-weight:300 900}
+  @font-face{font-family:Silkscreen;src:url(../../src/Shell/pages/fonts/Silkscreen-Regular.woff2) format("woff2")}
+  html,body{background:#17110c;margin:0}
+  body{color:#e8dcc4;font-family:Figtree,sans-serif;padding:24px 24px 40px}
+  h1{font:400 20px Silkscreen,monospace;color:#FFC43C;letter-spacing:2px;margin:0 0 4px}
+  .lead{color:#b9a684;font-size:14px;margin:0 0 22px;max-width:1150px;line-height:1.5}
+  .opt{background:#24170e url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;border:3px solid #0d0703;border-radius:12px;padding:18px;box-shadow:0 4px 0 #000;margin-bottom:22px;display:grid;grid-template-columns:260px 1fr;gap:22px;max-width:1150px}
+  .opt h2{font:400 11px Silkscreen,monospace;color:#FFC43C;letter-spacing:1.5px;margin:0 0 2px}
+  .opt .nm{font:700 24px Cinzel,serif;color:#fbe7bf;text-shadow:2px 2px 0 #000;margin:0 0 6px}
+  .opt p{font-size:13.5px;color:#c9b48c;line-height:1.45;margin:0 0 10px}
+  .hero{background:radial-gradient(#2a1c12,#140b05);border-radius:10px;display:grid;place-items:center;height:250px}
+  .ctx{display:flex;flex-direction:column;gap:12px}
+  .lbl{font:400 8.5px Silkscreen,monospace;letter-spacing:1px;color:#a89470;margin-bottom:4px}
+  /* macOS dock */
+  .dock{display:inline-flex;gap:10px;align-items:flex-end;padding:8px 12px;border-radius:20px;background:rgba(60,60,66,.55);border:1px solid rgba(255,255,255,.18);backdrop-filter:blur(8px)}
+  .wall{padding:16px 18px;border-radius:10px;background:linear-gradient(135deg,#3b4a6b,#7a5a7e 55%,#c78a5a)}
+  .wall.light{background:linear-gradient(135deg,#dfe7f2,#f3e7dc)}
+  .wall.light .dock{background:rgba(255,255,255,.45);border-color:rgba(0,0,0,.08)}
+  .dock img{width:54px;height:54px;display:block}
+  .ph{width:54px;height:54px;border-radius:12px}
+  /* Windows taskbar */
+  .bar{display:flex;gap:4px;align-items:center;padding:0 10px;height:48px;border-radius:8px;background:#202020}
+  .bar.light{background:#eef0f4}
+  .bar .slot{width:40px;height:40px;border-radius:5px;display:grid;place-items:center}
+  .bar .slot.on{background:rgba(255,255,255,.08)}
+  .bar.light .slot.on{background:rgba(0,0,0,.06)}
+  .bar img{display:block}
+  .phw{border-radius:5px}
+  .row{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start}
+  /* tab */
+  .tabs{display:flex;gap:2px;background:#1b120b;padding:6px 6px 0;border-radius:8px 8px 0 0;width:max-content}
+  .tab{display:flex;align-items:center;gap:7px;background:#2c1d12;color:#e8dcc4;font:500 12px Figtree;padding:7px 12px;border-radius:7px 7px 0 0;width:150px}
+  .tab.dim{background:transparent;color:#9c8a6c}
+  .tab img{width:16px;height:16px}
+  .grey img{filter:grayscale(1)}
+</style>
+</head>
+<body>
+<h1>SHEET 31 - SAMARA, AS A REAL ICON</h1>
+<p class="lead">Drawn big and smooth, the way real app icons are made, then shown where an icon actually lives: your Mac dock (on a dark and a light wallpaper),
+the Windows taskbar at normal and 150% size, and a browser tab at 16 px. The grey tiles next to it are stand-ins for your other apps, so you can see how it holds up beside them.
+Each one is built from D (the carved stamp) and E (the lantern), the two you didn't hate.</p>
+<div id="list"></div>
+
+<script>
+// ---- the maple leaf, smooth: points joined by gently concave curves (real leaves curve in between their points)
+const PTS = [[0,-1],[.13,-.73],[.31,-.83],[.26,-.42],[.57,-.65],[.52,-.47],[.9,-.53],[.74,-.3],[1,-.08],[.58,.08],[.66,.3],[.18,.21],[.07,.46],[.07,.84],[-.07,.84],[-.07,.46],[-.18,.21],[-.66,.3],[-.58,.08],[-1,-.08],[-.74,-.3],[-.9,-.53],[-.52,-.47],[-.57,-.65],[-.26,-.42],[-.31,-.83],[-.13,-.73]];
+function leafD(cx, cy, r) {
+  const p = PTS.map(([x, y]) => [cx + x * r, cy + y * r]);
+  let d = `M${p[0][0].toFixed(1)} ${p[0][1].toFixed(1)}`;
+  for (let i = 0; i < p.length; i++) {
+    const a = p[i], b = p[(i + 1) % p.length];
+    const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
+    const k = (i >= 12 && i <= 14) ? 0 : 0.16;               // the stem stays straight
+    const qx = mx + (cx - mx) * k, qy = my + (cy - my) * k;
+    d += ` Q${qx.toFixed(1)} ${qy.toFixed(1)} ${b[0].toFixed(1)} ${b[1].toFixed(1)}`;
+  }
+  return d + 'Z';
+}
+// macOS-style rounded square ("squircle"-ish) on a 1024 grid with the standard 100 px margin.
+const TILE = 'M512 100 C 840 100 924 184 924 512 C 924 840 840 924 512 924 C 184 924 100 840 100 512 C 100 184 184 100 512 100 Z';
+const grain = (col, op) => Array.from({ length: 9 }, (_, i) => { const y = 170 + i * 85; return `<path d="M100 ${y} C 330 ${y - 26 + (i % 3) * 14} 620 ${y + 30 - (i % 2) * 20} 924 ${y - 8}" stroke="${col}" stroke-opacity="${op}" stroke-width="${i % 3 ? 5 : 9}" fill="none"/>`; }).join('');
+const L = leafD(512, 500, 300);
+
+const ICONS = [
+  { tag: 'D+ THE CARVED STAMP', name: 'Samara', why: 'A block of warm wood with the maple carved into it and filled with gold, like a stamp or a Stardew sign. Wood grain, a soft top light, the leaf sitting just below the surface.',
+    svg: `<defs><linearGradient id="w" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#C08A52"/><stop offset=".55" stop-color="#9C6A3A"/><stop offset="1" stop-color="#6E4422"/></linearGradient>
+      <linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFE9A0"/><stop offset=".5" stop-color="#FFC43C"/><stop offset="1" stop-color="#C98C14"/></linearGradient>
+      <clipPath id="c"><path d="${TILE}"/></clipPath></defs>
+      <path d="${TILE}" fill="url(#w)"/><g clip-path="url(#c)">${grain('#4A2C14', .28)}<rect x="100" y="100" width="824" height="60" fill="#fff" opacity=".10"/></g>
+      <path d="${TILE}" fill="none" stroke="#3A2210" stroke-width="14"/>
+      <path d="${L}" fill="#3A2210" transform="translate(-7,-9)" opacity=".55"/>
+      <path d="${L}" fill="url(#g)"/><path d="${L}" fill="none" stroke="#7A4E12" stroke-width="10"/>
+      <path d="M512 640 L512 300 M512 545 L360 420 M512 545 L664 420" stroke="#C98C14" stroke-width="12" stroke-linecap="round" opacity=".8"/>` },
+  { tag: 'E+ THE LANTERN', name: 'Samara', why: 'Evening blue tile, a paper lantern hanging in it, glowing warm, with the maple as the shape of its light. The cozy one: it looks like the lamp-lit browser feels.',
+    svg: `<defs><linearGradient id="n" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#27415A"/><stop offset="1" stop-color="#101C2A"/></linearGradient>
+      <radialGradient id="h" cx=".5" cy=".55" r=".5"><stop offset="0" stop-color="#FFC43C" stop-opacity=".55"/><stop offset="1" stop-color="#FFC43C" stop-opacity="0"/></radialGradient>
+      <radialGradient id="p" cx=".45" cy=".4" r=".7"><stop offset="0" stop-color="#FFF3C0"/><stop offset=".6" stop-color="#F2B24A"/><stop offset="1" stop-color="#B7661E"/></radialGradient>
+      <clipPath id="c"><path d="${TILE}"/></clipPath></defs>
+      <path d="${TILE}" fill="url(#n)"/><g clip-path="url(#c)"><circle cx="512" cy="560" r="400" fill="url(#h)"/></g>
+      <path d="M512 120 V255" stroke="#3A2210" stroke-width="16"/>
+      <rect x="400" y="245" width="224" height="58" rx="18" fill="#6E4422"/><rect x="400" y="245" width="224" height="20" rx="10" fill="#9C6A3A"/>
+      <rect x="318" y="295" width="388" height="440" rx="150" fill="url(#p)"/>
+      <path d="M512 300 V730 M420 312 C 380 420 380 610 420 722 M604 312 C 644 420 644 610 604 722" stroke="#B7661E" stroke-width="9" fill="none" opacity=".55"/>
+      <path d="${leafD(512, 505, 150)}" fill="#7A2E10" opacity=".85"/>
+      <rect x="400" y="725" width="224" height="56" rx="18" fill="#6E4422"/><path d="M512 781 V860" stroke="#FFC43C" stroke-width="16" stroke-linecap="round"/>
+      <path d="${TILE}" fill="none" stroke="#0A121C" stroke-width="12"/>` },
+  { tag: 'D+E THE LIT LEAF', name: 'Samara', why: 'The two together: the wood block, and the maple glowing gold from inside like lantern light. One bold shape, warm light, your wood. My pick: it reads at every size.',
+    svg: `<defs><linearGradient id="w" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5A3820"/><stop offset="1" stop-color="#2E1A0C"/></linearGradient>
+      <radialGradient id="h" cx=".5" cy=".48" r=".5"><stop offset="0" stop-color="#FFC43C" stop-opacity=".6"/><stop offset="1" stop-color="#FFC43C" stop-opacity="0"/></radialGradient>
+      <radialGradient id="g" cx=".5" cy=".45" r=".6"><stop offset="0" stop-color="#FFF6D0"/><stop offset=".45" stop-color="#FFD25A"/><stop offset="1" stop-color="#E08A1E"/></radialGradient>
+      <clipPath id="c"><path d="${TILE}"/></clipPath></defs>
+      <path d="${TILE}" fill="url(#w)"/><g clip-path="url(#c)">${grain('#1C0F06', .35)}<circle cx="512" cy="500" r="430" fill="url(#h)"/><rect x="100" y="100" width="824" height="50" fill="#fff" opacity=".07"/></g>
+      <path d="${TILE}" fill="none" stroke="#1C0F06" stroke-width="14"/>
+      <path d="${L}" fill="url(#g)"/>
+      <path d="M512 640 L512 290 M512 548 L350 412 M512 548 L674 412" stroke="#E8A22E" stroke-width="12" stroke-linecap="round" opacity=".7"/>` },
+  { tag: 'D+ JADE STAMP', name: 'Samara', why: 'The stamp again, but light: a parchment block with the maple pressed in jade ink, like a seal on an old map. Stands out on a dark taskbar, nobody owns jade.',
+    svg: `<defs><linearGradient id="w" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F3E6C6"/><stop offset="1" stop-color="#D9C39A"/></linearGradient>
+      <linearGradient id="j" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4FB59B"/><stop offset="1" stop-color="#1E5247"/></linearGradient>
+      <clipPath id="c"><path d="${TILE}"/></clipPath></defs>
+      <path d="${TILE}" fill="url(#w)"/><g clip-path="url(#c)">${grain('#9C6A3A', .12)}</g>
+      <path d="${TILE}" fill="none" stroke="#6E4422" stroke-width="22"/>
+      <path d="${L}" fill="url(#j)"/>
+      <path d="M512 640 L512 290 M512 548 L350 412 M512 548 L674 412" stroke="#E6F5EE" stroke-width="10" stroke-linecap="round" opacity=".55"/>` },
+];
+const url = (inner) => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">${inner}</svg>`);
+const img = (src, s) => `<img src="${src}" width="${s}" height="${s}" alt="">`;
+const PH = ['#4a7bd0', '#e2e2e2', '#5865f2', '#2f2f35', '#e0b23a'];   // stand-in tiles: plain colours, no brands
+const list = document.getElementById('list');
+for (const ic of ICONS) {
+  const src = url(ic.svg);
+  const dock = (cls) => `<div class="wall ${cls}"><div class="dock">${PH.slice(0, 2).map((c) => `<div class="ph" style="background:${c}"></div>`).join('')}${img(src, 54)}${PH.slice(2).map((c) => `<div class="ph" style="background:${c}"></div>`).join('')}</div></div>`;
+  const bar = (cls, s) => `<div class="bar ${cls}">${PH.slice(0, 2).map((c) => `<div class="slot"><div class="phw" style="width:${s}px;height:${s}px;background:${c}"></div></div>`).join('')}<div class="slot on">${img(src, s)}</div>${PH.slice(2, 4).map((c) => `<div class="slot"><div class="phw" style="width:${s}px;height:${s}px;background:${c}"></div></div>`).join('')}</div>`;
+  const o = document.createElement('div'); o.className = 'opt';
+  o.innerHTML = `<div><h2>${ic.tag}</h2><div class="nm">${ic.name}</div><p>${ic.why}</p><div class="hero">${img(src, 220)}</div></div>
+    <div class="ctx">
+      <div><div class="lbl">MAC DOCK, DARK AND LIGHT WALLPAPER</div><div class="row">${dock('')}${dock('light')}</div></div>
+      <div><div class="lbl">WINDOWS TASKBAR, NORMAL (24 PX) AND 150% (32 PX), DARK AND LIGHT</div><div class="row">${bar('', 24)}${bar('light', 24)}${bar('', 32)}</div></div>
+      <div><div class="lbl">BROWSER TAB, 16 PX, AND IN GREY (THE SQUINT TEST)</div><div class="row"><div class="tabs"><div class="tab">${img(src, 16)} Samara</div><div class="tab dim">${img(src, 16)} Jobs</div></div><div class="tabs grey"><div class="tab">${img(src, 16)} Samara</div></div></div></div>
+    </div>`;
+  list.append(o);
+}
+</script>
+</body>
+</html>
