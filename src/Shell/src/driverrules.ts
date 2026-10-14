@@ -64,8 +64,34 @@ export function privateHost(host: string): boolean {
 export function siteOf(host: string): string {
   const parts = cleanHost(host).replace(/^www\./, '').split('.').filter(Boolean);
   const two = parts.slice(-2).join('.');
-  const shared = /^(co|com|org|net|ac|gov|edu)\.[a-z]{2}$|^(github|gitlab)\.io$|^(pages|workers)\.dev$|^(vercel|netlify|herokuapp|web|firebaseapp|appspot|azurewebsites|cloudfront|blogspot|myshopify|wixsite|wordpress|substack|notion|bubbleapps|glitch|onrender|fly)\.(app|com|site|me|io|net|dev)$/;
+  const shared = /^(co|com|org|net|ac|gov|edu)\.[a-z]{2}$|^(gc|on|qc|bc|ab)\.ca$|^(github|gitlab)\.io$|^(pages|workers)\.dev$|^(vercel|netlify|herokuapp|web|firebaseapp|appspot|azurewebsites|cloudfront|blogspot|myshopify|wixsite|wordpress|substack|notion|bubbleapps|glitch|onrender|fly)\.(app|com|site|me|io|net|dev)$/;
   return parts.length > 2 && shared.test(two) ? parts.slice(-3).join('.') : two;
+}
+/** A job scan's own sites (AI lockdown G1, 2026-10-14): signed in as him here; anywhere else is read logged out. */
+export const JOB_SITES = ['linkedin.com', 'indeed.com', 'ziprecruiter.com', 'jobbank.gc.ca', 'eluta.ca', 'jobs.ca', 'workopolis.com', 'weworkremotely.com', 'hcareers.com',
+  'greenhouse.io', 'lever.co', 'ashbyhq.com', 'myworkdayjobs.com', 'workable.com', 'bamboohr.com', 'smartrecruiters.com', 'icims.com', 'jobvite.com', 'rippling.com',
+  'recruitee.com', 'breezy.hr', 'applytojobs.ca', 'teamtailor.com', 'comeet.co', 'dayforcehcm.com', 'successfactors.com', 'taleo.net', 'ultipro.com', 'paylocity.com', 'pinpointhq.com', 'oraclecloud.com'];
+/** Is this task a job hunt (its sites are the job sites)? */
+export const jobTask = (name: string): boolean => /job|scan|appl|career|hunt|recruit|linkedin|indeed/i.test(String(name ?? ''));
+/** What private detail an address carries out to another site, or '' (AI lockdown G2): an email, a phone number, a long
+ *  block of encoded data, or an address far longer than a page link needs. */
+export function carriesData(u: string): string {
+  let x: URL; try { x = new URL(u); } catch { return ''; }
+  let s = x.pathname + x.search + x.hash; try { s = decodeURIComponent(s.replace(/\+/g, ' ')); } catch { /* as it is */ }
+  if (/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i.test(s)) return 'an email address';
+  if (/(?:\+?1[\s.-]?)?\(?\b\d{3}\)?[\s.-]\d{3}[\s.-]\d{4}\b/.test(s)) return 'a phone number';
+  if (/[A-Za-z0-9+/_-]{120,}={0,2}/.test(s)) return 'a long block of encoded data';
+  if ((x.search + x.hash).length > 1500) return 'a very long address';
+  return '';
+}
+/** Does this text look like his personal details (AI lockdown G3)? An email, a phone number, or one of his own words. */
+export function personal(text: string, words: string[] = []): string {
+  const t = String(text ?? '');
+  if (/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i.test(t)) return 'an email address';
+  if (/(?:\+?1[\s.-]?)?\(?\b\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}\b/.test(t)) return 'a phone number';
+  const low = t.toLowerCase();
+  const w = words.find((x) => x.trim().length >= 4 && low.includes(x.trim().toLowerCase()));
+  return w ? 'your personal details' : '';
 }
 export function paceFor(host: string): { least: number; jitter: number } | null {
   const h = cleanHost(host);

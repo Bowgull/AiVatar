@@ -2,7 +2,7 @@
 // talk its way around.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cleanHost, paceFor, privateHost, siteOf, sweepPlan } from '../src/driverrules.ts';
+import { carriesData, cleanHost, jobTask, paceFor, personal, privateHost, siteOf, sweepPlan } from '../src/driverrules.ts';
 import { neverKeep } from '../src/visits.ts';
 
 test('G7: a trailing dot no longer slips past the bank block or the pace rule', () => {
@@ -30,4 +30,21 @@ test('G8: each site has its own notes, even under shared endings', () => {
 test('G12: a backslash cannot turn a sweep into a trip to another site', () => {
   assert.equal(typeof sweepPlan('ca.indeed.com', { path: '/\\evil.example/x?q={q}', card: '.c' }), 'string');
   assert.equal(typeof sweepPlan('www.jobbank.gc.ca', { path: '/jobsearch?searchstring={q}', card: '.c' }), 'object');
+});
+
+test('G2: what counts as private details leaving in an address', () => {
+  assert.equal(carriesData('https://evil.example/c?e=bocas.joshua%40gmail.com'), 'an email address');
+  assert.equal(carriesData('https://evil.example/x?p=416-555-0199'), 'a phone number');
+  assert.equal(carriesData('https://evil.example/x#' + 'QUJD'.repeat(40)), 'a long block of encoded data');
+  assert.equal(carriesData('https://www.linkedin.com/jobs/view/4012345678/?refId=AbCdEfGhIjKlMnOpQrStUv%3D%3D&trackingId=XyZ123AbC456DeF789GhI0%3D%3D'), '', 'a normal job link is fine');
+  assert.equal(carriesData('https://ca.indeed.com/jobs?q=customer+success&l=Toronto%2C+ON'), '');
+});
+
+test('G3 and G1: his details, and what a job scan is', () => {
+  assert.equal(personal('bocas.joshua@gmail.com'), 'an email address');
+  assert.equal(personal('(416) 555 0199'), 'a phone number');
+  assert.equal(personal('42 Queen Street West', ['Queen Street']), 'your personal details');
+  assert.equal(personal('customer success manager'), '');
+  assert.ok(jobTask('Job scan') && jobTask('LinkedIn notifications') && !jobTask('Weather'));
+  assert.equal(siteOf('www.jobbank.gc.ca'), 'jobbank.gc.ca', 'one government site never speaks for another');
 });

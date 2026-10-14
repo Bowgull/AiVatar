@@ -29,7 +29,7 @@ import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown } from './safety.ts';
 import { addressFor, engineHome, searchFor, setSearch, type Engine } from './address.ts';
 import { TIDY_SYSTEM, bySite, doubles, readTidy, staleTrails, tidyPrompt, type TidyTab } from './tidy.ts';
 import { writeFileAtomic } from './atomic.ts';
-import { siteOf } from './driverrules.ts';
+import { carriesData, personal, siteOf } from './driverrules.ts';
 import { lookalike } from './lookalike.ts';
 import { softEdge } from './winedge.ts';
 import { isBar, parseBookmarks, parseChromeBookmarks, parseSafariBookmarks, type Mark } from './bookmarks.ts';
@@ -2891,7 +2891,17 @@ export class AangBrowser {
         case 'start': { const j = d.startJob(a?.kind === 'claude' ? 'claude' : 'aang', String(a?.name ?? '')); return { ok: true, job: j.id }; }
         case 'finish': d.finish(num('job')); return { ok: true };
         case 'rename': d.rename(num('job'), String(a?.name ?? '').slice(0, 40)); return { ok: true };
-        case 'open': { const r = await d.open(num('job'), String(a?.url ?? '').slice(0, 2000)); const note = this.siteNote(r.url); return { ok: true, ...r, ...(note ? { note } : {}) }; }
+        case 'open': {
+          const job = num('job'), url = String(a?.url ?? '').slice(0, 2000);
+          // AI lockdown G1/G2 (2026-10-14): using his login outside the job's sites, or sending what looks like private
+          // details to a site in the address, waits for his OK.
+          const login = a?.signedIn === true ? d.needsLogin(job, url) : '';
+          if (login && a?.allowed !== true) return { ok: false, needs: 'lever', what: `use your login on ${login} for this job` };
+          if (login) d.allowSite(job, url);
+          const leak = carriesData(url);
+          if (leak && a?.allowed !== true) { let s = ''; try { s = new URL(url).hostname; } catch { /* none */ } return { ok: false, needs: 'lever', what: `open ${s} with ${leak} in the address` }; }
+          const r = await d.open(job, url); const note = this.siteNote(r.url); return { ok: true, ...r, ...(note ? { note } : {}) };
+        }
         // Per-site notes (driver v2 part 3): what worked on a site, written by Claude for its next session there.
         case 'note': {
           const host = this.noteHost(String(a?.site ?? ''));
@@ -2937,6 +2947,8 @@ export class AangBrowser {
           const worst = w === 'never' || we === 'never' ? 'never' : w === 'lever' || we === 'lever' ? 'lever' : 'free';
           if (worst === 'never') return { ok: false, error: `that is ${d.describe(page, n)}, and buying, passwords and card details are never done for him. He has to do it himself` };
           if (worst === 'lever' && a?.allowed !== true) return { ok: false, needs: 'lever', what: `${op === 'click' ? 'press' : 'fill in and send'} ${d.describe(page, n)}` };
+          // His details typed on a site outside the job's sites (a fake "quick apply" sees every key): asks him (G3).
+          if (op === 'type' && a?.allowed !== true && d.offFence(page)) { const what = personal(String(a?.text ?? ''), this.privateWords()); if (what) return { ok: false, needs: 'lever', what: `type ${what} into ${d.describe(page, n)}` }; }
           const r = op === 'click' ? await d.click(page, n, a?.allowed === true) : await d.type(page, n, String(a?.text ?? ''), a?.enter === true);
           if ('needs' in r) return { ok: false, needs: r.needs, what: r.what };
           return { ok: true, ...r };
@@ -2954,6 +2966,9 @@ export class AangBrowser {
     } catch (e) { return { ok: false, error: (e as Error).message }; }
   }
 
+  /** His own words a driving session must not type outside its job's sites without asking (private-words.json, optional:
+   *  his name, street, and the like; emails and phone numbers are caught anyway). */
+  private privateWords(): string[] { try { const j = JSON.parse(readFileSync(path.join(this.o.stateDir, 'private-words.json'), 'utf8')); return Array.isArray(j) ? j.map(String).slice(0, 50) : []; } catch { return []; } }
   /** Notes per site for driving sessions, kept between runs. Claude's own words for its next visit. */
   private notesOfSites: Record<string, string> | null = null;
   private get siteNotes(): Record<string, string> {
