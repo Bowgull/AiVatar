@@ -2077,7 +2077,7 @@ export class Core {
   private async frontOnMac(): Promise<void> {
     if (!this.macAddr) { console.error('claude.front: no MacBook has been heard from yet'); return; }
     try {
-      const r = await fetch(`http://${this.macAddr}:${MAC_LISTENER_PORT}/front?k=${encodeURIComponent(this.keyFile('mac-front.key'))}`, { method: 'POST', signal: AbortSignal.timeout(3000) });
+      const r = await fetch(`http://${this.macAddr}:${MAC_LISTENER_PORT}/front`, { method: 'POST', headers: { 'X-Aang-Key': this.keyFile('mac-front.key') }, signal: AbortSignal.timeout(3000) });
       if (r.status !== 204) console.error(`claude.front: the Mac said ${r.status}`);
     } catch (e) { console.error('claude.front: the Mac did not answer: ' + (e as Error).message); }
   }
@@ -2089,7 +2089,7 @@ export class Core {
   private async runOnMac(text: string): Promise<boolean> {
     if (!this.macAddr) return false;
     try {
-      const r = await fetch(`http://${this.macAddr}:${MAC_LISTENER_PORT}/run?k=${encodeURIComponent(this.keyFile('mac-front.key'))}`, { method: 'POST', body: text, signal: AbortSignal.timeout(3000) });
+      const r = await fetch(`http://${this.macAddr}:${MAC_LISTENER_PORT}/run`, { method: 'POST', headers: { 'X-Aang-Key': this.keyFile('mac-front.key') }, body: text, signal: AbortSignal.timeout(3000) });
       if (r.status !== 204) { console.error(`claude.run: the Mac said ${r.status}`); return false; }
       return true;
     } catch (e) { console.error('claude.run: the Mac did not answer: ' + (e as Error).message); return false; }
@@ -2109,8 +2109,8 @@ export class Core {
     if (!this.macAddr) return { ok: false, detail: 'No MacBook has been heard from yet, so there is nowhere to send it.' };
     if (!/^https:\/\//i.test(url)) return { ok: false, detail: 'Only https links can be sent to the MacBook.' };
     try {
-      const r = await fetch(`http://${this.macAddr}:${MAC_LISTENER_PORT}/open?k=${encodeURIComponent(this.keyFile('mac-front.key'))}`,
-        { method: 'POST', body: url, signal: AbortSignal.timeout(3000) });
+      const r = await fetch(`http://${this.macAddr}:${MAC_LISTENER_PORT}/open`,
+        { method: 'POST', headers: { 'X-Aang-Key': this.keyFile('mac-front.key') }, body: url, signal: AbortSignal.timeout(3000) });
       if (r.status === 403) {
         return { ok: false, detail: 'The MacBook would not open that. Either it is not a site on its list, or its setup has not been re-run since this was added.' };
       }

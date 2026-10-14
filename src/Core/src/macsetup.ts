@@ -18,9 +18,9 @@ import path from 'node:path';
 export const MAC_LISTENER_PORT = 47840;
 export const HOOK_EVENTS = ['SessionStart', 'UserPromptSubmit', 'Notification', 'Stop', 'SessionEnd'];
 
-/** The listener, in Perl. It answers only POST /front?k=<key> (bring Claude forward) and POST /run?k=<key> (type
- *  the body into a new Claude chat) from a Tailscale address - /front at most once every 2s, /run once every 10s -
- *  and nothing else. */
+/** The listener, in Perl. It answers only POST /front (bring Claude forward), POST /run (type
+ *  the body into a new Claude chat) and POST /open, each with the key in an X-Aang-Key header, from the PC's Tailscale
+ *  address - /front at most once every 2s, /run once every 10s - and nothing else. */
 const LISTENER = String.raw`#!/usr/bin/perl
 # Aang's helper on this Mac. It does exactly two things when Aang on the Shadow PC asks over Tailscale with the key:
 # bring the Claude app forward, or type one message into a new Claude chat. It cannot run anything else.
@@ -58,8 +58,9 @@ while (my $c = $srv->accept) {
   eval {
     local $SIG{ALRM} = sub { die "slow\n" }; alarm 3;
     my $l = <$c> // '';
-    if ($l =~ m{^POST (/front|/run|/open)\?k=([^\s&]+) HTTP/}) { ($path, $qkey) = ($1, $2); }
-    while (my $h = <$c>) { last if $h =~ /^\r?\n\z/; $clen = $1 if $h =~ /^Content-Length:\s*(\d+)/i; }
+    # S3 (2026-10-14): the key comes in a header, never in the address, where logs and proxies could keep it.
+    if ($l =~ m{^POST (/front|/run|/open) HTTP/}) { $path = $1; }
+    while (my $h = <$c>) { last if $h =~ /^\r?\n\z/; $clen = $1 if $h =~ /^Content-Length:\s*(\d+)/i; $qkey = $1 if $h =~ /^X-Aang-Key:\s*(\S+)/i; }
     alarm 0;
   };
   # Only the Shadow PC itself, by its exact Tailscale address; any other machine on the tailnet is refused.
