@@ -1202,7 +1202,7 @@ function onBrain(m) {
     who.textContent = line.length > 50 ? line.slice(0, 49).trimEnd() + '…' : line;
     who.hidden = !who.textContent;
     paintChange(!m.stream);
-    if (!m.stream) setSpeaker(focusWindow || macSession ? 'claude' : m.proactive || m.fromPet ? 'aang' : null, macSession ? 'MAC' : 'PC');
+    if (!m.stream) setSpeaker(focusWindow || macSession ? 'claude' : m.proactive || m.fromPet ? 'aang' : null, macSession ? 'MAC' : 'PC', m.face);
     working.hidden = true;
     show();
     paint();
@@ -1747,10 +1747,19 @@ const speaker = document.createElement('div');
 speaker.id = 'speaker';
 speaker.hidden = true;
 who.parentElement.before(speaker);
-function setSpeaker(kind, machine) {
+function setSpeaker(kind, machine, face) {
   // His call (2026-10-12): Aang's own face and name on every message was noise. Only Claude is named.
   if (kind !== 'claude') kind = null;
   speaker.replaceChildren();
+  // His ask (2026-10-14): what a message is ABOUT gets its picture here, where Claude's mark goes: a channel's
+  // own picture on its new video, a site's icon, an email sender's. Only a picture the brain fetched itself.
+  if (!kind && face && typeof face.img === 'string' && /^data:image\/[\w.+-]+;base64,[\w+/=]+$/.test(face.img)) {
+    speaker.hidden = false;
+    speaker.className = 'speaker about';
+    const img = document.createElement('img'); img.src = face.img; img.alt = ''; img.className = 'face';
+    speaker.append(img, T('span', 'nm', String(face.name ?? '').slice(0, 40).toUpperCase()));
+    return;
+  }
   speaker.hidden = !kind;
   speaker.className = 'speaker' + (kind === 'claude' ? ' claude' : '');
   if (!kind) return;

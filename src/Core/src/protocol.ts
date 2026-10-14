@@ -170,6 +170,8 @@ export type ToBody =
   | { t: 'bubble'; text: string; stream: boolean; id?: string; who?: string; proactive?: boolean;
       /** The row this message was stored as, when it was stored. What a right-click acts on. */
       turn?: number;
+      /** Who or what it is about, on the row above the text (2026-10-14): a channel's picture, a site's or a sender's icon, as a data: address. */
+      face?: { img: string; name: string };
       /** A reminder coming due (its id): the cockpit shows it as a short ask, Got it or Snooze 5 min (6.12). */
       reminder?: string;
       /** The morning brief as a card (6.15): the cockpit draws this instead of the text. */
