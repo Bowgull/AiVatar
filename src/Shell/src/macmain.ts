@@ -176,30 +176,49 @@ app.whenReady().then(async () => {
   const installed = (): { version: string; commit: string; status: string } => { try { const j = JSON.parse(readFileSync(INSTALLED, 'utf8')); return { version: String(j.version ?? ''), commit: String(j.commit ?? ''), status: String(j.status ?? '') }; } catch { return { version: '', commit: '', status: '' }; } };
   const markGood = () => { const i = installed(); if (i.status === 'trial') { try { writeFileSync(INSTALLED, JSON.stringify({ ...i, status: 'good' })); console.log(`aang: update ${i.version} is good`); } catch { /* next start */ } } };
   setTimeout(markGood, 60_000);
-  let offered: { version: string } | null = null, wantUpdate = false;
+  // Smooth (2026-10-14: "when i hit update it doesnt just freeze my computer"): an offered update is fetched and the
+  // new Samara made in the background at low priority (macOS background QoS), while he keeps working. Only then does
+  // the key light up, with its number, its name and what it brings in plain words. Restart now just swaps it in.
+  let offered: { version: string; n: number; name: string; notes: string[]; since: number } | null = null;
+  let preparing = '', readyFile: { version: string; sha: string } | null = null;
+  const triedPrepare = new Set<string>();
+  const STAGED = path.join(LISTENER, 'browser', 'staged', 'version'), SCRIPT = path.join(LISTENER, 'update.sh');
   const failedUpdates = () => { try { return readFileSync(path.join(LISTENER, 'browser', 'failed-updates.txt'), 'utf8').split(/\s+/).filter(Boolean); } catch { return []; } };
+  const stagedVersion = () => { try { return readFileSync(STAGED, 'utf8').trim(); } catch { return ''; } };
+  const showReady = () => {
+    if (!offered || stagedVersion() !== offered.version || readyFile?.version !== offered.version) return;
+    browser?.setUpdate({ version: offered.version, since: offered.since, title: `Version ${offered.n}: ${offered.name}`, kind: 'Ready. Restart takes a few seconds.', checks: offered.notes });
+  };
+  const prepare = (m: any) => {
+    const script = String(m.script ?? ''), sha = createHash('sha256').update(script).digest('hex');
+    if (!offered || m.version !== offered.version || sha !== m.sha256 || !script.startsWith('#!/bin/bash')) { console.error('aang: the update did not check out; not used'); preparing = ''; return; }
+    try {
+      writeFileSync(SCRIPT, script); chmodSync(SCRIPT, 0o700);
+      const log = path.join(LISTENER, 'update-prepare.log'), out = openSync(log, 'w');
+      // taskpolicy -b: background priority for CPU and disk, so his Mac stays smooth while it works.
+      const child = spawn('/usr/sbin/taskpolicy', ['-b', '/bin/bash', SCRIPT, 'prepare'], { stdio: ['ignore', out, out] });
+      console.log(`aang: getting update ${m.version} ready in the background`);
+      child.on('exit', (code) => {
+        preparing = '';
+        if (code === 0 && stagedVersion() === m.version) { readyFile = { version: m.version, sha }; console.log(`aang: update ${m.version} is ready`); showReady(); return; }
+        let text = ''; try { text = readFileSync(log, 'utf8'); } catch { /* none */ }
+        console.error(`aang: getting update ${m.version} ready failed (exit ${code})`);
+        if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ t: 'update.report', ok: false, version: m.version, outcome: 'getting the update ready failed, so nothing changed', installed: installed(), updateLog: text.slice(-60_000), aangLog: '' }));
+      });
+    } catch (e) { preparing = ''; console.error('aang: the update could not be got ready: ' + (e as Error).message); }
+  };
   const onUpdateMsg = (m: any, s: WebSocket) => {
     if (m.t === 'update.offer' && typeof m.version === 'string' && /^[0-9a-f]{6,64}$/.test(m.version)) {
       if (failedUpdates().includes(m.version)) { console.log(`aang: update ${m.version} failed to start before; not offered`); return; }
-      offered = { version: m.version };
       const notes = (Array.isArray(m.notes) ? m.notes : []).map((x: unknown) => String(x).slice(0, 160)).slice(0, 12);
-      browser?.setUpdate({ version: m.version, since: Number(m.since) || Date.now(), title: 'Aang update', kind: 'Aang, your browser and everything on this Mac', notes,
-        checks: ['Comes from your PC over your locked, private connection', 'Checked against its fingerprint before it installs', 'Your tabs come back after the restart'] });
+      offered = { version: m.version, n: Number(m.n) || 0, name: String(m.name ?? '').slice(0, 40), notes, since: Number(m.since) || Date.now() };
+      if (stagedVersion() === m.version && readyFile?.version === m.version) { showReady(); return; }
+      browser?.setUpdate(null);
+      // Once per version per run: a failed one waits for the next start, never loops.
+      if (!preparing && !triedPrepare.has(m.version) && s.readyState === WebSocket.OPEN) { preparing = m.version; triedPrepare.add(m.version); s.send(JSON.stringify({ t: 'update.get', version: m.version })); }
     } else if (m.t === 'update.none') { offered = null; browser?.setUpdate(null); }
-    else if (m.t === 'update.fail') { wantUpdate = false; browser?.updateWhy(String(m.why ?? 'The update did not come through.')); }
-    else if (m.t === 'update.script' && wantUpdate) {
-      wantUpdate = false;
-      const script = String(m.script ?? '');
-      if (!offered || m.version !== offered.version || createHash('sha256').update(script).digest('hex') !== m.sha256 || !script.startsWith('#!/bin/bash')) { browser?.updateWhy('The update did not check out, so nothing was installed.'); return; }
-      try {
-        const file = path.join(LISTENER, 'update.sh'), log = path.join(LISTENER, 'update.log');
-        writeFileSync(file, script); chmodSync(file, 0o700);
-        const out = openSync(log, 'w');
-        spawn('/bin/bash', [file], { detached: true, stdio: ['ignore', out, out] }).unref();
-        console.log(`aang: installing update ${m.version}; Aang closes and opens again`);
-      } catch (e) { browser?.updateWhy('The update could not start: ' + (e as Error).message); }
-      void s;
-    }
+    else if (m.t === 'update.fail') { preparing = ''; console.error('aang: update: ' + String(m.why ?? '')); }
+    else if (m.t === 'update.script' && preparing === m.version) prepare(m);
   };
   // The report (his rule, 2026-10-14: a failed update must say why, so it can be fixed). After an update ran, once
   // the outcome is known (this Aang marked itself good, or the old one came back), what the update printed and the
@@ -213,7 +232,7 @@ app.whenReady().then(async () => {
       const log = readFileSync(UPLOG, 'utf8'), i = installed(), failed = failedUpdates();
       const rolledBack = /putting the old one back/.test(log), tried = (/"version":"([0-9a-f]+)"/.exec(log) ?? [])[1] ?? '';
       const ok = !rolledBack && i.status === 'good' && !/npm (ERR|error)|failed; nothing was changed|did not match its fingerprint/i.test(log);
-      const outcome = rolledBack ? 'the new Aang did not start, so the old one was put back'
+      const outcome = rolledBack ? 'the new Samara did not start, so the old one was put back'
         : /Installing the browser's libraries failed/.test(log) ? "installing the browser's libraries failed, so nothing was changed"
         : /did not match its fingerprint/.test(log) ? 'a download did not match its fingerprint, so it was not installed'
         : i.status === 'trial' ? 'it started but had not run a minute yet' : ok ? 'installed and running' : 'the update stopped part way (see its log)';
@@ -227,9 +246,14 @@ app.whenReady().then(async () => {
   ipcMain.on('browser:updatego', (e) => {
     if (!browser?.isFrame(e.sender) || !offered) return;
     if (browser.inCall) { browser.updateWhy("You're in a call. Restart when it's over."); return; }
-    if (ws?.readyState !== WebSocket.OPEN) { browser.updateWhy("Your PC isn't reachable right now, so the update can't come through. Try again when it's on."); return; }
-    wantUpdate = true;
-    ws.send(JSON.stringify({ t: 'update.get', version: offered.version }));
+    // Swap in the Samara made in the background: the same script it was made by, checked again before it runs.
+    let ok = false; try { ok = !!readyFile && readyFile.version === offered.version && stagedVersion() === offered.version && createHash('sha256').update(readFileSync(SCRIPT)).digest('hex') === readyFile.sha; } catch { /* not there */ }
+    if (!ok) { browser.updateWhy('The update is not ready yet. It will show up again when it is.'); return; }
+    try {
+      const out = openSync(path.join(LISTENER, 'update.log'), 'w');
+      spawn('/bin/bash', [SCRIPT, 'swap'], { detached: true, stdio: ['ignore', out, out] }).unref();
+      console.log(`aang: installing update ${offered.version}; Samara closes and opens again`);
+    } catch (e) { browser.updateWhy('The update could not start: ' + (e as Error).message); }
   });
 
   // ---- the sync, through the brain on the PC
