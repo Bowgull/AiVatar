@@ -8,6 +8,12 @@
 // well-built site fall back to a password and a code instead. Plain CommonJS, like preload.cjs.
 const { contextBridge, ipcRenderer } = require('electron');
 
+// Dark mode's own world (2026-10-14): given its own rules, the way a browser extension's is, so a site whose rules
+// forbid added styles cannot block Dark Reader's. Nothing the PAGE runs gains anything: the page's rules still bind it.
+try {
+  require('electron').webFrame.setIsolatedWorldInfo(1002, { securityOrigin: location.origin === 'null' ? 'aang-dark://' : location.origin, csp: "style-src 'unsafe-inline' * data: blob:; img-src * data: blob:", name: 'Aang dark mode' });
+} catch { /* dark mode then follows the page's own rules */ }
+
 try {
   let said = false;
   const po = new PerformanceObserver((list) => {
