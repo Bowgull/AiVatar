@@ -47,7 +47,20 @@ export interface AdBlock {
  * `cosmetic`: also hide the empty boxes ads leave behind. Ghostery can do that for ONE session per app (it
  * registers app-wide handlers), so his browser gets it and the pop-out, which only plays video, does not.
  */
-export async function blockAds(session: Session, stateDir: string, opts: { cosmetic?: boolean } = {}): Promise<AdBlock | null> {
+/** A request the guard stops before anything else sees it (true = cancel). */
+export type RequestGuard = (d: Electron.OnBeforeRequestListenerDetails) => boolean;
+type Blocking = { onBeforeRequest: (d: Electron.OnBeforeRequestListenerDetails, cb: (r: Electron.CallbackResponse) => void) => void };
+/** The session's one before-request hook: the guard, then the ad blocker (or nothing when ads are off). */
+export function guardRequests(session: Session, guard: RequestGuard, blocker: Blocking | null): void {
+  session.webRequest.onBeforeRequest({ urls: ['<all_urls>'] }, (d, cb) => {
+    let stop = false;
+    try { stop = guard(d); } catch { stop = false; }
+    if (stop) { cb({ cancel: true }); return; }
+    if (blocker) blocker.onBeforeRequest(d, cb); else cb({});
+  });
+}
+
+export async function blockAds(session: Session, stateDir: string, opts: { cosmetic?: boolean; guard?: RequestGuard } = {}): Promise<AdBlock | null> {
   const cacheDir = path.join(stateDir, 'adblock');
   try { mkdirSync(cacheDir, { recursive: true }); } catch { /* checked on write */ }
 
@@ -99,10 +112,12 @@ export async function blockAds(session: Session, stateDir: string, opts: { cosme
     const { ElectronBlocker } = await import('@ghostery/adblocker-electron');
     const blocker = ElectronBlocker.parse(text, { loadCosmeticFilters: opts.cosmetic === true });
     blocker.enableBlockingInSession(session);
+    // A session has one "before a request" hook; the network guard goes first, then the blocker (2026-10-14).
+    if (opts.guard) guardRequests(session, opts.guard, blocker);
     return {
       lists: got,
-      stop: () => { try { blocker.disableBlockingInSession(session); } catch { /* already off */ } },
-      start: () => { try { blocker.enableBlockingInSession(session); } catch { /* already on */ } },
+      stop: () => { try { blocker.disableBlockingInSession(session); } catch { /* already off */ } if (opts.guard) guardRequests(session, opts.guard, null); },
+      start: () => { try { blocker.enableBlockingInSession(session); } catch { /* already on */ } if (opts.guard) guardRequests(session, opts.guard, blocker); },
       // An exception rule for the whole page on that site, the way uBlock's per-site switch works.
       pause: (host: string, on: boolean) => {
         const h = String(host).toLowerCase().replace(/^www\./, '');

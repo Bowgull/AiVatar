@@ -15,7 +15,8 @@ import { BrowserWindow, type Session, type WebContents, session, app } from 'ele
 import { challengeLevel, challengeOf, cleanName, diffRead, paceFor, sweepPlan, uploadable, weigh, whatChanged, type PageState, type ReadItem, type Weight, privateHost, siteOf, carriesData, JOB_SITES, jobTask } from './driverrules.ts';
 import { neverKeep } from './visits.ts';
 import { READERS, READER_JS, type Reader } from './readers.ts';
-import { talksToAI } from './driverrules.ts';
+import { reachesIn, talksToAI } from './driverrules.ts';
+import { guardRequests } from './skip/ads.ts';
 import { existsSync, statSync, mkdirSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 export { cleanName, weigh, type Weight };
@@ -455,7 +456,10 @@ export class Driver {
     g.setPermissionRequestHandler((_wc, _p, cb) => cb(false));
     g.setPermissionCheckHandler(() => false);
     try { g.setUserAgent(this.d.ses.getUserAgent()); } catch { /* the default */ }
+    g.setDevicePermissionHandler(() => false);
     g.on('will-download', (e) => e.preventDefault());
+    // Never this computer or the home network, from a web page (2026-10-14; the tabs' own session does the same).
+    guardRequests(g, (d) => { let from = ''; try { from = d.frame?.url || ''; } catch { /* gone */ } return reachesIn(d.url, from || d.referrer || '', d.resourceType === 'mainFrame'); }, null);
     return (this.guest = g);
   }
   finish(id: number): void { const j = this.job(id); if (j && j.working) { j.working = false; this.d.changed(); } }

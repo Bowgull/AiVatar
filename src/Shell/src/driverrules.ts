@@ -60,6 +60,20 @@ export function privateHost(host: string): boolean {
   if (m) { const [a, b] = [Number(m[1]), Number(m[2])]; return a === 127 || a === 10 || a === 0 || (a === 192 && b === 168) || (a === 172 && b >= 16 && b <= 31) || (a === 169 && b === 254) || (a === 100 && b >= 64 && b <= 127); }
   return /^(fc|fd|fe8|fe9|fea|feb)[0-9a-f]*:/.test(h);
 }
+/**
+ * Private Network Access, done here (2026-10-14; Electron switches Chrome's own off): a page from the internet never
+ * reaches this computer, the home network or Tailscale (the brain's doors, the router, the printer). Pages that are
+ * themselves local (Samara's own pages, his router's page he typed in) still load their own parts. Top-level
+ * navigation is his to make, so it is left alone. True = stop the request.
+ */
+export function reachesIn(url: string, from: string, mainFrame: boolean): boolean {
+  if (mainFrame) return false;
+  let to = '', by = '';
+  try { const u = new URL(url); if (u.protocol !== 'http:' && u.protocol !== 'https:' && u.protocol !== 'ws:' && u.protocol !== 'wss:') return false; to = u.hostname; } catch { return false; }
+  if (!privateHost(to)) return false;
+  try { by = new URL(from).hostname; } catch { return true; }   // no known page behind it: never let it in
+  return !privateHost(by);
+}
 /** A site's own name ("linkedin.com", "bbc.co.uk", "someone.github.io"): two labels, three under shared endings. */
 export function siteOf(host: string): string {
   const parts = cleanHost(host).replace(/^www\./, '').split('.').filter(Boolean);

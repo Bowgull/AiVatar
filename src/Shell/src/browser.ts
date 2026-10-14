@@ -29,7 +29,7 @@ import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown } from './safety.ts';
 import { addressFor, engineHome, searchFor, setSearch, type Engine } from './address.ts';
 import { TIDY_SYSTEM, bySite, doubles, readTidy, staleTrails, tidyPrompt, type TidyTab } from './tidy.ts';
 import { writeFileAtomic } from './atomic.ts';
-import { carriesData, personal, siteOf } from './driverrules.ts';
+import { carriesData, personal, reachesIn, siteOf } from './driverrules.ts';
 import { lookalike } from './lookalike.ts';
 import { softEdge } from './winedge.ts';
 import { isBar, parseBookmarks, parseChromeBookmarks, parseSafariBookmarks, type Mark } from './bookmarks.ts';
@@ -55,7 +55,7 @@ const scramble = (key: string, host: string) => createHmac('sha256', key).update
 import { PhishCheck } from './phish.ts';
 import { serviceFor } from './services.ts';
 import { failureWords, isRisky, upgrade } from './secure.ts';
-import { blockAds, type AdBlock } from './skip/ads.ts';
+import { blockAds, guardRequests, type AdBlock } from './skip/ads.ts';
 import { createRequire } from 'node:module';
 
 /**
@@ -201,6 +201,12 @@ const OTHER_OPEN = process.platform === 'darwin' ? 'Open on PC' : 'Open on Mac';
 /** How a look-alike is named on the red plate's list chips. */
 const LOOKS_LIKE = 'LOOKS LIKE ';
 const BANK = 'YOUR BANK';
+/** Private Network Access for every tab (driverrules.ts reachesIn). */
+export const netGuard = (d: Electron.OnBeforeRequestListenerDetails): boolean => {
+  let from = '';
+  try { from = d.frame?.url || ''; } catch { /* frame gone */ }
+  return reachesIn(d.url, from || d.referrer || '', d.resourceType === 'mainFrame');
+};
 /** Where a new tab opens until he sets his own in Settings (2026-10-12: not Google). */
 const DEFAULT_HOME = 'https://search.brave.com/';
 /** A plain Chrome's name for itself: Google refuses sign-in to anything calling itself Electron (his yes, 2026-10-12). */
@@ -512,7 +518,9 @@ export class AangBrowser {
       if (cookieWrite) clearTimeout(cookieWrite);
       cookieWrite = setTimeout(() => { cookieWrite = null; this.ses.cookies.flushStore().catch(() => { /* next change tries again */ }); }, 2000);
     });
-    void blockAds(this.ses, o.stateDir, { cosmetic: true }).then((b) => { this.ads = b; if (b) { for (const h of [...this.paused, ...CALL_SITES]) b.pause(h, true); if (!this.prefs.ads) b.stop(); } });
+    // A web page never reaches this computer or the home network (2026-10-14): on before the ad lists load.
+    guardRequests(this.ses, netGuard, null);
+    void blockAds(this.ses, o.stateDir, { cosmetic: true, guard: netGuard }).then((b) => { this.ads = b; if (b) { for (const h of [...this.paused, ...CALL_SITES]) b.pause(h, true); if (!this.prefs.ads) b.stop(); } });
     this.callFile = path.join(o.stateDir, 'in-call.json');
     try { unlinkSync(this.callFile); } catch { /* none left over */ }
   }
