@@ -547,3 +547,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{
 
 /* The smaller keycap the asks use beside a lever. Sheet 5. */
 .key.sm{font-size:12.5px;padding:8px 13px 9px;--lip:4px}
+
+/* ---- sheet 27, the wood swap (his rule, 2026-10-14): no flat browns. Light wood for bars and frames, dark wood behind
+   content, "carved" (very dark wood) for the small name tags. ---- */
+.plaque{background:linear-gradient(rgba(0,0,0,.55),rgba(0,0,0,.55)),url(art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated}

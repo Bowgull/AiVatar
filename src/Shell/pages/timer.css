@@ -38,3 +38,8 @@ body.pinned .trow{display:none}
 .mrow2:hover{background:rgba(255,224,150,.12)}
 .mrow2.warn{color:var(--orange)}
 @media (prefers-reduced-motion:reduce){.trow{transition:none}}
+
+/* ---- sheet 27, the wood swap (his rule, 2026-10-14): no flat browns. Light wood for bars and frames, dark wood behind
+   content, "carved" (very dark wood) for the small name tags. ---- */
+.nmenu{background:linear-gradient(rgba(0,0,0,.15),rgba(0,0,0,.25)),url(art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated}
+.trow{background:url(art/browser/band.png) 0 0/128px 58px;image-rendering:pixelated}
