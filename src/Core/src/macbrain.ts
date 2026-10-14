@@ -30,7 +30,7 @@ import { ACT, HARD, MODELS } from './route.ts';
 import type { Gateway, Incoming } from './discord.ts';
 import { MacPowers, lastSaid } from './macpowers.ts';
 import { MacJobs } from './macjobs.ts';
-import { briefCardData } from './briefcard.ts';
+import { briefCardData, nowNote } from './briefcard.ts';
 import { readAttachment, safeFileName } from './attachments.ts';
 import { fetchDayWeather } from './weather.ts';
 
@@ -563,7 +563,7 @@ class WarmClaude {
     const said = await new Promise<string>((res, rej) => {
       const timer = setTimeout(() => { void q.interrupt().catch(() => {}); rej(new Error('it took too long')); }, 4 * 60_000);
       this.waiting = (r) => { clearTimeout(timer); if (r.err !== undefined) rej(new Error(r.err)); else res(r.text ?? ''); };
-      this.inbox.push({ type: 'user', message: { role: 'user', content: text }, parent_tool_use_id: null } as SDKUserMessage);
+      this.inbox.push({ type: 'user', message: { role: 'user', content: `${nowNote()}\n${text}` }, parent_tool_use_id: null } as SDKUserMessage);
       const w = this.wake; this.wake = null; w?.();
     });
     return { text: said.replace(/^Done\.\s+(?=\S)/, ''), files: this.turn.files };

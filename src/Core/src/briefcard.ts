@@ -18,6 +18,23 @@ export const atToronto = (iso: unknown): string => {
   return Number.isNaN(d.getTime()) ? '' : d.toLocaleTimeString('en-US', { timeZone: 'America/Toronto', hour: 'numeric', minute: '2-digit' }).toLowerCase();
 };
 
+/**
+ * His ask (2026-10-14: "fix the internal time for Aang"): the moment, as he says it, put in front of every message he
+ * sends, on the PC and on the Mac. Aang's conversation lasts for days, so without this he guessed the time or used
+ * UTC ("sent at 16:39 UTC"). Toronto time always.
+ */
+export function nowNote(d: Date = new Date()): string {
+  const when = d.toLocaleString('en-US', { timeZone: 'America/Toronto', weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+  return `<now>${when}, Toronto time (Joshua is in Toronto).</now>`;
+}
+
+/** An email's own Date header in his time, with what it said: "Tuesday, October 13, 2026, 12:39 PM Toronto time". */
+export function mailDate(raw: string): string {
+  const ms = Date.parse(String(raw ?? ''));
+  if (!Number.isFinite(ms)) return String(raw ?? '');
+  return new Date(ms).toLocaleString('en-US', { timeZone: 'America/Toronto', weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) + ' Toronto time';
+}
+
 /** Sheet 21 board 2b: the inbox card. Names only (never the address), subjects as written, JOB where his hunt knows them. */
 export function inboxCardData(rows: { from: string; subject: string; unread: boolean }[], companies: string[]): Record<string, unknown> {
   const name = (f: string) => s(String(f ?? '').replace(/<[^>]*>/g, '').replace(/"/g, ''), 40) || 'Someone';
