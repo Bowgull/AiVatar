@@ -418,6 +418,12 @@ if [ -d "$BASE" ] && [ -x "$NODE_DIR/bin/node" ]; then
       killall Dock >/dev/null 2>&1 || true
     fi
     echo "     Aang's browser is in your Dock. The first time it opens, macOS asks whether Aang may be your default browser."
+    # 6.25a (his yes, 2026-10-14): Claude Code on this Mac gets the door into this browser, as "aang-browser".
+    CL=$(command -v claude 2>/dev/null || find "$HOME/Library/Application Support/Claude/claude-code" -maxdepth 3 -name claude -type f -perm -u+x 2>/dev/null | sort | tail -1)
+    if [ -n "$CL" ]; then
+      "$CL" mcp remove --scope user aang-browser >/dev/null 2>&1 || true
+      if "$CL" mcp add --scope user aang-browser -- "$NODE_DIR/bin/node" "$APP/Contents/Resources/app/src/claude-door-mcp.mjs" >/dev/null 2>&1; then echo "     Claude Code here can now drive Aang's browser (aang-browser)."; else echo "     Could not add Aang's browser to Claude Code."; fi
+    else echo "     Claude Code was not found here, so Aang's browser was not added to it."; fi
     # His yes: Bitwarden's key-fill here too. Bitwarden's own official tool, pinned by its fingerprint; he signs in to it himself.
     BWV=${BITWARDEN_MAC.version}; BWSUM=${BITWARDEN_MAC.sha256}
     if [ "$(cat "$DIR/bw/version" 2>/dev/null)" != "$BWV" ]; then
