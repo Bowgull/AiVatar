@@ -22,7 +22,8 @@ import os from 'node:os';
 export { cleanName, weigh, type Weight };
 
 export type DriverKind = 'aang' | 'claude';
-export interface Job { id: number; kind: DriverKind; name: string; working: boolean; stopped: boolean; at: number; pages: number[]; /** Claude jobs: the sites it may use signed in */ sites?: Set<string> }
+export interface Job { id: number; kind: DriverKind; name: string; working: boolean; stopped: boolean; at: number; pages: number[]; /** Claude jobs: the sites it may use signed in */ sites?: Set<string>;
+  /** Sheet 37: its plan was shown to him and allowed (no first-site guess), and the sites he unticked, never opened */ planned?: boolean; denied?: Set<string>; steps?: string[]; step?: number }
 export interface DPage { id: number; job: number; /** null for one of HIS tabs, borrowed */ win: BrowserWindow | null; wc: WebContents; /** his own tab, lent to a session: read-only, or driven with his OK */ borrowed?: { tab: number; drive: boolean; off: () => void }; title: string; url: string; favicon: string; at: number; blocked: string | null; /** logged out (outside its job's sites) */ guest?: boolean; /** a link to outside the job's sites, opened logged out after the click */ handoff?: string | null }
 
 export interface DriverDeps {
@@ -432,11 +433,18 @@ export class Driver {
   }
 
   /** A job: one request of his, one trail in the drawer. */
-  startJob(kind: DriverKind, name: string): Job {
+  startJob(kind: DriverKind, name: string, plan?: { login: string[]; denied: string[]; steps: string[] }): Job {
     const job: Job = { id: ++this.jobSeq, kind, name: cleanName(name), working: true, stopped: false, at: Date.now(), pages: [],
       // A Claude session is fenced (AI lockdown G1, 2026-10-14): signed in only on its job's sites; everything else it
       // reads logged out. A job scan's sites are the job sites; another task's is the first site it opens.
       ...(kind === 'claude' ? { sites: new Set<string>(jobTask(name) ? JOB_SITES : []) } : {}) };
+    // Sheet 37: a plan he allowed sets the fence instead: his login only where it showed "with your login" and he kept
+    // it ticked; the sites he unticked are never opened.
+    if (plan && kind === 'claude') {
+      job.sites = new Set(plan.login.map((x) => siteOf(x)).filter(Boolean));
+      job.denied = new Set(plan.denied.map((x) => siteOf(x)).filter(Boolean));
+      job.planned = true; job.steps = plan.steps.slice(0, 12); job.step = 0;
+    }
     this.jobs.push(job);
     this.d.changed();
     return job;
@@ -535,7 +543,8 @@ export class Driver {
     const l = this.d.listed(url);
     if (l.length) throw new Error(`that site is on a list of fake or harmful sites (${l.join(', ')}), so it was not opened`);
     let site = ''; try { site = siteOf(new URL(url).hostname); } catch { /* checked above */ }
-    if (j.sites && j.sites.size === 0 && site) j.sites.add(site);             // another task: its own first site
+    if (j.denied?.has(site)) throw new Error('Joshua unticked that site in your plan, so it is never opened for this session');
+    if (j.sites && j.sites.size === 0 && site && !j.planned) j.sites.add(site);             // another task: its own first site
     // His login rule for the site wins: always signed in (and part of the job's sites), or never.
     const lr = this.loginRule(url);
     if (lr === true && j.sites && site) j.sites.add(site);
@@ -558,7 +567,8 @@ export class Driver {
     // A link that wants a new window opens in this same page instead: his rule, only its own tabs, nothing pops up.
     // Every page it reaches, not just the first (AI lockdown G7, 2026-10-14): links, new windows and redirects all meet
     // the same refusals as browser_open (banks, this machine and home network, the fake-site lists).
-    const stop = (u: string) => !isWeb(u) || !!this.why(u) || this.d.listed(u).length > 0;
+    const deniedSite = (u: string) => { try { return !!j.denied?.has(siteOf(new URL(u).hostname)); } catch { return false; } };
+    const stop = (u: string) => !isWeb(u) || !!this.why(u) || this.d.listed(u).length > 0 || deniedSite(u);
     wc.setWindowOpenHandler(({ url: u }) => { if (!stop(u)) setTimeout(() => { if (!wc.isDestroyed()) void wc.loadURL(u).catch(() => {}); }, 0); else p.blocked = u; return { action: 'deny' }; });
     // To another site: private details in the address are stopped (G2), and a signed-in page that leads outside its
     // job's sites hands the address over to a logged-out page instead (G1).

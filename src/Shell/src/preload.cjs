@@ -177,6 +177,9 @@ contextBridge.exposeInMainWorld('aang', {
   browserAdPause: on => ipcRenderer.send('browser:adpause', on),
   browserDarkHere: on => ipcRenderer.send('browser:darkhere', on),
   browserSiteRule: (key, value) => ipcRenderer.send('browser:siterule', { key, value }),
+  // Sheet 37: a Claude session's plan, and his answer to it.
+  onBrowserPlan: cb => ipcRenderer.on('browser:plan', (_e, card) => cb(card)),
+  browserPlanReply: (id, answer) => ipcRenderer.send('browser:planreply', { id, ...answer }),
   /** The popout page: where its picture area is (a lent tab is laid over it), and the controls for that tab. */
   popoutStage: r => ipcRenderer.send('popout:stage', r),
   popoutTabCmd: c => ipcRenderer.send('popout:tabcmd', c),

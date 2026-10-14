@@ -1316,3 +1316,46 @@ function paintWho() {
     if (!done.hidden && !done.contains(e.target)) { done.hidden = true; unfreeze('updone'); act('seen'); }
   });
 }
+
+// ---- Sheet 37: a Claude session's plan, from the band (when no Aang bubble shows it). Built with textContent: the task, the
+// steps and the sites are Claude's words.
+let planCard = null;
+const planKeep = new Set();
+function paintPlanTray(c) {
+  planCard = c;
+  el('plantray').hidden = !c;
+  // Over the live page, on a still picture of it, like the update tray.
+  if (!c) { unfreeze('plan'); return; }
+  freeze('plan');
+  planKeep.clear(); for (const x of c.sites) planKeep.add(x.site);
+  el('plantask').textContent = c.task;
+  const sites = el('plansites'); sites.replaceChildren();
+  for (const x of c.sites) {
+    const r = Object.assign(document.createElement('div'), { className: 'prow' });
+    let ic;
+    if (x.favicon) { ic = Object.assign(document.createElement('img'), { alt: '' }); ic.onerror = () => ic.replaceWith(pixIcon('globe', 2) ?? document.createElement('span')); ic.src = x.favicon; }
+    else ic = pixIcon('globe', 2) ?? document.createElement('span');
+    const nm = Object.assign(document.createElement('span'), { className: 'nm', textContent: x.site });
+    const tick = Object.assign(document.createElement('button'), { type: 'button', className: 'tq', title: 'Untick to keep Claude off ' + x.site });
+    tick.setAttribute('aria-pressed', 'true');
+    tick.addEventListener('click', () => { const on = !planKeep.has(x.site); if (on) planKeep.add(x.site); else planKeep.delete(x.site); tick.classList.toggle('off', !on); r.classList.toggle('off', !on); tick.setAttribute('aria-pressed', String(on)); });
+    r.append(ic, nm);
+    if (x.login) r.append(Object.assign(document.createElement('small'), { textContent: 'with your login' }));
+    r.append(Object.assign(document.createElement('span'), { className: 'sp' }), tick);
+    sites.append(r);
+  }
+  const steps = el('plansteps'); steps.replaceChildren();
+  c.steps.forEach((t, i) => { const r = Object.assign(document.createElement('div'), { className: 'prow' }); r.append(Object.assign(document.createElement('span'), { className: 'num', textContent: String(i + 1) }), t); steps.append(r); });
+  el('planwont').hidden = !c.wont; el('planwonttext').textContent = c.wont ? "Won't " + c.wont.replace(/^won.?t\s+/i, '') : '';
+  el('plannote').hidden = true; el('plannote').value = ''; el('plango').textContent = 'Go';
+}
+const wontIcon = document.querySelector('#planwont [data-pix]'); { const svg = pixIcon('wont', 2); if (svg) wontIcon.append(svg); }
+window.aang?.onBrowserPlan?.((c) => paintPlanTray(c && typeof c === 'object' ? c : null));
+el('planchange').addEventListener('click', () => { el('plannote').hidden = false; el('plannote').focus(); el('plango').textContent = 'Send changes'; });
+el('plango').addEventListener('click', () => {
+  if (!planCard) return;
+  const note = el('plannote').hidden ? '' : el('plannote').value.trim();
+  window.aang?.browserPlanReply?.(planCard.id, { go: !note, change: !!note, keep: [...planKeep], note });
+  paintPlanTray(null);
+});
+el('planno').addEventListener('click', () => { if (planCard) window.aang?.browserPlanReply?.(planCard.id, { go: false, change: false, keep: [], note: '' }); paintPlanTray(null); });

@@ -18,6 +18,9 @@ export const PHISH_LISTS = [
   { name: 'MALWARE FILTER', url: 'https://malware-filter.gitlab.io/malware-filter/urlhaus-filter-domains-online.txt', kind: 'domains' as const },
 ];
 const KEEP_MS = 24 * 3600_000;
+/** Hosts that carry many people's pages: a scam page on one is blocked by its own address, never the whole host. */
+const SHARED_HOSTS = new Set(['boards.greenhouse.io', 'job-boards.greenhouse.io', 'jobs.lever.co', 'jobs.ashbyhq.com', 'apply.workable.com',
+  'docs.google.com', 'drive.google.com', 'sites.google.com', 'forms.office.com', 'onedrive.live.com', 'dropbox.com', 'www.dropbox.com', 'github.com']);
 
 /** Lower-cased host and URL without a trailing slash, the forms the lists use. */
 export function norm(u: string): { host: string; url: string } | null {
@@ -82,7 +85,13 @@ export class PhishCheck {
     if (!n) return [];
     const hits = new Set<string>(this.urls.get(n.url) ?? []);
     const parts = n.host.split('.');
-    for (let i = 0; i < parts.length - 1; i++) for (const x of this.domains.get(parts.slice(i).join('.')) ?? []) hits.add(x);
+    for (let i = 0; i < parts.length - 1; i++) {
+      const d = parts.slice(i).join('.');
+      // A shared host (job boards, Google Docs, Dropbox): one scam page there must not block every real one, so only
+      // the exact page counts (2026-10-14: a domain list named boards.greenhouse.io, thousands of real job boards).
+      if (SHARED_HOSTS.has(d)) continue;
+      for (const x of this.domains.get(d) ?? []) hits.add(x);
+    }
     return [...hits];
   }
 }
