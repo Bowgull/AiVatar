@@ -30,6 +30,11 @@
       "at": "2026-10-14T14:05:00-04:00",
       "kind": "feature",
       "text": "Versions now read like 1.0.0. A big update gets a new character's name; smaller ones keep the name and bump the number."
+    },
+    {
+      "at": "2026-10-14T14:15:00-04:00",
+      "kind": "feature",
+      "text": "A changelog of every Samara version is kept in your Aang folder on both computers, and Aang can read it to you."
     }
   ]
 }

@@ -242,6 +242,8 @@ export interface SetupOpts {
   /** Started by his UPDATE key, not by hand: no questions, Aang opens again at the end, and if the new Aang will not
    *  stay up the old one comes back by itself. */
   update?: boolean;
+  /** Samara's changelog (his ask, 2026-10-14), kept on the Mac too, beside Aang's other Mac files. */
+  changelog?: string;
 }
 
 /** The whole bash script the Mac runs. `shadow` is this PC's Tailscale address. */
@@ -539,7 +541,9 @@ ${rel ? `    cp "$BR/installed.json" "$BR/installed.prev.json" 2>/dev/null || rm
     if [ -d "$HOME/.claude/skills/job-hunt/references" ] && [ -f "$APP/Contents/Resources/app/src/job-hunt-aang-browser.md" ]; then
       cp "$APP/Contents/Resources/app/src/job-hunt-aang-browser.md" "$HOME/.claude/skills/job-hunt/references/aang-browser.md" && echo "     Your job-hunt skill has a new guide: references/aang-browser.md"
     fi
-    # His approved target companies (2026-10-14): checked only when he asks. A newer list replaces an older one.
+${opts.changelog ? `    # Samara's changelog, the same one as on the PC (his ask, 2026-10-14).
+    printf '%s' '${b64(opts.changelog)}' | /usr/bin/base64 -D > "$DIR/Samara Changelog.md"
+` : ''}    # His approved target companies (2026-10-14): checked only when he asks. A newer list replaces an older one.
     TC="$APP/Contents/Resources/app/src/target-companies.json"; TCD="$HOME/job-hunt-data/target-companies.json"
     if [ -f "$TC" ]; then
       VER='try{console.log(require(process.argv[1]).version||0)}catch(e){console.log(0)}'; NEWV=$("$NODE_DIR/bin/node" -e "$VER" "$TC"); OLDV=$("$NODE_DIR/bin/node" -e "$VER" "$TCD")
