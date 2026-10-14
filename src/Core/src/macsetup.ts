@@ -438,6 +438,12 @@ if [ -d "$BASE" ] && [ -x "$NODE_DIR/bin/node" ]; then
     if [ -d "$HOME/.claude/skills/job-hunt/references" ] && [ -f "$APP/Contents/Resources/app/src/job-hunt-aang-browser.md" ]; then
       cp "$APP/Contents/Resources/app/src/job-hunt-aang-browser.md" "$HOME/.claude/skills/job-hunt/references/aang-browser.md" && echo "     Your job-hunt skill has a new guide: references/aang-browser.md"
     fi
+    # His approved target companies (2026-10-14): checked only when he asks. A newer list replaces an older one.
+    TC="$APP/Contents/Resources/app/src/target-companies.json"; TCD="$HOME/job-hunt-data/target-companies.json"
+    if [ -f "$TC" ]; then
+      VER='try{console.log(require(process.argv[1]).version||0)}catch(e){console.log(0)}'; NEWV=$("$NODE_DIR/bin/node" -e "$VER" "$TC"); OLDV=$("$NODE_DIR/bin/node" -e "$VER" "$TCD")
+      if [ "\${OLDV:-0}" -lt "\${NEWV:-0}" ]; then mkdir -p "$HOME/job-hunt-data"; cp "$TC" "$TCD" && echo "     Your approved company list is in job-hunt-data/target-companies.json"; fi
+    fi
     if [ -n "$ADDED" ]; then echo "     Claude Code here can now drive Aang's browser (aang-browser). Reopen a Claude session to see it."
     else echo "     Could not add Aang's browser to Claude Code here."; fi
     # His yes: Bitwarden's key-fill here too. Bitwarden's own official tool, pinned by its fingerprint; he signs in to it himself.

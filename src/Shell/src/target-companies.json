@@ -1,0 +1,1123 @@
+{
+ "version": 1,
+ "note": "Drafted by Claude; approved by Joshua 2026-10-14 (all watchable, minus the 8 that turned him down). 2026-10-14 from his pipeline and the research. Joshua approves each company; only entries with \"approved\": true are checked, and only when he asks or runs his scan (never on a timer). doNotReapply = rejected him before. watchable false = its job board has no free public feed, so it is listed for him to visit himself.",
+ "companies": [
+  {
+   "company": "AlayaCare",
+   "ats": "greenhouse",
+   "slug": "alayacare",
+   "approved": true,
+   "lanesOpenOct14": 2,
+   "why": "Toronto home-care SaaS with a real CSM and project team",
+   "inHisPipeline": "applied"
+  },
+  {
+   "company": "Convera",
+   "ats": "greenhouse",
+   "slug": "convera",
+   "approved": false,
+   "lanesOpenOct14": 0,
+   "why": "Payments with an education-sector AM team",
+   "inHisPipeline": "screened",
+   "doNotReapply": true
+  },
+  {
+   "company": "Hive.co",
+   "ats": "ashby",
+   "slug": "hive.co",
+   "approved": false,
+   "lanesOpenOct14": 0,
+   "why": "Toronto martech",
+   "inHisPipeline": "screened",
+   "doNotReapply": true
+  },
+  {
+   "company": "Mentimeter",
+   "ats": "greenhouse",
+   "slug": "mentimeter",
+   "approved": false,
+   "lanesOpenOct14": 0,
+   "why": "Presentation/edtech SaaS",
+   "inHisPipeline": "screened",
+   "doNotReapply": true
+  },
+  {
+   "company": "Cardata",
+   "ats": "greenhouse",
+   "slug": "cardata",
+   "approved": false,
+   "lanesOpenOct14": 2,
+   "why": "Remote-Canada fintech (vehicle reimbursement) CS team",
+   "inHisPipeline": "screened",
+   "doNotReapply": true
+  },
+  {
+   "company": "Gorgias",
+   "ats": "ashby",
+   "slug": "gorgias",
+   "approved": true,
+   "lanesOpenOct14": 0,
+   "why": "Ecommerce helpdesk with a Toronto implementation team",
+   "inHisPipeline": "applied"
+  },
+  {
+   "company": "Loopio",
+   "ats": "ashby",
+   "slug": "loopio",
+   "approved": true,
+   "lanesOpenOct14": 0,
+   "why": "Toronto RFP SaaS with onboarding and CS teams",
+   "inHisPipeline": "applied"
+  },
+  {
+   "company": "Wealthsimple",
+   "ats": "ashby",
+   "slug": "wealthsimple",
+   "approved": true,
+   "lanesOpenOct14": 0,
+   "why": "Toronto fintech; client experience ops roles",
+   "inHisPipeline": "applied"
+  },
+  {
+   "company": "AfterShip",
+   "ats": "greenhouse",
+   "slug": "aftership",
+   "approved": true,
+   "lanesOpenOct14": 0,
+   "why": "Ecommerce logistics SaaS; CS roles occasionally Canada",
+   "inHisPipeline": "applied"
+  },
+  {
+   "company": "Recharge",
+   "ats": "ashby",
+   "slug": "recharge",
+   "approved": true,
+   "lanesOpenOct14": 2,
+   "why": "Subscription payments SaaS, Toronto CSM roles open now",
+   "inHisPipeline": "lead"
+  },
+  {
+   "company": "Klue",
+   "ats": "ashby",
+   "slug": "klue",
+   "approved": false,
+   "lanesOpenOct14": 1,
+   "why": "Canadian competitive-intel SaaS",
+   "inHisPipeline": "screened",
+   "doNotReapply": true
+  },
+  {
+   "company": "Zip",
+   "ats": "ashby",
+   "slug": "zip",
+   "approved": false,
+   "lanesOpenOct14": 1,
+   "why": "Procurement SaaS with Toronto CS/AM",
+   "inHisPipeline": "screened",
+   "doNotReapply": true
+  },
+  {
+   "company": "Jobber",
+   "ats": "ashby",
+   "slug": "jobber",
+   "approved": true,
+   "lanesOpenOct14": 0,
+   "why": "Field-service SaaS with a big Canadian CS team; KAM is quota",
+   "inHisPipeline": "applied"
+  },
+  {
+   "company": "Kepler Group (Napkyn)",
+   "ats": "greenhouse",
+   "slug": "keplergroup",
+   "approved": true,
+   "lanesOpenOct14": 1,
+   "why": "Digital/analytics agency, remote-Canada CSM",
+   "inHisPipeline": "applied"
+  },
+  {
+   "company": "FacilityOS",
+   "ats": "ashby",
+   "slug": "facilityos",
+   "approved": true,
+   "lanesOpenOct14": 0,
+   "why": "North York facilities SaaS, CS team",
+   "inHisPipeline": "applied"
+  },
+  {
+   "company": "Clearco",
+   "ats": "ashby",
+   "slug": "clearco",
+   "approved": true,
+   "lanesOpenOct14": 1,
+   "why": "Toronto fintech, founder success AM",
+   "inHisPipeline": "applied"
+  },
+  {
+   "company": "Fever",
+   "ats": "greenhouse",
+   "slug": "feverup",
+   "approved": true,
+   "lanesOpenOct14": 4,
+   "why": "Live-events platform, Toronto project manager roles (events lane)",
+   "inHisPipeline": "applied"
+  },
+  {
+   "company": "Litmus",
+   "ats": "ashby",
+   "slug": "litmus",
+   "approved": true,
+   "lanesOpenOct14": 2,
+   "why": "Toronto industrial IIoT software, CS and partner success",
+   "inHisPipeline": "applied"
+  },
+  {
+   "company": "Float",
+   "ats": "ashby",
+   "slug": "float",
+   "approved": false,
+   "lanesOpenOct14": 5,
+   "why": "Toronto spend-management fintech, many CS roles",
+   "inHisPipeline": "screened",
+   "doNotReapply": true
+  },
+  {
+   "company": "FreeWill",
+   "ats": "ashby",
+   "slug": "freewill",
+   "approved": true,
+   "lanesOpenOct14": 0,
+   "why": "Nonprofit SaaS, remote-Canada partner success AM",
+   "inHisPipeline": "applied"
+  },
+  {
+   "company": "Ashby",
+   "ats": "ashby",
+   "slug": "ashby",
+   "approved": false,
+   "lanesOpenOct14": 3,
+   "why": "ATS vendor hiring implementation roles remote Canada",
+   "inHisPipeline": "screened",
+   "doNotReapply": true
+  },
+  {
+   "company": "Ramp",
+   "ats": "ashby",
+   "slug": "ramp",
+   "approved": true,
+   "lanesOpenOct14": 1,
+   "why": "Fintech with a Toronto office; activation and AM roles, many quota-tied",
+   "inHisPipeline": "applied"
+  },
+  {
+   "company": "ThoughtExchange",
+   "ats": "greenhouse",
+   "slug": "thoughtexchange",
+   "approved": true,
+   "lanesOpenOct14": 0,
+   "why": "K-12 engagement SaaS; CSM roles too senior so far",
+   "inHisPipeline": "screened"
+  },
+  {
+   "company": "Samsara",
+   "ats": "greenhouse",
+   "slug": "samsara",
+   "approved": true,
+   "lanesOpenOct14": 0,
+   "why": "IoT/fleet ops SaaS, remote-Canada CS and implementation",
+   "inHisPipeline": "applied"
+  },
+  {
+   "company": "Maximizer",
+   "ats": "greenhouse",
+   "slug": "maximizer",
+   "approved": true,
+   "lanesOpenOct14": 1,
+   "why": "CRM/wealth SaaS, Vancouver-based CS; pay often under floor",
+   "inHisPipeline": "screened"
+  },
+  {
+   "company": "Geotab",
+   "ats": "greenhouse",
+   "slug": "geotab",
+   "approved": true,
+   "lanesOpenOct14": 0,
+   "why": "Oakville telematics; CS roles usually technical",
+   "inHisPipeline": "screened"
+  },
+  {
+   "company": "Harvey",
+   "ats": "ashby",
+   "slug": "harvey",
+   "approved": true,
+   "lanesOpenOct14": 1,
+   "why": "Legal AI with a Toronto mid-market CSM hub",
+   "inHisPipeline": "applied"
+  },
+  {
+   "company": "Varicent",
+   "ats": "greenhouse",
+   "slug": "varicent",
+   "approved": true,
+   "lanesOpenOct14": 0,
+   "why": "Toronto sales-comp SaaS; CS roles leaned senior",
+   "inHisPipeline": "screened"
+  },
+  {
+   "company": "Decagon",
+   "ats": "ashby",
+   "slug": "decagon",
+   "approved": true,
+   "lanesOpenOct14": 1,
+   "why": "AI support agents, Toronto implementation roles (technical lean)",
+   "inHisPipeline": "lead"
+  },
+  {
+   "company": "Polar Analytics",
+   "ats": "ashby",
+   "slug": "polaranalytics",
+   "approved": true,
+   "lanesOpenOct14": 0,
+   "why": "Ecommerce analytics, remote CS",
+   "inHisPipeline": "applied"
+  },
+  {
+   "company": "Affirm",
+   "ats": "greenhouse",
+   "slug": "affirm",
+   "approved": true,
+   "lanesOpenOct14": 0,
+   "why": "Payments with a Toronto hub; client success roles leaned 7+ yrs",
+   "inHisPipeline": "screened"
+  },
+  {
+   "company": "SOCi",
+   "ats": "greenhouse",
+   "slug": "soci",
+   "approved": true,
+   "lanesOpenOct14": 1,
+   "why": "Martech for multi-location brands, Canada-remote CSM",
+   "inHisPipeline": "lead"
+  },
+  {
+   "company": "Lightspeed Commerce",
+   "ats": "ashby",
+   "slug": "lightspeedhq",
+   "approved": true,
+   "lanesOpenOct14": 0,
+   "why": "POS for restaurants/retail, Toronto/Montreal enablement and CS",
+   "inHisPipeline": "applied"
+  },
+  {
+   "company": "PagerDuty",
+   "ats": "greenhouse",
+   "slug": "pagerduty",
+   "approved": true,
+   "lanesOpenOct14": 1,
+   "why": "Toronto office AM roles; one screened as too senior",
+   "inHisPipeline": "screened"
+  },
+  {
+   "company": "Sardine",
+   "ats": "ashby",
+   "slug": "sardine",
+   "approved": true,
+   "lanesOpenOct14": 1,
+   "why": "Fraud/payments risk platform, North America AM",
+   "inHisPipeline": "applied"
+  },
+  {
+   "company": "Okta",
+   "ats": "greenhouse",
+   "slug": "okta",
+   "approved": true,
+   "lanesOpenOct14": 0,
+   "why": "Identity SaaS, Toronto office; CS roles mostly technical",
+   "inHisPipeline": "screened"
+  },
+  {
+   "company": "Absorb Software",
+   "ats": "ashby",
+   "slug": "absorblms",
+   "approved": true,
+   "lanesOpenOct14": 5,
+   "why": "LMS edtech, remote-Canada CS, implementation and AM; some AM roles carry quota",
+   "inHisPipeline": "lead"
+  },
+  {
+   "company": "Super.com",
+   "ats": "ashby",
+   "slug": "super.com",
+   "approved": true,
+   "lanesOpenOct14": 1,
+   "why": "Toronto travel/savings app, partner operations roles",
+   "inHisPipeline": "applied"
+  },
+  {
+   "company": "Tipalti",
+   "ats": "greenhouse",
+   "slug": "tipaltisolutions",
+   "approved": true,
+   "lanesOpenOct14": 2,
+   "why": "Payables fintech, Toronto onboarding manager and CSM open now",
+   "inHisPipeline": "lead"
+  },
+  {
+   "company": "Top Hat",
+   "ats": "ashby",
+   "slug": "top-hat",
+   "approved": true,
+   "lanesOpenOct14": 0,
+   "why": "Toronto higher-ed courseware, CS and AM",
+   "inHisPipeline": "none"
+  },
+  {
+   "company": "Pebl",
+   "ats": "ashby",
+   "slug": "pebl",
+   "approved": true,
+   "lanesOpenOct14": 0,
+   "why": "HR/EOR SaaS, onboarding roles",
+   "inHisPipeline": "applied"
+  },
+  {
+   "company": "Gusto",
+   "ats": "greenhouse",
+   "slug": "gusto",
+   "approved": true,
+   "lanesOpenOct14": 0,
+   "why": "Payroll SaaS; partner roles are quota-carrying",
+   "inHisPipeline": "screened"
+  },
+  {
+   "company": "Heidi Health",
+   "ats": "ashby",
+   "slug": "heidihealth.com.au",
+   "approved": true,
+   "lanesOpenOct14": 1,
+   "why": "Health AI, Toronto/Vancouver CS",
+   "inHisPipeline": "applied"
+  },
+  {
+   "company": "Nitro Software",
+   "ats": "greenhouse",
+   "slug": "nitrosoftwareinc",
+   "approved": true,
+   "lanesOpenOct14": 0,
+   "why": "Toronto document SaaS, CS team",
+   "inHisPipeline": "applied"
+  },
+  {
+   "company": "KOHO",
+   "ats": "ashby",
+   "slug": "koho",
+   "approved": true,
+   "lanesOpenOct14": 0,
+   "why": "Toronto fintech",
+   "inHisPipeline": "none"
+  },
+  {
+   "company": "Thinkific",
+   "ats": "ashby",
+   "slug": "thinkific",
+   "approved": true,
+   "lanesOpenOct14": 0,
+   "why": "Vancouver edtech platform, CS when hiring",
+   "inHisPipeline": "none"
+  },
+  {
+   "company": "Faire",
+   "ats": "greenhouse",
+   "slug": "faire",
+   "approved": true,
+   "lanesOpenOct14": 0,
+   "why": "Wholesale marketplace with a Kitchener/Toronto presence",
+   "inHisPipeline": "none"
+  },
+  {
+   "company": "D2L",
+   "ats": "greenhouse",
+   "slug": "d2l",
+   "approved": true,
+   "lanesOpenOct14": 0,
+   "why": "Kitchener higher-ed LMS, remote-Canada CS",
+   "inHisPipeline": "none"
+  },
+  {
+   "company": "OpenTable",
+   "ats": "greenhouse",
+   "slug": "opentable",
+   "approved": true,
+   "lanesOpenOct14": 0,
+   "why": "Restaurant reservations, Toronto office and Canada AM roles",
+   "inHisPipeline": "none"
+  },
+  {
+   "company": "Neo Financial",
+   "ats": "ashby",
+   "slug": "neofinancial",
+   "approved": true,
+   "lanesOpenOct14": 0,
+   "why": "Calgary/Winnipeg fintech, ops roles",
+   "inHisPipeline": "none"
+  },
+  {
+   "company": "7shifts",
+   "ats": "ashby",
+   "slug": "7shifts",
+   "approved": true,
+   "lanesOpenOct14": 0,
+   "why": "Saskatoon restaurant scheduling SaaS, remote Canada",
+   "inHisPipeline": "none"
+  },
+  {
+   "company": "Toast",
+   "ats": "greenhouse",
+   "slug": "toast",
+   "approved": true,
+   "lanesOpenOct14": 0,
+   "why": "Restaurant POS, Toronto office, onboarding/AM roles",
+   "inHisPipeline": "none"
+  },
+  {
+   "company": "Owner.com",
+   "ats": "ashby",
+   "slug": "owner",
+   "approved": true,
+   "lanesOpenOct14": 0,
+   "why": "Restaurant marketing SaaS, remote onboarding roles",
+   "inHisPipeline": "none"
+  },
+  {
+   "company": "Cloudbeds",
+   "ats": "greenhouse",
+   "slug": "cloudbeds",
+   "approved": true,
+   "lanesOpenOct14": 0,
+   "why": "Hotel PMS, remote implementation roles",
+   "inHisPipeline": "none"
+  },
+  {
+   "company": "Hootsuite",
+   "ats": "greenhouse",
+   "slug": "hootsuite",
+   "approved": true,
+   "lanesOpenOct14": 0,
+   "why": "Vancouver social media SaaS, CS when hiring",
+   "inHisPipeline": "none"
+  },
+  {
+   "company": "Ada",
+   "ats": "greenhouse",
+   "slug": "ada18",
+   "approved": true,
+   "lanesOpenOct14": 1,
+   "why": "Toronto AI support, remote-Canada AM",
+   "inHisPipeline": "none"
+  },
+  {
+   "company": "Visier",
+   "ats": "ashby",
+   "slug": "visier",
+   "approved": true,
+   "lanesOpenOct14": 0,
+   "why": "Vancouver people-analytics SaaS",
+   "inHisPipeline": "none"
+  },
+  {
+   "company": "Procurify",
+   "ats": "ashby",
+   "slug": "procurify",
+   "approved": true,
+   "lanesOpenOct14": 0,
+   "why": "Vancouver procurement SaaS, remote US/Canada",
+   "inHisPipeline": "none"
+  },
+  {
+   "company": "Benevity",
+   "ats": "ashby",
+   "slug": "benevity",
+   "approved": true,
+   "lanesOpenOct14": 0,
+   "why": "Calgary CSR/giving SaaS, Canada CS",
+   "inHisPipeline": "none"
+  },
+  {
+   "company": "Jane App",
+   "ats": "ashby",
+   "slug": "jane",
+   "approved": true,
+   "lanesOpenOct14": 0,
+   "why": "Vancouver practice-management SaaS, Canada-wide remote",
+   "inHisPipeline": "none"
+  },
+  {
+   "company": "Brex",
+   "ats": "greenhouse",
+   "slug": "brex",
+   "approved": true,
+   "lanesOpenOct14": 1,
+   "why": "Spend fintech with a Vancouver implementation hub",
+   "inHisPipeline": "none"
+  },
+  {
+   "company": "Stripe",
+   "ats": "greenhouse",
+   "slug": "stripe",
+   "approved": true,
+   "lanesOpenOct14": 1,
+   "why": "Payments, Toronto implementation consultants",
+   "inHisPipeline": "none"
+  },
+  {
+   "company": "Trulioo",
+   "ats": "ashby",
+   "slug": "trulioo",
+   "approved": true,
+   "lanesOpenOct14": 0,
+   "why": "Vancouver identity-verification fintech",
+   "inHisPipeline": "none"
+  },
+  {
+   "company": "Uber Freight",
+   "ats": "greenhouse",
+   "slug": "uberfreight",
+   "approved": true,
+   "lanesOpenOct14": 0,
+   "why": "Freight logistics, Toronto/remote-Canada roles",
+   "inHisPipeline": "none"
+  },
+  {
+   "company": "BIS Safety Software",
+   "ats": "lever",
+   "slug": "bis",
+   "approved": true,
+   "lanesOpenOct14": 1,
+   "why": "Industrial safety SaaS, Toronto implementation specialist (interviewed)",
+   "inHisPipeline": "applied"
+  },
+  {
+   "company": "StackAdapt",
+   "ats": "greenhouse",
+   "slug": "stackadapt",
+   "approved": true,
+   "lanesOpenOct14": 1,
+   "why": "Toronto adtech, Canada AM and ad ops",
+   "inHisPipeline": "none"
+  },
+  {
+   "company": "Braze",
+   "ats": "greenhouse",
+   "slug": "braze",
+   "approved": true,
+   "lanesOpenOct14": 0,
+   "why": "Martech engagement platform, Toronto office",
+   "inHisPipeline": "none"
+  },
+  {
+   "company": "Yotpo",
+   "ats": "greenhouse",
+   "slug": "yotpo",
+   "approved": true,
+   "lanesOpenOct14": 2,
+   "why": "Ecommerce martech, Toronto CS/AM open now",
+   "inHisPipeline": "none"
+  },
+  {
+   "company": "Rival Technologies",
+   "ats": "greenhouse",
+   "slug": "rivaltechnologies",
+   "approved": true,
+   "lanesOpenOct14": 1,
+   "why": "Vancouver market-research tech, CSM",
+   "inHisPipeline": "none"
+  },
+  {
+   "company": "BioRender",
+   "ats": "lever",
+   "slug": "biorender",
+   "approved": true,
+   "lanesOpenOct14": 0,
+   "why": "Remote-Canada science SaaS, mid-market CS",
+   "inHisPipeline": "applied"
+  },
+  {
+   "company": "Oyster HR",
+   "ats": "ashby",
+   "slug": "oyster",
+   "approved": true,
+   "lanesOpenOct14": 1,
+   "why": "EOR/HR platform, Americas CSM",
+   "inHisPipeline": "none"
+  },
+  {
+   "company": "League",
+   "ats": "greenhouse",
+   "slug": "leagueinc",
+   "approved": true,
+   "lanesOpenOct14": 0,
+   "why": "Toronto health benefits platform",
+   "inHisPipeline": "none"
+  },
+  {
+   "company": "Auvik Networks",
+   "ats": "greenhouse",
+   "slug": "auviknetworks",
+   "approved": true,
+   "lanesOpenOct14": 2,
+   "why": "Waterloo IT SaaS, home-based Canada AM and CSM open now",
+   "inHisPipeline": "none"
+  },
+  {
+   "company": "Fullscript",
+   "ats": "lever",
+   "slug": "fullscript",
+   "approved": true,
+   "lanesOpenOct14": 0,
+   "why": "Ottawa health commerce, Canada ops/CS",
+   "inHisPipeline": "none"
+  },
+  {
+   "company": "Dropbox",
+   "ats": "greenhouse",
+   "slug": "dropbox",
+   "approved": true,
+   "lanesOpenOct14": 1,
+   "why": "Remote-Canada scaled CSM open now",
+   "inHisPipeline": "none"
+  },
+  {
+   "company": "Ritual",
+   "ats": "greenhouse",
+   "slug": "ritual",
+   "approved": true,
+   "lanesOpenOct14": 0,
+   "why": "Toronto restaurant ordering app",
+   "inHisPipeline": "none"
+  },
+  {
+   "company": "Docebo",
+   "ats": "ashby",
+   "slug": "docebo",
+   "approved": true,
+   "lanesOpenOct14": 1,
+   "why": "Toronto LMS edtech, CSM roles",
+   "inHisPipeline": "none"
+  },
+  {
+   "company": "Later",
+   "ats": "greenhouse",
+   "slug": "later",
+   "approved": true,
+   "lanesOpenOct14": 0,
+   "why": "Social media martech, Canada CS",
+   "inHisPipeline": "none"
+  },
+  {
+   "company": "Wave Financial",
+   "ats": "lever",
+   "slug": "waveapps",
+   "approved": true,
+   "lanesOpenOct14": 0,
+   "why": "Toronto small-business fintech",
+   "inHisPipeline": "none"
+  },
+  {
+   "company": "1Password",
+   "ats": "ashby",
+   "slug": "1password",
+   "approved": true,
+   "lanesOpenOct14": 0,
+   "why": "Toronto security SaaS, remote Canada (CS skews technical)",
+   "inHisPipeline": "none"
+  },
+  {
+   "company": "PointClickCare",
+   "ats": "lever",
+   "slug": "pointclickcare",
+   "approved": true,
+   "lanesOpenOct14": 0,
+   "why": "Mississauga health SaaS; implementation roles need clinical background",
+   "inHisPipeline": "screened"
+  },
+  {
+   "company": "Achievers",
+   "ats": "lever",
+   "slug": "achievers",
+   "approved": true,
+   "lanesOpenOct14": 1,
+   "why": "Toronto employee-recognition SaaS, implementation roles",
+   "inHisPipeline": "none"
+  },
+  {
+   "company": "Zapier",
+   "ats": "ashby",
+   "slug": "zapier",
+   "approved": true,
+   "lanesOpenOct14": 1,
+   "why": "Remote NAMER CS",
+   "inHisPipeline": "none"
+  },
+  {
+   "company": "Thanx",
+   "ats": "greenhouse",
+   "slug": "thanx",
+   "approved": true,
+   "lanesOpenOct14": 0,
+   "why": "Restaurant loyalty, remote North America CS",
+   "inHisPipeline": "none"
+  },
+  {
+   "company": "Deliverect",
+   "ats": "lever",
+   "slug": "deliverect",
+   "approved": true,
+   "lanesOpenOct14": 0,
+   "why": "Restaurant ordering integrations, Toronto hub",
+   "inHisPipeline": "applied"
+  },
+  {
+   "company": "ServiceTrade",
+   "ats": "greenhouse",
+   "slug": "servicetrade",
+   "approved": true,
+   "lanesOpenOct14": 1,
+   "why": "Field-service SaaS, remote AM",
+   "inHisPipeline": "none"
+  },
+  {
+   "company": "PolicyMe",
+   "ats": "lever",
+   "slug": "policyme",
+   "approved": true,
+   "lanesOpenOct14": 1,
+   "why": "Toronto insurtech, Ontario-remote CS",
+   "inHisPipeline": "none"
+  },
+  {
+   "company": "Coconut Software",
+   "ats": "greenhouse",
+   "slug": "coconutsoftware",
+   "approved": true,
+   "lanesOpenOct14": 0,
+   "why": "Saskatoon appointment SaaS, remote Canada",
+   "inHisPipeline": "none"
+  },
+  {
+   "company": "ChowNow",
+   "ats": "lever",
+   "slug": "chownow",
+   "approved": true,
+   "lanesOpenOct14": 0,
+   "why": "Restaurant ordering, remote North America",
+   "inHisPipeline": "none"
+  },
+  {
+   "company": "Restaurant365",
+   "ats": "lever",
+   "slug": "restaurant365",
+   "approved": true,
+   "lanesOpenOct14": 0,
+   "why": "Restaurant back-office SaaS, implementation PMs",
+   "inHisPipeline": "none"
+  },
+  {
+   "company": "Lone Wolf Technologies",
+   "ats": "lever",
+   "slug": "lwolf",
+   "approved": true,
+   "lanesOpenOct14": 0,
+   "why": "Real-estate SaaS, Canada CS",
+   "inHisPipeline": "applied"
+  },
+  {
+   "company": "Kinaxis",
+   "ats": "other",
+   "slug": "",
+   "approved": false,
+   "watchable": false,
+   "board": "iCIMS",
+   "why": "Ottawa supply-chain planning software, premier support/CS roles",
+   "inHisPipeline": "lead"
+  },
+  {
+   "company": "Klir",
+   "ats": "other",
+   "slug": "",
+   "approved": false,
+   "watchable": false,
+   "board": "Rippling",
+   "why": "Toronto water-compliance SaaS, onboarding success",
+   "inHisPipeline": "applied"
+  },
+  {
+   "company": "Fortra",
+   "ats": "other",
+   "slug": "",
+   "approved": false,
+   "watchable": false,
+   "board": "Workday",
+   "why": "Cybersecurity, remote-Canada CSM $75-100K",
+   "inHisPipeline": "lead"
+  },
+  {
+   "company": "Paymentus",
+   "ats": "other",
+   "slug": "",
+   "approved": false,
+   "watchable": false,
+   "board": "UKG",
+   "why": "Richmond Hill payments, implementation PMs",
+   "inHisPipeline": "applied"
+  },
+  {
+   "company": "SPS Commerce",
+   "ats": "other",
+   "slug": "",
+   "approved": false,
+   "watchable": false,
+   "board": "Workday",
+   "why": "Retail supply-chain network, Toronto CSM with a 1-2 yr bar",
+   "inHisPipeline": "lead"
+  },
+  {
+   "company": "Clio",
+   "ats": "other",
+   "slug": "",
+   "approved": false,
+   "watchable": false,
+   "board": "Workday",
+   "why": "Legal SaaS, Toronto/remote CS (CSM carried commission)",
+   "inHisPipeline": "screened"
+  },
+  {
+   "company": "Shopify",
+   "ats": "other",
+   "slug": "",
+   "approved": false,
+   "watchable": false,
+   "board": "its own site",
+   "why": "Ecommerce, remote-Canada merchant success roles",
+   "inHisPipeline": "none"
+  },
+  {
+   "company": "Encircle",
+   "ats": "other",
+   "slug": "",
+   "approved": false,
+   "watchable": false,
+   "board": "BambooHR",
+   "why": "Kitchener insurtech, remote-Canada activation $80-90K",
+   "inHisPipeline": "lead"
+  },
+  {
+   "company": "Nulogy",
+   "ats": "other",
+   "slug": "",
+   "approved": false,
+   "watchable": false,
+   "board": "JazzHR",
+   "why": "Toronto manufacturing/supply-chain SaaS",
+   "inHisPipeline": "screened"
+  },
+  {
+   "company": "Vena Solutions",
+   "ats": "other",
+   "slug": "",
+   "approved": false,
+   "watchable": false,
+   "board": "Pinpoint",
+   "why": "Toronto FP&A SaaS, partner AM roles",
+   "inHisPipeline": "screened"
+  },
+  {
+   "company": "GreenShield",
+   "ats": "other",
+   "slug": "",
+   "approved": false,
+   "watchable": false,
+   "board": "Cornerstone",
+   "why": "Toronto benefits implementation",
+   "inHisPipeline": "applied"
+  },
+  {
+   "company": "Packetlabs",
+   "ats": "other",
+   "slug": "",
+   "approved": false,
+   "watchable": false,
+   "board": "Rippling",
+   "why": "Remote-Canada client success $90-120K",
+   "inHisPipeline": "applied"
+  },
+  {
+   "company": "FreshBooks",
+   "ats": "other",
+   "slug": "",
+   "approved": false,
+   "watchable": false,
+   "board": "Gem",
+   "why": "Toronto accounting SaaS, CS/onboarding",
+   "inHisPipeline": "none"
+  },
+  {
+   "company": "Fenergo",
+   "ats": "other",
+   "slug": "",
+   "approved": false,
+   "watchable": false,
+   "board": "Workable",
+   "why": "Client lifecycle fintech, client success partner",
+   "inHisPipeline": "applied"
+  },
+  {
+   "company": "Boldr",
+   "ats": "other",
+   "slug": "",
+   "approved": false,
+   "watchable": false,
+   "board": "Workable",
+   "why": "CX outsourcing, client experience manager",
+   "inHisPipeline": "applied"
+  },
+  {
+   "company": "From Day One",
+   "ats": "other",
+   "slug": "",
+   "approved": false,
+   "watchable": false,
+   "board": "Workable",
+   "why": "Events/conferences client success",
+   "inHisPipeline": "applied"
+  },
+  {
+   "company": "Octup",
+   "ats": "other",
+   "slug": "",
+   "approved": false,
+   "watchable": false,
+   "board": "Comeet",
+   "why": "3PL analytics, GTA AM $100-115K (interviewed)",
+   "inHisPipeline": "applied"
+  },
+  {
+   "company": "PostGrid",
+   "ats": "other",
+   "slug": "",
+   "approved": false,
+   "watchable": false,
+   "board": "unknown",
+   "why": "Toronto API mail SaaS, CSM",
+   "inHisPipeline": "applied"
+  },
+  {
+   "company": "myBlueprint",
+   "ats": "other",
+   "slug": "",
+   "approved": false,
+   "watchable": false,
+   "board": "JazzHR",
+   "why": "Toronto K-12/higher-ed edtech, CS",
+   "inHisPipeline": "applied"
+  },
+  {
+   "company": "Storyteller",
+   "ats": "other",
+   "slug": "",
+   "approved": false,
+   "watchable": false,
+   "board": "JazzHR",
+   "why": "Media tech, remote-Canada CSM",
+   "inHisPipeline": "applied"
+  },
+  {
+   "company": "Borderless AI",
+   "ats": "other",
+   "slug": "",
+   "approved": false,
+   "watchable": false,
+   "board": "JazzHR",
+   "why": "Toronto HR/payments AI, CSM",
+   "inHisPipeline": "applied"
+  },
+  {
+   "company": "ApprovalMax",
+   "ats": "other",
+   "slug": "",
+   "approved": false,
+   "watchable": false,
+   "board": "Teamtailor",
+   "why": "Accounting-workflow fintech, Toronto CSM",
+   "inHisPipeline": "applied"
+  },
+  {
+   "company": "RocketRez",
+   "ats": "other",
+   "slug": "",
+   "approved": false,
+   "watchable": false,
+   "board": "Collage",
+   "why": "Attractions/ticketing tech, onboarding",
+   "inHisPipeline": "applied"
+  },
+  {
+   "company": "Seismic",
+   "ats": "other",
+   "slug": "",
+   "approved": false,
+   "watchable": false,
+   "board": "unknown",
+   "why": "Sales-enablement SaaS, remote-Canada renewals",
+   "inHisPipeline": "lead"
+  },
+  {
+   "company": "Portless",
+   "ats": "other",
+   "slug": "",
+   "approved": false,
+   "watchable": false,
+   "board": "Workable",
+   "why": "Ecommerce fulfillment, remote-Canada CSM",
+   "inHisPipeline": "applied"
+  },
+  {
+   "company": "Serrala",
+   "ats": "other",
+   "slug": "",
+   "approved": false,
+   "watchable": false,
+   "board": "SAP SuccessFactors",
+   "why": "Finance automation, onboarding manager",
+   "inHisPipeline": "lead"
+  },
+  {
+   "company": "TouchBistro",
+   "ats": "other",
+   "slug": "",
+   "approved": false,
+   "watchable": false,
+   "board": "Workday",
+   "why": "Toronto restaurant POS, onboarding/AM",
+   "inHisPipeline": "none"
+  },
+  {
+   "company": "EventMobi",
+   "ats": "other",
+   "slug": "",
+   "approved": false,
+   "watchable": false,
+   "board": "BambooHR",
+   "why": "Toronto events SaaS, AM (pay was low)",
+   "inHisPipeline": "screened"
+  },
+  {
+   "company": "Flywire",
+   "ats": "other",
+   "slug": "",
+   "approved": false,
+   "watchable": false,
+   "board": "Workday",
+   "why": "Higher-ed payments, client success",
+   "inHisPipeline": "none"
+  }
+ ]
+}
