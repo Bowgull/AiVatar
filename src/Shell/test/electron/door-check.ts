@@ -51,7 +51,7 @@ app.whenReady().then(async () => {
   const init = await rpc('initialize', { protocolVersion: '2025-06-18', clientInfo: { name: 'claude-code' } });
   check('Claude Code can connect', init.result?.serverInfo?.name === 'aang-browser');
   const list = await rpc('tools/list');
-  check('it sees the browser tools', list.result?.tools?.length === 20, list.result?.tools?.map((t: any) => t.name).join(','));
+  check('it sees the browser tools', list.result?.tools?.length === 21, list.result?.tools?.map((t: any) => t.name).join(','));
   const opened = await tool('browser_open', { url: base + '/' });
   const page = Number(/page (\d+)/.exec(opened.text)?.[1]);
   check('it opens a page in its own tab', !opened.err && Number.isInteger(page), opened.text);
