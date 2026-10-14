@@ -20,6 +20,7 @@ export function wireBrowser(get: () => AangBrowser | null): void {
   // 6.24: his pick in the screen-share panel. Only an id the panel was given can be shared.
   ipcMain.on('browser:sharereply', (e, a) => { if (b()?.isFrame(e.sender) && a && Number.isInteger(a.id)) b().shareAnswer(a.id, typeof a.source === 'string' ? a.source.slice(0, 200) : null, a.sound === true); });
   ipcMain.on('browser:adpause', (e, on) => { if (b()?.isFrame(e.sender)) b().pauseAds(on === true); });
+  ipcMain.on('browser:darkhere', (e, on) => { if (b()?.isFrame(e.sender)) b().setDarkHere(on === true); });
   ipcMain.on('browser:trail', (e, a) => {
     if (!b()?.isFrame(e.sender) || !a || typeof a !== 'object') return;
     if (a.act === 'new') b().newTrail();

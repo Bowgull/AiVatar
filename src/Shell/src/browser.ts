@@ -45,6 +45,26 @@ import { PhishCheck } from './phish.ts';
 import { serviceFor } from './services.ts';
 import { failureWords, isRisky, upgrade } from './secure.ts';
 import { blockAds, type AdBlock } from './skip/ads.ts';
+import { createRequire } from 'node:module';
+
+/**
+ * Dark mode for web pages (X, his "Dark Reader is a must", 2026-10-14): Dark Reader's own engine (darkreader 4.9.133,
+ * MIT), put into each page in a world of its own, so the page's scripts can neither see it nor switch it off.
+ */
+const DARK_WORLD = 1002;
+const DARK_THEME = '{brightness:100,contrast:95,sepia:5}';
+let darkSrc: string | null | undefined;
+/** A synced list of site names: plain hosts only. */
+function hostList(v: unknown): string[] {
+  return Array.isArray(v) ? v.filter((h): h is string => typeof h === 'string' && /^[a-z0-9.-]{1,253}$/i.test(h)).map((h) => h.toLowerCase()).slice(-2000) : [];
+}
+function darkSource(): string | null {
+  if (darkSrc === undefined) {
+    try { darkSrc = readFileSync(createRequire(import.meta.url).resolve('darkreader/darkreader.js'), 'utf8'); }
+    catch (e) { darkSrc = null; console.error('browser: dark mode could not load: ' + (e as Error).message); }
+  }
+  return darkSrc;
+}
 
 export interface BrowserOptions { origin: string; preloadPath: string; stateDir: string; tabPreloadPath: string; settingsPreloadPath: string; thingsPreloadPath: string }
 
@@ -306,7 +326,7 @@ export class AangBrowser {
   /** The little wood sounds (new tab, close, download done). Off until he turns them on in Settings. */
   sounds = false;
   /** The ⋯ menu's switches (sheet 3 section 10), kept between runs. Block ads and Block popups start on. */
-  prefs = { ads: true, popups: true, home: DEFAULT_HOME, search: 'brave' as Engine, aiBox: false, startup: 'tabs' as 'tabs' | 'home' };
+  prefs = { ads: true, popups: true, home: DEFAULT_HOME, search: 'brave' as Engine, aiBox: false, startup: 'tabs' as 'tabs' | 'home', dark: true, darkOff: [] as string[] };
   /** His home page, or his search engine's front page. Web pages only. */
   private get HOME(): string { return isWeb(this.prefs.home) && this.prefs.home !== DEFAULT_HOME ? this.prefs.home : engineHome(); }
   /** The Stash (Tidy and the trail menu put trails here). Kept between runs. */
@@ -431,7 +451,8 @@ export class AangBrowser {
         const p = JSON.parse(readFileSync(this.prefsFile, 'utf8'));
         this.sounds = p?.sounds === true;
         this.prefs = { ads: p?.ads !== false, popups: p?.popups !== false, home: typeof p?.home === 'string' && isWeb(p.home) ? p.home.slice(0, 2000) : DEFAULT_HOME,
-          search: ['ddg', 'google', 'yandex'].includes(p?.search) ? p.search : 'brave', aiBox: p?.aiBox === true, startup: p?.startup === 'home' ? 'home' : 'tabs' };
+          search: ['ddg', 'google', 'yandex'].includes(p?.search) ? p.search : 'brave', aiBox: p?.aiBox === true, startup: p?.startup === 'home' ? 'home' : 'tabs',
+          dark: p?.dark !== false, darkOff: hostList(p?.darkOff) };
       }
     } catch { /* defaults */ }
     denyPermissions(this.ses);
@@ -696,6 +717,33 @@ export class AangBrowser {
     this.sendTabs();
   }
 
+  /** The site's name for dark mode: its host without www. */
+  private darkHost(u: string): string { try { return new URL(u).hostname.replace(/^www\./, '').toLowerCase(); } catch { return ''; } }
+  /** Dark mode on this page: on everywhere unless he switched it off for this site. */
+  private darkWanted(u: string): boolean { return this.prefs.dark && isWeb(u) && !this.prefs.darkOff.includes(this.darkHost(u)); }
+  /** Make one page dark, or put it back. Runs on every page load and on every switch. */
+  private paintDark(t: Tab): void {
+    const wc = t.view?.webContents;
+    if (!wc || wc.isDestroyed() || t.internal || !isWeb(wc.getURL())) return;
+    const on = this.darkWanted(wc.getURL());
+    const src = darkSource();
+    if (!src) return;
+    const steps = on ? [{ code: `if(!globalThis.DarkReader){${src}\n};true` }, { code: `DarkReader.enable(${DARK_THEME});true` }] : [{ code: 'globalThis.DarkReader&&DarkReader.disable();true' }];
+    void wc.executeJavaScriptInIsolatedWorld(DARK_WORLD, steps).catch(() => { /* the page went away */ });
+  }
+  private paintDarkAll(): void { for (const t of this.tabs) this.paintDark(t); }
+  /** The shield's "Dark mode on this site" switch, for the site he is on. Synced with his other prefs. */
+  setDarkHere(on: boolean): void {
+    const host = this.darkHost(this.cur()?.url ?? '');
+    if (!host) return;
+    const off = new Set(this.prefs.darkOff);
+    if (on) off.delete(host); else off.add(host);
+    this.prefs.darkOff = [...off].slice(-2000);
+    this.savePrefs();
+    for (const t of this.tabs) if (this.darkHost(t.url) === host) this.paintDark(t);
+    this.sendTabs();
+  }
+
   setSounds(on: boolean): void {
     this.sounds = on;
     this.savePrefs();
@@ -726,6 +774,7 @@ export class AangBrowser {
       if (on) this.ads?.start(); else this.ads?.stop();
       this.cur()?.view?.webContents.reload();
     } else if (key === 'popups') this.prefs.popups = on;
+    else if (key === 'dark') { this.prefs.dark = on; this.paintDarkAll(); }
     else return;
     this.savePrefs();
     this.sendTabs();
@@ -1231,7 +1280,7 @@ export class AangBrowser {
       if (isWeb(x.url)) void this.veilUp(tab);
       this.sendTabs();
     });
-    on('dom-ready', () => { if (tab.phase !== 'idle') { tab.prog = Math.max(tab.prog ?? 0, 0.55); this.sendTabs(); } });
+    on('dom-ready', () => { this.paintDark(tab); if (tab.phase !== 'idle') { tab.prog = Math.max(tab.prog ?? 0, 0.55); this.sendTabs(); } });
     on('did-navigate', (_e, u, status) => {
       tab.url = u; tab.scrollY = 0; if (status > 0) tab.upgraded = null; if (status < 400) this.visits.add(u, '');
       tab.pending = null;
@@ -1335,7 +1384,7 @@ export class AangBrowser {
     return {
       home: this.prefs.home !== DEFAULT_HOME ? this.prefs.home : '', homeNow: this.HOME,
       search: this.prefs.search, aiBox: this.prefs.aiBox, startup: this.prefs.startup,
-      ads: this.prefs.ads, popups: this.prefs.popups, sounds: this.sounds,
+      ads: this.prefs.ads, popups: this.prefs.popups, sounds: this.sounds, dark: this.prefs.dark,
       popupOk: [...this.popupOk].sort(), trusted: [...this.trusted].sort(), httpOk: [...this.httpOk].sort(),
       marks: this.marks.slice(0, 400).map((m) => ({ title: m.title, url: m.url, favicon: this.iconOf(m.url) })), markCount: this.marks.length,
       vault, phish: this.phish.count(),
@@ -1353,7 +1402,7 @@ export class AangBrowser {
       case 'search': this.prefs.search = value === 'ddg' || value === 'google' || value === 'yandex' ? value : 'brave'; setSearch(this.prefs.search, this.prefs.aiBox); this.savePrefs(); break;
       case 'aiBox': this.prefs.aiBox = value === true; setSearch(this.prefs.search, this.prefs.aiBox); this.savePrefs(); break;
       case 'startup': this.prefs.startup = value === 'home' ? 'home' : 'tabs'; this.savePrefs(); break;
-      case 'ads': case 'popups': case 'sounds': this.setPref(key, value === true); break;
+      case 'ads': case 'popups': case 'sounds': case 'dark': this.setPref(key, value === true); break;
       default: return;
     }
     this.sendTabs();
@@ -1946,8 +1995,10 @@ export class AangBrowser {
       const adsWas = this.prefs.ads;
       this.sounds = p.sounds === true;
       this.prefs = { ads: p.ads !== false, popups: p.popups !== false, home: typeof p.home === 'string' && isWeb(p.home) ? p.home.slice(0, 2000) : DEFAULT_HOME,
-        search: p.search === 'ddg' || p.search === 'google' || p.search === 'yandex' ? p.search : 'brave', aiBox: p.aiBox === true, startup: p.startup === 'home' ? 'home' : 'tabs' };
+        search: p.search === 'ddg' || p.search === 'google' || p.search === 'yandex' ? p.search : 'brave', aiBox: p.aiBox === true, startup: p.startup === 'home' ? 'home' : 'tabs',
+        dark: p.dark !== false, darkOff: hostList(p.darkOff) };
       setSearch(this.prefs.search, this.prefs.aiBox);
+      this.paintDarkAll();
       if (adsWas !== this.prefs.ads) { if (this.prefs.ads) this.ads?.start(); else this.ads?.stop(); }
       this.savePrefs(); this.sendTabs(); this.pushSettings();
     },
@@ -2700,6 +2751,7 @@ export class AangBrowser {
       stash: this.stash.map((s) => ({ id: s.id, name: s.name, count: s.tabs.length })),
       adsPaused: (() => { try { return this.paused.has(new URL(t?.url ?? '').hostname.replace(/^www\./, '')); } catch { return false; } })(),
       adsOn: Boolean(this.ads),
+      darkHere: this.darkWanted(t?.url ?? ''), darkAll: this.prefs.dark,
       sounds: this.sounds,
       prefs: this.prefs,
       // The shelf: the bar ones first, as in Chrome, then the rest. Only what the shelf can show is sent.

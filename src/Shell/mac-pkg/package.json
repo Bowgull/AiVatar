@@ -8,6 +8,7 @@
   "main": "src/macmain.ts",
   "dependencies": {
     "@ghostery/adblocker-electron": "2.18.2",
+    "darkreader": "4.9.133",
     "ws": "8.22.0"
   }
 }

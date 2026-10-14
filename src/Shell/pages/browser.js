@@ -708,7 +708,7 @@ lock.addEventListener('click', (e) => {
   try { host = new URL(t?.url ?? '').hostname.replace(/^www\./, ''); } catch { /* none */ }
   if (!host) return;
   el('sitehost').textContent = host;
-  paintAdSwitch();
+  paintAdSwitch(); paintDarkSwitch();
   el('sitepanel').hidden = !el('sitepanel').hidden;
   lock.classList.toggle('open', !el('sitepanel').hidden);
 });
@@ -719,6 +719,13 @@ function paintAdSwitch() {
   el('adnote').textContent = !state.adsOn ? 'The block lists are still loading.' : state.adsPaused ? 'Paused here. Ads show on this site.' : 'On. Ads and trackers are stopped here.';
 }
 el('adsw').addEventListener('click', (e) => { e.preventDefault(); if (state.adsOn) window.aang?.browserAdPause?.(!state.adsPaused); });
+// Dark mode (his "Dark Reader is a must", 2026-10-14): on everywhere; switched off here, it stays off for this site.
+function paintDarkSwitch() {
+  el('darksw').classList.toggle('on', state.darkHere === true);
+  el('darksw').setAttribute('aria-checked', String(state.darkHere === true));
+  el('darknote').textContent = state.darkAll === false ? 'Off for every site. Turn it on in Settings.' : state.darkHere ? 'On. This site is shown dark.' : 'Off here. This site shows its own colours.';
+}
+el('darksw').addEventListener('click', (e) => { e.preventDefault(); if (state.darkAll !== false) window.aang?.browserDarkHere?.(!state.darkHere); });
 document.addEventListener('click', (e) => { if (!el('sitepanel').contains(e.target) && !lock.contains(e.target)) { el('sitepanel').hidden = true; lock.classList.remove('open'); } });
 el('popopen').addEventListener('click', () => { window.aang?.browserAct?.('popupopen'); el('sitepanel').hidden = true; lock.classList.remove('open'); });
 el('popallow').addEventListener('click', () => { window.aang?.browserAct?.('popupallow'); el('sitepanel').hidden = true; lock.classList.remove('open'); });
@@ -843,7 +850,7 @@ window.aang?.onBrowserTabs?.((s) => {
   if (pop && !t?.blocked) lock.title = 'A popup was blocked. Click to see it.';
   el('poprow').hidden = !pop;
   if (pop) el('popurl').textContent = pop;
-  if (!el('sitepanel').hidden) paintAdSwitch();
+  if (!el('sitepanel').hidden) { paintAdSwitch(); paintDarkSwitch(); }
   if (crashed) el('crashtitle').textContent = `${(t.title || 'This page').slice(0, 60)} stopped working`;
 });
 
