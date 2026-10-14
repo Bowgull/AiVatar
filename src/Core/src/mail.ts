@@ -305,7 +305,7 @@ export function formatEvent(e: CalEvent): string {
 /** The morning brief as data (6.15). Times are ISO strings; `at` is when the mail arrived, in ms. */
 export interface BriefData {
   events: { title: string; start: string | null; end: string | null; allDay: boolean; where: string }[];
-  unread: { from: string; address: string; subject: string; at: number }[];
+  unread: { id: string; from: string; address: string; subject: string; at: number; labels: string[]; snippet: string; headers: Record<string, string> }[];
   error?: string;
 }
 
@@ -515,15 +515,22 @@ export class MailService {
       }));
     } catch (e) { out.error = (e as Error).message; }
     try {
-      const ids = await this.g.list('is:unread in:inbox newer_than:2d', 8);
+      // 20, not 8 (2026-10-14): most of it is filtered out before the brief now (briefmail.ts), so it needs a wider net.
+      const ids = await this.g.list('is:unread in:inbox newer_than:2d', 20);
       const msgs = await Promise.all(ids.map(x => this.g.message(x.id, 'metadata')));
       out.unread = msgs.map(m => {
         const from = header(m, 'From');
+        const headers: Record<string, string> = {};
+        for (const k of ['List-Unsubscribe', 'List-Id', 'Precedence', 'Auto-Submitted']) { const v = header(m, k); if (v) headers[k.toLowerCase()] = v.slice(0, 300); }
         return {
+          id: String(m.id ?? ''),
           from: from.replace(/<[^>]*>/g, '').replace(/"/g, '').trim() || 'Someone',
           address: (/<([^>]+)>/.exec(from)?.[1] ?? from).trim().toLowerCase().slice(0, 200),
           subject: header(m, 'Subject') || '(no subject)',
           at: Number(m.internalDate) || 0,
+          labels: Array.isArray(m.labelIds) ? m.labelIds.map(String) : [],
+          snippet: String((m as { snippet?: string }).snippet ?? '').slice(0, 400),
+          headers,
         };
       });
     } catch (e) { out.error = (e as Error).message; }

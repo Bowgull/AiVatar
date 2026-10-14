@@ -61,7 +61,12 @@ export interface PetAt {
 export interface BriefCard {
   day: string;
   events: { title: string; start: string | null; end: string | null; allDay: boolean; where: string }[];
-  unread: { from: string; subject: string; at: number; logo?: string; job?: boolean }[];
+  /** Only mail where a person is waiting on him (2026-10-14, briefmail.ts): `why` is what they want, `id` the email. */
+  unread: { from: string; subject: string; at: number; logo?: string; job?: boolean; id?: string; why?: string }[];
+  /** Sheet 24: the day as morning, afternoon and evening, and when the rain starts. */
+  parts?: { part: 'morn' | 'aftn' | 'eve'; temp: number; sky: 'sun' | 'moon' | 'partly' | 'cloud' | 'fog' | 'rain' | 'snow' | 'storm' }[];
+  rainFrom?: string | null;
+  rainIsSnow?: boolean;
   jobsNew: number;
   /** Today in Toronto, from Open-Meteo. Absent when the service did not answer. */
   weather?: { now: number; high: number; low: number; words: string; rain: number };
@@ -447,6 +452,8 @@ export type FromBody =
   | { t: 'moved'; x: number; y: number }
   | { t: 'pong' }
   /** `ephemeral`: a job Aang set himself (vetting a link). Not kept in memory, since Joshua did not say it. */
+  /** Sheet 24: a button under an opened brief row. `item` is its place in the brief Aang last sent; Aang writes the request. */
+  | { t: 'brief.act'; item: number; act: 'through' | 'reply' | 'prep' | 'drive' | 'matches' }
   | { t: 'submit'; id: string; text: string; mode?: Mode; once?: boolean; ephemeral?: boolean;
       /**
        * The turn this message answers, chosen by Joshua from the scrollback. A real binding, not a guess:

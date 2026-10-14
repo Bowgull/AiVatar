@@ -10,6 +10,7 @@ import { blocks, shownWords } from './rich.js';
 import { find as findEntities } from './entities.js';
 import { Scrollback, atTop } from './scrollback.js';
 import { buildPaper, openMenu, previewLines, tickCount, paintNote } from './notepaper.js';
+import { pixIcon, SKIES } from './pixicons.js';
 
 const el = id => document.getElementById(id);
 const bubble = el('bubble'), said = el('said'), scroller = el('scroller'), more = el('more');
@@ -117,11 +118,12 @@ function paintSkin(w, h) {
   // top-left is subtracted. balloonPath does the rest: which edge, where on it, and how long.
   const box = bubble.getBoundingClientRect();
   const head = { x: aim.x - box.left, y: aim.y - box.top };
-  const key = `${Math.round(w)}x${Math.round(h)}:${Math.round(head.x)},${Math.round(head.y)}:${aim.flip}`;
+  const wood = bubble.classList.contains('lantern');
+  const key = `${Math.round(w)}x${Math.round(h)}:${Math.round(head.x)},${Math.round(head.y)}:${aim.flip}:${wood}`;
   if (key === lastShape) return;
   lastShape = key;
   const d = balloonPath(w, h, head);
-  paintBalloon(skin, w + PAD_R, h + PAD_B, d, ++shapeId);
+  paintBalloon(skin, w + PAD_R, h + PAD_B, d, ++shapeId, wood);
 }
 
 // ---------------------------------------------------------------- growing, never popping (sheet 13)
@@ -789,34 +791,115 @@ function medal(u) {
   else m.textContent = (u.from.trim()[0] ?? '?').toUpperCase();
   return m;
 }
+// Sheet 24, the Lantern (his pick, 2026-10-14): the brief on dark wood, the day as morning / afternoon / evening under a
+// lamp glow, then parchment slips in his order: job hunt, waiting on you, today. Only mail where a person is waiting on
+// him reaches here (briefmail.ts). A row opens in place on a click; its buttons ask Aang to dig in, and only then is
+// any quota spent. The buttons send which row and which button, never words: the brain writes the request itself.
+const PART = { morn: 'MORN', aftn: 'AFTN', eve: 'EVE' };
+const JOBBY = /\b(interview|recruit|screen(ing)?|hiring|offer|onboarding|panel)\b/i;
 function showBrief(b) {
   card.replaceChildren();
-  const sec = (h) => { const s = T('div', 'bsec'); s.append(T('div', 'h', h)); grid.append(s); return s; };
-  const row = (s, lead, text) => { const r = T('div', 'brow'); r.append(lead, T('span', 'btx', text)); s.append(r); };
-  const grid = T('div', 'brief');
-  const today = sec('TODAY');
-  if (!b.events.length) row(today, T('span', 'chip off', '-'), 'Nothing on the calendar');
-  for (const e of b.events.slice(0, 4)) row(today, T('span', 'chip', e.allDay ? 'ALL DAY' : timeOf(e.start)), e.title);
-  // Sheet 13's weather line: "8 C  Cloudy, rain after 4". The chance of rain only when it is worth saying.
-  if (b.weather) {
-    const w = b.weather, words = w.words.charAt(0).toUpperCase() + w.words.slice(1);
-    row(today, T('span', 'chip off', `${w.now} C`), `${words}, ${w.low} to ${w.high}` + (w.rain >= 30 ? `, ${w.rain}% rain` : ''));
+  const unread = Array.isArray(b.unread) ? b.unread : [], events = Array.isArray(b.events) ? b.events : [];
+  const now = new Date(), hour = now.getHours();
+
+  // the top: the day, and the lamp with the three parts of it
+  const top = T('div', 'lt-top');
+  const date = T('div', 'lt-date');
+  date.append(T('small', '', hour < 12 ? 'GOOD MORNING' : hour < 17 ? 'GOOD AFTERNOON' : 'GOOD EVENING'),
+    T('b', '', String(b.day ?? '').split(',')[0] || now.toLocaleDateString('en-CA', { weekday: 'long' })));
+  const rest = String(b.day ?? '').split(',').slice(1).join(',').trim();
+  const wet = b.rainFrom ? `${b.rainIsSnow ? 'Snow' : 'Rain'} from ${b.rainFrom}, ${b.rainIsSnow ? 'dress warm' : 'bring a jacket'}.` : '';
+  const sky = !wet && b.weather ? `${b.weather.words.charAt(0).toUpperCase() + b.weather.words.slice(1)}, ${b.weather.low} to ${b.weather.high}.` : '';
+  date.append(T('span', '', [rest ? rest + '.' : '', wet || sky].filter(Boolean).join(' ')));
+  top.append(date);
+  if (Array.isArray(b.parts) && b.parts.length) {
+    const lamp = T('div', 'lt-lamp');
+    const nowPart = hour < 12 ? 'morn' : hour < 18 ? 'aftn' : 'eve';
+    for (const p of b.parts) {
+      const c = T('div', 'lt-part' + (p.part === nowPart ? ' now' : ''));
+      c.append(T('i', '', PART[p.part] ?? ''));
+      const icon = pixIcon(SKIES.includes(p.sky) ? p.sky : 'cloud'); if (icon) c.append(icon);
+      c.append(T('b', '', `${Math.round(Number(p.temp))}\u00b0`));
+      lamp.append(c);
+    }
+    top.append(lamp);
   }
-  const reply = sec('NEEDS A REPLY');
-  if (!b.unread.length) row(reply, T('span', 'chip good', '0'), 'Nothing unread');
-  for (const u of b.unread.slice(0, 4)) row(reply, medal(u), u.from + (u.job ? '  \u00b7 JOB' : ''));
-  if (b.jobsNew > 0) { const o = sec('OVERNIGHT'); row(o, T('span', 'chip good', String(b.jobsNew)), b.jobsNew === 1 ? 'New job match' : 'New job matches'); }
-  if (typeof b.week === 'number') {
-    const w = sec('YOUR CLAUDE WEEK');
-    const pct = Math.round(b.week * 100);
-    const resets = b.weekResetsAt ? 'resets ' + new Date(b.weekResetsAt * 1000).toLocaleDateString('en-CA', { weekday: 'long' }) : '';
-    row(w, T('span', 'chip ' + (b.week >= 0.5 ? 'careful' : 'good'), pct + '%'), resets);
-  }
-  card.append(grid);
-  const keys = T('div', 'keys');
+  card.append(top);
+
+  // the rows, each knowing its place in the brief the brain sent (mail first, then events, then the matches)
+  const body = T('div', 'lt-body');
+  const slip = (title) => { const s = T('div', 'lt-slip'); s.append(T('h3', '', title)); return s; };
+  const job = slip('JOB HUNT'), wait = slip('WAITING ON YOU'), today = slip('TODAY');
+  const tile = (iconName, logo) => {
+    const t = T('div', 'lt-tile' + (logo ? ' round' : ''));
+    if (logo && /^data:image\//.test(logo)) { const i = document.createElement('img'); i.src = logo; i.alt = ''; t.append(i); }
+    else { const icon = pixIcon(iconName); if (icon) t.append(icon); }
+    return t;
+  };
+  const row = (into, { icon, logo, title, sub, when, whenSmall, item, more, acts }) => {
+    const r = T('div', 'lt-item' + (acts?.length ? ' can' : ''));
+    const head = T('div', 'lt-head');
+    const txt = T('div', 'lt-txt'); txt.append(T('b', '', title)); if (sub) txt.append(T('span', '', sub));
+    head.append(tile(icon, logo), txt);
+    if (when) { const w = T('div', 'lt-when', when); if (whenSmall) w.append(T('small', '', whenSmall)); head.append(w); }
+    r.append(head);
+    if (acts?.length) {
+      const open = T('div', 'lt-open'); open.hidden = true;
+      for (const line of more ?? []) if (line) open.append(T('p', '', line));
+      const keys = T('div', 'lt-keys');
+      acts.forEach(([label, act], n) => {
+        const k = T('button', 'key sm' + (n === 0 ? ' primary' : n === 1 ? ' plum' : ' burnt'), label);
+        k.type = 'button';
+        k.addEventListener('click', (e) => { e.stopPropagation(); keys.querySelectorAll('button').forEach((x) => { x.disabled = true; }); window.aang?.briefAct?.({ item, act }); });
+        keys.append(k);
+      });
+      open.append(keys);
+      r.append(open);
+      head.addEventListener('click', () => { const was = !open.hidden; card.querySelectorAll('.lt-open').forEach((o) => { o.hidden = true; o.parentElement.classList.remove('open'); }); open.hidden = was; r.classList.toggle('open', !was); fit(); reportSize(); });
+    }
+    into.append(r);
+  };
+  const clock = (iso) => new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }).toLowerCase();
+  // Events first in each slip (a time is the most urgent thing), then the people waiting.
+  events.forEach((e, j) => {
+    const start = e.start ? clock(e.start) : '', end = e.end ? clock(e.end) : '';
+    row(JOBBY.test(e.title) ? job : today, {
+      icon: 'cal', item: unread.length + j, title: e.title, sub: e.where || (e.allDay ? 'All day' : ''),
+      when: e.allDay ? 'ALL DAY' : start, whenSmall: JOBBY.test(e.title) ? 'TODAY' : '',
+      more: [e.allDay ? 'All day' : `${start}${end ? ' to ' + end : ''}`, e.where ? `At ${e.where}` : ''],
+      acts: e.where ? [['Prep me', 'prep'], ['Drive time', 'drive']] : [['Prep me', 'prep']],
+    });
+  });
+  unread.forEach((u, i) => {
+    const sent = u.at ? new Date(u.at) : null;
+    const whenSent = sent ? (sent.toDateString() === now.toDateString() ? clock(sent.toISOString()) : 'yesterday') : '';
+    row(u.job ? job : wait, {
+      icon: 'letter', logo: u.logo, item: i,
+      title: `${u.from} is waiting on you`, sub: u.why || u.subject, when: 'REPLY',
+      more: [`"${u.subject}"${whenSent ? `, sent ${whenSent}` : ''}`],
+      acts: [['Go through it', 'through'], ['Reply', 'reply']],
+    });
+  });
+  if (b.jobsNew > 0) row(job, { icon: 'star', item: unread.length + events.length, title: `${b.jobsNew} new job match${b.jobsNew === 1 ? '' : 'es'}`, sub: '', acts: [['See them', 'matches']] });
+  for (const w of Array.isArray(b.waiting) ? b.waiting : []) row(wait, { icon: 'claude', title: String(w), sub: '' });
+  for (const s of [job, wait, today]) if (s.children.length > 1) body.append(s);
+  if (!body.children.length) { const s = slip('ALL CLEAR'); s.append(T('p', 'lt-clear', 'Nothing needs you this morning.')); body.append(s); }
+  card.append(body);
+
+  // the keys: Got it, and the most useful next thing; the week's meter on the right
+  const keys = T('div', 'keys lt-foot');
   const k = (label, letter, cls, fn) => { const x = T('button', 'key sm' + (cls ? ' ' + cls : ''), label); x.type = 'button'; x.append(T('span', 'k', letter)); x.addEventListener('click', fn); keys.append(x); };
   k('Got it', 'A', 'primary', () => { releaseMouse(); goAway(); });
-  k('Open the whole brief', 'X', '', () => { window.aang?.openDesk?.(7); releaseMouse(); goAway(); });
+  const first = unread[0];
+  if (first) k(`Reply to ${String(first.from).split(/\s+/)[0]}`, 'X', 'plum', () => { keys.querySelectorAll('button').forEach((x) => { x.disabled = true; }); window.aang?.briefAct?.({ item: 0, act: 'reply' }); });
+  if (typeof b.week === 'number') {
+    const m = T('span', 'lt-meter', 'WEEK ');
+    const bar = T('i', '');
+    const lit = Math.round(Math.min(1, Math.max(0, b.week)) * 10);
+    for (let n = 0; n < 10; n++) bar.append(T('u', n < lit ? 'on' + (b.week >= 0.8 ? ' hot' : '') : ''));
+    m.append(bar, document.createTextNode(` ${Math.round(b.week * 100)}%`));
+    keys.append(m);
+  }
   card.append(keys);
   card.hidden = false;
 }
@@ -1129,6 +1212,7 @@ function onBrain(m) {
     bubble.classList.remove('whisper');
     mediaRow.hidden = true;
     card.hidden = true; closeBoard();
+    bubble.classList.remove('lantern');
     scroller.hidden = false;
     // The reply is the end of the job: the checklist has done its work.
     if (!m.stream) { livePlan = null; paintPlan(null, -1); }
@@ -1148,9 +1232,9 @@ function onBrain(m) {
     // The morning brief arrives as a card at the desk; the text stays for Discord and the old bubble.
     if (m.brief && typeof m.brief === 'object' && Array.isArray(m.brief.events)) {
       reveal.start('', false);
-      who.textContent = ((m.brief.day ?? '').split(',')[0] + ' - GOOD MORNING').toUpperCase();
-      who.hidden = false;
-      who.classList.add('plaque');
+      who.textContent = ''; who.hidden = true; who.classList.remove('plaque');
+      bubble.classList.add('lantern');
+      setSpeaker(null);
       scroller.hidden = true;
       working.hidden = true;
       bubble.classList.add('wide', 'widest');

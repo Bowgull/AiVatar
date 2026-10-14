@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { Faces, channelPictureIn, domainOfEmail, hostOf, pictureAt } from '../src/faces.ts';
 
 const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47]), Buffer.alloc(200)]);
-const res = (body: Buffer | string, type: string, status = 200) => new Response(body, { status, headers: { 'content-type': type } });
+const res = (body: Buffer | string, type: string, status = 200) => new Response(body as unknown as BodyInit, { status, headers: { 'content-type': type } });
 
 test('the channel picture is found in the page and asked for small', () => {
   const html = '<meta property="og:image" content="https://yt3.googleusercontent.com/abc=s900-c-k-c0x00ffffff-no-rj">';

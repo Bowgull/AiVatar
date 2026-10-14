@@ -116,7 +116,8 @@ export function balloonPath(w, h, head, opt = {}) {
  * passes, each clipped to the shape and nudged a few pixels. The carve then follows the tail for
  * free, because the tail is part of the same path.
  */
-export function paintBalloon(svg, w, h, d, uid) {
+// `wood` (sheet 24, the Lantern brief): the browser's dark tray wood instead of parchment, the same tail and ink line.
+export function paintBalloon(svg, w, h, d, uid, wood = false) {
   svg.setAttribute('viewBox', `0 0 ${n(w)} ${n(h)}`);
   svg.setAttribute('width', String(Math.ceil(w)));
   svg.setAttribute('height', String(Math.ceil(h)));
@@ -126,17 +127,18 @@ export function paintBalloon(svg, w, h, d, uid) {
     + `<stop offset="0" stop-color="#F6E6C6"/><stop offset=".45" stop-color="#ECD5A8"/>`
     + `<stop offset="1" stop-color="#DEC28C"/></linearGradient>`
     + `<clipPath id="bc${uid}"><path d="${d}"/></clipPath>`
+    + (wood ? `<pattern id="wd${uid}" patternUnits="userSpaceOnUse" width="128" height="256"><image href="art/browser/tray.png" width="128" height="256" style="image-rendering:pixelated"/></pattern>` : '')
     + `</defs>`
     + `<filter id="sf${uid}" x="-20%" y="-20%" width="140%" height="160%"><feGaussianBlur stdDeviation="7"/></filter>`
     // 1. a soft shadow far under it, then the hard contact shadow (Smoother look, sheet 13)
     + `<path d="${d}" fill="rgba(10,5,20,.45)" transform="translate(0,9)" filter="url(#sf${uid})"/>`
     + `<path d="${d}" fill="rgba(0,0,0,.42)" transform="translate(0,3)"/>`
     // 2. the parchment
-    + `<path d="${d}" fill="url(#bg${uid})"/>`
+    + `<path d="${d}" fill="url(#${wood ? 'wd' : 'bg'}${uid})"/>`
     // 3 and 4. the lit top lip and the shaded bottom, clipped so they stay inside the edge
     + `<g clip-path="url(#bc${uid})">`
-    + `<path d="${d}" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="12" transform="translate(0,6)"/>`
-    + `<path d="${d}" fill="none" stroke="rgba(150,110,60,.26)" stroke-width="12" transform="translate(0,-6)"/>`
+    + `<path d="${d}" fill="none" stroke="${wood ? 'rgba(255,224,150,.10)' : 'rgba(255,255,255,.5)'}" stroke-width="12" transform="translate(0,6)"/>`
+    + `<path d="${d}" fill="none" stroke="${wood ? 'rgba(0,0,0,.35)' : 'rgba(150,110,60,.26)'}" stroke-width="12" transform="translate(0,-6)"/>`
     + `</g>`
     // 5. the ink line, last, so nothing is drawn across it
     + `<path d="${d}" fill="none" stroke="#120A05" stroke-width="${OW}" stroke-linejoin="round"/>`;

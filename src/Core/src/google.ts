@@ -117,7 +117,7 @@ export class Google {
     return j.messages ?? [];
   }
   async message(id: string, format: 'full' | 'metadata' = 'full'): Promise<Message> {
-    const meta = format === 'metadata' ? '&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date&metadataHeaders=To&metadataHeaders=Reply-To&metadataHeaders=Message-ID&metadataHeaders=References' : '';
+    const meta = format === 'metadata' ? '&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date&metadataHeaders=To&metadataHeaders=Reply-To&metadataHeaders=Message-ID&metadataHeaders=References&metadataHeaders=List-Unsubscribe&metadataHeaders=List-Id&metadataHeaders=Precedence&metadataHeaders=Auto-Submitted' : '';
     return this.call('GET', `${Google.G}/messages/${encodeURIComponent(id)}?format=${format}${meta}`);
   }
   /** E1: one attachment's bytes (base64url), by the message and its attachment id. Reading only (gmail.readonly). */

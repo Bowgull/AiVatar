@@ -535,3 +535,47 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
 
 /* 2026-10-13, his report: the scroll-back's words can be highlighted and copied, like the reply's */
 .back, .back .turn{-webkit-user-select:text;user-select:text}
+
+/* ---- sheet 24, the Lantern brief (his pick, 2026-10-14): dark wood under a lamp, parchment slips ---- */
+#bubble.lantern{width:556px;color:#ecdcbc}
+#bubble.lantern .briefcard{margin:-2px -3px 0}
+.lt-top{display:flex;gap:14px;align-items:stretch;margin:0 0 10px}
+.lt-date{flex:1;min-width:0}
+.lt-date small{display:block;font:400 10px var(--label);letter-spacing:2px;color:var(--gold)}
+.lt-date b{display:block;font:700 26px/1.05 var(--display);color:#fbe7bf;text-shadow:2px 2px 0 #000}
+.lt-date span{display:block;font:italic 500 13px var(--body);color:#c9b48c;margin-top:4px}
+.lt-lamp{display:flex;gap:4px;padding:6px;border-radius:10px;flex:none;
+  background:radial-gradient(ellipse at 50% 30%,rgba(255,196,90,.2),rgba(0,0,0,0) 70%),#140b05;box-shadow:inset 0 2px 0 rgba(0,0,0,.6)}
+.lt-part{width:60px;display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 0 5px}
+.lt-part i{font:400 8px var(--label);letter-spacing:1px;color:#a88a5a;font-style:normal}
+.lt-part b{font:700 15px var(--body);color:#ffe9b8}
+.lt-part.now{background:rgba(255,200,100,.09);border-radius:7px;box-shadow:inset 0 0 0 1px rgba(255,210,120,.28)}
+.pix{display:block;image-rendering:pixelated}
+.lt-slip{background:#e9d3a6;border-radius:9px;padding:9px 12px 8px;margin:0 0 9px;box-shadow:0 3px 0 #0d0703,inset 0 0 0 2px rgba(120,80,30,.25);color:#2a1c0c}
+.lt-slip h3{margin:0 0 4px;font:400 10px var(--label);letter-spacing:2px;color:#8a3e1c}
+.lt-item{border-radius:8px;margin:0 -6px}
+.lt-head{display:flex;align-items:center;gap:11px;padding:4px 6px;border-radius:8px}
+.lt-item.can .lt-head{cursor:pointer}
+.lt-item.can .lt-head:hover,.lt-item.open .lt-head{background:rgba(120,80,30,.13)}
+.lt-tile{width:30px;height:30px;flex:none;border-radius:7px;background:#f3e3bf;box-shadow:inset 0 0 0 2px #b38a52,0 2px 0 #9b7442;display:grid;place-items:center;overflow:hidden}
+.lt-tile.round{border-radius:50%;background:#fff}
+.lt-tile img{width:22px;height:22px;object-fit:contain;border-radius:50%}
+.lt-txt{flex:1;min-width:0}
+.lt-txt b{display:block;font:700 14.5px/1.25 var(--body);color:#2a1c0c;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lt-txt span{display:block;font:500 12.5px/1.3 var(--body);color:#6a5236;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lt-when{flex:none;font:700 13px var(--body);color:#8a3e1c;text-align:right}
+.lt-when small{display:block;font:400 8.5px var(--label);letter-spacing:1px;color:#9a7a4a}
+.lt-open{padding:2px 6px 8px 47px}
+.lt-open[hidden]{display:none}
+.lt-open p{margin:0 0 3px;font:500 12.5px/1.4 var(--body);color:#4e3d28}
+.lt-keys{display:flex;gap:8px;margin-top:6px}
+.lt-clear{margin:2px 0;font:500 13.5px var(--body);color:#4e3d28}
+.lt-foot{align-items:center}
+.lt-meter{margin-left:auto;font:400 9px var(--label);letter-spacing:1px;color:#b89a6a;display:flex;align-items:center;gap:6px}
+.lt-meter i{display:inline-flex;gap:2px}
+.lt-meter u{width:6px;height:9px;background:#3a2a1a;border:1px solid #7a5a3a;text-decoration:none}
+.lt-meter u.on{background:#78c88a} .lt-meter u.on.hot{background:var(--orange)}
+/* burnt orange: the third choice when there are several (his call, 2026-10-14) */
+.key.burnt{background:#C8602A;color:#fff2e4;text-shadow:0 1px 0 rgba(0,0,0,.5);
+  box-shadow:0 var(--lip) 0 var(--outline),0 var(--lip) 0 -1px #8E3E14,inset 0 3px 0 rgba(255,190,140,.5),0 8px 14px rgba(0,0,0,.4)}
+.key.burnt:active{box-shadow:0 0 0 var(--outline),inset 0 3px 0 rgba(255,190,140,.5)}
