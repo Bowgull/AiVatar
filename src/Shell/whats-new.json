@@ -170,6 +170,21 @@
       "at": "2026-10-14T19:30:00-04:00",
       "text": "Settings labels are easy to read again.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-10-14T20:30:00-04:00",
+      "text": "Claude shows you its plan before it starts.",
+      "kind": "feature"
+    },
+    {
+      "at": "2026-10-14T20:30:00-04:00",
+      "text": "Untick a site, or tell Claude what to change.",
+      "kind": "feature"
+    },
+    {
+      "at": "2026-10-14T20:30:00-04:00",
+      "text": "Real job boards like Greenhouse are no longer blocked.",
+      "kind": "fix"
     }
   ]
 }

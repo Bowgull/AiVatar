@@ -578,6 +578,23 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
 .lt-meter i{display:inline-flex;gap:2px}
 .lt-meter u{width:6px;height:9px;background:#3a2a1a;border:1px solid #7a5a3a;text-decoration:none}
 .lt-meter u.on{background:#78c88a} .lt-meter u.on.hot{background:var(--orange)}
+/* Sheet 37: a Claude session's plan on the Lantern's wood */
+.samaraplan[hidden]{display:none}
+.samaraplan .pc-top{display:flex;align-items:center;gap:10px;margin:0 0 10px}
+.samaraplan .pc-top img{width:32px;height:32px;image-rendering:pixelated;filter:drop-shadow(0 0 6px rgba(255,190,90,.85)) drop-shadow(0 0 14px rgba(255,140,40,.45))}
+.samaraplan .pc-top small{display:block;font:400 10px var(--label);letter-spacing:2px;color:var(--gold)}
+.samaraplan .pc-top b{display:block;font:700 22px/1.05 var(--display);color:#fbe7bf;text-shadow:2px 2px 0 #000}
+.samaraplan .lt-tile img{width:20px;height:20px;border-radius:3px}
+.samaraplan .num{font:400 12px var(--label);color:#8a3e1c}
+.samaraplan .tq{flex:none;width:18px;height:18px;border:2.5px solid #120A05;border-radius:4px;box-sizing:border-box;position:relative;cursor:pointer;padding:0;
+  background:#3FBFAE;box-shadow:0 0 6px rgba(159,240,230,.9),0 0 14px rgba(159,240,230,.45),0 2px 0 rgba(0,0,0,.4)}
+.samaraplan .tq::after{content:"";position:absolute;left:4px;top:0;width:4px;height:8px;border:solid #fff;border-width:0 2.5px 2.5px 0;transform:rotate(45deg)}
+.samaraplan .tq.off{background:#cdb78c;box-shadow:0 2px 0 rgba(0,0,0,.4)}.samaraplan .tq.off::after{display:none}
+.samaraplan .lt-item.off .lt-txt{opacity:.5;text-decoration:line-through}
+.samaraplan .wont{display:flex;align-items:center;gap:8px;margin:0 2px 10px;font:600 13px var(--body);color:#f0c9a8}
+.samaraplan .plannote{display:block;width:100%;box-sizing:border-box;margin:0 0 10px;padding:9px 12px;border-radius:8px;border:none;resize:none;outline:none;
+  background:#140b05;color:#ecdcbc;font:500 14px var(--body);box-shadow:inset 0 2px 0 rgba(0,0,0,.7),0 0 0 2px rgba(255,210,120,.25)}
+.samaraplan .plannote[hidden]{display:none}
 /* burnt orange: the third choice when there are several (his call, 2026-10-14) */
 .key.burnt{background:#C8602A;color:#fff2e4;text-shadow:0 1px 0 rgba(0,0,0,.5);
   box-shadow:0 var(--lip) 0 var(--outline),0 var(--lip) 0 -1px #8E3E14,inset 0 3px 0 rgba(255,190,140,.5),0 8px 14px rgba(0,0,0,.4)}

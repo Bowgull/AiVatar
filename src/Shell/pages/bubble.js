@@ -587,8 +587,11 @@ function showAsk(m) {
     bubble.classList.add('wide', 'widest');
   }
   // A plan's steps, under the question (6.13). The same list becomes the live checklist on Go.
-  paintPlan(m.t === 'plan' ? m : null, -1);
+  paintPlan(m.t === 'plan' && !m.samara ? m : null, -1);
   if (m.t === 'plan') bubble.classList.add('wide');
+  // Sheet 37: a Claude session's plan, on the Lantern's wood. Whatever was showing (the brief) waits its turn.
+  if (!card.hidden && lastBrief) { parkedBrief = lastBrief; card.hidden = true; }
+  samaraPlan(m.samara ? m : null);
   // The exact command, one tap away: never code in the balloon unless he asks to see it.
   let exact = document.getElementById('exact');
   if (!exact) {
@@ -613,14 +616,19 @@ function showAsk(m) {
   for (const k of a.keys) {
     if (k.hold) { asks.append(lever(k)); continue; }
     const b = document.createElement('button');
-    b.className = 'key sm' + (k.tone === 'primary' ? ' primary' : k.tone === 'warn' ? ' warn' : '');
+    b.className = 'key sm' + (k.tone === 'primary' ? ' primary' : k.tone === 'warn' ? ' warn' : k.tone === 'burnt' ? ' burnt' : '');
     b.dataset.key = k.key;
     b.append(k.label);
     const tag = document.createElement('span');
     tag.className = 'k';
     tag.textContent = k.key;
     b.append(tag);
-    b.addEventListener('click', () => answer(k.choice));
+    b.addEventListener('click', () => {
+      // Sheet 37: Change opens a line to type under the plan; Go then sends the change instead.
+      if (m.samara && k.choice === 'change') { openPlanNote(); return; }
+      answer(k.choice);
+    });
+    if (m.samara && k.choice === 'go') b.id = 'plango';
     asks.append(b);
   }
   asks.hidden = a.keys.length === 0;
@@ -680,15 +688,20 @@ function answer(choice) {
   }
   // For consent, saying yes means asking the same thing again with `once`, so what was asked has to
   // travel with the answer. The bubble is the only place that still knows it.
+  // Sheet 37: a plan with a typed change sends the change; the sites he kept travel with any answer.
+  const planAns = asking.samara ? planAnswer(choice) : null;
+  if (planAns) choice = planAns.choice;
   window.aang?.answerAsk?.({
     t: asking.t, id: asking.id, choice,
+    ...(planAns ? { keep: planAns.keep, note: planAns.note } : {}),
     // A consent ask carries the words it is about, because saying yes means asking them again.
     ...(asking.t === 'consent' ? { text: asking.text, mode: asking.wanted } : {}),
     ...(typeof asking.reminder === 'string' ? { reminder: asking.reminder } : {}),
     ...(asking.t === 'timer.done' ? { label: String(asking.label ?? '') } : {}),
   });
   // On Go the plan card stays and becomes the live checklist; the tools that run tick it off.
-  if (asking.t === 'plan') { livePlan = choice === 'go' ? { steps: asking.steps, at: 0 } : null; }
+  if (asking.t === 'plan') { livePlan = choice === 'go' ? { steps: asking.steps, at: 0, ...(asking.samara ? { samara: String(asking.id), task: String(asking.samara.task ?? '') } : {}) } : null; }
+  if (asking.samara) samaraPlan(null);
   // Off the queue, then show whatever is behind it. Nothing in the stack disappears on its own.
   const done = asking;
   asking = null;
@@ -698,8 +711,10 @@ function answer(choice) {
   asks.replaceChildren();
   if (waiting.length) { showTopAsk(); return; }
   paintEdges();
+  if (!livePlan && briefBack()) return;
   if (livePlan) {
-    who.textContent = 'THE PLAN'; said.textContent = 'On it.';
+    who.textContent = livePlan.samara ? `CLAUDE \u00b7 ${livePlan.task.toUpperCase()}` : 'THE PLAN'; said.textContent = 'On it.';
+    who.hidden = false;
     paintPlan(livePlan, 0); fit(); reportSize();
   }
 }
@@ -797,7 +812,16 @@ function medal(u) {
 // any quota spent. The buttons send which row and which button, never words: the brain writes the request itself.
 const PART = { morn: 'MORN', aftn: 'AFTN', eve: 'EVE' };
 const JOBBY = /\b(interview|recruit|screen(ing)?|hiring|offer|onboarding|panel)\b/i;
+let lastBrief = null, parkedBrief = null;
+/** After the questions are answered and nothing is running, the brief that stepped aside comes back (his rule: turns). */
+function briefBack() {
+  if (!parkedBrief || waiting.length || livePlan) return false;
+  const b = parkedBrief; parkedBrief = null;
+  onBrain({ t: 'bubble', text: '', brief: b });
+  return true;
+}
 function showBrief(b) {
+  lastBrief = b;
   card.replaceChildren();
   const unread = Array.isArray(b.unread) ? b.unread : [], events = Array.isArray(b.events) ? b.events : [];
   const now = new Date(), hour = now.getHours();
@@ -1195,6 +1219,11 @@ function onBrain(m) {
     return;
   }
   if (m.t === 'bubble.focus.failed') { window.dispatchEvent(new CustomEvent('aang:say', { detail: { t: 'bubble', text: 'That Claude window is closed now.', stream: false, fromPet: true, hold: 4000 } })); return; }
+  // Sheet 37: a planned Claude session moved on to another step (at), or finished (null).
+  if (m.t === 'plan.step' && livePlan?.samara && livePlan.samara === String(m.id ?? '')) {
+    if (m.at === null) { livePlan = null; paintPlan(null, -1); said.textContent = 'Claude is done.'; fit(); reportSize(); scheduleHide(); briefBack(); return; }
+    livePlan.at = Number(m.at) || 0; paintPlan(livePlan, livePlan.at); fit(); reportSize(); return;
+  }
   if (m.t === 'ask.expired' && m.id != null) {
     const i = waiting.findIndex((w) => String(w.id ?? '') === String(m.id));
     if (i >= 0) { waiting.splice(i, 1); if (!showTopAsk()) askGone(); }
@@ -1981,3 +2010,55 @@ el('copy').addEventListener('click', () => {
   setTimeout(() => { b.textContent = 'Copy'; }, 1200);
 });
 
+
+// ---------------------------------------------------------------- Sheet 37: a Claude session's plan
+// Drawn with the Lantern's pieces (lt-slip, lt-item, lt-tile), on the wood; sites are turquoise ticks he can untick; the
+// steps; what it won't do; Change opens a line to type. Built with textContent: the task, sites and steps are Claude's words.
+const planBox = document.createElement('div');
+planBox.className = 'samaraplan';
+planBox.hidden = true;
+scroller.after(planBox);
+const planKept = new Set();
+function samaraPlan(m) {
+  planBox.replaceChildren();
+  planBox.hidden = !m;
+  if (!m) { bubble.classList.remove('lantern'); return; }
+  const c = m.samara;
+  planKept.clear(); for (const x of c.sites ?? []) planKept.add(String(x.site));
+  bubble.classList.add('lantern', 'wide');
+  who.hidden = true; said.textContent = '';
+  const top = T('div', 'pc-top');
+  const lamp = document.createElement('img'); lamp.src = 'art/samara/samara-lantern-32.png'; lamp.alt = '';
+  const head = T('div'); head.append(T('small', '', 'CLAUDE WANTS TO'), T('b', '', String(c.task ?? '')));
+  top.append(lamp, head);
+  const sites = T('div', 'lt-slip'); sites.append(T('h3', '', 'SITES'));
+  for (const x of c.sites ?? []) {
+    const item = T('div', 'lt-item'), row = T('div', 'lt-head'), tile = T('span', 'lt-tile');
+    const globe = () => pixIcon('globe', 2) ?? T('span');
+    if (x.favicon) { const i = document.createElement('img'); i.alt = ''; i.onerror = () => i.replaceWith(globe()); i.src = x.favicon; tile.append(i); } else tile.append(globe());
+    const txt = T('span', 'lt-txt'); txt.append(T('b', '', String(x.site)));
+    if (x.login) txt.append(T('span', '', 'with your login'));
+    const tick = T('button', 'tq'); tick.type = 'button'; tick.setAttribute('aria-pressed', 'true'); tick.title = 'Untick to keep Claude off ' + x.site;
+    tick.addEventListener('click', () => { const on = !planKept.has(x.site); if (on) planKept.add(x.site); else planKept.delete(x.site); tick.classList.toggle('off', !on); item.classList.toggle('off', !on); tick.setAttribute('aria-pressed', String(on)); });
+    row.append(tile, txt, tick); item.append(row); sites.append(item);
+  }
+  const steps = T('div', 'lt-slip'); steps.append(T('h3', '', 'STEPS'));
+  (c.steps ?? []).forEach((t, i) => { const row = T('div', 'lt-head'), tile = T('span', 'lt-tile'); tile.append(T('span', 'num', String(i + 1))); const txt = T('span', 'lt-txt'); txt.append(T('b', '', String(t))); row.append(tile, txt); const item = T('div', 'lt-item'); item.append(row); steps.append(item); });
+  planBox.append(top, sites, steps);
+  if (c.wont) { const w = T('div', 'wont'); const ic = pixIcon('wont', 2); if (ic) w.append(ic); w.append("Won't " + String(c.wont).replace(/^won.?t\s+/i, '')); planBox.append(w); }
+  const note = document.createElement('textarea'); note.className = 'plannote'; note.id = 'plannote'; note.rows = 2; note.maxLength = 500; note.placeholder = 'What should Claude change?'; note.hidden = true;
+  planBox.append(note);
+}
+function openPlanNote() {
+  const n = document.getElementById('plannote');
+  if (!n) return;
+  n.hidden = false; n.focus();
+  const go = document.getElementById('plango'); if (go) go.firstChild.textContent = 'Send changes';
+  fit(); reportSize();
+}
+/** What goes back: the sites he kept, his typed change (which turns Go into Change). */
+function planAnswer(choice) {
+  const n = document.getElementById('plannote');
+  const note = n && !n.hidden ? n.value.trim().slice(0, 500) : '';
+  return { choice: choice === 'go' && note ? 'change' : choice, keep: [...planKept], note };
+}
