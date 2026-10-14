@@ -99,6 +99,8 @@ const TOOLS = [
     inputSchema: { type: 'object', properties: { page: { type: 'integer' } }, required: ['page'] } },
   { name: 'browser_history', description: "Search Joshua's browsing history in Aang's browser (titles and addresses, never money sites). ONLY when he asks you to look at what he visited.",
     inputSchema: { type: 'object', properties: { query: { type: 'string' }, days: { type: 'integer', description: 'how far back, default 14' } } } },
+  { name: 'browser_check_companies', description: "Check the companies Joshua approved (target-companies.json in his job-hunt folder) on their own public job boards (Greenhouse, Lever, Ashby), for new postings that pass his filters, mid-level first. ONLY when he asks or runs his job scan: never on your own, never on a schedule. only: a few company names to check just those.",
+    inputSchema: { type: 'object', properties: { only: { type: 'array', items: { type: 'string' } } } } },
 ];
 
 const line = (i) => `[${i.n}] ${i.role && i.role !== i.kind ? `${i.kind}/${i.role}` : i.kind}${i.state ? ` {${i.state}}` : ''}${i.weight && i.weight !== 'free' ? ` (${i.weight === 'lever' ? 'asks Joshua' : 'never'})` : ''}: ${i.label}${i.value ? ` = "${i.value}"` : ''}${i.href ? ` -> ${i.href}` : ''}${i.ctx ? `  [in: ${i.ctx}]` : ''}${i.view === false ? '  (below/above the screen)' : ''}`;
@@ -110,6 +112,10 @@ async function call(name, a) {
   if (name === 'browser_history') {
     const r = await step('history', { q: String(a.query ?? ''), days: Number(a.days) || 14 });
     return r.ok ? text(JSON.stringify(r.items ?? [], null, 1)) : text(r.error, true);
+  }
+  if (name === 'browser_check_companies') {
+    const r = await step('companies', Array.isArray(a.only) ? { only: a.only.map(String).slice(0, 50) } : {});
+    return r.ok ? text(digestText(r)) : text(r.error, true);
   }
   if (name === 'browser_note') {
     const r = await step('note', { site: String(a.site ?? ''), ...(a.text !== undefined ? { text: String(a.text) } : {}) });

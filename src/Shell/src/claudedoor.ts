@@ -15,14 +15,15 @@ import http from 'node:http';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
-import { digest, line, postingKey, type Posting } from './driverrules.ts';
+import { digest, line, postingKey, sameJobKey, type Posting } from './driverrules.ts';
 import path from 'node:path';
 import { writeFileAtomic } from './atomic.ts';
 import { neverKeep } from './visits.ts';
+import { alertLine, sweepCompanies, type Company } from './atswatch.ts';
 import type { AangBrowser } from './browser.ts';
 
 export const CLAUDE_DOOR_PORT = 47851;
-const OPS = new Set(['start', 'finish', 'open', 'read', 'find', 'jobs', 'collect', 'sweep', 'sweep_status', 'form', 'upload', 'click', 'type', 'key', 'select', 'back', 'forward', 'scroll', 'picture', 'close', 'history', 'note', 'rename']);
+const OPS = new Set(['start', 'finish', 'open', 'read', 'find', 'jobs', 'collect', 'sweep', 'sweep_status', 'form', 'upload', 'click', 'type', 'key', 'select', 'back', 'forward', 'scroll', 'picture', 'close', 'history', 'note', 'rename', 'companies']);
 
 /** Is this request allowed through the door at all? Pure, so it can be tested without a server. */
 export function doorAllows(req: { method?: string; url?: string; headers: Record<string, string | string[] | undefined>; peer: string }, key: string, port: number): boolean {
@@ -47,17 +48,50 @@ function jobDigest(stateDir: string, source: string, list: Posting[], showSeen: 
   const now = Date.now();
   for (const [k, t] of Object.entries(seenAt)) if (now - t > 60 * 86_400_000) delete seenAt[k];
   const d = digest(list, showSeen ? new Set() : new Set(Object.keys(seenAt)));
-  for (const p of list) { const k = postingKey(p); if (k && !seenAt[k]) seenAt[k] = now; }
+  for (const p of list) { for (const k of [postingKey(p), sameJobKey(p)]) if (k && !seenAt[k]) seenAt[k] = now; }
   const keys = Object.keys(seenAt); if (keys.length > 30_000) for (const k of keys.slice(0, keys.length - 30_000)) delete seenAt[k];
   try { writeFileAtomic(seenFile, JSON.stringify(seenAt)); } catch { /* best effort */ }
   const dir = path.join(process.env.JOB_HUNT_DATA || path.join(os.homedir(), 'job-hunt-data'), 'aang-browser');
   const stamp = new Date().toLocaleString('sv-SE', { timeZone: 'America/Toronto' }).replace(/[: ]/g, '-').slice(0, 19);
   const file = path.join(dir, `${stamp}-${source.replace(/[^a-z0-9.-]+/gi, '_').slice(0, 40)}.json`);
-  try { if (!existsSync(dir)) mkdirSync(dir, { recursive: true }); writeFileSync(file, JSON.stringify({ source, at: new Date().toISOString(), counts: { cards: list.length, new: d.isNew, seenBefore: d.old, match: d.match.length, near: d.near.length, skipped: d.skipped, outOfArea: d.away }, match: d.match, near: d.near, all: list }, null, 1)); }
+  try { if (!existsSync(dir)) mkdirSync(dir, { recursive: true }); writeFileSync(file, JSON.stringify({ source, at: new Date().toISOString(), counts: { cards: list.length, new: d.isNew, seenBefore: d.old, duplicates: d.dupes, match: d.match.length, near: d.near.length, skipped: d.skipped, outOfArea: d.away, stale: d.stale }, match: d.match, near: d.near, all: list }, null, 1)); }
   catch { /* the summary still comes back */ }
   return {
-    summary: `${source}: ${list.length} postings, ${d.isNew} new (${d.old} seen before). ${d.match.length} match his lanes, ${d.near.length} near misses, ${d.skipped} skipped by his skip list, ${d.away} outside his area. Full list: ${file}`,
+    summary: `${source}: ${list.length} postings, ${d.isNew} new (${d.old} seen before, ${d.dupes} duplicates). ${d.match.length} match his lanes (mid-level first), ${d.near.length} near misses, ${d.skipped} skipped by his skip list, ${d.away} outside his area, ${d.stale} stale or reposted. Full list: ${file}`,
     match: d.match.map(line), near: d.near.slice(0, 15).map(line), file,
+  };
+}
+
+const jobData = () => process.env.JOB_HUNT_DATA || path.join(os.homedir(), 'job-hunt-data');
+
+/**
+ * His target companies (2026-10-14), checked on their own public job boards ONLY when a Claude session asks (his rule:
+ * "NO AUTO SCANNING"). The list is the one he approved: target-companies.json in his job-hunt folder; a company is
+ * checked only if he approved it. No browser, no login: Greenhouse, Lever and Ashby publish these boards to be read.
+ */
+export async function checkCompanies(stateDir: string, only: string[] = [], get: typeof fetch = fetch): Promise<Record<string, unknown>> {
+  const listFile = path.join(jobData(), 'target-companies.json');
+  let raw: any;
+  try { raw = JSON.parse(readFileSync(listFile, 'utf8')); } catch { return { ok: false, error: `No approved company list yet (${listFile}). He approves the list first.` }; }
+  const want = only.map((x) => String(x).toLowerCase());
+  const list: Company[] = (Array.isArray(raw?.companies) ? raw.companies : [])
+    .filter((c: any) => c && c.approved === true && ['greenhouse', 'lever', 'ashby'].includes(c.ats) && /^[a-z0-9._-]{1,80}$/i.test(String(c.slug ?? '')))
+    .filter((c: any) => !want.length || want.includes(String(c.company).toLowerCase()))
+    .map((c: any) => ({ company: String(c.company).slice(0, 80), ats: c.ats, slug: String(c.slug) }));
+  if (!list.length) return { ok: false, error: 'No approved companies to check (each one needs "approved": true, which only he sets).' };
+  const seenFile = path.join(stateDir, 'ats-seen.json');
+  let seen: string[] = [];
+  try { seen = JSON.parse(readFileSync(seenFile, 'utf8')); } catch { /* none yet */ }
+  const r = await sweepCompanies(list, new Set(seen), get);
+  try { writeFileAtomic(seenFile, JSON.stringify([...new Set([...seen, ...r.seenKeys])].slice(-30_000))); } catch { /* best effort */ }
+  const dir = path.join(jobData(), 'aang-browser');
+  const stamp = new Date().toLocaleString('sv-SE', { timeZone: 'America/Toronto' }).replace(/[: ]/g, '-').slice(0, 19);
+  const file = path.join(dir, `${stamp}-target-companies.json`);
+  try { if (!existsSync(dir)) mkdirSync(dir, { recursive: true }); writeFileSync(file, JSON.stringify({ at: new Date().toISOString(), checked: r.checked, failed: r.failed, fresh: r.fresh }, null, 1)); } catch { /* the summary still comes back */ }
+  return {
+    ok: true,
+    summary: `Target companies: ${r.checked} of ${list.length} boards read${r.failed.length ? ` (could not read: ${r.failed.join(', ')})` : ''}. ${r.fresh.length} new postings pass his filters (mid-level first). Full list: ${file}`,
+    match: r.fresh.map((o) => `${alertLine(o)} ${o.url}`), near: [], file,
   };
 }
 
@@ -81,7 +115,8 @@ export function startClaudeDoor(getBrowser: () => AangBrowser | null, stateDir: 
           const op = String(m.op ?? '');
           const a = (m.a && typeof m.a === 'object' ? m.a : {}) as Record<string, unknown>;
           const b = getBrowser();
-          if (!b) out = { ok: false, error: "Aang's browser is not running." };
+          if (op === 'companies') out = await checkCompanies(stateDir, Array.isArray(a.only) ? (a.only as unknown[]).map(String) : []);
+          else if (!b) out = { ok: false, error: "Aang's browser is not running." };
           else if (!OPS.has(op)) out = { ok: false, error: 'not a step this door allows' };
           else if (op === 'open' && neverKeep(String(a.url ?? ''))) out = { ok: false, error: 'bank and money sites are never opened for a Claude session (his rule). He has to do that himself.' };
           else if (op !== 'start' && op !== 'history' && op !== 'note' && !(
