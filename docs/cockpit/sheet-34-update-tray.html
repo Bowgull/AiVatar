@@ -3,111 +3,146 @@
 <head>
 <meta charset="utf-8">
 <title>Sheet 34 - Update tray</title>
-<!-- Sheet 34 (2026-10-14): his verdict on the update tray, "do you see how confusing this is? i have no idea what im
-     looking into or what it is updating... the ticks should be the update itself and whats happening... settings
-     should live in a ... menu on the bottom right". Styled by the real cockpit.css + browser.css; only the new parts
-     (the ... key, its menu, the group labels) are drawn here. -->
+<!-- Sheet 34 v2 (2026-10-14). v1 verdict: "the ticks should be the update itself", settings in a "..." menu bottom
+     right; then "B shows the menu behind the update panel", "What was checked" is wordy (now one line in the menu),
+     and "a bit of visual push... lamp lighting and maybe some framing". Real cockpit.css + browser.css; the new look
+     (header band with the Samara lantern, lamp glow, corner caps, recessed or parchment list) is drawn here. -->
 <link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
 <link rel="stylesheet" href="../../src/Shell/pages/browser.css">
 <style>
   html,body{background:#17110c;margin:0;overflow:auto!important;height:auto!important;min-height:100%}
   body{color:#e8dcc4;font-family:Figtree,sans-serif;padding:24px}
   h1{font:400 20px Silkscreen,monospace;color:#FFC43C;letter-spacing:2px;margin:0 0 4px}
-  .lead{color:#b9a684;font-size:14px;margin:0 0 20px;max-width:1100px;line-height:1.5}
+  .lead{color:#b9a684;font-size:14px;margin:0 0 20px;max-width:1150px;line-height:1.5}
   .row{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start}
-  .stage{position:relative;width:380px;min-height:470px;background:#24170e url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;border-radius:12px;border:3px solid #0d0703;padding:14px}
-  .stage > h2{font:400 11px Silkscreen,monospace;color:#FFC43C;letter-spacing:1.5px;margin:0 0 10px}
-  .uptray.mock{position:relative;right:auto;top:auto;width:340px}
-  .grp{font:400 9px Silkscreen,monospace;letter-spacing:1.5px;color:#C9A55C;margin:8px 4px 2px}
-  .lines .opt{cursor:pointer}
-  .lines .opt .tick.off{background:#3a2a1c}
-  .lines .opt .tick.off::after{display:none}
-  .lines small{display:block;color:#a8977a;font-size:11.5px}
-  .foot{display:flex;align-items:center;gap:8px;margin:4px 4px 6px}
-  .foot .sp{flex:1}
-  .more{width:30px;height:30px;border-radius:8px;border:2.5px solid var(--outline,#120A05);background:linear-gradient(180deg,#4A2C6E,#2C1848);color:#f3eaff;font:700 15px Figtree;cursor:pointer;box-shadow:0 3px 0 #120A05;display:grid;place-items:center;padding:0;line-height:1}
-  .menu{position:absolute;right:22px;top:262px;width:250px;background:#1d120a;border:2.5px solid #120A05;border-radius:10px;box-shadow:0 6px 0 #000,0 0 0 1px #6E4422 inset;padding:6px;z-index:5}
-  .menu button{display:flex;width:100%;text-align:left;gap:8px;align-items:center;background:none;border:0;color:#E6DCC8;font:500 13px Figtree;padding:7px 8px;border-radius:6px;cursor:pointer}
-  .menu button:hover{background:#2c1d12}
-  .menu hr{border:0;border-top:1px solid #3a2414;margin:4px 2px}
-  .menu .sw{margin-left:auto;width:30px;height:16px;border-radius:9px;background:#3a2a1c;border:2px solid #120A05;position:relative}
-  .menu .sw::after{content:"";position:absolute;left:2px;top:2px;width:8px;height:8px;border-radius:50%;background:#a8977a}
-  .menu .ok{color:#6fbf6a}
-  .checked{margin:6px 4px 2px;padding:8px 10px;border-radius:8px;background:#1d120a;border:1px solid #3a2414;font:500 12px/1.5 Figtree;color:#cdbf9f}
-  .checked b{color:#6fbf6a;font-weight:700}
-  .why{max-width:1100px;margin-top:22px;color:#c9b48c;font-size:13.5px;line-height:1.55}
+  .stage{position:relative;width:392px;min-height:520px;background:#1a110a url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;border-radius:12px;border:3px solid #0d0703;padding:14px;box-sizing:border-box}
+  .stage > h2{font:400 11px Silkscreen,monospace;color:#FFC43C;letter-spacing:1.5px;margin:0 0 12px}
+
+  /* ---- the new tray ---- */
+  .upx{position:relative;right:auto;top:auto;width:356px;padding:0 0 8px;overflow:visible;
+    /* lamp light: a warm pool from the lantern (top left) and a soft dark edge all round */
+    background:radial-gradient(120% 55% at 14% 0%,rgba(255,186,96,.30),rgba(255,160,70,.10) 45%,transparent 72%),url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;
+    box-shadow:0 14px 30px rgba(0,0,0,.6),inset 0 0 38px rgba(0,0,0,.55)}
+  .upx .caps{position:absolute;inset:-8px;pointer-events:none;z-index:3;
+    background:url(../../src/Shell/pages/art/browser/cap3_tl.png) left top/22px 22px no-repeat,url(../../src/Shell/pages/art/browser/cap3_tr.png) right top/22px 22px no-repeat,
+      url(../../src/Shell/pages/art/browser/cap3_bl.png) left bottom/22px 22px no-repeat,url(../../src/Shell/pages/art/browser/cap3_br.png) right bottom/22px 22px no-repeat;image-rendering:pixelated}
+  .upx .hd{display:flex;align-items:center;gap:10px;padding:9px 12px 8px;margin:0 0 8px;
+    background:url(../../src/Shell/pages/art/browser/band.png) repeat-x 0 -6px/128px 58px;image-rendering:pixelated;border-bottom:3px solid #120A05;box-shadow:0 3px 0 rgba(0,0,0,.35)}
+  .upx .hd img{width:32px;height:32px;image-rendering:pixelated;filter:drop-shadow(0 0 6px rgba(255,190,90,.85)) drop-shadow(0 0 14px rgba(255,140,40,.45))}
+  .upx .hd .t{display:flex;flex-direction:column;line-height:1.05}
+  .upx .hd small{font:400 9px Silkscreen,monospace;letter-spacing:1.5px;color:#FFC43C;text-shadow:1px 1px 0 #000}
+  .upx .hd b{font:700 19px Cinzel,serif;color:#fbe7bf;text-shadow:2px 2px 0 #000}
+  .upx .hd .when{margin-left:auto;font:400 9px Silkscreen,monospace;color:#f1e4cc;text-shadow:1px 1px 0 #000;align-self:flex-start;margin-top:3px}
+  .upx .sub{margin:0 14px 8px;font:500 12.5px Figtree;color:#d9c7a3}
+  .upx .list{margin:0 12px 10px;padding:8px 10px;border-radius:9px}
+  .upx .list.pdark{background:radial-gradient(ellipse at 30% 0%,rgba(255,190,100,.08),transparent 60%),#140b05;box-shadow:inset 0 3px 0 rgba(0,0,0,.65),0 1px 0 rgba(255,220,160,.08)}
+  .upx .list.parch{background:#e9d3a6;box-shadow:0 3px 0 #0d0703,inset 0 0 0 2px rgba(120,80,30,.25);color:#2a1c0c}
+  .upx .grp{font:400 9px Silkscreen,monospace;letter-spacing:1.5px;color:#E3A74A;margin:6px 0 3px}
+  .upx .list.parch .grp{color:#8a3e1c}
+  .upx .it{display:flex;gap:9px;align-items:flex-start;margin:4px 0;font:500 13px/1.4 Figtree;color:#EADFC9}
+  .upx .list.parch .it{color:#2a1c0c}
+  .upx .it small{display:block;font-size:11.5px;color:#a8977a}
+  .upx .list.parch .it small{color:#7a5a36}
+  .upx .bx{flex:none;width:15px;height:15px;margin-top:2px;border:2px solid #120A05;border-radius:3px;background:#6fbf6a;position:relative;box-sizing:border-box;box-shadow:0 1px 0 rgba(0,0,0,.4)}
+  .upx .bx::after{content:"";position:absolute;left:3px;top:0;width:3px;height:7px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+  .upx .bx.off{background:#3a2a1c}.upx .list.parch .bx.off{background:#cdb78c}
+  .upx .bx.off::after{display:none}
+  .upx .opt{cursor:pointer}
+  .upx .foot{display:flex;align-items:center;gap:8px;margin:2px 12px 0}
+  .upx .foot .sp{flex:1}
+  .more{width:30px;height:30px;border-radius:8px;border:2.5px solid #120A05;background:linear-gradient(180deg,#4A2C6E,#2C1848);color:#f3eaff;font:700 15px Figtree;cursor:pointer;box-shadow:0 3px 0 #120A05;display:grid;place-items:center;padding:0;line-height:1}
+  .more.on{filter:brightness(1.3);box-shadow:0 0 0 2px #FFC43C,0 3px 0 #120A05}
+  .upmenu{position:absolute;right:4px;bottom:46px;width:250px;z-index:60;padding:6px;border-radius:10px;
+    background:radial-gradient(120% 60% at 20% 0%,rgba(255,186,96,.16),transparent 70%),#1d120a;border:2.5px solid #120A05;box-shadow:0 10px 24px rgba(0,0,0,.7),inset 0 0 0 1px #6E4422}
+  .upmenu button{display:flex;width:100%;text-align:left;gap:8px;align-items:center;background:none;border:0;color:#E6DCC8;font:500 13px Figtree;padding:7px 8px;border-radius:6px;cursor:pointer}
+  .upmenu button:hover{background:#2c1d12}
+  .upmenu hr{border:0;border-top:1px solid #3a2414;margin:4px 2px}
+  .upmenu .sw{margin-left:auto;width:30px;height:16px;border-radius:9px;background:#3a2a1c;border:2px solid #120A05;position:relative}
+  .upmenu .sw::after{content:"";position:absolute;left:2px;top:2px;width:8px;height:8px;border-radius:50%;background:#a8977a}
+  .upmenu .ok{color:#6fbf6a}
+  .upmenu .detail{margin:0 8px 6px 28px;font:500 11.5px/1.45 Figtree;color:#a8977a}
+  .why{max-width:1150px;margin-top:22px;color:#c9b48c;font-size:13.5px;line-height:1.55}
   .why b{color:#FFC43C}
 </style>
 </head>
 <body>
-<h1>SHEET 34 - THE UPDATE TRAY, CLEARER</h1>
-<p class="lead">The ticks are now the update itself: each line is one thing that happens when you press Restart now, grouped by what it changes.
-Lines you can switch off have a tick box (click to untick); the rest always come with the update. Everything else, the safety checks and your settings, moved into the <b>&hellip;</b> menu at the bottom right.</p>
+<h1>SHEET 34 v2 - THE UPDATE TRAY, LAMP-LIT</h1>
+<p class="lead">Each tick is one thing the update does; lines you can switch off say so. The safety details are one line in the <b>&hellip;</b> menu now.
+New: a light-wood header with Samara's lantern glowing in it, warm lamp light falling down the panel, pixel corner caps, and the list set into its own panel.
+Two looks for that panel: a dark recess (1) or parchment like your morning brief (2).</p>
 
 <div class="row">
   <div class="stage">
-    <h2>A. WHAT YOU SEE WHEN YOU CLICK UPDATE</h2>
-    <div class="dltray uptray mock">
-      <div class="gh">UPDATE READY<span>Ready today</span></div>
-      <div class="ver"><b>Version 1.1.0: Gojo</b><small>5 changes. Restart takes about 5 seconds; your tabs come back.</small></div>
-      <div class="lines">
+    <h2>1. LAMP-LIT, DARK RECESS</h2>
+    <div class="dltray uptray upx">
+      <div class="caps"></div>
+      <div class="hd"><img src="../../src/Shell/pages/art/samara/samara-lantern-32.png" alt=""><div class="t"><small>UPDATE READY</small><b>Version 1.1.0: Gojo</b></div><span class="when">TODAY</span></div>
+      <div class="sub">5 changes. Restart takes about 5 seconds; your tabs come back.</div>
+      <div class="list pdark">
         <div class="grp">SAMARA</div>
-        <div><span class="tick"></span><span>Only one Samara in your Dock, always.</span></div>
-        <div><span class="tick"></span><span>Updates get ready in the background, so restarting takes seconds.</span></div>
+        <div class="it"><span class="bx"></span><span>Only one Samara in your Dock, always.</span></div>
+        <div class="it"><span class="bx"></span><span>Updates get ready in the background, so restarting takes seconds.</span></div>
         <div class="grp">SAMARA'S ENGINE</div>
-        <div><span class="tick"></span><span>Chrome's newest security fixes.<small>Always included: they close known holes.</small></span></div>
-        <div class="opt"><span class="tick"></span><span>Lock your saved logins with your computer's own lock.<small>Click to leave this out.</small></span></div>
-        <div class="opt"><span class="tick off"></span><span>Close a back door other programs could use.<small>Left out. Click to put it back in.</small></span></div>
+        <div class="it"><span class="bx"></span><span>Chrome's newest security fixes.<small>Always included: they close known holes.</small></span></div>
+        <div class="it opt"><span class="bx"></span><span>Lock your saved logins with your computer's own lock.<small>Click to leave this out.</small></span></div>
+        <div class="it opt"><span class="bx off"></span><span>Close a back door other programs could use.<small>Left out. Click to put it back in.</small></span></div>
       </div>
       <div class="foot"><button class="key primary sm" type="button">Restart now</button><button class="key sm" type="button">Later</button><span class="sp"></span><button class="more" type="button" title="More">&hellip;</button></div>
     </div>
   </div>
 
   <div class="stage">
-    <h2>B. THE &hellip; MENU</h2>
-    <div class="dltray uptray mock">
-      <div class="gh">UPDATE READY<span>Ready today</span></div>
-      <div class="ver"><b>Version 1.1.0: Gojo</b><small>5 changes. Restart takes about 5 seconds; your tabs come back.</small></div>
-      <div class="lines" style="opacity:.35">
+    <h2>2. LAMP-LIT, PARCHMENT (LIKE THE BRIEF)</h2>
+    <div class="dltray uptray upx">
+      <div class="caps"></div>
+      <div class="hd"><img src="../../src/Shell/pages/art/samara/samara-lantern-32.png" alt=""><div class="t"><small>UPDATE READY</small><b>Version 1.1.0: Gojo</b></div><span class="when">TODAY</span></div>
+      <div class="sub">5 changes. Restart takes about 5 seconds; your tabs come back.</div>
+      <div class="list parch">
         <div class="grp">SAMARA</div>
-        <div><span class="tick"></span><span>Only one Samara in your Dock, always.</span></div>
-        <div><span class="tick"></span><span>Updates get ready in the background, so restarting takes seconds.</span></div>
+        <div class="it"><span class="bx"></span><span>Only one Samara in your Dock, always.</span></div>
+        <div class="it"><span class="bx"></span><span>Updates get ready in the background, so restarting takes seconds.</span></div>
+        <div class="grp">SAMARA'S ENGINE</div>
+        <div class="it"><span class="bx"></span><span>Chrome's newest security fixes.<small>Always included: they close known holes.</small></span></div>
+        <div class="it opt"><span class="bx"></span><span>Lock your saved logins with your computer's own lock.<small>Click to leave this out.</small></span></div>
+        <div class="it opt"><span class="bx off"></span><span>Close a back door other programs could use.<small>Left out. Click to put it back in.</small></span></div>
       </div>
-      <div class="foot"><button class="key primary sm" type="button">Restart now</button><button class="key sm" type="button">Later</button><span class="sp"></span><button class="more" type="button" title="More" style="filter:brightness(1.3)">&hellip;</button></div>
+      <div class="foot"><button class="key primary sm" type="button">Restart now</button><button class="key sm" type="button">Later</button><span class="sp"></span><button class="more" type="button" title="More">&hellip;</button></div>
     </div>
-    <div class="menu">
-        <button type="button"><span class="ok">&#10003;</span> What was checked</button>
+  </div>
+
+  <div class="stage">
+    <h2>3. THE &hellip; MENU, ON TOP</h2>
+    <div class="dltray uptray upx">
+      <div class="caps"></div>
+      <div class="hd"><img src="../../src/Shell/pages/art/samara/samara-lantern-32.png" alt=""><div class="t"><small>UPDATE READY</small><b>Version 1.1.0: Gojo</b></div><span class="when">TODAY</span></div>
+      <div class="sub">5 changes. Restart takes about 5 seconds; your tabs come back.</div>
+      <div class="list pdark">
+        <div class="grp">SAMARA</div>
+        <div class="it"><span class="bx"></span><span>Only one Samara in your Dock, always.</span></div>
+        <div class="it"><span class="bx"></span><span>Updates get ready in the background, so restarting takes seconds.</span></div>
+        <div class="grp">SAMARA'S ENGINE</div>
+        <div class="it"><span class="bx"></span><span>Chrome's newest security fixes.</span></div>
+      </div>
+      <div class="foot"><button class="key primary sm" type="button">Restart now</button><button class="key sm" type="button">Later</button><span class="sp"></span><button class="more on" type="button" title="More">&hellip;</button></div>
+      <div class="upmenu">
+        <button type="button"><span class="ok">&#10003;</span> Checked and safe</button>
+        <div class="detail">From your own PC, fingerprints matched, tested here. If it won't start, the old one comes back.</div>
+        <hr>
         <button type="button">&#9201; Remind me tonight</button>
         <button type="button">&#8631; Skip this version</button>
-        <hr>
         <button type="button">&#128214; Every version (the changelog)</button>
         <button type="button">&#10227; Check for updates now</button>
         <button type="button">&#8630; Go back to the last version</button>
         <hr>
         <button type="button">Update by itself overnight <span class="sw"></span></button>
       </div>
-  </div>
-
-  <div class="stage">
-    <h2>C. "WHAT WAS CHECKED"</h2>
-    <div class="dltray uptray mock">
-      <div class="gh">UPDATE READY<span>Ready today</span></div>
-      <div class="ver"><b>Version 1.1.0: Gojo</b><small>What was checked before it was offered</small></div>
-      <div class="checked">
-        <div><b>&#10003;</b> It came from your own PC, over your private, locked connection.</div>
-        <div><b>&#10003;</b> Every download matched its official fingerprint.</div>
-        <div><b>&#10003;</b> It passed Aang's tests on this computer.</div>
-        <div><b>&#10003;</b> If it ever won't start, the last version comes back by itself, and Claude gets a report.</div>
-      </div>
-      <div class="foot"><button class="key sm" type="button">Back</button><span class="sp"></span><button class="more" type="button">&hellip;</button></div>
     </div>
   </div>
 </div>
 
 <div class="why">
-<b>My recommendations for the &hellip; menu:</b> <b>Remind me tonight</b> (the key comes back at 8 pm), <b>Skip this version</b> (waits for the next one),
-<b>Every version</b> (the changelog), <b>Check for updates now</b>, <b>Go back to the last version</b> (if something feels off after updating), and
-<b>Update by itself overnight</b>, off unless you switch it on: it would only run when you're away, never in a game or a call.
+<b>The &hellip; menu:</b> "Checked and safe" is one line now; its details show only under it, in one sentence. The rest: Remind me tonight, Skip this version,
+Every version (the changelog), Check for updates now, Go back to the last version, and Update by itself overnight (off unless you switch it on; never in a game or a call).
 </div>
 </body>
 </html>
