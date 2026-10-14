@@ -4,6 +4,7 @@
 // tabs, history and logins. Money sites never travel. When the PC is off it works on its own and catches up later.
 //
 // Run as the "Aang" app the Mac setup makes (Aang.app in ~/Applications). It can be his default browser (his yes).
+import { startClaudeDoor } from './claudedoor.ts';
 import { app, globalShortcut, ipcMain, Menu, nativeImage } from 'electron';
 import { appendFileSync, existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
@@ -74,6 +75,8 @@ app.whenReady().then(async () => {
     origin: pages.origin, stateDir, preloadPath: path.join(HERE, 'preload.cjs'), tabPreloadPath: path.join(HERE, 'tabpreload.cjs'),
     settingsPreloadPath: path.join(HERE, 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, 'thingspreload.cjs'),
   });
+  // 6.25a: Claude sessions on this Mac drive the browser through its own door (claudedoor.ts).
+  startClaudeDoor(() => browser, stateDir);
   // Sheet 21 (his pick, 2026-10-13): while Shadow is off, the Mac's front desk posts the morning brief and the like as
   // the same drawn cards. It cannot draw (it has no browser engine), so it asks here. Only from this Mac (loopback),
   // only with the hook key the setup wrote, never from a web page (no Origin), small bodies, one card at a time.
