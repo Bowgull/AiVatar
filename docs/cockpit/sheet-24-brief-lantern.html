@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 24 - The Lantern brief</title>
+<!-- Sheet 24 (2026-10-14): his pick from sheet 23 is B, the Lantern. Weather icons redrawn the Stardew way (his words:
+     "pixel art kinda Stardew Valley, not too real"): chunky shapes, coloured outlines instead of black, two or three
+     tones per shape, light from the top-left. Burnt orange is the third button colour when there are several choices.
+     Every name and time here is SAMPLE data. -->
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<style>
+  html,body{background:#17110c !important;overflow:auto !important;height:auto !important;pointer-events:auto !important;user-select:text !important}
+  body{margin:0;color:#e8dcc4;font-family:var(--body);padding:28px 34px 44px;pointer-events:auto}
+  h1{font:400 20px var(--label);color:var(--gold);letter-spacing:2px;margin:0 0 4px}
+  .lead{color:#b9a684;font-size:14px;margin:0 0 24px;max-width:1240px;line-height:1.5}
+  .row2{display:flex;gap:40px;align-items:flex-start;flex-wrap:wrap}
+  h2{font:400 11px var(--label);color:#c9b48c;letter-spacing:1.5px;margin:0 0 10px}
+  .why{font-size:13px;color:#b9a684;line-height:1.45;margin:0 2px 12px;max-width:560px}
+  .px{image-rendering:pixelated;display:block}
+
+  .bub{position:relative;width:560px;border-radius:16px;box-shadow:0 5px 0 rgba(0,0,0,.5),0 18px 34px rgba(0,0,0,.45);margin-top:30px}
+  .bub::before{content:"";position:absolute;left:96px;top:-26px;width:34px;height:30px;background:#2a1a0f;clip-path:polygon(0 0,100% 100%,0 100%)}
+  .b{background:#20140c url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;border:3px solid #0d0703;color:#ecdcbc}
+  .b .top{display:flex;gap:14px;padding:16px 18px 10px;align-items:stretch}
+  .b .date{flex:1}
+  .b .date small{display:block;font:400 10px var(--label);letter-spacing:2px;color:var(--gold)}
+  .b .date b{display:block;font:700 26px/1.05 var(--display);color:#fbe7bf;text-shadow:2px 2px 0 #000}
+  .b .date span{display:block;font:italic 500 13px var(--body);color:#c9b48c;margin-top:4px}
+  .lamp{display:flex;gap:4px;padding:6px;border-radius:10px;background:radial-gradient(ellipse at 50% 30%,rgba(255,196,90,.2),rgba(0,0,0,0) 70%),#140b05;box-shadow:inset 0 2px 0 rgba(0,0,0,.6)}
+  .lamp .c{width:62px;display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 0 5px}
+  .lamp .c i{font:400 8px var(--label);letter-spacing:1px;color:#a88a5a;font-style:normal}
+  .lamp .c b{font:700 15px var(--body);color:#ffe9b8}
+  .lamp .c.now{background:rgba(255,200,100,.09);border-radius:7px;box-shadow:inset 0 0 0 1px rgba(255,210,120,.28)}
+  .b .body{padding:0 18px 6px}
+  .slip{background:#e9d3a6;border-radius:9px;padding:9px 12px 8px;margin:0 0 9px;box-shadow:0 3px 0 #0d0703,inset 0 0 0 2px rgba(120,80,30,.25);color:#2a1c0c}
+  .slip h3{margin:0 0 4px;font:400 10px var(--label);letter-spacing:2px;color:#8a3e1c}
+  .item{display:flex;align-items:center;gap:11px;padding:4px 6px;margin:0 -6px;border-radius:8px}
+  .tile{width:30px;height:30px;flex:none;border-radius:7px;background:#f3e3bf;box-shadow:inset 0 0 0 2px #b38a52,0 2px 0 #9b7442;display:grid;place-items:center}
+  .tile.round{border-radius:50%}
+  .txt{flex:1;min-width:0}
+  .txt b{display:block;font:700 14.5px/1.25 var(--body);color:#2a1c0c}
+  .txt span{display:block;font:500 12.5px/1.3 var(--body);color:#6a5236}
+  .when{flex:none;font:700 13px var(--body);color:#8a3e1c;text-align:right}
+  .when small{display:block;font:400 8.5px var(--label);letter-spacing:1px;color:#9a7a4a}
+  .keys{display:flex;gap:9px;align-items:center;padding:2px 18px 16px}
+  .key{font:700 13px var(--body);padding:8px 14px;border-radius:9px;border:3px solid #120a05;box-shadow:0 4px 0 #120a05;background:linear-gradient(180deg,var(--gold-lit),var(--gold));color:#2a1c00}
+  .key.plum{background:linear-gradient(180deg,#5d3a88,var(--plum));color:#f1e8ff}
+  .key.burnt{background:linear-gradient(180deg,#E07A3C,#B4501F);color:#fff2e4}
+  .meter{margin-left:auto;font:400 9px var(--label);letter-spacing:1px;color:#b89a6a;display:flex;align-items:center;gap:6px}
+  .meter i{display:inline-flex;gap:2px}
+  .meter i u{width:6px;height:9px;background:#3a2a1a;border:1px solid #7a5a3a;text-decoration:none}
+  .meter i u.on{background:#78c88a}
+
+  .set{display:grid;grid-template-columns:repeat(4,120px);gap:16px;background:#e9d3a6;border-radius:12px;padding:18px;box-shadow:0 4px 0 #000;margin-bottom:18px}
+  .set div{display:flex;flex-direction:column;align-items:center;gap:8px;font:400 9px var(--label);letter-spacing:1px;color:#6a4a22}
+  .set.dark{background:#140b05;box-shadow:inset 0 2px 0 rgba(0,0,0,.6),0 4px 0 #000}
+  .set.dark div{color:#b89a6a}
+  .three{display:flex;gap:10px;align-items:center;background:#e9d3a6;border-radius:12px;padding:16px 18px;box-shadow:0 4px 0 #000;color:#2a1c0c;font:600 14px var(--body)}
+</style>
+</head>
+<body>
+<h1>SHEET 24 - THE LANTERN BRIEF</h1>
+<p class="lead">Your pick from sheet 23 (B), finished. The weather icons are redrawn the Stardew way: chunky, cute, coloured outlines instead of black, two or three tones each, light from the top-left. Burnt orange shows as the third button when there is more than one choice. Every name and time is made up.</p>
+
+<div class="row2">
+  <div>
+    <h2>THE BRIEF, AT YOUR DESK</h2>
+    <div class="bub b">
+      <div class="top">
+        <div class="date"><small>GOOD MORNING</small><b>Wednesday</b><span>October 14. Rain from 4 pm, bring a jacket.</span></div>
+        <div class="lamp">
+          <div class="c now"><i>MORN</i><span data-icon="partly"></span><b>8°</b></div>
+          <div class="c"><i>AFTN</i><span data-icon="cloud"></span><b>14°</b></div>
+          <div class="c"><i>EVE</i><span data-icon="rain"></span><b>11°</b></div>
+        </div>
+      </div>
+      <div class="body">
+        <div class="slip"><h3>JOB HUNT</h3>
+          <div class="item"><div class="tile"><span data-icon="cal"></span></div><div class="txt"><b>Interview, Northwind</b><span>Video call with the design team</span></div><div class="when">2:00 pm<small>TODAY</small></div></div>
+          <div class="item"><div class="tile round"><span data-icon="letter"></span></div><div class="txt"><b>Rhea Patel is waiting on you</b><span>Asks if Thursday works for the demo</span></div><div class="when">REPLY</div></div>
+          <div class="item"><div class="tile"><span data-icon="star"></span></div><div class="txt"><b>3 new job matches</b><span>Best: Product Designer at Lumen</span></div></div>
+        </div>
+        <div class="slip"><h3>WAITING ON YOU</h3>
+          <div class="item"><div class="tile"><span data-icon="claude"></span></div><div class="txt"><b>Portfolio update</b><span>Claude wants your OK to publish</span></div></div>
+          <div class="item"><div class="tile round"><span data-icon="letter"></span></div><div class="txt"><b>Sam asked "Saturday?"</b><span>A reply is drafted and ready to send</span></div></div>
+        </div>
+        <div class="slip"><h3>TODAY</h3>
+          <div class="item"><div class="tile"><span data-icon="tooth"></span></div><div class="txt"><b>Dentist</b><span>Queen St W, 12 min drive</span></div><div class="when">10:30 am</div></div>
+        </div>
+      </div>
+      <div class="keys"><span class="key">Got it</span><span class="key plum">Open the brief</span><span class="key burnt">Reply to Rhea</span>
+        <span class="meter">WEEK <i><u class="on"></u><u class="on"></u><u class="on"></u><u class="on"></u><u></u><u></u><u></u><u></u><u></u><u></u></i> 40%</span></div>
+    </div>
+  </div>
+  <div>
+    <h2>THE WEATHER SET, ON PARCHMENT</h2>
+    <div class="set">
+      <div><span data-icon="sun"></span>CLEAR</div><div><span data-icon="partly"></span>SOME SUN</div><div><span data-icon="cloud"></span>CLOUDY</div><div><span data-icon="rain"></span>RAIN</div>
+      <div><span data-icon="storm"></span>STORM</div><div><span data-icon="snow"></span>SNOW</div><div><span data-icon="fog"></span>FOG</div><div><span data-icon="moon"></span>CLEAR NIGHT</div>
+    </div>
+    <h2>AND IN THE LAMP (DARK)</h2>
+    <div class="set dark">
+      <div><span data-icon="sun"></span>CLEAR</div><div><span data-icon="partly"></span>SOME SUN</div><div><span data-icon="cloud"></span>CLOUDY</div><div><span data-icon="rain"></span>RAIN</div>
+      <div><span data-icon="storm"></span>STORM</div><div><span data-icon="snow"></span>SNOW</div><div><span data-icon="fog"></span>FOG</div><div><span data-icon="moon"></span>CLEAR NIGHT</div>
+    </div>
+    <h2>BURNT ORANGE: THE THIRD CHOICE</h2>
+    <p class="why">Only when there are several choices: gold is the main one, plum the second, burnt orange the third.</p>
+    <div class="three">Rhea's video?<span class="key">Popout</span><span class="key plum">Full browser</span><span class="key burnt">On the MacBook</span></div>
+  </div>
+</div>
+
+<script>
+// Stardew-style pixel art: coloured outlines, 2-3 tones, light from the top-left. Each icon is layers of small grids,
+// drawn at 2 CSS px per art pixel. A later layer paints over an earlier one.
+const C = {
+  o:'#9C4A16', s:'#F0901E', y:'#FFCB3A', h:'#FFF2A0',                         // sun
+  c:'#46587C', w:'#FFFFFF', g:'#DCE6F4', d:'#A8B9D6',                         // cloud
+  k:'#2E3248', G:'#A2AAC0', D:'#767F99', E:'#5A6280',                         // storm cloud
+  b:'#2B78D0', B:'#8ED2FF',                                                    // rain
+  l:'#FFE04A', L:'#FFF7BE',                                                    // bolt
+  f:'#FFFFFF', F:'#B9E3FF',                                                    // snow
+  n:'#8A5E1E', m:'#FFE6A0', M:'#E8B64A', t:'#FFF6C8',                         // moon, stars
+  v:'#9AA8C4', V:'#C9D3E6',                                                    // fog
+  r:'#C8402E', R:'#F06A50', p:'#FFFFFF', q:'#D8CFC0', e:'#6A4A22',            // calendar
+  a:'#B06A10', A:'#FFD24A', Z:'#FFF2A0',                                       // star
+  x:'#7A5530', X:'#F6EBD3', Y:'#E0CCA4', W:'#C8402E',                          // letter
+  K:'#D97757',                                                                 // Claude
+  T:'#F8F4EC', u:'#8E8270', U:'#D8D0C2',                                       // tooth
+};
+const SUN = ['...oooo...','.oohhyyoo.','.ohhyyyyo.','ohhyyyyyso','ohyyyyyyso','oyyyyyyyso','osyyyyysso','.ossssssoo','..oooooo..'];
+const RAYS = ['.......ss.......','..s....oo....s..','...o........o...','................','................','................','................','so............os','so............os','................','................','................','................','...o........o...','..s....oo....s..','.......ss.......'];
+const CLOUD = ['.....ccc.......','....cwwwc.ccc..','..cccwwwwcwwwc.','.cwwwwwwwwwwwwc','cwwwwwwwwwwwwwc','cwwwwwwwwwwwwgc','cgwwwwwwwwwwggc','cdggggggggggddc','.cdddddddddddc.','..ccccccccccc..'];
+const DARK = CLOUD.map((r) => r.replace(/c/g, 'k').replace(/w/g, 'G').replace(/g/g, 'D').replace(/d/g, 'E'));
+const DROPS = ['.B...B...B','.b...b...b','bb..bb..bb','..........','...B...B..','...b...b..','..bb..bb..'];
+const BOLT = ['..oooo','.olLlo','ollloo','ooolllo','..ollo.','.olo...','.oo....'];
+const FLAKES = ['.F...F...F.','FfF.FfF.FfF','.F...F...F.','...........','...F...F...','..FfF.FfF..','...F...F...'];
+const FOG = ['..VVVVVVVVV...','.vvvvvvvvvvv..','..............','VVVVVVVVVVVV..','vvvvvvvvvvvvv.','..............','...VVVVVVVVVVV','...vvvvvvvvvvv','..............','.VVVVVVVV.....','.vvvvvvvv.....'];
+const MOON = ['...nnnn....','..nmmmmn...','.nmmmmn....','.nmmmn.....','nmmmn......','nmmmn......','nmmmmn.....','nMmmmmnnnn.','.nMmmmmmmmn','..nMMMMMMn.','...nnnnnn..'];
+const STARS = ['....t','...tLt','....t','.....','.....','t....'];
+const ICONS = {
+  sun: [[RAYS, 0, 0], [SUN, 3, 3]],
+  partly: [[SUN, 0, 0], [CLOUD, 2, 5]],
+  cloud: [[CLOUD, 0, 3]],
+  rain: [[CLOUD, 0, 0], [DROPS, 3, 10]],
+  storm: [[DARK, 0, 0], [BOLT, 5, 9]],
+  snow: [[CLOUD, 0, 0], [FLAKES, 2, 10]],
+  fog: [[FOG, 1, 2]],
+  moon: [[MOON, 1, 3], [STARS, 9, 0]],
+  cal: [[['.e..e..e..','rRRRRRRRRr','rrrrrrrrrr','qpppppppq.','qpepepepq.','qpppppppq.','qpepWWppq.','qpppWWppq.','qqqqqqqqq.'], 0, 0]],
+  star: [[['....a.....','...aAa....','...aZa....','aaaaZAaaaa','.aAZAAAAa.','..aAAAAa..','..aAAaAa..','.aAa..aAa.','.aa....aa.'], 0, 0]],
+  letter: [[['xxxxxxxxxx','xWXXXXXXWx','xXWXXXXWXx','xXXWXXWXXx','xXXXWWXXXx','xYXXXXXXYx','xYYYYYYYYx','xxxxxxxxxx'], 0, 1]],
+  claude: [[['....K....','.K..K..K.','..K.K.K..','...KKK...','KKKKKKKKK','...KKK...','..K.K.K..','.K..K..K.','....K....'], 0, 0]],
+  tooth: [[['.uuu..uuu.','uTTTuuTTTu','uTTTTTTTUu','uTTTTTTTUu','.uTTTTTUu.','.uTTuuTUu.','.uTu..uUu.','.uTu..uUu.','..u....u..'], 0, 0]],
+};
+function draw(name) {
+  const layers = ICONS[name]; if (!layers) return null;
+  let w = 0, h = 0;
+  for (const [g, dx, dy] of layers) { w = Math.max(w, dx + Math.max(...g.map((r) => r.length))); h = Math.max(h, dy + g.length); }
+  const px = new Map();
+  for (const [g, dx, dy] of layers) g.forEach((row, y) => [...row].forEach((ch, x) => { if (ch !== '.' && C[ch]) px.set(`${x + dx},${y + dy}`, C[ch]); }));
+  let rects = '';
+  for (const [k, col] of px) { const [x, y] = k.split(','); rects += `<rect x="${x}" y="${y}" width="1" height="1" fill="${col}"/>`; }
+  return `<svg class="px" width="${w * 2}" height="${h * 2}" viewBox="0 0 ${w} ${h}" shape-rendering="crispEdges">${rects}</svg>`;
+}
+for (const s of document.querySelectorAll('[data-icon]')) { const svg = draw(s.dataset.icon); if (svg) s.innerHTML = svg; }
+</script>
+</body>
+</html>
