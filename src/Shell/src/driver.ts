@@ -274,6 +274,8 @@ export class Driver {
     return job;
   }
   job(id: number): Job | undefined { return this.jobs.find((j) => j.id === id); }
+  /** A job's group in the tab list is named for what it is doing ("JOB SCAN"), his ask 2026-10-14. */
+  rename(id: number, name: string): void { const j = this.job(id); if (j && name.trim()) { j.name = cleanName(name); this.d.changed(); } }
   finish(id: number): void { const j = this.job(id); if (j && j.working) { j.working = false; this.d.changed(); } }
   /** STOP: from the drawer, the address bar, or his words. Every page of the job stops loading at once. */
   stop(id: number): void {
