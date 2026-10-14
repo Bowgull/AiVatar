@@ -2,50 +2,48 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>37A shield</title>
-<!-- Sheet 37 A: the shield's own panel, grown. The real bandchip.site from browser.css; the switches are the real .sw.
-     New: "AI on this site" (two switches) and "This site can" (camera, mic, popups as three-way picks). -->
+<title>37 shield</title>
+<!-- Sheet 37 v2: the shield's own panel (browser.css .bandchip.site, real .sw switches), his notes: no helper text, just on
+     or off; ads and popups are different things and stay separate. Pixel icons on every row (icons.js). Three-way rules
+     use his keycap colours: gold = allow, plum = ask, burnt orange = block. Click one to cycle. -->
 <link rel="stylesheet" href="../../../src/Shell/pages/cockpit.css">
 <link rel="stylesheet" href="../../../src/Shell/pages/browser.css">
 <style>
   html,body{background:transparent;margin:0;overflow:hidden!important;height:auto!important}
-  body{padding:22px 10px 10px;display:flex;gap:26px;align-items:flex-start}
-  .bandchip.site{position:relative!important;left:auto!important;top:auto!important;width:316px}
-  .sw[aria-checked="true"] .bed{background:#3c8a3a}
-  .sw[aria-checked="true"] .nub{left:27px;background:linear-gradient(180deg,#fff3c4,#e8c25a)}
-  .sec{font:400 9px var(--label);letter-spacing:1.5px;color:#8a3e1c;margin:14px 0 2px;padding-top:10px;border-top:2px dashed rgba(90,60,30,.35)}
-  .three{display:flex;align-items:center;gap:8px;margin-top:8px}
-  .three b{flex:1;font:700 14px var(--body);color:var(--carve-ink)}
-  .seg{display:flex;border:2.5px solid var(--outline);border-radius:8px;overflow:hidden;box-shadow:0 2px 0 rgba(0,0,0,.35)}
-  .seg span{font:700 12px var(--body);padding:4px 8px;background:#e9d3a6;color:#5a4834;border-left:2px solid var(--outline)}
-  .seg span:first-child{border-left:none}
-  .seg span.on{background:var(--gold);color:#2a1c00}
-  .seg span.on.no{background:#B8452E;color:#FFF1E0}
-  .lockrow{display:flex;gap:10px;align-items:flex-start;margin-top:8px;padding:8px 10px;border-radius:8px;background:rgba(184,69,46,.14);border:2px solid rgba(120,40,20,.35)}
-  .lockrow b{display:block;font:700 14px var(--body);color:#6e1d10}
-  .lockrow small{display:block;font:500 12px var(--body);color:#5a4834}
-  .cap{font:400 10px Silkscreen,monospace;color:#FFC43C;letter-spacing:1.5px;margin:0 0 20px;text-shadow:1px 1px 0 #000}
+  body{padding:22px 10px 10px}
+  .bandchip.site{position:relative!important;left:auto!important;top:auto!important;width:300px}
+  .sw[aria-checked="true"] .bed{background:#2a8f82;box-shadow:inset 0 3px 0 rgba(0,0,0,.4),0 0 8px rgba(159,240,230,.55)}
+  .sw[aria-checked="true"] .nub{left:27px;background:linear-gradient(180deg,#e9fffb,#9FF0E6)}
+  .r{display:flex;align-items:center;gap:10px;margin-top:9px;cursor:pointer}
+  .r .ic{width:22px;display:grid;place-items:center;flex:none}
+  .r b{flex:1;font:700 14px var(--body);color:var(--carve-ink)}
+  .sec{font:400 9px var(--label);letter-spacing:1.5px;color:#8a3e1c;margin:14px 0 0;padding-top:10px;border-top:2px dashed rgba(90,60,30,.35)}
+  .st{min-width:62px;justify-content:center}
+  .key.burnt{background:#C8602A;color:#fff2e4;text-shadow:0 1px 0 rgba(0,0,0,.5)}
 </style>
 </head>
 <body>
-<div>
-  <p class="cap">ON LINKEDIN.COM</p>
   <div class="bandchip site">
     <div class="q">linkedin.com</div>
-    <label class="adrow"><button class="sw" type="button" role="switch" aria-checked="true"><i class="bed"><i class="nub"></i></i></button>
-      <span><b>Block ads on this site</b><small>On.</small></span></label>
-    <label class="adrow"><button class="sw" type="button" role="switch" aria-checked="false"><i class="bed"><i class="nub"></i></i></button>
-      <span><b>Dark mode on this site</b><small>Off.</small></span></label>
-    <div class="sec">AI ON THIS SITE</div>
-    <label class="adrow"><button class="sw" type="button" role="switch" aria-checked="true"><i class="bed"><i class="nub"></i></i></button>
-      <span><b>Claude and Aang can use it</b><small>Off means they can never open or read it.</small></span></label>
-    <label class="adrow"><button class="sw" type="button" role="switch" aria-checked="true"><i class="bed"><i class="nub"></i></i></button>
-      <span><b>They can use my login</b><small>Sending and applying still ask you.</small></span></label>
+    <div class="r"><span class="ic"><i data-pix="ads"></i></span><b>Block ads</b><button class="sw" type="button" role="switch" aria-checked="true"><i class="bed"><i class="nub"></i></i></button></div>
+    <div class="r"><span class="ic"><i data-pix="dark"></i></span><b>Dark mode</b><button class="sw" type="button" role="switch" aria-checked="false"><i class="bed"><i class="nub"></i></i></button></div>
+    <div class="sec">AI</div>
+    <div class="r"><span class="ic"><i data-pix="ai"></i></span><b>Claude and Aang</b><button class="sw" type="button" role="switch" aria-checked="true"><i class="bed"><i class="nub"></i></i></button></div>
+    <div class="r"><span class="ic"><i data-pix="key"></i></span><b>Use my login</b><button class="sw" type="button" role="switch" aria-checked="true"><i class="bed"><i class="nub"></i></i></button></div>
     <div class="sec">THIS SITE CAN USE</div>
-    <div class="three"><b>Camera</b><div class="seg"><span class="on">Ask</span><span>Yes</span><span>No</span></div></div>
-    <div class="three"><b>Microphone</b><div class="seg"><span class="on">Ask</span><span>Yes</span><span>No</span></div></div>
-    <div class="three"><b>Popups</b><div class="seg"><span>Ask</span><span>Yes</span><span class="on no">No</span></div></div>
+    <div class="r"><span class="ic"><i data-pix="camera"></i></span><b>Camera</b><button class="key sm st" data-cyc type="button">Ask</button></div>
+    <div class="r"><span class="ic"><i data-pix="mic"></i></span><b>Microphone</b><button class="key sm st" data-cyc type="button">Ask</button></div>
+    <div class="r"><span class="ic"><i data-pix="popup"></i></span><b>Popups</b><button class="key sm st burnt" data-cyc type="button">Block</button></div>
   </div>
-</div>
+<script type="module">
+import { paintIcons } from './icons.js';
+paintIcons();
+const ORDER = [['Allow', 'primary'], ['Ask', ''], ['Block', 'burnt']];
+for (const k of document.querySelectorAll('[data-cyc]')) k.onclick = () => {
+  const i = (ORDER.findIndex(([t]) => t === k.textContent) + 1) % 3;
+  k.textContent = ORDER[i][0]; k.className = 'key sm st ' + ORDER[i][1];
+};
+for (const s of document.querySelectorAll('.sw')) s.onclick = () => s.setAttribute('aria-checked', String(s.getAttribute('aria-checked') !== 'true'));
+</script>
 </body>
 </html>

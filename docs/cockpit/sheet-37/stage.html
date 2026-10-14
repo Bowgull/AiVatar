@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>37 stage</title>
+<!-- Sheet 37 v2: a working prototype. His real idle/talk frames, the real balloon (balloon.js: balloonPath + paintBalloon,
+     tail and all), the real Lantern brief classes (bubble.css .lt-*). His rule: everything takes turns, nothing crowds;
+     the bubble grows and shrinks to fit, smoothly (sheet 13's grow-then-fill). -->
+<link rel="stylesheet" href="../../../src/Shell/pages/cockpit.css">
+<link rel="stylesheet" href="../../../src/Shell/pages/bubble.css">
+<style>
+  html,body{margin:0;background:transparent!important;overflow:hidden!important;height:auto!important;width:auto!important;display:block!important}
+  .desk{position:relative;width:1180px;height:640px;border-radius:10px;overflow:hidden;
+    background:radial-gradient(90% 70% at 30% 20%,#2a2238,#120c1a 70%),#120c1a}
+  .desk::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(0deg,rgba(255,255,255,.012) 0 2px,transparent 2px 4px);pointer-events:none}
+  #aang{position:absolute;right:30px;bottom:6px;width:224px;height:224px;image-rendering:pixelated}
+  #wrap{position:absolute;right:220px;bottom:150px;margin:0;pointer-events:auto}
+  #skin{position:absolute;left:0;top:0;overflow:visible;pointer-events:none}
+  #bubble{position:relative;box-sizing:border-box;overflow:hidden;width:256px;transition:width .26s cubic-bezier(.3,.7,.2,1),height .26s cubic-bezier(.3,.7,.2,1)}
+  #bubble.lantern{color:#ecdcbc}
+  #fill{transition:opacity .14s ease}
+  #fill.out{opacity:0}
+  /* the plan card, in the Lantern's own pieces */
+  .pc-top{display:flex;align-items:center;gap:10px;margin:0 0 10px}
+  .pc-top img{width:32px;height:32px;image-rendering:pixelated;filter:drop-shadow(0 0 6px rgba(255,190,90,.85)) drop-shadow(0 0 14px rgba(255,140,40,.45))}
+  .pc-top small{display:block;font:400 10px var(--label);letter-spacing:2px;color:var(--gold)}
+  .pc-top b{display:block;font:700 22px/1.05 var(--display);color:#fbe7bf;text-shadow:2px 2px 0 #000}
+  .tq{flex:none;width:18px;height:18px;border:2.5px solid #120A05;border-radius:4px;box-sizing:border-box;position:relative;cursor:pointer;
+    background:#3FBFAE;box-shadow:0 0 6px rgba(159,240,230,.9),0 0 14px rgba(159,240,230,.45),0 2px 0 rgba(0,0,0,.4)}
+  .tq::after{content:"";position:absolute;left:4px;top:0;width:4px;height:8px;border:solid #fff;border-width:0 2.5px 2.5px 0;transform:rotate(45deg)}
+  .tq.off{background:#cdb78c;box-shadow:0 2px 0 rgba(0,0,0,.4)}.tq.off::after{display:none}
+  .lt-item.off .lt-txt{opacity:.5;text-decoration:line-through}
+  .lt-tile .pix{display:block}
+  .num{font:400 12px var(--label);color:#8a3e1c}
+  .wont{display:flex;align-items:center;gap:8px;margin:0 2px 10px;font:600 13px var(--body);color:#f0c9a8}
+  .note{display:none;margin:0 0 10px;padding:9px 12px;border-radius:8px;background:#140b05;box-shadow:inset 0 2px 0 rgba(0,0,0,.7),0 0 0 2px rgba(255,210,120,.25);
+    font:500 14px var(--body);color:#ecdcbc;min-height:20px}
+  .note.on{display:block}
+  .note .cur{display:inline-block;width:2px;height:15px;background:#FFC43C;vertical-align:-2px;animation:blink 1s steps(1) infinite}
+  @keyframes blink{50%{opacity:0}}
+  .keys{display:flex;gap:9px;flex-wrap:wrap}
+  .key.press{transform:translateY(var(--lip));box-shadow:0 0 0 var(--outline)!important}
+  /* live: the step running now shimmers (bubble.css .plan .step.now) */
+  .live .plan{margin:0 0 10px}
+  .live .plan .step{background:rgba(233,211,166,.92)}
+  .pips{display:flex;gap:4px;margin:0 0 10px 2px}
+  .pips u{width:14px;height:6px;background:#3a2a1a;border:1px solid #7a5a3a;text-decoration:none}
+  .pips u.on{background:#3FBFAE;box-shadow:0 0 5px rgba(159,240,230,.8)}
+  /* now playing: the smallest size, one line */
+  .np{display:flex;align-items:center;gap:10px}
+  .np b{display:block;font:700 14px var(--body);color:#21160a}
+  .np span{display:block;font:500 12px var(--body);color:#6a5236}
+  /* waiting: a small wood tag under the balloon, never a second balloon */
+  #wait{position:absolute;right:250px;bottom:118px;font:400 9px var(--label);letter-spacing:1.5px;color:#ffe28c;padding:5px 9px;border-radius:6px;
+    background:linear-gradient(rgba(0,0,0,.5),rgba(0,0,0,.5)),url(../../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;border:2px solid #120A05;
+    opacity:0;transform:translateY(6px);transition:opacity .2s,transform .2s}
+  #wait.on{opacity:1;transform:none}
+  #measure{position:absolute;left:-5000px;top:0;visibility:hidden}
+  .ctl{display:flex;gap:10px;align-items:center;margin:14px 2px 0;flex-wrap:wrap}
+  .ctl .lbl{font:400 9px Silkscreen,monospace;letter-spacing:1.5px;color:#FFC43C}
+  .order{font:500 13px Figtree,sans-serif;color:#cdbb9a}
+</style>
+</head>
+<body>
+<div class="desk">
+  <div id="wrap"><svg id="skin"></svg><div id="bubble" class="parch tex" hidden><div id="fill"></div></div></div>
+  <div id="wait"></div>
+  <img id="aang" src="../../../assets/aang/frames/idle_0.png" alt="">
+</div>
+<div id="measure"></div>
+<div class="ctl">
+  <button class="key primary" id="play" type="button">Play the story</button>
+  <span class="lbl">OR SEND ONE:</span>
+  <button class="key sm" data-send="brief" type="button">Morning brief</button>
+  <button class="key sm" data-send="plan" type="button">Claude plan</button>
+  <button class="key sm" data-send="music" type="button">Music</button>
+</div>
+<p class="order"><b>Whose turn:</b> 1. a question waiting on you (like Claude's plan) &nbsp; 2. the morning brief &nbsp; 3. Claude working (live checklist) &nbsp; 4. what's playing. Nothing cuts in while you're reading or answering; the next one waits under the bubble.</p>
+
+<script type="module">
+import { balloonPath, paintBalloon, PAD_R, PAD_B } from '../../../src/Shell/pages/balloon.js';
+import { basePix, pix, paintIcons } from './icons.js';
+
+const bubble = document.getElementById('bubble'), fill = document.getElementById('fill'), skin = document.getElementById('skin');
+const wrap = document.getElementById('wrap'), aang = document.getElementById('aang'), waitTag = document.getElementById('wait');
+const measure = document.getElementById('measure');
+const LANTERN = '../../../src/Shell/pages/art/samara/samara-lantern-32.png';
+
+// --- Aang: idle loop, talk when something arrives
+let anim = 'idle', fr = 0;
+setInterval(() => { const n = anim === 'talk' ? 8 : 16; fr = (fr + 1) % n; aang.src = `../../../assets/aang/frames/${anim}_${fr}.png`; }, 140);
+const talk = () => { anim = 'talk'; fr = 0; setTimeout(() => { anim = 'idle'; fr = 0; }, 1400); };
+
+// --- the balloon, painted by the real code every frame while it changes size
+let shape = 0;
+function paint() {
+  if (bubble.hidden) { skin.innerHTML = ''; return; }
+  const box = bubble.getBoundingClientRect(), a = aang.getBoundingClientRect();
+  const head = { x: a.left + 96 - box.left, y: a.top + 60 - box.top };
+  const d = balloonPath(box.width, box.height, head);
+  paintBalloon(skin, box.width + PAD_R, box.height + PAD_B, d, ++shape, bubble.classList.contains('lantern'));
+  for (const im of skin.querySelectorAll('image')) im.setAttribute('href', '../../../src/Shell/pages/art/browser/tray.png');
+}
+let painting = 0;
+const paintFor = (ms) => { const end = performance.now() + ms; cancelAnimationFrame(painting); const f = () => { paint(); if (performance.now() < end) painting = requestAnimationFrame(f); }; f(); };
+
+// --- what each turn looks like
+const slip = (h, rows) => `<div class="lt-slip"><h3>${h}</h3>${rows}</div>`;
+const row = (icon, b, s, right = '') => `<div class="lt-item"><div class="lt-head"><span class="lt-tile">${icon}</span><span class="lt-txt"><b>${b}</b>${s ? `<span>${s}</span>` : ''}</span>${right}</div></div>`;
+const ico = (n) => `<i data-pix="${n}"></i>`;
+const VIEWS = {
+  brief: { lantern: true, w: 520, html: () => `<div class="briefcard"><div class="lt-top"><div class="lt-date"><small>GOOD MORNING</small><b>Wednesday</b><span>October 14. Rain from 4 pm, bring a jacket.</span></div>
+      <div class="lt-lamp"><div class="lt-part now"><i>MORN</i><span data-sky="partly"></span><b>8°</b></div><div class="lt-part"><i>AFTN</i><span data-sky="cloud"></span><b>14°</b></div><div class="lt-part"><i>EVE</i><span data-sky="rain"></span><b>11°</b></div></div></div>
+      ${slip('JOB HUNT', row('<span data-sky="cal"></span>', 'Interview, Northwind', 'Video call with the design team', '<span class="lt-when">2:00 pm</span>') + row('<span data-sky="star"></span>', '3 new job matches', 'Best: Product Designer at Lumen'))}
+      <div class="keys"><button class="key sm primary" data-act="done" type="button">Got it</button></div></div>` },
+  plan: { lantern: true, w: 416, html: () => `<div class="pc-top"><img src="${LANTERN}" alt=""><div><small>CLAUDE WANTS TO</small><b>Start a job scan</b></div></div>
+      ${slip('SITES', row(ico('job'), 'LinkedIn', 'with your login', '<i class="tq" data-tick></i>') + row(ico('globe'), 'Greenhouse, Lever, Ashby', '', '<i class="tq" data-tick></i>') + row(ico('globe'), 'Job Bank', '', '<i class="tq" data-tick></i>'))}
+      ${slip('STEPS', row('<span class="num">1</span>', 'Search your 13 job types', '') + row('<span class="num">2</span>', 'Read the new posts', '') + row('<span class="num">3</span>', 'Save the list in your job folder', ''))}
+      <div class="wont">${ico('wont')}Won't apply, send, or sign in anywhere new.</div>
+      <div class="note" id="note"></div>
+      <div class="keys"><button class="key sm primary" data-act="go" type="button">Go</button><button class="key sm" data-act="change" type="button">Change</button><button class="key sm burnt" data-act="done" type="button">Not now</button></div>` },
+  live: { lantern: true, w: 300, html: () => `<div class="live"><div class="pc-top"><img src="${LANTERN}" alt=""><div><small>CLAUDE IS ON IT</small><b>Job scan</b></div></div>
+      <div class="pips"><u class="on"></u><u></u><u></u></div><div class="plan"><div class="step now"><span class="n">1</span><span class="st" id="livestep">Search your 13 job types</span></div></div>
+      <div class="keys"><button class="key sm" data-act="done" type="button">Stop</button></div></div>` },
+  music: { lantern: false, w: 256, html: () => `<div class="np">${ico('play')}<div><b>Lofi Girl</b><span>beats to relax/study to</span></div></div>` },
+};
+const PRIORITY = { plan: 1, brief: 2, live: 3, music: 4 };
+
+// --- turns: one thing at a time; anything new waits under the balloon, highest priority goes next
+let now = null; const queue = [];
+function waiting() { waitTag.textContent = queue.length ? `${queue.length} WAITING` : ''; waitTag.classList.toggle('on', queue.length > 0); }
+function send(kind) {
+  if (now === kind || queue.includes(kind)) return;
+  if (!now || (now === 'music' && kind !== 'music')) { if (now === 'music') queue.push('music'); show(kind); }
+  else { queue.push(kind); queue.sort((a, b) => PRIORITY[a] - PRIORITY[b]); }
+  waiting();
+}
+function next() { now = null; const k = queue.shift(); waiting(); if (k) show(k); else close(); }
+function close() { fill.classList.add('out'); setTimeout(() => { bubble.hidden = true; paint(); }, 160); }
+
+// grow-then-fill: the old words fade, the balloon takes its new size, then the new words come in
+function show(kind) {
+  now = kind; talk();
+  const v = VIEWS[kind];
+  measure.innerHTML = `<div id="bubble" class="parch tex ${v.lantern ? 'lantern' : ''}" style="width:${v.w}px;position:static">${v.html()}</div>`;
+  paintIcons(measure); skies(measure);
+  const h = measure.firstChild.getBoundingClientRect().height;
+  const first = bubble.hidden;
+  fill.classList.add('out');
+  setTimeout(() => {
+    if (first) { bubble.hidden = false; bubble.style.width = Math.round(v.w * .6) + 'px'; bubble.style.height = Math.round(h * .6) + 'px'; bubble.getBoundingClientRect(); }
+    bubble.classList.toggle('lantern', v.lantern);
+    fill.innerHTML = ''; bubble.style.width = v.w + 'px'; bubble.style.height = h + 'px';
+    paintFor(320);
+    setTimeout(() => { fill.innerHTML = v.html(); paintIcons(fill); skies(fill); wire(kind); fill.classList.remove('out'); paint(); }, 270);
+  }, first ? 0 : 150);
+}
+function skies(root) { for (const el of root.querySelectorAll('[data-sky]')) { if (el.firstChild) continue; const s = basePix(el.dataset.sky, 2); if (s) el.append(s); } }
+function wire(kind) {
+  for (const t of fill.querySelectorAll('[data-tick]')) t.onclick = () => { t.classList.toggle('off'); t.closest('.lt-item').classList.toggle('off'); };
+  for (const k of fill.querySelectorAll('[data-act]')) k.onclick = () => act(k.dataset.act, kind);
+}
+let liveT = 0;
+function act(a, kind) {
+  if (a === 'change') { const n = document.getElementById('note'); n.classList.add('on'); n.innerHTML = '<span class="cur"></span>'; resizeToFit(); return; }
+  if (a === 'go') { now = null; show('live'); runLive(); return; }
+  if (kind === 'live') clearInterval(liveT);
+  next();
+}
+function resizeToFit() { bubble.style.height = 'auto'; const h = bubble.getBoundingClientRect().height; bubble.style.height = h + 'px'; paintFor(320); }
+function runLive() {
+  const steps = ['Search your 13 job types', 'Read the new posts', 'Save the list in your job folder'];
+  let i = 0; clearInterval(liveT);
+  liveT = setInterval(() => {
+    i++; if (i >= steps.length) { clearInterval(liveT); setTimeout(next, 900); return; }
+    const s = document.getElementById('livestep'); if (s) s.textContent = steps[i];
+    fill.querySelectorAll('.pips u').forEach((u, k) => u.classList.toggle('on', k <= i));
+  }, 1700);
+}
+for (const b of document.querySelectorAll('[data-send]')) b.onclick = () => send(b.dataset.send);
+
+// --- the story, with each press shown
+const press = async (sel) => { const k = fill.querySelector(sel); if (!k) return; k.classList.add('press'); await sleep(180); k.classList.remove('press'); k.click(); };
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+document.getElementById('play').onclick = async () => {
+  clearInterval(liveT); queue.length = 0; now = null; bubble.hidden = true; waiting();
+  send('music'); await sleep(2200);
+  send('brief'); await sleep(2600);
+  send('plan'); await sleep(2400);
+  await press('[data-act="done"]'); await sleep(1600);
+  fill.querySelector('[data-tick]')?.click(); await sleep(900);
+  await press('[data-act="change"]'); await sleep(500);
+  const n = document.getElementById('note'); const words = 'Only remote jobs this time';
+  for (let i = 1; i <= words.length; i++) { n.innerHTML = words.slice(0, i) + '<span class="cur"></span>'; await sleep(45); }
+  await sleep(700); await press('[data-act="go"]');
+};
+window.__show = show; window.__send = send;
+// ?show=plan (or brief, live, music) opens straight on that turn, for the still pictures on the sheet
+const only = new URLSearchParams(location.search).get('show');
+if (!only) setTimeout(() => send('brief'), 300);
+if (only) { document.querySelector('.ctl').remove(); document.querySelector('.order').remove(); send(only); if (only === 'live') runLive = () => {}; }
+</script>
+</body>
+</html>

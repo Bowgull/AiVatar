@@ -3,45 +3,48 @@
 <head>
 <meta charset="utf-8">
 <title>Sheet 37 - Plan card and site rules</title>
-<!-- Sheet 37 (2026-10-14), his design-round answers: site rules in BOTH the shield and Settings (AI never / AI may use my
-     login / camera, mic, popups, ads; Claude's notes stay hidden); the plan card shows where he is looking (Claude's
-     own form when Claude is in front, else Aang's bubble, the Mac's band until its bubble exists), untick + type a
-     change, only new or changed plans. Each panel is its own page with the real CSS of the place it lives. -->
+<!-- Sheet 37 v2 (2026-10-14), his notes on v1: it felt boring and AI-made; follow the brief, the update tray and the
+     inspirations; the bubble shows the brief and media too, so everything takes turns, nothing crowds, the bubble grows
+     and shrinks smoothly; Samara's lantern wherever it can go; turquoise ticks from the update glow; no helper text on
+     the switches; ads and popups stay separate; Go / Change / Not now; live checklist after Go; draw both site lists.
+     Every panel is its own page using the real CSS of where it lives; the bubble is the real balloon.js. -->
 <style>
   html,body{background:#17110c;margin:0}
-  body{color:#e8dcc4;font-family:Figtree,sans-serif;padding:24px;max-width:1320px}
+  body{color:#e8dcc4;font-family:Figtree,sans-serif;padding:24px;width:1240px}
   h1{font:400 20px Silkscreen,monospace;color:#FFC43C;letter-spacing:2px;margin:0 0 4px}
   h2{font:400 13px Silkscreen,monospace;color:#FFC43C;letter-spacing:1.5px;margin:30px 0 6px}
-  p{color:#cdbb9a;font-size:14.5px;line-height:1.5;margin:0 0 12px;max-width:1100px}
+  p{color:#cdbb9a;font-size:14.5px;line-height:1.5;margin:0 0 12px;max-width:1150px}
+  p b{color:#FFC43C}
   .stage{background:#1a110a url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;border-radius:12px;border:3px solid #0d0703;padding:10px;display:inline-block;vertical-align:top;box-shadow:0 10px 26px rgba(0,0,0,.5)}
   iframe{border:0;display:block;background:transparent}
-  .flow{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0 6px}
-  .flow span{font:600 13px Figtree;color:#2a1c0c;background:#e9d3a6;border:2px solid #120A05;border-radius:8px;padding:6px 10px}
-  .flow i{color:#FFC43C;font-style:normal;align-self:center}
+  .mini{width:566px;height:307px;overflow:hidden;border-radius:10px}
+  .mini iframe{transform:scale(.48);transform-origin:0 0}
+  .cap{font:400 10px Silkscreen,monospace;color:#FFC43C;letter-spacing:1.5px;margin:0 0 8px}
 </style>
 </head>
 <body>
-<h1>SHEET 37 &middot; PLAN CARD + SITE RULES</h1>
-<p>Your answers from the design round, drawn with the real Samara, bubble and Settings styles.</p>
+<h1>SHEET 37 &middot; PLAN CARD + SITE RULES (v2)</h1>
+<p>Rebuilt from your brief (sheet 24) and your update tray (sheet 35): the lantern, wood with parchment slips, gold corner caps, pixel icons on every row, your three key colours, and turquoise ticks from the update glow. The bubble below is the real one, tail and all.</p>
 
-<h2>1 &middot; WHERE THE PLAN SHOWS</h2>
-<div class="flow"><span>Claude starts a task</span><i>&rarr;</i><span>Same task, same sites as before? It just goes.</span><i>&rarr;</i><span>Claude window in front? Ask inside Claude.</span><i>&rarr;</i><span>Otherwise: Aang's bubble (Mac: Samara's band for now)</span></div>
-<p>Any site that uses <b>your login</b> is always asked in Aang's bubble or Samara, never only in Claude's form. A setting in Claude can answer its form for you, so the form alone isn't proof it was you.</p>
+<h2>1 &middot; TAKING TURNS (PRESS PLAY)</h2>
+<p>One thing at a time. Whatever arrives while you're reading waits under the bubble ("1 WAITING") and goes next by priority: <b>a question for you</b>, then <b>the morning brief</b>, then <b>Claude working</b>, then <b>what's playing</b>. The bubble fades its words, grows or shrinks to the new size, then fills in.</p>
+<div class="stage"><iframe src="sheet-37/stage.html" width="1184" height="760" title="stage"></iframe></div>
 
-<h2>2 &middot; IN AANG'S BUBBLE</h2>
-<div class="stage"><iframe src="sheet-37/bubble.html" width="1240" height="480" title="bubble"></iframe></div>
+<h2>2 &middot; THE PLAN CARD, AND AFTER YOU PRESS GO</h2>
+<div class="stage"><p class="cap">A NEW PLAN</p><div class="mini"><iframe src="sheet-37/stage.html?show=plan" width="1180" height="640" title="plan"></iframe></div></div>
+<div class="stage"><p class="cap">AFTER GO: THE LIVE CHECKLIST</p><div class="mini"><iframe src="sheet-37/stage.html?show=live" width="1180" height="640" title="live"></iframe></div></div>
 
 <h2>3 &middot; INSIDE CLAUDE, AND ON THE MAC FOR NOW</h2>
-<p>Claude draws its own box, so only the words and tick boxes are ours.</p>
+<p>Inside Claude, Claude draws the box, so no pictures: it says <b>samara</b> at the top in words. On the Mac, until its own Aang exists, the plan drops from Samara in the update tray's own frame.</p>
 <div class="stage"><iframe src="sheet-37/claude.html" width="460" height="330" title="claude"></iframe></div>
-<div class="stage"><iframe src="sheet-37/band.html" width="420" height="420" title="band"></iframe></div>
+<div class="stage"><iframe src="sheet-37/band.html" width="390" height="430" title="band"></iframe></div>
 
 <h2>4 &middot; THE SHIELD: THIS SITE'S RULES</h2>
-<p>Click the shield next to the web address. The two switches at the top are there today; the rest is new.</p>
-<div class="stage"><iframe src="sheet-37/shield.html" width="360" height="470" title="shield"></iframe></div>
+<p>No helper text, just on or off. Ads and popups are different things, so they stay separate. Camera, mic and popups have three settings in your key colours: <b>gold Allow</b>, <b>plum Ask</b>, <b>burnt orange Block</b>. Click to change.</p>
+<div class="stage"><iframe src="sheet-37/shield.html" width="330" height="440" title="shield"></iframe></div>
 
-<h2>5 &middot; SETTINGS: ALL YOUR SITES</h2>
-<p>"Your exceptions" becomes "Your sites": every site you set anything for, in one list. Click a cell to change it.</p>
-<div class="stage"><iframe src="sheet-37/settings.html" width="800" height="400" title="settings"></iframe></div>
+<h2>5 &middot; SETTINGS: YOUR SITES (PICK A OR B)</h2>
+<p><b>A</b>: a row per site, like an item bar: lit gold means allowed, dim means it asks, a red cross means blocked. <b>B</b>: every site is a tile, like a collection; pick one and its rules open, the same panel as the shield.</p>
+<div class="stage"><iframe src="sheet-37/sites.html" width="1190" height="960" title="sites"></iframe></div>
 </body>
 </html>
