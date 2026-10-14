@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 28 - Aang's page</title>
+<!-- Sheet 28 (2026-10-14): the desk window moves into the browser as one page, opened on demand (his call: no permanent
+     tab or trail). Three options from the research (NN/g on tabs vs a side list and duplicate links, Microsoft's settings
+     guide, Chrome/Firefox keeping History apart from Settings, the Ocarina and Stardew pause menus). Sample data. -->
+<style>
+  @font-face{font-family:Cinzel;src:url(../../src/Shell/pages/fonts/Cinzel.woff2) format("woff2");font-weight:400 900}
+  @font-face{font-family:Figtree;src:url(../../src/Shell/pages/fonts/Figtree.woff2) format("woff2");font-weight:300 900}
+  @font-face{font-family:Silkscreen;src:url(../../src/Shell/pages/fonts/Silkscreen-Regular.woff2) format("woff2")}
+  :root{--band:url(../../src/Shell/pages/art/browser/band.png);--tray:url(../../src/Shell/pages/art/browser/tray.png);--frame:url(../../src/Shell/pages/art/browser/trayframe.png);--hand:url(../../src/Shell/pages/art/browser/hand.png)}
+  html,body{background:#17110c;margin:0}
+  body{color:#e8dcc4;font-family:Figtree,sans-serif;padding:24px 24px 44px}
+  h1{font:400 20px Silkscreen,monospace;color:#FFC43C;letter-spacing:2px;margin:0 0 4px}
+  h2{font:400 12px Silkscreen,monospace;color:#FFC43C;letter-spacing:1.5px;margin:30px 0 4px}
+  .lead,.why{color:#b9a684;font-size:14px;line-height:1.5;max-width:1100px;margin:0 0 14px}
+  .why b{color:#fbe7bf}
+  .px{image-rendering:pixelated}
+  /* a browser window, small */
+  .win{width:860px;max-width:100%;border-radius:12px;overflow:hidden;border:3px solid #0d0703;box-shadow:0 6px 0 #000;background:var(--tray) 0 0/128px 256px;image-rendering:pixelated}
+  .top{height:42px;background:var(--band) repeat-x 0 0/128px 42px;display:flex;align-items:center;gap:6px;padding:0 10px;border-bottom:3px solid #0d0703}
+  .rb{width:24px;height:24px;border-radius:6px;background:linear-gradient(180deg,#5d3a88,#4A2C6E);border:2px solid #120a05;box-shadow:0 2px 0 #120a05;flex:none}
+  .addr{flex:1;height:24px;border-radius:6px;background:#0B0718;border:2px solid #120a05;font:500 12px Figtree;color:#a99fc0;display:flex;align-items:center;padding:0 9px}
+  .aangkey{width:26px;height:26px;border-radius:7px;background:#e9d3a6 url(../../src/Shell/pages/art/aang-face.png) center/20px no-repeat;border:2px solid #120a05;box-shadow:0 2px 0 #120a05,0 0 0 2px #FFC43C;flex:none}
+  .body{display:flex;gap:0;padding:14px;min-height:340px}
+  .side{width:190px;flex:none;border:8px solid transparent;border-image:var(--frame) 4 repeat;background:linear-gradient(rgba(0,0,0,.2),rgba(0,0,0,.3)),var(--tray) 0 0/128px 256px;padding:8px 6px}
+  .side .who{display:flex;align-items:center;gap:8px;margin:2px 4px 10px}
+  .side .who i{width:26px;height:26px;background:url(../../src/Shell/pages/art/aang-face.png) center/24px no-repeat;image-rendering:pixelated}
+  .side .who b{font:700 15px Cinzel;color:#fbe7bf;text-shadow:1px 1px 0 #000}
+  .side a{display:block;position:relative;font:600 13.5px Figtree;color:#e6dcc8;padding:7px 10px 7px 30px;border-radius:6px;text-decoration:none}
+  .side a.on{background:rgba(255,200,100,.14);color:#ffe9b8}
+  .side a.on::before{content:"";position:absolute;left:2px;top:50%;margin-top:-9px;width:24px;height:18px;background:var(--hand) 0 0/24px 18px;image-rendering:pixelated}
+  .side hr{border:0;height:4px;margin:8px 6px;background:radial-gradient(circle,#7a5a3a 1.2px,transparent 1.6px) 0 50%/8px 4px repeat-x}
+  .side .n{float:right;font:700 11px Figtree;background:#8a3e1c;color:#fff;border-radius:9px;padding:0 6px;margin-top:1px}
+  .main{flex:1;margin-left:12px;background:#ecd8ad;border-radius:10px;box-shadow:inset 0 0 0 3px rgba(90,60,25,.3),0 4px 0 #000;padding:16px 18px;color:#2a1c0c}
+  .main h3{font:700 22px Cinzel;margin:0 0 4px;color:#2a1c08}
+  .main p.s{font-size:13px;color:#6a5236;margin:0 0 12px}
+  .fact{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:7px;background:rgba(255,255,255,.35);margin:0 0 7px;font:500 14px Figtree}
+  .fact small{margin-left:auto;font:400 9px Silkscreen;color:#8a6a3a;letter-spacing:1px}
+  .keys{font:400 9px Silkscreen;letter-spacing:1px;color:#8a6a3a;margin-top:12px}
+  /* B: big painted tabs */
+  .ring{display:flex;gap:6px;padding:12px 14px 0}
+  .ring span{font:700 14px Cinzel;color:#e6dcc8;padding:9px 16px 8px;border-radius:9px 9px 0 0;background:linear-gradient(rgba(0,0,0,.3),rgba(0,0,0,.4)),var(--tray) 0 0/128px 256px;border:3px solid #120a05;border-bottom:0}
+  .ring span.on{background:linear-gradient(rgba(255,235,190,.35),rgba(255,235,190,.35)),var(--band) 0 0/128px 58px;color:#1a0c00;text-shadow:none}
+  .ring .lr{font:400 9px Silkscreen;color:#b89a6a;align-self:center;padding:0 6px;background:none;border:0}
+  .bodyB{padding:0 14px 14px}
+  .bodyB .main{margin:0;border-radius:0 10px 10px 10px}
+  .sub{display:flex;gap:8px;margin:0 0 12px}
+  .sub em{font:400 9px Silkscreen;letter-spacing:1px;font-style:normal;padding:5px 9px;border-radius:5px;background:rgba(90,60,25,.15);color:#6a4a22}
+  .sub em.on{background:#4A2C6E;color:#f1e8ff}
+  /* entry points strip */
+  .ways{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;max-width:1100px}
+  .way{background:#22170f;border-radius:10px;padding:12px 14px;border:2px solid #3a2818}
+  .way b{display:block;font:700 14px Figtree;color:#fbe7bf;margin-bottom:3px}
+  .way span{font-size:13px;color:#b9a684;line-height:1.4}
+  .way.no{opacity:.6} .way.no b{text-decoration:line-through;color:#c98c6a}
+</style>
+</head>
+<body>
+<h1>SHEET 28 - AANG'S PAGE</h1>
+<p class="lead">The desk window becomes one page inside the browser, opened only when you call it (no permanent tab or trail). The research behind these:
+browsers keep things you USE (history, downloads) apart from SETTINGS; a list down the side beats a row of tabs once there are more than 5 or 6 sections (Aang has 8);
+and extra copies of the same button cost attention, so each way in should serve a different moment. Your games agree: one menu, one key, it always opens in the same place, settings last.</p>
+
+<h2>THE WAYS IN (SAME FOR ALL THREE OPTIONS)</h2>
+<div class="ways">
+  <div class="way"><b>1. Aang's key in the top bar</b><span>His face, beside the ... key (look at the bars below). The one button anyone can find. Already open? It jumps to it.</span></div>
+  <div class="way"><b>2. Ask him</b><span>"What do you know about me?", "show my jobs": opens the page at that section.</span></div>
+  <div class="way"><b>3. Links from where you are</b><span>"Saved to memory" in the bubble opens that memory; a job alert opens that job; "quota low" opens the meter.</span></div>
+  <div class="way"><b>4. A shortcut, for you</b><span>Ctrl+Shift+A (say if you want a different key). Nobody else needs to know it.</span></div>
+  <div class="way no"><b>Not doing: copies</b><span>No second button in a sidebar, no menu item copying the key, no tray entry on top of the key, no permanent tab.</span></div>
+</div>
+
+<h2>A - THE PAUSE MENU (RECOMMENDED)</h2>
+<p class="why">One page with a dark-wood list down the side, like Stardew's menu standing up. <b>The things you use first</b>, then a line, then <b>the switches last</b>.
+It always opens on What I Know; Ctrl+Page Up / Page Down step through the sections like Z and R on the N64. Aang's settings live here; the browser's Settings page gets one row pointing here, and his settings one row pointing back.
+Room to grow without getting crowded.</p>
+<div class="win">
+  <div class="top"><span class="rb"></span><span class="rb"></span><span class="addr">Aang</span><span class="aangkey"></span><span class="rb"></span></div>
+  <div class="body">
+    <div class="side">
+      <div class="who"><i></i><b>Aang</b></div>
+      <a class="on">What I know</a><a>What I did <span class="n">2</span></a><a>Jobs <span class="n">3</span></a><a>Search</a>
+      <hr><a>What I may do</a><a>Accounts</a><a>Your week</a><a>My settings</a>
+    </div>
+    <div class="main"><h3>What I know</h3><p class="s">Everything I remember about you. Forget sits on the row your mouse is on.</p>
+      <div class="fact">Your home is [address] Ave, Toronto<small>OCT 13</small></div>
+      <div class="fact">You watch Frieren subbed<small>OCT 9</small></div>
+      <div class="fact">Interview with BoomerangFX, Monday 3:30 pm<small>OCT 14</small></div>
+      <div class="keys">CTRL+PAGE UP / PAGE DOWN: NEXT SECTION</div></div>
+  </div>
+</div>
+
+<h2>B - THE OCARINA RING (FOUR BIG SCREENS)</h2>
+<p class="why">The most Zelda: four big painted screens across the top (Memory, Journal, Search, Settings), each with small sections inside, and Q / E turn between them like the N64 pause menu.
+The catch: things sit one level deeper (Jobs hides inside Journal), and four is the limit before the top row gets crowded.</p>
+<div class="win">
+  <div class="top"><span class="rb"></span><span class="rb"></span><span class="addr">Aang</span><span class="aangkey"></span><span class="rb"></span></div>
+  <div class="ring"><span class="lr">Q</span><span>Memory</span><span class="on">Journal</span><span>Search</span><span>Settings</span><span class="lr">E</span></div>
+  <div class="bodyB"><div class="main"><div class="sub"><em class="on">WHAT I DID</em><em>JOBS</em><em>DRAFTS</em></div><h3>Journal</h3><p class="s">What I did for you, newest first.</p>
+    <div class="fact">Put HisWattson's new video on your MacBook<small>9:02 AM</small></div>
+    <div class="fact">Sorted your mail for the brief<small>8:15 AM</small></div></div></div>
+</div>
+
+<h2>C - ONE BIG SETTINGS (MERGED)</h2>
+<p class="why">The browser's Settings page gets an "Aang" group above its own. Fewest buttons, one place. The research is against it: your memories and job cards get buried among switches you rarely touch,
+and the list gets long and mixed. It's the pattern Chrome avoided by keeping History apart from Settings.</p>
+<div class="win">
+  <div class="top"><span class="rb"></span><span class="rb"></span><span class="addr">Settings</span><span class="rb"></span></div>
+  <div class="body">
+    <div class="side">
+      <div class="who"><b style="font-size:13px">AANG</b></div><a class="on">What I know</a><a>What I did</a><a>Jobs</a><a>What I may do</a><a>My settings</a>
+      <hr><div class="who"><b style="font-size:13px">BROWSER</b></div><a>General</a><a>Bookmarks</a><a>Passwords</a><a>Privacy</a><a>Sound</a>
+    </div>
+    <div class="main"><h3>What I know</h3><p class="s">Everything I remember about you.</p>
+      <div class="fact">Your home is [address] Ave, Toronto<small>OCT 13</small></div></div>
+  </div>
+</div>
+</body>
+</html>
