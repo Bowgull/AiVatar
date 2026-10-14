@@ -171,6 +171,7 @@ contextBridge.exposeInMainWorld('aang', {
   browserShareReply: a => ipcRenderer.send('browser:sharereply', a),
   browserUpdateGo: () => ipcRenderer.send('browser:updatego'),
   browserAdPause: on => ipcRenderer.send('browser:adpause', on),
+  browserDarkHere: on => ipcRenderer.send('browser:darkhere', on),
   /** The popout page: where its picture area is (a lent tab is laid over it), and the controls for that tab. */
   popoutStage: r => ipcRenderer.send('popout:stage', r),
   popoutTabCmd: c => ipcRenderer.send('popout:tabcmd', c),
