@@ -49,8 +49,26 @@ const PACED: { host: RegExp; least: number; jitter: number }[] = [
   { host: /(^|\.)indeed\.(com|ca)$/i, least: 15, jitter: 30 },
   { host: /(^|\.)glassdoor\.(com|ca)$/i, least: 15, jitter: 30 },
 ];
+/** A host as the rules read it: lower case, without the trailing dot that would slip past every pattern (AI lockdown,
+ *  2026-10-14: "linkedin.com." lost the pace rule and "rbc.com." the bank block). */
+export const cleanHost = (h: string): string => String(h ?? '').toLowerCase().replace(/\.+$/, '');
+/** This machine, the home network and Tailscale: never opened by a driving session (a page could probe them). */
+export function privateHost(host: string): boolean {
+  const h = cleanHost(host).replace(/^\[|\]$/g, '');
+  if (h === 'localhost' || h.endsWith('.localhost') || h.endsWith('.local') || h.endsWith('.internal') || h.endsWith('.ts.net') || h === '0.0.0.0' || h === '::1' || h === '::') return true;
+  const m = /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/.exec(h);
+  if (m) { const [a, b] = [Number(m[1]), Number(m[2])]; return a === 127 || a === 10 || a === 0 || (a === 192 && b === 168) || (a === 172 && b >= 16 && b <= 31) || (a === 169 && b === 254) || (a === 100 && b >= 64 && b <= 127); }
+  return /^(fc|fd|fe8|fe9|fea|feb)[0-9a-f]*:/.test(h);
+}
+/** A site's own name ("linkedin.com", "bbc.co.uk", "someone.github.io"): two labels, three under shared endings. */
+export function siteOf(host: string): string {
+  const parts = cleanHost(host).replace(/^www\./, '').split('.').filter(Boolean);
+  const two = parts.slice(-2).join('.');
+  const shared = /^(co|com|org|net|ac|gov|edu)\.[a-z]{2}$|^(github|gitlab)\.io$|^(pages|workers)\.dev$|^(vercel|netlify|herokuapp|web|firebaseapp|appspot|azurewebsites|cloudfront|blogspot|myshopify|wixsite|wordpress|substack|notion|bubbleapps|glitch|onrender|fly)\.(app|com|site|me|io|net|dev)$/;
+  return parts.length > 2 && shared.test(two) ? parts.slice(-3).join('.') : two;
+}
 export function paceFor(host: string): { least: number; jitter: number } | null {
-  const h = String(host ?? '').toLowerCase();
+  const h = cleanHost(host);
   const p = PACED.find((x) => x.host.test(h));
   return p ? { least: p.least, jitter: p.jitter } : null;
 }
@@ -110,15 +128,17 @@ export const BOARDS: Board[] = [
   { name: 'weworkremotely', host: /(^|\.)weworkremotely\.com$/i, path: '/remote-jobs/search?term={q}', card: 'li.new-listing-container', spacing: 3 },
   { name: 'hcareers', host: /(^|\.)hcareers\.(ca|com)$/i, path: '/jobs?what={q}&where=Toronto%2C+ON', card: 'article', spacing: 2.5 },
 ];
-export function boardFor(host: string): Board | null { const h = String(host ?? '').toLowerCase(); return BOARDS.find((b) => b.host.test(h)) ?? null; }
+export function boardFor(host: string): Board | null { const h = cleanHost(host); return BOARDS.find((b) => b.host.test(h)) ?? null; }
 
 /** A sweep's own search: a same-site path with {q}, and a card selector. Anything else is refused. */
 export function sweepPlan(host: string, o: { path?: string; card?: string; spacing?: number }): { path: string; card: string; spacing: number } | string {
+  host = cleanHost(host);
   if (/(^|\.)linkedin\.com$/i.test(host)) return 'LinkedIn is never swept in bulk (his safety rule): open its search pages and use browser_collect_jobs';
   const b = boardFor(host);
   const path = String(o.path ?? b?.path ?? '');
   const card = String(o.card ?? b?.card ?? '');
-  if (!path.startsWith('/') || path.startsWith('//') || !path.includes('{q}') || path.length > 300) return 'a sweep needs a path on this same site that starts with / and has {q} where the keyword goes';
+  // A backslash counts as a slash to a browser: "/\\other.site" would leave this site (AI lockdown G12).
+  if (!path.startsWith('/') || path.startsWith('//') || path.includes('\\') || !path.includes('{q}') || path.length > 300) return 'a sweep needs a path on this same site that starts with / and has {q} where the keyword goes';
   if (!card || card.length > 200) return 'a sweep needs a card selector (how one posting is marked on the page)';
   const least = Math.max(2.5, b?.spacing ?? 4);
   return { path, card, spacing: Math.max(least, Number(o.spacing) || 0) };

@@ -21,7 +21,7 @@ export function counts(url: string): boolean { return /^https?:\/\//i.test(url) 
 const MONEY_HOSTS = /(^|\.)(rbc|royalbank|rbcroyalbank|td|tdcanadatrust|tdbank|easyweb|scotiabank|scotiaonline|bmo|cibc|nbc|bnc|desjardins|tangerine|simplii|eqbank|pcfinancial|motusbank|meridiancu|vancity|atb|hsbc|chase|bankofamerica|wellsfargo|citi|citibank|capitalone|americanexpress|amex|paypal|interac|wise|revolut|venmo|cash|koho|neofinancial|mogo|wealthsimple|questrade|qtrade|interactivebrokers|fidelity|vanguard|schwab|robinhood|coinbase|binance|kraken|crypto|stripe|moneris|square|afterpay|klarna|affirm|turbotax|wealthica)\.(com|ca|co|net|org|app)$/i;
 export function neverKeep(url: string): boolean {
   let host = '';
-  try { host = new URL(url).hostname.toLowerCase(); } catch { return false; }
+  try { host = new URL(url).hostname.toLowerCase().replace(/\.+$/, ''); } catch { return false; }
   return MONEY_HOSTS.test(host) || /(^|[.-])(bank|banque|creditunion|caisse)([.-]|$)/.test(host) || /online-?banking|onlinebanking/.test(host);
 }
 

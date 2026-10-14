@@ -47,7 +47,7 @@ app.whenReady().then(async () => {
   await new Promise<void>((r) => site.listen(PORT, '127.0.0.1', () => r()));
   const pages = await servePages(path.join(HERE, '..', '..', 'pages'));
   const b = new AangBrowser({ origin: pages.origin, stateDir: mkdtempSync(path.join(os.tmpdir(), 'drv5-')), preloadPath: path.join(HERE, '..', '..', 'src', 'preload.cjs'),
-    tabPreloadPath: path.join(HERE, '..', '..', 'src', 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, '..', '..', 'src', 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, '..', '..', 'src', 'thingspreload.cjs') }) as any;
+    tabPreloadPath: path.join(HERE, '..', '..', 'src', 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, '..', '..', 'src', 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, '..', '..', 'src', 'thingspreload.cjs'), testLocal: true }) as any;
   const job = (await b.drive('start', { kind: 'claude', name: 'test' })).job;
 
   // LinkedIn's new layout: no job links, cards read from the words

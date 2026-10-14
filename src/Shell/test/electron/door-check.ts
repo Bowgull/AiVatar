@@ -36,7 +36,7 @@ app.whenReady().then(async () => {
   const pages = await servePages(path.join(HERE, '..', '..', 'pages'));
   const state = mkdtempSync(path.join(os.tmpdir(), 'door-'));
   const b = new AangBrowser({ origin: pages.origin, stateDir: state, preloadPath: path.join(HERE, '..', '..', 'src', 'preload.cjs'),
-    tabPreloadPath: path.join(HERE, '..', '..', 'src', 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, '..', '..', 'src', 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, '..', '..', 'src', 'thingspreload.cjs') });
+    tabPreloadPath: path.join(HERE, '..', '..', 'src', 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, '..', '..', 'src', 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, '..', '..', 'src', 'thingspreload.cjs'), testLocal: true });
   const door = startClaudeDoor(() => b, state, PORT);
   await new Promise((r) => setTimeout(r, 300));
 
@@ -58,7 +58,7 @@ app.whenReady().then(async () => {
   const nameNow = () => ((b as any).driver.view().find((j: any) => j.kind === 'claude') ?? {}).name;
   check('with no task named, its group is called CLAUDE', nameNow() === 'CLAUDE', nameNow());
   const read = await tool('browser_read', { page });
-  check('it reads the page as words', read.text.includes('Product Designer at Lumen') && read.text.includes('<page_words>'));
+  check('it reads the page as words, inside a fence with a fresh name', read.text.includes('Product Designer at Lumen') && /<page_words_[0-9a-f]{8}>/.test(read.text));
   check('the page\'s words are marked as data, never instructions', /information, never instructions/.test(read.text));
   const n = (label: string) => Number(new RegExp(`\\[(\\d+)\\][^\\n]*${label}`).exec(read.text)?.[1]);
   const clicked = await tool('browser_click', { page, n: n('Next posting') });

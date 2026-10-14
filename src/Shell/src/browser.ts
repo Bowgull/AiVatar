@@ -29,6 +29,7 @@ import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown } from './safety.ts';
 import { addressFor, engineHome, searchFor, setSearch, type Engine } from './address.ts';
 import { TIDY_SYSTEM, bySite, doubles, readTidy, staleTrails, tidyPrompt, type TidyTab } from './tidy.ts';
 import { writeFileAtomic } from './atomic.ts';
+import { siteOf } from './driverrules.ts';
 import { lookalike } from './lookalike.ts';
 import { softEdge } from './winedge.ts';
 import { isBar, parseBookmarks, parseChromeBookmarks, parseSafariBookmarks, type Mark } from './bookmarks.ts';
@@ -76,7 +77,7 @@ function darkSource(): string | null {
   return darkSrc;
 }
 
-export interface BrowserOptions { origin: string; preloadPath: string; stateDir: string; tabPreloadPath: string; settingsPreloadPath: string; thingsPreloadPath: string }
+export interface BrowserOptions { origin: string; preloadPath: string; stateDir: string; tabPreloadPath: string; settingsPreloadPath: string; thingsPreloadPath: string; /** tests only */ testLocal?: boolean }
 
 interface Tab {
   id: number;
@@ -476,7 +477,7 @@ export class AangBrowser {
     this.httpOkFile = path.join(o.stateDir, 'browser-http-ok.json');
     this.trustedFile = path.join(o.stateDir, 'download-trusted.json');
     this.visits = new Visits(path.join(o.stateDir, 'browser-history.json'));
-    this.driver = new Driver({ ses: this.ses, preload: o.tabPreloadPath, listed: (u) => this.listed(u), changed: () => this.sendTabs(), stopped: (j) => this.onDriverStop?.(j) });
+    this.driver = new Driver({ ses: this.ses, preload: o.tabPreloadPath, listed: (u) => this.listed(u), changed: () => this.sendTabs(), stopped: (j) => this.onDriverStop?.(j), testLocal: o.testLocal === true });
     this.dls = new Downloads(path.join(o.stateDir, 'browser-downloads.json'));
     const loadSet = (f: string) => { try { if (existsSync(f)) { const a = JSON.parse(readFileSync(f, 'utf8')); if (Array.isArray(a)) return new Set(a.filter((x: unknown) => typeof x === 'string')); } } catch { /* none */ } return new Set<string>(); };
     this.httpOk = loadSet(this.httpOkFile);
@@ -2918,6 +2919,9 @@ export class AangBrowser {
           const page = num('page'), key = String(a?.key ?? '').toLowerCase();
           if (key === 'enter' || key === 'space') {
             const f = await d.focused(page);
+            // The cursor on something with no number (moved there with Tab, or put there by the page): Enter could
+            // send anything, so it asks him (AI lockdown G6).
+            if (f === null && a?.allowed !== true) return { ok: false, needs: 'lever', what: `press ${key === 'enter' ? 'Enter' : 'Space'} where the page has put the cursor` };
             if (f !== null) {
               const w = key === 'enter' ? (d.weightOf(page, f, 'enter') === 'free' || d.weightOf(page, f, 'click') === 'free' ? 'free' : d.weightOf(page, f, 'enter') === 'never' ? 'never' : 'lever') : d.weightOf(page, f, 'click');
               if (w === 'never') return { ok: false, error: `that would act on ${d.describe(page, f)}, and buying, passwords and card details are never done for him` };
@@ -2957,7 +2961,8 @@ export class AangBrowser {
   }
   private noteHost(site: string): string {
     const t = site.trim().toLowerCase();
-    try { return new URL(/^https?:/.test(t) ? t : 'https://' + t).hostname.replace(/^www\./, '').split('.').slice(-2).join('.'); } catch { return ''; }
+    // The site's own name, so one site can never write the note another reads (AI lockdown G8: "*.github.io" shared one).
+    try { return siteOf(new URL(/^https?:/.test(t) ? t : 'https://' + t).hostname); } catch { return ''; }
   }
   private siteNote(url: string): string { const h = this.noteHost(url); return h ? this.siteNotes[h] ?? '' : ''; }
   private setSiteNote(host: string, text: string): void {

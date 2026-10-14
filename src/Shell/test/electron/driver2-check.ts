@@ -54,7 +54,7 @@ app.whenReady().then(async () => {
   const pages = await servePages(path.join(HERE, '..', '..', 'pages'));
   const state = mkdtempSync(path.join(os.tmpdir(), 'drv2-'));
   const b = new AangBrowser({ origin: pages.origin, stateDir: state, preloadPath: path.join(HERE, '..', '..', 'src', 'preload.cjs'),
-    tabPreloadPath: path.join(HERE, '..', '..', 'src', 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, '..', '..', 'src', 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, '..', '..', 'src', 'thingspreload.cjs') });
+    tabPreloadPath: path.join(HERE, '..', '..', 'src', 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, '..', '..', 'src', 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, '..', '..', 'src', 'thingspreload.cjs'), testLocal: true });
   const door = startClaudeDoor(() => b, state, PORT);
   await new Promise((r) => setTimeout(r, 300));
   const mcp = spawn(process.platform === 'win32' ? 'node.exe' : 'node', [path.join(HERE, '..', '..', 'src', 'claude-door-mcp.mjs')], { env: { ...process.env, AANG_DOOR_FILE: path.join(state, 'claude-door.json') }, stdio: ['pipe', 'pipe', 'inherit'] });
