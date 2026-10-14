@@ -592,8 +592,10 @@ export class AangBrowser {
     this.onCall?.(on);
   }
   /** 6.28: a tested engine waiting for his Restart now (the update key), or null. */
-  private update: { version: string; since: number } | null = null;
-  setUpdate(u: { version: string; since: number } | null): void { this.update = u; this.sendTabs(); }
+  private update: { version: string; since: number; title?: string; kind?: string; notes?: string[]; checks?: string[] } | null = null;
+  setUpdate(u: { version: string; since: number; title?: string; kind?: string; notes?: string[]; checks?: string[] } | null): void { this.update = u; this.sendTabs(); }
+  /** Why Restart now did not go ahead, in the update tray. */
+  updateWhy(why: string): void { for (const p of this.panes) if (this.alive(p)) p.win!.webContents.send('browser:updatewhy', why); }
   /** The browser window is open. */
   get showing(): boolean { return this.panes.some((p) => this.alive(p)); }
   /** Told when a call starts or ends (the update key). */

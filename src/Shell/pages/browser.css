@@ -523,6 +523,10 @@ body.drawer-open .drawer{transform:none;visibility:visible;transition:transform 
 .stopk:hover{filter:brightness(1.15)}
 .stopk:active{top:3px;box-shadow:0 0 0 var(--outline),inset 0 2px 0 rgba(255,170,140,.45)}
 .stopk.big{width:26px;height:26px}
+/* The update tray's "what's new" (the Mac's everything-update, 2026-10-14): short lines, a gold bullet, scrolls if long. */
+.uptray .upnotes{margin:6px 0 8px;padding:0 0 0 14px;max-height:132px;overflow:auto;font:500 12px var(--body,Figtree),sans-serif;line-height:1.4;color:#e8dcc4}
+.uptray .upnotes li{margin:2px 0}
+.uptray .upnotes li::marker{color:#FFC43C}
 .stopk.armed{width:auto;padding:0 6px;font:400 9px Silkscreen,monospace;letter-spacing:1px;color:#ffe4dc}
 .slot .who{display:inline-flex;align-items:center;gap:8px;color:#ffe28c;-webkit-app-region:no-drag}
 .slot .who img{width:16px;height:16px;image-rendering:pixelated}

@@ -20,8 +20,9 @@ import os from 'node:os';
 import path from 'node:path';
 import { parseFromBody } from './protocol.ts';
 import { reportWriteFailure, rotateIfBig, writeFileAtomic } from './atomic.ts';
-import { randomBytes, timingSafeEqual } from 'node:crypto';
-import { MAC_LISTENER_PORT, macBrowserBundle, macSetupScript, FRONT_DESK_PORT, type DeskPayload } from './macsetup.ts';
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
+import { MAC_LISTENER_PORT, macBrowserBundle, macSetupScript, macSourceVersion, FRONT_DESK_PORT, type DeskPayload, type MacRelease } from './macsetup.ts';
 import { Jobs, SWEEP_REQUEST, cleanField, safeUrl, scoreOf, verdictFor } from './jobs.ts';
 import type { Rubric } from './jobs.ts';
 import type { BriefCard, FromBody, Mode, StructuredList, ToBody } from './protocol.ts';
@@ -2131,7 +2132,7 @@ export class Core {
     const ts = this.hookServer?.tailnet;
     if (!ts) return null;
     console.log('mac-setup: served the MacBook its setup script (the code is now used up)');
-    return macSetupScript(ts, this.cfg.port + 1, this.keyFile('hook.key'), this.keyFile('mac-front.key'), this.frontDeskFor());
+    return macSetupScript(ts, this.cfg.port + 1, this.keyFile('hook.key'), this.keyFile('mac-front.key'), this.frontDeskFor(), { release: this.macRelease() });
   }
 
   /**
@@ -2581,7 +2582,65 @@ export class Core {
   private readonly bsync = new BrowserSyncHub({
     key: () => this.keyFile('bsync.key'), macAddr: () => this.macAddr,
     toShell: m => this.sendToShells(m as never), shellUp: () => this.shellUp(),
+    onUpdate: (m, reply) => this.macUpdate(m, reply),
   });
+
+  // ---- the update key on the Mac (his yes, 2026-10-14). The Mac says which version it runs; when this PC's differs,
+  // his UPDATE key lights up there with what is new. He presses Restart now; the Mac asks here, over this same locked
+  // connection, for the update, and runs it: the same steps as the Mac setup, then Aang opens again (and goes back to
+  // the old one by itself if the new one will not start). Nothing installs without his press.
+  private macHas: { version: string; commit: string } | null = null;
+  private macOffer: string | null = null;
+  private macReleaseCache: { at: number; r: MacRelease } | null = null;
+  private static readonly DESK_FILES = ['frontdesk.ts', 'discord-client.ts', 'discord-logic.ts', 'macbrain.ts', 'macpowers.ts', 'macjobs.ts', 'weather.ts', 'briefcard.ts', 'google.ts', 'mail.ts', 'emailfacts.ts', 'attachments.ts', 'emailcard.ts', 'booking.ts', 'filters.ts', 'travel.ts', 'addresses.ts', 'lists.ts', 'atomic.ts', 'route.ts'];
+  private repoRoot(): string { return path.join(import.meta.dirname, '..', '..', '..'); }
+  private git(args: string[]): string { try { return execFileSync('git', args, { cwd: this.repoRoot(), encoding: 'utf8', timeout: 10_000, stdio: ['ignore', 'pipe', 'ignore'] }).trim(); } catch { return ''; } }
+  private macRelease(): MacRelease {
+    if (this.macReleaseCache && Date.now() - this.macReleaseCache.at < 60_000) return this.macReleaseCache.r;
+    const here = import.meta.dirname;
+    const r = { version: macSourceVersion(path.join(here, '..', '..', 'Shell'), here, Core.DESK_FILES), commit: this.git(['rev-parse', '--short=12', 'HEAD']) };
+    this.macReleaseCache = { at: Date.now(), r };
+    return r;
+  }
+  /** What is new since the Mac's version, in the words of the changes themselves (the commits that touched it). */
+  private macNotes(from: string): string[] {
+    const paths = ['src/Shell/src', 'src/Shell/pages', 'src/Shell/drm', 'src/Shell/mac-pkg', 'src/Core/src/macsetup.ts', ...Core.DESK_FILES.map(f => 'src/Core/src/' + f)];
+    const range = /^[0-9a-f]{6,40}$/.test(from) && this.git(['cat-file', '-t', from]) === 'commit' ? [`${from}..HEAD`] : ['-6'];
+    return this.git(['log', '--format=%s', ...range, '--', ...paths]).split(/\r?\n/).map(l => l.trim()).filter(Boolean).slice(0, 12);
+  }
+  /** When this PC first had this version (how long the key has been waiting). */
+  private macSince(version: string): number {
+    const f = path.join(this.cfg.stateDir, 'mac-release.json');
+    try { const j = JSON.parse(readFileSync(f, 'utf8')); if (j.version === version && Number(j.since)) return Number(j.since); } catch { /* new */ }
+    const since = Date.now(); try { writeFileAtomic(f, JSON.stringify({ version, since })); } catch { /* best effort */ }
+    return since;
+  }
+  private macOfferNow(reply: (r: Record<string, unknown>) => void): void {
+    if (!this.macHas) return;
+    const r = this.macRelease();
+    if (!r.commit || r.version === this.macHas.version) { if (this.macOffer !== null) reply({ t: 'update.none' }); this.macOffer = null; return; }
+    reply({ t: 'update.offer', version: r.version, commit: r.commit, since: this.macSince(r.version), notes: this.macNotes(this.macHas.commit) });
+    if (this.macOffer !== r.version) console.log(`update key: the Mac runs ${this.macHas.version || 'an unknown version'}; offered ${r.version}`);
+    this.macOffer = r.version;
+  }
+  private macUpdate(m: Record<string, unknown>, reply: (r: Record<string, unknown>) => void): void {
+    if (m.t === 'update.have') {
+      this.macHas = { version: String(m.version ?? '').slice(0, 64), commit: String(m.commit ?? '').slice(0, 40) };
+      this.macOffer = null;
+      this.macOfferNow(reply);
+      return;
+    }
+    // update.get: he pressed Restart now on the Mac.
+    const ts = this.hookServer?.tailnet, r = this.macRelease();
+    const desk = ts ? this.frontDeskFor() : null;
+    if (!ts || !desk?.browser) { reply({ t: 'update.fail', why: "Your PC could not put the update together. Run the Mac code once instead." }); console.error('update key: no update for the Mac (no Tailscale address or nothing to send)'); return; }
+    if (String(m.version ?? '') !== r.version) { this.macOfferNow(reply); reply({ t: 'update.fail', why: 'A newer update just came in. Press Restart now again.' }); return; }
+    const script = macSetupScript(ts, this.cfg.port + 1, this.keyFile('hook.key'), this.keyFile('mac-front.key'), desk, { release: r, update: true });
+    reply({ t: 'update.script', version: r.version, sha256: createHash('sha256').update(script).digest('hex'), script });
+    console.log(`update key: sent the Mac update ${r.version} (${Math.round(script.length / 1024)} KB)`);
+  }
+  /** Every few minutes while the Mac is connected: a change made here lights its key without waiting for a reconnect. */
+  private macUpdateTimer = setInterval(() => { if (this.bsync.macConnected) this.macOfferNow(r => this.bsync.tellMac(r)); }, 5 * 60_000).unref();
   /** The last place the pet said it was, for a Shell that connects afterwards. Never persisted: a
    *  position from a previous run is worse than none, since the pet is placed afresh at startup. */
   private lastPetAt: PetAt | null = null;

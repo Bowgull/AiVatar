@@ -6,7 +6,9 @@
 // Run as the "Aang" app the Mac setup makes (Aang.app in ~/Applications). It can be his default browser (his yes).
 import { startClaudeDoor } from './claudedoor.ts';
 import { app, globalShortcut, ipcMain, Menu, nativeImage } from 'electron';
-import { appendFileSync, existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { appendFileSync, chmodSync, existsSync, openSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
 import { WebSocket } from 'ws';
@@ -165,6 +167,48 @@ app.whenReady().then(async () => {
     try { writeFileSync(asked, new Date().toISOString()); } catch { /* asked again next time */ }
   }
 
+  // ---- the update key (his yes, 2026-10-14: "update both aang the browser the code everything"). This Mac says which
+  // version it runs; the PC answers with what is new; his UPDATE key lights up in the band. Restart now asks the PC for
+  // the update over the same locked connection and runs it: the Mac setup's own steps, then Aang opens again. The
+  // setup keeps the old Aang beside the new one and puts it back if the new one does not start (it marks itself good
+  // after a minute up).
+  const INSTALLED = path.join(LISTENER, 'browser', 'installed.json');
+  const installed = (): { version: string; commit: string; status: string } => { try { const j = JSON.parse(readFileSync(INSTALLED, 'utf8')); return { version: String(j.version ?? ''), commit: String(j.commit ?? ''), status: String(j.status ?? '') }; } catch { return { version: '', commit: '', status: '' }; } };
+  const markGood = () => { const i = installed(); if (i.status === 'trial') { try { writeFileSync(INSTALLED, JSON.stringify({ ...i, status: 'good' })); console.log(`aang: update ${i.version} is good`); } catch { /* next start */ } } };
+  setTimeout(markGood, 60_000);
+  let offered: { version: string } | null = null, wantUpdate = false;
+  const failedUpdates = () => { try { return readFileSync(path.join(LISTENER, 'browser', 'failed-updates.txt'), 'utf8').split(/\s+/).filter(Boolean); } catch { return []; } };
+  const onUpdateMsg = (m: any, s: WebSocket) => {
+    if (m.t === 'update.offer' && typeof m.version === 'string' && /^[0-9a-f]{6,64}$/.test(m.version)) {
+      if (failedUpdates().includes(m.version)) { console.log(`aang: update ${m.version} failed to start before; not offered`); return; }
+      offered = { version: m.version };
+      const notes = (Array.isArray(m.notes) ? m.notes : []).map((x: unknown) => String(x).slice(0, 160)).slice(0, 12);
+      browser?.setUpdate({ version: m.version, since: Number(m.since) || Date.now(), title: 'Aang update', kind: 'Aang, your browser and everything on this Mac', notes,
+        checks: ['Comes from your PC over your locked, private connection', 'Checked against its fingerprint before it installs', 'Your tabs come back after the restart'] });
+    } else if (m.t === 'update.none') { offered = null; browser?.setUpdate(null); }
+    else if (m.t === 'update.fail') { wantUpdate = false; browser?.updateWhy(String(m.why ?? 'The update did not come through.')); }
+    else if (m.t === 'update.script' && wantUpdate) {
+      wantUpdate = false;
+      const script = String(m.script ?? '');
+      if (!offered || m.version !== offered.version || createHash('sha256').update(script).digest('hex') !== m.sha256 || !script.startsWith('#!/bin/bash')) { browser?.updateWhy('The update did not check out, so nothing was installed.'); return; }
+      try {
+        const file = path.join(LISTENER, 'update.sh'), log = path.join(LISTENER, 'update.log');
+        writeFileSync(file, script); chmodSync(file, 0o700);
+        const out = openSync(log, 'w');
+        spawn('/bin/bash', [file], { detached: true, stdio: ['ignore', out, out] }).unref();
+        console.log(`aang: installing update ${m.version}; Aang closes and opens again`);
+      } catch (e) { browser?.updateWhy('The update could not start: ' + (e as Error).message); }
+      void s;
+    }
+  };
+  ipcMain.on('browser:updatego', (e) => {
+    if (!browser?.isFrame(e.sender) || !offered) return;
+    if (browser.inCall) { browser.updateWhy("You're in a call. Restart when it's over."); return; }
+    if (ws?.readyState !== WebSocket.OPEN) { browser.updateWhy("Your PC isn't reachable right now, so the update can't come through. Try again when it's on."); return; }
+    wantUpdate = true;
+    ws.send(JSON.stringify({ t: 'update.get', version: offered.version }));
+  });
+
   // ---- the sync, through the brain on the PC
   const read = (f: string) => { try { return readFileSync(path.join(LISTENER, f), 'utf8').trim(); } catch { return ''; } };
   const key = read('bsync.key'), shadow = read('shadow');
@@ -176,6 +220,7 @@ app.whenReady().then(async () => {
     s.on('message', (raw) => {
       let m: any; try { m = JSON.parse(String(raw)); } catch { return; }
       if (typeof m?.t === 'string' && m.t.startsWith('bsync.')) void sync.got(m).catch((e: Error) => console.error('aang: sync: ' + e.message));
+      else if (typeof m?.t === 'string' && m.t.startsWith('update.')) onUpdateMsg(m, s);
       // "Open on Mac" from the PC: a full tab here, and Aang comes to the front.
       else if (m?.t === 'tab.open' && typeof m.url === 'string' && /^https?:\/\//.test(m.url)) { browser?.openForward(m.url); app.focus({ steal: true }); }
       // "Send to Mac" from the PC: it plays here, in the pop-out.
@@ -188,6 +233,7 @@ app.whenReady().then(async () => {
         }).catch((e: Error) => console.error('aang: look: ' + e.message));
       }
     });
+    s.on('open', () => { const i = installed(); s.send(JSON.stringify({ t: 'update.have', version: i.version, commit: i.commit })); });
     s.on('close', () => { if (ws === s) { ws = null; void sync.link(false); setTimeout(connect, 15_000); } });
     s.on('error', () => { /* close follows */ });
   };
@@ -196,7 +242,7 @@ app.whenReady().then(async () => {
   // A Mac app stays open with no windows; clicking it in the Dock brings the browser back.
   app.on('activate', () => browser?.open());
   app.on('second-instance', () => browser?.open());
-  app.on('before-quit', () => { browser?.closeAll(); pages.close(); });
+  app.on('before-quit', () => { if (process.uptime() > 20) markGood(); browser?.closeAll(); pages.close(); });
 });
 
 // Closing the last window does not quit: the sync keeps running, as Mac apps do. Cmd+Q quits.

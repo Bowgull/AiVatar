@@ -11,7 +11,8 @@
 // already wired (SessionStart/Stop/etc.), not through this endpoint.
 
 import { execFileSync } from 'node:child_process';
-import { readFileSync, unlinkSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { readFileSync, readdirSync, statSync, unlinkSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -212,8 +213,40 @@ export function macBrowserBundle(shellDir: string): Buffer {
   } finally { try { unlinkSync(out); } catch { /* gone */ } }
 }
 
+/**
+ * The update key on the Mac (his yes, 2026-10-14: "it should be able to update both aang the browser the code
+ * everything"). Which version of everything the Mac runs: a fingerprint of the files the setup sends (the browser's
+ * code and pages, the Mac app's package files, the front desk's files, and this setup itself). The Mac says which
+ * one it has; when this PC's differs, his UPDATE key lights up there.
+ */
+export function macSourceVersion(shellDir: string, coreSrcDir: string, deskFiles: string[]): string {
+  const h = createHash('sha256');
+  const add = (rel: string, full: string) => { h.update(rel + '\0'); h.update(readFileSync(full)); h.update('\0'); };
+  const walk = (base: string, dir: string) => {
+    let names: string[] = [];
+    try { names = readdirSync(path.join(base, dir)).sort(); } catch { return; }
+    for (const n of names) {
+      const rel = dir ? `${dir}/${n}` : n, full = path.join(base, rel);
+      if (statSync(full).isDirectory()) { if (n !== 'node_modules') walk(base, rel); } else add('shell/' + rel, full);
+    }
+  };
+  for (const d of ['src', 'pages', 'drm']) walk(shellDir, d);
+  for (const f of ['package.json', 'package-lock.json']) { try { add('mac-pkg/' + f, path.join(shellDir, 'mac-pkg', f)); } catch { /* none */ } }
+  for (const f of [...deskFiles, 'macsetup.ts'].sort()) { try { add('core/' + f, path.join(coreSrcDir, f)); } catch { /* none */ } }
+  return h.digest('hex').slice(0, 16);
+}
+export interface MacRelease { version: string; commit: string }
+export interface SetupOpts {
+  /** What this script installs, written on the Mac so it can say which version it has. */
+  release?: MacRelease;
+  /** Started by his UPDATE key, not by hand: no questions, Aang opens again at the end, and if the new Aang will not
+   *  stay up the old one comes back by itself. */
+  update?: boolean;
+}
+
 /** The whole bash script the Mac runs. `shadow` is this PC's Tailscale address. */
-export function macSetupScript(shadow: string, hookPort: number, hookKey: string, frontKey: string, desk: DeskPayload | null = null): string {
+export function macSetupScript(shadow: string, hookPort: number, hookKey: string, frontKey: string, desk: DeskPayload | null = null, opts: SetupOpts = {}): string {
+  const rel = opts.release && /^[0-9a-f]{6,64}$/.test(opts.release.version) && /^[0-9a-f]{0,40}$/.test(opts.release.commit) ? opts.release : null;
   const q = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`;
   const b64 = (s: string | Buffer) => (typeof s === 'string' ? Buffer.from(s, 'utf8') : s).toString('base64');
   // Each file goes over as base64 on one line, so nothing in it can ever be read by the shell.
@@ -224,7 +257,9 @@ export function macSetupScript(shadow: string, hookPort: number, hookKey: string
   return `#!/bin/bash
 # Aang: MacBook setup. Written by Aang on the Shadow PC; served once. Safe to run again.
 set -e
-# macOS can still be removing the old copy right after bootout; starting again too soon fails with "Input/output
+${opts.update ? `# Started by his UPDATE key: whatever happens, Aang opens again at the end.
+trap 'open -a "$HOME/Applications/Aang.app" >/dev/null 2>&1 || true' EXIT
+` : ''}# macOS can still be removing the old copy right after bootout; starting again too soon fails with "Input/output
 # error" (seen 2026-10-13). So: try again for a while before giving up.
 start_agent() { for i in 1 2 3 4 5 6 7 8; do launchctl bootstrap "gui/$(id -u)" "$1" 2>/dev/null && return 0; sleep 2; done; launchctl bootstrap "gui/$(id -u)" "$1"; }
 SHADOW=${q(shadow)}; HOOK_PORT=${hookPort}; HOOK_KEY=${q(hookKey)}; FRONT_KEY=${q(frontKey)}; PORT=${MAC_LISTENER_PORT}
@@ -410,7 +445,10 @@ if [ -d "$BASE" ] && [ -x "$NODE_DIR/bin/node" ]; then
     for s in 16 32 128 256 512; do d=$((s*2)); sips -z $s $s "$FACE" --out "$IS/icon_$s"x"$s.png" >/dev/null 2>&1; sips -z $d $d "$FACE" --out "$IS/icon_$s"x"$s@2x.png" >/dev/null 2>&1; done
     iconutil -c icns "$IS" -o "$RES/electron.icns" >/dev/null 2>&1 || true
     codesign --force --deep -s - "$APP.new" >/dev/null 2>&1 || true
-    rm -rf "$APP"; mv "$APP.new" "$APP"
+    # The Aang that was here is kept as Aang.app.prev, so a new one that will not start can be undone.
+    rm -rf "$APP.prev"; if [ -d "$APP" ]; then mv "$APP" "$APP.prev"; fi; mv "$APP.new" "$APP"
+${rel ? `    cp "$BR/installed.json" "$BR/installed.prev.json" 2>/dev/null || rm -f "$BR/installed.prev.json"
+    printf '%s' '{"version":"${rel.version}","commit":"${rel.commit}","status":"${opts.update ? 'trial' : 'good'}"}' > "$BR/installed.json"` : ''}
     /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$APP" >/dev/null 2>&1 || true
     # In the Dock, once (his yes).
     if ! defaults read com.apple.dock persistent-apps 2>/dev/null | grep -q "Applications/Aang.app"; then
@@ -462,6 +500,26 @@ if [ -d "$BASE" ] && [ -x "$NODE_DIR/bin/node" ]; then
     grep -i "error" "$DIR/npm-browser.log" | head -6 | sed 's/^/       /'
   fi
 fi
+` : ''}${opts.update ? `echo "Update done. Opening Aang again."
+APP="$HOME/Applications/Aang.app"; BR="$DIR/browser"
+[ -d "$APP" ] && open -a "$APP"
+# The new Aang marks itself good once it has run a minute. If it is not running and never got there, it did not
+# start: the old one goes back, and this version is not offered again.
+${rel ? `for t in 40 60 120; do
+  sleep $t
+  grep -q '"status":"good"' "$BR/installed.json" 2>/dev/null && break
+  if ! pgrep -f "Aang.app/Contents/MacOS/" >/dev/null 2>&1; then
+    if [ -d "$APP.prev" ]; then
+      echo "The new Aang did not start; putting the old one back."
+      rm -rf "$APP"; mv "$APP.prev" "$APP"
+      if [ -f "$BR/installed.prev.json" ]; then mv "$BR/installed.prev.json" "$BR/installed.json"; else rm -f "$BR/installed.json"; fi
+      echo "${rel.version}" >> "$BR/failed-updates.txt"
+      open -a "$APP"
+    fi
+    break
+  fi
+done` : ''}
+exit 0
 ` : ''}echo "6/6  Checking the line back to Aang"
 CODE=$(curl -s -m 5 -o /dev/null -w '%{http_code}' -X POST --data '{}' "http://$SHADOW:$HOOK_PORT/hook?e=Ping&k=$HOOK_KEY" || true)
 if [ "$CODE" = "204" ]; then echo "     Aang heard this Mac."; else echo "     Aang did not answer (got '$CODE'). Is the Windows firewall rule in, and Tailscale on here?"; fi
