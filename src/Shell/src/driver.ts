@@ -17,7 +17,7 @@ import { neverKeep } from './visits.ts';
 import { READERS, READER_JS, type Reader } from './readers.ts';
 import { reachesIn, talksToAI } from './driverrules.ts';
 import { guardRequests } from './skip/ads.ts';
-import { existsSync, statSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, statSync, mkdirSync, writeFileSync, realpathSync } from 'node:fs';
 import os from 'node:os';
 export { cleanName, weigh, type Weight };
 
@@ -767,11 +767,23 @@ export class Driver {
   sweepPage(id: number): number | null { return this.sweeps.get(id)?.page ?? null; }
 
   /** A file of his into a file field (his résumé). Asked first by the caller, every time; only his own documents. */
+  /**
+   * Which real file an upload would send, or why not (code audit M7): a shortcut or link is followed to the file it
+   * points at before any check, so "resume.pdf" can never quietly be something in a private folder.
+   */
+  checkUpload(file: string): { real: string; label: string } {
+    let real = '', size = 0, home = os.homedir();
+    try { real = realpathSync(file); size = statSync(real).size; } catch { throw new Error('that file cannot be uploaded: there is no such file'); }
+    try { home = realpathSync(home); } catch { /* as is */ }
+    const no = uploadable(real, home, size);
+    if (no) throw new Error(`that file cannot be uploaded: ${no}`);
+    const parts = real.replace(/\\/g, '/').split('/');
+    const kb = size < 1024 * 1024 ? `${Math.max(1, Math.round(size / 1024))} KB` : `${(size / 1024 / 1024).toFixed(1)} MB`;
+    return { real, label: `${parts.pop()} (from your ${parts.pop() || 'home'} folder, ${kb})` };
+  }
   async upload(pageId: number, n: number, file: string): Promise<{ title: string; url: string; changed: string[] }> {
     const { p, wc } = this.wcOf(pageId);
-    let size = 0; try { size = existsSync(file) ? statSync(file).size : 0; } catch { /* none */ }
-    const no = uploadable(file, os.homedir(), size);
-    if (no) throw new Error(`that file cannot be uploaded: ${no}`);
+    file = this.checkUpload(file).real;
     const it = this.items.get(p.id)?.find((x) => x.n === n);
     if (it?.kind !== 'file') throw new Error(`control ${n} is not a file field; read the page again`);
     const before = await this.state(wc, n);
@@ -783,9 +795,13 @@ export class Driver {
       const mark = 'u' + Math.random().toString(36).slice(2, 12);
       const marked = await wc.executeJavaScriptInIsolatedWorld(WORLD, [{ code: `(() => { ${DEEP} const e = __byN(${Number(n)}); if (!e) return false; e.setAttribute('data-aang-up', '${mark}'); return true; })()` }]);
       if (!marked) throw new Error(`file field ${n} is not on the page any more`);
-      const { result } = await dbg.sendCommand('Runtime.evaluate', { expression: `(() => { const e = document.querySelector('[data-aang-up="${mark}"]'); if (e) e.removeAttribute('data-aang-up'); return e; })()` }) as { result: { objectId?: string } };
-      if (!result?.objectId) throw new Error(`file field ${n} is not on the page any more`);
-      await dbg.sendCommand('DOM.setFileInputFiles', { files: [file], objectId: result.objectId });
+      // Found by the browser itself, never by running the page's own scripts (code audit L8): a page cannot hand back
+      // a different field than the one he was asked about.
+      const { root } = await dbg.sendCommand('DOM.getDocument', { depth: 0 }) as { root: { nodeId: number } };
+      const { nodeId } = await dbg.sendCommand('DOM.querySelector', { nodeId: root.nodeId, selector: `[data-aang-up="${mark}"]` }) as { nodeId: number };
+      if (!nodeId) throw new Error(`file field ${n} is not on the page any more`);
+      await dbg.sendCommand('DOM.removeAttribute', { nodeId, name: 'data-aang-up' });
+      await dbg.sendCommand('DOM.setFileInputFiles', { files: [file], nodeId });
     } finally { if (mine) { try { dbg.detach(); } catch { /* gone */ } } }
     await this.settle(wc);
     const after = await this.state(wc, n);

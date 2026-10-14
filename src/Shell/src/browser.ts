@@ -3095,7 +3095,10 @@ export class AangBrowser {
         }
         case 'upload': {
           const page = num('page'), n = num('n'), file = String(a?.file ?? '');
-          if (a?.allowed !== true) return { ok: false, needs: 'lever', what: `upload ${d.describeFile(file)} to ${d.describe(page, n).replace(/^.* on /, '')}` };
+          // Checked before he is asked (code audit M7): he is never asked about a file that would be refused, and the
+          // question names the real file, its folder and its size.
+          const up = d.checkUpload(file);
+          if (a?.allowed !== true) return { ok: false, needs: 'lever', what: `upload ${up.label} to ${d.describe(page, n).replace(/^.* on /, '')}` };
           return { ok: true, ...(await d.upload(page, n, file)) };
         }
         case 'collect': return { ok: true, ...(await d.collectJobs(num('page'), Math.max(1, Math.min(120, Number(a?.max) || 60)))) };
