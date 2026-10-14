@@ -434,6 +434,10 @@ if [ -d "$BASE" ] && [ -x "$NODE_DIR/bin/node" ]; then
     if [ -z "$ADDED" ]; then
       "$NODE_DIR/bin/node" -e 'const fs=require("fs");const [p,cmd,arg]=process.argv.slice(1);let j={};if(fs.existsSync(p)){try{j=JSON.parse(fs.readFileSync(p,"utf8"))}catch(e){process.exit(2)}}j.mcpServers=j.mcpServers||{};j.mcpServers["aang-browser"]={type:"stdio",command:cmd,args:[arg],env:{}};fs.writeFileSync(p+".aang-tmp",JSON.stringify(j,null,2));fs.renameSync(p+".aang-tmp",p)' "$HOME/.claude.json" "$NODE_DIR/bin/node" "$DOOR" && ADDED="yes"
     fi
+    # The job-hunt skill's guide to these tools, as a NEW file beside its old Chrome guide (no other skill file touched).
+    if [ -d "$HOME/.claude/skills/job-hunt/references" ] && [ -f "$APP/Contents/Resources/app/src/job-hunt-aang-browser.md" ]; then
+      cp "$APP/Contents/Resources/app/src/job-hunt-aang-browser.md" "$HOME/.claude/skills/job-hunt/references/aang-browser.md" && echo "     Your job-hunt skill has a new guide: references/aang-browser.md"
+    fi
     if [ -n "$ADDED" ]; then echo "     Claude Code here can now drive Aang's browser (aang-browser). Reopen a Claude session to see it."
     else echo "     Could not add Aang's browser to Claude Code here."; fi
     # His yes: Bitwarden's key-fill here too. Bitwarden's own official tool, pinned by its fingerprint; he signs in to it himself.

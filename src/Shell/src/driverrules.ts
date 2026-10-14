@@ -12,6 +12,7 @@ const NEVER = /\b(buy|purchase|checkout|check out|place (your )?order|pay|paymen
 export function weigh(it: { kind: string; label: string; search?: boolean; formSearch?: boolean }): Weight {
   const label = String(it.label ?? '');
   if (it.kind === 'password' || it.kind === 'payment') return 'never';
+  if (it.kind === 'file') return 'lever';                                          // a file of his leaves the machine: asked every time
   if (NEVER.test(label)) return 'never';
   if (it.kind === 'link') return LEVER.test(label) && /delete|remove|unsubscribe|sign ?out|log ?out/i.test(label) ? 'lever' : 'free';
   if (it.kind === 'search') return 'free';
@@ -88,4 +89,56 @@ export function whatChanged(a: PageState, b: PageState): string[] {
     else if (Math.abs(a.textLen - b.textLen) > 40) out.push('the page\'s words changed');
   }
   return out;
+}
+
+// ---- job-hunt parity (2026-10-14, research_notes/job-hunt-skill/analysis.md) ----
+
+/**
+ * The job boards his skill sweeps (its references/boards.md): the search path ({q} is the keyword), the card selector,
+ * and the seconds between searches. LinkedIn is not here on purpose: it is read by real page loads (collect), never
+ * fetched in bulk.
+ */
+export interface Board { name: string; host: RegExp; path: string; card: string; spacing: number }
+export const BOARDS: Board[] = [
+  { name: 'indeed', host: /(^|\.)indeed\.(com|ca)$/i, path: '/jobs?q={q}&l=Toronto%2C+ON&fromage=3', card: '.job_seen_beacon', spacing: 11 },
+  { name: 'eluta', host: /(^|\.)eluta\.ca$/i, path: '/search?q={q}&l=Toronto', card: '.organic-job', spacing: 2.5 },
+  { name: 'simplyhired', host: /(^|\.)simplyhired\.(ca|com)$/i, path: '/search?q={q}&l=Toronto%2C+ON&t=3', card: '[data-testid="searchSerpJob"]', spacing: 3.5 },
+  { name: 'ziprecruiter', host: /(^|\.)ziprecruiter\.(ca|com)$/i, path: '/jobs-search?search={q}&location=Toronto%2C+ON&days=3&country=ca', card: 'article', spacing: 4.5 },
+  { name: 'glassdoor', host: /(^|\.)glassdoor\.(ca|com)$/i, path: '/Job/jobs.htm?sc.keyword={q}&locT=C&locId=2281069&fromAge=3', card: 'li[data-test="jobListing"]', spacing: 6 },
+  { name: 'jobbank', host: /(^|\.)jobbank\.gc\.ca$/i, path: '/jobsearch/jobsearch?searchstring={q}&locationstring=Toronto%2C+ON&sort=D&fage=3', card: 'article', spacing: 3 },
+  { name: 'jobs.ca', host: /(^|\.)jobs\.ca$/i, path: '/jobs?q={q}&location=Toronto%2C+ON&radius=50', card: 'article', spacing: 3.5 },
+  { name: 'weworkremotely', host: /(^|\.)weworkremotely\.com$/i, path: '/remote-jobs/search?term={q}', card: 'li.new-listing-container', spacing: 3 },
+  { name: 'hcareers', host: /(^|\.)hcareers\.(ca|com)$/i, path: '/jobs?what={q}&where=Toronto%2C+ON', card: 'article', spacing: 2.5 },
+];
+export function boardFor(host: string): Board | null { const h = String(host ?? '').toLowerCase(); return BOARDS.find((b) => b.host.test(h)) ?? null; }
+
+/** A sweep's own search: a same-site path with {q}, and a card selector. Anything else is refused. */
+export function sweepPlan(host: string, o: { path?: string; card?: string; spacing?: number }): { path: string; card: string; spacing: number } | string {
+  if (/(^|\.)linkedin\.com$/i.test(host)) return 'LinkedIn is never swept in bulk (his safety rule): open its search pages and use browser_collect_jobs';
+  const b = boardFor(host);
+  const path = String(o.path ?? b?.path ?? '');
+  const card = String(o.card ?? b?.card ?? '');
+  if (!path.startsWith('/') || path.startsWith('//') || !path.includes('{q}') || path.length > 300) return 'a sweep needs a path on this same site that starts with / and has {q} where the keyword goes';
+  if (!card || card.length > 200) return 'a sweep needs a card selector (how one posting is marked on the page)';
+  const least = Math.max(2.5, b?.spacing ?? 4);
+  return { path, card, spacing: Math.max(least, Number(o.spacing) || 0) };
+}
+
+/** A full-page check (stop the session) or a box on a form for him to tick (keep going, say "needs Josh"). */
+export function challengeLevel(p: { title?: string; url?: string; host?: string }): 'page' | 'box' {
+  if (paceFor(String(p.host ?? ''))) return 'page';
+  if (/\/checkpoint\/|\/authwall|\/sorry\/|challenges\.cloudflare\.com|\/cdn-cgi\/challenge/i.test(String(p.url ?? ''))) return 'page';
+  if (/just a moment|security (check|verification)|unusual activity|too many requests|access denied|are you a robot|verify you are human/i.test(String(p.title ?? ''))) return 'page';
+  return 'box';
+}
+
+/** Only his own documents go up: a PDF, Word or text file in his home folder, not hidden, under 10 MB. */
+export function uploadable(file: string, home: string, size: number): string | null {
+  const f = String(file ?? '').replace(/\\/g, '/');
+  const h = String(home ?? '').replace(/\\/g, '/').replace(/\/+$/, '');
+  if (!f || !h || !f.toLowerCase().startsWith(h.toLowerCase() + '/')) return 'only a file in his own home folder';
+  if (f.split('/').some((part) => part.startsWith('.') || part === '..')) return 'not from a hidden folder';
+  if (!/\.(pdf|docx?|txt|rtf)$/i.test(f)) return 'only a PDF, Word or text file';
+  if (!(size > 0) || size > 10 * 1024 * 1024) return 'the file is empty or over 10 MB';
+  return null;
 }
