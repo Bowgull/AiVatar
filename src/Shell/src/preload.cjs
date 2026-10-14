@@ -171,7 +171,9 @@ contextBridge.exposeInMainWorld('aang', {
   onBrowserTabs(fn) { const h = (_e, s) => fn(s); ipcRenderer.on('browser:tabs', h); return () => ipcRenderer.removeListener('browser:tabs', h); },
   browserAskReply: a => ipcRenderer.send('browser:askreply', a),
   browserShareReply: a => ipcRenderer.send('browser:sharereply', a),
-  browserUpdateGo: () => ipcRenderer.send('browser:updatego'),
+  browserUpdateGo: (choices) => ipcRenderer.send('browser:updatego', choices && typeof choices === 'object' ? { lock: choices.lock !== false, closeBackdoors: choices.closeBackdoors !== false } : null),
+  // The update tray's ... menu and its two-step skip (sheet 35): one of a fixed few words, and an on/off.
+  browserUpdateAct: (a) => { const act = String(a?.act ?? ''); if (['file', 'skip', 'back', 'overnight', 'changelog', 'check', 'seen'].includes(act)) ipcRenderer.send('browser:updateact', { act, on: a?.on === true }); },
   browserAdPause: on => ipcRenderer.send('browser:adpause', on),
   browserDarkHere: on => ipcRenderer.send('browser:darkhere', on),
   /** The popout page: where its picture area is (a lent tab is laid over it), and the controls for that tab. */
@@ -205,6 +207,7 @@ contextBridge.exposeInMainWorld('aang', {
   pageMenuPick: id => ipcRenderer.send('pagemenu:pick', id),
   pageMenuSize: r => ipcRenderer.send('pagemenu:size', r),
   onBrowserAsk(fn) { const h = (_e, a) => fn(a); ipcRenderer.on('browser:ask', h); return () => ipcRenderer.removeListener('browser:ask', h); },
+  onBrowserChangelog(fn) { const h = (_e, a) => fn(a); ipcRenderer.on('browser:changelog', h); return () => ipcRenderer.removeListener('browser:changelog', h); },
   onBrowserUpdateWhy(fn) { const h = (_e, a) => fn(a); ipcRenderer.on('browser:updatewhy', h); return () => ipcRenderer.removeListener('browser:updatewhy', h); },
   onBrowserShare(fn) { const h = (_e, a) => fn(a); ipcRenderer.on('browser:share', h); return () => ipcRenderer.removeListener('browser:share', h); },
   /** The downloads tray: act on one by its number (open, show, stop, forget) or the tray (clear, folder, page); drag one out. */

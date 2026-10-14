@@ -560,6 +560,9 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
 .lt-tile{width:30px;height:30px;flex:none;border-radius:7px;background:#f3e3bf;box-shadow:inset 0 0 0 2px #b38a52,0 2px 0 #9b7442;display:grid;place-items:center;overflow:hidden}
 .lt-tile.round{border-radius:50%;background:#fff}
 .lt-tile img{width:22px;height:22px;object-fit:contain;border-radius:50%}
+/* Samara's lantern in the brief (no tile colour behind it, crisp pixels) */
+.lt-tile img.lt-art{width:28px;height:28px;border-radius:0;image-rendering:pixelated}
+.lt-tile:has(.lt-art){background:transparent;box-shadow:none}
 .lt-txt{flex:1;min-width:0}
 .lt-txt b{display:block;font:700 14.5px/1.25 var(--body);color:#2a1c0c;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lt-txt span{display:block;font:500 12.5px/1.3 var(--body);color:#6a5236;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
