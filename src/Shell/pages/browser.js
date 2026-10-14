@@ -1196,8 +1196,15 @@ function paintWho() {
     const days = Math.floor((Date.now() - (Number(u.since) || Date.now())) / DAY);
     const age = days >= 7 ? 2 : days >= 4 ? 1 : 0;
     key.classList.remove('age0', 'age1', 'age2'); key.classList.add('age' + age);
-    key.title = days >= 1 ? `Browser update ready, waiting ${days} day${days === 1 ? '' : 's'}` : 'Browser update ready';
-    el('upname').textContent = 'Browser engine ' + u.version;
+    const what = u.title ? 'Update' : 'Browser update';
+    key.title = days >= 1 ? `${what} ready, waiting ${days} day${days === 1 ? '' : 's'}` : `${what} ready`;
+    // The engine (this PC) or everything (the Mac, 2026-10-14): a title, what it covers, what is new, the checks it passed.
+    el('upname').textContent = u.title || 'Browser engine ' + u.version;
+    el('upkind').textContent = u.kind || 'A small update to the browser engine';
+    const notes = el('upnotes');
+    notes.replaceChildren(...(Array.isArray(u.notes) ? u.notes : []).map((n) => Object.assign(document.createElement('li'), { textContent: n })));
+    notes.hidden = !notes.children.length;
+    if (Array.isArray(u.checks) && u.checks.length) el('uplines').replaceChildren(...u.checks.map((c) => { const d = document.createElement('div'); d.append(Object.assign(document.createElement('span'), { className: 'tick' }), document.createTextNode(c)); return d; }));
     el('upsince').textContent = days >= 1 ? `Waiting ${days} day${days === 1 ? '' : 's'}` : 'Ready today';
     const call = s.inCall === true;
     el('upgo').disabled = call;
