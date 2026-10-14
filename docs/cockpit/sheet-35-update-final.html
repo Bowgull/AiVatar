@@ -41,6 +41,15 @@
   .bx{flex:none;width:15px;height:15px;margin-top:2px;border:2px solid #120A05;border-radius:3px;background:#6fbf6a;position:relative;box-sizing:border-box;box-shadow:0 1px 0 rgba(0,0,0,.4)}
   .bx::after{content:"";position:absolute;left:3px;top:0;width:3px;height:7px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
   .bx.off{background:#cdb78c}.bx.off::after{display:none}
+  .dot{flex:none;width:7px;height:7px;margin:7px 4px 0 3px;background:#C95E28;box-shadow:1px 1px 0 #120A05}
+  .ask{position:relative;width:340px;padding:0 0 10px}
+  .ask .msg{margin:0 14px 10px;font:500 13.5px/1.5 Figtree;color:#EADFC9}
+  .ask .msg b{color:#FFB060}
+  .ask .ch{display:flex;flex-direction:column;gap:8px;margin:0 14px}
+  .ask .ch .key{justify-content:flex-start;text-align:left;height:auto;padding:8px 10px;line-height:1.3}
+  .ask .ch .key small{display:block;font:500 11.5px Figtree;opacity:.85}
+  .key.danger{background:linear-gradient(180deg,#B8452E,#7A2418);color:#FFF1E0}
+  .warnico{image-rendering:pixelated;filter:drop-shadow(0 0 6px rgba(255,120,80,.7))}
   .opt{cursor:pointer}
   .foot{display:flex;align-items:center;gap:8px;margin:2px 12px 0}
   .foot .sp{flex:1}
@@ -67,7 +76,7 @@
   .band.demo .upkey .w{animation:upwarm 2.4s ease-in-out infinite}
   .band.demo .upkey svg{overflow:visible;animation:upwarmarrow 2.4s ease-in-out infinite}
   .band.demo .upkey.d0{--ink:#FFE096;--glow:rgba(255,196,60,.95);--glow2:rgba(255,140,40,.6)}
-  .band.demo .upkey.d1{--ink:#9FF0E6;--glow:rgba(64,224,208,.95);--glow2:rgba(32,178,170,.65);background:linear-gradient(180deg,#1F6E6A,#124743);box-shadow:0 3px 0 var(--outline),inset 0 2px 0 rgba(160,255,240,.35)}
+  .band.demo .upkey.d1{--ink:#9FF0E6;--glow:rgba(64,224,208,.95);--glow2:rgba(32,178,170,.65)}
   .band.demo .upkey.d3{--ink:#FFF1E0;--glow:rgba(255,120,90,.95);--glow2:rgba(200,40,30,.6);background:linear-gradient(180deg,#B8452E,#7A2418);box-shadow:0 3px 0 var(--outline),inset 0 2px 0 rgba(255,170,140,.45)}
   /* 4+ days: every 6 s it swells out of the band and shakes, then settles. Never while he types or is in a call. */
   @keyframes swellshake{0%,70%,100%{transform:none}74%{transform:scale(1.28) translateY(-3px)}78%{transform:scale(1.28) translateY(-3px) rotate(-7deg)}82%{transform:scale(1.28) translateY(-3px) rotate(7deg)}86%{transform:scale(1.28) translateY(-3px) rotate(-5deg)}90%{transform:scale(1.18) translateY(-2px) rotate(3deg)}95%{transform:scale(1.05)}}
@@ -151,7 +160,7 @@ Below: the key's new colours as days pass, and the drop-down you'd see after an 
     <h2>3. THE KEY AS DAYS PASS (LIVE: WATCH THE LAST ONE)</h2>
     <div class="bandstrip">
       <div class="kcol"><div class="band demo"><button class="rnd upkey word d0" type="button"><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges"><path d="M3 0h1v1H3zM2 1h3v1H2zM1 2h5v1H1zM0 3h7v1H0zM2 4h3v3H2z"/></svg><span class="w">UPDATE</span></button></div><span class="l">TODAY: GOLD</span></div>
-      <div class="kcol"><div class="band demo"><button class="rnd upkey word d1" type="button"><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges"><path d="M3 0h1v1H3zM2 1h3v1H2zM1 2h5v1H1zM0 3h7v1H0zM2 4h3v3H2z"/></svg><span class="w">UPDATE</span></button></div><span class="l">1 DAY: TURQUOISE</span></div>
+      <div class="kcol"><div class="band demo"><button class="rnd upkey word d1" type="button"><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges"><path d="M3 0h1v1H3zM2 1h3v1H2zM1 2h5v1H1zM0 3h7v1H0zM2 4h3v3H2z"/></svg><span class="w">UPDATE</span></button></div><span class="l">1 DAY: TURQUOISE GLOW</span></div>
       <div class="kcol"><div class="band demo"><button class="rnd upkey word d3" type="button"><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges"><path d="M3 0h1v1H3zM2 1h3v1H2zM1 2h5v1H1zM0 3h7v1H0zM2 4h3v3H2z"/></svg><span class="w">UPDATE</span></button></div><span class="l">3 DAYS: RED</span></div>
       <div class="kcol"><div class="band demo"><button class="rnd upkey word d3 d4" type="button"><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges"><path d="M3 0h1v1H3zM2 1h3v1H2zM1 2h5v1H1zM0 3h7v1H0zM2 4h3v3H2z"/></svg><span class="w">UPDATE</span></button></div><span class="l">4+ DAYS: SWELL AND SHAKE</span></div>
     </div>
@@ -169,11 +178,39 @@ Below: the key's new colours as days pass, and the drop-down you'd see after an 
         <div class="caps"></div>
         <div class="hd"><img src="../../src/Shell/pages/art/samara/samara-lantern-32.png" alt=""><div class="t"><small>UPDATED WHILE YOU SLEPT</small><b>Version 1.1.0: Gojo</b></div></div>
         <div class="list">
-          <div class="it"><span class="bx"></span><span>Only one Samara in your Dock, always.</span></div>
-          <div class="it"><span class="bx"></span><span>Chrome's newest security fixes.</span></div>
-          <div class="it"><span class="bx"></span><span>Your saved logins are locked with your computer's own lock.</span></div>
+          <div class="it"><span class="dot"></span><span>Only one Samara in your Dock, always.</span></div>
+          <div class="it"><span class="dot"></span><span>Chrome's newest security fixes.</span></div>
+          <div class="it"><span class="dot"></span><span>Your saved logins are locked with your computer's own lock.</span></div>
         </div>
         <div class="foot"><button class="key primary sm" type="button">Got it</button><button class="key sm" type="button">Every version</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row" style="margin-top:28px">
+  <div class="stage">
+    <h2>5. SKIP THIS VERSION: FIRST, WHAT IT MEANS</h2>
+    <div class="dltray uptray upx ask">
+      <div class="caps"></div>
+      <div class="hd"><svg class="warnico" viewBox="0 0 9 9" width="28" height="28" shape-rendering="crispEdges"><path d="M4 0h1v1H4zM3 1h1v2H3zM5 1h1v2H5zM2 3h1v2H2zM6 3h1v2H6zM1 5h1v2H1zM7 5h1v2H7zM0 7h1v1H0zM8 7h1v1H8zM0 8h9v1H0z" fill="#120A05"/><path d="M4 1h1v1H4zM4 2h1v1H4zM3 3h3v2H3zM2 5h5v2H2zM1 7h7v1H1z" fill="#FFB060"/><path d="M4 3h1v2H4zM4 6h1v1H4z" fill="#120A05"/></svg><div class="t"><small>SKIP VERSION 1.1.0?</small><b>This is risky</b></div></div>
+      <div class="msg">This update has <b>security fixes</b>. Skipping it leaves known holes open until the next one.</div>
+      <div class="ch">
+        <button class="key sm" type="button">Put it away for now<small>It stays on file. "Check for updates" in Samara's menu brings it back.</small></button>
+        <button class="key sm danger" type="button">Skip it for good<small>It won't be offered again.</small></button>
+        <button class="key primary sm" type="button">Keep it, go back</button>
+      </div>
+    </div>
+  </div>
+  <div class="stage">
+    <h2>6. SKIP IT FOR GOOD: ONE LAST CHECK</h2>
+    <div class="dltray uptray upx ask">
+      <div class="caps"></div>
+      <div class="hd"><svg class="warnico" viewBox="0 0 9 9" width="28" height="28" shape-rendering="crispEdges"><path d="M4 0h1v1H4zM3 1h1v2H3zM5 1h1v2H5zM2 3h1v2H2zM6 3h1v2H6zM1 5h1v2H1zM7 5h1v2H7zM0 7h1v1H0zM8 7h1v1H8zM0 8h9v1H0z" fill="#120A05"/><path d="M4 1h1v1H4zM4 2h1v1H4zM3 3h3v2H3zM2 5h5v2H2zM1 7h7v1H1z" fill="#FF6A4A"/><path d="M4 3h1v2H4zM4 6h1v1H4z" fill="#120A05"/></svg><div class="t"><small>LAST CHECK</small><b>Are you sure?</b></div></div>
+      <div class="msg">Version 1.1.0 will be <b>gone for good</b>. You'll only get these fixes when a newer version comes out.</div>
+      <div class="ch">
+        <button class="key sm danger" type="button">Yes, skip it for good</button>
+        <button class="key primary sm" type="button">No, keep it</button>
       </div>
     </div>
   </div>
