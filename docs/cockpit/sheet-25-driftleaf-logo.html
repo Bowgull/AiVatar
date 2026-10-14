@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 25 - Driftleaf logo</title>
+<!-- Sheet 25 (2026-10-14): the browser's new name and mark. His four ideas (leaf on a wind swirl, carved wood badge,
+     leaf as a glider, leaf + compass) in three leaf colours (autumn, jade, sky). Pixel art at 32x32 art pixels, the size
+     a taskbar icon really is, with coloured outlines and light from the top-left (Stardew / Zelda item icons). -->
+<style>
+  @font-face{font-family:Cinzel;src:url(../../src/Shell/pages/fonts/Cinzel.woff2) format("woff2");font-weight:400 900}
+  @font-face{font-family:Figtree;src:url(../../src/Shell/pages/fonts/Figtree.woff2) format("woff2");font-weight:300 900}
+  @font-face{font-family:Silkscreen;src:url(../../src/Shell/pages/fonts/Silkscreen-Regular.woff2) format("woff2")}
+  html,body{background:#17110c;margin:0}
+  body{color:#e8dcc4;font-family:Figtree,sans-serif;padding:24px 24px 40px}
+  h1{font:400 20px Silkscreen,monospace;color:#FFC43C;letter-spacing:2px;margin:0 0 4px}
+  .lead{color:#b9a684;font-size:14px;margin:0 0 22px;max-width:1100px;line-height:1.5}
+  h2{font:400 11px Silkscreen,monospace;color:#c9b48c;letter-spacing:1.5px;margin:26px 0 4px}
+  .why{font-size:13px;color:#b9a684;line-height:1.45;margin:0 0 12px;max-width:760px}
+  .row{display:flex;flex-wrap:wrap;gap:16px}
+  .card{background:#24170e url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;border:3px solid #0d0703;border-radius:12px;padding:16px 18px 12px;
+    display:flex;flex-direction:column;align-items:center;gap:10px;box-shadow:0 4px 0 #000;min-width:200px}
+  .card .tag{font:400 9px Silkscreen,monospace;letter-spacing:1.5px;color:#d9b77a}
+  .sizes{display:flex;align-items:flex-end;gap:12px;background:#140b05;border-radius:8px;padding:8px 12px;box-shadow:inset 0 2px 0 rgba(0,0,0,.6)}
+  .sizes span{font:400 8px Silkscreen,monospace;color:#8f7a5a;display:block;text-align:center;margin-top:3px}
+  canvas{image-rendering:pixelated;display:block}
+  .lockup{display:flex;align-items:center;gap:16px;background:url(../../src/Shell/pages/art/browser/band.png) repeat-x 0 0/128px 72px;image-rendering:pixelated;
+    border:3px solid #0d0703;border-radius:12px;padding:12px 22px;box-shadow:0 4px 0 #000}
+  .lockup b{font:700 34px Cinzel,serif;color:#fbe7bf;text-shadow:2px 2px 0 #1a0d05;letter-spacing:.5px}
+  .taskbar{display:flex;align-items:center;gap:6px;background:#1c1c22;border-radius:8px;padding:6px 10px;box-shadow:0 3px 0 #000}
+  .taskbar .slot{width:44px;height:40px;border-radius:5px;display:grid;place-items:center}
+  .taskbar .slot.on{background:#2e2e38;box-shadow:inset 0 -2px 0 #6aa8ff}
+  .taskbar .g{width:24px;height:24px;border-radius:4px;background:#3a3a46}
+</style>
+</head>
+<body>
+<h1>SHEET 25 - DRIFTLEAF</h1>
+<p class="lead">The browser's new mark. Your four ideas, each in three leaf colours. Drawn as real pixel art at 32 by 32, the size a taskbar icon actually is,
+so what you see small is exactly what you get. Big ones are the same art blown up. Pick an idea and a colour (or mix: "the badge, but jade").</p>
+
+<div id="ideas"></div>
+
+<h2>HOW IT SITS IN THE WORLD</h2>
+<p class="why">Your taskbar (the lit one is Driftleaf), and the name in Cinzel on the light wood, for Settings and the About page. Shown with the first idea in autumn; it follows whichever you pick.</p>
+<div class="row" style="align-items:center;gap:22px">
+  <div class="taskbar"><div class="slot"><div class="g"></div></div><div class="slot"><div class="g"></div></div><div class="slot on" id="tb"></div><div class="slot"><div class="g"></div></div></div>
+  <div class="lockup"><span id="lk"></span><b>Driftleaf</b></div>
+</div>
+
+<script>
+const N = 32;
+const PAL = {
+  autumn: { name: 'AUTUMN', light: '#FFD866', main: '#F5A030', shade: '#D2601C', vein: '#9C3A10', out: '#5A220A', wind: '#CFE8F7', windOut: '#4E6E92' },
+  jade:   { name: 'JADE',   light: '#A8F0B8', main: '#5CC985', shade: '#2E9460', vein: '#1D6A44', out: '#103A26', wind: '#E9F5D8', windOut: '#55703E' },
+  sky:    { name: 'SKY',    light: '#FFFFFF', main: '#D6ECFF', shade: '#9CC6EE', vein: '#5E8FC4', out: '#2C4C78', wind: '#FFE7A8', windOut: '#9C6A1E' },
+};
+const GOLD = { rim: '#E8A92C', rimLit: '#FFE28C', rimDark: '#9C6410', rimOut: '#3A2208', wood: '#5A3418', grain: '#6E4422', grainDark: '#45260F' };
+
+// A leaf: centred at (cx,cy), length L, turned by `a` (radians). Lit half on the upper-left, shaded half lower-right.
+function leaf(g, p, cx, cy, L, a, stem = true) {
+  g.save(); g.translate(cx, cy); g.rotate(a);
+  const w = L * 0.42, h = L / 2;
+  const body = () => { g.beginPath(); g.moveTo(0, -h); g.bezierCurveTo(w, -h * 0.45, w, h * 0.45, 0, h); g.bezierCurveTo(-w, h * 0.45, -w, -h * 0.45, 0, -h); g.closePath(); };
+  body(); g.fillStyle = p.main; g.fill();
+  g.beginPath(); g.moveTo(0, -h); g.bezierCurveTo(w, -h * 0.45, w, h * 0.45, 0, h); g.closePath(); g.fillStyle = p.shade; g.fill();
+  g.beginPath(); g.moveTo(-w * 0.55, -h * 0.25); g.quadraticCurveTo(-w * 0.45, -h * 0.75, -0.5, -h * 0.85); g.lineTo(-1.2, -h * 0.2); g.closePath(); g.fillStyle = p.light; g.fill();
+  g.strokeStyle = p.vein; g.lineWidth = 1.1; g.beginPath(); g.moveTo(0, -h * 0.8); g.lineTo(0, h * (stem ? 1.35 : 0.9)); g.stroke();
+  g.beginPath(); g.moveTo(0, -h * 0.1); g.lineTo(w * 0.5, -h * 0.4); g.moveTo(0, h * 0.3); g.lineTo(w * 0.5, 0); g.moveTo(0, -h * 0.1); g.lineTo(-w * 0.5, -h * 0.4); g.moveTo(0, h * 0.3); g.lineTo(-w * 0.5, 0); g.stroke();
+  g.restore();
+}
+const IDEAS = [
+  { key: 'swirl', name: 'LEAF ON A WIND SWIRL', draw(g, p) {
+      // a gust: a long streak that curls up at its end, like a wave; the leaf rides the top of the curl
+      g.strokeStyle = p.wind; g.lineCap = 'round'; g.lineWidth = 2.2;
+      g.beginPath(); g.moveTo(2, 25); g.lineTo(17, 25); g.arc(17, 19.5, 5.5, Math.PI * 0.5, -Math.PI * 0.75, true); g.stroke();
+      g.beginPath(); g.arc(17, 19.5, 2.2, Math.PI * 0.3, Math.PI * 1.4); g.stroke();
+      g.beginPath(); g.moveTo(5, 29.5); g.lineTo(14, 29.5); g.stroke();
+      leaf(g, p, 22, 9.5, 15, Math.PI * 0.3);
+    } },
+  { key: 'badge', name: 'CARVED WOOD BADGE', draw(g, p) {
+      g.beginPath(); g.arc(16, 16, 14.5, 0, Math.PI * 2); g.fillStyle = GOLD.rim; g.fill();
+      g.beginPath(); g.arc(16, 16, 14.5, Math.PI * 0.75, Math.PI * 1.75); g.lineWidth = 2; g.strokeStyle = GOLD.rimLit; g.stroke();
+      g.beginPath(); g.arc(16, 16, 14.5, Math.PI * 1.75, Math.PI * 2.75); g.strokeStyle = GOLD.rimDark; g.stroke();
+      g.save(); g.beginPath(); g.arc(16, 16, 11.8, 0, Math.PI * 2); g.clip();
+      g.fillStyle = GOLD.wood; g.fillRect(0, 0, N, N);
+      for (let y = 3; y < N; y += 4) { g.fillStyle = y % 8 ? GOLD.grain : GOLD.grainDark; g.fillRect(0, y, N, 1); }
+      g.restore();
+      leaf(g, p, 16, 15.5, 16, Math.PI * 0.22);
+    }, ring: true },
+  { key: 'glider', name: 'LEAF AS A GLIDER', draw(g, p) {
+      g.strokeStyle = p.wind; g.lineCap = 'round'; g.lineWidth = 1.6;
+      for (const [x, y, l] of [[2, 12, 7], [1, 17, 9], [3, 22, 6]]) { g.beginPath(); g.moveTo(x, y); g.lineTo(x + l, y); g.stroke(); }
+      leaf(g, p, 13.5, 13, 15, -Math.PI * 0.38, false);
+      leaf(g, p, 21.5, 13, 15, Math.PI * 0.38, false);
+      g.fillStyle = p.vein; g.fillRect(16.5, 14, 2, 8);
+    } },
+  { key: 'compass', name: 'LEAF + COMPASS', draw(g, p) {
+      g.beginPath(); g.arc(16, 16, 13.5, 0, Math.PI * 2); g.lineWidth = 2.2; g.strokeStyle = GOLD.rim; g.stroke();
+      g.save(); g.beginPath(); g.arc(16, 16, 12.2, 0, Math.PI * 2); g.clip(); g.fillStyle = '#2a170a'; g.fillRect(0, 0, N, N); g.restore();
+      g.fillStyle = GOLD.rimLit; for (const [x, y] of [[15, 4], [15, 26], [4, 15], [26, 15]]) g.fillRect(x, y, 2, 2);
+      // the needle: the leaf points north-east, a short dark tail points back south-west, both inside the ring
+      g.fillStyle = p.vein; g.beginPath(); g.moveTo(14.5, 17.5); g.lineTo(9, 23); g.lineTo(13, 21.5); g.closePath(); g.fill();
+      leaf(g, p, 18.5, 13.5, 13, Math.PI * 0.25, false);
+    }, ring: true },
+];
+
+// Crisp pixels: draw at 32x32, snap every pixel to solid or empty, then outline every shape in its own dark colour.
+function art(idea, p) {
+  const c = document.createElement('canvas'); c.width = c.height = N;
+  const g = c.getContext('2d'); idea.draw(g, p);
+  const im = g.getImageData(0, 0, N, N), d = im.data;
+  for (let i = 0; i < d.length; i += 4) d[i + 3] = d[i + 3] >= 110 ? 255 : 0;
+  const solid = (x, y) => x >= 0 && y >= 0 && x < N && y < N && d[(y * N + x) * 4 + 3] === 255;
+  const out = new Uint8ClampedArray(d);
+  const hex = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+  const ol = hex(idea.ring ? GOLD.rimOut : p.out);
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    if (solid(x, y)) continue;
+    if (solid(x - 1, y) || solid(x + 1, y) || solid(x, y - 1) || solid(x, y + 1)) { const i = (y * N + x) * 4; out[i] = ol[0]; out[i + 1] = ol[1]; out[i + 2] = ol[2]; out[i + 3] = 255; }
+  }
+  im.data.set(out); g.putImageData(im, 0, 0);
+  return c;
+}
+function show(src, scale) { const c = document.createElement('canvas'); c.width = c.height = N * scale; const g = c.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(src, 0, 0, N * scale, N * scale); return c; }
+
+const host = document.getElementById('ideas');
+for (const idea of IDEAS) {
+  const h = document.createElement('h2'); h.textContent = idea.name; host.append(h);
+  const row = document.createElement('div'); row.className = 'row'; host.append(row);
+  for (const k of Object.keys(PAL)) {
+    const a = art(idea, PAL[k]);
+    const card = document.createElement('div'); card.className = 'card';
+    card.append(show(a, 4));
+    const sizes = document.createElement('div'); sizes.className = 'sizes';
+    for (const [s, label] of [[2, '64'], [1, '32'], [0.5, '16']]) {
+      const w = document.createElement('div');
+      const cv = document.createElement('canvas'); cv.width = cv.height = N * s; const g = cv.getContext('2d'); g.imageSmoothingEnabled = s >= 1 ? false : true; g.drawImage(a, 0, 0, N * s, N * s);
+      w.append(cv); const sp = document.createElement('span'); sp.textContent = label; w.append(sp); sizes.append(w);
+    }
+    card.append(sizes);
+    const t = document.createElement('div'); t.className = 'tag'; t.textContent = PAL[k].name; card.append(t);
+    row.append(card);
+  }
+}
+const first = art(IDEAS[0], PAL.autumn);
+document.getElementById('tb').append(show(first, 1));
+document.getElementById('lk').append(show(first, 2));
+</script>
+</body>
+</html>
