@@ -250,9 +250,13 @@ export function launch(r: Resolved): Promise<{ ok: boolean; detail: string }> {
       if (child) { /* started through explorer above */ }
       else if (program) {
         child = spawn(program, arg, { detached: true, stdio: 'ignore', shell: false, cwd: path.dirname(program) });
+      } else if (r.kind === 'link') {
+        // A link goes to Windows' own "open this link" routine. explorer.exe with a link opened his Documents
+        // folder instead (2026-10-14, the Wattson video; claude.ts hit the same thing first).
+        child = spawn('rundll32.exe', ['url.dll,FileProtocolHandler', r.target], { detached: true, stdio: 'ignore' });
       } else {
-        // No app named: explorer.exe opens it the way a double click would - the default browser for a
-        // link, the right program for a file - without a shell and without quoting games.
+        // No app named: explorer.exe opens it the way a double click would - the right program for a file -
+        // without a shell and without quoting games.
         child = spawn('explorer.exe', [r.target], { detached: true, stdio: 'ignore' });
       }
       child.on('error', e => done({ ok: false, detail: e.message }));
