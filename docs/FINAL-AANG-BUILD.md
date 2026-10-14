@@ -832,6 +832,21 @@ rule and they are not optional.
 
 ### THE ORDER FROM HERE  (written 2026-10-13, his ask: "don't miss any steps, make sure all critical path steps are in a plan")
 
+**2026-10-14 update (his words: "drop the discord work for now"; naming: "I'll figure out a name change eventually").**
+Done today: Toronto time everywhere; the tab list closes only on mouse-out; closing the browser keeps every tab, trail
+and window; no more fake "Done"; links open through Windows' link handler (Explorer opened his Documents folder);
+"put it on the Mac" (PC or MacBook, popout or full browser asked every time, notices keep their link, plain asks);
+pictures above messages (channel picture, site and sender icons via DuckDuckGo); the raised wood lip (sheet 22 D);
+X dark mode (Dark Reader 4.9.133 in its own world, per-site switch, Settings, synced, on the Mac's list).
+Building now: **the Lantern brief** (sheets 23/24 B: rules + Haiku "needs a reply", the rest hidden incl. security
+alerts; morning/afternoon/evening Stardew pixel weather; rows open in place with buttons, Aang digs only on a press;
+"Open the brief" dropped; burnt orange = third choice colour). Brain side done, bubble side next.
+Then: the **wood swap** (every solid brown in Aang becomes pixel wood: light for bars and frames, dark behind content;
+the browser: light wood top and bottom edges, darker wood behind the page, mockups of both first).
+**Parked (his call):** the browser's name and logo (sheets 25/26; kite and lantern were the strongest marks; research in
+research_notes/naming/), and ALL Discord work: the Discord brief and email cards following the new brief, 9.A2, 9.A3,
+K8's Discord replies. The Mac still builds its own brief unfiltered; fix that with the Discord work.
+
 Done in order, top to bottom. Nothing below is dropped; the "any gap" list at the end is done between steps or
 folded in where it fits, never skipped. **Where we are (2026-10-13, evening): E1-E8 built; next E9. See "E Email
 assistant" (status list) and "Loose ends and new asks (2026-10-13)".**
