@@ -35,6 +35,11 @@
       "at": "2026-10-14T13:16:00-04:00",
       "kind": "feature",
       "text": "A changelog of every Samara version is kept in your Aang folder on both computers, and Aang can read it to you."
+    },
+    {
+      "at": "2026-10-14T13:35:03-04:00",
+      "kind": "fix",
+      "text": "Syncing between your computers no longer keeps a copy of your logins in a file. They travel, but are never written down."
     }
   ]
 }
