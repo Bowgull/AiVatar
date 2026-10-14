@@ -1,105 +1,105 @@
 {
-  "note": "What each update brings, in plain words for Joshua. One line per change that reaches the Mac, newest last, each with a kind: major (a big change: new major version and a new name), feature (bumps the middle number) or fix (the last number).",
+  "note": "What each update brings, in plain words for Joshua. One line per change that reaches the Mac, newest last, each with a kind: major (a big change: new major version and a new name), feature (bumps the middle number) or fix (the last number). Keep each line short (under 10 words) and plain: no tech words.",
   "items": [
     {
       "at": "2026-10-14T13:10:00-04:00",
-      "text": "Your browser is now called Samara, with the lantern icon.",
+      "text": "Your browser is now called Samara.",
       "kind": "major"
     },
     {
       "at": "2026-10-14T13:11:00-04:00",
-      "text": "Only one Samara in your Dock, always.",
+      "text": "Only one Samara in your Dock.",
       "kind": "feature"
     },
     {
       "at": "2026-10-14T13:12:00-04:00",
-      "text": "Updates get ready quietly in the background, so pressing Restart now takes seconds instead of freezing your Mac.",
+      "text": "Updates get ready in the background. No more freezing.",
       "kind": "feature"
     },
     {
       "at": "2026-10-14T13:13:00-04:00",
-      "text": "Each update now has a number and a name, and this list says what it brings.",
+      "text": "Each update has a number and a name.",
       "kind": "feature"
     },
     {
       "at": "2026-10-14T13:14:00-04:00",
-      "text": "The UPDATE button glows warm so you notice it, and only shows up once the update is completely ready.",
+      "text": "The Update button glows when an update is ready.",
       "kind": "feature"
     },
     {
       "at": "2026-10-14T13:15:00-04:00",
       "kind": "feature",
-      "text": "Versions now read like 1.0.0. A big update gets a new character's name; smaller ones keep the name and bump the number."
+      "text": "Big updates get a new name."
     },
     {
       "at": "2026-10-14T13:16:00-04:00",
       "kind": "feature",
-      "text": "A changelog of every Samara version is kept in your Aang folder on both computers, and Aang can read it to you."
+      "text": "Aang can tell you what each update brought."
     },
     {
       "at": "2026-10-14T13:35:03-04:00",
       "kind": "fix",
-      "text": "Syncing between your computers no longer keeps a copy of your logins in a file. They travel, but are never written down."
+      "text": "Your logins are no longer saved in a sync file."
     },
     {
       "at": "2026-10-14T14:14:57-04:00",
       "kind": "feature",
-      "text": "A new update panel: the lantern, the version's name, and each change as a tick. Settings sit in a ... menu."
+      "text": "A new update window with tick boxes."
     },
     {
       "at": "2026-10-14T14:14:57-04:00",
       "kind": "feature",
-      "text": "The UPDATE button glows turquoise after a day, turns red after three, and swells and shakes after four."
+      "text": "The Update button changes color the longer you wait."
     },
     {
       "at": "2026-10-14T14:14:57-04:00",
       "kind": "feature",
-      "text": "Skipping a version first warns you, and you can always change your mind and take it."
+      "text": "Skipping an update asks you twice."
     },
     {
       "at": "2026-10-14T14:14:57-04:00",
       "kind": "feature",
-      "text": "You can go back to the last version, or let updates install by themselves overnight."
+      "text": "You can go back a version, or update overnight."
     },
     {
       "at": "2026-10-14T14:14:57-04:00",
       "kind": "feature",
-      "text": "Check for updates is now in Samara's own menu."
+      "text": "Check for updates is in Samara's menu."
     },
     {
       "at": "2026-10-14T14:17:19-04:00",
       "kind": "feature",
-      "text": "Samara's icon is now just the lantern: lit and glowing while Samara is open, unlit when it's closed."
+      "text": "New lantern icon: lit when open, dark when closed."
     },
     {
       "at": "2026-10-14T14:19:46-04:00",
       "kind": "feature",
-      "text": "The lantern lights up smoothly when Samara opens, and dims back down when you quit."
+      "text": "The lantern fades on and off smoothly."
     },
     {
       "at": "2026-10-14T14:25:48-04:00",
       "kind": "fix",
-      "text": "Restarting for an update is quicker: Samara is back in a few seconds, and the rest finishes quietly afterwards."
+      "text": "Restarting for an update takes seconds."
     },
     {
       "at": "2026-10-14T14:53:01-04:00",
       "kind": "feature",
-      "text": "Claude and Aang now ask you once before a session uses Samara, and stay signed in only on the sites the job needs."
+      "text": "Claude asks you first before using Samara."
     },
     {
       "at": "2026-10-14T14:53:01-04:00",
       "kind": "feature",
-      "text": "Anywhere else, they browse logged out, and your private details can't be sent off quietly."
+      "text": "Claude can't send your private details anywhere."
     },
     {
       "at": "2026-10-14T14:53:01-04:00",
       "kind": "fix",
-      "text": "A trick web page can't swap or cover a button to make an AI press Send without asking you."
+      "text": "Web pages can't trick Claude into pressing Send."
     },
     {
       "at": "2026-10-14T14:53:01-04:00",
       "kind": "fix",
-      "text": "The bank block and the human-pace rule now apply on every page, and can't be dodged with an extra dot in the address."
+      "text": "Bank sites stay blocked, no matter what."
     }
   ]
 }
