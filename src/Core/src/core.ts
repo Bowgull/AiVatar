@@ -39,7 +39,7 @@ import { QuotaPolicy } from './quota.ts';
 import { TOKEN_HEADER, clearToken, newToken, sameToken } from './token.ts';
 import { MODELS, pickLane } from './route.ts';
 import { query } from '@anthropic-ai/claude-agent-sdk';
-import { JUDGE_SYSTEM, waitingOnHim, type BriefMail } from './briefmail.ts';
+import { JUDGE_SYSTEM, couldBeWaiting, waitingOnHim, type BriefMail } from './briefmail.ts';
 import { fetchDayParts } from './weather.ts';
 import type { Lane as LaneName } from './route.ts';
 import { editExact, offLimits, refusal, undoLast, writeWhole } from './files.ts';
@@ -1336,6 +1336,9 @@ export class Core {
       return { ...u, ...(companies.some(c => hay.includes(c)) ? { job: true } : {}) };
     });
     const waiting = await waitingOnHim(mail, p => this.judgeMail(p));
+    // What the sort did, so "I saw no emails" can be answered from the log (2026-10-14). His own log; names only.
+    const past = mail.filter(couldBeWaiting);
+    console.log(`brief: ${mail.length} unread from the last two days; ${past.length} past the rules (${past.map(m => m.from).join(', ') || 'none'}); ${waiting.length} waiting on him (${waiting.map(w => w.from).join(', ') || 'none'})`);
     const card: BriefCard = {
       ...(weather ? { weather } : {}),
       ...(parts ? { parts: parts.parts, rainFrom: parts.rainFrom, rainIsSnow: parts.rainIsSnow } : {}),
