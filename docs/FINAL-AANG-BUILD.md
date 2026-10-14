@@ -870,10 +870,14 @@ name change eventually"; the Mac: "as a rule always help me update the mac side"
 last Chrome scan); whether to draft the Reddit access request; the job-hunt research verdict (deep research running on
 what gets interviews in 2026: channels, speed, referrals, ATS, ghost jobs, AI tools).
 
-**Next, in order:** the job-hunt changes the research supports (his pick first) -> E9 prep from an email -> E10 sweep and
-tidy -> the zero-mistakes checks (dates, times, names; draft proofreading) -> the email extras -> E11 email on the Mac ->
-X 7TV -> M7 (Mac bubble, typing box, notes, timers; Aang's settings sync) -> M8 notices that follow him -> M9 the new pet
--> L (needs his go: quota) -> V voice, 6.25 page summaries -> finishing the rebuild.
+**Next, in order (his call, 2026-10-14: "everything for the mac first after we finish the job hunt tweaks"):**
+1. The job-hunt changes the research supports (his pick first).
+2. **Everything for the Mac:** M7 (bubble, typing box, notes, timers on the Mac; Aang's own settings sync with it),
+   M8 (notices that follow him between machines and jump to the right session), M9 (the new pet for both machines),
+   E11 (the email assistant's built pieces on the Mac). Mockups first for each.
+3. Then: E9 prep from an email -> E10 sweep and tidy -> the zero-mistakes checks (dates, times, names; draft
+   proofreading) -> the email extras -> X 7TV -> L (needs his go: quota) -> V voice, 6.25 page summaries -> finishing
+   the rebuild.
 
 **Parked (his call):** Aang's page in the browser (sheet 28; option A recommended; research_notes/aangs-page); the browser's
 name and logo (sheets 25/26, research_notes/naming); ALL Discord work (the Discord brief and email cards, 9.A2, 9.A3, K8's
