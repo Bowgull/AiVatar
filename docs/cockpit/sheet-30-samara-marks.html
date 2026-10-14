@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 30 - Samara marks</title>
+<!-- Sheet 30 (2026-10-14): his ask, 'why not a maple leaf... think of all inspos, get creative'. Built on sheet 29. Sheet 29: his pick of name, Samara (the kite vein). Built on sheet 26's rules. Sheet 26: away from Firefox. Research (research_notes/naming/logo-differentiation.md): Firefox owns
+     "orange on a purple round field", and circles are every browser's shape. So: no circle, no orange-on-purple, the
+     object's own outline is the icon, one new accent nobody owns (jade, moss, or ink on parchment). Pixel art at 32x32
+     with an ink outline, light from the top-left. -->
+<style>
+  @font-face{font-family:Cinzel;src:url(../../src/Shell/pages/fonts/Cinzel.woff2) format("woff2");font-weight:400 900}
+  @font-face{font-family:Figtree;src:url(../../src/Shell/pages/fonts/Figtree.woff2) format("woff2");font-weight:300 900}
+  @font-face{font-family:Silkscreen;src:url(../../src/Shell/pages/fonts/Silkscreen-Regular.woff2) format("woff2")}
+  html,body{background:#17110c;margin:0}
+  body{color:#e8dcc4;font-family:Figtree,sans-serif;padding:24px 24px 40px}
+  h1{font:400 20px Silkscreen,monospace;color:#FFC43C;letter-spacing:2px;margin:0 0 4px}
+  .lead{color:#b9a684;font-size:14px;margin:0 0 22px;max-width:1100px;line-height:1.5}
+  .grid{display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start}
+  .opt{overflow:hidden}
+  .opt{background:#24170e url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;border:3px solid #0d0703;border-radius:12px;padding:16px;box-shadow:0 4px 0 #000;width:330px}
+  .opt h2{font:400 11px Silkscreen,monospace;color:#FFC43C;letter-spacing:1.5px;margin:0 0 2px}
+  .opt .nm{font:700 24px Cinzel,serif;color:#fbe7bf;text-shadow:2px 2px 0 #000;margin:0 0 6px}
+  .opt p{font-size:13px;color:#c9b48c;line-height:1.45;margin:0 0 12px}
+  .big{display:flex;justify-content:center;background:#140b05;border-radius:9px;padding:14px;box-shadow:inset 0 2px 0 rgba(0,0,0,.6)}
+  canvas{image-rendering:pixelated;display:block}
+  .tests{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+  .t{border-radius:7px;padding:8px 10px;display:flex;flex-direction:column;align-items:center;gap:4px}
+  .t span{font:400 8px Silkscreen,monospace;letter-spacing:1px}
+  .t.dark{background:#1c1c22;color:#8a8a99} .t.light{background:#eef0f4;color:#666}
+  .t .pair{display:flex;gap:8px;align-items:flex-end}
+  .verdict{font:600 12.5px Figtree;color:#9fe0a8;margin-top:10px}
+  .verdict.meh{color:#e8c36a}
+</style>
+</head>
+<body>
+<h1>SHEET 30 - SAMARA, WIDER</h1>
+<p class="lead">Eight ideas around the maple, each pulled from your inspirations: the kite, Zelda's gliding leaf, origami, a carved stamp, the lantern, a game-map compass, a spinning S, Totoro's leaf umbrella.
+None is round, none is orange on purple, and none is a red leaf on white (that one belongs to Canada's flag). Under each: real size on a dark and a light taskbar, and in grey (the squint test).</p>
+<div class="grid" id="grid"></div>
+
+<script>
+const N = 32, INK = '#2B2118';
+const P = { parch: '#EADBB8', parchS: '#CDB78C', wood: '#9C6A3A', woodS: '#6E4422', woodD: '#4A2C14', gold: '#FFC43C', goldS: '#C98C14', goldL: '#FFE9A0',
+  jade: '#3E9C86', jadeS: '#2F7D6D', jadeD: '#1E5247', jadeL: '#8FD8C2', moss: '#7A9A48', mossS: '#5E7A3A', mossD: '#3E5424', mossL: '#B6D27A', glow: '#FFF3C0' };
+function leafShape(g, cx, cy, L, a, c) {
+  g.save(); g.translate(cx, cy); g.rotate(a); const w = L * 0.42, h = L / 2;
+  g.beginPath(); g.moveTo(0, -h); g.bezierCurveTo(w, -h * .45, w, h * .45, 0, h); g.bezierCurveTo(-w, h * .45, -w, -h * .45, 0, -h); g.fillStyle = c.main; g.fill();
+  g.beginPath(); g.moveTo(0, -h); g.bezierCurveTo(w, -h * .45, w, h * .45, 0, h); g.closePath(); g.fillStyle = c.shade; g.fill();
+  g.strokeStyle = c.dark; g.lineWidth = 1; g.beginPath(); g.moveTo(0, -h * .75); g.lineTo(0, h * .9); g.stroke();
+  g.restore();
+}
+function seed(g, x, y, rot, flip, c, len = 1) {
+  // One samara, drawn like the real thing: a round seed, then a wing that starts thin at the seed and flares out,
+  // with one straight thick edge (the leading edge, darkest) and one long curved edge. Veins run along the straight edge.
+  g.save(); g.translate(x, y); g.rotate(rot); g.scale(flip ? -len : len, len);
+  g.beginPath(); g.moveTo(1.5, -2); g.lineTo(3.2, -21); g.bezierCurveTo(1, -23, -6, -21, -7.5, -15); g.bezierCurveTo(-8, -9, -4, -4, -1.5, -1.5); g.closePath(); g.fillStyle = c.main; g.fill();
+  g.beginPath(); g.moveTo(1.5, -2); g.lineTo(3.2, -21); g.bezierCurveTo(2, -21.8, 0.5, -21.6, -0.5, -21); g.lineTo(0, -2); g.closePath(); g.fillStyle = c.shade; g.fill();
+  g.strokeStyle = c.vein; g.lineWidth = 1.4; g.beginPath(); g.moveTo(2, -1); g.lineTo(3.3, -20.5); g.stroke();
+  g.lineWidth = .8; g.beginPath(); g.moveTo(0.5, -3); g.quadraticCurveTo(-1.5, -10, -4, -17); g.moveTo(-0.5, -3); g.quadraticCurveTo(-4, -8, -6.5, -12); g.stroke();
+  g.beginPath(); g.ellipse(0.5, 1.5, 4, 3.6, 0, 0, Math.PI * 2); g.fillStyle = c.seed; g.fill();
+  g.beginPath(); g.ellipse(1.4, 2.4, 2.6, 2.3, 0, 0, Math.PI * 2); g.fillStyle = c.seedS; g.fill();
+  g.restore();
+}
+const JADE = { main: P.jade, shade: P.jadeS, vein: P.jadeD, seed: P.gold, seedS: P.goldS };
+const PARCH = { main: P.parch, shade: P.parchS, vein: P.woodS, seed: P.wood, seedS: P.woodS };
+const MOSS = { main: P.mossL, shade: P.moss, vein: P.mossD, seed: P.wood, seedS: P.woodS };
+const GOLD = { main: P.goldL, shade: P.gold, vein: P.goldS, seed: P.woodS, seedS: P.woodD };
+const swirl = (g, col, pts) => { g.strokeStyle = col; g.lineWidth = 1.3; g.lineCap = 'round'; g.beginPath(); for (const p of pts) { g.moveTo(p[0], p[1]); g.quadraticCurveTo(p[2], p[3], p[4], p[5]); } g.stroke(); };
+// A maple leaf, drawn from points (unit size, tip at the top, stem at the bottom).
+const MAPLE = [[0,-1],[.12,-.72],[.3,-.8],[.25,-.4],[.55,-.6],[.5,-.42],[.86,-.5],[.7,-.25],[.95,-.05],[.55,.1],[.6,.3],[.15,.2],[.06,.42],[.06,.8],[-.06,.8],[-.06,.42],[-.15,.2],[-.6,.3],[-.55,.1],[-.95,-.05],[-.7,-.25],[-.86,-.5],[-.5,-.42],[-.55,-.6],[-.25,-.4],[-.3,-.8],[-.12,-.72]];
+function leafPath(g, x, y, r, rot = 0) { g.save(); g.translate(x, y); g.rotate(rot); g.beginPath(); MAPLE.forEach(([px, py], i) => (i ? g.lineTo : g.moveTo).call(g, px * r, py * r)); g.closePath(); g.restore(); }
+function leaf(g, x, y, r, rot, main, shade, vein) {
+  leafPath(g, x, y, r, rot); g.fillStyle = main; g.fill();
+  // right half shaded (light from the top-left)
+  g.save(); leafPath(g, x, y, r, rot); g.clip(); g.translate(x, y); g.rotate(rot); g.fillStyle = shade; g.fillRect(0, -r, r, 2 * r); g.restore();
+  if (vein) { g.save(); g.translate(x, y); g.rotate(rot); g.strokeStyle = vein; g.lineWidth = 1; g.beginPath(); g.moveTo(0, .5 * r); g.lineTo(0, -.75 * r); g.moveTo(0, .1 * r); g.lineTo(-.6 * r, -.4 * r); g.moveTo(0, .1 * r); g.lineTo(.6 * r, -.4 * r); g.stroke(); g.restore(); }
+}
+const BO = '#C8642A', BOS = '#94461C', BOL = '#F0A060';
+const MARKS = [
+  { tag: 'A - THE MAPLE KITE', name: 'Samara', why: 'Your kite, but the sail is a maple leaf: crossed wooden sticks behind it, a gold ribbon tail riding the wind. Air and autumn in one shape.',
+    draw(g) { g.strokeStyle = P.woodS; g.lineWidth = 1.2; g.beginPath(); g.moveTo(17, 3); g.lineTo(17, 22); g.moveTo(7, 11); g.lineTo(27, 11); g.stroke();
+      leaf(g, 17, 12, 11, 0, P.parch, P.parchS, P.woodS);
+      g.strokeStyle = P.gold; g.lineWidth = 1.5; g.beginPath(); g.moveTo(17, 21); g.quadraticCurveTo(13, 26, 9, 25); g.quadraticCurveTo(5, 24, 3, 30); g.stroke(); g.fillStyle = P.gold; g.fillRect(11, 24, 3, 2); g.fillRect(4, 26, 2, 3); } },
+  { tag: 'B - THE GLIDING LEAF', name: 'Samara', why: 'Zelda: Wind Waker let you glide on a giant leaf. Here a jade maple leaf rides two gold wind lines, tilted mid-flight. Light and free, like Aang.',
+    draw(g) { leaf(g, 17, 13, 12, -0.35, P.jade, P.jadeS, P.jadeD); swirl(g, P.gold, [[2, 24, 12, 20, 22, 25], [9, 29, 17, 26, 28, 29]]); } },
+  { tag: 'C - PAPER-FOLDED', name: 'Samara', why: 'An origami maple: each point folded, light and dark faces. Hand-made, like the browser’s wood, and nothing like a round browser logo.',
+    draw(g) { leafPath(g, 16, 16, 14); g.fillStyle = BOL; g.fill(); g.save(); leafPath(g, 16, 16, 14); g.clip();
+      g.fillStyle = BO; g.beginPath(); g.moveTo(16, 18); g.lineTo(16, 2); g.lineTo(30, 15); g.closePath(); g.fill(); g.beginPath(); g.moveTo(16, 18); g.lineTo(3, 15); g.lineTo(2, 22); g.closePath(); g.fill();
+      g.fillStyle = BOS; g.beginPath(); g.moveTo(16, 18); g.lineTo(30, 15); g.lineTo(30, 24); g.closePath(); g.fill(); g.restore(); } },
+  { tag: 'D - THE CARVED STAMP', name: 'Samara', why: 'A carved wooden block with the leaf cut out, like a hanko seal or a Stardew sign. A rounded square, never a circle. The leaf is the parchment showing through.',
+    draw(g) { g.beginPath(); g.roundRect(2, 2, 28, 28, 6); g.fillStyle = P.wood; g.fill(); g.beginPath(); g.roundRect(17, 2, 13, 28, [0, 6, 6, 0]); g.fillStyle = P.woodS; g.fill();
+      g.fillStyle = P.woodD; g.fillRect(4, 27, 24, 2); leaf(g, 16, 15, 11, 0, P.parch, P.parchS, null); } },
+  { tag: 'E - THE LEAF LANTERN', name: 'Samara', why: 'The lamp-lit browser: a paper lantern whose glow is maple-leaf shaped, gold light inside a dark wood frame. Cozy, Ghibli evening.',
+    draw(g) { g.fillStyle = P.woodD; g.fillRect(12, 1, 8, 2); g.fillStyle = P.woodS; g.fillRect(9, 3, 14, 3);
+      g.beginPath(); g.roundRect(6, 6, 20, 20, 6); g.fillStyle = '#3a2412'; g.fill();
+      leaf(g, 16, 16, 8.5, 0, P.glow, P.gold, P.goldS); g.fillStyle = P.woodS; g.fillRect(9, 26, 14, 3); g.fillStyle = P.gold; g.fillRect(15, 29, 2, 3); } },
+  { tag: 'F - THE LEAF COMPASS', name: 'Samara', why: 'Finding your way: a moss maple leaf with a gold compass needle through it, pointing up and out. Exploring, the way a game map does.',
+    draw(g) { leaf(g, 16, 16, 13, 0, P.mossL, P.moss, P.mossD);
+      g.beginPath(); g.moveTo(26, 4); g.lineTo(17.5, 17.5); g.lineTo(14.5, 15); g.closePath(); g.fillStyle = P.gold; g.fill(); g.beginPath(); g.moveTo(6, 27); g.lineTo(14.5, 15); g.lineTo(17.5, 17.5); g.closePath(); g.fillStyle = P.parch; g.fill(); } },
+  { tag: 'G - THE SPINNING S', name: 'Samara', why: 'Two maple seeds falling in a spiral that makes an S, for Samara. A monogram that moves. Jade and gold.',
+    draw(g) { seed(g, 11, 13, -2.2, false, JADE, .7); seed(g, 21, 19, 0.95, false, GOLD, .7); g.strokeStyle = P.parch; g.lineWidth = 1.2; g.beginPath(); g.arc(16, 16, 12, Math.PI * 1.15, Math.PI * 1.45); g.stroke(); g.beginPath(); g.arc(16, 16, 12, Math.PI * .15, Math.PI * .45); g.stroke(); } },
+  { tag: 'H - THE LEAF UMBRELLA', name: 'Samara', why: 'Totoro holding a leaf over his head in the rain. A burnt-orange maple leaf on a curved wooden stem, with two raindrops. The coziest, a little storybook.',
+    draw(g) { leaf(g, 16, 11, 12, Math.PI, BO, BOS, BOS); g.strokeStyle = P.wood; g.lineWidth = 2; g.beginPath(); g.moveTo(16, 12); g.lineTo(16, 27); g.quadraticCurveTo(16, 30, 13, 29); g.stroke();
+      g.fillStyle = '#8FC8E8'; g.fillRect(5, 26, 1.5, 3); g.fillRect(26, 24, 1.5, 3); } },
+];
+function art(m) {
+  const c = document.createElement('canvas'); c.width = c.height = N; const g = c.getContext('2d'); m.draw(g);
+  const im = g.getImageData(0, 0, N, N), d = im.data;
+  for (let i = 0; i < d.length; i += 4) d[i + 3] = d[i + 3] >= 110 ? 255 : 0;
+  const solid = (x, y) => x >= 0 && y >= 0 && x < N && y < N && d[(y * N + x) * 4 + 3] === 255;
+  const out = new Uint8ClampedArray(d);
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (!solid(x, y) && (solid(x - 1, y) || solid(x + 1, y) || solid(x, y - 1) || solid(x, y + 1))) { const i = (y * N + x) * 4; out[i] = 0x2B; out[i + 1] = 0x21; out[i + 2] = 0x18; out[i + 3] = 255; }
+  im.data.set(out); g.putImageData(im, 0, 0); return c;
+}
+function show(src, scale, grey = false) {
+  const c = document.createElement('canvas'); c.width = c.height = Math.round(N * scale); const g = c.getContext('2d'); g.imageSmoothingEnabled = scale < 1;
+  if (grey) g.filter = 'grayscale(1)'; g.drawImage(src, 0, 0, c.width, c.height); return c;
+}
+const grid = document.getElementById('grid');
+for (const m of MARKS) {
+  const a = art(m);
+  const o = document.createElement('div'); o.className = 'opt';
+  o.innerHTML = `<h2>${m.tag}</h2><div class="nm">${m.name}</div><p>${m.why}</p>`;
+  const big = document.createElement('div'); big.className = 'big'; big.append(show(a, 5)); o.append(big);
+  const tests = document.createElement('div'); tests.className = 'tests';
+  for (const [cls, label, grey] of [['dark', 'DARK TASKBAR', false], ['light', 'LIGHT TASKBAR', false], ['dark', 'SQUINT: GREY', true]]) {
+    const t = document.createElement('div'); t.className = 't ' + cls;
+    const pair = document.createElement('div'); pair.className = 'pair'; pair.append(show(a, 1, grey), show(a, .5, grey));
+    const s = document.createElement('span'); s.textContent = label + ' 32 / 16'; t.append(pair, s); tests.append(t);
+  }
+  o.append(tests);
+  grid.append(o);
+}
+// The name and mark together, the way the browser's title band would show it.
+const row = document.createElement('div'); row.className = 'opt'; row.style.width = '700px';
+row.innerHTML = '<h2>NAME + MARK</h2><p>On the browser band, in Cinzel like Aang&#39;s other titles.</p>';
+for (const m of [MARKS[0], MARKS[1], MARKS[3], MARKS[4]]) {
+  const l = document.createElement('div'); l.style.cssText = 'display:flex;align-items:center;gap:12px;margin:8px 0';
+  l.append(show(art(m), 2)); const t = document.createElement('div'); t.textContent = 'Samara'; t.style.cssText = 'font:700 34px Cinzel,serif;color:#fbe7bf;text-shadow:2px 2px 0 #000;letter-spacing:1px'; l.append(t);
+  const tag = document.createElement('span'); tag.textContent = m.tag.split(' - ')[0]; tag.style.cssText = 'font:400 10px Silkscreen,monospace;color:#FFC43C'; l.append(tag); row.append(l);
+}
+grid.append(row);
+</script>
+</body>
+</html>
