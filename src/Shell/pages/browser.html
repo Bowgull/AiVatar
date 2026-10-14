@@ -134,6 +134,17 @@
     <!-- The downloads tray: this run's newest 5. Drag a file out to use it anywhere. -->
     <!-- The update tray (sheet 35, his picks 2026-10-14): lantern header, the update itself as ticks on parchment (the
          ones he can leave out are tick boxes), Restart now / Later, and a ... menu for the rest. Skipping asks twice. -->
+    <!-- Sheet 37 (his picks, 2026-10-14): a Claude session's plan, dropped from the band in the update tray's own frame, when
+         there is no Aang bubble to show it in (the Mac, for now). Sites as turquoise ticks, the steps, what it won't do,
+         a line to type a change. Go / Change / Not now. -->
+    <div class="dltray uptray upx plantray" id="plantray" role="dialog" aria-label="Claude's plan" hidden>
+      <div class="caps" aria-hidden="true"></div>
+      <div class="uphd"><img src="art/samara/samara-lantern-32.png" alt=""><div class="t"><small>CLAUDE WANTS TO</small><b id="plantask"></b></div></div>
+      <div class="uplist"><div class="grp">SITES</div><div id="plansites"></div><div class="grp">STEPS</div><div id="plansteps"></div></div>
+      <div class="planwont" id="planwont"><span data-pix="wont"></span><span id="planwonttext"></span></div>
+      <textarea class="plannote" id="plannote" rows="2" maxlength="500" placeholder="What should Claude change?" hidden></textarea>
+      <div class="upfoot"><button class="key primary sm" id="plango" type="button">Go</button><button class="key sm" id="planchange" type="button">Change</button><button class="key sm burnt" id="planno" type="button">Not now</button></div>
+    </div>
     <div class="dltray uptray upx" id="uptray" role="dialog" aria-label="Update" hidden>
       <div class="caps" aria-hidden="true"></div>
       <div class="uphd"><img src="art/samara/samara-lantern-32.png" alt=""><div class="t"><small id="upkicker">UPDATE READY</small><b id="upname"></b></div><span class="when" id="upsince"></span></div>
