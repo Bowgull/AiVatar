@@ -154,7 +154,7 @@ async function connected(port: number) {
 }
 
 test('nothing unprompted arrives while the game has focus; it waits and is delivered after', async () => {
-  const core = new Core({ port: 48080, dataDir: tmp(), stateDir: tmp(), warm: false });
+  const core = new Core({ testDoor: true, port: 48080, dataDir: tmp(), stateDir: tmp(), warm: false });
   await core.start();
   const { c, bubbles } = await connected(48080);
 
@@ -175,7 +175,7 @@ test('nothing unprompted arrives while the game has focus; it waits and is deliv
 });
 
 test('muting silences unprompted messages until it is turned off', async () => {
-  const core = new Core({ port: 48082, dataDir: tmp(), stateDir: tmp(), warm: false });
+  const core = new Core({ testDoor: true, port: 48082, dataDir: tmp(), stateDir: tmp(), warm: false });
   await core.start();
   const { c, bubbles } = await connected(48082);
 
@@ -193,7 +193,7 @@ test('muting silences unprompted messages until it is turned off', async () => {
 });
 
 test('a hook posted over HTTP reaches the bubble', async () => {
-  const core = new Core({ port: 48084, dataDir: tmp(), stateDir: tmp(), warm: false });
+  const core = new Core({ testDoor: true, port: 48084, dataDir: tmp(), stateDir: tmp(), warm: false });
   await core.start();
   const { c, bubbles } = await connected(48084);
   const post = (body: unknown) => fetch('http://127.0.0.1:48085/hook', { method: 'POST', body: JSON.stringify(body) });
@@ -215,7 +215,7 @@ test('over Tailscale, a hook needs the key; a MacBook session says where it is',
   const ts = tailnetAddress();
   if (!ts) { t.skip('this machine is not on a tailnet'); return; }
   const dataDir = tmp();
-  const core = new Core({ port: 48092, dataDir, stateDir: tmp(), warm: false });
+  const core = new Core({ testDoor: true, port: 48092, dataDir, stateDir: tmp(), warm: false });
   await core.start();
   const { c, bubbles } = await connected(48092);
   const key = readFileSync(path.join(dataDir, 'hook.key'), 'utf8').trim();
@@ -239,12 +239,12 @@ test('over Tailscale, a hook needs the key; a MacBook session says where it is',
 
   // A click on its icon: the Core asks the Mac's one-job listener (played here by a fake) to bring Claude forward.
   const got: string[] = [];
-  const fake = http.createServer((req, res) => { got.push(`${req.method} ${req.url}`); res.writeHead(204).end(); });
+  const fake = http.createServer((req, res) => { got.push(`${req.method} ${req.url} ${String(req.headers['x-aang-key'] ?? '')}`); res.writeHead(204).end(); });
   await new Promise<void>(r => fake.listen(47840, ts, () => r()));
   c.send(JSON.stringify({ t: 'claude.front', host: 'mac' }));
   await new Promise(r => setTimeout(r, 300));
   const frontKey = readFileSync(path.join(dataDir, 'mac-front.key'), 'utf8').trim();
-  assert.deepEqual(got, [`POST /front?k=${encodeURIComponent(frontKey)}`]);
+  assert.deepEqual(got, [`POST /front ${frontKey}`], 'the key as a header, never in the address');
   assert.notEqual(frontKey, key, 'a different key from the one the hooks send');
   await new Promise<void>(r => fake.close(() => r()));
   c.close();
@@ -255,7 +255,7 @@ test('the MacBook setup script is served once, for its code, with both keys in i
   const ts = tailnetAddress();
   if (!ts) { t.skip('this machine is not on a tailnet'); return; }
   const dataDir = tmp();
-  const core = new Core({ port: 48096, dataDir, stateDir: tmp(), warm: false });
+  const core = new Core({ testDoor: true, port: 48096, dataDir, stateDir: tmp(), warm: false });
   await core.start();
   const url = (c: string) => `http://${ts}:48097/mac-setup?c=${c}`;
   assert.equal((await fetch(url('whatever'))).status, 404, 'no code file, nothing to fetch');
@@ -273,7 +273,7 @@ test('the MacBook setup script is served once, for its code, with both keys in i
 });
 
 test('a session he started himself gets the same two tiers, even while the game has focus', async () => {
-  const core = new Core({ port: 48088, dataDir: tmp(), stateDir: tmp(), warm: false });
+  const core = new Core({ testDoor: true, port: 48088, dataDir: tmp(), stateDir: tmp(), warm: false });
   await core.start();
   const { c, bubbles } = await connected(48088);
   const post = (body: unknown) => fetch('http://127.0.0.1:48089/hook', { method: 'POST', body: JSON.stringify(body) });

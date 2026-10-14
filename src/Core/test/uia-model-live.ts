@@ -20,7 +20,7 @@ const log = path.join(tmp('aang-uiam-log-'), 'form.log'); writeFileSync(log, '')
 const lines = () => readFileSync(log, 'utf8').split(/\r?\n/).filter(Boolean);
 const form = spawn('powershell.exe', ['-NoProfile', '-STA', '-ExecutionPolicy', 'Bypass', '-File', path.join(root, 'tests', 'fakecore', 'uia-form.ps1')], { env: { ...process.env, UIA_LOG: log }, stdio: 'ignore' });
 const PORT = 47892;
-const core: any = new Core({ port: PORT, dataDir: tmp('aang-uiam-data-'), stateDir: tmp('aang-uiam-state-'), warm: false, consolidate: false });
+const core: any = new Core({ testDoor: true, port: PORT, dataDir: tmp('aang-uiam-data-'), stateDir: tmp('aang-uiam-state-'), warm: false, consolidate: false });
 const inbox: any[] = [];
 let ws: WebSocket | null = null;
 

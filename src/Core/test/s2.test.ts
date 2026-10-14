@@ -17,7 +17,7 @@ import { WsCoreLink } from '../src/discord-gateway.ts';
 const tmp = () => mkdtempSync(path.join(os.tmpdir(), 'aang-s2-'));
 const home = os.homedir();
 function core(...kinds: string[]): any {
-  const c: any = new Core({ port: 48210, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
+  const c: any = new Core({ testDoor: true, port: 48210, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
   for (const k of kinds) c.trust.allow(k, 'test');
   return c;
 }
