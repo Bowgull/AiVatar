@@ -2264,7 +2264,9 @@ export class Core {
           // (which are browsers, and do send an Origin) apart from a web page that is not his.
           const given = String(req.headers[TOKEN_HEADER] ?? '');
           if (given && this.token && sameToken(given, this.token)) return done(true);
-          if (!origin) return done(true);           // his C# window, which sends neither
+          // His C# window, which sent neither until 2026-10-14 (code audit L5). Once the rebuilt pet sends the password and
+          // this line stops appearing, no-password connections get refused here.
+          if (!origin) { console.log('a program connected without the brain's password (the old pet does this)'); return done(true); }
           console.error(`refused a connection from a web page (origin ${String(origin).slice(0, 80)})`);
           done(false, 403, 'Forbidden');
         },

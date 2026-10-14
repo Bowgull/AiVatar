@@ -30,6 +30,15 @@ sealed class CoreLink : IDisposable
             try
             {
                 ws = new ClientWebSocket();
+                // The brain's password for this run (code audit L5, 2026-10-14), read fresh each time: the brain writes a new
+                // one every start. Once every Aang sends it, the brain stops letting in programs that send nothing.
+                try
+                {
+                    var tokenFile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Aang", "shell.token");
+                    if (File.Exists(tokenFile)) ws.Options.SetRequestHeader("x-aang-token", File.ReadAllText(tokenFile).Trim());
+                }
+                catch (IOException) { /* not written yet: the brain is still starting */ }
+                catch (UnauthorizedAccessException) { /* the same */ }
                 await ws.ConnectAsync(uri, cts.Token);
                 SetConnected(true);
                 await SendAsync(new { t = "hello", v = 1, pid = Environment.ProcessId });
