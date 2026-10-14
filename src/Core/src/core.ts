@@ -23,7 +23,7 @@ import { reportWriteFailure, rotateIfBig, writeFileAtomic } from './atomic.ts';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { releaseName } from './releasenames.ts';
-import { castlabsReleases, newerCastlabs } from './enginewatch.ts';
+
 import { MAC_LISTENER_PORT, macBrowserBundle, macSetupScript, macSourceVersion, FRONT_DESK_PORT, type DeskPayload, type MacRelease } from './macsetup.ts';
 import { Jobs, SWEEP_REQUEST, cleanField, safeUrl, scoreOf, verdictFor } from './jobs.ts';
 import type { Rubric } from './jobs.ts';
@@ -1355,6 +1355,8 @@ export class Core {
       }),
       jobsNew: cards.filter(c => c.status === 'new' && Date.parse(c.at) > dayAgo).length,
       waiting: this.homeData().waiting,
+      // Samara's engine, when a newer one is out (his ask, 2026-10-14): a row with the lantern and an Update button.
+      ...(this.engineNews ? { engine: { title: `Version ${this.engineNews.label}: ${this.engineNews.name}` } } : {}),
       week: q ? q.week : null,
       weekResetsAt: q ? q.weekResetsAt : null,
       ...(d.error ? { error: d.error } : {}),
@@ -1397,6 +1399,7 @@ export class Core {
   private briefAct(ws: WebSocket, item: number, act: string): void {
     const b = this.lastBrief;
     if (!b || !Number.isInteger(item) || item < 0) return;
+    if (act === 'engine') { this.engineAsk(ws); return; }
     const mails = b.unread, evs = b.events;
     let text = '';
     if (item < mails.length) {
@@ -2196,8 +2199,6 @@ export class Core {
   async start(): Promise<void> {
     this.token = newToken(this.cfg.stateDir);
     this.writeChangelog();
-    setTimeout(() => void this.engineWatch(), 3 * 60_000).unref();
-    setInterval(() => void this.engineWatch(), 24 * 60 * 60_000).unref();
     await new Promise<void>((resolve, reject) => {
       this.wss = new WebSocketServer({
         host: '127.0.0.1', port: this.cfg.port, path: '/body',
@@ -2656,26 +2657,39 @@ export class Core {
     }
     return out.join('\n');
   }
-  /** Once a day: is castLabs' Samara engine newer than the one Samara runs? Told once per new version. */
-  private async engineWatch(): Promise<void> {
-    try {
-      let cur = '';
-      try { cur = String(JSON.parse(readFileSync(path.join(import.meta.dirname, '..', '..', 'Shell', 'engines', 'current.json'), 'utf8')).version ?? ''); } catch { return; }
-      const v = newerCastlabs(await castlabsReleases(), cur);
-      const f = path.join(this.cfg.stateDir, 'engine-watch.json');
-      let told = ''; try { told = String(JSON.parse(readFileSync(f, 'utf8')).told ?? ''); } catch { /* never */ }
-      if (!v) { console.log(`engine watch: Samara's engine ${cur} is the newest castLabs release`); return; }
-      if (told === v) return;
-      writeFileAtomic(f, JSON.stringify({ told: v, at: new Date().toISOString() }));
-      console.log(`engine watch: castLabs ${v} is out (Samara runs ${cur})`);
-      this.announce(`A newer engine for Samara is out: ${v} (you're on ${cur}). It brings Chrome's latest security fixes. Ask Claude to do the engine update: it goes in with the login lock, and you re-sign for video once.`);
-    } catch (e) { console.log('engine watch: ' + (e as Error).message); }
+  /** Samara's engine update, once the PC's Samara has it fully ready (downloaded, switches set, re-signed, tested):
+   *  its version and name, its lines in the changelog, one word from Aang, and the morning brief's row (sheet 35). */
+  private engineNews: { version: string; label: string; name: string } | null = null;
+  private engineReady(ws: WebSocket, version: string, major: boolean): void {
+    if (!/^\d+\.\d+\.\d+$/.test(version)) return;
+    const notesFile = path.join(this.cfg.dataDir, 'engine-notes.json');
+    let notes: { at: string; kind: string; text: string; engine: string }[] = [];
+    try { notes = JSON.parse(readFileSync(notesFile, 'utf8')); } catch { /* none yet */ }
+    const fresh = !notes.some(n => n.engine === version);
+    if (fresh) {
+      const at = new Date().toISOString(), kind = major ? 'major' : 'feature';
+      notes.push({ at, kind, engine: version, text: "Samara's engine: Chrome's newest security fixes." },
+        { at, kind: 'feature', engine: version, text: "Your saved logins can be locked with your computer's own lock." },
+        { at, kind: 'feature', engine: version, text: 'A back door other programs could use is closed.' });
+      try { writeFileAtomic(notesFile, JSON.stringify(notes, null, 1)); } catch { /* best effort */ }
+    }
+    const no = this.macReleaseNo('engine-' + version, this.git(['rev-parse', '--short=12', 'HEAD']));
+    this.engineNews = { version, label: no.label, name: no.name };
+    this.send(ws, { t: 'engine.label', version, label: no.label, name: no.name } as never);
+    if (fresh) {
+      console.log(`engine: Samara's engine ${version} is ready on this PC as Version ${no.label}: ${no.name}`);
+      this.announce(`Samara has an update ready: Version ${no.label}: ${no.name}, with Chrome's newest security fixes. Press UPDATE in Samara when it suits you.`);
+    }
   }
+  /** The brief's Update button: Samara on this PC restarts onto the ready engine. */
+  private engineAsk(_socket?: WebSocket): void { if (this.engineNews) this.sendToShells({ t: 'engine.go' } as never); }
   private writeChangelog(): void {
     try { writeFileAtomic(path.join(this.cfg.dataDir, 'Samara Changelog.md'), this.changelogText()); } catch (e) { console.error('changelog: ' + (e as Error).message); }
   }
   private whatsNew(): { at: string; text: string; kind: string }[] {
-    try { return (JSON.parse(readFileSync(path.join(import.meta.dirname, '..', '..', 'Shell', 'whats-new.json'), 'utf8')).items ?? []).filter((x: any) => typeof x?.text === 'string').map((x: any) => ({ at: String(x.at), text: String(x.text), kind: ['major', 'feature', 'fix'].includes(x.kind) ? x.kind : 'fix' })); } catch { return []; }
+    const read = (f: string, list: (j: any) => any[]) => { try { return list(JSON.parse(readFileSync(f, 'utf8'))); } catch { return []; } };
+    const all = [...read(path.join(import.meta.dirname, '..', '..', 'Shell', 'whats-new.json'), j => j.items ?? []), ...read(path.join(this.cfg.dataDir, 'engine-notes.json'), j => (Array.isArray(j) ? j : []))];
+    return all.filter((x: any) => typeof x?.text === 'string').map((x: any) => ({ at: String(x.at), text: String(x.text), kind: ['major', 'feature', 'fix'].includes(x.kind) ? x.kind : 'fix' })).sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
   }
   /** What this update brings, in his words (Shell/whats-new.json, kept up with each change that reaches the Mac):
    *  the lines added since the version the Mac runs. */
@@ -3135,6 +3149,10 @@ export class Core {
       // The browser's Trail clean up (2026-10-12). Tab titles are web page text: they go in as data under a fixed system
       // prompt that says so, and the Shell reads the answer strictly (tab numbers and short names only). askLocal itself
       // refuses while a game is running ('game'), and the Shell then waits and asks again.
+      case 'engine.ready': this.engineReady(ws, String(m.version ?? ''), m.major === true); break;
+      case 'engine.signin':
+        if (m.signIn === true) this.announce("Samara's new engine couldn't be re-signed for video: castLabs wants you to sign in again. Paste this in PowerShell and follow it: python -m castlabs_evs.account reauth");
+        break;
       case 'tidy.ask': {
         const id = Number(m.id);
         if (!Number.isInteger(id)) break;

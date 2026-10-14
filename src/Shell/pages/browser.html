@@ -71,6 +71,7 @@
         <button type="button" class="mrow" id="m-downloads"><span>Downloads</span><kbd>CTRL J</kbd></button>
       </div>
       <div class="grp">
+        <button type="button" class="mrow" id="m-updates"><span>Check for updates</span></button>
         <button type="button" class="mrow" id="m-settings"><span>Settings</span></button>
       </div>
     </div>
@@ -124,21 +125,47 @@
         <span><b>Dark mode on this site</b><small id="darknote"></small></span></label>
     </div>
     <!-- The downloads tray: this run's newest 5. Drag a file out to use it anywhere. -->
-    <div class="dltray uptray" id="uptray" role="dialog" aria-label="Browser update" hidden>
-      <div class="gh">UPDATE READY<span id="upsince"></span></div>
-      <div class="ver"><b id="upname"></b><small id="upkind">A small update to the browser engine</small></div>
-      <ul class="upnotes" id="upnotes" hidden></ul>
-      <div class="lines" id="uplines">
-        <div><span class="tick"></span>Downloaded and checked against Electron's own fingerprints</div>
-        <div><span class="tick"></span>Passed Aang's checks on this PC</div>
-        <div><span class="tick"></span>Your tabs come back after the restart</div>
+    <!-- The update tray (sheet 35, his picks 2026-10-14): lantern header, the update itself as ticks on parchment (the
+         ones he can leave out are tick boxes), Restart now / Later, and a ... menu for the rest. Skipping asks twice. -->
+    <div class="dltray uptray upx" id="uptray" role="dialog" aria-label="Update" hidden>
+      <div class="caps" aria-hidden="true"></div>
+      <div class="uphd"><img src="art/samara/samara-lantern-32.png" alt=""><div class="t"><small id="upkicker">UPDATE READY</small><b id="upname"></b></div><span class="when" id="upsince"></span></div>
+      <div id="upmain">
+        <div class="uplist" id="uplist"></div>
+        <p class="upwhy" id="upwhy" hidden></p>
+        <div class="upfoot"><button class="key primary sm" id="upgo" type="button">Restart now</button><button class="key sm" id="uplater" type="button">Later</button><span class="sp"></span>
+          <button class="upmore" id="upmore" type="button" aria-label="More" aria-expanded="false"><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges" aria-hidden="true"><path d="M0 3h1v1H0zM3 3h1v1H3zM6 3h1v1H6z" fill="#e8e0f5"/></svg></button></div>
       </div>
-      <p class="upwhy" id="upwhy" hidden></p>
-      <div class="keys">
-        <button class="key primary sm" id="upgo" type="button">Restart now</button>
-        <button class="key sm" id="uplater" type="button">Later</button>
+      <div class="upmenu" id="upmenu" hidden>
+        <button type="button" data-up="safe"><svg viewBox="0 0 9 9" width="16" height="16" shape-rendering="crispEdges" aria-hidden="true"><path d="M1 0h7v1H1zM0 1h1v4H0zM8 1h1v4H8zM1 5h1v1H1zM7 5h1v1H7zM2 6h1v1H2zM6 6h1v1H6zM3 7h3v1H3z" fill="#120A05"/><path d="M1 1h7v4H7v1H6v1H3V6H2V5H1z" fill="#6fbf6a"/><path d="M2 3h1v1H2zM3 4h1v1H3zM4 3h1v1H4zM5 2h1v1H5zM6 1h1v1H6z" fill="#fff"/></svg> Checked and safe</button>
+        <div class="detail" id="upsafe" hidden>From your own PC, every download matched its fingerprint, tested here. If it won't start, the old one comes back.</div>
+        <hr>
+        <button type="button" data-up="skip"><svg viewBox="0 0 9 9" width="16" height="16" shape-rendering="crispEdges" aria-hidden="true"><path d="M0 1h1v1H0zM1 2h1v1H1zM2 3h1v1H2zM3 4h1v1H3zM2 5h1v1H2zM1 6h1v1H1zM0 7h1v1H0zM4 1h1v1H4zM5 2h1v1H5zM6 3h1v1H6zM7 4h1v1H7zM6 5h1v1H6zM5 6h1v1H5zM4 7h1v1H4z" fill="#FFC43C"/></svg> Skip this version</button>
+        <button type="button" data-up="changelog"><svg viewBox="0 0 9 9" width="16" height="16" shape-rendering="crispEdges" aria-hidden="true"><path d="M1 0h6v1H1zM0 1h1v2H0zM8 1h1v6H8zM1 3h1v5H1zM2 8h6v1H2z" fill="#120A05"/><path d="M1 1h7v1H1zM2 2h6v6H2z" fill="#e9d3a6"/><path d="M1 2h1v1H1z" fill="#cdb78c"/><path d="M3 3h4v1H3zM3 5h4v1H3zM3 7h3v1H3z" fill="#8a3e1c"/></svg> Every version</button>
+        <button type="button" data-up="back" id="upback"><svg viewBox="0 0 9 9" width="16" height="16" shape-rendering="crispEdges" aria-hidden="true"><path d="M2 1h1v1H2zM1 2h1v1H1zM0 3h6v1H0zM1 4h1v1H1zM2 5h1v1H2zM6 4h1v1H6zM7 5h1v2H7zM6 7h1v1H6z" fill="#C8E8FF"/></svg> Go back to the last version</button>
+        <hr>
+        <button type="button" data-up="overnight"><svg viewBox="0 0 9 9" width="16" height="16" shape-rendering="crispEdges" aria-hidden="true"><path d="M3 0h3v1H3zM2 1h1v1H2zM1 2h1v5H1zM2 7h1v1H2zM3 8h4v1H3zM7 7h1v1H7zM5 2h1v1H5zM4 3h1v3H4zM5 6h2v1H5z" fill="#FFE096"/><path d="M3 1h2v1H3zM2 2h3v1H2zM2 3h2v4H2zM3 7h4v1H3z" fill="#FFC43C"/></svg> Update by itself overnight <span class="sw" id="upnight"></span></button>
       </div>
-      <div class="note">If the new one ever fails to start, Aang goes back to the old one by himself.</div>
+      <div class="upask" id="upskip1" hidden>
+        <div class="msg">This update has <b>security fixes</b>. Skipping it leaves known holes open until the next one.</div>
+        <div class="ch">
+          <div class="opt2"><button class="key primary sm" type="button" data-up="take">Never mind, take the update</button><small>Changed your mind? It installs now, the usual quick restart.</small></div>
+          <div class="opt2"><button class="key plum sm" type="button" data-up="file">Put it away</button><small>It stays on file. "Check for updates" in Samara's menu brings it back.</small></div>
+          <div class="opt2"><button class="key danger sm" type="button" data-up="skip2">Skip for good</button><small>It won't be offered again.</small></div>
+        </div>
+      </div>
+      <div class="upask" id="upskip2" hidden>
+        <div class="msg" id="upskip2msg"></div>
+        <div class="ch"><div class="row2"><button class="key primary sm" type="button" data-up="take">Never mind, take the update</button><button class="key danger sm" type="button" data-up="forever">Yes, skip it</button></div></div>
+      </div>
+      <div class="upvers" id="upvers" hidden><div class="uplog" id="uplog"></div><div class="upfoot"><button class="key sm" type="button" data-up="home">Back</button></div></div>
+    </div>
+    <!-- After an update put in overnight (his ask): once, the next time he opens Samara, hanging off the ... key. -->
+    <div class="dltray uptray upx updone" id="updone" role="dialog" aria-label="Updated" hidden>
+      <div class="caps" aria-hidden="true"></div>
+      <div class="uphd"><img src="art/samara/samara-lantern-32.png" alt=""><div class="t"><small>UPDATED WHILE YOU SLEPT</small><b id="updonename"></b></div></div>
+      <div class="uplist" id="updonelist"></div>
+      <div class="upfoot"><button class="key primary sm" id="updoneok" type="button">Got it</button><button class="key plum sm" id="updonevers" type="button">Every version</button></div>
     </div>
     <div class="dltray" id="dltray" role="dialog" aria-label="Downloads" hidden>
       <div class="gh">DOWNLOADS<span>Drag a file out to use it anywhere</span></div>

@@ -7,20 +7,27 @@
 import { createRequire } from 'node:module';
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { createWriteStream, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync, unlinkSync } from 'node:fs';
+import { createWriteStream, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { mkdtemp } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { writeFileAtomic } from './atomic.ts';
+import { readFuses, samaraFuses, setFuses } from './fusewire.ts';
 
-export interface Ready { version: string; since: number }
+/** His tick boxes on an engine update (2026-10-14): the login lock, and closing the back doors. On by default. */
+export interface Choices { lock: boolean; closeBackdoors: boolean }
+export interface Ready { version: string; since: number; castlabs?: boolean; choices?: Choices; major?: boolean }
+/** "44.5.1+wvcus" -> "44.5.1". */
+export const plain = (v: string): string => String(v ?? '').replace(/\+.*$/, '');
 export interface UpdateOptions {
   shellDir: string; stateDir: string;
   /** In a game or a call right now: no downloads, no tests, no restarts. */
   quietNow: () => boolean;
   changed: (r: Ready | null) => void;
+  /** A castLabs engine could not be re-signed for video; true when castLabs' tool needs him to sign in again. */
+  signinNeeded?: (signIn: boolean) => void;
 }
 /** Running on castLabs' engine (Widevine, VMP-signed): only it has the components API (checked 2026-10-13: stock 44.7.0 has none). */
 export const onCastlabs = (): boolean => { try { return Boolean(createRequire(import.meta.url)('electron').components); } catch { return false; } };
@@ -30,7 +37,7 @@ interface Pointer { version: string; dir: string; status: 'trial' | 'good'; prev
 const VERSION = /^(\d+)\.(\d+)\.(\d+)$/;
 /** a newer than b, plain releases only. */
 export function newer(a: string, b: string): boolean {
-  const x = VERSION.exec(a), y = VERSION.exec(b);
+  const x = VERSION.exec(plain(a)), y = VERSION.exec(plain(b));
   if (!x || !y) return false;
   for (let i = 1; i <= 3; i++) { const d = Number(x[i]) - Number(y[i]); if (d) return d > 0; }
   return false;
@@ -56,6 +63,17 @@ export function shaFor(list: string, file: string): string | null {
 
 const DAY = 24 * 60 * 60_000;
 
+/** The newest stable castLabs release newer than `current`, not one that failed before. */
+export function newestCastlabs(releases: { tag: string; prerelease: boolean }[], current: string, failed: Set<string>): string | null {
+  let best: string | null = null;
+  for (const r of releases) {
+    const m = /^v(\d+\.\d+\.\d+)\+wvcus$/.exec(r.tag);
+    if (!m || r.prerelease || failed.has(m[1]!) || !newer(m[1]!, current)) continue;
+    if (!best || newer(m[1]!, best)) best = m[1]!;
+  }
+  return best;
+}
+
 export class EngineUpdates {
   private readonly engines: string;
   private readonly stateFile: string;
@@ -76,11 +94,41 @@ export class EngineUpdates {
     } catch { /* nothing waiting */ }
   }
 
-  private exeOf(v: string): string { return path.join(this.engines, v, 'electron.exe'); }
+  /** castLabs engines live in castlabs-<version>, plain Electron ones in <version>. */
+  private dirOf(v: string): string { return existsSync(path.join(this.engines, 'castlabs-' + plain(v))) ? 'castlabs-' + plain(v) : plain(v); }
+  private exeOf(v: string): string { return path.join(this.engines, this.dirOf(v), 'electron.exe'); }
   private failed(): Set<string> {
     try { return new Set(readFileSync(path.join(this.engines, 'failed.txt'), 'utf8').split(/\r?\n/).map((x) => x.trim()).filter(Boolean)); } catch { return new Set(); }
   }
   private pointer(): Pointer | null { try { return JSON.parse(readFileSync(path.join(this.engines, 'current.json'), 'utf8')); } catch { return null; } }
+
+  // ---- his ... menu on the update (sheet 35): put a version away, skip it for good, go back, check now
+  private filedFile(): string { return path.join(this.o.stateDir, 'engine-filed.json'); }
+  private filed(): Set<string> { try { return new Set(JSON.parse(readFileSync(this.filedFile(), 'utf8'))); } catch { return new Set(); } }
+  /** Put away: kept on file, not offered until he checks for updates himself. */
+  file(): void { const r = this.ready; if (!r) return; const f = this.filed(); f.add(plain(r.version)); try { writeFileAtomic(this.filedFile(), JSON.stringify([...f])); } catch { /* best effort */ } this.set(null); }
+  /** Skip for good: never offered again (the same list a version that failed its checks goes on). */
+  skip(): void {
+    const r = this.ready; if (!r) return;
+    try { mkdirSync(this.engines, { recursive: true }); writeFileSync(path.join(this.engines, 'failed.txt'), [...this.failed(), plain(r.version)].join('\n') + '\n'); } catch { /* best effort */ }
+    this.set(null);
+  }
+  /** Is there an engine to go back to (the one before this, still kept)? */
+  canBack(): boolean {
+    const p = this.pointer();
+    return !!p?.previous && existsSync(path.join(this.engines, p.previous.dir, 'electron.exe')) && path.resolve(path.dirname(process.execPath)) === path.resolve(this.engines, p.dir);
+  }
+  /** Go back to the engine before this one; the pet starts it when the Shell quits. */
+  goBack(): boolean {
+    const p = this.pointer();
+    if (!p?.previous || !this.canBack()) return false;
+    writeFileAtomic(path.join(this.engines, 'current.json'), JSON.stringify({ version: p.previous.version, dir: p.previous.dir, status: 'good', previous: null, at: new Date().toISOString() }));
+    const f = this.filed(); f.add(plain(p.version)); try { writeFileAtomic(this.filedFile(), JSON.stringify([...f])); } catch { /* best effort */ }
+    console.log(`shell: going back from engine ${p.version} to ${p.previous.version} (his click)`);
+    return true;
+  }
+  /** Check for updates now (Samara's ... menu): what was put away comes back, and a look right now. */
+  async checkNow(): Promise<void> { try { unlinkSync(this.filedFile()); } catch { /* none */ } await this.check(); }
 
   /** Ten minutes after start, then once a day. */
   start(): void {
@@ -108,7 +156,7 @@ export class EngineUpdates {
     try {
       for (const d of readdirSync(this.engines)) {
         const full = path.join(this.engines, d);
-        if (!keep.has(d) && VERSION.test(d) && statSync(full).isDirectory()) rmSync(full, { recursive: true, force: true });
+        if (!keep.has(d) && (VERSION.test(d) || /^castlabs-\d+\.\d+\.\d+$/.test(d)) && statSync(full).isDirectory()) rmSync(full, { recursive: true, force: true });
       }
     } catch { /* next time */ }
   }
@@ -118,7 +166,7 @@ export class EngineUpdates {
     if (this.busy || this.o.quietNow()) return;
     // One engine (his yes, 2026-10-13): the browser runs on castLabs' engine so paid video plays in its tabs. A stock
     // Electron update would take Widevine away, so none is offered; castLabs' own come in their own step.
-    if (onCastlabs()) return;
+    if (onCastlabs()) { await this.castlabsCheck(); return; }
     this.busy = true;
     try {
       const cur = process.versions.electron;
@@ -137,10 +185,85 @@ export class EngineUpdates {
     } finally { this.busy = false; }
   }
 
+  /**
+   * The castLabs engine (his calls, 2026-10-14): taken the day castLabs ships it (security fixes do not wait), made
+   * ready quietly: downloaded, checked against the fingerprint GitHub publishes for it, its switches set (his tick
+   * boxes, on by default: the login lock and closed back doors), re-signed for paid video with his castLabs account
+   * (its sign-in is kept by castLabs' own tool), and run through Aang's checks. Only then does UPDATE light up.
+   */
+  private async castlabsCheck(): Promise<void> {
+    if (this.busy) return;
+    this.busy = true;
+    try {
+      const cur = plain(process.versions.electron);
+      const r = await fetch('https://api.github.com/repos/castlabs/electron-releases/releases?per_page=30', { headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'Samara engine update' }, signal: AbortSignal.timeout(20_000) });
+      if (!r.ok) throw new Error(`GitHub said ${r.status}`);
+      const list = (await r.json()) as { tag_name: string; prerelease: boolean; draft: boolean; assets: { name: string; digest?: string; browser_download_url: string }[] }[];
+      const v = newestCastlabs(list.map((x) => ({ tag: x.tag_name, prerelease: x.prerelease || x.draft })), cur, this.failed());
+      if (!v || this.filed().has(v)) { if (this.ready) this.set(null); return; }
+      if (this.ready?.version === v) return;
+      const asset = list.find((x) => x.tag_name === `v${v}+wvcus`)?.assets.find((a) => a.name === `electron-v${v}+wvcus-win32-x64.zip`);
+      const sha = /^sha256:([0-9a-f]{64})$/.exec(asset?.digest ?? '')?.[1];
+      if (!asset || !sha) throw new Error(`castLabs ${v} has no Windows download with a published fingerprint`);
+      console.log(`shell: castLabs engine ${v} is out (running ${cur}); getting it ready`);
+      if (!existsSync(path.join(this.engines, 'castlabs-' + v, 'electron.exe'))) await this.fetchZip(asset.browser_download_url, sha, 'castlabs-' + v);
+      const choices: Choices = { lock: true, closeBackdoors: true };
+      if (!(await this.switchesAndSign(v, choices))) return;
+      if (!(await this.test(v))) return;
+      this.set({ version: v, since: Date.now(), castlabs: true, choices, major: v.split('.')[0] !== cur.split('.')[0] });
+      console.log(`shell: castLabs engine ${v} is ready; the update key is showing`);
+    } catch (e) {
+      console.log('shell: engine update check: ' + (e as Error).message);
+    } finally { this.busy = false; }
+  }
+  /** Set the engine's switches to his choices and re-sign it for paid video (the switches live in electron.exe, which
+   *  the video signature covers). False: it could not be signed; the reason is logged and he is told. */
+  async switchesAndSign(v: string, c: Choices, dir = path.join(this.engines, 'castlabs-' + plain(v))): Promise<boolean> {
+    console.log(`shell: engine ${v} switches: ${setFuses(path.join(dir, 'electron.exe'), samaraFuses(c))}`);
+    const sig = path.join(dir, 'electron.exe.sig');
+    const before = existsSync(sig) ? statSync(sig).mtimeMs : 0;
+    const out = await new Promise<{ code: number | null; text: string }>((res) => {
+      const t = spawn('python', ['-m', 'castlabs_evs.vmp', 'sign-pkg', dir], { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+      let text = '';
+      t.stdout?.on('data', (d) => { text = (text + String(d)).slice(-3000); });
+      t.stderr?.on('data', (d) => { text = (text + String(d)).slice(-3000); });
+      const kill = setTimeout(() => { try { t.kill(); } catch { /* gone */ } }, 5 * 60_000);
+      t.on('error', (e) => { clearTimeout(kill); res({ code: null, text: e.message }); });
+      t.on('exit', (code) => { clearTimeout(kill); res({ code, text }); });
+    });
+    if (out.code === 0 && existsSync(sig) && statSync(sig).mtimeMs > before) return true;
+    console.log(`shell: engine ${v} could not be re-signed for video (exit ${out.code}): ${out.text.split(/\r?\n/).filter(Boolean).slice(-4).join(' | ').slice(0, 600)}`);
+    this.o.signinNeeded?.(/auth|login|token|credential|expired|unauthori/i.test(out.text));
+    return false;
+  }
+  /** What the switches are on the engine running now ("0100..."), or '' (for the one-time login re-lock). */
+  static runningFuses(): string { try { return readFuses(process.execPath); } catch { return ''; } }
+
   private set(r: Ready | null): void {
     this.ready = r;
     try { if (r) writeFileAtomic(this.stateFile, JSON.stringify(r)); else if (existsSync(this.stateFile)) unlinkSync(this.stateFile); } catch { /* best effort */ }
     this.o.changed(r);
+  }
+
+  /** Download a zip, check it against the fingerprint given, unpack it into engines/<dirName>. */
+  private async fetchZip(url: string, want: string, dirName: string): Promise<void> {
+    mkdirSync(this.engines, { recursive: true });
+    const zip = path.join(this.engines, dirName + '.zip.partial');
+    const got = await fetch(url, { signal: AbortSignal.timeout(20 * 60_000) });
+    if (!got.ok || !got.body) throw new Error(`the download of ${dirName} failed (${got.status})`);
+    const hash = createHash('sha256');
+    await pipeline(Readable.fromWeb(got.body as import('node:stream/web').ReadableStream), async function* (src) { for await (const c of src) { hash.update(c as Buffer); yield c; } }, createWriteStream(zip));
+    if (hash.digest('hex') !== want) { rmSync(zip, { force: true }); throw new Error(`${dirName} did not match its fingerprint; thrown away`); }
+    const into = path.join(this.engines, dirName + '.partial');
+    rmSync(into, { recursive: true, force: true }); mkdirSync(into, { recursive: true });
+    await new Promise<void>((res, rej) => {
+      const t = spawn(path.join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'tar.exe'), ['-xf', zip, '-C', into], { windowsHide: true });
+      t.on('error', rej); t.on('exit', (c) => (c === 0 ? res() : rej(new Error(`unpacking ${dirName} failed (${c})`))));
+    });
+    rmSync(zip, { force: true });
+    if (!existsSync(path.join(into, 'electron.exe'))) throw new Error(`${dirName} unpacked without electron.exe`);
+    rmSync(path.join(this.engines, dirName), { recursive: true, force: true });
+    renameSync(into, path.join(this.engines, dirName));
   }
 
   /** Download, check the SHA-256 against Electron's own list, unpack beside the old engine. */
@@ -201,28 +324,36 @@ export class EngineUpdates {
    * His click on Restart now: point the pet at the new engine as a trial, note it for the "updated" line, and
    * quit. The pet starts the Shell again on the new engine within seconds.
    */
-  restartNow(browserOpen: boolean): { ok: boolean; why?: string } {
+  async restartNow(browserOpen: boolean, choices?: Partial<Choices>, overnight?: { title: string; lines: string[] }): Promise<{ ok: boolean; why?: string }> {
     const r = this.ready;
     if (!r || !existsSync(this.exeOf(r.version))) return { ok: false, why: 'The update is not ready any more.' };
     if (this.o.quietNow()) return { ok: false, why: 'Not during a call or a game.' };
+    // He changed a tick box: the switches are set again his way and the engine re-signed (about a minute).
+    if (r.castlabs && r.choices && choices) {
+      const want: Choices = { lock: choices.lock !== false, closeBackdoors: choices.closeBackdoors !== false };
+      if (want.lock !== r.choices.lock || want.closeBackdoors !== r.choices.closeBackdoors) {
+        if (!(await this.switchesAndSign(r.version, want))) return { ok: false, why: 'Your choices could not be put in just now. Try again in a minute.' };
+        this.set({ ...r, choices: want });
+      }
+    }
     const now = this.pointer();
     const running = path.dirname(process.execPath);
     const prevDir = now && path.resolve(this.engines, now.dir) === path.resolve(running) ? { version: now.version, dir: now.dir } : null;
-    const p: Pointer = { version: r.version, dir: r.version, status: 'trial', previous: prevDir, at: new Date().toISOString() };
+    const p: Pointer = { version: r.version, dir: this.dirOf(r.version), status: 'trial', previous: prevDir, at: new Date().toISOString() };
     writeFileAtomic(path.join(this.engines, 'current.json'), JSON.stringify(p));
-    writeFileAtomic(this.doneFile, JSON.stringify({ from: process.versions.electron, to: r.version, browser: browserOpen }));
+    writeFileAtomic(this.doneFile, JSON.stringify({ from: process.versions.electron, to: r.version, browser: browserOpen, ...(overnight ? { overnight: true, title: overnight.title, lines: overnight.lines } : {}) }));
     try { unlinkSync(this.stateFile); } catch { /* fine */ }
     console.log(`shell: restarting onto engine ${r.version} (his click)`);
     return { ok: true };
   }
 
   /** After a restart: did it just update? Once only. */
-  justUpdated(): { from: string; to: string; browser: boolean } | null {
+  justUpdated(): { from: string; to: string; browser: boolean; overnight?: boolean; title?: string; lines?: string[] } | null {
     try {
       const j = JSON.parse(readFileSync(this.doneFile, 'utf8'));
       unlinkSync(this.doneFile);
-      if (j?.to !== process.versions.electron) return null;   // rolled back: the old engine is running again
-      return { from: String(j.from), to: String(j.to), browser: j.browser === true };
+      if (plain(j?.to) !== plain(process.versions.electron)) return null;   // rolled back: the old engine is running again
+      return { from: String(j.from), to: String(j.to), browser: j.browser === true, overnight: j.overnight === true, ...(typeof j.title === 'string' ? { title: j.title } : {}), ...(Array.isArray(j.lines) ? { lines: j.lines.map(String) } : {}) };
     } catch { return null; }
   }
 }

@@ -40,6 +40,31 @@
       "at": "2026-10-14T13:35:03-04:00",
       "kind": "fix",
       "text": "Syncing between your computers no longer keeps a copy of your logins in a file. They travel, but are never written down."
+    },
+    {
+      "at": "2026-10-14T14:14:57-04:00",
+      "kind": "feature",
+      "text": "A new update panel: the lantern, the version's name, and each change as a tick. Settings sit in a ... menu."
+    },
+    {
+      "at": "2026-10-14T14:14:57-04:00",
+      "kind": "feature",
+      "text": "The UPDATE button glows turquoise after a day, turns red after three, and swells and shakes after four."
+    },
+    {
+      "at": "2026-10-14T14:14:57-04:00",
+      "kind": "feature",
+      "text": "Skipping a version first warns you, and you can always change your mind and take it."
+    },
+    {
+      "at": "2026-10-14T14:14:57-04:00",
+      "kind": "feature",
+      "text": "You can go back to the last version, or let updates install by themselves overnight."
+    },
+    {
+      "at": "2026-10-14T14:14:57-04:00",
+      "kind": "feature",
+      "text": "Check for updates is now in Samara's own menu."
     }
   ]
 }

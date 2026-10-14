@@ -1182,45 +1182,114 @@ function paintWho() {
   return true;
 }
 
-// ---- 6.28 the update key (sheet 18). The Shell sends `update` with the tabs once a newer engine is tested.
+// ---- the update key and its tray (sheet 18, then sheet 35, his picks 2026-10-14). The main process sends `update`
+// with the tabs once an update is fully ready: its title ("Version 1.1.0: Gojo"), what it does as groups of lines
+// (some he can leave out), whether there is a last version to go back to, and his overnight setting.
 {
-  const key = el('upkey'), tray = el('uptray');
-  let shownFor = null;
+  const key = el('upkey'), tray = el('uptray'), done = el('updone');
+  let shownFor = null, cur = null;
   const DAY = 86_400_000;
-  const place = () => { const b = el('band').getBoundingClientRect(), k = key.getBoundingClientRect(); tray.style.right = Math.max(8, Math.round(b.right - k.right)) + 'px'; };
-  // Like the downloads tray: the page is shown as a still picture while it is open, so the tray is never behind it.
-  const close = () => { if (tray.hidden) return; tray.hidden = true; key.setAttribute('aria-expanded', 'false'); unfreeze('up'); };
+  const place = (box, anchor) => { const b = el('band').getBoundingClientRect(), k = anchor.getBoundingClientRect(); box.style.right = Math.max(8, Math.round(b.right - k.right)) + 'px'; };
+  const view = (name) => { for (const [id, v] of [['upmain', 'main'], ['upskip1', 'skip1'], ['upskip2', 'skip2'], ['upvers', 'vers']]) el(id).hidden = v !== name; el('upmenu').hidden = true; el('upmore').setAttribute('aria-expanded', 'false'); };
+  const close = () => { if (tray.hidden) return; tray.hidden = true; key.setAttribute('aria-expanded', 'false'); unfreeze('up'); view('main'); };
+  const choices = {};
+  const T2 = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+  // Old messages (a plain engine, or a Mac on yesterday's code) still read: notes and checks become one group.
+  const groupsOf = (u) => Array.isArray(u.groups) && u.groups.length ? u.groups
+    : [{ name: u.title ? 'SAMARA' : "SAMARA'S ENGINE", items: (Array.isArray(u.checks) && u.checks.length ? u.checks : Array.isArray(u.notes) && u.notes.length ? u.notes : ['A newer engine, with the latest fixes.']).map((t) => ({ text: String(t) })) }];
+  const drawList = (box, groups, ticks) => {
+    box.replaceChildren();
+    for (const g of groups) {
+      if (g.name) box.append(T2('div', 'grp', String(g.name)));
+      for (const it of g.items ?? []) {
+        const row = T2('div', 'it' + (ticks && it.key ? ' opt' : ''));
+        const on = ticks && it.key ? choices[it.key] !== false : true;
+        const mark = ticks ? T2('span', 'bx' + (on ? '' : ' off')) : T2('span', 'dot');
+        const words = T2('span', '', String(it.text ?? ''));
+        const note = ticks && it.key ? (on ? 'Click to leave this out.' : 'Left out. Click to put it back in.') : it.note;
+        if (note) words.append(T2('small', '', note));
+        row.append(mark, words);
+        if (ticks && it.key) row.addEventListener('click', (e) => { e.stopPropagation(); choices[it.key] = !(choices[it.key] !== false); drawList(box, groups, true); });
+        box.append(row);
+      }
+    }
+  };
   window.aang?.onBrowserTabs?.((s) => {
     const u = s && s.update;
-    if (!u || typeof u.version !== 'string') { key.classList.add('away'); key.tabIndex = -1; close(); shownFor = null; return; }
+    // Once, after an update put in by itself overnight: what it did, hanging off the ... key.
+    const d = s && s.updated;
+    if (d && typeof d.title === 'string' && done.hidden && !done.dataset.seen) {
+      el('updonename').textContent = d.title;
+      drawList(el('updonelist'), [{ name: '', items: (Array.isArray(d.lines) ? d.lines : []).map((t) => ({ text: String(t) })) }], false);
+      done.hidden = false; done.dataset.seen = '1'; place(done, el('menukey')); freeze('updone');
+    }
+    if (!u || typeof u.version !== 'string') { key.classList.add('away'); key.tabIndex = -1; close(); shownFor = null; cur = null; return; }
+    cur = u;
+    // His escalation (2026-10-14): gold today; the arrow and word glow turquoise after a day; red after three;
+    // after four it swells out of the band and shakes now and then (never in a call).
     const days = Math.floor((Date.now() - (Number(u.since) || Date.now())) / DAY);
-    const age = days >= 7 ? 2 : days >= 4 ? 1 : 0;
-    key.classList.remove('age0', 'age1', 'age2'); key.classList.add('age' + age);
-    const what = u.title ? 'Update' : 'Browser update';
-    key.title = days >= 1 ? `${what} ready, waiting ${days} day${days === 1 ? '' : 's'}` : `${what} ready`;
-    // The engine (this PC) or everything (the Mac, 2026-10-14): a title, what it covers, what is new, the checks it passed.
-    el('upname').textContent = u.title || 'Browser engine ' + u.version;
-    el('upkind').textContent = u.kind || 'A small update to the browser engine';
-    const notes = el('upnotes');
-    notes.replaceChildren(...(Array.isArray(u.notes) ? u.notes : []).map((n) => Object.assign(document.createElement('li'), { textContent: n })));
-    notes.hidden = !notes.children.length;
-    if (Array.isArray(u.checks) && u.checks.length) el('uplines').replaceChildren(...u.checks.map((c) => { const d = document.createElement('div'); d.append(Object.assign(document.createElement('span'), { className: 'tick' }), document.createTextNode(c)); return d; }));
-    el('upsince').textContent = days >= 1 ? `Waiting ${days} day${days === 1 ? '' : 's'}` : 'Ready today';
+    key.classList.remove('age0', 'age1', 'age2', 'swell');
+    key.classList.add(days >= 3 ? 'age2' : days >= 1 ? 'age1' : 'age0');
+    if (days >= 4 && s.inCall !== true) key.classList.add('swell');
+    key.title = days >= 1 ? `Update ready, waiting ${days} day${days === 1 ? '' : 's'}` : 'Update ready';
+    el('upname').textContent = u.title || 'Engine update';
+    el('upsince').textContent = days >= 1 ? `${days} DAY${days === 1 ? '' : 'S'}` : 'TODAY';
+    for (const g of groupsOf(u)) for (const it of g.items ?? []) if (it.key && !(it.key in choices)) choices[it.key] = it.on !== false;
+    drawList(el('uplist'), groupsOf(u), true);
+    el('upback').hidden = u.canBack !== true;
+    el('upnight').classList.toggle('on', u.overnight === true);
     const call = s.inCall === true;
     el('upgo').disabled = call;
     el('upwhy').hidden = !call;
     if (call) el('upwhy').textContent = "You're in a call. Restart when it's over.";
     if (shownFor !== u.version) {
-      // It arrives: the downloads key's pop-in and its one glow, then it settles.
       shownFor = u.version;
       key.classList.remove('away'); key.tabIndex = 0;
       key.classList.add('glow'); setTimeout(() => key.classList.remove('glow'), 1600);
     }
   });
-  key.addEventListener('click', (e) => { e.stopPropagation(); if (tray.hidden) { closeMenu(); closeDrawer(); closeDl(); tray.hidden = false; key.setAttribute('aria-expanded', 'true'); place(); freeze('up'); } else close(); });
+  key.addEventListener('click', (e) => { e.stopPropagation(); if (tray.hidden) { closeMenu(); closeDrawer(); closeDl(); view('main'); tray.hidden = false; key.setAttribute('aria-expanded', 'true'); place(tray, key); freeze('up'); } else close(); });
   el('uplater').addEventListener('click', close);
-  el('upgo').addEventListener('click', () => { el('upgo').disabled = true; window.aang?.browserUpdateGo?.(); });
-  window.aang?.onBrowserUpdateWhy?.((why) => { el('upwhy').textContent = String(why ?? ''); el('upwhy').hidden = false; el('upgo').disabled = false; });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !tray.hidden) close(); });
-  document.addEventListener('mousedown', (e) => { if (!tray.hidden && !tray.contains(e.target) && !key.contains(e.target)) close(); });
+  const go = () => { el('upgo').disabled = true; window.aang?.browserUpdateGo?.({ ...choices }); };
+  el('upgo').addEventListener('click', go);
+  el('upmore').addEventListener('click', (e) => { e.stopPropagation(); const m = el('upmenu'); m.hidden = !m.hidden; el('upmore').setAttribute('aria-expanded', String(!m.hidden)); el('upsafe').hidden = true; });
+  const act = (a, extra = {}) => window.aang?.browserUpdateAct?.({ act: a, ...extra });
+  tray.addEventListener('click', (e) => {
+    const b = e.target.closest?.('[data-up]');
+    if (!b) { if (!el('upmenu').contains(e.target) && e.target !== el('upmore')) el('upmenu').hidden = true; return; }
+    e.stopPropagation();
+    const a = b.dataset.up;
+    if (a === 'safe') { el('upsafe').hidden = !el('upsafe').hidden; return; }
+    if (a === 'skip') { view('skip1'); return; }
+    if (a === 'take') { view('main'); go(); return; }
+    if (a === 'file') { act('file'); close(); return; }
+    if (a === 'skip2') { el('upskip2msg').innerHTML = ''; el('upskip2msg').append(document.createTextNode(`${cur?.title || 'This version'} will be `), T2('b', '', 'gone for good'), document.createTextNode(". You'll only get these fixes when a newer version comes out.")); view('skip2'); return; }
+    if (a === 'forever') { act('skip'); close(); return; }
+    if (a === 'changelog') { act('changelog'); view('vers'); el('uplog').textContent = 'One moment...'; return; }
+    if (a === 'home') { view('main'); return; }
+    if (a === 'back') { act('back'); close(); return; }
+    if (a === 'overnight') { const on = !el('upnight').classList.contains('on'); el('upnight').classList.toggle('on', on); act('overnight', { on }); return; }
+  });
+  // Every version: the changelog, read here as plain lines (headings stay headings).
+  const showLog = (box, text) => {
+    box.replaceChildren();
+    for (const line of String(text ?? '').split(/\r?\n/)) {
+      if (/^# /.test(line) || !line.trim()) continue;
+      if (/^## /.test(line)) box.append(T2('div', 'grp', line.slice(3)));
+      else if (/^\*.*\*$/.test(line)) box.append(T2('small', 'logday', line.replace(/\*/g, '')));
+      else if (/^- /.test(line)) { const r = T2('div', 'it'); r.append(T2('span', 'dot'), T2('span', '', line.slice(2))); box.append(r); }
+      else box.append(T2('p', 'logp', line));
+    }
+    if (!box.children.length) box.append(T2('p', 'logp', 'No versions written down yet.'));
+  };
+  window.aang?.onBrowserChangelog?.((text) => { showLog(el('uplog'), text); if (!done.hidden) { /* from the overnight drop-down */ } });
+  el('updoneok').addEventListener('click', () => { done.hidden = true; unfreeze('updone'); act('seen'); });
+  el('updonevers').addEventListener('click', () => { done.hidden = true; unfreeze('updone'); act('seen'); view('vers'); tray.hidden = false; place(tray, el('menukey')); freeze('up'); act('changelog'); el('uplog').textContent = 'One moment...'; });
+  window.aang?.onBrowserUpdateWhy?.((why) => { view('main'); el('upwhy').textContent = String(why ?? ''); el('upwhy').hidden = false; el('upgo').disabled = false; });
+  el('m-updates').addEventListener('click', () => { closeMenu(); act('check'); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { if (!tray.hidden) close(); if (!done.hidden) { done.hidden = true; unfreeze('updone'); act('seen'); } } });
+  document.addEventListener('mousedown', (e) => {
+    if (!tray.hidden && !tray.contains(e.target) && !key.contains(e.target)) close();
+    if (!done.hidden && !done.contains(e.target)) { done.hidden = true; unfreeze('updone'); act('seen'); }
+  });
 }
