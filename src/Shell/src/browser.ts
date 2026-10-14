@@ -35,7 +35,7 @@ import { softEdge } from './winedge.ts';
 import { isBar, parseBookmarks, parseChromeBookmarks, parseSafariBookmarks, type Mark } from './bookmarks.ts';
 import { BW_LOGIN, Vault, fillScript, type Login } from './vault.ts';
 import { createHmac, randomBytes } from 'node:crypto';
-import { Visits, search as searchVisits, forAang, type Visit } from './visits.ts';
+import { Visits, search as searchVisits, forAang, neverKeep, bankSite, type Visit } from './visits.ts';
 import { BrowserSync, urlKept, type SyncCookie, type SyncMsg, type TabSnap } from './bsync.ts';
 import { Driver, type Job } from './driver.ts';
 import { Downloads, kindOf, trayOf, type Dl } from './dlist.ts';
@@ -103,7 +103,7 @@ interface Tab {
   /** 6.24: a call is live in this tab (he allowed its camera, mic or a screen share): never slowed, never put to sleep. */
   call?: boolean;
   /** 6.22: stopped before loading because a list names it: which lists. */
-  blocked: { url: string; lists: string[]; real?: string } | null;
+  blocked: { url: string; lists: string[]; real?: string; bank?: boolean } | null;
   /** Sheet 3 section 3: the trail it belongs to (null = a loose tab), and whether he turned it in. */
   trail: number | null;
   done: boolean;
@@ -200,6 +200,7 @@ export function appOf(u: string): string | null {
 const OTHER_OPEN = process.platform === 'darwin' ? 'Open on PC' : 'Open on Mac';
 /** How a look-alike is named on the red plate's list chips. */
 const LOOKS_LIKE = 'LOOKS LIKE ';
+const BANK = 'YOUR BANK';
 /** Where a new tab opens until he sets his own in Settings (2026-10-12: not Google). */
 const DEFAULT_HOME = 'https://search.brave.com/';
 /** A plain Chrome's name for itself: Google refuses sign-in to anything calling itself Electron (his yes, 2026-10-12). */
@@ -730,10 +731,28 @@ export class AangBrowser {
     const real = lookalike(u);
     return real ? [LOOKS_LIKE + real.toUpperCase()] : [];
   }
+  /**
+   * His rule (2026-10-14): his bank never opens in Samara. Chrome gets safety fixes weeks sooner, so a bank or money
+   * site gets a plate with one big "Open in Chrome" button instead of the page. Same stops as the fake-site lists.
+   */
+  private stopFor(u: string): string[] { return isWeb(u) && bankSite(u) ? [BANK] : this.listed(u); }
+  /** His bank, handed to Chrome (Safari on the Mac, Edge on Windows, if Chrome is not there). Web addresses only. */
+  private toChrome(u: string): void {
+    let url = '';
+    try { const x = new URL(u); if (x.protocol !== 'https:' && x.protocol !== 'http:') return; url = x.href; } catch { return; }
+    const fail = (e: Error | null) => { if (e) this.note("Chrome didn't open. Open your bank there yourself."); };
+    if (process.platform === 'darwin') { execFile('open', ['-a', 'Google Chrome', url], (e) => { if (e) execFile('open', ['-a', 'Safari', url], fail); }); return; }
+    const local = process.env.LOCALAPPDATA ?? '', pf = process.env.ProgramFiles ?? 'C:\\Program Files', pf86 = process.env['ProgramFiles(x86)'] ?? 'C:\\Program Files (x86)';
+    const chrome = [path.join(pf, 'Google', 'Chrome', 'Application', 'chrome.exe'), path.join(pf86, 'Google', 'Chrome', 'Application', 'chrome.exe'), path.join(local, 'Google', 'Chrome', 'Application', 'chrome.exe')].find((f) => existsSync(f));
+    const edge = [path.join(pf86, 'Microsoft', 'Edge', 'Application', 'msedge.exe'), path.join(pf, 'Microsoft', 'Edge', 'Application', 'msedge.exe')].find((f) => existsSync(f));
+    const exe = chrome ?? edge;
+    if (!exe) { fail(new Error('none')); return; }
+    execFile(exe, [url], fail);
+  }
   /** Stop a tab at a listed address: nothing loads, the frame shows the red plate instead. */
   private block(tab: Tab, url: string, lists: string[]): void {
     const like = lists.find((l) => l.startsWith(LOOKS_LIKE));
-    tab.blocked = { url, lists, ...(like ? { real: like.slice(LOOKS_LIKE.length).toLowerCase() } : {}) };
+    tab.blocked = { url, lists, ...(like ? { real: like.slice(LOOKS_LIKE.length).toLowerCase() } : {}), ...(lists[0] === BANK ? { bank: true } : {}) };
     tab.url = url;
     tab.loading = false;
     if (tab.view) { try { tab.view.webContents.stop(); } catch { /* gone */ } }
@@ -1307,7 +1326,7 @@ export class AangBrowser {
     on('will-navigate', (e, u) => {
       if (!isWeb(u)) { e.preventDefault(); this.offerApp(tab, u); return; }
       if (this.toPaid(u)) { e.preventDefault(); return; }
-      const l = this.listed(u);
+      const l = this.stopFor(u);
       if (l.length) { e.preventDefault(); this.block(tab, u, l); return; }
       const up = upgrade(u, this.httpOk);
       if (up) { e.preventDefault(); tab.upgraded = u; setTimeout(() => { if (!wc.isDestroyed()) void wc.loadURL(up).catch(() => {}); }, 0); }
@@ -1316,7 +1335,7 @@ export class AangBrowser {
       if (!isMain) return;
       if (isWeb(u) && this.toPaid(u)) { e.preventDefault(); return; }
       if (!isWeb(u) && appOf(u)) { e.preventDefault(); this.offerApp(tab, u); return; }
-      const l = isWeb(u) ? this.listed(u) : ['NOT A WEB PAGE'];
+      const l = isWeb(u) ? this.stopFor(u) : ['NOT A WEB PAGE'];
       if (l.length) { e.preventDefault(); this.block(tab, u, l); return; }
       const up = upgrade(u, this.httpOk);
       if (!up) return;
@@ -1347,7 +1366,7 @@ export class AangBrowser {
       if (wasUp && code !== -106 && code !== -105) this.fail(tab, { kind: 'insecure', url: tab.upgraded!, title: "This site isn't secure", text: '', retry: false });
       else this.fail(tab, { kind: 'error', url, ...failureWords(code, host) });
     });
-    on('did-start-navigation', (d) => { const x = d as unknown as { url: string; isMainFrame: boolean }; if (!x.isMainFrame || !isWeb(x.url)) return; const l = this.listed(x.url); if (l.length) this.block(tab, x.url, l); });
+    on('did-start-navigation', (d) => { const x = d as unknown as { url: string; isMainFrame: boolean }; if (!x.isMainFrame || !isWeb(x.url)) return; const l = this.stopFor(x.url); if (l.length) this.block(tab, x.url, l); });
     on('page-title-updated', (_e, title) => { tab.title = title; this.visits.name(wc.getURL(), title); this.changed(); });
     on('page-favicon-updated', (_e, icons) => {
       tab.favicon = icons.find((i) => /^https?:|^data:image\//.test(i)) ?? '';
@@ -1418,7 +1437,7 @@ export class AangBrowser {
     if (tab.muted) wc.setAudioMuted(true);
     const back = tab.scrollY;
     if (back > 0) wc.once('did-finish-load', () => { void within(wc.executeJavaScript(`window.scrollTo(0, ${Math.round(back)})`, true), 1500, null); });
-    const l = this.listed(tab.url);
+    const l = this.stopFor(tab.url);
     if (l.length) { this.block(tab, tab.url, l); return; }
     tab.blocked = null;
     void wc.loadURL(this.secured(tab, tab.url)).catch(() => {});
@@ -2602,7 +2621,7 @@ export class AangBrowser {
     if (this.toPaid(url)) return;
     if (!t?.view || t.internal) { this.newTab(url); return; }
     t.crashed = false;
-    const l = this.listed(url);
+    const l = this.stopFor(url);
     if (l.length) { this.block(t, url, l); return; }
     t.blocked = null; t.failed = null; this.place();
     t.pending = url;
@@ -2668,8 +2687,10 @@ export class AangBrowser {
         try { this.httpOk.add(new URL(u).hostname); writeFileAtomic(this.httpOkFile, JSON.stringify([...this.httpOk])); this.sync?.changed('prefs'); } catch { /* best effort */ }
         t.failed = null; t.upgraded = null; this.place(); void wc.loadURL(u).catch(() => {});
       } break;
+      // His bank: off to Chrome, and this tab steps back (or closes) so Samara never holds the page.
+      case 'bankchrome': if (t?.blocked?.bank) { const u = t.blocked.url; this.toChrome(u); t.blocked = null; if (wc?.navigationHistory.canGoBack()) { this.place(); wc.navigationHistory.goBack(); } else this.close(t.id, false); } break;
       case 'failback': if (t) { t.failed = null; if (wc?.navigationHistory.canGoBack()) { this.place(); wc.navigationHistory.goBack(); } else this.close(t.id, false); } break;
-      case 'phishopen': if (t?.blocked) { try { this.letThrough.add(new URL(t.blocked.url).hostname); } catch { /* bad url */ } const u = t.blocked.url; t.blocked = null; this.place(); void wc?.loadURL(u); } break;
+      case 'phishopen': if (t?.blocked && !t.blocked.bank) { try { this.letThrough.add(new URL(t.blocked.url).hostname); } catch { /* bad url */ } const u = t.blocked.url; t.blocked = null; this.place(); void wc?.loadURL(u); } break;
     }
   }
 
@@ -2840,6 +2861,8 @@ export class AangBrowser {
       // The trails with a tab in this window (or the one about to start here).
       trails: this.trails.filter((tr) => tr.id === this.pendingTrail || mine.some((x) => x.trail === tr.id)),
       drivers: this.driver.view(),
+      // His own tab being driven by a session: the band says so, with STOP (2026-10-14).
+      driving: (() => { const w = t?.view?.webContents; return w ? this.driver.drivingTab(w) : null; })(),
       watching: this.watching === null ? null : (() => { const p = this.driver.page(this.watching!); const j = p ? this.driver.job(p.job) : undefined; return p && j ? { page: p.id, job: j.id, kind: j.kind, working: j.working, url: p.url, title: p.title } : null; })(),
       tidy: this.tidyState(),
       stash: this.stash.map((s) => ({ id: s.id, name: s.name, count: s.tabs.length })),
@@ -2882,6 +2905,8 @@ export class AangBrowser {
     const num = (k: string) => { const v = Number(a?.[k]); if (!Number.isInteger(v)) throw new Error(`${k} must be a number`); return v; };
     const d = this.driver;
     try {
+      // His tab lent for reading only: nothing that acts on it (2026-10-14).
+      if (['key', 'select', 'back', 'forward', 'upload', 'hover', 'drag'].includes(op) && Number.isInteger(Number(a?.page)) && d.readOnly(Number(a?.page))) return { ok: false, error: 'that is his tab, lent for reading only. To act in it, ask with browser_drive_tab (he is asked)' };
       switch (op) {
         // His browsing history, for Aang, only when he asks (2026-10-13): titles and addresses, never a money site.
         case 'history': {
@@ -2916,6 +2941,23 @@ export class AangBrowser {
         case 'sweep': return { ok: true, ...d.startSweep(num('page'), { keywords: Array.isArray(a?.keywords) ? (a.keywords as unknown[]).map(String) : [], ...(a?.path ? { path: String(a.path) } : {}), ...(a?.card ? { card: String(a.card) } : {}), ...(Number(a?.spacing) ? { spacing: Number(a.spacing) } : {}) }) };
         case 'sweep_status': return { ok: true, ...d.sweepStatus(num('id')) };
         case 'form': return { ok: true, ...(await d.form(num('page'), a?.within === undefined ? undefined : num('within'))) };
+        // The fixed page readers, hover and drag, and the developer views (2026-10-14: the Chrome extension's tools).
+        case 'extract': return { ok: true, ...(await d.extract(num('page'), String(a?.kind ?? ''))) };
+        case 'hover': return { ok: true, ...(await d.hover(num('page'), num('n'))) };
+        case 'drag': {
+          if (d.readOnly(num('page'))) return { ok: false, error: 'that is his tab, lent for reading only. To act in it, ask with browser_drive_tab (he is asked)' };
+          return { ok: true, ...(await d.drag(num('page'), num('n'), { ...(a?.to !== undefined ? { n: num('to') } : {}), dx: Number(a?.dx) || 0, dy: Number(a?.dy) || 0 })) };
+        }
+        case 'resize': return { ok: true, ...d.resize(num('page'), Number(a?.width), Number(a?.height)) };
+        case 'console': return { ok: true, ...d.console(num('page'), { ...(a?.pattern ? { pattern: String(a.pattern) } : {}), errors: a?.errors === true, limit: Number(a?.limit) || 30 }) };
+        case 'network': {
+          if (d.readOnly(num('page')) || d.isBorrowed(num('page'))) return { ok: false, error: "his own tabs' network is never watched; open the page in your own tab" };
+          return { ok: true, ...(await d.network(num('page'), { ...(a?.pattern ? { pattern: String(a.pattern) } : {}), limit: Number(a?.limit) || 30 })) };
+        }
+        case 'record': {
+          if (a?.stop === true) { const r = await d.stopRecording(num('page')); return r ? { ok: true, ...r } : { ok: false, error: 'that page is not being recorded' }; }
+          await d.startRecording(num('page')); return { ok: true, started: true };
+        }
         case 'upload': {
           const page = num('page'), n = num('n'), file = String(a?.file ?? '');
           if (a?.allowed !== true) return { ok: false, needs: 'lever', what: `upload ${d.describeFile(file)} to ${d.describe(page, n).replace(/^.* on /, '')}` };
@@ -2942,6 +2984,7 @@ export class AangBrowser {
         }
         case 'click': case 'type': {
           const page = num('page'), n = num('n');
+          if (d.readOnly(page)) return { ok: false, error: 'that is his tab, lent for reading only. To act in it, ask with browser_drive_tab (he is asked)' };
           const w = op === 'click' ? d.weightOf(page, n, 'click') : d.weightOf(page, n, 'type');
           const we = op === 'type' && a?.enter === true ? d.weightOf(page, n, 'enter') : 'free';
           const worst = w === 'never' || we === 'never' ? 'never' : w === 'lever' || we === 'lever' ? 'lever' : 'free';
@@ -2954,6 +2997,25 @@ export class AangBrowser {
           return { ok: true, ...r };
         }
         case 'scroll': await d.scroll(num('page'), a?.down !== false); return { ok: true };
+        // ---- his own tabs (2026-10-14): "look at what I'm looking at", "fill this in for me". Each asks him first.
+        case 'tabs': {
+          if (a?.allowed !== true) return { ok: false, needs: 'lever', what: 'see the list of your open tabs' };
+          const cur = this.cur();
+          return { ok: true, tabs: this.tabs.filter((t) => isWeb(t.url) && !t.internal).map((t) => ({ tab: t.id, title: neverKeep(t.url) ? '(a bank or money site: hidden)' : t.title.slice(0, 120), url: neverKeep(t.url) ? '' : t.url.slice(0, 300), active: t.id === cur?.id, asleep: !t.view })) };
+        }
+        case 'look': case 'drivetab': {
+          const t = a?.tab === undefined ? this.cur() : this.tabs.find((x) => x.id === num('tab'));
+          if (!t || !isWeb(t.url) || t.internal) return { ok: false, error: 'there is no web page in that tab' };
+          if (neverKeep(t.url)) return { ok: false, error: 'that tab is a bank or money site: never read or driven for a session (his rule)' };
+          let site = ''; try { site = new URL(t.url).hostname.replace(/^www\./, ''); } catch { /* none */ }
+          if (a?.allowed !== true) return { ok: false, needs: 'lever', what: op === 'look' ? `read your tab on ${site}` : `drive your tab on ${site} while you watch (STOP ends it)` };
+          if (!t.view) this.wake(t);
+          const wc = t.view?.webContents;
+          if (!wc) return { ok: false, error: 'that tab could not be woken' };
+          const r = d.borrow(num('job'), wc, t.id, op === 'drivetab');
+          this.sendTabs();
+          return { ok: true, ...r, yours: true };
+        }
         case 'picture': {
           const what = a?.what === 'view' || a?.what === 'marks' ? a.what as 'view' | 'marks' : Number.isInteger(Number(a?.what)) ? Number(a?.what) : 'best';
           const r = await d.picture(num('page'), what);

@@ -776,6 +776,8 @@ function redLever() {
   box.append(l);
 }
 el('phishback').addEventListener('click', () => window.aang?.browserAct?.('phishback'));
+el('bankchrome').addEventListener('click', () => window.aang?.browserAct?.('bankchrome'));
+el('bankback').addEventListener('click', () => window.aang?.browserAct?.('phishback'));
 el('reclaim').addEventListener('click', () => window.aang?.browserAct?.('reclaim'));
 el('phishreal').addEventListener('click', () => window.aang?.browserAct?.('phishreal'));
 el('failgo').addEventListener('click', () => window.aang?.browserAct?.('httpok'));
@@ -825,8 +827,15 @@ window.aang?.onBrowserTabs?.((s) => {
   el('lentplate').hidden = !t?.lent;
   // A listed site: the red plate where the page would be, and the plaque turns red.
   const b = t?.blocked;
-  el('phishplate').hidden = !b;
-  if (b) {
+  el('phishplate').hidden = !b || Boolean(b?.bank);
+  el('bankplate').hidden = !b?.bank;
+  if (b?.bank) {
+    let host = b.url;
+    try { host = new URL(b.url).hostname.replace(/^www\./, ''); } catch { /* keep the text */ }
+    el('banktext').replaceChildren(Object.assign(document.createElement('b'), { textContent: host }), ' is a bank site. Chrome gets safety fixes sooner, so your money is safer there.');
+    el('phishlever').replaceChildren();
+    lock.hidden = false; lock.textContent = 'YOUR BANK'; lock.classList.remove('bad');
+  } else if (b) {
     let host = b.url;
     try { host = new URL(b.url).hostname; } catch { /* keep the text */ }
     el('phishreal').hidden = !b.real;
@@ -1174,7 +1183,7 @@ window.aang?.onBrowserWatch?.((src) => {
   else if (src === null) { watchpic.hidden = true; watchpic.removeAttribute('src'); }
 });
 function paintWho() {
-  const w = state.watching, who = el('who');
+  const w = state.watching || state.driving, who = el('who');
   if (!w) { who.hidden = true; who.replaceChildren(); return false; }
   who.hidden = false;
   const label = w.kind === 'claude' ? 'CLAUDE IS DRIVING' : 'AANG IS DRIVING';

@@ -24,6 +24,11 @@ This replaces chrome-extension.md for all browser work. Samara (Aang's browser) 
 | screenshot | `browser_picture` only when words are not enough; `marks: true` draws the numbers on. |
 | JS "[BLOCKED: Cookie/query string]" workarounds | not needed: links come back whole (decode linkedin.com/safety/go/?url= yourself). |
 | tab group dissolving | not an issue; `browser_close` pages you are done with. |
+| javascript_tool to pull pay / dates / JSON-LD | `browser_extract` kind `details` (the job's hidden facts: pay range, remote, posted date, company). Also `tables`, `images`, `links` (real destinations; LEAVES THE SITE marked). Try `details` on every posting before guessing pay. No code of your own ever runs on a page. |
+| a tab Josh already has open | `browser_tabs`, then `browser_look_tab` (read-only) or `browser_drive_tab`. He is asked each time. |
+| hover / drag / resize_window | `browser_hover`, `browser_drag`, `browser_resize` (your own pages only) |
+| read_console_messages / read_network_requests | `browser_console`, `browser_network` (your own pages only; no bodies or cookies) |
+| gif_creator | `browser_record` (start, act, stop: true; saved to his Videos/Samara folder) |
 
 ## What the browser enforces (you cannot override it)
 - **Joshua allows each session once.** Your first step asks him in Samara ("use Samara for Job scan?"). If he says no or isn't there, stop and tell him.

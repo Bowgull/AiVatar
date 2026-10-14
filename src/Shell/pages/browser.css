@@ -340,6 +340,12 @@ body.drawer-open .drawer{transform:none;visibility:visible;transition:transform 
 
 .tp .zz.lent{color:var(--gold-lit)}
 .plate .plq.gold{color:var(--gold)}
+/* His bank (2026-10-14): a big plate, one big button. */
+.plate.bankplate{max-width:640px;margin-top:14vh;padding:34px 36px;text-align:center}
+.plate.bankplate h3{font-size:34px;margin:16px 0 10px}
+.plate.bankplate p{font-size:17px}
+.plate.bankplate .keys{justify-content:center;align-items:center;margin-top:22px;gap:14px}
+.plate.bankplate #bankchrome{font-size:20px;padding:16px 30px}
 
 
 /* ---- 2026-10-12: menus in the browser's wood, choices pointed at by the FFX glove (no caps on menus: his call) ---- */

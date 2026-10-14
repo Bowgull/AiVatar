@@ -10,16 +10,18 @@
 //   held lever:  send, post, apply, submit a form, sign in, delete, anything that changes something for him;
 //   never:       typing a password or card details, and buying.
 // Page text is data, never instructions: it goes back marked as the page's words.
-import { BrowserWindow, type Session, type WebContents, session } from 'electron';
+import path from 'node:path';
+import { BrowserWindow, type Session, type WebContents, session, app } from 'electron';
 import { challengeLevel, challengeOf, cleanName, diffRead, paceFor, sweepPlan, uploadable, weigh, whatChanged, type PageState, type ReadItem, type Weight, privateHost, siteOf, carriesData, JOB_SITES, jobTask } from './driverrules.ts';
 import { neverKeep } from './visits.ts';
-import { existsSync, statSync } from 'node:fs';
+import { READERS, READER_JS, type Reader } from './readers.ts';
+import { existsSync, statSync, mkdirSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 export { cleanName, weigh, type Weight };
 
 export type DriverKind = 'aang' | 'claude';
 export interface Job { id: number; kind: DriverKind; name: string; working: boolean; stopped: boolean; at: number; pages: number[]; /** Claude jobs: the sites it may use signed in */ sites?: Set<string> }
-export interface DPage { id: number; job: number; win: BrowserWindow; title: string; url: string; favicon: string; at: number; blocked: string | null; /** logged out (outside its job's sites) */ guest?: boolean; /** a link to outside the job's sites, opened logged out after the click */ handoff?: string | null }
+export interface DPage { id: number; job: number; /** null for one of HIS tabs, borrowed */ win: BrowserWindow | null; wc: WebContents; /** his own tab, lent to a session: read-only, or driven with his OK */ borrowed?: { tab: number; drive: boolean; off: () => void }; title: string; url: string; favicon: string; at: number; blocked: string | null; /** logged out (outside its job's sites) */ guest?: boolean; /** a link to outside the job's sites, opened logged out after the click */ handoff?: string | null }
 
 export interface DriverDeps {
   ses: Session;
@@ -408,13 +410,46 @@ export class Driver {
     const j = this.job(id);
     if (!j || !j.working) return;
     j.working = false; j.stopped = true;
-    for (const p of this.pagesOf(j)) { try { p.win.webContents.stop(); } catch { /* gone */ } }
+    for (const p of this.pagesOf(j)) { if (p.borrowed) this.close(p.id); else try { p.wc.stop(); } catch { /* gone */ } }
     this.d.changed();
     this.d.stopped(j);
   }
   pagesOf(j: Job): DPage[] { return this.pages.filter((p) => p.job === j.id); }
-  page(id: number): DPage | undefined { return this.pages.find((p) => p.id === id && !p.win.isDestroyed()); }
-  owns(wc: WebContents): boolean { return this.pages.some((p) => !p.win.isDestroyed() && p.win.webContents === wc); }
+  page(id: number): DPage | undefined { return this.pages.find((p) => p.id === id && !p.wc.isDestroyed()); }
+  /** A driving session's own hidden page (never one of his tabs it has borrowed). */
+  owns(wc: WebContents): boolean { return this.pages.some((p) => !p.borrowed && !p.wc.isDestroyed() && p.wc === wc); }
+
+  /**
+   * One of HIS tabs, lent to a job (2026-10-14, his ask: "look at what I'm looking at", "fill this in for me"): read it
+   * like any page, or, with drive, act in it while he watches ("CLAUDE IS DRIVING" and STOP in the band). Never
+   * closed or destroyed by the session; giving it back only ends the lending. Bank sites are never lent.
+   */
+  borrow(jobId: number, wc: WebContents, tab: number, drive: boolean): { page: number; title: string; url: string } {
+    const j = this.live(jobId);
+    const why = refused(wc.getURL(), this.d.testLocal);
+    if (why) throw new Error(why.replace('opened for a driving session', 'read or driven by a session'));
+    const had = this.pages.find((p) => p.borrowed && p.wc === wc && p.job === j.id);
+    if (had) { had.borrowed!.drive = had.borrowed!.drive || drive; this.d.changed(); return { page: had.id, title: had.title, url: had.url }; }
+    const p: DPage = { id: ++this.pageSeq, job: j.id, win: null, wc, title: wc.getTitle().slice(0, 200), url: wc.getURL(), favicon: '', at: Date.now(), blocked: null, borrowed: { tab, drive, off: () => {} } };
+    const onTitle = (_e: unknown, t: string) => { p.title = t.slice(0, 200); };
+    const onNav = (_e: unknown, u: string) => { p.url = u; this.items.delete(p.id); this.lastRead.delete(p.id); if (refused(u, this.d.testLocal)) this.close(p.id); };
+    const onGone = () => this.close(p.id);
+    this.listen(p);
+    wc.on('page-title-updated', onTitle as never); wc.on('did-navigate', onNav as never); wc.on('did-navigate-in-page', onNav as never); wc.once('destroyed', onGone);
+    p.borrowed!.off = () => { try { wc.off('page-title-updated', onTitle as never); wc.off('did-navigate', onNav as never); wc.off('did-navigate-in-page', onNav as never); wc.off('destroyed', onGone); } catch { /* gone */ } };
+    this.pages.push(p); j.pages.push(p.id);
+    this.d.changed();
+    return { page: p.id, title: p.title, url: p.url };
+  }
+  isBorrowed(pageId: number): boolean { return !!this.page(pageId)?.borrowed; }
+  /** Is this page his tab, lent for reading only? */
+  readOnly(pageId: number): boolean { const p = this.page(pageId); return !!p?.borrowed && !p.borrowed.drive; }
+  /** The job driving one of his tabs, if any (the band's "CLAUDE IS DRIVING" and STOP). */
+  drivingTab(wc: WebContents): { job: number; kind: DriverKind; working: boolean } | null {
+    const p = this.pages.find((x) => x.borrowed?.drive && x.wc === wc);
+    const j = p ? this.job(p.job) : undefined;
+    return p && j ? { job: j.id, kind: j.kind, working: j.working } : null;
+  }
 
   private live(jobId: number): Job {
     const j = this.job(jobId);
@@ -434,8 +469,8 @@ export class Driver {
     let site = ''; try { site = siteOf(new URL(url).hostname); } catch { /* checked above */ }
     if (j.sites && j.sites.size === 0 && site) j.sites.add(site);             // another task: its own first site
     const guest = !!j.sites && !j.sites.has(site);
-    while (this.pagesOf(j).length >= MAX_PAGES_PER_JOB) this.close(this.pagesOf(j)[0]!.id);
-    while (this.pages.length >= MAX_PAGES) this.close(this.pages[0]!.id);
+    while (this.pagesOf(j).filter((x) => !x.borrowed).length >= MAX_PAGES_PER_JOB) this.close(this.pagesOf(j).find((x) => !x.borrowed)!.id);
+    while (this.pages.filter((x) => !x.borrowed).length >= MAX_PAGES) this.close(this.pages.find((x) => !x.borrowed)!.id);
     const win = new BrowserWindow({
       show: false, width: W, height: H, paintWhenInitiallyHidden: true, skipTaskbar: true, focusable: false,
       webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false, webSecurity: true, session: guest ? this.guestSession() : this.d.ses, preload: this.d.preload, offscreen: true, backgroundThrottling: false },
@@ -444,7 +479,7 @@ export class Driver {
     // (2026-10-14). The one he is watching paints at 10 (see) .
     win.webContents.setFrameRate(2);
     win.webContents.setAudioMuted(true);
-    const p: DPage = { id: ++this.pageSeq, job: j.id, win, title: 'Opening', url, favicon: '', at: Date.now(), blocked: null, guest, handoff: null };
+    const p: DPage = { id: ++this.pageSeq, job: j.id, win, wc: win.webContents, title: 'Opening', url, favicon: '', at: Date.now(), blocked: null, guest, handoff: null };
     this.pages.push(p);
     j.pages.push(p.id);
     const wc = win.webContents;
@@ -461,6 +496,7 @@ export class Driver {
     const outside = (u: string) => { if (!j.sites || p.guest) return false; try { return !j.sites.has(siteOf(new URL(u).hostname)); } catch { return false; } };
     wc.on('will-navigate', (e, u) => { if (stop(u) || leaks(u)) { e.preventDefault(); p.blocked = u; } else if (outside(u)) { e.preventDefault(); p.handoff = u; } });
     wc.on('will-redirect', (e, u) => { if (stop(u) || leaks(u)) { e.preventDefault(); p.blocked = u; } else if (outside(u)) { e.preventDefault(); p.handoff = u; } });
+    this.listen(p);
     wc.on('page-title-updated', (_e, t) => { p.title = t.slice(0, 200); this.d.changed(); });
     wc.on('page-favicon-updated', (_e, icons) => { p.favicon = icons.find((i) => /^https?:|^data:image\//.test(i)) ?? ''; this.d.changed(); });
     wc.on('did-navigate', (_e, u) => { p.url = u; this.items.delete(p.id); this.lastRead.delete(p.id); this.d.changed(); });
@@ -526,7 +562,7 @@ export class Driver {
     const p = this.page(pageId);
     if (!p) throw new Error('that page is closed');
     this.live(p.job);
-    return { p, wc: p.win.webContents };
+    return { p, wc: p.wc };
   }
 
   /**
@@ -662,13 +698,143 @@ export class Driver {
     let mine = false;
     try {
       if (!dbg.isAttached()) { dbg.attach('1.3'); mine = true; }
-      const { result } = await dbg.sendCommand('Runtime.evaluate', { expression: `document.querySelector('[data-aang-n="${Number(n)}"]')` }) as { result: { objectId?: string } };
+      // The field is found through our own registry (AI lockdown G4): a one-time mark, put on and taken off by us.
+      const mark = 'u' + Math.random().toString(36).slice(2, 12);
+      const marked = await wc.executeJavaScriptInIsolatedWorld(WORLD, [{ code: `(() => { ${DEEP} const e = __byN(${Number(n)}); if (!e) return false; e.setAttribute('data-aang-up', '${mark}'); return true; })()` }]);
+      if (!marked) throw new Error(`file field ${n} is not on the page any more`);
+      const { result } = await dbg.sendCommand('Runtime.evaluate', { expression: `(() => { const e = document.querySelector('[data-aang-up="${mark}"]'); if (e) e.removeAttribute('data-aang-up'); return e; })()` }) as { result: { objectId?: string } };
       if (!result?.objectId) throw new Error(`file field ${n} is not on the page any more`);
       await dbg.sendCommand('DOM.setFileInputFiles', { files: [file], objectId: result.objectId });
     } finally { if (mine) { try { dbg.detach(); } catch { /* gone */ } } }
     await this.settle(wc);
     const after = await this.state(wc, n);
     return { title: p.title, url: p.url, changed: this.told(before, after) };
+  }
+  // ---- 2026-10-14, closing the gap with Claude in Chrome: hover, drag, resize, the console, the network, a recording.
+  // Every answer is short text (a few lines, or a file's path), so none of it costs more than the extension's own.
+  private logs = new Map<number, { at: number; level: string; text: string }[]>();
+  private nets = new Map<number, Map<string, { method: string; url: string; status: number; type: string; failed?: string }>>();
+  private offs = new Map<number, () => void>();
+  private listen(p: DPage): void {
+    const buf: { at: number; level: string; text: string }[] = [];
+    this.logs.set(p.id, buf);
+    const onLog = (e: any, level?: any, message?: any, line?: any, source?: any) => {
+      const lv = typeof e?.level === 'string' ? e.level : ['verbose', 'info', 'warning', 'error'][Number(level)] ?? 'info';
+      const msg = String(e?.message ?? message ?? ''), ln = e?.lineNumber ?? line, src = String(e?.sourceId ?? source ?? '');
+      if (/Electron Security Warning/.test(msg)) return;   // Samara's engine talking, not the page
+      buf.push({ at: Date.now(), level: lv, text: `${msg.slice(0, 400)}${src ? `  (${src.split('/').pop()}:${ln})` : ''}` });
+      if (buf.length > 300) buf.shift();
+    };
+    p.wc.on('console-message', onLog as never);
+    this.offs.set(p.id, () => { try { p.wc.off('console-message', onLog as never); } catch { /* gone */ } });
+  }
+  private unlisten(p: DPage): void {
+    this.offs.get(p.id)?.(); this.offs.delete(p.id); this.logs.delete(p.id);
+    if (this.nets.has(p.id)) { this.nets.delete(p.id); try { if (p.wc.debugger.isAttached()) p.wc.debugger.detach(); } catch { /* gone */ } }
+    void this.stopRecording(p.id, true).catch(() => {});
+  }
+
+  /** Move the pointer over a control (menus that open on hover, tooltips). */
+  async hover(pageId: number, n: number): Promise<{ title: string; url: string; changed: string[] }> {
+    const { p, wc } = this.wcOf(pageId);
+    const before = await this.state(wc, n);
+    const at = await this.spot(wc, n);
+    if (!at) throw new Error(`control ${n} is not on the page any more; read the page again`);
+    wc.sendInputEvent({ type: 'mouseMove', x: at.x, y: at.y });
+    await new Promise((r) => setTimeout(r, 450));
+    const after = await this.state(wc, n);
+    return { title: p.title, url: p.url, changed: this.told(before, after) };
+  }
+  /** Press on one control and let go on another (or a number of pixels away), the way a hand drags. */
+  async drag(pageId: number, n: number, to: { n?: number; dx?: number; dy?: number }): Promise<{ title: string; url: string; changed: string[] }> {
+    const { p, wc } = this.wcOf(pageId);
+    const before = await this.state(wc, n);
+    const a = await this.spot(wc, n);
+    if (!a) throw new Error(`control ${n} is not on the page any more; read the page again`);
+    const b = Number.isInteger(to.n) ? await this.spot(wc, to.n!) : { x: a.x + (Number(to.dx) || 0), y: a.y + (Number(to.dy) || 0) };
+    if (!b) throw new Error(`control ${to.n} is not on the page any more; read the page again`);
+    wc.sendInputEvent({ type: 'mouseMove', x: a.x, y: a.y });
+    wc.sendInputEvent({ type: 'mouseDown', x: a.x, y: a.y, button: 'left', clickCount: 1 });
+    for (let i = 1; i <= 10; i++) { wc.sendInputEvent({ type: 'mouseMove', x: Math.round(a.x + (b.x - a.x) * i / 10), y: Math.round(a.y + (b.y - a.y) * i / 10), modifiers: ['leftbuttondown'] } as never); await new Promise((r) => setTimeout(r, 30)); }
+    wc.sendInputEvent({ type: 'mouseUp', x: b.x, y: b.y, button: 'left', clickCount: 1 });
+    await this.settle(wc);
+    const after = await this.state(wc, n);
+    return { title: p.title, url: p.url, changed: this.told(before, after) };
+  }
+  /** The page's size, for testing how a site looks at another width. Only a session's own pages (never his window). */
+  resize(pageId: number, width: number, height: number): { width: number; height: number } {
+    const { p } = this.wcOf(pageId);
+    if (!p.win) throw new Error("that is his own tab: its size is his window's, never changed by a session");
+    const w = Math.max(320, Math.min(2560, Math.round(width) || 1280)), h = Math.max(320, Math.min(1600, Math.round(height) || 900));
+    p.win.setContentSize(w, h);
+    return { width: w, height: h };
+  }
+  /** What the page wrote to its console since it opened: newest last, a few lines, filtered. */
+  console(pageId: number, o: { pattern?: string; errors?: boolean; limit?: number }): { lines: string[]; total: number } {
+    const { p } = this.wcOf(pageId);
+    const all = this.logs.get(p.id) ?? [];
+    let re: RegExp | null = null; try { re = o.pattern ? new RegExp(String(o.pattern).slice(0, 200), 'i') : null; } catch { re = null; }
+    const hit = all.filter((l) => (!o.errors || l.level === 'error' || l.level === 'warning') && (!re || re.test(l.text)));
+    return { lines: hit.slice(-Math.min(80, Math.max(1, Number(o.limit) || 30))).map((l) => `${l.level.toUpperCase()}: ${l.text}`), total: hit.length };
+  }
+  /** The page's requests (method, address, status, kind), recorded from the first time it is asked for. No bodies,
+   *  no headers, no cookies: addresses only, with the query cut short. */
+  async network(pageId: number, o: { pattern?: string; limit?: number }): Promise<{ lines: string[]; total: number; started: boolean }> {
+    const { p, wc } = this.wcOf(pageId);
+    let started = false;
+    if (!this.nets.has(p.id)) {
+      const reqs = new Map<string, { method: string; url: string; status: number; type: string; failed?: string }>();
+      const dbg = wc.debugger;
+      if (!dbg.isAttached()) dbg.attach('1.3');
+      dbg.on('message', (_e, method, params: any) => {
+        if (method === 'Network.requestWillBeSent') { reqs.set(params.requestId, { method: params.request.method, url: String(params.request.url).slice(0, 400), status: 0, type: String(params.type ?? '') }); if (reqs.size > 500) reqs.delete(reqs.keys().next().value as string); }
+        else if (method === 'Network.responseReceived') { const r = reqs.get(params.requestId); if (r) { r.status = params.response.status; r.type = String(params.type ?? r.type); } }
+        else if (method === 'Network.loadingFailed') { const r = reqs.get(params.requestId); if (r) r.failed = String(params.errorText ?? 'failed'); }
+      });
+      await dbg.sendCommand('Network.enable');
+      this.nets.set(p.id, reqs); started = true;
+    }
+    const all = [...this.nets.get(p.id)!.values()];
+    let re: RegExp | null = null; try { re = o.pattern ? new RegExp(String(o.pattern).slice(0, 200), 'i') : null; } catch { re = null; }
+    const hit = all.filter((r) => !re || re.test(r.url));
+    const short = (u: string) => { try { const x = new URL(u); return x.origin + x.pathname + (x.search ? '?' + x.search.slice(1, 60) + (x.search.length > 61 ? '...' : '') : ''); } catch { return u.slice(0, 120); } };
+    return { lines: hit.slice(-Math.min(80, Math.max(1, Number(o.limit) || 30))).map((r) => `${r.method} ${r.failed ? 'FAILED ' + r.failed : r.status || '...'} ${r.type} ${short(r.url)}`), total: hit.length, started };
+  }
+  /** A recording of what happens in a page: start, act, stop; saved as a short video in his Videos folder. */
+  private recs = new Map<number, { timer: NodeJS.Timeout; win: BrowserWindow; frames: number }>();
+  async startRecording(pageId: number): Promise<void> {
+    const { p, wc } = this.wcOf(pageId);
+    if (this.recs.has(p.id)) return;
+    // A hidden page of our own draws each frame onto a canvas and records it with the browser's own video recorder.
+    const win = new BrowserWindow({ show: false, width: 400, height: 300, webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false, backgroundThrottling: false, offscreen: true } });
+    await win.loadURL('data:text/html,<canvas id="c" width="1280" height="800"></canvas>');
+    await win.webContents.executeJavaScript(`window.__rec = (() => { const c = document.getElementById('c'), g = c.getContext('2d'); const s = c.captureStream(0); const tr = s.getVideoTracks()[0]; const r = new MediaRecorder(s, { mimeType: 'video/webm;codecs=vp9' }); const parts = []; r.ondataavailable = (e) => parts.push(e.data); r.start(); return { r, parts, draw: async (src) => { const i = new Image(); i.src = src; await i.decode(); if (c.width !== i.naturalWidth) { c.width = i.naturalWidth; c.height = i.naturalHeight; } g.drawImage(i, 0, 0); tr.requestFrame(); } }; })(); true`);
+    if (p.win) try { wc.setFrameRate(10); } catch { /* fine */ }
+    let busy = false;
+    const timer = setInterval(() => {
+      if (busy || wc.isDestroyed() || win.isDestroyed()) return;
+      busy = true;
+      void wc.capturePage().then((img) => { if (img.isEmpty()) return; const sized = img.getSize().width > 1280 ? img.resize({ width: 1280 }) : img; const r = this.recs.get(p.id); if (r) r.frames++; return win.webContents.executeJavaScript(`window.__rec.draw(${JSON.stringify('data:image/jpeg;base64,' + sized.toJPEG(70).toString('base64'))})`); }).catch(() => {}).finally(() => { busy = false; });
+    }, 250);
+    this.recs.set(p.id, { timer, win, frames: 0 });
+    setTimeout(() => void this.stopRecording(p.id, false).catch(() => {}), 120_000).unref();   // never longer than two minutes
+  }
+  async stopRecording(pageId: number, discard = false): Promise<{ file: string; seconds: number } | null> {
+    const r = this.recs.get(pageId);
+    if (!r) return null;
+    this.recs.delete(pageId);
+    clearInterval(r.timer);
+    const p = this.pages.find((x) => x.id === pageId);
+    if (p?.win) try { p.wc.setFrameRate(2); } catch { /* gone */ }
+    try {
+      const b64 = await r.win.webContents.executeJavaScript(`new Promise((res) => { const x = window.__rec; x.r.onstop = async () => { const b = new Blob(x.parts, { type: 'video/webm' }); const buf = new Uint8Array(await b.arrayBuffer()); let s = ''; for (let i = 0; i < buf.length; i += 32768) s += String.fromCharCode(...buf.subarray(i, i + 32768)); res(btoa(s)); }; x.r.stop(); })`) as string;
+      if (discard || !b64) return null;
+      const dir = path.join(app.getPath('videos'), 'Samara');
+      mkdirSync(dir, { recursive: true });
+      const file = path.join(dir, `samara-${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}.webm`);
+      writeFileSync(file, Buffer.from(b64, 'base64'));
+      return { file, seconds: Math.round(r.frames / 4) };
+    } finally { try { r.win.destroy(); } catch { /* gone */ } }
   }
   describeFile(file: string): string { return String(file ?? '').replace(/\\/g, '/').split('/').pop() ?? 'a file'; }
 
@@ -689,6 +855,13 @@ export class Driver {
     const hits: string[] = [];
     st.lines.forEach((l, i) => { if (l.toLowerCase().includes(w) && hits.length < 15) hits.push([st.lines[i - 1], l, st.lines[i + 1]].filter(Boolean).join(' / ').slice(0, 300)); });
     return { lines: hits, items: r.items.filter((it) => `${it.label} ${it.ctx ?? ''}`.toLowerCase().includes(w)).slice(0, 20) };
+  }
+
+  /** One of the fixed page readers (readers.ts): data a page holds that is not plain words. */
+  async extract(pageId: number, kind: string): Promise<{ title: string; url: string; lines: string[]; more: boolean }> {
+    if (!(READERS as readonly string[]).includes(kind)) throw new Error(`no reader called ${kind}: use one of ${READERS.join(', ')}`);
+    const { wc } = this.wcOf(pageId);
+    return await wc.executeJavaScriptInIsolatedWorld(WORLD, [{ code: READER_JS(kind as Reader, 6000) }]) as { title: string; url: string; lines: string[]; more: boolean };
   }
 
   /** How heavy a click or a typing on this numbered control is. Read the page first. */
@@ -867,7 +1040,8 @@ export class Driver {
     this.lastRead.delete(p.id);
     const j = this.job(p.job);
     if (j) j.pages = j.pages.filter((x) => x !== p.id);
-    try { p.win.destroy(); } catch { /* gone */ }
+    this.unlisten(p);
+    if (p.borrowed) p.borrowed.off(); else try { p.win?.destroy(); } catch { /* gone */ }
     if (j && !j.pages.length && !j.working) this.jobs.splice(this.jobs.indexOf(j), 1);
     this.d.changed();
   }
@@ -880,21 +1054,21 @@ export class Driver {
   /** For the drawer: plain data only. */
   view(): { id: number; kind: DriverKind; name: string; working: boolean; stopped: boolean; pages: { id: number; title: string; url: string; favicon: string }[] }[] {
     return this.jobs.map((j) => ({ id: j.id, kind: j.kind, name: j.name, working: j.working, stopped: j.stopped,
-      pages: this.pagesOf(j).map((p) => ({ id: p.id, title: p.title, url: p.url, favicon: p.favicon })) }));
+      pages: this.pagesOf(j).filter((p) => !p.borrowed).map((p) => ({ id: p.id, title: p.title, url: p.url, favicon: p.favicon })) }));
   }
   /** A quick picture of a page for him to watch it work (the drawer's live view), at the page's own size. */
   async glance(pageId: number): Promise<string | null> {
     const p = this.page(pageId);
     if (!p) return null;
-    try { const img = await p.win.webContents.capturePage(); if (img.isEmpty()) return null; return 'data:image/jpeg;base64,' + img.toJPEG(80).toString('base64'); } catch { return null; }
+    try { const img = await p.wc.capturePage(); if (img.isEmpty()) return null; return 'data:image/jpeg;base64,' + img.toJPEG(80).toString('base64'); } catch { return null; }
   }
   /** He is watching this page (or stopped): lay it out at the size of his page area, so the picture is not stretched,
    *  and paint it smoothly; back to small and slow when he looks away. */
   watched(pageId: number, size: { width: number; height: number } | null): void {
     const p = this.page(pageId);
-    if (!p || p.win.isDestroyed()) return;
+    if (!p || !p.win || p.win.isDestroyed()) return;
     const w = size ? Math.max(800, Math.min(2200, Math.round(size.width))) : W, h = size ? Math.max(500, Math.min(1600, Math.round(size.height))) : H;
     try { p.win.setContentSize(w, h); p.win.webContents.setFrameRate(size ? 10 : 2); } catch { /* gone */ }
   }
-  closeAll(): void { for (const p of [...this.pages]) { try { p.win.destroy(); } catch { /* gone */ } } this.pages.length = 0; this.jobs.length = 0; }
+  closeAll(): void { for (const p of [...this.pages]) { if (p.borrowed) p.borrowed.off(); else try { p.win?.destroy(); } catch { /* gone */ } } this.pages.length = 0; this.jobs.length = 0; }
 }
