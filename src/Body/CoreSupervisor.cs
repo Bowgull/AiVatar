@@ -232,6 +232,9 @@ sealed class CoreSupervisor : IDisposable
                 try { await Task.WhenAll(pipes).WaitAsync(TimeSpan.FromSeconds(5)); } catch { /* a slow tail must not block the restart */ }
                 writer?.Dispose();
 
+                // A planned restart for an update (exit code 75, 2026-10-14): straight back up, no pause, not a crash.
+                if (child.ExitCode == PlannedRestart) { pause = TimeSpan.FromMilliseconds(150); Set($"{spec.Name} restarting for an update"); goto Again; }
+
                 // Stop rather than loop forever. Without this, a Core that cannot stay up is invisible:
                 // the pet sits there looking perfectly normal while nothing behind it works, which is the
                 // same silent-failure shape as the write that died for six days.
@@ -250,9 +253,12 @@ sealed class CoreSupervisor : IDisposable
             }
             catch (OperationCanceledException) { break; }
             catch (Exception e) { Set("supervisor error: " + e.Message); }
+            Again:
             try { await Task.Delay(pause, cts.Token); } catch (OperationCanceledException) { break; }
         }
     }
+    /// <summary>The exit code the Shell uses for a planned restart (an update), mirrored in src/Shell/src/main.ts.</summary>
+    const int PlannedRestart = 75;
 
     /// <summary>
     /// Wait for the Core to stop on its own, having been asked over the socket.

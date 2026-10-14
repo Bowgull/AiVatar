@@ -650,7 +650,7 @@ app.whenReady().then(async () => {
         if (!r || !updatePrefs().overnight || h < 2 || h >= 5 || gameQuiet || aangBrowser?.inCall || powerMonitor.getSystemIdleTime() < 1800) return;
         const card = engineCard(r);
         void engineUpdates!.restartNow(false, r.choices, { title: card?.title ?? 'Engine update', lines: (card?.groups ?? []).flatMap((g) => g.items.filter((i) => !i.key || i.on !== false).map((i) => i.text)) }).then((x) => {
-          if (x.ok) { console.log('shell: updating overnight'); aangBrowser?.closeAll(); setTimeout(() => app.exit(0), 1500); }
+          if (x.ok) { console.log('shell: updating overnight'); aangBrowser?.closeAll(); setTimeout(() => app.exit(UPDATE_RESTART), 400); }
         });
       }, 10 * 60_000).unref();
       aangBrowser.onCall = (on) => { if (!on && engineUpdates && !engineUpdates.ready) void engineUpdates.check(); };
@@ -1106,7 +1106,7 @@ app.whenReady().then(async () => {
     else if (act === 'skip') engineUpdates.skip();
     else if (act === 'check') void engineUpdates.checkNow();
     else if (act === 'back') {
-      if (engineUpdates.goBack()) { aangBrowser.closeAll(); setTimeout(() => app.exit(0), 1500); }
+      if (engineUpdates.goBack()) { aangBrowser.closeAll(); setTimeout(() => app.exit(UPDATE_RESTART), 400); }
       else e.sender.send('browser:updatewhy', 'There is no earlier version kept to go back to.');
     }
   });
@@ -1116,7 +1116,7 @@ app.whenReady().then(async () => {
     void engineUpdates.restartNow(aangBrowser.showing, c).then((r) => {
       if (!r.ok) { e.sender.send('browser:updatewhy', r.why ?? 'Not right now.'); return; }
       aangBrowser?.closeAll();
-      setTimeout(() => app.exit(0), 1500);     // the pet starts the Shell again, on the new engine
+      setTimeout(() => app.exit(UPDATE_RESTART), 400);     // the pet starts the Shell again, on the new engine
     });
   });
 
@@ -1292,6 +1292,9 @@ function fromDesk(e: Electron.IpcMainEvent): boolean {
 let snipper: Snipper | null = null;
 /** 6.19/6.20: Aang's browser, made when the pages are being served. */
 let aangBrowser: AangBrowser | null = null;
+/** A planned restart for an update (2026-10-14, "extremely smooth"): the pet starts Samara again at once, without its
+ *  crash pause, and does not count it as a crash. */
+const UPDATE_RESTART = 75;
 let engineUpdates: EngineUpdates | null = null;
 // ---- the engine in the update tray (sheet 35): its title from the brain, its lines in plain words, two tick boxes
 let engineLabel: { version: string; label: string; name: string } | null = null;
@@ -1314,7 +1317,7 @@ function showEngine(): void { aangBrowser?.setUpdate(engineCard(engineUpdates?.r
 async function engineGo(): Promise<void> {
   if (!engineUpdates?.ready) return;
   const r = await engineUpdates.restartNow(aangBrowser?.showing === true, engineUpdates.ready.choices);
-  if (r.ok) { aangBrowser?.closeAll(); setTimeout(() => app.exit(0), 1500); }
+  if (r.ok) { aangBrowser?.closeAll(); setTimeout(() => app.exit(UPDATE_RESTART), 400); }
 }
 /** 9.D D3: draws the cards Aang posts to Discord. Made on first use. */
 let cards: CardRenderer | null = null;

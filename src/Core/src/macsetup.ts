@@ -262,7 +262,10 @@ set -e
 ${opts.update ? `# Started by his UPDATE key, in two steps (2026-10-14): "prepare" makes the new Samara in the background while he
 # works; "swap", when he presses Restart now, puts it in place. After a swap, whatever happens, Samara opens again.
 PHASE="$1"
-[ "$PHASE" = "prepare" ] || trap 'open -a "$HOME/Applications/Samara.app" >/dev/null 2>&1 || true' EXIT
+# Three steps (2026-10-14, "extremely smooth"): "prepare" makes the new Samara in the background; "swap" (Restart now)
+# only puts it in place and opens it again, a few seconds; "post" then does the rest (Claude hooks, the helper, the
+# front desk) quietly, at low priority, with Samara already back. No step: an older Samara ran it all at once.
+case "$PHASE" in prepare|post) ;; *) trap 'open -a "$HOME/Applications/Samara.app" >/dev/null 2>&1 || true' EXIT ;; esac
 ` : `PHASE=""
 `}# macOS can still be removing the old copy right after bootout; starting again too soon fails with "Input/output
 # error" (seen 2026-10-13). So: try again for a while before giving up.
@@ -274,7 +277,7 @@ mkdir -p "$HOME/.claude" "$DIR" "$HOME/Library/LaunchAgents"
 
 NODE_DIR="$DIR/node"
 # Getting an update ready only makes the new Samara (below); everything else happens when he presses Restart now.
-if [ "$PHASE" != "prepare" ]; then
+if [ "$PHASE" != "prepare" ] && [ "$PHASE" != "swap" ]; then
 echo "1/6  Claude Code hooks, so Aang hears when a session is done or needs you"
 osascript -l JavaScript - "$SHADOW" "$HOOK_PORT" "$HOOK_KEY" <<'JXA'
 ${HOOKS_JXA}
@@ -409,7 +412,8 @@ else
   echo "     Node is not here, so the front desk was not started."
 fi
 ` : ''}fi
-${desk?.browser ? `echo "5/6  Samara, Aang's browser (M6): the same browser as on the PC, kept in step with it"
+${desk?.browser ? `if [ "$PHASE" != "post" ]; then
+echo "5/6  Samara, Aang's browser (M6): the same browser as on the PC, kept in step with it"
 ( umask 077; printf '%s' ${q(desk.browser.bsyncKey)} > "$DIR/bsync.key" )
 BR="$DIR/browser"; mkdir -p "$BR"
 EV=${ELECTRON_MAC.version}; ZIP="electron-v$EV-darwin-x64.zip"; SUM=${ELECTRON_MAC.sha256}
@@ -485,7 +489,11 @@ if [ -d "$BASE" ] && [ -x "$NODE_DIR/bin/node" ]; then
   # His UPDATE key, step one (2026-10-14: "when i hit update it doesnt just freeze my computer"): the new Samara is
   # made in the background, at low priority, while he keeps working. Restart now then only swaps it in.
   if [ "$PHASE" = "prepare" ]; then
-    if build_app "$STAGE/Samara.app"; then printf '%s' '${rel?.version ?? ''}' > "$STAGE/version"; echo "Ready: ${rel?.version ?? ''}"; exit 0; fi
+    if build_app "$STAGE/Samara.app"; then
+      # macOS checks a new app the first time it opens it; done now, quietly, that first open is quick.
+      codesign --verify --deep "$STAGE/Samara.app" >/dev/null 2>&1 || true
+      printf '%s' '${rel?.version ?? ''}' > "$STAGE/version"; echo "Ready: ${rel?.version ?? ''}"; exit 0
+    fi
     rm -rf "$STAGE"; echo "Getting the update ready failed. What npm said:"; grep -i "error" "$DIR/npm-browser.log" | head -6; exit 1
   fi
   NEWAPP=""
@@ -501,6 +509,8 @@ if [ -d "$BASE" ] && [ -x "$NODE_DIR/bin/node" ]; then
 ${rel ? `    cp "$BR/installed.json" "$BR/installed.prev.json" 2>/dev/null || rm -f "$BR/installed.prev.json"
     printf '%s' '{"version":"${rel.version}","commit":"${rel.commit}","status":"${opts.update ? 'trial' : 'good'}"}' > "$BR/installed.json"` : ''}
     /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$APP" >/dev/null 2>&1 || true
+    # Back at once: Samara opens the moment it is in place; what follows happens with it already open.
+    [ "$PHASE" = "swap" ] && open -a "$APP"
     # In the Dock, exactly once, where Aang's icon was (his yes). Old entries for Aang.app or Samara.app are taken out
     # (2026-10-14: a stale one opened the old copy, so Samara showed twice) and one fresh entry goes in their place.
     DP="$BR/dock.plist"; defaults export com.apple.dock "$DP" 2>/dev/null || true
@@ -570,9 +580,13 @@ ${opts.changelog ? `    # Samara's changelog, the same one as on the PC (his ask
     grep -i "error" "$DIR/npm-browser.log" | head -6 | sed 's/^/       /'
   fi
 fi
-` : ''}${opts.update ? `echo "Update done. Opening Aang again."
+fi
+` : ''}${opts.update ? `[ "$PHASE" = "post" ] && { echo "The rest is done."; exit 0; }
+echo "Update done. Opening Samara again."
 APP="$HOME/Applications/Samara.app"; BR="$DIR/browser"
 [ -d "$APP" ] && open -a "$APP"
+# The rest (Claude hooks, the helper, the front desk), in the background at low priority, with Samara already back.
+[ "$PHASE" = "swap" ] && { nohup /usr/sbin/taskpolicy -b /bin/bash "$0" post >"$DIR/update-post.log" 2>&1 & }
 # The new Aang marks itself good once it has run a minute. If it is not running and never got there, it did not
 # start: the old one goes back, and this version is not offered again.
 ${rel ? `for t in 40 60 120; do
