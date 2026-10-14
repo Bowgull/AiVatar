@@ -9,6 +9,7 @@ import { emailCardData } from './emailcard.ts';
 import { kindOfFile, readAttachment, safeFileName } from './attachments.ts';
 import { sttReady, transcribe } from './stt.ts';
 import { inboxCardData, nowNote, weekCardData } from './briefcard.ts';
+import { Faces, domainOfEmail, hostOf } from './faces.ts';
 import { Choices, choiceKey } from './choices.ts';
 import { Timers, parseTimerCommand, sayDuration, MAX_MS } from './timers.ts';
 import { Notes, parseNoteCommand, linesHtml } from './notes.ts';
@@ -758,6 +759,10 @@ export class Core {
    * of these is his own request about Aang's own news, not a link a page slipped in.
    */
   private ownLinks = new Map<string, { title: string; thumb?: string; at: number }>();
+  /** Pictures for the row above a message: channels, sites, email senders. */
+  private faces = new Faces();
+  /** The picture for the reply this turn is writing (an email he had laid out). */
+  private pendingFace: { img: string; name: string } | null = null;
   private rememberLink(url: string, title: string, thumb?: string): void {
     this.ownLinks.set(url, { title, ...(thumb ? { thumb } : {}), at: Date.now() });
     while (this.ownLinks.size > 200) this.ownLinks.delete(this.ownLinks.keys().next().value as string);
@@ -1132,6 +1137,8 @@ export class Core {
     const seen = await svc.seenEmail(String(id).slice(0, 40));
     if (!seen) return { ok: false, detail: 'That email could not be found. Read it with mail_read first.' };
     const card = emailCardData(seen, summary, asks, svc.google.has('calendar.events'), this.travel().ready && Boolean(this.travel().home));
+    const img = await this.faces.site(domainOfEmail(seen.fromEmail));
+    if (img) this.pendingFace = { img, name: String(seen.fromName || seen.fromEmail).slice(0, 40) };
     const sub = this.active?.sub, ws = sub?.socket;
     if (sub && ws && ws.readyState === ws.OPEN && this.kindOfSocket(ws) === 'discord') {
       this.send(ws, { t: 'card.show', id: sub.id, kind: 'email', data: card.data, email: seen.id, acts: card.acts, ...(card.join ? { join: card.join } : {}) });
@@ -1722,7 +1729,10 @@ export class Core {
           } catch { /* the card goes without a picture */ }
           this.sendTo('discord', { t: 'gaming.post', kind: 'upload', videoId: u.videoId, title: u.title, channel: u.channel || c.name, ...(thumb ? { thumb } : {}) });
           const url = `https://www.youtube.com/watch?v=${u.videoId}`;
-          if (this.whereHeIs() === 'desktop') this.announce(`${u.channel || c.name} just posted: ${u.title}`, { about: { url, title: `${u.channel || c.name}'s new video` } });
+          if (this.whereHeIs() === 'desktop') {
+            const img = await this.faces.channel(c.id);
+            this.announce(`${u.channel || c.name} just posted: ${u.title}`, { about: { url, title: `${u.channel || c.name}'s new video` }, ...(img ? { face: { img, name: u.channel || c.name } } : {}) });
+          }
           else this.rememberLink(url, `${u.channel || c.name}'s new video`);
         }
       } catch (e) { console.log(`gaming: could not check ${c.name}: ${(e as Error).message}`); }
@@ -1731,7 +1741,10 @@ export class Core {
     try {
       for (const n of this.feeds.freshNews(parseSteamFeed(await this.feedText(APEX_STEAM)))) {
         this.sendTo('discord', { t: 'gaming.post', kind: 'news', title: n.title, link: n.link, summary: n.summary });
-        if (this.whereHeIs() === 'desktop') this.announce(`Apex patch notes: ${n.title}`);
+        if (this.whereHeIs() === 'desktop') {
+          const img = await this.faces.site(hostOf(n.link));
+          this.announce(`Apex patch notes: ${n.title}`, { about: { url: n.link, title: `the Apex patch notes` }, ...(img ? { face: { img, name: 'Apex Legends' } } : {}) });
+        }
       }
     } catch (e) { console.log('gaming: could not check Apex news: ' + (e as Error).message); }
   }
@@ -2967,6 +2980,7 @@ export class Core {
     this.mailOutcome = null;
     this.turnActions = [];
     this.pendingList = null;
+    this.pendingFace = null;
     // Acknowledge first, before any decision or model work: this is the "it heard me" moment.
     this.send(sub.socket, { t: 'ack', id: sub.id });
 
@@ -3308,7 +3322,7 @@ export class Core {
       flags.push('claimed-without-doing');
       console.error('honesty: the reply claims something was done, but no tool ran and nothing was recorded');
     }
-    this.toTurn(sub, { t: 'bubble', text: reply, stream: false, id: sub.id, who: MODELS[turn.lane].label, ...(this.pendingList ? { list: this.pendingList } : {}) });
+    this.toTurn(sub, { t: 'bubble', text: reply, stream: false, id: sub.id, who: MODELS[turn.lane].label, ...(this.pendingList ? { list: this.pendingList } : {}), ...(this.pendingFace ? { face: this.pendingFace } : {}) });
     if (!sub.ephemeral) {
       // His half is already stored (5.6, at submit). Only the answer is new.
       const aangTurn = this.memory.saveReplied(reply, 'claude-' + turn.lane, sub.id);
@@ -3468,7 +3482,7 @@ export class Core {
     setTimeout(() => this.offerFact(), 45_000).unref?.();
   }
 
-  announce(text: string, opts: { links?: { label: string; url: string }[]; asked?: boolean; focus?: string; jobCwd?: string; image?: { data: string; mimeType: string }; blocking?: boolean; done?: boolean; host?: 'mac'; reminder?: string; brief?: BriefCard; research?: import('./watch.ts').ResearchCard & { file?: string }; about?: { url: string; title: string; thumb?: string } } = {}): void {
+  announce(text: string, opts: { links?: { label: string; url: string }[]; asked?: boolean; focus?: string; jobCwd?: string; image?: { data: string; mimeType: string }; blocking?: boolean; done?: boolean; host?: 'mac'; reminder?: string; brief?: BriefCard; research?: import('./watch.ts').ResearchCard & { file?: string }; about?: { url: string; title: string; thumb?: string }; face?: { img: string; name: string } } = {}): void {
     // Whatever is said last is what a reply is most likely about, whether it lands now or only once hush/quiet
     // lets it through - see withAnnounced(). Its link goes with it (2026-10-14): "put it on" needs no search.
     this.lastAnnounced = { text, at: Date.now(), ...(opts.about ? { url: opts.about.url } : {}) };
@@ -3484,6 +3498,7 @@ export class Core {
       ...(opts.jobCwd ? { jobName: this.launched.find(l => l.cwd.toLowerCase() === opts.jobCwd!.toLowerCase())?.name ?? '' } : {}),
       ...(blocking ? { blocking: true } : {}), ...(done ? { done: true } : {}), ...(opts.host ? { host: opts.host } : {}),
       ...(opts.reminder ? { reminder: opts.reminder } : {}), ...(opts.brief ? { brief: opts.brief } : {}), ...(opts.links?.length ? { links: opts.links } : {}), ...(opts.research ? { research: opts.research } : {}),
+      ...(opts.face ? { face: opts.face } : {}),
     };
     /**
      * Store it as a turn, and carry the row id out with the message.
