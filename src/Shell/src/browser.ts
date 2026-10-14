@@ -35,7 +35,7 @@ import { isBar, parseBookmarks, parseChromeBookmarks, parseSafariBookmarks, type
 import { BW_LOGIN, Vault, fillScript, type Login } from './vault.ts';
 import { createHmac, randomBytes } from 'node:crypto';
 import { Visits, search as searchVisits, forAang, type Visit } from './visits.ts';
-import { BrowserSync, type SyncCookie, type SyncMsg, type TabSnap } from './bsync.ts';
+import { BrowserSync, urlKept, type SyncCookie, type SyncMsg, type TabSnap } from './bsync.ts';
 import { Driver, type Job } from './driver.ts';
 import { Downloads, kindOf, trayOf, type Dl } from './dlist.ts';
 
@@ -684,7 +684,7 @@ export class AangBrowser {
           this.ask({ host: site, what: `Download ${base}?`, text: `It is a program, and ${site || 'this site'} has not given you one before. Only say yes if you meant to get it.`, yes: 'Download, trust this site', no: 'No' }, (allow) => {
             if (item.getState() !== 'progressing') return;
             if (!allow) { item.cancel(); return; }
-            if (site) { this.trusted.add(site); try { writeFileAtomic(this.trustedFile, JSON.stringify([...this.trusted])); } catch { /* best effort */ } }
+            if (site) { this.trusted.add(site); try { writeFileAtomic(this.trustedFile, JSON.stringify([...this.trusted])); } catch { /* best effort */ } this.sync?.changed('prefs'); }
             item.resume();
           });
         }
@@ -749,10 +749,34 @@ export class AangBrowser {
     if (on) this.paused.add(host); else this.paused.delete(host);
     this.ads?.pause(host, on);
     try { writeFileAtomic(this.pausedFile, JSON.stringify([...this.paused])); } catch { /* best effort */ }
+    this.sync?.changed('prefs');
     t?.view?.webContents.reload();
     this.sendTabs();
   }
 
+  /** SY: the other machine's lists, in place of these. Every entry is checked as if it were typed here. */
+  private takeLists(v: unknown): void {
+    if (!v || typeof v !== 'object') return;
+    const L = v as Record<string, unknown>;
+    const put = (f: string, set: Set<string>) => { try { writeFileAtomic(f, JSON.stringify([...set])); } catch { /* best effort */ } };
+    if (Array.isArray(L.popupOk)) { this.popupOk = new Set(hostList(L.popupOk)); put(this.popupOkFile, this.popupOk); }
+    if (Array.isArray(L.trusted)) { this.trusted = new Set(hostList(L.trusted)); put(this.trustedFile, this.trusted); }
+    if (Array.isArray(L.httpOk)) { this.httpOk = new Set(hostList(L.httpOk)); put(this.httpOkFile, this.httpOk); }
+    if (Array.isArray(L.adsPaused)) {
+      const next = new Set(hostList(L.adsPaused));
+      for (const h of this.paused) if (!next.has(h)) this.ads?.pause(h, false);
+      for (const h of next) if (!this.paused.has(h)) this.ads?.pause(h, true);
+      this.paused = next; put(this.pausedFile, this.paused);
+    }
+    if (Array.isArray(L.stash)) {
+      this.stash = L.stash.filter((x: any) => Number.isInteger(x?.id) && typeof x?.name === 'string' && Array.isArray(x?.tabs)).slice(0, 50)
+        .map((x: any) => ({ id: x.id, name: String(x.name).slice(0, 24), at: Number(x.at) || 0,
+          tabs: x.tabs.filter((t: any) => typeof t?.url === 'string' && isWeb(t.url) && urlKept(t.url)).slice(0, 80).map((t: any) => ({ url: t.url, title: String(t.title ?? t.url).slice(0, 200) })) }));
+      this.stashSeq = Math.max(this.stashSeq, ...this.stash.map((x) => x.id));
+      try { writeFileAtomic(this.stashFile, JSON.stringify(this.stash)); } catch { /* best effort */ }
+    }
+    this.sendTabs(); this.pushSettings();
+  }
   /** The site's name for dark mode: its host without www. */
   private darkHost(u: string): string { try { return new URL(u).hostname.replace(/^www\./, '').toLowerCase(); } catch { return ''; } }
   /** Dark mode on this page: on everywhere unless he switched it off for this site. */
@@ -1453,6 +1477,7 @@ export class AangBrowser {
     else if (list === 'httpOk' && this.httpOk.delete(v)) save(this.httpOkFile, this.httpOk);
     else if (list === 'marks') { const i = this.marks.findIndex((m) => m.url === v); if (i >= 0) { this.marks.splice(i, 1); this.saveMarks(); } }
     else return;
+    if (list !== 'marks') this.sync?.changed('prefs');
     this.sendTabs();
     this.pushSettings();
   }
@@ -2024,7 +2049,11 @@ export class AangBrowser {
         .slice(0, 5000).map((m) => ({ title: String(m.title).slice(0, 300), url: m.url, folder: String(m.folder ?? '').slice(0, 100) }));
       this.saveMarks(); this.sendTabs(); this.pushSettings();
     },
-    prefs: () => ({ sounds: this.sounds, ...this.prefs }) as Record<string, unknown>,
+    // SY (his "sync everything", 2026-10-14): the lists he made travel with the settings. Money sites never do.
+    prefs: () => ({ sounds: this.sounds, ...this.prefs, lists: {
+      popupOk: [...this.popupOk], trusted: [...this.trusted], httpOk: [...this.httpOk], adsPaused: [...this.paused],
+      stash: this.stash.map((x) => ({ ...x, tabs: x.tabs.filter((t) => urlKept(t.url)) })),
+    } }) as Record<string, unknown>,
     setPrefs: (p: Record<string, unknown>) => {
       const adsWas = this.prefs.ads;
       this.sounds = p.sounds === true;
@@ -2033,6 +2062,7 @@ export class AangBrowser {
         dark: p.dark !== false, darkOff: hostList(p.darkOff) };
       setSearch(this.prefs.search, this.prefs.aiBox);
       this.paintDarkAll();
+      this.takeLists(p.lists);
       if (adsWas !== this.prefs.ads) { if (this.prefs.ads) this.ads?.start(); else this.ads?.stop(); }
       this.savePrefs(); this.sendTabs(); this.pushSettings();
     },
@@ -2410,7 +2440,7 @@ export class AangBrowser {
     this.saveStash();
     return s.id;
   }
-  private saveStash(): void { try { writeFileAtomic(this.stashFile, JSON.stringify(this.stash)); } catch { /* best effort */ } }
+  private saveStash(): void { try { writeFileAtomic(this.stashFile, JSON.stringify(this.stash)); } catch { /* best effort */ } this.sync?.changed('prefs'); }
   /** Bring a stashed trail back (its pages wake when he opens them), or let it go. */
   stashAct(id: number, act: 'restore' | 'forget'): void {
     const i = this.stash.findIndex((s) => s.id === id);
@@ -2584,7 +2614,7 @@ export class AangBrowser {
       case 'popupopen': case 'popupallow': if (t?.blockedPopup) {
         const bp = t.blockedPopup;
         t.blockedPopup = null;
-        if (what === 'popupallow' && bp.site) { this.popupOk.add(bp.site); try { writeFileAtomic(this.popupOkFile, JSON.stringify([...this.popupOk])); } catch { /* best effort */ } }
+        if (what === 'popupallow' && bp.site) { this.popupOk.add(bp.site); try { writeFileAtomic(this.popupOkFile, JSON.stringify([...this.popupOk])); } catch { /* best effort */ } this.sync?.changed('prefs'); }
         if (!this.listed(bp.url).length) this.newTab(bp.url, t.id, true);
         this.sendTabs();
       } break;
@@ -2605,7 +2635,7 @@ export class AangBrowser {
       case 'failretry': if (t?.failed && wc) { const u = t.failed.url; t.failed = null; this.place(); void wc.loadURL(this.secured(t, u)).catch(() => {}); } break;
       case 'httpok': if (t?.failed?.kind === 'insecure' && wc) {
         const u = t.failed.url;
-        try { this.httpOk.add(new URL(u).hostname); writeFileAtomic(this.httpOkFile, JSON.stringify([...this.httpOk])); } catch { /* best effort */ }
+        try { this.httpOk.add(new URL(u).hostname); writeFileAtomic(this.httpOkFile, JSON.stringify([...this.httpOk])); this.sync?.changed('prefs'); } catch { /* best effort */ }
         t.failed = null; t.upgraded = null; this.place(); void wc.loadURL(u).catch(() => {});
       } break;
       case 'failback': if (t) { t.failed = null; if (wc?.navigationHistory.canGoBack()) { this.place(); wc.navigationHistory.goBack(); } else this.close(t.id, false); } break;
