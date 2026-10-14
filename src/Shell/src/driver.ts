@@ -44,22 +44,23 @@ function refused(u: string, testLocal = false): string {
   let host = '';
   try { host = new URL(u).hostname; } catch { return 'that is not a web address'; }
   if (neverKeep(u)) return 'bank and money sites are never opened for a driving session (his rule). He has to do that himself.';
-  if (privateHost(host) && !(testLocal && host === '127.0.0.1')) return 'addresses on this computer or the home network are never opened for a driving session';
+  if (privateHost(host) && !(testLocal && (host === '127.0.0.1' || host === 'localhost'))) return 'addresses on this computer or the home network are never opened for a driving session';
   return '';
 }
 
 // Driver v2 (2026-10-14, research_notes/driver-upgrades): every script finds controls inside open shadow roots too, and a
 // control keeps its number for as long as it is on the page, so "#42" still means the same thing after a scroll.
 const DEEP = `const __deep = (sel) => { const out = []; const walk = (root) => { for (const e of root.querySelectorAll(sel)) out.push(e); const tw = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT); let h; while ((h = tw.nextNode())) if (h.shadowRoot) walk(h.shadowRoot); }; walk(document); return out; };
-const __byN = (n) => __deep('[data-aang-n="' + n + '"]')[0] || null;
+// A control's number lives in our own script world (AI lockdown G4, 2026-10-14). The data-aang-n attribute is only a
+// label for pictures: the page can see and move it, so it is never used to find a control.
+const __reg = () => { if (!window.__aangEls) { window.__aangEls = new Map(); window.__aangOf = new WeakMap(); } };
+const __num = (e) => { __reg(); let n = window.__aangOf.get(e); if (!n) { window.__aangN = (window.__aangN || 0) + 1; n = window.__aangN; window.__aangOf.set(e, n); window.__aangEls.set(n, new WeakRef(e)); } if (e.getAttribute('data-aang-n') !== String(n)) e.setAttribute('data-aang-n', String(n)); return n; };
+const __byN = (n) => { __reg(); const r = window.__aangEls.get(Number(n)); const e = r && r.deref(); return e && e.isConnected ? e : null; };
 const __vis = (e) => { const r = e.getBoundingClientRect(); if (r.width < 2 || r.height < 2) return false; const s = getComputedStyle(e); return s.visibility !== 'hidden' && s.display !== 'none' && Number(s.opacity) > 0.05; };
 const __lines = (root) => String(root ? root.innerText : '').split('\\n').map((l) => l.replace(/\\s+/g, ' ').trim()).filter(Boolean);`;
 
-/** Marks the page's controls with lasting numbers and reads it: roles, states, values, where each sits. Isolated world. */
-const READ_JS = (o: { within: number | null; maxText: number }) => `(() => {
-  ${DEEP}
-  const O = ${JSON.stringify(o)};
-  const fileLabel = (e) => { const l = (e.id && document.querySelector('label[for="' + CSS.escape(e.id) + '"]')) || e.closest('label'); const box = e.closest('div, section, fieldset'); return ((l && l.innerText) || e.getAttribute('aria-label') || (box && box.innerText) || 'file').replace(/\\s+/g, ' ').trim().slice(0, 60); };
+/** How a control is judged: its words, its kind (link, button, submit, password...), its state and value. */
+const ITEM_FNS = `  const fileLabel = (e) => { const l = (e.id && document.querySelector('label[for="' + CSS.escape(e.id) + '"]')) || e.closest('label'); const box = e.closest('div, section, fieldset'); return ((l && l.innerText) || e.getAttribute('aria-label') || (box && box.innerText) || 'file').replace(/\\s+/g, ' ').trim().slice(0, 60); };
   const text = (e) => (e.type === 'file' ? 'Upload: ' + fileLabel(e) : '') || (e.getAttribute('aria-label') || e.innerText || e.value || e.getAttribute('placeholder') || e.getAttribute('title') || e.getAttribute('alt') || '').replace(/\\s+/g, ' ').trim().slice(0, 80);
   const kindOf = (e) => {
     const t = e.tagName.toLowerCase(), ty = (e.getAttribute('type') || '').toLowerCase(), ac = (e.getAttribute('autocomplete') || '').toLowerCase(), role = (e.getAttribute('role') || '').toLowerCase();
@@ -97,6 +98,13 @@ const READ_JS = (o: { within: number | null; maxText: number }) => `(() => {
     return '';
   };
   const ctxOf = (e) => { const box = e.closest('section, article, li, [role=dialog], dialog, form, [role=listitem]'); const h = box && box.querySelector('h1, h2, h3, h4, [role=heading]'); return h ? String(h.innerText || '').replace(/\\s+/g, ' ').trim().slice(0, 50) : ''; };
+`;
+
+/** Marks the page's controls with lasting numbers and reads it: roles, states, values, where each sits. Isolated world. */
+const READ_JS = (o: { within: number | null; maxText: number }) => `(() => {
+  ${DEEP}
+  const O = ${JSON.stringify(o)};
+  ${ITEM_FNS}
   window.__aangN = window.__aangN || 0;
   const scope = O.within ? __byN(O.within) : null;
   const base = scope ? (scope.closest('section, article, form, [role=dialog], dialog, ul, ol, main, [role=list]') || scope) : null;
@@ -107,8 +115,7 @@ const READ_JS = (o: { within: number | null; maxText: number }) => `(() => {
     if (base && !base.contains(e)) continue;
     const isFile = e.tagName === 'INPUT' && (e.getAttribute('type') || '').toLowerCase() === 'file';
     if (!isFile && (!__vis(e) || e.closest('[aria-hidden=true]'))) continue;
-    let n = Number(e.getAttribute('data-aang-n'));
-    if (!n) { n = ++window.__aangN; e.setAttribute('data-aang-n', String(n)); }
+    const n = __num(e);
     const kind = kindOf(e);
     const form = e.form || e.closest('form');
     const formSearch = Boolean(form && (form.getAttribute('role') === 'search' || form.querySelector('input[type=search], [role=searchbox], input[name=q], input[name=query], input[name=search]')) && !form.querySelector('input[type=password]'));
@@ -118,6 +125,20 @@ const READ_JS = (o: { within: number | null; maxText: number }) => `(() => {
   const lines = __lines(base || document.body);
   const body = lines.join('\\n');
   return { title: document.title.slice(0, 200), url: location.href, text: body.slice(0, O.maxText), more: body.length > O.maxText, lines: lines.slice(0, 500).map((l) => l.slice(0, 160)), items };
+})()`;
+
+/** At the moment of a click (AI lockdown G4/G5): is it still there, is anything lying over it, and what is it NOW? */
+const CHECK_JS = (n: number, x: number, y: number) => `(() => {
+  ${DEEP}
+  ${ITEM_FNS}
+  const e = __byN(${Number(n)});
+  if (!e) return { gone: true };
+  let hit = document.elementFromPoint(${Number(x)}, ${Number(y)});
+  for (let k = 0; hit && hit.shadowRoot && k < 10; k++) { const h2 = hit.shadowRoot.elementFromPoint(${Number(x)}, ${Number(y)}); if (!h2 || h2 === hit) break; hit = h2; }
+  const inside = (h) => { for (let z = h; z; z = z.parentNode || z.host) if (z === e) return true; return false; };
+  const kind = kindOf(e), form = e.form || e.closest('form');
+  const formSearch = Boolean(form && (form.getAttribute('role') === 'search' || form.querySelector('input[type=search], [role=searchbox], input[name=q], input[name=query], input[name=search]')) && !form.querySelector('input[type=password]'));
+  return { covered: !(hit && inside(hit)), item: { n: ${Number(n)}, kind, role: (e.getAttribute('role') || e.tagName.toLowerCase()), label: text(e), href: kind === 'link' ? String(e.href || '').slice(0, 300) : '', formSearch }, sendsTo: form && form.action ? String(form.action).slice(0, 300) : '' };
 })()`;
 
 /** Where a numbered control is, in the page's own pixels, scrolled into view first. Null if it is gone. */
@@ -307,7 +328,7 @@ const FORM_JS = (within: number | null) => `(() => {
     const ty = (e.getAttribute('type') || '').toLowerCase();
     if (ty === 'hidden' || ty === 'submit' || ty === 'button' || ty === 'image' || ty === 'reset') continue;
     if (ty !== 'file' && !__vis(e)) continue;
-    let n = Number(e.getAttribute('data-aang-n')); if (!n) { n = ++window.__aangN; e.setAttribute('data-aang-n', String(n)); }
+    const n = __num(e);
     const secret = ty === 'password' || /cc-|card|cvc|cvv/i.test(e.getAttribute('autocomplete') || '');
     let value = '';
     if (e.tagName === 'SELECT') value = ((e.selectedOptions[0] || {}).textContent || '').trim();
@@ -664,13 +685,23 @@ export class Driver {
   }
 
   /** Click a numbered control, the way a mouse would, inside the page (never on Windows itself). */
-  async click(pageId: number, n: number): Promise<{ title: string; url: string; changed: string[]; waited?: number }> {
+  async click(pageId: number, n: number, allowed = false): Promise<{ title: string; url: string; changed: string[]; waited?: number } | { needs: 'lever'; what: string }> {
     const { p, wc } = this.wcOf(pageId);
     const it = this.items.get(p.id)?.find((x) => x.n === n);
     const waited = it?.kind === 'link' && it.href ? await this.pace(it.href) : 0;
     const before = await this.state(wc, n);
     const at = await this.spot(wc, n);
     if (!at) throw new Error(`control ${n} is not on the page any more; read the page again`);
+    // Judged again at the moment of the click, from what the control is now, never from what the page said before
+    // (AI lockdown G4/G5, 2026-10-14): a page that swaps a harmless button for Send, or lays one over it, is caught.
+    const now = await wc.executeJavaScriptInIsolatedWorld(WORLD, [{ code: CHECK_JS(n, at.x, at.y) }]) as { gone?: boolean; covered?: boolean; item?: ReadItem & { formSearch?: boolean }; sendsTo?: string };
+    if (!now || now.gone) throw new Error(`control ${n} is not on the page any more; read the page again`);
+    if (now.covered) throw new Error(`something on the page is lying over control ${n}, so it was not pressed. Read the page again`);
+    const w = weigh(now.item as ReadItem);
+    let host = ''; try { host = new URL(p.url).hostname.replace(/^www\./, ''); } catch { /* none */ }
+    let to = ''; try { to = now.sendsTo ? new URL(now.sendsTo).hostname.replace(/^www\./, '') : ''; } catch { /* none */ }
+    if (w === 'never') throw new Error(`that is "${now.item?.label}" on ${host}, and buying, passwords and card details are never done for him. He has to do it himself`);
+    if (w === 'lever' && !allowed) return { needs: 'lever', what: `press "${String(now.item?.label ?? '').slice(0, 60)}" on ${host}${to && to !== host ? ` (it sends to ${to})` : ''}` };
     wc.sendInputEvent({ type: 'mouseMove', x: at.x, y: at.y });
     wc.sendInputEvent({ type: 'mouseDown', x: at.x, y: at.y, button: 'left', clickCount: 1 });
     wc.sendInputEvent({ type: 'mouseUp', x: at.x, y: at.y, button: 'left', clickCount: 1 });
