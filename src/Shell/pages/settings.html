@@ -91,10 +91,17 @@
         <div class="row"><div class="t"><b>Fake-site lists</b><small id="phishnote"></small></div><span class="tag">ALWAYS ON</span></div>
         <div class="row"><div class="t"><b>Secure version first</b><small>Every site is tried on https first. Ones with no secure version ask you once.</small></div><span class="tag">ALWAYS ON</span></div>
       </div>
+      <!-- Sheet 37 (his pick A, 2026-10-14): every site he set a rule for, one row each, the same rules as the shield. -->
+      <div class="card yoursites"><i class="caps"></i>
+        <h3>YOUR SITES</h3>
+        <input class="find" id="sitefind" type="search" placeholder="Find a site" autocomplete="off" spellcheck="false">
+        <div class="ysgrid ysgroups"><span class="none"></span><span class="g1">SAMARA</span><span class="none"></span><span class="g2">CAN USE</span><span class="none"></span></div>
+        <div class="ysgrid yslegend"><span></span><span>CLAUDE<br>+ AANG</span><span>MY<br>LOGIN</span><span>AD<br>BLOCK</span><span>POPUP<br>BLOCK</span><span>DARK<br>MODE</span><span></span><span>CAMERA</span><span>MIC</span><span></span></div>
+        <div id="yoursites"></div>
+        <div class="yskey"><span class="slot on" data-pix="camera"></span>On / allowed <span class="slot" data-pix="camera"></span>Off <span class="slot ask" data-pix="camera"></span>Asks <span class="slot block" data-pix="camera"></span>Blocked <em>Click a slot to change it.</em></div>
+      </div>
       <div class="card"><i class="caps"></i>
         <h3>YOUR EXCEPTIONS</h3>
-        <div class="row"><div class="t"><b>Sites allowed to open popups</b><small>Take one away with its x.</small></div></div>
-        <div class="list chips" id="popupOk"></div>
         <div class="row"><div class="t"><b>Trusted for program downloads</b><small>Sites you said yes to once. Programs from anywhere else ask first.</small></div></div>
         <div class="list chips" id="trusted"></div>
         <div class="row"><div class="t"><b>Opened without a secure version</b><small>Sites you let through as plain http.</small></div></div>
@@ -129,6 +136,6 @@
     </section>
   </main>
 </div>
-<script src="settings.js"></script>
+<script src="settings.js" type="module"></script>
 </body>
 </html>

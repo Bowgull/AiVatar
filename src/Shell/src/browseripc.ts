@@ -21,6 +21,8 @@ export function wireBrowser(get: () => AangBrowser | null): void {
   ipcMain.on('browser:sharereply', (e, a) => { if (b()?.isFrame(e.sender) && a && Number.isInteger(a.id)) b().shareAnswer(a.id, typeof a.source === 'string' ? a.source.slice(0, 200) : null, a.sound === true); });
   ipcMain.on('browser:adpause', (e, on) => { if (b()?.isFrame(e.sender)) b().pauseAds(on === true); });
   ipcMain.on('browser:darkhere', (e, on) => { if (b()?.isFrame(e.sender)) b().setDarkHere(on === true); });
+  // Sheet 37: a rule for the site he is on, from the shield. Only these keys.
+  ipcMain.on('browser:siterule', (e, a) => { if (b()?.isFrame(e.sender) && a && ['ai', 'login', 'ads', 'popups', 'dark', 'camera', 'mic'].includes(a.key)) b().setSiteRule(a.key, a.value); });
   ipcMain.on('browser:trail', (e, a) => {
     if (!b()?.isFrame(e.sender) || !a || typeof a !== 'object') return;
     if (a.act === 'new') b().newTrail();
@@ -43,6 +45,9 @@ export function wireBrowser(get: () => AangBrowser | null): void {
   // The Settings tab: only its own page may use these.
   ipcMain.handle('settings:get', (e) => b()?.isSettings(e.sender) ? b().settingsData() : null);
   ipcMain.on('settings:set', (e, a) => { if (b()?.isSettings(e.sender) && a && typeof a.key === 'string') b().setSetting(a.key.slice(0, 20), a.value); });
+  // Sheet 37: Settings > Your sites. A rule for any site in the list, or forget all of a site's rules.
+  ipcMain.on('settings:siterule', (e, a) => { if (b()?.isSettings(e.sender) && a && typeof a.site === 'string' && ['ai', 'login', 'ads', 'popups', 'dark', 'camera', 'mic'].includes(a.key)) b().setSiteRule(a.key, a.value, a.site.slice(0, 300)); });
+  ipcMain.on('settings:siteclear', (e, a) => { if (b()?.isSettings(e.sender) && typeof a === 'string') b().clearSite(a.slice(0, 300)); });
   ipcMain.on('settings:remove', (e, a) => { if (b()?.isSettings(e.sender) && a && typeof a.list === 'string' && typeof a.value === 'string') b().removeEntry(a.list, a.value); });
   // Downloads tray (frame) and Your things (its own tab): a download is named by its number, never by a path.
   ipcMain.on('browser:dl', (e, a) => { if (b()?.isFrame(e.sender) && a && typeof a.act === 'string') b().dlAct(a.act.slice(0, 10), Number(a.id) || 0); });

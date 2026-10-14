@@ -155,6 +155,21 @@
       "at": "2026-10-14T18:10:00-04:00",
       "text": "Update tick boxes now glow turquoise.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-10-14T19:30:00-04:00",
+      "text": "Click the shield to set each site's rules.",
+      "kind": "feature"
+    },
+    {
+      "at": "2026-10-14T19:30:00-04:00",
+      "text": "All your site rules, in Settings.",
+      "kind": "feature"
+    },
+    {
+      "at": "2026-10-14T19:30:00-04:00",
+      "text": "Settings labels are easy to read again.",
+      "kind": "fix"
     }
   ]
 }

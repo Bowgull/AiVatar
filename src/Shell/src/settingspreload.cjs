@@ -7,6 +7,8 @@ contextBridge.exposeInMainWorld('settings', {
   get: () => ipcRenderer.invoke('settings:get'),
   set: (key, value) => ipcRenderer.send('settings:set', { key, value }),
   remove: (list, value) => ipcRenderer.send('settings:remove', { list, value }),
+  siteRule: (site, key, value) => ipcRenderer.send('settings:siterule', { site, key, value }),
+  siteClear: (site) => ipcRenderer.send('settings:siteclear', site),
   act: (act) => ipcRenderer.send('settings:act', act),
   onData(fn) { const h = (_e, d) => fn(d); ipcRenderer.on('settings:data', h); return () => ipcRenderer.removeListener('settings:data', h); },
   onSection(fn) { const h = (_e, s) => fn(s); ipcRenderer.on('settings:section', h); return () => ipcRenderer.removeListener('settings:section', h); },

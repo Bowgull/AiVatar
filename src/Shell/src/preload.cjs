@@ -176,6 +176,7 @@ contextBridge.exposeInMainWorld('aang', {
   browserUpdateAct: (a) => { const act = String(a?.act ?? ''); if (['file', 'skip', 'back', 'overnight', 'changelog', 'check', 'seen'].includes(act)) ipcRenderer.send('browser:updateact', { act, on: a?.on === true }); },
   browserAdPause: on => ipcRenderer.send('browser:adpause', on),
   browserDarkHere: on => ipcRenderer.send('browser:darkhere', on),
+  browserSiteRule: (key, value) => ipcRenderer.send('browser:siterule', { key, value }),
   /** The popout page: where its picture area is (a lent tab is laid over it), and the controls for that tab. */
   popoutStage: r => ipcRenderer.send('popout:stage', r),
   popoutTabCmd: c => ipcRenderer.send('popout:tabcmd', c),

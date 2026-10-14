@@ -36,6 +36,8 @@ export interface DriverDeps {
   stopped(job: Job): void;
   /** Tests only: their pretend sites are served from this computer (127.0.0.1), which a real session never opens. */
   testLocal?: boolean;
+  /** His site rules (sheet 37): AI off on a site = never opened or read; his login always, never, or the job decides. */
+  rules?: { ai(url: string): boolean; login(url: string): boolean | undefined };
 }
 
 const MAX_PAGES_PER_JOB = 12, MAX_PAGES = 20, KEEP_MS = 24 * 3_600_000;
@@ -443,9 +445,17 @@ export class Driver {
   /** A job's group in the tab list is named for what it is doing ("JOB SCAN"), his ask 2026-10-14. */
   rename(id: number, name: string): void { const j = this.job(id); if (j && name.trim()) { j.name = cleanName(name); if (j.sites && jobTask(name)) for (const s of JOB_SITES) j.sites.add(s); this.d.changed(); } }
   /** Is this page outside its job's sites (logged out, or about to be)? */
+  /** Why a session may never open or read this address, or ''. The fixed refusals, then his own per-site switch. */
+  why(u: string): string {
+    const r = refused(u, this.d.testLocal);
+    if (r) return r;
+    return this.d.rules && !this.d.rules.ai(u) ? 'Joshua turned AI off for this site in Samara (the shield next to the address). It is never opened or read for a session.' : '';
+  }
+  /** His login on this site: always (true), never (false), or as the job's own sites say (undefined). */
+  private loginRule(u: string): boolean | undefined { return this.d.rules?.login(u); }
   offFence(pageId: number): boolean { const p = this.page(pageId), j = p ? this.job(p.job) : undefined; if (!p || !j?.sites) return false; try { return p.guest === true || !j.sites.has(siteOf(new URL(p.url).hostname)); } catch { return true; } }
   /** Would opening this address use his login on a site this job may not (it asks him first)? */
-  needsLogin(jobId: number, url: string): string { const j = this.job(jobId); if (!j?.sites) return ''; try { const s = siteOf(new URL(url).hostname); return j.sites.has(s) || j.sites.size === 0 ? '' : s; } catch { return ''; } }
+  needsLogin(jobId: number, url: string): string { const j = this.job(jobId); if (!j?.sites || this.loginRule(url) === true) return ''; try { const s = siteOf(new URL(url).hostname); return j.sites.has(s) || j.sites.size === 0 ? '' : s; } catch { return ''; } }
   /** He said yes: this job may use his login on this site too. */
   allowSite(jobId: number, url: string): void { const j = this.job(jobId); try { if (j?.sites) j.sites.add(siteOf(new URL(url).hostname)); } catch { /* not an address */ } }
   /** The logged-out session: nothing of his in it, kept only in memory, nothing allowed. */
@@ -484,13 +494,13 @@ export class Driver {
    */
   borrow(jobId: number, wc: WebContents, tab: number, drive: boolean): { page: number; title: string; url: string } {
     const j = this.live(jobId);
-    const why = refused(wc.getURL(), this.d.testLocal);
+    const why = this.why(wc.getURL());
     if (why) throw new Error(why.replace('opened for a driving session', 'read or driven by a session'));
     const had = this.pages.find((p) => p.borrowed && p.wc === wc && p.job === j.id);
     if (had) { had.borrowed!.drive = had.borrowed!.drive || drive; this.d.changed(); return { page: had.id, title: had.title, url: had.url }; }
     const p: DPage = { id: ++this.pageSeq, job: j.id, win: null, wc, title: wc.getTitle().slice(0, 200), url: wc.getURL(), favicon: '', at: Date.now(), blocked: null, borrowed: { tab, drive, off: () => {} } };
     const onTitle = (_e: unknown, t: string) => { p.title = t.slice(0, 200); };
-    const onNav = (_e: unknown, u: string) => { p.url = u; this.items.delete(p.id); this.lastRead.delete(p.id); if (refused(u, this.d.testLocal)) this.close(p.id); };
+    const onNav = (_e: unknown, u: string) => { p.url = u; this.items.delete(p.id); this.lastRead.delete(p.id); if (this.why(u)) this.close(p.id); };
     const onGone = () => this.close(p.id);
     this.listen(p);
     wc.on('page-title-updated', onTitle as never); wc.on('did-navigate', onNav as never); wc.on('did-navigate-in-page', onNav as never); wc.once('destroyed', onGone);
@@ -520,13 +530,16 @@ export class Driver {
   async open(jobId: number, url: string): Promise<{ page: number; title: string; url: string; waited?: number; guest?: boolean }> {
     const j = this.live(jobId);
     if (!isWeb(url)) throw new Error('only web addresses (http or https) can be opened');
-    const why = refused(url, this.d.testLocal);
+    const why = this.why(url);
     if (why) throw new Error(why);
     const l = this.d.listed(url);
     if (l.length) throw new Error(`that site is on a list of fake or harmful sites (${l.join(', ')}), so it was not opened`);
     let site = ''; try { site = siteOf(new URL(url).hostname); } catch { /* checked above */ }
     if (j.sites && j.sites.size === 0 && site) j.sites.add(site);             // another task: its own first site
-    const guest = !!j.sites && !j.sites.has(site);
+    // His login rule for the site wins: always signed in (and part of the job's sites), or never.
+    const lr = this.loginRule(url);
+    if (lr === true && j.sites && site) j.sites.add(site);
+    const guest = lr === false ? true : lr === true ? false : !!j.sites && !j.sites.has(site);
     while (this.pagesOf(j).filter((x) => !x.borrowed).length >= MAX_PAGES_PER_JOB) this.close(this.pagesOf(j).find((x) => !x.borrowed)!.id);
     while (this.pages.filter((x) => !x.borrowed).length >= MAX_PAGES) this.close(this.pages.find((x) => !x.borrowed)!.id);
     const win = new BrowserWindow({
@@ -545,13 +558,13 @@ export class Driver {
     // A link that wants a new window opens in this same page instead: his rule, only its own tabs, nothing pops up.
     // Every page it reaches, not just the first (AI lockdown G7, 2026-10-14): links, new windows and redirects all meet
     // the same refusals as browser_open (banks, this machine and home network, the fake-site lists).
-    const stop = (u: string) => !isWeb(u) || !!refused(u, this.d.testLocal) || this.d.listed(u).length > 0;
+    const stop = (u: string) => !isWeb(u) || !!this.why(u) || this.d.listed(u).length > 0;
     wc.setWindowOpenHandler(({ url: u }) => { if (!stop(u)) setTimeout(() => { if (!wc.isDestroyed()) void wc.loadURL(u).catch(() => {}); }, 0); else p.blocked = u; return { action: 'deny' }; });
     // To another site: private details in the address are stopped (G2), and a signed-in page that leads outside its
     // job's sites hands the address over to a logged-out page instead (G1).
     const elsewhere = (u: string) => { try { return siteOf(new URL(u).hostname) !== siteOf(new URL(p.url).hostname); } catch { return true; } };
     const leaks = (u: string) => !!j.sites && elsewhere(u) && carriesData(u) !== '';
-    const outside = (u: string) => { if (!j.sites || p.guest) return false; try { return !j.sites.has(siteOf(new URL(u).hostname)); } catch { return false; } };
+    const outside = (u: string) => { if (p.guest) return false; if (this.loginRule(u) === false) return true; if (!j.sites || this.loginRule(u) === true) return false; try { return !j.sites.has(siteOf(new URL(u).hostname)); } catch { return false; } };
     wc.on('will-navigate', (e, u) => { if (stop(u) || leaks(u)) { e.preventDefault(); p.blocked = u; } else if (outside(u)) { e.preventDefault(); p.handoff = u; } });
     wc.on('will-redirect', (e, u) => { if (stop(u) || leaks(u)) { e.preventDefault(); p.blocked = u; } else if (outside(u)) { e.preventDefault(); p.handoff = u; } });
     this.listen(p);
