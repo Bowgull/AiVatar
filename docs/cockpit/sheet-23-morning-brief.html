@@ -9,11 +9,11 @@
      from the top-left. Every name, time and place here is SAMPLE data. -->
 <link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
 <style>
-  html,body{background:#17110c !important}
+  html,body{background:#17110c !important;overflow:auto !important;height:auto !important;pointer-events:auto !important;user-select:text !important}
   body{margin:0;color:#e8dcc4;font-family:var(--body);padding:28px 34px 44px;pointer-events:auto}
   h1{font:400 20px var(--label);color:var(--gold);letter-spacing:2px;margin:0 0 4px}
   .lead{color:#b9a684;font-size:14px;margin:0 0 24px;max-width:1240px;line-height:1.5}
-  .boards{display:grid;grid-template-columns:repeat(2,620px);gap:30px 34px;align-items:start}
+  .boards{display:grid;grid-template-columns:repeat(auto-fill,620px);gap:30px 34px;align-items:start}
   .board h2{font:400 11px var(--label);color:#c9b48c;letter-spacing:1.5px;margin:0 0 4px}
   .board .why{font-size:13px;color:#b9a684;line-height:1.45;margin:0 2px 12px;max-width:600px}
   .grain{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .2  0 0 0 0 .13  0 0 0 0 .05  0 0 0 .22 0'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E")}
