@@ -42,14 +42,31 @@ const ICONS = {
   claude: [[['....K....', '.K..K..K.', '..K.K.K..', '...KKK...', 'KKKKKKKKK', '...KKK...', '..K.K.K..', '.K..K..K.', '....K....'], 0, 0]],
 };
 
+// Sheet 37 (his picks, 2026-10-14): the site-rule icons, with their own few colours.
+const C2 = {
+  o: '#9C4A16', k: '#2E3248', G: '#A2AAC0', D: '#767F99', b: '#2B78D0', B: '#8ED2FF', l: '#6CC46A',
+  a: '#B06A10', A: '#FFD24A', Z: '#FFF2A0', r: '#C8402E', R: '#F06A50', c: '#46587C', w: '#FFFFFF', g: '#DCE6F4', d: '#A8B9D6',
+};
+const ICONS2 = {
+  ai: ['....bb....', '....bB....', '....bB....', '....bB....', '....bB....', '.bb.bB.bb.', '..bbbBbb..', '...bBBb...', '....bb....'],
+  key: ['.aaaa.....', 'aAZZAa....', 'aZ..Aaaaaa', 'aA..AAAAAa', 'aAAAAaaAaa', '.aaaa.aa.a'],
+  camera: ['..kkk.....', 'kkkGGkkkkk', 'kGGGGGGGGk', 'kGGbbbGGGk', 'kGbBBbbGDk', 'kGbBbbbGDk', 'kGGbbbGGDk', 'kDDDDDDDDk', 'kkkkkkkkkk'],
+  mic: ['...kkkk...', '..kGGGDk..', '..kGGGDk..', '..kGGGDk..', '..kGGGDk..', 'k.kGGGDk.k', 'k..kDDk..k', '.k......k.', '..kkkkkk..', '....kk....', '..kkkkkk..'],
+  popup: ['....ccccccc', '....cBBBBBc', 'cccccwwwwwc', 'cBBBcwwwwwc', 'cwwwcwwwwwc', 'cwwwccccccc', 'cwwwwwwc...', 'cggggggc...', 'cccccccc...'],
+  globe: ['...bbbb...', '.bbBlBBbb.', '.bBllBBBb.', 'bBBlllBBBb', 'bBBBllBlBb', 'bBBBBBllBb', '.bBBBBlBb.', '.bbBBBBbb.', '...bbbb...'],
+  ads: ['........r.', '......rrR.', 'r...rrRRR.', 'rrrrRRRRR.', 'rRRRRRRRR.', 'rrrrRRRRR.', 'r...rrRRR.', '.r....rrR.', '.r......r.'],
+};
+
 /** An icon as an SVG element, or null for a name it does not know. */
 export function pixIcon(name, scale = 2) {
-  const layers = ICONS[name];
+  const own = ICONS2[name];
+  const layers = own ? [[own, 0, 0]] : ICONS[name];
   if (!layers) return null;
+  const PAL = own ? C2 : C;
   let w = 0, h = 0;
   for (const [g, dx, dy] of layers) { w = Math.max(w, dx + Math.max(0, ...g.map((r) => r.length))); h = Math.max(h, dy + g.length); }
   const px = new Map();
-  for (const [g, dx, dy] of layers) g.forEach((row, y) => [...row].forEach((ch, x) => { if (ch !== '.' && C[ch]) px.set(`${x + dx},${y + dy}`, C[ch]); }));
+  for (const [g, dx, dy] of layers) g.forEach((row, y) => [...row].forEach((ch, x) => { if (ch !== '.' && PAL[ch]) px.set(`${x + dx},${y + dy}`, PAL[ch]); }));
   const NS = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(NS, 'svg');
   svg.setAttribute('width', String(w * scale)); svg.setAttribute('height', String(h * scale));

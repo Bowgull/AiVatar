@@ -1,3 +1,4 @@
+import { pixIcon } from './pixicons.js';
 // 6.20: the browser's frame. Draws the rail and the address slot from the tab list the Shell sends, and
 // tells the Shell where the page area is (6.19). Everything is built with textContent: titles and
 // addresses are the websites' own words.
@@ -709,7 +710,9 @@ lock.addEventListener('click', (e) => {
   try { host = new URL(t?.url ?? '').hostname.replace(/^www\./, ''); } catch { /* none */ }
   if (!host) return;
   el('sitehost').textContent = host;
-  paintAdSwitch(); paintDarkSwitch();
+  const fav = state.tabs.find((x) => x.id === state.active)?.favicon;
+  el('sitefav').hidden = !fav; el('sitefav').onerror = () => { el('sitefav').hidden = true; }; if (fav) el('sitefav').src = fav;
+  paintSite();
   el('sitepanel').hidden = !el('sitepanel').hidden;
   lock.classList.toggle('open', !el('sitepanel').hidden);
   // Hung from the shield itself (his report, 2026-10-14: it sat off to the side): its pointer (24px in, 18 wide) under the
@@ -719,20 +722,31 @@ lock.addEventListener('click', (e) => {
     el('sitepanel').style.left = Math.max(8, Math.round(r.left + r.width / 2 - band.left - 33)) + 'px';
   }
 });
-function paintAdSwitch() {
-  const on = state.adsOn && !state.adsPaused;
-  el('adsw').classList.toggle('on', on);
-  el('adsw').setAttribute('aria-checked', String(on));
-  el('adnote').textContent = !state.adsOn ? 'The block lists are still loading.' : state.adsPaused ? 'Paused here. Ads show on this site.' : 'On. Ads and trackers are stopped here.';
+// Sheet 37: the shield's panel, every rule for this site. The Shell sends them in state.site.
+for (const s of document.querySelectorAll('#sitepanel [data-pix]')) { const svg = pixIcon(s.dataset.pix, 2); if (svg) s.append(svg); }
+function setSw(id, on, disabled = false) { el(id).classList.toggle('on', on); el(id).setAttribute('aria-checked', String(on)); el(id).disabled = disabled; }
+const TRI = { allow: ['Allow', 'primary'], ask: ['Ask', ''], block: ['Block', 'burnt'] };
+function setTri(id, v) { const [w, c] = TRI[v] ?? TRI.ask; el(id).textContent = w; el(id).className = 'key sm tri ' + c; el(id).dataset.v = v in TRI ? v : 'ask'; }
+function paintSite() {
+  const st = state.site;
+  setSw('adsw', state.adsOn && !state.adsPaused, !state.adsOn);
+  setSw('darksw', state.darkHere === true, state.darkAll === false);
+  if (!st) return;
+  setSw('popsw', st.popupBlock, state.prefs?.popups === false);
+  setSw('aisw', st.ai); setSw('loginsw', st.login && st.ai, !st.ai);
+  setTri('camk', st.camera); setTri('mick', st.mic);
 }
-el('adsw').addEventListener('click', (e) => { e.preventDefault(); if (state.adsOn) window.aang?.browserAdPause?.(!state.adsPaused); });
-// Dark mode (his "Dark Reader is a must", 2026-10-14): on everywhere; switched off here, it stays off for this site.
-function paintDarkSwitch() {
-  el('darksw').classList.toggle('on', state.darkHere === true);
-  el('darksw').setAttribute('aria-checked', String(state.darkHere === true));
-  el('darknote').textContent = state.darkAll === false ? 'Off for every site. Turn it on in Settings.' : state.darkHere ? 'On. This site is shown dark.' : 'Off here. This site shows its own colours.';
-}
-el('darksw').addEventListener('click', (e) => { e.preventDefault(); if (state.darkAll !== false) window.aang?.browserDarkHere?.(!state.darkHere); });
+function paintAdSwitch() { paintSite(); }
+function paintDarkSwitch() { paintSite(); }
+const rule = (key, value) => window.aang?.browserSiteRule?.(key, value);
+el('adsw').addEventListener('click', (e) => { e.preventDefault(); if (state.adsOn) rule('ads', !!state.adsPaused); });
+el('darksw').addEventListener('click', (e) => { e.preventDefault(); if (state.darkAll !== false) rule('dark', !state.darkHere); });
+el('popsw').addEventListener('click', (e) => { e.preventDefault(); if (state.site) rule('popups', !state.site.popupBlock); });
+el('aisw').addEventListener('click', (e) => { e.preventDefault(); if (state.site) rule('ai', !state.site.ai); });
+el('loginsw').addEventListener('click', (e) => { e.preventDefault(); if (state.site?.ai) rule('login', !state.site.login); });
+const NEXT = { allow: 'ask', ask: 'block', block: 'allow' };
+el('camk').addEventListener('click', () => rule('camera', NEXT[el('camk').dataset.v] ?? 'ask'));
+el('mick').addEventListener('click', () => rule('mic', NEXT[el('mick').dataset.v] ?? 'ask'));
 document.addEventListener('click', (e) => { if (!el('sitepanel').contains(e.target) && !lock.contains(e.target)) { el('sitepanel').hidden = true; lock.classList.remove('open'); } });
 // The shield's panel sits OVER the page, like the ... menu, on a still picture of it (his report, 2026-10-14: pushing the live
 // page down to make room left a big white bar above it). However it closes, the live page comes back.

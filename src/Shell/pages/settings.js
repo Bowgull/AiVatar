@@ -1,3 +1,4 @@
+import { pixIcon } from './pixicons.js';
 // The browser's Settings page. Draws what the Shell sends (all text by textContent) and sends back only: a setting
 // key and value, an entry to take off one of his lists, or one of three actions. Nothing else is possible here.
 const $ = (s, r = document) => r.querySelector(s);
@@ -79,6 +80,52 @@ function chips(id, list, name) {
   }
 }
 
+// Sheet 37, Your sites: one row per site, the same rules as the shield. Four are on/off, camera and mic are allow / ask / block.
+const YS_COLS = [['ai', 'ai', 2, 'Claude and Aang'], ['login', 'key', 2, 'Use my login'], ['ads', 'ads', 2, 'Ad blocker'], ['popups', 'popup', 2, 'Popup blocker'], ['dark', 'moon', 2, 'Dark mode'], null, ['camera', 'camera', 3, 'Camera'], ['mic', 'mic', 3, 'Microphone']];
+const YS_WORD = { on: 'ON', off: 'OFF', allow: 'ALLOW', ask: 'ASK', block: 'BLOCK', never: 'NEVER' };
+function siteRows(list) {
+  const box = $('#yoursites');
+  const q = ($('#sitefind').value || '').trim().toLowerCase();
+  box.replaceChildren();
+  const shown = list.filter((s) => !q || s.host.includes(q));
+  if (!shown.length) { box.append(Object.assign(document.createElement('div'), { className: 'ysempty', textContent: list.length ? 'No site matches.' : 'None yet. Click the shield next to an address to set a site\'s rules.' })); return; }
+  for (const s of shown) {
+    const r = Object.assign(document.createElement('div'), { className: 'ysgrid ysrow' });
+    const b = document.createElement('b');
+    // The site's own icon, the one Samara keeps; a pixel globe for a site whose icon it has not seen yet.
+    const globe = () => { const g = Object.assign(document.createElement('span'), { className: 'globe' }); const svg = pixIcon('globe', 2); if (svg) g.append(svg); return g; };
+    let f = globe();
+    if (s.favicon) { f = Object.assign(document.createElement('img'), { className: 'fav', alt: '' }); f.onerror = () => f.replaceWith(globe()); f.src = s.favicon; }
+    b.append(f, Object.assign(document.createElement('span'), { className: 'nm', textContent: s.host }));
+    if (s.bank) b.append(Object.assign(document.createElement('small'), { textContent: 'BANK: CHROME ONLY' }));
+    r.append(b);
+    for (const c of YS_COLS) {
+      if (!c) { r.append(document.createElement('span')); continue; }
+      const [key, icon, kind, name] = c;
+      const st = s.bank && (key === 'ai' || key === 'login') ? 'never' : kind === 2 ? (s[key] ? 'on' : 'off') : (s[key] === 'allow' ? 'on' : s[key]);
+      if (s.bank && key !== 'ai' && key !== 'login') { r.append(document.createElement('span')); continue; }
+      const cell = Object.assign(document.createElement('span'), { className: 'yscell ' + (st === 'off' ? '' : st) });
+      const slot = Object.assign(document.createElement('button'), { type: 'button', className: 'slot ' + (st === 'off' ? '' : st), title: name });
+      slot.setAttribute('aria-label', `${name} on ${s.host}: ${YS_WORD[st === 'on' && kind === 3 ? 'allow' : st]}`);
+      if (st !== 'never') { const svg = pixIcon(icon, 2.4); if (svg) slot.append(svg); }
+      else slot.disabled = true;
+      slot.addEventListener('click', () => {
+        if (st === 'never') return;
+        if (kind === 2) S?.siteRule(s.host, key, !s[key]);
+        else S?.siteRule(s.host, key, ({ allow: 'ask', ask: 'block', block: 'allow' })[s[key]] ?? 'ask');
+      });
+      cell.append(slot, Object.assign(document.createElement('i'), { textContent: YS_WORD[st === 'on' && kind === 3 ? 'allow' : st] }));
+      r.append(cell);
+    }
+    const x = Object.assign(document.createElement('button'), { className: 'x', type: 'button', textContent: 'x', title: 'Forget every rule for ' + s.host });
+    x.addEventListener('click', () => S?.siteClear(s.host));
+    r.append(x);
+    box.append(r);
+  }
+}
+for (const el of document.querySelectorAll('.yskey [data-pix]')) { const svg = pixIcon(el.dataset.pix, 2); if (svg) el.append(svg); }
+$('#sitefind').addEventListener('input', () => siteRows(data?.sites ?? []));
+
 function paint(d) {
   if (!d) return;
   data = d;
@@ -111,7 +158,7 @@ function paint(d) {
   $('#lockbtn').hidden = d.vault !== 'unlocked';
   // privacy
   $('#phishnote').textContent = `${Number(d.phish || 0).toLocaleString()} known fake sites and addresses, refreshed every day.`;
-  chips('popupOk', d.popupOk ?? [], 'popupOk');
+  siteRows(d.sites ?? []);
   chips('trusted', d.trusted ?? [], 'trusted');
   chips('httpOk', d.httpOk ?? [], 'httpOk');
   for (const r of document.querySelectorAll('[data-mac]')) r.hidden = !d.mac;

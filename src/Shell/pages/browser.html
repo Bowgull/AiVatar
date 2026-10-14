@@ -113,16 +113,23 @@
     </div>
     <!-- The plaque's own little panel: the one place ads can be let through, one site at a time. -->
     <div class="bandchip site" id="sitepanel" hidden>
-      <div class="q" id="sitehost"></div>
+      <div class="q"><img id="sitefav" alt="" hidden><span id="sitehost"></span></div>
       <div class="poprow" id="poprow" hidden>
         <b>Popup blocked</b><small id="popurl"></small>
         <div class="keys"><button class="key primary sm" id="popopen" type="button">Open it<span class="k">A</span></button>
           <button class="key sm" id="popallow" type="button">Always allow here<span class="k">Z</span></button></div>
       </div>
-      <label class="adrow"><button class="sw" id="adsw" type="button" role="switch" aria-checked="true"><i class="bed"><i class="nub"></i></i></button>
-        <span><b>Block ads on this site</b><small id="adnote"></small></span></label>
-      <label class="adrow"><button class="sw" id="darksw" type="button" role="switch" aria-checked="true"><i class="bed"><i class="nub"></i></i></button>
-        <span><b>Dark mode on this site</b><small id="darknote"></small></span></label>
+      <!-- Sheet 37 (his picks, 2026-10-14): every rule for this site, no helper text, just on or off; camera and mic
+           are Allow / Ask / Block in his key colours. Ads and popups are different things and stay separate. -->
+      <div class="srow"><span class="sic" data-pix="ads"></span><b>Block ads</b><button class="sw" id="adsw" type="button" role="switch" aria-checked="false"><i class="bed"><i class="nub"></i></i></button></div>
+      <div class="srow"><span class="sic" data-pix="popup"></span><b>Block popups</b><button class="sw" id="popsw" type="button" role="switch" aria-checked="false"><i class="bed"><i class="nub"></i></i></button></div>
+      <div class="srow"><span class="sic" data-pix="moon"></span><b>Dark mode</b><button class="sw" id="darksw" type="button" role="switch" aria-checked="false"><i class="bed"><i class="nub"></i></i></button></div>
+      <div class="ssec">AI</div>
+      <div class="srow"><span class="sic" data-pix="ai"></span><b>Claude and Aang</b><button class="sw" id="aisw" type="button" role="switch" aria-checked="false"><i class="bed"><i class="nub"></i></i></button></div>
+      <div class="srow"><span class="sic" data-pix="key"></span><b>Use my login</b><button class="sw" id="loginsw" type="button" role="switch" aria-checked="false"><i class="bed"><i class="nub"></i></i></button></div>
+      <div class="ssec">THIS SITE CAN USE</div>
+      <div class="srow"><span class="sic" data-pix="camera"></span><b>Camera</b><button class="key sm tri" id="camk" type="button">Ask</button></div>
+      <div class="srow"><span class="sic" data-pix="mic"></span><b>Microphone</b><button class="key sm tri" id="mick" type="button">Ask</button></div>
     </div>
     <!-- The downloads tray: this run's newest 5. Drag a file out to use it anywhere. -->
     <!-- The update tray (sheet 35, his picks 2026-10-14): lantern header, the update itself as ticks on parchment (the

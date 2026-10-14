@@ -29,7 +29,8 @@ import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown } from './safety.ts';
 import { addressFor, engineHome, searchFor, setSearch, type Engine } from './address.ts';
 import { TIDY_SYSTEM, bySite, doubles, readTidy, staleTrails, tidyPrompt, type TidyTab } from './tidy.ts';
 import { writeFileAtomic } from './atomic.ts';
-import { carriesData, personal, reachesIn, siteOf } from './driverrules.ts';
+import { carriesData, personal, reachesIn, siteOf, JOB_SITES } from './driverrules.ts';
+import { SiteRules, siteKey, type Tri } from './siterules.ts';
 import { lookalike } from './lookalike.ts';
 import { softEdge } from './winedge.ts';
 import { isBar, parseBookmarks, parseChromeBookmarks, parseSafariBookmarks, type Mark } from './bookmarks.ts';
@@ -360,6 +361,8 @@ export class AangBrowser {
    * His call (2026-10-14, code audit M3): sites the OTHER computer trusts (for programs, or opened without https)
    * travel here but do not count until he says yes once on this machine. A removal there still applies here.
    */
+  /** Sheet 37: his per-site rules (Claude and Aang, his login, camera, mic). */
+  rules!: SiteRules;
   private peerTrusted = new Set<string>();
   private peerHttp = new Set<string>();
   private askSeq = 0;
@@ -490,7 +493,9 @@ export class AangBrowser {
     this.httpOkFile = path.join(o.stateDir, 'browser-http-ok.json');
     this.trustedFile = path.join(o.stateDir, 'download-trusted.json');
     this.visits = new Visits(path.join(o.stateDir, 'browser-history.json'));
-    this.driver = new Driver({ ses: this.ses, preload: o.tabPreloadPath, listed: (u) => this.listed(u), changed: () => this.sendTabs(), stopped: (j) => this.onDriverStop?.(j), testLocal: o.testLocal === true });
+    this.rules = new SiteRules(path.join(o.stateDir, 'site-rules.json'), () => { this.sync?.changed('prefs'); this.sendTabs(); this.pushSettings(); });
+    this.driver = new Driver({ ses: this.ses, preload: o.tabPreloadPath, listed: (u) => this.listed(u), changed: () => this.sendTabs(), stopped: (j) => this.onDriverStop?.(j), testLocal: o.testLocal === true,
+      rules: { ai: (u) => this.rules.ai(u), login: (u) => this.rules.login(u) } });
     this.dls = new Downloads(path.join(o.stateDir, 'browser-downloads.json'));
     const loadSet = (f: string) => { try { if (existsSync(f)) { const a = JSON.parse(readFileSync(f, 'utf8')); if (Array.isArray(a)) return new Set(a.filter((x: unknown) => typeof x === 'string')); } } catch { /* none */ } return new Set<string>(); };
     this.httpOk = loadSet(this.httpOkFile);
@@ -553,6 +558,10 @@ export class AangBrowser {
       const types = asked.filter((x) => x === 'audio' || x === 'video');
       const host = hostOf((details as { requestingUrl?: string }).requestingUrl || wc.getURL());
       if (!host || !types.length) { done(false); return; }
+      // His rule for this site (sheet 37): Block never asks, Allow never asks; Ask is the old way, once per call.
+      const said = types.map((x) => this.rules.media(host, x === 'video' ? 'camera' : 'mic'));
+      if (said.includes('block')) { done(false); return; }
+      if (said.every((x) => x === 'allow')) { const s = this.mediaOk.get(host) ?? new Set<string>(); for (const x of types) s.add(x); this.mediaOk.set(host, s); done(true); this.sendTabs(); return; }
       // Already allowed on this site during this call: no second ask.
       const ok = this.mediaOk.get(host);
       if (ok && types.every((x) => ok.has(x))) { done(true); return; }
@@ -569,6 +578,8 @@ export class AangBrowser {
     this.ses.setPermissionCheckHandler((wc, permission, origin, details) => {
       if (permission === 'fullscreen') return true;
       if ((permission !== 'media' && permission !== 'speaker-selection') || (wc && this.driver?.owns(wc))) return false;
+      const t0 = (details as { mediaType?: string }).mediaType;
+      if (permission === 'media' && (t0 === 'audio' || t0 === 'video')) { const r = this.rules.media(hostOf(origin), t0 === 'video' ? 'camera' : 'mic'); if (r === 'block') return false; if (r === 'allow') return true; }
       const ok = this.mediaOk.get(hostOf(origin));
       if (!ok) return false;
       // Picking which speakers the call plays through comes with the microphone, as in Chrome.
@@ -802,6 +813,57 @@ export class AangBrowser {
   }
 
   /** 6.22: "Block ads on this site" off or on, for the site he is on. Kept between runs. */
+  /** Sheet 37: one site's rules as the shield shows them. Login shows on for the job sites unless he turned it off. */
+  siteState(u: string): { host: string; ai: boolean; login: boolean; camera: Tri; mic: Tri; popupBlock: boolean } | null {
+    const host = siteKey(u);
+    if (!host || !isWeb(u)) return null;
+    const lr = this.rules.login(host);
+    return { host, ai: this.rules.ai(host), login: lr ?? JOB_SITES.includes(siteOf(host)), camera: this.rules.media(host, 'camera'), mic: this.rules.media(host, 'mic'),
+      popupBlock: this.prefs.popups && !this.popupOk.has(host) };
+  }
+  /** A rule changed from the shield (the site he is on) or from Settings (any site in the list). */
+  setSiteRule(key: string, value: unknown, site?: string): void {
+    const host = site ? siteKey(site) : siteKey(this.cur()?.url ?? '');
+    if (!host) return;
+    // On the site he is on, ads and dark mode go through their own switches, which also redo the open page.
+    if (!site && key === 'ads') { this.pauseAds(value !== true); return; }
+    if (!site && key === 'dark') { this.setDarkHere(value === true); return; }
+    if (key === 'ai' || key === 'login') this.rules.set(host, { [key]: value === true });
+    else if ((key === 'camera' || key === 'mic') && (value === 'allow' || value === 'ask' || value === 'block')) this.rules.set(host, { [key]: value });
+    else if (key === 'popups') {
+      if (value === true) this.popupOk.delete(host); else this.popupOk.add(host);
+      try { writeFileAtomic(this.popupOkFile, JSON.stringify([...this.popupOk])); } catch { /* best effort */ }
+      this.sync?.changed('prefs'); this.sendTabs(); this.pushSettings();
+    } else if (key === 'ads') {
+      if (value === true) this.paused.delete(host); else this.paused.add(host);
+      this.ads?.pause(host, value !== true);
+      try { writeFileAtomic(this.pausedFile, JSON.stringify([...this.paused])); } catch { /* best effort */ }
+      this.sync?.changed('prefs'); this.sendTabs(); this.pushSettings();
+    } else if (key === 'dark') {
+      const off = new Set(this.prefs.darkOff);
+      if (value === true) off.delete(host); else off.add(host);
+      this.prefs.darkOff = [...off].slice(-2000); this.savePrefs(); this.sendTabs(); this.pushSettings();
+      this.sync?.changed('prefs');
+    }
+  }
+  /** Forget every rule he set for one site (the x in Your sites): back to how every site starts. */
+  clearSite(site: string): void {
+    const host = siteKey(site);
+    if (!host) return;
+    this.rules.clear(host);
+    this.popupOk.delete(host); this.paused.delete(host); this.ads?.pause(host, false);
+    this.prefs.darkOff = this.prefs.darkOff.filter((h) => h !== host);
+    try { writeFileAtomic(this.popupOkFile, JSON.stringify([...this.popupOk])); writeFileAtomic(this.pausedFile, JSON.stringify([...this.paused])); } catch { /* best effort */ }
+    this.savePrefs(); this.sync?.changed('prefs'); this.sendTabs(); this.pushSettings();
+  }
+  /** Every site he set anything for, with all its rules, for Settings > Your sites. */
+  private yourSites(): { host: string; favicon: string; ai: boolean; login: boolean; ads: boolean; popups: boolean; dark: boolean; camera: Tri; mic: Tri; bank: boolean }[] {
+    const hosts = new Set<string>([...Object.keys(this.rules.all()), ...this.paused, ...this.popupOk, ...this.prefs.darkOff].map((h) => siteKey(h)).filter(Boolean));
+    return [...hosts].sort().slice(0, 500).map((host) => {
+      const u = 'https://' + host + '/', st = this.siteState(u)!;
+      return { host, favicon: this.iconOf(u), ai: st.ai, login: st.login, ads: !this.paused.has(host), popups: st.popupBlock, dark: this.darkWanted(u), camera: st.camera, mic: st.mic, bank: bankSite(u) };
+    });
+  }
   pauseAds(on: boolean): void {
     const t = this.cur();
     let host = '';
@@ -820,6 +882,7 @@ export class AangBrowser {
     if (!v || typeof v !== 'object') return;
     const L = v as Record<string, unknown>;
     const put = (f: string, set: Set<string>) => { try { writeFileAtomic(f, JSON.stringify([...set])); } catch { /* best effort */ } };
+    this.rules.takeFromPeer(L.siteRules);
     if (Array.isArray(L.popupOk)) { this.popupOk = new Set(hostList(L.popupOk)); put(this.popupOkFile, this.popupOk); }
     // A site the other computer added waits for his yes here; one it took off comes off here too.
     const meet = (incoming: unknown[], mine: Set<string>, other: Set<string>, file: string) => {
@@ -1527,7 +1590,7 @@ export class AangBrowser {
       home: this.prefs.home !== DEFAULT_HOME ? this.prefs.home : '', homeNow: this.HOME,
       search: this.prefs.search, aiBox: this.prefs.aiBox, startup: this.prefs.startup,
       ads: this.prefs.ads, popups: this.prefs.popups, sounds: this.sounds, dark: this.prefs.dark,
-      popupOk: [...this.popupOk].sort(), trusted: [...this.trusted].sort(), httpOk: [...this.httpOk].sort(),
+      popupOk: [...this.popupOk].sort(), trusted: [...this.trusted].sort(), httpOk: [...this.httpOk].sort(), sites: this.yourSites(),
       marks: this.marks.slice(0, 400).map((m) => ({ title: m.title, url: m.url, favicon: this.iconOf(m.url) })), markCount: this.marks.length,
       vault, phish: this.phish.count(),
       versions: { electron: process.versions.electron, chrome: process.versions.chrome }, mac: process.platform === 'darwin',
@@ -1557,10 +1620,10 @@ export class AangBrowser {
     if (list === 'popupOk' && this.popupOk.delete(v)) save(this.popupOkFile, this.popupOk);
     else if (list === 'trusted' && this.trusted.delete(v)) save(this.trustedFile, this.trusted);
     else if (list === 'httpOk' && this.httpOk.delete(v)) save(this.httpOkFile, this.httpOk);
-    if (list === 'trusted' && this.peerTrusted.delete(v)) save(this.trustedFile.replace(/\.json$/, '-other.json'), this.peerTrusted);
-    if (list === 'httpOk' && this.peerHttp.delete(v)) save(this.httpOkFile.replace(/\.json$/, '-other.json'), this.peerHttp);
     else if (list === 'marks') { const i = this.marks.findIndex((m) => m.url === v); if (i >= 0) { this.marks.splice(i, 1); this.saveMarks(); } }
-    else return;
+    else if (list !== 'trusted' && list !== 'httpOk') return;
+    if (list === 'trusted' && this.peerTrusted.delete(v)) save(this.trustedFile.replace(/[.]json$/, '-other.json'), this.peerTrusted);
+    if (list === 'httpOk' && this.peerHttp.delete(v)) save(this.httpOkFile.replace(/[.]json$/, '-other.json'), this.peerHttp);
     if (list !== 'marks') this.sync?.changed('prefs');
     this.sendTabs();
     this.pushSettings();
@@ -2135,7 +2198,7 @@ export class AangBrowser {
     },
     // SY (his "sync everything", 2026-10-14): the lists he made travel with the settings. Money sites never do.
     prefs: () => ({ sounds: this.sounds, ...this.prefs, lists: {
-      popupOk: [...this.popupOk], trusted: [...this.trusted, ...this.peerTrusted], httpOk: [...this.httpOk, ...this.peerHttp], adsPaused: [...this.paused],
+      popupOk: [...this.popupOk], trusted: [...this.trusted, ...this.peerTrusted], httpOk: [...this.httpOk, ...this.peerHttp], adsPaused: [...this.paused], siteRules: this.rules.all(),
       stash: this.stash.map((x) => ({ ...x, tabs: x.tabs.filter((t) => urlKept(t.url)) })),
     } }) as Record<string, unknown>,
     setPrefs: (p: Record<string, unknown>) => {
@@ -2905,6 +2968,7 @@ export class AangBrowser {
       adsPaused: (() => { try { return this.paused.has(new URL(t?.url ?? '').hostname.replace(/^www\./, '')); } catch { return false; } })(),
       adsOn: Boolean(this.ads),
       darkHere: this.darkWanted(t?.url ?? ''), darkAll: this.prefs.dark,
+      site: this.siteState(t?.url ?? ''),
       sounds: this.sounds,
       prefs: this.prefs,
       // The shelf: the bar ones first, as in Chrome, then the rest. Only what the shelf can show is sent.

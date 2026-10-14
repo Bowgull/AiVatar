@@ -102,6 +102,18 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--wood2);font:500 
 .bandchip.share .ssound input{width:16px;height:16px;accent-color:var(--gold-deep)}
 .bandchip.share .key:disabled{opacity:.5;cursor:default}
 .adrow{display:flex;align-items:center;gap:10px;margin-top:8px;cursor:pointer}
+/* Sheet 37: the shield's rows. A pixel icon, the rule, its switch or its Allow / Ask / Block key. */
+.srow{display:flex;align-items:center;gap:10px;margin-top:9px}
+.srow .sic{width:24px;flex:none;display:grid;place-items:center}
+.srow b{flex:1;font:700 14px var(--body);color:var(--carve-ink)}
+.ssec{font:400 9px var(--label);letter-spacing:1.5px;color:#8a3e1c;margin:14px 0 0;padding-top:10px;border-top:2px dashed rgba(90,60,30,.35)}
+.bandchip.site .q img{width:20px;height:20px;border-radius:4px;flex:none}
+.bandchip.site .q span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#sitepanel .sw.on .bed{background:#2a8f82;box-shadow:inset 0 3px 0 rgba(0,0,0,.4),0 0 8px rgba(159,240,230,.55)}
+#sitepanel .sw.on .nub{left:27px;background:linear-gradient(180deg,#e9fffb,#9FF0E6)}
+#sitepanel .sw:disabled{opacity:.45;cursor:default}
+.key.tri{min-width:64px;justify-content:center}
+.key.burnt{background:#C8602A;color:#fff2e4;text-shadow:0 1px 0 rgba(0,0,0,.5)}
 .adrow b{display:block;font:700 14px var(--body);color:var(--carve-ink)}
 .adrow small{display:block;font:500 12px var(--body);color:#5a4834}
 .sw{background:none;border:none;padding:0;cursor:pointer;flex:0 0 auto}
