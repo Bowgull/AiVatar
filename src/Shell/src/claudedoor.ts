@@ -20,7 +20,7 @@ import { neverKeep } from './visits.ts';
 import type { AangBrowser } from './browser.ts';
 
 export const CLAUDE_DOOR_PORT = 47851;
-const OPS = new Set(['start', 'finish', 'open', 'read', 'find', 'jobs', 'collect', 'click', 'type', 'key', 'select', 'back', 'forward', 'scroll', 'picture', 'close', 'history']);
+const OPS = new Set(['start', 'finish', 'open', 'read', 'find', 'jobs', 'collect', 'click', 'type', 'key', 'select', 'back', 'forward', 'scroll', 'picture', 'close', 'history', 'note']);
 
 /** Is this request allowed through the door at all? Pure, so it can be tested without a server. */
 export function doorAllows(req: { method?: string; url?: string; headers: Record<string, string | string[] | undefined>; peer: string }, key: string, port: number): boolean {
@@ -56,7 +56,7 @@ export function startClaudeDoor(getBrowser: () => AangBrowser | null, stateDir: 
           if (!b) out = { ok: false, error: "Aang's browser is not running." };
           else if (!OPS.has(op)) out = { ok: false, error: 'not a step this door allows' };
           else if (op === 'open' && neverKeep(String(a.url ?? ''))) out = { ok: false, error: 'bank and money sites are never opened for a Claude session (his rule). He has to do that himself.' };
-          else if (op !== 'start' && op !== 'history' && !(
+          else if (op !== 'start' && op !== 'history' && op !== 'note' && !(
             (op === 'open' || op === 'finish') ? mine.has(Number(a.job)) : mine.has(b.pageJob(Number(a.page)) ?? -1))) out = { ok: false, error: 'that is not a page this Claude session opened' };
           else {
             const step = op === 'start' ? { kind: 'claude', name: String(a.name ?? 'Claude').slice(0, 40) } : { ...a, allowed: false };
