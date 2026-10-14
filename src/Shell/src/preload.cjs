@@ -177,6 +177,7 @@ contextBridge.exposeInMainWorld('aang', {
   browserAdPause: on => ipcRenderer.send('browser:adpause', on),
   browserDarkHere: on => ipcRenderer.send('browser:darkhere', on),
   browserSiteRule: (key, value) => ipcRenderer.send('browser:siterule', { key, value }),
+  browserMark: (act, title) => ipcRenderer.send('browser:mark', { act, title }),
   // Sheet 37: a Claude session's plan, and his answer to it.
   onBrowserPlan: cb => ipcRenderer.on('browser:plan', (_e, card) => cb(card)),
   browserPlanReply: (id, answer) => ipcRenderer.send('browser:planreply', { id, ...answer }),

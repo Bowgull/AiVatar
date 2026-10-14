@@ -220,7 +220,28 @@ el('vaultform').addEventListener('submit', (e) => {
 });
 el('vaultno').addEventListener('click', () => { vaultpw.value = ''; window.aang?.browserAct?.('vaultcancel'); });
 vaultpw.addEventListener('keydown', (e) => { if (e.key === 'Escape') { vaultpw.value = ''; window.aang?.browserAct?.('vaultcancel'); } });
-el('star').addEventListener('click', (e) => { e.stopPropagation(); tap(1.2); window.aang?.browserAct?.('star'); });
+// The star (his ask, 2026-10-14: "edit the name it saves as"): saves the page, and its panel opens with the name ready to
+// type over. On a saved page it opens the same panel to rename or remove it.
+el('star').addEventListener('click', (e) => {
+  e.stopPropagation(); tap(1.2);
+  const fresh = !state.starred;
+  if (fresh) window.aang?.browserAct?.('star');
+  const t = state.tabs.find((x) => x.id === state.active);
+  el('markhead').textContent = fresh ? 'Bookmark saved' : 'Bookmark';
+  el('markname').value = (fresh ? t?.title : state.markTitle) || t?.title || '';
+  const band = el('band').getBoundingClientRect(), r = el('star').getBoundingClientRect();
+  el('markpanel').style.left = Math.max(8, Math.round(r.left + r.width / 2 - band.left - 33)) + 'px';
+  el('markpanel').hidden = false;
+  el('markname').focus(); el('markname').select();
+});
+const markClose = (save) => { if (el('markpanel').hidden) return; if (save) window.aang?.browserMark?.('rename', el('markname').value); el('markpanel').hidden = true; };
+el('markdone').addEventListener('click', () => markClose(true));
+el('markremove').addEventListener('click', () => { window.aang?.browserMark?.('remove'); el('markpanel').hidden = true; });
+el('markname').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); markClose(true); } else if (e.key === 'Escape') { e.preventDefault(); markClose(true); } });
+// Clicking anywhere else keeps the name as typed, the way Chrome does.
+document.addEventListener('mousedown', (e) => { if (!el('markpanel').hidden && !el('markpanel').contains(e.target) && !el('star').contains(e.target)) markClose(true); });
+let markOver = false;
+new MutationObserver(() => { const open = !el('markpanel').hidden; if (open === markOver) return; markOver = open; if (open) freeze('mark'); else unfreeze('mark'); }).observe(el('markpanel'), { attributes: true, attributeFilter: ['hidden'] });
 document.addEventListener('click', () => closeMenu());
 window.aang?.onBrowserFrozen?.((src) => {
   if (typeof src === 'string' && src.startsWith('data:image/')) {

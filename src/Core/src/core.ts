@@ -2760,9 +2760,16 @@ export class Core {
    *  the lines added since the version the Mac runs. */
   private macPlainNotes(fromCommit: string): string[] {
     const items = this.whatsNew();
-    const since = /^[0-9a-f]{6,40}$/.test(fromCommit) ? Date.parse(this.git(['show', '-s', '--format=%cI', fromCommit])) : NaN;
-    const fresh = items.filter(i => typeof i?.text === 'string' && (!Number.isFinite(since) || Date.parse(i.at) > since)).map(i => i.text.slice(0, 160));
-    const lines = (Number.isFinite(since) ? fresh : fresh.slice(-6)).slice(-12);
+    // New = not already in the list the Mac's own version shipped with (his report, 2026-10-14: the same lines came back
+    // in every update, because a line's time, not the version, decided what was new).
+    let had: Set<string> | null = null;
+    if (/^[0-9a-f]{6,40}$/.test(fromCommit)) {
+      const old = this.git(['show', `${fromCommit}:src/Shell/whats-new.json`]);
+      try { had = new Set(((JSON.parse(old) as { items?: { text?: string }[] }).items ?? []).map(i => String(i?.text ?? ''))); } catch { had = null; }
+    }
+    const seen = new Set<string>();
+    const fresh = items.filter(i => typeof i?.text === 'string' && !(had?.has(i.text)) && !seen.has(i.text) && (seen.add(i.text), true)).map(i => i.text.slice(0, 160));
+    const lines = (had ? fresh : fresh.slice(-6)).slice(-12);
     return lines.length ? lines : ['Small fixes to keep things running smoothly.'];
   }
   /** Shipped (his ask, 2026-10-14: the key came up while Claude was still working): a version is offered only once

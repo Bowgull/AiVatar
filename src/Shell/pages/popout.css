@@ -181,3 +181,6 @@ html,body{ background:#24160D }
   box-shadow:inset 2px 2px 0 rgba(255,225,160,.15), 0 3px 0 rgba(0,0,0,.55) }
 .skip .undo{ border-radius:4px; border-width:2px; background:#FFC43C; box-shadow:inset 2px 2px 0 rgba(255,245,200,.7), inset -2px -2px 0 rgba(120,80,10,.5), 0 2px 0 var(--outline) }
 .frame.faded .bar, .frame.faded .ctrl{ overflow:hidden }
+
+/* The see-through slider's icon is a label, not a key (his report, 2026-10-14): flat, no raise, nothing to press. */
+.seeicon{display:inline-grid;place-items:center;width:18px;height:22px;flex:none;opacity:.9;pointer-events:none}

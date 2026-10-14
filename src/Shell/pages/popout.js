@@ -130,12 +130,7 @@ window.aang.onPopoutPinned?.((on) => {
   frame.classList.remove('faded');
   pinSay = setTimeout(() => { what.textContent = what.dataset.was ?? ''; delete what.dataset.was; if (pinned || player.state.playing) frame.classList.add('faded'); }, 2000);
 });
-el('seethroughicon').addEventListener('click', () => {
-  // A tap on the half-moon goes back to solid, which is the one he will want most often.
-  seeThrough = 1;
-  window.aang.popoutOpacity(1);
-  paintSeeThrough();
-});
+// The half-moon in front of the see-through slider is a flat label, not a key (his report, 2026-10-14).
 
 // ---------------------------------------------------------------- painting the state
 // Pixel shapes, on the same grid as every other icon of Aang's (the browser's look, 2026-10-11).

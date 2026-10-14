@@ -113,6 +113,11 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--wood2);font:500 
 #sitepanel .sw.on .nub{left:27px;background:linear-gradient(180deg,#e9fffb,#9FF0E6)}
 #sitepanel .sw:disabled{opacity:.45;cursor:default}
 .key.tri{min-width:64px;justify-content:center}
+/* The star's panel: name the bookmark */
+.bandchip.markpanel{width:300px}
+.markname{display:block;width:100%;box-sizing:border-box;margin:10px 0 0;padding:8px 10px;border-radius:8px;border:2.5px solid #6b5132;background:#fff6e4;
+  font:600 14px var(--body);color:#271c10;outline:none}
+.markname:focus{border-color:var(--outline);box-shadow:0 0 0 3px var(--gold)}
 /* Sheet 37: the plan tray (the update tray's frame) */
 .plantray{right:auto;left:50%;transform:translateX(-50%)}
 .plantray .prow{display:flex;align-items:center;gap:9px;margin:5px 0;font:600 13.5px var(--body);color:#2a1c0c}
