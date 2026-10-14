@@ -116,10 +116,10 @@ export function startClaudeDoor(getBrowser: () => AangBrowser | null, stateDir: 
           const a = (m.a && typeof m.a === 'object' ? m.a : {}) as Record<string, unknown>;
           const b = getBrowser();
           if (op === 'companies') out = await checkCompanies(stateDir, Array.isArray(a.only) ? (a.only as unknown[]).map(String) : []);
-          else if (!b) out = { ok: false, error: "Aang's browser is not running." };
+          else if (!b) out = { ok: false, error: "Samara (Aang's browser) is not running." };
           else if (!OPS.has(op)) out = { ok: false, error: 'not a step this door allows' };
           // Indeed (and its Glassdoor) checks browsers it does not know; their official connector is the way in (2026-10-14).
-          else if (op === 'open' && /^https?:\/\/([^/]*\.)?(indeed|glassdoor)\.[a-z.]+(\/|$)/i.test(String(a.url ?? ''))) out = { ok: false, error: "Indeed and Glassdoor are not opened in Aang's browser: they put up security checks. Use the official Indeed connector (search_jobs) instead." };
+          else if (op === 'open' && /^https?:\/\/([^/]*\.)?(indeed|glassdoor)\.[a-z.]+(\/|$)/i.test(String(a.url ?? ''))) out = { ok: false, error: "Indeed and Glassdoor are not opened in Samara: they put up security checks. Use the official Indeed connector (search_jobs) instead." };
           else if (op === 'open' && neverKeep(String(a.url ?? ''))) out = { ok: false, error: 'bank and money sites are never opened for a Claude session (his rule). He has to do that himself.' };
           else if (op !== 'start' && op !== 'history' && op !== 'note' && !(
             (op === 'open' || op === 'finish' || op === 'rename') ? mine.has(Number(a.job)) : op === 'sweep_status' ? mine.has(b.pageJob(b.sweepPage(Number(a.id)) ?? -1) ?? -1) : mine.has(b.pageJob(Number(a.page)) ?? -1))) out = { ok: false, error: 'that is not a page this Claude session opened' };
@@ -130,7 +130,7 @@ export function startClaudeDoor(getBrowser: () => AangBrowser | null, stateDir: 
             if (out.needs === 'lever') {
               const yes = await b.askForClaude(String(out.what ?? 'do that'));
               out = yes === true ? await b.drive(op, { ...a, allowed: true })
-                : { ok: false, error: yes === null ? "That needs his OK in Aang's browser, and the browser is not open. Ask him to open it, or to do it himself." : 'He said no.' };
+                : { ok: false, error: yes === null ? "That needs his OK in Samara, and Samara is not open. Ask him to open it, or to do it himself." : 'He said no.' };
             }
           }
           if (op === 'start' && out.ok === true && Number.isInteger(out.job)) mine.add(out.job as number);

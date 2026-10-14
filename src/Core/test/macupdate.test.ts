@@ -34,11 +34,16 @@ const byHand = macSetupScript('100.91.66.119', 47832, 'h'.repeat(24), 'm'.repeat
 test('the update keeps the old Aang, says which version is installed, and puts the old one back if the new one fails', () => {
   assert.match(update, /mv "\$APP" "\$APP\.prev"/, 'the old Aang is kept');
   assert.match(update, /"version":"0123456789abcdef","commit":"abc123def456","status":"trial"/, 'on trial until it has run');
-  assert.match(update, /trap 'open -a "\$HOME\/Applications\/Aang\.app"/, 'Aang always opens again');
-  assert.match(update, /pgrep -f "Aang\.app\/Contents\/MacOS\/"[\s\S]*mv "\$APP\.prev" "\$APP"[\s\S]*failed-updates\.txt/, 'the old one goes back, and that version is not offered again');
+  assert.match(update, /trap 'open -a "\$HOME\/Applications\/Samara\.app"/, 'Aang always opens again');
+  assert.match(update, /pgrep -f "Samara\.app\/Contents\/MacOS\/"[\s\S]*mv "\$APP\.prev" "\$APP"[\s\S]*failed-updates\.txt/, 'the old one goes back, and that version is not offered again');
   const end = update.search(/^exit 0$/m);
   assert.ok(end > 0 && end < update.indexOf('6/6  Checking the line back'), 'the update ends before the setup checks at the end');
   assert.match(byHand, /"status":"good"/, 'run by hand: installed as good');
+  // Samara (2026-10-14): what he sees is Samara; inside it stays Aang, so his logins and default browser carry over.
+  assert.match(byHand, /CFBundleName Aang" -c "Set :CFBundleIdentifier com\.aang\.browser"/, 'the inside name and id are unchanged');
+  assert.match(byHand, /CFBundleDisplayName Samara/);
+  assert.match(byHand, /mv "\$OLD" "\$APP\.prev"[\s\S]*rm -rf "\$OLD"/, 'the old Aang.app is moved aside, then gone');
+  assert.match(byHand, /samara-\$s\.png/, 'the lantern icon, size by size');
   assert.doesNotMatch(byHand, /trap 'open -a/, 'by hand, nothing reopens by itself');
 });
 
