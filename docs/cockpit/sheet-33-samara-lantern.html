@@ -18,12 +18,12 @@
   h1{font:400 20px Silkscreen,monospace;color:#FFC43C;letter-spacing:2px;margin:0 0 4px}
   .lead{color:#b9a684;font-size:14px;margin:0 0 22px;max-width:1150px;line-height:1.5}
   canvas{image-rendering:pixelated;image-rendering:crisp-edges;display:block}
-  .opt{background:#24170e url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;border:3px solid #0d0703;border-radius:12px;padding:18px;box-shadow:0 4px 0 #000;margin-bottom:22px;display:grid;grid-template-columns:300px 1fr;gap:22px;max-width:1150px}
+  .opt{background:#24170e url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;border:3px solid #0d0703;border-radius:12px;padding:18px;box-shadow:0 4px 0 #000;margin-bottom:22px;display:grid;grid-template-columns:1fr;gap:16px;max-width:1150px}
   .opt h2{font:400 11px Silkscreen,monospace;color:#FFC43C;letter-spacing:1.5px;margin:0 0 2px}
   .opt .nm{font:700 24px Cinzel,serif;color:#fbe7bf;text-shadow:2px 2px 0 #000;margin:0 0 6px}
   .opt p{font-size:13.5px;color:#c9b48c;line-height:1.45;margin:0 0 10px}
-  .hero{background:#120a04;border-radius:10px;display:flex;gap:14px;align-items:flex-end;justify-content:center;padding:14px}
-  .hero .s{display:flex;flex-direction:column;align-items:center;gap:4px;font:400 8px Silkscreen,monospace;color:#8a7658}
+  .hero{background:#777;border-radius:10px;display:flex;gap:18px;align-items:flex-start;justify-content:flex-start;padding:14px;margin-top:10px;width:max-content}
+  .hero .s{display:flex;flex-direction:column;align-items:center;gap:6px;font:400 8px Silkscreen,monospace;color:#2a2a2a}
   .ctx{display:flex;flex-direction:column;gap:12px}
   .lbl{font:400 8.5px Silkscreen,monospace;letter-spacing:1px;color:#a89470;margin-bottom:4px}
   .wall{padding:14px 16px;border-radius:10px;background:linear-gradient(135deg,#3b4a6b,#7a5a7e 55%,#c78a5a)}
@@ -216,7 +216,7 @@ for (const ic of ICONS) {
   const o = document.createElement('div'); o.className = 'opt';
   const left = document.createElement('div'); left.innerHTML = `<h2>${ic.tag}</h2><div class="nm">${ic.name}</div><p>${ic.why}</p>`;
   const hero = document.createElement('div'); hero.className = 'hero';
-  for (const [g, s, l] of [[a64, 3, '64'], [a32, 2, '32'], [a16, 2, '16']]) { const d = document.createElement('div'); d.className = 's'; d.append(paint(g, s), Object.assign(document.createElement('span'), { textContent: l + ' PX' })); hero.append(d); }
+  for (const [g, s, l] of [[a64, 3, '64'], [a32, 4, '32'], [a16, 8, '16']]) { const d = document.createElement('div'); d.className = 's'; d.append(paint(g, s), Object.assign(document.createElement('span'), { textContent: l + ' PX' })); hero.append(d); }
   left.append(hero);
   const ctx = document.createElement('div'); ctx.className = 'ctx';
   const sec = (label, ...els) => { const s = document.createElement('div'); s.innerHTML = `<div class="lbl">${label}</div>`; const r = document.createElement('div'); r.className = 'row'; r.append(...els); s.append(r); ctx.append(s); };

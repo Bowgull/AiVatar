@@ -2630,6 +2630,17 @@ export class Core {
       this.macOfferNow(reply);
       return;
     }
+    // His rule (2026-10-14): an update that fails is never just quietly undone; the Mac sends what happened, it is
+    // kept here for Claude to read (mac-update-reports/, newest last), and Aang tells him if it did not take.
+    if (m.t === 'update.report') {
+      const ok = m.ok === true, version = String(m.version ?? '').slice(0, 64), outcome = String(m.outcome ?? '').slice(0, 200);
+      const dir = path.join(this.cfg.stateDir, 'mac-update-reports');
+      const file = path.join(dir, `${new Date().toISOString().replace(/[:.]/g, '-')}-${ok ? 'ok' : 'FAILED'}-${version.replace(/[^0-9a-f]/g, '')}.json`);
+      try { mkdirSync(dir, { recursive: true }); writeFileAtomic(file, JSON.stringify({ at: new Date().toISOString(), ok, version, outcome, installed: m.installed ?? null, updateLog: String(m.updateLog ?? '').slice(-60_000), aangLog: String(m.aangLog ?? '').slice(-30_000) }, null, 1)); } catch (e) { console.error('update key: could not keep the Mac report: ' + (e as Error).message); }
+      console.log(`update key: the Mac reports ${version}: ${ok ? 'installed and running' : 'FAILED'} (${outcome}). Report: ${file}`);
+      if (!ok) this.announce(`The Mac update didn't take: ${outcome}. Your Mac is back on the version before it. I saved the full report for Claude, so ask Claude to look at the last Mac update report.`);
+      return;
+    }
     // update.get: he pressed Restart now on the Mac.
     const ts = this.hookServer?.tailnet, r = this.macRelease();
     const desk = ts ? this.frontDeskFor() : null;
