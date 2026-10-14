@@ -27,7 +27,7 @@ export interface PopoutWiring {
 }
 
 export function wirePopout(o: PopoutWiring): void {
-  const from = (e: Electron.IpcMainEvent) => { const w = o.popout()?.window; return Boolean(w && e.sender === w.webContents); };
+  const from = (e: Electron.IpcMainEvent) => { const w = o.popout()?.window; return Boolean(w && e.sender === w.webContents && e.senderFrame?.parent === null); };
   ipcMain.on('popout:hide', (e) => { if (from(e)) o.popout()?.toggleHidden(); });
   ipcMain.on('popout:close', (e) => { if (from(e)) o.popout()?.close(); });
   ipcMain.on('popout:opacity', (e, v) => { if (from(e) && typeof v === 'number') o.popout()?.setOpacity(v); });

@@ -1289,7 +1289,7 @@ function openPopout(url: string): boolean {
 
 function fromPopout(e: Electron.IpcMainEvent): boolean {
   const w = popout?.window;
-  return Boolean(w && e.sender === w.webContents);
+  return Boolean(w && e.sender === w.webContents && e.senderFrame?.parent === null);
 }
 
 /**
@@ -1301,13 +1301,13 @@ function fromPopout(e: Electron.IpcMainEvent): boolean {
  */
 function fromInput(e: Electron.IpcMainEvent): boolean {
   const w = input?.window();
-  return Boolean(w && !w.isDestroyed() && e.sender === w.webContents);
+  return Boolean(w && !w.isDestroyed() && e.sender === w.webContents && e.senderFrame?.parent === null);
 }
 
 /** Did this come from window 2, the desk? Its own check, like every other window's. */
 function fromDesk(e: Electron.IpcMainEvent): boolean {
   const w = windows.get('desk');
-  return Boolean(w && !w.isDestroyed() && e.sender === w.webContents);
+  return Boolean(w && !w.isDestroyed() && e.sender === w.webContents && e.senderFrame?.parent === null);
 }
 
 /** 6.17: Snipit, and the snips waiting on the typing box to go with his next message. */
@@ -1369,7 +1369,7 @@ function openDesk(tab: number): void {
 
 function fromBubble(e: Electron.IpcMainEvent): boolean {
   const w = bubble?.window();
-  return Boolean(w && !w.isDestroyed() && e.sender === w.webContents);
+  return Boolean(w && !w.isDestroyed() && e.sender === w.webContents && e.senderFrame?.parent === null);
 }
 
 app.on('will-quit', () => globalShortcut.unregisterAll());

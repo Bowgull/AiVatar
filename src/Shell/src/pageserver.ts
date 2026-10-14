@@ -41,6 +41,8 @@ export function servePages(dir: string): Promise<PageServer> {
     // another origin: a module script is always fetched in CORS mode, so the browser sends an Origin
     // header even for Aang's own files. Refusing those refused player.js and left every control dead,
     // found 2026-10-04. So: no Origin at all is fine, our own Origin is fine, anyone else is not.
+    // Only by its own address (code audit L4, 2026-10-14): a web page that points its own name at this computer is refused.
+    if (origin && String(req.headers.host ?? '') !== origin.replace(/^http:\/\//, '')) { res.writeHead(403).end(); return; }
     const from = req.headers.origin;
     if (from && from !== origin) {
       console.error(`pages: refused a request from ${String(from).slice(0, 80)}`);
