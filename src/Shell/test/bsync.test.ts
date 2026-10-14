@@ -126,3 +126,24 @@ test('one video at a time: something starting on one machine pauses the other', 
   await wait(20);
   assert.equal(paused, 1);
 });
+
+test('security audit H2: the sync never keeps a login on disk, and an older file is cleaned on start', async () => {
+  const { readFileSync, writeFileSync } = await import('node:fs');
+  const dirA = mkdtempSync(path.join(os.tmpdir(), 'bs-')), dirB = mkdtempSync(path.join(os.tmpdir(), 'bs-'));
+  const a = new Pretend(), b = new Pretend();
+  let sa: BrowserSync, sb: BrowserSync;
+  sa = new BrowserSync({ target: a, stateDir: dirA, now: () => ++clock, send: (m: SyncMsg) => void sb.got(JSON.parse(JSON.stringify(m))) });
+  sb = new BrowserSync({ target: b, stateDir: dirB, now: () => ++clock, send: (m: SyncMsg) => void sa.got(JSON.parse(JSON.stringify(m))) });
+  await sa.link(true); await sb.link(true); await wait(30);
+  sa.cookie({ name: 'li_at', value: 'SECRET-SESSION', domain: '.linkedin.com', path: '/', secure: true, httpOnly: true, expirationDate: 4_000_000_000 }, false);
+  await wait(1700);
+  assert.equal(b.jar.get('.linkedin.com|/|li_at')?.value, 'SECRET-SESSION', 'the login still travels');
+  for (const d of [dirA, dirB]) assert.doesNotMatch(readFileSync(path.join(d, 'browser-sync.json'), 'utf8'), /SECRET-SESSION/, 'and is never written down');
+  // A file from before the fix, with a value in it, is cleaned the moment the sync starts.
+  const old = mkdtempSync(path.join(os.tmpdir(), 'bs-'));
+  writeFileSync(path.join(old, 'browser-sync.json'), JSON.stringify({ marksAt: 1, prefsAt: 1, tabsAt: 1, cookies: { '.x.com|/|s': { at: 5, c: { name: 's', value: 'OLD-SECRET', domain: '.x.com', path: '/' } } } }));
+  new BrowserSync({ target: new Pretend(), stateDir: old, send: () => {} });
+  const after = readFileSync(path.join(old, 'browser-sync.json'), 'utf8');
+  assert.doesNotMatch(after, /OLD-SECRET/);
+  assert.match(after, /"\.x\.com\|\/\|s":\{"at":5,"c":\{\}\}/, 'when it changed is kept');
+});

@@ -120,13 +120,20 @@ export class BrowserSync {
     this.file = `${o.stateDir}/browser-sync.json`;
     try { if (existsSync(this.file)) { const s = JSON.parse(readFileSync(this.file, 'utf8')); this.s = { marksAt: +s.marksAt || 0, prefsAt: +s.prefsAt || 0, tabsAt: +s.tabsAt || 0, cookies: s.cookies && typeof s.cookies === 'object' ? s.cookies : {} }; } } catch { /* fresh */ }
     this.lastTabSig = tabSig(o.target.tabSnap());
+    // A file written before 2026-10-14 still holds login values: rewritten without them, now.
+    if (Object.values(this.s.cookies).some((v) => v.c && typeof (v.c as SyncCookie).value === 'string')) this.save();
   }
   private now() { return (this.o.now ?? Date.now)(); }
   private save() {
     // Old removals are forgotten after 30 days: by then both machines have long agreed.
     const cut = this.now() - 30 * DAY;
     for (const [k, v] of Object.entries(this.s.cookies)) if (!v.c && v.at < cut) delete this.s.cookies[k];
-    try { writeFileAtomic(this.file, JSON.stringify(this.s)); } catch { /* next change */ }
+    // Never a login's value on disk (security audit H2, 2026-10-14: this file was a second, plain copy of every synced
+    // login). What the sync needs between runs is only WHEN each cookie last changed and whether it was removed; the
+    // live values are always read fresh from the browser's own cookie store when the machines catch up.
+    const cookies: Record<string, { at: number; c: SyncCookie | null }> = {};
+    for (const [k, v] of Object.entries(this.s.cookies)) cookies[k] = { at: v.at, c: v.c ? ({} as SyncCookie) : null };
+    try { writeFileAtomic(this.file, JSON.stringify({ ...this.s, cookies })); } catch { /* next change */ }
   }
   private log(s: string) { this.o.log?.(s); }
   private send(m: SyncMsg) { if (this.connected) this.o.send(m); }
