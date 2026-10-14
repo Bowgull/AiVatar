@@ -356,4 +356,4 @@ export function applyPrompt(cards: Card[]): string {
   ].join('\n');
 }
 
-export const SWEEP_REQUEST = 'Run my job search for today: sweep and screen only. Do not apply to anything. When you are done, write the shortlist of jobs worth applying to as JSON to shortlist.json in my job-hunt data folder, as described in the "Handoff with Aang" section of the skill.';
+export const SWEEP_REQUEST = 'Run my job search for today: sweep and screen only. Do not apply to anything. Use the Aang browser for the job sites (the aang-browser tools: browser_open, browser_read...), not Claude in Chrome: it is signed in, reads pages as text, and asks me before anything is sent. Go at a human pace and stop if a site shows a check or a captcha. When you are done, write the shortlist of jobs worth applying to as JSON to shortlist.json in my job-hunt data folder, as described in the "Handoff with Aang" section of the skill.';
