@@ -40,6 +40,14 @@ import { Driver, type Job } from './driver.ts';
 import { Downloads, kindOf, trayOf, type Dl } from './dlist.ts';
 
 /** A site name scrambled with this PC's own key: the file alone says nothing about where he has accounts. */
+/** What the update tray shows (sheet 35): the title ("Version 1.1.0: Gojo"), what the update does as groups of lines (a
+ *  line with a key is a tick box he can untick), whether he can go back, and his overnight setting. */
+export interface UpdateCard {
+  version: string; since: number; title?: string;
+  groups?: { name: string; items: { text: string; note?: string; key?: string; on?: boolean }[] }[];
+  canBack?: boolean; overnight?: boolean;
+  notes?: string[]; checks?: string[]; kind?: string;
+}
 const SAMARA_ICON = path.join(import.meta.dirname, '..', 'pages', 'art', 'samara', 'samara.ico');
 const scramble = (key: string, host: string) => createHmac('sha256', key).update(host.toLowerCase()).digest('hex').slice(0, 32);
 import { PhishCheck } from './phish.ts';
@@ -593,8 +601,11 @@ export class AangBrowser {
     this.onCall?.(on);
   }
   /** 6.28: a tested engine waiting for his Restart now (the update key), or null. */
-  private update: { version: string; since: number; title?: string; kind?: string; notes?: string[]; checks?: string[] } | null = null;
-  setUpdate(u: { version: string; since: number; title?: string; kind?: string; notes?: string[]; checks?: string[] } | null): void { this.update = u; this.sendTabs(); }
+  private update: UpdateCard | null = null;
+  setUpdate(u: UpdateCard | null): void { this.update = u; this.sendTabs(); }
+  /** After an update put in overnight: what it did, shown once by the ... key (sheet 35). */
+  private updated: { title: string; lines: string[] } | null = null;
+  setUpdated(d: { title: string; lines: string[] } | null): void { this.updated = d; this.sendTabs(); }
   /** Why Restart now did not go ahead, in the update tray. */
   updateWhy(why: string): void { for (const p of this.panes) if (this.alive(p)) p.win!.webContents.send('browser:updatewhy', why); }
   /** The browser window is open. */
@@ -2812,7 +2823,7 @@ export class AangBrowser {
     const send = (data: Record<string, unknown>) => { w.webContents.send('browser:tabs', data); tray?.send('browser:tabs', data); };
     send({
       active: this.active,
-      update: this.update, inCall: this.inCall,
+      update: this.update, updated: this.updated, inCall: this.inCall,
       canBack: Boolean(wc?.navigationHistory.canGoBack()), canForward: Boolean(wc?.navigationHistory.canGoForward()),
       tabs: mine.map((x) => ({ id: x.id, opener: x.opener, title: x.title, url: x.url, favicon: x.favicon, loading: x.loading, phase: x.phase ?? (x.loading ? 'loading' : 'idle'), prog: x.prog ?? 0, pending: x.pending ?? null, audible: x.audible, muted: x.muted, crashed: x.crashed, asleep: !x.view, blocked: x.blocked, failed: x.failed, trail: x.trail, done: x.done, lent: x.lent, popup: x.blockedPopup?.url ?? null })),
       // The trails with a tab in this window (or the one about to start here).

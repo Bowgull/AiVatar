@@ -37,9 +37,12 @@ app.whenReady().then(async () => {
     ['16', 16, 1], ['24', 24, 1], ['32', 32, 1], ['48', 24, 2], ['64', 64, 1], ['128', 64, 2], ['256', 64, 4], ['512', 64, 8], ['1024', 64, 16],
   ];
   const urls: Record<string, string> = await w.webContents.executeJavaScript(`(() => { const out = {}; for (const [name, n, s] of ${JSON.stringify(want)}) out[name] = paint(ICONS[0].art(n), s).toDataURL('image/png'); return out; })()`);
+  // The lantern on its own, no plum tile (his ask, 2026-10-14: for the morning brief's update row).
+  const bare: Record<string, string> = await w.webContents.executeJavaScript(`(() => ({ 16: paint(lantern16(), 1).toDataURL('image/png'), 32: paint(lantern(grid(32), 32, { leaf: true }), 1).toDataURL('image/png'), 64: paint(lantern(grid(64), 64, { leaf: true }), 1).toDataURL('image/png') }))()`);
   mkdirSync(OUT, { recursive: true });
   const png = (name: string) => Buffer.from(urls[name]!.split(',')[1]!, 'base64');
   for (const name of Object.keys(urls)) writeFileSync(path.join(OUT, `samara-${name}.png`), png(name));
+  for (const [n, u] of Object.entries(bare)) writeFileSync(path.join(OUT, `samara-lantern-${n}.png`), Buffer.from(u.split(',')[1]!, 'base64'));
   writeFileSync(path.join(OUT, 'samara.ico'), ico(['16', '24', '32', '48', '64', '256'].map((n) => ({ size: Number(n), data: png(n) }))));
   console.log('wrote ' + Object.keys(urls).length + ' PNGs and samara.ico to ' + OUT);
   app.exit(0);

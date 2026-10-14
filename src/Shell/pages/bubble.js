@@ -830,17 +830,18 @@ function showBrief(b) {
   const body = T('div', 'lt-body');
   const slip = (title) => { const s = T('div', 'lt-slip'); s.append(T('h3', '', title)); return s; };
   const job = slip('JOB HUNT'), wait = slip('WAITING ON YOU'), today = slip('TODAY');
-  const tile = (iconName, logo) => {
+  const tile = (iconName, logo, art) => {
     const t = T('div', 'lt-tile' + (logo ? ' round' : ''));
-    if (logo && /^data:image\//.test(logo)) { const i = document.createElement('img'); i.src = logo; i.alt = ''; t.append(i); }
+    if (art) { const i = document.createElement('img'); i.src = art; i.alt = ''; i.className = 'lt-art'; t.append(i); }
+    else if (logo && /^data:image\//.test(logo)) { const i = document.createElement('img'); i.src = logo; i.alt = ''; t.append(i); }
     else { const icon = pixIcon(iconName); if (icon) t.append(icon); }
     return t;
   };
-  const row = (into, { icon, logo, title, sub, when, whenSmall, item, more, acts }) => {
+  const row = (into, { icon, logo, art, title, sub, when, whenSmall, item, more, acts }) => {
     const r = T('div', 'lt-item' + (acts?.length ? ' can' : ''));
     const head = T('div', 'lt-head');
     const txt = T('div', 'lt-txt'); txt.append(T('b', '', title)); if (sub) txt.append(T('span', '', sub));
-    head.append(tile(icon, logo), txt);
+    head.append(tile(icon, logo, art), txt);
     if (when) { const w = T('div', 'lt-when', when); if (whenSmall) w.append(T('small', '', whenSmall)); head.append(w); }
     r.append(head);
     if (acts?.length) {
@@ -882,6 +883,9 @@ function showBrief(b) {
   });
   if (b.jobsNew > 0) row(job, { icon: 'star', item: unread.length + events.length, title: `${b.jobsNew} new job match${b.jobsNew === 1 ? '' : 'es'}`, sub: '', acts: [['See them', 'matches']] });
   for (const w of Array.isArray(b.waiting) ? b.waiting : []) row(wait, { icon: 'claude', title: String(w), sub: '' });
+  // Samara has an update ready (his ask, 2026-10-14): the lantern on its own, and an Update button.
+  if (b.engine && typeof b.engine.title === 'string') row(today, { art: 'art/samara/samara-lantern-32.png', item: 0, title: 'Samara has an update', sub: b.engine.title, when: 'UPDATE',
+    more: ["Chrome's newest security fixes. Samara restarts in a few seconds and your tabs come back."], acts: [['Update', 'engine']] });
   for (const s of [job, wait, today]) if (s.children.length > 1) body.append(s);
   if (!body.children.length) { const s = slip('ALL CLEAR'); s.append(T('p', 'lt-clear', 'Nothing needs you this morning.')); body.append(s); }
   card.append(body);

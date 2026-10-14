@@ -5,8 +5,8 @@
 //
 // Run as the "Aang" app the Mac setup makes (Aang.app in ~/Applications). It can be his default browser (his yes).
 import { startClaudeDoor } from './claudedoor.ts';
-import { app, globalShortcut, ipcMain, Menu, nativeImage } from 'electron';
-import { appendFileSync, chmodSync, existsSync, openSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { app, globalShortcut, ipcMain, Menu, nativeImage, powerMonitor } from 'electron';
+import { appendFileSync, chmodSync, existsSync, openSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import os from 'node:os';
@@ -185,9 +185,20 @@ app.whenReady().then(async () => {
   const STAGED = path.join(LISTENER, 'browser', 'staged', 'version'), SCRIPT = path.join(LISTENER, 'update.sh');
   const failedUpdates = () => { try { return readFileSync(path.join(LISTENER, 'browser', 'failed-updates.txt'), 'utf8').split(/\s+/).filter(Boolean); } catch { return []; } };
   const stagedVersion = () => { try { return readFileSync(STAGED, 'utf8').trim(); } catch { return ''; } };
+  // ---- sheet 35: the tray's lines, and its ... menu (put away, skip for good, go back, overnight, every version, check)
+  const BR = path.join(LISTENER, 'browser');
+  const FILED = path.join(BR, 'filed-updates.txt'), PREFS = path.join(LISTENER, 'update-prefs.json'), NIGHT = path.join(LISTENER, 'update-overnight.json');
+  const filed = () => { try { return readFileSync(FILED, 'utf8').split(/\s+/).filter(Boolean); } catch { return []; } };
+  const addTo = (file: string, v: string) => { try { appendFileSync(file, v + '\n'); } catch { /* best effort */ } };
+  const prefs = (): { overnight: boolean } => { try { return { overnight: JSON.parse(readFileSync(PREFS, 'utf8')).overnight === true }; } catch { return { overnight: false }; } };
+  const canBack = () => existsSync(path.join(BR, 'rollback', 'Samara.app'));
+  const macCard = () => offered ? ({
+    version: offered.version, since: offered.since, title: offered.label ? `Version ${offered.label}: ${offered.name}` : 'Samara update',
+    groups: [{ name: 'SAMARA', items: offered.notes.map((text) => ({ text })) }], canBack: canBack(), overnight: prefs().overnight,
+  }) : null;
   const showReady = () => {
     if (!offered || stagedVersion() !== offered.version || readyFile?.version !== offered.version) return;
-    browser?.setUpdate({ version: offered.version, since: offered.since, title: `Version ${offered.label}: ${offered.name}`, kind: 'Ready. Restart takes a few seconds.', checks: offered.notes });
+    browser?.setUpdate(macCard());
   };
   const prepare = (m: any) => {
     const script = String(m.script ?? ''), sha = createHash('sha256').update(script).digest('hex');
@@ -209,7 +220,8 @@ app.whenReady().then(async () => {
   };
   const onUpdateMsg = (m: any, s: WebSocket) => {
     if (m.t === 'update.offer' && typeof m.version === 'string' && /^[0-9a-f]{6,64}$/.test(m.version)) {
-      if (failedUpdates().includes(m.version)) { console.log(`aang: update ${m.version} failed to start before; not offered`); return; }
+      if (failedUpdates().includes(m.version)) { console.log(`aang: update ${m.version} was skipped or failed before; not offered`); return; }
+      if (filed().includes(m.version)) { console.log(`aang: update ${m.version} is put away; "Check for updates" brings it back`); return; }
       const notes = (Array.isArray(m.notes) ? m.notes : []).map((x: unknown) => String(x).slice(0, 160)).slice(0, 12);
       offered = { version: m.version, label: /^\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(String(m.label)) ? String(m.label) : '', name: String(m.name ?? '').slice(0, 40), notes, since: Number(m.since) || Date.now() };
       if (stagedVersion() === m.version && readyFile?.version === m.version) { showReady(); return; }
@@ -243,6 +255,49 @@ app.whenReady().then(async () => {
     } catch { /* no update has run */ }
   };
   setTimeout(reportUpdate, 75_000);
+  ipcMain.on('browser:updateact', (e, a) => {
+    if (!browser?.isFrame(e.sender)) return;
+    const act = String(a?.act ?? '');
+    if (act === 'changelog') { let t = ''; try { t = readFileSync(path.join(LISTENER, 'Samara Changelog.md'), 'utf8'); } catch { /* none yet */ } e.sender.send('browser:changelog', t); return; }
+    if (act === 'overnight') { try { writeFileSync(PREFS, JSON.stringify({ overnight: a?.on === true })); } catch { /* best effort */ } showReady(); return; }
+    if (act === 'seen') { browser.setUpdated(null); try { unlinkSync(NIGHT); } catch { /* gone */ } return; }
+    if (act === 'check') {
+      try { unlinkSync(FILED); } catch { /* none */ }
+      triedPrepare.clear();
+      const i = installed();
+      if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ t: 'update.have', version: i.version, commit: i.commit }));
+      return;
+    }
+    if (!offered) { if (act !== 'back') return; }
+    if (act === 'file' && offered) { addTo(FILED, offered.version); offered = null; browser.setUpdate(null); return; }
+    if (act === 'skip' && offered) { addTo(path.join(BR, 'failed-updates.txt'), offered.version); offered = null; browser.setUpdate(null); return; }
+    if (act === 'back') {
+      if (!canBack()) { browser.updateWhy('There is no earlier version kept to go back to.'); return; }
+      // The version before comes back; the one he left is put away (so it is not offered again until he checks).
+      const i = installed(); if (i.version) addTo(FILED, i.version);
+      const sh = [
+        'APP="$HOME/Applications/Samara.app"; BR="$HOME/Library/Application Support/AangListener/browser"',
+        "osascript -e 'quit app id \"com.aang.browser\"' >/dev/null 2>&1 || true",
+        'for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do pgrep -f "Samara.app/Contents/MacOS/" >/dev/null 2>&1 || break; sleep 0.5; done',
+        'rm -rf "$BR/rollback/Samara.next"; mv "$APP" "$BR/rollback/Samara.next" && mv "$BR/rollback/Samara.app" "$APP" && mv "$BR/rollback/Samara.next" "$BR/rollback/Samara.app"',
+        '[ -f "$BR/installed.prev.json" ] && cp "$BR/installed.json" "$BR/installed.next.json" && mv "$BR/installed.prev.json" "$BR/installed.json" && mv "$BR/installed.next.json" "$BR/installed.prev.json"',
+        'open -a "$APP"',
+      ].join('\n');
+      try { const out = openSync(path.join(LISTENER, 'update.log'), 'w'); spawn('/bin/bash', ['-c', sh], { detached: true, stdio: ['ignore', out, out] }).unref(); console.log('aang: going back to the last version (his click)'); }
+      catch (err) { browser.updateWhy('Could not go back: ' + (err as Error).message); }
+    }
+  });
+  // Update by itself overnight (his toggle, off unless he turns it on): between 2 and 5 am, after half an hour with no
+  // keyboard or mouse, never in a call. The next time he opens Samara it says what changed.
+  setInterval(() => {
+    const h = new Date().getHours();
+    if (!offered || !prefs().overnight || h < 2 || h >= 5 || browser?.inCall || powerMonitor.getSystemIdleTime() < 1800) return;
+    if (!readyFile || readyFile.version !== offered.version || stagedVersion() !== offered.version) return;
+    try { writeFileSync(NIGHT, JSON.stringify({ version: offered.version, title: macCard()?.title ?? 'Samara update', lines: offered.notes })); } catch { return; }
+    try { const out = openSync(path.join(LISTENER, 'update.log'), 'w'); spawn('/bin/bash', [SCRIPT, 'swap'], { detached: true, stdio: ['ignore', out, out] }).unref(); console.log(`aang: updating overnight to ${offered.version}`); } catch { /* next time */ }
+  }, 10 * 60_000).unref();
+  // After an overnight update: once, by the ... key, what it did.
+  try { const n = JSON.parse(readFileSync(NIGHT, 'utf8')); if (n.version === installed().version && typeof n.title === 'string') browser.setUpdated({ title: n.title, lines: Array.isArray(n.lines) ? n.lines.map(String) : [] }); } catch { /* none */ }
   ipcMain.on('browser:updatego', (e) => {
     if (!browser?.isFrame(e.sender) || !offered) return;
     if (browser.inCall) { browser.updateWhy("You're in a call. Restart when it's over."); return; }

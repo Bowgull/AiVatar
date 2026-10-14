@@ -74,6 +74,8 @@ export interface BriefCard {
   weekResetsAt: number | null;
   /** Sheet 21: what is waiting on him (Claude jobs that need him, a question), for the Discord card's second section. */
   waiting?: string[];
+  /** Samara's engine, when a newer castLabs one is out (2026-10-14): the brief shows a row with an Update button. */
+  engine?: { title: string };
   error?: string;
 }
 
@@ -439,6 +441,10 @@ export type FromBody =
   /** 6.25a: the browser's answer to a driving step, and his STOP on a job. */
   | { t: 'drive.result'; id: number; ok: boolean; [k: string]: unknown }
   | { t: 'drive.stopped'; job: number }
+  /** Samara's engine update is fully ready on this PC (sheet 35); the brain names it and tells him. */
+  | { t: 'engine.ready'; version: string; major?: boolean }
+  /** castLabs' signing tool needs him to sign in again before a new engine can play paid video. */
+  | { t: 'engine.signin'; signIn: boolean }
   /**
    * Where the pet IS (step 6.10b), so the Shell can hang its windows off him. Sent by the C# Body when
    * he is dragged, docked, rescaled or moved between displays - on a change, never on a timer.

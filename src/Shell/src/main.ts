@@ -9,7 +9,7 @@
 // A crash in here must never take the pet or the brain with it. It is its own process, supervised from
 // the tray, and it holds nothing the others need.
 import { startClaudeDoor } from './claudedoor.ts';
-import { app, BrowserWindow, Menu, clipboard, globalShortcut, ipcMain, screen, session, shell } from 'electron';
+import { app, BrowserWindow, Menu, clipboard, globalShortcut, ipcMain, powerMonitor, screen, session, shell } from 'electron';
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, unlinkSync, watch, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -17,10 +17,11 @@ import { CoreLink } from './link.ts';
 import { Bubble, wantsNewBubble } from './bubble.ts';
 import { InputBox } from './input.ts';
 import { Snipper } from './snip.ts';
-import { AangBrowser } from './browser.ts';
+import { AangBrowser, type UpdateCard } from './browser.ts';
 import { wireBrowser } from './browseripc.ts';
 import { wirePopout } from './popoutipc.ts';
-import { EngineUpdates, onCastlabs } from './engineupdate.ts';
+import { EngineUpdates, onCastlabs, type Ready } from './engineupdate.ts';
+import { writeFileAtomic } from './atomic.ts';
 import { CardRenderer } from './cardrender.ts';
 import { Wheel } from './wheelwin.ts';
 import { NoteWindows } from './notewin.ts';
@@ -290,6 +291,10 @@ const link = new CoreLink({
     if (typeof m.t === 'string' && m.t.startsWith('bsync.')) { void aangBrowser?.sync?.got(m as never).catch((e: Error) => console.error('shell: browser sync: ' + e.message)); return; }
     // "Open on PC" from the Mac's browser (through the brain): a full tab here, brought to the front.
     if (m.t === 'browser.open' && typeof m.url === 'string') { aangBrowser?.openForward(m.url); return; }
+    // The engine update's version and name, from the brain's one list of Samara versions (sheet 35).
+    if (m.t === 'engine.label' && typeof m.version === 'string' && typeof m.label === 'string') { engineLabel = { version: m.version, label: m.label, name: String(m.name ?? '') }; showEngine(); return; }
+    // The morning brief's Update button: the same as Restart now, with the boxes as they are.
+    if (m.t === 'engine.go') { void engineGo(); return; }
     // "Put X on": the one message the pop-out answers to. Everything else is passed to the windows.
     if (m.t === 'popout.open' && typeof m.url === 'string') { openPopout(m.url); return; }
     // Sheet 17: the brain's list of running timers is the truth; the windows follow it.
@@ -633,14 +638,27 @@ app.whenReady().then(async () => {
       engineUpdates = new EngineUpdates({
         shellDir: path.join(HERE, '..'), stateDir: STATE_DIR,
         quietNow: () => gameQuiet || aangBrowser?.inCall === true,
-        changed: (r) => aangBrowser?.setUpdate(r),
+        changed: (r) => { showEngine(); if (r) link?.send({ t: 'engine.ready', version: r.version, major: r.major === true } as never); },
+        signinNeeded: (signIn) => link?.send({ t: 'engine.signin', signIn } as never),
       });
-      aangBrowser.setUpdate(engineUpdates.ready);
+      showEngine();
+      if (engineUpdates.ready) link?.send({ t: 'engine.ready', version: engineUpdates.ready.version, major: engineUpdates.ready.major === true } as never);
+      // Update by itself overnight (his toggle, off unless he turns it on): between 2 and 5 am, after half an hour with
+      // no keyboard or mouse, never in a game or a call. The next time he opens Samara it says what changed.
+      setInterval(() => {
+        const r = engineUpdates?.ready, h = new Date().getHours();
+        if (!r || !updatePrefs().overnight || h < 2 || h >= 5 || gameQuiet || aangBrowser?.inCall || powerMonitor.getSystemIdleTime() < 1800) return;
+        const card = engineCard(r);
+        void engineUpdates!.restartNow(false, r.choices, { title: card?.title ?? 'Engine update', lines: (card?.groups ?? []).flatMap((g) => g.items.filter((i) => !i.key || i.on !== false).map((i) => i.text)) }).then((x) => {
+          if (x.ok) { console.log('shell: updating overnight'); aangBrowser?.closeAll(); setTimeout(() => app.exit(0), 1500); }
+        });
+      }, 10 * 60_000).unref();
       aangBrowser.onCall = (on) => { if (!on && engineUpdates && !engineUpdates.ready) void engineUpdates.check(); };
       engineUpdates.start();
       {
         const done = engineUpdates.justUpdated();
         if (done) {
+          if (done.overnight && done.title) aangBrowser.setUpdated({ title: done.title, lines: done.lines ?? [] });
           if (done.browser) aangBrowser.open();
           setTimeout(() => bubble?.send('brain:message', { t: 'whisper', text: `Updated the browser to ${done.to}.` }), 4000);
         }
@@ -1076,12 +1094,30 @@ app.whenReady().then(async () => {
     playback: (s) => link?.send({ t: 'watch.state', ...s }),
   });
   // 6.28: his Restart now on the update key. Never during a call or a game; the band says why.
-  ipcMain.on('browser:updatego', (e) => {
+  // The tray's ... menu (sheet 35): put away, skip for good, go back, overnight, every version, check now.
+  ipcMain.on('browser:updateact', (e, a) => {
+    if (!aangBrowser?.isFrame(e.sender)) return;
+    const act = String(a?.act ?? '');
+    if (act === 'changelog') { let t = ''; try { t = readFileSync(path.join(DATA_DIR, 'Samara Changelog.md'), 'utf8'); } catch { /* none yet */ } e.sender.send('browser:changelog', t); return; }
+    if (act === 'overnight') { try { writeFileAtomic(updatePrefsFile, JSON.stringify({ overnight: a?.on === true })); } catch { /* best effort */ } showEngine(); return; }
+    if (act === 'seen') { aangBrowser.setUpdated(null); return; }
+    if (!engineUpdates) return;
+    if (act === 'file') engineUpdates.file();
+    else if (act === 'skip') engineUpdates.skip();
+    else if (act === 'check') void engineUpdates.checkNow();
+    else if (act === 'back') {
+      if (engineUpdates.goBack()) { aangBrowser.closeAll(); setTimeout(() => app.exit(0), 1500); }
+      else e.sender.send('browser:updatewhy', 'There is no earlier version kept to go back to.');
+    }
+  });
+  ipcMain.on('browser:updatego', (e, choices) => {
     if (!aangBrowser?.isFrame(e.sender) || !engineUpdates) return;
-    const r = engineUpdates.restartNow(aangBrowser.showing);
-    if (!r.ok) { e.sender.send('browser:updatewhy', r.why ?? 'Not right now.'); return; }
-    aangBrowser.closeAll();
-    setTimeout(() => app.exit(0), 1500);     // the pet starts the Shell again, on the new engine
+    const c = choices && typeof choices === 'object' ? { lock: (choices as any).lock !== false, closeBackdoors: (choices as any).closeBackdoors !== false } : undefined;
+    void engineUpdates.restartNow(aangBrowser.showing, c).then((r) => {
+      if (!r.ok) { e.sender.send('browser:updatewhy', r.why ?? 'Not right now.'); return; }
+      aangBrowser?.closeAll();
+      setTimeout(() => app.exit(0), 1500);     // the pet starts the Shell again, on the new engine
+    });
   });
 
   // ---- 6.17 Snipit: the overlay says where the box is; the card says Send or Bin it.
@@ -1257,6 +1293,29 @@ let snipper: Snipper | null = null;
 /** 6.19/6.20: Aang's browser, made when the pages are being served. */
 let aangBrowser: AangBrowser | null = null;
 let engineUpdates: EngineUpdates | null = null;
+// ---- the engine in the update tray (sheet 35): its title from the brain, its lines in plain words, two tick boxes
+let engineLabel: { version: string; label: string; name: string } | null = null;
+const updatePrefsFile = path.join(STATE_DIR, 'update-prefs.json');
+function updatePrefs(): { overnight: boolean } { try { return { overnight: JSON.parse(readFileSync(updatePrefsFile, 'utf8')).overnight === true }; } catch { return { overnight: false }; } }
+function engineCard(r: Ready | null): UpdateCard | null {
+  if (!r) return null;
+  const c = r.choices ?? { lock: true, closeBackdoors: true };
+  return {
+    version: r.version, since: r.since,
+    title: engineLabel?.version === r.version ? `Version ${engineLabel.label}: ${engineLabel.name}` : 'Engine update',
+    groups: [{ name: "SAMARA'S ENGINE", items: [
+      { text: "Chrome's newest security fixes.", note: 'Always included: they close known holes.' },
+      ...(r.castlabs ? [{ text: "Lock your saved logins with your computer's own lock.", key: 'lock', on: c.lock }, { text: 'Close a back door other programs could use.', key: 'closeBackdoors', on: c.closeBackdoors }] : []),
+    ] }],
+    canBack: engineUpdates?.canBack() === true, overnight: updatePrefs().overnight,
+  };
+}
+function showEngine(): void { aangBrowser?.setUpdate(engineCard(engineUpdates?.ready ?? null)); }
+async function engineGo(): Promise<void> {
+  if (!engineUpdates?.ready) return;
+  const r = await engineUpdates.restartNow(aangBrowser?.showing === true, engineUpdates.ready.choices);
+  if (r.ok) { aangBrowser?.closeAll(); setTimeout(() => app.exit(0), 1500); }
+}
 /** 9.D D3: draws the cards Aang posts to Discord. Made on first use. */
 let cards: CardRenderer | null = null;
 /** The pet's last answer about its switches, so the browser's own switch can be shown beside them. */
