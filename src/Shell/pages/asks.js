@@ -16,7 +16,7 @@
 
 /**
  * @typedef {{ label: string, key: 'A'|'X'|'Z', choice: string, tone?: 'primary'|'warn', hold?: boolean }} AskKey
- * @typedef {{ plaque?: string, question: string, means?: string, exact?: string, mail?: { to: string, subject: string, body: string, fresh: string }, keys: AskKey[] }} Ask
+ * @typedef {{ plaque?: string, question: string, means?: string, exact?: string, mail?: { to: string, subject: string, body: string, fresh: string, cc?: string, files?: string }, keys: AskKey[] }} Ask
  */
 
 /**
