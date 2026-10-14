@@ -562,3 +562,14 @@ body.drawer-open .drawer{transform:none;visibility:visible;transition:transform 
   background:url(art/browser/band.png) repeat-x 0 -8px/128px 58px;image-rendering:pixelated;filter:brightness(1.18);
   box-shadow:inset 0 2px 0 rgba(255,224,150,.22),inset 0 -2px 0 rgba(0,0,0,.5)}
 .winkeys{top:14px;height:calc(100% - 14px)}
+
+/* ---- sheet 27, the wood swap (his rule, 2026-10-14): no flat browns. Light wood for bars and frames, dark wood behind
+   content, "carved" (very dark wood) for the small name tags. ---- */
+/* His pick C: lamp-lit wood behind the page (dark at the edges, a faint warm glow behind it), and light wood along
+   the bottom edge to match the top. Not on the tray layer, which must stay see-through. */
+html:not(.solo) .body3{background:radial-gradient(ellipse 70% 60% at 50% 45%,rgba(255,190,110,.12),rgba(0,0,0,0) 60%),
+  radial-gradient(ellipse 62% 66% at 50% 48%,rgba(0,0,0,0) 55%,rgba(0,0,0,.55) 100%)}
+html:not(.solo) .bw::after{content:"";flex:0 0 12px;background:url(art/browser/band.png) repeat-x 0 -20px/128px 58px;image-rendering:pixelated;
+  border-top:3px solid var(--outline);-webkit-app-region:drag}
+.tabmenu,.plate{background:linear-gradient(rgba(0,0,0,.15),rgba(0,0,0,.25)),url(art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated}
+.plate .plq,.mark,.slot .lock:not(.bad){background:linear-gradient(rgba(0,0,0,.55),rgba(0,0,0,.55)),url(art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated}

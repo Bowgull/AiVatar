@@ -226,3 +226,10 @@ html,body{margin:0;height:100%;background:var(--wood2);overflow:hidden}
 .daydiv span{font:400 10px var(--label);color:var(--gold);letter-spacing:1.5px;padding:0 12px;
   text-shadow:0 2px 0 var(--outline)}
 .empty-line{margin:14px 4px;font:500 14px/1.55 var(--body);color:var(--ink-dim)}
+
+/* ---- sheet 27, the wood swap (his rule, 2026-10-14): no flat browns. Light wood for bars and frames, dark wood behind
+   content, "carved" (very dark wood) for the small name tags. ---- */
+html,body{background:linear-gradient(rgba(0,0,0,.15),rgba(0,0,0,.25)),url(art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated}
+.desk .tabs{background:url(art/browser/band.png) 0 0/128px 58px;image-rendering:pixelated}
+.brief .banner{background:url(art/browser/band.png) 0 0/128px 58px;image-rendering:pixelated}
+.brief .banner .day,.sbox{background:linear-gradient(rgba(0,0,0,.55),rgba(0,0,0,.55)),url(art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated}

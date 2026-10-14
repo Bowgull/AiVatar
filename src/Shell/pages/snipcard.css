@@ -16,3 +16,8 @@ html,body{margin:0;background:transparent;overflow:hidden;font:500 14px var(--bo
 .frame img{display:block;max-width:100%;max-height:174px;object-fit:contain}
 .keys{display:flex;gap:8px;margin-top:9px}
 @media (prefers-reduced-motion:reduce){.card,.pointer{animation:none}}
+
+/* ---- sheet 27, the wood swap (his rule, 2026-10-14): no flat browns. Light wood for bars and frames, dark wood behind
+   content, "carved" (very dark wood) for the small name tags. ---- */
+.card{background:url(art/browser/band.png) 0 0/128px 58px;image-rendering:pixelated}
+.plaque{background:linear-gradient(rgba(0,0,0,.55),rgba(0,0,0,.55)),url(art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated}
