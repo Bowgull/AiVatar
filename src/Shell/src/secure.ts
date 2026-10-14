@@ -40,6 +40,9 @@ const RISKY = new Set([
   'exe', 'msi', 'msix', 'msixbundle', 'appx', 'appxbundle', 'msp', 'mst', 'com', 'scr', 'pif', 'cpl', 'dll', 'sys',
   'bat', 'cmd', 'ps1', 'psm1', 'psd1', 'vbs', 'vbe', 'js', 'jse', 'wsf', 'wsh', 'hta', 'jar', 'lnk', 'reg', 'inf',
   'scf', 'url', 'application', 'appref-ms', 'iso', 'img', 'vhd', 'vhdx', 'xll', 'chm',
+  // Added 2026-10-14 (code audit M6): more Windows runners, and the Mac's own.
+  'msc', 'appinstaller', 'cab', 'settingcontent-ms', 'library-ms', 'search-ms', 'searchconnector-ms', 'diagcab', 'gadget', 'ws', 'wsc', 'xbap', 'website',
+  'app', 'pkg', 'mpkg', 'dmg', 'command', 'tool', 'workflow', 'scpt', 'scptd', 'applescript', 'terminal', 'webloc', 'inetloc', 'sh', 'zsh', 'py', 'pl', 'rb',
 ]);
 export function isRisky(filename: string): boolean {
   const m = String(filename ?? '').toLowerCase().match(/\.([a-z0-9-]+)$/);

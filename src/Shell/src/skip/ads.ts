@@ -22,6 +22,8 @@ export const LISTS = [
   'https://ublockorigin.github.io/uAssets/filters/filters.txt',
   'https://ublockorigin.github.io/uAssets/filters/privacy.txt',
   'https://ublockorigin.github.io/uAssets/filters/quick-fixes.txt',
+  // Scam and badware sites (uBlock Origin's own list, 2026-10-14).
+  'https://ublockorigin.github.io/uAssets/filters/badware.txt',
   'https://easylist.to/easylist/easylist.txt',
 ];
 

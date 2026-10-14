@@ -140,6 +140,11 @@
       "at": "2026-10-14T16:40:00-04:00",
       "text": "Mac downloads get Apple's safety check.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-10-14T16:55:00-04:00",
+      "text": "More scam sites are blocked, updated twice a day.",
+      "kind": "fix"
     }
   ]
 }

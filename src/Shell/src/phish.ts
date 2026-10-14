@@ -12,6 +12,10 @@ export const PHISH_LISTS = [
   { name: 'OPENPHISH', url: 'https://openphish.com/feed.txt', kind: 'urls' as const },
   { name: 'URLHAUS', url: 'https://urlhaus.abuse.ch/downloads/text_online/', kind: 'urls' as const },
   { name: 'PHISHING.DATABASE', url: 'https://raw.githubusercontent.com/Phishing-Database/Phishing.Database/master/phishing-domains-ACTIVE.txt', kind: 'domains' as const },
+  // 2026-10-14 (security plan, extra shields): two more free lists, refreshed every 12 hours, adding PhishTank and
+  // IPThreat on top of the sources above. Same check, same red plate, nothing sent anywhere.
+  { name: 'PHISHING FILTER', url: 'https://malware-filter.gitlab.io/malware-filter/phishing-filter-domains.txt', kind: 'domains' as const },
+  { name: 'MALWARE FILTER', url: 'https://malware-filter.gitlab.io/malware-filter/urlhaus-filter-domains-online.txt', kind: 'domains' as const },
 ];
 const KEEP_MS = 24 * 3600_000;
 
