@@ -983,6 +983,15 @@ export class AangBrowser {
     // Samara (his name and his pick of icon, sheet 33 L1, 2026-10-14): the browser wears its own lantern and gets its
     // own taskbar button; Aang's other windows keep his face.
     try { w.setIcon(SAMARA_ICON); w.setAppDetails({ appId: 'Aang.Samara', appIconPath: SAMARA_ICON, appIconIndex: 0, relaunchDisplayName: 'Samara' }); } catch { /* not Windows */ }
+    // The lantern lights up as the window opens (his ask, 2026-10-14), the same frames as the Mac's Dock.
+    if (process.platform === 'win32') {
+      let i = 0;
+      const t = setInterval(() => {
+        if (w.isDestroyed()) { clearInterval(t); return; }
+        try { w.setIcon(nativeImage.createFromPath(path.join(import.meta.dirname, '..', 'pages', 'art', 'samara', `samara-light-${i}-64.png`))); } catch { /* the lit icon stays */ }
+        if (++i > 9) { clearInterval(t); try { w.setIcon(SAMARA_ICON); } catch { /* fine */ } }
+      }, 55);
+    }
     p.win = w;
     this.panes.push(p);
     this.pane = p;

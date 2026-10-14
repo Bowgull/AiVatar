@@ -70,6 +70,11 @@
       "at": "2026-10-14T14:17:19-04:00",
       "kind": "feature",
       "text": "Samara's icon is now just the lantern: lit and glowing while Samara is open, unlit when it's closed."
+    },
+    {
+      "at": "2026-10-14T14:19:46-04:00",
+      "kind": "feature",
+      "text": "The lantern lights up smoothly when Samara opens, and dims back down when you quit."
     }
   ]
 }

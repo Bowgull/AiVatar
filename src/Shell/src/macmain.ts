@@ -62,8 +62,17 @@ app.whenReady().then(async () => {
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     { role: 'appMenu' }, { role: 'editMenu' }, { role: 'windowMenu' },
   ]));
-  // His pick (2026-10-14): the lantern is lit while Samara runs; the app's own icon (the Dock when it is closed) is unlit.
-  try { app.dock?.setIcon(nativeImage.createFromPath(path.join(HERE, '..', 'pages', 'art', 'samara', 'samara-lit-512.png'))); } catch { /* the app's own icon stays */ }
+  // His picks (2026-10-14): the lantern is lit while Samara runs; the app's own icon (the Dock when it is closed) is
+  // unlit. It lights up smoothly when Samara opens and dims back down when he quits (10 pixel-art frames, ~half a
+  // second), so the Dock never jumps: the last frame down is exactly the closed icon.
+  const frames = Array.from({ length: 10 }, (_, i) => { try { return nativeImage.createFromPath(path.join(HERE, '..', 'pages', 'art', 'samara', `samara-light-${i}-512.png`)); } catch { return null; } });
+  const play = (from: number, to: number, done?: () => void) => {
+    const step = from < to ? 1 : -1; let i = from;
+    const t = setInterval(() => { const f = frames[i]; if (f && !f.isEmpty()) { try { app.dock?.setIcon(f); } catch { /* not now */ } } if (i === to) { clearInterval(t); done?.(); } else i += step; }, 55);
+  };
+  play(0, 9);
+  let dimmed = false;
+  app.on('before-quit', (e) => { if (dimmed || !app.dock) return; e.preventDefault(); dimmed = true; play(9, 0, () => setTimeout(() => app.quit(), 30)); });
 
   // Every button, menu and page of the browser, the same wiring as on the PC.
   wireBrowser(() => browser);

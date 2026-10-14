@@ -59,6 +59,16 @@ app.whenReady().then(async () => {
       out['lit-' + name] = paint(halo(b, k), sc).toDataURL('image/png');
       out['unlit-' + name] = paint(swap(b), sc).toDataURL('image/png');
     }
+    // The lighting-up (his ask, 2026-10-14: "a seamless transition into lit"): 10 frames from unlit to lit, each pixel's
+    // colour and the glow's strength eased between the two, so the paper warms and the halo grows.
+    const rgba = (c) => { if (!c) return [0, 0, 0, 0]; if (c[0] === '#') return [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16), 1]; const m = c.match(/[\\d.]+/g).map(Number); return [m[0], m[1], m[2], m[3] ?? 1]; };
+    const mix = (a, b, t) => { const A = rgba(a), B = rgba(b); if (!a && !b) return null; const ca = A[3] ? A : [B[0], B[1], B[2], 0], cb = B[3] ? B : [A[0], A[1], A[2], 0];
+      const v = ca.map((x, i) => x + (cb[i] - x) * t); return 'rgba(' + Math.round(v[0]) + ',' + Math.round(v[1]) + ',' + Math.round(v[2]) + ',' + v[3].toFixed(3) + ')'; };
+    for (const [name, n, sc] of [['64', 64, 1], ['512', 64, 8]]) {
+      const b = base(n), L = halo(b, 4), U = swap(b);
+      for (let f = 0; f < 10; f++) { const t = f / 9, e = t * t * (3 - 2 * t);
+        out['light-' + f + '-' + name] = paint(L.map((row, y) => row.map((c, x) => mix(U[y][x], c, e))), sc).toDataURL('image/png'); }
+    }
     return out;
   })()`);
   mkdirSync(OUT, { recursive: true });
