@@ -15,7 +15,7 @@ import { Timers, parseTimerCommand, sayDuration, MAX_MS } from './timers.ts';
 import { Notes, parseNoteCommand, linesHtml } from './notes.ts';
 import { WebSocketServer } from 'ws';
 import type { WebSocket } from 'ws';
-import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync, unlinkSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync, unlinkSync, writeFileSync, mkdtempSync, rmSync, watchFile } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { parseFromBody } from './protocol.ts';
@@ -2199,6 +2199,7 @@ export class Core {
   async start(): Promise<void> {
     this.token = newToken(this.cfg.stateDir);
     this.writeChangelog();
+    this.watchMacShip();
     await new Promise<void>((resolve, reject) => {
       this.wss = new WebSocketServer({
         host: '127.0.0.1', port: this.cfg.port, path: '/body',
@@ -2747,6 +2748,13 @@ export class Core {
   }
   /** Every few minutes while the Mac is connected: a change made here lights its key without waiting for a reconnect. */
   private macUpdateTimer = setInterval(() => { if (this.bsync.macConnected) this.macOfferNow(r => this.bsync.tellMac(r)); }, 5 * 60_000).unref();
+  /** The moment Claude marks a version finished (mac-ship), the Mac hears of it, not up to five minutes later. */
+  private watchMacShip(): void {
+    watchFile(path.join(this.cfg.dataDir, 'mac-ship'), { interval: 2000, persistent: false }, () => {
+      this.macReleaseCache = null;
+      if (this.bsync.macConnected) setTimeout(() => this.macOfferNow(r => this.bsync.tellMac(r)), 1500);
+    });
+  }
   /** The last place the pet said it was, for a Shell that connects afterwards. Never persisted: a
    *  position from a previous run is worse than none, since the pet is placed afresh at startup. */
   private lastPetAt: PetAt | null = null;
