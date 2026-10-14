@@ -8,7 +8,7 @@ import { approvalText, pickSource, planFromInvite, planFromWords, readBack, resp
 import { emailCardData } from './emailcard.ts';
 import { kindOfFile, readAttachment, safeFileName } from './attachments.ts';
 import { sttReady, transcribe } from './stt.ts';
-import { inboxCardData, weekCardData } from './briefcard.ts';
+import { inboxCardData, nowNote, weekCardData } from './briefcard.ts';
 import { Choices, choiceKey } from './choices.ts';
 import { Timers, parseTimerCommand, sayDuration, MAX_MS } from './timers.ts';
 import { Notes, parseNoteCommand, linesHtml } from './notes.ts';
@@ -160,9 +160,12 @@ export function groundReply(reply: string, did: { did: string; ok: boolean; note
     console.log('grounding: every action failed but the reply did not say so; adding what really happened');
     return `${reply}\n\nThat did not actually work: ${failed.map(a => `${a.did}${a.note ? ` (${a.note})` : ''}`).join('; ')}.`;
   }
+  // 2026-10-14, his report: "put it on the macbook" came back as "Done: look up HisWattson YouTube video ... link" -
+  // the reply said it could not, a DIFFERENT action had worked, and this used to REPLACE the reply with that action,
+  // dressing a failure up as success. Now the reply stays, and what really happened is added under it.
   if (done.length && REFUSES.test(reply)) {
-    console.log('grounding: the reply said it could not, but it did; replaced with what was done');
-    return `Done: ${done.map(a => a.did).join('; ')}.${failed.length ? ` Did not work: ${failed.map(a => a.did).join('; ')}.` : ''}`;
+    console.log('grounding: the reply said it could not, but something was done; adding what really happened');
+    return `${reply}\n\nWhat I actually did: ${done.map(a => a.did).join('; ')}.${failed.length ? ` Did not work: ${failed.map(a => a.did).join('; ')}.` : ''}`;
   }
   return reply;
 }
@@ -2941,7 +2944,8 @@ export class Core {
     // A job reading a web page must not have that forgotten because he said something: while one runs, the
     // "read outside content, ask again" flag can only be switched on, never off.
     if (!this.tasks.running().length) this.tainted = false;
-    const text = this.withWaiting(this.withNotes(lane, this.withKnown(lane, this.withRecap(lane, this.withAnnounced(this.withLook(this.withPointedAt(sub))), sub, escalated))));
+    // The time, every message (2026-10-14): a conversation that lasts for days otherwise guesses it.
+    const text = `${nowNote()}\n${this.withWaiting(this.withNotes(lane, this.withKnown(lane, this.withRecap(lane, this.withAnnounced(this.withLook(this.withPointedAt(sub))), sub, escalated))))}`;
     this.lastLane = lane;
     this.laneUsed.add(lane);
     this.lane(lane).send(text);

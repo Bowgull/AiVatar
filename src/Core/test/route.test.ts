@@ -10,7 +10,9 @@ test('a reply is checked against what really happened this turn', () => {
   assert.equal(groundReply('Nothing to do.', []), 'Nothing to do.', 'no actions, nothing to check');
   assert.match(groundReply('Noted it in your logs.', [broke]), /did not actually work: wrote C:\\logs\\notes\.txt \(the folder does not exist\)/);
   assert.equal(groundReply("Couldn't write it, the folder is missing.", [broke]), "Couldn't write it, the folder is missing.", 'an honest failure is left alone');
-  assert.match(groundReply("I can't open maps for you.", [opened]), /^Done: opened https:\/\/maps/, 'it did it, so it may not say it cannot');
+  // 2026-10-14: never REPLACED with "Done:" (that dressed a failure up as success); what was really done is added.
+  assert.match(groundReply("I can't open maps for you.", [opened]), /^I can't open maps for you\.\n\nWhat I actually did: opened https:\/\/maps/, 'the reply stays, the truth is added');
+  assert.equal(/^Done:/.test(groundReply("I can't put that on your Mac.", [{ did: 'look up a video link', ok: true, note: '' }])), false, 'an unrelated action never becomes a "Done"');
 });
 
 test('the refusals Quick really gave are caught', () => {
