@@ -23,6 +23,7 @@ import { reportWriteFailure, rotateIfBig, writeFileAtomic } from './atomic.ts';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { releaseName } from './releasenames.ts';
+import { castlabsReleases, newerCastlabs } from './enginewatch.ts';
 import { MAC_LISTENER_PORT, macBrowserBundle, macSetupScript, macSourceVersion, FRONT_DESK_PORT, type DeskPayload, type MacRelease } from './macsetup.ts';
 import { Jobs, SWEEP_REQUEST, cleanField, safeUrl, scoreOf, verdictFor } from './jobs.ts';
 import type { Rubric } from './jobs.ts';
@@ -2195,6 +2196,8 @@ export class Core {
   async start(): Promise<void> {
     this.token = newToken(this.cfg.stateDir);
     this.writeChangelog();
+    setTimeout(() => void this.engineWatch(), 3 * 60_000).unref();
+    setInterval(() => void this.engineWatch(), 24 * 60 * 60_000).unref();
     await new Promise<void>((resolve, reject) => {
       this.wss = new WebSocketServer({
         host: '127.0.0.1', port: this.cfg.port, path: '/body',
@@ -2652,6 +2655,21 @@ export class Core {
       out.push(`## Version ${r.semver}: ${r.name}`, `*${day(r.at)}*`, '', ...(mine.length ? mine.map(i => `- ${tag(i.kind)}: ${i.text}`) : ['- Small fixes to keep things running smoothly.']), '');
     }
     return out.join('\n');
+  }
+  /** Once a day: is castLabs' Samara engine newer than the one Samara runs? Told once per new version. */
+  private async engineWatch(): Promise<void> {
+    try {
+      let cur = '';
+      try { cur = String(JSON.parse(readFileSync(path.join(import.meta.dirname, '..', '..', 'Shell', 'engines', 'current.json'), 'utf8')).version ?? ''); } catch { return; }
+      const v = newerCastlabs(await castlabsReleases(), cur);
+      const f = path.join(this.cfg.stateDir, 'engine-watch.json');
+      let told = ''; try { told = String(JSON.parse(readFileSync(f, 'utf8')).told ?? ''); } catch { /* never */ }
+      if (!v) { console.log(`engine watch: Samara's engine ${cur} is the newest castLabs release`); return; }
+      if (told === v) return;
+      writeFileAtomic(f, JSON.stringify({ told: v, at: new Date().toISOString() }));
+      console.log(`engine watch: castLabs ${v} is out (Samara runs ${cur})`);
+      this.announce(`A newer engine for Samara is out: ${v} (you're on ${cur}). It brings Chrome's latest security fixes. Ask Claude to do the engine update: it goes in with the login lock, and you re-sign for video once.`);
+    } catch (e) { console.log('engine watch: ' + (e as Error).message); }
   }
   private writeChangelog(): void {
     try { writeFileAtomic(path.join(this.cfg.dataDir, 'Samara Changelog.md'), this.changelogText()); } catch (e) { console.error('changelog: ' + (e as Error).message); }
