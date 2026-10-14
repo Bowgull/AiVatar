@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 34 - Update tray</title>
+<!-- Sheet 34 (2026-10-14): his verdict on the update tray, "do you see how confusing this is? i have no idea what im
+     looking into or what it is updating... the ticks should be the update itself and whats happening... settings
+     should live in a ... menu on the bottom right". Styled by the real cockpit.css + browser.css; only the new parts
+     (the ... key, its menu, the group labels) are drawn here. -->
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<link rel="stylesheet" href="../../src/Shell/pages/browser.css">
+<style>
+  html,body{background:#17110c;margin:0}
+  body{color:#e8dcc4;font-family:Figtree,sans-serif;padding:24px}
+  h1{font:400 20px Silkscreen,monospace;color:#FFC43C;letter-spacing:2px;margin:0 0 4px}
+  .lead{color:#b9a684;font-size:14px;margin:0 0 20px;max-width:1100px;line-height:1.5}
+  .row{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start}
+  .stage{position:relative;width:380px;min-height:470px;background:#24170e url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;border-radius:12px;border:3px solid #0d0703;padding:14px}
+  .stage > h2{font:400 11px Silkscreen,monospace;color:#FFC43C;letter-spacing:1.5px;margin:0 0 10px}
+  .uptray.mock{position:relative;right:auto;top:auto;width:340px}
+  .grp{font:400 9px Silkscreen,monospace;letter-spacing:1.5px;color:#C9A55C;margin:8px 4px 2px}
+  .lines .opt{cursor:pointer}
+  .lines .opt .tick.off{background:#3a2a1c}
+  .lines .opt .tick.off::after{display:none}
+  .lines small{display:block;color:#a8977a;font-size:11.5px}
+  .foot{display:flex;align-items:center;gap:8px;margin:4px 4px 6px}
+  .foot .sp{flex:1}
+  .more{width:30px;height:30px;border-radius:8px;border:2.5px solid var(--outline,#120A05);background:linear-gradient(180deg,#4A2C6E,#2C1848);color:#f3eaff;font:700 15px Figtree;cursor:pointer;box-shadow:0 3px 0 #120A05;display:grid;place-items:center;padding:0;line-height:1}
+  .menu{position:absolute;right:22px;top:262px;width:250px;background:#1d120a;border:2.5px solid #120A05;border-radius:10px;box-shadow:0 6px 0 #000,0 0 0 1px #6E4422 inset;padding:6px;z-index:5}
+  .menu button{display:flex;width:100%;text-align:left;gap:8px;align-items:center;background:none;border:0;color:#E6DCC8;font:500 13px Figtree;padding:7px 8px;border-radius:6px;cursor:pointer}
+  .menu button:hover{background:#2c1d12}
+  .menu hr{border:0;border-top:1px solid #3a2414;margin:4px 2px}
+  .menu .sw{margin-left:auto;width:30px;height:16px;border-radius:9px;background:#3a2a1c;border:2px solid #120A05;position:relative}
+  .menu .sw::after{content:"";position:absolute;left:2px;top:2px;width:8px;height:8px;border-radius:50%;background:#a8977a}
+  .menu .ok{color:#6fbf6a}
+  .checked{margin:6px 4px 2px;padding:8px 10px;border-radius:8px;background:#1d120a;border:1px solid #3a2414;font:500 12px/1.5 Figtree;color:#cdbf9f}
+  .checked b{color:#6fbf6a;font-weight:700}
+  .why{max-width:1100px;margin-top:22px;color:#c9b48c;font-size:13.5px;line-height:1.55}
+  .why b{color:#FFC43C}
+</style>
+</head>
+<body>
+<h1>SHEET 34 - THE UPDATE TRAY, CLEARER</h1>
+<p class="lead">The ticks are now the update itself: each line is one thing that happens when you press Restart now, grouped by what it changes.
+Lines you can switch off have a tick box (click to untick); the rest always come with the update. Everything else, the safety checks and your settings, moved into the <b>&hellip;</b> menu at the bottom right.</p>
+
+<div class="row">
+  <div class="stage">
+    <h2>A. WHAT YOU SEE WHEN YOU CLICK UPDATE</h2>
+    <div class="dltray uptray mock">
+      <div class="gh">UPDATE READY<span>Ready today</span></div>
+      <div class="ver"><b>Version 1.1.0: Gojo</b><small>5 changes. Restart takes about 5 seconds; your tabs come back.</small></div>
+      <div class="lines">
+        <div class="grp">SAMARA</div>
+        <div><span class="tick"></span><span>Only one Samara in your Dock, always.</span></div>
+        <div><span class="tick"></span><span>Updates get ready in the background, so restarting takes seconds.</span></div>
+        <div class="grp">SAMARA'S ENGINE</div>
+        <div><span class="tick"></span><span>Chrome's newest security fixes.<small>Always included: they close known holes.</small></span></div>
+        <div class="opt"><span class="tick"></span><span>Lock your saved logins with your computer's own lock.<small>Click to leave this out.</small></span></div>
+        <div class="opt"><span class="tick off"></span><span>Close a back door other programs could use.<small>Left out. Click to put it back in.</small></span></div>
+      </div>
+      <div class="foot"><button class="key primary sm" type="button">Restart now</button><button class="key sm" type="button">Later</button><span class="sp"></span><button class="more" type="button" title="More">&hellip;</button></div>
+    </div>
+  </div>
+
+  <div class="stage">
+    <h2>B. THE &hellip; MENU</h2>
+    <div class="dltray uptray mock">
+      <div class="gh">UPDATE READY<span>Ready today</span></div>
+      <div class="ver"><b>Version 1.1.0: Gojo</b><small>5 changes. Restart takes about 5 seconds; your tabs come back.</small></div>
+      <div class="lines" style="opacity:.35">
+        <div class="grp">SAMARA</div>
+        <div><span class="tick"></span><span>Only one Samara in your Dock, always.</span></div>
+        <div><span class="tick"></span><span>Updates get ready in the background, so restarting takes seconds.</span></div>
+      </div>
+      <div class="foot"><button class="key primary sm" type="button">Restart now</button><button class="key sm" type="button">Later</button><span class="sp"></span><button class="more" type="button" title="More" style="filter:brightness(1.3)">&hellip;</button></div>
+    </div>
+    <div class="menu">
+        <button type="button"><span class="ok">&#10003;</span> What was checked</button>
+        <button type="button">&#9201; Remind me tonight</button>
+        <button type="button">&#8631; Skip this version</button>
+        <hr>
+        <button type="button">&#128214; Every version (the changelog)</button>
+        <button type="button">&#10227; Check for updates now</button>
+        <button type="button">&#8630; Go back to the last version</button>
+        <hr>
+        <button type="button">Update by itself overnight <span class="sw"></span></button>
+      </div>
+  </div>
+
+  <div class="stage">
+    <h2>C. "WHAT WAS CHECKED"</h2>
+    <div class="dltray uptray mock">
+      <div class="gh">UPDATE READY<span>Ready today</span></div>
+      <div class="ver"><b>Version 1.1.0: Gojo</b><small>What was checked before it was offered</small></div>
+      <div class="checked">
+        <div><b>&#10003;</b> It came from your own PC, over your private, locked connection.</div>
+        <div><b>&#10003;</b> Every download matched its official fingerprint.</div>
+        <div><b>&#10003;</b> It passed Aang's tests on this computer.</div>
+        <div><b>&#10003;</b> If it ever won't start, the last version comes back by itself, and Claude gets a report.</div>
+      </div>
+      <div class="foot"><button class="key sm" type="button">Back</button><span class="sp"></span><button class="more" type="button">&hellip;</button></div>
+    </div>
+  </div>
+</div>
+
+<div class="why">
+<b>My recommendations for the &hellip; menu:</b> <b>Remind me tonight</b> (the key comes back at 8 pm), <b>Skip this version</b> (waits for the next one),
+<b>Every version</b> (the changelog), <b>Check for updates now</b>, <b>Go back to the last version</b> (if something feels off after updating), and
+<b>Update by itself overnight</b>, off unless you switch it on: it would only run when you're away, never in a game or a call.
+</div>
+</body>
+</html>
