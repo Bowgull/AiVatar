@@ -145,6 +145,11 @@
       "at": "2026-10-14T16:55:00-04:00",
       "text": "More scam sites are blocked, updated twice a day.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-10-14T17:05:00-04:00",
+      "text": "Sites trusted on one computer ask once on the other.",
+      "kind": "fix"
     }
   ]
 }

@@ -356,6 +356,12 @@ export class AangBrowser {
   /** Decision 18: sites he let download a program. Only his click on the chip adds to it. Kept between runs. */
   private readonly trustedFile: string;
   private trusted = new Set<string>();
+  /**
+   * His call (2026-10-14, code audit M3): sites the OTHER computer trusts (for programs, or opened without https)
+   * travel here but do not count until he says yes once on this machine. A removal there still applies here.
+   */
+  private peerTrusted = new Set<string>();
+  private peerHttp = new Set<string>();
   private askSeq = 0;
   /**
    * 6.24 calls (Zoom, Teams, Meet): camera and microphone he allowed on a site, kept only while a tab is still on
@@ -489,6 +495,8 @@ export class AangBrowser {
     const loadSet = (f: string) => { try { if (existsSync(f)) { const a = JSON.parse(readFileSync(f, 'utf8')); if (Array.isArray(a)) return new Set(a.filter((x: unknown) => typeof x === 'string')); } } catch { /* none */ } return new Set<string>(); };
     this.httpOk = loadSet(this.httpOkFile);
     this.trusted = loadSet(this.trustedFile);
+    this.peerTrusted = loadSet(this.trustedFile.replace(/\.json$/, '-other.json'));
+    this.peerHttp = loadSet(this.httpOkFile.replace(/\.json$/, '-other.json'));
     try {
       if (existsSync(this.prefsFile)) {
         const p = JSON.parse(readFileSync(this.prefsFile, 'utf8'));
@@ -706,10 +714,17 @@ export class AangBrowser {
         try { site = new URL(wc?.getURL() || from).hostname.replace(/^www\./, ''); } catch { /* unknown */ }
         if (!site || !this.trusted.has(site)) {
           item.pause();
-          this.ask({ host: site, what: `Download ${base}?`, text: `It is a program, and ${site || 'this site'} has not given you one before. Only say yes if you meant to get it.`, yes: 'Download, trust this site', no: 'No' }, (allow) => {
+          const other = this.peerTrusted.has(site);
+          const text = other ? `It is a program. Your other computer trusts ${site}, but this one hasn't yet. Only say yes if you meant to get it.`
+            : `It is a program, and ${site || 'this site'} has not given you one before. Only say yes if you meant to get it.`;
+          this.ask({ host: site, what: `Download ${base}?`, text, yes: 'Download, trust this site', no: 'No' }, (allow) => {
             if (item.getState() !== 'progressing') return;
             if (!allow) { item.cancel(); return; }
-            if (site) { this.trusted.add(site); try { writeFileAtomic(this.trustedFile, JSON.stringify([...this.trusted])); } catch { /* best effort */ } this.sync?.changed('prefs'); }
+            if (site) {
+              this.trusted.add(site); this.peerTrusted.delete(site);
+              try { writeFileAtomic(this.trustedFile, JSON.stringify([...this.trusted])); writeFileAtomic(this.trustedFile.replace(/\.json$/, '-other.json'), JSON.stringify([...this.peerTrusted])); } catch { /* best effort */ }
+              this.sync?.changed('prefs');
+            }
             item.resume();
           });
         }
@@ -806,8 +821,16 @@ export class AangBrowser {
     const L = v as Record<string, unknown>;
     const put = (f: string, set: Set<string>) => { try { writeFileAtomic(f, JSON.stringify([...set])); } catch { /* best effort */ } };
     if (Array.isArray(L.popupOk)) { this.popupOk = new Set(hostList(L.popupOk)); put(this.popupOkFile, this.popupOk); }
-    if (Array.isArray(L.trusted)) { this.trusted = new Set(hostList(L.trusted)); put(this.trustedFile, this.trusted); }
-    if (Array.isArray(L.httpOk)) { this.httpOk = new Set(hostList(L.httpOk)); put(this.httpOkFile, this.httpOk); }
+    // A site the other computer added waits for his yes here; one it took off comes off here too.
+    const meet = (incoming: unknown[], mine: Set<string>, other: Set<string>, file: string) => {
+      const inc = new Set(hostList(incoming));
+      for (const h of [...mine]) if (!inc.has(h)) mine.delete(h);
+      for (const h of [...other]) if (!inc.has(h) || mine.has(h)) other.delete(h);
+      for (const h of inc) if (!mine.has(h)) other.add(h);
+      put(file, mine); put(file.replace(/\.json$/, '-other.json'), other);
+    };
+    if (Array.isArray(L.trusted)) meet(L.trusted, this.trusted, this.peerTrusted, this.trustedFile);
+    if (Array.isArray(L.httpOk)) meet(L.httpOk, this.httpOk, this.peerHttp, this.httpOkFile);
     if (Array.isArray(L.adsPaused)) {
       const next = new Set(hostList(L.adsPaused));
       for (const h of this.paused) if (!next.has(h)) this.ads?.pause(h, false);
@@ -1534,6 +1557,8 @@ export class AangBrowser {
     if (list === 'popupOk' && this.popupOk.delete(v)) save(this.popupOkFile, this.popupOk);
     else if (list === 'trusted' && this.trusted.delete(v)) save(this.trustedFile, this.trusted);
     else if (list === 'httpOk' && this.httpOk.delete(v)) save(this.httpOkFile, this.httpOk);
+    if (list === 'trusted' && this.peerTrusted.delete(v)) save(this.trustedFile.replace(/\.json$/, '-other.json'), this.peerTrusted);
+    if (list === 'httpOk' && this.peerHttp.delete(v)) save(this.httpOkFile.replace(/\.json$/, '-other.json'), this.peerHttp);
     else if (list === 'marks') { const i = this.marks.findIndex((m) => m.url === v); if (i >= 0) { this.marks.splice(i, 1); this.saveMarks(); } }
     else return;
     if (list !== 'marks') this.sync?.changed('prefs');
@@ -2110,7 +2135,7 @@ export class AangBrowser {
     },
     // SY (his "sync everything", 2026-10-14): the lists he made travel with the settings. Money sites never do.
     prefs: () => ({ sounds: this.sounds, ...this.prefs, lists: {
-      popupOk: [...this.popupOk], trusted: [...this.trusted], httpOk: [...this.httpOk], adsPaused: [...this.paused],
+      popupOk: [...this.popupOk], trusted: [...this.trusted, ...this.peerTrusted], httpOk: [...this.httpOk, ...this.peerHttp], adsPaused: [...this.paused],
       stash: this.stash.map((x) => ({ ...x, tabs: x.tabs.filter((t) => urlKept(t.url)) })),
     } }) as Record<string, unknown>,
     setPrefs: (p: Record<string, unknown>) => {
@@ -2695,7 +2720,7 @@ export class AangBrowser {
       case 'failretry': if (t?.failed && wc) { const u = t.failed.url; t.failed = null; this.place(); void wc.loadURL(this.secured(t, u)).catch(() => {}); } break;
       case 'httpok': if (t?.failed?.kind === 'insecure' && wc) {
         const u = t.failed.url;
-        try { this.httpOk.add(new URL(u).hostname); writeFileAtomic(this.httpOkFile, JSON.stringify([...this.httpOk])); this.sync?.changed('prefs'); } catch { /* best effort */ }
+        try { const h = new URL(u).hostname; this.httpOk.add(h); this.peerHttp.delete(h); writeFileAtomic(this.httpOkFile, JSON.stringify([...this.httpOk])); writeFileAtomic(this.httpOkFile.replace(/[.]json$/, '-other.json'), JSON.stringify([...this.peerHttp])); this.sync?.changed('prefs'); } catch { /* best effort */ }
         t.failed = null; t.upgraded = null; this.place(); void wc.loadURL(u).catch(() => {});
       } break;
       // His bank: off to Chrome, and this tab steps back (or closes) so Samara never holds the page.
