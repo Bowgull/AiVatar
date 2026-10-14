@@ -160,6 +160,19 @@ function trailNameFor(url: string): string {
 }
 
 const isWeb = (u: string) => /^https?:\/\//i.test(u);
+/**
+ * Links that open an app instead of a page (his report, 2026-10-14: signing in to Claude on the Mac ended on "Open
+ * Claude" and nothing happened, because every non-web link was dropped). Like Chrome: only these, and only after he
+ * says yes in the band. Anything else stays blocked: an app link is a way to run things outside the browser.
+ */
+const APP_LINKS: Record<string, string> = {
+  claude: 'the Claude app', mailto: 'your email app', zoommtg: 'Zoom', zoomus: 'Zoom', msteams: 'Microsoft Teams',
+  slack: 'Slack', discord: 'Discord', spotify: 'Spotify',
+};
+export function appOf(u: string): string | null {
+  const m = /^([a-z][a-z0-9+.-]*):/i.exec(String(u ?? ''));
+  return m && u.length <= 4000 ? APP_LINKS[m[1]!.toLowerCase()] ?? null : null;
+}
 /** The right-click item that sends a page to the other machine's browser. */
 const OTHER_OPEN = process.platform === 'darwin' ? 'Open on PC' : 'Open on Mac';
 /** How a look-alike is named on the red plate's list chips. */
@@ -605,6 +618,17 @@ export class AangBrowser {
     const timer = setTimeout(() => { const f = this.asks.get(id); if (f) { this.asks.delete(id); f(false); } }, 120_000);
     this.asks.set(id, (allow) => { clearTimeout(timer); done(allow); });
     this.win.webContents.send('browser:ask', { id, ...a });
+  }
+  /** A link to an app (APP_LINKS): asked in the band, then handed to the system, which opens that app. */
+  private offerApp(tab: Tab, u: string): void {
+    const app = appOf(u);
+    if (!app) return;
+    let host = '';
+    try { host = new URL(tab.view?.webContents.getURL() ?? '').hostname.replace(/^www\./, ''); } catch { /* none */ }
+    this.inTab(tab);
+    this.ask({ host, what: `Open ${app}?`, text: `${host || 'This page'} wants to hand you over to ${app}.`, yes: 'Open it', no: 'No' }, (ok) => {
+      if (ok) void shell.openExternal(u).catch((e) => this.note(`${app} would not open: ${(e as Error).message}`));
+    });
   }
   /** His answer to the chip. */
   answer(id: number, allow: boolean): void { const f = this.asks.get(id); if (f) { this.asks.delete(id); f(allow); } }
@@ -1194,7 +1218,7 @@ export class AangBrowser {
     });
     wc.setWindowOpenHandler(({ url: u, disposition }) => {
       this.inTab(tab);
-      if (!isWeb(u)) return { action: 'deny' };
+      if (!isWeb(u)) { this.offerApp(tab, u); return { action: 'deny' }; }
       if (disposition === 'new-window') {
         let site = '';
         try { site = new URL(wc.getURL()).hostname.replace(/^www\./, ''); } catch { /* none */ }
@@ -1217,7 +1241,7 @@ export class AangBrowser {
     on('did-create-window', (pw) => this.popupWindow(pw));
     // 6.22: a listed site never loads, whether it is a link, a redirect or anything else.
     on('will-navigate', (e, u) => {
-      if (!isWeb(u)) { e.preventDefault(); return; }
+      if (!isWeb(u)) { e.preventDefault(); this.offerApp(tab, u); return; }
       if (this.toPaid(u)) { e.preventDefault(); return; }
       const l = this.listed(u);
       if (l.length) { e.preventDefault(); this.block(tab, u, l); return; }
@@ -1227,6 +1251,7 @@ export class AangBrowser {
     on('will-redirect', (e, u, _inPage, isMain) => {
       if (!isMain) return;
       if (isWeb(u) && this.toPaid(u)) { e.preventDefault(); return; }
+      if (!isWeb(u) && appOf(u)) { e.preventDefault(); this.offerApp(tab, u); return; }
       const l = isWeb(u) ? this.listed(u) : ['NOT A WEB PAGE'];
       if (l.length) { e.preventDefault(); this.block(tab, u, l); return; }
       const up = upgrade(u, this.httpOk);

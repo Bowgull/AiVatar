@@ -711,6 +711,12 @@ lock.addEventListener('click', (e) => {
   paintAdSwitch(); paintDarkSwitch();
   el('sitepanel').hidden = !el('sitepanel').hidden;
   lock.classList.toggle('open', !el('sitepanel').hidden);
+  // Hung from the shield itself (his report, 2026-10-14: it sat off to the side): its pointer (24px in, 18 wide) under the
+  // shield's middle, measured each time, since the address bar moves with the window and the band.
+  if (!el('sitepanel').hidden) {
+    const band = el('band').getBoundingClientRect(), r = lock.getBoundingClientRect();
+    el('sitepanel').style.left = Math.max(8, Math.round(r.left + r.width / 2 - band.left - 33)) + 'px';
+  }
 });
 function paintAdSwitch() {
   const on = state.adsOn && !state.adsPaused;
