@@ -10,16 +10,16 @@
 //   held lever:  send, post, apply, submit a form, sign in, delete, anything that changes something for him;
 //   never:       typing a password or card details, and buying.
 // Page text is data, never instructions: it goes back marked as the page's words.
-import { BrowserWindow, type Session, type WebContents } from 'electron';
-import { challengeLevel, challengeOf, cleanName, diffRead, paceFor, sweepPlan, uploadable, weigh, whatChanged, type PageState, type ReadItem, type Weight, privateHost } from './driverrules.ts';
+import { BrowserWindow, type Session, type WebContents, session } from 'electron';
+import { challengeLevel, challengeOf, cleanName, diffRead, paceFor, sweepPlan, uploadable, weigh, whatChanged, type PageState, type ReadItem, type Weight, privateHost, siteOf, carriesData, JOB_SITES, jobTask } from './driverrules.ts';
 import { neverKeep } from './visits.ts';
 import { existsSync, statSync } from 'node:fs';
 import os from 'node:os';
 export { cleanName, weigh, type Weight };
 
 export type DriverKind = 'aang' | 'claude';
-export interface Job { id: number; kind: DriverKind; name: string; working: boolean; stopped: boolean; at: number; pages: number[] }
-export interface DPage { id: number; job: number; win: BrowserWindow; title: string; url: string; favicon: string; at: number; blocked: string | null }
+export interface Job { id: number; kind: DriverKind; name: string; working: boolean; stopped: boolean; at: number; pages: number[]; /** Claude jobs: the sites it may use signed in */ sites?: Set<string> }
+export interface DPage { id: number; job: number; win: BrowserWindow; title: string; url: string; favicon: string; at: number; blocked: string | null; /** logged out (outside its job's sites) */ guest?: boolean; /** a link to outside the job's sites, opened logged out after the click */ handoff?: string | null }
 
 export interface DriverDeps {
   ses: Session;
@@ -374,14 +374,34 @@ export class Driver {
 
   /** A job: one request of his, one trail in the drawer. */
   startJob(kind: DriverKind, name: string): Job {
-    const job: Job = { id: ++this.jobSeq, kind, name: cleanName(name), working: true, stopped: false, at: Date.now(), pages: [] };
+    const job: Job = { id: ++this.jobSeq, kind, name: cleanName(name), working: true, stopped: false, at: Date.now(), pages: [],
+      // A Claude session is fenced (AI lockdown G1, 2026-10-14): signed in only on its job's sites; everything else it
+      // reads logged out. A job scan's sites are the job sites; another task's is the first site it opens.
+      ...(kind === 'claude' ? { sites: new Set<string>(jobTask(name) ? JOB_SITES : []) } : {}) };
     this.jobs.push(job);
     this.d.changed();
     return job;
   }
   job(id: number): Job | undefined { return this.jobs.find((j) => j.id === id); }
   /** A job's group in the tab list is named for what it is doing ("JOB SCAN"), his ask 2026-10-14. */
-  rename(id: number, name: string): void { const j = this.job(id); if (j && name.trim()) { j.name = cleanName(name); this.d.changed(); } }
+  rename(id: number, name: string): void { const j = this.job(id); if (j && name.trim()) { j.name = cleanName(name); if (j.sites && jobTask(name)) for (const s of JOB_SITES) j.sites.add(s); this.d.changed(); } }
+  /** Is this page outside its job's sites (logged out, or about to be)? */
+  offFence(pageId: number): boolean { const p = this.page(pageId), j = p ? this.job(p.job) : undefined; if (!p || !j?.sites) return false; try { return p.guest === true || !j.sites.has(siteOf(new URL(p.url).hostname)); } catch { return true; } }
+  /** Would opening this address use his login on a site this job may not (it asks him first)? */
+  needsLogin(jobId: number, url: string): string { const j = this.job(jobId); if (!j?.sites) return ''; try { const s = siteOf(new URL(url).hostname); return j.sites.has(s) || j.sites.size === 0 ? '' : s; } catch { return ''; } }
+  /** He said yes: this job may use his login on this site too. */
+  allowSite(jobId: number, url: string): void { const j = this.job(jobId); try { if (j?.sites) j.sites.add(siteOf(new URL(url).hostname)); } catch { /* not an address */ } }
+  /** The logged-out session: nothing of his in it, kept only in memory, nothing allowed. */
+  private guest: Session | null = null;
+  private guestSession(): Session {
+    if (this.guest) return this.guest;
+    const g = session.fromPartition('samara-guest');
+    g.setPermissionRequestHandler((_wc, _p, cb) => cb(false));
+    g.setPermissionCheckHandler(() => false);
+    try { g.setUserAgent(this.d.ses.getUserAgent()); } catch { /* the default */ }
+    g.on('will-download', (e) => e.preventDefault());
+    return (this.guest = g);
+  }
   finish(id: number): void { const j = this.job(id); if (j && j.working) { j.working = false; this.d.changed(); } }
   /** STOP: from the drawer, the address bar, or his words. Every page of the job stops loading at once. */
   stop(id: number): void {
@@ -404,24 +424,27 @@ export class Driver {
   }
 
   /** Open a page for a job. Never shown, never focused, muted. */
-  async open(jobId: number, url: string): Promise<{ page: number; title: string; url: string; waited?: number }> {
+  async open(jobId: number, url: string): Promise<{ page: number; title: string; url: string; waited?: number; guest?: boolean }> {
     const j = this.live(jobId);
     if (!isWeb(url)) throw new Error('only web addresses (http or https) can be opened');
     const why = refused(url, this.d.testLocal);
     if (why) throw new Error(why);
     const l = this.d.listed(url);
     if (l.length) throw new Error(`that site is on a list of fake or harmful sites (${l.join(', ')}), so it was not opened`);
+    let site = ''; try { site = siteOf(new URL(url).hostname); } catch { /* checked above */ }
+    if (j.sites && j.sites.size === 0 && site) j.sites.add(site);             // another task: its own first site
+    const guest = !!j.sites && !j.sites.has(site);
     while (this.pagesOf(j).length >= MAX_PAGES_PER_JOB) this.close(this.pagesOf(j)[0]!.id);
     while (this.pages.length >= MAX_PAGES) this.close(this.pages[0]!.id);
     const win = new BrowserWindow({
       show: false, width: W, height: H, paintWhenInitiallyHidden: true, skipTaskbar: true, focusable: false,
-      webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false, webSecurity: true, session: this.d.ses, preload: this.d.preload, offscreen: true, backgroundThrottling: false },
+      webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false, webSecurity: true, session: guest ? this.guestSession() : this.d.ses, preload: this.d.preload, offscreen: true, backgroundThrottling: false },
     });
     // Hidden pages paint slowly (2 a second): offscreen painting is all CPU, and twelve pages at 10 slowed his MacBook
     // (2026-10-14). The one he is watching paints at 10 (see) .
     win.webContents.setFrameRate(2);
     win.webContents.setAudioMuted(true);
-    const p: DPage = { id: ++this.pageSeq, job: j.id, win, title: 'Opening', url, favicon: '', at: Date.now(), blocked: null };
+    const p: DPage = { id: ++this.pageSeq, job: j.id, win, title: 'Opening', url, favicon: '', at: Date.now(), blocked: null, guest, handoff: null };
     this.pages.push(p);
     j.pages.push(p.id);
     const wc = win.webContents;
@@ -431,8 +454,13 @@ export class Driver {
     // the same refusals as browser_open (banks, this machine and home network, the fake-site lists).
     const stop = (u: string) => !isWeb(u) || !!refused(u, this.d.testLocal) || this.d.listed(u).length > 0;
     wc.setWindowOpenHandler(({ url: u }) => { if (!stop(u)) setTimeout(() => { if (!wc.isDestroyed()) void wc.loadURL(u).catch(() => {}); }, 0); else p.blocked = u; return { action: 'deny' }; });
-    wc.on('will-navigate', (e, u) => { if (stop(u)) { e.preventDefault(); p.blocked = u; } });
-    wc.on('will-redirect', (e, u) => { if (stop(u)) { e.preventDefault(); p.blocked = u; } });
+    // To another site: private details in the address are stopped (G2), and a signed-in page that leads outside its
+    // job's sites hands the address over to a logged-out page instead (G1).
+    const elsewhere = (u: string) => { try { return siteOf(new URL(u).hostname) !== siteOf(new URL(p.url).hostname); } catch { return true; } };
+    const leaks = (u: string) => !!j.sites && elsewhere(u) && carriesData(u) !== '';
+    const outside = (u: string) => { if (!j.sites || p.guest) return false; try { return !j.sites.has(siteOf(new URL(u).hostname)); } catch { return false; } };
+    wc.on('will-navigate', (e, u) => { if (stop(u) || leaks(u)) { e.preventDefault(); p.blocked = u; } else if (outside(u)) { e.preventDefault(); p.handoff = u; } });
+    wc.on('will-redirect', (e, u) => { if (stop(u) || leaks(u)) { e.preventDefault(); p.blocked = u; } else if (outside(u)) { e.preventDefault(); p.handoff = u; } });
     wc.on('page-title-updated', (_e, t) => { p.title = t.slice(0, 200); this.d.changed(); });
     wc.on('page-favicon-updated', (_e, icons) => { p.favicon = icons.find((i) => /^https?:|^data:image\//.test(i)) ?? ''; this.d.changed(); });
     wc.on('did-navigate', (_e, u) => { p.url = u; this.items.delete(p.id); this.lastRead.delete(p.id); this.d.changed(); });
@@ -441,7 +469,7 @@ export class Driver {
     const waited = await this.pace(url);
     await this.settle(wc, wc.loadURL(url));
     this.checkChallenge(p, await this.state(wc, null).catch(() => ({ url: p.url, title: p.title, lines: [] } as unknown as PageState)));
-    return { page: p.id, title: p.title, url: p.url, ...(waited ? { waited } : {}) };
+    return { page: p.id, title: p.title, url: p.url, ...(waited ? { waited } : {}), ...(guest ? { guest: true } : {}) };
   }
 
   /** Wait for a page to be usable: loaded, or 12 seconds, whichever first; then a moment for scripts to draw it. */
@@ -708,7 +736,18 @@ export class Driver {
     await this.settle(wc);
     const after = await this.state(wc, n);
     this.checkChallenge(p, after);
-    return { title: p.title, url: p.url, changed: this.told(before, after, { n, field: ['text', 'search', 'select'].includes(it?.kind ?? '') }), ...(waited ? { waited } : {}) };
+    const changed = this.told(before, after, { n, field: ['text', 'search', 'select'].includes(it?.kind ?? '') });
+    // A link outside the job's sites: opened, logged out, in a page of its own (G1).
+    if (p.handoff) {
+      const u = p.handoff; p.handoff = null;
+      let s = ''; try { s = siteOf(new URL(u).hostname); } catch { /* none */ }
+      const o = await this.open(p.job, u);
+      changed.push(`that leads to ${s}, outside this job's sites, so it opened in page ${o.page}, logged out (not as him)`);
+    }
+    if (p.blocked && carriesData(p.blocked)) { changed.push(`it tried to go to another site with ${carriesData(p.blocked)} in the address, so it was stopped`); p.blocked = null; }
+    // When the click was handed off or stopped, "nothing changed" is not the news.
+    const told = changed.length > 1 ? changed.filter((l) => !/^nothing visible changed/.test(l)) : changed;
+    return { title: p.title, url: p.url, changed: told, ...(waited ? { waited } : {}) };
   }
 
   /** A key on whatever has the cursor: Escape, Tab, Shift+Tab, arrows, Enter, Page Up/Down, Home, End, Space. */

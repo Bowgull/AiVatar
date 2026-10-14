@@ -80,6 +80,26 @@
       "at": "2026-10-14T14:25:48-04:00",
       "kind": "fix",
       "text": "Restarting for an update is quicker: Samara is back in a few seconds, and the rest finishes quietly afterwards."
+    },
+    {
+      "at": "2026-10-14T14:53:01-04:00",
+      "kind": "feature",
+      "text": "Claude and Aang now ask you once before a session uses Samara, and stay signed in only on the sites the job needs."
+    },
+    {
+      "at": "2026-10-14T14:53:01-04:00",
+      "kind": "feature",
+      "text": "Anywhere else, they browse logged out, and your private details can't be sent off quietly."
+    },
+    {
+      "at": "2026-10-14T14:53:01-04:00",
+      "kind": "fix",
+      "text": "A trick web page can't swap or cover a button to make an AI press Send without asking you."
+    },
+    {
+      "at": "2026-10-14T14:53:01-04:00",
+      "kind": "fix",
+      "text": "The bank block and the human-pace rule now apply on every page, and can't be dodged with an extra dot in the address."
     }
   ]
 }

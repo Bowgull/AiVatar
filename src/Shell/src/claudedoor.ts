@@ -95,6 +95,13 @@ export async function checkCompanies(stateDir: string, only: string[] = [], get:
   };
 }
 
+/** Ask him in Samara's band; if no Samara window is open, open one first so he can answer. */
+async function askOrShow(b: AangBrowser, what: string): Promise<boolean | null> {
+  let yes = await b.askForClaude(what);
+  if (yes === null) { b.open(); await new Promise((r) => setTimeout(r, 1500)); yes = await b.askForClaude(what); }
+  return yes;
+}
+
 export function startClaudeDoor(getBrowser: () => AangBrowser | null, stateDir: string, port = CLAUDE_DOOR_PORT): http.Server {
   const key = randomBytes(32).toString('base64url');
   const file = path.join(stateDir, 'claude-door.json');
@@ -124,6 +131,8 @@ export function startClaudeDoor(getBrowser: () => AangBrowser | null, stateDir: 
           else if (op !== 'start' && op !== 'history' && op !== 'note' && !(
             (op === 'open' || op === 'finish' || op === 'rename') ? mine.has(Number(a.job)) : op === 'sweep_status' ? mine.has(b.pageJob(b.sweepPage(Number(a.id)) ?? -1) ?? -1) : mine.has(b.pageJob(Number(a.page)) ?? -1))) out = { ok: false, error: 'that is not a page this Claude session opened' };
           // His history is his (AI lockdown G10): a Claude session asks him every time, in Samara's band.
+          // One OK from him per Claude session (AI lockdown G11): a session does nothing in Samara until he allows it.
+          else if (op === 'start' && (await askOrShow(b, `use Samara for "${String(a.name ?? 'Claude').slice(0, 40)}"`)) !== true) out = { ok: false, error: "Joshua didn't allow this session to use Samara (or wasn't there to answer). Ask him, then try again." };
           else if (op === 'history' && (await b.askForClaude('look through your browsing history')) !== true) out = { ok: false, error: 'Reading his history needs his OK each time, and he did not give it.' };
           else {
             const step = op === 'start' ? { kind: 'claude', name: String(a.name ?? 'Claude').slice(0, 40) } : { ...a, allowed: false };
