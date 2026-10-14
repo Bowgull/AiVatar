@@ -383,7 +383,9 @@ export class Driver {
       show: false, width: W, height: H, paintWhenInitiallyHidden: true, skipTaskbar: true, focusable: false,
       webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false, webSecurity: true, session: this.d.ses, preload: this.d.preload, offscreen: true, backgroundThrottling: false },
     });
-    win.webContents.setFrameRate(10);
+    // Hidden pages paint slowly (2 a second): offscreen painting is all CPU, and twelve pages at 10 slowed his MacBook
+    // (2026-10-14). The one he is watching paints at 10 (see) .
+    win.webContents.setFrameRate(2);
     win.webContents.setAudioMuted(true);
     const p: DPage = { id: ++this.pageSeq, job: j.id, win, title: 'Opening', url, favicon: '', at: Date.now(), blocked: null };
     this.pages.push(p);
@@ -793,11 +795,19 @@ export class Driver {
     return this.jobs.map((j) => ({ id: j.id, kind: j.kind, name: j.name, working: j.working, stopped: j.stopped,
       pages: this.pagesOf(j).map((p) => ({ id: p.id, title: p.title, url: p.url, favicon: p.favicon })) }));
   }
-  /** A quick picture of a page for him to watch it work (the drawer's live view). */
+  /** A quick picture of a page for him to watch it work (the drawer's live view), at the page's own size. */
   async glance(pageId: number): Promise<string | null> {
     const p = this.page(pageId);
     if (!p) return null;
-    try { const img = await p.win.webContents.capturePage(); if (img.isEmpty()) return null; return 'data:image/jpeg;base64,' + img.resize({ width: 960, quality: 'good' }).toJPEG(75).toString('base64'); } catch { return null; }
+    try { const img = await p.win.webContents.capturePage(); if (img.isEmpty()) return null; return 'data:image/jpeg;base64,' + img.toJPEG(80).toString('base64'); } catch { return null; }
+  }
+  /** He is watching this page (or stopped): lay it out at the size of his page area, so the picture is not stretched,
+   *  and paint it smoothly; back to small and slow when he looks away. */
+  watched(pageId: number, size: { width: number; height: number } | null): void {
+    const p = this.page(pageId);
+    if (!p || p.win.isDestroyed()) return;
+    const w = size ? Math.max(800, Math.min(2200, Math.round(size.width))) : W, h = size ? Math.max(500, Math.min(1600, Math.round(size.height))) : H;
+    try { p.win.setContentSize(w, h); p.win.webContents.setFrameRate(size ? 10 : 2); } catch { /* gone */ }
   }
   closeAll(): void { for (const p of [...this.pages]) { try { p.win.destroy(); } catch { /* gone */ } } this.pages.length = 0; this.jobs.length = 0; }
 }

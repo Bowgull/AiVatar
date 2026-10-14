@@ -407,7 +407,8 @@ window.addEventListener('keydown', (e) => {
   const c = e.ctrlKey || e.metaKey, k = e.key.toLowerCase();
   const send = (a) => { e.preventDefault(); window.aang?.browserAct?.(a); };
   if (k === 'escape' && dlOpen) { e.preventDefault(); closeDl(); return; }
-  if (k === 'escape' && state.watching) { e.preventDefault(); window.aang?.browserDriver?.({ act: state.watching.working ? 'stop' : 'unwatch', id: state.watching.working ? state.watching.job : 0 }); return; }
+  // Esc only stops WATCHING; stopping a job is the STOP key, confirmed (2026-10-14: a job was stopped he never meant to).
+  if (k === 'escape' && state.watching) { e.preventDefault(); window.aang?.browserDriver?.({ act: 'unwatch', id: 0 }); return; }
   if (k === 'escape' && menuOpen) { e.preventDefault(); closeMenu(); return; }
   if (k === 'escape' && drawerOpen) { e.preventDefault(); closeDrawer(); return; }
   if (c && e.shiftKey && k === 't') send('reopen');
@@ -1127,10 +1128,19 @@ function driverIcon(kind) {
   else ic.append(Object.assign(document.createElement('img'), { src: 'art/aang-face.png', alt: '' }));
   return ic;
 }
+const stopArmed = new Map();
 function stopKey(jobId, big = false) {
   const b = Object.assign(document.createElement('button'), { type: 'button', className: 'stopk' + (big ? ' big' : ''), title: 'Stop', innerHTML: STOP_IC });
   b.setAttribute('aria-label', 'Stop');
-  b.addEventListener('click', (e) => { e.stopPropagation(); window.aang?.browserDriver?.({ act: 'stop', id: jobId }); });
+  // Two presses: the first turns it into "Stop?" for 3 seconds, the second stops. A slow redraw once put the key
+  // under his pointer and a job stopped that he never meant to (2026-10-14). The armed state outlives a redraw.
+  if (stopArmed.get(jobId) > Date.now()) { b.classList.add('armed'); b.textContent = 'STOP?'; }
+  b.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if ((stopArmed.get(jobId) ?? 0) > Date.now()) { stopArmed.delete(jobId); window.aang?.browserDriver?.({ act: 'stop', id: jobId }); return; }
+    stopArmed.set(jobId, Date.now() + 3000); b.classList.add('armed'); b.textContent = 'STOP?';
+    setTimeout(() => { if (!((stopArmed.get(jobId) ?? 0) > Date.now())) { b.classList.remove('armed'); b.innerHTML = STOP_IC; } }, 3100);
+  });
   return b;
 }
 function driverNodes() {
