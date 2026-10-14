@@ -2863,7 +2863,23 @@ export class AangBrowser {
         case 'start': { const j = d.startJob(a?.kind === 'claude' ? 'claude' : 'aang', String(a?.name ?? '')); return { ok: true, job: j.id }; }
         case 'finish': d.finish(num('job')); return { ok: true };
         case 'open': return { ok: true, ...(await d.open(num('job'), String(a?.url ?? '').slice(0, 2000))) };
-        case 'read': return { ok: true, ...(await d.read(num('page'))) };
+        case 'read': return { ok: true, ...(await d.read(num('page'), { ...(Number.isInteger(Number(a?.within)) && a?.within !== undefined ? { within: Number(a.within) } : {}), changes: a?.changes === true })) };
+        case 'find': return { ok: true, ...(await d.find(num('page'), String(a?.q ?? '').slice(0, 200))) };
+        case 'back': case 'forward': return { ok: true, ...(await d.history(num('page'), op === 'back')) };
+        case 'select': return { ok: true, ...(await d.choose(num('page'), num('n'), String(a?.option ?? '').slice(0, 200))) };
+        case 'key': {
+          // Enter or Space on a control is weighed like a click on it (or sending its form); the other keys are free.
+          const page = num('page'), key = String(a?.key ?? '').toLowerCase();
+          if (key === 'enter' || key === 'space') {
+            const f = await d.focused(page);
+            if (f !== null) {
+              const w = key === 'enter' ? (d.weightOf(page, f, 'enter') === 'free' || d.weightOf(page, f, 'click') === 'free' ? 'free' : d.weightOf(page, f, 'enter') === 'never' ? 'never' : 'lever') : d.weightOf(page, f, 'click');
+              if (w === 'never') return { ok: false, error: `that would act on ${d.describe(page, f)}, and buying, passwords and card details are never done for him` };
+              if (w === 'lever' && a?.allowed !== true) return { ok: false, needs: 'lever', what: `press ${key === 'enter' ? 'Enter' : 'Space'} on ${d.describe(page, f)}` };
+            }
+          }
+          return { ok: true, ...(await d.key(page, key)) };
+        }
         case 'click': case 'type': {
           const page = num('page'), n = num('n');
           const w = op === 'click' ? d.weightOf(page, n, 'click') : d.weightOf(page, n, 'type');
