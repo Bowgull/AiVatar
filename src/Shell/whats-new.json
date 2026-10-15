@@ -215,6 +215,11 @@
       "at": "2026-10-14T21:30:00-04:00",
       "text": "One Samara in your Dock after updates, for good.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-10-15T01:00:00-04:00",
+      "text": "Pinned pop-out: the pin lies down and turns gold.",
+      "kind": "fix"
     }
   ]
 }
