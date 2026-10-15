@@ -200,6 +200,11 @@
       "at": "2026-10-14T17:10:00-04:00",
       "text": "Your Mac remembers Samara's mic permission now.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-10-14T21:30:00-04:00",
+      "text": "Netflix on the Mac opens in the paid-video window.",
+      "kind": "fix"
     }
   ]
 }
