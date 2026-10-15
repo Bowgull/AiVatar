@@ -184,3 +184,8 @@ html,body{ background:#24160D }
 
 /* The see-through slider's icon is a label, not a key (his report, 2026-10-14): flat, no raise, nothing to press. */
 .seeicon{display:inline-grid;place-items:center;width:18px;height:22px;flex:none;opacity:.9;pointer-events:none}
+
+/* Pinned (his pick, sheet 38, 2026-10-15): the pin lies on its side and turns gold, so pinned shows at a glance. */
+.frame.pinned #pin{ background:#FFC43C; box-shadow:inset 2px 2px 0 rgba(255,245,200,.7), inset -2px -2px 0 rgba(120,80,10,.5), 0 2px 0 var(--outline) }
+.frame.pinned #pin svg{ transform:rotate(90deg) }
+.frame.pinned #pin svg path{ fill:#2a1c00 }
