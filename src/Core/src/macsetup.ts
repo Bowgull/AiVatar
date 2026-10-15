@@ -524,8 +524,12 @@ if [ -d "$BASE" ] && [ -x "$NODE_DIR/bin/node" ]; then
     for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do pgrep -f "Applications/(Samara|Aang).app/Contents/MacOS/" >/dev/null 2>&1 || break; sleep 0.5; done
     # The one that was here is kept in the rollback folder, so a new one that will not start can be undone. The first
     # time, that is the old Aang.app, which is then gone from Applications.
-    rm -rf "$RB/Samara.app"; if [ -d "$APP" ]; then mv "$APP" "$RB/Samara.app"; elif [ -d "$OLD" ]; then mv "$OLD" "$RB/Samara.app"; fi
-    mv "$NEWAPP" "$APP"; rm -rf "$OLD" "$STAGE" "$APP.new"
+    # Only what is INSIDE Samara.app is swapped, never the app folder itself (his report, 2026-10-14: after an update the
+    # Dock's Samara sat there closed and a second one opened). The Dock remembers the folder, not its name: moving the
+    # old folder away took the Dock's Samara with it. Swapping its Contents keeps the folder, and the Dock, where it is.
+    rm -rf "$RB/Samara.app"; mkdir -p "$RB/Samara.app"
+    if [ -d "$APP/Contents" ]; then mv "$APP/Contents" "$RB/Samara.app/Contents"; elif [ -d "$OLD" ]; then rmdir "$RB/Samara.app"; mv "$OLD" "$RB/Samara.app"; fi
+    mkdir -p "$APP"; mv "$NEWAPP/Contents" "$APP/Contents"; rm -rf "$OLD" "$NEWAPP" "$STAGE" "$APP.new"
 ${rel ? `    cp "$BR/installed.json" "$BR/installed.prev.json" 2>/dev/null || rm -f "$BR/installed.prev.json"
     printf '%s' '{"version":"${rel.version}","commit":"${rel.commit}","status":"${opts.update ? 'trial' : 'good'}"}' > "$BR/installed.json"` : ''}
     /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$APP" >/dev/null 2>&1 || true
@@ -538,18 +542,18 @@ ${rel ? `    cp "$BR/installed.json" "$BR/installed.prev.json" 2>/dev/null || rm
     MATCH=0; POS=$N; i=$((N-1))
     while [ $i -ge 0 ]; do
       u="$($PB -c "Print :persistent-apps:$i:tile-data:file-data:_CFURLString" "$DP" 2>/dev/null || true)"
-      case "$u" in *Applications/Aang.app*|*Applications/Samara.app*) MATCH=$((MATCH+1)); POS=$i;; esac
+      case "$u" in *Applications/Aang.app*|*Applications/Samara.app*|*rollback/Samara.app*|*staged/Samara.app*) MATCH=$((MATCH+1)); POS=$i;; esac
       i=$((i-1))
     done
-    if [ $MATCH -ne 1 ] || [ ! -f "$BR/dock-samara" ]; then
+    if [ $MATCH -ne 1 ] || [ ! -f "$BR/dock-samara-2" ]; then
       i=$((N-1))
       while [ $i -ge 0 ]; do
         u="$($PB -c "Print :persistent-apps:$i:tile-data:file-data:_CFURLString" "$DP" 2>/dev/null || true)"
-        case "$u" in *Applications/Aang.app*|*Applications/Samara.app*) $PB -c "Delete :persistent-apps:$i" "$DP";; esac
+        case "$u" in *Applications/Aang.app*|*Applications/Samara.app*|*rollback/Samara.app*|*staged/Samara.app*) $PB -c "Delete :persistent-apps:$i" "$DP";; esac
         i=$((i-1))
       done
       $PB -c "Add :persistent-apps:$POS dict" -c "Add :persistent-apps:$POS:tile-type string file-tile" -c "Add :persistent-apps:$POS:tile-data dict" -c "Add :persistent-apps:$POS:tile-data:file-data dict" -c "Add :persistent-apps:$POS:tile-data:file-data:_CFURLString string file://$APP/" -c "Add :persistent-apps:$POS:tile-data:file-data:_CFURLStringType integer 15" "$DP"
-      defaults import com.apple.dock "$DP" && touch "$BR/dock-samara"
+      defaults import com.apple.dock "$DP" && touch "$BR/dock-samara-2"
       killall Dock >/dev/null 2>&1 || true
     fi
     rm -f "$DP"
@@ -616,7 +620,7 @@ ${rel ? `for t in 40 60 120; do
   if ! pgrep -f "Samara.app/Contents/MacOS/" >/dev/null 2>&1; then
     if [ -d "$BR/rollback/Samara.app" ]; then
       echo "The new Samara did not start; putting the old one back."
-      rm -rf "$APP"; mv "$BR/rollback/Samara.app" "$APP"
+      rm -rf "$APP/Contents"; mv "$BR/rollback/Samara.app/Contents" "$APP/Contents"; rm -rf "$BR/rollback/Samara.app"
       if [ -f "$BR/installed.prev.json" ]; then mv "$BR/installed.prev.json" "$BR/installed.json"; else rm -f "$BR/installed.json"; fi
       echo "${rel.version}" >> "$BR/failed-updates.txt"
       open -a "$APP"

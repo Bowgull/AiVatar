@@ -205,6 +205,16 @@
       "at": "2026-10-14T21:30:00-04:00",
       "text": "Netflix on the Mac opens in the paid-video window.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-10-14T21:30:00-04:00",
+      "text": "Netflix shows really open in their own window now.",
+      "kind": "fix"
+    },
+    {
+      "at": "2026-10-14T21:30:00-04:00",
+      "text": "One Samara in your Dock after updates, for good.",
+      "kind": "fix"
     }
   ]
 }
