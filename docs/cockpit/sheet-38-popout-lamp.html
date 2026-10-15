@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 38: pop-out, lamp-lit</title>
+<!-- The pop-out's real stylesheet (served from the AangApp root), so "before" is exactly what he sees today. -->
+<link rel="stylesheet" href="../../src/Shell/pages/popout.css">
+<style>
+  html,body{ height:auto; overflow:auto; background:#120b06; cursor:auto }
+  body{ padding:28px 32px 40px; font-family:Georgia,serif; color:#e8dcc4 }
+  h1{ font:700 22px Georgia,serif; color:#FFE096; margin:0 0 4px; letter-spacing:.5px }
+  .lede{ font-size:14px; color:#c9b89a; margin:0 0 24px }
+  .row{ display:flex; gap:28px; flex-wrap:wrap; align-items:flex-start }
+  .cell{ display:flex; flex-direction:column; gap:10px }
+  .cap{ font:400 10px var(--label); letter-spacing:1.5px; color:#FFC43C }
+  .note{ font-size:13px; color:#c9b89a; max-width:440px; line-height:1.45 }
+  .win{ width:440px; height:300px; border-radius:10px; overflow:hidden; box-shadow:0 18px 40px rgba(0,0,0,.7), 0 0 0 1px #000 }
+  .win .frame{ height:100%; grid-template-rows:var(--bar) 1fr auto }
+  .win .stage{ min-height:0; overflow:hidden }
+  .stage img{ width:100%; height:100%; object-fit:cover; object-position:50% 70%; display:block }
+  .zoom{ display:flex; gap:28px; margin-top:30px; flex-wrap:wrap }
+  .pinbox{ display:flex; flex-direction:column; align-items:center; gap:8px }
+  .pinbox .ctrl{ padding:12px 16px; border-radius:6px }
+  .pinbox .ico{ transform:scale(2.2); margin:14px }
+
+  /* ===== AFTER: what would change ===== */
+  /* 1. Lamp-lit wood, the update tray's lamp (sheet 35): warm light from the top-left corner. */
+  .after .bar{ background:radial-gradient(120% 160% at 10% 0%,rgba(255,186,96,.45),rgba(255,160,70,.14) 45%,transparent 72%),url(../../src/Shell/pages/art/browser/band.png) repeat-x 0 0/128px 34px }
+  .after .ctrl{ background:radial-gradient(120% 220% at 12% 0%,rgba(255,186,96,.40),rgba(255,160,70,.12) 45%,transparent 72%),url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px }
+  /* 2. No grip: the whole bar already drags. */
+  .after .grip{ display:none }
+  /* 3. The pin lies sideways when pinned. */
+  .after .frame.pinned #pin svg{ transform:rotate(90deg) }
+  .after .frame.pinned #pin{ background:#FFC43C; box-shadow:inset 2px 2px 0 rgba(255,245,200,.7), inset -2px -2px 0 rgba(120,80,10,.5), 0 2px 0 var(--outline) }
+  .after .frame.pinned #pin svg path{ fill:#2a1c00 }
+</style>
+</head>
+<body>
+<h1>Sheet 38: the pop-out, lamp-lit</h1>
+<p class="lede">Before, then after. Same pop-out, same buttons. Three changes: the lamp glow, no dot square, the pin lies down when pinned.</p>
+
+<template id="pop">
+  <div class="frame">
+    <div class="bar">
+      <i class="grip"></i>
+      <span class="what">HISWATTSON - TWITCH</span>
+      <span class="src paid" style="background:#A970FF">TWITCH</span>
+      <span class="keys">
+        <button class="key"><svg viewBox="0 0 7 7" width="10" height="10" shape-rendering="crispEdges"><path d="M0 5h7v1H0z" fill="#e8e0f5"/></svg></button>
+        <button class="key close"><svg viewBox="0 0 7 7" width="10" height="10" shape-rendering="crispEdges"><path d="M0 0h1v1h-1zM6 0h1v1h-1zM1 1h1v1h-1zM5 1h1v1h-1zM2 2h1v1h-1zM4 2h1v1h-1zM3 3h1v1h-1zM2 4h1v1h-1zM4 4h1v1h-1zM1 5h1v1h-1zM5 5h1v1h-1zM0 6h1v1h-1zM6 6h1v1h-1z" fill="#e8e0f5"/></svg></button>
+      </span>
+    </div>
+    <div class="stage"><img src="sheet-38/video.jpg" alt=""></div>
+    <div class="ctrl" style="border-top:4px solid var(--outline)">
+      <span class="seeicon"><svg viewBox="0 0 7 7" width="12" height="12" shape-rendering="crispEdges"><path d="M2 0h3v1H2zM1 1h2v1H1zM5 1h1v1H5zM0 2h3v3H0zM6 2h1v3H6zM1 5h2v1H1zM5 5h1v1H5zM2 6h3v1H2z" fill="#FFE096"/></svg></span>
+      <div class="track short"><i class="fill" style="width:70%"></i><i class="knob" style="left:70%"></i></div>
+      <span class="tnum">70%</span>
+      <span style="flex:1"></span>
+      <button class="ico sm" id="pin"><svg viewBox="0 0 7 7" width="12" height="12" shape-rendering="crispEdges"><path d="M2 0h3v1H2zM2 1h1v2H2zM4 1h1v2H4zM1 3h5v1H1zM3 4h1v3H3z" fill="#e8e0f5"/></svg></button>
+      <button class="ico sm"><svg viewBox="0 0 7 7" width="12" height="12" shape-rendering="crispEdges"><path d="M0 0h7v1H0zM0 1h1v2H0zM6 1h1v2H6zM0 3h7v1H0zM0 5h7v1H0z" fill="#e8e0f5"/></svg></button>
+      <button class="ico sm"><svg viewBox="0 0 7 7" width="12" height="12" shape-rendering="crispEdges"><path d="M0 0h2v1H0zM5 0h2v1H5zM0 1h1v1H0zM6 1h1v1H6zM0 5h1v1H0zM6 5h1v1H6zM0 6h2v1H0zM5 6h2v1H5z" fill="#e8e0f5"/></svg></button>
+    </div>
+  </div>
+</template>
+
+<div class="row">
+  <div class="cell"><span class="cap">1. TODAY</span><div class="win" data-pop></div>
+    <p class="note">Flat wood, the gold dot square at the top left, and the pin looks the same pinned or not.</p></div>
+  <div class="cell after"><span class="cap">2. AFTER, NOT PINNED</span><div class="win" data-pop></div>
+    <p class="note">Warm lamp light from the top-left on both wood strips, like the update tray. Dot square gone (drag anywhere on the bar).</p></div>
+  <div class="cell after"><span class="cap">3. AFTER, PINNED</span><div class="win" data-pop data-pinned></div>
+    <p class="note">The pin lies on its side and turns gold, so you can see at a glance that clicks go through to your game.</p></div>
+</div>
+
+<div class="zoom">
+  <div class="pinbox"><span class="cap">PIN, NOT PINNED (UPRIGHT)</span><div class="ctrl after"><button class="ico sm" id="z1"></button></div></div>
+  <div class="pinbox after"><span class="cap">PIN, PINNED (LYING DOWN)</span><div class="frame pinned" style="height:auto;display:block;background:none"><div class="ctrl"><button class="ico sm" id="pin"></button></div></div></div>
+</div>
+
+<script>
+  const t = document.getElementById('pop');
+  for (const w of document.querySelectorAll('[data-pop]')) {
+    w.appendChild(t.content.cloneNode(true));
+    if (w.hasAttribute('data-pinned')) w.querySelector('.frame').classList.add('pinned');
+  }
+  const pinSvg = t.content.querySelector('#pin').innerHTML;
+  document.getElementById('z1').innerHTML = pinSvg;
+  document.querySelector('.pinbox.after #pin').innerHTML = pinSvg;
+</script>
+</body>
+</html>
