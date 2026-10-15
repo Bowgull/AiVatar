@@ -123,9 +123,12 @@ app.whenReady().then(async () => {
   const drm = new DrmRuntime({ shellDir: path.join(HERE, '..'), stateDir });
   // One engine (his yes, 2026-10-13): Aang.app is built on castLabs' engine, so paid video plays right in the tab;
   // only an Aang.app on the stock engine still sends it to the separate window.
-  if (!onCastlabs()) browser.onPaid = (url) => {
+  // Netflix is the exception on this Mac (his report, 2026-10-14: error E100 in Samara's own tab, while it plays on the
+  // PC and Widevine itself works here): it goes to the paid-video window, castLabs' own untouched app.
+  browser.onPaid = (url) => {
     const paid = serviceFor(url);
     if (!paid?.ready) return false;
+    if (onCastlabs() && paid.id !== 'netflix') return false;
     const why = drm.open(url, 'narrow');
     if (why) { console.error('aang: ' + why); return false; }
     return true;
