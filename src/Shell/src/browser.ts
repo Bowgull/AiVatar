@@ -1518,7 +1518,12 @@ export class AangBrowser {
       if (tab.phase !== 'idle') { tab.phase = 'loading'; tab.prog = Math.max(tab.prog ?? 0, 0.35); }
       this.changed();
     });
-    on('did-navigate-in-page', (_e, u, main) => { tab.url = u; if (main) this.visits.add(u, wc.getTitle()); this.changed(); });
+    on('did-navigate-in-page', (_e, u, main) => {
+      // A show started inside the page (Netflix changes page without loading one, his report 2026-10-14): where paid
+      // video plays in its own window, the show goes there and this tab steps back to where it was.
+      if (main && /^https:\/\/(www\.)?netflix\.com\/watch\//i.test(u) && this.toPaid(u)) { if (wc.navigationHistory.canGoBack()) wc.navigationHistory.goBack(); return; }
+      tab.url = u; if (main) this.visits.add(u, wc.getTitle()); this.changed();
+    });
     // Find on page: how many matches, and which one is lit. Only the tab he is looking at reports.
     on('found-in-page', (_e, r) => { if (tab.id === this.active) this.win?.webContents.send('browser:found', { at: r.activeMatchOrdinal, of: r.matches }); });
     // 6.22b bug 1: a page's own fullscreen (a video's button) fills the whole screen, band and drawer gone; it

@@ -32,10 +32,12 @@ const update = macSetupScript('100.x.x.1', 47832, 'h'.repeat(24), 'm'.repeat(24)
 const byHand = macSetupScript('100.x.x.1', 47832, 'h'.repeat(24), 'm'.repeat(24), desk, { release });
 
 test('the update keeps the old Aang, says which version is installed, and puts the old one back if the new one fails', () => {
-  assert.match(update, /mv "\$APP" "\$RB\/Samara\.app"/, 'the old Samara is kept, outside Applications');
+  assert.match(update, /mv "\$APP\/Contents" "\$RB\/Samara\.app\/Contents"/, 'the old Samara is kept, outside Applications');
+  assert.match(update, /mkdir -p "\$APP"; mv "\$NEWAPP\/Contents" "\$APP\/Contents"/, 'only its insides are swapped, so the Dock keeps pointing at the same app');
+  assert.doesNotMatch(update, /mv "\$APP" "\$RB\/Samara\.app"/, 'the app folder itself never moves');
   assert.match(update, /"version":"0123456789abcdef","commit":"abc123def456","status":"trial"/, 'on trial until it has run');
   assert.match(update, /trap 'open -a "\$HOME\/Applications\/Samara\.app"/, 'Aang always opens again');
-  assert.match(update, /pgrep -f "Samara\.app\/Contents\/MacOS\/"[\s\S]*mv "\$BR\/rollback\/Samara\.app" "\$APP"[\s\S]*failed-updates\.txt/, 'the old one goes back, and that version is not offered again');
+  assert.match(update, /pgrep -f "Samara\.app\/Contents\/MacOS\/"[\s\S]*mv "\$BR\/rollback\/Samara\.app\/Contents" "\$APP\/Contents"[\s\S]*failed-updates\.txt/, 'the old one goes back, and that version is not offered again');
   const end = update.search(/^exit 0$/m);
   assert.ok(end > 0 && end < update.indexOf('6/6  Checking the line back'), 'the update ends before the setup checks at the end');
   assert.match(byHand, /"status":"good"/, 'run by hand: installed as good');
@@ -60,7 +62,7 @@ test('the update keeps the old Aang, says which version is installed, and puts t
   assert.match(update, /if \[ "\$OLDLOCK" != "\$NEWLOCK" \] \|\| \[ ! -d "\$RES\/app\/node_modules" \]; then/, 'libraries only when their list changed');
   assert.match(update, /\.lock-installed/, 'the front desk too');
   // One Samara in the Dock, ever.
-  assert.match(byHand, /\*Applications\/Aang\.app\*\|\*Applications\/Samara\.app\*\) \$PB -c "Delete :persistent-apps:\$i"/);
+  assert.match(byHand, /\*Applications\/Aang\.app\*\|\*Applications\/Samara\.app\*\|\*rollback\/Samara\.app\*\|\*staged\/Samara\.app\*\) \$PB -c "Delete :persistent-apps:\$i"/, 'a Dock entry that followed an old copy into the backup is taken out too');
   assert.match(byHand, /Add :persistent-apps:\$POS dict/);
   assert.match(byHand, /samara-\$s\.png/, 'the lantern icon, size by size');
   assert.doesNotMatch(byHand, /trap 'open -a/, 'by hand, nothing reopens by itself');
