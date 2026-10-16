@@ -23,15 +23,20 @@ Append one line per step when done: `SF-n | date | commit | test name | notes`.
 
 # Phase A: Stop the bleeding (do today)
 
-## SF-1 Make the leaking repos private (JOSH, 2 minutes)
+## SF-1 Take Josh's private details out of the public repos (Claude, today)
 
-**Why.** AiVatar is public and contains Josh's 76-row job tracker (`docs/drive/applications.md`), home address (`src/Core/src/voice.ts:93-94`, `src/Core/test/route.test.ts:30,46`, `docs/ROADMAP.md:57`, `docs/cockpit/sheet-28-aangs-page.html:89,118`), current employer (`docs/drive/profile.md`), Lindsay Bell's name, folders and Mac device id (`docs/FINAL-AANG-BUILD.md:67,2317`), both Tailscale IPs, and the full security audits describing open holes. Sundesk holds Lindsay's personal Gmail (`Sundesk/.env.example:7`). Making a repo private also hides its history. Zero forks, zero stars, so this is still the fast fix.
+**Decision (Josh, 2026-10-16).** The repos stay **public** because they are on his resume. Do not make them private and do not ask him to. The fix is removing personal data, which matters even more because recruiters will read these repos.
 
-**Do.** github.com/Bowgull/AiVatar, then Settings, Danger zone, Change visibility, Private. Same for Sundesk.
+**Why.** AiVatar shows anyone Josh's 76-row job tracker with companies, pay bands and interview rounds (`docs/drive/applications.md`), his home address (`src/Core/src/voice.ts:93-94`, `src/Core/test/route.test.ts:30,46`, `docs/ROADMAP.md:57`, `docs/cockpit/sheet-28-aangs-page.html:89,118`), his current employer (`docs/drive/profile.md`), and Lindsay Bell's name, folders and Mac device id (`docs/FINAL-AANG-BUILD.md:67,2317`). Sundesk holds Lindsay's personal Gmail (`Sundesk/.env.example:7`). A hiring manager seeing his other applications and salary numbers is a real job-hunt risk.
 
-**Done when.** `curl -s -o /dev/null -w "%{http_code}" https://api.github.com/repos/Bowgull/AiVatar` returns 404 from a logged-out machine. Same for Sundesk.
+**Change.**
+1. Move `docs/drive/` (job tracker, profile, job-search notes) into the private `Bowgull/aang-data` repo and add `docs/drive/` to `.gitignore`.
+2. Replace real details with placeholders everywhere (`1 Example St`, `josh@example.com`, `100.64.0.1`, `C:\Users\User`), including tests.
+3. Move the off-limits names list (`files.ts`, `offlimits.test.ts`) into a local config file listed in `.gitignore`.
+4. Sundesk: replace Lindsay's address in `.env.example` with a placeholder, and ask Josh whether the Sundesk docs that describe her workplace should stay public.
+5. History: the old versions remain in git history while the repo is public. Rewriting public history is disruptive, so ask Josh before running git-filter-repo (https://github.com/newren/git-filter-repo). Explain the tradeoff in one paragraph.
 
-**Undo.** Flip back to public. Do not, until SF-30 is done.
+**Done when.** `curl` of the raw files no longer shows the address, tracker or Lindsay's details, and SF-30's gitleaks rules find nothing on the working tree.
 
 ## SF-2 Lock the MacBook disk and network (JOSH, 10 minutes plus encryption time)
 
