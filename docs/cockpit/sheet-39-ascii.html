@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 39: ASCII in Aang</title>
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<link rel="stylesheet" href="../../src/Shell/pages/notefonts.css">
+<style>
+  html,body{height:auto!important;overflow:auto!important;background:#0e0905!important;margin:0}
+  body{padding:28px 34px 60px;color:#e8dcc4;font-family:Georgia,serif;display:block!important}
+  h1{font:700 26px Georgia,serif;color:#FFE096;margin:0 0 4px}
+  h2{font:700 19px Georgia,serif;color:#FFE096;margin:42px 0 6px;border-top:2px dashed rgba(255,196,60,.25);padding-top:20px}
+  .lede{font-size:14.5px;color:#c9b89a;margin:0 0 8px;max-width:980px;line-height:1.5}
+  .cap{font:400 10px Silkscreen,monospace;color:#FFC43C;letter-spacing:1.5px;margin:0 0 6px;text-shadow:1px 1px 0 #000}
+  .note{font-size:13px;color:#c9b89a;max-width:440px;line-height:1.45;margin:8px 0 0}
+  .grid{display:flex;flex-wrap:wrap;gap:26px;margin-top:14px}
+  .card{display:flex;flex-direction:column}
+  .scr{position:relative;border-radius:10px;overflow:hidden;box-shadow:0 14px 30px rgba(0,0,0,.7),0 0 0 3px #120A05,0 0 0 5px #4a2e1a;line-height:0}
+  .scr canvas{display:block;image-rendering:auto}
+  .aang{position:absolute;image-rendering:pixelated;line-height:0}
+  .label{position:absolute;left:0;right:0;font:400 11px Silkscreen,monospace;letter-spacing:2px;color:#FFE096;text-align:center;text-shadow:1px 1px 0 #000;line-height:1.2}
+  .styles{position:sticky;top:0;z-index:9;display:flex;gap:10px;align-items:center;padding:10px 0;background:#0e0905}
+  .styles button{font:700 13px var(--body,Georgia);padding:7px 14px;border-radius:6px;border:2.5px solid #120A05;cursor:pointer;color:#e8e0f5;background:#4A2C6E;
+    box-shadow:inset 2px 2px 0 rgba(190,150,240,.35),inset -2px -2px 0 rgba(0,0,0,.4),0 2px 0 #120A05}
+  .styles button.on{background:#FFC43C;color:#2a1c00;box-shadow:inset 2px 2px 0 rgba(255,245,200,.7),inset -2px -2px 0 rgba(120,80,10,.5),0 2px 0 #120A05}
+  /* Aang's bubble paper, lifted from sheet 37 / balloon.js */
+  .bubble{width:340px;border-radius:18px;border:4px solid #120A05;background:linear-gradient(180deg,#F6E6C6 0%,#ECD5A8 45%,#DEC28C 100%);
+    box-shadow:0 3px 0 rgba(0,0,0,.42),0 9px 14px rgba(10,5,20,.45),inset 0 6px 0 rgba(255,255,255,.5),inset 0 -6px 0 rgba(150,110,60,.26);padding:14px 16px;color:#271c10;font:500 15px/1.45 Figtree,system-ui,sans-serif}
+  .bubble .who{font:400 9px Silkscreen,monospace;letter-spacing:1.5px;color:#8a3e1c;margin:0 0 6px}
+  .bubble pre{font:13px/1.15 "Cascadia Mono",Consolas,monospace;margin:8px 0 0;color:#5a3d1c;background:rgba(90,60,25,.08);border-radius:6px;padding:6px 8px}
+  .bubble + .bubble{margin-top:14px}
+  .work{margin-top:10px;border-radius:8px;overflow:hidden;line-height:0;border:2.5px solid rgba(90,60,25,.45)}
+  .discord{width:420px;background:#313338;border-radius:8px;padding:14px 16px;font:15px/1.4 "gg sans",system-ui,sans-serif;color:#dbdee1}
+  .discord b{color:#f2c94c}
+  .discord pre{background:#2b2d31;border:1px solid #1e1f22;border-radius:4px;padding:8px;font:13px/1.15 Consolas,monospace;color:#b5bac1;margin:6px 0 0}
+  table.where{border-collapse:collapse;margin-top:10px;font-size:13.5px;max-width:1100px}
+  table.where td,table.where th{border-bottom:1px solid rgba(255,224,150,.15);padding:6px 12px 6px 0;text-align:left;vertical-align:top;color:#d8c9aa}
+  table.where th{font:400 9px Silkscreen,monospace;letter-spacing:1.5px;color:#FFC43C}
+  .theme{display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start}
+  .tbubble{position:relative;width:360px;border-radius:18px;border:4px solid #120A05;overflow:hidden;line-height:0;box-shadow:0 9px 14px rgba(10,5,20,.45)}
+  .tbubble .over{position:absolute;inset:0;padding:16px 18px;line-height:1.45;font:500 15px Figtree,system-ui,sans-serif;color:#f1e6cf;text-shadow:0 1px 2px #000}
+  .tbubble .over .who{font:400 9px Silkscreen,monospace;letter-spacing:1.5px;color:#FFE096;margin:0 0 6px}
+  .tbubble .over .msg{background:rgba(14,9,5,.72);border:2px solid rgba(255,196,60,.35);border-radius:10px;padding:10px 12px}
+</style>
+</head>
+<body>
+<h1>Sheet 39: ASCII in Aang</h1>
+<p class="lede">Every picture here is drawn live from light and depth, then turned into text characters, the way that ASCII MMORPG does it. All of them move. Switch the style at the top and every scene redraws in it. Aang himself stays pixel art. Scenes pause when off screen, and in the app they would pause while a game is in front.</p>
+
+<div class="styles"><span class="cap" style="margin:0 6px 0 0">STYLE</span>
+  <button data-style="game" class="on">Like the game</button>
+  <button data-style="mix">Mixed with pixel art</button>
+  <button data-style="term">Old terminal</button>
+</div>
+
+<h2>1. The three styles, same scene</h2>
+<p class="lede">A dusk meadow with a lantern and fireflies.</p>
+<div class="grid" id="three"></div>
+
+<h2>2. Where it could live</h2>
+<p class="lede">Every screen and state where a scene beats blank space or a spinner. Never on top of what you're reading, never during a game.</p>
+<div class="grid" id="places"></div>
+<table class="where">
+  <tr><th>PLACE</th><th>WHEN</th><th>SCENE</th></tr>
+  <tr><td>Samara starting / updating</td><td>2-3 s while it opens or swaps in an update</td><td>Lantern lights, the name resolves</td></tr>
+  <tr><td>Aang waking</td><td>Brain starting, Aang greets you</td><td>Meadow at the time of day, pixel Aang stands in it</td></tr>
+  <tr><td>Aang working</td><td>A job runs in the bubble (research, prep, a Claude job)</td><td>A thin grass strip, a firefly crosses as steps finish</td></tr>
+  <tr><td>Morning brief</td><td>The weather row</td><td>Rain / clear / night, matching real weather</td></tr>
+  <tr><td>New tab</td><td>Empty new tab</td><td>Night sky, moon, clouds</td></tr>
+  <tr><td>Pop-out, nothing playing</td><td>Before anything is put on</td><td>Rain on a pond</td></tr>
+  <tr><td>Offline / brain down / crashed tab</td><td>Something broke</td><td>Broken tower in the rain (with the plain message and Try again)</td></tr>
+  <tr><td>Raid night</td><td>Your raid reminder (Sat 7 pm)</td><td>Boss over embers</td></tr>
+  <tr><td>Apex</td><td>Patch notes / ranked map card</td><td>Jump pad beam</td></tr>
+  <tr><td>Samara's shield</td><td>Behind the site rules panel header</td><td>Plum glow behind the gold shield</td></tr>
+  <tr><td>Empty lists</td><td>No downloads, no notes, nothing waiting</td><td>Small meadow or rain, one line of words</td></tr>
+</table>
+
+<h2>3. A whole theme</h2>
+<p class="lede">An optional ASCII skin: the bubble's paper becomes a living scene with the words on a dark plate. A switch in Settings, synced to the Mac.</p>
+<div class="theme" id="theme"></div>
+
+<h2>4. Aang talking with ASCII</h2>
+<p class="lede">Cute faces fairly often, a tiny drawing now and then. Never in emails, errors, money or serious things.</p>
+<div class="grid">
+  <div class="card"><p class="cap">IN THE BUBBLE</p>
+    <div class="bubble"><p class="who">AANG</p>Morning! Raid moved to 7 tonight, I put it in your calendar (๑•̀ㅂ•́)و✧</div>
+    <div class="bubble"><p class="who">AANG</p>All three TikToks watched. The game isn't out yet, but the dev says a Steam page is coming.
+<pre>   ,^,
+  /___\    found it,
+  |[_]|    sort of
+ _|___|_   ( ˘▽˘)っ</pre></div>
+    <div class="bubble"><p class="who">AANG</p>Research done, it's in your notes ٩(◕‿◕)۶</div>
+    <div class="bubble"><p class="who">AANG &middot; NOT A FACE</p>Your TomTom key stopped working. Want to paste a new one?</div>
+    <p class="note">The last one is serious, so no face.</p>
+  </div>
+  <div class="card"><p class="cap">ON DISCORD</p>
+    <div class="discord"><b>Aang</b><br>Brief's ready (｡•̀ᴗ-)✧ two people are waiting on you.
+<pre>   .  *   .        *
+ *   _/\_    .  rain till
+  .  \  /  *    3pm, then
+     /__\       clear
+ ~~~~~~~~~~~~~~~~~~~~</pre></div>
+    <p class="note">Faces work anywhere. Drawings go in Discord's grey code box so they line up.</p>
+  </div>
+  <div class="card"><p class="cap">AANG WORKING (LIVE)</p>
+    <div class="bubble"><p class="who">AANG &middot; RESEARCHING</p>Reading 6 sources on 16 GB models...<div class="work"><canvas id="work"></canvas></div></div>
+    <p class="note">The firefly moves across as each step finishes, instead of a spinner.</p>
+  </div>
+</div>
+
+<script type="module">
+import { mount } from './sheet-39/ascii.js';
+let style = 'game';
+const slots = [];
+function card(host, cap, scene, opts = {}, extra) {
+  const c = document.createElement('div'); c.className = 'card';
+  c.innerHTML = `<p class="cap">${cap}</p><div class="scr"></div>${opts.note ? `<p class="note">${opts.note}</p>` : ''}`;
+  host.appendChild(c); slots.push({ el: c.querySelector('.scr'), scene, opts, extra });
+}
+function draw() {
+  for (const s of slots) {
+    s.el.innerHTML = ''; const cv = document.createElement('canvas'); s.el.appendChild(cv);
+    mount(cv, s.scene, s.forceStyle ?? style, s.opts);
+    if (s.extra) s.extra(s.el, s.forceStyle ?? style);
+  }
+}
+const aang = (left, bottom, size) => (el, st) => { if (st !== 'mix' && !el.dataset.always) return; const i = document.createElement('img'); i.src = 'aang-idle.png'; i.className = 'aang'; i.style.cssText = `left:${left}px;bottom:${bottom}px;width:${size}px;height:${size}px`; el.appendChild(i); };
+const label = (text, top) => (el) => { const d = document.createElement('div'); d.className = 'label'; d.style.top = top + 'px'; d.textContent = text; el.appendChild(d); };
+
+const three = document.getElementById('three');
+for (const [st, cap] of [['game', 'LIKE THE GAME'], ['mix', 'MIXED WITH PIXEL ART'], ['term', 'OLD TERMINAL']]) {
+  card(three, cap, 'meadow', { cols: 64, rows: 24 }, st === 'mix' ? aang(70, 18, 112) : null); slots[slots.length - 1].forceStyle = st;
+}
+const P = document.getElementById('places');
+card(P, 'SAMARA STARTING', 'lantern', { cols: 48, rows: 20 });
+card(P, 'AANG WAKING', 'meadow', { cols: 48, rows: 20, offset: 40 }, (el, st) => { el.dataset.always = 1; aang(40, 12, 96)(el, st); });
+card(P, 'NEW TAB', 'night', { cols: 48, rows: 20 }, label('Good evening, Josh', 150));
+card(P, 'POP-OUT: NOTHING PLAYING', 'rain', { cols: 48, rows: 20 }, label('Ask Aang to put something on', 40));
+card(P, 'OFFLINE / SOMETHING BROKE', 'ruin', { cols: 48, rows: 20 }, label("Can't reach the internet", 18));
+card(P, 'RAID NIGHT', 'raid', { cols: 48, rows: 20 }, label('Raid at 7 tonight', 196));
+card(P, 'APEX', 'apex', { cols: 48, rows: 20 }, label('New patch: 3 changes touch your legends', 14));
+card(P, "SAMARA'S SHIELD", 'shield', { cols: 48, rows: 20 });
+
+const T = document.getElementById('theme');
+const tb = document.createElement('div'); tb.className = 'card';
+tb.innerHTML = `<p class="cap">BUBBLE, ASCII THEME</p><div class="tbubble"><canvas></canvas><div class="over"><p class="who">AANG</p><div class="msg">Raid moved to 7 tonight. Want a reminder at 6:45? (˶ᵔ ᵕ ᵔ˶)</div></div></div><p class="note">The scene follows the time of day and the weather. The words always sit on a dark plate so they stay easy to read.</p>`;
+T.appendChild(tb); slots.push({ el: null, scene: 'meadow', opts: { cols: 60, rows: 14 }, custom: tb.querySelector('canvas') });
+const tb2 = document.createElement('div'); tb2.className = 'card';
+tb2.innerHTML = `<p class="cap">SAMARA NEW TAB, ASCII THEME</p><div class="tbubble" style="width:460px"><canvas></canvas><div class="over" style="display:flex;flex-direction:column;justify-content:flex-end"><div class="msg" style="font:600 14px Figtree">Search or type an address</div></div></div>`;
+T.appendChild(tb2); slots.push({ el: null, scene: 'night', opts: { cols: 76, rows: 16 }, custom: tb2.querySelector('canvas') });
+
+slots.push({ el: null, scene: 'strip', opts: { cols: 50, rows: 5, font: 11 }, custom: document.getElementById('work') });
+
+function redraw() {
+  for (const s of slots) {
+    if (s.custom) { const fresh = s.custom.cloneNode(); s.custom.replaceWith(fresh); s.custom = fresh; mount(fresh, s.scene, style, s.opts); continue; }
+    s.el.innerHTML = ''; const cv = document.createElement('canvas'); s.el.appendChild(cv);
+    const st = s.forceStyle ?? style; mount(cv, s.scene, st, s.opts); if (s.extra) s.extra(s.el, st);
+  }
+}
+for (const b of document.querySelectorAll('[data-style]')) b.onclick = () => {
+  style = b.dataset.style; document.querySelectorAll('[data-style]').forEach((x) => x.classList.toggle('on', x === b)); redraw();
+};
+redraw();
+</script>
+</body>
+</html>
