@@ -8,6 +8,7 @@ test('D7: the video links it reads, and only those', () => {
   assert.ok(videoUrl('https://youtu.be/abc123XYZ'));
   assert.ok(videoUrl('https://youtube.com/shorts/abc123XYZ'));
   assert.ok(videoUrl('https://www.tiktok.com/@cook/video/7311111111111111111'));
+  assert.ok(videoUrl('https://vt.tiktok.com/ZSgjhW7S6/'), 'the share links TikTok gives now (his #capture, 2026-10-17)');
   assert.ok(videoUrl('https://www.instagram.com/reel/Cxyz123/'));
   assert.equal(videoUrl('https://example.com/watch?v=abc123'), null);
   assert.equal(videoUrl('https://www.youtube.com.evil.test/watch?v=abc123XYZ'), null);
