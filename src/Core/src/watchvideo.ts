@@ -12,7 +12,7 @@ export interface Diagnosis { kind: string; title: string; shows: string; useful:
 
 /** Is this a video link Aang can read? Returns the clean address, or null. */
 export function videoUrl(text: string): string | null {
-  const m = /https?:\/\/(?:www\.|m\.|vm\.)?(?:youtube\.com\/(?:watch\?[^\s>]*v=[\w-]{6,}|shorts\/[\w-]{6,})|youtu\.be\/[\w-]{6,}|tiktok\.com\/@[\w.-]+\/video\/\d+|vm\.tiktok\.com\/[\w-]+|instagram\.com\/(?:reel|reels|p)\/[\w-]+)[^\s>]*/i.exec(text ?? '');
+  const m = /https?:\/\/(?:www\.|m\.|vm\.)?(?:youtube\.com\/(?:watch\?[^\s>]*v=[\w-]{6,}|shorts\/[\w-]{6,})|youtu\.be\/[\w-]{6,}|tiktok\.com\/@[\w.-]+\/video\/\d+|v[mt]\.tiktok\.com\/[\w-]+|instagram\.com\/(?:reel|reels|p)\/[\w-]+)[^\s>]*/i.exec(text ?? '');
   return m ? m[0] : null;
 }
 export function siteOf(url: string): VideoMeta['site'] {
