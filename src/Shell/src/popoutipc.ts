@@ -47,11 +47,14 @@ export function wirePopout(o: PopoutWiring): void {
     const url = o.popout()?.link;
     if (url) { o.sendToOther(url); o.popout()?.pauseAndClose(); }
   });
-  const tuckAway = (e: Electron.IpcMainEvent) => {
-    const w = BrowserWindow.fromWebContents(e.sender);
-    if (w && !w.isDestroyed() && w.isFocused() && !w.isMinimized()) setTimeout(() => { if (!w.isDestroyed()) w.minimize(); }, 120);
+  // Which window was in front is read BEFORE the pop-out shows (it takes the focus); the click may come from the tab
+  // list, which is a view inside the window, so the focused window is asked rather than the sender's.
+  const tuckAway = (front: BrowserWindow | null) => {
+    const pw = o.popout()?.window;
+    if (front && !front.isDestroyed() && front !== pw && !front.isMinimized()) setTimeout(() => { if (!front.isDestroyed()) front.minimize(); }, 150);
   };
   ipcMain.on('browser:popout', (e, id) => {
+    const front = BrowserWindow.getFocusedWindow();
     const b = o.browser(), p = o.popout();
     if (!b?.isFrame(e.sender) || !Number.isInteger(id) || !p) return;
     const url = b.urlOf(id);
@@ -64,7 +67,7 @@ export function wirePopout(o: PopoutWiring): void {
     try { label = new URL(url).hostname.replace(/^www\./, '').split('.').slice(-2, -1)[0]!.toUpperCase().slice(0, 14); } catch { /* keep PAGE */ }
     p.openTab(lent.view, { url, title: lent.title.slice(0, 80) || url, label }, (view) => o.browser()?.giveBack(id, view));
     // The pop-out comes forward and Samara tucks away (his ask, 2026-10-20), only when Samara was the window in front.
-    tuckAway(e);
+    tuckAway(front);
   });
   // "Open on Mac" / "Open on PC" from a tab's menu: a full tab over there, and this one pauses.
   ipcMain.on('browser:openother', (e, id) => {

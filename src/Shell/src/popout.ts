@@ -508,7 +508,19 @@ export const FOCUS_JS = `(() => {
   if (!v) return false;
   window.__aangVideo = v;
   for (const old of document.querySelectorAll('[data-aang-player]')) old.removeAttribute('data-aang-player');
-  const player = v.closest('.html5-video-player, [data-a-target="video-player"], .video-player, .player') || v;
+  // The site's own player box, with its controls in it (his report, 2026-10-20: on Prime only the bare picture was kept, so
+  // no pause, play or anything). Known players first; on any other site, the highest box around the video that is still
+  // about its size, which is where a site puts its control bar.
+  const KNOWN = '.html5-video-player, [data-a-target="video-player"], .video-player, .player, .webPlayerSDKContainer, #dv-web-player, .watch-video, [data-uia="player"], disney-web-player, .btm-media-player, #vilos, .video-player-wrapper, .jw-wrapper, .vjs-player';
+  let player = v.closest(KNOWN);
+  if (!player) {
+    const vr = v.getBoundingClientRect();
+    player = v;
+    for (let a = v.parentElement; a && a !== document.body && a !== document.documentElement; a = a.parentElement) {
+      const r = a.getBoundingClientRect();
+      if (r.width <= vr.width * 1.25 + 8 && r.height <= vr.height * 1.6 + 8) player = a; else break;
+    }
+  }
   player.setAttribute('data-aang-player', '');
   // Twitch (2026-10-12): its columns use transform and contain, which trap a fixed box inside them, so chat and
   // the side bar showed around the video. Every box above the player is marked and those tricks are switched off.
