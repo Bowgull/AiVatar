@@ -295,6 +295,11 @@
       "at": "2026-10-20T20:00:00-04:00",
       "text": "Samara's taskbar icon is bigger and clearer.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-10-20T20:30:00-04:00",
+      "text": "Dragging the pop-out no longer makes it jump.",
+      "kind": "fix"
     }
   ]
 }
