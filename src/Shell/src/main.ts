@@ -230,8 +230,6 @@ function openTypeBox(dock: { x: number; y: number } | null = null): void {
 let dockedTurn: number | null = null;
 /** The last finished reply, so tucking away into the edge holds it rather than destroying it. */
 let heldBubble: Record<string, unknown> | null = null;
-/** What Aang last said in full, for a click on him to bring back (2026-10-20). Kept until he says something new. */
-let lastSaid: Record<string, unknown> | null = null;
 /** The five-hour window, 0..1, and the unix second the week resets. Both feed the strip. */
 let lastFive = 0, lastWeekResetsAt = 0;
 /** The ask waiting on him, so a box opened afterwards still shows it. Cleared once answered. */
@@ -349,8 +347,9 @@ const link = new CoreLink({
     // the chat box as before.
     if (m.t === 'typebox') {
       const showing = Boolean(bubble?.window()?.isVisible());
-      const again = liveAsk ?? lastSaid;
-      if (!showing && again && !input?.visible) { bubble?.send('brain:message', { ...again, recalled: true }); bubble?.show(); return; }
+      // Whatever the bubble last showed comes back, whatever it was: a reply, the morning brief, a card, a question,
+      // Samara's or Claude's plan, a live checklist at its step now. The bubble itself knows; it says if it had nothing.
+      if (!showing && bubble && !input?.visible) { bubble.send('bubble:recall', null); return; }
       if (!input?.visible) openTypeBox();
       return;
     }
@@ -456,7 +455,6 @@ const link = new CoreLink({
     // Only finished ones: a streamed part is the same reply arriving again, not another thing said.
     if (m.t === 'bubble' && typeof m.text === 'string' && !m.stream) {
       heldBubble = m;
-      lastSaid = m as Record<string, unknown>;
       // He is tucked into the dock at the desk: the pet is sliding him out to say it. Drawn now, it would
       // sit beside the tucked head for the 600 ms slide, then jump and start over (parity re-audit). So it
       // waits for him to be out, and comes out once, in the right place. Not in a game (the bubble holds it
@@ -765,6 +763,8 @@ app.whenReady().then(async () => {
   // page is the least trustworthy place to do arithmetic that decides what gets marked watched.
   // Step 6.12. Only the clipboard and a rating: the bubble can say what Aang said and what Joshua
   // thought of it, and nothing else. Both are checked for coming from a window of ours.
+  // The bubble had nothing to show again: the click opens the chat box, as before.
+  ipcMain.on('bubble:recalled', (e, ok) => { if (!fromBubble(e)) return; if (ok === true) bubble?.show(); else if (!input?.visible) openTypeBox(); });
   ipcMain.on('bubble:copy', (e, text) => {
     if (!fromBubble(e) || typeof text !== 'string' || !text) return;
     clipboard.writeText(text.slice(0, 100_000));

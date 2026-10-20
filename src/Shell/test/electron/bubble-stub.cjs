@@ -7,4 +7,6 @@ window.aang = new Proxy({
   onMessage(fn) { onMsg = fn; return () => {}; },
   onConnected() { return () => {}; },
   copyText(t) { window.__copied.push(String(t)); },
+  onRecall(fn) { window.__recall = fn; return () => {}; },
+  recalled(ok) { window.__recalled = ok; },
 }, { get(target, k) { return k in target ? target[k] : (...a) => { window.__sent.push([String(k), a]); return () => {}; }; } });
