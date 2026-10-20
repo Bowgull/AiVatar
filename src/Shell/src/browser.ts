@@ -881,6 +881,36 @@ export class AangBrowser {
     }
   }
   /** Forget every rule he set for one site (the x in Your sites): back to how every site starts. */
+  /**
+   * Clear everything one site keeps in Samara on this machine: its cookies, storage, cache and service workers (his ask,
+   * 2026-10-20: Disney+ was stuck on "not available in your region" from a half-copied sign-in). He is signed out of it
+   * here; nothing else is touched. Only ever with his OK (the Claude door asks him every time).
+   */
+  async forgetSite(site: string): Promise<{ site: string; cookies: number; tabs: number }> {
+    const root = siteKey(site).replace(/^www\./, '');
+    if (!root || !root.includes('.')) throw new Error('say which site, e.g. disneyplus.com');
+    // Where a service signs in on another of its own domains, that one goes too.
+    const PARTNERS: Record<string, string[]> = { 'disneyplus.com': ['disney.com', 'bamgrid.com'], 'crave.ca': ['bellmedia.ca'], 'primevideo.com': ['amazon.com', 'amazon.ca'] };
+    const roots = [root, ...(PARTNERS[root] ?? [])];
+    const under = (h: string) => roots.some((r) => h === r || h.endsWith('.' + r));
+    let cookies = 0;
+    for (const r of roots) {
+      for (const c of await this.ses.cookies.get({ domain: r }).catch(() => [] as Electron.Cookie[])) {
+        const d = String(c.domain ?? '').replace(/^\./, '');
+        await this.ses.cookies.remove(`http${c.secure ? 's' : ''}://${d}${c.path || '/'}`, c.name).catch(() => {});
+        cookies++;
+      }
+    }
+    const origins = new Set<string>();
+    for (const r of roots) for (const h of [r, 'www.' + r, 'login.' + r]) origins.add('https://' + h);
+    for (const t of this.tabs) { try { const u = new URL(t.url); if (under(u.hostname)) origins.add(u.origin); } catch { /* not an address */ } }
+    await this.ses.clearData({ origins: [...origins], dataTypes: ['cookies', 'localStorage', 'indexedDB', 'serviceWorkers', 'cache', 'fileSystems'] }).catch((e: Error) => console.error('shell: browser: clearing a site: ' + e.message));
+    await this.ses.cookies.flushStore().catch(() => {});
+    let tabs = 0;
+    for (const t of this.tabs) { try { if (t.view && under(new URL(t.url).hostname)) { t.view.webContents.reload(); tabs++; } } catch { /* gone */ } }
+    console.log(`shell: browser: cleared ${root} (${cookies} cookies, ${tabs} tabs reloaded)`);
+    return { site: root, cookies, tabs };
+  }
   clearSite(site: string): void {
     const host = siteKey(site);
     if (!host) return;

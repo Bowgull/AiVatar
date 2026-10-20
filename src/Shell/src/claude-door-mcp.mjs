@@ -116,6 +116,8 @@ const TOOLS = [
     inputSchema: { type: 'object', properties: { page: { type: 'integer' } }, required: ['page'] } },
   { name: 'browser_forward', description: 'Go forward a page.',
     inputSchema: { type: 'object', properties: { page: { type: 'integer' } }, required: ['page'] } },
+  { name: 'browser_forget_site', description: "Clear everything one site keeps in Samara on this computer (cookies, storage, cache), which signs Joshua out of it there. ONLY when he asks, e.g. a site stuck on an error from an old sign-in. He is asked in Samara first, every time.",
+    inputSchema: { type: 'object', properties: { site: { type: 'string', description: 'e.g. disneyplus.com' } }, required: ['site'] } },
   { name: 'browser_wait_for', description: 'Wait until some words appear on a page (or, with gone: true, until they disappear, like "Loading..."), up to ms (default 8000, at most 15000). Use it instead of reading again and again while a page fills in.',
     inputSchema: { type: 'object', properties: { page: { type: 'integer' }, text: { type: 'string' }, gone: { type: 'boolean' }, ms: { type: 'integer' } }, required: ['page', 'text'] } },
   { name: 'browser_batch', description: 'Several steps in one call, in order, to save round trips: e.g. type into the search box, press Enter, wait for the results, read them. Each step is { tool, args } using these tools: browser_open, browser_read, browser_find, browser_click, browser_type, browser_key, browser_select, browser_back, browser_forward, browser_scroll, browser_hover, browser_wait_for, browser_extract, browser_check_form, browser_close. Up to 10 steps. It stops at the first step that fails and says which; every step keeps its own checks (asks Joshua where it would anyway). Use single calls when the next step depends on reading the result.',
@@ -147,6 +149,10 @@ async function call(name, a) {
   if (name === 'browser_check_companies') {
     const r = await step('companies', Array.isArray(a.only) ? { only: a.only.map(String).slice(0, 50) } : {});
     return r.ok ? text(digestText(r)) : text(r.error, true);
+  }
+  if (name === 'browser_forget_site') {
+    const r = await step('forget', { site: String(a.site ?? '') });
+    return r.ok ? text(`Cleared ${r.site}: ${r.cookies} cookies and its stored data; ${r.tabs} of his tabs on it reloaded. He signs in again himself.`) : text(r.error, true);
   }
   if (name === 'browser_note') {
     const r = await step('note', { site: String(a.site ?? ''), ...(a.text !== undefined ? { text: String(a.text) } : {}) });
