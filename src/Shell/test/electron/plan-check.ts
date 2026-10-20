@@ -63,6 +63,9 @@ app.whenReady().then(async () => {
   const ps = await b.drive('planstep', { job: r1.job, at: 1 });
   check('the live checklist moves to step 2', ps.ok && ps.step === 'Read the new posts', JSON.stringify(ps));
   check('the tray is gone after Go', await js(`document.getElementById('plantray').hidden`));
+  // Done (his rule, 2026-10-20): its pages close and its group goes; no empty header with a STOP left behind.
+  const fin = await b.drive('planstep', { job: r1.job, done: true });
+  check('done closes its pages and removes its group', fin.ok && !(b as any).driver.view().some((j: any) => j.id === r1.job), JSON.stringify((b as any).driver.view()));
 
   // the same plan again: no card, it just goes
   const again: any = await runPlan(b, mem, cleanPlan({ task: 'job scan', sites: ['linkedin.com'], steps: ['Search'] })!, { elicit: false, pending });
