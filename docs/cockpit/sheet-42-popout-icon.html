@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 42 - The pop-out's own lantern</title>
+<!-- Sheet 42 (2026-10-20): his ask, "the Samara icon but different colours, perhaps inverted, so I know which is which".
+     Each version is Samara's own hand-drawn lantern with its colours swapped one for one at every size: no pixel moved,
+     nothing resampled (pixel-art rule). Shown on a taskbar like his, beside Samara and Aang, at real size and up close. -->
+<style>
+  html,body{background:#17110c;margin:0}
+  body{color:#e8dcc4;font-family:Figtree,sans-serif;padding:24px;width:1180px}
+  h1{font:400 20px Silkscreen,monospace;color:#FFC43C;letter-spacing:2px;margin:0 0 4px}
+  h2{font:400 13px Silkscreen,monospace;color:#FFC43C;letter-spacing:1.5px;margin:26px 0 8px}
+  p{color:#cdbb9a;font-size:14.5px;line-height:1.5;margin:0 0 12px;max-width:1100px}
+  p b{color:#FFC43C}
+  img{image-rendering:pixelated;display:block}
+  .row{display:flex;gap:18px;flex-wrap:wrap}
+  .card{background:#1a110a url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated;border:3px solid #0d0703;border-radius:12px;padding:14px;width:250px;box-shadow:0 10px 26px rgba(0,0,0,.5)}
+  .card.orig{opacity:.8}
+  .name{font:400 11px Silkscreen,monospace;letter-spacing:1.5px;color:#FFE096;margin:0 0 4px;text-shadow:1px 1px 0 #000}
+  .why{font:500 12.5px/1.4 Figtree,sans-serif;color:#cdbb9a;margin:0 0 12px;min-height:36px}
+  .big{display:flex;justify-content:center;background:rgba(0,0,0,.35);border-radius:8px;padding:10px;margin:0 0 12px}
+  /* a Windows 11 taskbar strip, dark, real 24px icons in 40px buttons */
+  .bar{display:flex;gap:2px;align-items:center;background:#202020;border-radius:8px;padding:4px 6px;height:40px;box-sizing:border-box}
+  .bar.light{background:#f3f3f3}
+  .btn{width:40px;height:32px;border-radius:4px;display:grid;place-items:center;position:relative}
+  .btn.on{background:rgba(255,255,255,.08)}
+  .bar.light .btn.on{background:rgba(0,0,0,.06)}
+  .btn.on::after{content:"";position:absolute;bottom:1px;left:50%;width:14px;margin-left:-7px;height:3px;border-radius:2px;background:#4cc2ff}
+  .btn img{width:24px;height:24px}
+  .sizes{display:flex;gap:10px;align-items:end;margin-top:10px}
+  .sizes span{font:400 8px Silkscreen,monospace;color:#9a8a6a;display:block;text-align:center;margin-top:3px}
+</style>
+</head>
+<body>
+<h1>SHEET 42 &middot; THE POP-OUT'S OWN LANTERN</h1>
+<p>Samara's own lantern, recoloured, so the pop-out's taskbar button says <b>Samara's video</b> at a glance and never looks like Samara itself. Every size is the same hand-drawn pixel art with its colours swapped one for one. Each taskbar shows, left to right: <b>Aang</b>, <b>Samara</b>, then <b>the pop-out</b>, on a dark and a light taskbar.</p>
+
+<div class="row" id="cards"></div>
+
+<script>
+const V = [
+  ['samara', 'SAMARA (TODAY)', 'The one it would sit next to. For comparison only.'],
+  ['turquoise', 'A · TURQUOISE FLAME', 'Same lantern, the light turns the turquoise of Samara’s update glow. Closest to Samara, still easy to tell apart.'],
+  ['plum', 'B · PLUM', 'The whole lantern in plum. Very different from Samara’s orange; plum already means “yours” in Aang.'],
+  ['moon', 'C · MOONLIGHT', 'A darker lantern with a cool blue lamp: Samara’s lantern at night, for watching.'],
+  ['inverted', 'D · INVERTED', 'Your idea, taken literally: every colour flipped. The most different, but the outline turns pale.'],
+];
+const cards = document.getElementById('cards');
+const img = (src, w) => `<img src="${src}" width="${w}" height="${w}" alt="">`;
+for (const [k, name, why] of V) {
+  const c = document.createElement('div');
+  c.className = 'card' + (k === 'samara' ? ' orig' : '');
+  const bar = (light) => `<div class="bar${light ? ' light' : ''}"><div class="btn">${img('../../src/Shell/pages/art/aang-face.png', 24)}</div><div class="btn on">${img('sheet-42/samara-24.png', 24)}</div><div class="btn on">${img(`sheet-42/${k}-24.png`, 24)}</div></div>`;
+  c.innerHTML = `<p class="name">${name}</p><p class="why">${why}</p>
+    <div class="big">${img(`sheet-42/${k}-32.png`, 128)}</div>
+    ${bar(false)}<div style="height:6px"></div>${bar(true)}
+    <div class="sizes">${[16, 24, 32, 48].map((s) => `<div>${img(`sheet-42/${k}-${s}.png`, s)}<span>${s}</span></div>`).join('')}</div>`;
+  cards.append(c);
+}
+</script>
+</body>
+</html>
