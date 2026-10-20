@@ -32,6 +32,7 @@ app.whenReady().then(async () => {
   b.open('http://127.0.0.1:47944/');
   await wait(2500);
   b.newTab('http://127.0.0.1:47944/?two', null, false); await wait(800);
+  for (const q of ['three', 'four', 'five']) { b.newTab('http://127.0.0.1:47944/?' + q, null, false); await wait(300); }
   const w: BrowserWindow = b.win;
   w.setSize(1280, 800);
   await wait(500);
