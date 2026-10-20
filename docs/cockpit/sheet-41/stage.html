@@ -85,6 +85,17 @@
   .cur{display:inline-block;width:2px;height:16px;background:#FFC43C;vertical-align:-3px;animation:blink 1s steps(1) infinite}
   @keyframes blink{50%{opacity:0}}
 
+  /* the video: one big play button over the picture, like the old video sites. Click anywhere on it: Samara */
+  .lt-open .shot{position:relative;cursor:pointer;display:grid;place-items:center}
+  .lt-open .shot::after{content:"";position:absolute;inset:0;border-radius:5px;background:radial-gradient(60% 60% at 50% 50%,rgba(0,0,0,.05),rgba(0,0,0,.45));transition:background .15s}
+  .bigplay{position:relative;z-index:1;width:84px;height:84px;border-radius:50%;border:4px solid #120A05;box-sizing:border-box;
+    background:radial-gradient(circle at 38% 30%,var(--gold-light),var(--gold) 55%,var(--gold-deep));
+    box-shadow:0 5px 0 #120A05,inset 0 4px 0 rgba(255,255,255,.45),inset 0 -5px 0 rgba(120,70,0,.4),0 10px 24px rgba(0,0,0,.6);
+    transition:transform .16s cubic-bezier(.32,1.6,.5,1)}
+  .bigplay::before{content:"";position:absolute;left:31px;top:20px;border-style:solid;border-width:18px 0 18px 30px;border-color:transparent transparent transparent #2a1c00;filter:drop-shadow(0 2px 0 rgba(255,235,180,.6))}
+  .shot:hover .bigplay{transform:scale(1.08)}
+  .shot:hover::after{background:radial-gradient(60% 60% at 50% 50%,rgba(0,0,0,0),rgba(0,0,0,.3))}
+  .shot:active .bigplay{transform:scale(.97) translateY(3px);box-shadow:0 2px 0 #120A05,inset 0 4px 0 rgba(255,255,255,.45)}
   /* a link in his words: underlined in the Lantern's ink, Samara's lantern in front, opens in Samara */
   .lnk{color:#8a3e1c;font-weight:700;text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:3px;text-decoration-color:rgba(138,62,28,.45);cursor:pointer;border-radius:4px;padding:0 2px;white-space:nowrap}
   .lnk:hover{background:rgba(255,196,60,.35);text-decoration-color:#8a3e1c}
@@ -156,7 +167,7 @@ const DAYS = [
     { id: 'b1', ic: 'sun', b: 'Your morning brief', s: '3 events · 2 need a reply · 4 new jobs', when: '7:30 am',
       open: '<div class="mini-lamp"><span data-ic="partly"></span><span>8° morning</span><span>Rain from 4 pm</span></div><p>Interview with Northwind at 2:00. Rhea is waiting on your reply.</p>', keys: [['Open the whole brief', 'primary']] },
     { id: 'v1', face: STILL, b: 'HisWattson posted a video', s: 'Wattson ranked guide, season 27', when: '9:12 am', small: 'TO YOUR PHONE',
-      open: `<div class="shot" style="background-image:url(${STILL})"></div>`, keys: [['Watch', 'primary'], ['Pop out', 'plum']] },
+      open: `<div class="shot" style="background-image:url(${STILL})"><span class="bigplay"></span></div>`, keys: [] },
     { id: 't1', talk: 'mine', b: 'is that build still good after the patch?' },
     { id: 't2', talk: 'his', b: 'Mostly. The fence nerf hurts the ult loop, so swap the second perk for faster recharge.' },
   ] },
@@ -191,7 +202,7 @@ function rowHtml(r) {
   const sub = r.s ? `<span>${plaque}${r.url ? link(r.s) : esc(r.s)}</span>` : '';
   const when = r.when ? `<span class="lt-when${r.sent ? ' sent' : ''}">${r.when}${r.small ? `<small>${r.small}</small>` : ''}</span>` : '';
   const keys = (r.keys ?? []).map(([l, c, a]) => `<button class="key sm ${c}" type="button" data-act="${a ?? 'go'}">${l}</button>`).join('');
-  const open = r.talk ? '' : `<div class="lt-open" hidden>${r.open ?? ''}<div class="lt-keys">${keys}</div></div>`;
+  const open = r.talk ? '' : `<div class="lt-open" hidden>${r.open ?? ''}${keys ? `<div class="lt-keys">${keys}</div>` : ''}</div>`;
   return `<div class="lt-item ${r.talk ? 'talk' : 'can'}" data-id="${r.id}"><div class="lt-head">${tile}<span class="lt-txt"><b>${esc(r.b)}</b>${sub}</span>${when}</div>${rep}${open}</div>`;
 }
 const slip = (d) => `<div class="lt-slip">${d.h ? `<h3>${d.h}</h3>` : ''}${d.rows.map(rowHtml).join('')}</div>`;
@@ -245,7 +256,7 @@ function older() {
 
 // one row open at a time; the click on a row opens it as it first looked
 fill.addEventListener('click', (e) => {
-  const a = e.target.closest('.lnk');
+  const a = e.target.closest('.lnk, .shot');
   if (a) { e.stopPropagation(); const t = document.getElementById('toast'); t.classList.add('on'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('on'), 1800); return; }
   const rep = e.target.closest('[data-rep]');
   if (rep) { e.stopPropagation(); reply(rep.parentElement.dataset.id); return; }
