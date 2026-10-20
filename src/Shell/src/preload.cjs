@@ -171,6 +171,8 @@ contextBridge.exposeInMainWorld('aang', {
   browserAct: a => ipcRenderer.send('browser:act', a),
   /** The tab list in its own layer above the live page (2026-10-13): open (with where it goes) or close. */
   browserTray: a => ipcRenderer.send('browser:tray', a),
+  // His ask (2026-10-20): a bookmark's own right-click menu. The address says which one; the Shell checks the rest.
+  browserMarkOp: a => ipcRenderer.send('browser:markop', a),
   onBrowserTray(fn) { const h = (_e, s) => fn(s); ipcRenderer.on('browser:tray', h); return () => ipcRenderer.removeListener('browser:tray', h); },
   browserGo: text => ipcRenderer.send('browser:go', text),
   browserTab: a => ipcRenderer.send('browser:tab', a),

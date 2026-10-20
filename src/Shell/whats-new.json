@@ -345,6 +345,16 @@
       "at": "2026-10-20T23:00:00-04:00",
       "text": "Tabs got the same look as bookmarks, easier to read.",
       "kind": "feature"
+    },
+    {
+      "at": "2026-10-20T23:30:00-04:00",
+      "text": "Adding a bookmark from the tab list no longer freezes.",
+      "kind": "fix"
+    },
+    {
+      "at": "2026-10-20T23:30:00-04:00",
+      "text": "Right-click a bookmark: rename, move, remove and more.",
+      "kind": "feature"
     }
   ]
 }

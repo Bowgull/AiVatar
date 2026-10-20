@@ -2522,6 +2522,27 @@ export class AangBrowser {
     this.saveMarks();
     this.sendTabs();
   }
+  /**
+   * The bookmark's own right-click menu (his ask, 2026-10-20): rename, remove, move, open, play in the pop-out, copy.
+   * Found by its address, which is what the page sends; anything else is ignored.
+   */
+  markOp(act: string, url: string, title = ''): void {
+    const i = this.marks.findIndex((m) => m.url === url);
+    if (i < 0 || !isWeb(url)) return;
+    if (act === 'remove') this.marks.splice(i, 1);
+    else if (act === 'rename') { const name = String(title).replace(/\s+/g, ' ').trim().slice(0, 200); if (!name) return; this.marks[i] = { ...this.marks[i]!, title: name }; }
+    else if (act === 'left' || act === 'right') {
+      const j = act === 'left' ? i - 1 : i + 1;
+      if (j < 0 || j >= this.marks.length) return;
+      [this.marks[i], this.marks[j]] = [this.marks[j]!, this.marks[i]!];
+    }
+    else if (act === 'newtab') { this.newTab(url, null, true); return; }
+    else if (act === 'pop') { this.onPlayInPopout?.(url); return; }
+    else if (act === 'copy') { clipboard.writeText(url); return; }
+    else return;
+    this.saveMarks();
+    this.sendTabs();
+  }
   /** From the star's panel: rename the bookmark for the page he is on, or take it off. */
   markAct(act: string, title?: string): void {
     const t = this.cur();
@@ -2951,6 +2972,10 @@ export class AangBrowser {
       case 'winclose': this.win?.close(); break;
       case 'homehere': { const u = t?.url; if (u && isWeb(u)) { this.prefs.home = u; this.savePrefs(); this.note('This page is your home page now.'); this.sendTabs(); } break; }
       case 'star': this.toggleMark(); break;
+      // The + key on the shelf in the floating tab list (his freeze, 2026-10-20): its name box opened INSIDE that
+      // see-through layer, out of sight, and the layer hung over the page. Now the list slides away and the band opens
+      // its own box, exactly as the star does.
+      case 'markadd': this.tray(false); this.win?.webContents.send('browser:tray', { open: false, mark: true }); break;
       case 'vault': void this.vaultKey(); break;
       case 'vaultcancel': this.vaultCancel(); break;
       case 'vaultlock': this.vault.lock(); this.note('Bitwarden is locked.'); break;
