@@ -109,13 +109,15 @@ window.aang?.onBrowserTray?.((s) => {
     } else document.body.classList.remove('out');
     return;
   }
+  // The + key in the floating list: the star's own box opens here, on the band, where he can see it.
+  if (s.mark) setTimeout(() => el('star').click(), 60);
   document.body.classList.toggle('rail-out', s.open === true);
   if (s.open === false && drawerOpen) trayShut();
 });
 if (SOLO) {
   // The list goes a moment after the mouse leaves it (not while a menu of its own or a rename is open).
   let leaveT = 0;
-  document.documentElement.addEventListener('mouseleave', () => { clearTimeout(leaveT); leaveT = setTimeout(() => { if (!dragging && !document.querySelector('.th input') && !document.getElementById('tabmenu')) closeDrawer(true); }, 350); });
+  document.documentElement.addEventListener('mouseleave', () => { clearTimeout(leaveT); leaveT = setTimeout(() => { if (!dragging && !document.querySelector('.th input, .bm-key input') && !document.getElementById('tabmenu')) closeDrawer(true); }, 350); });
   document.documentElement.addEventListener('mouseenter', () => clearTimeout(leaveT));
   drawerOpen = true;
   document.body.classList.add('drawer-open');
@@ -589,6 +591,49 @@ function headFor(tr, n) {
 
 // ---- the tab's own menu (right-click), sheet 3 section 7
 function closeTabMenu() { document.getElementById('tabmenu')?.remove(); }
+/** A bookmark's own menu (his ask, 2026-10-20): the same wood menu as a tab's. */
+function markMenu(b, name, key, x, y, i, n) {
+  closeTabMenu();
+  const m = document.createElement('div'); m.id = 'tabmenu'; m.className = 'tabmenu'; m.setAttribute('role', 'menu');
+  const op = (act, title) => window.aang?.browserMarkOp?.({ act, url: b.url, ...(title !== undefined ? { title } : {}) });
+  const item = (label, go, off = false) => {
+    const btn = document.createElement('button'); btn.type = 'button'; btn.setAttribute('role', 'menuitem'); btn.append(label); btn.disabled = off;
+    btn.addEventListener('click', () => { closeTabMenu(); go(); });
+    m.append(btn);
+  };
+  const sep = () => m.append(Object.assign(document.createElement('div'), { className: 'sep' }));
+  item('Open in new tab', () => op('newtab'));
+  if (VIDEO_SITE.test(hostOf(b.url))) item('Play in the pop-out', () => op('pop'));
+  item('Copy link', () => op('copy'));
+  sep();
+  item('Rename', () => renameMark(b, name, key));
+  item('Move left', () => op('left'), i === 0);
+  item('Move right', () => op('right'), i >= n - 1);
+  sep();
+  item('Remove', () => { tap(0.7); op('remove'); });
+  document.body.append(m);
+  const r = m.getBoundingClientRect();
+  m.style.left = Math.max(4, Math.min(x, innerWidth - r.width - 4)) + 'px';
+  m.style.top = Math.max(4, Math.min(y, innerHeight - r.height - 4)) + 'px';
+  setTimeout(() => document.addEventListener('pointerdown', (e) => { if (!m.contains(e.target)) closeTabMenu(); }, { once: true }), 0);
+}
+/** Rename right on the key's banner: type, Enter keeps it, Esc leaves it as it was. */
+function renameMark(b, name, key) {
+  const banner = key.querySelector('.bm-banner');
+  if (!banner) return;
+  const box = Object.assign(document.createElement('input'), { value: name, maxLength: 60, spellcheck: false });
+  box.className = 'bm-rename'; box.setAttribute('aria-label', 'Bookmark name');
+  key.classList.add('naming');
+  const done = (save) => {
+    key.classList.remove('naming');
+    if (save && box.value.trim() && box.value.trim() !== name) window.aang?.browserMarkOp?.({ act: 'rename', url: b.url, title: box.value });
+    box.remove(); banner.hidden = false;
+  };
+  box.addEventListener('keydown', (k) => { k.stopPropagation(); if (k.key === 'Enter') done(true); if (k.key === 'Escape') done(false); });
+  box.addEventListener('blur', () => done(true));
+  banner.hidden = true; key.append(box); box.focus(); box.select();
+}
+
 function tabMenu(t, x, y) {
   closeTabMenu();
   const m = document.createElement('div'); m.id = 'tabmenu'; m.className = 'tabmenu'; m.setAttribute('role', 'menu');
@@ -736,14 +781,16 @@ function paintMarks(list) {
     if (b.favicon) { const img = document.createElement('img'); img.alt = ''; img.src = b.favicon; img.referrerPolicy = 'no-referrer'; img.onerror = () => { img.remove(); m.prepend(letter(name)); }; m.append(img); }
     else m.append(letter(name));
     const banner = document.createElement('span'); banner.className = 'bm-banner'; banner.textContent = name; m.append(banner);
-    m.addEventListener('click', () => { window.aang?.browserGo?.(b.url); });
+    m.addEventListener('click', (e) => { if (e.target.closest('input')) return; window.aang?.browserGo?.(b.url); });
+    m.addEventListener('contextmenu', (e) => { e.preventDefault(); markMenu(b, name, m, e.clientX, e.clientY, i, marks.length); });
     box.append(m);
   });
   const add = document.createElement('button');
   add.type = 'button'; add.className = 'bm-key bm-add' + (marks.length < 4 ? ' low' : ''); add.textContent = '+';
   add.setAttribute('aria-label', 'Bookmark this page');
   const ab = document.createElement('span'); ab.className = 'bm-banner'; ab.textContent = marks.length ? 'Add this page' : 'Bookmark this page'; add.append(ab);
-  add.addEventListener('click', () => el('star').click());
+  // In the floating list the star's box would open out of sight (his freeze, 2026-10-20): the Shell asks the band.
+  add.addEventListener('click', () => { if (SOLO) window.aang?.browserAct?.('markadd'); else el('star').click(); });
   box.append(add);
 }
 /** A site with no icon: its first letter, carved, so a key is never blank. */

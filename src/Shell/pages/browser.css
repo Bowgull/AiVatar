@@ -797,3 +797,9 @@ html:not(.solo) .bw::after{content:"";flex:0 0 12px;background:url(art/browser/b
 .shelf-bk .bm-key{width:44px;height:44px;border-radius:8px;box-shadow:0 4px 0 var(--outline),inset 0 3px 0 rgba(255,222,170,.28),inset 0 -3px 0 rgba(0,0,0,.35),0 6px 8px rgba(0,0,0,.45)}
 .shelf-bk .bm-key img{width:22px;height:22px}
 .shelf-bk .bm-add{font-size:19px;box-shadow:none}
+
+/* Rename a bookmark right on its banner (his ask, 2026-10-20): the banner becomes a parchment box to type in. */
+.bm-key.naming{z-index:6}
+.bm-key .bm-rename{position:absolute;top:calc(100% + 9px);left:50%;transform:translateX(-50%);z-index:7;width:150px;box-sizing:border-box;
+  font:700 13px var(--body);color:#2a1c0c;background:#e9d3a6;border:2px solid var(--gold);border-radius:4px;padding:4px 8px;outline:none;
+  box-shadow:0 3px 0 #0d0703,0 0 10px rgba(255,190,90,.45)}

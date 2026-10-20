@@ -31,6 +31,11 @@ export function wireBrowser(get: () => AangBrowser | null): void {
   ipcMain.on('browser:adpause', (e, on) => { if ((top(e) && b()?.isFrame(e.sender))) b().pauseAds(on === true); });
   ipcMain.on('browser:darkhere', (e, on) => { if ((top(e) && b()?.isFrame(e.sender))) b().setDarkHere(on === true); });
   // The star's panel: rename the bookmark for this page, or remove it.
+  ipcMain.on('browser:markop', (e, a) => {
+    if (!(top(e) && b()?.isFrame(e.sender)) || !a || typeof a.url !== 'string') return;
+    if (!['rename', 'remove', 'left', 'right', 'newtab', 'pop', 'copy'].includes(String(a.act))) return;
+    b().markOp(String(a.act), a.url.slice(0, 4000), typeof a.title === 'string' ? a.title.slice(0, 300) : '');
+  });
   ipcMain.on('browser:mark', (e, a) => { if ((top(e) && b()?.isFrame(e.sender)) && a && (a.act === 'rename' || a.act === 'remove')) b().markAct(a.act, typeof a.title === 'string' ? a.title.slice(0, 300) : ''); });
   // Sheet 37: his answer to a Claude session's plan, from the band's plan tray.
   ipcMain.on('browser:planreply', (e, a) => { if ((top(e) && b()?.isFrame(e.sender)) && a && typeof a.id === 'string') b().planReply(a.id.slice(0, 40), a); });
