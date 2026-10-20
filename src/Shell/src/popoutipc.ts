@@ -4,7 +4,7 @@
 // "Take the tab with you" (2026-10-11): any video on any site. The live tab itself moves into the pop-out, so nothing
 // reloads and his login comes along; closing the pop-out hands it back. Paid services are the one exception: their
 // protected video only plays in the castLabs window, so for those the address goes there.
-import { ipcMain } from 'electron';
+import { BrowserWindow, ipcMain } from 'electron';
 import type { AangBrowser } from './browser.ts';
 import type { Popout } from './popout.ts';
 import { serviceFor } from './services.ts';
@@ -47,6 +47,10 @@ export function wirePopout(o: PopoutWiring): void {
     const url = o.popout()?.link;
     if (url) { o.sendToOther(url); o.popout()?.pauseAndClose(); }
   });
+  const tuckAway = (e: Electron.IpcMainEvent) => {
+    const w = BrowserWindow.fromWebContents(e.sender);
+    if (w && !w.isDestroyed() && w.isFocused() && !w.isMinimized()) setTimeout(() => { if (!w.isDestroyed()) w.minimize(); }, 120);
+  };
   ipcMain.on('browser:popout', (e, id) => {
     const b = o.browser(), p = o.popout();
     if (!b?.isFrame(e.sender) || !Number.isInteger(id) || !p) return;
@@ -59,6 +63,8 @@ export function wirePopout(o: PopoutWiring): void {
     let label = 'PAGE';
     try { label = new URL(url).hostname.replace(/^www\./, '').split('.').slice(-2, -1)[0]!.toUpperCase().slice(0, 14); } catch { /* keep PAGE */ }
     p.openTab(lent.view, { url, title: lent.title.slice(0, 80) || url, label }, (view) => o.browser()?.giveBack(id, view));
+    // The pop-out comes forward and Samara tucks away (his ask, 2026-10-20), only when Samara was the window in front.
+    tuckAway(e);
   });
   // "Open on Mac" / "Open on PC" from a tab's menu: a full tab over there, and this one pauses.
   ipcMain.on('browser:openother', (e, id) => {

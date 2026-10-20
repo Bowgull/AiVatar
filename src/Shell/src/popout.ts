@@ -181,8 +181,9 @@ export class Popout {
     const wc = l.view.webContents;
     // The page is made itself again BEFORE it goes back (2026-10-12): handing it over first showed it for a moment
     // as one giant player, then snapping back, which is the odd resize he saw.
+    // It goes home paused (his rule, 2026-10-20: closing the pop-out pauses the video).
     const undone = wc.isDestroyed() ? Promise.resolve() : Promise.all([
-      within(wc.executeJavaScript(UNPIN_JS, true), 400, null),
+      within(wc.executeJavaScript(UNPIN_JS + ";document.querySelectorAll('video,audio').forEach((m)=>{try{m.pause()}catch{}});true", true), 400, null),
       l.css ? wc.removeInsertedCSS(l.css).catch(() => {}) : Promise.resolve(),
     ]);
     try { this.window?.contentView.removeChildView(l.view); } catch { /* not here */ }
@@ -249,7 +250,9 @@ export class Popout {
       // shadow (the browser's look): a frameless window keeps its thick frame for exactly that.
       backgroundColor: '#24160D',
       thickFrame: true,
-      alwaysOnTop: set.alwaysOnTop,
+      // On top only while pinned (his rule, 2026-10-20): unpinned it is a normal window that goes behind whatever he
+      // clicks (WoW included); pinned it floats over everything and lets every click through.
+      alwaysOnTop: false,
       skipTaskbar: false,          // it is a real window; it belongs in alt-tab
       show: false,
       title: 'Aang',
@@ -263,7 +266,7 @@ export class Popout {
     // On the Mac the wooden bar's own buttons are the window's buttons; macOS's floating ones stay hidden (M6).
     if (process.platform === 'darwin') this.win.setWindowButtonVisibility(false);
     // Above a fullscreen game, not merely above ordinary windows.
-    if (set.alwaysOnTop) this.win.setAlwaysOnTop(true, 'screen-saver');
+    void set;
     // His decision 32: a normal clickable window. Click-through is the optional switch, never default.
     this.win.setIgnoreMouseEvents(set.clickThrough);
     lockDown(this.win.webContents, { openExternally: true });
@@ -405,6 +408,7 @@ export class Popout {
     const w = this.window;
     if (!w || !w.isVisible()) return;
     this.pinned = !this.pinned;
+    w.setAlwaysOnTop(this.pinned, 'screen-saver');
     w.setIgnoreMouseEvents(this.pinned || this.deps.settings().clickThrough);
     // The Mac (his report, 2026-10-13: pinned was not click-through there): said again a moment later, once the click
     // on the pin button itself is over, so it holds.
@@ -428,7 +432,7 @@ export class Popout {
   applySettings(set: PopoutSettings): void {
     const w = this.window;
     if (!w) return;
-    w.setAlwaysOnTop(set.alwaysOnTop, 'screen-saver');
+    w.setAlwaysOnTop(this.pinned, 'screen-saver');
     w.setIgnoreMouseEvents(set.clickThrough || this.pinned);
     w.webContents.send('popout:settings', set);
   }
@@ -468,7 +472,7 @@ export class Popout {
     const w = this.window;
     if (!w) return;
     w.hide();
-    try { w.setIgnoreMouseEvents(this.deps.settings().clickThrough); } catch { /* gone */ }
+    try { w.setIgnoreMouseEvents(this.deps.settings().clickThrough); w.setAlwaysOnTop(false); } catch { /* gone */ }
     w.webContents.send('popout:pinned', false);
     w.webContents.send('popout:show', { url: '', source: 'none', label: '', live: false, title: 'Nothing playing' });
   }

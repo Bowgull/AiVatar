@@ -3009,6 +3009,7 @@ export class AangBrowser {
       tabs: keep.map((t) => ({
         url: t.url, title: t.title, opener: t.opener === null ? null : keep.findIndex((x) => x.id === t.opener),
         scrollY: Math.round(t.scrollY), zoom: t.zoom, muted: t.muted, trail: t.trail, done: t.done, win: winOf.get(t.pane) ?? 0,
+        ...(t.favicon && /^(https:|data:image\/)/.test(t.favicon) && t.favicon.length < 4000 ? { favicon: t.favicon } : {}),
       })),
       trails,
       closed,
@@ -3029,7 +3030,8 @@ export class AangBrowser {
       if (!list.length) return false;
       const ids: number[] = [];
       for (const t of list) {
-        const tab: Tab = { id: ++this.seq, view: null, opener: null, title: String(t.title ?? t.url).slice(0, 300), url: t.url, favicon: '',
+        const fav = typeof t.favicon === 'string' && /^(https:|data:image\/)/.test(t.favicon) && t.favicon.length < 4000 ? t.favicon : '';
+        const tab: Tab = { id: ++this.seq, view: null, opener: null, title: String(t.title ?? t.url).slice(0, 300), url: t.url, favicon: fav,
           loading: false, audible: false, muted: t.muted === true, crashed: false, scrollY: Number(t.scrollY) || 0, zoom: Number(t.zoom) || 0, lastSeen: Date.now(), blocked: null,
           trail: Number.isInteger(t.trail) ? t.trail : null, done: false, lent: false, upgraded: null, failed: null, blockedPopup: null, pane: this.pane.id };
         ids.push(tab.id);
@@ -3099,7 +3101,8 @@ export class AangBrowser {
       active: this.active,
       update: this.update, updated: this.updated, inCall: this.inCall,
       canBack: Boolean(wc?.navigationHistory.canGoBack()), canForward: Boolean(wc?.navigationHistory.canGoForward()),
-      tabs: mine.map((x) => ({ id: x.id, opener: x.opener, title: x.title, url: x.url, favicon: x.favicon, loading: x.loading, phase: x.phase ?? (x.loading ? 'loading' : 'idle'), prog: x.prog ?? 0, pending: x.pending ?? null, audible: x.audible, muted: x.muted, crashed: x.crashed, asleep: !x.view, blocked: x.blocked, failed: x.failed, trail: x.trail, done: x.done, lent: x.lent, popup: x.blockedPopup?.url ?? null })),
+      // A sleeping tab keeps its logo (his ask, 2026-10-20): its last one, else the site's from bookmarks.
+      tabs: mine.map((x) => ({ id: x.id, opener: x.opener, title: x.title, url: x.url, favicon: x.favicon || this.iconOf(x.url), loading: x.loading, phase: x.phase ?? (x.loading ? 'loading' : 'idle'), prog: x.prog ?? 0, pending: x.pending ?? null, audible: x.audible, muted: x.muted, crashed: x.crashed, asleep: !x.view, blocked: x.blocked, failed: x.failed, trail: x.trail, done: x.done, lent: x.lent, popup: x.blockedPopup?.url ?? null })),
       // The trails with a tab in this window (or the one about to start here).
       trails: this.trails.filter((tr) => tr.id === this.pendingTrail || mine.some((x) => x.trail === tr.id)),
       drivers: this.driver.view(),
@@ -3160,8 +3163,8 @@ export class AangBrowser {
           return { ok: true, items: forAang(this.visits.list, q, Number.isFinite(days) ? days : 14, 15, Date.now()) };
         }
         case 'start': {
-          const pl = a?.plan as { login?: unknown; denied?: unknown; steps?: unknown } | undefined;
-          const plan = pl ? { login: Array.isArray(pl.login) ? pl.login.map(String) : [], denied: Array.isArray(pl.denied) ? pl.denied.map(String) : [], steps: Array.isArray(pl.steps) ? pl.steps.map(String) : [] } : undefined;
+          const pl = a?.plan as { login?: unknown; denied?: unknown; steps?: unknown; allowed?: unknown } | undefined;
+          const plan = pl ? { login: Array.isArray(pl.login) ? pl.login.map(String) : [], denied: Array.isArray(pl.denied) ? pl.denied.map(String) : [], steps: Array.isArray(pl.steps) ? pl.steps.map(String) : [], allowed: Array.isArray(pl.allowed) ? pl.allowed.map(String) : [] } : undefined;
           const j = d.startJob(a?.kind === 'claude' ? 'claude' : 'aang', String(a?.name ?? ''), plan);
           return { ok: true, job: j.id };
         }
@@ -3255,7 +3258,9 @@ export class AangBrowser {
         case 'scroll': await d.scroll(num('page'), a?.down !== false); return { ok: true };
         // ---- his own tabs (2026-10-14): "look at what I'm looking at", "fill this in for me". Each asks him first.
         case 'tabs': {
-          if (a?.allowed !== true) return { ok: false, needs: 'lever', what: 'see the list of your open tabs' };
+          // One OK is enough (his rule, 2026-10-20): a plan he allowed covers seeing his tab list for that session.
+          const pj = d.job(num('job'));
+          if (a?.allowed !== true && !pj?.planned) return { ok: false, needs: 'lever', what: 'see the list of your open tabs' };
           const cur = this.cur();
           return { ok: true, tabs: this.tabs.filter((t) => isWeb(t.url) && !t.internal).map((t) => ({ tab: t.id, title: neverKeep(t.url) ? '(a bank or money site: hidden)' : t.title.slice(0, 120), url: neverKeep(t.url) ? '' : t.url.slice(0, 300), active: t.id === cur?.id, asleep: !t.view })) };
         }
@@ -3264,7 +3269,10 @@ export class AangBrowser {
           if (!t || !isWeb(t.url) || t.internal) return { ok: false, error: 'there is no web page in that tab' };
           if (neverKeep(t.url)) return { ok: false, error: 'that tab is a bank or money site: never read or driven for a session (his rule)' };
           let site = ''; try { site = new URL(t.url).hostname.replace(/^www\./, ''); } catch { /* none */ }
-          if (a?.allowed !== true) return { ok: false, needs: 'lever', what: op === 'look' ? `read your tab on ${site}` : `drive your tab on ${site} while you watch (STOP ends it)` };
+          // ...and reading or driving his tab on a site that plan named: he already said yes to that site this session.
+          const pj = d.job(num('job'));
+          const inPlan = Boolean(pj?.allowed && [...pj.allowed].some((s) => site === s || site.endsWith('.' + s)));
+          if (a?.allowed !== true && !inPlan) return { ok: false, needs: 'lever', what: op === 'look' ? `read your tab on ${site}` : `drive your tab on ${site} while you watch (STOP ends it)` };
           if (!t.view) this.wake(t);
           const wc = t.view?.webContents;
           if (!wc) return { ok: false, error: 'that tab could not be woken' };

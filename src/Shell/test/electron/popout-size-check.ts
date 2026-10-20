@@ -82,9 +82,11 @@ app.whenReady().then(async () => {
   p.togglePin();
   await wait(300);
   check('pinned: the controls stay away', (await bar()).shown === false);
+  check('pinned: it floats on top of everything (his rule, 2026-10-20)', p.window!.isAlwaysOnTop() === true);
   p.togglePin();
   await wait(300);
   check('unpinned: they come back', (await bar()).shown === true);
+  check('unpinned: a normal window that goes behind what he clicks', p.window!.isAlwaysOnTop() === false);
   p.close(); srv.close(); pages.close();
   console.log(bad ? `${bad} failed` : 'all passed');
   setTimeout(() => app.exit(bad ? 1 : 0), 300);
