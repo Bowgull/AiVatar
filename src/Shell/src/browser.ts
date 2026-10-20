@@ -3354,7 +3354,9 @@ export class AangBrowser {
     const j = this.driver.job(jobId);
     if (!j?.planned || !j.steps) return { ok: false };
     const card = this.planOfJob.get(jobId);
-    if (at === null) { if (card) this.onPlanStep?.(card, null); return { ok: true }; }
+    // Done (his rule, 2026-10-20: "if you're done driving something close it and close the session title header"): his
+    // tabs go back to him, the session's own pages close, and its group goes.
+    if (at === null) { if (card) this.onPlanStep?.(card, null); this.driver.endJob(jobId); this.sendTabs(); return { ok: true }; }
     j.step = Math.max(0, Math.min(j.steps.length - 1, Math.round(at)));
     if (card) this.onPlanStep?.(card, j.step);
     this.sendTabs();

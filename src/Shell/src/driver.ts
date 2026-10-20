@@ -503,7 +503,18 @@ export class Driver {
     if (this.d.stateDir) void blockAds(g, this.d.stateDir, { cosmetic: false, guard }).catch(() => { /* pages still load, with ads */ });
     return (this.guest = g);
   }
-  finish(id: number): void { const j = this.job(id); if (j && j.working) { j.working = false; this.d.changed(); } }
+  /**
+   * The session ended. His own tabs it borrowed go back to him at once, out of its group (his rule, 2026-10-20: "move it
+   * OUT of the Claude or Aang driven section"); a group with nothing left in it goes too, never an empty header.
+   */
+  finish(id: number): void {
+    const j = this.job(id);
+    if (!j) return;
+    j.working = false;
+    for (const p of this.pagesOf(j).filter((x) => x.borrowed)) this.close(p.id);
+    if (j.pages.length === 0) { const i = this.jobs.indexOf(j); if (i >= 0) this.jobs.splice(i, 1); }
+    this.d.changed();
+  }
   /** STOP: from the drawer, the address bar, or his words. Every page of the job stops loading at once. */
   stop(id: number): void {
     const j = this.job(id);
@@ -1229,6 +1240,8 @@ export class Driver {
     if (j && !j.pages.length && !j.working) this.jobs.splice(this.jobs.indexOf(j), 1);
     this.d.changed();
   }
+  /** Done, quietly (not a STOP): its own pages close, his tabs go back, the group goes. */
+  endJob(jobId: number): void { const j = this.job(jobId); if (!j) return; j.working = false; for (const id of [...j.pages]) this.close(id); const i = this.jobs.indexOf(j); if (i >= 0) this.jobs.splice(i, 1); this.d.changed(); }
   closeJob(jobId: number): void { const j = this.job(jobId); if (!j) return; this.stop(jobId); for (const id of [...j.pages]) this.close(id); const i = this.jobs.indexOf(j); if (i >= 0) this.jobs.splice(i, 1); this.d.changed(); }
   /** After a day his pages close themselves (his call). */
   private sweep(): void {
