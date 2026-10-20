@@ -39,6 +39,7 @@ app.whenReady().then(async () => {
   // DRAWER_HOVER=1 (rules added through the stylesheet: the page's own rules refuse an added <style>): show two keys' banners as if pointed at (one on the top row, one below), for the picture.
   if (process.env.DRAWER_HOVER) await w.webContents.executeJavaScript(`(() => { const sh = [...document.styleSheets].find((x) => (x.href || '').includes('browser.css')); sh.insertRule('.bm-key.pic .bm-banner{opacity:1;transform:translate(-50%,0) scale(1)}', sh.cssRules.length); sh.insertRule('.bm-key.pic{top:-2px;box-shadow:0 7px 0 #120A05,0 0 0 2px #FFC43C,0 0 14px rgba(255,190,90,.55)}', sh.cssRules.length); const k = document.querySelectorAll('.bm-key'); k[1]?.classList.add('pic'); k[5]?.classList.add('pic'); return true; })()`);
   await wait(800);
+  if (process.env.DRAWER_MEASURE) console.log('MEASURE ' + await w.webContents.executeJavaScript(`JSON.stringify({ shelf: document.querySelector('.shelf-bk').getBoundingClientRect().width, inner: document.getElementById('marks').clientWidth, key: document.querySelector('.bm-key')?.getBoundingClientRect().width })`));
   const img = await w.webContents.capturePage();
   writeFileSync(out!, img.toPNG());
   console.log('picture: ' + out);

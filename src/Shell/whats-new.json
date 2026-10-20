@@ -335,6 +335,11 @@
       "at": "2026-10-20T22:15:00-04:00",
       "text": "Bookmarks are big raised keys with name banners.",
       "kind": "feature"
+    },
+    {
+      "at": "2026-10-20T22:40:00-04:00",
+      "text": "Bookmarks sit in a carved frame with gold corners.",
+      "kind": "fix"
     }
   ]
 }
