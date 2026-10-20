@@ -68,7 +68,8 @@ function unfreeze(who, after = 0) { over.delete(who); setTimeout(() => { if (!ov
 // The list itself is drawn by the tray layer; here the handle only asks for it, and says where it goes.
 function trayRect() {
   const k = el('drawerkey').getBoundingClientRect(), b = document.querySelector('.body3').getBoundingClientRect();
-  return { x: Math.round(k.right + 2), y: Math.round(b.top), h: Math.round(window.innerHeight - b.top) };
+  // From the handle's own left edge: the rail slides out from under it, carrying it (his ask, 2026-10-20).
+  return { x: Math.round(k.left), y: Math.round(b.top), hy: Math.round(k.top - b.top), h: Math.round(window.innerHeight - b.top) };
 }
 function openDrawer() {
   if (drawerOpen || SOLO) return;
@@ -93,7 +94,24 @@ function trayShut() {
   document.body.classList.remove('tray-open');
 }
 // The tray closed by itself (Esc in it, a click on the page, a tab picked): the handle follows.
-window.aang?.onBrowserTray?.((s) => { if (!SOLO && s && s.open === false && drawerOpen) trayShut(); });
+window.aang?.onBrowserTray?.((s) => {
+  if (!s) return;
+  if (SOLO) {
+    // Shown folded, then slid out on the next frames; told to close, it slides back and the Shell hides it after.
+    if (s.open === true) {
+      if (Number.isFinite(s.hy)) document.querySelector('.railhandle').style.top = s.hy + 'px';
+      document.body.classList.remove('out');
+      // Next frame; a short timer too, so a window that is not drawing right now still ends up with the rail out.
+      let gone = false;
+      const go = () => { if (gone) return; gone = true; void document.body.offsetWidth; document.body.classList.add('out'); };
+      requestAnimationFrame(() => requestAnimationFrame(go));
+      setTimeout(go, 40);
+    } else document.body.classList.remove('out');
+    return;
+  }
+  document.body.classList.toggle('rail-out', s.open === true);
+  if (s.open === false && drawerOpen) trayShut();
+});
 if (SOLO) {
   // The list goes a moment after the mouse leaves it (not while a menu of its own or a rename is open).
   let leaveT = 0;
