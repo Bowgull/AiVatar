@@ -683,6 +683,31 @@ function buildRow(t, kid) {
 }
 
 // ---- bookmarks on the velvet shelf: logo and name, a click opens it. Empty until the import (6.23).
+/**
+ * A bookmark's short name (sheet 43, 2026-10-20): page titles are often "Feed | LinkedIn" or "Inbox (3) - Gmail". When the
+ * title names the site and the rest is a generic page word, the site's name is the bookmark's name; otherwise the
+ * title's first part. His own rename (the star's panel) is a title like any other and is kept as he typed it.
+ */
+const GENERIC = /^(home|feed|inbox|browse|watch|start|welcome|dashboard|log ?in|sign ?in|main|new tab|\(\d+\)|inbox \(\d+\))$/i;
+function shortName(title, url) {
+  const t = String(title || '').replace(/\s+/g, ' ').trim();
+  let site = '';
+  try { site = new URL(url).hostname.replace(/^(www|m|mail|web)\./, '').split('.').slice(-2, -1)[0] || ''; } catch { /* none */ }
+  const parts = t.split(/\s+[|–—\-·:]\s+/).map((x) => x.trim()).filter(Boolean);
+  if (parts.length > 1) {
+    const named = parts.find((x) => site && x.toLowerCase().replace(/[^a-z0-9]/g, '').includes(site.toLowerCase()));
+    const rest = parts.filter((x) => x !== named);
+    if (named && rest.every((x) => GENERIC.test(x) || /@/.test(x))) return named;
+    return parts[0];
+  }
+  return t || site || url;
+}
+
+/**
+ * Bookmarks (sheet 43b, his pick 3 without numbers, 2026-10-20): raised wooden keys on the velvet, four to a row, an icon
+ * on each and no words under it. The name rides on a parchment banner over the key he is pointing at (under it on the top
+ * row, so the drawer's edge never cuts it). The last slot adds the page he is on, the same as the star.
+ */
 function paintMarks(list) {
   const box = el('marks');
   // Only when the bookmarks changed (measured 2026-10-20): rebuilding all 24 on every tab-list message was the
@@ -691,20 +716,28 @@ function paintMarks(list) {
   if (box.dataset.sig === sig) return;
   box.dataset.sig = sig;
   box.replaceChildren();
-  if (!Array.isArray(list) || !list.length) {
-    box.append(Object.assign(document.createElement('p'), { className: 'empty', textContent: 'Your bookmarks land here. Press the book in the address bar, or bring them from Chrome in Settings.' }));
-    return;
-  }
-  for (const b of list.slice(0, 24)) {
-    if (!b || typeof b.url !== 'string') continue;
+  box.className = 'row bm-slots';
+  const marks = (Array.isArray(list) ? list : []).filter((b) => b && typeof b.url === 'string').slice(0, 24);
+  marks.forEach((b, i) => {
     const m = document.createElement('button');
-    m.type = 'button'; m.className = 'mark'; m.title = b.url;
-    if (b.favicon) { const i = document.createElement('img'); i.alt = ''; i.src = b.favicon; i.referrerPolicy = 'no-referrer'; i.onerror = () => i.remove(); m.append(i); }
-    m.append(String(b.title || b.url).slice(0, 24));
+    m.type = 'button'; m.className = 'bm-key' + (i < 4 ? ' low' : '');
+    const name = shortName(b.title, b.url).slice(0, 40);
+    m.setAttribute('aria-label', name); m.title = '';
+    if (b.favicon) { const img = document.createElement('img'); img.alt = ''; img.src = b.favicon; img.referrerPolicy = 'no-referrer'; img.onerror = () => { img.remove(); m.prepend(letter(name)); }; m.append(img); }
+    else m.append(letter(name));
+    const banner = document.createElement('span'); banner.className = 'bm-banner'; banner.textContent = name; m.append(banner);
     m.addEventListener('click', () => { window.aang?.browserGo?.(b.url); });
     box.append(m);
-  }
+  });
+  const add = document.createElement('button');
+  add.type = 'button'; add.className = 'bm-key bm-add' + (marks.length < 4 ? ' low' : ''); add.textContent = '+';
+  add.setAttribute('aria-label', 'Bookmark this page');
+  const ab = document.createElement('span'); ab.className = 'bm-banner'; ab.textContent = marks.length ? 'Add this page' : 'Bookmark this page'; add.append(ab);
+  add.addEventListener('click', () => el('star').click());
+  box.append(add);
 }
+/** A site with no icon: its first letter, carved, so a key is never blank. */
+function letter(name) { const s = document.createElement('i'); s.className = 'bm-letter'; s.textContent = (String(name).match(/[a-z0-9]/i)?.[0] ?? '?').toUpperCase(); return s; }
 
 // ---- 6.22: a website's ask, hanging from the band. For this call only; there is no "always" for these.
 let askId = null;

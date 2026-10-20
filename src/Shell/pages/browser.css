@@ -708,3 +708,33 @@ html:not(.solo) .bw::after{content:"";flex:0 0 12px;background:url(art/browser/b
 .lentplate .lp-shelf h3{margin:8px 0 0;font:700 26px/1.15 var(--display);color:var(--gold);text-shadow:0 2px 0 var(--outline);max-width:46ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lentplate .plq.site{background:#A970FF;color:#1d0b33}
 .lentplate .keys{display:flex;gap:10px;flex:none}
+
+/* ---- sheet 43b (his pick, 2026-10-20): bookmarks as raised inventory keys, the name on a banner only when pointed at ----
+   The keys sit ON the velvet: lit along the top, a dark lip under them. Hover lifts one with a gold ring, a press sinks it,
+   like the pop-out's play coin. Replaces the small plaques (11 px words on dark wood over velvet, hard to read). */
+.shelf-bk .bm-slots{display:grid;grid-template-columns:repeat(4,1fr);gap:10px 8px;justify-items:center;padding:3px 0 2px}
+.bm-key{position:relative;width:54px;height:54px;box-sizing:border-box;padding:0;border-radius:9px;border:3px solid var(--outline);cursor:pointer;display:grid;place-items:center;
+  background:linear-gradient(180deg,#6a4a2c 0,#56371F 45%,#47301b 100%);
+  box-shadow:0 5px 0 var(--outline),inset 0 3px 0 rgba(255,222,170,.28),inset 0 -3px 0 rgba(0,0,0,.35),0 8px 10px rgba(0,0,0,.45);
+  top:0;transition:top .1s cubic-bezier(.32,1.6,.5,1),box-shadow .1s}
+.bm-key img{width:26px;height:26px;border-radius:4px;filter:drop-shadow(0 1px 0 rgba(0,0,0,.55))}
+.bm-key:hover,.bm-key:focus-visible{top:-2px;outline:none;box-shadow:0 7px 0 var(--outline),0 0 0 2px var(--gold),inset 0 3px 0 rgba(255,222,170,.35),inset 0 -3px 0 rgba(0,0,0,.35),0 0 14px rgba(255,190,90,.55),0 10px 12px rgba(0,0,0,.45)}
+.bm-key:active{top:4px;box-shadow:0 1px 0 var(--outline),inset 0 3px 0 rgba(0,0,0,.35),0 2px 4px rgba(0,0,0,.4)}
+.bm-letter{font:400 18px var(--label);color:#FFE096;font-style:normal;text-shadow:2px 2px 0 #000}
+.bm-add{background:transparent;border:3px dashed rgba(255,224,150,.4);box-shadow:none;color:#FFE096;font:700 22px var(--body)}
+.bm-add:hover,.bm-add:focus-visible{top:0;box-shadow:0 0 0 2px var(--gold)}
+/* the banner: parchment with two folded tails, above the key (under it on the top row) */
+.bm-banner{position:absolute;bottom:calc(100% + 9px);left:50%;transform:translate(-50%,3px) scale(.96);opacity:0;pointer-events:none;z-index:5;
+  transition:opacity .12s,transform .14s cubic-bezier(.32,1.6,.5,1);
+  font:700 13px var(--body);color:#2a1c0c;white-space:nowrap;padding:4px 12px 5px;background:#e9d3a6;border-radius:3px;box-shadow:0 3px 0 #0d0703,inset 0 0 0 2px rgba(120,80,30,.3)}
+.bm-banner::before,.bm-banner::after{content:"";position:absolute;top:4px;width:8px;height:calc(100% - 2px);background:#c9ad7a;z-index:-1}
+.bm-banner::before{left:-6px;clip-path:polygon(0 0,100% 0,100% 100%,0 100%,40% 50%)}
+.bm-banner::after{right:-6px;clip-path:polygon(0 0,100% 0,60% 50%,100% 100%,0 100%)}
+.bm-key.low .bm-banner{bottom:auto;top:calc(100% + 11px);transform:translate(-50%,-3px) scale(.96)}
+.bm-key:hover .bm-banner,.bm-key:focus-visible .bm-banner{opacity:1;transform:translate(-50%,0) scale(1)}
+/* the shelf's own banners can leave it: nothing clips them */
+.shelf-bk{overflow:visible}
+@media (prefers-reduced-motion:reduce){.bm-key,.bm-banner{transition:none}}
+/* New tab's hint, readable (it was 10 px at 60%): a small gold keycap */
+.drawer .newtab .k{position:static;margin-left:auto;opacity:1;font:400 10px var(--label);letter-spacing:1px;color:#2a1c00;
+  background:linear-gradient(180deg,var(--gold-light),var(--gold-deep));border:2px solid var(--outline);border-radius:5px;padding:3px 6px 2px}

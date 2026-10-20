@@ -330,6 +330,11 @@
       "at": "2026-10-20T21:45:00-04:00",
       "text": "Right-click: save links, send words to Aang, pop out videos.",
       "kind": "feature"
+    },
+    {
+      "at": "2026-10-20T22:15:00-04:00",
+      "text": "Bookmarks are big raised keys with name banners.",
+      "kind": "feature"
     }
   ]
 }
