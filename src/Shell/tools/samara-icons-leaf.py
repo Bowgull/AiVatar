@@ -101,3 +101,17 @@ for n in SIZES:
     pop.append((n, png(im)))
 ico(os.path.join(ART, 'samara-popout.ico'), pop)
 print('ok')
+
+# 3. The taskbar light-up (his ask, 2026-10-20): ten frames from the closed lantern to the open one, at every taskbar size.
+#    The two are the same drawing in two palettes, so each frame blends them pixel by pixel: nothing moves, nothing is
+#    resampled, it stays as crisp as the icons themselves. Eased out, so it catches quickly and settles into the light.
+FRAMES = 10
+for i in range(FRAMES):
+    t = 1 - (1 - i / (FRAMES - 1)) ** 2
+    entries = []
+    for n in (16, 24, 32, 48):
+        a = Image.open(os.path.join(ART, f'samara-unlit-{n}.png')).convert('RGBA')
+        b = Image.open(os.path.join(ART, f'samara-lit-{n}.png')).convert('RGBA')
+        entries.append((n, png(Image.blend(a, b, t))))
+    ico(os.path.join(ART, f'samara-lightup-{i}.ico'), entries)
+print('light-up frames ok')

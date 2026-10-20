@@ -1189,7 +1189,9 @@ export class AangBrowser {
       let i = 0;
       const t = setInterval(() => {
         if (w.isDestroyed()) { clearInterval(t); return; }
-        try { w.setIcon(nativeImage.createFromPath(path.join(import.meta.dirname, '..', 'pages', 'art', 'samara', `samara-light-${i}-64.png`))); } catch { /* the lit icon stays */ }
+        // 2026-10-20: frames made at the taskbar's own sizes from the 24 px drawing (tools/samara-icons-leaf.py). The 64 px
+        // frames, shrunk to 24 by Windows, came out blurry; the Mac's Dock still uses those.
+        try { w.setIcon(nativeImage.createFromPath(path.join(import.meta.dirname, '..', 'pages', 'art', 'samara', `samara-lightup-${i}.ico`))); } catch { /* the lit icon stays */ }
         if (++i > 9) { clearInterval(t); try { w.setIcon(SAMARA_ICON); } catch { /* fine */ } }
       }, 55);
     }
