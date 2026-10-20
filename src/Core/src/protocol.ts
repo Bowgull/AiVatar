@@ -340,7 +340,13 @@ export type ToBody =
       /** His Claude week right now, 0..1, for the box above the use chart (one scale per chart, never two). */
       quotaWeek?: number }
   /** The Panel's History tab: past turns, newest first, matching `q` (all of its words). */
-  | { t: 'history.reply'; q: string; items: { id: number; ts: string; who: 'you' | 'Aang'; text: string }[];
+  /**
+   * The scroll-back (2026-10-20): `kind` and `extra` ride on rows that were more than words when he first saw
+   * them. kind 'say' = Aang spoke on his own (extra may hold face, about {url,title,thumb}, brief, research,
+   * links, reminder, away); 'yes' = a permission he gave (extra.yes, see the turn.updated note); 'plan' and
+   * 'shown' = what the Shell saved with shown.save. Both are absent for ordinary chat.
+   */
+  | { t: 'history.reply'; q: string; items: { id: number; ts: string; who: 'you' | 'Aang'; text: string; kind?: string; extra?: Record<string, unknown> }[];
       /** Echoed back so the Body knows this is an older page and not a fresh search. */
       before?: number }
   /**
@@ -349,6 +355,18 @@ export type ToBody =
    * turn numbers identify the rows, and the two are not interchangeable.
    */
   | { t: 'turn.saved'; id: string; userTurn: number; aangTurn: number }
+  /**
+   * The answer to turn.undo, to the socket that pressed it. `said` is always one plain sentence for him. When
+   * something really was undone, `extra.yes.undone` is set ({ at, said, revoked? }) and the row should redraw
+   * from this `extra`; otherwise `extra` is the row as it was and `said` explains why nothing changed.
+   *
+   * extra.yes is { question, choice: 'once' | 'always', did, ok, note, at, kindKey?, undo?: number, cant?: string,
+   * undone? }: `undo` means an Undo can be offered, `kindKey` means an "always" that can be taken back, and
+   * `cant` is the plain reason when neither is possible.
+   */
+  | { t: 'turn.updated'; id: number; kind: string | null; extra: any; said: string }
+  /** shown.save worked: `id` is the new row, `ref` echoes the Shell's own reference when it sent one. */
+  | { t: 'shown.saved'; id: number; ref?: string }
   /** The morning brief, worked out without the model. */
   | { t: 'brief.reply'; text: string }
   /** Something only the desktop can do to its windows. Sent only after Joshua has agreed to it. */
@@ -528,6 +546,16 @@ export type FromBody =
   | { t: 'choice.forget'; key: string }
   /** Window 2's "Undo the last one" (6.15): the same undo stack the undo_last tool uses. His press is the yes. */
   | { t: 'undo.last' }
+  /** The scroll-back: Undo on a "You said yes" row (turn id). Answered with turn.updated. */
+  | { t: 'turn.undo'; id: number }
+  /**
+   * Keep something the Shell showed him (a Claude or Samara plan) as a row, so the scroll-back can bring it
+   * back. Desktop only. `text` at most 600 characters, `extra` at most 200 KB of JSON; `ref` (at most 80)
+   * comes back on shown.saved so the Shell knows which of its things got which row.
+   */
+  | { t: 'shown.save'; kind: 'plan' | 'shown'; text: string; extra?: Record<string, unknown>; ref?: string }
+  /** Replace the rich part of a row the Shell saved (a plan whose steps have moved on). Only 'plan'/'shown' rows. */
+  | { t: 'shown.update'; id: number; extra: Record<string, unknown> }
   /**
    * 4.5: he pressed a file or link chip in the Panel's history.
    *

@@ -293,6 +293,41 @@ Reply with JSON only, no other text, in exactly this shape:
 {"groups":[{"name":"SHORT NAME","tabs":[1,2]}],"names":[{"trail":"T1","name":"SHORT NAME"}]}
 Rules: a group needs at least 2 tabs that clearly belong to one task or topic; leave a tab out if it fits nowhere. Each tab in at most one group. Names: 1 to 3 plain words, about what he is doing (e.g. RAID PREP, JOB HUNT, WATCHING), no punctuation. Give every trail in TRAILS TO NAME a name.`;
 
+/**
+ * A short plain description of what made a stored turn more than words, for the model to read when he replies
+ * to it. Empty for ordinary chat. Never throws: a row with an odd payload is still worth replying to.
+ */
+export function richOf(t: { extra?: Record<string, unknown>; kind?: string }): string {
+  const x = t.extra as any;
+  if (!x || typeof x !== 'object') return '';
+  const cut = (v: unknown, n = 160) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
+  const out: string[] = [];
+  try {
+    if (x.about && typeof x.about.url === 'string') out.push(`It was about: ${cut(x.about.title) || 'a link'} (${cut(x.about.url, 400)})`);
+    if (x.brief && typeof x.brief === 'object') {
+      const b = x.brief;
+      const bits = [
+        Array.isArray(b.events) && b.events.length ? `${b.events.length} thing${b.events.length === 1 ? '' : 's'} on his calendar` : '',
+        Array.isArray(b.unread) && b.unread.length ? `${b.unread.length} email${b.unread.length === 1 ? '' : 's'} waiting on him` : '',
+        b.weather && typeof b.weather.words === 'string' ? cut(b.weather.words, 60) : '',
+      ].filter(Boolean);
+      out.push(`It was his morning brief${bits.length ? `: ${bits.join(', ')}` : ''}.`);
+    }
+    if (x.research && typeof x.research === 'object') {
+      const finds = Array.isArray(x.research.finds) ? x.research.finds.slice(0, 3).map((f: any) => cut(f?.title, 80)).filter(Boolean) : [];
+      out.push(`It was his weekly research card${finds.length ? `, leading with: ${finds.join('; ')}` : ''}.`);
+    }
+    if (x.yes && typeof x.yes === 'object') out.push(`It was a permission he gave: ${cut(x.yes.did)}${x.yes.undone ? ' (since undone)' : ''}`);
+    if (t.kind === 'plan' || x.plan) {
+      const p = x.plan && typeof x.plan === 'object' ? x.plan : x;
+      const steps = Array.isArray(p.steps) ? p.steps.slice(0, 8).map((st: any) => cut(typeof st === 'string' ? st : st?.text ?? st?.title, 100)).filter(Boolean) : [];
+      out.push(`It was a plan${p.title ? `: ${cut(p.title, 100)}` : ''}${steps.length ? `. Steps: ${steps.join('; ')}` : ''}`);
+    }
+    if (Array.isArray(x.links) && x.links.length && !x.about) out.push(`Its links: ${x.links.slice(0, 4).map((l: any) => cut(l?.url, 300)).filter(Boolean).join(' ')}`);
+  } catch { return ''; }
+  return out.length ? '\n' + out.join('\n') : '';
+}
+
 export class Core {
   readonly cfg: CoreConfig;
   readonly memory: Memory;
@@ -1025,6 +1060,10 @@ export class Core {
       }
       const fresh = await g.getEvent(ev.id).catch(() => ev);
       const wrong = readBack(plan, fresh, g.account);
+      // calendar_book is not one of the logged tools, so its yes is recorded here, where the booking is known to
+      // have happened. Its undo asks him again (calendar_undo), so the row points him there rather than undoing.
+      this.noteYes(this.actions.add({ tool: 'calendar_book', did: (plan.answer === 'add' ? `added "${plan.title}" to his calendar` : `answered "${plan.title}" in his calendar: ${plan.answer === 'maybe' ? 'maybe' : responseOf(plan.answer)}`).slice(0, 120), ok: !wrong.length, note: wrong.join('; ') }),
+        'Ask me to undo the booking and I will put it back (I keep that only until I restart).');
       if (wrong.length) return { ok: true, detail: `It was ${plan.answer === 'add' ? 'added' : 'answered'}, BUT Google's copy does not match what he approved: ${wrong.join('; ')}. Tell him exactly this, and offer to undo it.` };
       return { ok: true, detail: `${plan.answer === 'add' ? 'Added to his calendar' : `He ${responseOf(plan.answer)} it`}: ${sayPlanTime(plan)}. Read back from Google and it matches. Tell him in one line; he can say "undo that".` };
     } catch (e) { return { ok: false, detail: `Google refused it: ${(e as Error).message}. Nothing changed.` }; }
@@ -1146,6 +1185,9 @@ export class Core {
       }
       const made = await g.createFilter(gmailFilter(a, labelId));
       this.lastFilter = { id: made.id, said };
+      // Not a logged tool either; same reason as calendar_book above.
+      this.noteYes(this.actions.add({ tool: 'mail_filter', did: `made a Gmail filter: ${said}`.slice(0, 160), ok: true, note: '' }),
+        'Ask me to undo that filter and I will take it out of Gmail.');
       return { ok: true, detail: `Made. ${said} He can say "undo that filter".` };
     } catch (e) { return { ok: false, detail: `Gmail refused it: ${(e as Error).message}. Nothing was made.` }; }
   }
@@ -1514,6 +1556,7 @@ export class Core {
     // A background job's actions belong to no chat turn, which is exactly why `req` is left off them.
     const req = fromWorker ? undefined : this.active?.sub?.id;
     const rec = this.actions.add({ tool, did: (fromWorker ? '(background job) ' : '') + describeForLog('mcp__aang__' + tool, input), ok: !failed, note: failed ? text : '', ...(req ? { req } : {}) });
+    this.noteYes(rec);
     if (!fromWorker) this.turnActions.push({ did: rec.did, ok: rec.ok, note: rec.note });   // a job's actions are not the chat reply's to check
     this.sendTo('discord', { t: 'action', text: formatAction(rec) });        // a receipt in #log, silently
   }
@@ -1564,6 +1607,95 @@ export class Core {
     for (const r of did) lines.push('  ' + formatAction(r));
     if (ex?.replied) lines.push(`Then I told you: "${ex.replied.slice(0, 300)}"`);
     return lines.join('\n');
+  }
+
+  /**
+   * The last permission he said yes to, waiting for the action it was for (the scroll-back, 2026-10-20).
+   *
+   * Set in askPermission's answer, used up by noteYes once that action is in the log. `undoBefore` is the
+   * newest undo id at the moment he said yes: anything newer when the action lands was pushed BY that action,
+   * which is how a "You said yes" row knows it can be undone and which entry is its own.
+   */
+  private lastYes: { question: string; choice: 'once' | 'always'; tool: string; kindKey?: string; at: number; undoBefore: number } | null = null;
+
+  /**
+   * Tools whose yes is asked under a different name from the one they are logged under. Without this, the
+   * mail_draft tool's "send this email?" (asked as mail_send) would never find its own action.
+   */
+  private static readonly YES_ASKED_AS: Record<string, string> = { mail_draft: 'mail_send' };
+
+  /**
+   * Turn a yes he gave into a row in the scroll-back, showing what actually happened and an Undo where there
+   * is one. Called right after an action is logged.
+   *
+   * The yes has to be for THIS action. A yes to something that is never logged (a Read by the model, the
+   * Highlight button) would otherwise sit here and be pinned on the next unrelated thing Aang did, which would
+   * tell him he agreed to something he never saw. So the tool must match, and it must be recent. Never throws:
+   * the scroll-back is not worth a failed action.
+   */
+  private noteYes(rec: { tool: string; did: string; ok: boolean; note: string }, cant?: string): void {
+    try {
+      const y = this.lastYes;
+      if (!y) return;
+      const asked = y.tool.replace(/^mcp__aang__/, '');
+      if (asked !== rec.tool && asked !== Core.YES_ASKED_AS[rec.tool]) return;
+      this.lastYes = null;
+      if (Date.now() - y.at > 10 * 60_000) return;
+      const undo = this.undo.lastId > y.undoBefore && this.undo.has(this.undo.lastId) ? this.undo.lastId : undefined;
+      const why = undo !== undefined ? undefined
+        : cant ?? (rec.tool === 'mail_draft' || rec.tool === 'mail_send' || rec.tool === 'mail' ? "A sent email can't be taken back." : "This one can't be undone from here.");
+      const yes = {
+        question: y.question, choice: y.choice, did: rec.did, ok: rec.ok, note: rec.note, at: new Date().toISOString(),
+        ...(y.kindKey ? { kindKey: y.kindKey } : {}), ...(undo !== undefined ? { undo } : { cant: why }),
+      };
+      this.memory.saveShown('yes', `You said yes: ${rec.did}`, { yes });
+    } catch (e) { console.error('scroll-back: could not keep a yes:', (e as Error).message); }
+  }
+
+  /**
+   * Undo pressed on a "You said yes" row in the scroll-back. Three honest outcomes: the action's own undo ran;
+   * an "always" was taken back so he is asked again; or it cannot be undone, and the reply says why.
+   *
+   * Nothing is written to the row unless something really was undone, so a failed press leaves the Undo there
+   * for the Shell to explain rather than showing a "done" that is not true.
+   */
+  private undoTurn(id: number): Extract<ToBody, { t: 'turn.updated' }> {
+    const row = this.memory.turnExtra(id);
+    const kind = row?.kind ?? null;
+    const extra = row?.extra ?? null;
+    const reply = (said: string, x: any = extra) => ({ t: 'turn.updated' as const, id, kind, extra: x, said });
+    const y = kind === 'yes' && extra?.yes && typeof extra.yes === 'object' ? extra.yes : null;
+    if (!y) return reply("That one isn't something I did for you, so there is nothing to undo.");
+    if (y.undone) return reply('That was already undone.');
+    const at = new Date().toISOString();
+    if (typeof y.undo === 'number') {
+      const u = this.undo.has(y.undo) ? this.undo.take(y.undo) : null;
+      if (u) {
+        let said: string;
+        try { said = u.run(); } catch (e) { said = `I tried, but it failed: ${(e as Error).message}`; }
+        const next = { ...extra, yes: { ...y, undone: { at, said } } };
+        this.memory.setExtra(id, next);
+        this.actions.add({ tool: 'undo', did: `undid ${u.label}`.slice(0, 200), ok: true, note: '' });
+        return reply(said, next);
+      }
+      // Gone from the stack. Ids start from the clock (actionlog.ts), so one older than this run's first id
+      // was pushed before a restart; otherwise it was already undone another way, or pushed off the end.
+      if (!y.kindKey) {
+        return reply(y.undo < this.undo.firstId
+          ? "I can't undo that one any more: I've restarted since, and the undo was only kept until then."
+          : "I can't undo that one any more: it was already undone, or too much has happened since.");
+      }
+    }
+    if (y.kindKey) {
+      const said = this.revokeText(String(y.kindKey));
+      const ok = /^Done/.test(said);
+      this.actions.add({ tool: 'revoke', did: `took back a permission: ${String(y.kindKey).slice(0, 60)}`, ok, note: ok ? '' : said });
+      if (!ok) return reply(said);
+      const next = { ...extra, yes: { ...y, undone: { at, said, revoked: true } } };
+      this.memory.setExtra(id, next);
+      return reply(said, next);
+    }
+    return reply(typeof y.cant === 'string' && y.cant ? y.cant : "This one can't be undone from here.");
   }
 
   private undoLastThing(): { ok: boolean; detail: string } {
@@ -1830,7 +1962,10 @@ export class Core {
           const url = `https://www.youtube.com/watch?v=${u.videoId}`;
           if (this.whereHeIs() === 'desktop') {
             const img = await this.faces.channel(c.id);
-            this.announce(`${u.channel || c.name} just posted: ${u.title}`, { about: { url, title: `${u.channel || c.name}'s new video` }, ...(img ? { face: { img, name: u.channel || c.name } } : {}) });
+            // The video's picture goes with it (2026-10-20) so scrolling back shows the video, not just its title.
+            // Base64 is a third bigger than the bytes; past the scroll-back's picture limit it simply goes without.
+            const pic = thumb && thumb.length < 120_000 ? `data:image/jpeg;base64,${thumb}` : '';
+            this.announce(`${u.channel || c.name} just posted: ${u.title}`, { about: { url, title: `${u.channel || c.name}'s new video`, ...(pic ? { thumb: pic } : {}) }, ...(img ? { face: { img, name: u.channel || c.name } } : {}) });
           }
           else this.rememberLink(url, `${u.channel || c.name}'s new video`);
         }
@@ -2019,13 +2154,15 @@ export class Core {
     };
     try {
       const addons = await checkAddons(deps);
-      if (addons) { this.announce(addons, { asked: true }); this.memory.saveSaid(addons); }
+      // No saveSaid here: announce() stores it itself when it reaches him. Saving it here as well wrote every
+      // addon line and research sentence twice, so it showed twice in the scroll-back (found 2026-10-20).
+      if (addons) this.announce(addons, { asked: true });
     } catch (e) { console.error('addons: ' + (e as Error).message); }
     try {
       const { said, note, card } = await weeklySweep(deps);
       const file = note ? saveDigest(note) : '';
       // At the desk it arrives as the research card (6.15b); Discord keeps the sentence.
-      if (said) { this.announce(said, { asked: true, ...(card ? { research: { ...card, ...(file ? { file } : {}) } } : {}) }); this.memory.saveSaid(said); }
+      if (said) this.announce(said, { asked: true, ...(card ? { research: { ...card, ...(file ? { file } : {}) } } : {}) });
     } catch (e) { console.error('research: ' + (e as Error).message); }
   }
 
@@ -3020,6 +3157,42 @@ export class Core {
         this.send(ws, this.panelData());
         break;
       }
+      // The scroll-back (2026-10-20): Undo on a "You said yes" row. His press is the yes, as with undo.last.
+      case 'turn.undo': {
+        const id = Number(m.id);
+        if (!Number.isInteger(id) || id <= 0) break;
+        this.send(ws, this.undoTurn(id));
+        break;
+      }
+      // Something the Shell showed him that the brain never saw (a Claude or Samara plan): kept as a row so it
+      // comes back in the scroll-back. Desktop only: Discord has nothing of its own to keep here.
+      case 'shown.save': {
+        if (this.kindOfSocket(ws) !== 'desktop') break;
+        const kind = m.kind === 'plan' ? 'plan' : m.kind === 'shown' ? 'shown' : null;
+        const text = typeof m.text === 'string' ? m.text.trim() : '';
+        const ref = typeof m.ref === 'string' ? m.ref.slice(0, 80) : undefined;
+        const size = (() => { try { return JSON.stringify(m.extra ?? {}).length; } catch { return Infinity; } })();
+        const extra = m.extra && typeof m.extra === 'object' && !Array.isArray(m.extra) ? m.extra : undefined;
+        if (!kind || !text || text.length > 600 || size > 200_000) {
+          this.send(ws, { t: 'error', message: 'That could not be kept in the scroll-back.', next: 'It needs a kind (plan or shown), words under 600 characters and a payload under 200 KB.' });
+          break;
+        }
+        const row = this.memory.saveShown(kind, text, extra);
+        if (row !== null) this.send(ws, { t: 'shown.saved', id: row, ...(ref !== undefined ? { ref } : {}) });
+        break;
+      }
+      // A plan's steps tick over as it runs, so the Shell can bring its row up to date. Only rows the Shell
+      // itself saved: it must never be able to rewrite a permission he gave or something either of them said.
+      case 'shown.update': {
+        if (this.kindOfSocket(ws) !== 'desktop') break;
+        const id = Number(m.id);
+        if (!Number.isInteger(id) || id <= 0 || !m.extra || typeof m.extra !== 'object' || Array.isArray(m.extra)) break;
+        const size = (() => { try { return JSON.stringify(m.extra).length; } catch { return Infinity; } })();
+        if (size > 200_000) break;
+        const was = this.memory.turnExtra(id);
+        if (was && (was.kind === 'plan' || was.kind === 'shown')) this.memory.setExtra(id, m.extra);
+        break;
+      }
       case 'history': {
         const q = typeof m.q === 'string' ? m.q.slice(0, 200) : '';
         const before = typeof m.before === 'number' && Number.isInteger(m.before) && m.before > 0 ? m.before : 0;
@@ -3383,6 +3556,11 @@ export class Core {
    * inferring which message a reply is about from recency demonstrably misattributes, which is why Slack
    * carries thread_ts and Discord carries message_reference rather than guessing.
    */
+  /**
+   * Reply-to with a rich message (the scroll-back, 2026-10-20): the stored words of a brief or a video post are
+   * only a sentence, so the model is also told, in a line or two, what the card itself was. The link comes from
+   * the row first: unlike linkOfTurn it survives a restart, and he can now reply to things from days ago.
+   */
   private withPointedAt(sub: Submission): string {
     const quoted = sub.replyTo !== undefined ? this.memory.turnsById([sub.replyTo])[0] : undefined;
     const pinned = sub.context?.length
@@ -3395,7 +3573,7 @@ export class Core {
       parts.push([
         '<replying to>',
         'He pressed Reply on this exact message. It is what he is answering.',
-        say(quoted) + (this.linkOfTurn.has(quoted.id) ? `\nIts link: ${this.linkOfTurn.get(quoted.id)}` : ''),
+        say(quoted) + richOf(quoted) + (!(quoted.extra as any)?.about?.url && this.linkOfTurn.has(quoted.id) ? `\nIts link: ${this.linkOfTurn.get(quoted.id)}` : ''),
         '</replying to>',
       ].join('\n'));
     }
@@ -3840,7 +4018,16 @@ export class Core {
      * to did not exist anywhere he could see.
      */
     const remember = (): void => {
-      const row = this.memory.saveSaid(text);
+      // The scroll-back (2026-10-20): what made this more than words goes with the row, so scrolling back shows
+      // the brief card, the video with its picture or the research card as it first looked. `away` marks what
+      // went to Discord, because he saw it there and not in the bubble. A face too big to be a logo is dropped.
+      const extra = {
+        ...(opts.face && typeof opts.face.img === 'string' && opts.face.img.length < 120_000 ? { face: { img: opts.face.img, name: opts.face.name } } : {}),
+        ...(opts.about ? { about: opts.about } : {}), ...(opts.brief ? { brief: opts.brief } : {}),
+        ...(opts.research ? { research: opts.research } : {}), ...(opts.links?.length ? { links: opts.links } : {}),
+        ...(opts.reminder ? { reminder: opts.reminder } : {}), ...(this.whereHeIs() === 'discord' ? { away: true } : {}),
+      };
+      const row = this.memory.saveSaid(text, 'say', Object.keys(extra).length ? extra : undefined);
       if (row !== null) { msg.turn = row; if (opts.about) { this.linkOfTurn.set(row, opts.about.url); while (this.linkOfTurn.size > 300) this.linkOfTurn.delete(this.linkOfTurn.keys().next().value as number); } }
     };
     // Away from the PC: Discord, and only Discord. It keeps its own quiet hours, which make it silent, not lost.
@@ -4087,6 +4274,11 @@ export class Core {
           // now on; no declines. Only always writes to trust.
           if (choice === 'always' && kind && !opts?.quota && !opts?.once) this.trust.allow(kind.kind, question);
           if (choice === 'no' && !this.refused) this.refused = 'Joshua said no in the bubble';
+          // The scroll-back: held until the action this yes was for is logged, then saved as a "You said yes"
+          // row (noteYes). A quota ask is not a permission to do something, so it is not one of these.
+          if (choice !== 'no' && !opts?.quota) {
+            this.lastYes = { question, choice, tool, ...(choice === 'always' && kind && !opts?.once ? { kindKey: kind.kind } : {}), at: Date.now(), undoBefore: this.undo.lastId };
+          }
           resolve(choice === 'no' ? false : this.granted(tool));
         },
         timer,

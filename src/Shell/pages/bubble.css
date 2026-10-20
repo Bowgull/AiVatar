@@ -604,3 +604,85 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
    content, "carved" (very dark wood) for the small name tags. ---- */
 .turnmenu{background:linear-gradient(rgba(0,0,0,.15),rgba(0,0,0,.25)),url(art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated}
 .rlist .plaque,#who.plaque,.count{background:linear-gradient(rgba(0,0,0,.55),rgba(0,0,0,.55)),url(art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated}
+
+/* ---- sheet 41 (his picks, 2026-10-20): looking back, as the Lantern ---------------------------------------------
+   Everything Aang showed him, one parchment slip per part of a day, a pixel icon on every row, newest at the bottom.
+   His words plum on the right (plum is him everywhere); Aang's with Aang's face. Lifted from sheet-41/stage.html. */
+.back.lookback{display:block;max-height:none;overflow:visible;margin:-2px -3px 0;gap:0}
+.lookback .lb-top{margin:0 0 8px}
+.lb-list{max-height:430px;overflow-y:auto;scrollbar-width:none;margin:0 -4px;padding:0 4px;overscroll-behavior:contain;
+  -webkit-mask-image:linear-gradient(180deg,transparent 0,#000 16px);mask-image:linear-gradient(180deg,transparent 0,#000 16px)}
+.lb-list::-webkit-scrollbar{display:none}
+.lb-older{display:flex;flex-direction:column;align-items:center;gap:2px;margin:6px 0 8px;font:400 9px var(--label);letter-spacing:2px;color:var(--gold)}
+.lb-older svg{animation:lbbob 1.4s ease-in-out infinite}
+.lb-older.loading svg{animation:none;opacity:.4}
+@keyframes lbbob{50%{transform:translateY(-3px)}}
+@media (prefers-reduced-motion:reduce){.lb-older svg{animation:none}}
+.lookback .empty-line{color:#c9b48c;font:500 13.5px/1.5 var(--body);margin:8px 4px}
+.lookback .lt-item{position:relative}
+.lookback .lt-tile .pix{display:block}
+.lookback .lt-tile img.lb-face{width:30px;height:30px;border-radius:50%;object-fit:cover}
+.lookback .lt-tile img.lb-aang{width:30px;height:30px;image-rendering:pixelated;object-fit:cover;object-position:50% 12%}
+/* Aang's words wrap: a reply is read, not skimmed. A long one folds to three lines until clicked. */
+.lookback .lt-item.talk .lt-txt b{white-space:normal;font:600 14px/1.4 var(--body);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.lookback .lt-item.talk.full .lt-txt b{display:block;-webkit-line-clamp:unset}
+.lookback .lt-item.talk .lt-head{cursor:pointer}
+.lb-mine{position:relative;margin:4px 0 6px 64px;padding:7px 11px;border-radius:9px;font:600 13.5px/1.4 var(--body);color:#efe6ff;white-space:pre-wrap;overflow-wrap:anywhere;
+  background:linear-gradient(180deg,#331d52,#4A2C6E);box-shadow:inset 0 3px 0 rgba(0,0,0,.4),inset 0 -2px 0 rgba(150,110,200,.3)}
+.lb-mine .lnk{color:#ffe28c;text-decoration-color:rgba(255,226,140,.5)}
+/* Reply: a little gold keycap where the time was, on the row under the mouse */
+.lb-rep{position:absolute;right:4px;top:6px;display:none;font:400 9px var(--label);letter-spacing:1px;color:#2a1c00;cursor:pointer;z-index:2;
+  background:linear-gradient(180deg,var(--gold-light),var(--gold-deep));border:2.5px solid var(--outline);border-radius:6px;padding:4px 7px 3px;box-shadow:0 2px 0 var(--outline)}
+.lookback .lt-item:hover>.lb-rep,.lb-mine:hover>.lb-rep{display:block}
+.lookback .lt-item:hover>.lt-head .lt-when{visibility:hidden}
+.lb-mine .lb-rep{top:50%;margin-top:-11px;right:6px}
+.lookback .replying{border-radius:8px;box-shadow:0 0 0 3px var(--gold),0 0 12px rgba(255,196,60,.45)}
+/* what he said yes to: the plaque in the update glow's turquoise */
+.said-yes{display:inline-block;font:400 9px var(--label);letter-spacing:1px;padding:3px 6px 2px;border-radius:4px;margin-right:6px;vertical-align:1px;
+  background:#3FBFAE;color:#08302b;border:2px solid #120A05;box-shadow:0 0 6px rgba(159,240,230,.6)}
+.said-yes.gone{background:#8f8678;color:#f2ece0;box-shadow:none}
+.said-yes.back{background:linear-gradient(180deg,var(--gold-light),var(--gold-deep));color:#2a1c00;box-shadow:none}
+.lookback .lt-item.undone .lt-txt b{text-decoration:line-through;text-decoration-thickness:2px;opacity:.6}
+.lookback .lt-txt span{white-space:nowrap}
+.lb-ask{font:700 13.5px var(--body);color:#8a3e1c;margin:2px 0 6px;flex-basis:100%}
+.lookback .lt-keys{flex-wrap:wrap}
+.lb-said{font:italic 600 12.5px/1.4 var(--body);color:#5a3412;margin:6px 0 2px}
+.lb-note{font:500 12px var(--body);color:#6a5236}
+.lb-steps>div{display:flex;align-items:center;gap:8px;font:500 12.5px/1.6 var(--body);color:#4e3d28}
+.lb-steps .tq{flex:none;width:16px;height:16px;border:2.5px solid #120A05;border-radius:4px;box-sizing:border-box;position:relative;
+  background:#3FBFAE;box-shadow:0 0 6px rgba(159,240,230,.9),0 2px 0 rgba(0,0,0,.4)}
+.lb-steps .tq::after{content:"";position:absolute;left:3px;top:0;width:3px;height:7px;border:solid #fff;border-width:0 2.5px 2.5px 0;transform:rotate(45deg)}
+.lb-steps .tq.off{background:#cdb78c;box-shadow:0 2px 0 rgba(0,0,0,.4)}.lb-steps .tq.off::after{display:none}
+.lb-links{display:flex;flex-direction:column;gap:4px;padding:2px 0 4px}
+
+/* A link in his words: underlined in the Lantern's ink, Samara's lantern in front, opens in Samara. */
+.lnk{color:#8a3e1c;font-weight:700;text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:3px;text-decoration-color:rgba(138,62,28,.45);
+  cursor:pointer;border-radius:4px;padding:0 2px;overflow-wrap:anywhere}
+.lnk:hover{background:rgba(255,196,60,.35);text-decoration-color:#8a3e1c}
+.lnk-lamp{width:16px;height:16px;image-rendering:pixelated;vertical-align:-3px;margin-right:3px}
+#bubble.lantern .lt-date .lnk{color:#ffe28c}
+
+/* The video, as it first looked: its picture and one big play key over it. A click anywhere on it: Samara. */
+.aboutbox{margin:8px 0 2px}
+.aboutbox[hidden]{display:none}
+.vshot{position:relative;width:100%;aspect-ratio:16/9;border-radius:8px;border:3px solid #120A05;box-sizing:border-box;margin:4px 0;cursor:pointer;
+  background:#000 center/cover no-repeat;display:grid;place-items:center;
+  box-shadow:0 0 0 2px #6E4422,0 6px 14px rgba(0,0,0,.35);transition:box-shadow .15s}
+.vshot.nopic{background:linear-gradient(rgba(0,0,0,.35),rgba(0,0,0,.55)),url(art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated}
+.vshot::after{content:"";position:absolute;inset:0;border-radius:5px;background:radial-gradient(60% 60% at 50% 50%,rgba(0,0,0,.05),rgba(0,0,0,.45));transition:background .15s;pointer-events:none}
+.vshot:hover{box-shadow:0 0 0 2px var(--gold),0 0 16px rgba(255,190,90,.55),0 6px 14px rgba(0,0,0,.35)}
+.vshot:hover::after{background:radial-gradient(60% 60% at 50% 50%,rgba(0,0,0,0),rgba(0,0,0,.3))}
+.vshot.pressed::after{background:rgba(255,230,160,.35)}
+/* the key itself: pixel art at 4x on its own darker lip. Rest: a slow warm breath. Hover: it lifts one art pixel and the
+   lamp glow comes up. Press: it sinks onto the lip. Moves in whole art pixels only (his pixel rule). */
+.bigplay{position:relative;z-index:1;display:block;width:80px;height:84px;filter:drop-shadow(0 6px 10px rgba(0,0,0,.55))}
+.bigplay::before{content:"";position:absolute;inset:-18px;border-radius:50%;background:radial-gradient(closest-side,rgba(255,200,90,.55),rgba(255,160,40,0));
+  opacity:.35;animation:lbbreathe 2.6s ease-in-out infinite;pointer-events:none}
+@keyframes lbbreathe{50%{opacity:.7}}
+@media (prefers-reduced-motion:reduce){.bigplay::before{animation:none}}
+.bigplay svg{position:absolute;left:0;image-rendering:pixelated}
+.bigplay .lip{top:4px}
+.bigplay .face{top:0;transition:transform 70ms steps(1,end)}
+.vshot:hover .bigplay .face{transform:translateY(-4px)}
+.vshot:hover .bigplay::before{opacity:1;animation:none}
+.vshot:active .bigplay .face,.vshot.pressed .bigplay .face{transform:translateY(4px)}

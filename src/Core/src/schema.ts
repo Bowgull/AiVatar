@@ -33,7 +33,7 @@ export const SCHEMA_VERSION = 1;
 const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS turns (
      id INTEGER PRIMARY KEY, ts TEXT NOT NULL, role TEXT NOT NULL, tier TEXT, text TEXT NOT NULL,
-     hidden INTEGER NOT NULL DEFAULT 0, req TEXT )`,
+     hidden INTEGER NOT NULL DEFAULT 0, req TEXT, kind TEXT, extra TEXT )`,
   `CREATE INDEX IF NOT EXISTS turns_req ON turns(req)`,
   `CREATE INDEX IF NOT EXISTS turns_ts ON turns(ts)`,
   `CREATE VIRTUAL TABLE IF NOT EXISTS turns_fts USING fts5(text, turn_id UNINDEXED)`,
@@ -152,6 +152,13 @@ const ADDED_COLUMNS: { table: string; column: string; decl: string }[] = [
   // finished - so there is no turn id to stamp on an action at the time. Both sides carry the request id
   // instead, and "why did you do that" is a join rather than a comparison of clocks.
   { table: 'turns', column: 'req', decl: 'TEXT' },
+  // The scroll-back (2026-10-20): everything Aang showed him should come back as it first looked, not as a
+  // line of text. `kind` says what the row is ('say' Aang spoke on his own, 'yes' a permission he gave and
+  // what it did, 'plan' a Claude or Samara plan, 'shown' anything else the Shell keeps); null is ordinary
+  // chat. `extra` is the rich part as JSON: the brief card, the video and its picture, the research card.
+  // The text column stays the plain words, so search and the model never have to read JSON.
+  { table: 'turns', column: 'kind', decl: 'TEXT' },
+  { table: 'turns', column: 'extra', decl: 'TEXT' },
 ];
 
 /** Bring an opened database up to the current shape. Safe to run on every open; does nothing when there is

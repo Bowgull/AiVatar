@@ -265,6 +265,21 @@
       "at": "2026-10-20T16:30:00-04:00",
       "text": "The tab shows what's playing in the pop-out.",
       "kind": "feature"
+    },
+    {
+      "at": "2026-10-20T18:30:00-04:00",
+      "text": "Scroll up on Aang to see everything he showed you.",
+      "kind": "feature"
+    },
+    {
+      "at": "2026-10-20T18:30:00-04:00",
+      "text": "Undo things you said yes to, right in the history.",
+      "kind": "feature"
+    },
+    {
+      "at": "2026-10-20T18:30:00-04:00",
+      "text": "Links from Aang open in Samara.",
+      "kind": "feature"
     }
   ]
 }

@@ -44,6 +44,15 @@ export class PlanMemory {
     this.list = this.list.sort((a, b) => b.at - a.at).slice(0, 100);
     try { writeFileAtomic(this.file, JSON.stringify(this.list, null, 1)); } catch { /* next time */ }
   }
+  /** Sheet 41's "Take it back": this plan asks him again next time. True when there was one to forget. */
+  forget(task: string): boolean {
+    const t = task.toLowerCase();
+    const before = this.list.length;
+    this.list = this.list.filter((x) => x.task !== t);
+    if (this.list.length === before) return false;
+    try { writeFileAtomic(this.file, JSON.stringify(this.list, null, 1)); } catch { /* next time */ }
+    return true;
+  }
 }
 
 /** Is a Claude window (the desktop app, or the terminal it runs in) the one in front on this machine? */
