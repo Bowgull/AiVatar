@@ -26,7 +26,12 @@ sealed class CoreSupervisor : IDisposable
         string Args,
         string GiveUpSays,  // what Aang says out loud when it has crashed too often
         Func<string, string>? PickExe = null,          // 6.28: choose the program afresh at every start (the Shell's engine)
-        Action<string, TimeSpan>? AfterExit = null);   // 6.28: told what ran and for how long, at every exit
+        Action<string, TimeSpan>? AfterExit = null,    // 6.28: told what ran and for how long, at every exit
+        // Samara on its own (his ask, 2026-10-20): the Shell holds his browser, so it is not tied to the pet. It is
+        // left out of the job object (a pet that crashes does not take his tabs with it), writes its own log (no
+        // pipe that breaks when the pet goes), is never killed when the pet closes, and one already running is
+        // joined rather than started twice.
+        bool Independent = false);
 
     readonly ChildSpec spec;
     readonly CancellationTokenSource cts = new();
@@ -65,6 +70,7 @@ sealed class CoreSupervisor : IDisposable
             Exe: dir == null ? null : Path.Combine(dir, "node_modules", "electron", "dist", "electron.exe"),
             Args: "src/main.ts",
             GiveUpSays: "My windows keep crashing",
+            Independent: true,
             // 6.28: an updated engine if the brain has tested one, rolled back if it dies early (EnginePointer).
             PickExe: dir == null ? null : fallback => EnginePointer.Pick(dir, fallback),
             AfterExit: dir == null ? null : (ran, ranFor) => EnginePointer.AfterExit(dir, ran, ranFor)));
@@ -163,15 +169,36 @@ sealed class CoreSupervisor : IDisposable
             try
             {
                 if (PortInUse()) { Set($"a {spec.Name} is already running"); await Task.Delay(5000, cts.Token); continue; }
+                // Samara was already open on its own: join it, and take over only once it has gone.
+                if (spec.Independent && RunningShell() is { } there)
+                {
+                    Set($"{spec.Name} already running (pid {there.Id}), joined it");
+                    try { await there.WaitForExitAsync(cts.Token); } finally { there.Dispose(); }
+                    Set($"{spec.Name} closed");
+                    pause = TimeSpan.FromSeconds(2);
+                    goto Again;
+                }
                 var started = DateTime.UtcNow;
                 var exe = spec.PickExe?.Invoke(spec.Exe) ?? spec.Exe;
                 var psi = new ProcessStartInfo(exe, spec.Args)
                 {
                     WorkingDirectory = spec.Dir, UseShellExecute = false, CreateNoWindow = true,
-                    RedirectStandardOutput = true, RedirectStandardError = true,
+                    RedirectStandardOutput = !spec.Independent, RedirectStandardError = !spec.Independent,
                 };
                 child = Process.Start(psi);
                 if (child == null) { Set($"{spec.Name} would not start"); await Task.Delay(pause, cts.Token); continue; }
+                if (spec.Independent)
+                {
+                    Set($"{spec.Name} started (pid {child.Id}, on its own)");
+                    await child.WaitForExitAsync(cts.Token);
+                    Set($"{spec.Name} exited with code {child.ExitCode}");
+                    try { spec.AfterExit?.Invoke(exe, DateTime.UtcNow - started); } catch (Exception e) { Set("after-exit check failed: " + e.Message); }
+                    if (child.ExitCode == PlannedRestart) { pause = TimeSpan.FromMilliseconds(150); Set($"{spec.Name} restarting for an update"); goto Again; }
+                    // He closed Samara with the pet running: the Shell quits only when told to, so this is a crash.
+                    if (TooManyDeaths(DateTime.UtcNow)) { GivenUp = true; Set($"gave up after {BurstLimit} crashes"); GaveUp?.Invoke($"{spec.GiveUpSays}. I have stopped trying so it does not loop forever."); return; }
+                    pause = DateTime.UtcNow - started > TimeSpan.FromMinutes(1) ? TimeSpan.FromSeconds(2) : TimeSpan.FromSeconds(Math.Min(30, pause.TotalSeconds * 2));
+                    goto Again;
+                }
                 if (job != IntPtr.Zero) AssignProcessToJobObject(job, child.Handle);
                 // The Core's output MUST be drained, whether or not we can write it down.
                 //
@@ -276,9 +303,40 @@ sealed class CoreSupervisor : IDisposable
         catch { return true; }                      // already gone, or never really started
     }
 
+    /// <summary>A Shell that is running right now, from the pid it keeps in shell.pid (only if it really is Electron).</summary>
+    public static Process? RunningShell()
+    {
+        try
+        {
+            if (!int.TryParse(File.ReadAllText(Paths.File("shell.pid")).Trim(), out var pid)) return null;
+            var p = Process.GetProcessById(pid);
+            if (!p.HasExited && p.ProcessName.Contains("electron", StringComparison.OrdinalIgnoreCase)) return p;
+            p.Dispose();
+        }
+        catch { /* none */ }
+        return null;
+    }
+
+    /// <summary>Samara alone (his ask, 2026-10-20): start the Shell with no pet and no brain, on the engine it would use.</summary>
+    public static bool StartShellAlone(string? shellDirOverride)
+    {
+        using var sup = ForShell(shellDirOverride);
+        var s = sup.spec;
+        if (s.Dir == null || s.Exe == null || !File.Exists(s.Exe)) { Log.Write("samara: the Shell was not found, so it was not opened"); return false; }
+        try
+        {
+            var exe = s.PickExe?.Invoke(s.Exe) ?? s.Exe;
+            using var p = Process.Start(new ProcessStartInfo(exe, s.Args) { WorkingDirectory = s.Dir, UseShellExecute = false, CreateNoWindow = true });
+            Log.Write($"samara: opened on its own (pid {p?.Id})");
+            return p != null;
+        }
+        catch (Exception e) { Log.Write("samara: could not open: " + e.Message); return false; }
+    }
+
     public void Dispose()
     {
         cts.Cancel();
+        if (spec.Independent) { if (job != IntPtr.Zero) Win32.CloseHandle(job); return; }   // Samara stays; it decides for itself
         // Still a hard kill, and deliberately: by now the Core has been asked and given its moment. This is
         // the fallback for a Core that is wedged, not the normal path it used to be.
         try { if (child is { HasExited: false }) child.Kill(entireProcessTree: true); } catch { /* already gone */ }
