@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 43 - Bookmarks you can read</title>
+<!-- Sheet 43 (2026-10-20). His ask: the bookmarks in the tab drawer are hard to read; fix that, maybe a redesign in the
+     browser's own language. Today: 11 px light text on dark plaques over busy velvet, 13 px icons, ragged wrapping, raw
+     page titles ("Feed | LinkedIn"), and a tiny CTRL T on New tab. Three answers, all in Samara's own pieces: the velvet
+     shelf and its frame, the drawer's wood, the brief's parchment, the keycaps. His seven real bookmarks and icons.
+     Each drawer is shown at its real width (290 px) and again at 2x. -->
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<link rel="stylesheet" href="../../src/Shell/pages/notefonts.css">
+<style>
+  html,body{background:#17110c;margin:0}
+  body{color:#e8dcc4;font-family:Figtree,sans-serif;padding:24px;width:1500px}
+  h1{font:400 20px Silkscreen,monospace;color:#FFC43C;letter-spacing:2px;margin:0 0 4px}
+  h2{font:400 12px Silkscreen,monospace;color:#FFC43C;letter-spacing:1.5px;margin:0 0 6px}
+  p{color:#cdbb9a;font-size:14.5px;line-height:1.5;margin:0 0 12px;max-width:1300px}
+  p b{color:#FFC43C}
+  .row{display:flex;gap:26px;align-items:flex-start;flex-wrap:wrap;margin:18px 0 30px}
+  .col{width:320px}
+  .why{font-size:13px;color:#cdbb9a;line-height:1.45;margin:10px 0 0;min-height:80px}
+  .zoom{transform:scale(2);transform-origin:0 0;width:290px;height:300px}
+  .zoomwrap{width:580px;height:600px;overflow:hidden;border-radius:12px;margin-top:12px;box-shadow:0 0 0 3px #0d0703}
+
+  /* the drawer, as Samara draws it: dark pixel wood */
+  .drawer{width:290px;box-sizing:border-box;padding:12px 10px 14px;background:linear-gradient(rgba(0,0,0,.15),rgba(0,0,0,.25)),url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated;border-radius:10px;box-shadow:0 0 0 3px #0d0703,0 12px 26px rgba(0,0,0,.5)}
+  .shelf{border-style:solid;border-width:8px;border-image:url(../../src/Shell/pages/art/browser/velvetframe.png) 4 repeat;padding:7px 7px 9px;margin:0 -2px 14px;
+    background:url(../../src/Shell/pages/art/browser/velvet.png) 0 0/96px 96px;image-rendering:pixelated}
+  .lab{font:400 9px var(--label);letter-spacing:1.5px;color:#e6d3f7;margin:0 2px 7px;text-shadow:1px 1px 0 #000}
+  img.ic{image-rendering:auto}
+  /* the New tab key, with a hint you can actually read (today's CTRL T was 8 px) */
+  .newtab{display:flex;align-items:center;justify-content:space-between;width:100%;box-sizing:border-box;margin:0 0 10px;padding:10px 12px;border-radius:8px;border:3px solid #120A05;
+    background:#0B0718;color:#FFE096;font:700 14px var(--body);box-shadow:0 4px 0 #120A05,inset 0 3px 0 rgba(150,110,200,.25)}
+  .newtab kbd{font:400 10px var(--label);letter-spacing:1px;color:#2a1c00;background:linear-gradient(180deg,var(--gold-light),var(--gold-deep));border:2px solid #120A05;border-radius:5px;padding:3px 6px 2px}
+  .tabp{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:8px;border:3px solid #120A05;margin:0 0 7px;font:600 13.5px var(--body)}
+  .tabp.on{background:linear-gradient(180deg,#F0DCB4,#DEC28C);color:#2a1c0c}
+  .tabp.off{background:linear-gradient(180deg,#4A2C6E,#331d52);color:#efe6ff}
+
+  /* A: inventory slots (Stardew / Ocarina item grid) */
+  .slots{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
+  .slot{display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer}
+  .slot .well{width:52px;height:52px;box-sizing:border-box;border-radius:8px;display:grid;place-items:center;border:3px solid #120A05;
+    background:radial-gradient(circle at 50% 35%,#3a2c4e,#1c1328 75%);box-shadow:inset 0 3px 0 rgba(0,0,0,.6),inset 0 -2px 0 rgba(180,140,230,.18),0 2px 0 rgba(255,220,170,.08);transition:transform .12s cubic-bezier(.32,1.6,.5,1),box-shadow .12s}
+  .slot .well img{width:26px;height:26px}
+  .slot .nm{font:700 11.5px var(--body);color:#2a1c0c;background:#e9d3a6;border-radius:4px;padding:1px 5px;box-shadow:0 2px 0 #0d0703;max-width:62px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .slot:hover .well,.slot.hov .well{transform:translateY(-2px);box-shadow:inset 0 3px 0 rgba(0,0,0,.6),0 0 0 2px var(--gold),0 0 12px rgba(255,190,90,.6)}
+  .slot.add .well{background:transparent;border:3px dashed rgba(255,224,150,.35);box-shadow:none;color:#FFE096;font:700 22px var(--body)}
+  .slot.add .nm{background:transparent;color:#e6d3f7;box-shadow:none;font-weight:600}
+
+  /* B: parchment rows (the brief's slips, two to a line) */
+  .rows{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .prow{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:7px;background:#e9d3a6;color:#2a1c0c;font:700 13px var(--body);cursor:pointer;
+    box-shadow:0 3px 0 #0d0703,inset 0 0 0 2px rgba(120,80,30,.25);transition:transform .12s cubic-bezier(.32,1.6,.5,1),box-shadow .12s;min-width:0}
+  .prow img{width:18px;height:18px;flex:none}
+  .prow span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .prow:hover,.prow.hov{transform:translateY(-2px);box-shadow:0 5px 0 #0d0703,inset 0 0 0 2px var(--gold),0 0 10px rgba(255,190,90,.45)}
+
+  /* C: a row of keycaps with Alt+number hints */
+  .caps{display:flex;flex-direction:column;gap:6px}
+  .cap{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:8px;border:3px solid #120A05;cursor:pointer;
+    background:linear-gradient(180deg,#56371F,#3e2716);color:#F6E6C6;font:700 13.5px var(--body);text-shadow:1px 1px 0 #000;
+    box-shadow:0 4px 0 #120A05,inset 0 2px 0 rgba(255,220,170,.18);transition:transform .1s,box-shadow .1s}
+  .cap img{width:20px;height:20px;flex:none}
+  .cap span{flex:1}
+  .cap kbd{font:400 9px var(--label);letter-spacing:1px;color:#2a1c00;background:linear-gradient(180deg,var(--gold-light),var(--gold-deep));border:2px solid #120A05;border-radius:4px;padding:2px 5px 1px}
+  .cap:hover,.cap.hov{transform:translateY(-1px);box-shadow:0 5px 0 #120A05,inset 0 2px 0 rgba(255,220,170,.18),0 0 0 2px var(--gold)}
+  .cap:active{transform:translateY(3px);box-shadow:0 1px 0 #120A05}
+  .more{font:400 9px var(--label);letter-spacing:1.5px;color:#e6d3f7;text-align:center;margin-top:7px}
+
+  .tip{position:relative}
+  .tip .plate{position:absolute;left:8px;top:-34px;font:600 12px var(--body);color:#ecdcbc;padding:5px 9px;border-radius:6px;white-space:nowrap;z-index:2;
+    background:linear-gradient(rgba(0,0,0,.55),rgba(0,0,0,.55)),url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;border:2px solid #120A05}
+  .extras{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 30px;max-width:1300px}
+  .extras div{font-size:14px;color:#cdbb9a;line-height:1.45}
+  .extras b{color:#FFC43C}
+</style>
+</head>
+<body>
+<h1>SHEET 43 &middot; BOOKMARKS YOU CAN READ</h1>
+<p>Today's shelf: 11 px pale words on dark plaques over busy velvet, tiny 13 px icons, rows that wrap unevenly, raw page titles like "Feed | LinkedIn", and an 8 px <b>CTRL T</b>. Three answers in Samara's own pieces, with your seven real bookmarks. Every one also fixes: <b>clean names</b> (LinkedIn, Prime Video), <b>bigger icons</b>, <b>dark ink on light</b> or <b>light on solid wood</b> (never pale on velvet), and a <b>New tab key you can read</b>. Real size, then 2x.</p>
+
+<div class="row" id="variants"></div>
+<h2>UP CLOSE (2X)</h2>
+<div class="row" id="zooms"></div>
+
+<h2>WHAT ELSE FITS HERE</h2>
+<div class="extras">
+  <div><b>Right-click a bookmark:</b> Rename, Move, Remove, Open in a new tab, Play in the pop-out.</div>
+  <div><b>Drag to reorder</b>, with the slot or row lifting under your hand.</div>
+  <div><b>Hover:</b> the full address on a carved plaque, so a cleaned name never hides where it goes.</div>
+  <div><b>No icon?</b> A pixel letter tile in the site's own colour instead of a blank.</div>
+  <div><b>Alt + 1 to 9</b> opens your first nine bookmarks, the number shown on each (C draws it; A and B could too).</div>
+  <div><b>Folders</b> (when you have more than one): small carved tabs along the top of the velvet.</div>
+</div>
+
+<script type="module">
+import { MARKS } from './sheet-43/marks.js';
+const ic = (m, s) => `<img class="ic" src="${m.icon}" width="${s}" height="${s}" alt="">`;
+const tabs = `<div class="newtab">+ New tab <kbd>CTRL T</kbd></div><div class="tabp on">Inbox (3) &middot; Gmail</div><div class="tabp off">Wattson ranked guide</div>`;
+const A = () => `<div class="shelf"><p class="lab">BOOKMARKS</p><div class="slots">${MARKS.map((m, i) => `<div class="slot${i === 1 ? ' hov tip' : ''}">${i === 1 ? '<span class="plate">linkedin.com/feed</span>' : ''}<div class="well">${ic(m, 26)}</div><span class="nm">${m.name}</span></div>`).join('')}<div class="slot add"><div class="well">+</div><span class="nm">Add</span></div></div></div>${tabs}`;
+const B = () => `<div class="shelf"><p class="lab">BOOKMARKS</p><div class="rows">${MARKS.map((m, i) => `<div class="prow${i === 1 ? ' hov' : ''}">${ic(m, 18)}<span>${m.name}</span></div>`).join('')}</div></div>${tabs}`;
+const C = () => `<div class="shelf"><p class="lab">BOOKMARKS</p><div class="caps">${MARKS.slice(0, 5).map((m, i) => `<div class="cap${i === 1 ? ' hov' : ''}">${ic(m, 20)}<span>${m.name}</span><kbd>ALT ${i + 1}</kbd></div>`).join('')}</div><p class="more">+ 2 MORE &middot; SCROLL</p></div>${tabs}`;
+const V = [
+  ['A &middot; INVENTORY SLOTS', A, 'Like an item grid in Stardew or Ocarina: each bookmark a sunk slot with a big icon, its name on a small parchment tag. Four to a row, always even, an empty slot to add one. Most game-like, and the icons do the work.'],
+  ['B &middot; PARCHMENT ROWS', B, 'The brief’s parchment slips, two to a line: dark ink on light, icon and full name. The easiest to read, and closest to the tabs right under it.'],
+  ['C &middot; KEYCAPS', C, 'Each bookmark a wooden key like Samara’s own buttons, one per line, with ALT + number to open it from the keyboard. Biggest words, but takes the most height: past five it scrolls.'],
+];
+const box = document.getElementById('variants');
+for (const [name, f, why] of V) {
+  const c = document.createElement('div'); c.className = 'col';
+  c.innerHTML = `<h2>${name}</h2><div class="drawer">${f()}</div><p class="why">${why}</p>`;
+  box.append(c);
+  const z = document.createElement('div');
+  z.innerHTML = `<h2>${name}</h2><div class="zoomwrap"><div class="zoom"><div class="drawer">${f()}</div></div></div>`;
+  document.getElementById('zooms').append(z);
+}
+// today's, for comparison
+const now = document.createElement('div'); now.className = 'col';
+now.innerHTML = `<h2>TODAY</h2><div class="drawer"><div class="shelf"><div style="display:flex;flex-wrap:wrap;gap:5px">${MARKS.map((m) => `<span style="display:flex;align-items:center;gap:6px;font:600 11px var(--body);color:#E6DCC8;padding:4px 7px;border-radius:5px;background:linear-gradient(rgba(0,0,0,.55),rgba(0,0,0,.55)),url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;border:2px solid #120A05;box-shadow:inset 0 2px 0 rgba(0,0,0,.6);text-shadow:1px 1px 0 rgba(0,0,0,.7)">${ic(m, 13)}${m.title.slice(0, 24)}</span>`).join('')}</div></div><div class="newtab" style="font-size:14px">+ New tab <span style="font:400 8px var(--label);color:#a8916a">CTRL T</span></div></div><p class="why">For comparison: what you see now.</p>`;
+box.prepend(now);
+</script>
+</body>
+</html>
