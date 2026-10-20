@@ -33,8 +33,11 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--wood2);font:500 
 .loading i{position:absolute;inset:0;display:block;transform:translateX(-100%);opacity:0;will-change:transform,opacity;
   background:linear-gradient(180deg,var(--gold-deep) 0 3px,var(--gold-lit) 3px 6px);box-shadow:2px 0 0 var(--outline)}
 .loading i::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(-60deg,transparent 0 8px,rgba(255,255,255,.38) 8px 12px);
-  background-size:28px 100%;animation:ribs 1.6s linear infinite}
-.loading.slow i::after{animation-duration:.8s}
+  background-size:28px 100%}
+/* Only while it is showing (measured 2026-10-20): left running, these invisible stripes redrew the band 60 times a
+   second all day, even with nothing loading. */
+.loading.run i::after{animation:ribs 1.6s linear infinite}
+.loading.run.slow i::after{animation-duration:.8s}
 .loading.fail i{background:linear-gradient(180deg,#6b5a40 0 3px,#9a8a6a 3px 6px)}
 .loading.fail i::after{display:none}
 @keyframes ribs{from{background-position:0 0}to{background-position:-28px 0}}
@@ -588,15 +591,27 @@ body.drawer-open .drawer{transform:none;visibility:visible;transition:transform 
 .band .upkey.glow{box-shadow:0 3px 0 var(--outline),0 0 0 2px #ffe28c,0 0 14px 4px rgba(255,214,110,.75)}
 /* His ask (2026-10-14): a warm pulse on the word and arrow while an update waits, so he really notices it. Slow and
    soft (2.4 s), a glow that brightens and settles, never a blink. Stops while the tray is open. */
-@keyframes upwarm{0%,100%{text-shadow:1px 1px 0 #000;filter:none}50%{text-shadow:1px 1px 0 #000,0 0 6px var(--glow,rgba(255,196,60,.95)),0 0 12px var(--glow2,rgba(255,140,40,.6));filter:brightness(1.25)}}
-@keyframes upwarmarrow{0%,100%{filter:none}50%{filter:drop-shadow(0 0 3px var(--glow,rgba(255,196,60,.95))) drop-shadow(0 0 7px var(--glow2,rgba(255,140,40,.6))) brightness(1.3)}}
-.band .upkey:not(.away):not([aria-expanded="true"]) .w{animation:upwarm 2.4s ease-in-out infinite}
-.band .upkey:not(.away):not([aria-expanded="true"]) svg{overflow:visible;animation:upwarmarrow 2.4s ease-in-out infinite}
+/* Cheap (measured 2026-10-20, his OK): animating the glow itself restyled and re-laid-out the band every frame, about
+   10% of a core for as long as an update waited. Now the glow is drawn once, on a copy of the word and behind the
+   arrow, and only its opacity pulses, which the graphics card does on its own. */
+@keyframes upglow{0%,100%{opacity:0}50%{opacity:1}}
+.band .upkey{position:relative}
+.band .upkey svg{position:relative}
+.band .upkey .w{position:relative}
+.band .upkey .w::after{content:"UPDATE";position:absolute;left:0;top:0;color:var(--ink,#FFE096);pointer-events:none;opacity:0;will-change:opacity;
+  text-shadow:1px 1px 0 #000,0 0 6px var(--glow,rgba(255,196,60,.95)),0 0 12px var(--glow2,rgba(255,140,40,.6))}
+.band .upkey::before{content:"";position:absolute;left:3px;top:50%;width:24px;height:24px;margin-top:-12px;border-radius:50%;pointer-events:none;opacity:0;will-change:opacity;
+  background:radial-gradient(circle,var(--glow,rgba(255,196,60,.95)) 0,var(--glow2,rgba(255,140,40,.6)) 30%,transparent 68%)}
+.band .upkey:not(.away):not([aria-expanded="true"]) .w::after,
+.band .upkey:not(.away):not([aria-expanded="true"])::before{animation:upglow 2.4s ease-in-out infinite}
 /* 4+ days: every 6 s it swells out of the band and shakes, then settles (never in a call: the page drops .swell) */
 @keyframes swellshake{0%,70%,100%{transform:none}74%{transform:scale(1.28) translateY(-3px)}78%{transform:scale(1.28) translateY(-3px) rotate(-7deg)}82%{transform:scale(1.28) translateY(-3px) rotate(7deg)}86%{transform:scale(1.28) translateY(-3px) rotate(-5deg)}90%{transform:scale(1.18) translateY(-2px) rotate(3deg)}95%{transform:scale(1.05)}}
-@keyframes swellring{0%,72%{box-shadow:0 3px 0 var(--outline),0 0 0 0 rgba(255,110,80,0)}78%{box-shadow:0 3px 0 var(--outline),0 0 0 4px rgba(255,110,80,.55),0 0 18px 6px rgba(255,90,60,.45)}100%{box-shadow:0 3px 0 var(--outline),0 0 0 14px rgba(255,110,80,0)}}
-.band .upkey.swell:not(.away):not([aria-expanded="true"]){overflow:visible;transform-origin:50% 60%;z-index:5;animation:swellshake 6s ease-in-out infinite,swellring 6s ease-out infinite}
-@media (prefers-reduced-motion:reduce){.band .upkey{transition:none}.band .upkey .w,.band .upkey svg,.band .upkey.swell{animation:none!important}}
+/* The ring, drawn once and only faded and grown (no box-shadow redrawn every frame). */
+@keyframes swellring{0%,72%{opacity:0;transform:scale(1)}78%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.45)}}
+.band .upkey.swell:not(.away):not([aria-expanded="true"]){overflow:visible;transform-origin:50% 60%;z-index:5;animation:swellshake 6s ease-in-out infinite}
+.band .upkey.swell:not(.away):not([aria-expanded="true"])::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;opacity:0;will-change:opacity,transform;
+  box-shadow:0 0 0 4px rgba(255,110,80,.55),0 0 18px 6px rgba(255,90,60,.45);animation:swellring 6s ease-out infinite}
+@media (prefers-reduced-motion:reduce){.band .upkey{transition:none}.band .upkey .w::after,.band .upkey::before,.band .upkey::after,.band .upkey.swell{animation:none!important}}
 /* ---- the update tray (sheet 35): lamp-lit, lantern header, parchment list, ... menu, two-step skip ---- */
 .uptray.upx{width:356px;padding:0 0 8px;overflow:visible;
   background:radial-gradient(120% 55% at 14% 0%,rgba(255,186,96,.30),rgba(255,160,70,.10) 45%,transparent 72%),url(art/browser/tray.png) 0 0/128px 256px;

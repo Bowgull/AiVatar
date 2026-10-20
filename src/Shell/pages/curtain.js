@@ -4,8 +4,10 @@ window.curtainShow = async (src) => {
   document.body.style.transition = 'none'; document.body.style.opacity = '1';
   dim.style.transition = 'none'; dim.style.opacity = '0';
   if (typeof src === 'string' && src.startsWith('data:image/')) {
+    // Never waits for the picture to decode (measured 2026-10-20): this view is hidden until it is shown, and a hidden
+    // view never finishes a decode, so every new tab and every waking tab sat out a 400 ms timeout. A data picture
+    // decodes in a few milliseconds once the view is on screen.
     shot.src = src; shot.hidden = false;
-    try { await shot.decode(); } catch { /* shows when it can */ }
   } else { shot.hidden = true; shot.removeAttribute('src'); }
   // No waiting for a screen refresh here: a hidden view gets none, so that wait never ended.
   return true;

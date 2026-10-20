@@ -1159,7 +1159,7 @@ export class AangBrowser {
     w.on('move', keepSoon);
     w.on('maximize', () => { this.pane = p; this.place(); keepSoon(); this.sendTabs(); });
     w.on('unmaximize', () => { this.pane = p; this.place(); keepSoon(); this.sendTabs(); });
-    w.on('close', () => { this.pane = p; if (this.panes[0] === p) this.keepPlace(); if (!this.quitting) void this.snapshot(); this.visits.flush(); this.veil = null; try { this.curtain?.webContents.close(); } catch { /* gone */ } this.curtain = null; });
+    w.on('close', () => { this.pane = p; if (this.panes[0] === p) this.keepPlace(); if (!this.quitting) void this.snapshot(true); this.visits.flush(); this.veil = null; try { this.curtain?.webContents.close(); } catch { /* gone */ } this.curtain = null; });
     // 6.22b bug 4: the mouse's back and forward side buttons.
     w.on('app-command', (_e, cmd) => { this.pane = p; if (cmd === 'browser-backward') this.sideNav('back'); else if (cmd === 'browser-forward') this.sideNav('forward'); });
     // A page in fullscreen: leaving the window's fullscreen (F11, a snap) ends it too.
@@ -1199,6 +1199,9 @@ export class AangBrowser {
       this.timers.forEach(clearInterval); this.timers = [];
     });
     w.once('ready-to-show', () => bringFront(w));
+    // The tab list is made ready a few seconds after the window shows (measured 2026-10-20: built on his first hover it
+    // took 0.2 s, and 0.5 s on a slow machine), so the first open is as quick as every other.
+    w.once('ready-to-show', () => setTimeout(() => { if (w.isDestroyed() || p.win !== w) return; const was = this.pane; this.pane = p; this.trayView(); this.pane = was; }, 3000));
     w.webContents.once('did-finish-load', () => {
       this.pane = p;
       // Made by dragging a tab out: that tab moves in, live.
@@ -1824,6 +1827,7 @@ export class AangBrowser {
     if (!this.inTab(t)) return;
     const w = this.win;
     const prev = this.cur();
+    if (prev) this.scrollDue.add(prev.id);             // its scroll is saved at the next save
     if (!w || w.isDestroyed()) return;
     if (other) w.focus();
     const mine = this.paneTabs();
@@ -2927,7 +2931,11 @@ export class AangBrowser {
   }
 
   /** Write every tab to disk. Scroll is asked of each live page with a deadline; a page that does not answer keeps its last. */
-  private async snapshot(): Promise<void> {
+  /** Tabs he was on since the last save: only their scroll can have moved (measured 2026-10-20). */
+  private scrollDue = new Set<number>();
+  /** The last tabs file written, without its time: nothing changed means nothing written and nothing sent. */
+  private lastSnap = '';
+  private async snapshot(all = false): Promise<void> {
     if (!this.tabs.length) return;   // nothing to keep; closing the last tab already wrote the empty snapshot
     // Everything is taken NOW, before waiting on the pages (2026-10-14, his "it should remember what tabs were open"):
     // closing the window emptied the tab list while this waited, and an EMPTY list was written, so nothing came back.
@@ -2938,13 +2946,17 @@ export class AangBrowser {
     const fronts = windows.map((p) => keep.findIndex((t) => t.id === p.active));
     const trails = this.trails.map((x) => ({ ...x }));
     const closed = this.closed.slice(-25);
+    // Only the tabs in front, and the ones he was on since the last save (measured 2026-10-20: asking every tab every
+    // 8 s woke them all, and on a slow machine ran past its deadline so nothing was saved). Closing asks them all.
+    const due = this.scrollDue; this.scrollDue = new Set();
     await Promise.all(keep.map(async (t) => {
       if (!t.view || t.crashed || t.view.webContents.isDestroyed()) return;
+      if (!all && !due.has(t.id) && !this.panes.some((p) => p.active === t.id)) return;
       const y = await within(t.view.webContents.executeJavaScript('window.scrollY', true) as Promise<number>, 800, t.scrollY);
       if (typeof y === 'number' && Number.isFinite(y)) t.scrollY = y;
     }));
     const data = {
-      v: 1, at: new Date().toISOString(),
+      v: 1,
       // Every window's tabs, each knowing its window (`win`), and the tab in front in each (`fronts`).
       active: Math.max(0, keep.findIndex((x) => x.id === front)),
       fronts,
@@ -2955,7 +2967,10 @@ export class AangBrowser {
       trails,
       closed,
     };
-    try { writeFileAtomic(this.file, JSON.stringify(data)); } catch (e) { console.error('shell: browser: the tabs could not be saved: ' + (e as Error).message); }
+    const body = JSON.stringify(data);
+    if (!all && body === this.lastSnap) return;
+    this.lastSnap = body;
+    try { writeFileAtomic(this.file, JSON.stringify({ ...data, at: new Date().toISOString() })); } catch (e) { console.error('shell: browser: the tabs could not be saved: ' + (e as Error).message); }
     this.sync?.changed('tabs');
   }
 
@@ -3031,7 +3046,9 @@ export class AangBrowser {
     const t = this.cur();
     const wc = t?.view?.webContents;
     const tray = this.trayV && !this.trayV.webContents.isDestroyed() ? this.trayV.webContents : null;
-    const send = (data: Record<string, unknown>) => { w.webContents.send('browser:tabs', data); tray?.send('browser:tabs', data); };
+    // The tab list only while it is open (measured 2026-10-20: every message went to it hidden too). Opening it sends
+    // the current state first, so it is never stale.
+    const send = (data: Record<string, unknown>) => { w.webContents.send('browser:tabs', data); if (this.trayOn) tray?.send('browser:tabs', data); };
     send({
       active: this.active,
       update: this.update, updated: this.updated, inCall: this.inCall,
@@ -3072,7 +3089,7 @@ export class AangBrowser {
     void this.ses.cookies.flushStore().catch(() => {});
     this.driver.closeAll();
     const open = this.panes.filter((p) => this.alive(p));
-    if (open.length) { this.quitting = true; void this.snapshot(); }
+    if (open.length) { this.quitting = true; void this.snapshot(true); }
     for (const p of open) p.win!.close();
   }
 
