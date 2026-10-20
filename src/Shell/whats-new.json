@@ -355,6 +355,11 @@
       "at": "2026-10-20T23:30:00-04:00",
       "text": "Right-click a bookmark: rename, move, remove and more.",
       "kind": "feature"
+    },
+    {
+      "at": "2026-10-20T23:45:00-04:00",
+      "text": "Bookmark names always show in full, never cut off.",
+      "kind": "fix"
     }
   ]
 }

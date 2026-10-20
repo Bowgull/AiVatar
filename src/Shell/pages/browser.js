@@ -775,8 +775,10 @@ function paintMarks(list) {
   const marks = (Array.isArray(list) ? list : []).filter((b) => b && typeof b.url === 'string').slice(0, 24);
   marks.forEach((b, i) => {
     const m = document.createElement('button');
-    m.type = 'button'; m.className = 'bm-key' + (i < 4 ? ' low' : '');
-    const name = shortName(b.title, b.url).slice(0, 40);
+    // c0..c3: which column, so the edge columns' banners line up with the shelf instead of running off it (his report).
+    m.type = 'button'; m.className = 'bm-key c' + (i % 4) + (i < 4 ? ' low' : '');
+    // Never cut mid-word (his report): up to 70 letters, and past that the last whole word with an ellipsis.
+    const full = shortName(b.title, b.url), name = full.length <= 70 ? full : full.slice(0, 70).replace(/\s+\S*$/, '') + '…';
     m.setAttribute('aria-label', name); m.title = '';
     if (b.favicon) { const img = document.createElement('img'); img.alt = ''; img.src = b.favicon; img.referrerPolicy = 'no-referrer'; img.onerror = () => { img.remove(); m.prepend(letter(name)); }; m.append(img); }
     else m.append(letter(name));
@@ -786,7 +788,7 @@ function paintMarks(list) {
     box.append(m);
   });
   const add = document.createElement('button');
-  add.type = 'button'; add.className = 'bm-key bm-add' + (marks.length < 4 ? ' low' : ''); add.textContent = '+';
+  add.type = 'button'; add.className = 'bm-key bm-add c' + (marks.length % 4) + (marks.length < 4 ? ' low' : ''); add.textContent = '+';
   add.setAttribute('aria-label', 'Bookmark this page');
   const ab = document.createElement('span'); ab.className = 'bm-banner'; ab.textContent = marks.length ? 'Add this page' : 'Bookmark this page'; add.append(ab);
   // In the floating list the star's box would open out of sight (his freeze, 2026-10-20): the Shell asks the band.
