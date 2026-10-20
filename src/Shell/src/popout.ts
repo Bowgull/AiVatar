@@ -287,8 +287,13 @@ export class Popout {
     this.win.setIgnoreMouseEvents(set.clickThrough);
     lockDown(this.win.webContents, { openExternally: true });
 
-    this.win.on('resize', () => { this.follow(); this.afterDrag(); });
-    this.win.on('move', () => this.afterDrag());
+    // The picture follows the window live; the tidying up (16 by 9, snap to an edge, remember where) waits until he lets
+    // go. His report (2026-10-20): dragging made it jump all over, worst near the edges. 'move' fires all through a drag,
+    // so any pause of 180 ms set the window's bounds UNDER his held mouse, and within 24 px of an edge it snapped there
+    // while Windows kept moving it from where it had been. 'moved' and 'resized' fire once, when the drag ends.
+    this.win.on('resize', () => this.follow());
+    this.win.on('resized', () => this.afterDrag());
+    this.win.on('moved', () => this.afterDrag());
     // Closing the window by any route gives a lent tab back first, so the page is never lost with it.
     this.win.on('close', () => this.returnTab());
     this.win.on('closed', () => { this.win = null; });
