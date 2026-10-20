@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 43b - Inventory slots</title>
+<!-- Sheet 43b (2026-10-20). His notes on sheet 43 (kept as it was, to go back to): he likes A, the inventory slots, but
+     the names under them break it up; and the slots feel sunk in for good. So: raised keys (lift on hover, press on
+     click, like the pop-out's play coin), no names under the icons, and three game ways to show a name only when it
+     is wanted. Hover them; each also plays a short demo on its own. His seven real bookmarks. -->
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<link rel="stylesheet" href="../../src/Shell/pages/notefonts.css">
+<style>
+  html,body{background:#17110c;margin:0}
+  body{color:#e8dcc4;font-family:Figtree,sans-serif;padding:24px;width:1500px}
+  h1{font:400 20px Silkscreen,monospace;color:#FFC43C;letter-spacing:2px;margin:0 0 4px}
+  h2{font:400 12px Silkscreen,monospace;color:#FFC43C;letter-spacing:1.5px;margin:0 0 8px}
+  p{color:#cdbb9a;font-size:14.5px;line-height:1.5;margin:0 0 12px;max-width:1300px}
+  p b{color:#FFC43C}
+  .row{display:flex;gap:30px;align-items:flex-start;flex-wrap:wrap;margin:18px 0 30px}
+  .col{width:330px}
+  .why{font-size:13px;color:#cdbb9a;line-height:1.45;margin:12px 0 0}
+  .zoomwrap{width:620px;height:420px;overflow:hidden;border-radius:12px;box-shadow:0 0 0 3px #0d0703}
+  .zoom{transform:scale(2);transform-origin:0 0;width:310px}
+
+  .drawer{width:290px;box-sizing:border-box;padding:46px 10px 14px;background:linear-gradient(rgba(0,0,0,.15),rgba(0,0,0,.25)),url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated;border-radius:10px;box-shadow:0 0 0 3px #0d0703,0 12px 26px rgba(0,0,0,.5)}
+  .shelf{position:relative;border-style:solid;border-width:8px;border-image:url(../../src/Shell/pages/art/browser/velvetframe.png) 4 repeat;padding:9px 8px 10px;margin:0 -2px 14px;
+    background:url(../../src/Shell/pages/art/browser/velvet.png) 0 0/96px 96px;image-rendering:pixelated}
+  .newtab{display:flex;align-items:center;justify-content:space-between;width:100%;box-sizing:border-box;margin:0 0 10px;padding:10px 12px;border-radius:8px;border:3px solid #120A05;
+    background:#0B0718;color:#FFE096;font:700 14px var(--body);box-shadow:0 4px 0 #120A05,inset 0 3px 0 rgba(150,110,200,.25)}
+  .newtab kbd{font:400 10px var(--label);letter-spacing:1px;color:#2a1c00;background:linear-gradient(180deg,var(--gold-light),var(--gold-deep));border:2px solid #120A05;border-radius:5px;padding:3px 6px 2px}
+  .tabp{padding:10px 12px;border-radius:8px;border:3px solid #120A05;margin:0 0 7px;font:600 13.5px var(--body)}
+  .tabp.on{background:linear-gradient(180deg,#F0DCB4,#DEC28C);color:#2a1c0c}
+  .tabp.off{background:linear-gradient(180deg,#4A2C6E,#331d52);color:#efe6ff}
+
+  /* the raised key: sits ON the velvet, lit along its top, a dark lip under it. Hover lifts it, a press sinks it. */
+  .slots{display:grid;grid-template-columns:repeat(4,1fr);gap:9px 8px;justify-items:center}
+  .k{position:relative;width:54px;height:54px;box-sizing:border-box;border-radius:9px;border:3px solid #120A05;cursor:pointer;display:grid;place-items:center;
+    background:linear-gradient(180deg,#6a4a2c 0,#56371F 45%,#47301b 100%);
+    box-shadow:0 5px 0 #120A05,inset 0 3px 0 rgba(255,222,170,.28),inset 0 -3px 0 rgba(0,0,0,.35),0 8px 10px rgba(0,0,0,.45);
+    top:0;transition:top .1s cubic-bezier(.32,1.6,.5,1),box-shadow .1s}
+  .k img{width:26px;height:26px;filter:drop-shadow(0 1px 0 rgba(0,0,0,.55))}
+  .k:hover,.k.on{top:-2px;box-shadow:0 7px 0 #120A05,0 0 0 2px var(--gold),inset 0 3px 0 rgba(255,222,170,.35),inset 0 -3px 0 rgba(0,0,0,.35),0 0 14px rgba(255,190,90,.55),0 10px 12px rgba(0,0,0,.45)}
+  .k:active,.k.press{top:4px;box-shadow:0 1px 0 #120A05,inset 0 3px 0 rgba(0,0,0,.35),0 2px 4px rgba(0,0,0,.4)}
+  .k.add{background:transparent;border:3px dashed rgba(255,224,150,.4);box-shadow:none;color:#FFE096;font:700 22px var(--body)}
+  .k.add:hover{box-shadow:0 0 0 2px var(--gold);top:0}
+
+  /* 1: the item tooltip, a wood plaque that pops above the slot */
+  .tip{position:absolute;bottom:calc(100% + 10px);left:50%;transform:translate(-50%,4px);opacity:0;pointer-events:none;transition:opacity .12s,transform .12s;z-index:5;
+    padding:6px 10px 7px;border-radius:7px;border:3px solid #120A05;white-space:nowrap;text-align:left;
+    background:linear-gradient(rgba(0,0,0,.35),rgba(0,0,0,.45)),url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;box-shadow:0 4px 0 #0d0703,inset 0 2px 0 rgba(255,220,170,.15)}
+  .tip b{display:block;font:700 13px var(--body);color:#FFE096;text-shadow:1px 1px 0 #000}
+  .tip span{display:block;font:500 11px var(--body);color:#cdbb9a}
+  .tip::after{content:"";position:absolute;left:50%;top:100%;margin-left:-6px;border:6px solid transparent;border-top-color:#120A05}
+  .k:hover .tip,.k.on .tip{opacity:1;transform:translate(-50%,0)}
+
+  /* 2: the info bar, carved along the bottom of the shelf */
+  .info{margin:10px -1px 0;padding:6px 10px 7px;border-radius:6px;border:3px solid #120A05;display:flex;align-items:center;gap:8px;min-height:20px;
+    background:linear-gradient(rgba(0,0,0,.55),rgba(0,0,0,.6)),url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;box-shadow:inset 0 2px 0 rgba(0,0,0,.6)}
+  .info b{font:700 13px var(--body);color:#FFE096;text-shadow:1px 1px 0 #000}
+  .info span{font:500 11px var(--body);color:#a8916a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .info .hand{width:14px;height:14px;background:url(../../src/Shell/pages/art/browser/hand.png) center/contain no-repeat;image-rendering:pixelated;flex:none}
+  .info.idle b{font:400 9px var(--label);letter-spacing:1.5px;color:#a8916a;text-shadow:none}
+
+  /* 3: the hotbar: a gold number in the corner (Alt + number), the name on a parchment banner above */
+  .num{position:absolute;left:3px;top:1px;font:400 8px var(--label);color:#FFE096;text-shadow:1px 1px 0 #000}
+  .banner{position:absolute;bottom:calc(100% + 9px);left:50%;transform:translate(-50%,3px) scale(.96);opacity:0;pointer-events:none;transition:opacity .12s,transform .14s cubic-bezier(.32,1.6,.5,1);z-index:5;
+    font:700 13px var(--body);color:#2a1c0c;white-space:nowrap;padding:4px 12px 5px;background:#e9d3a6;border-radius:3px;box-shadow:0 3px 0 #0d0703,inset 0 0 0 2px rgba(120,80,30,.3)}
+  .banner::before,.banner::after{content:"";position:absolute;top:4px;width:8px;height:calc(100% - 2px);background:#c9ad7a;z-index:-1}
+  .banner::before{left:-6px;clip-path:polygon(0 0,100% 0,100% 100%,0 100%,40% 50%)}
+  .banner::after{right:-6px;clip-path:polygon(0 0,100% 0,60% 50%,100% 100%,0 100%)}
+  .k:hover .banner,.k.on .banner{opacity:1;transform:translate(-50%,0) scale(1)}
+</style>
+</head>
+<body>
+<h1>SHEET 43B &middot; INVENTORY SLOTS, NO NAMES UNDER</h1>
+<p>Your pick from sheet 43 (still there as it was, to go back to). The slots are now <b>raised keys</b>: lit along the top, a dark lip underneath, they <b>lift</b> when you hover and <b>press down</b> when you click, like the pop-out's play coin. No names under the icons; three game ways to show the name only when you want it. <b>Hover the slots</b>; each also plays a short demo by itself.</p>
+
+<div class="row" id="variants"></div>
+<h2>UP CLOSE (2X)</h2>
+<div class="row" id="zooms"></div>
+
+<script type="module">
+import { MARKS } from './sheet-43/marks.js';
+const pathOf = (m) => m.host + ({ 'linkedin.com': '/feed', 'netflix.com': '/browse' }[m.host] ?? '');
+const tabs = `<div class="newtab">+ New tab <kbd>CTRL T</kbd></div><div class="tabp on">Inbox (3) &middot; Gmail</div><div class="tabp off">Wattson ranked guide</div>`;
+const key = (m, extra = '') => `<div class="k" data-name="${m.name}" data-path="${pathOf(m)}"><img src="${m.icon}" alt="">${extra}</div>`;
+const add = `<div class="k add">+</div>`;
+const V = [
+  ['1 &middot; ITEM TOOLTIP', () => `<div class="shelf"><div class="slots">${MARKS.map((m) => key(m, `<div class="tip"><b>${m.name}</b><span>${pathOf(m)}</span></div>`)).join('')}${add}</div></div>${tabs}`,
+    'Hover a slot and a little wood plaque pops up over it, like hovering an item in Stardew: the name in gold, the address under it. Nothing shows until you look.'],
+  ['2 &middot; INFO BAR', () => `<div class="shelf"><div class="slots">${MARKS.map((m) => key(m)).join('')}${add}</div><div class="info idle"><i class="hand"></i><b>POINT AT A BOOKMARK</b></div></div>${tabs}`,
+    'A carved strip along the bottom of the shelf says which one you are on, with the glove pointing at it, like the item line in an Ocarina or FFX menu. Calm: nothing pops over anything.'],
+  ['3 &middot; HOTBAR', () => `<div class="shelf"><div class="slots">${MARKS.map((m, i) => key(m, `<i class="num">${i + 1}</i><div class="banner">${m.name}</div>`)).join('')}${add}</div></div>${tabs}`,
+    'A game hotbar: a small gold number on each slot (Alt + that number opens it from anywhere in Samara), and the name rides on a parchment banner above the one you are on.'],
+];
+function wire(root) {
+  const info = root.querySelector('.info');
+  root.querySelectorAll('.k[data-name]').forEach((k) => {
+    k.addEventListener('mouseenter', () => { if (info) { info.classList.remove('idle'); info.innerHTML = `<i class="hand"></i><b>${k.dataset.name}</b><span>${k.dataset.path}</span>`; } });
+    k.addEventListener('mouseleave', () => { if (info) { info.classList.add('idle'); info.innerHTML = '<i class="hand"></i><b>POINT AT A BOOKMARK</b>'; } });
+  });
+}
+// a short demo on each: the highlight walks along the slots, one press on the way
+function demo(root) {
+  const ks = [...root.querySelectorAll('.k[data-name]')];
+  const info = root.querySelector('.info');
+  let i = 0;
+  setInterval(() => {
+    if (root.matches(':hover')) return;
+    ks.forEach((k) => k.classList.remove('on', 'press'));
+    const k = ks[i % ks.length];
+    k.classList.add('on');
+    if (info) { info.classList.remove('idle'); info.innerHTML = `<i class="hand"></i><b>${k.dataset.name}</b><span>${k.dataset.path}</span>`; }
+    if (i % ks.length === 1) setTimeout(() => { k.classList.add('press'); setTimeout(() => k.classList.remove('press'), 160); }, 700);
+    i++;
+  }, 1400);
+}
+for (const [name, f, why] of V) {
+  const c = document.createElement('div'); c.className = 'col';
+  c.innerHTML = `<h2>${name}</h2><div class="drawer">${f()}</div><p class="why">${why}</p>`;
+  document.getElementById('variants').append(c);
+  wire(c); demo(c.querySelector('.drawer'));
+  const z = document.createElement('div');
+  z.innerHTML = `<h2>${name}</h2><div class="zoomwrap"><div class="zoom"><div class="drawer">${f()}</div></div></div>`;
+  document.getElementById('zooms').append(z);
+  wire(z); demo(z.querySelector('.drawer'));
+}
+</script>
+</body>
+</html>
