@@ -273,11 +273,17 @@
     <!-- The tab drawer: sheet 3's rail, in the tray's own wood, sliding over the page. -->
     <i class="railhandle" aria-hidden="true"></i>
     <nav class="drawer" id="rail" aria-label="Tabs" aria-hidden="true">
+      <!-- Sheet 43d (his pick A, 2026-10-20): one game menu, two framed panels with the same gold corners. Each panel grows
+           and shrinks with what is in it; the drawer scrolls, never a box inside it. -->
       <div class="shelf-bk">
+        <p class="ptitle">BOOKMARKS</p>
         <div class="row" id="marks"></div>
       </div>
-      <button class="key sm newtab ink" id="newtab" type="button">+ New tab<span class="k">Ctrl T</span></button>
-      <div id="tabs"></div>
+      <div class="tabpanel">
+        <p class="ptitle">TABS</p>
+        <button class="key sm newtab ink" id="newtab" type="button">+ New tab<span class="k">Ctrl T</span></button>
+        <div id="tabs"></div>
+      </div>
       <div class="stash" id="stash" hidden>
         <button class="chest" id="chest" type="button" aria-label="Open the Stash"></button>
         <div><div class="s1">Stash</div><div class="s2" id="stashn"></div></div>

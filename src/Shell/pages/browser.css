@@ -753,3 +753,42 @@ html:not(.solo) .bw::after{content:"";flex:0 0 12px;background:url(art/browser/b
 .shelf-bk .bm-slots{gap:10px 6px}
 .shelf-bk .bm-key{width:50px;height:50px}
 .shelf-bk .bm-key img{width:24px;height:24px}
+
+/* ---- sheet 43d (his pick A, 2026-10-20): the drawer as one game menu ---------------------------------------------------
+   Two framed panels with the same carved frame and gold corner caps: BOOKMARKS (velvet, 43c) and TABS (dark wood). Each
+   grows and shrinks with what is in it; the drawer scrolls as a whole. Tabs are raised wooden plaques like the bookmark
+   keys: the site's icon in a small sunk slot, cream words; the tab he is on is lit parchment with a gold ring; a sleeping
+   tab is dimmer, with a pixel moon. */
+.drawer .ptitle{position:relative;z-index:2;font:400 9px var(--label);letter-spacing:2px;color:#FFE096;text-shadow:1px 1px 0 #000;margin:-2px 2px 10px;display:flex;align-items:center;gap:8px}
+.drawer .ptitle::after{content:"";flex:1;height:4px;border-radius:2px;background:linear-gradient(180deg,rgba(0,0,0,.6) 0 2px,rgba(255,224,150,.2) 2px 4px)}
+.drawer .tabpanel{position:relative;border:3px solid var(--outline);border-radius:10px;padding:13px 11px 14px;margin:6px 0 44px;image-rendering:pixelated;
+  background:radial-gradient(120% 40% at 50% 0%,rgba(255,200,120,.10),transparent 60%),linear-gradient(rgba(0,0,0,.35),rgba(0,0,0,.45)),url(art/browser/tray.png) 0 0/128px 256px;
+  box-shadow:inset 0 0 0 4px #4a2e1a,inset 0 0 0 5px var(--outline),inset 0 7px 12px rgba(0,0,0,.5),0 3px 0 #0d0703}
+.drawer .tabpanel::after{content:"";position:absolute;inset:-6px;pointer-events:none;z-index:1;image-rendering:pixelated;
+  background:url(art/browser/cap3_tl.png) left top/22px 22px no-repeat,url(art/browser/cap3_tr.png) right top/22px 22px no-repeat,
+    url(art/browser/cap3_bl.png) left bottom/22px 22px no-repeat,url(art/browser/cap3_br.png) right bottom/22px 22px no-repeat}
+.drawer .tabpanel .newtab{margin-bottom:12px}
+/* the broom's room is under the panel now, not inside it */
+.drawer #tabs{padding-bottom:0}
+.drawer .tp{gap:9px;padding:6px 9px 6px 6px;margin:0 0 9px;border:3px solid var(--outline);border-radius:9px;color:#F6E6C6;font:600 13px var(--body);text-shadow:1px 1px 0 rgba(0,0,0,.7);
+  background:linear-gradient(180deg,#6a4a2c 0,#56371F 45%,#47301b 100%);box-shadow:0 4px 0 var(--outline),inset 0 3px 0 rgba(255,222,170,.24),inset 0 -2px 0 rgba(0,0,0,.35)}
+.drawer .tp:last-child{margin-bottom:2px}
+.drawer .tp .fi{width:16px;height:16px;padding:5px;box-sizing:content-box;flex:0 0 auto;border:none;border-radius:6px;object-fit:contain;
+  background:#1c1328;box-shadow:inset 0 2px 0 rgba(0,0,0,.6),0 1px 0 rgba(255,220,170,.12)}
+.drawer .tp .fi.letter{display:grid;place-items:center;font:400 10px var(--label);color:#FFE096;text-shadow:1px 1px 0 #000}
+.drawer .tp .arc{margin:4px}
+.drawer .tp:hover:not(.on){filter:brightness(1.1)}
+.drawer .tp:active:not(.on){top:3px;box-shadow:0 1px 0 var(--outline),inset 0 3px 0 rgba(0,0,0,.35)}
+.drawer .tp.on{background:linear-gradient(180deg,#F0DCB4,#DEC28C);color:#2a1c0c;text-shadow:none;margin-right:0;border-right-width:3px;border-radius:9px;
+  box-shadow:0 4px 0 var(--outline),0 0 0 2px var(--gold),0 0 12px rgba(255,190,90,.45),inset 0 3px 0 rgba(255,255,255,.5)}
+.drawer .tp.on .fi{background:#e9d3a6;box-shadow:inset 0 2px 0 rgba(120,80,30,.35)}
+.drawer .tp.on .x{background:rgba(0,0,0,.18)}
+.drawer .tp.sleep{opacity:.8;background:linear-gradient(180deg,#4a3420 0,#3d2a18 100%);color:#d9c9a8;box-shadow:0 3px 0 var(--outline),inset 0 2px 0 rgba(255,222,170,.10)}
+.drawer .tp.sleep .fi{filter:grayscale(.6) brightness(.85)}
+.drawer .tp .zz.moon{display:grid;place-items:center;flex:0 0 auto;opacity:.9}
+.drawer .tp .zz.moon svg{display:block}
+.drawer .tp.crash{background:linear-gradient(180deg,#5a2a22,#3a1712);color:#ffcfc4;border-style:dashed}
+.drawer .tp.done{background:linear-gradient(180deg,#4b5a36,#2f3a20);color:#d6e6c0}
+.drawer .tp.drv{box-shadow:0 4px 0 var(--outline),inset 3px 0 0 #ffe28c}
+/* His call (2026-10-20): no CTRL T keycap on New tab. The shortcut still works. */
+.drawer .newtab .k{display:none}

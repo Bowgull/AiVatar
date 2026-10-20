@@ -632,6 +632,13 @@ function turnIn(id) {
 }
 
 
+/** A tab's icon slot when the site has no icon: its first letter. */
+function tileFor(t) {
+  const s = document.createElement('span'); s.className = 'fi letter';
+  s.textContent = (String(t.title || hostOf(t.url) || '?').match(/[a-z0-9]/i)?.[0] ?? '?').toUpperCase();
+  return s;
+}
+
 function buildRow(t, kid) {
   {
     const row = document.createElement('div');
@@ -642,12 +649,15 @@ function buildRow(t, kid) {
     const ph = t.phase ?? (t.loading ? 'loading' : 'idle');
     if (ph !== 'idle' && !t.crashed) row.append(Object.assign(document.createElement('i'), { className: 'arc' + (ph === 'waiting' ? ' wait' : '') }));
     else if (ringWas.get(t.id) && ringWas.get(t.id) !== 'idle' && !t.crashed) { const b = Object.assign(document.createElement('i'), { className: 'arc burst' }); row.append(b); setTimeout(() => b.remove(), 400); }
-    else if (t.favicon) { const i = document.createElement('img'); i.className = 'fi'; i.alt = ''; i.src = t.favicon; i.referrerPolicy = 'no-referrer'; i.onerror = () => i.remove(); row.append(i); }
+    else if (t.favicon) { const i = document.createElement('img'); i.className = 'fi'; i.alt = ''; i.src = t.favicon; i.referrerPolicy = 'no-referrer'; i.onerror = () => i.replaceWith(tileFor(t)); row.append(i); }
+    // Sheet 43d: every tab has its icon slot; a site with no icon gets its first letter, carved, never an empty gap.
+    else row.append(tileFor(t));
     const title = document.createElement('span'); title.className = 't'; title.textContent = t.title || t.url;
     row.append(title);
     if (t.crashed) { const c = document.createElement('span'); c.className = 'cr'; c.textContent = 'CRASHED'; row.append(c); }
     // Sheet 3: asleep is sunk flush into the wood, colour drained. Click and it wakes where it was.
-    if (asleep && !t.lent) { const z = document.createElement('span'); z.className = 'zz'; z.textContent = 'ASLEEP'; row.append(z); }
+    // Sheet 43d (2026-10-20): a small pixel moon instead of the word, which was too small to read.
+    if (asleep && !t.lent) { const z = document.createElement('span'); z.className = 'zz moon'; z.title = 'Asleep: click to wake it'; z.setAttribute('aria-label', 'Asleep'); const m = pixIcon('moon', 1); if (m) z.append(m); else z.textContent = 'ASLEEP'; row.append(z); }
     if (t.lent) { const z = document.createElement('span'); z.className = 'zz lent'; z.textContent = 'IN POPOUT'; row.append(z); }
     // The pop-out keycap, only on video tabs: a video site, or anything playing sound right now.
     if (!t.done && !t.lent && (t.audible || VIDEO_SITE.test(hostOf(t.url)))) {
