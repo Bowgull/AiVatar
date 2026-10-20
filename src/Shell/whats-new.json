@@ -280,6 +280,16 @@
       "at": "2026-10-20T18:30:00-04:00",
       "text": "Links from Aang open in Samara.",
       "kind": "feature"
+    },
+    {
+      "at": "2026-10-20T19:30:00-04:00",
+      "text": "Samara's lantern has a real maple leaf now.",
+      "kind": "fix"
+    },
+    {
+      "at": "2026-10-20T19:30:00-04:00",
+      "text": "The pop-out has its own turquoise lantern icon.",
+      "kind": "feature"
     }
   ]
 }

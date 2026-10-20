@@ -36,6 +36,10 @@
 <h1>SHEET 42 &middot; THE POP-OUT'S OWN LANTERN</h1>
 <p>Samara's own lantern, recoloured, so the pop-out's taskbar button says <b>Samara's video</b> at a glance and never looks like Samara itself. Every size is the same hand-drawn pixel art with its colours swapped one for one. Each taskbar shows, left to right: <b>Aang</b>, <b>Samara</b>, then <b>the pop-out</b>, on a dark and a light taskbar.</p>
 
+<h2>FINAL &middot; YOUR PICK A, WITH THE LEAF</h2>
+<p>The plus is now a maple leaf at the small sizes (it already was at 64 and up). Samara keeps its orange; the pop-out is the turquoise lantern with the same orange leaf, so the two read as family but never the same button.</p>
+<div class="row" id="final"></div>
+<h2>THE FOUR OPTIONS (BEFORE THE LEAF)</h2>
 <div class="row" id="cards"></div>
 
 <script>
@@ -57,6 +61,16 @@ for (const [k, name, why] of V) {
     ${bar(false)}<div style="height:6px"></div>${bar(true)}
     <div class="sizes">${[16, 24, 32, 48].map((s) => `<div>${img(`sheet-42/${k}-${s}.png`, s)}<span>${s}</span></div>`).join('')}</div>`;
   cards.append(c);
+}
+const ART = '../../src/Shell/pages/art/';
+const fin = document.getElementById('final');
+for (const [k, name] of [['samara/samara-unlit', 'SAMARA, CLOSED'], ['samara/samara-lit', 'SAMARA, OPEN'], ['samara/samara-popout', 'THE POP-OUT']]) {
+  const c = document.createElement('div'); c.className = 'card';
+  const bar = (light) => `<div class="bar${light ? ' light' : ''}"><div class="btn">${img(ART + 'aang-face.png', 24)}</div><div class="btn on">${img(ART + 'samara/samara-lit-24.png', 24)}</div><div class="btn on">${img(ART + 'samara/samara-popout-24.png', 24)}</div></div>`;
+  c.innerHTML = `<p class="name">${name}</p><div class="big">${img(ART + k + '-32.png', 128)}</div>${bar(false)}<div style="height:6px"></div>${bar(true)}
+    <div class="sizes">${[16, 24, 32, 48].map((s) => `<div>${img(ART + k + '-' + s + '.png', s)}<span>${s}</span></div>`).join('')}</div>
+    <div class="big" style="margin-top:10px">${img(ART + k + '-16.png', 128)}</div>`;
+  fin.append(c);
 }
 </script>
 </body>

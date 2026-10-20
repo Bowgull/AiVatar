@@ -123,16 +123,17 @@ function lantern(g, n, opt) {
   return g;
 }
 // The 16 px lantern, by hand (a rule-drawn one goes lopsided this small). Light from the upper left, a tiny ember maple.
+// 2026-10-20 (his ask): the mark in the glass is a maple leaf, not a plus: a top point, two side points, a stem.
 const LANTERN16 = [
   '......####......',
   '......#VV#......',
   '...##########...',
   '...#WWWWWWWW#...',
   '...4112222224...',
-  '..411112222334..',
-  '..41112ee22334..',
-  '..4112eeee2334..',
-  '..41222ee23334..',
+  '..41111le22334..',
+  '..411l2le2e334..',
+  '..411llleee334..',
+  '..4122llee3334..',
   '..42222EE33334..',
   '...4223333334...',
   '...#VVVVVVVV#...',
@@ -142,7 +143,7 @@ const LANTERN16 = [
   '................',
 ];
 function onTile24(g) { const L = lantern16(); L.forEach((r, y) => r.forEach((c, x) => { if (c && g[y + 4]) g[y + 4][x + 4] = c; })); return g; }
-function lantern16() { const K = { '#': C.o, V: C.w4, W: C.w2, '1': C.p1, '2': C.p2, '3': C.p3, '4': C.p4, e: C.bo2, E: C.bo3, g: C.g2, G: C.g3 }; return LANTERN16.map((r) => [...r].map((ch) => K[ch] ?? null)); }
+function lantern16() { const K = { '#': C.o, V: C.w4, W: C.w2, '1': C.p1, '2': C.p2, '3': C.p3, '4': C.p4, l: C.bo1, e: C.bo2, E: C.bo3, g: C.g2, G: C.g3 }; return LANTERN16.map((r) => [...r].map((ch) => K[ch] ?? null)); }
 const STARS = [[6, 7], [25, 5], [27, 13], [5, 20]];
 const ICONS = [
   { tag: 'L1 - THE PLUM NIGHT', name: 'Samara', why: "Aang's own night: plum fading to ink (his panels' colours), the gold-lit lantern, the burnt-orange maple in its light, a few stars in his sky blue. The most Aang. One honest risk: warm light on purple is Firefox's pair. It is a square, a lantern and gold, not an orange swirl on a purple ball, which is what people recognise as Firefox.",
