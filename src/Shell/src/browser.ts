@@ -51,7 +51,7 @@ export interface UpdateCard {
   notes?: string[]; checks?: string[]; kind?: string;
 }
 // His pick (2026-10-14): the lantern alone, lit and glowing, nothing behind it.
-const SAMARA_ICON = path.join(import.meta.dirname, '..', 'pages', 'art', 'samara', 'samara-lit.ico');
+const SAMARA_ICON = path.join(import.meta.dirname, '..', 'pages', 'art', 'samara', 'samara-open.ico');
 /**
  * The key that scrambles the list of sites Bitwarden has logins for, kept under the computer's own lock (code audit L10,
  * 2026-10-14) instead of beside the list. Windows' own lock (DPAPI) never asks him anything; the Mac moves to its

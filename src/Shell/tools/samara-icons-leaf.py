@@ -85,7 +85,9 @@ for name in ('samara-lit', 'samara-unlit'):
         if has_leaf(im, n): continue
         box, leaf, ox, oy, k = PLACE[n]
         clean(im, box); stamp(im, leaf, ox, oy, k); im.save(f)
-    ico(os.path.join(ART, f'{name}.ico'), [(n, png(Image.open(os.path.join(ART, f'{name}-{n}.png')).convert('RGBA'))) for n in SIZES])
+    # New file names, not samara-lit.ico / samara-unlit.ico: Windows caches a taskbar icon by its path, so the same name
+    # with new pixels kept showing the old lantern (his report, 2026-10-20). open = lit, closed = unlit.
+    ico(os.path.join(ART, {'samara-lit': 'samara-open.ico', 'samara-unlit': 'samara-closed.ico'}[name]), [(n, png(Image.open(os.path.join(ART, f'{name}-{n}.png')).convert('RGBA'))) for n in SIZES])
 
 # the pop-out's lantern: the leaf keeps its own ember colours, only the lantern's light turns turquoise
 pop = []
