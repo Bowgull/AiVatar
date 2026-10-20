@@ -11,7 +11,8 @@
 import { startClaudeDoor } from './claudedoor.ts';
 import { isRisky } from './secure.ts';
 import { app, BrowserWindow, Menu, clipboard, globalShortcut, ipcMain, powerMonitor, screen, session, shell } from 'electron';
-import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, unlinkSync, watch, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync, watch, writeFileSync } from 'node:fs';
+import { spawn } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 import { CoreLink } from './link.ts';
@@ -53,6 +54,32 @@ const STATE_DIR = process.env.AANG_STATE_DIR
 const DATA_DIR = process.env.AANG_DATA_DIR ?? path.join(os.homedir(), 'Documents', 'Aang');
 const HERE = import.meta.dirname;
 
+// Samara on its own (his ask, 2026-10-20): this process holds his browser, so it is no longer tied to the pet. It may
+// outlive him, so it writes its own log instead of a pipe the pet holds (a pipe that would break when he closes).
+{
+  const LOG = path.join(STATE_DIR, 'shell.log');
+  let n = 0;
+  const write = (lvl: string, a: unknown[]) => {
+    try {
+      if (++n % 200 === 0 && existsSync(LOG) && statSync(LOG).size > 1024 * 1024) { try { unlinkSync(LOG + '.1'); } catch { /* none */ } renameSync(LOG, LOG + '.1'); }
+      const d = new Date(), z = (x: number) => String(x).padStart(2, '0');
+      const when = `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())} ${z(d.getHours())}:${z(d.getMinutes())}:${z(d.getSeconds())}`;
+      appendFileSync(LOG, `${when} ${lvl}${a.map((x) => (typeof x === 'string' ? x : x instanceof Error ? x.stack ?? x.message : JSON.stringify(x))).join(' ')}
+`);
+    } catch { /* a lost log line never stops Samara */ }
+  };
+  for (const s of [process.stdout, process.stderr]) s?.on?.('error', () => { /* nobody reading: fine */ });
+  if (!process.env.AANG_TEST) {
+    console.log = (...a: unknown[]) => write('', a);
+    console.error = (...a: unknown[]) => write('', a);
+    console.warn = (...a: unknown[]) => write('', a);
+  }
+}
+/** The pet is running right now (body.pid names a live process). Aang's own windows exist only while he is. */
+function bodyAlive(): boolean {
+  try { const pid = Number(readFileSync(path.join(STATE_DIR, 'body.pid'), 'utf8').trim()); if (!pid) return false; process.kill(pid, 0); return true; } catch { return false; }
+}
+
 /**
  * One Shell at a time. A second copy would fight the first for the same windows, and on this machine
  * the tray can race its own restart.
@@ -60,6 +87,10 @@ const HERE = import.meta.dirname;
 if (!app.requestSingleInstanceLock()) {
   console.log('shell: another one is already running');
   app.exit(0);
+} else {
+  // So the pet joins this one instead of starting a second (CoreSupervisor.RunningShell).
+  try { writeFileSync(path.join(STATE_DIR, 'shell.pid'), String(process.pid)); } catch { /* the pet then starts one, which steps aside */ }
+  app.on('will-quit', () => { try { if (readFileSync(path.join(STATE_DIR, 'shell.pid'), 'utf8').trim() === String(process.pid)) unlinkSync(path.join(STATE_DIR, 'shell.pid')); } catch { /* gone */ } });
 }
 
 /** Every window this Shell has open, by kind, so the brain's messages reach the right one. */
@@ -443,6 +474,8 @@ const link = new CoreLink({
     input?.send('brain:message', m);
   },
   onConnected: up => {
+    // Aang off (Samara on its own, 2026-10-20): a brain that is not there is not news; nothing pops up to say so.
+    if (!up && !bodyAlive()) return;
     for (const w of windows.values()) if (!w.isDestroyed()) w.webContents.send('brain:connected', up);
     // 6.14b: the bubble says so when the brain is down, so it has to hear it too.
     bubble?.send('brain:connected', up);
@@ -601,10 +634,7 @@ app.whenReady().then(async () => {
       const body = readJson(path.join(STATE_DIR, 'body.json')) as Record<string, unknown> | null;
       if (typeof body?.Mode === 'string') inputMode = body.Mode;
       // '=' is the key with + on it (VK_OEM_PLUS), which is what the pet registered; numadd is the keypad.
-      for (const key of ['Control+=', 'Control+numadd']) {
-        if (!globalShortcut.register(key, onHotkey)) console.error(`shell: could not take ${key}; another program has it`);
-      }
-      console.log('shell: the new typing box is on; Ctrl+Plus belongs to the Shell');
+      // Ctrl+Plus and Snipit: taken below, once Snipit exists, and only while Aang is running.
 
       aangBrowser = new AangBrowser({ origin: pages.origin, preloadPath: path.join(HERE, 'preload.cjs'), stateDir: STATE_DIR, tabPreloadPath: path.join(HERE, 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, 'thingspreload.cjs') });
       aangBrowser.onReclaim = () => popout?.returnTab();
@@ -664,7 +694,7 @@ app.whenReady().then(async () => {
         if (!r || !updatePrefs().overnight || h < 2 || h >= 5 || gameQuiet || aangBrowser?.inCall || powerMonitor.getSystemIdleTime() < 1800) return;
         const card = engineCard(r);
         void engineUpdates!.restartNow(false, r.choices, { title: card?.title ?? 'Engine update', lines: (card?.groups ?? []).flatMap((g) => g.items.filter((i) => !i.key || i.on !== false).map((i) => i.text)) }).then((x) => {
-          if (x.ok) { console.log('shell: updating overnight'); aangBrowser?.closeAll(); setTimeout(() => app.exit(UPDATE_RESTART), 400); }
+          if (x.ok) { console.log('shell: updating overnight'); aangBrowser?.closeAll(); setTimeout(() => exitForUpdate(), 400); }
         });
       }, 10 * 60_000).unref();
       aangBrowser.onCall = (on) => { if (!on && engineUpdates && !engineUpdates.ready) void engineUpdates.check(); };
@@ -687,9 +717,9 @@ app.whenReady().then(async () => {
         dir: path.join(app.getPath('pictures'), 'Aang snips'),
         onSend: (file) => { snips.push({ file, name: path.basename(file) }); while (snips.length > 4) snips.shift(); if (!input?.visible) openTypeBox(); sendChips(); },
       });
-      for (const key of ['Control+Shift+=', 'Control+Shift+numadd']) {
-        if (!globalShortcut.register(key, () => { void snipper?.start(); })) console.error(`shell: could not take ${key} for Snipit; another program has it`);
-      }
+      // Snipit lands in Aang's typing box, so its key is taken with his, only while he runs (Samara on its own does not
+      // take his keys).
+      if (bodyAlive()) takeAangKeys();
     }
 
     drm = new DrmRuntime({
@@ -1128,7 +1158,7 @@ app.whenReady().then(async () => {
     else if (act === 'skip') engineUpdates.skip();
     else if (act === 'check') void engineUpdates.checkNow();
     else if (act === 'back') {
-      if (engineUpdates.goBack()) { aangBrowser.closeAll(); setTimeout(() => app.exit(UPDATE_RESTART), 400); }
+      if (engineUpdates.goBack()) { aangBrowser.closeAll(); setTimeout(() => exitForUpdate(), 400); }
       else e.sender.send('browser:updatewhy', 'There is no earlier version kept to go back to.');
     }
   });
@@ -1138,7 +1168,7 @@ app.whenReady().then(async () => {
     void engineUpdates.restartNow(aangBrowser.showing, c).then((r) => {
       if (!r.ok) { e.sender.send('browser:updatewhy', r.why ?? 'Not right now.'); return; }
       aangBrowser?.closeAll();
-      setTimeout(() => app.exit(UPDATE_RESTART), 400);     // the pet starts the Shell again, on the new engine
+      setTimeout(() => exitForUpdate(), 400);     // the pet starts the Shell again, on the new engine
     });
   });
 
@@ -1269,6 +1299,48 @@ app.whenReady().then(async () => {
 // the pop-out and the bubble come and go while Aang stays running.
 app.on('window-all-closed', () => { /* deliberately nothing */ });
 
+/** Ctrl+Plus, the typing box: Aang's, so only while he is running. */
+function takeAangKeys(): void {
+  // '=' is the key with + on it (VK_OEM_PLUS), which is what the pet registered; numadd is the keypad.
+  for (const key of ['Control+=', 'Control+numadd']) {
+    if (globalShortcut.isRegistered(key)) continue;
+    if (!globalShortcut.register(key, onHotkey)) console.error(`shell: could not take ${key}; another program has it`);
+  }
+  // 6.17: Snipit, on Ctrl+Shift+Plus (his key).
+  if (snipper) for (const key of ['Control+Shift+=', 'Control+Shift+numadd']) {
+    if (globalShortcut.isRegistered(key)) continue;
+    if (!globalShortcut.register(key, () => { void snipper?.start(); })) console.error(`shell: could not take ${key} for Snipit; another program has it`);
+  }
+  console.log('shell: the new typing box is on; Ctrl+Plus belongs to the Shell');
+}
+/** Samara or the pop-out is open: what keeps this process going when Aang is off. */
+function samaraOpen(): boolean {
+  return Boolean(aangBrowser?.hasWindow()) || Boolean(popout?.window?.isVisible());
+}
+/**
+ * Samara on its own (his ask, 2026-10-20). When Aang closes or crashes, his tabs and the pop-out stay; Aang's own
+ * windows (bubble, typing box, notes and timers on screen) go, and his keys are let go. When he starts again, he
+ * joins this Samara and sees inside it as before. With Aang off and Samara closed, nothing is left to run: quit.
+ */
+let bodyWas: boolean | null = null;
+const shellStarted = Date.now();
+setInterval(() => {
+  const up = bodyAlive();
+  if (up !== bodyWas) {
+    const first = bodyWas === null;
+    bodyWas = up;
+    if (up) { if (!first) { console.log('shell: Aang is back'); if (input) takeAangKeys(); } }
+    else if (!first) {
+      console.log('shell: Aang closed; Samara stays');
+      for (const key of ['Control+=', 'Control+numadd', 'Control+Shift+=', 'Control+Shift+numadd']) globalShortcut.unregister(key);
+      // The brain went down a moment before the pet did: cancel the bubble's "waiting for my brain", silently.
+      try { bubble?.send('brain:connected', true); bubble?.hide(); input?.close(false); noteWins?.sync([]); timerWins?.sync([]); } catch { /* gone */ }
+      for (const [kind, w] of windows) if (kind !== 'popout' && !w.isDestroyed() && w.isVisible()) w.hide();
+    }
+  }
+  if (!up && !samaraOpen() && Date.now() - shellStarted > 20_000) { console.log('shell: Aang is off and Samara is closed: nothing left to run'); app.quit(); }
+}, 3000).unref();
+
 /** A message is only acted on if it really came from the pop-out's own page. */
 /** "Put X on": into the pop-out over WoW. Paid video goes to the separate castLabs process: hardware acceleration
  *  has to be off for it, and that is process-wide. Everything else plays in the ordinary pop-out (step 6.4).
@@ -1317,6 +1389,16 @@ let aangBrowser: AangBrowser | null = null;
 /** A planned restart for an update (2026-10-14, "extremely smooth"): the pet starts Samara again at once, without its
  *  crash pause, and does not count it as a crash. */
 const UPDATE_RESTART = 75;
+/** Restart for an update. The pet starts the new one; with Aang off, Samara asks Aang.exe to reopen it alone. */
+function exitForUpdate(): void {
+  if (!bodyAlive()) {
+    try {
+      const exe = readFileSync(path.join(STATE_DIR, 'body-exe.txt'), 'utf8').trim();
+      if (exe && existsSync(exe)) spawn(exe, ['--samara', '--after', String(process.pid)], { detached: true, stdio: 'ignore' }).unref();
+    } catch (e) { console.error('shell: could not arrange to reopen after the update: ' + (e as Error).message); }
+  }
+  app.exit(UPDATE_RESTART);
+}
 let engineUpdates: EngineUpdates | null = null;
 // ---- the engine in the update tray (sheet 35): its title from the brain, its lines in plain words, two tick boxes
 let engineLabel: { version: string; label: string; name: string } | null = null;
@@ -1339,7 +1421,7 @@ function showEngine(): void { aangBrowser?.setUpdate(engineCard(engineUpdates?.r
 async function engineGo(): Promise<void> {
   if (!engineUpdates?.ready) return;
   const r = await engineUpdates.restartNow(aangBrowser?.showing === true, engineUpdates.ready.choices);
-  if (r.ok) { aangBrowser?.closeAll(); setTimeout(() => app.exit(UPDATE_RESTART), 400); }
+  if (r.ok) { aangBrowser?.closeAll(); setTimeout(() => exitForUpdate(), 400); }
 }
 /** 9.D D3: draws the cards Aang posts to Discord. Made on first use. */
 let cards: CardRenderer | null = null;

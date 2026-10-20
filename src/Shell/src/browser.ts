@@ -3101,6 +3101,8 @@ export class AangBrowser {
 
   /** Quitting: every window closes at once, and none of their tabs is dropped on the way out. */
   private quitting = false;
+  /** A Samara window is open (what keeps the Shell running when Aang is off). */
+  hasWindow(): boolean { return this.panes.some((p) => this.alive(p)); }
   closeAll(): void {
     void this.ses.cookies.flushStore().catch(() => {});
     this.driver.closeAll();
