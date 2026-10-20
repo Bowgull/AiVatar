@@ -245,6 +245,11 @@
       "at": "2026-10-20T13:00:00-04:00",
       "text": "Claude browses in Samara much faster.",
       "kind": "feature"
+    },
+    {
+      "at": "2026-10-20T14:00:00-04:00",
+      "text": "Streaming sign-ins stay on each machine.",
+      "kind": "fix"
     }
   ]
 }

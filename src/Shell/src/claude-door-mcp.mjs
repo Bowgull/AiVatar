@@ -284,11 +284,15 @@ function elicit(p) {
   const id = 'samara-plan-' + ++elSeq;
   const message = `Samara: Claude wants to ${p.task.toLowerCase()}. Steps: ${p.steps.map((x, i) => `${i + 1}. ${x}`).join('  ')}${p.wont ? `. It won't: ${p.wont}` : ''}. Untick any site you don't want.`;
   send({ jsonrpc: '2.0', id, method: 'elicitation/create', params: { message, requestedSchema: { type: 'object', properties: props } } });
+  const asked = Date.now();
   return new Promise((done) => {
     const t = setTimeout(() => { waitingAnswers.delete(id); done({ go: false, keep: [], note: '' }); }, 5 * 60_000);
     waitingAnswers.set(id, (r) => {
       clearTimeout(t);
       const c = r?.content ?? {};
+      // Closed before a person could have read it (his report, 2026-10-20: Claude's desktop app shut the form by itself
+      // and every plan came back "not now"): it was never shown, so he is asked in Aang's bubble instead.
+      if (r?.action !== 'accept' && Date.now() - asked < 2500) { done(null); return; }
       if (r?.action !== 'accept') { done({ go: false, keep: [], note: '' }); return; }
       done({ go: true, keep: keys.filter(([k]) => c[k] !== false).map(([, s]) => s), note: String(c.note ?? '').trim() });
     });
@@ -303,7 +307,10 @@ async function plan(a) {
   if (job !== null) return text('This session already started. The plan can only be shown before the first page; finish it and start a new session to change it.', true);
   const body = { task: String(a.task ?? ''), sites: Array.isArray(a.sites) ? a.sites.map(String) : [], steps: Array.isArray(a.steps) ? a.steps.map(String) : [], wont: String(a.wont ?? '') };
   let r = await step('plan', { ...body, elicit: canElicit });
-  if (r.needs === 'elicit') r = await step('plan', { ...body, decided: await elicit(r.plan) });
+  if (r.needs === 'elicit') {
+    const decided = await elicit(r.plan);
+    r = decided ? await step('plan', { ...body, decided }) : await step('plan', { ...body, elicit: false });
+  }
   if (r.change) return text(`Joshua wants a change: "${r.note}". He kept: ${(r.keep || []).join(', ') || 'no sites'}. Make a new plan with that and call browser_plan again.`);
   if (!r.ok) return text(r.error || 'The plan was not allowed.', true);
   job = r.job; jobName = body.task.slice(0, 30);

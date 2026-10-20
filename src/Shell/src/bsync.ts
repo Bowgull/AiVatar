@@ -53,6 +53,19 @@ export function hostKept(host: string): boolean {
   if (!h || h === 'localhost' || /^127\.|^\[?::1\]?$/.test(h) || !/^[a-z0-9.-]+$/.test(h)) return false;
   return !neverKeep('https://' + h + '/');
 }
+/**
+ * Paid streaming sign-ins stay on the machine they were made on (his yes, 2026-10-20). These services tie a sign-in to
+ * one device and keep part of it outside cookies, so a copied cookie was half a sign-in: on the Mac Disney+ said "access
+ * token invalid", on the PC "not available in your region", while Chrome, which shares nothing, played. His tabs,
+ * history and bookmarks for them still sync; only the sign-in does not.
+ */
+const STREAMING = ['disneyplus.com', 'disney.com', 'go.com', 'bamgrid.com', 'dssott.com', 'netflix.com', 'primevideo.com', 'amazon.com', 'amazon.ca', 'amazon.co.uk',
+  'crunchyroll.com', 'crave.ca', 'bellmedia.ca', 'max.com', 'hbomax.com', 'paramountplus.com', 'peacocktv.com', 'hulu.com', 'tv.apple.com', 'youtube.com/tv'];
+export function cookieKept(domain: string): boolean {
+  const h = String(domain ?? '').replace(/^\./, '').toLowerCase();
+  if (STREAMING.some((r) => !r.includes('/') && (h === r || h.endsWith('.' + r)))) return false;
+  return hostKept(h);
+}
 export const urlKept = (u: string) => { try { const x = new URL(u); return (x.protocol === 'https:' || x.protocol === 'http:') && hostKept(x.hostname); } catch { return false; } };
 
 export const cookieKey = (c: SyncCookie) => `${String(c.domain ?? '').toLowerCase()}|${c.path ?? '/'}|${c.name}`;
@@ -157,7 +170,7 @@ export class BrowserSync {
   cleared(from: number): void { if (!this.applying) this.send({ t: 'bsync.visit', op: 'clear', from }); }
   /** A cookie changed here (Electron's cookies 'changed' event). Sent in small batches. */
   cookie(c: SyncCookie, removed: boolean): void {
-    if (!hostKept(String(c.domain ?? ''))) return;
+    if (!cookieKept(String(c.domain ?? ''))) return;
     const key = cookieKey(c);
     const sig = removed ? '' : c.value;
     if (this.echo.has(key) && this.echo.get(key) === sig) { this.echo.delete(key); return; }
@@ -188,7 +201,7 @@ export class BrowserSync {
     const cookies: Record<string, { at: number; c: SyncCookie | null }> = {};
     for (const [k, v] of Object.entries(this.s.cookies)) if (!v.c) cookies[k] = v;
     for (const c of await t.cookies()) {
-      if (!hostKept(String(c.domain ?? ''))) continue;
+      if (!cookieKept(String(c.domain ?? ''))) continue;
       const k = cookieKey(c);
       cookies[k] = { at: this.s.cookies[k]?.at ?? 0, c: clean(c) };
     }
@@ -259,7 +272,7 @@ export class BrowserSync {
   }
   private async takeCookie(key: string, at: number, c: SyncCookie | null, mineAt = this.s.cookies[key]?.at ?? -1): Promise<void> {
     if (mineAt >= at) return;                                  // ours is as new or newer
-    if (c && !hostKept(String(c.domain ?? ''))) return;
+    if (!cookieKept(String(c?.domain ?? key.split('|')[0] ?? ''))) return;
     if (c && cookieKey(c) !== key) return;                     // a record that does not match its own name
     if (c && c.expirationDate && c.expirationDate * 1000 < this.now()) return;
     this.s.cookies[key] = { at, c };

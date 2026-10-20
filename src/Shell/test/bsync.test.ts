@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { BrowserSync, joinTabs, hostKept, urlKept, type SyncCookie, type SyncMsg, type SyncTarget, type TabSnap } from '../src/bsync.ts';
+import { BrowserSync, joinTabs, hostKept, cookieKept, urlKept, type SyncCookie, type SyncMsg, type SyncTarget, type TabSnap } from '../src/bsync.ts';
 import type { Visit } from '../src/visits.ts';
 import type { Mark } from '../src/bookmarks.ts';
 
@@ -146,4 +146,11 @@ test('security audit H2: the sync never keeps a login on disk, and an older file
   const after = readFileSync(path.join(old, 'browser-sync.json'), 'utf8');
   assert.doesNotMatch(after, /OLD-SECRET/);
   assert.match(after, /"\.x\.com\|\/\|s":\{"at":5,"c":\{\}\}/, 'when it changed is kept');
+});
+
+test('paid streaming sign-ins stay on their own machine (his yes, 2026-10-20), everything else still travels', () => {
+  for (const d of ['.disneyplus.com', 'login.disney.com', '.netflix.com', 'www.primevideo.com', '.amazon.ca', '.crave.ca', '.bamgrid.com'])
+    assert.equal(cookieKept(d), false, d);
+  for (const d of ['.reddit.com', 'www.linkedin.com', '.twitch.tv', '.youtube.com']) assert.equal(cookieKept(d), true, d);
+  assert.equal(cookieKept('notdisney.com'), true, 'only the real domain and its subdomains');
 });
