@@ -91,12 +91,33 @@ export class ActionLog {
   }
 }
 
-export interface Undoable { label: string; run: () => string }
+export interface Undoable { id: number; label: string; run: () => string }
 
+/**
+ * Each entry has an id so a "You said yes" row in the scroll-back can undo THAT action, not just whatever
+ * happens to be newest. Ids start from the clock rather than from 1: the stack is forgotten on restart, and
+ * an id saved in a turn before a restart must never match a different action after it.
+ */
 export class UndoStack {
   private readonly items: Undoable[] = [];
-  push(label: string, run: () => string): void { this.items.push({ label, run }); while (this.items.length > 20) this.items.shift(); }
+  /** The first id this run hands out. Anything below it was pushed before the last restart. */
+  readonly firstId = Date.now();
+  private next = this.firstId;
+  push(label: string, run: () => string): number {
+    const id = this.next++;
+    this.items.push({ id, label, run });
+    while (this.items.length > 20) this.items.shift();
+    return id;
+  }
   pop(): Undoable | null { return this.items.pop() ?? null; }
   peek(): Undoable | null { return this.items.at(-1) ?? null; }
+  /** Remove and return one particular entry, wherever it sits in the stack. */
+  take(id: number): Undoable | null {
+    const i = this.items.findIndex(u => u.id === id);
+    return i < 0 ? null : this.items.splice(i, 1)[0];
+  }
+  has(id: number): boolean { return this.items.some(u => u.id === id); }
+  /** The newest id handed out so far (firstId - 1 before anything was pushed). Kept even after a pop. */
+  get lastId(): number { return this.next - 1; }
   get size(): number { return this.items.length; }
 }

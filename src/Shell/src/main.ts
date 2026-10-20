@@ -8,7 +8,8 @@
 //
 // A crash in here must never take the pet or the brain with it. It is its own process, supervised from
 // the tray, and it holds nothing the others need.
-import { startClaudeDoor } from './claudedoor.ts';
+import { startClaudeDoor, type PlanStarted } from './claudedoor.ts';
+import { PlanMemory } from './claudeplan.ts';
 import { isRisky } from './secure.ts';
 import { app, BrowserWindow, Menu, clipboard, globalShortcut, ipcMain, powerMonitor, screen, session, shell } from 'electron';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync, watch, writeFileSync } from 'node:fs';
@@ -396,6 +397,8 @@ const link = new CoreLink({
     // A page of history goes ONLY to the window that asked for it. Both the bubble's scroll-back and the
     // desk's History tab ask for it, the brain answers on the one link, and a desk search landing in the
     // scroll-back would put search results into the conversation he is reading.
+    // Sheet 41: the brain kept a plan's row; remember which row is which job, so "done" lands on it.
+    if (m.t === 'shown.saved') { planRowSaved(String((m as { ref?: unknown }).ref ?? ''), Number((m as { id?: unknown }).id)); return; }
     if (m.t === 'history.reply') {
       const who = historyAsks.shift();
       if (who === 'desk') windows.get('desk')?.webContents.send('brain:message', m);
@@ -660,7 +663,9 @@ app.whenReady().then(async () => {
       };
       aangBrowser.onPlanStep = (id, at) => bubble?.send('brain:message', { t: 'plan.step', id, at });
       // 6.25a: Claude sessions on this PC drive the browser through its own door (claudedoor.ts).
-      startClaudeDoor(() => aangBrowser, STATE_DIR);
+      // Sheet 41: every plan that starts becomes a row in his scroll-back, marked done when it finishes.
+      startClaudeDoor(() => aangBrowser, STATE_DIR, undefined, { plans: claudePlans, onPlan: savePlanRow });
+      aangBrowser.onPlanDone = (job) => planRowDone(job);
       aangBrowser.onOpenOther = (url) => link?.send({ t: 'open.onmac', url });
       // One engine (his yes, 2026-10-13): on castLabs' engine paid video plays right in the tab. Only on the stock
       // engine do paid services still go to the separate paid-video window.
@@ -913,6 +918,9 @@ app.whenReady().then(async () => {
     const value = String(t.value ?? '');
     if (t.kind === 'link') {
       if (!/^https?:\/\//i.test(value)) { console.error('shell: refused a chip that was not http'); return; }
+      // Sheet 41 (his ask, 2026-10-20): a link Aang shows opens in Samara, a meeting link included. Samara sends a bank
+      // site on to Chrome itself. Without Samara (it failed to start) the default browser still gets it.
+      if (aangBrowser) { aangBrowser.open(value); return; }
       void shell.openExternal(value);
       return;
     }
@@ -1260,6 +1268,27 @@ app.whenReady().then(async () => {
   ipcMain.on('desk:copy', (e, text) => {
     if (fromDesk(e) && typeof text === 'string' && text) clipboard.writeText(text.slice(0, 200_000));
   });
+  // Sheet 41: Take it back on a Claude plan he allowed: that plan asks him again next time. The page sends the row as it
+  // has it; only the plan's task is used to forget, and the row's new state is checked and sized before it is kept.
+  ipcMain.on('bubble:forgetplan', (e, a) => {
+    if (!fromBubble(e) || !a || typeof a !== 'object') return;
+    const id = Number(a.id), task = String(a.task ?? '').slice(0, 200);
+    if (!Number.isInteger(id) || id <= 0 || !task) return;
+    const had = claudePlans.forget(task);
+    const said = had ? 'Done. Claude asks you again next time it wants to do this.' : 'It was already set to ask you.';
+    const was = a.extra && typeof a.extra === 'object' ? a.extra as Record<string, unknown> : {};
+    const extra = { ...was, remembered: false, takenBack: { at: new Date().toISOString(), said } };
+    if (JSON.stringify(extra).length < 200_000) link?.send({ t: 'shown.update', id, extra });
+    bubble?.send('brain:message', { t: 'turn.updated', id, kind: 'plan', extra, said });
+  });
+  // Sheet 41: Undo / Take it back on a row he is looking back at. The brain owns what can be undone; this only passes
+  // the row id along, checked to be a whole positive number.
+  ipcMain.on('bubble:undo', (e, id) => {
+    if (!fromBubble(e)) return;
+    const turn = Number(id);
+    if (!Number.isInteger(turn) || turn <= 0) return;
+    link?.send({ t: 'turn.undo', id: turn });
+  });
   ipcMain.on('bubble:older', (e, a) => {
     if (!fromBubble(e)) return;
     historyAsks.push('bubble');
@@ -1449,6 +1478,33 @@ const droppedFiles: { file: string; name: string }[] = [];
 
 /** Who asked for each page of history still on its way, oldest first. */
 const historyAsks: ('desk' | 'bubble')[] = [];
+
+// ---------------------------------------------------------------- sheet 41: Claude's plans in his scroll-back
+const claudePlans = new PlanMemory(STATE_DIR);
+/** A plan's row while its job runs: the row id once the brain has kept it, and whether the job already finished. */
+const planRows = new Map<number, { id: number | null; extra: Record<string, unknown>; done: boolean }>();
+function savePlanRow(p: PlanStarted): void {
+  const extra = { plan: { title: p.task, sites: p.sites.slice(0, 12), steps: p.steps.slice(0, 12), done: false }, remembered: p.remembered };
+  planRows.set(p.job, { id: null, extra, done: false });
+  while (planRows.size > 30) planRows.delete(planRows.keys().next().value as number);
+  link?.send({ t: 'shown.save', kind: 'plan', text: `Claude's plan: ${p.task}`.slice(0, 600), extra, ref: `plan-${p.job}` });
+}
+function planRowSaved(ref: string, id: number): void {
+  const job = Number(/^plan-(\d+)$/.exec(ref)?.[1]);
+  const row = planRows.get(job);
+  if (!row || !Number.isInteger(id) || id <= 0) return;
+  row.id = id;
+  if (row.done) planRowDone(job);
+}
+function planRowDone(job: number): void {
+  const row = planRows.get(job);
+  if (!row) return;
+  row.done = true;
+  if (row.id === null) return;                 // marked when the brain says which row it is
+  const extra = { ...row.extra, plan: { ...(row.extra.plan as Record<string, unknown>), done: true } };
+  link?.send({ t: 'shown.update', id: row.id, extra });
+  planRows.delete(job);
+}
 
 /**
  * Window 2 (6.15). The C# Panel's size: 820 x 560, never smaller than 640 x 420. A normal window with a

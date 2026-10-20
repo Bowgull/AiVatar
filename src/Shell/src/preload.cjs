@@ -127,6 +127,9 @@ contextBridge.exposeInMainWorld('aang', {
   pinTurn: (turn, preview) => ipcRenderer.send('bubble:pin', { turn, preview }),
   /** Pull another page of his own history, older than the row given. */
   olderTurns: a => ipcRenderer.send('bubble:older', a),
+  // Sheet 41: Undo / Take it back on a row of the scroll-back. Only the row id crosses; the brain looks up the rest.
+  undoTurn: id => ipcRenderer.send('bubble:undo', id),
+  forgetPlan: a => ipcRenderer.send('bubble:forgetplan', a),
   /** The pointer is over the drawn bubble, so this window should take the mouse. Off it, clicks pass
    *  through to whatever is behind. */
   bubbleClickable: on => ipcRenderer.send('bubble:clickable', on),

@@ -103,7 +103,11 @@ async function askOrShow(b: AangBrowser, what: string): Promise<boolean | null> 
   return yes;
 }
 
-export function startClaudeDoor(getBrowser: () => AangBrowser | null, stateDir: string, port = CLAUDE_DOOR_PORT): http.Server {
+/** Sheet 41: a plan that started, for the scroll-back. `remembered`: he allowed it, so the same plan will not ask again. */
+export interface PlanStarted { job: number; task: string; sites: string[]; steps: string[]; remembered: boolean }
+
+export function startClaudeDoor(getBrowser: () => AangBrowser | null, stateDir: string, port = CLAUDE_DOOR_PORT,
+  hooks: { plans?: PlanMemory; onPlan?: (p: PlanStarted) => void } = {}): http.Server {
   const key = randomBytes(32).toString('base64url');
   const file = path.join(stateDir, 'claude-door.json');
   try { writeFileAtomic(file, JSON.stringify({ port, key })); try { chmodSync(file, 0o600); } catch { /* Windows: his profile folder is his */ } }
@@ -111,7 +115,7 @@ export function startClaudeDoor(getBrowser: () => AangBrowser | null, stateDir: 
   // Only the jobs this door started, and only their pages: a Claude session never touches Aang's own tabs.
   const mine = new Set<number>();
   // Sheet 37: plans he allowed, and plans just shown in Claude's own form, waiting for his answer from it.
-  const plans = new PlanMemory(stateDir), shownInClaude = new Map<string, number>();
+  const plans = hooks.plans ?? new PlanMemory(stateDir), shownInClaude = new Map<string, number>();
   const srv = http.createServer((req, res) => {
     const peer = String(req.socket.remoteAddress ?? '');
     if (!doorAllows({ method: req.method, url: req.url, headers: req.headers, peer }, key, port)) { res.writeHead(403).end(); return; }
@@ -133,7 +137,11 @@ export function startClaudeDoor(getBrowser: () => AangBrowser | null, stateDir: 
               const d = a.decided && typeof a.decided === 'object' ? a.decided as Record<string, unknown> : null;
               out = await runPlan(b, plans, p, { elicit: a.elicit === true, pending: shownInClaude,
                 decided: d ? { keep: Array.isArray(d.keep) ? d.keep.map(String) : [], note: String(d.note ?? ''), go: d.go === true } : null });
-              if (out.ok === true && Number.isInteger(out.job)) mine.add(out.job as number);
+              if (out.ok === true && Number.isInteger(out.job)) {
+                mine.add(out.job as number);
+                try { hooks.onPlan?.({ job: out.job as number, task: p.task, sites: Array.isArray(out.sites) ? (out.sites as unknown[]).map(String) : p.sites, steps: p.steps, remembered: plans.known(p) }); }
+                catch { /* the history is a record, never a reason to fail the plan */ }
+              }
             }
           }
           else if (op === 'companies') out = await checkCompanies(stateDir, Array.isArray(a.only) ? (a.only as unknown[]).map(String) : []);

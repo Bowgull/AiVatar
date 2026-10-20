@@ -467,6 +467,8 @@ export class AangBrowser {
   onPlanAsk: ((card: PlanCard) => Promise<PlanAnswer | null>) | null = null;
   /** The live checklist: a planned session moved on to another step, or finished. */
   onPlanStep: ((card: string, at: number | null) => void) | null = null;
+  /** Sheet 41: a Claude job's plan finished, card or not, so its row in the scroll-back can say done. */
+  onPlanDone: ((jobId: number) => void) | null = null;
   private planSeq = 0;
   private planWait = new Map<string, (a: PlanAnswer | null) => void>();
   /** Which card each planned job showed, for its live checklist. */
@@ -3381,7 +3383,7 @@ export class AangBrowser {
     const card = this.planOfJob.get(jobId);
     // Done (his rule, 2026-10-20: "if you're done driving something close it and close the session title header"): his
     // tabs go back to him, the session's own pages close, and its group goes.
-    if (at === null) { if (card) this.onPlanStep?.(card, null); this.driver.endJob(jobId); this.sendTabs(); return { ok: true }; }
+    if (at === null) { if (card) this.onPlanStep?.(card, null); try { this.onPlanDone?.(jobId); } catch { /* a record only */ } this.driver.endJob(jobId); this.sendTabs(); return { ok: true }; }
     j.step = Math.max(0, Math.min(j.steps.length - 1, Math.round(at)));
     if (card) this.onPlanStep?.(card, j.step);
     this.sendTabs();

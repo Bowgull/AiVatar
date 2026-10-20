@@ -16,6 +16,19 @@ import { EMBED_DIM, embed, fromBlob, similarity, toBlob } from './embed.ts';
 
 export interface Hit { ts: string; who: 'you' | 'Aang'; text: string; how?: 'words' | 'meaning' }
 
+/**
+ * One row of the conversation as the scroll-back draws it. `kind` and `extra` are there only for rows that
+ * were more than words when he first saw them (see schema.ts): a brief, a video with its picture, a research
+ * card, a permission he gave. Absent for ordinary chat, and for any row whose stored JSON will not parse.
+ */
+export interface Turn { id: number; who: 'you' | 'Aang'; text: string; kind?: string; extra?: Record<string, unknown> }
+export interface HistoryTurn extends Turn { ts: string }
+
+/** Biggest a stored `extra` may be. A whole page of history is twelve of these, sent over the socket at once. */
+export const EXTRA_MAX = 200_000;
+/** Biggest single picture kept. A video thumbnail is ~20 KB; anything far larger is not a thumbnail. */
+export const PICTURE_MAX = 120_000;
+
 export interface Fact {
   id: number;
   text: string;
@@ -481,19 +494,19 @@ export class Memory {
    * `before` pages backwards: scrolling back through the bubble asks for the next older chunk each time it
    * reaches the top, so there is no cap on how far back he can go - only on how much is drawn at once.
    */
-  history(query = '', limit = 200, before = 0): { id: number; ts: string; who: 'you' | 'Aang'; text: string }[] {
+  history(query = '', limit = 200, before = 0): HistoryTurn[] {
     if (!this.db) return [];
     const terms = query.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter(w => w.length > 1).slice(0, 8);
     try {
       const rows = (terms.length
         ? this.db.prepare(
-            `SELECT t.id AS id, t.ts AS ts, t.role AS role, t.text AS text
+            `SELECT t.id AS id, t.ts AS ts, t.role AS role, t.text AS text, t.kind AS kind, t.extra AS extra
                FROM turns_fts f JOIN turns t ON t.id = f.turn_id
               WHERE turns_fts MATCH ? AND ${visible('t')} AND (? = 0 OR t.id < ?)
               ORDER BY t.id DESC LIMIT ?`).all(terms.map(t => `"${t}"*`).join(' AND '), before, before, limit)
         : this.db.prepare(
-            `SELECT id, ts, role, text FROM turns WHERE ${visible()} AND (? = 0 OR id < ?) ORDER BY id DESC LIMIT ?`).all(before, before, limit)) as { id: number; ts: string; role: string; text: string }[];
-      return rows.map(r => ({ id: Number(r.id), ts: String(r.ts), who: r.role === 'user' ? 'you' as const : 'Aang' as const, text: String(r.text) }));
+            `SELECT id, ts, role, text, kind, extra FROM turns WHERE ${visible()} AND (? = 0 OR id < ?) ORDER BY id DESC LIMIT ?`).all(before, before, limit)) as TurnRow[];
+      return rows.map(r => ({ ...toTurn(r), ts: String(r.ts) }));
     } catch (e) {
       console.error('memory history failed:', (e as Error).message);
       return [];
@@ -561,16 +574,15 @@ export class Memory {
 
   /** The text of specific turns, oldest first, for a reply or a pinned piece of context. Hidden rows are
    *  left out: forgetting one has to mean he cannot be handed it either. */
-  turnsById(ids: number[]): { id: number; who: 'you' | 'Aang'; text: string }[] {
+  turnsById(ids: number[]): Turn[] {
     if (!this.db || ids.length === 0) return [];
     const wanted = ids.filter(n => Number.isInteger(n) && n > 0).slice(0, 20);
     if (wanted.length === 0) return [];
     try {
       const rows = this.db.prepare(
-        `SELECT id, role, text FROM turns WHERE id IN (${wanted.map(() => '?').join(',')})
-           AND COALESCE(hidden, 0) = 0 ORDER BY id`).all(...wanted) as
-        { id: number; role: string; text: string }[];
-      return rows.map(r => ({ id: Number(r.id), who: r.role === 'user' ? 'you' as const : 'Aang' as const, text: String(r.text) }));
+        `SELECT id, role, text, kind, extra FROM turns WHERE id IN (${wanted.map(() => '?').join(',')})
+           AND COALESCE(hidden, 0) = 0 ORDER BY id`).all(...wanted) as TurnRow[];
+      return rows.map(toTurn);
     } catch (e) {
       console.error('memory turnsById failed:', (e as Error).message);
       return [];
@@ -719,18 +731,50 @@ export class Memory {
    *
    * `tier` is recorded as `proactive` so it is never mistaken for an answer he reasoned his way to.
    */
-  saveSaid(text: string): number | null {
+  saveSaid(text: string, kind = 'say', extra?: object): number | null {
+    return this.saveShown(kind, text, extra);
+  }
+
+  /**
+   * Store one thing he was shown, with what made it more than words (the scroll-back, 2026-10-20).
+   *
+   * The same row as saveSaid writes - searchable by its words, embedded for meaning - plus `kind` and the rich
+   * part as JSON, so scrolling back shows the brief card or the video with its picture, not a bare sentence.
+   * `extra` is trimmed on the way in (see packExtra): a page of history is sent whole over the socket.
+   */
+  saveShown(kind: string, text: string, extra?: object): number | null {
     if (!this.db || !text.trim()) return null;
     try {
       const now = new Date().toISOString().replace('T', ' ').slice(0, 19);
-      const info = this.db.prepare('INSERT INTO turns (ts, role, tier, text) VALUES (?,?,?,?)')
-        .run(now, 'aang', 'proactive', text);
+      const info = this.db.prepare('INSERT INTO turns (ts, role, tier, text, kind, extra) VALUES (?,?,?,?,?,?)')
+        .run(now, 'aang', 'proactive', text, kind || null, packExtra(extra));
       const id = Number(info.lastInsertRowid);
       this.db.prepare('INSERT INTO turns_fts (text, turn_id) VALUES (?,?)').run(text, id);
       void this.embedTurn(id, text);
       return id;
     } catch (e) {
-      console.error('memory saveSaid failed:', (e as Error).message);
+      console.error('memory saveShown failed:', (e as Error).message);
+      return null;
+    }
+  }
+
+  /** Replace one turn's rich part, e.g. a "You said yes" row once it has been undone. True if a row changed. */
+  setExtra(id: number, extra: object): boolean {
+    if (!this.db || !Number.isInteger(id) || id <= 0) return false;
+    try { return this.db.prepare('UPDATE turns SET extra = ? WHERE id = ?').run(packExtra(extra), id).changes > 0; }
+    catch (e) { console.error('memory setExtra failed:', (e as Error).message); return false; }
+  }
+
+  /** What kind of row a turn is and its rich part, or null when there is no such row. Hidden rows count:
+   *  undoing a permission he gave should still work on a row he has tidied away. */
+  turnExtra(id: number): { kind: string | null; extra: any | null } | null {
+    if (!this.db || !Number.isInteger(id) || id <= 0) return null;
+    try {
+      const r = this.db.prepare('SELECT kind, extra FROM turns WHERE id = ?').get(id) as { kind: unknown; extra: unknown } | undefined;
+      if (!r) return null;
+      return { kind: r.kind == null ? null : String(r.kind), extra: parseExtra(r.extra) ?? null };
+    } catch (e) {
+      console.error('memory turnExtra failed:', (e as Error).message);
       return null;
     }
   }
@@ -806,6 +850,62 @@ export class Memory {
  *
  * `a` is the table's alias in the query ("t" in the joins, "" for a bare FROM turns).
  */
+type TurnRow = { id: number; ts?: string; role: string; text: string; kind?: unknown; extra?: unknown };
+
+/** A stored row as the Body and the model see it. kind/extra only when there is something to say. */
+function toTurn(r: TurnRow): Turn {
+  const out: Turn = { id: Number(r.id), who: r.role === 'user' ? 'you' : 'Aang', text: String(r.text) };
+  if (r.kind != null && r.kind !== '') out.kind = String(r.kind);
+  const extra = parseExtra(r.extra);
+  if (extra) out.extra = extra;
+  return out;
+}
+
+/** A stored `extra` back into an object. Anything that is not a JSON object is treated as absent, not an error:
+ *  one bad row must not take the whole page of history down with it. */
+function parseExtra(raw: unknown): Record<string, unknown> | undefined {
+  if (typeof raw !== 'string' || !raw) return undefined;
+  try {
+    const v = JSON.parse(raw);
+    return v && typeof v === 'object' && !Array.isArray(v) ? v : undefined;
+  } catch { return undefined; }
+}
+
+/**
+ * The rich part, made safe to store. Never throws; returns null when there is nothing worth keeping.
+ *
+ * Two limits, both because twelve rows go over the socket in one history page:
+ *  - any one string over PICTURE_MAX goes. In practice that is a picture (a data: URL or bare base64); a
+ *    thumbnail is ~20 KB, so something six times that is not one, and the words around it still make sense.
+ *  - the whole thing over EXTRA_MAX loses its biggest top-level fields until it fits, rather than being cut
+ *    mid-JSON, which would make it unreadable.
+ */
+export function packExtra(extra: unknown): string | null {
+  if (!extra || typeof extra !== 'object') return null;
+  try {
+    const trim = (v: unknown, depth: number): unknown => {
+      if (typeof v === 'string') return v.length > PICTURE_MAX ? undefined : v;
+      if (!v || typeof v !== 'object') return v;
+      if (depth > 8) return undefined;
+      if (Array.isArray(v)) return v.map(x => trim(x, depth + 1)).filter(x => x !== undefined);
+      const o: Record<string, unknown> = {};
+      for (const [k, x] of Object.entries(v)) { const t = trim(x, depth + 1); if (t !== undefined) o[k] = t; }
+      return o;
+    };
+    const o = trim(extra, 0) as Record<string, unknown>;
+    let json = JSON.stringify(o);
+    while (json.length > EXTRA_MAX) {
+      const keys = Object.keys(o);
+      if (!keys.length) return null;
+      const size = (k: string) => (JSON.stringify(o[k]) ?? '').length;
+      const biggest = keys.reduce((a, b) => size(a) >= size(b) ? a : b);
+      delete o[biggest];
+      json = JSON.stringify(o);
+    }
+    return json === '{}' ? null : json;
+  } catch { return null; }
+}
+
 function visible(a = ''): string {
   const c = a ? `${a}.` : '';
   return `NOT (${c}role = 'aang' AND COALESCE(${c}tier, '') LIKE 'local%') AND COALESCE(${c}hidden, 0) = 0`;

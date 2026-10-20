@@ -11,6 +11,7 @@ import { find as findEntities } from './entities.js';
 import { Scrollback, atTop } from './scrollback.js';
 import { buildPaper, openMenu, previewLines, tickCount, paintNote } from './notepaper.js';
 import { pixIcon, SKIES } from './pixicons.js';
+import { paintLookback, linkifyWords, videoShot, linkEl } from './lookback.js';
 
 const el = id => document.getElementById(id);
 const bubble = el('bubble'), said = el('said'), scroller = el('scroller'), more = el('more');
@@ -238,7 +239,8 @@ function paintChips() {
     row.className = 'chips';
     scroller.after(row);
   }
-  const list = reveal.done ? findEntities(reveal.whole) : [];
+  // Links are in the words themselves now (sheet 41), so only files get a chip.
+  const list = reveal.done ? findEntities(reveal.whole).filter((c) => c.kind !== 'link') : [];
   row.replaceChildren();
   row.hidden = list.length === 0;
   for (const c of list) {
@@ -293,6 +295,8 @@ function paintWords() {
   }
   const n = shownWords(reveal.text);
   words.forEach((s, i) => { if (i < n || reveal.done) s.classList.remove('o'); });
+  // Sheet 41: any web address in his words is a link once the words are all in, and it opens in Samara.
+  if (reveal.done) linkifyWords(said);
 }
 
 /**
@@ -1181,6 +1185,7 @@ let lastShown = null;
  * clicking any message does. False when there was nothing, so the click opens the chat box instead.
  */
 function recall() {
+  if (reading) leaveReading(false);
   if (waiting.length) { showTopAsk(); return true; }
   if (livePlan) { bubble.hidden = false; paintPlan(livePlan, livePlan.at ?? 0); fit(); reportSize(); return true; }
   if (lastShown) { const m = { ...lastShown, stream: false, recalled: true }; delete m.proactive; laidOut = null; onBrain(m); return true; }
@@ -1254,6 +1259,10 @@ function onBrain(m) {
   }
 
   if (m.t === 'bubble' && typeof m.text === 'string') {
+    // Something new to say ends looking back: the scroll-back steps aside for it.
+    if (reading && !m.stream) leaveReading(false);
+    // Sheet 41: the one-line door. A message about a video (or a page) opens into it on a click.
+    if (!m.stream) { curAbout = m.about && typeof m.about.url === 'string' && /^https?:\/\//.test(m.about.url) ? m.about : null; paintAbout(false); }
     // A reply arriving while a question is open: the question steps aside, still waiting, and comes back
     // when the reply has been read. Before, its keys stayed live under the reply's words.
     if (asking && !m.stream) { asking = null; asks.hidden = true; asks.replaceChildren(); askParked = true; }
@@ -1366,17 +1375,16 @@ function onBrain(m) {
   // A page of older turns. Keeping his place is the point: if the list grew above him and the view
   // stayed where it was, he would be thrown back to where he started every time.
   if (m.t === 'history.reply' && Array.isArray(m.items)) {
-    const wasHeight = scroller.scrollHeight, wasTop = scroller.scrollTop;
-    const added = back.older(m.items);
-    if (added) {
-      paintBack();
-      scroller.scrollTop = wasTop + (scroller.scrollHeight - wasHeight);
-    } else if (!back.turns.length) {
-      // Asked for, answered with nothing, and nothing held: the empty line is the answer, not silence.
-      reading = true;
-      paintBack();
-    }
-    reportSize();
+    // A page of older turns: they go in above, and he stays where he was reading (paintBack keeps his place).
+    back.older(m.items);
+    if (reading) { paintBack('bottom'); fit(); reportSize(); }
+    return;
+  }
+  // Undo / Take it back on a row (sheet 41): the brain answers with the row as it is now, and what happened.
+  if (m.t === 'turn.updated' && Number.isFinite(m.id)) {
+    const t = back.turns.find((x) => x.id === m.id);
+    if (t) { if (m.extra && typeof m.extra === 'object') t.extra = m.extra; if (typeof m.kind === 'string') t.kind = m.kind; t.said = typeof m.said === 'string' ? m.said : ''; }
+    if (reading) { paintBack('top'); fit(); reportSize(); }
     return;
   }
 
@@ -1414,6 +1422,7 @@ function onBrain(m) {
     reveal.clear();
     back.clear();
     reading = false;
+    lbOpen = null; lbReplying = null;
     paintBack();
     expanded = false;
     bubble.hidden = true;
@@ -1448,7 +1457,7 @@ bubble.addEventListener('contextmenu', e => {
   // His report (2026-10-13): right-click did nothing in his scroll-back. Any message now, the one showing or one from
   // his history (each row knows its own turn), and whatever he has highlighted.
   const sel = String(window.getSelection?.() ?? '').trim();
-  const row = e.target?.closest?.('p.turn[data-id]');
+  const row = e.target?.closest?.('#back [data-id]');
   const past = row ? back.turns.find((t) => String(t.id) === row.dataset.id) : null;
   const text = past ? past.text : (reveal.whole || '');
   const id = past ? past.id : turn;
@@ -1562,7 +1571,12 @@ window.addEventListener('blur', releaseMouse);
 // arriving it shows the rest, and only once there is nothing left to reveal does it expand. Doing both
 // would expand a bubble he was only trying to finish reading. reveal.skip() returns which happened.
 bubble.addEventListener('click', e => {
-  if (e.target.closest('.tool, .key, .more, .opt, .chg')) return;     // those have their own jobs
+  // A link in his words: Samara opens it (sheet 41). Checked first: it is a link wherever it sits.
+  const lnk = e.target.closest('.lnk');
+  if (lnk && lnk.dataset.url) { e.stopPropagation(); window.aang?.openThing?.({ kind: 'link', value: lnk.dataset.url }); return; }
+  // Looking back has its own clicks (rows open, Reply, Undo): none of them open the cockpit.
+  if (reading) return;
+  if (e.target.closest('.tool, .key, .more, .opt, .chg, .vshot')) return;     // those have their own jobs
   // Sheet 17: the notes board, a note being edited, its menu and the timer dial are things he works IN.
   // A click there was docking the typing box over them and taking the keyboard away (his test, 2026-10-12).
   if (e.target.closest('.boardwrap, .nmini, .bignote, .inline, .ctitle, .tset, .newk, .bcap')) return;
@@ -1578,6 +1592,9 @@ bubble.addEventListener('click', e => {
   // A click NEVER stops him (his rule, 2026-10-12: a click on the bubble while he worked killed a finished answer).
   // Stopping is Esc in the typing box, or the Stop key; a click while he works does nothing.
   if (!working.hidden) return;
+  // The one-line door (sheet 41): the first click on a message about a video opens the video; the next one is the
+  // cockpit, as for any message.
+  if (curAbout && !aboutShown) { paintAbout(true); return; }
   openCockpit();
 });
 
@@ -1935,58 +1952,95 @@ window.aang?.onDismiss?.(() => dismiss());
 window.aang?.onBubbleCopy?.(() => { if (reveal.done && reveal.whole) window.aang?.copyText?.(reveal.whole); });
 window.addEventListener('aang:say', (e) => onSay(e.detail));
 
-/** Draw the scroll-back: his turns and Aang's, oldest first, above whatever is being said now. */
-function paintBack() {
+// ---------------------------------------------------------------- looking back (sheet 41)
+// Scroll up on any message, even a one-line one, or press Page Up in the typing box, and the bubble becomes the
+// Lantern's scroll-back: everything Aang showed him, newest at the bottom, as far back as he wants to go. Each rich
+// row opens as it first looked; Reply on any row; Undo on a yes he gave. lookback.js draws it.
+let lbOpen = null, lbReplying = null, lbOwnsLantern = false;
+const lbCtx = () => ({
+  open: lbOpen, replying: lbReplying,
+  older: back.reachedTheStart ? 'start' : back.waiting ? 'loading' : 'more',
+  setOpen: (id) => { lbOpen = id; paintBack('top'); fit(); reportSize(); },
+  onLink: (url) => window.aang?.openThing?.({ kind: 'link', value: url }),
+  onReply: (t) => { lbReplying = t.id; window.aang?.replyToTurn?.(t.id, t.text); paintBack('top'); },
+  onUndo: (t) => window.aang?.undoTurn?.(t.id),
+  onForgetPlan: (t) => window.aang?.forgetPlan?.({ id: t.id, task: String(t.extra?.plan?.title ?? ''), extra: t.extra }),
+  // Open the whole thing, as it first looked: the brief or the research comes back into the bubble.
+  onFull: (t) => {
+    const x = t.extra ?? {};
+    leaveReading(false);
+    laidOut = null;
+    onBrain({ t: 'bubble', text: t.text, stream: false, recalled: true, turn: t.id,
+      ...(x.brief ? { brief: x.brief } : {}), ...(x.research ? { research: x.research } : {}), ...(x.face ? { face: x.face } : {}), ...(x.about ? { about: x.about } : {}) });
+  },
+});
+
+/** Draw the scroll-back. `keep`: 'bottom' holds his place when older rows arrive above; 'top' when a row opens. */
+function paintBack(keep = 'bottom') {
   let box = document.getElementById('back');
   if (!box) {
     box = document.createElement('div');
     box.id = 'back';
-    box.className = 'back';
+    box.className = 'back lookback';
     scroller.before(box);
   }
   box.hidden = !reading;
-  if (!reading) return;
-  // Older turns arrive at the top: keep what he is looking at where it was.
-  const fromBottom = box.scrollHeight - box.scrollTop;
-  box.replaceChildren();
-  // 6.14b: an empty list says what will appear there and how, instead of an empty box (sheet 5 section 9).
-  // Only when he has actually reached the top with nothing above, never over a history that has turns.
-  if (!back.turns.length) {
-    const e = document.createElement('p');
-    e.className = 'empty-line';
-    e.textContent = 'No history yet. Everything we say to each other will be here to scroll back through.';
-    box.append(e);
-    return;
-  }
-  for (const t of back.turns) {
-    const p = document.createElement('p');
-    p.className = 'turn ' + (t.who === 'you' ? 'mine' : 'his');
-    p.dataset.id = String(t.id);              // so a right-click knows which message it is
-    p.textContent = t.text;
-    box.append(p);
-  }
-  box.scrollTop = Math.max(0, box.scrollHeight - fromBottom);
-  if (!box.dataset.wired) {
-    box.dataset.wired = '1';
-    // At the top of the history: the next page, for as far back as he wants to go.
-    box.addEventListener('scroll', () => { if (box.scrollTop < 8) { const ask = back.wants(true); if (ask) window.aang?.olderTurns?.(ask); } }, { passive: true });
-  }
+  if (!reading) { box.replaceChildren(); return; }
+  const was = document.getElementById('lblist');
+  const fromBottom = was ? was.scrollHeight - was.scrollTop : 0, top = was ? was.scrollTop : 0;
+  const list = paintLookback(box, back.turns, lbCtx());
+  if (!was) list.scrollTop = list.scrollHeight;                     // first look: newest, where he left off
+  else list.scrollTop = keep === 'top' ? top : Math.max(0, list.scrollHeight - fromBottom);
+  // At the top of the history: the next page, for as far back as he wants to go.
+  list.addEventListener('scroll', () => { if (list.scrollTop < 8) askOlder(); }, { passive: true });
 }
 
-/**
- * He is at the top: pull more of his own history.
- *
- * The whole point is that it has no bottom. Every time he reaches the top it asks again, so he can keep
- * going back for days or weeks until the database runs out. `wants` holds all the guards.
- */
-function pullOlder() {
-  const ask = back.wants(atTop(scroller.scrollTop));
+function askOlder() {
+  const ask = back.wants(true);
   if (!ask) return;
-  reading = true;
-  scroller.classList.add('scrolls');
   window.aang?.olderTurns?.(ask);
+  const o = document.querySelector('#lblist .lb-older'); if (o) o.classList.add('loading');
 }
-scroller.addEventListener('scroll', pullOlder, { passive: true });
+
+/** Into the scroll-back. Always from the newest: anything said since the last look is in it. */
+function enterReading() {
+  if (reading || asking) return;
+  reading = true;
+  lbOpen = null; lbReplying = null;
+  clearTimeout(hideTimer);
+  closeBoard();
+  back.clear();
+  askOlder();
+  for (const id of ['chips', 'rlist', 'aboutbox', 'means', 'exact', 'mailcard']) { const e = document.getElementById(id); if (e) e.hidden = true; }
+  scroller.hidden = true; who.hidden = true; working.hidden = true; tools.hidden = true; more.hidden = true;
+  speaker.hidden = true; mediaRow.hidden = true; card.hidden = true;
+  if (!bubble.classList.contains('lantern')) { bubble.classList.add('lantern'); lbOwnsLantern = true; }
+  bubble.classList.remove('whisper');
+  bubble.classList.add('wide', 'widest');
+  show();
+  paintBack('bottom');
+  fit(); reportSize(); scheduleHide();
+}
+
+/** Out of the scroll-back. `restore`: show the last thing he was shown again. */
+function leaveReading(restore = true) {
+  if (!reading) return;
+  reading = false;
+  lbOpen = null; lbReplying = null;
+  paintBack();
+  if (lbOwnsLantern) { bubble.classList.remove('lantern'); lbOwnsLantern = false; }
+  scroller.hidden = false;
+  if (restore && lastShown) { laidOut = null; onBrain({ ...lastShown, stream: false, recalled: true }); }
+}
+
+// A mouse wheel up over the bubble opens the scroll-back, from any message, short or long. A long reply scrolls its
+// own words first; only at the top of them does looking back begin.
+bubble.addEventListener('wheel', (e) => {
+  if (reading || e.deltaY >= 0 || bubble.hidden) return;
+  if (e.target.closest('.boardwrap, .nmini, .bignote, .tset, .research, .opts, .asks')) return;
+  if (!scroller.hidden && scroller.scrollTop > 4) return;
+  enterReading();
+}, { passive: true });
 
 /**
  * PageUp / PageDown, pressed in the typing box.
@@ -1994,17 +2048,36 @@ scroller.addEventListener('scroll', pullOlder, { passive: true });
  * The C#'s rule, one line, ported as it stands (PetWindow:355):
  *   `if (d > 0 && bubble.More) ExpandBubble(); else if (bubble.Scroll(d * 6)) ...; FillStackFromMemory();`
  * So PageDown on a collapsed reply OPENS it rather than scrolling past it, which is the first thing he
- * would want; otherwise both directions move six lines, and reaching the top pulls older history in.
+ * would want; otherwise both directions move six lines, and reaching the top opens the scroll-back.
  */
 window.aang?.onPage?.((d) => {
-  if (bubble.hidden) return;
-  if (d > 0 && !more.hidden && !expanded) { expanded = true; fit(); return; }
-  const hist = document.getElementById('back');
-  if (reading && hist && !hist.hidden) { hist.scrollTop += d * 6 * lineHeight; if (hist.scrollTop < 8) { const ask = back.wants(true); if (ask) window.aang?.olderTurns?.(ask); } return; }
+  if (bubble.hidden && d > 0) return;
+  if (d > 0 && !more.hidden && !expanded && !reading) { expanded = true; fit(); return; }
+  const list = document.getElementById('lblist');
+  if (reading && list) { list.scrollTop += d * 6 * lineHeight; if (list.scrollTop < 8) askOlder(); return; }
+  if (d < 0 && (bubble.hidden || scroller.scrollTop <= 4)) { enterReading(); return; }
   scroller.classList.add('scrolls');
   scroller.scrollTop += d * 6 * lineHeight;
-  pullOlder();
 });
+
+// ---------------------------------------------------------------- the one-line door (sheet 41)
+// "HisWattson posted a video" arrives as one line with the channel's face. A click opens the video under it: its
+// picture and one big play key. A click on that opens it in Samara.
+let curAbout = null, aboutShown = false;
+function paintAbout(open) {
+  let box = document.getElementById('aboutbox');
+  if (!box) { box = document.createElement('div'); box.id = 'aboutbox'; box.className = 'aboutbox'; scroller.after(box); }
+  aboutShown = !!(open && curAbout);
+  box.replaceChildren();
+  box.hidden = !aboutShown;
+  if (!aboutShown) return;
+  const video = /^https:\/\/(?:www\.|m\.)?(?:youtube\.com\/watch|youtu\.be\/|twitch\.tv\/)/i.test(curAbout.url);
+  box.append(video ? videoShot(curAbout, (url) => window.aang?.openThing?.({ kind: 'link', value: url })) : linkEl(curAbout.url, curAbout.title || undefined));
+  if (video) bubble.classList.add('wide', 'widest');
+  clearTimeout(hideTimer);
+  hideTimer = setTimeout(goAway, 120000);
+  fit(); reportSize();
+}
 
 more.addEventListener('click', () => {
   expanded = !expanded;

@@ -2540,6 +2540,16 @@ restarts. Every window-2 tab already says what will appear when it is empty (6.1
 
 ### `[~]` 6.15 Window 2: the scroll back and the seven tabs  **PASS 1 BUILT 2026-10-11**
 
+**THE SCROLL-BACK KEEPS EVERYTHING, BUILT 2026-10-20 (sheet 41, his picks).** His rule: Aang speaks in one short line
+and that line is a door; click it and it opens into the rich thing it was. A wheel up on any bubble (or Page Up) turns
+it into the Lantern's scroll-back (`pages/lookback.js`): one parchment slip per part of a day, a pixel icon per row,
+his words plum on the right. Rows open as they first looked: a video with one big pixel-gold play key (opens in
+Samara), the brief and research ("Open the whole brief" brings the card back), Claude's plans with their ticks, and
+every yes he gave with what it actually did (Undo when the action left one, Take it back for an "always" or a
+remembered plan, CAN'T UNDO with the reason otherwise). Reply on any row. Links in his words open in Samara. The brain
+stores `turns.kind` + `turns.extra` (JSON) for every row; ops `turn.undo`, `shown.save`, `shown.update`. Undo entries
+live only until a restart (said plainly on the row). Tests: `test/electron/lookback-check.ts`, `Core/test/scrollback.test.ts`.
+
 **PASS 1, 2026-10-11. Checked in a browser tab with sample data, not on his desktop.** `pages/desk.*`,
 sheet 6's CSS lifted rule for rule. What I know (Forget on the row under the mouse), What I may do (Take
 this back, plus the always-asks tags), What I did (Claude jobs with coloured states, the log as a
