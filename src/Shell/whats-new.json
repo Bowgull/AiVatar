@@ -290,6 +290,11 @@
       "at": "2026-10-20T19:30:00-04:00",
       "text": "The pop-out has its own turquoise lantern icon.",
       "kind": "feature"
+    },
+    {
+      "at": "2026-10-20T20:00:00-04:00",
+      "text": "Samara's taskbar icon is bigger and clearer.",
+      "kind": "fix"
     }
   ]
 }

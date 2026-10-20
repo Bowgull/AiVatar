@@ -6,7 +6,7 @@
 #  2. The pop-out's own taskbar icon (sheet 42, his pick A): Samara's lit lantern with its light in the turquoise of the
 #     update glow, a palette swap colour for colour at every size, so no pixel moves and nothing is resampled.
 #
-# Run: python -I src/Shell/tools/samara-icons-leaf.py   (writes into src/Shell/pages/art/samara/)
+# Run: python src/Shell/tools/samara-icons-leaf.py   (writes into src/Shell/pages/art/samara/)
 import colorsys, io, os, struct
 from PIL import Image
 
@@ -17,8 +17,9 @@ KEY = {'L': (0xff, 0x80, 0x40), 'M': (0xc9, 0x5e, 0x28), 'D': (0x8a, 0x3a, 0x14)
 LEAF16 = ['..LM..', 'L.LM.M', 'LLLMMM', '.LLMM.', '..DD..']
 LEAF32 = ['....LM....', '...LLMM...', 'L..LLMM..M', 'LL.LLMM.MM', 'LLLLLMMMMM', '.LLLLMMMM.', '..LLLMMM..', '.LL.LM.MM.', '....DD....', '....DD....']
 # where the glass is (to paint out the old mark) and where the leaf goes, per size
-PLACE = {16: ((3, 4, 13, 11), LEAF16, 5, 5, 1), 24: ((7, 8, 17, 15), LEAF16, 9, 9, 1),
-         48: ((14, 16, 34, 30), LEAF16, 18, 18, 2), 32: ((7, 9, 25, 25), LEAF32, 11, 11, 1)}
+# 24 and 48 are not stamped: they are drawn whole for 24 (samara_draw24.py, his ask 2026-10-20: the taskbar at 100%
+# shows the 24, and the 16 floating in a 24 tile looked small beside Aang's face). 48 is that drawing at 2x.
+PLACE = {16: ((3, 4, 13, 11), LEAF16, 5, 5, 1), 32: ((7, 9, 25, 25), LEAF32, 11, 11, 1)}
 
 
 def clean(im, box):
@@ -71,6 +72,12 @@ def turquoise(p):
 
 
 SIZES = [16, 24, 32, 48, 64, 256]
+import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from samara_draw24 import LIT, UNLIT, render
+for k, pal in (('samara-lit', LIT), ('samara-unlit', UNLIT)):
+    render(pal).save(os.path.join(ART, f'{k}-24.png'))
+    render(pal, 2).save(os.path.join(ART, f'{k}-48.png'))
 for name in ('samara-lit', 'samara-unlit'):
     for n in PLACE:
         f = os.path.join(ART, f'{name}-{n}.png')
