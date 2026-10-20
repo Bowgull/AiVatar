@@ -103,6 +103,9 @@ contextBridge.exposeInMainWorld('aang', {
   forgetChoice: key => ipcRenderer.send('bubble:choiceforget', key),
   /** The docked box closed: 'sent' when he answered (the bubble stays), anything else lets it go. */
   onUndock(fn) { const h = (_e, why) => fn(why); ipcRenderer.on('bubble:undock', h); return () => ipcRenderer.removeListener('bubble:undock', h); },
+  /** He clicked Aang: show again whatever was last shown (2026-10-20). The page says whether it had anything. */
+  onRecall(fn) { const h = () => fn(); ipcRenderer.on('bubble:recall', h); return () => ipcRenderer.removeListener('bubble:recall', h); },
+  recalled: ok => ipcRenderer.send('bubble:recalled', ok === true),
   /** How big the drawn bubble actually is, measured by the page, so the window can fit it. */
   bubbleSize: s => ipcRenderer.send('bubble:size', s),
   /** His answer to an ask: yes, no, always, show, skip. Named, so a page cannot invent a new one. */

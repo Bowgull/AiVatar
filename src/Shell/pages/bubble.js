@@ -1173,8 +1173,24 @@ function dropReady(r) {
 }
 
 // ---------------------------------------------------------------- what the brain says
+/** The last thing shown here, whatever it was (a reply, the brief, a card, a whisper), for a click on Aang (2026-10-20). */
+let lastShown = null;
+/**
+ * He clicked Aang with nothing showing (his rule, 2026-10-20): what he last saw comes back. A question still waiting
+ * first; then a live plan, at its step now; then the last reply, brief or card. Clicking it opens the chat box, as
+ * clicking any message does. False when there was nothing, so the click opens the chat box instead.
+ */
+function recall() {
+  if (waiting.length) { showTopAsk(); return true; }
+  if (livePlan) { bubble.hidden = false; paintPlan(livePlan, livePlan.at ?? 0); fit(); reportSize(); return true; }
+  if (lastShown) { const m = { ...lastShown, stream: false, recalled: true }; delete m.proactive; laidOut = null; onBrain(m); return true; }
+  return false;
+}
+window.aang?.onRecall?.(() => { let ok = false; try { ok = recall(); } catch { ok = false; } window.aang?.recalled?.(ok); });
+
 function onBrain(m) {
   if (!m || typeof m !== 'object') return;
+  if (!m.recalled && (m.t === 'bubble' || m.t === 'whisper' || m.t === 'pet.say') && (m.text || m.brief || m.research || m.card)) lastShown = m;
 
   // What he just asked, for the line above the answer. Kept until the next thing he says.
   if (m.t === 'asked' && typeof m.text === 'string') { asked = m.text; return; }
