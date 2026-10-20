@@ -668,6 +668,10 @@ app.whenReady().then(async () => {
       startClaudeDoor(() => aangBrowser, STATE_DIR, undefined, { plans: claudePlans, onPlan: savePlanRow });
       aangBrowser.onPlanDone = (job) => planRowDone(job);
       aangBrowser.onOpenOther = (url) => link?.send({ t: 'open.onmac', url });
+      // The right-click menu (his picks, 2026-10-20): a link plays in the pop-out; highlighted words go to Aang's typing
+      // box as a chip, like his Highlight key. Send to Aang is only offered while Aang is running (the body watch below).
+      aangBrowser.onPlayInPopout = (url) => { openPopout(url); };
+      aangBrowser.setPopTab((id) => popTabRef?.popTab(id));
       // One engine (his yes, 2026-10-13): on castLabs' engine paid video plays right in the tab. Only on the stock
       // engine do paid services still go to the separate paid-video window.
       if (!onCastlabs()) aangBrowser.onPaid = (url) => openPopout(url);
@@ -1160,7 +1164,7 @@ app.whenReady().then(async () => {
   // ---- 6.19/6.20 the browser frame: the shared wiring (browseripc.ts), then what only the PC has.
   wireBrowser(() => aangBrowser);
   // The pop-out: the same wiring on the PC and the Mac (popoutipc.ts). "Send to" goes to the MacBook from here.
-  wirePopout({
+  popTabRef = wirePopout({
     popout: () => popout, browser: () => aangBrowser, open: (url) => openPopout(url), stopPaid: () => drm?.close(), paidSeparately: () => !onCastlabs(),
     sendToOther: (url) => link?.send({ t: 'watch.tomac', url }),
     openOnOther: (url) => link?.send({ t: 'open.onmac', url }),
@@ -1380,6 +1384,7 @@ setInterval(() => {
       for (const [kind, w] of windows) if (kind !== 'popout' && !w.isDestroyed() && w.isVisible()) w.hide();
     }
   }
+  if (aangBrowser) aangBrowser.onSendToAang = up ? sendToAang : null;
   if (!up && !samaraOpen() && Date.now() - shellStarted > 20_000) { console.log('shell: Aang is off and Samara is closed: nothing left to run'); app.quit(); }
 }, 3000).unref();
 
@@ -1474,7 +1479,16 @@ let cards: CardRenderer | null = null;
 /** The pet's last answer about its switches, so the browser's own switch can be shown beside them. */
 let lastSettings: Record<string, unknown> | null = null;
 const snips: { file: string; name: string }[] = [];
+/** The pop-out key's work, for Samara's right-click "Pop out this video". Set once the pop-out is wired. */
+let popTabRef: { popTab: (id: number) => void } | null = null;
 const highlights: { text: string; app: string }[] = [];
+/** Right-click "Send to Aang" in Samara: the words land on the typing box as a chip, the same as his Highlight key. */
+function sendToAang(text: string, from: string): void {
+  highlights.push({ text: text.slice(0, 4000), app: from.slice(0, 60) });
+  while (highlights.length > 3) highlights.shift();
+  if (!input?.visible) openTypeBox();
+  pushChips();
+}
 /** Tell the typing box what chips it carries; set once the box exists (see sendChips). */
 let pushChips: () => void = () => {};
 /** 6.17: the last file the brain accepted from a drop, and the dropped files waiting on the typing box. */

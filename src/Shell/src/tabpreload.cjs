@@ -13,6 +13,17 @@ const { contextBridge, ipcRenderer } = require('electron');
 try {
   require('electron').webFrame.setIsolatedWorldInfo(1002, { securityOrigin: location.origin === 'null' ? 'aang-dark://' : location.origin, csp: "style-src 'unsafe-inline' * data: blob:; img-src * data: blob:", name: 'Aang dark mode' });
 } catch { /* dark mode then follows the page's own rules */ }
+// ...and dark mode from the first moment (his report, 2026-10-20: Gmail and LinkedIn stayed white for a long while,
+// because it waited for the page to be built). Asked without waiting; the Shell answers only for the top frame of a page
+// he wants dark. The page cannot see or stop it: it runs in that same world of its own.
+try {
+  if (window === window.top) {
+    ipcRenderer.invoke('tab:dark').then((a) => {
+      if (!a || typeof a.src !== 'string') return;
+      require('electron').webFrame.executeJavaScriptInIsolatedWorld(1002, [{ code: `if(!globalThis.DarkReader){${a.src}\n};if(!DarkReader.isEnabled())DarkReader.enable(${a.theme});true` }]).catch(() => {});
+    }, () => {});
+  }
+} catch { /* the Shell paints it when the page is ready, as before */ }
 
 try {
   let said = false;

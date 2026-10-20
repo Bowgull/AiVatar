@@ -315,6 +315,21 @@
       "at": "2026-10-20T21:15:00-04:00",
       "text": "Closing the pop-out brings Samara back.",
       "kind": "feature"
+    },
+    {
+      "at": "2026-10-20T21:45:00-04:00",
+      "text": "Picking a spelling in the right-click menu works.",
+      "kind": "fix"
+    },
+    {
+      "at": "2026-10-20T21:45:00-04:00",
+      "text": "Dark mode comes on as pages open, Gmail too.",
+      "kind": "fix"
+    },
+    {
+      "at": "2026-10-20T21:45:00-04:00",
+      "text": "Right-click: save links, send words to Aang, pop out videos.",
+      "kind": "feature"
     }
   ]
 }
