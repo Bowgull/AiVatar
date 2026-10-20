@@ -295,7 +295,13 @@ export class Popout {
     this.win.on('resized', () => this.afterDrag());
     this.win.on('moved', () => this.afterDrag());
     // Closing the window by any route gives a lent tab back first, so the page is never lost with it.
-    this.win.on('close', () => this.returnTab());
+    this.win.on('close', () => {
+      // Alt+F4 or the taskbar's Close: the same as its own close key, Samara included.
+      const inFront = Boolean(this.win?.isFocused()), after = this.afterClose;
+      this.afterClose = null;
+      this.returnTab();
+      try { after?.(inFront); } catch { /* Samara stays where it is */ }
+    });
     this.win.on('closed', () => { this.win = null; });
     this.win.webContents.on('did-finish-load', () => {
       this.send();
@@ -483,7 +489,16 @@ export class Popout {
     return { open: true, visible: w.isVisible(), pinned: this.pinned, bounds: w.getBounds(), lent: Boolean(this.lent), page, shot, bar };
   }
 
+  /**
+   * Called once when the pop-out is put away, with whether it was the window in front at that moment. Set by whoever
+   * tucked Samara away for it (popoutipc.ts), so closing the pop-out can bring Samara back (his ask, 2026-10-20).
+   */
+  afterClose: ((wasInFront: boolean) => void) | null = null;
+
   close(): void {
+    const inFront = Boolean(this.window?.isVisible() && this.window.isFocused());
+    const after = this.afterClose;
+    this.afterClose = null;
     this.pinned = false;
     this.returnTab();
     this.pending && clearTimeout(this.pending);
@@ -496,6 +511,7 @@ export class Popout {
     try { w.setIgnoreMouseEvents(this.deps.settings().clickThrough); w.setAlwaysOnTop(false); } catch { /* gone */ }
     w.webContents.send('popout:pinned', false);
     w.webContents.send('popout:show', { url: '', source: 'none', label: '', live: false, title: 'Nothing playing' });
+    try { after?.(inFront); } catch { /* Samara stays where it is */ }
   }
 }
 

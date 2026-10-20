@@ -26,6 +26,23 @@ export interface PopoutWiring {
   playback?: (s: { playing: boolean; at: number; length: number; ended: boolean }) => void;
 }
 
+/**
+ * The pop-out comes forward and Samara tucks away (his ask, 2026-10-20), only when Samara was the window in front. Closing
+ * the pop-out brings it back, the other half: only the window it tucked away, only while that window is still tucked, and
+ * only when the pop-out was in front as it closed, so a pop-out put away from the bubble while he is in WoW never throws
+ * Samara over his game.
+ */
+export function tuckFor(p: Popout, front: BrowserWindow | null): void {
+  const pw = p.window;
+  if (!front || front.isDestroyed() || front === pw || front.isMinimized()) return;
+  setTimeout(() => { if (!front.isDestroyed()) front.minimize(); }, 150);
+  p.afterClose = (wasInFront) => {
+    if (!wasInFront || front.isDestroyed()) return;
+    if (front.isMinimized()) front.restore();
+    front.focus();
+  };
+}
+
 export function wirePopout(o: PopoutWiring): void {
   const from = (e: Electron.IpcMainEvent) => { const w = o.popout()?.window; return Boolean(w && e.sender === w.webContents && e.senderFrame?.parent === null); };
   ipcMain.on('popout:hide', (e) => { if (from(e)) o.popout()?.toggleHidden(); });
@@ -49,10 +66,7 @@ export function wirePopout(o: PopoutWiring): void {
   });
   // Which window was in front is read BEFORE the pop-out shows (it takes the focus); the click may come from the tab
   // list, which is a view inside the window, so the focused window is asked rather than the sender's.
-  const tuckAway = (front: BrowserWindow | null) => {
-    const pw = o.popout()?.window;
-    if (front && !front.isDestroyed() && front !== pw && !front.isMinimized()) setTimeout(() => { if (!front.isDestroyed()) front.minimize(); }, 150);
-  };
+  const tuckAway = (front: BrowserWindow | null) => { const p = o.popout(); if (p) tuckFor(p, front); };
   ipcMain.on('browser:popout', (e, id) => {
     const front = BrowserWindow.getFocusedWindow();
     const b = o.browser(), p = o.popout();
