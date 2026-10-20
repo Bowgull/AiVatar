@@ -20,10 +20,12 @@ import os from 'node:os';
 import path from 'node:path';
 import { parseFromBody } from './protocol.ts';
 import { reportWriteFailure, rotateIfBig, writeFileAtomic } from './atomic.ts';
-import { timingSafeEqual } from 'node:crypto';
+import { createHash, createPrivateKey, createPublicKey, generateKeyPairSync, randomBytes, sign as signBytes, timingSafeEqual } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
+import { releaseName } from './releasenames.ts';
 
-import { MAC_LISTENER_PORT, macBrowserBundle, macSetupScript, type DeskPayload, type MacRelease } from './macsetup.ts';
-import * as ship from './macship.ts';
+import { MAC_LISTENER_PORT, macBrowserBundle, macSetupScript, macSourceVersion, FRONT_DESK_PORT, type DeskPayload, type MacRelease } from './macsetup.ts';
+import { pathToFileURL } from 'node:url';
 import { Jobs, SWEEP_REQUEST, cleanField, safeUrl, scoreOf, verdictFor } from './jobs.ts';
 import type { Rubric } from './jobs.ts';
 import type { BriefCard, FromBody, Mode, StructuredList, ToBody } from './protocol.ts';
@@ -2217,9 +2219,24 @@ export class Core {
    */
   private updateKeyCache: { key: import('node:crypto').KeyObject; pub: string } | null = null;
   private updateKey(): { key: import('node:crypto').KeyObject; pub: string } {
-    return (this.updateKeyCache ??= ship.loadUpdateKey(this.cfg.stateDir, true));
+    if (this.updateKeyCache) return this.updateKeyCache;
+    const file = path.join(this.cfg.stateDir, 'mac-update-sign.pem');
+    let pem = '';
+    try { pem = readFileSync(file, 'utf8'); } catch { /* first time */ }
+    if (!pem) {
+      pem = generateKeyPairSync('ed25519').privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
+      mkdirSync(this.cfg.stateDir, { recursive: true }); writeFileAtomic(file, pem);
+    }
+    const key = createPrivateKey(pem);
+    return (this.updateKeyCache = { key, pub: createPublicKey(key).export({ type: 'spki', format: 'pem' }).toString() });
   }
-  private keyFile(name: string): string { return ship.readKey(this.cfg.dataDir, name, true); }
+  private keyFile(name: string): string {
+    const file = path.join(this.cfg.dataDir, name);
+    try { const k = readFileSync(file, 'utf8').trim(); if (k.length >= 20) return k; } catch { /* first run */ }
+    const k = randomBytes(18).toString('base64url');
+    try { mkdirSync(this.cfg.dataDir, { recursive: true }); writeFileAtomic(file, k); } catch (e) { console.error(`could not save ${name}: ` + (e as Error).message); }
+    return k;
+  }
 
   /**
    * The MacBook's Tailscale address, learned from its own hook posts (nothing to configure) - and KEPT, in
@@ -2311,7 +2328,40 @@ export class Core {
    * Mac instead of logging in itself: never two connections.
    */
   private frontDeskFor(root = this.repoRoot(), bundle: (shellDir: string) => Buffer = macBrowserBundle): DeskPayload | null {
-    return ship.frontDeskFor({ root, stateDir: this.cfg.stateDir, macAddr: this.macAddr, bundle, bsyncKey: () => this.keyFile('bsync.key'), pcHalf: true, log: console.log });
+    const tokenFile = path.join(this.cfg.stateDir, 'discord.token');
+    const mac = this.macAddr;
+    if (!mac || !existsSync(tokenFile)) return null;
+    try {
+      const token = readFileSync(tokenFile, 'utf8').trim();
+      if (!token) return null;
+      const keyFile = path.join(this.cfg.stateDir, 'frontdesk.key');
+      let key = '';
+      try { key = readFileSync(keyFile, 'utf8').trim(); } catch { /* first time */ }
+      if (key.length < 20) { key = randomBytes(24).toString('base64url'); writeFileAtomic(keyFile, key); }
+      const here = path.join(root, 'src', 'Core', 'src'), pkg = path.join(here, '..', 'frontdesk-pkg');
+      const files: Record<string, string | Buffer> = {
+        'frontdesk.ts': readFileSync(path.join(here, 'frontdesk.ts'), 'utf8'),
+        'discord-client.ts': readFileSync(path.join(here, 'discord-client.ts'), 'utf8'),
+        'discord-logic.ts': readFileSync(path.join(here, 'discord-logic.ts'), 'utf8'),
+        // M4: the Mac answering as Aang while this PC is off, and the small pieces it shares with this PC.
+        ...Object.fromEntries(['macbrain.ts', 'macpowers.ts', 'macjobs.ts', 'weather.ts', 'briefcard.ts', 'google.ts', 'mail.ts', 'emailfacts.ts', 'attachments.ts', 'emailcard.ts', 'booking.ts', 'filters.ts', 'travel.ts', 'addresses.ts', 'lists.ts', 'atomic.ts', 'route.ts'].map(f => [f, readFileSync(path.join(here, f), 'utf8')])),
+        'package.json': readFileSync(path.join(pkg, 'package.json'), 'utf8'),
+        'package-lock.json': readFileSync(path.join(pkg, 'package-lock.json'), 'utf8'),
+        // 9.D D4: the speakers' pictures, made once with their webhooks
+        'avatar-claude.png': readFileSync(path.join(here, '..', 'assets', 'speakers', 'claude.png')),
+        'avatar-jobhunt.png': readFileSync(path.join(here, '..', 'assets', 'speakers', 'jobhunt.png')),
+      };
+      // M6: Aang's browser for the Mac, packed from this PC's own Shell, and the key its sync uses.
+      let browser: DeskPayload['browser'];
+      try { browser = { bundle: bundle(path.join(here, '..', '..', 'Shell')), bsyncKey: this.keyFile('bsync.key'), castlabsSig: readFileSync(path.join(here, '..', '..', 'Shell', 'mac-pkg', 'castlabs-44.5.1-darwin-x64.sig')) }; }
+      catch (e) { console.error('mac-setup: the Mac browser could not be packed: ' + (e as Error).message); }
+      writeFileAtomic(path.join(this.cfg.stateDir, 'frontdesk.json'), JSON.stringify({ mac, port: FRONT_DESK_PORT }));
+      console.log(`mac-setup: the front desk goes to the MacBook (${mac}); Discord moves there at the next start`);
+      // M4b (his pick, 2026-10-13): his Gmail and Calendar on the Mac too, for while this PC is off.
+      let google = '';
+      try { google = readFileSync(path.join(this.cfg.stateDir, 'google.json'), 'utf8'); } catch { /* not signed in here */ }
+      return { token, key, port: FRONT_DESK_PORT, files, ...(browser ? { browser } : {}), ...(google ? { google } : {}) };
+    } catch (e) { console.error('mac-setup: front desk skipped: ' + (e as Error).message); return null; }
   }
 
   /** VACUUM INTO, verify, commit, push - see backup.ts. A quiet receipt in #log either way; a spoken word only
@@ -2734,24 +2784,37 @@ export class Core {
   private macHas: { version: string; commit: string } | null = null;
   private macOffer: string | null = null;
   private macReleaseCache: { at: number; r: MacRelease } | null = null;
+  private static readonly DESK_FILES = ['frontdesk.ts', 'discord-client.ts', 'discord-logic.ts', 'macbrain.ts', 'macpowers.ts', 'macjobs.ts', 'weather.ts', 'briefcard.ts', 'google.ts', 'mail.ts', 'emailfacts.ts', 'attachments.ts', 'emailcard.ts', 'booking.ts', 'filters.ts', 'travel.ts', 'addresses.ts', 'lists.ts', 'atomic.ts', 'route.ts'];
   private repoRoot(): string { return path.join(import.meta.dirname, '..', '..', '..'); }
-  private git(args: string[]): string { return ship.git(this.repoRoot(), args); }
-  /** The finished version, frozen: a copy of the code at the commit Claude marked shipped (see macship.ts). */
-  private releaseRoot(): string | null { return ship.releaseRoot(this.repoRoot(), this.cfg.dataDir, path.join(this.cfg.stateDir, 'mac-release')); }
+  private git(args: string[]): string { try { return execFileSync('git', args, { cwd: this.repoRoot(), encoding: 'utf8', timeout: 10_000, stdio: ['ignore', 'pipe', 'ignore'] }).trim(); } catch { return ''; } }
+  /**
+   * The finished version, frozen (2026-10-14: his update key vanished while Claude was mid-work). The Mac's updates
+   * are built only from a separate copy of the code at the commit Claude marked shipped (mac-ship), never from the
+   * files being worked on, so work in progress can neither change nor withdraw what the Mac is offered.
+   */
+  private releaseRoot(): string | null {
+    let ship = ''; try { ship = readFileSync(path.join(this.cfg.dataDir, 'mac-ship'), 'utf8').trim(); } catch { return null; }
+    if (!/^[0-9a-f]{7,40}$/.test(ship)) return null;
+    const dir = path.join(this.cfg.stateDir, 'mac-release');
+    if (!existsSync(path.join(dir, '.git'))) { this.git(['worktree', 'prune']); this.git(['worktree', 'add', '--detach', '--force', dir, ship]); }
+    else if (!this.git(['-C', dir, 'rev-parse', 'HEAD']).startsWith(ship)) this.git(['-C', dir, 'checkout', '--detach', '--force', ship]);
+    return this.git(['-C', dir, 'rev-parse', 'HEAD']).startsWith(ship) ? dir : null;
+  }
   private macRelease(): MacRelease {
     if (this.macReleaseCache && Date.now() - this.macReleaseCache.at < 60_000) return this.macReleaseCache.r;
     const root = this.releaseRoot();
-    const r = root ? ship.releaseOf(this.repoRoot(), root) : { version: '', commit: '' };
+    const r = root ? { version: macSourceVersion(path.join(root, 'src', 'Shell'), path.join(root, 'src', 'Core', 'src'), Core.DESK_FILES), commit: this.git(['-C', root, 'rev-parse', '--short=12', 'HEAD']) } : { version: '', commit: '' };
     this.macReleaseCache = { at: Date.now(), r };
     if (root && r.commit && this.frozen?.commit !== r.commit) {
-      ship.loadFrozen(root, r.commit)
-        .then(f => { this.frozen = f; })
+      const commit = r.commit;
+      import(pathToFileURL(path.join(root, 'src', 'Core', 'src', 'macsetup.ts')).href + '?c=' + commit)
+        .then((m: typeof import('./macsetup.ts')) => { this.frozen = { commit, root, setup: m.macSetupScript, bundle: m.macBrowserBundle }; })
         .catch((e: Error) => console.error('update key: could not load the finished version: ' + e.message));
     }
     return r;
   }
   /** The finished version's own setup code (loaded from the frozen copy, so it matches the files it sends). */
-  private frozen: ship.Frozen | null = null;
+  private frozen: { commit: string; root: string; setup: typeof macSetupScript; bundle: typeof macBrowserBundle } | null = null;
   /** When this PC first had this version (how long the key has been waiting). */
   private macSince(version: string): number {
     const f = path.join(this.cfg.stateDir, 'mac-release.json');
@@ -2763,17 +2826,44 @@ export class Core {
    *  character's name; a new feature bumps the middle number; a fix the last. Which it is comes from the plain-words
    *  lines this release adds (whats-new.json "kind": major, feature or fix). The first named release is 1.0.0 Gojo. */
   private macReleaseNo(version: string, commit: string): { label: string; name: string } {
-    const list = ship.readReleases(this.cfg.dataDir);
-    const { e, added } = ship.releaseNo(list, version, commit, () => this.whatsNew());
-    if (added) {
-      try { ship.saveReleases(this.cfg.dataDir, list); } catch { /* best effort */ }
+    const f = path.join(this.cfg.dataDir, 'mac-releases.json');
+    type Rel = { semver: string; name: string; version: string; commit: string; at: string };
+    let list: Rel[] = [];
+    try { const j = JSON.parse(readFileSync(f, 'utf8')); if (Array.isArray(j)) list = j.filter((x: Rel) => typeof x?.semver === 'string'); } catch { /* the first */ }
+    let e = list.find(x => x.version === version);
+    if (!e) {
+      const last = list[list.length - 1];
+      let semver = '1.0.0';
+      if (last) {
+        const [ma, mi, pa] = last.semver.split('.').map(Number) as [number, number, number];
+        const kinds = this.whatsNew().filter(x => Date.parse(x.at) > Date.parse(last.at)).map(x => x.kind);
+        semver = kinds.includes('major') ? `${ma + 1}.0.0` : kinds.includes('feature') ? `${ma}.${mi + 1}.0` : `${ma}.${mi}.${pa + 1}`;
+      }
+      e = { semver, name: releaseName(Number(semver.split('.')[0])), version, commit, at: new Date().toISOString() };
+      list.push(e);
+      try { writeFileAtomic(f, JSON.stringify(list, null, 1)); } catch { /* best effort */ }
       this.writeChangelog();
     }
     return { label: e.semver, name: e.name };
   }
   /** His ask (2026-10-14): one readable history of Samara, every version and what it brought, in his Aang folder
    *  (Aang reads it there) and copied to the Mac with every update. Written from mac-releases.json + whats-new.json. */
-  changelogText(): string { return ship.changelogText(ship.readReleases(this.cfg.dataDir), this.whatsNew()); }
+  changelogText(): string {
+    let list: { semver: string; name: string; at: string }[] = [];
+    try { list = (JSON.parse(readFileSync(path.join(this.cfg.dataDir, 'mac-releases.json'), 'utf8')) as any[]).filter(x => typeof x?.semver === 'string'); } catch { /* none yet */ }
+    const items = this.whatsNew();
+    const day = (iso: string) => new Date(iso).toLocaleDateString('en-CA', { timeZone: 'America/Toronto', year: 'numeric', month: 'long', day: 'numeric' });
+    const tag = (k: string) => (k === 'major' ? 'Big change' : k === 'feature' ? 'New' : 'Fix');
+    const out = ['# Samara Changelog', '', "Every version of Samara, Aang's browser, and what it brought. Newest first. Versions go MAJOR.MINOR.PATCH: a big change starts a new number and a new character's name, a new feature bumps the middle number, a fix the last.", ''];
+    const pending = list.length ? items.filter(i => Date.parse(i.at) > Date.parse(list[list.length - 1]!.at)) : items;
+    if (pending.length) out.push('## Coming next (not released yet)', '', ...pending.map(i => `- ${tag(i.kind)}: ${i.text}`), '');
+    for (let k = list.length - 1; k >= 0; k--) {
+      const r = list[k]!, from = k > 0 ? Date.parse(list[k - 1]!.at) : -Infinity;
+      const mine = items.filter(i => Date.parse(i.at) > from && Date.parse(i.at) <= Date.parse(r.at));
+      out.push(`## Version ${r.semver}: ${r.name}`, `*${day(r.at)}*`, '', ...(mine.length ? mine.map(i => `- ${tag(i.kind)}: ${i.text}`) : ['- Small fixes to keep things running smoothly.']), '');
+    }
+    return out.join('\n');
+  }
   /** Samara's engine update, once the PC's Samara has it fully ready (downloaded, switches set, re-signed, tested):
    *  its version and name, its lines in the changelog, one word from Aang, and the morning brief's row (sheet 35). */
   private engineNews: { version: string; label: string; name: string } | null = null;
@@ -2801,9 +2891,13 @@ export class Core {
   /** The brief's Update button: Samara on this PC restarts onto the ready engine. */
   private engineAsk(_socket?: WebSocket): void { if (this.engineNews) this.sendToShells({ t: 'engine.go' } as never); }
   private writeChangelog(): void {
-    try { ship.writeChangelogFile(this.cfg.dataDir, this.changelogText()); } catch (e) { console.error('changelog: ' + (e as Error).message); }
+    try { writeFileAtomic(path.join(this.cfg.dataDir, 'Samara Changelog.md'), this.changelogText()); } catch (e) { console.error('changelog: ' + (e as Error).message); }
   }
-  private whatsNew(): ship.NewsItem[] { return ship.whatsNew(this.releaseRoot() ?? this.repoRoot(), this.cfg.dataDir); }
+  private whatsNew(): { at: string; text: string; kind: string }[] {
+    const read = (f: string, list: (j: any) => any[]) => { try { return list(JSON.parse(readFileSync(f, 'utf8'))); } catch { return []; } };
+    const all = [...read(path.join(this.releaseRoot() ?? this.repoRoot(), 'src', 'Shell', 'whats-new.json'), j => j.items ?? []), ...read(path.join(this.cfg.dataDir, 'engine-notes.json'), j => (Array.isArray(j) ? j : []))];
+    return all.filter((x: any) => typeof x?.text === 'string').map((x: any) => ({ at: String(x.at), text: String(x.text), kind: ['major', 'feature', 'fix'].includes(x.kind) ? x.kind : 'fix' })).sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+  }
   /** What this update brings, in his words (Shell/whats-new.json, kept up with each change that reaches the Mac):
    *  the lines added since the version the Mac runs. */
   private macPlainNotes(fromCommit: string): string[] {
@@ -2858,8 +2952,8 @@ export class Core {
     if (!ts || !f || !desk?.browser) { reply({ t: 'update.fail', why: "Your PC could not put the update together. Run the Mac code once instead." }); console.error('update key: no update for the Mac (no Tailscale address or nothing to send)'); return; }
     if (!this.macShipped(r)) { reply({ t: 'update.fail', why: 'That update is not finished yet.' }); return; }
     if (String(m.version ?? '') !== r.version) { this.macOfferNow(reply); reply({ t: 'update.fail', why: 'A newer update just came in. Press Restart now again.' }); return; }
-    const { script, sha256, sig } = ship.signedUpdate(f, { tailnet: ts, hookPort: this.cfg.port + 1, hookKey: this.keyFile('hook.key'), frontKey: this.keyFile('mac-front.key'), desk, release: r, changelog: this.changelogText(), key: this.updateKey() });
-    reply({ t: 'update.script', version: r.version, sha256, sig, script });
+    const script = f.setup(ts, this.cfg.port + 1, this.keyFile('hook.key'), this.keyFile('mac-front.key'), desk, { release: r, update: true, changelog: this.changelogText(), signPub: this.updateKey().pub });
+    reply({ t: 'update.script', version: r.version, sha256: createHash('sha256').update(script).digest('hex'), sig: signBytes(null, Buffer.from(script), this.updateKey().key).toString('base64'), script });
     console.log(`update key: sent the Mac update ${r.version} (${Math.round(script.length / 1024)} KB)`);
   }
   /** Every few minutes while the Mac is connected: a change made here lights its key without waiting for a reconnect. */
