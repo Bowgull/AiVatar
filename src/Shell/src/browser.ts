@@ -528,7 +528,7 @@ export class AangBrowser {
     this.trustedFile = path.join(o.stateDir, 'download-trusted.json');
     this.visits = new Visits(path.join(o.stateDir, 'browser-history.json'));
     this.rules = new SiteRules(path.join(o.stateDir, 'site-rules.json'), () => { this.sync?.changed('prefs'); this.sendTabs(); this.pushSettings(); });
-    this.driver = new Driver({ ses: this.ses, preload: o.tabPreloadPath, listed: (u) => this.listed(u), changed: () => this.sendTabs(), stopped: (j) => this.onDriverStop?.(j), testLocal: o.testLocal === true,
+    this.driver = new Driver({ ses: this.ses, preload: o.tabPreloadPath, listed: (u) => this.listed(u), changed: () => this.sendTabs(), stopped: (j) => this.onDriverStop?.(j), testLocal: o.testLocal === true, stateDir: o.stateDir,
       rules: { ai: (u) => this.rules.ai(u), login: (u) => this.rules.login(u) } });
     this.dls = new Downloads(path.join(o.stateDir, 'browser-downloads.json'));
     const loadSet = (f: string) => { try { if (existsSync(f)) { const a = JSON.parse(readFileSync(f, 'utf8')); if (Array.isArray(a)) return new Set(a.filter((x: unknown) => typeof x === 'string')); } } catch { /* none */ } return new Set<string>(); };
@@ -3159,6 +3159,7 @@ export class AangBrowser {
         }
         case 'read': return { ok: true, ...(await d.read(num('page'), { ...(Number.isInteger(Number(a?.within)) && a?.within !== undefined ? { within: Number(a.within) } : {}), changes: a?.changes === true })) };
         case 'find': return { ok: true, ...(await d.find(num('page'), String(a?.q ?? '').slice(0, 200))) };
+        case 'waitfor': return { ok: true, ...(await d.waitFor(num('page'), String(a?.text ?? '').slice(0, 200), a?.gone === true, Number(a?.ms) || 8000)) };
         case 'jobs': return { ok: true, ...(await d.jobCards(num('page'))) };
         case 'sweep': return { ok: true, ...d.startSweep(num('page'), { keywords: Array.isArray(a?.keywords) ? (a.keywords as unknown[]).map(String) : [], ...(a?.path ? { path: String(a.path) } : {}), ...(a?.card ? { card: String(a.card) } : {}), ...(Number(a?.spacing) ? { spacing: Number(a.spacing) } : {}) }) };
         case 'sweep_status': return { ok: true, ...d.sweepStatus(num('id')) };

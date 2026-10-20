@@ -24,7 +24,7 @@ import type { AangBrowser } from './browser.ts';
 import { PlanMemory, cleanPlan, runPlan } from './claudeplan.ts';
 
 export const CLAUDE_DOOR_PORT = 47851;
-const OPS = new Set(['start', 'finish', 'open', 'read', 'find', 'jobs', 'collect', 'sweep', 'sweep_status', 'form', 'upload', 'click', 'type', 'key', 'select', 'back', 'forward', 'scroll', 'picture', 'close', 'history', 'note', 'rename', 'companies', 'tabs', 'look', 'drivetab', 'extract', 'hover', 'drag', 'resize', 'console', 'network', 'record', 'planstep']);
+const OPS = new Set(['start', 'finish', 'open', 'read', 'find', 'jobs', 'collect', 'sweep', 'sweep_status', 'form', 'upload', 'click', 'type', 'key', 'select', 'back', 'forward', 'scroll', 'picture', 'close', 'history', 'note', 'rename', 'companies', 'tabs', 'look', 'drivetab', 'extract', 'hover', 'drag', 'resize', 'console', 'network', 'record', 'planstep', 'waitfor']);
 
 /** Is this request allowed through the door at all? Pure, so it can be tested without a server. */
 export function doorAllows(req: { method?: string; url?: string; headers: Record<string, string | string[] | undefined>; peer: string }, key: string, port: number): boolean {

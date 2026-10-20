@@ -16,7 +16,7 @@ import { challengeLevel, challengeOf, cleanName, diffRead, paceFor, sweepPlan, u
 import { neverKeep } from './visits.ts';
 import { READERS, READER_JS, type Reader } from './readers.ts';
 import { reachesIn, talksToAI } from './driverrules.ts';
-import { guardRequests } from './skip/ads.ts';
+import { blockAds, guardRequests } from './skip/ads.ts';
 import { existsSync, statSync, mkdirSync, writeFileSync, realpathSync } from 'node:fs';
 import os from 'node:os';
 export { cleanName, weigh, type Weight };
@@ -24,7 +24,7 @@ export { cleanName, weigh, type Weight };
 export type DriverKind = 'aang' | 'claude';
 export interface Job { id: number; kind: DriverKind; name: string; working: boolean; stopped: boolean; at: number; pages: number[]; /** Claude jobs: the sites it may use signed in */ sites?: Set<string>;
   /** Sheet 37: its plan was shown to him and allowed (no first-site guess), and the sites he unticked, never opened */ planned?: boolean; denied?: Set<string>; steps?: string[]; step?: number }
-export interface DPage { id: number; job: number; /** null for one of HIS tabs, borrowed */ win: BrowserWindow | null; wc: WebContents; /** his own tab, lent to a session: read-only, or driven with his OK */ borrowed?: { tab: number; drive: boolean; off: () => void }; title: string; url: string; favicon: string; at: number; blocked: string | null; /** logged out (outside its job's sites) */ guest?: boolean; /** a link to outside the job's sites, opened logged out after the click */ handoff?: string | null }
+export interface DPage { id: number; job: number; /** null for one of HIS tabs, borrowed */ win: BrowserWindow | null; wc: WebContents; /** his own tab, lent to a session: read-only, or driven with his OK */ borrowed?: { tab: number; drive: boolean; off: () => void }; title: string; url: string; favicon: string; at: number; blocked: string | null; /** logged out (outside its job's sites) */ guest?: boolean; /** a link to outside the job's sites, opened logged out after the click */ handoff?: string | null; /** last time a tool used it */ used?: number; /** at rest: its timers slowed until it is used again */ resting?: boolean }
 
 export interface DriverDeps {
   ses: Session;
@@ -39,6 +39,8 @@ export interface DriverDeps {
   testLocal?: boolean;
   /** His site rules (sheet 37): AI off on a site = never opened or read; his login always, never, or the job decides. */
   rules?: { ai(url: string): boolean; login(url: string): boolean | undefined };
+  /** Where the ad lists are kept, so the logged-out pages block ads too. */
+  stateDir?: string;
 }
 
 const MAX_PAGES_PER_JOB = 12, MAX_PAGES = 20, KEEP_MS = 24 * 3_600_000;
@@ -234,17 +236,19 @@ const STATE_JS = (n: number | null) => `(() => {
 })()`;
 
 /** Resolves once the page has stopped changing: no changes to it for 350 ms and no new downloads, at most 3.5 s. */
+// The page is ready when its content stops changing (measured 2026-10-20, the WoW-guide lag). Not when the network goes
+// quiet: ad and tracking traffic never stops, so every step waited out the full cap. Only new or changed content,
+// and things being shown, hidden, opened or switched off, count (not style churn from animations and carousels), 300 ms of quiet, 2 s at most: the approach Chrome
+// DevTools MCP and Playwright take. Every action still reports what changed, so a slow page is never read as done.
 const QUIET_JS = `new Promise((done) => {
-  let last = Date.now(), res = performance.getEntriesByType('resource').length;
+  let last = Date.now();
   const mo = new MutationObserver(() => { last = Date.now(); });
-  mo.observe(document.documentElement, { subtree: true, childList: true, attributes: true, characterData: true });
+  mo.observe(document.documentElement, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['hidden', 'aria-hidden', 'aria-expanded', 'open', 'disabled'] });
   const start = Date.now();
   const tick = () => {
-    const r = performance.getEntriesByType('resource').length;
-    if (r !== res) { res = r; last = Date.now(); }
-    if (Date.now() - last >= 350 || Date.now() - start > 3500) { mo.disconnect(); done(true); } else setTimeout(tick, 100);
+    if (Date.now() - last >= 300 || Date.now() - start > 2000) { mo.disconnect(); done(true); } else setTimeout(tick, 75);
   };
-  setTimeout(tick, 100);
+  setTimeout(tick, 75);
 })`;
 
 /** A native dropdown: pick the option whose words match. Null when the control is not a native select. */
@@ -430,6 +434,21 @@ export class Driver {
   constructor(d: DriverDeps) {
     this.d = d;
     setInterval(() => this.sweep(), 10 * 60_000).unref?.();
+    setInterval(() => this.rest(), 60_000).unref?.();
+  }
+  /**
+   * Pages Claude has not touched for 2 minutes rest (2026-10-20, the speed plan): their timers slow right down, so a
+   * dozen open pages stop costing his computer anything. They stay open (his call: a day), and wake on the next use.
+   */
+  private rest(): void {
+    const now = Date.now();
+    for (const p of this.pages) {
+      if (now - (p.used ?? p.at) < 2 * 60_000) continue;
+      // The network watcher lets go too: a page with a debugger attached looks automated to the sites that check.
+      if (this.nets.has(p.id)) { this.nets.delete(p.id); try { if (p.wc.debugger.isAttached()) p.wc.debugger.detach(); } catch { /* gone */ } }
+      if (p.resting || p.borrowed || this.recs.has(p.id)) continue;
+      try { p.wc.setBackgroundThrottling(true); p.resting = true; } catch { /* gone */ }
+    }
   }
 
   /** A job: one request of his, one trail in the drawer. */
@@ -477,7 +496,11 @@ export class Driver {
     g.setDevicePermissionHandler(() => false);
     g.on('will-download', (e) => e.preventDefault());
     // Never this computer or the home network, from a web page (2026-10-14; the tabs' own session does the same).
-    guardRequests(g, (d) => { let from = ''; try { from = d.frame?.url || ''; } catch { /* gone */ } return reachesIn(d.url, from || d.referrer || '', d.resourceType === 'mainFrame'); }, null);
+    const guard = (d: Electron.OnBeforeRequestListenerDetails) => { let from = ''; try { from = d.frame?.url || ''; } catch { /* gone */ } return reachesIn(d.url, from || d.referrer || '', d.resourceType === 'mainFrame'); };
+    guardRequests(g, guard, null);
+    // Ads and trackers blocked here too (measured 2026-10-20: Claude's logged-out pages loaded every ad on a WoW guide,
+    // which made the MacBook heavy and every step slow). Network blocking only; the guard still goes first.
+    if (this.d.stateDir) void blockAds(g, this.d.stateDir, { cosmetic: false, guard }).catch(() => { /* pages still load, with ads */ });
     return (this.guest = g);
   }
   finish(id: number): void { const j = this.job(id); if (j && j.working) { j.working = false; this.d.changed(); } }
@@ -511,6 +534,7 @@ export class Driver {
     const onNav = (_e: unknown, u: string) => { p.url = u; this.items.delete(p.id); this.lastRead.delete(p.id); if (this.why(u)) this.close(p.id); };
     const onGone = () => this.close(p.id);
     this.listen(p);
+    this.watchReady(p.wc);
     wc.on('page-title-updated', onTitle as never); wc.on('did-navigate', onNav as never); wc.on('did-navigate-in-page', onNav as never); wc.once('destroyed', onGone);
     p.borrowed!.off = () => { try { wc.off('page-title-updated', onTitle as never); wc.off('did-navigate', onNav as never); wc.off('did-navigate-in-page', onNav as never); wc.off('destroyed', onGone); } catch { /* gone */ } };
     this.pages.push(p); j.pages.push(p.id);
@@ -590,6 +614,7 @@ export class Driver {
     });
     wc.on('will-redirect', (e, u) => { if (stop(u) || leaks(u)) { e.preventDefault(); p.blocked = u; } else if (outside(u)) { e.preventDefault(); p.handoff = u; } });
     this.listen(p);
+    this.watchReady(p.wc);
     wc.on('page-title-updated', (_e, t) => { p.title = t.slice(0, 200); this.d.changed(); });
     wc.on('page-favicon-updated', (_e, icons) => { p.favicon = icons.find((i) => /^https?:|^data:image\//.test(i)) ?? ''; this.d.changed(); });
     wc.on('did-navigate', (_e, u) => { p.url = u; this.items.delete(p.id); this.lastRead.delete(p.id); this.d.changed(); });
@@ -602,13 +627,35 @@ export class Driver {
   }
 
   /** Wait for a page to be usable: loaded, or 12 seconds, whichever first; then a moment for scripts to draw it. */
+  /** When each page last started a new document, and when that document was ready: kept all the time, so a "ready"
+   *  that came before anyone asked is never missed (it was: going back sat out the whole limit, 2026-10-20). */
+  private readyOf = new WeakMap<WebContents, { start: number; dom: number }>();
+  private watchReady(wc: WebContents): { start: number; dom: number } {
+    let r = this.readyOf.get(wc);
+    if (r) return r;
+    const rr = { start: 0, dom: 0 };
+    wc.on('did-start-navigation', (d) => { if (d.isMainFrame && !d.isSameDocument) rr.start = Date.now(); });
+    wc.on('dom-ready', () => { rr.dom = Date.now(); });
+    this.readyOf.set(wc, rr);
+    return rr;
+  }
   private async settle(wc: WebContents, nav?: Promise<unknown>): Promise<void> {
+    const rd = this.watchReady(wc);
     if (nav) nav.catch(() => {});
     // v2: only wait for a load if one actually started (a click on a single-page site like LinkedIn never loads),
     // then until the page stops changing, instead of a fixed pause.
     if (!nav) await new Promise((r) => setTimeout(r, 150));
-    if (nav || wc.isLoading()) await new Promise<void>((r) => { const t = setTimeout(r, 12_000); wc.once('did-stop-loading', () => { clearTimeout(t); r(); }); });
-    if (!wc.isDestroyed()) await wc.executeJavaScriptInIsolatedWorld(WORLD, [{ code: QUIET_JS }]).catch(() => {});
+    // Until the page's document is there (not until every ad has loaded), 6 s at most; every listener goes either way
+    // (the old wait left one behind each time it timed out).
+    // Already there: its document is ready (its ads may load forever; that is not waited for).
+    const ready = rd.dom >= rd.start && rd.dom > 0;
+    if ((nav || wc.isLoading()) && !(ready && !nav)) await new Promise<void>((r) => {
+      const fin = () => { clearTimeout(t); wc.removeListener('dom-ready', fin); wc.removeListener('did-stop-loading', fin); wc.removeListener('did-fail-load', fin); r(); };
+      const t = setTimeout(fin, 6000);
+      wc.on('dom-ready', fin); wc.on('did-stop-loading', fin); wc.on('did-fail-load', fin);
+    });
+    // With a deadline: a call made while a page is being swapped can otherwise never answer.
+    if (!wc.isDestroyed()) await Promise.race([wc.executeJavaScriptInIsolatedWorld(WORLD, [{ code: QUIET_JS }]).catch(() => {}), new Promise((r) => setTimeout(r, 2500))]);
   }
 
   /** His person's pace on LinkedIn, Indeed and Glassdoor: waits before a page load there if the last was too recent. */
@@ -655,6 +702,8 @@ export class Driver {
     const p = this.page(pageId);
     if (!p) throw new Error('that page is closed');
     this.live(p.job);
+    p.used = Date.now();
+    if (p.resting) { p.resting = false; try { p.wc.setBackgroundThrottling(false); } catch { /* gone */ } }
     return { p, wc: p.wc };
   }
 
@@ -966,6 +1015,24 @@ export class Driver {
     return { lines: hits, items: r.items.filter((it) => `${it.label} ${it.ctx ?? ''}`.toLowerCase().includes(w)).slice(0, 20) };
   }
 
+  /**
+   * Wait until some words show on the page, or (gone) until they are gone, like a "Loading..." (2026-10-20, the speed
+   * plan: a targeted wait instead of a blind one, as Playwright and Chrome DevTools MCP do). 15 s at most.
+   */
+  async waitFor(pageId: number, words: string, gone: boolean, ms: number): Promise<{ found: boolean; waited: number; title: string; url: string }> {
+    const w = String(words ?? '').toLowerCase().trim();
+    if (!w) throw new Error('say which words to wait for');
+    const { wc, p } = this.wcOf(pageId);
+    const limit = Math.min(15_000, Math.max(500, Number(ms) || 8000)), start = Date.now();
+    const code = `(document.body ? document.body.innerText : '').toLowerCase().includes(${JSON.stringify(w)})`;
+    while (Date.now() - start < limit) {
+      const here = await wc.executeJavaScriptInIsolatedWorld(WORLD, [{ code }]).catch(() => false) === true;
+      if (here !== gone) return { found: true, waited: Math.round((Date.now() - start) / 100) / 10, title: p.title, url: p.url };
+      await new Promise((r) => setTimeout(r, 250));
+    }
+    return { found: false, waited: Math.round(limit / 100) / 10, title: p.title, url: p.url };
+  }
+
   /** One of the fixed page readers (readers.ts): data a page holds that is not plain words. */
   async extract(pageId: number, kind: string): Promise<{ title: string; url: string; lines: string[]; more: boolean }> {
     if (!(READERS as readonly string[]).includes(kind)) throw new Error(`no reader called ${kind}: use one of ${READERS.join(', ')}`);
@@ -1080,8 +1147,15 @@ export class Driver {
     if (back ? !h.canGoBack() : !h.canGoForward()) throw new Error(`there is no page to go ${back ? 'back' : 'forward'} to`);
     const before = await this.state(wc, null);
     const waited = await this.pace(p.url);
+    // Listening before going: a page from the back/forward cache arrives at once, and the signal must not be missed.
+    const arrived = new Promise<void>((r) => {
+      const fin = () => { clearTimeout(t); wc.removeListener('did-navigate', fin); wc.removeListener('did-navigate-in-page', fin); r(); };
+      const t = setTimeout(fin, 6000);
+      wc.on('did-navigate', fin); wc.on('did-navigate-in-page', fin);
+    });
     if (back) h.goBack(); else h.goForward();
-    await this.settle(wc, Promise.resolve());
+    await arrived;
+    await this.settle(wc);
     const after = await this.state(wc, null);
     this.checkChallenge(p, after);
     return { title: p.title, url: p.url, changed: this.told(before, after), ...(waited ? { waited } : {}) } as { title: string; url: string; changed: string[] };

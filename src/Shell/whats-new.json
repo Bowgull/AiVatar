@@ -235,6 +235,16 @@
       "at": "2026-10-20T11:15:00-04:00",
       "text": "The tab rail slides out carrying its handle.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-10-20T13:00:00-04:00",
+      "text": "Pop-out opens fast and fades smoothly.",
+      "kind": "fix"
+    },
+    {
+      "at": "2026-10-20T13:00:00-04:00",
+      "text": "Claude browses in Samara much faster.",
+      "kind": "feature"
     }
   ]
 }

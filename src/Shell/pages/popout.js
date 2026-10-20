@@ -35,9 +35,10 @@ window.aang.onPopout(v => {
     player.attach(v.source === 'youtube' ? 'youtube' : v.source === 'twitch' ? 'twitch' : 'elsewhere', video, v.live);
   } else {
     video.hidden = true;
+    video.removeAttribute('src');                 // put away (closed): nothing keeps playing out of sight
     player.attach('elsewhere', null, v.live);
   }
-  empty.hidden = true;
+  empty.hidden = v.source !== 'none';
   what.textContent = v.title;
   src.textContent = v.label;
   src.hidden = false;
@@ -237,7 +238,14 @@ function reportChrome() {
 // Where the picture area is, so a tab taken from the browser can be laid exactly over it. Re-said whenever it
 // changes size (the controls fading out gives the picture the whole window).
 const stageEl = document.querySelector('.stage');
-const sayStage = () => { const r = stageEl.getBoundingClientRect(); window.aang?.popoutStage?.({ x: r.left, y: r.top, width: r.width, height: r.height }); };
+// Only when it really changed (measured 2026-10-20: every mouse move over the pop-out resized the video for nothing).
+let stageWas = '';
+const sayStage = () => {
+  const r = stageEl.getBoundingClientRect(), k = [r.left, r.top, r.width, r.height].map(Math.round).join(',');
+  if (k === stageWas) return;
+  stageWas = k;
+  window.aang?.popoutStage?.({ x: r.left, y: r.top, width: r.width, height: r.height });
+};
 new ResizeObserver(sayStage).observe(stageEl);
 frame.addEventListener('transitionend', sayStage);
 // The controls fading in or out changes the picture area at once: say so then, not only when a size is noticed.
