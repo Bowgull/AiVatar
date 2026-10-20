@@ -225,6 +225,11 @@
       "at": "2026-10-20T07:15:00-04:00",
       "text": "Videos wait for your click; leaving a tab pauses it.",
       "kind": "feature"
+    },
+    {
+      "at": "2026-10-20T10:30:00-04:00",
+      "text": "Samara is smoother: quicker tabs, menus and start.",
+      "kind": "fix"
     }
   ]
 }

@@ -12,6 +12,7 @@
 // It runs ONLY on the stock Shell's session. The DRM runtime never sees it: a paid service has no ads
 // to block, and putting a request filter in front of a licence negotiation is a good way to break
 // playback for no gain.
+import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import type { Session } from 'electron';
@@ -112,7 +113,19 @@ export async function blockAds(session: Session, stateDir: string, opts: { cosme
 
   try {
     const { ElectronBlocker } = await import('@ghostery/adblocker-electron');
-    const blocker = ElectronBlocker.parse(text, { loadCosmeticFilters: opts.cosmetic === true });
+    // Built once and kept ready (measured 2026-10-20): reading the 3.2 MB of lists from scratch froze Samara for about
+    // 1.8 s on every start, before its window could appear. The ready-built blocker loads in a fraction of that. It is
+    // rebuilt whenever the lists change, and any doubt about the saved copy simply means building it again.
+    const engine = path.join(cacheDir, opts.cosmetic ? 'engine-cosmetic.bin' : 'engine.bin');
+    const key = createHash('sha256').update(opts.cosmetic ? 'cosmetic|' : 'plain|').update(text).digest('hex');
+    let blocker: InstanceType<typeof ElectronBlocker> | null = null;
+    try { if (readFileSync(engine + '.key', 'utf8') === key) blocker = ElectronBlocker.deserialize(new Uint8Array(readFileSync(engine))); } catch { blocker = null; }
+    if (!blocker) {
+      const built = ElectronBlocker.parse(text, { loadCosmeticFilters: opts.cosmetic === true });
+      blocker = built;
+      // Saved a little later, so building it never adds to a start that is already slow.
+      setTimeout(() => { try { writeFileAtomic(engine, built.serialize()); writeFileAtomic(engine + '.key', key); } catch (e) { reportWriteFailure(engine, e); } }, 5000).unref?.();
+    }
     blocker.enableBlockingInSession(session);
     // A session has one "before a request" hook; the network guard goes first, then the blocker (2026-10-14).
     if (opts.guard) guardRequests(session, opts.guard, blocker);

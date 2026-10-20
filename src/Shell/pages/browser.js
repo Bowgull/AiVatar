@@ -24,10 +24,20 @@ function report() {
   let top = r.top;
   for (const id of ['askchip', 'sharechip', 'vaultchip', 'toast']) { const x = el(id); if (x && !x.hidden) top = Math.max(top, x.getBoundingClientRect().bottom + 6); }
   // All four sides now: the page sits inside the carved recess, with wood on every side of it.
-  window.aang?.browserInsets?.({ left: r.left, top, right: window.innerWidth - r.right, bottom: window.innerHeight - r.bottom });
+  const ins = { left: r.left, top, right: window.innerWidth - r.right, bottom: window.innerHeight - r.bottom };
+  // Only when the page area really moved (measured 2026-10-20): every toggle anywhere used to move the page's view,
+  // 2 moves for every link he pointed at.
+  const key = [ins.left, ins.top, ins.right, ins.bottom].map((v) => Math.round(v)).join(',');
+  if (key === lastInsets) return;
+  lastInsets = key;
+  window.aang?.browserInsets?.(ins);
 }
+let lastInsets = '', reportQueued = false;
+const reportSoon = () => { if (reportQueued) return; reportQueued = true; requestAnimationFrame(() => { reportQueued = false; report(); }); };
 new ResizeObserver(report).observe(page);
-new MutationObserver(() => requestAnimationFrame(report)).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['hidden'] });
+// The link preview floats over the page and never moves it.
+new MutationObserver((recs) => { if (recs.every((m) => m.target.id === 'linkpeek')) return; reportSoon(); })
+  .observe(document.body, { subtree: true, attributes: true, attributeFilter: ['hidden'] });
 window.addEventListener('load', report);
 
 // ---- the band
@@ -258,12 +268,14 @@ el('drawerkey').addEventListener('click', () => (drawerOpen ? closeDrawer() : op
 // passing over it on the way somewhere does nothing; dragging a tab onto it opens it too.
 let hoverOpen = 0;
 const handle = el('drawerkey');
-handle.addEventListener('pointerenter', () => { window.aang?.browserAct?.('peek'); clearTimeout(hoverOpen); if (!drawerOpen) hoverOpen = setTimeout(openDrawer, 400); });
+handle.addEventListener('pointerenter', () => { window.aang?.browserAct?.('peek'); clearTimeout(hoverOpen); if (!drawerOpen) hoverOpen = setTimeout(openDrawer, 250); });   // 0.25 s (his pick, 2026-10-20; was 0.4)
 handle.addEventListener('pointerleave', () => clearTimeout(hoverOpen));
 handle.addEventListener('pointerdown', () => clearTimeout(hoverOpen));
 handle.addEventListener('dragenter', () => { if (!drawerOpen) openDrawer(); });
 // Anything that will cover the page: take its picture while the mouse is on the way, so the click is instant.
-for (const id of ['menukey', 'dlkey', 'slot']) el(id)?.addEventListener('pointerenter', () => window.aang?.browserAct?.('peek'));
+// Not the address slot (measured 2026-10-20): the mouse crosses it all the time, and each pass took a picture of the
+// page for nothing. A click on it takes the picture then.
+for (const id of ['menukey', 'dlkey']) el(id)?.addEventListener('pointerenter', () => window.aang?.browserAct?.('peek'));
 // A click on the page (its picture) puts the drawer away, as clicking outside any drawer does.
 page.addEventListener('pointerdown', () => { closeDrawer(); closeMenu(); });
 // A new tab from the list keeps the list open (his ask, 2026-10-13); it goes when the mouse leaves it.
@@ -395,7 +407,7 @@ let finding = false;
 function openFind() {
   closeSlot(); closeMenu(); closeDrawer();
   finding = true;
-  urlEl.hidden = true; lock.hidden = true;
+  urlEl.hidden = true; lock.hidden = true; delete lock.dataset.u;
   findTag.hidden = false; findBox.hidden = false; findN.hidden = false;
   findN.textContent = ''; findN.classList.remove('none');
   findBox.focus(); findBox.select();
@@ -445,6 +457,11 @@ window.addEventListener('keydown', (e) => {
 
 /** The address as sheet 3 draws it: the real domain bright, the rest dimmed. */
 function paintUrl(u) {
+  // Only when the address really changed (measured 2026-10-20): repainting it, and resetting the shield's three
+  // pictures, on every tab-list message was a large part of the band's work during a page load. Anything else that
+  // writes the shield clears lock.dataset.u, so the next call paints for real.
+  if (lock.dataset.u === String(u)) return;
+  lock.dataset.u = String(u);
   urlEl.replaceChildren();
   // The browser's own pages (Settings) say their name, with no shield: they are not websites.
   if (String(u).startsWith('aang:')) { urlEl.append(Object.assign(document.createElement('b'), { textContent: String(u) === 'aang:things' ? 'Your things' : 'Settings' })); lock.hidden = true; return; }
@@ -650,6 +667,11 @@ function buildRow(t, kid) {
 // ---- bookmarks on the velvet shelf: logo and name, a click opens it. Empty until the import (6.23).
 function paintMarks(list) {
   const box = el('marks');
+  // Only when the bookmarks changed (measured 2026-10-20): rebuilding all 24 on every tab-list message was the
+  // biggest single piece of the band's work during a page load.
+  const sig = JSON.stringify(Array.isArray(list) ? list.slice(0, 24) : null);
+  if (box.dataset.sig === sig) return;
+  box.dataset.sig = sig;
   box.replaceChildren();
   if (!Array.isArray(list) || !list.length) {
     box.append(Object.assign(document.createElement('p'), { className: 'empty', textContent: 'Your bookmarks land here. Press the book in the address bar, or bring them from Chrome in Settings.' }));
@@ -869,7 +891,7 @@ window.aang?.onBrowserTabs?.((s) => {
     try { host = new URL(b.url).hostname.replace(/^www\./, ''); } catch { /* keep the text */ }
     el('banktext').replaceChildren(Object.assign(document.createElement('b'), { textContent: host }), ' is a bank site. Chrome gets safety fixes sooner, so your money is safer there.');
     el('phishlever').replaceChildren();
-    lock.hidden = false; lock.textContent = 'YOUR BANK'; lock.classList.remove('bad');
+    delete lock.dataset.u; lock.hidden = false; lock.textContent = 'YOUR BANK'; lock.classList.remove('bad');
   } else if (b) {
     let host = b.url;
     try { host = new URL(b.url).hostname; } catch { /* keep the text */ }
@@ -884,7 +906,7 @@ window.aang?.onBrowserTabs?.((s) => {
     }
     el('phishlists').replaceChildren(...b.lists.map((n) => Object.assign(document.createElement('span'), { textContent: n })));
     if (!el('phishlever').childElementCount) redLever();
-    lock.hidden = false; lock.textContent = 'BLOCKED'; lock.classList.add('bad');
+    delete lock.dataset.u; lock.hidden = false; lock.textContent = 'BLOCKED'; lock.classList.add('bad');
   } else el('phishlever').replaceChildren();
   // The page did not load: the wood plate, in plain words.
   const f = t?.failed;
@@ -1106,14 +1128,15 @@ function barTo(v, ms = 250, ease = 'cubic-bezier(.2,0,0,1)') {
   bar.v = Math.min(1, Math.max(bar.v, v));
   barEl.style.transition = `transform ${ms}ms ${ease}, opacity 140ms`;
   barEl.style.opacity = '1';
+  loading.classList.add('run');
   barEl.style.transform = `translateX(${((bar.v - 1) * 100).toFixed(2)}%)`;
 }
 function barHide(now = false) {
   clearInterval(creepT); creepT = null; clearTimeout(doneT);
   bar.on = false; loading.classList.remove('slow');
-  if (now) { barEl.style.transition = 'none'; barEl.style.opacity = '0'; barEl.style.transform = 'translateX(-100%)'; bar.v = 0; loading.classList.remove('fail'); return; }
+  if (now) { barEl.style.transition = 'none'; barEl.style.opacity = '0'; barEl.style.transform = 'translateX(-100%)'; bar.v = 0; loading.classList.remove('fail', 'run'); return; }
   barEl.style.transition = 'opacity 200ms'; barEl.style.opacity = '0';
-  doneT = setTimeout(() => { barEl.style.transition = 'none'; barEl.style.transform = 'translateX(-100%)'; bar.v = 0; loading.classList.remove('fail'); }, 220);
+  doneT = setTimeout(() => { barEl.style.transition = 'none'; barEl.style.transform = 'translateX(-100%)'; bar.v = 0; loading.classList.remove('fail', 'run'); }, 220);
 }
 function barStart(id, v) {
   clearTimeout(doneT); loading.classList.remove('fail', 'slow');

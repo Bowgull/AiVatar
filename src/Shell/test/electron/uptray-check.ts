@@ -44,7 +44,7 @@ app.whenReady().then(async () => {
       { text: 'Close a back door other programs could use.', key: 'closeBackdoors', on: true }] }] });
   const keyClass = () => js(`document.getElementById('upkey').className`);
   b.setUpdate(card(Date.now())); await wait(400);
-  check('today the key is gold and pulses', /age0/.test(await keyClass()) && (await js(`getComputedStyle(document.querySelector('#upkey .w')).animationName`)) === 'upwarm');
+  check('today the key is gold and pulses', /age0/.test(await keyClass()) && (await js(`getComputedStyle(document.querySelector('#upkey .w'), '::after').animationName`)) === 'upglow');
   b.setUpdate(card(Date.now() - 1.2 * DAY)); await wait(300);
   const tq = await js(`(() => { const k = document.getElementById('upkey'); return { c: k.className, ink: getComputedStyle(k).getPropertyValue('--ink').trim(), bg: getComputedStyle(k).backgroundImage }; })()`);
   check('after a day the arrow and word glow turquoise, the purple stays', /age1/.test(tq.c) && tq.ink === '#9FF0E6' && !/184, 69, 46/.test(tq.bg), `${tq.ink} ${String(tq.bg).slice(0, 60)}`);
