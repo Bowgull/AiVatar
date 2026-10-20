@@ -250,6 +250,16 @@
       "at": "2026-10-20T14:00:00-04:00",
       "text": "Streaming sign-ins stay on each machine.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-10-20T15:30:00-04:00",
+      "text": "Sleeping tabs keep their logos.",
+      "kind": "fix"
+    },
+    {
+      "at": "2026-10-20T15:30:00-04:00",
+      "text": "Pop-out: unpinned is a normal window; closing pauses.",
+      "kind": "fix"
     }
   ]
 }

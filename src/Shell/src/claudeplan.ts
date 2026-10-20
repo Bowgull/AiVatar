@@ -75,7 +75,7 @@ export async function runPlan(b: AangBrowser, mem: PlanMemory, p: PlanAsk, o: { 
   const key = JSON.stringify([p.task.toLowerCase(), p.sites]);
   const login = (s: string) => b.planLogin(p.task, s);
   const start = async (keep: string[], card: string | null, same: boolean): Promise<PlanOut> => {
-    const out = await b.drive('start', { kind: 'claude', name: p.task, plan: { login: keep.filter(login), denied: p.sites.filter((s) => !keep.includes(s)), steps: p.steps } });
+    const out = await b.drive('start', { kind: 'claude', name: p.task, plan: { login: keep.filter(login), denied: p.sites.filter((s) => !keep.includes(s)), steps: p.steps, allowed: keep } });
     if (out.ok === true && Number.isInteger(out.job) && card) b.planJob(out.job as number, card);
     return { ...out, ...(same ? { same: true } : {}), sites: keep, login: keep.filter(login) };
   };

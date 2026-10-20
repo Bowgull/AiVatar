@@ -23,7 +23,7 @@ export { cleanName, weigh, type Weight };
 
 export type DriverKind = 'aang' | 'claude';
 export interface Job { id: number; kind: DriverKind; name: string; working: boolean; stopped: boolean; at: number; pages: number[]; /** Claude jobs: the sites it may use signed in */ sites?: Set<string>;
-  /** Sheet 37: its plan was shown to him and allowed (no first-site guess), and the sites he unticked, never opened */ planned?: boolean; denied?: Set<string>; steps?: string[]; step?: number }
+  /** Sheet 37: its plan was shown to him and allowed (no first-site guess), and the sites he unticked, never opened */ planned?: boolean; denied?: Set<string>; steps?: string[]; step?: number; /** every site he allowed in the plan */ allowed?: Set<string> }
 export interface DPage { id: number; job: number; /** null for one of HIS tabs, borrowed */ win: BrowserWindow | null; wc: WebContents; /** his own tab, lent to a session: read-only, or driven with his OK */ borrowed?: { tab: number; drive: boolean; off: () => void }; title: string; url: string; favicon: string; at: number; blocked: string | null; /** logged out (outside its job's sites) */ guest?: boolean; /** a link to outside the job's sites, opened logged out after the click */ handoff?: string | null; /** last time a tool used it */ used?: number; /** at rest: its timers slowed until it is used again */ resting?: boolean }
 
 export interface DriverDeps {
@@ -452,7 +452,7 @@ export class Driver {
   }
 
   /** A job: one request of his, one trail in the drawer. */
-  startJob(kind: DriverKind, name: string, plan?: { login: string[]; denied: string[]; steps: string[] }): Job {
+  startJob(kind: DriverKind, name: string, plan?: { login: string[]; denied: string[]; steps: string[]; allowed?: string[] }): Job {
     const job: Job = { id: ++this.jobSeq, kind, name: cleanName(name), working: true, stopped: false, at: Date.now(), pages: [],
       // A Claude session is fenced (AI lockdown G1, 2026-10-14): signed in only on its job's sites; everything else it
       // reads logged out. A job scan's sites are the job sites; another task's is the first site it opens.
@@ -463,6 +463,7 @@ export class Driver {
       job.sites = new Set(plan.login.map((x) => siteOf(x)).filter(Boolean));
       job.denied = new Set(plan.denied.map((x) => siteOf(x)).filter(Boolean));
       job.planned = true; job.steps = plan.steps.slice(0, 12); job.step = 0;
+      job.allowed = new Set((plan.allowed ?? []).map((x) => siteOf(x)).filter(Boolean));
     }
     this.jobs.push(job);
     this.d.changed();
