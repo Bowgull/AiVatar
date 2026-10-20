@@ -20,7 +20,16 @@ try {
   if (window === window.top) {
     ipcRenderer.invoke('tab:dark').then((a) => {
       if (!a || typeof a.src !== 'string') return;
-      require('electron').webFrame.executeJavaScriptInIsolatedWorld(1002, [{ code: `if(!globalThis.DarkReader){${a.src}\n};if(!DarkReader.isEnabled())DarkReader.enable(${a.theme});true` }]).catch(() => {});
+      // Only once the page has a body to read (its own background decides whether it is already dark), at most 1.5 s.
+      const run = () => require('electron').webFrame.executeJavaScriptInIsolatedWorld(1002, [{ code: `if(!globalThis.DarkReader){${a.src}\n};${a.test || ''}if(!DarkReader.isEnabled()&&!(typeof __aangAlreadyDark==='function'&&__aangAlreadyDark()))DarkReader.enable(${a.theme});true` }]).catch(() => {});
+      if (document.body) run();
+      else {
+        let done = false;
+        const go = () => { if (done) return; done = true; mo.disconnect(); run(); };
+        const mo = new MutationObserver(() => { if (document.body) go(); });
+        mo.observe(document, { childList: true, subtree: true });
+        setTimeout(go, 1500);
+      }
     }, () => {});
   }
 } catch { /* the Shell paints it when the page is ready, as before */ }

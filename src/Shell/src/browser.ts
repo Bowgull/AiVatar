@@ -21,7 +21,7 @@
 //    never runs anything (address.ts, tested).
 //  - Tabs get NO preload and the safe preferences: a website can never reach Aang's doors.
 //  - Every permission a site asks for is refused until 6.22 adds the asks (chips and the lever).
-import { BrowserWindow, WebContentsView, app, clipboard, desktopCapturer, dialog, nativeImage, safeStorage, screen, session as electronSession, shell, webContents as allWebContents, type DesktopCapturerSource } from 'electron';
+import { BrowserWindow, WebContentsView, app, clipboard, desktopCapturer, dialog, nativeImage, nativeTheme, safeStorage, screen, session as electronSession, shell, webContents as allWebContents, type DesktopCapturerSource } from 'electron';
 import { existsSync, readFileSync, readdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { execFile } from 'node:child_process';
 import path from 'node:path';
@@ -72,6 +72,13 @@ import { createRequire } from 'node:module';
  */
 const DARK_WORLD = 1002;
 const DARK_THEME = '{brightness:100,contrast:95,sepia:5}';
+/**
+ * His report (2026-10-20): dark mode was laggy on his 2017 MacBook. Dark Reader repaints a whole page, which is heavy on a
+ * busy page and a dual-core Mac also playing his Shadow stream. So, like the real extension's "detect dark theme": a
+ * page that is already dark (its own dark mode, or one it chose because sites are told he prefers dark) is left alone,
+ * and Dark Reader only works on pages that are really light. Exported for the tab preload, which runs the same test.
+ */
+export const ALREADY_DARK = "const __aangAlreadyDark=()=>{try{const lum=(c)=>{const m=/rgba?\\(([\\d.]+),\\s*([\\d.]+),\\s*([\\d.]+)(?:,\\s*([\\d.]+))?/.exec(c||'');if(!m||(m[4]!==undefined&&+m[4]<0.5))return null;return(0.2126*m[1]+0.7152*m[2]+0.0722*m[3])/255;};const b=document.body?lum(getComputedStyle(document.body).backgroundColor):null;const h=lum(getComputedStyle(document.documentElement).backgroundColor);const v=b??h;if(v===null)return getComputedStyle(document.documentElement).colorScheme.includes('dark');return v<0.25;}catch{return false;}};";
 let darkSrc: string | null | undefined;
 /** A synced list of site names: plain hosts only. */
 function hostList(v: unknown): string[] {
@@ -562,6 +569,7 @@ export class AangBrowser {
     this.permissions();
     this.screenShare();
     this.spelling();
+    this.colorScheme();
     this.downloads();
     this.phish = new PhishCheck(o.stateDir);
     void this.phish.start();
@@ -997,20 +1005,26 @@ export class AangBrowser {
     const on = this.darkWanted(wc.getURL());
     const src = darkSource();
     if (!src) return;
-    const steps = on ? [{ code: `if(!globalThis.DarkReader){${src}\n};true` }, { code: `if(!DarkReader.isEnabled())DarkReader.enable(${DARK_THEME});true` }] : [{ code: 'globalThis.DarkReader&&DarkReader.disable();true' }];
+    const steps = on ? [{ code: `if(!globalThis.DarkReader){${src}\n};true` }, { code: `${ALREADY_DARK}if(!DarkReader.isEnabled()&&!__aangAlreadyDark())DarkReader.enable(${DARK_THEME});true` }] : [{ code: 'globalThis.DarkReader&&DarkReader.disable();true' }];
     void wc.executeJavaScriptInIsolatedWorld(DARK_WORLD, steps).catch(() => { /* the page went away */ });
   }
   private paintDarkAll(): void { for (const t of this.tabs) this.paintDark(t); }
+  /**
+   * With dark mode on, every site is told he prefers dark (prefers-color-scheme), so the many that have a dark look of
+   * their own (YouTube, Reddit, Twitch, LinkedIn...) draw it themselves, at no cost; Dark Reader then finds them already
+   * dark and leaves them be. Aang's own pages never follow this setting, so only websites change.
+   */
+  private colorScheme(): void { try { nativeTheme.themeSource = this.prefs.dark ? 'dark' : 'system'; } catch { /* not here */ } }
   /**
    * Dark mode from the page's first moment (his report, 2026-10-20: Gmail and LinkedIn stayed white for a long while).
    * dom-ready comes late on heavy sites, so the tab's own script asks here as the page starts, and runs Dark Reader in its
    * world straight away, the way the extension does at document start. Null: no dark mode on this page.
    */
-  darkAtStart(wc: Electron.WebContents, url: string): { src: string; theme: string } | null {
+  darkAtStart(wc: Electron.WebContents, url: string): { src: string; theme: string; test: string } | null {
     const t = this.tabs.find((x) => x.view?.webContents === wc);
     if (!t || t.internal || !this.darkWanted(url)) return null;
     const src = darkSource();
-    return src ? { src, theme: DARK_THEME } : null;
+    return src ? { src, theme: DARK_THEME, test: ALREADY_DARK } : null;
   }
   /** The shield's "Dark mode on this site" switch, for the site he is on. Synced with his other prefs. */
   setDarkHere(on: boolean): void {
@@ -1054,7 +1068,7 @@ export class AangBrowser {
       if (on) this.ads?.start(); else this.ads?.stop();
       this.cur()?.view?.webContents.reload();
     } else if (key === 'popups') this.prefs.popups = on;
-    else if (key === 'dark') { this.prefs.dark = on; this.paintDarkAll(); }
+    else if (key === 'dark') { this.prefs.dark = on; this.colorScheme(); this.paintDarkAll(); }
     else return;
     this.savePrefs();
     this.sendTabs();

@@ -365,6 +365,11 @@
       "at": "2026-10-20T23:55:00-04:00",
       "text": "Going back a version never adds a second Samara to your Dock.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-10-21T00:10:00-04:00",
+      "text": "Dark mode is lighter: sites use their own dark look first.",
+      "kind": "fix"
     }
   ]
 }
