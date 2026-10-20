@@ -13,6 +13,8 @@
 import { BrowserWindow, screen as electronScreen, type WebContentsView } from 'electron';
 import { softEdge } from './winedge.ts';
 import path from 'node:path';
+
+const POPOUT_ICON = path.join(import.meta.dirname, '..', 'pages', 'art', 'samara', 'samara-popout.ico');
 import { embedFor, titleFor, type Embed } from './embed.ts';
 import { CHROME, MIN, firstTime, hold169, ontoScreen, preset, snapToEdges, type Box } from './geometry.ts';
 import { SAFE_WEB_PREFERENCES, lockDown, wrongSettings } from './safety.ts';
@@ -267,6 +269,13 @@ export class Popout {
     });
 
     softEdge(this.win);
+    // Sheet 42 (his pick, 2026-10-20): its own taskbar button, Samara's lantern lit turquoise with the same orange leaf,
+    // so it reads as Samara's video and never as Samara itself. Its own app id keeps Windows from folding it into Aang's
+    // or Samara's group (main.ts gives every window Aang's face first; this replaces it for the pop-out only).
+    if (process.platform === 'win32') {
+      try { this.win.setIcon(POPOUT_ICON); this.win.setAppDetails({ appId: 'Aang.Samara.Popout', appIconPath: POPOUT_ICON, appIconIndex: 0, relaunchDisplayName: 'Samara pop-out' }); }
+      catch { /* Aang's face stays */ }
+    }
     // His report (2026-10-13): resizing was glitchy. Aang let the drag happen, then snapped the window back to 16 by 9
     // after each move, fighting his mouse. Now the window itself keeps 16 by 9 (the picture) plus the bar while he drags.
     this.win.setAspectRatio(16 / 9, { width: 0, height: this.chrome });
