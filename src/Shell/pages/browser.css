@@ -803,3 +803,20 @@ html:not(.solo) .bw::after{content:"";flex:0 0 12px;background:url(art/browser/b
 .bm-key .bm-rename{position:absolute;top:calc(100% + 9px);left:50%;transform:translateX(-50%);z-index:7;width:150px;box-sizing:border-box;
   font:700 13px var(--body);color:#2a1c0c;background:#e9d3a6;border:2px solid var(--gold);border-radius:4px;padding:4px 8px;outline:none;
   box-shadow:0 3px 0 #0d0703,0 0 10px rgba(255,190,90,.45)}
+/* His report (2026-10-20): the left column's banner ran off the drawer's edge and was cut. Each banner now lines up with
+   the shelf: the left column's starts at its key's left edge, the right column's ends at its key's right edge, the middle
+   two stay centred. A long name wraps onto a second line, never cut. --bx is the sideways shift, kept through the fade. */
+.bm-banner{--bx:-50%;transform:translate(var(--bx),3px) scale(.96);width:max-content;max-width:200px;white-space:normal;text-align:center;line-height:1.25}
+.bm-key:hover .bm-banner,.bm-key:focus-visible .bm-banner{transform:translate(var(--bx),0) scale(1)}
+.bm-key.low .bm-banner{transform:translate(var(--bx),-3px) scale(.96)}
+.bm-key.low:hover .bm-banner,.bm-key.low:focus-visible .bm-banner{transform:translate(var(--bx),0) scale(1)}
+.bm-key.c0 .bm-banner{left:2px;--bx:0}
+.bm-key.c3 .bm-banner{left:auto;right:2px;--bx:0}
+.bm-key.c0 .bm-rename{left:2px;transform:none}
+.bm-key.c3 .bm-rename{left:auto;right:2px;transform:none}
+/* ...and a long name on a middle key stays inside the shelf too: the left two columns grow rightwards from their key's
+   left edge, the right two leftwards from their key's right edge, each only as wide as the shelf leaves room for. */
+.bm-key.c1 .bm-banner{left:2px;--bx:0;max-width:140px}
+.bm-key.c2 .bm-banner{left:auto;right:2px;--bx:0;max-width:140px}
+.bm-key.c1 .bm-rename{left:2px;transform:none}
+.bm-key.c2 .bm-rename{left:auto;right:2px;transform:none}
