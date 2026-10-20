@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 43d - One drawer</title>
+<!-- Sheet 43d (2026-10-20). His note: with the bookmarks redone (43b keys, 43c frame), "the bookmarks to tabs doesn't make
+     sense". The bookmarks became the richest thing in the drawer and the tabs, its main job, stayed flat grey bars in a
+     different style, with the same readability problem (grey on dark wood, a tiny ASLEEP). Two answers: A brings the tabs
+     up to the bookmarks' language, B calms the bookmarks down to the tabs'. Full drawers, real height, his kind of tabs. -->
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<link rel="stylesheet" href="../../src/Shell/pages/notefonts.css">
+<style>
+  html,body{background:#17110c;margin:0}
+  body{color:#e8dcc4;font-family:Figtree,sans-serif;padding:24px;width:1500px}
+  h1{font:400 20px Silkscreen,monospace;color:#FFC43C;letter-spacing:2px;margin:0 0 4px}
+  h2{font:400 12px Silkscreen,monospace;color:#FFC43C;letter-spacing:1.5px;margin:0 0 8px}
+  p{color:#cdbb9a;font-size:14.5px;line-height:1.5;margin:0 0 12px;max-width:1350px}
+  p b{color:#FFC43C}
+  .row{display:flex;gap:34px;align-items:flex-start;flex-wrap:wrap;margin:18px 0 26px}
+  .col{width:320px}
+  .why{font-size:13px;color:#cdbb9a;line-height:1.45;margin:12px 0 0}
+  .drawer{width:300px;height:720px;overflow:hidden;box-sizing:border-box;padding:14px 14px 14px 12px;display:flex;flex-direction:column;gap:0;
+    background:radial-gradient(90% 40% at 12% 0%,rgba(255,200,120,.10),transparent 70%),url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated;
+    border-style:solid;border-width:8px;border-left-width:0;border-image:url(../../src/Shell/pages/art/browser/trayframe.png) 4 repeat;box-shadow:12px 0 28px rgba(0,0,0,.55)}
+
+  /* shared: the framed panel (43c) and the raised key (43b) */
+  .panel{position:relative;border:3px solid #120A05;border-radius:10px;padding:13px 11px 14px;margin:6px 0 16px;image-rendering:pixelated;
+    box-shadow:inset 0 0 0 4px #4a2e1a,inset 0 0 0 5px #120A05,inset 0 7px 12px rgba(0,0,0,.5),0 3px 0 #0d0703}
+  .panel.velvet{background:radial-gradient(120% 70% at 50% 0%,rgba(255,200,120,.13),transparent 60%),radial-gradient(130% 130% at 50% 50%,transparent 55%,rgba(8,4,14,.55)),url(../../src/Shell/pages/art/browser/velvet.png) 0 0/96px 96px}
+  .panel.wood{background:radial-gradient(120% 50% at 50% 0%,rgba(255,200,120,.10),transparent 60%),linear-gradient(rgba(0,0,0,.35),rgba(0,0,0,.45)),url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px}
+  .panel.caps::after{content:"";position:absolute;inset:-6px;pointer-events:none;
+    background:url(../../src/Shell/pages/art/browser/cap3_tl.png) left top/22px 22px no-repeat,url(../../src/Shell/pages/art/browser/cap3_tr.png) right top/22px 22px no-repeat,
+      url(../../src/Shell/pages/art/browser/cap3_bl.png) left bottom/22px 22px no-repeat,url(../../src/Shell/pages/art/browser/cap3_br.png) right bottom/22px 22px no-repeat}
+  .ptitle{font:400 9px var(--label);letter-spacing:2px;color:#FFE096;text-shadow:1px 1px 0 #000;margin:-2px 2px 9px;display:flex;align-items:center;gap:8px}
+  .ptitle::after{content:"";flex:1;height:4px;border-radius:2px;background:linear-gradient(180deg,rgba(0,0,0,.6) 0 2px,rgba(255,224,150,.2) 2px 4px)}
+  .slots{display:grid;grid-template-columns:repeat(4,1fr);gap:10px 6px;justify-items:center}
+  .k{width:50px;height:50px;box-sizing:border-box;border-radius:9px;border:3px solid #120A05;display:grid;place-items:center;
+    background:linear-gradient(180deg,#6a4a2c 0,#56371F 45%,#47301b 100%);box-shadow:0 5px 0 #120A05,inset 0 3px 0 rgba(255,222,170,.28),inset 0 -3px 0 rgba(0,0,0,.35),0 8px 10px rgba(0,0,0,.45)}
+  .k img{width:24px;height:24px;border-radius:4px}
+  .k.add{background:transparent;border:3px dashed rgba(255,224,150,.4);box-shadow:none;color:#FFE096;font:700 22px var(--body)}
+
+  /* A: tabs as raised wooden plaques, an icon in a small slot, readable cream words */
+  .tabs{display:flex;flex-direction:column;gap:9px}
+  .tp{position:relative;display:flex;align-items:center;gap:9px;padding:6px 9px 6px 6px;border-radius:9px;border:3px solid #120A05;
+    background:linear-gradient(180deg,#6a4a2c 0,#56371F 45%,#47301b 100%);color:#F6E6C6;font:600 13px var(--body);text-shadow:1px 1px 0 rgba(0,0,0,.7);
+    box-shadow:0 4px 0 #120A05,inset 0 3px 0 rgba(255,222,170,.24),inset 0 -2px 0 rgba(0,0,0,.35)}
+  .tp .slot{width:26px;height:26px;flex:none;border-radius:6px;display:grid;place-items:center;background:#1c1328;box-shadow:inset 0 2px 0 rgba(0,0,0,.6),0 1px 0 rgba(255,220,170,.12)}
+  .tp .slot img{width:16px;height:16px;border-radius:3px}
+  .tp .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tp.on{background:linear-gradient(180deg,#F0DCB4,#DEC28C);color:#2a1c0c;text-shadow:none;box-shadow:0 4px 0 #120A05,0 0 0 2px var(--gold),0 0 12px rgba(255,190,90,.45),inset 0 3px 0 rgba(255,255,255,.5)}
+  .tp.on .slot{background:#e9d3a6;box-shadow:inset 0 2px 0 rgba(120,80,30,.35)}
+  .tp .x{width:18px;height:18px;border-radius:50%;display:grid;place-items:center;font:700 11px var(--body);color:#2a1c0c;background:rgba(0,0,0,.18)}
+  .tp.asleep{opacity:.78;background:linear-gradient(180deg,#4a3420 0,#3d2a18 100%);color:#d9c9a8}
+  .tp.asleep .moon{flex:none;display:grid;place-items:center;opacity:.9}
+  .newk{display:flex;align-items:center;justify-content:space-between;padding:9px 11px;border-radius:9px;border:3px solid #120A05;margin:0 0 12px;
+    background:#0B0718;color:#FFE096;font:700 13.5px var(--body);box-shadow:0 4px 0 #120A05,inset 0 3px 0 rgba(150,110,200,.25)}
+  .newk kbd,.gold{font:400 9.5px var(--label);letter-spacing:1px;color:#2a1c00;background:linear-gradient(180deg,var(--gold-light),var(--gold-deep));border:2px solid #120A05;border-radius:5px;padding:3px 6px 2px}
+  .group{font:700 12px var(--display);letter-spacing:1px;color:var(--gold);text-shadow:0 2px 0 #120A05;margin:4px 2px 1px;display:flex;align-items:center;gap:8px}
+  .group::after{content:"";flex:1;height:4px;border-radius:2px;background:linear-gradient(180deg,rgba(0,0,0,.6) 0 2px,rgba(255,224,150,.2) 2px 4px)}
+
+  /* B: calm. Bookmarks back to a plain shelf of small flat icon tiles; tabs keep their bars, made readable, with icons */
+  .calmshelf{border-radius:9px;padding:8px;margin:2px 0 14px;background:linear-gradient(rgba(0,0,0,.35),rgba(0,0,0,.45)),url(../../src/Shell/pages/art/browser/velvet.png) 0 0/96px 96px;box-shadow:inset 0 2px 0 rgba(0,0,0,.6),0 0 0 2px #120A05}
+  .calmshelf .row8{display:grid;grid-template-columns:repeat(8,1fr);gap:4px}
+  .ct{width:28px;height:28px;border-radius:6px;display:grid;place-items:center;background:rgba(255,224,150,.08);box-shadow:inset 0 0 0 1px rgba(255,224,150,.15)}
+  .ct img{width:18px;height:18px;border-radius:3px}
+  .bar{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:8px;border:3px solid #120A05;margin:0 0 7px;font:600 13px var(--body)}
+  .bar img{width:16px;height:16px;border-radius:3px}
+  .bar .t{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .bar.on{background:linear-gradient(180deg,#F0DCB4,#DEC28C);color:#2a1c0c}
+  .bar.awake{background:linear-gradient(180deg,#4A2C6E,#331d52);color:#efe6ff}
+  .bar.asleep{background:#2b1d12;color:#cbb994}
+
+  /* today (as built tonight), for comparison */
+  .now .tabrow{padding:10px 12px;border-radius:8px;border:3px solid #120A05;margin:0 0 7px;font:600 13px var(--body);display:flex;justify-content:space-between;align-items:center}
+  .now .tabrow.on{background:linear-gradient(180deg,#F0DCB4,#DEC28C);color:#2a1c0c}
+  .now .tabrow.awake{background:linear-gradient(180deg,#4A2C6E,#331d52);color:#efe6ff}
+  .now .tabrow.asleep{background:#2b1d12;color:#8f7f63}
+  .now .tabrow i{font:400 8px var(--label);font-style:normal;color:#8f7f63;letter-spacing:1px}
+</style>
+</head>
+<body>
+<h1>SHEET 43D &middot; ONE DRAWER</h1>
+<p>With the bookmarks redone, the drawer has two languages: a lit, framed game inventory on top, flat grey bars under it, and the tabs are its main job. <b>A</b> brings the tabs up to the bookmarks: framed panel, raised wooden plaques with the site's icon in a little slot, cream words you can read, the tab you are on a lit parchment plaque with a gold ring, sleeping tabs dimmer with a pixel moon. <b>B</b> goes the other way and calms the bookmarks down. Full height, his kind of tabs.</p>
+<div class="row" id="v"></div>
+<script type="module">
+import { MARKS } from './sheet-43/marks.js';
+import { TABS } from './sheet-43d/tabs.js';
+import { pixIcon } from '../../src/Shell/pages/pixicons.js';
+const moon = () => { const s = pixIcon('moon', 1); return s ? s.outerHTML : '☾'; };
+const keys = `<div class="slots">${MARKS.map((m) => `<div class="k"><img src="${m.icon}" alt=""></div>`).join('')}<div class="k add">+</div></div>`;
+const groupStart = (t, i, arr) => t.group && (i === 0 || arr[i - 1].group !== t.group) ? `<div class="group">${t.group}</div>` : '';
+const tabA = TABS.map((t, i, a) => groupStart(t, i, a) + `<div class="tp ${t.state}"><span class="slot"><img src="${t.icon}" alt=""></span><span class="t">${t.title}</span>${t.state === 'on' ? '<span class="x">×</span>' : t.state === 'asleep' ? `<span class="moon">${moon()}</span>` : ''}</div>`).join('');
+const tabB = TABS.map((t, i, a) => groupStart(t, i, a) + `<div class="bar ${t.state}"><img src="${t.icon}" alt=""><span class="t">${t.title}</span>${t.state === 'asleep' ? `<span class="moon">${moon()}</span>` : ''}</div>`).join('');
+const tabNow = TABS.map((t, i, a) => groupStart(t, i, a) + `<div class="tabrow ${t.state}">${t.title}${t.state === 'asleep' ? '<i>ASLEEP</i>' : ''}</div>`).join('');
+const V = [
+  ['TODAY (AS BUILT TONIGHT)', `<div class="now"><div class="panel velvet caps">${keys}</div><div class="newk" style="margin-bottom:10px">+ New tab <kbd>CTRL T</kbd></div>${tabNow}</div>`,
+    'The bookmarks are the richest thing in the drawer; the tabs, its main job, are flat bars with grey words and a tiny ASLEEP.'],
+  ['A &middot; ONE GAME MENU', `<div class="panel velvet caps"><p class="ptitle">BOOKMARKS</p>${keys}</div><div class="panel wood caps" style="flex:1"><p class="ptitle">TABS</p><div class="newk">+ New tab <kbd>CTRL T</kbd></div><div class="tabs">${tabA}</div></div>`,
+    'Two framed panels with the same gold corners, like an inventory and a quest list in one menu. Every tab is a raised plaque like a bookmark key, its icon in a slot, cream words. The tab you are on is lit parchment with a gold ring; sleeping ones are dimmer with a pixel moon. My pick.'],
+  ['B &middot; CALM BOOKMARKS', `<div class="calmshelf"><div class="row8">${MARKS.map((m) => `<div class="ct"><img src="${m.icon}" alt=""></div>`).join('')}<div class="ct" style="color:#FFE096;font:700 15px var(--body)">+</div></div></div><div class="newk">+ New tab <kbd>CTRL T</kbd></div>${tabB}`,
+    'The other way: bookmarks back to one small row of flat icons on a quiet shelf, the tabs keep their bars but get icons and readable words and a moon. Calmer and more compact, but plainer than what you just picked for the bookmarks.'],
+];
+for (const [name, body, why] of V) {
+  const c = document.createElement('div'); c.className = 'col';
+  c.innerHTML = `<h2>${name}</h2><div class="drawer">${body}</div><p class="why">${why}</p>`;
+  document.getElementById('v').append(c);
+}
+</script>
+</body>
+</html>
