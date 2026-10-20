@@ -310,6 +310,11 @@
       "at": "2026-10-20T21:00:00-04:00",
       "text": "Samara's taskbar lantern lights up crisply.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-10-20T21:15:00-04:00",
+      "text": "Closing the pop-out brings Samara back.",
+      "kind": "feature"
     }
   ]
 }
