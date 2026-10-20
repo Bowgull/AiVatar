@@ -693,3 +693,18 @@ html:not(.solo) .bw::after{content:"";flex:0 0 12px;background:url(art/browser/b
   border-top:3px solid var(--outline);-webkit-app-region:drag}
 .tabmenu,.plate{background:linear-gradient(rgba(0,0,0,.15),rgba(0,0,0,.25)),url(art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated}
 .plate .plq,.mark,.slot .lock:not(.bad){background:linear-gradient(rgba(0,0,0,.55),rgba(0,0,0,.55)),url(art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated}
+
+/* Sheet 40 B (his pick, 2026-10-20): the tab while its video plays in the pop-out. The still fills the page, darkened,
+   with a wood shelf of keys along the bottom. */
+.plate.lentplate{position:absolute;inset:0;margin:0;max-width:none;padding:0;border:0;border-radius:inherit;overflow:hidden;background:#0e0905;box-shadow:none}
+.lentplate .lp-shot{position:absolute;inset:0;background:#000 center/cover no-repeat;filter:saturate(.85)}
+.lentplate .lp-dim{position:absolute;inset:0;background:radial-gradient(80% 70% at 50% 40%,rgba(14,9,5,.25),rgba(14,9,5,.85))}
+.lentplate .lp-live{position:absolute;left:0;right:0;top:38%;text-align:center;font:400 12px var(--label);letter-spacing:1.5px;color:#9FF0E6;text-shadow:0 1px 2px #000}
+.lentplate .lp-live i{display:inline-block;width:9px;height:9px;border-radius:50%;background:#3FBFAE;box-shadow:0 0 8px #3FBFAE;margin-right:8px;vertical-align:1px;animation:lpblip 1.6s ease-in-out infinite}
+@keyframes lpblip{50%{opacity:.35}}
+@media (prefers-reduced-motion:reduce){.lentplate .lp-live i{animation:none}}
+.lentplate .lp-shelf{position:absolute;left:0;right:0;bottom:0;display:flex;align-items:flex-end;justify-content:space-between;gap:20px;padding:18px 26px 20px;
+  background:url(art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated;border-top:4px solid var(--outline);box-shadow:inset 0 3px 0 rgba(255,225,160,.12),0 -10px 26px rgba(0,0,0,.5)}
+.lentplate .lp-shelf h3{margin:8px 0 0;font:700 26px/1.15 var(--display);color:var(--gold);text-shadow:0 2px 0 var(--outline);max-width:46ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lentplate .plq.site{background:#A970FF;color:#1d0b33}
+.lentplate .keys{display:flex;gap:10px;flex:none}

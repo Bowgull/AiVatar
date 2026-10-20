@@ -132,6 +132,8 @@ interface Tab {
   playOkAt?: number;
   /** What the page was last told: he can see it, or it may play out of sight (a call, the pop-out, Spotify). */
   shown?: boolean;
+  /** Sheet 40 B (his pick, 2026-10-20): a still of the video, taken as it went to the pop-out, for the page left behind. */
+  lentShot?: string;
 }
 
 /**
@@ -151,6 +153,8 @@ interface Pane {
   trayV: WebContentsView | null;
   trayOn: boolean;
   trayAt: { x: number; y: number; hy?: number };
+  /** The pop-out still last sent to this window's band (sent once, not with every message). */
+  lentSent?: string;
   curtain: WebContentsView | null;
   curtainReady: Promise<unknown>;
   veil: { tab: number; nav: number; at: number; up: boolean; dimT: NodeJS.Timeout | null; capT: NodeJS.Timeout | null } | null;
@@ -2500,6 +2504,8 @@ export class AangBrowser {
   // ------------------------------------------------------------------ lending a tab to the popout ("take the tab with you")
   /** Set by main: bring a lent tab back from the popout (the popout closes and hands it over). */
   onReclaim: (() => void) | null = null;
+  /** Set by main: pause/play, pin or close the pop-out, from the tab page it left behind (sheet 40 B). */
+  onPopoutAct: ((what: string) => void) | null = null;
 
   /**
    * Lend a live tab to the popout: the same page, already playing, signed in, nothing reloaded. It leaves this
@@ -2509,6 +2515,14 @@ export class AangBrowser {
     const t = this.tabs.find((x) => x.id === id);
     if (!t?.view || t.internal || t.crashed || t.blocked || t.failed || t.lent || !this.inTab(t)) return null;
     t.lent = true;
+    // A still of the picture for the tab page while it plays in the pop-out (taken before the view leaves the window).
+    t.lentShot = '';
+    void within(t.view.webContents.capturePage(), 800, null).then((img) => {
+      if (!img || img.isEmpty() || !t.lent) return;
+      const small = img.getSize().width > 1280 ? img.resize({ width: 1280, quality: 'good' }) : img;
+      t.lentShot = 'data:image/jpeg;base64,' + small.toJPEG(78).toString('base64');
+      this.sendTabs();
+    });
     try { this.win?.contentView.removeChildView(t.view); } catch { /* not shown */ }
     try { t.view.webContents.stopFindInPage('clearSelection'); } catch { /* gone */ }
     this.changed();
@@ -2875,6 +2889,8 @@ export class AangBrowser {
       case 'close': if (t) this.close(t.id); break;
       case 'reopen': this.reopen(); break;
       case 'reclaim': this.onReclaim?.(); break;
+      // Sheet 40 B: the pop-out's own keys, from the page left behind.
+      case 'poppause': case 'poppin': case 'popclose': this.onPopoutAct?.(what); break;
       case 'drawer-open': void this.drawer(true); break;
       case 'peek': void this.peek(); break;
       case 'frozen-ready': this.frozenReady(); break;
@@ -3128,6 +3144,7 @@ export class AangBrowser {
       markTitle: (t && this.marks.find((m) => m.url === t.url)?.title) ?? '',
       // The page's zoom as he would say it: 100%, 120%... (Chromium's level is 20% per step).
       zoomPct: wc ? Math.round(Math.pow(1.2, wc.getZoomLevel()) * 100) : 100,
+      ...(t?.lent && t.lentShot && this.pane.lentSent !== t.lentShot ? { lentShot: (this.pane.lentSent = t.lentShot) } : {}),
     });
     if (t) w.setTitle(`${t.title} - Samara`);
   }

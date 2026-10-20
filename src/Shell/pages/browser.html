@@ -232,12 +232,20 @@
             </div>
           </div>
           <!-- Its page is playing in the popout over his game: this is where it was. -->
-          <div class="plate" id="lentplate" hidden>
-            <span class="plq gold">IN THE POPOUT</span>
-            <h3>Playing in the popout</h3>
-            <p>This tab is in the popout over your game, still playing. Bring it back here when you are done.</p>
-            <div class="keys">
-              <button class="key primary sm" id="reclaim" type="button">Bring it back<span class="k">A</span></button>
+          <!-- Sheet 40 B (his pick, 2026-10-20): the show fills the tab, darkened like a game's pause screen, with a wood shelf of
+               keys along the bottom: bring it back, and the pop-out's own pause, pin and close. -->
+          <div class="plate lentplate" id="lentplate" hidden>
+            <div class="lp-shot" id="lentshot"></div>
+            <div class="lp-dim"></div>
+            <div class="lp-live"><i></i>PLAYING IN THE POP-OUT</div>
+            <div class="lp-shelf">
+              <div><span class="plq site" id="lentsite"></span><h3 id="lenttitle"></h3></div>
+              <div class="keys">
+                <button class="key primary" id="reclaim" type="button">Bring it back<span class="k">A</span></button>
+                <button class="key" id="poppause" type="button">Pause</button>
+                <button class="key" id="poppin" type="button">Pin it</button>
+                <button class="key" id="popclose" type="button">Close</button>
+              </div>
             </div>
           </div>
           <!-- The page did not load: no secure version, or no internet, a wrong address, a site that did not answer. -->

@@ -260,6 +260,11 @@
       "at": "2026-10-20T15:30:00-04:00",
       "text": "Pop-out: unpinned is a normal window; closing pauses.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-10-20T16:30:00-04:00",
+      "text": "The tab shows what's playing in the pop-out.",
+      "kind": "feature"
     }
   ]
 }
