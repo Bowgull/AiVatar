@@ -128,6 +128,10 @@ interface Tab {
   pending?: string | null;
   /** The page in this view has drawn something since it woke: only then is there an old page to hold. */
   drawn?: boolean;
+  /** Nothing plays until he asks (2026-10-20): when he last asked for this tab's page himself (address, bookmark, link). */
+  playOkAt?: number;
+  /** What the page was last told: he can see it, or it may play out of sight (a call, the pop-out, Spotify). */
+  shown?: boolean;
 }
 
 /**
@@ -230,6 +234,8 @@ const CHROME_UA = (v: string) => `Mozilla/5.0 (Windows NT 10.0; Win64; x64) Appl
 const GOOGLE_AUTH = /^https:\/\/accounts\.(google|youtube)\.com(\/|$)/i;
 /** A popup that opens within this long of his click or key press is his (Chrome's own rule); later ones are a page's. */
 const GESTURE_MS = 1000;
+/** His rule (2026-10-20): a page may start playing by itself only this soon after he asked for it (a slow redirect included). */
+const PLAY_MS = 15_000;
 /** A tab not looked at for this long, and not playing sound, goes to sleep. */
 // 2 hours (his call, 2026-10-12: fewer reloads when going back to a tab). Was 30 minutes. This PC has 16 GB.
 const SLEEP_AFTER_MS = 2 * 60 * 60_000;
@@ -1803,8 +1809,10 @@ export class AangBrowser {
       this.tabs.splice(at + 1, 0, tab);
     } else this.tabs.push(tab);
     tab.pending = url;
+    // His own new tab, or a link he just clicked: it may play. Tabs Samara reopens never come through here.
+    if (opener === null || Date.now() - (this.lastGesture.get(opener) ?? 0) < PLAY_MS) tab.playOkAt = Date.now();
     this.wake(tab);
-    if (focus) this.activate(tab.id); else this.changed();
+    if (focus) this.activate(tab.id); else { this.changed(); this.quietHidden(); }
     return tab.id;
   }
 
@@ -1826,6 +1834,7 @@ export class AangBrowser {
       this.active = id;
       for (const x of mine) if (x.view && !x.lent) x.view.setVisible(false);
       this.changed();
+      this.quietHidden();
       return;
     }
     if (!t.view) this.wake(t);                         // an asleep tab wakes exactly where it was left
@@ -1848,6 +1857,7 @@ export class AangBrowser {
     // a closed tab stayed on screen until the drawer shut (his report, 2026-10-12).
     if (this.drawerOpen) void this.drawer(true);
     this.changed();
+    this.quietHidden();
   }
 
   /** Close a tab. Closing his last tab closes the window, as in every browser (his note, 2026-10-12). */
@@ -2469,7 +2479,7 @@ export class AangBrowser {
     // where he cannot see it, then shown already settled (2026-10-12, the odd resize coming back).
     const [cw, ch] = w.getContentSize();
     view.setBounds({ x: this.inset.left, y: this.inset.top, width: Math.max(0, cw - this.inset.left - this.inset.right), height: Math.max(0, ch - this.inset.top - this.inset.bottom) });
-    setTimeout(() => { if (t.view !== view || t.lent || !this.inTab(t)) return; if (t.id === this.active) this.activate(t.id); else this.changed(); }, 250);
+    setTimeout(() => { if (t.view !== view || t.lent || !this.inTab(t)) return; if (t.id === this.active) this.activate(t.id); else { this.changed(); this.quietHidden(); } }, 250);
   }
 
   isLent(id: number): boolean { return Boolean(this.tabs.find((x) => x.id === id)?.lent); }
@@ -2514,6 +2524,32 @@ export class AangBrowser {
   pauseAll(): void { for (const x of this.tabs) if (x.view && !x.call) this.pauseMedia(x.id); this.onMediaStarted?.(); }
   /** A tab's address, for the pop-out. */
   urlOf(id: number): string | null { const t = this.tabs.find((x) => x.id === id); return t && isWeb(t.url) ? t.url : null; }
+  /**
+   * Nothing plays until he asks (his rule, 2026-10-20). Asked by each page as it starts (tabpreload.cjs): may it start
+   * sound by itself (he asked for it a moment ago: an address, a bookmark, a link he clicked), and can he see it.
+   */
+  mayPlay(sender: Electron.WebContents): { ok: boolean; shown: boolean } {
+    const t = this.tabs.find((x) => x.view?.webContents === sender);
+    if (!t) return { ok: true, shown: true };            // a popup he opened: his
+    const at = Math.max(t.playOkAt ?? 0, this.lastGesture.get(t.id) ?? 0);
+    return { ok: Date.now() - at < PLAY_MS, shown: this.seen(t) };
+  }
+  /** He can see it, or it may play out of sight: a call, the pop-out, Spotify (his only music). */
+  private seen(t: Tab): boolean {
+    let spotify = false; try { spotify = /(^|\.)spotify\.com$/i.test(new URL(t.url).hostname); } catch { /* not an address */ }
+    return t.lent || t.call === true || spotify || this.panes.some((p) => p.active === t.id);
+  }
+  /** His rule (2026-10-20): a tab he leaves pauses, and a tab he is not looking at never starts playing. */
+  private quietHidden(): void {
+    for (const x of this.tabs) {
+      if (!x.view || x.internal) continue;
+      const shown = this.seen(x);
+      if (x.shown === shown) continue;
+      const was = x.shown; x.shown = shown;
+      try { x.view.webContents.send('tab:shown', shown); } catch { /* gone */ }
+      if (!shown && was !== undefined) this.pauseMedia(x.id);
+    }
+  }
   /** Pause whatever the tab is playing (it went to the pop-out). With a deadline: a dead page never hangs Aang. */
   pauseMedia(id: number): void {
     const wc = this.tabs.find((x) => x.id === id)?.view?.webContents;
@@ -2767,6 +2803,7 @@ export class AangBrowser {
     if (l.length) { this.block(t, url, l); return; }
     t.blocked = null; t.failed = null; this.place();
     t.pending = url;
+    t.playOkAt = Date.now();                             // he typed it: what it plays, he asked for
     void t.view.webContents.loadURL(this.secured(t, url)).catch(() => {});
     t.view.webContents.focus();
   }

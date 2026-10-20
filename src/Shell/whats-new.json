@@ -220,6 +220,11 @@
       "at": "2026-10-15T01:00:00-04:00",
       "text": "Pinned pop-out: the pin lies down and turns gold.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-10-20T07:15:00-04:00",
+      "text": "Videos wait for your click; leaving a tab pauses it.",
+      "kind": "feature"
     }
   ]
 }

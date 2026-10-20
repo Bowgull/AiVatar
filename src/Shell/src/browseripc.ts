@@ -17,6 +17,8 @@ export function wireBrowser(get: () => AangBrowser | null): void {
   ipcMain.on('browser:insets', (e, r) => { if (b()?.isMainFrame(e.sender) && r) b().setInsets(Number(r.left), Number(r.top), Number(r.right) || 0, Number(r.bottom) || 0); });
   // A tab's page has drawn (tabpreload.cjs): the only thing a website's tab ever sends, and it carries nothing.
   ipcMain.on('tab:painted', (e) => b()?.painted(e.sender));
+  // Nothing plays until he asks (2026-10-20): a starting page asks whether it may play by itself and whether he sees it.
+  ipcMain.on('tab:mayplay', (e) => { try { e.returnValue = b()?.mayPlay(e.sender) ?? { ok: true, shown: true }; } catch { e.returnValue = { ok: true, shown: true }; } });
   // 6.25a: STOP, close, watch or open one of Aang's pages, from the drawer or the address bar.
   ipcMain.on('browser:driver', (e, a) => { if ((top(e) && b()?.isFrame(e.sender)) && a && typeof a.act === 'string' && Number.isInteger(a.id)) b().driverAct(a.act.slice(0, 10), a.id); });
   ipcMain.on('browser:act', (e, a) => { if ((top(e) && b()?.isFrame(e.sender)) && typeof a === 'string') b().act(a); });

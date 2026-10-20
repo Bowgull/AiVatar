@@ -23,6 +23,34 @@ try {
   po.observe({ type: 'paint', buffered: true });
 } catch { /* no paint timing here: the Shell falls back to the page finishing */ }
 
+// Nothing plays until he asks (his rule, 2026-10-20: "nothing should play until I click"). A page may start sound
+// by itself only when he asked for it a moment ago (an address, a bookmark, a link he clicked: the Shell knows).
+// Anything else waits for his click on the page itself, silent videos too (previews, muted ads, a tab Samara
+// reopened). A tab he is not looking at never starts playing; one he opened behind starts when he goes to it.
+// This only pauses: the page's own play button is untouched, and a click a moment ago always wins.
+try {
+  const asked = ipcRenderer.sendSync('tab:mayplay') || {};
+  const ok = asked.ok !== false;
+  let shown = asked.shown !== false;
+  const held = new Set();
+  ipcRenderer.on('tab:shown', (_e, v) => {
+    shown = v !== false;
+    if (!shown) { held.clear(); return; }
+    for (const m of held) { try { m.play().catch(() => {}); } catch { /* gone */ } }
+    held.clear();
+  });
+  window.addEventListener('play', (e) => {
+    const m = e.target;
+    if (!(m instanceof HTMLMediaElement)) return;
+    const ua = navigator.userActivation;
+    if (ua && ua.isActive) return;                                  // he just clicked or pressed a key: his
+    const his = !m.muted && (ok || (ua && ua.hasBeenActive));       // sound he asked for on this page
+    if (his && shown) return;
+    if (his) held.add(m);                                           // opened behind: plays when he goes to it
+    try { m.pause(); } catch { /* gone */ }
+  }, true);
+} catch { /* no Shell to ask: the page plays as it would anywhere */ }
+
 try {
   contextBridge.executeInMainWorld({
     func: () => {
