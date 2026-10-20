@@ -854,6 +854,10 @@ el('phishback').addEventListener('click', () => window.aang?.browserAct?.('phish
 el('bankchrome').addEventListener('click', () => window.aang?.browserAct?.('bankchrome'));
 el('bankback').addEventListener('click', () => window.aang?.browserAct?.('phishback'));
 el('reclaim').addEventListener('click', () => window.aang?.browserAct?.('reclaim'));
+// Sheet 40 B: the pop-out's own keys. The words follow each press (the pop-out keeps the real state).
+el('poppause').addEventListener('click', () => { window.aang?.browserAct?.('poppause'); el('poppause').textContent = el('poppause').textContent === 'Pause' ? 'Play' : 'Pause'; });
+el('poppin').addEventListener('click', () => { window.aang?.browserAct?.('poppin'); el('poppin').textContent = el('poppin').textContent === 'Pin it' ? 'Unpin' : 'Pin it'; });
+el('popclose').addEventListener('click', () => window.aang?.browserAct?.('popclose'));
 el('phishreal').addEventListener('click', () => window.aang?.browserAct?.('phishreal'));
 el('failgo').addEventListener('click', () => window.aang?.browserAct?.('httpok'));
 el('failretry').addEventListener('click', () => window.aang?.browserAct?.('failretry'));
@@ -900,6 +904,14 @@ window.aang?.onBrowserTabs?.((s) => {
   const crashed = Boolean(t?.crashed);
   el('crashplate').hidden = !crashed;
   el('lentplate').hidden = !t?.lent;
+  // Sheet 40 B: what is playing, its site, and the still taken as it went to the pop-out (sent once).
+  if (typeof s.lentShot === 'string') el('lentshot').style.backgroundImage = `url("${s.lentShot}")`;
+  if (t?.lent) {
+    el('lenttitle').textContent = t.title || '';
+    const h = hostOf(t.url).replace(/^www\./, '');
+    const NAMES = { 'primevideo.com': 'PRIME VIDEO', 'netflix.com': 'NETFLIX', 'youtube.com': 'YOUTUBE', 'twitch.tv': 'TWITCH', 'crunchyroll.com': 'CRUNCHYROLL', 'disneyplus.com': 'DISNEY+', 'crave.ca': 'CRAVE', 'max.com': 'MAX' };
+    el('lentsite').textContent = NAMES[Object.keys(NAMES).find((k) => h === k || h.endsWith('.' + k)) ?? ''] ?? h.toUpperCase();
+  } else { el('poppause').textContent = 'Pause'; el('poppin').textContent = 'Pin it'; }
   // A listed site: the red plate where the page would be, and the plaque turns red.
   const b = t?.blocked;
   el('phishplate').hidden = !b || Boolean(b?.bank);

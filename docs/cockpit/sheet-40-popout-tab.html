@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 40: the tab while it plays in the pop-out</title>
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<link rel="stylesheet" href="../../src/Shell/pages/notefonts.css">
+<link rel="stylesheet" href="../../src/Shell/pages/browser.css">
+<style>
+  html,body{height:auto!important;overflow:auto!important;background:#0e0905!important;margin:0}
+  body{padding:28px 34px 60px;color:#e8dcc4;font-family:Georgia,serif;display:block!important}
+  h1{font:700 24px Georgia,serif;color:#FFE096;margin:0 0 4px}
+  .lede{font-size:14.5px;color:#c9b89a;margin:0 0 22px;max-width:980px;line-height:1.5}
+  .cap{font:400 10px Silkscreen,monospace;color:#FFC43C;letter-spacing:1.5px;margin:0 0 8px;text-shadow:1px 1px 0 #000}
+  .note{font-size:13px;color:#c9b89a;max-width:880px;line-height:1.45;margin:10px 0 30px}
+  /* the page area of a Samara window, at its real proportions */
+  .area{position:relative;width:880px;height:520px;border-radius:14px;overflow:hidden;box-shadow:0 0 0 3px #120A05,0 0 0 6px #4a2e1a,0 16px 34px rgba(0,0,0,.7)}
+  .wood{position:absolute;inset:0;background:radial-gradient(70% 60% at 50% 40%,rgba(255,190,110,.10),transparent 65%),url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated}
+  .keys{display:flex;gap:10px;flex-wrap:wrap}
+  .plqs{display:flex;gap:8px;align-items:center}
+  .plq{display:inline-block;font:400 11px Silkscreen,monospace;letter-spacing:1.5px;padding:7px 11px;border-radius:6px;border:2px solid #120A05;background:#C98C14;color:#2a1c00}
+  .plq.site{background:#A970FF;color:#1d0b33}
+  .live{display:inline-flex;align-items:center;gap:7px;font:400 10px Silkscreen,monospace;letter-spacing:1.5px;color:#9FF0E6}
+  .live i{width:9px;height:9px;border-radius:50%;background:#3FBFAE;box-shadow:0 0 8px #3FBFAE;animation:blip 1.6s ease-in-out infinite}
+  @keyframes blip{50%{opacity:.35}}
+  h3{font:700 26px/1.15 var(--display,Georgia);color:#FFE096;text-shadow:0 2px 0 #120A05;margin:12px 0 4px}
+  .sub{font:500 14px/1.5 var(--body,system-ui);color:#e6dcc8;margin:0 0 16px}
+  /* A: the picture framed on the wood, everything under it */
+  .a .card{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:560px;text-align:left}
+  .a .shot{width:560px;aspect-ratio:16/9;border-radius:10px;overflow:hidden;border:4px solid #120A05;box-shadow:0 0 0 3px #6E4422,0 10px 24px rgba(0,0,0,.6);background:#000 center/cover no-repeat;position:relative}
+  .a .shot::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 55%,rgba(0,0,0,.55))}
+  .a .shot .live{position:absolute;left:12px;bottom:10px;z-index:1}
+  /* B: the picture fills the page, dimmed; a wood shelf along the bottom */
+  .b .full{position:absolute;inset:0;background:#000 center/cover no-repeat;filter:saturate(.85)}
+  .b .dim{position:absolute;inset:0;background:radial-gradient(80% 70% at 50% 40%,rgba(14,9,5,.25),rgba(14,9,5,.85))}
+  .b .shelf{position:absolute;left:0;right:0;bottom:0;padding:18px 26px 20px;background:url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated;border-top:4px solid #120A05;box-shadow:inset 0 3px 0 rgba(255,225,160,.12),0 -10px 26px rgba(0,0,0,.5)}
+  .b .row{display:flex;align-items:flex-end;justify-content:space-between;gap:20px}
+  .b h3{margin:8px 0 0}
+  .b .center{position:absolute;left:0;right:0;top:38%;text-align:center}
+  .b .center .live{font-size:12px}
+  .k{margin-left:6px}
+</style>
+</head>
+<body>
+<h1>Sheet 40: the tab while its video is in the pop-out</h1>
+<p class="lede">Replaces the white page. Both show what's playing (the real still from your pop-out), a <b>Bring it back</b> key, and the pop-out's own controls: pause, pin, close. Samara tucks itself away when the video goes to the pop-out, so you only see this when you come back to the tab.</p>
+
+<p class="cap">A · FRAMED ON THE WOOD</p>
+<div class="area a">
+  <div class="wood"></div>
+  <div class="card">
+    <div class="shot" style="background-image:url(sheet-40/still.png)"><span class="live"><i></i>PLAYING IN THE POP-OUT</span></div>
+    <h3>Attack on Titan: Season 4</h3>
+    <div class="plqs" style="margin:0 0 14px"><span class="plq site">PRIME VIDEO</span><span class="plq">IN THE POP-OUT</span></div>
+    <div class="keys">
+      <button class="key primary" type="button">Bring it back<span class="k">A</span></button>
+      <button class="key" type="button">Pause</button>
+      <button class="key" type="button">Pin it</button>
+      <button class="key" type="button">Close pop-out</button>
+    </div>
+  </div>
+</div>
+<p class="note">A: calm and familiar, the same wood as the tab rail. The picture is framed like a painting, everything you can do sits right under it.</p>
+
+<p class="cap">B · THE PICTURE FILLS THE PAGE</p>
+<div class="area b">
+  <div class="full" style="background-image:url(sheet-40/still.png)"></div>
+  <div class="dim"></div>
+  <div class="center"><span class="live"><i></i>PLAYING IN THE POP-OUT</span></div>
+  <div class="shelf">
+    <div class="row">
+      <div><div class="plqs"><span class="plq site">PRIME VIDEO</span></div><h3>Attack on Titan: Season 4</h3></div>
+      <div class="keys">
+        <button class="key primary" type="button">Bring it back<span class="k">A</span></button>
+        <button class="key" type="button">Pause</button>
+        <button class="key" type="button">Pin it</button>
+        <button class="key" type="button">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+<p class="note">B: more cinematic, like a game's pause screen. The show itself fills the tab, darkened, with a wood shelf of keys along the bottom.</p>
+</body>
+</html>

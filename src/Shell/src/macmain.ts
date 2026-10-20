@@ -153,6 +153,7 @@ app.whenReady().then(async () => {
     return Boolean(popout.open(url));
   };
   browser.onReclaim = () => popout.returnTab();
+  browser.onPopoutAct = (what) => { if (what === 'popclose') popout.close(); else if (what === 'poppin') popout.togglePin(); else if (what === 'poppause') popout.togglePlay(); };
   browser.onOpenOther = (url) => { if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ t: 'open.onpc', url })); };
   wirePopout({
     popout: () => popout, browser: () => browser, open: openPop, stopPaid: () => drm.close(), paidSeparately: () => !onCastlabs(),

@@ -230,6 +230,8 @@ function openTypeBox(dock: { x: number; y: number } | null = null): void {
 let dockedTurn: number | null = null;
 /** The last finished reply, so tucking away into the edge holds it rather than destroying it. */
 let heldBubble: Record<string, unknown> | null = null;
+/** What Aang last said in full, for a click on him to bring back (2026-10-20). Kept until he says something new. */
+let lastSaid: Record<string, unknown> | null = null;
 /** The five-hour window, 0..1, and the unix second the week resets. Both feed the strip. */
 let lastFive = 0, lastWeekResetsAt = 0;
 /** The ask waiting on him, so a box opened afterwards still shows it. Cleared once answered. */
@@ -342,8 +344,16 @@ const link = new CoreLink({
     if (m.t === 'quiet.toggle') return;            // for the pet, not for us
     // Sheet 17: the notes. The windows on his screen follow the list; the bubble's board gets it too.
     if (m.t === 'notes.state' && Array.isArray(m.notes)) { notesLatest = m.notes as NoteData[]; noteWins?.sync(notesLatest); }
-    // He clicked Aang. The pet does not open a box of its own any more; it asks for this one.
-    if (m.t === 'typebox') { if (!input?.visible) openTypeBox(); return; }
+    // He clicked Aang. His rule (2026-10-20): what Aang last said comes back (an ask still waiting first), and clicking
+    // that message opens the chat box to answer it. With a message already showing, or nothing said yet, the click opens
+    // the chat box as before.
+    if (m.t === 'typebox') {
+      const showing = Boolean(bubble?.window()?.isVisible());
+      const again = liveAsk ?? lastSaid;
+      if (!showing && again && !input?.visible) { bubble?.send('brain:message', { ...again, recalled: true }); bubble?.show(); return; }
+      if (!input?.visible) openTypeBox();
+      return;
+    }
     // 6.15: the pet's "Panel..." menu, with the new front end on, opens window 2 instead of the C# Panel.
     if (m.t === 'snip') { void snipper?.start(); return; }
     if (m.t === 'browser') { aangBrowser?.open(); return; }
@@ -446,6 +456,7 @@ const link = new CoreLink({
     // Only finished ones: a streamed part is the same reply arriving again, not another thing said.
     if (m.t === 'bubble' && typeof m.text === 'string' && !m.stream) {
       heldBubble = m;
+      lastSaid = m as Record<string, unknown>;
       // He is tucked into the dock at the desk: the pet is sliding him out to say it. Drawn now, it would
       // sit beside the tucked head for the 600 ms slide, then jump and start over (parity re-audit). So it
       // waits for him to be out, and comes out once, in the right place. Not in a game (the bubble holds it
@@ -638,6 +649,7 @@ app.whenReady().then(async () => {
 
       aangBrowser = new AangBrowser({ origin: pages.origin, preloadPath: path.join(HERE, 'preload.cjs'), stateDir: STATE_DIR, tabPreloadPath: path.join(HERE, 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, 'thingspreload.cjs') });
       aangBrowser.onReclaim = () => popout?.returnTab();
+      aangBrowser.onPopoutAct = (what) => { if (what === 'popclose') popout?.close(); else if (what === 'poppin') popout?.togglePin(); else if (what === 'poppause') popout?.togglePlay(); };
       // Sheet 37: a Claude session's plan goes to Aang's bubble on this PC (when Claude's own window is not in front),
       // and his answer comes back. Five minutes unanswered means no answer.
       aangBrowser.onPlanAsk = (card) => {

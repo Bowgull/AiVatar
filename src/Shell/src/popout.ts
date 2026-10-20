@@ -159,6 +159,13 @@ export class Popout {
     focus();
   }
 
+  /** Pause or play whatever the pop-out is showing (sheet 40 B, from the tab page it left behind). */
+  togglePlay(): void {
+    const wc = this.lent?.view.webContents;
+    if (wc && !wc.isDestroyed()) { void within(wc.executeJavaScript(`(()=>{const v=window.__aangVideo||document.querySelector('video');if(!v)return false;if(v.paused)v.play();else v.pause();return true})()`, true), 600, false); return; }
+    this.window?.webContents.send('popout:toggleplay');
+  }
+
   /** The controls, driving the lent page's video. */
   tabCommand(c: { func?: unknown; arg?: unknown }): void {
     const wc = this.lent?.view.webContents;
