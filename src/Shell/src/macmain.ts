@@ -310,7 +310,11 @@ app.whenReady().then(async () => {
         'APP="$HOME/Applications/Samara.app"; BR="$HOME/Library/Application Support/AangListener/browser"',
         "osascript -e 'quit app id \"com.aang.browser\"' >/dev/null 2>&1 || true",
         'for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do pgrep -f "Samara.app/Contents/MacOS/" >/dev/null 2>&1 || break; sleep 0.5; done',
-        'rm -rf "$BR/rollback/Samara.next"; mv "$APP" "$BR/rollback/Samara.next" && mv "$BR/rollback/Samara.app" "$APP" && mv "$BR/rollback/Samara.next" "$BR/rollback/Samara.app"',
+        // Only the app's insides change places, never the Samara.app folder itself (his pet peeve, 2026-10-20): the Dock
+        // pin follows the folder, so moving the whole app sent his pin into rollback/ and the running Samara showed as a
+        // second icon. The same rule the update's swap already keeps (5e27d40).
+        'rm -rf "$BR/rollback/next"; mkdir -p "$BR/rollback/next" && mv "$APP/Contents" "$BR/rollback/next/Contents" && mv "$BR/rollback/Samara.app/Contents" "$APP/Contents" && mv "$BR/rollback/next/Contents" "$BR/rollback/Samara.app/Contents"; rmdir "$BR/rollback/next" 2>/dev/null',
+        '/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$APP" >/dev/null 2>&1; touch "$APP"',
         '[ -f "$BR/installed.prev.json" ] && cp "$BR/installed.json" "$BR/installed.next.json" && mv "$BR/installed.prev.json" "$BR/installed.json" && mv "$BR/installed.next.json" "$BR/installed.prev.json"',
         'open -a "$APP"',
       ].join('\n');

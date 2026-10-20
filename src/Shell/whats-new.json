@@ -360,6 +360,11 @@
       "at": "2026-10-20T23:45:00-04:00",
       "text": "Bookmark names always show in full, never cut off.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-10-20T23:55:00-04:00",
+      "text": "Going back a version never adds a second Samara to your Dock.",
+      "kind": "fix"
     }
   ]
 }
