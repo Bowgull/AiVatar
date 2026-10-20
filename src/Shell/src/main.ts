@@ -10,6 +10,7 @@
 // the tray, and it holds nothing the others need.
 import { startClaudeDoor, type PlanStarted } from './claudedoor.ts';
 import { PlanMemory } from './claudeplan.ts';
+import { samaraShortcutsLit } from './shortcuticon.ts';
 import { isRisky } from './secure.ts';
 import { app, BrowserWindow, Menu, clipboard, globalShortcut, ipcMain, powerMonitor, screen, session, shell } from 'electron';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync, watch, writeFileSync } from 'node:fs';
@@ -1382,6 +1383,10 @@ setInterval(() => {
   if (!up && !samaraOpen() && Date.now() - shellStarted > 20_000) { console.log('shell: Aang is off and Samara is closed: nothing left to run'); app.quit(); }
 }, 3000).unref();
 
+// Samara's desktop and Start menu shortcuts: the lit lantern while a Samara window is open, the dark one when the last one
+// closes (his ask, 2026-10-20). Checked every second, which is cheap; the first check also mends a lantern a crash left lit.
+setInterval(() => samaraShortcutsLit(Boolean(aangBrowser?.hasWindow())), 1000).unref();
+
 /** A message is only acted on if it really came from the pop-out's own page. */
 /** "Put X on": into the pop-out over WoW. Paid video goes to the separate castLabs process: hardware acceleration
  *  has to be off for it, and that is process-wide. Everything else plays in the ordinary pop-out (step 6.4).
@@ -1523,7 +1528,7 @@ function fromBubble(e: Electron.IpcMainEvent): boolean {
 }
 
 app.on('will-quit', () => globalShortcut.unregisterAll());
-app.on('before-quit', () => { aangBrowser?.closeAll(); snipper?.close(); input?.destroy(); link.stop(); hotkey?.release(); ads?.stop(); popout?.close(); bubble?.close(); drm?.close(); pages?.close(); });
+app.on('before-quit', () => { samaraShortcutsLit(false, { quitting: true }); aangBrowser?.closeAll(); snipper?.close(); input?.destroy(); link.stop(); hotkey?.release(); ads?.stop(); popout?.close(); bubble?.close(); drm?.close(); pages?.close(); });
 
 // Nothing a page does may take the Shell down silently.
 process.on('uncaughtException', e => console.error('shell: uncaught: ' + (e as Error).message));
