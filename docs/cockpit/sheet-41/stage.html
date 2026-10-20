@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>41 stage</title>
+<!-- Sheet 41 v2: a working prototype built on sheet 37's stage. His real idle/talk frames, the real balloon (balloon.js:
+     balloonPath + paintBalloon, tail and all, wood when it is the Lantern), the real Lantern classes (bubble.css .lt-*),
+     the real pixel icons, the typing box's own reply chip. v1 was generic cards and he was right: it followed nothing. -->
+<link rel="stylesheet" href="../../../src/Shell/pages/cockpit.css">
+<link rel="stylesheet" href="../../../src/Shell/pages/bubble.css">
+<style>
+  html,body{margin:0;background:transparent!important;overflow:hidden!important;height:auto!important;width:auto!important;display:block!important}
+  .desk{position:relative;width:1180px;height:720px;border-radius:10px;overflow:hidden;
+    background:radial-gradient(90% 70% at 30% 20%,#2a2238,#120c1a 70%),#120c1a}
+  .desk::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(0deg,rgba(255,255,255,.012) 0 2px,transparent 2px 4px);pointer-events:none}
+  #aang{position:absolute;right:30px;bottom:6px;width:224px;height:224px;image-rendering:pixelated;cursor:pointer}
+  #wrap{position:absolute;right:220px;bottom:150px;margin:0;pointer-events:auto}
+  #skin{position:absolute;left:0;top:0;overflow:visible;pointer-events:none}
+  #bubble{position:relative;box-sizing:border-box;overflow:hidden;width:256px;transition:width .26s cubic-bezier(.3,.7,.2,1),height .26s cubic-bezier(.3,.7,.2,1)}
+  #bubble.lantern{color:#ecdcbc}
+  #fill{transition:opacity .14s ease}
+  #fill.out{opacity:0}
+  .still #bubble,.still #fill{transition:none!important}
+  #measure{position:absolute;left:-5000px;top:0;visibility:hidden}
+  .said{margin:0;font:600 15px/1.6 var(--body);color:#21160a}
+
+  /* ---- the scroll-back, as the Lantern ---- */
+  .sb-list{max-height:430px;overflow-y:auto;scrollbar-width:none;margin:0 -4px;padding:0 4px;overscroll-behavior:contain;
+    -webkit-mask-image:linear-gradient(180deg,transparent 0,#000 16px);mask-image:linear-gradient(180deg,transparent 0,#000 16px)}
+  .sb-list::-webkit-scrollbar{display:none}
+  .sb-older{display:flex;flex-direction:column;align-items:center;gap:2px;margin:0 0 8px;font:400 9px var(--label);letter-spacing:2px;color:var(--gold)}
+  .sb-older svg{animation:bob 1.4s ease-in-out infinite}
+  .sb-older.loading svg{animation:none;opacity:.4}
+  @keyframes bob{50%{transform:translateY(-3px)}}
+  .lt-item{position:relative}
+  .lt-tile .pix{display:block}
+  .lt-tile img.face{width:30px;height:30px;border-radius:50%;object-fit:cover}
+  .lt-tile img.aang{width:30px;height:30px;border-radius:0;image-rendering:pixelated;object-fit:cover;object-position:50% 12%}
+  /* Aang's words wrap: a reply is read, not skimmed */
+  .lt-item.talk .lt-txt b{white-space:normal;font:600 14px/1.4 var(--body)}
+  /* his own words, pressed in plum, on the right: plum is him, everywhere */
+  .sb-mine{position:relative;margin:4px 0 6px 64px;padding:7px 11px;border-radius:9px;font:600 13.5px/1.4 var(--body);color:#efe6ff;
+    background:linear-gradient(180deg,#331d52,#4A2C6E);box-shadow:inset 0 3px 0 rgba(0,0,0,.4),inset 0 -2px 0 rgba(150,110,200,.3)}
+  /* Reply: a little gold keycap where the time was, on the row under the mouse */
+  .sb-rep{position:absolute;right:4px;top:6px;display:none;font:400 9px var(--label);letter-spacing:1px;color:#2a1c00;cursor:pointer;
+    background:linear-gradient(180deg,var(--gold-light),var(--gold-deep));border:2.5px solid var(--outline);border-radius:6px;padding:4px 7px 3px;box-shadow:0 2px 0 var(--outline)}
+  .lt-item:hover>.sb-rep,.sb-mine:hover>.sb-rep{display:block}
+  .lt-item:hover>.lt-head .lt-when{visibility:hidden}
+  .sb-mine .sb-rep{top:50%;margin-top:-11px;right:6px}
+  /* what you said yes to: the "YOU SAID YES" plaque in the update glow's turquoise */
+  .said-yes{display:inline-block;font-style:normal;font:400 9px var(--label);letter-spacing:1px;padding:3px 6px 2px;border-radius:4px;margin-right:6px;vertical-align:1px;
+    background:#3FBFAE;color:#08302b;border:2px solid #120A05;box-shadow:0 0 6px rgba(159,240,230,.6)}
+  .said-yes.gone{background:#8f8678;color:#f2ece0;box-shadow:none}
+  .said-yes.back{background:linear-gradient(180deg,var(--gold-light),var(--gold-deep));color:#2a1c00;box-shadow:none}
+  .lt-item.replying,.sb-mine.replying{border-radius:8px;box-shadow:0 0 0 3px var(--gold),0 0 12px rgba(255,196,60,.45)}
+  .lt-item.undone .lt-txt b{text-decoration:line-through;text-decoration-thickness:2px;opacity:.6}
+  .lt-when.sent{color:#7a6a52}
+  /* opened: the thing itself, as it first looked */
+  .lt-open .shot{width:100%;aspect-ratio:16/9;border-radius:8px;border:3px solid #120A05;box-shadow:0 0 0 2px #6E4422,0 6px 14px rgba(0,0,0,.35);background:#000 center/cover no-repeat;margin:4px 0 4px}
+  .lt-open .ask{font:700 13.5px var(--body);color:#8a3e1c;margin:2px 0 0}
+  .mini-lamp{display:flex;gap:6px;margin:2px 0 6px}
+  .mini-lamp span{display:flex;align-items:center;gap:5px;font:700 12.5px var(--body);color:#4e3d28;background:rgba(120,80,30,.12);border-radius:6px;padding:3px 7px}
+  .steps{margin:2px 0 4px}
+  .steps div{display:flex;align-items:center;gap:8px;font:500 12.5px/1.5 var(--body);color:#4e3d28}
+  .tq{flex:none;width:16px;height:16px;border:2.5px solid #120A05;border-radius:4px;box-sizing:border-box;position:relative;
+    background:#3FBFAE;box-shadow:0 0 6px rgba(159,240,230,.9),0 2px 0 rgba(0,0,0,.4)}
+  .tq::after{content:"";position:absolute;left:3px;top:0;width:3px;height:7px;border:solid #fff;border-width:0 2.5px 2.5px 0;transform:rotate(45deg)}
+  .key.press{transform:translateY(var(--lip));box-shadow:0 0 0 var(--outline)!important}
+  .key.plum{background:linear-gradient(180deg,var(--plum),var(--plum-deep));color:#f3eaff}
+
+  /* ---- the typing box, its own look (input.css, sheets 9, 13, 16) with the reply chip ---- */
+  #tb{position:absolute;right:230px;bottom:22px;width:440px;opacity:0;transform:translateY(8px);transition:opacity .16s,transform .16s;pointer-events:none}
+  #tb.on{opacity:1;transform:none;pointer-events:auto}
+  #tb .pinned{display:flex;gap:7px;padding:0 0 7px}
+  #tb .pinchip{display:flex;align-items:center;gap:6px;font:600 11.5px var(--body);background:var(--claude);color:#3a1708;border:2.5px solid var(--outline);border-radius:999px;padding:4px 5px 4px 10px;max-width:420px}
+  #tb .pinchip b{font:400 9px var(--label);letter-spacing:.5px;opacity:.75;flex:none}
+  #tb .pinchip em{font-style:normal;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #tb .pinchip s{flex:none;width:15px;height:15px;border-radius:50%;background:rgba(0,0,0,.28);display:grid;place-items:center;font:700 11px var(--body);text-decoration:none;cursor:pointer}
+  #tb .box{border:3px solid var(--outline);border-bottom:none;border-radius:20px 20px 0 0;padding:7px 7px 5px;background:url(../../../src/Shell/pages/art/browser/band.png) 0 0/128px 58px;image-rendering:pixelated}
+  #tb .field{border-radius:13px;border:1.5px solid rgba(0,0,0,.45);padding:9px 12px;font:500 15px/1.5 var(--body);color:#CFC0E4;min-height:22px;
+    background:linear-gradient(180deg,#331d52,#4A2C6E);box-shadow:inset 0 2px 4px rgba(0,0,0,.45),0 0 0 2px rgba(150,110,200,.55),0 0 12px rgba(150,110,200,.35)}
+  #tb .strip{border:3px solid var(--outline);border-top:none;border-radius:0 0 20px 20px;padding:2px 12px 6px;min-height:24px;
+    background:linear-gradient(180deg,rgba(0,0,0,.18),rgba(0,0,0,.28)),url(../../../src/Shell/pages/art/browser/band.png) 0 29px/128px 58px;image-rendering:pixelated}
+  .cur{display:inline-block;width:2px;height:16px;background:#FFC43C;vertical-align:-3px;animation:blink 1s steps(1) infinite}
+  @keyframes blink{50%{opacity:0}}
+
+  .ctl{display:flex;gap:10px;align-items:center;margin:14px 2px 0;flex-wrap:wrap}
+  .ctl .lbl{font:400 9px Silkscreen,monospace;letter-spacing:1.5px;color:#FFC43C}
+</style>
+</head>
+<body>
+<div class="desk">
+  <div id="wrap"><svg id="skin"></svg><div id="bubble" class="parch tex" hidden><div id="fill"></div></div></div>
+  <div id="tb"><div class="pinned"><span class="pinchip"><b>REPLYING TO</b><em id="tbwhat"></em><s id="tbx">×</s></span></div>
+    <div class="box"><div class="field" id="tbf"><span class="cur"></span></div></div><div class="strip"></div></div>
+  <img id="aang" src="../../../assets/aang/frames/idle_0.png" alt="" title="Click Aang">
+</div>
+<div id="measure"></div>
+<div class="ctl">
+  <button class="key primary" id="play" type="button">Play the story</button>
+  <span class="lbl">OR TRY IT:</span>
+  <span class="lbl" style="color:#cdbb9a">scroll up on the bubble · click a row · hover for Reply · click Aang</span>
+</div>
+
+<script type="module">
+import { balloonPath, paintBalloon, PAD_R, PAD_B } from '../../../src/Shell/pages/balloon.js';
+import { icon, paintIcons } from './icons.js';
+
+const bubble = document.getElementById('bubble'), fill = document.getElementById('fill'), skin = document.getElementById('skin');
+const aang = document.getElementById('aang'), measure = document.getElementById('measure');
+const tb = document.getElementById('tb'), tbwhat = document.getElementById('tbwhat'), tbf = document.getElementById('tbf');
+const ART = '../../../src/Shell/pages/art/';
+const STILL = '../sheet-40/still.png';
+
+// --- Aang: idle loop, talk when something arrives
+let anim = 'idle', fr = 0;
+setInterval(() => { const n = anim === 'talk' ? 8 : 16; fr = (fr + 1) % n; aang.src = `../../../assets/aang/frames/${anim}_${fr}.png`; }, 140);
+const talk = () => { anim = 'talk'; fr = 0; setTimeout(() => { anim = 'idle'; fr = 0; }, 1400); };
+
+// --- the balloon, painted by the real code every frame while it changes size
+let shape = 0;
+function paint() {
+  if (bubble.hidden) { skin.innerHTML = ''; return; }
+  const box = bubble.getBoundingClientRect(), a = aang.getBoundingClientRect();
+  const head = { x: a.left + 96 - box.left, y: a.top + 60 - box.top };
+  const d = balloonPath(box.width, box.height, head);
+  paintBalloon(skin, box.width + PAD_R, box.height + PAD_B, d, ++shape, bubble.classList.contains('lantern'));
+  for (const im of skin.querySelectorAll('image')) im.setAttribute('href', ART + 'browser/tray.png');
+}
+let painting = 0;
+const paintFor = (ms) => { const end = performance.now() + ms; cancelAnimationFrame(painting); const f = () => { paint(); if (performance.now() < end) painting = requestAnimationFrame(f); }; f(); };
+
+// --- everything he was shown, oldest first. Each row is what it was: a reply, a brief, a video, a plan, a yes.
+const rows = {};
+const DAYS = [
+  { h: 'LAST WEEK · THURSDAY', older: true, rows: [
+    { id: 'o1', ic: 'star', b: '5 new job matches', s: 'Best: UX Designer at Clio', when: '8:02 am', open: '<p>Clio, Wealthsimple, Shopify, and two more.</p>', keys: [['See them', 'primary']] },
+    { id: 'o2', talk: 'his', b: 'Your Apex pack is ready. The new Wattson skin is in it.' },
+  ] },
+  { h: 'YESTERDAY · EVENING', rows: [
+    { id: 'r1', ic: 'scroll', b: 'Local models that run on your card', s: 'Research · 6 finds', when: '9:40 pm', open: '<p>Qwen 3.5 35B fits at 3-bit and runs fully on your graphics card.</p><p>Two others spill onto the processor and crawl.</p>', keys: [['Open it', 'primary']] },
+    { id: 'r2', talk: 'mine', b: 'nice, set it up tomorrow' },
+    { id: 'r3', talk: 'his', b: "Will do. It's on tomorrow's list." },
+  ] },
+  { h: 'TODAY · MORNING', rows: [
+    { id: 'b1', ic: 'sun', b: 'Your morning brief', s: '3 events · 2 need a reply · 4 new jobs', when: '7:30 am',
+      open: '<div class="mini-lamp"><span data-ic="partly"></span><span>8° morning</span><span>Rain from 4 pm</span></div><p>Interview with Northwind at 2:00. Rhea is waiting on your reply.</p>', keys: [['Open the whole brief', 'primary']] },
+    { id: 'v1', face: STILL, b: 'HisWattson posted a video', s: 'Wattson ranked guide, season 27', when: '9:12 am', small: 'TO YOUR PHONE',
+      open: `<div class="shot" style="background-image:url(${STILL})"></div>`, keys: [['Watch', 'primary'], ['Pop out', 'plum']] },
+    { id: 't1', talk: 'mine', b: 'is that build still good after the patch?' },
+    { id: 't2', talk: 'his', b: 'Mostly. The fence nerf hurts the ult loop, so swap the second perk for faster recharge.' },
+  ] },
+  { h: 'TODAY · AFTERNOON', rows: [
+    { id: 'p1', lantern: true, b: "Claude's plan: WoW talent build", s: '3 sites · 5 steps · done', when: '2:05 pm',
+      open: '<div class="steps"><div><i class="tq"></i>Read the Wowhead guide</div><div><i class="tq"></i>Check the forums for the patch</div><div><i class="tq"></i>Write the build into your notes</div></div>', keys: [['See what it found', 'primary']] },
+    { id: 'y1', ic: 'yes', yes: 'YOU SAID YES', b: 'Moved 3 screenshots to Archive', s: 'From Desktop to Pictures\\Archive', when: '2:14 pm',
+      open: '<p>Shot 1.png, Shot 2.png, Shot 3.png</p>', keys: [['Undo', 'burnt', 'undo']],
+      ask: 'Put the 3 screenshots back on your Desktop?', sure: 'Put them back', after: { ic: 'undo', yes: 'UNDONE 5:20 PM', cls: 'back', s: 'Back on your Desktop' } },
+    { id: 'y2', ic: 'letter', yes: "CAN'T UNDO", gone: true, b: 'Sent your reply to Greenhouse', s: 'You said yes at 2:40 pm', when: 'SENT', sent: true,
+      open: "<p>A sent email can't be taken back, so there's no Undo. Here it is.</p>", keys: [['Open the email', 'plum']] },
+    { id: 'y3', ic: 'key', yes: 'YOU SAID ALWAYS', b: 'Claude may use wowhead.com', s: 'In Samara, without asking', when: '3:02 pm',
+      open: '<p>Claude can open wowhead.com in Samara without asking you first.</p>', keys: [['Take it back', 'burnt', 'undo']],
+      ask: 'Have Claude ask you again before using wowhead.com?', sure: 'Take it back', after: { ic: 'undo', yes: 'TAKEN BACK 5:21 PM', cls: 'back', s: 'Claude asks again next time' } },
+    { id: 'c1', ic: 'cal', b: 'Your call "Standup" starts at 4:00', s: 'meet.google.com/abc-defg', when: '3:55 pm', keys: [['Join call', 'primary']], open: '' },
+  ] },
+];
+const LAST = DAYS.at(-1).rows.at(-1);
+
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+function rowHtml(r) {
+  rows[r.id] = r;
+  const rep = '<button class="sb-rep" data-rep type="button">REPLY</button>';
+  if (r.talk === 'mine') return `<div class="sb-mine" data-id="${r.id}">${esc(r.b)}${rep}</div>`;
+  const tile = r.talk === 'his' ? `<span class="lt-tile round"><img class="aang" src="${ART}aang-face.png" alt=""></span>`
+    : r.face ? `<span class="lt-tile round"><img class="face" src="${r.face}" alt=""></span>`
+    : r.lantern ? `<span class="lt-tile"><img class="lt-art" src="${ART}samara/samara-lantern-32.png" alt=""></span>`
+    : `<span class="lt-tile" data-ic="${r.ic}"></span>`;
+  const plaque = r.yes ? `<em class="said-yes${r.gone ? ' gone' : ''}">${r.yes}</em>` : '';
+  const sub = r.s ? `<span>${plaque}${esc(r.s)}</span>` : '';
+  const when = r.when ? `<span class="lt-when${r.sent ? ' sent' : ''}">${r.when}${r.small ? `<small>${r.small}</small>` : ''}</span>` : '';
+  const keys = (r.keys ?? []).map(([l, c, a]) => `<button class="key sm ${c}" type="button" data-act="${a ?? 'go'}">${l}</button>`).join('');
+  const open = r.talk ? '' : `<div class="lt-open" hidden>${r.open ?? ''}<div class="lt-keys">${keys}</div></div>`;
+  return `<div class="lt-item ${r.talk ? 'talk' : 'can'}" data-id="${r.id}"><div class="lt-head">${tile}<span class="lt-txt"><b>${esc(r.b)}</b>${sub}</span>${when}</div>${rep}${open}</div>`;
+}
+const slip = (d) => `<div class="lt-slip">${d.h ? `<h3>${d.h}</h3>` : ''}${d.rows.map(rowHtml).join('')}</div>`;
+const chevronUp = '<svg width="30" height="19" viewBox="0 0 30 19" aria-hidden="true"><path d="M3 16 L15 5 L27 16" fill="none" stroke="#120A05" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 16 L15 5 L27 16" fill="none" stroke="#C98C14" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+const VIEWS = {
+  last: { lantern: false, w: 300, html: () => `<p class="said">${esc(LAST.b)}. Join: ${esc(LAST.s)}</p>` },
+  journal: { lantern: true, w: 556, html: () => `<div class="lt-top" style="margin-bottom:8px"><div class="lt-date"><small>EVERYTHING I SHOWED YOU</small><b>Looking back</b><span>Scroll up for older. Click anything to open it.</span></div></div>
+      <div class="sb-list" id="list"><div class="sb-older" id="older">${chevronUp}OLDER</div>${DAYS.filter((d) => !d.older).map(slip).join('')}</div>` },
+};
+
+let now = null;
+function show(kind, after) {
+  now = kind; talk();
+  const v = VIEWS[kind];
+  measure.innerHTML = `<div id="bubble" class="parch tex ${v.lantern ? 'lantern' : ''}" style="width:${v.w}px;position:static">${v.html()}</div>`;
+  paintIcons(measure);
+  const h = measure.firstChild.getBoundingClientRect().height;
+  const first = bubble.hidden;
+  fill.classList.add('out');
+  setTimeout(() => {
+    if (first) { bubble.hidden = false; bubble.style.width = Math.round(v.w * .6) + 'px'; bubble.style.height = Math.round(h * .6) + 'px'; bubble.getBoundingClientRect(); }
+    bubble.classList.toggle('lantern', v.lantern);
+    fill.innerHTML = ''; bubble.style.width = v.w + 'px'; bubble.style.height = h + 'px';
+    paintFor(320);
+    setTimeout(() => { fill.innerHTML = v.html(); paintIcons(fill); wire(); fill.classList.remove('out'); paint(); setTimeout(paint, 120); after?.(); }, 270);
+  }, first ? 0 : 150);
+}
+function fit() { bubble.style.height = 'auto'; const h = bubble.getBoundingClientRect().height; bubble.style.height = h + 'px'; paintFor(320); }
+
+function wire() {
+  const list = document.getElementById('list');
+  if (!list) return;
+  list.scrollTop = list.scrollHeight;          // newest at the bottom, where he left off
+  list.addEventListener('scroll', () => { if (list.scrollTop < 6) older(); }, { passive: true });
+}
+// at the top: the next page slides in above, and he stays where he was reading
+let gotOlder = false;
+function older() {
+  const list = document.getElementById('list'), o = document.getElementById('older');
+  if (!list || gotOlder) return;
+  gotOlder = true; o.classList.add('loading');
+  setTimeout(() => {
+    const was = list.scrollHeight;
+    o.insertAdjacentHTML('afterend', DAYS.filter((d) => d.older).map(slip).join(''));
+    paintIcons(list);
+    list.scrollTop += list.scrollHeight - was;
+    o.classList.remove('loading');
+  }, 500);
+}
+
+// one row open at a time; the click on a row opens it as it first looked
+fill.addEventListener('click', (e) => {
+  const rep = e.target.closest('[data-rep]');
+  if (rep) { e.stopPropagation(); reply(rep.parentElement.dataset.id); return; }
+  const key = e.target.closest('[data-act]');
+  if (key) { e.stopPropagation(); act(key, key.closest('.lt-item').dataset.id); return; }
+  const head = e.target.closest('.lt-item.can > .lt-head');
+  if (!head) return;
+  const item = head.parentElement, open = item.querySelector('.lt-open');
+  const was = !open.hidden;
+  for (const x of fill.querySelectorAll('.lt-item.open')) { x.classList.remove('open'); x.querySelector('.lt-open').hidden = true; }
+  if (!was) { item.classList.add('open'); open.hidden = false; open.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+});
+
+// Undo / Take back: asks once, then the row says what happened and stays in the history
+function act(key, id) {
+  const r = rows[id];
+  if (key.dataset.act === 'go') { key.classList.add('press'); setTimeout(() => key.classList.remove('press'), 160); return; }
+  const open = fill.querySelector(`.lt-item[data-id="${id}"] .lt-open`);
+  if (key.dataset.act === 'undo') {
+    open.innerHTML = `<p class="ask">${esc(r.ask)}</p><div class="lt-keys"><button class="key sm burnt" type="button" data-act="sure">${esc(r.sure)}</button><button class="key sm" type="button" data-act="leave">Leave it</button></div>`;
+    return;
+  }
+  if (key.dataset.act === 'leave') { open.innerHTML = `${r.open}<div class="lt-keys">${r.keys.map(([l, c, a]) => `<button class="key sm ${c}" type="button" data-act="${a ?? 'go'}">${l}</button>`).join('')}</div>`; return; }
+  if (key.dataset.act === 'sure') {
+    const item = fill.querySelector(`.lt-item[data-id="${id}"]`);
+    Object.assign(r, { ic: r.after.ic, yes: r.after.yes, s: r.after.s, keys: [], open: '' });
+    const tmp = document.createElement('div'); tmp.innerHTML = rowHtml(r); const fresh = tmp.firstChild;
+    fresh.classList.add('undone'); fresh.querySelector('.said-yes').className = 'said-yes ' + r.after.cls;
+    paintIcons(fresh); item.replaceWith(fresh);
+  }
+}
+
+// Reply: the typing box opens with the item pinned above it; Aang gets the whole item, not just its words
+function reply(id) {
+  const r = rows[id];
+  for (const x of fill.querySelectorAll('.replying')) x.classList.remove('replying');
+  fill.querySelector(`[data-id="${id}"]`)?.classList.add('replying');
+  tbwhat.textContent = r.talk === 'mine' ? `You: ${r.b}` : r.s && !r.talk ? `${r.b} · ${r.s}` : r.b;
+  tbf.innerHTML = '<span class="cur"></span>';
+  tb.classList.add('on');
+}
+document.getElementById('tbx').onclick = () => { tb.classList.remove('on'); for (const x of fill.querySelectorAll('.replying')) x.classList.remove('replying'); };
+
+// scrolling up on the bubble, even a one-line message, opens the scroll-back
+bubble.addEventListener('wheel', (e) => { if (now !== 'journal' && e.deltaY < 0) { e.preventDefault(); show('journal'); } }, { passive: false });
+// clicking Aang brings back the last thing he showed; with the scroll-back open, it goes back to that
+aang.onclick = () => { tb.classList.remove('on'); show('last'); };
+
+// --- the story, with each step shown
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const press = async (el) => { if (!el) return; el.classList.add('press'); await sleep(170); el.classList.remove('press'); el.click(); };
+const item = (id) => fill.querySelector(`[data-id="${id}"]`);
+async function type(words) { for (let i = 1; i <= words.length; i++) { tbf.innerHTML = esc(words.slice(0, i)) + '<span class="cur"></span>'; await sleep(40); } }
+document.getElementById('play').onclick = async () => {
+  tb.classList.remove('on'); gotOlder = false; bubble.hidden = true;
+  show('last'); await sleep(1800);
+  show('journal'); await sleep(1700);
+  item('y1').querySelector('.lt-head').click(); await sleep(1200);
+  await press(item('y1').querySelector('[data-act="undo"]')); await sleep(1300);
+  await press(item('y1').querySelector('[data-act="sure"]')); await sleep(1400);
+  const list = document.getElementById('list'); list.scrollTo({ top: 120, behavior: 'smooth' }); await sleep(900);
+  item('v1').querySelector('.lt-head').click(); await sleep(1500);
+  reply('v1'); await sleep(500); await type('does he cover the fence nerf?');
+};
+window.__show = show;
+// ?show=journal|open|undo|reply opens straight on that moment, for the still pictures on the sheet
+const only = new URLSearchParams(location.search).get('show');
+if (!only) setTimeout(() => show('last'), 300);
+if (only) {
+  document.body.classList.add('still');
+  document.querySelector('.ctl').remove();
+  show(only === 'last' ? 'last' : 'journal', async () => {
+    await sleep(60);
+    if (only === 'open') item('v1').querySelector('.lt-head').click();
+    if (only === 'undo') { item('y1').querySelector('.lt-head').click(); act({ dataset: { act: 'undo' } }, 'y1'); }
+    if (only === 'reply') { reply('t2'); tbf.innerHTML = 'which perk exactly?<span class="cur"></span>'; }
+  });
+}
+</script>
+</body>
+</html>

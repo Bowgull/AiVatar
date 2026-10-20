@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 41 - The scroll-back keeps everything</title>
+<!-- Sheet 41 v2 (2026-10-20). His note on v1: "boring and doesn't follow any design language at all". v1 was generic
+     rounded cards with emoji. v2 is built like sheet 37: every panel is a working page on the real CSS (bubble.css
+     Lantern classes), the real balloon.js with the wood, the real pixel icons, the typing box's own reply chip. -->
+<style>
+  html,body{background:#17110c;margin:0}
+  body{color:#e8dcc4;font-family:Figtree,sans-serif;padding:24px;width:1240px}
+  h1{font:400 20px Silkscreen,monospace;color:#FFC43C;letter-spacing:2px;margin:0 0 4px}
+  h2{font:400 13px Silkscreen,monospace;color:#FFC43C;letter-spacing:1.5px;margin:30px 0 6px}
+  p{color:#cdbb9a;font-size:14.5px;line-height:1.5;margin:0 0 12px;max-width:1150px}
+  p b{color:#FFC43C}
+  .stage{background:#1a110a url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;border-radius:12px;border:3px solid #0d0703;padding:10px;display:inline-block;vertical-align:top;box-shadow:0 10px 26px rgba(0,0,0,.5);margin:0 10px 10px 0}
+  iframe{border:0;display:block;background:transparent}
+  .mini{width:566px;height:346px;overflow:hidden;border-radius:10px}
+  .mini iframe{transform:scale(.48);transform-origin:0 0}
+  .cap{font:400 10px Silkscreen,monospace;color:#FFC43C;letter-spacing:1.5px;margin:0 0 8px}
+</style>
+</head>
+<body>
+<h1>SHEET 41 &middot; THE SCROLL-BACK KEEPS EVERYTHING (v2)</h1>
+<p>Built from your brief (sheet 24) and the plan card (sheet 37): the Lantern's wood, parchment slips for each part of the day, a pixel icon on every row, your three key colours, and the turquoise glow for anything you said yes to. Scroll up on any bubble, even a one-line one, and it turns into this. The bubble below is the real one, tail and all. <b>Try it:</b> scroll up on the bubble, click a row, hover for Reply, click Aang.</p>
+
+<h2>1 &middot; THE WHOLE THING (PRESS PLAY)</h2>
+<p>His last message, then you scroll up: everything he showed you, newest at the bottom, the day split into slips. Reach the top and the next older day slides in above, as far back as you want. Your words are plum on the right (plum is you, everywhere); his have his face.</p>
+<div class="stage"><iframe src="sheet-41/stage.html" width="1184" height="790" title="stage"></iframe></div>
+
+<h2>2 &middot; CLICK A ROW: IT OPENS AS IT FIRST LOOKED</h2>
+<p>The video comes back with its picture and its keys, the brief with its weather and lines, Claude's plan with its ticks. One open at a time; click again to fold it.</p>
+<div class="stage"><p class="cap">A VIDEO, OPENED</p><div class="mini"><iframe src="sheet-41/stage.html?show=open" width="1180" height="720" title="open"></iframe></div></div>
+<div class="stage"><p class="cap">UNDO ASKS ONCE</p><div class="mini"><iframe src="sheet-41/stage.html?show=undo" width="1180" height="720" title="undo"></iframe></div></div>
+
+<h2>3 &middot; WHAT YOU SAID YES TO</h2>
+<p>Every yes keeps a turquoise <b>YOU SAID YES</b> tag and says what actually happened. Open it for <b>Undo</b> (burnt orange); it asks once, then the row stays in the history with a gold <b>UNDONE</b> tag, so you can always see what happened and when. An "always" gets <b>Take it back</b>. Something that can't be undone, like a sent email, is grey <b>CAN'T UNDO</b> and says why instead of offering a button.</p>
+
+<h2>4 &middot; REPLY TO ANYTHING</h2>
+<p>Hover any row: a gold <b>REPLY</b> key takes the place of the time. The row lights up and your typing box opens with it pinned in the chip it already uses. Aang gets the whole thing (the video, the brief, the plan), not just its words, and answers in the bubble.</p>
+<div class="stage"><p class="cap">REPLYING TO HIS ANSWER</p><div class="mini"><iframe src="sheet-41/stage.html?show=reply" width="1180" height="720" title="reply"></iframe></div></div>
+</body>
+</html>
