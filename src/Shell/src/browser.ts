@@ -469,6 +469,13 @@ export class AangBrowser {
   onPlanStep: ((card: string, at: number | null) => void) | null = null;
   /** Sheet 41: a Claude job's plan finished, card or not, so its row in the scroll-back can say done. */
   onPlanDone: ((jobId: number) => void) | null = null;
+  /** Right-click "Send to Aang": highlighted words go to his typing box. Null while Aang is not running (then hidden). */
+  onSendToAang: ((text: string, from: string) => void) | null = null;
+  /** Right-click "Play in the pop-out" on a link. */
+  onPlayInPopout: ((url: string) => void) | null = null;
+  private popTab: ((id: number) => void) | null = null;
+  /** Right-click "Pop out this video": the same as the pop-out key (popoutipc.ts). */
+  setPopTab(fn: (id: number) => void): void { this.popTab = fn; }
   private planSeq = 0;
   private planWait = new Map<string, (a: PlanAnswer | null) => void>();
   /** Which card each planned job showed, for its live checklist. */
@@ -990,10 +997,21 @@ export class AangBrowser {
     const on = this.darkWanted(wc.getURL());
     const src = darkSource();
     if (!src) return;
-    const steps = on ? [{ code: `if(!globalThis.DarkReader){${src}\n};true` }, { code: `DarkReader.enable(${DARK_THEME});true` }] : [{ code: 'globalThis.DarkReader&&DarkReader.disable();true' }];
+    const steps = on ? [{ code: `if(!globalThis.DarkReader){${src}\n};true` }, { code: `if(!DarkReader.isEnabled())DarkReader.enable(${DARK_THEME});true` }] : [{ code: 'globalThis.DarkReader&&DarkReader.disable();true' }];
     void wc.executeJavaScriptInIsolatedWorld(DARK_WORLD, steps).catch(() => { /* the page went away */ });
   }
   private paintDarkAll(): void { for (const t of this.tabs) this.paintDark(t); }
+  /**
+   * Dark mode from the page's first moment (his report, 2026-10-20: Gmail and LinkedIn stayed white for a long while).
+   * dom-ready comes late on heavy sites, so the tab's own script asks here as the page starts, and runs Dark Reader in its
+   * world straight away, the way the extension does at document start. Null: no dark mode on this page.
+   */
+  darkAtStart(wc: Electron.WebContents, url: string): { src: string; theme: string } | null {
+    const t = this.tabs.find((x) => x.view?.webContents === wc);
+    if (!t || t.internal || !this.darkWanted(url)) return null;
+    const src = darkSource();
+    return src ? { src, theme: DARK_THEME } : null;
+  }
   /** The shield's "Dark mode on this site" switch, for the site he is on. Synced with his other prefs. */
   setDarkHere(on: boolean): void {
     const host = this.darkHost(this.cur()?.url ?? '');
@@ -2023,8 +2041,14 @@ export class AangBrowser {
     type Item = { id: string; label: string; key?: string; off?: boolean } | { sep: true };
     const items: Item[] = [];
     const sep = () => { if (items.length && !('sep' in items[items.length - 1]!)) items.push({ sep: true }); };
-    if (p.linkURL && isWeb(p.linkURL)) { items.push({ id: 'linktab', label: 'Open link in new tab' }, ...(this.onOpenOther ? [{ id: 'linkother', label: `${OTHER_OPEN.replace('Open', 'Open link')}` }] : []), { id: 'linkcopy', label: 'Copy link' }); sep(); }
+    // His picks (2026-10-20): save the link, save the picture, send highlighted words to Aang, play in the pop-out.
+    if (p.linkURL && isWeb(p.linkURL)) {
+      items.push({ id: 'linktab', label: 'Open link in new tab' }, ...(this.onOpenOther ? [{ id: 'linkother', label: `${OTHER_OPEN.replace('Open', 'Open link')}` }] : []),
+        ...(this.onPlayInPopout ? [{ id: 'linkpop', label: 'Play in the pop-out' }] : []), { id: 'linksave', label: 'Save link' }, { id: 'linkcopy', label: 'Copy link' });
+      sep();
+    }
     if (p.mediaType === 'image' && p.srcURL && /^(https?:|data:image\/)/.test(p.srcURL)) { items.push({ id: 'imgsave', label: 'Save image' }, { id: 'imgcopy', label: 'Copy image' }); sep(); }
+    if (p.mediaType === 'video' && this.popTab && !tab.internal) { items.push({ id: 'vidpop', label: 'Pop out this video' }); sep(); }
     const words = p.selectionText.replace(/\s+/g, ' ').trim();
     // A misspelled word: Chrome's suggestions first, then teach it the word.
     if (p.isEditable && p.misspelledWord) {
@@ -2040,7 +2064,7 @@ export class AangBrowser {
         { id: 'paste', label: 'Paste', key: 'CTRL V', off: !f.canPaste }, { id: 'selectall', label: 'Select all', key: 'CTRL A', off: !f.canSelectAll });
       sep();
     } else if (words) {
-      items.push({ id: 'copy', label: 'Copy', key: 'CTRL C' }, { id: 'search', label: `Search for "${words.length > 28 ? words.slice(0, 27) + '…' : words}"` });
+      items.push({ id: 'copy', label: 'Copy', key: 'CTRL C' }, ...(this.onSendToAang ? [{ id: 'toaang', label: 'Send to Aang' }] : []), { id: 'search', label: `Search for "${words.length > 28 ? words.slice(0, 27) + '…' : words}"` });
       sep();
     }
     items.push({ id: 'back', label: 'Back', key: 'ALT ←', off: !wc.navigationHistory.canGoBack() }, { id: 'reload', label: 'Reload', key: 'CTRL R' });
@@ -2089,10 +2113,21 @@ export class AangBrowser {
     const wc = t?.view?.webContents;
     if (!f || !t || !wc || wc.isDestroyed() || !this.inTab(t)) return;
     const p = f.p;
+    // His report (2026-10-20): picking a spelling did nothing. The menu is its own window, so while it was open the tab's
+    // window lost the keyboard, and the word was replaced in a page that was not focused. Give Samara's window the
+    // keyboard back, then the tab, then replace once that has landed.
+    const pw = this.panes.find((x) => x.id === t.pane)?.win;
+    if (pw && !pw.isDestroyed()) pw.focus();
     wc.focus();
+    const spell = /^spell([0-4])$/.exec(id);
+    if (spell) { const s = p.dictionarySuggestions[Number(spell[1])]; if (s) setTimeout(() => { if (!wc.isDestroyed()) wc.replaceMisspelling(s); }, 40); return; }
     switch (id) {
       case 'linktab': if (isWeb(p.linkURL)) this.newTab(p.linkURL, t.id, false); break;
       case 'linkcopy': if (isWeb(p.linkURL)) clipboard.writeText(p.linkURL); break;
+      case 'linksave': if (isWeb(p.linkURL)) wc.downloadURL(p.linkURL); break;
+      case 'linkpop': if (isWeb(p.linkURL)) this.onPlayInPopout?.(p.linkURL); break;
+      case 'vidpop': this.popTab?.(t.id); break;
+      case 'toaang': { const q = p.selectionText.trim().slice(0, 4000); if (q) this.onSendToAang?.(q, `Samara, ${hostOf(t.url) || 'a page'}`); break; }
       case 'linkother': if (isWeb(p.linkURL)) this.onOpenOther?.(p.linkURL); break;
       case 'openother': if (isWeb(t.url)) { this.onOpenOther?.(t.url); this.pauseMedia(t.id); } break;
       case 'imgsave': if (p.srcURL) wc.downloadURL(p.srcURL); break;
@@ -2105,11 +2140,6 @@ export class AangBrowser {
       case 'back': if (wc.navigationHistory.canGoBack()) wc.navigationHistory.goBack(); break;
       case 'reload': wc.reload(); break;
       case 'learn': if (p.misspelledWord) wc.session.addWordToSpellCheckerDictionary(p.misspelledWord); break;
-      default: {
-        const m = /^spell([0-4])$/.exec(id);
-        const s = m ? p.dictionarySuggestions[Number(m[1])] : undefined;
-        if (s) wc.replaceMisspelling(s);
-      }
     }
   }
 

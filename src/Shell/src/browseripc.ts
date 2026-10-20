@@ -18,6 +18,8 @@ export function wireBrowser(get: () => AangBrowser | null): void {
   // A tab's page has drawn (tabpreload.cjs): the only thing a website's tab ever sends, and it carries nothing.
   ipcMain.on('tab:painted', (e) => b()?.painted(e.sender));
   // Nothing plays until he asks (2026-10-20): a starting page asks whether it may play by itself and whether he sees it.
+  // Dark mode at the page's start (2026-10-20): the top frame only, and only for the address that frame really has.
+  ipcMain.handle('tab:dark', (e) => { try { const f = e.senderFrame; if (!f || f.parent) return null; return b()?.darkAtStart(e.sender, f.url) ?? null; } catch { return null; } });
   ipcMain.handle('tab:mayplay', (e) => { try { return b()?.mayPlay(e.sender) ?? { ok: true, shown: true }; } catch { return { ok: true, shown: true }; } });
   // 6.25a: STOP, close, watch or open one of Aang's pages, from the drawer or the address bar.
   ipcMain.on('browser:driver', (e, a) => { if ((top(e) && b()?.isFrame(e.sender)) && a && typeof a.act === 'string' && Number.isInteger(a.id)) b().driverAct(a.act.slice(0, 10), a.id); });
