@@ -738,3 +738,18 @@ html:not(.solo) .bw::after{content:"";flex:0 0 12px;background:url(art/browser/b
 /* New tab's hint, readable (it was 10 px at 60%): a small gold keycap */
 .drawer .newtab .k{position:static;margin-left:auto;opacity:1;font:400 10px var(--label);letter-spacing:1px;color:#2a1c00;
   background:linear-gradient(180deg,var(--gold-light),var(--gold-deep));border:2px solid var(--outline);border-radius:5px;padding:3px 6px 2px}
+/* ---- sheet 43c (his pick C, 2026-10-20): the shelf's frame. The dotted stitching tile read as noise; now a carved wood
+   frame with Samara's own gold corner caps (the tidy panel's), and the velvet lifted: a lamp glow from the top, shadow
+   pooling at its edges, so the keys sit in a lit box. */
+.shelf-bk{position:relative;border:3px solid var(--outline);border-image:none;border-radius:10px;padding:13px 11px 14px;margin:6px 0 18px;
+  background:radial-gradient(120% 70% at 50% 0%,rgba(255,200,120,.13),transparent 60%),radial-gradient(130% 130% at 50% 50%,transparent 55%,rgba(8,4,14,.55)),url(art/browser/velvet.png) 0 0/96px 96px;
+  image-rendering:pixelated;box-shadow:inset 0 0 0 4px #4a2e1a,inset 0 0 0 5px var(--outline),inset 0 7px 12px rgba(0,0,0,.5),0 3px 0 #0d0703}
+.shelf-bk::after{content:"";position:absolute;inset:-6px;pointer-events:none;z-index:1;image-rendering:pixelated;
+  background:url(art/browser/cap3_tl.png) left top/22px 22px no-repeat,url(art/browser/cap3_tr.png) right top/22px 22px no-repeat,
+    url(art/browser/cap3_bl.png) left bottom/22px 22px no-repeat,url(art/browser/cap3_br.png) right bottom/22px 22px no-repeat}
+/* the banners ride above the caps */
+.shelf-bk .bm-key:hover,.shelf-bk .bm-key:focus-visible{z-index:2}
+/* In the carved frame the shelf is 228 px inside: four 50 px keys and 6 px gaps fit with room on both sides (four 54s did not). */
+.shelf-bk .bm-slots{gap:10px 6px}
+.shelf-bk .bm-key{width:50px;height:50px}
+.shelf-bk .bm-key img{width:24px;height:24px}
