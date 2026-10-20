@@ -10,6 +10,7 @@
 <link rel="stylesheet" href="../../../src/Shell/pages/bubble.css">
 <style>
   html,body{margin:0;background:transparent!important;overflow:hidden!important;height:auto!important;width:auto!important;display:block!important}
+  body{pointer-events:auto!important}
   .desk{position:relative;width:1180px;height:720px;border-radius:10px;overflow:hidden;
     background:radial-gradient(90% 70% at 30% 20%,#2a2238,#120c1a 70%),#120c1a}
   .desk::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(0deg,rgba(255,255,255,.012) 0 2px,transparent 2px 4px);pointer-events:none}
@@ -84,6 +85,14 @@
   .cur{display:inline-block;width:2px;height:16px;background:#FFC43C;vertical-align:-3px;animation:blink 1s steps(1) infinite}
   @keyframes blink{50%{opacity:0}}
 
+  /* a link in his words: underlined in the Lantern's ink, Samara's lantern in front, opens in Samara */
+  .lnk{color:#8a3e1c;font-weight:700;text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:3px;text-decoration-color:rgba(138,62,28,.45);cursor:pointer;border-radius:4px;padding:0 2px;white-space:nowrap}
+  .lnk:hover{background:rgba(255,196,60,.35);text-decoration-color:#8a3e1c}
+  .lnk img{width:16px;height:16px;image-rendering:pixelated;vertical-align:-3px;margin-right:3px}
+  #toast{position:absolute;right:240px;bottom:110px;display:flex;align-items:center;gap:8px;font:400 9px var(--label);letter-spacing:1.5px;color:#ffe28c;padding:7px 11px;border-radius:7px;
+    background:linear-gradient(rgba(0,0,0,.5),rgba(0,0,0,.5)),url(../../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;border:2px solid #120A05;opacity:0;transform:translateY(6px);transition:opacity .2s,transform .2s}
+  #toast.on{opacity:1;transform:none}
+  #toast img{width:16px;height:16px;image-rendering:pixelated}
   .ctl{display:flex;gap:10px;align-items:center;margin:14px 2px 0;flex-wrap:wrap}
   .ctl .lbl{font:400 9px Silkscreen,monospace;letter-spacing:1.5px;color:#FFC43C}
 </style>
@@ -93,6 +102,7 @@
   <div id="wrap"><svg id="skin"></svg><div id="bubble" class="parch tex" hidden><div id="fill"></div></div></div>
   <div id="tb"><div class="pinned"><span class="pinchip"><b>REPLYING TO</b><em id="tbwhat"></em><s id="tbx">×</s></span></div>
     <div class="box"><div class="field" id="tbf"><span class="cur"></span></div></div><div class="strip"></div></div>
+  <div id="toast"><img src="../../../src/Shell/pages/art/samara/samara-lantern-16.png" alt="">OPENING IN SAMARA</div>
   <img id="aang" src="../../../assets/aang/frames/idle_0.png" alt="" title="Click Aang">
 </div>
 <div id="measure"></div>
@@ -161,11 +171,13 @@ const DAYS = [
     { id: 'y3', ic: 'key', yes: 'YOU SAID ALWAYS', b: 'Claude may use wowhead.com', s: 'In Samara, without asking', when: '3:02 pm',
       open: '<p>Claude can open wowhead.com in Samara without asking you first.</p>', keys: [['Take it back', 'burnt', 'undo']],
       ask: 'Have Claude ask you again before using wowhead.com?', sure: 'Take it back', after: { ic: 'undo', yes: 'TAKEN BACK 5:21 PM', cls: 'back', s: 'Claude asks again next time' } },
-    { id: 'c1', ic: 'cal', b: 'Your call "Standup" starts at 4:00', s: 'meet.google.com/abc-defg', when: '3:55 pm', keys: [['Join call', 'primary']], open: '' },
+    { id: 'c1', ic: 'cal', b: 'Your call "Standup" starts at 4:00', s: 'meet.google.com/abc-defg', url: true, when: '3:55 pm', keys: [['Join call', 'primary']], open: '' },
   ] },
 ];
 const LAST = DAYS.at(-1).rows.at(-1);
 
+const LANT = ART + 'samara/samara-lantern-16.png';
+const link = (u) => `<a class="lnk" data-url="https://${u}"><img src="${LANT}" alt="">${u}</a>`;
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 function rowHtml(r) {
   rows[r.id] = r;
@@ -176,7 +188,7 @@ function rowHtml(r) {
     : r.lantern ? `<span class="lt-tile"><img class="lt-art" src="${ART}samara/samara-lantern-32.png" alt=""></span>`
     : `<span class="lt-tile" data-ic="${r.ic}"></span>`;
   const plaque = r.yes ? `<em class="said-yes${r.gone ? ' gone' : ''}">${r.yes}</em>` : '';
-  const sub = r.s ? `<span>${plaque}${esc(r.s)}</span>` : '';
+  const sub = r.s ? `<span>${plaque}${r.url ? link(r.s) : esc(r.s)}</span>` : '';
   const when = r.when ? `<span class="lt-when${r.sent ? ' sent' : ''}">${r.when}${r.small ? `<small>${r.small}</small>` : ''}</span>` : '';
   const keys = (r.keys ?? []).map(([l, c, a]) => `<button class="key sm ${c}" type="button" data-act="${a ?? 'go'}">${l}</button>`).join('');
   const open = r.talk ? '' : `<div class="lt-open" hidden>${r.open ?? ''}<div class="lt-keys">${keys}</div></div>`;
@@ -186,7 +198,7 @@ const slip = (d) => `<div class="lt-slip">${d.h ? `<h3>${d.h}</h3>` : ''}${d.row
 const chevronUp = '<svg width="30" height="19" viewBox="0 0 30 19" aria-hidden="true"><path d="M3 16 L15 5 L27 16" fill="none" stroke="#120A05" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 16 L15 5 L27 16" fill="none" stroke="#C98C14" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
 const VIEWS = {
-  last: { lantern: false, w: 300, html: () => `<p class="said">${esc(LAST.b)}. Join: ${esc(LAST.s)}</p>` },
+  last: { lantern: false, w: 330, html: () => `<p class="said">${esc(LAST.b)}. Join: ${link(LAST.s)}</p>` },
   journal: { lantern: true, w: 556, html: () => `<div class="lt-top" style="margin-bottom:8px"><div class="lt-date"><small>EVERYTHING I SHOWED YOU</small><b>Looking back</b><span>Scroll up for older. Click anything to open it.</span></div></div>
       <div class="sb-list" id="list"><div class="sb-older" id="older">${chevronUp}OLDER</div>${DAYS.filter((d) => !d.older).map(slip).join('')}</div>` },
 };
@@ -233,6 +245,8 @@ function older() {
 
 // one row open at a time; the click on a row opens it as it first looked
 fill.addEventListener('click', (e) => {
+  const a = e.target.closest('.lnk');
+  if (a) { e.stopPropagation(); const t = document.getElementById('toast'); t.classList.add('on'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('on'), 1800); return; }
   const rep = e.target.closest('[data-rep]');
   if (rep) { e.stopPropagation(); reply(rep.parentElement.dataset.id); return; }
   const key = e.target.closest('[data-act]');
