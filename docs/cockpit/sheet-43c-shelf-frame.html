@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 43c - The bookmark shelf's frame</title>
+<!-- Sheet 43c (2026-10-20). His ask: the dotted leather border behind the bookmarks, smoother, and its look enhanced.
+     Today: velvetframe.png, a 12 px tile of dotted gold stitching repeated round the edge, which reads as noise at this
+     size. Three answers around the real keys (sheet 43b's, as built), each with the velvet itself lifted a little: a lamp
+     glow from the top and a soft shadow at its edges, so the keys sit in a lit box. Real size, then 2x. -->
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<link rel="stylesheet" href="../../src/Shell/pages/notefonts.css">
+<style>
+  html,body{background:#17110c;margin:0}
+  body{color:#e8dcc4;font-family:Figtree,sans-serif;padding:24px;width:1500px}
+  h1{font:400 20px Silkscreen,monospace;color:#FFC43C;letter-spacing:2px;margin:0 0 4px}
+  h2{font:400 12px Silkscreen,monospace;color:#FFC43C;letter-spacing:1.5px;margin:0 0 8px}
+  p{color:#cdbb9a;font-size:14.5px;line-height:1.5;margin:0 0 12px;max-width:1300px}
+  p b{color:#FFC43C}
+  .row{display:flex;gap:26px;align-items:flex-start;flex-wrap:wrap;margin:18px 0 26px}
+  .col{width:320px}
+  .why{font-size:13px;color:#cdbb9a;line-height:1.45;margin:12px 0 0}
+  .zoomwrap{width:600px;height:360px;overflow:hidden;border-radius:12px;box-shadow:0 0 0 3px #0d0703}
+  .zoom{transform:scale(2);transform-origin:0 0;width:300px}
+  .drawer{width:290px;box-sizing:border-box;padding:14px 12px;background:linear-gradient(rgba(0,0,0,.15),rgba(0,0,0,.25)),url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated;border-radius:10px;box-shadow:0 0 0 3px #0d0703,0 12px 26px rgba(0,0,0,.5)}
+
+  /* the keys, exactly as built (browser.css .bm-key) */
+  .slots{display:grid;grid-template-columns:repeat(4,1fr);gap:10px 8px;justify-items:center;padding:3px 0 2px}
+  .k{position:relative;width:54px;height:54px;box-sizing:border-box;border-radius:9px;border:3px solid #120A05;display:grid;place-items:center;
+    background:linear-gradient(180deg,#6a4a2c 0,#56371F 45%,#47301b 100%);box-shadow:0 5px 0 #120A05,inset 0 3px 0 rgba(255,222,170,.28),inset 0 -3px 0 rgba(0,0,0,.35),0 8px 10px rgba(0,0,0,.45)}
+  .k img{width:26px;height:26px;border-radius:4px;filter:drop-shadow(0 1px 0 rgba(0,0,0,.55))}
+  .k.add{background:transparent;border:3px dashed rgba(255,224,150,.4);box-shadow:none;color:#FFE096;font:700 22px var(--body)}
+
+  /* the velvet, lifted: a lamp glow from the top, shadow pooling at the edges */
+  .velvet{background:radial-gradient(120% 70% at 50% 0%,rgba(255,200,120,.13),transparent 60%),radial-gradient(130% 130% at 50% 50%,transparent 55%,rgba(8,4,14,.55)),url(../../src/Shell/pages/art/browser/velvet.png) 0 0/96px 96px;image-rendering:pixelated}
+
+  /* today */
+  .now{border-style:solid;border-width:8px;border-image:url(../../src/Shell/pages/art/browser/velvetframe.png) 4 repeat;padding:9px 8px 10px;background:url(../../src/Shell/pages/art/browser/velvet.png) 0 0/96px 96px;image-rendering:pixelated}
+
+  /* A: a brass inlay. One clean gold line set into dark wood, rounded corners, no stitches. */
+  .brass{padding:11px 9px 12px;border-radius:12px;border:3px solid #120A05;
+    box-shadow:inset 0 0 0 2px #C98C14,inset 0 0 0 3px #6b4a12,inset 0 0 0 5px rgba(255,224,150,.10),inset 0 6px 12px rgba(0,0,0,.55),0 3px 0 #0d0703,0 0 0 1px rgba(255,220,170,.06)}
+
+  /* B: leather, stitched clean. A dark leather band with one even run of gold stitches inside it, rounded. */
+  .leather{position:relative;padding:15px 13px 16px;border-radius:14px;border:3px solid #120A05;
+    background-clip:padding-box;box-shadow:inset 0 0 0 6px #2a1830,inset 0 0 0 7px rgba(0,0,0,.5),inset 0 9px 14px rgba(0,0,0,.45),0 3px 0 #0d0703}
+  .leather::before{content:"";position:absolute;inset:8px;border-radius:9px;pointer-events:none;
+    background:repeating-linear-gradient(90deg,#d9b25a 0 6px,transparent 6px 10px) top/100% 2px no-repeat,repeating-linear-gradient(90deg,#d9b25a 0 6px,transparent 6px 10px) bottom/100% 2px no-repeat,
+      repeating-linear-gradient(180deg,#d9b25a 0 6px,transparent 6px 10px) left/2px 100% no-repeat,repeating-linear-gradient(180deg,#d9b25a 0 6px,transparent 6px 10px) right/2px 100% no-repeat;
+    opacity:.85;filter:drop-shadow(0 1px 0 rgba(0,0,0,.7))}
+
+  /* C: a carved frame with Samara's own gold corner caps (the tidy panel's, cap3) */
+  .carved{position:relative;padding:13px 11px 14px;border-radius:10px;border:3px solid #120A05;
+    box-shadow:inset 0 0 0 4px #4a2e1a,inset 0 0 0 5px #120A05,inset 0 7px 12px rgba(0,0,0,.5),0 3px 0 #0d0703}
+  .carved::after{content:"";position:absolute;inset:-6px;pointer-events:none;image-rendering:pixelated;
+    background:url(../../src/Shell/pages/art/browser/cap3_tl.png) left top/22px 22px no-repeat,url(../../src/Shell/pages/art/browser/cap3_tr.png) right top/22px 22px no-repeat,
+      url(../../src/Shell/pages/art/browser/cap3_bl.png) left bottom/22px 22px no-repeat,url(../../src/Shell/pages/art/browser/cap3_br.png) right bottom/22px 22px no-repeat}
+</style>
+</head>
+<body>
+<h1>SHEET 43C &middot; THE BOOKMARK SHELF'S FRAME</h1>
+<p>Today's edge is a tiny tile of dotted gold stitching repeated all the way round, which reads as noise. Three smoother frames around your real keys, and in all three the velvet is <b>lifted</b>: a soft lamp glow from the top and shadow pooling at the edges, so the keys sit in a lit box instead of on a flat cloth. Real size, then 2x.</p>
+<div class="row" id="v"></div>
+<h2>UP CLOSE (2X)</h2>
+<div class="row" id="z"></div>
+<script type="module">
+import { MARKS } from './sheet-43/marks.js';
+const keys = `<div class="slots">${MARKS.map((m) => `<div class="k"><img src="${m.icon}" alt=""></div>`).join('')}<div class="k add">+</div></div>`;
+const V = [
+  ['TODAY', 'now', 'The dotted stitching tile, for comparison.'],
+  ['A &middot; BRASS INLAY', 'brass velvet', 'One clean gold line set into dark wood, rounded corners, no stitches. The calmest; it matches the gold on the keys’ rings and the New tab hint.'],
+  ['B &middot; CLEAN STITCHES', 'leather velvet', 'Still leather and stitches, but done properly: a dark leather band with one even run of gold stitches inside it, round corners. Keeps the idea you had, without the noise.'],
+  ['C &middot; GOLD CORNER CAPS', 'carved velvet', 'A carved wood frame with Samara’s own gold corner caps, the ones on the tidy panel and in Settings. Most like a game’s inventory window.'],
+];
+for (const [name, cls, why] of V) {
+  const c = document.createElement('div'); c.className = 'col';
+  c.innerHTML = `<h2>${name}</h2><div class="drawer"><div class="${cls}">${keys}</div></div><p class="why">${why}</p>`;
+  document.getElementById('v').append(c);
+  if (cls === 'now') continue;
+  const z = document.createElement('div');
+  z.innerHTML = `<h2>${name}</h2><div class="zoomwrap"><div class="zoom"><div class="drawer"><div class="${cls}">${keys}</div></div></div></div>`;
+  document.getElementById('z').append(z);
+}
+</script>
+</body>
+</html>
