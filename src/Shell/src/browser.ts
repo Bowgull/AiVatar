@@ -150,7 +150,7 @@ interface Pane {
   hideTimer: NodeJS.Timeout | null;
   trayV: WebContentsView | null;
   trayOn: boolean;
-  trayAt: { x: number; y: number };
+  trayAt: { x: number; y: number; hy?: number };
   curtain: WebContentsView | null;
   curtainReady: Promise<unknown>;
   veil: { tab: number; nav: number; at: number; up: boolean; dimT: NodeJS.Timeout | null; capT: NodeJS.Timeout | null } | null;
@@ -236,6 +236,8 @@ const GOOGLE_AUTH = /^https:\/\/accounts\.(google|youtube)\.com(\/|$)/i;
 const GESTURE_MS = 1000;
 /** His rule (2026-10-20): a page may start playing by itself only this soon after he asked for it (a slow redirect included). */
 const PLAY_MS = 15_000;
+/** The tab rail's slide in and out (his ask, 2026-10-20): the same time the rail's CSS uses. */
+const TRAY_SLIDE_MS = 220;
 /** A tab not looked at for this long, and not playing sound, goes to sleep. */
 // 2 hours (his call, 2026-10-12: fewer reloads when going back to a tab). Was 30 minutes. This PC has 16 GB.
 const SLEEP_AFTER_MS = 2 * 60 * 60_000;
@@ -1055,12 +1057,14 @@ export class AangBrowser {
     const w = this.win;
     if (!w || w.isDestroyed()) return null;
     if (this.trayV && !this.trayV.webContents.isDestroyed()) return this.trayV;
-    const v = new WebContentsView({ webPreferences: { ...SAFE_WEB_PREFERENCES, preload: this.o.preloadPath } });
+    // Never slowed while hidden: its slide must start the moment it shows (his ask, 2026-10-20). It does nothing at rest.
+    const v = new WebContentsView({ webPreferences: { ...SAFE_WEB_PREFERENCES, preload: this.o.preloadPath, backgroundThrottling: false } });
     lockDown(v.webContents);
     v.setBackgroundColor('#00000000');
     v.setVisible(false);
     const P = this.pane;
-    v.webContents.on('did-finish-load', () => this.sendTabs());
+    // Opened before its page had loaded (his first hover right after start): slide out once it has.
+    v.webContents.on('did-finish-load', () => { this.pane = P; this.sendTabs(); if (P.trayOn) v.webContents.send('browser:tray', { open: true, hy: P.trayAt.hy }); });
     v.webContents.on('before-input-event', (e, input) => { this.pane = P; if (this.key(input)) e.preventDefault(); });
     void v.webContents.loadURL(`${this.o.origin}/browser.html?tray=1`);
     this.trayV = v;
@@ -1071,19 +1075,31 @@ export class AangBrowser {
     const w = this.win;
     if (!w || w.isDestroyed()) return;
     if (!open) {
-      if (this.trayV && !this.trayV.webContents.isDestroyed()) this.trayV.setVisible(false);
-      if (this.trayOn) { this.trayOn = false; w.webContents.send('browser:tray', { open: false }); w.webContents.focus(); }
+      // The rail slides back in with its handle (his ask, 2026-10-20), then goes; the band's own handle shows again
+      // only once the rail's copy is back on top of it, so there is never a second arrow.
+      const v = this.trayV && !this.trayV.webContents.isDestroyed() ? this.trayV : null;
+      if (!this.trayOn) { v?.setVisible(false); return; }
+      this.trayOn = false;
+      v?.webContents.send('browser:tray', { open: false });
+      setTimeout(() => {
+        if (this.trayOn || w.isDestroyed()) return;
+        v?.setVisible(false);
+        w.webContents.send('browser:tray', { open: false }); w.webContents.focus();
+      }, TRAY_SLIDE_MS + 20);
       return;
     }
     const v = this.trayView();
     if (!v) return;
     const n = (x: unknown, d: number) => (Number.isFinite(Number(x)) ? Math.max(0, Math.round(Number(x))) : d);
-    this.trayAt = { x: n(at?.x, this.trayAt.x), y: n(at?.y, this.trayAt.y) };
+    this.trayAt = { x: n(at?.x, this.trayAt.x), y: n(at?.y, this.trayAt.y), hy: n((at as { hy?: unknown })?.hy, this.trayAt.hy ?? 80) };
     this.trayOn = true;
     this.placeTray();
     w.contentView.addChildView(v);             // to the top, over the page
+    // The rail starts folded, its handle exactly over the band's, then slides out carrying it (his ask, 2026-10-20).
     v.setVisible(true);
+    v.webContents.send('browser:tray', { open: true, hy: this.trayAt.hy });
     v.webContents.focus();
+    w.webContents.send('browser:tray', { open: true });
     this.sendTabs();
   }
   private raiseTray(): void { if (this.trayOn && this.trayV && this.win && !this.win.isDestroyed()) this.win.contentView.addChildView(this.trayV); }

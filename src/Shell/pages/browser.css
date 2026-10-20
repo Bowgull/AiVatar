@@ -269,7 +269,17 @@ html.solo,html.solo body{background:transparent !important}
 html.solo .bw{background:none;border:0;box-shadow:none;border-radius:0;height:100%}
 html.solo .band,html.solo .loading,html.solo .well{display:none !important}
 html.solo .body3{display:block;height:100%;position:relative}
-html.solo .drawer{top:0;bottom:0;left:0;transform:none;visibility:visible;transition:none}
+html.solo body .drawer{top:0;bottom:0;left:0;visibility:visible;transform:translateX(-300px);transition:transform .22s cubic-bezier(.4,0,1,1)}
+/* The rail slides out carrying the handle on its edge, the arrow turned to point back (his ask, 2026-10-20). Folded,
+   the handle sits exactly over the band's own, which hides while the rail is out, so there is only ever one. */
+.railhandle{display:none}
+html.solo .railhandle{display:block;position:absolute;left:300px;top:80px;width:32px;height:128px;z-index:31;pointer-events:none;
+  background:url(art/browser/handle3.png) no-repeat 0 0/32px 128px;image-rendering:pixelated;filter:brightness(1.25);
+  transform:translateX(-300px);transition:transform .22s cubic-bezier(.4,0,1,1)}
+html.solo body.out .drawer,html.solo body.out .railhandle{transform:none !important;transition:transform .22s cubic-bezier(.32,.72,0,1)}
+html.solo body.out .railhandle{background-image:url(art/browser/handle3-back.png)}
+body.rail-out .hnd button{visibility:hidden}
+@media (prefers-reduced-motion:reduce){html.solo .drawer,html.solo .railhandle{transition:none!important}}
 /* The drawer: the tray's own wood (the band's grain one shade darker, planks running down), brass-nailed
    frame, one faint lamp in its top corner. It lies OVER the page; the page shows as a still picture under it. */
 .drawer{position:absolute;left:0;top:0;bottom:0;width:300px;box-sizing:border-box;padding:14px 14px 14px 12px;z-index:30;

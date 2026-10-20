@@ -230,6 +230,11 @@
       "at": "2026-10-20T10:30:00-04:00",
       "text": "Samara is smoother: quicker tabs, menus and start.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-10-20T11:15:00-04:00",
+      "text": "The tab rail slides out carrying its handle.",
+      "kind": "fix"
     }
   ]
 }
