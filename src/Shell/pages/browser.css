@@ -792,3 +792,8 @@ html:not(.solo) .bw::after{content:"";flex:0 0 12px;background:url(art/browser/b
 .drawer .tp.drv{box-shadow:0 4px 0 var(--outline),inset 3px 0 0 #ffe28c}
 /* His call (2026-10-20): no CTRL T keycap on New tab. The shortcut still works. */
 .drawer .newtab .k{display:none}
+/* His note (2026-10-20): still a touch big beside the tabs. 44 px keys, 22 px icons: lighter, and room round them in the frame. */
+.shelf-bk .bm-slots{gap:10px 8px;padding:2px 4px}
+.shelf-bk .bm-key{width:44px;height:44px;border-radius:8px;box-shadow:0 4px 0 var(--outline),inset 0 3px 0 rgba(255,222,170,.28),inset 0 -3px 0 rgba(0,0,0,.35),0 6px 8px rgba(0,0,0,.45)}
+.shelf-bk .bm-key img{width:22px;height:22px}
+.shelf-bk .bm-add{font-size:19px;box-shadow:none}
