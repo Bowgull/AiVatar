@@ -72,7 +72,11 @@ export class Popout {
   /** The page says where its picture area is, in its own pixels; the lent page is laid exactly over it. */
   setStage(r: { x: number; y: number; width: number; height: number }): void {
     if (![r.x, r.y, r.width, r.height].every(Number.isFinite)) return;
-    this.stage = { x: Math.round(r.x), y: Math.round(r.y), width: Math.max(0, Math.round(r.width)), height: Math.max(0, Math.round(r.height)) };
+    const next = { x: Math.round(r.x), y: Math.round(r.y), width: Math.max(0, Math.round(r.width)), height: Math.max(0, Math.round(r.height)) };
+    // Only a real change moves the picture (measured 2026-10-20: every mouse move over the pop-out resized it).
+    const s = this.stage;
+    if (next.x === s.x && next.y === s.y && next.width === s.width && next.height === s.height) return;
+    this.stage = next;
     const w = this.window;
     if (w) { const [cw, ch] = w.getContentSize(); this.gap = { right: Math.max(0, cw - this.stage.x - this.stage.width), bottom: Math.max(0, ch - this.stage.y - this.stage.height) }; }
     this.lent?.view.setBounds(this.stage);
@@ -88,7 +92,9 @@ export class Popout {
     const w = this.window, v = this.lent?.view;
     if (!w || !v) return;
     const [cw, ch] = w.getContentSize();
-    this.stage = { ...this.stage, width: Math.max(0, cw - this.stage.x - this.gap.right), height: Math.max(0, ch - this.stage.y - this.gap.bottom) };
+    const width = Math.max(0, cw - this.stage.x - this.gap.right), height = Math.max(0, ch - this.stage.y - this.gap.bottom);
+    if (width === this.stage.width && height === this.stage.height) return;   // the page's echo of the same size
+    this.stage = { ...this.stage, width, height };
     v.setBounds(this.stage);
   }
 
@@ -99,6 +105,9 @@ export class Popout {
     const w = this.window ?? this.create();
     // The page's fullscreen must fill this picture area, never take over the whole screen.
     w.setFullScreenable(false);
+    // The picture from the first frame (measured 2026-10-20: it stayed at nothing until the pop-out's page had loaded
+    // and measured itself): the window's own size, less its bar and controls. The page corrects it once it measures.
+    if (!this.stage.width || !this.stage.height) { const [cw, ch] = w.getContentSize(); this.stage = { x: 0, y: this.stage.y || 34, width: cw, height: Math.max(0, ch - (this.chrome || 78)) }; }
     view.setBounds(this.stage);
     view.setVisible(true);
     w.contentView.addChildView(view);
@@ -117,13 +126,18 @@ export class Popout {
       if (moved && p.x >= b.x && p.x < b.x + b.width && p.y >= b.y && p.y < b.y + b.height) win.webContents.send('popout:wake');
     }, 150);
     // What the video is doing, twice a second, for the controls. Numbers only; the page's own words never travel.
-    const poll = setInterval(() => {
+    // At once on opening (the controls were blank for half a second), never while hidden, and slower while paused.
+    let paused = false, beat = 0;
+    const tick = () => {
+      if (!this.window?.isVisible() || (paused && ++beat % 4)) return;
       void within(wc.executeJavaScript(STATE_JS, true), 600, null).then((s) => {
-        if (s && typeof s === 'object') this.window?.webContents.send('popout:tabstate', cleanState(s as Record<string, unknown>));
+        if (s && typeof s === 'object') { paused = (s as { paused?: unknown }).paused === true; this.window?.webContents.send('popout:tabstate', cleanState(s as Record<string, unknown>)); }
         // The next video (autoplay) can be a new player: pin it again, so it stays the bare picture.
         else void within(wc.executeJavaScript(FOCUS_JS, true), 600, false).then((ok) => { if (ok) void within(wc.executeJavaScript(BEST_QUALITY_JS, true), 1500, null); });
       });
-    }, 500);
+    };
+    const poll = setInterval(tick, 500);
+    setTimeout(tick, 60);
     const lent = { view, back, poll, cursor, css: null as string | null };
     this.lent = lent;
     if (w.webContents.isLoading()) w.webContents.once('did-finish-load', () => this.send()); else this.send();
@@ -422,7 +436,7 @@ export class Popout {
   /** The hotkey: out of the way and back, without stopping the video (sheet 4, section 4, way 5). */
   toggleHidden(): void {
     const w = this.window;
-    if (!w) return;
+    if (!w || !this.showing) return;              // put away after closing: nothing to show
     // Hidden outright rather than made invisible: a window nobody can see still costs the GPU.
     if (w.isVisible()) w.hide(); else { w.show(); w.setIgnoreMouseEvents(this.pinned || this.deps.settings().clickThrough); }
   }
@@ -430,7 +444,7 @@ export class Popout {
   /** For a look from the PC (M6): what the pop-out is doing, whether the site's controls show, and its picture. */
   async diag(): Promise<Record<string, unknown>> {
     const w = this.window;
-    if (!w) return { open: false };
+    if (!w || !w.isVisible() && !this.showing) return { open: false };
     const wc = this.lent?.view.webContents;
     const live = wc && !wc.isDestroyed() ? wc : null;
     const page = live ? await within(live.executeJavaScript(`(() => { const c = document.documentElement.classList;
@@ -449,9 +463,14 @@ export class Popout {
     this.returnTab();
     this.pending && clearTimeout(this.pending);
     this.showing = null;
+    // Put away, not destroyed (measured 2026-10-20): building it again took about half a second on every open.
+    // Its page is told to stop whatever it was playing and show nothing.
     const w = this.window;
-    this.win = null;
-    w?.destroy();
+    if (!w) return;
+    w.hide();
+    try { w.setIgnoreMouseEvents(this.deps.settings().clickThrough); } catch { /* gone */ }
+    w.webContents.send('popout:pinned', false);
+    w.webContents.send('popout:show', { url: '', source: 'none', label: '', live: false, title: 'Nothing playing' });
   }
 }
 

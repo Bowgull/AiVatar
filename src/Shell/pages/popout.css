@@ -132,7 +132,12 @@ iframe{ width:100%; height:100%; border:0; display:block; background:#000 }
 .frame .bar, .frame .ctrl{ transition:opacity .35s ease }
 .frame.faded .bar, .frame.faded .ctrl{ opacity:0; pointer-events:none }
 .frame.faded{ grid-template-rows:0 1fr 0 0 }
-.frame{ transition:border-radius .35s ease }
+/* A real fade (his OK, 2026-10-20): the bar and controls melt away first, and only then does the picture take their
+   room, in one step. Coming back, the room is made first and they fade in. Before, the bar snapped away at once and
+   the 0.35 s fade played on a strip nobody could see. */
+.frame{ transition:border-radius .35s ease, grid-template-rows 0s linear 0s }
+.frame.faded{ transition:border-radius .35s ease, grid-template-rows 0s linear .35s }
+.frame:not(.faded) .bar, .frame:not(.faded) .ctrl{ transition:opacity .25s ease }
 .frame.faded{ border-radius:14px }
 
 /* ---------------------------------------------------------------- the skip plaque (step 6.6)

@@ -53,7 +53,7 @@ app.whenReady().then(async () => {
   const init = await rpc('initialize', { protocolVersion: '2025-06-18', clientInfo: { name: 'claude-code' } });
   check('Claude Code can connect', init.result?.serverInfo?.name === 'aang-browser');
   const list = await rpc('tools/list');
-  check('it sees the browser tools', list.result?.tools?.length === 32, list.result?.tools?.map((t: any) => t.name).join(','));
+  check('it sees the browser tools', list.result?.tools?.length === 34, list.result?.tools?.map((t: any) => t.name).join(','));
   const opened = await tool('browser_open', { url: base + '/' });
   const page = Number(/page (\d+)/.exec(opened.text)?.[1]);
   check('it opens a page in its own tab', !opened.err && Number.isInteger(page), opened.text);
@@ -65,6 +65,15 @@ app.whenReady().then(async () => {
   const n = (label: string) => Number(new RegExp(`\\[(\\d+)\\][^\\n]*${label}`).exec(read.text)?.[1]);
   const clicked = await tool('browser_click', { page, n: n('Next posting') });
   check('a link is free', !clicked.err && clicked.text.includes('Second posting'), clicked.text);
+  // The speed plan (2026-10-20): several steps in one call, a wait for words, and a read of the controls only.
+  const batched = await tool('browser_batch', { steps: [{ tool: 'browser_back', args: { page } }, { tool: 'browser_wait_for', args: { page, text: 'Product Designer at Lumen' } }, { tool: 'browser_read', args: { page, controls: true } }] });
+  check('several steps in one call, in order', !batched.err && /1\. browser_back/.test(batched.text) && /2\. browser_wait_for: There/.test(batched.text) && /3\. browser_read/.test(batched.text), batched.text.slice(0, 300));
+  check('a controls-only read leaves the words out', /words left out: controls only/.test(batched.text) && !batched.text.includes('Product Designer at Lumen is hiring'), batched.text.slice(0, 300));
+  const notThere = await tool('browser_wait_for', { page, text: 'zzqq never on this page', ms: 600 });
+  check('waiting for words that never come says so', notThere.err && /Not there/.test(notThere.text), notThere.text);
+  const planInBatch = await tool('browser_batch', { steps: [{ tool: 'browser_plan', args: {} }] });
+  check('a batch only runs page steps', planInBatch.err && /not allowed in a batch/.test(planInBatch.text), planInBatch.text);
+  await tool('browser_click', { page, n: n('Next posting') });
   await tool('browser_open', { url: base + '/', task: 'Job scan' });
   check('a task name names its group', nameNow() === 'JOB SCAN', nameNow());
   const p2 = page + 1;
