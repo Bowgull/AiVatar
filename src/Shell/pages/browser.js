@@ -161,6 +161,8 @@ el('m-tidy').addEventListener('click', () => { closeMenu(); openDrawer(); window
 el('m-marks').addEventListener('click', () => { closeMenu(); window.aang?.browserAct?.('bookmarks'); });
 el('m-settings').addEventListener('click', () => { closeMenu(); window.aang?.browserAct?.('settings'); });
 el('m-history').addEventListener('click', () => { closeMenu(); window.aang?.browserAct?.('history'); });
+// Sheet 47: the MOCKUPS trail comes back with its history open, even after he closed it.
+el('m-mockups').addEventListener('click', () => { closeMenu(); openDrawer(); window.aang?.browserAct?.('mockups'); });
 el('m-downloads').addEventListener('click', () => { closeMenu(); window.aang?.browserAct?.('downloads'); });
 // ---- Trail clean up: the broom at the bottom of the drawer, the panel just above it
 el('broom').addEventListener('click', () => window.aang?.browserAct?.('tidy'));
@@ -530,7 +532,7 @@ function paintTabs() {
   const done = state.tabs.filter((t) => t.done);
   const rowFor = (t, kid) => {
     const dup = Boolean(state.tidy?.dup?.includes(t.id));
-    const sig = JSON.stringify([t.id === state.active, t.crashed, t.asleep, t.loading, t.phase, t.favicon, t.title, t.url, t.audible, t.muted, kid, t.done, t.lent, dup]);
+    const sig = JSON.stringify([t.id === state.active, t.crashed, t.asleep, t.loading, t.phase, t.favicon, t.title, t.url, t.audible, t.muted, kid, t.done, t.lent, dup, t.mock?.v ?? null]);
     let r = rows.get(t.id);
     if (!r || r.sig !== sig) {
       const fresh = buildRow(t, kid);
@@ -542,6 +544,8 @@ function paintTabs() {
   };
   const want = [];
   for (const g of groups) {
+    // Sheet 47: the MOCKUPS trail draws its own family tree and its history.
+    if (g.trail?.mock) { want.push(...mockNodes(g, rowFor)); continue; }
     if (g.id !== null) want.push(headFor(g.trail, g.tabs.length));
     const inGroup = new Set(g.tabs.map((t) => t.id));
     // Only inside a trail does a tab sit under the one it came from; loose tabs are a flat list.
@@ -649,10 +653,20 @@ function tabMenu(t, x, y) {
   item('Reload', () => window.aang?.browserTab?.({ id: t.id, act: 'reload' }));
   item(t.muted ? 'Unmute' : 'Mute', () => window.aang?.browserTab?.({ id: t.id, act: 'mute' }));
   sep();
-  const trails = Array.isArray(state.trails) ? state.trails : [];
+  const trails = (Array.isArray(state.trails) ? state.trails : []).filter((tr) => !tr.mock);
+  if (t.mock) {
+    // Sheet 47: a mockup stays in MOCKUPS. Its versions, and where it sits in the tree (his ask, 2026-10-21).
+    const vs = expander(m, 'Versions');
+    for (const v of t.mock.versions ?? []) vs(versionLabel(v), () => window.aang?.browserMockup?.({ act: 'show', id: v.id }), v.now ? 'NOW' : '');
+    const bs = expander(m, 'Move to branch');
+    for (const b of state.mockups?.branches ?? []) if (b.id !== t.mock.branch || t.mock.parent) bs(b.name, () => window.aang?.browserMockup?.({ act: 'branch', sheet: t.mock.sheet, to: b.id }));
+    bs('New branch...', () => window.aang?.browserMockup?.({ act: 'branchnew', sheet: t.mock.sheet }));
+    if (t.mock.branch != null || t.mock.parent) item('Make it top level', () => window.aang?.browserMockup?.({ act: 'top', sheet: t.mock.sheet }));
+  } else {
   for (const tr of trails) if (tr.id !== t.trail) item('Move to ' + tr.name.toLowerCase().replace(/^./, (c) => c.toUpperCase()), () => window.aang?.browserTrail?.({ act: 'move', tab: t.id, to: tr.id }), { sub: true });
   item('Move to a new trail', () => window.aang?.browserTrail?.({ act: 'move', tab: t.id, to: 'new' }), { sub: true });
   if (t.trail != null) item('Take out of the trail', () => window.aang?.browserTrail?.({ act: 'move', tab: t.id, to: null }), { sub: true });
+  }
   sep();
   item('Open in Chrome', () => {}, { soon: true });
   item('Popout', () => window.aang?.browserPopout?.(t.id));
@@ -723,6 +737,12 @@ function buildRow(t, kid) {
       s.innerHTML = SPEAKER;
       s.addEventListener('click', (e) => { e.stopPropagation(); window.aang?.browserTab?.({ id: t.id, act: 'mute' }); });
       row.append(s);
+    }
+    // Sheet 47: a mockup wears its version (V3); a click lists the sheet's other versions.
+    if (t.mock && t.mock.v) {
+      const v = Object.assign(document.createElement('button'), { type: 'button', className: 'ver', textContent: 'V' + t.mock.v, title: 'Versions of this mockup' });
+      v.addEventListener('click', (e) => { e.stopPropagation(); versionsMenu(t, e.clientX, e.clientY); });
+      row.append(v);
     }
     const x = document.createElement('button'); x.type = 'button'; x.className = 'x'; x.textContent = '×'; x.setAttribute('aria-label', 'Close tab');
     x.addEventListener('click', (e) => { e.stopPropagation(); tap(0.7); window.aang?.browserTab?.({ id: t.id, act: 'close' }); });
@@ -957,6 +977,7 @@ window.aang?.onBrowserTabs?.((s) => {
   if (!s || !Array.isArray(s.tabs)) return;
   state = s;
   paintMarks(s.marks);
+  el('m-mockups').hidden = !s.mockups;
   paintTidy();
   paintStash();
   // The key: only where Bitwarden has a login here; gold with one soft pulse when it first shows.
@@ -1066,6 +1087,14 @@ function trailMenu(tr, x, y) {
   };
   const sep = () => m.append(Object.assign(document.createElement('div'), { className: 'sep' }));
   const n = state.tabs.filter((t) => t.trail === tr.id).length;
+  // Sheet 47: the MOCKUPS trail folds or closes; its history is kept either way.
+  if (tr.mock) {
+    item(tr.collapsed ? 'Open it up' : 'Collapse', () => window.aang?.browserTrail?.({ act: 'trail', id: tr.id, what: 'collapse' }));
+    sep();
+    item(`Close the mockups (${n} tab${n === 1 ? '' : 's'})`, () => window.aang?.browserTrail?.({ act: 'trail', id: tr.id, what: 'close' }), 'danger');
+    placeMenu(m, x, y);
+    return;
+  }
   item('Rename', () => heads.get(tr.id)?.querySelector('.nm')?.click());
   item(tr.collapsed ? 'Open it up' : 'Collapse', () => window.aang?.browserTrail?.({ act: 'trail', id: tr.id, what: 'collapse' }));
   item('Move to the Stash', () => window.aang?.browserTrail?.({ act: 'trail', id: tr.id, what: 'stash' }));
@@ -1078,6 +1107,197 @@ function trailMenu(tr, x, y) {
   m.style.top = Math.max(4, Math.min(y, innerHeight - r.height - 4)) + 'px';
   setTimeout(() => document.addEventListener('pointerdown', (e) => { if (!m.contains(e.target)) closeTabMenu(); }, { once: true }), 0);
 }
+
+// ---- Sheet 47 (his picks, 2026-10-21): the MOCKUPS trail. Claude's icon and FROM CLAUDE on its head; each mockup wears
+// its version; the family tree (branch > mockup > children, all his to move); HISTORY at the bottom with every version,
+// closed ones too, and the broom that clears exact duplicates only when he presses it.
+function placeMenu(m, x, y) {
+  document.body.append(m);
+  const r = m.getBoundingClientRect();
+  m.style.left = Math.max(4, Math.min(x, innerWidth - r.width - 4)) + 'px';
+  m.style.top = Math.max(4, Math.min(y, innerHeight - r.height - 4)) + 'px';
+  setTimeout(() => document.addEventListener('pointerdown', (e) => { if (!m.contains(e.target)) closeTabMenu(); }, { once: true }), 0);
+}
+/** "12:41" today, "Yesterday 9:02", else "Oct 19 9:02". */
+function mockWhen(at) {
+  const d = new Date(at), now = new Date();
+  const hm = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).replace(/\s?[AP]M$/i, '');
+  const day = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const back = Math.round((day(now) - day(d)) / 86_400_000);
+  if (back === 0) return hm;
+  if (back === 1) return 'Yesterday ' + hm;
+  return d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' + hm;
+}
+const versionLabel = (v) => `V${v.v} · ${mockWhen(v.at)}`;
+/**
+ * A menu item that opens its own list underneath it (the floating list is narrow, so the list opens in place instead of
+ * out to the side). Returns a function that adds one line to it.
+ */
+function expander(m, label) {
+  const b = document.createElement('button'); b.type = 'button'; b.setAttribute('role', 'menuitem'); b.className = 'exp';
+  b.append(label, Object.assign(document.createElement('i'), { textContent: '▸' }));
+  const box = Object.assign(document.createElement('div'), { className: 'expbox', hidden: true });
+  b.addEventListener('click', () => { box.hidden = !box.hidden; b.classList.toggle('open', !box.hidden); });
+  m.append(b, box);
+  return (text, go, tag = '') => {
+    const x = document.createElement('button'); x.type = 'button'; x.setAttribute('role', 'menuitem'); x.className = 'sub';
+    x.append(text);
+    if (tag) x.append(Object.assign(document.createElement('i'), { textContent: tag }));
+    x.addEventListener('click', () => { closeTabMenu(); go(); });
+    box.append(x);
+  };
+}
+/** The V tag's own list: the sheet's versions; picking one shows it in this tab. */
+function versionsMenu(t, x, y) {
+  closeTabMenu();
+  const m = document.createElement('div'); m.id = 'tabmenu'; m.className = 'tabmenu'; m.setAttribute('role', 'menu');
+  for (const v of t.mock?.versions ?? []) {
+    const b = document.createElement('button'); b.type = 'button'; b.setAttribute('role', 'menuitem');
+    b.append(versionLabel(v));
+    if (v.now) b.append(Object.assign(document.createElement('i'), { textContent: 'NOW' }));
+    b.addEventListener('click', () => { closeTabMenu(); window.aang?.browserMockup?.({ act: 'show', id: v.id }); });
+    m.append(b);
+  }
+  placeMenu(m, x, y);
+}
+const mockEls = { head: null, from: null, hist: null, list: null, listSig: '', branches: new Map() };
+const freshDone = new Set();
+/** Type a new name in place (the trail name's own box): Enter keeps it, Esc leaves it. */
+function renameIn(nm, value, max, save) {
+  const box = Object.assign(document.createElement('input'), { value, maxLength: max, spellcheck: false });
+  box.setAttribute('aria-label', 'Name');
+  const done = (keep) => { if (keep && box.value.trim() && box.value.trim() !== value) save(box.value); box.replaceWith(nm); };
+  box.addEventListener('keydown', (k) => { k.stopPropagation(); if (k.key === 'Enter') done(true); if (k.key === 'Escape') done(false); });
+  box.addEventListener('blur', () => done(true));
+  nm.replaceWith(box); box.focus(); box.select();
+}
+/** A branch's sub-heading: a fold chevron, its name (click to rename), how many, and its menu. */
+function branchHead(b, n) {
+  let h = mockEls.branches.get(b.id);
+  if (!h) { h = document.createElement('div'); mockEls.branches.set(b.id, h); }
+  if (h.querySelector('input')) return h;
+  h.className = 'bh' + (b.folded ? ' folded' : '');
+  h.dataset.branch = String(b.id);
+  const chev = Object.assign(document.createElement('button'), { type: 'button', className: 'chev', title: b.folded ? 'Unfold' : 'Fold' });
+  chev.setAttribute('aria-label', b.folded ? 'Unfold this branch' : 'Fold this branch');
+  chev.addEventListener('click', (e) => { e.stopPropagation(); window.aang?.browserMockup?.({ act: 'bfold', id: b.id }); });
+  const nm = Object.assign(document.createElement('span'), { className: 'nm', textContent: b.name, title: 'Click to rename' });
+  nm.addEventListener('click', (e) => { e.stopPropagation(); renameIn(nm, b.name, 24, (name) => window.aang?.browserMockup?.({ act: 'brename', id: b.id, name })); });
+  const more = Object.assign(document.createElement('button'), { type: 'button', className: 'thm', textContent: '···', title: 'Branch options' });
+  more.addEventListener('click', (e) => { e.stopPropagation(); branchMenu(b, e.clientX, e.clientY); });
+  h.replaceChildren(chev, nm, Object.assign(document.createElement('span'), { className: 'n', textContent: `${n} TAB${n === 1 ? '' : 'S'}` }), more);
+  if (state.mockups?.fresh === b.id && !freshDone.has(b.id)) { freshDone.add(b.id); setTimeout(() => { if (nm.isConnected) nm.click(); }, 0); }
+  return h;
+}
+function branchMenu(b, x, y) {
+  closeTabMenu();
+  const m = document.createElement('div'); m.id = 'tabmenu'; m.className = 'tabmenu'; m.setAttribute('role', 'menu');
+  const item = (label, go, cls = '') => {
+    const btn = Object.assign(document.createElement('button'), { type: 'button', className: cls, textContent: label });
+    btn.setAttribute('role', 'menuitem');
+    btn.addEventListener('click', () => { closeTabMenu(); go(); });
+    m.append(btn);
+  };
+  item('Rename', () => mockEls.branches.get(b.id)?.querySelector('.nm')?.click());
+  item(b.folded ? 'Unfold' : 'Fold', () => window.aang?.browserMockup?.({ act: 'bfold', id: b.id }));
+  m.append(Object.assign(document.createElement('div'), { className: 'sep' }));
+  item('Delete branch (its mockups stay)', () => window.aang?.browserMockup?.({ act: 'bdelete', id: b.id }), 'danger');
+  placeMenu(m, x, y);
+}
+/** The MOCKUPS trail: its head, its tabs as a tree, then HISTORY. */
+function mockNodes(g, rowFor) {
+  const tr = g.trail, mk = state.mockups || {}, out = [];
+  const h = mockEls.head ?? (mockEls.head = document.createElement('div'));
+  h.className = 'th mock' + (tr.collapsed ? ' shut' : '');
+  h.draggable = true; h.dataset.trail = String(tr.id);
+  const ic = Object.assign(document.createElement('span'), { className: 'who-ic' });
+  ic.append(Object.assign(document.createElement('img'), { src: 'art/claude-icon.png', alt: '' }));
+  const more = Object.assign(document.createElement('button'), { type: 'button', className: 'thm', textContent: '···', title: 'Mockups options' });
+  more.addEventListener('click', (e) => { e.stopPropagation(); trailMenu(tr, e.clientX, e.clientY); });
+  const n = g.tabs.length;
+  h.replaceChildren(ic, Object.assign(document.createElement('span'), { className: 'nm', textContent: 'MOCKUPS' }), Object.assign(document.createElement('span'), { className: 'n', textContent: `${n} TAB${n === 1 ? '' : 'S'}` }), more);
+  out.push(h);
+  out.push(mockEls.from ?? (mockEls.from = Object.assign(document.createElement('div'), { className: 'mfrom', textContent: 'FROM CLAUDE' })));
+  if (tr.collapsed) return out;
+  const tabs = g.tabs, open = new Set(tabs.map((t) => t.mock?.sheet));
+  const row = (t, kid) => { const r = rowFor(t, kid); r.dataset.mock = t.mock?.sheet ?? ''; return r; };
+  const isTop = (t) => !t.mock?.parent || !open.has(t.mock.parent);
+  const group = (branch) => {
+    const r = [];
+    for (const t of tabs) if (isTop(t) && (t.mock?.branch ?? null) === branch) { r.push(row(t, false)); for (const k of tabs) if (k.mock?.parent && k.mock.parent === t.mock?.sheet) r.push(row(k, true)); }
+    return r;
+  };
+  out.push(...group(null));
+  for (const b of mk.branches ?? []) {
+    const c = tabs.filter((t) => (t.mock?.branch ?? null) === b.id).length;
+    if (!c) continue;
+    out.push(branchHead(b, c));
+    if (!b.folded) out.push(...group(b.id));
+  }
+  // HISTORY: the row, and its list when open.
+  const hist = mockEls.hist ?? (mockEls.hist = Object.assign(document.createElement('button'), { type: 'button', className: 'mhist' }));
+  if (!hist.dataset.wired) { hist.dataset.wired = '1'; hist.addEventListener('click', () => window.aang?.browserMockup?.({ act: 'list', open: !(state.mockups?.open) })); }
+  const count = Number(mk.count) || 0;
+  hist.classList.toggle('open', mk.open === true);
+  hist.replaceChildren(`HISTORY · ${count} VERSION${count === 1 ? '' : 'S'}`, Object.assign(document.createElement('i'), { className: 'chev' }));
+  out.push(hist);
+  if (mk.open && mk.tree) out.push(mockList(mk));
+  return out;
+}
+/** The history list, in the chest's own look, grouped by the tree. Rebuilt only when it changed. */
+function mockList(mk) {
+  const sig = JSON.stringify([mk.tree, mk.dups, new Date().toDateString()]);
+  if (mockEls.list && mockEls.listSig === sig) return mockEls.list;
+  const box = document.createElement('div'); box.className = 'mlist';
+  const lh = Object.assign(document.createElement('div'), { className: 'mlh' });
+  lh.append(Object.assign(document.createElement('b'), { textContent: 'EVERY MOCKUP, NEWEST FIRST' }));
+  if (mk.dups > 0) {
+    // His rule: Samara's own tidy broom, no new icon, and nothing goes until he presses it.
+    const br = Object.assign(document.createElement('button'), { type: 'button', className: 'mbroom', title: 'Remove the exact duplicates (struck through)' });
+    br.append(Object.assign(document.createElement('img'), { src: 'art/browser/tidy_broom2.png', alt: '' }), `${mk.dups} DUPLICATE${mk.dups === 1 ? '' : 'S'}`);
+    br.addEventListener('click', () => window.aang?.browserMockup?.({ act: 'broom' }));
+    lh.append(br);
+  }
+  box.append(lh);
+  const sheet = (node, kid) => {
+    box.append(Object.assign(document.createElement('div'), { className: 'msheet' + (kid ? ' kid' : ''), textContent: node.title + (node.closed ? ' (closed)' : '') }));
+    for (const it of node.items) {
+      const v = Object.assign(document.createElement('button'), { type: 'button', className: 'mv' + (kid ? ' kid' : '') + (it.now ? ' now' : '') + (it.same ? ' dup' : '') });
+      v.dataset.id = String(it.id);
+      v.append(mockWhen(it.at));
+      if (it.now) v.append(Object.assign(document.createElement('i'), { textContent: 'OPEN' }));
+      else if (it.same) v.append(Object.assign(document.createElement('i'), { textContent: `SAME AS V${it.same}` }));
+      v.append(Object.assign(document.createElement('span'), { className: 'tm', textContent: 'V' + it.v }));
+      v.addEventListener('click', () => window.aang?.browserMockup?.({ act: 'show', id: it.id }));
+      box.append(v);
+    }
+    for (const c of node.children ?? []) sheet(c, true);
+  };
+  for (const node of mk.tree.loose ?? []) sheet(node, false);
+  for (const b of mk.tree.branches ?? []) {
+    if (!b.mockups?.length) continue;
+    box.append(Object.assign(document.createElement('div'), { className: 'mbranch', textContent: b.name }));
+    for (const node of b.mockups) sheet(node, false);
+  }
+  if (!(mk.tree.loose ?? []).length && !(mk.tree.branches ?? []).some((b) => b.mockups?.length)) box.append(Object.assign(document.createElement('div'), { className: 'msheet', textContent: 'No mockups yet.' }));
+  mockEls.list = box; mockEls.listSig = sig;
+  return box;
+}
+/**
+ * Dragging a mockup (his ask): onto another mockup makes it that one's child; onto a branch's heading files it there;
+ * onto the MOCKUPS heading makes it top level. Nothing else takes a mockup.
+ */
+function mockDrop(e) {
+  if (dragging?.kind !== 'tab') return null;
+  const t = state.tabs.find((x) => x.id === dragging.id);
+  if (!t?.mock) return null;
+  const onto = e.target.closest?.('.tp[data-mock], .bh[data-branch], .th.mock');
+  if (!onto || onto.dataset.mock === t.mock.sheet) return { el: null };
+  if (onto.matches('.bh')) return { el: onto, act: { act: 'branch', sheet: t.mock.sheet, to: Number(onto.dataset.branch) } };
+  if (onto.matches('.th')) return { el: onto, act: { act: 'top', sheet: t.mock.sheet } };
+  return { el: onto, act: { act: 'parent', sheet: t.mock.sheet, to: onto.dataset.mock } };
+}
+const clearOnto = () => { for (const x of tabsBox.querySelectorAll('.onto')) x.classList.remove('onto'); };
 
 // ---- dragging (2026-10-12): a tab into another trail, out to loose, or up and down; a whole trail by its heading.
 // A gold line shows where it will land. Nothing moves until the drop.
@@ -1094,7 +1314,7 @@ tabsBox.addEventListener('dragstart', (e) => {
 });
 tabsBox.addEventListener('dragend', (e) => {
   const was = dragging;
-  dragging = null; dropLine.remove(); for (const x of tabsBox.querySelectorAll('.lifted')) x.classList.remove('lifted');
+  dragging = null; dropLine.remove(); clearOnto(); for (const x of tabsBox.querySelectorAll('.lifted')) x.classList.remove('lifted');
   // Let go where nothing took it (2026-10-13, his ask): outside the window it becomes its own window, like Chrome; on
   // another Aang browser window it joins that one. Let go anywhere else inside its own window, nothing happens.
   if (was?.kind === 'tab' && e.dataTransfer?.dropEffect === 'none') window.aang?.browserTearOut?.(was.id);
@@ -1128,12 +1348,16 @@ function landing(y) {
 }
 tabsBox.addEventListener('dragover', (e) => {
   if (!dragging) return;
+  const md = mockDrop(e);
+  if (md) { clearOnto(); dropLine.remove(); if (md.el) { e.preventDefault(); md.el.classList.add('onto'); } return; }
   e.preventDefault();
   const l = landing(e.clientY);
   if (l.node) tabsBox.insertBefore(dropLine, l.node); else tabsBox.append(dropLine);
 });
 tabsBox.addEventListener('drop', (e) => {
   if (!dragging) return;
+  const md = mockDrop(e);
+  if (md) { e.preventDefault(); clearOnto(); if (md.act) window.aang?.browserMockup?.(md.act); dragging = null; return; }
   e.preventDefault();
   const l = landing(e.clientY);
   if (dragging.kind === 'trail') window.aang?.browserTrail?.({ act: 'movetrail', id: dragging.id, before: l.before });
