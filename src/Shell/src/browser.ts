@@ -496,6 +496,8 @@ export class AangBrowser {
   onPlanDone: ((jobId: number) => void) | null = null;
   /** Right-click "Send to Aang": highlighted words go to his typing box. Null while Aang is not running (then hidden). */
   onSendToAang: ((text: string, from: string) => void) | null = null;
+  /** Told when Samara's last window has closed (the pop-out holding one of its tabs goes with it, 2026-10-21). */
+  onLastClosed: (() => void) | null = null;
   /** Right-click "Play in the pop-out" on a link. */
   onPlayInPopout: ((url: string) => void) | null = null;
   private popTab: ((id: number) => void) | null = null;
@@ -1322,6 +1324,7 @@ export class AangBrowser {
       this.tabs = []; this.active = null; this.win = null; this.trayV = null; this.trayOn = false;
       this.panes = []; this.focused = null; this.quitting = false;
       this.timers.forEach(clearInterval); this.timers = [];
+      try { this.onLastClosed?.(); } catch { /* the browser is closed either way */ }
     });
     w.once('ready-to-show', () => bringFront(w));
     // The tab list is made ready a few seconds after the window shows (measured 2026-10-20: built on his first hover it

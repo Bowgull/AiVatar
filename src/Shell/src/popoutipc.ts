@@ -85,6 +85,9 @@ export function wirePopout(o: PopoutWiring): { popTab: (id: number) => void } {
     if (!b || !p) return;
     const url = b.urlOf(id);
     if (!url) return;
+    // The pop-out is Samara's tab borrowed into its own window, so it belongs to Samara: closing Samara closes it too
+    // (his ask, 2026-10-21), rather than leaving a lone video floating with nothing behind it. The paid-video window too.
+    b.onLastClosed = () => { o.popout()?.close(); o.stopPaid(); };
     if (serviceFor(url) && o.paidSeparately()) { if (o.open(url)) b.pauseMedia(id); return; }
     o.stopPaid();
     const lent = b.lend(id);
