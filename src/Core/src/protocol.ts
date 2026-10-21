@@ -12,6 +12,13 @@ export type QuotaLevel = 'ok' | 'warn' | 'offer' | 'saving';
  * side's own drawing code.
  */
 export type ListIcon = 'job' | 'email' | 'meeting' | 'file' | 'deadline' | 'reminder' | 'session' | 'link' | 'memory';
+/**
+ * Sheet 48 (2026-10-21, his pick): what kind of row a message is, so the cockpit can lay it on its own paper.
+ * 'claude' = news from a Claude Code session (with `project`, its folder's name); 'action' = a chat reply in which
+ * Aang really changed something for him (a tool that did more than look, or an email that went). Set by the brain
+ * where it KNOWS, never guessed from the words. Ordinary chat and rows saved before 2026-10-21 have none.
+ */
+export type RowKind = 'claude' | 'action';
 /** good/normal/careful/stop/inactive, the same five-way vocabulary Theme.cs already uses everywhere else. */
 export type ChipTone = 'good' | 'normal' | 'careful' | 'stop' | 'inactive';
 export interface StructuredItem {
@@ -187,6 +194,8 @@ export type ToBody =
   | { t: 'bubble'; text: string; stream: boolean; id?: string; who?: string; proactive?: boolean;
       /** The row this message was stored as, when it was stored. What a right-click acts on. */
       turn?: number;
+      /** Sheet 48: the row's kind when the brain knows it (the same as the stored row's extra.kind/extra.project). */
+      kind?: RowKind; project?: string;
       /** Who or what it is about, on the row above the text (2026-10-14): a channel's picture, a site's or a sender's icon, as a data: address. */
       face?: { img: string; name: string };
       /** A reminder coming due (its id): the cockpit shows it as a short ask, Got it or Snooze 5 min (6.12). */
@@ -355,6 +364,7 @@ export type ToBody =
    * them. kind 'say' = Aang spoke on his own (extra may hold face, about {url,title,thumb}, brief, research,
    * links, reminder, away); 'yes' = a permission he gave (extra.yes, see the turn.updated note); 'plan' and
    * 'shown' = what the Shell saved with shown.save. Both are absent for ordinary chat.
+   * Sheet 48 (2026-10-21): extra.kind (a RowKind) and extra.project may ride on rows saved from then on.
    */
   | { t: 'history.reply'; q: string; items: { id: number; ts: string; who: 'you' | 'Aang'; text: string; kind?: string; extra?: Record<string, unknown> }[];
       /** Echoed back so the Body knows this is an older page and not a fresh search. */

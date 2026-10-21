@@ -1,8 +1,11 @@
 // Sheet 48 (2026-10-21, his ask: "a little difference between Claude jobs and bubbles and chats and actions and
 // videos"): the REAL cockpit, off screen, with one conversation of every kind, painted five ways. Each way is a
 // small stylesheet over the real bubble; the pictures go to docs/cockpit/sheet-48/. A picture maker, not a check.
+// His pick was D + C's label on hover (2026-10-21), now built for real in lookback.js/bubble.css: with no argument this
+// draws THAT (real-d.png, real-d-hover.png with the mouse on a Claude row, real-d-live.png with a Claude answer live).
+// The five sketches above it are kept as they were drawn; `ways` draws them again.
 //
-// Run: npx electron test/electron/kinds-shots.ts
+// Run: npx electron test/electron/kinds-shots.ts [ways]
 import { app, BrowserWindow } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -20,11 +23,11 @@ const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 // One conversation with every kind in it. ids say the kind, so each way can find its rows.
 const day = new Date().toISOString().slice(0, 10);
 const TURNS = [
-  { id: 908, ts: `${day} 17:40:00`, who: 'Aang', text: 'Waymark is done: the rules-only brain, all 6 tasks.' },
+  { id: 908, ts: `${day} 17:40:00`, who: 'Aang', text: 'Waymark is done: the rules-only brain, all 6 tasks.', extra: { kind: 'claude', project: 'Waymark' } },
   { id: 907, ts: `${day} 17:31:00`, who: 'you', text: 'make the grid the default', extra: { to: 'Waymark', when: 'now' } },
-  { id: 906, ts: `${day} 17:30:00`, who: 'Aang', text: 'Claude asked which layout to use for the map. You picked Grid.' },
+  { id: 906, ts: `${day} 17:30:00`, who: 'Aang', text: 'Claude asked which layout to use for the map. You picked Grid.', extra: { kind: 'claude', project: 'Waymark' } },
   { id: 905, ts: `${day} 16:02:00`, who: 'Aang', text: 'HisWattson posted a video', extra: { about: { url: 'https://www.youtube.com/watch?v=abc123', title: 'Wattson ranked guide' } } },
-  { id: 904, ts: `${day} 15:10:00`, who: 'Aang', text: 'Done. I moved the demo to Monday at 2 pm and told Dana.' },
+  { id: 904, ts: `${day} 15:10:00`, who: 'Aang', text: 'Done. I moved the demo to Monday at 2 pm and told Dana.', extra: { kind: 'action' } },
   { id: 903, ts: `${day} 15:09:00`, who: 'you', text: 'move the demo to monday' },
   { id: 902, ts: `${day} 15:08:00`, who: 'Aang', text: 'Your demo is Friday at 2 pm.' },
   { id: 901, ts: `${day} 12:00:00`, who: 'Aang', text: 'Your morning brief', extra: { brief: { day: 'Tuesday', events: [{ start: '2:00 pm', title: 'Interview with Acme' }], unread: [{ from: 'Dana Smith' }], jobsNew: 0 } } },
@@ -69,6 +72,28 @@ app.whenReady().then(async () => {
   await wait(900);
   await js(`window.__deliver({ t: 'history.reply', items: ${JSON.stringify(TURNS)} })`);
   await wait(1200);
+  const box = async () => js(`(() => { const q = document.getElementById('wrap').getBoundingClientRect(); return { x: Math.max(0, Math.floor(q.left) - 8), y: Math.max(0, Math.floor(q.top) - 8), width: Math.ceil(q.width) + 16, height: Math.ceil(q.height) + 16 }; })()`);
+  if (process.argv.at(-1) !== 'ways') {
+    // The real thing: nothing added, the rows paint their own kinds.
+    await js(`document.body.style.background = '#2a2238'; const l = document.getElementById('lblist'); if (l) l.scrollTop = 1e6; true`);
+    await wait(400);
+    writeFileSync(path.join(OUT, 'real-d.png'), (await w.webContents.capturePage(await box())).toPNG());
+    console.log('picture: real-d');
+    // The mouse on Claude's row (sent to this off-screen page only): its label fades in.
+    const at = await js(`(() => { const r = document.querySelector('#lblist [data-id="906"] .lt-txt').getBoundingClientRect(); return { x: Math.round(r.left + 30), y: Math.round(r.top + r.height / 2) }; })()`) as { x: number; y: number };
+    w.webContents.sendInputEvent({ type: 'mouseMove', x: at.x, y: at.y });
+    await wait(500);
+    writeFileSync(path.join(OUT, 'real-d-hover.png'), (await w.webContents.capturePage(await box())).toPNG());
+    console.log('picture: real-d-hover');
+    w.webContents.sendInputEvent({ type: 'mouseMove', x: 2, y: 2 });
+    await js(`window.__deliver({ t: 'bubble', text: 'Claude Code finished in Waymark, that one took 6 minutes.', stream: false, turn: 909, proactive: true, kind: 'claude', project: 'Waymark' })`);
+    await wait(3000);
+    writeFileSync(path.join(OUT, 'real-d-live.png'), (await w.webContents.capturePage(await box())).toPNG());
+    console.log('picture: real-d-live');
+    pages.close();
+    setTimeout(() => app.exit(0), 300);
+    return;
+  }
   for (const way of WAYS) {
     await js(`(() => {
       document.body.style.background = '#2a2238';

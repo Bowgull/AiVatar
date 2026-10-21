@@ -199,6 +199,56 @@ app.whenReady().then(async () => {
   await wait(900);
   check('closed: back to nothing on screen, no cockpit left behind', (await shown()) === false && (await js(`!document.getElementById('bubble').classList.contains('cockpit') && document.querySelector('.media').hidden`)) === true);
 
+  // ---- Sheet 48 (his pick, 2026-10-21): each kind on its own paper, its little label only under the mouse, Claude's
+  // icon on Claude's rows and the gold key on what was done for him. Old unmarked chat stays plain parchment.
+  await openIt(false);
+  const KINDS = [
+    { id: 801, ts: '2026-10-21 15:00:00', who: 'Aang', text: 'Your morning brief', extra: { brief: { day: 'Tuesday', events: [], unread: [], jobsNew: 0 } } },
+    { id: 802, ts: '2026-10-21 15:01:00', who: 'Aang', text: 'An old reply with no mark.' },
+    { id: 803, ts: '2026-10-21 15:02:00', who: 'Aang', text: 'Done. I moved the demo to Monday.', extra: { kind: 'action' } },
+    { id: 804, ts: '2026-10-21 15:03:00', who: 'Aang', text: 'HisWattson posted a video', extra: { about: { url: 'https://www.youtube.com/watch?v=k48', title: 'guide' } } },
+    { id: 805, ts: '2026-10-21 15:04:00', who: 'Aang', text: 'Claude Code finished in Waymark.', extra: { kind: 'claude', project: 'Waymark' } },
+    { id: 806, ts: '2026-10-21 15:05:00', who: 'Aang', text: 'This week’s research', extra: { research: { finds: [] } } },
+    { id: 807, ts: '2026-10-21 15:06:00', who: 'Aang', text: 'You said yes: moved a file', kind: 'yes', extra: { yes: { question: 'move it', choice: 'once', did: 'moved a file', ok: true, note: '', at: '2026-10-21T15:06:00Z', cant: 'no' } } },
+  ];
+  await js(`window.__deliver(${JSON.stringify({ t: 'history.reply', items: KINDS })})`);
+  await wait(600);
+  const kinds = await js(`(() => { const o = {}; for (const id of [801, 802, 803, 804, 805, 806, 807]) { const r = document.querySelector('#lblist [data-id="' + id + '"]'); o[id] = r ? { cls: [...r.classList].filter(c => c.startsWith('k-')).join(' '), label: r.querySelector('.lb-kind')?.textContent ?? '', claude: Boolean(r.querySelector('.lt-tile img.lb-claude')), key: Boolean(r.querySelector('.lt-tile .lb-key')), bg: getComputedStyle(r).backgroundImage + getComputedStyle(r).backgroundColor } : null; } return o; })()`) as Record<number, { cls: string; label: string; claude: boolean; key: boolean; bg: string } | null>;
+  check('kinds: the brief is on honey paper, labelled BRIEF', kinds[801]?.cls === 'k-brief' && kinds[801]?.label === 'BRIEF', JSON.stringify(kinds[801]));
+  check('kinds: an unmarked old reply stays plain parchment, no label', kinds[802]?.cls === '' && kinds[802]?.label === '' && /rgba\(0, 0, 0, 0\)/.test(kinds[802]?.bg ?? ''), JSON.stringify(kinds[802]));
+  check('kinds: done for you is on sage with the gold key', kinds[803]?.cls === 'k-action' && kinds[803]?.label === 'DONE FOR YOU' && kinds[803]?.key && !kinds[803]?.claude && /gradient/.test(kinds[803]?.bg ?? ''), JSON.stringify(kinds[803]));
+  check('kinds: a video is on dark wood, labelled VIDEO', kinds[804]?.cls === 'k-video' && kinds[804]?.label === 'VIDEO' && /rgb\(42, 26, 16\)/.test(kinds[804]?.bg ?? ''), JSON.stringify(kinds[804]));
+  check('kinds: Claude is on terracotta with Claude\'s icon and its project', kinds[805]?.cls === 'k-claude' && kinds[805]?.label === 'CLAUDE · WAYMARK' && kinds[805]?.claude && !kinds[805]?.key, JSON.stringify(kinds[805]));
+  check('kinds: research shares the honey, labelled RESEARCH', kinds[806]?.cls === 'k-brief' && kinds[806]?.label === 'RESEARCH', JSON.stringify(kinds[806]));
+  check('kinds: a yes he gave is done for you too', kinds[807]?.cls === 'k-action' && kinds[807]?.label === 'DONE FOR YOU', JSON.stringify(kinds[807]));
+  check('kinds: only Claude rows wear Claude\'s icon, only done-for-you talk wears the key',
+    (await js(`document.querySelectorAll('#lblist .lt-tile img.lb-claude').length`)) === 1 && (await js(`document.querySelectorAll('#lblist .lt-tile .lb-key').length`)) === 1);
+  const labelOf = (id: number) => js(`(() => { const l = document.querySelector('#lblist [data-id="${id}"] .lb-kind'); return l ? Number(getComputedStyle(l).opacity) : -1; })()`) as Promise<number>;
+  const rowH = () => js(`document.querySelector('#lblist [data-id="805"]').getBoundingClientRect().height`) as Promise<number>;
+  await js(`document.querySelector('#lblist [data-id="805"]').scrollIntoView({ block: 'center' })`);
+  await wait(200);
+  check('label: hidden while the mouse is away', (await labelOf(805)) === 0);
+  const h0 = await rowH();
+  // The mouse moves over the row: sent to this off-screen page only, never to a real window.
+  const at = await js(`(() => { const r = document.querySelector('#lblist [data-id="805"] .lt-txt').getBoundingClientRect(); return { x: Math.round(r.left + 20), y: Math.round(r.top + r.height / 2) }; })()`) as { x: number; y: number };
+  w.webContents.sendInputEvent({ type: 'mouseMove', x: at.x, y: at.y });
+  await wait(400);
+  check('label: shows under the mouse', (await labelOf(805)) === 1);
+  check('label: the other rows keep theirs hidden', (await labelOf(803)) === 0);
+  check('label: nothing moves when it shows', Math.abs((await rowH()) - h0) < 0.5);
+  w.webContents.sendInputEvent({ type: 'mouseMove', x: 2, y: 2 });
+  await wait(400);
+  check('label: gone again when the mouse leaves', (await labelOf(805)) === 0);
+  // The live answer wears its kind's paper too, and an ordinary one does not.
+  await js(`window.__deliver({ t: 'bubble', text: 'Claude Code finished in Waymark, that one took 6 minutes.', stream: false, turn: 808, proactive: true, kind: 'claude', project: 'Waymark' })`);
+  await wait(1500);
+  check('live: Claude\'s answer under the conversation is on Claude\'s paper', (await js(`document.getElementById('scroller').classList.contains('k-claude') && /gradient/.test(getComputedStyle(document.getElementById('scroller')).backgroundImage)`)) === true);
+  await js(`window.__deliver({ t: 'bubble', text: 'Your demo is Friday.', stream: false, turn: 809 })`);
+  await wait(1500);
+  check('live: the Claude answer joins the conversation on its paper, the plain one is plain', (await js(`document.querySelector('#lblist [data-id="808"]')?.classList.contains('k-claude') && !document.getElementById('scroller').classList.contains('k-claude')`)) === true);
+  await closeIt();
+  await wait(700);
+
   check('no errors in the page', errors.length === 0, errors.join(' | '));
   pages.close();
   console.log(bad ? `${bad} failed` : 'all passed');

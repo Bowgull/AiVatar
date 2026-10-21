@@ -425,6 +425,11 @@
       "at": "2026-10-21T22:30:00-04:00",
       "text": "Smoother tab dragging: slide right to tuck under.",
       "kind": "feature"
+    },
+    {
+      "at": "2026-10-21T23:00:00-04:00",
+      "text": "Each kind of message has its own paper; hover for its label.",
+      "kind": "feature"
     }
   ]
 }

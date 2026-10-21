@@ -680,13 +680,16 @@ export class Memory {
     }
   }
 
-  /** The other half: what Aang answered, tied to the same request. */
-  saveReplied(aang: string, tier: string, req: string): number | null {
+  /**
+   * The other half: what Aang answered, tied to the same request. `extra` (sheet 48, 2026-10-21) is only ever
+   * { kind: 'action' }, for a reply in which he really changed something; ordinary answers store none.
+   */
+  saveReplied(aang: string, tier: string, req: string, extra?: object): number | null {
     if (!this.db) return null;
     try {
       const now = new Date().toISOString().replace('T', ' ').slice(0, 19);
-      const info = this.db.prepare('INSERT INTO turns (ts, role, tier, text, req) VALUES (?,?,?,?,?)')
-        .run(now, 'aang', tier, aang, req);
+      const info = this.db.prepare('INSERT INTO turns (ts, role, tier, text, req, extra) VALUES (?,?,?,?,?,?)')
+        .run(now, 'aang', tier, aang, req, packExtra(extra));
       const id = Number(info.lastInsertRowid);
       this.db.prepare('INSERT INTO turns_fts (text, turn_id) VALUES (?,?)').run(aang, id);
       void this.embedTurn(id, aang);

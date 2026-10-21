@@ -59,7 +59,7 @@ import { Actions } from './actions.ts';
 import { BrowserSyncHub } from './bsynchub.ts';
 import { APEX_STEAM, Feeds, apexMap, channelOf, parseSteamFeed, parseYouTubeFeed, type Creator } from './feeds.ts';
 import { clock as videoClock, diagnose, readVideo, siteOf as siteOfVideo, videoUrl, type Diagnosis, type VideoRead } from './watchvideo.ts';
-import { HookServer, HookTracker, isLoopback } from './hooks.ts';
+import { HookServer, HookTracker, isLoopback, projectName } from './hooks.ts';
 import { JobTracker, LinkDoor, clearLinkKey, newLinkKey } from './claudelink.ts';
 import type { Answer as LinkAnswer } from './claudelink.ts';
 import { MarkDeriver } from './claudemark.ts';
@@ -297,6 +297,21 @@ const TIDY_SYSTEM = `You sort browser tabs into small groups called trails. The 
 Reply with JSON only, no other text, in exactly this shape:
 {"groups":[{"name":"SHORT NAME","tabs":[1,2]}],"names":[{"trail":"T1","name":"SHORT NAME"}]}
 Rules: a group needs at least 2 tabs that clearly belong to one task or topic; leave a tab out if it fits nowhere. Each tab in at most one group. Names: 1 to 3 plain words, about what he is doing (e.g. RAID PREP, JOB HUNT, WATCHING), no punctuation. Give every trail in TRAILS TO NAME a name.`;
+
+/**
+ * Logged tools that only LOOK, or only get something ready for his yes (a mail draft: the send is what counts, see
+ * mailOutcome) (sheet 48, 2026-10-21). A reply after one of these did nothing for him yet, so it is not a "done for
+ * you" row. Everything else the action log records (open, write, move, remember, a reminder, music...)
+ * changed something. A tool new to the log counts as a change until it is added here: the paper is a hint, and a
+ * missed "looked only" costs a tinted slip, never a wrong claim in words.
+ */
+const ONLY_LOOKED = new Set(['read_window', 'look_at_window', 'read_clipboard', 'mail_inbox', 'mail_read', 'mail_attachment',
+  'calendar_today', 'look_up_web', 'list_controls', 'mail_draft']);
+
+/** Sheet 48: did this chat turn really change something for him? From what the action log recorded, never from the words. */
+export function changedSomething(did: { tool?: string; ok: boolean }[], mailSent = false): boolean {
+  return mailSent || did.some(a => a.ok && !!a.tool && !ONLY_LOOKED.has(a.tool.replace(/^mcp__aang__/, '')));
+}
 
 /**
  * A short plain description of what made a stored turn more than words, for the model to read when he replies
@@ -1548,7 +1563,7 @@ export class Core {
   private readonly backup: Backup;
 
   /** What really happened this chat turn, for checking the reply against before he sees it. */
-  private turnActions: { did: string; ok: boolean; note: string }[] = [];
+  private turnActions: { did: string; ok: boolean; note: string; tool?: string }[] = [];
   /** Set by present_list, reset at the start of every turn same as turnActions, and attached to the reply's
    *  own bubble message when the turn finishes (onLaneEvent's result branch) - never left to leak into a
    *  later turn that never called it. */
@@ -1562,7 +1577,7 @@ export class Core {
     const req = fromWorker ? undefined : this.active?.sub?.id;
     const rec = this.actions.add({ tool, did: (fromWorker ? '(background job) ' : '') + describeForLog('mcp__aang__' + tool, input), ok: !failed, note: failed ? text : '', ...(req ? { req } : {}) });
     this.noteYes(rec);
-    if (!fromWorker) this.turnActions.push({ did: rec.did, ok: rec.ok, note: rec.note });   // a job's actions are not the chat reply's to check
+    if (!fromWorker) this.turnActions.push({ did: rec.did, ok: rec.ok, note: rec.note, tool: rec.tool });   // a job's actions are not the chat reply's to check
     this.sendTo('discord', { t: 'action', text: formatAction(rec) });        // a receipt in #log, silently
   }
 
@@ -2508,7 +2523,8 @@ export class Core {
       if (said && !(this.inClaude() && !remote)) {
         const text = remote ? said.text.replace(/^Claude Code/, 'Claude Code on the MacBook') : said.text;
         const where = remote ? { host: 'mac' as const } : { focus: CLAUDE_WINDOW };
-        this.announce(text, said.kind === 'waiting' ? { asked: true, blocking: true, ...where } : { asked: true, done: true, ...where });
+        const claude = said.session.project;
+        this.announce(text, said.kind === 'waiting' ? { asked: true, blocking: true, claude, ...where } : { asked: true, done: true, claude, ...where });
       }
     }, this.keyFile('hook.key'), code => this.setupFor(code),
     // M2: the MacBook's "is Shadow on?" (one Aang across both machines). Up, and whether he is at this PC.
@@ -3928,10 +3944,12 @@ export class Core {
       flags.push('claimed-without-doing');
       console.error('honesty: the reply claims something was done, but no tool ran and nothing was recorded');
     }
-    this.toTurn(sub, { t: 'bubble', text: reply, stream: false, id: sub.id, who: MODELS[turn.lane].label, ...(this.pendingList ? { list: this.pendingList } : {}), ...(this.pendingFace ? { face: this.pendingFace } : {}) });
+    // Sheet 48 (2026-10-21): a reply in which Aang really changed something wears the "done for you" paper.
+    const acted = changedSomething(this.turnActions, !!this.mailOutcome?.sent);
+    this.toTurn(sub, { t: 'bubble', text: reply, stream: false, id: sub.id, who: MODELS[turn.lane].label, ...(this.pendingList ? { list: this.pendingList } : {}), ...(this.pendingFace ? { face: this.pendingFace } : {}), ...(acted ? { kind: 'action' as const } : {}) });
     if (!sub.ephemeral) {
       // His half is already stored (5.6, at submit). Only the answer is new.
-      const aangTurn = this.memory.saveReplied(reply, 'claude-' + turn.lane, sub.id);
+      const aangTurn = this.memory.saveReplied(reply, 'claude-' + turn.lane, sub.id, acted ? { kind: 'action' } : undefined);
       // Which rows the exchange became. Without this the Body has only the submit id, which identifies the
       // request and not the stored turn, so "reply to that one" would have nothing to point at.
       if (sub.askedTurn && aangTurn) this.toTurn(sub, { t: 'turn.saved', id: sub.id, userTurn: sub.askedTurn, aangTurn });
@@ -4088,7 +4106,7 @@ export class Core {
     setTimeout(() => this.offerFact(), 45_000).unref?.();
   }
 
-  announce(text: string, opts: { links?: { label: string; url: string }[]; asked?: boolean; focus?: string; jobCwd?: string; image?: { data: string; mimeType: string }; blocking?: boolean; done?: boolean; host?: 'mac'; reminder?: string; brief?: BriefCard; research?: import('./watch.ts').ResearchCard & { file?: string }; about?: { url: string; title: string; thumb?: string }; face?: { img: string; name: string } } = {}): void {
+  announce(text: string, opts: { links?: { label: string; url: string }[]; asked?: boolean; focus?: string; jobCwd?: string; image?: { data: string; mimeType: string }; blocking?: boolean; done?: boolean; host?: 'mac'; reminder?: string; brief?: BriefCard; research?: import('./watch.ts').ResearchCard & { file?: string }; about?: { url: string; title: string; thumb?: string }; face?: { img: string; name: string }; claude?: string } = {}): void {
     // Whatever is said last is what a reply is most likely about, whether it lands now or only once hush/quiet
     // lets it through - see withAnnounced(). Its link goes with it (2026-10-14): "put it on" needs no search.
     this.lastAnnounced = { text, at: Date.now(), ...(opts.about ? { url: opts.about.url } : {}) };
@@ -4105,6 +4123,8 @@ export class Core {
       ...(blocking ? { blocking: true } : {}), ...(done ? { done: true } : {}), ...(opts.host ? { host: opts.host } : {}),
       ...(opts.reminder ? { reminder: opts.reminder } : {}), ...(opts.brief ? { brief: opts.brief } : {}), ...(opts.links?.length ? { links: opts.links } : {}), ...(opts.research ? { research: opts.research } : {}),
       ...(opts.face ? { face: opts.face } : {}),
+      // Sheet 48 (2026-10-21): news from a Claude Code session says so, with its project, so it gets Claude's paper.
+      ...(opts.claude ? { kind: 'claude' as const, project: opts.claude } : {}),
     };
     /**
      * Store it as a turn, and carry the row id out with the message.
@@ -4127,6 +4147,7 @@ export class Core {
         ...(opts.about ? { about: opts.about } : {}), ...(opts.brief ? { brief: opts.brief } : {}),
         ...(opts.research ? { research: opts.research } : {}), ...(opts.links?.length ? { links: opts.links } : {}),
         ...(opts.reminder ? { reminder: opts.reminder } : {}), ...(this.whereHeIs() === 'discord' ? { away: true } : {}),
+        ...(opts.claude ? { kind: 'claude', project: opts.claude } : {}),
       };
       const row = this.memory.saveSaid(text, 'say', Object.keys(extra).length ? extra : undefined);
       if (row !== null) { msg.turn = row; if (opts.about) { this.linkOfTurn.set(row, opts.about.url); while (this.linkOfTurn.size > 300) this.linkOfTurn.delete(this.linkOfTurn.keys().next().value as number); } }
@@ -4160,7 +4181,7 @@ export class Core {
         if (m?.ok && m.data && (m.black ?? 0) < BLACK_SHARE) image = { data: m.data, mimeType: 'image/jpeg' };
       } catch { /* best effort: the text still goes */ }
     }
-    this.announce(text, { ...opts, jobCwd: cwd, ...(image ? { image } : {}) });
+    this.announce(text, { ...opts, jobCwd: cwd, claude: projectName(cwd), ...(image ? { image } : {}) });
   }
 
   /** Claude Code sessions Aang opened in the Claude app for Joshua, newest last. Kept on disk, so a restart does not lose them. */

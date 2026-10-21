@@ -11,7 +11,7 @@ import { find as findEntities } from './entities.js';
 import { Scrollback, atTop } from './scrollback.js';
 import { buildPaper, openMenu, previewLines, tickCount, paintNote } from './notepaper.js';
 import { pixIcon, SKIES } from './pixicons.js';
-import { paintLookback, linkifyWords, videoShot, linkEl } from './lookback.js';
+import { paintLookback, linkifyWords, videoShot, linkEl, kindOf } from './lookback.js';
 import { startTyping } from './cocktype.js';
 import { startClaude } from './claudejobs.js';
 
@@ -1288,6 +1288,7 @@ function onBrain(m) {
       if (asking) { if (!m.stream) { live = liveOf(m); cockCommit(); fit(); reportSize(); } return; }
       if (!sameReply) cockCommit();
       live = liveOf(m);
+      livePaper(live);
     }
     // Sheet 41: the one-line door. A message about a video (or a page) opens into it on a click.
     if (!m.stream) { curAbout = m.about && typeof m.about.url === 'string' && /^https?:\/\//.test(m.about.url) ? m.about : null; paintAbout(false); }
@@ -2193,6 +2194,7 @@ function closeCock() {
   el('ck').hidden = true;
   claude?.setOpen(false);
   bubble.classList.remove('cockpit', 'ckwide', 'ckask');
+  scroller.classList.remove('k-claude', 'k-action');
   leaveReading(false, true);
   // Back where the one bubble has them: above the words.
   (el('back') ?? scroller).before(speaker, who.parentElement);
@@ -2218,11 +2220,24 @@ function liveOf(m) {
   if (m.research && typeof m.research === 'object') extra.research = m.research;
   if (m.about && typeof m.about.url === 'string') extra.about = m.about;
   if (m.face && typeof m.face === 'object') extra.face = m.face;
+  // Sheet 48: the kind the brain marked (Claude's news with its project, or something done for him), as the stored row has it.
+  if (m.kind === 'claude' || m.kind === 'action') extra.kind = m.kind;
+  if (m.kind === 'claude' && typeof m.project === 'string') extra.project = m.project;
   const text = String(m.text || (extra.brief ? 'Your brief' : extra.research ? 'This week’s research' : ''));
   return { id: typeof m.turn === 'number' ? m.turn : null, text, extra: Object.keys(extra).length ? extra : null };
 }
+/**
+ * Sheet 48 (2026-10-21): the live answer under the conversation wears its kind's paper, as its row will. Only the
+ * kinds that show as words here (Claude's news, something done for him); the brief and a video have their own cards.
+ */
+function livePaper(l) {
+  const k = cockpit && l && !l.skip ? kindOf({ who: 'Aang', text: l.text, extra: l.extra })?.k : '';
+  scroller.classList.toggle('k-claude', k === 'claude');
+  scroller.classList.toggle('k-action', k === 'action');
+}
 /** The live thing joins the conversation as its newest row (a brief or a video row opens again in place there). */
 function cockCommit() {
+  livePaper(null);
   const l = live; live = null;
   if (!cockpit || !l || l.skip || !(l.text || l.extra)) return;
   back.add({ id: l.id ?? localId--, ts: tsNow(), who: 'Aang', text: l.text, extra: l.extra });
@@ -2231,6 +2246,7 @@ function cockCommit() {
 }
 /** Empty the live area (not the conversation, not the typing area): a question answered or timed out, a stop. */
 function clearLive() {
+  livePaper(null);
   reveal.clear(); laidOut = null; paintWords();
   scroller.hidden = true;
   who.textContent = ''; who.hidden = true; who.classList.remove('plaque', 'red');
