@@ -2327,6 +2327,12 @@ function closeCock() {
   claude?.park();
   // Aang still answering keeps his line (it arrives as a normal bubble).
   if (!working.hidden) { fit(); reportSize(); return; }
+  // He closed it by clicking somewhere else (or Esc): the mouse is not on the bubble, but the window went click-through
+  // before it could hear the mouse leave, so "pointer over" stayed true and goAway refused, leaving an empty wood
+  // frame on his desktop (seen on his screen, 2026-10-21). If the mouse really is over it, the next move says so again.
+  overNow = false;
+  document.getElementById('wrap')?.classList.remove('over');
+  window.aang?.bubbleClickable?.(false);
   goAway();
 }
 /** Aang's own question leaves the screen but stays in the queue (`waiting`), unanswered, for the next open. */

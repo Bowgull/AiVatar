@@ -1420,12 +1420,43 @@ function samaraOpen(): boolean {
  */
 let bodyWas: boolean | null = null;
 const shellStarted = Date.now();
+/**
+ * Restarting Aang must load the newest Aang (2026-10-21). With Samara open the Shell outlives Aang, so a restart of
+ * Aang used to bring back the SAME Shell with yesterday's code: he restarted twice and still had the broken bubble.
+ * Now, when Aang comes back, the Shell compares its own files with how they were when it started: changed pages
+ * (bubble, typing box) are reloaded at once; changed main-process code means a fresh Shell, right away when no Samara
+ * window is open, otherwise the moment the last one closes. Never during a call.
+ */
+const newestIn = (dir: string, exts: RegExp): number => {
+  let t = 0;
+  try { for (const f of readdirSync(dir)) if (exts.test(f)) t = Math.max(t, statSync(path.join(dir, f)).mtimeMs); } catch { /* none */ }
+  return t;
+};
+const pagesNow = () => newestIn(path.join(HERE, '..', 'pages'), /\.(js|css|html)$/);
+const mainNow = () => newestIn(HERE, /\.(ts|cjs)$/);
+let pagesAt = pagesNow();
+const mainAt = mainNow();
+let mainStale = false;
+function freshShell(): void {
+  if (aangBrowser?.inCall) return;
+  console.log('shell: my own code changed since I started; starting a fresh Shell');
+  app.relaunch();
+  app.exit(0);
+}
+function freshen(): void {
+  if (mainNow() > mainAt) { mainStale = true; if (!samaraOpen()) { freshShell(); return; } }
+  if (pagesNow() > pagesAt) {
+    pagesAt = pagesNow();
+    console.log('shell: the pages changed; reloading the bubble and the typing box');
+    for (const w of [bubble?.window(), input?.window?.()]) try { if (w && !w.isDestroyed()) w.webContents.reloadIgnoringCache(); } catch { /* gone */ }
+  }
+}
 setInterval(() => {
   const up = bodyAlive();
   if (up !== bodyWas) {
     const first = bodyWas === null;
     bodyWas = up;
-    if (up) { if (!first) { console.log('shell: Aang is back'); if (input) takeAangKeys(); } }
+    if (up) { if (!first) { console.log('shell: Aang is back'); freshen(); if (input) takeAangKeys(); } }
     else if (!first) {
       console.log('shell: Aang closed; Samara stays');
       for (const key of ['Control+=', 'Control+numadd', 'Control+Shift+=', 'Control+Shift+numadd']) globalShortcut.unregister(key);
@@ -1436,6 +1467,8 @@ setInterval(() => {
   }
   if (aangBrowser) aangBrowser.onSendToAang = up ? sendToAang : null;
   if (aangBrowser) aangBrowser.onSendMockup = up ? sendMockupToAang : null;
+  // Newer code waiting for Samara to close (see freshen): its last window just went.
+  if (mainStale && up && !samaraOpen()) freshShell();
   if (!up && !samaraOpen() && Date.now() - shellStarted > 20_000) { console.log('shell: Aang is off and Samara is closed: nothing left to run'); app.quit(); }
 }, 3000).unref();
 
