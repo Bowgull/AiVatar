@@ -397,13 +397,6 @@ const link = new CoreLink({
     if (m.t === 'wheel.open') { if (input?.visible) input.close(); bubble?.send('bubble:dismiss', 'wheel'); wheel?.open({ x: Number(m.x) || 0, y: Number(m.y) || 0 }); return; }
     if (m.t === 'wheel.release') { wheel?.release({ x: Number(m.x) || 0, y: Number(m.y) || 0 }); return; }
     if (m.t === 'quiet.toggle') return;            // for the pet, not for us
-    // Sheet 17: the notes. The windows on his screen follow the list; the bubble's board gets it too.
-    if (m.t === 'notes.state' && Array.isArray(m.notes)) { notesLatest = m.notes as NoteData[]; noteWins?.sync(notesLatest); }
-    // He clicked Aang. His rule (2026-10-20): what Aang last said comes back (an ask still waiting first), and clicking
-    // that message opens the chat box to answer it. With a message already showing, or nothing said yet, the click opens
-    // the chat box as before.
-    // Sheet 53 (his rules, 2026-10-21): a click on Aang is just the separate chat box, ready to type. Only if he said
-    // something in the last 5 minutes does that line come back, small, over the box (the bubble decides; it knows when).
     // Sheet 56 (2026-10-21): right-click on Aang opens his menu at the mouse. The count of running Claude jobs is ours.
     if (m.t === 'menu.open') {
       const jobs = Array.isArray(lastJobs) ? lastJobs.filter((j) => (j as { phase?: unknown } | null)?.phase === 'working').length : 0;
@@ -411,6 +404,13 @@ const link = new CoreLink({
       return;
     }
     if (m.t === 'menu.pick') return;               // for the pet, not for us
+    // Sheet 17: the notes. The windows on his screen follow the list; the bubble's board gets it too.
+    if (m.t === 'notes.state' && Array.isArray(m.notes)) { notesLatest = m.notes as NoteData[]; noteWins?.sync(notesLatest); }
+    // He clicked Aang. His rule (2026-10-20): what Aang last said comes back (an ask still waiting first), and clicking
+    // that message opens the chat box to answer it. With a message already showing, or nothing said yet, the click opens
+    // the chat box as before.
+    // Sheet 53 (his rules, 2026-10-21): a click on Aang is just the separate chat box, ready to type. Only if he said
+    // something in the last 5 minutes does that line come back, small, over the box (the bubble decides; it knows when).
     // A click on Claude's working mark is its own message now (`mark.click`, below): the pet works it out from its own
     // drawing (2026-10-21). The old guess from the cursor here never saw a click while he was tucked at the edge.
     if (m.t === 'typebox') {
@@ -720,13 +720,6 @@ app.whenReady().then(async () => {
         },
       });
       wheel.warm();
-      // Sheet 17: each note he pulled out onto his screen is its own window.
-      noteWins = new NoteWindows({
-        origin: pages.origin, preloadPath: path.join(HERE, 'preload.cjs'),
-        save: (n) => link?.send({ t: 'notes.save', note: n }),
-        overAang: (p) => {
-          const b = bubble?.window();
-          if (b && !b.isDestroyed() && b.isVisible()) { const r = b.getBounds(); if (p.x >= r.x && p.x < r.x + r.width && p.y >= r.y && p.y < r.y + r.height) return true; }
       // Sheet 56 (2026-10-21): the right-click menu. Look back is ours (the bubble's scroll-back); every other pick goes
       // to the pet, which runs the same handler its old menu item ran.
       aangMenu = new AangMenu({
@@ -734,6 +727,13 @@ app.whenReady().then(async () => {
         pick: (id) => { if (id === 'back') bubble?.send('bubble:recall', 'back'); else link?.send({ t: 'menu.pick', id }); },
       });
       aangMenu.warm();
+      // Sheet 17: each note he pulled out onto his screen is its own window.
+      noteWins = new NoteWindows({
+        origin: pages.origin, preloadPath: path.join(HERE, 'preload.cjs'),
+        save: (n) => link?.send({ t: 'notes.save', note: n }),
+        overAang: (p) => {
+          const b = bubble?.window();
+          if (b && !b.isDestroyed() && b.isVisible()) { const r = b.getBounds(); if (p.x >= r.x && p.x < r.x + r.width && p.y >= r.y && p.y < r.y + r.height) return true; }
           const s = petAt?.sprite;
           return !!s && p.x >= s.x && p.x < s.x + s.width && p.y >= s.y && p.y < s.y + s.height;
         },
@@ -1145,6 +1145,8 @@ app.whenReady().then(async () => {
   ipcMain.on('note:pin', (e) => { const v = noteWins?.of(e.sender); if (v) noteWins!.setPinned(v.id, true); });
   ipcMain.on('note:back', (e) => { const v = noteWins?.of(e.sender); if (v) noteWins!.back(v.id); });
   ipcMain.on('note:delete', (e) => { const v = noteWins?.of(e.sender); if (v) link?.send({ t: 'notes.delete', id: v.id }); });
+  ipcMain.on('menu:pick', (e, id) => { if (aangMenu?.owns(e.sender)) aangMenu.picked(e.sender, id); });
+  ipcMain.on('menu:shape', (e, rects) => { if (aangMenu?.owns(e.sender)) aangMenu.shape(e.sender, rects); });
   ipcMain.on('wheel:pick', (e, slot) => { if (wheel?.owns(e.sender)) wheel.picked(e.sender, typeof slot === 'string' ? slot.slice(0, 12) : ''); });
   ipcMain.on('timer:clickable', (e, on) => { if (timerWins?.owns(e.sender)) timerWins.clickable(e.sender, on === true); });
   ipcMain.on('timer:opacity', (e, n) => { if (timerWins?.owns(e.sender)) timerWins.opacity(e.sender, Number(n)); });
@@ -1152,8 +1154,6 @@ app.whenReady().then(async () => {
   ipcMain.on('timer:drag', (e, a) => {
     if (!timerWins?.owns(e.sender) || !a || typeof a !== 'object') return;
     timerWins.drag(e.sender, String(a.phase ?? ''), Number(a.dx) || 0, Number(a.dy) || 0);
-  ipcMain.on('menu:pick', (e, id) => { if (aangMenu?.owns(e.sender)) aangMenu.picked(e.sender, id); });
-  ipcMain.on('menu:shape', (e, rects) => { if (aangMenu?.owns(e.sender)) aangMenu.shape(e.sender, rects); });
   });
   ipcMain.on('timer:act', (e, a) => {
     const id = timerWins?.idOf(e.sender);

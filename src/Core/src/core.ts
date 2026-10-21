@@ -3233,6 +3233,11 @@ export class Core {
       // Sheet 17's wheel: the pet says when it is held and where it was let go; the Shell draws it. Quiet goes back to the pet.
       case 'wheel.open': case 'wheel.release': this.sendToShells({ t: m.t, x: Number(m.x) || 0, y: Number(m.y) || 0 }); break;
       case 'quiet.toggle': this.sendTo('desktop', { t: 'quiet.toggle' }); break;
+      // Sheet 56 (2026-10-21): the right-click menu. The pet says where and what is ticked; only the brain knows when a
+      // hush ends, so it adds that. His pick goes back to the pet, which runs the handler.
+      case 'menu.open': this.sendToShells({ t: 'menu.open', x: Number(m.x) || 0, y: Number(m.y) || 0,
+        state: { ...(m.state && typeof m.state === 'object' ? m.state : {}), hushedUntil: this.hushUntil > Date.now() ? this.hushUntil : 0 } }); break;
+      case 'menu.pick': if (typeof m.id === 'string') this.sendTo('desktop', { t: 'menu.pick', id: m.id.slice(0, 24) }); break;
       // The mode he picked in the new box. Relayed so the PET can write it to body.json: the pet is
       // the only writer of that file, and two writers of one file is how it gets truncated.
       case 'mode': this.sendTo('desktop', { t: 'mode', mode: m.mode }); break;
@@ -3247,11 +3252,6 @@ export class Core {
       // Same fallback fix as the JOB_HUNT_RE chat trigger below (2026-09-23): do_task cannot actually run this
       // (no Claude in Chrome), start_claude can.
       case 'job.hunt': void this.runOnMac(SWEEP_REQUEST).then(async onMac => { if (!onMac) await this.startClaude(SWEEP_REQUEST, 'job hunt', 'job hunt', 'job hunt'); this.send(ws, { t: 'job.hunt.reply', onMac }); }); break;
-      // Sheet 56 (2026-10-21): the right-click menu. The pet says where and what is ticked; only the brain knows when a
-      // hush ends, so it adds that. His pick goes back to the pet, which runs the handler.
-      case 'menu.open': this.sendToShells({ t: 'menu.open', x: Number(m.x) || 0, y: Number(m.y) || 0,
-        state: { ...(m.state && typeof m.state === 'object' ? m.state : {}), hushedUntil: this.hushUntil > Date.now() ? this.hushUntil : 0 } }); break;
-      case 'menu.pick': if (typeof m.id === 'string') this.sendTo('desktop', { t: 'menu.pick', id: m.id.slice(0, 24) }); break;
       case 'status': this.send(ws, { t: 'status.reply', text: this.status() }); break;
       case 'actions': this.send(ws, { t: 'actions.reply', text: this.actions.text(10) }); break;
       case 'trust': this.send(ws, { t: 'trust.reply', items: this.trust.list().map(r => ({ kind: r.kind, example: r.example, since: r.since })) }); break;
