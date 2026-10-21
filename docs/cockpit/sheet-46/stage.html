@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>46 stage</title>
+<!-- Sheet 46 (2026-10-21): ONE cockpit bubble, his ask "for ages". Everything Aang shows lives in one bubble with one
+     layout engine: the conversation (which is the scroll-back), the pinned thing waiting on him, the jobs strip, and
+     the typing area as its bottom edge. Small one-liner when Aang speaks unasked; click or Ctrl+Plus opens the cockpit.
+     Three looks from Samara's language (?theme=samara|lantern|parchment), same engine. Real pieces: his idle frames,
+     the FFX glove choices (bubble.css .opt/.glove/.kc, art/browser/hand.png), Samara's tray, trayframe, velvet, band
+     and cap3 corners, Claude's real icon, 45f's soft bar. -->
+<link rel="stylesheet" href="../../../src/Shell/pages/cockpit.css">
+<style>
+  html,body{margin:0;background:transparent!important;overflow:hidden!important;height:auto!important;width:auto!important;display:block!important}
+  body{pointer-events:auto!important;padding:0!important;border:0!important;box-shadow:none!important}
+  html::before,html::after,body::before,body::after{display:none!important}
+  :root{--A:../../../src/Shell/pages/art/browser/}
+  .desk{position:relative;width:1180px;height:780px;border-radius:10px;overflow:hidden;background:radial-gradient(90% 70% at 30% 20%,#2a2238,#120c1a 70%),#120c1a}
+  #aang{position:absolute;right:26px;bottom:6px;width:224px;height:224px;image-rendering:pixelated;cursor:pointer;z-index:3}
+
+  /* ================= THE ENGINE: one object, a column of zones, sized by measuring ================= */
+  #ck{position:absolute;right:214px;bottom:28px;box-sizing:border-box;display:flex;flex-direction:column;overflow:visible;z-index:4;
+    transition:width .5s cubic-bezier(.3,1.35,.4,1),height .5s cubic-bezier(.3,1.35,.4,1)}
+  #ck.small{transition-duration:.3s}
+  #ck .frame{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;box-sizing:border-box}
+  .zone{flex:none;box-sizing:border-box}
+  .convo{flex:1 1 auto;min-height:140px;overflow-y:auto;scrollbar-width:none;overscroll-behavior:contain;padding:10px 12px 6px}
+  .convo::-webkit-scrollbar{display:none}
+  .arrow{position:absolute;left:50%;transform:translateX(-50%);z-index:5;pointer-events:none;opacity:0;transition:opacity .2s}
+  .arrow.on{opacity:1;animation:bobd 1.4s ease-in-out infinite}
+  @keyframes bobd{50%{transform:translate(-50%,3px)}}
+  .ctail{position:absolute;right:-20px;bottom:36px;width:22px;height:20px;pointer-events:none}
+  /* the one-liner: only the newest card shows, nothing else */
+  #ck.line .pinned,#ck.line .jobs,#ck.line .type,#ck.line .slip h3,#ck.line .card:not(.newest),#ck.line .cmine,#ck.line .slip:not(.lastslip){display:none!important}
+  #ck.line .convo{overflow:hidden;padding:9px 13px}
+  #ck.line .card.newest{margin:0}
+  #ck.line .card.newest .open{display:none}
+  #ck.line{cursor:pointer}
+  .fadein{animation:fadein .3s ease-out}
+  @keyframes fadein{from{opacity:0;transform:translateY(6px)}}
+
+  /* ================= the parts every message is made of ================= */
+  .slip{margin:0 0 10px}
+  .slip h3{margin:0 0 6px;font:400 8px var(--label);letter-spacing:2px;display:flex;align-items:center;gap:8px}
+  .slip h3::after{content:"";flex:1;height:3px;border-radius:2px}
+  .card{position:relative;margin:0 0 8px;padding:9px 11px;border-radius:9px}
+  .card .hd{display:flex;align-items:center;gap:8px}
+  .card .hd .ic{flex:none;width:30px;height:30px;border-radius:7px;display:grid;place-items:center;overflow:hidden}
+  .card .hd .ic img{width:30px;height:30px;object-fit:cover}
+  .card .hd .ic img.cl{width:22px;height:22px;border-radius:5px}
+  .card .hd .tt{flex:1;min-width:0}
+  .card .hd .tt b{display:block;font:700 13.5px/1.35 var(--body)}
+  .card .hd .tt span{display:block;font:500 12px/1.35 var(--body)}
+  .card .hd .when{flex:none;font:400 8px var(--label);letter-spacing:1px}
+  .ctag{display:inline-flex;align-items:center;gap:5px;font:700 11.5px var(--body);border-radius:999px;padding:2px 8px 2px 3px;margin-bottom:5px}
+  .ctag img{width:16px;height:16px;border-radius:4px}
+  .card .said{margin:0;font:600 14px/1.5 var(--body)}
+  .card .open{margin-top:8px}
+  .card.can{cursor:pointer}
+  .shot{position:relative;width:100%;aspect-ratio:16/9;border-radius:8px;background:#000 center/cover no-repeat;display:grid;place-items:center}
+  .shot i{width:56px;height:56px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#ffe9a8,#FFC43C 55%,#C98C14);box-shadow:0 0 0 3px #120A05,0 4px 0 #120A05,0 0 18px rgba(255,190,90,.6)}
+  .shot i::after{content:"";display:block;margin:17px 0 0 22px;width:0;height:0;border:11px solid transparent;border-left:16px solid #2a1c00;border-right:0}
+  .cplq{display:inline-block;font:400 8px var(--label);letter-spacing:1px;padding:3px 6px 2px;border-radius:4px;background:#3FBFAE;color:#08302b;border:2px solid #120A05;margin-right:6px;vertical-align:1px}
+  .chl{list-style:none;margin:6px 0 0;padding:0}
+  .chl li{display:flex;gap:8px;font:600 12.5px/1.6 var(--body)}
+  .chl li b{flex:none;font:400 7.5px var(--label);letter-spacing:1px;padding:3px 5px 2px;border-radius:4px;margin-top:3px}
+  .chl li b.add{background:#58b0a3;color:#08302b}.chl li b.mv{background:#ecbd72;color:#3a2410}
+  .cmine{margin:4px 0 8px 70px;padding:7px 11px;border-radius:9px;font:600 13.5px/1.4 var(--body);color:#efe6ff;background:linear-gradient(180deg,#331d52,#4A2C6E);box-shadow:inset 0 3px 0 rgba(0,0,0,.4),inset 0 -2px 0 rgba(150,110,200,.3)}
+  .cmine .to{display:block;font:400 7.5px var(--label);letter-spacing:1px;color:#cdb4ff;margin-bottom:3px}
+  /* the pinned thing waiting on him */
+  .pinned{padding:0 12px}
+  .pinned:empty{display:none}
+  .pin{position:relative;padding:10px 12px 8px;border-radius:10px;margin:6px 0 8px}
+  .pin .more{position:absolute;right:10px;top:9px;font:400 8px var(--label);letter-spacing:1px;padding:3px 6px 2px;border-radius:4px;cursor:pointer}
+  .pin .q{margin:2px 0 6px;font:700 14px/1.45 var(--body)}
+  .pin .glove{margin:0 -4px}
+  .pin .opt{padding:5px 10px 5px 38px;font-size:14px}
+  .pin .opt:hover .kc{opacity:1}
+  .pin .ckeys{display:flex;gap:6px;margin:4px 0 2px}
+  .pin .ckeys .key.sm{padding:6px 10px 7px}
+  /* the jobs strip (sheet 45g, inside now) */
+  .jobs{padding:6px 12px}
+  .job{display:flex;align-items:center;gap:8px;cursor:pointer}
+  .job img{width:18px;height:18px;border-radius:4px}
+  .job b{font:700 12.5px var(--body)}
+  .job .nm{font:600 12px var(--body);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  .job .pct{margin-left:auto;font:400 9px Silkscreen,monospace}
+  .jobs .lt{font:500 11px var(--body);white-space:nowrap}
+  .job .msg{all:unset;cursor:pointer;flex:none;display:grid;place-items:center;width:24px;height:22px;border-radius:6px;background:linear-gradient(180deg,#4A2C6E,#331d52);box-shadow:0 0 0 2px #120A05,0 2px 0 #120A05}
+  .job .msg svg{width:13px;height:13px}
+  .jobrow2{display:flex;align-items:center;gap:9px;margin:5px 0 0}
+  .oline{display:flex;align-items:center;gap:8px;margin-top:6px;font:400 8px var(--label);letter-spacing:1.5px;cursor:pointer}
+  .oline .dots{display:flex;gap:3px}.oline .dots i{width:6px;height:6px;border-radius:50%;background:#8ad5c9;box-shadow:0 0 4px rgba(138,213,201,.7)}
+  /* the typing area: the cockpit's bottom edge */
+  .type{padding:8px 10px 8px}
+  .type .field{border-radius:12px;border:1.5px solid rgba(0,0,0,.45);padding:8px 12px;font:500 14.5px/1.5 var(--body);color:#CFC0E4;min-height:20px;background:linear-gradient(180deg,#331d52,#4A2C6E);box-shadow:inset 0 2px 4px rgba(0,0,0,.45),0 0 0 2px rgba(150,110,200,.55),0 0 12px rgba(150,110,200,.3)}
+  .type .field .ph{color:#8f7fb0}
+  .type .strip{display:flex;align-items:center;gap:6px;margin-top:6px}
+  .type .strip .pillm{font:400 8px var(--label);letter-spacing:1px;padding:3px 7px 2px;border-radius:999px;border:2px solid #120A05}
+  .type .strip .pillm.auto{background:linear-gradient(180deg,#ffe28c,#FFC43C);color:#2a1c00}
+  .type .strip .pillm.q{background:#A970FF;color:#fff}
+  .type .strip .hint{margin-left:auto;font:400 7.5px var(--label);letter-spacing:1px;opacity:.7}
+  .cur{display:inline-block;width:2px;height:15px;background:#FFC43C;vertical-align:-3px;animation:blink 1s steps(1) infinite}
+  @keyframes blink{50%{opacity:0}}
+  canvas.jp{image-rendering:pixelated;display:block}
+
+  /* ================= LOOK A: SAMARA (the drawer's wood frame, velvet inside, parchment slips, carved gold corners) ================= */
+  .samara #ck .frame{border-style:solid;border-width:8px;border-image:url(../../../src/Shell/pages/art/browser/trayframe.png) 4 repeat;image-rendering:pixelated;
+    background:url(../../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;border-radius:4px;box-shadow:0 14px 30px rgba(0,0,0,.55)}
+  .samara .convo{margin:6px 6px 0;border-radius:9px;background:radial-gradient(120% 70% at 50% 0%,rgba(255,200,120,.12),transparent 60%),url(../../../src/Shell/pages/art/browser/velvet.png) 0 0/96px 96px;box-shadow:inset 0 0 0 3px #120A05,inset 0 0 0 5px #4a2e1a,inset 0 6px 12px rgba(0,0,0,.5)}
+  .samara #ck.line .convo{margin:0;box-shadow:none;background:none}
+  .samara .slip h3{color:#FFE096;text-shadow:1px 1px 0 #000}
+  .samara .slip h3::after{background:linear-gradient(180deg,rgba(0,0,0,.6) 0 2px,rgba(255,224,150,.2) 2px 4px)}
+  .samara .card{color:#21160a;background:radial-gradient(120% 90% at 30% 0%,#f7ead0,#e9d3a6);box-shadow:0 0 0 2px #120A05,0 3px 0 #0d0703}
+  .samara .card .hd .ic{background:#2a1a10;box-shadow:inset 0 2px 0 rgba(0,0,0,.5)}
+  .samara .card .hd .tt span,.samara .card .hd .when{color:#6b5236}
+  .samara .ctag{background:rgba(224,122,79,.18);color:#8a3e1c}
+  .samara .pin{color:#21160a;background:radial-gradient(120% 90% at 30% 0%,#fff3d8,#efd9a6);box-shadow:0 0 0 3px #120A05,0 0 0 5px #C98C14,0 0 16px rgba(255,190,90,.45)}
+  .samara .pin .more{background:#4A2C6E;color:#efe6ff}
+  .samara .jobs{margin:0 6px;border-radius:9px;background:linear-gradient(rgba(0,0,0,.35),rgba(0,0,0,.45)),url(../../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;box-shadow:inset 0 0 0 2px #120A05,inset 0 0 0 3px #4a2e1a;color:#F6E6C6}
+  .samara .job .pct,.samara .oline{color:#ffe28c}.samara .job .lt{color:#c9b48e}.samara .job b{color:#ffb08a}
+  .samara .type{margin-top:6px;background:url(../../../src/Shell/pages/art/browser/band.png) 0 0/128px 58px;image-rendering:pixelated;border-top:3px solid #120A05}
+  .samara .type .strip .hint{color:#e8dcc4}
+  .samara .cap{position:absolute;width:22px;height:22px;z-index:6;pointer-events:none;image-rendering:pixelated}
+  .samara #ck.line .cap{display:none}
+  .samara .ctail{background:linear-gradient(135deg,transparent 50%,#6a4a2c 50%);clip-path:polygon(0 0,100% 100%,0 70%);filter:drop-shadow(2px 2px 0 #120A05)}
+
+  /* ================= LOOK B: LANTERN (sheet 41: dark pixel wood, parchment day slips) ================= */
+  .lantern #ck .frame{border:3px solid #120A05;border-radius:14px;background:linear-gradient(rgba(0,0,0,.25),rgba(0,0,0,.35)),url(../../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated;box-shadow:inset 0 0 0 3px #6a4628,inset 0 0 0 5px #120A05,0 14px 30px rgba(0,0,0,.55)}
+  .lantern .slip{padding:8px 9px 4px;border-radius:9px;background:radial-gradient(120% 90% at 30% 0%,#f7ead0,#e9d3a6);box-shadow:0 0 0 2px #120A05,0 3px 0 #0d0703}
+  .lantern #ck.line .slip{padding:0;background:none;box-shadow:none}
+  .lantern .slip h3{color:#8a3e1c}
+  .lantern .slip h3::after{background:rgba(138,62,28,.25);height:2px}
+  .lantern .card{color:#21160a;padding:6px 4px;border-radius:0;border-bottom:2px dashed rgba(120,80,30,.2)}
+  .lantern .card:last-child{border-bottom:0}
+  .lantern #ck.line .card{color:#f2e3c2}
+  .lantern .card .hd .ic{background:rgba(120,80,30,.12)}
+  .lantern .card .hd .tt span,.lantern .card .hd .when{color:#6b5236}
+  .lantern .ctag{background:rgba(224,122,79,.18);color:#8a3e1c}
+  .lantern .cmine{margin-right:0}
+  .lantern .pin{color:#21160a;background:radial-gradient(120% 90% at 30% 0%,#fff3d8,#efd9a6);box-shadow:0 0 0 3px #120A05,0 0 0 5px #C98C14,0 0 16px rgba(255,190,90,.45)}
+  .lantern .pin .more{background:#4A2C6E;color:#efe6ff}
+  .lantern .jobs{color:#F6E6C6;border-top:2px solid rgba(255,224,150,.15)}
+  .lantern .job .pct,.lantern .oline{color:#ffe28c}.lantern .job .lt{color:#c9b48e}.lantern .job b{color:#ffb08a}
+  .lantern .type{background:linear-gradient(180deg,rgba(0,0,0,.2),rgba(0,0,0,.35))}
+  .lantern .type .strip .hint{color:#c9b48e}
+  .lantern .ctail{background:#5a3c22;clip-path:polygon(0 0,100% 100%,0 70%);filter:drop-shadow(2px 2px 0 #120A05)}
+
+  /* ================= LOOK C: PARCHMENT (the light bubble grown up: Samara's band as header and footer) ================= */
+  .parchment #ck .frame{border:3px solid #120A05;border-radius:16px;background:radial-gradient(120% 90% at 30% 0%,#f9eed6,#ead4a8);box-shadow:inset 0 2px 0 rgba(255,255,255,.6),0 6px 0 #0d0703,0 14px 30px rgba(0,0,0,.5)}
+  .parchment .frame::before{content:"";flex:none;height:10px;background:url(../../../src/Shell/pages/art/browser/band.png) 0 0/128px 58px;image-rendering:pixelated;border-bottom:2px solid #120A05}
+  .parchment #ck.line .frame::before{display:none}
+  .parchment .slip h3{color:#8a3e1c}
+  .parchment .slip h3::after{background:rgba(138,62,28,.22);height:2px}
+  .parchment .card{color:#21160a;background:rgba(255,255,255,.35);box-shadow:inset 0 0 0 1.5px rgba(120,80,30,.2)}
+  .parchment #ck.line .card{background:none;box-shadow:none}
+  .parchment .card .hd .ic{background:rgba(120,80,30,.12)}
+  .parchment .card .hd .tt span,.parchment .card .hd .when{color:#6b5236}
+  .parchment .ctag{background:rgba(224,122,79,.18);color:#8a3e1c}
+  .parchment .pin{color:#21160a;background:#fff3d8;box-shadow:0 0 0 2.5px #C98C14,0 0 14px rgba(255,190,90,.5)}
+  .parchment .pin .more{background:#4A2C6E;color:#efe6ff}
+  .parchment .jobs{color:#21160a;border-top:2px solid rgba(120,80,30,.18)}
+  .parchment .job .pct,.parchment .oline{color:#3a2a18}.parchment .job .lt{color:#6b5236}.parchment .job b{color:#8a3e1c}
+  .parchment .type{background:url(../../../src/Shell/pages/art/browser/band.png) 0 0/128px 58px;image-rendering:pixelated;border-top:3px solid #120A05}
+  .parchment .type .strip .hint{color:#e8dcc4}
+  .parchment .ctail{background:#ead4a8;clip-path:polygon(0 0,100% 100%,0 70%);filter:drop-shadow(2px 0 0 #120A05) drop-shadow(0 2px 0 #120A05)}
+  .parchment #ck.line .frame{border-radius:14px}
+
+  /* the FFX glove choices, lifted from bubble.css (sheet 16) */
+  .opt{position:relative;display:flex;align-items:center;gap:10px;padding:7px 10px 7px 38px;border-radius:8px;font:600 15px var(--body);color:#2a1c10;cursor:pointer}
+  .opt .hint{display:block;font:500 12px var(--body);color:#7a6440}
+  .opt.other .lab{color:#7a6440}
+  .opt .kc{margin-left:auto;font:400 9px var(--label);width:22px;height:22px;border-radius:5px;display:grid;place-items:center;border:2px solid var(--outline);background:linear-gradient(180deg,var(--plum),var(--plum-deep));color:#f3eaff;box-shadow:0 2px 0 var(--outline);opacity:0;flex:none}
+  .glove:hover .kc{opacity:1}
+  .glove .opt.on{color:#7a3d10}
+  .glove .opt.on::before{content:"";position:absolute;left:6px;top:50%;width:26px;height:20px;margin-top:-10px;background:url(../../../src/Shell/pages/art/browser/hand.png) 0 0/26px 20px;image-rendering:pixelated;filter:drop-shadow(1px 1px 0 rgba(0,0,0,.6))}
+  .ctl{display:flex;gap:10px;align-items:center;margin:14px 2px 0;flex-wrap:wrap}
+  .ctl .lbl{font:400 9px Silkscreen,monospace;letter-spacing:1.5px;color:#FFC43C}
+</style>
+</head>
+<body>
+<div class="desk" id="desk">
+  <div id="ck" class="line">
+    <div class="frame" id="frame">
+      <div class="convo" id="convo"></div>
+      <div class="arrow" id="arrow"><svg width="30" height="19" viewBox="0 0 30 19"><path d="M3 3 L15 14 L27 3" fill="none" stroke="#120A05" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 3 L15 14 L27 3" fill="none" stroke="#C98C14" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="zone pinned" id="pinned"></div>
+      <div class="zone jobs" id="jobs"></div>
+      <div class="zone type"><div class="field" id="field"><span class="ph">Ask Aang anything</span><span class="cur"></span></div>
+        <div class="strip"><span class="pillm auto">AUTO</span><span class="pillm q">QWEN</span><span class="hint">ESC TO CLOSE</span></div></div>
+    </div>
+    <i class="ctail"></i>
+  </div>
+  <img id="aang" src="../../../assets/aang/frames/idle_0.png" alt="">
+</div>
+<div class="ctl"><button class="key primary" id="play" type="button">Play the story</button><span class="lbl">LOOK:</span>
+  <button class="key sm" data-theme="samara" type="button">Samara</button><button class="key sm" data-theme="lantern" type="button">Lantern</button><button class="key sm" data-theme="parchment" type="button">Parchment</button>
+  <span class="lbl" style="color:#cdbb9a">click Aang or the line &middot; press a choice &middot; scroll up</span></div>
+
+<script type="module">
+const $ = (id) => document.getElementById(id);
+const q = new URLSearchParams(location.search);
+const ART = '../../../src/Shell/pages/art/', CL = '../sheet-45d/claude-icon.png', STILL = '../sheet-40/still.png';
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+document.body.className = q.get('theme') || 'samara';
+for (const b of document.querySelectorAll('[data-theme]')) b.onclick = () => { document.body.className = b.dataset.theme; corners(); layout(); };
+
+// his idle, always
+let fr = 0; setInterval(() => { fr = (fr + 1) % 16; $('aang').src = `../../../assets/aang/frames/idle_${fr}.png`; }, 140);
+
+/* Samara's carved gold corners, on the velvet panel's corners */
+function corners() {
+  document.querySelectorAll('.cap').forEach((c) => c.remove());
+  if (document.body.className !== 'samara') return;
+  const f = $('frame'), cv = $('convo');
+  const add = (n, css) => { const i = document.createElement('img'); i.className = 'cap'; i.src = ART + `browser/cap3_${n}.png`; Object.assign(i.style, css); f.append(i); };
+  const top = cv.offsetTop - 4, left = 2, bot = f.clientHeight - (cv.offsetTop + cv.offsetHeight) - 4;
+  add('tl', { left: left + 'px', top: top + 'px' }); add('tr', { right: left + 'px', top: top + 'px' });
+  add('bl', { left: left + 'px', bottom: bot + 'px' }); add('br', { right: left + 'px', bottom: bot + 'px' });
+}
+
+/* ---------------- the conversation: day slips of cards (it IS the scroll-back) ---------------- */
+const tag = (s) => `<span class="ctag"><img src="${CL}" alt="">${s}</span>`;
+const DAYS = [
+  { h: 'YESTERDAY &middot; EVENING', cards: [
+    { ic: `<img src="${ART}aang-face.png" style="image-rendering:pixelated;object-position:50% 12%">`, b: 'Your Apex pack is ready. The new Wattson skin is in it.', talk: true },
+  ] },
+  { h: 'TODAY &middot; MORNING', cards: [
+    { ic: '<span style="font-size:18px">&#9728;</span>', b: 'Your morning brief', s: '3 events &middot; 2 need a reply &middot; 4 new jobs', when: '7:30 AM', can: true, open: '<p class="said" style="font-size:13px">Interview with Northwind at 2:00. Rhea is waiting on your reply.</p>' },
+    { ic: `<img src="${STILL}">`, b: 'HisWattson posted a video', s: 'Wattson ranked guide, season 27', when: '9:12 AM', can: true, video: true, open: `<div class="shot" style="background-image:url(${STILL})"><i></i></div>` },
+  ] },
+  { h: 'TODAY &middot; AFTERNOON', cards: [
+    { mine: 'is that build still good after the patch?' },
+    { ic: `<img src="${ART}aang-face.png" style="image-rendering:pixelated;object-position:50% 12%">`, b: 'Mostly. The fence nerf hurts the ult loop, so swap the second perk for faster recharge.', talk: true },
+    { mine: 'add rest days on sundays', to: 'TO WAYMARK' },
+    { claude: 'Waymark', html: '<p class="said">Waymark added your rest days and moved two runs to make room.</p><ul class="chl"><li><b class="add">ADDED</b>Sundays are rest days</li><li><b class="mv">MOVED</b>Long run to Saturday</li></ul>' },
+  ] },
+];
+function cardHtml(c) {
+  if (c.mine) return `<div class="cmine">${c.to ? `<span class="to">${c.to}</span>` : ''}${esc(c.mine)}</div>`;
+  if (c.claude) return `<div class="card">${tag(c.claude)}${c.html}</div>`;
+  if (c.done) return `<div class="card">${c.done}</div>`;
+  return `<div class="card${c.can ? ' can' : ''}"${c.video ? ' data-video="1"' : ''}><div class="hd"><span class="ic">${c.ic}</span><span class="tt"><b>${c.b}</b>${c.s ? `<span>${c.s}</span>` : ''}</span>${c.when ? `<span class="when">${c.when}</span>` : ''}</div>${c.open ? `<div class="open" hidden>${c.open}</div>` : ''}</div>`;
+}
+function renderConvo() {
+  $('convo').innerHTML = DAYS.map((d, i) => `<div class="slip${i === DAYS.length - 1 ? ' lastslip' : ''}"><h3>${d.h}</h3>${d.cards.map(cardHtml).join('')}</div>`).join('');
+  const last = [...$('convo').querySelectorAll('.card')].pop(); last?.classList.add('newest');
+}
+
+/* ---------------- the pinned thing waiting on him: the FFX glove, plum number keys ---------------- */
+const WAITING = [
+  { kind: 'question', sess: 'Waymark', q: 'Waymark asks: what should happen on a day you miss a run?', opts: [['Move it to tomorrow', 'The week shifts by one day'], ['Skip it', 'Carry on as planned'], ['Ask me each time', 'Coach messages you the next morning']] },
+  { kind: 'permission', sess: 'Waymark', q: 'Waymark wants to build the iPhone app on this PC. About 4 minutes; your code is not changed.' },
+];
+function renderPinned() {
+  const w = WAITING[0], P = $('pinned');
+  if (!w) { P.innerHTML = ''; return; }
+  const more = WAITING.length > 1 ? `<span class="more">${WAITING.length - 1} MORE</span>` : '';
+  if (w.kind === 'question') P.innerHTML = `<div class="pin fadein">${more}${tag(w.sess)}<p class="q">${w.q}</p><div class="glove">${w.opts.map(([l, h], i) => `<div class="opt${i === 0 ? ' on' : ''}" data-i="${i}"><span><span class="lab">${l}</span><span class="hint">${h}</span></span><span class="kc">${i + 1}</span></div>`).join('')}<div class="opt other" data-i="x"><span class="lab">Something else</span><span class="kc">${w.opts.length + 1}</span></div></div></div>`;
+  else P.innerHTML = `<div class="pin fadein">${more}${tag(w.sess)}<p class="q">${w.q}</p><div class="ckeys"><button class="key sm primary" type="button" data-allow="1">Allow</button><button class="key sm" type="button" data-allow="2">Always</button><button class="key sm" type="button" data-allow="0">No</button><button class="key sm" type="button" data-allow="3">No, and...</button></div></div>`;
+  for (const o of P.querySelectorAll('.opt')) o.onmouseenter = () => { P.querySelectorAll('.opt').forEach((x) => x.classList.remove('on')); o.classList.add('on'); };
+}
+async function answer(text, plaque) {
+  const w = WAITING.shift();
+  DAYS.at(-1).cards.push({ done: `${tag(w.sess)}<p class="said"><span class="cplq">${plaque}</span>${esc(text)}</p>` });
+  renderConvo(); renderPinned(); await layout(); scrollEnd();
+}
+$('pinned').addEventListener('click', (e) => {
+  const o = e.target.closest('.opt'); const k = e.target.closest('[data-allow]');
+  if (o) { if (o.dataset.i === 'x') { $('field').innerHTML = 'Tell Waymark what you want instead<span class="cur"></span>'; return; } answer(WAITING[0].opts[+o.dataset.i][0], 'YOU CHOSE'); }
+  if (k) answer(WAITING[0].q.split('.')[0], ['NO', 'ALLOWED', 'ALWAYS ALLOWED', 'NO, WITH A NOTE'][+k.dataset.allow]);
+});
+
+/* ---------------- the jobs strip: 45f's soft bar, inside the cockpit now ---------------- */
+const SEA = ['#d9f3ee', '#b2e6dd', '#8ad5c9', '#6cc3b6', '#58b0a3', '#479a8e', '#3a857a', '#2f6f66'];
+function pill(w, h, s, p) {
+  const c = document.createElement('canvas'); c.className = 'jp'; c.width = w; c.height = h; c.style.width = w * s + 'px'; c.style.height = h * s + 'px';
+  const g = c.getContext('2d'), r = Math.floor(h / 2);
+  const P = (x, y, col, a = 1) => { g.globalAlpha = a; g.fillStyle = col; g.fillRect(x, y, 1, 1); g.globalAlpha = 1; };
+  const inside = (x, y) => { const cx = x < r ? r - .5 : x > w - 1 - r ? w - 1 - r + .5 : x, cy = y < r ? r - .5 : y > h - 1 - r ? h - 1 - r + .5 : y; return Math.hypot(x - cx, y - cy) <= r + .15; };
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { if (!inside(x, y)) continue; const rim = !inside(x - 1, y) || !inside(x + 1, y) || !inside(x, y - 1) || !inside(x, y + 1); P(x, y, rim ? (y < h / 2 ? '#6a4628' : '#3a2414') : '#2a1a10'); }
+  const fw = Math.round((w - 2) * p);
+  for (let x = 1; x < 1 + fw; x++) for (let y = 1; y < h - 1; y++) if (inside(x, y) && inside(x - 1, y) && inside(x + 1, y) && inside(x, y - 1) && inside(x, y + 1)) P(x, y, SEA[Math.min(7, Math.round((y - 1) / (h - 3) * 7))]);
+  for (let x = 2; x < fw; x++) if (inside(x, 2)) P(x, 2, '#fff', .45);
+  for (let y = 1; y < h - 1; y++) P(fw, y, '#fffaf0');
+  return c;
+}
+const MSG = '<svg viewBox="0 0 10 9" shape-rendering="crispEdges"><path d="M1 0h8v1H1zM0 1h1v5H0zM9 1h1v5H9zM1 6h3v1H1zM6 6h3v1H6zM3 7h2v1H3zM3 8h1v1H3zM2 2h6v1H2zM2 4h4v1H2z" fill="#efe6ff"/></svg>';
+function renderJobs() {
+  const J = $('jobs');
+  J.innerHTML = `<div class="job"><img src="${CL}" alt=""><b>Aang sounds</b><span class="nm">Wooden chimes &middot; task 4 of 4</span><span class="pct">80%</span><button class="msg" type="button">${MSG}</button></div>
+    <div class="jobrow2"><span class="pb"></span><span class="lt">about 5 min left</span></div>
+    <div class="oline"><span class="dots"><i></i><i></i></span>2 OTHER JOBS RUNNING &#9662;</div>`;
+  J.querySelector('.pb').append(pill(90, 8, 2, .8));
+}
+
+/* ---------------- THE ENGINE: one measure, one size, everything inside ---------------- */
+let mode = 'line';
+const widthFor = () => mode === 'line' ? 340 : ($('convo').querySelector('.card.wide') ? 600 : 460);
+function maxH() { return Math.round($('desk').clientHeight * 0.86); }   // the desk stands in for the screen: ~2/3 of a real one
+async function layout() {
+  const ck = $('ck'), w = widthFor();
+  ck.classList.toggle('line', mode === 'line');
+  const from = ck.getBoundingClientRect();
+  // measure: the natural height at the target width, then clamp to the room there is
+  ck.style.transition = 'none'; ck.style.width = w + 'px'; ck.style.height = 'auto';
+  const natural = ck.getBoundingClientRect().height, h = Math.min(natural, maxH());
+  ck.style.width = from.width + 'px'; ck.style.height = from.height + 'px'; ck.getBoundingClientRect();
+  ck.style.transition = ''; ck.classList.toggle('small', Math.abs(h - from.height) < 120 && Math.abs(w - from.width) < 60);
+  ck.style.width = w + 'px'; ck.style.height = h + 'px';
+  await sleep(520); corners(); arrow();
+}
+function arrow() { const c = $('convo'), a = $('arrow'); const below = c.scrollHeight - c.scrollTop - c.clientHeight > 6; a.classList.toggle('on', mode === 'open' && below); a.style.top = (c.offsetTop + c.offsetHeight - 26) + 'px'; }
+$('convo').addEventListener('scroll', arrow, { passive: true });
+const scrollEnd = () => { const c = $('convo'); c.scrollTo({ top: c.scrollHeight, behavior: 'smooth' }); setTimeout(arrow, 400); };
+async function open() { if (mode === 'open') return; mode = 'open'; renderJobs(); await layout(); scrollEnd(); }
+async function close() { mode = 'line'; await layout(); }
+$('ck').addEventListener('click', (e) => { if (mode === 'line') { open(); return; } const c = e.target.closest('.card.can'); if (c && !e.target.closest('.shot')) { const o = c.querySelector('.open'); o.hidden = !o.hidden; c.classList.toggle('wide', !o.hidden && !!c.dataset.video); layout(); } });
+$('aang').onclick = () => (mode === 'line' ? open() : close());
+addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+
+renderConvo(); renderPinned(); renderJobs(); layout();
+
+async function type(words) { for (let i = 1; i <= words.length; i++) { $('field').innerHTML = esc(words.slice(0, i)) + '<span class="cur"></span>'; await sleep(38); } }
+$('play').onclick = async () => {
+  mode = 'line'; await layout(); await sleep(900);
+  await open(); await sleep(1800);
+  $('convo').scrollTo({ top: 0, behavior: 'smooth' }); await sleep(1600); scrollEnd(); await sleep(1200);
+  const v = $('convo').querySelector('[data-video]'); v.click(); v.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); await sleep(2200); v.click(); await sleep(900);
+  scrollEnd(); await sleep(700);
+  $('pinned').querySelector('.opt[data-i="0"]').click(); await sleep(1800);
+  $('pinned').querySelector('[data-allow="1"]').click(); await sleep(1500);
+  await type('thanks, what else is on today?'); await sleep(1200);
+  $('field').innerHTML = '<span class="ph">Ask Aang anything</span><span class="cur"></span>';
+  await close();
+};
+
+// ?open=1 opens straight to the cockpit for the sheet's still pictures; ?video=1 opens the video card wide
+if (q.get('open')) { document.querySelector('.ctl').remove(); mode = 'open'; setTimeout(async () => { await layout(); if (q.get('video')) { const v = $('convo').querySelector('[data-video]'); v.querySelector('.open').hidden = false; v.classList.add('wide'); await layout(); v.scrollIntoView({ block: 'center' }); } else scrollEnd(); if (q.get('top')) $('convo').scrollTo({ top: 0 }); }, 100); }
+else if (q.get('still')) document.querySelector('.ctl').remove();
+</script>
+</body>
+</html>
