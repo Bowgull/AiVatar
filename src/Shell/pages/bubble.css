@@ -985,3 +985,5 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
 .ckjobs .jdone.going:last-child:not(:first-child){margin-top:-7px}
 .ckjobs.ck-leaving{transition:margin .34s cubic-bezier(.32,.72,0,1);margin-top:0}
 @media (prefers-reduced-motion:reduce){#lblist .ckin,.ckjobs .jdone.bounce{animation:none}.ckjobs .jdone.going,.ckjobs.ck-leaving{transition:none}}
+/* No OLDER key in the cockpit (his call, 2026-10-21): the wheel over Aang or his right-click menu reaches the history. */
+#bubble.cockpit .lb-older{display:none}

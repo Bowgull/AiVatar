@@ -2224,14 +2224,9 @@ function olderStep() {
   ckMore = true;
   askOlder();
 }
-// The wheel over the open cockpit: at the top of the conversation (or when it all fits), up means "older, please".
-bubble.addEventListener('wheel', (e) => {
-  if (!cockpit || e.deltaY >= 0) return;
-  const list = el('lblist');
-  if (!list || !e.target.closest?.('#back')) return;
-  if (list.scrollTop <= 4) olderStep();
-}, { passive: true });
-document.addEventListener('click', (e) => { if (cockpit && e.target.closest?.('#lblist .lb-older')) olderStep(); });
+// No OLDER key and no wheel-for-older inside the cockpit (his call, 2026-10-21: "older isn't needed and it's taking up
+// space"). The history is a step away where it always was: the wheel over Aang himself (onPage -> cockpit:page ->
+// olderStep) or his right-click menu.
 
 // ---------------------------------------------------------------- C4: Claude in the cockpit (2026-10-21)
 // The jobs strip and the pinned Claude card (claudejobs.js). What he sends a session joins the conversation as his own
