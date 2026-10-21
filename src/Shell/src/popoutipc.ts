@@ -53,6 +53,12 @@ export function tuckFor(p: Popout, front: BrowserWindow | null): void {
 /** Returns the pop-out key's work, for the right-click menu's "Pop out this video" (his pick, 2026-10-20). */
 export function wirePopout(o: PopoutWiring): { popTab: (id: number) => void } {
   const from = (e: Electron.IpcMainEvent) => { const w = o.popout()?.window; return Boolean(w && e.sender === w.webContents && e.senderFrame?.parent === null); };
+  // EVERY pop-out closes with Samara, Aang's "put X on" ones too (his yes, 2026-10-21). The browser is made a moment after
+  // this is wired, so it is hooked when it exists and checked again now and then (cheap: one property).
+  const closeWithSamara = () => { o.popout()?.close(); o.stopPaid(); };
+  const hook = () => { const b = o.browser(); if (b && b.onLastClosed !== closeWithSamara) b.onLastClosed = closeWithSamara; };
+  hook();
+  setInterval(hook, 5000).unref();
   ipcMain.on('popout:hide', (e) => { if (from(e)) o.popout()?.toggleHidden(); });
   ipcMain.on('popout:close', (e) => { if (from(e)) o.popout()?.close(); });
   ipcMain.on('popout:opacity', (e, v) => { if (from(e) && typeof v === 'number') o.popout()?.setOpacity(v); });
@@ -85,9 +91,7 @@ export function wirePopout(o: PopoutWiring): { popTab: (id: number) => void } {
     if (!b || !p) return;
     const url = b.urlOf(id);
     if (!url) return;
-    // The pop-out is Samara's tab borrowed into its own window, so it belongs to Samara: closing Samara closes it too
-    // (his ask, 2026-10-21), rather than leaving a lone video floating with nothing behind it. The paid-video window too.
-    b.onLastClosed = () => { o.popout()?.close(); o.stopPaid(); };
+    hook();   // closing Samara closes this pop-out too (his ask, 2026-10-21)
     if (serviceFor(url) && o.paidSeparately()) { if (o.open(url)) b.pauseMedia(id); return; }
     o.stopPaid();
     const lent = b.lend(id);
