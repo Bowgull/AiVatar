@@ -21,7 +21,7 @@ test('tracker: to-do progress, the task in hand, and a time left from the pace',
   assert.equal(j!.percent, 25);
   assert.equal(j!.current, 'Fixing');
   assert.equal(j!.etaMs, 180_000, 'one task per minute, three left');
-  assert.equal(j!.open, 'claude://claude.ai/epitaxy/s1');
+  assert.equal(j!.open, null);   // no Claude app record for a made-up session: no link (claudenames.ts)
 });
 
 test('tracker: the waiting queue is permissions, then questions, then plans; answers are checked', () => {

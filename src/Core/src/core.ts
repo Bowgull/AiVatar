@@ -65,6 +65,7 @@ import type { Answer as LinkAnswer } from './claudelink.ts';
 import { MarkDeriver } from './claudemark.ts';
 import { FrontGate } from './claudefront.ts';
 import { plainAsk, preciseReply } from './plainwords.ts';
+import { SessionNames } from './claudenames.ts';
 import type { Ask as PlainAsk } from './plainwords.ts';
 import { Reminders } from './reminders.ts';
 import { SessionStore } from './sessions.ts';
@@ -2117,7 +2118,7 @@ export class Core {
    * what each is waiting on him for. list() and waiting() read it; answer(), send(), pause(), play() and setModel()
    * act on it. The Shell is told of every change (claude.jobs / claude.wait) and answers with the claude.* messages.
    */
-  readonly claudeJobs = new JobTracker();
+  readonly claudeJobs = new JobTracker(new SessionNames());
   private claudePushTimer: NodeJS.Timeout | null = null;
   /**
    * The two models that do the plain-words work (plainwords.ts): Qwen on this PC first, free, and it steps aside by
