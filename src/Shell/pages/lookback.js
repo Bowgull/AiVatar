@@ -107,6 +107,11 @@ export function videoShot(about, onLink) {
  * Returns { k, label } or null: k is the paper ('claude', 'action', 'video', 'brief'; research shares the brief's
  * honey), label what the hover says. A plan has a label but keeps the plain slip.
  */
+/** 2026-10-21: Claude news that a job finished: marked so by the brain (extra.done), or, on older rows, said so. */
+export function claudeFinished(t) {
+  const x = t?.extra && typeof t.extra === 'object' ? t.extra : {};
+  return x.kind === 'claude' && (x.done === true || /\b(finished|is done|all done)\b/i.test(String(t.text ?? '')));
+}
 export function kindOf(t) {
   if (!t || t.who === 'you') return null;
   const x = t.extra && typeof t.extra === 'object' ? t.extra : {};
@@ -460,6 +465,10 @@ function rowOf(t, d, ctx) {
       ctx.setOpen(ctx.open === t.id ? null : t.id);
     });
     item.append(body);
+  } else if (s.type === 'talk' && kind?.k === 'claude' && claudeFinished(t) && ctx.onClaudeDone) {
+    // 2026-10-21 (his ask): a finished Claude job's news is a door: a click takes him to that session in Claude.
+    item.classList.add('goclaude'); head.title = 'Open in Claude';
+    head.addEventListener('click', (e) => { if (!e.target.closest('.lnk')) { e.stopPropagation(); ctx.onClaudeDone(t); } });
   } else if (s.type === 'talk') {
     // A long answer folds to three lines; a click shows all of it.
     head.addEventListener('click', (e) => { if (!e.target.closest('.lnk')) item.classList.toggle('full'); });

@@ -103,6 +103,9 @@ function card() {
     nice.addEventListener('click', (e) => { e.stopPropagation(); goNice(); });
     keys.append(nice);
     c.append(top, keys);
+    // 2026-10-21 (his ask): the finished card is a door to its session in Claude (Nice and the pin keep their own clicks).
+    c.title = 'Open in Claude';
+    c.addEventListener('click', (e) => { if (e.target.closest('button')) return; e.stopPropagation(); api?.act('open'); });
     return c;
   }
   const img = document.createElement('img'); img.className = 'ci'; img.src = CL; img.alt = '';
@@ -120,7 +123,7 @@ function card() {
   // Unfolded (sheet 52 section 2): what it is doing now and on which computer, its helper agents, the to-do list, keys.
   const det = h('div', 'det'), inner = h('div', 'inner');
   const nowl = h('div', 'nowl');
-  nowl.append(h('span', 'mc', j.machine), liveText(h('span', 'an'), (now) => describeNow(latest(), now).line || 'Working'));
+  nowl.append(h('span', 'mc', j.machine), liveText(h('span', 'an'), (now) => describeNow(latest(), now).line));
   inner.append(nowl);
   if (j.activity?.agents?.length) inner.append(liveText(h('div', 'ag'), (now) => describeNow(latest(), now).agents));
   const list = h('div', 'list'), cur = curIndex(j);
@@ -138,7 +141,9 @@ function card() {
   const pp = btn('key sm pp', paused ? 'Play' : 'Pause');
   pp.addEventListener('click', (e) => { e.stopPropagation(); api?.act(paused ? 'play' : 'pause'); });
   keys.append(pp);
-  if (j.open) {     // a terminal session has no app link to open
+  // 2026-10-21 (his rule: never do nothing): always there. A session with no app link (a terminal one) brings the Claude
+  // app forward instead (jobpop.ts works out which). The pop-out itself stays where he put it.
+  {
     const op = btn('key sm primary oc', 'Open in Claude');
     op.addEventListener('click', (e) => { e.stopPropagation(); api?.act('open'); });
     keys.append(op);

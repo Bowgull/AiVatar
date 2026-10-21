@@ -501,8 +501,9 @@ app.whenReady().then(async () => {
     const k = await centre(p.js, '#asks .key');
     if (k) { hover(p.w, k.x, k.y); await wait(300); click(p.w, k.x, k.y); }
     await wait(300); hover(p.w, 4, 4); await wait(900);
-    const fw = await sent(p.js, 'focusWindow');
-    check('Open in Claude brings Claude forward (the old path) and the card goes', JSON.stringify(fw) === '["Claude"]' && !(await visible(p.js)),
+    const fw = await sent(p.js, 'openClaude');
+    // 2026-10-21: through main.ts openInClaude ('front': the Claude window forward), and the bubble goes at once.
+    check('Open in Claude brings Claude forward and the card goes', JSON.stringify(fw) === '["front"]' && !(await visible(p.js)),
       JSON.stringify({ k, fw, shown: await visible(p.js), at: k && await p.js(`document.elementFromPoint(${k.x}, ${k.y})?.outerHTML.slice(0, 120)`) }));
     // The card's keys never hang under the next thing said.
     await p.js(`window.__deliver({ t: 'bubble', text: 'Done with that.', stream: false, turn: 42, proactive: true })`); await wait(1500);
@@ -517,6 +518,141 @@ app.whenReady().then(async () => {
       && (await p.js(`document.getElementById('said').textContent`)) === 'Claude isn’t working on anything right now.');
     await picture(p, 'mark-2-nothing');
     check('no page errors (mark, nothing)', !p.errors.length, p.errors.join(' | '));
+    p.w.destroy();
+  }
+
+  // ---- 2026-10-21 fixes, his reports on the real desktop
+  // Bug 1: the jobs card up, then a click on Aang: only the chat box (the card goes), or the recent line in its place.
+  {
+    const p = await open(pages, { mark: true });
+    await p.js(`window.__deliver({ t: 'claude.jobs', jobs: [${JSON.stringify(JOB)}, ${JSON.stringify(JOB2)}] })`); await wait(300);
+    await p.js(`window.__fire('onRecall', 'jobs')`); await wait(1400);
+    check('(fix 1: the jobs card is up)', (await visible(p.js)) && (await p.js(`document.querySelectorAll('#ckjobs .job').length`)) === 2);
+    // A hover flag left on (the pointer went straight onto another window) must not keep it up after a click away.
+    const on = await centre(p.js, '#bubble'); if (on) hover(p.w, on.x, on.y); await wait(200);
+    await p.js(`window.__fire('onDismiss', 'outside')`); await wait(900);
+    check('fix 1: a click away closes the jobs card even with the mouse last seen on it', !(await visible(p.js)) && (await p.js(`document.getElementById('ckjobs').hidden`)) === true);
+    hover(p.w, 4, 4); await wait(100);
+    await p.js(`window.__fire('onRecall', 'jobs')`); await wait(1400);
+    await clearSent(p.js);
+    await p.js(`window.__fire('onRecall', 'recent')`); await wait(900);
+    check('fix 1: clicking Aang with the jobs card up and nothing said lately: just the chat box', (await sent(p.js, 'recalled')).at(-1) === false && !(await visible(p.js)) && (await p.js(`document.getElementById('ckjobs').hidden`)) === true);
+    await p.js(`window.__deliver({ t: 'bubble', text: 'Your demo moved to Monday at 2 pm.', stream: false, turn: 7, proactive: true })`); await wait(1400);
+    await p.js(`window.__fire('onDismiss', 'esc')`); await wait(900);
+    await p.js(`window.__fire('onRecall', 'jobs')`); await wait(1400);
+    await clearSent(p.js);
+    await p.js(`window.__fire('onRecall', 'recent')`); await wait(1400);
+    const r = await p.js(`({ said: document.getElementById('said').textContent, bars: document.getElementById('ckjobs').hidden ? 0 : document.querySelectorAll('#ckjobs .job').length })`);
+    check('fix 1: ...with a line from the last 5 minutes: that line, never the jobs card with it', (await sent(p.js, 'recalled')).at(-1) === true && r.said === 'Your demo moved to Monday at 2 pm.' && r.bars === 0, JSON.stringify(r));
+    check('no page errors (fix 1)', !p.errors.length, p.errors.join(' | '));
+    p.w.destroy();
+  }
+  // Bug 2: he sends Aang a message with the jobs card up: the card gives way, the dots and the answer never sit inside it.
+  {
+    const p = await open(pages, { mark: true });
+    await p.js(`window.__deliver({ t: 'claude.jobs', jobs: [${JSON.stringify(JOB)}, ${JSON.stringify(JOB2)}] })`); await wait(300);
+    await p.js(`window.__fire('onRecall', 'jobs')`); await wait(1400);
+    await p.js(`window.__deliver({ t: 'asked', text: 'what is on my calendar' })`);
+    await p.js(`window.__deliver({ t: 'bubble.dots', on: true })`); await wait(500);
+    const d = await p.js(`({ strip: document.getElementById('ckjobs').hidden, dots: !document.getElementById('working').hidden, said: document.getElementById('said').textContent, who: document.getElementById('who').textContent })`);
+    check('fix 2: the dots replace the jobs card (no bars, no "Claude is on two jobs")', d.strip === true && d.dots && !/Claude is on/.test(d.said), JSON.stringify(d));
+    check('fix 2: his question sits on the line above', d.who === 'what is on my calendar', JSON.stringify(d));
+    await p.js(`window.__deliver({ t: 'bubble', text: 'Two meetings, both after lunch.', stream: true, turn: 8 })`); await wait(300);
+    await p.js(`window.__deliver({ t: 'bubble', text: 'Two meetings, both after lunch.', stream: false, turn: 8 })`); await wait(900);
+    const a = await p.js(`({ strip: document.getElementById('ckjobs').hidden, said: document.getElementById('said').textContent })`);
+    check('fix 2: the answer is the one bubble, no bars under it', a.strip === true && a.said === 'Two meetings, both after lunch.', JSON.stringify(a));
+    check('no page errors (fix 2)', !p.errors.length, p.errors.join(' | '));
+    p.w.destroy();
+  }
+  // Bug 3: a job with no to-do list says "Working" once, folded and unfolded.
+  {
+    const p = await open(pages, { mark: true });
+    const BARE = { ...JOB, id: 's-bare', project: 'Bare', tasks: [], current: null, percent: null, etaMs: null, progress: null, activity: { now: '', since: Date.now(), agents: [] } };
+    await p.js(`window.__deliver({ t: 'claude.jobs', jobs: [${JSON.stringify(BARE)}] })`); await wait(300);
+    await p.js(`window.__fire('onRecall', 'jobs')`); await wait(1400);
+    const count = `(document.getElementById('ckjobs').innerText.match(/\\bWorking\\b/g) || []).length`;
+    check('fix 3: no list, folded: "Working" once', (await p.js(count)) === 1, String(await p.js(`document.getElementById('ckjobs').innerText`)));
+    const row = await centre(p.js, '#ckjobs .job .row2'); if (row) click(p.w, row.x, row.y); await wait(900);
+    check('fix 3: no list, unfolded: still "Working" once', (await p.js(`document.querySelectorAll('#ckjobs .job.open').length`)) === 1 && (await p.js(count)) === 1, String(await p.js(`document.getElementById('ckjobs').innerText`)));
+    // Bug 5: Open in Claude from the job card: that session's own link, and the bubble is gone at once (no fade).
+    await clearSent(p.js);
+    const op = await p.js(`(() => { const b = [...document.querySelectorAll('#ckjobs .key')].find((k) => /Open in Claude/.test(k.textContent)); if (!b) return false; b.click(); return true; })()`);
+    await wait(30);
+    check('fix 5: Open in Claude on the job card asks for that session and the bubble goes at once', op && JSON.stringify(await sent(p.js, 'openClaude')) === JSON.stringify([JOB.open]) && !(await visible(p.js)), JSON.stringify(await sent(p.js, 'openClaude')));
+    // From anywhere else (Samara's rune, a pop-out): main.ts tells the bubble, which goes at once too.
+    await p.js(`window.__deliver({ t: 'bubble', text: 'Still here.', stream: false, turn: 9, proactive: true })`); await wait(1200);
+    await p.js(`window.__fire('onDismiss', 'openclaude')`); await wait(30);
+    check('fix 5: Open in Claude pressed elsewhere: the bubble goes at once', !(await visible(p.js)));
+    check('no page errors (fix 3, 5)', !p.errors.length, p.errors.join(' | '));
+    p.w.destroy();
+  }
+  // Bug 6: the card lists exactly what the brain lit the mark for, from every source, even with no link job in the Shell.
+  for (const src of ['link', 'transcript', 'hook', 'launched']) {
+    const p = await open(pages, { mark: true });
+    const ses = [{ id: 'x-' + src, project: 'P-' + src, phase: src === 'link' ? 'paused' : 'working', what: 'build it', source: src, ...(src === 'transcript' ? { open: 'claude://claude.ai/epitaxy/local_0123abcd-0000-0000-0000-000000000000' } : {}) }];
+    await p.js(`window.__deliver({ t: 'mark.click', sessions: ${JSON.stringify(ses)} })`); await wait(1300);
+    const t = await p.js(`document.querySelector('.dropmsg.sessions')?.textContent ?? document.getElementById('said').textContent`);
+    check(`fix 6: mark lit by a ${src} session: the card names it, never "not working"`, (await visible(p.js)) && new RegExp('P-' + src).test(t) && !/isn.t working/.test(t), t);
+    p.w.destroy();
+  }
+
+  // 2026-10-21 (his ask: "click into a done Claude task in the Aang bubble and be taken to that job").
+  {
+    const p = await open(pages, { mark: true });
+    const done = { t: 'bubble', text: 'Claude Code finished in Waymark, that one took 9 minutes.', stream: false, turn: 50, proactive: true, done: true, kind: 'claude', project: 'Waymark', focus: 'Claude', link: 'Claude' };
+    // With its own link from the brain.
+    await p.js(`window.__deliver(${JSON.stringify({ ...done, session: 's-waymark', open: 'claude://claude.ai/epitaxy/local_11111111-2222-3333-4444-555555555555' })})`); await wait(1400);
+    check('done: a finished Claude message shows it can be clicked', (await p.js(`getComputedStyle(document.getElementById('bubble')).cursor`)) === 'pointer');
+    await clearSent(p.js);
+    const at = await centre(p.js, '#said'); if (at) click(p.w, at.x, at.y); await wait(60);
+    check('done: a click takes him to THAT session, and the bubble goes at once', JSON.stringify(await sent(p.js, 'openClaude')) === '["claude://claude.ai/epitaxy/local_11111111-2222-3333-4444-555555555555"]' && !(await visible(p.js)), JSON.stringify(await sent(p.js, 'openClaude')));
+    // An older message with no link: the job the bubble knows by its project.
+    await p.js(`window.__deliver({ t: 'claude.jobs', jobs: [${JSON.stringify(JOB)}] })`); await wait(200);
+    await p.js(`window.__deliver(${JSON.stringify({ ...done, turn: 51 })})`); await wait(1400);
+    await clearSent(p.js);
+    const at2 = await centre(p.js, '#said'); if (at2) click(p.w, at2.x, at2.y); await wait(60);
+    check('done: no link on the message: the newest job of that project', JSON.stringify(await sent(p.js, 'openClaude')) === JSON.stringify([JOB.open]), JSON.stringify(await sent(p.js, 'openClaude')));
+    // Nothing known at all: the Claude app forward, never nothing.
+    await p.js(`window.__deliver(${JSON.stringify({ ...done, turn: 52, project: 'Nowhere' })})`); await wait(1400);
+    await clearSent(p.js);
+    const at3 = await centre(p.js, '#said'); if (at3) click(p.w, at3.x, at3.y); await wait(60);
+    check('done: nothing known: the Claude app forward', JSON.stringify(await sent(p.js, 'openClaude')) === '["front"]', JSON.stringify(await sent(p.js, 'openClaude')));
+    // A Claude message that is not "finished" keeps sheet 16's rule (the click is the cockpit, not Claude).
+    await p.js(`window.__deliver(${JSON.stringify({ ...done, turn: 53, done: undefined, text: 'Claude Code is waiting on you in Waymark.' })})`); await wait(1400);
+    await clearSent(p.js);
+    const at4 = await centre(p.js, '#said'); if (at4) click(p.w, at4.x, at4.y); await wait(200);
+    check('done: a waiting (not finished) Claude message does not jump to Claude', !(await sent(p.js, 'openClaude')).length);
+    await p.js(`window.__fire('onDismiss', 'esc')`); await wait(900);
+
+    // The teal JOB COMPLETE row in the jobs card.
+    await p.js(`window.__deliver({ t: 'claude.jobs', jobs: [${JSON.stringify(JOB)}, ${JSON.stringify(JOB2)}] })`); await wait(200);
+    await p.js(`window.__fire('onRecall', 'jobs')`); await wait(1400);
+    await p.js(`window.__deliver({ t: 'claude.jobs', jobs: [${JSON.stringify({ ...JOB, phase: 'idle', tasks: JOB.tasks.map((t) => ({ ...t, status: 'completed' })) })}, ${JSON.stringify(JOB2)}] })`); await wait(500);
+    const row = await p.js(`(() => { const d = document.querySelector('#ckjobs .jdone'); return d ? { go: d.classList.contains('go'), cur: getComputedStyle(d).cursor } : null; })()`);
+    check('done: the JOB COMPLETE row is a door (pointer)', !!row && row.go && row.cur === 'pointer', JSON.stringify(row));
+    await clearSent(p.js);
+    await p.js(`document.querySelector('#ckjobs .jdone')?.click(); true`); await wait(60);
+    check('done: clicking JOB COMPLETE opens that session and the bubble goes', JSON.stringify(await sent(p.js, 'openClaude')) === JSON.stringify([JOB.open]) && !(await visible(p.js)), JSON.stringify(await sent(p.js, 'openClaude')));
+
+    // The scroll-back row of a finished Claude job (lookback.js), with and without its session.
+    const lb = await p.js(`(async () => {
+      const m = await import('./lookback.js');
+      const box = document.createElement('div'); document.body.append(box);
+      const got = [];
+      const ctx = { open: null, replying: null, older: 'start', setOpen() {}, onLink() {}, onReply() {}, onUndo() {}, onForgetPlan() {}, onFull() {}, onClaudeDone: (t) => got.push(t.extra.session ?? t.extra.project) };
+      m.paintLookback(box, [
+        { id: 1, ts: '2026-10-21 10:00:00', who: 'Aang', text: 'Claude Code finished in Waymark, that one took 9 minutes.', extra: { kind: 'claude', project: 'Waymark', session: 's-waymark', done: true } },
+        { id: 2, ts: '2026-10-21 10:01:00', who: 'Aang', text: 'Claude Code finished in Samara, that one took 3 minutes.', extra: { kind: 'claude', project: 'Samara' } },
+        { id: 3, ts: '2026-10-21 10:02:00', who: 'Aang', text: 'Claude Code is waiting on you in Coach.', extra: { kind: 'claude', project: 'Coach' } },
+      ], ctx);
+      const rows = [...box.querySelectorAll('.lt-item')];
+      const doors = rows.map((r) => r.classList.contains('goclaude'));
+      rows.forEach((r) => r.querySelector('.lt-head').click());
+      box.remove();
+      return { doors, got };
+    })()`);
+    check('done: scroll-back rows of finished Claude jobs are doors (with or without a session id), others are not', JSON.stringify(lb) === JSON.stringify({ doors: [true, true, false], got: ['s-waymark', 'Samara'] }), JSON.stringify(lb));
+    check('no page errors (done doors)', !p.errors.length, p.errors.join(' | '));
     p.w.destroy();
   }
 

@@ -55,6 +55,8 @@
 .rpanel .onnow span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rpanel .onnow b{flex:none;font:400 8px var(--label);letter-spacing:1px;color:#bfae8a}
 .rpanel .big{display:flex;align-items:baseline;gap:10px;margin:0 4px 10px}
+/* 2026-10-21: with nothing to add to the job's own "Working" these two rows hide (rune.js) */
+.rpanel .onnow[hidden],.rpanel .big[hidden]{display:none}
 .rpanel .big em{font:400 22px var(--label);font-style:normal;color:#ffe28c;text-shadow:2px 2px 0 #000}
 .rpanel .big span{font:600 13px var(--body);color:#c9b48e}
 .rpanel .job+.job{margin-top:10px}
@@ -76,6 +78,9 @@
 .rpanel .job .list{margin:8px 0 0;padding:8px 0 0;border-top:2px solid rgba(120,80,30,.18)}
 /* What Claude is doing right now, above the tasks: bubble.css's .ckjobs .act, verbatim (2026-10-21). */
 .rpanel .job .act{margin:0 0 6px;padding:0 0 6px;border-bottom:1px dashed rgba(120,80,30,.22)}
+/* 2026-10-21: no live line beyond "Working" (already beside the bar): no empty row */
+.rpanel .job .act .an:empty{display:none}
+.rpanel .job .act:not(:has(.an:not(:empty))):not(:has(.ag)){display:none}
 .rpanel .job .act .an{font:600 12.5px/1.6 var(--body);color:#3a2a18;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rpanel .job .act .ag{font:600 12px/1.5 var(--body);color:#5b2f8f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rpanel .ob{display:flex;align-items:center;gap:9px;font:600 12.5px/1.85 var(--body);color:#8f7458}
@@ -108,3 +113,18 @@
 /* No to-do list, no percent. 2026-10-21, his ask: the spinning quarter ring is gone ("I wanted the ring around it to load
    and fill, not spin"). The ring is just its empty track and rests, no breathing either, until a list gives it a fill. */
 .rune.tB.still .rg{animation:none}
+
+/* 2026-10-21: the panel in its own see-through layer over the live page (runelayer.html). The page under it keeps
+   playing, so nothing here is frozen; it slides down and fades in on Samara's ease (~260 ms) and out in ~180 ms. */
+html.runelayer,html.runelayer body{background:transparent !important;overflow:hidden;height:100%}
+html.runelayer body{margin:0}
+html.runelayer .rpanel{top:8px;left:24px;animation:none;transition:opacity .26s cubic-bezier(.32,.72,0,1),transform .26s cubic-bezier(.32,.72,0,1)}
+html.runelayer .rtip{top:2px;animation:none;transition:opacity .26s cubic-bezier(.32,.72,0,1),transform .26s cubic-bezier(.32,.72,0,1)}
+html.runelayer .rpanel.shut{opacity:0;transform:translateY(-10px) scaleY(.94)}
+html.runelayer .rtip.shut{opacity:0;transform:translateY(-10px) rotate(45deg)}
+html.runelayer .rpanel.leaving,html.runelayer .rtip.leaving{transition-duration:.18s;transition-timing-function:cubic-bezier(.4,0,1,1)}
+@media (prefers-reduced-motion:reduce){html.runelayer .rpanel,html.runelayer .rtip{transition:none}}
+/* 2026-10-21 (his ask: "click into a done Claude task ... and be taken to that job"): a finished job is a door to its
+   session in the Claude app. The whole card takes the click (inner keys keep theirs), with a pointer and a small lift. */
+.rpanel .job.done{cursor:pointer;transition:transform .12s ease}
+.rpanel .job.done:hover{transform:translateY(-1px)}

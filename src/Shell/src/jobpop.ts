@@ -303,8 +303,9 @@ export class JobPops {
       return;
     }
     if (what === 'open') {
-      const url = claudeLink(j?.open);
-      if (!url) { console.error('shell: refused an Open in Claude link from a pop-out that was not a Claude session'); return; }
+      // 2026-10-21 (his rule: never do nothing): the session's own link; on the Mac, the Mac's Claude; with no app link
+      // (a terminal session), the Claude app forward at least. main.ts checks it again (claudeOpenTarget).
+      const url = j?.machine === 'mac' ? 'mac' : claudeLink(j?.open) ?? 'front';
       this.onAction?.({ t: 'jobpop.open', url });
       return;
     }

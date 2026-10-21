@@ -2058,9 +2058,10 @@ el('plango').addEventListener('click', () => {
 el('planno').addEventListener('click', () => { if (planCard) window.aang?.browserPlanReply?.(planCard.id, { go: false, change: false, keep: [], note: '' }); paintPlanTray(null); });
 
 // C7 Claude's rune (2026-10-21, sheet 50): by the ... key only while a Claude job runs, waits on him, or has finished and
-// he has not said Nice. Its panel lies over the page like the menu, so it pictures the page the same way. The tray layer
+// he has not said Nice. Its panel is drawn in its own layer over the live page (see below). The tray layer
 // (?tray) has no band, so no rune.
 if (!SOLO) {
-  startRune({ slot: el('runeslot'), band: el('band'), freeze, unfreeze, closeOthers: () => { closeMenu(); closeDrawer(); closeDl(); } });
-  el('runeslot')?.addEventListener('pointerenter', () => window.aang?.browserAct?.('peek'));
+  // 2026-10-21 (his report: opening it bugged out the browser, worst over a video): its panel no longer freezes the page
+  // or pictures it (no freeze, no peek): it opens in its own see-through layer above the live page (browser.ts runeView).
+  startRune({ slot: el('runeslot'), band: el('band'), closeOthers: () => { closeMenu(); closeDrawer(); closeDl(); } });
 }

@@ -1,5 +1,7 @@
 // Wire protocol between Core and Body (docs/PROTOCOL.md). Unknown `t` values are ignored by both sides.
 
+import type { BusySession } from './claudemark.ts';
+
 export type Mode = 'auto' | 'quick' | 'smart' | 'deep';
 export type QuotaLevel = 'ok' | 'warn' | 'offer' | 'saving';
 
@@ -113,7 +115,8 @@ export type ToBody =
   | { t: 'typebox' }
   /** 2026-10-21: Claude's mark was clicked. The Shell shows its link jobs, else these older hook-tracked sessions,
    *  else says nothing is running. `what` is the prompt it is working on, or what it is waiting for. */
-  | { t: 'mark.click'; sessions: { project: string; phase: 'working' | 'waiting'; what: string; host?: 'mac' }[] }
+  /** 2026-10-21: exactly the sessions lighting the mark, every source (claudemark.ts claudeBusy). */
+  | { t: 'mark.click'; sessions: BusySession[] }
   /** Window 2 (6.15): the pet's Panel menu with the new front end on, so the Shell opens the desk. */
   | { t: 'desk.open'; tab?: number }
   /** 6.17: Snipit from the pet's menu, passed to the Shell, which does the snipping. */
@@ -208,6 +211,9 @@ export type ToBody =
       turn?: number;
       /** Sheet 48: the row's kind when the brain knows it (the same as the stored row's extra.kind/extra.project). */
       kind?: RowKind; project?: string;
+      /** 2026-10-21: Claude news also says which session (its id) and, when the app knows it, its claude:// link, so a
+       *  click on the message takes him to THAT session (his ask: "click into a done Claude task ... be taken to that job"). */
+      session?: string; open?: string;
       /** Who or what it is about, on the row above the text (2026-10-14): a channel's picture, a site's or a sender's icon, as a data: address. */
       face?: { img: string; name: string };
       /** A reminder coming due (its id): the cockpit shows it as a short ask, Got it or Snooze 5 min (6.12). */

@@ -22,7 +22,8 @@ import { CoreLink } from './link.ts';
 import { Bubble, wantsNewBubble } from './bubble.ts';
 import { InputBox } from './input.ts';
 import { CockpitBox, wantsCockpit, type TypingSurface } from './cockpit.ts';
-import { claudeMessage, claudeLink } from './claudewire.ts';
+import { claudeMessage, claudeOpenTarget, type ClaudeOpen } from './claudewire.ts';
+import { watchOwnClicks } from './clickaway.ts';
 import { Snipper } from './snip.ts';
 import { AangBrowser, type UpdateCard, type PlanAnswer } from './browser.ts';
 import { takeMockupFile, type MockSend, type MockSendItem } from './mockups.ts';
@@ -32,7 +33,7 @@ import { EngineUpdates, onCastlabs, type Ready } from './engineupdate.ts';
 import { writeFileAtomic } from './atomic.ts';
 import { CardRenderer } from './cardrender.ts';
 import { Wheel } from './wheelwin.ts';
-import { AangMenu } from './aangmenu.ts';
+import { AangMenu, avoidRect } from './aangmenu.ts';
 import { NoteWindows } from './notewin.ts';
 import type { NoteData } from './notewin.ts';
 import { TimerWindows } from './timerwin.ts';
@@ -400,7 +401,9 @@ const link = new CoreLink({
     // Sheet 56 (2026-10-21): right-click on Aang opens his menu at the mouse. The count of running Claude jobs is ours.
     if (m.t === 'menu.open') {
       const jobs = Array.isArray(lastJobs) ? lastJobs.filter((j) => (j as { phase?: unknown } | null)?.phase === 'working').length : 0;
-      aangMenu?.open({ x: Number(m.x) || 0, y: Number(m.y) || 0 }, { ...(m.state && typeof m.state === 'object' ? m.state as Record<string, unknown> : {}), jobsRunning: jobs });
+      // 2026-10-21: where Aang and his mark are, so the menu opens beside him and never on top of him.
+      const avoid = avoidRect(petAt?.sprite, Boolean(petAt && petAt.edge !== 'none' && petAt.peeking));
+      aangMenu?.open({ x: Number(m.x) || 0, y: Number(m.y) || 0 }, { ...(m.state && typeof m.state === 'object' ? m.state as Record<string, unknown> : {}), jobsRunning: jobs }, avoid);
       return;
     }
     if (m.t === 'menu.pick') return;               // for the pet, not for us
@@ -467,7 +470,7 @@ const link = new CoreLink({
     // He clicked away from everything of ours (the pet's mouse hook saw it): the bubble lets go, as the old one did.
     // A click away from everything of Aang's (the pet watches the mouse). His ask, 2026-10-13: an accidentally opened
     // typing box closes on it too, keeping the draft, even when it never got the keyboard and so never lost it.
-    if (m.t === 'outside.click') { bubble?.send('bubble:dismiss', 'outside'); if (input?.visible) input.close(false); return; }
+    if (m.t === 'outside.click') { clickedAway(); return; }
     // A page of history goes ONLY to the window that asked for it. Both the bubble's scroll-back and the
     // desk's History tab ask for it, the brain answers on the one link, and a desk search landing in the
     // scroll-back would put search results into the conversation he is reading.
@@ -641,6 +644,16 @@ app.whenReady().then(async () => {
     wc.on('zoom-changed', one);
     void wc.setVisualZoomLevelLimits(1, 1).catch(() => {});
   });
+  // 2026-10-21: a press in Samara (or any other window of ours) is a click away from the bubble, seen here directly
+  // (clickaway.ts says why the pet's hook missed it).
+  watchOwnClicks({
+    isAang: (wc) => {
+      const b = bubble?.peek(), i = input?.window();
+      return Boolean((b && b.webContents === wc) || (i && !i.isDestroyed() && i.webContents === wc) || aangMenu?.owns(wc));
+    },
+    busy: () => { const b = bubble?.peek(); return Boolean((b && b.isVisible()) || input?.visible); },
+    away: clickedAway,
+  });
 
   // BEFORE ANYTHING ELSE: a copy of his settings and his memory as they are right now, taken once.
   // The git tag keeps the old code; this keeps the old data, which the tag cannot (step 6.0, his
@@ -751,7 +764,7 @@ app.whenReady().then(async () => {
         onAction: (m) => {
           // Open in Claude: jobpop.ts already built the link with claudeLink(); checked again here, the same as
           // bubble:openclaude, because this is the one place a link leaves for the shell.
-          if (m.t === 'jobpop.open') { const url = claudeLink(m.url); if (url) void shell.openExternal(url); else console.error('shell: refused a pop-out Open in Claude link'); return; }
+          if (m.t === 'jobpop.open') { const t = claudeOpenTarget(m.url); if (t) openInClaude(t); else console.error('shell: refused a pop-out Open in Claude link'); return; }
           // Its "needs you" chip and Message: the bubble shows that question, or points the typing box at that session.
           if (m.t === 'jobpop.ask' || m.t === 'jobpop.message') { bubble?.send('jobpop:ask', m); return; }
           // Pause and Play: already checked by claudeMessage inside jobpop.ts, straight to the brain.
@@ -788,7 +801,7 @@ app.whenReady().then(async () => {
       aangBrowser.onOpenOther = (url) => link?.send({ t: 'open.onmac', url });
       // C7 (2026-10-21): the rune's panel, already checked in browser.ts (claudewire.ts), the same doors as the cockpit's.
       aangBrowser.onClaude = (m) => { link?.send(m as never); };
-      aangBrowser.onClaudeOpen = (url) => { void shell.openExternal(url); };
+      aangBrowser.onClaudeOpen = (target) => openInClaude(target);
       // The right-click menu (his picks, 2026-10-20): a link plays in the pop-out; highlighted words go to Aang's typing
       // box as a chip, like his Highlight key. Send to Aang is only offered while Aang is running (the body watch below).
       aangBrowser.onPlayInPopout = (url) => { openPopout(url); };
@@ -1470,12 +1483,13 @@ app.whenReady().then(async () => {
     if (!m) { console.error('shell: refused a Claude message from the bubble that did not check out'); return; }
     link?.send(m);
   });
-  // Open in Claude: only the exact claude://claude.ai/epitaxy/<session> link the brain made goes to the shell.
+  // Open in Claude: only the exact claude://claude.ai/epitaxy/<session> link the brain made goes to the shell, or
+  // 'front' / 'mac' (claudeOpenTarget). The bubble has already put itself away.
   ipcMain.on('bubble:openclaude', (e, raw) => {
     if (!fromBubble(e)) return;
-    const url = claudeLink(raw);
-    if (!url) { console.error('shell: refused an Open in Claude link that was not a Claude session'); return; }
-    void shell.openExternal(url);
+    const target = claudeOpenTarget(raw);
+    if (!target) { console.error('shell: refused an Open in Claude link that was not a Claude session'); return; }
+    openInClaude(target);
   });
   // Sheet 52 (2026-10-21): he held a job bar in the bubble long enough: it tears off under his pointer.
   ipcMain.on('bubble:jobpop', (e, id) => { if (fromBubble(e) && typeof id === 'string') jobPops?.open(id, screen.getCursorScreenPoint()); });
@@ -1770,6 +1784,40 @@ function openDesk(tab: number): void {
 function fromBubble(e: Electron.IpcMainEvent): boolean {
   const w = bubble?.window();
   return Boolean(w && !w.isDestroyed() && e.sender === w.webContents && e.senderFrame?.parent === null);
+}
+
+/**
+ * Open in Claude, from anywhere (the bubble's job card and pinned card, Samara's rune panel, a job pop-out). 2026-10-21,
+ * his rule: the press brings THAT session to the front, never nothing.
+ *
+ * The link (claude://claude.ai/epitaxy/local_<uuid>, claudenames.ts) makes the Claude app switch to the session, but on
+ * Windows it cannot reliably take the front itself: the Shell is not the foreground program (the bubble never takes
+ * focus), and Windows only lets the foreground program hand the front on, so the Claude window can stay behind and only
+ * flash in the taskbar. So the pet, which can, brings the Claude window forward right after (Hands.Arrange, the same
+ * path its own "Open Claude" uses), once the app has had a moment to switch. No link: just the Claude window forward.
+ * On the Mac: the Mac brings its Claude forward (claude.front).
+ */
+function openInClaude(t: ClaudeOpen): void {
+  // Everything of Aang's goes at once, wherever the press was: the bubble (no fade; a question stays parked), the chat
+  // box (keeping its draft) and every rune panel in Samara.
+  bubble?.send('bubble:dismiss', 'openclaude');
+  if (input?.visible) input.close(false);
+  aangBrowser?.claudeFold();
+  if (t.kind === 'mac') { link?.send({ t: 'claude.front', host: 'mac' }); return; }
+  const front = () => link?.send({ t: 'bubble.focus', focus: 'Claude' });
+  if (t.kind === 'front') { front(); return; }
+  shell.openExternal(t.url).catch((e: Error) => console.error('shell: Open in Claude: ' + e.message));
+  setTimeout(front, 700);
+}
+
+/**
+ * A click away from everything of Aang's: the bubble lets go (a waiting question is parked, not answered) and a chat box
+ * he did not mean to open closes, keeping its draft. The pet's mouse hook sees clicks in other programs and sends
+ * `outside.click`; clicks in our own other windows (Samara, the pop-outs) are seen here too (watchOwnClicks, below).
+ */
+function clickedAway(): void {
+  bubble?.send('bubble:dismiss', 'outside');
+  if (input?.visible) input.close(false);
 }
 
 app.on('will-quit', () => globalShortcut.unregisterAll());

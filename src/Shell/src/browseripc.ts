@@ -104,8 +104,14 @@ export function wireBrowser(get: () => AangBrowser | null): void {
   ipcMain.on('browser:tearout', (e, id) => { if ((top(e) && b()?.isFrame(e.sender)) && Number.isInteger(id)) b().tearOut(id); });
   // C7 Claude's rune (2026-10-21): the band's own page only (not the tab list's layer, never a website). What it may send
   // is the cockpit's pause / play / message, checked again in claudeAct; Open in Claude only for the exact claude:// link.
-  ipcMain.on('browser:claudehello', (e) => { if (top(e) && b()?.isMainFrame(e.sender)) b().claudeHello(e.sender); });
-  ipcMain.on('browser:claude', (e, raw) => { if (top(e) && b()?.isMainFrame(e.sender)) b().claudeAct(raw); });
-  ipcMain.on('browser:openclaude', (e, raw) => { if (top(e) && b()?.isMainFrame(e.sender)) b().claudeOpen(raw); });
+  // 2026-10-21: and the rune's own layer over the page (runeView), which draws the panel now.
+  ipcMain.on('browser:claudehello', (e) => { if (top(e) && (b()?.isMainFrame(e.sender) || b()?.isRune(e.sender))) b().claudeHello(e.sender); });
+  ipcMain.on('browser:claude', (e, raw) => { if (top(e) && (b()?.isMainFrame(e.sender) || b()?.isRune(e.sender))) b().claudeAct(raw); });
+  ipcMain.on('browser:openclaude', (e, raw) => { if (top(e) && (b()?.isMainFrame(e.sender) || b()?.isRune(e.sender))) b().claudeOpen(raw); });
+  ipcMain.on('browser:rune', (e, a) => {
+    if (!top(e) || !a || typeof a !== 'object') return;
+    if (b()?.isRune(e.sender)) b().runeFromLayer(a);
+    else if (b()?.isMainFrame(e.sender)) b().runeFromBand(a);
+  });
   ipcMain.on('browser:tab', (e, a) => { if ((top(e) && b()?.isFrame(e.sender)) && a && Number.isInteger(a.id)) b().tabAct(a.id, String(a.act)); });
 }

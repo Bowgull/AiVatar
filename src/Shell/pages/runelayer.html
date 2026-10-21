@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en" class="runelayer">
+<head>
+<meta charset="utf-8">
+<!-- 2026-10-21: Claude's rune panel in its own see-through layer ABOVE Samara's live page (browser.ts runeView), so the
+     page under it is never frozen, hidden or pictured: a video keeps playing. Only the panel; the rune stays in the band. -->
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' data:;
+               font-src 'self'; style-src-attr 'unsafe-inline'; form-action 'none'; base-uri 'none'">
+<title>Claude</title>
+<link rel="stylesheet" href="cockpit.css">
+<link rel="stylesheet" href="browser.css">
+<link rel="stylesheet" href="rune.css">
+<script type="module" src="runelayer.js"></script>
+</head>
+<body></body>
+</html>

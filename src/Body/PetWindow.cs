@@ -299,7 +299,14 @@ sealed class PetWindow : Form
         MakeInput();
         link.ConnectionChanged += up =>
         {
-            if (!up) return;
+            // 2026-10-21 (his report: the mark and the job list disagreed): with the brain gone, nothing can say what
+            // Claude is doing, so the mark goes rather than stay stuck from a turn that may have ended meanwhile. A
+            // brain that comes back sends the true mark on hello (core.ts), from the one list the card reads.
+            if (!up)
+            {
+                if (IsHandleCreated) BeginInvoke(() => { claudeMark = "none"; claudeFlash = null; claudeWorking = false; dirty = true; });
+                return;
+            }
             if (saving) _ = link.SendAsync(new { t = "saving", on = true });
             _ = link.SendAsync(new { t = "mute", on = cfg.Muted });
             sentWindow = ""; sentDesk = null;                                      // resend after a reconnect

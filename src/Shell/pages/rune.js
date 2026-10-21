@@ -11,7 +11,7 @@
 // The brain's claude.jobs / claude.wait arrive through the Shell (browser.ts claudeNews); no brain, no rune. What this
 // page sends back is pause / play / a message / open, which the Shell checks again (claudewire.ts). Every word here is
 // Claude's or a session's, so everything is built with textContent, never markup from the wire.
-import { animate, anims, SEA, SLATE, MSG, CL, readJob, curIndex, leftOf, onOf, h, btn, liveProgress, livePill, liveText, describeNow } from './claudejobs.js';
+import { animate, anims, SEA, SLATE, MSG, CL, readJob, curIndex, leftOf, onOf, h, btn, liveProgress, livePill, liveText, describeNow, runeHeadLine, openTarget } from './claudejobs.js';
 
 // His final colours (sheets 49/50, the same as the marks over Aang's head, src/Body/ClaudeMarks.cs).
 /** How long a finished job stays teal on the rune before it goes (the cockpit's strip uses the same ~4 s). */
@@ -123,21 +123,27 @@ function chip(state, p, pip, on) {
 const WAIT_WORD = { permission: 'wants your OK to go on', question: 'has a question for you', plan: 'has a plan ready for you' };
 
 /**
- * Start the rune in this band. `slot` is where the rune sits (by the ... key), `band` the band it hangs under,
- * `freeze`/`unfreeze` the frame's own (the page is pictured while anything lies over it), `closeOthers` shuts the
- * band's other trays when the panel opens.
+ * Start the rune. Two halves of one thing (2026-10-21, his report: opening it "bugs out the browser completely,
+ * especially when I'm watching a video"; it used to freeze the page into a still picture while the panel was open,
+ * which stalled a playing video):
+ *   - in the band (`slot`, `band`): only the rune. A click asks the Shell to open the panel (`browserRune`), and the
+ *     Shell says when it is open, so the gold number fades the same as before. `closeOthers` shuts the band's trays.
+ *   - in its own see-through layer ABOVE the live page (`layer: true`, runelayer.html, browser.ts runeView): only the
+ *     panel. The page under it is never hidden, frozen or pictured, so a video keeps playing with sound and picture.
  */
-export function startRune({ slot, band, freeze, unfreeze, closeOthers }) {
+export function startRune({ slot, band, closeOthers, layer = false }) {
   const aang = window.aang;
-  if (!slot || !band || !aang?.onBrowserClaude) return null;
+  if (!band || !aang?.onBrowserClaude || (!layer && !slot)) return null;
   let jobs = [], waits = [];
   const ranBefore = new Set();       // jobs this band has seen working: only those can "finish" here
   const done = new Map();            // finished, not okayed yet (kept even after the session itself ends)
   const unfolded = new Set();
   let open = false, sayFor = null, draft = '', chipKey = '';
-  const panel = h('div', 'rpanel'); panel.id = 'rpanel'; panel.hidden = true; panel.setAttribute('role', 'dialog'); panel.setAttribute('aria-label', 'Claude');
-  const tip = h('i', 'rtip'); tip.hidden = true;
-  band.append(panel, tip);
+  // The panel only exists in the layer; the band only has the rune.
+  const panel = layer ? h('div', 'rpanel') : null, tip = layer ? h('i', 'rtip') : null;
+  if (layer) { panel.id = 'rpanel'; panel.hidden = true; panel.setAttribute('role', 'dialog'); panel.setAttribute('aria-label', 'Claude'); tip.hidden = true; band.append(panel, tip); }
+  /** Where the Shell put the layer: the rune's centre from the layer's left edge, and how tall the panel may be. */
+  let tipX = 300, maxH = 600;
 
   // A one-step job with no list that ended on its own is done too (2026-10-21, the brain's `finished`).
   const allDone = (j) => (j.tasks.length > 0 && j.tasks.every((t) => t.status === 'completed')) || j.finished === true;
@@ -154,6 +160,7 @@ export function startRune({ slot, band, freeze, unfreeze, closeOthers }) {
   /* ---------------------------------------------------------------- the rune */
   function paintChip() {
     const list = shown();
+    if (layer) { if (!list.length && open) close(); return; }
     if (!list.length) { chipKey = ''; slot.replaceChildren(); slot.hidden = true; if (open) close(); return; }
     const top = list[0], state = stateOf(top);
     // The fill is the shared progress engine's (claudejobs.js liveProgress, 2026-10-21): it creeps inside the task in
@@ -219,7 +226,7 @@ export function startRune({ slot, band, freeze, unfreeze, closeOthers }) {
   let ringTop = null, ringNext = 0;
   function ringStep() {
     ringNext = 0;
-    if (!ringTop || slot.hidden) return;
+    if (!ringTop || !slot || slot.hidden) return;
     requestAnimationFrame(() => {
       const j = jobs.find((x) => x.id === ringTop);
       const m = j && liveProgress(j);
@@ -238,9 +245,12 @@ export function startRune({ slot, band, freeze, unfreeze, closeOthers }) {
       words.append(h('b', '', 'JOB COMPLETE'), h('small', '', `${j.project}${n ? ` · all ${n} task${n > 1 ? 's' : ''}` : ''}`));
       big.append(doneTick(COL.complete, 3), words);
       const keys = h('div', 'ckeys');
-      if (j.open) { const op = btn('key sm', 'Open in Claude'); op.addEventListener('click', (e) => { e.stopPropagation(); aang.browserOpenClaude?.(j.open); }); keys.append(op); }
+      { const op = btn('key sm', 'Open in Claude'); op.addEventListener('click', (e) => { e.stopPropagation(); openIn(j); }); keys.append(op); }
       keys.style.marginTop = '12px';
       d.append(big, keys);
+      // 2026-10-21 (his ask): the whole finished card is a door to its session (its key keeps its own click).
+      d.title = 'Open in Claude';
+      d.addEventListener('click', (e) => { e.stopPropagation(); openIn(j); });
       return d;
     }
     const paused = j.phase === 'paused', isOpen = unfolded.has(j.id);
@@ -279,8 +289,8 @@ export function startRune({ slot, band, freeze, unfreeze, closeOthers }) {
       const pp = btn('key sm', paused ? 'Play' : 'Pause'); pp.dataset.act = paused ? 'play' : 'pause';
       pp.addEventListener('click', (e) => { e.stopPropagation(); aang.browserClaude?.(paused ? { t: 'claude.play', session: j.id } : { t: 'claude.pause', session: j.id }); });
       const op = btn('key sm primary', 'Open in Claude'); op.dataset.act = 'open';
-      op.addEventListener('click', (e) => { e.stopPropagation(); if (j.open) aang.browserOpenClaude?.(j.open); });
-      keys.append(pp); if (j.open) keys.append(op);
+      op.addEventListener('click', (e) => { e.stopPropagation(); openIn(latest()); });
+      keys.append(pp, op);   // 2026-10-21: always; no app link brings the Claude app forward instead
       d.append(list, keys);
     }
     if (sayFor === j.id) d.append(sayRow(j));
@@ -309,7 +319,7 @@ export function startRune({ slot, band, freeze, unfreeze, closeOthers }) {
     return row;
   }
   function paintPanel() {
-    if (!open) return;
+    if (!open || !layer) return;
     const focused = document.activeElement?.closest?.('.say') ? true : false;
     anims.clear();                     // drawn afresh; the old pills stop breathing with them
     const list = shown();
@@ -319,10 +329,18 @@ export function startRune({ slot, band, freeze, unfreeze, closeOthers }) {
     const one = list.length === 1 ? list[0] : null;
     if (one && stateOf(one) !== 'complete') {
       // One job: what it is on now, how much of the whole job is done, about how long is left (sheet 50).
-      const on = h('div', 'onnow'); on.append(h('b', '', 'ON NOW'), h('span', '', onOf(one).replace(/ · task \d+ of \d+$/, '') || 'Working'));
-      const big = h('div', 'big'), latest = () => jobs.find((x) => x.id === one.id) ?? one;
-      big.append(liveText(h('em'), (now) => { const p = liveProgress(latest(), now).percent; return p === null ? '—%' : p + '%'; }),
-        liveText(h('span'), (now) => `all done · ${leftOf(latest(), now)}`));
+      // 2026-10-21 (his report: "—% all done · Working"): with no to-do list there is no percent, so none is drawn and
+      // the line under it says only what is true. ON NOW is the live line (what it is doing, for how long); "Working" is
+      // said once; "all done" only when every task is done.
+      const latest = () => jobs.find((x) => x.id === one.id) ?? one;
+      // With nothing more to say than "Working" (no list, no tool running) both rows hide: the job's own bar below
+      // says "Working", once.
+      const onNow = (now) => onOf(latest()).replace(/ · task \d+ of \d+$/, '') || describeNow(latest(), now).line;
+      const on = h('div', 'onnow'); on.append(h('b', '', 'ON NOW'), liveText(h('span'), (now) => { const t = onNow(now); on.hidden = !t; return t; }));
+      const big = h('div', 'big');
+      const pctOfNow = (now) => { const p = liveProgress(latest(), now).percent; return p === null ? '' : p + '%'; };
+      big.append(liveText(h('em'), pctOfNow),
+        liveText(h('span'), (now) => { const t = runeHeadLine(latest(), now, onNow(now)); big.hidden = !t && !pctOfNow(now); return t; }));
       kids.push(on, big);
     }
     for (const j of list) kids.push(cardOf(j));
@@ -331,35 +349,81 @@ export function startRune({ slot, band, freeze, unfreeze, closeOthers }) {
     if (focused || sayFor) { const i = panel.querySelector('.say input'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }
     place();
   }
-  /** Hang it from the rune: its right edge a little past the rune, the point under the rune (sheet 50's own sums). */
+  /**
+   * In the layer: the panel at the layer's own left (the Shell placed the layer by sheet 50's sums: its right edge a
+   * little past the rune), the point under the rune, and its size told to the Shell so the layer fits it exactly.
+   */
+  const MARGIN = 24;                 // room round the panel for its shadow (runelayer.css)
   function place() {
-    const r = slot.firstElementChild; if (!r) return;
-    const b = band.getBoundingClientRect(), c = r.getBoundingClientRect(), W = panel.offsetWidth || 384;
-    const left = Math.max(8, Math.min(b.width - W - 8, Math.round(c.left - b.left + c.width / 2 - W + 70)));
-    panel.style.left = left + 'px';
-    tip.style.left = Math.round(c.left - b.left + c.width / 2 - 9) + 'px';
+    if (!layer) return;
+    panel.style.maxHeight = Math.max(120, maxH) + 'px';
+    tip.style.left = Math.round(tipX - 9) + 'px';
+    tellSize();
   }
+  let sentSize = '';
+  function tellSize() {
+    if (!layer || panel.hidden) return;
+    const w = panel.offsetWidth + 2 * MARGIN, ht = panel.offsetTop + panel.offsetHeight + MARGIN + 20;
+    const k = `${w}x${ht}`;
+    if (k === sentSize) return;
+    sentSize = k;
+    aang.browserRune?.({ size: { w, h: ht } });
+  }
+  if (layer && typeof ResizeObserver === 'function') new ResizeObserver(() => { if (open) tellSize(); }).observe(panel);
   function paint() { paintChip(); paintPanel(); }
+  /** The rune was clicked in the band: the Shell opens the layer under it (and says so back, onBrowserRune). */
   function openPanel() {
-    if (open || !shown().length) return;
+    if (layer || open || !shown().length) return;
     closeOthers?.();
-    open = true; panel.hidden = false; tip.hidden = false;
-    freeze?.('rune');
+    const r = slot.firstElementChild; if (!r) return;
+    const b = band.getBoundingClientRect(), c = r.getBoundingClientRect();
+    aang.browserRune?.({ open: true, x: Math.round(c.left + c.width / 2), y: Math.round(b.bottom), left: Math.round(b.left), right: Math.round(b.right) });
+  }
+  /**
+   * Smooth (his ask, 2026-10-21: "make it smooth when I open and close that function"): it slides down and fades in over
+   * ~260 ms on Samara's ease, and out over ~180 ms; the Shell hides the layer only once it is out.
+   */
+  let shutTimer = 0;
+  function showLayer() {
+    clearTimeout(shutTimer);
+    open = true; sentSize = '';
+    panel.hidden = false; tip.hidden = false;
+    panel.classList.add('shut'); tip.classList.add('shut');
     paint();
+    void panel.offsetWidth;              // the start of the slide is laid out before it moves, so it transitions
+    panel.classList.remove('shut', 'leaving'); tip.classList.remove('shut', 'leaving');
   }
   function close() {
     if (!open) return;
     open = false; sayFor = null; draft = '';
-    panel.hidden = true; tip.hidden = true; panel.replaceChildren();
-    anims.clear(); animate(false);
-    unfreeze?.('rune');
-    paintChip();
+    if (!layer) { aang.browserRune?.({ open: false }); paintChip(); return; }
+    panel.classList.add('shut', 'leaving'); tip.classList.add('shut', 'leaving');
+    aang.browserRune?.({ open: false });
+    clearTimeout(shutTimer);
+    shutTimer = setTimeout(() => { if (open) return; panel.hidden = true; tip.hidden = true; panel.replaceChildren(); anims.clear(); animate(false); }, 200);
   }
-  panel.addEventListener('click', (e) => e.stopPropagation());
-  // Click anywhere else, or Esc: the panel folds away (pointerdown, so a key that stops its own clicks still closes it).
-  document.addEventListener('pointerdown', (e) => { if (open && !panel.contains(e.target) && !slot.contains(e.target)) close(); }, true);
+  /** Open in Claude (2026-10-21, his rule): that session to the front in the Claude app, and this panel folds away at once. */
+  function openIn(j) { aang.browserOpenClaude?.(openTarget(j)); close(); }
+  if (layer) {
+    panel.addEventListener('click', (e) => e.stopPropagation());
+    // A press on the layer's see-through edge, or Esc: it folds away. A press anywhere else takes the keyboard from the
+    // layer, and the Shell folds it then (browser.ts runeView, on blur).
+    document.addEventListener('pointerdown', (e) => { if (open && !panel.contains(e.target)) close(); }, true);
+  } else {
+    // In the band: a press anywhere but the rune folds it.
+    document.addEventListener('pointerdown', (e) => { if (open && !slot.contains(e.target)) close(); }, true);
+  }
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && open) close(); });
-  addEventListener('resize', () => { if (open) place(); });
+  // What the Shell says: in the band, whether the panel is open (the gold number fades); in the layer, open it here
+  // (where the rune is, how tall it may be) or fold it.
+  aang.onBrowserRune?.((m) => {
+    if (!m || typeof m !== 'object') return;
+    if (!layer) { const want = m.open === true; if (want !== open) { open = want; if (!want) { sayFor = null; draft = ''; } paintChip(); } return; }
+    if (Number.isFinite(m.tip)) tipX = m.tip;
+    if (Number.isFinite(m.maxH)) maxH = m.maxH;
+    if (m.open === true) { if (!open) showLayer(); else place(); }
+    else if (m.open === false && open) close();
+  });
 
   /* ---------------------------------------------------------------- the brain, through the Shell */
   aang.onBrowserClaude((s) => {
