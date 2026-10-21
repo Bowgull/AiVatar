@@ -1264,6 +1264,8 @@ function dropReady(r) {
 // ---------------------------------------------------------------- what the brain says
 /** The last thing shown here, whatever it was (a reply, the brief, a card, a whisper), and when (sheet 53's 5-min rule). */
 let lastShown = null, lastShownAt = 0;
+/** The hello he said on sliding out, while it may still be showing (2026-10-21). Never counts as something he said. */
+let greetText = '';
 /** Sheet 53 section 3: how long ago still counts as "he just said it". */
 const RECENT_MS = 5 * 60_000;
 /**
@@ -1278,11 +1280,17 @@ const RECENT_MS = 5 * 60_000;
 function recall(what) {
   if (what === 'jobs') {
     if (cockpit || !claude) return false;
-    if (claude.anyWaiting()) { if (reading) leaveReading(false); claude.unpark(); claudeWaiting(true, true, true); return true; }
-    if (claude.running() > 0) { showJobs(); return true; }
+    if (claude.anyWaiting()) { endSessions(); if (reading) leaveReading(false); claude.unpark(); claudeWaiting(true, true, true); return true; }
+    if (claude.running() > 0) { endSessions(); showJobs(); return true; }
     return false;
   }
-  if (!bubble.hidden) return true;
+  if (bubble.hidden) endSessions();
+  // His rule (2026-10-21): clicking Aang is the chat box plus ONE bubble at most. A hello from sliding out is not
+  // something he said, so it gives way: the line from the last 5 minutes takes the same bubble, or it simply goes.
+  if (!bubble.hidden && greetText && reveal.whole === greetText) {
+    greetText = '';
+    if (!waiting.length && !(lastShown && Date.now() - lastShownAt < RECENT_MS)) { clearTimeout(hideTimer); goAway(); return false; }
+  } else if (!bubble.hidden) return true;
   if (waiting.length) { showTopAsk(); return true; }
   if (lastShown && Date.now() - lastShownAt < RECENT_MS) return showRecent(lastShown);
   return false;
@@ -1315,9 +1323,72 @@ function showJobs() {
 /** Anything else taking the bubble ends the jobs view (the mark stays until the jobs are done). */
 function endJobs() { if (!jobsOpen) return; jobsOpen = false; claude?.refresh(); }
 
+// ---------------------------------------------------------------- Claude's mark, clicked (2026-10-21)
+// The pet tells us the mark was clicked (`mark.click`, worked out from its own drawing) and the brain adds the sessions
+// its older hook tracker knows. Claude sessions started before the link mod have no live job here, only that tracker,
+// and they light the same honey mark: so a click on it must still say what they are. Never nothing.
+let sessionsOpen = false;
+/** Messages that take the bubble over, and so end the old-sessions card first. Not claude.jobs/claude.wait: those are
+ *  state updates that arrive all the time, and ending the card on them would blank it while he reads. */
+const SESSION_ENDERS = new Set(['bubble', 'whisper', 'pet.say', 'permission', 'consent', 'fact.ask', 'backup.ask', 'plan', 'timer.done', 'drop.hover', 'drop.go', 'queued']);
+function markClick(sessions) {
+  if (cockpit) return false;
+  // The link jobs first: what one waits on, else every running job (the existing jobs view).
+  if (claude && (claude.anyWaiting() || claude.running() > 0)) return recall('jobs');
+  endSessions();
+  if (reading) leaveReading(false);
+  const list = (Array.isArray(sessions) ? sessions : []).filter((s) => s && typeof s.project === 'string' && s.project).slice(0, 4);
+  if (!list.length) { greetText = ''; showWhisper({ text: 'Claude isn’t working on anything right now.' }); return true; }
+  showSessions(list);
+  return true;
+}
+/** The older sessions as a small card: the project, what it is on (its prompt) or that it waits on him, and Open in Claude. */
+function showSessions(list) {
+  endJobs();
+  greetText = '';
+  // Aang's own question steps aside, still waiting, and comes back after (the same as a reply arriving).
+  if (asking) { asking = null; asks.hidden = true; asks.replaceChildren(); askParked = true; }
+  bubble.classList.remove('whisper', 'lantern', 'widest');
+  bubble.classList.add('wide');
+  working.hidden = true; tools.hidden = true; mediaRow.hidden = true; closeBoard();
+  for (const id of ['means', 'exact', 'mailcard']) { const e = document.getElementById(id); if (e) e.hidden = true; }
+  setSpeaker(null);
+  const cut = (t) => { const s = String(t || '').replace(/\s+/g, ' ').trim(); return s.length > 90 ? s.slice(0, 89).trimEnd() + '…' : s; };
+  const lines = list.map((s) => [s.project, s.phase === 'waiting'
+    ? (s.what ? `is waiting on you: ${cut(s.what)}` : 'is waiting on you.')
+    : (s.what ? `is working on “${cut(s.what)}”` : 'is working.')]);
+  lines.push(['', 'Live progress shows for Claude sessions started from now on.']);
+  // The old path (PetWindow.ExplainAndGoToWorking) can only bring Claude itself forward, not one session in it, so one
+  // key per machine rather than a row of identical ones.
+  const keys = [];
+  if (list.some((s) => s.host !== 'mac')) keys.push({ label: 'Open in Claude', key: 'C', primary: true, go: () => { window.aang?.focusWindow?.('Claude'); cardDone(); } });
+  if (list.some((s) => s.host === 'mac')) keys.push({ label: 'Open on the MacBook', key: 'M', primary: !keys.length, go: () => { window.aang?.macFront?.(); cardDone(); } });
+  bubble.classList.remove('enter'); void bubble.offsetWidth; bubble.classList.add('enter');
+  show();
+  dropMessage(list.length === 1 ? 'CLAUDE IS WORKING' : `CLAUDE · ${COUNT[list.length] ?? list.length} SESSIONS`.toUpperCase(), '', lines, keys);
+  card.querySelector('.dropmsg')?.classList.add('sessions');
+  for (const b of asks.children) b.dataset.sessions = '1';
+  who.dataset.sessions = '1';
+  sessionsOpen = true;
+}
+/** Takes the old-sessions card down (only what it put up), before something else uses the bubble. */
+function endSessions() {
+  if (!sessionsOpen) return;
+  sessionsOpen = false;
+  if (card.querySelector('.dropmsg.sessions')) { card.hidden = true; card.replaceChildren(); scroller.hidden = false; }
+  for (const b of [...asks.children]) if (b.dataset.sessions) b.remove();
+  if (!asks.children.length) asks.hidden = true;
+  if (who.dataset.sessions) { delete who.dataset.sessions; who.textContent = ''; who.hidden = true; who.classList.remove('plaque', 'red'); }
+}
+
 function onBrain(m) {
   if (!m || typeof m !== 'object') return;
-  if (!m.recalled && (m.t === 'bubble' || m.t === 'whisper' || m.t === 'pet.say') && (m.text || m.brief || m.research || m.card)) { lastShown = m; lastShownAt = Date.now(); }
+  // A hello is not "something he said" (2026-10-21): only real messages come back over the chat box.
+  if (!m.recalled && !m.greet && (m.t === 'bubble' || m.t === 'whisper' || m.t === 'pet.say') && (m.text || m.brief || m.research || m.card)) { lastShown = m; lastShownAt = Date.now(); }
+  // Claude's mark was clicked (2026-10-21): always something in the bubble, never nothing.
+  if (m.t === 'mark.click') { let ok = true; try { ok = markClick(m.sessions); } catch { ok = false; } window.aang?.recalled?.(ok); return; }
+  // Anything else coming to the bubble ends the old-sessions card (its buttons live in the shared keys row).
+  if (sessionsOpen && SESSION_ENDERS.has(m.t)) endSessions();
 
   // What he just asked, for the line above the answer. Kept until the next thing he says.
   if (m.t === 'asked' && typeof m.text === 'string') { asked = m.text; if (cockpit) cockSaid(m.text); return; }
@@ -1358,7 +1429,9 @@ function onBrain(m) {
   if (m.t === 'pet.say' && typeof m.text === 'string' && m.text) {
     const whole = heldMsg && heldMsg.text === m.text ? heldMsg : null;
     if (whole) heldMsg = null;
-    const say = whole ? { ...whole, proactive: false, fromPet: true } : { t: 'bubble', text: m.text, stream: false, fromPet: true, hold: m.hold, focus: m.focus, host: m.host, link: m.link };
+    const say = whole ? { ...whole, proactive: false, fromPet: true } : { t: 'bubble', text: m.text, stream: false, fromPet: true, hold: m.hold, focus: m.focus, host: m.host, link: m.link, greet: m.greet === true };
+    // 2026-10-21: his hello on sliding out. Remembered so a click that opens the chat box can tell it is showing.
+    greetText = m.greet === true ? m.text : '';
     window.dispatchEvent(new CustomEvent('aang:say', { detail: say }));
     return;
   }
@@ -1689,7 +1762,8 @@ window.addEventListener('mousemove', e => {
   // mouse arriving fast cannot land on Allow.
   // Not in the open cockpit (2026-10-21): there the keys always show (bubble.css), so the mouse arriving or leaving
   // changes nothing's size. Re-measuring on every crossing was one of the things that made it jump on his desktop.
-  if (asking && !cockpit) {
+  // The old-sessions card's Open keys come up the same way (2026-10-21), so it is re-measured too.
+  if ((asking || sessionsOpen) && !cockpit) {
     if (over) { asks.classList.add('guard'); setTimeout(() => asks.classList.remove('guard'), 600); }
     fit(); reportSize();
   }

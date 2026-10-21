@@ -37,6 +37,8 @@ sealed class CoreSupervisor : IDisposable
     readonly CancellationTokenSource cts = new();
     readonly IntPtr job;
     Process? child;
+    /// <summary>A Shell (Samara) that was already open when the pet started, and that the pet joined instead of starting.</summary>
+    volatile Process? joined;
 
     public string Status { get; private set; } = "not started";
     public event Action<string>? StatusChanged;
@@ -144,8 +146,11 @@ sealed class CoreSupervisor : IDisposable
 
     /// <summary>True once the Core has died too often to keep restarting. Restarting Aang clears it.</summary>
     public bool GivenUp { get; private set; }
-    /// <summary>The child is up right now (started and not exited).</summary>
-    public bool Running { get { try { return child is { HasExited: false }; } catch { return false; } } }
+    /// <summary>The child is up right now (started and not exited), or the Shell the pet joined is.</summary>
+    /// <remarks>2026-10-21: a joined Shell counts. Before, `child` stayed null when Samara was already open, so the pet
+    /// thought the windows were down and drew his greeting in his OLD bubble beside the new one: the two bubbles stacked
+    /// on Joshua's screen (a hover hello over the chat box's "N MIN AGO" line).</remarks>
+    public bool Running { get { try { return child is { HasExited: false } || joined is { HasExited: false }; } catch { return false; } } }
 
     /// <summary>Records a death and says whether that is now a loop rather than bad luck.</summary>
     bool TooManyDeaths(DateTime now)
@@ -173,7 +178,8 @@ sealed class CoreSupervisor : IDisposable
                 if (spec.Independent && RunningShell() is { } there)
                 {
                     Set($"{spec.Name} already running (pid {there.Id}), joined it");
-                    try { await there.WaitForExitAsync(cts.Token); } finally { there.Dispose(); }
+                    joined = there;
+                    try { await there.WaitForExitAsync(cts.Token); } finally { joined = null; there.Dispose(); }
                     Set($"{spec.Name} closed");
                     pause = TimeSpan.FromSeconds(2);
                     goto Again;

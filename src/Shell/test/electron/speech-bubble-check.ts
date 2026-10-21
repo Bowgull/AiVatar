@@ -20,7 +20,7 @@ import { servePages } from '../../src/pageserver.ts';
 
 process.on('uncaughtException', (e) => { console.log('HARNESS ERROR ' + String((e as Error)?.stack ?? e)); app.exit(2); });
 process.on('unhandledRejection', (e) => { console.log('HARNESS REJECTION ' + String((e as Error)?.stack ?? e)); app.exit(2); });
-setTimeout(() => { console.log('HARNESS TIMEOUT'); app.exit(3); }, 170_000).unref();
+setTimeout(() => { console.log('HARNESS TIMEOUT'); app.exit(3); }, 230_000).unref();
 app.on('window-all-closed', () => { /* the test decides */ });
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(HERE, '..', '..', '..', '..');
@@ -435,6 +435,88 @@ app.whenReady().then(async () => {
     await p.js(`window.__fire('onRecall', 'recent')`); await wait(500);
     check('said over 5 minutes ago: only the chat box', (await sent(p.js, 'recalled')).at(-1) === false && !(await visible(p.js)));
     check('no page errors (click)', !p.errors.length, p.errors.join(' | '));
+    p.w.destroy();
+  }
+
+  // ---- 2026-10-21, his report: a hover hello stacked on top of the chat box's recent line. ONE bubble, and a hello is
+  // never "something he said in the last 5 minutes".
+  const GREET = { t: 'pet.say', text: 'Good evening! What is up?', hold: 4000, greet: true };
+  const shownCount = (js: Js) => js(`document.querySelectorAll('#bubble:not([hidden])').length`) as Promise<number>;
+  {
+    const p = await open(pages, { box: true });
+    await p.js(`window.__deliver(${JSON.stringify(GREET)})`); await wait(1500);
+    check('(the hover hello shows)', (await visible(p.js)) && (await p.js(`document.getElementById('said').textContent`)) === GREET.text);
+    await clearSent(p.js);
+    await p.js(`window.__fire('onRecall', 'recent')`); await wait(900);
+    check('hello showing + click opens the chat box, nothing said: the hello goes, no bubble', !(await visible(p.js)) && (await shownCount(p.js)) === 0 && (await sent(p.js, 'recalled')).at(-1) === false);
+    // A real line, put away; then a hello again; then the click: the real line takes the ONE bubble, the hello is gone.
+    await p.js(`window.__deliver({ t: 'bubble', text: 'Your demo moved to Monday at 2 pm.', stream: false, turn: 41, proactive: true })`); await wait(1500);
+    await p.js(`window.__fire('onDismiss', 'esc')`); await wait(900);
+    await p.js(`window.__deliver(${JSON.stringify(GREET)})`); await wait(1500);
+    await clearSent(p.js);
+    await p.js(`window.__fire('onRecall', 'recent')`); await wait(1400);
+    const r = await p.js(`(() => ({ said: document.getElementById('said').textContent, ago: document.getElementById('wrap').classList.contains('ago'), n: document.querySelectorAll('#bubble:not([hidden])').length }))()`);
+    check('hello showing + a real line from just now: exactly one bubble, the real line with its stamp', r.n === 1 && r.said === 'Your demo moved to Monday at 2 pm.' && r.ago, JSON.stringify(r));
+    await picture(p, 'click-3-hello-replaced');
+    check('no page errors (hello + box)', !p.errors.length, p.errors.join(' | '));
+    p.w.destroy();
+  }
+  {
+    const p = await open(pages, { box: true });
+    await p.js(`window.__deliver(${JSON.stringify(GREET)})`); await wait(1500);
+    await p.js(`window.__fire('onDismiss', 'esc')`); await wait(900);
+    await clearSent(p.js);
+    await p.js(`window.__fire('onRecall', 'recent')`); await wait(600);
+    check('the recent line ignores hellos: only the chat box', (await sent(p.js, 'recalled')).at(-1) === false && !(await visible(p.js)));
+    check('no page errors (hello ignored)', !p.errors.length, p.errors.join(' | '));
+    p.w.destroy();
+  }
+
+  // ---- 2026-10-21: `mark.click` from the pet (via the brain, with the older hook sessions) always shows something.
+  {
+    const p = await open(pages, { mark: true });
+    await p.js(`window.__deliver({ t: 'claude.jobs', jobs: [${JSON.stringify(JOB)}, ${JSON.stringify(JOB2)}] })`); await wait(300);
+    await clearSent(p.js);
+    await p.js(`window.__deliver({ t: 'mark.click', sessions: [{ project: 'Old', phase: 'working', what: 'x' }] })`); await wait(1600);
+    check('mark.click with link jobs: the job bars (the hook sessions are not needed)', (await sent(p.js, 'recalled')).at(-1) === true && (await visible(p.js))
+      && (await p.js(`document.querySelectorAll('#ckjobs .job').length`)) === 2 && (await p.js(`!document.querySelector('.dropmsg.sessions')`)) === true);
+    check('no page errors (mark, jobs)', !p.errors.length, p.errors.join(' | '));
+    p.w.destroy();
+  }
+  {
+    const p = await open(pages, { mark: true });
+    const sessions = [{ project: 'AangApp', phase: 'working', what: 'Fix the two bubbles over the chat box' },
+      { project: 'Waymark', phase: 'waiting', what: 'Claude needs your permission to use Bash', host: 'mac' }];
+    await p.js(`window.__deliver({ t: 'mark.click', sessions: ${JSON.stringify(sessions)} })`); await wait(1500);
+    const c = await p.js(`(() => ({ text: document.querySelector('.dropmsg.sessions')?.textContent ?? '', keys: [...document.querySelectorAll('#asks .key')].map((k) => k.firstChild.textContent), plaque: document.querySelector('.who').textContent }))()`);
+    check('hook-only sessions: a card in the speech bubble', (await sent(p.js, 'recalled')).at(-1) === true && (await visible(p.js)) && /AangApp/.test(c.text) && /Waymark/.test(c.text), JSON.stringify(c));
+    check('each says what it is on, or that it waits on him', /working on .Fix the two bubbles/.test(c.text) && /waiting on you: Claude needs your permission/.test(c.text), c.text);
+    check('the helper line about live progress', /Live progress shows for Claude sessions started from now on\./.test(c.text), c.text);
+    check('Open in Claude (PC) and Open on the MacBook keys', c.keys.join('|') === 'Open in Claude|Open on the MacBook', JSON.stringify(c.keys));
+    await picture(p, 'mark-1-old-sessions');
+    await clearSent(p.js);
+    // The keys come up while his mouse is on the bubble (as an ask's do).
+    const on = await centre(p.js, '#bubble'); if (on) hover(p.w, on.x, on.y);
+    await wait(1200);
+    const k = await centre(p.js, '#asks .key');
+    if (k) { hover(p.w, k.x, k.y); await wait(300); click(p.w, k.x, k.y); }
+    await wait(300); hover(p.w, 4, 4); await wait(900);
+    const fw = await sent(p.js, 'focusWindow');
+    check('Open in Claude brings Claude forward (the old path) and the card goes', JSON.stringify(fw) === '["Claude"]' && !(await visible(p.js)),
+      JSON.stringify({ k, fw, shown: await visible(p.js), at: k && await p.js(`document.elementFromPoint(${k.x}, ${k.y})?.outerHTML.slice(0, 120)`) }));
+    // The card's keys never hang under the next thing said.
+    await p.js(`window.__deliver({ t: 'bubble', text: 'Done with that.', stream: false, turn: 42, proactive: true })`); await wait(1500);
+    check('the next line ends the card: no leftover keys or card', (await p.js(`!document.querySelector('.dropmsg.sessions') && !document.querySelector('#asks [data-sessions]') && document.getElementById('said').textContent === 'Done with that.'`)) === true);
+    check('no page errors (mark, old sessions)', !p.errors.length, p.errors.join(' | '));
+    p.w.destroy();
+  }
+  {
+    const p = await open(pages, { mark: true });
+    await p.js(`window.__deliver({ t: 'mark.click', sessions: [] })`); await wait(1200);
+    check('nothing at all: one line, never nothing', (await sent(p.js, 'recalled')).at(-1) === true && (await visible(p.js))
+      && (await p.js(`document.getElementById('said').textContent`)) === 'Claude isn’t working on anything right now.');
+    await picture(p, 'mark-2-nothing');
+    check('no page errors (mark, nothing)', !p.errors.length, p.errors.join(' | '));
     p.w.destroy();
   }
 

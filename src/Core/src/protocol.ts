@@ -111,6 +111,9 @@ export type ToBody =
   | { t: 'summon' } | { t: 'dismiss' } | { t: 'refocus' }
   /** The pet was clicked and the new front end is on, so the Shell opens its typing box. */
   | { t: 'typebox' }
+  /** 2026-10-21: Claude's mark was clicked. The Shell shows its link jobs, else these older hook-tracked sessions,
+   *  else says nothing is running. `what` is the prompt it is working on, or what it is waiting for. */
+  | { t: 'mark.click'; sessions: { project: string; phase: 'working' | 'waiting'; what: string; host?: 'mac' }[] }
   /** Window 2 (6.15): the pet's Panel menu with the new front end on, so the Shell opens the desk. */
   | { t: 'desk.open'; tab?: number }
   /** 6.17: Snipit from the pet's menu, passed to the Shell, which does the snipping. */
@@ -153,7 +156,9 @@ export type ToBody =
    *  the same rule the pet does, so a proactive message never pops over WoW, past mute, or past hidden. */
   | { t: 'bubble.state'; quiet: boolean; hidden: boolean; muted: boolean }
   /** A line the pet says itself (notes, errors, hellos, a held message coming out). Drawn by the new bubble. */
-  | { t: 'pet.say'; text: string; hold?: number; focus?: string; host?: 'mac'; link?: string }
+  | { t: 'pet.say'; text: string; hold?: number; focus?: string; host?: 'mac'; link?: string;
+      /** 2026-10-21: his hello on sliding out. Never "something he said", and dropped when the chat box opens. */
+      greet?: boolean }
   /** He clicked somewhere that is not the pet (the pet's mouse hook sees it); the Shell decides if it was outside its windows. */
   | { t: 'outside.click'; x: number; y: number }
   /** Sheet 17's wheel: held on Aang, and let go (physical screen pixels); and the Quiet disc. */
@@ -426,6 +431,8 @@ export type FromBody =
   | { t: 'summon' } | { t: 'dismiss' } | { t: 'refocus' }
   /** The pet was clicked and the new front end is on, so the Shell opens its typing box. */
   | { t: 'typebox' }
+  /** 2026-10-21: the click was on Claude's mark over his head (the pet works that out from its own drawing). */
+  | { t: 'mark.click' }
   | { t: 'desk.open'; tab?: number }
   /** 6.17: Snipit from the pet's menu, passed to the Shell, which does the snipping. */
   | { t: 'snip' }
@@ -467,7 +474,9 @@ export type FromBody =
    *  the same rule the pet does, so a proactive message never pops over WoW, past mute, or past hidden. */
   | { t: 'bubble.state'; quiet: boolean; hidden: boolean; muted: boolean }
   /** A line the pet says itself (notes, errors, hellos, a held message coming out). Drawn by the new bubble. */
-  | { t: 'pet.say'; text: string; hold?: number; focus?: string; host?: 'mac'; link?: string }
+  | { t: 'pet.say'; text: string; hold?: number; focus?: string; host?: 'mac'; link?: string;
+      /** 2026-10-21: his hello on sliding out. Never "something he said", and dropped when the chat box opens. */
+      greet?: boolean }
   /** He clicked somewhere that is not the pet (the pet's mouse hook sees it); the Shell decides if it was outside its windows. */
   | { t: 'outside.click'; x: number; y: number }
   /** Sheet 17's wheel: held on Aang, and let go (physical screen pixels); and the Quiet disc. */

@@ -3210,6 +3210,11 @@ export class Core {
       // The gate state is kept so a Shell that restarts knows at once whether he is in a game.
       case 'bubble.state': this.lastBubbleState = { t: 'bubble.state', quiet: m.quiet === true, hidden: m.hidden === true, muted: m.muted === true }; this.sendTo('desktop', this.lastBubbleState); break;
       case 'pet.say': case 'outside.click': case 'bubble.busy': case 'bubble.focus.failed': this.sendTo('desktop', m); break;
+      // 2026-10-21: he clicked Claude's mark over the pet's head. The Shell's bubble shows the link jobs it already has,
+      // else these: the older hook-tracked sessions (started before the link mod) that light the same mark.
+      case 'mark.click': this.sendToShells({ t: 'mark.click', sessions: [...this.hooks.sessions.values()]
+        .filter(s => s.phase === 'working' || s.phase === 'waiting').sort((a, b) => b.changedAt - a.changedAt).slice(0, 4)
+        .map(s => ({ project: s.project, phase: s.phase === 'waiting' ? 'waiting' as const : 'working' as const, what: (s.phase === 'waiting' ? s.waitingFor : s.prompt).slice(0, 140), ...(s.host ? { host: s.host } : {}) })) }); break;
       // Sheet 17's wheel: the pet says when it is held and where it was let go; the Shell draws it. Quiet goes back to the pet.
       case 'wheel.open': case 'wheel.release': this.sendToShells({ t: m.t, x: Number(m.x) || 0, y: Number(m.y) || 0 }); break;
       case 'quiet.toggle': this.sendTo('desktop', { t: 'quiet.toggle' }); break;

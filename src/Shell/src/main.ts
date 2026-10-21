@@ -165,19 +165,6 @@ function bubbleBox(at: PetAt, size: { width: number; height: number }): Electron
   const lift = Math.round(14 * (at.scale || 1));
   return { ...box, y: Math.max(at.screen.y, box.y - lift) };
 }
-/**
- * Sheet 53 (2026-10-21): was this click on Aang a click on Claude's working mark over his head? The pet draws the mark
- * in its own window (ClaudeMarks.cs: art centre, its bottom 9 frame px over the top of his head, 13 x 9 art pixels at
- * round(3 x scale) screen px each, bobbing one art pixel) and turns every click on itself into `typebox`, so the Shell
- * tells the two apart by where the mouse is. Anything drawn above his head is a mark: his own art stops at its top.
- */
-function onClaudeMark(): boolean {
-  if (!petAt || petAt.peeking) return false;
-  const s = petAt.scale || 1, a = petAt.sprite, px = Math.max(1, Math.round(3 * s));
-  const p = screen.getCursorScreenPoint();
-  const cx = a.x + a.width / 2, bottom = a.y - 9 * s + 2 * px, top = a.y - 9 * s - 11 * px;
-  return p.y <= bottom && p.y >= top && Math.abs(p.x - cx) <= 8 * px;
-}
 /** The message he just sent, until the brain says it has it (its `ack`). */
 let ackWait: { id: string; timer: NodeJS.Timeout } | null = null;
 /** He is in a game (the pet's quiet). Esc is never taken from a game. */
@@ -407,15 +394,23 @@ const link = new CoreLink({
     // the chat box as before.
     // Sheet 53 (his rules, 2026-10-21): a click on Aang is just the separate chat box, ready to type. Only if he said
     // something in the last 5 minutes does that line come back, small, over the box (the bubble decides; it knows when).
-    // A click on Claude's working mark over his head opens the jobs (or what Claude is waiting on) in the speech bubble
-    // instead; with no Claude jobs at all the page says so and it is a plain click on Aang after all.
+    // A click on Claude's working mark is its own message now (`mark.click`, below): the pet works it out from its own
+    // drawing (2026-10-21). The old guess from the cursor here never saw a click while he was tucked at the edge.
     if (m.t === 'typebox') {
       if (cockpitOn) { if (!input?.visible) openTypeBox(); return; }
-      if (bubble && !input?.visible && onClaudeMark()) { bubble.send('bubble:recall', 'jobs'); return; }
       if (!input?.visible) openTypeBox();
       bubble?.send('bubble:recall', 'recent');
       return;
     }
+    // 2026-10-21: he clicked Claude's mark over Aang's head. The speech bubble ALWAYS shows something: the link jobs (or
+    // what one waits on), else the older hook-tracked sessions the brain sent along, else "not working on anything".
+    if (m.t === 'mark.click') {
+      if (cockpitOn) { if (!input?.visible) openTypeBox(); return; }
+      bubble?.send('brain:message', m);
+      return;
+    }
+    // His hello on sliding out never sits on top of the chat box: one bubble at most (2026-10-21).
+    if (m.t === 'pet.say' && m.greet === true && input?.visible && !cockpitOn) return;
     // 6.15: the pet's "Panel..." menu, with the new front end on, opens window 2 instead of the C# Panel.
     if (m.t === 'snip') { void snipper?.start(); return; }
     if (m.t === 'browser') { aangBrowser?.open(); return; }
