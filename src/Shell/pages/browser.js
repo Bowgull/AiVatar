@@ -662,6 +662,8 @@ function tabMenu(t, x, y) {
     for (const b of state.mockups?.branches ?? []) if (b.id !== t.mock.branch || t.mock.parent) bs(b.name, () => window.aang?.browserMockup?.({ act: 'branch', sheet: t.mock.sheet, to: b.id }));
     bs('New branch...', () => window.aang?.browserMockup?.({ act: 'branchnew', sheet: t.mock.sheet }));
     if (t.mock.branch != null || t.mock.parent) item('Make it top level', () => window.aang?.browserMockup?.({ act: 'top', sheet: t.mock.sheet }));
+    // Send to Aang (his pick, 2026-10-21): only while Aang is running, like the words item on a page.
+    if (state.mockups?.toAang) item('Send to Aang', () => window.aang?.browserMockup?.({ act: 'sendtab', id: t.id }));
   } else {
   for (const tr of trails) if (tr.id !== t.trail) item('Move to ' + tr.name.toLowerCase().replace(/^./, (c) => c.toUpperCase()), () => window.aang?.browserTrail?.({ act: 'move', tab: t.id, to: tr.id }), { sub: true });
   item('Move to a new trail', () => window.aang?.browserTrail?.({ act: 'move', tab: t.id, to: 'new' }), { sub: true });
@@ -1160,6 +1162,20 @@ function versionsMenu(t, x, y) {
   }
   placeMenu(m, x, y);
 }
+/** A history line's own menu: open that version, or send exactly that version to Aang. */
+function versionMenu(id, x, y) {
+  closeTabMenu();
+  const m = document.createElement('div'); m.id = 'tabmenu'; m.className = 'tabmenu'; m.setAttribute('role', 'menu');
+  const item = (label, go) => {
+    const b = Object.assign(document.createElement('button'), { type: 'button', textContent: label });
+    b.setAttribute('role', 'menuitem');
+    b.addEventListener('click', () => { closeTabMenu(); go(); });
+    m.append(b);
+  };
+  item('Open this version', () => window.aang?.browserMockup?.({ act: 'show', id }));
+  if (state.mockups?.toAang) item('Send to Aang', () => window.aang?.browserMockup?.({ act: 'send', id }));
+  placeMenu(m, x, y);
+}
 const mockEls = { head: null, from: null, hist: null, list: null, listSig: '', branches: new Map() };
 const freshDone = new Set();
 /** Type a new name in place (the trail name's own box): Enter keeps it, Esc leaves it. */
@@ -1200,6 +1216,7 @@ function branchMenu(b, x, y) {
   };
   item('Rename', () => mockEls.branches.get(b.id)?.querySelector('.nm')?.click());
   item(b.folded ? 'Unfold' : 'Fold', () => window.aang?.browserMockup?.({ act: 'bfold', id: b.id }));
+  if (state.mockups?.toAang) item('Send to Aang', () => window.aang?.browserMockup?.({ act: 'sendbranch', id: b.id }));
   m.append(Object.assign(document.createElement('div'), { className: 'sep' }));
   item('Delete branch (its mockups stay)', () => window.aang?.browserMockup?.({ act: 'bdelete', id: b.id }), 'danger');
   placeMenu(m, x, y);
@@ -1269,6 +1286,7 @@ function mockList(mk) {
       else if (it.same) v.append(Object.assign(document.createElement('i'), { textContent: `SAME AS V${it.same}` }));
       v.append(Object.assign(document.createElement('span'), { className: 'tm', textContent: 'V' + it.v }));
       v.addEventListener('click', () => window.aang?.browserMockup?.({ act: 'show', id: it.id }));
+      v.addEventListener('contextmenu', (e) => { e.preventDefault(); versionMenu(it.id, e.clientX, e.clientY); });
       box.append(v);
     }
     for (const c of node.children ?? []) sheet(c, true);

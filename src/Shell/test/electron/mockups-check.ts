@@ -31,7 +31,8 @@ const repo = mkdtempSync(path.join(os.tmpdir(), 'mock-repo-'));
 const g = (...a: string[]) => execFileSync('git', ['-C', repo, '-c', 'user.name=t', '-c', 'user.email=t@t', '-c', 'commit.gpgsign=false', ...a], { encoding: 'utf8' }).trim();
 const put = (p: string, s: string) => { mkdirSync(path.dirname(path.join(repo, p)), { recursive: true }); writeFileSync(path.join(repo, p), s); };
 const S45 = 'docs/cockpit/sheet-45-both-ways.html', S45G = 'docs/cockpit/sheet-45g-click-aang.html', S46 = 'docs/cockpit/sheet-46-one-cockpit.html';
-const sheet = (title: string, colour: string) => `<!doctype html><title>${title}</title><link rel="stylesheet" href="sheet-45/pic.css"><body data-c="${colour}">hi</body>`;
+const sheet = (title: string, colour: string) => `<!doctype html><title>${title}</title><!-- Notes for ${title}:
+   what he picked. --><link rel="stylesheet" href="sheet-45/pic.css"><body data-c="${colour}"><h1>Sheet</h1><p>The <b>first</b> paragraph.</p><p>Second.</p></body>`;
 const commit = (msg: string) => { g('add', '-A'); g('commit', '-q', '-m', msg); return g('rev-parse', 'HEAD'); };
 g('init', '-q');
 put(S45, sheet('Sheet 45 - Both ways', 'one'));
@@ -182,6 +183,46 @@ app.whenReady().then(async () => {
   b.moveTab(plain, -1); b.moveTab(mt()[0].id, null);
   check('the trail holds mockups only', b.tabs.find((t: any) => t.id === plain)?.trail !== -1 && mt()[0].trail === -1);
   check('mockups never sync to the other machine', !b.syncTarget?.tabSnap?.().tabs?.some((t: any) => t.url.includes('/v/')));
+
+  // ---- 9. Send to Aang (his pick, 2026-10-21): only while Aang is running; the Shell builds what goes, from ids only.
+  const sent: any[] = [];
+  b.mockAct('list', { open: true });
+  await wait(400);
+  const menuText = (sel: string, how: 'context' | 'click') => frame.executeJavaScript(`(() => { const r = document.querySelector(${JSON.stringify(sel)}); if (!r) return 'NO ' + ${JSON.stringify(sel)};
+    r.dispatchEvent(new MouseEvent(${JSON.stringify(how === 'context' ? 'contextmenu' : 'click')}, { bubbles: true, cancelable: true, clientX: 60, clientY: 60 }));
+    const t = document.getElementById('tabmenu')?.textContent ?? ''; document.getElementById('tabmenu')?.remove(); return t; })()`);
+  b.onSendMockup = null; await wait(300);
+  const off = [await menuText('#tabs .tp[data-mock]', 'context'), await menuText('#tabs .bh .thm', 'click'), await menuText('#tabs .mv', 'context')];
+  check('no Send to Aang while Aang is not running (tab, branch, history line)', off.every((t) => !t.includes('Send to Aang')) && off.every((t) => !t.startsWith('NO ')), off.join(' | '));
+  b.onSendMockup = (m: any) => { sent.push(m); }; await wait(300);
+  const on = [await menuText('#tabs .tp[data-mock]', 'context'), await menuText('#tabs .bh .thm', 'click'), await menuText('#tabs .mv', 'context')];
+  check('Send to Aang on a mockup tab, a branch head and a history line while Aang runs', on.every((t) => t.includes('Send to Aang')), on.join(' | '));
+  const one = await b.mockSend('version', v1.id);
+  const keys = 'kind,title,version,branch,sheet,commit,url,notes,picture';
+  check('a version travels with exactly its fields', Object.keys(one).sort().join() === keys.split(',').sort().join(), Object.keys(one).join());
+  check('its details come from the history and git', one.kind === 'mockup' && one.title === '45 · Both ways' && one.version === 'V1' && one.branch === 'Kept' && one.sheet === S45 && one.commit === c1 && one.url.includes(`/v/${c1}/${S45}`), JSON.stringify({ ...one, picture: one.picture?.length }));
+  check('its notes: the leading comment and the first paragraph, plain', one.notes === 'Notes for Sheet 45 - Both ways: what he picked.\n\nThe first paragraph.', JSON.stringify(one.notes));
+  check('its picture is a PNG of the page (from a hidden page: V1 is not open)', typeof one.picture === 'string' && one.picture.startsWith('data:image/png;base64,') && one.picture.length <= 1_500_000, String(one.picture?.length));
+  check('and it reached Aang', sent.length === 1 && sent[0] === one);
+  // Ids from the page are checked: wrong kinds and unknown numbers send nothing.
+  await frame.executeJavaScript(`window.aang.browserMockup({ act: 'send', id: 'x' }); window.aang.browserMockup({ act: 'send', id: 99999 }); window.aang.browserMockup({ act: 'sendbranch', id: -5 }); window.aang.browserMockup({ act: 'sendtab', id: 1.5 }); window.aang.browserMockup({ act: 'send', sheet: '../secret.txt' }); true`);
+  await wait(1500);
+  check('page-sent ids that are not real send nothing', sent.length === 1, String(sent.length));
+  await frame.executeJavaScript(`window.aang.browserMockup({ act: 'sendtab', id: ${mt()[0].id} }); true`);
+  await until(() => sent.length === 2, 8000);
+  check('a tab sends the version it shows', sent[1]?.kind === 'mockup' && sent[1].sheet === mt()[0].mock.sheet && /^data:image\/png/.test(String(sent[1].picture)), JSON.stringify({ ...sent[1], picture: sent[1]?.picture?.length }));
+  const kept = b.mockStore.branches.find((x: any) => x.name === 'Kept');
+  const all = await b.mockSend('branch', kept.id);
+  check('a branch travels as one attachment of its mockups, newest version of each', all.kind === 'mockups' && all.branch === 'Kept' && all.items.length === 2 && all.items.every((x: any) => x.kind === 'mockup') && new Set(all.items.map((x: any) => x.sheet)).size === 2, JSON.stringify(all.items.map((x: any) => [x.sheet, x.version])));
+  check('the newest version of 45 in it is V2', all.items.find((x: any) => x.sheet === S45)?.version === 'V2');
+  // Size caps: 1200 px wide at most; a picture still over 1.5 MB is dropped; notes at most 1500 characters.
+  const { fitShot } = await import('../../src/browser.ts'); const { nativeImage } = await import('electron'); const { notesFrom } = await import('../../src/mockups.ts');
+  const solid = nativeImage.createFromBitmap(Buffer.alloc(3000 * 2000 * 4, 0x80), { width: 3000, height: 2000 });
+  const fitted = fitShot(solid); const fw = fitted ? nativeImage.createFromDataURL(fitted).getSize().width : 0;
+  check('a wide picture is cut to 1200 px', fw === 1200, String(fw));
+  const noise = Buffer.alloc(1200 * 900 * 4); for (let i = 0; i < noise.length; i++) noise[i] = (Math.random() * 256) | 0;
+  check('a picture over 1.5 MB is dropped, not sent', fitShot(nativeImage.createFromBitmap(noise, { width: 1200, height: 900 })) === null);
+  check('notes are capped at 1500 characters', notesFrom(`<!-- ${'word '.repeat(1000)} --><p>${'more '.repeat(1000)}</p>`).length === 1500);
 
   console.log(bad ? `${bad} FAILED` : 'ALL PASS'); app.exit(bad ? 1 : 0);
 });

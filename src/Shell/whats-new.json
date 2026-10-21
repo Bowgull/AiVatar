@@ -380,6 +380,11 @@
       "at": "2026-10-21T13:30:00-04:00",
       "text": "Claude's mockups get their own trail, with every version.",
       "kind": "feature"
+    },
+    {
+      "at": "2026-10-21T15:00:00-04:00",
+      "text": "Right-click a mockup to send it to Aang.",
+      "kind": "feature"
     }
   ]
 }

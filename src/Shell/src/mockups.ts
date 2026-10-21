@@ -297,3 +297,23 @@ export function takeMockupFile(file: string): { path: string; title: string } | 
   if (j.title !== undefined && (typeof j.title !== 'string' || j.title.length > 80)) return null;
   return { path: p, title: typeof j.title === 'string' ? j.title.replace(/[\x00-\x1f]/g, ' ').trim() : '' };
 }
+
+// ------------------------------------------------------------------ Send to Aang (his pick, 2026-10-21)
+/** One mockup version as it travels to Aang's typing box. Built by the Shell from mockups.json, never from the page. */
+export interface MockSendItem {
+  kind: 'mockup'; title: string; version: string; branch: string | null; sheet: string; commit: string; url: string; notes: string;
+  /** A PNG of the page as a data URL, at most 1200 px wide; null when there was none or it was too big. */
+  picture: string | null;
+}
+export type MockSend = MockSendItem | { kind: 'mockups'; branch: string; items: MockSendItem[] };
+/** The most a sent picture may be (as a data URL), and the widest. Bigger is dropped, never sent. */
+export const SHOT_MAX_BYTES = 1_500_000, SHOT_MAX_W = 1200;
+
+/** A sheet's own words for Aang: its leading HTML comment and its first paragraph, as plain text, at most 1500 characters. */
+export function notesFrom(html: string): string {
+  const plain = (s: string) => s.replace(/<[^>]*>/g, ' ').replace(/&(amp|lt|gt|quot|#39|middot|nbsp);/g, (_x, k: string) => (({ amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'", middot: '·', nbsp: ' ' }) as Record<string, string>)[k] ?? '')
+    .replace(/\s+/g, ' ').trim();
+  const comment = /<!--([\s\S]*?)-->/.exec(html)?.[1] ?? '';
+  const para = /<p[\s>][\s\S]*?<\/p>/i.exec(html)?.[0] ?? '';
+  return [plain(comment), plain(para)].filter(Boolean).join('\n\n').slice(0, 1500);
+}
