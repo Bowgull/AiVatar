@@ -8,12 +8,13 @@ import http from 'node:http';
 import { WebSocketServer, WebSocket } from 'ws';
 import { HookServer } from '../src/hooks.ts';
 import { JobTracker, LinkDoor, LinkPusher, linkMac } from '../src/claudelink.ts';
-import { ActivityKeeper, barAt } from '../src/claudeprogress.ts';
+import { ActivityKeeper } from '../src/claudeprogress.ts';
+import { barNow } from '../src/progressmath.ts';
 
 type T = { text: string; status: 'pending' | 'in_progress' | 'completed' };
 const list = (...s: string[]): T[] => s.map((x, i) => ({ text: `Task ${i + 1}`, status: x === 'd' ? 'completed' : x === 'n' ? 'in_progress' : 'pending' }));
 const job = (t: JobTracker, now: number, id = 's1') => t.list(now).find(j => j.id === id)!;
-const bar = (t: JobTracker, now: number, id = 's1') => { const j = job(t, now, id); return barAt(j.progress, j.phase === 'working', now); };
+const bar = (t: JobTracker, now: number, id = 's1') => { const j = job(t, now, id); return j.progress ? barNow(j.progress, j.phase === 'working', now).p : null; };
 
 test('engine: a real session order - list written, quick flips, several at once, the last tick is 100% at once', () => {
   const t = new JobTracker();
@@ -23,18 +24,18 @@ test('engine: a real session order - list written, quick flips, several at once,
   assert.equal(job(t, 10).percent, null);
   t.event({ session: 's1', type: 'todos', todos: list('n', 'p', 'p', 'p') }, 1000);
   assert.equal(job(t, 1000).percent, 0);
-  // The creep inside task 1 is honest: above 0, never past 90% of its slot.
+  // v3: the creep inside task 1 is time-based, and before the first tick it cannot pass a third.
   const mid = bar(t, 30_000)!;
-  assert.ok(mid > 0 && mid < 0.25 * 0.9 + 1e-9, `creep ${mid}`);
+  assert.ok(mid > 0 && mid <= 1 / 3 + 1e-9, `creep ${mid}`);
   // Task 1 done and task 2 started within milliseconds of each other (two TodoWrites back to back).
   t.event({ session: 's1', type: 'todos', todos: list('d', 'p', 'p', 'p') }, 40_000);
   t.event({ session: 's1', type: 'todos', todos: list('d', 'n', 'p', 'p') }, 40_005);
-  assert.equal(job(t, 40_005).percent, 25);
+  assert.equal(job(t, 40_005).progress!.done, 1);
   assert.equal(job(t, 40_005).progress!.cur, 1);
-  assert.ok(bar(t, 40_005)! >= 0.25, 'never below the ticked share');
+  assert.ok(bar(t, 40_005)! >= mid, 'never below where it was');
   // Two ticked in one go.
   t.event({ session: 's1', type: 'todos', todos: list('d', 'd', 'd', 'n') }, 60_000);
-  assert.equal(job(t, 60_000).percent, 75);
+  assert.equal(job(t, 60_000).progress!.done, 3);
   // The last tick: exactly 100% on that very event, no creep left to wait for.
   t.event({ session: 's1', type: 'todos', todos: list('d', 'd', 'd', 'd') }, 70_000);
   assert.equal(job(t, 70_000).percent, 100);
@@ -42,18 +43,18 @@ test('engine: a real session order - list written, quick flips, several at once,
   assert.equal(job(t, 70_000).etaMs, 0);
 });
 
-test('engine: a rewritten list may drop the bar and says so; a status tick never does', () => {
+test('engine: a rewritten list never drops the bar (v3 squeeze); a status tick is no rewrite', () => {
   const t = new JobTracker();
   t.event({ session: 's1', type: 'turn.start', cwd: 'C:\\x' }, 0);
   t.event({ session: 's1', type: 'todos', todos: list('d', 'n') }, 1000);
   const rev0 = job(t, 1000).progress!.rev;
-  t.event({ session: 's1', type: 'todos', todos: list('d', 'd') }, 2000);
-  assert.equal(job(t, 2000).progress!.rev, rev0, 'ticking is not a rewrite');
-  t.event({ session: 's1', type: 'todos', todos: [...list('d', 'd'), { text: 'Task 3', status: 'pending' as const }, { text: 'Task 4', status: 'pending' as const }] }, 3000);
+  t.event({ session: 's1', type: 'todos', todos: list('d', 'n') }, 2000);
+  assert.equal(job(t, 2000).progress!.rev, rev0, 'the same list is not a rewrite');
+  const was = bar(t, 3000)!;
+  t.event({ session: 's1', type: 'todos', todos: [...list('d', 'n'), { text: 'Task 3', status: 'pending' as const }, { text: 'Task 4', status: 'pending' as const }] }, 3000);
   const p = job(t, 3000).progress!;
   assert.equal(p.rev, rev0 + 1);
-  assert.equal(p.rewroteAt, 3000);
-  assert.equal(job(t, 3000).percent, 50);
+  assert.ok(bar(t, 3000)! >= was - 1e-9, 'squeezed, not dropped');
 });
 
 test('engine: the Task tools build the list one task at a time without a false "rewrote its list"', () => {
@@ -64,7 +65,7 @@ test('engine: the Task tools build the list one task at a time without a false "
   t.event({ session: 's1', type: 'todos', todos: [{ text: 'A', status: 'in_progress' }, { text: 'B', status: 'pending' }] }, 300);
   assert.equal(job(t, 300).progress!.rewroteAt, null);
   t.event({ session: 's1', type: 'todos', todos: [{ text: 'A', status: 'completed' }, { text: 'B', status: 'in_progress' }] }, 5000);
-  assert.equal(job(t, 5000).percent, 50);
+  assert.equal(job(t, 5000).progress!.done, 1);
 });
 
 test('engine: a one-step turn with no list is complete when it ends; a stopped one is not; the next turn starts empty', () => {
@@ -184,7 +185,7 @@ test('end to end: an event leaves the brain for the Shell within 30 ms, a batch 
       await new Promise(r => setTimeout(r, 20));
     }
     const lastJob = got[got.length - 1]!.m.jobs[0];
-    assert.equal(lastJob.percent, 50);
+    assert.equal(lastJob.progress.done, 1);
     for (const h of hops) assert.ok(h < 150, `event -> Shell socket took ${h} ms`);
     console.log(`  end to end (event -> Shell socket): ${hops.map(h => h + ' ms').join(', ')}`);
 

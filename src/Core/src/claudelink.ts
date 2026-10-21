@@ -21,11 +21,18 @@ import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { unlinkSync } from 'node:fs';
 import type http from 'node:http';
 import path from 'node:path';
+import { monitorEventLoopDelay } from 'node:perf_hooks';
 import { reportWriteFailure, writeFileAtomic } from './atomic.ts';
 import { projectName } from './hooks.ts';
-import { ActivityKeeper, ProgressKeeper, etaOf, percentOf } from './claudeprogress.ts';
-import type { Activity, Progress, ToolDetail } from './claudeprogress.ts';
+import { ActivityKeeper, ProgressKeeper, etaOf, percentOf, stripSecrets } from './claudeprogress.ts';
+import type { Activity, KeeperCtx, Progress, ToolDetail } from './claudeprogress.ts';
 import type { TranscriptSession } from './claudescan.ts';
+import { CiTracker } from './claudeci.ts';
+import type { CiRow, Runner } from './claudeci.ts';
+import { PlanStore, ProgressHistory, historyFile, plansFile } from './progresshistory.ts';
+import type { StoredPhase } from './progresshistory.ts';
+import { calibration } from './progressmath.ts';
+import type { PlanV3 } from './progressmath.ts';
 
 // ------------------------------------------------------------------ the key and the MAC
 
@@ -72,12 +79,18 @@ export interface Job {
   tasks: JobTask[];
   /** The task in progress, in its "-ing" form when Claude gave one. */
   current: string | null;
-  /** Ticked tasks out of all of them, 0-100; null with no to-do list. */
+  /** The bar as it stands when sent, 0-100 (time-weighted, v3); null with no to-do list. */
   percent: number | null;
-  /** Rough time left from the pace of the tasks ticked so far; null until one is ticked. */
+  /** Time left in ms, only once it is earned (claudeprogress.ts rule 5); 0 with every item ticked. */
   etaMs: number | null;
-  /** The progress engine's authoritative numbers (claudeprogress.ts); null with no to-do list. Viewers creep from these. */
+  /** The progress engine's authoritative numbers (v3, progressmath.ts ProgressV3); null with no to-do list. Viewers draw every frame from these. */
   progress: Progress | null;
+  /** The last turn ended in an error (red). Cleared by the next turn. */
+  failed?: boolean;
+  /** OVERALL: the project's phase plan, when Claude keeps one (the progress tool's `plan`). */
+  plan?: PlanV3 | null;
+  /** GitHub Actions runs of this folder's repo, in flight or just finished (claudeci.ts). */
+  ci?: CiRow[];
   /** What it is doing right now, in plain words, and its helper agents (claudeprogress.ts). */
   activity: Activity;
   usage: { contextPercent?: number; rateLimits?: { kind: string; percentUsed: number; resetsAt?: string }[]; costUsd?: number } | null;
@@ -131,7 +144,30 @@ export type Decision = 'allow' | 'always' | 'deny' | 'deny-message';
 export type Answer = { decision: Decision; message?: string } | { answers: Record<string, string> };
 
 /** What the mod is handed: a kind and a JSON body, the MAC added at the door with the poll's own nonce. */
-export interface Outgoing { id: string; kind: 'answer' | 'gone' | 'inbox' | 'pause' | 'play' | 'model'; body: string }
+export interface Outgoing { id: string; kind: 'answer' | 'gone' | 'inbox' | 'pause' | 'play' | 'model' | 'resync'; body: string }
+
+/**
+ * A rolling record of one hop's latency (research section 5, 2026-10-21): the last 200 samples; every 200 events it
+ * logs p50/p95/p99 once (with AANG_PROGRESS_TRACE=1), so the slow tail shows without a line per event.
+ */
+export class LatencyBook {
+  private readonly name: string;
+  private vals: number[] = [];
+  private count = 0;
+  constructor(name: string) { this.name = name; }
+  add(ms: number): void {
+    if (!Number.isFinite(ms) || ms < 0) return;
+    this.vals.push(ms); if (this.vals.length > 200) this.vals.shift();
+    if (++this.count % 200 === 0 && process.env.AANG_PROGRESS_TRACE === '1') {
+      const q = this.quantiles();
+      console.error(`progress trace: ${this.name} p50 ${q.p50} ms, p95 ${q.p95} ms, p99 ${q.p99} ms (${this.count} events)`);
+    }
+  }
+  quantiles(): { p50: number; p95: number; p99: number } {
+    const s = [...this.vals].sort((a, b) => a - b), at = (f: number) => (s.length ? Math.round(s[Math.min(s.length - 1, Math.floor(s.length * f))]!) : 0);
+    return { p50: at(0.5), p95: at(0.95), p99: at(0.99) };
+  }
+}
 
 const KIND_RANK: Record<WaitKind, number> = { permission: 0, question: 1, plan: 2 };
 const MAX_JOBS = 30;
@@ -145,7 +181,40 @@ interface Waiter<T> { resolve: (v: T) => void; timer: NodeJS.Timeout }
 export class JobTracker {
   /** His names for sessions and their real app links; injected so tests need no Claude app on disk. */
   private readonly names: { of(cli: string): { title: string; open: string } | null } | null;
-  constructor(names: { of(cli: string): { title: string; open: string } | null } | null = null) { this.names = names; }
+  /** How long things take here (progresshistory.ts), each project's phase plan, and the CI watcher. In memory until useData. */
+  hist: ProgressHistory;
+  private plans: PlanStore;
+  private ci: CiTracker | null;
+  constructor(names: { of(cli: string): { title: string; open: string } | null } | null = null, data: { hist?: ProgressHistory; plans?: PlanStore; ci?: CiTracker | null } = {}) {
+    this.names = names;
+    this.hist = data.hist ?? new ProgressHistory(null);
+    this.plans = data.plans ?? new PlanStore(null);
+    this.ci = data.ci ?? null;
+  }
+  private loopMon: ReturnType<typeof monitorEventLoopDelay> | null = null;
+  private loopTimer: NodeJS.Timeout | null = null;
+  /**
+   * The brain's folder (v3, 2026-10-21): the history and the plans live on disk from here on (so they survive
+   * restarts), the CI watcher starts (only where gh is installed), and the event loop is watched: a p99 delay over
+   * 20 ms is logged, so a freeze like the old 2.4-3.2 s ones shows up at once.
+   */
+  useData(dataDir: string, opts: { ci?: boolean; run?: Runner } = {}): void {
+    this.hist = new ProgressHistory(historyFile(dataDir));
+    this.plans = new PlanStore(plansFile(dataDir));
+    this.ci?.close();
+    this.ci = opts.ci === false ? null : new CiTracker(this.hist, { ...(opts.run ? { run: opts.run } : {}), onChange: () => this.onChange('jobs') });
+    for (const j of this.jobs.values()) this.ci?.watch(j.cwd);
+    try {
+      this.loopMon = monitorEventLoopDelay({ resolution: 20 }); this.loopMon.enable();
+      this.loopTimer = setInterval(() => {
+        const m = this.loopMon; if (!m) return;
+        const p99 = m.percentile(99) / 1e6;
+        if (p99 > 20) console.error(`progress: the brain's event loop lagged (p99 ${Math.round(p99)} ms, worst ${Math.round(m.max / 1e6)} ms)`);
+        m.reset();
+      }, 30_000);
+      this.loopTimer.unref?.();
+    } catch { /* a nicety */ }
+  }
   private readonly jobs = new Map<string, Job>();
   private readonly waits = new Map<string, WaitItem>();
   /** Per session: what the mod has not been handed yet. */
@@ -175,11 +244,13 @@ export class JobTracker {
     let j = this.jobs.get(session);
     if (!j) {
       j = { id: session, machine: 'pc', cwd, project: projectName(cwd), model: '', phase: 'idle', startedAt: now, lastActivity: now,
-        prompt: '', tasks: [], current: null, percent: null, etaMs: null, progress: null, activity: { now: '', since: now, agents: [] }, usage: null, title: projectName(cwd), open: null, held: 0, finished: false, source: 'link' };
+        prompt: '', tasks: [], current: null, percent: null, etaMs: null, progress: null, failed: false, plan: null, ci: [],
+        activity: { now: '', since: now, agents: [], tool: null, pips: 0, aliveAt: now, stallMs: 60_000 },
+        usage: null, title: projectName(cwd), open: null, held: 0, finished: false, source: 'link' };
       this.jobs.set(session, j);
       this.prune(now);
     }
-    if (cwd && cwd !== j.cwd) { j.cwd = cwd; j.project = projectName(cwd); }
+    if (cwd && cwd !== j.cwd) { j.cwd = cwd; j.project = projectName(cwd); this.ci?.watch(cwd); }
     j.lastActivity = now;
     return j;
   }
@@ -192,12 +263,31 @@ export class JobTracker {
     }
   }
 
-  private clock(session: string): ProgressKeeper { let c = this.clocks.get(session); if (!c) { c = new ProgressKeeper(); this.clocks.set(session, c); } return c; }
-  private act(session: string): ActivityKeeper { let a = this.acts.get(session); if (!a) { a = new ActivityKeeper(); this.acts.set(session, a); } return a; }
+  /** What a session's keepers look things up by: its project and model, as they are now. */
+  private ctx(session: string): KeeperCtx {
+    return { hist: this.hist, project: () => this.jobs.get(session)?.project ?? '', model: () => this.jobs.get(session)?.model ?? '' };
+  }
+  /** Per session: the working clock as it stood when its time was last added to the plan's running phase. */
+  private readonly planW = new Map<string, number>();
+  /** Per session: the working clock at the turn's start, for the turn's own history line. */
+  private readonly turnW = new Map<string, number>();
+  /** Per session: the mod's load (gen) and the last event number seen, to spot a lost or doubled event (v3 plumbing). */
+  private readonly seqs = new Map<string, { gen: string; seq: number }>();
+  private clock(session: string, now = Date.now()): ProgressKeeper {
+    let c = this.clocks.get(session);
+    if (!c) {
+      c = new ProgressKeeper(this.ctx(session));
+      this.clocks.set(session, c);
+      // The plan's running phase counts this session's working time from here.
+      this.planW.set(session, c.w(now));
+    }
+    return c;
+  }
+  private act(session: string, now = Date.now()): ActivityKeeper { let a = this.acts.get(session); if (!a) { a = new ActivityKeeper(this.ctx(session), now); this.acts.set(session, a); } return a; }
 
   private forget(session: string): void {
     this.jobs.delete(session); this.held.delete(session); this.outbox.delete(session);
-    this.clocks.delete(session); this.acts.delete(session);
+    this.clocks.delete(session); this.acts.delete(session); this.planW.delete(session); this.turnW.delete(session); this.seqs.delete(session);
     for (const [id, w] of this.waits) if (w.session === session) this.drop(id);
     const ow = this.outboxWaiters.get(session); if (ow) { clearTimeout(ow.timer); this.outboxWaiters.delete(session); ow.resolve([]); }
   }
@@ -207,15 +297,30 @@ export class JobTracker {
     const session = cut(ev?.session, 100);
     const type = String(ev?.type ?? '');
     if (!session || !type) return;
+    // v3 plumbing (2026-10-21): every event the mod posts carries its load's id (gen) and a number (sq). A number seen
+    // before is a retry that got through twice: dropped. A gap means events were lost on the way: the mod is asked for
+    // a snapshot, so nothing is left wrong for long. A new load, or a snapshot, starts the count again.
+    const gen = typeof ev?.gen === 'string' ? ev.gen.slice(0, 40) : '', sq = Number(ev?.sq);
+    if (gen && Number.isInteger(sq) && sq > 0) {
+      const s = this.seqs.get(session);
+      if (s && s.gen === gen && type !== 'snapshot') {
+        if (sq <= s.seq) return;
+        if (sq > s.seq + 1 && this.jobs.get(session)?.source === 'link') this.push(session, 'resync', {});
+      }
+      this.seqs.set(session, { gen, seq: s && s.gen === gen && type !== 'snapshot' ? Math.max(s.seq, sq) : sq });
+    }
     if (type === 'end') {
       if (this.jobs.has(session)) { this.jobs.get(session)!.phase = 'ended'; this.forget(session); this.onChange('jobs'); this.onChange('wait'); }
       return;
     }
     const j = this.job(session, now, cut(ev?.cwd, 500));
     if (typeof ev?.model === 'string' && ev.model) j.model = cut(ev.model, 80);
-    // The trace (2026-10-21): when it happened in the session (the mod's `t`, this PC's clock) and when it got here.
-    const t = Number(ev?.t);
-    this.trace = { ev: Number.isFinite(t) && t > 0 && t <= now + 1000 ? t : now, rx: now, type: cut(type, 20) };
+    // Every clock runs on when it happened in the session (the mod's `t`, this PC's clock), not when it got here, so a
+    // batch replayed after a slow post does not bunch up (research section 5). Bounded to the last 10 minutes.
+    const t0 = Number(ev?.t);
+    const t = Number.isFinite(t0) && t0 > 0 ? Math.min(now, Math.max(now - 600_000, t0)) : now;
+    this.trace = { ev: Number.isFinite(t0) && t0 > 0 && t0 <= now + 1000 ? t0 : now, rx: now, type: cut(type, 20) };
+    this.lat.add(now - this.trace.ev);
     let urgent = false;
     // The session's mod is talking: whatever the transcript scan made of it, the link takes over from here.
     if (j.source !== 'link') { j.source = 'link'; urgent = true; }
@@ -225,20 +330,34 @@ export class JobTracker {
         urgent = true;
         j.phase = 'working';
         j.finished = false;
+        j.failed = false;
         // A new turn after a list that was all ticked is a new job: the bar starts empty and still ("Working") until
         // Claude writes its next list, instead of sitting at the old 100% (2026-10-21).
-        if (j.tasks.length && j.tasks.every(x => x.status === 'completed')) { j.tasks = []; this.clocks.delete(session); this.measure(j, now); }
-        this.clock(session).go(now);
-        this.act(session).turnStart(now);
+        if (j.tasks.length && j.tasks.every(x => x.status === 'completed')) { this.checkpoint(j.project, t, true); j.tasks = []; this.clocks.delete(session); this.planW.delete(session); this.measure(j, now); }
+        this.clock(session).go(t);
+        this.act(session, t).turnStart(t);
+        this.turnW.set(session, this.clock(session).w(t));
         if (typeof ev?.prompt === 'string' && ev.prompt.trim()) j.prompt = cut(ev.prompt.trim(), 200);
         break;
       case 'turn.end': {
         urgent = true;
         j.phase = ev?.aborted === true && j.phase === 'paused' ? 'paused' : 'idle';
         // A one-step turn (no to-do list) that ended on its own is complete: its bar fills (2026-10-21).
-        j.finished = ev?.aborted !== true && !j.tasks.length;
-        this.clock(session).stop(now);
-        this.act(session).clearTools(now);
+        j.finished = ev?.aborted !== true && ev?.reason !== 'error' && !j.tasks.length;
+        // v3: a turn that ended in an error shows red until the next one.
+        j.failed = ev?.reason === 'error';
+        const clock = this.clock(session);
+        // The plan's running phase gets this turn's working time, kept on disk (it may span sessions and days).
+        this.checkpoint(j.project, t, true);
+        // The turn's own working time, a history line (finished ones only, 5 s or more).
+        const w0 = this.turnW.get(session);
+        if (w0 !== undefined) {
+          const ms = clock.w(t) - w0;
+          if (ms >= 5000) this.hist.add({ at: t, src: 'turn', p: j.project, key: 'turn', ms, ok: ev?.aborted !== true && ev?.reason !== 'error' });
+          this.turnW.delete(session);
+        }
+        clock.stop(t);
+        this.act(session, t).clearTools(t);
         const u = ev?.usage;
         if (u && typeof u === 'object') j.usage = {
           ...(Number.isFinite(u.contextPercent) ? { contextPercent: Number(u.contextPercent) } : {}),
@@ -252,42 +371,125 @@ export class JobTracker {
         this.onChange('wait');
         break;
       }
-      case 'todos': urgent = true; j.finished = false; this.setTasks(j, ev?.todos, now); break;
+      case 'todos': urgent = true; j.finished = false; this.act(session, t).alive(t); this.setTasks(j, ev?.todos, t); break;
       // Everything at once, from a mod meeting this brain for the first time (2026-10-21: the brain restarted, or the
       // mod just loaded into a running session): its list, its turn, the tools and helpers running, what still waits.
       case 'snapshot': {
         urgent = true;
-        const clock = this.clock(session), act = this.act(session);
-        if (ev?.phase === 'working') { j.phase = 'working'; j.finished = false; clock.go(now); }
-        else if (j.phase !== 'paused') { j.phase = 'idle'; clock.stop(now); }
-        if (Array.isArray(ev?.todos)) this.setTasks(j, ev.todos, now);
-        act.clearTools(now); act.clearAgents();
-        for (const t of Array.isArray(ev?.tools) ? ev.tools.slice(0, 20) : []) act.toolStart(cut(t?.id, 100), cut(t?.tool, 120), readDetail(t?.detail), now);
-        for (const g of Array.isArray(ev?.agents) ? ev.agents.slice(0, 20) : []) act.agentStart(cut(g?.id, 100), cut(g?.kind, 60), cut(g?.what, 200), now);
-        for (const k of Array.isArray(ev?.asks) ? ev.asks.slice(0, 10) : []) this.ask(j, { ...k, readonly: true }, now);
+        const clock = this.clock(session), act = this.act(session, t);
+        if (ev?.phase === 'working') { j.phase = 'working'; j.finished = false; clock.go(t); }
+        else if (j.phase !== 'paused') { j.phase = 'idle'; clock.stop(t); }
+        act.alive(t);
+        if (Array.isArray(ev?.todos)) this.setTasks(j, ev.todos, t);
+        act.clearTools(t); act.clearAgents();
+        for (const x of Array.isArray(ev?.tools) ? ev.tools.slice(0, 20) : []) act.toolStart(cut(x?.id, 100), cut(x?.tool, 120), readDetail(x?.detail), t);
+        for (const g of Array.isArray(ev?.agents) ? ev.agents.slice(0, 20) : []) act.agentStart(cut(g?.id, 100), cut(g?.kind, 60), cut(g?.what, 200), t, g?.bg !== true);
+        for (const k of Array.isArray(ev?.asks) ? ev.asks.slice(0, 10) : []) this.ask(j, { ...k, readonly: true }, t);
+        if (Array.isArray(ev?.plan)) this.setPlan(j, ev.plan, t);
         break;
       }
       // Claude began writing its reply, thinking, or a tool call's arguments (2026-10-21): the live line says so.
       case 'step':
         if (j.phase === 'idle') j.phase = 'working';
-        this.clock(session).go(now);
-        this.act(session).step(cut(ev?.what, 20), cut(ev?.tool, 120), now);
+        this.clock(session).go(t);
+        this.act(session, t).step(cut(ev?.what, 20), cut(ev?.tool, 120), t);
         break;
-      case 'ask': this.ask(j, ev, now); break;
+      // v3 heartbeats: the model still streaming (at most every 2 s), or a helper agent streaming.
+      case 'alive': this.act(session, t).beat(t, cut(ev?.agent, 100)); break;
+      // A helper agent's own tool call: its heartbeat, and one more in "14 tool calls".
+      case 'agent.tool': this.act(session, t).agentTool(cut(ev?.id, 100), t); break;
+      case 'ask': this.ask(j, ev, t); break;
       // The live description (2026-10-21): tools and helper agents as they start and end. A tool starting also means
       // the session is at work, even if the brain missed the turn's start (it restarted mid-turn).
       case 'tool.start':
         if (j.phase === 'idle') j.phase = 'working';
-        this.clock(session).go(now);
-        this.act(session).toolStart(cut(ev?.id, 100), cut(ev?.tool, 120), readDetail(ev?.detail), now);
+        this.clock(session).go(t);
+        this.act(session, t).toolStart(cut(ev?.id, 100), cut(ev?.tool, 120), readDetail(ev?.detail), t);
         break;
-      case 'tool.end': this.act(session).toolEnd(cut(ev?.id, 100), now); break;
-      case 'agent.start': this.act(session).agentStart(cut(ev?.id, 100), cut(ev?.kind, 60), cut(ev?.what, 200), now); break;
-      case 'agent.end': this.act(session).agentEnd(cut(ev?.id, 100)); break;
+      case 'tool.end': {
+        const fam = this.act(session, t).toolEnd(cut(ev?.id, 100), t, ev?.ok !== false);
+        // A push: look for the CI run it starts (claudeci.ts).
+        if (fam === 'Pushing to GitHub' && ev?.ok !== false) this.ci?.pushed(j.cwd);
+        break;
+      }
+      case 'agent.start': this.act(session, t).agentStart(cut(ev?.id, 100), cut(ev?.kind, 60), cut(ev?.what, 200), t, ev?.bg !== true); break;
+      case 'agent.end': this.act(session, t).agentEnd(cut(ev?.id, 100), t, ev?.ok !== false); break;
+      // Compaction: a known pause, "Tidying its memory", left out of working time.
+      case 'compact': this.clock(session).compact(ev?.on === true, t); this.act(session, t).alive(t); break;
+      // OVERALL: Claude's phase plan for the project, from the progress tool.
+      case 'plan': urgent = true; this.setPlan(j, ev?.phases, t); break;
       case 'resolved': if (this.waits.get(cut(ev?.id, 100))?.session === session) { this.drop(cut(ev?.id, 100)); this.onChange('wait'); } break;
       default: break;
     }
     this.onChange('jobs', urgent);
+  }
+
+  /** Session -> brain latency, a rolling record (research section 5: p50/p95/p99 logged every 200 events). */
+  readonly lat = new LatencyBook('session->brain');
+
+  /**
+   * The project's phase plan from Claude (OVERALL, research 3.8 and his build list): phases with labels and hour
+   * estimates, kept current by Claude. The working time each phase has had is kept by label; a phase that goes from
+   * running (or to-do) to done with time behind it becomes a history line, so the next phases are corrected by how
+   * the past ones went (Evidence-Based Scheduling).
+   */
+  private setPlan(j: Job, phases: unknown, t: number): void {
+    if (!Array.isArray(phases) || !j.project) return;
+    this.checkpoint(j.project, t, false);
+    const old = this.plans.get(j.project);
+    const oldBy = new Map((old?.phases ?? []).map(p => [p.label, p]));
+    const next: StoredPhase[] = phases.slice(0, 30).map((p: any) => {
+      const label = cut(stripSecrets(String(p?.label ?? '').replace(/\s+/g, ' ').trim()), 80);
+      const hours = Math.max(0, Math.min(1000, Number(p?.hours) || 0));
+      const status = (['todo', 'running', 'done'] as const).includes(p?.status) ? p.status : 'todo';
+      return { label, hours, status, workMs: oldBy.get(label)?.workMs ?? 0 };
+    }).filter((p: StoredPhase) => p.label);
+    if (!next.length) return;
+    for (const p of next) {
+      const was = oldBy.get(p.label);
+      if (p.status === 'done' && was && was.status !== 'done' && p.workMs > 60_000 && p.hours > 0) {
+        this.hist.add({ at: t, src: 'phase', p: j.project, key: p.label.toLowerCase().slice(0, 60), ms: p.workMs, est: p.hours * 3_600_000, ok: true });
+      }
+    }
+    this.plans.set(j.project, { phases: next, updatedAt: t });
+  }
+
+  /**
+   * Adds the working time each of the project's sessions has had since its last checkpoint to the running phase.
+   * `save` writes the plans file (turn ends and plan changes; never on every push).
+   */
+  private checkpoint(project: string, t: number, save: boolean): void {
+    const plan = this.plans.get(project);
+    const run = plan?.phases.find(p => p.status === 'running');
+    let added = 0;
+    for (const j of this.jobs.values()) {
+      if (j.project !== project) continue;
+      const c = this.clocks.get(j.id);
+      if (!c) continue;
+      const W = c.w(t), w0 = this.planW.get(j.id);
+      if (w0 !== undefined && W > w0) added += W - w0;
+      this.planW.set(j.id, W);
+    }
+    if (run && added > 0) { run.workMs += added; if (save) this.plans.save(); }
+  }
+
+  /** The plan as the Shell draws it: the phases, the running phase's working time so far, and the calibration. */
+  private planOf(project: string, now: number): PlanV3 | null {
+    const plan = this.plans.get(project);
+    if (!plan) return null;
+    let live = 0, running = false;
+    for (const j of this.jobs.values()) {
+      if (j.project !== project) continue;
+      const c = this.clocks.get(j.id);
+      if (!c) continue;
+      const w0 = this.planW.get(j.id);
+      if (w0 !== undefined) live += Math.max(0, c.w(now) - w0);
+      if (j.phase === 'working' && c.clock.running) running = true;
+    }
+    const ratios = this.hist.phaseRatios(project);
+    const run = plan.phases.find(p => p.status === 'running');
+    return { phases: plan.phases.map(p => ({ label: p.label, hours: p.hours, status: p.status })), runE: Math.round((run?.workMs ?? 0) + (run ? live : 0)), at: now,
+      running: running && !!run, R: Math.round(calibration(ratios) * 1000) / 1000, ratios: ratios.map(r => Math.round(r * 1000) / 1000) };
   }
 
   /**
@@ -326,19 +528,29 @@ export class JobTracker {
       status: (['pending', 'in_progress', 'completed'] as const).includes(t?.status) ? t.status as TaskStatus : 'pending',
       ...(t?.active ? { active: cut(t.active, 300) } : {}),
     })).filter(t => t.text);
-    this.clock(j.id).todos(j.tasks, now);
+    const act = this.act(j.id, now);
+    this.clock(j.id, now).todos(j.tasks, now, act.aliveAt, act.stallMs());
     this.measure(j, now);
     // A message held for "after this task" goes once that task is ticked (or is no longer in the list).
     this.release(j.id, (h) => h.afterTask !== null && !j.tasks.some(t => t.text === h.afterTask && t.status !== 'completed'));
   }
 
-  /** Percent done, the task in hand, and a time left from the pace so far: the progress engine's numbers (claudeprogress.ts). */
+  /** The bar, the task in hand and the time left as they stand at `now`: the progress engine's numbers (claudeprogress.ts). */
   private measure(j: Job, now: number): void {
     const cur = j.tasks.find(t => t.status === 'in_progress');
     j.current = cur ? (cur.active || cur.text) : null;
-    j.progress = this.clocks.get(j.id)?.snapshot(now) ?? null;
-    j.percent = percentOf(j.progress);
-    j.etaMs = etaOf(j.progress);
+    const act = this.acts.get(j.id);
+    j.progress = this.clocks.get(j.id)?.snapshot(now, act?.aliveAt ?? now, act?.stallMs() ?? 60_000) ?? null;
+    j.percent = percentOf(j.progress, j.phase === 'working', now);
+    j.etaMs = etaOf(j.progress, j.phase === 'working', now);
+  }
+
+  /** Something waits on him in this session, or nothing does: the working clock stops or runs to match (rule 4). */
+  private syncBlock(session: string, now: number): void {
+    const c = this.clocks.get(session);
+    if (!c) return;
+    const blocked = [...this.waits.values()].some(w => w.session === session);
+    if (blocked !== c.clock.blocked) c.block(blocked, now);
   }
 
   private ask(j: Job, ev: any, now: number): void {
@@ -355,6 +567,12 @@ export class JobTracker {
     }));
     if (kind === 'plan') item.plan = cut(ev?.plan, 8000);
     this.waits.set(id, item);
+    // v3: an ask is a sign of life, stops the working clock, and the tools running now teach no history (his answer
+    // is inside their time).
+    const act = this.act(j.id, now);
+    act.alive(now); act.taint();
+    this.clock(j.id, now);
+    this.syncBlock(j.id, now);
     this.onChange('wait');
     this.onAsk(item);
   }
@@ -376,10 +594,12 @@ export class JobTracker {
   }
 
   private drop(id: string): void {
+    const session = this.waits.get(id)?.session;
     if (!this.waits.delete(id)) return;
     this.answers.delete(id);
     const w = this.answerWaiters.get(id);
     if (w) { clearTimeout(w.timer); this.answerWaiters.delete(id); w.resolve({ id, kind: 'gone', body: '{}' }); }
+    if (session) { const now = Date.now(); this.syncBlock(session, now); this.acts.get(session)?.alive(now); }
   }
 
   private push(session: string, kind: Outgoing['kind'], body: unknown): void {
@@ -413,7 +633,10 @@ export class JobTracker {
       if (this.clocks.has(j.id)) this.measure(j, now);
       const waiting = waits.find(w => w.session === j.id)?.kind ?? null;
       const activity = this.act(j.id).snapshot(j.phase, waiting, now);
-      return { ...j, title: n?.title || j.project, open: n?.open ?? null, tasks: j.tasks.map(t => ({ ...t })), activity };
+      // v3: OVERALL from the project's plan, and the repo's CI runs (rows under the job).
+      const plan = j.project ? this.planOf(j.project, now) : null;
+      const ci = this.ci && j.cwd ? this.ci.rows(j.cwd, now) : [];
+      return { ...j, title: n?.title || j.project, open: n?.open ?? null, tasks: j.tasks.map(t => ({ ...t })), activity, plan, ci };
     });
   }
 
@@ -444,6 +667,7 @@ export class JobTracker {
       body = { decision: a.decision, ...(a.decision === 'deny-message' ? { message: a.message!.slice(0, 2000) } : {}) };
     }
     this.waits.delete(id);
+    this.syncBlock(w.session, Date.now());
     const out: Outgoing = { id, kind: 'answer', body: JSON.stringify(body) };
     const waiter = this.answerWaiters.get(id);
     if (waiter) { clearTimeout(waiter.timer); this.answerWaiters.delete(id); waiter.resolve(out); }
@@ -523,6 +747,10 @@ export class JobTracker {
     for (const w of this.outboxWaiters.values()) { clearTimeout(w.timer); w.resolve([]); }
     for (const w of this.answerWaiters.values()) { clearTimeout(w.timer); w.resolve(null); }
     this.outboxWaiters.clear(); this.answerWaiters.clear();
+    this.ci?.close();
+    if (this.loopTimer) clearInterval(this.loopTimer);
+    this.loopMon?.disable();
+    void this.hist.flush();
   }
 }
 

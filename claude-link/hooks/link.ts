@@ -219,9 +219,39 @@ export const OWN_TOOL_FULL = 'mcp__aang-link__progress'
 export const OWN_TOOL_DESC = 'Your to-do list for the current task, shown to the user as a live progress bar. ' +
   'Call it at the start of any task with more than one step with the whole plan, then again every time a step starts or finishes. ' +
   'Always pass the full list; exactly one item in_progress while you work.'
+/**
+ * v3 (2026-10-21, his build list): the progress tool also takes the project's phase plan, so Aang can show OVERALL
+ * (the whole project) above CURRENT (the job in hand), like his Waymark mod. Claude keeps it current; the brain
+ * corrects the hour estimates by how past phases went. In a session that has TodoWrite the tool is offered for the
+ * plan only, with this shorter description.
+ */
+export const OWN_TOOL_PLAN_DESC = "Your project's phase plan, shown to the user as an OVERALL progress bar. " +
+  'On a project with several phases, call it with plan: every phase with a short label, your estimate in hours and its status; ' +
+  'call it again whenever a phase starts or finishes. Keep using your to-do tool for the steps of the job in hand.'
+const PLAN_SCHEMA = {
+  type: 'object',
+  description: "The project's phases, for multi-phase projects only. Always the whole plan.",
+  properties: {
+    phases: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          label: { type: 'string', description: 'The phase, short ("Phase 2: the sync engine").' },
+          hours: { type: 'number', description: 'Your estimate of its working hours.' },
+          status: { type: 'string', enum: ['todo', 'running', 'done'] },
+        },
+        required: ['label', 'hours', 'status'],
+      },
+    },
+  },
+  required: ['phases'],
+}
+export const OWN_TOOL_PLAN_SCHEMA = { type: 'object', properties: { plan: PLAN_SCHEMA }, required: ['plan'] }
 export const OWN_TOOL_SCHEMA = {
   type: 'object',
   properties: {
+    plan: PLAN_SCHEMA,
     tasks: {
       type: 'array',
       description: 'Every step of the task, in order.',
@@ -236,11 +266,25 @@ export const OWN_TOOL_SCHEMA = {
       },
     },
   },
-  required: ['tasks'],
 }
 export const OWN_TOOL_SECTION = 'For any task with more than one step, call the progress tool (mcp__aang-link__progress) before starting the work with your whole plan as a to-do list. ' +
   'Call it again the moment each step starts (in_progress) and the moment it is done (completed), one step in progress at a time, always with the full list. ' +
   'The user watches live progress bars built from this list, so keep it accurate.'
+/** v3: one more sentence, in every session that has the progress tool: the phase plan for OVERALL. */
+export const PLAN_SENTENCE = 'On a project with several phases (hours or days of work), also pass plan to the progress tool (mcp__aang-link__progress): ' +
+  'every phase with a short label, your estimate in hours and its status (todo, running or done), and call it again whenever a phase starts or finishes.'
+
+/** A phase plan from the progress tool's input, cut to sane sizes and masked; null when there is none. */
+export function planOf(input: Record<string, unknown>): { label: string; hours: number; status: 'todo' | 'running' | 'done' }[] | null {
+  const p = input.plan as { phases?: unknown } | undefined
+  if (!p || typeof p !== 'object' || !Array.isArray(p.phases)) return null
+  const out = p.phases.slice(0, 30).map((x: Record<string, unknown>) => ({
+    label: safeLine(x?.label, 80),
+    hours: Math.max(0, Math.min(1000, Number(x?.hours) || 0)),
+    status: (x?.status === 'running' || x?.status === 'done' ? x.status : 'todo') as 'todo' | 'running' | 'done',
+  })).filter(x => x.label)
+  return out.length ? out : null
+}
 
 /** Claude Code's PermissionRequest decision, as its own types spell it. */
 export type PermissionDecision =

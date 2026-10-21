@@ -2574,6 +2574,9 @@ export class Core {
     // C1 (2026-10-21): the aang-link mod's doors, locked with a key made fresh for this run (claudelink.ts).
     const linkKey = newLinkKey(this.cfg.dataDir);
     if (linkKey) this.hookServer.link = new LinkDoor(linkKey, this.claudeJobs, () => this.selfCwd());
+    // Progress engine v3 (2026-10-21): the duration history and the phase plans live in his Aang folder (they survive
+    // restarts); the CI watcher runs only in the real brain (the same switch as the transcript scan), never in tests.
+    this.claudeJobs.useData(this.cfg.dataDir, { ci: this.cfg.scanTranscripts === true });
     this.claudeJobs.onChange = (what, urgent) => this.pushClaudeLink(what, urgent);
     // His ask (2026-10-21): the sessions already running show at once, even before their mods reach this brain.
     if (this.cfg.scanTranscripts) { this.claudeScan = new TranscriptScan(this.claudeJobs, { selfCwd: () => this.selfCwd() }); this.claudeScan.start(); }
