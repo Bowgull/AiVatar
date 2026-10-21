@@ -491,7 +491,10 @@ function paintUrl(u) {
   try { parsed = new URL(u); } catch { /* not a URL */ }
   if (!parsed) { urlEl.textContent = u; lock.hidden = true; return; }
   lock.hidden = false;
-  const secure = parsed.protocol === 'https:';
+  // This PC's own pages (mockups, Aang's pages) never leave the machine, so nothing can read them on the way:
+  // "NOT SECURE" there was a false alarm (his catch, 2026-10-21). Only the loopback names count.
+  const ownPc = parsed.protocol === 'http:' && ['127.0.0.1', 'localhost', '[::1]'].includes(parsed.hostname);
+  const secure = parsed.protocol === 'https:' || ownPc;
   // Quiet when all is well (the research: praising the normal case teaches nothing, and fake sites have
   // padlocks too); red words only when something is wrong.
   if (secure) { lock.innerHTML = SHIELD; lock.setAttribute('aria-label', 'This site: ad blocking and permissions'); }
