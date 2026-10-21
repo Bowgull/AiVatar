@@ -8,7 +8,7 @@ namespace Aang.Body;
 /// with them. The brain decides WHICH mark (src/Core/src/claudemark.ts, sent as `claude.mark`); this only draws it.
 ///
 /// Lifted from the sheets he picked, not redrawn: the shapes and colours are sheet 45d's (working, permission,
-/// question, plan, paused) and 45e's (the small step tick, the job-complete seal, the cute skull), and so is the
+/// question, plan, paused) and 45e's (the small step tick, the cute skull; the job-complete tick lost its seal 2026-10-21), and so is the
 /// palette rule (O dark wood, never black; H lit, F face, S shade; a soft shadow one art pixel down and right).
 /// Pixel art stays crisp: every art pixel is a whole number of screen pixels, placed on whole screen pixels.
 /// </summary>
@@ -24,30 +24,12 @@ static class ClaudeMarks
         ["paused"] = new[] { "OOOOOOOOO", "OHHHHFFSO", ".OHFFFSO.", "..OHFSO..", "...OSO...", "..OF.SO..", ".OF...SO.", "OHFFFFFSO", "OOOOOOOOO" },
         // 45e: "the step tick is impossible to see" fixed - small but bold.
         ["step"] = new[] { "........OOO", ".......OHHO", "......OHFSO", ".OOO.OHFSO.", "OHHOOHFSO..", "OFHHHFSO...", ".OFFFSO....", "..OSSO.....", "...OO......" },
-        // 45e: "the job-complete tick looks wrong" fixed - the tick pressed into a round seal, so it is never a step.
-        ["complete"] = Seal(),
+        // The job-complete tick: the step tick grown up, no circle (his call, 2026-10-21: "I didnt want that tick mark with
+        // the circle"). Bigger than a step, still not huge, and gold so it can never be mistaken for the coral skull.
+        ["complete"] = new[] { "..........OOO", ".........OHHO", "........OHHFO", ".......OHHFSO", ".OOO..OHHFSO.", "OHHHOOHHFSO..", "OFHHHHHFSO...", ".OFFHHFSO....", "..OFFFSO.....", "...OSSO......", "....OO......." },
         // 45e: "failed should be a cute little skull".
         ["failed"] = new[] { "..OOOOOOO..", ".OHHHHFFFO.", "OHHFFFFFFSO", "OHOOFFFOOSO", "OFOOFFFOOSO", "OFFFFOFFFSO", ".OFFFFFFSO.", "..OFOFOFO..", "..OOOOOOO.." },
     };
-
-    /// <summary>45e's seal, built the same way the sheet builds it: a 15-pixel disc lit top-left, the tick in white.</summary>
-    static string[] Seal()
-    {
-        const int n = 15;
-        var tick = new HashSet<(int, int)> { (4, 8), (5, 9), (6, 10), (7, 9), (8, 8), (9, 7), (10, 6), (11, 5), (4, 7), (5, 8), (6, 9), (7, 8), (8, 7), (9, 6), (10, 5), (11, 4) };
-        var rows = new string[n];
-        for (int y = 0; y < n; y++)
-        {
-            var l = new char[n];
-            for (int x = 0; x < n; x++)
-            {
-                var d = Math.Sqrt((x - 7) * (x - 7) + (y - 7) * (y - 7));
-                l[x] = d > 7.3 ? '.' : d > 6.3 ? 'O' : tick.Contains((x, y)) ? 'W' : x + y < 9 ? 'H' : x + y > 19 ? 'S' : 'F';
-            }
-            rows[y] = new string(l);
-        }
-        return rows;
-    }
 
     /// <summary>One colour per mark (45d), and the glow around him takes it too.</summary>
     public static Color ColorOf(string kind) => kind switch
@@ -55,13 +37,20 @@ static class ClaudeMarks
         "working" => Color.FromArgb(236, 194, 126),     // honey, softer than Aang's gold
         "permission" => Color.FromArgb(191, 227, 255),  // pale Avatar State blue: blocking only
         "question" => Color.FromArgb(201, 179, 255),    // lavender
-        "plan" => Color.FromArgb(168, 216, 160),        // sage
+        "plan" => Color.FromArgb(240, 222, 180),        // parchment: a scroll in its own paper (was sage, too close to the step's sea)
         "step" => Color.FromArgb(138, 213, 201),        // sea, the job bar's colour
-        "complete" => Color.FromArgb(232, 145, 111),    // Claude's terracotta, softened
+        "complete" => Color.FromArgb(255, 196, 60),     // Aang's gold (was terracotta, too close to the failed coral)
         "paused" => Color.FromArgb(154, 168, 192),      // dusk slate
         "failed" => Color.FromArgb(240, 138, 122),      // soft coral
         _ => Color.FromArgb(236, 194, 126),
     };
+
+    /// <summary>
+    /// Which marks also make him glow (his question, 2026-10-21: "some should, some shouldn't"). Only what wants him or
+    /// is worth turning round for: needs you, a question, a plan, the job done (its few seconds), failed. Working, a step
+    /// and paused are marks only, so he stays calm while Claude works (sheet 45).
+    /// </summary>
+    public static bool Glows(string? kind) => kind is "permission" or "question" or "plan" or "complete" or "failed";
 
     public static bool Known(string? kind) => kind != null && Shapes.ContainsKey(kind);
     public static string[] Map(string kind) => Shapes[kind];

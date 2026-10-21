@@ -25,7 +25,7 @@ public class ClaudeMarksTests
             Assert.All(m, row => Assert.Equal(m[0].Length, row.Length));
             Assert.All(m, row => Assert.Matches("^[.OHFSW]+$", row));
         }
-        // The step tick is the small one; the job-complete seal is bigger, but not huge (his "not too large").
+        // The step tick is the small one; the job-complete tick is bigger, but not huge (his "not too large").
         Assert.True(ClaudeMarks.Map("step").Length < ClaudeMarks.Map("complete").Length);
         Assert.True(ClaudeMarks.Map("complete").Length <= 16);
         Assert.False(ClaudeMarks.Known("none"));
