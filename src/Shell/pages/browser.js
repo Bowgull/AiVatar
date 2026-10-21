@@ -1332,7 +1332,7 @@ function mockList(mk) {
 //  - Ctrl-click and Shift-click pick several tabs; dragging one of them moves them all, in their order;
 //  - Esc puts it all back. The tab menu's Move to items still make the same moves without a mouse.
 // The rules of where things may go are the old ones: a mockup stays in MOCKUPS and nothing else goes in.
-const DG_MOCK = -1, DG_INDENT = 18, DG_START = 5, DG_SPRING = 600, DG_EDGE = 44;
+const DG_MOCK = -1, DG_INDENT = 28, DG_START = 5, DG_SPRING = 600, DG_EDGE = 44;
 const dropMark = Object.assign(document.createElement('div'), { className: 'dropmark' });
 const dgShift = new WeakMap();
 const dgCalm = matchMedia('(prefers-reduced-motion: reduce)');

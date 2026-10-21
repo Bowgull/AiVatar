@@ -905,3 +905,22 @@ html.rowdrag,html.rowdrag *{cursor:grabbing!important}
 @media (prefers-reduced-motion:reduce){#tabs.dragging>*,.drawer .dropmark{transition:none}.drawer .th.spring,.drawer .bh.spring{animation:none;background-size:100% 3px,auto}}
 /* His pick (2026-10-21): a mockup's tab wears Claude's icon, drawn down smoothly from its large picture like the trail's head. */
 .drawer .tp .fi.claude{image-rendering:auto;border-radius:6px}
+
+/* ---- Bigger drawer (his ask, 2026-10-21: "make everything in the tabs section bigger, I'm finding it hard to read, and
+   the size makes the dragging finicky"). Text up from 12-12.5 px to 14.5, rows taller, icons 20 px, the drawer 340 wide,
+   and the tuck-under step doubled (browser.js DG_INDENT 28) so a deliberate slide tucks and a wobble does not. */
+.drawer{width:340px}
+html.solo body .drawer,html.solo .railhandle{transform:translateX(-340px)}
+html.solo .railhandle{left:340px}
+.drawer .tp{font-size:14.5px;padding:10px 11px;gap:10px;margin-bottom:7px}
+.drawer .tp .fi{width:20px;height:20px}
+.drawer .tp .fi.letter{font-size:12px}
+.drawer .tp .x,.drawer .tp .qm{width:22px;height:22px}
+.drawer .th{font-size:15px;margin:14px 2px 7px}
+.drawer .tp.kid{margin-left:28px}
+.drawer .tp.kid::before{left:-20px;width:15px;height:28px;top:-11px}
+.drawer .msheet{font-size:14.5px}
+.drawer .msheet.kid{margin-left:28px;font-size:14px}
+.drawer .mv{font-size:13.5px;padding:5px 6px 5px 12px}
+.drawer .mv.kid{margin-left:28px;width:calc(100% - 28px)}
+.drawer .mv i{font-size:8.5px}
