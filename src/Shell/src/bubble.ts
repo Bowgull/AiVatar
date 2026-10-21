@@ -107,6 +107,9 @@ export class Bubble {
     }
   }
 
+  /** The window if it has been made, without making it (2026-10-21: the click-away watch asks on every press). */
+  peek(): BrowserWindow | null { return this.win && !this.win.isDestroyed() ? this.win : null; }
+
   /** Show it without stealing focus. The only way this window is ever shown. */
   show(): void {
     const w = this.window();

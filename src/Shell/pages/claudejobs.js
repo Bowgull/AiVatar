@@ -110,7 +110,9 @@ function onOf(j) {
   const i = curIndex(j), n = j.tasks.length;
   // Never the first thing typed into the session (2026-10-21: the rune read "job hunt data yes build the fit as is from
   // the research before phase 4"): the task in hand, or just "Working" when Claude keeps no to-do list.
-  const what = j.current || (i >= 0 ? j.tasks[i].active || j.tasks[i].text : '') || (j.phase === 'working' ? 'Working' : '');
+  // 2026-10-21 (his report: "Aang/Samara · Working" over a bar that also read "Working"): with no list and nothing in
+  // hand the title line stays quiet. "Working" is said once, beside the bar (leftOf), and the live line says what it is doing.
+  const what = j.current || (i >= 0 ? j.tasks[i].active || j.tasks[i].text : '');
   return n && i >= 0 ? `${what} · task ${i + 1} of ${n}` : what;
 }
 /* ---- THE PROGRESS ENGINE, the Shell's half (2026-10-21; the rules are at the top of src/Core/src/claudeprogress.ts
@@ -198,11 +200,25 @@ function agentsLine(agents) {
  * The drop-down's live lines (2026-10-21): what it is doing now, with how long, e.g. "Running the tests · npm test
  * (12 s)", and the helper agents. From the brain's activity; an older brain gives the task in hand.
  */
+// 2026-10-21 (his report: a job with no to-do list read "Working" two or three times): with nothing more to say than
+// that it works, this line stays empty. The words beside the bar (leftOf) already say "Working", once.
 function describeNow(j, now = Date.now()) {
   const a = j.activity;
-  if (!a) return { line: j.phase === 'paused' ? 'Paused' : j.current || (j.phase === 'working' ? 'Working' : ''), agents: '' };
-  const line = a.now ? (a.now === 'Paused' ? a.now : `${a.now} (${since(now - a.since)})`) : j.phase === 'working' ? 'Working' : '';
+  if (!a) return { line: j.phase === 'paused' ? 'Paused' : j.current || '', agents: '' };
+  const line = a.now ? (a.now === 'Paused' ? a.now : `${a.now} (${since(now - a.since)})`) : '';
   return { line, agents: agentsLine(a.agents) };
+}
+/**
+ * The words under the rune panel's big percent (2026-10-21, his report: "—% all done · Working"). With a list:
+ * "done · about 12 min left", and "all done" only when every task is. With no list there is no percent, so just the
+ * state ("Paused", "Resting"), and nothing at all when the ON NOW line above already says it (`said`), so "Working" is
+ * never said twice.
+ */
+function runeHeadLine(j, now = Date.now(), said = '') {
+  const m = liveProgress(j, now);
+  if (m.percent === null) return m.left === said || m.left === 'Working' ? '' : m.left;
+  if (m.percent >= 100) return 'all done';
+  return `done · ${m.left}`;
 }
 /** Keep an element's text live: `fn(now)` every frame while the strip (or rune panel) is on screen. */
 function liveText(e, fn) {
@@ -216,6 +232,15 @@ function livePill(w, ht, s, getJob, pal = SEA, glow = true) {
   const c = pill(w, ht, s, boundsOf(j), m.p, m.cur, pal, glow);
   anims.add(() => { const x = getJob(); if (!x) return; const n = liveProgress(x); c.setProgress(n.p, n.cur); });
   return c;
+}
+
+/**
+ * What an Open in Claude press asks main.ts for (2026-10-21, claudewire.ts claudeOpenTarget): the session's own app link,
+ * 'mac' for a job on the MacBook, or 'front' (the Claude app forward) when there is no app link. Never nothing.
+ */
+function openTarget(j) {
+  if (j?.machine === 'MAC') return 'mac';
+  return typeof j?.open === 'string' && /^claude:\/\/claude\.ai\/epitaxy\//.test(j.open) ? j.open : 'front';
 }
 
 /** Claude marks its suggested option "(Recommended)"; the card shows it as the turquoise BEST tag instead. */
@@ -274,7 +299,7 @@ function readWait(x) {
  */
 // Sheet 53 (2026-10-21): `stripOn` says whether the job bars are on screen. In the cockpit that is the cockpit being
 // open; in the one speech bubble it is the jobs he opened from Claude's working mark (every running job, each folded).
-export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWaiting, stripOn = isOpen }) {
+export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWaiting, stripOn = isOpen, onOpened = null }) {
   const strip = el('ckjobs'), pins = el('ckpins');
   let jobs = [], waits = [];
   const answered = new Set();        // answered here, still in the brain's last list until its next one
@@ -287,6 +312,11 @@ export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWa
   let toast = null, toastTimer = 0;
 
   const send = (m) => window.aang?.claude?.(m);
+  /**
+   * Open in Claude (2026-10-21, his rule): that session comes to the front in the Claude app (main.ts openInClaude) and
+   * Aang's bubble goes at once (`onOpened`), so the two never sit on top of each other.
+   */
+  const openIn = (j) => { window.aang?.openClaude?.(openTarget(j)); onOpened?.(); };
   const jobOf = (id) => jobs.find((j) => j.id === id);
   const live = () => waits.filter((w) => !answered.has(w.id));
   /**
@@ -378,8 +408,8 @@ export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWa
     const pp = btn('key sm', paused ? 'Play' : 'Pause');
     pp.addEventListener('click', (e) => { e.stopPropagation(); send(paused ? { t: 'claude.play', session: j.id } : { t: 'claude.pause', session: j.id }); });
     const op = btn('key sm primary', 'Open in Claude');
-    op.addEventListener('click', (e) => { e.stopPropagation(); if (j.open) window.aang?.openClaude?.(j.open); });
-    keys.append(pp); if (j.open) keys.append(op);   // a terminal session has no app link to open
+    op.addEventListener('click', (e) => { e.stopPropagation(); openIn(latest()); });
+    keys.append(pp, op);   // 2026-10-21: always; a terminal session (no app link) brings the Claude app forward instead
     const un = btn('untrack', 'STOP TRACKING');
     un.addEventListener('click', (e) => { e.stopPropagation(); untrack(j.id); });
     inner.append(list, keys, un); det.append(inner); d.append(det);
@@ -461,6 +491,9 @@ export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWa
     const last = [...j.tasks].reverse().find((t) => t.status === 'completed');
     on.append(h('small', '', last?.text || j.prompt || 'All done'));
     d.append(img, on);
+    // 2026-10-21 (his ask): the finished job is a door: a click takes him to that session in Claude (and Aang's bubble goes).
+    d.classList.add('go'); d.title = 'Open in Claude';
+    d.addEventListener('click', (e) => { e.stopPropagation(); openIn(jobOf(j.id) ?? j); });
     // The clock starts when it is first drawn in the open cockpit, so a job finishing while he is away is still seen.
     if (!doneTimers.has(j.id)) doneTimers.set(j.id, setTimeout(() => {
       const now = [...strip.querySelectorAll('.jdone')].find((x) => x.dataset.id === j.id);
@@ -675,8 +708,9 @@ export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWa
     // answer it, so the one key opens the session in Claude, where the question is still up.
     if (w.readonly) {
       card.append(h('p', 'q', w.plain || w.summary || `${w.project} is waiting for you.`), h('p', 'q', 'Open in Claude to answer.'));
-      const keys = h('div', 'ckeys'), j = jobOf(w.session);
-      if (j?.open) { const o = btn('key sm primary', 'Open in Claude'); o.addEventListener('click', (e) => { e.stopPropagation(); window.aang?.openClaude?.(j.open); }); keys.append(o); }
+      const keys = h('div', 'ckeys');
+      // 2026-10-21: always (the question is up in Claude; with no app link the Claude app at least comes forward).
+      { const o = btn('key sm primary', 'Open in Claude'); o.addEventListener('click', (e) => { e.stopPropagation(); openIn(jobOf(w.session) ?? null); }); keys.append(o); }
       card.append(keys);
       pins.append(card);
       return;
@@ -759,6 +793,18 @@ export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWa
     unpark() { parked = false; paintPins(); },
     /** Sheet 53: something is waiting on him in the brain, put away or not (a click on the working mark brings it back). */
     anyWaiting: () => live().length > 0,
+    /**
+     * 2026-10-21: where Open in Claude goes for a piece of Claude news (a finished message, its scroll-back row): that
+     * session's own link when it is known here, else the newest job of the same project, else null (the Claude app
+     * forward, the caller's choice).
+     */
+    openFor({ session, project } = {}) {
+      const byId = typeof session === 'string' ? jobs.find((j) => j.id === session) ?? complete.get(session) : null;
+      const p = typeof project === 'string' ? project.trim().toLowerCase() : '';
+      const byProject = !byId && p ? [...jobs, ...complete.values()].filter((j) => String(j.project).toLowerCase() === p || String(j.cwd ?? '').toLowerCase().endsWith(p)).sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0))[0] : null;
+      const j = byId ?? byProject;
+      return j ? openTarget(j) : null;
+    },
     /** Sheet 53: how many jobs are at work or waiting on him (what a click on the working mark would show). */
     // Not counting the ones out on his desktop (sheet 52): they are not in the bubble's list.
     running: () => jobs.filter((j) => running(j) && !popped.has(j.id)).length,
@@ -799,6 +845,6 @@ export { pill, animate, anims, SEA, SLATE, MSG, CL, readJob, curIndex, boundsOf,
 // The progress engine (2026-10-21): one model and one live look for every Claude bar. rune.js (and the pop-out) should
 // draw with livePill / liveText / liveProgress / describeNow rather than pill(pctOf(...)), so its bars creep, step and
 // never go back exactly as the cockpit's do.
-export { progressModel, liveProgress, livePill, liveText, describeNow, agentsLine, creep, DEFAULT_PACE_MS, SLOT_CAP };
+export { progressModel, liveProgress, livePill, liveText, describeNow, agentsLine, creep, DEFAULT_PACE_MS, SLOT_CAP, runeHeadLine };
 // 2026-10-21: move every live bar now (the brain's news just landed), and time the paint against the event.
-export { kick, notePaint };
+export { kick, notePaint, openTarget };

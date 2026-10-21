@@ -4,18 +4,23 @@
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent !important}
 body{display:block !important;padding:0 !important}
 
-.tabmenu{min-width:212px;user-select:none}
+/* 2026-10-21 (his report: "too small"): the readable size of Samara's enlarged tab drawer (commit 8ba0960): text 14.5 px,
+   taller rows, wider, the small labels and tags up to match. Only this menu; Samara's own tab menu keeps its size. */
+.tabmenu{min-width:252px;padding:7px;user-select:none}
 .tabmenu[hidden]{display:none}
-.tabmenu button{align-items:center;font-size:13.5px}
+.tabmenu button{align-items:center;font-size:14.5px;padding:9px 11px;min-height:38px}
+.tabmenu button:hover:not(:disabled){padding-left:36px}
 .tabmenu button.on{color:#ffe28c}
-.tabmenu button i{margin-left:14px;font-style:normal}
+.tabmenu button i{margin-left:16px;font-style:normal;font-size:10px}
 .tabmenu button i.st{color:#bfae8a}
-.tabmenu button i .ar{font:700 13px var(--body);margin-left:6px;vertical-align:-1px}
+.tabmenu button i .ar{font:700 15px var(--body);margin-left:7px;vertical-align:-1px}
 .tabmenu button:disabled .ic{opacity:.45}
-.tabmenu .mhead{font:400 8.5px var(--label);letter-spacing:1px;color:#bfae8a;padding:6px 9px 3px}
+.tabmenu .sep{margin:6px 2px}
+.tabmenu .mhead{font:400 10px var(--label);letter-spacing:1px;color:#bfae8a;padding:8px 11px 4px}
 
 /* the icon slot: a 9x9 hand-placed pixel icon at exactly 2x (plus its 1 px drop), before the words */
-.lab{display:inline-flex;align-items:center;gap:9px;white-space:nowrap}
-/* the drop pixel hangs outside the 18 px slot, so rows keep the mockup's height */
-.ic{width:19px;height:19px;flex:0 0 19px;margin:0 -1px -1px 0;image-rendering:pixelated;display:block}
-.ic.tk{margin-left:14px}
+.lab{display:inline-flex;align-items:center;gap:11px;white-space:nowrap}
+/* 2026-10-21: a 20 px slot like the drawer's icons. The art stays 9 pixels at exactly 2x (18 px, crisp, never scaled by a
+   fraction); the slot's extra 2 px take its 1 px drop and keep the words lined up. */
+.ic{width:19px;height:19px;flex:0 0 19px;margin:0 1px 0 0;image-rendering:pixelated;display:block}
+.ic.tk{margin-left:16px}

@@ -230,6 +230,10 @@ contextBridge.exposeInMainWorld('aang', {
   browserClaudeHello: () => ipcRenderer.send('browser:claudehello'),
   browserClaude: m => ipcRenderer.send('browser:claude', m),
   browserOpenClaude: url => ipcRenderer.send('browser:openclaude', url),
+  // 2026-10-21: the rune's panel in its own layer over the live page (browser.ts runeView). The band asks to open it
+  // ({ open, x, y, left, right }) or fold it; the layer folds it and says its size. The Shell says back what is open.
+  browserRune: a => ipcRenderer.send('browser:rune', a),
+  onBrowserRune(fn) { const h = (_e, s) => fn(s); ipcRenderer.on('browser:rune', h); return () => ipcRenderer.removeListener('browser:rune', h); },
   /** Find on page: the word, and whether this is Enter (next) or Shift+Enter (back). */
   browserFind: a => ipcRenderer.send('browser:find', a),
   browserFindStop: () => ipcRenderer.send('browser:findstop'),

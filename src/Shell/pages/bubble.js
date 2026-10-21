@@ -1287,6 +1287,18 @@ function recall(what) {
     return false;
   }
   if (bubble.hidden) endSessions();
+  // 2026-10-21 (his report: the jobs card stayed above the chat box): clicking Aang is the chat box, so a jobs card (or
+  // the old-sessions card) from Claude's mark goes. A question still waiting, or the line from the last 5 minutes, takes
+  // the bubble instead; otherwise it simply leaves.
+  if (!bubble.hidden && (jobsOpen || sessionsOpen)) {
+    endSessions(); endJobs();
+    if (waiting.length) { showTopAsk(); return true; }
+    if (lastShown && Date.now() - lastShownAt < RECENT_MS) return showRecent(lastShown);
+    clearTimeout(hideTimer); claude?.park();
+    if (overNow) { overNow = false; document.getElementById('wrap')?.classList.remove('over'); window.aang?.bubbleClickable?.(false); }
+    goAway();
+    return false;
+  }
   // His rule (2026-10-21): clicking Aang is the chat box plus ONE bubble at most. A hello from sliding out is not
   // something he said, so it gives way: the line from the last 5 minutes takes the same bubble, or it simply goes.
   if (!bubble.hidden && greetText && reveal.whole === greetText) {
@@ -1324,6 +1336,23 @@ function showJobs() {
 }
 /** Anything else taking the bubble ends the jobs view (the mark stays until the jobs are done). */
 function endJobs() { if (!jobsOpen) return; jobsOpen = false; claude?.refresh(); }
+/**
+ * 2026-10-21 (his report: Aang's "•••" showed inside the Claude jobs card, above the bars): he sent Aang something, so
+ * the jobs card gives way to Aang's answer. One bubble, never mixed: the bars and the "Claude is on N jobs" line go, his
+ * question goes on the line above, and the dots (then the reply) come under it. The old-sessions card goes the same way.
+ */
+function jobsGiveWay() {
+  if (!jobsOpen && !sessionsOpen) return;
+  endSessions(); endJobs();
+  if (bubble.hidden) return;
+  reveal.start('', false); reveal.skip();
+  bubble.classList.remove('wide', 'widest', 'whisper');
+  setSpeaker(null);
+  const line = asked.replace(/\s+/g, ' ').trim();
+  who.textContent = line.length > 50 ? line.slice(0, 49).trimEnd() + '…' : line;
+  who.hidden = !who.textContent;
+  paint(); fit(); reportSize();
+}
 
 // ---------------------------------------------------------------- Claude's mark, clicked (2026-10-21)
 // The pet tells us the mark was clicked (`mark.click`, worked out from its own drawing) and the brain adds the sessions
@@ -1339,6 +1368,8 @@ function markClick(sessions) {
   if (claude && (claude.anyWaiting() || claude.running() > 0)) return recall('jobs');
   endSessions();
   if (reading) leaveReading(false);
+  // 2026-10-21: else exactly the sessions the brain lit the mark for (every source, one list), so a lit mark never
+  // answers "not working". Only an empty list says so, and then the mark is off too.
   const list = (Array.isArray(sessions) ? sessions : []).filter((s) => s && typeof s.project === 'string' && s.project).slice(0, 4);
   if (!list.length) { greetText = ''; showWhisper({ text: 'Claude isn’t working on anything right now.' }); return true; }
   showSessions(list);
@@ -1356,15 +1387,20 @@ function showSessions(list) {
   for (const id of ['means', 'exact', 'mailcard']) { const e = document.getElementById(id); if (e) e.hidden = true; }
   setSpeaker(null);
   const cut = (t) => { const s = String(t || '').replace(/\s+/g, ' ').trim(); return s.length > 90 ? s.slice(0, 89).trimEnd() + '…' : s; };
+  // 2026-10-21: the brain's one list (claudemark.ts claudeBusy), so a job can be here too (paused, failed, or popped out).
   const lines = list.map((s) => [s.project, s.phase === 'waiting'
     ? (s.what ? `is waiting on you: ${cut(s.what)}` : 'is waiting on you.')
+    : s.phase === 'paused' ? 'is paused.' : s.phase === 'failed' ? 'stopped with an error.'
     : (s.what ? `is working on “${cut(s.what)}”` : 'is working.')]);
-  lines.push(['', 'Live progress shows for Claude sessions started from now on.']);
-  // The old path (PetWindow.ExplainAndGoToWorking) can only bring Claude itself forward, not one session in it, so one
-  // key per machine rather than a row of identical ones.
+  if (list.some((s) => s.source === 'hook' || s.source === 'launched' || !s.source)) lines.push(['', 'Live progress shows for Claude sessions started from now on.']);
+  // One key per machine rather than a row of identical ones. With exactly one session here that the app knows, its own
+  // link (that session to the front, main.ts openInClaude); otherwise the Claude window comes forward. Either way the
+  // bubble goes at once (his rule, 2026-10-21).
   const keys = [];
-  if (list.some((s) => s.host !== 'mac')) keys.push({ label: 'Open in Claude', key: 'C', primary: true, go: () => { window.aang?.focusWindow?.('Claude'); cardDone(); } });
-  if (list.some((s) => s.host === 'mac')) keys.push({ label: 'Open on the MacBook', key: 'M', primary: !keys.length, go: () => { window.aang?.macFront?.(); cardDone(); } });
+  const pc = list.filter((s) => s.host !== 'mac');
+  const one = pc.length === 1 && typeof pc[0].open === 'string' && /^claude:\/\/claude\.ai\/epitaxy\//.test(pc[0].open) ? pc[0].open : 'front';
+  if (pc.length) keys.push({ label: 'Open in Claude', key: 'C', primary: true, go: () => { window.aang?.openClaude?.(one); closeForClaude(); } });
+  if (list.some((s) => s.host === 'mac')) keys.push({ label: 'Open on the MacBook', key: 'M', primary: !keys.length, go: () => { window.aang?.macFront?.(); closeForClaude(); } });
   bubble.classList.remove('enter'); void bubble.offsetWidth; bubble.classList.add('enter');
   show();
   dropMessage(list.length === 1 ? 'CLAUDE IS WORKING' : `CLAUDE · ${COUNT[list.length] ?? list.length} SESSIONS`.toUpperCase(), '', lines, keys);
@@ -1393,7 +1429,7 @@ function onBrain(m) {
   if (sessionsOpen && SESSION_ENDERS.has(m.t)) endSessions();
 
   // What he just asked, for the line above the answer. Kept until the next thing he says.
-  if (m.t === 'asked' && typeof m.text === 'string') { asked = m.text; if (cockpit) cockSaid(m.text); return; }
+  if (m.t === 'asked' && typeof m.text === 'string') { asked = m.text; if (cockpit) cockSaid(m.text); else jobsGiveWay(); return; }
 
   // An ask takes priority: it is the one thing that must be answered before anything else happens.
   // It joins the queue rather than replacing what is there, and the queue decides which is on top.
@@ -1460,7 +1496,8 @@ function onBrain(m) {
     // Something new to say ends looking back: the scroll-back steps aside for it.
     if (reading && !m.stream) leaveReading(false);
     // Sheet 53: the jobs view is this one line plus the bars; anything else said ends it.
-    if (!m.stream && !cockpit) { const want = m.jobsView === true; if (want !== jobsOpen) { jobsOpen = want; claude?.refresh(); } }
+    // 2026-10-21: a streamed reply ends it too (it used to wait for the finished one, so his answer began over the bars).
+    if (!cockpit) { const want = m.jobsView === true && !m.stream; if (want !== jobsOpen) { jobsOpen = want; claude?.refresh(); } }
     // The open cockpit (2026-10-21): a question pinned in the live area stays pinned, so anything said meanwhile goes
     // straight into the conversation as a row (a brief or a video row opens there). Otherwise the thing that was live
     // joins the conversation first, and this one takes the live area under it.
@@ -1547,6 +1584,11 @@ function onBrain(m) {
     // Only on the finished reply, like the rows: a streamed delta is the same reply arriving again.
     if (!m.stream) focusWindow = typeof m.focus === 'string' && m.focus ? m.focus : null;
     if (!m.stream) macSession = m.host === 'mac';
+    // 2026-10-21 (his ask): Claude's "finished" news is a door to that session: a click takes him there (goDone).
+    if (!m.stream) {
+      claudeDone = m.kind === 'claude' && m.done === true ? { session: m.session, open: m.open, project: m.project, host: m.host } : null;
+      bubble.classList.toggle('cdone', Boolean(claudeDone));
+    }
     if (!m.stream) linkWord = (focusWindow || macSession) ? (typeof m.link === 'string' && m.link ? m.link : 'Claude') : '';
     if (!m.stream) holdOverride = Number.isFinite(m.hold) && m.hold > 0 ? m.hold : 0;
     // HIS QUESTION, not the model's name. The old bubble puts what he asked here, dimmed and cut at 50
@@ -1580,6 +1622,7 @@ function onBrain(m) {
     return;
   }
   if (m.t === 'bubble.dots') {
+    if (m.on !== false && !cockpit) jobsGiveWay();
     working.hidden = m.on === false;
     doing.textContent = typeof m.doing === 'string' ? m.doing : '';
     if (m.on !== false) show();
@@ -1812,6 +1855,9 @@ bubble.addEventListener('click', e => {
   // Sheet 17: the notes board, a note being edited, its menu and the timer dial are things he works IN.
   // A click there was docking the typing box over them and taking the keyboard away (his test, 2026-10-12).
   if (e.target.closest('.boardwrap, .nmini, .bignote, .inline, .ctitle, .tset, .newk, .bcap')) return;
+  // 2026-10-21 (his ask): a finished Claude job's news takes him to that session, not to the cockpit (sheet 16's rule
+  // stays for every other Claude message).
+  if (claudeDone && !cockpit && !asking) { goDone(claudeDone); return; }
   // "Need input in Claude": take him straight to that session's window, and let the reply go. This
   // sits ABOVE skip-reveal for the same reason the C# puts it there - it is a decision, not
   // impatience with the typing.
@@ -2183,6 +2229,8 @@ function openClaude() {
  * else (an undock, the wheel) never takes a question away, as before.
  */
 function dismiss(why) {
+  // 2026-10-21: Open in Claude was pressed somewhere (main.ts openInClaude): the bubble goes at once, no fade.
+  if (why === 'openclaude') { closeForClaude(); return; }
   if (bubble.hidden) return;
   // Sheet 53: the chat box closed. Only the "N MIN AGO" line that came back with it goes too.
   if (why === 'boxclosed') { if (recentOpen) { clearTimeout(hideTimer); goAway(); } return; }
@@ -2190,6 +2238,10 @@ function dismiss(why) {
   if (asking && !his) return;
   if (cockpit) return;                   // the open cockpit closes through the main process (input.close), right behind this
   if (his) { parkAsks(); claude?.park(); }
+  // 2026-10-21 (his report: a click in Samara left the jobs card up): he clicked somewhere else, so the mouse is not on
+  // the bubble, whatever the hover flag still says. A window that lets the mouse through can miss the pointer leaving
+  // (it went straight onto another window), and a stale "over" made goAway refuse.
+  if (his && overNow) { overNow = false; document.getElementById('wrap')?.classList.remove('over'); window.aang?.bubbleClickable?.(false); }
   clearTimeout(hideTimer);
   goAway();
 }
@@ -2212,6 +2264,8 @@ const lbCtx = () => ({
   onLink: (url) => window.aang?.openThing?.({ kind: 'link', value: url }),
   onReply: (t) => { lbReplying = t.id; window.aang?.replyToTurn?.(t.id, t.text); paintBack('top'); },
   onUndo: (t) => window.aang?.undoTurn?.(t.id),
+  // 2026-10-21: a finished Claude job's row in the scroll-back takes him to that session.
+  onClaudeDone: (t) => { const x = t.extra ?? {}; goDone({ session: x.session, open: x.open, project: x.project, host: x.host }); },
   onForgetPlan: (t) => window.aang?.forgetPlan?.({ id: t.id, task: String(t.extra?.plan?.title ?? ''), extra: t.extra }),
   // Open the whole thing, as it first looked: the brief or the research comes back into the bubble.
   onFull: (t) => {
@@ -2406,7 +2460,42 @@ claude = startClaude({
   },
   onWaiting: (has, fresh) => claudeWaiting(has, fresh),
   stripOn: () => cockpit || jobsOpen,
+  onOpened: () => closeForClaude(),
 });
+/** The finished Claude news on show now ({ session, open, project, host }), or null. */
+let claudeDone = null;
+/**
+ * 2026-10-21 (his ask: "click into a done Claude task ... and be taken to that job"): THAT session to the front in the
+ * Claude app: its own link from the brain, else the job with that id or project the bubble knows, else the Claude app
+ * forward; on the MacBook, the Mac's Claude. The bubble goes at once (closeForClaude).
+ */
+function goDone(d) {
+  const link = typeof d?.open === 'string' && /^claude:\/\/claude\.ai\/epitaxy\//.test(d.open) ? d.open : null;
+  const target = d?.host === 'mac' ? 'mac' : link ?? claude?.openFor?.({ session: d?.session, project: d?.project }) ?? 'front';
+  window.aang?.openClaude?.(target);
+  if (reading) leaveReading(false);
+  claudeDone = null; bubble.classList.remove('cdone');
+  closeForClaude();
+}
+/**
+ * 2026-10-21 (his rule): Open in Claude closes Aang's bubble at once, no fade, so it never sits over the session coming to
+ * the front. A Claude question it showed stays waiting in the brain (parked, as a click away does). The open cockpit
+ * closes through the main process like any other click away.
+ */
+function closeForClaude() {
+  if (cockpit) { window.aang?.inputClose?.(); return; }
+  if (bubble.hidden) return;
+  clearTimeout(hideTimer);
+  parkAsks(); claude?.park();
+  endSessions(); endJobs();
+  recentOpen = false; wrapEl?.classList.remove('ago');
+  closeBoard();
+  bubble.hidden = true;
+  snapShut();
+  if (overNow) { overNow = false; document.getElementById('wrap')?.classList.remove('over'); }
+  window.aang?.bubbleClickable?.(false);
+  window.aang?.bubbleHidden?.();
+}
 /**
  * Sheet 52 (2026-10-21): what the torn-off job windows tell the bubble.
  *   back  dropped on Aang or his bubble: the bar slides back into the list (opening the jobs if the bubble was closed);

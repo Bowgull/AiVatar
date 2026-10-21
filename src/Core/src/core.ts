@@ -63,8 +63,8 @@ import { HookServer, HookTracker, isLoopback, projectName } from './hooks.ts';
 import { JobTracker, LinkDoor, LinkPusher, clearLinkKey, newLinkKey } from './claudelink.ts';
 /** 2026-10-21: one line per Claude jobs push with the time each hop took (session -> brain -> Shell), for measuring. */
 const PROGRESS_TRACE = process.env.AANG_PROGRESS_TRACE === '1';
-import type { Answer as LinkAnswer } from './claudelink.ts';
-import { MarkDeriver } from './claudemark.ts';
+import type { Answer as LinkAnswer, Job, WaitItem } from './claudelink.ts';
+import { MarkDeriver, claudeNow } from './claudemark.ts';
 import { FrontGate } from './claudefront.ts';
 import { plainAsk, preciseReply } from './plainwords.ts';
 import { SessionNames } from './claudenames.ts';
@@ -2127,7 +2127,9 @@ export class Core {
    * what each is waiting on him for. list() and waiting() read it; answer(), send(), pause(), play() and setModel()
    * act on it. The Shell is told of every change (claude.jobs / claude.wait) and answers with the claude.* messages.
    */
-  readonly claudeJobs = new JobTracker(new SessionNames());
+  /** His names for Claude sessions and their app links (claudenames.ts); also read for Claude news (claudeWhere). */
+  private readonly claudeNames = new SessionNames();
+  readonly claudeJobs = new JobTracker(this.claudeNames);
   /**
    * The two models that do the plain-words work (plainwords.ts): Qwen on this PC first, free, and it steps aside by
    * itself while a game holds the graphics card; then Claude's quick model, with no tools and thinking off.
@@ -2155,10 +2157,25 @@ export class Core {
   }
   /** C5 (2026-10-21): the one mark over his head and its chime, worked out here from the same two lists the Shell gets. */
   private readonly claudeMarks = new MarkDeriver();
-  private pushClaudeMark(): void {
-    const m = this.claudeMarks.update(this.claudeJobs.list(), this.claudeJobs.waiting(), this.workingNow().working);
+  private pushClaudeMark(st = this.claudeState()): void {
+    const m = this.claudeMarks.update(st.jobs, st.waits, st.alsoWorking);
     if (m) this.sendTo('desktop', m);
   }
+  /**
+   * 2026-10-21 (his report: the honey mark was up, and clicking it said Claude was not working): the ONE answer to
+   * "is Claude working", from every source (claudemark.ts claudeNow). The mark, the old claude.working and the
+   * mark-click card are all read from this, so they cannot disagree.
+   */
+  private claudeState(now = Date.now()): ReturnType<typeof claudeNow> & { jobs: Job[]; waits: WaitItem[] } {
+    const jobs = this.claudeJobs.list(now), waits = this.claudeJobs.waiting();
+    return { ...claudeNow({ jobs, waits, hooks: this.hooks.sessions.values(), launched: this.launched, now,
+      lastWrite: (p) => { try { return statSync(p).mtimeMs; } catch { return 0; } } }), jobs, waits };
+  }
+  /**
+   * The stale rule is about time passing with nothing said, so no event will ever arrive to re-check it: a hook session
+   * that died mid-turn would hold the mark up for good. A look once a minute lets it go (only a change is sent).
+   */
+  private busyTimer: NodeJS.Timeout | null = null;
   /**
    * The jobs list to the Shell, as fast as it changes (2026-10-21, supercharged: claudelink.ts LinkPusher). It was a
    * flat 80 ms coalesce; now it goes on the next turn of the event loop, and only rapid tool chatter is spaced 16 ms
@@ -2170,13 +2187,13 @@ export class Core {
     const tx = Date.now();
     this.sendTo('desktop', { t: 'claude.jobs', jobs: this.claudeJobs.list(tx), ...(tr ? { lat: { ev: tr.ev, rx: tr.rx, tx, type: tr.type, ...(PROGRESS_TRACE ? { trace: true } : {}) } } : {}) });
     if (PROGRESS_TRACE && tr) console.error(`progress trace: ${tr.type} session->brain ${tr.rx - tr.ev} ms, brain->push ${tx - tr.rx} ms (list ${Date.now() - tx} ms)`);
-    this.pushClaudeMark();
+    this.pushClaudeWorking();   // 2026-10-21: the old signal too (it now counts link jobs), then the mark
   });
   /** Sessions read from their transcripts (claudescan.ts); null in tests. */
   private claudeScan: TranscriptScan | null = null;
   private pushClaudeLink(what: 'jobs' | 'wait', urgent = false): void {
     // A wait coming or going also changes a job's live line ("Waiting for your OK"), so the jobs follow it at once.
-    if (what === 'wait') { this.sendTo('desktop', { t: 'claude.wait', items: this.claudeJobs.waiting() }); this.pushClaudeMark(); urgent = true; }
+    if (what === 'wait') { this.sendTo('desktop', { t: 'claude.wait', items: this.claudeJobs.waiting() }); this.pushClaudeWorking(); urgent = true; }
     this.claudePusher.ask(urgent);
   }
   /** The program in front, as the pet last said (its process name). Kept whether or not he lets Aang watch windows. */
@@ -2533,7 +2550,7 @@ export class Core {
         mine.updatedAt = Date.now();
         this.saveLaunched();
         this.pushClaudeWorking();
-        if (news && !(this.inClaude() && !remote)) void this.announceJob(news, mine.cwd, { asked: true, focus: CLAUDE_WINDOW });
+        if (news && !(this.inClaude() && !remote)) void this.announceJob(news, mine.cwd, { asked: true, focus: CLAUDE_WINDOW, ...(mine.sessionId ? { session: mine.sessionId } : {}) });
         return;
       }
       // A session he started himself, outside Aang, still gets the same two tiers - his rule, 2026-09-22:
@@ -2548,8 +2565,8 @@ export class Core {
       if (said && !(this.inClaude() && !remote)) {
         const text = remote ? said.text.replace(/^Claude Code/, 'Claude Code on the MacBook') : said.text;
         const where = remote ? { host: 'mac' as const } : { focus: CLAUDE_WINDOW };
-        const claude = said.session.project;
-        this.announce(text, said.kind === 'waiting' ? { asked: true, blocking: true, claude, ...where } : { asked: true, done: true, claude, ...where });
+        const claude = said.session.project, session = said.session.id;
+        this.announce(text, said.kind === 'waiting' ? { asked: true, blocking: true, claude, session, ...where } : { asked: true, done: true, claude, session, ...where });
       }
     }, this.keyFile('hook.key'), code => this.setupFor(code),
     // M2: the MacBook's "is Shadow on?" (one Aang across both machines). Up, and whether he is at this PC.
@@ -2560,6 +2577,8 @@ export class Core {
     this.claudeJobs.onChange = (what, urgent) => this.pushClaudeLink(what, urgent);
     // His ask (2026-10-21): the sessions already running show at once, even before their mods reach this brain.
     if (this.cfg.scanTranscripts) { this.claudeScan = new TranscriptScan(this.claudeJobs, { selfCwd: () => this.selfCwd() }); this.claudeScan.start(); }
+    // 2026-10-21: the stale rule for the mark (claudeState) needs a look as time passes, not only on events.
+    this.busyTimer = setInterval(() => this.pushClaudeWorking(), 60_000); this.busyTimer.unref?.();
     // Plain words (2026-10-21): every new ask is rewritten in the background; the card shows Claude's own summary
     // until then, and keeps it if the rewrite fails.
     this.claudeJobs.onAsk = item => { void plainAsk(item, this.plainAsks()).then(r => { if (r) this.claudeJobs.setPlain(item.id, r.plain, r.options); }); };
@@ -2683,6 +2702,7 @@ export class Core {
     this.claudeJobs.close();
     this.claudePusher.close();
     this.claudeScan?.stop();
+    if (this.busyTimer) { clearInterval(this.busyTimer); this.busyTimer = null; }
     // A turn still active when the Core is asked to stop had a live TURN_TIMEOUT_MS watchdog with nothing
     // ever clearing it (found 2026-09-24, diagnosing a stalled test: the timer is now unref'd so it can never
     // block process exit on its own, but it should also just not fire at all against a Core that is gone).
@@ -3140,26 +3160,16 @@ export class Core {
   private workingNow(): { working: boolean; what?: string; host?: 'mac' } {
     // 'waiting' on a Launched job always means "typed in, Enter not pressed yet" (JobState's own doc comment,
     // set once at startClaude(), never re-entered by nextState()) - it can NEVER mean a real session is
-    // running. Counting it here made the glow turn on the instant a request was typed into a new Claude
-    // window, before anything had actually started (2026-09-23, approved fix: "only count it once it's really
-    // running"). A session that legitimately needs him mid-run is 'needs you', not 'waiting', and is announced
-    // separately when it happens; it is not folded into this continuous signal.
-    const job = this.launched.find(l => l.state === 'working');
-    if (job) return { working: true, what: job.name };
-    const live = [...this.hooks.sessions.values()]
-      .filter(s => s.phase === 'working' || s.phase === 'waiting')
-      .sort((a, b) => b.changedAt - a.changedAt)[0];
-    if (live) return { working: true, what: live.project, ...(live.host ? { host: live.host as 'mac' } : {}) };
-    return { working: false };
+    // running (2026-09-23, approved fix: "only count it once it's really running"). 2026-10-21: worked out in
+    // claudemark.ts claudeBusy with every other source, so this, the mark and the mark-click card always agree.
+    return this.claudeState().working;
   }
   private lastPushedWorking = '';
   private pushClaudeWorking(): void {
-    const now = this.workingNow();
+    const st = this.claudeState(), now = st.working;
     const key = JSON.stringify(now);
-    if (key === this.lastPushedWorking) return;
-    this.lastPushedWorking = key;
-    this.sendTo('desktop', { t: 'claude.working', ...now });
-    this.pushClaudeMark();
+    if (key !== this.lastPushedWorking) { this.lastPushedWorking = key; this.sendTo('desktop', { t: 'claude.working', ...now }); }
+    this.pushClaudeMark(st);   // even with no change above: the mark may still have changed (a wait, a hook gone stale)
   }
 
   private onBody(ws: WebSocket, m: FromBody): void {
@@ -3177,8 +3187,7 @@ export class Core {
           if (this.lastBubbleState) this.send(ws, this.lastBubbleState);
         }
         const q = this.quotaMessage(); if (q) this.send(ws, q);
-        if (this.kindOfSocket(ws) === 'desktop') this.send(ws, { t: 'claude.working', ...this.workingNow() });
-        if (this.kindOfSocket(ws) === 'desktop') this.send(ws, this.claudeMarks.now(this.claudeJobs.list(), this.claudeJobs.waiting(), this.workingNow().working));
+        if (this.kindOfSocket(ws) === 'desktop') { const st = this.claudeState(); this.send(ws, { t: 'claude.working', ...st.working }); this.send(ws, this.claudeMarks.now(st.jobs, st.waits, st.alsoWorking)); }
         if (m.shell === true) this.send(ws, { t: 'timer.state', timers: this.timers.list() });
         if (m.shell === true) this.send(ws, { t: 'notes.state', notes: this.notes.list() });
         if (m.shell === true) { this.send(ws, { t: 'claude.jobs', jobs: this.claudeJobs.list() }); this.send(ws, { t: 'claude.wait', items: this.claudeJobs.waiting(), ...(this.inClaude() ? { quiet: true } : {}) }); }
@@ -3226,10 +3235,9 @@ export class Core {
       case 'bubble.state': this.lastBubbleState = { t: 'bubble.state', quiet: m.quiet === true, hidden: m.hidden === true, muted: m.muted === true }; this.sendTo('desktop', this.lastBubbleState); break;
       case 'pet.say': case 'outside.click': case 'bubble.busy': case 'bubble.focus.failed': this.sendTo('desktop', m); break;
       // 2026-10-21: he clicked Claude's mark over the pet's head. The Shell's bubble shows the link jobs it already has,
-      // else these: the older hook-tracked sessions (started before the link mod) that light the same mark.
-      case 'mark.click': this.sendToShells({ t: 'mark.click', sessions: [...this.hooks.sessions.values()]
-        .filter(s => s.phase === 'working' || s.phase === 'waiting').sort((a, b) => b.changedAt - a.changedAt).slice(0, 4)
-        .map(s => ({ project: s.project, phase: s.phase === 'waiting' ? 'waiting' as const : 'working' as const, what: (s.phase === 'waiting' ? s.waitingFor : s.prompt).slice(0, 140), ...(s.host ? { host: s.host } : {}) })) }); break;
+      // else these. They are exactly the sessions that light the mark (claudeState, one list), every source: link and
+      // transcript jobs, hook-tracked sessions, launched ones. Never "not working" under a lit mark.
+      case 'mark.click': this.sendToShells({ t: 'mark.click', sessions: this.claudeState().sessions.slice(0, 4) }); break;
       // Sheet 17's wheel: the pet says when it is held and where it was let go; the Shell draws it. Quiet goes back to the pet.
       case 'wheel.open': case 'wheel.release': this.sendToShells({ t: m.t, x: Number(m.x) || 0, y: Number(m.y) || 0 }); break;
       case 'quiet.toggle': this.sendTo('desktop', { t: 'quiet.toggle' }); break;
@@ -4150,7 +4158,7 @@ export class Core {
     setTimeout(() => this.offerFact(), 45_000).unref?.();
   }
 
-  announce(text: string, opts: { links?: { label: string; url: string }[]; asked?: boolean; focus?: string; jobCwd?: string; image?: { data: string; mimeType: string }; blocking?: boolean; done?: boolean; host?: 'mac'; reminder?: string; brief?: BriefCard; research?: import('./watch.ts').ResearchCard & { file?: string }; about?: { url: string; title: string; thumb?: string }; face?: { img: string; name: string }; claude?: string } = {}): void {
+  announce(text: string, opts: { links?: { label: string; url: string }[]; asked?: boolean; focus?: string; jobCwd?: string; image?: { data: string; mimeType: string }; blocking?: boolean; done?: boolean; host?: 'mac'; reminder?: string; brief?: BriefCard; research?: import('./watch.ts').ResearchCard & { file?: string }; about?: { url: string; title: string; thumb?: string }; face?: { img: string; name: string }; claude?: string; session?: string } = {}): void {
     // Whatever is said last is what a reply is most likely about, whether it lands now or only once hush/quiet
     // lets it through - see withAnnounced(). Its link goes with it (2026-10-14): "put it on" needs no search.
     this.lastAnnounced = { text, at: Date.now(), ...(opts.about ? { url: opts.about.url } : {}) };
@@ -4168,7 +4176,7 @@ export class Core {
       ...(opts.reminder ? { reminder: opts.reminder } : {}), ...(opts.brief ? { brief: opts.brief } : {}), ...(opts.links?.length ? { links: opts.links } : {}), ...(opts.research ? { research: opts.research } : {}),
       ...(opts.face ? { face: opts.face } : {}),
       // Sheet 48 (2026-10-21): news from a Claude Code session says so, with its project, so it gets Claude's paper.
-      ...(opts.claude ? { kind: 'claude' as const, project: opts.claude } : {}),
+      ...(opts.claude ? { kind: 'claude' as const, project: opts.claude, ...this.claudeWhere(opts.session) } : {}),
     };
     /**
      * Store it as a turn, and carry the row id out with the message.
@@ -4191,7 +4199,7 @@ export class Core {
         ...(opts.about ? { about: opts.about } : {}), ...(opts.brief ? { brief: opts.brief } : {}),
         ...(opts.research ? { research: opts.research } : {}), ...(opts.links?.length ? { links: opts.links } : {}),
         ...(opts.reminder ? { reminder: opts.reminder } : {}), ...(this.whereHeIs() === 'discord' ? { away: true } : {}),
-        ...(opts.claude ? { kind: 'claude', project: opts.claude } : {}),
+        ...(opts.claude ? { kind: 'claude', project: opts.claude, ...this.claudeWhere(opts.session), ...(done ? { done: true } : {}), ...(opts.host ? { host: opts.host } : {}) } : {}),
       };
       const row = this.memory.saveSaid(text, 'say', Object.keys(extra).length ? extra : undefined);
       if (row !== null) { msg.turn = row; if (opts.about) { this.linkOfTurn.set(row, opts.about.url); while (this.linkOfTurn.size > 300) this.linkOfTurn.delete(this.linkOfTurn.keys().next().value as number); } }
@@ -4216,7 +4224,13 @@ export class Core {
    * something he is actually waiting on - so the first few updates may be text only, until he has said yes once
    * (to send_to_phone, or here) in the ordinary way.
    */
-  private async announceJob(text: string, cwd: string, opts: { asked?: boolean; focus?: string } = {}): Promise<void> {
+  /** 2026-10-21: which session a piece of Claude news is about, and its app link when the Claude app knows it. */
+  private claudeWhere(session?: string): { session?: string; open?: string } {
+    if (!session || !/^[A-Za-z0-9-]{8,100}$/.test(session)) return {};
+    const open = this.claudeJobs.list().find(j => j.id === session)?.open ?? this.claudeNames.of(session)?.open ?? null;
+    return { session, ...(open ? { open } : {}) };
+  }
+  private async announceJob(text: string, cwd: string, opts: { asked?: boolean; focus?: string; session?: string } = {}): Promise<void> {
     let image: { data: string; mimeType: string } | undefined;
     if (this.whereHeIs() === 'discord' && this.trust.allowed('send to Discord') && this.clientsOf('desktop').length && !this.looking) {
       if (this.trust.allowed('arrange windows')) { try { await this.hands('arrange', 'Claude', 'front'); } catch { /* best effort */ } }

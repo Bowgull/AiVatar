@@ -54,6 +54,20 @@ export function claudeMessage(raw: unknown): Record<string, unknown> | null {
   }
 }
 
+/**
+ * 2026-10-21 (his rule: "Open in Claude" must never do nothing): what an Open in Claude press may ask for. The exact
+ * session link (opened, then the Claude window brought to the front), 'front' for a job with no known app link (a
+ * terminal session: the Claude app comes forward at least), or 'mac' for a job on the MacBook (the Mac brings its
+ * Claude forward). Anything else is dropped.
+ */
+export type ClaudeOpen = { kind: 'link'; url: string } | { kind: 'front' } | { kind: 'mac' };
+export function claudeOpenTarget(raw: unknown): ClaudeOpen | null {
+  if (raw === 'front') return { kind: 'front' };
+  if (raw === 'mac') return { kind: 'mac' };
+  const url = claudeLink(raw);
+  return url ? { kind: 'link', url } : null;
+}
+
 /** A session's deep link, exactly claude://claude.ai/epitaxy/<id> (the app's ids are local_<uuid>, 2026-10-21), or null. Anything else is never handed to the shell. */
 export function claudeLink(raw: unknown): string | null {
   return typeof raw === 'string' && /^claude:\/\/claude\.ai\/epitaxy\/(local_)?[A-Za-z0-9-]{8,100}$/.test(raw) ? raw : null;

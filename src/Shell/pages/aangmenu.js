@@ -129,29 +129,49 @@ const even = (el) => { el.style.width = ''; const w = el.getBoundingClientRect()
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(v, hi));
 const EDGE = 4;
 
-/** Opens at the mouse, to its right and below; up from the mouse when there is no room below (he stands at the bottom),
- *  to its left when there is no room on the right (docked on the right edge). Always kept on the screen. */
+/** Aang and his mark, in this page's pixels (main.ts avoidRect); with none, just the mouse point. */
+let avoid = null;
+const GAP = 2;
+const hits = (a, b) => a.x < b.x + b.width && b.x < a.x + a.w && a.y < b.y + b.height && b.y < a.y + a.h;
+const fits = (c, W, H) => c.x >= EDGE && c.y >= EDGE && c.x + c.w <= W - EDGE && c.y + c.h <= H - EDGE;
+/**
+ * 2026-10-21 (his report: at the bottom-right corner it opened ON TOP of Aang): the menu goes BESIDE Aang and his mark,
+ * never over them. The side with more room first (so near the right edge it opens to his left), level with the mouse:
+ * down from it when there is room, else up from it (he stands at the bottom), slid to stay on the screen. Only if
+ * neither side has room does it go above him, then below. Always fully on the screen.
+ */
 function placeMain() {
   const W = innerWidth, H = innerHeight;
   main.style.left = '0px'; main.style.top = '0px';
   even(main);
-  const r = main.getBoundingClientRect();
-  let x = at.x + 2, y = at.y;
-  if (x + r.width > W - EDGE) x = at.x - 2 - r.width;
-  if (y + r.height > H - EDGE) y = at.y - r.height;
-  x = clamp(x, EDGE, W - EDGE - r.width); y = clamp(y, EDGE, H - EDGE - r.height);
-  main.style.left = Math.round(x) + 'px'; main.style.top = (Math.round(y / P) * P) + 'px';
+  const r = main.getBoundingClientRect(), w = r.width, h = r.height;
+  const A = avoid ?? { x: at.x, y: at.y, width: 0, height: 0 };
+  // Level with the mouse: down from it, or up from it when the bottom is near; then kept on the screen.
+  const yAt = clamp(at.y + h > H - EDGE ? at.y - h : at.y, EDGE, H - EDGE - h);
+  const xAt = clamp(at.x, EDGE, W - EDGE - w);
+  const left = { x: A.x - GAP - w, y: yAt, w, h }, right = { x: A.x + A.width + GAP, y: yAt, w, h };
+  const above = { x: xAt, y: A.y - GAP - h, w, h }, below = { x: xAt, y: A.y + A.height + GAP, w, h };
+  const sides = A.x + A.width / 2 > W / 2 ? [left, right] : [right, left];
+  const c = [...sides, above, below].find((k) => fits(k, W, H)) ?? sides[0];
+  main.style.left = Math.round(clamp(c.x, EDGE, W - EDGE - w)) + 'px';
+  main.style.top = (Math.round(clamp(c.y, EDGE, H - EDGE - h) / P) * P) + 'px';
 }
-/** The submenu beside its row, overlapping the main menu's rim by 4 px (the mockup); on the left when the right is full. */
+/**
+ * The submenu beside its row, overlapping the main menu's rim by 4 px (the mockup). 2026-10-21: it opens on the side AWAY
+ * from Aang (opening toward him would cover him again), flips to the other side when that one runs off the screen, and
+ * is always kept on the screen.
+ */
 function placeSub(parent) {
   const W = innerWidth, H = innerHeight;
   sub.style.left = '0px'; sub.style.top = '0px';
   even(sub);
-  const mr = main.getBoundingClientRect(), pr = parent.getBoundingClientRect(), r = sub.getBoundingClientRect();
-  let x = mr.right - 4;
-  if (x + r.width > W - EDGE) x = mr.left + 4 - r.width;
-  const y = clamp(Math.round((pr.top - 9) / P) * P, EDGE, H - EDGE - r.height);
-  sub.style.left = Math.round(clamp(x, EDGE, W - EDGE - r.width)) + 'px'; sub.style.top = y + 'px';
+  const mr = main.getBoundingClientRect(), pr = parent.getBoundingClientRect(), r = sub.getBoundingClientRect(), w = r.width, h = r.height;
+  const y = clamp(Math.round((pr.top - 9) / P) * P, EDGE, H - EDGE - h);
+  const right = { x: mr.right - 4, y, w, h }, left = { x: mr.left + 4 - w, y, w, h };
+  const A = avoid ?? { x: at.x, y: at.y, width: 0, height: 0 };
+  const sides = A.x + A.width / 2 >= mr.left + mr.width / 2 ? [left, right] : [right, left];
+  const c = sides.find((k) => fits(k, W, H) && !hits(k, A)) ?? sides.find((k) => fits(k, W, H)) ?? sides[0];
+  sub.style.left = Math.round(clamp(c.x, EDGE, W - EDGE - w)) + 'px'; sub.style.top = y + 'px';
 }
 /** Only the menus (and their shadow) take the mouse; the main process cuts the window to these. */
 function reportShape() {
@@ -190,6 +210,9 @@ function pick(id) {
 function show(m) {
   state = m.state && typeof m.state === 'object' ? m.state : {};
   at = { x: Number(m.x) || 0, y: Number(m.y) || 0 };
+  const a = m.avoid && typeof m.avoid === 'object' ? m.avoid : null;
+  avoid = a && [a.x, a.y, a.width, a.height].every(Number.isFinite) && a.width > 0 && a.height > 0
+    ? { x: a.x, y: a.y, width: a.width, height: a.height } : null;
   document.body.replaceChildren();
   sub = null; subOf = '';
   main = menu(mainRows(state), false);

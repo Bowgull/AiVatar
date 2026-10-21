@@ -202,6 +202,11 @@ app.whenReady().then(async () => {
   check('complete: how long it took', /1 h 38 min/.test(await js(`document.querySelector('.big small').textContent`)), await js(`document.querySelector('.big small').textContent`));
   await js(`document.querySelector('.pj').style.setProperty('--op', '1'); 1`);
   await pic(w, 'jobpop-complete.png');
+  // 2026-10-21 (his ask): the finished card is a door to its session; Nice keeps its own click.
+  const nDone = acts.length;
+  await js(`document.querySelector('.pj.done .big').click(); 1`);
+  await wait(150);
+  check('complete: a click on the card opens that session in Claude', JSON.stringify(acts[nDone]) === JSON.stringify({ t: 'jobpop.open', url: `claude://claude.ai/epitaxy/local_${S1}` }) && !w.isDestroyed(), acts.slice(nDone));
   await js(`document.querySelector('.nice').click(); 1`);
   await wait(120);
   check('Nice: it shrinks and fades', Number(await js(`getComputedStyle(document.getElementById('pw')).opacity`)) < 0.95);
@@ -241,6 +246,26 @@ app.whenReady().then(async () => {
   await js3(`(() => { const t = document.querySelector('.pj .pr'); const o = { bubbles: true, button: 0, pointerId: 4, screenX: 10, screenY: 10 }; t.dispatchEvent(new PointerEvent('pointerdown', o)); t.dispatchEvent(new PointerEvent('pointermove', { ...o, screenX: 50, screenY: 10 })); t.dispatchEvent(new PointerEvent('pointerup', { ...o, screenX: 50, screenY: 10 })); return 1; })()`);
   await wait(200);
   check('dropped elsewhere: it stays where he let go', !w3.isDestroyed() && w3.getPosition()[0] === s3[0]! + 40 && backs.length === 1, w3.isDestroyed() ? 'gone' : w3.getPosition());
+
+  // 2026-10-21 (his reports): a terminal session (no app link, no to-do list) still has Open in Claude, which brings the
+  // Claude window forward ('front'), never nothing; a MacBook job asks the Mac; and "Working" is said once.
+  const S3 = '5d5d5d5d-3333-4c3d-9e2f-dddddddddddd', S4 = '6e6e6e6e-4444-4c3d-9e2f-eeeeeeeeeeee';
+  jp.update([job(S2, 'Samara', 'working', W2, 1), job(S3, 'Bare', 'working', [], 0, { open: null, progress: null, activity: { now: '', since: Date.now(), agents: [] } }),
+    job(S4, 'MacJob', 'working', W2, 1, { machine: 'mac' })], []);
+  const w4 = jp.open(S3, { x: -6000, y: 300 })!;
+  const js4 = (s: string) => w4.webContents.executeJavaScript(s, true);
+  await until(async () => (await js4(`!!document.querySelector('.pj .oc')`)) === true);
+  const bareText = await js4(`document.querySelector('.pj').textContent`);
+  check('no list: "Working" said once in the pop-out', (String(bareText).match(/Working/g) || []).length === 1, bareText);
+  const n0 = acts.length;
+  await js4(`document.querySelector('.pj .oc').click(); 1`);
+  await wait(200);
+  check('no app link: Open in Claude still asks for the Claude window (front)', JSON.stringify(acts[n0]) === JSON.stringify({ t: 'jobpop.open', url: 'front' }), acts.slice(n0));
+  const w5 = jp.open(S4, { x: -6000, y: 300 })!;
+  await until(async () => (await w5.webContents.executeJavaScript(`!!document.querySelector('.pj .oc')`, true)) === true);
+  await w5.webContents.executeJavaScript(`document.querySelector('.pj .oc').click(); 1`, true);
+  await wait(200);
+  check('a MacBook job: Open in Claude asks the Mac', JSON.stringify(acts.at(-1)) === JSON.stringify({ t: 'jobpop.open', url: 'mac' }), acts.at(-1));
   jp.dispose();
 
   // Sheet 52 itself, the same scenes, frozen on their telling moment, for looking at side by side.

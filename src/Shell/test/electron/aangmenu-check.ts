@@ -11,7 +11,7 @@ import { app, BrowserWindow, ipcMain, screen } from 'electron';
 import { mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import os from 'node:os'; import path from 'node:path'; import { fileURLToPath } from 'node:url';
 import { servePages } from '../../src/pageserver.ts';
-import { AangMenu } from '../../src/aangmenu.ts';
+import { AangMenu, avoidRect } from '../../src/aangmenu.ts';
 
 process.on('uncaughtException', (e) => { console.log('HARNESS ERROR ' + String((e as Error)?.stack ?? e).split('\n').slice(0, 3).join(' | ')); app.exit(2); });
 process.on('unhandledRejection', (e) => { console.log('HARNESS REJECTION ' + String((e as Error)?.stack ?? e)); app.exit(2); });
@@ -207,6 +207,47 @@ app.whenReady().then(async () => {
   w.emit('blur');
   await wait(60);
   check('losing focus (a click elsewhere) closes it', !menu.visible && picks.length === 0);
+
+  // 7b. 2026-10-21 (his report): readable (14.5 px words, taller rows, 20 px icon slots), and at the bottom-right corner it
+  // opens BESIDE Aang and his mark, never on top of him, fully on screen, its submenu too.
+  {
+    await openAt(300, Y);
+    const look = await js(`(() => { const b = document.querySelector('#main button'), r = b.getBoundingClientRect(), ic = b.querySelector('.ic').getBoundingClientRect();
+      return { font: getComputedStyle(b).fontSize, h: Math.round(r.height), ic: Math.round(ic.width) }; })()`);
+    check('readable: 14.5 px words, rows at least 38 px, icons 18-20 px', look.font === '14.5px' && look.h >= 38 && look.ic >= 18 && look.ic <= 20, look);
+    await js(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`); await wait(100);
+    if (menu.visible) { await js(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`); await wait(100); }
+    // Aang standing in the bottom-right corner (his sprite, real screen pixels as the pet sends it), right-clicked on his body.
+    const spriteDip = { x: wa.x + wa.width - 200, y: wa.y + wa.height - 190, width: 180, height: 180 };
+    const tl = screen.dipToScreenPoint({ x: spriteDip.x, y: spriteDip.y }), br = screen.dipToScreenPoint({ x: spriteDip.x + spriteDip.width, y: spriteDip.y + spriteDip.height });
+    const avoid = avoidRect({ x: tl.x, y: tl.y, width: br.x - tl.x, height: br.y - tl.y });
+    shapes.length = 0;
+    menu.open(phys(wa.width - 110, wa.height - 100), STATE, avoid);
+    await until(() => menu.visible && shapes.length > 0);
+    const m = await rect('#main');
+    const A = avoid ? { x: avoid.x - wa.x, y: avoid.y - wa.y, w: avoid.width, h: avoid.height } : null;
+    const over = (r: { x: number; y: number; w: number; h: number } | null) => !!r && !!A && r.x < A.x + A.w && A.x < r.x + r.w && r.y < A.y + A.h && A.y < r.y + r.h;
+    const onScreen = (r: { x: number; y: number; w: number; h: number } | null) => !!r && r.x >= 0 && r.y >= 0 && r.x + r.w <= wa.width && r.y + r.h <= wa.height;
+    check('bottom-right corner: never over Aang or his mark, and on screen', !!A && !over(m) && onScreen(m), { m, A });
+    check('...it opens to his left', !!m && !!A && m.x + m.w <= A.x, { m, A });
+    const hs = await centre('[data-sub=hush]');
+    await move(hs.x, hs.y);
+    await until(async () => (await js(`document.querySelector('#sub')?.dataset.of`)) === 'hush', 2000);
+    const s = await rect('#sub');
+    check('its submenu flips away from Aang, on screen, never over him', !over(s) && onScreen(s) && !!s && !!m && s.x < m.x, { s, m, A });
+    await js(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`); await wait(80);
+    await js(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`); await wait(80);
+    // Tucked at the bottom edge with only his head up: still never over him, still on screen.
+    const avoid2 = avoidRect({ x: tl.x, y: screen.dipToScreenPoint({ x: 0, y: wa.y + wa.height - 70 }).y, width: br.x - tl.x, height: br.y - tl.y }, true);
+    shapes.length = 0;
+    menu.open(phys(wa.width - 110, wa.height - 40), STATE, avoid2);
+    await until(() => menu.visible && shapes.length > 0);
+    const m2 = await rect('#main');
+    const A2 = avoid2 ? { x: avoid2.x - wa.x, y: avoid2.y - wa.y, w: avoid2.width, h: avoid2.height } : null;
+    check('tucked at the bottom: beside his head, on screen', !!m2 && !!A2 && onScreen(m2) && !(m2.x < A2.x + A2.w && A2.x < m2.x + m2.w && m2.y < A2.y + A2.h && A2.y < m2.y + m2.h), { m2, A2 });
+    await js(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`); await wait(100);
+    picks.length = 0;
+  }
 
   // 8. Only known ids leave.
   await openAt(300, Y);

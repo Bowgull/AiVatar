@@ -36,7 +36,7 @@ import { softEdge } from './winedge.ts';
 import { isBar, parseBookmarks, parseChromeBookmarks, parseSafariBookmarks, type Mark } from './bookmarks.ts';
 import { BW_LOGIN, Vault, fillScript, type Login } from './vault.ts';
 import { createHmac, randomBytes } from 'node:crypto';
-import { claudeMessage, claudeLink } from './claudewire.ts';
+import { claudeMessage, claudeOpenTarget, type ClaudeOpen } from './claudewire.ts';
 import { Visits, search as searchVisits, forAang, neverKeep, bankSite, type Visit } from './visits.ts';
 import { BrowserSync, urlKept, type SyncCookie, type SyncMsg, type TabSnap } from './bsync.ts';
 import { Driver, type Job } from './driver.ts';
@@ -165,6 +165,15 @@ interface Pane {
   trayV: WebContentsView | null;
   trayOn: boolean;
   trayAt: { x: number; y: number; hy?: number };
+  /** Claude's rune panel, in its own see-through layer over the live page (2026-10-21, runeView). */
+  runeV?: WebContentsView | null;
+  runeOn?: boolean;
+  /** Where the band's rune is (window pixels): its centre, the band's bottom, left and right. */
+  runeAt?: { x: number; y: number; left: number; right: number };
+  runeSize?: { w: number; h: number };
+  /** When it last folded because the layer lost the keyboard: the same press on the rune must not reopen it. */
+  runeShutAt?: number;
+  runeHideT?: NodeJS.Timeout | null;
   /** The pop-out still last sent to this window's band (sent once, not with every message). */
   lentSent?: string;
   curtain: WebContentsView | null;
@@ -1211,7 +1220,12 @@ export class AangBrowser {
     w.webContents.send('browser:tray', { open: true });
     this.sendTabs();
   }
-  private raiseTray(): void { if (this.trayOn && this.trayV && this.win && !this.win.isDestroyed()) this.win.contentView.addChildView(this.trayV); }
+  private raiseTray(): void {
+    if (this.trayOn && this.trayV && this.win && !this.win.isDestroyed()) this.win.contentView.addChildView(this.trayV);
+    // 2026-10-21: the rune's panel too, whatever comes up under it (a waking tab, the page back from the pop-out).
+    const P = this.pane;
+    if (P.runeOn && P.runeV && !P.runeV.webContents.isDestroyed() && this.win && !this.win.isDestroyed()) this.win.contentView.addChildView(P.runeV);
+  }
   private placeTray(): void {
     const w = this.win, v = this.trayV;
     if (!w || w.isDestroyed() || !v || !this.trayOn) return;
@@ -1282,7 +1296,7 @@ export class AangBrowser {
     // Where the first window was is kept for next time; the others are made by dragging and open where they are dropped.
     const keepSoon = () => { if (keep) clearTimeout(keep); keep = setTimeout(() => { this.pane = p; if (this.panes[0] === p) this.keepPlace(); }, 800); };
     w.on('focus', () => { this.focused = p; });
-    w.on('resize', () => { this.pane = p; this.place(); this.placeTray(); keepSoon(); });
+    w.on('resize', () => { this.pane = p; this.place(); this.placeTray(); this.placeRune(); keepSoon(); });
     w.on('move', keepSoon);
     w.on('maximize', () => { this.pane = p; this.place(); keepSoon(); this.sendTabs(); });
     w.on('unmaximize', () => { this.pane = p; this.place(); keepSoon(); this.sendTabs(); });
@@ -1295,7 +1309,7 @@ export class AangBrowser {
       this.pane = p;
       const others = this.panes.filter((x) => x !== p && this.alive(x));
       // Quitting: this window's tabs stay in the snapshot already taken; nothing is dropped or saved again.
-      if (others.length && this.quitting) { p.win = null; p.trayV = null; p.trayOn = false; this.panes = others; if (this.focused === p) this.focused = null; this.pane = others[others.length - 1]!; return; }
+      if (others.length && this.quitting) { p.win = null; p.trayV = null; p.trayOn = false; p.runeV = null; p.runeOn = false; this.panes = others; if (this.focused === p) this.focused = null; this.pane = others[others.length - 1]!; return; }
       if (others.length) {
         // One of several windows: its tabs close (Reopen closed tab brings them back), the browser goes on.
         for (const t of this.paneTabs(p)) {
@@ -1305,7 +1319,7 @@ export class AangBrowser {
         }
         this.tabs = this.tabs.filter((t) => t.pane !== p.id);
         if (p.watchTimer) clearTimeout(p.watchTimer);
-        p.win = null; p.trayV = null; p.trayOn = false;
+        p.win = null; p.trayV = null; p.trayOn = false; p.runeV = null; p.runeOn = false;
         this.panes = others;
         if (this.focused === p) this.focused = null;
         this.pane = others[others.length - 1]!;
@@ -1321,7 +1335,7 @@ export class AangBrowser {
       if (this.share) this.shareAnswer(this.share.id, null, false);
       this.menu = null; this.fullTab = null;
       for (const t of this.tabs) if (!t.lent) this.closeView(t);
-      this.tabs = []; this.active = null; this.win = null; this.trayV = null; this.trayOn = false;
+      this.tabs = []; this.active = null; this.win = null; this.trayV = null; this.trayOn = false; this.pane.runeV = null; this.pane.runeOn = false;
       this.panes = []; this.focused = null; this.quitting = false;
       this.timers.forEach(clearInterval); this.timers = [];
       try { this.onLastClosed?.(); } catch { /* the browser is closed either way */ }
@@ -1329,7 +1343,7 @@ export class AangBrowser {
     w.once('ready-to-show', () => bringFront(w));
     // The tab list is made ready a few seconds after the window shows (measured 2026-10-20: built on his first hover it
     // took 0.2 s, and 0.5 s on a slow machine), so the first open is as quick as every other.
-    w.once('ready-to-show', () => setTimeout(() => { if (w.isDestroyed() || p.win !== w) return; const was = this.pane; this.pane = p; this.trayView(); this.pane = was; }, 3000));
+    w.once('ready-to-show', () => setTimeout(() => { if (w.isDestroyed() || p.win !== w) return; const was = this.pane; this.pane = p; this.trayView(); this.runeView(); this.pane = was; }, 3000));
     w.webContents.once('did-finish-load', () => {
       this.pane = p;
       // Made by dragging a tab out: that tab moves in, live.
@@ -1401,6 +1415,7 @@ export class AangBrowser {
       t.view.setVisible(false);
       to.win!.contentView.addChildView(t.view);
       if (to.trayOn && to.trayV) to.win!.contentView.addChildView(to.trayV);   // the open tab list stays on top
+      if (to.runeOn && to.runeV) to.win!.contentView.addChildView(to.runeV);   // and the rune's panel (2026-10-21)
     }
     t.pane = to.id;
     t.opener = null;
@@ -2649,8 +2664,8 @@ export class AangBrowser {
   private claudeLast: { jobs: unknown[]; waits: { session: string; kind: string }[] } | null = null;
   /** Set by main: a checked pause / play / message for a session, to the brain. */
   onClaude: ((m: Record<string, unknown>) => void) | null = null;
-  /** Set by main: open a session in the Claude app (the exact claude:// link only). */
-  onClaudeOpen: ((url: string) => void) | null = null;
+  /** Set by main: open a session in the Claude app (the exact claude:// link, or 'front' / 'mac', claudeOpenTarget). */
+  onClaudeOpen: ((target: ClaudeOpen) => void) | null = null;
   /** The brain's news (null: the brain went away, so the rune goes too). Sent to every Samara window's band. */
   claudeNews(m: { t?: unknown; jobs?: unknown; items?: unknown } | null): void {
     if (!m) this.claudeLast = null;
@@ -2662,10 +2677,111 @@ export class AangBrowser {
       else return;
       this.claudeLast = c;
     }
-    for (const p of this.panes) if (this.alive(p)) p.win!.webContents.send('browser:claudenews', this.claudeLast);
+    for (const p of this.panes) {
+      if (!this.alive(p)) continue;
+      p.win!.webContents.send('browser:claudenews', this.claudeLast);
+      // The rune's layer keeps the same list all along (made with the window), so it opens at once and in step.
+      if (p.runeV && !p.runeV.webContents.isDestroyed()) p.runeV.webContents.send('browser:claudenews', this.claudeLast);
+    }
   }
   /** A band that just loaded asks for what it missed. */
   claudeHello(sender: Electron.WebContents): void { sender.send('browser:claudenews', this.claudeLast); }
+  /** 2026-10-21 (his rule): Open in Claude pressed anywhere folds every rune panel away at once (main.ts openInClaude). */
+  claudeFold(): void { const was = this.pane; for (const p of this.panes) if (this.alive(p) && p.runeOn) { this.pane = p; this.rune(false); } this.pane = was; }
+
+  // ------------------------------------------------------------------ the rune's panel, floating over the live page
+  /**
+   * 2026-10-21 (his report: "opening the Claude button in Samara bugs out the browser completely, especially when I'm
+   * watching a video"). The panel used to freeze the page: the live view was hidden and a still picture of it shown
+   * (drawer(true)), which stalled a playing video and swapped views. Now it is drawn the way the tab list is: in its
+   * own see-through layer ABOVE the live page, sized to the panel. The page is never hidden, frozen or captured.
+   */
+  runeView(): WebContentsView | null {
+    const w = this.win, P = this.pane;
+    if (!w || w.isDestroyed()) return null;
+    if (P.runeV && !P.runeV.webContents.isDestroyed()) return P.runeV;
+    // Never slowed while hidden: its slide must start the moment it shows. It does nothing at rest.
+    const v = new WebContentsView({ webPreferences: { ...SAFE_WEB_PREFERENCES, preload: this.o.preloadPath, backgroundThrottling: false } });
+    lockDown(v.webContents);
+    v.setBackgroundColor('#00000000');
+    v.setVisible(false);
+    // A press anywhere else takes the keyboard from it: it folds (the band's rune knows not to reopen on that press).
+    v.webContents.on('blur', () => { this.pane = P; if (P.runeOn) { P.runeShutAt = Date.now(); this.rune(false); } });
+    v.webContents.on('before-input-event', (e, input) => {
+      this.pane = P;
+      if (input.type === 'keyDown' && input.key === 'Escape') { e.preventDefault(); this.rune(false); }
+    });
+    // Opened before its page had loaded (a click right after start): open once it has.
+    v.webContents.on('did-finish-load', () => { this.pane = P; if (P.runeOn) this.placeRune(); });
+    void v.webContents.loadURL(`${this.o.origin}/runelayer.html`);
+    P.runeV = v;
+    return v;
+  }
+  isRune(sender: Electron.WebContents): boolean {
+    const p = this.panes.find((x) => this.alive(x) && x.runeV && !x.runeV.webContents.isDestroyed() && sender === x.runeV.webContents);
+    if (p) this.pane = p;
+    return Boolean(p);
+  }
+  /** The band: open the panel under its rune, or fold it. */
+  runeFromBand(a: Record<string, unknown>): void {
+    if (a.open !== true) { this.rune(false); return; }
+    const n = (x: unknown) => (Number.isFinite(Number(x)) ? Math.round(Number(x)) : NaN);
+    const at = { x: n(a.x), y: n(a.y), left: n(a.left), right: n(a.right) };
+    if (Object.values(at).some((v) => !Number.isFinite(v))) return;
+    this.rune(true, at);
+  }
+  /** The layer: it folded itself (Esc, a press on its edge, Open in Claude), or its panel changed size. */
+  runeFromLayer(a: Record<string, unknown>): void {
+    const sz = a.size as { w?: unknown; h?: unknown } | undefined;
+    if (sz && typeof sz === 'object') {
+      const w = Number(sz.w), h = Number(sz.h);
+      if (Number.isFinite(w) && Number.isFinite(h) && w > 0 && h > 0) { this.pane.runeSize = { w: Math.min(800, Math.round(w)), h: Math.min(4000, Math.round(h)) }; this.placeRune(); }
+      return;
+    }
+    if (a.open === false) this.rune(false);
+  }
+  /** Open the layer where the band says, or fold it: it slides out (~180 ms), then the layer goes. */
+  rune(open: boolean, at?: { x: number; y: number; left: number; right: number }): void {
+    const w = this.win, P = this.pane;
+    if (!w || w.isDestroyed()) return;
+    if (!open) {
+      if (!P.runeOn) return;
+      P.runeOn = false;
+      const v = P.runeV && !P.runeV.webContents.isDestroyed() ? P.runeV : null;
+      v?.webContents.send('browser:rune', { open: false });
+      w.webContents.send('browser:rune', { open: false });
+      if (P.runeHideT) clearTimeout(P.runeHideT);
+      P.runeHideT = setTimeout(() => { P.runeHideT = null; if (!P.runeOn) v?.setVisible(false); }, 200);
+      return;
+    }
+    if (P.runeOn) return;
+    // The press on the rune that took the keyboard from the open layer has just folded it: that press means "close".
+    if (Date.now() - (P.runeShutAt ?? 0) < 300) return;
+    const v = this.runeView();
+    if (!v) return;
+    if (at) P.runeAt = at;
+    if (P.runeHideT) { clearTimeout(P.runeHideT); P.runeHideT = null; }
+    P.runeOn = true;
+    w.contentView.addChildView(v);             // to the top, over the page (and over the tab list)
+    v.setVisible(true);
+    this.placeRune();                          // shown first, so its slide starts on a page that is drawing
+    v.webContents.focus();
+    w.webContents.send('browser:rune', { open: true });
+  }
+  /** Sheet 50's sums, in window pixels: the panel's right edge a little past the rune, kept inside the band. */
+  placeRune(): void {
+    const w = this.win, P = this.pane, v = P.runeV, at = P.runeAt;
+    if (!w || w.isDestroyed() || !v || v.webContents.isDestroyed() || !P.runeOn || !at) return;
+    const [cw, ch] = w.getContentSize();
+    const PANEL = 384, M = 24;
+    const left = Math.max(at.left + 8, Math.min(at.right - PANEL - 8, at.x - PANEL + 70));
+    const x = Math.max(0, left - M), y = at.y;
+    const width = Math.min(cw - x, P.runeSize?.w ?? PANEL + 2 * M);
+    const maxH = Math.max(120, ch - y - 8 - M - 20);
+    const height = Math.max(40, Math.min(ch - y, P.runeSize?.h ?? ch - y));   // until the panel says its size
+    v.setBounds({ x, y, width: Math.max(0, width), height });
+    v.webContents.send('browser:rune', { open: true, tip: at.x - x, maxH });
+  }
   /** From the rune's panel: only pause, play and a message, each rebuilt and checked (claudewire.ts) like the cockpit's. */
   claudeAct(raw: unknown): void {
     const m = claudeMessage(raw);
@@ -2673,9 +2789,10 @@ export class AangBrowser {
     this.onClaude?.(m);
   }
   claudeOpen(raw: unknown): void {
-    const url = claudeLink(raw);
-    if (!url) { console.error('browser: refused an Open in Claude link that was not a Claude session'); return; }
-    this.onClaudeOpen?.(url);
+    // 2026-10-21: a job with no app link (or on the Mac) still brings Claude forward, never nothing (claudeOpenTarget).
+    const target = claudeOpenTarget(raw);
+    if (!target) { console.error('browser: refused an Open in Claude link that was not a Claude session'); return; }
+    this.onClaudeOpen?.(target);
   }
 
   // ------------------------------------------------------------------ lending a tab to the popout ("take the tab with you")
