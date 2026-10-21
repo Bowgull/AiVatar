@@ -73,6 +73,59 @@ static class ClaudeMarks
     /// <summary>Screen pixels per art pixel at this display scale: the sheets' 3 per frame pixel, rounded to a whole number.</summary>
     public static int PxFor(float scale) => Math.Max(1, (int)Math.Round(3 * scale, MidpointRounding.AwayFromZero));
 
+    /// <summary>
+    /// Where a mark's bottom-centre sits in the pet's WINDOW pixels, and which way is "up" for its bob (bx, by).
+    /// 2026-10-21: lifted out of PetWindow.DrawClaudeMark so the click on a mark is worked out from exactly the
+    /// numbers it is drawn with (the Shell used to guess from the cursor, and a docked click never reached it).
+    /// <paramref name="peekEdge"/> is None when he is standing (also while he slides), else the edge he is tucked at.
+    /// <paramref name="margin"/> and <paramref name="extra"/> are the window's room left of and above the sprite.
+    /// </summary>
+    public static (int X, int Y, int Bx, int By) Anchor(string kind, Rectangle art, bool flip, DockEdge peekEdge, float scale, int margin, int extra)
+    {
+        var map = Shapes[kind];
+        int px = PxFor(scale);
+        float halfW = map[0].Length * px / scale / 2f, h = map.Length * px / scale;
+        float fx, fy; int bx = 0, by = -1;
+        if (peekEdge == DockEdge.None)
+        {
+            var above = AboveHead(art, flip);
+            fx = Docking.SpriteX + above.X; fy = Docking.SpriteY + above.Y;
+        }
+        else
+        {
+            // Docked, it sits on the screen side of his head the way the old marker did, and stays upright.
+            var r = Docking.Rotated(art, peekEdge);
+            float cx = Docking.SpriteX + r.X + r.Width / 2f, cy = Docking.SpriteY + r.Y + r.Height / 2f;
+            (fx, fy, bx, by) = peekEdge switch
+            {
+                DockEdge.Top => (cx, Docking.SpriteY + r.Bottom + Gap + h, 0, 1),
+                DockEdge.Right => (Docking.SpriteX + r.X - Gap - halfW, cy + h / 2f, -1, 0),
+                DockEdge.Left => (Docking.SpriteX + r.Right + Gap + halfW, cy + h / 2f, 1, 0),
+                _ => (cx, Docking.SpriteY + r.Y - Gap, 0, -1),
+            };
+        }
+        return ((int)Math.Round((margin + fx) * scale), (int)Math.Round((extra + fy) * scale), bx, by);
+    }
+
+    /// <summary>
+    /// The box a click on a mark counts in, in the same window pixels as <see cref="Anchor"/>: what Draw paints (its
+    /// shadow too), plus two art pixels for the bob and a finger that lands a touch off - but nothing extra on the side
+    /// that faces his head (bx, by from Anchor point away from it), so a click on his head is always a click on him.
+    /// </summary>
+    public static Rectangle HitBox(string kind, int cx, int bottom, int px, int bx = 0, int by = -1)
+    {
+        var map = Shapes[kind];
+        int w = map[0].Length, h = map.Length;
+        int left = cx - w * px / 2 - 2 * px, top = bottom - h * px - 2 * px;
+        int right = cx - w * px / 2 + (w + 1) * px + 2 * px, under = bottom + px + 2 * px;
+        // The head is on the side "up" points away from: no slop there (the mark's own shadow still counts).
+        if (by == -1) under = bottom + px;
+        else if (by == 1) top = bottom - h * px;
+        else if (bx == 1) left = cx - w * px / 2;
+        else if (bx == -1) right = cx - w * px / 2 + (w + 1) * px;
+        return Rectangle.FromLTRB(left, top, right, under);
+    }
+
     static Color Mix(Color a, int r, int g, int b, double k) =>
         Color.FromArgb(255, (int)Math.Round(a.R + (r - a.R) * k), (int)Math.Round(a.G + (g - a.G) * k), (int)Math.Round(a.B + (b - a.B) * k));
 

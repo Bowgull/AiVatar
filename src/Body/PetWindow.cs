@@ -187,7 +187,10 @@ sealed class PetWindow : Form
                 // then STILL DOWN with Try again). Drawing the old bubble too put two bubbles on screen
                 // (his report, 2026-10-13), so the line is dropped here.
                 if (!link.IsConnected || supervisor?.GivenUp == true) return true;
-                _ = link.SendAsync(new { t = "pet.say", text, hold });
+                // 2026-10-21: a hello is marked, so the new bubble never counts it as "something he said in the last
+                // 5 minutes" and drops it when the chat box opens (one bubble, never a hello stacked on the box).
+                if (greeting) _ = link.SendAsync(new { t = "pet.say", text, hold, greet = true });
+                else _ = link.SendAsync(new { t = "pet.say", text, hold });
                 return true;
             };
             AllowDrop = true;
@@ -1461,9 +1464,14 @@ sealed class PetWindow : Form
         if (!dragging) return;
         dragging = false; Capture = false;
         if (moved) { AfterDrag(); return; }
+        // 2026-10-21: a click ON Claude's mark over his head, standing or tucked at the edge, is a click on the mark:
+        // the Shell's speech bubble shows what Claude is doing. Worked out here from the mark as drawn, because a tucked
+        // click never reached the Shell's old guess from the cursor (it became "come up and type" below).
+        if (NewFrontEnd && MarkHitBox().Contains(e.Location)) { MarkClicked(); return; }
         // A waiting Claude session: the icon takes him to it (here or on the Mac), not to the bubble.
         if (dock != DockEdge.None && peeking && badge && GoToHeldSession()) return;
-        if (dock != DockEdge.None && peeking && !badge && ExplainAndGoToWorking()) return;
+        // The old front end only: with the new one, a click on HIM is the chat box (the mark has its own click above).
+        if (!NewFrontEnd && dock != DockEdge.None && peeking && !badge && ExplainAndGoToWorking()) return;
         if (dock != DockEdge.None && peeking) { Reveal(thenType: true); return; }  // a click on his head: up, and the box opens (Reveal clears the marker)
 
         var bp = BubblePoint(e.Location);
@@ -1616,6 +1624,9 @@ sealed class PetWindow : Form
             // Hand the foreground right across BEFORE asking, or the Shell's focus() is refused and the
             // box opens with the keyboard still in his game. See Win32.AllowSetForegroundWindow.
             Win32.AllowSetForegroundWindow(Win32.ASFW_ANY);
+            // 2026-10-21: the box is open, so a hello still due from a hover slide-out (he clicked while sliding) is
+            // not said: the chat box gets one bubble at most, never a hello stacked on top of it.
+            greetOnArrive = false;
             _ = link.SendAsync(new { t = "typebox" });
             Wake(); dirty = true;
             return true;
@@ -2216,6 +2227,33 @@ sealed class PetWindow : Form
     }
 
     /// <summary>
+    /// 2026-10-21: where a click counts as a click on Claude's mark, in window pixels, from the same sums the mark is
+    /// drawn with (ClaudeMarks.Anchor). Empty when no mark is drawn: none, or tucked with the held-news marker instead.
+    /// </summary>
+    Rectangle MarkHitBox()
+    {
+        if (ClaudeMarkNow is not string kind || !ClaudeMarks.Known(kind)) return Rectangle.Empty;
+        var tucked = dock != DockEdge.None && peeking && slideStart == DateTime.MinValue;   // DrawPeeking's own test
+        if (tucked && badge) return Rectangle.Empty;
+        var (ax, ay, bx, by) = ClaudeMarks.Anchor(kind, art, flipX, tucked ? dock : DockEdge.None, scale, Margin, Extra);
+        return ClaudeMarks.HitBox(kind, ax, ay, ClaudeMarks.PxFor(scale), bx, by);
+    }
+
+    /// <summary>
+    /// 2026-10-21: the mark was clicked. The Shell's speech bubble always shows something (the brain adds the sessions it
+    /// knows): the link jobs, else the older hook-tracked sessions, else "Claude isn't working on anything right now."
+    /// Tucked, he comes up first, so the bubble has a head to point at. No brain: the old note and Claude to the front.
+    /// </summary>
+    void MarkClicked()
+    {
+        Log.Write("mark clicked: " + ClaudeMarkNow);
+        if (!link.IsConnected) { if (!ExplainAndGoToWorking()) Note("Claude isn't working on anything right now."); return; }
+        if (dock != DockEdge.None && peeking) Reveal(greet: false);
+        _ = link.SendAsync(new { t = "mark.click" });
+        Wake(); dirty = true;
+    }
+
+    /// <summary>
     /// C5 (2026-10-21): the brain's `claude.mark`. Draws the new mark (the same pop-in as every other) and plays its
     /// wooden chime. The chime follows his existing rules: master mute silences it, the Settings switch and slider
     /// set it, and in a game only what matters gets one (blocking, the whole job, failed), never a step's tick.
@@ -2308,6 +2346,9 @@ sealed class PetWindow : Form
         Log.Write($"artrect {why} {r.X},{r.Y},{r.Width},{r.Height}");
     }
 
+    /// <summary>True only while his hello is being said, so BubbleView.Forward can mark it as a greeting (2026-10-21).</summary>
+    bool greeting;
+
     void OnSlideDone()
     {
         if (travelStep != 0) { TravelNext(); return; }
@@ -2317,7 +2358,7 @@ sealed class PetWindow : Form
         engagedAt = now; nextIdleAt = now.AddMilliseconds(IdleEveryMs);
         if (dockHint != null) { ShowBubble(dockHint, false); dockHint = null; }
         else if (heldText != null && !quiet) ReleaseHeld();
-        else if (greetOnArrive && !inputAfterSlide) ShowBubble(Greeting(), false);
+        else if (greetOnArrive && !inputAfterSlide) { greeting = true; try { ShowBubble(Greeting(), false); } finally { greeting = false; } }
         greetOnArrive = false;
         if (inputAfterSlide) { inputAfterSlide = false; OpenInput(userAsked: true); }
     }
@@ -2805,34 +2846,15 @@ sealed class PetWindow : Form
     void DrawClaudeMark(Graphics g, string kind, bool docked)
     {
         if (!ClaudeMarks.Known(kind)) return;
-        var map = ClaudeMarks.Map(kind);
         int px = ClaudeMarks.PxFor(scale);
-        const float Gap = ClaudeMarks.Gap;
-        float halfW = map[0].Length * px / scale / 2f, h = map.Length * px / scale;
-        float fx, fy; int bx = 0, by = -1;                                       // bottom-centre, and which way "up" is
-        if (!docked)
-        {
-            var above = ClaudeMarks.AboveHead(art, flipX);
-            fx = Docking.SpriteX + above.X; fy = Docking.SpriteY + above.Y;
-        }
-        else
-        {
-            var r = Docking.Rotated(art, dock);
-            float cx = Docking.SpriteX + r.X + r.Width / 2f, cy = Docking.SpriteY + r.Y + r.Height / 2f;
-            (fx, fy, bx, by) = dock switch
-            {
-                DockEdge.Top => (cx, Docking.SpriteY + r.Bottom + Gap + h, 0, 1),
-                DockEdge.Right => (Docking.SpriteX + r.X - Gap - halfW, cy + h / 2f, -1, 0),
-                DockEdge.Left => (Docking.SpriteX + r.Right + Gap + halfW, cy + h / 2f, 1, 0),
-                _ => (cx, Docking.SpriteY + r.Y - Gap, 0, -1),
-            };
-        }
+        // Bottom-centre and which way "up" is, from the same sum the click uses (MarkHitBox, 2026-10-21).
+        var (ax, ay, bx, by) = ClaudeMarks.Anchor(kind, art, flipX, docked ? dock : DockEdge.None, scale, Margin, Extra);
         // A gentle bob away from his head (45d/45e: 1.4 s), and a short rise as it pops in, both in whole art pixels.
         var t = (DateTime.UtcNow - markerSince).TotalMilliseconds;
         int rise = t >= PopMs ? 0 : (int)Math.Round((1 - t / PopMs) * 2) * px;
         int bob = (int)Math.Round((Math.Sin(DateTime.UtcNow.TimeOfDay.TotalSeconds * 2 * Math.PI / BobPeriodS) + 1) / 2) * px;
-        int dx = (int)Math.Round((Margin + fx) * scale) + bx * (bob - rise);
-        int dy = (int)Math.Round((Extra + fy) * scale) + by * (bob - rise);
+        int dx = ax + bx * (bob - rise);
+        int dy = ay + by * (bob - rise);
         var saved = g.Save();
         g.ResetTransform();
         ClaudeMarks.Draw(g, kind, dx, dy, px);
