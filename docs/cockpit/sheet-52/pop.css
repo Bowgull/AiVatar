@@ -1,0 +1,195 @@
+/* Sheet 52 helpers (a mockup, not product code). The popped-out job: no window frame at all, only the job bubble
+   itself (the cockpit's parchment card from bubble.css .ckjobs, rims in dark wood instead of black, rounder), floating
+   on the desktop. Everything else on the sheet is neutral grey so the card is the only warm thing you look at. */
+
+/* ---------------------------------------------------------------- the sheet itself: neutral, no yellow */
+html,body{background:#141518;margin:0}
+body{color:#e9e9ec;font-family:Figtree,system-ui,sans-serif;padding:30px 34px 60px;width:1330px}
+h1{font:400 26px Silkscreen,monospace;color:#f4f2ee;letter-spacing:2px;margin:0 0 10px}
+h2{font:400 19px Silkscreen,monospace;color:#f4f2ee;letter-spacing:1.5px;margin:58px 0 6px}
+h2 .n{display:inline-block;min-width:34px;padding:5px 0 3px;margin-right:10px;text-align:center;border-radius:6px;background:#2c2f36;color:#fff}
+.lead{font-size:17px;line-height:1.5;color:#c9cad0;margin:0 0 16px;max-width:1150px}
+.lead b,.cap b,.txt b{color:#fff}
+.cap{font-size:15.5px;line-height:1.5;color:#c9cad0;margin:10px 0 0;max-width:1150px}
+.decided{display:flex;flex-wrap:wrap;gap:8px 10px;margin:4px 0 0}
+.decided span{font-size:14px;color:#d8d9de;background:#22242a;border-radius:8px;padding:6px 11px;box-shadow:inset 0 0 0 1px #33363e}
+.decided span::before{content:"\2713  ";color:#3fc4b4;font-weight:800}
+
+/* letters: plum badge with white letter; the recommended one gets a teal MY PICK */
+.let{display:inline-grid;place-items:center;width:34px;height:34px;border-radius:8px;background:#4A2C6E;color:#fff;font:400 17px Silkscreen,monospace;box-shadow:0 0 0 2px #0c0c0e;flex:none}
+.mypick{display:inline-block;font:400 10px Silkscreen,monospace;letter-spacing:1px;color:#062a26;background:#3fc4b4;border-radius:5px;padding:5px 7px 3px;vertical-align:3px;margin-left:8px}
+
+/* ---------------------------------------------------------------- scenes (backdrops) */
+.scene{position:relative;overflow:hidden;border-radius:12px;box-shadow:0 0 0 1px #2a2c33}
+.scene.desk{background:radial-gradient(80% 90% at 30% 10%,#2e333c 0%,#22262d 55%,#1a1c21 100%)}
+.scene.desk .taskbar{position:absolute;left:0;right:0;bottom:0;height:30px;background:#0f1013;box-shadow:0 -1px 0 #2a2c33;display:flex;gap:8px;align-items:center;justify-content:center}
+.scene.desk .taskbar i{width:18px;height:18px;border-radius:4px;background:#2a2d34}
+.scene.game{background:radial-gradient(60% 50% at 70% 18%,rgba(140,110,200,.4),transparent 70%),linear-gradient(180deg,#26203f 0%,#352a52 38%,#4a3450 55%,#221a2a 75%,#110d16 100%)}
+.scene.game svg.land{position:absolute;inset:0;width:100%;height:100%}
+.g-uf{position:absolute;left:14px;top:12px;display:flex;align-items:center;gap:6px}
+.g-uf .por{width:34px;height:34px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#8a6a9a,#2a1c30);box-shadow:0 0 0 3px #a08a50,0 0 0 5px #120a05}
+.g-uf .bars{display:flex;flex-direction:column;gap:3px}
+.g-uf .bars i{display:block;width:130px;height:8px;border-radius:2px;box-shadow:0 0 0 2px #120a05}
+.g-uf .hp{background:linear-gradient(90deg,#2fc44a 0 82%,#1a1a1a 82%)}
+.g-uf .mp{background:linear-gradient(90deg,#2f6fe4 0 64%,#1a1a1a 64%)}
+.g-mm{position:absolute;right:16px;top:12px;width:96px;height:96px;border-radius:50%;background:radial-gradient(circle at 45% 55%,#4e7a4a,#2a4226 60%,#16200f);box-shadow:0 0 0 4px #a08a50,0 0 0 7px #120a05}
+.g-mm i{position:absolute;width:5px;height:5px;border-radius:50%;background:#ffde4a}
+.g-ab{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);display:flex;gap:3px;padding:4px;border-radius:6px;background:#1a120c;box-shadow:0 0 0 2px #6a5a30,0 0 0 4px #120a05}
+.g-ab i{width:30px;height:30px;border-radius:3px;box-shadow:inset 0 0 0 2px #120a05,inset 0 0 0 3px rgba(255,255,255,.12)}
+.g-chat{position:absolute;left:12px;bottom:12px;width:250px;padding:6px 8px;border-radius:4px;background:rgba(0,0,0,.35);font:600 11px/1.45 Figtree,sans-serif}
+.g-chat div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:1px 1px 0 #000}
+.g-mob{position:absolute;width:40px;height:56px;border-radius:40% 40% 18% 18%;background:linear-gradient(180deg,#5a2a2a,#200c0c)}
+.g-mob::before{content:"";position:absolute;left:-14px;top:-14px;width:68px;height:6px;border-radius:2px;background:linear-gradient(90deg,#e23a2a 0 70%,#2a0a0a 70%);box-shadow:0 0 0 1.5px #000}
+.g-hero{position:absolute;width:42px;height:64px;border-radius:40% 40% 18% 18%;background:linear-gradient(180deg,#4a4460,#17131f)}
+.g-fx{position:absolute;border-radius:50%;pointer-events:none}
+.g-num{position:absolute;font:900 18px Figtree,sans-serif;text-shadow:2px 2px 0 #000,-1px -1px 0 #000}
+
+/* ---------------------------------------------------------------- the pop-out job (.pw wraps card + its overlays) */
+.pw{position:absolute;z-index:3}
+.pj{box-sizing:border-box;width:var(--w,372px);padding:8px 8px 8px 12px;border-radius:15px;color:#21160a;
+  background:radial-gradient(120% 90% at 30% 0%,#f8ecd3,#e9d3a6);
+  box-shadow:0 0 0 3px #4a2e18,0 4px 0 #2a1a0e,inset 0 2px 0 rgba(255,255,255,.55),0 16px 30px rgba(0,0,0,.55);
+  transition:opacity .18s ease,filter .2s}
+.pj .top{display:flex;align-items:center;gap:8px;height:28px}
+.pj .ci{width:20px;height:20px;border-radius:5px;box-shadow:0 0 0 1px rgba(106,70,40,.5);flex:none}
+.pj .pr{font:700 14px Figtree,sans-serif;color:#8a3e1c;white-space:nowrap;flex:none}
+.pj .pbw{flex:1;display:flex;justify-content:center;min-width:0}
+.pj .pct{flex:none;font:400 11px Silkscreen,monospace;color:#3a2a18}
+.pj .lt{flex:none;font:600 12.5px Figtree,sans-serif;color:#6b5236;white-space:nowrap}
+.pj .chip{flex:none;font:400 9px Silkscreen,monospace;letter-spacing:1px;padding:5px 7px 3px;border-radius:6px;white-space:nowrap}
+.pj .chip.needs{background:#7cc4ff;color:#0b2a44;box-shadow:0 0 0 2px #1d4f78,0 0 10px rgba(124,196,255,.65)}
+.pj .chip.paused{background:#6f7787;color:#fff;box-shadow:0 0 0 2px #3c414b}
+.pj .pin{all:unset;cursor:pointer;flex:none;width:26px;height:28px;display:grid;place-items:center;border-radius:7px}
+.pj .pin canvas{image-rendering:pixelated;display:block}
+.pj canvas.jpill{image-rendering:pixelated;display:block}
+.pj .det{height:0;overflow:hidden}
+.pj.open .det{height:auto}
+.pj .inner{padding:2px 4px 2px 0}
+.pj .nowl{display:flex;align-items:center;gap:8px;margin:8px 0 0;padding:8px 0 0;border-top:2px solid rgba(120,80,30,.18);font:700 13px Figtree,sans-serif;color:#21160a}
+.pj .mc{flex:none;font:400 8px Silkscreen,monospace;letter-spacing:1px;color:#6b4318;border:1.5px solid rgba(107,67,24,.55);border-radius:4px;padding:2px 4px 1px}
+.pj .list{margin:4px 0 0}
+.pj .ob{display:flex;align-items:center;gap:9px;font:600 12.5px/1.85 Figtree,sans-serif;color:#8f7458}
+.pj .ob .tx{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pj .ob i{flex:none;width:12px;height:12px;border-radius:3px;box-shadow:inset 0 0 0 2px #b89a6a}
+.pj .ob.done{color:#4f7a72}.pj .ob.done i{background:#58b0a3;box-shadow:inset 0 0 0 2px #2f6f66}
+.pj .ob.done i::after{content:"";display:block;width:3px;height:6px;margin:1px 0 0 4px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.pj .ob.now{color:#21160a}.pj .ob.now i{box-shadow:inset 0 0 0 2px #c08646,0 0 6px rgba(236,189,114,.8)}
+.pj .ob .r{margin-left:auto;font:500 11px Figtree,sans-serif;color:#a98e6a}
+.pj .ob.now .r{font:400 9px Silkscreen,monospace;color:#8a5a28}
+.pj .ckeys{display:flex;gap:7px;margin:10px 0 6px;align-items:center}
+.pj .key.sm{padding:6px 11px 7px;font-size:13px}
+.pj .msg{all:unset;cursor:pointer;flex:none;display:grid;place-items:center;width:28px;height:26px;margin-left:auto;border-radius:7px;background:linear-gradient(180deg,#5a3486,#3a2160);box-shadow:0 0 0 2px #120A05,0 3px 0 #120A05}
+.pj .msg svg{width:15px;height:15px}
+/* paused: the pill goes grey (drawn so), the card a touch flatter */
+.pj.paused{filter:saturate(.55) brightness(.97)}
+.pj.paused .chip,.pj.paused .pin{filter:none}
+/* job complete: teal, the big tick, one key */
+.pj.done{background:radial-gradient(120% 90% at 30% 0%,#e6fbf7,#bfeee6);box-shadow:0 0 0 3px #1c6e64,0 4px 0 #0f3f39,inset 0 2px 0 rgba(255,255,255,.6),0 0 22px rgba(63,196,180,.5),0 16px 30px rgba(0,0,0,.5)}
+.pj.done .top{height:auto;align-items:center}
+.pj.done .big{flex:1;display:flex;align-items:center;gap:10px;min-width:0}
+.pj.done .big canvas{image-rendering:pixelated;flex:none}
+.pj.done .big b{display:block;font:400 13px Silkscreen,monospace;letter-spacing:1.5px;color:#14615a}
+.pj.done .big small{display:block;font:600 12.5px Figtree,sans-serif;color:#2c5a54;margin-top:3px;white-space:nowrap}
+.pj.done .ckeys{margin:10px 0 4px}
+
+/* overlays that sit beside the card and never fade with it */
+.ro{position:absolute;top:-30px;right:-6px;font:400 12px Silkscreen,monospace;color:#fff;background:#0d0e10;border-radius:7px;padding:6px 8px 4px;box-shadow:0 0 0 2px #3a3d45;opacity:0;transform:translateY(4px);transition:opacity .15s,transform .15s;pointer-events:none;white-space:nowrap}
+.ro.on{opacity:1;transform:none}
+.vs{position:absolute;top:-2px;right:-34px;width:26px;height:96px;border-radius:13px;background:#1b130c;box-shadow:0 0 0 2px #4a2e18,0 6px 14px rgba(0,0,0,.5);opacity:0;transition:opacity .15s}
+.vs.on{opacity:1}
+.vs canvas{image-rendering:pixelated;position:absolute;left:5px;top:6px}
+.menu{position:absolute;z-index:6;width:150px;padding:7px 0;border-radius:10px;background:#1f1610;box-shadow:0 0 0 2px #4a2e18,0 10px 22px rgba(0,0,0,.6);opacity:0;transform:scale(.96);transform-origin:0 0;transition:opacity .12s,transform .12s;pointer-events:none}
+.menu.on{opacity:1;transform:none}
+.menu .mt{font:400 9px Silkscreen,monospace;letter-spacing:1.5px;color:#a9a39a;padding:3px 14px 6px}
+.menu .mi{display:flex;align-items:center;gap:8px;font:600 14px Figtree,sans-serif;color:#efe7da;padding:6px 14px}
+.menu .mi i{width:8px;height:8px;border-radius:50%;flex:none}
+.menu .mi.sel i{background:#efe7da}
+.menu .mi.hov{background:#4A2C6E;color:#fff}
+.menu .sep{height:2px;background:#33261b;margin:5px 0}
+.ripple{position:absolute;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;box-shadow:0 0 0 3px #fff;opacity:0;pointer-events:none;z-index:7}
+.ripple.go{animation:rip .45s ease-out}
+@keyframes rip{0%{opacity:.9;transform:scale(.3)}100%{opacity:0;transform:scale(1.2)}}
+
+/* the pointer, the press ring, the scroll-wheel hint */
+.cur{position:absolute;z-index:9;width:22px;height:26px;pointer-events:none;transition:left .6s cubic-bezier(.32,.72,0,1),top .6s cubic-bezier(.32,.72,0,1)}
+.cur.slow{transition-duration:1s}
+.cur.snap{transition:none}
+.ringw{position:absolute;z-index:8;width:48px;height:48px;margin:-24px 0 0 -24px;border-radius:50%;pointer-events:none;opacity:0;
+  background:conic-gradient(#FFC43C calc(var(--p,0)*1%),rgba(18,10,5,.55) 0);
+  -webkit-mask:radial-gradient(circle,transparent 16px,#000 17px 22px,transparent 23px);mask:radial-gradient(circle,transparent 16px,#000 17px 22px,transparent 23px);
+  filter:drop-shadow(0 0 4px rgba(255,196,60,.7))}
+@property --p{syntax:'<number>';inherits:false;initial-value:0}
+.ringw.fill{opacity:1;animation:ringfill .5s linear forwards}
+@keyframes ringfill{from{--p:0}to{--p:100}}
+.wheel{position:absolute;z-index:9;pointer-events:none;opacity:0;transition:opacity .15s;padding:5px;border-radius:8px;background:rgba(13,14,16,.85);box-shadow:0 0 0 1px rgba(255,255,255,.2)}
+.wheel.on{opacity:1}
+.wheel canvas{image-rendering:pixelated;display:block}
+.clk{position:absolute;z-index:8;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;box-shadow:0 0 0 3px rgba(255,255,255,.9);opacity:0;pointer-events:none}
+.clk.go{animation:rip .4s ease-out}
+
+/* arrows + labels: white on a dark plate, readable on any backdrop */
+svg.arrows{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:10;overflow:visible}
+.lab{position:absolute;z-index:11;font:700 14px Figtree,sans-serif;color:#fff;background:rgba(8,8,10,.86);border-radius:7px;padding:5px 10px 6px;box-shadow:0 0 0 1px rgba(255,255,255,.18);white-space:nowrap;pointer-events:none}
+.lab small{display:block;font:500 12px Figtree,sans-serif;color:#c3c4ca}
+.tag{position:absolute;z-index:11;font:400 13px Silkscreen,monospace;letter-spacing:1px;color:#fff;background:rgba(8,8,10,.86);border-radius:7px;padding:7px 10px 5px;box-shadow:0 0 0 1px rgba(255,255,255,.18)}
+
+/* ---------------------------------------------------------------- Aang's cockpit, small (the strip the job leaves and rejoins) */
+.aang{position:absolute;z-index:2;width:224px;height:224px;image-rendering:pixelated;transition:filter .25s}
+.aang.lit{filter:drop-shadow(0 0 6px rgba(255,248,232,.95)) drop-shadow(0 0 16px rgba(255,248,232,.5))}
+.ck{position:absolute;z-index:2;width:420px;box-sizing:border-box;padding:12px 12px 0;border-radius:18px;
+  background:url(../../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated;
+  box-shadow:0 0 0 3px #3a2414,0 12px 28px rgba(0,0,0,.55);transition:box-shadow .25s}
+.ck .slip{background:#e9d3a6;border-radius:9px;padding:8px 12px;box-shadow:0 3px 0 #1e120a,inset 0 0 0 2px rgba(120,80,30,.25);font:600 13.5px Figtree,sans-serif;color:#2a1c0c}
+.ck .slip small{display:block;font:400 9px Silkscreen,monospace;letter-spacing:2px;color:#8a3e1c;margin-bottom:4px}
+.ck .strip{margin:10px -2px 0;display:flex;flex-direction:column;gap:7px;position:relative}
+.ck .typ{margin:12px -12px 0;border-radius:0 0 15px 15px;padding:8px 10px 10px;background:url(../../../src/Shell/pages/art/browser/band.png) 0 0/128px 58px;image-rendering:pixelated;box-shadow:inset 0 3px 0 #2a1a0e}
+.ck .field{border-radius:13px;border:1.5px solid rgba(0,0,0,.45);padding:9px 12px;font:500 14px Figtree,sans-serif;color:#a99ac8;background:linear-gradient(180deg,#331d52,#4A2C6E);box-shadow:inset 0 2px 4px rgba(0,0,0,.45)}
+.ck .tail{position:absolute;right:46px;bottom:-14px;width:0;height:0;border:12px solid transparent;border-top:14px solid #2a1a0e;border-bottom:0}
+/* a strip job: the cockpit's folded bar (45g) */
+.sj{box-sizing:border-box;padding:8px 11px 8px;border-radius:11px;color:#21160a;background:radial-gradient(120% 90% at 30% 0%,#f7ead0,#e9d3a6);box-shadow:0 0 0 3px #2a1a0e,0 4px 0 #1a0f08;transition:transform .2s,box-shadow .2s}
+.sj .hd{display:flex;align-items:center;gap:8px}
+.sj .hd img{width:18px;height:18px;border-radius:4px;box-shadow:0 0 0 1px rgba(106,70,40,.5)}
+.sj .hd b{font:700 13px Figtree,sans-serif;color:#8a3e1c;white-space:nowrap}
+.sj .hd span.t{min-width:0;font:600 12.5px Figtree,sans-serif;color:#3a2a18;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sj .hd .pct{margin-left:auto;flex:none;font:400 10px Silkscreen,monospace;color:#3a2a18}
+.sj .row2{display:flex;align-items:center;gap:10px;margin-top:6px}
+.sj .row2 .lt{flex:none;font:500 11.5px Figtree,sans-serif;color:#6b5236}
+.sj canvas.jpill{image-rendering:pixelated;display:block}
+.sj.lift{transform:translateY(-3px);box-shadow:0 0 0 3px #2a1a0e,0 7px 0 #1a0f08,0 0 0 5px rgba(255,196,60,.6),0 12px 18px rgba(0,0,0,.5)}
+/* the drop target: the strip opens a lit slot, warm white, never yellow-on-yellow */
+.slot{box-sizing:border-box;height:0;border-radius:11px;overflow:hidden;display:grid;place-items:center;font:400 10px Silkscreen,monospace;letter-spacing:1.5px;color:#fff;
+  background:rgba(255,250,240,.12);box-shadow:inset 0 0 0 2px rgba(255,250,240,.85),0 0 18px rgba(255,248,232,.45);opacity:0;transition:height .3s cubic-bezier(.32,.72,0,1),opacity .2s}
+.slot.on{opacity:1}
+.ck.lit{box-shadow:0 0 0 3px #3a2414,0 0 0 6px rgba(255,248,232,.55),0 0 30px rgba(255,248,232,.35),0 12px 28px rgba(0,0,0,.55)}
+
+/* the needs-you answer: Aang's bubble, small */
+.ab2{position:absolute;z-index:2;width:330px;box-sizing:border-box;padding:12px 14px 14px;border-radius:18px;background:radial-gradient(120% 90% at 30% 0%,#f8ecd3,#e9d3a6);box-shadow:0 0 0 3px #3a2414,0 0 0 6px rgba(124,196,255,.55),0 12px 28px rgba(0,0,0,.55);transition:opacity .3s,transform .3s cubic-bezier(.34,1.32,.5,1)}
+.ab2.hide{opacity:0;transform:translateY(10px) scale(.96)}
+.ab2 .kick{display:flex;align-items:center;gap:7px;font:400 10px Silkscreen,monospace;letter-spacing:1.5px;color:#1d4f78}
+.ab2 .kick img{width:16px;height:16px;border-radius:4px}
+.ab2 .q{font:700 17px/1.35 Figtree,sans-serif;color:#21160a;margin:8px 0 10px}
+.ab2 .opt{font:600 14px Figtree,sans-serif;color:#2a1c0c;background:rgba(120,80,30,.1);border-radius:8px;padding:7px 10px;margin-top:6px;box-shadow:inset 0 0 0 2px rgba(120,80,30,.22)}
+
+/* ---------------------------------------------------------------- layout on the sheet */
+.rowx{display:flex;gap:18px;align-items:flex-start;margin-top:12px}
+.col{display:flex;flex-direction:column;gap:8px}
+.minicap{display:flex;align-items:center;gap:0;font:400 12px Silkscreen,monospace;letter-spacing:1.2px;color:#e9e9ec;margin:2px 0 0}
+.minicap+.why{font-size:14px;color:#b9bac0;line-height:1.45;margin:0}
+.opt52{display:grid;grid-template-columns:660px 280px 1fr;gap:18px;align-items:start;margin-top:22px;padding:18px;border-radius:14px;background:#1b1c20;box-shadow:inset 0 0 0 1px #2c2e35}
+.opt52.rec{box-shadow:inset 0 0 0 2px #3fc4b4}
+.opt52 .txt h3{display:flex;align-items:center;gap:10px;margin:0 0 10px;font:700 21px Figtree,sans-serif;color:#fff}
+.opt52 .txt p{font-size:15px;line-height:1.5;color:#c9cad0;margin:0 0 10px}
+.opt52 .txt .pro,.opt52 .txt .con{font-size:14.5px;line-height:1.45;margin:0 0 6px;color:#c9cad0}
+.opt52 .txt .pro::before{content:"+ ";color:#3fc4b4;font-weight:800}
+.opt52 .txt .con::before{content:"\2212  ";color:#e8443a;font-weight:800}
+.zoom{position:relative;width:280px;height:300px;border-radius:12px;overflow:hidden;background:#24272e;box-shadow:inset 0 0 0 1px #3a3d45}
+.zoom .zl{position:absolute;left:10px;top:9px;font:400 10px Silkscreen,monospace;letter-spacing:1.2px;color:#a9abb3;z-index:2}
+.zoom .zin{position:absolute;transform-origin:0 0}
+.note52{margin-top:18px;padding:16px 20px;border-radius:14px;background:#1b1c20;box-shadow:inset 0 0 0 1px #2c2e35}
+.note52 p{font-size:15.5px;line-height:1.55;color:#c9cad0;margin:0 0 8px}
+.note52 p:last-child{margin:0}
+.picks{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-top:14px}
+.picks .pc{display:flex;flex-direction:column;align-items:stretch;gap:14px;padding:0;background:none;box-shadow:none}
+.picks div{display:flex;gap:12px;align-items:center;padding:14px 16px;border-radius:12px;background:#1b1c20;box-shadow:inset 0 0 0 1px #2c2e35;font-size:15.5px;color:#d8d9de;line-height:1.4}
+.picks div.rec{box-shadow:inset 0 0 0 2px #3fc4b4}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}

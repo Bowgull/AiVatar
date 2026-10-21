@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 52 - Job pop-out</title>
+<!-- Sheet 52 (2026-10-21). His decisions, not reopened here: a popped-out Claude job has NO border, only the job bubble
+     (the cockpit's parchment bar, bubble.css .ckjobs / sheet 45g), draggable anywhere; folded by default, click unfolds
+     (~520 ms spring) and folds (~340 ms); ONE pin (always on top), no other chrome; drag it onto Aang to put it back; teal
+     JOB COMPLETE with "Nice" closes it; long-press tear-off from the strip (gold ring ~500 ms, the strip closes up with a
+     tiny bounce). His new question: how he controls see-through. Legibility rules from his complaint about sheets 50/51:
+     neutral grey sheet, one idea per row, arrows at the one thing that differs, plain captions, letters with my pick first.
+     Today's video pop-out (popout.js) fades the WHOLE window with a slider in a wood strip, floor 20%, and "pinned" there
+     means clicks pass through to the game; here pinned only means "stays on top". Mockup only; helpers in sheet-52/. -->
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<link rel="stylesheet" href="sheet-52/pop.css">
+<script src="sheet-50/marks.js"></script>
+<script src="sheet-52/pop.js"></script>
+</head>
+<body>
+<h1>SHEET 52 &middot; A CLAUDE JOB ON YOUR DESKTOP</h1>
+<p class="lead">Pull a job out of Aang's bubble and it floats on your desktop as <b>just the job</b>, with no window around it. This sheet shows how it looks, how it comes and goes, its states, and your new question: <b>how you make it see-through</b> (section 6).</p>
+<div class="decided"><span>No border, just the job</span><span>Arrives folded, click to unfold</span><span>One pin, nothing else</span><span>Drag onto Aang to put it back</span><span>Teal + "Nice" when done</span><span>Hold half a second to pull it out</span></div>
+
+<!-- ================================================================= 1 -->
+<h2><span class="n">1</span>WHAT IT LOOKS LIKE</h2>
+<p class="lead">The bar from Aang's bubble, cut loose. No title bar, no frame, no close button. Grab it anywhere to move it.</p>
+<div class="scene" data-s="anat-fold"></div>
+
+<!-- ================================================================= 2 -->
+<h2><span class="n">2</span>CLICK IT AND IT OPENS</h2>
+<p class="lead">Opens in about half a second with a soft spring. Click again and it folds back, a bit quicker.</p>
+<div class="rowx"><div class="scene" data-s="anat-open"></div><div class="scene" data-s="unfold-loop"></div></div>
+
+<!-- ================================================================= 3 -->
+<h2><span class="n">3</span>HOW IT GETS ONTO YOUR DESKTOP</h2>
+<p class="lead">In Aang's bubble, <b>press and hold</b> a job for half a second. A gold ring fills, the job comes away under your pointer, and the jobs left behind close up with a tiny bounce. No empty gap.</p>
+<div class="scene" data-s="tear"></div>
+
+<!-- ================================================================= 4 -->
+<h2><span class="n">4</span>HOW IT GOES BACK</h2>
+<p class="lead"><b>Drag it onto Aang.</b> As you get close, Aang and his bubble light up white and a space opens in the job list. Let go and it slides in. (If his bubble is closed, it opens as you get near.)</p>
+<div class="scene" data-s="back"></div>
+
+<!-- ================================================================= 5 -->
+<h2><span class="n">5</span>WHAT IT SHOWS</h2>
+<p class="lead">Working, paused and finished, each folded. The finished one plays: <b>Nice</b> shrinks it away.</p>
+<div class="rowx"><div class="col"><div class="scene" data-s="st-work"></div><p class="minicap">WORKING</p></div>
+  <div class="col"><div class="scene" data-s="st-paused"></div><p class="minicap">PAUSED</p></div>
+  <div class="col"><div class="scene" data-s="st-done"></div><p class="minicap">JOB COMPLETE</p></div></div>
+<h3 style="font:400 14px Silkscreen,monospace;letter-spacing:1.2px;color:#fff;margin:30px 0 4px">WHEN CLAUDE NEEDS YOU</h3>
+<p class="cap" style="margin:0 0 10px">The bar gets a small blue chip. Click it and Aang's bubble opens with the question, so you answer where you always do.</p>
+<div class="scene" data-s="st-needs"></div>
+
+<!-- ================================================================= 6 -->
+<h2><span class="n">6</span>SEE-THROUGH: HOW YOU'LL CONTROL IT</h2>
+<p class="lead">First, what it looks like over your game. Same job, open, at full and at 55%.</p>
+<div class="rowx"><div class="scene" data-s="see-100"></div><div class="scene" data-s="see-55"></div></div>
+<p class="cap">Four ways to set it, all with no extra buttons on the bar. Each one plays on a loop; the close-up shows the one thing that's different.</p>
+
+<div class="opt52 rec"><div class="scene" data-s="opA"></div><div class="zoom" data-z="opA"></div>
+  <div class="txt"><h3><span class="let">A</span>Scroll the wheel<span class="mypick">MY PICK</span></h3>
+    <p>Mouse over the job, roll the wheel down to fade it, up to bring it back. A tiny number shows by the pin for a second.</p>
+    <p class="pro">Nothing added to the bar at all.</p><p class="pro">Fast, and you can fine-tune it.</p><p class="con">You have to know it's there (Aang tells you once).</p></div></div>
+
+<div class="opt52"><div class="scene" data-s="opB"></div><div class="zoom" data-z="opB"></div>
+  <div class="txt"><h3><span class="let">B</span>A slider when you hover</h3>
+    <p>Put your mouse on the job and a thin slider appears next to the pin. Drag it down to fade.</p>
+    <p class="pro">Easy to find: you see it the moment you hover.</p><p class="con">Something pops out every time you touch the job.</p></div></div>
+
+<div class="opt52"><div class="scene" data-s="opC"></div><div class="zoom" data-z="opC"></div>
+  <div class="txt"><h3><span class="let">C</span>Right-click menu</h3>
+    <p>Right-click the job, pick 100, 80, 60 or 40%.</p>
+    <p class="pro">Plain and hard to get wrong.</p><p class="con">Two clicks, and only four set levels.</p></div></div>
+
+<div class="opt52"><div class="scene" data-s="opD"></div><div class="zoom" data-z="opD"></div>
+  <div class="txt"><h3><span class="let">D</span>Double-click the pin</h3>
+    <p>Each double-click steps it: 100, 75, 50, then back to 100.</p>
+    <p class="pro">Uses the one button it already has.</p><p class="con">A double-click is also a click, so the pin flicks on and off too.</p></div></div>
+
+<div class="note52">
+  <p><b style="color:#fff">It can never disappear.</b> It stops at <b style="color:#fff">30%</b>, so you can always find it and drag it home. (The video pop-out stops at 20%; this one is mostly words, so a little more.)</p>
+  <p><b style="color:#fff">It remembers.</b> Each job keeps its fade when you put it back and pull it out again.</p>
+</div>
+
+<h3 style="font:400 14px Silkscreen,monospace;letter-spacing:1.2px;color:#fff;margin:30px 0 4px">AND WHEN YOUR MOUSE IS ON IT?</h3>
+<p class="cap" style="margin:0 0 10px">Should it go solid while your mouse is over it? <b>My pick: no.</b> With A you set the fade with your mouse on top, so it has to show you the real fade. It can be a switch in Settings later.</p>
+<div class="rowx">
+  <div class="col"><div class="scene" data-s="hovE"></div><p class="minicap"><span class="let" style="width:26px;height:26px;font-size:13px;margin-right:8px">E</span>KEEPS YOUR FADE<span class="mypick">MY PICK</span></p></div>
+  <div class="col"><div class="scene" data-s="hovF"></div><p class="minicap"><span class="let" style="width:26px;height:26px;font-size:13px;margin-right:8px">F</span>GOES SOLID UNDER THE MOUSE</p></div>
+</div>
+
+<!-- ================================================================= 7 -->
+<h2><span class="n">7</span>PICK</h2>
+<p class="lead">Two answers: a letter from A to D, and E or F.</p>
+<div class="picks">
+  <div class="pc">
+    <div class="rec"><span class="let">A</span><span><b style="color:#fff">Scroll the wheel</b> to fade it <span class="mypick">MY PICK</span></span></div>
+    <div><span class="let">B</span><span>Slider on hover</span></div>
+    <div><span class="let">C</span><span>Right-click menu</span></div>
+    <div><span class="let">D</span><span>Double-click the pin</span></div>
+  </div>
+  <div class="pc">
+    <div class="rec"><span class="let">E</span><span><b style="color:#fff">Keeps your fade</b> when the mouse is on it <span class="mypick">MY PICK</span></span></div>
+    <div><span class="let">F</span><span>Goes solid under the mouse</span></div>
+  </div>
+</div>
+</body>
+</html>
