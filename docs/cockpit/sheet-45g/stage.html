@@ -68,6 +68,37 @@
   .ob .r{margin-left:auto;font:500 11px var(--body);color:#a98e6a}
   .ob.now .r{font:400 9px Silkscreen,monospace;color:#8a5a28}
   .queued[hidden]{display:none}
+  /* Claude's multiple choice, as rows you press: a dot for one answer, a box for several */
+  .choices{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+  .ch{all:unset;cursor:pointer;display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border-radius:9px;background:rgba(120,80,30,.08);box-shadow:inset 0 0 0 2px rgba(120,80,30,.18);transition:background .15s,box-shadow .15s}
+  .ch:hover{background:rgba(255,196,60,.18);box-shadow:inset 0 0 0 2px rgba(201,140,20,.55)}
+  .ch.on{background:rgba(255,196,60,.28);box-shadow:inset 0 0 0 2px #C98C14,0 0 10px rgba(255,196,60,.35)}
+  .ch .mk{flex:none;width:14px;height:14px;margin-top:2px;box-sizing:border-box;border:2.5px solid #6b4318;background:#f7ead0}
+  .ch .mk.dot{border-radius:50%}
+  .ch .mk.box{border-radius:4px}
+  .ch.on .mk.dot{background:radial-gradient(circle,#8a3e1c 0 3px,#f7ead0 3.5px)}
+  .ch.on .mk.box{background:#8a3e1c;box-shadow:inset 0 0 0 2px #f7ead0}
+  .ch .tx{display:flex;flex-direction:column;gap:1px}
+  .ch .tx b{font:700 13.5px var(--body);color:#21160a}
+  .ch .tx small{font:500 12px/1.35 var(--body);color:#6b5236}
+  .ch .rec{display:inline-block;margin-left:6px;font:400 7.5px var(--label);letter-spacing:1px;padding:2px 4px 1px;border-radius:3px;background:#58b0a3;color:#08302b;vertical-align:2px}
+  .ch.other .tx b{color:#5b2f8f}
+  .sendrow{display:flex;align-items:center;gap:8px;margin-top:10px}
+  .sendrow .n{font:400 8px var(--label);letter-spacing:1px;color:#8f7458}
+  .stepper{display:flex;align-items:center;gap:8px;margin:0 0 8px}
+  .stepper .dots{display:flex;gap:5px}
+  .stepper .dots i{width:9px;height:9px;border-radius:50%;background:rgba(120,80,30,.25)}
+  .stepper .dots i.done{background:#58b0a3}
+  .stepper .dots i.now{background:#C98C14;box-shadow:0 0 6px rgba(255,196,60,.8)}
+  .stepper span{font:400 8px var(--label);letter-spacing:1px;color:#8f7458}
+  .stepper .tag{margin-left:auto;font:400 8px var(--label);letter-spacing:1px;color:#8a3e1c}
+  /* the one layout: when the column has less room than the bubble wants, it stops growing and scrolls inside,
+     with a soft fade top and bottom, never cut off */
+  #bubble.capped #fill{overflow-y:auto;scrollbar-width:none;-webkit-mask-image:linear-gradient(180deg,transparent 0,#000 14px,#000 calc(100% - 22px),transparent);mask-image:linear-gradient(180deg,transparent 0,#000 14px,#000 calc(100% - 22px),transparent)}
+  #bubble.capped #fill::-webkit-scrollbar{display:none}
+  .morehint{position:absolute;left:50%;bottom:4px;transform:translateX(-50%);font:400 8px var(--label);letter-spacing:1.5px;color:#8f7458;pointer-events:none;animation:nudge 1.4s ease-in-out infinite}
+  @keyframes nudge{50%{transform:translate(-50%,2px)}}
+  #wrap{transition:bottom .26s cubic-bezier(.3,.7,.2,1)}
   .flip{all:unset;cursor:pointer;margin-left:auto;perspective:220px;display:inline-block;height:18px;min-width:58px;text-align:right}
   .orow .flip{margin-left:0;min-width:64px}
   .flip .fi{position:relative;display:inline-block;width:100%;height:100%;transform-style:preserve-3d;transition:transform .45s cubic-bezier(.3,.7,.2,1)}
@@ -228,7 +259,8 @@ function renderJobs() {
   }
 }
 function track(id) { tracked = [...tracked.filter((x) => x !== id), id].slice(-2); listOpen = false; renderJobs(); placeJobs(); }
-function placeJobs() { const tb = $('tb'); $('jobs').style.bottom = (22 + tb.offsetHeight + 10) + 'px'; }
+function placeJobs() { const tb = $('tb'); $('jobs').style.bottom = (22 + tb.offsetHeight + 10) + 'px'; if (!bubble.hidden && typeof layoutSoon === 'function') layoutSoon(); }
+let lt = 0; const layoutSoon = () => { clearTimeout(lt); lt = setTimeout(() => layout(), 30); };
 function openBox() { $('tb').classList.add('on'); $('jobs').classList.add('on'); placeJobs(); }
 function closeBox() { $('tb').classList.remove('on'); $('jobs').classList.remove('on'); }
 function target(j) {
@@ -246,7 +278,21 @@ renderJobs();
 /* ---- the bubble, morphing to whatever needs showing ---- */
 const sp = (sess) => `<div class="speaker claude"><img class="cl" src="${CL}" alt=""><span class="nm">CLAUDE</span><span class="sess">${sess}</span><span class="mc">PC</span></div>`;
 const words = (t) => `<button class="cw" type="button"><i></i>CLAUDE'S WORDS</button><pre class="cwbox" hidden>${esc(t)}</pre>`;
+const choice = (kind, b, small, rec = false, on = false) => `<button class="ch${on ? ' on' : ''}" type="button" data-kind="${kind}"><i class="mk ${kind}"></i><span class="tx"><b>${b}${rec ? '<span class="rec">BEST</span>' : ''}</b>${small ? `<small>${small}</small>` : ''}</span></button>`;
+const other = `<button class="ch other" type="button" data-other="1"><i class="mk dot"></i><span class="tx"><b>Something else</b><small>Type it to Aang; he tells Waymark properly</small></span></button>`;
 const VIEWS = {
+  mc1: { w: 420, html: () => `${sp('Waymark')}<p class="said">Waymark asks: how should rest days work?</p>
+    <div class="choices">${choice('dot', 'Sundays only', 'Every Sunday is a rest day, the rest of the week shifts around it.', true)}${choice('dot', 'You pick each week', 'Coach asks you every Monday which day to rest.')}${choice('dot', 'After hard days', 'A rest day follows any long run or intervals.')}${other}</div>
+    ${words('AskUserQuestion: "How should rest days be scheduled?"\n  1. Fixed Sunday (Recommended)\n  2. User chooses weekly\n  3. Adaptive: after high-load sessions')}` },
+  mc2: { w: 420, html: () => `${sp('Waymark')}<p class="said">Which things should the readiness meter look at? Pick any.</p>
+    <div class="choices">${choice('box', 'Sleep', 'From your watch, last 3 nights.', true, true)}${choice('box', 'Resting heart rate', 'Higher than usual means take it easy.', false, true)}${choice('box', 'How your last run felt', 'One tap after each run.')}${choice('box', 'Soreness', 'A quick 1 to 5 in the morning.')}</div>
+    <div class="sendrow"><button class="key sm primary" type="button" data-act="send">Send 2 picks</button><span class="n">OR TYPE SOMETHING ELSE</span></div>
+    ${words('AskUserQuestion (multiSelect): "Which signals should feed the readiness meter?"\n  [x] Sleep (Recommended)\n  [x] Resting HR\n  [ ] RPE\n  [ ] Soreness')}` },
+  mc3: { w: 430, html: () => `${sp('Waymark')}<div class="stepper"><span class="dots"><i class="done"></i><i class="now"></i><i></i></span><span>QUESTION 2 OF 3</span><span class="tag">BACK</span></div>
+    <p class="said">What should happen on a day you miss a run?</p>
+    <div class="choices">${choice('dot', 'Move it to tomorrow', 'Tomorrow becomes that run; the week shifts by one day.', true)}${choice('dot', 'Skip it', 'Carry on with the plan as if nothing happened.')}${choice('dot', 'Make it shorter tomorrow', 'Half the distance added to the next easy day.')}${choice('dot', 'Ask me each time', 'Coach messages you the next morning.')}${other}</div>
+    <div class="sendrow"><span class="n">ANSWERED: REST DAYS ON SUNDAYS</span></div>
+    ${words('AskUserQuestion (3 questions):\n  1. Rest days: Fixed Sunday  (answered)\n  2. "How should missed sessions be handled?"\n  3. "Units for distance?"')}` },
   sent: { w: 330, html: () => `<p class="said">Sent to <b style="color:#8a3e1c">Waymark</b>. It'll fit rest days in after the rules-only brain is done.</p>` },
   reply: { w: 400, html: () => `${sp('Waymark')}<p class="said">Waymark added your rest days. It moved two things to make room:</p>
     <ul class="change"><li><b class="add">ADDED</b>Sundays are rest days</li><li><b class="mv">MOVED</b>Long run, Sunday to Saturday</li><li><b class="mv">MOVED</b>Intervals, Saturday to Friday</li></ul>
@@ -265,12 +311,35 @@ function show(kind) {
   fill.classList.add('out');
   setTimeout(() => {
     if (first) { bubble.hidden = false; bubble.style.width = Math.round(v.w * .6) + 'px'; bubble.style.height = Math.round(h * .6) + 'px'; bubble.getBoundingClientRect(); }
-    fill.innerHTML = ''; bubble.style.width = v.w + 'px'; bubble.style.height = h + 'px'; paintFor(320);
-    setTimeout(() => { fill.innerHTML = v.html(); fill.classList.remove('out'); paint(); setTimeout(paint, 120); placeBubble(); }, 270);
+    fill.innerHTML = ''; bubble.style.width = v.w + 'px'; bubble.style.height = Math.min(h, room()) + 'px'; placeBubble(); paintFor(320);
+    setTimeout(() => { fill.innerHTML = v.html(); fill.classList.remove('out'); wireChoices(); layout(); }, 270);
   }, first ? 0 : 150);
 }
+/* the column: the chat box at the bottom, the tracked bars on it, the bubble on top with whatever room is left */
+const room = () => { const J = $('jobs'), deskH = $('desk').clientHeight; const base = J.classList.contains('on') ? J.offsetHeight + parseInt(J.style.bottom || '0') + 14 : 150; return deskH - base - 16; };
+function layout() {
+  placeJobs();
+  if (bubble.hidden) return;
+  const fillH = fill.scrollHeight, cap = room();
+  const h = Math.min(fillH + 0, cap);
+  bubble.classList.toggle('capped', fillH > cap);
+  fill.style.maxHeight = fillH > cap ? (cap - 32) + 'px' : '';
+  fill.querySelector('.morehint')?.remove();
+  if (fillH > cap) { const m = document.createElement('div'); m.className = 'morehint'; m.textContent = 'SCROLL FOR MORE'; bubble.append(m); fill.addEventListener('scroll', () => { if (fill.scrollTop > 10) bubble.querySelector('.morehint')?.remove(); }, { once: true }); }
+  else bubble.querySelector('.morehint')?.remove();
+  bubble.style.height = (fillH > cap ? cap : bubble.scrollHeight) + 'px';
+  bubble.style.height = 'auto'; const real = bubble.getBoundingClientRect().height; bubble.style.height = Math.min(real, cap) + 'px';
+  placeBubble(); paintFor(320);
+}
+function wireChoices() {
+  for (const c of fill.querySelectorAll('.ch')) c.addEventListener('click', () => {
+    if (c.dataset.other) { target(JOBS.find((j) => j.id === 'wm')); $('tbf').innerHTML = '<span class="ph">Tell Aang what you want instead</span><span class="cur"></span>'; return; }
+    if (c.dataset.kind === 'dot') { for (const x of fill.querySelectorAll('.ch[data-kind="dot"]')) x.classList.remove('on'); c.classList.add('on'); }
+    else { c.classList.toggle('on'); const n = fill.querySelectorAll('.ch.on').length; const k = fill.querySelector('[data-act="send"]'); if (k) k.textContent = n ? `Send ${n} pick${n > 1 ? 's' : ''}` : 'Pick at least one'; }
+  });
+}
 function placeBubble() { const J = $('jobs'); const top = J.classList.contains('on') ? J.offsetHeight + parseInt(J.style.bottom || '0') + 14 : 150; $('wrap').style.bottom = top + 'px'; paintFor(200); }
-fill.addEventListener('click', (e) => { const cw = e.target.closest('.cw'); if (cw) { cw.nextElementSibling.hidden = !cw.nextElementSibling.hidden; bubble.style.height = 'auto'; const h = bubble.getBoundingClientRect().height; bubble.style.height = h + 'px'; paintFor(300); } });
+fill.addEventListener('click', (e) => { const cw = e.target.closest('.cw'); if (cw) { cw.nextElementSibling.hidden = !cw.nextElementSibling.hidden; layout(); } });
 
 /* ---- the pet's question mark, just over his head, when something needs him (the marks stay as they are) ---- */
 function marker(on) {
