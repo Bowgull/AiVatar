@@ -98,6 +98,53 @@ export function videoShot(about, onLink) {
   return shot;
 }
 
+/**
+ * Sheet 48 (his pick, 2026-10-21: "I like the different paper with a hover over to see the little label"): each kind
+ * of row on its own tinted slip, and a little carved label that shows only under the mouse. The kind comes from what
+ * the brain marked (extra.kind, from 2026-10-21) or from what the row already is (a video, the brief, a yes); never
+ * from its words. Old chat rows have no mark and stay plain parchment, the same as talking with Aang.
+ *
+ * Returns { k, label } or null: k is the paper ('claude', 'action', 'video', 'brief'; research shares the brief's
+ * honey), label what the hover says. A plan has a label but keeps the plain slip.
+ */
+export function kindOf(t) {
+  if (!t || t.who === 'you') return null;
+  const x = t.extra && typeof t.extra === 'object' ? t.extra : {};
+  if (x.kind === 'claude') {
+    const p = typeof x.project === 'string' ? x.project.trim() : '';
+    return { k: 'claude', label: ('CLAUDE' + (p ? ' · ' + p : '')).toUpperCase().slice(0, 40) };
+  }
+  const s = shapeOf(t);
+  if (x.kind === 'action' || s.type === 'yes') return { k: 'action', label: 'DONE FOR YOU' };
+  if (s.type === 'video') return { k: 'video', label: 'VIDEO' };
+  if (s.type === 'brief') return { k: 'brief', label: 'BRIEF' };
+  if (s.type === 'research') return { k: 'brief', label: 'RESEARCH' };
+  if (s.type === 'plan') return { k: '', label: 'PLAN' };
+  return null;
+}
+
+/**
+ * The small gold key for "done for you" rows, lifted pixel for pixel from sheet 48's picture maker (kinds-shots.ts
+ * KEY_SVG): a 10 x 10 grid at 2 CSS px per art pixel, crisp edges. Built as elements, never as markup.
+ */
+const KEY_PX = [['#7a4e12', [[1, 2, 4, 4], [5, 3, 4, 2], [7, 5, 1, 2], [5, 5, 1, 1]]], ['#ffc43c', [[2, 3, 2, 2], [5, 3, 3, 1]]], ['#2a1a10', [[2, 3, 1, 1]]]];
+function goldKey() {
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('width', '20'); svg.setAttribute('height', '20'); svg.setAttribute('viewBox', '0 0 10 10');
+  svg.setAttribute('shape-rendering', 'crispEdges'); svg.setAttribute('class', 'pix lb-key'); svg.setAttribute('aria-hidden', 'true');
+  for (const [fill, rects] of KEY_PX) {
+    const g = document.createElementNS(NS, 'g'); g.setAttribute('fill', fill);
+    for (const [x, y, w, h] of rects) {
+      const r = document.createElementNS(NS, 'rect');
+      r.setAttribute('x', String(x)); r.setAttribute('y', String(y)); r.setAttribute('width', String(w)); r.setAttribute('height', String(h));
+      g.append(r);
+    }
+    svg.append(g);
+  }
+  return svg;
+}
+
 /** What a stored row is, for drawing. */
 function shapeOf(t) {
   const x = t.extra && typeof t.extra === 'object' ? t.extra : {};
@@ -169,6 +216,9 @@ function tile(kind, src) {
   if (kind === 'aang') { const i = document.createElement('img'); i.src = 'art/aang-face.png'; i.alt = ''; i.className = 'lb-aang'; t.append(i); return t; }
   if (kind === 'face' && okImg(src)) { const i = document.createElement('img'); i.src = src; i.alt = ''; i.className = 'lb-face'; t.append(i); return t; }
   if (kind === 'art') { const i = document.createElement('img'); i.src = src; i.alt = ''; i.className = 'lt-art'; t.append(i); return t; }
+  // Sheet 48: Claude's own icon on its rows, the gold key on what Aang did for him.
+  if (kind === 'claude') { const i = document.createElement('img'); i.src = 'art/claude-icon.png'; i.alt = ''; i.className = 'lb-claude'; t.append(i); return t; }
+  if (kind === 'did') { t.append(goldKey()); return t; }
   const icon = pixIcon(kind === 'face' ? 'video' : kind); if (icon) t.append(icon);
   return t;
 }
@@ -214,9 +264,10 @@ function rowOf(t, d, ctx) {
   let tl = null, small = '', open = null;
   const when = clock(d);
 
+  const kind = kindOf(t);
   if (s.type === 'talk') {
     item.classList.add('talk');
-    tl = tile('aang');
+    tl = tile(kind?.k === 'claude' ? 'claude' : kind?.k === 'action' ? 'did' : 'aang');
     textWithLinks(b, t.text);
     if (s.links.length) open = () => { const o = T('div', 'lb-links'); for (const l of s.links) if (/^https?:\/\//.test(l.url ?? '')) o.append(linkEl(l.url, l.label)); return o; };
   } else if (s.type === 'video' || s.type === 'about') {
@@ -310,6 +361,11 @@ function rowOf(t, d, ctx) {
   if (small) w.append(T('small', '', small));
   head.append(w);
   item.append(head, replyKey(t, ctx));
+  // Sheet 48: the kind's paper, and its little label, which only shows under the mouse (bubble.css .lb-kind).
+  if (kind) {
+    if (kind.k) item.classList.add('k-' + kind.k);
+    item.append(T('i', 'lb-kind', kind.label));
+  }
   if (open) {
     item.classList.add('can');
     const body = T('div', 'lt-open');

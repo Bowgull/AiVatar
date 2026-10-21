@@ -201,3 +201,39 @@ test('announce keeps the picture and the link with what it said', async () => {
   assert.equal(t.extra.face.name, 'Chan');
   await done();
 });
+
+// Sheet 48 (2026-10-21): each kind of row on its own paper. The brain marks the kind where it KNOWS it.
+test('Claude Code news is marked claude with its project; a plain announce is not', async () => {
+  const { core, next, done } = await rig(47968, 'once');
+  core.announce('Claude Code finished in Waymark, that one took 4 minutes.', { asked: true, done: true, claude: 'Waymark' });
+  const b = await next('bubble');
+  assert.equal(b.kind, 'claude');
+  assert.equal(b.project, 'Waymark');
+  const [t] = core.memory.turnsById([b.turn]);
+  assert.equal(t.extra.kind, 'claude');
+  assert.equal(t.extra.project, 'Waymark');
+  core.announce('You have used 50% of your week.');
+  const p = await next('bubble');
+  assert.equal(p.kind, undefined);
+  assert.ok(!core.memory.turnsById([p.turn])[0].extra, 'nothing guessed from the words');
+  await done();
+});
+
+test('a reply is "done for you" only when a tool really changed something', async () => {
+  const { changedSomething } = await import('../src/core.ts');
+  assert.equal(changedSomething([]), false);
+  assert.equal(changedSomething([{ tool: 'mail_inbox', ok: true }, { tool: 'mcp__aang__calendar_today', ok: true }]), false, 'looking is not doing');
+  assert.equal(changedSomething([{ tool: 'mail_draft', ok: true }]), false, 'a draft waits for his yes');
+  assert.equal(changedSomething([{ tool: 'move_file', ok: false }]), false, 'a failed change changed nothing');
+  assert.equal(changedSomething([{ tool: 'set_reminder', ok: true }]), true);
+  assert.equal(changedSomething([{ tool: 'mcp__aang__watch', ok: true }]), true);
+  assert.equal(changedSomething([], true), true, 'an email that went');
+  const m = new Memory(tmp());
+  try {
+    const did = m.saveReplied('Done. I moved the demo.', 'claude-quick', 'r1', { kind: 'action' })!;
+    const said = m.saveReplied('Your demo is Friday.', 'claude-quick', 'r2')!;
+    const byId = new Map(m.history('').map(h => [h.id, h]));
+    assert.equal((byId.get(did)!.extra as any).kind, 'action');
+    assert.ok(!('extra' in byId.get(said)!), 'ordinary answers stay plain');
+  } finally { m.close(); }
+});
