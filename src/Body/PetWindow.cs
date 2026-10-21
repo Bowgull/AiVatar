@@ -481,7 +481,7 @@ sealed class PetWindow : Form
         if (urgentTest != null) BeginInvoke(() =>
         {
             if (urgentTest == "badge") Hold("Job hunt done. Two applied.", "C:\\test", 1, Theme.Gold);
-            else if (urgentTest == "done") { Hold("Job hunt done. Two applied.", "C:\\test", 2, Theme.Claude, "Claude"); TriggerDone(); }
+            else if (urgentTest == "done") { Hold("Job hunt done. Two applied.", "C:\\test", 2, ClaudeMarks.ColorOf("complete"), "Claude"); TriggerDone(); }
             else { Hold("Need input in Claude on the test job: which one?", "C:\\test", 3, Theme.AvatarGlow, "Claude"); TriggerUrgent(); }
         });
         if (factTest) BeginInvoke(() =>
@@ -755,7 +755,7 @@ sealed class PetWindow : Form
                     // State treatment (Tier 2) - none of them ever pop him fully out over your play.
                     var focus = Str(m, "focus"); var host = Str(m, "host");
                     if (proactive && quiet && blocking) { if (Hold(text, jobCwd, 3, Theme.AvatarGlow, focus, host)) TriggerUrgent(); break; }
-                    if (proactive && quiet && done) { if (Hold(text, jobCwd, 2, Theme.Claude, focus, host)) TriggerDone(); break; }
+                    if (proactive && quiet && done) { if (Hold(text, jobCwd, 2, ClaudeMarks.ColorOf("complete"), focus, host)) TriggerDone(); break; }
                     if (proactive && quiet) { Hold(text, jobCwd, 1, Theme.Gold, focus, host); break; }
                     if (peeking) Reveal(greet: false);
                     Wake();
@@ -968,7 +968,7 @@ sealed class PetWindow : Form
             if (proactive && hiddenByUser && !blocking) return false;
             if (proactive && hiddenByUser && blocking) { hiddenByUser = false; Show(); SendBubbleState(); }
             if (proactive && quiet && blocking) { if (Hold(text, jobCwd, 3, Theme.AvatarGlow, focus, host)) TriggerUrgent(); return false; }
-            if (proactive && quiet && done) { if (Hold(text, jobCwd, 2, Theme.Claude, focus, host)) TriggerDone(); return false; }
+            if (proactive && quiet && done) { if (Hold(text, jobCwd, 2, ClaudeMarks.ColorOf("complete"), focus, host)) TriggerDone(); return false; }
             if (proactive && quiet) { Hold(text, jobCwd, 1, Theme.Gold, focus, host); return false; }
             if (peeking) Reveal(greet: false);
             if (anim.State is "idle" or "think" or "talk") glanceUntil = DateTime.UtcNow.AddMilliseconds(GlanceMs);
@@ -1271,7 +1271,7 @@ sealed class PetWindow : Form
                 // Behind the sprite, same as DrawPeeking does it, so it reads as a halo and not a box.
                 if (urgent) DrawOutline(g, shown, standing, loom: true);
                 else if (ambientGlow) DrawOutline(g, shown, standing, loom: false);
-                else if (ClaudeMarkNow is string glowFor) DrawOutline(g, shown, standing, loom: false, ClaudeMarks.ColorOf(glowFor), 0.6f);
+                else if (ClaudeMarkNow is string glowFor && ClaudeMarks.Glows(glowFor)) DrawOutline(g, shown, standing, loom: false, ClaudeMarks.ColorOf(glowFor), 0.6f);
                 g.DrawImage(shown, standing);
                 mirrored?.Dispose();
                 // C5 (2026-10-21): Claude's mark, just above his head, standing as well as docked.
@@ -2143,7 +2143,7 @@ sealed class PetWindow : Form
     /// its done", after ChatGPT's pet on a finished background task): the same motion as urgent, Claude's
     /// terracotta instead of Avatar State's white-blue, and its own quieter sound - he chose a distinct one
     /// (2026-09-22) rather than leaving it silent, precisely so it never gets mistaken for needs-you by ear.</summary>
-    void TriggerDone() => TriggerGlow(Theme.Claude, SfxDone);
+    void TriggerDone() => TriggerGlow(ClaudeMarks.ColorOf("complete"), SfxDone);   // the job-complete gold, same as the mark (2026-10-21)
 
     /// <summary>Keep what he has not seen yet, unless something more pressing is already waiting: a finished job
     /// never covers up one that is stuck on him. False when it was not kept.</summary>
@@ -2649,7 +2649,7 @@ sealed class PetWindow : Form
         var at = new Rectangle(Docking.SpriteX, Docking.SpriteY, Docking.Frame, Docking.Frame);
         if (urgent) DrawOutline(g, rot, at, loom: true);
         else if (ambientGlow) DrawOutline(g, rot, at, loom: false);
-        else if (!badge && ClaudeMarkNow is string glowFor) DrawOutline(g, rot, at, loom: false, ClaudeMarks.ColorOf(glowFor), 0.6f);
+        else if (!badge && ClaudeMarkNow is string glowFor && ClaudeMarks.Glows(glowFor)) DrawOutline(g, rot, at, loom: false, ClaudeMarks.ColorOf(glowFor), 0.6f);
         g.DrawImage(rot, at);
         // Exactly what the undocked view does, nothing invented for here: the glow rides on the think state,
         // which a working session now puts him in. Turned with the frame so it lands on his real arrow and
