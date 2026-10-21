@@ -107,6 +107,15 @@ contextBridge.exposeInMainWorld('aang', {
   // Sheet 53 (2026-10-21): what the click was, 'recent' (on Aang: his line from the last 5 minutes) or 'jobs' (on Claude's mark).
   onRecall(fn) { const h = (_e, what) => fn(what === 'jobs' ? 'jobs' : 'recent'); ipcRenderer.on('bubble:recall', h); return () => ipcRenderer.removeListener('bubble:recall', h); },
   recalled: ok => ipcRenderer.send('bubble:recalled', ok === true),
+  // Sheet 52 (2026-10-21): he held a Claude job bar down; it tears off onto his desktop. Only the job's id goes, and
+  // main.ts checks it is a real session id before any window opens.
+  jobPop: id => ipcRenderer.send('bubble:jobpop', String(id)),
+  /** What the torn-off jobs tell the bubble: 'back' (dropped on Aang), 'near' (dragged close), 'ask' (needs you / Message). */
+  onJobPop(fn) {
+    const on = (kind) => { const h = (_e, m) => fn(kind, m); ipcRenderer.on('jobpop:' + kind, h); return () => ipcRenderer.removeListener('jobpop:' + kind, h); };
+    const offs = ['back', 'near', 'ask'].map(on);
+    return () => offs.forEach((f) => f());
+  },
   /** How big the drawn bubble actually is, measured by the page, so the window can fit it. */
   bubbleSize: s => ipcRenderer.send('bubble:size', s),
   /** His answer to an ask: yes, no, always, show, skip. Named, so a page cannot invent a new one. */

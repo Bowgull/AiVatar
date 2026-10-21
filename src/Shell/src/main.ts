@@ -35,6 +35,7 @@ import { Wheel } from './wheelwin.ts';
 import { NoteWindows } from './notewin.ts';
 import type { NoteData } from './notewin.ts';
 import { TimerWindows } from './timerwin.ts';
+import { JobPops } from './jobpop.ts';
 import type { TimerData } from './timerwin.ts';
 import { INPUT_FRAME_INSET, bubbleAt, headOf, inputAt, moved, readPetAt } from './anchor.ts';
 import type { PetAt } from './anchor.ts';
@@ -137,6 +138,11 @@ let notForBubble: unknown = null;
 /** The pet's gate, as last told: muted, and Aang hidden. gameQuiet is the third. */
 let bubbleMuted = false, bubbleHidden = false;
 let noteWins: NoteWindows | null = null;
+/**
+ * Sheet 52 (2026-10-21): the Claude jobs he pulled out of the bubble onto his desktop, one small window each. They keep
+ * the brain's last job and wait lists so a freshly torn-off job draws at once instead of waiting for the next update.
+ */
+let jobPops: JobPops | null = null, lastJobs: unknown = [], lastWaits: unknown = [];
 let wheel: Wheel | null = null;
 /** The brain's notes as last sent: the board, and the notes stuck on his screen, both draw from this. */
 let notesLatest: NoteData[] = [];
@@ -372,6 +378,11 @@ const link = new CoreLink({
     if (typeof m.t === 'string' && m.t.startsWith('bsync.')) { void aangBrowser?.sync?.got(m as never).catch((e: Error) => console.error('shell: browser sync: ' + e.message)); return; }
     // C7 (2026-10-21): Claude's jobs also go to Samara's band, for the rune. Not instead of the bubble: it carries on below.
     if (m.t === 'claude.jobs' || m.t === 'claude.wait') aangBrowser?.claudeNews(m);
+    // Sheet 52 (2026-10-21): the torn-off job windows follow the same lists, so a job on his desktop stays live.
+    if (m.t === 'claude.jobs' || m.t === 'claude.wait') {
+      if (m.t === 'claude.jobs') lastJobs = m.jobs; else lastWaits = m.items;
+      jobPops?.update(lastJobs, lastWaits);
+    }
     // "Open on PC" from the Mac's browser (through the brain): a full tab here, brought to the front.
     if (m.t === 'browser.open' && typeof m.url === 'string') { aangBrowser?.openForward(m.url); return; }
     // The engine update's version and name, from the brain's one list of Samara versions (sheet 35).
@@ -713,6 +724,24 @@ app.whenReady().then(async () => {
         origin: pages.origin, preloadPath: path.join(HERE, 'preload.cjs'), spotFile: path.join(STATE_DIR, 'timer-spot.json'),
         near: () => petAt ? { x: petAt.sprite.x - 240, y: petAt.sprite.y + 10 } : null,
       });
+      // Sheet 52 (2026-10-21): a Claude job he held down in the bubble floats on his desktop as just its bar. Dropped
+      // back on Aang or the bubble it goes home; the bubble is told so it can take the bar back (and glow while it is near).
+      jobPops = new JobPops({
+        origin: pages.origin, preloadPath: path.join(HERE, 'jobpoppreload.cjs'), iconPath: AANG_ICON,
+        aangRects: () => { const b = bubble?.window(); return [b && !b.isDestroyed() && b.isVisible() ? b.getBounds() : null, petAt?.sprite ?? null]; },
+        onAction: (m) => {
+          // Open in Claude: jobpop.ts already built the link with claudeLink(); checked again here, the same as
+          // bubble:openclaude, because this is the one place a link leaves for the shell.
+          if (m.t === 'jobpop.open') { const url = claudeLink(m.url); if (url) void shell.openExternal(url); else console.error('shell: refused a pop-out Open in Claude link'); return; }
+          // Its "needs you" chip and Message: the bubble shows that question, or points the typing box at that session.
+          if (m.t === 'jobpop.ask' || m.t === 'jobpop.message') { bubble?.send('jobpop:ask', m); return; }
+          // Pause and Play: already checked by claudeMessage inside jobpop.ts, straight to the brain.
+          link?.send(m);
+        },
+        onPutBack: (id) => bubble?.send('jobpop:back', { id }),
+        onNear: (id, near) => bubble?.send('jobpop:near', { id, near }),
+      });
+      jobPops.update(lastJobs, lastWaits);
       input.window();
       const body = readJson(path.join(STATE_DIR, 'body.json')) as Record<string, unknown> | null;
       if (typeof body?.Mode === 'string') inputMode = body.Mode;
@@ -1427,6 +1456,8 @@ app.whenReady().then(async () => {
     if (!url) { console.error('shell: refused an Open in Claude link that was not a Claude session'); return; }
     void shell.openExternal(url);
   });
+  // Sheet 52 (2026-10-21): he held a job bar in the bubble long enough: it tears off under his pointer.
+  ipcMain.on('bubble:jobpop', (e, id) => { if (fromBubble(e) && typeof id === 'string') jobPops?.open(id, screen.getCursorScreenPoint()); });
 
   link.start();
   // NOTHING IS OPENED ON STARTUP.
@@ -1520,7 +1551,7 @@ setInterval(() => {
       console.log('shell: Aang closed; Samara stays');
       for (const key of ['Control+=', 'Control+numadd', 'Control+Shift+=', 'Control+Shift+numadd']) globalShortcut.unregister(key);
       // The brain went down a moment before the pet did: cancel the bubble's "waiting for my brain", silently.
-      try { bubble?.send('brain:connected', true); bubble?.hide(); input?.close(false); noteWins?.sync([]); timerWins?.sync([]); } catch { /* gone */ }
+      try { bubble?.send('brain:connected', true); bubble?.hide(); input?.close(false); noteWins?.sync([]); timerWins?.sync([]); jobPops?.closeAll(); } catch { /* gone */ }
       for (const [kind, w] of windows) if (kind !== 'popout' && !w.isDestroyed() && w.isVisible()) w.hide();
     }
   }
@@ -1721,7 +1752,7 @@ function fromBubble(e: Electron.IpcMainEvent): boolean {
 }
 
 app.on('will-quit', () => globalShortcut.unregisterAll());
-app.on('before-quit', () => { samaraShortcutsLit(false, { quitting: true }); aangBrowser?.closeAll(); snipper?.close(); input?.destroy(); link.stop(); hotkey?.release(); ads?.stop(); popout?.close(); bubble?.close(); drm?.close(); pages?.close(); });
+app.on('before-quit', () => { samaraShortcutsLit(false, { quitting: true }); aangBrowser?.closeAll(); snipper?.close(); input?.destroy(); link.stop(); hotkey?.release(); ads?.stop(); popout?.close(); jobPops?.dispose(); bubble?.close(); drm?.close(); pages?.close(); });
 
 // Nothing a page does may take the Shell down silently.
 process.on('uncaughtException', e => console.error('shell: uncaught: ' + (e as Error).message));

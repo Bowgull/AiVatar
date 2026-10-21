@@ -455,6 +455,11 @@
       "at": "2026-10-22T00:40:00-04:00",
       "text": "Aang talks in one light speech bubble again.",
       "kind": "feature"
+    },
+    {
+      "at": "2026-10-22T01:10:00-04:00",
+      "text": "Hold a Claude job in Aang's bubble to pop it out onto your desktop.",
+      "kind": "feature"
     }
   ]
 }
