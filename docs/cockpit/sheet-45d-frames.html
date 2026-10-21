@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 45d - Frame A, softened</title>
+<!-- Sheet 45d (2026-10-21), his notes on 45c: A is the one; but the gold is harsh on the eyes, the bars' edges are sharp
+     and do not follow the design language (soft edges: round corners, dark-wood edges, never black outlines), the colours
+     are flat and low quality; the Claude icon should be the real one every app uses; explain the bottom bar; and every
+     mark gets its own colour and glow so he can tell what is up at a glance. -->
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<link rel="stylesheet" href="../../src/Shell/pages/notefonts.css">
+<style>
+  html,body{background:#17110c;margin:0}
+  body{color:#e8dcc4;font-family:Figtree,sans-serif;padding:26px;width:1500px}
+  h1{font:400 21px Silkscreen,monospace;color:#FFC43C;letter-spacing:2px;margin:0 0 6px}
+  h2{font:400 13px Silkscreen,monospace;color:#FFC43C;letter-spacing:1.5px;margin:40px 0 6px}
+  h3{font:400 10px Silkscreen,monospace;color:#FFE096;letter-spacing:1.5px;margin:0 0 12px}
+  p{color:#cdbb9a;font-size:14.5px;line-height:1.55;margin:0 0 12px;max-width:1400px}
+  p b{color:#FFC43C}
+  canvas{image-rendering:pixelated;display:block}
+  .row{display:flex;gap:26px;flex-wrap:wrap;align-items:flex-end}
+  .card{width:440px;box-sizing:border-box;padding:13px 15px 14px;border-radius:12px;color:#21160a;background:radial-gradient(120% 90% at 30% 0%,#f7ead0,#e9d3a6);box-shadow:0 0 0 3px #120A05,0 6px 0 #0d0703}
+  .card .top{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+  .card .top b{font:700 13.5px var(--body);color:#8a3e1c;text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:3px;text-decoration-color:rgba(224,122,79,.55)}
+  .card .top span{font:600 13px var(--body)}
+  .cic{width:18px;height:18px;border-radius:5px;box-shadow:0 0 0 1px rgba(90,50,20,.35)}
+  .tick{font:500 12px var(--body);color:#6b5236;margin:9px 0 0}
+  .petbox{flex:none;width:260px;height:220px;position:relative;border-radius:10px;background:radial-gradient(90% 70% at 30% 20%,#2a2238,#120c1a 70%)}
+  .petbox img.aang{position:absolute;left:36px;bottom:-10px;width:188px;height:188px;image-rendering:pixelated}
+  .petbox .over{position:absolute;left:50%;top:12px;transform:translateX(-50%)}
+  .compare{display:flex;flex-direction:column;gap:6px}
+  .lab{font:400 9px Silkscreen,monospace;letter-spacing:1.5px;color:#8f7458;margin:0 0 4px}
+
+  /* a bar: soft pixel canvas, real words laid on it with a soft dark edge (not WoW's hard black) */
+  .bar{position:relative;display:inline-block}
+  .bar .tx{position:absolute;inset:0;display:flex;align-items:center;justify-content:space-between;padding:0 10px;pointer-events:none;
+    font:700 11.5px var(--body);color:#fff8ec;text-shadow:0 1px 0 rgba(60,30,10,.85),0 0 3px rgba(60,30,10,.6)}
+  .frame{display:flex;gap:7px;align-items:center}
+  .slotic{flex:none;width:30px;height:30px;display:grid;place-items:center}
+  .slotic img{width:28px;height:28px;border-radius:7px;box-shadow:0 0 0 2px #6a4628,0 2px 0 2px #3a2414}
+  .name{display:flex;justify-content:space-between;align-items:baseline;gap:10px;font:700 11.5px var(--body);color:#fff8ec;text-shadow:0 1px 0 rgba(0,0,0,.8),0 0 4px rgba(0,0,0,.6)}
+  .name i{font-style:normal;font:400 8px var(--label);letter-spacing:1px;color:#f3d9a8}
+  .stack{display:flex;flex-direction:column;gap:3px;align-items:center}
+
+  /* the explainer */
+  .explain{position:relative;padding:40px 30px 56px;background:#1f160f;border-radius:14px;box-shadow:0 0 0 2px #2a1d12;display:inline-block}
+  .callout{position:absolute;font:600 12.5px var(--body);color:#e8dcc4;white-space:nowrap}
+  .callout b{display:block;font:400 9px Silkscreen,monospace;letter-spacing:1.5px;margin-bottom:2px}
+  .callout::before{content:"";position:absolute;width:2px;background:currentColor;opacity:.7}
+  .callout.up{bottom:6px}.callout.up::before{left:6px;bottom:100%;height:22px}
+  .callout.dn{top:2px}.callout.dn::before{left:6px;top:100%;height:14px}
+
+  /* the marks and their colours */
+  .marks{display:flex;gap:18px;flex-wrap:wrap}
+  .mk{width:162px;padding:16px 10px 14px;box-sizing:border-box;border-radius:12px;display:flex;flex-direction:column;align-items:center;gap:10px;background:radial-gradient(90% 70% at 30% 20%,#2a2238,#120c1a 70%)}
+  .mk .holder{position:relative;height:84px;width:100px;display:grid;place-items:end center}
+  .mk .halo{position:absolute;left:50%;bottom:0;width:86px;height:86px;margin-left:-43px;border-radius:50%;animation:halo 2.6s ease-in-out infinite}
+  @keyframes halo{50%{opacity:.45;transform:scale(.9)}}
+  .mk canvas{position:relative;z-index:1;animation:bob 1.4s ease-in-out infinite}
+  @keyframes bob{50%{transform:translateY(-4px)}}
+  .mk b{font:400 9px Silkscreen,monospace;letter-spacing:1px;text-align:center;line-height:1.5}
+  .mk span{font:500 12px var(--body);color:#cdbb9a;text-align:center;line-height:1.4}
+  .mk .sw{width:100%;height:6px;border-radius:3px}
+  .glance{display:flex;gap:22px;margin-top:18px}
+  .gl{position:relative;width:140px;height:150px;border-radius:12px;background:radial-gradient(90% 70% at 30% 20%,#2a2238,#120c1a 70%);overflow:hidden}
+  .gl img{position:absolute;left:4px;bottom:-14px;width:132px;height:132px;image-rendering:pixelated;z-index:1}
+  .gl .aura{position:absolute;left:50%;bottom:6px;width:120px;height:120px;margin-left:-60px;border-radius:50%;animation:halo 2.6s ease-in-out infinite}
+  .gl canvas{position:absolute;left:50%;top:8px;transform:translateX(-50%);z-index:2}
+  .gl b{position:absolute;right:8px;bottom:6px;z-index:3;font:400 8px Silkscreen,monospace;letter-spacing:1px}
+</style>
+</head>
+<body>
+<h1>SHEET 45D &middot; FRAME A, SOFTENED</h1>
+<p>Frame A again with your notes: <b>softer colours with real depth</b> (more shades, a gentle gloss and sheen instead of hard stripes), <b>round ends and dark-wood edges</b> like the rest of Aang, and <b>Claude's real app icon</b>. Before and after, side by side.</p>
+
+<h2>1 &middot; BEFORE AND AFTER</h2>
+<div class="row" id="ba"></div>
+
+<h2>2 &middot; WHAT THE BOTTOM BAR SAYS</h2>
+<p>You read it right. <b>Top bar: the task Claude is doing right now</b>, with time left. <b>Bottom bar: the whole job</b>, cut into one piece per task. Solid turquoise is finished; the softly glowing piece is the task being worked on (it fills as the top bar does); dark is still to come. The striped lines are gone: they were the hard-to-read part.</p>
+<div class="explain" id="explain"></div>
+
+<h2>3 &middot; A COLOUR FOR EVERY MARK</h2>
+<p>Each mark has its own colour, and the glow around Aang takes that colour, so from across the room you can tell what is up without reading anything. The three you have keep their families (working stays warm, blocking stays the pale Avatar State blue, done stays Claude's terracotta), just softened; the new ones get their own.</p>
+<div class="marks" id="marks"></div>
+<p style="margin-top:22px"><b>At a glance:</b> the same Aang, four different moments.</p>
+<div class="glance" id="glance"></div>
+
+<script>
+const CLAUDE = 'sheet-45d/claude-icon.png';
+const mk = (w, h, s) => { const c = document.createElement('canvas'); c.width = w; c.height = h; c.style.width = w * s + 'px'; c.style.height = h * s + 'px'; return c; };
+const R = (g, x, y, w, h, col) => { g.fillStyle = col; g.fillRect(x, y, w, h); };
+const P = (g, x, y, col) => R(g, x, y, 1, 1, col);
+const TASKS = 6, DONE = 2;
+let t = 0; const anims = []; setInterval(() => { t++; for (const a of anims) a(t); }, 90);
+const stepAt = (t) => .58 + ((t % 260) / 260) * .12;
+
+// palettes: many shades from light to dark, so the fill has depth (the eye reads a rounded tube, not a stripe)
+const HONEY = ['#fff1d2', '#fae0a8', '#f4cf8a', '#ecbd72', '#e2ab60', '#d39952', '#c08646', '#a8733c'];     // softer than Aang's gold
+const SEA_NOW = ['#f4fcfa', '#e2f6f1', '#cdeee6', '#b8e5db', '#a4dbcf', '#90cfc2', '#7fc2b5', '#6fb3a6'];
+const SEA = ['#d9f3ee', '#b2e6dd', '#8ad5c9', '#6cc3b6', '#58b0a3', '#479a8e', '#3a857a', '#2f6f66'];
+const OLD_GOLD = ['#fff0b8', '#ffd860', '#FFC43C', '#f0b030', '#C98C14', '#9a6a0c'];
+const OLD_TURQ = ['#d8fff8', '#7fe8d8', '#3FBFAE', '#33a898', '#1F8C7E', '#166a60'];
+
+/* the new bar: a rounded pill (pixel-rounded corners), a dark-wood rim with a lit top, a deep well, a many-shade fill,
+   a gloss line, a slow sheen, a soft spark */
+function softBar(w, h, s, o) {
+  const c = mk(w, h, s), g = c.getContext('2d');
+  const r = Math.floor(h / 2);
+  const inside = (x, y, W, H, rad) => { // a rounded rectangle, tested pixel by pixel
+    const cx = x < rad ? rad - .5 : x > W - 1 - rad ? W - 1 - rad + .5 : x, cy = y < rad ? rad - .5 : y > H - 1 - rad ? H - 1 - rad + .5 : y;
+    return Math.hypot(x - cx, y - cy) <= rad + .15;
+  };
+  const draw = (t) => {
+    g.clearRect(0, 0, w, h);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      if (!inside(x, y, w, h, r)) continue;
+      const rim = !inside(x - 1, y, w, h, r) || !inside(x + 1, y, w, h, r) || !inside(x, y - 1, w, h, r) || !inside(x, y + 1, w, h, r);
+      if (rim) { P(g, x, y, y < h / 2 ? '#6a4628' : '#3a2414'); continue; }
+      P(g, x, y, y === 1 ? '#1a100a' : '#2a1a10');                                   // the well, shadowed at the top
+    }
+    const inner = w - 2, pct = o.pct(t), fw = Math.round(inner * pct);
+    const fill = (x0, x1, pal, alpha = 1) => {
+      for (let x = x0; x < x1; x++) for (let y = 1; y < h - 1; y++) {
+        if (!inside(x, y, w, h, r) || !inside(x - 1, y, w, h, r) && x === x0 && x0 === 1 && !inside(x, y, w, h, r)) continue;
+        const k = (y - 1) / (h - 3);
+        let col = pal[Math.min(pal.length - 1, Math.round(k * (pal.length - 1)))];
+        g.globalAlpha = alpha; P(g, x, y, col); g.globalAlpha = 1;
+      }
+    };
+    // the current task's piece in the job bar: the same colour, paler, breathing
+    if (o.now) { const nw = Math.round(inner * o.now(t)); fill(1 + fw, 1 + nw, o.nowPal, .78 + .2 * Math.sin(t / 7)); }
+    fill(1, 1 + fw, o.pal);
+    // the gloss: one light line near the top, the sheen: a soft lighter band that drifts across
+    for (let x = 2; x < fw; x++) if (inside(x, 2, w, h, r)) { g.globalAlpha = .45; P(g, x, 2, '#ffffff'); g.globalAlpha = 1; }
+    const sx = (t * 2) % (fw + 40) - 20;
+    for (let x = sx; x < sx + 6; x++) if (x > 1 && x < fw) for (let y = 2; y < h - 2; y++) { g.globalAlpha = .18; P(g, x, y, '#ffffff'); g.globalAlpha = 1; }
+    if (o.notches) for (let i = 1; i < TASKS; i++) { const x = 1 + Math.round(inner * i / TASKS); for (let y = 2; y < h - 2; y++) { g.globalAlpha = .4; P(g, x, y, '#2a1a10'); g.globalAlpha = 1; } }
+    if (o.spark && fw > 2) { for (let y = 1; y < h - 1; y++) { P(g, fw, y, '#fffaf0'); g.globalAlpha = .55; P(g, fw - 1, y, '#fff3d8'); P(g, fw + 1, y, '#fff3d8'); g.globalAlpha = 1; } }
+  };
+  anims.push(draw); draw(0);
+  const wrap = document.createElement('div'); wrap.className = 'bar'; wrap.append(c);
+  if (o.left || o.right) { const tx = document.createElement('div'); tx.className = 'tx'; tx.innerHTML = `<span>${o.left ?? ''}</span><span class="r">${o.right ?? ''}</span>`; wrap.append(tx); }
+  return wrap;
+}
+const left = (t) => { const m = Math.max(1, Math.round(70 * (1 - stepAt(t)) / .42)); return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')} left`; };
+const icon = () => `<span class="slotic"><img src="${CLAUDE}" alt=""></span>`;
+function castNew(s, w = 128) { const f = document.createElement('div'); f.className = 'frame'; f.innerHTML = icon(); const b = softBar(w, 14, s, { pal: HONEY, pct: stepAt, spark: true, left: 'Rules-only brain', right: '1:10 left' }); anims.push((t) => { b.querySelector('.r').textContent = left(t); }); f.append(b); return f; }
+function jobNew(s, w = 128) { const f = document.createElement('div'); f.className = 'frame'; const sp = document.createElement('span'); sp.style.cssText = 'width:30px;flex:none;text-align:center;font:400 8px var(--label);letter-spacing:1px;color:#6b5236'; sp.textContent = '2/6'; f.append(sp, softBar(w, 9, s, { pal: SEA, nowPal: SEA_NOW, pct: () => DONE / TASKS, now: (t) => (DONE + stepAt(t)) / TASKS, notches: true })); return f; }
+function plateNew(s) { const d = document.createElement('div'); d.className = 'stack'; d.innerHTML = `<div class="name"><span style="display:flex;align-items:center;gap:5px"><img src="${CLAUDE}" style="width:14px;height:14px;border-radius:3px">Waymark</span><i>3/6</i></div>`; d.append(softBar(48, 6, s, { pal: SEA, nowPal: SEA_NOW, pct: () => DONE / TASKS, now: (t) => (DONE + stepAt(t)) / TASKS, notches: true }), softBar(48, 5, s, { pal: HONEY, pct: stepAt, spark: true })); return d; }
+
+// the 45c bar, for the before
+function oldBar(w, h, s, pal, pct, rested) {
+  const c = mk(w, h, s), g = c.getContext('2d');
+  R(g, 0, 0, w, h, '#120A05'); R(g, 1, 1, w - 2, h - 2, '#1a120c');
+  const fw = Math.round((w - 2) * pct); for (let r = 0; r < h - 2; r++) R(g, 1, 1 + r, fw, 1, pal[Math.floor(r / (h - 2) * pal.length)]);
+  if (rested) { const rw = Math.round((w - 2) * rested) - fw; for (let x = 0; x < rw; x++) for (let y = 0; y < h - 2; y++) if ((x + y) % 3) P(g, 1 + fw + x, 1 + y, y < 2 ? '#fff3c0' : '#c98c14'); for (let i = 1; i < TASKS; i++) R(g, 1 + Math.round((w - 2) * i / TASKS), 1, 1, h - 2, 'rgba(0,0,0,.55)'); }
+  else R(g, 1 + fw - 1, 0, 2, h, '#fff');
+  return c;
+}
+const MARKSVG = '<svg viewBox="0 0 9 9" width="16" height="16" shape-rendering="crispEdges"><path d="M4 0h1v3H4zM4 6h1v3H4zM0 4h3v1H0zM6 4h3v1H6zM1 1h1v1H1zM2 2h1v1H2zM7 1h1v1H7zM6 2h1v1H6zM1 7h1v1H1zM2 6h1v1H2zM7 7h1v1H7zM6 6h1v1H6zM3 3h3v3H3z" fill="#E07A4F"/></svg>';
+
+const BA = document.getElementById('ba');
+{ // before
+  const d = document.createElement('div');
+  d.innerHTML = `<p class="lab">BEFORE (45C)</p><div class="card"><div class="top">${MARKSVG}<b>Waymark</b><span>Rules-only brain</span></div><div class="o"></div><p class="tick">Task 3 of 6 &middot; about 1 h 10 min left</p></div>`;
+  const o = d.querySelector('.o'); const a = document.createElement('div'); a.style.cssText = 'display:flex;flex-direction:column;gap:7px';
+  a.append(oldBar(130, 12, 3, OLD_GOLD, .62), oldBar(130, 6, 3, OLD_TURQ, DONE / TASKS, (DONE + .62) / TASKS)); o.append(a);
+  BA.append(d);
+}
+{ // after
+  const d = document.createElement('div');
+  d.innerHTML = `<p class="lab">AFTER</p><div class="card"><div class="top"><img class="cic" src="${CLAUDE}" alt=""><b>Waymark</b><span>Rules-only brain</span></div><div class="o compare"></div><p class="tick">Task 3 of 6 &middot; about 1 h 10 min left</p></div>`;
+  d.querySelector('.o').append(castNew(3), jobNew(3));
+  BA.append(d);
+}
+{ // over his head
+  const d = document.createElement('div');
+  d.innerHTML = `<p class="lab">OVER AANG'S HEAD</p><div class="petbox"><div class="over"></div><img class="aang" src="../../assets/aang/frames/think_0.png" alt=""></div>`;
+  d.querySelector('.over').append(plateNew(2));
+  BA.append(d);
+}
+let fr = 0; setInterval(() => { fr = (fr + 1) % 12; for (const im of document.querySelectorAll('img.aang')) im.src = `../../assets/aang/frames/think_${fr}.png`; }, 140);
+
+/* the explainer: the two bars, big, with callouts */
+{
+  const E = document.getElementById('explain');
+  const box = document.createElement('div'); box.style.cssText = 'display:flex;flex-direction:column;gap:12px';
+  const top = castNew(4, 150), bot = jobNew(4, 150);
+  box.append(top, bot); E.append(box);
+  // positions: the job bar starts after the 30px label + 7px gap; each task is 1/6 of 600 px
+  const x0 = 30 + 7, W = 150 * 4, piece = W / TASKS;
+  const add = (cls, x, html, col, y) => { const c = document.createElement('div'); c.className = 'callout ' + cls; c.style.left = (30 + x0 + x) + 'px'; c.style.color = col; c.innerHTML = html; if (y != null) c.style.top = y + 'px'; E.append(c); };
+  add('up', piece * .4, '<b style="color:#8ad5c9">FINISHED</b>tasks 1 and 2', '#8ad5c9');
+  add('up', piece * 2.15, '<b style="color:#b2e6dd">WORKING ON IT NOW</b>task 3, filling as it goes', '#b2e6dd');
+  add('up', piece * 4.1, '<b style="color:#a98e6a">STILL TO COME</b>tasks 4, 5 and 6', '#a98e6a');
+  add('dn', 10, '<b style="color:#ecc27e">RIGHT NOW</b>the task Claude is doing, and the time it has left', '#ecc27e', 2);
+}
+
+/* the marks, each in its own colour, with its glow */
+const SHAPES = {
+  working: ['..OOOOOOOOO..', '.OHHHHHFFFSO.', 'OHFFFFFFFFFSO', 'OHFOFFOFFOFSO', 'OHFFFFFFFFFSO', '.OFFFFFFFFSO.', '..OOOFSOOOO..', '....OSO......', '....OO.......'],
+  permission: ['.OOOOO..........', 'OHHHFSO.........', 'OHO.OFSOOOOOOOO.', 'OHO.OFFHHHHHHFSO', 'OFO.OFSSSSSSSSSO', 'OFFFFSOOOOOOSOSO', '.OSSSO.....OSOSO', '..OOO......OOOOO'],
+  needs: ['.OOOOO.', 'OHHFFSO', 'OHFFFSO', 'OHFFFSO', 'OHFFFSO', '.OHFSO.', '.OHFSO.', '.OHFSO.', '.OFFSO.', '..OSO..', '..OOO..', '.......', '.OOOOO.', 'OHFFFSO', 'OFFFSSO', '.OOOOO.'],
+  question: ['...OOOOO...', '..OHHFFSO..', '.OHFOOOFSO.', '.OHO...OFSO', '..O....OFSO', '......OFFSO', '.....OFFSO.', '....OFFSO..', '....OFSO...', '....OFSO...', '....OOOO...', '...........', '....OOOO...', '...OHFFSO..', '...OFFSSO..', '....OOOO...'],
+  plan: ['.OOOOOOOOOO.', 'OHHHHHHHFFSO', 'OSSSSSSSSSSO', '.OFFFFFFFSO.', '.OFOOOOFFSO.', '.OFFFFFFFSO.', '.OFOOOOOFSO.', '.OFFFFFFFSO.', 'OHHHHHHHFFSO', 'OSSSSSSSSSSO', '.OOOOOOOOOO.'],
+  step: ['......O', '.....OO', 'O...OHO', 'OO.OFO.', '.OOFO..', '..OO...'],
+  done: ['........O.', '.......OHO', '......OHFO', '.OO..OHFO.', 'OHFO.OHFO.', 'OHFOOHFO..', '.OFFFFO...', '..OOOO....'],
+  paused: ['OOOOOOOOO', 'OHHHHFFSO', '.OHFFFSO.', '..OHFSO..', '...OSO...', '..OF.SO..', '.OF...SO.', 'OHFFFFFSO', 'OOOOOOOOO'],
+  failed: ['..OOOOOOO..', '.OHHHOFFSO.', 'OHHFOFFFFSO', 'OHFFFOFFFSO', 'OFFFOFFFSSO', 'OFFFFOFFSSO', 'OFFFOFFSSSO', '.OFFOFFSSO.', '..OOOOOOO..'],
+};
+const MARKS = [
+  ['working', [236, 194, 126], 'WORKING', 'Claude is busy. Soft honey, was harsh gold.'],
+  ['permission', [191, 227, 255], 'NEEDS PERMISSION', 'Claude is frozen. Pale Avatar State blue: blocking only.'],
+  ['needs', [191, 227, 255], 'NEEDS YOU', 'Anything else blocking you. Same blue, same rule.'],
+  ['question', [201, 179, 255], 'HAS A QUESTION', 'Lavender: wants an answer, not frozen.'],
+  ['plan', [168, 216, 160], 'PLAN READY', 'Sage green: waiting for your Go.'],
+  ['step', [138, 213, 201], 'STEP DONE', 'Sea turquoise, the job bar\'s colour.'],
+  ['done', [232, 145, 111], 'JOB COMPLETE', 'Claude\'s terracotta, softened.'],
+  ['paused', [154, 168, 192], 'PAUSED', 'Dusk slate: resting, nothing needed.'],
+  ['failed', [240, 138, 122], 'FAILED', 'Soft coral: look when you can.'],
+];
+const mixc = (a, b, k) => a.map((v, i) => Math.round(v + (b[i] - v) * k));
+function draw(kind, c, px = 3) {
+  const m = SHAPES[kind], cv = document.createElement('canvas');
+  cv.width = (m[0].length + 1) * px; cv.height = (m.length + 1) * px;
+  const g = cv.getContext('2d'), pal = { O: [42, 26, 16], H: mixc(c, [255, 255, 255], .55), F: c, S: mixc(c, [40, 20, 10], .35) };
+  g.fillStyle = 'rgba(0,0,0,.4)'; m.forEach((r, y) => [...r].forEach((ch, x) => { if (ch !== '.') g.fillRect((x + 1) * px, (y + 1) * px, px, px); }));
+  m.forEach((r, y) => [...r].forEach((ch, x) => { if (pal[ch]) { g.fillStyle = `rgb(${pal[ch]})`; g.fillRect(x * px, y * px, px, px); } }));
+  return cv;
+}
+const M = document.getElementById('marks');
+for (const [k, c, name, why] of MARKS) {
+  const d = document.createElement('div'); d.className = 'mk';
+  d.innerHTML = `<div class="holder"><i class="halo" style="background:radial-gradient(circle, rgba(${c},.55), rgba(${c},0) 68%)"></i></div><b style="color:rgb(${c})">${name}</b><span>${why}</span><i class="sw" style="background:rgb(${c});box-shadow:0 0 10px rgba(${c},.7)"></i>`;
+  d.querySelector('.holder').append(draw(k, c));
+  M.append(d);
+}
+const GL = document.getElementById('glance');
+for (const [k, c, name] of [MARKS[0], MARKS[1], MARKS[3], MARKS[6]]) {
+  const d = document.createElement('div'); d.className = 'gl';
+  d.innerHTML = `<i class="aura" style="background:radial-gradient(circle, rgba(${c},.45), rgba(${c},0) 65%)"></i><img class="aang" src="../../assets/aang/frames/think_0.png" alt=""><b style="color:rgb(${c})">${name}</b>`;
+  d.append(draw(k, c, 2)); GL.append(d);
+}
+</script>
+</body>
+</html>
