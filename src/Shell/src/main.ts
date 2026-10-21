@@ -366,6 +366,13 @@ const link = new CoreLink({
   onMessage: m => {
     // M6: the Mac's browser, through the brain. Only the browser's sync reads these; no window ever sees them.
     if (typeof m.t === 'string' && m.t.startsWith('bsync.')) { void aangBrowser?.sync?.got(m as never).catch((e: Error) => console.error('shell: browser sync: ' + e.message)); return; }
+    // The progress trace (2026-10-21): when the Shell got the push, beside the brain's own times, so a page can time its
+    // paint against every hop. With AANG_PROGRESS_TRACE=1 one line per push says how long each hop took.
+    if (m.t === 'claude.jobs' && m.lat && typeof m.lat === 'object') {
+      const lat = m.lat as Record<string, unknown>;
+      lat.sh = Date.now();
+      if (process.env.AANG_PROGRESS_TRACE === '1') console.log(`progress trace: ${String(lat.type)} session->brain ${Number(lat.rx) - Number(lat.ev)} ms, brain ${Number(lat.tx) - Number(lat.rx)} ms, brain->shell ${Number(lat.sh) - Number(lat.tx)} ms`);
+    }
     // C7 (2026-10-21): Claude's jobs also go to Samara's band, for the rune. Not instead of the bubble: it carries on below.
     if (m.t === 'claude.jobs' || m.t === 'claude.wait') aangBrowser?.claudeNews(m);
     // Sheet 52 (2026-10-21): the torn-off job windows follow the same lists, so a job on his desktop stays live.

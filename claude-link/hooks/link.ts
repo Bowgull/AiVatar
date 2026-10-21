@@ -84,7 +84,7 @@ const safe = safeLine
 const fileName = (v: unknown): string => safe(v, 400).split(/[\\/]/).filter(Boolean).pop()?.slice(0, 80) ?? ''
 
 /** The to-do tools: their news already reaches Aang as the list itself, so they are not reported as activity. */
-const LIST_TOOLS = new Set(['TodoWrite', 'TaskCreate', 'TaskUpdate', 'TaskList', 'TaskGet'])
+const LIST_TOOLS = new Set(['TodoWrite', 'TaskCreate', 'TaskUpdate', 'TaskList', 'TaskGet', 'mcp__aang-link__progress'])
 
 /**
  * The safe bits of a tool call for Aang's live "what's happening" line (2026-10-21): never file contents, never a
@@ -115,22 +115,29 @@ export interface Task { text: string; status: TaskStatus; active?: string }
 const STATUS: readonly string[] = ['pending', 'in_progress', 'completed']
 const status = (s: unknown): TaskStatus => (STATUS.includes(String(s)) ? (s as TaskStatus) : 'pending')
 
+const listOf = (tasks: Map<string, Task>): Task[] => [...tasks.values()].filter(t => t.text)
+
 /**
- * Claude's to-do list as it changes. Two tool families keep one: TodoWrite (the whole list each time) and the
- * Task tools (TaskCreate / TaskUpdate / TaskList, one task at a time). Returns the full list after this call, or
- * null when the call did not change it.
+ * Claude's to-do list as the call's INPUT already says it will be, so Aang hears it at the tool's start, not a round
+ * trip later (2026-10-21, his "as fast as when Claude gets a reply"). TodoWrite carries the whole list; a TaskUpdate
+ * its new status; a TaskCreate its task, kept under a stand-in id (`new:<call id>`) until the result names the real
+ * one (tasksAtEnd). Null when the call does not change the list.
  */
-export function nextTasks(tasks: Map<string, Task>, tool: string, input: Record<string, unknown>, result: unknown): Task[] | null {
-  const r = (result && typeof result === 'object' ? result : {}) as Record<string, unknown>
+export function tasksAtStart(tasks: Map<string, Task>, tool: string, input: Record<string, unknown>, callId: string): Task[] | null {
   if (tool === 'TodoWrite') {
     if (!Array.isArray(input.todos)) return null
     tasks.clear()
     input.todos.forEach((t: Record<string, unknown>, n: number) =>
       tasks.set(String(n), { text: str(t?.content, 300), status: status(t?.status), ...(t?.activeForm ? { active: str(t.activeForm, 300) } : {}) }))
+  } else if (tool === 'mcp__aang-link__progress') {
+    // The mod's own tool (OWN_TOOL): the whole list each time, as TodoWrite, in its own field names.
+    if (!Array.isArray(input.tasks)) return null
+    tasks.clear()
+    input.tasks.slice(0, 100).forEach((t: Record<string, unknown>, n: number) =>
+      tasks.set(String(n), { text: str(t?.text, 300), status: status(t?.status), ...(t?.active ? { active: str(t.active, 300) } : {}) }))
   } else if (tool === 'TaskCreate') {
-    const task = r.task as { id?: unknown; subject?: unknown } | undefined
-    if (!task?.id) return null
-    tasks.set(String(task.id), { text: str(task.subject ?? input.subject, 300), status: 'pending', ...(input.activeForm ? { active: str(input.activeForm, 300) } : {}) })
+    if (!str(input.subject, 300)) return null
+    tasks.set(`new:${callId}`, { text: str(input.subject, 300), status: 'pending', ...(input.activeForm ? { active: str(input.activeForm, 300) } : {}) })
   } else if (tool === 'TaskUpdate') {
     const id = String(input.taskId ?? '')
     const t = tasks.get(id)
@@ -141,7 +148,30 @@ export function nextTasks(tasks: Map<string, Task>, tool: string, input: Record<
       status: input.status ? status(input.status) : t.status,
       ...(input.activeForm ? { active: str(input.activeForm, 300) } : t.active ? { active: t.active } : {}),
     })
-  } else if (tool === 'TaskList') {
+  } else return null
+  return listOf(tasks)
+}
+
+/**
+ * What only the result can say: a new task's real id (its stand-in swapped in place, so the order holds), and
+ * TaskList's whole list. Null when the call does not change the list.
+ */
+export function tasksAtEnd(tasks: Map<string, Task>, tool: string, input: Record<string, unknown>, result: unknown, callId: string): Task[] | null {
+  const r = (result && typeof result === 'object' ? result : {}) as Record<string, unknown>
+  if (tool === 'TaskCreate') {
+    const task = r.task as { id?: unknown; subject?: unknown } | undefined
+    const tmp = `new:${callId}`
+    const had = tasks.get(tmp)
+    if (!task?.id) { if (!had) return null; tasks.delete(tmp); return listOf(tasks) }
+    const real: Task = { text: str(task.subject ?? input.subject, 300) || had?.text || '', status: had?.status ?? 'pending', ...(had?.active ? { active: had.active } : input.activeForm ? { active: str(input.activeForm, 300) } : {}) }
+    const rows = [...tasks.entries()]
+    tasks.clear()
+    let put = false
+    for (const [k, v] of rows) { if (k === tmp) { tasks.set(String(task.id), real); put = true } else tasks.set(k, v) }
+    if (!put) tasks.set(String(task.id), real)
+    return listOf(tasks)
+  }
+  if (tool === 'TaskList') {
     if (!Array.isArray(r.tasks)) return null
     const old = new Map(tasks)
     tasks.clear()
@@ -151,9 +181,66 @@ export function nextTasks(tasks: Map<string, Task>, tool: string, input: Record<
       const was = old.get(id)
       tasks.set(id, { text: str(t.subject, 300), status: status(t.status), ...(was?.active ? { active: was.active } : {}) })
     }
-  } else return null
-  return [...tasks.values()].filter(t => t.text)
+    return listOf(tasks)
+  }
+  return null
 }
+
+/**
+ * Claude's to-do list after one whole call (start and result together). Two tool families keep one: TodoWrite (the
+ * whole list each time) and the Task tools (TaskCreate / TaskUpdate / TaskList, one task at a time). Null when the
+ * call did not change it.
+ */
+export function nextTasks(tasks: Map<string, Task>, tool: string, input: Record<string, unknown>, result: unknown, callId = 'call'): Task[] | null {
+  const a = tasksAtStart(tasks, tool, input, callId)
+  const b = tasksAtEnd(tasks, tool, input, result, callId)
+  return b ?? a
+}
+
+/**
+ * The one paragraph the mod adds to every session's system prompt (2026-10-21, his decision: "YES, tell every Claude
+ * session to keep a to-do list"). The progress bars are built from that list, so a job without one can only say
+ * "Working". Plain, short, and nothing about Aang.
+ */
+export const TODO_SECTION_ID = 'aang-link:todos'
+export const TODO_SECTION = 'For any task with more than one step, create a to-do list with your to-do tool before starting the work. ' +
+  'Mark each item in_progress the moment you start it and completed the moment it is done, one item in progress at a time, never saving ticks up for later. ' +
+  'The user watches live progress bars built from this list, so keep it accurate.'
+/** The built-in to-do tools the prompt section points at. */
+export const TODO_TOOLS = ['TodoWrite', 'TaskCreate']
+
+/**
+ * The mod's own to-do tool (2026-10-21), registered only in a session that has no built-in one: the Claude desktop
+ * app's sessions offer neither TodoWrite nor the Task tools, so "keep a to-do list" had nothing to keep it with. It
+ * goes nowhere but Aang: the call is answered "ok" by the mod itself and its list is told to the brain like TodoWrite's.
+ */
+export const OWN_TOOL = 'progress'
+export const OWN_TOOL_FULL = 'mcp__aang-link__progress'
+export const OWN_TOOL_DESC = 'Your to-do list for the current task, shown to the user as a live progress bar. ' +
+  'Call it at the start of any task with more than one step with the whole plan, then again every time a step starts or finishes. ' +
+  'Always pass the full list; exactly one item in_progress while you work.'
+export const OWN_TOOL_SCHEMA = {
+  type: 'object',
+  properties: {
+    tasks: {
+      type: 'array',
+      description: 'Every step of the task, in order.',
+      items: {
+        type: 'object',
+        properties: {
+          text: { type: 'string', description: 'The step, short and imperative ("Fix the login bug").' },
+          status: { type: 'string', enum: ['pending', 'in_progress', 'completed'] },
+          active: { type: 'string', description: 'The same step as it is being done ("Fixing the login bug").' },
+        },
+        required: ['text', 'status'],
+      },
+    },
+  },
+  required: ['tasks'],
+}
+export const OWN_TOOL_SECTION = 'For any task with more than one step, call the progress tool (mcp__aang-link__progress) before starting the work with your whole plan as a to-do list. ' +
+  'Call it again the moment each step starts (in_progress) and the moment it is done (completed), one step in progress at a time, always with the full list. ' +
+  'The user watches live progress bars built from this list, so keep it accurate.'
 
 /** Claude Code's PermissionRequest decision, as its own types spell it. */
 export type PermissionDecision =

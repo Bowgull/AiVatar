@@ -25,6 +25,7 @@ import { reportWriteFailure, writeFileAtomic } from './atomic.ts';
 import { projectName } from './hooks.ts';
 import { ActivityKeeper, ProgressKeeper, etaOf, percentOf } from './claudeprogress.ts';
 import type { Activity, Progress, ToolDetail } from './claudeprogress.ts';
+import type { TranscriptSession } from './claudescan.ts';
 
 // ------------------------------------------------------------------ the key and the MAC
 
@@ -86,7 +87,21 @@ export interface Job {
   open: string | null;
   /** Messages held for "after this task", how many. */
   held: number;
+  /**
+   * The last turn ended (not stopped) with no to-do list (2026-10-21): a one-step job, done. Viewers fill its bar to
+   * complete; the next turn clears it.
+   */
+  finished: boolean;
+  /**
+   * Where the brain knows it from (2026-10-21): 'link' = the session's mod is talking to it (everything works);
+   * 'transcript' = only read from the session's transcript (claudescan.ts: a session from before the mod, or one whose
+   * mod has not reached this brain yet). Progress and the live line yes; answering, messages, pause no.
+   */
+  source: 'link' | 'transcript';
 }
+
+/** When the newest event happened in the session (`ev`, the mod's clock) and reached the brain (`rx`): the trace. */
+export interface LinkTrace { ev: number; rx: number; type: string }
 
 export type WaitKind = 'permission' | 'question' | 'plan';
 export interface WaitItem {
@@ -105,6 +120,8 @@ export interface WaitItem {
   questions?: { question: string; header?: string; multiSelect?: boolean; options: { label: string; description?: string; plain?: string }[] }[];
   /** ExitPlanMode's plan, cut to 8000 characters. */
   plan?: string;
+  /** Known but not answerable from Aang (2026-10-21: asked before the brain restarted): "Open in Claude to answer". */
+  readonly?: true;
   /** Claude offered "don't ask again" for this one. */
   canAlways: boolean;
   at: number;
@@ -141,8 +158,13 @@ export class JobTracker {
   private readonly acts = new Map<string, ActivityKeeper>();
   private readonly outboxWaiters = new Map<string, Waiter<Outgoing[]>>();
   private readonly answerWaiters = new Map<string, Waiter<Outgoing | null>>();
-  /** Told whenever the jobs list or the waiting queue changes; the Core sends them on to the Shell. */
-  onChange: (what: 'jobs' | 'wait') => void = () => {};
+  /**
+   * Told whenever the jobs list or the waiting queue changes; the Core sends them on to the Shell. `urgent` (2026-10-21)
+   * marks what must never wait behind the spacing for tool chatter: a to-do tick, a turn starting or ending.
+   */
+  onChange: (what: 'jobs' | 'wait', urgent?: boolean) => void = () => {};
+  /** The newest event's times, for the latency trace (AANG_PROGRESS_TRACE); null until the first. */
+  trace: LinkTrace | null = null;
   /** Told once per new waiting item, so the Core can have it rewritten in plain words (C2, 2026-10-21). */
   onAsk: (item: WaitItem) => void = () => {};
   private seq = 0;
@@ -153,7 +175,7 @@ export class JobTracker {
     let j = this.jobs.get(session);
     if (!j) {
       j = { id: session, machine: 'pc', cwd, project: projectName(cwd), model: '', phase: 'idle', startedAt: now, lastActivity: now,
-        prompt: '', tasks: [], current: null, percent: null, etaMs: null, progress: null, activity: { now: '', since: now, agents: [] }, usage: null, title: projectName(cwd), open: null, held: 0 };
+        prompt: '', tasks: [], current: null, percent: null, etaMs: null, progress: null, activity: { now: '', since: now, agents: [] }, usage: null, title: projectName(cwd), open: null, held: 0, finished: false, source: 'link' };
       this.jobs.set(session, j);
       this.prune(now);
     }
@@ -191,16 +213,30 @@ export class JobTracker {
     }
     const j = this.job(session, now, cut(ev?.cwd, 500));
     if (typeof ev?.model === 'string' && ev.model) j.model = cut(ev.model, 80);
+    // The trace (2026-10-21): when it happened in the session (the mod's `t`, this PC's clock) and when it got here.
+    const t = Number(ev?.t);
+    this.trace = { ev: Number.isFinite(t) && t > 0 && t <= now + 1000 ? t : now, rx: now, type: cut(type, 20) };
+    let urgent = false;
+    // The session's mod is talking: whatever the transcript scan made of it, the link takes over from here.
+    if (j.source !== 'link') { j.source = 'link'; urgent = true; }
     switch (type) {
       case 'start': break;
       case 'turn.start':
+        urgent = true;
         j.phase = 'working';
+        j.finished = false;
+        // A new turn after a list that was all ticked is a new job: the bar starts empty and still ("Working") until
+        // Claude writes its next list, instead of sitting at the old 100% (2026-10-21).
+        if (j.tasks.length && j.tasks.every(x => x.status === 'completed')) { j.tasks = []; this.clocks.delete(session); this.measure(j, now); }
         this.clock(session).go(now);
         this.act(session).turnStart(now);
         if (typeof ev?.prompt === 'string' && ev.prompt.trim()) j.prompt = cut(ev.prompt.trim(), 200);
         break;
       case 'turn.end': {
+        urgent = true;
         j.phase = ev?.aborted === true && j.phase === 'paused' ? 'paused' : 'idle';
+        // A one-step turn (no to-do list) that ended on its own is complete: its bar fills (2026-10-21).
+        j.finished = ev?.aborted !== true && !j.tasks.length;
         this.clock(session).stop(now);
         this.act(session).clearTools(now);
         const u = ev?.usage;
@@ -216,7 +252,27 @@ export class JobTracker {
         this.onChange('wait');
         break;
       }
-      case 'todos': this.setTasks(j, ev?.todos, now); break;
+      case 'todos': urgent = true; j.finished = false; this.setTasks(j, ev?.todos, now); break;
+      // Everything at once, from a mod meeting this brain for the first time (2026-10-21: the brain restarted, or the
+      // mod just loaded into a running session): its list, its turn, the tools and helpers running, what still waits.
+      case 'snapshot': {
+        urgent = true;
+        const clock = this.clock(session), act = this.act(session);
+        if (ev?.phase === 'working') { j.phase = 'working'; j.finished = false; clock.go(now); }
+        else if (j.phase !== 'paused') { j.phase = 'idle'; clock.stop(now); }
+        if (Array.isArray(ev?.todos)) this.setTasks(j, ev.todos, now);
+        act.clearTools(now); act.clearAgents();
+        for (const t of Array.isArray(ev?.tools) ? ev.tools.slice(0, 20) : []) act.toolStart(cut(t?.id, 100), cut(t?.tool, 120), readDetail(t?.detail), now);
+        for (const g of Array.isArray(ev?.agents) ? ev.agents.slice(0, 20) : []) act.agentStart(cut(g?.id, 100), cut(g?.kind, 60), cut(g?.what, 200), now);
+        for (const k of Array.isArray(ev?.asks) ? ev.asks.slice(0, 10) : []) this.ask(j, { ...k, readonly: true }, now);
+        break;
+      }
+      // Claude began writing its reply, thinking, or a tool call's arguments (2026-10-21): the live line says so.
+      case 'step':
+        if (j.phase === 'idle') j.phase = 'working';
+        this.clock(session).go(now);
+        this.act(session).step(cut(ev?.what, 20), cut(ev?.tool, 120), now);
+        break;
       case 'ask': this.ask(j, ev, now); break;
       // The live description (2026-10-21): tools and helper agents as they start and end. A tool starting also means
       // the session is at work, even if the brain missed the turn's start (it restarted mid-turn).
@@ -231,7 +287,36 @@ export class JobTracker {
       case 'resolved': if (this.waits.get(cut(ev?.id, 100))?.session === session) { this.drop(cut(ev?.id, 100)); this.onChange('wait'); } break;
       default: break;
     }
-    this.onChange('jobs');
+    this.onChange('jobs', urgent);
+  }
+
+  /**
+   * A session read from its transcript (claudescan.ts, 2026-10-21): shown, read-only, until its mod talks to the
+   * brain, which then takes over (same id). A session whose mod is already talking is left to it.
+   */
+  fromTranscript(s: TranscriptSession, now = Date.now()): void {
+    const had = this.jobs.get(s.session);
+    if (had?.source === 'link') return;
+    const j = this.job(s.session, now, s.cwd);
+    const before = JSON.stringify([had ? j.phase : '', j.tasks, j.activity.now, j.finished, j.model, j.prompt]);
+    j.source = 'transcript';
+    j.lastActivity = Math.min(now, s.mtime);
+    if (s.model) j.model = cut(s.model, 80);
+    if (s.prompt) j.prompt = s.prompt;
+    const clock = this.clock(s.session), act = this.act(s.session);
+    if (s.working) { j.phase = 'working'; clock.go(now); } else { j.phase = 'idle'; clock.stop(now); }
+    if (JSON.stringify(s.tasks) !== JSON.stringify(j.tasks.map(t => ({ text: t.text, status: t.status, ...(t.active ? { active: t.active } : {}) })))) this.setTasks(j, s.tasks, now);
+    act.clearTools(now);
+    if (s.tool) act.toolStart('transcript', s.tool.name, s.tool.detail, now);
+    j.finished = !s.working && s.answered && !j.tasks.length;
+    if (JSON.stringify([j.phase, j.tasks, this.act(s.session).snapshot(j.phase, null, now).now, j.finished, j.model, j.prompt]) !== before) this.onChange('jobs', true);
+  }
+
+  /** Its transcript went quiet (claudescan.ts): a job known only from it goes. One whose mod talks stays. */
+  dropTranscript(session: string): void {
+    if (this.jobs.get(session)?.source !== 'transcript') return;
+    this.forget(session);
+    this.onChange('jobs', true);
   }
 
   private setTasks(j: Job, todos: unknown, now: number): void {
@@ -262,7 +347,7 @@ export class JobTracker {
     const kind: WaitKind = ev?.kind === 'question' ? 'question' : ev?.kind === 'plan' ? 'plan' : 'permission';
     const item: WaitItem = {
       id, session: j.id, project: j.project, kind, tool: cut(ev?.tool, 120), summary: cut(ev?.summary, 300), input: cut(ev?.input, 2000),
-      canAlways: ev?.canAlways === true, at: now,
+      canAlways: ev?.canAlways === true, at: now, ...(ev?.readonly === true ? { readonly: true as const } : {}),
     };
     if (kind === 'question' && Array.isArray(ev?.questions)) item.questions = ev.questions.slice(0, 4).map((q: any) => ({
       question: cut(q?.question, 500), ...(q?.header ? { header: cut(q.header, 40) } : {}), ...(q?.multiSelect === true ? { multiSelect: true } : {}),
@@ -342,6 +427,7 @@ export class JobTracker {
   answer(id: string, a: Answer): string | null {
     const w = this.waits.get(id);
     if (!w) return 'That is no longer waiting.';
+    if (w.readonly) return 'Open it in Claude to answer: Aang restarted while it was asking.';
     let body: Record<string, unknown>;
     if ('answers' in a) {
       if (w.kind !== 'question') return 'That one is not a question.';
@@ -370,6 +456,7 @@ export class JobTracker {
   send(session: string, text: string, when: 'now' | 'after'): string | null {
     const j = this.jobs.get(session);
     if (!j) return 'That session is not running.';
+    if (j.source === 'transcript') return 'Aang can only watch that session for now. Open it in Claude.';
     const t = text.trim().slice(0, 4000);
     if (!t) return 'Nothing to send.';
     if (when === 'now' || (j.phase !== 'working' && !j.tasks.some(x => x.status === 'in_progress'))) { this.push(session, 'inbox', { text: t }); return null; }
@@ -384,16 +471,19 @@ export class JobTracker {
 
   pause(session: string): string | null {
     const j = this.jobs.get(session); if (!j) return 'That session is not running.';
+    if (j.source === 'transcript') return 'Aang can only watch that session for now. Open it in Claude.';
     this.push(session, 'pause', {}); j.phase = 'paused'; this.clock(session).stop(Date.now()); this.onChange('jobs'); return null;
   }
 
   play(session: string, text?: string): string | null {
     const j = this.jobs.get(session); if (!j) return 'That session is not running.';
+    if (j.source === 'transcript') return 'Aang can only watch that session for now. Open it in Claude.';
     this.push(session, 'play', text?.trim() ? { text: text.trim().slice(0, 4000) } : {}); return null;
   }
 
   setModel(session: string, model: string): string | null {
     if (!this.jobs.has(session)) return 'That session is not running.';
+    if (this.jobs.get(session)!.source === 'transcript') return 'Aang can only watch that session for now. Open it in Claude.';
     if (!MODEL_OK.test(model)) return 'That is not a model name.';
     this.push(session, 'model', { model }); return null;
   }
@@ -447,6 +537,50 @@ function readDetail(d: unknown): ToolDetail {
   return out as ToolDetail;
 }
 
+// ------------------------------------------------------------------ the push to the Shell
+
+/** The least gap between two pushes of the jobs list for tool chatter: one frame at 60 Hz (2026-10-21). */
+export const PUSH_GAP_MS = 16;
+
+/**
+ * When the jobs list goes to the Shell (2026-10-21, his "as fast as when Claude gets a reply"). It used to wait a
+ * flat 80 ms after every change. Now: on the very next turn of the event loop (so a batch of events from one post is
+ * one push), and only when pushes come faster than PUSH_GAP_MS apart (a burst of tool starts and ends) does the next
+ * one wait out the rest of the gap. Urgent changes (a to-do tick, a turn starting or ending) never wait for the gap.
+ */
+export class LinkPusher {
+  private timer: NodeJS.Timeout | NodeJS.Immediate | null = null;
+  private soon = false;
+  private lastAt = 0;
+  private readonly flush: () => void;
+  private readonly gapMs: number;
+  constructor(flush: () => void, gapMs = PUSH_GAP_MS) { this.flush = flush; this.gapMs = gapMs; }
+
+  ask(urgent = false): void {
+    if (this.timer) {
+      if (!urgent || this.soon) return;
+      clearTimeout(this.timer as NodeJS.Timeout);
+      this.timer = null;
+    }
+    const wait = this.gapMs - (Date.now() - this.lastAt);
+    if (urgent || wait <= 0) { this.soon = true; this.timer = setImmediate(this.run); }
+    else { this.soon = false; this.timer = setTimeout(this.run, wait); }
+    this.timer.unref?.();
+  }
+
+  private readonly run = (): void => {
+    this.timer = null;
+    this.lastAt = Date.now();
+    try { this.flush(); } catch { /* the next change pushes again */ }
+  };
+
+  close(): void {
+    if (!this.timer) return;
+    if (this.soon) clearImmediate(this.timer as NodeJS.Immediate); else clearTimeout(this.timer as NodeJS.Timeout);
+    this.timer = null;
+  }
+}
+
 // ------------------------------------------------------------------ the door
 
 /** How long a poll is held open. Short enough that a dead connection is noticed, long enough to cost nothing. */
@@ -488,13 +622,21 @@ export class LinkDoor {
       const session = (q.searchParams.get('s') ?? '').slice(0, 100);
       const nonceOk = /^[0-9a-f]{32,64}$/.test(nonce);
       try {
-        if (req.method === 'GET' && q.pathname === '/link/hello' && nonceOk) { json(200, { proof: linkMac(this.key, 'hello', nonce) }); return; }
+        // v 2 (2026-10-21): this brain takes several events in one post ({ session, cwd, events: [...] }), so a mod
+        // whose last post is still on the wire sends what came meanwhile together instead of queueing requests.
+        if (req.method === 'GET' && q.pathname === '/link/hello' && nonceOk) { json(200, { proof: linkMac(this.key, 'hello', nonce), v: 2 }); return; }
         if (req.method === 'POST' && q.pathname === '/link/event') {
           const ev = JSON.parse(body);
           // Aang's own chat lanes load his settings, so the mod loads in them too: they are not his sessions.
           if (this.ignoreCwd() && String(ev?.cwd ?? '') === this.ignoreCwd()) { res.writeHead(204).end(); return; }
-          this.tracker.event(ev);
+          // Answered first: the mod's next post can leave while the brain is still telling the Shell.
           res.writeHead(204).end();
+          const rx = Date.now();
+          try {
+            if (Array.isArray(ev?.events)) {
+              for (const one of ev.events.slice(0, 200)) if (one && typeof one === 'object') this.tracker.event({ ...one, session: ev.session, cwd: ev.cwd }, rx);
+            } else this.tracker.event(ev, rx);
+          } catch { /* already answered; a malformed event is simply dropped */ }
           return;
         }
         if (req.method === 'GET' && q.pathname === '/link/wait' && nonceOk && session) {

@@ -46,12 +46,9 @@ function pill(w, ht, s, bounds, p, cur, pal = SEA, glow = true) {
     for (let y = 0; y < ht; y++) for (let x = 0; x < w; x++) { if (!inside(x, y)) continue; const rim = !inside(x - 1, y) || !inside(x + 1, y) || !inside(x, y - 1) || !inside(x, y + 1); P(x, y, rim ? (y < ht / 2 ? '#6a4628' : '#3a2414') : y === 1 ? '#1a100a' : '#2a1a10'); }
     const inner = w - 2, cur = st.cur;
     const paint = (x0, x1, pl, al) => { for (let x = x0; x < x1; x++) for (let y = 1; y < ht - 1; y++) { if (!inside(x, y) || !(inside(x - 1, y) && inside(x + 1, y) && inside(x, y - 1) && inside(x, y + 1))) continue; P(x, y, pl[Math.min(7, Math.round((y - 1) / (ht - 3) * 7))], al); } };
-    if (st.p === null) {
-      // Busy: a soft band a third of the bar wide sweeps through, whole pixels at a time; still while paused.
-      const band = Math.max(6, Math.round(inner / 3)), x0 = glow ? Math.round(t * 1.4) % (inner + band) - band : Math.round((inner - band) / 2);
-      paint(Math.max(1, 1 + x0), Math.min(1 + inner, 1 + x0 + band), glow ? SEA_NOW : pal, glow ? .85 : .5);
-      return;
-    }
+    // No to-do list yet: the empty track, perfectly still (2026-10-21, his rule: nothing spins or sweeps; the words
+    // beside it say "Working"). It fills the moment Claude writes its list.
+    if (st.p === null) return;
     const fw = Math.round(inner * st.p);
     if (glow && cur >= 0 && cur < bounds.length) { const a = cur > 0 ? bounds[cur - 1] : 0, b = bounds[cur]; paint(1 + Math.round(inner * a), 1 + Math.round(inner * b), SEA_NOW, .7 + .2 * Math.sin(t / 7)); }
     paint(1, 1 + fw, pal, 1);
@@ -66,7 +63,7 @@ function pill(w, ht, s, bounds, p, cur, pal = SEA, glow = true) {
     const px = (x) => (x === null ? -1 : Math.round((w - 2) * x));
     if (px(v) === px(st.p) && ncur === st.cur) return;
     st.p = v; st.cur = ncur;
-    if (!glow) draw(tk);              // a breathing bar redraws on its own next frame
+    draw(tk);                         // at once (2026-10-21): a tick must not wait for the next breath
   };
   return c;
 }
@@ -74,6 +71,25 @@ function pill(w, ht, s, bounds, p, cur, pal = SEA, glow = true) {
 function animate(on) {
   if (on && !animTimer) animTimer = setInterval(() => { tk++; for (const a of anims) a(tk); }, 90);
   if (!on && animTimer) { clearInterval(animTimer); animTimer = 0; }
+}
+/**
+ * Every live bar, percent and line moves NOW (2026-10-21, supercharged): called the moment the brain's news lands,
+ * so a tick or a tool start shows on this frame instead of waiting up to 90 ms for the breathing timer.
+ */
+function kick() { for (const a of anims) { try { a(tk); } catch { /* one bad line must not stop the rest */ } } }
+/**
+ * The last hop of the progress trace: from the event in the Claude session to this page's paint. Kept as a counter
+ * (globalThis.aangProgressLat: count, last, worst), never a log line per event; with the brain's trace on
+ * (AANG_PROGRESS_TRACE=1) each push also says it once in the page's console.
+ */
+function notePaint(lat) {
+  if (!lat || typeof lat !== 'object' || !Number.isFinite(lat.ev)) return;
+  requestAnimationFrame(() => {
+    const ms = Date.now() - lat.ev;
+    const s = (globalThis.aangProgressLat ??= { count: 0, last: 0, worst: 0 });
+    s.count++; s.last = ms; s.worst = Math.max(s.worst, ms);
+    if (lat.trace === true) console.log(`progress trace: ${lat.type} event->paint ${ms} ms (shell->paint ${Date.now() - (lat.sh ?? lat.tx)} ms)`);
+  });
 }
 
 /* ---- reading a job ---- */
@@ -126,6 +142,8 @@ function aboutLeft(ms) {
  */
 function progressModel(j, now = Date.now()) {
   const pr = j.progress, paused = j.phase === 'paused', working = j.phase === 'working';
+  // A one-step job (no to-do list) whose turn ended on its own is complete: the bar fills (2026-10-21).
+  if (!pr && j.finished && !working && !paused) return { p: 1, percent: 100, cur: -1, etaMs: 0, left: 'Done', rev: 0, rewroteAt: null };
   // An older brain (no progress numbers): its percent and time left as they are, no creep.
   if (!pr) {
     const pc = pctOf(j);
@@ -216,7 +234,7 @@ function readJob(x) {
     startedAt: Number(x.startedAt) || 0, prompt: str(x.prompt, 200), current: str(x.current, 200),
     percent: Number.isFinite(x.percent) ? x.percent : null, etaMs: Number.isFinite(x.etaMs) ? x.etaMs : null,
     usage: x.usage && typeof x.usage === 'object' ? x.usage : null, open: str(x.open, 200), held: Math.max(0, Math.min(99, Number(x.held) || 0)),
-    failed: x.failed === true, progress: readProgress(x.progress), activity: readActivity(x.activity),
+    failed: x.failed === true, progress: readProgress(x.progress), activity: readActivity(x.activity), finished: x.finished === true,
   };
 }
 const num = (v) => (Number.isFinite(v) ? Number(v) : null);
@@ -242,9 +260,10 @@ function readWait(x) {
     question: str(q?.question, 500), header: str(q?.header, 40), multiSelect: q?.multiSelect === true,
     options: (Array.isArray(q?.options) ? q.options : []).slice(0, 8).map((o) => ({ label: str(o?.label, 200), description: str(o?.description, 500), plain: str(o?.plain, 500) })),
   })).filter((q) => q.question) : [];
-  if (kind === 'question' && !questions.length) return null;
+  if (kind === 'question' && !questions.length && x.readonly !== true) return null;
   return { id: x.id.slice(0, 100), session: x.session.slice(0, 100), project: str(x.project, 60) || 'Claude', kind, tool: str(x.tool, 120),
-    summary: str(x.summary, 300), plain: str(x.plain, 400), input: str(x.input, 2000), questions, plan: str(x.plan, 8000), canAlways: x.canAlways === true };
+    summary: str(x.summary, 300), plain: str(x.plain, 400), input: str(x.input, 2000), questions, plan: str(x.plan, 8000), canAlways: x.canAlways === true,
+    readonly: x.readonly === true };
 }
 
 /**
@@ -652,6 +671,16 @@ export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWa
     }
     const tag = h('span', 'ctag'), img = document.createElement('img'); img.src = CL; img.alt = '';
     tag.append(img, document.createTextNode(w.project)); card.append(tag);
+    // 2026-10-21: a wait the brain only knows of (it restarted while Claude was asking): Aang can show it but not
+    // answer it, so the one key opens the session in Claude, where the question is still up.
+    if (w.readonly) {
+      card.append(h('p', 'q', w.plain || w.summary || `${w.project} is waiting for you.`), h('p', 'q', 'Open in Claude to answer.'));
+      const keys = h('div', 'ckeys'), j = jobOf(w.session);
+      if (j?.open) { const o = btn('key sm primary', 'Open in Claude'); o.addEventListener('click', (e) => { e.stopPropagation(); window.aang?.openClaude?.(j.open); }); keys.append(o); }
+      card.append(keys);
+      pins.append(card);
+      return;
+    }
     if (w.kind === 'question') questionCard(card, w);
     else if (w.kind === 'plan') {
       card.append(h('p', 'q', w.plain || w.summary || `${w.project} has a plan ready.`));
@@ -692,6 +721,9 @@ export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWa
       noteFinished();
       // Only when something he would see changed (2026-10-21): the same list again must not re-measure the cockpit.
       if (paintJobs()) onChange();
+      // The bars, percents and live lines that were not redrawn move now, not at the next breath (2026-10-21).
+      else kick();
+      notePaint(m.lat);
     } else if (m?.t === 'claude.wait' && Array.isArray(m.items)) {
       waits = m.items.slice(0, 50).map(readWait).filter(Boolean);
       for (const id of [...answered]) if (!waits.some((w) => w.id === id)) answered.delete(id);
@@ -768,3 +800,5 @@ export { pill, animate, anims, SEA, SLATE, MSG, CL, readJob, curIndex, boundsOf,
 // draw with livePill / liveText / liveProgress / describeNow rather than pill(pctOf(...)), so its bars creep, step and
 // never go back exactly as the cockpit's do.
 export { progressModel, liveProgress, livePill, liveText, describeNow, agentsLine, creep, DEFAULT_PACE_MS, SLOT_CAP };
+// 2026-10-21: move every live bar now (the brain's news just landed), and time the paint against the event.
+export { kick, notePaint };
