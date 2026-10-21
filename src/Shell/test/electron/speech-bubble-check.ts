@@ -12,7 +12,7 @@
 //
 // Off screen, never focused, no real input and no clipboard: mouse moves and clicks go to this page only.
 // Run: npx electron test/electron/speech-bubble-check.ts
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, nativeImage } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -61,10 +61,12 @@ function stage(withBox: boolean) {
   return { fx, fy, bubbleRight: fx + 96, bubbleBottom: withBox ? boxTop + 4 - 12 : fy + 80, boxLeft: fx + 72 - 256 - 6 - 22, boxTop,
     head: { x: fx + 112, y: fy + 96 }, mark: { cx: fx + 113, bottom: fy + 78 - 9 } };
 }
-const STAGE_CSS = (s: ReturnType<typeof stage>) => `
+// `g` (2026-10-21): how much further from him the product puts the bubble for the wood rim, read from bubble.css's own
+// .wrap margin (78 without the rim), so the stage moves it exactly as the real window does.
+const STAGE_CSS = (s: ReturnType<typeof stage>, g = 0) => `
 html,body{background:#191b24 !important}
 body{background:radial-gradient(900px 500px at 15% 5%, rgba(80,96,140,.30), transparent 60%),radial-gradient(700px 500px at 95% 100%, rgba(120,70,110,.22), transparent 60%),linear-gradient(180deg,#1c1f2b,#151720) !important}
-.wrap{margin:0 ${W - s.bubbleRight}px ${H - s.bubbleBottom}px 14px !important}
+.wrap{margin:0 ${W - s.bubbleRight + g}px ${H - s.bubbleBottom + g}px 14px !important}
 .stg{position:fixed;pointer-events:none;image-rendering:pixelated}
 `;
 // Claude's working mark, ClaudeMarks.Draw at 3x (the pet paints it in its own window, so it is drawn here for the picture).
@@ -103,9 +105,10 @@ async function open(pages: { origin: string }, o: { box?: boolean; mark?: boolea
   await wait(700);
   const js: Js = (s) => w.webContents.executeJavaScript(s, true);
   const s = stage(Boolean(o.box));
+  const g = Number(await js(`parseFloat(getComputedStyle(document.getElementById('wrap')).marginRight) - 78`)) || 0;
   await js(`(() => {
     ${MARK}
-    const st = new CSSStyleSheet(); st.replaceSync(${JSON.stringify(STAGE_CSS(s))});
+    const st = new CSSStyleSheet(); st.replaceSync(${JSON.stringify(STAGE_CSS(s, g))});
     document.adoptedStyleSheets = [st];
     const add = (src, x, y, cls) => { const i = document.createElement('img'); i.src = src; i.className = 'stg ' + (cls || ''); i.style.left = x + 'px'; i.style.top = y + 'px'; document.body.append(i); return i; };
     add(${JSON.stringify(SPRITE)}, ${s.fx}, ${s.fy}, 'aang');
@@ -141,6 +144,17 @@ async function picture(p: Page, name: string) {
   writeFileSync(path.join(OUT, name + '.png'), (await p.w.webContents.capturePage(r)).toPNG());
   console.log('picture: ' + path.join(OUT, name + '.png'));
 }
+/** A close-up at exactly 4x, nearest neighbour (every screen pixel a 4x4 block), for checking the rim's pixels are crisp. */
+async function zoom4(p: Page, name: string, r: { x: number; y: number; width: number; height: number }) {
+  const c = (await p.w.webContents.capturePage()).crop(r), sz = c.getSize(), src = c.toBitmap(), k = 4;
+  const out = Buffer.alloc(sz.width * k * sz.height * k * 4);
+  for (let y = 0; y < sz.height * k; y++) for (let x = 0; x < sz.width * k; x++) {
+    const a = ((Math.floor(y / k) * sz.width) + Math.floor(x / k)) * 4;
+    src.copy(out, (y * sz.width * k + x) * 4, a, a + 4);
+  }
+  writeFileSync(path.join(OUT, name + '.png'), nativeImage.createFromBitmap(out, { width: sz.width * k, height: sz.height * k }).toPNG());
+  console.log('picture: ' + path.join(OUT, name + '.png'));
+}
 
 app.whenReady().then(async () => {
   mkdirSync(OUT, { recursive: true });
@@ -151,14 +165,46 @@ app.whenReady().then(async () => {
   {
     const p = await open(pages);
     await p.js(`window.__deliver({ t: 'bubble', text: 'Your build finished. Every test passed.', stream: false, turn: 11, proactive: true })`);
-    await wait(2600);
+    // mid-grow (2026-10-21): the wood rim has to follow the 520 ms spring frame by frame
+    await wait(140); await picture(p, 'a-0-midgrow');
+    await wait(120); await picture(p, 'a-0-midgrow2');
+    await wait(2340);
     check('a one-liner shows', await visible(p.js));
-    const look = await p.js(`(() => { const s = getComputedStyle(document.querySelector('#skin .p1')); const ink = getComputedStyle(document.querySelector('#skin .ink'));
-      return { paper: s.stopColor, ink: ink.stroke, w: ink.strokeWidth, rim: Boolean(document.querySelector('#skin g.rim')), pad: getComputedStyle(document.getElementById('bubble')).paddingTop, ago: document.getElementById('wrap').classList.contains('ago') }; })()`);
-    check('look B paper and the placeholder dark-wood edge, from the .rimB hook', look.paper === 'rgb(251, 240, 216)' && look.ink === 'rgb(61, 38, 20)' && look.w === '3.5px' && look.rim, JSON.stringify(look));
+    // Sheet 55 S2 (2026-10-21): his wood rim replaces the placeholder ink edge. Four corners, four straight runs, the tail's
+    // patch; the ink line and the hard shadow step aside; the paper and the room inside are unchanged.
+    const look = await p.js(`(() => { const skin = document.getElementById('skin'), s = getComputedStyle(skin.querySelector('.p1'));
+      return { paper: s.stopColor, rimmed: skin.classList.contains('rimmed'), pieces: skin.querySelectorAll('g.rim > rect, g.rim > use, g.rim > image').length,
+        ink: getComputedStyle(skin.querySelector('.ink')).display, hard: getComputedStyle(skin.querySelector('.hard')).display,
+        crisp: [...skin.querySelectorAll('g.rim image'), ...document.querySelectorAll('#rimdefs image')].every((i) => getComputedStyle(i).imageRendering === 'pixelated') && document.querySelectorAll('#rimdefs image').length === 8,
+        pad: getComputedStyle(document.getElementById('bubble')).paddingTop, ago: document.getElementById('wrap').classList.contains('ago') }; })()`);
+    check('look B paper with the S2 wood rim: 4 corners + 4 runs + the tail patch, all pixelated', look.paper === 'rgb(251, 240, 216)' && look.rimmed && look.pieces === 9 && look.crisp, JSON.stringify(look));
+    check('the ink line and the hard shadow step aside for the wood', look.ink === 'none' && look.hard === 'none', JSON.stringify(look));
     check('look B room inside the rim (19 px)', look.pad === '19px', look.pad);
     check('no "N MIN AGO" stamp on a fresh line', look.ago === false);
+    // The window is 8 px bigger for the rim (bubble.js sendWindow), and the bubble sits 8 px further up and left in it.
+    const win = await p.js(`(() => { const b = document.getElementById('bubble').getBoundingClientRect(); const s = window.__sent.filter((x) => x[0] === 'bubbleSize').map((x) => x[1][0]).at(-1);
+      return { w: Math.ceil(b.width), h: Math.ceil(b.height), sent: s }; })()`);
+    check('window asked for 8 px more each way, same tail pad', win.sent && win.sent.width === win.w + 100 && win.sent.height === win.h + 88 && win.sent.pad.right === 72 && win.sent.pad.bottom === 38, JSON.stringify(win));
+    // The tail still reaches his head: the rim's outer tail tip, vs where the old ink-line tail tip was before the move.
+    const reach = await p.js(`import('./balloon.js').then((m) => { const b = document.getElementById('bubble').getBoundingClientRect(), G = m.RIM_G;
+      const head = { x: ${stage(false).head.x} - b.left, y: ${stage(false).head.y} - b.top };
+      const near = (d, hx, hy) => { const v = d.match(/-?[0-9.]+/g).map(Number); let best = 1e9; for (let i = 0; i < v.length; i += 2) best = Math.min(best, Math.hypot(v[i] - hx, v[i + 1] - hy)); return Math.round(best * 10) / 10; };
+      return { now: near(m.balloonPath(b.width + 2 * G, b.height + 2 * G, { x: head.x + G, y: head.y + G }), head.x + G, head.y + G),
+        before: near(m.balloonPath(b.width, b.height, { x: head.x - G, y: head.y - G }), head.x - G, head.y - G) }; })`);
+    // (the rim's tip comes out a few px nearer him than the old one, as on the sheet's stage: it still reaches, never touches)
+    check('the tail still reaches his head: no further than before the rim, and not touching him', reach.now <= reach.before + 1 && reach.now >= 8, JSON.stringify(reach));
+    // The cost per frame while it grows: 30 sizes of a grow, cold (no tail patch remembered yet), rim vs no rim.
+    const cost = await p.js(`import('./balloon.js').then((m) => { const NS = 'http://www.w3.org/2000/svg', svg = document.createElementNS(NS, 'svg');
+      svg.style.cssText = 'position:absolute;left:-4000px;top:0'; document.getElementById('wrap').append(svg);
+      const run = (rim) => { const t0 = performance.now(); for (let k = 1; k <= 30; k++) { const w = Math.round(60 + 240 * k / 30), h = Math.round(40 + 22 * k / 30);
+        const head = { x: w + 112 + (rim ? 0.3 : 0), y: h + 30 + k }; const d = m.balloonPath(w, h, head);
+        m.paintBalloon(svg, w + m.PAD_R, h + m.PAD_B, d, 9000 + k, false, rim ? { w, h, head } : null); svg.getBBox(); } return (performance.now() - t0) / 30; };
+      const plain = run(false), rim = run(true); svg.remove(); return { plain: Math.round(plain * 100) / 100, rim: Math.round(rim * 100) / 100 }; })`);
+    check('the rim costs under 2 ms a frame while growing (cold)', cost.rim - cost.plain < 2, JSON.stringify(cost));
     await picture(p, 'a-line');
+    { const b = await p.js(`(() => { const r = document.getElementById('bubble').getBoundingClientRect(); return { x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) }; })()`);
+      await zoom4(p, 'a-zoom-corner', { x: b.x - 16, y: b.y - 16, width: 64, height: 64 });
+      await zoom4(p, 'a-zoom-tail', { x: b.x + b.w - 112, y: b.y + b.h - 36, width: 150, height: 96 }); }
     check('no page errors (a)', !p.errors.length, p.errors.join(' | '));
     p.w.destroy();
   }
