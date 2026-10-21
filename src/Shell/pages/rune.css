@@ -14,7 +14,7 @@
    the stone half an art pixel off the ring's grid; nudged back on, the ring and stone pixels line up. */
 .rune.tB .rn{left:1px;top:1px}
 /* B: a thin pixel ring round the stone fills with the job's progress; the ring breathes, the stone stays still */
-.rune.tB .stone{width:calc(var(--u)*21);height:calc(var(--u)*21)}
+.rune.tB .stone{width:calc(var(--u)*23);height:calc(var(--u)*23)}
 .rune.tB .rg{animation:rring 3.2s ease-in-out infinite}
 .rune.tB.st-needs .rg{animation-duration:2s}
 @keyframes rring{0%,100%{filter:drop-shadow(0 0 0 transparent)}50%{filter:drop-shadow(0 0 3px var(--c))}}
