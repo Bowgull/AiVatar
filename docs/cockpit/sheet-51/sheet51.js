@@ -36,7 +36,7 @@ for (const [k, c] of Object.entries({ dim: '#b49a6c', gold: '#ffc43c', teal: '#5
   root.setProperty(`--gem-${k}`, `url(${pixCanvas(GEM, gemPal(c), 2).toDataURL()})`);
 
 // ---------------------------------------------------------------- section 1: the pointer follows the mouse and the arrow keys
-for (const list of document.querySelectorAll('.opts')) {
+for (const list of document.querySelectorAll('.opts:not(.static)')) {
   const rows = [...list.querySelectorAll('.opt')];
   const set = (r) => rows.forEach((x) => x.classList.toggle('on', x === r));
   list.tabIndex = 0;
@@ -57,41 +57,47 @@ function syncSend(list) {
   key.textContent = n ? `Send ${n} pick${n > 1 ? 's' : ''}` : 'Pick at least one';
 }
 
-// ---------------------------------------------------------------- section 2: the gloves
+// ---------------------------------------------------------------- section 2: the gloves, one per row
+// TODAY's card (the stretched hand.png) | arrow lane | the new hand in a B card at 2x | close-up: today vs new, both at 4x their bubble size
+const GLOVE_ROWS = [
+  { k: 'g1', L: 'G1', nm: 'Slim finger, small gold cuff', mine: true, call: 'Longer, slimmer finger|drawn at exactly 2×',
+    cap: 'The fist is two pixels narrower, the finger longer with a shaded underside, a cream cuff with a gold band.' },
+  { k: 'g2', L: 'G2', nm: 'Same size as today', call: 'Slimmer hand, same box|drawn at exactly 2×',
+    cap: 'Fits exactly where today\'s hand sits, so no row moves. Slimmer fist, two-pixel finger, no cuff.' },
+  { k: 'g3', L: 'G3', nm: 'Fine finger, Final Fantasy cuff', call: 'One-pixel finger, flared cuff|drawn at exactly 2×',
+    cap: 'Closest to Final Fantasy X: a one-pixel finger, the thumb on top, a flared white cuff. The lightest.' },
+];
 const gHost = document.getElementById('gloves');
-if (gHost) for (const [k, gl] of Object.entries(GLOVES)) {
-  const cell = document.createElement('div'); cell.className = 'gcell' + (k === 'g1' ? ' mine' : '');
-  cell.innerHTML = `<div class="nm2">${gl.name}</div><div class="sz">${gl.size}</div>`;
-  const big = document.createElement('div'); big.className = 'big';
-  big.append(pixCanvas(gl.map, gl.pal, 1), pixCanvas(gl.map, gl.pal, 2));
-  if (k !== 'today') big.append(pixCanvas(gl.map, gl.pal, 4));
-  big.append(pixCanvas(gl.map, gl.pal, k === 'today' ? 6 : 8));
-  if (k === 'today') {   // what the bubble really does today: 12 x 9 stretched to 26 x 20
-    const smear = document.createElement('canvas'); smear.width = 26; smear.height = 20;
-    const g = smear.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(pixCanvas(gl.map, gl.pal, 1), 0, 0, 26, 20);
-    const s4 = document.createElement('canvas'); s4.width = 104; s4.height = 80;
-    const g4 = s4.getContext('2d'); g4.imageSmoothingEnabled = false; g4.drawImage(smear, 0, 0, 104, 80);
-    s4.title = 'as the bubble draws it (26 x 20), magnified';
-    big.append(s4);
-  }
-  cell.append(big);
-  const lab = document.createElement('div'); lab.className = 'why';
-  lab.innerHTML = k === 'today' ? '1×, 2×, 6×, and <b>as the bubble draws it</b> (26 × 20, magnified 4×): uneven pixels.' : '1×, 2× (what the bubble would use), 4×, 8×.';
-  cell.append(lab);
-  const ctx = document.createElement('div'); ctx.className = 'ctx';
-  const url = k === 'today' ? null : pixCanvas(gl.map, gl.pal, 2).toDataURL();
-  const w = gl.map[0].length * 2, h = gl.map.length * 2;
-  ctx.innerHTML = `<div class="card k-q" style="padding:8px 8px 6px"><div class="opts vB" style="margin:0 -2px">
-    <div class="opt on" style="${url ? `--glove:url(${url})` : ''}"><span class="tx"><b>Full-screen map<span class="rec">BEST</span></b></span></div>
-    <div class="opt"><span class="tx"><b>Split: map and list</b></span></div></div></div>`;
-  const on = ctx.querySelector('.opt.on');
-  if (k === 'today') { on.style.setProperty('--glove', `url(${new URL('../../src/Shell/pages/art/browser/hand.png', location.href).href})`); on.classList.add('todayglove'); }
-  else { const st = document.createElement('style'); st.textContent = `#gl-${k} .opt.on::before{width:${w}px;height:${h}px;background-size:${w}px ${h}px;left:${-4 - w}px;top:${(36 - h) / 2}px}`; document.head.append(st); }
-  ctx.id = 'gl-' + k;
-  cell.append(ctx);
-  gHost.append(cell);
+const todayTwoRows = () => `<div class="card k-q today"><p class="q">Which layout?</p><div class="opts vT static">
+  <div class="opt on"><span class="tx"><b>Full-screen map</b></span><span class="kc">1</span></div>
+  <div class="opt"><span class="tx"><b>Split: map and list</b></span><span class="kc">2</span></div></div></div>`;
+function smearToday(scale) {   // what the bubble really draws today: 12 x 9 stretched to 26 x 20, then magnified by whole pixels
+  const smear = Object.assign(document.createElement('canvas'), { width: 26, height: 20 });
+  const g = smear.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(pixCanvas(GLOVES.today.map, GLOVES.today.pal, 1), 0, 0, 26, 20);
+  const out = Object.assign(document.createElement('canvas'), { width: 26 * scale, height: 20 * scale });
+  const g2 = out.getContext('2d'); g2.imageSmoothingEnabled = false; g2.drawImage(smear, 0, 0, 26 * scale, 20 * scale);
+  return out;
 }
-{ const st = document.createElement('style'); st.textContent = '.todayglove::before{width:26px!important;height:20px!important;background-size:26px 20px!important;left:-30px!important;top:8px!important}'; document.head.append(st); }
+if (gHost) for (const r of GLOVE_ROWS) {
+  const gl = GLOVES[r.k], w = gl.map[0].length * 2, h = gl.map.length * 2;
+  const url = pixCanvas(gl.map, gl.pal, 2).toDataURL();
+  const row = document.createElement('div'); row.className = 'orow';
+  row.innerHTML = `<div class="ohead"><span class="L">${r.L}</span><span class="nm">${r.nm}</span>${r.mine ? '<span class="pick">MY PICK</span>' : ''}<span class="cap2">${r.cap}</span></div>
+  <div class="ogrid" data-callouts>
+    <div class="col"><div class="ctg">TODAY &middot; stretched 2.17&times;</div><div class="big">${todayTwoRows()}</div></div>
+    <div class="lane"></div>
+    <div class="col"><div class="ctg">${r.L}</div><div class="big"><div class="card k-q fingers"><p class="q">Which layout?</p><div class="opts vB static">
+      <div class="opt on"><i class="gfing" data-call="${r.call}" style="width:${w}px;height:${h}px;left:${-4 - w}px;top:50%;margin-top:${-h / 2}px;background:url(${url}) 0 0/${w}px ${h}px"></i><span class="tx"><b>Full-screen map</b></span></div>
+      <div class="opt"><span class="tx"><b>Split: map and list</b></span></div></div></div></div></div>
+    <div class="col"><div class="ctg">CLOSE-UP &middot; BOTH 4&times;</div><div class="zbox" style="height:250px"><div class="gzoom"></div></div></div>
+  </div>`;
+  const z = row.querySelector('.gzoom');
+  const f1 = document.createElement('figure'); f1.append(smearToday(4)); f1.append(Object.assign(document.createElement('figcaption'), { textContent: 'TODAY' }));
+  const f2 = document.createElement('figure'); f2.append(pixCanvas(gl.map, gl.pal, 8)); f2.append(Object.assign(document.createElement('figcaption'), { textContent: r.L }));
+  z.append(f1, f2);
+  gHost.append(row);
+}
+
 
 // ---------------------------------------------------------------- section 3: the aura
 // One distance field from his silhouette (how far each pixel is from his nearest pixel), worked out once. Every take
@@ -99,21 +105,19 @@ if (gHost) for (const [k, gl] of Object.entries(GLOVES)) {
 // with falling alpha and caching them per frame size.
 const AURA = document.getElementById('aura');
 const COLS = [
-  { k: 'needs', name: 'NEEDS YOU', c: '#7cc4ff', sub: 'permission, blocking' },
-  { k: 'question', name: 'QUESTION', c: '#b07cff', sub: 'Claude asks' },
-  { k: 'complete', name: 'JOB COMPLETE', c: '#3fc4b4', sub: 'all done' },
-  { k: 'warm', name: 'WARM', c: '#ffb35a', sub: 'Aang\'s own news, ambient' },
+  { k: 'needs', name: 'Needs you', c: '#7cc4ff', sub: 'blue: Claude is waiting for your OK' },
+  { k: 'question', name: 'Question', c: '#b07cff', sub: 'violet: Claude asks you something' },
+  { k: 'complete', name: 'Job complete', c: '#3fc4b4', sub: 'teal: a job finished' },
+  { k: 'warm', name: 'Warm', c: '#ffb35a', sub: "orange: Aang's own news" },
 ];
 const TAKES = [
-  { k: 'today', name: 'TODAY', sub: 'a hard 3 px ring, alpha 95→185 on a 4 s sine, plus a faint 6 px ring' },
-  { k: 'B', name: 'B · WARM BLOOM', sub: 'white-hot 1 px rim, soft coloured haze 10→15 px' },
-  { k: 'A', name: 'A · SOFT FALLOFF', sub: 'no edge at all: alpha fades with distance, 8→12 px' },
-  { k: 'C', name: 'C · EMBER', sub: 'warm haze, plus slow light motes drifting up' },
+  { k: 'today', name: 'TODAY', sub: 'A hard ring that fades on and off' },
+  { k: 'B', name: 'B · Warm bloom', sub: 'Thin white rim, then soft warm haze', mine: true },
+  { k: 'A', name: 'A · Soft haze', sub: 'Haze only, no edge at all' },
+  { k: 'C', name: 'C · Embers', sub: 'Soft haze plus slow rising sparks' },
 ];
 const PAD = 22, SW = 224;
 if (AURA) {
-  AURA.append(Object.assign(document.createElement('div')));
-  for (const t of TAKES) AURA.append(Object.assign(document.createElement('div'), { className: 'colh', innerHTML: `${t.name}<small>${t.sub}</small>` }));
   const sprite = new Image(); sprite.src = '../../assets/aang/frames/idle_0.png';
   sprite.onload = () => {
     const W = SW + PAD * 2;
@@ -136,13 +140,17 @@ if (AURA) {
     const M = 20, BX = x0 - M, BY = y0 - M - 10, BW = x1 - x0 + 1 + M * 2, BH = y1 - y0 + 1 + M * 2 + 10;
     const cells = [];
     for (const col of COLS) {
-      AURA.append(Object.assign(document.createElement('div'), { className: 'rowh', innerHTML: `<span class="sw" style="background:${col.c}"></span>${col.name}<small>${col.c} · ${col.sub}</small>` }));
+      const row = Object.assign(document.createElement('div'), { className: 'arow', innerHTML: `<div class="ahead"><span class="sw2" style="background:${col.c}"></span>${col.name}<small>${col.sub}</small></div>` });
+      const tiles = Object.assign(document.createElement('div'), { className: 'atiles' }); row.append(tiles); AURA.append(row);
       for (const t of TAKES) {
         const cv = Object.assign(document.createElement('canvas'), { width: BW, height: BH });
-        cv.style.width = BW * 2 + 'px'; cv.style.height = BH * 2 + 'px';
-        AURA.append(cv); cells.push({ cv, g: cv.getContext('2d'), t: t.k, c: mix(col.c, [0, 0, 0], 0), img: new ImageData(W, W) });
+        cv.style.width = BW * 3 + 'px'; cv.style.height = BH * 3 + 'px';   // 3x, whole pixels
+        const tile = Object.assign(document.createElement('div'), { className: 'atile' + (t.k === 'today' ? ' today' : '') + (t.mine ? ' mine' : ''),
+          innerHTML: `<div class="an">${t.name}${t.mine ? '<span class="pick">MY PICK</span>' : ''}</div><div class="as">${t.sub}</div>` });
+        tile.append(cv); tiles.append(tile); cells.push({ cv, g: cv.getContext('2d'), t: t.k, c: mix(col.c, [0, 0, 0], 0), img: new ImageData(W, W) });
       }
     }
+    relayout();   // the page grew: redo the arrows
     const LUTN = 80, STEP = 0.25;   // alpha per quarter pixel of distance
     function lut(take, ph) {
       const a = new Float32Array(LUTN), hot = new Float32Array(LUTN);
@@ -200,3 +208,88 @@ for (const el of document.querySelectorAll('[data-ratio]')) {
   el.textContent = `${r.toFixed(1)} : 1 ${r >= need ? (r >= 7 ? 'AAA' : 'AA') : 'FAIL'}`;
   el.className = 'r ' + (r >= need ? 'ok' : 'bad');
 }
+
+// ---------------------------------------------------------------- close-ups and callouts (v2 presentation)
+// Close-up: the option's card is cloned into the window at a whole-number zoom (text re-laid out, pixel art stays
+// crisp), centred on the element marked data-zoom (data-zx / data-zy pick the spot inside it, 0..1).
+function buildZooms() {
+  for (const zb of document.querySelectorAll('.zbox[data-z]')) {
+    zb.querySelectorAll('.pos').forEach((e) => e.remove());
+    const grid = zb.closest('.ogrid'), t = grid && grid.querySelector('[data-zoom]'); if (!t) continue;
+    const card = t.closest('.card'), cr = card.getBoundingClientRect(), s = cr.width / 300;
+    const tr = t.getBoundingClientRect(), fx = t.dataset.zx ? +t.dataset.zx : 0.5, fy = t.dataset.zy ? +t.dataset.zy : 0.5;
+    const cx = (tr.left + tr.width * fx - cr.left) / s, cy = (tr.top + tr.height * fy - cr.top) / s;
+    const Z = +zb.dataset.z, clone = card.cloneNode(true);
+    clone.querySelectorAll('[data-call],[data-zoom]').forEach((e) => { e.removeAttribute('data-call'); e.removeAttribute('data-zoom'); });
+    Object.assign(clone.style, { zoom: Z, margin: 0, width: '300px' });
+    const pos = Object.assign(document.createElement('div'), { className: 'pos' }); pos.append(clone); zb.append(pos);
+    pos.style.left = Math.round(zb.clientWidth / 2 - cx * Z) + 'px'; pos.style.top = Math.round(zb.clientHeight / 2 - cy * Z) + 'px';
+  }
+}
+// Callouts: every [data-call="Label|small line"] in a [data-callouts] grid gets a white label in that grid's lane.
+// Option rows: a white arrow (cased in near-black, so it shows on parchment and on dark) to the thing's near edge.
+// Paired bubbles: nothing is drawn over the words. A word or a tab gets an underline whose leader runs in the gap under
+// its line out to the card edge; a block gets a bracket just outside the card's right edge. Labels sit level with what
+// they name, pushed apart only as much as needed, and the stack is centred on the things it names.
+const SVGNS = 'http://www.w3.org/2000/svg';
+function layoutCallouts() {
+  document.querySelectorAll('.callout, svg.arrows').forEach((e) => e.remove());
+  for (const grid of document.querySelectorAll('[data-callouts]')) {
+    const lane = grid.querySelector(':scope > .lane'); if (!lane) continue;
+    grid.style.minHeight = '';
+    const pair = grid.classList.contains('pair');
+    const G = grid.getBoundingClientRect(), Ln = lane.getBoundingClientRect();
+    const items = [...grid.querySelectorAll('[data-call]')].filter((el) => !el.closest('.zbox'))
+      .map((el) => {
+        const r = el.getBoundingClientRect(), cs = getComputedStyle(el);
+        const it = { el, rl: r.left - G.left, rr: r.right - G.left, rt: r.top - G.top, rb: r.bottom - G.top, w: r.width + r.height };
+        it.inline = pair && (cs.display.startsWith('inline') || cs.position === 'absolute');
+        it.ty = it.inline ? it.rb + 2.5 : (it.rt + it.rb) / 2;
+        return it;
+      }).filter((i) => i.w).sort((a, b) => a.ty - b.ty);
+    for (const it of items) {
+      const [main, sub] = it.el.dataset.call.split('|');
+      it.lab = Object.assign(document.createElement('div'), { className: 'callout', innerHTML: main + (sub ? `<small>${pair ? '· ' : ''}${sub}</small>` : '') });
+      grid.append(it.lab); it.lw = it.lab.offsetWidth; it.lh = it.lab.offsetHeight;
+    }
+    // stack: level with the target where possible, never overlapping; then slide the whole stack to centre on its targets
+    let floor = -1e9;
+    for (const it of items) { it.top = Math.max(it.ty - it.lh / 2, floor); floor = it.top + it.lh + 8; }
+    if (items.length > 1) {
+      const want = items.reduce((t, i) => t + i.ty - i.lh / 2, 0) / items.length, got = items.reduce((t, i) => t + i.top, 0) / items.length;
+      const shift = Math.max(want - got, -items[0].top);   // never above the grid's top
+      for (const it of items) it.top += shift;
+    }
+    let bottom = G.height;
+    const svg = document.createElementNS(SVGNS, 'svg'); svg.classList.add('arrows');
+    for (const it of items) {
+      const { lab, lw, lh, rl, rr, rt, rb, ty, top } = it;
+      const leftLane = Ln.left + Ln.width / 2 - G.left < (rl + rr) / 2;   // lane left of the thing: point right
+      const lx = leftLane ? Ln.right - G.left - lw : Ln.left - G.left;
+      lab.style.left = lx + 'px'; lab.style.top = top + 'px'; bottom = Math.max(bottom, top + lh + 4);
+      const shapes = [], y0 = top + lh / 2;
+      if (pair) {
+        const cardR = it.el.closest('.card').getBoundingClientRect().right - G.left, x0 = lx - 2;
+        if (it.inline) shapes.push([`M${x0},${y0} L${cardR + 16},${ty} L${rr + 1},${ty} L${rl - 1},${ty}`, false]);
+        else { const bx = cardR + 9; shapes.push([`M${bx - 5},${rt + 2} L${bx},${rt + 2} L${bx},${rb - 2} L${bx - 5},${rb - 2}`, false], [`M${x0},${y0} L${bx + 10},${ty} L${bx},${ty}`, false]); }
+      } else {
+        const x0 = leftLane ? lx + lw + 2 : lx - 2, x1 = leftLane ? rl - 3 : rr + 3, y1 = ty;
+        const ang = Math.atan2(y1 - y0, x1 - x0), A = 12, hw = 0.5;
+        shapes.push([`M${x0},${y0} L${x1 - 6 * Math.cos(ang)},${y1 - 6 * Math.sin(ang)}`, false],
+          [`M${x1},${y1} L${x1 - A * Math.cos(ang - hw)},${y1 - A * Math.sin(ang - hw)} L${x1 - A * Math.cos(ang + hw)},${y1 - A * Math.sin(ang + hw)} Z`, true]);
+      }
+      for (const [d, fill] of shapes) {
+        for (const [col, wd] of [['#120A05', 5.5], ['#fffaf0', 2.5]]) {
+          const p = document.createElementNS(SVGNS, 'path'); p.setAttribute('d', d);
+          p.setAttribute('stroke', col); p.setAttribute('stroke-width', fill ? wd - 1.5 : wd); p.setAttribute('stroke-linejoin', 'round'); p.setAttribute('stroke-linecap', 'round');
+          p.setAttribute('fill', fill ? col : 'none'); svg.append(p);
+        }
+      }
+    }
+    if (bottom > G.height) grid.style.minHeight = Math.ceil(bottom) + 'px';   // the row grows to hold its labels
+    svg.setAttribute('width', G.width); svg.setAttribute('height', Math.max(bottom, G.height)); grid.append(svg);
+  }
+}
+function relayout() { try { buildZooms(); layoutCallouts(); } catch (e) { console.error('relayout', e && e.stack || e); } }
+window.addEventListener('load', () => (document.fonts ? document.fonts.ready : Promise.resolve()).then(relayout));
+window.addEventListener('resize', relayout);

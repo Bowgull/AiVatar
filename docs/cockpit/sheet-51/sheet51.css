@@ -1,21 +1,50 @@
 /* Sheet 51 (2026-10-21): choices without numbers, a slimmer glove, a warmer aura, and one type system for every bubble.
+   v2: presentation redone so it reads at a glance: one option per row at 1.5x with TODAY beside it, a white cased arrow
+   at the one difference, a crisp close-up, neutral dark backdrop, and the pointed-at answer in plum (never gold on gold).
    Mockup only. Fonts come from cockpit.css + notefonts.css (all bundled in src/Shell/pages/fonts). */
-html,body{background:#17110c;margin:0}
+html,body{background:#141210;margin:0}
 body{color:#e8dcc4;font-family:Figtree,sans-serif;padding:26px 30px 60px;width:1540px;box-sizing:border-box}
-h1{font:400 21px Silkscreen,monospace;color:#FFC43C;letter-spacing:2px;margin:0 0 6px}
-h2{font:400 13px Silkscreen,monospace;color:#FFC43C;letter-spacing:1.5px;margin:46px 0 8px}
-h3{font:400 10px Silkscreen,monospace;color:#FFC43C;letter-spacing:1.5px;margin:22px 0 8px}
-p{color:#cdbb9a;font-size:14.5px;line-height:1.55;margin:0 0 12px;max-width:1300px}
+h1{font:400 21px Silkscreen,monospace;color:#FFC43C;letter-spacing:2px;margin:0 0 10px}
+h2{font:800 22px Figtree,sans-serif;color:#FFC43C;letter-spacing:.5px;margin:64px 0 12px;padding-top:18px;border-top:2px solid #2e2924}
+h3{font:800 15px Figtree,sans-serif;color:#f4ead6;letter-spacing:1px;margin:34px 0 4px}
+p{color:#d8cab0;font-size:15px;line-height:1.55;margin:0 0 12px;max-width:1300px}
 p b,li b{color:#FFC43C}
+.lead{font-size:15.5px}
+.topick{display:inline-flex;align-items:center;gap:10px;background:#26211d;border:2px solid #4a4038;border-radius:9px;padding:8px 16px;font:600 16px Figtree,sans-serif;color:#f4ead6;margin:0 0 12px}
+.topick span{font:800 12px Figtree,sans-serif;letter-spacing:1.5px;color:#a99b86}
+.topick b{color:#FFC43C;font-weight:800;font-size:18px}
+.sw{display:inline-block;padding:0 8px;border-radius:5px;font-weight:700}
+.sw.plum{background:#4A2C6E;color:#fffaf0;box-shadow:0 0 0 2px #966EC8}
+.pick{display:inline-block;font:800 11px Figtree,sans-serif;letter-spacing:1px;padding:3px 8px;border-radius:5px;background:#FFC43C;color:#2a1c00;margin-left:6px;vertical-align:2px}
+.note{background:#1c1a18;border-radius:12px;padding:14px 18px;border:2px solid #342d27;max-width:1440px;margin-top:18px}
+.note ul{margin:6px 0 0;padding-left:20px;color:#d8cab0;font-size:14.5px;line-height:1.7}
 .stage{background:#1a110a url(../../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;border-radius:12px;border:3px solid #0d0703;padding:16px;box-shadow:0 10px 26px rgba(0,0,0,.5)}
-.cap{font:400 10px Silkscreen,monospace;color:#FFC43C;letter-spacing:1.5px;margin:0 0 10px}
-.why{font-size:13.5px;color:#cdbb9a;line-height:1.5;margin:10px 2px 0}
-.why b{color:#FFC43C}
-.note{background:#1f160f;border-radius:12px;padding:14px 18px;box-shadow:0 0 0 2px #2a1d12;max-width:1440px}
-.note ul{margin:6px 0 0;padding-left:20px;color:#cdbb9a;font-size:14px;line-height:1.7}
-.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;align-items:start}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
-.pick{display:inline-block;font:400 8px Silkscreen,monospace;letter-spacing:1px;padding:3px 6px 2px;border-radius:4px;background:#FFC43C;color:#2a1c00;margin-left:6px;vertical-align:2px}
+
+/* ------------------------------------------------------------------ ONE OPTION PER ROW */
+.orow{margin:18px 0 0;background:#1c1a18;border:2px solid #342d27;border-radius:14px;padding:14px 18px 20px}
+.ohead{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.ohead .L{font:800 24px/1 Figtree,sans-serif;color:#fffaf0;background:#4A2C6E;box-shadow:0 0 0 2px #966EC8;border-radius:8px;width:38px;height:38px;display:grid;place-items:center}
+.ohead .nm{font:800 20px Figtree,sans-serif;color:#fffaf0}
+.ohead .cap2{flex-basis:100%;font:500 15px/1.45 Figtree,sans-serif;color:#d8cab0;margin:0}
+.ohead .L ~ .cap2{margin-left:50px}
+.ogrid{position:relative;display:grid;grid-template-columns:474px 160px 474px 1fr;gap:18px;align-items:start}
+.ogrid.pair{grid-template-columns:470px 470px 1fr;gap:26px}
+.col .ctg{font:800 12px Figtree,sans-serif;letter-spacing:1.2px;color:#b9ab94;margin:0 0 8px;min-height:15px}
+.big{zoom:1.5}
+.big .card{width:300px;margin:8px}
+.pair .card{width:440px;margin:8px}
+.lane{min-height:10px}
+/* the close-up window */
+.zbox{position:relative;overflow:hidden;height:300px;border-radius:12px;background:#0e0c0b;box-shadow:0 0 0 2px #4a4038}
+.zbox .pos{position:absolute;pointer-events:none}
+.zbox::after{content:"";position:absolute;inset:0;border-radius:12px;box-shadow:inset 0 0 0 3px #fffaf0,inset 0 0 0 5px #120A05;pointer-events:none}
+/* the callouts: a white label with dark ink, and a white arrow cased in near-black so it shows on parchment and on dark */
+.callout{position:absolute;z-index:5;max-width:150px;box-sizing:border-box;padding:6px 9px;border-radius:7px;background:#fffaf0;color:#1c1208;
+  font:800 15px/1.25 Figtree,sans-serif;box-shadow:0 0 0 2px #120A05,0 4px 10px rgba(0,0,0,.5)}
+.callout small{display:block;font:600 13px/1.3 Figtree,sans-serif;color:#4a3a28;margin-top:2px}
+.pair .callout{max-width:none;white-space:nowrap;padding:5px 10px}
+.pair .callout small{display:inline;margin-left:5px}
+svg.arrows{position:absolute;left:0;top:0;pointer-events:none;overflow:visible;z-index:4}
 
 /* ------------------------------------------------------------------ THE TYPE SYSTEM (section 4, used everywhere) */
 .card{position:relative;box-sizing:border-box;padding:12px 14px 11px;border-radius:10px;color:#21160a;
@@ -97,80 +126,103 @@ p b,li b{color:#FFC43C}
 .opt b{font:700 14.5px/1.3 Figtree,sans-serif;color:#21160a}
 .opt small{font:500 12.5px/1.4 Figtree,sans-serif;color:#5c4426}
 .opt.other b{color:#55307a}
-.rec{display:inline-block;margin-left:7px;font:400 8px/1 Silkscreen,monospace;letter-spacing:1px;padding:3px 5px 2px;border-radius:3px;background:#58b0a3;color:#062a25;vertical-align:2px}
+/* BEST: white on deep teal, readable at any size (6.3 : 1) */
+.rec{display:inline-block;margin-left:7px;font:800 10px/1 Figtree,sans-serif;letter-spacing:1px;padding:3px 5px 2px;border-radius:4px;background:#1d6b60;color:#fff;box-shadow:0 0 0 1.5px #0b3a33;vertical-align:1px}
 .opt.on::before{content:"";position:absolute;left:4px;top:9px;width:28px;height:18px;background:var(--glove) 0 0/28px 18px;image-rendering:pixelated;filter:drop-shadow(1px 1px 0 rgba(0,0,0,.45))}
 .opt .mk{flex:none;width:14px;height:14px;margin-top:2px;box-sizing:border-box;border:2.5px solid #6b4318;background:#fffaf0;border-radius:4px}
 .opt.picked .mk{background:#8a3e1c;box-shadow:inset 0 0 0 2px #fffaf0}
-/* A: thin carved dividers */
-.vA .opt{border-radius:0}
-.vA .opt + .opt::after{content:"";position:absolute;left:36px;right:8px;top:0;height:2px;background:linear-gradient(rgba(110,70,25,.38) 50%,rgba(255,250,235,.85) 50%)}
-.vA .opt.on{background:rgba(255,196,60,.16)}
-/* B: each option its own recessed slot, like inventory */
-.vB .opt{margin:0 0 6px 30px;padding:8px 11px;background:rgba(150,105,45,.10);
-  box-shadow:inset 0 2px 0 rgba(90,55,20,.20),inset 0 -1.5px 0 rgba(255,250,235,.75),0 0 0 1.5px rgba(110,70,25,.28)}
-.vB .opt.on{background:rgba(255,206,90,.30);box-shadow:inset 0 2px 0 rgba(90,55,20,.15),inset 0 -1.5px 0 rgba(255,250,235,.8),0 0 0 2px #C98C14,0 0 10px rgba(255,190,60,.35)}
+/* THE POINTED-AT ANSWER, every new option: dark plum with white text and a light plum edge (10.8 : 1). Never a gold tint. */
+.opts:not(.vT) .opt.on{background:#4A2C6E;box-shadow:0 0 0 2px #120A05,0 0 0 3.5px #966EC8;border-color:transparent}
+.opts:not(.vT) .opt.on b{color:#fffaf0}
+.opts:not(.vT) .opt.on small{color:#e8dcff}
+.opts:not(.vT) .opt.on .mk{border-color:#fffaf0;background:#4A2C6E}
+.opts:not(.vT) .opt.on.picked .mk{background:#fffaf0;box-shadow:inset 0 0 0 2px #4A2C6E}
+/* several picks: a ticked box and a dark edge (no tint) */
+.opts:not(.vT) .opt.picked:not(.on){box-shadow:inset 0 0 0 2.5px #6b4318}
+/* A: one carved line between rows (a real element so the arrow can point at it) */
+.vA .opt{border-radius:6px}
+.vA .carve{display:block;height:2px;margin:5px 8px 5px 36px;background:linear-gradient(#7a5426 50%,#fffaf0 50%)}
+/* B: each answer its own box, a gap between */
+.vB .opt{margin:0 0 7px 30px;padding:8px 11px;background:#e6cf9c;box-shadow:inset 0 2px 0 rgba(90,55,20,.22),0 0 0 1.5px #9a7a48}
 .vB .opt.on::before{left:-32px}
-.vB .opt.picked{background:rgba(255,206,90,.42)}
-.vB .opt.other{background:transparent;box-shadow:inset 0 0 0 1.5px rgba(110,70,25,.25);box-shadow:none;border:1.5px dashed rgba(110,70,25,.4);padding:6px 10px}
-.vB .opt.other.on{border-color:#C98C14}
-/* C: alternating tint and room */
+.vB .opt.other{background:transparent;box-shadow:inset 0 0 0 1.5px #9a7a48;padding:6px 10px}
+/* C: every other row a shade darker */
 .vC .opt{padding:10px 10px 10px 36px;border-radius:6px}
-.vC .opt:nth-child(odd){background:rgba(150,105,45,.10)}
-.vC .opt.on{background:rgba(255,196,60,.24)}
-/* D: a gem notch per row, lit in its state colour */
+.vC .opt:nth-child(even){background:#dfc58e}
+/* D: a gem per row */
 .vD .opt{padding-left:52px}
 .vD .opt .gem{position:absolute;left:32px;top:10px;width:14px;height:14px;background:var(--gem-dim) 0 0/14px 14px;image-rendering:pixelated}
 .vD .opt.best .gem{background-image:var(--gem-teal)}
 .vD .opt.on .gem{background-image:var(--gem-gold)}
 .vD .opt.other .gem{background-image:var(--gem-plum)}
-.vD .opt.on{background:rgba(255,196,60,.12)}
+/* TODAY (bubble.css sheet 16 + cockpit .ckpins, as they are now): rows touch, plum number keys, the stretched hand, gold-tint picks */
+.vT .opt{padding:7px 10px 7px 38px;align-items:center}
+.vT .opt.on b{color:#7a3d10}
+.vT .opt.on::before{left:6px;top:50%;width:26px;height:20px;margin-top:-10px;background:url(../../../src/Shell/pages/art/browser/hand.png) 0 0/26px 20px;image-rendering:pixelated;filter:drop-shadow(1px 1px 0 rgba(0,0,0,.6))}
+.vT .opt small{color:#7a6440}
+.vT .opt.picked{background:rgba(255,196,60,.28);box-shadow:inset 0 0 0 2px #C98C14,0 0 10px rgba(255,196,60,.35)}
+.vT .kc{margin-left:auto;font:400 9px Silkscreen,monospace;width:22px;height:22px;border-radius:5px;display:grid;place-items:center;border:2px solid #120A05;background:linear-gradient(180deg,#4A2C6E,#2C1848);color:#f3eaff;box-shadow:0 2px 0 #120A05;flex:none}
+.rec.old{font:400 7.5px/1 Silkscreen,monospace;padding:2px 4px 1px;border-radius:3px;background:#58b0a3;color:#08302b;box-shadow:none}
 .stepper{display:flex;align-items:center;gap:8px;margin:0 0 6px}
 .stepper .dots{display:flex;gap:5px}
-.stepper .dots i{width:8px;height:8px;background:rgba(120,80,30,.28);clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)}
-.stepper .dots i.done{background:#3d9a8c}
-.stepper .dots i.now{background:#C98C14;filter:drop-shadow(0 0 3px rgba(255,196,60,.9))}
+.stepper .dots i{width:9px;height:9px;background:rgba(120,80,30,.35);clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)}
+.stepper .dots i.done{background:#2f8a7c}
+.stepper .dots i.now{background:#C98C14}
 .stepper .lbl{font:400 8px/1 Silkscreen,monospace;letter-spacing:1px;color:#6e5434}
-.stepper .back{margin-left:auto;font:400 8px/1 Silkscreen,monospace;letter-spacing:1px;color:#7a3410;border:1.5px solid rgba(122,52,16,.45);border-radius:4px;padding:3px 5px 2px}
+.stepper .back{margin-left:auto;font:400 8px/1 Silkscreen,monospace;letter-spacing:1px;color:#7a3410;border:1.5px solid rgba(122,52,16,.6);border-radius:4px;padding:3px 5px 2px}
+.stepper.old .dots i{clip-path:none;border-radius:50%;background:rgba(120,80,30,.25)}
+.stepper.old .dots i.done{background:#58b0a3}
+.stepper.old .dots i.now{background:#C98C14;box-shadow:0 0 6px rgba(255,196,60,.8)}
+.stepper.old .lbl{color:#8f7458}
+.stepper.old .back{border:0;color:#8a3e1c;padding:0}
 .sendrow{display:flex;align-items:center;gap:9px;margin:6px 0 2px 26px}
 .sendrow .meta{color:#6e5434}
 
 /* ------------------------------------------------------------------ GLOVES (section 2) */
-.gloves{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
-.gcell{background:#1f160f;border-radius:12px;padding:12px 14px;box-shadow:0 0 0 2px #2a1d12}
-.gcell.mine{box-shadow:0 0 0 2px #C98C14}
-.gcell .nm2{font:400 9px Silkscreen,monospace;letter-spacing:1.2px;color:#FFC43C;margin:0 0 4px}
-.gcell .sz{font-size:12.5px;color:#a8916c;margin:0 0 8px}
-.gcell canvas{image-rendering:pixelated;display:block}
-.gcell .big{display:flex;align-items:flex-end;gap:10px;min-height:52px;margin-bottom:8px;padding:8px;border-radius:8px;background:#efd9a6}
-.gcell .ctx{margin-top:8px}
-.gcell .ctx .card{margin:6px 6px 2px}
-.gcell .why{font-size:12.5px;margin:8px 0 0}
+.gfing{position:absolute;image-rendering:pixelated;filter:drop-shadow(1px 1px 0 rgba(0,0,0,.45))}
+.fingers .opt.on::before{display:none}
+.gzoom{display:flex;gap:22px;align-items:flex-end;justify-content:center;height:100%;padding:0 16px 22px;box-sizing:border-box;background:#efd9a6;border-radius:12px}
+.gzoom figure{margin:0;text-align:center}
+.gzoom canvas{display:block;image-rendering:pixelated;margin:0 auto 8px}
+.gzoom figcaption{font:800 12px Figtree,sans-serif;letter-spacing:1px;color:#21160a}
 
 /* ------------------------------------------------------------------ AURA (section 3) */
-.aura{display:grid;grid-template-columns:150px repeat(4,1fr);gap:10px 12px;align-items:center}
-.aura .colh{font:400 10px Silkscreen,monospace;letter-spacing:1.4px;color:#FFC43C;text-align:center}
-.aura .colh small{display:block;font:500 12px Figtree,sans-serif;letter-spacing:0;color:#cdbb9a;margin-top:4px;line-height:1.35}
-.aura .rowh{font:400 9px Silkscreen,monospace;letter-spacing:1.2px;color:#f2e3c2}
-.aura .rowh .sw{display:inline-block;width:14px;height:14px;border-radius:4px;vertical-align:-3px;margin-right:6px;box-shadow:0 0 0 2px #2a1a10}
-.aura .rowh small{display:block;font:500 12px Figtree,sans-serif;color:#a8916c;letter-spacing:0;margin-top:3px}
-.aura canvas{display:block;margin:0 auto;image-rendering:pixelated;background:#110c08;border-radius:10px;box-shadow:inset 0 0 0 2px #241810}
+.arow{margin:18px 0 0;background:#1c1a18;border:2px solid #342d27;border-radius:14px;padding:14px 18px 18px}
+.arow .ahead{display:flex;align-items:center;gap:10px;font:800 19px Figtree,sans-serif;color:#fffaf0;margin-bottom:12px}
+.arow .ahead .sw2{width:22px;height:22px;border-radius:6px;box-shadow:0 0 0 2px #120A05,0 0 0 3.5px #4a4038}
+.arow .ahead small{font:500 15px Figtree,sans-serif;color:#d8cab0}
+.atiles{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
+.atile{background:#0e0c0b;border-radius:12px;box-shadow:0 0 0 2px #3a332d;padding:10px 10px 12px;text-align:center}
+.atile.today{box-shadow:0 0 0 2px #6a5f55}
+.atile.mine{box-shadow:0 0 0 3px #FFC43C}
+.atile .an{font:800 16px Figtree,sans-serif;color:#fffaf0}
+.atile .an .pick{font-size:10px}
+.atile .as{font:500 13.5px/1.35 Figtree,sans-serif;color:#cdbfa8;margin:3px 0 8px;min-height:36px}
+.atile canvas{display:block;margin:0 auto;image-rendering:pixelated}
 
 /* ------------------------------------------------------------------ TYPE SPECIMEN (section 4) */
-table.spec{border-collapse:collapse;width:100%;font-size:13px;color:#cdbb9a}
-.spec th{font:400 9px Silkscreen,monospace;color:#FFC43C;letter-spacing:1.2px;text-align:left;padding:6px 10px;border-bottom:2px solid #2a1d12}
-.spec td{padding:8px 10px;border-bottom:1px solid #2a1d12;vertical-align:middle}
-.spec td.on-p{background:radial-gradient(120% 90% at 30% 0%,#fff3d8,#efd9a6);border-radius:0}
-.spec td.on-w{background:#2a1a10 url(../../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px}
-.spec .r{font:700 12px Figtree,sans-serif;white-space:nowrap}
-.spec .r.ok{color:#8fd9a8}.spec .r.lg{color:#e8d27a}.spec .r.bad{color:#f08a7a}
-.spec code{font:500 11.5px Consolas,monospace;color:#e8dcc4}
-.dial{display:grid;grid-template-columns:150px 1fr 1fr;gap:14px 18px;align-items:start}
-.dial .lab{font:400 9px Silkscreen,monospace;letter-spacing:1.2px;color:#f2e3c2;padding-top:14px}
-.dial .lab small{display:block;font:500 12px Figtree,sans-serif;color:#a8916c;letter-spacing:0;margin-top:5px;line-height:1.4}
-.dial .colh{font:400 11px Silkscreen,monospace;letter-spacing:1.5px;color:#FFC43C}
-.dial .colh small{display:block;font:500 12.5px Figtree,sans-serif;color:#cdbb9a;letter-spacing:0;margin-top:4px;line-height:1.4}
-.dial .stage{padding:16px 12px}
+.specimen{background:#1c1a18;border:2px solid #342d27;border-radius:14px;padding:8px 0;margin-top:10px;overflow:hidden}
+.specimen .sh,.specimen .sr{display:grid;grid-template-columns:230px 1fr 1fr 230px 150px;align-items:center}
+.specimen .sh span{font:800 12px Figtree,sans-serif;letter-spacing:1.2px;color:#b9ab94;padding:6px 14px}
+.specimen .sr{border-top:2px solid #2a2622}
+.specimen .rn{font:800 15px Figtree,sans-serif;color:#fffaf0;padding:10px 14px;letter-spacing:.3px}
+.specimen .rn small{display:block;font:500 13px Figtree,sans-serif;color:#b9ab94;letter-spacing:0;margin-top:2px}
+.specimen .on-p,.specimen .on-w,.specimen .on-u{align-self:stretch;display:flex;align-items:center;padding:10px 14px;box-sizing:border-box}
+.specimen .on-p{background:radial-gradient(120% 90% at 30% 0%,#fff3d8,#efd9a6)}
+.specimen .on-w{background:#2a1a10 url(../../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px}
+.specimen .on-u{background:linear-gradient(180deg,#563479,#45295f)}
+.specimen .on-p .opts,.specimen .on-w .opts{flex:1}
+.specimen .on-p .opt.on,.specimen .on-w .opt.on{margin:0 0 0 30px!important}
+.specimen .fs{font:500 13.5px Figtree,sans-serif;color:#d8cab0;padding:0 14px}
+.specimen .cr{display:flex;flex-direction:column;gap:3px;padding:0 14px}
+.r{font:800 13px Figtree,sans-serif;white-space:nowrap}
+.r.ok{color:#8fd9a8}.r.bad{color:#f08a7a}
+.dial{display:grid;grid-template-columns:150px 1fr 1fr;gap:14px 18px;align-items:start;margin-top:10px}
+.dial .lab{font:800 13px Figtree,sans-serif;letter-spacing:.5px;color:#fffaf0;padding-top:14px}
+.dial .lab small{display:block;font:500 13px Figtree,sans-serif;color:#b9ab94;letter-spacing:0;margin-top:5px;line-height:1.4}
+.dial .colh{font:800 15px Figtree,sans-serif;letter-spacing:1px;color:#FFC43C}
+.dial .colh small{display:block;font:500 13.5px Figtree,sans-serif;color:#d8cab0;letter-spacing:0;margin-top:4px;line-height:1.4}
+.dial .stage{padding:16px 12px;background:#1c1a18;border:2px solid #342d27;box-shadow:none}
 .dial .card{max-width:440px}
 .card:has(.kindtab){margin-top:24px}
 .card b{color:inherit}
-.aura canvas{image-rendering:pixelated}
