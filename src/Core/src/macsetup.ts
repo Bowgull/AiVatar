@@ -508,11 +508,15 @@ if [ -d "$BASE" ] && [ -x "$NODE_DIR/bin/node" ]; then
   }
   # His UPDATE key, step one (2026-10-14: "when i hit update it doesnt just freeze my computer"): the new Samara is
   # made in the background, at low priority, while he keeps working. Restart now then only swaps it in.
+  LSREG=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
   if [ "$PHASE" = "prepare" ]; then
     if build_app "$STAGE/Samara.app"; then
       # macOS checks a new app the first time it opens it; done now, quietly, that first open is quick.
       codesign --verify --deep "$STAGE/Samara.app" >/dev/null 2>&1 || true
-      printf '%s' '${rel?.version ?? ''}' > "$STAGE/version"; echo "Ready: ${rel?.version ?? ''}"; exit 0
+      printf '%s' '${rel?.version ?? ''}' > "$STAGE/version"
+      # Not an app macOS should know: the Dock could take it for his Samara and show a second one (2026-10-20).
+      touch "$BR/.metadata_never_index"; "$LSREG" -u "$STAGE/Samara.app" >/dev/null 2>&1 || true
+      echo "Ready: ${rel?.version ?? ''}"; exit 0
     fi
     rm -rf "$STAGE"; echo "Getting the update ready failed. What npm said:"; grep -i "error" "$DIR/npm-browser.log" | head -6; exit 1
   fi
@@ -532,7 +536,13 @@ if [ -d "$BASE" ] && [ -x "$NODE_DIR/bin/node" ]; then
     mkdir -p "$APP"; mv "$NEWAPP/Contents" "$APP/Contents"; rm -rf "$OLD" "$NEWAPP" "$STAGE" "$APP.new"
 ${rel ? `    cp "$BR/installed.json" "$BR/installed.prev.json" 2>/dev/null || rm -f "$BR/installed.prev.json"
     printf '%s' '{"version":"${rel.version}","commit":"${rel.commit}","status":"${opts.update ? 'trial' : 'good'}"}' > "$BR/installed.json"` : ''}
-    /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$APP" >/dev/null 2>&1 || true
+    # One Samara as far as macOS knows (his pet peeve, 2026-10-20): the kept copy in rollback/, the staged one and any
+    # left-over .new/.prev copies share Samara's identity, and the Dock could match his pin to one of them and show the
+    # running Samara as a second icon. They come off macOS's list of apps; only the real one is registered.
+    LSR=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
+    touch "$BR/.metadata_never_index"
+    for p in "$RB/Samara.app" "$STAGE/Samara.app" "$APP.new" "$APP.prev" "$HOME/Applications/Aang.app" "$HOME/Applications/Aang.app.new" "$HOME/Applications/Aang.app.prev"; do $LSR -u "$p" >/dev/null 2>&1 || true; done
+    $LSR -f "$APP" >/dev/null 2>&1 || true
     # Back at once: Samara opens the moment it is in place; what follows happens with it already open.
     [ "$PHASE" = "swap" ] && open -a "$APP"
     # In the Dock, exactly once, where Aang's icon was (his yes). Old entries for Aang.app or Samara.app are taken out
