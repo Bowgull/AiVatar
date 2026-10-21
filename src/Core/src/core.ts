@@ -62,6 +62,7 @@ import { clock as videoClock, diagnose, readVideo, siteOf as siteOfVideo, videoU
 import { HookServer, HookTracker, isLoopback } from './hooks.ts';
 import { JobTracker, LinkDoor, clearLinkKey, newLinkKey } from './claudelink.ts';
 import type { Answer as LinkAnswer } from './claudelink.ts';
+import { MarkDeriver } from './claudemark.ts';
 import { plainAsk, preciseReply } from './plainwords.ts';
 import type { Ask as PlainAsk } from './plainwords.ts';
 import { Reminders } from './reminders.ts';
@@ -2128,14 +2129,21 @@ export class Core {
     return preciseReply(t, this.claudeJobs.context(session), this.plainAsks());
   }
   private claudePushWhat = new Set<'jobs' | 'wait'>();
+  /** C5 (2026-10-21): the one mark over his head and its chime, worked out here from the same two lists the Shell gets. */
+  private readonly claudeMarks = new MarkDeriver();
+  private pushClaudeMark(): void {
+    const m = this.claudeMarks.update(this.claudeJobs.list(), this.claudeJobs.waiting(), this.workingNow().working);
+    if (m) this.sendTo('desktop', m);
+  }
   /** Coalesced: a burst of to-do updates is one message, not twenty. The waiting queue goes at once. */
   private pushClaudeLink(what: 'jobs' | 'wait'): void {
-    if (what === 'wait') { this.sendTo('desktop', { t: 'claude.wait', items: this.claudeJobs.waiting() }); return; }
+    if (what === 'wait') { this.sendTo('desktop', { t: 'claude.wait', items: this.claudeJobs.waiting() }); this.pushClaudeMark(); return; }
     this.claudePushWhat.add(what);
     if (this.claudePushTimer) return;
     this.claudePushTimer = setTimeout(() => {
       this.claudePushTimer = null; this.claudePushWhat.clear();
       this.sendTo('desktop', { t: 'claude.jobs', jobs: this.claudeJobs.list() });
+      this.pushClaudeMark();
     }, 150);
     this.claudePushTimer.unref?.();
   }
@@ -3102,6 +3110,7 @@ export class Core {
     if (key === this.lastPushedWorking) return;
     this.lastPushedWorking = key;
     this.sendTo('desktop', { t: 'claude.working', ...now });
+    this.pushClaudeMark();
   }
 
   private onBody(ws: WebSocket, m: FromBody): void {
@@ -3120,6 +3129,7 @@ export class Core {
         }
         const q = this.quotaMessage(); if (q) this.send(ws, q);
         if (this.kindOfSocket(ws) === 'desktop') this.send(ws, { t: 'claude.working', ...this.workingNow() });
+        if (this.kindOfSocket(ws) === 'desktop') this.send(ws, this.claudeMarks.now(this.claudeJobs.list(), this.claudeJobs.waiting(), this.workingNow().working));
         if (m.shell === true) this.send(ws, { t: 'timer.state', timers: this.timers.list() });
         if (m.shell === true) this.send(ws, { t: 'notes.state', notes: this.notes.list() });
         if (m.shell === true) { this.send(ws, { t: 'claude.jobs', jobs: this.claudeJobs.list() }); this.send(ws, { t: 'claude.wait', items: this.claudeJobs.waiting() }); }
@@ -3159,7 +3169,7 @@ export class Core {
       case 'summon': case 'dismiss': case 'refocus': case 'typebox': case 'snip': case 'browser': this.sendTo('desktop', { t: m.t }); break;
       case 'desk.open': this.sendTo('desktop', { t: 'desk.open', ...(typeof m.tab === 'number' ? { tab: m.tab } : {}) }); break;
       // Window 2's Settings: between the Shell and the pet, which owns them. Passed through as they are.
-      case 'settings.get': case 'settings.set': case 'settings.do': case 'settings': this.sendTo('desktop', m); break;
+      case 'settings.get': case 'settings.set': case 'settings.do': case 'settings.volume': case 'settings': this.sendTo('desktop', m); break;
       // The new bubble was clicked on a message that names a window; the pet has the Win32 side.
       case 'bubble.focus': this.sendTo('desktop', { t: 'bubble.focus', focus: m.focus }); break;
       // Parity with the old pet (2026-10-11): between the pet and the new bubble, passed through as they are.

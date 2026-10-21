@@ -114,6 +114,10 @@ html,body{margin:0;height:100%;background:var(--wood2);overflow:hidden}
   transition:left .18s cubic-bezier(.32,1.4,.5,1)}
 .sw.on .bed{background:linear-gradient(180deg,#2f7a4a,#1d5230)}
 .sw.on .nub{left:27px;background:linear-gradient(180deg,var(--green),#3f9a5f)}
+/* C5 (2026-10-21): the chime volume, a gold slider on the same dark bed as the switches */
+.volrow .volcell{display:grid;place-items:center;height:28px}
+.volrow .volpct{font:400 10px var(--label);letter-spacing:1px;color:var(--carve-ink);font-style:normal}
+.volrow .vol{display:block;width:100%;max-width:320px;margin-top:8px;accent-color:var(--gold)}
 /* ---- the morning brief, whole (sheet 6 section 7), lifted rule for rule ---- */
 .brief{max-width:600px;margin:0 auto;border-radius:12px;overflow:hidden;border:var(--ow) solid var(--outline);
   box-shadow:0 4px 0 rgba(0,0,0,.6),0 16px 34px rgba(0,0,0,.55)}

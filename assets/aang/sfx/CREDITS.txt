@@ -7,3 +7,6 @@ done.wav
   "Load/Save" from "JRPG Style UI Sounds" by KillaMaaki
   https://opengameart.org/content/jrpg-style-ui-sounds
   CC-BY 3.0 - https://creativecommons.org/licenses/by/3.0/
+
+chimes/*.wav
+  Aang's wooden chime set, made for Aang (sheet 45b, picked 2026-10-21); copied from docs/cockpit/sounds-45b.

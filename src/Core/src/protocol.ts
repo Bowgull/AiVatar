@@ -133,9 +133,11 @@ export type ToBody =
   | { t: 'drop.done'; name: string; path: string; summary: string; kb: number; from: string; more: number }
   /** Window 2's Settings (6.15 pass 2): the pet owns the switches; the Shell asks, sets and is told. */
   | { t: 'settings.get' }
-  | { t: 'settings.set'; key: 'quietGame' | 'mute' | 'seeWindow' | 'usage' | 'autostart'; on: boolean }
+  | { t: 'settings.set'; key: 'quietGame' | 'mute' | 'seeWindow' | 'usage' | 'autostart' | 'chimes'; on: boolean }
   | { t: 'settings.do'; what: 'hotkey' | 'undock' }
-  | { t: 'settings'; quietGame: boolean; mute: boolean; seeWindow: boolean; usage: boolean; autostart: boolean }
+  /** C5 (2026-10-21): the wooden chimes' loudness, 0-100. The pet owns it, like the switches. */
+  | { t: 'settings.volume'; volume: number }
+  | { t: 'settings'; quietGame: boolean; mute: boolean; seeWindow: boolean; usage: boolean; autostart: boolean; chimes?: boolean; chimeVolume?: number }
   /** He picked a mode in the new typing box. The PET writes it to body.json; nothing else may. */
   | { t: 'mode'; mode: Mode }
   /** The bubble was clicked on a message naming a window (a Claude session): bring it forward. */
@@ -175,6 +177,8 @@ export type ToBody =
   | { t: 'claude.jobs'; jobs: import('./claudelink.ts').Job[] }
   /** C2: what is waiting on him, permissions first, then questions, then plans (claudelink.ts WaitItem). */
   | { t: 'claude.wait'; items: import('./claudelink.ts').WaitItem[] }
+  /** C5 (2026-10-21): the one mark over his head and the chime to play, worked out by claudemark.ts. */
+  | import('./claudemark.ts').MarkMsg
   /** C2: whether a claude.answer/send/pause/play/model was taken; `why` is the plain reason when it was not. */
   | { t: 'claude.said'; of: string; ok: boolean; why?: string }
   /** One quiet line beside his head (the cockpit's whisper size, 6.12): now playing, and the like.
@@ -438,9 +442,11 @@ export type FromBody =
   | { t: 'drop.done'; name: string; path: string; summary: string; kb: number; from: string; more: number }
   /** Window 2's Settings (6.15 pass 2): the pet owns the switches; the Shell asks, sets and is told. */
   | { t: 'settings.get' }
-  | { t: 'settings.set'; key: 'quietGame' | 'mute' | 'seeWindow' | 'usage' | 'autostart'; on: boolean }
+  | { t: 'settings.set'; key: 'quietGame' | 'mute' | 'seeWindow' | 'usage' | 'autostart' | 'chimes'; on: boolean }
   | { t: 'settings.do'; what: 'hotkey' | 'undock' }
-  | { t: 'settings'; quietGame: boolean; mute: boolean; seeWindow: boolean; usage: boolean; autostart: boolean }
+  /** C5 (2026-10-21): the wooden chimes' loudness, 0-100. The pet owns it, like the switches. */
+  | { t: 'settings.volume'; volume: number }
+  | { t: 'settings'; quietGame: boolean; mute: boolean; seeWindow: boolean; usage: boolean; autostart: boolean; chimes?: boolean; chimeVolume?: number }
   /** He picked a mode in the new typing box. The PET writes it to body.json; nothing else may. */
   | { t: 'mode'; mode: Mode }
   /** The bubble was clicked on a message naming a window (a Claude session): bring it forward. */

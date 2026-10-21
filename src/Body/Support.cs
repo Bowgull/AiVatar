@@ -149,6 +149,9 @@ sealed class Config
     public bool ShowUsage { get; set; }
     /// <summary>Master mute: Aang never speaks up on his own until it is switched off.</summary>
     public bool Muted { get; set; }
+    /// <summary>C5 (2026-10-21): the wooden chimes for Claude's marks, on or off, and how loud (0-100, the sheet's 80 to start).</summary>
+    public bool ChimesOn { get; set; } = true;
+    public int ChimeVolume { get; set; } = 80;
     /// <summary>Let Aang see the title of the window in front, so he knows which app Joshua is in.</summary>
     public bool SeeActiveWindow { get; set; } = true;
     /// <summary>Docked to a screen edge: "left", "right", "top", "bottom" or empty; where along it (0 to 1); on which monitor.</summary>

@@ -74,12 +74,24 @@ sealed class PetWindow : Form
     bool claudeWorking;
     string workingWhat = "";                    // "job hunt": what to say if he clicks the icon
     string? workingHost;                        // "mac" when it is running on the MacBook
+    /// <summary>C5 (2026-10-21): the mark the brain worked out (claudemark.ts): permission, question, plan, working,
+    /// failed, paused or none. A step tick or the job-complete seal shows over it for a moment.</summary>
+    string claudeMark = "none";
+    string? claudeFlash;
+    DateTime claudeFlashUntil = DateTime.MinValue;
+    DateTime chimeAt = DateTime.MinValue;       // the last chime, so the old needs-you sound does not ring on top of it
+    DateTime sfxAt = DateTime.MinValue;         // the last needs-you / done sound, for the same reason the other way
+    /// <summary>What is over his head right now from Claude's work, or null: a moment first, then the steady mark,
+    /// then the older working signal (sessions Aang launched, the MacBook) when an older brain sends no mark.</summary>
+    string? ClaudeMarkNow =>
+        claudeFlash != null && DateTime.UtcNow < claudeFlashUntil ? claudeFlash
+        : claudeMark != "none" ? claudeMark
+        : claudeWorking ? "working" : null;
 
-    /// <summary>Back to rest. While a Claude session is working that means THINKING, not standing idle: the
-    /// think animation is what says he is busy (and carries the arrow/eyes glow with it). Everywhere that used
-    /// to drop straight to idle goes through here, or the working state would be wiped by the next reply
-    /// ending, bubble closing or one-shot finishing.</summary>
-    void PlayRest() => anim.Play(claudeWorking ? "think" : "idle");
+    /// <summary>Back to rest: idle. Until C5 (2026-10-21) a Claude session working meant THINKING here; his call on
+    /// sheet 45 was calm idle while Claude works, with the mark over his head saying it. Every place that drops back
+    /// to rest still comes through here, so that rule lives in one spot.</summary>
+    void PlayRest() => anim.Play("idle");
     string? bubbleFocus;            // the window a click on the bubble brings forward (a Claude session), if any
     string foreground = "";
     string foregroundTitle = "";
@@ -552,7 +564,7 @@ sealed class PetWindow : Form
     bool GetSettingValue(string key) => key switch
     {
         "quietGame" => forcedQuiet != false, "mute" => cfg.Muted, "seeWindow" => cfg.SeeActiveWindow,
-        "usage" => cfg.ShowUsage, "autostart" => Autostart.IsOn(), _ => false,
+        "usage" => cfg.ShowUsage, "autostart" => Autostart.IsOn(), "chimes" => cfg.ChimesOn, _ => false,
     };
 
     void SetSettingValue(string key, bool on)
@@ -567,6 +579,7 @@ sealed class PetWindow : Form
                 break;
             case "usage": cfg.ShowUsage = on; cfg.Save(); input.SetUsageShown(on); break;
             case "autostart": Autostart.Set(on); break;
+            case "chimes": cfg.ChimesOn = on; cfg.Save(); break;
         }
     }
 
@@ -583,6 +596,7 @@ sealed class PetWindow : Form
         t = "settings",
         quietGame = GetSettingValue("quietGame"), mute = GetSettingValue("mute"), seeWindow = GetSettingValue("seeWindow"),
         usage = GetSettingValue("usage"), autostart = GetSettingValue("autostart"),
+        chimes = cfg.ChimesOn, chimeVolume = cfg.ChimeVolume,
     });
 
     void OpenPanel()
@@ -696,8 +710,17 @@ sealed class PetWindow : Form
                     SendSettings();
                     break;
                 case "settings.set":
-                    if (Str(m, "key") is string sk && sk is "quietGame" or "mute" or "seeWindow" or "usage" or "autostart")
+                    if (Str(m, "key") is string sk && sk is "quietGame" or "mute" or "seeWindow" or "usage" or "autostart" or "chimes")
                     { SetSettingValue(sk, Bool(m, "on")); SendSettings(); }
+                    break;
+                // C5 (2026-10-21): the chimes' volume. One chime at the new level, so he hears what he picked.
+                case "settings.volume":
+                    cfg.ChimeVolume = Math.Clamp((int)Math.Round(Num(m, "volume")), 0, 100); cfg.Save();
+                    if (cfg.ChimesOn) Chimes.Play("plan-ready", cfg.ChimeVolume);
+                    SendSettings();
+                    break;
+                case "claude.mark":
+                    OnClaudeMark(m);
                     break;
                 case "settings.do":
                     if (Str(m, "what") is string sw && sw is "hotkey" or "undock") RunSettingAction(sw);
@@ -832,15 +855,9 @@ sealed class PetWindow : Form
                     claudeWorking = Bool(m, "working");
                     workingWhat = Str(m, "what") ?? "";
                     workingHost = Str(m, "host");
-                    if (claudeWorking != was)
-                    {
-                        markerSince = DateTime.UtcNow;                       // the icon pops in, same as any other
-                        // Thinking is an ANIMATION, not a wash painted over the idle sprite - his own point
-                        // (2026-09-23): "when aang is thinking regularly it changes its animation correct?".
-                        // A session working IS him thinking, so it plays the same 12 frames, and the glow that
-                        // already rides on the think state comes with it instead of being smeared on alone.
-                        if (anim.State is "idle" or "think") PlayRest();
-                    }
+                    // C5 (2026-10-21): no more thinking frames for Claude's work. His call on sheet 45: he stays
+                    // in calm idle while Claude works, and the honey mark over his head says it instead.
+                    if (claudeWorking != was) markerSince = DateTime.UtcNow;   // the icon pops in, same as any other
                     dirty = true;
                     break;
                 }
@@ -1186,7 +1203,8 @@ sealed class PetWindow : Form
             }
             if (bubble.Visible) bubbleWasVisible = true;
 
-            if (urgent || claudeWorking || (badge && peeking)) changed = true;  // the outline/glow pulses even while quiet holds the idle loop
+            if (urgent || claudeWorking || ClaudeMarkNow != null || claudeFlash != null || (badge && peeking)) changed = true;  // the outline/glow pulses even while quiet holds the idle loop
+            if (claudeFlash != null && now >= claudeFlashUntil) { claudeFlash = null; markerSince = now; }   // C5: the tick's moment is over
 
             // Quiet mode freezes the idle loop; anything Joshua triggers (a reply, a poke) wakes it briefly.
             // claudeWorking is right beside urgent here on purpose: a session working is exactly the kind of
@@ -1211,7 +1229,7 @@ sealed class PetWindow : Form
             }
 
             if (changed || dirty) Render();
-            timer.Interval = slideStart != DateTime.MinValue ? 16 : bubble.Animating || urgent ? 33 : (badge && peeking) || claudeWorking ? 50 : (!animate ? (bubble.More ? 250 : 250) : Math.Clamp(anim.FrameMs, 33, 200));
+            timer.Interval = slideStart != DateTime.MinValue ? 16 : bubble.Animating || urgent ? 33 : (badge && peeking) || claudeWorking || ClaudeMarkNow != null ? 50 : (!animate ? (bubble.More ? 250 : 250) : Math.Clamp(anim.FrameMs, 33, 200));
         }
         catch (Exception e) { Log.Write("tick failed: " + e); }
     }
@@ -1253,8 +1271,11 @@ sealed class PetWindow : Form
                 // Behind the sprite, same as DrawPeeking does it, so it reads as a halo and not a box.
                 if (urgent) DrawOutline(g, shown, standing, loom: true);
                 else if (ambientGlow) DrawOutline(g, shown, standing, loom: false);
+                else if (ClaudeMarkNow is string glowFor) DrawOutline(g, shown, standing, loom: false, ClaudeMarks.ColorOf(glowFor), 0.6f);
                 g.DrawImage(shown, standing);
                 mirrored?.Dispose();
+                // C5 (2026-10-21): Claude's mark, just above his head, standing as well as docked.
+                if (ClaudeMarkNow is string markNow) DrawClaudeMark(g, markNow, docked: false);
                 if (anim.State == "think") DrawThinkGlow(g);
             }
 
@@ -2191,13 +2212,44 @@ sealed class PetWindow : Form
         return true;
     }
 
+    /// <summary>
+    /// C5 (2026-10-21): the brain's `claude.mark`. Draws the new mark (the same pop-in as every other) and plays its
+    /// wooden chime. The chime follows his existing rules: master mute silences it, the Settings switch and slider
+    /// set it, and in a game only what matters gets one (blocking, the whole job, failed), never a step's tick.
+    /// </summary>
+    void OnClaudeMark(JsonElement m)
+    {
+        var mark = Str(m, "mark") ?? "none";
+        if (mark != "none" && !ClaudeMarks.Known(mark)) mark = "none";
+        var before = ClaudeMarkNow;
+        claudeMark = mark;
+        var flash = Str(m, "flash");
+        if (flash is "step" or "complete")
+        {
+            claudeFlash = flash;
+            // A step is a glance (45e's 1.8 s "STEP DONE"); the whole job stays up for the sheet's 4 seconds.
+            claudeFlashUntil = DateTime.UtcNow.AddMilliseconds(flash == "step" ? 1800 : 4000);
+        }
+        if (ClaudeMarkNow != before) markerSince = DateTime.UtcNow;
+        var sound = Str(m, "sound");
+        if (sound != null && cfg.ChimesOn && !cfg.Muted && !hiddenByUser && !(quiet && sound == "step")
+            && (DateTime.UtcNow - sfxAt).TotalMilliseconds > 2500)
+        {
+            Chimes.Play(sound, cfg.ChimeVolume);
+            chimeAt = DateTime.UtcNow;
+        }
+        dirty = true;
+    }
+
     void TriggerGlow(Color color, System.Media.SoundPlayer sound)
     {
         urgent = true; ambientGlow = false; urgentColor = color; burstStart = DateTime.UtcNow;
         urgentUntil = burstStart.AddSeconds(UrgentGlowFor.TotalSeconds); badge = true;
         burstsFired++;
         nextBurstAt = burstsFired < BurstBackoff.Length ? DateTime.UtcNow.Add(BurstBackoff[burstsFired]) : DateTime.MaxValue;
-        if (!cfg.Muted) { try { sound.Play(); } catch (Exception e) { Log.Write("sfx play failed: " + e.Message); } }
+        // C5 (2026-10-21): the older hook news for the same Claude moment can land a second after its chime; one sound is enough.
+        if (!cfg.Muted && (DateTime.UtcNow - chimeAt).TotalMilliseconds > 2500)
+        { try { sound.Play(); sfxAt = DateTime.UtcNow; } catch (Exception e) { Log.Write("sfx play failed: " + e.Message); } }
         if (dock != DockEdge.None && peeking) { if (slideStart == DateTime.MinValue) SlideTo(PeekPos()); }
         else if (anim.State is "idle" or "think") { anim.Play("hello"); Wake(); }
         dirty = true;
@@ -2597,13 +2649,16 @@ sealed class PetWindow : Form
         var at = new Rectangle(Docking.SpriteX, Docking.SpriteY, Docking.Frame, Docking.Frame);
         if (urgent) DrawOutline(g, rot, at, loom: true);
         else if (ambientGlow) DrawOutline(g, rot, at, loom: false);
+        else if (!badge && ClaudeMarkNow is string glowFor) DrawOutline(g, rot, at, loom: false, ClaudeMarks.ColorOf(glowFor), 0.6f);
         g.DrawImage(rot, at);
         // Exactly what the undocked view does, nothing invented for here: the glow rides on the think state,
         // which a working session now puts him in. Turned with the frame so it lands on his real arrow and
         // eyes at any edge. Not the silhouette outline (that already means "something unread is waiting"),
         // and no peeking further out, which he explicitly did not want.
         if (anim.State == "think") DrawThinkGlow(g, Docking.Rotation(dock));
-        if (badge || claudeWorking) DrawMarker(g);
+        // Real news held for after the game still outranks Claude's mark here (his call, 2026-09-23); otherwise C5's mark.
+        if (badge) DrawMarker(g);
+        else if (ClaudeMarkNow is string markNow) DrawClaudeMark(g, markNow, docked: true);
     }
 
 
@@ -2630,9 +2685,9 @@ sealed class PetWindow : Form
     /// fastest), hard-flickers near 9Hz for ~650ms (the periphery's fastest comfortably visible rate), then holds
     /// steady and bright - no more motion after that, on purpose. Ambient is small, slow and quiet: present, not
     /// attention-seeking, exactly because he asked the glow never fully disappear while something waits.</summary>
-    void DrawOutline(Graphics g, Bitmap sprite, Rectangle at, bool loom)
+    void DrawOutline(Graphics g, Bitmap sprite, Rectangle at, bool loom, Color? tint = null, float soften = 1f)
     {
-        var c = urgentColor;
+        var c = tint ?? urgentColor;
         float radius; int alpha;
         if (loom)
         {
@@ -2645,6 +2700,7 @@ sealed class PetWindow : Form
         {
             double phase = (Math.Sin(DateTime.UtcNow.TimeOfDay.TotalSeconds * Math.PI * 0.5) + 1) / 2;   // slow, ~4s
             radius = 3f; alpha = (int)(95 + 90 * phase);   // 45-100 read as a grey smudge against a dark desktop; brighter now
+            alpha = (int)(alpha * soften);                   // C5: a Claude mark's own glow is a little quieter than "something waits"
         }
         using var solid = new Bitmap(sprite.Width, sprite.Height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
         using (var sg = Graphics.FromImage(solid))
@@ -2742,6 +2798,49 @@ sealed class PetWindow : Form
         float bob = (float)((Math.Sin(DateTime.UtcNow.TimeOfDay.TotalSeconds * 2 * Math.PI / BobPeriodS) + 1) / 2 * 2 * px);
         p = new PointF(p.X + dir.X * bob, p.Y + dir.Y * bob);
         PixelIcon.Draw(g, map, p, color, IconPx, Math.Max(0.05f, pop));
+    }
+
+    /// <summary>
+    /// C5 (2026-10-21): one of Claude's marks (ClaudeMarks.cs), sitting JUST above his head. He said the early
+    /// mockups floated far too high; sheet 45e puts it a few pixels clear of the top of his head, and so does this
+    /// (6 frame pixels plus its own shadow). Crisp: drawn in whole screen pixels, never through the window's scale.
+    /// Docked, it sits on the screen side of his head the way the old marker did, and stays upright.
+    /// </summary>
+    void DrawClaudeMark(Graphics g, string kind, bool docked)
+    {
+        if (!ClaudeMarks.Known(kind)) return;
+        var map = ClaudeMarks.Map(kind);
+        int px = ClaudeMarks.PxFor(scale);
+        const float Gap = ClaudeMarks.Gap;
+        float halfW = map[0].Length * px / scale / 2f, h = map.Length * px / scale;
+        float fx, fy; int bx = 0, by = -1;                                       // bottom-centre, and which way "up" is
+        if (!docked)
+        {
+            var above = ClaudeMarks.AboveHead(art, flipX);
+            fx = Docking.SpriteX + above.X; fy = Docking.SpriteY + above.Y;
+        }
+        else
+        {
+            var r = Docking.Rotated(art, dock);
+            float cx = Docking.SpriteX + r.X + r.Width / 2f, cy = Docking.SpriteY + r.Y + r.Height / 2f;
+            (fx, fy, bx, by) = dock switch
+            {
+                DockEdge.Top => (cx, Docking.SpriteY + r.Bottom + Gap + h, 0, 1),
+                DockEdge.Right => (Docking.SpriteX + r.X - Gap - halfW, cy + h / 2f, -1, 0),
+                DockEdge.Left => (Docking.SpriteX + r.Right + Gap + halfW, cy + h / 2f, 1, 0),
+                _ => (cx, Docking.SpriteY + r.Y - Gap, 0, -1),
+            };
+        }
+        // A gentle bob away from his head (45d/45e: 1.4 s), and a short rise as it pops in, both in whole art pixels.
+        var t = (DateTime.UtcNow - markerSince).TotalMilliseconds;
+        int rise = t >= PopMs ? 0 : (int)Math.Round((1 - t / PopMs) * 2) * px;
+        int bob = (int)Math.Round((Math.Sin(DateTime.UtcNow.TimeOfDay.TotalSeconds * 2 * Math.PI / BobPeriodS) + 1) / 2) * px;
+        int dx = (int)Math.Round((Margin + fx) * scale) + bx * (bob - rise);
+        int dy = (int)Math.Round((Extra + fy) * scale) + by * (bob - rise);
+        var saved = g.Save();
+        g.ResetTransform();
+        ClaudeMarks.Draw(g, kind, dx, dy, px);
+        g.Restore(saved);
     }
 
     static float EaseOutBack(float t) { const float c1 = 1.9f, c3 = c1 + 1; var u = t - 1; return 1 + c3 * u * u * u + c1 * u * u; }

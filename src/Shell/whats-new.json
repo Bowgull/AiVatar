@@ -415,6 +415,11 @@
       "at": "2026-10-21T21:00:00-04:00",
       "text": "Claude's jobs and questions now live in the cockpit.",
       "kind": "feature"
+    },
+    {
+      "at": "2026-10-21T22:00:00-04:00",
+      "text": "Marks over Aang's head and wooden chimes for Claude's work.",
+      "kind": "feature"
     }
   ]
 }
