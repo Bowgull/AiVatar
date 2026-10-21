@@ -183,7 +183,9 @@ export type ToBody =
   /** C2 (2026-10-21): every Claude session the aang-link mod reports (claudelink.ts Job), newest activity first. */
   | { t: 'claude.jobs'; jobs: import('./claudelink.ts').Job[] }
   /** C2: what is waiting on him, permissions first, then questions, then plans (claudelink.ts WaitItem). */
-  | { t: 'claude.wait'; items: import('./claudelink.ts').WaitItem[] }
+  | { t: 'claude.wait'; items: import('./claudelink.ts').WaitItem[];
+      /** Sent while he is in the Claude app (claudefront.ts): nothing in it may pop up on its own (2026-10-21). */
+      quiet?: boolean }
   /** C5 (2026-10-21): the one mark over his head and the chime to play, worked out by claudemark.ts. */
   | import('./claudemark.ts').MarkMsg
   /** C2: whether a claude.answer/send/pause/play/model was taken; `why` is the plain reason when it was not. */

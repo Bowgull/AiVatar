@@ -63,6 +63,7 @@ import { HookServer, HookTracker, isLoopback, projectName } from './hooks.ts';
 import { JobTracker, LinkDoor, clearLinkKey, newLinkKey } from './claudelink.ts';
 import type { Answer as LinkAnswer } from './claudelink.ts';
 import { MarkDeriver } from './claudemark.ts';
+import { FrontGate } from './claudefront.ts';
 import { plainAsk, preciseReply } from './plainwords.ts';
 import type { Ask as PlainAsk } from './plainwords.ts';
 import { Reminders } from './reminders.ts';
@@ -2166,6 +2167,14 @@ export class Core {
   private fgProcess = '';
   /** He is looking at the Claude app on this PC: it already shows him its own news, so Aang does not repeat it (his call, 2026-10-12). */
   private inClaude(): boolean { return this.fgProcess.toLowerCase() === CLAUDE_WINDOW.toLowerCase(); }
+  /** The one gate for "never surface anything while Claude is in front" (claudefront.ts, 2026-10-21). */
+  private readonly frontGate = new FrontGate(() => this.inClaude());
+  /** He left the Claude window: the mark comes back quietly, then what was held, a few seconds apart (as hush does). */
+  private frontMoved(): void {
+    const { mark, lines } = this.frontGate.moved();
+    if (mark) this.sendTo('desktop', mark);
+    lines.forEach((m, i) => setTimeout(() => this.sendTo('desktop', m), 1500 + i * 6000).unref?.());
+  }
   /**
    * A directory only Aang's own chat lanes ever use as their session cwd - never a real folder he opens in
    * Claude Code himself. Once settingSources included 'user' (for Agent Skills, 2026-09-22), Aang's own
@@ -3067,7 +3076,11 @@ export class Core {
     if (phone && (!desk || !this.atDesk)) return 'discord';
     return desk ? 'desktop' : null;
   }
-  private sendTo(kind: 'desktop' | 'discord', msg: ToBody): void { for (const c of this.clientsOf(kind)) this.send(c, msg); }
+  private sendTo(kind: 'desktop' | 'discord', msg: ToBody): void {
+    // His rule (2026-10-21, claudefront.ts): nothing surfaces on the desktop while the Claude app is in front. Held, not dropped.
+    if (kind === 'desktop') { const m = this.frontGate.pass(msg); if (!m) return; msg = m; }
+    for (const c of this.clientsOf(kind)) this.send(c, msg);
+  }
   private kindOfSocket(ws: WebSocket): 'desktop' | 'discord' { return this.clientKind.get(ws) ?? 'desktop'; }
 
   /**
@@ -3148,7 +3161,7 @@ export class Core {
         if (this.kindOfSocket(ws) === 'desktop') this.send(ws, this.claudeMarks.now(this.claudeJobs.list(), this.claudeJobs.waiting(), this.workingNow().working));
         if (m.shell === true) this.send(ws, { t: 'timer.state', timers: this.timers.list() });
         if (m.shell === true) this.send(ws, { t: 'notes.state', notes: this.notes.list() });
-        if (m.shell === true) { this.send(ws, { t: 'claude.jobs', jobs: this.claudeJobs.list() }); this.send(ws, { t: 'claude.wait', items: this.claudeJobs.waiting() }); }
+        if (m.shell === true) { this.send(ws, { t: 'claude.jobs', jobs: this.claudeJobs.list() }); this.send(ws, { t: 'claude.wait', items: this.claudeJobs.waiting(), ...(this.inClaude() ? { quiet: true } : {}) }); }
         break;
       }
       case 'timer.start': {
@@ -3510,6 +3523,7 @@ export class Core {
       case 'rate': this.rate(m.id, m.value); break;
       case 'presence': {
         this.fgProcess = String(m.foreground ?? '');
+        this.frontMoved();
         this.setSilent(m.quiet === true, this.muted);
         const watching = m.watching !== false;
         if (watching !== this.activity.watching) { this.activity.watching = watching; if (!watching) this.activity.clear(); }

@@ -11,11 +11,13 @@
 //   2. When HE opens it, it takes the keyboard in the same breath, synchronously inside the hotkey handler (input.ts's
 //      whole lesson), and when it closes it hands the keyboard back to the window he came from (the pet's refocus).
 //
-// Off unless AANG_COCKPIT=1 (with the new bubble on): today's bubble and box keep working until he has tried this one.
+// On by default (with the new bubble on) from 2026-10-21, after the size fix: the switch is read when the Shell starts,
+// so a running Aang keeps whatever it started with and the cockpit arrives with his next start. AANG_COCKPIT=0 turns it
+// off again (the old bubble and typing box come back).
 import type { BrowserWindow } from 'electron';
 import type { Bubble } from './bubble.ts';
 
-export const wantsCockpit = (env: NodeJS.ProcessEnv = process.env): boolean => env.AANG_COCKPIT === '1';
+export const wantsCockpit = (env: NodeJS.ProcessEnv = process.env): boolean => env.AANG_COCKPIT !== '0';
 
 export class CockpitBox {
   private readonly bubble: Bubble;

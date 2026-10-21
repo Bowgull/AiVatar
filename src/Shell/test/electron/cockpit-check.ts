@@ -112,9 +112,16 @@ app.whenReady().then(async () => {
   await js(`window.__fire('onCockpit', { open: false })`);
   await wait(700);
   check('closed: the typing area is gone from the bubble', (await js(`document.getElementById('ck').hidden && !document.getElementById('bubble').classList.contains('cockpit')`)) === true);
-  check('closed with a question still waiting: the question stays', (await js(`!document.getElementById('bubble').hidden && !document.getElementById('asks').hidden`)) === true);
-  check('closed: the question is drawn the one-bubble way (no wood)', (await js(`!document.getElementById('bubble').classList.contains('lantern')`)) === true);
+  // His decision (2026-10-21): closing always goes back to rest, even with a question showing. It is parked, not
+  // answered, and pinned again the next time he opens Aang.
+  check('closed with a question waiting: back to rest, nothing on screen', (await js(`document.getElementById('bubble').hidden`)) === true);
+  check('closed: the question was not answered', (await js(`!window.__sent.some(s => s[0] === 'answerAsk')`)) === true);
+  await js(`window.__fire('onCockpit', { open: true, state: { maxH: 520 } }); window.__fire('onInputState', { opened: true, mode: 'auto', week: 0.3 })`);
+  await wait(900);
+  check('opened again: the question is pinned with its keys', (await js(`!document.getElementById('asks').hidden && document.querySelectorAll('#asks .key').length > 0`)) === true);
   await js(`window.__deliver({ t: 'ask.expired', id: 'p1' })`);
+  await wait(300);
+  await js(`window.__fire('onCockpit', { open: false })`);
   await wait(900);
 
   // ---- C3 (2026-10-21): docked. A click on a message opens the cockpit bound to it (docked); closing lets the main
@@ -123,6 +130,8 @@ app.whenReady().then(async () => {
   const closeIt = async () => { await js(`window.__fire('onCockpit', { open: false })`); };
   const isOpen = () => js(`document.getElementById('bubble').classList.contains('cockpit') && !document.getElementById('ck').hidden && !document.getElementById('bubble').hidden`) as Promise<boolean>;
   const shown = () => js(`!document.getElementById('bubble').hidden`) as Promise<boolean>;
+  // The cockpit opens on the last exchange only (2026-10-21): PageUp at the top brings older rows, a few at a time.
+  const revealAll = async () => { for (let k = 0; k < 12; k++) { await js(`(() => { const l = document.getElementById('lblist'); if (l) l.scrollTop = 0; window.dispatchEvent(new CustomEvent('cockpit:page', { detail: -1 })); })()`); await wait(300); } };
   await js(`window.__deliver({ t: 'bubble', text: 'The build passed.', stream: false, turn: 60 })`);
   await wait(2200);
   await js(`window.__sent.length = 0; document.getElementById('bubble').click()`);
@@ -212,7 +221,10 @@ app.whenReady().then(async () => {
     { id: 807, ts: '2026-10-21 15:06:00', who: 'Aang', text: 'You said yes: moved a file', kind: 'yes', extra: { yes: { question: 'move it', choice: 'once', did: 'moved a file', ok: true, note: '', at: '2026-10-21T15:06:00Z', cant: 'no' } } },
   ];
   await js(`window.__deliver(${JSON.stringify({ t: 'history.reply', items: KINDS })})`);
-  await wait(600);
+  await wait(300);
+  check('opened: only the last exchange shows at first', (await js(`document.querySelectorAll('#lblist .lt-item, #lblist .lb-mine').length`)) === 1);
+  await revealAll();
+  await wait(300);
   const kinds = await js(`(() => { const o = {}; for (const id of [801, 802, 803, 804, 805, 806, 807]) { const r = document.querySelector('#lblist [data-id="' + id + '"]'); o[id] = r ? { cls: [...r.classList].filter(c => c.startsWith('k-')).join(' '), label: r.querySelector('.lb-kind')?.textContent ?? '', claude: Boolean(r.querySelector('.lt-tile img.lb-claude')), key: Boolean(r.querySelector('.lt-tile .lb-key')), bg: getComputedStyle(r).backgroundImage + getComputedStyle(r).backgroundColor } : null; } return o; })()`) as Record<number, { cls: string; label: string; claude: boolean; key: boolean; bg: string } | null>;
   check('kinds: the brief is on honey paper, labelled BRIEF', kinds[801]?.cls === 'k-brief' && kinds[801]?.label === 'BRIEF', JSON.stringify(kinds[801]));
   check('kinds: an unmarked old reply stays plain parchment, no label', kinds[802]?.cls === '' && kinds[802]?.label === '' && /rgba\(0, 0, 0, 0\)/.test(kinds[802]?.bg ?? ''), JSON.stringify(kinds[802]));

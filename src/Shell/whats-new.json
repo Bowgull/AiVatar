@@ -435,6 +435,11 @@
       "at": "2026-10-21T23:30:00-04:00",
       "text": "A Claude rune in Samara's bar shows job progress.",
       "kind": "feature"
+    },
+    {
+      "at": "2026-10-21T23:45:00-04:00",
+      "text": "Aang's chat box holds still and opens small.",
+      "kind": "fix"
     }
   ]
 }

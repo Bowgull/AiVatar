@@ -150,15 +150,41 @@ let cur = { w: 0, h: 0 }, goal = { w: 0, h: 0 }, anim = 0;
 // (it froze the sheet's own marquee at 0), and a balloon frozen half-grown is worse than any frame rate.
 const frame = (f) => setTimeout(() => f(performance.now()), 16);
 
-/** The size the content wants, measured with the animation's own sizes taken off for a moment. */
-function natural() {
+/**
+ * The size the content wants, measured with the animation's own sizes taken off for a moment.
+ *
+ * `probe` runs inside that same moment, so anything else measured with it (the conversation's own height) is measured
+ * at rest too. Anything already on its way out (a finished job collapsing) is left out, so the balloon shrinks in
+ * the same breath as the thing leaving instead of after it (2026-10-21).
+ */
+function natural(probe) {
   const sw = bubble.style.width, sh = bubble.style.height;
   bubble.style.width = ''; bubble.style.height = '';
   bubble.classList.remove('sizing');
+  bubble.classList.add('measuring');
   const r = bubble.getBoundingClientRect();
+  const extra = probe ? probe() : undefined;
+  bubble.classList.remove('measuring');
   bubble.style.width = sw; bubble.style.height = sh;
   if (sw) bubble.classList.add('sizing');
-  return { w: Math.ceil(r.width), h: Math.ceil(r.height) };
+  return { w: Math.ceil(r.width), h: Math.ceil(r.height), extra };
+}
+/**
+ * The tallest the window may be: main.ts clamps every bubble window to 900 px (bubble:size), and the window is the
+ * shape plus 80 px of margins (sendWindow). Asking for more only got the top of the frame cut off on his desktop
+ * (2026-10-21: a 924 px cockpit in a 900 px window), so the shape never asks past this.
+ */
+const WINDOW_MAX_H = 900, WINDOW_EDGE_H = 18 + 56 + 6, SHAPE_MAX_H = WINDOW_MAX_H - WINDOW_EDGE_H;
+/** Samara's ease, cubic-bezier(.32,.72,0,1), for the small changes (his motion rules, 2026-10-21). */
+function samaraEase(t) {
+  // Solve x(s) = t for the curve's parameter s, then return y(s). Newton steps, then a bisection fallback.
+  const x1 = 0.32, y1 = 0.72, x2 = 0, y2 = 1;
+  const bx = (s) => 3 * x1 * s * (1 - s) ** 2 + 3 * x2 * s * s * (1 - s) + s ** 3;
+  const by = (s) => 3 * y1 * s * (1 - s) ** 2 + 3 * y2 * s * s * (1 - s) + s ** 3;
+  let s = t;
+  for (let i = 0; i < 6; i++) { const d = (bx(s + 1e-4) - bx(s - 1e-4)) / 2e-4; if (Math.abs(d) < 1e-6) break; s -= (bx(s) - t) / d; s = Math.min(1, Math.max(0, s)); }
+  if (Math.abs(bx(s) - t) > 1e-3) { let lo = 0, hi = 1; for (let i = 0; i < 30; i++) { s = (lo + hi) / 2; if (bx(s) < t) lo = s; else hi = s; } }
+  return by(s);
 }
 
 /** Draw the shape at w x h. The content inside keeps its final width, so text never rewraps mid-grow. */
@@ -172,15 +198,20 @@ function place(w, h) {
 function growTo(w, h, done) {
   clearTimeout(anim);
   const from = { ...cur }, bigger = w * h >= from.w * from.h;
-  const ms = reduceMotion ? 0 : (bigger ? 520 : 340), fn = bigger ? ease.open : ease.close;
+  // His motion rules (2026-10-21): a big grow springs (520 ms, slight overshoot), a shrink settles (340 ms), and a
+  // small change (a few dozen pixels, the bubble already up) glides 300 ms on Samara's ease with no overshoot.
+  const small = from.w > 0 && from.h > 0 && w > 0 && Math.abs(w - from.w) <= 48 && Math.abs(h - from.h) <= 48;
+  const ms = reduceMotion ? 0 : small ? 300 : (bigger ? 520 : 340), fn = small ? samaraEase : bigger ? ease.open : ease.close;
   const cs = getComputedStyle(bubble);
   if (w > 0) bubble.style.setProperty('--cw', Math.max(0, w - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)) + 'px');
-  if (bigger) sendWindow(Math.max(from.w, Math.ceil(from.w + (w - from.w) * OVERSHOOT)),
-                         Math.max(from.h, Math.ceil(from.h + (h - from.h) * OVERSHOOT)));
+  // The spring's overshoot never asks past the tallest window main.ts allows (it would cut the frame's top off).
+  const tallest = Math.max(h, SHAPE_MAX_H);
+  if (bigger) sendWindow(Math.max(from.w, Math.ceil(from.w + (w - from.w) * (small ? 1 : OVERSHOOT))),
+                         Math.min(tallest, Math.max(from.h, Math.ceil(from.h + (h - from.h) * (small ? 1 : OVERSHOOT)))));
   const t0 = performance.now();
   const f = (now) => {
     const k = ms ? Math.min(1, (now - t0) / ms) : 1, e = fn(k);
-    cur = { w: Math.max(0, from.w + (w - from.w) * e), h: Math.max(0, from.h + (h - from.h) * e) };
+    cur = { w: Math.max(0, from.w + (w - from.w) * e), h: Math.max(0, Math.min(tallest, from.h + (h - from.h) * e)) };
     place(Math.round(cur.w), Math.round(cur.h));
     if (k < 1) { anim = frame(f); return; }
     cur = { w, h };
@@ -203,7 +234,9 @@ function snapShut() {
 let lastSize = '';
 /** The content changed: grow or shrink the balloon to what it now wants. */
 function reportSize() {
-  if (bubble.hidden) return;
+  // Going away: a late re-measure (a job list arriving, a card put away) must not cancel the shrink and leave the
+  // bubble stuck on screen (2026-10-21). Anything new to show takes `leaving` off first (show()).
+  if (bubble.hidden || bubble.classList.contains('leaving')) return;
   if (cockpit) fitCockpit();
   const n = natural();
   if (n.w === goal.w && n.h === goal.h) return;
@@ -1408,7 +1441,8 @@ function onBrain(m) {
   // stayed where it was, he would be thrown back to where he started every time.
   if (m.t === 'history.reply' && Array.isArray(m.items)) {
     // A page of older turns: they go in above, and he stays where he was reading (paintBack keeps his place).
-    back.older(m.items);
+    const added = back.older(m.items);
+    if (cockpit) ckPage(added);
     if (reading) { paintBack('bottom'); fit(); reportSize(); }
     return;
   }
@@ -1577,7 +1611,9 @@ window.addEventListener('mousemove', e => {
   // Keys only while he is pointing at the bubble (2026-10-11: "these buttons should only surface when i hover").
   // The bubble grows to show them, so it is measured again; the 600 ms guard starts when they appear, so a
   // mouse arriving fast cannot land on Allow.
-  if (asking) {
+  // Not in the open cockpit (2026-10-21): there the keys always show (bubble.css), so the mouse arriving or leaving
+  // changes nothing's size. Re-measuring on every crossing was one of the things that made it jump on his desktop.
+  if (asking && !cockpit) {
     if (over) { asks.classList.add('guard'); setTimeout(() => asks.classList.remove('guard'), 600); }
     fit(); reportSize();
   }
@@ -1985,13 +2021,23 @@ function openClaude() {
   if (macSession) { macSession = false; window.aang?.macFront?.(); dismiss(); }
 }
 
-/** Let the message go now: a click on it, Esc, or a click away from everything of ours. Never a question. */
-function dismiss() {
-  if (asking || bubble.hidden) return;
+/**
+ * Let the message go now: a click on it, Esc, or a click away from everything of ours.
+ *
+ * `why` is 'esc' or 'outside' when he put it away himself (main.ts). Then even a question goes (his decision,
+ * 2026-10-21: he can always click out): it is parked, not answered, and comes back when he opens Aang. Anything
+ * else (an undock, the wheel) never takes a question away, as before.
+ */
+function dismiss(why) {
+  if (bubble.hidden) return;
+  const his = why === 'esc' || why === 'outside';
+  if (asking && !his) return;
+  if (cockpit) return;                   // the open cockpit closes through the main process (input.close), right behind this
+  if (his) { parkAsks(); claude?.park(); }
   clearTimeout(hideTimer);
   goAway();
 }
-window.aang?.onDismiss?.(() => dismiss());
+window.aang?.onDismiss?.((why) => dismiss(why));
 // Ctrl+C with the mouse on the bubble: the whole finished reply. Half a sentence is never copied.
 window.aang?.onBubbleCopy?.(() => { if (reveal.done && reveal.whole) window.aang?.copyText?.(reveal.whole); });
 window.addEventListener('aang:say', (e) => onSay(e.detail));
@@ -2003,7 +2049,9 @@ window.addEventListener('aang:say', (e) => onSay(e.detail));
 let lbOpen = null, lbReplying = null, lbOwnsLantern = false;
 const lbCtx = () => ({
   open: lbOpen, replying: lbReplying,
-  older: back.reachedTheStart ? 'start' : back.waiting ? 'loading' : 'more',
+  older: cockpit && ckHidden > 0 ? 'more' : back.reachedTheStart ? 'start' : back.waiting ? 'loading' : 'more',
+  // The cockpit starts on the last exchange alone (2026-10-21): an empty start says nothing rather than "No history yet".
+  quietEmpty: cockpit,
   setOpen: (id) => { lbOpen = id; paintBack('top'); fit(); reportSize(); },
   onLink: (url) => window.aang?.openThing?.({ kind: 'link', value: url }),
   onReply: (t) => { lbReplying = t.id; window.aang?.replyToTurn?.(t.id, t.text); paintBack('top'); },
@@ -2032,11 +2080,24 @@ function paintBack(keep = 'bottom') {
   if (!reading) { box.replaceChildren(); return; }
   const was = document.getElementById('lblist');
   const fromBottom = was ? was.scrollHeight - was.scrollTop : 0, top = was ? was.scrollTop : 0;
-  const list = paintLookback(box, back.turns, lbCtx());
+  // In the cockpit only the rows he has reached are drawn: the last exchange, plus whatever he scrolled up to.
+  const shown = cockpit ? back.turns.slice(Math.min(ckHidden, back.turns.length)) : back.turns;
+  const list = paintLookback(box, shown, lbCtx());
+  // The redrawn list keeps the height the cockpit last gave it, so a redraw between two measures never resizes it.
+  if (cockpit && was?.style.maxHeight) list.style.maxHeight = was.style.maxHeight;
   if (!was) list.scrollTop = list.scrollHeight;                     // first look: newest, where he left off
   else list.scrollTop = keep === 'top' ? top : Math.max(0, list.scrollHeight - fromBottom);
-  // At the top of the history: the next page, for as far back as he wants to go.
-  list.addEventListener('scroll', () => { if (list.scrollTop < 8) askOlder(); }, { passive: true });
+  if (ckReveal) {
+    // The rows he just scrolled up to fade in, top to bottom, 55 ms apart (his motion rules, 2026-10-21).
+    const rows = [...list.querySelectorAll('.lt-item, .lb-mine')].slice(0, ckReveal);
+    rows.forEach((r, i) => { r.classList.add('ckin'); r.style.animationDelay = (reduceMotion ? 0 : i * 55) + 'ms'; });
+    ckReveal = 0;
+  }
+  // At the top of the history: the next page, for as far back as he wants to go. NOT in the cockpit (2026-10-21):
+  // there a scroll event fires for all sorts of reasons that are not him (the list being re-measured, a row's label
+  // opening under the mouse), and each one at the top fetched another page, so the cockpit filled the screen by
+  // itself. There older turns come only when he asks: the wheel or PageUp at the top (olderStep).
+  if (!cockpit) list.addEventListener('scroll', () => { if (list.scrollTop < 8) askOlder(); }, { passive: true });
 }
 
 function askOlder() {
@@ -2104,6 +2165,7 @@ window.aang?.onPage?.((d) => {
   if (bubble.hidden && d > 0) return;
   if (d > 0 && !more.hidden && !expanded && !reading) { expanded = true; fit(); return; }
   const list = document.getElementById('lblist');
+  if (reading && list && cockpit) { window.dispatchEvent(new CustomEvent('cockpit:page', { detail: d })); return; }
   if (reading && list) { list.scrollTop += d * 6 * lineHeight; if (list.scrollTop < 8) askOlder(); return; }
   if (d < 0 && (bubble.hidden || scroller.scrollTop <= 4)) { enterReading(); return; }
   scroller.classList.add('scrolls');
@@ -2117,6 +2179,59 @@ window.aang?.onPage?.((d) => {
 // speaking in one line. The main process gives the window the keyboard and takes it back (cockpit.ts).
 let cockpit = false, cockMaxH = 600;
 const typingArea = startTyping({ onSize: () => { if (cockpit) reportSize(); } });
+
+// ---- the last exchange (his decision, 2026-10-21)
+// Opening Aang shows only the last exchange (his last message and Aang's answer, or Aang's current line) and the typing
+// area, never the whole scroll-back. Older rows come only when he scrolls up for them (the wheel or PageUp at the top),
+// a few at a time, so the conversation grows only as messages arrive or as he asks for more.
+/** How many of the oldest rows the brain has sent are not drawn yet. Pages of older rows arrive at the front. */
+let ckHidden = 0;
+/** Opened, and the first page has not come back yet: the last exchange is worked out from it. */
+let ckFresh = false;
+/** He scrolled up past everything loaded: the next page that arrives is shown, not just kept. */
+let ckMore = false;
+/** How many rows the last step up revealed, so they can fade in (paintBack). */
+let ckReveal = 0;
+let ckStepAt = 0;
+const OLDER_STEP = 6;
+/** Where the last exchange starts: his last message if Aang's answer (or nothing yet) follows it, else Aang's last line. */
+function lastExchangeAt(turns) {
+  const n = turns.length;
+  if (!n) return 0;
+  if (turns[n - 1].who === 'you') return n - 1;
+  return n >= 2 && turns[n - 2].who === 'you' ? n - 2 : n - 1;
+}
+/** A page of older rows came back (`added` of them, at the front). */
+function ckPage(added) {
+  if (ckFresh) { ckFresh = false; ckHidden = lastExchangeAt(back.turns); return; }
+  ckHidden += added;
+  if (ckMore) { ckMore = false; const before = ckHidden; ckHidden = Math.max(0, ckHidden - OLDER_STEP); ckReveal = before - ckHidden; }
+}
+/** He scrolled up at the top of the conversation: a few more rows, from what is loaded or from the brain. */
+function olderStep() {
+  if (!cockpit || !reading) return;
+  const now = Date.now();
+  if (now - ckStepAt < 250) return;              // one wheel flick is many events; one step each quarter second
+  ckStepAt = now;
+  if (ckHidden > 0) {
+    const before = ckHidden;
+    ckHidden = Math.max(0, ckHidden - OLDER_STEP);
+    ckReveal = before - ckHidden;
+    paintBack('bottom'); fit(); reportSize();
+    return;
+  }
+  if (back.reachedTheStart || back.waiting) return;
+  ckMore = true;
+  askOlder();
+}
+// The wheel over the open cockpit: at the top of the conversation (or when it all fits), up means "older, please".
+bubble.addEventListener('wheel', (e) => {
+  if (!cockpit || e.deltaY >= 0) return;
+  const list = el('lblist');
+  if (!list || !e.target.closest?.('#back')) return;
+  if (list.scrollTop <= 4) olderStep();
+}, { passive: true });
+document.addEventListener('click', (e) => { if (cockpit && e.target.closest?.('#lblist .lb-older')) olderStep(); });
 
 // ---------------------------------------------------------------- C4: Claude in the cockpit (2026-10-21)
 // The jobs strip and the pinned Claude card (claudejobs.js). What he sends a session joins the conversation as his own
@@ -2167,7 +2282,8 @@ window.aang?.onCockpit?.((c) => { if (c?.open) openCock(c.state ?? {}); else clo
 // Opening it with the hotkey therefore never pretends a message was clicked, and closing it after a click lets the
 // main process's undock (sent right behind cockpit:close) dismiss the message exactly as the old docked box did.
 function openCock(st) {
-  cockMaxH = Number(st.maxH) > 240 ? Math.min(1200, Number(st.maxH)) : 600;
+  // Never more room than the window can have (WINDOW_MAX_H): the frame's top was cut off on his desktop (2026-10-21).
+  cockMaxH = Math.min(SHAPE_MAX_H, Number(st.maxH) > 240 ? Number(st.maxH) : 600);
   if (cockpit) { typingArea.setLive(true); return; }
   cockpit = true;
   live = null; cockStreaming = false;              // what is showing now is in the conversation the brain sends back
@@ -2176,7 +2292,13 @@ function openCock(st) {
   el('ck').hidden = false;
   bubble.classList.remove('whisper');
   bubble.classList.add('cockpit', 'lantern');
-  if (reading) paintBack('bottom'); else enterReading();
+  // The last exchange only (2026-10-21). Already looking back: what is loaded decides it now; otherwise the first page does.
+  ckMore = false; ckReveal = 0;
+  claude?.unpark();
+  if (reading) { ckFresh = false; ckHidden = lastExchangeAt(back.turns); paintBack('bottom'); }
+  else { ckFresh = true; ckHidden = 0; enterReading(); }
+  // Anything of Aang's own that he put away with a click outside (or Esc) is still waiting: it comes back pinned here.
+  if (!asking && waiting.length) showTopAsk();
   // Who is talking (the Claude tag, a channel's face) and a card's plaque belong to the live thing, so in the cockpit
   // they sit with it under the conversation, not above it.
   scroller.before(speaker, who.parentElement);
@@ -2201,14 +2323,24 @@ function closeCock() {
   // Back to the one bubble: the cards that only made sense inside the cockpit go with it, and the wood goes unless a
   // Claude plan is what stays waiting.
   card.hidden = true; paintAbout(false); mediaRow.hidden = true;
-  if (!asking?.samara) bubble.classList.remove('lantern');
-  // A question waiting on him stays, as one, drawn the one-bubble way; Aang still answering keeps his line;
-  // otherwise it goes.
-  if (asking) { const a = asking; asking = null; showAsk(a); return; }
+  bubble.classList.remove('lantern');
+  // His decision (2026-10-21): closing (a click outside, Esc, Ctrl+Plus) always goes back to rest, even with a question
+  // or a choice showing and nothing picked. Before, the question was drawn again the one-bubble way and a Claude card
+  // came back as the closed bubble, so he could never click out of it. Nothing is answered or lost: Aang's own asks stay
+  // in his queue and a Claude question stays waiting in the brain, and both are pinned again when he next opens Aang.
+  parkAsks();
+  claude?.park();
+  // Aang still answering keeps his line (it arrives as a normal bubble).
   if (!working.hidden) { fit(); reportSize(); return; }
-  // Something a Claude session is waiting on stays as its card, drawn the one-bubble way (C4).
-  if (claude?.waiting() && !quiet && !petHidden) { cardOnly(); claudeWaiting(true, true); return; }
   goAway();
+}
+/** Aang's own question leaves the screen but stays in the queue (`waiting`), unanswered, for the next open. */
+function parkAsks() {
+  if (!asking) return;
+  asking = null;
+  asks.hidden = true; asks.replaceChildren();
+  choiceList(null); paintPlan(null, -1); samaraPlan(null);
+  for (const id of ['under', 'count', 'means', 'exact']) { const e = document.getElementById(id); if (e) e.hidden = true; }
 }
 
 /** What is live under the conversation now, so it can join the conversation when something new takes its place. */
@@ -2313,20 +2445,40 @@ function fitCockpit() {
   bubble.classList.toggle('ckask', Boolean(asking));
   // Wider for a video or a card (the brief, research, the notes board), opened in the conversation or live under it.
   bubble.classList.toggle('ckwide', Boolean(document.querySelector('#lblist .lt-item.open .vshot, #aboutbox:not([hidden]) .vshot')) || !card.hidden);
-  if (!list) return;
+  if (!list) { squeezeClaude(); return; }
   // A row's label open under the mouse is not part of the conversation's size: measured at rest, opened again after
-  // (2026-10-21, lookback.js restKinds), so the cockpit is never left a label taller than its rows.
+  // (2026-10-21, lookback.js restKinds), so a label never makes the cockpit taller.
   const reopen = restKinds(list);
-  const atBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 8;
-  list.style.maxHeight = 'none';
-  const n = natural();
-  // A few pixels kept back: the frame's own edge and rounding must fit inside the room too.
-  const over = n.h - (cockMaxH - 8);
-  list.style.maxHeight = over > 0 ? Math.max(140, list.scrollHeight - over) + 'px' : 'none';
-  if (atBottom) list.scrollTop = list.scrollHeight;
+  // His place, from the bottom (the conversation is anchored to its newest row): measuring takes the cap off for a
+  // moment, which throws the scroll position to 0, so it is put back exactly afterwards.
+  const fromBottom = list.scrollHeight - list.scrollTop;
+  const atBottom = fromBottom - list.clientHeight < 8;
+  capConversation(list);
+  list.scrollTop = atBottom ? list.scrollHeight : list.scrollHeight - fromBottom;
   squeezeClaude();
   reopen();
 }
+/**
+ * Give the conversation its height: all of its rows if they fit in the cockpit's room, else what is left after
+ * everything else. Measured from scratch every time (the cap off, everything at rest), so measuring twice gives the
+ * same answer (2026-10-21; before, it measured from what the last measure left behind, and the size crept). The cap
+ * is always a number, never "none": a row opening under the mouse then scrolls inside the conversation and can never
+ * grow the window.
+ */
+function capConversation(list) {
+  list.style.maxHeight = 'none';
+  const n = natural(() => {
+    const cs = getComputedStyle(list);
+    const edge = cs.boxSizing === 'border-box' ? 0 : parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom) + parseFloat(cs.borderTopWidth) + parseFloat(cs.borderBottomWidth);
+    return list.getBoundingClientRect().height - edge;
+  });
+  // A few pixels kept back: the frame's own edge and rounding must fit inside the room too.
+  const over = n.h - (cockMaxH - 8);
+  const full = n.extra;
+  list.style.maxHeight = (over > 0 ? Math.max(Math.min(140, full), full - over) : full).toFixed(2) + 'px';
+}
+// For the checks (cockpit-steady-check.ts): measure the open cockpit once, as reportSize does, and say what it found.
+window.__cockMeasure = () => { if (!cockpit) return null; fitCockpit(); const n = natural(); return { w: n.w, h: n.h, list: el('lblist')?.style.maxHeight ?? '' }; };
 
 /**
  * C4 (2026-10-21): the jobs strip and the pinned card are never pushed off either. When the conversation is down to its
@@ -2338,9 +2490,9 @@ function squeezeClaude() {
   if (pin) { pin.style.maxHeight = ''; pin.classList.remove('capped'); pin.querySelector('.morehint')?.remove(); }
   let over = natural().h - (cockMaxH - 8), folded = false;
   while (over > 0 && claude?.fold()) { folded = true; over = natural().h - (cockMaxH - 8); }
-  // Folding gave room back: the conversation takes it again, down to its few lines at most.
+  // Folding gave room back: the conversation is measured afresh and takes it again.
   const list = el('lblist');
-  if (folded && list && over < 0) { list.style.maxHeight = Math.max(140, list.clientHeight - over) + 'px'; over = natural().h - (cockMaxH - 8); }
+  if (folded && list && over < 0) { const fb = list.scrollHeight - list.scrollTop; capConversation(list); list.scrollTop = list.scrollHeight - fb; over = natural().h - (cockMaxH - 8); }
   if (over > 0 && pin) {
     pin.style.maxHeight = Math.max(90, pin.offsetHeight - over) + 'px';
     pin.classList.add('capped');
@@ -2361,14 +2513,25 @@ function squeezeClaude() {
 window.addEventListener('cockpit:page', (e) => {
   const list = el('lblist');
   if (!list) return;
-  list.scrollTop += Number(e.detail) * 6 * lineHeight;
-  if (list.scrollTop < 8) askOlder();
+  const d = Number(e.detail);
+  // PageUp already at the top: older rows, the same as the wheel (2026-10-21).
+  if (d < 0 && list.scrollTop <= 4) { olderStep(); return; }
+  list.scrollTop += d * 6 * lineHeight;
 });
 // A click away from an opened row closes it, like any list he has used (his ask, 2026-10-21). Rows and menus keep theirs.
 document.addEventListener('click', (e) => {
   if (!reading || lbOpen === null) return;
   if (e.target.closest?.('.lt-item, .turnmenu')) return;
   lbOpen = null; paintBack('top'); fit(); reportSize();
+}, true);
+// A click in the window but outside the drawn cockpit (the see-through margin round it, where the tail hangs) is a click
+// outside too (his decision, 2026-10-21: he can always click out). The window itself still has the keyboard there, so
+// it never blurs and cockpit.ts never heard it; the pet's outside-click watch counts the whole window as ours.
+document.addEventListener('mousedown', (e) => {
+  if (!cockpit) return;
+  const t = /** @type {HTMLElement} */ (e.target);
+  if (t?.closest?.('#bubble, #tools, #turnmenu, #under, .boardwrap')) return;
+  window.aang?.inputClose?.();
 }, true);
 // Esc anywhere in the open cockpit, not only in the typing area (the parity list: Esc closes things, 2026-10-21). He may
 // have clicked a brief's key or a row, so the caret is not in the field: an opened row closes first, then the cockpit.

@@ -16,7 +16,8 @@ const CL = 'art/claude-icon.png';
 // The 45f pill's palettes, verbatim; SLATE is 45d's dusk slate (154,168,192) for a paused job, shaded the same way.
 const SEA = ['#d9f3ee', '#b2e6dd', '#8ad5c9', '#6cc3b6', '#58b0a3', '#479a8e', '#3a857a', '#2f6f66'];
 const SEA_NOW = ['#f4fcfa', '#e2f6f1', '#cdeee6', '#b8e5db', '#a4dbcf', '#90cfc2', '#7fc2b5', '#6fb3a6'];
-const SLATE = ['#e6eaf0', '#cbd2de', '#b2bccc', '#9aa8c0', '#8996ad', '#77839a', '#667086', '#565e71'];
+// Paused is his final slate, #6f7787 (2026-10-21 mark colours), shaded light to dark the same way around it.
+const SLATE = ['#c9ced8', '#aeb4c0', '#959cab', '#7f8798', '#6f7787', '#626a7a', '#555c6b', '#474d5a'];
 // The purple key's pixel speech balloon, verbatim from sheet 45g (a fixed drawing, no wire data in it).
 const MSG = '<svg viewBox="0 0 10 9" shape-rendering="crispEdges"><path d="M1 0h8v1H1zM0 1h1v5H0zM9 1h1v5H9zM1 6h3v1H1zM6 6h3v1H6zM3 7h2v1H3zM3 8h1v1H3zM2 2h6v1H2zM2 4h4v1H2z" fill="#efe6ff"/></svg>';
 
@@ -56,7 +57,8 @@ function animate(on) {
 }
 
 /* ---- reading a job ---- */
-const running = (j) => j.phase !== 'ended';
+/** At work or paused mid-job (his decision, 2026-10-21: idle and ended jobs never show in the strip). */
+const active = (j) => j.phase === 'working' || j.phase === 'paused';
 const curIndex = (j) => { const i = j.tasks.findIndex((t) => t.status === 'in_progress'); return i >= 0 ? i : j.tasks.findIndex((t) => t.status !== 'completed'); };
 const boundsOf = (j) => (j.tasks.length ? j.tasks.map((_, i) => (i + 1) / j.tasks.length) : [1]);
 const pctOf = (j) => (Number.isFinite(j.percent) ? Math.max(0, Math.min(100, Math.round(j.percent))) : null);
@@ -94,6 +96,7 @@ function readJob(x) {
     startedAt: Number(x.startedAt) || 0, prompt: str(x.prompt, 200), current: str(x.current, 200),
     percent: Number.isFinite(x.percent) ? x.percent : null, etaMs: Number.isFinite(x.etaMs) ? x.etaMs : null,
     usage: x.usage && typeof x.usage === 'object' ? x.usage : null, open: str(x.open, 200), held: Math.max(0, Math.min(99, Number(x.held) || 0)),
+    failed: x.failed === true,
   };
 }
 function readWait(x) {
@@ -130,6 +133,29 @@ export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWa
   const send = (m) => window.aang?.claude?.(m);
   const jobOf = (id) => jobs.find((j) => j.id === id);
   const live = () => waits.filter((w) => !answered.has(w.id));
+  /**
+   * His decision (2026-10-21): the strip shows a job ONLY while it is working, or waiting on him (a question for him,
+   * or paused). Idle and ended jobs never show. A job that finishes shows JOB COMPLETE (teal) for about four
+   * seconds, then folds away by itself (his correction, 2026-10-21: "Nice" belongs only to the popped-out job window). With none of those, the strip takes no room at all.
+   */
+  const running = (j) => active(j) || waits.some((w) => w.session === j.id && !answered.has(w.id));
+  /** Jobs seen at work in this page's life, so finishing can be told from never having started. */
+  const wasActive = new Set();
+  /** Finished and not yet folded away: id -> the job as it was when it finished. */
+  const complete = new Map();
+  /** Folding away now. */
+  const leaving = new Set();
+  function noteFinished() {
+    for (const j of jobs) {
+      if (active(j)) { wasActive.add(j.id); complete.delete(j.id); continue; }
+      if (wasActive.has(j.id) && !j.failed) { wasActive.delete(j.id); complete.set(j.id, j); }
+    }
+    // A job that vanished from the brain's list mid-work is simply forgotten: there is no finish to tell him about.
+    for (const id of [...wasActive]) if (!jobOf(id)) wasActive.delete(id);
+  }
+  /** Put the waiting card away (a click outside, Esc, or it came while he was in Claude): no closed-bubble card until something new. */
+  let parked = false;
+  let jobsSig = '', pinsSig = '';
 
   /* ---------------------------------------------------------------- tracking */
   /**
@@ -144,8 +170,8 @@ export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWa
     for (let lost = before - tracked.length; lost > 0; lost--) { const n = next(); if (n) tracked.push(n.id); }
     if (!chose && !tracked.length && run.length) tracked = [run[0].id];
   }
-  function track(id) { chose = true; tracked = [...tracked.filter((x) => x !== id), id].slice(-2); listOpen = false; paintJobs(); onChange(); }
-  function untrack(id) { chose = true; tracked = tracked.filter((x) => x !== id); unfolded.delete(id); paintJobs(); onChange(); }
+  function track(id) { chose = true; tracked = [...tracked.filter((x) => x !== id), id].slice(-2); listOpen = false; paintJobs(true); onChange(); }
+  function untrack(id) { chose = true; tracked = tracked.filter((x) => x !== id); unfolded.delete(id); paintJobs(true); onChange(); }
 
   /* ---------------------------------------------------------------- the jobs strip */
   function flipEl(j, cls = '') {
@@ -191,17 +217,74 @@ export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWa
     d.addEventListener('click', () => { if (unfolded.has(j.id)) unfolded.delete(j.id); else unfolded.add(j.id); d.classList.toggle('open', unfolded.has(j.id)); onChange(); setTimeout(onChange, 300); });
     return d;
   }
-  function paintJobs() {
+  /** Per finished job, the timer that folds its card away about four seconds after he could first see it. */
+  const doneTimers = new Map();
+  const DONE_SHOW_MS = 4000;
+  /** JOB COMPLETE (teal, 2026-10-21): the finished job shows a moment, then folds away by itself and the rest close up. */
+  function doneOf(j) {
+    const d = h('div', 'jdone' + (leaving.has(j.id) ? ' ck-leaving going' : '')); d.dataset.id = j.id;
+    if (leaving.has(j.id)) d.style.height = '0px';     // redrawn mid-fold: it stays folded
+    const img = document.createElement('img'); img.src = CL; img.alt = '';
+    const on = h('span', 'on'); on.append(h('i', 'jc', 'JOB COMPLETE'), h('b', '', j.project));
+    const last = [...j.tasks].reverse().find((t) => t.status === 'completed');
+    on.append(h('small', '', last?.text || j.prompt || 'All done'));
+    d.append(img, on);
+    // The clock starts when it is first drawn in the open cockpit, so a job finishing while he is away is still seen.
+    if (!doneTimers.has(j.id)) doneTimers.set(j.id, setTimeout(() => {
+      const now = [...strip.querySelectorAll('.jdone')].find((x) => x.dataset.id === j.id);
+      if (now && isOpen() && !strip.hidden) acknowledge(j.id, now);
+      else { doneTimers.delete(j.id); complete.delete(j.id); paintJobs(); }
+    }, DONE_SHOW_MS));
+    return d;
+  }
+  /**
+   * Its time is up: a tiny bounce, then it folds shut (340 ms, Samara's ease) while the jobs under it close the gap, and the
+   * cockpit shrinks in the same breath (bubble.js measures without anything marked ck-leaving). Reduced motion: at once.
+   */
+  function acknowledge(id, d) {
+    if (leaving.has(id)) return;
+    const instant = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const finish = () => { leaving.delete(id); complete.delete(id); doneTimers.delete(id); paintJobs(true); onChange(); };
+    if (instant) { finish(); return; }
+    d.classList.add('bounce');
+    setTimeout(() => {
+      // The strip may have been redrawn during the bounce: fold the card that is on screen now.
+      d = [...strip.querySelectorAll('.jdone')].find((x) => x.dataset.id === id) ?? d;
+      leaving.add(id);
+      d.style.height = d.offsetHeight + 'px';
+      // The last thing in the strip: the strip's own room goes with it, in the same motion.
+      if (![...strip.children].some((c) => c !== d && !c.classList.contains('ck-leaving'))) strip.classList.add('ck-leaving');
+      d.classList.add('ck-leaving', 'going');
+      void d.offsetHeight;
+      d.style.height = '0px';
+      onChange();
+      setTimeout(finish, 360);
+    }, 120);
+  }
+  /**
+   * Draw the strip. Skipped when nothing he would see has changed: the brain sends the job list again on every bit of
+   * news (often every second or two), and redrawing (and so re-measuring the cockpit) for nothing made it twitch.
+   * True when it drew.
+   */
+  function paintJobs(force = false) {
     retrack();
+    const run = jobs.filter(running).sort((a, b) => b.startedAt - a.startedAt);
+    const done = [...complete.values()].filter((j) => !run.some((r) => r.id === j.id));
+    const sig = JSON.stringify([isOpen(), tracked, listOpen, [...unfolded], targetId, [...leaving],
+      run.map((j) => [j.id, j.project, j.machine, j.phase, pctOf(j), leftOf(j), onOf(j), j.held, weekOf(j), j.tasks.map((t) => t.status + t.text + t.active)]),
+      done.map((j) => [j.id, j.project, j.tasks.length])]);
+    if (!force && sig === jobsSig) return false;
+    jobsSig = sig;
     anims.clear();                   // the bars are drawn afresh; the old canvases stop breathing with them
     strip.replaceChildren();
-    const run = jobs.filter(running).sort((a, b) => b.startedAt - a.startedAt);
-    strip.hidden = !isOpen() || !run.length;
+    strip.classList.remove('ck-leaving');
+    strip.hidden = !isOpen() || (!run.length && !done.length);
     animate(!strip.hidden);
-    if (strip.hidden) return;
+    if (strip.hidden) return true;
     for (const id of tracked) { const j = jobOf(id); if (j) strip.append(barOf(j)); }
+    for (const j of done) strip.append(doneOf(j));
     const others = run.filter((j) => !tracked.includes(j.id));
-    if (!others.length) return;
+    if (!others.length) return true;
     const o = h('div', 'others' + (listOpen ? ' open' : ''));
     const line = btn('oline'), dots = h('span', 'dots');
     for (let i = 0; i < Math.min(others.length, 6); i++) dots.append(h('i'));
@@ -221,6 +304,7 @@ export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWa
     }
     o.append(line, ol);
     strip.append(o);
+    return true;
   }
 
   /* ---------------------------------------------------------------- the purple key: talk to that session */
@@ -238,9 +322,9 @@ export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWa
   /** "No, and...", "Something else", "Change it": the typing area is pointed at the session for his own words. */
   function askWords(w, placeholder, onSend) {
     withTyping(() => {
-      typing.pointAt({ label: w.project, placeholder, when: false, onSend, onClear: () => { targetId = null; paintJobs(); } });
+      typing.pointAt({ label: w.project, placeholder, when: false, onSend, onClear: () => { targetId = null; paintJobs(true); } });
       targetId = w.session;
-      paintJobs();
+      paintJobs(true);
     });
   }
 
@@ -333,7 +417,8 @@ export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWa
   }
   function paintPins() {
     pins.replaceChildren();
-    const list = live();
+    // Put away with the cockpit closed: nothing in the closed bubble until something new comes (it stays in the brain).
+    const list = parked && !isOpen() ? [] : live();
     // Items arrive in priority order; "N MORE" steps through them, and the one he stepped to stays while it waits.
     if (!list.some((w) => w.id === shownId)) shownId = list[0]?.id ?? null;
     const w = list.find((x) => x.id === shownId);
@@ -385,15 +470,25 @@ export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWa
   window.aang?.onMessage?.((m) => {
     if (m?.t === 'claude.jobs' && Array.isArray(m.jobs)) {
       jobs = m.jobs.slice(0, 50).map(readJob).filter(Boolean);
-      paintJobs(); onChange();
+      noteFinished();
+      // Only when something he would see changed (2026-10-21): the same list again must not re-measure the cockpit.
+      if (paintJobs()) onChange();
     } else if (m?.t === 'claude.wait' && Array.isArray(m.items)) {
       waits = m.items.slice(0, 50).map(readWait).filter(Boolean);
       for (const id of [...answered]) if (!waits.some((w) => w.id === id)) answered.delete(id);
       for (const id of [...steps.keys()]) if (!waits.some((w) => w.id === id)) steps.delete(id);
-      const top = live()[0]?.id ?? null, fresh = top !== null && top !== topId;
+      const top = live()[0]?.id ?? null;
+      // The brain marks the list quiet while he is in the Claude app (2026-10-21, core.ts FrontGate): Claude is already
+      // showing him the question, so nothing pops up here; it waits (parked) for the next time he opens Aang.
+      const fresh = top !== null && top !== topId && m.quiet !== true;
+      if (top !== null && top !== topId && m.quiet === true) parked = true;
+      if (fresh) parked = false;
       topId = top;
-      paintPins(); onChange();
-      onWaiting(top !== null, fresh);
+      const sig = JSON.stringify([live().map((w) => [w.id, w.plain, w.summary, w.questions.map((q) => q.options.map((o) => o.plain))]), parked]);
+      if (sig !== pinsSig || fresh) { pinsSig = sig; paintPins(); onChange(); }
+      // A job waiting on him shows in the strip (and leaves it once answered).
+      if (paintJobs()) onChange();
+      onWaiting(top !== null && !parked, fresh);
     } else if (m?.t === 'claude.said' && m.ok === false && typeof m.why === 'string') {
       say(m.why);
     }
@@ -401,9 +496,16 @@ export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWa
 
   return {
     /** The cockpit opened or closed: the strip only lives in the open cockpit; the card lives in both. */
-    setOpen(on) { if (!on) { listOpen = false; typing.clearTarget?.(); } paintJobs(); paintPins(); },
-    /** Something is waiting on him (the card is up), so a closed bubble must not fade under it. */
-    waiting: () => live().length > 0,
+    setOpen(on) { if (!on) { listOpen = false; typing.clearTarget?.(); } paintJobs(true); paintPins(); },
+    /** Something is waiting on him (the card is up), so a closed bubble must not fade under it. Not once put away. */
+    waiting: () => live().length > 0 && !parked,
+    /**
+     * He clicked outside (or pressed Esc) with the card up (2026-10-21): it goes from the closed bubble but stays waiting
+     * in the brain, unanswered, and is pinned again the next time he opens Aang.
+     */
+    park() { parked = true; paintPins(); },
+    /** Opening Aang shows what is still waiting, put away or not. */
+    unpark() { parked = false; },
     /**
      * Not enough room: the list of other jobs folds first (sheet 45g's rule), then the tasks of a bar he unfolded earlier
      * (the one he just opened only when `evenHis`: nothing else is left). Redrawn rather than animated, so the next measure already sees the folded height.
@@ -413,7 +515,9 @@ export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWa
       if (listOpen) listOpen = false;
       else if (unfolded.size > (evenHis ? 0 : 1)) unfolded.delete([...unfolded][0]);
       else return false;
-      paintJobs(); return true;
+      // Forced: a bar or the list opened by a click changes the page without a redraw, so the last drawing's
+      // signature cannot tell this fold from "nothing changed".
+      paintJobs(true); return true;
     },
   };
 }
