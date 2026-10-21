@@ -11,7 +11,7 @@
 // The brain's claude.jobs / claude.wait arrive through the Shell (browser.ts claudeNews); no brain, no rune. What this
 // page sends back is pause / play / a message / open, which the Shell checks again (claudewire.ts). Every word here is
 // Claude's or a session's, so everything is built with textContent, never markup from the wire.
-import { pill, animate, anims, SEA, SLATE, MSG, CL, readJob, curIndex, boundsOf, pctOf, leftOf, onOf, h, btn } from './claudejobs.js';
+import { animate, anims, SEA, SLATE, MSG, CL, readJob, curIndex, leftOf, onOf, h, btn, liveProgress, livePill, liveText, describeNow } from './claudejobs.js';
 
 // His final colours (sheets 49/50, the same as the marks over Aang's head, src/Body/ClaudeMarks.cs).
 /** How long a finished job stays teal on the rune before it goes (the cockpit's strip uses the same ~4 s). */
@@ -96,10 +96,13 @@ function rune(col, px = 2, glyph = 'sun', paused = false) {
   return cv;
 }
 // The thin pixel ring for take B: whole art pixels on a circle round the stone, lit up to the job's progress.
-function ring(col, p, px = 2) {
+// `into` redraws an existing ring in place (2026-10-21: the ring follows the live progress engine, and a new canvas
+// would restart its slow breathing every step).
+function ring(col, p, px = 2, into = null) {
   const n = 23, c = (n - 1) / 2, R = 10.6;
-  const cv = Object.assign(document.createElement('canvas'), { width: n * px, height: n * px, className: 'rg' });
+  const cv = into ?? Object.assign(document.createElement('canvas'), { width: n * px, height: n * px, className: 'rg' });
   const g = cv.getContext('2d');
+  g.clearRect(0, 0, cv.width, cv.height);
   for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
     const d = Math.hypot(x - c, y - c); if (Math.abs(d - R) > 0.62) continue;
     let a = Math.atan2(x - c, -(y - c)) / (2 * Math.PI); if (a < 0) a += 1;
@@ -173,10 +176,13 @@ export function startRune({ slot, band, freeze, unfreeze, closeOthers }) {
     if (!list.length) { chipKey = ''; slot.replaceChildren(); slot.hidden = true; if (open) close(); return; }
     const top = list[0], state = stateOf(top);
     // No to-do list means no percent: the ring turns slowly instead of sitting at an empty 0 (his catch, 2026-10-21).
-    const busy = state !== 'complete' && pctOf(top) === null;
-    const p = state === 'complete' ? 1 : busy ? 0.25 : (pctOf(top) ?? 0) / 100;
+    // The fill is the shared progress engine's (claudejobs.js liveProgress, 2026-10-21): it creeps inside the task in
+    // hand and never goes back, the same number the panel's bars show.
+    const m = state === 'complete' ? null : liveProgress(top);
+    const busy = state !== 'complete' && m.p === null;
+    const p = state === 'complete' ? 1 : busy ? 0.25 : m.p;
     const pip = list.length > 1 ? String(Math.min(9, list.length)) : '';
-    const key = `${state}|${Math.round(p * 100)}|${pip}|${busy}`;
+    const key = `${state}|${pip}|${busy}`;
     slot.hidden = false;
     if (key !== chipKey) {            // unchanged: leave it, so its slow breathing is not restarted every message
       chipKey = key;
@@ -184,12 +190,31 @@ export function startRune({ slot, band, freeze, unfreeze, closeOthers }) {
       c.classList.toggle('busy', busy);
       c.addEventListener('click', (e) => { e.stopPropagation(); if (open) close(); else openPanel(); });
       slot.replaceChildren(c);
-    }
+    } else fillRing(p);
+    ringTop = state === 'complete' || busy ? null : top.id;
     // His ask (2026-10-21): while the panel is open the gold number hides ("it's obvious"), and comes back when it
     // closes. Opening only flips a class on the same rune, so the number can fade (rune.css) instead of being redrawn.
     const r = slot.firstElementChild;
     if (r) { r.classList.toggle('on', open); r.setAttribute('aria-expanded', open ? 'true' : 'false'); }
   }
+
+  /** Move the ring's fill in place, only when a whole art pixel of it would change. */
+  function fillRing(p) {
+    const r = slot.firstElementChild, cv = r?.querySelector('.rg');
+    if (!r || !cv) return;
+    const pc = String(Math.round(p * 100));
+    if (r.dataset.p === pc) return;
+    r.dataset.p = pc;
+    ring(COL[r.dataset.state] ?? COL.working, p, 2, cv);
+  }
+  // The ring creeps with the job between the brain's messages: a light tick, only while a job with a % is on the rune.
+  let ringTop = null;
+  setInterval(() => {
+    if (!ringTop || slot.hidden) return;
+    const j = jobs.find((x) => x.id === ringTop);
+    const m = j && liveProgress(j);
+    if (m && m.p !== null) fillRing(m.p);
+  }, 250);
 
   /* ---------------------------------------------------------------- the panel */
   function cardOf(j) {
@@ -211,18 +236,26 @@ export function startRune({ slot, band, freeze, unfreeze, closeOthers }) {
     d.dataset.id = j.id;
     const hd = h('div', 'hd');
     const img = document.createElement('img'); img.src = CL; img.alt = '';
-    const p = pctOf(j);
+    // Live from the shared progress engine (2026-10-21, claudejobs.js): the %, the bar and the time left move every
+    // frame between the brain's messages and never go back; `latest` is this job as the brain last sent it.
+    const latest = () => jobs.find((x) => x.id === j.id) ?? j;
     const msg = btn('msg', undefined, 'Message this session'); msg.innerHTML = MSG;
-    hd.append(img, h('b', '', j.project), h('span', 't', onOf(j)), h('span', 'pct', p === null ? '' : p + '%'), msg);
+    hd.append(img, h('b', '', j.project), h('span', 't', onOf(j)), liveText(h('span', 'pct'), (now) => { const p = liveProgress(latest(), now).percent; return p === null ? '' : p + '%'; }), msg);
     const row2 = h('div', 'row2'), pb = h('span', 'pb');
-    pb.append(pill(96, 9, 2, boundsOf(j), (p ?? 0) / 100, j.tasks.length ? curIndex(j) : -1, paused ? SLATE : SEA, !paused));
-    row2.append(pb, h('span', 'lt', leftOf(j)), h('i', 'chev'));
+    pb.append(livePill(96, 9, 2, latest, paused ? SLATE : SEA, !paused));
+    row2.append(pb, liveText(h('span', 'lt'), (now) => leftOf(latest(), now)), h('i', 'chev'));
     d.append(hd, row2);
     const w = waitOf(j);
     if (w) { const a = h('div', 'ask'); a.append(h('b', '', 'NEEDS YOU'), document.createTextNode(`${j.project} ${WAIT_WORD[w.kind] ?? 'is waiting on you'}: answer it in Aang's bubble or in Claude.`)); d.append(a); }
     if (isOpen) {
       // The tracker (45f): ticked, the one in progress, the rest.
       const list = h('div', 'list'), cur = curIndex(j);
+      // What it is doing right now, above the tasks (2026-10-21, the cockpit's card): the tool and for how long, then
+      // its helper agents.
+      const act = h('div', 'act');
+      act.append(liveText(h('div', 'an'), (now) => describeNow(latest(), now).line));
+      if (j.activity?.agents?.length) act.append(liveText(h('div', 'ag'), (now) => describeNow(latest(), now).agents));
+      list.append(act);
       j.tasks.forEach((t, k) => {
         const isDone = t.status === 'completed', now = !isDone && k === cur;
         const ob = h('div', 'ob' + (isDone ? ' done' : now ? ' now' : ''));
@@ -275,8 +308,9 @@ export function startRune({ slot, band, freeze, unfreeze, closeOthers }) {
     if (one && stateOf(one) !== 'complete') {
       // One job: what it is on now, how much of the whole job is done, about how long is left (sheet 50).
       const on = h('div', 'onnow'); on.append(h('b', '', 'ON NOW'), h('span', '', onOf(one).replace(/ · task \d+ of \d+$/, '') || 'Working'));
-      const p = pctOf(one), big = h('div', 'big');
-      big.append(h('em', '', p === null ? '—%' : p + '%'), h('span', '', `all done · ${leftOf(one)}`));
+      const big = h('div', 'big'), latest = () => jobs.find((x) => x.id === one.id) ?? one;
+      big.append(liveText(h('em'), (now) => { const p = liveProgress(latest(), now).percent; return p === null ? '—%' : p + '%'; }),
+        liveText(h('span'), (now) => `all done · ${leftOf(latest(), now)}`));
       kids.push(on, big);
     }
     for (const j of list) kids.push(cardOf(j));

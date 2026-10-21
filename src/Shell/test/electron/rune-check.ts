@@ -168,6 +168,31 @@ app.whenReady().then(async () => {
   b.claudeNews(null);
   check('the brain goes away: no rune', await until(async () => (await slotShown()) === false));
 
+  // 8b. The shared live progress engine (2026-10-21, claudejobs.js): the panel says what Claude is doing right now and
+  // its helper agents, the % creeps between messages, and never goes back when the brain's next message lands.
+  const S3 = '3c3c3c3c-3333-4c3d-9e2f-cccccccccccc';
+  const liveJob = () => ({ ...job(S3, 'Waymark', 'working', tasks(3, W1), 50, null),
+    progress: { done: 3, total: 6, cur: 3, elapsedMs: 0, at: Date.now(), paceMs: 6000, rev: 0, rewroteAt: null },
+    activity: { now: 'Running the tests · npm test', since: Date.now() - 12_000, agents: [{ kind: 'Explore', what: 'Mapping the code', since: Date.now() }] } });
+  b.claudeNews({ t: 'claude.jobs', jobs: [liveJob()] });
+  await until(slotShown);
+  await js(`document.querySelector('#runeslot .rune').click()`);
+  await until(async () => (await js(`!!document.querySelector('${card(S3)}')`)) === true);
+  await js(`document.querySelector('${card(S3)}').click()`);
+  const actLine = await js(`[document.querySelector('${card(S3)} .act .an')?.textContent, document.querySelector('${card(S3)} .act .ag')?.textContent].join(' | ')`);
+  check('the live description shows above the tasks', /^Running the tests · npm test \(1\d s\) \| 1 helper agent: mapping the code \(Explore\)$/.test(actLine), actLine);
+  const pctNow = async () => parseInt(await js(`document.querySelector('${card(S3)} .pct').textContent`), 10);
+  const p1 = await pctNow(); await wait(1500); const p2 = await pctNow();
+  check('the % creeps between messages', p1 >= 50 && p2 > p1, `${p1} -> ${p2}`);
+  const ring1 = Number(await js(`document.querySelector('#runeslot .rune').dataset.p`));
+  check('the ring follows the same live %', Math.abs(ring1 - p2) <= 3, `ring ${ring1}, panel ${p2}`);
+  await pic('rune-panel-live.png', { x: 560, y: 0, width: 620, height: 640 });
+  b.claudeNews({ t: 'claude.jobs', jobs: [liveJob()] });   // the brain's next message: its own clock starts again
+  await wait(300);
+  const p3 = await pctNow();
+  check('and never goes back when the next message lands', p3 >= p2, `${p2} -> ${p3}`);
+  await js(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`);
+
   // 9. Samara's taskbar right-click list (2026-10-21, jumplist.ts): what each item does once it reaches Samara.
   const nTabs = b.tabs.length;
   b.jumpTask('new-tab');
