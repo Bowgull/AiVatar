@@ -40,6 +40,7 @@ import { Visits, search as searchVisits, forAang, neverKeep, bankSite, type Visi
 import { BrowserSync, urlKept, type SyncCookie, type SyncMsg, type TabSnap } from './bsync.ts';
 import { Driver, type Job } from './driver.ts';
 import { Downloads, kindOf, trayOf, type Dl } from './dlist.ts';
+import { MockServer, MockStore, cleanPath, findRepo, resolveVersion, type MockVersion } from './mockups.ts';
 
 /** A site name scrambled with this PC's own key: the file alone says nothing about where he has accounts. */
 /** What the update tray shows (sheet 35): the title ("Version 1.1.0: Gojo"), what the update does as groups of lines (a
@@ -92,7 +93,8 @@ function darkSource(): string | null {
   return darkSrc;
 }
 
-export interface BrowserOptions { origin: string; preloadPath: string; stateDir: string; tabPreloadPath: string; settingsPreloadPath: string; thingsPreloadPath: string; /** tests only */ testLocal?: boolean }
+export interface BrowserOptions { origin: string; preloadPath: string; stateDir: string; tabPreloadPath: string; settingsPreloadPath: string; thingsPreloadPath: string; /** tests only */ testLocal?: boolean;
+  /** Where the mockups' git repo is (sheet 47). Found from the Shell's own folder; a test gives its own. */ repoDir?: string }
 
 interface Tab {
   id: number;
@@ -141,6 +143,8 @@ interface Tab {
   shown?: boolean;
   /** Sheet 40 B (his pick, 2026-10-20): a still of the video, taken as it went to the pop-out, for the page left behind. */
   lentShot?: string;
+  /** Sheet 47: a mockup Claude opened, one tab per sheet: which sheet, the commit it shows, and its picture (key). */
+  mock?: { sheet: string; commit: string; key: string };
 }
 
 /**
@@ -173,7 +177,9 @@ const newPane = (id: number): Pane => ({ id, win: null, active: null, inset: { l
   hideTimer: null, trayV: null, trayOn: false, trayAt: { x: 42, y: 62 }, curtain: null, curtainReady: Promise.resolve(), veil: null, fullTab: null, watching: null, watchTimer: null });
 
 /** A trail (Horse Browser's idea, sheet 3): pages that belong to one thing he is doing. `named` = he named it. */
-interface Trail { id: number; name: string; named: boolean; collapsed?: boolean; fresh?: boolean }
+interface Trail { id: number; name: string; named: boolean; collapsed?: boolean; fresh?: boolean; /** sheet 47: the MOCKUPS trail */ mock?: boolean }
+/** Sheet 47: the MOCKUPS trail always has this id, so it is the same trail across restarts and never mixed with his. */
+const MOCK_TRAIL = -1;
 /** A trail put away in the Stash (by Tidy or by him): its pages, ready to come back. Never closed for good by Aang. */
 interface Stashed { id: number; name: string; tabs: { url: string; title: string }[]; at: number }
 /** Everything Tidy changed, so Undo can put it all back exactly. */
@@ -500,8 +506,29 @@ export class AangBrowser {
   private dlSendTimer: NodeJS.Timeout | null = null;
   /** The mouse's side buttons can arrive twice (window and page): one press, one step. */
   private lastNav = 0;
+  /**
+   * Sheet 47 (his picks, 2026-10-21): the mockups Claude opens. The versioned page server and the history file; both
+   * null where there is no git repo (his Mac), and then the whole feature quietly stays off.
+   */
+  private mockServer: MockServer | null = null;
+  private mockStore: MockStore | null = null;
+  private mockRepo = '';
+  private mockReady: Promise<number> = Promise.resolve(0);
+  /** The history list inside the trail is open (in the drawer and the floating list alike). */
+  private mockList = false;
+  /** Things waiting for the window to finish opening (a mockup opened while Samara was closed). */
+  private whenOpen: (() => void)[] = [];
   constructor(o: BrowserOptions) {
     this.o = o;
+    {
+      const repo = findRepo(o.repoDir ?? path.join(import.meta.dirname, '..', '..', '..'));
+      if (repo) {
+        this.mockRepo = repo;
+        this.mockServer = new MockServer(repo);
+        this.mockStore = new MockStore(path.join(o.stateDir, 'mockups.json'));
+        this.mockReady = this.mockServer.start();
+      }
+    }
     this.file = path.join(o.stateDir, 'browser-tabs.json');
     this.pausedFile = path.join(o.stateDir, 'adblock-paused.json');
     this.prefsFile = path.join(o.stateDir, 'browser-prefs.json');
@@ -1299,8 +1326,10 @@ export class AangBrowser {
       }
       // Startup (Settings > General): his tabs as they were, or a fresh home page.
       if (!first) { this.newTab(url ?? this.HOME); return; }
-      if (this.prefs.startup === 'home' || !this.restore()) this.newTab(url ?? this.HOME);
+      // A mockup that opened the window (sheet 47) is its first tab: no home page under it.
+      if (this.prefs.startup === 'home' || !this.restore()) { if (url || !this.whenOpen.length) this.newTab(url ?? this.HOME); }
       else if (url) this.newTab(url);                       // his tabs come back, and the link he clicked opens on top
+      for (const f of this.whenOpen.splice(0)) { this.pane = p; f(); }
     });
     void w.loadURL(`${this.o.origin}/browser.html`);
     // The continuous snapshot, and putting idle tabs to sleep: once for the whole browser.
@@ -1585,7 +1614,8 @@ export class AangBrowser {
       else this.fail(tab, { kind: 'error', url, ...failureWords(code, host) });
     });
     on('did-start-navigation', (d) => { const x = d as unknown as { url: string; isMainFrame: boolean }; if (!x.isMainFrame || !isWeb(x.url)) return; const l = this.stopFor(x.url); if (l.length) this.block(tab, x.url, l); });
-    on('page-title-updated', (_e, title) => { tab.title = title; this.visits.name(wc.getURL(), title); this.changed(); });
+    // A mockup keeps the name Claude gave it ("46 · One cockpit"), and never goes into his History.
+    on('page-title-updated', (_e, title) => { if (tab.mock) return; tab.title = title; this.visits.name(wc.getURL(), title); this.changed(); });
     on('page-favicon-updated', (_e, icons) => {
       tab.favicon = icons.find((i) => /^https?:|^data:image\//.test(i)) ?? '';
       this.sendTabs();
@@ -1608,7 +1638,7 @@ export class AangBrowser {
     });
     on('dom-ready', () => { this.paintDark(tab); if (tab.phase !== 'idle') { tab.prog = Math.max(tab.prog ?? 0, 0.55); this.sendTabs(); } });
     on('did-navigate', (_e, u, status) => {
-      tab.url = u; tab.scrollY = 0; if (status > 0) tab.upgraded = null; if (status < 400) this.visits.add(u, '');
+      tab.url = u; tab.scrollY = 0; if (status > 0) tab.upgraded = null; if (status < 400 && !tab.mock) this.visits.add(u, '');
       tab.pending = null;
       if (tab.phase !== 'idle') { tab.phase = 'loading'; tab.prog = Math.max(tab.prog ?? 0, 0.35); }
       this.changed();
@@ -1617,7 +1647,7 @@ export class AangBrowser {
       // A show started inside the page (Netflix changes page without loading one, his report 2026-10-14): where paid
       // video plays in its own window, the show goes there and this tab steps back to where it was.
       if (main && /^https:\/\/(www\.)?netflix\.com\/watch\//i.test(u) && this.toPaid(u)) { if (wc.navigationHistory.canGoBack()) wc.navigationHistory.goBack(); return; }
-      tab.url = u; if (main) this.visits.add(u, wc.getTitle()); this.changed();
+      tab.url = u; if (main && !tab.mock) this.visits.add(u, wc.getTitle()); this.changed();
     });
     // Find on page: how many matches, and which one is lit. Only the tab he is looking at reports.
     on('found-in-page', (_e, r) => { if (tab.id === this.active) this.win?.webContents.send('browser:found', { at: r.activeMatchOrdinal, of: r.matches }); });
@@ -1660,6 +1690,8 @@ export class AangBrowser {
     if (tab.muted) wc.setAudioMuted(true);
     const back = tab.scrollY;
     if (back > 0) wc.once('did-finish-load', () => { void within(wc.executeJavaScript(`window.scrollTo(0, ${Math.round(back)})`, true), 1500, null); });
+    // A mockup from an earlier run: the page server has a new port each run, the commit and path stay the same.
+    if (tab.mock && this.mockServer) tab.url = this.mockServer.rebase(tab.url);
     const l = this.stopFor(tab.url);
     if (l.length) { this.block(tab, tab.url, l); return; }
     tab.blocked = null;
@@ -2358,12 +2390,13 @@ export class AangBrowser {
     },
     tabSnap: (): TabSnap => {
       if (this.panes.some((p) => this.alive(p)) && this.tabs.length) {
-        return { tabs: this.tabs.filter((t) => !t.internal && isWeb(t.url)).map((t) => ({ url: t.url, title: t.title, trail: t.trail, done: t.done })), trails: this.trails.map((x) => ({ id: x.id, name: x.name })) };
+        // Mockups (sheet 47) stay on this PC: their page server is here only.
+        return { tabs: this.tabs.filter((t) => !t.internal && !t.mock && isWeb(t.url)).map((t) => ({ url: t.url, title: t.title, trail: t.trail, done: t.done })), trails: this.trails.filter((x) => !x.mock).map((x) => ({ id: x.id, name: x.name })) };
       }
       try {
         const s = JSON.parse(readFileSync(this.file, 'utf8'));
-        return { tabs: (Array.isArray(s?.tabs) ? s.tabs : []).filter((t: any) => typeof t?.url === 'string' && isWeb(t.url)).map((t: any) => ({ url: t.url, title: String(t.title ?? t.url), trail: Number.isInteger(t.trail) ? t.trail : null, done: t.done === true })),
-          trails: (Array.isArray(s?.trails) ? s.trails : []).filter((x: any) => Number.isInteger(x?.id)).map((x: any) => ({ id: x.id, name: String(x.name ?? '') })) };
+        return { tabs: (Array.isArray(s?.tabs) ? s.tabs : []).filter((t: any) => typeof t?.url === 'string' && isWeb(t.url) && !t.mock).map((t: any) => ({ url: t.url, title: String(t.title ?? t.url), trail: Number.isInteger(t.trail) ? t.trail : null, done: t.done === true })),
+          trails: (Array.isArray(s?.trails) ? s.trails : []).filter((x: any) => Number.isInteger(x?.id) && x.id !== MOCK_TRAIL).map((x: any) => ({ id: x.id, name: String(x.name ?? '') })) };
       } catch { return { tabs: [], trails: [] }; }
     },
     setTabs: (snap: TabSnap) => this.takeTabs(snap),
@@ -2396,12 +2429,16 @@ export class AangBrowser {
     if (home) this.pane = home;
     if (!home) {
       let closed: string[] = [];
-      try { const s = JSON.parse(readFileSync(this.file, 'utf8')); if (Array.isArray(s?.closed)) closed = s.closed; } catch { /* none */ }
-      try { writeFileAtomic(this.file, JSON.stringify({ v: 1, at: new Date().toISOString(), active: 0, tabs: want.map((t) => ({ url: t.url, title: t.title, opener: null, scrollY: 0, zoom: 0, muted: false, trail: t.trail, done: t.done })), trails, closed })); } catch { /* best effort */ }
+      // The mockup tabs written here stay (sheet 47): they are this PC's own.
+      let mocks: unknown[] = [];
+      try { const s = JSON.parse(readFileSync(this.file, 'utf8')); if (Array.isArray(s?.closed)) closed = s.closed; if (Array.isArray(s?.tabs)) mocks = s.tabs.filter((t: { mock?: unknown }) => t?.mock).map((t: object) => ({ ...t, opener: null, win: 0 })); } catch { /* none */ }
+      const keepTrails = mocks.length ? [...trails.filter((x) => x.id !== MOCK_TRAIL), { id: MOCK_TRAIL, name: 'MOCKUPS', named: true, mock: true }] : trails;
+      try { writeFileAtomic(this.file, JSON.stringify({ v: 1, at: new Date().toISOString(), active: 0, tabs: [...want.map((t) => ({ url: t.url, title: t.title, opener: null, scrollY: 0, zoom: 0, muted: false, trail: t.trail, done: t.done })), ...mocks], trails: keepTrails, closed })); } catch { /* best effort */ }
       return;
     }
-    const live = this.tabs.filter((t) => !t.internal);
-    const fixed = (t: Tab) => t.call === true || t.lent;
+    // The mockups (sheet 47) are this PC's alone: the other machine's tabs never close or move them.
+    const live = this.tabs.filter((t) => !t.internal && !t.mock);
+    const fixed = (t: Tab) => t.call === true || t.lent || Boolean(t.mock);
     if (want.length === live.length) {
       want.forEach((w, i) => {
         const t = live[i]!;
@@ -2424,11 +2461,11 @@ export class AangBrowser {
           scrollY: 0, zoom: 0, lastSeen: Date.now(), blocked: null, trail: null, done: false, lent: false, upgraded: null, failed: null, blockedPopup: null, pane: this.pane.id });
       }
     }
-    this.trails = trails;
+    this.trails = [...trails.filter((x) => x.id !== MOCK_TRAIL), ...this.trails.filter((x) => x.mock)];
     this.trailSeq = Math.max(this.trailSeq, ...trails.map((x) => x.id), 0);
     const left = want.slice();
     for (const t of this.tabs) {
-      if (t.internal) continue;
+      if (t.internal || t.mock) continue;
       const k = left.findIndex((w) => w.url === t.url);
       if (k < 0) continue;
       const [w] = left.splice(k, 1);
@@ -2703,14 +2740,15 @@ export class AangBrowser {
   renameTrail(id: number, name: string): void {
     const tr = this.trails.find((x) => x.id === id);
     const n = String(name).replace(/\s+/g, ' ').trim().slice(0, 24).toUpperCase();
-    if (!tr || !n) return;
+    if (!tr || !n || tr.mock) return;
     tr.name = n; tr.named = true;          // his name: Qwen never renames it
     this.changed();
   }
   /** Move a tab into a trail, out to loose (null), or into a brand-new trail ('new'). */
   moveTab(tabId: number, to: number | null | 'new'): void {
     const t = this.tabs.find((x) => x.id === tabId);
-    if (!t) return;
+    // Sheet 47: the MOCKUPS trail holds Claude's mockups only, and a mockup stays in it.
+    if (!t || t.mock || to === MOCK_TRAIL) return;
     t.trail = to === 'new' ? this.addTrail(trailNameFor(t.url)) : (to !== null && this.trails.some((x) => x.id === to) ? to : null);
     t.done = false;
     this.tidyTrails();
@@ -2721,6 +2759,7 @@ export class AangBrowser {
     const i = this.tabs.findIndex((x) => x.id === tabId);
     if (i < 0) return;
     const t = this.tabs[i]!;
+    if (Boolean(t.mock) !== (trail === MOCK_TRAIL)) return;
     t.trail = trail !== null && this.trails.some((x) => x.id === trail) ? trail : null;
     t.done = false;
     this.tabs.splice(i, 1);
@@ -2750,6 +2789,15 @@ export class AangBrowser {
     if (!tr) return;
     const own = this.tabs.filter((t) => t.trail === id);
     if (act === 'collapse') { tr.collapsed = !tr.collapsed; this.changed(); return; }
+    // Sheet 47: the MOCKUPS trail can only be closed (its history stays in mockups.json, the ... menu brings it back).
+    if (tr.mock) {
+      if (act !== 'close') return;
+      for (const t of own) this.close(t.id, false);
+      this.trails = this.trails.filter((x) => x.id !== id);
+      this.changed();
+      this.note('Closed the mockups. Their history is kept: Mockups in the ... menu brings them back.');
+      return;
+    }
     if (act === 'ungroup') { for (const t of own) t.trail = null; this.trails = this.trails.filter((x) => x.id !== id); this.changed(); return; }
     if (act === 'stash') { this.stashTrail(id); this.changed(); this.note(`${tr.name} is in the Stash.`); return; }
     if (act === 'close') {
@@ -2811,9 +2859,140 @@ export class AangBrowser {
     this.changed();
   }
 
+  // ------------------------------------------------------------------ Sheet 47: the MOCKUPS trail (his picks, 2026-10-21)
+  /** Mockups are on here: there is a git repo beside the Shell (not on his Mac). */
+  get mockupsOn(): boolean { return Boolean(this.mockServer && this.mockStore); }
+  /** The MOCKUPS trail, made if it is not there yet. The frame draws Claude's icon and FROM CLAUDE on its head. */
+  private mockTrail(): Trail {
+    let tr = this.trails.find((x) => x.id === MOCK_TRAIL);
+    if (!tr) { tr = { id: MOCK_TRAIL, name: 'MOCKUPS', named: true, mock: true }; this.trails.push(tr); }
+    tr.mock = true;
+    return tr;
+  }
+  /**
+   * Claude opened a mockup (a .mockup file in open-urls, main.ts). Its version as it is now (HEAD) goes into the history,
+   * and its sheet's tab shows it: a newer version of a sheet already open updates that same tab, never a new one (his pick).
+   */
+  async openMockup(sheet: string, title = ''): Promise<MockVersion | null> {
+    if (!this.mockServer || !this.mockStore || cleanPath(sheet) !== sheet) return null;
+    if (!(await this.mockReady)) return null;
+    const r = await resolveVersion(this.mockRepo, sheet);
+    if (!r) { console.log(`shell: mockups: ${sheet} is not in the repo's last commit, not opened`); return null; }
+    const ver = this.mockStore.add(sheet, title || r.title, r.commit, r.key);
+    this.showMockup(ver);
+    return ver;
+  }
+  /** One version, exactly as it was, in its sheet's tab (made in the MOCKUPS trail if none is open). Opens Samara if it is closed. */
+  private showMockup(ver: MockVersion): void {
+    const go = () => {
+      const url = this.mockServer!.url(ver.commit, ver.sheet);
+      const mock = { sheet: ver.sheet, commit: ver.commit, key: ver.key };
+      this.mockTrail();
+      const t = this.tabs.find((x) => x.mock?.sheet === ver.sheet);
+      if (t) {
+        t.mock = mock; t.title = ver.title; t.trail = MOCK_TRAIL; t.done = false; t.failed = null; t.blocked = null;
+        if (t.view && !t.crashed && !t.lent) { t.pending = url; void t.view.webContents.loadURL(url).catch(() => {}); }
+        else { t.url = url; this.closeView(t); }
+        this.activate(t.id);
+        return;
+      }
+      const id = this.newTab(url);
+      const n = this.tabs.find((x) => x.id === id);
+      if (n) { n.mock = mock; n.title = ver.title; n.trail = MOCK_TRAIL; }
+      this.tidyTrails();
+      this.changed();
+    };
+    const p = this.lastPane();
+    if (p) { this.pane = p; bringFront(p.win!); go(); return; }
+    this.whenOpen.push(go);
+    this.createPane();
+  }
+  /** "Mockups" in the ... menu: the trail comes back with its history open, even after he closed it. */
+  reopenMockups(): void {
+    if (!this.mockStore) return;
+    this.mockList = true;
+    const tr = this.trails.find((x) => x.id === MOCK_TRAIL);
+    if (tr) tr.collapsed = false;
+    if (this.tabs.some((t) => t.mock)) { this.changed(); return; }
+    const last = [...this.mockStore.list].sort((a, b) => b.at - a.at || b.id - a.id)[0];
+    if (!last) { this.note('No mockups yet. When Claude opens one, it lands here.'); this.sendTabs(); return; }
+    this.showMockup(last);
+  }
+  /** A branch just made from a tab's menu: the frame opens its name for typing, once. */
+  private freshBranch = 0;
+  /**
+   * The frame's clicks: a version to show, the history list opened or shut, the broom, and his moves in the family tree
+   * (his ask, 2026-10-21: branches > mockups > children, all by hand, kept in mockups.json with the history).
+   */
+  mockAct(act: string, a: { id?: number; sheet?: string; to?: string | number | null; name?: string; open?: boolean } = {}): void {
+    const st = this.mockStore;
+    if (!st) return;
+    const known = (s: unknown): s is string => typeof s === 'string' && st.list.some((x) => x.sheet === s);
+    let why = '';
+    switch (act) {
+      case 'show': { const v = Number.isInteger(a.id) ? st.get(a.id!) : undefined; if (v) this.showMockup(v); return; }
+      case 'list': this.mockList = a.open === true; break;
+      // The broom (his rule): only when he presses it, and only exact duplicates.
+      case 'broom': { const n = st.sweep(); if (n) this.note(`Removed ${n} duplicate${n === 1 ? '' : 's'}.`); break; }
+      case 'branchnew': if (known(a.sheet)) { const id = st.newBranch(); why = st.toBranch(a.sheet, id); this.freshBranch = id; } break;
+      case 'branch': if (known(a.sheet)) why = st.toBranch(a.sheet, typeof a.to === 'number' ? a.to : null); break;
+      case 'top': if (known(a.sheet)) why = st.toBranch(a.sheet, null); break;
+      case 'parent': if (known(a.sheet) && known(a.to)) why = st.toParent(a.sheet, a.to); break;
+      case 'brename': if (Number.isInteger(a.id)) why = st.renameBranch(a.id!, String(a.name ?? '')); break;
+      case 'bfold': if (Number.isInteger(a.id)) why = st.foldBranch(a.id!); break;
+      case 'bdelete': if (Number.isInteger(a.id)) why = st.deleteBranch(a.id!); break;
+      default: return;
+    }
+    if (why === 'it has children of its own') this.note('That mockup has its own children, so it cannot be a child. Move its children first.');
+    this.sendTabs();
+    if (this.freshBranch && act !== 'branchnew') this.freshBranch = 0;
+  }
+  /** A mockup tab's version tag, where it sits in the tree, and its sheet's versions (one line per V, its newest time). */
+  private mockTab(t: Tab): Record<string, unknown> {
+    const sheet = t.mock!.sheet;
+    const list = this.mockStore?.list.filter((x) => x.sheet === sheet) ?? [];
+    const byV = new Map<number, MockVersion>();
+    for (const x of list) { const o = byV.get(x.v); if (!o || x.at >= o.at) byV.set(x.v, x); }
+    const place = this.mockStore?.placeOf(sheet) ?? { branch: null, parent: null };
+    return {
+      sheet, branch: place.branch, parent: place.parent, kids: this.mockStore?.childrenOf(sheet).length ?? 0,
+      v: list.find((x) => x.key === t.mock!.key)?.v ?? 0,
+      versions: [...byV.values()].sort((a, b) => b.v - a.v).slice(0, 30).map((x) => ({ id: x.id, v: x.v, at: x.at, now: x.key === t.mock!.key })),
+    };
+  }
+  /**
+   * The history at the bottom of the trail: the count and the branches always; while it is open, the whole tree (branch >
+   * mockup > children), every version under its own mockup, newest first, closed ones too.
+   */
+  private mockView(): Record<string, unknown> | null {
+    const st = this.mockStore;
+    if (!st) return null;
+    const all = st.list, dups = st.dups();
+    const out: Record<string, unknown> = { count: all.length, dups: dups.size, open: this.mockList, branches: st.branches.map((b) => ({ ...b })), fresh: this.freshBranch || null };
+    if (!this.mockList) return out;
+    const shown = new Map(this.tabs.filter((t) => t.mock).map((t) => [t.mock!.sheet, t.mock!.key]));
+    const bySheet = new Map<string, MockVersion[]>();
+    for (const x of all) bySheet.set(x.sheet, [...(bySheet.get(x.sheet) ?? []), x]);
+    const newest = (s: string) => (bySheet.get(s) ?? []).reduce((m, x) => Math.max(m, x.at), 0);
+    const node = (sheet: string, kids: string[]): Record<string, unknown> => {
+      const items = [...(bySheet.get(sheet) ?? [])].sort((a, b) => b.at - a.at || b.id - a.id);
+      return { sheet, title: items[0]?.title ?? sheet, closed: !shown.has(sheet),
+        items: items.slice(0, 60).map((x) => ({ id: x.id, at: x.at, v: x.v, now: shown.get(sheet) === x.key && !dups.has(x.id), same: dups.get(x.id) ?? null })),
+        children: kids.sort((a, b) => newest(b) - newest(a)).map((k) => node(k, [])) };
+    };
+    // A child whose parent has no history left stands at the top level.
+    const parentOf = (s: string) => { const p = st.placeOf(s).parent; return p && bySheet.has(p) ? p : null; };
+    const tops = [...bySheet.keys()].filter((s) => !parentOf(s));
+    const family = (s: string) => Math.max(newest(s), ...[...bySheet.keys()].filter((k) => parentOf(k) === s).map(newest));
+    const nodes = (branch: number | null) => tops.filter((s) => st.placeOf(s).branch === branch).sort((a, b) => family(b) - family(a)).slice(0, 80)
+      .map((s) => node(s, [...bySheet.keys()].filter((k) => parentOf(k) === s)));
+    out.tree = { loose: nodes(null), branches: st.branches.map((b) => ({ id: b.id, name: b.name, folded: b.folded, mockups: nodes(b.id) })) };
+    return out;
+  }
+
   // ------------------------------------------------------------------ Trail clean up (Tidy)
   private tidyTabs(): TidyTab[] {
-    return this.tabs.filter((t) => isWeb(t.url) && !t.internal).map((t) => ({ id: t.id, url: t.url, title: t.title, trail: t.trail, lastSeen: t.lastSeen, active: this.panes.some((p) => p.active === t.id), audible: t.audible, lent: t.lent }));
+    return this.tabs.filter((t) => isWeb(t.url) && !t.internal && !t.mock).map((t) => ({ id: t.id, url: t.url, title: t.title, trail: t.trail, lastSeen: t.lastSeen, active: this.panes.some((p) => p.active === t.id), audible: t.audible, lent: t.lent }));
   }
   /**
    * The broom (or Trail clean up in the menu). The instant part happens at once: doubles are marked (closed only on
@@ -2827,7 +3006,7 @@ export class AangBrowser {
     this.tidy = run;
     const tabs = this.tidyTabs();
     run.dup = doubles(tabs);
-    for (const id of staleTrails(this.trails, tabs, Date.now())) { const s = this.stashTrail(id); if (s !== null) run.stashed.push(s); }
+    for (const id of staleTrails(this.trails.filter((x) => !x.mock), tabs, Date.now())) { const s = this.stashTrail(id); if (s !== null) run.stashed.push(s); }
     this.askQwen(run);
     this.changed();
   }
@@ -2973,6 +3152,7 @@ export class AangBrowser {
       case 'tidykeep': this.tidyKeep(); break;
       case 'tidyundo': this.tidyUndo(); break;
       case 'trailundo': this.undoTrailClose(); break;
+      case 'mockups': this.reopenMockups(); break;
       // The blue shield: open the popup he was looking for (as a tab, beside the page), or allow the site from now on.
       case 'popupopen': case 'popupallow': if (t?.blockedPopup) {
         const bp = t.blockedPopup;
@@ -3098,6 +3278,7 @@ export class AangBrowser {
       tabs: keep.map((t) => ({
         url: t.url, title: t.title, opener: t.opener === null ? null : keep.findIndex((x) => x.id === t.opener),
         scrollY: Math.round(t.scrollY), zoom: t.zoom, muted: t.muted, trail: t.trail, done: t.done, win: winOf.get(t.pane) ?? 0,
+        ...(t.mock ? { mock: { ...t.mock } } : {}),
         ...(t.favicon && /^(https:|data:image\/)/.test(t.favicon) && t.favicon.length < 4000 ? { favicon: t.favicon } : {}),
       })),
       trails,
@@ -3115,7 +3296,8 @@ export class AangBrowser {
     try {
       if (!existsSync(this.file)) return false;
       const s = JSON.parse(readFileSync(this.file, 'utf8'));
-      const list = Array.isArray(s?.tabs) ? s.tabs.filter((t: { url?: unknown }) => typeof t?.url === 'string' && isWeb(t.url as string)).slice(0, 80) : [];
+      // A mockup tab only where the mockups are on (sheet 47); its page server is not there otherwise.
+      const list = Array.isArray(s?.tabs) ? s.tabs.filter((t: { url?: unknown; mock?: unknown }) => typeof t?.url === 'string' && isWeb(t.url as string) && (!t.mock || this.mockServer)).slice(0, 80) : [];
       if (!list.length) return false;
       const ids: number[] = [];
       for (const t of list) {
@@ -3123,13 +3305,18 @@ export class AangBrowser {
         const tab: Tab = { id: ++this.seq, view: null, opener: null, title: String(t.title ?? t.url).slice(0, 300), url: t.url, favicon: fav,
           loading: false, audible: false, muted: t.muted === true, crashed: false, scrollY: Number(t.scrollY) || 0, zoom: Number(t.zoom) || 0, lastSeen: Date.now(), blocked: null,
           trail: Number.isInteger(t.trail) ? t.trail : null, done: false, lent: false, upgraded: null, failed: null, blockedPopup: null, pane: this.pane.id };
+        // Sheet 47: a mockup tab comes back as one (only while the mockups are on here), in the MOCKUPS trail.
+        const m = t.mock;
+        if (m && typeof m.sheet === 'string' && typeof m.commit === 'string' && typeof m.key === 'string') { tab.mock = { sheet: m.sheet, commit: m.commit, key: m.key }; tab.trail = MOCK_TRAIL; }
         ids.push(tab.id);
         this.tabs.push(tab);
       }
       list.forEach((t: { opener?: unknown }, i: number) => { const o = Number(t.opener); if (Number.isInteger(o) && o >= 0 && o < ids.length && o !== i) this.tabs[i]!.opener = ids[o]!; });
       if (Array.isArray(s.closed)) this.closed = s.closed.filter((u: unknown) => typeof u === 'string' && isWeb(u as string)).slice(-25);
       if (Array.isArray(s.trails)) this.trails = s.trails.filter((x: Partial<Trail>) => Number.isInteger(x?.id) && typeof x?.name === 'string')
-        .map((x: Trail) => ({ id: x.id, name: x.name.slice(0, 24), named: x.named === true, collapsed: x.collapsed === true }));
+        .map((x: Trail) => ({ id: x.id, name: x.name.slice(0, 24), named: x.named === true, collapsed: x.collapsed === true, ...(x.id === MOCK_TRAIL ? { mock: true } : {}) }));
+      this.trails = this.trails.filter((x) => x.id !== MOCK_TRAIL || this.mockServer);
+      if (this.tabs.some((t) => t.mock)) this.mockTrail();
       this.trailSeq = this.trails.reduce((m, x) => Math.max(m, x.id), 0);
       for (const t of this.tabs) if (t.trail !== null && !this.trails.some((x) => x.id === t.trail)) t.trail = null;
       this.tidyTrails();
@@ -3191,7 +3378,9 @@ export class AangBrowser {
       update: this.update, updated: this.updated, inCall: this.inCall,
       canBack: Boolean(wc?.navigationHistory.canGoBack()), canForward: Boolean(wc?.navigationHistory.canGoForward()),
       // A sleeping tab keeps its logo (his ask, 2026-10-20): its last one, else the site's from bookmarks.
-      tabs: mine.map((x) => ({ id: x.id, opener: x.opener, title: x.title, url: x.url, favicon: x.favicon || this.iconOf(x.url), loading: x.loading, phase: x.phase ?? (x.loading ? 'loading' : 'idle'), prog: x.prog ?? 0, pending: x.pending ?? null, audible: x.audible, muted: x.muted, crashed: x.crashed, asleep: !x.view, blocked: x.blocked, failed: x.failed, trail: x.trail, done: x.done, lent: x.lent, popup: x.blockedPopup?.url ?? null })),
+      tabs: mine.map((x) => ({ id: x.id, opener: x.opener, title: x.title, url: x.url, favicon: x.favicon || this.iconOf(x.url), loading: x.loading, phase: x.phase ?? (x.loading ? 'loading' : 'idle'), prog: x.prog ?? 0, pending: x.pending ?? null, audible: x.audible, muted: x.muted, crashed: x.crashed, asleep: !x.view, blocked: x.blocked, failed: x.failed, trail: x.trail, done: x.done, lent: x.lent, popup: x.blockedPopup?.url ?? null, mock: x.mock ? this.mockTab(x) : null })),
+      // Sheet 47: the MOCKUPS trail's history (the whole list only while it is open), or null where mockups are off.
+      mockups: this.mockView(),
       // The trails with a tab in this window (or the one about to start here).
       trails: this.trails.filter((tr) => tr.id === this.pendingTrail || mine.some((x) => x.trail === tr.id)),
       drivers: this.driver.view(),

@@ -53,6 +53,16 @@ export function wireBrowser(get: () => AangBrowser | null): void {
     else if (a.act === 'trail' && Number.isInteger(a.id) && ['collapse', 'stash', 'ungroup', 'close'].includes(a.what)) b().trailAct(a.id, a.what);
     else if (a.act === 'stash' && Number.isInteger(a.id) && (a.what === 'restore' || a.what === 'forget')) b().stashAct(a.id, a.what);
   });
+  // Sheet 47: the MOCKUPS trail. A version to show, the history list, the broom, and the family tree (branches, children).
+  ipcMain.on('browser:mockup', (e, a) => {
+    if (!(top(e) && b()?.isFrame(e.sender)) || !a || typeof a.act !== 'string') return;
+    b().mockAct(a.act.slice(0, 12), {
+      id: Number.isInteger(a.id) ? a.id : undefined, open: a.open === true,
+      sheet: typeof a.sheet === 'string' ? a.sheet.slice(0, 400) : undefined,
+      to: Number.isInteger(a.to) ? a.to : typeof a.to === 'string' ? a.to.slice(0, 400) : null,
+      name: typeof a.name === 'string' ? a.name.slice(0, 60) : undefined,
+    });
+  });
   ipcMain.on('browser:find', (e, a) => { if ((top(e) && b()?.isFrame(e.sender)) && a && typeof a.text === 'string') b().find(a.text, a.next === true, a.back === true); });
   ipcMain.on('pagemenu:pick', (e, id) => { if (b()?.isMenu(e.sender)) b().menuPick(typeof id === 'string' ? id.slice(0, 20) : ''); });
   ipcMain.on('pagemenu:size', (e, r) => { if (b()?.isMenu(e.sender) && r) b().menuSize(Number(r.w) || 0, Number(r.h) || 0); });

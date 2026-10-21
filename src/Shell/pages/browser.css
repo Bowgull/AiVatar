@@ -820,3 +820,52 @@ html:not(.solo) .bw::after{content:"";flex:0 0 12px;background:url(art/browser/b
 .bm-key.c2 .bm-banner{left:auto;right:2px;--bx:0;max-width:140px}
 .bm-key.c1 .bm-rename{left:2px;transform:none}
 .bm-key.c2 .bm-rename{left:auto;right:2px;transform:none}
+
+/* ---- Sheet 47 (his picks, 2026-10-21): the MOCKUPS trail. Its head like the driver trails' (Claude's app icon), a small
+   FROM CLAUDE under it, a version tag on each mockup, branch sub-headings, and HISTORY in the chest's own look. ---- */
+.drawer .th.mock .nm{cursor:default}
+.drawer .th.mock .who-ic img{border-radius:4px;box-shadow:0 0 0 1.5px var(--outline);image-rendering:auto}
+.drawer .mfrom{font:400 7.5px var(--label);letter-spacing:1px;color:#ffb08a;margin:-4px 2px 8px 28px}
+.tp .ver{flex:0 0 auto;font:400 8px var(--label);letter-spacing:1px;padding:3px 5px 2px;border:none;border-radius:4px;background:rgba(0,0,0,.25);color:#ffe28c;cursor:pointer}
+.tp.on .ver{background:#4A2C6E;color:#efe6ff}
+.tp .ver:hover{filter:brightness(1.2)}
+.drawer .bh{display:flex;align-items:center;gap:6px;margin:10px 2px 6px 6px;font:700 11px var(--display);letter-spacing:1px;color:#ffe28c;text-shadow:0 2px 0 var(--outline)}
+.drawer .bh::after{content:"";flex:1;order:2;height:3px;border-radius:2px;background:linear-gradient(180deg,rgba(0,0,0,.55) 0 1.5px,rgba(255,224,150,.18) 1.5px 3px)}
+.drawer .bh .chev{flex:0 0 auto;width:14px;height:14px;padding:0;border:none;background:none;cursor:pointer;position:relative}
+.drawer .bh .chev::before{content:"";position:absolute;left:3px;top:4px;border:5px solid transparent;border-top:6px solid #ffe28c;border-bottom:0}
+.drawer .bh.folded .chev::before{left:5px;top:2px;border:5px solid transparent;border-left:6px solid #ffe28c;border-right:0}
+.drawer .bh .nm{cursor:text;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.drawer .bh .n{font:400 8px var(--label);color:#bfae8a;letter-spacing:.5px}
+.drawer .bh .thm{order:3;background:none;border:none;color:#bfae8a;font:700 13px var(--body);cursor:pointer;padding:0 4px;opacity:0}
+.drawer .bh:hover .thm{opacity:1}
+.drawer .bh input{font:700 11px var(--display);letter-spacing:1px;color:var(--gold-lit);background:#0B0718;border:2px solid var(--outline);border-radius:4px;padding:1px 5px;width:150px;outline:none}
+.drawer .onto{outline:2px solid var(--gold);outline-offset:2px;border-radius:9px}
+.drawer .mhist{display:flex;align-items:center;gap:9px;width:100%;margin:6px 0 0;padding:7px 10px;border-radius:9px;cursor:pointer;background:#0B0718;border:3px solid var(--outline);
+  box-shadow:0 3px 0 var(--outline),inset 0 2px 0 rgba(150,110,200,.25);font:400 9px var(--label);letter-spacing:1.5px;color:#ffe28c;text-align:left}
+.drawer .mhist .chev{margin-left:auto;width:0;height:0;border:5px solid transparent;border-top:6px solid #ffe28c;border-bottom:0}
+.drawer .mhist.open .chev{transform:rotate(180deg)}
+.drawer .mlist{margin:6px 0 4px;padding:8px 9px;border-radius:9px;border:3px solid var(--outline);box-shadow:0 3px 0 var(--outline);image-rendering:pixelated;
+  background:linear-gradient(rgba(0,0,0,.45),rgba(0,0,0,.55)),url(art/browser/tray.png) 0 0/128px 256px}
+.drawer .mlh{display:flex;align-items:center;gap:8px;margin:0 0 6px}
+.drawer .mlh b{font:400 8px var(--label);letter-spacing:1.5px;color:#c9b48e;font-weight:400}
+.drawer .mbroom{margin-left:auto;display:flex;align-items:center;gap:6px;padding:4px 8px 3px;border-radius:6px;cursor:pointer;background:linear-gradient(180deg,#ffe28c,#FFC43C);
+  color:#2a1c00;border:2px solid var(--outline);box-shadow:0 2px 0 var(--outline);font:400 8px var(--label);letter-spacing:1px}
+.drawer .mbroom img{width:14px;height:14px;image-rendering:pixelated}
+.drawer .mbroom:active{transform:translateY(2px);box-shadow:none}
+.drawer .mbranch{font:700 11px var(--display);letter-spacing:1px;color:#ffe28c;text-shadow:0 2px 0 var(--outline);margin:10px 0 2px}
+.drawer .msheet{font:700 12.5px var(--body);color:#f2e3c2;margin:8px 0 3px}
+.drawer .msheet.kid{margin-left:14px;font-size:12px}
+.drawer .mv{display:flex;align-items:center;gap:8px;width:100%;padding:3px 4px 3px 10px;border:none;border-left:2px solid rgba(255,224,150,.2);background:none;
+  font:500 12px var(--body);color:#c9b48e;cursor:pointer;border-radius:0 5px 5px 0;text-align:left}
+.drawer .mv.kid{margin-left:14px;width:calc(100% - 14px)}
+.drawer .mv:hover{background:rgba(255,196,60,.12)}
+.drawer .mv.now{color:#fff4dc}
+.drawer .mv i{font-style:normal;font:400 7.5px var(--label);letter-spacing:1px;padding:2px 4px 1px;border-radius:3px}
+.drawer .mv.now i{background:#3FBFAE;color:#08302b}
+.drawer .mv.dup{color:#8f7458;text-decoration:line-through;text-decoration-color:rgba(240,138,122,.7)}
+.drawer .mv.dup i{background:#f08a7a;color:#3a1008;text-decoration:none;display:inline-block}
+.drawer .mv .tm{margin-left:auto;font:400 8px var(--label);color:#a98e6a}
+.tabmenu button.exp i{font-style:normal;transition:transform .12s}
+.tabmenu button.exp.open i{transform:rotate(90deg)}
+.tabmenu .expbox{margin:0 0 2px}
+.tabmenu .expbox[hidden]{display:none}

@@ -375,6 +375,11 @@
       "at": "2026-10-21T00:30:00-04:00",
       "text": "Updates never leave a second Samara in your Dock.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-10-21T13:30:00-04:00",
+      "text": "Claude's mockups get their own trail, with every version.",
+      "kind": "feature"
     }
   ]
 }
