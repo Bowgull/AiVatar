@@ -385,6 +385,11 @@
       "at": "2026-10-21T15:00:00-04:00",
       "text": "Right-click a mockup to send it to Aang.",
       "kind": "feature"
+    },
+    {
+      "at": "2026-10-21T16:00:00-04:00",
+      "text": "Claude can file mockups into a branch.",
+      "kind": "feature"
     }
   ]
 }
