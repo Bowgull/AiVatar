@@ -460,6 +460,11 @@
       "at": "2026-10-22T01:10:00-04:00",
       "text": "Hold a Claude job in Aang's bubble to pop it out onto your desktop.",
       "kind": "feature"
+    },
+    {
+      "at": "2026-10-22T02:00:00-04:00",
+      "text": "Aang's speech bubble has a slim wooden edge.",
+      "kind": "feature"
     }
   ]
 }

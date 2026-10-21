@@ -1000,14 +1000,21 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
    (#bubble:not(.cockpit) / :not(.lantern)) so AANG_COCKPIT=1 still looks as it did, and the paper's own colours moved from
    the script's decorator into the .rimB custom properties (balloon.js names the pieces). */
 
-/* THE RIM, the one hook. Placeholder until sheet 54 picks the wood rim and studs: look B's paper with a thin dark-wood ink
-   edge (look A's edge). The chosen rim paints into #skin g.rim (balloon.js) and changes these numbers, nothing else. */
+/* THE RIM, the one hook. Sheet 55 S2, his pick (2026-10-21): a slim band of Samara's pixel wood round the paper and its
+   tail, no studs, no gold line. balloon.js draws it into #skin g.rim and marks the skin .rimmed; the ink line and the
+   hard shadow then step aside (the wood is the edge now). The ink values below are only what shows in the moment before
+   the wood's pieces are cut at page load. */
 .wrap.rimB{--paper-1:#FBF0D8;--paper-2:#F2E0BC;--paper-3:#E6CD9C;--rim-ink:#3d2614;--rim-w:3.5px;--rim-shade:rgba(40,20,5,.28)}
 .wrap.rimB:not(:has(#bubble.lantern)) #skin .p1{stop-color:var(--paper-1)}
 .wrap.rimB:not(:has(#bubble.lantern)) #skin .p2{stop-color:var(--paper-2)}
 .wrap.rimB:not(:has(#bubble.lantern)) #skin .p3{stop-color:var(--paper-3)}
 .wrap.rimB:not(:has(#bubble.lantern)) #skin .ink{stroke:var(--rim-ink);stroke-width:var(--rim-w)}
 .wrap.rimB:not(:has(#bubble.lantern)) #skin .hard{fill:var(--rim-shade)}
+#skin.rimmed .ink,#skin.rimmed .hard{display:none}
+/* The rim is 8 px of wood OUTSIDE the paper, so the bubble sits 8 px further up and left from him: its outer edge lands
+   where the old ink line was and the tail still reaches his head (bubble.js sendWindow makes the window 8 px bigger to
+   match; main.ts places the window exactly as before). */
+.wrap.rimB:not(:has(#bubble.lantern)){margin:0 86px 64px 14px}
 /* look B's room inside the rim */
 .wrap.rimB #bubble:not(.cockpit):not(.lantern){padding:19px 22px 19px}
 .wrap.rimB #bubble.whisper:not(.cockpit){padding:13px 18px 13px}
@@ -1064,9 +1071,10 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
 #bubble.widest:not(.cockpit):has(#aboutbox:not([hidden])){width:436px}
 /* Clicking Aang (sheet 53 section 3): the line he said a moment ago, small over the chat box, its age as a tiny stamp
    on the bubble's corner (bubble.js sets data-ago and .ago). */
-.wrap.tail.ago::after{content:attr(data-ago);position:absolute;left:auto;bottom:auto;width:auto;height:auto;border:none;transform:none;right:14px;top:-9px;z-index:4;font:400 8px/1 Silkscreen,monospace;letter-spacing:1.5px;color:#5c4426;
+.wrap.tail.ago::after{content:attr(data-ago);position:absolute;left:auto;bottom:auto;width:auto;height:auto;border:none;transform:none;right:14px;top:-17px;z-index:4;font:400 8px/1 Silkscreen,monospace;letter-spacing:1.5px;color:#5c4426;
   padding:4px 6px 3px;border-radius:5px;background:#fbf0d8;box-shadow:0 0 0 1.5px #9a7a48}
 .wrap.tail.ago:has(#bubble[hidden])::after{content:none}
+/* (top -17, was -9, 2026-10-21: the stamp sits on the wood rim's outer edge, 8 px further out than the old ink line) */
 
 /* ---- Sheet 52 (2026-10-21): pulling a Claude job out of the bubble, and putting it back ------------------------------
    Hold a bar half a second: a gold ring fills under the pointer (the sheet's .ringw, rule for rule, smaller to sit on

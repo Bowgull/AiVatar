@@ -4,7 +4,7 @@
 // is tested. This file is the part that needs a screen: measuring real lines of real text, and the
 // clicks.
 import { Reveal, TICK_MS, WORD_MS, hasMore, linesShown, scrolls, summaryOf } from './reveal.js';
-import { balloonPath, paintBalloon, PAD_R, PAD_B, DEFAULT_AIM, WIDEST_AFTER_LINES } from './balloon.js';
+import { balloonPath, paintBalloon, PAD_R, PAD_B, DEFAULT_AIM, WIDEST_AFTER_LINES, RIM_G, rimReady } from './balloon.js';
 import { HOLD_MS, askFrom } from './asks.js';
 import { blocks, shownWords } from './rich.js';
 import { find as findEntities } from './entities.js';
@@ -146,8 +146,14 @@ function paintSkin(w, h) {
   if (key === lastShape) return;
   lastShape = key;
   const d = balloonPath(w, h, head);
-  paintBalloon(skin, w + PAD_R, h + PAD_B, d, ++shapeId, wood);
+  paintBalloon(skin, w + PAD_R, h + PAD_B, d, ++shapeId, wood, rimOn() ? { w, h, head } : null);
 }
+// 2026-10-21, sheet 55 S2: his wood rim goes round look B's paper (never the Lantern's wood). It sits outside the paper,
+// so the window is RIM_G bigger and the bubble RIM_G further up and left from him (bubble.css .wrap.rimB margins): the
+// rim's outer edge lands where the old ink line was and the tail still reaches his head.
+function rimOn() { return wrapEl.classList.contains('rimB') && !bubble.classList.contains('lantern'); }
+// The rim's pieces are cut once band.png has loaded; whatever is showing then is redrawn with it.
+rimReady.then((ok) => { if (!ok) return; lastShape = ''; const r = bubble.getBoundingClientRect(); if (r.width) paintSkin(r.width, r.height); });
 
 // ---------------------------------------------------------------- growing, never popping (sheet 13)
 // One balloon, regenerated every frame at the size it has reached, never scaled. It grows on a 520 ms
@@ -221,7 +227,7 @@ function growTo(w, h, done) {
   const cs = getComputedStyle(bubble);
   if (w > 0) bubble.style.setProperty('--cw', Math.max(0, w - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)) + 'px');
   // The spring's overshoot never asks past the tallest window main.ts allows (it would cut the frame's top off).
-  const tallest = Math.max(h, SHAPE_MAX_H);
+  const tallest = Math.max(h, SHAPE_MAX_H - (rimOn() ? RIM_G : 0));
   if (bigger) sendWindow(Math.max(from.w, Math.ceil(from.w + (w - from.w) * (small ? 1 : OVERSHOOT))),
                          Math.min(tallest, Math.max(from.h, Math.ceil(from.h + (h - from.h) * (small ? 1 : OVERSHOOT)))));
   const t0 = performance.now();
@@ -269,8 +275,11 @@ function sendWindow(sw, sh) {
   // below: 18 above for the copy and rate keys, 56 under for the tail, of which 38 is new. Without the top room the keys sat outside the window and could never be
   // seen (first sweep, 2026-10-04); the tail would go the same way.
   // 14 on the left, not 6: the Smoother look's soft shadow spreads past the ink line.
-  const width = Math.ceil(r.width) + 14 + 78;
-  const height = Math.ceil(r.height) + 18 + 56 + 6;
+  // + RIM_G with the wood rim on (2026-10-21): it is 8 px of wood outside the paper, and bubble.css's .wrap.rimB
+  // margins move the bubble that much further from him inside the window.
+  const g = rimOn() ? RIM_G : 0;
+  const width = Math.ceil(r.width) + 14 + 78 + g;
+  const height = Math.ceil(r.height) + 18 + 56 + 6 + g;
   const key = width + 'x' + height;
   if (key === lastSize) return;               // resizing a window is not free
   lastSize = key;
