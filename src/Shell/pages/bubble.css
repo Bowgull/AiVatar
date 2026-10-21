@@ -695,6 +695,9 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
 #bubble.cockpit.ckwide{width:556px}
 #bubble.cockpit .lb-top{display:none}
 #bubble.cockpit .lb-list{padding-bottom:6px}
+/* (2026-10-21 audit) A row scrolled half out of the conversation was cut off hard right above the live answer, which read
+   as the two papers overlapping. The bottom edge now fades the way the top one always has, over its last 8 px. */
+#bubble.cockpit .lb-list{-webkit-mask-image:linear-gradient(180deg,transparent 0,#000 16px,#000 calc(100% - 8px),transparent);mask-image:linear-gradient(180deg,transparent 0,#000 16px,#000 calc(100% - 8px),transparent)}
 .ckjobs{margin:8px -2px 0}
 .ckjobs[hidden]{display:none}
 .ckpins{margin:8px -2px 0}
@@ -916,18 +919,37 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
 #lblist .lt-item.k-video.can .lt-head:hover,#lblist .lt-item.k-video.open .lt-head{background:rgba(255,220,160,.08)}
 .lt-tile img.lb-claude{border-radius:5px}
 .lt-tile .lb-key{display:block}
-/* the label: option C's carved letters (Silkscreen 7.5px, the kind's deep ink) on a tab of the slip's own paper */
-.lookback .lb-kind{position:absolute;left:45px;top:-6px;z-index:3;pointer-events:none;opacity:0;transition:opacity .15s ease-out;
-  font:400 7.5px Silkscreen,monospace;letter-spacing:1.5px;font-style:normal;white-space:nowrap;line-height:1;padding:3px 6px 2px;border-radius:4px;
-  color:var(--kd,#8a3e1c);background:var(--kp,#e9d3a6);box-shadow:0 0 0 1.5px var(--ke,rgba(120,80,30,.45)),0 2px 0 rgba(13,7,3,.35)}
-.lookback .lt-item:hover>.lb-kind{opacity:1}
-.lookback .k-claude{--kd:#b4532f;--kp:#f6e0d2;--ke:rgba(190,100,70,.6)}
-.lookback .k-action{--kd:#4f7a3c;--kp:#e6eed2;--ke:rgba(90,130,70,.6)}
-.lookback .k-video{--kd:#ffc43c;--kp:#2a1a10;--ke:#6a4628}
-.lookback .k-brief{--kd:#a0701c;--kp:#f9e7b8;--ke:rgba(170,120,40,.6)}
-@media (prefers-reduced-motion:reduce){.lookback .lb-kind{transition:none}}
+/* the label (his correction, 2026-10-21: "the real hover just opens the different paper slightly to show the little
+   label right there ... it just expands that particular bubble slightly"): option C's carved letters (Silkscreen 7.5px,
+   the kind's deep ink) INSIDE the row, right above the words, as sheet-48/c-tag.png has them. At rest the label is 0
+   tall; under the mouse (after lookback.js's short wait, so sweeping across rows does not set them all off) that one
+   row opens by the label's height and the rows below glide down. One animated length, --kh, drives the label's height
+   AND pushes the tile, time and REPLY key down with the words, so they all move as one piece and nothing rewraps.
+   Timing from "Grows, then fills" for a small change: 300 ms on Samara's ease opening, 240 ms closing. */
+@property --kh{syntax:'<length>';inherits:true;initial-value:0px}
+.lookback .lt-item{--kh:0px;transition:--kh 240ms cubic-bezier(.32,.72,0,1)}
+.lookback .lt-item.kshow{--kh:11px;transition-duration:300ms}
+.lookback .lt-item.know{transition:none}
+.lookback .lb-kind{display:block;height:var(--kh);overflow:hidden;pointer-events:none;
+  font:400 7.5px/11px Silkscreen,monospace;letter-spacing:1.5px;font-style:normal;white-space:nowrap;text-overflow:clip;color:var(--kd,#8a3e1c)}
+.lookback .lt-item>.lt-head>.lt-tile,.lookback .lt-item>.lt-head>.lt-when{margin-top:var(--kh)}
+.lookback .lt-item>.lb-rep{top:calc(6px + var(--kh))}
+.lookback .k-claude{--kd:#b4532f}
+.lookback .k-action{--kd:#4f7a3c}
+.lookback .k-video{--kd:#ffc43c}
+.lookback .k-brief{--kd:#a0701c}
+/* the conversation keeps its place by lookback.js's own rule (pinned to the newest, or the row stays put), not the
+   browser's scroll anchoring, which could pick the words inside the opening row and nudge the list by the label */
+#lblist{overflow-anchor:none}
+@media (prefers-reduced-motion:reduce){.lookback .lt-item,.lookback .lt-item.kshow{transition:none}}
 /* the live answer in the cockpit wears the same paper once its kind is known (bubble.js livePaper) */
-#bubble.cockpit:not(.ckask) #scroller.k-claude,#bubble.cockpit:not(.ckask) #scroller.k-action{padding:7px 8px;margin-left:-8px;margin-right:-8px;border-radius:8px;box-sizing:content-box}
+/* (2026-10-21 audit) The paper used to hang 8 px past the slips on each side, its right edge almost on the frame. Now
+   the live words always sit 8 px in, so the paper fills exactly the slips' column and the words do not rewrap when it
+   lands; while the balloon grows, the fixed content width (--cw) is kept minus that inset. The conversation sits 3 px
+   left of the bubble's content (.back.lookback's own margin), so the paper does too. */
+#bubble.cockpit:not(.ckask) #scroller{padding-left:8px;padding-right:8px;margin-left:-3px;margin-right:3px;box-sizing:content-box}
+#bubble.cockpit.sizing:not(.ckask) #scroller{width:calc(var(--cw) - 16px)}
+#bubble.cockpit:not(.ckask) #scroller.k-claude,#bubble.cockpit:not(.ckask) #scroller.k-action{padding-top:7px;padding-bottom:7px;border-radius:8px}
 #bubble.cockpit:not(.ckask) #scroller.k-claude{background:linear-gradient(#f6e0d2,#efd2bf);box-shadow:inset 0 0 0 2px rgba(190,100,70,.35)}
 #bubble.cockpit:not(.ckask) #scroller.k-action{background:linear-gradient(#e6eed2,#d9e6c2);box-shadow:inset 0 0 0 2px rgba(90,130,70,.35)}
 #bubble.cockpit:not(.ckask) #scroller.k-claude .said,#bubble.cockpit:not(.ckask) #scroller.k-claude .said *,

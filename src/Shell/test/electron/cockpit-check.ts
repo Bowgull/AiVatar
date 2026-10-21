@@ -8,7 +8,7 @@ import { app, BrowserWindow } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { servePages } from '../../src/pageserver.ts';
-import { writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 
 process.on('uncaughtException', (e) => { console.log('HARNESS ERROR ' + String((e as Error)?.stack ?? e)); app.exit(2); });
 process.on('unhandledRejection', (e) => { console.log('HARNESS REJECTION ' + String((e as Error)?.stack ?? e)); app.exit(2); });
@@ -223,22 +223,44 @@ app.whenReady().then(async () => {
   check('kinds: a yes he gave is done for you too', kinds[807]?.cls === 'k-action' && kinds[807]?.label === 'DONE FOR YOU', JSON.stringify(kinds[807]));
   check('kinds: only Claude rows wear Claude\'s icon, only done-for-you talk wears the key',
     (await js(`document.querySelectorAll('#lblist .lt-tile img.lb-claude').length`)) === 1 && (await js(`document.querySelectorAll('#lblist .lt-tile .lb-key').length`)) === 1);
-  const labelOf = (id: number) => js(`(() => { const l = document.querySelector('#lblist [data-id="${id}"] .lb-kind'); return l ? Number(getComputedStyle(l).opacity) : -1; })()`) as Promise<number>;
-  const rowH = () => js(`document.querySelector('#lblist [data-id="805"]').getBoundingClientRect().height`) as Promise<number>;
+  // His correction (2026-10-21): under the mouse the row itself opens a little to show the label inside it, above the
+  // words (sheet-48/c-tag.png), the rows below glide down, nothing overlaps; a quick sweep across rows opens none.
+  const geo = (id: number) => js(`(() => { const r = document.querySelector('#lblist [data-id="${id}"]'); const l = r?.querySelector('.lb-kind'); if (!r || !l) return null; const a = r.getBoundingClientRect(), b = l.getBoundingClientRect(), t = r.querySelector('.lt-txt b').getBoundingClientRect(); return { top: a.top, bottom: a.bottom, h: a.height, lh: b.height, lt: b.top, lb: b.bottom, ll: b.left, lr: b.right, left: a.left, right: a.right, wordsTop: t.top, shown: r.classList.contains('kshow') }; })()`) as Promise<{ top: number; bottom: number; h: number; lh: number; lt: number; lb: number; ll: number; lr: number; left: number; right: number; wordsTop: number; shown: boolean } | null>;
+  // Every row's box against the next one in its slip, and the conversation against the typing area under it.
+  const overlaps = () => js(`(() => { const bad = []; for (const s of document.querySelectorAll('#lblist .lt-slip')) { const rs = [...s.querySelectorAll(':scope > .lt-item, :scope > .lb-mine')].map(e => [e.dataset.id ?? 'mine', e.getBoundingClientRect()]); for (let i = 1; i < rs.length; i++) if (rs[i - 1][1].bottom > rs[i][1].top + 0.5) bad.push(rs[i - 1][0] + '>' + rs[i][0]); } const l = document.getElementById('lblist').getBoundingClientRect(), b = document.getElementById('bubble').getBoundingClientRect(), k = document.getElementById('ck').getBoundingClientRect(); if (l.bottom > k.top + 0.5) bad.push('list>typing'); if (k.bottom > b.bottom + 0.5) bad.push('typing past the frame'); return bad; })()`) as Promise<string[]>;
   await js(`document.querySelector('#lblist [data-id="805"]').scrollIntoView({ block: 'center' })`);
   await wait(200);
-  check('label: hidden while the mouse is away', (await labelOf(805)) === 0);
-  const h0 = await rowH();
+  const g0 = await geo(805);
+  check('label: closed while the mouse is away (0 tall, the row at rest)', Boolean(g0 && g0.lh < 0.5 && !g0.shown), JSON.stringify(g0));
   // The mouse moves over the row: sent to this off-screen page only, never to a real window.
   const at = await js(`(() => { const r = document.querySelector('#lblist [data-id="805"] .lt-txt').getBoundingClientRect(); return { x: Math.round(r.left + 20), y: Math.round(r.top + r.height / 2) }; })()`) as { x: number; y: number };
   w.webContents.sendInputEvent({ type: 'mouseMove', x: at.x, y: at.y });
+  await wait(30);
+  check('label: waits a moment before opening (no ripple when the mouse passes)', (await geo(805))?.shown === false);
+  await wait(110);
+  const gMid = await geo(805);
+  check('label: opens smoothly, partway there mid-way', Boolean(gMid && gMid.lh > 0.5 && gMid.lh < 10.5), JSON.stringify(gMid));
+  mkdirSync(path.join(HERE, 'perf-out'), { recursive: true });
+  writeFileSync(path.join(HERE, 'perf-out', 'kind-hover-mid.png'), (await w.webContents.capturePage()).toPNG());
   await wait(400);
-  check('label: shows under the mouse', (await labelOf(805)) === 1);
-  check('label: the other rows keep theirs hidden', (await labelOf(803)) === 0);
-  check('label: nothing moves when it shows', Math.abs((await rowH()) - h0) < 0.5);
+  const g1 = await geo(805);
+  check('label: the row grows by the label\'s height', Boolean(g0 && g1 && Math.abs(g1.h - g0.h - 11) < 1.5), `${g0?.h} -> ${g1?.h}`);
+  check('label: shows inside the row, above the words', Boolean(g1 && g1.lh > 10 && g1.lt >= g1.top && g1.lb <= g1.wordsTop + 0.5 && g1.ll >= g1.left && g1.lr <= g1.right + 0.5), JSON.stringify(g1));
+  check('label: the row is still the one under the mouse', (await js(`document.elementFromPoint(${at.x}, ${at.y})?.closest('[data-id]')?.dataset.id`)) === '805');
+  check('label: the other rows keep theirs closed', (await geo(803))?.lh === 0);
+  const ov = await overlaps();
+  check('label: no rows overlap, the typing area stays in the frame', ov.length === 0, ov.join(', '));
+  writeFileSync(path.join(HERE, 'perf-out', 'kind-hover.png'), (await w.webContents.capturePage()).toPNG());
   w.webContents.sendInputEvent({ type: 'mouseMove', x: 2, y: 2 });
-  await wait(400);
-  check('label: gone again when the mouse leaves', (await labelOf(805)) === 0);
+  await wait(450);
+  const g2 = await geo(805);
+  check('label: closes again when the mouse leaves, the row back at rest', Boolean(g0 && g2 && g2.lh < 0.5 && Math.abs(g2.h - g0.h) < 0.5), JSON.stringify(g2));
+  // A quick sweep down every row (20 ms on each, quicker than the wait): none of them opens.
+  const ys = await js(`[...document.querySelectorAll('#lblist .lt-item')].map(r => { const b = r.getBoundingClientRect(); return Math.round(b.top + b.height / 2); })`) as number[];
+  for (const y of ys) { w.webContents.sendInputEvent({ type: 'mouseMove', x: at.x, y }); await wait(20); }
+  w.webContents.sendInputEvent({ type: 'mouseMove', x: 2, y: 2 });
+  await wait(150);
+  check('label: a quick sweep across the rows opens none of them', (await js(`document.querySelectorAll('#lblist .lt-item.kshow').length`)) === 0);
   // The live answer wears its kind's paper too, and an ordinary one does not.
   await js(`window.__deliver({ t: 'bubble', text: 'Claude Code finished in Waymark, that one took 6 minutes.', stream: false, turn: 808, proactive: true, kind: 'claude', project: 'Waymark' })`);
   await wait(1500);

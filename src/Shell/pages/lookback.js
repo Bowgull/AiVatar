@@ -195,7 +195,84 @@ export function paintLookback(box, turns, ctx) {
     }
     slip.append(rowOf(t, d, ctx));
   }
+  // The row he was over when the conversation was redrawn (a click opening it, a new message) keeps its label open,
+  // without playing the opening again; if the mouse has gone by the time things settle, it closes as usual.
+  const again = list.querySelector('.lt-item[data-reshow]');
+  if (again) {
+    delete again.dataset.reshow;
+    showKind(again, true, true);
+    setTimeout(() => { if (!again.matches(':hover')) showKind(again, false); }, 300);
+  }
   return list;
+}
+
+// ---- the label opening under the mouse (his correction, 2026-10-21) --------------------------------------------------
+// Only the row under the mouse opens, and only after the mouse has rested on it a moment (80 ms): sweeping across the
+// conversation must not set off a ripple of rows opening and closing. Leaving closes it at once.
+const INTENT_MS = 80, OPEN_MS = 300;
+/** The row whose label is open, by its turn id, so a redraw keeps it. */
+let shownId = null;
+// The conversation stays where he is reading it. If it was scrolled to the newest, it stays pinned there while the row
+// opens (the rows above slide up, the hovered words stay under the mouse); otherwise the row stays put and the rows
+// below slide down. Pinning follows the row's own size every frame, before it is painted, so nothing jumps.
+const pinnedRows = new Set();
+const pinWatch = typeof ResizeObserver === 'function'
+  ? new ResizeObserver((es) => { for (const e of es) { const l = pinnedRows.has(e.target) ? e.target.closest('.lb-list') : null; if (l) l.scrollTop = l.scrollHeight; } })
+  : null;
+function follow(item, on) {
+  if (!pinWatch) return;
+  if (on) { pinnedRows.add(item); pinWatch.observe(item); setTimeout(() => follow(item, false), OPEN_MS + 120); }
+  else if (pinnedRows.delete(item)) pinWatch.unobserve(item);
+}
+
+function hoverKind(item) {
+  let wait = 0;
+  item.addEventListener('mouseenter', () => { clearTimeout(wait); wait = setTimeout(() => showKind(item, true), INTENT_MS); });
+  item.addEventListener('mouseleave', () => { clearTimeout(wait); showKind(item, false); });
+}
+
+/**
+ * Open (or close) one row's label. `instant` skips the motion, for a redraw or a measurement.
+ *
+ * The conversation is held at the height it has before the row opens: the bubble around it was sized for the rows at
+ * rest, so growing the list itself would push the typing area out of the frame. Inside that held height the list
+ * scrolls instead (bubble.js fitCockpit sets the height afresh whenever it measures).
+ */
+export function showKind(item, on, instant = false) {
+  if (!item?.isConnected || item.classList.contains('kshow') === on) return;
+  const list = item.closest('.lb-list');
+  if (instant) item.classList.add('know');
+  if (on) {
+    shownId = item.dataset.id ?? null;
+    let atBottom = false;
+    if (list) {
+      if (!list.style.maxHeight || list.style.maxHeight === 'none') {
+        const cs = getComputedStyle(list);
+        list.style.maxHeight = (cs.boxSizing === 'border-box' ? list.offsetHeight : list.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom)) + 'px';
+      }
+      atBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 2;
+    }
+    item.classList.add('kshow');
+    if (list && atBottom) { if (instant) list.scrollTop = list.scrollHeight; else follow(item, true); }
+  } else {
+    if (shownId === (item.dataset.id ?? null)) shownId = null;
+    follow(item, false);
+    item.classList.remove('kshow');
+  }
+  if (instant) { void item.offsetHeight; item.classList.remove('know'); }
+}
+
+/**
+ * For bubble.js's measuring: the conversation measured at rest. Any open label folds at once (no motion), and the
+ * returned function opens it again the same way once the sizes are set, so a label open under the mouse never makes
+ * the cockpit taller than its rows really are.
+ */
+export function restKinds(list) {
+  const open = list ? [...list.querySelectorAll('.lt-item.kshow')] : [];
+  const keep = shownId;
+  for (const r of open) { r.classList.add('know'); r.classList.remove('kshow'); }
+  if (open.length) void list.offsetHeight;
+  return () => { for (const r of open) { r.classList.remove('know'); showKind(r, true, true); } if (keep !== null) shownId = keep; };
 }
 
 function chevronUp() {
@@ -361,10 +438,13 @@ function rowOf(t, d, ctx) {
   if (small) w.append(T('small', '', small));
   head.append(w);
   item.append(head, replyKey(t, ctx));
-  // Sheet 48: the kind's paper, and its little label, which only shows under the mouse (bubble.css .lb-kind).
+  // Sheet 48: the kind's paper, and its little label right above the words, which the row opens to show under the
+  // mouse (his correction, 2026-10-21: the row grows, the label is not laid on top of it). bubble.css .lb-kind.
   if (kind) {
     if (kind.k) item.classList.add('k-' + kind.k);
-    item.append(T('i', 'lb-kind', kind.label));
+    txt.prepend(T('i', 'lb-kind', kind.label));
+    hoverKind(item);
+    if (shownId === String(t.id)) item.dataset.reshow = '1';
   }
   if (open) {
     item.classList.add('can');
