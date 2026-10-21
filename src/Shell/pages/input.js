@@ -260,7 +260,7 @@ function send() {
  * here is the cross that takes one off.
  */
 const pinnedRow = document.getElementById('pinned');
-function paintChips({ replyTo, pinned, snips, highlights, files } = {}) {
+function paintChips({ replyTo, pinned, snips, highlights, files, mockups } = {}) {
   if (!pinnedRow) return;
   pinnedRow.textContent = '';
   const chip = (kind, label, text, onDrop) => {
@@ -297,6 +297,17 @@ function paintChips({ replyTo, pinned, snips, highlights, files } = {}) {
   for (const h of highlights || []) {
     const c = chip('highlight', 'HIGHLIGHT', h.preview, () => window.aang?.dropChip?.({ kind: 'highlight', i: h.i }));
     c.classList.add('snip');
+    pinnedRow.append(c);
+  }
+  // A mockup sent from Samara (2026-10-21): its version (or how many) and its title, with a small picture when it has one.
+  for (const m of mockups || []) {
+    const c = chip('mockup', String(m.label || 'MOCKUP').slice(0, 12), m.title, () => window.aang?.dropChip?.({ kind: 'mockup', i: m.i }));
+    c.classList.add('snip');
+    if (typeof m.thumb === 'string' && m.thumb.startsWith('data:image/png;base64,')) {
+      const img = Object.assign(document.createElement('img'), { src: m.thumb, alt: '' });
+      img.style.cssText = 'height:16px;width:auto;border-radius:3px;vertical-align:middle;margin-right:4px';
+      c.prepend(img);
+    }
     pinnedRow.append(c);
   }
   // 6.17: a snip waiting to go with this message, in Snipit's pale blue.

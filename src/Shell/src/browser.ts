@@ -40,7 +40,7 @@ import { Visits, search as searchVisits, forAang, neverKeep, bankSite, type Visi
 import { BrowserSync, urlKept, type SyncCookie, type SyncMsg, type TabSnap } from './bsync.ts';
 import { Driver, type Job } from './driver.ts';
 import { Downloads, kindOf, trayOf, type Dl } from './dlist.ts';
-import { MockServer, MockStore, cleanPath, findRepo, resolveVersion, type MockVersion } from './mockups.ts';
+import { MockServer, MockStore, SHOT_MAX_BYTES, SHOT_MAX_W, cleanPath, findRepo, git, notesFrom, resolveVersion, type MockSend, type MockSendItem, type MockVersion } from './mockups.ts';
 
 /** A site name scrambled with this PC's own key: the file alone says nothing about where he has accounts. */
 /** What the update tray shows (sheet 35): the title ("Version 1.1.0: Gojo"), what the update does as groups of lines (a
@@ -274,6 +274,17 @@ const VEIL_FADE_MS = 250, VEIL_DIM_MS = 1500, VEIL_INSTANT_MS = 300, VEIL_MAX_MS
 /** Every call into a page, with a deadline: a crashed page never answers, and must never hang Aang. */
 function within<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
   return Promise.race([p.catch(() => fallback), new Promise<T>((r) => setTimeout(() => r(fallback), ms))]);
+}
+
+/**
+ * A picture for Aang (Send to Aang, 2026-10-21): at most 1200 px wide, as a PNG data URL, and dropped (null) when it
+ * would still be over 1.5 MB. A huge picture is never sent.
+ */
+export function fitShot(img: Electron.NativeImage | null, maxW = SHOT_MAX_W, maxBytes = SHOT_MAX_BYTES): string | null {
+  if (!img || img.isEmpty()) return null;
+  const fit = img.getSize().width > maxW ? img.resize({ width: maxW, quality: 'good' }) : img;
+  const url = 'data:image/png;base64,' + fit.toPNG().toString('base64');
+  return url.length <= maxBytes ? url : null;
 }
 
 /** Sheet 37: a Claude session's plan, as shown to him. */
@@ -2921,6 +2932,66 @@ export class AangBrowser {
   /** A branch just made from a tab's menu: the frame opens its name for typing, once. */
   private freshBranch = 0;
   /**
+   * Send a mockup to Aang (his pick, 2026-10-21): set by main only while Aang's body is running, like Send to Aang for
+   * words. The frame shows the item only while it is set, so a change redraws.
+   */
+  private sendMock: ((m: MockSend) => void) | null = null;
+  get onSendMockup(): ((m: MockSend) => void) | null { return this.sendMock; }
+  set onSendMockup(fn: ((m: MockSend) => void) | null) { const was = Boolean(this.sendMock); this.sendMock = fn; if (was !== Boolean(fn)) this.sendTabs(); }
+  /** One version as it travels: everything from mockups.json and git, the picture from its tab or a hidden page. */
+  private async mockItem(ver: MockVersion, picture: boolean): Promise<MockSendItem> {
+    const st = this.mockStore!;
+    const branchId = st.placeOf(ver.sheet).branch;
+    const html = await git(this.mockRepo, ['cat-file', 'blob', `${ver.commit}:${ver.sheet}`]);
+    return {
+      kind: 'mockup', title: ver.title, version: 'V' + ver.v, branch: st.branches.find((b) => b.id === branchId)?.name ?? null,
+      sheet: ver.sheet, commit: ver.commit, url: this.mockServer!.url(ver.commit, ver.sheet),
+      notes: typeof html === 'string' ? notesFrom(html) : '', picture: picture ? await this.mockShot(ver) : null,
+    };
+  }
+  /**
+   * A picture of one version. Its own tab when that tab shows exactly this picture; otherwise a hidden window off screen,
+   * in a session of its own that keeps nothing, opened on the versioned page and closed again.
+   */
+  private async mockShot(ver: MockVersion): Promise<string | null> {
+    const t = this.tabs.find((x) => x.mock?.sheet === ver.sheet && x.mock.key === ver.key && x.view && !x.crashed && !x.lent && !x.loading);
+    // A tab hidden under the drawer gives an empty picture: then the hidden page below takes it.
+    if (t?.view) { const shot = fitShot(await within(t.view.webContents.capturePage(), 3000, null)); if (shot) return shot; }
+    const w = new BrowserWindow({ show: false, width: 1280, height: 860, webPreferences: { ...SAFE_WEB_PREFERENCES, partition: 'aang-mockshot', offscreen: true } });
+    try {
+      lockDown(w.webContents);
+      const loaded = await within(w.loadURL(this.mockServer!.url(ver.commit, ver.sheet)).then(() => true), 8000, false);
+      if (!loaded) return null;
+      await new Promise((r) => setTimeout(r, 500));
+      return fitShot(await within(w.webContents.capturePage(), 3000, null));
+    } catch { return null; }
+    finally { if (!w.isDestroyed()) w.destroy(); }
+  }
+  /** Send to Aang: one version (a tab's, or a history line's), or a whole branch. Ids only, each looked up here. */
+  private async mockSend(what: 'tab' | 'version' | 'branch', id: number): Promise<MockSend | null> {
+    const st = this.mockStore, send = this.sendMock;
+    if (!st || !send || !Number.isInteger(id)) return null;
+    let out: MockSend | null = null;
+    if (what === 'version') { const v = st.get(id); if (v) out = await this.mockItem(v, true); }
+    else if (what === 'tab') {
+      const t = this.tabs.find((x) => x.id === id && x.mock);
+      const v = t ? [...st.list].filter((x) => x.sheet === t.mock!.sheet && x.key === t.mock!.key).sort((a, b) => b.at - a.at)[0] : undefined;
+      if (v) out = await this.mockItem(v, true);
+    } else {
+      const b = st.branches.find((x) => x.id === id);
+      if (b) {
+        // Each mockup in the branch (children too), its newest version, newest first; pictures for the first 4 only.
+        const sheets = [...new Set(st.list.map((x) => x.sheet))].filter((s) => st.placeOf(s).branch === b.id);
+        const newest = sheets.map((s) => st.list.filter((x) => x.sheet === s).sort((p, q) => q.at - p.at || q.id - p.id)[0]!).sort((p, q) => q.at - p.at).slice(0, 20);
+        const items: MockSendItem[] = [];
+        for (const [i, v] of newest.entries()) items.push(await this.mockItem(v, i < 4));
+        if (items.length) out = { kind: 'mockups', branch: b.name, items };
+      }
+    }
+    if (out && this.sendMock) this.sendMock(out);
+    return out;
+  }
+  /**
    * The frame's clicks: a version to show, the history list opened or shut, the broom, and his moves in the family tree
    * (his ask, 2026-10-21: branches > mockups > children, all by hand, kept in mockups.json with the history).
    */
@@ -2931,6 +3002,8 @@ export class AangBrowser {
     let why = '';
     switch (act) {
       case 'show': { const v = Number.isInteger(a.id) ? st.get(a.id!) : undefined; if (v) this.showMockup(v); return; }
+      // Send to Aang: the page names a number only; the Shell builds what goes.
+      case 'send': case 'sendtab': case 'sendbranch': if (Number.isInteger(a.id)) void this.mockSend(act === 'send' ? 'version' : act === 'sendtab' ? 'tab' : 'branch', a.id!); return;
       case 'list': this.mockList = a.open === true; break;
       // The broom (his rule): only when he presses it, and only exact duplicates.
       case 'broom': { const n = st.sweep(); if (n) this.note(`Removed ${n} duplicate${n === 1 ? '' : 's'}.`); break; }
@@ -2968,7 +3041,7 @@ export class AangBrowser {
     const st = this.mockStore;
     if (!st) return null;
     const all = st.list, dups = st.dups();
-    const out: Record<string, unknown> = { count: all.length, dups: dups.size, open: this.mockList, branches: st.branches.map((b) => ({ ...b })), fresh: this.freshBranch || null };
+    const out: Record<string, unknown> = { count: all.length, dups: dups.size, open: this.mockList, branches: st.branches.map((b) => ({ ...b })), fresh: this.freshBranch || null, toAang: Boolean(this.sendMock) };
     if (!this.mockList) return out;
     const shown = new Map(this.tabs.filter((t) => t.mock).map((t) => [t.mock!.sheet, t.mock!.key]));
     const bySheet = new Map<string, MockVersion[]>();
