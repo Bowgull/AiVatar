@@ -23,6 +23,8 @@ import type http from 'node:http';
 import path from 'node:path';
 import { reportWriteFailure, writeFileAtomic } from './atomic.ts';
 import { projectName } from './hooks.ts';
+import { ActivityKeeper, ProgressKeeper, etaOf, percentOf } from './claudeprogress.ts';
+import type { Activity, Progress, ToolDetail } from './claudeprogress.ts';
 
 // ------------------------------------------------------------------ the key and the MAC
 
@@ -73,6 +75,10 @@ export interface Job {
   percent: number | null;
   /** Rough time left from the pace of the tasks ticked so far; null until one is ticked. */
   etaMs: number | null;
+  /** The progress engine's authoritative numbers (claudeprogress.ts); null with no to-do list. Viewers creep from these. */
+  progress: Progress | null;
+  /** What it is doing right now, in plain words, and its helper agents (claudeprogress.ts). */
+  activity: Activity;
   usage: { contextPercent?: number; rateLimits?: { kind: string; percentUsed: number; resetsAt?: string }[]; costUsd?: number } | null;
   /** What he named the session in the Claude app, or its folder's name (claudenames.ts, 2026-10-21). */
   title: string;
@@ -130,8 +136,9 @@ export class JobTracker {
   /** Per waiting item: the answer, once he gave it, until the mod's poll takes it. */
   private readonly answers = new Map<string, Outgoing>();
   private readonly held = new Map<string, Held[]>();
-  private readonly firstTaskAt = new Map<string, number>();
-  private readonly doneTimes = new Map<string, number[]>();
+  /** Per session: the progress clock and the live activity (claudeprogress.ts, 2026-10-21). */
+  private readonly clocks = new Map<string, ProgressKeeper>();
+  private readonly acts = new Map<string, ActivityKeeper>();
   private readonly outboxWaiters = new Map<string, Waiter<Outgoing[]>>();
   private readonly answerWaiters = new Map<string, Waiter<Outgoing | null>>();
   /** Told whenever the jobs list or the waiting queue changes; the Core sends them on to the Shell. */
@@ -146,7 +153,7 @@ export class JobTracker {
     let j = this.jobs.get(session);
     if (!j) {
       j = { id: session, machine: 'pc', cwd, project: projectName(cwd), model: '', phase: 'idle', startedAt: now, lastActivity: now,
-        prompt: '', tasks: [], current: null, percent: null, etaMs: null, usage: null, title: projectName(cwd), open: null, held: 0 };
+        prompt: '', tasks: [], current: null, percent: null, etaMs: null, progress: null, activity: { now: '', since: now, agents: [] }, usage: null, title: projectName(cwd), open: null, held: 0 };
       this.jobs.set(session, j);
       this.prune(now);
     }
@@ -163,9 +170,12 @@ export class JobTracker {
     }
   }
 
+  private clock(session: string): ProgressKeeper { let c = this.clocks.get(session); if (!c) { c = new ProgressKeeper(); this.clocks.set(session, c); } return c; }
+  private act(session: string): ActivityKeeper { let a = this.acts.get(session); if (!a) { a = new ActivityKeeper(); this.acts.set(session, a); } return a; }
+
   private forget(session: string): void {
     this.jobs.delete(session); this.held.delete(session); this.outbox.delete(session);
-    this.firstTaskAt.delete(session); this.doneTimes.delete(session);
+    this.clocks.delete(session); this.acts.delete(session);
     for (const [id, w] of this.waits) if (w.session === session) this.drop(id);
     const ow = this.outboxWaiters.get(session); if (ow) { clearTimeout(ow.timer); this.outboxWaiters.delete(session); ow.resolve([]); }
   }
@@ -185,10 +195,14 @@ export class JobTracker {
       case 'start': break;
       case 'turn.start':
         j.phase = 'working';
+        this.clock(session).go(now);
+        this.act(session).turnStart(now);
         if (typeof ev?.prompt === 'string' && ev.prompt.trim()) j.prompt = cut(ev.prompt.trim(), 200);
         break;
       case 'turn.end': {
         j.phase = ev?.aborted === true && j.phase === 'paused' ? 'paused' : 'idle';
+        this.clock(session).stop(now);
+        this.act(session).clearTools(now);
         const u = ev?.usage;
         if (u && typeof u === 'object') j.usage = {
           ...(Number.isFinite(u.contextPercent) ? { contextPercent: Number(u.contextPercent) } : {}),
@@ -204,6 +218,16 @@ export class JobTracker {
       }
       case 'todos': this.setTasks(j, ev?.todos, now); break;
       case 'ask': this.ask(j, ev, now); break;
+      // The live description (2026-10-21): tools and helper agents as they start and end. A tool starting also means
+      // the session is at work, even if the brain missed the turn's start (it restarted mid-turn).
+      case 'tool.start':
+        if (j.phase === 'idle') j.phase = 'working';
+        this.clock(session).go(now);
+        this.act(session).toolStart(cut(ev?.id, 100), cut(ev?.tool, 120), readDetail(ev?.detail), now);
+        break;
+      case 'tool.end': this.act(session).toolEnd(cut(ev?.id, 100), now); break;
+      case 'agent.start': this.act(session).agentStart(cut(ev?.id, 100), cut(ev?.kind, 60), cut(ev?.what, 200), now); break;
+      case 'agent.end': this.act(session).agentEnd(cut(ev?.id, 100)); break;
       case 'resolved': if (this.waits.get(cut(ev?.id, 100))?.session === session) { this.drop(cut(ev?.id, 100)); this.onChange('wait'); } break;
       default: break;
     }
@@ -212,29 +236,24 @@ export class JobTracker {
 
   private setTasks(j: Job, todos: unknown, now: number): void {
     if (!Array.isArray(todos)) return;
-    const before = new Map(j.tasks.map(t => [t.text, t.status]));
     j.tasks = todos.slice(0, 100).map((t: any) => ({
       text: cut(t?.text, 300),
       status: (['pending', 'in_progress', 'completed'] as const).includes(t?.status) ? t.status as TaskStatus : 'pending',
       ...(t?.active ? { active: cut(t.active, 300) } : {}),
     })).filter(t => t.text);
-    if (j.tasks.length && !this.firstTaskAt.has(j.id)) this.firstTaskAt.set(j.id, now);
-    const times = this.doneTimes.get(j.id) ?? [];
-    for (const t of j.tasks) if (t.status === 'completed' && before.get(t.text) !== 'completed') times.push(now);
-    this.doneTimes.set(j.id, times.slice(-100));
+    this.clock(j.id).todos(j.tasks, now);
     this.measure(j, now);
     // A message held for "after this task" goes once that task is ticked (or is no longer in the list).
     this.release(j.id, (h) => h.afterTask !== null && !j.tasks.some(t => t.text === h.afterTask && t.status !== 'completed'));
   }
 
-  /** Percent done, the task in hand, and a rough time left from the pace so far. */
+  /** Percent done, the task in hand, and a time left from the pace so far: the progress engine's numbers (claudeprogress.ts). */
   private measure(j: Job, now: number): void {
-    const total = j.tasks.length, done = j.tasks.filter(t => t.status === 'completed').length;
     const cur = j.tasks.find(t => t.status === 'in_progress');
     j.current = cur ? (cur.active || cur.text) : null;
-    j.percent = total ? Math.round(done / total * 100) : null;
-    const start = this.firstTaskAt.get(j.id);
-    j.etaMs = done && start && done < total ? Math.round((now - start) / done * (total - done)) : (total && done === total ? 0 : null);
+    j.progress = this.clocks.get(j.id)?.snapshot(now) ?? null;
+    j.percent = percentOf(j.progress);
+    j.etaMs = etaOf(j.progress);
   }
 
   private ask(j: Job, ev: any, now: number): void {
@@ -298,11 +317,18 @@ export class JobTracker {
 
   // ---------------------------------------------- what the rest of the brain uses
 
-  /** Every session it knows, the most recently active first. */
-  list(): Job[] {
+  /**
+   * Every session it knows, the most recently active first. The progress numbers and the activity line are taken
+   * fresh at `now` (the moment they are sent), so a viewer's creep starts from the right place.
+   */
+  list(now = Date.now()): Job[] {
+    const waits = this.waiting();
     return [...this.jobs.values()].sort((a, b) => b.lastActivity - a.lastActivity).map(j => {
       const n = this.names?.of(j.id);
-      return { ...j, title: n?.title || j.project, open: n?.open ?? null, tasks: j.tasks.map(t => ({ ...t })) };
+      if (this.clocks.has(j.id)) this.measure(j, now);
+      const waiting = waits.find(w => w.session === j.id)?.kind ?? null;
+      const activity = this.act(j.id).snapshot(j.phase, waiting, now);
+      return { ...j, title: n?.title || j.project, open: n?.open ?? null, tasks: j.tasks.map(t => ({ ...t })), activity };
     });
   }
 
@@ -358,7 +384,7 @@ export class JobTracker {
 
   pause(session: string): string | null {
     const j = this.jobs.get(session); if (!j) return 'That session is not running.';
-    this.push(session, 'pause', {}); j.phase = 'paused'; this.onChange('jobs'); return null;
+    this.push(session, 'pause', {}); j.phase = 'paused'; this.clock(session).stop(Date.now()); this.onChange('jobs'); return null;
   }
 
   play(session: string, text?: string): string | null {
@@ -408,6 +434,17 @@ export class JobTracker {
     for (const w of this.answerWaiters.values()) { clearTimeout(w.timer); w.resolve(null); }
     this.outboxWaiters.clear(); this.answerWaiters.clear();
   }
+}
+
+/** The mod's tool detail, as strings of sane length; anything else is dropped. claudeprogress.ts strips secrets again. */
+function readDetail(d: unknown): ToolDetail {
+  if (!d || typeof d !== 'object') return {};
+  const out: Record<string, string> = {};
+  for (const k of ['cmd', 'desc', 'file', 'pattern', 'where', 'site', 'query', 'agent', 'kind', 'server', 'name', 'skill']) {
+    const v = (d as Record<string, unknown>)[k];
+    if (typeof v === 'string') out[k] = v.slice(0, 300);
+  }
+  return out as ToolDetail;
 }
 
 // ------------------------------------------------------------------ the door

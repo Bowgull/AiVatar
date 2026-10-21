@@ -2,6 +2,9 @@
 //
 // What it does, in one place:
 //   - tells Aang what the session is doing: its id, folder, model, turns, usage, and Claude's to-do list as it changes;
+//   - tells Aang, the moment it happens, which tool is running (a safe one-line summary: a command's first 60
+//     characters with anything secret-looking masked, a file's name, a site) and which helper agents start and end,
+//     for the live "what's happening" line on his job card (2026-10-21, src/Core/src/claudeprogress.ts);
 //   - tells Aang when Claude is waiting on Joshua (a permission, a question, a plan) and lets his answer from Aang
 //     decide it. Claude's own dialog is NOT hidden or delayed: Claude Code runs PermissionRequest hooks beside its
 //     dialog (checked in the 2.1.299 binary, both the terminal and the desktop app's path), and whichever he answers
@@ -17,7 +20,7 @@
 // it holds the key (HMAC over a fresh nonce); and every answer or message handed back must carry
 // HMAC(key, nonce + session + item id + kind + body) for the nonce of that very poll, or it is ignored.
 import type { EngineInterface, Register } from 'claude-code'
-import { MODEL_OK, hmacHex, nextTasks, nonce, sameMac, stableJson, summarize, toDecision } from './link.ts'
+import { MODEL_OK, activityOf, hmacHex, nextTasks, nonce, safeLine, sameMac, stableJson, summarize, toDecision } from './link.ts'
 import type { Task } from './link.ts'
 
 type $T = EngineInterface
@@ -51,6 +54,8 @@ interface Link {
   /** Tool calls running now, so an answer in Claude's own dialog can take Aang's card down. */
   running: Map<string, { tool: string; input: string; reqId?: string; answered?: boolean }>
   tasks: Map<string, Task>
+  /** Helper agents this module saw start, so only their own turn.complete reports an end. */
+  agents: Set<string>
 }
 
 /**
@@ -242,7 +247,7 @@ async function askAang($: $T, L: Link, signal: AbortSignal, tool: string, input:
 export const register: Register = on => {
   const L: Link = {
     base: '', keyPath: '', key: null, provenUntil: 0, downUntil: 0, inert: false, sessionId: '', cwd: '', model: '',
-    mainTurn: null, pumping: false, queue: Promise.resolve(), running: new Map(), tasks: new Map(),
+    mainTurn: null, pumping: false, queue: Promise.resolve(), running: new Map(), tasks: new Map(), agents: new Set(),
   }
 
   on('session.start', async ($, e, next) => {
@@ -256,7 +261,7 @@ export const register: Register = on => {
   on('session.end', async ($, e, next) => {
     post($, L, 'end', { reason: e.reason })
     // A /clear goes on as a new session: its id is read again at the next turn.
-    if (e.reason === 'clear') { L.sessionId = ''; L.tasks.clear() }
+    if (e.reason === 'clear') { L.sessionId = ''; L.tasks.clear(); L.agents.clear() }
     return next(e)
   })
 
@@ -272,19 +277,38 @@ export const register: Register = on => {
     if (e.agentId === undefined && !L.inert) {
       L.mainTurn = null
       void turnEnded($, L, e.isAborted).catch(() => {})
-    }
+    } else if (e.agentId !== undefined && L.agents.delete(e.agentId)) post($, L, 'agent.end', { id: e.agentId })
     return next(e)
   })
+
+  // A helper agent starting: its type and the few words Claude gave it. Its answer is its own turn.complete (above).
+  on('agent.spawn', async ($, e, next) => {
+    const r = await next(e)
+    if (!L.inert && r && !r.deny && r.agentId) {
+      L.agents.add(r.agentId)
+      post($, L, 'agent.start', { id: r.agentId, kind: safeLine(e.subagentType, 40), what: safeLine(e.description, 80) })
+    }
+    return r
+  }).catch(($, e, next) => next(e))
 
   on('tool.call', async ($, e, next) => {
     if (L.inert) return next(e)
     const { tool, tool_use_id: id, agentId, requestMeta: _meta, ...input } = e as unknown as Record<string, unknown> & { tool: string; tool_use_id: string; agentId?: string }
     const rec: { tool: string; input: string; reqId?: string; answered?: boolean } = { tool, input: stableJson(input) }
     L.running.set(id, rec)
+    // The live line: the main loop's tools only (a helper agent's own tools would be noise; its start and end are told).
+    let told = false
+    if (agentId === undefined) {
+      try {
+        const detail = activityOf(tool, input)
+        if (detail) { post($, L, 'tool.start', { id, tool, detail }); told = true }
+      } catch { /* a nicety: the tool runs either way */ }
+    }
     let r
     try { r = await next(e) }
     finally {
       L.running.delete(id)
+      if (told) post($, L, 'tool.end', { id })
       // Answered in Claude's own dialog (or the call ended): Aang takes its card down.
       if (rec.reqId && !rec.answered) post($, L, 'resolved', { id: rec.reqId })
     }

@@ -2152,16 +2152,20 @@ export class Core {
     const m = this.claudeMarks.update(this.claudeJobs.list(), this.claudeJobs.waiting(), this.workingNow().working);
     if (m) this.sendTo('desktop', m);
   }
-  /** Coalesced: a burst of to-do updates is one message, not twenty. The waiting queue goes at once. */
+  /**
+   * Coalesced: a burst of to-do updates is one message, not twenty. The waiting queue goes at once. 80 ms, under the
+   * progress engine's 100 ms ceiling (claudeprogress.ts rule 4, 2026-10-21): tool starts and ends must feel instant.
+   */
   private pushClaudeLink(what: 'jobs' | 'wait'): void {
-    if (what === 'wait') { this.sendTo('desktop', { t: 'claude.wait', items: this.claudeJobs.waiting() }); this.pushClaudeMark(); return; }
+    // A wait coming or going also changes a job's live line ("Waiting for your OK"), so the jobs follow it.
+    if (what === 'wait') { this.sendTo('desktop', { t: 'claude.wait', items: this.claudeJobs.waiting() }); this.pushClaudeMark(); what = 'jobs'; }
     this.claudePushWhat.add(what);
     if (this.claudePushTimer) return;
     this.claudePushTimer = setTimeout(() => {
       this.claudePushTimer = null; this.claudePushWhat.clear();
       this.sendTo('desktop', { t: 'claude.jobs', jobs: this.claudeJobs.list() });
       this.pushClaudeMark();
-    }, 150);
+    }, 80);
     this.claudePushTimer.unref?.();
   }
   /** The program in front, as the pet last said (its process name). Kept whether or not he lets Aang watch windows. */

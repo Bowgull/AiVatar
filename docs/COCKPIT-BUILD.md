@@ -137,3 +137,45 @@ In the brain: `core.claudeJobs.list()`, `.waiting()`, `.answer(id, a)`, `.send(s
 - Every new waiting item is rewritten in the background (src/Core/src/plainwords.ts): `WaitItem.plain` (one everyday sentence) and, for a single question, `options[i].plain`. A fresh `claude.wait` carries them a few seconds later; the bubble shows `plain` when set, else `summary`. Exact input stays one click away.
 - His words to a session (`claude.send`, `deny-message`, a question answer that is not one of Claude's labels) are made precise first, with his own words kept under them. Picked labels (several joined with ", ") go untouched.
 - Qwen on this PC first (free, steps aside in a game), Claude's quick model only as the fallback.
+
+## The progress engine (built 2026-10-21)
+
+His asks: every progress bar in Aang "airtight and real time", and the working drop-down saying in plain (slightly
+technical) words what the session is doing right now, then the to-do list. Code: `src/Core/src/claudeprogress.ts`
+(the numbers and the live line), `src/Shell/pages/claudejobs.js` (the one renderer), `claude-link/hooks/` (the reports).
+
+**The rules** (the same list heads claudeprogress.ts):
+1. Only real events move a bar: a task ticked, the to-do list rewritten, a tool starting or ending, a turn starting or
+   ending. Never a guess from wording.
+2. Never backwards, except when Claude rewrites its to-do list (fewer or different tasks, or a task un-ticked): then the
+   bar may drop, `rev` goes up, and the job says "Claude rewrote its list" for a few seconds. A viewer holds the
+   furthest it has drawn and only lets go when `rev` changed.
+3. Smooth between ticks: inside the task in hand the bar creeps by the pace so far (median working time per finished
+   task; 2 minutes before any has finished), straight up to 60% of a pace, then easing, never past 90% of that task's
+   slot. Computed by the viewer every frame from the brain's numbers, so it moves without the brain sending anything.
+   Working time stops while the session is idle between turns or paused.
+4. Real time: every change is pushed at once (the Core coalesces bursts for 80 ms); the mod reports tool start/end and
+   to-do changes as they happen. No polling for state.
+5. Honest: no to-do list = no percent (the busy sweep, "Working"), never a fake 0%; time left only once there is a real
+   pace; every estimate says "about".
+6. One engine, one look: the Core computes the numbers; the Shell has one model and one live renderer
+   (`progressModel`, `liveProgress`, `livePill`, `liveText`, `describeNow`, exported from claudejobs.js) for the jobs
+   strip, the job cards, Samara's rune panel and the pop-out. The pet's marks read the same tracker.
+
+**Wire additions.** Mod -> brain: `tool.start { id, tool, detail }` (detail: the safe bits only, `cmd` = a command's
+first 60 characters after masking anything key- or token-like, `desc`, `file` = a file's name only, `pattern`, `where`,
+`site` = a host name, `query`, `agent`, `kind`, `server`, `name`, `skill`; never file contents; the to-do tools are not
+reported), `tool.end { id }` (main loop only), `agent.start { id, kind, what }` (from `agent.spawn`), `agent.end { id }`
+(the agent's own `turn.complete`). The brain masks secrets again. Brain -> Shell, on every Job:
+- `progress: { done, total, cur, elapsedMs, at, paceMs|null, rev, rewroteAt|null } | null` (null = no to-do list).
+  `percent` and `etaMs` stay, worked out from the same numbers (ticked tasks only).
+- `activity: { now, since, agents: [{ kind, what, since }] }`. `now` comes from a small table (no model call):
+  "Running the tests · npm test -- --run", "Editing bubble.js", "Searching the code for "pill(" in pages",
+  "Reading a web page · github.com", "Using Samara · browser read", "Thinking" between tools, "Waiting for your OK"
+  while a permission is up, "Paused". The card adds "(12 s)" and "1 helper agent: reviewing the diff".
+
+**Other bars in Aang** (checked 2026-10-21): Samara's page-loading bar (browser.js) already follows the same idea (real
+load milestones, a creep capped at 90%, never back) and is another builder's file; the downloads ring fills from real
+bytes; the week/five-hour bars in the typing area are measurements, not job progress; timers count real time; the engine
+update key and the Waymark refresh have no bar at all. None needed converting. Samara's rune panel (rune.js) still
+draws its job bar with `pill(pctOf(...))` and should move to `livePill` / `liveText` / `describeNow`.
