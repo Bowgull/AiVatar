@@ -686,3 +686,85 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
 .vshot:hover .bigplay .face{transform:translateY(-4px)}
 .vshot:hover .bigplay::before{opacity:1;animation:none}
 .vshot:active .bigplay .face,.vshot.pressed .bigplay .face{transform:translateY(4px)}
+
+/* ---- the one cockpit (2026-10-21, sheet 46, his pick: the Lantern) -----------------------------------------------
+   Opened, the bubble is the Lantern: the conversation (the scroll-back) on its parchment slips, the thing waiting on
+   him pinned under it, the jobs strip, and the typing area as its bottom edge. About 460 wide to talk, 556 when a
+   video or a card is open in it. Everything below is scoped to #ck / .cockpit so the bubble Aang speaks in is unchanged. */
+#bubble.cockpit{width:460px}
+#bubble.cockpit.ckwide{width:556px}
+#bubble.cockpit .lb-top{display:none}
+#bubble.cockpit .lb-list{padding-bottom:6px}
+.ckjobs{margin:8px -2px 0}
+.ckjobs[hidden]{display:none}
+.cktype{display:block;margin:10px -6px -4px;padding:0}
+.cktype[hidden]{display:none}
+
+/* the typing box's own look (input.css, sheets 2, 9, 13, 16), carried over rule for rule and scoped here */
+#ck .box{position:relative;border:3px solid var(--outline);border-bottom:none;border-radius:20px 20px 0 0;padding:7px 7px 5px;
+  background:url(art/browser/band.png) 0 0/128px 58px;image-rendering:pixelated;box-shadow:inset 0 2px 0 rgba(255,220,170,.16)}
+#ck .field{position:relative;z-index:1;display:block;width:100%;box-sizing:border-box;resize:none;outline:none;margin:0;overflow-y:hidden;
+  min-height:0;border-radius:13px;border:1.5px solid rgba(0,0,0,.45);padding:9px 12px;font:500 15px/1.5 var(--body);color:#CFC0E4;
+  caret-color:var(--gold);background:linear-gradient(180deg,#331d52,#4A2C6E);box-shadow:inset 0 2px 4px rgba(0,0,0,.45);
+  scrollbar-width:thin;scrollbar-color:var(--plum-edge) transparent;transition:height .14s ease-out,box-shadow .2s}
+#ck .field:focus{box-shadow:inset 0 2px 4px rgba(0,0,0,.45),0 0 0 2px rgba(150,110,200,.55),0 0 12px rgba(150,110,200,.35)}
+#ck textarea.twin{position:absolute;left:-9999px;top:0;visibility:hidden;height:auto;overflow:hidden;transition:none;pointer-events:none}
+#ck .strip{position:relative;display:flex;align-items:center;gap:7px;border:3px solid var(--outline);border-top:none;border-radius:0 0 20px 20px;
+  padding:2px 12px 6px;min-height:24px;
+  background:linear-gradient(180deg,rgba(0,0,0,.18),rgba(0,0,0,.28)),url(art/browser/band.png) 0 29px/128px 58px;image-rendering:pixelated;
+  box-shadow:inset 0 -3px 0 rgba(0,0,0,.35)}
+#ck .segs{display:flex;gap:3px}
+#ck .segs i{width:6px;height:9px;border-radius:3px;border:1px solid var(--outline);background:#44301d}
+#ck .segs i.on{background:var(--green)}#ck .segs i.warn{background:var(--orange)}#ck .segs i.stop{background:var(--red)}
+#ck .pinned{display:flex;gap:7px;flex-wrap:wrap;padding:0 4px 9px}
+#ck .pinned[hidden]{display:none}
+#ck .pinchip{display:flex;align-items:center;gap:6px;font:600 11.5px var(--body);color:#2a1c00;background:var(--gold-lit);
+  border:2.5px solid var(--outline);border-radius:999px;padding:4px 5px 4px 10px}
+#ck .pinchip.reply{background:var(--claude);color:#3a1708}
+#ck .pinchip.snip{background:var(--avatar-glow);color:#1a2a3a}
+#ck .pinchip b{font:400 9px var(--label);letter-spacing:.5px;opacity:.75}
+#ck .pinchip s{width:15px;height:15px;border-radius:50%;background:rgba(0,0,0,.28);display:grid;place-items:center;font:700 11px var(--body);text-decoration:none;cursor:pointer}
+#ck .pill.sm{font-size:10.5px;border-width:2px;padding:2px 10px;box-shadow:0 2px 0 var(--outline),inset 0 2px 0 rgba(255,255,255,.3);transition:transform .15s cubic-bezier(.32,1.6,.5,1)}
+#ck .pill.sm:hover{transform:translateY(-1px)}
+#ck .pill.saving{background:var(--mode-saving);color:#15121b}
+#ck .pill.auto{background:var(--gold)}
+#ck .pill[hidden]{display:none}
+#ck .usage{display:flex;flex-direction:column;gap:2px;margin-left:auto}
+#ck .weekrow{position:relative;display:flex;gap:3px}
+#ck .pacetick{position:absolute;top:-2px;bottom:-1px;width:1.5px;background:var(--ink-text);box-shadow:0 0 0 1px rgba(0,0,0,.5);pointer-events:none}
+#ck .pacetick[hidden]{display:none}
+#ck .five{width:100%;height:3px;border-radius:2px;background:rgba(0,0,0,.45);overflow:hidden}
+#ck .fivefill{display:block;height:100%;width:0;background:var(--ink-dim);transition:width .2s linear}
+#ck .fivefill.warn{background:var(--orange)}#ck .fivefill.stop{background:var(--red)}
+#ck .hint{margin-left:auto;font:600 12px var(--body);color:#F1E4CC;white-space:nowrap;text-shadow:0 1px 0 rgba(0,0,0,.6)}
+#ck .hint[hidden]{display:none}
+#ck .strip.hinting .usage{display:none}
+#ck .askrow{display:flex;align-items:baseline;gap:8px;min-width:0;flex:1 1 auto}
+#ck .askrow[hidden]{display:none}
+#ck .askrow b{font:700 11.5px var(--body);color:var(--orange);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#ck .askrow .how{font:500 10.5px var(--body);color:#C8B49A;white-space:nowrap;margin-left:auto}
+#ck .strip.asking .usage,#ck .strip.asking .hint,#ck .strip.asking .pill{display:none}
+#ck .failrow{padding:0 6px 8px}
+#ck .failrow b{color:var(--orange)}
+#ck .failrow[hidden]{display:none}
+@media (prefers-reduced-motion:reduce){#ck .field{transition:none}}
+
+/* the conversation in the cockpit: what he said and Aang's answer, live, under the slips */
+#bubble.cockpit #scroller{margin-top:6px}
+.cock-mine{margin:4px 0 8px 64px;padding:7px 11px;border-radius:9px;font:600 13.5px/1.4 var(--body);color:#efe6ff;
+  background:linear-gradient(180deg,#331d52,#4A2C6E);box-shadow:inset 0 3px 0 rgba(0,0,0,.4),inset 0 -2px 0 rgba(150,110,200,.3)}
+
+/* the right-click menu, in Samara's own look (his ask, 2026-10-21): the browser's tab menu, the glove on hover */
+.turnmenu{width:auto;min-width:180px;padding:6px;border-radius:8px;overflow:visible;
+  background:linear-gradient(180deg,#56371F,var(--wood2));border:3px solid var(--outline);box-shadow:0 6px 0 rgba(0,0,0,.5),0 14px 24px rgba(0,0,0,.5)}
+.turnmenu .mrow{position:relative;display:flex;justify-content:space-between;width:100%;padding:7px 9px;border:none;border-radius:5px;background:none;cursor:pointer;
+  font:600 13px var(--body);letter-spacing:0;color:#E6DCC8;text-shadow:1px 1px 0 rgba(0,0,0,.7);text-align:left;min-height:0;transition:padding-left .08s ease-out}
+.turnmenu .mrow:hover{background:none;color:#ffe28c;padding-left:34px}
+.turnmenu .mrow:hover::before{content:"";position:absolute;left:4px;top:50%;width:24px;height:18px;margin-top:-9px;background:url(art/browser/hand.png) 0 0/24px 18px;image-rendering:pixelated}
+.turnmenu .mrow:last-child{color:#ff9a8a;margin-top:5px;border-top:3px solid rgba(0,0,0,.45);border-radius:0 0 5px 5px}
+/* the live answer and a waiting question sit on the Lantern's wood: light words, and a question framed in gold so it
+   reads as the one thing waiting on him (sheet 46's pinned card) */
+#bubble.cockpit .said,#bubble.cockpit .said *{color:#f2e3c2}
+#bubble.cockpit.ckask #scroller{margin-top:10px;padding:8px 11px;border-radius:10px;background:rgba(0,0,0,.28);
+  box-shadow:inset 0 0 0 2px var(--gold),0 0 12px rgba(255,190,90,.35)}
+#bubble.cockpit.ckask #scroller .said{font-weight:700}

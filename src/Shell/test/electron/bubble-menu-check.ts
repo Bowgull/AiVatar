@@ -51,11 +51,14 @@ app.whenReady().then(async () => {
   check('the menu closes after the pick', (await js(`!document.getElementById('turnmenu')`)) === true);
 
   // His history (the scroll-back): an old message, right-clicked, copied, replied to.
+  // Sheet 41: the scroll-back opens on a wheel up over the bubble, then its rows arrive.
+  await js(`document.getElementById('bubble').dispatchEvent(new WheelEvent('wheel', { deltaY: -120, bubbles: true }))`);
+  await wait(300);
   await js(`window.__deliver({ t: 'history.reply', items: [] })`);
   await wait(200);
   await js(`window.__deliver({ t: 'history.reply', items: [{ id: 7, ts: '2026-10-12T10:00:00Z', who: 'Aang', text: 'Your dentist moved to Thursday.' }, { id: 6, ts: '2026-10-12T09:59:00Z', who: 'you', text: 'when is my dentist' }] })`);
   await wait(400);
-  const old = await center('#back p.turn[data-id="7"]');
+  const old = await center('#back [data-id="7"]');
   check('an old message is in the scroll-back, knowing its id', Boolean(old));
   if (old) {
     await mouse(old.x, old.y, 'right');

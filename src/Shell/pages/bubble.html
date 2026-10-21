@@ -71,6 +71,32 @@
     <button id="copy" class="mini" title="Copy this reply">Copy</button>
   </div>
 
+  <!-- The one cockpit (2026-10-21, sheet 46): when he opens Aang, the bubble grows into a cockpit and these are its
+       bottom zones. The jobs strip (Claude's running jobs, sheet 45g) stays empty until the Claude link is built.
+       The typing area is the old typing box, moved in: the same wood frame, the same plum field, the same strip. -->
+  <div id="ckjobs" class="ckjobs" hidden></div>
+  <div id="ck" class="cktype" hidden>
+    <div id="ckPinned" class="pinned" hidden></div>
+    <div id="ckFail" class="askrow failrow" hidden></div>
+    <div class="box">
+      <textarea id="ckBox" class="field" rows="1" spellcheck="false" autocomplete="off"
+                aria-label="Say something to Aang"></textarea>
+    </div>
+    <div id="ckStrip" class="strip">
+      <button id="ckMode" class="pill sm" type="button" tabindex="-1"></button>
+      <button id="ckSaving" class="pill saving sm" type="button" tabindex="-1" hidden>Save quota</button>
+      <span id="ckHint" class="hint" hidden></span>
+      <span id="ckAskRow" class="askrow" hidden></span>
+      <span id="ckUsage" class="usage">
+        <span class="weekrow">
+          <span id="ckSegs" class="segs" aria-hidden="true"></span>
+          <span id="ckPaceTick" class="pacetick" aria-hidden="true" hidden></span>
+        </span>
+        <span class="five" aria-hidden="true"><span id="ckFiveBar" class="fivefill"></span></span>
+      </span>
+    </div>
+  </div>
+
 
 
 </div>
