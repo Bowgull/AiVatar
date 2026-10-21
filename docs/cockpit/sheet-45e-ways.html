@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 45e - Other ways</title>
+<!-- Sheet 45e (2026-10-21), his notes on 45d: the step tick is impossible to see; failed should be a cute little skull;
+     the job-complete tick looks wrong; the marks float far too high over Aang's head; the bars "aren't bad I guess",
+     closer but still far: imagine it other ways, go big. So this sheet stops drawing a bar and asks what Aang himself,
+     the space around him and the games he loves would do. All pixel art at whole-number scales; Aang is his real frames,
+     recoloured pixel by pixel where his arrow lights up. -->
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<link rel="stylesheet" href="../../src/Shell/pages/notefonts.css">
+<style>
+  html,body{background:#17110c;margin:0}
+  body{color:#e8dcc4;font-family:Figtree,sans-serif;padding:26px;width:1480px}
+  h1{font:400 21px Silkscreen,monospace;color:#FFC43C;letter-spacing:2px;margin:0 0 6px}
+  h2{font:400 13px Silkscreen,monospace;color:#FFC43C;letter-spacing:1.5px;margin:40px 0 6px}
+  h3{font:400 10px Silkscreen,monospace;color:#FFE096;letter-spacing:1.5px;margin:0 0 10px}
+  p{color:#cdbb9a;font-size:14.5px;line-height:1.55;margin:0 0 12px;max-width:1400px}
+  p b{color:#FFC43C}
+  .pick{display:inline-block;font:400 9px Silkscreen,monospace;letter-spacing:1px;color:#2a1c00;background:linear-gradient(180deg,#ffe28c,#FFC43C);border:2px solid #120A05;border-radius:4px;padding:3px 6px 2px;margin-right:6px;vertical-align:1px}
+  canvas{image-rendering:pixelated;display:block}
+  .grid{display:grid;grid-template-columns:repeat(3,460px);gap:22px}
+  .way{background:#1f160f;border-radius:14px;padding:14px;box-shadow:0 0 0 2px #2a1d12}
+  .way .why{font-size:13.5px;color:#cdbb9a;line-height:1.5;margin:12px 0 0}
+  .tile{position:relative;height:330px;border-radius:10px;overflow:hidden;background:radial-gradient(90% 70% at 30% 20%,#2a2238,#120c1a 70%)}
+  .tile .aang{position:absolute;left:50%;bottom:-6px;width:224px;height:224px;margin-left:-112px;z-index:2}
+  .tile .back{z-index:1}.tile .front{z-index:3}
+  .tile .layer{position:absolute;inset:0;pointer-events:none}
+  .tile .clock{position:absolute;left:10px;top:8px;z-index:6;font:400 8px Silkscreen,monospace;letter-spacing:1px;color:#8f7458}
+
+  /* the quest tracker, the way WoW lists objectives on the edge of the screen */
+  .tracker{position:absolute;left:14px;top:30px;z-index:5;width:220px;padding:10px 12px 10px 12px;border-radius:9px;
+    background:linear-gradient(90deg,rgba(18,10,5,.78),rgba(18,10,5,.0));font:600 12px/1.55 var(--body);color:#e8dcc4;text-shadow:0 1px 0 #000}
+  .tracker .tt{display:flex;align-items:center;gap:7px;font:700 13px var(--body);color:#f4cf8a;margin-bottom:4px}
+  .tracker .tt img{width:16px;height:16px;border-radius:4px}
+  .tracker .ob{display:flex;align-items:center;gap:7px;color:#a99878}
+  .tracker .ob i{flex:none;width:10px;height:10px;border-radius:2px;box-shadow:inset 0 0 0 2px #6b5236}
+  .tracker .ob.done{color:#7fa79f}
+  .tracker .ob.done i{background:#8ad5c9;box-shadow:0 0 6px rgba(138,213,201,.6)}
+  .tracker .ob.now{color:#fff4dc}
+  .tracker .ob.now i{box-shadow:inset 0 0 0 2px #ecc27e,0 0 6px rgba(236,194,126,.7)}
+  .tracker .ob.now b{margin-left:auto;font:400 8px Silkscreen,monospace;color:#ecc27e}
+  .tracker .ob.fresh{animation:fresh 1.2s ease-out}
+  @keyframes fresh{0%{color:#fff;text-shadow:0 0 10px #8ad5c9}100%{}}
+
+  /* floating text, the way WoW and Stardew pop numbers off a character */
+  .float{position:absolute;left:50%;z-index:7;transform:translateX(-50%);font:400 10px Silkscreen,monospace;letter-spacing:1.5px;white-space:nowrap;
+    text-shadow:0 2px 0 #000,0 0 8px currentColor;animation:rise 1.8s ease-out forwards;pointer-events:none}
+  @keyframes rise{0%{opacity:0;transform:translate(-50%,10px) scale(.7)}15%{opacity:1;transform:translate(-50%,0) scale(1.1)}25%{transform:translate(-50%,-4px) scale(1)}100%{opacity:0;transform:translate(-50%,-46px)}}
+
+  .marks{display:flex;gap:30px;flex-wrap:wrap}
+  .mk{position:relative;width:200px;height:230px;border-radius:12px;overflow:hidden;background:radial-gradient(90% 70% at 30% 20%,#2a2238,#120c1a 70%)}
+  .mk img{position:absolute;left:50%;bottom:-6px;width:224px;height:224px;margin-left:-112px;image-rendering:pixelated}
+  .mk .aura{position:absolute;left:50%;bottom:0;width:170px;height:170px;margin-left:-85px;border-radius:50%;animation:halo 2.6s ease-in-out infinite}
+  @keyframes halo{50%{opacity:.5;transform:scale(.92)}}
+  .mk canvas{position:absolute;left:50%;transform:translateX(-50%);z-index:3;animation:bob 1.4s ease-in-out infinite}
+  @keyframes bob{50%{translate:0 -3px}}
+  .mk b{position:absolute;left:10px;top:9px;z-index:4;font:400 9px Silkscreen,monospace;letter-spacing:1px}
+</style>
+</head>
+<body>
+<h1>SHEET 45E &middot; OTHER WAYS TO SHOW CLAUDE WORKING</h1>
+<p>Instead of drawing another bar, these ask what <b>Aang himself</b>, the <b>space around him</b> and the <b>games you love</b> would do. Each one runs a whole job on a loop: 6 tasks, a step finishing every few seconds, then the job completing. Watch each tile for a full cycle (about 25 seconds).</p>
+
+<h2>1 &middot; FIVE WAYS</h2>
+<div class="grid" id="grid"></div>
+
+<h2>2 &middot; THE MARKS, FIXED AND LOWERED</h2>
+<p>The marks now sit just over his head, a few pixels clear, instead of floating up near the top. <b>Step done</b> is a bold turquoise tick. <b>Job complete</b> is the tick pressed into a round terracotta seal (so it can never be mistaken for a step). <b>Failed</b> is a little cute skull in soft coral.</p>
+<div class="marks" id="marks"></div>
+
+<script>
+const R = (g, x, y, w, h, col) => { g.fillStyle = col; g.fillRect(x, y, w, h); };
+const P = (g, x, y, col) => R(g, x, y, 1, 1, col);
+const O = '#2a1a10';
+const FRAMES = '../../assets/aang/frames/';
+const TASKS = 6, CYCLE = 260, DONE_AT = 220;          // ticks of 100 ms: tasks fill to 220, then 4 s of "job complete"
+const prog = (t) => Math.min(1, (t % CYCLE) / DONE_AT);  // 0..1 through the job
+const done = (t) => (t % CYCLE) >= DONE_AT;
+const LOAD = {};
+function frame(name) { if (!LOAD[name]) { const im = new Image(); im.src = FRAMES + name + '.png'; LOAD[name] = im; } return LOAD[name]; }
+for (let i = 0; i < 16; i++) frame('idle_' + i); for (let i = 0; i < 12; i++) frame('think_' + i);
+
+let t = 0; const ticks = [];
+setInterval(() => { t++; for (const f of ticks) f(t); }, 100);
+
+/* a tile with Aang in it (a canvas, so his pixels can be changed) and two layers around him */
+function tile(name, pick, why) {
+  const d = document.createElement('div'); d.className = 'way';
+  d.innerHTML = `<h3>${pick ? '<span class="pick">MY PICK</span>' : ''}${name}</h3><div class="tile"><span class="clock"></span><canvas class="layer back" width="460" height="330"></canvas><canvas class="aang" width="224" height="224"></canvas><canvas class="layer front" width="460" height="330"></canvas></div><p class="why">${why}</p>`;
+  document.getElementById('grid').append(d);
+  const tl = d.querySelector('.tile');
+  return { el: tl, back: tl.querySelector('.back').getContext('2d'), front: tl.querySelector('.front').getContext('2d'), me: tl.querySelector('.aang').getContext('2d'), clock: tl.querySelector('.clock') };
+}
+function drawAang(ctx, t, glowArrow = null, eyes = false) {
+  const im = frame((glowArrow == null ? 'think_' + (t % 12) : 'idle_' + (t % 16)));
+  ctx.clearRect(0, 0, 224, 224);
+  if (!im.complete || !im.naturalWidth) return;
+  ctx.drawImage(im, 0, 0);
+  if (glowArrow == null) return;
+  // his arrow: the blue of his scalp lights from the top of his head down to its tip on his forehead
+  const id = ctx.getImageData(90, 60, 50, 60), px = id.data;
+  let minY = 99, maxY = -1;
+  const isArrow = (i) => px[i + 3] > 200 && px[i + 2] > px[i] + 40 && px[i + 2] > 180;
+  for (let y = 0; y < 60; y++) for (let x = 0; x < 50; x++) { const i = (y * 50 + x) * 4; if (isArrow(i)) { minY = Math.min(minY, y); maxY = Math.max(maxY, y); } }
+  const cut = minY + (maxY - minY + 1) * glowArrow;
+  for (let y = 0; y < 60; y++) for (let x = 0; x < 50; x++) {
+    const i = (y * 50 + x) * 4;
+    if (!isArrow(i)) continue;
+    if (y < cut) { const edge = y > cut - 2; px[i] = edge ? 255 : 196; px[i + 1] = edge ? 255 : 244; px[i + 2] = 255; }
+    else { px[i] = 52; px[i + 1] = 74; px[i + 2] = 128; }   // not lit yet: a deep, quiet blue, so the light reads as it fills
+  }
+  // eyes glowing white (the Avatar State) when the job completes
+  if (eyes) for (let y = 30; y < 50; y++) for (let x = 8; x < 42; x++) { const i = (y * 50 + x) * 4; if (px[i + 3] > 200 && px[i] < 70 && px[i + 1] < 70 && px[i + 2] < 90) { px[i] = 225; px[i + 1] = 250; px[i + 2] = 255; } }
+  ctx.putImageData(id, 90, 60);
+}
+const label = (c, t) => { const p = prog(t); c.textContent = done(t) ? 'JOB COMPLETE' : `TASK ${Math.min(TASKS, Math.floor(p * TASKS) + 1)} OF ${TASKS}`; };
+const floatText = (el, text, col, top) => { const f = document.createElement('div'); f.className = 'float'; f.textContent = text; f.style.color = col; f.style.top = top + 'px'; el.append(f); setTimeout(() => f.remove(), 1900); };
+const stepJustDone = (t) => { const a = Math.floor(prog(t - 1) * TASKS), b = Math.floor(prog(t) * TASKS); return b > a && b < TASKS; };
+
+/* ---- 1. His arrow lights up ---- */
+{
+  const T = tile('1 &middot; HIS ARROW LIGHTS UP', true, '<b>Aang is the progress bar.</b> The arrow on his head fills with light from the back of his head down to its tip as Claude works through the job. A step done: a little turquoise "STEP DONE" lifts off him. The job done: the arrow is fully lit and his eyes glow white for a moment, the Avatar State. No bar, no box: you just look at him.');
+  ticks.push((t) => {
+    const p = prog(t), c = done(t);
+    drawAang(T.me, t, c ? 1 : p, c && (t % CYCLE) < DONE_AT + 18);
+    T.back.clearRect(0, 0, 460, 330);
+    // a soft light behind his head that grows with the job
+    const gr = T.back.createRadialGradient(230, 196, 4, 230, 196, 30 + 50 * p);
+    gr.addColorStop(0, `rgba(200,240,255,${.25 + .35 * p})`); gr.addColorStop(1, 'rgba(200,240,255,0)');
+    T.back.fillStyle = gr; T.back.fillRect(0, 0, 460, 330);
+    if (stepJustDone(t)) floatText(T.el, 'STEP DONE', '#8ad5c9', 150);
+    if ((t % CYCLE) === DONE_AT) floatText(T.el, 'JOB COMPLETE', '#e8916f', 140);
+    label(T.clock, t);
+  });
+}
+
+/* ---- 2. Spirit orbs (FFX's pyreflies): one per task, circling him ---- */
+const ORB = ['.OOO.', 'OHHFO', 'OHFFO', 'OFFSO', '.OOO.'];
+function orb(g, x, y, col, k = 2) {
+  const pal = { O: 'rgba(0,0,0,0)', H: col[0], F: col[1], S: col[2] };
+  g.globalAlpha = .35; g.fillStyle = col[1]; g.beginPath(); g.arc(x + 5, y + 5, 9, 0, 7); g.fill(); g.globalAlpha = 1;
+  ORB.forEach((r, yy) => [...r].forEach((ch, xx) => { if (ch !== '.' && ch !== 'O') R(g, x + xx * k, y + yy * k, k, k, pal[ch]); }));
+}
+{
+  const T = tile('2 &middot; SPIRIT ORBS', false, 'One small orb per task circles him, like the pyreflies in FFX. Finished tasks are bright turquoise, the one being worked on is honey and pulsing, the rest are faint. When the job completes they spiral into him and flash. Beautiful at a glance; you count tasks without reading.');
+  const TQ = ['#e2fbf6', '#8ad5c9', '#3a857a'], HN = ['#fff1d2', '#ecc27e', '#a8733c'], DIM = ['#5b5476', '#3d3858', '#2a2640'];
+  ticks.push((t) => {
+    const p = prog(t), c = done(t), k = (t % CYCLE) - DONE_AT;
+    drawAang(T.me, t);
+    T.back.clearRect(0, 0, 460, 330); T.front.clearRect(0, 0, 460, 330);
+    const cur = Math.floor(p * TASKS);
+    for (let i = 0; i < TASKS; i++) {
+      const a = t / 18 + i * Math.PI * 2 / TASKS;
+      let rx = 92, ry = 22, cy = 236;
+      if (c) { const s = Math.max(0, 1 - k / 12); rx *= s; ry *= s; cy = 236 - (1 - s) * 70; }
+      const x = Math.round(230 + Math.cos(a) * rx - 5), y = Math.round(cy + Math.sin(a) * ry - 5);
+      const col = c || i < cur ? TQ : i === cur ? (t % 6 < 3 ? HN : ['#fff8e6', '#f4cf8a', '#c08646']) : DIM;
+      orb(Math.sin(a) > 0 ? T.front : T.back, x, y, col);
+    }
+    if (c && k > 10 && k < 20) { T.front.fillStyle = `rgba(200,250,240,${.5 - (k - 10) / 20})`; T.front.beginPath(); T.front.arc(230, 166, 40 + (k - 10) * 4, 0, 7); T.front.fill(); }
+    if (stepJustDone(t)) floatText(T.el, 'STEP DONE', '#8ad5c9', 150);
+    label(T.clock, t);
+  });
+}
+
+/* ---- 3. The quest tracker: WoW's objective list, beside him ---- */
+{
+  const T = tile('3 &middot; THE QUEST TRACKER', false, 'The list WoW keeps on the edge of your screen: the job in honey, its tasks under it from Claude\'s own to-do list, ticked as they finish, the current one bright with its percent. Readable without opening anything; hidden when nothing is running. Good next to Aang, or tucked into Samara\'s side.');
+  const tr = document.createElement('div'); tr.className = 'tracker'; T.el.append(tr);
+  const TASK_NAMES = ['Replay harness', 'Athlete model', 'Rules-only brain', 'AI joins in', 'Readiness meter', 'Test week'];
+  let lastCur = -1;
+  ticks.push((t) => {
+    const p = prog(t), c = done(t), cur = c ? TASKS : Math.floor(p * TASKS), sp = Math.round((p * TASKS - cur) * 100);
+    drawAang(T.me, t, null);
+    tr.innerHTML = `<div class="tt"><img src="sheet-45d/claude-icon.png" alt="">${c ? 'Coach brain: complete' : 'Waymark: coach brain'}</div>` + TASK_NAMES.map((n, i) => `<div class="ob ${i < cur ? 'done' : i === cur ? 'now' : ''}${i === cur - 1 && lastCur !== cur ? ' fresh' : ''}"><i></i>${n}${i === cur ? `<b>${sp}%</b>` : ''}</div>`).join('');
+    lastCur = cur;
+    if (stepJustDone(t)) floatText(T.el, 'STEP DONE', '#8ad5c9', 150);
+    label(T.clock, t);
+  });
+}
+
+/* ---- 4. A cast bar under his feet, numbers lifting off him ---- */
+{
+  const T = tile('4 &middot; A CAST BAR AT HIS FEET', false, 'While Claude works, Aang "casts": a slim cast bar sits on the ground under him with the task name, the way WoW shows your own cast under your character. Each finished task pops off him as floating text, and the bar starts the next task. Familiar, tidy, a bit more "UI".');
+  ticks.push((t) => {
+    const p = prog(t), c = done(t), cur = Math.floor(p * TASKS), sp = p * TASKS - cur;
+    drawAang(T.me, t, null);
+    const g = T.front; g.clearRect(0, 0, 460, 330);
+    const w = 150, x0 = 230 - w / 2, y0 = 292;
+    // the bar: dark wood rim, round ends, honey fill with a bright edge
+    g.fillStyle = '#3a2414'; g.beginPath(); g.roundRect(x0 - 2, y0 - 2, w + 4, 14, 7); g.fill();
+    g.fillStyle = '#1a100a'; g.beginPath(); g.roundRect(x0, y0, w, 10, 5); g.fill();
+    const fw = c ? w : Math.max(6, w * sp);
+    const lg = g.createLinearGradient(0, y0, 0, y0 + 10); lg.addColorStop(0, c ? '#d9f3ee' : '#fff1d2'); lg.addColorStop(.5, c ? '#58b0a3' : '#ecbd72'); lg.addColorStop(1, c ? '#2f6f66' : '#a8733c');
+    g.fillStyle = lg; g.beginPath(); g.roundRect(x0, y0, fw, 10, 5); g.fill();
+    if (!c) { g.fillStyle = '#fffaf0'; g.fillRect(x0 + fw - 2, y0 - 1, 2, 12); }
+    g.font = '700 9px Figtree, sans-serif'; g.textAlign = 'center'; g.fillStyle = '#2a1a10'; g.fillText(c ? 'Coach brain: complete' : ['Replay harness', 'Athlete model', 'Rules-only brain', 'AI joins in', 'Readiness meter', 'Test week'][cur], 230, y0 + 24); g.fillStyle = '#fff8ec'; g.fillText(c ? 'Coach brain: complete' : ['Replay harness', 'Athlete model', 'Rules-only brain', 'AI joins in', 'Readiness meter', 'Test week'][cur], 230, y0 + 23);
+    if (stepJustDone(t)) floatText(T.el, '+1 TASK', '#8ad5c9', 150);
+    if ((t % CYCLE) === DONE_AT) floatText(T.el, 'JOB COMPLETE', '#e8916f', 140);
+    label(T.clock, t);
+  });
+}
+
+/* ---- 5. The mix I would ship: arrow + orbs on him, the tracker when you hover ---- */
+{
+  const T = tile('5 &middot; THE MIX', true, 'At a glance, Aang himself: the arrow fills and the orbs circle (you read it from across the room). Hover him and the quest tracker slides out beside him with the task names. Click and the bubble opens the cast bar and job bar from 45d. Three levels of detail, one look.');
+  const tr = document.createElement('div'); tr.className = 'tracker'; tr.style.transition = 'opacity .25s, transform .25s'; T.el.append(tr);
+  const TQ = ['#e2fbf6', '#8ad5c9', '#3a857a'], HN = ['#fff1d2', '#ecc27e', '#a8733c'], DIM = ['#5b5476', '#3d3858', '#2a2640'];
+  const N = ['Replay harness', 'Athlete model', 'Rules-only brain', 'AI joins in', 'Readiness meter', 'Test week'];
+  ticks.push((t) => {
+    const p = prog(t), c = done(t), cur = c ? TASKS : Math.floor(p * TASKS), sp = Math.round((p * TASKS - Math.floor(p * TASKS)) * 100);
+    drawAang(T.me, t, c ? 1 : p, c && (t % CYCLE) < DONE_AT + 18);
+    T.back.clearRect(0, 0, 460, 330); T.front.clearRect(0, 0, 460, 330);
+    for (let i = 0; i < TASKS; i++) { const a = t / 18 + i * Math.PI * 2 / TASKS, x = Math.round(230 + Math.cos(a) * 92 - 5), y = Math.round(236 + Math.sin(a) * 22 - 5); orb(Math.sin(a) > 0 ? T.front : T.back, x, y, c || i < cur ? TQ : i === cur ? HN : DIM); }
+    const show = (t % 120) > 50 && (t % 120) < 110;     // the "hover", on a loop for the picture
+    tr.style.opacity = show ? 1 : 0; tr.style.transform = show ? 'none' : 'translateX(-10px)';
+    tr.innerHTML = `<div class="tt"><img src="sheet-45d/claude-icon.png" alt="">Waymark: coach brain</div>` + N.map((n, i) => `<div class="ob ${i < cur ? 'done' : i === cur ? 'now' : ''}"><i></i>${n}${i === cur ? `<b>${sp}%</b>` : ''}</div>`).join('');
+    if (stepJustDone(t)) floatText(T.el, 'STEP DONE', '#8ad5c9', 150);
+    label(T.clock, t);
+  });
+}
+
+/* ---------------- the marks, fixed, sitting just over his head ---------------- */
+const SHAPES = {
+  step: ['........OOO', '.......OHHO', '......OHFSO', '.OOO.OHFSO.', 'OHHOOHFSO..', 'OFHHHFSO...', '.OFFFSO....', '..OSSO.....', '...OO......'],
+  skull: ['..OOOOOOO..', '.OHHHHFFFO.', 'OHHFFFFFFSO', 'OHOOFFFOOSO', 'OFOOFFFOOSO', 'OFFFFOFFFSO', '.OFFFFFFSO.', '..OFOFOFO..', '..OOOOOOO..'],
+};
+// the seal for job complete: a round medallion, lit top-left, with the tick pressed in white
+function seal() {
+  const n = 15, rows = [];
+  const tick = new Set(['4,8', '5,9', '6,10', '7,9', '8,8', '9,7', '10,6', '11,5', '4,7', '5,8', '6,9', '7,8', '8,7', '9,6', '10,5', '11,4']);
+  for (let y = 0; y < n; y++) { let l = ''; for (let x = 0; x < n; x++) { const d = Math.hypot(x - 7, y - 7); l += d > 7.3 ? '.' : d > 6.3 ? 'O' : tick.has(x + ',' + y) ? 'W' : x + y < 9 ? 'H' : x + y > 19 ? 'S' : 'F'; } rows.push(l); }
+  return rows;
+}
+SHAPES.seal = seal();
+const mixc = (a, b, k) => a.map((v, i) => Math.round(v + (b[i] - v) * k));
+function draw(kind, c, px = 3) {
+  const m = SHAPES[kind], cv = document.createElement('canvas');
+  cv.width = (m[0].length + 1) * px; cv.height = (m.length + 1) * px;
+  const g = cv.getContext('2d'), pal = { O: [42, 26, 16], H: mixc(c, [255, 255, 255], .55), F: c, S: mixc(c, [40, 20, 10], .35), W: [255, 250, 240] };
+  g.fillStyle = 'rgba(0,0,0,.4)'; m.forEach((r, y) => [...r].forEach((ch, x) => { if (ch !== '.') g.fillRect((x + 1) * px, (y + 1) * px, px, px); }));
+  m.forEach((r, y) => [...r].forEach((ch, x) => { if (pal[ch]) { g.fillStyle = `rgb(${pal[ch]})`; g.fillRect(x * px, y * px, px, px); } }));
+  return cv;
+}
+const M = document.getElementById('marks');
+// his head's top sits about 72 px down a 224 px frame: the mark rests just above it
+for (const [k, c, name] of [['step', [138, 213, 201], 'STEP DONE'], ['seal', [232, 145, 111], 'JOB COMPLETE'], ['skull', [240, 138, 122], 'FAILED']]) {
+  const d = document.createElement('div'); d.className = 'mk';
+  d.innerHTML = `<i class="aura" style="background:radial-gradient(circle, rgba(${c},.45), rgba(${c},0) 66%)"></i><img src="../../assets/aang/frames/idle_0.png" alt=""><b style="color:rgb(${c})">${name}</b>`;
+  const cv = draw(k, c); d.append(cv);
+  const imgTop = 230 + 6 - 224, headTop = imgTop + 74;
+  cv.style.top = (headTop - cv.height - 6) + 'px';
+  M.append(d);
+}
+let fr = 0; setInterval(() => { fr = (fr + 1) % 16; for (const im of document.querySelectorAll('.mk img')) im.src = FRAMES + `idle_${fr}.png`; }, 140);
+</script>
+</body>
+</html>

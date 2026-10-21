@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 45f - The progress bar</title>
+<!-- Sheet 45f (2026-10-21), his call on 45e: he likes the quest tracker, but as the DETAIL of a real progress bar; the bar
+     itself shows overall completion and time left. Job complete stays a tick mark, bigger; step done is a smaller tick.
+     The bar is 45d's soft pill (round ends, dark-wood rim, honey and sea with depth), Claude's real icon. -->
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<link rel="stylesheet" href="../../src/Shell/pages/notefonts.css">
+<style>
+  html,body{background:#17110c;margin:0}
+  body{color:#e8dcc4;font-family:Figtree,sans-serif;padding:26px;width:1300px}
+  h1{font:400 21px Silkscreen,monospace;color:#FFC43C;letter-spacing:2px;margin:0 0 6px}
+  h2{font:400 13px Silkscreen,monospace;color:#FFC43C;letter-spacing:1.5px;margin:40px 0 6px}
+  p{color:#cdbb9a;font-size:14.5px;line-height:1.55;margin:0 0 12px;max-width:1200px}
+  p b{color:#FFC43C}
+  canvas{image-rendering:pixelated;display:block}
+  .row{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start}
+  .lab{font:400 9px Silkscreen,monospace;letter-spacing:1.5px;color:#8f7458;margin:0 0 6px}
+
+  /* the bubble card */
+  .card{width:440px;box-sizing:border-box;padding:12px 15px 13px;border-radius:12px;color:#21160a;cursor:pointer;background:radial-gradient(120% 90% at 30% 0%,#f7ead0,#e9d3a6);box-shadow:0 0 0 3px #120A05,0 6px 0 #0d0703;transition:box-shadow .15s}
+  .card:hover{box-shadow:0 0 0 3px #120A05,0 6px 0 #0d0703,0 0 0 5px rgba(255,196,60,.35)}
+  .head{display:flex;align-items:center;gap:8px}
+  .head img{width:20px;height:20px;border-radius:5px;box-shadow:0 0 0 1.5px rgba(106,70,40,.6)}
+  .head b{font:700 13.5px var(--body);color:#8a3e1c;text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:3px;text-decoration-color:rgba(224,122,79,.55)}
+  .head span{font:600 13px var(--body)}
+  .head .pct{margin-left:auto;font:400 11px Silkscreen,monospace;color:#3a2a18}
+  .bar{position:relative;margin:9px 0 0}
+  .under{display:flex;justify-content:space-between;margin-top:6px;font:500 12px var(--body);color:#6b5236}
+  .under b{font-weight:700;color:#3a2a18}
+  .chev{display:inline-block;width:0;height:0;border:5px solid transparent;border-top:6px solid #8f7458;border-bottom:0;margin-left:6px;vertical-align:1px;transition:transform .2s}
+  .card.open .chev{transform:rotate(180deg)}
+  /* the detail: the quest tracker, inside the card */
+  .detail{display:grid;grid-template-rows:0fr;transition:grid-template-rows .28s cubic-bezier(.3,.7,.2,1)}
+  .card.open .detail{grid-template-rows:1fr}
+  .detail>div{overflow:hidden}
+  .list{margin:10px 0 0;padding:10px 0 0;border-top:2px solid rgba(120,80,30,.18)}
+  .ob{display:flex;align-items:center;gap:9px;font:600 13px/1.9 var(--body);color:#8f7458}
+  .ob i{flex:none;width:12px;height:12px;border-radius:3px;box-shadow:inset 0 0 0 2px #b89a6a}
+  .ob.done{color:#4f7a72}
+  .ob.done i{background:#58b0a3;box-shadow:inset 0 0 0 2px #2f6f66}
+  .ob.done i::after{content:"";display:block;width:3px;height:6px;margin:1px 0 0 4px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+  .ob.now{color:#21160a}
+  .ob.now i{box-shadow:inset 0 0 0 2px #c08646,0 0 6px rgba(236,189,114,.8)}
+  .ob .mn{margin-left:auto;display:flex;align-items:center;gap:7px}
+  .ob .mn em{font-style:normal;font:400 9px Silkscreen,monospace;color:#8a5a28}
+  .ob .t{margin-left:auto;font:500 11.5px var(--body);color:#a98e6a}
+  .keys{display:flex;gap:6px;margin-top:10px}
+  .key.sm{padding:6px 10px 7px}
+
+  /* over his head */
+  .petbox{width:260px;height:250px;position:relative;border-radius:10px;background:radial-gradient(90% 70% at 30% 20%,#2a2238,#120c1a 70%)}
+  .petbox img.aang{position:absolute;left:18px;bottom:-6px;width:224px;height:224px;image-rendering:pixelated}
+  .petbox .over{position:absolute;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:3px}
+  .nm{display:flex;gap:7px;align-items:center;font:700 11px var(--body);color:#fff8ec;text-shadow:0 1px 0 #000,0 0 4px #000}
+  .nm img{width:13px;height:13px;border-radius:3px}
+  .nm i{font-style:normal;font:400 8px Silkscreen,monospace;color:#f4cf8a}
+
+  .marks{display:flex;gap:26px}
+  .mk{position:relative;width:200px;height:230px;border-radius:12px;overflow:hidden;background:radial-gradient(90% 70% at 30% 20%,#2a2238,#120c1a 70%)}
+  .mk img{position:absolute;left:50%;bottom:-6px;width:224px;height:224px;margin-left:-112px;image-rendering:pixelated}
+  .mk .aura{position:absolute;left:50%;bottom:0;width:170px;height:170px;margin-left:-85px;border-radius:50%;animation:halo 2.6s ease-in-out infinite}
+  @keyframes halo{50%{opacity:.5;transform:scale(.92)}}
+  .mk canvas{position:absolute;left:50%;transform:translateX(-50%);z-index:3;animation:bob 1.4s ease-in-out infinite}
+  @keyframes bob{50%{translate:0 -3px}}
+  .mk b{position:absolute;left:10px;top:9px;z-index:4;font:400 9px Silkscreen,monospace;letter-spacing:1px}
+</style>
+</head>
+<body>
+<h1>SHEET 45F &middot; THE PROGRESS BAR</h1>
+<p>One real progress bar for the whole job: <b>how much is done, the percent, and the time left</b>. A notch per task, the task being worked on softly glowing. Click it and it opens into the <b>quest tracker</b>: every task, ticked as it finishes, the current one with its own small bar. Click again and it folds back. The job below runs on a loop.</p>
+
+<h2>1 &middot; IN THE BUBBLE</h2>
+<div class="row">
+  <div><p class="lab">CLOSED (CLICK IT)</p><div class="card" id="c1"></div></div>
+  <div><p class="lab">OPENED</p><div class="card open" id="c2"></div></div>
+</div>
+
+<h2>2 &middot; OVER AANG'S HEAD</h2>
+<p>The same bar, slim, with the job's name and percent over it. Hover shows the time left; click opens the bubble above.</p>
+<div class="row"><div class="petbox" id="pet"><div class="over" id="over"></div><img class="aang" src="../../assets/aang/frames/think_0.png" alt=""></div></div>
+
+<h2>3 &middot; THE TICKS</h2>
+<p><b>Job complete</b> is a big, plain, bold tick in Claude's terracotta. <b>Step done</b> is the same tick, smaller, in sea turquoise. Both sit just over his head.</p>
+<div class="marks" id="marks"></div>
+
+<script>
+const CLAUDE = 'sheet-45d/claude-icon.png';
+const mk = (w, h, s) => { const c = document.createElement('canvas'); c.width = w; c.height = h; c.style.width = w * s + 'px'; c.style.height = h * s + 'px'; return c; };
+const P = (g, x, y, col, a = 1) => { g.globalAlpha = a; g.fillStyle = col; g.fillRect(x, y, 1, 1); g.globalAlpha = 1; };
+const TASKS = 6, MIN = [12, 18, 40, 25, 20, 10];          // each task's expected minutes (from how long such tasks take)
+const NAMES = ['Replay harness', 'Athlete model', 'Rules-only brain', 'AI joins in', 'Readiness meter', 'Test week'];
+const TOTAL = MIN.reduce((a, b) => a + b, 0);
+let t = 0; const ticks = []; setInterval(() => { t++; for (const f of ticks) f(t); }, 90);
+// the job on a loop: through all 6 tasks in ~30 s, then done for 4 s
+const CYC = 380, END = 330;
+const job = (t) => { const k = t % CYC; return k >= END ? 1 : (k / END); };
+const where = (p) => { let m = p * TOTAL, i = 0; while (i < TASKS - 1 && m >= MIN[i]) { m -= MIN[i]; i++; } return { i, f: Math.min(1, m / MIN[i]), left: Math.round(TOTAL * (1 - p)) }; };
+const fmt = (m) => m <= 0 ? 'done' : m >= 60 ? `about ${Math.floor(m / 60)} h ${m % 60} min left` : `about ${m} min left`;
+
+const HONEY = ['#fff1d2', '#fae0a8', '#f4cf8a', '#ecbd72', '#e2ab60', '#d39952', '#c08646', '#a8733c'];
+const SEA = ['#d9f3ee', '#b2e6dd', '#8ad5c9', '#6cc3b6', '#58b0a3', '#479a8e', '#3a857a', '#2f6f66'];
+const SEA_NOW = ['#f4fcfa', '#e2f6f1', '#cdeee6', '#b8e5db', '#a4dbcf', '#90cfc2', '#7fc2b5', '#6fb3a6'];
+
+/* the soft pill bar (45d): round ends, a dark-wood rim lit on top, a deep well, many-shade fill, gloss, sheen, a notch per
+   task where the tasks really end (long tasks are long pieces), the current task's piece paler and breathing */
+function pill(w, h, s, opts) {
+  const c = mk(w, h, s), g = c.getContext('2d'), r = Math.floor(h / 2);
+  const inside = (x, y) => { const cx = x < r ? r - .5 : x > w - 1 - r ? w - 1 - r + .5 : x, cy = y < r ? r - .5 : y > h - 1 - r ? h - 1 - r + .5 : y; return Math.hypot(x - cx, y - cy) <= r + .15; };
+  const bounds = []; let acc = 0; for (const m of MIN) { acc += m; bounds.push(acc / TOTAL); }
+  const draw = (t) => {
+    g.clearRect(0, 0, w, h);
+    const p = opts.p(t), { i } = where(p), done = p >= 1;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      if (!inside(x, y)) continue;
+      const rim = !inside(x - 1, y) || !inside(x + 1, y) || !inside(x, y - 1) || !inside(x, y + 1);
+      P(g, x, y, rim ? (y < h / 2 ? '#6a4628' : '#3a2414') : y === 1 ? '#1a100a' : '#2a1a10');
+    }
+    const inner = w - 2, fw = Math.round(inner * p);
+    const startNow = i === 0 ? 0 : bounds[i - 1], endNow = bounds[i];
+    const paint = (x0, x1, pal, a) => { for (let x = x0; x < x1; x++) for (let y = 1; y < h - 1; y++) if (inside(x, y) && inside(x - 1, y) || inside(x, y) && x > 1) { if (!inside(x, y)) continue; const k = (y - 1) / (h - 3); P(g, x, y, pal[Math.min(pal.length - 1, Math.round(k * (pal.length - 1)))], a); } };
+    if (!done) paint(1 + Math.round(inner * startNow), 1 + Math.round(inner * endNow), SEA_NOW, .7 + .2 * Math.sin(t / 7));
+    paint(1, 1 + fw, done ? SEA : opts.pal ?? SEA, 1);
+    for (let x = 2; x < fw; x++) if (inside(x, 2)) P(g, x, 2, '#ffffff', .45);
+    const sx = (t * 2) % (fw + 40) - 20; for (let x = sx; x < sx + 6; x++) if (x > 1 && x < fw) for (let y = 2; y < h - 2; y++) P(g, x, y, '#ffffff', .16);
+    if (opts.notches) for (const b of bounds.slice(0, -1)) { const x = 1 + Math.round(inner * b); for (let y = 2; y < h - 2; y++) P(g, x, y, '#2a1a10', .45); }
+    if (!done && fw > 2) for (let y = 1; y < h - 1; y++) { P(g, fw, y, '#fffaf0'); P(g, fw - 1, y, '#fff3d8', .5); P(g, fw + 1, y, '#fff3d8', .5); }
+  };
+  ticks.push(draw); draw(0);
+  return c;
+}
+
+function card(el) {
+  el.innerHTML = `<div class="head"><img src="${CLAUDE}" alt=""><b>Waymark</b><span>Coach brain</span><span class="pct"></span></div><div class="bar"></div>
+    <div class="under"><span class="lt"></span><span><b class="tk"></b><i class="chev"></i></span></div>
+    <div class="detail"><div><div class="list"></div><div class="keys"><button class="key sm" type="button">Pause</button><button class="key sm primary" type="button">Open in Claude</button></div></div></div>`;
+  el.querySelector('.bar').append(pill(136, 12, 3, { p: job, notches: true }));
+  const list = el.querySelector('.list');
+  const minis = NAMES.map(() => pill(36, 6, 2, { p: () => 0, pal: HONEY }));
+  list.innerHTML = NAMES.map((n, k) => `<div class="ob" data-k="${k}"><i></i>${n}<span class="t">${MIN[k]} min</span></div>`).join('');
+  el.addEventListener('click', (e) => { if (e.target.closest('.key')) return; el.classList.toggle('open'); });
+  ticks.push((t) => {
+    const p = job(t), w = where(p), done = p >= 1;
+    el.querySelector('.pct').textContent = Math.round(p * 100) + '%';
+    el.querySelector('.lt').textContent = done ? 'Job complete' : fmt(w.left);
+    el.querySelector('.tk').textContent = done ? `${TASKS} of ${TASKS} tasks` : `Task ${w.i + 1} of ${TASKS}`;
+    list.querySelectorAll('.ob').forEach((o) => {
+      const k = +o.dataset.k, isDone = done || k < w.i, isNow = !done && k === w.i;
+      o.className = 'ob' + (isDone ? ' done' : isNow ? ' now' : '');
+      const right = o.querySelector('.t, .mn');
+      if (isNow) { if (!o.querySelector('.mn')) { right.remove(); const m = document.createElement('span'); m.className = 'mn'; const em = document.createElement('em'); m.append(pill(36, 6, 2, { p: (tt) => where(job(tt)).f, pal: HONEY }), em); o.append(m); } o.querySelector('.mn em').textContent = Math.round(w.f * 100) + '%'; }
+      else if (o.querySelector('.mn')) { o.querySelector('.mn').remove(); const s = document.createElement('span'); s.className = 't'; o.append(s); }
+      const tt = o.querySelector('.t'); if (tt) tt.textContent = isDone ? 'done' : `${MIN[k]} min`;
+    });
+  });
+}
+card(document.getElementById('c1')); card(document.getElementById('c2'));
+
+/* over his head: name, percent, slim bar; sits just above his head (his head's top is about 74 px into the frame) */
+{
+  const o = document.getElementById('over');
+  o.innerHTML = `<div class="nm"><img src="${CLAUDE}" alt="">Waymark<i class="hp"></i></div>`;
+  o.append(pill(56, 7, 2, { p: job, notches: true }));
+  const imgTop = 250 + 6 - 224; o.style.top = (imgTop + 74 - 44) + 'px';
+  ticks.push((t) => { o.querySelector('.hp').textContent = Math.round(job(t) * 100) + '%'; });
+}
+let fr = 0; setInterval(() => { fr = (fr + 1) % 12; document.querySelector('.petbox img').src = `../../assets/aang/frames/think_${fr}.png`; }, 140);
+
+/* the ticks: one bold drawing, big for the job, small for a step */
+// one tick, drawn by rule: a short arm down, a long arm up at 45 degrees, a 2-pixel stroke, then outlined and lit
+function tickMap() {
+  const W = 14, H = 12, cells = new Set();
+  const put = (x, y) => { for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) cells.add((x + dx) + ',' + (y + dy)); };
+  for (let k = 0; k <= 3; k++) put(2 + k, 5 + k);            // the short arm
+  for (let k = 0; k <= 7; k++) put(5 + k, 8 - k);            // the long arm
+  const has = (x, y) => cells.has(x + ',' + y), rows = [];
+  for (let y = 0; y < H; y++) { let l = ''; for (let x = 0; x < W; x++) {
+    if (has(x, y)) l += !has(x - 1, y - 1) && (!has(x, y - 1) || !has(x - 1, y)) ? 'H' : !has(x + 1, y + 1) ? 'S' : 'F';
+    else l += [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, 1], [-1, 1], [1, -1]].some(([dx, dy]) => has(x + dx, y + dy)) ? 'O' : '.';
+  } rows.push(l); }
+  return rows;
+}
+const TICK = tickMap(), STEP = TICK;
+const mixc = (a, b, k) => a.map((v, i) => Math.round(v + (b[i] - v) * k));
+function draw(m, c, px) {
+  const cv = document.createElement('canvas'); cv.width = (m[0].length + 1) * px; cv.height = (m.length + 1) * px;
+  const g = cv.getContext('2d'), pal = { O: [42, 26, 16], H: mixc(c, [255, 255, 255], .55), F: c, S: mixc(c, [40, 20, 10], .35) };
+  g.fillStyle = 'rgba(0,0,0,.4)'; m.forEach((r, y) => [...r].forEach((ch, x) => { if (ch !== '.') g.fillRect((x + 1) * px, (y + 1) * px, px, px); }));
+  m.forEach((r, y) => [...r].forEach((ch, x) => { if (pal[ch]) { g.fillStyle = `rgb(${pal[ch]})`; g.fillRect(x * px, y * px, px, px); } }));
+  return cv;
+}
+const M = document.getElementById('marks');
+for (const [m, c, name, px] of [[TICK, [232, 145, 111], 'JOB COMPLETE', 4], [STEP, [138, 213, 201], 'STEP DONE', 2]]) {
+  const d = document.createElement('div'); d.className = 'mk';
+  d.innerHTML = `<i class="aura" style="background:radial-gradient(circle, rgba(${c},.45), rgba(${c},0) 66%)"></i><img src="../../assets/aang/frames/idle_0.png" alt=""><b style="color:rgb(${c})">${name}</b>`;
+  const cv = draw(m, c, px); d.append(cv);
+  cv.style.top = (230 + 6 - 224 + 74 - cv.height - 6) + 'px';
+  M.append(d);
+}
+let f2 = 0; setInterval(() => { f2 = (f2 + 1) % 16; for (const im of document.querySelectorAll('.mk img')) im.src = `../../assets/aang/frames/idle_${f2}.png`; }, 140);
+</script>
+</body>
+</html>
