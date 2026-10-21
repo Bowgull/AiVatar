@@ -1,0 +1,81 @@
+/* Sheet 52 (2026-10-21): the popped-out Claude job. The card rules are lifted verbatim from the approved mockup
+   (docs/cockpit/sheet-52/pop.css, .pj and its parts); only the window layout, the pressed-in pin and the motion hooks are
+   new. The page itself is see-through: nothing but the card, its slider and its readout is ever drawn. */
+html,body{margin:0;background:transparent;overflow:hidden;user-select:none;-webkit-user-select:none}
+body{font-family:Figtree,system-ui,sans-serif}
+
+/* the floating thing: the card's top-left sits at (16, 36) in the window (jobpop.ts CARD_X / CARD_Y) */
+.pw{position:absolute;left:16px;top:36px;width:372px;transform-origin:50% 50%}
+.pw.leaving{transition:opacity .2s ease,transform .2s cubic-bezier(.32,.72,0,1);opacity:0;transform:scale(.94)}
+
+/* ---- the job bubble, verbatim from sheet 52 ---- */
+/* The parchment and its rim are drawn on ::before, and the fade (--op) goes on that and on everything inside EXCEPT the
+   pin: his rule (2026-10-21) is that he can always find the pin, so at 30% the job is faint but the pin stays solid. */
+.pj{--op:1;position:relative;isolation:isolate;box-sizing:border-box;width:var(--w,372px);padding:8px 8px 8px 12px;border-radius:15px;color:#21160a;cursor:default;transition:filter .2s}
+.pj::before{content:"";position:absolute;inset:0;z-index:-1;border-radius:inherit;pointer-events:none;opacity:var(--op);transition:opacity .18s ease;
+  background:radial-gradient(120% 90% at 30% 0%,#f8ecd3,#e9d3a6);
+  box-shadow:0 0 0 3px #4a2e18,0 4px 0 #2a1a0e,inset 0 2px 0 rgba(255,255,255,.55),0 16px 30px rgba(0,0,0,.55)}
+.pj > :not(.top),.pj .top > :not(.pin){opacity:var(--op);transition:opacity .18s ease}
+.pj .top{display:flex;align-items:center;gap:8px;height:28px}
+.pj .ci{width:20px;height:20px;border-radius:5px;box-shadow:0 0 0 1px rgba(106,70,40,.5);flex:none}
+.pj .pr{font:700 14px Figtree,sans-serif;color:#8a3e1c;white-space:nowrap;flex:none;max-width:130px;overflow:hidden;text-overflow:ellipsis}
+.pj .pbw{flex:1;display:flex;justify-content:center;min-width:0}
+.pj .pct{flex:none;font:400 11px Silkscreen,monospace;color:#3a2a18}
+.pj .lt{flex:none;font:600 12.5px Figtree,sans-serif;color:#6b5236;white-space:nowrap;max-width:110px;overflow:hidden;text-overflow:ellipsis}
+.pj .chip{flex:none;font:400 9px Silkscreen,monospace;letter-spacing:1px;padding:5px 7px 3px;border-radius:6px;white-space:nowrap}
+.pj .chip.needs{all:unset;flex:none;font:400 9px Silkscreen,monospace;letter-spacing:1px;padding:5px 7px 3px;border-radius:6px;white-space:nowrap;cursor:pointer;
+  background:#7cc4ff;color:#0b2a44;box-shadow:0 0 0 2px #1d4f78,0 0 10px rgba(124,196,255,.65)}
+.pj .chip.needs:hover{background:#9ad3ff}
+.pj .chip.paused{background:#6f7787;color:#fff;box-shadow:0 0 0 2px #3c414b}
+.pj .pin{all:unset;cursor:pointer;flex:none;width:26px;height:28px;display:grid;place-items:center;border-radius:7px;transition:background .15s,box-shadow .15s}
+.pj .pin canvas{image-rendering:pixelated;display:block;transition:transform .1s}
+.pj canvas.jpill{image-rendering:pixelated;display:block}
+.pj .det{height:0;overflow:hidden}
+.pj.open .det{height:auto}
+.pj .inner{padding:2px 4px 2px 0}
+.pj .nowl{display:flex;align-items:center;gap:8px;margin:8px 0 0;padding:8px 0 0;border-top:2px solid rgba(120,80,30,.18);font:700 13px Figtree,sans-serif;color:#21160a}
+.pj .nowl .an{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pj .ag{font:600 12px Figtree,sans-serif;color:#6b5236;margin:3px 0 0 38px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pj .mc{flex:none;font:400 8px Silkscreen,monospace;letter-spacing:1px;color:#6b4318;border:1.5px solid rgba(107,67,24,.55);border-radius:4px;padding:2px 4px 1px}
+.pj .list{margin:4px 0 0}
+.pj .ob{display:flex;align-items:center;gap:9px;font:600 12.5px/1.85 Figtree,sans-serif;color:#8f7458}
+.pj .ob .tx{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pj .ob i{flex:none;width:12px;height:12px;border-radius:3px;box-shadow:inset 0 0 0 2px #b89a6a}
+.pj .ob.done{color:#4f7a72}.pj .ob.done i{background:#58b0a3;box-shadow:inset 0 0 0 2px #2f6f66}
+.pj .ob.done i::after{content:"";display:block;width:3px;height:6px;margin:1px 0 0 4px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.pj .ob.now{color:#21160a}.pj .ob.now i{box-shadow:inset 0 0 0 2px #c08646,0 0 6px rgba(236,189,114,.8)}
+.pj .ob .r{margin-left:auto;font:500 11px Figtree,sans-serif;color:#a98e6a}
+.pj .ob.now .r{font:400 9px Silkscreen,monospace;color:#8a5a28}
+.pj .ob.none{font-weight:500;color:#6b5236;line-height:1.5;margin-top:4px}
+.pj .ckeys{display:flex;gap:7px;margin:10px 0 6px;align-items:center}
+.pj .key.sm{padding:6px 11px 7px;font-size:13px}
+.pj .msg{all:unset;cursor:pointer;flex:none;display:grid;place-items:center;width:28px;height:26px;margin-left:auto;border-radius:7px;background:linear-gradient(180deg,#5a3486,#3a2160);box-shadow:0 0 0 2px #120A05,0 3px 0 #120A05}
+.pj .msg svg{width:15px;height:15px}
+/* paused: the pill goes grey (drawn so), the card a touch flatter */
+.pj.paused{filter:saturate(.55) brightness(.97)}
+.pj.paused .chip,.pj.paused .pin{filter:none}
+/* job complete: teal, the big tick, one key */
+.pj.done::before{background:radial-gradient(120% 90% at 30% 0%,#e6fbf7,#bfeee6);box-shadow:0 0 0 3px #1c6e64,0 4px 0 #0f3f39,inset 0 2px 0 rgba(255,255,255,.6),0 0 22px rgba(63,196,180,.5),0 16px 30px rgba(0,0,0,.5)}
+.pj.done .top{height:auto;align-items:center}
+.pj.done .big{flex:1;display:flex;align-items:center;gap:10px;min-width:0}
+.pj.done .big canvas{image-rendering:pixelated;flex:none}
+.pj.done .big b{display:block;font:400 13px Silkscreen,monospace;letter-spacing:1.5px;color:#14615a}
+.pj.done .big small{display:block;font:600 12.5px Figtree,sans-serif;color:#2c5a54;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pj.done .big > span:last-child{min-width:0}
+.pj.done .ckeys{margin:10px 0 4px}
+
+/* ---- the pin, his rule (2026-10-21): pinned must look clearly different, so he can always find it. Pressed into a
+   dark well, lit warm round the rim, and the pin itself sits a pixel lower, as if pushed in. ---- */
+.pj .pin.on{background:radial-gradient(70% 70% at 50% 40%,rgba(255,196,120,.35),rgba(120,60,25,.18));
+  box-shadow:inset 0 2px 3px rgba(42,26,16,.6),inset 0 0 0 1.5px rgba(106,70,40,.7),0 0 0 1.5px rgba(255,190,110,.9),0 0 9px rgba(255,160,80,.75)}
+.pj .pin.on canvas{transform:translateY(1px)}
+.pj .pin:not(.on):hover{background:rgba(120,80,30,.12)}
+
+/* ---- overlays beside the card that never fade with it (verbatim from sheet 52) ---- */
+.ro{position:absolute;top:-30px;right:-6px;font:400 12px Silkscreen,monospace;color:#fff;background:#0d0e10;border-radius:7px;padding:6px 8px 4px;box-shadow:0 0 0 2px #3a3d45;opacity:0;transform:translateY(4px);transition:opacity .15s,transform .15s;pointer-events:none;white-space:nowrap}
+.ro.on{opacity:1;transform:none}
+.vs{position:absolute;top:-2px;right:-34px;width:26px;height:96px;border-radius:13px;background:#1b130c;box-shadow:0 0 0 2px #4a2e18,0 6px 14px rgba(0,0,0,.5);opacity:0;transition:opacity .15s;pointer-events:none;cursor:ns-resize}
+.vs.on{opacity:1;pointer-events:auto}
+.vs canvas{image-rendering:pixelated;position:absolute;left:5px;top:6px}
+
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
