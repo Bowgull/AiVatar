@@ -62,6 +62,8 @@ import { clock as videoClock, diagnose, readVideo, siteOf as siteOfVideo, videoU
 import { HookServer, HookTracker, isLoopback } from './hooks.ts';
 import { JobTracker, LinkDoor, clearLinkKey, newLinkKey } from './claudelink.ts';
 import type { Answer as LinkAnswer } from './claudelink.ts';
+import { plainAsk, preciseReply } from './plainwords.ts';
+import type { Ask as PlainAsk } from './plainwords.ts';
 import { Reminders } from './reminders.ts';
 import { SessionStore } from './sessions.ts';
 import { ActivityLog, describe } from './activity.ts';
@@ -2100,6 +2102,31 @@ export class Core {
    */
   readonly claudeJobs = new JobTracker();
   private claudePushTimer: NodeJS.Timeout | null = null;
+  /**
+   * The two models that do the plain-words work (plainwords.ts): Qwen on this PC first, free, and it steps aside by
+   * itself while a game holds the graphics card; then Claude's quick model, with no tools and thinking off.
+   */
+  private plainAsks(): PlainAsk[] {
+    return [
+      async (prompt, o) => { const { askLocal } = await import('./local.ts'); const r = await askLocal(prompt, o); return { ok: r.ok, text: r.text }; },
+      async (prompt, o) => {
+        const lane = new Lane({ name: 'plain', model: MODELS.quick.model, systemPrompt: o.system, allowedTools: [], onlyTools: [], claudeExecutable: this.cfg.claudeExecutable, thinking: { type: 'disabled' } });
+        lane.onEvent(() => {});
+        try { const r = await lane.ask(prompt, o.timeoutMs); return { ok: !!r.text, text: r.text ?? '' }; }
+        catch { return { ok: false, text: '' }; }
+        finally { lane.close(); }
+      },
+    ];
+  }
+  /**
+   * His own words to a session, made precise (plainwords.ts). A question's answer that is one of Claude's own choices
+   * (or several of them) is left exactly as it is: Claude matches those by their label.
+   */
+  private async plainOut(session: string, words: string, labels: string[] = []): Promise<string> {
+    const t = words.trim();
+    if (!t || labels.includes(t) || (labels.length && t.split(/,\s*/).every(p => labels.includes(p)))) return t;
+    return preciseReply(t, this.claudeJobs.context(session), this.plainAsks());
+  }
   private claudePushWhat = new Set<'jobs' | 'wait'>();
   /** Coalesced: a burst of to-do updates is one message, not twenty. The waiting queue goes at once. */
   private pushClaudeLink(what: 'jobs' | 'wait'): void {
@@ -2482,6 +2509,9 @@ export class Core {
     const linkKey = newLinkKey(this.cfg.dataDir);
     if (linkKey) this.hookServer.link = new LinkDoor(linkKey, this.claudeJobs, () => this.selfCwd());
     this.claudeJobs.onChange = what => this.pushClaudeLink(what);
+    // Plain words (2026-10-21): every new ask is rewritten in the background; the card shows Claude's own summary
+    // until then, and keeps it if the rewrite fails.
+    this.claudeJobs.onAsk = item => { void plainAsk(item, this.plainAsks()).then(r => { if (r) this.claudeJobs.setPlain(item.id, r.plain, r.options); }); };
     // M6: the Mac's browser syncs with this PC's through here (bsynchub.ts).
     this.hookServer.upgrade = (req, socket, head) => this.bsync.upgrade(req, socket, head);
     // His yes (2026-10-13): Claude may look at the Mac browser's window. Saved in the Aang folder, on this PC only.
@@ -3234,17 +3264,31 @@ export class Core {
       case 'claude.answer': case 'claude.send': case 'claude.pause': case 'claude.play': case 'claude.model': {
         if (!this.shells.has(ws)) break;
         const s = String((m as { session?: unknown }).session ?? '');
-        let why: string | null;
+        const said =(why: string | null) => this.send(ws, { t: 'claude.said', of: m.t, ok: why === null, ...(why ? { why } : {}) });
+        // His words are rewritten before they go (plain words, 2026-10-21), so the answer may take a few seconds;
+        // the press itself is still the only thing that approves anything.
         if (m.t === 'claude.answer') {
-          const a: LinkAnswer = m.answers && typeof m.answers === 'object'
-            ? { answers: Object.fromEntries(Object.entries(m.answers).map(([k, v]) => [String(k), String(v)])) }
-            : { decision: m.decision ?? 'deny', ...(typeof m.message === 'string' ? { message: m.message } : {}) };
-          why = this.claudeJobs.answer(String(m.id ?? ''), a);
-        } else if (m.t === 'claude.send') why = this.claudeJobs.send(s, String(m.text ?? ''), m.when === 'after' ? 'after' : 'now');
-        else if (m.t === 'claude.pause') why = this.claudeJobs.pause(s);
+          const id = String(m.id ?? '');
+          const w = this.claudeJobs.waiting().find(x => x.id === id);
+          const target = w?.session ?? '';
+          if (m.answers && typeof m.answers === 'object') {
+            const raw = Object.entries(m.answers).map(([k, v]) => [String(k), String(v)] as const);
+            void Promise.all(raw.map(async ([q, v]) => [q, await this.plainOut(target, v, w?.questions?.find(x => x.question === q)?.options.map(o => o.label) ?? [])] as const))
+              .then(list => said(this.claudeJobs.answer(id, { answers: Object.fromEntries(list) })));
+          } else if (m.decision === 'deny-message' && typeof m.message === 'string') {
+            void this.plainOut(target, m.message).then(msg => said(this.claudeJobs.answer(id, { decision: 'deny-message', message: msg })));
+          } else {
+            const a: LinkAnswer = { decision: m.decision ?? 'deny', ...(typeof m.message === 'string' ? { message: m.message } : {}) };
+            said(this.claudeJobs.answer(id, a));
+          }
+          break;
+        }
+        if (m.t === 'claude.send') { const when = m.when === 'after' ? 'after' : 'now'; void this.plainOut(s, String(m.text ?? '')).then(t => said(this.claudeJobs.send(s, t, when))); break; }
+        let why: string | null;
+        if (m.t === 'claude.pause') why = this.claudeJobs.pause(s);
         else if (m.t === 'claude.play') why = this.claudeJobs.play(s, typeof m.text === 'string' ? m.text : undefined);
         else why = this.claudeJobs.setModel(s, String(m.model ?? ''));
-        this.send(ws, { t: 'claude.said', of: m.t, ok: why === null, ...(why ? { why } : {}) });
+        said(why);
         break;
       }
       // 9.D D7: a video from #capture, watched and diagnosed; an idea for Aang's plan.
