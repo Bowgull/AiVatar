@@ -2,7 +2,8 @@
 // read or written: the versioned page server's path rules, a .mockup file opening a tab in the trail, a newer version
 // updating that same tab (V2), the history surviving the trail being closed (mockups.json), duplicates found by picture and
 // removed only by the broom, the ... menu bringing the trail back, and the family tree (a lettered sheet filed under its
-// parent, branches renamed, moved, made top level, deleted without losing a mockup, the history grouped the same way).
+// parent, branches renamed, moved, made top level, deleted without losing a mockup, the history grouped the same way), and
+// a branch Claude names in the .mockup file (made or matched, a child moving its unbranched parent, bad names ignored).
 //
 // Run: npx electron test/electron/mockups-check.ts
 import { app, BrowserWindow, screen } from 'electron';
@@ -223,6 +224,39 @@ app.whenReady().then(async () => {
   const noise = Buffer.alloc(1200 * 900 * 4); for (let i = 0; i < noise.length; i++) noise[i] = (Math.random() * 256) | 0;
   check('a picture over 1.5 MB is dropped, not sent', fitShot(nativeImage.createFromBitmap(noise, { width: 1200, height: 900 })) === null);
   check('notes are capped at 1500 characters', notesFrom(`<!-- ${'word '.repeat(1000)} --><p>${'more '.repeat(1000)}</p>`).length === 1500);
+
+  // ---- 10. a branch Claude names in the .mockup file
+  const S46B = 'docs/cockpit/sheet-46b-more.html', S47 = 'docs/cockpit/sheet-47-trail.html', S48 = 'docs/cockpit/sheet-48-new.html', S48B = 'docs/cockpit/sheet-48b-kid.html';
+  put(S46B, sheet('Sheet 46b - More', 'b')); put(S47, sheet('Sheet 47 - Trail', 't')); put(S48, sheet('Sheet 48 - New', 'n')); put(S48B, sheet('Sheet 48b - Kid', 'k')); commit('more');
+  const mb = takeMockupFile(drop(JSON.stringify({ path: S46, branch: '  Claude \t link\u0007 ' })));
+  check('a .mockup branch is cleaned (control characters out, spaces collapsed)', mb?.path === S46 && mb?.branch === 'Claude link', JSON.stringify(mb));
+  const badB = [42, '', '   ', '\u0001\u0002', 'x'.repeat(41), { n: 'a' }, ['a'], null, true].map((v) => takeMockupFile(drop(JSON.stringify({ path: S46, branch: v }))));
+  check('bad branch values are ignored, the mockup still opens', badB.every((m) => m?.path === S46 && m.branch === null), JSON.stringify(badB));
+  check('a branch of exactly 40 characters is kept', takeMockupFile(drop(JSON.stringify({ path: S46, branch: 'y'.repeat(40) })))?.branch === 'y'.repeat(40));
+  const brs = () => b.mockStore.branches.map((x: any) => x.name);
+  const nBr = brs().length;
+  await b.openMockup(S46, '', mb!.branch); await wait(300);
+  const cl = () => b.mockStore.branches.find((x: any) => x.name === 'Claude link');
+  check('a branch is made on arrival, and the sheet is in it', brs().length === nBr + 1 && !!cl() && b.mockStore.placeOf(S46).branch === cl()?.id, JSON.stringify(brs()));
+  await b.openMockup(S47, '', 'CLAUDE LINK'); await wait(300);
+  check('an existing branch is matched, any case (no second one)', brs().length === nBr + 1 && b.mockStore.placeOf(S47).branch === cl()?.id, JSON.stringify(brs()));
+  await b.openMockup(S46B, '', 'Other'); await wait(300);
+  check('a child arriving with a branch stays with its branched parent; nothing made', b.mockStore.placeOf(S46B).parent === S46 && b.mockStore.placeOf(S46B).branch === cl()?.id && !brs().includes('Other') && b.mockStore.placeOf(S46).branch === cl()?.id, JSON.stringify(brs()));
+  await b.openMockup(S48); await wait(200);
+  check('a sheet with no branch stays at the top level', b.mockStore.placeOf(S48).branch === null);
+  await b.openMockup(S48B, '', 'fresh ideas'); await wait(300);
+  const fr = b.mockStore.branches.find((x: any) => x.name === 'fresh ideas');
+  check('a child arriving with a branch moves its unbranched parent there, and stays its child', !!fr && b.mockStore.placeOf(S48).branch === fr.id && b.mockStore.placeOf(S48B).parent === S48 && b.mockStore.placeOf(S48B).branch === fr.id);
+  check('45 starts in the branch he chose (Kept), with 45g under it', b.mockStore.placeOf(S45).branch === kept.id && b.mockStore.placeOf(S45G).parent === S45);
+  await b.openMockup(S45, '', 'claude LINK'); await wait(300);
+  check('an explicit branch moves it out of his branch, and its child follows', b.mockStore.placeOf(S45).branch === cl()?.id && b.mockStore.placeOf(S45G).parent === S45 && b.mockStore.placeOf(S45G).branch === cl()?.id);
+  await b.openMockup(S47, '', null); await wait(200);
+  check('opening again with no branch leaves it where it is', b.mockStore.placeOf(S47).branch === cl()?.id);
+  const reread = new MockStore(path.join(st, 'mockups.json'));
+  check('the branches and moves are kept in mockups.json', reread.branches.some((x) => x.name === 'Claude link') && reread.placeOf(S46).branch === reread.branches.find((x) => x.name === 'Claude link')?.id && reread.placeOf(S48B).branch === reread.branches.find((x) => x.name === 'fresh ideas')?.id);
+  await wait(400);
+  const heads = JSON.parse(await frame.executeJavaScript(`JSON.stringify([...document.querySelectorAll('#tabs .bh .nm')].map((x) => x.textContent))`));
+  check('the trail redraws with the new branches', heads.includes('Claude link') && heads.includes('fresh ideas'), JSON.stringify(heads));
 
   console.log(bad ? `${bad} FAILED` : 'ALL PASS'); app.exit(bad ? 1 : 0);
 });

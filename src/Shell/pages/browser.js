@@ -1198,7 +1198,7 @@ function branchHead(b, n) {
   chev.setAttribute('aria-label', b.folded ? 'Unfold this branch' : 'Fold this branch');
   chev.addEventListener('click', (e) => { e.stopPropagation(); window.aang?.browserMockup?.({ act: 'bfold', id: b.id }); });
   const nm = Object.assign(document.createElement('span'), { className: 'nm', textContent: b.name, title: 'Click to rename' });
-  nm.addEventListener('click', (e) => { e.stopPropagation(); renameIn(nm, b.name, 24, (name) => window.aang?.browserMockup?.({ act: 'brename', id: b.id, name })); });
+  nm.addEventListener('click', (e) => { e.stopPropagation(); renameIn(nm, b.name, 40, (name) => window.aang?.browserMockup?.({ act: 'brename', id: b.id, name })); });
   const more = Object.assign(document.createElement('button'), { type: 'button', className: 'thm', textContent: '···', title: 'Branch options' });
   more.addEventListener('click', (e) => { e.stopPropagation(); branchMenu(b, e.clientX, e.clientY); });
   h.replaceChildren(chev, nm, Object.assign(document.createElement('span'), { className: 'n', textContent: `${n} TAB${n === 1 ? '' : 'S'}` }), more);

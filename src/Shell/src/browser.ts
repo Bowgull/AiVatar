@@ -2883,14 +2883,18 @@ export class AangBrowser {
   /**
    * Claude opened a mockup (a .mockup file in open-urls, main.ts). Its version as it is now (HEAD) goes into the history,
    * and its sheet's tab shows it: a newer version of a sheet already open updates that same tab, never a new one (his pick).
+   * branch: the branch Claude was told to file it in (mockups.ts fileInto has the rules).
    */
-  async openMockup(sheet: string, title = ''): Promise<MockVersion | null> {
+  async openMockup(sheet: string, title = '', branch: string | null = null): Promise<MockVersion | null> {
     if (!this.mockServer || !this.mockStore || cleanPath(sheet) !== sheet) return null;
     if (!(await this.mockReady)) return null;
     const r = await resolveVersion(this.mockRepo, sheet);
     if (!r) { console.log(`shell: mockups: ${sheet} is not in the repo's last commit, not opened`); return null; }
     const ver = this.mockStore.add(sheet, title || r.title, r.commit, r.key);
+    // A branch Claude named (checked in cleanBranch): the same move as his Move to branch, children following.
+    if (branch) this.mockStore.fileInto(sheet, branch);
     this.showMockup(ver);
+    this.sendTabs();
     return ver;
   }
   /** One version, exactly as it was, in its sheet's tab (made in the MOCKUPS trail if none is open). Opens Samara if it is closed. */

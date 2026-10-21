@@ -690,8 +690,8 @@ app.whenReady().then(async () => {
             const f = path.join(dir, n);
             if (n === 'browser.flag') { try { unlinkSync(f); } catch { /* taken */ } aangBrowser?.open(); continue; }
             // Sheet 47 (his picks, 2026-10-21): a mockup Claude opened (tools/open-mockup.mjs). Checked in takeMockupFile:
-            // a repo path the versioned page server may show, a short title, small and fresh. Off where there is no repo.
-            if (n.endsWith('.mockup')) { const m = takeMockupFile(f); if (m && aangBrowser?.mockupsOn) void aangBrowser.openMockup(m.path, m.title); continue; }
+            // a repo path the versioned page server may show, a short title, an optional branch, small and fresh. Off where there is no repo.
+            if (n.endsWith('.mockup')) { const m = takeMockupFile(f); if (m && aangBrowser?.mockupsOn) void aangBrowser.openMockup(m.path, m.title, m.branch); continue; }
             if (!n.endsWith('.url')) continue;
             let u = '', old = false;
             try { old = Date.now() - statSync(f).mtimeMs > 10 * 60_000; u = readFileSync(f, 'utf8').trim(); unlinkSync(f); } catch { continue; }

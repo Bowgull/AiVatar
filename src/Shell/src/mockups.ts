@@ -150,6 +150,18 @@ export async function resolveVersion(repo: string, sheet: string): Promise<{ com
  */
 export interface MockBranch { id: number; name: string; folded: boolean }
 export interface MockPlace { branch: number | null; parent: string | null }
+/** The longest a branch name may be. */
+export const BRANCH_MAX = 40;
+/**
+ * A branch name Claude gave in a .mockup file (or open-mockup --branch): control characters removed, whitespace collapsed
+ * and trimmed, 1 to 40 characters. Null for anything else (the field is then ignored; the mockup still opens).
+ */
+export function cleanBranch(x: unknown): string | null {
+  if (typeof x !== 'string' || x.length > 1000) return null;
+  // eslint-disable-next-line no-control-regex
+  const n = x.replace(/[\x00-\x1f\x7f-\x9f]/g, '').replace(/\s+/g, ' ').trim();
+  return n.length >= 1 && n.length <= BRANCH_MAX ? n : null;
+}
 /** A sheet's number and letter: docs/cockpit/sheet-45g-click.html is 45 and g. */
 export function sheetNum(sheet: string): { n: string; letter: string } | null {
   const m = /^sheet-([0-9]+)([a-z]?)(?=[-.])/i.exec(path.posix.basename(sheet));
@@ -175,7 +187,7 @@ export class MockStore {
           && typeof x?.key === 'string' && Number.isFinite(x?.at) && Number.isInteger(x?.v))
           .map((x: MockVersion) => ({ id: x.id, sheet: x.sheet, title: String(x.title ?? '').slice(0, 80), commit: x.commit, at: Number(x.at), key: x.key.slice(0, 100), v: x.v })).slice(-2000);
         this.branches = (Array.isArray(s?.branches) ? s.branches : []).filter((b: Partial<MockBranch>) => Number.isInteger(b?.id) && typeof b?.name === 'string')
-          .map((b: MockBranch) => ({ id: b.id, name: b.name.slice(0, 24), folded: b.folded === true })).slice(0, 100);
+          .map((b: MockBranch) => ({ id: b.id, name: b.name.slice(0, BRANCH_MAX), folded: b.folded === true })).slice(0, 100);
         const pl = s?.places && typeof s.places === 'object' ? s.places as Record<string, Partial<MockPlace>> : {};
         for (const [k, v] of Object.entries(pl)) {
           if (!cleanPath(k) || !v || typeof v !== 'object') continue;
@@ -215,12 +227,12 @@ export class MockStore {
   // His moves, all by hand. Each returns '' when done, or why not.
   newBranch(name = 'NEW BRANCH'): number {
     const id = ++this.branchSeq;
-    this.branches.push({ id, name: String(name).replace(/\s+/g, ' ').trim().slice(0, 24) || 'NEW BRANCH', folded: false });
+    this.branches.push({ id, name: String(name).replace(/\s+/g, ' ').trim().slice(0, BRANCH_MAX) || 'NEW BRANCH', folded: false });
     this.save();
     return id;
   }
   renameBranch(id: number, name: string): string {
-    const b = this.branches.find((x) => x.id === id), n = String(name ?? '').replace(/\s+/g, ' ').trim().slice(0, 24);
+    const b = this.branches.find((x) => x.id === id), n = String(name ?? '').replace(/\s+/g, ' ').trim().slice(0, BRANCH_MAX);
     if (!b || !n) return 'no such branch';
     b.name = n; this.save(); return '';
   }
@@ -237,6 +249,21 @@ export class MockStore {
   toBranch(sheet: string, branch: number | null): string {
     if (branch !== null && !this.branches.some((x) => x.id === branch)) return 'no such branch';
     this.places.set(sheet, { branch, parent: null }); this.save(); return '';
+  }
+  /**
+   * Claude named a branch for a sheet (a .mockup file's "branch"). A top-level mockup moves into it, even out of a branch
+   * he chose (Claude was told where to put it). A child stays with its parent: the parent moves instead, but only while
+   * it has no branch. The branch is matched by name, any case, or made (as New branch does) only when something moves.
+   * The move is toBranch, so children follow exactly as with Move to branch. Returns the sheet that moved, or null.
+   */
+  fileInto(sheet: string, name: unknown): string | null {
+    const n = cleanBranch(name);
+    if (!n || !this.places.has(sheet)) return null;
+    const parent = this.places.get(sheet)!.parent;
+    const target = parent ? (this.placeOf(parent).branch === null ? parent : null) : sheet;
+    if (!target) return null;
+    const id = this.branches.find((b) => b.name.toLowerCase() === n.toLowerCase())?.id ?? this.newBranch(n);
+    return this.toBranch(target, id) ? null : target;
   }
   /** Make a mockup the child of another. Three levels only: dropped on a child, it joins that child's parent instead. */
   toParent(sheet: string, parent: string): string {
@@ -281,21 +308,22 @@ export class MockStore {
 }
 
 /**
- * A .mockup file Claude left in open-urls: JSON {"path": "docs/cockpit/...html", "title": "46 · One cockpit"}. At most
+ * A .mockup file Claude left in open-urls: JSON {"path": "docs/cockpit/...html", "title": "46 · One cockpit", "branch":
+ * "Claude link"} (branch optional; a bad one is ignored, the mockup still opens). At most
  * 4 KB, at most ten minutes old (like a .url), a path the server may show, a title of at most 80 characters. The file
  * is taken (deleted) whatever it says. Null when it is not one to open.
  */
-export function takeMockupFile(file: string): { path: string; title: string } | null {
+export function takeMockupFile(file: string): { path: string; title: string; branch: string | null } | null {
   let raw = '', old = false, size = 0;
   try { const st = statSync(file); size = st.size; old = Date.now() - st.mtimeMs > 10 * 60_000; if (size <= 4096) raw = readFileSync(file, 'utf8'); } catch { return null; }
   try { unlinkSync(file); } catch { /* taken */ }
   if (old || size > 4096) return null;
-  let j: { path?: unknown; title?: unknown };
+  let j: { path?: unknown; title?: unknown; branch?: unknown };
   try { j = JSON.parse(raw.replace(/^﻿/, '')); } catch { return null; }
   const p = cleanPath(j?.path);
   if (!p || !/\.html?$/i.test(p)) return null;
   if (j.title !== undefined && (typeof j.title !== 'string' || j.title.length > 80)) return null;
-  return { path: p, title: typeof j.title === 'string' ? j.title.replace(/[\x00-\x1f]/g, ' ').trim() : '' };
+  return { path: p, title: typeof j.title === 'string' ? j.title.replace(/[\x00-\x1f]/g, ' ').trim() : '', branch: cleanBranch(j.branch) };
 }
 
 // ------------------------------------------------------------------ Send to Aang (his pick, 2026-10-21)
