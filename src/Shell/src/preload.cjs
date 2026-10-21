@@ -277,6 +277,14 @@ contextBridge.exposeInMainWorld('aang', {
     return () => ipcRenderer.removeListener('desk:tab', h);
   },
 
+  // --- the one cockpit (2026-10-21): the bubble opens into it (with what the typing area needs) and closes back.
+  onCockpit(fn) {
+    const open = (_e, v) => fn({ open: true, state: v });
+    const shut = () => fn({ open: false });
+    ipcRenderer.on('cockpit:open', open);
+    ipcRenderer.on('cockpit:close', shut);
+    return () => { ipcRenderer.off('cockpit:open', open); ipcRenderer.off('cockpit:close', shut); };
+  },
   // --- the typing box (6.12b). Named doors only.
   onInputState(fn) {
     const h = (_e, v) => fn(v);

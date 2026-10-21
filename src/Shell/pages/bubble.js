@@ -12,6 +12,7 @@ import { Scrollback, atTop } from './scrollback.js';
 import { buildPaper, openMenu, previewLines, tickCount, paintNote } from './notepaper.js';
 import { pixIcon, SKIES } from './pixicons.js';
 import { paintLookback, linkifyWords, videoShot, linkEl } from './lookback.js';
+import { startTyping } from './cocktype.js';
 
 const el = id => document.getElementById(id);
 const bubble = el('bubble'), said = el('said'), scroller = el('scroller'), more = el('more');
@@ -198,6 +199,7 @@ let lastSize = '';
 /** The content changed: grow or shrink the balloon to what it now wants. */
 function reportSize() {
   if (bubble.hidden) return;
+  if (cockpit) fitCockpit();
   const n = natural();
   if (n.w === goal.w && n.h === goal.h) return;
   goal = n;
@@ -399,14 +401,14 @@ function holdFor(text) {
 }
 function scheduleHide() {
   clearTimeout(hideTimer);
-  if (bubble.hidden || asking || overNow || docked) return;
+  if (bubble.hidden || asking || overNow || docked || cockpit) return;
   // Scrolled back into his history and walked away: it closes after five quiet minutes, as before.
   if (reading) { hideTimer = setTimeout(goAway, 300000); return; }
   if (card.hidden && (!reveal.done || !reveal.whole)) return;
   hideTimer = setTimeout(goAway, holdFor(reveal.whole));
 }
 function goAway() {
-  if (asking || overNow || docked) return;
+  if (asking || overNow || docked || cockpit) return;
   closeBoard();
   // Content out over 160 ms, then the balloon shrinks away in 340 ms. Anything new arriving meanwhile
   // takes `leaving` off (show), and growTo cancels the shrink, so a reply is never hidden under him.
@@ -1198,7 +1200,7 @@ function onBrain(m) {
   if (!m.recalled && (m.t === 'bubble' || m.t === 'whisper' || m.t === 'pet.say') && (m.text || m.brief || m.research || m.card)) lastShown = m;
 
   // What he just asked, for the line above the answer. Kept until the next thing he says.
-  if (m.t === 'asked' && typeof m.text === 'string') { asked = m.text; return; }
+  if (m.t === 'asked' && typeof m.text === 'string') { asked = m.text; if (cockpit) cockSaid(m.text); return; }
 
   // An ask takes priority: it is the one thing that must be answered before anything else happens.
   // It joins the queue rather than replacing what is there, and the queue decides which is on top.
@@ -1342,7 +1344,8 @@ function onBrain(m) {
     // Nothing above a message Aang started himself: there was no question.
     const line = m.proactive ? '' : asked.replace(/\s+/g, ' ').trim();
     who.textContent = line.length > 50 ? line.slice(0, 49).trimEnd() + '…' : line;
-    who.hidden = !who.textContent;
+    who.hidden = !who.textContent || cockpit;
+    if (cockpit) bubble.classList.add('lantern');
     paintChange(!m.stream);
     if (!m.stream) setSpeaker(focusWindow || macSession ? 'claude' : m.proactive || m.fromPet ? 'aang' : null, macSession ? 'MAC' : 'PC', m.face);
     working.hidden = true;
@@ -2004,7 +2007,7 @@ function askOlder() {
 
 /** Into the scroll-back. Always from the newest: anything said since the last look is in it. */
 function enterReading() {
-  if (reading || asking) return;
+  if (reading || (asking && !cockpit)) return;
   reading = true;
   lbOpen = null; lbReplying = null;
   clearTimeout(hideTimer);
@@ -2012,8 +2015,12 @@ function enterReading() {
   back.clear();
   askOlder();
   for (const id of ['chips', 'rlist', 'aboutbox', 'means', 'exact', 'mailcard']) { const e = document.getElementById(id); if (e) e.hidden = true; }
-  scroller.hidden = true; who.hidden = true; working.hidden = true; tools.hidden = true; more.hidden = true;
-  speaker.hidden = true; mediaRow.hidden = true; card.hidden = true;
+  // In the cockpit a waiting question stays where it is, pinned under the conversation, and the working dots stay.
+  const keepAsk = cockpit && asking;
+  if (!keepAsk) { scroller.hidden = true; who.hidden = true; speaker.hidden = true; }
+  if (!cockpit) working.hidden = true;
+  tools.hidden = true; more.hidden = true;
+  mediaRow.hidden = true; card.hidden = true;
   if (!bubble.classList.contains('lantern')) { bubble.classList.add('lantern'); lbOwnsLantern = true; }
   bubble.classList.remove('whisper');
   bubble.classList.add('wide', 'widest');
@@ -2023,8 +2030,10 @@ function enterReading() {
 }
 
 /** Out of the scroll-back. `restore`: show the last thing he was shown again. */
-function leaveReading(restore = true) {
+function leaveReading(restore = true, force = false) {
   if (!reading) return;
+  // The cockpit IS the conversation: something new arriving shows under it rather than replacing it.
+  if (cockpit && !force) { scroller.hidden = false; return; }
   reading = false;
   lbOpen = null; lbReplying = null;
   paintBack();
@@ -2059,6 +2068,93 @@ window.aang?.onPage?.((d) => {
   scroller.classList.add('scrolls');
   scroller.scrollTop += d * 6 * lineHeight;
 });
+
+// ---------------------------------------------------------------- the one cockpit (2026-10-21, sheet 46)
+// His ask "for ages": ONE bubble. Opened (Ctrl+Plus, a click on Aang, a click on a message), it grows into the Lantern
+// cockpit: the conversation (the scroll-back, newest at the bottom), the thing waiting on him pinned under it, the jobs
+// strip, and the typing area as its bottom edge. Closed (Esc, a click elsewhere, Ctrl+Plus again), it goes back to Aang
+// speaking in one line. The main process gives the window the keyboard and takes it back (cockpit.ts).
+let cockpit = false, cockMaxH = 600;
+const typingArea = startTyping({ onSize: () => { if (cockpit) reportSize(); } });
+window.aang?.onCockpit?.((c) => { if (c?.open) openCock(c.state ?? {}); else closeCock(); });
+
+function openCock(st) {
+  cockMaxH = Number(st.maxH) > 240 ? Math.min(1200, Number(st.maxH)) : 600;
+  if (cockpit) { typingArea.setLive(true); return; }
+  cockpit = true;
+  docked = true;
+  clearTimeout(hideTimer);
+  closeBoard();
+  el('ck').hidden = false;
+  bubble.classList.remove('whisper');
+  bubble.classList.add('cockpit', 'lantern');
+  if (reading) paintBack('bottom'); else enterReading();
+  show(); fit(); reportSize();
+  typingArea.setLive(true);
+}
+
+function closeCock() {
+  if (!cockpit) return;
+  cockpit = false;
+  docked = false;
+  typingArea.setLive(false);
+  el('ck').hidden = true;
+  bubble.classList.remove('cockpit', 'ckwide', 'ckask');
+  leaveReading(false, true);
+  // A question waiting on him stays, as one; Aang still answering keeps his line; otherwise it goes.
+  if (asking || !working.hidden) { fit(); reportSize(); return; }
+  goAway();
+}
+
+/** The row's stored time format ("2026-10-21 13:14:02", UTC), for rows the cockpit adds before the brain stores them. */
+const tsNow = () => new Date().toISOString().slice(0, 19).replace('T', ' ');
+let localId = -1;
+/**
+ * He sent something from the cockpit: the answer before it (if one is showing) and his own words join the
+ * conversation, and the live area under it waits for the new answer. Stored rows come back on the next look.
+ */
+function cockSaid(text) {
+  if (reveal.done && reveal.whole && !scroller.hidden) back.add({ id: turn ?? localId--, ts: tsNow(), who: 'Aang', text: reveal.whole });
+  back.add({ id: localId--, ts: tsNow(), who: 'you', text: String(text) });
+  reveal.clear(); laidOut = null; paintWords();
+  scroller.hidden = true; who.hidden = true; setSpeaker(null);
+  paintBack('bottom');
+  const list = el('lblist'); if (list) list.scrollTop = list.scrollHeight;
+  fit(); reportSize();
+}
+
+/**
+ * The conversation takes whatever room the cockpit has left (about two thirds of the screen in all), and never pushes
+ * the typing area off it. The bubble is measured with the list at full length first, then the list is capped.
+ */
+function fitCockpit() {
+  const list = el('lblist');
+  bubble.classList.add('lantern');            // the cockpit is always the Lantern (his pick)
+  bubble.classList.toggle('ckask', Boolean(asking));
+  bubble.classList.toggle('ckwide', Boolean(document.querySelector('#lblist .lt-item.open .vshot')) || !card.hidden);
+  if (!list) return;
+  const atBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 8;
+  list.style.maxHeight = 'none';
+  const n = natural();
+  // A few pixels kept back: the frame's own edge and rounding must fit inside the room too.
+  const over = n.h - (cockMaxH - 8);
+  list.style.maxHeight = over > 0 ? Math.max(140, list.scrollHeight - over) + 'px' : 'none';
+  if (atBottom) list.scrollTop = list.scrollHeight;
+}
+
+// PageUp / PageDown in the typing area move the conversation.
+window.addEventListener('cockpit:page', (e) => {
+  const list = el('lblist');
+  if (!list) return;
+  list.scrollTop += Number(e.detail) * 6 * lineHeight;
+  if (list.scrollTop < 8) askOlder();
+});
+// A click away from an opened row closes it, like any list he has used (his ask, 2026-10-21). Rows and menus keep theirs.
+document.addEventListener('click', (e) => {
+  if (!reading || lbOpen === null) return;
+  if (e.target.closest?.('.lt-item, .turnmenu')) return;
+  lbOpen = null; paintBack('top'); fit(); reportSize();
+}, true);
 
 // ---------------------------------------------------------------- the one-line door (sheet 41)
 // "HisWattson posted a video" arrives as one line with the channel's face. A click opens the video under it: its
@@ -2111,7 +2207,7 @@ const planKept = new Set();
 function samaraPlan(m) {
   planBox.replaceChildren();
   planBox.hidden = !m;
-  if (!m) { bubble.classList.remove('lantern'); return; }
+  if (!m) { if (!cockpit) bubble.classList.remove('lantern'); return; }
   const c = m.samara;
   planKept.clear(); for (const x of c.sites ?? []) planKept.add(String(x.site));
   bubble.classList.add('lantern', 'wide');
