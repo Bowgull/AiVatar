@@ -20,42 +20,78 @@ const COL = { working: '#f0a64a', needs: '#7cc4ff', complete: '#3fc4b4', paused:
 const rgb = (x) => [1, 3, 5].map((i) => parseInt(x.slice(i, i + 2), 16));
 const mix = (x, t, k) => `rgb(${rgb(x).map((v, i) => Math.round(v + (t[i] - v) * k)).join(',')})`;
 
-/* ---- the rune, the ring and the job-done tick, verbatim from docs/cockpit/sheet-50/marks.js ---- */
-// A small rounded stone tablet (RuneScape's pebble runes), Claude's sunburst carved in and lit in the job's colour.
-// 12 x 12 art pixels; 2 screen px per art pixel in the band (the band's own art scale).
+/* ---- the rune, the ring and the job-done tick (first drawn in docs/cockpit/sheet-50/marks.js) ---- */
+// His ask (2026-10-21): the rune should look like the Claude logo, "the taskbar icon isn't a bad place to start". So the
+// stone is now the app icon's cream (a worn, rounded tablet with a lit top-left edge, a shaded bottom-right and a few
+// specks, so it is still a RuneScape-ish rune stone) and the glyph is Claude's own terracotta starburst: twelve uneven
+// rays round a solid hub, hand-placed at the angles the real icon's rays sit at (pages/art/claude-icon.png, measured:
+// 11, 43, 81, 103, 131, 148, 182, 212, 235, 271, 306, 334 degrees). It no longer takes the job's colour: the ring round
+// it carries the state (amber, blue, teal, slate), so the mark always reads as Claude. A finished job turns the glyph
+// into a teal tick; a paused one greys the starburst. 15 x 15 art pixels, 2 screen px each (the band's art scale).
 const STONE = [
-  '...OOOOOO...',
-  '..OHHHHHLO..',
-  '.OHHLLLLLSO.',
-  'OHLLLLLLLLSO',
-  'OHLLLLLLLLSO',
-  'OHLLLLLLLLSO',
-  'OLLLLLLLLLSO',
-  'OLLLLLLLLSSO',
-  'OLLLLLLLLSSO',
-  '.OSLLLLLSSO.',
-  '..OSSSSSSO..',
-  '...OOOOOO...'];
-const SPECK = [[3, 4], [8, 3], [5, 8], [9, 6], [2, 7], [7, 9]];
-const GLYPH = ['...G...', '.G.G.G.', '..GGG..', 'GGGGGGG', '..GGG..', '.G.G.G.', '...G...'];
-const TICK = ['......G', '.....GG', 'G...GG.', 'GG.GG..', '.GGG...', '..G....', '.......'];
-const STONE_COL = { O: '#2a1a10', H: '#c9b99a', L: '#9c8b70', S: '#6a5a45' };
-function rune(col, px = 2, glyph = 'sun') {
-  const n = 12, cv = Object.assign(document.createElement('canvas'), { width: (n + 1) * px, height: (n + 1) * px, className: 'rn' });
+  '...OOOOOOOOO...',
+  '..OHHHHHHHHHO..',
+  '.OHHLLLLLLLLSO.',
+  'OHHLLLLLLLLLLSO',
+  'OHLLLLLLLLLLLSO',
+  'OHLLLLLLLLLLLSO',
+  'OHLLLLLLLLLLLSO',
+  'OHLLLLLLLLLLLSO',
+  'OHLLLLLLLLLLLSO',
+  'OLLLLLLLLLLLLSO',
+  'OLLLLLLLLLLLSSO',
+  'OSLLLLLLLLLLSSO',
+  '.OSLLLLLLLLSSO.',
+  '..OSSSSSSSSSO..',
+  '...OOOOOOOOO...'];
+const SPECK = [[3, 11], [11, 3], [12, 12], [2, 7], [9, 13]];
+const GLYPH = [
+  '...G...G.....',
+  '...G...G.....',
+  '....G..G..G..',
+  '.G..G.G..G...',
+  '..GG.GG.G.GGG',
+  '....GGGGGG...',
+  'GGGGGGGGG....',
+  '....GGGGGGG..',
+  '..GG.GGGG..GG',
+  '.G..G.GG.G...',
+  '....G.G.G.G..',
+  '...G..G.G....',
+  '......G......'];
+// The finished tick, two pixels thick so it reads as clearly as the starburst it replaces; E is its darker underside.
+const TICK = [
+  '.............',
+  '.............',
+  '.............',
+  '..........GG.',
+  '.........GGE.',
+  '........GGE..',
+  '.GG....GGE...',
+  '.EGG..GGE....',
+  '..EGGGGE.....',
+  '...EGGE......',
+  '....EE.......',
+  '.............',
+  '.............'];
+const STONE_COL = { O: '#2a1a10', H: '#fbf3e4', L: '#f0e3c8', S: '#cdb48c' };
+/** Claude's terracotta, read off the real app icon (pages/art/claude-icon.png). */
+const CLAUDE = '#d97757';
+function rune(col, px = 2, glyph = 'sun', paused = false) {
+  const n = 15, cv = Object.assign(document.createElement('canvas'), { width: (n + 1) * px, height: (n + 1) * px, className: 'rn' });
   const g = cv.getContext('2d'), P = (x, y, c) => { g.fillStyle = c; g.fillRect(x * px, y * px, px, px); };
   g.fillStyle = 'rgba(0,0,0,.4)';
   STONE.forEach((r, y) => [...r].forEach((ch, x) => { if (ch !== '.') g.fillRect((x + 1) * px, (y + 1) * px, px, px); }));
   STONE.forEach((r, y) => [...r].forEach((ch, x) => { if (ch !== '.') P(x, y, STONE_COL[ch]); }));
-  for (const [x, y] of SPECK) P(x, y, '#8a7a60');
+  for (const [x, y] of SPECK) P(x, y, '#e2d2b2');
   const G = glyph === 'tick' ? TICK : GLYPH;
-  // carved: a dark groove one pixel down-right, then the lit glyph, its centre brightest
-  G.forEach((r, y) => [...r].forEach((ch, x) => { if (ch === 'G') P(x + 3, y + 3, '#3a2a1c'); }));
-  G.forEach((r, y) => [...r].forEach((ch, x) => { if (ch === 'G') P(x + 2, y + 2, (x === 3 && y === 3 && glyph !== 'tick') ? mix(col, [255, 255, 255], 0.6) : col); }));
+  const fill = glyph === 'tick' ? { G: col, E: mix(col, [20, 40, 40], 0.45) } : { G: paused ? mix(CLAUDE, rgb(COL.paused), 0.65) : CLAUDE };
+  G.forEach((r, y) => [...r].forEach((ch, x) => { if (fill[ch]) P(x + 1, y + 1, fill[ch]); }));
   return cv;
 }
 // The thin pixel ring for take B: whole art pixels on a circle round the stone, lit up to the job's progress.
 function ring(col, p, px = 2) {
-  const n = 18, c = (n - 1) / 2, R = 8.2;
+  const n = 21, c = (n - 1) / 2, R = 9.6;
   const cv = Object.assign(document.createElement('canvas'), { width: n * px, height: n * px, className: 'rg' });
   const g = cv.getContext('2d');
   for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
@@ -89,7 +125,7 @@ function chip(state, p, pip, on) {
   el.title = state === 'needs' ? 'Claude needs you: click for the details' : state === 'complete' ? 'Claude finished a job: click for the details' : state === 'paused' ? 'A Claude job is paused: click for the details' : 'Claude is working: click for the details';
   el.setAttribute('aria-label', el.title); el.setAttribute('aria-haspopup', 'dialog'); el.setAttribute('aria-expanded', on ? 'true' : 'false');
   const st = h('span', 'stone');
-  st.append(ring(col, p, 2), rune(col, 2, state === 'complete' ? 'tick' : 'sun'));
+  st.append(ring(col, p, 2), rune(col, 2, state === 'complete' ? 'tick' : 'sun', state === 'paused'));
   if (pip) st.append(h('i', 'pip', pip));
   el.append(st);
   return el;
@@ -134,14 +170,19 @@ export function startRune({ slot, band, freeze, unfreeze, closeOthers }) {
     const busy = state !== 'complete' && pctOf(top) === null;
     const p = state === 'complete' ? 1 : busy ? 0.25 : (pctOf(top) ?? 0) / 100;
     const pip = list.length > 1 ? String(Math.min(9, list.length)) : '';
-    const key = `${state}|${Math.round(p * 100)}|${pip}|${open}|${busy}`;
+    const key = `${state}|${Math.round(p * 100)}|${pip}|${busy}`;
     slot.hidden = false;
-    if (key === chipKey) return;      // unchanged: leave it, so its slow breathing is not restarted every message
-    chipKey = key;
-    const c = chip(state, p, pip, open);
-    c.classList.toggle('busy', busy);
-    c.addEventListener('click', (e) => { e.stopPropagation(); if (open) close(); else openPanel(); });
-    slot.replaceChildren(c);
+    if (key !== chipKey) {            // unchanged: leave it, so its slow breathing is not restarted every message
+      chipKey = key;
+      const c = chip(state, p, pip, open);
+      c.classList.toggle('busy', busy);
+      c.addEventListener('click', (e) => { e.stopPropagation(); if (open) close(); else openPanel(); });
+      slot.replaceChildren(c);
+    }
+    // His ask (2026-10-21): while the panel is open the gold number hides ("it's obvious"), and comes back when it
+    // closes. Opening only flips a class on the same rune, so the number can fade (rune.css) instead of being redrawn.
+    const r = slot.firstElementChild;
+    if (r) { r.classList.toggle('on', open); r.setAttribute('aria-expanded', open ? 'true' : 'false'); }
   }
 
   /* ---------------------------------------------------------------- the panel */

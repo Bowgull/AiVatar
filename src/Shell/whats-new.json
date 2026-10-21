@@ -440,6 +440,11 @@
       "at": "2026-10-21T23:45:00-04:00",
       "text": "Aang's chat box holds still and opens small.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-10-21T23:55:00-04:00",
+      "text": "Right-click Samara's taskbar icon for shortcuts; rune wears Claude's logo.",
+      "kind": "feature"
     }
   ]
 }

@@ -2036,6 +2036,25 @@ export class AangBrowser {
   }
 
   reopen(): void { const u = this.closed.pop(); if (u) this.newTab(u); }
+  /**
+   * An item from Samara's taskbar right-click list (his ask, 2026-10-21; jumplist.ts). Samara comes forward, or opens
+   * if it was closed (his tabs come back first, as always), then does the one thing. New window opens another window
+   * beside the one he has. Reopen closed tab with Samara closed simply opens it: his tabs coming back IS the reopen.
+   */
+  jumpTask(task: 'new-tab' | 'new-window' | 'mockups' | 'settings' | 'reopen'): void {
+    if (task === 'new-window') { this.createPane(); return; }
+    const go = () => {
+      if (task === 'new-tab') this.act('newtab');
+      else if (task === 'settings') this.openSettings();
+      else if (task === 'mockups') { if (this.mockupsOn) this.reopenMockups(); }
+      else if (task === 'reopen') this.reopen();
+    };
+    const p = this.lastPane();
+    if (p) { this.pane = p; bringFront(p.win!); go(); return; }
+    if (task === 'reopen' || (task === 'mockups' && !this.mockupsOn)) { this.createPane(); return; }
+    this.whenOpen.push(go);
+    this.createPane();
+  }
 
   /**
    * A popup he opened (Sign in with Google and the like): the same safety as a tab. Its real address is its title,
