@@ -1269,9 +1269,12 @@ sealed class PetWindow : Form
                 // all unless he happened to be tucked at a screen edge - and "he is at his desk" is precisely
                 // the case 4.4 exists for. The state was being set correctly and had nowhere to appear.
                 // Behind the sprite, same as DrawPeeking does it, so it reads as a halo and not a box.
-                if (urgent) DrawOutline(g, shown, standing, loom: true);
-                else if (ambientGlow) DrawOutline(g, shown, standing, loom: false);
-                else if (ClaudeMarkNow is string glowFor && ClaudeMarks.Glows(glowFor)) DrawOutline(g, shown, standing, loom: false, ClaudeMarks.ColorOf(glowFor));
+                // The halo is cached per source frame + turn (2026-10-21), so pass the bank's own frame, not the
+                // mirrored clone made fresh every draw.
+                var turn = flipX ? RotateFlipType.RotateNoneFlipX : RotateFlipType.RotateNoneFlipNone;
+                if (urgent) DrawOutline(g, frame, turn, standing, loom: true);
+                else if (ambientGlow) DrawOutline(g, frame, turn, standing, loom: false);
+                else if (ClaudeMarkNow is string glowFor && ClaudeMarks.Glows(glowFor)) DrawOutline(g, frame, turn, standing, loom: false, ClaudeMarks.ColorOf(glowFor));
                 g.DrawImage(shown, standing);
                 mirrored?.Dispose();
                 // C5 (2026-10-21): Claude's mark, just above his head, standing as well as docked.
@@ -2665,7 +2668,8 @@ sealed class PetWindow : Form
 
     void DrawPeeking(Graphics g)
     {
-        using var rot = (Bitmap)sprites.Frame(anim.State, anim.Frame).Clone();
+        var source = sprites.Frame(anim.State, anim.Frame);
+        using var rot = (Bitmap)source.Clone();
         using (var cg = Graphics.FromImage(rot))
         {
             cg.CompositingMode = CompositingMode.SourceCopy;               // overwrite alpha, not blend onto it
@@ -2674,9 +2678,12 @@ sealed class PetWindow : Form
         }
         rot.RotateFlip(Docking.Rotation(dock));                           // an exact turn: pixels move, none change
         var at = new Rectangle(Docking.SpriteX, Docking.SpriteY, Docking.Frame, Docking.Frame);
-        if (urgent) DrawOutline(g, rot, at, loom: true);
-        else if (ambientGlow) DrawOutline(g, rot, at, loom: false);
-        else if (!badge && ClaudeMarkNow is string glowFor && ClaudeMarks.Glows(glowFor)) DrawOutline(g, rot, at, loom: false, ClaudeMarks.ColorOf(glowFor));
+        // Same soft aura as standing (2026-10-21): cached from the bank's frame with the same turn and the same
+        // think dots cleared, since the clone above is new every draw and could never be a cache key.
+        var turn = Docking.Rotation(dock);
+        if (urgent) DrawOutline(g, source, turn, at, loom: true, clear: ThinkDotsBox);
+        else if (ambientGlow) DrawOutline(g, source, turn, at, loom: false, clear: ThinkDotsBox);
+        else if (!badge && ClaudeMarkNow is string glowFor && ClaudeMarks.Glows(glowFor)) DrawOutline(g, source, turn, at, loom: false, ClaudeMarks.ColorOf(glowFor), clear: ThinkDotsBox);
         g.DrawImage(rot, at);
         // Exactly what the undocked view does, nothing invented for here: the glow rides on the think state,
         // which a working session now puts him in. Turned with the frame so it lands on his real arrow and
@@ -2689,76 +2696,25 @@ sealed class PetWindow : Form
     }
 
 
-    /// <summary>The moment something comes in: a pulsing outline in its tier's colour, traced from his own
-    /// silhouette so it hugs him exactly. It sits outside his pixels, so none of them change (the sprite lock).
-    /// Joshua, 2026-09-22, after seeing the soft glow disappear behind him in a real capture.</summary>
-    /// <summary>Offsets that stamp a sprite's own silhouette into an outline of about radius <paramref name="r"/>
-    /// hugging its real pixel edges, not a generic circle around its box.</summary>
-    static Point[] RingOffsets(float r)
-    {
-        var set = new HashSet<(int, int)>();
-        int n = Math.Max(12, (int)(r * 6));
-        for (int i = 0; i < n; i++)
-        {
-            double a = i * 2 * Math.PI / n;
-            set.Add(((int)Math.Round(r * Math.Cos(a)), (int)Math.Round(r * Math.Sin(a))));
-        }
-        return set.Select(p => new Point(p.Item1, p.Item2)).ToArray();
-    }
-
     /// <summary>Two moods, from what actually captures peripheral attention versus what merely marks a wait
     /// (research, 2026-09-22). A BURST (loom=true) is an abrupt, non-smooth event: it snaps larger in ~150ms
     /// (motion onset and looming both capture attention; smooth continuous motion does neither and habituates
     /// fastest), hard-flickers near 9Hz for ~650ms (the periphery's fastest comfortably visible rate), then holds
     /// steady and bright - no more motion after that, on purpose. Ambient is small, slow and quiet: present, not
-    /// attention-seeking, exactly because he asked the glow never fully disappear while something waits.</summary>
-    void DrawOutline(Graphics g, Bitmap sprite, Rectangle at, bool loom, Color? tint = null, float soften = 1f)
+    /// attention-seeking, exactly because he asked the glow never fully disappear while something waits.
+    ///
+    /// 2026-10-21, his pick "A · soft falloff" on sheet 51: both moods are now the same soft haze (no hard ring),
+    /// cached per frame and colour in <see cref="Aura"/>. The burst keeps its snap and ~9Hz flicker but flickers
+    /// between bright and half, never off, then eases into the calm breath (size and brightness together, 4 s)
+    /// instead of holding a flat steady ring. It sits outside his pixels, so none of them change (the sprite lock).</summary>
+    void DrawOutline(Graphics g, Bitmap source, RotateFlipType turn, Rectangle at, bool loom, Color? tint = null, float soften = 1f, Rectangle? clear = null)
     {
         var c = tint ?? urgentColor;
-        float radius; int alpha; float breath = -1f;
-        if (loom)
-        {
-            double t = (DateTime.UtcNow - burstStart).TotalMilliseconds;
-            float snap = t < 150 ? EaseOutBack((float)(t / 150.0)) : t < 320 ? 1f - (float)((t - 150) / 170.0) : 0f;
-            radius = 3f + 6f * Math.Clamp(snap, 0f, 1f);
-            alpha = t < 650 ? (((int)(t / 56) % 2) == 0 ? 245 : 70) : 235;   // ~9Hz hard on/off, then steady
-        }
-        else
-        {
-            double phase = (Math.Sin(DateTime.UtcNow.TimeOfDay.TotalSeconds * Math.PI * 0.5) + 1) / 2;   // slow, ~4s
-            radius = 3f; alpha = (int)(95 + 90 * phase);   // 45-100 read as a grey smudge against a dark desktop; brighter now
-            alpha = (int)(alpha * soften);
-            breath = (float)phase;                           // 2026-10-21, his "an aura that should breathe": the outer ring below
-        }
-        using var solid = new Bitmap(sprite.Width, sprite.Height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
-        using (var sg = Graphics.FromImage(solid))
-        using (var flat = new System.Drawing.Imaging.ImageAttributes())
-        {
-            flat.SetColorMatrix(new System.Drawing.Imaging.ColorMatrix(new[]
-            {
-                new float[] { 0, 0, 0, 0, 0 }, new float[] { 0, 0, 0, 0, 0 }, new float[] { 0, 0, 0, 0, 0 },
-                new float[] { 0, 0, 0, 1, 0 }, new float[] { c.R / 255f, c.G / 255f, c.B / 255f, 0, 1 },
-            }));
-            sg.DrawImage(sprite, new Rectangle(0, 0, sprite.Width, sprite.Height), 0, 0, sprite.Width, sprite.Height, GraphicsUnit.Pixel, flat);
-        }
-        int pad = (int)Math.Ceiling(radius) + 2;
-        using var ring = new Bitmap(sprite.Width + pad * 2, sprite.Height + pad * 2, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
-        using (var rg = Graphics.FromImage(ring)) foreach (var o in RingOffsets(radius)) rg.DrawImageUnscaled(solid, pad + o.X, pad + o.Y);
-        using var fade = new System.Drawing.Imaging.ImageAttributes();
-        fade.SetColorMatrix(new System.Drawing.Imaging.ColorMatrix { Matrix33 = alpha / 255f });
-        g.DrawImage(ring, new Rectangle(at.X - pad, at.Y - pad, ring.Width, ring.Height), 0, 0, ring.Width, ring.Height, GraphicsUnit.Pixel, fade);
-        // Breathing (2026-10-21): a wider, fainter ring swells in and fades out with the slow pulse, so the aura grows
-        // and settles like a breath instead of only brightening. Drawn behind nothing new: still outside his pixels.
-        if (breath > 0.02f)
-        {
-            const float outer = 6f;
-            int op = (int)Math.Ceiling(outer) + 2;
-            using var halo = new Bitmap(sprite.Width + op * 2, sprite.Height + op * 2, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
-            using (var hg = Graphics.FromImage(halo)) foreach (var o in RingOffsets(outer)) hg.DrawImageUnscaled(solid, op + o.X, op + o.Y);
-            using var soft = new System.Drawing.Imaging.ImageAttributes();
-            soft.SetColorMatrix(new System.Drawing.Imaging.ColorMatrix { Matrix33 = 0.32f * breath * breath * soften });
-            g.DrawImage(halo, new Rectangle(at.X - op, at.Y - op, halo.Width, halo.Height), 0, 0, halo.Width, halo.Height, GraphicsUnit.Pixel, soft);
-        }
+        double now = DateTime.UtcNow.TimeOfDay.TotalSeconds;
+        var (radius, intensity) = loom
+            ? Aura.Burst((DateTime.UtcNow - burstStart).TotalMilliseconds, now, EaseOutBack)
+            : Aura.Breath(now, soften);
+        Aura.Draw(g, Aura.For(source, turn, c, clear), source, at, radius, intensity);
     }
 
     // Pixel icons on his own grain (one art pixel = 2 frame pixels), in the tradition he named (2026-09-22): a WoW
