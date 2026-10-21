@@ -370,6 +370,11 @@
       "at": "2026-10-21T00:10:00-04:00",
       "text": "Dark mode is lighter: sites use their own dark look first.",
       "kind": "fix"
+    },
+    {
+      "at": "2026-10-21T00:30:00-04:00",
+      "text": "Updates never leave a second Samara in your Dock.",
+      "kind": "fix"
     }
   ]
 }
