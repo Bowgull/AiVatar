@@ -142,6 +142,13 @@ export class Popout {
     setTimeout(tick, 60);
     const lent = { view, back, poll, cursor, css: null as string | null };
     this.lent = lent;
+    // Twitch's ad breaks (his catch, 2026-10-21): with its ads blocked, Twitch shows "we'll be right back" and stitches the
+    // stream back afterwards with the sound out of step with the picture. The tab watches for the break ending and
+    // jumps the player back to the live edge, which brings sound and picture together again. Twitch tabs only.
+    const resync = () => { try { if (/(^|\.)twitch\.tv$/i.test(new URL(wc.getURL()).hostname)) void within(wc.executeJavaScript(TWITCH_RESYNC_JS, true), 600, null); } catch { /* not a page */ } };
+    resync();
+    wc.on('did-navigate-in-page', resync);
+    wc.on('did-finish-load', resync);
     if (w.webContents.isLoading()) w.webContents.once('did-finish-load', () => this.send()); else this.send();
     // The bare picture (his pick): the site's own buttons hidden, the video filling whatever is fullscreen.
     void wc.insertCSS(BARE_CSS).then((key) => { if (this.lent === lent) lent.css = key; else void wc.removeInsertedCSS(key).catch(() => {}); }).catch(() => {});
@@ -531,6 +538,33 @@ function within<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
  * of the page shows: no header, no "Next:" panel, no scrollbar. No fullscreen request, so no timing to get wrong.
  * True when there was a video. Tested on a YouTube Mix page 2026-10-11: the video filled the view exactly.
  */
+/**
+ * Installed once per Twitch page (2026-10-21): every second it looks for Twitch's ad-break screen ("right back",
+ * "commercial break", the ad label); when the break ends it waits a moment for the stream to come back, then pauses,
+ * jumps to the live edge and plays, which re-joins the sound to the picture. Also offered on demand as __aangResync().
+ */
+export const TWITCH_RESYNC_JS = `(() => {
+  if (window.__aangResyncOn) return true;
+  window.__aangResyncOn = true;
+  const vid = () => [...document.querySelectorAll('video')].sort((a, b) => (b.videoWidth * b.videoHeight) - (a.videoWidth * a.videoHeight))[0];
+  const inAd = () => Boolean(document.querySelector('[data-a-target="video-ad-label"],[data-a-target="video-ad-countdown"],[data-test-selector="sad-overlay"]'))
+    || /right back|commercial break/i.test((document.querySelector('.video-player, [data-a-target="video-player"]') || {}).innerText || '');
+  window.__aangResync = () => {
+    const v = vid(); if (!v) return false;
+    const b = v.buffered; const live = b.length ? b.end(b.length - 1) : NaN;
+    v.pause();
+    setTimeout(() => { try { if (Number.isFinite(live) && live - v.currentTime > 0.4) v.currentTime = Math.max(0, live - 1); v.playbackRate = 1; v.play().catch(() => {}); } catch (e) {} }, 120);
+    return true;
+  };
+  let was = false;
+  setInterval(() => {
+    const now = inAd();
+    if (was && !now) setTimeout(() => window.__aangResync(), 1500);
+    was = now;
+  }, 1000);
+  return true;
+})()`;
+
 export const FOCUS_JS = `(() => {
   const vs = [...document.querySelectorAll('video')].filter(v => v.offsetWidth * v.offsetHeight > 0);
   vs.sort((a, b) => (b.paused ? 0 : 1) - (a.paused ? 0 : 1) || b.offsetWidth * b.offsetHeight - a.offsetWidth * a.offsetHeight);
