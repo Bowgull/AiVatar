@@ -285,6 +285,11 @@ contextBridge.exposeInMainWorld('aang', {
     ipcRenderer.on('cockpit:close', shut);
     return () => { ipcRenderer.off('cockpit:open', open); ipcRenderer.off('cockpit:close', shut); };
   },
+  // --- C4, Claude in the cockpit (2026-10-21). One narrow door for everything he says to a Claude session (an answer,
+  // a message, pause, play, a model); main.ts checks every field before the brain hears it. And one to open a session
+  // in the Claude app, which main.ts only passes on for the exact claude://claude.ai/epitaxy/<id> shape.
+  claude: m => ipcRenderer.send('bubble:claude', m),
+  openClaude: url => ipcRenderer.send('bubble:openclaude', url),
   // --- the typing box (6.12b). Named doors only.
   onInputState(fn) {
     const h = (_e, v) => fn(v);

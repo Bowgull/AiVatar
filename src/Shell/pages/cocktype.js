@@ -114,16 +114,54 @@ export function startTyping({ onSize }) {
   const onLastLine = () => !box.value.slice(box.selectionEnd).includes('\n');
   function setText(t) { box.value = t; box.selectionStart = box.selectionEnd = t.length; grow(); }
 
-  function send() {
+  function send(after = false) {
     const text = box.value.trim();
     if (!text) return;
     failRow.hidden = true;
     window.aang?.saveHistory?.(history.add(text));
     box.value = '';
     grow();
+    // Pointed at a Claude session (C4, 2026-10-21): the words go to that session, not to Aang, then the area is Aang's again.
+    if (target) { const t = target, when = after || whenAfter ? 'after' : 'now'; clearTarget(); t.onSend(text.slice(0, 4000), when); return; }
     window.aang?.submit?.({ text, mode });
     working = true;                   // Esc now means "stop", until the answer lands
   }
+
+  // The purple key (C4, sheet 45g): a terracotta "TO CLAUDE · <project>" chip over the field says where his words go; the
+  // × goes back to Aang. For a plain message, SEND NOW (Enter) or AFTER THIS TASK (the key, or Ctrl+Enter). For "No,
+  // and...", "Something else" and "Change it" the chip alone: his words are the answer.
+  let target = null, whenAfter = false;
+  const toRow = document.createElement('div');
+  toRow.id = 'ckTo'; toRow.className = 'claudeto'; toRow.hidden = true;
+  el('ck').prepend(toRow);
+  function paintTarget() {
+    toRow.replaceChildren();
+    toRow.hidden = !target;
+    box.placeholder = target ? target.placeholder : '';
+    if (!target) return;
+    const chip = document.createElement('span'); chip.className = 'pinchip to';
+    const b = document.createElement('b'); b.textContent = 'TO CLAUDE';
+    const img = document.createElement('img'); img.src = 'art/claude-icon.png'; img.alt = '';
+    const nm = document.createElement('span'); nm.textContent = target.label;
+    const x = document.createElement('s'); x.textContent = '×'; x.setAttribute('role', 'button'); x.title = 'Back to Aang';
+    x.addEventListener('click', () => { clearTarget(); box.focus(); });
+    chip.append(b, img, nm, x);
+    toRow.append(chip);
+    if (target.when) {
+      const w = document.createElement('span'); w.className = 'when';
+      const key = (label, after) => {
+        const k = document.createElement('button'); k.type = 'button'; k.textContent = label; k.className = whenAfter === after ? 'on' : '';
+        k.addEventListener('mousedown', (e) => e.preventDefault());           // the caret stays in the field
+        k.addEventListener('click', () => { whenAfter = after; paintTarget(); box.focus(); });
+        return k;
+      };
+      w.append(key('SEND NOW', false), key('AFTER THIS TASK', true));
+      toRow.append(w);
+    }
+  }
+  /** Point the typing area at a session: { label, placeholder, when, onSend(text, when), onClear }. */
+  function pointAt(t) { const was = target; target = null; was?.onClear?.(); target = t; whenAfter = false; paintTarget(); focus(); onSize(); }
+  function clearTarget() { if (!target) return; const was = target; target = null; whenAfter = false; paintTarget(); was.onClear?.(); onSize(); }
 
   // The chips above the field: what he is replying to, his pinned context, files, highlights, mockups, snips.
   const pinnedRow = el('ckPinned');
@@ -167,6 +205,7 @@ export function startTyping({ onSize }) {
       if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && box.value.trim().length === 0) { e.preventDefault(); window.aang?.answerFromBox?.({ choice: 'yes' }); paintAsk(null); return; }
       if (e.key === 'Escape') { e.preventDefault(); window.aang?.answerFromBox?.({ choice: 'no' }); paintAsk(null); return; }
     }
+    if (e.key === 'Enter' && e.ctrlKey && !e.shiftKey && target?.when) { e.preventDefault(); send(true); return; }
     if (e.key === 'Enter' && (e.shiftKey || e.ctrlKey)) { e.preventDefault(); box.setRangeText('\n', box.selectionStart, box.selectionEnd, 'end'); grow(); return; }
     if (e.key === 'Enter') { e.preventDefault(); send(); return; }
     if (e.key === 'Escape') { e.preventDefault(); if (working) window.aang?.stop?.(); else window.aang?.inputClose?.(); return; }
@@ -205,5 +244,7 @@ export function startTyping({ onSize }) {
     /** The cockpit opened (true) or closed (false). */
     setLive(on) { live = on; if (on) focus(); else box.blur(); },
     focus,
+    pointAt,
+    clearTarget,
   };
 }

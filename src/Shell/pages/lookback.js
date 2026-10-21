@@ -193,6 +193,15 @@ function rowOf(t, d, ctx) {
   if (s.type === 'mine') {
     const m = T('div', 'lb-mine' + (ctx.replying === t.id ? ' replying' : ''));
     m.dataset.id = String(t.id);
+    // C4 (2026-10-21): words he sent a Claude session carry Claude's icon and the project tag (sheet 46's "TO WAYMARK").
+    const to = t.extra && typeof t.extra.to === 'string' ? t.extra.to : '';
+    if (to) {
+      m.classList.add('toclaude');
+      const tag = T('span', 'to'), img = document.createElement('img');
+      img.src = 'art/claude-icon.png'; img.alt = '';
+      tag.append(img, document.createTextNode(('TO ' + to + (typeof t.extra.when === 'string' ? ' · ' + t.extra.when : '')).toUpperCase().slice(0, 60)));
+      m.append(tag);
+    }
     textWithLinks(m, t.text);
     m.append(replyKey(t, ctx));
     return m;

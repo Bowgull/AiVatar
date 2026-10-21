@@ -773,3 +773,129 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
 #bubble.cockpit.ckask #scroller{margin-top:10px;padding:8px 11px;border-radius:10px;background:rgba(0,0,0,.28);
   box-shadow:inset 0 0 0 2px var(--gold),0 0 12px rgba(255,190,90,.35)}
 #bubble.cockpit.ckask #scroller .said{font-weight:700}
+
+/* ---- C4: Claude in the cockpit (2026-10-21) ---------------------------------------------------------------------
+   Lifted from the mockups, rule for rule, only re-scoped (.ckjobs / .ckpins / #ck) and with art paths made local:
+   the jobs strip and its Track list from sheet 45g, the unfolded tracker's tick from 45f, the pinned card from sheet
+   46's Lantern (its ring takes 45d's colour for the kind: permission pale blue, question lavender, plan sage). */
+.ckjobs:not([hidden]){display:flex;flex-direction:column;gap:7px}
+.ckjobs .job{box-sizing:border-box;padding:9px 12px 9px;border-radius:11px;cursor:pointer;color:#21160a;background:radial-gradient(120% 90% at 30% 0%,#f7ead0,#e9d3a6);box-shadow:0 0 0 3px #120A05,0 4px 0 #0d0703;transition:box-shadow .15s}
+.ckjobs .job:hover{box-shadow:0 0 0 3px #120A05,0 4px 0 #0d0703,0 0 0 5px rgba(255,196,60,.35)}
+.ckjobs .job.sel{box-shadow:0 0 0 3px #120A05,0 4px 0 #0d0703,0 0 0 5px rgba(224,122,79,.6)}
+.ckjobs .job .hd{display:flex;align-items:center;gap:8px}
+.ckjobs .job .hd img{width:18px;height:18px;border-radius:4px;box-shadow:0 0 0 1px rgba(106,70,40,.5)}
+.ckjobs .job .hd b{font:700 13px var(--body);color:#8a3e1c;white-space:nowrap}
+.ckjobs .job .hd span.t{min-width:0;font:600 12.5px var(--body);color:#3a2a18;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ckjobs .job .hd .mc{flex:none;font:400 8px var(--label);letter-spacing:1px;color:#6b4318;border:1.5px solid rgba(107,67,24,.55);border-radius:4px;padding:2px 4px 1px}
+.ckjobs .job .msg{all:unset;cursor:pointer;flex:none;display:grid;place-items:center;width:26px;height:24px;border-radius:7px;background:linear-gradient(180deg,#4A2C6E,#331d52);box-shadow:0 0 0 2px #120A05,0 3px 0 #120A05;transition:transform .05s}
+.ckjobs .job .msg:hover{filter:brightness(1.2)}
+.ckjobs .job .msg svg{width:14px;height:14px}
+.ckjobs .job .row2{display:flex;align-items:center;gap:10px;margin-top:6px}
+.ckjobs .job .row2 .lt{flex:none;font:500 11.5px var(--body);color:#6b5236}
+.ckjobs .chev{flex:none;width:0;height:0;border:5px solid transparent;border-top:6px solid #8f7458;border-bottom:0;transition:transform .2s}
+.ckjobs .job.open .chev{transform:rotate(180deg)}
+.ckjobs .job .det{display:grid;grid-template-rows:0fr;transition:grid-template-rows .26s cubic-bezier(.3,.7,.2,1)}
+.ckjobs .job.open .det{grid-template-rows:1fr}
+.ckjobs .job .det>div{overflow:hidden}
+.ckjobs .job .list{margin:8px 0 0;padding:8px 0 0;border-top:2px solid rgba(120,80,30,.18)}
+.ckjobs .ob{display:flex;align-items:center;gap:9px;font:600 12.5px/1.85 var(--body);color:#8f7458}
+.ckjobs .ob .tx{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ckjobs .ob i{flex:none;width:12px;height:12px;border-radius:3px;box-shadow:inset 0 0 0 2px #b89a6a}
+.ckjobs .ob.done{color:#4f7a72}.ckjobs .ob.done i{background:#58b0a3;box-shadow:inset 0 0 0 2px #2f6f66}
+.ckjobs .ob.done i::after{content:"";display:block;width:3px;height:6px;margin:1px 0 0 4px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.ckjobs .ob.now{color:#21160a}.ckjobs .ob.now i{box-shadow:inset 0 0 0 2px #c08646,0 0 6px rgba(236,189,114,.8)}
+.ckjobs .ob .r{margin-left:auto;font:500 11px var(--body);color:#a98e6a}
+.ckjobs .ob.now .r{font:400 9px var(--label);color:#8a5a28}
+.ckjobs .ckeys{display:flex;gap:6px;margin-top:10px}
+.ckjobs .key.sm,.ckpins .key.sm{padding:6px 10px 7px}
+.ckjobs .queued{display:flex;align-items:center;gap:7px;margin-top:7px;font:600 12px var(--body);color:#5b2f8f}
+.ckjobs .queued i{font-style:normal;font:400 8px var(--label);letter-spacing:1px;padding:3px 5px 2px;border-radius:4px;background:#cdb4ff;color:#2a1240}
+.ckjobs canvas.jpill{image-rendering:pixelated;display:block}
+.ckjobs .flip{all:unset;cursor:pointer;margin-left:auto;perspective:220px;display:inline-block;height:18px;min-width:58px;text-align:right;flex:none}
+.ckjobs .orow .flip{margin-left:0;min-width:64px}
+.ckjobs .flip .fi{position:relative;display:inline-block;width:100%;height:100%;transform-style:preserve-3d;transition:transform .45s cubic-bezier(.3,.7,.2,1)}
+.ckjobs .flip.back .fi{transform:rotateX(180deg)}
+.ckjobs .flip .ff,.ckjobs .flip .fb{position:absolute;right:0;top:0;line-height:18px;backface-visibility:hidden;white-space:nowrap;font:400 10px var(--label)}
+.ckjobs .flip .ff{color:#3a2a18}
+.ckjobs .orow .flip .ff{color:#ffe28c}
+.ckjobs .flip .fb{transform:rotateX(180deg);color:#5b2f8f;padding:0 6px;border-radius:5px;background:#e6d8ff;box-shadow:inset 0 0 0 1.5px #b9a2ec}
+.ckjobs .flip:hover .ff{text-decoration:underline dotted}
+.ckjobs .untrack{all:unset;cursor:pointer;margin-top:6px;font:400 8px var(--label);letter-spacing:1px;color:#8f7458}
+.ckjobs .untrack:hover{color:#8a3e1c}
+.ckjobs .others{border-radius:11px;background:linear-gradient(rgba(0,0,0,.35),rgba(0,0,0,.45)),url(art/browser/tray.png) 0 0/128px 256px;box-shadow:0 0 0 3px #120A05,0 4px 0 #0d0703;overflow:hidden}
+.ckjobs .oline{all:unset;cursor:pointer;box-sizing:border-box;width:100%;display:flex;align-items:center;gap:9px;padding:8px 12px;font:400 9px var(--label);letter-spacing:1.5px;color:#ffe28c}
+.ckjobs .oline:hover{color:#fff}
+.ckjobs .oline .dots{display:flex;gap:3px}
+.ckjobs .oline .dots i{width:7px;height:7px;border-radius:50%;background:#8ad5c9;box-shadow:0 0 5px rgba(138,213,201,.7)}
+.ckjobs .oline .chev{margin-left:auto;border-top-color:#ffe28c}
+.ckjobs .others.open .oline .chev{transform:rotate(180deg)}
+.ckjobs .others .olist{display:none}
+.ckjobs .others.open .olist{display:block;padding:0 10px 8px}
+.ckjobs .orow{display:flex;align-items:center;gap:9px;padding:7px 4px;border-top:2px solid rgba(255,224,150,.12)}
+.ckjobs .orow img{width:18px;height:18px;border-radius:4px}
+.ckjobs .orow .on{flex:1;min-width:0;display:flex;flex-direction:column}
+.ckjobs .orow .on b{font:700 12.5px var(--body);color:#f2e3c2}
+.ckjobs .orow .on small{font:500 11px var(--body);color:#c9b48e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* paused: 45d's dusk slate, resting, nothing needed (the pill is drawn in slate, no glow) */
+.ckjobs .job.paused .row2 .lt{color:#667086}
+.ckjobs .job.paused .flip .ff{color:#667086}
+
+/* the pinned card (sheet 46, Lantern), the most urgent thing waiting; "N MORE" steps through the rest */
+.ckpins .pin{position:relative;padding:10px 12px 8px;border-radius:10px;margin:6px 0 8px;color:#21160a;background:radial-gradient(120% 90% at 30% 0%,#fff3d8,#efd9a6);box-shadow:0 0 0 3px #120A05,0 0 0 5px #C98C14,0 0 16px rgba(255,190,90,.45)}
+.ckpins .pin.k-permission{box-shadow:0 0 0 3px #120A05,0 0 0 5px rgb(191,227,255),0 0 16px rgba(191,227,255,.45)}
+.ckpins .pin.k-question{box-shadow:0 0 0 3px #120A05,0 0 0 5px rgb(201,179,255),0 0 16px rgba(201,179,255,.45)}
+.ckpins .pin.k-plan{box-shadow:0 0 0 3px #120A05,0 0 0 5px rgb(168,216,160),0 0 16px rgba(168,216,160,.45)}
+.ckpins .pmore{position:absolute;right:10px;top:9px;font:400 8px var(--label);letter-spacing:1px;padding:3px 6px 2px;border-radius:4px;cursor:pointer;background:#4A2C6E;color:#efe6ff}
+.ckpins .ctag{display:inline-flex;align-items:center;gap:5px;font:700 11.5px var(--body);border-radius:999px;padding:2px 8px 2px 3px;margin-bottom:5px;background:rgba(224,122,79,.18);color:#8a3e1c}
+.ckpins .ctag img{width:16px;height:16px;border-radius:4px}
+.ckpins .q{margin:2px 0 6px;font:700 14px/1.45 var(--body);color:#21160a}
+.ckpins .glove{margin:0 -4px}
+.ckpins .opt{padding:5px 10px 5px 38px;font-size:14px}
+.ckpins .opt:hover .kc{opacity:1}
+.ckpins .ckeys{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 2px}
+/* several picks (45g): square boxes, the picked rows lit */
+.ckpins .opt .mk{flex:none;align-self:flex-start;width:14px;height:14px;margin-top:3px;box-sizing:border-box;border:2.5px solid #6b4318;background:#f7ead0;border-radius:4px}
+.ckpins .opt.picked{background:rgba(255,196,60,.28);box-shadow:inset 0 0 0 2px #C98C14,0 0 10px rgba(255,196,60,.35)}
+.ckpins .opt.picked .mk{background:#8a3e1c;box-shadow:inset 0 0 0 2px #f7ead0}
+.ckpins .rec{display:inline-block;margin-left:6px;font:400 7.5px var(--label);letter-spacing:1px;padding:2px 4px 1px;border-radius:3px;background:#58b0a3;color:#08302b;vertical-align:2px}
+.ckpins .sendrow{display:flex;align-items:center;gap:8px;margin-top:10px}
+.ckpins .sendrow .n{font:400 8px var(--label);letter-spacing:1px;color:#8f7458}
+.ckpins .stepper{display:flex;align-items:center;gap:8px;margin:0 0 8px}
+.ckpins .stepper .dots{display:flex;gap:5px}
+.ckpins .stepper .dots i{width:9px;height:9px;border-radius:50%;background:rgba(120,80,30,.25)}
+.ckpins .stepper .dots i.done{background:#58b0a3}
+.ckpins .stepper .dots i.now{background:#C98C14;box-shadow:0 0 6px rgba(255,196,60,.8)}
+.ckpins .stepper span{font:400 8px var(--label);letter-spacing:1px;color:#8f7458}
+.ckpins .stepper .sback{all:unset;cursor:pointer;margin-left:auto;font:400 8px var(--label);letter-spacing:1px;color:#8a3e1c}
+.ckpins .pin:has(.pmore) .stepper{margin-right:60px}
+.ckpins .cw{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:5px;margin-top:9px;font:400 8px var(--label);letter-spacing:1.5px;color:#8f7458}
+.ckpins .cw i{width:0;height:0;border:4px solid transparent;border-left:5px solid currentColor;border-right:0}
+.ckpins .cwbox,.ckpins .planfold{margin:6px 0 0;padding:7px 9px;border-radius:6px;font:500 11.5px/1.45 Consolas,monospace;color:#3a2a18;background:rgba(120,80,30,.13);white-space:pre-wrap;overflow-wrap:anywhere;max-height:220px;overflow-y:auto}
+.ckpins .cwbox[hidden]{display:none}
+.ckpins .ctoast{display:flex;align-items:center;gap:8px;margin:4px 0 6px;font:400 9px var(--label);letter-spacing:1.5px;color:#ffe28c;padding:7px 11px;border-radius:7px;background:linear-gradient(rgba(0,0,0,.5),rgba(0,0,0,.5)),url(art/browser/tray.png) 0 0/128px 256px;border:2px solid #120A05}
+.ckpins .ctoast img{width:14px;height:14px;border-radius:3px}
+/* no room left: the card scrolls inside, soft fade top and bottom, never cut off (45g's capped rule) */
+.ckpins .pin.capped{box-sizing:border-box;overflow-y:auto;scrollbar-width:none;-webkit-mask-image:linear-gradient(180deg,transparent 0,#000 14px,#000 calc(100% - 22px),transparent);mask-image:linear-gradient(180deg,transparent 0,#000 14px,#000 calc(100% - 22px),transparent)}
+.ckpins .pin.capped::-webkit-scrollbar{display:none}
+.ckjobs .job .list.capped{box-sizing:border-box;overflow-y:auto;scrollbar-width:none;-webkit-mask-image:linear-gradient(180deg,transparent 0,#000 10px,#000 calc(100% - 14px),transparent);mask-image:linear-gradient(180deg,transparent 0,#000 10px,#000 calc(100% - 14px),transparent)}
+.ckpins .morehint{position:sticky;bottom:0;text-align:center;font:400 8px var(--label);letter-spacing:1.5px;color:#8f7458;pointer-events:none;animation:cknudge 1.4s ease-in-out infinite}
+@keyframes cknudge{50%{transform:translateY(2px)}}
+/* the cockpit closed: the same card in Aang's own bubble, sheet 46's Parchment look (no wood under it, so no dark rim) */
+#bubble:not(.cockpit) .ckpins{margin:0}
+#bubble:not(.cockpit) .ckpins .pin{margin:4px 2px 2px;background:#fff3d8;box-shadow:0 0 0 2.5px #C98C14,0 0 14px rgba(255,190,90,.5)}
+#bubble:not(.cockpit) .ckpins .pin.k-permission{box-shadow:0 0 0 2.5px rgb(150,196,232),0 0 14px rgba(191,227,255,.6)}
+#bubble:not(.cockpit) .ckpins .pin.k-question{box-shadow:0 0 0 2.5px rgb(169,140,230),0 0 14px rgba(201,179,255,.6)}
+#bubble:not(.cockpit) .ckpins .pin.k-plan{box-shadow:0 0 0 2.5px rgb(130,186,122),0 0 14px rgba(168,216,160,.6)}
+
+/* the purple key's chip on the typing area (45g): where his words go, and when */
+#ck .claudeto{display:flex;align-items:center;gap:7px;padding:0 4px 7px}
+#ck .claudeto[hidden]{display:none}
+#ck .pinchip.to{background:var(--claude);color:#3a1708;padding:4px 8px 4px 6px}
+#ck .pinchip.to img{width:15px;height:15px;border-radius:4px}
+#ck .claudeto .when{display:flex;gap:4px;margin-left:auto}
+#ck .claudeto .when button{all:unset;cursor:pointer;font:400 8px var(--label);letter-spacing:1px;color:#e8dcc4;padding:5px 7px 4px;border-radius:6px;background:rgba(0,0,0,.35);box-shadow:inset 0 0 0 1.5px rgba(255,224,150,.25)}
+#ck .claudeto .when button.on{background:var(--gold);color:#2a1c00;box-shadow:inset 0 0 0 2px #120A05}
+#ck .field::placeholder{color:#8f7fb0}
+/* what he sent a session, in the conversation: his plum row with Claude's icon and the project (sheet 46's "TO WAYMARK") */
+.lb-mine .to{display:flex;align-items:center;gap:5px;font:400 7.5px var(--label);letter-spacing:1px;color:#cdb4ff;margin-bottom:3px;white-space:nowrap}
+.lb-mine .to img{width:13px;height:13px;border-radius:3px}

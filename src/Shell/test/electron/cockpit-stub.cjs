@@ -11,4 +11,7 @@ window.aang = new Proxy({
   onChips: on('onChips'), onAsk: on('onAsk'), onFailed: on('onFailed'), onRecall: on('onRecall'), onAim: on('onAim'),
   onUndock: on('onUndock'), onDismiss: on('onDismiss'), onPage: on('onPage'), onBubbleCopy: on('onBubbleCopy'),
   copyText(t) { window.__copied.push(String(t)); },
+  // C4 (2026-10-21): the Claude doors, kept apart so a check can read exactly what would reach the brain or the shell.
+  claude(m) { window.__sent.push(['claude', [JSON.parse(JSON.stringify(m))]]); },
+  openClaude(url) { window.__sent.push(['openClaude', [String(url)]]); },
 }, { get(target, k) { return k in target ? target[k] : (...a) => { window.__sent.push([String(k), a]); return () => {}; }; } });

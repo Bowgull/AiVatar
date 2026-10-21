@@ -21,6 +21,7 @@ import { CoreLink } from './link.ts';
 import { Bubble, wantsNewBubble } from './bubble.ts';
 import { InputBox } from './input.ts';
 import { CockpitBox, wantsCockpit, type TypingSurface } from './cockpit.ts';
+import { claudeMessage, claudeLink } from './claudewire.ts';
 import { Snipper } from './snip.ts';
 import { AangBrowser, type UpdateCard, type PlanAnswer } from './browser.ts';
 import { takeMockupFile, type MockSend, type MockSendItem } from './mockups.ts';
@@ -491,7 +492,9 @@ const link = new CoreLink({
     // The bubble is not in `windows`: it is made on demand and has its own lifetime, so it is told
     // separately rather than being swept up by a loop that does not know about it.
     if (notForBubble !== m) bubble?.send('brain:message', m);
-    input?.send('brain:message', m);
+    // With the cockpit on, `input` IS the bubble's page (cockpit.ts), so sending it again delivered every message twice
+    // (C4, 2026-10-21: a reply became two rows in the conversation, and every Claude list was drawn twice).
+    if (!cockpitOn) input?.send('brain:message', m);
   },
   onConnected: up => {
     // Aang off (Samara on its own, 2026-10-20): a brain that is not there is not news; nothing pops up to say so.
@@ -1337,6 +1340,21 @@ app.whenReady().then(async () => {
   ipcMain.on('bubble:focus', (e, name) => {
     if (!fromBubble(e) || typeof name !== 'string' || !name) return;
     link?.send({ t: 'bubble.focus', focus: name.slice(0, 200) });
+  });
+  // C4, Claude in the cockpit (2026-10-21): his answers and messages to Claude sessions, from his own bubble only. Every
+  // field is rebuilt and checked (claudewire.ts) before the brain hears it; anything off is dropped and logged.
+  ipcMain.on('bubble:claude', (e, raw) => {
+    if (!fromBubble(e)) return;
+    const m = claudeMessage(raw);
+    if (!m) { console.error('shell: refused a Claude message from the bubble that did not check out'); return; }
+    link?.send(m);
+  });
+  // Open in Claude: only the exact claude://claude.ai/epitaxy/<session> link the brain made goes to the shell.
+  ipcMain.on('bubble:openclaude', (e, raw) => {
+    if (!fromBubble(e)) return;
+    const url = claudeLink(raw);
+    if (!url) { console.error('shell: refused an Open in Claude link that was not a Claude session'); return; }
+    void shell.openExternal(url);
   });
 
   link.start();
