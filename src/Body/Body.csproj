@@ -6,6 +6,9 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>Aang</AssemblyName>
+    <!-- Aang's face on the exe itself (2026-10-21), so the desktop shortcut, the Start menu and a pin all show him;
+         the same hand-pixelled 16-256 icon the Shell's windows wear. -->
+    <ApplicationIcon>..\Shell\assets\aang.ico</ApplicationIcon>
     <RootNamespace>Aang.Body</RootNamespace>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <TieredPGO>true</TieredPGO>
