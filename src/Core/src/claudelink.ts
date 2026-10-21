@@ -89,10 +89,12 @@ export interface WaitItem {
   tool: string;
   /** One plain line about what it wants. */
   summary: string;
+  /** The same in everyday words (plainwords.ts), once Qwen or the quick model has rewritten it; the bubble shows this when set. */
+  plain?: string;
   /** The exact input, JSON, cut to 2000 characters. */
   input: string;
   /** AskUserQuestion's questions as Claude asked them. */
-  questions?: { question: string; header?: string; multiSelect?: boolean; options: { label: string; description?: string }[] }[];
+  questions?: { question: string; header?: string; multiSelect?: boolean; options: { label: string; description?: string; plain?: string }[] }[];
   /** ExitPlanMode's plan, cut to 8000 characters. */
   plan?: string;
   /** Claude offered "don't ask again" for this one. */
@@ -129,6 +131,8 @@ export class JobTracker {
   private readonly answerWaiters = new Map<string, Waiter<Outgoing | null>>();
   /** Told whenever the jobs list or the waiting queue changes; the Core sends them on to the Shell. */
   onChange: (what: 'jobs' | 'wait') => void = () => {};
+  /** Told once per new waiting item, so the Core can have it rewritten in plain words (C2, 2026-10-21). */
+  onAsk: (item: WaitItem) => void = () => {};
   private seq = 0;
 
   private id(): string { return `${Date.now().toString(36)}-${(++this.seq).toString(36)}-${randomBytes(4).toString('hex')}`; }
@@ -243,6 +247,23 @@ export class JobTracker {
     if (kind === 'plan') item.plan = cut(ev?.plan, 8000);
     this.waits.set(id, item);
     this.onChange('wait');
+    this.onAsk(item);
+  }
+
+  /** The plain words for a waiting item, if it is still waiting. Option lines only fit a single question. */
+  setPlain(id: string, plain: string, options: string[] = []): void {
+    const w = this.waits.get(id);
+    if (!w) return;
+    w.plain = plain;
+    const q = w.questions?.length === 1 ? w.questions[0]! : null;
+    if (q && options.length === q.options.length) q.options.forEach((o, i) => { o.plain = options[i]; });
+    this.onChange('wait');
+  }
+
+  /** What a session is on, in one line, for rewriting his message to it. */
+  context(session: string): string {
+    const j = this.jobs.get(session);
+    return j ? [j.project, j.current ?? '', j.prompt].filter(Boolean).join(' - ') : '';
   }
 
   private drop(id: string): void {

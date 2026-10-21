@@ -132,3 +132,8 @@ the mod acts on nothing else. The mod builds HMAC from `crypto.subtle.digest` (i
 
 In the brain: `core.claudeJobs.list()`, `.waiting()`, `.answer(id, a)`, `.send(session, text, when)`, `.pause()`,
 `.play()`, `.setModel()`. Not built here: the fast-model translation both ways, tracked jobs, quota per job.
+
+### Plain words (2026-10-21)
+- Every new waiting item is rewritten in the background (src/Core/src/plainwords.ts): `WaitItem.plain` (one everyday sentence) and, for a single question, `options[i].plain`. A fresh `claude.wait` carries them a few seconds later; the bubble shows `plain` when set, else `summary`. Exact input stays one click away.
+- His words to a session (`claude.send`, `deny-message`, a question answer that is not one of Claude's labels) are made precise first, with his own words kept under them. Picked labels (several joined with ", ") go untouched.
+- Qwen on this PC first (free, steps aside in a game), Claude's quick model only as the fallback.

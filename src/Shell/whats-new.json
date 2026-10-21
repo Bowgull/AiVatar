@@ -405,6 +405,11 @@
       "at": "2026-10-21T20:00:00-04:00",
       "text": "Briefs, videos and plans now open inside the cockpit.",
       "kind": "feature"
+    },
+    {
+      "at": "2026-10-21T19:00:00-04:00",
+      "text": "Claude's questions now come in plain words, and your answers go back clear and precise.",
+      "kind": "feature"
     }
   ]
 }
