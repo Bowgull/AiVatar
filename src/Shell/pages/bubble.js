@@ -1278,6 +1278,8 @@ const RECENT_MS = 5 * 60_000;
  *             every running job as a folded bar. False with no Claude jobs at all, so main.ts opens the chat box instead.
  */
 function recall(what) {
+  // Sheet 56 (2026-10-21): "Look back" in his right-click menu opens the scroll-back, the same as the wheel up over it.
+  if (what === 'back') { enterReading(); return reading; }
   if (what === 'jobs') {
     if (cockpit || !claude) return false;
     if (claude.anyWaiting()) { endSessions(); if (reading) leaveReading(false); claude.unpark(); claudeWaiting(true, true, true); return true; }

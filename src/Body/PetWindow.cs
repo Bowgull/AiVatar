@@ -913,6 +913,10 @@ sealed class PetWindow : Form
                 case "hush.reply":
                     Note(Str(m, "text") ?? "Hush.");
                     break;
+                // Sheet 56 (2026-10-21): he picked something in the Shell's right-click menu.
+                case "menu.pick":
+                    if (NewFrontEnd) MenuPicked(Str(m, "id"));
+                    break;
                 case "ping":
                     _ = link.SendAsync(new { t = "pong" });
                     break;
@@ -1447,6 +1451,9 @@ sealed class PetWindow : Form
                 var row = bubble.TurnAt(onBubble.Y);
                 if (row > 0) { ShowTurnMenu(row, e.Location); return; }
             }
+            // Sheet 56 (2026-10-21): with the new front end the Shell draws his new menu in Samara's wood. The old gold
+            // menu stays for the old front end, the tray icon, and a brain that is not there to carry the message.
+            if (NewFrontEnd && link.IsConnected) { OpenShellMenu(); return; }
             SetClickAwayHook(true);
             tray.ContextMenuStrip?.Show(new Point(Cursor.Position.X - 34, Cursor.Position.Y), ToolStripDropDownDirection.Left);
             return;   // to his left: he is drawn above a menu that opens under him
@@ -2992,6 +2999,49 @@ sealed class PetWindow : Form
         tray.Icon = MakeIcon();
         tray.Visible = true;
         tray.DoubleClick += (_, _) => ToggleVisible();
+    }
+
+    // ------------------------------------------------------------------ the new right-click menu (sheet 56)
+
+    /// <summary>
+    /// Sheet 56, look A (2026-10-21): right-click on Aang with the new front end. The Shell draws the menu at the mouse;
+    /// the pet says what is ticked (the brain adds when a hush ends). The menu takes the keyboard (Esc closes it), so
+    /// the pet hands the foreground on first, as it does for the typing box.
+    /// </summary>
+    void OpenShellMenu()
+    {
+        var c = Cursor.Position;
+        Win32.AllowSetForegroundWindow(Win32.ASFW_ANY);
+        _ = link.SendAsync(new
+        {
+            t = "menu.open", x = c.X, y = c.Y,
+            state = new
+            {
+                muted = cfg.Muted, quiet = AangMenu.QuietName(forcedQuiet), dock = AangMenu.DockName(dock), docked = dock != DockEdge.None,
+                model = mode, saving,
+                models = ModelChip.Modes.Select(md => new { id = md, label = ModelChip.Describe(md) }).ToArray(),
+            },
+        });
+    }
+
+    /// <summary>Sheet 56 (2026-10-21): a pick from the Shell's menu runs the same handler the old gold menu item runs.</summary>
+    void MenuPicked(string? id)
+    {
+        Log.Write("menu pick: " + id);
+        AangMenu.Run(id, new AangMenu.Host
+        {
+            ClaudeJobs = MarkClicked,
+            JobHunt = () => { Note("Starting the job hunt..."); _ = link.SendAsync(new { t = "job.hunt" }); },
+            Hush = mins => _ = link.SendAsync(new { t = "hush", minutes = mins }),
+            ToggleMute = () => SetMuted(!cfg.Muted),
+            Quiet = q => { forcedQuiet = q; ApplyQuiet(); },
+            Dock = DockFromTray,
+            ComeBack = () => Undock(moveToStand: true),
+            Hide = () => { if (Visible) ToggleVisible(); },
+            Model = SetMode,
+            ToggleSaving = () => SetSaving(!saving),
+            Quit = () => { tray.Visible = false; Application.Exit(); },
+        }, DateTime.Now);
     }
 
     /// <summary>Master mute. Nothing unprompted gets through; anything held is delivered when it is turned off.</summary>
