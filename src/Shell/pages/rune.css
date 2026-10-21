@@ -10,8 +10,11 @@
 .rune canvas{display:block;image-rendering:pixelated}
 .rune .rg{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)}
 .rune .rn{position:relative}
+/* Added 2026-10-21: the stone's canvas carries a one-pixel shadow on its right and bottom, so centring the canvas left
+   the stone half an art pixel off the ring's grid; nudged back on, the ring and stone pixels line up. */
+.rune.tB .rn{left:1px;top:1px}
 /* B: a thin pixel ring round the stone fills with the job's progress; the ring breathes, the stone stays still */
-.rune.tB .stone{width:calc(var(--u)*18);height:calc(var(--u)*18)}
+.rune.tB .stone{width:calc(var(--u)*21);height:calc(var(--u)*21)}
 .rune.tB .rg{animation:rring 3.2s ease-in-out infinite}
 .rune.tB.st-needs .rg{animation-duration:2s}
 @keyframes rring{0%,100%{filter:drop-shadow(0 0 0 transparent)}50%{filter:drop-shadow(0 0 3px var(--c))}}
@@ -20,7 +23,10 @@
 .rune.tB.st-paused .rg{animation:none}
 /* two jobs, one rune: a small gold count pip on its corner */
 .rune .pip{position:absolute;right:-5px;bottom:-4px;min-width:14px;height:14px;box-sizing:border-box;padding:0 3px;border-radius:5px;display:grid;place-items:center;font-style:normal;
-  font:400 9px var(--label,"Silkscreen",monospace);line-height:1;color:#2a1c00;background:#FFC43C;box-shadow:0 0 0 2px #120A05,inset 1px 1px 0 rgba(255,245,200,.7)}
+  font:400 9px var(--label,"Silkscreen",monospace);line-height:1;color:#2a1c00;background:#FFC43C;box-shadow:0 0 0 2px #120A05,inset 1px 1px 0 rgba(255,245,200,.7);
+  transition:opacity .2s cubic-bezier(.32,.72,0,1),transform .2s cubic-bezier(.32,.72,0,1)}
+/* His ask (2026-10-21): with the panel open the count is obvious, so it fades away, and fades back when it closes. */
+.rune.on .pip{opacity:0;transform:scale(.6)}
 /* pressed: the panel is open */
 .rune.on{background:rgba(0,0,0,.28);box-shadow:inset 0 2px 0 rgba(0,0,0,.5)}
 /* Added for the real band: it is 58 px tall, so the ring may not push it; the rune sits in the same row as the keys. */
@@ -93,9 +99,10 @@
 .rpanel .say{display:flex;gap:6px;align-items:center;margin-top:8px}
 .rpanel .say input{flex:1;min-width:0;box-sizing:border-box;padding:6px 9px;border-radius:8px;border:2px solid #4A2C6E;background:#fffaf0;font:600 12.5px var(--body);color:#21160a;outline:none}
 .rpanel .say input:focus{box-shadow:0 0 0 2px rgba(176,124,255,.5)}
-@media (prefers-reduced-motion:reduce){.rune *,.rune{animation:none!important}.rpanel,.rtip{animation:none}.rpanel .chev{transition:none}}
+@media (prefers-reduced-motion:reduce){.rune *,.rune{animation:none!important;transition:none!important}.rpanel,.rtip{animation:none}.rpanel .chev{transition:none}}
 /* No to-do list, no percent (2026-10-21): a quarter of the ring steps round in whole quarter turns, so the pixels stay
    crisp, instead of an empty ring that read as "0%". */
 .rune.busy .stone>canvas:first-child{animation:runebusy 1.6s steps(4) infinite}
-@keyframes runebusy{to{transform:rotate(360deg)}}
+/* Fixed 2026-10-21: the ring is centred with a translate, so the turn keeps it (a bare rotate dropped the centring). */
+@keyframes runebusy{from{transform:translate(-50%,-50%)}to{transform:translate(-50%,-50%) rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){.rune.busy .stone>canvas:first-child{animation:none}}

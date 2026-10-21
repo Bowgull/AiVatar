@@ -73,12 +73,18 @@ app.whenReady().then(async () => {
   check('the ring is lit to about 62%', lit[1] > 20 && Math.abs(lit[0] / lit[1] - 0.62) < 0.06, `${lit[0]} of ${lit[1]}`);
   check('the band keeps its height', (await bandH()) === h0, `${h0} -> ${await bandH()}`);
   check('no number with one job', await js(`!document.querySelector('#runeslot .pip')`) === true);
+  // 2026-10-21, his ask: the glyph is Claude's own terracotta starburst on the icon's cream stone, whatever the state.
+  const px = (rgb: string) => js(`(() => { const c = document.querySelector('#runeslot .rn'), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0;
+    for (let i = 0; i < d.length; i += 4) if (d[i + 3] && [d[i], d[i + 1], d[i + 2]].join() === '${rgb}') n++; return n; })()`);
+  const sun = await px('217,119,87'), cream = await px('240,227,200');
+  check("the glyph is Claude's terracotta starburst on cream", sun >= 200 && cream >= 200, `${sun} terracotta, ${cream} cream screen px`);
 
   // 3. Two jobs: ONE rune with a gold 2.
   const two = () => [job(S1, 'Waymark', 'working', tasks(3, W1), 62, 38 * 60_000), job(S2, 'Samara', 'working', tasks(1, W2), 15, 50 * 60_000)];
   b.claudeNews({ t: 'claude.jobs', jobs: two() });
   check('two jobs: one rune with a 2', await until(async () => (await js(`[document.querySelectorAll('#runeslot .rune').length, document.querySelector('#runeslot .pip')?.textContent]`)).join() === '1,2'));
   const pic = async (name: string, rect?: Electron.Rectangle) => { const img = await w.webContents.capturePage(rect); const f = path.join(OUT, name); writeFileSync(f, img.toPNG()); console.log('PICTURE ' + f); };
+  await wait(400);                    // a frame for the gold number to be painted before the picture
   await pic('rune-bar.png', { x: 0, y: 0, width: 1180, height: 70 });
 
   // 4. Click: the rounded panel with both jobs folded.
@@ -88,6 +94,15 @@ app.whenReady().then(async () => {
   check('the panel has round, soft corners (no square pixel frame)', look.r >= 12 && look.img === 'none', JSON.stringify(look));
   check('both jobs are listed, folded', look.jobs === 2 && look.open === 0 && look.gh === 'CLAUDE · 2 JOBS', JSON.stringify(look));
   check('the rune shows it is pressed', await js(`document.querySelector('#runeslot .rune').classList.contains('on')`) === true);
+  // His ask (2026-10-21): the gold number fades while the panel is open, and comes back when it closes.
+  const pipOp = () => js(`(() => { const p = document.querySelector('#runeslot .pip'); return p ? getComputedStyle(p).opacity : 'none'; })()`);
+  check('the gold number fades away while the panel is open', await until(async () => (await pipOp()) === '0', 1500), await pipOp());
+  await pic('rune-bar-open.png', { x: 560, y: 0, width: 620, height: 420 });
+  await js(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`);
+  check('closed: the number comes back', await until(async () => (await pipOp()) === '1', 1500), await pipOp());
+  check('the same rune, not redrawn, so it fades', await js(`document.querySelectorAll('#runeslot .rune').length === 1 && !document.querySelector('#runeslot .rune').classList.contains('on')`) === true);
+  await js(`document.querySelector('#runeslot .rune').click()`);
+  await until(async () => (await js(`!document.getElementById('rpanel').hidden`)) === true);
   const card = (id: string) => `#rpanel .job[data-id="${id}"]`;
   await js(`document.querySelector('${card(S1)}').click()`);
   check('the first unfolds on its own', await js(`[document.querySelector('${card(S1)}').classList.contains('open'), document.querySelector('${card(S2)}').classList.contains('open')].join()`) === 'true,false');
@@ -140,6 +155,8 @@ app.whenReady().then(async () => {
   check('the last job finishing: the rune becomes the teal tick', await until(async () => (await js(`document.querySelector('#runeslot .rune')?.dataset.state`)) === 'complete'));
   await wait(400);
   await pic('rune-bar-done.png', { x: 900, y: 0, width: 280, height: 70 });
+  const teal = await px('63,196,180'), sunLeft = await px('217,119,87');
+  check('finished: the starburst turns into a teal tick', teal >= 60 && sunLeft === 0, `${teal} teal, ${sunLeft} terracotta`);
 
   // 8. Esc and a click elsewhere fold it; no brain: no rune.
   await js(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`);
@@ -149,6 +166,16 @@ app.whenReady().then(async () => {
   check('a click elsewhere folds it', await js(`document.getElementById('rpanel').hidden`) === true);
   b.claudeNews(null);
   check('the brain goes away: no rune', await until(async () => (await slotShown()) === false));
+
+  // 9. Samara's taskbar right-click list (2026-10-21, jumplist.ts): what each item does once it reaches Samara.
+  const nTabs = b.tabs.length;
+  b.jumpTask('new-tab');
+  check('taskbar New tab: one more tab', await until(() => b.tabs.length === nTabs + 1), `${nTabs} -> ${b.tabs.length}`);
+  b.jumpTask('settings');
+  check('taskbar Settings: the settings tab, in front', await until(() => b.cur()?.internal === 'settings'));
+  const panes = () => b.panes.filter((p: any) => p.win && !p.win.isDestroyed()).length;
+  b.jumpTask('new-window');
+  check('taskbar New window: a second window', await until(() => panes() === 2), String(panes()));
 
   console.log(bad ? `${bad} FAILED` : 'ALL PASS'); app.exit(bad ? 1 : 0);
 });

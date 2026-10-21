@@ -11,6 +11,7 @@
 import { startClaudeDoor, type PlanStarted } from './claudedoor.ts';
 import { PlanMemory } from './claudeplan.ts';
 import { samaraShortcutsLit } from './shortcuticon.ts';
+import { SAMARA_JUMP_ICON, taskFromArgv, taskFromLockData, writeSamaraJumpList, type SamaraTask } from './jumplist.ts';
 import { isRisky } from './secure.ts';
 import { app, BrowserWindow, Menu, clipboard, globalShortcut, ipcMain, nativeImage, powerMonitor, screen, session, shell } from 'electron';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync, watch, writeFileSync } from 'node:fs';
@@ -89,7 +90,10 @@ function bodyAlive(): boolean {
  * One Shell at a time. A second copy would fight the first for the same windows, and on this machine
  * the tray can race its own restart.
  */
-if (!app.requestSingleInstanceLock()) {
+// Samara's taskbar right-click list (2026-10-21, jumplist.ts): an item starts this Shell with --samara-task=...; a copy
+// that finds one already running hands the task over with the lock and steps aside.
+const startTask = taskFromArgv(process.argv);
+if (!app.requestSingleInstanceLock(startTask ? { samaraTask: startTask } : undefined)) {
   console.log('shell: another one is already running');
   app.exit(0);
 } else {
@@ -97,6 +101,15 @@ if (!app.requestSingleInstanceLock()) {
   try { writeFileSync(path.join(STATE_DIR, 'shell.pid'), String(process.pid)); } catch { /* the pet then starts one, which steps aside */ }
   app.on('will-quit', () => { try { if (readFileSync(path.join(STATE_DIR, 'shell.pid'), 'utf8').trim() === String(process.pid)) unlinkSync(path.join(STATE_DIR, 'shell.pid')); } catch { /* gone */ } });
 }
+/** A taskbar task that arrived before Samara's browser was made; done as soon as it is. */
+let pendingTask: SamaraTask | null = startTask;
+app.on('second-instance', (_e, argv, _cwd, data) => {
+  // Checked again here: only the five known tasks, from the lock's data or the command line; anything else does nothing.
+  const t = taskFromLockData(data) ?? taskFromArgv(argv);
+  if (!t) return;
+  console.log('shell: taskbar task ' + t);
+  if (aangBrowser) aangBrowser.jumpTask(t); else pendingTask = t;
+});
 
 /** Every window this Shell has open, by kind, so the brain's messages reach the right one. */
 const windows = new Map<string, BrowserWindow>();
@@ -721,6 +734,10 @@ app.whenReady().then(async () => {
         try { mkdirSync(dir, { recursive: true }); watch(dir, () => setTimeout(take, 60)); } catch (e) { console.error('shell: cannot watch for links: ' + (e as Error).message); }
         take();
       }
+      // Samara's taskbar right-click list (2026-10-21): a task this Shell was started with, then the list itself, written
+      // under Samara's own app id so it shows on Samara's button (jumplist.ts says how).
+      if (pendingTask) { const t = pendingTask; pendingTask = null; aangBrowser.jumpTask(t); }
+      if (!process.env.AANG_TEST) console.log('shell: Samara taskbar list: ' + writeSamaraJumpList(app, { main: path.join(HERE, 'main.ts'), dir: path.join(HERE, '..'), icon: SAMARA_JUMP_ICON, ownId: 'Aang' }));
       // 6.28 the update key: a newer engine, downloaded, checked and tested quietly, waits for his Restart now.
       engineUpdates = new EngineUpdates({
         shellDir: path.join(HERE, '..'), stateDir: STATE_DIR,
