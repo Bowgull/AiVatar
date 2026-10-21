@@ -410,6 +410,11 @@
       "at": "2026-10-21T19:00:00-04:00",
       "text": "Claude's questions now come in plain words, and your answers go back clear and precise.",
       "kind": "feature"
+    },
+    {
+      "at": "2026-10-21T21:00:00-04:00",
+      "text": "Claude's jobs and questions now live in the cockpit.",
+      "kind": "feature"
     }
   ]
 }

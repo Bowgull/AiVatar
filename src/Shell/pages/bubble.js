@@ -13,6 +13,7 @@ import { buildPaper, openMenu, previewLines, tickCount, paintNote } from './note
 import { pixIcon, SKIES } from './pixicons.js';
 import { paintLookback, linkifyWords, videoShot, linkEl } from './lookback.js';
 import { startTyping } from './cocktype.js';
+import { startClaude } from './claudejobs.js';
 
 const el = id => document.getElementById(id);
 const bubble = el('bubble'), said = el('said'), scroller = el('scroller'), more = el('more');
@@ -56,6 +57,10 @@ let petHidden = false;
 /** The proactive message the pet is holding for him while he is in a game, kept whole (a brief stays a card). */
 let heldMsg = null;
 const heldRank = (m) => (m.blocking ? 3 : m.done ? 2 : 1);
+/** C4: the jobs strip and the pinned Claude card (claudejobs.js), started with the cockpit below. */
+let claude = null;
+/** A Claude card is up in the closed bubble: it waits for his answer like any question (never in a game or hidden). */
+const claudeHolds = () => Boolean(claude?.waiting() && !quiet && !petHidden);
 
 /** How many lines the text actually takes, measured rather than estimated. */
 function lineCount() {
@@ -401,14 +406,14 @@ function holdFor(text) {
 }
 function scheduleHide() {
   clearTimeout(hideTimer);
-  if (bubble.hidden || asking || overNow || docked || cockpit) return;
+  if (bubble.hidden || asking || overNow || docked || cockpit || claudeHolds()) return;
   // Scrolled back into his history and walked away: it closes after five quiet minutes, as before.
   if (reading) { hideTimer = setTimeout(goAway, 300000); return; }
   if (card.hidden && (!reveal.done || !reveal.whole)) return;
   hideTimer = setTimeout(goAway, holdFor(reveal.whole));
 }
 function goAway() {
-  if (asking || overNow || docked || cockpit) return;
+  if (asking || overNow || docked || cockpit || claudeHolds()) return;
   closeBoard();
   // Content out over 160 ms, then the balloon shrinks away in 340 ms. Anything new arriving meanwhile
   // takes `leaving` off (show), and growTo cancels the shrink, so a reply is never hidden under him.
@@ -1265,7 +1270,7 @@ function onBrain(m) {
   if (m.t === 'bubble.state') {
     const wasQuiet = quiet;
     quiet = m.quiet === true; muted = m.muted === true; petHidden = m.hidden === true;
-    if (wasQuiet && !quiet) releaseHeldAsks();
+    if (wasQuiet && !quiet) { releaseHeldAsks(); claudeWaiting(claude?.waiting() ?? false, true); }
     if (!quiet) heldMsg = null;          // the pet says the held one itself, through pet.say
     return;
   }
@@ -2111,6 +2116,48 @@ window.aang?.onPage?.((d) => {
 // speaking in one line. The main process gives the window the keyboard and takes it back (cockpit.ts).
 let cockpit = false, cockMaxH = 600;
 const typingArea = startTyping({ onSize: () => { if (cockpit) reportSize(); } });
+
+// ---------------------------------------------------------------- C4: Claude in the cockpit (2026-10-21)
+// The jobs strip and the pinned Claude card (claudejobs.js). What he sends a session joins the conversation as his own
+// plum row with Claude's icon and the project tag. "No, and..." and "Something else" need the typing area: a closed
+// cockpit opens first (the same way a click on a message does), then the area is pointed at the session.
+let afterOpen = null;
+claude = startClaude({
+  typing: typingArea,
+  isOpen: () => cockpit,
+  withTyping: (f) => { if (cockpit) { f(); return; } afterOpen = f; openCockpit(false); },
+  onMine: (text, project, when) => {
+    back.add({ id: localId--, ts: tsNow(), who: 'you', text: String(text), extra: { to: String(project), ...(when ? { when } : {}) } });
+    if (reading) { paintBack('bottom'); const list = el('lblist'); if (list) list.scrollTop = list.scrollHeight; }
+  },
+  onChange: () => { if (!bubble.hidden) { fit(); reportSize(); } },
+  onWaiting: (has, fresh) => claudeWaiting(has, fresh),
+});
+/**
+ * Something a Claude session waits on, with the cockpit closed: the bubble speaks the same card (Aang saying it), so he
+ * can answer without opening anything. Not in a game (the pet's marks hold it, as for every Claude ask) and not when he
+ * has hidden Aang. When the last one is answered, a bubble that only held the card goes.
+ */
+function claudeWaiting(has, fresh) {
+  if (cockpit) return;
+  if (!has) {
+    if (!bubble.hidden && scroller.hidden && !asking && card.hidden && working.hidden) goAway();
+    return;
+  }
+  if (!fresh || quiet || petHidden || reading) return;
+  if (bubble.hidden) cardOnly();
+  clearTimeout(hideTimer);
+  show(); fit(); reportSize();
+}
+/** The bubble holds only the Claude card: Aang's last words, the plaque and the keys go. */
+function cardOnly() {
+  reveal.clear(); laidOut = null; paintWords();
+  scroller.hidden = true; who.textContent = ''; who.hidden = true; setSpeaker(null);
+  tools.hidden = true; more.hidden = true; card.hidden = true; mediaRow.hidden = true;
+  bubble.classList.remove('whisper', 'lantern', 'widest');
+  bubble.classList.add('wide');                  // sheet 45g draws these cards about 420 wide
+  bubble.classList.remove('enter'); void bubble.offsetWidth; bubble.classList.add('enter');
+}
 window.aang?.onCockpit?.((c) => { if (c?.open) openCock(c.state ?? {}); else closeCock(); });
 
 // `docked` is NOT touched here (2026-10-21). It means one thing, as it always has: he clicked a message and what he
@@ -2132,8 +2179,10 @@ function openCock(st) {
   // Who is talking (the Claude tag, a channel's face) and a card's plaque belong to the live thing, so in the cockpit
   // they sit with it under the conversation, not above it.
   scroller.before(speaker, who.parentElement);
+  claude?.setOpen(true);
   show(); fit(); reportSize();
   typingArea.setLive(true);
+  if (afterOpen) { const f = afterOpen; afterOpen = null; f(); }
 }
 
 function closeCock() {
@@ -2142,6 +2191,7 @@ function closeCock() {
   live = null; cockStreaming = false;
   typingArea.setLive(false);
   el('ck').hidden = true;
+  claude?.setOpen(false);
   bubble.classList.remove('cockpit', 'ckwide', 'ckask');
   leaveReading(false, true);
   // Back where the one bubble has them: above the words.
@@ -2154,6 +2204,8 @@ function closeCock() {
   // otherwise it goes.
   if (asking) { const a = asking; asking = null; showAsk(a); return; }
   if (!working.hidden) { fit(); reportSize(); return; }
+  // Something a Claude session is waiting on stays as its card, drawn the one-bubble way (C4).
+  if (claude?.waiting() && !quiet && !petHidden) { cardOnly(); claudeWaiting(true, true); return; }
   goAway();
 }
 
@@ -2253,6 +2305,36 @@ function fitCockpit() {
   const over = n.h - (cockMaxH - 8);
   list.style.maxHeight = over > 0 ? Math.max(140, list.scrollHeight - over) + 'px' : 'none';
   if (atBottom) list.scrollTop = list.scrollHeight;
+  squeezeClaude();
+}
+
+/**
+ * C4 (2026-10-21): the jobs strip and the pinned card are never pushed off either. When the conversation is down to its
+ * few lines and there is still too little room, sheet 45g's order: the list of other jobs folds first, then the pinned
+ * card scrolls inside itself, with the soft fade and SCROLL FOR MORE.
+ */
+function squeezeClaude() {
+  const pin = document.querySelector('#ckpins .pin');
+  if (pin) { pin.style.maxHeight = ''; pin.classList.remove('capped'); pin.querySelector('.morehint')?.remove(); }
+  let over = natural().h - (cockMaxH - 8), folded = false;
+  while (over > 0 && claude?.fold()) { folded = true; over = natural().h - (cockMaxH - 8); }
+  // Folding gave room back: the conversation takes it again, down to its few lines at most.
+  const list = el('lblist');
+  if (folded && list && over < 0) { list.style.maxHeight = Math.max(140, list.clientHeight - over) + 'px'; over = natural().h - (cockMaxH - 8); }
+  if (over > 0 && pin) {
+    pin.style.maxHeight = Math.max(90, pin.offsetHeight - over) + 'px';
+    pin.classList.add('capped');
+    const m = T('div', 'morehint', 'SCROLL FOR MORE');
+    pin.append(m);
+    pin.addEventListener('scroll', () => { if (pin.scrollTop > 10) m.remove(); }, { once: true });
+    over = natural().h - (cockMaxH - 8);
+  }
+  // Last, the task list of the bar he has open scrolls inside itself the same way.
+  const tasks = document.querySelector('#ckjobs .job.open .list');
+  if (tasks) { tasks.style.maxHeight = ''; tasks.classList.remove('capped'); }
+  if (over > 0 && tasks) { tasks.style.maxHeight = Math.max(60, tasks.offsetHeight - over) + 'px'; tasks.classList.add('capped'); over = natural().h - (cockMaxH - 8); }
+  // Still too tall (a small screen): even the bar he opened folds back. The cockpit never goes past its room.
+  if (over > 0 && claude?.fold(true)) squeezeClaude();
 }
 
 // PageUp / PageDown in the typing area move the conversation.
