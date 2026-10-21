@@ -68,6 +68,15 @@
   .ob .r{margin-left:auto;font:500 11px var(--body);color:#a98e6a}
   .ob.now .r{font:400 9px Silkscreen,monospace;color:#8a5a28}
   .queued[hidden]{display:none}
+  .flip{all:unset;cursor:pointer;margin-left:auto;perspective:220px;display:inline-block;height:18px;min-width:58px;text-align:right}
+  .orow .flip{margin-left:0;min-width:64px}
+  .flip .fi{position:relative;display:inline-block;width:100%;height:100%;transform-style:preserve-3d;transition:transform .45s cubic-bezier(.3,.7,.2,1)}
+  .flip.back .fi{transform:rotateX(180deg)}
+  .flip .ff,.flip .fb{position:absolute;right:0;top:0;line-height:18px;backface-visibility:hidden;white-space:nowrap;font:400 10px Silkscreen,monospace}
+  .flip .ff{color:#3a2a18}
+  .orow .flip .ff{color:#ffe28c}
+  .flip .fb{transform:rotateX(180deg);color:#5b2f8f;padding:0 6px;border-radius:5px;background:#e6d8ff;box-shadow:inset 0 0 0 1.5px #b9a2ec}
+  .flip:hover .ff{text-decoration:underline dotted}
   .untrack{all:unset;cursor:pointer;margin-top:6px;font:400 8px var(--label);letter-spacing:1px;color:#8f7458}
   .untrack:hover{color:#8a3e1c}
   .others{border-radius:11px;background:linear-gradient(rgba(0,0,0,.35),rgba(0,0,0,.45)),url(../../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;box-shadow:0 0 0 3px #120A05,0 4px 0 #0d0703;overflow:hidden}
@@ -84,7 +93,7 @@
   .orow .on{flex:1;min-width:0;display:flex;flex-direction:column}
   .orow .on b{font:700 12.5px var(--body);color:#f2e3c2}
   .orow .on small{font:500 11px var(--body);color:#c9b48e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .orow .op{font:400 9px Silkscreen,monospace;color:#ffe28c;width:30px;text-align:right}
+
   .queued{display:flex;align-items:center;gap:7px;margin-top:7px;font:600 12px var(--body);color:#5b2f8f}
   .queued i{font-style:normal;font:400 8px var(--label);letter-spacing:1px;padding:3px 5px 2px;border-radius:4px;background:#cdb4ff;color:#2a1240}
 
@@ -178,9 +187,9 @@ function pill(w, h, s, bounds, p, cur) {
 
 /* ---- the running jobs, docked over his chat box ---- */
 const JOBS = [
-  { id: 'sam', sess: 'Samara', name: 'Tab drawer polish', p: .15, left: 'about 50 min left', cur: 1, tasks: [['Read the drawer code', 'done'], ['Round the plaques', '30%'], ['Hover sounds', '15 min'], ['Test it', '10 min']], mins: [8, 20, 15, 10] },
-  { id: 'wm', sess: 'Waymark', name: 'Coach brain', p: .34, left: 'about 1 h 22 min left', cur: 2, tasks: [['Replay harness', 'done'], ['Athlete model', 'done'], ['Rules-only brain', '41%'], ['AI joins in', '25 min'], ['Readiness meter', '20 min'], ['Test week', '10 min']], mins: [12, 18, 40, 25, 20, 10] },
-  { id: 'snd', sess: 'Aang sounds', name: 'Wooden chimes', p: .8, left: 'about 5 min left', cur: 3, tasks: [['Make the set', 'done'], ['Volume slider', 'done'], ['Swap the files', 'done'], ['Test them', '60%']], mins: [10, 8, 4, 5] },
+  { id: 'sam', q: 1, sess: 'Samara', name: 'Tab drawer polish', p: .15, left: 'about 50 min left', cur: 1, tasks: [['Read the drawer code', 'done'], ['Round the plaques', '30%'], ['Hover sounds', '15 min'], ['Test it', '10 min']], mins: [8, 20, 15, 10] },
+  { id: 'wm', q: 6, sess: 'Waymark', name: 'Coach brain', p: .34, left: 'about 1 h 22 min left', cur: 2, tasks: [['Replay harness', 'done'], ['Athlete model', 'done'], ['Rules-only brain', '41%'], ['AI joins in', '25 min'], ['Readiness meter', '20 min'], ['Test week', '10 min']], mins: [12, 18, 40, 25, 20, 10] },
+  { id: 'snd', q: 2, sess: 'Aang sounds', name: 'Wooden chimes', p: .8, left: 'about 5 min left', cur: 3, tasks: [['Make the set', 'done'], ['Volume slider', 'done'], ['Swap the files', 'done'], ['Test them', '60%']], mins: [10, 8, 4, 5] },
 ];
 // his picks: the job he started last is tracked; up to two; when one finishes, the next running job takes its place
 let tracked = ['snd'];
@@ -192,12 +201,13 @@ function renderJobs() {
   for (const id of tracked) {
     const j = JOBS.find((x) => x.id === id);
     const d = document.createElement('div'); d.className = 'job'; d.dataset.id = j.id;
-    d.innerHTML = `<div class="hd"><img src="${CL}" alt=""><b>${j.sess}</b><span class="t">${j.name} &middot; task ${j.cur + 1} of ${j.tasks.length}</span><span class="pct">${Math.round(j.p * 100)}%</span><button class="msg" type="button" title="Message this session">${MSG}</button></div>
+    d.innerHTML = `<div class="hd"><img src="${CL}" alt=""><b>${j.sess}</b><span class="t">${j.name} &middot; task ${j.cur + 1} of ${j.tasks.length}</span><button class="flip" type="button" title="Flip: how much of your Claude week this job has used"><span class="fi"><span class="ff">${Math.round(j.p * 100)}%</span><span class="fb">${j.q}% WEEK</span></span></button><button class="msg" type="button" title="Message this session">${MSG}</button></div>
       <div class="row2"><span class="pb"></span><span class="lt">${j.left}</span><i class="chev"></i></div>
       <div class="queued" hidden><i>QUEUED</i><span></span></div>
       <div class="det"><div><div class="list">${j.tasks.map(([n, r], k) => `<div class="ob ${k < j.cur ? 'done' : k === j.cur ? 'now' : ''}"><i></i>${n}<span class="r">${r}</span></div>`).join('')}</div><button class="untrack" type="button">STOP TRACKING</button></div></div>`;
     d.querySelector('.pb').append(pill(84, 9, 2, boundsOf(j), j.p, j.cur));
     d.addEventListener('click', (e) => {
+      if (e.target.closest('.flip')) { e.stopPropagation(); e.target.closest('.flip').classList.toggle('back'); return; }
       if (e.target.closest('.msg')) { e.stopPropagation(); target(j); return; }
       if (e.target.closest('.untrack')) { e.stopPropagation(); tracked = tracked.filter((x) => x !== j.id); renderJobs(); placeJobs(); return; }
       d.classList.toggle('open'); placeJobs();
@@ -209,8 +219,9 @@ function renderJobs() {
   if (others.length) {
     const o = document.createElement('div'); o.className = 'others' + (listOpen ? ' open' : '');
     o.innerHTML = `<button class="oline" type="button"><span class="dots">${others.map(() => '<i></i>').join('')}</span>${others.length} OTHER JOB${others.length > 1 ? 'S' : ''} RUNNING<i class="chev"></i></button>
-      <div class="olist">${others.map((j) => `<div class="orow" data-id="${j.id}"><img src="${CL}" alt=""><span class="on"><b>${j.sess}</b><small>${j.name} &middot; ${j.left}</small></span><span class="pb2"></span><span class="op">${Math.round(j.p * 100)}%</span><button class="key sm" type="button" data-track="${j.id}">Track this</button></div>`).join('')}</div>`;
+      <div class="olist">${others.map((j) => `<div class="orow" data-id="${j.id}"><img src="${CL}" alt=""><span class="on"><b>${j.sess}</b><small>${j.name} &middot; ${j.left}</small></span><span class="pb2"></span><button class="flip op" type="button" title="Flip: how much of your Claude week this job has used"><span class="fi"><span class="ff">${Math.round(j.p * 100)}%</span><span class="fb">${j.q}% WEEK</span></span></button><button class="key sm" type="button" data-track="${j.id}">Track this</button></div>`).join('')}</div>`;
     o.querySelectorAll('.orow').forEach((r) => { const j = JOBS.find((x) => x.id === r.dataset.id); r.querySelector('.pb2').append(pill(40, 7, 2, boundsOf(j), j.p, j.cur)); });
+    o.querySelectorAll('.flip').forEach((f) => { f.onclick = (e) => { e.stopPropagation(); f.classList.toggle('back'); }; });
     o.querySelector('.oline').onclick = () => { listOpen = !listOpen; o.classList.toggle('open', listOpen); placeJobs(); };
     o.querySelectorAll('[data-track]').forEach((k) => { k.onclick = (e) => { e.stopPropagation(); track(k.dataset.track); }; });
     J.append(o);
@@ -301,6 +312,7 @@ if (only) {
   const v = only.split(/[+ ,]/);
   if (v.some((x) => ['detail', 'message', 'queued', 'reply', 'plan', 'two'].includes(x))) { tracked = ['snd', 'wm']; renderJobs(); }
   if (v.includes('list')) { listOpen = true; renderJobs(); }
+  if (v.includes('quota')) setTimeout(() => document.querySelectorAll('.flip').forEach((f) => f.classList.add('back')), 50);
   if (!v.includes('closed')) openBox();
   if (v.includes('detail')) { document.querySelector('.job[data-id="wm"]').classList.add('open'); placeJobs(); }
   if (v.includes('message') || v.includes('queued')) target(JOBS[0]);
