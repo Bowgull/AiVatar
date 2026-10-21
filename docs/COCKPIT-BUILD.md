@@ -28,7 +28,7 @@ skull), `sheet-47-mockups-trail.html` (Samara's Mockups trail). Sounds: `sounds-
 - Docked behaviour: already designed and working; keep it.
 
 **Claude, both ways**
-- Watch every Claude session on the PC and the Mac. Existing rules stay: marks only on the machine he is at, hold in WoW,
+- Watch every Claude session on the PC and the Mac, **including sessions he starts himself straight in Claude** (his ask, 2026-10-21): every one shows in the jobs list with its PC/MAC chip and can be tracked or untracked. Existing rules stay: marks only on the machine he is at, hold in WoW,
   Discord when away.
 - Aang translates both ways: Claude's ask becomes a plain decision with keys; his answer becomes a precise instruction;
   Claude's exact words one click away. Multiple choice: glove rows with Claude's explanation, BEST tag; several picks =
@@ -51,8 +51,7 @@ skull), `sheet-47-mockups-trail.html` (Samara's Mockups trail). Sounds: `sounds-
 - The Claude name in Aang's words is always a link (Claude's icon), opening that exact session.
 - Sounds: the wooden chime set (sounds-45b), plus a volume slider and mute in Settings.
 - Samara's band gets the job chip.
-- Not in this build (he left them out): stop a job, change trust mid-job, failed-job history, his own manual sessions'
-  extras, GitHub test runs inside tasks, Discord cards.
+- Not in this build (he left them out): stop a job, change trust mid-job, failed-job history, GitHub test runs inside tasks, Discord cards.
 
 ## Build order
 
