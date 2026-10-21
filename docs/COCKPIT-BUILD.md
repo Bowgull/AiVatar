@@ -213,3 +213,16 @@ What he has always meant by "one dynamic bubble / bubble engine":
   (said once); smooth creep inside the current task capped below its end; pushed instantly; no list = no percent.
 - **Process lesson:** mockups are REAL renders of the product page; Claude checks every picture and then the real
   desktop (a fresh Shell: Samara keeps an old one alive) before telling him it works.
+
+### The speech bubble, built (2026-10-21)
+- Cockpit OFF by default again (`AANG_COCKPIT=1` brings it back; code kept). The one bubble + the separate InputBox.
+- Look B lives in bubble.css's sheet 53 block (lifted from test/electron/speech-shots.ts). The rim is a placeholder:
+  the `.wrap.rimB` custom properties (paper, ink, width) and the empty `#skin g.rim` group (balloon.js, outline on
+  `data-d`) are the only places sheet 54's wood rim and studs need to touch.
+- Click Aang (`typebox`): main.ts opens the box and sends `bubble:recall 'recent'`; the page shows his line from the
+  last 5 minutes as a small line with an "N MIN AGO" stamp (a waiting Aang question comes back first), which goes when
+  the box closes (`bubble:dismiss 'boxclosed'`). The bubble sits 14 px higher while the box is open.
+- Click the working mark: the pet sends the same `typebox` (src/Body untouched); main.ts tells it apart by the cursor
+  being over the mark's spot above his head (ClaudeMarks.cs geometry) and sends `bubble:recall 'jobs'`: a waiting
+  Claude question card first, else every running job as a folded bar ("Claude is on two jobs."). Click out shrinks it.
+- Check: test/electron/speech-bubble-check.ts (pictures in test/electron/perf-out/speech/).

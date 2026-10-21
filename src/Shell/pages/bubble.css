@@ -992,3 +992,78 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
 @media (prefers-reduced-motion:reduce){#lblist .ckin,.ckjobs .jdone.bounce{animation:none}.ckjobs .jdone.going,.ckjobs.ck-leaving{transition:none}}
 /* No OLDER key in the cockpit (his call, 2026-10-21): the wheel over Aang or his right-click menu reaches the history. */
 #bubble.cockpit .lb-older{display:none}
+
+/* ---- Sheet 53 (APPROVED 2026-10-21, look B): the one living speech bubble ----------------------------------------------
+   "this is all great, it looks perfect". One light-parchment comic bubble off his head that grows for whatever he says
+   and shrinks back; the typing box is its own window under him. Lifted from the sheet's render script
+   (test/electron/speech-shots.ts: COMMON, look B, RECENT_CSS), rule for rule. Only re-scoped: to the one bubble
+   (#bubble:not(.cockpit) / :not(.lantern)) so AANG_COCKPIT=1 still looks as it did, and the paper's own colours moved from
+   the script's decorator into the .rimB custom properties (balloon.js names the pieces). */
+
+/* THE RIM, the one hook. Placeholder until sheet 54 picks the wood rim and studs: look B's paper with a thin dark-wood ink
+   edge (look A's edge). The chosen rim paints into #skin g.rim (balloon.js) and changes these numbers, nothing else. */
+.wrap.rimB{--paper-1:#FBF0D8;--paper-2:#F2E0BC;--paper-3:#E6CD9C;--rim-ink:#3d2614;--rim-w:3.5px;--rim-shade:rgba(40,20,5,.28)}
+.wrap.rimB:not(:has(#bubble.lantern)) #skin .p1{stop-color:var(--paper-1)}
+.wrap.rimB:not(:has(#bubble.lantern)) #skin .p2{stop-color:var(--paper-2)}
+.wrap.rimB:not(:has(#bubble.lantern)) #skin .p3{stop-color:var(--paper-3)}
+.wrap.rimB:not(:has(#bubble.lantern)) #skin .ink{stroke:var(--rim-ink);stroke-width:var(--rim-w)}
+.wrap.rimB:not(:has(#bubble.lantern)) #skin .hard{fill:var(--rim-shade)}
+/* look B's room inside the rim */
+.wrap.rimB #bubble:not(.cockpit):not(.lantern){padding:19px 22px 19px}
+.wrap.rimB #bubble.whisper:not(.cockpit){padding:13px 18px 13px}
+
+/* Sheet 51's B rows and Styled type, on the one bubble. A Claude card is no longer a card inside the bubble: the bubble
+   IS the speech. */
+#bubble:not(.cockpit) .ckpins{margin:0}
+#bubble:not(.cockpit) .ckpins .pin,#bubble:not(.cockpit) .ckpins .pin.k-question,#bubble:not(.cockpit) .ckpins .pin.k-permission,#bubble:not(.cockpit) .ckpins .pin.k-plan{background:none;box-shadow:none;padding:0;margin:0}
+#bubble:not(.cockpit) .ckpins .ctag{display:block;background:none;padding:0;margin:0 0 8px;font:400 8px/16px Silkscreen,monospace;letter-spacing:1.5px;color:#8a3e1c;text-transform:uppercase}
+#bubble:not(.cockpit) .ckpins .ctag img{display:none}
+#bubble:not(.cockpit) .ckpins .ctag::before{content:"CLAUDE \00b7  ";white-space:pre;display:inline-block;padding-left:22px;background:url(art/claude-icon.png) 0 50%/16px 16px no-repeat}
+#bubble:not(.cockpit) .ckpins .q{margin:0 0 6px;font:800 17px/1.3 Figtree,sans-serif;color:#1c1208}
+#bubble:not(.cockpit) .ckpins .glove{display:flex;flex-direction:column;margin:8px 0 2px}
+#bubble:not(.cockpit) .ckpins .opt{display:flex;align-items:flex-start;gap:9px;margin:0 0 7px 30px;padding:8px 11px;border-radius:7px;background:#e6cf9c;box-shadow:inset 0 2px 0 rgba(90,55,20,.22),0 0 0 1.5px #9a7a48;color:#21160a}
+#bubble:not(.cockpit) .ckpins .opt .lab{font:700 14.5px/1.3 Figtree,sans-serif;color:#21160a}
+#bubble:not(.cockpit) .ckpins .opt .hint{display:block;margin-top:2px;font:500 12.5px/1.4 Figtree,sans-serif;color:#5c4426}
+#bubble:not(.cockpit) .ckpins .opt .kc{display:none}
+#bubble:not(.cockpit) .ckpins .opt.on{background:#4A2C6E;box-shadow:0 0 0 2px #120A05,0 0 0 3.5px #966EC8}
+#bubble:not(.cockpit) .ckpins .opt.on .lab{color:#fffaf0}
+#bubble:not(.cockpit) .ckpins .opt.on .hint{color:#e8dcff}
+#bubble:not(.cockpit) .ckpins .glove .opt.on::before{left:-32px;top:9px;width:28px;height:18px;margin:0;background:var(--glove) 0 0/28px 18px;image-rendering:pixelated;filter:drop-shadow(1px 1px 0 rgba(0,0,0,.45))}
+#bubble:not(.cockpit) .ckpins .opt.other{background:transparent;box-shadow:inset 0 0 0 1.5px #9a7a48;padding:6px 10px}
+#bubble:not(.cockpit) .ckpins .opt.other .lab{color:#55307a}
+#bubble:not(.cockpit) .ckpins .rec{margin-left:7px;font:800 10px/1 Figtree,sans-serif;letter-spacing:1px;padding:3px 5px 2px;border-radius:4px;background:#1d6b60;color:#fff;box-shadow:0 0 0 1.5px #0b3a33;vertical-align:1px}
+#bubble:not(.cockpit) .ckpins .cw{margin-top:4px}
+/* an ask: the kicker, the question, the helper line (sheet 51 Styled) */
+#bubble:not(.cockpit):has(#asks:not([hidden])) .who{font:400 8px/1 Silkscreen,monospace;letter-spacing:1.5px;color:#7a4a00;margin:2px 0 8px}
+#bubble:not(.cockpit):has(#asks:not([hidden])) #said{font:800 17px/1.3 Figtree,sans-serif;color:#1c1208}
+#bubble:not(.cockpit) #means{margin:6px 0 0;font:500 13.5px/1.45 Figtree,sans-serif;color:#5c4426}
+/* a job in the bubble: the 45f bar, on the bubble's own paper (the jobs from Claude's working mark) */
+#bubble:not(.cockpit) .ckjobs{margin:10px 0 2px}
+#bubble:not(.cockpit) .ckjobs .job{background:rgba(255,250,236,.6);box-shadow:inset 0 0 0 2px rgba(120,80,30,.28),0 2px 0 rgba(90,60,25,.18)}
+#bubble:not(.cockpit) .ckjobs .job:hover{box-shadow:inset 0 0 0 2px rgba(120,80,30,.42),0 2px 0 rgba(90,60,25,.18)}
+#bubble:not(.cockpit) .ckjobs .jdone{background:rgba(255,250,236,.6);box-shadow:inset 0 0 0 2px #3fc4b4,0 2px 0 rgba(90,60,25,.18)}
+/* the brief on the bubble's paper, never dark wood */
+#bubble:not(.lantern) .briefcard{margin:0}
+#bubble:not(.lantern) .lt-date small{color:#8a5a10}
+#bubble:not(.lantern) .lt-date b{color:#3a1e08;text-shadow:none;font-size:25px}
+#bubble:not(.lantern) .lt-date span{color:#6a5236}
+#bubble:not(.lantern) .lt-lamp{background:rgba(120,80,30,.10);box-shadow:inset 0 0 0 2px rgba(120,80,30,.22)}
+#bubble:not(.lantern) .lt-part i{color:#8a6a3a}
+#bubble:not(.lantern) .lt-part b{color:#3a2410}
+#bubble:not(.lantern) .lt-part.now{background:rgba(255,236,190,.7);box-shadow:inset 0 0 0 1.5px rgba(160,110,40,.45)}
+#bubble:not(.lantern) .lt-slip{background:rgba(255,250,236,.62);box-shadow:inset 0 0 0 2px rgba(120,80,30,.22),0 2px 0 rgba(90,60,25,.16)}
+#bubble:not(.lantern) .lt-meter{color:#8a6a3a}
+#bubble:not(.lantern) .lt-meter u{border-color:#a8865a}
+#bubble:not(.lantern) .lt-meter u:not(.on){background:#e7d5ad}
+/* motion: what comes in arrives one piece after another, 55 ms apart, after the grow has started (sheet 53's rule) */
+#bubble.enter:not(.cockpit) > #speaker,#bubble.enter:not(.cockpit) > .who{animation-delay:160ms}
+#bubble.enter:not(.cockpit) > #scroller{animation-delay:215ms}
+#bubble.enter:not(.cockpit) > *:not(#speaker):not(.who):not(#scroller):not(#asks){animation-delay:270ms}
+#bubble.enter:not(.cockpit) > #asks{animation-delay:325ms}
+/* a video: a 16:9 picture at the long-reply width */
+#bubble.widest:not(.cockpit):has(#aboutbox:not([hidden])){width:436px}
+/* Clicking Aang (sheet 53 section 3): the line he said a moment ago, small over the chat box, its age as a tiny stamp
+   on the bubble's corner (bubble.js sets data-ago and .ago). */
+.wrap.tail.ago::after{content:attr(data-ago);position:absolute;left:auto;bottom:auto;width:auto;height:auto;border:none;transform:none;right:14px;top:-9px;z-index:4;font:400 8px/1 Silkscreen,monospace;letter-spacing:1.5px;color:#5c4426;
+  padding:4px 6px 3px;border-radius:5px;background:#fbf0d8;box-shadow:0 0 0 1.5px #9a7a48}
+.wrap.tail.ago:has(#bubble[hidden])::after{content:none}

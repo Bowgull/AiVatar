@@ -21,7 +21,9 @@
 <!-- The wrapper exists for one reason: the parchment clips anything outside its edges (that is what
      keeps its texture inside the rounded corners), and the copy and rate keys straddle the top edge by
      design. Inside the parchment they were clipped off and could never be seen (sweep, 2026-10-04). -->
-<div id="wrap" class="wrap tail">
+<!-- rimB (sheet 53, 2026-10-21): his pick, look B, the light parchment comic bubble. Its rim is a placeholder (a thin
+     dark-wood ink edge) until sheet 54 settles the wood rim; bubble.css's .rimB block is the one place it changes. -->
+<div id="wrap" class="wrap tail rimB">
   <!-- The balloon itself. #bubble carries the text and the buttons; its SHAPE is drawn here, behind
        it, as one SVG path: the soft-edged rectangle and the comic tail as a single closed outline,
        so the ink line runs round the body and out along the tail with no seam. balloon.js regenerates

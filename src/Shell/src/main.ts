@@ -146,8 +146,32 @@ let bubble: Bubble | null = null;
 const planWait = new Map<string, (a: PlanAnswer | null) => void>();
 /** The new typing box (step 6.12b). Same switch as the bubble: they replace the old ones together. */
 let input: TypingSurface | null = null;
-/** The one cockpit (2026-10-21): the typing area lives inside the bubble. On unless AANG_COCKPIT=0 (cockpit.ts). */
+/** The one cockpit (2026-10-21): the typing area lives inside the bubble. Off unless AANG_COCKPIT=1 (sheet 53, cockpit.ts). */
 let cockpitOn = false;
+/**
+ * Sheet 53 (2026-10-21): while the separate typing box is open, the bubble sits just above it (12 px gap, as the sheet's
+ * "he spoke 2 minutes ago" picture) instead of on top of it. The box is drawn from frame 78; the bubble's shape normally
+ * ends at frame 80, so it goes up by 14 px (scaled).
+ */
+function bubbleBox(at: PetAt, size: { width: number; height: number }): Electron.Rectangle {
+  const box = bubbleAt(at, size);
+  if (!input?.visible || cockpitOn) return box;
+  const lift = Math.round(14 * (at.scale || 1));
+  return { ...box, y: Math.max(at.screen.y, box.y - lift) };
+}
+/**
+ * Sheet 53 (2026-10-21): was this click on Aang a click on Claude's working mark over his head? The pet draws the mark
+ * in its own window (ClaudeMarks.cs: art centre, its bottom 9 frame px over the top of his head, 13 x 9 art pixels at
+ * round(3 x scale) screen px each, bobbing one art pixel) and turns every click on itself into `typebox`, so the Shell
+ * tells the two apart by where the mouse is. Anything drawn above his head is a mark: his own art stops at its top.
+ */
+function onClaudeMark(): boolean {
+  if (!petAt || petAt.peeking) return false;
+  const s = petAt.scale || 1, a = petAt.sprite, px = Math.max(1, Math.round(3 * s));
+  const p = screen.getCursorScreenPoint();
+  const cx = a.x + a.width / 2, bottom = a.y - 9 * s + 2 * px, top = a.y - 9 * s - 11 * px;
+  return p.y <= bottom && p.y >= top && Math.abs(p.x - cx) <= 8 * px;
+}
 /** The message he just sent, until the brain says it has it (its `ack`). */
 let ackWait: { id: string; timer: NodeJS.Timeout } | null = null;
 /** He is in a game (the pet's quiet). Esc is never taken from a game. */
@@ -327,7 +351,7 @@ function placeWindows(): void {
     const [width, height] = b.getSize();
     // Placed by the shape without its tail room, exactly as on a resize (it used the full size here, so the bubble
     // jumped 72 px further left and 38 up every time he moved).
-    const box = bubbleAt(petAt, { width: width - 72, height: height - 38 });
+    const box = bubbleBox(petAt, { width: width - 72, height: height - 38 });
     b.setPosition(box.x, box.y);
   }
   for (const [name, w] of windows) {
@@ -370,12 +394,15 @@ const link = new CoreLink({
     // He clicked Aang. His rule (2026-10-20): what Aang last said comes back (an ask still waiting first), and clicking
     // that message opens the chat box to answer it. With a message already showing, or nothing said yet, the click opens
     // the chat box as before.
+    // Sheet 53 (his rules, 2026-10-21): a click on Aang is just the separate chat box, ready to type. Only if he said
+    // something in the last 5 minutes does that line come back, small, over the box (the bubble decides; it knows when).
+    // A click on Claude's working mark over his head opens the jobs (or what Claude is waiting on) in the speech bubble
+    // instead; with no Claude jobs at all the page says so and it is a plain click on Aang after all.
     if (m.t === 'typebox') {
-      const showing = Boolean(bubble?.window()?.isVisible());
-      // Whatever the bubble last showed comes back, whatever it was: a reply, the morning brief, a card, a question,
-      // Samara's or Claude's plan, a live checklist at its step now. The bubble itself knows; it says if it had nothing.
-      if (!showing && bubble && !input?.visible && !cockpitOn) { bubble.send('bubble:recall', null); return; }
+      if (cockpitOn) { if (!input?.visible) openTypeBox(); return; }
+      if (bubble && !input?.visible && onClaudeMark()) { bubble.send('bubble:recall', 'jobs'); return; }
       if (!input?.visible) openTypeBox();
+      bubble?.send('bubble:recall', 'recent');
       return;
     }
     // 6.15: the pet's "Panel..." menu, with the new front end on, opens window 2 instead of the C# Panel.
@@ -643,6 +670,19 @@ app.whenReady().then(async () => {
       input.onGiveBack = () => link?.send({ t: 'refocus' });
       // The cockpit closed: the bubble it was docked under lets go too (Esc or a click elsewhere closes both).
       input.onUndock = () => { dockedTurn = null; bubble?.send('bubble:undock', null); };
+      // Sheet 53 (2026-10-21): the separate box opened or closed. The bubble moves to sit above it (or back beside his
+      // head) and its tail is re-aimed; on closing, the "N MIN AGO" line that came back with the box goes with it.
+      input.onShown = (on) => {
+        // Only the bubble moves: a box docked under a clicked message stays where it was opened.
+        const b = bubble?.window();
+        if (b && !b.isDestroyed() && petAt) {
+          const [width, height] = b.getSize();
+          const box = bubbleBox(petAt, { width: width - 72, height: height - 38 });
+          b.setPosition(box.x, box.y);
+          aimTail(b, box);
+        }
+        if (!on) bubble?.send('bubble:dismiss', 'boxclosed');
+      };
       // Sheet 17's wheel: hold the mouse on Aang, let go on a disc. His six, nothing else.
       wheel = new Wheel({
         origin: pages.origin, preloadPath: path.join(HERE, 'preload.cjs'),
@@ -814,6 +854,8 @@ app.whenReady().then(async () => {
   // Step 6.12. Only the clipboard and a rating: the bubble can say what Aang said and what Joshua
   // thought of it, and nothing else. Both are checked for coming from a window of ours.
   // The bubble had nothing to show again: the click opens the chat box, as before.
+  // Sheet 53: a mark click with no Claude jobs to show falls back to the chat box (the recent line's own "nothing" needs
+  // nothing: the box is already open).
   ipcMain.on('bubble:recalled', (e, ok) => { if (!fromBubble(e)) return; if (ok === true) bubble?.show(); else if (!input?.visible) openTypeBox(); });
   ipcMain.on('bubble:copy', (e, text) => {
     if (!fromBubble(e) || typeof text !== 'string' || !text) return;
@@ -864,7 +906,7 @@ app.whenReady().then(async () => {
       const pr = Math.max(0, Math.min(400, Math.round(Number(size.pad?.right) || 0)));
       const pb = Math.max(0, Math.min(400, Math.round(Number(size.pad?.bottom) || 0)));
       const box = petAt
-        ? bubbleAt(petAt, { width: width - pr, height: height - pb })
+        ? bubbleBox(petAt, { width: width - pr, height: height - pb })
         : { x, y, width, height };
       w.setBounds({ x: box.x, y: box.y, width, height });
       aimTail(w, box);
