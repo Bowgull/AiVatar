@@ -9,7 +9,7 @@
 // the mouse is on it, floor 30%; E, the fade stays with the mouse over it; the pin is the only chrome and looks pressed
 // in and lit when pinned; JOB COMPLETE is teal with "Nice", which shrinks it away; "needs you" is a small blue chip.
 // The window decides nothing: the main process (jobpop.ts) knows which job this is and builds every request.
-import { animate, anims, SEA, SLATE, MSG, CL, readJob, curIndex, h, btn, liveProgress, livePill, liveText, leftOf, describeNow, kick } from './claudejobs.js';
+import { animate, anims, SEA, SLATE, MSG, CL, readJob, curIndex, h, btn, liveProgress, livePill, liveText, leftOf, describeNow, kick, liveOverall, liveRows, rowsKey } from './claudejobs.js';
 
 const api = window.jobpop;
 const pw = document.getElementById('pw');
@@ -120,12 +120,16 @@ function card() {
   } else if (st === 'paused') top.append(h('span', 'chip paused', 'PAUSED'));
   else top.append(liveText(h('span', 'lt'), (now) => shortLeft(leftOf(latest(), now))));
   top.append(pinB);
+  // v3: with a phase plan, OVERALL under the folded bar, always in view (the bar above is CURRENT).
+  const ovr = liveOverall(latest, 60);
   // Unfolded (sheet 52 section 2): what it is doing now and on which computer, its helper agents, the to-do list, keys.
   const det = h('div', 'det'), inner = h('div', 'inner');
   const nowl = h('div', 'nowl');
   nowl.append(h('span', 'mc', j.machine), liveText(h('span', 'an'), (now) => describeNow(latest(), now).line));
   inner.append(nowl);
-  if (j.activity?.agents?.length) inner.append(liveText(h('div', 'ag'), (now) => describeNow(latest(), now).agents));
+  // v3: the command's sub-bar, the helper agents and the CI runs, a row each (the same rows as the bubble and the rune).
+  const rows = liveRows(latest, 60);
+  if (rows) inner.append(rows);
   const list = h('div', 'list'), cur = curIndex(j);
   j.tasks.forEach((t, k) => {
     const isDone = t.status === 'completed', isNow = !isDone && k === cur;
@@ -153,7 +157,7 @@ function card() {
   keys.append(msg);
   inner.append(keys);
   det.append(inner);
-  c.append(top, det);
+  if (ovr) c.append(top, ovr, det); else c.append(top, det);
   return c;
 }
 
@@ -161,7 +165,7 @@ function card() {
 function signature() {
   const j = job;
   return JSON.stringify([j.id, j.project, j.machine, j.phase, j.open ? 1 : 0, j.tasks.map((t) => t.status + t.text + t.active),
-    Boolean(j.activity?.agents?.length), waits.length > 0, done ? 1 : 0]);
+    rowsKey(j), waits.length > 0, done ? 1 : 0]);
 }
 
 function render() {

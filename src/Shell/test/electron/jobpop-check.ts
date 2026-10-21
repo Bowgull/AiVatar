@@ -109,10 +109,10 @@ app.whenReady().then(async () => {
   await wait(650);
   const opened = await js(`(() => { const pj = document.querySelector('.pj');
     return { open: pj.classList.contains('open'), det: pj.querySelector('.det').getBoundingClientRect().height, line: pj.querySelector('.nowl').textContent,
-      ag: pj.querySelector('.ag')?.textContent, rows: pj.querySelectorAll('.list .ob').length, done: pj.querySelectorAll('.list .ob.done').length, now: pj.querySelector('.ob.now .tx')?.textContent,
+      ag: pj.querySelector('.rows .arow')?.textContent, rows: pj.querySelectorAll('.list .ob').length, done: pj.querySelectorAll('.list .ob.done').length, now: pj.querySelector('.ob.now .tx')?.textContent,
       keys: [...pj.querySelectorAll('.ckeys button')].map((b) => b.textContent || b.className) }; })()`);
   check('unfolds on a click', opened.open && opened.det > 120, opened);
-  check('live line with the computer, helper agents', /PC/.test(opened.line) && /Running the tests/.test(opened.line) && /\(\d+ s\)/.test(opened.line) && /1 helper agent: mapping the code \(Explore\)/.test(opened.ag ?? ''), opened);
+  check('live line with the computer, helper agents', /PC/.test(opened.line) && /Running the tests/.test(opened.line) && /\(\d+ s\)/.test(opened.line) && /^Explore · mapping the code · \d+ s$/.test(opened.ag ?? ''), opened);
   check('the to-do list', opened.rows === 6 && opened.done === 3 && opened.now === 'AI joins in', opened);
   check('the task in hand shows how far into it the bar is, live', /^\d{1,2}%$/.test(await js(`document.querySelector('.ob.now .r').textContent`)), await js(`document.querySelector('.ob.now .r').textContent`));
   check('Pause, Open in Claude, the purple key', JSON.stringify(opened.keys) === JSON.stringify(['Pause', 'Open in Claude', 'msg']), opened.keys);

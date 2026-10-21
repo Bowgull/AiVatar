@@ -12,12 +12,26 @@
 // The brain keeps the truth (claude.jobs, claude.wait); this page keeps only what he is looking at: which jobs he
 // tracks, which bar is unfolded, which way a % is flipped, where he is in a set of questions.
 
+import { barNow, EtaSteady, etaRange, etaWords, overallNow, overallWords, remaining, roundLeft, seedOf } from './progressmath.js';
+
 const CL = 'art/claude-icon.png';
 // The 45f pill's palettes, verbatim; SLATE is 45d's dusk slate (154,168,192) for a paused job, shaded the same way.
 const SEA = ['#d9f3ee', '#b2e6dd', '#8ad5c9', '#6cc3b6', '#58b0a3', '#479a8e', '#3a857a', '#2f6f66'];
 const SEA_NOW = ['#f4fcfa', '#e2f6f1', '#cdeee6', '#b8e5db', '#a4dbcf', '#90cfc2', '#7fc2b5', '#6fb3a6'];
 // Paused is his final slate, #6f7787 (2026-10-21 mark colours), shaded light to dark the same way around it.
 const SLATE = ['#c9ced8', '#aeb4c0', '#959cab', '#7f8798', '#6f7787', '#626a7a', '#555c6b', '#474d5a'];
+/** Eight shades light to dark round one colour, the way SEA and SLATE are shaded (v3 state colours, 2026-10-21). */
+function shades(hex) {
+  const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+  const at = (k) => '#' + c.map((v) => Math.round(k < 0 ? v + (255 - v) * -k : v * (1 - k)).toString(16).padStart(2, '0')).join('');
+  return [-0.7, -0.5, -0.3, -0.15, 0, 0.12, 0.25, 0.38].map(at);
+}
+// v3 (2026-10-21, docs/PROGRESS-RESEARCH.md section 4): waiting on him is his "needs you" blue (the marks' #7cc4ff),
+// a stall is amber with the bar frozen, failed is red, done is teal.
+const BLUE = shades('#5aa6e0');
+const AMBER = shades('#d98a2b');
+const RED = shades('#c4453a');
+const TEAL = shades('#3fc4b4');
 // The purple key's pixel speech balloon, verbatim from sheet 45g (a fixed drawing, no wire data in it).
 const MSG = '<svg viewBox="0 0 10 9" shape-rendering="crispEdges"><path d="M1 0h8v1H1zM0 1h1v5H0zM9 1h1v5H9zM1 6h3v1H1zM6 6h3v1H6zM3 7h2v1H3zM3 8h1v1H3zM2 2h6v1H2zM2 4h4v1H2z" fill="#efe6ff"/></svg>';
 
@@ -31,42 +45,52 @@ const str = (v, n) => (typeof v === 'string' ? v : '').slice(0, n);
 const anims = new Set();
 let tk = 0, animTimer = 0;
 /**
- * The pill. `p` is 0..1, or null for the busy look (2026-10-21, progress engine rule 5: no to-do list = no percent, a
- * soft band sweeping instead of a fake 0%). `c.setProgress(p, cur)` moves it without a new canvas (the live updater
- * calls it every frame; it redraws only when a whole art pixel changes).
+ * The pill. `p` is 0..1, or null for no percent (no to-do list: the empty, STILL track, with one lit pip per finished
+ * tool call when there are any, v3). `c.setProgress(p, cur, o)` moves it without a new canvas (the live updater calls
+ * it every frame; it redraws only when a whole art pixel, the colour, the notches or the pips change). `o` (v3,
+ * 2026-10-21) may change the palette (amber when stalled, blue when it waits on him, red failed, teal done), whether
+ * the current piece breathes (never while stalled: stillness means stillness), the notches (time-weighted slices) and
+ * the pips.
  */
 function pill(w, ht, s, bounds, p, cur, pal = SEA, glow = true) {
   const c = document.createElement('canvas'); c.className = 'jpill'; c.width = w; c.height = ht; c.style.width = w * s + 'px'; c.style.height = ht * s + 'px';
   const g = c.getContext('2d'), r = Math.floor(ht / 2);
-  const st = { p: p === null || !Number.isFinite(p) ? null : Math.max(0, Math.min(1, p)), cur };
+  const st = { p: p === null || !Number.isFinite(p) ? null : Math.max(0, Math.min(1, p)), cur, pal, glow, bounds, pips: 0 };
   const P = (x, y, col, a = 1) => { g.globalAlpha = a; g.fillStyle = col; g.fillRect(x, y, 1, 1); g.globalAlpha = 1; };
   const inside = (x, y) => { const cx = x < r ? r - .5 : x > w - 1 - r ? w - 1 - r + .5 : x, cy = y < r ? r - .5 : y > ht - 1 - r ? ht - 1 - r + .5 : y; return Math.hypot(x - cx, y - cy) <= r + .15; };
   const draw = (t) => {
     g.clearRect(0, 0, w, ht);
     for (let y = 0; y < ht; y++) for (let x = 0; x < w; x++) { if (!inside(x, y)) continue; const rim = !inside(x - 1, y) || !inside(x + 1, y) || !inside(x, y - 1) || !inside(x, y + 1); P(x, y, rim ? (y < ht / 2 ? '#6a4628' : '#3a2414') : y === 1 ? '#1a100a' : '#2a1a10'); }
-    const inner = w - 2, cur = st.cur;
-    const paint = (x0, x1, pl, al) => { for (let x = x0; x < x1; x++) for (let y = 1; y < ht - 1; y++) { if (!inside(x, y) || !(inside(x - 1, y) && inside(x + 1, y) && inside(x, y - 1) && inside(x, y + 1))) continue; P(x, y, pl[Math.min(7, Math.round((y - 1) / (ht - 3) * 7))], al); } };
-    // No to-do list yet: the empty track, perfectly still (2026-10-21, his rule: nothing spins or sweeps; the words
-    // beside it say "Working"). It fills the moment Claude writes its list.
-    if (st.p === null) return;
+    const inner = w - 2, cur = st.cur, pl = st.pal, bd = st.bounds;
+    const paint = (x0, x1, pal, al) => { for (let x = x0; x < x1; x++) for (let y = 1; y < ht - 1; y++) { if (!inside(x, y) || !(inside(x - 1, y) && inside(x + 1, y) && inside(x, y - 1) && inside(x, y + 1))) continue; P(x, y, pal[Math.min(7, Math.round((y - 1) / (ht - 3) * 7))], al); } };
+    // No percent: the empty track, perfectly still (his rule: nothing spins or sweeps), with a lit pip per finished
+    // tool call (v3, research section 4: "activity-stepped"), so it moves only when something really happened.
+    if (st.p === null) {
+      const room = Math.floor((w - 2 * r) / 4);
+      for (let k = 0; k < Math.min(st.pips, room); k++) { const x = r + 1 + k * 4, y = Math.floor(ht / 2); P(x, y, pl[1]); P(x + 1, y, pl[2]); if (ht > 6) { P(x, y - 1, pl[0], .8); P(x + 1, y - 1, pl[1], .8); } }
+      return;
+    }
     const fw = Math.round(inner * st.p);
-    if (glow && cur >= 0 && cur < bounds.length) { const a = cur > 0 ? bounds[cur - 1] : 0, b = bounds[cur]; paint(1 + Math.round(inner * a), 1 + Math.round(inner * b), SEA_NOW, .7 + .2 * Math.sin(t / 7)); }
-    paint(1, 1 + fw, pal, 1);
+    if (st.glow && cur >= 0 && cur < bd.length) { const a = cur > 0 ? bd[cur - 1] : 0, b = bd[cur]; paint(1 + Math.round(inner * a), 1 + Math.round(inner * b), SEA_NOW, .7 + .2 * Math.sin(t / 7)); }
+    paint(1, 1 + fw, pl, 1);
     for (let x = 2; x < fw; x++) if (inside(x, 2)) P(x, 2, '#fff', .45);
-    for (const q of bounds.slice(0, -1)) { const x = 1 + Math.round(inner * q); for (let y = 2; y < ht - 2; y++) P(x, y, '#2a1a10', .45); }
+    for (const q of bd.slice(0, -1)) { const x = 1 + Math.round(inner * q); for (let y = 2; y < ht - 2; y++) P(x, y, '#2a1a10', .45); }
     if (fw > 1) for (let y = 1; y < ht - 1; y++) { P(fw, y, '#fffaf0'); P(fw + 1, y, '#fff3d8', .5); }
   };
-  if (glow) anims.add(draw);
+  anims.add((t) => { if (st.glow && st.p !== null) draw(t); });
   draw(tk);
-  c.setProgress = (np, ncur = st.cur) => {
+  const px = (x) => (x === null ? -1 : Math.round((w - 2) * x));
+  const notchKey = (b) => b.map((q) => Math.round((w - 2) * q)).join(',');
+  c.setProgress = (np, ncur = st.cur, o = {}) => {
     const v = np === null || !Number.isFinite(np) ? null : Math.max(0, Math.min(1, np));
-    const px = (x) => (x === null ? -1 : Math.round((w - 2) * x));
-    if (px(v) === px(st.p) && ncur === st.cur) return;
-    st.p = v; st.cur = ncur;
+    const pal2 = o.pal ?? st.pal, glow2 = o.glow ?? st.glow, bd2 = o.bounds ?? st.bounds, pips2 = o.pips ?? st.pips;
+    if (px(v) === px(st.p) && ncur === st.cur && pal2 === st.pal && glow2 === st.glow && pips2 === st.pips && notchKey(bd2) === notchKey(st.bounds)) return;
+    st.p = v; st.cur = ncur; st.pal = pal2; st.glow = glow2; st.bounds = bd2; st.pips = pips2;
     draw(tk);                         // at once (2026-10-21): a tick must not wait for the next breath
   };
   return c;
 }
+
 /** The current piece breathes only while the strip is on screen: no timer runs for a closed cockpit. */
 function animate(on) {
   if (on && !animTimer) animTimer = setInterval(() => { tk++; for (const a of anims) a(tk); }, 90);
@@ -86,9 +110,15 @@ function notePaint(lat) {
   if (!lat || typeof lat !== 'object' || !Number.isFinite(lat.ev)) return;
   requestAnimationFrame(() => {
     const ms = Date.now() - lat.ev;
-    const s = (globalThis.aangProgressLat ??= { count: 0, last: 0, worst: 0 });
+    const s = (globalThis.aangProgressLat ??= { count: 0, last: 0, worst: 0, recent: [], p50: 0, p95: 0, p99: 0 });
     s.count++; s.last = ms; s.worst = Math.max(s.worst, ms);
+    // v3 (research section 5): a rolling record of the last 200, its p50/p95/p99 kept current and said every 200
+    // events with the trace on. The latency check fails when p99 from the session's event to paint is over 150 ms.
+    s.recent.push(ms); if (s.recent.length > 200) s.recent.shift();
+    const q = [...s.recent].sort((a, b) => a - b), at = (f) => q[Math.min(q.length - 1, Math.floor(q.length * f))];
+    s.p50 = at(0.5); s.p95 = at(0.95); s.p99 = at(0.99);
     if (lat.trace === true) console.log(`progress trace: ${lat.type} event->paint ${ms} ms (shell->paint ${Date.now() - (lat.sh ?? lat.tx)} ms)`);
+    if (lat.trace === true && s.count % 200 === 0) console.log(`progress trace: event->paint p50 ${s.p50} ms, p95 ${s.p95} ms, p99 ${s.p99} ms (${s.count} pushes)`);
   });
 }
 
@@ -115,43 +145,108 @@ function onOf(j) {
   const what = j.current || (i >= 0 ? j.tasks[i].active || j.tasks[i].text : '');
   return n && i >= 0 ? `${what} · task ${i + 1} of ${n}` : what;
 }
-/* ---- THE PROGRESS ENGINE, the Shell's half (2026-10-21; the rules are at the top of src/Core/src/claudeprogress.ts
-   and in docs/COCKPIT-BUILD.md "The progress engine"). The brain sends the authoritative numbers (done, total, the task
-   in hand, its working time so far, the pace, the rewrite count); every frame this works out where the bar stands:
-   the ticked tasks, plus a creep inside the task in hand by the pace so far (straight to 60% of a pace, then easing,
-   never past 90% of the task's slot), frozen while paused or idle. A viewer never lets its bar go back unless the
-   brain says Claude rewrote the list, and then says so once. One model, used by the jobs strip, the job cards and
-   Samara's rune panel (rune.js imports these), and the pop-out later. ---- */
+/* ---- THE PROGRESS ENGINE, the Shell's half. v3, 2026-10-21 (docs/PROGRESS-RESEARCH.md; the rules head
+   src/Core/src/claudeprogress.ts). The brain sends the numbers (progressmath.ts ProgressV3: the finished items' real
+   working time, the item in hand's expected duration and working time so far, the pending items' expected durations,
+   the speed factor, the squeeze, the last sign of life and the silence allowed); every frame this draws from them with
+   the brain's own arithmetic (progressmath.js, checked against the brain's in the Core tests):
+     - the bar is weighted by time and creeps by working time; a late item keeps inching (no 90% wall);
+     - a rewritten list squeezes the rest of the bar, never pulls it back; the time left rises and says why once;
+     - silence past the limit freezes the bar, turns it amber and says "No sign of life for N min";
+     - waiting on him is blue (his "needs you" colour) and stops the clock; failed is red; done is teal;
+     - the time left shows only once earned, rounded, "about" or a range, steady (it changes past 15%, or after 3 s).
+   One model, used by the jobs strip, the job cards, Samara's rune and panel, and the pop-out. A brain from before v3
+   (progress without `v`) still draws, the old way. ---- */
 const DEFAULT_PACE_MS = 120_000;
 const SLOT_CAP = 0.9;
-/** Share of a slot crept after `f` paces (the brain's creep(), the same sum). */
+/** v2 only (a brain from before v3): share of a slot crept after `f` paces. */
 function creep(f) {
   if (!(f > 0)) return 0;
   return Math.min(SLOT_CAP - 1e-6, f <= 0.6 ? f : 0.6 + 0.3 * (1 - Math.exp(-(f - 0.6) / 0.6)));
 }
 const NOTE_MS = 6000;
-/** "about 12 min left", or null. Estimates always say "about" (rule 5). */
+/** "about 12 min left", or null (v2 and the no-progress path). */
 function aboutLeft(ms) {
   if (!Number.isFinite(ms) || ms <= 0) return null;
   if (ms < 60_000) return 'about a minute left';
   const m = Math.round(ms / 60000);
   return m >= 60 ? `about ${Math.floor(m / 60)} h ${m % 60} min left` : `about ${m} min left`;
 }
+/** Per job: the steady words and the last Monte Carlo spread (worked out about once a second, research 3.2). */
+const words = new Map();
+const wordsOf = (id) => { let w = words.get(id); if (!w) { w = { s: new EtaSteady(), mcAt: -1e9, ratio: 1, key: '' }; words.set(id, w); if (words.size > 60) words.delete(words.keys().next().value); } return w; };
+const isWaiting = (j) => /^Waiting for/.test(j.activity?.now ?? '');
+/** The helper agents' clocks, for the floor a foreground one puts under the item's time left. */
+const agentClocks = (j) => (j.activity?.agents ?? []).map((a) => ({ since: a.since, est: a.est, fg: a.fg, failed: a.failed, endedAt: a.endedAt }));
+/** "No sign of life for 4 min". */
+const silentWords = (ms) => `No sign of life for ${ms < 120_000 ? '1 min' : Math.floor(ms / 60_000) + ' min'}`;
+/** No list: still a stall when nothing has been heard for too long (the activity carries the same two numbers). */
+function stalledNoList(j, now) {
+  const a = j.activity;
+  if (j.phase !== 'working' || isWaiting(j) || !a || !Number.isFinite(a.aliveAt) || !Number.isFinite(a.stallMs)) return 0;
+  const s = now - a.aliveAt;
+  return s > a.stallMs ? s : 0;
+}
+/** The notches, time-weighted: each finished item at its share of the real time, the rest at their expected time. */
+function boundsV3(pr, b) {
+  const r = pr.r > 0 ? pr.r : 1, out = [];
+  const curW = pr.curEst ? b.e + remaining(pr.curEst, b.e) : 0;
+  const pend = pr.pend.map((x) => Math.exp(x.mu + (x.sigma * x.sigma) / 2) * r);
+  const doneEach = pr.done ? pr.doneW / pr.done : 0;
+  const parts = [...Array(pr.done).fill(doneEach), ...(pr.cur >= 0 ? [curW] : []), ...pend];
+  const total = parts.reduce((a, x) => a + x, 0);
+  if (!(total > 0) || parts.length !== pr.total) return pr.total ? Array.from({ length: pr.total }, (_, i) => (i + 1) / pr.total) : [1];
+  let s = 0;
+  for (const x of parts) { s += x; out.push(s / total); }
+  return out;
+}
 /**
- * Where a job's bar stands at `now`, from the brain's numbers alone (pure: no memory of earlier frames).
- * { p: 0..1 or null (no list: the busy look), percent: whole number or null, cur: the task in hand for the glow,
- *   etaMs: or null (only from a real pace), left: the words beside the bar, rev, rewroteAt }.
+ * Where a job's bar stands at `now`, from the brain's numbers alone (no memory of earlier frames but the steady words).
+ * { p: 0..1 or null (no list), percent, cur, etaMs (only when earned), left (the words beside the bar), state
+ *   (working | waiting | stalled | failed | paused | done | idle), stalled, silentMs, bounds (notches), pips, rev }.
  */
 function progressModel(j, now = Date.now()) {
   const pr = j.progress, paused = j.phase === 'paused', working = j.phase === 'working';
+  const pips = Math.max(0, Number(j.activity?.pips) || 0);
+  const flat = { bounds: [1], pips, stalled: false, silentMs: 0, rev: 0, rewroteAt: null };
+  const failed = j.failed === true && !working;
   // A one-step job (no to-do list) whose turn ended on its own is complete: the bar fills (2026-10-21).
-  if (!pr && j.finished && !working && !paused) return { p: 1, percent: 100, cur: -1, etaMs: 0, left: 'Done', rev: 0, rewroteAt: null };
-  // An older brain (no progress numbers): its percent and time left as they are, no creep.
+  if (!pr && j.finished && !working && !paused) return { ...flat, p: 1, percent: 100, cur: -1, etaMs: 0, left: 'Done', state: 'done' };
   if (!pr) {
-    const pc = pctOf(j);
-    const left = paused ? 'Paused' : j.etaMs === 0 || pc === 100 ? 'All tasks done' : aboutLeft(j.etaMs) ?? (working ? 'Working' : 'Resting');
-    return { p: pc === null ? null : pc / 100, percent: pc, cur: j.tasks.length ? curIndex(j) : -1, etaMs: j.etaMs, left, rev: 0, rewroteAt: null };
+    const pc = pctOf(j), silent = stalledNoList(j, now);
+    const state = failed ? 'failed' : paused ? 'paused' : isWaiting(j) ? 'waiting' : silent ? 'stalled' : working ? 'working' : 'idle';
+    const left = failed ? 'Stopped on an error' : paused ? 'Paused' : silent ? silentWords(silent) : state === 'waiting' ? j.activity.now : j.etaMs === 0 || pc === 100 ? 'All tasks done' : aboutLeft(j.etaMs) ?? (working ? 'Working' : 'Resting');
+    return { ...flat, p: pc === null ? null : pc / 100, percent: pc, cur: j.tasks.length ? curIndex(j) : -1, etaMs: j.etaMs, left, state, stalled: !!silent, silentMs: silent, bounds: boundsOf(j) };
   }
+  if (pr.v !== 3) return modelV2(j, now);
+  const b = barNow(pr, working, now, agentClocks(j));
+  const doneAll = pr.done >= pr.total;
+  const state = failed ? 'failed' : paused ? 'paused' : isWaiting(j) ? 'waiting' : b.stalled ? 'stalled' : doneAll ? 'done' : working ? 'working' : 'idle';
+  const earned = pr.earned && b.jobW >= 20_000 && !b.stalled;
+  let left;
+  if (failed) left = 'Stopped on an error';
+  else if (paused) left = 'Paused';
+  else if (state === 'waiting') left = j.activity.now;
+  else if (b.stalled) left = silentWords(b.silentMs);
+  else if (doneAll) left = 'All tasks done';
+  else if (earned && working) {
+    const w = wordsOf(j.id), key = `${pr.rev}|${pr.done}|${pr.cur}`;
+    // The spread from 500 seeded draws, about once a second (or at once when the list moved): "about" or a range.
+    if (now - w.mcAt >= 1000 || w.key !== key) {
+      const mc = etaRange(pr.curEst, b.e, pr.pend, pr.r, seedOf(j.id + '|' + pr.rev));
+      w.ratio = mc.p50 > 0 ? mc.p80 / mc.p50 : 1; w.mcAt = now; w.key = key;
+    }
+    left = w.s.update(b.left, etaWords(b.left, w.ratio), now);
+    // The reason, once: a note from the brain ("Claude added 3 steps", "Tidying its memory") or the item running late.
+    const note = pr.note && now - pr.note.at < NOTE_MS ? pr.note.text : w.s.roseAt !== null && now - w.s.roseAt < NOTE_MS ? (b.late ? 'Taking longer than usual' : '') : '';
+    if (note) left = `${left} · ${note}`;
+  } else left = working ? (pr.note && now - pr.note.at < NOTE_MS ? pr.note.text : 'Working') : 'Resting';
+  return { p: doneAll ? 1 : b.p, percent: doneAll ? 100 : Math.floor(b.p * 100), cur: pr.cur, etaMs: earned ? b.left : doneAll ? 0 : null, left, state,
+    stalled: b.stalled, silentMs: b.silentMs, bounds: boundsV3(pr, b), pips, rev: pr.rev, rewroteAt: pr.rewroteAt };
+}
+/** A brain from before v3: ticked tasks plus a creep by the median pace, capped at 90% of the slot. */
+function modelV2(j, now) {
+  const pr = j.progress, paused = j.phase === 'paused', working = j.phase === 'working';
   const base = pr.done / pr.total;
   let p = base, eta = null;
   const elapsed = pr.elapsedMs + (working ? Math.max(0, now - pr.at) : 0);
@@ -162,18 +257,26 @@ function progressModel(j, now = Date.now()) {
     : pr.rewroteAt !== null && now - pr.rewroteAt < NOTE_MS ? 'Claude rewrote its list'
     : eta === 0 ? 'All tasks done'
     : aboutLeft(eta) ?? (working ? 'Working' : 'Resting');
-  return { p, percent: pr.done >= pr.total ? 100 : Math.floor(p * 100), cur: pr.cur, etaMs: eta, left, rev: pr.rev, rewroteAt: pr.rewroteAt };
+  const state = paused ? 'paused' : pr.done >= pr.total ? 'done' : working ? 'working' : 'idle';
+  return { p, percent: pr.done >= pr.total ? 100 : Math.floor(p * 100), cur: pr.cur, etaMs: eta, left, rev: pr.rev, rewroteAt: pr.rewroteAt, state,
+    stalled: false, silentMs: 0, bounds: boundsOf(j), pips: 0 };
 }
 /** Per job: the furthest its bar has been drawn in this window, and under which list (rev). */
 const held = new Map();
 /**
- * progressModel, kept from ever going back (rule 2): within the same list the bar holds the furthest it has been; only a
- * new rev (Claude rewrote its list) may drop it, and then the words beside it say so for a few seconds.
+ * progressModel, kept from ever going back. v3: the brain's squeeze already keeps it from dropping; this holds the
+ * furthest it has been drawn as a backstop (a new speed factor after a tick can shave a hair off). v2: only a new rev
+ * (Claude rewrote its list) may drop it, and then the words say so for a few seconds.
  */
 function liveProgress(j, now = Date.now()) {
   const m = progressModel(j, now);
   if (m.p === null) { held.delete(j.id); return m; }
   const h0 = held.get(j.id);
+  if (j.progress?.v === 3) {
+    if (h0 && h0.v3 && m.p < h0.v) { m.p = h0.v; m.percent = Math.max(m.percent ?? 0, h0.pc); }
+    held.set(j.id, { v3: true, v: m.p, pc: m.percent ?? 0 });
+    return m;
+  }
   let dropAt = h0?.dropAt ?? null;
   if (h0 && h0.rev === m.rev) { if (m.p < h0.v) { m.p = h0.v; m.percent = Math.max(m.percent ?? 0, h0.pc); } }
   else if (h0 && m.p < h0.v - 0.003) dropAt = now;
@@ -188,6 +291,13 @@ function since(ms) {
   const m = Math.floor(s / 60);
   return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${m % 60} min`;
 }
+/** "1 min 30 s" for a command's usual time ("usually 1 min 30 s"). */
+function usual(ms) {
+  const s = Math.max(1, Math.round(ms / 1000));
+  if (s < 60) return `${s} s`;
+  const m = Math.floor(s / 60), r = s % 60;
+  return m < 60 ? (r && m < 10 ? `${m} min ${Math.round(r / 5) * 5} s`.replace(/ 0 s$/, '') : `${m} min`) : `${Math.floor(m / 60)} h ${m % 60} min`;
+}
 /** "1 helper agent: reviewing the diff", "3 helper agents: mapping the code (Explore), reviewing the diff +1 more"; '' with none. */
 function agentsLine(agents) {
   const list = Array.isArray(agents) ? agents : [];
@@ -198,14 +308,19 @@ function agentsLine(agents) {
 }
 /**
  * The drop-down's live lines (2026-10-21): what it is doing now, with how long, e.g. "Running the tests · npm test
- * (12 s)", and the helper agents. From the brain's activity; an older brain gives the task in hand.
+ * (40 s, usually 1 min 30 s)", and the helper agents. Stalled (v3): "Last: Running the tests (6 min)", since the words
+ * beside the bar already say "No sign of life for 6 min". From the brain's activity; an older brain gives the task in hand.
  */
 // 2026-10-21 (his report: a job with no to-do list read "Working" two or three times): with nothing more to say than
 // that it works, this line stays empty. The words beside the bar (leftOf) already say "Working", once.
 function describeNow(j, now = Date.now()) {
   const a = j.activity;
   if (!a) return { line: j.phase === 'paused' ? 'Paused' : j.current || '', agents: '' };
-  const line = a.now ? (a.now === 'Paused' ? a.now : `${a.now} (${since(now - a.since)})`) : '';
+  if (!a.now) return { line: '', agents: agentsLine(a.agents) };
+  if (a.now === 'Paused' || isWaiting(j)) return { line: a.now, agents: agentsLine(a.agents) };
+  const m = liveProgress(j, now);
+  const tool = a.tool && a.tool.since === a.since ? `, usually ${usual(a.tool.usual)}` : '';
+  const line = m.stalled ? `Last: ${a.now} (${since(now - a.since)})` : `${a.now} (${since(now - a.since)}${tool})`;
   return { line, agents: agentsLine(a.agents) };
 }
 /**
@@ -218,7 +333,7 @@ function runeHeadLine(j, now = Date.now(), said = '') {
   const m = liveProgress(j, now);
   if (m.percent === null) return m.left === said || m.left === 'Working' ? '' : m.left;
   if (m.percent >= 100) return 'all done';
-  return `done · ${m.left}`;
+  return m.stalled || m.state === 'waiting' ? m.left : `done · ${m.left}`;
 }
 /** Keep an element's text live: `fn(now)` every frame while the strip (or rune panel) is on screen. */
 function liveText(e, fn) {
@@ -226,13 +341,93 @@ function liveText(e, fn) {
   tick(); anims.add(tick);
   return e;
 }
-/** A pill bound to a job: it creeps and steps by itself every frame. `getJob()` gives the latest job (or null). */
+/** The colour of a bar in each state (v3): his sea while working, his blue when it waits on him, amber stalled, red failed, teal done. */
+function palFor(state, base = SEA) {
+  return state === 'paused' ? SLATE : state === 'waiting' ? BLUE : state === 'stalled' ? AMBER : state === 'failed' ? RED : state === 'done' ? TEAL : base;
+}
+/** A pill bound to a job: it creeps, steps, freezes and changes colour by itself every frame. `getJob()` gives the latest job (or null). */
 function livePill(w, ht, s, getJob, pal = SEA, glow = true) {
   const j = getJob(), m = liveProgress(j);
-  const c = pill(w, ht, s, boundsOf(j), m.p, m.cur, pal, glow);
-  anims.add(() => { const x = getJob(); if (!x) return; const n = liveProgress(x); c.setProgress(n.p, n.cur); });
+  const c = pill(w, ht, s, m.bounds ?? boundsOf(j), m.p, m.cur, palFor(m.state, pal), glow && m.state === 'working');
+  const upd = () => { const x = getJob(); if (!x) return; const n = liveProgress(x); c.setProgress(n.p, n.cur, { pal: palFor(n.state, pal), glow: glow && n.state === 'working', bounds: n.bounds ?? boundsOf(x), pips: n.pips ?? 0 }); };
+  upd(); anims.add(upd);
   return c;
 }
+/** A small live bar for one thing with its own clock (a command, a helper agent, a CI run): `frac(now)` 0..1 or null. */
+function miniPill(w, frac, palFn) {
+  const v0 = frac(Date.now());
+  const c = pill(w, 5, 2, [1], v0, -1, palFn ? palFn() : SEA, false);
+  anims.add(() => c.setProgress(frac(Date.now()), -1, palFn ? { pal: palFn() } : {}));
+  return c;
+}
+/** "about 2 min", or "under a minute" (never "about under a minute"). */
+const aboutShort = (ms) => (ms < 45_000 ? 'under a minute' : `about ${roundLeft(ms)}`);
+/** A thing that started `since` with expected duration `est`: how far along, by the same overrun curve as the bars. */
+const fracOf = (est, e) => (est && e >= 0 ? (e > 0 ? e / (e + remaining(est, e)) : 0) : null);
+
+/**
+ * OVERALL (v3, research 3.8 and his Waymark mod): the project's phase plan, when Claude keeps one. A row with its own
+ * bar: "OVERALL · phase 2 of 5 · about 6 h of build left, maybe 9". The job's own bar under it is CURRENT.
+ */
+function liveOverall(getJob, w = 84) {
+  const j = getJob();
+  if (!j?.plan) return null;
+  const row = h('div', 'ovr');
+  const at = (now) => { const x = getJob(); return x?.plan ? overallNow(x.plan, now, seedOf(x.project || x.id)) : null; };
+  row.append(h('b', 'tag', 'OVERALL'), miniPill(w, (now) => at(now)?.p ?? null, () => SEA),
+    liveText(h('span', 'ow'), (now) => { const o = at(now); return o ? `phase ${o.phase} of ${o.of} · ${overallWords(o.p50, o.p80) || 'nearly there'}` : ''; }));
+  return row;
+}
+
+/**
+ * The rows under the live line (v3): the running command's sub-bar when its history knows it, each helper agent
+ * ("Explore · mapping the code · 14 tool calls · about 1 min", a bar once its type has 3 runs behind it; red when it
+ * failed), and the repo's CI runs ("CI · iOS build · step 9 of 12 · about 2 min"; "waiting for a runner · 40 s").
+ * Built from the job as it is now; the caller redraws when the set of rows changes (rowsKey).
+ */
+function liveRows(getJob, w = 60) {
+  const j = getJob(), box = h('div', 'rows');
+  const a = j?.activity;
+  if (a?.tool) {
+    const t0 = a.tool;
+    const r = h('div', 'sub');
+    r.append(miniPill(w, (now) => { const x = getJob()?.activity?.tool; return x && x.since === t0.since ? fracOf(x.est, now - x.since) : null; }, () => SEA),
+      liveText(h('span'), (now) => { const x = getJob()?.activity?.tool; return x && x.since === t0.since ? `${since(now - x.since)} of usually ${usual(x.usual)}` : ''; }));
+    box.append(r);
+  }
+  for (const g of a?.agents ?? []) {
+    const id = g.id, r = h('div', 'arow' + (g.failed ? ' failed' : ''));
+    const cur = () => getJob()?.activity?.agents?.find((x) => x.id === id) ?? g;
+    const sure = g.est && g.n >= 3;
+    if (sure || g.failed) r.append(miniPill(Math.round(w * 0.7), (now) => { const x = cur(); return x.failed ? 1 : fracOf(x.est, now - x.since); }, () => (cur().failed ? RED : SEA)));
+    r.append(liveText(h('span'), (now) => {
+      const x = cur(), what = x.what ? x.what.charAt(0).toLowerCase() + x.what.slice(1) : 'working';
+      const calls = x.calls ? ` · ${x.calls} tool call${x.calls > 1 ? 's' : ''}` : '';
+      if (x.failed) return `${x.kind} · ${what}${calls} · failed`;
+      const left = sure && x.est ? remaining(x.est, now - x.since) : null;
+      return `${x.kind} · ${what}${calls}${left !== null ? ` · ${aboutShort(left)}` : ` · ${since(now - x.since)}`}`;
+    }));
+    box.append(r);
+  }
+  for (const c0 of j?.ci ?? []) {
+    const id = c0.id, r = h('div', 'crow ' + c0.status + (c0.conclusion && c0.conclusion !== 'success' ? ' failed' : ''));
+    const cur = () => getJob()?.ci?.find((x) => x.id === id) ?? c0;
+    const sel = (x, now) => (x.progress ? barNow(x.progress, true, now) : null);
+    if (c0.status === 'in_progress' && c0.progress) r.append(miniPill(Math.round(w * 0.7), (now) => sel(cur(), now)?.p ?? null, () => SEA));
+    r.append(liveText(h('span'), (now) => {
+      const x = cur(), head = `CI · ${x.workflow}`;
+      if (x.status === 'queued') return `${head} · waiting for a runner · ${since(now - (x.createdAt || now))}`;
+      if (x.status === 'completed') return `${head} · ${x.conclusion === 'success' ? 'passed' : x.conclusion || 'ended'}`;
+      const b = sel(x, now), step = x.steps ? ` · step ${x.stepNo} of ${x.steps}` : '';
+      return `${head}${step}${b && x.progress?.earned ? ` · ${aboutShort(b.left)}` : x.startedAt ? ` · ${since(now - x.startedAt)}` : ''}`;
+    }));
+    box.append(r);
+  }
+  return box.childElementCount ? box : null;
+}
+/** What changes the rows' layout (not their numbers): for the redraw signatures. */
+const rowsKey = (j) => JSON.stringify([!!j.plan, j.plan?.phases?.length ?? 0, !!j.activity?.tool, j.activity?.tool?.since ?? 0,
+  (j.activity?.agents ?? []).map((a) => a.id + (a.failed ? '!' : '') + (a.est && a.n >= 3 ? '+' : '')), (j.ci ?? []).map((c) => c.id + c.status + c.conclusion + (c.progress ? '+' : ''))]);
 
 /**
  * What an Open in Claude press asks main.ts for (2026-10-21, claudewire.ts claudeOpenTarget): the session's own app link,
@@ -260,7 +455,24 @@ function readJob(x) {
     percent: Number.isFinite(x.percent) ? x.percent : null, etaMs: Number.isFinite(x.etaMs) ? x.etaMs : null,
     usage: x.usage && typeof x.usage === 'object' ? x.usage : null, open: str(x.open, 200), held: Math.max(0, Math.min(99, Number(x.held) || 0)),
     failed: x.failed === true, progress: readProgress(x.progress), activity: readActivity(x.activity), finished: x.finished === true,
+    plan: readPlan(x.plan), ci: (Array.isArray(x.ci) ? x.ci : []).slice(0, 4).map(readCi).filter(Boolean),
   };
+}
+const est = (e) => (e && Number.isFinite(e.mu) && Number.isFinite(e.sigma) && e.sigma > 0 ? { mu: Number(e.mu), sigma: Math.min(3, Number(e.sigma)) } : null);
+/** OVERALL's plan from the wire (v3), or null. */
+function readPlan(x) {
+  if (!x || typeof x !== 'object' || !Array.isArray(x.phases)) return null;
+  const phases = x.phases.slice(0, 30).map((p) => ({ label: str(p?.label, 80), hours: Math.max(0, Math.min(1000, Number(p?.hours) || 0)), status: ['todo', 'running', 'done'].includes(p?.status) ? p.status : 'todo' })).filter((p) => p.label);
+  if (!phases.length) return null;
+  return { phases, runE: Math.max(0, num(x.runE) ?? 0), at: num(x.at) ?? Date.now(), running: x.running === true, R: num(x.R) > 0 ? num(x.R) : 1,
+    ratios: (Array.isArray(x.ratios) ? x.ratios : []).slice(0, 30).map(Number).filter((r) => r > 0) };
+}
+/** A CI run from the wire (v3), or null. */
+function readCi(x) {
+  if (!x || typeof x !== 'object' || typeof x.id !== 'string') return null;
+  const status = ['queued', 'in_progress', 'completed'].includes(x.status) ? x.status : 'queued';
+  return { id: x.id.slice(0, 30), workflow: str(x.workflow, 60) || 'CI', status, conclusion: str(x.conclusion, 20), createdAt: num(x.createdAt) ?? 0, startedAt: num(x.startedAt),
+    step: str(x.step, 80), stepNo: Math.max(0, Math.round(num(x.stepNo) ?? 0)), steps: Math.max(0, Math.round(num(x.steps) ?? 0)), progress: readProgress(x.progress) };
 }
 const num = (v) => (Number.isFinite(v) ? Number(v) : null);
 /** The engine's numbers from the wire, or null (no list, or anything that does not add up). */
@@ -268,14 +480,28 @@ function readProgress(p) {
   if (!p || typeof p !== 'object') return null;
   const total = num(p.total), done = num(p.done);
   if (!total || total < 1 || done === null || done < 0 || done > total) return null;
+  if (p.v === 3) {
+    // v3 (2026-10-21): the time-weighted numbers (progressmath.js ProgressV3).
+    const pend = (Array.isArray(p.pend) ? p.pend : []).slice(0, 100).map(est);
+    if (pend.some((x) => !x)) return null;
+    const sq = p.sq && Number.isFinite(p.sq.a) && Number.isFinite(p.sq.m0) ? { a: Math.max(0, Math.min(1, p.sq.a)), m0: Math.max(0, Math.min(1, p.sq.m0)) } : null;
+    return { v: 3, done: Math.round(done), total: Math.round(total), cur: Math.round(num(p.cur) ?? -1), at: num(p.at) ?? Date.now(), e: Math.max(0, num(p.e) ?? 0),
+      jobW: Math.max(0, num(p.jobW) ?? 0), doneW: Math.max(0, num(p.doneW) ?? 0), curEst: est(p.curEst), pend, r: num(p.r) > 0 ? num(p.r) : 1, earned: p.earned === true,
+      sq, note: p.note && typeof p.note.text === 'string' ? { text: str(p.note.text, 60), at: num(p.note.at) ?? 0 } : null,
+      aliveAt: num(p.aliveAt) ?? Date.now(), stallMs: Math.max(1000, num(p.stallMs) ?? 60_000), running: p.running !== false, rev: Math.round(num(p.rev) ?? 0),
+      rewroteAt: num(p.rewroteAt), ...(p.cap === false ? { cap: false } : {}) };
+  }
   const pace = num(p.paceMs);
   return { done: Math.round(done), total: Math.round(total), cur: Math.round(num(p.cur) ?? -1), elapsedMs: Math.max(0, num(p.elapsedMs) ?? 0),
     at: num(p.at) ?? Date.now(), paceMs: pace !== null && pace > 0 ? pace : null, rev: Math.round(num(p.rev) ?? 0), rewroteAt: num(p.rewroteAt) };
 }
 function readActivity(a) {
   if (!a || typeof a !== 'object') return null;
-  const agents = (Array.isArray(a.agents) ? a.agents : []).slice(0, 20).map((x) => ({ kind: str(x?.kind, 40), what: str(x?.what, 80), since: num(x?.since) ?? Date.now() }));
-  return { now: str(a.now, 140), since: num(a.since) ?? Date.now(), agents };
+  const agents = (Array.isArray(a.agents) ? a.agents : []).slice(0, 20).map((x, i) => ({ id: str(x?.id, 100) || String(i), kind: str(x?.kind, 40), what: str(x?.what, 80), since: num(x?.since) ?? Date.now(),
+    calls: Math.max(0, Math.round(num(x?.calls) ?? 0)), est: est(x?.est), n: Math.max(0, Math.round(num(x?.n) ?? 0)), fg: x?.fg !== false, failed: x?.failed === true, endedAt: num(x?.endedAt) ?? undefined }));
+  const t = a.tool && typeof a.tool === 'object' && est(a.tool.est) ? { since: num(a.tool.since) ?? Date.now(), est: est(a.tool.est), n: Math.round(num(a.tool.n) ?? 0), usual: Math.max(0, num(a.tool.usual) ?? 0) } : null;
+  return { now: str(a.now, 140), since: num(a.since) ?? Date.now(), agents, tool: t, pips: Math.max(0, Math.min(200, Math.round(num(a.pips) ?? 0))),
+    aliveAt: num(a.aliveAt) ?? undefined, stallMs: num(a.stallMs) ?? undefined };
 }
 function readWait(x) {
   if (!x || typeof x !== 'object' || typeof x.id !== 'string' || !x.id || typeof x.session !== 'string') return null;
@@ -388,14 +614,18 @@ export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWa
     const latest = () => jobOf(j.id) ?? j;
     pb.append(livePill(84, 9, 2, latest, paused ? SLATE : SEA, !paused));
     row2.append(pb, liveText(h('span', 'lt'), (now) => leftOf(latest(), now)), h('i', 'chev'));
-    d.append(hd, row2);
+    // v3: with a phase plan, OVERALL (the whole project) sits above this job's bar, which is then CURRENT (Waymark's two levels).
+    const ovr = liveOverall(latest, 84);
+    if (ovr) { row2.prepend(h('b', 'tag', 'CURRENT')); d.append(hd, ovr, row2); } else d.append(hd, row2);
     if (j.held) { const q = h('div', 'queued'); q.append(h('i', '', 'QUEUED'), h('span', '', `${j.held} message${j.held > 1 ? 's' : ''}, after this task`)); d.append(q); }
     // The tracker, inside the bar (45f): ticked, the one in progress, the rest.
     const det = h('div', 'det'), inner = h('div'), list = h('div', 'list'), cur = curIndex(j);
     // What it is doing right now, above the tasks (2026-10-21): the tool running and for how long, then its helper agents.
     const act = h('div', 'act');
     act.append(liveText(h('div', 'an'), (now) => describeNow(latest(), now).line));
-    if (j.activity?.agents?.length) act.append(liveText(h('div', 'ag'), (now) => describeNow(latest(), now).agents));
+    // v3: the command's sub-bar, a row per helper agent and per CI run (they replace the one-line agents summary).
+    const rows = liveRows(latest, 60);
+    if (rows) act.append(rows);
     list.append(act);
     j.tasks.forEach((t, k) => {
       const done = t.status === 'completed', now = !done && k === cur;
@@ -539,7 +769,7 @@ export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWa
     const sig = JSON.stringify([isOpen(), stripOn(), tracked, listOpen, [...unfolded], targetId, [...leaving], [...popped],
       // Not the percent, the time left or the live line: those update in place every frame (the progress engine), and
       // redrawing for them would re-measure the cockpit many times a second. Whether helper agents show is layout.
-      run.map((j) => [j.id, j.project, j.machine, j.phase, pctOf(j) === null, onOf(j), j.held, weekOf(j), j.tasks.map((t) => t.status + t.text + t.active), Boolean(j.activity?.agents?.length)]),
+      run.map((j) => [j.id, j.project, j.machine, j.phase, pctOf(j) === null && !j.progress, onOf(j), j.held, weekOf(j), j.tasks.map((t) => t.status + t.text + t.active), rowsKey(j)]),
       done.map((j) => [j.id, j.project, j.tasks.length])]);
     if (!force && sig === jobsSig) return false;
     jobsSig = sig;
@@ -846,5 +1076,7 @@ export { pill, animate, anims, SEA, SLATE, MSG, CL, readJob, curIndex, boundsOf,
 // draw with livePill / liveText / liveProgress / describeNow rather than pill(pctOf(...)), so its bars creep, step and
 // never go back exactly as the cockpit's do.
 export { progressModel, liveProgress, livePill, liveText, describeNow, agentsLine, creep, DEFAULT_PACE_MS, SLOT_CAP, runeHeadLine };
+// v3 (2026-10-21): the state colours, OVERALL, and the rows (command sub-bar, helper agents, CI), for the rune and the pop-out.
+export { palFor, liveOverall, liveRows, rowsKey, BLUE, AMBER, RED, TEAL };
 // 2026-10-21: move every live bar now (the brain's news just landed), and time the paint against the event.
 export { kick, notePaint, openTarget };
