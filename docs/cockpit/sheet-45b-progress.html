@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 45b - Progress, icons, keys</title>
+<!-- Sheet 45b (2026-10-21), his notes on 45: the progress bar is plain and boring, do it as pixel art the Zelda / LOTR /
+     BotW / TotK / Final Fantasy way; the keys have too much empty space; "Job complete", not quest; the overall bar did
+     not show finished (right: that job had only finished step 3 of 6, so the ribbon was wrong, not the bar); do we need
+     more icons. Every bar here is hand-placed pixels drawn at a whole-number scale (3x in the bubble, 2x over the pet),
+     moving in whole pixels only. -->
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<link rel="stylesheet" href="../../src/Shell/pages/notefonts.css">
+<style>
+  html,body{background:#17110c!important;margin:0}
+  body{color:#e8dcc4;font-family:Figtree,sans-serif;padding:26px;width:1500px;overflow:auto!important;height:auto!important;display:block!important;pointer-events:auto!important}
+  h1{font:400 21px Silkscreen,monospace;color:#FFC43C;letter-spacing:2px;margin:0 0 6px}
+  h2{font:400 13px Silkscreen,monospace;color:#FFC43C;letter-spacing:1.5px;margin:40px 0 6px}
+  h3{font:400 10px Silkscreen,monospace;color:#FFE096;letter-spacing:1.5px;margin:0 0 10px}
+  p{color:#cdbb9a;font-size:14.5px;line-height:1.55;margin:0 0 12px;max-width:1400px}
+  p b,li b{color:#FFC43C}
+  .pick{display:inline-block;font:400 9px Silkscreen,monospace;letter-spacing:1px;color:#2a1c00;background:linear-gradient(180deg,#ffe28c,#FFC43C);border:2px solid #120A05;border-radius:4px;padding:3px 6px 2px;margin-right:6px;vertical-align:1px}
+  canvas{image-rendering:pixelated;display:block}
+
+  .opts{display:grid;grid-template-columns:repeat(2,720px);gap:26px}
+  .opt{background:#1f160f;border-radius:14px;padding:16px;box-shadow:0 0 0 2px #2a1d12}
+  .opt .why{font-size:13.5px;color:#cdbb9a;line-height:1.5;margin:12px 0 0}
+  .scene{display:flex;gap:18px;align-items:flex-end}
+  /* in the bubble: a parchment card like the real one */
+  .card{flex:none;width:400px;box-sizing:border-box;padding:12px 14px 14px;border-radius:12px;color:#21160a;
+    background:#f1dfb6 url(../../src/Shell/pages/art/browser/tray.png) 0 0/0 0;box-shadow:0 0 0 3px #120A05,0 6px 0 #0d0703,inset 0 2px 0 rgba(255,255,255,.5);
+    background-image:radial-gradient(120% 90% at 30% 0%,#f7ead0,#e9d3a6)}
+  .card .top{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  .card .top svg{width:16px;height:16px}
+  .card .top b{font:700 13.5px var(--body);color:#8a3e1c;text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:3px;text-decoration-color:rgba(224,122,79,.6)}
+  .card .top span{font:600 13px var(--body);color:#21160a}
+  .card .meta{display:flex;justify-content:space-between;margin-top:7px;font:500 12px var(--body);color:#6b5236}
+  .card .meta i{font-style:normal;font:400 8px var(--label);letter-spacing:1px;color:#8f7458}
+  .card .lbl{font:400 8px var(--label);letter-spacing:1.5px;color:#8f7458;margin:6px 0 3px}
+  /* over the pet */
+  .petbox{flex:none;width:236px;height:200px;position:relative;border-radius:10px;background:radial-gradient(90% 70% at 30% 20%,#2a2238,#120c1a 70%)}
+  .petbox img{position:absolute;left:24px;bottom:-10px;width:188px;height:188px;image-rendering:pixelated}
+  .petbox .over{position:absolute;left:50%;top:14px;transform:translateX(-50%)}
+
+  /* keys */
+  .k2 .key.sm{padding:6px 10px 7px;font-size:12.5px}
+  .row{display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start}
+  .bub{width:372px;box-sizing:border-box;padding:12px 14px 14px;border-radius:12px;background:radial-gradient(120% 90% at 30% 0%,#f7ead0,#e9d3a6);box-shadow:0 0 0 3px #120A05,0 6px 0 #0d0703}
+  .bub .said{margin:0;font:600 14.5px/1.5 var(--body);color:#21160a}
+  .bub .keys{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
+  .tr-desc{margin:8px 0 0;font:500 12px var(--body);color:#6b5236;min-height:18px}
+  .cap2{font:400 9px Silkscreen,monospace;color:#FFC43C;letter-spacing:1.5px;margin:0 0 8px}
+
+  .icons{display:flex;gap:30px;flex-wrap:wrap;padding:22px;background:radial-gradient(90% 70% at 30% 20%,#2a2238,#120c1a 70%);border-radius:12px}
+  .ic{display:flex;flex-direction:column;align-items:center;gap:10px;width:120px}
+  .ic .lbl{font:400 8.5px Silkscreen,monospace;letter-spacing:1px;color:#cdbb9a;text-align:center;line-height:1.6}
+  .ic.old .lbl{color:#8f7458}
+  .note{background:#1f160f;border-radius:12px;padding:16px 18px;box-shadow:0 0 0 2px #2a1d12;max-width:1440px}
+  .note ul{margin:6px 0 0;padding-left:20px;color:#cdbb9a;font-size:14px;line-height:1.7}
+
+  /* step done vs job complete */
+  .speaker{display:flex;align-items:center;gap:7px;margin:0 0 6px;font:400 10px var(--label);color:#8a3e1c;letter-spacing:1.5px}
+  .speaker svg{width:18px;height:18px}
+  .speaker .mc{font:400 8px var(--label);letter-spacing:1px;color:#6b4318;border:1.5px solid rgba(107,67,24,.55);border-radius:4px;padding:2px 4px 1px}
+  .plaque{display:inline-flex;align-items:center;gap:7px;font:400 9px var(--label);letter-spacing:1.5px;color:#08302b;background:#3FBFAE;border:2px solid #120A05;border-radius:4px;padding:4px 8px 3px;box-shadow:0 0 8px rgba(159,240,230,.6)}
+  .ribbon{display:inline-block;padding:8px 22px 7px;font:400 12px var(--label);letter-spacing:3px;color:#2a1c00;background:linear-gradient(180deg,#ffe9a8,#FFC43C 55%,#C98C14);border:3px solid #120A05;border-radius:4px;box-shadow:0 4px 0 #120A05,0 0 24px rgba(255,196,60,.6)}
+</style>
+</head>
+<body>
+<h1>SHEET 45B &middot; PROGRESS, ICONS, KEYS</h1>
+<p>Five progress bars drawn as real pixel art, each in the bubble (3x) and over Aang's head (2x). The job is Waymark's coach brain: <b>6 tasks</b> from Claude's own to-do list, <b>2 done</b>, the <b>3rd at 62%</b>. Most of these show the whole job AND the current step in one piece, so the two plain bars become one thing you read at a glance.</p>
+
+<h2>1 &middot; FIVE PROGRESS BARS</h2>
+<div class="opts" id="opts"></div>
+
+<h2>2 &middot; STEP DONE IS NOT JOB COMPLETE</h2>
+<p>You read 45 right: that job had only finished step 3 of 6, so the overall bar was correct and the ribbon was the mistake. Now: a finished <b>step</b> lights its piece, plays the tiny step tick, and the bubble says one line with a small turquoise plaque. <b>JOB COMPLETE</b> only comes when every piece is lit.</p>
+<div class="row" id="steprow"></div>
+
+<h2>3 &middot; TIGHTER KEYS</h2>
+<p>Same keys, less air: shorter words, smaller padding, one row. The trust choice becomes three small keys in a row; the line under them explains whichever one your mouse is on.</p>
+<div class="row k2" id="keys"></div>
+
+<h2>4 &middot; NEW ICONS: YES, A FEW HELP</h2>
+<p>Today "Claude needs permission" and "Claude has a question" share the same white mark, and paused, failed and plan have none. Six new marks in the pet's exact style (outline, highlight, face, shade, one hard shadow), each its own shape so you can tell them apart from across the room.</p>
+<div class="icons" id="icons"></div>
+
+<h2>5 &middot; WHERE ELSE THIS LANGUAGE FITS IN AANG</h2>
+<div class="note"><ul>
+  <li><b>The same pixel bar everywhere something takes time:</b> the job hunt sweep, downloads in Samara, the Mac update, the Waymark refresh, Qwen loading a model, the morning brief being gathered, your Claude week (quota).</li>
+  <li><b>The waiting list everywhere more than one thing waits:</b> emails to answer, job cards to review, Discord mentions, plans, Samara asking for the camera, updates.</li>
+  <li><b>Step done / Job complete for anything with steps:</b> a job application sent, a research run, a file Aang made, a timer, a sweep.</li>
+  <li><b>Links with their maker's mark:</b> Claude's mark opens a session, Samara's lantern opens a page; the same for an email (opens it), a Discord message, a file Aang made (opens its folder).</li>
+  <li><b>Pause and pick it back up after a shutdown:</b> the job hunt and research runs, not only Claude.</li>
+</ul></div>
+
+<script type="module">
+/* ---------------- a tiny pixel engine: draw on a small canvas, show it at a whole-number scale ---------------- */
+const O = '#120A05';
+function mk(w, h, scale) { const c = document.createElement('canvas'); c.width = w; c.height = h; c.style.width = w * scale + 'px'; c.style.height = h * scale + 'px'; return c; }
+const P = (g, x, y, col) => { g.fillStyle = col; g.fillRect(x, y, 1, 1); };
+const R = (g, x, y, w, h, col) => { g.fillStyle = col; g.fillRect(x, y, w, h); };
+function map(g, rows, pal, ox, oy) { rows.forEach((r, y) => [...r].forEach((ch, x) => { if (pal[ch]) P(g, ox + x, oy + y, pal[ch]); })); }
+
+const TASKS = 6, DONE = 2, STEP = .62;
+let t = 0;
+const anims = [];
+setInterval(() => { t++; for (const a of anims) a(t); }, 125);   // 8 frames a second, every move a whole pixel
+
+/* ---- 1. Gems in a stone bar (Zelda heart containers / BotW stamina): one gem per task ---- */
+const GEM = ['..OOOO..', '.OHHFFO.', 'OHHFFFSO', 'OHFFFFSO', 'OFFFFSSO', 'OFFFSSSO', '.OFSSSO.', '..OOOO..'];
+function gems(scale, n = TASKS) {
+  const w = n * 11 + 7, h = 14, c = mk(w, h, scale), g = c.getContext('2d');
+  const TQ = { O, H: '#d8fff8', F: '#3FBFAE', S: '#1F8C7E' }, GO = { O, H: '#fff3c0', F: '#FFC43C', S: '#C98C14' };
+  const draw = (t) => {
+    g.clearRect(0, 0, w, h);
+    // the stone: outline, lit top edge, carved bottom
+    R(g, 1, 0, w - 2, h, O); R(g, 0, 1, w, h - 2, O);
+    R(g, 1, 1, w - 2, h - 2, '#6d6656'); R(g, 1, 1, w - 2, 1, '#a39b86'); R(g, 1, h - 2, w - 2, 1, '#4a4438');
+    for (let x = 3; x < w - 3; x += 5) P(g, x, h - 3, '#5d574a');
+    for (let i = 0; i < n; i++) {
+      const ox = 4 + i * 11, oy = 3;
+      // the socket
+      R(g, ox, oy, 8, 8, '#2a2620'); R(g, ox + 1, oy - 0, 6, 1, '#2a2620');
+      if (i < DONE) map(g, GEM, TQ, ox, oy);
+      else if (i === DONE) {
+        // filling from the bottom, gold, a highlight pixel that climbs
+        const fillRows = Math.round(8 * STEP);
+        GEM.forEach((r, y) => { if (y >= 8 - fillRows) [...r].forEach((ch, x) => { if (GO[ch]) P(g, ox + x, oy + y, GO[ch]); }); else [...r].forEach((ch, x) => { if (ch === 'O') P(g, ox + x, oy + y, O); }); });
+        if (t % 8 < 4) P(g, ox + 3, oy + 8 - fillRows, '#fffbe6');
+      } else GEM.forEach((r, y) => [...r].forEach((ch, x) => { if (ch === 'O') P(g, ox + x, oy + y, '#1d1a15'); }));
+    }
+    // a glint walks across the lit gems
+    const gx = 4 + ((t >> 1) % (DONE * 11 + 6));
+    if (gx < 4 + DONE * 11) P(g, gx, 4, '#ffffff');
+  };
+  anims.push(draw); draw(0);
+  return c;
+}
+
+/* ---- 2. An ATB gauge (Final Fantasy): bevelled metal, a banded fill, notches per task, a shine that sweeps ---- */
+function atb(scale, pct, label) {
+  const w = 104, h = 9, c = mk(w, h, scale), g = c.getContext('2d');
+  const draw = (t) => {
+    g.clearRect(0, 0, w, h);
+    R(g, 1, 0, w - 2, h, O); R(g, 0, 1, w, h - 2, O);
+    R(g, 1, 1, w - 2, 1, '#e4e8f4'); R(g, 1, 2, w - 2, 1, '#9aa2bc'); R(g, 1, h - 2, w - 2, 1, '#4a5070');
+    R(g, 2, 3, w - 4, 3, '#14182a');
+    const fw = Math.round((w - 4) * pct);
+    const BANDS = ['#ffe88a', '#ffc845', '#ff9a2a'];
+    for (let x = 0; x < fw; x++) { const b = BANDS[Math.min(2, Math.floor(x / (w - 4) * 3))]; R(g, 2 + x, 3, 1, 3, b); P(g, 2 + x, 3, '#fff6c8'); P(g, 2 + x, 5, '#c26a12'); }
+    for (let i = 1; i < TASKS; i++) { const x = 2 + Math.round((w - 4) * i / TASKS); R(g, x, 3, 1, 3, '#0a0c16'); }
+    const sx = 2 + (t * 3) % (fw + 20) - 10;
+    for (let k = 0; k < 3; k++) if (sx + k >= 2 && sx + k < 2 + fw) R(g, sx + k, 3, 1, 3, '#ffffff');
+  };
+  anims.push(draw); draw(0);
+  const wrap = document.createElement('div'); wrap.style.cssText = 'display:flex;align-items:center;gap:8px;margin:3px 0';
+  const l = document.createElement('span'); l.textContent = label; l.style.cssText = 'flex:none;width:44px;font:400 8px var(--label);letter-spacing:1.5px;color:#4a5070';
+  wrap.append(l, c); return wrap;
+}
+
+/* ---- 3. The road (LOTR's map): a dotted path on parchment, a flag per task, a little walker, a tower at the end ---- */
+const FLAG = ['O....', 'OFFF.', 'OFFFF', 'OFF..', 'O....', 'O....'];
+const CAIRN = ['.....', '.....', '..O..', '.OSO.', 'OSSSO', 'OOOOO'];
+const WALK = [['.OO.', 'OHHO', '.OO.', 'OFFO', '.OO.', 'O..O'], ['.OO.', 'OHHO', '.OO.', 'OFFO', '.OO.', '.OO.']];
+const TOWER = ['.O.O.O.', '.OOOOO.', '..OSO..', '..OSO..', '..OSO..', '..OHO..', '..OSO..', '..OSO..', '.OSSSO.', 'OOOOOOO'];
+function road(scale) {
+  const w = 120, h = 22, c = mk(w, h, scale), g = c.getContext('2d');
+  const xs = Array.from({ length: TASKS }, (_, i) => 6 + i * 17);
+  const yAt = (x) => 15 + Math.round(Math.sin(x / 11) * 2);
+  const draw = (t) => {
+    g.clearRect(0, 0, w, h);
+    R(g, 0, 2, w, h - 4, O); R(g, 1, 1, w - 2, h - 2, O);
+    R(g, 1, 3, w - 2, h - 6, '#e9d3a6'); R(g, 2, 2, w - 4, h - 4, '#e9d3a6');
+    for (let x = 3; x < w - 3; x += 7) { P(g, x, 2, '#c9a874'); P(g, x + 3, h - 3, '#c9a874'); }
+    // the path: dots, inked where travelled
+    const here = xs[DONE] + Math.round(17 * STEP);
+    for (let x = 4; x < w - 12; x += 2) P(g, x, yAt(x), x <= here ? '#3a2a18' : '#b89a6a');
+    xs.forEach((x, i) => {
+      if (i < DONE) map(g, FLAG, { O: '#3a2a18', F: '#3FBFAE' }, x, yAt(x) - 6);
+      else if (i > DONE) map(g, CAIRN, { O: '#6b5236', S: '#b89a6a' }, x - 2, yAt(x) - 5);
+    });
+    map(g, WALK[(t >> 1) % 2], { O: '#3a2a18', H: '#f2c9a0', F: '#FFC43C' }, here - 1, yAt(here) - 6);
+    map(g, TOWER, { O: '#3a2a18', S: '#8a7a5a', H: '#FFC43C' }, w - 11, 4);
+  };
+  anims.push(draw); draw(0);
+  return c;
+}
+
+/* ---- 4. A rune ring (TotK / BotW): segments around Claude's mark light up, the current one fills ---- */
+const CLAUDE_MARK = [[4, 0, 1, 3], [4, 6, 1, 3], [0, 4, 3, 1], [6, 4, 3, 1], [1, 1, 1, 1], [2, 2, 1, 1], [7, 1, 1, 1], [6, 2, 1, 1], [1, 7, 1, 1], [2, 6, 1, 1], [7, 7, 1, 1], [6, 6, 1, 1], [3, 3, 3, 3]];
+function ring(scale) {
+  const s = 31, c = mk(s, s, scale), g = c.getContext('2d'), cx = 15, cy = 15;
+  const draw = (t) => {
+    g.clearRect(0, 0, s, s);
+    for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
+      const d = Math.hypot(x - cx, y - cy);
+      if (d > 15.2 || d < 8.5) continue;
+      let a = Math.atan2(y - cy, x - cx) + Math.PI / 2; if (a < 0) a += Math.PI * 2;
+      const seg = a / (Math.PI * 2) * TASKS, i = Math.floor(seg), f = seg - i;
+      if (d > 14.2 || d < 9.5) { P(g, x, y, O); continue; }
+      if (f < .07 || f > .93) { P(g, x, y, O); continue; }            // the carved gap between pieces
+      const lit = i < DONE || (i === DONE && f < STEP);
+      const col = i < DONE ? (d > 13 ? '#d8fff8' : d < 10.6 ? '#1F8C7E' : '#3FBFAE') : lit ? (d > 13 ? '#fff3c0' : d < 10.6 ? '#C98C14' : '#FFC43C') : (d > 13 ? '#8d8572' : '#5b5546');
+      P(g, x, y, col);
+    }
+    // the front edge of the filling piece glows on and off
+    if (t % 6 < 3) { const a = (DONE + STEP) / TASKS * Math.PI * 2 - Math.PI / 2; P(g, Math.round(cx + Math.cos(a) * 11.8), Math.round(cy + Math.sin(a) * 11.8), '#ffffff'); }
+    R(g, cx - 7, cy - 7, 15, 15, '#2a1a10');
+    for (const [x, y, w2, h2] of CLAUDE_MARK) R(g, cx - 4 + x, cy - 4 + y, w2, h2, '#E07A4F');
+  };
+  anims.push(draw); draw(0);
+  return c;
+}
+
+/* ---- 5. A sphere grid (FFX): one node per task joined by lines, lit as you pass ---- */
+function sphere(scale) {
+  const w = 112, h = 26, c = mk(w, h, scale), g = c.getContext('2d');
+  const nodes = Array.from({ length: TASKS }, (_, i) => [8 + i * 19, i % 2 ? 7 : 18]);
+  const NODE = ['.OOO.', 'OHFFO', 'OFFSO', 'OFSSO', '.OOO.'];
+  const line = (a, b, col) => { const n = Math.max(Math.abs(b[0] - a[0]), Math.abs(b[1] - a[1])); for (let k = 0; k <= n; k++) P(g, Math.round(a[0] + (b[0] - a[0]) * k / n), Math.round(a[1] + (b[1] - a[1]) * k / n), col); };
+  const draw = (t) => {
+    g.clearRect(0, 0, w, h);
+    R(g, 0, 0, w, h, '#0e0b1c');
+    for (let i = 0; i < 40; i++) P(g, (i * 37) % w, (i * 19) % h, '#2a2450');
+    for (let i = 1; i < TASKS; i++) {
+      const a = nodes[i - 1], b = nodes[i];
+      if (i <= DONE) line(a, b, '#9FF0E6');
+      else if (i === DONE + 1) { line(a, b, '#3a3460'); const m = [Math.round(a[0] + (b[0] - a[0]) * STEP), Math.round(a[1] + (b[1] - a[1]) * STEP)]; line(a, m, '#FFC43C'); if (t % 4 < 2) P(g, m[0], m[1], '#ffffff'); }
+      else line(a, b, '#3a3460');
+    }
+    nodes.forEach((p, i) => {
+      const pal = i < DONE ? { O, H: '#d8fff8', F: '#3FBFAE', S: '#1F8C7E' } : i === DONE ? { O, H: '#fff3c0', F: '#FFC43C', S: '#C98C14' } : { O: '#3a3460', H: '#5a5490', F: '#2a2450', S: '#1d1838' };
+      map(g, NODE, pal, p[0] - 2, p[1] - 2);
+      if (i === DONE && t % 8 < 4) { P(g, p[0] - 3, p[1], '#FFC43C'); P(g, p[0] + 3, p[1], '#FFC43C'); P(g, p[0], p[1] - 3, '#FFC43C'); P(g, p[0], p[1] + 3, '#FFC43C'); }
+    });
+  };
+  anims.push(draw); draw(0);
+  return c;
+}
+
+/* ---------------- the five, each in the bubble and over Aang ---------------- */
+const MARK = '<svg viewBox="0 0 9 9" shape-rendering="crispEdges"><path d="M4 0h1v3H4zM4 6h1v3H4zM0 4h3v1H0zM6 4h3v1H6zM1 1h1v1H1zM2 2h1v1H2zM7 1h1v1H7zM6 2h1v1H6zM1 7h1v1H1zM2 6h1v1H2zM7 7h1v1H7zM6 6h1v1H6zM3 3h3v3H3z" fill="#E07A4F"/></svg>';
+const head = () => `<div class="top">${MARK}<b>Waymark</b><span>Rules-only brain</span></div>`;
+const meta = `<div class="meta"><span>Task 3 of 6 &middot; about 1 h 10 min left</span><i>&middot;&middot;&middot;</i></div>`;
+const OPTS = [
+  { name: 'A &middot; GEMS IN STONE', from: 'Zelda heart containers, BotW stamina', pick: true, big: () => gems(3), small: () => gems(2),
+    why: 'One gem per task in a carved stone bar. Finished tasks are turquoise gems; the current one fills with gold from the bottom; a glint walks across the lit ones. <b>Both bars in one:</b> the gems are the whole job, the filling gem is the step. Reads instantly at the pet\'s size.' },
+  { name: 'B &middot; ATB GAUGE', from: 'Final Fantasy\'s battle gauge', big: () => { const d = document.createElement('div'); d.append(atb(3, .48, 'JOB'), atb(3, .62, 'STEP')); return d; }, small: () => { const d = document.createElement('div'); d.append(atb(2, .48, '')); d.querySelector('span').remove(); return d; },
+    why: 'Bevelled silver frame, a banded yellow-to-orange fill, a notch per task, a shine that sweeps through. The most "game menu" of the five, but it still needs two bars.' },
+  { name: 'C &middot; THE ROAD', from: 'The map in Lord of the Rings', big: () => road(3), small: () => road(2),
+    why: 'An inked path across parchment: a turquoise flag at every finished task, a little walker where Claude is now, cairns ahead, a tower at the end. The most story-like; wider than the rest.' },
+  { name: 'D &middot; RUNE RING', from: 'TotK and BotW\'s glowing stone', big: () => ring(3), small: () => ring(2),
+    why: 'A carved ring around Claude\'s own mark: a piece per task, finished ones turquoise, the current one filling gold around the circle. Round, so it sits on Aang\'s head like a halo and never gets wide.' },
+  { name: 'E &middot; SPHERE GRID', from: 'Final Fantasy X', big: () => sphere(3), small: () => sphere(2),
+    why: 'A node per task joined by lines on a starry slate; the line to the current node fills in gold. Beautiful, but busier than the others at small sizes.' },
+];
+const O_ = document.getElementById('opts');
+for (const o of OPTS) {
+  const el = document.createElement('div'); el.className = 'opt';
+  el.innerHTML = `<h3>${o.pick ? '<span class="pick">MY PICK</span>' : ''}${o.name}<span style="color:#8f7458"> &middot; ${o.from}</span></h3><div class="scene"><div class="card">${head()}<div class="slot"></div>${meta}</div><div class="petbox"><div class="over"></div><img src="../../assets/aang/frames/think_0.png" alt=""></div></div><p class="why">${o.why}</p>`;
+  el.querySelector('.slot').append(o.big());
+  el.querySelector('.over').append(o.small());
+  O_.append(el);
+}
+// the pet thinks while Claude works
+let fr = 0; setInterval(() => { fr = (fr + 1) % 12; for (const im of document.querySelectorAll('.petbox img')) im.src = `../../assets/aang/frames/think_${fr}.png`; }, 140);
+// option F: the ring over his head, the gems in the bubble (the mix I would actually ship)
+{
+  const el = document.createElement('div'); el.className = 'opt';
+  el.innerHTML = `<h3><span class="pick">OR MIX</span>F &middot; GEMS IN THE BUBBLE, RING OVER HIS HEAD</h3><div class="scene"><div class="card">${head()}<div class="slot"></div>${meta}</div><div class="petbox"><div class="over"></div><img src="../../assets/aang/frames/think_0.png" alt=""></div></div><p class="why">The ring is the best shape over Aang (round, small, never wide, like a halo); the gems are the best in the bubble and on Samara's band. Same colours, same pieces, so they read as one thing.</p>`;
+  el.querySelector('.slot').append(gems(3)); el.querySelector('.over').append(ring(2));
+  O_.append(el);
+}
+
+/* ---------------- step done vs job complete ---------------- */
+const SR = document.getElementById('steprow');
+SR.innerHTML = `<div><p class="cap2">A STEP FINISHED (QUIET)</p><div class="bub"><div class="speaker claude">${MARK}<span class="nm">CLAUDE</span><span class="mc">PC</span></div><p class="said"><span class="plaque">STEP DONE</span> Waymark finished the athlete model. 4 tasks to go.</p><div class="slot2" style="margin-top:9px"></div></div></div>
+  <div><p class="cap2">THE WHOLE JOB FINISHED</p><div style="text-align:center;margin-bottom:-14px;position:relative;z-index:1"><span class="ribbon">JOB COMPLETE</span></div><div class="bub" style="padding-top:22px"><div class="speaker claude">${MARK}<span class="nm">CLAUDE</span><span class="mc">PC</span></div><p class="said">Waymark's coach brain is done: all 6 tasks. It plans your week from your runs now.</p><div class="slot3" style="margin-top:9px"></div><div class="keys"><button class="key sm primary" type="button">Test it on your phone</button><button class="key sm" type="button">What changed</button></div></div></div>`;
+{ const a = gems(3); SR.querySelector('.slot2').append(a); }
+{ // all six lit
+  const w = TASKS * 11 + 7, c = mk(w, 14, 3), g = c.getContext('2d');
+  const TQ = { O, H: '#d8fff8', F: '#3FBFAE', S: '#1F8C7E' };
+  const draw = (t) => { g.clearRect(0, 0, w, 14); R(g, 1, 0, w - 2, 14, O); R(g, 0, 1, w, 12, O); R(g, 1, 1, w - 2, 12, '#6d6656'); R(g, 1, 1, w - 2, 1, '#a39b86'); R(g, 1, 12, w - 2, 1, '#4a4438');
+    for (let i = 0; i < TASKS; i++) map(g, GEM, TQ, 4 + i * 11, 3); const gx = 4 + (t % (TASKS * 11)); P(g, gx, 4, '#ffffff'); P(g, gx + 1, 5, '#ffffff'); };
+  anims.push(draw); draw(0); SR.querySelector('.slot3').append(c);
+}
+
+/* ---------------- tighter keys ---------------- */
+const K = document.getElementById('keys');
+K.innerHTML = `<div><p class="cap2">BEFORE</p><div class="bub" style="width:372px"><p class="said">Waymark wants to build the iPhone app on this PC.</p><div class="keys" style="gap:7px"><button class="key sm primary" style="padding:8px 13px 9px">Allow once</button><button class="key sm" style="padding:8px 13px 9px">Always allow</button><button class="key sm" style="padding:8px 13px 9px">No</button><button class="key sm plum" style="padding:8px 13px 9px">No, and...</button></div></div></div>
+  <div><p class="cap2">AFTER</p><div class="bub" style="width:372px"><p class="said">Waymark wants to build the iPhone app on this PC.</p><div class="keys" style="gap:6px"><button class="key sm primary">Allow</button><button class="key sm">Always</button><button class="key sm">No</button><button class="key sm">No, and...</button></div></div></div>
+  <div><p class="cap2">TRUST, AFTER</p><div class="bub" style="width:372px"><p class="said">How much should Claude be trusted on it?</p><div class="keys" style="gap:6px" id="trust"><button class="key sm" data-d="Every edit and every command comes to you first.">Ask me</button><button class="key sm primary" data-d="It edits files freely. Commands still ask you.">Trust edits</button><button class="key sm warn" data-d="Nothing asks. Only for this job.">Full trust</button></div><p class="tr-desc" id="trd">It edits files freely. Commands still ask you.</p></div></div>`;
+for (const b of K.querySelectorAll('#trust .key')) b.addEventListener('mouseenter', () => { document.getElementById('trd').textContent = b.dataset.d; });
+
+/* ---------------- icons: the pet's three today, six new in the same hand ---------------- */
+const SHAPES = {
+  needs: { c: [200, 232, 255], m: ['.OOOOO.', 'OHHFFSO', 'OHFFFSO', 'OHFFFSO', 'OHFFFSO', '.OHFSO.', '.OHFSO.', '.OHFSO.', '.OFFSO.', '..OSO..', '..OOO..', '.......', '.OOOOO.', 'OHFFFSO', 'OFFFSSO', '.OOOOO.'] },
+  done: { c: [232, 138, 106], m: ['........O.', '.......OHO', '......OHFO', '.OO..OHFO.', 'OHFO.OHFO.', 'OHFOOHFO..', '.OFFFFO...', '..OOOO....'] },
+  news: { c: [255, 196, 60], m: ['..OOOOOOOOO..', '.OHHHHHFFFSO.', 'OHFFFFFFFFFSO', 'OHFOFFOFFOFSO', 'OHFFFFFFFFFSO', '.OFFFFFFFFSO.', '..OOOFSOOOO..', '....OSO......', '....OO.......'] },
+  // new: a key (permission), a question mark in a round plate (question), an hourglass (paused), a rolled plan, a cracked plate (failed), a small tick (step done)
+  permission: { c: [200, 232, 255], m: ['..OOOO......', '.OHHFSO.....', 'OHO..OSO....', 'OFO..OSO....', '.OFFSSOOOOOO', '..OOOOFFFFSO', '.......OSOSO', '.......OO.OO'] },
+  question: { c: [255, 226, 140], m: ['..OOOOOOO..', '.OHHHFFFSO.', 'OHHOOOOFFSO', 'OHO...OFFSO', 'OFF..OFFSSO', 'OFF.OFSO.SO', 'OFFFOSOFFSO', 'OFFFOOFFSSO', '.OFFOSOFSO.', '..OOOOOOO..'] },
+  paused: { c: [205, 180, 255], m: ['OOOOOOOOO', 'OHHHHFFSO', '.OHFFFSO.', '..OHFSO..', '...OSO...', '..OF.SO..', '.OF...SO.', 'OHFFFFFSO', 'OOOOOOOOO'] },
+  plan: { c: [233, 211, 166], m: ['.OOOOOOOOO.', 'OHHHHHHFFSO', '.OF.OOO.SO.', '.OF.....SO.', '.OF.OOOOSO.', '.OF.....SO.', '.OF.OOO.SO.', 'OFFFFFFFSSO', '.OOOOOOOOO.'] },
+  failed: { c: [255, 120, 90], m: ['..OOOOOOO..', '.OHHHOFFSO.', 'OHHFOFFFFSO', 'OHFFFOFFFSO', 'OFFFOFFFSSO', 'OFFFFOFFSSO', 'OFFFOFFSSSO', '.OFFOFFSSO.', '..OOOOOOO..'] },
+  step: { c: [63, 191, 174], m: ['.....O', '....OO', 'O..OHO', 'OOOFO.', '.OFO..', '..O...'] },
+};
+const mixc = (a, b, k) => a.map((v, i) => Math.round(v + (b[i] - v) * k));
+function icon(kind, px = 3) {
+  const { c, m } = SHAPES[kind], cv = document.createElement('canvas');
+  cv.width = (m[0].length + 1) * px; cv.height = (m.length + 1) * px;
+  const g = cv.getContext('2d'), pal = { O: [18, 10, 5], H: mixc(c, [255, 255, 255], .6), F: c, S: mixc(c, [0, 0, 0], .38) };
+  g.fillStyle = 'rgba(0,0,0,.47)'; m.forEach((r, y) => [...r].forEach((ch, x) => { if (ch !== '.') g.fillRect((x + 1) * px, (y + 1) * px, px, px); }));
+  m.forEach((r, y) => [...r].forEach((ch, x) => { if (pal[ch]) { g.fillStyle = `rgb(${pal[ch]})`; g.fillRect(x * px, y * px, px, px); } }));
+  return cv;
+}
+const IC = document.getElementById('icons');
+for (const [k, label, old] of [['needs', 'TODAY<br>NEEDS YOU', 1], ['done', 'TODAY<br>DONE', 1], ['news', 'TODAY<br>WORKING', 1], ['permission', 'NEW<br>NEEDS PERMISSION'], ['question', 'NEW<br>HAS A QUESTION'], ['paused', 'NEW<br>PAUSED'], ['plan', 'NEW<br>PLAN READY'], ['failed', 'NEW<br>FAILED'], ['step', 'NEW<br>STEP DONE']]) {
+  const d = document.createElement('div'); d.className = 'ic' + (old ? ' old' : '');
+  d.append(icon(k)); const l = document.createElement('span'); l.className = 'lbl'; l.innerHTML = label; d.append(l); IC.append(d);
+}
+</script>
+</body>
+</html>

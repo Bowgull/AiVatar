@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aang Chime Set</title>
+<link rel="stylesheet" href="../../src/Shell/pages/notefonts.css">
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<style>
+  html, body { background: #17110c; margin: 0; }
+  body { color: #cdbb9a; font-family: "Figtree", system-ui, sans-serif; font-size: 16px; line-height: 1.5; padding: 28px 16px 60px; }
+  .wrap { max-width: 860px; margin: 0 auto; }
+  h1, h2 { font-family: "Silkscreen", monospace; color: #FFC43C; font-weight: 400; margin: 0 0 6px; letter-spacing: .5px; }
+  h1 { font-size: 26px; }
+  h2 { font-size: 18px; }
+  .lead { margin: 0 0 20px; }
+  .vol { display: flex; align-items: center; gap: 12px; background: #221911; border: 2px solid #4a3220; border-radius: 10px; padding: 12px 16px; margin-bottom: 22px; }
+  .vol label { font-family: "Silkscreen", monospace; color: #FFC43C; font-size: 13px; }
+  .vol input { flex: 1; accent-color: #FFC43C; }
+  .vol span { min-width: 3.5em; text-align: right; }
+  .row { background: #1f1710; border: 2px solid #3d2a1b; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+  .row p { margin: 0 0 12px; }
+  .btns { display: grid; grid-template-columns: 1fr; gap: 10px; }
+  button { font-family: "Silkscreen", monospace; font-size: 14px; color: #2a1a0c; background: #FFC43C; border: 2px solid #8a5a1e; border-radius: 10px; padding: 16px 8px; cursor: pointer; box-shadow: 0 3px 0 #6b4316; }
+  button:hover { background: #ffd56a; }
+  button:active { transform: translateY(2px); box-shadow: 0 1px 0 #6b4316; }
+  button.playing { background: #f7e3b0; }
+  button:disabled { background: #3a2c1e; color: #7d6a50; border-color: #4a3220; box-shadow: none; cursor: default; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Aang's wooden chimes</h1>
+  <p class="lead">The full set, all on the same wooden marimba, all in the same key. Press a button to hear it. The line under each name says when Aang plays it.</p>
+
+  <div class="vol">
+    <label for="vol">Volume</label>
+    <input id="vol" type="range" min="0" max="100" value="80">
+    <span id="volv">80%</span>
+  </div>
+
+  <div id="rows"></div>
+</div>
+<script>
+  const sounds = [
+    ['needs-you', 'Needs you', 'Aang wants your attention for something. Same as the one you picked.'],
+    ['permission', 'Permission', 'Claude is stuck and waiting until you allow something.'],
+    ['question', 'Question', 'Claude is asking you a question. It rises and leaves you hanging, like a question does.'],
+    ['plan-ready', 'Plan ready', 'A plan is ready and waits for you to press Go.'],
+    ['step', 'Step', 'One small step of a job is done. A tiny quiet knock, easy to ignore.'],
+    ['done', 'Done', 'Claude finished a reply. Same as the one you picked.'],
+    ['job-complete', 'Job complete', 'A whole job is finished, start to end. A happy little flourish.'],
+    ['failed', 'Failed', 'A job did not work. Low and soft, so it does not scare you.'],
+    ['welcome-back', 'Welcome back', 'After the PC was shut down, Aang is back and some jobs can pick up where they left off.']
+  ];
+  const vol = document.getElementById('vol'), volv = document.getElementById('volv');
+  let current = null;
+  function play(src, btn) {
+    if (current) { current.a.pause(); current.b.classList.remove('playing'); }
+    const a = new Audio(src);
+    a.volume = vol.value / 100;
+    btn.classList.add('playing');
+    a.onended = () => btn.classList.remove('playing');
+    current = { a, b: btn };
+    a.play().catch(() => btn.classList.remove('playing'));
+  }
+  const rows = document.getElementById('rows');
+  for (const [key, name, text] of sounds) {
+    const row = document.createElement('section'); row.className = 'row';
+    row.innerHTML = '<h2></h2><p></p><div class="btns"></div>';
+    row.querySelector('h2').textContent = name;
+    row.querySelector('p').textContent = text;
+    const b = document.createElement('button'); b.textContent = 'Play ' + name;
+    b.onclick = () => play('sounds-45b/' + key + '.wav', b);
+    row.querySelector('.btns').appendChild(b);
+    rows.appendChild(row);
+  }
+  vol.oninput = () => { volv.textContent = vol.value + '%'; if (current) current.a.volume = vol.value / 100; };
+</script>
+</body>
+</html>
