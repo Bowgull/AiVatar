@@ -192,7 +192,7 @@ function draw(m, c, px) {
   return cv;
 }
 const M = document.getElementById('marks');
-for (const [m, c, name, px] of [[TICK, [232, 145, 111], 'JOB COMPLETE', 4], [STEP, [138, 213, 201], 'STEP DONE', 2]]) {
+for (const [m, c, name, px] of [[TICK, [232, 145, 111], 'JOB COMPLETE', 3], [STEP, [138, 213, 201], 'STEP DONE', 2]]) {
   const d = document.createElement('div'); d.className = 'mk';
   d.innerHTML = `<i class="aura" style="background:radial-gradient(circle, rgba(${c},.45), rgba(${c},0) 66%)"></i><img src="../../assets/aang/frames/idle_0.png" alt=""><b style="color:rgb(${c})">${name}</b>`;
   const cv = draw(m, c, px); d.append(cv);

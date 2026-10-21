@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>45g stage</title>
+<!-- Sheet 45g (2026-10-21), his words: click Aang and his chat box opens with the collapsed progress bar(s) right above
+     it; a button to talk to (or queue a message for) that session; Aang translates every reply back in real time, and
+     his bubble changes shape to whatever needs showing and doing. Nothing over his head but the marks he has. Built on
+     sheet 45's stage: his real frames, the real balloon (balloon.js), the typing box's own look, 45f's soft pill bar. -->
+<link rel="stylesheet" href="../../../src/Shell/pages/cockpit.css">
+<link rel="stylesheet" href="../../../src/Shell/pages/bubble.css">
+<style>
+  html,body{margin:0;background:transparent!important;overflow:hidden!important;height:auto!important;width:auto!important;display:block!important}
+  body{pointer-events:auto!important;padding:0!important;border:0!important;box-shadow:none!important}
+  html::before,html::after,body::before,body::after{display:none!important}
+  .desk{position:relative;width:1180px;height:700px;border-radius:10px;overflow:hidden;background:radial-gradient(90% 70% at 30% 20%,#2a2238,#120c1a 70%),#120c1a}
+  #aang{position:absolute;right:30px;bottom:6px;width:224px;height:224px;image-rendering:pixelated;cursor:pointer}
+  #wrap{position:absolute;right:220px;bottom:330px;pointer-events:auto}
+  #skin{position:absolute;left:0;top:0;overflow:visible;pointer-events:none}
+  #bubble{position:relative;box-sizing:border-box;overflow:hidden;width:256px;transition:width .26s cubic-bezier(.3,.7,.2,1),height .26s cubic-bezier(.3,.7,.2,1)}
+  #fill{transition:opacity .14s ease}
+  #fill.out{opacity:0}
+  .still #bubble,.still #fill,.still .jobs,.still .job{transition:none!important}
+  #measure{position:absolute;left:-5000px;top:0;visibility:hidden}
+  .said{margin:0;font:600 15px/1.55 var(--body);color:#21160a}
+  .said+.said{margin-top:6px}
+  .keys{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .key.sm{padding:6px 10px 7px}
+  .key.press{transform:translateY(var(--lip));box-shadow:0 0 0 var(--outline)!important}
+  .speaker{margin-bottom:7px}
+  .speaker img.cl{width:18px;height:18px;border-radius:4px;box-shadow:0 0 0 1px rgba(106,70,40,.5)}
+  .speaker .sess{font:700 12.5px var(--body);letter-spacing:0;color:#8a3e1c;text-transform:none}
+  .cw{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:5px;margin-top:9px;font:400 8px var(--label);letter-spacing:1.5px;color:#8f7458}
+  .cw i{width:0;height:0;border:4px solid transparent;border-left:5px solid currentColor;border-right:0}
+  .cwbox{margin:6px 0 0;padding:7px 9px;border-radius:6px;font:500 11.5px/1.45 Consolas,monospace;color:#3a2a18;background:rgba(120,80,30,.13);white-space:pre-wrap}
+  .change{list-style:none;margin:6px 0 0;padding:0}
+  .change li{display:flex;gap:8px;font:600 13px/1.6 var(--body);color:#3a2a18}
+  .change li b{flex:none;font:400 8px var(--label);letter-spacing:1px;padding:3px 5px 2px;border-radius:4px;margin-top:3px}
+  .change li b.add{background:#58b0a3;color:#08302b}
+  .change li b.mv{background:#ecbd72;color:#3a2410}
+
+  /* ---- the jobs, docked above his chat box: 45f's bar, folded ---- */
+  .jobs{position:absolute;right:230px;width:440px;display:flex;flex-direction:column;gap:7px;opacity:0;transform:translateY(10px);transition:opacity .2s,transform .2s;pointer-events:none}
+  .jobs.on{opacity:1;transform:none;pointer-events:auto}
+  .job{box-sizing:border-box;padding:9px 12px 9px;border-radius:11px;cursor:pointer;color:#21160a;background:radial-gradient(120% 90% at 30% 0%,#f7ead0,#e9d3a6);box-shadow:0 0 0 3px #120A05,0 4px 0 #0d0703;transition:box-shadow .15s}
+  .job:hover{box-shadow:0 0 0 3px #120A05,0 4px 0 #0d0703,0 0 0 5px rgba(255,196,60,.35)}
+  .job.sel{box-shadow:0 0 0 3px #120A05,0 4px 0 #0d0703,0 0 0 5px rgba(224,122,79,.6)}
+  .job .hd{display:flex;align-items:center;gap:8px}
+  .job .hd img{width:18px;height:18px;border-radius:4px;box-shadow:0 0 0 1px rgba(106,70,40,.5)}
+  .job .hd b{font:700 13px var(--body);color:#8a3e1c}
+  .job .hd span.t{font:600 12.5px var(--body);color:#3a2a18;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .job .hd .pct{margin-left:auto;font:400 10px Silkscreen,monospace;color:#3a2a18}
+  .job .msg{all:unset;cursor:pointer;flex:none;display:grid;place-items:center;width:26px;height:24px;border-radius:7px;background:linear-gradient(180deg,#4A2C6E,#331d52);box-shadow:0 0 0 2px #120A05,0 3px 0 #120A05;transition:transform .05s}
+  .job .msg:hover{filter:brightness(1.2)}
+  .job .msg svg{width:14px;height:14px}
+  .job .row2{display:flex;align-items:center;gap:10px;margin-top:6px}
+  .job .row2 .lt{flex:none;font:500 11.5px var(--body);color:#6b5236}
+  .job .chev{flex:none;width:0;height:0;border:5px solid transparent;border-top:6px solid #8f7458;border-bottom:0;transition:transform .2s}
+  .job.open .chev{transform:rotate(180deg)}
+  .job .det{display:grid;grid-template-rows:0fr;transition:grid-template-rows .26s cubic-bezier(.3,.7,.2,1)}
+  .job.open .det{grid-template-rows:1fr}
+  .job .det>div{overflow:hidden}
+  .job .list{margin:8px 0 0;padding:8px 0 0;border-top:2px solid rgba(120,80,30,.18)}
+  .ob{display:flex;align-items:center;gap:9px;font:600 12.5px/1.85 var(--body);color:#8f7458}
+  .ob i{flex:none;width:12px;height:12px;border-radius:3px;box-shadow:inset 0 0 0 2px #b89a6a}
+  .ob.done{color:#4f7a72}.ob.done i{background:#58b0a3;box-shadow:inset 0 0 0 2px #2f6f66}
+  .ob.now{color:#21160a}.ob.now i{box-shadow:inset 0 0 0 2px #c08646,0 0 6px rgba(236,189,114,.8)}
+  .ob .r{margin-left:auto;font:500 11px var(--body);color:#a98e6a}
+  .ob.now .r{font:400 9px Silkscreen,monospace;color:#8a5a28}
+  .queued[hidden]{display:none}
+  .queued{display:flex;align-items:center;gap:7px;margin-top:7px;font:600 12px var(--body);color:#5b2f8f}
+  .queued i{font-style:normal;font:400 8px var(--label);letter-spacing:1px;padding:3px 5px 2px;border-radius:4px;background:#cdb4ff;color:#2a1240}
+
+  /* ---- the chat box (input.css look), with the chip that says where the words go ---- */
+  #tb{position:absolute;right:230px;bottom:22px;width:440px;opacity:0;transform:translateY(8px);transition:opacity .16s,transform .16s;pointer-events:none}
+  #tb.on{opacity:1;transform:none;pointer-events:auto}
+  #tb .pinned{display:flex;align-items:center;gap:7px;padding:0 0 7px}
+  #tb .pinned[hidden]{display:none}
+  #tb .pinchip{display:flex;align-items:center;gap:6px;font:600 11.5px var(--body);background:var(--claude);color:#3a1708;border:2.5px solid var(--outline);border-radius:999px;padding:4px 8px 4px 6px}
+  #tb .pinchip b{font:400 9px var(--label);letter-spacing:.5px;opacity:.75}
+  #tb .pinchip img{width:15px;height:15px;border-radius:4px}
+  #tb .pinchip s{width:15px;height:15px;border-radius:50%;background:rgba(0,0,0,.28);display:grid;place-items:center;font:700 11px var(--body);text-decoration:none;cursor:pointer}
+  #tb .when{display:flex;gap:4px;margin-left:auto}
+  #tb .when button{all:unset;cursor:pointer;font:400 8px var(--label);letter-spacing:1px;color:#e8dcc4;padding:5px 7px 4px;border-radius:6px;background:rgba(0,0,0,.35);box-shadow:inset 0 0 0 1.5px rgba(255,224,150,.25)}
+  #tb .when button.on{background:var(--gold);color:#2a1c00;box-shadow:inset 0 0 0 2px #120A05}
+  #tb .box{border:3px solid var(--outline);border-bottom:none;border-radius:20px 20px 0 0;padding:7px 7px 5px;background:url(../../../src/Shell/pages/art/browser/band.png) 0 0/128px 58px;image-rendering:pixelated}
+  #tb .field{border-radius:13px;border:1.5px solid rgba(0,0,0,.45);padding:9px 12px;font:500 15px/1.5 var(--body);color:#CFC0E4;min-height:22px;background:linear-gradient(180deg,#331d52,#4A2C6E);box-shadow:inset 0 2px 4px rgba(0,0,0,.45),0 0 0 2px rgba(150,110,200,.55),0 0 12px rgba(150,110,200,.35)}
+  #tb .field .ph{color:#8f7fb0}
+  #tb .strip{border:3px solid var(--outline);border-top:none;border-radius:0 0 20px 20px;padding:2px 12px 6px;min-height:24px;background:linear-gradient(180deg,rgba(0,0,0,.18),rgba(0,0,0,.28)),url(../../../src/Shell/pages/art/browser/band.png) 0 29px/128px 58px;image-rendering:pixelated}
+  .cur{display:inline-block;width:2px;height:16px;background:#FFC43C;vertical-align:-3px;animation:blink 1s steps(1) infinite}
+  @keyframes blink{50%{opacity:0}}
+  #marker{position:absolute;image-rendering:pixelated;pointer-events:none;display:none}
+  #marker.on{display:block}
+  #toast{position:absolute;right:240px;display:flex;align-items:center;gap:8px;font:400 9px var(--label);letter-spacing:1.5px;color:#ffe28c;padding:7px 11px;border-radius:7px;background:linear-gradient(rgba(0,0,0,.5),rgba(0,0,0,.5)),url(../../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;border:2px solid #120A05;opacity:0;transform:translateY(6px);transition:opacity .2s,transform .2s}
+  #toast.on{opacity:1;transform:none}
+  #toast img{width:14px;height:14px;border-radius:3px}
+  canvas.jpill{image-rendering:pixelated;display:block}
+  .ctl{display:flex;gap:10px;align-items:center;margin:14px 2px 0;flex-wrap:wrap}
+  .ctl .lbl{font:400 9px Silkscreen,monospace;letter-spacing:1.5px;color:#FFC43C}
+</style>
+</head>
+<body>
+<div class="desk" id="desk">
+  <div id="wrap"><svg id="skin"></svg><div id="bubble" class="parch tex" hidden><div id="fill"></div></div></div>
+  <div class="jobs" id="jobs"></div>
+  <div id="tb"><div class="pinned" id="pin" hidden><span class="pinchip"><b>TO CLAUDE</b><img src="../sheet-45d/claude-icon.png" alt=""><span id="pinname">Waymark</span><s id="unpin">&times;</s></span>
+      <span class="when"><button type="button" class="on" id="now">SEND NOW</button><button type="button" id="later">AFTER THIS TASK</button></span></div>
+    <div class="box"><div class="field" id="tbf"><span class="ph">Ask Aang anything</span><span class="cur"></span></div></div><div class="strip"></div></div>
+  <div id="toast"></div>
+  <canvas id="marker"></canvas>
+  <img id="aang" src="../../../assets/aang/frames/idle_0.png" alt="" title="Click Aang">
+</div>
+<div id="measure"></div>
+<div class="ctl"><button class="key primary" id="play" type="button">Play the story</button><span class="lbl">OR TRY IT:</span><span class="lbl" style="color:#cdbb9a">click Aang &middot; click a bar &middot; the purple message key</span></div>
+
+<script type="module">
+import { balloonPath, paintBalloon, PAD_R, PAD_B } from '../../../src/Shell/pages/balloon.js';
+const $ = (id) => document.getElementById(id);
+const bubble = $('bubble'), fill = $('fill'), skin = $('skin'), aang = $('aang'), measure = $('measure');
+const ART = '../../../src/Shell/pages/art/', CL = '../sheet-45d/claude-icon.png';
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// his idle, always: no thinking pose while Claude works, so nothing busy over his head
+let anim = 'idle', fr = 0;
+setInterval(() => { const n = anim === 'talk' ? 8 : 16; fr = (fr + 1) % n; aang.src = `../../../assets/aang/frames/${anim}_${fr}.png`; }, 140);
+const talk = () => { anim = 'talk'; fr = 0; setTimeout(() => { anim = 'idle'; fr = 0; }, 1400); };
+
+let shape = 0;
+function paint() {
+  if (bubble.hidden) { skin.innerHTML = ''; return; }
+  const box = bubble.getBoundingClientRect(), a = aang.getBoundingClientRect();
+  paintBalloon(skin, box.width + PAD_R, box.height + PAD_B, balloonPath(box.width, box.height, { x: a.left + 96 - box.left, y: a.top + 60 - box.top }), ++shape, false);
+  for (const im of skin.querySelectorAll('image')) im.setAttribute('href', ART + 'browser/tray.png');
+}
+let painting = 0;
+const paintFor = (ms) => { const end = performance.now() + ms; cancelAnimationFrame(painting); const f = () => { paint(); if (performance.now() < end) painting = requestAnimationFrame(f); }; f(); };
+
+/* ---- 45f's soft pill bar ---- */
+const SEA = ['#d9f3ee', '#b2e6dd', '#8ad5c9', '#6cc3b6', '#58b0a3', '#479a8e', '#3a857a', '#2f6f66'];
+const SEA_NOW = ['#f4fcfa', '#e2f6f1', '#cdeee6', '#b8e5db', '#a4dbcf', '#90cfc2', '#7fc2b5', '#6fb3a6'];
+const anims = []; let tk = 0; setInterval(() => { tk++; for (const a of anims) a(tk); }, 90);
+function pill(w, h, s, bounds, p, cur) {
+  const c = document.createElement('canvas'); c.className = 'jpill'; c.width = w; c.height = h; c.style.width = w * s + 'px'; c.style.height = h * s + 'px';
+  const g = c.getContext('2d'), r = Math.floor(h / 2);
+  const P = (x, y, col, a = 1) => { g.globalAlpha = a; g.fillStyle = col; g.fillRect(x, y, 1, 1); g.globalAlpha = 1; };
+  const inside = (x, y) => { const cx = x < r ? r - .5 : x > w - 1 - r ? w - 1 - r + .5 : x, cy = y < r ? r - .5 : y > h - 1 - r ? h - 1 - r + .5 : y; return Math.hypot(x - cx, y - cy) <= r + .15; };
+  const draw = (t) => {
+    g.clearRect(0, 0, w, h);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { if (!inside(x, y)) continue; const rim = !inside(x - 1, y) || !inside(x + 1, y) || !inside(x, y - 1) || !inside(x, y + 1); P(x, y, rim ? (y < h / 2 ? '#6a4628' : '#3a2414') : y === 1 ? '#1a100a' : '#2a1a10'); }
+    const inner = w - 2, fw = Math.round(inner * p), a = cur > 0 ? bounds[cur - 1] : 0, b = bounds[cur];
+    const paint = (x0, x1, pal, al) => { for (let x = x0; x < x1; x++) for (let y = 1; y < h - 1; y++) { if (!inside(x, y) || !(inside(x - 1, y) && inside(x + 1, y) && inside(x, y - 1) && inside(x, y + 1))) continue; P(x, y, pal[Math.min(7, Math.round((y - 1) / (h - 3) * 7))], al); } };
+    paint(1 + Math.round(inner * a), 1 + Math.round(inner * b), SEA_NOW, .7 + .2 * Math.sin(t / 7));
+    paint(1, 1 + fw, SEA, 1);
+    for (let x = 2; x < fw; x++) if (inside(x, 2)) P(x, 2, '#fff', .45);
+    for (const q of bounds.slice(0, -1)) { const x = 1 + Math.round(inner * q); for (let y = 2; y < h - 2; y++) P(x, y, '#2a1a10', .45); }
+    for (let y = 1; y < h - 1; y++) { P(fw, y, '#fffaf0'); P(fw + 1, y, '#fff3d8', .5); }
+  };
+  anims.push(draw); draw(0); return c;
+}
+
+/* ---- the running jobs, docked over his chat box ---- */
+const JOBS = [
+  { id: 'wm', sess: 'Waymark', name: 'Coach brain', p: .34, left: 'about 1 h 22 min left', cur: 2, tasks: [['Replay harness', 'done'], ['Athlete model', 'done'], ['Rules-only brain', '41%'], ['AI joins in', '25 min'], ['Readiness meter', '20 min'], ['Test week', '10 min']], mins: [12, 18, 40, 25, 20, 10] },
+  { id: 'snd', sess: 'Aang sounds', name: 'Wooden chimes', p: .8, left: 'about 5 min left', cur: 3, tasks: [['Make the set', 'done'], ['Volume slider', 'done'], ['Swap the files', 'done'], ['Test them', '60%']], mins: [10, 8, 4, 5] },
+];
+const MSG = '<svg viewBox="0 0 10 9" shape-rendering="crispEdges"><path d="M1 0h8v1H1zM0 1h1v5H0zM9 1h1v5H9zM1 6h3v1H1zM6 6h3v1H6zM3 7h2v1H3zM3 8h1v1H3zM2 2h6v1H2zM2 4h4v1H2z" fill="#efe6ff"/></svg>';
+function renderJobs() {
+  const J = $('jobs'); J.innerHTML = '';
+  for (const j of JOBS) {
+    const tot = j.mins.reduce((a, b) => a + b, 0); let acc = 0; const bounds = j.mins.map((m) => (acc += m) / tot);
+    const d = document.createElement('div'); d.className = 'job'; d.dataset.id = j.id;
+    d.innerHTML = `<div class="hd"><img src="${CL}" alt=""><b>${j.sess}</b><span class="t">${j.name} &middot; task ${j.cur + 1} of ${j.tasks.length}</span><span class="pct">${Math.round(j.p * 100)}%</span><button class="msg" type="button" title="Message this session">${MSG}</button></div>
+      <div class="row2"><span class="pb"></span><span class="lt">${j.left}</span><i class="chev"></i></div>
+      <div class="queued" hidden><i>QUEUED</i><span></span></div>
+      <div class="det"><div><div class="list">${j.tasks.map(([n, r], k) => `<div class="ob ${k < j.cur ? 'done' : k === j.cur ? 'now' : ''}"><i></i>${n}<span class="r">${r}</span></div>`).join('')}</div></div></div>`;
+    d.querySelector(".pb").append(pill(84, 9, 2, bounds, j.p, j.cur));
+    d.addEventListener('click', (e) => { if (e.target.closest('.msg')) { e.stopPropagation(); target(j); return; } d.classList.toggle('open'); placeJobs(); });
+    J.append(d);
+  }
+}
+function placeJobs() { const tb = $('tb'); $('jobs').style.bottom = (22 + tb.offsetHeight + 10) + 'px'; }
+function openBox() { $('tb').classList.add('on'); $('jobs').classList.add('on'); placeJobs(); }
+function closeBox() { $('tb').classList.remove('on'); $('jobs').classList.remove('on'); }
+function target(j) {
+  for (const x of document.querySelectorAll('.job')) x.classList.toggle('sel', x.dataset.id === j.id);
+  $('pinname').textContent = j.sess; $('pin').hidden = false;
+  $('tbf').innerHTML = `<span class="ph">Tell ${esc(j.sess)} something</span><span class="cur"></span>`;
+  placeJobs();
+}
+$('unpin').onclick = () => { $('pin').hidden = true; for (const x of document.querySelectorAll('.job')) x.classList.remove('sel'); $('tbf').innerHTML = '<span class="ph">Ask Aang anything</span><span class="cur"></span>'; placeJobs(); };
+$('now').onclick = () => { $('now').classList.add('on'); $('later').classList.remove('on'); };
+$('later').onclick = () => { $('later').classList.add('on'); $('now').classList.remove('on'); };
+aang.onclick = () => ($('tb').classList.contains('on') ? closeBox() : openBox());
+renderJobs();
+
+/* ---- the bubble, morphing to whatever needs showing ---- */
+const sp = (sess) => `<div class="speaker claude"><img class="cl" src="${CL}" alt=""><span class="nm">CLAUDE</span><span class="sess">${sess}</span><span class="mc">PC</span></div>`;
+const words = (t) => `<button class="cw" type="button"><i></i>CLAUDE'S WORDS</button><pre class="cwbox" hidden>${esc(t)}</pre>`;
+const VIEWS = {
+  sent: { w: 330, html: () => `<p class="said">Sent to <b style="color:#8a3e1c">Waymark</b>. It'll fit rest days in after the rules-only brain is done.</p>` },
+  reply: { w: 400, html: () => `${sp('Waymark')}<p class="said">Waymark added your rest days. It moved two things to make room:</p>
+    <ul class="change"><li><b class="add">ADDED</b>Sundays are rest days</li><li><b class="mv">MOVED</b>Long run, Sunday to Saturday</li><li><b class="mv">MOVED</b>Intervals, Saturday to Friday</li></ul>
+    <div class="keys"><button class="key sm primary" type="button">Looks good</button><button class="key sm" type="button">Change it</button></div>${words('Updated brain/rules.ts: REST_DAYS = ["sun"]; rescheduled long_run sat, intervals fri. Re-ran test/rules.test.ts: 16 passed.')}` },
+  plan: { w: 410, html: () => `${sp('Waymark')}<p class="said">Waymark wants to change its plan: the readiness meter needs your sleep data, so it adds one task first.</p>
+    <ul class="change"><li><b class="add">NEW TASK</b>Read sleep from your watch</li></ul>
+    <div class="keys"><button class="key sm primary" type="button">Add it</button><button class="key sm" type="button">Skip sleep</button><button class="key sm" type="button">Tell it why</button></div>` },
+  ask: { w: 390, html: () => `${sp('Aang sounds')}<p class="said">Aang sounds asks: keep the old two sounds as a backup in Settings?</p>
+    <div class="keys"><button class="key sm primary" type="button">Yes, keep them</button><button class="key sm" type="button">No</button><button class="key sm" type="button">Something else</button></div>` },
+};
+function show(kind) {
+  talk();
+  const v = VIEWS[kind];
+  measure.innerHTML = `<div id="bubble" class="parch tex" style="width:${v.w}px;position:static">${v.html()}</div>`;
+  const h = measure.firstChild.getBoundingClientRect().height, first = bubble.hidden;
+  fill.classList.add('out');
+  setTimeout(() => {
+    if (first) { bubble.hidden = false; bubble.style.width = Math.round(v.w * .6) + 'px'; bubble.style.height = Math.round(h * .6) + 'px'; bubble.getBoundingClientRect(); }
+    fill.innerHTML = ''; bubble.style.width = v.w + 'px'; bubble.style.height = h + 'px'; paintFor(320);
+    setTimeout(() => { fill.innerHTML = v.html(); fill.classList.remove('out'); paint(); setTimeout(paint, 120); placeBubble(); }, 270);
+  }, first ? 0 : 150);
+}
+function placeBubble() { const J = $('jobs'); const top = J.classList.contains('on') ? J.offsetHeight + parseInt(J.style.bottom || '0') + 14 : 150; $('wrap').style.bottom = top + 'px'; paintFor(200); }
+fill.addEventListener('click', (e) => { const cw = e.target.closest('.cw'); if (cw) { cw.nextElementSibling.hidden = !cw.nextElementSibling.hidden; bubble.style.height = 'auto'; const h = bubble.getBoundingClientRect().height; bubble.style.height = h + 'px'; paintFor(300); } });
+
+/* ---- the pet's question mark, just over his head, when something needs him (the marks stay as they are) ---- */
+function marker(on) {
+  const m = $('marker'); if (!on) { m.classList.remove('on'); return; }
+  const Q = ['...OOOOO...', '..OHHFFSO..', '.OHFOOOFSO.', '.OHO...OFSO', '..O....OFSO', '......OFFSO', '.....OFFSO.', '....OFFSO..', '....OFSO...', '....OFSO...', '....OOOO...', '...........', '....OOOO...', '...OHFFSO..', '...OFFSSO..', '....OOOO...'];
+  const c = [201, 179, 255], px = 3, mix = (a, b, k) => a.map((v, i) => Math.round(v + (b[i] - v) * k));
+  m.width = 12 * px; m.height = 17 * px; const g = m.getContext('2d'), pal = { O: [42, 26, 16], H: mix(c, [255, 255, 255], .55), F: c, S: mix(c, [40, 20, 10], .35) };
+  Q.forEach((r, y) => [...r].forEach((ch, x) => { if (pal[ch]) { g.fillStyle = `rgb(${pal[ch]})`; g.fillRect(x * px, y * px, px, px); } }));
+  const a = aang.getBoundingClientRect(), d = $('desk').getBoundingClientRect();
+  m.style.left = (a.left - d.left + a.width / 2 - m.width / 2) + 'px'; m.style.top = (a.top - d.top + 74 - m.height - 6) + 'px'; m.classList.add('on');
+}
+const toast = async (t) => { const el = $('toast'); el.innerHTML = `<img src="${CL}" alt="">${t}`; el.style.bottom = (parseInt($('jobs').style.bottom || '150') + $('jobs').offsetHeight + 12) + 'px'; el.classList.add('on'); await sleep(1600); el.classList.remove('on'); };
+async function type(words) { for (let i = 1; i <= words.length; i++) { $('tbf').innerHTML = esc(words.slice(0, i)) + '<span class="cur"></span>'; await sleep(36); } }
+
+$('play').onclick = async () => {
+  closeBox(); bubble.hidden = true; marker(false); $('pin').hidden = true; renderJobs(); await sleep(700);
+  openBox(); await sleep(1500);
+  document.querySelector('.job').click(); await sleep(1800);
+  document.querySelector('.job').click(); await sleep(600);
+  document.querySelector('.job .msg').click(); await sleep(900);
+  $('later').click(); await sleep(500);
+  await type('add rest days on sundays'); await sleep(700);
+  $('tbf').innerHTML = '<span class="ph">Ask Aang anything</span><span class="cur"></span>';
+  const q = document.querySelector('.job .queued'); q.hidden = false; q.querySelector('span').textContent = '"add rest days on sundays", after this task'; placeJobs();
+  show('sent'); await sleep(2600);
+  q.hidden = true; placeJobs(); show('reply'); await sleep(3200);
+  fill.querySelector('.cw').click(); await sleep(2200);
+  show('plan'); await sleep(2800);
+  marker(true); show('ask');
+};
+
+// ?show=closed|open|detail|message|queued|sent|reply|plan|ask for the sheet's still pictures
+const only = new URLSearchParams(location.search).get('show');
+if (only) {
+  document.body.classList.add('still'); document.querySelector('.ctl').remove();
+  const v = only.split(/[+ ,]/);
+  if (!v.includes('closed')) openBox();
+  if (v.includes('detail')) { document.querySelector('.job').classList.add('open'); placeJobs(); }
+  if (v.includes('message') || v.includes('queued')) target(JOBS[0]);
+  if (v.includes('message')) $('tbf').innerHTML = 'add rest days on sundays<span class="cur"></span>';
+  if (v.includes('queued')) { $('later').click(); const q = document.querySelector('.job .queued'); q.hidden = false; q.querySelector('span').textContent = '"add rest days on sundays", after this task'; placeJobs(); }
+  if (v.includes('mark')) setTimeout(() => marker(true), 100);
+  const view = v.find((x) => VIEWS[x]); if (view) setTimeout(() => show(view), 120);
+}
+</script>
+</body>
+</html>
