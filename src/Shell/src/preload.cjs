@@ -89,6 +89,10 @@ contextBridge.exposeInMainWorld('aang', {
   /** Sheet 17's wheel: what to draw, where he points, where he let go; and which disc that was. */
   onWheel(fn) { const h = (_e, m) => fn(m); ipcRenderer.on('wheel', h); return () => ipcRenderer.removeListener('wheel', h); },
   wheelPick: slot => ipcRenderer.send('wheel:pick', slot),
+  /** Sheet 56 (2026-10-21): Aang's right-click menu. What to show, his pick, and where the menus are (only there takes the mouse). */
+  onMenu(fn) { const h = (_e, m) => fn(m); ipcRenderer.on('menu', h); return () => ipcRenderer.removeListener('menu', h); },
+  menuPick: id => ipcRenderer.send('menu:pick', id),
+  menuShape: rects => ipcRenderer.send('menu:shape', rects),
   /** Sheet 17: Start on the timer dial in the bubble. */
   timerStart: a => ipcRenderer.send('bubble:timerstart', a),
   /** Sheet 17, the timer window: its timer, its pin, and the few things it can ask for. */
@@ -105,7 +109,7 @@ contextBridge.exposeInMainWorld('aang', {
   onUndock(fn) { const h = (_e, why) => fn(why); ipcRenderer.on('bubble:undock', h); return () => ipcRenderer.removeListener('bubble:undock', h); },
   /** He clicked Aang: show again whatever was last shown (2026-10-20). The page says whether it had anything. */
   // Sheet 53 (2026-10-21): what the click was, 'recent' (on Aang: his line from the last 5 minutes) or 'jobs' (on Claude's mark).
-  onRecall(fn) { const h = (_e, what) => fn(what === 'jobs' ? 'jobs' : 'recent'); ipcRenderer.on('bubble:recall', h); return () => ipcRenderer.removeListener('bubble:recall', h); },
+  onRecall(fn) { const h = (_e, what) => fn(what === 'jobs' || what === 'back' ? what : 'recent'); ipcRenderer.on('bubble:recall', h); return () => ipcRenderer.removeListener('bubble:recall', h); },
   recalled: ok => ipcRenderer.send('bubble:recalled', ok === true),
   // Sheet 52 (2026-10-21): he held a Claude job bar down; it tears off onto his desktop. Only the job's id goes, and
   // main.ts checks it is a real session id before any window opens.

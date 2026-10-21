@@ -465,6 +465,11 @@
       "at": "2026-10-22T02:00:00-04:00",
       "text": "Aang's speech bubble has a slim wooden edge.",
       "kind": "feature"
+    },
+    {
+      "at": "2026-10-22T02:30:00-04:00",
+      "text": "Right-click Aang for his new wooden menu.",
+      "kind": "feature"
     }
   ]
 }

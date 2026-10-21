@@ -32,6 +32,7 @@ import { EngineUpdates, onCastlabs, type Ready } from './engineupdate.ts';
 import { writeFileAtomic } from './atomic.ts';
 import { CardRenderer } from './cardrender.ts';
 import { Wheel } from './wheelwin.ts';
+import { AangMenu } from './aangmenu.ts';
 import { NoteWindows } from './notewin.ts';
 import type { NoteData } from './notewin.ts';
 import { TimerWindows } from './timerwin.ts';
@@ -144,6 +145,8 @@ let noteWins: NoteWindows | null = null;
  */
 let jobPops: JobPops | null = null, lastJobs: unknown = [], lastWaits: unknown = [];
 let wheel: Wheel | null = null;
+/** Sheet 56 (2026-10-21): Aang's right-click menu, in Samara's wood. */
+let aangMenu: AangMenu | null = null;
 /** The brain's notes as last sent: the board, and the notes stuck on his screen, both draw from this. */
 let notesLatest: NoteData[] = [];
 /** The new bubble (step 6.12). Null unless he has switched it on: see wantsNewBubble. */
@@ -394,6 +397,13 @@ const link = new CoreLink({
     // the chat box as before.
     // Sheet 53 (his rules, 2026-10-21): a click on Aang is just the separate chat box, ready to type. Only if he said
     // something in the last 5 minutes does that line come back, small, over the box (the bubble decides; it knows when).
+    // Sheet 56 (2026-10-21): right-click on Aang opens his menu at the mouse. The count of running Claude jobs is ours.
+    if (m.t === 'menu.open') {
+      const jobs = Array.isArray(lastJobs) ? lastJobs.filter((j) => (j as { phase?: unknown } | null)?.phase === 'working').length : 0;
+      aangMenu?.open({ x: Number(m.x) || 0, y: Number(m.y) || 0 }, { ...(m.state && typeof m.state === 'object' ? m.state as Record<string, unknown> : {}), jobsRunning: jobs });
+      return;
+    }
+    if (m.t === 'menu.pick') return;               // for the pet, not for us
     // A click on Claude's working mark is its own message now (`mark.click`, below): the pet works it out from its own
     // drawing (2026-10-21). The old guess from the cursor here never saw a click while he was tucked at the edge.
     if (m.t === 'typebox') {
@@ -710,6 +720,13 @@ app.whenReady().then(async () => {
         overAang: (p) => {
           const b = bubble?.window();
           if (b && !b.isDestroyed() && b.isVisible()) { const r = b.getBounds(); if (p.x >= r.x && p.x < r.x + r.width && p.y >= r.y && p.y < r.y + r.height) return true; }
+      // Sheet 56 (2026-10-21): the right-click menu. Look back is ours (the bubble's scroll-back); every other pick goes
+      // to the pet, which runs the same handler its old menu item ran.
+      aangMenu = new AangMenu({
+        origin: pages.origin, preloadPath: path.join(HERE, 'preload.cjs'), iconPath: AANG_ICON,
+        pick: (id) => { if (id === 'back') bubble?.send('bubble:recall', 'back'); else link?.send({ t: 'menu.pick', id }); },
+      });
+      aangMenu.warm();
           const s = petAt?.sprite;
           return !!s && p.x >= s.x && p.x < s.x + s.width && p.y >= s.y && p.y < s.y + s.height;
         },
@@ -1128,6 +1145,8 @@ app.whenReady().then(async () => {
   ipcMain.on('timer:drag', (e, a) => {
     if (!timerWins?.owns(e.sender) || !a || typeof a !== 'object') return;
     timerWins.drag(e.sender, String(a.phase ?? ''), Number(a.dx) || 0, Number(a.dy) || 0);
+  ipcMain.on('menu:pick', (e, id) => { if (aangMenu?.owns(e.sender)) aangMenu.picked(e.sender, id); });
+  ipcMain.on('menu:shape', (e, rects) => { if (aangMenu?.owns(e.sender)) aangMenu.shape(e.sender, rects); });
   });
   ipcMain.on('timer:act', (e, a) => {
     const id = timerWins?.idOf(e.sender);

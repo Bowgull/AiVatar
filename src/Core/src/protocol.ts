@@ -165,6 +165,11 @@ export type ToBody =
   | { t: 'wheel.open'; x: number; y: number }
   | { t: 'wheel.release'; x: number; y: number }
   | { t: 'quiet.toggle' }
+  /** Sheet 56 (2026-10-21): right-click on Aang, for the Shell to draw his menu at the mouse (physical pixels). The pet
+   *  says what is ticked; the brain adds when a hush ends (`hushedUntil`, ms since 1970, 0 when not hushed). */
+  | { t: 'menu.open'; x: number; y: number; state: MenuState }
+  /** Sheet 56: what he picked in it, for the pet, which runs the same handler its old menu item ran. */
+  | { t: 'menu.pick'; id: string }
   /** The new bubble is showing something (or the typing box is open), so the pet must not tuck away under it. */
   | { t: 'bubble.busy'; on: boolean }
   /** The pet could not bring that Claude window forward: it was closed. */
@@ -483,6 +488,9 @@ export type FromBody =
   | { t: 'wheel.open'; x: number; y: number }
   | { t: 'wheel.release'; x: number; y: number }
   | { t: 'quiet.toggle' }
+  /** Sheet 56 (2026-10-21): right-click on Aang (from the pet) and his pick in the Shell's menu (to the pet). */
+  | { t: 'menu.open'; x: number; y: number; state: MenuState }
+  | { t: 'menu.pick'; id: string }
   /** The new bubble is showing something (or the typing box is open), so the pet must not tuck away under it. */
   | { t: 'bubble.busy'; on: boolean }
   /** The pet could not bring that Claude window forward: it was closed. */
@@ -644,6 +652,11 @@ export type FromBody =
  * reportWriteFailure uses. The raw text is never logged: it may contain whatever he just typed.
  */
 let dropped = 0;
+/** Sheet 56 (2026-10-21): what the right-click menu shows ticked. */
+export interface MenuState {
+  muted?: boolean; quiet?: 'auto' | 'always' | 'never'; dock?: string; docked?: boolean; model?: string; saving?: boolean;
+  models?: { id: string; label: string }[]; hushedUntil?: number; jobsRunning?: number;
+}
 export function parseFromBody(raw: string): FromBody | null {
   try {
     const v = JSON.parse(raw);
