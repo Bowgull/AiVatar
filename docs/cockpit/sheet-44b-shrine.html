@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 44b - Shrine light on Samara</title>
+<!-- Sheet 44b (2026-10-20). His correction to 44: "I want to ADD on top of what we currently have." He sent shrine pictures:
+     old carved stone with glowing lines cut into it, orange while asleep and blue once awake, square swirl carvings on
+     corners, pedestals that light up, the album's blue frame with stone swirls. He answered "unsure, show me" to where,
+     colour, how much and pixel-or-smooth, so this sheet shows each, on the real drawer (sheet 43d A, as built).
+     All carvings here are drawn fresh (square spirals and grooves), never the games' own symbols. -->
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<link rel="stylesheet" href="../../src/Shell/pages/notefonts.css">
+<style>
+  :root{--blue:#46d4ff;--blue2:#b8f1ff;--org:#ff8a2a;--org2:#ffd09a;--groove:#0a0605}
+  html,body{background:#17110c;margin:0}
+  body{color:#e8dcc4;font-family:Figtree,sans-serif;padding:24px;width:1640px}
+  h1{font:400 20px Silkscreen,monospace;color:#FFC43C;letter-spacing:2px;margin:0 0 4px}
+  h2{font:400 11px Silkscreen,monospace;color:#FFC43C;letter-spacing:1.5px;margin:0 0 8px}
+  h3{font:400 14px Silkscreen,monospace;color:#FFC43C;letter-spacing:1.5px;margin:34px 0 6px}
+  p{color:#cdbb9a;font-size:14.5px;line-height:1.5;margin:0 0 12px;max-width:1500px}
+  p b{color:#FFC43C}
+  .row{display:flex;gap:26px;align-items:flex-start;flex-wrap:wrap;margin:18px 0 10px}
+  .col{width:300px}
+  .why{font-size:13px;color:#cdbb9a;line-height:1.45;margin:12px 0 0}
+  .why b{color:#FFE096}
+
+  /* ---------- the real pieces, lifted from sheet 43d A ---------- */
+  .band{height:46px;width:300px;box-sizing:border-box;display:flex;align-items:center;gap:8px;padding:0 10px;position:relative;
+    background:url(../../src/Shell/pages/art/browser/band.png) 0 0/128px 58px;image-rendering:pixelated;border:3px solid #120A05;border-bottom-width:4px;border-radius:10px 10px 0 0}
+  .addr{flex:1;height:26px;border-radius:7px;background:#0B0718;border:2px solid #120A05;color:#e6dcc8;font:500 12px var(--body);display:flex;align-items:center;padding:0 9px;
+    box-shadow:inset 0 2px 0 rgba(0,0,0,.6);position:relative}
+  .drawer{position:relative;width:300px;height:700px;overflow:hidden;box-sizing:border-box;padding:14px 14px 14px 12px;display:flex;flex-direction:column;
+    background:radial-gradient(90% 40% at 12% 0%,rgba(255,200,120,.10),transparent 70%),url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated;
+    border-style:solid;border-width:8px;border-left-width:0;border-image:url(../../src/Shell/pages/art/browser/trayframe.png) 4 repeat;box-shadow:12px 0 28px rgba(0,0,0,.55)}
+  .panel{position:relative;border:3px solid #120A05;border-radius:10px;padding:13px 11px 14px;margin:6px 0 16px;image-rendering:pixelated;
+    box-shadow:inset 0 0 0 4px #4a2e1a,inset 0 0 0 5px #120A05,inset 0 7px 12px rgba(0,0,0,.5),0 3px 0 #0d0703}
+  .panel.velvet{background:radial-gradient(120% 70% at 50% 0%,rgba(255,200,120,.13),transparent 60%),radial-gradient(130% 130% at 50% 50%,transparent 55%,rgba(8,4,14,.55)),url(../../src/Shell/pages/art/browser/velvet.png) 0 0/96px 96px}
+  .panel.wood{background:radial-gradient(120% 50% at 50% 0%,rgba(255,200,120,.10),transparent 60%),linear-gradient(rgba(0,0,0,.35),rgba(0,0,0,.45)),url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px}
+  .panel.caps::after{content:"";position:absolute;inset:-6px;pointer-events:none;
+    background:url(../../src/Shell/pages/art/browser/cap3_tl.png) left top/22px 22px no-repeat,url(../../src/Shell/pages/art/browser/cap3_tr.png) right top/22px 22px no-repeat,
+      url(../../src/Shell/pages/art/browser/cap3_bl.png) left bottom/22px 22px no-repeat,url(../../src/Shell/pages/art/browser/cap3_br.png) right bottom/22px 22px no-repeat}
+  .ptitle{font:400 9px var(--label);letter-spacing:2px;color:#FFE096;text-shadow:1px 1px 0 #000;margin:-2px 2px 9px;display:flex;align-items:center;gap:8px;position:relative;z-index:2}
+  .ptitle::after{content:"";flex:1;height:4px;border-radius:2px;background:linear-gradient(180deg,rgba(0,0,0,.6) 0 2px,rgba(255,224,150,.2) 2px 4px)}
+  .slots{display:grid;grid-template-columns:repeat(4,1fr);gap:10px 6px;justify-items:center;position:relative;z-index:2}
+  .k{position:relative;width:50px;height:50px;box-sizing:border-box;border-radius:9px;border:3px solid #120A05;display:grid;place-items:center;
+    background:linear-gradient(180deg,#6a4a2c 0,#56371F 45%,#47301b 100%);box-shadow:0 5px 0 #120A05,inset 0 3px 0 rgba(255,222,170,.28),inset 0 -3px 0 rgba(0,0,0,.35),0 8px 10px rgba(0,0,0,.45)}
+  .k img{width:24px;height:24px;border-radius:4px;position:relative;z-index:1}
+  .k.add{background:transparent;border:3px dashed rgba(255,224,150,.4);box-shadow:none;color:#FFE096;font:700 22px var(--body)}
+  .tabs{display:flex;flex-direction:column;gap:9px;position:relative;z-index:2}
+  .tp{position:relative;display:flex;align-items:center;gap:9px;padding:6px 9px 6px 6px;border-radius:9px;border:3px solid #120A05;
+    background:linear-gradient(180deg,#6a4a2c 0,#56371F 45%,#47301b 100%);color:#F6E6C6;font:600 13px var(--body);text-shadow:1px 1px 0 rgba(0,0,0,.7);
+    box-shadow:0 4px 0 #120A05,inset 0 3px 0 rgba(255,222,170,.24),inset 0 -2px 0 rgba(0,0,0,.35)}
+  .tp .slot{position:relative;width:26px;height:26px;flex:none;border-radius:6px;display:grid;place-items:center;background:#1c1328;box-shadow:inset 0 2px 0 rgba(0,0,0,.6),0 1px 0 rgba(255,220,170,.12)}
+  .tp .slot img{width:16px;height:16px;border-radius:3px}
+  .tp .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tp.on{background:linear-gradient(180deg,#F0DCB4,#DEC28C);color:#2a1c0c;text-shadow:none;box-shadow:0 4px 0 #120A05,0 0 0 2px var(--gold),0 0 12px rgba(255,190,90,.45),inset 0 3px 0 rgba(255,255,255,.5)}
+  .tp.on .slot{background:#e9d3a6;box-shadow:inset 0 2px 0 rgba(120,80,30,.35)}
+  .tp .x{width:18px;height:18px;border-radius:50%;display:grid;place-items:center;font:700 11px var(--body);color:#2a1c0c;background:rgba(0,0,0,.18)}
+  .tp.asleep{background:linear-gradient(180deg,#4a3420 0,#3d2a18 100%);color:#d9c9a8}
+  .tp.asleep .moon{flex:none;display:grid;place-items:center;opacity:.9}
+  .group{font:700 12px var(--display);letter-spacing:1px;color:var(--gold);text-shadow:0 2px 0 #120A05;margin:4px 2px 1px;display:flex;align-items:center;gap:8px}
+  .group::after{content:"";flex:1;height:4px;border-radius:2px;background:linear-gradient(180deg,rgba(0,0,0,.6) 0 2px,rgba(255,224,150,.2) 2px 4px)}
+
+  /* ---------- the additions ---------- */
+  /* a carved groove inside a panel: dark cut, glowing line in it */
+  .groove{position:absolute;inset:10px;pointer-events:none;z-index:1;border:2px solid var(--gc);box-shadow:0 0 0 1px var(--groove),inset 0 0 0 1px var(--groove),0 0 var(--gl) var(--gc),inset 0 0 var(--gl) var(--gc);opacity:var(--go,1)}
+  .spiral{position:absolute;pointer-events:none;z-index:3;filter:drop-shadow(0 0 var(--gl) var(--gc))}
+  .spiral.tl{left:4px;top:4px}.spiral.tr{right:4px;top:4px;transform:scaleX(-1)}.spiral.bl{left:4px;bottom:4px;transform:scaleY(-1)}.spiral.br{right:4px;bottom:4px;transform:scale(-1)}
+  /* a carved line along a plaque's foot, with a tiny spiral at its start */
+  .tp .cut{position:absolute;left:38px;right:10px;bottom:2px;height:2px;background:var(--lc);box-shadow:0 0 var(--gl) var(--lc);opacity:.9}
+  .tp .cut::before{content:"";position:absolute;left:-6px;top:-4px;width:4px;height:4px;border:2px solid var(--lc);border-right:none;border-bottom:none}
+  .tp .slot.lit{box-shadow:inset 0 0 0 2px var(--lc),0 0 var(--gl) var(--lc)}
+  /* keys: a lit rim on the one under the mouse */
+  .k.wake{animation:wake 3s ease-in-out infinite}
+  @keyframes wake{0%,25%{box-shadow:0 5px 0 #120A05,inset 0 3px 0 rgba(255,222,170,.28),0 0 0 2px var(--org),0 0 8px var(--org)}55%,100%{box-shadow:0 5px 0 #120A05,inset 0 3px 0 rgba(255,222,170,.28),0 0 0 2px var(--blue),0 0 14px var(--blue)}}
+  .k .rune{position:absolute;inset:4px;border:2px solid var(--lc);border-radius:5px;box-shadow:0 0 var(--gl) var(--lc);opacity:.75}
+  /* the band: a carved trim along the bottom and a glowing cut round the address */
+  .band .trim{position:absolute;left:8px;right:8px;bottom:3px;height:2px;background:var(--gc);box-shadow:0 0 var(--gl) var(--gc)}
+  .addr.lit{box-shadow:inset 0 2px 0 rgba(0,0,0,.6),0 0 0 2px var(--gc),0 0 var(--gl) var(--gc)}
+  /* the new-tab pedestal */
+  .ped{position:relative;display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;border:3px solid #120A05;margin:0 0 12px;
+    background:#0B0718;color:#FFE096;font:700 13.5px var(--body);box-shadow:0 4px 0 #120A05,inset 0 3px 0 rgba(150,110,200,.25)}
+  .ped .eye{width:22px;height:22px;flex:none}
+  /* heavy: the panels become carved stone */
+  .stone{background:url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px,#7a7466!important;background-blend-mode:luminosity!important}
+  .stone2{background:linear-gradient(rgba(0,0,0,.25),rgba(0,0,0,.35)),url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px,#6f6a5d!important;background-blend-mode:normal,luminosity!important}
+  .breath{animation:breath 4s ease-in-out infinite}
+  @keyframes breath{50%{opacity:.55}}
+
+  /* close-ups */
+  .zoom{display:flex;gap:30px;flex-wrap:wrap}
+  .zc{width:500px}
+  .zc .box{background:url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated;padding:26px;border-radius:10px;box-shadow:0 0 0 3px #120A05}
+  .zc .big{transform:scale(2);transform-origin:left top;width:220px;height:46px;margin-bottom:46px}
+  .dot{display:inline-block;width:14px;height:14px;border-radius:3px;vertical-align:-2px;margin-right:4px}
+</style>
+</head>
+<body>
+<h1>SHEET 44B &middot; SHRINE LIGHT ON SAMARA</h1>
+<p>Your Samara stays exactly as it is. These add the shrine look <b>on top</b>: grooves cut into the wood with light in them, square spiral carvings on the corners, and things that glow <b>orange while asleep</b> and <b>blue once awake</b>. Left to right goes from today to heavy, so you can point at how far you want it. The bookmark that is pulsing shows what happens under your mouse.</p>
+<div class="row" id="v"></div>
+
+<h3>PIXEL OR SMOOTH? THE SAME TAB, TWICE THE SIZE</h3>
+<div class="zoom" id="z"></div>
+
+<h3>THE COLOUR CHOICE</h3>
+<p><span class="dot" style="background:var(--org);box-shadow:0 0 8px var(--org)"></span><b>Orange</b> = asleep or waiting (sleeping tabs, the + box, things you have not touched yet). <span class="dot" style="background:var(--blue);box-shadow:0 0 8px var(--blue)"></span><b>Blue</b> = awake (the tab you are on, the key under your mouse, a page loading). <span class="dot" style="background:#FFC43C;box-shadow:0 0 8px #FFC43C"></span><b>Gold</b> = the calm option, the same carvings in Samara's own colour (shown in "A touch").</p>
+
+<script type="module">
+import { MARKS } from './sheet-43/marks.js';
+import { TABS } from './sheet-43d/tabs.js';
+import { pixIcon } from '../../src/Shell/pages/pixicons.js';
+const moon = () => { const s = pixIcon('moon', 1); return s ? s.outerHTML : '☾'; };
+
+// a square spiral, hand-placed pixels ('#' = lit), drawn at a whole-number scale
+const SPIRAL = ['########', '#.......', '#.####..', '#.#..#..', '#.#.##..', '#.#.....', '#.......', '#.......'];
+const EYE = ['..####..', '.#....#.', '#..##..#', '#.#..#.#', '#..##..#', '.#....#.', '..####..', '...##...'];
+const pix = (rows, u, col, cls = '') => {
+  let r = '';
+  rows.forEach((line, y) => [...line].forEach((c, x) => { if (c === '#') r += `<rect x="${x * u}" y="${y * u}" width="${u}" height="${u}"/>`; }));
+  return `<svg class="${cls}" width="${rows[0].length * u}" height="${rows.length * u}" shape-rendering="crispEdges" fill="${col}">${r}</svg>`;
+};
+const corners = (col, u = 2) => ['tl', 'tr', 'bl', 'br'].map((c) => pix(SPIRAL, u, col, `spiral ${c}`)).join('');
+
+const groupStart = (t, i, arr) => t.group && (i === 0 || arr[i - 1].group !== t.group) ? `<div class="group">${t.group}</div>` : '';
+const lineCol = (t, mode) => mode === 'gold' ? '#FFC43C' : t.state === 'asleep' ? 'var(--org)' : 'var(--blue)';
+function tabs(opts) {
+  return TABS.map((t, i, a) => {
+    const lc = lineCol(t, opts.mode);
+    const cut = opts.cut === 'all' || (opts.cut === 'on' && t.state === 'on') ? '<i class="cut"></i>' : '';
+    const lit = opts.slot && (t.state === 'on' || opts.slot === 'all') ? ' lit' : '';
+    return groupStart(t, i, a) + `<div class="tp ${t.state}" style="--lc:${lc}"><span class="slot${lit}"><img src="${t.icon}" alt=""></span><span class="t">${t.title}</span>${t.state === 'on' ? '<span class="x">×</span>' : t.state === 'asleep' ? `<span class="moon">${moon()}</span>` : ''}${cut}</div>`;
+  }).join('');
+}
+function keys(opts) {
+  return `<div class="slots">${MARKS.map((m, i) => {
+    const w = opts.wake && i === 2 ? ' wake' : '';
+    const rune = opts.rune ? `<i class="rune" style="--lc:${i === 2 ? 'var(--blue)' : 'var(--org)'}"></i>` : '';
+    return `<div class="k${w}">${rune}<img src="${m.icon}" alt=""></div>`;
+  }).join('')}<div class="k add">+</div></div>`;
+}
+const ped = (col) => `<div class="ped">${pix(EYE, 3, col, 'eye')}<span>New tab</span></div>`;
+const newk = `<div class="ped"><span>+ New tab</span></div>`;
+
+const V = [
+  ['TODAY', {}, `<div class="band"><div class="addr">wowhead.com/classic</div></div>`,
+    `<div class="panel velvet caps"><p class="ptitle">BOOKMARKS</p>${keys({})}</div><div class="panel wood caps" style="flex:1"><p class="ptitle">TABS</p>${newk}<div class="tabs">${tabs({})}</div></div>`,
+    'Your drawer as built. Everything after this is added on top of it.'],
+  ['1 &middot; A TOUCH, IN GOLD', { gc: '#FFC43C', gl: '4px', go: .55 }, `<div class="band"><div class="addr">wowhead.com/classic</div></div>`,
+    `<div class="panel velvet caps"><i class="groove"></i><p class="ptitle">BOOKMARKS</p>${keys({})}</div><div class="panel wood caps" style="flex:1"><i class="groove"></i><p class="ptitle">TABS</p>${newk}<div class="tabs">${tabs({ mode: 'gold', cut: 'on' })}</div></div>`,
+    '<b>Barely there.</b> One faint gold groove cut inside each panel, and a carved line under the tab you are on. Still reads as plain Samara at a glance.'],
+  ['2 &middot; SHRINE COLOURS', { gc: 'var(--org)', gl: '5px', go: .6 }, `<div class="band"><div class="addr">wowhead.com/classic</div></div>`,
+    `<div class="panel velvet caps"><i class="groove"></i><p class="ptitle">BOOKMARKS</p>${keys({ wake: true })}</div><div class="panel wood caps" style="flex:1"><i class="groove"></i><p class="ptitle">TABS</p>${newk}<div class="tabs">${tabs({ cut: 'all', slot: true })}</div></div>`,
+    '<b>The asleep/awake idea.</b> Every tab gets a carved line: <b>blue</b> if it is awake, <b>orange</b> if it is asleep. The tab you are on has its icon slot lit. A bookmark wakes from orange to blue under your mouse.'],
+  ['3 &middot; HALF AND HALF', { gc: 'var(--blue)', gl: '6px' }, `<div class="band"><div class="addr lit">wowhead.com/classic</div><i class="trim"></i></div>`,
+    `<div class="panel velvet caps"><i class="groove"></i>${corners('var(--blue)')}<p class="ptitle">BOOKMARKS</p>${keys({ wake: true, rune: true })}</div><div class="panel wood caps" style="flex:1"><i class="groove"></i>${corners('var(--blue)')}<p class="ptitle">TABS</p>${ped('var(--org)')}<div class="tabs">${tabs({ cut: 'all', slot: true })}</div></div>`,
+    '<b>Clearly Zelda, still yours.</b> Glowing square spirals carved into the panel corners, a lit trim on the address bar, carved rings inside every bookmark key, and New tab becomes a little pedestal with an orange eye that turns blue when you press it.'],
+  ['4 &middot; HEAVY: A SHRINE', { gc: 'var(--blue)', gl: '8px' }, `<div class="band stone2"><div class="addr lit">wowhead.com/classic</div><i class="trim"></i></div>`,
+    `<div class="panel caps stone2"><i class="groove breath"></i>${corners('var(--blue)', 3)}<p class="ptitle">BOOKMARKS</p>${keys({ wake: true, rune: true })}</div><div class="panel caps stone2" style="flex:1"><i class="groove breath"></i>${corners('var(--blue)', 3)}<p class="ptitle">TABS</p>${ped('var(--blue)')}<div class="tabs">${tabs({ cut: 'all', slot: 'all' })}</div></div>`,
+    '<b>Using a shrine terminal.</b> The panels turn to old carved stone (same grain, greyed), the grooves breathe slowly, everything is lit. The tabs stay wood so they still feel like yours. The furthest from today.'],
+];
+for (const [name, vars, band, body, why] of V) {
+  const c = document.createElement('div'); c.className = 'col';
+  c.style.setProperty('--gc', vars.gc || 'transparent'); c.style.setProperty('--gl', vars.gl || '0px'); if (vars.go) c.style.setProperty('--go', vars.go);
+  c.innerHTML = `<h2>${name}</h2>${band}<div class="drawer" style="${band.includes('stone2') ? 'filter:saturate(.9)' : ''}">${body}</div><p class="why">${why}</p>`;
+  document.getElementById('v').append(c);
+}
+
+// the close-up: one awake tab with its carving, three ways
+const one = TABS.find((t) => t.state === 'on') || TABS[0];
+const Z = [
+  ['PIXEL ART', 'Crisp, hand-placed pixels, no glow. Matches your bookmark keys and the moon exactly.', '--gl:0px'],
+  ['PIXEL LINES + SOFT GLOW', 'Same crisp pixel carving, with light bleeding softly around it like the shrines. My pick.', '--gl:6px'],
+  ['SMOOTH, LIKE THE GAME', 'Rounded, smooth lines and a big glow. Prettier in a screenshot, but it stops matching the pixel wood.', '--gl:12px;--smooth:1'],
+];
+for (const [name, why, st] of Z) {
+  const smooth = st.includes('smooth');
+  const c = document.createElement('div'); c.className = 'zc';
+  c.innerHTML = `<h2>${name}</h2><div class="box"><div class="big" style="${st}"><div class="tp on" style="--lc:var(--blue);width:220px;box-sizing:border-box"><span class="slot lit" style="${smooth ? 'border-radius:50%' : ''}"><img src="${one.icon}" alt=""></span><span class="t">${one.title}</span><span class="x">×</span><i class="cut" style="${smooth ? 'border-radius:2px;height:3px' : ''}"></i></div></div></div><p class="why">${why}</p>`;
+  document.getElementById('z').append(c);
+}
+</script>
+</body>
+</html>
