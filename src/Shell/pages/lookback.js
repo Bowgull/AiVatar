@@ -180,7 +180,8 @@ export function paintLookback(box, turns, ctx) {
   list.append(older);
 
   if (!turns.length) {
-    list.append(T('p', 'empty-line', 'No history yet. Everything I show you will be here to look back through.'));
+    // The cockpit opens on the last exchange only (2026-10-21): with nothing yet, it says nothing.
+    if (!ctx.quietEmpty) list.append(T('p', 'empty-line', 'No history yet. Everything I show you will be here to look back through.'));
     return list;
   }
   let slip = null, slipKey = '';

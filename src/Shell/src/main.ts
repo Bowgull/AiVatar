@@ -133,7 +133,7 @@ let bubble: Bubble | null = null;
 const planWait = new Map<string, (a: PlanAnswer | null) => void>();
 /** The new typing box (step 6.12b). Same switch as the bubble: they replace the old ones together. */
 let input: TypingSurface | null = null;
-/** The one cockpit (2026-10-21): the typing area lives inside the bubble. Off unless AANG_COCKPIT=1. */
+/** The one cockpit (2026-10-21): the typing area lives inside the bubble. On unless AANG_COCKPIT=0 (cockpit.ts). */
 let cockpitOn = false;
 /** The message he just sent, until the brain says it has it (its `ack`). */
 let ackWait: { id: string; timer: NodeJS.Timeout } | null = null;
@@ -623,10 +623,10 @@ app.whenReady().then(async () => {
 
       // 6.12b: the typing box comes with it, and so does the hotkey. The pet does not register Ctrl+Plus
       // when this switch is on, so there is exactly one owner and no fight over it.
-      // The one cockpit (2026-10-21): with AANG_COCKPIT=1 the typing area is the bubble's own bottom edge.
+      // The one cockpit (2026-10-21): the typing area is the bubble's own bottom edge (AANG_COCKPIT=0 turns it off).
       cockpitOn = wantsCockpit();
       input = cockpitOn ? new CockpitBox(bubble) : new InputBox({ origin: pages.origin, preloadPath: path.join(HERE, 'preload.cjs') });
-      if (cockpitOn) console.log('shell: the one cockpit is on (AANG_COCKPIT=1)');
+      if (cockpitOn) console.log('shell: the one cockpit is on (AANG_COCKPIT=0 turns it off)');
       input.onGiveBack = () => link?.send({ t: 'refocus' });
       // The cockpit closed: the bubble it was docked under lets go too (Esc or a click elsewhere closes both).
       input.onUndock = () => { dockedTurn = null; bubble?.send('bubble:undock', null); };

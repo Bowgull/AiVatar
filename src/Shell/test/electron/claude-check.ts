@@ -117,6 +117,17 @@ app.whenReady().then(async () => {
   await wait(100);
   const after = await bars();
   check('a tracked job ends: the next running one takes its place', before.includes('Samara') && !after.includes('Samara') && after.length === 2 && after.includes('Aang sounds'), `${JSON.stringify(before)} -> ${JSON.stringify(after)}`);
+  // His decision (2026-10-21): a finished job shows JOB COMPLETE in teal for about four seconds, no key, then folds away.
+  const doneCard = () => js(`(() => { const d = document.querySelector('#ckjobs .jdone'); return d ? { text: d.textContent, keys: d.querySelectorAll('button').length, ring: getComputedStyle(d).boxShadow, h: d.getBoundingClientRect().height } : null; })()`) as Promise<{ text: string; keys: number; ring: string; h: number } | null>;
+  const dc = await doneCard();
+  check('finished: JOB COMPLETE shows for the job that ended, in teal, with no key', Boolean(dc && dc.text.includes('JOB COMPLETE') && dc.text.includes('Samara') && dc.keys === 0 && dc.ring.includes('rgb(63, 196, 180)')), JSON.stringify(dc));
+  if (process.env.CLAUDE_SHOT) { await js(`document.body.style.background = '#2a2238'`); await wait(300); const f = process.env.CLAUDE_SHOT.replace(/\.png$/i, '') + '-complete.png'; writeFileSync(f, (await w.webContents.capturePage()).toPNG()); console.log('picture: ' + f); }
+  await wait(4900);
+  check('finished: it folds away by itself after a few seconds', (await doneCard()) === null);
+  // An idle job (never seen at work) and an ended one never take a place in the strip.
+  await deliver({ t: 'claude.jobs', jobs: [WM, SND, { ...SAM, phase: 'ended' }, job('55555555-aaaa-4bbb-8ccc-000000000005', 'Sleepy', T0 - 9_000_000, [['x', 'pending']], { phase: 'idle' })] });
+  await wait(150);
+  check('idle and ended jobs never show in the strip', !(await js(`document.getElementById('ckjobs').textContent`) as string).match(/Sleepy|Samara/), JSON.stringify(await bars()));
 
   // ---- queued count
   await deliver({ t: 'claude.jobs', jobs: [{ ...WM, held: 2 }, SND] });
@@ -223,17 +234,34 @@ app.whenReady().then(async () => {
   check('size: the strip, the card and the typing area all keep their room', (await js(`(() => { const r = (s) => document.querySelector(s).getBoundingClientRect(); const b = r('#bubble'); return r('#ck').bottom <= b.bottom + 1 && r('#ckpins').height > 60 && r('#ckjobs').height > 60 && r('#lblist').height >= 139; })()`)) === true,
     JSON.stringify(await js(`(() => { const r = (s) => { const x = document.querySelector(s).getBoundingClientRect(); return [Math.round(x.top), Math.round(x.height)]; }; return { bubble: r('#bubble'), list: r('#lblist'), pins: r('#ckpins'), jobs: r('#ckjobs'), ck: r('#ck') }; })()`)));
 
-  // ---- the cockpit closed with something waiting: the bubble speaks the card
+  // ---- his decision (2026-10-21): closing (a click outside, Esc) always goes back to rest, even with a question
+  // showing and nothing picked. The question is not answered: it stays waiting and is pinned again on the next open.
+  const answersBefore = (await sent('claude')).length;
   await js(`window.__fire('onCockpit', { open: false })`);
   await wait(900);
+  check('closed with a question showing: back to rest, nothing left on screen', (await js(`document.getElementById('bubble').hidden`)) === true);
+  check('closed: the question was not answered', (await sent('claude')).length === answersBefore);
+  await js(`window.__fire('onCockpit', { open: true, state: { maxH: 640 } }); window.__fire('onInputState', { opened: true, mode: 'auto', week: 0.3 })`);
+  await wait(900);
+  check('opened again: the question is pinned where he left it', (await pinText()).includes('QUESTION 1 OF 3'));
+  await js(`window.__fire('onCockpit', { open: false })`);
+  await wait(900);
+  // Something new comes while it is closed: the bubble speaks the card, and a click outside puts it away unanswered.
+  const PERM3 = { ...PERM, id: 'toolu_06perm' };
+  await deliver({ t: 'claude.wait', items: [PERM3, THREE] });
+  await wait(900);
   await shot('closed');
-  check('closed: the bubble shows the waiting card, the strip goes', (await js(`!document.getElementById('bubble').hidden && !document.getElementById('ckpins').hidden && document.getElementById('ckjobs').hidden && !document.getElementById('bubble').classList.contains('cockpit')`)) === true);
-  await wait(650);
-  await js(`document.querySelectorAll('#ckpins .opt')[0].click()`);
-  check('closed: answerable right there', (await pinText()).includes('QUESTION 2 OF 3'));
+  check('closed: a new question shows as the card in the bubble, the strip goes', (await js(`!document.getElementById('bubble').hidden && !document.getElementById('ckpins').hidden && document.getElementById('ckjobs').hidden && !document.getElementById('bubble').classList.contains('cockpit')`)) === true);
+  await js(`window.__fire('onDismiss', 'outside')`);
+  await wait(900);
+  check('a click outside puts the card away, unanswered', (await js(`document.getElementById('bubble').hidden`)) === true && (await sent('claude')).length === answersBefore);
+  // While he is in the Claude app the brain marks the list quiet: a new question never pops up here.
+  await deliver({ t: 'claude.wait', items: [{ ...PERM, id: 'toolu_07perm' }, PERM3, THREE], quiet: true });
+  await wait(900);
+  check('in Claude (quiet): a new question does not pop up', (await js(`document.getElementById('bubble').hidden`)) === true);
   await deliver({ t: 'claude.wait', items: [] });
-  await wait(1200);
-  check('closed: nothing waiting, the card goes and so does the bubble', (await js(`document.getElementById('bubble').hidden`)) === true);
+  await wait(600);
+  check('closed: nothing waiting, nothing on screen', (await js(`document.getElementById('bubble').hidden`)) === true);
 
   check('no errors in the page', errors.length === 0, errors.join(' | '));
 
