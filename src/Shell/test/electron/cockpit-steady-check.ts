@@ -115,9 +115,15 @@ app.whenReady().then(async () => {
   await wait(300);
   writeFileSync(path.join(OUT, 'cockpit-open-last.png'), (await w.webContents.capturePage()).toPNG());
   const at = await js(`(() => { const r = document.getElementById('lblist').getBoundingClientRect(); return { x: Math.round(r.left + 40), y: Math.round(r.top + 10) }; })()`) as { x: number; y: number };
-  for (let k = 0; k < 4; k++) { w.webContents.sendInputEvent({ type: 'mouseWheel', x: at.x, y: at.y, deltaX: 0, deltaY: 120, wheelTicksY: 1 } as Electron.MouseWheelInputEvent); await wait(500); }
+  // The wheel INSIDE the cockpit no longer fetches older (his call, 2026-10-21: no OLDER key, history is over Aang).
+  for (let k = 0; k < 2; k++) { w.webContents.sendInputEvent({ type: 'mouseWheel', x: at.x, y: at.y, deltaX: 0, deltaY: 120, wheelTicksY: 1 } as Electron.MouseWheelInputEvent); await wait(500); }
+  const rowsIn = await js(`document.querySelectorAll('#lblist .lt-item, #lblist .lb-mine').length`) as number;
+  check('the wheel inside the cockpit brings nothing older', rowsIn === rows0, `${rows0} -> ${rowsIn}`);
+  check('no OLDER key shows in the cockpit', await js(`(() => { const o = document.querySelector('#lblist .lb-older'); return !o || getComputedStyle(o).display === 'none'; })()`) === true);
+  // The wheel over Aang himself arrives as a page step (onPage): that is how he reaches the history.
+  for (let k = 0; k < 4; k++) { await js(`window.__fire('onPage', -1)`); await wait(500); }
   const rows1 = await js(`document.querySelectorAll('#lblist .lt-item, #lblist .lb-mine').length`) as number;
-  check('wheel up at the top brings older turns in', rows1 > rows0, `${rows0} -> ${rows1}`);
+  check('the wheel over Aang brings older turns in', rows1 > rows0, `${rows0} -> ${rows1}`);
   await wait(800);
   writeFileSync(path.join(OUT, 'cockpit-scrolled-up.png'), (await w.webContents.capturePage()).toPNG());
   const grown = applied.at(-1);
