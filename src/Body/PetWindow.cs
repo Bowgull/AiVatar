@@ -2143,7 +2143,7 @@ sealed class PetWindow : Form
     /// its done", after ChatGPT's pet on a finished background task): the same motion as urgent, Claude's
     /// terracotta instead of Avatar State's white-blue, and its own quieter sound - he chose a distinct one
     /// (2026-09-22) rather than leaving it silent, precisely so it never gets mistaken for needs-you by ear.</summary>
-    void TriggerDone() => TriggerGlow(ClaudeMarks.ColorOf("complete"), SfxDone);   // the job-complete gold, same as the mark (2026-10-21)
+    void TriggerDone() => TriggerGlow(ClaudeMarks.ColorOf("complete"), SfxDone);   // the job-complete colour (his teal, sheet 50), same as the mark (2026-10-21)
 
     /// <summary>Keep what he has not seen yet, unless something more pressing is already waiting: a finished job
     /// never covers up one that is stuck on him. False when it was not kept.</summary>

@@ -25,24 +25,26 @@ static class ClaudeMarks
         // 45e: "the step tick is impossible to see" fixed - small but bold.
         ["step"] = new[] { "........OOO", ".......OHHO", "......OHFSO", ".OOO.OHFSO.", "OHHOOHFSO..", "OFHHHFSO...", ".OFFFSO....", "..OSSO.....", "...OO......" },
         // The job-complete tick: the step tick grown up, no circle (his call, 2026-10-21: "I didnt want that tick mark with
-        // the circle"). Bigger than a step, still not huge, and gold so it can never be mistaken for the coral skull.
+        // the circle"). Bigger than a step, still not huge, and teal (his pick, sheet 50) so it can never be mistaken for the red skull.
         ["complete"] = new[] { "..........OOO", ".........OHHO", "........OHHFO", ".......OHHFSO", ".OOO..OHHFSO.", "OHHHOOHHFSO..", "OFHHHHHFSO...", ".OFFHHFSO....", "..OFFFSO.....", "...OSSO......", "....OO......." },
         // 45e: "failed should be a cute little skull".
         ["failed"] = new[] { "..OOOOOOO..", ".OHHHHFFFO.", "OHHFFFFFFSO", "OHOOFFFOOSO", "OFOOFFFOOSO", "OFFFFOFFFSO", ".OFFFFFFSO.", "..OFOFOFO..", "..OOOOOOO.." },
     };
 
-    /// <summary>One colour per mark (45d), and the glow around him takes it too.</summary>
+    /// <summary>One colour per mark, and the glow around him takes it too. His final picks from sheets 49/50
+    /// (2026-10-21): stronger than the 45d pastels so each reads at a glance over a busy game, and no two close enough to
+    /// mix up (working amber vs plan cream, done teal vs failed red).</summary>
     public static Color ColorOf(string kind) => kind switch
     {
-        "working" => Color.FromArgb(236, 194, 126),     // honey, softer than Aang's gold
-        "permission" => Color.FromArgb(191, 227, 255),  // pale Avatar State blue: blocking only
-        "question" => Color.FromArgb(201, 179, 255),    // lavender
-        "plan" => Color.FromArgb(240, 222, 180),        // parchment: a scroll in its own paper (was sage, too close to the step's sea)
-        "step" => Color.FromArgb(138, 213, 201),        // sea, the job bar's colour
-        "complete" => Color.FromArgb(255, 196, 60),     // Aang's gold (was terracotta, too close to the failed coral)
-        "paused" => Color.FromArgb(154, 168, 192),      // dusk slate
-        "failed" => Color.FromArgb(240, 138, 122),      // soft coral
-        _ => Color.FromArgb(236, 194, 126),
+        "working" => Color.FromArgb(0xf0, 0xa6, 0x4a),     // #f0a64a working amber, the job bar's own colour
+        "permission" => Color.FromArgb(0x7c, 0xc4, 0xff),  // #7cc4ff needs-you blue: blocking, so the clearest
+        "question" => Color.FromArgb(0xb0, 0x7c, 0xff),    // #b07cff purple, the message key's colour
+        "plan" => Color.FromArgb(0xf3, 0xe2, 0xb8),        // #f3e2b8 cream scroll, a plan on its own paper
+        "step" => Color.FromArgb(0xff, 0xc8, 0xa8),        // #ffc8a8 peach: a small step, quiet and warm
+        "complete" => Color.FromArgb(0x3f, 0xc4, 0xb4),    // #3fc4b4 teal: the big tick, never mistaken for failed red
+        "paused" => Color.FromArgb(0x6f, 0x77, 0x87),      // #6f7787 slate: resting, so the dullest
+        "failed" => Color.FromArgb(0xe8, 0x44, 0x3a),      // #e8443a red skull
+        _ => Color.FromArgb(0xf0, 0xa6, 0x4a),
     };
 
     /// <summary>
