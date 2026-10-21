@@ -41,7 +41,8 @@ app.whenReady().then(async () => {
   const port = (site.address() as { port: number }).port;
   const st = mkdtempSync(path.join(os.tmpdir(), 'rune-state-'));
   mkdirSync(path.join(st, 'open-urls'));
-  const pages = await servePages(path.join(HERE, '..', '..', 'pages'));
+  // RUNE_PAGES: another copy of the pages (only to picture an older rune beside this one); normally unset.
+  const pages = await servePages(process.env.RUNE_PAGES || path.join(HERE, '..', '..', 'pages'));
   const b = new AangBrowser({ origin: pages.origin, stateDir: st, preloadPath: path.join(HERE, '..', '..', 'src', 'preload.cjs'), tabPreloadPath: path.join(HERE, '..', '..', 'src', 'tabpreload.cjs'), settingsPreloadPath: path.join(HERE, '..', '..', 'src', 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, '..', '..', 'src', 'thingspreload.cjs'), testLocal: true } as any) as any;
   wireBrowser(() => b);
   const sent: any[] = [], opened: string[] = [];
@@ -64,21 +65,59 @@ app.whenReady().then(async () => {
   await wait(250);
   check('an idle session with nothing running: still no rune', (await slotShown()) === false);
 
+  // 1b. 2026-10-21, his ask: no spin. A job with no to-do list shows the ring's empty track, still: nothing in the rune
+  // rotates or animates (not the old quarter turn, not the breathing), and none of the ring is lit.
+  b.claudeNews({ t: 'claude.jobs', jobs: [job(S1, 'Waymark', 'working', [], null, null)] });
+  check('a job with no list: the rune appears', await until(slotShown));
+  await wait(300);
+  const quiet = await js(`(() => { const s = document.getElementById('runeslot'), rg = s.querySelector('.rg'); const anims = document.getAnimations().filter((a) => s.contains(a.effect?.target));
+    const g = rg.getContext('2d').getImageData(0, 0, rg.width, rg.height).data; let lit = 0, track = 0; for (let i = 0; i < g.length; i += 4) if (g[i + 3]) { if (g[i] === 240 && g[i + 1] === 166) lit++; else track++; }
+    return { anims: anims.length, busy: !!s.querySelector('.busy'), tf: getComputedStyle(rg).transform, lit, track }; })()`);
+  check('no list: nothing spins or animates, the ring is an empty still track', quiet.anims === 0 && !quiet.busy && /^matrix\(1, 0, 0, 1, /.test(quiet.tf) && quiet.lit === 0 && quiet.track > 100, JSON.stringify(quiet));
+
   // 2. One job running: the rune, amber, its ring lit to the job's %.
   b.claudeNews({ t: 'claude.jobs', jobs: [job(S1, 'Waymark', 'working', tasks(3, W1), 62, 38 * 60_000)] });
   check('a running job: the rune appears', await until(slotShown));
   check('it is the working state, take B', await js(`(() => { const r = document.querySelector('#runeslot .rune'); return r.classList.contains('tB') && r.dataset.state === 'working' && r.style.getPropertyValue('--c') === '#f0a64a'; })()`) === true);
-  const lit = await js(`(() => { const c = document.querySelector('#runeslot .rg'), g = c.getContext('2d'); const d = g.getImageData(0, 0, c.width, c.height).data; let on = 0, all = 0;
+  // The job had no list a moment ago, so the ring eases in from empty: wait out the ~300 ms fill first.
+  await wait(500);
+  const litOf = () => js(`(() => { const c = document.querySelector('#runeslot .rg'), g = c.getContext('2d'); const d = g.getImageData(0, 0, c.width, c.height).data; let on = 0, all = 0;
     for (let y = 0; y < c.height; y += 2) for (let x = 0; x < c.width; x += 2) { const i = (y * c.width + x) * 4; if (!d[i + 3]) continue; all++; if (d[i] === 240 && d[i + 1] === 166 && d[i + 2] === 74) on++; } return [on, all]; })()`);
+  const lit = await litOf();
   check('the ring is lit to about 62%', lit[1] > 20 && Math.abs(lit[0] / lit[1] - 0.62) < 0.06, `${lit[0]} of ${lit[1]}`);
+  // 2026-10-21, his ask: back to sheet 50 take B's size. The sheet's own band (docs/cockpit/sheet-50/band.html?take=B)
+  // is opened off screen and its stone + ring measured, so the real rune is held to the original, not to a number.
+  const sheet = new BrowserWindow({ show: false, width: 1180, height: 200, webPreferences: { offscreen: false } });
+  await sheet.loadFile(path.join(HERE, '..', '..', '..', '..', 'docs', 'cockpit', 'sheet-50', 'band.html'), { query: { take: 'B', two: 'count' } });
+  await wait(400);
+  const boxOf = (run: (s: string) => Promise<any>) => run(`(() => { const s = document.querySelector('.rune .stone').getBoundingClientRect(), rg = document.querySelector('.rune .rg').getBoundingClientRect(); return { w: s.width, h: s.height, rw: rg.width, rh: rg.height, x: s.left, y: s.top }; })()`);
+  const want = await boxOf((s) => sheet.webContents.executeJavaScript(s, true)), got = await boxOf(js);
+  check('the rune is the original size (sheet 50 take B, within 1 px)', Math.abs(got.w - want.w) <= 1 && Math.abs(got.h - want.h) <= 1 && Math.abs(got.rw - want.rw) <= 1 && Math.abs(got.rh - want.rh) <= 1, `sheet ${JSON.stringify(want)} real ${JSON.stringify(got)}`);
+  const sheetShot = await sheet.webContents.capturePage({ x: Math.max(0, Math.round(want.x) - 60), y: 0, width: 156, height: 70 });
+  writeFileSync(path.join(OUT, 'rune-sheet50-closed.png'), sheetShot.toPNG()); console.log('PICTURE ' + path.join(OUT, 'rune-sheet50-closed.png'));
+  sheet.destroy();
+  // The fill eases (~300 ms) from where it stands to the new value: never a jump, never backwards on the way. Its own
+  // job id, because the engine holds a job's furthest % (S1 must stay at 62 for the rest).
+  const S4 = '4d4d4d4d-4444-4c3d-9e2f-dddddddddddd';
+  b.claudeNews({ t: 'claude.jobs', jobs: [job(S4, 'Waymark', 'working', tasks(3, W1), 62, 38 * 60_000)] });
+  await wait(500);
+  b.claudeNews({ t: 'claude.jobs', jobs: [job(S4, 'Waymark', 'working', tasks(4, W1), 85, 20 * 60_000)] });
+  const seen: number[] = [];
+  for (let k = 0; k < 10; k++) { const [on, all] = await litOf(); seen.push(Math.round((on / all) * 100)); await wait(45); }
+  await wait(300);
+  const [on2, all2] = await litOf();
+  const target = Number(await js(`document.querySelector('#runeslot .rune').dataset.p`));
+  check('a new % fills smoothly: in-between steps, never back, lands on the %', seen.some((v) => v > 64 && v < 83) && seen.every((v, i) => i === 0 || v >= seen[i - 1]) && Math.abs((on2 / all2) * 100 - target) < 6 && target === 85, `${seen.join(' ')} -> ${Math.round((on2 / all2) * 100)} (target ${target})`);
+  b.claudeNews({ t: 'claude.jobs', jobs: [job(S1, 'Waymark', 'working', tasks(3, W1), 62, 38 * 60_000)] });   // back to S1 for the rest
+  await wait(200);
   check('the band keeps its height', (await bandH()) === h0, `${h0} -> ${await bandH()}`);
   check('no number with one job', await js(`!document.querySelector('#runeslot .pip')`) === true);
   // 2026-10-21, his ask: the glyph is Claude's own terracotta starburst on the icon's cream stone, whatever the state.
   const px = (rgb: string) => js(`(() => { const c = document.querySelector('#runeslot .rn'), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0;
     for (let i = 0; i < d.length; i += 4) if (d[i + 3] && [d[i], d[i + 1], d[i + 2]].join() === '${rgb}') n++; return n; })()`);
   const sun = await px('217,119,87'), cream = await px('240,227,200');
-  // Thin rays with cream between them (the coordinator's look, 2026-10-21): about 44 art pixels of terracotta, no more.
-  check("the glyph is Claude's terracotta starburst on cream", sun >= 150 && sun <= 220 && cream >= 400, `${sun} terracotta, ${cream} cream screen px`);
+  // Back on the original 12-pixel stone (2026-10-21): 8 thin rays round a small centre, 22 art pixels of terracotta.
+  check("the glyph is Claude's terracotta starburst on cream", sun === 88 && cream >= 150, `${sun} terracotta, ${cream} cream screen px`);
 
   // 3. Two jobs: ONE rune with a gold 2.
   const two = () => [job(S1, 'Waymark', 'working', tasks(3, W1), 62, 38 * 60_000), job(S2, 'Samara', 'working', tasks(1, W2), 15, 50 * 60_000)];
@@ -87,6 +126,9 @@ app.whenReady().then(async () => {
   const pic = async (name: string, rect?: Electron.Rectangle) => { const img = await w.webContents.capturePage(rect); const f = path.join(OUT, name); writeFileSync(f, img.toPNG()); console.log('PICTURE ' + f); };
   await wait(400);                    // a frame for the gold number to be painted before the picture
   await pic('rune-bar.png', { x: 0, y: 0, width: 1180, height: 70 });
+  // The rune closed with its 2, cropped the same way as the sheet's (rune-sheet50-closed.png), to lay side by side.
+  const rx = await js(`Math.round(document.querySelector('#runeslot .stone').getBoundingClientRect().left)`);
+  await pic('rune-real-closed.png', { x: Math.max(0, rx - 60), y: 0, width: 156, height: 70 });
 
   // 4. Click: the rounded panel with both jobs folded.
   await js(`document.querySelector('#runeslot .rune').click()`);
@@ -157,7 +199,7 @@ app.whenReady().then(async () => {
   await wait(400);
   await pic('rune-bar-done.png', { x: 900, y: 0, width: 280, height: 70 });
   const teal = await px('63,196,180'), sunLeft = await px('217,119,87');
-  check('finished: the starburst turns into a teal tick', teal >= 60 && sunLeft === 0, `${teal} teal, ${sunLeft} terracotta`);
+  check('finished: the starburst turns into a teal tick', teal >= 40 && sunLeft === 0, `${teal} teal, ${sunLeft} terracotta`);
 
   // 8. Esc and a click elsewhere fold it; no brain: no rune.
   await js(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`);

@@ -22,84 +22,64 @@ const mix = (x, t, k) => `rgb(${rgb(x).map((v, i) => Math.round(v + (t[i] - v) *
 
 /* ---- the rune, the ring and the job-done tick (first drawn in docs/cockpit/sheet-50/marks.js) ---- */
 // His ask (2026-10-21): the rune should look like the Claude logo, "the taskbar icon isn't a bad place to start". So the
-// stone is the app icon's cream (a rounded tablet with a lit top-left edge and a shaded bottom-right, so it is still a
-// RuneScape-ish rune stone, but a clean face: specks made the mark noisy) and the glyph is Claude's own terracotta
-// starburst, drawn the way the real mark is built (pages/art/claude-icon.png): THIN separate rays with cream between
-// them, round a SMALL centre, a little uneven in length and angle. At this size eight rays read; more ran together.
-// Each ray is one pixel wide and touches the 3 x 3 centre on its own cell, so no two rays merge; slanted ones are
-// clean one-pixel staircases. The glyph no longer takes the job's colour: the ring carries the state (amber, blue,
-// teal, slate), so the mark always reads as Claude. A finished job turns it into a teal tick; a paused one greys it.
-// 17 x 17 art pixels, 2 screen px each (the band's art scale); the band keeps its height.
+// stone is the app icon's cream (a lit top-left edge and a shaded bottom-right, so it is still a RuneScape-ish rune
+// stone, but a clean face: specks made the mark noisy) and the glyph is Claude's own terracotta starburst
+// (pages/art/claude-icon.png). The glyph does not take the job's colour: the ring carries the state (amber, blue, teal,
+// slate), so the mark always reads as Claude. A finished job turns it into a teal tick; a paused one greys it.
+// Back to sheet 50 take B's size (2026-10-21, his words: "the previous one was the PERFECT size", the 17-pixel one was
+// "so huge"): a 12 x 12 art-pixel stone, 2 screen px each, 36 px across with its ring. At this size the starburst is 8
+// one-pixel rays round a 3-pixel centre, a little uneven in length and angle like the real mark, every ray joined to
+// the centre so there are no loose specks; it was picked by eye against the app icon scaled to the same size.
 const STONE = [
-  '....OOOOOOOOO....',
-  '..OOHHHHHHHHHOO..',
-  '.OHHLLLLLLLLLLSO.',
-  '.OHLLLLLLLLLLLSO.',
-  'OHLLLLLLLLLLLLLSO',
-  'OHLLLLLLLLLLLLLSO',
-  'OHLLLLLLLLLLLLLSO',
-  'OHLLLLLLLLLLLLLSO',
-  'OHLLLLLLLLLLLLLSO',
-  'OHLLLLLLLLLLLLLSO',
-  'OHLLLLLLLLLLLLLSO',
-  'OHLLLLLLLLLLLLLSO',
-  'OHLLLLLLLLLLLLLSO',
-  '.OLLLLLLLLLLLLSO.',
-  '.OSLLLLLLLLLLSSO.',
-  '..OOSSSSSSSSSOO..',
-  '....OOOOOOOOO....'];
+  '...OOOOOO...',
+  '..OHHHHHLO..',
+  '.OHHLLLLLSO.',
+  'OHLLLLLLLLSO',
+  'OHLLLLLLLLSO',
+  'OHLLLLLLLLSO',
+  'OLLLLLLLLLSO',
+  'OLLLLLLLLSSO',
+  'OLLLLLLLLSSO',
+  '.OSLLLLLSSO.',
+  '..OSSSSSSO..',
+  '...OOOOOO...'];
 const GLYPH = [
-  '...............',
-  '........G......',
-  '..G.....G......',
-  '...G....G...G..',
-  '....G..G..GG...',
-  '.....G.G.G.....',
-  '......GGG...GG.',
-  '....GGGGGGGG...',
-  '.GGG..GGG......',
-  '.....G.G.G.....',
-  '.....G.G..G....',
-  '....G...G..G...',
-  '....G...G......',
-  '........G......',
-  '...............'];
-// The finished tick, two pixels thick so it reads as clearly as the starburst it replaces; E is its darker underside.
+  '...G...',
+  'G..G.G.',
+  '.G.GG..',
+  '..GGGGG',
+  'GGGG...',
+  '..G.GG.',
+  '.G..G.G'];
+// The finished tick, two pixels thick where it can be so it reads as clearly as the starburst; E is its darker underside.
 const TICK = [
-  '...............',
-  '...............',
-  '...............',
-  '............GG.',
-  '...........GGE.',
-  '..........GGE..',
-  '.........GGE...',
-  '..GG....GGE....',
-  '..EGG..GGE.....',
-  '...EGGGGE......',
-  '....EGGE.......',
-  '.....EE........',
-  '...............',
-  '...............',
-  '...............'];
+  '......G',
+  '.....GG',
+  'G...GGE',
+  'GG.GGE.',
+  'EGGGE..',
+  '.EGE...',
+  '..E....'];
 const STONE_COL = { O: '#2a1a10', H: '#fbf3e4', L: '#f0e3c8', S: '#cdb48c' };
 /** Claude's terracotta, read off the real app icon (pages/art/claude-icon.png). */
 const CLAUDE = '#d97757';
 function rune(col, px = 2, glyph = 'sun', paused = false) {
-  const n = 17, cv = Object.assign(document.createElement('canvas'), { width: (n + 1) * px, height: (n + 1) * px, className: 'rn' });
+  const n = 12, cv = Object.assign(document.createElement('canvas'), { width: (n + 1) * px, height: (n + 1) * px, className: 'rn' });
   const g = cv.getContext('2d'), P = (x, y, c) => { g.fillStyle = c; g.fillRect(x * px, y * px, px, px); };
   g.fillStyle = 'rgba(0,0,0,.4)';
   STONE.forEach((r, y) => [...r].forEach((ch, x) => { if (ch !== '.') g.fillRect((x + 1) * px, (y + 1) * px, px, px); }));
   STONE.forEach((r, y) => [...r].forEach((ch, x) => { if (ch !== '.') P(x, y, STONE_COL[ch]); }));
   const G = glyph === 'tick' ? TICK : GLYPH;
   const fill = glyph === 'tick' ? { G: col, E: mix(col, [20, 40, 40], 0.45) } : { G: paused ? mix(CLAUDE, rgb(COL.paused), 0.65) : CLAUDE };
-  G.forEach((r, y) => [...r].forEach((ch, x) => { if (fill[ch]) P(x + 1, y + 1, fill[ch]); }));
+  // The 7 x 7 glyph sits two art pixels in, a hair up-left of centre, where the stone's face is lit (sheet 50's place).
+  G.forEach((r, y) => [...r].forEach((ch, x) => { if (fill[ch]) P(x + 2, y + 2, fill[ch]); }));
   return cv;
 }
 // The thin pixel ring for take B: whole art pixels on a circle round the stone, lit up to the job's progress.
 // `into` redraws an existing ring in place (2026-10-21: the ring follows the live progress engine, and a new canvas
 // would restart its slow breathing every step).
 function ring(col, p, px = 2, into = null) {
-  const n = 23, c = (n - 1) / 2, R = 10.6;
+  const n = 18, c = (n - 1) / 2, R = 8.2;     // sheet 50 take B's ring, verbatim (2026-10-21: back to its size)
   const cv = into ?? Object.assign(document.createElement('canvas'), { width: n * px, height: n * px, className: 'rg' });
   const g = cv.getContext('2d');
   g.clearRect(0, 0, cv.width, cv.height);
@@ -175,38 +155,60 @@ export function startRune({ slot, band, freeze, unfreeze, closeOthers }) {
     const list = shown();
     if (!list.length) { chipKey = ''; slot.replaceChildren(); slot.hidden = true; if (open) close(); return; }
     const top = list[0], state = stateOf(top);
-    // No to-do list means no percent: the ring turns slowly instead of sitting at an empty 0 (his catch, 2026-10-21).
     // The fill is the shared progress engine's (claudejobs.js liveProgress, 2026-10-21): it creeps inside the task in
     // hand and never goes back, the same number the panel's bars show.
+    // No to-do list means no percent. 2026-10-21, his ask: no spinning quarter ring any more ("I wanted the ring around
+    // it to load and fill, not spin"), so the ring is just its empty track, still, until there is a list to fill it.
     const m = state === 'complete' ? null : liveProgress(top);
-    const busy = state !== 'complete' && m.p === null;
-    const p = state === 'complete' ? 1 : busy ? 0.25 : m.p;
+    const still = state !== 'complete' && m.p === null;
+    const p = state === 'complete' ? 1 : still ? 0 : m.p;
     const pip = list.length > 1 ? String(Math.min(9, list.length)) : '';
-    const key = `${state}|${pip}|${busy}`;
+    const key = `${state}|${pip}|${still}`;
     slot.hidden = false;
     if (key !== chipKey) {            // unchanged: leave it, so its slow breathing is not restarted every message
       chipKey = key;
-      const c = chip(state, p, pip, open);
-      c.classList.toggle('busy', busy);
+      // A redraw starts the ring where it was shown, then eases on to the new value (same job; a new one starts fresh).
+      const from = top.id === ringJob && !still ? shownP : p;
+      const c = chip(state, from, pip, open);
+      c.classList.toggle('still', still);
       c.addEventListener('click', (e) => { e.stopPropagation(); if (open) close(); else openPanel(); });
       slot.replaceChildren(c);
-    } else fillRing(p);
-    ringTop = state === 'complete' || busy ? null : top.id;
+      shownP = from; c.dataset.p = String(Math.round(from * 100));
+    }
+    if (top.id !== ringJob || still) shownP = p;
+    ringJob = top.id;
+    fillRing(p);
+    ringTop = state === 'complete' || still ? null : top.id;
     // His ask (2026-10-21): while the panel is open the gold number hides ("it's obvious"), and comes back when it
     // closes. Opening only flips a class on the same rune, so the number can fade (rune.css) instead of being redrawn.
     const r = slot.firstElementChild;
     if (r) { r.classList.toggle('on', open); r.setAttribute('aria-expanded', open ? 'true' : 'false'); }
   }
 
-  /** Move the ring's fill in place, only when a whole art pixel of it would change. */
+  /**
+   * Move the ring's fill in place. 2026-10-21, his ask: the ring LOADS and FILLS, so a new value eases in over about
+   * 300 ms instead of jumping. The value itself is the engine's (it already never goes back unless Claude rewrote its
+   * list); this only smooths the drawing between values. data-p is the value being eased to.
+   */
+  let shownP = 0, ringJob = null, ease = null;
   function fillRing(p) {
     const r = slot.firstElementChild, cv = r?.querySelector('.rg');
     if (!r || !cv) return;
     const pc = String(Math.round(p * 100));
-    if (r.dataset.p === pc) return;
+    if (r.dataset.p === pc) { if (!ease && Math.abs(shownP - p) > 0.004) drawAt(r, cv, p); return; }   // already heading there
     r.dataset.p = pc;
-    ring(COL[r.dataset.state] ?? COL.working, p, 2, cv);
+    if (ease) cancelAnimationFrame(ease.raf);
+    const from = shownP, t0 = performance.now(), MS = 300;
+    if (Math.abs(p - from) < 0.004 || matchMedia('(prefers-reduced-motion: reduce)').matches) { ease = null; drawAt(r, cv, p); return; }
+    const step = (t) => {
+      const k = Math.min(1, (t - t0) / MS), e = 1 - Math.pow(1 - k, 3);      // ease-out
+      if (!cv.isConnected) { ease = null; return; }
+      drawAt(r, cv, from + (p - from) * e);
+      ease = k < 1 ? { raf: requestAnimationFrame(step) } : null;
+    };
+    ease = { raf: requestAnimationFrame(step) };
   }
+  function drawAt(r, cv, v) { shownP = v; ring(COL[r.dataset.state] ?? COL.working, v, 2, cv); }
   // The ring creeps with the job between the brain's messages: a light tick, only while a job with a % is on the rune.
   let ringTop = null;
   setInterval(() => {
