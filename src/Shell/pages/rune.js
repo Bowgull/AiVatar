@@ -4,8 +4,9 @@
 // job's progress (like a cooldown in WoW); Q, two jobs at once = ONE rune with a small gold number. Clicking it drops a
 // rounded panel (soft edges, his rule) that lists the jobs folded; each unfolds on its own into the cockpit's job card
 // (project, what it is on, %, time left, the soft pill with a notch per task, the tasks, Pause, Open in Claude, the
-// purple message key). Working is amber, needs you is blue (a little quicker), a finished job is teal with a tick and
-// stays until he says Nice. The rune is there ONLY while a job runs, waits on him, or is finished and not okayed yet.
+// purple message key). Working is amber, needs you is blue (a little quicker), a finished job is teal with a tick for a
+// few seconds, then goes by itself: "Nice" belongs only to a popped-out job (his call, 2026-10-21). The rune is there
+// ONLY while a job runs, waits on him, or has just finished.
 //
 // The brain's claude.jobs / claude.wait arrive through the Shell (browser.ts claudeNews); no brain, no rune. What this
 // page sends back is pause / play / a message / open, which the Shell checks again (claudewire.ts). Every word here is
@@ -13,6 +14,8 @@
 import { pill, animate, anims, SEA, SLATE, MSG, CL, readJob, curIndex, boundsOf, pctOf, leftOf, onOf, h, btn } from './claudejobs.js';
 
 // His final colours (sheets 49/50, the same as the marks over Aang's head, src/Body/ClaudeMarks.cs).
+/** How long a finished job stays teal on the rune before it goes (the cockpit's strip uses the same ~4 s). */
+const DONE_MS = 4000;
 const COL = { working: '#f0a64a', needs: '#7cc4ff', complete: '#3fc4b4', paused: '#6f7787' };
 const rgb = (x) => [1, 3, 5].map((i) => parseInt(x.slice(i, i + 2), 16));
 const mix = (x, t, k) => `rgb(${rgb(x).map((v, i) => Math.round(v + (t[i] - v) * k)).join(',')})`;
@@ -147,10 +150,7 @@ export function startRune({ slot, band, freeze, unfreeze, closeOthers }) {
       const n = j.tasks.length;
       words.append(h('b', '', 'JOB COMPLETE'), h('small', '', `${j.project}${n ? ` · all ${n} task${n > 1 ? 's' : ''}` : ''}`));
       big.append(doneTick(COL.complete, 3), words);
-      const keys = h('div', 'ckeys'), nice = btn('key primary sm', 'Nice', 'Seen it: take it off the rune');
-      nice.dataset.act = 'nice';
-      nice.addEventListener('click', (e) => { e.stopPropagation(); done.delete(j.id); unfolded.delete(j.id); paint(); });
-      keys.append(nice);
+      const keys = h('div', 'ckeys');
       if (j.open) { const op = btn('key sm', 'Open in Claude'); op.addEventListener('click', (e) => { e.stopPropagation(); aang.browserOpenClaude?.(j.open); }); keys.append(op); }
       keys.style.marginTop = '12px';
       d.append(big, keys);
@@ -271,8 +271,13 @@ export function startRune({ slot, band, freeze, unfreeze, closeOthers }) {
     jobs = (Array.isArray(s.jobs) ? s.jobs : []).slice(0, 50).map(readJob).filter(Boolean);
     waits = (Array.isArray(s.waits) ? s.waits : []).filter((w) => w && typeof w.session === 'string').map((w) => ({ session: w.session, kind: String(w.kind ?? '') }));
     for (const j of jobs) {
-      // A job seen working here that now has every task ticked has finished: it stays (teal) until he says Nice.
-      if (ranBefore.has(j.id) && allDone(j) && j.phase !== 'working') { done.set(j.id, j); ranBefore.delete(j.id); }
+      // A job seen working here that now has every task ticked has finished: teal for DONE_MS, then off the rune by itself,
+      // the same as the cockpit's strip.
+      if (ranBefore.has(j.id) && allDone(j) && j.phase !== 'working') {
+        done.set(j.id, j); ranBefore.delete(j.id);
+        const id = j.id;
+        setTimeout(() => { if (done.delete(id)) { unfolded.delete(id); paint(); } }, DONE_MS);
+      }
       else if (j.phase === 'working' || j.phase === 'paused' || waitOf(j)) { ranBefore.add(j.id); if (done.has(j.id) && !allDone(j)) done.delete(j.id); }
       if (done.has(j.id)) done.set(j.id, j);
     }
