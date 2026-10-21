@@ -77,7 +77,8 @@ app.whenReady().then(async () => {
   const px = (rgb: string) => js(`(() => { const c = document.querySelector('#runeslot .rn'), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0;
     for (let i = 0; i < d.length; i += 4) if (d[i + 3] && [d[i], d[i + 1], d[i + 2]].join() === '${rgb}') n++; return n; })()`);
   const sun = await px('217,119,87'), cream = await px('240,227,200');
-  check("the glyph is Claude's terracotta starburst on cream", sun >= 200 && cream >= 200, `${sun} terracotta, ${cream} cream screen px`);
+  // Thin rays with cream between them (the coordinator's look, 2026-10-21): about 44 art pixels of terracotta, no more.
+  check("the glyph is Claude's terracotta starburst on cream", sun >= 150 && sun <= 220 && cream >= 400, `${sun} terracotta, ${cream} cream screen px`);
 
   // 3. Two jobs: ONE rune with a gold 2.
   const two = () => [job(S1, 'Waymark', 'working', tasks(3, W1), 62, 38 * 60_000), job(S2, 'Samara', 'working', tasks(1, W2), 15, 50 * 60_000)];

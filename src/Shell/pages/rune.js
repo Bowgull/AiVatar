@@ -22,68 +22,74 @@ const mix = (x, t, k) => `rgb(${rgb(x).map((v, i) => Math.round(v + (t[i] - v) *
 
 /* ---- the rune, the ring and the job-done tick (first drawn in docs/cockpit/sheet-50/marks.js) ---- */
 // His ask (2026-10-21): the rune should look like the Claude logo, "the taskbar icon isn't a bad place to start". So the
-// stone is now the app icon's cream (a worn, rounded tablet with a lit top-left edge, a shaded bottom-right and a few
-// specks, so it is still a RuneScape-ish rune stone) and the glyph is Claude's own terracotta starburst: twelve uneven
-// rays round a solid hub, hand-placed at the angles the real icon's rays sit at (pages/art/claude-icon.png, measured:
-// 11, 43, 81, 103, 131, 148, 182, 212, 235, 271, 306, 334 degrees). It no longer takes the job's colour: the ring round
-// it carries the state (amber, blue, teal, slate), so the mark always reads as Claude. A finished job turns the glyph
-// into a teal tick; a paused one greys the starburst. 15 x 15 art pixels, 2 screen px each (the band's art scale).
+// stone is the app icon's cream (a rounded tablet with a lit top-left edge and a shaded bottom-right, so it is still a
+// RuneScape-ish rune stone, but a clean face: specks made the mark noisy) and the glyph is Claude's own terracotta
+// starburst, drawn the way the real mark is built (pages/art/claude-icon.png): THIN separate rays with cream between
+// them, round a SMALL centre, a little uneven in length and angle. At this size eight rays read; more ran together.
+// Each ray is one pixel wide and touches the 3 x 3 centre on its own cell, so no two rays merge; slanted ones are
+// clean one-pixel staircases. The glyph no longer takes the job's colour: the ring carries the state (amber, blue,
+// teal, slate), so the mark always reads as Claude. A finished job turns it into a teal tick; a paused one greys it.
+// 17 x 17 art pixels, 2 screen px each (the band's art scale); the band keeps its height.
 const STONE = [
-  '...OOOOOOOOO...',
-  '..OHHHHHHHHHO..',
-  '.OHHLLLLLLLLSO.',
-  'OHHLLLLLLLLLLSO',
-  'OHLLLLLLLLLLLSO',
-  'OHLLLLLLLLLLLSO',
-  'OHLLLLLLLLLLLSO',
-  'OHLLLLLLLLLLLSO',
-  'OHLLLLLLLLLLLSO',
-  'OLLLLLLLLLLLLSO',
-  'OLLLLLLLLLLLSSO',
-  'OSLLLLLLLLLLSSO',
-  '.OSLLLLLLLLSSO.',
-  '..OSSSSSSSSSO..',
-  '...OOOOOOOOO...'];
-const SPECK = [[3, 11], [11, 3], [12, 12], [2, 7], [9, 13]];
+  '....OOOOOOOOO....',
+  '..OOHHHHHHHHHOO..',
+  '.OHHLLLLLLLLLLSO.',
+  '.OHLLLLLLLLLLLSO.',
+  'OHLLLLLLLLLLLLLSO',
+  'OHLLLLLLLLLLLLLSO',
+  'OHLLLLLLLLLLLLLSO',
+  'OHLLLLLLLLLLLLLSO',
+  'OHLLLLLLLLLLLLLSO',
+  'OHLLLLLLLLLLLLLSO',
+  'OHLLLLLLLLLLLLLSO',
+  'OHLLLLLLLLLLLLLSO',
+  'OHLLLLLLLLLLLLLSO',
+  '.OLLLLLLLLLLLLSO.',
+  '.OSLLLLLLLLLLSSO.',
+  '..OOSSSSSSSSSOO..',
+  '....OOOOOOOOO....'];
 const GLYPH = [
-  '...G...G.....',
-  '...G...G.....',
-  '....G..G..G..',
-  '.G..G.G..G...',
-  '..GG.GG.G.GGG',
-  '....GGGGGG...',
-  'GGGGGGGGG....',
-  '....GGGGGGG..',
-  '..GG.GGGG..GG',
-  '.G..G.GG.G...',
-  '....G.G.G.G..',
-  '...G..G.G....',
-  '......G......'];
+  '...............',
+  '........G......',
+  '..G.....G......',
+  '...G....G...G..',
+  '....G..G..GG...',
+  '.....G.G.G.....',
+  '......GGG...GG.',
+  '....GGGGGGGG...',
+  '.GGG..GGG......',
+  '.....G.G.G.....',
+  '.....G.G..G....',
+  '....G...G..G...',
+  '....G...G......',
+  '........G......',
+  '...............'];
 // The finished tick, two pixels thick so it reads as clearly as the starburst it replaces; E is its darker underside.
 const TICK = [
-  '.............',
-  '.............',
-  '.............',
-  '..........GG.',
-  '.........GGE.',
-  '........GGE..',
-  '.GG....GGE...',
-  '.EGG..GGE....',
-  '..EGGGGE.....',
-  '...EGGE......',
-  '....EE.......',
-  '.............',
-  '.............'];
+  '...............',
+  '...............',
+  '...............',
+  '............GG.',
+  '...........GGE.',
+  '..........GGE..',
+  '.........GGE...',
+  '..GG....GGE....',
+  '..EGG..GGE.....',
+  '...EGGGGE......',
+  '....EGGE.......',
+  '.....EE........',
+  '...............',
+  '...............',
+  '...............'];
 const STONE_COL = { O: '#2a1a10', H: '#fbf3e4', L: '#f0e3c8', S: '#cdb48c' };
 /** Claude's terracotta, read off the real app icon (pages/art/claude-icon.png). */
 const CLAUDE = '#d97757';
 function rune(col, px = 2, glyph = 'sun', paused = false) {
-  const n = 15, cv = Object.assign(document.createElement('canvas'), { width: (n + 1) * px, height: (n + 1) * px, className: 'rn' });
+  const n = 17, cv = Object.assign(document.createElement('canvas'), { width: (n + 1) * px, height: (n + 1) * px, className: 'rn' });
   const g = cv.getContext('2d'), P = (x, y, c) => { g.fillStyle = c; g.fillRect(x * px, y * px, px, px); };
   g.fillStyle = 'rgba(0,0,0,.4)';
   STONE.forEach((r, y) => [...r].forEach((ch, x) => { if (ch !== '.') g.fillRect((x + 1) * px, (y + 1) * px, px, px); }));
   STONE.forEach((r, y) => [...r].forEach((ch, x) => { if (ch !== '.') P(x, y, STONE_COL[ch]); }));
-  for (const [x, y] of SPECK) P(x, y, '#e2d2b2');
   const G = glyph === 'tick' ? TICK : GLYPH;
   const fill = glyph === 'tick' ? { G: col, E: mix(col, [20, 40, 40], 0.45) } : { G: paused ? mix(CLAUDE, rgb(COL.paused), 0.65) : CLAUDE };
   G.forEach((r, y) => [...r].forEach((ch, x) => { if (fill[ch]) P(x + 1, y + 1, fill[ch]); }));
@@ -91,7 +97,7 @@ function rune(col, px = 2, glyph = 'sun', paused = false) {
 }
 // The thin pixel ring for take B: whole art pixels on a circle round the stone, lit up to the job's progress.
 function ring(col, p, px = 2) {
-  const n = 21, c = (n - 1) / 2, R = 9.6;
+  const n = 23, c = (n - 1) / 2, R = 10.6;
   const cv = Object.assign(document.createElement('canvas'), { width: n * px, height: n * px, className: 'rg' });
   const g = cv.getContext('2d');
   for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
