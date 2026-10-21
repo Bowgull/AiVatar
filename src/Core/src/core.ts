@@ -60,6 +60,8 @@ import { BrowserSyncHub } from './bsynchub.ts';
 import { APEX_STEAM, Feeds, apexMap, channelOf, parseSteamFeed, parseYouTubeFeed, type Creator } from './feeds.ts';
 import { clock as videoClock, diagnose, readVideo, siteOf as siteOfVideo, videoUrl, type Diagnosis, type VideoRead } from './watchvideo.ts';
 import { HookServer, HookTracker, isLoopback } from './hooks.ts';
+import { JobTracker, LinkDoor, clearLinkKey, newLinkKey } from './claudelink.ts';
+import type { Answer as LinkAnswer } from './claudelink.ts';
 import { Reminders } from './reminders.ts';
 import { SessionStore } from './sessions.ts';
 import { ActivityLog, describe } from './activity.ts';
@@ -2091,6 +2093,25 @@ export class Core {
     });
   }
   readonly hooks = new HookTracker();
+  /**
+   * C2 (2026-10-21): every Claude Code session the aang-link mod reports - its to-do list, progress and model - and
+   * what each is waiting on him for. list() and waiting() read it; answer(), send(), pause(), play() and setModel()
+   * act on it. The Shell is told of every change (claude.jobs / claude.wait) and answers with the claude.* messages.
+   */
+  readonly claudeJobs = new JobTracker();
+  private claudePushTimer: NodeJS.Timeout | null = null;
+  private claudePushWhat = new Set<'jobs' | 'wait'>();
+  /** Coalesced: a burst of to-do updates is one message, not twenty. The waiting queue goes at once. */
+  private pushClaudeLink(what: 'jobs' | 'wait'): void {
+    if (what === 'wait') { this.sendTo('desktop', { t: 'claude.wait', items: this.claudeJobs.waiting() }); return; }
+    this.claudePushWhat.add(what);
+    if (this.claudePushTimer) return;
+    this.claudePushTimer = setTimeout(() => {
+      this.claudePushTimer = null; this.claudePushWhat.clear();
+      this.sendTo('desktop', { t: 'claude.jobs', jobs: this.claudeJobs.list() });
+    }, 150);
+    this.claudePushTimer.unref?.();
+  }
   /** The program in front, as the pet last said (its process name). Kept whether or not he lets Aang watch windows. */
   private fgProcess = '';
   /** He is looking at the Claude app on this PC: it already shows him its own news, so Aang does not repeat it (his call, 2026-10-12). */
@@ -2457,6 +2478,10 @@ export class Core {
     }, this.keyFile('hook.key'), code => this.setupFor(code),
     // M2: the MacBook's "is Shadow on?" (one Aang across both machines). Up, and whether he is at this PC.
     () => ({ up: true, atDesk: this.atDesk && this.clientsOf('desktop').length > 0 }));
+    // C1 (2026-10-21): the aang-link mod's doors, locked with a key made fresh for this run (claudelink.ts).
+    const linkKey = newLinkKey(this.cfg.dataDir);
+    if (linkKey) this.hookServer.link = new LinkDoor(linkKey, this.claudeJobs, () => this.selfCwd());
+    this.claudeJobs.onChange = what => this.pushClaudeLink(what);
     // M6: the Mac's browser syncs with this PC's through here (bsynchub.ts).
     this.hookServer.upgrade = (req, socket, head) => this.bsync.upgrade(req, socket, head);
     // His yes (2026-10-13): Claude may look at the Mac browser's window. Saved in the Aang folder, on this PC only.
@@ -2573,6 +2598,8 @@ export class Core {
   async stop(): Promise<void> {
     // A stale password must not outlive the Core that issued it.
     clearToken(this.cfg.stateDir);
+    clearLinkKey(this.cfg.dataDir);
+    this.claudeJobs.close();
     // A turn still active when the Core is asked to stop had a live TURN_TIMEOUT_MS watchdog with nothing
     // ever clearing it (found 2026-09-24, diagnosing a stalled test: the timer is now unref'd so it can never
     // block process exit on its own, but it should also just not fire at all against a Core that is gone).
@@ -3065,6 +3092,7 @@ export class Core {
         if (this.kindOfSocket(ws) === 'desktop') this.send(ws, { t: 'claude.working', ...this.workingNow() });
         if (m.shell === true) this.send(ws, { t: 'timer.state', timers: this.timers.list() });
         if (m.shell === true) this.send(ws, { t: 'notes.state', notes: this.notes.list() });
+        if (m.shell === true) { this.send(ws, { t: 'claude.jobs', jobs: this.claudeJobs.list() }); this.send(ws, { t: 'claude.wait', items: this.claudeJobs.waiting() }); }
         break;
       }
       case 'timer.start': {
@@ -3200,6 +3228,25 @@ export class Core {
         break;
       }
       case 'claude.front': void this.frontOnMac(); break;
+      // C2 (2026-10-21): his answers and his messages to Claude sessions. Only the Shell (his own bubble on this PC)
+      // may send these: an approval must be his press, never Discord's or anything else's. A refusal comes back as
+      // claude.said with the plain reason, so a button that did nothing says why.
+      case 'claude.answer': case 'claude.send': case 'claude.pause': case 'claude.play': case 'claude.model': {
+        if (!this.shells.has(ws)) break;
+        const s = String((m as { session?: unknown }).session ?? '');
+        let why: string | null;
+        if (m.t === 'claude.answer') {
+          const a: LinkAnswer = m.answers && typeof m.answers === 'object'
+            ? { answers: Object.fromEntries(Object.entries(m.answers).map(([k, v]) => [String(k), String(v)])) }
+            : { decision: m.decision ?? 'deny', ...(typeof m.message === 'string' ? { message: m.message } : {}) };
+          why = this.claudeJobs.answer(String(m.id ?? ''), a);
+        } else if (m.t === 'claude.send') why = this.claudeJobs.send(s, String(m.text ?? ''), m.when === 'after' ? 'after' : 'now');
+        else if (m.t === 'claude.pause') why = this.claudeJobs.pause(s);
+        else if (m.t === 'claude.play') why = this.claudeJobs.play(s, typeof m.text === 'string' ? m.text : undefined);
+        else why = this.claudeJobs.setModel(s, String(m.model ?? ''));
+        this.send(ws, { t: 'claude.said', of: m.t, ok: why === null, ...(why ? { why } : {}) });
+        break;
+      }
       // 9.D D7: a video from #capture, watched and diagnosed; an idea for Aang's plan.
       case 'video.watch': {
         const id = String(m.id ?? '').slice(0, 40), url = videoUrl(String(m.url ?? ''));

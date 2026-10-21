@@ -1,0 +1,8 @@
+{
+  "name": "aang-link",
+  "version": "0.1.0",
+  "description": "Links every Claude Code session on this PC to Aang: progress, to-dos, permissions, questions, messages, pause and play.",
+  "author": {
+    "name": "Joshua Bocas"
+  }
+}

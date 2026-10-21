@@ -77,3 +77,58 @@ skull), `sheet-47-mockups-trail.html` (Samara's Mockups trail). Sounds: `sounds-
 
 Every step: tests for what was built only (his test budget), commit and push, a whats-new line, the Mac through the
 UPDATE key with the one-line warning first.
+
+## C1/C2 wire format (built 2026-10-21)
+
+**The mod** is `claude-link/` (name `aang-link`), loaded into every Claude Code session on this PC through
+`CLAUDE_CODE_PLUGIN_DIRS` in the `env` block of `~/.claude/settings.json`. The brain's side is
+`src/Core/src/claudelink.ts` (JobTracker, LinkDoor) on the HookServer (127.0.0.1:47832, loopback only, no Origin,
+this machine's Host name). PC only; the Mac is not linked yet.
+
+What the mod can and cannot do (checked against the 2.1.299 types and binary):
+- Reports: session id, folder, model, turn start/end, usage after each turn (context %, rate limits, cost), and the
+  to-do list from TodoWrite and TaskCreate/TaskUpdate/TaskList (main loop only).
+- Permissions, questions, plans: a `classic.PermissionRequest` hook. Claude Code runs those hooks *beside* its own
+  dialog (terminal and desktop app alike), so the dialog is never hidden or delayed; whichever he answers first wins.
+  An answer in Claude's own dialog takes Aang's card down when that tool call ends (there is no earlier signal).
+  Not raised for the few "person only" safety checks: those stay in Claude only.
+- A plugin cannot press Claude's dialog (`ui.press` never reaches it: the engine draws the permission dialog alone).
+- Messages: mid-turn `$.session.append` (Claude reads it at its next step; not shown as a typed prompt), idle
+  `$.prompt.submit`. Pause = `$.turn.abort`. Play = a short prompt. Model = `$.command.run('/model <name>')`.
+
+**The lock.** The brain writes a fresh key each run to `link.key` in his Aang folder (`C:\Users\Shadow\Documents\Aang`,
+git-ignored, deleted on a clean stop). Every mod request carries `x-aang-link-ts` (ms) and
+`x-aang-link-sig = HMAC-SHA256(key, "req\n" + ts + "\n" + METHOD + "\n" + path?query + "\n" + body)` (hex; within
+2 minutes). Before sending anything the mod asks `GET /link/hello?n=<nonce>` and needs
+`{ proof: HMAC(key, "hello\n" + nonce) }`. Every item handed back carries
+`mac = HMAC(key, nonce + "\n" + session + "\n" + id + "\n" + kind + "\n" + body)` for the nonce of that same poll;
+the mod acts on nothing else. The mod builds HMAC from `crypto.subtle.digest` (its only WebCrypto).
+
+**Mod -> brain** `POST /link/event`, body `{ session, cwd, model?, type, ... }`, answered 204:
+- `start`; `turn.start { prompt }`; `turn.end { aborted, usage: { contextPercent?, rateLimits[{ kind, percentUsed,
+  resetsAt? }], costUsd? } }`; `todos { todos: [{ text, status: pending|in_progress|completed, active? }] }`;
+  `model`; `end { reason }`
+- `ask { id, kind: permission|question|plan, tool, summary, input (exact JSON, 2000 chars), canAlways, questions?, plan? }`
+- `resolved { id }` (answered in Claude itself)
+
+**Brain -> mod** (long polls, held up to 25 s, answer `{ items: [{ id, kind, body, mac }] }`, `body` a JSON string):
+- `GET /link/wait?s=<session>&n=<nonce>`: `inbox { text }`, `pause {}`, `play { text? }`, `model { model }`
+- `GET /link/answer?s=<session>&r=<ask id>&n=<nonce>`: `answer { decision: allow|always|deny|deny-message, message? }`
+  or `answer { answers: { "<question text>": "<label(s) or his words>" } }`, or `gone {}` (no longer waiting)
+
+**Brain -> Shell** (`ToBody`):
+- `{ t: 'claude.jobs', jobs: Job[] }`, newest activity first. Job = `{ id, machine: 'pc', cwd, project, model,
+  phase: working|idle|paused|ended, startedAt, lastActivity, prompt, tasks: [{ text, status, active? }],
+  current, percent (0-100|null), etaMs (|null), usage, open: 'claude://claude.ai/epitaxy/<id>', held }`
+- `{ t: 'claude.wait', items: WaitItem[] }`, permission > question > plan, oldest first. WaitItem = `{ id, session,
+  project, kind, tool, summary, input, questions?, plan?, canAlways, at }`
+- `{ t: 'claude.said', of, ok, why? }`: whether his last claude.* message was taken, and the plain reason if not.
+
+**Shell -> brain** (`FromBody`, accepted from the Shell only):
+- `{ t: 'claude.answer', id, decision?, message?, answers? }`
+- `{ t: 'claude.send', session, text, when: 'now' | 'after' }` (after = held until the task in progress is ticked;
+  with no to-do list, until the turn ends)
+- `{ t: 'claude.pause', session }`, `{ t: 'claude.play', session, text? }`, `{ t: 'claude.model', session, model }`
+
+In the brain: `core.claudeJobs.list()`, `.waiting()`, `.answer(id, a)`, `.send(session, text, when)`, `.pause()`,
+`.play()`, `.setModel()`. Not built here: the fast-model translation both ways, tracked jobs, quota per job.
