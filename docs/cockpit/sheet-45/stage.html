@@ -1,0 +1,435 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>45 stage</title>
+<!-- Sheet 45 (2026-10-21): Aang and Claude, both ways. Built on sheet 41's stage: his real idle/talk frames, the real
+     balloon (balloon.js), the real speaker row (bubble.css .speaker.claude, Claude's own 9x9 pixel mark from bubble.js),
+     the real Lantern classes, the typing box's own look, and the pet's real quest marks (PetWindow.cs IconNeeds,
+     IconDoneTick, IconNews, PixelIcon shading). ?show=<view> opens straight on one moment for the sheet. -->
+<link rel="stylesheet" href="../../../src/Shell/pages/cockpit.css">
+<link rel="stylesheet" href="../../../src/Shell/pages/bubble.css">
+<style>
+  html,body{margin:0;background:transparent!important;overflow:hidden!important;height:auto!important;width:auto!important;display:block!important}
+  body{pointer-events:auto!important;padding:0!important;border:0!important;box-shadow:none!important}
+  html::before,html::after,body::before,body::after{display:none!important}
+  .desk{position:relative;width:1180px;height:640px;border-radius:10px;overflow:hidden;
+    background:radial-gradient(90% 70% at 30% 20%,#2a2238,#120c1a 70%),#120c1a}
+  .desk::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(0deg,rgba(255,255,255,.012) 0 2px,transparent 2px 4px);pointer-events:none}
+  #aang{position:absolute;right:30px;bottom:6px;width:224px;height:224px;image-rendering:pixelated;cursor:pointer}
+  #wrap{position:absolute;right:220px;bottom:150px;margin:0;pointer-events:auto}
+  #skin{position:absolute;left:0;top:0;overflow:visible;pointer-events:none}
+  #bubble{position:relative;box-sizing:border-box;overflow:hidden;width:256px;transition:width .26s cubic-bezier(.3,.7,.2,1),height .26s cubic-bezier(.3,.7,.2,1)}
+  #bubble.lantern{color:#ecdcbc}
+  #fill{transition:opacity .14s ease}
+  #fill.out{opacity:0}
+  .still #bubble,.still #fill{transition:none!important}
+  #measure{position:absolute;left:-5000px;top:0;visibility:hidden}
+  .said{margin:0;font:600 15px/1.55 var(--body);color:#21160a}
+  .said+.said{margin-top:6px}
+  .key.press{transform:translateY(var(--lip));box-shadow:0 0 0 var(--outline)!important}
+  .key.plum{background:linear-gradient(180deg,var(--plum),var(--plum-deep));color:#f3eaff}
+  .keys{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
+
+  /* ---- the speaker row, as built, with the session's name as a Claude link, and the mark itself a door ---- */
+  .speaker{margin-bottom:7px}
+  .speaker .door{all:unset;cursor:pointer;display:grid;place-items:center;width:24px;height:24px;margin:-3px -3px -3px -3px;border-radius:6px;transition:background .15s,box-shadow .15s}
+  .speaker .door:hover{background:rgba(224,122,79,.18);box-shadow:0 0 0 2px rgba(224,122,79,.55)}
+  .speaker .door svg{width:18px;height:18px}
+  .speaker .sess{font:700 12.5px var(--body);letter-spacing:0;color:#8a3e1c;text-transform:none}
+  .speaker .waited{margin-left:auto;font:400 8px var(--label);letter-spacing:1px;color:#8f7458}
+  .tip{position:absolute;z-index:9;font:400 8px var(--label);letter-spacing:1px;color:#ffe9c8;background:#2a1a10;border:2px solid #120A05;border-radius:5px;padding:4px 6px 3px;white-space:nowrap;pointer-events:none;opacity:0;transform:translateY(4px);transition:opacity .15s,transform .15s}
+  .speaker .door:hover+.tip{opacity:1;transform:none}
+
+  /* ---- a Claude link in Aang's words: Claude's mark in front, terracotta ink, opens that session ---- */
+  .clink{color:#8a3e1c;font-weight:700;text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:3px;text-decoration-color:rgba(224,122,79,.6);cursor:pointer;border-radius:4px;padding:0 2px;white-space:nowrap}
+  .clink:hover{background:rgba(224,122,79,.22);text-decoration-color:#8a3e1c}
+  .clink svg{width:14px;height:14px;vertical-align:-2px;margin-right:4px}
+  .lantern .clink{color:#ffb08a;text-decoration-color:rgba(255,176,138,.5)}
+
+  /* ---- Claude's own words, one click away, in a carved slot ---- */
+  .cw{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:5px;margin-top:9px;font:400 8px var(--label);letter-spacing:1.5px;color:#8f7458}
+  .cw:hover{color:#8a3e1c}
+  .cw i{width:0;height:0;border:4px solid transparent;border-left:5px solid currentColor;border-right:0;transition:transform .15s}
+  .cw.on i{transform:rotate(90deg)}
+  .cwbox{margin:6px 0 0;padding:7px 9px;border-radius:6px;font:500 11.5px/1.45 Consolas,monospace;color:#3a2a18;background:rgba(120,80,30,.13);box-shadow:inset 0 2px 0 rgba(0,0,0,.12);white-space:pre-wrap;word-break:break-word}
+  .cwbox[hidden]{display:none}
+
+  /* ---- "2 more waiting": a small wooden tab hanging under the bubble ---- */
+  #more{position:absolute;right:250px;bottom:118px;display:flex;align-items:center;gap:7px;cursor:pointer;opacity:0;transform:translateY(-6px);transition:opacity .2s,transform .2s;
+    font:400 9px var(--label);letter-spacing:1.5px;color:#ffe28c;padding:6px 10px 5px;border-radius:0 0 8px 8px;border:2px solid #120A05;border-top:0;
+    background:linear-gradient(rgba(0,0,0,.35),rgba(0,0,0,.45)),url(../../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;box-shadow:0 3px 0 #0d0703}
+  #more.on{opacity:1;transform:none}
+  #more:hover{color:#fff}
+  #more .pips{display:flex;gap:3px}
+  #more .pips canvas{image-rendering:pixelated}
+
+  /* ---- the list of waiting sessions, in the Lantern ---- */
+  .wl-row{display:flex;align-items:center;gap:10px;padding:8px 8px;border-radius:8px;cursor:pointer;transition:background .15s}
+  .wl-row:hover{background:rgba(255,196,60,.12)}
+  .wl-row.top{box-shadow:inset 3px 0 0 var(--gold)}
+  .wl-row .tile{flex:none;width:34px;height:34px;display:grid;place-items:center;border-radius:8px;background:rgba(0,0,0,.28);box-shadow:inset 0 2px 0 rgba(0,0,0,.4)}
+  .wl-row canvas{image-rendering:pixelated}
+  .wl-row .tx{flex:1;min-width:0}
+  .wl-row .tx b{display:block;font:700 13.5px var(--body);color:#f2e3c2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .wl-row .tx span{display:flex;align-items:center;gap:6px;font:500 12px var(--body);color:#c9b48e}
+  .wl-row .tx span svg{width:12px;height:12px}
+  .wl-row .mc{font:400 7.5px var(--label);letter-spacing:1px;color:#e8c9a0;border:1.5px solid rgba(232,201,160,.45);border-radius:4px;padding:2px 4px 1px}
+  .wl-row .mc.mac{color:#cdb4ff;border-color:rgba(205,180,255,.5)}
+  .wl-row .w{font:400 8px var(--label);letter-spacing:1px;color:#a98e6a}
+  .wl-h{font:400 8px var(--label);letter-spacing:2px;color:#a98e6a;margin:8px 4px 2px}
+
+  /* ---- progress: the pixel bar (gold segments in a carved slot), the build-xp bars made of wood ---- */
+  .xp{display:flex;align-items:center;gap:8px;margin:5px 0}
+  .xp .lb{flex:none;width:62px;font:400 8px var(--label);letter-spacing:1.5px;color:#8f7458}
+  .lantern .xp .lb{color:#c9b48e}
+  .xp .pct{flex:none;width:34px;text-align:right;font:400 10px var(--label);color:#3a2a18}
+  .lantern .xp .pct{color:#ffe28c}
+  .pbar{flex:1;height:14px;display:grid;grid-template-columns:repeat(20,1fr);gap:2px;padding:2px;border-radius:4px;background:#2a1a10;box-shadow:inset 0 2px 0 rgba(0,0,0,.6),0 1px 0 rgba(255,220,170,.25)}
+  .pbar i{border-radius:1px;background:#3d2a1a}
+  .pbar i.f{background:linear-gradient(180deg,#ffe28c 0 30%,#FFC43C 30% 75%,#C98C14 75%)}
+  .pbar i.f.last{animation:seg 1.2s steps(2) infinite}
+  @keyframes seg{50%{filter:brightness(1.35)}}
+  .pbar.claude i.f{background:linear-gradient(180deg,#ffd0bc 0 30%,#E88A6A 30% 75%,#b0573a 75%)}
+  .pbar.done i.f{background:linear-gradient(180deg,#9FF0E6 0 30%,#3FBFAE 30% 75%,#1F8C7E 75%)}
+  .xp .left{font:500 11.5px var(--body);color:#6b5236}
+  .lantern .xp .left{color:#c9b48e}
+  .xp-line{display:flex;align-items:center;gap:9px}
+  .xp-line .pbar{height:12px}
+  .stepname{font:700 13px var(--body);color:#21160a}
+  .lantern .stepname{color:#f2e3c2}
+  .more3{all:unset;cursor:pointer;margin-left:auto;font:700 13px var(--body);color:#8f7458;padding:0 6px;border-radius:5px}
+  .more3:hover{background:rgba(120,80,30,.15);color:#3a2a18}
+  .smenu{margin-top:8px;display:flex;gap:6px;flex-wrap:wrap}
+
+  /* the pet's nameplate bar: an RPG health-bar under a working Claude job's mark, over his head */
+  #plate{position:absolute;right:62px;bottom:236px;display:none;flex-direction:column;align-items:center;gap:4px;pointer-events:auto;cursor:pointer}
+  #plate.on{display:flex}
+  #plate .nm{font:400 8px var(--label);letter-spacing:1.5px;color:#ffe28c;text-shadow:1px 1px 0 #000,0 0 6px rgba(0,0,0,.8);opacity:0;transition:opacity .2s}
+  #plate:hover .nm{opacity:1}
+  #plate .pbar{width:112px;flex:none;height:10px;grid-template-columns:repeat(14,1fr);box-shadow:0 0 0 2px #120A05,inset 0 2px 0 rgba(0,0,0,.6),0 3px 0 rgba(0,0,0,.4)}
+  #marker{position:absolute;right:112px;bottom:238px;image-rendering:pixelated;pointer-events:none;display:none}
+  #marker.on{display:block}
+
+  /* Samara's band, with Claude's chip at its right end */
+  #band{position:absolute;left:24px;right:24px;top:22px;height:50px;display:none;align-items:center;gap:8px;padding:0 12px;border:3px solid #120A05;border-radius:10px;
+    background:url(../../../src/Shell/pages/art/browser/band.png) 0 0/128px 58px;image-rendering:pixelated}
+  #band.on{display:flex}
+  #band .rnd{width:26px;height:26px;border-radius:6px;background:linear-gradient(180deg,#4A2C6E,#331d52);border:2px solid #120A05}
+  #band .slotx{flex:1;height:28px;border-radius:7px;background:#0B0718;border:2px solid #120A05;color:#e6dcc8;font:500 12.5px var(--body);display:flex;align-items:center;padding:0 10px}
+  #band .cchip{display:flex;align-items:center;gap:8px;height:28px;padding:0 10px;border-radius:7px;cursor:pointer;background:#0B0718;border:2px solid #120A05;box-shadow:inset 0 0 0 1px rgba(224,122,79,.4)}
+  #band .cchip:hover{box-shadow:inset 0 0 0 1px #E07A4F,0 0 10px rgba(224,122,79,.45)}
+  #band .cchip svg{width:14px;height:14px}
+  #band .cchip b{font:400 9px var(--label);letter-spacing:1px;color:#ffd0bc}
+  #band .cchip .pbar{width:84px;flex:none;height:10px;grid-template-columns:repeat(12,1fr);background:#1d1430}
+  #band .peek{position:absolute;right:12px;top:54px;width:300px;padding:12px;border-radius:9px;border:3px solid #120A05;opacity:0;transform:translateY(-4px);transition:opacity .2s,transform .2s;pointer-events:none;
+    background:linear-gradient(rgba(0,0,0,.35),rgba(0,0,0,.45)),url(../../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;box-shadow:0 8px 18px rgba(0,0,0,.5)}
+  #band .cchip:hover+.peek,#band.peeking .peek{opacity:1;transform:none}
+  #band .peek .xp .lb{color:#c9b48e}#band .peek .xp .pct{color:#ffe28c}#band .peek .stepname{color:#f2e3c2}#band .peek .xp .left{color:#c9b48e}
+
+  /* ---- quest complete: a gold ribbon drops in over the bubble, the bar fills, a few pixel sparkles ---- */
+  #quest{position:absolute;right:250px;bottom:0;width:360px;height:0;pointer-events:none}
+  #quest .rib{position:absolute;left:50%;top:-40px;transform:translate(-50%,-30px) scale(.6);opacity:0;padding:8px 22px 7px;font:400 12px var(--label);letter-spacing:3px;color:#2a1c00;white-space:nowrap;
+    background:linear-gradient(180deg,#ffe9a8,#FFC43C 55%,#C98C14);border:3px solid #120A05;border-radius:4px;box-shadow:0 4px 0 #120A05,0 0 24px rgba(255,196,60,.7)}
+  #quest .rib::before,#quest .rib::after{content:"";position:absolute;top:6px;width:16px;height:100%;background:#C98C14;border:3px solid #120A05;z-index:-1}
+  #quest .rib::before{left:-14px;clip-path:polygon(0 0,100% 0,100% 100%,0 100%,40% 50%)}
+  #quest .rib::after{right:-14px;clip-path:polygon(0 0,100% 0,60% 50%,100% 100%,0 100%)}
+  #quest.go .rib{animation:rib 2.6s cubic-bezier(.2,1.4,.4,1) forwards}
+  @keyframes rib{0%{opacity:0;transform:translate(-50%,-30px) scale(.6)}14%{opacity:1;transform:translate(-50%,0) scale(1)}80%{opacity:1;transform:translate(-50%,0) scale(1)}100%{opacity:0;transform:translate(-50%,-10px) scale(.95)}}
+  #quest .sp{position:absolute;width:6px;height:6px;background:#ffe28c;box-shadow:0 0 6px #FFC43C;opacity:0}
+  #quest.go .sp{animation:spk 1.4s ease-out forwards}
+  @keyframes spk{0%{opacity:0;transform:translate(0,0) scale(.4)}20%{opacity:1}100%{opacity:0;transform:translate(var(--dx),var(--dy)) scale(1)}}
+
+  /* ---- the typing box (input.css look), with a chip that says where the words go ---- */
+  #tb{position:absolute;right:230px;bottom:22px;width:440px;opacity:0;transform:translateY(8px);transition:opacity .16s,transform .16s;pointer-events:none}
+  #tb.on{opacity:1;transform:none;pointer-events:auto}
+  #tb .pinned{display:flex;gap:7px;padding:0 0 7px}
+  #tb .pinchip{display:flex;align-items:center;gap:6px;font:600 11.5px var(--body);background:var(--claude);color:#3a1708;border:2.5px solid var(--outline);border-radius:999px;padding:4px 10px 4px 8px;max-width:420px}
+  #tb .pinchip b{font:400 9px var(--label);letter-spacing:.5px;opacity:.75;flex:none}
+  #tb .pinchip svg{width:13px;height:13px}
+  #tb .pinned[hidden]{display:none}
+  #tb .box{border:3px solid var(--outline);border-bottom:none;border-radius:20px 20px 0 0;padding:7px 7px 5px;background:url(../../../src/Shell/pages/art/browser/band.png) 0 0/128px 58px;image-rendering:pixelated}
+  #tb .field{border-radius:13px;border:1.5px solid rgba(0,0,0,.45);padding:9px 12px;font:500 15px/1.5 var(--body);color:#CFC0E4;min-height:22px;
+    background:linear-gradient(180deg,#331d52,#4A2C6E);box-shadow:inset 0 2px 4px rgba(0,0,0,.45),0 0 0 2px rgba(150,110,200,.55),0 0 12px rgba(150,110,200,.35)}
+  #tb .strip{border:3px solid var(--outline);border-top:none;border-radius:0 0 20px 20px;padding:2px 12px 6px;min-height:24px;
+    background:linear-gradient(180deg,rgba(0,0,0,.18),rgba(0,0,0,.28)),url(../../../src/Shell/pages/art/browser/band.png) 0 29px/128px 58px;image-rendering:pixelated}
+  .cur{display:inline-block;width:2px;height:16px;background:#FFC43C;vertical-align:-3px;animation:blink 1s steps(1) infinite}
+  @keyframes blink{50%{opacity:0}}
+
+  #toast{position:absolute;right:240px;bottom:110px;display:flex;align-items:center;gap:8px;font:400 9px var(--label);letter-spacing:1.5px;color:#ffe28c;padding:7px 11px;border-radius:7px;
+    background:linear-gradient(rgba(0,0,0,.5),rgba(0,0,0,.5)),url(../../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;border:2px solid #120A05;opacity:0;transform:translateY(6px);transition:opacity .2s,transform .2s}
+  #toast.on{opacity:1;transform:none}
+  #toast svg{width:14px;height:14px}
+
+  /* the plan, as sheet 37 drew it: steps with empty slots, Go / Change / Not now */
+  .steps{margin:4px 0 2px}
+  .steps div{display:flex;align-items:center;gap:8px;font:500 13px/1.6 var(--body);color:#ecdcbc}
+  .tq{flex:none;width:16px;height:16px;border:2.5px solid #120A05;border-radius:4px;box-sizing:border-box;background:#2a1a10;box-shadow:inset 0 2px 0 rgba(0,0,0,.5)}
+  .lt-top small{display:block}
+  .trust{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+  .trust .key{justify-content:flex-start;text-align:left}
+  .trust .key small{display:block;font:500 11px var(--body);opacity:.75;margin-top:1px;letter-spacing:0;text-transform:none}
+  .change{font:600 12px var(--body);color:#8f7458;margin-top:8px}
+  .change a{color:#8a3e1c;text-decoration:underline;cursor:pointer}
+  .files{margin:6px 0 0;padding:0;list-style:none}
+  .files li{display:flex;gap:8px;font:500 12.5px/1.6 var(--body);color:#3a2a18}
+  .files li b{font:500 11.5px Consolas,monospace;color:#6b4318}
+  .ctl{display:flex;gap:10px;align-items:center;margin:14px 2px 0;flex-wrap:wrap}
+  .ctl .lbl{font:400 9px Silkscreen,monospace;letter-spacing:1.5px;color:#FFC43C}
+</style>
+</head>
+<body>
+<div class="desk" id="desk">
+  <div id="band"><i class="rnd"></i><i class="rnd"></i><i class="rnd"></i><div class="slotx">github.com/Bowgull/Waymark/actions</div>
+    <div class="cchip" id="cchip"></div><div class="peek" id="peek"></div></div>
+  <div id="wrap"><svg id="skin"></svg><div id="bubble" class="parch tex" hidden><div id="fill"></div></div></div>
+  <div id="more"><span class="pips" id="pips"></span><span id="moren">2 MORE WAITING</span><span>&#9662;</span></div>
+  <div id="quest"><div class="rib">QUEST COMPLETE</div></div>
+  <div id="tb"><div class="pinned" id="tbpin" hidden><span class="pinchip" id="tbchip"></span></div>
+    <div class="box"><div class="field" id="tbf"><span class="cur"></span></div></div><div class="strip"></div></div>
+  <div id="toast"></div>
+  <canvas id="marker"></canvas>
+  <div id="plate"><span class="nm">WAYMARK &middot; 62%</span><div class="bar" id="platebar"></div></div>
+  <img id="aang" src="../../../assets/aang/frames/idle_0.png" alt="" title="Click Aang">
+</div>
+<div id="measure"></div>
+<div class="ctl">
+  <button class="key primary" id="play" type="button">Play the story</button>
+  <span class="lbl">OR TRY IT:</span>
+  <span class="lbl" style="color:#cdbb9a">press the keys · "2 more waiting" · Claude's words · the Claude mark</span>
+</div>
+
+<script type="module">
+import { balloonPath, paintBalloon, PAD_R, PAD_B } from '../../../src/Shell/pages/balloon.js';
+
+const $ = (id) => document.getElementById(id);
+const bubble = $('bubble'), fill = $('fill'), skin = $('skin'), aang = $('aang'), measure = $('measure');
+const ART = '../../../src/Shell/pages/art/';
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Claude's own pixel mark, exactly as the bubble draws it (bubble.js CLAUDE_MARK)
+const CLAUDE_MARK = 'M4 0h1v3H4zM4 6h1v3H4zM0 4h3v1H0zM6 4h3v1H6zM1 1h1v1H1zM2 2h1v1H2zM7 1h1v1H7zM6 2h1v1H6zM1 7h1v1H1zM2 6h1v1H2zM7 7h1v1H7zM6 6h1v1H6zM3 3h3v3H3z';
+const mark = (fill = '#E07A4F') => `<svg viewBox="0 0 9 9" shape-rendering="crispEdges"><path d="${CLAUDE_MARK}" fill="${fill}"/></svg>`;
+const clink = (name) => `<a class="clink" data-sess="${esc(name)}">${mark()}${esc(name)}</a>`;
+
+// The pet's own quest marks (PetWindow.cs), shaded the way PixelIcon.Draw shades them, at a whole-number scale
+const ICON = {
+  needs: ['.OOOOO.', 'OHHFFSO', 'OHFFFSO', 'OHFFFSO', 'OHFFFSO', '.OHFSO.', '.OHFSO.', '.OHFSO.', '.OFFSO.', '..OSO..', '..OOO..', '.......', '.OOOOO.', 'OHFFFSO', 'OFFFSSO', '.OOOOO.'],
+  ask: ['...OOOOO...', '..OHHFFSO..', '.OHFOOOFSO.', '.OHO...OFSO', '..O....OFSO', '......OFFSO', '.....OFFSO.', '....OFFSO..', '....OFSO...', '....OFSO...', '....OOOO...', '...........', '....OOOO...', '...OHFFSO..', '...OFFSSO..', '....OOOO...'],
+  done: ['........O.', '.......OHO', '......OHFO', '.OO..OHFO.', 'OHFO.OHFO.', 'OHFOOHFO..', '.OFFFFO...', '..OOOO....'],
+  news: ['..OOOOOOOOO..', '.OHHHHHFFFSO.', 'OHFFFFFFFFFSO', 'OHFOFFOFFOFSO', 'OHFFFFFFFFFSO', '.OFFFFFFFFSO.', '..OOOFSOOOO..', '....OSO......', '....OO.......'],
+};
+const COL = { needs: [200, 232, 255], ask: [200, 232, 255], done: [0xE8, 0x8A, 0x6A], news: [255, 196, 60] };
+const mixc = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
+function iconCanvas(kind, px = 2, cv = document.createElement('canvas')) {
+  const m = ICON[kind], c = COL[kind];
+  cv.width = (m[0].length + 1) * px; cv.height = (m.length + 1) * px;
+  const g = cv.getContext('2d');
+  const pal = { O: [18, 10, 5], H: mixc(c, [255, 255, 255], .6), F: c, S: mixc(c, [0, 0, 0], .38) };
+  g.fillStyle = 'rgba(0,0,0,.47)';
+  m.forEach((r, y) => [...r].forEach((ch, x) => { if (ch !== '.') g.fillRect((x + 1) * px, (y + 1) * px, px, px); }));
+  m.forEach((r, y) => [...r].forEach((ch, x) => { if (pal[ch]) { g.fillStyle = `rgb(${pal[ch]})`; g.fillRect(x * px, y * px, px, px); } }));
+  return cv;
+}
+const iconHtml = (kind, px = 2) => iconCanvas(kind, px).outerHTML.replace('<canvas', `<canvas data-ic="${kind}" data-px="${px}"`);
+const paintCanvases = (root) => root.querySelectorAll('canvas[data-ic]').forEach((c) => iconCanvas(c.dataset.ic, +c.dataset.px, c));
+
+// the pixel bar: n segments, gold, in a carved wood slot
+const bar = (pct, n = 20, cls = '') => { const f = Math.round(pct / 100 * n); return `<div class="pbar ${cls}" style="grid-template-columns:repeat(${n},1fr)">${Array.from({ length: n }, (_, i) => `<i class="${i < f ? 'f' : ''}${i === f - 1 && pct < 100 ? ' last' : ''}"></i>`).join('')}</div>`; };
+
+// --- Aang: idle loop, talk when something arrives
+let anim = 'idle', fr = 0;
+setInterval(() => { const n = anim === 'talk' ? 8 : anim === 'think' ? 12 : 16; fr = (fr + 1) % n; aang.src = `../../../assets/aang/frames/${anim}_${fr}.png`; }, 140);
+const talk = () => { anim = 'talk'; fr = 0; setTimeout(() => { anim = 'idle'; fr = 0; }, 1400); };
+
+// --- the balloon, painted by the real code
+let shape = 0;
+function paint() {
+  if (bubble.hidden) { skin.innerHTML = ''; return; }
+  const box = bubble.getBoundingClientRect(), a = aang.getBoundingClientRect();
+  const head = { x: a.left + 96 - box.left, y: a.top + 60 - box.top };
+  paintBalloon(skin, box.width + PAD_R, box.height + PAD_B, balloonPath(box.width, box.height, head), ++shape, bubble.classList.contains('lantern'));
+  for (const im of skin.querySelectorAll('image')) im.setAttribute('href', ART + 'browser/tray.png');
+}
+let painting = 0;
+const paintFor = (ms) => { const end = performance.now() + ms; cancelAnimationFrame(painting); const f = () => { paint(); if (performance.now() < end) painting = requestAnimationFrame(f); }; f(); };
+
+// --- the speaker row: the mark is a door into that exact session; the session's name says which
+const speaker = (sess, machine = 'PC', waited = '') => `<div class="speaker claude"><button class="door" data-sess="${esc(sess)}" type="button">${mark()}</button><span class="tip">OPEN ${esc(sess.toUpperCase())} IN CLAUDE</span><span class="nm">CLAUDE</span><span class="sess">${esc(sess)}</span><span class="mc${machine === 'MAC' ? ' mac' : ''}">${machine}</span>${waited ? `<span class="waited">${waited}</span>` : ''}</div>`;
+const words = (text) => `<button class="cw" type="button"><i></i>CLAUDE'S WORDS</button><pre class="cwbox" hidden>${esc(text)}</pre>`;
+const keys = (list) => `<div class="keys">${list.map(([l, c, a]) => `<button class="key sm ${c ?? ''}" type="button" data-act="${a ?? 'go'}">${l}</button>`).join('')}</div>`;
+
+const WAITING = [
+  { id: 'ask', kind: 'needs', b: 'Run the iPhone build', sess: 'Waymark', m: 'PC', w: '2 MIN' },
+  { id: 'question', kind: 'ask', b: 'Keep the old sounds as a backup?', sess: 'Aang sounds', m: 'PC', w: '6 MIN' },
+  { id: 'done', kind: 'done', b: 'Rules-only brain is finished', sess: 'Coach brain', m: 'MAC', w: '12 MIN' },
+];
+
+const VIEWS = {
+  ask: { w: 372, more: 2, html: () => `${speaker('Waymark', 'PC', '2 MIN')}
+    <p class="said">Waymark wants to build the iPhone app on this PC. It takes about 4 minutes and doesn't change your code.</p>
+    ${keys([['Allow once', 'primary', 'allow'], ['Always allow', '', 'always'], ['No', '', 'no'], ['No, and&hellip;', 'plum', 'why']])}
+    ${words('Bash(npx eas build --platform ios --local --non-interactive)\nWants permission to run this command in C:\\Users\\Shadow\\Waymark')}` },
+  question: { w: 384, more: 2, html: () => `${speaker('Aang sounds', 'PC', '6 MIN')}
+    <p class="said">Claude is making Aang's new sounds. Should it keep the old two as a backup you can switch back to?</p>
+    ${keys([['Yes, keep them', 'primary', 'pick'], ['No, replace them', '', 'pick'], ['Type something else', 'plum', 'why']])}
+    ${words('AskUserQuestion: "Should the original done.wav and needs-you.wav be preserved under assets/aang/sfx/legacy/ with a settings toggle to restore them?"\n  1. Preserve with toggle (Recommended)\n  2. Replace outright')}` },
+  list: { w: 430, lantern: true, html: () => `<div class="lt-top" style="margin-bottom:4px"><div class="lt-date"><small>WAITING ON YOU</small><b>3 Claude jobs</b><span>Most stuck first. Pick one and the bubble switches to it.</span></div></div>
+    ${WAITING.map((r, i) => `${i === 0 ? '<div class="wl-h">STUCK UNTIL YOU ANSWER</div>' : i === 2 ? '<div class="wl-h">FINISHED</div>' : ''}<div class="wl-row${i === 0 ? ' top' : ''}" data-go="${r.id}"><span class="tile">${iconHtml(r.kind, 2)}</span><span class="tx"><b>${esc(r.b)}</b><span>${mark()}${esc(r.sess)} <i class="mc${r.m === 'MAC' ? ' mac' : ''}">${r.m}</i></span></span><span class="w">${r.w}</span></div>`).join('')}` },
+  start: { w: 388, html: () => `<p class="said">On it. This one gets its own ${clink('Waymark login fix')} in Claude, on the PC like the rest of Waymark.</p>
+    <p class="said" style="font-size:14px">How much should Claude be trusted on it?</p>
+    <div class="trust"><button class="key sm" type="button" data-act="go">Ask me everything<small>Every edit and command comes to you first</small></button>
+    <button class="key sm primary" type="button" data-act="trusted">Trust edits<small>It edits files freely; commands still ask you</small></button>
+    <button class="key sm burnt" type="button" data-act="go">Full trust<small>Nothing asks. Only for this job.</small></button></div>
+    <p class="change">Waymark runs on the PC, like last time. <a>Change</a></p>` },
+  plan: { w: 470, lantern: true, html: () => `<div class="lt-top" style="margin-bottom:6px"><div class="lt-date"><small>CLAUDE PLANNED FIRST, IT'S A BIG ONE</small><b>Waymark login fix</b><span>${clink('Waymark login fix')} &middot; Trust edits &middot; PC</span></div></div>
+    <div class="steps"><div><i class="tq"></i>Find why sign-in loops back to the start</div><div><i class="tq"></i>Fix the saved-session check</div><div><i class="tq"></i>Add a test that signs in twice</div><div><i class="tq"></i>Run the tests on the iPhone simulator</div></div>
+    ${keys([['Go', 'primary', 'go'], ['Change', '', 'go'], ['Not now', '', 'go']])}` },
+  working: { w: 360, html: () => `<div class="xp-line"><span class="stepname">${clink('Waymark')}</span><span class="stepname" style="font-weight:600">Rules-only brain</span><button class="more3" type="button" data-act="menu">&middot;&middot;&middot;</button></div>
+    <div class="xp"><span class="lb">OVERALL</span>${bar(48)}<span class="pct">48%</span></div>
+    <div class="xp"><span class="lb">THIS STEP</span>${bar(62)}<span class="pct">62%</span></div>
+    <div class="xp" style="margin:2px 0 0"><span class="lb"></span><span class="left">Step 3 of 6 &middot; about 1 h 10 min left</span></div>
+    <div class="smenu" id="smenu" hidden>${keys([['Pause', '', 'go'], ['Open in Claude', 'primary', 'go'], ['Trust: edits &middot; change', '', 'go']]).replace('class="keys"', 'class="keys" style="margin:0"')}</div>` },
+  line: { w: 330, html: () => `<p class="said">${clink('Waymark')} is 62% through the rules-only brain. About 1 hour 10 left.</p>` },
+  done: { w: 384, html: () => `${speaker('Coach brain', 'MAC')}
+    <p class="said">The rules-only brain is done. Coach now plans a week from your runs without asking Claude for anything.</p>
+    <div class="xp"><span class="lb">OVERALL</span>${bar(67, 20, 'done')}<span class="pct">67%</span></div>
+    ${keys([['Test it on your phone', 'primary', 'go'], ['What changed', '', 'changed']])}
+    <div id="changed" hidden><ul class="files"><li><b>brain/rules.ts</b>the week planner, new</li><li><b>brain/athlete.ts</b>reads your last 6 weeks</li><li><b>test/rules.test.ts</b>14 new checks, all pass</li></ul></div>` },
+  talk: { w: 360, html: () => `<p class="said">I asked ${clink('Claude')} to look at the Waymark crash from this morning. ${clink('Waymark crash')} is about halfway; I'll tell you when it's done.</p>` },
+  resume: { w: 400, lantern: true, html: () => `<div class="lt-top" style="margin-bottom:6px"><div class="lt-date"><small>WELCOME BACK</small><b>2 jobs were running</b><span>The PC shut down at 2:14. Nothing was lost.</span></div></div>
+    <div class="wl-row top"><span class="tile">${iconHtml('news', 2)}</span><span class="tx"><b>Rules-only brain &middot; 64%</b><span>${mark()}Waymark <i class="mc">PC</i></span></span></div>
+    <div class="wl-row"><span class="tile">${iconHtml('news', 2)}</span><span class="tx"><b>New sounds &middot; 20%</b><span>${mark()}Aang sounds <i class="mc">PC</i></span></span></div>
+    ${keys([['Pick both up', 'primary', 'go'], ['Choose', '', 'go'], ['Not now', '', 'go']])}` },
+};
+
+let now = null;
+function show(kind, after) {
+  now = kind; talk();
+  const v = VIEWS[kind];
+  measure.innerHTML = `<div id="bubble" class="parch tex ${v.lantern ? 'lantern' : ''}" style="width:${v.w}px;position:static">${v.html()}</div>`;
+  const h = measure.firstChild.getBoundingClientRect().height;
+  const first = bubble.hidden;
+  fill.classList.add('out');
+  $('more').classList.remove('on');
+  setTimeout(() => {
+    if (first) { bubble.hidden = false; bubble.style.width = Math.round(v.w * .6) + 'px'; bubble.style.height = Math.round(h * .6) + 'px'; bubble.getBoundingClientRect(); }
+    bubble.classList.toggle('lantern', !!v.lantern);
+    fill.innerHTML = ''; bubble.style.width = v.w + 'px'; bubble.style.height = h + 'px';
+    paintFor(320);
+    setTimeout(() => {
+      fill.innerHTML = v.html(); paintCanvases(fill); fill.classList.remove('out'); paint(); setTimeout(paint, 120);
+      if (v.more) { $('moren').textContent = `${v.more} MORE WAITING`; $('pips').innerHTML = WAITING.filter((r) => r.id !== kind).map((r) => iconHtml(r.kind, 1)).join(''); paintCanvases($('pips')); placeMore(); $('more').classList.add('on'); }
+      after?.();
+    }, 270);
+  }, first ? 0 : 150);
+}
+function fit() { bubble.style.height = 'auto'; const h = bubble.getBoundingClientRect().height; bubble.style.height = h + 'px'; paintFor(320); }
+function placeMore() { const d = $('desk').getBoundingClientRect(), b = bubble.getBoundingClientRect(); $('more').style.bottom = (d.bottom - b.bottom - $('more').offsetHeight + 2) + 'px'; $('more').style.right = (d.right - b.right + 18) + 'px'; }
+
+// --- what the keys do
+const toast = async (html) => { const t = $('toast'); t.innerHTML = html; t.classList.add('on'); await sleep(1700); t.classList.remove('on'); };
+fill.addEventListener('click', async (e) => {
+  const cw = e.target.closest('.cw');
+  if (cw) { cw.classList.toggle('on'); cw.nextElementSibling.hidden = !cw.classList.contains('on'); fit(); return; }
+  const door = e.target.closest('.door, .clink');
+  if (door) { e.stopPropagation(); toast(`${mark()}OPENING ${esc(door.dataset.sess.toUpperCase())} IN CLAUDE`); return; }
+  const row = e.target.closest('[data-go]');
+  if (row) { show(row.dataset.go); return; }
+  const k = e.target.closest('[data-act]');
+  if (!k) return;
+  k.classList.add('press'); await sleep(150); k.classList.remove('press');
+  const act = k.dataset.act;
+  if (act === 'menu') { const m = $('smenu'); m.hidden = !m.hidden; fit(); return; }
+  if (act === 'changed') { const c = $('changed'); c.hidden = !c.hidden; fit(); return; }
+  if (act === 'why') { typingFor(now === 'ask' ? 'Waymark' : 'Aang sounds'); return; }
+  if (act === 'allow' || act === 'always') { await toast(`${mark()}${act === 'always' ? 'ALWAYS ALLOWED IN WAYMARK' : 'ALLOWED ONCE'} &middot; WAYMARK CARRIES ON`); show('question'); return; }
+  if (act === 'pick') { await toast(`${mark()}SENT TO AANG SOUNDS`); show('done'); return; }
+  if (act === 'no') { await toast(`${mark()}TOLD WAYMARK NO`); show('question'); return; }
+  if (act === 'trusted') { show('plan'); return; }
+});
+$('more').onclick = () => show('list');
+function typingFor(sess) {
+  $('tbpin').hidden = false;
+  $('tbchip').innerHTML = `<b>TO CLAUDE</b>${mark('#3a1708')}${esc(sess)}`;
+  $('tbf').innerHTML = '<span class="cur"></span>';
+  $('tb').classList.add('on');
+}
+async function type(words) { for (let i = 1; i <= words.length; i++) { $('tbf').innerHTML = esc(words.slice(0, i)) + '<span class="cur"></span>'; await sleep(38); } }
+
+// --- the pet's marks and nameplate
+function marker(kind) {
+  const m = $('marker');
+  if (!kind) { m.classList.remove('on'); return; }
+  iconCanvas(kind, 3, m); m.classList.add('on');
+  const a = aang.getBoundingClientRect(), d = $('desk').getBoundingClientRect();
+  m.style.right = (d.right - (a.left + a.width / 2) - m.width / 2) + 'px';
+  m.style.bottom = (d.bottom - a.top - 4) + 'px';
+  m.animate([{ transform: 'scale(.2)', opacity: 0 }, { transform: 'scale(1.18)', opacity: 1, offset: .7 }, { transform: 'scale(1)' }], { duration: 320, easing: 'ease-out' });
+  m.animate([{ translate: '0 0' }, { translate: '0 -5px' }, { translate: '0 0' }], { duration: 1400, iterations: Infinity, easing: 'ease-in-out' });
+}
+function plate(pct) {
+  const p = $('plate');
+  if (pct == null) { p.classList.remove('on'); return; }
+  $('platebar').outerHTML = bar(pct, 14).replace('class="pbar ', 'id="platebar" class="pbar ');
+  p.classList.add('on');
+  const a = aang.getBoundingClientRect(), d = $('desk').getBoundingClientRect(), w = p.getBoundingClientRect().width;
+  p.style.right = (d.right - (a.left + a.width / 2) - w / 2) + 'px'; p.style.bottom = (d.bottom - a.top - 18) + 'px';
+}
+function band(pct) {
+  const b = $('band');
+  if (pct == null) { b.classList.remove('on'); return; }
+  $('cchip').innerHTML = `${mark()}<b>WAYMARK</b>${bar(pct, 12)}<b>${pct}%</b>`;
+  $('peek').innerHTML = `<div class="xp-line"><span class="stepname">Rules-only brain</span></div><div class="xp"><span class="lb">OVERALL</span>${bar(48)}<span class="pct">48%</span></div><div class="xp"><span class="lb">THIS STEP</span>${bar(pct)}<span class="pct">${pct}%</span></div><div class="xp"><span class="lb"></span><span class="left">About 1 h 10 min left</span></div>`;
+  b.classList.add('on');
+}
+async function quest() {
+  const q = $('quest'); q.querySelectorAll('.sp').forEach((s) => s.remove());
+  for (let i = 0; i < 14; i++) { const s = document.createElement('i'); s.className = 'sp'; const a = Math.random() * Math.PI * 2, r = 60 + Math.random() * 90; s.style.left = 170 + 'px'; s.style.top = '-24px'; s.style.setProperty('--dx', Math.cos(a) * r + 'px'); s.style.setProperty('--dy', Math.sin(a) * r * .6 + 'px'); s.style.animationDelay = (Math.random() * .3) + 's'; q.append(s); }
+  const d = $('desk').getBoundingClientRect(), b = bubble.getBoundingClientRect();
+  q.style.bottom = (d.bottom - b.top) + 'px'; q.style.right = (d.right - b.right) + 'px'; q.style.width = b.width + 'px';
+  q.classList.remove('go'); void q.offsetWidth; q.classList.add('go');
+}
+
+// --- the story
+$('play').onclick = async () => {
+  $('tb').classList.remove('on'); bubble.hidden = true; marker(null); plate(null); band(null);
+  anim = 'think'; plate(38); await sleep(1600);
+  marker('needs'); await sleep(1400);
+  show('ask'); await sleep(2600);
+  fill.querySelector('.cw').click(); await sleep(1800);
+  $('more').click(); await sleep(2200);
+  show('ask'); await sleep(1400);
+  await (async () => { const k = fill.querySelector('[data-act="allow"]'); k.click(); })(); marker(null); await sleep(2600);
+  await sleep(1400);
+  fill.querySelector('[data-act="why"]').click(); await sleep(400); await type('keep them, but make the new ones the default'); await sleep(900);
+  $('tb').classList.remove('on'); await toast(`${mark()}SENT TO AANG SOUNDS`); show('working'); plate(62); await sleep(2600);
+  show('done'); marker('done'); await sleep(500); quest();
+};
+
+window.__show = show;
+const only = new URLSearchParams(location.search).get('show');
+if (!only) setTimeout(() => { plate(62); anim = 'think'; show('line'); }, 300);
+if (only) {
+  document.body.classList.add('still');
+  document.querySelector('.ctl').remove();
+  const v = only.split(/[+ ,]/);
+  if (v.includes('think')) anim = 'think';
+  if (v.includes('plate')) plate(62);
+  if (v.includes('band')) { band(62); if (v.includes('peek')) $('band').classList.add('peeking'); }
+  for (const k of ['needs', 'done', 'news']) if (v.includes('mark-' + k)) setTimeout(() => marker(k), 200);
+  if (v.includes('typing')) { typingFor('Waymark'); $('tbf').innerHTML = 'no, run the tests on the simulator first<span class="cur"></span>'; }
+  if (v.includes('start')) { $('tb').classList.add('on'); $('tbf').innerHTML = 'have claude fix the waymark login bug<span class="cur"></span>'; }
+  const view = v.find((x) => VIEWS[x]);
+  if (view) show(view, async () => {
+    await sleep(60);
+    if (v.includes('words')) { fill.querySelector('.cw')?.click(); }
+    if (v.includes('menu')) { $('smenu').hidden = false; fit(); }
+    if (v.includes('changed')) { $('changed').hidden = false; fit(); }
+    if (v.includes('quest')) { await sleep(300); quest(); }
+  });
+}
+</script>
+</body>
+</html>

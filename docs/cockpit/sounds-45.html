@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aang Sound Options</title>
+<link rel="stylesheet" href="../../src/Shell/pages/notefonts.css">
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<style>
+  html, body { background: #17110c; margin: 0; }
+  body { color: #cdbb9a; font-family: "Figtree", system-ui, sans-serif; font-size: 16px; line-height: 1.5; padding: 28px 16px 60px; }
+  .wrap { max-width: 860px; margin: 0 auto; }
+  h1, h2 { font-family: "Silkscreen", monospace; color: #FFC43C; font-weight: 400; margin: 0 0 6px; letter-spacing: .5px; }
+  h1 { font-size: 26px; }
+  h2 { font-size: 18px; }
+  .lead { margin: 0 0 20px; }
+  .vol { display: flex; align-items: center; gap: 12px; background: #221911; border: 2px solid #4a3220; border-radius: 10px; padding: 12px 16px; margin-bottom: 22px; }
+  .vol label { font-family: "Silkscreen", monospace; color: #FFC43C; font-size: 13px; }
+  .vol input { flex: 1; accent-color: #FFC43C; }
+  .vol span { min-width: 3.5em; text-align: right; }
+  .row { background: #1f1710; border: 2px solid #3d2a1b; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+  .row p { margin: 0 0 12px; }
+  .btns { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  button { font-family: "Silkscreen", monospace; font-size: 14px; color: #2a1a0c; background: #FFC43C; border: 2px solid #8a5a1e; border-radius: 10px; padding: 16px 8px; cursor: pointer; box-shadow: 0 3px 0 #6b4316; }
+  button:hover { background: #ffd56a; }
+  button:active { transform: translateY(2px); box-shadow: 0 1px 0 #6b4316; }
+  button.playing { background: #f7e3b0; }
+  button:disabled { background: #3a2c1e; color: #7d6a50; border-color: #4a3220; box-shadow: none; cursor: default; }
+  @media (max-width: 520px) { .btns { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Aang's sounds</h1>
+  <p class="lead">Press a button to hear it. Each row is one family. Pick the row you like, or mix and match. All the new ones are set to the same quiet level.</p>
+
+  <div class="vol">
+    <label for="vol">Volume</label>
+    <input id="vol" type="range" min="0" max="100" value="80">
+    <span id="volv">80%</span>
+  </div>
+
+  <div id="rows"></div>
+</div>
+<script>
+  const families = [
+    { id: 'orig', name: 'Original', text: 'What Aang plays today. Loud and sharp. Here so you can compare. There was no quest sound.' },
+    { id: 'A', name: 'A. Wooden chimes', text: 'Soft taps on a wooden marimba. Warm and round, like a menu in Stardew Valley.' },
+    { id: 'B', name: 'B. Magic shimmer', text: 'Gentle bells that fade in, with a few tiny sparkles at the end. A bit like an FFX menu.' },
+    { id: 'C', name: 'C. Music box', text: 'Thin little music box notes. Light and sweet, like an old Zelda chest tune.' },
+    { id: 'D', name: 'D. Today\'s sounds, softened', text: 'The same two sounds you have now, but quieter, with the sharp start and the hiss taken off. Quest complete is the done sound with a soft echo.' }
+  ];
+  const cues = [['needs-you', 'Needs you'], ['done', 'Done'], ['quest', 'Quest complete']];
+  const vol = document.getElementById('vol'), volv = document.getElementById('volv');
+  let current = null;
+  function play(src, btn) {
+    if (current) { current.a.pause(); current.b.classList.remove('playing'); }
+    const a = new Audio(src);
+    a.volume = vol.value / 100;
+    btn.classList.add('playing');
+    a.onended = () => btn.classList.remove('playing');
+    current = { a, b: btn };
+    a.play().catch(() => btn.classList.remove('playing'));
+  }
+  const rows = document.getElementById('rows');
+  for (const f of families) {
+    const row = document.createElement('section'); row.className = 'row';
+    row.innerHTML = '<h2></h2><p></p><div class="btns"></div>';
+    row.querySelector('h2').textContent = f.name;
+    row.querySelector('p').textContent = f.text;
+    const box = row.querySelector('.btns');
+    for (const [key, label] of cues) {
+      const b = document.createElement('button'); b.textContent = label;
+      if (f.id === 'orig' && key === 'quest') { b.disabled = true; b.title = 'No original quest sound'; }
+      else b.onclick = () => play('sounds-45/' + f.id + '-' + key + '.wav', b);
+      box.appendChild(b);
+    }
+    rows.appendChild(row);
+  }
+  vol.oninput = () => { volv.textContent = vol.value + '%'; if (current) current.a.volume = vol.value / 100; };
+</script>
+</body>
+</html>
