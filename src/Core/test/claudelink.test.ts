@@ -18,9 +18,12 @@ test('tracker: to-do progress, the task in hand, and a time left from the pace',
   const [j] = t.list(61_000);   // the time left is as of the moment it is sent (claudeprogress.ts)
   assert.equal(j!.project, 'Waymark');
   assert.equal(j!.model, 'sonnet');
-  assert.equal(j!.percent, 25);
+  // v3 (2026-10-21): the bar is time-weighted, so one quick item ticked of four is well under a quarter; the time left
+  // is earned (an item finished, a minute in) and covers the three left at their kinds' usual times, sped up by r.
+  assert.equal(j!.progress!.done, 1);
+  assert.ok(j!.percent! > 3 && j!.percent! < 25, `time-weighted percent ${j!.percent}`);
   assert.equal(j!.current, 'Fixing');
-  assert.equal(j!.etaMs, 180_000, 'one task per minute, three left');
+  assert.ok(j!.etaMs! > 4 * 60_000 && j!.etaMs! < 12 * 60_000, `time left ${j!.etaMs}`);
   assert.equal(j!.open, null);   // no Claude app record for a made-up session: no link (claudenames.ts)
 });
 

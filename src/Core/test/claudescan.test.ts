@@ -107,7 +107,9 @@ test('scan: fresh transcripts become read-only jobs; the mod takes over; quiet o
   const j = jobs[0]!;
   assert.equal(j.source, 'transcript');
   assert.equal(j.phase, 'working');
-  assert.equal(j.percent, 25);
+  // v3: time-weighted (an item already ticked when first seen weighs its usual time), so not a flat quarter.
+  assert.equal(j.progress!.done, 1);
+  assert.ok(j.percent! > 0 && j.percent! < 34, `percent ${j.percent}`);
   assert.equal(j.activity.now, 'Editing app.ts');
   assert.ok(pushes.length >= 1, 'the Shell is told at once');
   // Read-only: no messages, no pause, no answers.
@@ -121,10 +123,12 @@ test('scan: fresh transcripts become read-only jobs; the mod takes over; quiet o
   t.event({ session: S, type: 'snapshot', cwd: 'C:\\code\\Waymark', phase: 'working', todos: [{ text: 'Task 1', status: 'completed' }, { text: 'Task 2', status: 'completed' }, { text: 'Task 3', status: 'in_progress' }, { text: 'Task 4', status: 'pending' }], tools: [], agents: [], asks: [] });
   jobs = t.list();
   assert.equal(jobs[0]!.source, 'link');
-  assert.equal(jobs[0]!.percent, 50);
+  assert.equal(jobs[0]!.progress!.done, 2);
+  const linked = jobs[0]!.percent;
   writeFileSync(file, prompt('again') + '\n', { flag: 'a' });
   await scan.scan();
-  assert.equal(t.list()[0]!.percent, 50, 'the link wins over the transcript');
+  assert.equal(t.list()[0]!.progress!.done, 2, 'the link wins over the transcript');
+  assert.ok(t.list()[0]!.percent! >= linked!, 'and its bar never went back');
   // Gone quiet for over 30 minutes with no turn under way: a transcript-only job drops off.
   const t2 = new JobTracker();
   const scan2 = new TranscriptScan(t2, { root });

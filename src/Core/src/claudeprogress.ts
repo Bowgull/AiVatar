@@ -1,180 +1,240 @@
-// The progress engine and the live "what's happening" line for Claude jobs (2026-10-21).
+// The progress engine and the live "what's happening" line for Claude jobs. v3, 2026-10-21.
 //
-// His asks: "those progress bars and ALL progress bars in Aang airtight and real time", and a working drop-down that
-// says in plain (slightly technical) words what the session is doing right now: the tool running, any helper agents,
-// then the to-do list.
+// His asks: "those progress bars and ALL progress bars in Aang airtight and real time", a drop-down that says in plain
+// (slightly technical) words what the session is doing right now, and (v3, "yes build it, go big") bars and times left
+// that tell the truth, from docs/PROGRESS-RESEARCH.md.
 //
-// THE RULES (agreed 2026-10-21; docs/COCKPIT-BUILD.md "The progress engine" has the same list):
-//   1. Only real events move a bar: a task ticked, the to-do list rewritten, a tool starting or ending, a turn
-//      starting or ending. Never a guess from wording.
-//   2. Never backwards, except when Claude rewrites its to-do list (fewer or different tasks): then the bar may drop,
-//      and the job says so once ("Claude rewrote its list"). `rev` counts those rewrites; a viewer only lets its bar
-//      drop when `rev` changed.
-//   3. Smooth between ticks: inside the task in progress the bar creeps forward by the pace so far (the median time
-//      per finished task; before any task finishes, a sane default), never past 90% of that task's slot. The brain
-//      sends only the authoritative numbers below; every viewer computes the creep itself, every frame, so the bar
-//      moves live without the brain sending anything.
-//   4. Real time: every change is pushed the moment it happens (2026-10-21, supercharged: the brain sends on the next
-//      turn of its event loop; only rapid tool chatter is spaced 16 ms apart, and to-do ticks, turns and waits never
-//      wait). The mod reports a to-do tick at the to-do tool's START (its input already holds the new list), tools
-//      starting and ending, and Claude starting to write, think or call a tool as it streams. No polling for state.
-//   5. Honest when it cannot know: no to-do list = no percent: an empty, STILL bar or ring and "Working", never a fake
-//      0% and never a spinner (his rule, 2026-10-21: "he hates the spin"). A one-step turn with no list fills to complete
-//      when the turn ends (`Job.finished`). Time left only once there is a real pace; "about" for every estimate.
-//   6. One engine, one look: these numbers here, and one renderer in the Shell (claudejobs.js progressModel /
-//      liveProgress / livePill) for the jobs strip, the job cards, Samara's rune panel and the pop-out. The pet's
-//      marks keep reading the same tracker.
+// THE RULES (v3; docs/COCKPIT-BUILD.md "The progress engine" has the same list):
+//   1. Only real events move a bar: a task ticked, the list changed, a tool starting or ending, a turn starting or
+//      ending. Between events the bar creeps by working time, against how long that kind of item usually takes HERE.
+//   2. Weighted by time, not by count: every item's slice is its expected duration (progresshistory.ts: his own
+//      history per label, project and kind, shrunk towards seed priors), and the session's speed factor r scales what
+//      is still to come. The bar and the time left come from the same numbers (progressmath.ts barNow).
+//   3. Never backwards: a rewritten list squeezes the rest of the bar instead of dropping it; the time left goes up
+//      instead and says why once ("Claude added 3 steps"). A late item keeps inching (the lognormal overrun curve); no
+//      90% wall.
+//   4. Stillness means stillness: when nothing has been heard for too long (a minute between steps, 90 s while the
+//      model streams, twice a command's usual p90 while it runs) the bar freezes, turns amber and says "No sign of
+//      life for N min". The first heartbeat unfreezes it. Waiting for his OK is yellow, not a stall, and not working
+//      time: the clock stops while an ask is open.
+//   5. Honest when it cannot know: no list (or a one-item list) = no percent, an activity line and a pip per finished
+//      tool call, never a spinner. A time left only once it is earned (real data, 20 s in, not stalled), rounded, with
+//      "about" or a range.
+//   6. Real time: everything is pushed the moment it happens (LinkPusher), every viewer draws from these numbers every
+//      frame (src/Shell/pages/progressmath.js), so nothing polls.
+//   7. One engine, one look: the bubble's job card, Samara's rune and the pop-out all draw from the same model.
 //
-// Time is "working time": the clock stops while the session sits idle between turns or paused, so a lunch break never
-// counts as slow progress, and starts again on the next turn or tool.
+// Time is "working time": the clock stops while the session sits idle between turns, is paused, waits on him, or tidies
+// its memory (compaction). Every clock runs on the event's own time (`t` from the mod), not when it arrived.
+import { barNow, estOf, meanOf, medianOf, p90Of, speedFactor, stallLimit } from './progressmath.ts';
+import type { AgentEst, Est, ProgressV3 } from './progressmath.ts';
+import { ProgressHistory, familyOf, kindOf, labelKey } from './progresshistory.ts';
+import type { Estimate } from './progresshistory.ts';
 
-/** The creep's pace before any task has finished (rule 3). Never shown as a time left (rule 5). */
-export const DEFAULT_PACE_MS = 120_000;
-/** The creep never passes this share of the task's own slot (rule 3). */
-export const SLOT_CAP = 0.9;
+export type Progress = ProgressV3;
 
-/** The authoritative numbers a viewer draws a bar from. */
-export interface Progress {
-  /** Ticked tasks. */
-  done: number;
-  /** All tasks. Never 0 here: no list means no Progress at all (rule 5). */
-  total: number;
-  /** The task in hand (in progress, else the first not ticked), or -1 with everything ticked. */
-  cur: number;
-  /** Working time spent on the task in hand, measured at `at`. */
-  elapsedMs: number;
-  /** When these numbers were taken (ms since 1970, this PC's clock: the brain and the Shell share it). */
-  at: number;
-  /** Median working time per finished task; null until one has finished. */
-  paceMs: number | null;
-  /** Counts list rewrites. A viewer lets its bar drop only when this changed (rule 2). */
-  rev: number;
-  /** When a rewrite last made the bar drop, so the job can say so once; null if never. */
-  rewroteAt: number | null;
+/** What a keeper needs to know about its session to look things up in the history. */
+export interface KeeperCtx { hist: ProgressHistory; project: () => string; model: () => string }
+
+interface Item { text: string; status: string; est: Estimate; actual: number; observed: boolean }
+
+/** Working time: the wall clock less every stretch that was idle, paused, waiting on him or compacting. */
+class WorkClock {
+  private stoppedTotal = 0;
+  private stoppedSince: number | null = null;
+  idle = false;
+  blocked = false;
+  compacting = false;
+  get running(): boolean { return !this.idle && !this.blocked && !this.compacting; }
+  w(now: number): number { return now - this.stoppedTotal - (this.stoppedSince !== null ? Math.max(0, now - this.stoppedSince) : 0); }
+  /** Call after changing a flag: starts or stops the clock to match. */
+  sync(now: number): void {
+    if (this.running && this.stoppedSince !== null) { this.stoppedTotal += Math.max(0, now - this.stoppedSince); this.stoppedSince = null; }
+    else if (!this.running && this.stoppedSince === null) this.stoppedSince = now;
+  }
 }
 
-const median = (xs: number[]): number | null => {
-  if (!xs.length) return null;
-  const s = [...xs].sort((a, b) => a - b), m = s.length >> 1;
-  return s.length % 2 ? s[m]! : Math.round((s[m - 1]! + s[m]!) / 2);
-};
-
-/** One job's progress clock: fed real events only, read as Progress. */
+/** One job's progress clock: fed real events only, read as ProgressV3. */
 export class ProgressKeeper {
-  private idleTotal = 0;
-  private idleSince: number | null = null;
-  private texts: string[] = [];
-  private done = 0;
-  private total = 0;
+  readonly clock = new WorkClock();
+  private readonly ctx: KeeperCtx;
+  private items: Item[] = [];
   private cur = -1;
   private curKey = '';
   private curStartW = 0;
   private lastTickW: number | null = null;
-  private durations: number[] = [];
+  private jobStartW: number | null = null;
   private rev = 0;
   private rewroteAt: number | null = null;
-  /** The tasks ticked last time, by their words, so a tick is counted once. */
-  private wasDone = new Set<string>();
+  private sq: { a: number; m0: number } | null = null;
+  private note: { text: string; at: number } | null = null;
+  /** Estimates by label, so a list rewritten with the same items keeps them (and the history is asked once). */
+  private estCache = new Map<string, Estimate>();
+  /** Stall facts for the snapshot, set by the tracker from the activity (aliveAt, stallMs). */
+  constructor(ctx: KeeperCtx) { this.ctx = ctx; }
 
-  /** Working time now: the wall clock less every idle or paused stretch. */
-  private w(now: number): number { return now - this.idleTotal - (this.idleSince !== null ? Math.max(0, now - this.idleSince) : 0); }
-
-  /** A turn or a tool started: the clock runs. */
-  go(now: number): void { if (this.idleSince !== null) { this.idleTotal += Math.max(0, now - this.idleSince); this.idleSince = null; } }
+  w(now: number): number { return this.clock.w(now); }
+  /** A turn or a tool started: the clock runs (unless something else holds it). */
+  go(now: number): void { this.clock.idle = false; this.clock.sync(now); }
   /** The turn ended, or he paused it: the clock stops. */
-  stop(now: number): void { if (this.idleSince === null) this.idleSince = now; }
-
-  /** Claude's to-do list as it is now (rule 1: a real event). */
-  todos(tasks: readonly { text: string; status: string }[], now: number): void {
-    const W = this.w(now);
-    const texts = tasks.map(t => t.text);
-    const done = tasks.filter(t => t.status === 'completed').length, total = tasks.length;
-    const base = total ? done / total : 0, oldBase = this.total ? this.done / this.total : 0;
-    // Rule 2: a list that is not the same list (tasks added, dropped or renamed), or a bar that would go down, is a
-    // rewrite. Only a drop (or a shorter list) is worth telling him about.
-    if (this.total) {
-      const changed = texts.length !== this.texts.length || texts.some((t, i) => t !== this.texts[i]);
-      if (changed || base < oldBase) {
-        this.rev++;
-        if (base < oldBase || total < this.total) this.rewroteAt = now;
-      }
-    }
-    // Pace: the working time since the last tick, shared out among the tasks ticked now (Claude often ticks several
-    // in one go, and three ticks at "0 s" would make the median a lie).
-    if (total && this.lastTickW === null) this.lastTickW = W;
-    const newly = tasks.filter(t => t.status === 'completed' && !this.wasDone.has(t.text)).length;
-    if (newly > 0 && this.lastTickW !== null) {
-      const each = Math.max(0, W - this.lastTickW) / newly;
-      for (let k = 0; k < newly; k++) this.durations.push(each);
-      this.durations = this.durations.slice(-50);
-      this.lastTickW = W;
-    }
-    this.wasDone = new Set(tasks.filter(t => t.status === 'completed').map(t => t.text));
-    let cur = tasks.findIndex(t => t.status === 'in_progress');
-    if (cur < 0) cur = tasks.findIndex(t => t.status !== 'completed');
-    // The task in hand starts its own clock when it changes (or when another task is ticked before it).
-    const key = `${done}|${cur >= 0 ? tasks[cur]!.text : ''}`;
-    if (key !== this.curKey) { this.curKey = key; this.curStartW = W; }
-    this.texts = texts; this.done = done; this.total = total; this.cur = cur;
+  stop(now: number): void { this.clock.idle = true; this.clock.sync(now); }
+  /** Something waits on him (research 3.5: not a stall, and not working time). */
+  block(on: boolean, now: number): void { this.clock.blocked = on; this.clock.sync(now); }
+  /** Claude is tidying its memory: a known pause, left out of the history. */
+  compact(on: boolean, now: number): void {
+    this.clock.compacting = on; this.clock.sync(now);
+    if (on) this.note = { text: 'Tidying its memory', at: now };
   }
 
-  /** Null without a to-do list (rule 5). */
-  snapshot(now: number): Progress | null {
-    if (!this.total) return null;
+  private estFor(text: string): Estimate {
+    let e = this.estCache.get(text);
+    if (!e) {
+      e = this.ctx.hist.task(this.ctx.project(), text, stripSecrets, familyOf(this.ctx.model()));
+      this.estCache.set(text, e);
+      if (this.estCache.size > 300) this.estCache.delete(this.estCache.keys().next().value!);
+    }
+    return e;
+  }
+
+  /** Claude's to-do list as it is now (rule 1: a real event). */
+  todos(tasks: readonly { text: string; status: string }[], now: number, aliveAt = now, stallMs = 60_000): void {
+    const W = this.w(now);
+    const before = this.items.length ? this.snapshot(now, aliveAt, stallMs) : null;
+    const old = this.items;
+    const oldTexts = old.map(i => i.text), texts = tasks.map(t => t.text);
+    const wasDone = new Set(old.filter(i => i.status === 'completed').map(i => i.text));
+    const oldBy = new Map(old.map(i => [i.text, i]));
+    if (tasks.length && this.jobStartW === null) this.jobStartW = W;
+    if (tasks.length && this.lastTickW === null) this.lastTickW = W;
+    const items: Item[] = tasks.map(t => {
+      const was = oldBy.get(t.text);
+      return { text: t.text, status: t.status, est: was?.est ?? this.estFor(t.text), actual: was && t.status === 'completed' ? was.actual : 0, observed: !!was?.observed && t.status === 'completed' };
+    });
+    // Newly ticked: the working time since the last tick, shared among the items ticked now (Claude often ticks
+    // several at once). Only a lone tick teaches the history, since a shared one is a guess.
+    const newly = items.filter(i => i.status === 'completed' && !wasDone.has(i.text));
+    if (newly.length && this.lastTickW !== null) {
+      const span = Math.max(0, W - this.lastTickW);
+      // An item ticked in the very first list, with no time seen, weighs its expected time (so "2 of 5 done" is not 0%).
+      const first = !old.length;
+      for (const i of newly) {
+        if (first) { i.actual = medianOf(i.est); i.observed = false; continue; }
+        i.actual = span / newly.length; i.observed = span > 0;
+      }
+      if (!first && newly.length === 1 && span > 1000) {
+        const i = newly[0]!, fam = familyOf(this.ctx.model());
+        this.ctx.hist.add({ at: now, src: 'task', p: this.ctx.project(), k: kindOf(i.text), key: labelKey(i.text, stripSecrets), ms: span, ok: true,
+          ...(fam ? { m: fam } : {}), x: Math.log(span / Math.max(1, medianOf(i.est))) });
+      }
+      this.lastTickW = W;
+    }
+    let cur = tasks.findIndex(t => t.status === 'in_progress');
+    if (cur < 0) cur = tasks.findIndex(t => t.status !== 'completed');
+    const key = `${items.filter(i => i.status === 'completed').length}|${cur >= 0 ? tasks[cur]!.text : ''}`;
+    if (key !== this.curKey) { this.curKey = key; this.curStartW = W; }
+    // A list that is not the same list (items added, dropped, renamed, or un-ticked) is a rewrite (rule 3).
+    const rewrite = !!old.length && (texts.length !== oldTexts.length || texts.some((t, i) => t !== oldTexts[i]) || items.some(i => wasDone.has(i.text) && i.status !== 'completed'));
+    this.items = items; this.cur = cur;
+    const after = rewrite ? this.snapshot(now, aliveAt, stallMs, false) : null;
+    if (rewrite && !after) { this.rev++; this.sq = null; }
+    if (rewrite && after) {
+      this.rev++;
+      const a = before ? barNow(before, true, now).p : 0;
+      const m0 = barNow({ ...after, sq: null }, true, now).m;
+      // Only a bar that would go back is squeezed; one that would jump forward just jumps.
+      this.sq = m0 < a ? { a, m0 } : null;
+      if (a - m0 > 0.005) this.rewroteAt = now;
+      // The reason is said only for a list already under way: Claude building its list one task at a time (the Task
+      // tools) is not news.
+      const underway = !!before && (before.done > 0 || before.jobW >= 20_000);
+      const leftBefore = before ? barNow(before, true, now).left : 0, leftAfter = barNow(after, true, now).left;
+      if (underway && leftBefore > 0 && leftAfter > leftBefore * 1.25) {
+        const added = texts.filter(t => !oldTexts.includes(t)).length;
+        this.note = { text: added > 0 ? `Claude added ${added} step${added === 1 ? '' : 's'}` : 'Claude changed its list', at: now };
+      }
+    }
+  }
+
+  /** The list's items as the tracker shows them (index → est), for tests and the plan link. */
+  get size(): number { return this.items.length; }
+
+  /** Null without a to-do list (rule 5). `withSq` false leaves the squeeze out (used while working one out). */
+  snapshot(now: number, aliveAt: number, stallMs: number, withSq = true): ProgressV3 | null {
+    if (!this.items.length) return null;
+    const W = this.w(now);
+    const done = this.items.filter(i => i.status === 'completed');
+    const total = this.items.length;
+    const curItem = this.cur >= 0 ? this.items[this.cur]! : null;
+    const finished = done.filter(i => i.observed && i.actual > 0);
+    const r = speedFactor(finished.map(i => ({ actual: i.actual, median: medianOf(i.est) })));
+    const pend = this.items.filter((i, k) => i.status !== 'completed' && k !== this.cur);
+    // Earned (research section 4a): an item of this job has finished, or most of what is left rests on 3+ samples.
+    const rest = [...(curItem && curItem.status !== 'completed' ? [curItem] : []), ...pend];
+    const restW = rest.reduce((s, i) => s + meanOf(i.est), 0), restEarned = rest.filter(i => i.est.earned).reduce((s, i) => s + meanOf(i.est), 0);
+    const e = Math.max(0, Math.round(W - this.curStartW));
     return {
-      done: this.done, total: this.total, cur: this.cur, elapsedMs: Math.max(0, Math.round(this.w(now) - this.curStartW)), at: now,
-      paceMs: median(this.durations), rev: this.rev, rewroteAt: this.rewroteAt,
+      v: 3, done: done.length, total, cur: done.length >= total ? -1 : this.cur, at: now, e,
+      jobW: Math.max(0, Math.round(W - (this.jobStartW ?? W))),
+      doneW: Math.round(done.reduce((s, i) => s + i.actual, 0)),
+      curEst: curItem && curItem.status !== 'completed' ? { mu: curItem.est.mu, sigma: curItem.est.sigma } : null,
+      pend: pend.map(i => ({ mu: i.est.mu, sigma: i.est.sigma })),
+      r: Math.round(r * 1000) / 1000,
+      earned: finished.length > 0 || (restW > 0 && restEarned / restW >= 0.5),
+      sq: withSq ? this.sq : null, note: this.note, aliveAt, stallMs, running: this.clock.running, rev: this.rev,
+      elapsedMs: e, paceMs: null, rewroteAt: this.rewroteAt,
     };
   }
 }
 
-/** Percent from the authoritative numbers (ticked tasks only, no creep); null with no list. */
-export const percentOf = (p: Progress | null): number | null => (p ? Math.round(p.done / p.total * 100) : null);
+/** Percent from the bar as it stands at `now` (time-weighted); null with no list. */
+export const percentOf = (p: ProgressV3 | null, working: boolean, now: number): number | null => (p ? Math.floor(barNow(p, working, now).p * 100) : null);
 
-/**
- * Time left, from a real pace only (rule 5): the tasks not ticked times the pace, less what the task in hand has
- * already had (at most 90% of a pace, as the bar). 0 when every task is ticked; null until a task has finished.
- */
-export function etaOf(p: Progress | null): number | null {
+/** Time left in ms when it is earned (rule 5), else null; 0 when every item is ticked. */
+export function etaOf(p: ProgressV3 | null, working: boolean, now: number): number | null {
   if (!p) return null;
   if (p.done >= p.total) return 0;
-  if (p.paceMs === null) return null;
-  return Math.max(0, Math.round((p.total - p.done) * p.paceMs - Math.min(p.elapsedMs, SLOT_CAP * p.paceMs)));
-}
-
-/**
- * Where the bar stands at `now`, 0..1, creep included (rule 3). The Shell's progressModel is the same sum; this copy is
- * for the brain's own tests and anything in the Core that wants the live figure. `working` false freezes the creep.
- */
-export function barAt(p: Progress | null, working: boolean, now: number): number | null {
-  if (!p) return null;
-  const base = p.done / p.total;
-  if (!working || p.cur < 0 || p.done >= p.total) return base;
-  const f = (p.elapsedMs + Math.max(0, now - p.at)) / (p.paceMs ?? DEFAULT_PACE_MS);
-  return base + creep(f) / p.total;
-}
-
-/** Share of a slot crept after `f` paces: straight up to 60%, then easing towards 90%, never past it. */
-export function creep(f: number): number {
-  if (!(f > 0)) return 0;
-  const c = f <= 0.6 ? f : 0.6 + 0.3 * (1 - Math.exp(-(f - 0.6) / 0.6));
-  return Math.min(SLOT_CAP - 1e-6, c);
+  const b = barNow(p, working, now);
+  return p.earned && b.jobW >= 20_000 && !b.stalled ? Math.round(b.left) : null;
 }
 
 // ------------------------------------------------------------------ the live description
 
 /** What the mod sends about a tool as it starts: the safe bits only (claude-link/hooks/link.ts activityOf). */
-export interface ToolDetail { cmd?: string; desc?: string; file?: string; pattern?: string; where?: string; site?: string; query?: string; agent?: string; kind?: string; server?: string; name?: string; skill?: string }
+export interface ToolDetail { cmd?: string; desc?: string; file?: string; pattern?: string; where?: string; site?: string; query?: string; agent?: string; kind?: string; server?: string; name?: string; skill?: string; bg?: string }
 
-export interface ActivityAgent { kind: string; what: string; since: number }
+export interface ActivityAgent {
+  id: string;
+  kind: string;
+  what: string;
+  since: number;
+  /** Its own tool calls so far (heartbeats, and "14 tool calls" in its row). */
+  calls: number;
+  aliveAt: number;
+  /** From its type's history; `n` past runs behind it (a bar needs 3). */
+  est: Est | null;
+  n: number;
+  /** Runs in the foreground: the main loop waits on it, so it floors the item's time left. */
+  fg: boolean;
+  failed?: boolean;
+  endedAt?: number;
+}
+/** The running command's own sub-bar (research step 5): "40 s, usually 1 min 30 s". */
+export interface ActivityTool { since: number; est: Est; n: number; usual: number }
 /** What the job card's drop-down says it is doing now. */
 export interface Activity {
   /** One plain, slightly technical line, e.g. "Running the tests · npm test -- --run". Empty when idle. */
   now: string;
   /** When that started (the viewer adds "(12 s)"). */
   since: number;
-  /** Helper agents running now. */
+  /** Helper agents running now (and failed ones for half a minute). */
   agents: ActivityAgent[];
+  // v3 (optional so an older brain's activity still reads): the running command's sub-bar, when it has a history;
+  // tool calls finished this turn (one pip each when there is no bar); the last sign of life and how long a silence
+  // may last before it is a stall (rule 4).
+  tool?: ActivityTool | null;
+  pips?: number;
+  aliveAt?: number;
+  stallMs?: number;
 }
 
 /**
@@ -265,25 +325,55 @@ export function describeTool(tool: string, d: ToolDetail = {}): string {
 const WAITING: Record<string, string> = { permission: 'Waiting for your OK', question: 'Waiting for your answer', plan: 'Waiting for you to look at the plan' };
 
 const AGENT_MAX_MS = 2 * 3600_000;
+/** A failed helper stays on the card (red) this long, so he sees it went wrong. */
+const FAILED_SHOWN_MS = 30_000;
 
-/** One job's live activity: the tools running now, the helper agents, and when the last thing changed. */
+interface RunningTool { tool: string; line: string; since: number; est: Estimate | null; cmd: string; family: string; tainted: boolean }
+
+/** One job's live activity: the tools running now, the helper agents, the heartbeats, and the command history. */
 export class ActivityKeeper {
-  private readonly tools = new Map<string, { line: string; since: number }>();
+  private readonly tools = new Map<string, RunningTool>();
   /** What the model is streaming right now, between tools (2026-10-21): its reply, its thinking, or a tool call's arguments. */
   private stream: { line: string; since: number } | null = null;
+  private streaming = false;
   private readonly agents = new Map<string, ActivityAgent>();
   private quietSince: number | null = null;
+  private pips = 0;
+  aliveAt: number;
+  private readonly ctx: KeeperCtx | null;
+  constructor(ctx: KeeperCtx | null = null, now = Date.now()) { this.ctx = ctx; this.aliveAt = now; }
+
+  /** Any sign of life (rule 4). Event times only ever move it forward. */
+  alive(t: number): void { if (t > this.aliveAt) this.aliveAt = t; }
 
   toolStart(id: string, tool: string, detail: ToolDetail, now: number): void {
     if (!id) return;
-    this.tools.set(id, { line: describeTool(tool, detail), since: now });
-    this.stream = null;
+    const cmd = tool === 'Bash' || tool === 'PowerShell' ? clean(detail.cmd, 60) : '';
+    const family = cmd ? (commandLabel(cmd) ?? 'cmd') : '';
+    const est = cmd && this.ctx ? this.ctx.hist.cmd(this.ctx.project(), cmd, family, stripSecrets) : null;
+    this.tools.set(id, { tool, line: describeTool(tool, detail), since: now, est, cmd, family, tainted: false });
+    this.stream = null; this.streaming = false;
+    this.alive(now);
     while (this.tools.size > 20) this.tools.delete(this.tools.keys().next().value!);
   }
-  toolEnd(id: string, now: number): void { if (this.tools.delete(id) && !this.tools.size) this.quietSince = now; }
+  /** A tool ended. A shell command that finished well, with nothing waiting on him meanwhile, teaches the history. Returns its family ("Pushing to GitHub"), or ''. */
+  toolEnd(id: string, now: number, ok = true): string {
+    const t = this.tools.get(id);
+    this.alive(now);
+    if (!t) return '';
+    this.tools.delete(id);
+    this.pips++;
+    if (!this.tools.size) this.quietSince = now;
+    if (t.cmd && this.ctx && !t.tainted && now - t.since > 0) {
+      this.ctx.hist.add({ at: now, src: 'cmd', p: this.ctx.project(), k: t.family, key: stripSecrets(t.cmd).slice(0, 40), ms: now - t.since, ok });
+    }
+    return t.family;
+  }
+  /** Something asked him while these tools ran: their durations include his answer, so they teach nothing. */
+  taint(): void { for (const t of this.tools.values()) t.tainted = true; }
   /** The turn ended (or the brain lost track): nothing of it can still be running. */
-  clearTools(now: number): void { this.tools.clear(); this.stream = null; this.quietSince = now; }
-  turnStart(now: number): void { this.tools.clear(); this.stream = null; this.quietSince = now; }
+  clearTools(now: number): void { this.tools.clear(); this.stream = null; this.streaming = false; this.quietSince = now; }
+  turnStart(now: number): void { this.tools.clear(); this.stream = null; this.streaming = false; this.quietSince = now; this.pips = 0; this.alive(now); }
 
   /**
    * A model step began streaming something (2026-10-21, "as fast as when Claude gets a reply"): its answer ("Writing
@@ -291,32 +381,88 @@ export class ActivityKeeper {
    * before the tool runs, so the line says "Writing a file" from the first byte, then the tool's own line takes over).
    */
   step(what: string, tool: string, now: number): void {
+    this.alive(now);
+    this.streaming = true;
     const line = what === 'text' ? 'Writing the reply' : what === 'thinking' ? 'Thinking' : what === 'tool' && tool ? describeTool(tool) : '';
     if (!line) return;
     if (this.stream?.line !== line) this.stream = { line, since: now };
   }
+  /** The mod's heartbeat while chunks stream (at most every 2 s), or a helper agent's. */
+  beat(now: number, agent = ''): void {
+    this.alive(now);
+    if (!agent) { this.streaming = true; return; }
+    const a = this.agents.get(agent);
+    if (a) a.aliveAt = Math.max(a.aliveAt, now);
+  }
 
-  agentStart(id: string, kind: string, what: string, now: number): void {
+  agentStart(id: string, kind: string, what: string, now: number, fg = true): void {
     if (!id) return;
-    this.agents.set(id, { kind: clean(kind, 40) || 'helper', what: clean(what, 80), since: now });
+    const k = clean(kind, 40) || 'helper', w = clean(what, 80);
+    const est = this.ctx ? this.ctx.hist.agent(k, w) : null;
+    this.agents.set(id, { id, kind: k, what: w, since: now, calls: 0, aliveAt: now, est: est ? { mu: est.mu, sigma: est.sigma } : null, n: est?.n ?? 0, fg });
+    this.alive(now);
     while (this.agents.size > 20) this.agents.delete(this.agents.keys().next().value!);
   }
-  agentEnd(id: string): void { this.agents.delete(id); }
+  /** One of a helper agent's own tool calls: a heartbeat for it and the job, and one more for "14 tool calls". */
+  agentTool(id: string, now: number): void {
+    const a = this.agents.get(id);
+    this.alive(now);
+    if (!a) return;
+    a.calls++; a.aliveAt = Math.max(a.aliveAt, now);
+  }
+  /** A helper finished: a good run teaches its type's history; a failed one stays on the card in red for a moment. */
+  agentEnd(id: string, now = Date.now(), ok = true): void {
+    const a = this.agents.get(id);
+    this.alive(now);
+    if (!a) return;
+    if (ok) {
+      this.agents.delete(id);
+      if (this.ctx && now - a.since > 1000) this.ctx.hist.add({ at: now, src: 'agent', k: a.kind, key: kindOf(a.what), ms: now - a.since, ok: true });
+    } else { a.failed = true; a.endedAt = now; }
+  }
   clearAgents(): void { this.agents.clear(); }
+
+  /** How long a silence may last now (rule 4): a tool's own history, the model streaming, or between steps. */
+  stallMs(): number {
+    const running = [...this.tools.values()];
+    if (running.length) {
+      let p90: number | null = null;
+      for (const t of running) {
+        const e = t.est ?? (t.tool === 'Agent' || t.tool === 'Task' ? this.fgAgentEst() : null);
+        if (e) p90 = Math.max(p90 ?? 0, p90Of(e));
+        else { p90 = null; break; }
+      }
+      return stallLimit({ tool: true, toolP90: p90, streaming: this.streaming });
+    }
+    return stallLimit({ tool: false, streaming: this.streaming });
+  }
+  private fgAgentEst(): Est | null { for (const a of this.agents.values()) if (a.fg && a.est && !a.failed) return a.est; return null; }
+
+  /** The helper agents' clocks for barNow: a foreground one floors the item's time left. */
+  agentClocks(): AgentEst[] { return [...this.agents.values()].map(a => ({ since: a.since, est: a.est, fg: a.fg, ...(a.failed ? { failed: true } : {}), ...(a.endedAt ? { endedAt: a.endedAt } : {}) })); }
 
   /**
    * What the drop-down says now. `phase` is the job's; `waiting` the kind of the oldest thing waiting on him, if any.
    * Between tools while working: "Thinking" (since the last tool ended).
    */
   snapshot(phase: string, waiting: string | null, now: number): Activity {
-    for (const [id, a] of this.agents) if (now - a.since > AGENT_MAX_MS) this.agents.delete(id);   // its end was lost
-    const agents = [...this.agents.values()].sort((a, b) => a.since - b.since).map(a => ({ ...a }));
-    if (phase === 'paused') return { now: 'Paused', since: this.quietSince ?? now, agents };
-    if (waiting && WAITING[waiting]) return { now: WAITING[waiting]!, since: now, agents };
+    for (const [id, a] of this.agents) {
+      if (now - a.since > AGENT_MAX_MS) this.agents.delete(id);                 // its end was lost
+      else if (a.endedAt && now - a.endedAt > FAILED_SHOWN_MS) this.agents.delete(id);
+    }
+    const agents = [...this.agents.values()].sort((a, b) => a.since - b.since).map(a => ({ ...a, ...(a.est ? { est: { ...a.est } } : {}) }));
     const last = [...this.tools.values()].pop();
-    if (last) return { now: last.line, since: last.since, agents };
-    if (this.stream && phase === 'working') return { now: this.stream.line, since: this.stream.since, agents };
-    if (phase === 'working') return { now: 'Thinking', since: this.quietSince ?? now, agents };
-    return { now: '', since: this.quietSince ?? now, agents };
+    const tool: ActivityTool | null = last?.est ? { since: last.since, est: { mu: last.est.mu, sigma: last.est.sigma }, n: last.est.n, usual: Math.round(medianOf(last.est)) } : null;
+    const extra = { agents, tool, pips: this.pips, aliveAt: this.aliveAt, stallMs: this.stallMs() };
+    if (phase === 'paused') return { now: 'Paused', since: this.quietSince ?? now, ...extra };
+    if (waiting && WAITING[waiting]) return { now: WAITING[waiting]!, since: now, ...extra };
+    if (last) return { now: last.line, since: last.since, ...extra };
+    if (this.stream && phase === 'working') return { now: this.stream.line, since: this.stream.since, ...extra };
+    if (phase === 'working') return { now: 'Thinking', since: this.quietSince ?? now, ...extra };
+    return { now: '', since: this.quietSince ?? now, ...extra };
   }
 }
+
+/** A keeper context with no history on disk (tests, and before the brain hands over its folder). */
+export const memoryCtx = (project = '', model = ''): KeeperCtx => ({ hist: new ProgressHistory(null), project: () => project, model: () => model });
+export { estOf };

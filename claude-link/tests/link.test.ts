@@ -2,7 +2,7 @@
 // behaves exactly as without the mod). The brain is played by the test's own http.fetch hook.
 import { describe, expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
-import { OWN_TOOL, OWN_TOOL_FULL, OWN_TOOL_SECTION, TODO_SECTION, TODO_SECTION_ID, activityOf, hmacHex, nextTasks, stripSecrets, toDecision } from '../hooks/link.ts'
+import { OWN_TOOL, OWN_TOOL_FULL, OWN_TOOL_PLAN_DESC, OWN_TOOL_SECTION, PLAN_SENTENCE, TODO_SECTION, TODO_SECTION_ID, activityOf, hmacHex, nextTasks, planOf, stripSecrets, toDecision } from '../hooks/link.ts'
 import type { Task } from '../hooks/link.ts'
 
 const KEY = 'test-key-for-aang-link-0123456789abcdefghij'
@@ -37,7 +37,7 @@ describe('plain parts', () => {
 })
 
 /** A pretend brain: proves the key, takes events, and answers one waiting item with `answer` (or a forged MAC). */
-function brain(on: On, opts: { answer?: string; forge?: boolean; squatter?: boolean; down?: boolean; inbox?: string; v1?: boolean; hold?: () => Promise<void>; key?: string; tools?: string[] }) {
+function brain(on: On, opts: { answer?: string; forge?: boolean; squatter?: boolean; down?: boolean; inbox?: string; v1?: boolean; hold?: () => Promise<void>; key?: string; tools?: string[]; resync?: boolean; failPosts?: number }) {
   const seen: string[] = []
   const events: Record<string, unknown>[] = []
   const posts: Record<string, unknown>[] = []
@@ -80,6 +80,7 @@ function brain(on: On, opts: { answer?: string; forge?: boolean; squatter?: bool
     const n = u.searchParams.get('n') ?? ''
     const reply = (v: unknown) => ({ value: { status: 200, ok: true, headers: {}, text: JSON.stringify(v) } })
     if (u.pathname === '/link/hello') return reply({ proof: opts.squatter ? 'f'.repeat(64) : await hmacHex(opts.key ?? KEY, 'hello', n), ...(opts.v1 ? {} : { v: 2 }) })
+    if (u.pathname === '/link/event' && opts.failPosts && opts.failPosts > 0) { opts.failPosts--; throw new Error('timed out') }
     if (u.pathname === '/link/event') {
       // A batch (2026-10-21) is several events in one post; each is kept as the brain reads it, session and all.
       const b = JSON.parse(e.init?.body ?? '{}')
@@ -88,6 +89,10 @@ function brain(on: On, opts: { answer?: string; forge?: boolean; squatter?: bool
       else events.push(b)
       if (opts.hold) await opts.hold()
       return { value: { status: 204, ok: true, headers: {}, text: '' } }
+    }
+    if (u.pathname === '/link/wait' && opts.resync) {
+      opts.resync = false
+      return reply({ items: [{ id: 'r1', kind: 'resync', body: '{}', mac: await hmacHex(KEY, n, SESSION, 'r1', 'resync', '{}') }] })
     }
     if (u.pathname === '/link/wait' && inbox) {
       const body = JSON.stringify({ text: inbox }); inbox = undefined
@@ -402,7 +407,7 @@ test('no built-in to-do tool: the mod registers its own progress tool, the promp
   expect(String(registered[0]!.description)).toMatch(/start of any task with more than one step/)
   const r = await $.prompt.compose({ ...COMPOSE, tools: ['Bash', OWN_TOOL_FULL] })
   const last = r.sections[r.sections.length - 1]!
-  expect(last).toEqual({ id: TODO_SECTION_ID, text: OWN_TOOL_SECTION, scope: 'session' })
+  expect(last).toEqual({ id: TODO_SECTION_ID, text: OWN_TOOL_SECTION + ' ' + PLAN_SENTENCE, scope: 'session' })
   expect(OWN_TOOL_SECTION).not.toMatch(/aang(?!-link)/i)
   // The model calls it: answered by the mod itself, the list told like TodoWrite's.
   const res = await $.tool.call({ tool: OWN_TOOL_FULL, tasks: [{ text: 'Plan', status: 'completed' }, { text: 'Build', status: 'in_progress', active: 'Building' }] } as never)
@@ -413,11 +418,18 @@ test('no built-in to-do tool: the mod registers its own progress tool, the promp
   void clock
 })
 
-test('a session with TodoWrite gets no second to-do tool', async ($, on) => {
+test('a session with TodoWrite gets no second to-do tool: the progress tool is offered for the phase plan only (v3)', async ($, on) => {
   const { quiet, registered } = brain(on, { tools: ['Bash', 'TodoWrite'] })
+  on('prompt.compose', () => SECTIONS)
   await $.session.start(start)
   await quiet()
-  expect(registered).toHaveLength(0)
+  expect(registered).toHaveLength(1)
+  expect(registered[0]).toMatchObject({ name: OWN_TOOL, description: OWN_TOOL_PLAN_DESC })
+  expect(JSON.stringify(registered[0]!.inputSchema)).not.toContain('"tasks"')
+  // The prompt asks for the plan once the tool is there, after the to-do paragraph.
+  const r = await $.prompt.compose({ ...COMPOSE, tools: ['Bash', 'TodoWrite', OWN_TOOL_FULL] })
+  expect(r.sections[r.sections.length - 1]).toEqual({ id: TODO_SECTION_ID, text: TODO_SECTION + ' ' + PLAN_SENTENCE, scope: 'session' })
+  expect(PLAN_SENTENCE).not.toMatch(/aang(?!-link)/i)
 })
 
 test('a restarted brain gets the whole session at once, once: list, turn, tools running, helper agents', async ($, on) => {
@@ -456,4 +468,119 @@ test('a restarted brain gets the whole session at once, once: list, turn, tools 
   await $.tool.call({ tool: 'Read', file_path: 'b.ts' })
   await until(() => events.some(ev => ev.type === 'tool.start' && (ev.detail as { file?: string })?.file === 'b.ts'))
   expect(count('snapshot')).toBe(2)
+})
+
+// ---- v3 (2026-10-21, docs/PROGRESS-RESEARCH.md): heartbeats, helper agents' tool calls, numbered events, the retry,
+// and the phase plan through the progress tool.
+
+test('v3: every event is numbered in order under one load id; a resync from the brain brings a snapshot', async ($, on) => {
+  on('tool.call', () => ({ result: 'ok' }))
+  const opts: Parameters<typeof brain>[1] = {}
+  const { events, quiet, until, count, clock } = brain(on, opts)
+  await $.session.start(start)
+  await quiet()
+  await $.tool.call({ tool: 'Read', file_path: 'a.ts' })
+  await until(() => count('tool.end') > 0)
+  const nums = events.filter(ev => ev.type !== 'snapshot').map(ev => Number(ev.sq))
+  expect(nums.every((n, i) => i === 0 || n === nums[i - 1]! + 1)).toBe(true)
+  expect(new Set(events.map(ev => ev.gen)).size).toBe(1)
+  expect(String(events[0]!.gen)).toMatch(/^[0-9a-f]{12}$/)
+  // The brain saw a gap: it says resync, the mod sends the whole picture again.
+  opts.resync = true
+  await clock.advance(6000)
+  await until(() => count('snapshot') >= 2)
+  expect(count('snapshot')).toBe(2)
+})
+
+test('v3: a post that times out is tried once more before anything is dropped', async ($, on) => {
+  on('tool.call', () => ({ result: 'ok' }))
+  const opts: Parameters<typeof brain>[1] = {}
+  const { events, quiet, until, count } = brain(on, opts)
+  await $.session.start(start)
+  await quiet()
+  opts.failPosts = 1
+  await $.tool.call({ tool: 'Bash', command: 'npm test', description: 'Run the tests' })
+  await until(() => count('tool.end') > 0)
+  expect(events.filter(ev => ev.type === 'tool.start')).toHaveLength(1)
+  expect(count('snapshot')).toBe(1)            // nothing was lost, so no second snapshot was needed
+})
+
+test('v3: tool.end says whether the tool worked', async ($, on) => {
+  on('tool.call', ($, e) => ((e as unknown as { command?: string }).command === 'false' ? { result: 'exit 1', isError: true } : { result: 'ok' }))
+  const { events, quiet, until, count } = brain(on, {})
+  await $.session.start(start)
+  await quiet()
+  await $.tool.call({ tool: 'Bash', command: 'true' })
+  await $.tool.call({ tool: 'Bash', command: 'false' })
+  await until(() => count('tool.end') >= 2)
+  expect(events.filter(ev => ev.type === 'tool.end').map(ev => ev.ok)).toEqual([true, false])
+})
+
+test('v3 heartbeats: the model streaming sends alive at most every 2 s; a helper agent streaming sends its own', async ($, on) => {
+  on('agent.spawn', () => ({ model: 'haiku', agentId: 'agent-5' }))
+  const { events, quiet, until, count, clock } = brain(on, {})
+  on('turn.step', async function* (_$, e) {
+    yield { kind: 'text', index: 0, text: 'a'.repeat(400) }
+    for (let i = 0; i < 6; i++) { await clock.advance(900); yield { kind: 'text', index: 0, text: 'b'.repeat(400) } }
+    return { turnId: e.turnId, index: e.index, answer: '', toolUses: [], stopReason: 'end_turn', usage: null }
+  } as never)
+  await $.session.start(start)
+  await quiet()
+  for await (const _ of $.turn.step({ turnId: 't1', index: 0, model: 'sonnet', messageCount: 1 })) { /* drain */ }
+  await until(() => count('alive') >= 2)
+  const alive = events.filter(ev => ev.type === 'alive')
+  // Six chunks 0.9 s apart after the first: about 5.4 s of streaming, so two beats (not six).
+  expect(alive).toHaveLength(2)
+  expect(Number(alive[1]!.outTok)).toBeGreaterThan(Number(alive[0]!.outTok))
+  await $.agent.spawn({ prompt: 'x', description: 'Mapping the code', subagentType: 'Explore' })
+  for await (const _ of $.turn.step({ turnId: 't2', index: 0, model: 'haiku', messageCount: 1, agentId: 'agent-5' })) { /* drain */ }
+  await until(() => events.some(ev => ev.type === 'alive' && ev.agent === 'agent-5'))
+  expect(events.filter(ev => ev.type === 'alive' && ev.agent === 'agent-5').length).toBeGreaterThanOrEqual(1)
+})
+
+test("v3: a helper agent's tool calls are its heartbeats; background helpers are marked; a failed one says so", async ($, on) => {
+  on('agent.spawn', ($, e) => ({ model: 'haiku', agentId: (e as { description: string }).description === 'Bg job' ? 'agent-bg' : 'agent-1' }))
+  on('tool.call', () => ({ result: 'ok' }))
+  on('turn.complete', () => ({ text: '' }))
+  const { events, quiet, until, count } = brain(on, {})
+  await $.session.start(start)
+  await quiet()
+  await $.agent.spawn({ prompt: 'x', description: 'Mapping the code', subagentType: 'Explore', background: false } as never)
+  await $.agent.spawn({ prompt: 'y', description: 'Bg job', subagentType: 'general-purpose', background: true } as never)
+  await $.tool.call({ tool: 'Grep', pattern: 'pill(', agentId: 'agent-1' } as never)
+  await $.tool.call({ tool: 'Read', file_path: 'a.ts', agentId: 'agent-1' } as never)
+  await $.turn.complete({ answer: '', durationMs: 5, isAborted: false, turnId: 'ta', agentId: 'agent-1', reason: 'error' } as never)
+  await until(() => count('agent.end') > 0)
+  expect(events.filter(ev => ev.type === 'agent.tool').map(ev => ev.id)).toEqual(['agent-1', 'agent-1'])
+  expect(events.filter(ev => ev.type === 'tool.start')).toHaveLength(0)       // a helper's tools are not the session's line
+  expect(events.find(ev => ev.type === 'agent.start' && ev.id === 'agent-bg')).toMatchObject({ bg: true })
+  expect(events.find(ev => ev.type === 'agent.start' && ev.id === 'agent-1')?.bg).toBeUndefined()
+  expect(events.find(ev => ev.type === 'agent.end')).toMatchObject({ id: 'agent-1', ok: false })
+})
+
+test('v3: the phase plan goes through the progress tool, masked and cut, and rides in a snapshot', async ($, on) => {
+  const opts: Parameters<typeof brain>[1] = { tools: ['Bash'] }
+  const { events, quiet, until, count, clock } = brain(on, opts)
+  await $.session.start(start)
+  await quiet()
+  const res = await $.tool.call({ tool: OWN_TOOL_FULL, plan: { phases: [
+    { label: 'Phase 1: the engine', hours: 6, status: 'done' },
+    { label: 'Phase 2: sync with api_key=abcd1234efgh5678', hours: 9.5, status: 'running' },
+    { label: 'Phase 3: polish', hours: 3, status: 'later' },
+  ] } } as never)
+  expect(res).toMatchObject({ result: 'Progress shown.' })
+  await until(() => count('plan') > 0)
+  const plan = events.find(ev => ev.type === 'plan')!.phases as { label: string; hours: number; status: string }[]
+  expect(plan.map(p => p.status)).toEqual(['done', 'running', 'todo'])
+  expect(plan[1]!.hours).toBe(9.5)
+  expect(plan[1]!.label).not.toContain('abcd1234efgh5678')
+  expect(count('todos')).toBe(0)
+  // Neither tasks nor plan: told plainly.
+  expect(await $.tool.call({ tool: OWN_TOOL_FULL } as never)).toMatchObject({ isError: true })
+  expect(planOf({ plan: { phases: [{ label: '', hours: 1, status: 'todo' }] } })).toBeNull()
+  // A brain that asks again gets the plan in the snapshot.
+  opts.resync = true
+  await clock.advance(6000)
+  await until(() => count('snapshot') >= 2)
+  expect([...events].reverse().find(ev => ev.type === 'snapshot')).toMatchObject({ plan: [{ label: 'Phase 1: the engine' }, {}, { label: 'Phase 3: polish' }] })
 })

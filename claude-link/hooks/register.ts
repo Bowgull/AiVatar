@@ -22,7 +22,7 @@
 // it holds the key (HMAC over a fresh nonce); and every answer or message handed back must carry
 // HMAC(key, nonce + session + item id + kind + body) for the nonce of that very poll, or it is ignored.
 import type { EngineInterface, Register } from 'claude-code'
-import { MODEL_OK, OWN_TOOL, OWN_TOOL_DESC, OWN_TOOL_FULL, OWN_TOOL_SCHEMA, OWN_TOOL_SECTION, TODO_SECTION, TODO_SECTION_ID, TODO_TOOLS, activityOf, hmacHex, nonce, safeLine, sameMac, stableJson, summarize, tasksAtEnd, tasksAtStart, toDecision } from './link.ts'
+import { MODEL_OK, OWN_TOOL, OWN_TOOL_DESC, OWN_TOOL_FULL, OWN_TOOL_PLAN_DESC, OWN_TOOL_PLAN_SCHEMA, OWN_TOOL_SCHEMA, OWN_TOOL_SECTION, PLAN_SENTENCE, TODO_SECTION, TODO_SECTION_ID, TODO_TOOLS, activityOf, hmacHex, nonce, planOf, safeLine, sameMac, stableJson, summarize, tasksAtEnd, tasksAtStart, toDecision } from './link.ts'
 import type { Task } from './link.ts'
 
 type $T = EngineInterface
@@ -30,14 +30,21 @@ type Item = { id: string; kind: string; body: string; mac: string }
 
 /** Aang's own chat lanes run in this folder and load his settings too: they are not his sessions. */
 const SELF_CWD = /[\\/]\.aang-self[\\/]?$/i
-/** How long one event post may take before it is given up on. Hooks never wait on it. */
-const POST_MS = 900
+/**
+ * How long one event post may take before it is given up on. Hooks never wait on it. v3 (2026-10-21): 300 ms, down
+ * from 900, since the brain answers before it does anything else; a slow post is retried once, never dropped at once.
+ */
+const POST_MS = 300
 /** Longer than the brain holds a poll (25 s), so a held poll is never cut short here. */
 const POLL_MS = 35_000
 /** After Aang is found down (or not proven), leave it alone this long before trying again. */
 const DOWN_MS = 5_000
 /** A proof from the brain is trusted this long; any failure in between asks again. */
 const PROVEN_MS = 30_000
+/** v3: the proof is renewed in the background this often, so an event never waits on a hello round trip. */
+const RENEW_MS = 25_000
+/** v3 heartbeats: while the model streams, one `alive` at most this often (research 3.5). */
+const BEAT_MS = 2_000
 
 /** One session's link, kept per load of the module (a reload starts it afresh, which is harmless). */
 interface Link {
@@ -64,7 +71,7 @@ interface Link {
   running: Map<string, { tool: string; input: string; reqId?: string; answered?: boolean }>
   tasks: Map<string, Task>
   /** Helper agents this module saw start (so only their own turn.complete reports an end), with what they are doing. */
-  agents: Map<string, { kind: string; what: string }>
+  agents: Map<string, { kind: string; what: string; bg?: true }>
   /** Main-loop tools running now, as told to Aang, for a snapshot. */
   told: Map<string, { tool: string; detail: Record<string, string> }>
   /** What Claude is asking him right now (a permission, a question, a plan), as told to Aang, for a snapshot. */
@@ -76,6 +83,15 @@ interface Link {
   downPending: boolean
   /** Our own progress tool was registered (no built-in to-do tool in this session). */
   ownTool: boolean
+  /** v3: this load's id and the number of the last event posted, so the brain can spot a lost or doubled event. */
+  gen: string
+  seq: number
+  /** v3: the open quiet windows after a heartbeat, for the main loop ('') and each helper agent. */
+  beats: Map<string, { cancel(): void }>
+  /** v3: the background renewal of the brain's proof is scheduled. */
+  renewing: { cancel(): void } | null
+  /** v3: the project's phase plan as Claude last gave it, for a snapshot. */
+  plan: { label: string; hours: number; status: string }[] | null
 }
 
 /**
@@ -85,8 +101,12 @@ interface Link {
 function within<T>($: $T, p: Promise<T>, ms: number): Promise<T | undefined> {
   return new Promise(resolve => {
     let done = false
-    const timer = $.clock.after(ms, () => { if (!done) { done = true; resolve(undefined) } })
-    p.then(v => { if (!done) { done = true; timer.cancel(); resolve(v) } }, () => { if (!done) { done = true; timer.cancel(); resolve(undefined) } })
+    let timer: { cancel(): void } | null = null
+    // The promise is handled first (v3, 2026-10-21): if the engine's clock is gone (the session closing), a failing
+    // request must still never become an unhandled rejection.
+    p.then(v => { if (!done) { done = true; timer?.cancel(); resolve(v) } }, () => { if (!done) { done = true; timer?.cancel(); resolve(undefined) } })
+    try { timer = $.clock.after(ms, () => { if (!done) { done = true; resolve(undefined) } }) }
+    catch { if (!done) { done = true; resolve(undefined) } }
   })
 }
 
@@ -135,6 +155,7 @@ async function proven($: $T, L: Link): Promise<boolean> {
   }
   if (ok) {
     L.provenUntil = now + PROVEN_MS
+    renewLater($, L)
     // A brain this session has not told anything yet (2026-10-21, his "pick up running sessions even if I restart
     // him"): a restarted brain has a new key. It gets the whole picture at once, not at the next tool call.
     if (L.key && L.key !== L.snapFor) {
@@ -152,6 +173,22 @@ async function proven($: $T, L: Link): Promise<boolean> {
 function forget(L: Link): void { L.provenUntil = 0; L.downPending = true }
 
 /**
+ * v3 plumbing (2026-10-21, research section 5): the hello proof is renewed in the background 25 s after each one, so
+ * an event never finds an expired proof and pays a round trip first. A failed renewal just lets the proof lapse; the
+ * next event then asks as before.
+ */
+function renewLater($: $T, L: Link): void {
+  if (L.inert) return
+  L.renewing?.cancel()
+  L.renewing = $.clock.after(RENEW_MS, () => {
+    L.renewing = null
+    if (L.inert || !L.sessionId) return
+    L.provenUntil = 0
+    void proven($, L).catch(() => {})
+  })
+}
+
+/**
  * Tell the brain something, in order, never holding up the hook that said it (nothing here is awaited by a hook).
  * 2026-10-21, "as fast as when Claude gets a reply": an event goes on the wire the moment it is said when nothing else
  * is; while one post is out, whatever is said meanwhile waits and goes together in the next post (one request, in
@@ -160,7 +197,8 @@ function forget(L: Link): void { L.provenUntil = 0; L.downPending = true }
  */
 function post($: $T, L: Link, type: string, data: Record<string, unknown> = {}): void {
   if (L.inert) return
-  L.outq.push({ type, t: Date.now(), ...(L.model ? { model: L.model } : {}), ...data })
+  // v3: numbered, so the brain drops a retry that got through twice and asks for a snapshot when one went missing.
+  L.outq.push({ type, t: Date.now(), gen: L.gen, sq: ++L.seq, ...(L.model ? { model: L.model } : {}), ...data })
   if (L.outq.length > 200) L.outq.splice(0, L.outq.length - 200)
   if (!L.sending) void flush($, L)
 }
@@ -177,8 +215,9 @@ function snapshot(L: Link): Record<string, unknown> {
     phase: L.mainTurn ? 'working' : 'idle',
     todos: [...L.tasks.values()].filter(t => t.text),
     tools: [...L.told.entries()].map(([id, x]) => ({ id, tool: x.tool, detail: x.detail })),
-    agents: [...L.agents.entries()].map(([id, a]) => ({ id, kind: a.kind, what: a.what })),
+    agents: [...L.agents.entries()].map(([id, a]) => ({ id, kind: a.kind, what: a.what, ...(a.bg ? { bg: true } : {}) })),
     asks: [...L.asks.values()].map(a => ({ ...a, readonly: true })),
+    ...(L.plan ? { plan: L.plan } : {}),
   }
 }
 
@@ -187,17 +226,42 @@ async function flush($: $T, L: Link): Promise<void> {
   try {
     while (L.outq.length || L.needSnap) {
       if (!L.sessionId || !(await proven($, L))) { L.outq.length = 0; break }
-      if (L.needSnap) { L.needSnap = false; L.outq.unshift(snapshot(L)) }
+      if (L.needSnap) {
+        L.needSnap = false
+        // Numbered just before what is queued, so the brain counts on from it without dropping anything after it.
+        const first = Number(L.outq[0]?.sq)
+        L.outq.unshift({ ...snapshot(L), gen: L.gen, sq: Number.isFinite(first) ? first - 1 : ++L.seq })
+      }
       const take = L.outq.splice(0, L.batch ? 50 : 1)
-      const body = L.batch && take.length > 1
+      const body = JSON.stringify(L.batch && take.length > 1
         ? { session: L.sessionId, cwd: L.cwd, events: take }
-        : { session: L.sessionId, cwd: L.cwd, ...take[0] }
-      const r = await call($, L, 'POST', '/link/event', JSON.stringify(body), POST_MS)
-      // Lost on the way: whatever was in it is gone, so the next brain proven (the same or a new one) gets a snapshot.
+        : { session: L.sessionId, cwd: L.cwd, ...take[0] })
+      // v3: a slow or failed post is tried once more before anything is given up (the numbers stop a double).
+      let r = await call($, L, 'POST', '/link/event', body, POST_MS)
+      if (!r?.ok) r = await call($, L, 'POST', '/link/event', body, POST_MS)
+      // Lost on the way twice: whatever was in it is gone, so the next brain proven (the same or a new one) gets a snapshot.
       if (!r?.ok) { forget(L); L.outq.length = 0; L.snapFor = ''; break }
     }
   } catch { L.outq.length = 0 }
   finally { L.sending = false }
+}
+
+/**
+ * A heartbeat (v3), at most every BEAT_MS for the main loop ('') and for each helper agent. The window is timed on the
+ * engine's own clock (as everything else here), so the tests can move it.
+ */
+function beat($: $T, L: Link, who: string, data: Record<string, unknown>): void {
+  if (L.beats.has(who)) return
+  hush($, L, who)
+  post($, L, 'alive', who ? { agent: who } : data)
+}
+/** Opens a quiet window of BEAT_MS for `who`: something was just said, so no heartbeat is needed until it closes. */
+function hush($: $T, L: Link, who: string): void {
+  if (L.beats.has(who)) return
+  const until = { cancel() {} }
+  L.beats.set(who, until)
+  try { const t = $.clock.after(BEAT_MS, () => { if (L.beats.get(who) === until) L.beats.delete(who) }); until.cancel = () => t.cancel() }
+  catch { L.beats.delete(who) }
 }
 
 /** Claude's to-do list, told once per change. */
@@ -236,6 +300,10 @@ async function act($: $T, L: Link, item: Item): Promise<void> {
     if (L.mainTurn) await $.turn.abort({ turnId: L.mainTurn })
   } else if (item.kind === 'play') {
     await $.prompt.submit({ text: typeof b.text === 'string' && b.text.trim() ? `Joshua (sent through Aang): ${b.text.slice(0, 4000)}` : 'Carry on where you left off.' })
+  } else if (item.kind === 'resync') {
+    // v3: the brain saw a gap in the numbers: the whole picture again, at once.
+    L.needSnap = true
+    if (!L.sending) void flush($, L)
   } else if (item.kind === 'model' && typeof b.model === 'string' && MODEL_OK.test(b.model)) {
     await $.command.run({ command: 'model', args: b.model })
     L.model = (await within($, $.session.model(), 500)) ?? L.model
@@ -287,9 +355,14 @@ async function ensureTool($: $T, L: Link): Promise<void> {
   const tools = await within($, $.tool.list(), 1000)
   if (!tools) return
   L.ownTool = true
-  if (tools.some(t => TODO_TOOLS.includes(t.name) || t.name === OWN_TOOL_FULL)) return
-  try { await $.tool.register({ name: OWN_TOOL, description: OWN_TOOL_DESC, inputSchema: OWN_TOOL_SCHEMA, isDeferred: false }) }
-  catch { L.ownTool = false }
+  if (tools.some(t => t.name === OWN_TOOL_FULL)) return
+  // v3: a session with its own to-do tool still gets the progress tool, for the phase plan only (OVERALL).
+  const hasTodo = tools.some(t => TODO_TOOLS.includes(t.name))
+  try {
+    await $.tool.register(hasTodo
+      ? { name: OWN_TOOL, description: OWN_TOOL_PLAN_DESC, inputSchema: OWN_TOOL_PLAN_SCHEMA, isDeferred: false }
+      : { name: OWN_TOOL, description: OWN_TOOL_DESC, inputSchema: OWN_TOOL_SCHEMA, isDeferred: false })
+  } catch { L.ownTool = false }
 }
 
 /** Learns the session (and starts its poll) once the session is ready; never holds the session up. */
@@ -309,8 +382,8 @@ async function turnBegan($: $T, L: Link, prompt: string): Promise<void> {
   pump($, L)
 }
 
-async function turnEnded($: $T, L: Link, aborted: boolean): Promise<void> {
-  post($, L, 'turn.end', { aborted, usage: await usage($) })
+async function turnEnded($: $T, L: Link, aborted: boolean, reason: string): Promise<void> {
+  post($, L, 'turn.end', { aborted, reason, usage: await usage($) })
 }
 
 /**
@@ -357,6 +430,7 @@ export const register: Register = on => {
     base: '', keyPath: '', key: null, provenUntil: 0, downUntil: 0, inert: false, sessionId: '', cwd: '', model: '',
     mainTurn: null, pumping: false, outq: [], sending: false, batch: false, lastList: '', running: new Map(), tasks: new Map(), agents: new Map(),
     told: new Map(), asks: new Map(), snapFor: '', needSnap: false, downPending: false, ownTool: false,
+    gen: nonce().slice(0, 12), seq: 0, beats: new Map(), renewing: null, plan: null,
   }
 
   // His decision (2026-10-21): every session keeps a to-do list for any job with more than one step, ticked as it
@@ -366,29 +440,54 @@ export const register: Register = on => {
   on('prompt.compose', async ($, e, next) => {
     const r = await next(e)
     if (L.inert || r.sections.some(s => s.id === TODO_SECTION_ID)) return r
-    const text = e.tools.some(t => TODO_TOOLS.includes(t)) ? TODO_SECTION : e.tools.includes(OWN_TOOL_FULL) ? OWN_TOOL_SECTION : ''
+    // v3: where the progress tool is offered, one more sentence asks for the phase plan on multi-phase projects.
+    const plan = e.tools.includes(OWN_TOOL_FULL) ? ' ' + PLAN_SENTENCE : ''
+    const text = e.tools.some(t => TODO_TOOLS.includes(t)) ? TODO_SECTION + plan : e.tools.includes(OWN_TOOL_FULL) ? OWN_TOOL_SECTION + plan : ''
     return text ? { sections: [...r.sections, { id: TODO_SECTION_ID, text, scope: 'session' as const }] } : r
   }).catch(($, e, next) => next(e))
 
   // "Something happens" includes Claude writing (2026-10-21): the moment a main-loop step starts streaming its reply,
   // its thinking, or a tool call's arguments (a big Write streams for many seconds before the tool runs), Aang's live
   // line says so. Once per kind per step; every chunk is passed on untouched.
+  // v3 heartbeats (2026-10-21, research 3.5): while chunks stream, one `alive` at most every 2 s (with a rough count
+  // of what was written), so Aang can tell a model that is slowly writing from a session that has gone quiet. A helper
+  // agent streaming sends its own, under its id.
   on('turn.step', async function* ($, e, next) {
     const s = next(e)
-    if (e.agentId !== undefined || L.inert) return yield* s
-    let said = ''
+    if (L.inert) return yield* s
+    if (e.agentId !== undefined) {
+      const agent = e.agentId
+      for await (const c of s) {
+        try { if (L.agents.has(agent)) beat($, L, agent, {}) } catch { /* a nicety */ }
+        yield c
+      }
+      return await s.result
+    }
+    let said = '', chars = 0
     for await (const c of s) {
       try {
         const kind = c.kind === 'text' ? 'text' : c.kind === 'thinking' ? 'thinking' : c.kind === 'tool' ? `tool:${c.name}` : ''
         if (kind && kind !== said) {
           said = kind
           post($, L, 'step', c.kind === 'tool' ? { what: 'tool', tool: safeLine(c.name, 120) } : { what: kind })
+          hush($, L, '')
+        } else {
+          const x = c as { text?: unknown }
+          if (typeof x.text === 'string') chars += x.text.length
+          beat($, L, '', { outTok: Math.round(chars / 4) })
         }
       } catch { /* a nicety: the chunk goes on either way */ }
       yield c
     }
     return await s.result
   })
+
+  // v3: compaction is a known pause ("Tidying its memory"), left out of working time.
+  on('session.compact', async ($, e, next) => {
+    if (L.inert || e.agentId !== undefined) return next(e)
+    post($, L, 'compact', { on: true })
+    try { return await next(e) } finally { post($, L, 'compact', { on: false }) }
+  }).catch(($, e, next) => next(e))
 
   on('session.start', async ($, e, next) => {
     const started = await next(e)
@@ -420,9 +519,13 @@ export const register: Register = on => {
   on('turn.complete', async ($, e, next) => {
     if (e.agentId === undefined && !L.inert) {
       L.mainTurn = null
-      void turnEnded($, L, e.isAborted).catch(() => {})
+      void turnEnded($, L, e.isAborted, String(e.reason ?? '')).catch(() => {})
       L.told.clear()
-    } else if (e.agentId !== undefined && L.agents.delete(e.agentId)) post($, L, 'agent.end', { id: e.agentId })
+    } else if (e.agentId !== undefined && L.agents.delete(e.agentId)) {
+      // v3: whether it ended well, so a failed helper shows red and teaches no history.
+      post($, L, 'agent.end', { id: e.agentId, ok: !e.isAborted && e.reason !== 'error' })
+      L.beats.get(e.agentId)?.cancel(); L.beats.delete(e.agentId)
+    }
     return next(e)
   })
 
@@ -430,7 +533,8 @@ export const register: Register = on => {
   on('agent.spawn', async ($, e, next) => {
     const r = await next(e)
     if (!L.inert && r && !r.deny && r.agentId) {
-      const a = { kind: safeLine(e.subagentType, 40), what: safeLine(e.description, 80) }
+      // v3: a background helper does not hold the main loop up, so it does not floor the step's time left.
+      const a = { kind: safeLine(e.subagentType, 40), what: safeLine(e.description, 80), ...(e.background === true ? { bg: true as const } : {}) }
       L.agents.set(r.agentId, a)
       post($, L, 'agent.start', { id: r.agentId, ...a })
     }
@@ -442,9 +546,17 @@ export const register: Register = on => {
     const { tool, tool_use_id: id, agentId, requestMeta: _meta, ...input } = e as unknown as Record<string, unknown> & { tool: string; tool_use_id: string; agentId?: string }
     // The mod's own progress tool (2026-10-21): answered here, nothing else runs; the main loop's list is told to Aang.
     if (tool === OWN_TOOL_FULL) {
-      if (agentId === undefined) { try { postList($, L, tasksAtStart(L.tasks, tool, input, id)) } catch { /* a nicety */ } }
-      return Array.isArray(input.tasks) ? { result: 'Progress shown.' } : { result: 'Pass tasks: the full list, each { text, status }.', isError: true as const }
+      let plan: ReturnType<typeof planOf> = null
+      try { plan = planOf(input) } catch { /* a nicety */ }
+      if (agentId === undefined) {
+        try { postList($, L, tasksAtStart(L.tasks, tool, input, id)) } catch { /* a nicety */ }
+        // v3: the project's phase plan, for OVERALL.
+        if (plan) { L.plan = plan; post($, L, 'plan', { phases: plan }) }
+      }
+      return Array.isArray(input.tasks) || plan ? { result: 'Progress shown.' } : { result: 'Pass tasks (the full list, each { text, status }) or plan ({ phases: [{ label, hours, status }] }).', isError: true as const }
     }
+    // v3: a helper agent's own tool call is its heartbeat, and one more in "14 tool calls".
+    if (agentId !== undefined && L.agents.has(agentId)) post($, L, 'agent.tool', { id: agentId })
     const rec: { tool: string; input: string; reqId?: string; answered?: boolean } = { tool, input: stableJson(input) }
     L.running.set(id, rec)
     // The live line: the main loop's tools only (a helper agent's own tools would be noise; its start and end are told).
@@ -470,7 +582,8 @@ export const register: Register = on => {
       L.running.delete(id)
       L.told.delete(id)
       if (rec.reqId) L.asks.delete(rec.reqId)
-      if (told) post($, L, 'tool.end', { id })
+      // v3: whether it worked, so only good runs teach the command history.
+      if (told) post($, L, 'tool.end', { id, ok: !!r && r.deny === undefined && !r.isError })
       // Answered in Claude's own dialog (or the call ended): Aang takes its card down.
       if (rec.reqId && !rec.answered) post($, L, 'resolved', { id: rec.reqId })
     }
