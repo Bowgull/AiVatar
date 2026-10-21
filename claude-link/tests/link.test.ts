@@ -2,7 +2,7 @@
 // behaves exactly as without the mod). The brain is played by the test's own http.fetch hook.
 import { describe, expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
-import { hmacHex, nextTasks, toDecision } from '../hooks/link.ts'
+import { activityOf, hmacHex, nextTasks, stripSecrets, toDecision } from '../hooks/link.ts'
 import type { Task } from '../hooks/link.ts'
 
 const KEY = 'test-key-for-aang-link-0123456789abcdefghij'
@@ -142,4 +142,52 @@ test("Claude's to-do list reaches Aang as it changes", async ($, on) => {
   await $.tool.call({ tool: 'TodoWrite', todos: [{ content: 'Write tests', status: 'in_progress', activeForm: 'Writing tests' }] })
   await clock.settle(); await clock.settle()
   expect(events.find(ev => ev.type === 'todos')).toMatchObject({ session: SESSION, todos: [{ text: 'Write tests', status: 'in_progress', active: 'Writing tests' }] })
+})
+
+// The live "what's happening" line (2026-10-21): tools and helper agents reported as they start and end, safely.
+test('activity: the safe bits only, secrets masked, the to-do tools left out', () => {
+  const curl = activityOf('Bash', { command: 'curl -H "Authorization: Bearer abcdefghijklmnop1234" https://x.co?token=s3cr3tvalue', description: 'Fetch it' })!
+  expect(curl.desc).toBe('Fetch it')
+  expect(curl.cmd).not.toContain('abcdefghijklmnop1234')
+  expect(stripSecrets('https://x.co?token=s3cr3tvalue')).not.toContain('s3cr3tvalue')
+  const masked = activityOf('Bash', { command: 'ANTHROPIC_API_KEY=sk-ant-api03-ABCDEFGHIJKLMNOP npm test -- --run' })!.cmd!
+  expect(masked).not.toContain('sk-ant')
+  expect(masked).toContain('npm test')
+  expect(stripSecrets('git clone https://joshua:hunter22@github.com/x/y')).not.toContain('hunter22')
+  expect(stripSecrets('gh auth login --with-token ghp_abcdefghijklmnopqrstuvwxyz0123')).not.toContain('ghp_')
+  expect(activityOf('Edit', { file_path: 'C:\\Users\\Shadow\\Documents\\AangApp\\src\\Shell\\pages\\bubble.js', old_string: 'secret stuff', new_string: 'x' })).toEqual({ file: 'bubble.js' })
+  expect(activityOf('WebFetch', { url: 'https://github.com/x/y?token=abc', prompt: 'read' })).toEqual({ site: 'github.com' })
+  expect(activityOf('mcp__aang-browser__browser_read', { tab: 3 })).toEqual({ server: 'aang-browser', name: 'browser_read' })
+  expect(activityOf('TodoWrite', { todos: [] })).toBeNull()
+  expect(activityOf('Bash', { command: 'x'.repeat(200) })!.cmd).toHaveLength(60)
+})
+
+test('activity: a tool start and end reach Aang at once, in order', async ($, on) => {
+  on('tool.call', () => ({ result: 'ok' }))
+  const { clock, events } = brain(on, {})
+  await $.session.start(start)
+  await clock.settle(); await clock.settle()
+  await $.tool.call({ tool: 'Bash', command: 'npm test -- --run --token=abcd1234efgh', description: 'Run the tests' })
+  await clock.settle(); await clock.settle()
+  const st = events.find(ev => ev.type === 'tool.start') as { id: string; tool: string; detail: { cmd: string } } | undefined
+  expect(st?.tool).toBe('Bash')
+  expect(st?.detail.cmd).toContain('npm test -- --run')
+  expect(st?.detail.cmd).not.toContain('abcd1234efgh')
+  const types = events.map(ev => ev.type)
+  expect(types.indexOf('tool.end')).toBeGreaterThan(types.indexOf('tool.start'))
+  expect(events.find(ev => ev.type === 'tool.end')).toMatchObject({ id: st?.id })
+})
+
+test('activity: a helper agent is told when it starts and when it ends', async ($, on) => {
+  on('agent.spawn', () => ({ model: 'haiku', agentId: 'agent-7' }))
+  on('turn.complete', () => ({ text: '' }))
+  const { clock, events } = brain(on, {})
+  await $.session.start(start)
+  await clock.settle(); await clock.settle()
+  await $.agent.spawn({ prompt: 'Look over the diff.', description: 'Reviewing the diff', subagentType: 'general-purpose' })
+  await clock.settle(); await clock.settle()
+  expect(events.find(ev => ev.type === 'agent.start')).toMatchObject({ id: 'agent-7', kind: 'general-purpose', what: 'Reviewing the diff' })
+  await $.turn.complete({ answer: 'done', durationMs: 5, isAborted: false, turnId: 't9', agentId: 'agent-7', reason: 'answer' })
+  await clock.settle(); await clock.settle()
+  expect(events.find(ev => ev.type === 'agent.end')).toMatchObject({ id: 'agent-7' })
 })

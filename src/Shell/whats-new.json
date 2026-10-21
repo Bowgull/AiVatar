@@ -445,6 +445,11 @@
       "at": "2026-10-21T23:55:00-04:00",
       "text": "Right-click Samara's taskbar icon for shortcuts; rune wears Claude's logo.",
       "kind": "feature"
+    },
+    {
+      "at": "2026-10-22T00:10:00-04:00",
+      "text": "Claude job bars move live and say what Claude is doing.",
+      "kind": "feature"
     }
   ]
 }

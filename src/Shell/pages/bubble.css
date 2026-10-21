@@ -803,6 +803,11 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
 .ckjobs .job .list{margin:8px 0 0;padding:8px 0 0;border-top:2px solid rgba(120,80,30,.18)}
 .ckjobs .ob{display:flex;align-items:center;gap:9px;font:600 12.5px/1.85 var(--body);color:#8f7458}
 .ckjobs .ob .tx{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* The live "what's happening" lines above the tasks (2026-10-21): one line each, cut rather than wrapped, so the card
+   never changes height as the words change. Agents in the queued-message lavender. */
+.ckjobs .act{margin:0 0 6px;padding:0 0 6px;border-bottom:1px dashed rgba(120,80,30,.22)}
+.ckjobs .act .an{font:600 12.5px/1.6 var(--body);color:#3a2a18;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ckjobs .act .ag{font:600 12px/1.5 var(--body);color:#5b2f8f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ckjobs .ob i{flex:none;width:12px;height:12px;border-radius:3px;box-shadow:inset 0 0 0 2px #b89a6a}
 .ckjobs .ob.done{color:#4f7a72}.ckjobs .ob.done i{background:#58b0a3;box-shadow:inset 0 0 0 2px #2f6f66}
 .ckjobs .ob.done i::after{content:"";display:block;width:3px;height:6px;margin:1px 0 0 4px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}

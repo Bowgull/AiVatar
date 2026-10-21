@@ -62,6 +62,54 @@ export function summarize(tool: string, input: unknown): string {
   return `${tool}${first ? `: ${str(first, 200)}` : ''}`
 }
 
+/**
+ * Anything that looks like a key, token or password, masked, before a command ever leaves the session (2026-10-21).
+ * The brain masks again (src/Core/src/claudeprogress.ts stripSecrets, the same patterns), so neither side trusts the other.
+ */
+export function stripSecrets(s: string): string {
+  return s
+    .replace(/(\/\/)[^/\s:@]+:[^/\s@]+@/g, '$1•••@')
+    .replace(/\b(Bearer|Basic|token)\s+[A-Za-z0-9._~+/=-]{8,}/gi, '$1 •••')
+    .replace(/\b([A-Za-z_][A-Za-z0-9_]*(?:KEY|TOKEN|SECRET|PASSWORD|PASSWD|PWD|AUTH|COOKIE|SESSION)[A-Za-z0-9_]*)(\s*[=:]\s*)("[^"]*"|'[^']*'|\S+)/gi, '$1$2•••')
+    .replace(/(--?(?:password|passwd|pass|token|api[-_]?key|secret|auth|key)(?:=|\s+))("[^"]*"|'[^']*'|\S+)/gi, '$1•••')
+    .replace(/([?&](?:key|token|access_token|api_key|apikey|sig|signature|password|secret|code)=)[^&\s"']+/gi, '$1•••')
+    .replace(/\b(?:sk-(?:ant-)?|gh[pousr]_|github_pat_|xox[abprs]-|AKIA|AIza|glpat-|npm_)[A-Za-z0-9_-]{8,}/g, '•••')
+    .replace(/\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]*/g, '•••')
+    .replace(/\b(?=[A-Za-z0-9_+-]*\d)(?=[A-Za-z0-9_+-]*[A-Za-z])[A-Za-z0-9_+-]{32,}={0,2}/g, '•••')
+}
+
+/** Masked first, then cut: a token cut in half before masking could slip through. */
+export const safeLine = (v: unknown, n: number): string => stripSecrets((typeof v === 'string' ? v : '').replace(/\s+/g, ' ').trim()).slice(0, n)
+const safe = safeLine
+const fileName = (v: unknown): string => safe(v, 400).split(/[\\/]/).filter(Boolean).pop()?.slice(0, 80) ?? ''
+
+/** The to-do tools: their news already reaches Aang as the list itself, so they are not reported as activity. */
+const LIST_TOOLS = new Set(['TodoWrite', 'TaskCreate', 'TaskUpdate', 'TaskList', 'TaskGet'])
+
+/**
+ * The safe bits of a tool call for Aang's live "what's happening" line (2026-10-21): never file contents, never a
+ * whole path, never a secret. A command is its first 60 characters after masking; a file is its name; a web page its
+ * site. Null for the to-do tools (nothing to say that the list does not).
+ */
+export function activityOf(tool: string, input: Record<string, unknown>): Record<string, string> | null {
+  if (LIST_TOOLS.has(tool)) return null
+  const out: Record<string, string> = {}
+  const put = (k: string, v: string) => { if (v) out[k] = v }
+  if (tool === 'Bash' || tool === 'PowerShell') { put('cmd', safe(input.command, 60)); put('desc', safe(input.description, 60)) }
+  else if (tool === 'Edit' || tool === 'MultiEdit' || tool === 'Write' || tool === 'Read' || tool === 'NotebookEdit') put('file', fileName(input.file_path ?? input.notebook_path))
+  else if (tool === 'Grep') { put('pattern', safe(input.pattern, 40)); put('where', fileName(input.path)) }
+  else if (tool === 'Glob') put('pattern', safe(input.pattern, 50))
+  else if (tool === 'WebFetch') { try { put('site', new URL(String(input.url ?? '')).hostname.slice(0, 60)) } catch { /* not a URL: no site */ } }
+  else if (tool === 'WebSearch') put('query', safe(input.query, 60))
+  else if (tool === 'Agent' || tool === 'Task') { put('agent', safe(input.description, 60)); put('kind', safe(input.subagent_type, 40)) }
+  else if (tool === 'Skill') put('skill', safe(input.skill ?? input.command, 40))
+  else {
+    const m = /^mcp__(.+?)__(.+)$/.exec(tool)
+    if (m) { put('server', safe(m[1], 40)); put('name', safe(m[2], 40)) }
+  }
+  return out
+}
+
 export type TaskStatus = 'pending' | 'in_progress' | 'completed'
 export interface Task { text: string; status: TaskStatus; active?: string }
 const STATUS: readonly string[] = ['pending', 'in_progress', 'completed']

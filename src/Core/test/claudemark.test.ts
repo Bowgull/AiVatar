@@ -6,7 +6,7 @@ import type { Job, WaitItem, TaskStatus } from '../src/claudelink.ts';
 
 const job = (id: string, phase: Job['phase'], tasks: TaskStatus[] = [], extra: Partial<Job> = {}): Job => ({
   id, machine: 'pc', cwd: 'C:\\code\\' + id, project: id, model: 'sonnet', phase, startedAt: 0, lastActivity: 0, prompt: '',
-  tasks: tasks.map((status, i) => ({ text: 'task ' + i, status })), current: null, percent: null, etaMs: null, usage: null, title: id,
+  tasks: tasks.map((status, i) => ({ text: 'task ' + i, status })), current: null, percent: null, etaMs: null, progress: null, activity: { now: '', since: 0, agents: [] }, usage: null, title: id,
   open: '', held: 0, ...extra,
 });
 const wait = (id: string, kind: WaitItem['kind'], project = 'Waymark'): WaitItem =>

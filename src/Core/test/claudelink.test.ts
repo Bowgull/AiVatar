@@ -15,7 +15,7 @@ test('tracker: to-do progress, the task in hand, and a time left from the pace',
   t.event({ session: 's1', type: 'todos', todos: [
     { text: 'Read', status: 'completed' }, { text: 'Fix', status: 'in_progress', active: 'Fixing' }, { text: 'Test', status: 'pending' }, { text: 'Ship', status: 'pending' },
   ] }, 61_000);
-  const [j] = t.list();
+  const [j] = t.list(61_000);   // the time left is as of the moment it is sent (claudeprogress.ts)
   assert.equal(j!.project, 'Waymark');
   assert.equal(j!.model, 'sonnet');
   assert.equal(j!.percent, 25);

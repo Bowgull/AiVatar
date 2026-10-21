@@ -134,6 +134,58 @@ app.whenReady().then(async () => {
   await wait(100);
   check('queued messages show on the bar in lavender', ((await js(`document.querySelector('#ckjobs .job[data-id="${S1}"] .queued')?.textContent`)) as string)?.includes('2 messages'));
 
+  // ---- the progress engine (2026-10-21): the live line in the drop-down, and a bar that creeps between ticks, stays
+  // inside the task's slot, never goes back, and only drops (saying so) when Claude rewrites its list. Time is faked in
+  // the page (Date.now moved forward), so nothing here waits on the real clock.
+  await js(`window.__realNow = Date.now; window.__off = 0; Date.now = () => window.__realNow() + window.__off; 0`);
+  const pageNow = () => js(`Date.now()`) as Promise<number>;
+  const advance = async (ms: number) => { await js(`window.__off += ${ms}`); await wait(260); };
+  const at0 = await pageNow();
+  const prog = (done: number, total: number, extra: Record<string, unknown> = {}) => ({ done, total, cur: done < total ? done : -1, elapsedMs: 0, paceMs: 60_000, rev: 0, rewroteAt: null, ...extra });
+  const WMP = { ...WM, progress: { ...prog(2, 6), at: at0 },
+    activity: { now: 'Running the tests · npm test -- --run', since: at0 - 12_000, agents: [{ kind: 'general-purpose', what: 'Reviewing the diff', since: at0 }] } };
+  await deliver({ t: 'claude.jobs', jobs: [WMP, SND] });
+  await wait(200);
+  const S1B = `#ckjobs .job[data-id="${S1}"]`;
+  if (!(await js(`document.querySelector('${S1B}')?.classList.contains('open')`))) await click(`${S1B} .row2`);
+  await wait(400);
+  const live = () => js(`(() => { const j = document.querySelector('${S1B}'); const c = j.querySelector('canvas.jpill'), g = c.getContext('2d');
+    let edge = -1; for (let x = 0; x < c.width; x++) { const d = g.getImageData(x, 4, 1, 1).data; if (d[0] === 255 && d[1] === 250 && d[2] === 240) edge = x; }
+    return { pct: j.querySelector('.ff').textContent, left: j.querySelector('.lt').textContent, an: j.querySelector('.act .an')?.textContent ?? null, ag: j.querySelector('.act .ag')?.textContent ?? null, edge }; })()`) as Promise<{ pct: string; left: string; an: string | null; ag: string | null; edge: number }>;
+  let L = await live();
+  check('drop-down: what it is doing now, with how long', /^Running the tests · npm test -- --run \(1[234] s\)$/.test(L.an ?? ''), JSON.stringify(L.an));
+  check('drop-down: the helper agents', L.ag === '1 helper agent: reviewing the diff', JSON.stringify(L.ag));
+  check('engine: ticked tasks only at first, time left from the pace ("about")', L.pct === '33%' && L.left === 'about 4 min left', JSON.stringify(L));
+  const edges = [L.edge], pcts = [parseInt(L.pct)];
+  await advance(30_000);
+  L = await live(); edges.push(L.edge); pcts.push(parseInt(L.pct));
+  check('engine: the bar creeps forward inside the task by itself (no new message)', parseInt(L.pct) >= 40 && L.edge > edges[0]!, JSON.stringify(L));
+  check('drop-down: the seconds count on live', /\(4[234] s\)$/.test(L.an ?? ''), JSON.stringify(L.an));
+  for (let k = 0; k < 4; k++) { await advance(600_000); L = await live(); edges.push(L.edge); pcts.push(parseInt(L.pct)); }
+  check('engine: never past 90% of the task\'s slot, however long it takes', pcts.at(-1)! <= 48 && pcts.at(-1)! >= 46, JSON.stringify(pcts));
+  // A tick, then an out-of-date list with the same rev: up, then held.
+  await deliver({ t: 'claude.jobs', jobs: [{ ...WMP, progress: { ...prog(3, 6), at: await pageNow() } }, SND] });
+  await wait(260); L = await live(); edges.push(L.edge); pcts.push(parseInt(L.pct));
+  check('engine: a ticked task steps the bar on', L.pct === '50%', JSON.stringify(L));
+  await deliver({ t: 'claude.jobs', jobs: [{ ...WMP, progress: { ...prog(2, 6), at: await pageNow() } }, SND] });
+  await wait(260); L = await live(); edges.push(L.edge); pcts.push(parseInt(L.pct));
+  check('engine: never backwards without a rewrite', pcts.every((p, i) => i === 0 || p >= pcts[i - 1]!) && edges.every((e, i) => i === 0 || e >= edges[i - 1]!), `${JSON.stringify(pcts)} ${JSON.stringify(edges)}`);
+  // Claude rewrites its list: more tasks, so the bar may drop, and the job says so.
+  const atR = await pageNow();
+  await deliver({ t: 'claude.jobs', jobs: [{ ...WMP, progress: { ...prog(3, 9), at: atR, rev: 1, rewroteAt: atR } }, SND] });
+  await wait(260); L = await live();
+  check('engine: a rewritten list may drop the bar, and says so once', L.pct === '33%' && L.left === 'Claude rewrote its list', JSON.stringify(L));
+  await advance(7_000); L = await live();
+  check('engine: the rewrite note goes after a few seconds', L.left.startsWith('about '), JSON.stringify(L));
+  // No to-do list: no percent at all, the busy look, "Working".
+  await deliver({ t: 'claude.jobs', jobs: [{ ...WMP, tasks: [], progress: null, percent: null, etaMs: null }, SND] });
+  await wait(260); L = await live();
+  check('engine: no list = no percent, "Working" (never a fake 0%)', L.pct === '' && L.left === 'Working', JSON.stringify(L));
+  await js(`Date.now = window.__realNow; 0`);
+  await click(`${S1B} .row2`);
+  await deliver({ t: 'claude.jobs', jobs: [{ ...WM, held: 2 }, SND] });
+  await wait(150);
+
   // ---- pinned: a permission on top, 2 MORE
   await deliver({ t: 'claude.wait', items: [PERM, MULTI, THREE] });
   await wait(300);
