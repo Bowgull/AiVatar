@@ -869,3 +869,39 @@ html:not(.solo) .bw::after{content:"";flex:0 0 12px;background:url(art/browser/b
 .tabmenu button.exp.open i{transform:rotate(90deg)}
 .tabmenu .expbox{margin:0 0 2px}
 .tabmenu .expbox[hidden]{display:none}
+
+/* ---- Dragging, smoother (his ask, 2026-10-21). The rows slide apart for the gap; a glowing gold line shows where it lands
+   and how deep (it steps right under the row above, with the same little elbow a child row wears); a row lights up when the
+   drop is onto it; picked tabs wear a gold ring; the ghost is the row itself, lifted off the wood with a slight tilt. */
+/* A tab under the one it came from steps in, with its little elbow: the drawer's own .tp margin had been winning over .kid's. */
+.drawer .tp.kid{margin-left:18px}
+#tabs{user-select:none}
+#tabs input{user-select:text}
+html.rowdrag,html.rowdrag *{cursor:grabbing!important}
+/* room at the bottom for the open gap, made once when the drag starts, so the slid rows stay inside the panel's frame */
+.drawer #tabs.dragging{padding-bottom:var(--dggap,0px)}
+#tabs.dragging>:not(.dragghost):not(.dropmark){transition:transform .17s cubic-bezier(.2,.8,.2,1),filter .12s ease-out,opacity .12s}
+.drawer .lifted{opacity:.35;filter:saturate(.5)}
+.drawer .tp.picked{box-shadow:0 4px 0 var(--outline),0 0 0 2px #FFE28C,0 0 10px rgba(255,190,90,.35),inset 0 3px 0 rgba(255,222,170,.24),inset 0 -2px 0 rgba(0,0,0,.35)}
+.drawer .tp.on.picked{box-shadow:0 4px 0 var(--outline),0 0 0 2px #FFE28C,0 0 14px rgba(255,190,90,.6),inset 0 3px 0 rgba(255,255,255,.5)}
+.drawer .tp.onto{outline:none;filter:brightness(1.15);
+  box-shadow:0 4px 0 var(--outline),0 0 0 3px #FFE28C,0 0 18px rgba(255,200,110,.75),inset 0 0 0 40px rgba(255,226,140,.10)}
+.drawer .th.onto,.drawer .bh.onto{outline:none;border-radius:6px;background:rgba(255,226,140,.10);box-shadow:0 0 0 2px #FFE28C,0 0 12px rgba(255,190,90,.5)}
+/* a folded trail opening while he hovers it: a gold line fills underneath for the 600 ms */
+.drawer .th.spring,.drawer .bh.spring{background:linear-gradient(#FFE28C,#FFE28C) left bottom/0 3px no-repeat,rgba(255,226,140,.10);animation:dgspring .6s linear forwards}
+@keyframes dgspring{to{background-size:100% 3px,auto}}
+.drawer .dropmark{position:absolute;left:0;top:0;height:4px;border-radius:3px;z-index:15;pointer-events:none;
+  background:linear-gradient(90deg,#FFC43C,#FFE28C 40%);box-shadow:0 0 0 1px #3a2400,0 0 8px #FFE28C,0 0 18px rgba(255,190,90,.55);
+  transition:transform .1s cubic-bezier(.2,.8,.2,1),width .1s cubic-bezier(.2,.8,.2,1)}
+.drawer .dropmark::before{content:"";position:absolute;left:-5px;top:-4px;width:8px;height:8px;border-radius:50%;background:#2a1c00;border:2px solid #FFE28C;box-shadow:0 0 8px #FFE28C}
+.drawer .dropmark.d1::after{content:"";position:absolute;left:-15px;top:-15px;width:8px;height:15px;border-left:3px solid #FFE28C;border-bottom:3px solid #FFE28C;border-radius:0 0 0 5px;
+  box-shadow:-2px 2px 6px rgba(255,190,90,.45)}
+.drawer .dragghost{position:absolute;left:0;top:0;margin:0;z-index:20;pointer-events:none;opacity:.95;transform-origin:30% 50%;
+  box-shadow:0 4px 0 var(--outline),0 0 0 2px #FFE28C,0 12px 22px rgba(0,0,0,.55),0 0 16px rgba(255,190,90,.45)}
+.drawer .th.dragghost{padding:5px 10px;border:3px solid var(--outline);border-radius:9px;
+  background:linear-gradient(rgba(0,0,0,.2),rgba(0,0,0,.3)),url(art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated}
+.drawer .dragghost .dgcount{position:absolute;right:-8px;top:-9px;min-width:20px;height:20px;box-sizing:border-box;padding:3px 5px 0;border-radius:10px;
+  font:400 9px var(--label);color:#2a1c00;text-align:center;background:linear-gradient(180deg,#FFE28C,#FFC43C);border:2px solid var(--outline);box-shadow:0 2px 0 var(--outline)}
+@media (prefers-reduced-motion:reduce){#tabs.dragging>*,.drawer .dropmark{transition:none}.drawer .th.spring,.drawer .bh.spring{animation:none;background-size:100% 3px,auto}}
+/* His pick (2026-10-21): a mockup's tab wears Claude's icon, drawn down smoothly from its large picture like the trail's head. */
+.drawer .tp .fi.claude{image-rendering:auto;border-radius:6px}

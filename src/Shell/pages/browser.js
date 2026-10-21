@@ -527,6 +527,8 @@ const heads = new Map();
  * DONE shelf. Rows are kept and only rebuilt when something about that tab changed (the flicker fix).
  */
 function paintTabs() {
+  // Just after a drop, where every row was, so the rows can glide to their new places (dragging, 2026-10-21).
+  const flipWas = performance.now() < flipUntil ? rowSpots() : null;
   const open = new Set(state.tabs.map((t) => t.id));
   const trails = Array.isArray(state.trails) ? state.trails : [];
   const live = state.tabs.filter((t) => !t.done);
@@ -540,9 +542,13 @@ function paintTabs() {
     if (!r || r.sig !== sig) {
       const fresh = buildRow(t, kid);
       if (dup) { fresh.classList.add('dup'); fresh.append(Object.assign(document.createElement('span'), { className: 'dupchip', textContent: 'X2 CLOSING' })); }
-      fresh.draggable = true; fresh.dataset.tab = String(t.id); fresh.dataset.trail = t.trail == null ? '' : String(t.trail);
+      fresh.dataset.tab = String(t.id);
       if (r) r.el.replaceWith(fresh); r = { sig, el: fresh }; rows.set(t.id, r);
     }
+    // Where it sits, for dragging (2026-10-21): written every time, since a move changes these without a rebuild.
+    r.el.dataset.trail = t.trail == null ? '' : String(t.trail);
+    r.el.dataset.depth = kid ? '1' : '0';
+    r.el.dataset.parent = kid && !t.mock && t.opener != null ? String(t.opener) : '';
     return r.el;
   };
   const want = [];
@@ -569,6 +575,7 @@ function paintTabs() {
   want.push(...driverNodes());
   want.forEach((node, i) => { if (tabsBox.children[i] !== node) tabsBox.insertBefore(node, tabsBox.children[i] ?? null); });
   while (tabsBox.children.length > want.length) tabsBox.lastElementChild.remove();
+  afterPaint(flipWas);
 }
 /** A trail's carved heading. Click the name to rename it; his name is kept for good (Qwen never renames it). */
 function headFor(tr, n) {
@@ -590,7 +597,6 @@ function headFor(tr, n) {
   more.addEventListener('click', (e) => { e.stopPropagation(); trailMenu(tr, e.clientX, e.clientY); });
   h.classList.toggle('fresh', tr.fresh === true);
   h.classList.toggle('shut', tr.collapsed === true);
-  h.draggable = true;
   h.dataset.trail = String(tr.id);
   h.replaceChildren(grip, nm, Object.assign(document.createElement('span'), { className: 'n', textContent: `${n} TAB${n === 1 ? '' : 'S'}` }), more);
   return h;
@@ -713,6 +719,8 @@ function buildRow(t, kid) {
     const ph = t.phase ?? (t.loading ? 'loading' : 'idle');
     if (ph !== 'idle' && !t.crashed) row.append(Object.assign(document.createElement('i'), { className: 'arc' + (ph === 'waiting' ? ' wait' : '') }));
     else if (ringWas.get(t.id) && ringWas.get(t.id) !== 'idle' && !t.crashed) { const b = Object.assign(document.createElement('i'), { className: 'arc burst' }); row.append(b); setTimeout(() => b.remove(), 400); }
+    // His pick (2026-10-21): every mockup comes from Claude, so it wears Claude's icon, the same one as the trail's head.
+    else if (t.mock) row.append(Object.assign(document.createElement('img'), { className: 'fi claude', alt: '', src: 'art/claude-icon.png' }));
     else if (t.favicon) { const i = document.createElement('img'); i.className = 'fi'; i.alt = ''; i.src = t.favicon; i.referrerPolicy = 'no-referrer'; i.onerror = () => i.replaceWith(tileFor(t)); row.append(i); }
     // Sheet 43d: every tab has its icon slot; a site with no icon gets its first letter, carved, never an empty gap.
     else row.append(tileFor(t));
@@ -1229,7 +1237,7 @@ function mockNodes(g, rowFor) {
   const tr = g.trail, mk = state.mockups || {}, out = [];
   const h = mockEls.head ?? (mockEls.head = document.createElement('div'));
   h.className = 'th mock' + (tr.collapsed ? ' shut' : '');
-  h.draggable = true; h.dataset.trail = String(tr.id);
+  h.dataset.trail = String(tr.id);
   const ic = Object.assign(document.createElement('span'), { className: 'who-ic' });
   ic.append(Object.assign(document.createElement('img'), { src: 'art/claude-icon.png', alt: '' }));
   const more = Object.assign(document.createElement('button'), { type: 'button', className: 'thm', textContent: '···', title: 'Mockups options' });
@@ -1240,7 +1248,14 @@ function mockNodes(g, rowFor) {
   out.push(mockEls.from ?? (mockEls.from = Object.assign(document.createElement('div'), { className: 'mfrom', textContent: 'FROM CLAUDE' })));
   if (tr.collapsed) return out;
   const tabs = g.tabs, open = new Set(tabs.map((t) => t.mock?.sheet));
-  const row = (t, kid) => { const r = rowFor(t, kid); r.dataset.mock = t.mock?.sheet ?? ''; return r; };
+  // Its place in the tree rides on the row for dragging (2026-10-21): the parent sheet, the branch, and how many children.
+  const row = (t, kid) => {
+    const r = rowFor(t, kid); r.dataset.mock = t.mock?.sheet ?? '';
+    r.dataset.psheet = kid ? t.mock?.parent ?? '' : '';
+    r.dataset.mbranch = t.mock?.branch == null ? '' : String(t.mock.branch);
+    r.dataset.kids = String(Number(t.mock?.kids) || 0);
+    return r;
+  };
   const isTop = (t) => !t.mock?.parent || !open.has(t.mock.parent);
   const group = (branch) => {
     const r = [];
@@ -1304,88 +1319,360 @@ function mockList(mk) {
   mockEls.list = box; mockEls.listSig = sig;
   return box;
 }
-/**
- * Dragging a mockup (his ask): onto another mockup makes it that one's child; onto a branch's heading files it there;
- * onto the MOCKUPS heading makes it top level. Nothing else takes a mockup.
- */
-function mockDrop(e) {
-  if (dragging?.kind !== 'tab') return null;
-  const t = state.tabs.find((x) => x.id === dragging.id);
-  if (!t?.mock) return null;
-  const onto = e.target.closest?.('.tp[data-mock], .bh[data-branch], .th.mock');
-  if (!onto || onto.dataset.mock === t.mock.sheet) return { el: null };
-  if (onto.matches('.bh')) return { el: onto, act: { act: 'branch', sheet: t.mock.sheet, to: Number(onto.dataset.branch) } };
-  if (onto.matches('.th')) return { el: onto, act: { act: 'top', sheet: t.mock.sheet } };
-  return { el: onto, act: { act: 'parent', sheet: t.mock.sheet, to: onto.dataset.mock } };
-}
-const clearOnto = () => { for (const x of tabsBox.querySelectorAll('.onto')) x.classList.remove('onto'); };
+// ---- dragging, smoother (his ask, 2026-10-21: "make it easier to drag and drop into trails in general and make parent
+// child relationships easier with just a mouse move"). The browser's own drag and drop gave no say over each frame, so
+// this is pointer events:
+//  - a press only becomes a drag after a few pixels, so a click still just picks the tab;
+//  - between rows a gold line shows where it lands and how deep: slide right to tuck it under the row above, left to
+//    pull it back out, one indent per step, as deep as the trail draws (a tab under a tab, a mockup under a mockup);
+//  - on the middle of a row the row lights up: let go and it becomes that row's child; on a heading it joins that trail;
+//  - the rows slide apart to open the gap (a transform, never a change of layout) and glide to their places after the drop;
+//  - a folded trail or branch opens after hovering it for 600 ms; near the top or bottom edge the list scrolls;
+//  - Ctrl-click and Shift-click pick several tabs; dragging one of them moves them all, in their order;
+//  - Esc puts it all back. The tab menu's Move to items still make the same moves without a mouse.
+// The rules of where things may go are the old ones: a mockup stays in MOCKUPS and nothing else goes in.
+const DG_MOCK = -1, DG_INDENT = 18, DG_START = 5, DG_SPRING = 600, DG_EDGE = 44;
+const dropMark = Object.assign(document.createElement('div'), { className: 'dropmark' });
+const dgShift = new WeakMap();
+const dgCalm = matchMedia('(prefers-reduced-motion: reduce)');
+let dragging = null, dgPress = null, flipUntil = 0, dgSwallow = false;
+const picked = new Set();
+let pickFrom = null;
+const dgTab = (id) => state.tabs.find((t) => t.id === id);
 
-// ---- dragging (2026-10-12): a tab into another trail, out to loose, or up and down; a whole trail by its heading.
-// A gold line shows where it will land. Nothing moves until the drop.
-const dropLine = Object.assign(document.createElement('div'), { className: 'dropline' });
-let dragging = null;   // { kind: 'tab' | 'trail', id }
-tabsBox.addEventListener('dragstart', (e) => {
-  const row = e.target.closest?.('.tp[data-tab]'), head = e.target.closest?.('.th[data-trail]');
-  if (row) dragging = { kind: 'tab', id: Number(row.dataset.tab) };
-  else if (head) dragging = { kind: 'trail', id: Number(head.dataset.trail) };
-  else return;
-  e.dataTransfer.effectAllowed = 'move';
-  e.dataTransfer.setData('text/plain', '');
-  (row || head).classList.add('lifted');
-});
-tabsBox.addEventListener('dragend', (e) => {
-  const was = dragging;
-  dragging = null; dropLine.remove(); clearOnto(); for (const x of tabsBox.querySelectorAll('.lifted')) x.classList.remove('lifted');
-  // Let go where nothing took it (2026-10-13, his ask): outside the window it becomes its own window, like Chrome; on
-  // another Aang browser window it joins that one. Let go anywhere else inside its own window, nothing happens.
-  if (was?.kind === 'tab' && e.dataTransfer?.dropEffect === 'none') window.aang?.browserTearOut?.(was.id);
-});
-/** Where a drop at this point lands: the element it goes before, and the trail it joins. */
-function landing(y) {
-  const items = [...tabsBox.children].filter((n) => n.matches('.tp[data-tab], .th[data-trail]'));
-  if (dragging?.kind === 'trail') {
-    const heads = items.filter((n) => n.matches('.th'));
-    const before = heads.find((h) => y < h.getBoundingClientRect().top + h.offsetHeight / 2) ?? null;
-    return { node: before, trail: null, before: before ? Number(before.dataset.trail) : null };
-  }
-  for (const n of items) {
-    const r = n.getBoundingClientRect();
-    if (y < r.top + r.height / 2) {
-      if (n.matches('.th')) {
-        // above a heading: the end of whatever group sits above it
-        const prev = items[items.indexOf(n) - 1];
-        return { node: n, trail: prev?.matches('.tp') && prev.dataset.trail ? Number(prev.dataset.trail) : null, before: null, atEnd: true };
-      }
-      return { node: n, trail: n.dataset.trail ? Number(n.dataset.trail) : null, before: Number(n.dataset.tab) };
-    }
-    // over the lower half of a heading: the start of that trail
-    if (n.matches('.th') && y < r.bottom) {
-      const first = items[items.indexOf(n) + 1];
-      return { node: first ?? null, trail: Number(n.dataset.trail), before: first?.matches('.tp') && first.dataset.trail === n.dataset.trail ? Number(first.dataset.tab) : null };
-    }
-  }
-  const last = items[items.length - 1];
-  return { node: null, trail: last?.matches('.tp') && last.dataset.trail ? Number(last.dataset.trail) : null, before: null };
+/** Each row's place on screen, by what it is (a rebuilt row is still the same tab), to glide from. */
+function dgKey(n) {
+  if (n.dataset.tab) return 't' + n.dataset.tab;
+  if (n.matches('.th[data-trail]')) return 'h' + n.dataset.trail;
+  if (n.dataset.branch) return 'b' + n.dataset.branch;
+  return n.id || (n.classList.contains('mhist') ? 'mh' : n.classList.contains('mfrom') ? 'mf' : '');
 }
-tabsBox.addEventListener('dragover', (e) => {
-  if (!dragging) return;
-  const md = mockDrop(e);
-  if (md) { clearOnto(); dropLine.remove(); if (md.el) { e.preventDefault(); md.el.classList.add('onto'); } return; }
-  e.preventDefault();
-  const l = landing(e.clientY);
-  if (l.node) tabsBox.insertBefore(dropLine, l.node); else tabsBox.append(dropLine);
+function rowSpots() {
+  const m = new Map();
+  for (const n of tabsBox.children) { const k = dgKey(n); if (k) m.set(k, n.getBoundingClientRect().top); }
+  return m;
+}
+/** FLIP: every row starts where it was and glides to where it is now. */
+function glide(was) {
+  if (!was || dgCalm.matches) return;
+  const kids = [...tabsBox.children].filter((n) => n !== dropMark && !n.classList.contains('dragghost'));
+  for (const n of kids) { n.style.transition = 'none'; n.style.transform = ''; }
+  const moved = [];
+  for (const n of kids) {
+    const old = was.get(dgKey(n));
+    if (old === undefined) continue;
+    const d = old - n.getBoundingClientRect().top;
+    if (Math.abs(d) < 1) continue;
+    n.style.transform = `translateY(${d.toFixed(1)}px)`;
+    moved.push(n);
+  }
+  void tabsBox.offsetHeight;
+  for (const n of kids) n.style.transition = '';
+  for (const n of moved) {
+    n.style.transition = 'transform 180ms cubic-bezier(.2,.8,.2,1)'; n.style.transform = '';
+    n.addEventListener('transitionend', () => { n.style.transition = ''; }, { once: true });
+  }
+}
+/** After every redraw: the picked look, and a drag in progress keeps its gap, its ghost and its line. */
+function afterPaint(was) {
+  for (const id of [...picked]) if (!state.tabs.some((t) => t.id === id)) picked.delete(id);
+  paintPicked();
+  if (dragging) { dgLift(); tabsBox.append(dragging.ghost); dgAim(); return; }
+  if (was) glide(was);
+}
+
+// ---- picking several (his pick 5): Ctrl adds or takes one, Shift takes the run from the last one picked.
+function paintPicked() { for (const [id, r] of rows) r.el.classList.toggle('picked', picked.has(id)); }
+function clearPicked() { if (!picked.size) return; picked.clear(); pickFrom = null; paintPicked(); }
+function pickRows(id, range) {
+  const order = [...tabsBox.querySelectorAll('.tp[data-tab]')].map((n) => Number(n.dataset.tab));
+  // Like Chrome: the tab he is on is one of them.
+  if (!picked.size && state.active != null && order.includes(state.active)) { picked.add(state.active); pickFrom ??= state.active; }
+  if (range && pickFrom != null && order.includes(pickFrom)) {
+    const a = order.indexOf(pickFrom), b = order.indexOf(id);
+    for (const x of order.slice(Math.min(a, b), Math.max(a, b) + 1)) picked.add(x);
+  } else {
+    if (picked.has(id) && id !== state.active) picked.delete(id); else picked.add(id);
+    pickFrom = id;
+  }
+  paintPicked();
+}
+function pickedInOrder() {
+  const out = [...tabsBox.querySelectorAll('.tp[data-tab]')].map((n) => Number(n.dataset.tab)).filter((id) => picked.has(id));
+  for (const t of state.tabs) if (picked.has(t.id) && !out.includes(t.id)) out.push(t.id);
+  return out;
+}
+
+// ---- the press, and the few pixels that make it a drag
+tabsBox.addEventListener('dragstart', (e) => e.preventDefault());   // no picture-drag of an icon
+tabsBox.addEventListener('pointerdown', (e) => {
+  if (e.button !== 0 || dragging) return;
+  if (e.target.closest('button, input, select, textarea')) return;
+  const row = e.target.closest('.tp[data-tab]'), head = row ? null : e.target.closest('.th[data-trail]');
+  if (!row && !head) return;
+  const mod = e.ctrlKey || e.metaKey || e.shiftKey;
+  if (row && mod) { e.stopPropagation(); pickRows(Number(row.dataset.tab), e.shiftKey); }   // picking, not switching
+  else if (row && !picked.has(Number(row.dataset.tab))) clearPicked();
+  dgPress = { x: e.clientX, y: e.clientY, kind: row ? 'tab' : 'trail', id: Number(row ? row.dataset.tab : head.dataset.trail), el: row || head, pointerId: e.pointerId, mod };
+}, true);
+window.addEventListener('pointermove', (e) => {
+  if (dragging) { if (e.pointerId === dragging.pointerId) { dragging.cx = e.clientX; dragging.cy = e.clientY; dgAim(); } return; }
+  if (!dgPress || e.pointerId !== dgPress.pointerId) return;
+  if (!(e.buttons & 1)) { dgPress = null; return; }
+  if (Math.hypot(e.clientX - dgPress.x, e.clientY - dgPress.y) < DG_START) return;
+  dgStart(e);
 });
-tabsBox.addEventListener('drop', (e) => {
-  if (!dragging) return;
-  const md = mockDrop(e);
-  if (md) { e.preventDefault(); clearOnto(); if (md.act) window.aang?.browserMockup?.(md.act); dragging = null; return; }
-  e.preventDefault();
-  const l = landing(e.clientY);
-  if (dragging.kind === 'trail') window.aang?.browserTrail?.({ act: 'movetrail', id: dragging.id, before: l.before });
-  else window.aang?.browserTrail?.({ act: 'place', tab: dragging.id, trail: l.trail, before: l.before });
-  dropLine.remove();
+window.addEventListener('pointerup', (e) => {
+  if (dgPress && e.pointerId === dgPress.pointerId) {
+    // A plain click on one of the picked tabs: just that tab now, as everywhere else.
+    if (!dgPress.mod && dgPress.kind === 'tab') clearPicked();
+    dgPress = null;
+    return;
+  }
+  if (!dragging || e.pointerId !== dragging.pointerId) return;
+  dragging.cx = e.clientX; dragging.cy = e.clientY;
+  dgFinish(true);
+});
+window.addEventListener('pointercancel', () => { dgPress = null; if (dragging) dgFinish(false); });
+window.addEventListener('blur', () => { if (dragging) dgFinish(false); });
+// Esc puts it back. Taken first, so nothing else closes on the same press.
+window.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  if (dragging) { e.preventDefault(); e.stopImmediatePropagation(); dgFinish(false); return; }
+  dgPress = null;
+  clearPicked();
+}, true);
+// A drag is never also a click (a heading's name would open for renaming).
+window.addEventListener('click', (e) => { if (dgSwallow) { dgSwallow = false; e.preventDefault(); e.stopImmediatePropagation(); } }, true);
+document.addEventListener('scroll', () => { if (dragging) dgAim(); }, true);
+
+function dgStart(e) {
+  const p = dgPress; dgPress = null;
+  // A loading tab's row is redrawn as its page comes in, so the row he pressed may be a new one by now.
+  if (!p.el.isConnected) p.el = p.kind === 'tab' ? rows.get(p.id)?.el : tabsBox.querySelector(`:scope > .th[data-trail="${p.id}"]`);
+  if (!p.el?.isConnected) return;
+  const r = p.el.getBoundingClientRect();
+  const d = { kind: p.kind, grab: p.id, pointerId: p.pointerId, x0: p.x, cx: e.clientX, cy: e.clientY, dx: p.x - r.left, dy: p.y - r.top,
+    gap: Math.min(Math.round(r.height) + 9, 58), depth0: Number(p.el.dataset.depth) || 0, ids: [], lift: [], mock: false, canKid: true, target: null, springEl: null, springT: 0, raf: 0 };
+  if (p.kind === 'tab') {
+    d.mock = Boolean(dgTab(p.id)?.mock);
+    const ids = (picked.has(p.id) && picked.size > 1 ? pickedInOrder() : [p.id]).filter((id) => dgTab(id) && Boolean(dgTab(id).mock) === d.mock);
+    if (!d.mock) {
+      // A tab carries the tabs under it, right behind it.
+      for (const id of ids) {
+        if (d.ids.includes(id)) continue;
+        d.ids.push(id);
+        const t = dgTab(id);
+        if (t.trail != null) for (const k of state.tabs) if (k.opener === id && k.trail === t.trail && !k.done && !d.ids.includes(k.id) && !ids.includes(k.id)) d.ids.push(k.id);
+      }
+      d.lift = [...d.ids];
+    } else {
+      // A mockup's children follow it in the mockups' own tree; they are only lifted with it here.
+      d.ids = ids; d.lift = [...ids];
+      const sheets = new Set(ids.map((id) => dgTab(id).mock.sheet));
+      for (const k of state.tabs) if (k.mock?.parent && sheets.has(k.mock.parent) && !d.lift.includes(k.id)) d.lift.push(k.id);
+      d.canKid = ids.every((id) => !(Number(dgTab(id).mock.kids) > 0));
+    }
+  } else {
+    d.ids = [p.id];
+    d.lift = state.tabs.filter((t) => t.trail === p.id).map((t) => t.id);
+  }
+  // The ghost: the row itself, lifted off the wood, with how many go when it is several.
+  const g = p.el.cloneNode(true);
+  for (const k of Object.keys(g.dataset)) delete g.dataset[k];
+  g.classList.remove('lifted', 'onto', 'picked', 'spring');
+  g.classList.add('dragghost');
+  g.removeAttribute('tabindex');
+  g.style.width = r.width + 'px';
+  if (p.kind === 'tab' && d.ids.length > 1) g.append(Object.assign(document.createElement('b'), { className: 'dgcount', textContent: String(d.ids.length) }));
+  d.ghost = g;
+  dragging = d;
+  closeTabMenu();
+  try { tabsBox.setPointerCapture(p.pointerId); } catch { /* a pointer the page did not see go down: the window still sends its moves */ }
+  tabsBox.style.setProperty('--dggap', d.gap + 'px');
+  tabsBox.classList.add('dragging');
+  document.documentElement.classList.add('rowdrag');
+  tabsBox.append(g);
+  dgLift();
+  dgAim();
+  const roll = () => { if (dragging !== d) return; dgEdgeScroll(d); d.raf = requestAnimationFrame(roll); };
+  d.raf = requestAnimationFrame(roll);
+}
+function dgLift() {
+  const d = dragging;
+  if (d.kind === 'trail') { for (const n of tabsBox.children) if (n.dataset.trail === String(d.grab)) n.classList.add('lifted'); return; }
+  for (const id of d.lift) rows.get(id)?.el.classList.add('lifted');
+}
+/** Near the top or bottom edge of the list, it scrolls: faster the closer he is to the edge. */
+function dgEdgeScroll(d) {
+  const sc = tabsBox.closest('.drawer');
+  if (!sc || sc.scrollHeight <= sc.clientHeight) return;
+  const r = sc.getBoundingClientRect();
+  let v = 0;
+  if (d.cy < r.top + DG_EDGE) v = -Math.min(1, (r.top + DG_EDGE - d.cy) / DG_EDGE);
+  else if (d.cy > r.bottom - DG_EDGE) v = Math.min(1, (d.cy - (r.bottom - DG_EDGE)) / DG_EDGE);
+  if (!v) return;
+  const was = sc.scrollTop;
+  sc.scrollTop += v * 14;
+  if (sc.scrollTop !== was) dgAim();
+}
+/** The rows and headings as they stand now (with the gap's slide), the moving ones left out: the places to land. */
+function dgSlots() {
+  const out = [];
+  for (const n of tabsBox.children) {
+    if (n.classList.contains('lifted') || n.classList.contains('dragghost') || n === dropMark) continue;
+    const top = n.offsetTop + (dgShift.get(n) || 0), h = n.offsetHeight;
+    if (n.matches('.tp[data-tab]')) out.push({ n, top, h, type: 'tab', id: Number(n.dataset.tab), trail: n.dataset.trail === '' ? null : Number(n.dataset.trail),
+      depth: Number(n.dataset.depth) || 0, sheet: n.dataset.mock || '', branch: n.dataset.mbranch ? Number(n.dataset.mbranch) : null });
+    else if (n.matches('.th[data-trail]')) out.push({ n, top, h, type: 'head', trail: Number(n.dataset.trail), shut: n.classList.contains('shut') });
+    else if (n.matches('.bh[data-branch]')) out.push({ n, top, h, type: 'branch', trail: DG_MOCK, branch: Number(n.dataset.branch), shut: n.classList.contains('folded') });
+    else if (n.matches('.mhist')) out.push({ n, top, h, type: 'end' });
+    else if (n.matches('#doneshelf, .th.driver')) { out.push({ n, top, h, type: 'stop' }); break; }
+  }
+  return out;
+}
+/** Where a tab let go here lands: onto a row or heading, or into a gap at a depth. Null: nowhere. */
+function dgAimTab(y) {
+  const d = dragging, S = dgSlots();
+  const want = d.depth0 + Math.round((d.cx - d.x0) / DG_INDENT);
+  for (const s of S) {
+    if (y < s.top || y >= s.top + s.h) continue;
+    if (s.type === 'head' || s.type === 'branch') {
+      // On a heading: into that trail (at its end) or that branch; the MOCKUPS heading makes a mockup top level.
+      const mockHead = s.trail === DG_MOCK;
+      if (mockHead !== d.mock) return null;
+      if (!d.mock) return { kind: 'onto', el: s.n, spring: s.shut ? s : null, act: { act: 'place', tabs: d.ids, trail: s.trail, before: null, parent: null } };
+      return { kind: 'onto', el: s.n, spring: s.shut ? s : null, mock: true, parentSheet: null, branch: s.type === 'branch' ? s.branch : null, reorder: false };
+    }
+    if (s.type === 'tab' && s.depth === 0 && y > s.top + s.h * 0.28 && y < s.top + s.h * 0.72) {
+      // The middle of a top row: it becomes that row's child.
+      if (d.mock && s.trail === DG_MOCK && s.sheet && d.canKid) return { kind: 'onto', el: s.n, mock: true, parentSheet: s.sheet, branch: s.branch, reorder: false };
+      if (!d.mock && s.trail !== null && s.trail !== DG_MOCK) {
+        let before = null;
+        for (let k = S.indexOf(s) + 1; k < S.length; k++) { const z = S[k]; if (z.type === 'tab' && z.trail === s.trail && z.depth === 1) continue; if (z.type === 'tab' && z.trail === s.trail) before = z.id; break; }
+        return { kind: 'onto', el: s.n, act: { act: 'place', tabs: d.ids, trail: s.trail, before, parent: s.id } };
+      }
+    }
+    break;
+  }
+  // Between rows: the gap before the first row whose middle is below the pointer.
+  let g = S.findIndex((s) => y < s.top + s.h / 2);
+  if (g < 0) g = S.length;
+  if (S[g - 1]?.type === 'stop') g--;
+  const prev = S[g - 1], next = S[g];
+  const ctx = !prev ? { trail: null, branch: null } : prev.type === 'tab' ? { trail: prev.trail, branch: prev.branch }
+    : prev.type === 'head' ? { trail: prev.trail, branch: null } : prev.type === 'branch' ? { trail: DG_MOCK, branch: prev.branch } : null;
+  if (!ctx || (ctx.trail === DG_MOCK) !== d.mock) return null;
+  const same = (s) => s && s.type === 'tab' && s.trail === ctx.trail;
+  let lo = 0, hi = 0;
+  if (ctx.trail !== null) { hi = same(prev) && (!d.mock || d.canKid) ? 1 : 0; lo = same(next) && next.depth === 1 ? 1 : 0; }
+  if (lo > hi) return null;
+  const depth = Math.max(lo, Math.min(hi, want));
+  let parent = null;
+  if (depth) for (let k = g - 1; k >= 0 && same(S[k]); k--) if (S[k].depth === 0) { parent = S[k]; break; }
+  if (depth && !parent) return null;
+  const before = same(next) ? next.id : null;
+  const top = prev ? prev.n.offsetTop + prev.h : 0;
+  const lineY = next ? (top + next.n.offsetTop + d.gap) / 2 : top + 5;
+  const t = { kind: 'gap', from: next?.n ?? null, lineY, depth };
+  if (d.mock) return { ...t, mock: true, parentSheet: depth ? parent.sheet : null, branch: ctx.branch, before, reorder: true };
+  return { ...t, act: { act: 'place', tabs: d.ids, trail: ctx.trail, before, parent: depth ? parent.id : null } };
+}
+/** Where a trail let go here lands: before the heading below the pointer, or last. */
+function dgAimTrail(y) {
+  const d = dragging, kids = [...tabsBox.children].filter((n) => n !== dropMark && !n.classList.contains('dragghost'));
+  const heads = kids.filter((n) => n.matches('.th[data-trail]') && !n.classList.contains('lifted'));
+  const at = heads.find((n) => y < n.offsetTop + (dgShift.get(n) || 0) + n.offsetHeight / 2) ?? null;
+  const from = at ?? kids.find((n) => n.matches('#doneshelf, .th.driver')) ?? null;
+  const i = from ? kids.indexOf(from) : kids.length;
+  const prev = kids[i - 1];
+  const top = prev ? prev.offsetTop + prev.offsetHeight : 0;
+  return { kind: 'gap', from, lineY: from ? (top + from.offsetTop + d.gap) / 2 : top + 5, depth: 0, before: at ? Number(at.dataset.trail) : null };
+}
+function dgAim() {
+  const d = dragging;
+  if (!d) return;
+  const box = tabsBox.getBoundingClientRect();
+  const x = d.cx - box.left, y = d.cy - box.top;
+  d.ghost.style.transform = `translate(${Math.round(x - d.dx)}px,${Math.round(y - d.dy)}px) rotate(-1.2deg)`;
+  const inside = d.cx >= 0 && d.cy >= 0 && d.cx <= innerWidth && d.cy <= innerHeight;
+  const t = inside ? (d.kind === 'trail' ? dgAimTrail(y) : dgAimTab(y)) : null;
+  d.target = t;
+  for (const n of tabsBox.querySelectorAll('.onto')) if (n !== t?.el) n.classList.remove('onto');
+  dgSpring(t?.spring ?? null);
+  if (!t) { dropMark.remove(); dgGap(null); return; }
+  if (t.kind === 'onto') { t.el.classList.add('onto'); dropMark.remove(); return; }   // the gap stays where it was: no jumping under him
+  dgGap(t.from);
+  const left = t.depth * DG_INDENT + 4;
+  dropMark.style.transform = `translate(${left}px,${Math.round(t.lineY - 2)}px)`;
+  dropMark.style.width = Math.max(40, tabsBox.clientWidth - left - 4) + 'px';
+  dropMark.classList.toggle('d1', t.depth > 0);
+  if (!dropMark.isConnected) tabsBox.append(dropMark);
+}
+/** The rows from this one down slide apart by one row's height; the rest slide back. */
+function dgGap(from) {
+  let on = false;
+  for (const n of tabsBox.children) {
+    if (n === dropMark || n.classList.contains('dragghost')) continue;
+    if (n === from) on = true;
+    const want = on && from ? dragging.gap : 0;
+    if ((dgShift.get(n) || 0) === want) continue;
+    if (want) dgShift.set(n, want); else dgShift.delete(n);
+    n.style.transform = want ? `translateY(${want}px)` : '';
+  }
+}
+/** Hovering a folded trail or branch: after 600 ms it opens (a gold line fills under it while he waits). */
+function dgSpring(s) {
+  const d = dragging;
+  if (d.springEl === (s?.n ?? null)) return;
+  clearTimeout(d.springT);
+  d.springEl?.classList.remove('spring');
+  d.springEl = s?.n ?? null;
+  if (!s) return;
+  s.n.classList.add('spring');
+  d.springT = setTimeout(() => {
+    if (dragging !== d || d.springEl !== s.n) return;
+    s.n.classList.remove('spring');
+    if (s.type === 'branch') window.aang?.browserMockup?.({ act: 'bfold', id: s.branch });
+    else window.aang?.browserTrail?.({ act: 'trail', id: s.trail, what: 'collapse' });
+  }, DG_SPRING);
+}
+function dgFinish(drop) {
+  const d = dragging;
+  if (!d) return;
+  cancelAnimationFrame(d.raf); clearTimeout(d.springT);
+  if (drop) dgAim();
+  const t = drop ? d.target : null;
+  const outside = drop && (d.cx < 0 || d.cy < 0 || d.cx > innerWidth || d.cy > innerHeight);
+  const was = rowSpots();
   dragging = null;
-});
+  try { tabsBox.releasePointerCapture(d.pointerId); } catch { /* already gone */ }
+  d.ghost.remove(); dropMark.remove();
+  for (const n of tabsBox.querySelectorAll('.onto, .lifted, .spring')) n.classList.remove('onto', 'lifted', 'spring');
+  tabsBox.classList.remove('dragging');
+  document.documentElement.classList.remove('rowdrag');
+  for (const n of tabsBox.children) { dgShift.delete(n); n.style.transform = ''; }
+  dgSwallow = true; setTimeout(() => { dgSwallow = false; }, 0);
+  // Let go outside the window (2026-10-13, his ask): it becomes its own window, like Chrome, or joins the one under it.
+  if (outside && d.kind === 'tab') { window.aang?.browserTearOut?.(d.grab); return; }
+  if (t) { dgSend(d, t); clearPicked(); }
+  flipUntil = performance.now() + 900;
+  glide(was);
+}
+function dgSend(d, t) {
+  if (d.kind === 'trail') { window.aang?.browserTrail?.({ act: 'movetrail', id: d.grab, before: t.before }); return; }
+  if (!t.mock) { window.aang?.browserTrail?.(t.act); return; }
+  // A mockup's place in the tree is the mockups' own (kept in mockups.json with its history); its order is the tab list's.
+  const sheets = new Set(d.ids.map((id) => dgTab(id)?.mock?.sheet));
+  for (const id of d.ids) {
+    const m = dgTab(id)?.mock;
+    if (!m || (m.parent && sheets.has(m.parent))) continue;   // it follows its parent
+    if (t.parentSheet) { if (m.parent !== t.parentSheet) window.aang?.browserMockup?.({ act: 'parent', sheet: m.sheet, to: t.parentSheet }); }
+    else if (t.branch == null) { if (m.parent || m.branch != null) window.aang?.browserMockup?.({ act: 'top', sheet: m.sheet }); }
+    else if (m.parent || m.branch !== t.branch) window.aang?.browserMockup?.({ act: 'branch', sheet: m.sheet, to: t.branch });
+  }
+  if (t.reorder) window.aang?.browserTrail?.({ act: 'place', tabs: d.ids, trail: DG_MOCK, before: t.before, parent: null });
+}
 
 // ---- downloads (his design, 2026-10-12): the key pops in only while the tray has something; a finished
 // download drops the tray open for a few seconds (it stays while the mouse is on it); a file drags out anywhere.
