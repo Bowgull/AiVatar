@@ -1,7 +1,7 @@
 // C7 Claude's rune in Samara's band (2026-10-21, sheet 50, his picks B + Q): no rune with no jobs (or no brain); the
 // rune appears only with a running job, its ring lit to the job's %; one rune with a gold 2 for two jobs; a click drops a
 // ROUNDED panel with both jobs folded; each unfolds on its own; needs you turns it blue; a finished job turns teal and
-// Nice takes it away; Pause, Play, a message (now / after) and Open in Claude go out as the checked messages only, and
+// it goes by itself after a few seconds (Nice is only the pop-out's); Pause, Play, a message (now / after) and Open in Claude go out as the checked messages only, and
 // anything else from the band is refused. Clicks are made inside the page (element.click()), never real mouse or keys;
 // Open in Claude is caught by the test, so the Claude app is never opened. Two pictures: the bar, and the open panel.
 //
@@ -128,15 +128,14 @@ app.whenReady().then(async () => {
   check('the needing job comes first, and says so', await js(`(() => { const j = document.querySelectorAll('#rpanel .job'); return j[0].dataset.id === '${S2}' && j[0].classList.contains('needs') && /NEEDS YOU/.test(j[0].textContent); })()`) === true);
   check("Claude's exact input never reaches the band", await js(`!document.body.innerHTML.includes('SECRET INPUT')`) === true);
 
-  // 7. Finished: teal, the tick, Nice takes it away.
+  // 7. Finished: teal, the tick, no Nice (only the pop-out has one), and it goes by itself after ~4 s.
   b.claudeNews({ t: 'claude.wait', items: [] });
   b.claudeNews({ t: 'claude.jobs', jobs: [job(S1, 'Waymark', 'idle', tasks(6, W1), 100, 0), two()[1]] });
-  check('a finished job: a teal card with Nice', await until(async () => (await js(`!!document.querySelector('${card(S1)}.done [data-act=nice]')`)) === true));
+  check('a finished job: a teal card, no Nice', await until(async () => (await js(`!!document.querySelector('${card(S1)}.done') && !document.querySelector('${card(S1)} [data-act=nice]')`)) === true));
   check('the rune still counts it (2)', await js(`document.querySelector('#runeslot .pip')?.textContent`) === '2');
   await wait(300);
   await pic('rune-panel-done.png', { x: 560, y: 0, width: 620, height: 640 });
-  await js(`document.querySelector('${card(S1)} [data-act=nice]').click()`);
-  check('Nice removes the finished one', await until(async () => (await js(`[!!document.querySelector('${card(S1)}'), !!document.querySelector('#runeslot .pip')].join()`)) === 'false,false'));
+  check('the finished one goes by itself', await until(async () => (await js(`[!!document.querySelector('${card(S1)}'), !!document.querySelector('#runeslot .pip')].join()`)) === 'false,false', 7000));
   b.claudeNews({ t: 'claude.jobs', jobs: [job(S2, 'Samara', 'idle', tasks(4, W2), 100, 0)] });
   check('the last job finishing: the rune becomes the teal tick', await until(async () => (await js(`document.querySelector('#runeslot .rune')?.dataset.state`)) === 'complete'));
   await wait(400);
