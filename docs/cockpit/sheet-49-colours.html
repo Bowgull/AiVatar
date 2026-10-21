@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 49 - What each colour means</title>
+<!-- Sheet 49 (2026-10-21, his ask): "look at the colours of ALL the icons and understand each needs to be different and
+     what each represent in terms of what they signal and colour theory". The eight marks over Aang's head, drawn from
+     the pet's own pixel maps (src/Body/ClaudeMarks.cs), in today's colours and two fixed palettes, with his breathing
+     aura. Distinctness measured in OKLab, with colour-blind simulation (scratchpad cvd.mjs). -->
+<link rel="stylesheet" href="../../src/Shell/pages/notefonts.css">
+<style>
+  html,body{background:#17110c;margin:0}
+  body{color:#e8dcc4;font-family:Figtree,sans-serif;padding:26px;max-width:1500px}
+  h1{font:400 21px Silkscreen,monospace;color:#FFC43C;letter-spacing:2px;margin:0 0 6px}
+  h2{font:400 13px Silkscreen,monospace;color:#FFC43C;letter-spacing:1.5px;margin:34px 0 8px}
+  p{color:#cdbb9a;font-size:14.5px;line-height:1.55;margin:0 0 12px;max-width:1200px}
+  p b,li b{color:#FFC43C}
+  .pal{background:#1a110a url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;border-radius:12px;border:3px solid #0d0703;padding:14px 16px 10px;margin:0 0 18px;box-shadow:0 10px 26px rgba(0,0,0,.5)}
+  .pal h3{margin:0 0 4px;font:400 12px Silkscreen,monospace;letter-spacing:1.5px;color:#FFC43C}
+  .pal .score{font-size:13px;color:#cdbb9a;margin:0 0 10px}
+  .pal .score b.bad{color:#f08a7a}.pal .score b.ok{color:#8fd9a8}
+  .row{display:flex;gap:6px;flex-wrap:wrap}
+  .cell{width:150px;text-align:center}
+  .stand{position:relative;height:118px}
+  .stand canvas.mk{position:absolute;left:50%;transform:translateX(-50%);image-rendering:pixelated}
+  .stand img{position:absolute;left:50%;bottom:0;width:112px;transform:translateX(-50%);image-rendering:pixelated}
+  .stand img.glow{animation:breathe 4s ease-in-out infinite}
+  @keyframes breathe{0%,100%{filter:drop-shadow(0 0 2px var(--c)) drop-shadow(0 0 0 transparent)}50%{filter:drop-shadow(0 0 3px var(--c)) drop-shadow(0 0 10px var(--c))}}
+  .nm{font:400 9px Silkscreen,monospace;letter-spacing:1.2px;color:#f2e3c2;margin:6px 0 2px}
+  .sw{display:inline-block;width:14px;height:14px;border-radius:4px;vertical-align:-3px;margin-right:5px;box-shadow:0 0 0 2px #2a1a10}
+  .means{font-size:12px;color:#cdbb9a;line-height:1.35;min-height:50px}
+  .noglow{font:400 7.5px Silkscreen,monospace;color:#8e7b5c;letter-spacing:1px}
+  table{border-collapse:collapse;font-size:13.5px;color:#cdbb9a;margin:6px 0 0}
+  td,th{padding:6px 12px;border-bottom:1px solid #2a1d12;text-align:left;vertical-align:top}
+  th{font:400 9.5px Silkscreen,monospace;color:#FFC43C;letter-spacing:1.2px}
+  .note{background:#1f160f;border-radius:12px;padding:14px 18px;box-shadow:0 0 0 2px #2a1d12;max-width:1300px}
+  .note ul{margin:6px 0 0;padding-left:20px;font-size:14px;line-height:1.7;color:#cdbb9a}
+</style>
+</head>
+<body>
+<h1>SHEET 49 &middot; WHAT EACH COLOUR MEANS</h1>
+<p>Eight marks can sit over Aang's head. Each one has to be <b>a different colour</b>, and the colour should <b>say what kind of thing it is</b> before you read the shape. Below: today's colours (with the problems), then two fixed palettes built on colour theory. His aura breathes in the mark's colour only for the marks that want you.</p>
+
+<h2>THE RULES (COLOUR THEORY, PLAINLY)</h2>
+<div class="note"><ul>
+  <li><b>Cool colours ask, warm colours tell.</b> Blue and violet read as "stop and look"; amber and gold read as "news, no rush". So anything that needs you is cool.</li>
+  <li><b>Green means done, red means wrong.</b> Every game and app has trained this; fighting it costs a second of thinking each time.</li>
+  <li><b>Same family, different strength.</b> A step done and the whole job done are both "done": same green family, the step light and small, the job deep and big.</li>
+  <li><b>Grey means nothing to do.</b> Paused is the only mark with no colour of its own.</li>
+  <li><b>Who vs what.</b> Colours that say WHO (Claude's terracotta, Aang's gold, the plum keys) stay on cards and buttons. Colours that say WHAT IS HAPPENING live only on the marks, the aura and the pinned ring. Never one colour for both.</li>
+  <li><b>Shape backs up colour.</b> Every mark already has its own shape (key, ?, scroll, ticks, hourglass, skull), so someone colour-blind still tells them apart.</li>
+</ul></div>
+
+<div id="pals"></div>
+
+<h2>WHO-COLOURS (NOT FOR MARKS)</h2>
+<table>
+  <tr><th>Colour</th><th>Means</th><th>Where</th></tr>
+  <tr><td><span class="sw" style="background:#e88a6a"></span>Terracotta</td><td>Claude (who)</td><td>Claude's paper in the conversation, the TO CLAUDE chip</td></tr>
+  <tr><td><span class="sw" style="background:#FFC43C"></span>Aang's gold</td><td>Aang, his buttons</td><td>Primary keys, Samara's accents</td></tr>
+  <tr><td><span class="sw" style="background:#4a2a6e"></span>Plum</td><td>You (your words, your keys)</td><td>Your messages, the purple message key</td></tr>
+  <tr><td><span class="sw" style="background:#2a1a10"></span>Dark wood</td><td>Video</td><td>Video paper</td></tr>
+  <tr><td><span class="sw" style="background:#f1d796"></span>Honey paper</td><td>Brief, research</td><td>Their paper</td></tr>
+</table>
+
+<script>
+// The pet's own maps (src/Body/ClaudeMarks.cs): O outline, H light, F face, S shade, W white.
+const MAPS = {
+  working: ["..OOOOOOOOO..", ".OHHHHHFFFSO.", "OHFFFFFFFFFSO", "OHFOFFOFFOFSO", "OHFFFFFFFFFSO", ".OFFFFFFFFSO.", "..OOOFSOOOO..", "....OSO......", "....OO......."],
+  needs: [".OOOOO..........", "OHHHFSO.........", "OHO.OFSOOOOOOOO.", "OHO.OFFHHHHHHFSO", "OFO.OFSSSSSSSSSO", "OFFFFSOOOOOOSOSO", ".OSSSO.....OSOSO", "..OOO......OOOOO"],
+  question: ["...OOOOO...", "..OHHFFSO..", ".OHFOOOFSO.", ".OHO...OFSO", "..O....OFSO", "......OFFSO", ".....OFFSO.", "....OFFSO..", "....OFSO...", "....OFSO...", "....OOOO...", "...........", "....OOOO...", "...OHFFSO..", "...OFFSSO..", "....OOOO..."],
+  plan: [".OOOOOOOOOO.", "OHHHHHHHFFSO", "OSSSSSSSSSSO", ".OFFFFFFFSO.", ".OFOOOOFFSO.", ".OFFFFFFFSO.", ".OFOOOOOFSO.", ".OFFFFFFFSO.", "OHHHHHHHFFSO", "OSSSSSSSSSSO", ".OOOOOOOOOO."],
+  step: ["........OOO", ".......OHHO", "......OHFSO", ".OOO.OHFSO.", "OHHOOHFSO..", "OFHHHFSO...", ".OFFFSO....", "..OSSO.....", "...OO......"],
+  complete: ["..........OOO", ".........OHHO", "........OHHFO", ".......OHHFSO", ".OOO..OHHFSO.", "OHHHOOHHFSO..", "OFHHHHHFSO...", ".OFFHHFSO....", "..OFFFSO.....", "...OSSO......", "....OO......."],
+  paused: ["OOOOOOOOO", "OHHHHFFSO", ".OHFFFSO.", "..OHFSO..", "...OSO...", "..OF.SO..", ".OF...SO.", "OHFFFFFSO", "OOOOOOOOO"],
+  failed: ["..OOOOOOO..", ".OHHHHFFFO.", "OHHFFFFFFSO", "OHOOFFFOOSO", "OFOOFFFOOSO", "OFFFFOFFFSO", ".OFFFFFFSO.", "..OFOFOFO..", "..OOOOOOO.."],
+};
+const ORDER = ['working', 'needs', 'question', 'plan', 'step', 'complete', 'paused', 'failed'];
+const GLOWS = new Set(['needs', 'question', 'plan', 'complete', 'failed']);
+const NAMES = { working: 'WORKING', needs: 'NEEDS YOU', question: 'QUESTION', plan: 'PLAN READY', step: 'STEP DONE', complete: 'JOB COMPLETE', paused: 'PAUSED', failed: 'FAILED' };
+const PALS = [
+  { title: 'NOW · WHAT IT IS TODAY', score: '<b class="bad">Fails:</b> working (honey) and job complete (gold) are nearly the same colour (6 of a needed 15). Step (sea) and plan sit close too. Warm and cool are mixed with no meaning.',
+    c: { working: '#ecc27e', needs: '#bfe3ff', question: '#c9b3ff', plan: '#f0deb4', step: '#8ad5c9', complete: '#ffc43c', paused: '#9aa8c0', failed: '#f08a7a' },
+    m: { working: 'Honey', needs: 'Pale blue', question: 'Lavender', plan: 'Parchment', step: 'Sea', complete: 'Gold', paused: 'Slate', failed: 'Coral' } },
+  { title: 'A · SIGNAL COLOURS (RECOMMENDED)', score: '<b class="ok">Passes:</b> every pair clearly different for normal vision (15+); for colour-blind eyes the closest pairs are 6.5 to 8, which the shapes cover.',
+    c: { working: '#e8a94f', needs: '#8fd0ff', question: '#b38cff', plan: '#f3e2b8', step: '#5ccf8a', complete: '#1f9e63', paused: '#6f7787', failed: '#f05a4a' },
+    m: { working: 'Amber: busy, no rush (warm = tells)', needs: 'Avatar blue: stop, it is waiting on you (cool = asks)', question: 'Violet: a question to think about (cool = asks)', plan: 'Cream paper: something to read and say Go to', step: 'Light green: a bit done', complete: 'Deep green: all done', paused: 'Grey: resting, nothing to do', failed: 'Red: went wrong, look when you can' } },
+  { title: 'B · WARM NEWS, COOL ASKS', score: '<b class="ok">Mostly passes:</b> 11.5 at its closest (step peach vs complete gold); weaker for colour-blind eyes. Keeps gold for the job done, which is lovely but sits beside Aang\'s gold buttons.',
+    c: { working: '#f0a64a', needs: '#7cc4ff', question: '#b07cff', plan: '#3fc4b4', step: '#ffc8a8', complete: '#ffd84a', paused: '#6f7787', failed: '#e8443a' },
+    m: { working: 'Orange: busy', needs: 'Blue: waiting on you', question: 'Violet: a question', plan: 'Teal: a plan to approve (cool = asks)', step: 'Peach: a bit done', complete: 'Gold: all done', paused: 'Grey: resting', failed: 'Red: went wrong' } },
+];
+const mix = (h, t, k) => { const a = [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)); return `rgb(${a.map((v, i) => Math.round(v + (t[i] - v) * k)).join(',')})`; };
+function mark(kind, col, px = 3) {
+  const map = MAPS[kind], w = map[0].length, h = map.length;
+  const cv = Object.assign(document.createElement('canvas'), { width: (w + 1) * px, height: (h + 1) * px, className: 'mk' });
+  const g = cv.getContext('2d');
+  const fill = { O: '#2a1a10', H: mix(col, [255, 255, 255], 0.55), F: col, S: mix(col, [40, 20, 10], 0.35), W: '#fffaf0' };
+  g.fillStyle = 'rgba(0,0,0,.4)';
+  map.forEach((r, y) => [...r].forEach((ch, x) => { if (ch !== '.') g.fillRect((x + 1) * px, (y + 1) * px, px, px); }));
+  map.forEach((r, y) => [...r].forEach((ch, x) => { if (fill[ch]) { g.fillStyle = fill[ch]; g.fillRect(x * px, y * px, px, px); } }));
+  return cv;
+}
+const host = document.getElementById('pals');
+for (const p of PALS) {
+  const box = document.createElement('div'); box.className = 'pal';
+  box.innerHTML = `<h3>${p.title}</h3><p class="score">${p.score}</p>`;
+  const row = document.createElement('div'); row.className = 'row';
+  for (const k of ORDER) {
+    const cell = document.createElement('div'); cell.className = 'cell';
+    const st = document.createElement('div'); st.className = 'stand';
+    const img = Object.assign(document.createElement('img'), { src: '../../assets/aang/frames/idle_0.png', alt: '' });
+    if (GLOWS.has(k)) { img.className = 'glow'; img.style.setProperty('--c', p.c[k]); }
+    const cv = mark(k, p.c[k]);
+    cv.style.bottom = '74px';   // just above his head (he said the old ones floated far too high)
+    st.append(img, cv);
+    cell.append(st, Object.assign(document.createElement('div'), { className: 'nm', innerHTML: `<span class="sw" style="background:${p.c[k]}"></span>${NAMES[k]}` }),
+      Object.assign(document.createElement('div'), { className: 'means', textContent: p.m[k] }),
+      Object.assign(document.createElement('div'), { className: 'noglow', textContent: GLOWS.has(k) ? 'AURA BREATHES' : 'MARK ONLY, NO AURA' }));
+    row.append(cell);
+  }
+  box.append(row); host.append(box);
+}
+</script>
+</body>
+</html>
