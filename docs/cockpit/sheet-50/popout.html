@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>50 pop-out</title>
+<!-- Sheet 50 helper: a running job torn off the cockpit into its own small window. The window is the pop-out's
+     (src/Shell/pages/popout.html/.css, the browser's look): the pixel plank bar with the grip, the plum keycaps, the
+     wood control strip with the see-through groove and its gold gem knob, and the pin that lies down gold when pinned.
+     Rules lifted and scoped to .pw so they do not fight the cockpit's keys.
+     ?scene=desk | press&f=1|2|3|loop -->
+<link rel="stylesheet" href="../../../src/Shell/pages/cockpit.css">
+<link rel="stylesheet" href="job.css">
+<style>
+  html,body{margin:0;background:#0b0710;overflow:hidden}
+  body{font:500 14px var(--body)}
+  /* ---- a dark game desktop: dusk hills, a minimap, unit frames and an action bar (no real game's art) ---- */
+  .desk{position:relative;width:1180px;height:660px;overflow:hidden;border-radius:10px;
+    background:radial-gradient(60% 50% at 70% 18%,rgba(140,110,200,.35),transparent 70%),linear-gradient(180deg,#1d1633 0%,#2a2145 38%,#3a2c40 55%,#1a1420 75%,#0e0b12 100%)}
+  .desk svg.land{position:absolute;inset:0;width:100%;height:100%}
+  .uf{position:absolute;left:18px;top:16px;display:flex;flex-direction:column;gap:5px}
+  .uf .u{display:flex;align-items:center;gap:6px}
+  .uf .por{width:38px;height:38px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#6a5a7a,#241c30);box-shadow:0 0 0 3px #8a7a50,0 0 0 5px #120a05}
+  .uf .bars{display:flex;flex-direction:column;gap:3px}
+  .uf .bars i{display:block;width:150px;height:9px;border-radius:2px;box-shadow:0 0 0 2px #120a05}
+  .uf .hp{background:linear-gradient(90deg,#2fa84a 0 82%,#1a1a1a 82%)}
+  .uf .mp{background:linear-gradient(90deg,#2f5fc4 0 64%,#1a1a1a 64%)}
+  .mm{position:absolute;right:22px;top:16px;width:120px;height:120px;border-radius:50%;
+    background:radial-gradient(circle at 45% 55%,#3e5a3a,#22321f 60%,#141c12);box-shadow:0 0 0 4px #8a7a50,0 0 0 7px #120a05,0 6px 14px rgba(0,0,0,.6)}
+  .mm::after{content:"";position:absolute;left:56px;top:56px;width:0;height:0;border:5px solid transparent;border-bottom:9px solid #ffe28c;border-top:0}
+  .ab{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);display:flex;gap:3px;padding:5px;border-radius:6px;background:#1a120c;box-shadow:0 0 0 2px #5a4a30,0 0 0 4px #120a05}
+  .ab i{width:36px;height:36px;border-radius:3px;box-shadow:inset 0 0 0 2px #120a05,inset 0 0 0 3px rgba(255,255,255,.1)}
+  .hero{position:absolute;left:520px;top:420px;width:46px;height:70px;border-radius:40% 40% 20% 20%;background:linear-gradient(180deg,#3a3448,#17131f);box-shadow:0 0 18px rgba(255,200,120,.12)}
+
+  /* ---- the pop-out window, lifted from popout.css (the 2026-10-11 browser look) ---- */
+  .pw{position:absolute;border-radius:8px;overflow:hidden;box-shadow:0 0 0 1px rgba(0,0,0,.8),0 12px 30px rgba(0,0,0,.65);background:#24160D;transition:opacity .2s}
+  .pw .bar{height:34px;display:flex;align-items:center;gap:9px;padding:0 8px;box-sizing:border-box;background:url(../../../src/Shell/pages/art/browser/band.png) repeat-x 0 0/128px 34px;image-rendering:pixelated;border-bottom:4px solid #120A05}
+  .pw .grip{display:block;width:10px;height:10px;margin:0 2px;flex:none;background:url(../../../src/Shell/pages/art/browser/grip.png) 0 0/10px 10px;image-rendering:pixelated}
+  .pw .what{flex:1;min-width:0;display:flex;align-items:center;gap:6px;overflow:hidden;white-space:nowrap;font:400 10px var(--label);color:#FFE096;letter-spacing:1px;text-shadow:1px 1px 0 rgba(0,0,0,.8)}
+  .pw .what img{width:14px;height:14px;border-radius:3px}
+  .pw .pk{width:24px;height:24px;flex:none;display:grid;place-items:center;border:2px solid #120A05;border-radius:4px;background:#4A2C6E;padding:0;cursor:pointer;
+    box-shadow:inset 2px 2px 0 rgba(190,150,240,.35),inset -2px -2px 0 rgba(0,0,0,.4),0 2px 0 #120A05}
+  .pw .pk svg{display:block}
+  .pw .keys{display:flex;gap:6px}
+  .pw .in{padding:10px 10px 12px;background:linear-gradient(rgba(0,0,0,.25),rgba(0,0,0,.3)),url(../../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated}
+  .pw .ctrl{display:flex;align-items:center;gap:9px;padding:7px 10px;background:url(../../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated;border-top:4px solid #120A05}
+  .pw .seeicon{display:inline-grid;place-items:center;width:18px;height:22px;flex:none;opacity:.9}
+  .pw .track{flex:0 0 78px;height:10px;border-radius:5px;position:relative;background:linear-gradient(180deg,rgba(0,0,0,.72) 0 4px,rgba(255,224,150,.2) 4px 7px,transparent 7px);box-shadow:inset 0 2px 3px rgba(0,0,0,.6)}
+  .pw .track .fill{position:absolute;left:0;top:0;height:7px;border-radius:4px;background:linear-gradient(180deg,#FFE096 0 3px,#C98C14 3px 7px)}
+  .pw .track .knob{position:absolute;top:-6px;width:14px;height:20px;margin-left:-7px;background:url(../../../src/Shell/pages/art/browser/knob.png) 0 0/14px 20px;image-rendering:pixelated}
+  .pw .tnum{font:500 11.5px var(--body);color:#9a90b5;font-variant-numeric:tabular-nums}
+  .pw .ico{width:30px;height:30px;flex:none;display:grid;place-items:center;border:2px solid #120A05;border-radius:4px;background:#4A2C6E;padding:0;cursor:pointer;
+    box-shadow:inset 2px 2px 0 rgba(190,150,240,.35),inset -2px -2px 0 rgba(0,0,0,.4),0 2px 0 #120A05}
+  .pw.pinned .ico.pin{background:#FFC43C;box-shadow:inset 2px 2px 0 rgba(255,245,200,.7),inset -2px -2px 0 rgba(120,80,10,.5),0 2px 0 #120A05}
+  .pw.pinned .ico.pin svg{transform:rotate(90deg)}
+  .pw.pinned .ico.pin svg path{fill:#2a1c00}
+  .pw .jc .job{box-shadow:0 0 0 3px #120A05,0 3px 0 #0d0703}
+  .lbl{position:absolute;font:400 9px var(--label);letter-spacing:1.5px;color:#ffe28c;text-shadow:1px 1px 0 #000;padding:4px 7px 3px;border-radius:5px;background:rgba(10,6,3,.72)}
+
+  /* ---- the press: a piece of the cockpit (the Lantern's wood, the jobs strip, the typing area) ---- */
+  .ck{position:relative;width:460px;box-sizing:border-box;padding:12px 12px 0;border-radius:18px;border:3px solid #120A05;overflow:visible;
+    background:url(../../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated;box-shadow:0 10px 26px rgba(0,0,0,.55)}
+  .ck .slip{background:#e9d3a6;border-radius:9px;padding:8px 12px;box-shadow:0 3px 0 #0d0703,inset 0 0 0 2px rgba(120,80,30,.25);font:600 13.5px var(--body);color:#2a1c0c}
+  .ck .slip small{display:block;font:400 9px var(--label);letter-spacing:2px;color:#8a3e1c;margin-bottom:4px}
+  .ck .jc{margin:10px -2px 0;position:relative;min-height:62px}
+  .ck .slot{position:absolute;inset:0;border-radius:11px;box-shadow:inset 0 0 0 2px rgba(255,224,150,.35);background:rgba(0,0,0,.28);opacity:0}
+  .ck .slot span{position:absolute;inset:0;display:grid;place-items:center;font:400 8px var(--label);letter-spacing:1.5px;color:#c9b48e}
+  .ck .job{position:relative;transition:transform .3s cubic-bezier(.32,.72,0,1),box-shadow .3s}
+  .ck .typ{margin:12px -12px 0;border-top:3px solid #120A05;border-radius:0 0 15px 15px;padding:8px 10px 10px;background:url(../../../src/Shell/pages/art/browser/band.png) 0 0/128px 58px;image-rendering:pixelated}
+  .ck .field{border-radius:13px;border:1.5px solid rgba(0,0,0,.45);padding:9px 12px;font:500 14px var(--body);color:#8f7fb0;background:linear-gradient(180deg,#331d52,#4A2C6E);box-shadow:inset 0 2px 4px rgba(0,0,0,.45),0 0 0 2px rgba(150,110,200,.55)}
+  .cur{position:absolute;width:22px;height:26px;z-index:9;pointer-events:none}
+  .ringw{position:absolute;width:44px;height:44px;margin:-22px 0 0 -22px;z-index:8;border-radius:50%;pointer-events:none;
+    background:conic-gradient(#FFC43C calc(var(--p,0)*1%),rgba(18,10,5,.55) 0);-webkit-mask:radial-gradient(circle,transparent 15px,#000 16px 21px,transparent 22px);mask:radial-gradient(circle,transparent 15px,#000 16px 21px,transparent 22px);filter:drop-shadow(0 0 4px rgba(255,196,60,.7))}
+  /* stage 2: it lifts (one art pixel up, the gold hover ring, a deeper shadow); stage 3: it tears off */
+  .f2 .ck .job,.f3 .ck .job{transform:translateY(-3px);box-shadow:0 0 0 3px #120A05,0 7px 0 #0d0703,0 0 0 5px rgba(255,196,60,.55),0 12px 18px rgba(0,0,0,.5)}
+  .f3 .ck .job{transform:translate(36px,-112px) rotate(-3deg);box-shadow:0 0 0 3px #120A05,0 7px 0 #0d0703,0 0 0 5px rgba(255,196,60,.55),0 20px 30px rgba(0,0,0,.65)}
+  .f3 .ck .slot{opacity:1}
+  .scene{position:relative;width:560px;height:330px;overflow:hidden;border-radius:10px;background:radial-gradient(90% 70% at 30% 20%,#2a2238,#120c1a 70%),#120c1a}
+  .scene .ck{position:absolute;left:50px;top:100px}
+  /* the loop: rest, press, the ring fills in 500 ms, it lifts, it tears off, settles, back */
+  .loop .ck .job{animation:tear 4.4s infinite}
+  .loop .ringw{animation:ringp 4.4s infinite}
+  .loop .ck .slot{animation:slotp 4.4s infinite}
+  @property --p{syntax:'<number>';inherits:false;initial-value:0}
+  @keyframes ringp{0%,14%{--p:0;opacity:0}16%{--p:0;opacity:1}27%{--p:100;opacity:1}32%,100%{--p:100;opacity:0}}
+  @keyframes tear{0%,15%{transform:none;box-shadow:0 0 0 3px #120A05,0 4px 0 #0d0703}
+    20%,27%{transform:translateY(-3px);box-shadow:0 0 0 3px #120A05,0 7px 0 #0d0703,0 0 0 5px rgba(255,196,60,.55),0 12px 18px rgba(0,0,0,.5);animation-timing-function:cubic-bezier(.34,1.56,.64,1)}
+    40%,80%{transform:translate(36px,-112px) rotate(-3deg);box-shadow:0 0 0 3px #120A05,0 7px 0 #0d0703,0 0 0 5px rgba(255,196,60,.55),0 20px 30px rgba(0,0,0,.65);animation-timing-function:cubic-bezier(.32,.72,0,1)}
+    92%,100%{transform:none;box-shadow:0 0 0 3px #120A05,0 4px 0 #0d0703}}
+  .loop .cur{animation:curm 4.4s infinite}
+  @keyframes curm{0%,27%{transform:none}40%,80%{transform:translate(36px,-112px);animation-timing-function:cubic-bezier(.32,.72,0,1)}86%,100%{transform:translate(160px,40px);opacity:0}}
+  @keyframes slotp{0%,28%{opacity:0}36%,82%{opacity:1}92%,100%{opacity:0}}
+  @media (prefers-reduced-motion:reduce){.loop *{animation:none!important}}
+</style>
+<script src="marks.js"></script>
+</head>
+<body>
+<div id="root"></div>
+<script>
+const q = new URLSearchParams(location.search), scene = q.get('scene') || 'desk';
+const ICON = '../../../src/Shell/pages/art/claude-icon.png', J = S50.JOB;
+const HIDE = '<svg viewBox="0 0 7 7" width="10" height="10" shape-rendering="crispEdges"><path d="M0 5h7v1H0z" fill="#e8e0f5"/></svg>';
+const CLOSE = '<svg viewBox="0 0 7 7" width="10" height="10" shape-rendering="crispEdges"><path d="M0 0h1v1h-1zM6 0h1v1h-1zM1 1h1v1h-1zM5 1h1v1h-1zM2 2h1v1h-1zM4 2h1v1h-1zM3 3h1v1h-1zM2 4h1v1h-1zM4 4h1v1h-1zM1 5h1v1h-1zM5 5h1v1h-1zM0 6h1v1h-1zM6 6h1v1h-1z" fill="#e8e0f5"/></svg>';
+const SEE = '<svg viewBox="0 0 7 7" width="12" height="12" shape-rendering="crispEdges"><path d="M2 0h1v1h-1zM3 0h1v1h-1zM4 0h1v1h-1zM1 1h1v1h-1zM2 1h1v1h-1zM5 1h1v1h-1zM0 2h1v1h-1zM1 2h1v1h-1zM2 2h1v1h-1zM6 2h1v1h-1zM0 3h1v1h-1zM1 3h1v1h-1zM2 3h1v1h-1zM6 3h1v1h-1zM0 4h1v1h-1zM1 4h1v1h-1zM2 4h1v1h-1zM6 4h1v1h-1zM1 5h1v1h-1zM2 5h1v1h-1zM5 5h1v1h-1zM2 6h1v1h-1zM3 6h1v1h-1zM4 6h1v1h-1z" fill="#FFE096"/></svg>';
+const PIN = '<svg viewBox="0 0 7 7" width="12" height="12" shape-rendering="crispEdges"><path d="M2 0h3v1H2zM2 1h1v2H2zM4 1h1v2H4zM1 3h5v1H1zM3 4h1v3H3z" fill="#e8e0f5"/></svg>';
+
+function card(state) {
+  if (state === 'done') {
+    return `<div class="job done"><div class="big"><span class="tk"></span><span><b>JOB COMPLETE</b><small>Waymark &middot; Coach brain &middot; all 6 tasks &middot; 1 h 38 min</small></span></div>
+      <div class="ckeys" style="margin-top:12px"><button class="key primary sm" type="button">Nice</button><span style="font:500 11.5px var(--body);color:#2c5a54">closes this window</span></div></div>`;
+  }
+  const open = state === 'open';
+  return `<div class="job${open ? ' open' : ''}"><div class="hd"><img src="${ICON}" alt=""><b>${J.sess}</b><span class="t">${J.name} &middot; task ${J.cur + 1} of ${J.tasks.length}</span><span class="pct">${Math.round(J.p * 100)}%</span>${open ? `<button class="msg" type="button" title="Message this session">${S50.MSG}</button>` : ''}</div>
+    <div class="row2"><span class="pb"></span><span class="lt">${J.left}</span><i class="chev"></i></div>
+    ${open ? `<div class="list">${S50.tasksHTML(J)}</div><div class="ckeys"><button class="key sm" type="button">Pause</button><button class="key primary sm" type="button">Open in Claude</button></div>` : ''}</div>`;
+}
+function fillCard(root, state, w = 96) {
+  root.querySelectorAll('.pb').forEach((p) => p.append(S50.pill(w, 9, 2, S50.boundsOf(J), J.p, J.cur)));
+  const tk = root.querySelector('.tk'); if (tk) tk.append(S50.mark('complete', S50.COL.complete, 3));
+}
+function win({ x, y, w, state, op = 1, pinned = false }) {
+  const el = document.createElement('div'); el.className = 'pw' + (pinned ? ' pinned' : '');
+  Object.assign(el.style, { left: x + 'px', top: y + 'px', width: w + 'px', opacity: op });
+  const pct = Math.round(op * 100), f = (op - .2) / .8;
+  el.innerHTML = `<div class="bar"><i class="grip"></i><span class="what"><img src="${ICON}" alt="">CLAUDE &middot; WAYMARK</span><span class="keys"><button class="pk" type="button" title="Hide it">${HIDE}</button><button class="pk" type="button" title="Close">${CLOSE}</button></span></div>
+    <div class="in jc">${card(state)}</div>
+    <div class="ctrl"><span class="seeicon">${SEE}</span><div class="track" title="See-through"><i class="fill" style="width:${f * 100}%"></i><i class="knob" style="left:${f * 100}%"></i></div><span class="tnum">${pct}%</span><span style="flex:1"></span><button class="ico pin" type="button" title="Pin: clicks go through to your game">${PIN}</button></div>`;
+  fillCard(el, state, w >= 360 ? 92 : 76);
+  return el;
+}
+const CURSOR = '<svg class="cur" viewBox="0 0 11 13" width="22" height="26" shape-rendering="crispEdges"><path d="M0 0h1v12H0zM1 1h1v1H1zM2 2h1v1H2zM3 3h1v1H3zM4 4h1v1H4zM5 5h1v1H5zM6 6h1v1H6zM7 7h1v1H7zM8 8h1v1H8zM9 9h2v1H9zM6 10h1v1H6zM7 11h1v1H7zM1 11h1v1H1zM2 10h1v1H2zM3 9h1v1H3zM4 9h2v1H4zM5 10h1v1H5zM6 11h1v1H6zM7 12h1v1H7z" fill="#120A05"/><path d="M1 2h1v9H1zM2 3h1v7H2zM3 4h1v5H3zM4 5h1v4H4zM5 6h1v3H5zM6 7h1v3H6zM7 8h1v4H7zM8 9h1v1H8zM6 9h0" fill="#fff"/></svg>';
+
+const root = document.getElementById('root');
+if (scene === 'desk') {
+  const d = document.createElement('div'); d.className = 'desk';
+  d.innerHTML = `<svg class="land" viewBox="0 0 1180 660" preserveAspectRatio="none"><circle cx="840" cy="120" r="34" fill="#e8dcc4" opacity=".28"/>
+    <path d="M0 380 L120 300 L240 350 L380 250 L520 330 L660 260 L820 340 L960 270 L1180 350 L1180 660 L0 660Z" fill="#2a2036"/>
+    <path d="M0 450 L160 390 L300 430 L470 370 L640 440 L800 380 L980 430 L1180 400 L1180 660 L0 660Z" fill="#1c1626"/>
+    <path d="M0 540 L200 500 L420 530 L640 495 L880 535 L1180 505 L1180 660 L0 660Z" fill="#120e18"/></svg>
+    <div class="hero"></div>
+    <div class="uf"><div class="u"><span class="por"></span><span class="bars"><i class="hp"></i><i class="mp"></i></span></div></div>
+    <div class="mm"></div>
+    <div class="ab">${['#7a3a2a', '#2a4a7a', '#5a3a6a', '#3a5a3a', '#6a5a2a', '#2a5a5a', '#4a2a2a', '#3a3a5a', '#5a4a3a', '#2a3a2a', '#6a3a4a', '#3a4a6a'].map((c) => `<i style="background:radial-gradient(circle at 35% 30%,${c}ee,${c}66)"></i>`).join('')}</div>`;
+  root.append(d);
+  d.append(win({ x: 24, y: 96, w: 330, state: 'folded' }));
+  d.append(win({ x: 380, y: 40, w: 360, state: 'open', pinned: true }));
+  d.append(win({ x: 772, y: 170, w: 380, state: 'done' }));
+  d.append(win({ x: 24, y: 330, w: 330, state: 'folded', op: .55, pinned: true }));
+  const L = (t, x, y) => { const s = document.createElement('span'); s.className = 'lbl'; s.textContent = t; s.style.left = x + 'px'; s.style.top = y + 'px'; d.append(s); };
+  L('1 FOLDED (HOW IT ARRIVES)', 24, 70); L('2 CLICKED: TASKS UNFOLD (PINNED)', 380, 14); L('3 FINISHED: TEAL, ONE KEY', 772, 144); L('4 SEE-THROUGH 55%, PINNED', 24, 304);
+} else {
+  const f = q.get('f') || '1';
+  const s = document.createElement('div'); s.className = 'scene ' + (f === 'loop' ? 'loop' : 'f' + f);
+  s.innerHTML = `<div class="ck"><div class="slip"><small>TODAY &middot; AFTERNOON</small>Waymark asked about the map. You picked Grid.</div>
+    <div class="jc"><div class="slot"><span>POPPED OUT</span></div>${card('folded')}</div>
+    <div class="typ"><div class="field">Ask Aang anything</div></div></div>${CURSOR}<div class="ringw"></div>`;
+  root.append(s); fillCard(s, 'folded', 104);
+  const cur = s.querySelector('.cur'), rw = s.querySelector('.ringw');
+  requestAnimationFrame(() => {
+    const job = s.querySelector('.job'), b = s.getBoundingClientRect(), r = job.getBoundingClientRect();
+    let cx = r.left - b.left + 128, cy = r.top - b.top + 40;
+    cur.style.left = cx + 'px'; cur.style.top = cy + 'px';
+    rw.style.left = cx + 'px'; rw.style.top = cy + 'px';
+    rw.style.setProperty('--p', f === '1' ? 0 : f === '2' ? 62 : 100);
+    if (f === '1' || f === '3') rw.style.opacity = f === '1' ? 0 : 0;
+  });
+}
+</script>
+</body>
+</html>

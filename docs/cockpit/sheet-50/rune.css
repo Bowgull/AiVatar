@@ -1,0 +1,52 @@
+/* Sheet 50: Claude's rune chip. CSS-only motion, slow 2-4 s loops, nothing when he asks the system for less motion.
+   --c is the job's state colour (working amber, needs you blue, job complete teal). --u is one art pixel. */
+.rune{all:unset;position:relative;flex:none;display:inline-flex;align-items:center;gap:6px;cursor:pointer;padding:3px 5px;border-radius:9px;--u:2px;-webkit-app-region:no-drag}
+.rune:hover{background:rgba(255,224,150,.10)}
+.rune .stone{position:relative;display:grid;place-items:center}
+.rune canvas{display:block;image-rendering:pixelated}
+.rune .rg{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)}
+.rune .rn{position:relative}
+
+/* A: the stone, its glyph glowing softly in the job's colour */
+.rune.tA .rn{animation:rglow 3.6s ease-in-out infinite}
+.rune.tA.st-needs .rn{animation-duration:2s;animation-name:rglow2}
+.rune.tA.st-complete .rn{animation:none;filter:drop-shadow(0 0 3px var(--c)) drop-shadow(0 0 6px var(--c))}
+@keyframes rglow{0%,100%{filter:drop-shadow(0 0 1px var(--c))}50%{filter:drop-shadow(0 0 3px var(--c)) drop-shadow(0 0 7px var(--c))}}
+@keyframes rglow2{0%,100%{filter:drop-shadow(0 0 2px var(--c))}50%{filter:drop-shadow(0 0 4px var(--c)) drop-shadow(0 0 10px var(--c))}}
+
+/* B: a thin pixel ring round the stone fills with the job's progress; the ring breathes, the stone stays still */
+.rune.tB .stone{width:calc(var(--u)*18);height:calc(var(--u)*18)}
+.rune.tB .rg{animation:rring 3.2s ease-in-out infinite}
+.rune.tB.st-needs .rg{animation-duration:2s}
+@keyframes rring{0%,100%{filter:drop-shadow(0 0 0 transparent)}50%{filter:drop-shadow(0 0 3px var(--c))}}
+.rune.tB.st-complete .rg{animation:none;filter:drop-shadow(0 0 3px var(--c))}
+
+/* C: a light sweep crosses the glyph while it works, and the stone bobs one art pixel, in whole pixels */
+.rune.tC .stone{animation:rbob 3s steps(1,end) infinite}
+.rune.tC .sheen{position:absolute;inset:0;pointer-events:none;-webkit-mask-size:100% 100%;mask-size:100% 100%;
+  background:linear-gradient(105deg,transparent 0 38%,rgba(255,250,235,.85) 46% 54%,transparent 62% 100%) 0 0/300% 100% no-repeat;
+  animation:rsheen 3s steps(14,end) infinite}
+.rune.tC.st-needs .stone{animation-duration:2s}
+.rune.tC.st-needs .sheen{animation-duration:2s}
+.rune.tC.st-needs .rn{filter:drop-shadow(0 0 3px var(--c))}
+.rune.tC.st-complete .stone,.rune.tC.st-complete .sheen{animation:none}
+.rune.tC.st-complete .sheen{display:none}
+.rune.tC.st-complete .rn{filter:drop-shadow(0 0 3px var(--c)) drop-shadow(0 0 6px var(--c))}
+@keyframes rbob{0%{transform:none}50%{transform:translateY(calc(var(--u)*-1))}}
+@keyframes rsheen{0%{background-position:100% 0}60%,100%{background-position:0 0}}
+
+/* D: the stone and a tiny carved plate with the percent; the glyph glows like A, slower */
+.rune.tD .rn{animation:rglow 4s ease-in-out infinite}
+.rune.tD.st-needs .rn{animation:rglow2 2s ease-in-out infinite}
+.rune.tD.st-complete .rn{animation:none;filter:drop-shadow(0 0 3px var(--c))}
+.rune .plate{font:400 10px var(--label,"Silkscreen",monospace);letter-spacing:.5px;line-height:1;padding:5px 6px 4px;border-radius:5px;color:var(--c);
+  background:#1A0F09;box-shadow:inset 0 2px 0 rgba(0,0,0,.6),0 0 0 2px #120A05,0 1px 0 2px rgba(255,224,150,.12);text-shadow:1px 1px 0 #000}
+
+/* two jobs, one rune: a small gold count pip on its corner */
+.rune .pip{position:absolute;right:-5px;bottom:-4px;min-width:14px;height:14px;box-sizing:border-box;padding:0 3px;border-radius:5px;display:grid;place-items:center;
+  font:400 9px var(--label,"Silkscreen",monospace);line-height:1;color:#2a1c00;background:#FFC43C;box-shadow:0 0 0 2px #120A05,inset 1px 1px 0 rgba(255,245,200,.7)}
+
+/* pressed: the panel is open */
+.rune.on{background:rgba(0,0,0,.28);box-shadow:inset 0 2px 0 rgba(0,0,0,.5)}
+
+@media (prefers-reduced-motion:reduce){.rune *,.rune{animation:none!important}.rune.tC .sheen{display:none}}

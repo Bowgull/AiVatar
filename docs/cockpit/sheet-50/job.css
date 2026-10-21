@@ -1,0 +1,32 @@
+/* Sheet 50: the job bar, lifted rule for rule from src/Shell/pages/bubble.css (.ckjobs, which is sheet 45g's), only
+   re-scoped to .jc so the rune's panel and the pop-out show exactly the cockpit's card. */
+.jc .job{box-sizing:border-box;padding:9px 12px 9px;border-radius:11px;color:#21160a;background:radial-gradient(120% 90% at 30% 0%,#f7ead0,#e9d3a6);box-shadow:0 0 0 3px #120A05,0 4px 0 #0d0703}
+.jc .job .hd{display:flex;align-items:center;gap:8px}
+.jc .job .hd img{width:18px;height:18px;border-radius:4px;box-shadow:0 0 0 1px rgba(106,70,40,.5)}
+.jc .job .hd b{font:700 13px var(--body);color:#8a3e1c;white-space:nowrap}
+.jc .job .hd span.t{min-width:0;font:600 12.5px var(--body);color:#3a2a18;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.jc .job .hd .pct{margin-left:auto;flex:none;font:400 10px var(--label);color:#3a2a18}
+.jc .msg{all:unset;cursor:pointer;flex:none;display:grid;place-items:center;width:26px;height:24px;border-radius:7px;background:linear-gradient(180deg,#4A2C6E,#331d52);box-shadow:0 0 0 2px #120A05,0 3px 0 #120A05}
+.jc .msg svg{width:14px;height:14px}
+.jc .job .row2{display:flex;align-items:center;gap:10px;margin-top:6px}
+.jc .job .row2 .lt{flex:none;font:500 11.5px var(--body);color:#6b5236}
+.jc .chev{flex:none;width:0;height:0;border:5px solid transparent;border-top:6px solid #8f7458;border-bottom:0;transition:transform .2s}
+.jc .job.open .chev{transform:rotate(180deg)}
+.jc .job .list{margin:8px 0 0;padding:8px 0 0;border-top:2px solid rgba(120,80,30,.18)}
+.jc .ob{display:flex;align-items:center;gap:9px;font:600 12.5px/1.85 var(--body);color:#8f7458}
+.jc .ob .tx{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.jc .ob i{flex:none;width:12px;height:12px;border-radius:3px;box-shadow:inset 0 0 0 2px #b89a6a}
+.jc .ob.done{color:#4f7a72}.jc .ob.done i{background:#58b0a3;box-shadow:inset 0 0 0 2px #2f6f66}
+.jc .ob.done i::after{content:"";display:block;width:3px;height:6px;margin:1px 0 0 4px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.jc .ob.now{color:#21160a}.jc .ob.now i{box-shadow:inset 0 0 0 2px #c08646,0 0 6px rgba(236,189,114,.8)}
+.jc .ob .r{margin-left:auto;font:500 11px var(--body);color:#a98e6a}
+.jc .ob.now .r{font:400 9px var(--label);color:#8a5a28}
+.jc .ckeys{display:flex;gap:6px;margin-top:10px;align-items:center}
+.jc .key.sm{padding:6px 10px 7px}
+.jc canvas.jpill{image-rendering:pixelated;display:block}
+/* job complete: the card turns teal, the big tick (no circle), one key to okay it */
+.jc .job.done{background:radial-gradient(120% 90% at 30% 0%,#e4faf6,#bfeee6);box-shadow:0 0 0 3px #120A05,0 4px 0 #0d0703,0 0 0 5px rgba(63,196,180,.55),0 0 18px rgba(63,196,180,.45)}
+.jc .job.done .big{display:flex;align-items:center;gap:10px}
+.jc .job.done .big canvas{image-rendering:pixelated;flex:none}
+.jc .job.done .big b{display:block;font:400 12px var(--label);letter-spacing:1.5px;color:#14615a}
+.jc .job.done .big small{display:block;font:600 12.5px var(--body);color:#2c5a54;margin-top:3px}

@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>50 lantern</title>
+<!-- Sheet 50 helper: the cockpit's conversation (the Lantern, sheet 46/48 D paper), and his pick for the kind label:
+     hover a row and THAT row grows a little taller to show the carved label inside it, above the words; the rows below
+     glide down; leaving shrinks it back. Row rules lifted from src/Shell/pages/bubble.css (.lt-slip, .lt-item, .lt-tile,
+     .lt-txt, .lt-when, .lb-mine, the k-* papers and .lb-kind's label look).  ?hold=N freezes row N hovered (-1 none). -->
+<link rel="stylesheet" href="../../../src/Shell/pages/cockpit.css">
+<style>
+  html,body{margin:0;background:transparent;overflow:hidden}
+  .lan{position:relative;width:440px;box-sizing:border-box;padding:10px 12px 14px;border-radius:18px;border:3px solid #120A05;
+    background:url(../../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated;box-shadow:0 10px 26px rgba(0,0,0,.55)}
+  .older{display:flex;flex-direction:column;align-items:center;gap:2px;margin:2px 0 8px;font:400 9px var(--label);letter-spacing:2px;color:var(--gold)}
+  .lt-slip{background:#e9d3a6;border-radius:9px;padding:9px 12px 8px;margin:0 0 9px;box-shadow:0 3px 0 #0d0703,inset 0 0 0 2px rgba(120,80,30,.25);color:#2a1c0c}
+  .lt-slip h3{margin:0 0 4px;font:400 10px var(--label);letter-spacing:2px;color:#8a3e1c}
+  .lt-item{position:relative;border-radius:8px;margin:3px -6px;transition:background-color .3s cubic-bezier(.32,.72,0,1),box-shadow .3s cubic-bezier(.32,.72,0,1)}
+  .lt-head{display:flex;align-items:center;gap:11px;padding:4px 6px;border-radius:8px}
+  .lt-tile{width:30px;height:30px;flex:none;border-radius:7px;background:#f3e3bf;box-shadow:inset 0 0 0 2px #b38a52,0 2px 0 #9b7442;display:grid;place-items:center;overflow:hidden}
+  .lt-tile img{width:22px;height:22px;border-radius:5px}
+  .lt-tile svg{display:block;image-rendering:pixelated}
+  .lt-txt{flex:1;min-width:0}
+  .lt-txt b{display:block;font:700 14px/1.3 var(--body);color:#2a1c0c}
+  .lt-txt span.s{display:block;font:500 12.5px/1.3 var(--body);color:#6a5236}
+  .lt-when{flex:none;font:700 13px var(--body);color:#8a3e1c;text-align:right}
+  .lb-mine{position:relative;margin:4px 0 6px 64px;padding:7px 11px;border-radius:9px;font:600 13.5px/1.4 var(--body);color:#efe6ff;
+    background:linear-gradient(180deg,#331d52,#4A2C6E);box-shadow:inset 0 3px 0 rgba(0,0,0,.4),inset 0 -2px 0 rgba(150,110,200,.3)}
+  .lb-mine .to{display:flex;align-items:center;gap:5px;font:400 7.5px var(--label);letter-spacing:1px;color:#cdb4ff;margin-bottom:3px}
+  .lb-mine .to img{width:13px;height:13px;border-radius:3px}
+  /* sheet 48 D: each kind on its own paper */
+  .k-claude{background:linear-gradient(#f6e0d2,#efd2bf);box-shadow:inset 0 0 0 2px rgba(190,100,70,.35);--kd:#b4532f;--kp:#f6e0d2;--ke:rgba(190,100,70,.6)}
+  .k-action{background:linear-gradient(#e6eed2,#d9e6c2);box-shadow:inset 0 0 0 2px rgba(90,130,70,.35);--kd:#4f7a3c;--kp:#e6eed2;--ke:rgba(90,130,70,.6)}
+  .k-video{background:#2a1a10;box-shadow:inset 0 0 0 2px #6a4628;--kd:#ffc43c;--kp:#2a1a10;--ke:#6a4628}
+  .k-video .lt-txt b{color:#f2e3c2}.k-video .lt-txt span.s{color:#cdbb9a}.k-video .lt-when{color:#ffc43c}
+  /* THE PICK: the label lives inside the row, above the words, in a fold that opens. Grows on a 520 ms spring with a
+     slight overshoot; shrinks in 340 ms on Samara's ease; the label follows the fold 55 ms later. */
+  .kl{height:0;overflow:visible;opacity:0;transition:height .34s cubic-bezier(.32,.72,0,1),opacity .2s cubic-bezier(.32,.72,0,1)}
+  .kl i{display:inline-block;font:400 7.5px var(--label);letter-spacing:1.5px;font-style:normal;white-space:nowrap;line-height:1;padding:3px 6px 2px;border-radius:4px;
+    color:var(--kd);background:var(--kp);box-shadow:0 0 0 1.5px var(--ke),0 2px 0 rgba(13,7,3,.25);transform:translateY(4px);transition:transform .34s cubic-bezier(.32,.72,0,1)}
+  .k-video .kl i{box-shadow:0 0 0 1.5px #8a6438}
+  .lt-item.hov .kl{height:17px;opacity:1;transition:height .52s cubic-bezier(.34,1.56,.64,1),opacity .3s cubic-bezier(.32,.72,0,1) 55ms}
+  .lt-item.hov .kl i{transform:none;transition:transform .52s cubic-bezier(.34,1.56,.64,1) 55ms}
+  .lt-item.hov{filter:brightness(1.04)}
+  .lt-item.k-video.hov{filter:brightness(1.18)}
+  .cur{position:absolute;left:250px;width:22px;height:26px;z-index:9;pointer-events:none;transition:top .3s cubic-bezier(.32,.72,0,1),opacity .2s}
+  @media (prefers-reduced-motion:reduce){.kl,.kl i,.lt-item,.cur{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="lan" id="lan">
+  <div class="older"><svg viewBox="0 0 9 5" width="18" height="10" shape-rendering="crispEdges"><path d="M4 0h1v1H4zM3 1h1v1H3zM5 1h1v1H5zM2 2h1v1H2zM6 2h1v1H6zM1 3h1v1H1zM7 3h1v1H7zM0 4h1v1H0zM8 4h1v1H8z" fill="#FFC43C"/></svg>OLDER</div>
+  <div class="lt-slip"><h3>TODAY &middot; AFTERNOON</h3>
+    <div class="lt-item k-video"><div class="lt-head"><span class="lt-tile" data-ic="video"></span><span class="lt-txt"><span class="kl"><i>VIDEO</i></span><b>HisWattson posted a video</b><span class="s">Wattson ranked guide</span></span><span class="lt-when">12:02 pm</span></div></div>
+    <div class="lt-item k-claude"><div class="lt-head"><span class="lt-tile"><img src="../../../src/Shell/pages/art/claude-icon.png" alt=""></span><span class="lt-txt"><span class="kl"><i>CLAUDE &middot; WAYMARK</i></span><b>Claude asked which layout to use for the map. You picked Grid.</b></span><span class="lt-when">1:30 pm</span></div></div>
+    <div class="lb-mine"><div class="to"><img src="../../../src/Shell/pages/art/claude-icon.png" alt="">TO WAYMARK &middot; NOW</div>make the grid the default</div>
+    <div class="lt-item k-action"><div class="lt-head"><span class="lt-tile" data-ic="key"></span><span class="lt-txt"><span class="kl"><i>DONE FOR YOU</i></span><b>Done. I moved the demo to Monday at 2 pm and told Dana.</b></span><span class="lt-when">1:34 pm</span></div></div>
+    <div class="lt-item k-claude"><div class="lt-head"><span class="lt-tile"><img src="../../../src/Shell/pages/art/claude-icon.png" alt=""></span><span class="lt-txt"><span class="kl"><i>CLAUDE &middot; WAYMARK</i></span><b>Waymark is done: the rules-only brain, all 6 tasks.</b></span><span class="lt-when">1:40 pm</span></div></div>
+  </div>
+  <svg class="cur" id="cur" viewBox="0 0 11 13" width="22" height="26" shape-rendering="crispEdges"><path d="M0 0h1v12H0zM1 1h1v1H1zM2 2h1v1H2zM3 3h1v1H3zM4 4h1v1H4zM5 5h1v1H5zM6 6h1v1H6zM7 7h1v1H7zM8 8h1v1H8zM9 9h2v1H9zM1 11h1v1H1zM2 10h1v1H2zM3 9h1v1H3zM4 9h2v1H4zM5 10h1v1H5zM6 11h1v1H6zM7 12h1v1H7z" fill="#120A05"/><path d="M1 2h1v9H1zM2 3h1v7H2zM3 4h1v5H3zM4 5h1v4H4zM5 6h1v3H5zM6 7h1v3H6zM7 8h1v4H7zM8 9h1v1H8z" fill="#fff"/></svg>
+</div>
+<script>
+// the scroll-back's own pixel icons (pixicons.js, sheet 41 and 37), drawn the same way: 2 px per art pixel
+const C3 = { k: '#2E3248', b: '#2B78D0', B: '#8ED2FF', w: '#FFFFFF', G: '#A2AAC0', a: '#B06A10', A: '#FFD24A', Z: '#FFF2A0' };
+const IC = { video: ['kkkkkkkkkk', 'kBBBBBBBBk', 'kbbwbbbbbk', 'kbbwwbbbbk', 'kbbwwwbbbk', 'kbbwwbbbbk', 'kbbwbbbbbk', 'kkkkkkkkkk', '...kGGk...', '.kkkkkkkk.'],
+  key: ['.aaaa.....', 'aAZZAa....', 'aZ..Aaaaaa', 'aA..AAAAAa', 'aAAAAaaAaa', '.aaaa.aa.a'] };
+for (const t of document.querySelectorAll('[data-ic]')) {
+  const m = IC[t.dataset.ic], w = m[0].length, h = m.length;
+  let d = ''; m.forEach((r, y) => [...r].forEach((c, x) => { if (C3[c]) d += `<rect x="${x}" y="${y}" width="1" height="1" fill="${C3[c]}"/>`; }));
+  t.innerHTML = `<svg viewBox="0 0 ${w} ${h}" width="${w * 2}" height="${h * 2}" shape-rendering="crispEdges">${d}</svg>`;
+}
+const rows = [...document.querySelectorAll('.lt-item')], cur = document.getElementById('cur'), lan = document.getElementById('lan');
+const hold = new URLSearchParams(location.search).get('hold');
+function point(i) {
+  rows.forEach((r, k) => r.classList.toggle('hov', k === i));
+  if (i < 0) { cur.style.opacity = 0; return; }
+  cur.style.opacity = 1;
+  cur.style.top = (rows[i].getBoundingClientRect().top - lan.getBoundingClientRect().top + 14) + 'px';
+}
+if (hold !== null) { point(+hold); }
+else if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  const seq = [0, -1, 1, -1, 2, -1, 3, -1, -1]; let n = 0;
+  point(-1); cur.style.top = '60px';
+  setInterval(() => { point(seq[n % seq.length]); n++; }, 1100);
+} else point(1);
+</script>
+</body>
+</html>

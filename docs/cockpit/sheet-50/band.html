@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>50 band</title>
+<!-- Sheet 50 helper: Samara's real top band (browser.html's markup, browser.css's look, the pixel plank and wood) with
+     Claude's rune chip sitting in it beside the ... key, and (?open) its panel hanging under it in the ... menu's wood.
+     ?take=A|B|C|D  &state=working|needs|complete  &open  &two=pair|count -->
+<link rel="stylesheet" href="../../../src/Shell/pages/cockpit.css">
+<link rel="stylesheet" href="../../../src/Shell/pages/browser.css">
+<link rel="stylesheet" href="job.css">
+<link rel="stylesheet" href="rune.css">
+<style>
+  .band{padding-right:150px}
+  .pg3 .fake{position:absolute;inset:0;padding:30px 40px;background:#f6f3ee}
+  .fake i{display:block;height:12px;border-radius:6px;background:#e3ddd3;margin:0 0 14px}
+  .fake i.h{height:26px;width:46%;background:#d6cfc3;margin-bottom:24px}
+  .fake i.s{width:72%}.fake i.m{width:88%}.fake i.b{height:140px;border-radius:12px;background:#ebe5db;width:64%}
+  /* the rune's panel: the ... menu's wood (browser.css .menu), hanging from the chip */
+  .rpanel{position:absolute;top:calc(100% + 6px);z-index:40;width:380px;box-sizing:border-box;padding:8px 10px 12px;
+    border-style:solid;border-width:8px;border-image:url(../../../src/Shell/pages/art/browser/trayframe.png) 4 repeat;
+    background:radial-gradient(90% 30% at 12% 0%,rgba(255,200,120,.10),transparent 70%),url(../../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated;
+    box-shadow:0 14px 30px rgba(0,0,0,.6)}
+  .rpanel .gh{display:flex;align-items:center;gap:8px;font:400 9px var(--label);letter-spacing:1.5px;color:var(--gold);text-shadow:1px 1px 0 #000;margin:0 4px 8px}
+  .rpanel .gh::after{content:"";flex:1;height:4px;border-radius:2px;background:linear-gradient(180deg,rgba(0,0,0,.6) 0 2px,rgba(255,224,150,.2) 2px 4px)}
+  .rpanel .onnow{display:flex;align-items:baseline;gap:8px;margin:0 4px 8px;font:600 13px var(--body);color:#E6DCC8;text-shadow:1px 1px 0 rgba(0,0,0,.7)}
+  .rpanel .onnow b{font:400 8px var(--label);letter-spacing:1px;color:#bfae8a}
+  .rpanel .big{display:flex;align-items:baseline;gap:10px;margin:0 4px 10px}
+  .rpanel .big em{font:400 22px var(--label);font-style:normal;color:#ffe28c;text-shadow:2px 2px 0 #000}
+  .rpanel .big span{font:600 13px var(--body);color:#c9b48e}
+  .rpanel .job+.job{margin-top:10px}
+  .rpanel .tip{position:absolute;top:-17px;width:16px;height:9px;background:url(../../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;
+    clip-path:polygon(50% 0,100% 100%,0 100%)}
+</style>
+<script src="marks.js"></script>
+<script src="rune.js"></script>
+</head>
+<body>
+<div class="bw">
+  <div class="band" id="band">
+    <button class="rnd" type="button" aria-label="Back"><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges"><path d="M5 0h1v1H5zM4 0h1v1H4zM4 1h1v1H4zM3 1h1v1H3zM3 2h1v1H3zM2 2h1v1H2zM2 3h1v1H2zM1 3h1v1H1zM3 4h1v1H3zM2 4h1v1H2zM4 5h1v1H4zM3 5h1v1H3zM5 6h1v1H5zM4 6h1v1H4z" fill="#e8e0f5"/></svg></button>
+    <button class="rnd" type="button" aria-label="Forward"><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges"><path d="M1 0h1v1H1zM2 0h1v1H2zM2 1h1v1H2zM3 1h1v1H3zM3 2h1v1H3zM4 2h1v1H4zM4 3h1v1H4zM5 3h1v1H5zM3 4h1v1H3zM4 4h1v1H4zM2 5h1v1H2zM3 5h1v1H3zM1 6h1v1H1zM2 6h1v1H2z" fill="#e8e0f5"/></svg></button>
+    <button class="rnd" type="button" aria-label="Reload"><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges"><path d="M2 0h3v1H2zM6 0h1v3H6zM1 1h1v1H1zM5 1h1v1H5zM4 2h2v1H4zM0 2h1v3H0zM6 4h1v1H6zM1 5h1v1H1zM5 5h1v1H5zM2 6h3v1H2z" fill="#e8e0f5"/></svg></button>
+    <div class="slot">
+      <span class="lock"><span class="shieldbox"><img class="s-rest" src="../../../src/Shell/pages/art/browser/shield_rest.png" width="24" height="24" alt=""></span></span>
+      <span class="url"><b>youtube.com</b>/watch?v=raid-night</span>
+      <button class="star" type="button" aria-label="Bookmark"><svg viewBox="0 0 9 8" width="18" height="16" shape-rendering="crispEdges"><path d="M1 0h2v1H1zM6 0h2v1H6zM0 1h4v4H0zM5 1h4v4H5zM0 5h1v1H0zM8 5h1v1H8zM0 6h4v1H0zM5 6h4v1H5zM3 7h3v1H3z"/></svg></button>
+    </div>
+    <span id="chips" style="display:flex;gap:4px;align-items:center;-webkit-app-region:no-drag"></span>
+    <button class="rnd menukey" type="button" aria-label="Browser settings"><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges"><path d="M0 3h1v1H0zM3 3h1v1H3zM6 3h1v1H6z" fill="#e8e0f5"/></svg></button>
+    <div class="winkeys">
+      <button class="wk" type="button"><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges"><path d="M0 5h7v2H0z"/></svg></button>
+      <button class="wk" type="button"><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges"><path class="g-max" d="M0 0h7v2H0zM0 2h1v5H0zM6 2h1v5H6zM1 6h5v1H1z"/></svg></button>
+      <button class="wk close" type="button"><svg viewBox="0 0 7 7" width="14" height="14" shape-rendering="crispEdges"><path d="M0 0h2v1H0zM5 0h2v1H5zM0 1h3v1H0zM4 1h3v1H4zM1 2h5v1H1zM2 3h3v1H2zM1 4h5v1H1zM0 5h3v1H0zM4 5h3v1H4zM0 6h2v1H0zM5 6h2v1H5z"/></svg></button>
+    </div>
+  </div>
+  <div class="body3"><div class="well"><div class="hnd"><button type="button" aria-label="Tabs"></button></div><div class="recess"><div class="pg3"><div class="fake"><i class="h"></i><i class="m"></i><i class="s"></i><i class="b"></i><i class="m"></i><i class="s"></i></div></div></div></div></div>
+</div>
+<script>
+const q = new URLSearchParams(location.search);
+const take = q.get('take') || 'A', state = q.get('state') || 'working', open = q.has('open'), two = q.get('two');
+const chips = document.getElementById('chips');
+const first = S50.chip(take, state, { on: open, pip: two === 'count' ? '2' : null });
+chips.append(first);
+if (two === 'pair') chips.append(S50.chip(take, 'working', { p: S50.JOB2.p }));
+if (open) {
+  const icon = '../../../src/Shell/pages/art/claude-icon.png';
+  const card = (j, isOpen) => `<div class="job${isOpen ? ' open' : ''}"><div class="hd"><img src="${icon}" alt=""><b>${j.sess}</b><span class="t">${j.name} &middot; task ${j.cur + 1} of ${j.tasks.length}</span><span class="pct">${Math.round(j.p * 100)}%</span><button class="msg" type="button" title="Message this session">${S50.MSG}</button></div>
+    <div class="row2"><span class="pb"></span><span class="lt">${j.left}</span><i class="chev"></i></div>
+    ${isOpen ? `<div class="list">${S50.tasksHTML(j)}</div><div class="ckeys"><button class="key sm" type="button">Pause</button><button class="key primary sm" type="button">Open in Claude</button></div>` : ''}</div>`;
+  const P = document.createElement('div'); P.className = 'rpanel jc';
+  const j = S50.JOB;
+  P.innerHTML = two === 'count'
+    ? `<i class="tip"></i><div class="gh">CLAUDE &middot; 2 JOBS</div>${card(j, true)}${card(S50.JOB2, false)}`
+    : `<i class="tip"></i><div class="gh">CLAUDE IS WORKING</div><div class="onnow"><b>ON NOW</b>${j.tasks[j.cur][0]}</div><div class="big"><em>${Math.round(j.p * 100)}%</em><span>all done &middot; ${j.left}</span></div>${card(j, true)}`;
+  document.getElementById('band').append(P);
+  const pills = P.querySelectorAll('.pb');
+  pills[0].append(S50.pill(two === 'count' ? 96 : 104, 9, 2, S50.boundsOf(j), j.p, j.cur));
+  if (pills[1]) pills[1].append(S50.pill(96, 9, 2, S50.boundsOf(S50.JOB2), S50.JOB2.p, S50.JOB2.cur));
+  // hang it from the chip: its right edge a little past the chip, the tip under the rune
+  requestAnimationFrame(() => {
+    const b = document.getElementById('band').getBoundingClientRect(), c = first.getBoundingClientRect();
+    const left = Math.min(b.width - 380 - 8, Math.round(c.left + c.width / 2 - 380 + 70));
+    P.style.left = left + 'px';
+    P.querySelector('.tip').style.left = Math.round(c.left + c.width / 2 - left - 8 - 8) + 'px';
+  });
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 50 - Rune chip and pop-out</title>
+<!-- Sheet 50 (2026-10-21), his asks: (1) the step-done colour, which he could not pick from words, drawn three ways in
+     the full mark palette; (2) "a chip in the Samara tab bar... a Claude icon... a LITTLE bit like a RuneScape rune...
+     some small light weight animation... I click and it gives me the same sort of explanation of what's going on, how
+     long, progress, total progress"; (3) long-press a job's bar in the cockpit to tear it off into its own small window;
+     (4) for reference, his pick for the kind label: hover grows the row. Marks are the pet's own maps
+     (src/Body/ClaudeMarks.cs); Samara's band is browser.html/browser.css; the window is popout.html/css; the job card
+     is bubble.css's .ckjobs. Helpers in sheet-50/. -->
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<link rel="stylesheet" href="sheet-50/job.css">
+<link rel="stylesheet" href="sheet-50/rune.css">
+<style>
+  html,body{background:#17110c;margin:0}
+  body{color:#e8dcc4;font-family:Figtree,sans-serif;padding:26px;width:1470px}
+  h1{font:400 21px Silkscreen,monospace;color:#FFC43C;letter-spacing:2px;margin:0 0 6px}
+  h2{font:400 14px Silkscreen,monospace;color:#FFC43C;letter-spacing:1.5px;margin:44px 0 8px}
+  h3{font:400 11px Silkscreen,monospace;color:#FFC43C;letter-spacing:1.5px;margin:0 0 6px}
+  p{color:#cdbb9a;font-size:14.5px;line-height:1.55;margin:0 0 12px;max-width:1300px}
+  p b,li b{color:#FFC43C}
+  .pick{display:inline-block;font:400 10px Silkscreen,monospace;letter-spacing:1px;color:#2a1c00;background:#FFC43C;border-radius:5px;padding:4px 7px 3px;box-shadow:0 0 0 2px #120A05;margin-right:6px;vertical-align:1px}
+  .rec{display:inline-block;font:400 8px Silkscreen,monospace;letter-spacing:1px;color:#08302b;background:#3fc4b4;border-radius:4px;padding:3px 5px 2px;margin-left:6px;vertical-align:2px}
+  .wood{background:#1a110a url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated;border-radius:12px;border:3px solid #0d0703;box-shadow:0 10px 26px rgba(0,0,0,.5)}
+  .pal{padding:14px 16px 10px;margin:0 0 16px}
+  .pal .score{font-size:13px;color:#cdbb9a;margin:0 0 8px}
+  .row{display:flex;gap:6px;flex-wrap:wrap}
+  .cell{width:150px;text-align:center}
+  .stand{position:relative;height:118px}
+  .stand canvas.mk{position:absolute;left:50%;transform:translateX(-50%);image-rendering:pixelated}
+  .stand img{position:absolute;left:50%;bottom:0;width:112px;transform:translateX(-50%);image-rendering:pixelated}
+  .stand img.glow{animation:breathe 4s ease-in-out infinite}
+  @keyframes breathe{0%,100%{filter:drop-shadow(0 0 2px var(--c)) drop-shadow(0 0 0 transparent)}50%{filter:drop-shadow(0 0 3px var(--c)) drop-shadow(0 0 10px var(--c))}}
+  @media (prefers-reduced-motion:reduce){.stand img.glow{animation:none;filter:drop-shadow(0 0 3px var(--c)) drop-shadow(0 0 8px var(--c))}}
+  .nm{font:400 9px Silkscreen,monospace;letter-spacing:1.2px;color:#f2e3c2;margin:6px 0 2px}
+  .cell.cand .nm{color:#FFC43C}
+  .cell.cand .stand{border-radius:10px;box-shadow:inset 0 0 0 2px rgba(255,196,60,.45);background:rgba(255,196,60,.06)}
+  .sw{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-2px;margin-right:5px;box-shadow:0 0 0 2px #2a1a10}
+  .noglow{font:400 7.5px Silkscreen,monospace;color:#8e7b5c;letter-spacing:1px}
+  /* close-ups at 4x */
+  .cu{display:flex;gap:16px;align-items:stretch;margin:0 0 12px}
+  .cu .lab{width:170px;flex:none;padding:14px 4px 0 0}
+  .cu .lab b{display:block;font:400 11px Silkscreen,monospace;letter-spacing:1.2px;color:#FFC43C;margin-bottom:6px}
+  .cu .lab span{font-size:13px;color:#cdbb9a;line-height:1.45}
+  .pair{padding:12px 16px 10px;display:flex;flex-direction:column;align-items:center;gap:8px;min-width:330px}
+  .pair .two{display:flex;gap:34px;align-items:flex-end;justify-content:center;min-height:176px;padding-top:6px}
+  .pair .two div{display:flex;flex-direction:column;align-items:center;gap:8px}
+  .pair .two canvas{image-rendering:pixelated}
+  .pair .two small{font:400 8px Silkscreen,monospace;letter-spacing:1px;color:#c9b48e}
+  .pair h4{margin:0;font:400 9px Silkscreen,monospace;letter-spacing:1.5px;color:#ffe28c}
+  .pair .verdict{font-size:12.5px;color:#cdbb9a}
+  /* the rune takes */
+  .take{padding:14px 16px 14px;margin:0 0 16px}
+  .take .top{display:flex;gap:18px;align-items:flex-start}
+  .take .desc{flex:1;min-width:0}
+  .take .desc p{font-size:13.5px;margin:0}
+  .strip{border-radius:8px;overflow:hidden;box-shadow:0 0 0 2px #0d0703;margin:12px 0 12px;width:1100px}
+  .strip iframe{display:block;border:0;width:1100px;height:62px}
+  .zooms{display:flex;gap:14px;flex-wrap:wrap}
+  .zc{width:270px;border-radius:10px;overflow:hidden;background:#24160D;box-shadow:0 0 0 2px #120A05,0 3px 0 #0d0703;text-align:center}
+  .zc .big{height:174px;display:grid;place-items:center;background:url(../../src/Shell/pages/art/browser/band.png) repeat-x 0 0/384px 174px;image-rendering:pixelated}
+  .zc .one{height:58px;display:grid;place-items:center;background:url(../../src/Shell/pages/art/browser/band.png) repeat-x 0 0/128px 58px;image-rendering:pixelated}
+  .zc .nm{color:#ffe28c;margin:0;padding:7px 0 6px;background:#1A0F09;border-top:3px solid #120A05;border-bottom:3px solid #120A05}
+  .zc .one small{font:400 7.5px Silkscreen,monospace;color:#c9b48e;letter-spacing:1px;display:block;margin-top:1px}
+  .bigframe{border-radius:10px;overflow:hidden;box-shadow:0 0 0 3px #0d0703,0 10px 26px rgba(0,0,0,.5);display:inline-block;vertical-align:top}
+  .bigframe iframe{display:block;border:0}
+  .side{display:flex;gap:22px;align-items:flex-start}
+  .side .txt{width:330px;flex:none}
+  .side .txt p{font-size:13.5px}
+  .note{background:#1f160f;border-radius:12px;padding:14px 18px;box-shadow:0 0 0 2px #2a1d12;max-width:1300px}
+  .note ul{margin:6px 0 0;padding-left:20px;font-size:14px;line-height:1.7;color:#cdbb9a}
+  .minis{display:flex;gap:14px;flex-wrap:wrap}
+  .pmini{width:347px}
+  .pmini .fr{width:347px;height:205px;overflow:hidden;border-radius:10px;box-shadow:0 0 0 3px #0d0703}
+  .pmini iframe{border:0;width:560px;height:330px;transform:scale(.62);transform-origin:0 0}
+  .cap{font:400 10px Silkscreen,monospace;color:#FFC43C;letter-spacing:1.5px;margin:8px 0 3px}
+  .why{font-size:13px;color:#cdbb9a;line-height:1.45;margin:0}
+  .words{display:flex;gap:26px;align-items:flex-start;margin:14px 0 0;flex-wrap:wrap}
+  .words .w{display:flex;flex-direction:column;gap:10px;align-items:flex-start;width:260px}
+  .words .w small{font-size:13px;color:#cdbb9a;line-height:1.45}
+  .lans{display:flex;gap:18px;align-items:flex-start}
+  .lans iframe{border:0;width:452px;height:440px;display:block}
+</style>
+<script src="sheet-50/marks.js"></script>
+<script src="sheet-50/rune.js"></script>
+</head>
+<body>
+<h1>SHEET 50 &middot; RUNE CHIP AND POP-OUT</h1>
+<p>Four things on one sheet: the <b>step done colour</b>, drawn so you can see it; <b>Claude's rune</b> in Samara's top bar; a job <b>torn off into its own little window</b>; and the <b>hover that grows a row</b> you already picked, with the motion rules everything will use.</p>
+
+<!-- =============================================================== 1 -->
+<h2>1 &middot; STEP DONE: WHICH COLOUR?</h2>
+<p>Every other mark is settled. Only the small <b>step tick</b> is open. Each row below is the full set of 8 over Aang with one candidate for the step (gold frame). His aura breathes only for the marks that want you. <span class="pick">PICK a, b OR c</span> I'd pick <b>a, light mint</b>: it reads as "a bit done", the light cousin of the teal job-done tick, and it stays clear of the cream plan scroll.</p>
+<div id="pals"></div>
+<h3 style="margin-top:18px">CLOSE UP, 4X: THE PAIRS MOST LIKELY TO GET MIXED UP</h3>
+<div id="cus"></div>
+
+<!-- =============================================================== 2 -->
+<h2>2 &middot; CLAUDE'S RUNE IN SAMARA'S TOP BAR</h2>
+<p>While a job runs, a small <b>rune stone</b> appears in Samara's bar next to the &middot;&middot;&middot; key, with Claude's sunburst carved in and lit in the job's colour. Each strip below is Samara's real bar at <b>1x</b>; the boxes under it are the same rune <b>zoomed 3x</b> in its three states: working (amber), needs you (blue, a little quicker), job complete (teal, the sunburst turns into a tick). Every motion is slow and light, and stops if Windows is set to reduce motion. <span class="pick">PICK A, B, C OR D</span></p>
+<div id="takes"></div>
+
+<h3 style="margin-top:22px">CLICK THE RUNE: THE SAME STORY AS THE COCKPIT BAR</h3>
+<div class="side">
+  <div class="bigframe"><iframe src="sheet-50/band.html?take=A&amp;open" width="1100" height="560" title="the rune's panel"></iframe></div>
+  <div class="txt"><p>A panel drops from the rune in the wood of Samara's &middot;&middot;&middot; menu. Top: <b>what it is on now</b>, <b>how much of the whole job is done</b> and <b>about how long is left</b>. Under that, the exact card from Aang's cockpit: the project, the soft bar with a notch per task, the tasks (ticked, the current one, the rest with how long they usually take), <b>Pause</b>, <b>Open in Claude</b>, and the purple key to message it.</p>
+  <p>The panel is the same whichever rune you pick. Click outside or the rune again to close it.</p></div>
+</div>
+
+<h3 style="margin-top:26px">TWO JOBS AT ONCE</h3>
+<p><span class="pick">PICK P OR Q</span><b>P &middot; a rune per job</b> (two at most, the job you tracked last on the left). <b>Q &middot; one rune with a 2 on it</b>; its panel lists both, the first one open. I'd pick <b>Q</b>: the bar stays calm and the cockpit already limits you to two tracked jobs.</p>
+<div class="strip" style="margin-bottom:8px"><iframe src="sheet-50/band.html?take=A&amp;two=pair" title="two runes"></iframe></div>
+<p class="why" style="margin:0 0 14px">P: two runes side by side (Waymark amber at 62%, Samara's drawer job at 15%).</p>
+<div class="bigframe"><iframe src="sheet-50/band.html?take=A&amp;two=count&amp;open" width="1100" height="520" title="one rune, two jobs"></iframe></div>
+<p class="why" style="margin:8px 0 0">Q: one rune with a small gold 2; click it and both jobs are there.</p>
+
+<!-- =============================================================== 3 -->
+<h2>3 &middot; POP A JOB OUT ONTO YOUR DESKTOP</h2>
+<p>In Aang's cockpit, <b>press and hold</b> a running job's bar. It lifts, a gold ring fills round your pointer in <b>half a second</b>, then the bar tears off into its own small window you can drop anywhere, over your game too. It has the same <b>see-through slider</b> and <b>pin</b> as the video pop-out (pinned: clicks go through to your game).</p>
+<div class="minis">
+  <div class="pmini"><div class="fr"><iframe src="sheet-50/popout.html?scene=press&amp;f=1" title="press"></iframe></div><p class="cap">1 &middot; PRESS AND HOLD</p><p class="why">Nothing moves yet, so a normal click still just opens the tasks.</p></div>
+  <div class="pmini"><div class="fr"><iframe src="sheet-50/popout.html?scene=press&amp;f=2" title="ring"></iframe></div><p class="cap">2 &middot; IT LIFTS, THE RING FILLS</p><p class="why">One pixel up, a gold edge, a deeper shadow. Let go before the ring closes and nothing happens.</p></div>
+  <div class="pmini"><div class="fr"><iframe src="sheet-50/popout.html?scene=press&amp;f=3" title="tear"></iframe></div><p class="cap">3 &middot; IT TEARS OFF</p><p class="why">The bar comes away under your pointer; its place in the cockpit says <b>POPPED OUT</b>.</p></div>
+  <div class="pmini"><div class="fr"><iframe src="sheet-50/popout.html?scene=press&amp;f=loop" title="loop"></iframe></div><p class="cap">ON A LOOP</p><p class="why">The whole press, on repeat.</p></div>
+</div>
+<h3 style="margin-top:22px">THE LITTLE WINDOW, OVER A GAME</h3>
+<div class="bigframe"><iframe src="sheet-50/popout.html?scene=desk" width="1180" height="660" title="the pop-out on the desktop"></iframe></div>
+<p style="margin-top:12px;font-size:13.5px">It arrives <b>folded</b>: Claude's icon, the project, the percent, the time left. Click it and the tasks unfold with <b>Pause</b>, <b>Open in Claude</b> and the purple key. When the job finishes, the card turns <b>teal</b> with the big tick and one key that okays it and closes the window. Slide the see-through down and your game shows through.</p>
+<h3 style="margin-top:16px">THE WORD ON THE "OKAY" KEY</h3>
+<div class="words">
+  <div class="w"><button class="key primary sm" type="button">Nice</button><small><b style="color:#FFC43C">Nice</b> <span class="rec">MY PICK</span><br>Warm, short, sounds like you. Says "seen it, good job" and closes.</small></div>
+  <div class="w"><button class="key primary sm" type="button">Got it</button><small><b style="color:#FFC43C">Got it</b><br>Plain and clear, a little flat for good news.</small></div>
+  <div class="w"><button class="key primary sm" type="button">Close</button><small><b style="color:#FFC43C">Close</b><br>Says exactly what happens, but sounds like dismissing an error.</small></div>
+</div>
+
+<!-- =============================================================== 4 -->
+<h2>4 &middot; HOVER GROWS THE ROW (YOUR PICK, FOR REFERENCE)</h2>
+<p>In the cockpit's conversation, hovering a row makes <b>that row</b> a little taller and shows its small carved label inside it, above the words. The rows below glide down; nothing overlaps or gets squashed. Move away and it shrinks back. The left one plays on a loop.</p>
+<div class="lans">
+  <div><p class="cap">ON A LOOP</p><iframe src="sheet-50/lantern.html" title="loop"></iframe></div>
+  <div><p class="cap">AT REST</p><iframe src="sheet-50/lantern.html?hold=-1" title="rest"></iframe></div>
+  <div><p class="cap">HOVERING THE CLAUDE ROW</p><iframe src="sheet-50/lantern.html?hold=1" title="hover"></iframe></div>
+</div>
+<h3 style="margin-top:18px">THE MOTION RULES (EVERYWHERE)</h3>
+<div class="note"><ul>
+  <li><b>Growing:</b> about 520 ms, a soft spring that overshoots a hair and settles.</li>
+  <li><b>Shrinking:</b> quicker, about 340 ms, no bounce.</li>
+  <li><b>Small changes</b> (a colour, a glow, a key lighting up): about 300 ms.</li>
+  <li><b>Several things appearing:</b> each one 50 to 60 ms after the one before, never all at once.</li>
+  <li><b>The curve:</b> Samara's own ease, <b>cubic-bezier(.32,.72,0,1)</b>: quick off the mark, gentle landing.</li>
+  <li><b>Loops</b> (the rune's glow and shimmer): slow, 2 to 4 seconds, and nothing moves if Windows asks for less motion.</li>
+</ul></div>
+
+<script>
+// ---------- 1: the palettes
+const CANDS = [
+  { id: 'a', name: 'LIGHT MINT', col: '#7fe8a8', score: 'Clearest of the three. Its nearest neighbour is the job-done teal, which is right: same "done" family, lighter and smaller.' },
+  { id: 'b', name: 'LIGHT TEAL', col: '#9ee8dc', score: 'Works, but it is the closest to the cream plan scroll and a very near twin of the job-done teal, so step and job done blur together.' },
+  { id: 'c', name: 'PEACH', col: '#ffc8a8', score: 'Too close to the plan scroll (cream) and near the amber of working. Warm also reads as news, not as done.' },
+];
+const pals = document.getElementById('pals');
+for (const c of CANDS) {
+  const col = Object.assign({}, S50.COL, { step: c.col });
+  const box = document.createElement('div'); box.className = 'pal wood';
+  box.innerHTML = `<h3>${c.id} &middot; ${c.name} ${c.col}${c.id === 'a' ? '<span class="rec">MY PICK</span>' : ''}</h3><p class="score">${c.score}</p>`;
+  const row = document.createElement('div'); row.className = 'row';
+  for (const k of S50.ORDER) {
+    const cell = document.createElement('div'); cell.className = 'cell' + (k === 'step' ? ' cand' : '');
+    const st = document.createElement('div'); st.className = 'stand';
+    const img = Object.assign(document.createElement('img'), { src: '../../assets/aang/frames/idle_0.png', alt: '' });
+    if (S50.GLOWS.has(k)) { img.className = 'glow'; img.style.setProperty('--c', col[k]); }
+    const cv = S50.mark(k, col[k]); cv.style.bottom = '74px';
+    st.append(img, cv);
+    cell.append(st, Object.assign(document.createElement('div'), { className: 'nm', innerHTML: `<span class="sw" style="background:${col[k]}"></span>${S50.NAMES[k]}` }),
+      Object.assign(document.createElement('div'), { className: 'noglow', textContent: S50.GLOWS.has(k) ? 'AURA BREATHES' : 'MARK ONLY' }));
+    row.append(cell);
+  }
+  box.append(row); pals.append(box);
+}
+// close-ups: step vs plan, step vs job done, at 4x the size over his head (12 screen px per art pixel)
+const cus = document.getElementById('cus');
+for (const c of CANDS) {
+  const r = document.createElement('div'); r.className = 'cu';
+  r.innerHTML = `<div class="lab"><b>${c.id} &middot; ${c.name}</b><span>${c.id === 'a' ? 'Both pairs read apart at a glance.' : c.id === 'b' ? 'Step and job done look like one colour in two sizes.' : 'Step and the plan scroll are nearly the same paper.'}</span></div>`;
+  for (const [other, title] of [['plan', 'STEP VS PLAN'], ['complete', 'STEP VS JOB DONE']]) {
+    const p = document.createElement('div'); p.className = 'pair wood';
+    p.innerHTML = `<h4>${title}</h4><div class="two"><div class="s"></div><div class="o"></div></div>`;
+    p.querySelector('.s').append(S50.mark('step', c.col, 12), Object.assign(document.createElement('small'), { textContent: 'STEP ' + c.col }));
+    p.querySelector('.o').append(S50.mark(other, S50.COL[other], 12), Object.assign(document.createElement('small'), { textContent: (other === 'plan' ? 'PLAN ' : 'JOB DONE ') + S50.COL[other] }));
+    r.append(p);
+  }
+  cus.append(r);
+}
+
+// ---------- 2: the takes
+const TAKES = [
+  { id: 'A', name: 'A &middot; A GLOWING STONE', d: 'A small rounded rune stone, Claude\'s sunburst carved in. The carving glows softly in and out in the job\'s colour, every few seconds. The calmest.' },
+  { id: 'B', name: 'B &middot; A RING THAT FILLS', d: 'The same stone with a thin pixel ring round it that fills as the job goes, like a cooldown in WoW. Progress without opening anything; the ring breathes, the stone stays still.' },
+  { id: 'C', name: 'C &middot; A SHIMMER AND A BOB', d: 'A slow light sweep runs across the carving while it works, and the stone bobs one pixel, like a dropped item waiting to be picked up. The most "alive"; stops when the job is done.' },
+  { id: 'D', name: 'D &middot; STONE AND A PERCENT', d: 'The glowing stone with a tiny carved plate beside it: the percent while it works, ASKS when it needs you, DONE at the end. Most information, a little wider.' },
+];
+const takes = document.getElementById('takes');
+for (const t of TAKES) {
+  const b = document.createElement('div'); b.className = 'take wood';
+  b.innerHTML = `<div class="top"><div class="desc"><h3>${t.name}</h3><p>${t.d}</p></div></div>
+    <div class="strip"><iframe src="sheet-50/band.html?take=${t.id}" title="take ${t.id}"></iframe></div><div class="zooms"></div>`;
+  const z = b.querySelector('.zooms');
+  for (const [s, lbl] of [['working', 'WORKING'], ['needs', 'NEEDS YOU'], ['complete', 'JOB COMPLETE']]) {
+    const c = document.createElement('div'); c.className = 'zc';
+    const big = document.createElement('div'); big.className = 'big'; big.append(S50.chip(t.id, s, { px: 6 }));
+    const one = document.createElement('div'); one.className = 'one'; one.append(S50.chip(t.id, s, { px: 2 }));
+    c.append(big, Object.assign(document.createElement('div'), { className: 'nm', textContent: lbl + ' · 3X, THEN 1X' }), one);
+    z.append(c);
+  }
+  takes.append(b);
+}
+</script>
+</body>
+</html>
