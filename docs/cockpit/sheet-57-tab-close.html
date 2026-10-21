@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sheet 57 - Quieter tab close</title>
+<!-- Sheet 57 (2026-10-21). His ask: "can we bury the X to close tabs a bit more, right now they're just big circles that
+     are a bit of an eyesore". Four quieter takes on the close button in Samara's tab drawer (browser.css .tp .x, 22 px
+     dark circle since commit 8ba0960). Every picture is a REAL render of browser.html off screen at 2x
+     (src/Shell/test/electron/tabclose-shots.ts), each take laid on as a constructed stylesheet; recipes in
+     sheet-57/takes.cjs. The pointer on a row is stood in for by a class (.hv), the same rules as :hover. Mockup only. -->
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<link rel="stylesheet" href="sheet-55/sheet55.css">
+<link rel="stylesheet" href="sheet-57/sheet57.css">
+<script src="sheet-57/shots.js"></script>
+<script src="sheet-57/sheet57.js"></script>
+</head>
+<body>
+<h1>SHEET 57 &middot; QUIETER TAB CLOSE</h1>
+<p class="lead">The dark circles go. Four quieter ways to close a tab, each beside today's drawer. In every picture your pointer is on the <b>Bowgull/CereBro</b> row, and <b>Wowhead</b> is the tab you're on.</p>
+<p class="topick"><span>WHAT TO PICK</span> <em><b>A</b> (my pick), <b>B</b>, <b>C</b> or <b>D</b>.</em></p>
+<div class="note"><b>True for all four</b>
+<ul>
+<li><b>Ctrl+W</b> still closes the tab you're on, and a <b>middle-click</b> on any row still closes it (it already does today).</li>
+<li>The x is drawn small, but the spot you click stays <b>26 px</b> square (30 in B), a touch bigger than today's circle. Easy to hit, even on a touch screen.</li>
+<li>In A, C and D, tabbing to the x with the keyboard shows it with a gold ring, so it's never lost.</li>
+</ul></div>
+
+<div class="take">
+  <div class="lhead"><span class="L">A</span><span class="nm">Small pixel x, no circle</span><span class="pick">MY PICK</span></div>
+  <p class="cap1">The circle is gone. A small hand-pixelled x in quiet wood ink, only on the row you point at and on your tab. It turns gold when your pointer is on it.</p>
+  <div class="how"><b>KEYBOARD</b><span>Ctrl+W closes your tab. Tab key reaches the x.</span><b>TOUCH</b><span>The x is always on your tab, so a tap closes it. Other tabs: tap to open, then tap its x.</span></div>
+  <div class="pair">
+    <div class="cell"><div class="lbl was">TODAY</div><div class="shot" data-s="TODAY"></div></div>
+    <div class="gut s"></div>
+    <div class="cell"><div class="lbl"><i>A</i>SMALL PIXEL X</div><div class="shot" data-s="A" data-call="hvx~right~No circle. A small pixel x~only on the row you point at|onx~right~On your tab, in dark ink~so you can always close it"></div></div>
+    <div class="gut"></div>
+  </div>
+  <div class="zooms">
+    <div class="cell"><div class="lbl was"><i>4&times;</i>TODAY, POINTED AT</div><div class="shot" data-z="TODAY-z-hover"></div></div>
+    <div class="cell"><div class="lbl"><i>4&times;</i>A, POINTED AT</div><div class="shot" data-z="A-z-hover"></div></div>
+    <div class="cell"><div class="lbl"><i>4&times;</i>A, POINTER ON THE X</div><div class="shot" data-z="A-z-xhover"></div></div>
+    <div class="cell"><div class="lbl"><i>4&times;</i>A, YOUR TAB</div><div class="shot" data-z="A-z-on"></div></div>
+  </div>
+</div>
+
+<div class="take">
+  <div class="lhead"><span class="L">B</span><span class="nm">The x takes the icon's place</span></div>
+  <p class="cap1">Chrome's way. Point at a row and its site icon turns into the x, in the same little slot. Nothing on the right, so every title gets more room.</p>
+  <div class="how"><b>KEYBOARD</b><span>Ctrl+W closes your tab. The x itself only shows for the pointer.</span><b>TOUCH</b><span>Tap a row and its x shows in the icon's spot; tap it to close. Long-press still opens the menu with Close.</span></div>
+  <div class="pair">
+    <div class="cell"><div class="lbl was">TODAY</div><div class="shot" data-s="TODAY"></div></div>
+    <div class="gut"></div>
+    <div class="cell"><div class="lbl"><i>B</i>X IN THE ICON'S SPOT</div><div class="shot" data-s="B" data-call="hvx~left~The icon becomes the x~only while you point at the row"></div></div>
+    <div class="gut s"></div>
+  </div>
+  <div class="zooms">
+    <div class="cell"><div class="lbl was"><i>4&times;</i>TODAY, POINTED AT</div><div class="shot" data-z="TODAY-z-hover"></div></div>
+    <div class="cell"><div class="lbl"><i>4&times;</i>B, POINTED AT</div><div class="shot" data-z="B-z-hover"></div></div>
+    <div class="cell"><div class="lbl"><i>4&times;</i>B, POINTER ON THE X</div><div class="shot" data-z="B-z-xhover"></div></div>
+  </div>
+</div>
+
+<div class="take">
+  <div class="lhead"><span class="L">C</span><span class="nm">A soft slot in the wood</span></div>
+  <p class="cap1">Instead of a round dark circle, a small rounded slot pressed into the wood, low contrast, only on the row you point at.</p>
+  <div class="how"><b>KEYBOARD</b><span>Ctrl+W closes your tab. Tab key reaches the x.</span><b>TOUCH</b><span>Tap a row and its slot shows; tap the x to close. Long-press still opens the menu with Close.</span></div>
+  <div class="pair">
+    <div class="cell"><div class="lbl was">TODAY</div><div class="shot" data-s="TODAY"></div></div>
+    <div class="gut s"></div>
+    <div class="cell"><div class="lbl"><i>C</i>SOFT SLOT</div><div class="shot" data-s="C" data-call="hvx~right~A slot pressed into the wood~only on the row you point at"></div></div>
+    <div class="gut"></div>
+  </div>
+  <div class="zooms">
+    <div class="cell"><div class="lbl was"><i>4&times;</i>TODAY, POINTED AT</div><div class="shot" data-z="TODAY-z-hover"></div></div>
+    <div class="cell"><div class="lbl"><i>4&times;</i>C, POINTED AT</div><div class="shot" data-z="C-z-hover"></div></div>
+    <div class="cell"><div class="lbl"><i>4&times;</i>C, POINTER ON THE X</div><div class="shot" data-z="C-z-xhover"></div></div>
+  </div>
+</div>
+
+<div class="take">
+  <div class="lhead"><span class="L">D</span><span class="nm">Slides in after a pause</span></div>
+  <p class="cap1">Hidden, even on your tab. Rest your pointer on a row for a moment and the small x slides in from the right edge. Brushing past shows nothing. Middle-click closes any tab without it.</p>
+  <div class="how"><b>KEYBOARD</b><span>Ctrl+W closes your tab. Tab key reaches the x.</span><b>TOUCH</b><span>Tap a row, and after the pause its x is there to tap. Long-press still opens the menu with Close.</span></div>
+  <div class="pair">
+    <div class="cell"><div class="lbl was">TODAY</div><div class="shot" data-s="TODAY"></div></div>
+    <div class="gut s"></div>
+    <div class="cell"><div class="lbl"><i>D</i>SLIDES IN</div><div class="shot" data-s="D" data-call="hvx~right~Slides in from the edge~after a short pause on the row"></div></div>
+    <div class="gut"></div>
+  </div>
+  <div class="zooms">
+    <div class="cell"><div class="lbl was"><i>4&times;</i>TODAY, POINTED AT</div><div class="shot" data-z="TODAY-z-hover"></div></div>
+    <div class="cell"><div class="lbl"><i>4&times;</i>D, HALF WAY IN</div><div class="shot" data-z="D-z-mid"></div></div>
+    <div class="cell"><div class="lbl"><i>4&times;</i>D, SETTLED</div><div class="shot" data-z="D-z-hover"></div></div>
+    <div class="cell"><div class="lbl"><i>4&times;</i>D, POINTER ON THE X</div><div class="shot" data-z="D-z-xhover"></div></div>
+  </div>
+</div>
+
+<div class="note"><b>How these were made</b>
+<ul>
+<li>Every picture is Samara's real tab drawer, drawn by the app itself at 2&times;, with the new x laid on. Nothing is painted over.</li>
+<li>The x is 7 by 7 pixel-art pixels, each one 2 screen pixels, with a one-pixel shadow under it like the rest of the wood.</li>
+</ul></div>
+</body>
+</html>

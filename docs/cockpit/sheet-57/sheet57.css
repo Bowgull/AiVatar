@@ -1,0 +1,15 @@
+/* Sheet 57 (2026-10-21): the quieter tab close. Sheet 55's sheet styling (sheet55.css) plus the pair layout:
+   TODAY beside each take at 2x, a gutter for the label, 4x close-ups under them. */
+body{max-width:1600px}
+.pair{display:flex;flex-wrap:wrap;gap:18px 0;align-items:flex-start}
+.pair>.cell{flex:0 0 auto}
+.pair .gut{width:250px;flex:0 0 auto}
+.pair .gut.s{width:44px}
+.shot svg.arrows .ar{fill:none;stroke:#FFC43C;stroke-width:4;stroke-linecap:round;stroke-linejoin:round}
+.callout{width:200px;white-space:normal}
+.zooms{display:flex;flex-wrap:wrap;gap:16px 20px;margin-top:20px;align-items:flex-start}
+.zooms .shot img{border-radius:10px}
+.how{display:grid;grid-template-columns:120px 1fr;gap:4px 14px;max-width:1150px;margin:0 0 14px 50px}
+.how b{font:800 13px Figtree,sans-serif;letter-spacing:1px;color:#a99b86;padding-top:2px}
+.how span{font:500 15px/1.5 Figtree,sans-serif;color:#d8cab0}
+.take{margin-top:34px}
