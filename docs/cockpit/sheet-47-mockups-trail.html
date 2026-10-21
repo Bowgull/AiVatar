@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 47 - The Mockups trail</title>
+<!-- Sheet 47 (2026-10-21): his ask, mockups open in Samara (never Firefox), in a MOCKUPS trail that shows it comes from
+     Claude, with its own history of every version and a broom that removes exact duplicates only. His picks: the same
+     tab updates to the newest version, older ones in its versions list; the history lives inside the trail; a
+     duplicate is exactly the same picture; the clean-up runs only when he presses the broom. Built from sheet 43d A's
+     real drawer pieces (panel, plaques, trail heads with an icon like the driver trails, the chest list). -->
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<link rel="stylesheet" href="../../src/Shell/pages/notefonts.css">
+<style>
+  html,body{background:#17110c;margin:0}
+  body{color:#e8dcc4;font-family:Figtree,sans-serif;padding:24px;width:1300px}
+  h1{font:400 20px Silkscreen,monospace;color:#FFC43C;letter-spacing:2px;margin:0 0 4px}
+  h2{font:400 12px Silkscreen,monospace;color:#FFC43C;letter-spacing:1.5px;margin:0 0 8px}
+  p{color:#cdbb9a;font-size:14.5px;line-height:1.5;margin:0 0 12px;max-width:1200px}
+  p b{color:#FFC43C}
+  .row{display:flex;gap:34px;align-items:flex-start;flex-wrap:wrap;margin:18px 0 26px}
+  .col{width:320px}
+  .why{font-size:13px;color:#cdbb9a;line-height:1.45;margin:12px 0 0}
+  .why b{color:#FFE096}
+  .drawer{position:relative;width:300px;height:680px;overflow:hidden;box-sizing:border-box;padding:14px 14px 14px 12px;display:flex;flex-direction:column;
+    background:radial-gradient(90% 40% at 12% 0%,rgba(255,200,120,.10),transparent 70%),url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated;
+    border-style:solid;border-width:8px;border-left-width:0;border-image:url(../../src/Shell/pages/art/browser/trayframe.png) 4 repeat;box-shadow:12px 0 28px rgba(0,0,0,.55)}
+  .panel{position:relative;border:3px solid #120A05;border-radius:10px;padding:13px 11px 14px;margin:6px 0 10px;image-rendering:pixelated;
+    box-shadow:inset 0 0 0 4px #4a2e1a,inset 0 0 0 5px #120A05,inset 0 7px 12px rgba(0,0,0,.5),0 3px 0 #0d0703;
+    background:radial-gradient(120% 50% at 50% 0%,rgba(255,200,120,.10),transparent 60%),linear-gradient(rgba(0,0,0,.35),rgba(0,0,0,.45)),url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px}
+  .panel::after{content:"";position:absolute;inset:-6px;pointer-events:none;
+    background:url(../../src/Shell/pages/art/browser/cap3_tl.png) left top/22px 22px no-repeat,url(../../src/Shell/pages/art/browser/cap3_tr.png) right top/22px 22px no-repeat,
+      url(../../src/Shell/pages/art/browser/cap3_bl.png) left bottom/22px 22px no-repeat,url(../../src/Shell/pages/art/browser/cap3_br.png) right bottom/22px 22px no-repeat}
+  .ptitle{font:400 9px var(--label);letter-spacing:2px;color:#FFE096;text-shadow:1px 1px 0 #000;margin:-2px 2px 9px;display:flex;align-items:center;gap:8px}
+  .ptitle::after{content:"";flex:1;height:4px;border-radius:2px;background:linear-gradient(180deg,rgba(0,0,0,.6) 0 2px,rgba(255,224,150,.2) 2px 4px)}
+  .tabs{display:flex;flex-direction:column;gap:8px}
+  .tp{position:relative;display:flex;align-items:center;gap:9px;padding:6px 9px 6px 6px;border-radius:9px;border:3px solid #120A05;
+    background:linear-gradient(180deg,#6a4a2c 0,#56371F 45%,#47301b 100%);color:#F6E6C6;font:600 13px var(--body);text-shadow:1px 1px 0 rgba(0,0,0,.7);
+    box-shadow:0 4px 0 #120A05,inset 0 3px 0 rgba(255,222,170,.24),inset 0 -2px 0 rgba(0,0,0,.35)}
+  .tp .slot{width:26px;height:26px;flex:none;border-radius:6px;display:grid;place-items:center;background:#1c1328;box-shadow:inset 0 2px 0 rgba(0,0,0,.6)}
+  .tp .slot img{width:16px;height:16px;border-radius:3px}
+  .tp .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tp.on{background:linear-gradient(180deg,#F0DCB4,#DEC28C);color:#2a1c0c;text-shadow:none;box-shadow:0 4px 0 #120A05,0 0 0 2px var(--gold),0 0 12px rgba(255,190,90,.45),inset 0 3px 0 rgba(255,255,255,.5)}
+  .tp.on .slot{background:#e9d3a6}
+  .ver{flex:none;font:400 8px var(--label);letter-spacing:1px;padding:3px 5px 2px;border-radius:4px;background:rgba(0,0,0,.25);color:#ffe28c;cursor:pointer}
+  .tp.on .ver{background:#4A2C6E;color:#efe6ff}
+  /* the trail head, as the driver trails have it: an icon, the name, the count, the ... key */
+  .th{display:flex;align-items:center;gap:8px;margin:8px 2px 2px;font:700 12px var(--display);letter-spacing:1px;color:var(--gold);text-shadow:0 2px 0 #120A05}
+  .th img{width:18px;height:18px;border-radius:4px;box-shadow:0 0 0 1.5px #120A05}
+  .th .n{font:400 8px var(--label);letter-spacing:1px;color:#c9b48e}
+  .th::after{content:"";flex:1;height:4px;border-radius:2px;background:linear-gradient(180deg,rgba(0,0,0,.6) 0 2px,rgba(255,224,150,.2) 2px 4px)}
+  .th .thm{order:9;font:700 14px var(--body);color:#c9b48e}
+  .from{font:400 7.5px var(--label);letter-spacing:1px;color:#ffb08a;margin:-2px 2px 4px 28px}
+  /* the history row and its list, in the chest's own look */
+  .hist{display:flex;align-items:center;gap:9px;margin:6px 0 0;padding:7px 10px;border-radius:9px;cursor:pointer;background:#0B0718;border:3px solid #120A05;box-shadow:0 3px 0 #120A05,inset 0 2px 0 rgba(150,110,200,.25);
+    font:400 9px var(--label);letter-spacing:1.5px;color:#ffe28c}
+  .hist .chev{margin-left:auto;width:0;height:0;border:5px solid transparent;border-top:6px solid #ffe28c;border-bottom:0}
+  .list{margin:6px 0 0;padding:8px 9px;border-radius:9px;border:3px solid #120A05;background:linear-gradient(rgba(0,0,0,.45),rgba(0,0,0,.55)),url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;box-shadow:0 3px 0 #120A05}
+  .lh{display:flex;align-items:center;gap:8px;margin:0 0 6px}
+  .lh b{font:400 8px var(--label);letter-spacing:1.5px;color:#c9b48e}
+  .broom{margin-left:auto;display:flex;align-items:center;gap:6px;padding:4px 8px 3px;border-radius:6px;cursor:pointer;background:linear-gradient(180deg,#ffe28c,#FFC43C);color:#2a1c00;border:2px solid #120A05;box-shadow:0 2px 0 #120A05;font:400 8px var(--label);letter-spacing:1px}
+  .broom img{width:14px;height:14px;image-rendering:pixelated}
+  .sheet{font:700 12.5px var(--body);color:#f2e3c2;margin:8px 0 3px}
+  .v{display:flex;align-items:center;gap:8px;padding:3px 4px 3px 10px;border-left:2px solid rgba(255,224,150,.2);font:500 12px var(--body);color:#c9b48e;cursor:pointer;border-radius:0 5px 5px 0}
+  .v:hover{background:rgba(255,196,60,.12)}
+  .v.now{color:#fff4dc}
+  .v.now i{font-style:normal;font:400 7.5px var(--label);letter-spacing:1px;padding:2px 4px 1px;border-radius:3px;background:#3FBFAE;color:#08302b}
+  .v.dup{color:#8f7458;text-decoration:line-through;text-decoration-color:rgba(240,138,122,.7)}
+  .v.dup i{font-style:normal;font:400 7.5px var(--label);letter-spacing:1px;padding:2px 4px 1px;border-radius:3px;background:#f08a7a;color:#3a1008;text-decoration:none}
+  .v .tm{margin-left:auto;font:400 8px var(--label);color:#a98e6a}
+  /* the tab's right-click menu with its versions */
+  .menu{position:absolute;left:150px;top:300px;z-index:5;width:220px;padding:6px;border-radius:9px;border:3px solid #120A05;background:linear-gradient(180deg,#5a3c22,#3d2716);box-shadow:0 6px 16px rgba(0,0,0,.6)}
+  .menu .mi{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;font:600 12.5px var(--body);color:#F6E6C6}
+  .menu .mi.h{background:rgba(255,196,60,.18)}
+  .menu .sep{height:2px;margin:4px 6px;background:rgba(0,0,0,.35)}
+  .menu .sub{position:absolute;left:100%;top:6px;margin-left:4px;width:200px;padding:6px;border-radius:9px;border:3px solid #120A05;background:linear-gradient(180deg,#5a3c22,#3d2716);box-shadow:0 6px 16px rgba(0,0,0,.6)}
+  .menu .sub .mi small{margin-left:auto;font:400 8px var(--label);color:#c9b48e}
+</style>
+</head>
+<body>
+<h1>SHEET 47 &middot; THE MOCKUPS TRAIL</h1>
+<p>Every mockup Claude opens goes to Samara, into one <b>MOCKUPS</b> trail with Claude's icon on it. A newer version of a sheet <b>updates its own tab</b> (the small <b>V3</b> says which version you are looking at, and opens the others). At the bottom of the trail, <b>HISTORY</b> lists every mockup and every version, newest first, closed ones too. The trail's broom removes <b>exact duplicates only</b>, and only when you press it. Older versions open exactly as they looked, because each one is kept the moment it is opened.</p>
+<div class="row" id="v"></div>
+<script>
+const CL = 'sheet-45d/claude-icon.png';
+const fav = 'sheet-45d/claude-16.png';
+const head = `<div class="th"><img src="${CL}" alt="">MOCKUPS<span class="n">3 TABS</span><span class="thm">&middot;&middot;&middot;</span></div><div class="from">FROM CLAUDE</div>`;
+const loose = `<div class="tp"><span class="slot"><img src="../../src/Shell/pages/art/samara/samara-lantern-16.png" alt=""></span><span class="t">Inbox (3)</span></div><div class="tp"><span class="slot"><img src="../../src/Shell/pages/art/samara/samara-lantern-16.png" alt=""></span><span class="t">Wowhead: talent calc</span></div>`;
+const mock = (on) => `<div class="tabs">${loose}${head}
+  <div class="tp${on ? ' on' : ''}"><span class="slot"><img src="${fav}" alt=""></span><span class="t">46 &middot; One cockpit</span><span class="ver">V3</span></div>
+  <div class="tp"><span class="slot"><img src="${fav}" alt=""></span><span class="t">45g &middot; Click Aang</span><span class="ver">V5</span></div>
+  <div class="tp"><span class="slot"><img src="${fav}" alt=""></span><span class="t">45f &middot; The progress bar</span><span class="ver">V2</span></div></div>`;
+const hist = (open) => `<div class="hist">HISTORY &middot; 14 VERSIONS<i class="chev"></i></div>${open ? `<div class="list"><div class="lh"><b>EVERY MOCKUP, NEWEST FIRST</b><span class="broom"><img src="../../src/Shell/pages/art/browser/tidy_broom2.png" alt="">2 DUPLICATES</span></div>
+  <div class="sheet">46 &middot; One cockpit</div>
+  <div class="v now">12:41 <i>OPEN</i><span class="tm">V3</span></div><div class="v">12:20<span class="tm">V2</span></div><div class="v dup">12:18 <i>SAME AS V2</i><span class="tm">V2</span></div><div class="v">12:05<span class="tm">V1</span></div>
+  <div class="sheet">45g &middot; Click Aang</div>
+  <div class="v now">11:52 <i>OPEN</i><span class="tm">V5</span></div><div class="v">11:40<span class="tm">V4</span></div><div class="v dup">11:39 <i>SAME AS V4</i><span class="tm">V4</span></div><div class="v">11:21<span class="tm">V3</span></div>
+  <div class="sheet">44 &middot; Hyrule (closed)</div>
+  <div class="v">Yesterday 9:02<span class="tm">V1</span></div></div>` : ''}`;
+const V = [
+  ['IN THE DRAWER', `<div class="panel" style="flex:1"><p class="ptitle">TABS</p>${mock(true)}${hist(false)}</div>`,
+    'The trail sits with your other tabs. Claude\'s icon and FROM CLAUDE on its head; each tab wears its version. A new version of sheet 46 reloads <b>this</b> tab; it never piles up new ones.'],
+  ['HISTORY OPENED', `<div class="panel" style="flex:1"><p class="ptitle">TABS</p>${mock(false)}${hist(true)}</div>`,
+    'Every mockup and every version, newest first, closed ones too. Click any line to open it exactly as it was. Exact duplicates are struck through in coral; the gold broom (<b>2 DUPLICATES</b>) removes only those, only when you press it.'],
+  ['RIGHT-CLICK A MOCKUP TAB', `<div class="panel" style="flex:1"><p class="ptitle">TABS</p>${mock(true)}${hist(false)}</div><div class="menu"><div class="mi">Copy link</div><div class="mi h">Versions &#9656;<div class="sub"><div class="mi">V3 &middot; 12:41<small>NOW</small></div><div class="mi">V2 &middot; 12:20</div><div class="mi">V1 &middot; 12:05</div></div></div><div class="sep"></div><div class="mi">Close</div></div>`,
+    'Or the tab\'s own menu: <b>Versions</b> lists that sheet\'s versions; pick one and the tab shows it (the V-tag changes). The same list opens from clicking the V3 tag.'],
+];
+for (const [name, body, why] of V) { const c = document.createElement('div'); c.className = 'col'; c.innerHTML = `<h2>${name}</h2><div class="drawer">${body}</div><p class="why">${why}</p>`; document.getElementById('v').append(c); }
+</script>
+</body>
+</html>
