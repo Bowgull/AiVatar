@@ -171,6 +171,12 @@ export type ToBody =
       what?: string;
       /** Set when the session is on the MacBook, so the click routes there instead of to a window here. */
       host?: 'mac' }
+  /** C2 (2026-10-21): every Claude session the aang-link mod reports (claudelink.ts Job), newest activity first. */
+  | { t: 'claude.jobs'; jobs: import('./claudelink.ts').Job[] }
+  /** C2: what is waiting on him, permissions first, then questions, then plans (claudelink.ts WaitItem). */
+  | { t: 'claude.wait'; items: import('./claudelink.ts').WaitItem[] }
+  /** C2: whether a claude.answer/send/pause/play/model was taken; `why` is the plain reason when it was not. */
+  | { t: 'claude.said'; of: string; ok: boolean; why?: string }
   /** One quiet line beside his head (the cockpit's whisper size, 6.12): now playing, and the like.
    *  `controls: 'media'` adds back, play/pause and skip. */
   | { t: 'whisper'; text: string; controls?: 'media' }
@@ -584,6 +590,18 @@ export type FromBody =
   | { t: 'claude.reply'; cwd: string; text: string }
   /** He clicked an icon for a MacBook session: ask the Mac's one-job listener to bring Claude forward. */
   | { t: 'claude.front'; host: 'mac' }
+  /**
+   * C2 (2026-10-21): his answer to a waiting item (claude.wait). A permission or plan takes `decision`
+   * (`message` with deny-message); a question takes `answers`, question text -> chosen label(s) or his own words.
+   * Shell only; answered with claude.said. The wire format is in docs/COCKPIT-BUILD.md ("C1/C2 wire format").
+   */
+  | { t: 'claude.answer'; id: string; decision?: 'allow' | 'always' | 'deny' | 'deny-message'; message?: string; answers?: Record<string, string> }
+  /** A message to a session: `now` slips in at Claude's next step; `after` waits for the task in progress to be ticked. */
+  | { t: 'claude.send'; session: string; text: string; when: 'now' | 'after' }
+  | { t: 'claude.pause'; session: string }
+  /** Play: the session picks up again, with his words or a short "carry on". */
+  | { t: 'claude.play'; session: string; text?: string }
+  | { t: 'claude.model'; session: string; model: string }
   /** A picture of his window: base64 JPEG, and how much of it is black (protected video comes out black). */
   | { t: 'look'; id: string; ok: boolean; data?: string | null; w?: number; h?: number; black?: number; error?: string | null };
 

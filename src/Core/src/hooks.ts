@@ -206,8 +206,19 @@ export class HookServer {
   /** Wrong setup codes: after 10 in 10 minutes the setup door stays shut for the rest of that time. */
   private setupMisses: number[] = [];
 
+  /**
+   * C1 (2026-10-21): the aang-link mod's doors (/link/*, claudelink.ts). This PC only: loopback, never the tailnet,
+   * never a web page; and every request must be signed with this run's link key, which LinkDoor checks. Unset: shut.
+   */
+  link: { handle(req: http.IncomingMessage, res: http.ServerResponse): void } | null = null;
+
   private handle(req: http.IncomingMessage, res: http.ServerResponse): void {
     if (!this.hostOk(req)) { res.writeHead(403).end(); return; }
+    if (req.url?.startsWith('/link/')) {
+      if (!this.link || req.headers.origin || !isLoopback(req.socket.remoteAddress ?? '')) { res.writeHead(403).end(); return; }
+      this.link.handle(req, res);
+      return;
+    }
     if (req.method === 'GET' && req.url === '/mac-look' && this.look && !req.headers.origin && isLoopback(req.socket.remoteAddress ?? '')) {
       void this.look().then(r => res.writeHead(r ? 200 : 503, { 'Content-Type': 'application/json' }).end(JSON.stringify(r ?? { error: 'the Mac browser is not connected' })), () => res.writeHead(500).end());
       return;
