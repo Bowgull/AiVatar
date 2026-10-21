@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 44 - Samara, by way of Hyrule</title>
+<!-- Sheet 44 (2026-10-20). Ideation only, his ask: "what the current design language would look like if we started
+     adding some BotW and Tears of the Kingdom inspiration into Samara. Go big. Just ideas, just mockups."
+     Everything here is drawn fresh, in CSS and SVG: inspired by the games' feel (the Slate's glass and glow, the Zonai's
+     green stone and gold, Recall, Ultrahand, the stamina wheel, shrines, the Depths' lightroots), never their artwork,
+     logos, symbols or words. Nothing here is built. -->
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<link rel="stylesheet" href="../../src/Shell/pages/notefonts.css">
+<style>
+  :root{
+    --slate:#0b1a22; --slate2:#10262f; --cyan:#4fe3ff; --cyan2:#9ff3ff; --amber:#ff9a3c;
+    --zstone:#22312a; --zstone2:#2e4237; --jade:#5ef0b4; --zgold:#d9b44a; --zgold2:#ffe39a;
+    --recall:#ffe066;
+  }
+  html,body{background:#0e0b08;margin:0}
+  body{color:#e8dcc4;font-family:Figtree,sans-serif;padding:28px 30px 80px;width:1480px}
+  h1{font:400 22px Silkscreen,monospace;color:#FFC43C;letter-spacing:2px;margin:0 0 6px}
+  h2{font:400 14px Silkscreen,monospace;color:#FFC43C;letter-spacing:1.5px;margin:40px 0 6px}
+  h3{font:400 11px Silkscreen,monospace;color:#FFE096;letter-spacing:1.5px;margin:0 0 6px}
+  p{color:#cdbb9a;font-size:14.5px;line-height:1.55;margin:0 0 12px;max-width:1380px}
+  p b{color:#FFC43C}
+  .lede{font-size:15.5px}
+  .row{display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start}
+  .dir{width:460px}
+  .why{font-size:13px;color:#cdbb9a;line-height:1.5;margin:10px 0 0}
+  .why b{color:#FFE096}
+
+  /* ---------------- the three directions: a small Samara (band, drawer, page) ---------------- */
+  .win{position:relative;width:460px;height:300px;border-radius:14px;overflow:hidden;box-shadow:0 14px 30px rgba(0,0,0,.6)}
+  .win .band{position:absolute;left:0;right:0;top:0;height:40px;display:flex;align-items:center;gap:8px;padding:0 10px;box-sizing:border-box}
+  .win .addr{flex:1;height:24px;border-radius:6px;display:flex;align-items:center;padding:0 10px;font:500 11.5px var(--body)}
+  .win .drawer{position:absolute;left:8px;top:48px;bottom:8px;width:150px;border-radius:10px;padding:8px;box-sizing:border-box;display:flex;flex-direction:column;gap:6px}
+  .win .page{position:absolute;left:166px;right:8px;top:48px;bottom:8px;border-radius:10px;overflow:hidden}
+  .win .lbl{font:400 7.5px Silkscreen,monospace;letter-spacing:1.5px}
+  .win .keys{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
+  .win .key{aspect-ratio:1;border-radius:6px}
+  .win .tab{height:22px;border-radius:6px;display:flex;align-items:center;padding:0 7px;font:600 10px var(--body);gap:6px}
+  .win .tab i{width:10px;height:10px;border-radius:3px;flex:none}
+  .win .pg{position:absolute;inset:0;padding:14px 16px;font:500 11px/1.6 var(--body)}
+  .win .pg .h{height:12px;width:55%;border-radius:3px;margin-bottom:10px}
+  .win .pg .l{height:7px;border-radius:3px;margin:6px 0}
+
+  /* A: the Slate. Blue-black glass, cyan hairlines, cut corners, an orange accent. */
+  .slateA{background:radial-gradient(120% 80% at 30% 0%,#13323d,#071116 70%)}
+  .slateA .band{background:linear-gradient(180deg,rgba(79,227,255,.10),rgba(79,227,255,0));border-bottom:1px solid rgba(79,227,255,.35)}
+  .slateA .addr{background:rgba(5,14,18,.8);color:var(--cyan2);border:1px solid rgba(79,227,255,.45);clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px)}
+  .slateA .drawer{background:rgba(8,22,28,.82);border:1px solid rgba(79,227,255,.4);clip-path:polygon(12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%,0 12px);box-shadow:inset 0 0 18px rgba(79,227,255,.12)}
+  .slateA .lbl{color:var(--cyan)}
+  .slateA .key{background:rgba(79,227,255,.08);border:1px solid rgba(79,227,255,.35);box-shadow:inset 0 0 8px rgba(79,227,255,.18)}
+  .slateA .key.on{border-color:var(--amber);box-shadow:0 0 10px rgba(255,154,60,.6),inset 0 0 8px rgba(255,154,60,.3)}
+  .slateA .tab{background:rgba(79,227,255,.07);color:#cdeff7;border:1px solid rgba(79,227,255,.25)}
+  .slateA .tab.on{background:linear-gradient(90deg,rgba(79,227,255,.35),rgba(79,227,255,.08));color:#fff;border-color:var(--cyan);text-shadow:0 0 6px var(--cyan)}
+  .slateA .tab i{background:var(--cyan)}
+  .slateA .page{background:#0d1418;border:1px solid rgba(79,227,255,.25)}
+  .slateA .pg .h{background:rgba(159,243,255,.5)} .slateA .pg .l{background:rgba(159,243,255,.18)}
+  .slateA .scan{position:absolute;left:0;right:0;height:40%;background:linear-gradient(180deg,transparent,rgba(79,227,255,.07),transparent);animation:scan 4s linear infinite}
+  @keyframes scan{from{top:-40%}to{top:100%}}
+
+  /* B: the Zonai. Green stone, gold inlay, jade glow, round glyph rings. */
+  .zonB{background:radial-gradient(120% 90% at 50% 0%,#36503f,#141e19 70%)}
+  .zonB .band{background:linear-gradient(180deg,#3a5243,#25362c);border-bottom:2px solid var(--zgold)}
+  .zonB .addr{background:#18231d;color:#d8f5e6;border:1px solid rgba(217,180,74,.6);border-radius:12px}
+  .zonB .drawer{background:linear-gradient(180deg,#2c3f33,#1d2a22);border:2px solid var(--zgold);border-radius:16px;box-shadow:inset 0 0 0 3px #1a2620,inset 0 0 0 4px rgba(217,180,74,.35)}
+  .zonB .lbl{color:var(--zgold2)}
+  .zonB .key{background:radial-gradient(circle at 50% 35%,#3c5646,#22322a);border:1px solid rgba(217,180,74,.55);border-radius:50%}
+  .zonB .key.on{box-shadow:0 0 0 2px var(--jade),0 0 12px rgba(94,240,180,.7)}
+  .zonB .tab{background:#2b3d32;color:#dff3e8;border:1px solid rgba(217,180,74,.35);border-radius:11px}
+  .zonB .tab.on{background:linear-gradient(90deg,#4a6b57,#2f4438);box-shadow:0 0 0 1px var(--jade),0 0 10px rgba(94,240,180,.45)}
+  .zonB .tab i{background:var(--jade);border-radius:50%}
+  .zonB .page{background:#121915;border:2px solid rgba(217,180,74,.45)}
+  .zonB .pg .h{background:rgba(255,227,154,.55)} .zonB .pg .l{background:rgba(216,245,230,.16)}
+  .zonB .ring{position:absolute;width:120px;height:120px;right:-30px;bottom:-30px;border-radius:50%;border:2px solid rgba(217,180,74,.35);box-shadow:inset 0 0 0 10px rgba(217,180,74,.06);animation:spin 18s linear infinite}
+  .zonB .ring::before{content:"";position:absolute;inset:16px;border-radius:50%;border:2px dashed rgba(94,240,180,.35)}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* C: Samara x Zonai. Today's pixel wood, velvet and parchment, with Zonai gold-and-jade where things are alive. */
+  .bridgeC{background:url(../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated}
+  .bridgeC .band{background:url(../../src/Shell/pages/art/browser/band.png) 0 0/128px 58px;border-bottom:3px solid #120A05}
+  .bridgeC .addr{background:#0B0718;color:#e6dcc8;border:2px solid #120A05;box-shadow:inset 0 0 0 1px rgba(94,240,180,.35)}
+  .bridgeC .drawer{background:url(../../src/Shell/pages/art/browser/velvet.png) 0 0/96px 96px;border:3px solid #120A05;box-shadow:inset 0 0 0 3px #4a2e1a,inset 0 0 0 4px rgba(217,180,74,.6)}
+  .bridgeC .lbl{color:#FFE096}
+  .bridgeC .key{background:linear-gradient(180deg,#6a4a2c,#47301b);border:2px solid #120A05;box-shadow:0 3px 0 #120A05}
+  .bridgeC .key.on{box-shadow:0 3px 0 #120A05,0 0 0 2px var(--jade),0 0 10px rgba(94,240,180,.7)}
+  .bridgeC .tab{background:linear-gradient(180deg,#6a4a2c,#47301b);color:#F6E6C6;border:2px solid #120A05}
+  .bridgeC .tab.on{background:linear-gradient(180deg,#F0DCB4,#DEC28C);color:#2a1c0c;box-shadow:0 0 0 2px var(--jade),0 0 10px rgba(94,240,180,.5)}
+  .bridgeC .tab i{background:#1c1328;box-shadow:inset 0 0 0 1px rgba(94,240,180,.6)}
+  .bridgeC .page{background:#e9d3a6;border:3px solid #120A05}
+  .bridgeC .pg .h{background:#8a3e1c} .bridgeC .pg .l{background:rgba(42,28,12,.25)}
+  .bridgeC .glyph{position:absolute;width:26px;height:26px;border-radius:50%;border:2px solid var(--zgold);box-shadow:0 0 8px rgba(94,240,180,.6),inset 0 0 0 4px rgba(94,240,180,.25)}
+
+  /* ---------------- the feature ideas ---------------- */
+  .ideas{display:grid;grid-template-columns:repeat(3,460px);gap:26px}
+  .idea{background:#17110c;border-radius:14px;padding:14px;box-shadow:0 0 0 2px #2a1d12}
+  .idea .tag{display:inline-block;font:400 8.5px Silkscreen,monospace;letter-spacing:1px;padding:3px 6px 2px;border-radius:4px;margin:0 6px 8px 0}
+  .tag.g{background:#1d3a44;color:#9ff3ff} .tag.s{background:#3a2a12;color:#FFE096}
+  .stage{position:relative;height:190px;border-radius:10px;overflow:hidden;background:#0b0f12}
+  .idea p{font-size:13px;margin:10px 0 0}
+
+  /* 1 Recall: the back button shows the tab's past pages rewinding along a glowing trail */
+  .recall{background:radial-gradient(120% 90% at 50% 100%,#2a2410,#0b0b08)}
+  .recall .pg{position:absolute;width:92px;height:62px;border-radius:6px;background:#e9d3a6;box-shadow:0 0 0 2px var(--recall),0 0 14px rgba(255,224,102,.7);top:64px}
+  .recall .pg::after{content:"";position:absolute;left:8px;right:8px;top:10px;height:6px;border-radius:3px;background:rgba(42,28,12,.35);box-shadow:0 12px 0 rgba(42,28,12,.2),0 22px 0 rgba(42,28,12,.2)}
+  .recall .p1{left:24px;opacity:.45;filter:sepia(1) saturate(2)} .recall .p2{left:132px;opacity:.7} .recall .p3{left:240px}
+  .recall .trail{position:absolute;left:70px;right:120px;top:94px;height:3px;background:repeating-linear-gradient(90deg,var(--recall) 0 10px,transparent 10px 16px);filter:drop-shadow(0 0 4px var(--recall));animation:trail 1.2s linear infinite}
+  @keyframes trail{to{background-position:-16px 0}}
+  .recall .btn{position:absolute;right:20px;top:72px;width:44px;height:44px;border-radius:50%;border:3px solid var(--recall);display:grid;place-items:center;color:var(--recall);font:700 20px var(--body);box-shadow:0 0 16px rgba(255,224,102,.7);animation:pulse 1.6s ease-in-out infinite}
+  @keyframes pulse{50%{box-shadow:0 0 4px rgba(255,224,102,.3)}}
+
+  /* 2 Stamina wheel: page loading */
+  .stam{display:grid;place-items:center;background:radial-gradient(circle,#1a2418,#0a0d09)}
+  .wheel{width:96px;height:96px;border-radius:50%;background:conic-gradient(#7be35a var(--p,0%),rgba(123,227,90,.15) 0);-webkit-mask:radial-gradient(circle,transparent 30px,#000 31px);mask:radial-gradient(circle,transparent 30px,#000 31px);animation:fill 3s linear infinite}
+  @property --p{syntax:'<percentage>';inherits:false;initial-value:0%}
+  @keyframes fill{0%{--p:0%}80%{--p:100%}100%{--p:100%}}
+  .stam .slow{position:absolute;right:26px;top:26px;width:46px;height:46px;border-radius:50%;background:conic-gradient(#ff5a3c 70%,rgba(255,90,60,.15) 0);-webkit-mask:radial-gradient(circle,transparent 15px,#000 16px);mask:radial-gradient(circle,transparent 15px,#000 16px);animation:blink 0.6s steps(2) infinite}
+  @keyframes blink{50%{opacity:.35}}
+  .stam .cap{position:absolute;bottom:12px;left:0;right:0;text-align:center;font:400 8.5px Silkscreen,monospace;color:#a8e28f;letter-spacing:1px}
+
+  /* 3 Sensor: find in page pings louder as you near the match */
+  .sensor{background:#081016}
+  .sensor .txt{position:absolute;left:18px;right:150px;top:18px;font:500 11px/2 var(--body);color:#5d7480}
+  .sensor .txt mark{background:transparent;color:#fff;box-shadow:0 0 0 2px var(--cyan);border-radius:2px}
+  .sensor .dot{position:absolute;right:58px;top:70px;width:16px;height:16px;border-radius:50%;background:var(--cyan);box-shadow:0 0 12px var(--cyan)}
+  .sensor .wave{position:absolute;right:66px;top:78px;width:0;height:0;border-radius:50%;border:2px solid var(--cyan);transform:translate(50%,-50%);animation:ping 1.2s ease-out infinite}
+  .sensor .wave.w2{animation-delay:.4s} .sensor .wave.w3{animation-delay:.8s}
+  @keyframes ping{from{width:0;height:0;opacity:1}to{width:120px;height:120px;opacity:0}}
+  .sensor .cap{position:absolute;right:16px;bottom:14px;font:400 8.5px Silkscreen,monospace;color:var(--cyan2);letter-spacing:1px}
+
+  /* 4 Map of tabs */
+  .map{background:linear-gradient(rgba(79,227,255,.06) 1px,transparent 1px) 0 0/20px 20px,linear-gradient(90deg,rgba(79,227,255,.06) 1px,transparent 1px) 0 0/20px 20px,radial-gradient(circle at 40% 50%,#173037,#081115)}
+  .map .reg{position:absolute;border:1px dashed rgba(159,243,255,.35);border-radius:40% 50% 45% 55%;}
+  .map .reg b{position:absolute;top:-16px;left:6px;font:400 8px Silkscreen,monospace;color:var(--cyan2);letter-spacing:1px}
+  .map .pin{position:absolute;width:18px;height:18px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:var(--amber);box-shadow:0 0 8px rgba(255,154,60,.8)}
+  .map .pin.c{background:var(--cyan);box-shadow:0 0 8px var(--cyan)}
+  .map .you{position:absolute;width:10px;height:10px;border-radius:50%;background:#fff;box-shadow:0 0 0 3px rgba(255,255,255,.3),0 0 12px #fff;animation:pulse 1.4s infinite}
+
+  /* 5 Ultrahand: dragging a tab out of the window, held by green light */
+  .ultra{background:radial-gradient(circle at 70% 60%,#122a1d,#070c09)}
+  .ultra .win2{position:absolute;left:20px;top:30px;width:170px;height:130px;border-radius:8px;border:2px solid #2d4a3a;background:#0e1712}
+  .ultra .held{position:absolute;left:250px;top:56px;width:150px;height:28px;border-radius:7px;background:linear-gradient(180deg,#6a4a2c,#47301b);border:2px solid #120A05;box-shadow:0 0 0 2px var(--jade),0 0 18px rgba(94,240,180,.8);color:#F6E6C6;font:600 11px var(--body);display:flex;align-items:center;padding-left:10px;animation:float 2.4s ease-in-out infinite}
+  @keyframes float{50%{transform:translateY(-8px) rotate(-1.5deg)}}
+  .ultra .beam{position:absolute;left:160px;top:70px;width:95px;height:4px;background:linear-gradient(90deg,rgba(94,240,180,.1),var(--jade));box-shadow:0 0 10px var(--jade);transform-origin:left;animation:beam 2.4s ease-in-out infinite}
+  @keyframes beam{50%{transform:rotate(-4deg)}}
+  .ultra .hand{position:absolute;left:142px;top:58px;width:26px;height:26px;border-radius:50%;border:2px solid var(--jade);box-shadow:0 0 10px var(--jade)}
+
+  /* 6 Blessing: a download or Claude's plan done, the shrine way */
+  .bless{background:radial-gradient(circle at 50% 60%,#3a2410,#0b0805)}
+  .bless .rays{position:absolute;left:50%;top:58%;width:300px;height:300px;transform:translate(-50%,-50%);background:repeating-conic-gradient(rgba(255,170,80,.18) 0 6deg,transparent 6deg 18deg);border-radius:50%;animation:spin 14s linear infinite;-webkit-mask:radial-gradient(circle,#000 30%,transparent 70%);mask:radial-gradient(circle,#000 30%,transparent 70%)}
+  .bless .orb{position:absolute;left:50%;top:58%;width:38px;height:38px;border-radius:50%;transform:translate(-50%,-50%);background:radial-gradient(circle at 40% 35%,#fff6d8,#ffb347 60%,#c2661c);box-shadow:0 0 24px #ffb347,0 0 50px rgba(255,150,60,.6);animation:bob 2s ease-in-out infinite}
+  @keyframes bob{50%{transform:translate(-50%,-62%)}}
+  .bless .cap{position:absolute;top:18px;left:0;right:0;text-align:center;font:700 16px var(--display);color:#ffe2b0;text-shadow:0 0 12px rgba(255,170,80,.9),0 2px 0 #000;letter-spacing:1px}
+  .bless .sub{position:absolute;bottom:14px;left:0;right:0;text-align:center;font:500 12px var(--body);color:#e8c99a}
+
+  /* 7 Hearts: your Claude week */
+  .hearts{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:#120c0c}
+  .hrow{display:flex;gap:6px}
+  .ht{width:24px;height:22px;position:relative}
+  .ht svg{display:block}
+  .hearts .cap{font:400 8.5px Silkscreen,monospace;color:#ffb3a8;letter-spacing:1px}
+
+  /* 8 Lightroots: dark mode turning on, the Depths way */
+  .roots{background:#030504}
+  .roots .pagebg{position:absolute;inset:18px 18px 18px 18px;border-radius:8px;background:#eae3d2;animation:darken 4s ease-in-out infinite}
+  @keyframes darken{0%,20%{background:#eae3d2}60%,100%{background:#141a16}}
+  .roots .l{position:absolute;left:40px;right:60px;height:7px;border-radius:3px;background:#b9b09c;animation:lightl 4s ease-in-out infinite}
+  @keyframes lightl{0%,20%{background:#b9b09c}60%,100%{background:#5a6b60}}
+  .roots .root{position:absolute;width:44px;height:44px;border-radius:50%;background:radial-gradient(circle,#eaffc8,#8fe36a 40%,transparent 70%);opacity:0;animation:rootglow 4s ease-in-out infinite}
+  @keyframes rootglow{0%,40%{opacity:0;transform:scale(.4)}70%,100%{opacity:1;transform:scale(1)}}
+  .roots .cap{position:absolute;bottom:26px;right:30px;font:400 8.5px Silkscreen,monospace;color:#b7f59a;letter-spacing:1px;opacity:0;animation:rootglow 4s ease-in-out infinite}
+
+  /* 9 Camera + compendium: snips and downloads as a picture album */
+  .camera{background:#0c1114}
+  .camera .frame{position:absolute;left:24px;top:24px;width:190px;height:130px;border:2px solid rgba(159,243,255,.6)}
+  .camera .frame::before,.camera .frame::after{content:"";position:absolute;width:16px;height:16px;border:3px solid var(--cyan)}
+  .camera .frame::before{left:-4px;top:-4px;border-right:none;border-bottom:none} .camera .frame::after{right:-4px;bottom:-4px;border-left:none;border-top:none}
+  .camera .flash{position:absolute;left:24px;top:24px;width:190px;height:130px;background:#fff;opacity:0;animation:flash 3s infinite}
+  @keyframes flash{0%,60%{opacity:0}62%{opacity:.9}75%{opacity:0}}
+  .camera .album{position:absolute;right:20px;top:20px;width:200px;display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  .camera .album i{aspect-ratio:1;border-radius:4px;background:linear-gradient(135deg,#2c4650,#16262c);box-shadow:inset 0 0 0 1px rgba(159,243,255,.35)}
+  .camera .album i.new{box-shadow:0 0 0 2px var(--amber),0 0 10px rgba(255,154,60,.7)}
+  .camera .cap{position:absolute;right:20px;bottom:14px;font:400 8.5px Silkscreen,monospace;color:var(--cyan2);letter-spacing:1px}
+
+  /* 10 Cooking pot: tidy tabs */
+  .cook{background:radial-gradient(circle at 50% 70%,#3a1f0c,#0b0705)}
+  .cook .pot{position:absolute;left:50%;bottom:28px;width:110px;height:62px;transform:translateX(-50%);border-radius:0 0 55px 55px;background:linear-gradient(180deg,#3b3530,#1c1916);border:3px solid #0a0806;animation:jig .5s ease-in-out infinite}
+  @keyframes jig{50%{transform:translateX(-50%) translateY(-3px) rotate(1.5deg)}}
+  .cook .fire{position:absolute;left:50%;bottom:14px;width:90px;height:18px;transform:translateX(-50%);background:radial-gradient(ellipse at 50% 100%,#ffcc4a,#ff6a1c 50%,transparent 75%);filter:blur(1px);animation:flick .3s steps(2) infinite}
+  @keyframes flick{50%{opacity:.7}}
+  .cook .tab{position:absolute;width:56px;height:14px;border-radius:4px;background:linear-gradient(180deg,#6a4a2c,#47301b);border:2px solid #120A05;animation:drop 2.4s ease-in infinite}
+  @keyframes drop{0%{transform:translateY(-70px);opacity:0}20%{opacity:1}70%{transform:translateY(40px) scale(.7);opacity:1}80%,100%{transform:translateY(46px) scale(.5);opacity:0}}
+  .cook .dish{position:absolute;right:22px;top:24px;padding:6px 10px;border-radius:6px;background:#e9d3a6;color:#2a1c0c;font:700 11px var(--body);box-shadow:0 3px 0 #0d0703,0 0 12px rgba(255,200,120,.5)}
+
+  /* 11 A hidden friend: bookmarking a page sometimes finds a little leaf sprite */
+  .seed{background:radial-gradient(circle at 50% 60%,#1b2a12,#080b06)}
+  .seed .sprite{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);animation:peek 3s ease-in-out infinite}
+  @keyframes peek{0%,30%{transform:translate(-50%,40%) scale(.6);opacity:0}45%{transform:translate(-50%,-55%) scale(1.1);opacity:1}55%,85%{transform:translate(-50%,-50%) scale(1);opacity:1}100%{transform:translate(-50%,-30%) scale(.8);opacity:0}}
+  .seed .bubble{position:absolute;left:58%;top:18px;padding:5px 10px;border-radius:10px;background:#f4ead2;color:#2a1c0c;font:700 12px var(--body);opacity:0;animation:say 3s ease-in-out infinite}
+  @keyframes say{0%,45%{opacity:0}55%,85%{opacity:1}100%{opacity:0}}
+  .seed .count{position:absolute;right:14px;bottom:12px;font:400 8.5px Silkscreen,monospace;color:#c9e89a;letter-spacing:1px}
+
+  /* 12 Paraglider: the pop-out glides out instead of popping */
+  .glide{background:linear-gradient(180deg,#9fd3ee,#e8f4fa 60%,#c9e6b8)}
+  .glide .cloud{position:absolute;width:80px;height:24px;border-radius:12px;background:#fff;opacity:.85;animation:drift 8s linear infinite}
+  @keyframes drift{from{transform:translateX(480px)}to{transform:translateX(-120px)}}
+  .glide .pop{position:absolute;width:150px;height:88px;border-radius:8px;background:#111;border:3px solid #120A05;box-shadow:0 10px 16px rgba(0,0,0,.35);animation:fly 4s ease-in-out infinite}
+  .glide .pop::before{content:"";position:absolute;left:-14px;right:-14px;top:-26px;height:22px;border-radius:50% 50% 8px 8px;background:linear-gradient(90deg,#c84a2a,#e8a34a 50%,#c84a2a)}
+  .glide .pop::after{content:"";position:absolute;inset:8px;border-radius:4px;background:linear-gradient(135deg,#2a3a6a,#6a2a3a)}
+  @keyframes fly{0%{left:20px;top:110px;transform:rotate(4deg)}50%{left:200px;top:40px;transform:rotate(-3deg)}100%{left:290px;top:70px;transform:rotate(0)}}
+
+  /* sound + type notes */
+  .notes{display:grid;grid-template-columns:repeat(3,460px);gap:26px}
+  .note{background:#17110c;border-radius:14px;padding:16px;box-shadow:0 0 0 2px #2a1d12;font-size:13.5px;line-height:1.55;color:#cdbb9a}
+  .note b{color:#FFE096}
+  .note ul{margin:6px 0 0;padding-left:18px}
+  .glyphrow{display:flex;gap:14px;align-items:center;margin:10px 0 4px}
+</style>
+</head>
+<body>
+<h1>SHEET 44 &middot; SAMARA, BY WAY OF HYRULE</h1>
+<p class="lede">Just ideas, just mockups: what Samara's language could become with <b>Breath of the Wild</b> and <b>Tears of the Kingdom</b> in it. Three directions for the whole browser first, then a dozen of Samara's own features re-imagined through the games' best moments: <b>Recall</b>, <b>Ultrahand</b>, the <b>stamina wheel</b>, <b>shrines</b>, the <b>Depths' lightroots</b>, the <b>camera</b>, the <b>cooking pot</b>. Everything is drawn fresh and only <i>inspired by</i> the games: no Nintendo artwork, symbols or words. Nothing here is built.</p>
+
+<h2>1 &middot; THREE DIRECTIONS FOR THE WHOLE OF SAMARA</h2>
+<div class="row">
+  <div class="dir">
+    <h3>A &middot; THE SLATE</h3>
+    <div class="win slateA">
+      <div class="band"><span class="lbl">&#9670;</span><div class="addr">wowhead.com/classic/talent-calc</div></div>
+      <div class="drawer"><span class="lbl">BOOKMARKS</span><div class="keys"><div class="key"></div><div class="key on"></div><div class="key"></div><div class="key"></div></div><span class="lbl" style="margin-top:4px">TABS</span><div class="tab on"><i></i>Talent calc</div><div class="tab"><i></i>Inbox</div><div class="tab"><i></i>Apex guide</div></div>
+      <div class="page"><div class="scan"></div><div class="pg"><div class="h"></div><div class="l" style="width:90%"></div><div class="l" style="width:75%"></div><div class="l" style="width:82%"></div></div></div>
+    </div>
+    <p class="why"><b>The tablet.</b> Blue-black glass, thin cyan lines, cut corners, a slow scan of light down the page, and one warm orange for "this one". Very clean and futuristic. The furthest from the wood and pixels you have now.</p>
+  </div>
+  <div class="dir">
+    <h3>B &middot; ZONAI STONE</h3>
+    <div class="win zonB">
+      <div class="band"><span class="lbl">&#9711;</span><div class="addr">wowhead.com/classic/talent-calc</div></div>
+      <div class="drawer"><span class="lbl">BOOKMARKS</span><div class="keys"><div class="key"></div><div class="key on"></div><div class="key"></div><div class="key"></div></div><span class="lbl" style="margin-top:4px">TABS</span><div class="tab on"><i></i>Talent calc</div><div class="tab"><i></i>Inbox</div><div class="tab"><i></i>Apex guide</div></div>
+      <div class="page"><div class="ring"></div><div class="pg"><div class="h"></div><div class="l" style="width:90%"></div><div class="l" style="width:75%"></div><div class="l" style="width:82%"></div></div></div>
+    </div>
+    <p class="why"><b>The sky islands.</b> Mossy green stone, gold inlay, round shapes, and a jade glow on whatever is alive. Ancient and calm, with a slow turning ring behind the page. Warmer than A, still a new look.</p>
+  </div>
+  <div class="dir">
+    <h3>C &middot; SAMARA &times; ZONAI (MY PICK)</h3>
+    <div class="win bridgeC">
+      <div class="band"><span class="lbl">&#9670;</span><div class="addr">wowhead.com/classic/talent-calc</div></div>
+      <div class="drawer"><span class="lbl">BOOKMARKS</span><div class="keys"><div class="key"></div><div class="key on"></div><div class="key"></div><div class="key"></div></div><span class="lbl" style="margin-top:4px">TABS</span><div class="tab on"><i></i>Talent calc</div><div class="tab"><i></i>Inbox</div><div class="tab"><i></i>Apex guide</div></div>
+      <div class="page"><div class="pg"><div class="h"></div><div class="l" style="width:90%"></div><div class="l" style="width:75%"></div><div class="l" style="width:82%"></div></div></div>
+      <i class="glyph" style="left:6px;top:42px"></i><i class="glyph" style="right:6px;bottom:6px"></i>
+    </div>
+    <p class="why"><b>Keep what you love, add the magic.</b> Your pixel wood, velvet and parchment stay. Zonai gold-and-jade arrives only where something is <i>alive</i>: the tab you are on, the key under your mouse, round glyph caps on the frame. It works because the Zonai already pair gold with green, and gold is Samara's colour.</p>
+  </div>
+</div>
+
+<h2>2 &middot; SAMARA'S FEATURES, THE HYRULE WAY</h2>
+<div class="ideas">
+  <div class="idea"><span class="tag g">RECALL</span><span class="tag s">BACK BUTTON</span>
+    <div class="stage recall"><div class="pg p1"></div><div class="pg p2"></div><div class="pg p3"></div><div class="trail"></div><div class="btn">&#8634;</div></div>
+    <p><b>Hold Back</b> and the tab's past pages rewind along a glowing yellow trail, like Recall pulling an object back through time. Let go on the one you want.</p></div>
+  <div class="idea"><span class="tag g">STAMINA WHEEL</span><span class="tag s">PAGE LOADING</span>
+    <div class="stage stam"><div class="wheel"></div><div class="slow"></div><div class="cap">LOADING &middot; THE SMALL RED ONE MEANS A SLOW SITE</div></div>
+    <p>The page loading as a green wheel filling up instead of a bar. A slow site turns it red and blinking, the way stamina warns you it is running out.</p></div>
+  <div class="idea"><span class="tag g">SENSOR</span><span class="tag s">FIND IN PAGE</span>
+    <div class="stage sensor"><div class="txt">The Water Temple's keys are found by raising the water level three times, then the <mark>boss key</mark> waits behind the waterfall room.</div><div class="dot"></div><div class="wave"></div><div class="wave w2"></div><div class="wave w3"></div><div class="cap">3 FOUND &middot; PINGS FASTER AS YOU GET CLOSE</div></div>
+    <p>Ctrl+F pings like the shrine sensor: faster the closer you scroll to the next match, and the match glows when you reach it.</p></div>
+  <div class="idea"><span class="tag g">THE MAP</span><span class="tag s">ALL YOUR TABS</span>
+    <div class="stage map">
+      <div class="reg" style="left:30px;top:40px;width:150px;height:110px"><b>ZELDA</b></div>
+      <div class="reg" style="left:230px;top:30px;width:180px;height:90px"><b>JOB HUNT</b></div>
+      <div class="pin" style="left:70px;top:80px"></div><div class="pin" style="left:120px;top:110px"></div><div class="pin c" style="left:280px;top:60px"></div><div class="pin c" style="left:340px;top:80px"></div><div class="pin" style="left:380px;top:150px"></div><div class="you" style="left:286px;top:72px"></div></div>
+    <p>A zoomed-out view of every tab as pins on a map, groups as regions you named, "you are here" on the one you are on. A tidy-up becomes "revealing the map".</p></div>
+  <div class="idea"><span class="tag g">ULTRAHAND</span><span class="tag s">DRAG A TAB OUT</span>
+    <div class="stage ultra"><div class="win2"></div><div class="hand"></div><div class="beam"></div><div class="held">&nbsp;Talent calc</div></div>
+    <p>Dragging a tab out of the window (or a bookmark onto the shelf) holds it in green light, wobbling slightly, tethered to where it came from, until you drop it.</p></div>
+  <div class="idea"><span class="tag g">SHRINE BLESSING</span><span class="tag s">DONE</span>
+    <div class="stage bless"><div class="rays"></div><div class="orb"></div><div class="cap">DOWNLOAD COMPLETE</div><div class="sub">Waymark.ipa &middot; 41 MB &middot; in your Downloads</div></div>
+    <p>A finished download, or Claude finishing a plan, gets a warm orb and slow rays for a second, like being blessed at the end of a shrine. Calm, never in your way.</p></div>
+  <div class="idea"><span class="tag g">HEARTS</span><span class="tag s">YOUR CLAUDE WEEK</span>
+    <div class="stage hearts"><div class="hrow" id="hearts"></div><div class="cap">CLAUDE THIS WEEK &middot; 6 &frac34; OF 10 HEARTS LEFT</div></div>
+    <p>The quota meter as heart containers, quarter hearts and all. When they get low, the last heart beats the way a low-health heart does.</p></div>
+  <div class="idea"><span class="tag g">LIGHTROOTS</span><span class="tag s">DARK MODE</span>
+    <div class="stage roots"><div class="pagebg"></div><div class="l" style="top:46px"></div><div class="l" style="top:66px;right:110px"></div><div class="l" style="top:86px"></div><div class="root" style="left:60px;top:100px"></div><div class="root" style="left:250px;top:40px;animation-delay:.3s"></div><div class="root" style="left:330px;top:110px;animation-delay:.6s"></div><div class="cap">DARK MODE ON</div></div>
+    <p>Turning dark mode on for a site: the page sinks into darkness and little roots of light bloom across it, like lighting up the Depths.</p></div>
+  <div class="idea"><span class="tag g">CAMERA + ALBUM</span><span class="tag s">SNIPS + DOWNLOADS</span>
+    <div class="stage camera"><div class="frame"></div><div class="flash"></div><div class="album"><i></i><i></i><i></i><i></i><i class="new"></i><i></i></div><div class="cap">YOUR ALBUM &middot; NEW: 1</div></div>
+    <p>Snip with a camera frame and a soft flash; snips and downloads live in one album, like the Compendium, newest glowing until you look.</p></div>
+  <div class="idea"><span class="tag g">COOKING POT</span><span class="tag s">TIDY TABS</span>
+    <div class="stage cook"><div class="fire"></div><div class="pot"></div><div class="tab" style="left:150px;top:60px"></div><div class="tab" style="left:200px;top:40px;animation-delay:.6s"></div><div class="tab" style="left:250px;top:56px;animation-delay:1.2s"></div><div class="dish">ZELDA GUIDES &middot; 4 TABS</div></div>
+    <p>Pressing the broom drops your loose tabs into a bubbling pot, it jiggles, and out comes a "dish": a neat group, named.</p></div>
+  <div class="idea"><span class="tag g">A HIDDEN FRIEND</span><span class="tag s">BOOKMARKS</span>
+    <div class="stage seed"><svg class="sprite" width="60" height="70" viewBox="0 0 30 35" shape-rendering="crispEdges"><rect x="13" y="0" width="4" height="8" fill="#6aa83a"/><rect x="9" y="2" width="4" height="4" fill="#8fd04e"/><rect x="17" y="3" width="4" height="4" fill="#8fd04e"/><rect x="7" y="8" width="16" height="16" fill="#c98a4a"/><rect x="9" y="10" width="12" height="12" fill="#e0a868"/><rect x="11" y="14" width="2" height="3" fill="#2a1c0c"/><rect x="17" y="14" width="2" height="3" fill="#2a1c0c"/><rect x="13" y="19" width="4" height="1" fill="#2a1c0c"/><rect x="5" y="16" width="3" height="2" fill="#c98a4a"/><rect x="22" y="16" width="3" height="2" fill="#c98a4a"/><rect x="10" y="24" width="3" height="6" fill="#8a5a2a"/><rect x="17" y="24" width="3" height="6" fill="#8a5a2a"/></svg><div class="bubble">Oh! You found me!</div><div class="count">FOUND 3 OF 30</div></div>
+    <p>Once in a while, saving a bookmark finds a little hidden leaf friend (our own, drawn for Samara). Collect them all; there is no point, it is just joy.</p></div>
+  <div class="idea"><span class="tag g">PARAGLIDER</span><span class="tag s">THE POP-OUT</span>
+    <div class="stage glide"><div class="cloud" style="top:20px"></div><div class="cloud" style="top:120px;animation-delay:-4s"></div><div class="pop"></div></div>
+    <p>Popping a video out: instead of appearing, the pop-out glides out of the tab to its corner under a little canopy, and lands softly.</p></div>
+</div>
+
+<h2>3 &middot; THE REST OF THE LANGUAGE</h2>
+<div class="notes">
+  <div class="note"><b>Type and glyphs</b><div class="glyphrow">
+    <svg width="34" height="34" viewBox="0 0 34 34"><circle cx="17" cy="17" r="15" fill="none" stroke="#d9b44a" stroke-width="2"/><circle cx="17" cy="17" r="9" fill="none" stroke="#5ef0b4" stroke-width="2" stroke-dasharray="3 3"/><circle cx="17" cy="17" r="3" fill="#5ef0b4"/></svg>
+    <svg width="34" height="34" viewBox="0 0 34 34"><path d="M4 17 L17 4 L30 17 L17 30 Z" fill="none" stroke="#4fe3ff" stroke-width="2"/><path d="M11 17 L17 11 L23 17 L17 23 Z" fill="#4fe3ff" opacity=".5"/></svg>
+    <svg width="34" height="34" viewBox="0 0 34 34"><rect x="5" y="5" width="24" height="24" rx="12" fill="none" stroke="#d9b44a" stroke-width="2"/><path d="M17 8 V26 M8 17 H26" stroke="#d9b44a" stroke-width="2"/></svg></div>
+    Our own glyphs (rings, diamonds, crossed circles), used like the games use theirs: on frame caps, as loading marks, as section badges. Labels stay in your pixel font; long text stays readable, never in a made-up alphabet.</div>
+  <div class="note"><b>Sound</b><ul><li>A soft rising chime when a tab group is "cooked"</li><li>A two-note glint when a page goes dark</li><li>The sensor's ping in find-in-page, quiet and optional</li><li>A tiny "found" sparkle for the hidden friends</li></ul>All original sounds, short, and off unless you turn sounds on (Samara's Sounds switch).</div>
+  <div class="note"><b>Where it should never go</b><ul><li>Never slower: every animation is under half a second unless it is a celebration you can ignore</li><li>Never in your game: none of it plays while WoW is in front</li><li>Never Nintendo's art, symbols, music or words: inspired, not copied</li><li>Your wood, pixels and parchment stay the base (direction C)</li></ul></div>
+</div>
+
+<script>
+// the hearts: pixel hearts, 6 full, one three-quarter, 3 empty; the last full one beats when low
+const H = document.getElementById('hearts');
+const heart = (fill) => `<svg width="24" height="22" viewBox="0 0 12 11" shape-rendering="crispEdges"><defs><clipPath id="c${fill}"><rect x="0" y="0" width="${12 * fill}" height="11"/></clipPath></defs><path d="M1 1h4v1h2V1h4v1h1v4h-1v1h-1v1h-1v1h-1v1H8v1H4V9H3V8H2V7H1V6H0V2h1z" fill="#3a1414"/><path d="M1 1h4v1h2V1h4v1h1v4h-1v1h-1v1h-1v1h-1v1H8v1H4V9H3V8H2V7H1V6H0V2h1z" fill="#e8343a" clip-path="url(#c${fill})"/><rect x="2" y="2" width="2" height="1" fill="#ffb3a8" clip-path="url(#c${fill})"/></svg>`;
+for (let i = 0; i < 10; i++) H.insertAdjacentHTML('beforeend', `<span class="ht">${heart(i < 6 ? 1 : i === 6 ? 0.75 : 0)}</span>`);
+</script>
+</body>
+</html>
