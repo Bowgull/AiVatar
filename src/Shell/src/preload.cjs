@@ -254,6 +254,7 @@ contextBridge.exposeInMainWorld('aang', {
   /** Settings are the pet's own: ask where they stand, set one, or run one of its two actions. */
   deskSettings: () => ipcRenderer.send('desk:settings'),
   deskSetting: a => ipcRenderer.send('desk:setting', a),
+  deskVolume: v => ipcRenderer.send('desk:volume', v),
   deskSettingDo: what => ipcRenderer.send('desk:settingdo', what),
   deskForgetFact: id => ipcRenderer.send('desk:forgetfact', id),
   deskRevoke: kind => ipcRenderer.send('desk:revoke', kind),

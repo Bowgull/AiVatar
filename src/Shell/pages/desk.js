@@ -321,6 +321,9 @@ const GROUPS = [
     ['autostart', 'Start with Windows', 'He is there when Shadow starts']]],
   ['The browser', [
     ['browserSounds', 'Little wood sounds', 'A soft tap when a tab opens or closes, and when a download finishes']]],
+  // C5 (2026-10-21): the wooden chimes he picked (sounds-45b), a mute and a volume, both kept by the pet.
+  ['Sounds', [
+    ['chimes', 'Wooden chimes', 'A soft chime when Claude needs you, asks something, has a plan ready, finishes a step or the whole job']]],
 ];
 function settings() {
   body.append(h('h3', 't-display', 'Settings'));
@@ -341,12 +344,30 @@ function settings() {
       row.append(sw, text);
       list.append(row);
     }
+    if (title === 'Sounds') list.append(volumeRow());
     body.append(list);
   }
   const keys = h('div', 'keys');
   keys.append(key('Change the hide and show key...', '', () => window.aang?.deskSettingDo?.('hotkey')),
     key('Bring him off the edge (undock)', '', () => window.aang?.deskSettingDo?.('undock')));
   body.append(keys);
+}
+
+/** The chimes' loudness. Sent when he lets go, so the pet plays one chime at the new level and he hears it. */
+function volumeRow() {
+  const v = Number.isFinite(sets?.chimeVolume) ? sets.chimeVolume : 80;
+  const row = h('div', 'setrow volrow');
+  const slider = h('input', 'vol');
+  slider.type = 'range'; slider.min = '0'; slider.max = '100'; slider.step = '5'; slider.value = String(v);
+  slider.setAttribute('aria-label', 'Chime volume');
+  const pct = h('i', 'volpct', v + '%');
+  slider.addEventListener('input', () => { pct.textContent = slider.value + '%'; });
+  slider.addEventListener('change', () => window.aang?.deskVolume?.(Number(slider.value)));
+  const text = h('div'); text.append(h('b', '', 'Chime volume'), h('span', '', 'How loud the chimes are. Let go to hear one.'));
+  const left = h('div', 'volcell'); left.append(pct);
+  row.append(left, text);
+  text.append(slider);
+  return row;
 }
 
 // ---------------------------------------------------------------- the four tabs (his call, 2026-10-11)

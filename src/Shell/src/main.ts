@@ -1256,8 +1256,13 @@ app.whenReady().then(async () => {
       if (lastSettings) windows.get('desk')?.webContents.send('brain:message', { ...lastSettings, browserSounds: a.on === true });
       return;
     }
-    if (!['quietGame', 'mute', 'seeWindow', 'usage', 'autostart'].includes(key)) return;
-    link?.send({ t: 'settings.set', key: key as 'quietGame' | 'mute' | 'seeWindow' | 'usage' | 'autostart', on: a.on === true });
+    if (!['quietGame', 'mute', 'seeWindow', 'usage', 'autostart', 'chimes'].includes(key)) return;
+    link?.send({ t: 'settings.set', key: key as 'quietGame' | 'mute' | 'seeWindow' | 'usage' | 'autostart' | 'chimes', on: a.on === true });
+  });
+  // C5 (2026-10-21): the wooden chimes' volume slider. The pet plays them, so the pet keeps the number.
+  ipcMain.on('desk:volume', (e, v) => {
+    const n = Math.round(Number(v));
+    if (fromDesk(e) && Number.isFinite(n) && n >= 0 && n <= 100) link?.send({ t: 'settings.volume', volume: n });
   });
   ipcMain.on('desk:settingdo', (e, what) => {
     if (fromDesk(e) && (what === 'hotkey' || what === 'undock')) link?.send({ t: 'settings.do', what });
