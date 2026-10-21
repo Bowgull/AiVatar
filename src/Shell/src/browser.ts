@@ -2785,6 +2785,55 @@ export class AangBrowser {
     this.tidyTrails();
     this.changed();
   }
+  /**
+   * Drag one tab or several (his ask, 2026-10-21): into a trail (or loose, null), in their order, before another tab (or
+   * at the end of that group), and under a parent tab when he dropped it on a row or slid it right. A tab sits under the
+   * one it came from (its opener), one level deep, as the drawer draws it. Every id must be a real tab; the parent must
+   * be a top tab of that same trail; a tab never goes under itself or under its own child (no loops). False: refused,
+   * nothing moved. A tab under one of the others moving with it keeps its place under it (a parent carries its children).
+   */
+  placeTabs(ids: number[], trail: number | null, before: number | null, parent: number | null): boolean {
+    const set = new Set(ids);
+    if (!ids.length || set.size !== ids.length) return false;
+    const moving = ids.map((id) => this.tabs.find((x) => x.id === id));
+    if (moving.some((t) => !t)) return false;
+    if (trail !== null && !this.trails.some((x) => x.id === trail)) return false;
+    const mock = trail === MOCK_TRAIL;
+    // Sheet 47's rule, unchanged: the MOCKUPS trail holds Claude's mockups only, and a mockup stays in it.
+    if (moving.some((t) => Boolean(t!.mock) !== mock)) return false;
+    if (before !== null && (set.has(before) || !this.tabs.some((x) => x.id === before))) return false;
+    if (parent !== null) {
+      const p = this.tabs.find((x) => x.id === parent);
+      // A mockup's parent is kept in the mockups' own tree (mockAct), never here; loose tabs are a flat list.
+      if (!p || trail === null || mock || set.has(parent) || p.trail !== trail || p.done) return false;
+      // One level only: the parent must itself be a top tab of that trail.
+      if (p.opener !== null && this.tabs.some((x) => x.id === p.opener && x.trail === trail && !x.done)) return false;
+      // No loops: walking up from the parent must never meet a tab that is moving.
+      const seen = new Set<number>();
+      for (let at: Tab | undefined = p; at && !seen.has(at.id); at = at.opener === null ? undefined : this.tabs.find((x) => x.id === at!.opener)) {
+        if (set.has(at.id)) return false;
+        seen.add(at.id);
+      }
+    }
+    for (const t of moving as Tab[]) {
+      if (!mock) t.opener = parent === null && trail !== null && t.opener !== null && set.has(t.opener) ? t.opener : parent;
+      t.trail = trail;
+      t.done = false;
+    }
+    // Tabs that were under a tab that is now a child themselves move up beside it: never two levels deep.
+    if (parent !== null) for (const x of this.tabs) if (!set.has(x.id) && x.opener !== null && set.has(x.opener) && x.trail === trail) x.opener = parent;
+    this.tabs = this.tabs.filter((x) => !set.has(x.id));
+    const j = before !== null ? this.tabs.findIndex((x) => x.id === before) : -1;
+    if (j >= 0) this.tabs.splice(j, 0, ...(moving as Tab[]));
+    else {
+      let k = -1;
+      this.tabs.forEach((x, n) => { if (x.trail === trail) k = n; });
+      this.tabs.splice(k + 1, 0, ...(moving as Tab[]));
+    }
+    this.tidyTrails();
+    this.changed();
+    return true;
+  }
   /** Drag a trail by its heading: put it before another trail (or last). */
   moveTrail(id: number, before: number | null): void {
     const i = this.trails.findIndex((x) => x.id === id);
