@@ -139,7 +139,8 @@ export function startRune({ slot, band, freeze, unfreeze, closeOthers }) {
   const tip = h('i', 'rtip'); tip.hidden = true;
   band.append(panel, tip);
 
-  const allDone = (j) => j.tasks.length > 0 && j.tasks.every((t) => t.status === 'completed');
+  // A one-step job with no list that ended on its own is done too (2026-10-21, the brain's `finished`).
+  const allDone = (j) => (j.tasks.length > 0 && j.tasks.every((t) => t.status === 'completed')) || j.finished === true;
   const waitOf = (j) => waits.find((w) => w.session === j.id);
   const stateOf = (j) => (done.has(j.id) ? 'complete' : waitOf(j) ? 'needs' : j.phase === 'paused' ? 'paused' : 'working');
   /** What the rune stands for, most pressing first: needs you, working (newest first), then finished ones. */
@@ -179,6 +180,7 @@ export function startRune({ slot, band, freeze, unfreeze, closeOthers }) {
     ringJob = top.id;
     fillRing(p);
     ringTop = state === 'complete' || still ? null : top.id;
+    if (ringTop && !ringNext) ringNext = setTimeout(ringStep, RING_MS);
     // His ask (2026-10-21): while the panel is open the gold number hides ("it's obvious"), and comes back when it
     // closes. Opening only flips a class on the same rune, so the number can fade (rune.css) instead of being redrawn.
     const r = slot.firstElementChild;
@@ -209,14 +211,22 @@ export function startRune({ slot, band, freeze, unfreeze, closeOthers }) {
     ease = { raf: requestAnimationFrame(step) };
   }
   function drawAt(r, cv, v) { shownP = v; ring(COL[r.dataset.state] ?? COL.working, v, 2, cv); }
-  // The ring creeps with the job between the brain's messages: a light tick, only while a job with a % is on the rune.
-  let ringTop = null;
-  setInterval(() => {
+  // The ring creeps with the job between the brain's messages (2026-10-21: event-driven first). Every message fills it
+  // at once (paintChip above); between messages a light step every RING_MS, drawn on an animation frame, and only
+  // while a job with a % is on the rune: nothing runs for an empty or finished rune (it used to tick every 250 ms
+  // forever).
+  const RING_MS = 100;
+  let ringTop = null, ringNext = 0;
+  function ringStep() {
+    ringNext = 0;
     if (!ringTop || slot.hidden) return;
-    const j = jobs.find((x) => x.id === ringTop);
-    const m = j && liveProgress(j);
-    if (m && m.p !== null) fillRing(m.p);
-  }, 250);
+    requestAnimationFrame(() => {
+      const j = jobs.find((x) => x.id === ringTop);
+      const m = j && liveProgress(j);
+      if (m && m.p !== null) fillRing(m.p);
+      if (ringTop && !ringNext) ringNext = setTimeout(ringStep, RING_MS);
+    });
+  }
 
   /* ---------------------------------------------------------------- the panel */
   function cardOf(j) {

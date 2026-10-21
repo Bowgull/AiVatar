@@ -16,20 +16,28 @@ const LOCAL_ID = /^local_[0-9a-f-]{36}$/;
 const CLI_ID = /^[0-9a-f-]{36}$/;
 const MAX_FILES = 2000;
 
-/** Every claude-code-sessions folder under Claude-Data (one per install), searched a few levels deep. */
+/**
+ * Every record under each install's claude-code-sessions folder (Claude-Data\<install>\claude-code-sessions\...),
+ * searched a few levels deep there and nowhere else. 2026-10-21: it used to walk the whole of Claude-Data (the app's
+ * caches too, ~17,000 entries on his PC), which held the brain for 2.4-3.2 s on every refresh, and a refresh ran inside
+ * every jobs push for a session the app does not know (a terminal one, every 2 s): the progress bars froze for seconds.
+ */
 function recordFiles(root: string): string[] {
   const out: string[] = [];
   const walk = (dir: string, depth: number) => {
-    if (out.length >= MAX_FILES || depth > 4) return;
+    if (out.length >= MAX_FILES || depth > 3) return;
     let names: string[] = [];
     try { names = readdirSync(dir); } catch { return; }
     for (const n of names) {
       const p = path.join(dir, n);
       if (/^local_[0-9a-f-]{36}\.json$/.test(n)) { out.push(p); continue; }
+      if (n.includes('.')) continue;             // the records' folders are plain ids; a file is never a folder here
       try { if (statSync(p).isDirectory()) walk(p, depth + 1); } catch { /* gone */ }
     }
   };
-  walk(root, 0);
+  let installs: string[] = [];
+  try { installs = readdirSync(root); } catch { return out; }
+  for (const i of installs) walk(path.join(root, i, 'claude-code-sessions'), 0);
   return out;
 }
 

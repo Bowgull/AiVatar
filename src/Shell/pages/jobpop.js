@@ -9,7 +9,7 @@
 // the mouse is on it, floor 30%; E, the fade stays with the mouse over it; the pin is the only chrome and looks pressed
 // in and lit when pinned; JOB COMPLETE is teal with "Nice", which shrinks it away; "needs you" is a small blue chip.
 // The window decides nothing: the main process (jobpop.ts) knows which job this is and builds every request.
-import { animate, anims, SEA, SLATE, MSG, CL, readJob, curIndex, h, btn, liveProgress, livePill, liveText, leftOf, describeNow } from './claudejobs.js';
+import { animate, anims, SEA, SLATE, MSG, CL, readJob, curIndex, h, btn, liveProgress, livePill, liveText, leftOf, describeNow, kick } from './claudejobs.js';
 
 const api = window.jobpop;
 const pw = document.getElementById('pw');
@@ -299,6 +299,8 @@ api?.onData((d) => {
   if (Number.isFinite(d.opacity) && !sliding) opacity = Math.max(MIN_OP, Math.min(1, Number(d.opacity)));
   const s = signature();
   if (s !== sig) { sig = s; pinned = newPin; render(); return; }
+  // Same layout: the bar, the % and the live line move now, not at the next breath (2026-10-21).
+  kick();
   if (newPin !== pinned) {
     // Only the pin changed: swap its look in place (pressed in and lit, or flat), no redraw of the card.
     pinned = newPin;

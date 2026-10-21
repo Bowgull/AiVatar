@@ -14,10 +14,13 @@
 //      per finished task; before any task finishes, a sane default), never past 90% of that task's slot. The brain
 //      sends only the authoritative numbers below; every viewer computes the creep itself, every frame, so the bar
 //      moves live without the brain sending anything.
-//   4. Real time: every change is pushed the moment it happens (the Core keeps a tiny coalesce, under 100 ms, for
-//      bursts). The mod reports tools starting and ending and the to-do list changing at once. No polling for state.
-//   5. Honest when it cannot know: no to-do list = no percent (the busy look, "Working"), never a fake 0%; time left
-//      only once there is a real pace; "about" for every estimate.
+//   4. Real time: every change is pushed the moment it happens (2026-10-21, supercharged: the brain sends on the next
+//      turn of its event loop; only rapid tool chatter is spaced 16 ms apart, and to-do ticks, turns and waits never
+//      wait). The mod reports a to-do tick at the to-do tool's START (its input already holds the new list), tools
+//      starting and ending, and Claude starting to write, think or call a tool as it streams. No polling for state.
+//   5. Honest when it cannot know: no to-do list = no percent: an empty, STILL bar or ring and "Working", never a fake
+//      0% and never a spinner (his rule, 2026-10-21: "he hates the spin"). A one-step turn with no list fills to complete
+//      when the turn ends (`Job.finished`). Time left only once there is a real pace; "about" for every estimate.
 //   6. One engine, one look: these numbers here, and one renderer in the Shell (claudejobs.js progressModel /
 //      liveProgress / livePill) for the jobs strip, the job cards, Samara's rune panel and the pop-out. The pet's
 //      marks keep reading the same tracker.
@@ -266,18 +269,32 @@ const AGENT_MAX_MS = 2 * 3600_000;
 /** One job's live activity: the tools running now, the helper agents, and when the last thing changed. */
 export class ActivityKeeper {
   private readonly tools = new Map<string, { line: string; since: number }>();
+  /** What the model is streaming right now, between tools (2026-10-21): its reply, its thinking, or a tool call's arguments. */
+  private stream: { line: string; since: number } | null = null;
   private readonly agents = new Map<string, ActivityAgent>();
   private quietSince: number | null = null;
 
   toolStart(id: string, tool: string, detail: ToolDetail, now: number): void {
     if (!id) return;
     this.tools.set(id, { line: describeTool(tool, detail), since: now });
+    this.stream = null;
     while (this.tools.size > 20) this.tools.delete(this.tools.keys().next().value!);
   }
   toolEnd(id: string, now: number): void { if (this.tools.delete(id) && !this.tools.size) this.quietSince = now; }
   /** The turn ended (or the brain lost track): nothing of it can still be running. */
-  clearTools(now: number): void { this.tools.clear(); this.quietSince = now; }
-  turnStart(now: number): void { this.tools.clear(); this.quietSince = now; }
+  clearTools(now: number): void { this.tools.clear(); this.stream = null; this.quietSince = now; }
+  turnStart(now: number): void { this.tools.clear(); this.stream = null; this.quietSince = now; }
+
+  /**
+   * A model step began streaming something (2026-10-21, "as fast as when Claude gets a reply"): its answer ("Writing
+   * the reply"), its thinking, or a tool call whose arguments are still arriving (a big Write streams for many seconds
+   * before the tool runs, so the line says "Writing a file" from the first byte, then the tool's own line takes over).
+   */
+  step(what: string, tool: string, now: number): void {
+    const line = what === 'text' ? 'Writing the reply' : what === 'thinking' ? 'Thinking' : what === 'tool' && tool ? describeTool(tool) : '';
+    if (!line) return;
+    if (this.stream?.line !== line) this.stream = { line, since: now };
+  }
 
   agentStart(id: string, kind: string, what: string, now: number): void {
     if (!id) return;
@@ -298,6 +315,7 @@ export class ActivityKeeper {
     if (waiting && WAITING[waiting]) return { now: WAITING[waiting]!, since: now, agents };
     const last = [...this.tools.values()].pop();
     if (last) return { now: last.line, since: last.since, agents };
+    if (this.stream && phase === 'working') return { now: this.stream.line, since: this.stream.since, agents };
     if (phase === 'working') return { now: 'Thinking', since: this.quietSince ?? now, agents };
     return { now: '', since: this.quietSince ?? now, agents };
   }

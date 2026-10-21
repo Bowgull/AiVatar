@@ -154,10 +154,26 @@ technical) words what the session is doing right now, then the to-do list. Code:
    task; 2 minutes before any has finished), straight up to 60% of a pace, then easing, never past 90% of that task's
    slot. Computed by the viewer every frame from the brain's numbers, so it moves without the brain sending anything.
    Working time stops while the session is idle between turns or paused.
-4. Real time: every change is pushed at once (the Core coalesces bursts for 80 ms); the mod reports tool start/end and
-   to-do changes as they happen. No polling for state.
-5. Honest: no to-do list = no percent (the busy sweep, "Working"), never a fake 0%; time left only once there is a real
+4. Real time (supercharged 2026-10-21): the mod tells a to-do tick at the to-do tool's START (its input already holds
+   the new list), tool start/end, and Claude starting to write, think or stream a tool call (`turn.step`). It never
+   waits: an event goes on the wire at once, and whatever is said while a post is out rides the next post together.
+   The brain pushes on the next turn of its event loop (`LinkPusher`); only tool chatter is spaced 16 ms apart, ticks
+   and turns never wait. The pages move every bar the moment the news lands (`kick()`), not at the next 90 ms breath;
+   the rune fills on the message and creeps on a 100 ms step drawn on an animation frame. No polling for state.
+   Measured: event -> Shell socket 2-14 ms (was 87-115 ms, plus 2.4-3.2 s freezes from the session-name lookup walking
+   all of Claude-Data). `AANG_PROGRESS_TRACE=1` logs every hop (brain, Shell, page).
+5. Honest: no to-do list = no percent: an empty, STILL bar and ring with "Working" (nothing spins or sweeps); a
+   one-step turn with no list fills to complete when it ends (`Job.finished`); time left only once there is a real
    pace; every estimate says "about".
+7. Every session keeps a list (his decision, 2026-10-21): the mod adds one short paragraph at the end of every
+   session's system prompt asking for a to-do list on any job with more than one step, ticked as it goes. Sessions
+   with no built-in to-do tool (the Claude desktop app's) get the mod's own `progress` tool, answered by the mod and
+   told to Aang like TodoWrite.
+8. Survives restarts (2026-10-21): a mod meeting a brain it has not told anything (new key) sends a `snapshot` at once
+   (list, turn, tools and helpers running, waits, those read-only). The brain also reads Claude Code's transcripts
+   (claudescan.ts: touched in the last 30 min, last 200 KB, a few facts only, helpers and Aang's own lanes skipped) on
+   start and every 10 s, so sessions from before the mod show too, `source: 'transcript'`, read-only until their mod
+   talks.
 6. One engine, one look: the Core computes the numbers; the Shell has one model and one live renderer
    (`progressModel`, `liveProgress`, `livePill`, `liveText`, `describeNow`, exported from claudejobs.js) for the jobs
    strip, the job cards, Samara's rune panel and the pop-out. The pet's marks read the same tracker.
@@ -166,7 +182,11 @@ technical) words what the session is doing right now, then the to-do list. Code:
 first 60 characters after masking anything key- or token-like, `desc`, `file` = a file's name only, `pattern`, `where`,
 `site` = a host name, `query`, `agent`, `kind`, `server`, `name`, `skill`; never file contents; the to-do tools are not
 reported), `tool.end { id }` (main loop only), `agent.start { id, kind, what }` (from `agent.spawn`), `agent.end { id }`
-(the agent's own `turn.complete`). The brain masks secrets again. Brain -> Shell, on every Job:
+(the agent's own `turn.complete`). The brain masks secrets again. Added 2026-10-21: every event carries `t` (when it
+happened in the session); `step { what: text|thinking|tool, tool? }`; `snapshot { phase, todos, tools, agents, asks }`;
+a post may hold `{ session, cwd, events: [...] }` once the brain's hello says `v: 2`. Brain -> Shell: `claude.jobs`
+carries `lat { ev, rx, tx, type }` (the Shell adds `sh`); a Job carries `finished` and `source`; a wait may be
+`readonly`. Brain -> Shell, on every Job:
 - `progress: { done, total, cur, elapsedMs, at, paceMs|null, rev, rewroteAt|null } | null` (null = no to-do list).
   `percent` and `etaMs` stay, worked out from the same numbers (ticked tasks only).
 - `activity: { now, since, agents: [{ kind, what, since }] }`. `now` comes from a small table (no model call):
@@ -177,8 +197,9 @@ reported), `tool.end { id }` (main loop only), `agent.start { id, kind, what }` 
 **Other bars in Aang** (checked 2026-10-21): Samara's page-loading bar (browser.js) already follows the same idea (real
 load milestones, a creep capped at 90%, never back) and is another builder's file; the downloads ring fills from real
 bytes; the week/five-hour bars in the typing area are measurements, not job progress; timers count real time; the engine
-update key and the Waymark refresh have no bar at all. None needed converting. Samara's rune panel (rune.js) still
-draws its job bar with `pill(pctOf(...))` and should move to `livePill` / `liveText` / `describeNow`.
+update key and the Waymark refresh have no bar at all. None needed converting. Re-checked 2026-10-21: the bubble's job
+strip, the job pop-out and Samara's rune (ring and panel) all draw from the one engine and move on the brain's message
+itself (claudejobs.js `kick`, jobpop.js, rune.js), with no polling.
 
 ## THE PIVOT (2026-10-21, evening) - read this before anything above
 

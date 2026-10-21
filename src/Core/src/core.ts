@@ -60,12 +60,15 @@ import { BrowserSyncHub } from './bsynchub.ts';
 import { APEX_STEAM, Feeds, apexMap, channelOf, parseSteamFeed, parseYouTubeFeed, type Creator } from './feeds.ts';
 import { clock as videoClock, diagnose, readVideo, siteOf as siteOfVideo, videoUrl, type Diagnosis, type VideoRead } from './watchvideo.ts';
 import { HookServer, HookTracker, isLoopback, projectName } from './hooks.ts';
-import { JobTracker, LinkDoor, clearLinkKey, newLinkKey } from './claudelink.ts';
+import { JobTracker, LinkDoor, LinkPusher, clearLinkKey, newLinkKey } from './claudelink.ts';
+/** 2026-10-21: one line per Claude jobs push with the time each hop took (session -> brain -> Shell), for measuring. */
+const PROGRESS_TRACE = process.env.AANG_PROGRESS_TRACE === '1';
 import type { Answer as LinkAnswer } from './claudelink.ts';
 import { MarkDeriver } from './claudemark.ts';
 import { FrontGate } from './claudefront.ts';
 import { plainAsk, preciseReply } from './plainwords.ts';
 import { SessionNames } from './claudenames.ts';
+import { TranscriptScan } from './claudescan.ts';
 import type { Ask as PlainAsk } from './plainwords.ts';
 import { Reminders } from './reminders.ts';
 import { SessionStore } from './sessions.ts';
@@ -121,6 +124,11 @@ export interface CoreConfig {
    * himself (step 3.3) replace it. Kept, not deleted, in case the scale ever changes.
    */
   consolidate?: boolean;
+  /**
+   * Find running Claude sessions from their transcripts (claudescan.ts, 2026-10-21). The real brain (index.ts) sets it;
+   * tests leave it off so his real sessions never show up in them.
+   */
+  scanTranscripts?: boolean;
 }
 
 /** once: do it, forget it. always: do it, and trust the whole kind from now on. no: refused. */
@@ -2120,7 +2128,6 @@ export class Core {
    * act on it. The Shell is told of every change (claude.jobs / claude.wait) and answers with the claude.* messages.
    */
   readonly claudeJobs = new JobTracker(new SessionNames());
-  private claudePushTimer: NodeJS.Timeout | null = null;
   /**
    * The two models that do the plain-words work (plainwords.ts): Qwen on this PC first, free, and it steps aside by
    * itself while a game holds the graphics card; then Claude's quick model, with no tools and thinking off.
@@ -2146,7 +2153,6 @@ export class Core {
     if (!t || labels.includes(t) || (labels.length && t.split(/,\s*/).every(p => labels.includes(p)))) return t;
     return preciseReply(t, this.claudeJobs.context(session), this.plainAsks());
   }
-  private claudePushWhat = new Set<'jobs' | 'wait'>();
   /** C5 (2026-10-21): the one mark over his head and its chime, worked out here from the same two lists the Shell gets. */
   private readonly claudeMarks = new MarkDeriver();
   private pushClaudeMark(): void {
@@ -2154,20 +2160,24 @@ export class Core {
     if (m) this.sendTo('desktop', m);
   }
   /**
-   * Coalesced: a burst of to-do updates is one message, not twenty. The waiting queue goes at once. 80 ms, under the
-   * progress engine's 100 ms ceiling (claudeprogress.ts rule 4, 2026-10-21): tool starts and ends must feel instant.
+   * The jobs list to the Shell, as fast as it changes (2026-10-21, supercharged: claudelink.ts LinkPusher). It was a
+   * flat 80 ms coalesce; now it goes on the next turn of the event loop, and only rapid tool chatter is spaced 16 ms
+   * apart. The waiting queue goes at once. Each push carries `lat` (when the newest event happened in the session,
+   * reached the brain, and left it) so every hop after it can be timed (AANG_PROGRESS_TRACE=1 logs them).
    */
-  private pushClaudeLink(what: 'jobs' | 'wait'): void {
-    // A wait coming or going also changes a job's live line ("Waiting for your OK"), so the jobs follow it.
-    if (what === 'wait') { this.sendTo('desktop', { t: 'claude.wait', items: this.claudeJobs.waiting() }); this.pushClaudeMark(); what = 'jobs'; }
-    this.claudePushWhat.add(what);
-    if (this.claudePushTimer) return;
-    this.claudePushTimer = setTimeout(() => {
-      this.claudePushTimer = null; this.claudePushWhat.clear();
-      this.sendTo('desktop', { t: 'claude.jobs', jobs: this.claudeJobs.list() });
-      this.pushClaudeMark();
-    }, 80);
-    this.claudePushTimer.unref?.();
+  private readonly claudePusher = new LinkPusher(() => {
+    const tr = this.claudeJobs.trace;
+    const tx = Date.now();
+    this.sendTo('desktop', { t: 'claude.jobs', jobs: this.claudeJobs.list(tx), ...(tr ? { lat: { ev: tr.ev, rx: tr.rx, tx, type: tr.type, ...(PROGRESS_TRACE ? { trace: true } : {}) } } : {}) });
+    if (PROGRESS_TRACE && tr) console.error(`progress trace: ${tr.type} session->brain ${tr.rx - tr.ev} ms, brain->push ${tx - tr.rx} ms (list ${Date.now() - tx} ms)`);
+    this.pushClaudeMark();
+  });
+  /** Sessions read from their transcripts (claudescan.ts); null in tests. */
+  private claudeScan: TranscriptScan | null = null;
+  private pushClaudeLink(what: 'jobs' | 'wait', urgent = false): void {
+    // A wait coming or going also changes a job's live line ("Waiting for your OK"), so the jobs follow it at once.
+    if (what === 'wait') { this.sendTo('desktop', { t: 'claude.wait', items: this.claudeJobs.waiting() }); this.pushClaudeMark(); urgent = true; }
+    this.claudePusher.ask(urgent);
   }
   /** The program in front, as the pet last said (its process name). Kept whether or not he lets Aang watch windows. */
   private fgProcess = '';
@@ -2547,7 +2557,9 @@ export class Core {
     // C1 (2026-10-21): the aang-link mod's doors, locked with a key made fresh for this run (claudelink.ts).
     const linkKey = newLinkKey(this.cfg.dataDir);
     if (linkKey) this.hookServer.link = new LinkDoor(linkKey, this.claudeJobs, () => this.selfCwd());
-    this.claudeJobs.onChange = what => this.pushClaudeLink(what);
+    this.claudeJobs.onChange = (what, urgent) => this.pushClaudeLink(what, urgent);
+    // His ask (2026-10-21): the sessions already running show at once, even before their mods reach this brain.
+    if (this.cfg.scanTranscripts) { this.claudeScan = new TranscriptScan(this.claudeJobs, { selfCwd: () => this.selfCwd() }); this.claudeScan.start(); }
     // Plain words (2026-10-21): every new ask is rewritten in the background; the card shows Claude's own summary
     // until then, and keeps it if the rewrite fails.
     this.claudeJobs.onAsk = item => { void plainAsk(item, this.plainAsks()).then(r => { if (r) this.claudeJobs.setPlain(item.id, r.plain, r.options); }); };
@@ -2669,6 +2681,8 @@ export class Core {
     clearToken(this.cfg.stateDir);
     clearLinkKey(this.cfg.dataDir);
     this.claudeJobs.close();
+    this.claudePusher.close();
+    this.claudeScan?.stop();
     // A turn still active when the Core is asked to stop had a live TURN_TIMEOUT_MS watchdog with nothing
     // ever clearing it (found 2026-09-24, diagnosing a stalled test: the timer is now unref'd so it can never
     // block process exit on its own, but it should also just not fire at all against a Core that is gone).

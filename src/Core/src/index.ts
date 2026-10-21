@@ -10,6 +10,8 @@ const core = new Core({
   stateDir: process.env.AANG_STATE_DIR ?? path.join(process.env.APPDATA ?? path.join(home, 'AppData', 'Roaming'), 'Aang'),
   claudeExecutable: process.env.AANG_CLAUDE_EXE || undefined,
   warm: process.env.AANG_WARM !== '0',
+  // 2026-10-21: running Claude sessions show at once after a restart, read from their transcripts (claudescan.ts).
+  scanTranscripts: process.env.AANG_TRANSCRIPT_SCAN !== '0',
 });
 
 process.on('unhandledRejection', e => console.error('unhandled rejection:', e));
