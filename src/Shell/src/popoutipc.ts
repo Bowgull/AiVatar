@@ -35,7 +35,14 @@ export interface PopoutWiring {
 export function tuckFor(p: Popout, front: BrowserWindow | null): void {
   const pw = p.window;
   if (!front || front.isDestroyed() || front === pw || front.isMinimized()) return;
-  setTimeout(() => { if (!front.isDestroyed()) front.minimize(); }, 150);
+  setTimeout(() => {
+    if (!front.isDestroyed()) front.minimize();
+    // Minimizing Samara hands the front to whatever window Windows picks next, which was often not the pop-out (his
+    // catch, 2026-10-21: "opening pop-out is pushing Samara closed and not surfacing the pop-out forward"). So the
+    // pop-out is brought forward on purpose, after Samara has gone.
+    const w = p.window;
+    if (w && !w.isDestroyed()) { if (!w.isVisible()) w.show(); w.moveTop(); w.focus(); }
+  }, 150);
   p.afterClose = (wasInFront) => {
     if (!wasInFront || front.isDestroyed()) return;
     if (front.isMinimized()) front.restore();
