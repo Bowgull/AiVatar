@@ -1,0 +1,176 @@
+/* Sheet 51 (2026-10-21): choices without numbers, a slimmer glove, a warmer aura, and one type system for every bubble.
+   Mockup only. Fonts come from cockpit.css + notefonts.css (all bundled in src/Shell/pages/fonts). */
+html,body{background:#17110c;margin:0}
+body{color:#e8dcc4;font-family:Figtree,sans-serif;padding:26px 30px 60px;width:1540px;box-sizing:border-box}
+h1{font:400 21px Silkscreen,monospace;color:#FFC43C;letter-spacing:2px;margin:0 0 6px}
+h2{font:400 13px Silkscreen,monospace;color:#FFC43C;letter-spacing:1.5px;margin:46px 0 8px}
+h3{font:400 10px Silkscreen,monospace;color:#FFC43C;letter-spacing:1.5px;margin:22px 0 8px}
+p{color:#cdbb9a;font-size:14.5px;line-height:1.55;margin:0 0 12px;max-width:1300px}
+p b,li b{color:#FFC43C}
+.stage{background:#1a110a url(../../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;border-radius:12px;border:3px solid #0d0703;padding:16px;box-shadow:0 10px 26px rgba(0,0,0,.5)}
+.cap{font:400 10px Silkscreen,monospace;color:#FFC43C;letter-spacing:1.5px;margin:0 0 10px}
+.why{font-size:13.5px;color:#cdbb9a;line-height:1.5;margin:10px 2px 0}
+.why b{color:#FFC43C}
+.note{background:#1f160f;border-radius:12px;padding:14px 18px;box-shadow:0 0 0 2px #2a1d12;max-width:1440px}
+.note ul{margin:6px 0 0;padding-left:20px;color:#cdbb9a;font-size:14px;line-height:1.7}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;align-items:start}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+.pick{display:inline-block;font:400 8px Silkscreen,monospace;letter-spacing:1px;padding:3px 6px 2px;border-radius:4px;background:#FFC43C;color:#2a1c00;margin-left:6px;vertical-align:2px}
+
+/* ------------------------------------------------------------------ THE TYPE SYSTEM (section 4, used everywhere) */
+.card{position:relative;box-sizing:border-box;padding:12px 14px 11px;border-radius:10px;color:#21160a;
+  background:radial-gradient(120% 90% at 30% 0%,#fff3d8,#efd9a6);
+  box-shadow:0 0 0 3px #120A05,0 0 0 5px var(--ring,#C98C14),0 0 16px color-mix(in srgb,var(--ring,#C98C14) 45%,transparent);margin:6px}
+.card.k-perm{--ring:#7cc4ff}.card.k-q{--ring:#b07cff}.card.k-aang{--ring:#C98C14}.card.k-brief{--ring:#e8b84a}
+.card.k-video{color:#f2e3c2;background:#2a1a10 url(../../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;--ring:#6a4628}
+.card.k-you{color:#f6efff;background:linear-gradient(180deg,#563479,#45295f);--ring:#966EC8;margin-left:auto}
+.card.k-mail{--ring:#C98C14}
+/* KICKER: who / what. Silkscreen at 8 px, its own pixel grid, so it stays crisp */
+.kick{display:flex;align-items:center;gap:6px;font:400 8px/1 Silkscreen,monospace;letter-spacing:1.5px;color:#8a3e1c;margin:0 0 7px}
+.kick img{width:16px;height:16px;border-radius:4px}
+.kick.aang{color:#7a4a00}
+.kick .meta{margin-left:auto}
+.k-video .kick{color:#ffc98a}.k-you .kick{color:#e6d6ff}
+/* THE QUESTION / THE POINT: largest, boldest */
+.q{margin:0 0 4px;font:800 17px/1.3 Figtree,sans-serif;color:#1c1208;letter-spacing:-.1px}
+/* AANG SAYS: body */
+.say{margin:0 0 6px;font:600 15px/1.5 Figtree,sans-serif;color:#21160a}
+.k-you .say{color:#f6efff}
+/* HELPER: plain explanation, softer */
+.help{margin:0 0 8px;font:500 13px/1.45 Figtree,sans-serif;color:#5c4426}
+.k-video .help{color:#d4c09c}
+/* META / TIMESTAMP */
+.meta{font:400 8px/1 Silkscreen,monospace;letter-spacing:1px;color:#6e5434}
+.k-video .meta{color:#bba27c}.k-you .meta{color:#d7c6f2}
+.metarow{display:flex;gap:10px;align-items:center;margin-top:8px}
+/* CLAUDE'S OWN WORDS: a quoted inset with its own label */
+.cw{margin:8px 0 2px;border-radius:6px;background:rgba(120,80,30,.13);box-shadow:inset 3px 0 0 #b9583a;padding:6px 9px 7px 12px}
+.cw .cwl{font:400 8px/1 Silkscreen,monospace;letter-spacing:1.5px;color:#8a3e1c;margin-bottom:5px}
+.cw pre{margin:0;font:500 12px/1.45 Consolas,monospace;color:#33240f;white-space:pre-wrap}
+.keysrow{display:flex;flex-wrap:wrap;gap:7px;margin:8px 0 4px}
+.keysrow .key{font-size:13.5px}
+.card .key.sm{padding:6px 11px 7px}
+/* links */
+.lnk{font:700 15px/1.4 Figtree,sans-serif;color:#7a3410;text-decoration:underline;text-decoration-thickness:2px;text-decoration-color:rgba(122,52,16,.35);text-underline-offset:3px}
+.lnk::after{content:" \2197";text-decoration:none;display:inline-block;margin-left:2px}
+/* hover kind label (the tab on the card's top edge) */
+.kindtab{position:absolute;left:14px;top:-17px;font:400 8px/1 Silkscreen,monospace;letter-spacing:1.5px;color:#ffe28c;padding:4px 7px 3px;border-radius:5px 5px 0 0;
+  background:#2a1a10 url(../../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;box-shadow:0 0 0 2px #120A05}
+
+/* STYLED extras (the dial). Calm leaves them out. */
+.styled .t{background:linear-gradient(transparent 52%,rgba(255,196,60,.55) 52%,rgba(255,196,60,.55) 92%,transparent 92%);font-weight:800;font-variant-numeric:tabular-nums;padding:0 2px}
+.calm .t{font-weight:800}
+.nm{font-weight:800;color:#1c1208}
+.styled .nm{color:#7a3410}
+.code{font:600 12.5px Consolas,monospace;background:rgba(120,80,30,.15);border-radius:4px;padding:1px 5px;color:#3a2410}
+.orn{height:9px;margin:9px 0 8px;background:linear-gradient(#b89a68,#b89a68) left center/calc(50% - 10px) 1.5px no-repeat,linear-gradient(#b89a68,#b89a68) right center/calc(50% - 10px) 1.5px no-repeat}
+.styled .orn{background:var(--gem-gold) center/14px 14px no-repeat,linear-gradient(#a8885a,#a8885a) left center/calc(50% - 12px) 2px no-repeat,linear-gradient(#a8885a,#a8885a) right center/calc(50% - 12px) 2px no-repeat;height:14px}
+.calm .orn{background:linear-gradient(rgba(120,80,30,.25),rgba(120,80,30,.25)) center/100% 1.5px no-repeat}
+.steps{list-style:none;margin:2px 0 4px;padding:0}
+.steps li{position:relative;padding:3px 0 3px 26px;font:600 14.5px/1.45 Figtree,sans-serif;color:#21160a}
+.calm .steps li::before{content:counter(s) ".";counter-increment:s;position:absolute;left:4px;font-weight:800;color:#6e4a1c}
+.steps{counter-reset:s}
+.styled .steps li::before{content:counter(s);counter-increment:s;position:absolute;left:0;top:4px;width:18px;height:18px;display:grid;place-items:center;font:400 8px/1 Silkscreen,monospace;color:#2a1c00;
+  background:linear-gradient(180deg,#FFE28C,#C98C14);border-radius:5px;box-shadow:0 0 0 2px #120A05}
+.bul{list-style:none;margin:2px 0 2px;padding:0}
+.bul li{position:relative;padding:2px 0 2px 18px;font:600 14px/1.45 Figtree,sans-serif}
+.calm .bul li::before{content:"";position:absolute;left:5px;top:10px;width:5px;height:5px;border-radius:50%;background:#6e4a1c}
+.styled .bul li::before{content:"";position:absolute;left:1px;top:6px;width:14px;height:14px;background:var(--gem-gold) 0 0/14px 14px;image-rendering:pixelated}
+.btitle{margin:0 0 2px;font:800 18px/1.25 Figtree,sans-serif;color:#1c1208}
+.styled .btitle{font:400 24px/1.15 "IM Fell English",Georgia,serif;color:#3a1e08}
+.sect{font:400 8px/1 Silkscreen,monospace;letter-spacing:1.5px;color:#7a4a00;margin:0 0 4px}
+.clock{display:inline-block;font:800 26px/1 Figtree,sans-serif;font-variant-numeric:tabular-nums;color:#1c1208;margin:2px 0 6px}
+.styled .clock{font:400 24px/1 Silkscreen,monospace;color:#ffe096;padding:8px 12px 7px;border-radius:7px;letter-spacing:2px;
+  background:#2a1a10 url(../../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px;box-shadow:0 0 0 2px #120A05,0 0 0 3.5px #C98C14,inset 0 0 12px rgba(0,0,0,.6);text-shadow:0 0 8px rgba(255,196,60,.5)}
+.letter{margin:6px 0 4px;padding:9px 11px;border-radius:6px;background:#fffaf0;box-shadow:inset 0 0 0 1.5px rgba(120,80,30,.3);font:500 13.5px/1.5 Figtree,sans-serif;color:#21160a}
+.styled .letter{background:#fffaf0 linear-gradient(transparent 23px,rgba(120,80,30,.10) 23px) 0 6px/100% 20.25px;font-family:Figtree,sans-serif}
+.letter .hd{font:400 8px/1 Silkscreen,monospace;letter-spacing:1px;color:#6e5434;margin-bottom:6px}
+.thumb{position:relative;height:150px;border-radius:7px;margin:4px 0 8px;box-shadow:0 0 0 3px #120A05;background:linear-gradient(135deg,#3b5a7a,#1d2e44 55%,#523a2a)}
+.thumb::after{content:"";position:absolute;left:50%;top:50%;margin:-16px 0 0 -12px;border:16px solid transparent;border-left:26px solid #ffe8b8;border-right:0;filter:drop-shadow(0 2px 0 #120A05)}
+.thumb .len{position:absolute;right:7px;bottom:7px;font:400 8px/1 Silkscreen,monospace;color:#fff;background:rgba(0,0,0,.7);padding:4px 5px 3px;border-radius:3px}
+.vtitle{font:800 15.5px/1.35 Figtree,sans-serif;color:#fbefd6;margin:0 0 3px}
+
+/* ------------------------------------------------------------------ CHOICE ROWS (section 1) */
+.opts{display:flex;flex-direction:column;margin:6px -4px 2px;outline:none}
+.opt{position:relative;display:flex;align-items:flex-start;gap:9px;cursor:pointer;padding:8px 10px 8px 36px;border-radius:7px}
+.opt .tx{display:flex;flex-direction:column;gap:2px}
+.opt b{font:700 14.5px/1.3 Figtree,sans-serif;color:#21160a}
+.opt small{font:500 12.5px/1.4 Figtree,sans-serif;color:#5c4426}
+.opt.other b{color:#55307a}
+.rec{display:inline-block;margin-left:7px;font:400 8px/1 Silkscreen,monospace;letter-spacing:1px;padding:3px 5px 2px;border-radius:3px;background:#58b0a3;color:#062a25;vertical-align:2px}
+.opt.on::before{content:"";position:absolute;left:4px;top:9px;width:28px;height:18px;background:var(--glove) 0 0/28px 18px;image-rendering:pixelated;filter:drop-shadow(1px 1px 0 rgba(0,0,0,.45))}
+.opt .mk{flex:none;width:14px;height:14px;margin-top:2px;box-sizing:border-box;border:2.5px solid #6b4318;background:#fffaf0;border-radius:4px}
+.opt.picked .mk{background:#8a3e1c;box-shadow:inset 0 0 0 2px #fffaf0}
+/* A: thin carved dividers */
+.vA .opt{border-radius:0}
+.vA .opt + .opt::after{content:"";position:absolute;left:36px;right:8px;top:0;height:2px;background:linear-gradient(rgba(110,70,25,.38) 50%,rgba(255,250,235,.85) 50%)}
+.vA .opt.on{background:rgba(255,196,60,.16)}
+/* B: each option its own recessed slot, like inventory */
+.vB .opt{margin:0 0 6px 30px;padding:8px 11px;background:rgba(150,105,45,.10);
+  box-shadow:inset 0 2px 0 rgba(90,55,20,.20),inset 0 -1.5px 0 rgba(255,250,235,.75),0 0 0 1.5px rgba(110,70,25,.28)}
+.vB .opt.on{background:rgba(255,206,90,.30);box-shadow:inset 0 2px 0 rgba(90,55,20,.15),inset 0 -1.5px 0 rgba(255,250,235,.8),0 0 0 2px #C98C14,0 0 10px rgba(255,190,60,.35)}
+.vB .opt.on::before{left:-32px}
+.vB .opt.picked{background:rgba(255,206,90,.42)}
+.vB .opt.other{background:transparent;box-shadow:inset 0 0 0 1.5px rgba(110,70,25,.25);box-shadow:none;border:1.5px dashed rgba(110,70,25,.4);padding:6px 10px}
+.vB .opt.other.on{border-color:#C98C14}
+/* C: alternating tint and room */
+.vC .opt{padding:10px 10px 10px 36px;border-radius:6px}
+.vC .opt:nth-child(odd){background:rgba(150,105,45,.10)}
+.vC .opt.on{background:rgba(255,196,60,.24)}
+/* D: a gem notch per row, lit in its state colour */
+.vD .opt{padding-left:52px}
+.vD .opt .gem{position:absolute;left:32px;top:10px;width:14px;height:14px;background:var(--gem-dim) 0 0/14px 14px;image-rendering:pixelated}
+.vD .opt.best .gem{background-image:var(--gem-teal)}
+.vD .opt.on .gem{background-image:var(--gem-gold)}
+.vD .opt.other .gem{background-image:var(--gem-plum)}
+.vD .opt.on{background:rgba(255,196,60,.12)}
+.stepper{display:flex;align-items:center;gap:8px;margin:0 0 6px}
+.stepper .dots{display:flex;gap:5px}
+.stepper .dots i{width:8px;height:8px;background:rgba(120,80,30,.28);clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)}
+.stepper .dots i.done{background:#3d9a8c}
+.stepper .dots i.now{background:#C98C14;filter:drop-shadow(0 0 3px rgba(255,196,60,.9))}
+.stepper .lbl{font:400 8px/1 Silkscreen,monospace;letter-spacing:1px;color:#6e5434}
+.stepper .back{margin-left:auto;font:400 8px/1 Silkscreen,monospace;letter-spacing:1px;color:#7a3410;border:1.5px solid rgba(122,52,16,.45);border-radius:4px;padding:3px 5px 2px}
+.sendrow{display:flex;align-items:center;gap:9px;margin:6px 0 2px 26px}
+.sendrow .meta{color:#6e5434}
+
+/* ------------------------------------------------------------------ GLOVES (section 2) */
+.gloves{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.gcell{background:#1f160f;border-radius:12px;padding:12px 14px;box-shadow:0 0 0 2px #2a1d12}
+.gcell.mine{box-shadow:0 0 0 2px #C98C14}
+.gcell .nm2{font:400 9px Silkscreen,monospace;letter-spacing:1.2px;color:#FFC43C;margin:0 0 4px}
+.gcell .sz{font-size:12.5px;color:#a8916c;margin:0 0 8px}
+.gcell canvas{image-rendering:pixelated;display:block}
+.gcell .big{display:flex;align-items:flex-end;gap:10px;min-height:52px;margin-bottom:8px;padding:8px;border-radius:8px;background:#efd9a6}
+.gcell .ctx{margin-top:8px}
+.gcell .ctx .card{margin:6px 6px 2px}
+.gcell .why{font-size:12.5px;margin:8px 0 0}
+
+/* ------------------------------------------------------------------ AURA (section 3) */
+.aura{display:grid;grid-template-columns:150px repeat(4,1fr);gap:10px 12px;align-items:center}
+.aura .colh{font:400 10px Silkscreen,monospace;letter-spacing:1.4px;color:#FFC43C;text-align:center}
+.aura .colh small{display:block;font:500 12px Figtree,sans-serif;letter-spacing:0;color:#cdbb9a;margin-top:4px;line-height:1.35}
+.aura .rowh{font:400 9px Silkscreen,monospace;letter-spacing:1.2px;color:#f2e3c2}
+.aura .rowh .sw{display:inline-block;width:14px;height:14px;border-radius:4px;vertical-align:-3px;margin-right:6px;box-shadow:0 0 0 2px #2a1a10}
+.aura .rowh small{display:block;font:500 12px Figtree,sans-serif;color:#a8916c;letter-spacing:0;margin-top:3px}
+.aura canvas{display:block;margin:0 auto;image-rendering:pixelated;background:#110c08;border-radius:10px;box-shadow:inset 0 0 0 2px #241810}
+
+/* ------------------------------------------------------------------ TYPE SPECIMEN (section 4) */
+table.spec{border-collapse:collapse;width:100%;font-size:13px;color:#cdbb9a}
+.spec th{font:400 9px Silkscreen,monospace;color:#FFC43C;letter-spacing:1.2px;text-align:left;padding:6px 10px;border-bottom:2px solid #2a1d12}
+.spec td{padding:8px 10px;border-bottom:1px solid #2a1d12;vertical-align:middle}
+.spec td.on-p{background:radial-gradient(120% 90% at 30% 0%,#fff3d8,#efd9a6);border-radius:0}
+.spec td.on-w{background:#2a1a10 url(../../../src/Shell/pages/art/browser/tray.png) 0 0/128px 256px}
+.spec .r{font:700 12px Figtree,sans-serif;white-space:nowrap}
+.spec .r.ok{color:#8fd9a8}.spec .r.lg{color:#e8d27a}.spec .r.bad{color:#f08a7a}
+.spec code{font:500 11.5px Consolas,monospace;color:#e8dcc4}
+.dial{display:grid;grid-template-columns:150px 1fr 1fr;gap:14px 18px;align-items:start}
+.dial .lab{font:400 9px Silkscreen,monospace;letter-spacing:1.2px;color:#f2e3c2;padding-top:14px}
+.dial .lab small{display:block;font:500 12px Figtree,sans-serif;color:#a8916c;letter-spacing:0;margin-top:5px;line-height:1.4}
+.dial .colh{font:400 11px Silkscreen,monospace;letter-spacing:1.5px;color:#FFC43C}
+.dial .colh small{display:block;font:500 12.5px Figtree,sans-serif;color:#cdbb9a;letter-spacing:0;margin-top:4px;line-height:1.4}
+.dial .stage{padding:16px 12px}
+.dial .card{max-width:440px}
+.card:has(.kindtab){margin-top:24px}
+.card b{color:inherit}
+.aura canvas{image-rendering:pixelated}
