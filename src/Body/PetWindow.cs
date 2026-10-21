@@ -1271,7 +1271,7 @@ sealed class PetWindow : Form
                 // Behind the sprite, same as DrawPeeking does it, so it reads as a halo and not a box.
                 if (urgent) DrawOutline(g, shown, standing, loom: true);
                 else if (ambientGlow) DrawOutline(g, shown, standing, loom: false);
-                else if (ClaudeMarkNow is string glowFor && ClaudeMarks.Glows(glowFor)) DrawOutline(g, shown, standing, loom: false, ClaudeMarks.ColorOf(glowFor), 0.6f);
+                else if (ClaudeMarkNow is string glowFor && ClaudeMarks.Glows(glowFor)) DrawOutline(g, shown, standing, loom: false, ClaudeMarks.ColorOf(glowFor));
                 g.DrawImage(shown, standing);
                 mirrored?.Dispose();
                 // C5 (2026-10-21): Claude's mark, just above his head, standing as well as docked.
@@ -2230,7 +2230,14 @@ sealed class PetWindow : Form
             // A step is a glance (45e's 1.8 s "STEP DONE"); the whole job stays up for the sheet's 4 seconds.
             claudeFlashUntil = DateTime.UtcNow.AddMilliseconds(flash == "step" ? 1800 : 4000);
         }
-        if (ClaudeMarkNow != before) markerSince = DateTime.UtcNow;
+        if (ClaudeMarkNow != before)
+        {
+            markerSince = DateTime.UtcNow;
+            claudeBursts = 0;
+            // One aura, not two (his call, 2026-10-21: "AANG has a glow when stuff happens already"): a mark that wants
+            // him starts the same flare, wave and breathing as every other notification, in the mark's own colour.
+            if (ClaudeMarkNow is string glowing && ClaudeMarks.Glows(glowing) && !badge) AuraBurst(ClaudeMarks.ColorOf(glowing));
+        }
         var sound = Str(m, "sound");
         if (sound != null && cfg.ChimesOn && !cfg.Muted && !hiddenByUser && !(quiet && sound == "step")
             && (DateTime.UtcNow - sfxAt).TotalMilliseconds > 2500)
@@ -2240,6 +2247,24 @@ sealed class PetWindow : Form
         }
         dirty = true;
     }
+
+    /// <summary>
+    /// A Claude mark's turn of his notification aura (2026-10-21): TriggerGlow's flare, wave and peek, without its
+    /// sound (the mark's chime already rang) and without the held-message badge (the mark is the icon over his head).
+    /// It settles into the same breathing glow, which lasts while the mark does.
+    /// </summary>
+    void AuraBurst(Color color)
+    {
+        urgent = true; ambientGlow = false; urgentColor = color; burstStart = DateTime.UtcNow;
+        urgentUntil = burstStart.AddSeconds(UrgentGlowFor.TotalSeconds);
+        claudeBursts++;
+        nextClaudeBurstAt = claudeBursts < BurstBackoff.Length ? DateTime.UtcNow.Add(BurstBackoff[claudeBursts]) : DateTime.MaxValue;
+        if (dock != DockEdge.None && peeking) { if (slideStart == DateTime.MinValue) SlideTo(PeekPos()); }
+        else if (anim.State is "idle" or "think") { anim.Play("hello"); Wake(); }
+        dirty = true;
+    }
+    int claudeBursts;
+    DateTime nextClaudeBurstAt = DateTime.MaxValue;
 
     void TriggerGlow(Color color, System.Media.SoundPlayer sound)
     {
@@ -2554,6 +2579,8 @@ sealed class PetWindow : Form
         // A few real, abrupt bursts beat one that never stops (research, 2026-09-22): continuous motion is the one
         // pattern proven not to capture attention and to habituate fastest. Re-fire on a backoff until he acts.
         if (badge && heldRank >= 2 && !urgent && now >= nextBurstAt) TriggerGlow(badgeColor, heldRank == 3 ? SfxNeedsYou : SfxDone);
+        // A Claude mark still blocked on him re-flares on the same backoff (needs you, a question, a plan); done and failed flare once.
+        else if (!badge && !urgent && now >= nextClaudeBurstAt && ClaudeMarkNow is "permission" or "question" or "plan") AuraBurst(ClaudeMarks.ColorOf(ClaudeMarkNow!));
         SetClickAwayHook((dock != DockEdge.None && !peeking) || (tray.ContextMenuStrip?.Visible ?? false) || (NewFrontEnd && shellBusy));
         if (dock == DockEdge.None) return;
         // The taskbar is always-on-top too, and clicking it lifts it over him; at the bottom he takes the top back each second.
@@ -2649,7 +2676,7 @@ sealed class PetWindow : Form
         var at = new Rectangle(Docking.SpriteX, Docking.SpriteY, Docking.Frame, Docking.Frame);
         if (urgent) DrawOutline(g, rot, at, loom: true);
         else if (ambientGlow) DrawOutline(g, rot, at, loom: false);
-        else if (!badge && ClaudeMarkNow is string glowFor && ClaudeMarks.Glows(glowFor)) DrawOutline(g, rot, at, loom: false, ClaudeMarks.ColorOf(glowFor), 0.6f);
+        else if (!badge && ClaudeMarkNow is string glowFor && ClaudeMarks.Glows(glowFor)) DrawOutline(g, rot, at, loom: false, ClaudeMarks.ColorOf(glowFor));
         g.DrawImage(rot, at);
         // Exactly what the undocked view does, nothing invented for here: the glow rides on the think state,
         // which a working session now puts him in. Turned with the frame so it lands on his real arrow and
@@ -2688,7 +2715,7 @@ sealed class PetWindow : Form
     void DrawOutline(Graphics g, Bitmap sprite, Rectangle at, bool loom, Color? tint = null, float soften = 1f)
     {
         var c = tint ?? urgentColor;
-        float radius; int alpha;
+        float radius; int alpha; float breath = -1f;
         if (loom)
         {
             double t = (DateTime.UtcNow - burstStart).TotalMilliseconds;
@@ -2700,7 +2727,8 @@ sealed class PetWindow : Form
         {
             double phase = (Math.Sin(DateTime.UtcNow.TimeOfDay.TotalSeconds * Math.PI * 0.5) + 1) / 2;   // slow, ~4s
             radius = 3f; alpha = (int)(95 + 90 * phase);   // 45-100 read as a grey smudge against a dark desktop; brighter now
-            alpha = (int)(alpha * soften);                   // C5: a Claude mark's own glow is a little quieter than "something waits"
+            alpha = (int)(alpha * soften);
+            breath = (float)phase;                           // 2026-10-21, his "an aura that should breathe": the outer ring below
         }
         using var solid = new Bitmap(sprite.Width, sprite.Height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
         using (var sg = Graphics.FromImage(solid))
@@ -2719,6 +2747,18 @@ sealed class PetWindow : Form
         using var fade = new System.Drawing.Imaging.ImageAttributes();
         fade.SetColorMatrix(new System.Drawing.Imaging.ColorMatrix { Matrix33 = alpha / 255f });
         g.DrawImage(ring, new Rectangle(at.X - pad, at.Y - pad, ring.Width, ring.Height), 0, 0, ring.Width, ring.Height, GraphicsUnit.Pixel, fade);
+        // Breathing (2026-10-21): a wider, fainter ring swells in and fades out with the slow pulse, so the aura grows
+        // and settles like a breath instead of only brightening. Drawn behind nothing new: still outside his pixels.
+        if (breath > 0.02f)
+        {
+            const float outer = 6f;
+            int op = (int)Math.Ceiling(outer) + 2;
+            using var halo = new Bitmap(sprite.Width + op * 2, sprite.Height + op * 2, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+            using (var hg = Graphics.FromImage(halo)) foreach (var o in RingOffsets(outer)) hg.DrawImageUnscaled(solid, op + o.X, op + o.Y);
+            using var soft = new System.Drawing.Imaging.ImageAttributes();
+            soft.SetColorMatrix(new System.Drawing.Imaging.ColorMatrix { Matrix33 = 0.32f * breath * breath * soften });
+            g.DrawImage(halo, new Rectangle(at.X - op, at.Y - op, halo.Width, halo.Height), 0, 0, halo.Width, halo.Height, GraphicsUnit.Pixel, soft);
+        }
     }
 
     // Pixel icons on his own grain (one art pixel = 2 frame pixels), in the tradition he named (2026-09-22): a WoW
