@@ -697,6 +697,11 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
 #bubble.cockpit .lb-list{padding-bottom:6px}
 .ckjobs{margin:8px -2px 0}
 .ckjobs[hidden]{display:none}
+.ckpins{margin:8px -2px 0}
+.ckpins[hidden]{display:none}
+/* Cards fade up as they arrive (sheet 46), but only the live part: the conversation, the jobs strip and the typing area
+   do not blink every time a message lands (2026-10-21). */
+#bubble.cockpit.enter > #back,#bubble.cockpit.enter > #ck,#bubble.cockpit.enter > #ckjobs,#bubble.cockpit.enter > #ckpins{animation:none}
 .cktype{display:block;margin:10px -6px -4px;padding:0}
 .cktype[hidden]{display:none}
 

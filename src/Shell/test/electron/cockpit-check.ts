@@ -113,6 +113,91 @@ app.whenReady().then(async () => {
   await wait(700);
   check('closed: the typing area is gone from the bubble', (await js(`document.getElementById('ck').hidden && !document.getElementById('bubble').classList.contains('cockpit')`)) === true);
   check('closed with a question still waiting: the question stays', (await js(`!document.getElementById('bubble').hidden && !document.getElementById('asks').hidden`)) === true);
+  check('closed: the question is drawn the one-bubble way (no wood)', (await js(`!document.getElementById('bubble').classList.contains('lantern')`)) === true);
+  await js(`window.__deliver({ t: 'ask.expired', id: 'p1' })`);
+  await wait(900);
+
+  // ---- C3 (2026-10-21): docked. A click on a message opens the cockpit bound to it (docked); closing lets the main
+  // process's undock dismiss it. The hotkey opens it NOT docked, and a "sent" undock never closes it.
+  const openIt = async (docked: boolean) => { await js(`window.__fire('onCockpit', { open: true, state: { maxH: 620, docked: ${docked} } }); window.__fire('onInputState', { opened: true, mode: 'auto', week: 0.3 })`); await wait(900); };
+  const closeIt = async () => { await js(`window.__fire('onCockpit', { open: false })`); };
+  const isOpen = () => js(`document.getElementById('bubble').classList.contains('cockpit') && !document.getElementById('ck').hidden && !document.getElementById('bubble').hidden`) as Promise<boolean>;
+  const shown = () => js(`!document.getElementById('bubble').hidden`) as Promise<boolean>;
+  await js(`window.__deliver({ t: 'bubble', text: 'The build passed.', stream: false, turn: 60 })`);
+  await wait(2200);
+  await js(`window.__sent.length = 0; document.getElementById('bubble').click()`);
+  const dock = await js(`window.__sent.filter(s => s[0] === 'dockBox').map(s => s[1][0])`) as { turn: number }[];
+  check('docked: a click on a message asks to open the cockpit bound to it', dock.at(-1)?.turn === 60, JSON.stringify(dock));
+  await openIt(true);
+  check('docked: the cockpit opens', await isOpen());
+  await closeIt();
+  await wait(250);
+  check('docked: closing waits for the undock (the message is still bound)', await shown());
+  await js(`window.__fire('onUndock', null)`);
+  await wait(900);
+  check('docked: the undock lets the message go, as the old docked box did', (await shown()) === false);
+  await openIt(false);
+  check('hotkey: the cockpit opens, not docked', await isOpen());
+  await js(`window.__fire('onUndock', 'sent')`);
+  await wait(300);
+  check('undocking while open (he sent) leaves the cockpit open', await isOpen());
+  await js(`window.__deliver({ t: 'history.reply', items: [{ id: 58, ts: '2026-10-21 08:00:00', who: 'you', text: 'what is on today' }, { id: 59, ts: '2026-10-21 08:00:05', who: 'Aang', text: 'A quiet day.' }] })`);
+  await wait(300);
+
+  // ---- C3: the brief arrives while it is open: a card in the live area, under the conversation, above the typing area
+  const brief = { day: 'Tuesday, October 21', events: [{ title: 'Interview with Acme', start: '2026-10-21T14:00:00', end: '2026-10-21T15:00:00', where: 'Zoom' }],
+    unread: [{ from: 'Dana Smith', subject: 'Your offer letter', why: 'asked for a call this week', at: '2026-10-21T07:10:00' }],
+    parts: [{ part: 'morn', sky: 'sun', temp: 8 }, { part: 'aftn', sky: 'cloud', temp: 12 }, { part: 'eve', sky: 'rain', temp: 9 }], week: 0.42 };
+  await js(`window.__deliver(${JSON.stringify({ t: 'bubble', text: 'Your morning brief.', stream: false, turn: 70, proactive: true, brief })})`);
+  await wait(1200);
+  const order = (a: string) => js(`(() => { const r = (s) => document.querySelector(s)?.getBoundingClientRect(); const l = r('#lblist'), x = r('${a}'), k = r('#ck'); return Boolean(l && x && k && x.height > 20 && x.top >= l.bottom - 2 && x.bottom <= k.top + 2); })()`) as Promise<boolean>;
+  check('brief: shows inside the open cockpit', (await isOpen()) && (await js(`!document.querySelector('.briefcard').hidden && document.getElementById('bubble').contains(document.querySelector('.briefcard'))`)) === true);
+  check('brief: under the conversation, above the typing area', await order('.briefcard'));
+  check('brief: the cockpit widens for it', (await js(`document.getElementById('bubble').classList.contains('ckwide')`)) === true);
+  const shot = process.env.COCKPIT_SHOT;
+  const snap = async (file: string) => { await js(`document.body.style.background = '#2a2238'`); await wait(500); writeFileSync(file, (await w.webContents.capturePage()).toPNG()); console.log('picture: ' + file); };
+  if (shot) await snap(shot.replace(/\.png$/i, '') + '-brief.png');
+  await js(`[...document.querySelectorAll('.briefcard .lt-foot .key')].find(k => k.textContent.startsWith('Got it'))?.click()`);
+  await wait(600);
+  check('brief: Got it puts it into the conversation as a row and the cockpit stays', (await isOpen()) && (await js(`document.querySelector('.briefcard').hidden && Boolean(document.querySelector('#lblist [data-id="70"]'))`)) === true);
+
+  // ---- C3: a message about a video arrives while it is open: the video opens straight in, and the cockpit widens
+  await js(`window.__deliver({ t: 'bubble', text: 'HisWattson posted a video.', stream: false, turn: 71, proactive: true, about: { url: 'https://www.youtube.com/watch?v=abc123', title: 'Wattson ranked guide' } })`);
+  await wait(1500);
+  check('video: its card shows inside the open cockpit', (await isOpen()) && (await js(`Boolean(document.querySelector('#aboutbox:not([hidden]) .vshot'))`)) === true);
+  check('video: under the conversation, above the typing area', await order('#aboutbox'));
+  check('video: the cockpit widens for it', (await js(`document.getElementById('bubble').classList.contains('ckwide')`)) === true);
+  if (shot) await snap(shot);
+
+  // ---- C3: a Claude plan arrives while it is open: the video joins the conversation, the plan takes the live area
+  const plan = { id: 'samara:9', task: 'Book the dentist', sites: [{ site: 'dentist.ca', login: true, favicon: '' }], steps: ['Open the booking page', 'Pick Tuesday at 4'], wont: 'pay for anything' };
+  await js(`window.__deliver(${JSON.stringify({ t: 'plan', id: plan.id, steps: plan.steps.map((text) => ({ text })), samara: plan })})`);
+  await wait(900);
+  check('plan: shows inside the open cockpit with its keys', (await isOpen()) && (await js(`!document.querySelector('.samaraplan').hidden && !document.getElementById('asks').hidden`)) === true);
+  check('plan: the video before it is now a row in the conversation', (await js(`Boolean(document.querySelector('#lblist [data-id="71"]')) && document.getElementById('aboutbox').hidden`)) === true);
+  check('plan: under the conversation, above the typing area', await order('.samaraplan'));
+  await js(`window.__deliver({ t: 'bubble', text: 'Side note while you decide.', stream: false, turn: 72 })`);
+  await wait(500);
+  check('plan: a reply meanwhile goes into the conversation; the plan stays pinned', (await js(`!document.querySelector('.samaraplan').hidden && Boolean(document.querySelector('#lblist [data-id="72"]'))`)) === true);
+  await js(`window.__sent.length = 0; [...document.querySelectorAll('#asks .key')].at(-1)?.click()`);
+  await wait(500);
+  check('plan: answered, it leaves the live area and the cockpit stays', (await isOpen()) && (await js(`document.querySelector('.samaraplan').hidden && window.__sent.some(s => s[0] === 'answerAsk')`)) === true);
+
+  // ---- parity in the cockpit: a stop (bubble.clear) keeps it open; "now playing" shows its keys; Esc outside the field
+  await js(`window.__deliver({ t: 'bubble', text: 'Working on a long answer that he will stop', stream: true, turn: 73 })`);
+  await wait(300);
+  await js(`window.__deliver({ t: 'bubble.clear' })`);
+  await wait(400);
+  check('stop: the live answer goes, the cockpit and conversation stay', (await isOpen()) && (await js(`document.getElementById('scroller').hidden && Boolean(document.getElementById('lblist'))`)) === true);
+  await js(`window.__deliver({ t: 'whisper', text: 'Now playing: Lo-fi beats', controls: 'media' })`);
+  await wait(500);
+  check('whisper: "now playing" and its keys show in the cockpit', (await isOpen()) && (await js(`!document.querySelector('.media').hidden && document.getElementById('said').textContent.includes('Now playing')`)) === true);
+  await js(`window.__sent.length = 0; document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`);
+  await wait(100);
+  check('Esc outside the typing area closes the cockpit too', (await js(`window.__sent.some(s => s[0] === 'inputClose')`)) === true);
+  await closeIt();
+  await wait(900);
+  check('closed: back to nothing on screen, no cockpit left behind', (await shown()) === false && (await js(`!document.getElementById('bubble').classList.contains('cockpit') && document.querySelector('.media').hidden`)) === true);
 
   check('no errors in the page', errors.length === 0, errors.join(' | '));
   pages.close();

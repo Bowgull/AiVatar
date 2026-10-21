@@ -395,6 +395,11 @@
       "at": "2026-10-21T18:00:00-04:00",
       "text": "The one cockpit bubble is built: talk, look back and answer in one place (off until you switch it on).",
       "kind": "feature"
+    },
+    {
+      "at": "2026-10-21T20:00:00-04:00",
+      "text": "Briefs, videos and plans now open inside the cockpit.",
+      "kind": "feature"
     }
   ]
 }

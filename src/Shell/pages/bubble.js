@@ -469,6 +469,8 @@ function askGone() {
   asking = null;
   asks.hidden = true; asks.replaceChildren();
   choiceList(null); paintPlan(null, -1);
+  // The open cockpit never goes away on its own: the timed-out question just leaves its live area (2026-10-21).
+  if (cockpit) { clearLive(); return; }
   goAway();
 }
 /** Put one in the queue, keeping that order, oldest first within a rank. */
@@ -553,6 +555,9 @@ function paintEdges() {
 function showAsk(m) {
   const a = askFrom(m);
   if (!a) return false;
+  // In the open cockpit (2026-10-21) whatever was live under the conversation (a reply, the brief, a video) joins the
+  // conversation as a row first, so the question takes the live area without wiping anything he had not read.
+  if (cockpit && asking !== m) { cockCommit(); card.hidden = true; paintAbout(false); }
   asking = m;
   bubble.classList.remove('whisper');
   mediaRow.hidden = true;
@@ -717,6 +722,9 @@ function answer(choice) {
   asks.replaceChildren();
   if (waiting.length) { showTopAsk(); return; }
   paintEdges();
+  // In the open cockpit the answered question leaves the live area at once: the conversation stays, the answer
+  // arrives under it (2026-10-21). A plan he said Go to stays as its live checklist, below.
+  if (cockpit && !livePlan) { clearLive(); return; }
   if (!livePlan && briefBack()) return;
   if (livePlan) {
     who.textContent = livePlan.samara ? `CLAUDE \u00b7 ${livePlan.task.toUpperCase()}` : 'THE PLAN'; said.textContent = 'On it.';
@@ -923,7 +931,7 @@ function showBrief(b) {
   // the keys: Got it, and the most useful next thing; the week's meter on the right
   const keys = T('div', 'keys lt-foot');
   const k = (label, letter, cls, fn) => { const x = T('button', 'key sm' + (cls ? ' ' + cls : ''), label); x.type = 'button'; x.append(T('span', 'k', letter)); x.addEventListener('click', fn); keys.append(x); };
-  k('Got it', 'A', 'primary', () => { releaseMouse(); goAway(); });
+  k('Got it', 'A', 'primary', () => cardDone());
   const first = unread[0];
   if (first) k(`Reply to ${String(first.from).split(/\s+/)[0]}`, 'X', 'plum', () => { keys.querySelectorAll('button').forEach((x) => { x.disabled = true; }); window.aang?.briefAct?.({ item: 0, act: 'reply' }); });
   if (typeof b.week === 'number') {
@@ -994,7 +1002,7 @@ function showResearch(r, turnRow) {
   const k = (label, letter, cls, fn) => { const x = T('button', 'key sm' + (cls ? ' ' + cls : ''), label); x.type = 'button'; x.append(T('span', 'k', letter)); x.addEventListener('click', fn); keys.append(x); };
   k('Tell me about one', 'A', 'primary', () => { if (turnRow !== null) window.aang?.replyToTurn?.(turnRow, 'This week\u2019s research'); });
   if (r.file) k('Open the full notes', 'X', '', () => window.aang?.openThing?.({ kind: 'file', value: r.file }));
-  k('Done', 'Z', '', () => { releaseMouse(); goAway(); });
+  k('Done', 'Z', '', () => cardDone());
   card.append(keys);
   card.hidden = false;
 }
@@ -1027,13 +1035,14 @@ function zoneEls() {
   bar.append(bl, bt, bp);
   const orb = document.createElement('div'); orb.className = 'orb'; orb.id = 'orb'; orb.append(document.createElement('i'), document.createElement('i'), document.createElement('i'));
   const gf = document.createElement('div'); gf.className = 'gf'; gf.id = 'gf';
-  const ck = document.createElement('div'); ck.className = 'ck'; ck.id = 'ck'; ck.textContent = '\u2713';
+  const ck = document.createElement('div'); ck.className = 'ck'; ck.id = 'dropck'; ck.textContent = '\u2713';
   z.append(zl, bar, orb, gf, ck);
   card.append(z);
   card.hidden = false;
 }
 function startDrop() {
   if (D) return;
+  if (cockpit) { cockCommit(); live = { skip: true }; }
   asking = null; asks.hidden = true;
   who.textContent = ''; who.hidden = true; who.classList.remove('plaque');
   scroller.hidden = true; working.hidden = true; tools.hidden = true;
@@ -1111,7 +1120,7 @@ function dropTick() {
   if (s >= .65 && s < .93) { const q = ((s - .65) % .14) / .14; sy = 1 - .09 * Math.sin(Math.PI * q); sx = 1 + .06 * Math.sin(Math.PI * q); }
   if (D.verdict.folder && s >= 1.0) { const v = D.verdict; endDrop(); dropFolder(v); return; }
   if (s >= .93 && s < PS) { const q = eInOut(seg(s, .93, 1.28)); x = lerp(D.bx, BX0, q); y = lerp(REST_Y, BY, q); d = lerp(44, 14, q); if (s < 1.28) { const q2 = seg(s, .93, 1.28); sy = 1 + .12 * Math.sin(Math.PI * q2); sx = 1 - .06 * Math.sin(Math.PI * q2); } }
-  const bl = $d('bl'), bf = $d('bf'), bp = $d('bp'), ck = $d('ck');
+  const bl = $d('bl'), bf = $d('bf'), bp = $d('bp'), ck = $d('dropck');
   if (bl && !bl.textContent) bl.textContent = 'QWEN IS READING ' + D.verdict.name.toUpperCase();
   if (s >= PS) {
     const p = curve(seg(s, PS, PE));
@@ -1158,7 +1167,7 @@ function dropMessage(plaqueText, plaqueClass, lines, keys) {
   fit(); reportSize();
   // A plain message goes by itself after a while; one with choices stays until he picks.
   clearTimeout(hideTimer);
-  if (!keys.length) hideTimer = setTimeout(() => goAway(), 12000);
+  if (!keys.length) hideTimer = setTimeout(() => (cockpit ? cardDone() : goAway()), 12000);
 }
 function dropRefused(v) {
   dropMessage('I WON\u2019T OPEN THAT', 'red', [['', v.refused]], []);
@@ -1172,9 +1181,9 @@ function dropReady(r) {
   const lines = [[`${r.name} is ready.`, (r.summary ? r.summary + ' ' : '') + 'What should I do with it?']];
   if (r.more > 0) lines.push(['', `You dropped ${r.more + 1}; I read the first. Drop the others one at a time.`]);
   dropMessage(plaque, '', lines, [
-    { label: 'Ask Aang about it', key: 'A', primary: true, go: () => { window.aang?.dropAsk?.(r.path); releaseMouse(); goAway(); } },
-    { label: 'Remember it', key: 'X', go: () => { window.aang?.dropKeep?.(r.path); releaseMouse(); goAway(); } },
-    { label: 'Not now', key: 'Z', go: () => { releaseMouse(); goAway(); } },
+    { label: 'Ask Aang about it', key: 'A', primary: true, go: () => { window.aang?.dropAsk?.(r.path); cardDone(); } },
+    { label: 'Remember it', key: 'X', go: () => { window.aang?.dropKeep?.(r.path); cardDone(); } },
+    { label: 'Not now', key: 'Z', go: () => cardDone() },
   ]);
 }
 
@@ -1216,11 +1225,12 @@ function onBrain(m) {
   }
 
   // 6.17: a file over the pet, dropped, judged, and read.
-  if (m.t === 'drop.hover') { if (m.on) startDrop(); else if (D && D.drop === null) { endDrop(); card.hidden = true; scroller.hidden = false; goAway(); } return; }
+  if (m.t === 'drop.hover') { if (m.on) startDrop(); else if (D && D.drop === null) { endDrop(); card.hidden = true; scroller.hidden = false; if (cockpit) cardDone(); else goAway(); } return; }
   if (m.t === 'drop.go' && typeof m.name === 'string') { doDrop({ name: m.name, refused: m.refused ?? '', folder: m.folder === true }); return; }
   if (m.t === 'drop.done' && typeof m.path === 'string') { if (D) D.result = m; else dropReady(m); return; }
 
   if (m.t === 'whisper' && typeof m.text === 'string') {
+    if (cockpit) { cockWhisper(m); return; }
     if (!bubble.hidden && !bubble.classList.contains('whisper')) { whisperNext = m; return; }
     showWhisper(m);
     return;
@@ -1263,6 +1273,17 @@ function onBrain(m) {
   if (m.t === 'bubble' && typeof m.text === 'string') {
     // Something new to say ends looking back: the scroll-back steps aside for it.
     if (reading && !m.stream) leaveReading(false);
+    // The open cockpit (2026-10-21): a question pinned in the live area stays pinned, so anything said meanwhile goes
+    // straight into the conversation as a row (a brief or a video row opens there). Otherwise the thing that was live
+    // joins the conversation first, and this one takes the live area under it.
+    if (cockpit) {
+      // The same reply still arriving (the brain resends the whole text, then the finished one) is not a new thing.
+      const sameReply = cockStreaming && reveal.whole && m.text.startsWith(reveal.whole.slice(0, 12));
+      cockStreaming = m.stream === true;
+      if (asking) { if (!m.stream) { live = liveOf(m); cockCommit(); fit(); reportSize(); } return; }
+      if (!sameReply) cockCommit();
+      live = liveOf(m);
+    }
     // Sheet 41: the one-line door. A message about a video (or a page) opens into it on a click.
     if (!m.stream) { curAbout = m.about && typeof m.about.url === 'string' && /^https?:\/\//.test(m.about.url) ? m.about : null; paintAbout(false); }
     // A reply arriving while a question is open: the question steps aside, still waiting, and comes back
@@ -1352,6 +1373,8 @@ function onBrain(m) {
     show();
     paint();
     startTicking();
+    // The cockpit is already the open state, so a message about a video opens straight into it (and widens).
+    if (cockpit && curAbout && !m.stream) paintAbout(true);
     return;
   }
 
@@ -1406,6 +1429,7 @@ function onBrain(m) {
   if (m.t === 'notes.board') { openBoard(); return; }
   // Sheet 17: "set a timer" with no time, or the wheel's Timer: the dial.
   if (m.t === 'timer.setup') {
+    if (cockpit) { cockCommit(); live = { skip: true }; }
     closeBoard();
     reveal.start('', false);
     who.textContent = ''; who.hidden = true; who.classList.remove('plaque');
@@ -1419,6 +1443,15 @@ function onBrain(m) {
   }
 
   if (m.t === 'bubble.clear') {
+    // He stopped Aang from the cockpit (Esc while working), or the brain is retrying the turn: only the live answer
+    // goes. The cockpit, the conversation and any question pinned in it stay (2026-10-21; before, the whole bubble
+    // shut under his hands, typing area and all).
+    if (cockpit) {
+      if (ticking) { clearInterval(ticking); ticking = null; }
+      working.hidden = true; live = null; cockStreaming = false;
+      if (!asking) clearLive(); else { fit(); reportSize(); }
+      return;
+    }
     setSpeaker(null);
     chg.hidden = true; chgKey = null;
     choiceList(null);
@@ -1638,7 +1671,8 @@ function choiceList(m) {
       if (list.classList.contains('guard')) return;
       list.hidden = true;
       answer(r.pick);
-      if (r.other) openCockpit(false);
+      // In the open cockpit the typing area is already there: the caret goes to it (2026-10-21).
+      if (r.other) { if (cockpit) el('ckBox')?.focus(); else openCockpit(false); }
     });
     all.push(d);
     list.append(d);
@@ -1661,6 +1695,7 @@ let boardOpen = false, boardPage = 0, pullingNote = false;
 let editingNote = null;
 const PER_PAGE = 6;
 function openBoard() {
+  if (cockpit) { cockCommit(); live = { skip: true }; }
   reveal.start('', false);
   who.textContent = ''; who.hidden = true; who.classList.remove('plaque');
   scroller.hidden = true; working.hidden = true; tools.hidden = true;
@@ -1862,7 +1897,7 @@ function showTimerSet() {
   go.addEventListener('click', () => {
     window.aang?.timerStart?.({ ms: dialMin * 60_000, label: (nameIn.textContent ?? '').trim().slice(0, 40) });
     typing(false);
-    card.hidden = true; card.replaceChildren(); releaseMouse(); goAway();
+    cardDone();
   });
 }
 
@@ -2078,17 +2113,25 @@ let cockpit = false, cockMaxH = 600;
 const typingArea = startTyping({ onSize: () => { if (cockpit) reportSize(); } });
 window.aang?.onCockpit?.((c) => { if (c?.open) openCock(c.state ?? {}); else closeCock(); });
 
+// `docked` is NOT touched here (2026-10-21). It means one thing, as it always has: he clicked a message and what he
+// types answers it (openCockpit sets it, the main process's undock clears it, and a "sent" undock keeps the bubble for
+// the answer). The open cockpit's own "never fade while open" is the `cockpit` flag, which scheduleHide and goAway check.
+// Opening it with the hotkey therefore never pretends a message was clicked, and closing it after a click lets the
+// main process's undock (sent right behind cockpit:close) dismiss the message exactly as the old docked box did.
 function openCock(st) {
   cockMaxH = Number(st.maxH) > 240 ? Math.min(1200, Number(st.maxH)) : 600;
   if (cockpit) { typingArea.setLive(true); return; }
   cockpit = true;
-  docked = true;
+  live = null; cockStreaming = false;              // what is showing now is in the conversation the brain sends back
   clearTimeout(hideTimer);
   closeBoard();
   el('ck').hidden = false;
   bubble.classList.remove('whisper');
   bubble.classList.add('cockpit', 'lantern');
   if (reading) paintBack('bottom'); else enterReading();
+  // Who is talking (the Claude tag, a channel's face) and a card's plaque belong to the live thing, so in the cockpit
+  // they sit with it under the conversation, not above it.
+  scroller.before(speaker, who.parentElement);
   show(); fit(); reportSize();
   typingArea.setLive(true);
 }
@@ -2096,14 +2139,82 @@ function openCock(st) {
 function closeCock() {
   if (!cockpit) return;
   cockpit = false;
-  docked = false;
+  live = null; cockStreaming = false;
   typingArea.setLive(false);
   el('ck').hidden = true;
   bubble.classList.remove('cockpit', 'ckwide', 'ckask');
   leaveReading(false, true);
-  // A question waiting on him stays, as one; Aang still answering keeps his line; otherwise it goes.
-  if (asking || !working.hidden) { fit(); reportSize(); return; }
+  // Back where the one bubble has them: above the words.
+  (el('back') ?? scroller).before(speaker, who.parentElement);
+  // Back to the one bubble: the cards that only made sense inside the cockpit go with it, and the wood goes unless a
+  // Claude plan is what stays waiting.
+  card.hidden = true; paintAbout(false); mediaRow.hidden = true;
+  if (!asking?.samara) bubble.classList.remove('lantern');
+  // A question waiting on him stays, as one, drawn the one-bubble way; Aang still answering keeps his line;
+  // otherwise it goes.
+  if (asking) { const a = asking; asking = null; showAsk(a); return; }
+  if (!working.hidden) { fit(); reportSize(); return; }
   goAway();
+}
+
+/** What is live under the conversation now, so it can join the conversation when something new takes its place. */
+let live = null, cockStreaming = false;
+/** The row a message becomes in the conversation: its words, and the rich part a row knows how to open. */
+function liveOf(m) {
+  const extra = {};
+  if (m.brief && typeof m.brief === 'object') extra.brief = m.brief;
+  if (m.research && typeof m.research === 'object') extra.research = m.research;
+  if (m.about && typeof m.about.url === 'string') extra.about = m.about;
+  if (m.face && typeof m.face === 'object') extra.face = m.face;
+  const text = String(m.text || (extra.brief ? 'Your brief' : extra.research ? 'This week’s research' : ''));
+  return { id: typeof m.turn === 'number' ? m.turn : null, text, extra: Object.keys(extra).length ? extra : null };
+}
+/** The live thing joins the conversation as its newest row (a brief or a video row opens again in place there). */
+function cockCommit() {
+  const l = live; live = null;
+  if (!cockpit || !l || l.skip || !(l.text || l.extra)) return;
+  back.add({ id: l.id ?? localId--, ts: tsNow(), who: 'Aang', text: l.text, extra: l.extra });
+  paintBack('bottom');
+  const list = el('lblist'); if (list) list.scrollTop = list.scrollHeight;
+}
+/** Empty the live area (not the conversation, not the typing area): a question answered or timed out, a stop. */
+function clearLive() {
+  reveal.clear(); laidOut = null; paintWords();
+  scroller.hidden = true;
+  who.textContent = ''; who.hidden = true; who.classList.remove('plaque', 'red');
+  setSpeaker(null);
+  for (const id of ['means', 'exact', 'mailcard', 'chips', 'rlist']) { const e = document.getElementById(id); if (e) e.hidden = true; }
+  choiceList(null); paintPlan(null, -1); samaraPlan(null);
+  card.hidden = true; paintAbout(false); mediaRow.hidden = true;
+  fit(); reportSize();
+}
+/**
+ * A card he is finished with (Got it, Done, Start, a drop's keys). In the one bubble it goes away as before. In the
+ * cockpit it joins the conversation as a row (the brief, the research) and the cockpit stays open (2026-10-21).
+ */
+function cardDone() {
+  if (!cockpit) { releaseMouse(); goAway(); return; }
+  cockCommit();
+  typing(false);
+  card.hidden = true; card.replaceChildren();
+  who.textContent = ''; who.hidden = true; who.classList.remove('plaque', 'red');
+  if (!asking) { asks.hidden = true; asks.replaceChildren(); scroller.hidden = !reveal.whole; }
+  fit(); reportSize();
+}
+/** "Now playing" and the like, in the cockpit: one quiet line in the live area, never kept in the conversation. */
+function cockWhisper(w) {
+  if (asking) { whisperNext = w; return; }    // a pinned question keeps the live area; the line waits
+  cockCommit();
+  live = { skip: true }; cockStreaming = false;
+  reveal.start(w.text, false); reveal.skip();
+  expanded = false;
+  who.hidden = true; setSpeaker(null);
+  for (const id of ['means', 'exact', 'mailcard']) { const e = document.getElementById(id); if (e) e.hidden = true; }
+  card.hidden = true; paintAbout(false);
+  scroller.hidden = false; working.hidden = true;
+  mediaRow.hidden = w.controls !== 'media';
+  bubble.classList.remove('enter'); void bubble.offsetWidth; bubble.classList.add('enter');
+  paint();
 }
 
 /** The row's stored time format ("2026-10-21 13:14:02", UTC), for rows the cockpit adds before the brain stores them. */
@@ -2114,10 +2225,11 @@ let localId = -1;
  * conversation, and the live area under it waits for the new answer. Stored rows come back on the next look.
  */
 function cockSaid(text) {
-  if (reveal.done && reveal.whole && !scroller.hidden) back.add({ id: turn ?? localId--, ts: tsNow(), who: 'Aang', text: reveal.whole });
+  cockCommit();
+  if (!asking) { card.hidden = true; paintAbout(false); mediaRow.hidden = true; }
   back.add({ id: localId--, ts: tsNow(), who: 'you', text: String(text) });
-  reveal.clear(); laidOut = null; paintWords();
-  scroller.hidden = true; who.hidden = true; setSpeaker(null);
+  // A question pinned in the live area stays there, words and keys: he said something else, he did not answer it.
+  if (!asking) { reveal.clear(); laidOut = null; paintWords(); scroller.hidden = true; who.hidden = true; setSpeaker(null); }
   paintBack('bottom');
   const list = el('lblist'); if (list) list.scrollTop = list.scrollHeight;
   fit(); reportSize();
@@ -2131,7 +2243,8 @@ function fitCockpit() {
   const list = el('lblist');
   bubble.classList.add('lantern');            // the cockpit is always the Lantern (his pick)
   bubble.classList.toggle('ckask', Boolean(asking));
-  bubble.classList.toggle('ckwide', Boolean(document.querySelector('#lblist .lt-item.open .vshot')) || !card.hidden);
+  // Wider for a video or a card (the brief, research, the notes board), opened in the conversation or live under it.
+  bubble.classList.toggle('ckwide', Boolean(document.querySelector('#lblist .lt-item.open .vshot, #aboutbox:not([hidden]) .vshot')) || !card.hidden);
   if (!list) return;
   const atBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 8;
   list.style.maxHeight = 'none';
@@ -2154,6 +2267,18 @@ document.addEventListener('click', (e) => {
   if (!reading || lbOpen === null) return;
   if (e.target.closest?.('.lt-item, .turnmenu')) return;
   lbOpen = null; paintBack('top'); fit(); reportSize();
+}, true);
+// Esc anywhere in the open cockpit, not only in the typing area (the parity list: Esc closes things, 2026-10-21). He may
+// have clicked a brief's key or a row, so the caret is not in the field: an opened row closes first, then the cockpit.
+// Captured, so it sees a right-click menu before the menu's own Esc removes it (the menu goes first, alone). The field
+// keeps its own Esc (stop Aang, or close), and a note or a plan's change box keeps Esc for its own text.
+window.addEventListener('keydown', (e) => {
+  if (!cockpit || e.key !== 'Escape') return;
+  const t = /** @type {HTMLElement} */ (e.target);
+  if (t?.id === 'ckBox' || t?.closest?.('[contenteditable="true"], .plannote') || document.getElementById('turnmenu')) return;
+  e.preventDefault();
+  if (lbOpen !== null) { lbOpen = null; paintBack('top'); fit(); reportSize(); return; }
+  window.aang?.inputClose?.();
 }, true);
 
 // ---------------------------------------------------------------- the one-line door (sheet 41)
