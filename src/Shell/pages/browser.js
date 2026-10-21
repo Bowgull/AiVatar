@@ -1,4 +1,5 @@
 import { pixIcon } from './pixicons.js';
+import { startRune } from './rune.js';
 // 6.20: the browser's frame. Draws the rail and the address slot from the tab list the Shell sends, and
 // tells the Shell where the page area is (6.19). Everything is built with textContent: titles and
 // addresses are the websites' own words.
@@ -2055,3 +2056,11 @@ el('plango').addEventListener('click', () => {
   paintPlanTray(null);
 });
 el('planno').addEventListener('click', () => { if (planCard) window.aang?.browserPlanReply?.(planCard.id, { go: false, change: false, keep: [], note: '' }); paintPlanTray(null); });
+
+// C7 Claude's rune (2026-10-21, sheet 50): by the ... key only while a Claude job runs, waits on him, or has finished and
+// he has not said Nice. Its panel lies over the page like the menu, so it pictures the page the same way. The tray layer
+// (?tray) has no band, so no rune.
+if (!SOLO) {
+  startRune({ slot: el('runeslot'), band: el('band'), freeze, unfreeze, closeOthers: () => { closeMenu(); closeDrawer(); closeDl(); } });
+  el('runeslot')?.addEventListener('pointerenter', () => window.aang?.browserAct?.('peek'));
+}

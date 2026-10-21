@@ -102,5 +102,10 @@ export function wireBrowser(get: () => AangBrowser | null): void {
   ipcMain.on('browser:pref', (e, a) => { if ((top(e) && b()?.isFrame(e.sender)) && a && typeof a.key === 'string') b().setPref(a.key, a.on === true); });
   // His ask (2026-10-13): a tab let go outside its window becomes a window of its own (or joins the one it was dropped on).
   ipcMain.on('browser:tearout', (e, id) => { if ((top(e) && b()?.isFrame(e.sender)) && Number.isInteger(id)) b().tearOut(id); });
+  // C7 Claude's rune (2026-10-21): the band's own page only (not the tab list's layer, never a website). What it may send
+  // is the cockpit's pause / play / message, checked again in claudeAct; Open in Claude only for the exact claude:// link.
+  ipcMain.on('browser:claudehello', (e) => { if (top(e) && b()?.isMainFrame(e.sender)) b().claudeHello(e.sender); });
+  ipcMain.on('browser:claude', (e, raw) => { if (top(e) && b()?.isMainFrame(e.sender)) b().claudeAct(raw); });
+  ipcMain.on('browser:openclaude', (e, raw) => { if (top(e) && b()?.isMainFrame(e.sender)) b().claudeOpen(raw); });
   ipcMain.on('browser:tab', (e, a) => { if ((top(e) && b()?.isFrame(e.sender)) && a && Number.isInteger(a.id)) b().tabAct(a.id, String(a.act)); });
 }
