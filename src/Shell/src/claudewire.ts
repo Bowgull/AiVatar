@@ -54,7 +54,7 @@ export function claudeMessage(raw: unknown): Record<string, unknown> | null {
   }
 }
 
-/** A session's deep link, exactly claude://claude.ai/epitaxy/<id>, or null. Anything else is never handed to the shell. */
+/** A session's deep link, exactly claude://claude.ai/epitaxy/<id> (the app's ids are local_<uuid>, 2026-10-21), or null. Anything else is never handed to the shell. */
 export function claudeLink(raw: unknown): string | null {
-  return typeof raw === 'string' && /^claude:\/\/claude\.ai\/epitaxy\/[A-Za-z0-9-]{8,100}$/.test(raw) ? raw : null;
+  return typeof raw === 'string' && /^claude:\/\/claude\.ai\/epitaxy\/(local_)?[A-Za-z0-9-]{8,100}$/.test(raw) ? raw : null;
 }

@@ -130,13 +130,16 @@ export function startRune({ slot, band, freeze, unfreeze, closeOthers }) {
     const list = shown();
     if (!list.length) { chipKey = ''; slot.replaceChildren(); slot.hidden = true; if (open) close(); return; }
     const top = list[0], state = stateOf(top);
-    const p = state === 'complete' ? 1 : (pctOf(top) ?? 0) / 100;
+    // No to-do list means no percent: the ring turns slowly instead of sitting at an empty 0 (his catch, 2026-10-21).
+    const busy = state !== 'complete' && pctOf(top) === null;
+    const p = state === 'complete' ? 1 : busy ? 0.25 : (pctOf(top) ?? 0) / 100;
     const pip = list.length > 1 ? String(Math.min(9, list.length)) : '';
-    const key = `${state}|${Math.round(p * 100)}|${pip}|${open}`;
+    const key = `${state}|${Math.round(p * 100)}|${pip}|${open}|${busy}`;
     slot.hidden = false;
     if (key === chipKey) return;      // unchanged: leave it, so its slow breathing is not restarted every message
     chipKey = key;
     const c = chip(state, p, pip, open);
+    c.classList.toggle('busy', busy);
     c.addEventListener('click', (e) => { e.stopPropagation(); if (open) close(); else openPanel(); });
     slot.replaceChildren(c);
   }
@@ -163,7 +166,7 @@ export function startRune({ slot, band, freeze, unfreeze, closeOthers }) {
     const img = document.createElement('img'); img.src = CL; img.alt = '';
     const p = pctOf(j);
     const msg = btn('msg', undefined, 'Message this session'); msg.innerHTML = MSG;
-    hd.append(img, h('b', '', j.project), h('span', 't', onOf(j)), h('span', 'pct', p === null ? '—%' : p + '%'), msg);
+    hd.append(img, h('b', '', j.project), h('span', 't', onOf(j)), h('span', 'pct', p === null ? '' : p + '%'), msg);
     const row2 = h('div', 'row2'), pb = h('span', 'pb');
     pb.append(pill(96, 9, 2, boundsOf(j), (p ?? 0) / 100, j.tasks.length ? curIndex(j) : -1, paused ? SLATE : SEA, !paused));
     row2.append(pb, h('span', 'lt', leftOf(j)), h('i', 'chev'));
@@ -179,13 +182,13 @@ export function startRune({ slot, band, freeze, unfreeze, closeOthers }) {
         ob.append(h('i'), h('span', 'tx', now && t.active ? t.active : t.text), h('span', 'r', isDone ? 'done' : now ? 'NOW' : ''));
         list.append(ob);
       });
-      if (!j.tasks.length) list.append(h('div', 'ob now', j.prompt || 'No to-do list yet'));
+      if (!j.tasks.length) list.append(h('div', 'ob now', 'Working. Claude keeps no to-do list for this one, so there is no percent.'));
       const keys = h('div', 'ckeys');
       const pp = btn('key sm', paused ? 'Play' : 'Pause'); pp.dataset.act = paused ? 'play' : 'pause';
       pp.addEventListener('click', (e) => { e.stopPropagation(); aang.browserClaude?.(paused ? { t: 'claude.play', session: j.id } : { t: 'claude.pause', session: j.id }); });
       const op = btn('key sm primary', 'Open in Claude'); op.dataset.act = 'open';
       op.addEventListener('click', (e) => { e.stopPropagation(); if (j.open) aang.browserOpenClaude?.(j.open); });
-      keys.append(pp, op);
+      keys.append(pp); if (j.open) keys.append(op);
       d.append(list, keys);
     }
     if (sayFor === j.id) d.append(sayRow(j));

@@ -74,8 +74,10 @@ export interface Job {
   /** Rough time left from the pace of the tasks ticked so far; null until one is ticked. */
   etaMs: number | null;
   usage: { contextPercent?: number; rateLimits?: { kind: string; percentUsed: number; resetsAt?: string }[]; costUsd?: number } | null;
-  /** Opens this exact session in the Claude app. */
-  open: string;
+  /** What he named the session in the Claude app, or its folder's name (claudenames.ts, 2026-10-21). */
+  title: string;
+  /** Opens this exact session in the Claude app; null for a session the app does not know (a terminal one). */
+  open: string | null;
   /** Messages held for "after this task", how many. */
   held: number;
 }
@@ -118,6 +120,9 @@ interface Held { text: string; afterTask: string | null }
 interface Waiter<T> { resolve: (v: T) => void; timer: NodeJS.Timeout }
 
 export class JobTracker {
+  /** His names for sessions and their real app links; injected so tests need no Claude app on disk. */
+  private readonly names: { of(cli: string): { title: string; open: string } | null } | null;
+  constructor(names: { of(cli: string): { title: string; open: string } | null } | null = null) { this.names = names; }
   private readonly jobs = new Map<string, Job>();
   private readonly waits = new Map<string, WaitItem>();
   /** Per session: what the mod has not been handed yet. */
@@ -141,7 +146,7 @@ export class JobTracker {
     let j = this.jobs.get(session);
     if (!j) {
       j = { id: session, machine: 'pc', cwd, project: projectName(cwd), model: '', phase: 'idle', startedAt: now, lastActivity: now,
-        prompt: '', tasks: [], current: null, percent: null, etaMs: null, usage: null, open: `claude://claude.ai/epitaxy/${session}`, held: 0 };
+        prompt: '', tasks: [], current: null, percent: null, etaMs: null, usage: null, title: projectName(cwd), open: null, held: 0 };
       this.jobs.set(session, j);
       this.prune(now);
     }
@@ -294,7 +299,12 @@ export class JobTracker {
   // ---------------------------------------------- what the rest of the brain uses
 
   /** Every session it knows, the most recently active first. */
-  list(): Job[] { return [...this.jobs.values()].sort((a, b) => b.lastActivity - a.lastActivity).map(j => ({ ...j, tasks: j.tasks.map(t => ({ ...t })) })); }
+  list(): Job[] {
+    return [...this.jobs.values()].sort((a, b) => b.lastActivity - a.lastActivity).map(j => {
+      const n = this.names?.of(j.id);
+      return { ...j, title: n?.title || j.project, open: n?.open ?? null, tasks: j.tasks.map(t => ({ ...t })) };
+    });
+  }
 
   /** What is waiting on him: permissions first, then questions, then plans; oldest first within each. */
   waiting(): WaitItem[] { return [...this.waits.values()].sort((a, b) => KIND_RANK[a.kind] - KIND_RANK[b.kind] || a.at - b.at); }

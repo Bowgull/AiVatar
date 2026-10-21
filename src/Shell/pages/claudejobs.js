@@ -78,7 +78,9 @@ function weekOf(j) {
 /** What a bar says it is on: the task in progress and where that is in the list. */
 function onOf(j) {
   const i = curIndex(j), n = j.tasks.length;
-  const what = j.current || (i >= 0 ? j.tasks[i].active || j.tasks[i].text : '') || j.prompt || '';
+  // Never the first thing typed into the session (2026-10-21: the rune read "job hunt data yes build the fit as is from
+  // the research before phase 4"): the task in hand, or just "Working" when Claude keeps no to-do list.
+  const what = j.current || (i >= 0 ? j.tasks[i].active || j.tasks[i].text : '') || (j.phase === 'working' ? 'Working' : '');
   return n && i >= 0 ? `${what} · task ${i + 1} of ${n}` : what;
 }
 /** Claude marks its suggested option "(Recommended)"; the card shows it as the turquoise BEST tag instead. */
@@ -92,7 +94,8 @@ function readJob(x) {
     text: str(t?.text, 200), status: ['pending', 'in_progress', 'completed'].includes(t?.status) ? t.status : 'pending', active: str(t?.active, 200),
   }));
   return {
-    id: x.id.slice(0, 100), machine: x.machine === 'mac' ? 'MAC' : 'PC', project: str(x.project, 60) || 'Claude', phase, tasks,
+    // His own name for the session in the Claude app when it has one (claudenames.ts), else its folder's.
+    id: x.id.slice(0, 100), machine: x.machine === 'mac' ? 'MAC' : 'PC', project: str(x.title, 60) || str(x.project, 60) || 'Claude', phase, tasks,
     startedAt: Number(x.startedAt) || 0, prompt: str(x.prompt, 200), current: str(x.current, 200),
     percent: Number.isFinite(x.percent) ? x.percent : null, etaMs: Number.isFinite(x.etaMs) ? x.etaMs : null,
     usage: x.usage && typeof x.usage === 'object' ? x.usage : null, open: str(x.open, 200), held: Math.max(0, Math.min(99, Number(x.held) || 0)),
@@ -177,7 +180,7 @@ export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWa
   function flipEl(j, cls = '') {
     const f = btn('flip' + (flipped.has(j.id) ? ' back' : '') + cls, undefined, 'Flip: how much of your Claude week this job has used');
     const fi = h('span', 'fi'), p = pctOf(j);
-    fi.append(h('span', 'ff', p === null ? '—%' : p + '%'), h('span', 'fb', weekOf(j)));
+    fi.append(h('span', 'ff', p === null ? '' : p + '%'), h('span', 'fb', weekOf(j)));
     f.append(fi);
     f.addEventListener('click', (e) => { e.stopPropagation(); if (flipped.has(j.id)) flipped.delete(j.id); else flipped.add(j.id); f.classList.toggle('back', flipped.has(j.id)); });
     return f;
@@ -203,13 +206,13 @@ export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWa
       ob.append(h('i'), h('span', 'tx', now && t.active ? t.active : t.text), h('span', 'r', done ? 'done' : now ? 'NOW' : ''));
       list.append(ob);
     });
-    if (!j.tasks.length) list.append(h('div', 'ob now', j.prompt || 'No to-do list yet'));
+    if (!j.tasks.length) list.append(h('div', 'ob now', 'Working. Claude keeps no to-do list for this one, so there is no percent.'));
     const keys = h('div', 'ckeys');
     const pp = btn('key sm', paused ? 'Play' : 'Pause');
     pp.addEventListener('click', (e) => { e.stopPropagation(); send(paused ? { t: 'claude.play', session: j.id } : { t: 'claude.pause', session: j.id }); });
     const op = btn('key sm primary', 'Open in Claude');
     op.addEventListener('click', (e) => { e.stopPropagation(); if (j.open) window.aang?.openClaude?.(j.open); });
-    keys.append(pp, op);
+    keys.append(pp); if (j.open) keys.append(op);   // a terminal session has no app link to open
     const un = btn('untrack', 'STOP TRACKING');
     un.addEventListener('click', (e) => { e.stopPropagation(); untrack(j.id); });
     inner.append(list, keys, un); det.append(inner); d.append(det);
