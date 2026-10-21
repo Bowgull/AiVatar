@@ -55,7 +55,11 @@ skull), `sheet-47-mockups-trail.html` (Samara's Mockups trail). Sounds: `sounds-
 
 ## Build order
 
-- **C0 Samara Mockups trail** (sheet 47): in progress.
+- **C0 Samara Mockups trail** (sheet 47): BUILT 2026-10-21 (688973f): versions, history, broom, branches.
+  **Send a mockup to Aang** (his yes, 2026-10-21): right-click a mockup, a version or a branch -> Send to Aang; the
+  picture, its notes and the exact version travel as a chip (Samara side being built). **Aang remembers mockups** you
+  attach, by name, branch and version with a one-line summary (not the pictures), so "the cockpit mockup" works next week:
+  part of C2 (the brain). In the cockpit (C3/C4) the chip sits on the typing area and the purple key passes it to a session.
 - **C1 The link add-on, checked first.** A Claude Code mod/plugin on the PC and the Mac that loads into EVERY session.
   Check before anything else that it does: PermissionRequest `decision`, answering AskUserQuestion, reading the to-do
   list (TaskCreated/TaskCompleted), `$.prompt.submit` to resume, model switch, `turn.abort` for Pause, and the deep link
