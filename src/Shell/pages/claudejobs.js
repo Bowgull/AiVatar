@@ -253,7 +253,9 @@ function readWait(x) {
  * sent a session into the conversation, `onChange` asks the bubble to re-measure, and `onWaiting(has, fresh)` tells it
  * whether something is waiting (fresh: a new thing came to the top), so a closed bubble can speak the card.
  */
-export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWaiting }) {
+// Sheet 53 (2026-10-21): `stripOn` says whether the job bars are on screen. In the cockpit that is the cockpit being
+// open; in the one speech bubble it is the jobs he opened from Claude's working mark (every running job, each folded).
+export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWaiting, stripOn = isOpen }) {
   const strip = el('ckjobs'), pins = el('ckpins');
   let jobs = [], waits = [];
   const answered = new Set();        // answered here, still in the brain's last list until its next one
@@ -374,7 +376,7 @@ export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWa
     // The clock starts when it is first drawn in the open cockpit, so a job finishing while he is away is still seen.
     if (!doneTimers.has(j.id)) doneTimers.set(j.id, setTimeout(() => {
       const now = [...strip.querySelectorAll('.jdone')].find((x) => x.dataset.id === j.id);
-      if (now && isOpen() && !strip.hidden) acknowledge(j.id, now);
+      if (now && stripOn() && !strip.hidden) acknowledge(j.id, now);
       else { doneTimers.delete(j.id); complete.delete(j.id); paintJobs(); }
     }, DONE_SHOW_MS));
     return d;
@@ -412,7 +414,7 @@ export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWa
     retrack();
     const run = jobs.filter(running).sort((a, b) => b.startedAt - a.startedAt);
     const done = [...complete.values()].filter((j) => !run.some((r) => r.id === j.id));
-    const sig = JSON.stringify([isOpen(), tracked, listOpen, [...unfolded], targetId, [...leaving],
+    const sig = JSON.stringify([isOpen(), stripOn(), tracked, listOpen, [...unfolded], targetId, [...leaving],
       // Not the percent, the time left or the live line: those update in place every frame (the progress engine), and
       // redrawing for them would re-measure the cockpit many times a second. Whether helper agents show is layout.
       run.map((j) => [j.id, j.project, j.machine, j.phase, pctOf(j) === null, onOf(j), j.held, weekOf(j), j.tasks.map((t) => t.status + t.text + t.active), Boolean(j.activity?.agents?.length)]),
@@ -422,12 +424,14 @@ export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWa
     anims.clear();                   // the bars are drawn afresh; the old canvases stop breathing with them
     strip.replaceChildren();
     strip.classList.remove('ck-leaving');
-    strip.hidden = !isOpen() || (!run.length && !done.length);
+    strip.hidden = !stripOn() || (!run.length && !done.length);
     animate(!strip.hidden);
     if (strip.hidden) return true;
-    for (const id of tracked) { const j = jobOf(id); if (j) strip.append(barOf(j)); }
+    // In the speech bubble (sheet 53) every running job is its own folded bar, newest first; tracking is the cockpit's.
+    const bars = isOpen() ? tracked : run.map((j) => j.id);
+    for (const id of bars) { const j = jobOf(id); if (j) strip.append(barOf(j)); }
     for (const j of done) strip.append(doneOf(j));
-    const others = run.filter((j) => !tracked.includes(j.id));
+    const others = run.filter((j) => !bars.includes(j.id));
     if (!others.length) return true;
     const o = h('div', 'others' + (listOpen ? ' open' : ''));
     const line = btn('oline'), dots = h('span', 'dots');
@@ -650,7 +654,13 @@ export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWa
      */
     park() { parked = true; paintPins(); },
     /** Opening Aang shows what is still waiting, put away or not. */
-    unpark() { parked = false; },
+    unpark() { parked = false; paintPins(); },
+    /** Sheet 53: something is waiting on him in the brain, put away or not (a click on the working mark brings it back). */
+    anyWaiting: () => live().length > 0,
+    /** Sheet 53: how many jobs are at work or waiting on him (what a click on the working mark would show). */
+    running: () => jobs.filter(running).length,
+    /** Sheet 53: the jobs view opened or closed in the speech bubble: draw the bars (or take them away) now. */
+    refresh() { paintJobs(true); },
     /**
      * Not enough room: the list of other jobs folds first (sheet 45g's rule), then the tasks of a bar he unfolded earlier
      * (the one he just opened only when `evenHis`: nothing else is left). Redrawn rather than animated, so the next measure already sees the folded height.

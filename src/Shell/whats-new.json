@@ -450,6 +450,11 @@
       "at": "2026-10-22T00:10:00-04:00",
       "text": "Claude job bars move live and say what Claude is doing.",
       "kind": "feature"
+    },
+    {
+      "at": "2026-10-22T00:40:00-04:00",
+      "text": "Aang talks in one light speech bubble again.",
+      "kind": "feature"
     }
   ]
 }

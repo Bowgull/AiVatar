@@ -80,7 +80,10 @@ export class InputBox {
     w.focus();
     w.webContents.focus();
     this.send('input:state', { ...state, opened: true });
+    this.onShown?.(true);
   }
+  /** Set by main.ts (sheet 53, 2026-10-21): the box opened or closed, so the bubble moves above it and goes with it. */
+  onShown: ((on: boolean) => void) | null = null;
 
   /**
    * Hide it AND hand the keyboard back.
@@ -96,6 +99,7 @@ export class InputBox {
     const w = this.win;
     if (!w || w.isDestroyed() || !w.isVisible()) return;
     w.hide();
+    this.onShown?.(false);
     if (this.docked) { this.docked = false; this.onUndock?.(); }
     // The pet knows which window he was in and hands the keyboard straight back to it. Minimizing to
     // let Windows pick "the next window" was tried first and handed it to Discord instead of the window

@@ -11,13 +11,14 @@
 //   2. When HE opens it, it takes the keyboard in the same breath, synchronously inside the hotkey handler (input.ts's
 //      whole lesson), and when it closes it hands the keyboard back to the window he came from (the pet's refocus).
 //
-// On by default (with the new bubble on) from 2026-10-21, after the size fix: the switch is read when the Shell starts,
-// so a running Aang keeps whatever it started with and the cockpit arrives with his next start. AANG_COCKPIT=0 turns it
-// off again (the old bubble and typing box come back).
+// OFF by default again (2026-10-21, sheet 53): he turned the wooden cockpit down ("it doesn't make sense that Aang would
+// have a full wooden speech bubble", "I prefer the chat box being separate from the bubble"). Aang talks in one living
+// speech bubble and the typing box is its own window under him again. The cockpit stays here, untouched, behind
+// AANG_COCKPIT=1, until he says it can go. The switch is read when the Shell starts.
 import type { BrowserWindow } from 'electron';
 import type { Bubble } from './bubble.ts';
 
-export const wantsCockpit = (env: NodeJS.ProcessEnv = process.env): boolean => env.AANG_COCKPIT !== '0';
+export const wantsCockpit = (env: NodeJS.ProcessEnv = process.env): boolean => env.AANG_COCKPIT === '1';
 
 export class CockpitBox {
   private readonly bubble: Bubble;
@@ -102,4 +103,6 @@ export interface TypingSurface {
   docked: boolean;
   onGiveBack: (() => void) | null;
   onUndock: (() => void) | null;
+  /** Sheet 53 (2026-10-21): the separate box opened or closed, so the bubble can sit above it and let go with it. */
+  onShown?: ((on: boolean) => void) | null;
 }

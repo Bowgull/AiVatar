@@ -17,6 +17,22 @@ import { startClaude } from './claudejobs.js';
 
 const el = id => document.getElementById(id);
 const bubble = el('bubble'), said = el('said'), scroller = el('scroller'), more = el('more');
+
+// Sheet 51's slim G1 finger (his pick), drawn whole-pixel at exactly 2x from its palette map, the same as sheet 53's
+// render script draws it; the pointed-at row of a Claude question wears it (bubble.css --glove).
+{
+  const G1 = ['....OOOO......', '...OWWWWOOOOO.', '.OOOWWWWWWWWWO', 'OCCKWWWLLLLLLO', 'OCCKWWWSOOOOO.', 'OCCKWWWWLO....', '.OOOLWWSO.....', '...OOLLO......', '....OOO.......'];
+  const pal = { O: '#2a1a10', W: '#fffaf0', L: '#d9d2e4', S: '#9f97b4', C: '#f3e2b8', K: '#c98c14' };
+  const c = document.createElement('canvas'); c.width = G1[0].length * 2; c.height = G1.length * 2;
+  const g = c.getContext('2d');
+  if (g) G1.forEach((r, y) => [...r].forEach((ch, x) => { if (pal[ch]) { g.fillStyle = pal[ch]; g.fillRect(x * 2, y * 2, 2, 2); } }));
+  document.documentElement.style.setProperty('--glove', 'url(' + c.toDataURL() + ')');
+}
+/** Sheet 53 (2026-10-21): the jobs he opened from Claude's working mark are in the bubble (claudejobs.js draws them). */
+let jobsOpen = false;
+/** Sheet 53: the "N MIN AGO" line that came back with the chat box is showing; it goes when the box does. */
+let recentOpen = false;
+const wrapEl = el('wrap');
 const skin = el('skin');
 const working = el('working'), doing = el('doing'), asks = el('asks'), tools = el('tools'), who = el('who');
 
@@ -429,6 +445,8 @@ function startTicking() {
 // and, as in the old one, never while the mouse is on it, and never while it is asking him something.
 let hideTimer = 0;
 function holdFor(text) {
+  // Sheet 53: the jobs from the mark stay until he clicks away (or they finish); the recent line stays while the box is up.
+  if (jobsOpen || recentOpen) return 300000;
   if (bubble.classList.contains('whisper')) return 10000;
   if (!card.hidden) return 120000;                  // the brief is read, not glanced at
   if (livePlan) return 600000;                      // a job is running: the checklist stays until the reply
@@ -457,6 +475,9 @@ function goAway() {
       bubble.hidden = true;
       snapShut();
       releaseMouse();
+      // Sheet 53: the jobs view and the recent line end with the bubble; the mark stays until the jobs are done.
+      recentOpen = false; wrapEl?.classList.remove('ago');
+      if (jobsOpen) { jobsOpen = false; claude?.refresh(); }
       // A question that stepped aside for a reply comes back now.
       if (askParked && waiting.length) { askParked = false; showTopAsk(); return; }
       askParked = false;
@@ -471,6 +492,8 @@ function goAway() {
 function show() {
   bubble.hidden = false;
   bubble.classList.remove('leaving');
+  // Anything shown is not the "N MIN AGO" line any more (showRecent puts the stamp back after this).
+  recentOpen = false; wrapEl?.classList.remove('ago');
   // Measured from the real font at the real size, once there is something to measure. A guess here
   // would make "six lines" mean five and a half.
   const h = parseFloat(getComputedStyle(said).lineHeight);
@@ -596,7 +619,10 @@ function showAsk(m) {
   // In the open cockpit (2026-10-21) whatever was live under the conversation (a reply, the brief, a video) joins the
   // conversation as a row first, so the question takes the live area without wiping anything he had not read.
   if (cockpit && asking !== m) { cockCommit(); card.hidden = true; paintAbout(false); }
+  // Sheet 53: a new question grows in like anything else, its pieces fading in one after another.
+  const fresh = asking !== m;
   asking = m;
+  if (fresh && !cockpit) { endJobs(); bubble.classList.remove('enter'); void bubble.offsetWidth; bubble.classList.add('enter'); }
   bubble.classList.remove('whisper');
   mediaRow.hidden = true;
   // The question goes where a reply goes, so his eye does not have to move for it.
@@ -826,6 +852,7 @@ for (const [key, label, path] of [
 scroller.after(mediaRow);
 
 function showWhisper(w) {
+  endJobs();
   reveal.start(w.text, false);
   reveal.skip();
   expanded = false;
@@ -1226,25 +1253,61 @@ function dropReady(r) {
 }
 
 // ---------------------------------------------------------------- what the brain says
-/** The last thing shown here, whatever it was (a reply, the brief, a card, a whisper), for a click on Aang (2026-10-20). */
-let lastShown = null;
+/** The last thing shown here, whatever it was (a reply, the brief, a card, a whisper), and when (sheet 53's 5-min rule). */
+let lastShown = null, lastShownAt = 0;
+/** Sheet 53 section 3: how long ago still counts as "he just said it". */
+const RECENT_MS = 5 * 60_000;
 /**
- * He clicked Aang with nothing showing (his rule, 2026-10-20): what he last saw comes back. A question still waiting
- * first; then a live plan, at its step now; then the last reply, brief or card. Clicking it opens the chat box, as
- * clicking any message does. False when there was nothing, so the click opens the chat box instead.
+ * He clicked Aang (sheet 53, his rules, 2026-10-21). The chat box is already opening beside him (main.ts); this only
+ * decides what, if anything, shows above it:
+ *   'recent'  a question of Aang's that is still waiting comes back first (he must be able to answer it); otherwise the
+ *             line Aang said in the last 5 minutes, small, with its "N MIN AGO" stamp. Older talk: the wheel over Aang,
+ *             or ask him. Something already showing stays as it is.
+ *   'jobs'    the click was on Claude's working mark: what a session waits on (the question card with its keys), else
+ *             every running job as a folded bar. False with no Claude jobs at all, so main.ts opens the chat box instead.
  */
-function recall() {
-  if (reading) leaveReading(false);
+function recall(what) {
+  if (what === 'jobs') {
+    if (cockpit || !claude) return false;
+    if (claude.anyWaiting()) { if (reading) leaveReading(false); claude.unpark(); claudeWaiting(true, true, true); return true; }
+    if (claude.running() > 0) { showJobs(); return true; }
+    return false;
+  }
+  if (!bubble.hidden) return true;
   if (waiting.length) { showTopAsk(); return true; }
-  if (livePlan) { bubble.hidden = false; paintPlan(livePlan, livePlan.at ?? 0); fit(); reportSize(); return true; }
-  if (lastShown) { const m = { ...lastShown, stream: false, recalled: true }; delete m.proactive; laidOut = null; onBrain(m); return true; }
+  if (lastShown && Date.now() - lastShownAt < RECENT_MS) return showRecent(lastShown);
   return false;
 }
-window.aang?.onRecall?.(() => { let ok = false; try { ok = recall(); } catch { ok = false; } window.aang?.recalled?.(ok); });
+window.aang?.onRecall?.((what) => { let ok = false; try { ok = recall(what); } catch { ok = false; } window.aang?.recalled?.(ok); });
+/** The line he said a moment ago, small over the chat box, with its age on the bubble's corner (sheet 53, click-2-recent). */
+function showRecent(m) {
+  const text = String(m.text || (m.brief ? 'Your morning brief' : m.research ? 'This week\u2019s research' : '')).replace(/\s+/g, ' ').trim();
+  if (!text) return false;
+  showWhisper({ text });
+  const mins = Math.floor((Date.now() - lastShownAt) / 60_000);
+  if (wrapEl) { wrapEl.dataset.ago = mins < 1 ? 'JUST NOW' : `${mins} MIN AGO`; wrapEl.classList.add('ago'); }
+  recentOpen = true;
+  scheduleHide();
+  return true;
+}
+/**
+ * Claude's jobs from the working mark (sheet 53 section 4): one line ("Claude is on two jobs."), then every running job as
+ * its own folded 45f bar on the bubble's paper. A bar unfolds its tasks on a click; a click anywhere else shrinks it away.
+ */
+const COUNT = ['no', 'one', 'two', 'three', 'four', 'five', 'six'];
+function showJobs() {
+  const n = claude?.running() ?? 0;
+  if (reading) leaveReading(false);
+  onBrain({ t: 'bubble', text: `Claude is on ${COUNT[n] ?? n} job${n === 1 ? '' : 's'}.`, stream: false, recalled: true, fromPet: true, jobsView: true });
+  bubble.classList.add('wide');
+  fit(); reportSize();
+}
+/** Anything else taking the bubble ends the jobs view (the mark stays until the jobs are done). */
+function endJobs() { if (!jobsOpen) return; jobsOpen = false; claude?.refresh(); }
 
 function onBrain(m) {
   if (!m || typeof m !== 'object') return;
-  if (!m.recalled && (m.t === 'bubble' || m.t === 'whisper' || m.t === 'pet.say') && (m.text || m.brief || m.research || m.card)) lastShown = m;
+  if (!m.recalled && (m.t === 'bubble' || m.t === 'whisper' || m.t === 'pet.say') && (m.text || m.brief || m.research || m.card)) { lastShown = m; lastShownAt = Date.now(); }
 
   // What he just asked, for the line above the answer. Kept until the next thing he says.
   if (m.t === 'asked' && typeof m.text === 'string') { asked = m.text; if (cockpit) cockSaid(m.text); return; }
@@ -1311,6 +1374,8 @@ function onBrain(m) {
   if (m.t === 'bubble' && typeof m.text === 'string') {
     // Something new to say ends looking back: the scroll-back steps aside for it.
     if (reading && !m.stream) leaveReading(false);
+    // Sheet 53: the jobs view is this one line plus the bars; anything else said ends it.
+    if (!m.stream && !cockpit) { const want = m.jobsView === true; if (want !== jobsOpen) { jobsOpen = want; claude?.refresh(); } }
     // The open cockpit (2026-10-21): a question pinned in the live area stays pinned, so anything said meanwhile goes
     // straight into the conversation as a row (a brief or a video row opens there). Otherwise the thing that was live
     // joins the conversation first, and this one takes the live area under it.
@@ -1353,7 +1418,8 @@ function onBrain(m) {
     if (m.brief && typeof m.brief === 'object' && Array.isArray(m.brief.events)) {
       reveal.start('', false);
       who.textContent = ''; who.hidden = true; who.classList.remove('plaque');
-      bubble.classList.add('lantern');
+      // Sheet 53: the brief sits on the bubble's own light paper; only the cockpit is wood.
+      bubble.classList.toggle('lantern', cockpit);
       setSpeaker(null);
       scroller.hidden = true;
       working.hidden = true;
@@ -1402,7 +1468,7 @@ function onBrain(m) {
     // characters (BubbleView:953), so a reply always carries its question. Showing "QUICK" instead was
     // a label nobody needed, and he spotted it at once (2026-10-04).
     // Nothing above a message Aang started himself: there was no question.
-    const line = m.proactive ? '' : asked.replace(/\s+/g, ' ').trim();
+    const line = m.proactive || m.jobsView ? '' : asked.replace(/\s+/g, ' ').trim();
     who.textContent = line.length > 50 ? line.slice(0, 49).trimEnd() + '…' : line;
     who.hidden = !who.textContent || cockpit;
     if (cockpit) bubble.classList.add('lantern');
@@ -1655,6 +1721,8 @@ bubble.addEventListener('click', e => {
   // Looking back has its own clicks (rows open, Reply, Undo): none of them open the cockpit.
   if (reading) return;
   if (e.target.closest('.tool, .key, .more, .opt, .chg, .vshot')) return;     // those have their own jobs
+  // Sheet 53: the job bars (they unfold) and Claude's card (Claude's words, N MORE) have their own clicks too.
+  if (e.target.closest('#ckjobs, #ckpins')) return;
   // Sheet 17: the notes board, a note being edited, its menu and the timer dial are things he works IN.
   // A click there was docking the typing box over them and taking the keyboard away (his test, 2026-10-12).
   if (e.target.closest('.boardwrap, .nmini, .bignote, .inline, .ctitle, .tset, .newk, .bcap')) return;
@@ -2030,6 +2098,8 @@ function openClaude() {
  */
 function dismiss(why) {
   if (bubble.hidden) return;
+  // Sheet 53: the chat box closed. Only the "N MIN AGO" line that came back with it goes too.
+  if (why === 'boxclosed') { if (recentOpen) { clearTimeout(hideTimer); goAway(); } return; }
   const his = why === 'esc' || why === 'outside';
   if (asking && !his) return;
   if (cockpit) return;                   // the open cockpit closes through the main process (input.close), right behind this
@@ -2241,22 +2311,29 @@ claude = startClaude({
     back.add({ id: localId--, ts: tsNow(), who: 'you', text: String(text), extra: { to: String(project), ...(when ? { when } : {}) } });
     if (reading) { paintBack('bottom'); const list = el('lblist'); if (list) list.scrollTop = list.scrollHeight; }
   },
-  onChange: () => { if (!bubble.hidden) { fit(); reportSize(); } },
+  onChange: () => {
+    // Sheet 53: the last job finished (its JOB COMPLETE folded away) with the jobs open from the mark: the bubble goes.
+    if (jobsOpen && el('ckjobs').hidden && !bubble.hidden && !bubble.classList.contains('leaving')) { goAway(); return; }
+    if (!bubble.hidden) { fit(); reportSize(); }
+  },
   onWaiting: (has, fresh) => claudeWaiting(has, fresh),
+  stripOn: () => cockpit || jobsOpen,
 });
 /**
  * Something a Claude session waits on, with the cockpit closed: the bubble speaks the same card (Aang saying it), so he
  * can answer without opening anything. Not in a game (the pet's marks hold it, as for every Claude ask) and not when he
  * has hidden Aang. When the last one is answered, a bubble that only held the card goes.
  */
-function claudeWaiting(has, fresh) {
+function claudeWaiting(has, fresh, asked = false) {
   if (cockpit) return;
   if (!has) {
     if (!bubble.hidden && scroller.hidden && !asking && card.hidden && working.hidden) goAway();
     return;
   }
-  if (!fresh || quiet || petHidden || reading) return;
-  if (bubble.hidden) cardOnly();
+  // He clicked the mark (`asked`): shown even in a game, and over whatever was there (sheet 53).
+  if (!fresh || ((quiet || petHidden || reading) && !asked)) return;
+  endJobs();
+  if (bubble.hidden || asked) cardOnly();
   clearTimeout(hideTimer);
   show(); fit(); reportSize();
 }

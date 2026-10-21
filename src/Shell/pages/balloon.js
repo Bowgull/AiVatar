@@ -117,6 +117,11 @@ export function balloonPath(w, h, head, opt = {}) {
  * free, because the tail is part of the same path.
  */
 // `wood` (sheet 24, the Lantern brief): the browser's dark tray wood instead of parchment, the same tail and ink line.
+//
+// Sheet 53 (2026-10-21): every piece is named (the paper's three stops p1-p3, the hard shadow, the ink) so the look is
+// set from bubble.css's custom properties (.rimB: --paper-1..3, --rim-ink, --rim-w) and not baked in here. The empty
+// `g.rim` sits under the ink line, clipped to the shape, with the outline on `data-d`: the wood rim and corner studs he
+// picks on sheet 54 paint into it (wide strokes of the pixel wood along that outline), nothing else has to change.
 export function paintBalloon(svg, w, h, d, uid, wood = false) {
   svg.setAttribute('viewBox', `0 0 ${n(w)} ${n(h)}`);
   svg.setAttribute('width', String(Math.ceil(w)));
@@ -124,15 +129,15 @@ export function paintBalloon(svg, w, h, d, uid, wood = false) {
   svg.innerHTML =
     `<defs>`
     + `<linearGradient id="bg${uid}" x1="0" y1="0" x2="0" y2="1">`
-    + `<stop offset="0" stop-color="#F6E6C6"/><stop offset=".45" stop-color="#ECD5A8"/>`
-    + `<stop offset="1" stop-color="#DEC28C"/></linearGradient>`
+    + `<stop class="p1" offset="0" stop-color="#F6E6C6"/><stop class="p2" offset=".45" stop-color="#ECD5A8"/>`
+    + `<stop class="p3" offset="1" stop-color="#DEC28C"/></linearGradient>`
     + `<clipPath id="bc${uid}"><path d="${d}"/></clipPath>`
     + (wood ? `<pattern id="wd${uid}" patternUnits="userSpaceOnUse" width="128" height="256"><image href="art/browser/tray.png" width="128" height="256" style="image-rendering:pixelated"/></pattern>` : '')
     + `</defs>`
     + `<filter id="sf${uid}" x="-20%" y="-20%" width="140%" height="160%"><feGaussianBlur stdDeviation="7"/></filter>`
     // 1. a soft shadow far under it, then the hard contact shadow (Smoother look, sheet 13)
     + `<path d="${d}" fill="rgba(10,5,20,.45)" transform="translate(0,9)" filter="url(#sf${uid})"/>`
-    + `<path d="${d}" fill="rgba(0,0,0,.42)" transform="translate(0,3)"/>`
+    + `<path class="hard" d="${d}" fill="rgba(0,0,0,.42)" transform="translate(0,3)"/>`
     // 2. the parchment
     + `<path d="${d}" fill="url(#${wood ? 'wd' : 'bg'}${uid})"/>`
     // 3 and 4. the lit top lip and the shaded bottom, clipped so they stay inside the edge
@@ -140,8 +145,10 @@ export function paintBalloon(svg, w, h, d, uid, wood = false) {
     + `<path d="${d}" fill="none" stroke="${wood ? 'rgba(255,224,150,.10)' : 'rgba(255,255,255,.5)'}" stroke-width="12" transform="translate(0,6)"/>`
     + `<path d="${d}" fill="none" stroke="${wood ? 'rgba(0,0,0,.35)' : 'rgba(150,110,60,.26)'}" stroke-width="12" transform="translate(0,-6)"/>`
     + `</g>`
+    // 4b. the rim's place (sheet 53/54): empty until the chosen rim is dropped in
+    + `<g class="rim" clip-path="url(#bc${uid})" data-d="${d}"></g>`
     // 5. the ink line, last, so nothing is drawn across it
-    + `<path d="${d}" fill="none" stroke="#120A05" stroke-width="${OW}" stroke-linejoin="round"/>`;
+    + `<path class="ink" d="${d}" fill="none" stroke="#120A05" stroke-width="${OW}" stroke-linejoin="round"/>`;
 }
 
 /**

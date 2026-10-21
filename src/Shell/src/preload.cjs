@@ -104,7 +104,8 @@ contextBridge.exposeInMainWorld('aang', {
   /** The docked box closed: 'sent' when he answered (the bubble stays), anything else lets it go. */
   onUndock(fn) { const h = (_e, why) => fn(why); ipcRenderer.on('bubble:undock', h); return () => ipcRenderer.removeListener('bubble:undock', h); },
   /** He clicked Aang: show again whatever was last shown (2026-10-20). The page says whether it had anything. */
-  onRecall(fn) { const h = () => fn(); ipcRenderer.on('bubble:recall', h); return () => ipcRenderer.removeListener('bubble:recall', h); },
+  // Sheet 53 (2026-10-21): what the click was, 'recent' (on Aang: his line from the last 5 minutes) or 'jobs' (on Claude's mark).
+  onRecall(fn) { const h = (_e, what) => fn(what === 'jobs' ? 'jobs' : 'recent'); ipcRenderer.on('bubble:recall', h); return () => ipcRenderer.removeListener('bubble:recall', h); },
   recalled: ok => ipcRenderer.send('bubble:recalled', ok === true),
   /** How big the drawn bubble actually is, measured by the page, so the window can fit it. */
   bubbleSize: s => ipcRenderer.send('bubble:size', s),
