@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 56 stage</title>
+<!-- Sheet 56 (2026-10-21): the stage that shots.mjs photographs. ?look=A loads Samara's own stylesheets (cockpit.css +
+     browser.css) and builds the menu as browser.js builds its tab menu (.tabmenu > button, .sep, <i> tags, .danger).
+     ?look=B loads the speech bubble's own stylesheets (cockpit.css + bubble.css) and builds the bubble's own right-click
+     menu (.turnmenu > .mrow) on the parchment of .wrap.rimB, with sheet 55's S2 slim wood band painted round it.
+     The menus' look is the product CSS; stage.css only places things and adds the icon slot. A picture maker. -->
+<script>
+  const LOOK = new URLSearchParams(location.search).get('look') === 'B' ? 'B' : 'A';
+  const css = ['../../../src/Shell/pages/cockpit.css', LOOK === 'A' ? '../../../src/Shell/pages/browser.css' : '../../../src/Shell/pages/bubble.css', 'stage.css'];
+  for (const href of css) document.write('<link rel="stylesheet" href="' + href + '">');
+  document.documentElement.className = 'look' + LOOK;
+</script>
+</head>
+<body>
+<div class="desk"></div>
+<script src="stage.js"></script>
+</body>
+</html>

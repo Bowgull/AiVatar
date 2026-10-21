@@ -1,0 +1,42 @@
+/* Sheet 56 stage: the dark desktop, Aang, the pointer, and the few additions the new menu needs (an icon slot, a small
+   group label). Everything about how the menus LOOK comes from the product stylesheets loaded before this one. */
+html,body{margin:0;width:760px;height:520px;overflow:hidden;background:#191b24 !important}
+body{display:block !important;padding:0 !important;height:520px !important}
+.desk{position:fixed;inset:0;background:radial-gradient(900px 500px at 85% 5%, rgba(80,96,140,.30), transparent 60%),
+  radial-gradient(700px 500px at 5% 100%, rgba(120,70,110,.22), transparent 60%),linear-gradient(180deg,#1c1f2b,#151720)}
+.stg{position:fixed;image-rendering:pixelated;pointer-events:none}
+.cursor{z-index:80}
+
+/* ---- the icon slot: a 9x9 pixel icon at exactly 2x, before the words ---- */
+.lab{display:inline-flex;align-items:center;gap:9px}
+.ic{width:18px;height:18px;flex:0 0 18px;image-rendering:pixelated;display:block}
+.ic.tk{margin-left:14px}
+.tabmenu button i .ar,.turnmenu .mrow i .ar{font:700 13px var(--body);margin-left:6px;vertical-align:-1px}
+.lookA .tabmenu button:disabled .ic{opacity:.45}
+
+/* ---- A: Samara's tab menu, as it is. Only added: the open parent row reads gold (the submenu is its), a group label. */
+.lookA .tabmenu{min-width:212px}
+.lookA .tabmenu button{align-items:center;font-size:13.5px}
+.lookA .tabmenu button.on{color:#ffe28c}
+.lookA .tabmenu button i{margin-left:14px}
+.lookA .tabmenu button i.st{color:#bfae8a}
+.lookA .tabmenu .mhead{font:400 8.5px var(--label);letter-spacing:1px;color:#bfae8a;padding:6px 9px 3px}
+
+/* ---- B: the bubble's own right-click menu (.turnmenu .mrow), on the bubble's paper (.wrap.rimB) with S2's slim wood
+   band (painted by stage.js). The surface and the words change; the rows, the glove and the red last row are its own. */
+.lookB .wrap.rimB{position:fixed !important;inset:0;margin:0 !important;align-self:auto}
+.lookB .turnmenu{background:none !important;border:0 !important;box-shadow:none !important;border-radius:0;padding:8px 6px;min-width:212px;z-index:20}
+.lookB .turnmenu .mrow{font:600 14px var(--body);color:var(--ink-text);text-shadow:none;align-items:center;padding:6px 9px}
+.lookB .turnmenu .mrow:hover,.lookB .turnmenu .mrow.on{color:var(--plum)}
+.lookB .turnmenu .mrow:hover{padding-left:34px}
+.lookB .turnmenu .mrow:disabled{color:#a8957a;cursor:default}
+.lookB .turnmenu .mrow:disabled:hover{color:#a8957a;padding-left:9px}
+.lookB .turnmenu .mrow:disabled:hover::before{content:none}
+.lookB .turnmenu .mrow:disabled .ic{opacity:.45}
+.lookB .turnmenu .mrow i{font:400 8px var(--label);font-style:normal;letter-spacing:1px;color:#8a3e1c;margin-left:14px}
+.lookB .turnmenu .mrow:last-child{color:#a3301e;border-top:3px solid rgba(90,60,25,.22);margin-top:5px;padding-top:9px}
+.lookB .turnmenu .sep{height:3px;margin:5px 0;background:rgba(90,60,25,.22);border-radius:2px}
+.lookB .turnmenu .mhead{font:400 8px var(--label);letter-spacing:1.5px;color:#8a3e1c;padding:6px 9px 3px}
+.lookB .turnmenu.submenu .mrow:last-child{color:var(--ink-text);border-top:0;margin-top:0;padding-top:6px}
+.lookB .turnmenu.submenu .mrow:last-child:hover{color:var(--plum)}
+.lookB .rimc{position:fixed;z-index:19;image-rendering:pixelated;pointer-events:none}
