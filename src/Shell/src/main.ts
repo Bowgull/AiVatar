@@ -333,6 +333,8 @@ const link = new CoreLink({
   onMessage: m => {
     // M6: the Mac's browser, through the brain. Only the browser's sync reads these; no window ever sees them.
     if (typeof m.t === 'string' && m.t.startsWith('bsync.')) { void aangBrowser?.sync?.got(m as never).catch((e: Error) => console.error('shell: browser sync: ' + e.message)); return; }
+    // C7 (2026-10-21): Claude's jobs also go to Samara's band, for the rune. Not instead of the bubble: it carries on below.
+    if (m.t === 'claude.jobs' || m.t === 'claude.wait') aangBrowser?.claudeNews(m);
     // "Open on PC" from the Mac's browser (through the brain): a full tab here, brought to the front.
     if (m.t === 'browser.open' && typeof m.url === 'string') { aangBrowser?.openForward(m.url); return; }
     // The engine update's version and name, from the brain's one list of Samara versions (sheet 35).
@@ -497,6 +499,8 @@ const link = new CoreLink({
     if (!cockpitOn) input?.send('brain:message', m);
   },
   onConnected: up => {
+    // C7 (2026-10-21): no brain, no jobs to show, so the rune leaves Samara's band.
+    if (!up) aangBrowser?.claudeNews(null);
     // Aang off (Samara on its own, 2026-10-20): a brain that is not there is not news; nothing pops up to say so.
     if (!up && !bodyAlive()) return;
     for (const w of windows.values()) if (!w.isDestroyed()) w.webContents.send('brain:connected', up);
@@ -681,6 +685,9 @@ app.whenReady().then(async () => {
       startClaudeDoor(() => aangBrowser, STATE_DIR, undefined, { plans: claudePlans, onPlan: savePlanRow });
       aangBrowser.onPlanDone = (job) => planRowDone(job);
       aangBrowser.onOpenOther = (url) => link?.send({ t: 'open.onmac', url });
+      // C7 (2026-10-21): the rune's panel, already checked in browser.ts (claudewire.ts), the same doors as the cockpit's.
+      aangBrowser.onClaude = (m) => { link?.send(m as never); };
+      aangBrowser.onClaudeOpen = (url) => { void shell.openExternal(url); };
       // The right-click menu (his picks, 2026-10-20): a link plays in the pop-out; highlighted words go to Aang's typing
       // box as a chip, like his Highlight key. Send to Aang is only offered while Aang is running (the body watch below).
       aangBrowser.onPlayInPopout = (url) => { openPopout(url); };

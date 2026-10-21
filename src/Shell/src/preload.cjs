@@ -210,6 +210,12 @@ contextBridge.exposeInMainWorld('aang', {
   // Sheet 47: the MOCKUPS trail (versions, history, broom, branches).
   browserMockup: a => ipcRenderer.send('browser:mockup', a),
   browserTearOut: id => ipcRenderer.send('browser:tearout', id),
+  // C7 Claude's rune (2026-10-21): the brain's jobs for the band, and the panel's pause / play / message / open. The
+  // Shell rebuilds and checks every message (claudewire.ts) and takes them from the band's own page only.
+  onBrowserClaude(fn) { const h = (_e, s) => fn(s); ipcRenderer.on('browser:claudenews', h); return () => ipcRenderer.removeListener('browser:claudenews', h); },
+  browserClaudeHello: () => ipcRenderer.send('browser:claudehello'),
+  browserClaude: m => ipcRenderer.send('browser:claude', m),
+  browserOpenClaude: url => ipcRenderer.send('browser:openclaude', url),
   /** Find on page: the word, and whether this is Enter (next) or Shift+Enter (back). */
   browserFind: a => ipcRenderer.send('browser:find', a),
   browserFindStop: () => ipcRenderer.send('browser:findstop'),

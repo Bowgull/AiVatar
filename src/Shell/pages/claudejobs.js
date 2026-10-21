@@ -417,3 +417,7 @@ export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWa
     },
   };
 }
+
+// C7 (2026-10-21): Samara's rune panel (rune.js) draws the same job card, so it borrows these rather than copying them.
+// Additive only: nothing above changes for the cockpit.
+export { pill, animate, anims, SEA, SLATE, MSG, CL, readJob, curIndex, boundsOf, pctOf, leftOf, onOf, h, btn };

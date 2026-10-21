@@ -36,6 +36,7 @@ import { softEdge } from './winedge.ts';
 import { isBar, parseBookmarks, parseChromeBookmarks, parseSafariBookmarks, type Mark } from './bookmarks.ts';
 import { BW_LOGIN, Vault, fillScript, type Login } from './vault.ts';
 import { createHmac, randomBytes } from 'node:crypto';
+import { claudeMessage, claudeLink } from './claudewire.ts';
 import { Visits, search as searchVisits, forAang, neverKeep, bankSite, type Visit } from './visits.ts';
 import { BrowserSync, urlKept, type SyncCookie, type SyncMsg, type TabSnap } from './bsync.ts';
 import { Driver, type Job } from './driver.ts';
@@ -2616,6 +2617,43 @@ export class AangBrowser {
     else return;
     this.saveMarks();
     this.sendTabs();
+  }
+
+  // ------------------------------------------------------------------ C7 Claude's rune in the band (2026-10-21)
+  // Sheet 50, his picks: a rune stone in the band while a Claude job runs, waits on him, or has finished and he has not
+  // said Nice yet. The brain's claude.jobs / claude.wait reach the Shell (main.ts) and are passed here; the frame only
+  // gets the jobs and, of the waiting items, WHICH session waits and for what kind (never Claude's exact input: the rune
+  // only needs to turn blue). With no brain (Samara on its own) nothing arrives, so there is no rune.
+  private claudeLast: { jobs: unknown[]; waits: { session: string; kind: string }[] } | null = null;
+  /** Set by main: a checked pause / play / message for a session, to the brain. */
+  onClaude: ((m: Record<string, unknown>) => void) | null = null;
+  /** Set by main: open a session in the Claude app (the exact claude:// link only). */
+  onClaudeOpen: ((url: string) => void) | null = null;
+  /** The brain's news (null: the brain went away, so the rune goes too). Sent to every Samara window's band. */
+  claudeNews(m: { t?: unknown; jobs?: unknown; items?: unknown } | null): void {
+    if (!m) this.claudeLast = null;
+    else {
+      const c = this.claudeLast ?? { jobs: [], waits: [] };
+      if (m.t === 'claude.jobs' && Array.isArray(m.jobs)) c.jobs = m.jobs.slice(0, 50);
+      else if (m.t === 'claude.wait' && Array.isArray(m.items)) c.waits = m.items.slice(0, 50).filter((w) => w && typeof w === 'object')
+        .map((w: Record<string, unknown>) => ({ session: String(w.session ?? '').slice(0, 100), kind: String(w.kind ?? '').slice(0, 20) }));
+      else return;
+      this.claudeLast = c;
+    }
+    for (const p of this.panes) if (this.alive(p)) p.win!.webContents.send('browser:claudenews', this.claudeLast);
+  }
+  /** A band that just loaded asks for what it missed. */
+  claudeHello(sender: Electron.WebContents): void { sender.send('browser:claudenews', this.claudeLast); }
+  /** From the rune's panel: only pause, play and a message, each rebuilt and checked (claudewire.ts) like the cockpit's. */
+  claudeAct(raw: unknown): void {
+    const m = claudeMessage(raw);
+    if (!m || !['claude.pause', 'claude.play', 'claude.send'].includes(String(m.t))) { console.error('browser: refused a Claude message from the band that did not check out'); return; }
+    this.onClaude?.(m);
+  }
+  claudeOpen(raw: unknown): void {
+    const url = claudeLink(raw);
+    if (!url) { console.error('browser: refused an Open in Claude link that was not a Claude session'); return; }
+    this.onClaudeOpen?.(url);
   }
 
   // ------------------------------------------------------------------ lending a tab to the popout ("take the tab with you")
