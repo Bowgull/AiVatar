@@ -32,3 +32,7 @@ Claude is only the brain's own link, checked by `claudeLink`. The page never nam
 is the one it was opened for.
 
 Add a whats-new line when this is wired, not before.
+
+WIRED (2026-10-21): main.ts, preload.cjs (jobPop / onJobPop) and the speech bubble (claudejobs.js holdToTear / tearOff /
+putBack, bubble.js onJobPop) as above; Open in Claude is checked with claudeLink() again in main.ts; the pop-outs close
+when Aang closes. Checked in speech-bubble-check.ts (the sheet 52 block).

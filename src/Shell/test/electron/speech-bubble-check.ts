@@ -283,6 +283,87 @@ app.whenReady().then(async () => {
     p.w.destroy();
   }
 
+  // ---- sheet 52 (2026-10-21): hold a job bar to pull it out onto the desktop; it comes back when dropped on Aang
+  {
+    const p = await open(pages, { mark: true });
+    await p.js(`window.__deliver({ t: 'claude.jobs', jobs: [${JSON.stringify(JOB)}, ${JSON.stringify(JOB2)}] })`); await wait(300);
+    await p.js(`window.__fire('onRecall', 'jobs')`); await wait(1600);
+    const bars = () => p.js(`[...document.querySelectorAll('#ckjobs .job')].filter((e) => !e.classList.contains('ck-leaving')).map((e) => e.dataset.id)`) as Promise<string[]>;
+    const skinH = () => p.js(`Math.round(document.getElementById('skin').getBoundingClientRect().height)`) as Promise<number>;
+    const before = await bars();
+    const h0 = await skinH();
+    check('(two bars to start)', before.length === 2, JSON.stringify(before));
+    const down = (q: { x: number; y: number }) => p.w.webContents.sendInputEvent({ type: 'mouseDown', x: q.x, y: q.y, button: 'left', clickCount: 1 });
+    const up = (q: { x: number; y: number }) => p.w.webContents.sendInputEvent({ type: 'mouseUp', x: q.x, y: q.y, button: 'left', clickCount: 1 });
+    const barAt = async () => (await centre(p.js, '#ckjobs .job:nth-child(1) .row2'))!;
+
+    // A short press is still a click (it unfolds), and a press that wanders more than 6 px is called off.
+    await clearSent(p.js);
+    let at = await barAt();
+    down(at); await wait(200);
+    check('the gold ring fills while held', (await p.js(`!!document.querySelector('#ckjobs .job .tearring')`)) === true);
+    up(at); await wait(700);
+    check('let go early: no pop-out, the ring is gone, the click unfolds it', !(await sent(p.js, 'jobPop')).length && (await p.js(`!document.querySelector('.tearring') && document.querySelectorAll('#ckjobs .job.open').length === 1`)) === true);
+    at = await barAt(); click(p.w, at.x, at.y); await wait(700);   // folded again, so the sizes compare
+    at = await barAt();
+    down(at); await wait(150);
+    p.w.webContents.sendInputEvent({ type: 'mouseMove', x: at.x + 12, y: at.y }); await wait(600);
+    up({ x: at.x + 12, y: at.y }); await wait(300);
+    check('moved more than 6 px while holding: called off', !(await sent(p.js, 'jobPop')).length && (await bars()).length === 2);
+
+    // The real hold: half a second, then it comes away.
+    await clearSent(p.js);
+    at = await barAt();
+    const first = before[0]!;
+    down(at); await wait(560);
+    const popped = await sent(p.js, 'jobPop');
+    check("held half a second: jobPop is called with that job's id", popped.length === 1 && popped[0] === first, JSON.stringify(popped));
+    await wait(60);
+    await picture(p, 'jp-1-mid-collapse');
+    up(at); await wait(600);
+    const after = await bars();
+    const lay = await p.js(`(() => { const s = document.getElementById('ckjobs'); const kids = [...s.children]; const r = s.getBoundingClientRect(), b = kids[0]?.getBoundingClientRect();
+      return { kids: kids.length, gap: b ? Math.round(Math.abs(r.height - b.height)) : -1, open: document.querySelectorAll('#ckjobs .job.open').length, said: document.getElementById('said').textContent }; })()`);
+    check('that bar left the list', after.length === 1 && !after.includes(first), JSON.stringify(after));
+    check('no empty slot: the strip is exactly the one bar left', lay.kids === 1 && lay.gap <= 1, JSON.stringify(lay));
+    check('the hold did not unfold anything on its way out', lay.open === 0, JSON.stringify(lay));
+    check('the line over the bars counts again', lay.said === 'Claude is on one job.', lay.said);
+    const h1 = await skinH();
+    check('the bubble shrank to fit', h1 < h0 - 30, `${h0} -> ${h1}`);
+    await picture(p, 'jp-2-after');
+    // The brain's next list must not bring it back while it is out.
+    await p.js(`window.__deliver({ t: 'claude.jobs', jobs: [${JSON.stringify({ ...JOB, percent: 70, tasks: JOB.tasks.slice(0, 4) })}, ${JSON.stringify(JOB2)}] })`); await wait(300);
+    check('a fresh job list keeps the popped job out', !(await bars()).includes(first) && (await bars()).length === 1);
+
+    // Dragged near Aang: the bubble's edge glows; moved away: it goes.
+    await p.js(`window.__jobpop('near', { id: ${JSON.stringify(first)}, near: true })`); await wait(300);
+    const glow = await p.js(`(() => ({ on: document.getElementById('wrap').classList.contains('jpnear'), f: getComputedStyle(document.getElementById('skin')).filter }))()`);
+    check("near: a soft glow on the bubble's edge", glow.on && /drop-shadow/.test(glow.f), JSON.stringify(glow));
+    await picture(p, 'jp-3-near');
+    await p.js(`window.__jobpop('near', { id: ${JSON.stringify(first)}, near: false })`); await wait(100);
+    check('not near any more: the glow goes', (await p.js(`!document.getElementById('wrap').classList.contains('jpnear') && getComputedStyle(document.getElementById('skin')).filter === 'none'`)) === true);
+
+    // Dropped on Aang: back in the list, the bubble grows, no placeholder.
+    await p.js(`window.__jobpop('near', { id: ${JSON.stringify(first)}, near: true })`);
+    await p.js(`window.__jobpop('back', { id: ${JSON.stringify(first)} })`); await wait(600);
+    const back = await bars();
+    const h2 = await skinH();
+    check('put back: it is in the list again', back.length === 2 && back.includes(first), JSON.stringify(back));
+    check('put back: no slot or placeholder, only the bars', (await p.js(`[...document.getElementById('ckjobs').children].every((e) => e.classList.contains('job'))`)) === true);
+    check('put back: the bubble grew to take it, and the glow is off', h2 > h1 + 30 && (await p.js(`!document.getElementById('wrap').classList.contains('jpnear')`)) === true, `${h1} -> ${h2}`);
+    check('put back: the line counts two again', (await p.js(`document.getElementById('said').textContent`)) === 'Claude is on two jobs.');
+    await picture(p, 'jp-4-back');
+
+    // Its "needs you" chip: the bubble opens on that job's question.
+    await p.js(`window.__fire('onDismiss', 'outside')`); await wait(900);
+    await p.js(`window.__deliver({ t: 'claude.wait', items: [${JSON.stringify(QUESTION)}] })`); await wait(600);
+    await p.js(`window.__fire('onDismiss', 'outside')`); await wait(900);
+    await p.js(`window.__jobpop('ask', { t: 'jobpop.ask', session: 's-waymark', id: 'w-1' })`); await wait(900);
+    check("ask: the bubble opens on that job's waiting question", (await visible(p.js)) && (await p.js(`document.querySelectorAll('#ckpins .opt').length`)) === 4);
+    check('no page errors (pop-out)', !p.errors.length, p.errors.join(' | '));
+    p.w.destroy();
+  }
+
   // ---- clicking Aang: just the chat box; his line only if he said it in the last 5 minutes
   {
     const p = await open(pages, { box: true });

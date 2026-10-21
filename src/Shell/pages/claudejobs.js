@@ -282,6 +282,13 @@ export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWa
   const complete = new Map();
   /** Folding away now. */
   const leaving = new Set();
+  /**
+   * Sheet 52 (2026-10-21): jobs he held down and pulled out onto his desktop. They stay out of the bubble's list until
+   * the pop-out is dropped back on Aang ('jobpop:back'); `arriving` is the one sliding back in on the next draw.
+   */
+  const popped = new Set(), arriving = new Set();
+  /** Sheet 52: how long he holds a bar before it comes away, and how far the pointer may wander meanwhile. */
+  const HOLD_MS = 500, HOLD_SLOP = 6;
   function noteFinished() {
     for (const j of jobs) {
       if (active(j)) { wasActive.add(j.id); complete.delete(j.id); continue; }
@@ -358,8 +365,70 @@ export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWa
     un.addEventListener('click', (e) => { e.stopPropagation(); untrack(j.id); });
     inner.append(list, keys, un); det.append(inner); d.append(det);
     msg.addEventListener('click', (e) => { e.stopPropagation(); pointAt(j); });
+    // Sheet 52: in the speech bubble a bar can be held down and pulled out. Not in the wooden cockpit: its bars are the
+    // tracked ones, and pulling one out there would fight the tracking rules.
+    if (!isOpen()) holdToTear(d, j.id);
+    if (arriving.delete(j.id) && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      // Put back (sheet 52 section 4): it slides in from just above with a small settle, no placeholder.
+      requestAnimationFrame(() => d.animate([{ opacity: 0, transform: 'translateY(-10px)' }, { opacity: 1, transform: 'translateY(2px)', offset: 0.75 }, { opacity: 1, transform: 'none' }], { duration: 340, easing: 'cubic-bezier(.32,.72,0,1)' }));
+    }
     d.addEventListener('click', () => { if (unfolded.has(j.id)) unfolded.delete(j.id); else unfolded.add(j.id); d.classList.toggle('open', unfolded.has(j.id)); onChange(); setTimeout(onChange, 300); });
     return d;
+  }
+  /**
+   * Sheet 52 section 3: press and hold a bar about half a second. A gold ring fills under his pointer; moving more than
+   * 6 px or letting go early calls it off (so a plain click still unfolds and a scroll still scrolls). The buttons on
+   * the bar keep their own clicks.
+   */
+  function holdToTear(d, id) {
+    // `eat`: the click that follows is not a click on the bar (a hold that fired, or a press that wandered off as a drag).
+    let timer = 0, x0 = 0, y0 = 0, ring = null, eat = false;
+    const cancel = () => { clearTimeout(timer); timer = 0; ring?.remove(); ring = null; };
+    d.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0 || e.target.closest('button, .ckeys, .untrack, .flip, .msg')) return;
+      cancel();
+      x0 = e.clientX; y0 = e.clientY; eat = false;
+      const r = d.getBoundingClientRect();
+      ring = h('i', 'tearring');
+      ring.style.left = Math.round(e.clientX - r.left) + 'px'; ring.style.top = Math.round(e.clientY - r.top) + 'px';
+      d.append(ring);
+      timer = setTimeout(() => { timer = 0; eat = true; ring?.remove(); ring = null; tearOff(id, d); }, HOLD_MS);
+    });
+    d.addEventListener('pointermove', (e) => { if (timer && Math.hypot(e.clientX - x0, e.clientY - y0) > HOLD_SLOP) { eat = true; cancel(); } });
+    for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) d.addEventListener(ev, cancel);
+    // The click that ends a hold would unfold the bar as it leaves; one that ends a wander was never meant as a click.
+    d.addEventListener('click', (e) => { if (eat) { eat = false; e.stopImmediatePropagation(); } }, true);
+  }
+  /**
+   * It comes away (sheet 52 section 3): main.ts opens the pop-out under his pointer, and here the bar folds shut while
+   * the ones below rise into its place with a tiny bounce. No empty slot; the bubble shrinks in the same breath
+   * (bubble.js measures without anything marked ck-leaving).
+   */
+  function tearOff(id, d) {
+    popped.add(id);
+    unfolded.delete(id);
+    window.aang?.jobPop?.(id);
+    const finish = () => { if (d.isConnected) { paintJobs(true); onChange(); } };
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) { paintJobs(true); onChange(); return; }
+    const rest = [...strip.children].filter((c) => c !== d && !c.classList.contains('ck-leaving'));
+    if (!rest.length) strip.classList.add('ck-leaving');
+    // A script animation, not a CSS transition: bubble.js measures with anything ck-leaving set to display:none, and
+    // that cancels a CSS transition on the spot (the bar vanished at once and left the paper empty under the rest).
+    // It runs on the balloon's own shrink (340 ms, cubic ease-out, bubble.js ease.close) so the two close together;
+    // the 7 px gap beside it closes too, so nothing jumps when it is finally taken out.
+    const cs = getComputedStyle(d), hgt = d.offsetHeight;
+    const gap = rest.length ? (d.nextElementSibling ? { marginBottom: '-7px' } : { marginTop: '-7px' }) : {};
+    d.classList.add('ck-leaving', 'going');
+    d.animate([
+      { height: hgt + 'px', paddingTop: cs.paddingTop, paddingBottom: cs.paddingBottom, opacity: 1 },
+      { opacity: 0, offset: 0.55 },
+      { height: '0px', paddingTop: '0px', paddingBottom: '0px', opacity: 0, ...gap },
+    ], { duration: 340, easing: 'cubic-bezier(.33,1,.68,1)', fill: 'forwards' });
+    onChange();
+    // The next one along lands with a 4 px hop as the gap closes (the one above, when it was the last bar).
+    const below = rest.find((c) => d.compareDocumentPosition(c) & Node.DOCUMENT_POSITION_FOLLOWING) ?? rest[rest.length - 1];
+    if (below) setTimeout(() => { if (below.isConnected) below.animate([{ transform: 'none' }, { transform: 'translateY(-4px)' }, { transform: 'none' }], { duration: 220, easing: 'ease-out' }); }, 320);
+    setTimeout(finish, 380);
   }
   /** Per finished job, the timer that folds its card away about four seconds after he could first see it. */
   const doneTimers = new Map();
@@ -412,9 +481,10 @@ export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWa
    */
   function paintJobs(force = false) {
     retrack();
-    const run = jobs.filter(running).sort((a, b) => b.startedAt - a.startedAt);
-    const done = [...complete.values()].filter((j) => !run.some((r) => r.id === j.id));
-    const sig = JSON.stringify([isOpen(), stripOn(), tracked, listOpen, [...unfolded], targetId, [...leaving],
+    // Sheet 52: a job out on his desktop is not in the speech bubble's list (the wooden cockpit tracks its own).
+    const run = jobs.filter(running).filter((j) => isOpen() || !popped.has(j.id)).sort((a, b) => b.startedAt - a.startedAt);
+    const done = [...complete.values()].filter((j) => !run.some((r) => r.id === j.id) && (isOpen() || !popped.has(j.id)));
+    const sig = JSON.stringify([isOpen(), stripOn(), tracked, listOpen, [...unfolded], targetId, [...leaving], [...popped],
       // Not the percent, the time left or the live line: those update in place every frame (the progress engine), and
       // redrawing for them would re-measure the cockpit many times a second. Whether helper agents show is layout.
       run.map((j) => [j.id, j.project, j.machine, j.phase, pctOf(j) === null, onOf(j), j.held, weekOf(j), j.tasks.map((t) => t.status + t.text + t.active), Boolean(j.activity?.agents?.length)]),
@@ -658,7 +728,21 @@ export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWa
     /** Sheet 53: something is waiting on him in the brain, put away or not (a click on the working mark brings it back). */
     anyWaiting: () => live().length > 0,
     /** Sheet 53: how many jobs are at work or waiting on him (what a click on the working mark would show). */
-    running: () => jobs.filter(running).length,
+    // Not counting the ones out on his desktop (sheet 52): they are not in the bubble's list.
+    running: () => jobs.filter((j) => running(j) && !popped.has(j.id)).length,
+    /** Sheet 52: the pop-out was dropped on Aang. The bar slides back into the list (the bubble grows to take it). */
+    putBack(id) {
+      if (!popped.delete(id)) return;
+      arriving.add(id);
+      // With the jobs not open it waits for the next draw (bubble.js opens them on a put-back), and slides in then.
+      paintJobs(true); onChange();
+    },
+    /** Sheet 52: which jobs are out on his desktop now (the test reads it). */
+    poppedIds: () => [...popped],
+    /** Sheet 52: the pop-out's "needs you" chip: this wait goes to the top of the card, put away or not. */
+    showWait(id) { if (!live().some((w) => w.id === id)) return false; shownId = id; parked = false; paintPins(); onChange(); return true; },
+    /** Sheet 52: the pop-out's Message: the typing box is pointed at that session, as its purple key does. */
+    messageJob(id) { const j = jobOf(id); if (!j) return false; pointAt(j); return true; },
     /** Sheet 53: the jobs view opened or closed in the speech bubble: draw the bars (or take them away) now. */
     refresh() { paintJobs(true); },
     /**

@@ -1295,10 +1295,11 @@ function showRecent(m) {
  * its own folded 45f bar on the bubble's paper. A bar unfolds its tasks on a click; a click anywhere else shrinks it away.
  */
 const COUNT = ['no', 'one', 'two', 'three', 'four', 'five', 'six'];
+const jobsLine = (n) => `Claude is on ${COUNT[n] ?? n} job${n === 1 ? '' : 's'}.`;
 function showJobs() {
   const n = claude?.running() ?? 0;
   if (reading) leaveReading(false);
-  onBrain({ t: 'bubble', text: `Claude is on ${COUNT[n] ?? n} job${n === 1 ? '' : 's'}.`, stream: false, recalled: true, fromPet: true, jobsView: true });
+  onBrain({ t: 'bubble', text: jobsLine(n), stream: false, recalled: true, fromPet: true, jobsView: true });
   bubble.classList.add('wide');
   fit(); reportSize();
 }
@@ -2314,10 +2315,40 @@ claude = startClaude({
   onChange: () => {
     // Sheet 53: the last job finished (its JOB COMPLETE folded away) with the jobs open from the mark: the bubble goes.
     if (jobsOpen && el('ckjobs').hidden && !bubble.hidden && !bubble.classList.contains('leaving')) { goAway(); return; }
+    // Sheet 52 (2026-10-21): a job pulled out or put back changes how many there are; the line over the bars says so.
+    if (jobsOpen && !bubble.hidden) { const line = jobsLine(claude?.running() ?? 0); if (said.textContent !== line) { reveal.start(line, false); reveal.skip(); paint(); } }
     if (!bubble.hidden) { fit(); reportSize(); }
   },
   onWaiting: (has, fresh) => claudeWaiting(has, fresh),
   stripOn: () => cockpit || jobsOpen,
+});
+/**
+ * Sheet 52 (2026-10-21): what the torn-off job windows tell the bubble.
+ *   back  dropped on Aang or his bubble: the bar slides back into the list (opening the jobs if the bubble was closed);
+ *   near  dragged close: a soft warm glow round the bubble's edge while it is near, gone when it moves off;
+ *   ask   its "needs you" chip: the bubble opens on that job's waiting question. Message: the typing box is pointed
+ *         at that session (as the bar's own purple key does).
+ */
+window.aang?.onJobPop?.((kind, m) => {
+  if (!claude || !m || typeof m !== 'object') return;
+  if (kind === 'near') { wrapEl?.classList.toggle('jpnear', m.near === true); return; }
+  if (kind === 'back') {
+    wrapEl?.classList.remove('jpnear');
+    if (typeof m.id !== 'string') return;
+    claude.putBack(m.id);
+    // His bubble was closed (or showing something else): it opens on the jobs so he sees it land.
+    if (!cockpit && !jobsOpen && claude.running() > 0) showJobs();
+    return;
+  }
+  if (kind === 'ask') {
+    if (m.t === 'jobpop.ask' && typeof m.id === 'string') {
+      if (reading) leaveReading(false);
+      claude.showWait(m.id);
+      claudeWaiting(true, true, true);
+    } else if (m.t === 'jobpop.message' && typeof m.session === 'string') {
+      claude.messageJob(m.session);
+    }
+  }
 });
 /**
  * Something a Claude session waits on, with the cockpit closed: the bubble speaks the same card (Aang saying it), so he
