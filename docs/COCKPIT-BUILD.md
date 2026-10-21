@@ -179,3 +179,37 @@ load milestones, a creep capped at 90%, never back) and is another builder's fil
 bytes; the week/five-hour bars in the typing area are measurements, not job progress; timers count real time; the engine
 update key and the Waymark refresh have no bar at all. None needed converting. Samara's rune panel (rune.js) still
 draws its job bar with `pill(pctOf(...))` and should move to `livePill` / `liveText` / `describeNow`.
+
+## THE PIVOT (2026-10-21, evening) - read this before anything above
+
+The wooden "one cockpit" (C3, sheet 46 Lantern, AANG_COCKPIT) was built, tried on his real desktop, and REJECTED:
+"it doesn't make sense that Aang would have a full wooden speech bubble", "I prefer the chat box being separate".
+What he has always meant by "one dynamic bubble / bubble engine":
+
+- **A living speech bubble** off Aang's head (sheet 53, look **B**: light parchment, comic tail; its wood rim and
+  corner studs are being redone on sheet 54). ONE engine reshapes it for whatever he says: a one-liner stays tiny, a
+  question grows keys, Claude's multiple choice grows the answer rows, a job's progress, the brief, a video; then it
+  shrinks back. Grow ~520 ms spring with slight overshoot, shrink ~340 ms, pieces fade in ~55 ms apart.
+- **The typing box is separate** (the old InputBox window under Aang).
+- **Clicking Aang = just the chat box.** Only if he spoke in the last **5 minutes** does that line sit above the box
+  with an "N MIN AGO" stamp. History: the wheel over Aang, his right-click menu, or asking. No OLDER key anywhere.
+- **Claude jobs live in his working mark** (the 3-dot icon over his head); clicking it grows the bubble with the jobs.
+- **Inside the bubble** (sheet 51 picks, approved via sheet 53): choices = each answer its own box, the pointed-at
+  answer plum with white text, the slim finger (G1), teal BEST, no number keys (arrows + Enter); "Styled" type roles
+  (no carved first letters); paper per kind in the history with the label growing in on hover (sheet 48).
+- **Aura:** sheet 51 **A soft falloff** (pure haze, breathing in size and brightness), only on marks that want him.
+- **Mark colours (final):** working #f0a64a, needs you #7cc4ff, question #b07cff, plan #f3e2b8 (cream scroll), step
+  #ffc8a8 (peach), job complete #3fc4b4 (teal tick, no circle), paused #6f7787, failed #e8443a.
+- **Who speaks when:** Claude Code in front = Aang silent (held, not dropped); Aang is the only thing that interrupts;
+  Samara's rune is a gauge only, never chimes. "Nice" exists ONLY on a popped-out job; elsewhere a finished job shows
+  teal ~4 s and folds away.
+- **Samara rune** (built): Claude-logo starburst on a stone, ring fills with live progress, one rune + a number for
+  several jobs, numbers hide while its rounded drop-down is open; drop-down = live description + to-do list.
+- **Job pop-out** (sheet 52, approved, not built): borderless sleek job bubble, one pin icon that looks clearly
+  different when pinned, see-through slider appears on hover by the pin and keeps his fade, long-press to tear off
+  (strip closes the gap Mac-like), drag onto Aang to put it back (the bubble just grows, no placeholder), JOB COMPLETE +
+  "Nice" closes it.
+- **Progress engine** (built, claudeprogress.ts): only real events move bars; never backwards except a rewritten list
+  (said once); smooth creep inside the current task capped below its end; pushed instantly; no list = no percent.
+- **Process lesson:** mockups are REAL renders of the product page; Claude checks every picture and then the real
+  desktop (a fresh Shell: Samara keeps an old one alive) before telling him it works.
