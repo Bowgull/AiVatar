@@ -35,6 +35,20 @@ body{font-family:Figtree,system-ui,sans-serif}
 .pj .inner{padding:2px 4px 2px 0}
 .pj .nowl{display:flex;align-items:center;gap:8px;margin:8px 0 0;padding:8px 0 0;border-top:2px solid rgba(120,80,30,.18);font:700 13px Figtree,sans-serif;color:#21160a}
 .pj .nowl .an{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Progress engine v3 (2026-10-21): OVERALL over CURRENT when Claude keeps a phase plan, and a row each for the running
+   command's sub-bar, the helper agents and the CI runs, under the live line. One line each, cut rather than wrapped. */
+.pj .ovr{display:flex;align-items:center;gap:8px;margin-top:6px}
+.pj .ovr .ow{min-width:0;font:500 11.5px Figtree,sans-serif;color:#6b5236;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pj .tag{flex:none;font:400 7.5px Silkscreen,monospace;letter-spacing:1px;color:#8a6a3e;width:52px}
+.pj .rows{margin-top:2px}
+.pj .rows>div{display:flex;align-items:center;gap:7px;font:600 12px/1.55 Figtree,sans-serif;color:#5b2f8f;white-space:nowrap;overflow:hidden}
+.pj .rows>div>span{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.pj .rows .sub{color:#6b5236}
+.pj .rows .crow{color:#2f5f6f}
+.pj .rows .failed{color:#a8352b}
+.pj .rows canvas.jpill{flex:none}
+.pj .rows{margin-left:38px}
+.pj .ovr{margin:4px 0 0 30px}
 .pj .ag{font:600 12px Figtree,sans-serif;color:#6b5236;margin:3px 0 0 38px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pj .mc{flex:none;font:400 8px Silkscreen,monospace;letter-spacing:1px;color:#6b4318;border:1.5px solid rgba(107,67,24,.55);border-radius:4px;padding:2px 4px 1px}
 .pj .list{margin:4px 0 0}

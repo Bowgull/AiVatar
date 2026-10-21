@@ -11,12 +11,14 @@
 // The brain's claude.jobs / claude.wait arrive through the Shell (browser.ts claudeNews); no brain, no rune. What this
 // page sends back is pause / play / a message / open, which the Shell checks again (claudewire.ts). Every word here is
 // Claude's or a session's, so everything is built with textContent, never markup from the wire.
-import { animate, anims, SEA, SLATE, MSG, CL, readJob, curIndex, leftOf, onOf, h, btn, liveProgress, livePill, liveText, describeNow, runeHeadLine, openTarget } from './claudejobs.js';
+import { animate, anims, SEA, SLATE, MSG, CL, readJob, curIndex, leftOf, onOf, h, btn, liveProgress, livePill, liveText, describeNow, runeHeadLine, openTarget, liveOverall, liveRows } from './claudejobs.js';
 
 // His final colours (sheets 49/50, the same as the marks over Aang's head, src/Body/ClaudeMarks.cs).
 /** How long a finished job stays teal on the rune before it goes (the cockpit's strip uses the same ~4 s). */
 const DONE_MS = 4000;
-const COL = { working: '#f0a64a', needs: '#7cc4ff', complete: '#3fc4b4', paused: '#6f7787' };
+// v3 (2026-10-21): a stall is a dimmed, darker amber (working is already his amber here) and the ring stops creeping;
+// a turn that ended in an error is red.
+const COL = { working: '#f0a64a', needs: '#7cc4ff', complete: '#3fc4b4', paused: '#6f7787', stalled: '#a8692e', failed: '#d0503f' };
 const rgb = (x) => [1, 3, 5].map((i) => parseInt(x.slice(i, i + 2), 16));
 const mix = (x, t, k) => `rgb(${rgb(x).map((v, i) => Math.round(v + (t[i] - v) * k)).join(',')})`;
 
@@ -111,7 +113,8 @@ function chip(state, p, pip, on) {
   el.className = `rune tB st-${state}` + (on ? ' on' : '');
   el.style.setProperty('--c', col); el.style.setProperty('--u', '2px');
   el.dataset.state = state; el.dataset.p = String(Math.round(p * 100));
-  el.title = state === 'needs' ? 'Claude needs you: click for the details' : state === 'complete' ? 'Claude finished a job: click for the details' : state === 'paused' ? 'A Claude job is paused: click for the details' : 'Claude is working: click for the details';
+  el.title = state === 'needs' ? 'Claude needs you: click for the details' : state === 'complete' ? 'Claude finished a job: click for the details' : state === 'paused' ? 'A Claude job is paused: click for the details'
+    : state === 'stalled' ? 'No sign of life from a Claude job: click for the details' : state === 'failed' ? 'A Claude job stopped on an error: click for the details' : 'Claude is working: click for the details';
   el.setAttribute('aria-label', el.title); el.setAttribute('aria-haspopup', 'dialog'); el.setAttribute('aria-expanded', on ? 'true' : 'false');
   const st = h('span', 'stone');
   st.append(ring(col, p, 2), rune(col, 2, state === 'complete' ? 'tick' : 'sun', state === 'paused'));
@@ -148,11 +151,18 @@ export function startRune({ slot, band, closeOthers, layer = false }) {
   // A one-step job with no list that ended on its own is done too (2026-10-21, the brain's `finished`).
   const allDone = (j) => (j.tasks.length > 0 && j.tasks.every((t) => t.status === 'completed')) || j.finished === true;
   const waitOf = (j) => waits.find((w) => w.session === j.id);
-  const stateOf = (j) => (done.has(j.id) ? 'complete' : waitOf(j) ? 'needs' : j.phase === 'paused' ? 'paused' : 'working');
+  // v3: a job gone silent too long is 'stalled', one that ended in an error 'failed' (claudejobs.js liveProgress says which).
+  const stateOf = (j) => {
+    if (done.has(j.id)) return 'complete';
+    if (waitOf(j)) return 'needs';
+    if (j.phase === 'paused') return 'paused';
+    const s = liveProgress(j).state;
+    return s === 'stalled' ? 'stalled' : s === 'failed' ? 'failed' : 'working';
+  };
   /** What the rune stands for, most pressing first: needs you, working (newest first), then finished ones. */
   function shown() {
-    const live = jobs.filter((j) => !done.has(j.id) && (j.phase === 'working' || j.phase === 'paused' || waitOf(j)));
-    const rank = { needs: 0, working: 1, paused: 2 };
+    const live = jobs.filter((j) => !done.has(j.id) && (j.phase === 'working' || j.phase === 'paused' || waitOf(j) || j.failed));
+    const rank = { needs: 0, failed: 1, stalled: 1, working: 2, paused: 3 };
     live.sort((a, b) => rank[stateOf(a)] - rank[stateOf(b)] || b.startedAt - a.startedAt);
     return [...live, ...[...done.values()]];
   }
@@ -230,6 +240,8 @@ export function startRune({ slot, band, closeOthers, layer = false }) {
     requestAnimationFrame(() => {
       const j = jobs.find((x) => x.id === ringTop);
       const m = j && liveProgress(j);
+      // v3: a stall begins (or ends) with no message at all: the rune changes colour by itself.
+      if (j && slot.firstElementChild?.dataset.state !== stateOf(j)) { paintChip(); return; }
       if (m && m.p !== null) fillRing(m.p);
       if (ringTop && !ringNext) ringNext = setTimeout(ringStep, RING_MS);
     });
@@ -266,7 +278,9 @@ export function startRune({ slot, band, closeOthers, layer = false }) {
     const row2 = h('div', 'row2'), pb = h('span', 'pb');
     pb.append(livePill(96, 9, 2, latest, paused ? SLATE : SEA, !paused));
     row2.append(pb, liveText(h('span', 'lt'), (now) => leftOf(latest(), now)), h('i', 'chev'));
-    d.append(hd, row2);
+    // v3: OVERALL (the project's phases) over CURRENT (this job), as in the bubble's card.
+    const ovr = liveOverall(latest, 96);
+    if (ovr) { row2.prepend(h('b', 'tag', 'CURRENT')); d.append(hd, ovr, row2); } else d.append(hd, row2);
     const w = waitOf(j);
     if (w) { const a = h('div', 'ask'); a.append(h('b', '', 'NEEDS YOU'), document.createTextNode(`${j.project} ${WAIT_WORD[w.kind] ?? 'is waiting on you'}: answer it in Aang's bubble or in Claude.`)); d.append(a); }
     if (isOpen) {
@@ -276,7 +290,9 @@ export function startRune({ slot, band, closeOthers, layer = false }) {
       // its helper agents.
       const act = h('div', 'act');
       act.append(liveText(h('div', 'an'), (now) => describeNow(latest(), now).line));
-      if (j.activity?.agents?.length) act.append(liveText(h('div', 'ag'), (now) => describeNow(latest(), now).agents));
+      // v3: the command's sub-bar, the helper agents and the CI runs, a row each (the bubble's card, the same rows).
+      const rows = liveRows(latest, 70);
+      if (rows) act.append(rows);
       list.append(act);
       j.tasks.forEach((t, k) => {
         const isDone = t.status === 'completed', now = !isDone && k === cur;

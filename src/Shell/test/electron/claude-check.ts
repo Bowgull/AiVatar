@@ -151,10 +151,11 @@ app.whenReady().then(async () => {
   await wait(400);
   const live = () => js(`(() => { const j = document.querySelector('${S1B}'); const c = j.querySelector('canvas.jpill'), g = c.getContext('2d');
     let edge = -1; for (let x = 0; x < c.width; x++) { const d = g.getImageData(x, 4, 1, 1).data; if (d[0] === 255 && d[1] === 250 && d[2] === 240) edge = x; }
-    return { pct: j.querySelector('.ff').textContent, left: j.querySelector('.lt').textContent, an: j.querySelector('.act .an')?.textContent ?? null, ag: j.querySelector('.act .ag')?.textContent ?? null, edge }; })()`) as Promise<{ pct: string; left: string; an: string | null; ag: string | null; edge: number }>;
+    return { pct: j.querySelector('.ff').textContent, left: j.querySelector('.lt').textContent, an: j.querySelector('.act .an')?.textContent ?? null, ag: j.querySelector('.act .rows .arow')?.textContent ?? null, edge }; })()`) as Promise<{ pct: string; left: string; an: string | null; ag: string | null; edge: number }>;
   let L = await live();
   check('drop-down: what it is doing now, with how long', /^Running the tests · npm test -- --run \(1[234] s\)$/.test(L.an ?? ''), JSON.stringify(L.an));
-  check('drop-down: the helper agents', L.ag === '1 helper agent: reviewing the diff', JSON.stringify(L.ag));
+  // v3 (2026-10-21): a row per helper agent (its type, its task, how long; a bar once its type has history).
+  check('drop-down: the helper agents', /^general-purpose · reviewing the diff · \d+ s$/.test(L.ag ?? ''), JSON.stringify(L.ag));
   check('engine: ticked tasks only at first, time left from the pace ("about")', L.pct === '33%' && L.left === 'about 4 min left', JSON.stringify(L));
   const edges = [L.edge], pcts = [parseInt(L.pct)];
   await advance(30_000);

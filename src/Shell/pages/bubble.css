@@ -810,7 +810,19 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
 .ckjobs .act .ag{font:600 12px/1.5 var(--body);color:#5b2f8f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* 2026-10-21: no live line beyond "Working" (already beside the bar): no empty row */
 .ckjobs .act .an:empty{display:none}
-.ckjobs .act:not(:has(.an:not(:empty))):not(:has(.ag)){display:none}
+.ckjobs .act:not(:has(.an:not(:empty))):not(:has(.ag)):not(:has(.rows)){display:none}
+/* Progress engine v3 (2026-10-21): OVERALL over CURRENT when Claude keeps a phase plan, and a row each for the running
+   command's sub-bar, the helper agents and the CI runs, under the live line. One line each, cut rather than wrapped. */
+.ckjobs .ovr{display:flex;align-items:center;gap:8px;margin-top:6px}
+.ckjobs .ovr .ow{min-width:0;font:500 11.5px var(--body);color:#6b5236;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ckjobs .tag{flex:none;font:400 7.5px var(--label);letter-spacing:1px;color:#8a6a3e;width:52px}
+.ckjobs .rows{margin-top:2px}
+.ckjobs .rows>div{display:flex;align-items:center;gap:7px;font:600 12px/1.55 var(--body);color:#5b2f8f;white-space:nowrap;overflow:hidden}
+.ckjobs .rows>div>span{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.ckjobs .rows .sub{color:#6b5236}
+.ckjobs .rows .crow{color:#2f5f6f}
+.ckjobs .rows .failed{color:#a8352b}
+.ckjobs .rows canvas.jpill{flex:none}
 .ckjobs .ob i{flex:none;width:12px;height:12px;border-radius:3px;box-shadow:inset 0 0 0 2px #b89a6a}
 .ckjobs .ob.done{color:#4f7a72}.ckjobs .ob.done i{background:#58b0a3;box-shadow:inset 0 0 0 2px #2f6f66}
 .ckjobs .ob.done i::after{content:"";display:block;width:3px;height:6px;margin:1px 0 0 4px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}

@@ -267,8 +267,8 @@ app.whenReady().then(async () => {
   await js(`document.querySelector('#runeslot .rune').click()`);
   await until(async () => (await rjs(`!!document.querySelector('${card(S3)}')`)) === true);
   await rjs(`document.querySelector('${card(S3)}').click()`);
-  const actLine = await rjs(`[document.querySelector('${card(S3)} .act .an')?.textContent, document.querySelector('${card(S3)} .act .ag')?.textContent].join(' | ')`);
-  check('the live description shows above the tasks', /^Running the tests · npm test \(1\d s\) \| 1 helper agent: mapping the code \(Explore\)$/.test(actLine), actLine);
+  const actLine = await rjs(`[document.querySelector('${card(S3)} .act .an')?.textContent, document.querySelector('${card(S3)} .act .rows .arow')?.textContent].join(' | ')`);
+  check('the live description shows above the tasks', /^Running the tests · npm test \(1\d s\) \| Explore · mapping the code · \d+ s$/.test(actLine), actLine);
   const pctNow = async () => parseInt(await rjs(`document.querySelector('${card(S3)} .pct').textContent`), 10);
   const p1 = await pctNow(); await wait(1500); const p2 = await pctNow();
   check('the % creeps between messages', p1 >= 50 && p2 > p1, `${p1} -> ${p2}`);

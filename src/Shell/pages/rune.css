@@ -80,7 +80,19 @@
 .rpanel .job .act{margin:0 0 6px;padding:0 0 6px;border-bottom:1px dashed rgba(120,80,30,.22)}
 /* 2026-10-21: no live line beyond "Working" (already beside the bar): no empty row */
 .rpanel .job .act .an:empty{display:none}
-.rpanel .job .act:not(:has(.an:not(:empty))):not(:has(.ag)){display:none}
+.rpanel .job .act:not(:has(.an:not(:empty))):not(:has(.ag)):not(:has(.rows)){display:none}
+/* Progress engine v3 (2026-10-21): OVERALL over CURRENT when Claude keeps a phase plan, and a row each for the running
+   command's sub-bar, the helper agents and the CI runs, under the live line. One line each, cut rather than wrapped. */
+.rpanel .job .ovr{display:flex;align-items:center;gap:8px;margin-top:6px}
+.rpanel .job .ovr .ow{min-width:0;font:500 11.5px var(--body);color:#6b5236;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rpanel .job .tag{flex:none;font:400 7.5px var(--label);letter-spacing:1px;color:#8a6a3e;width:52px}
+.rpanel .job .rows{margin-top:2px}
+.rpanel .job .rows>div{display:flex;align-items:center;gap:7px;font:600 12px/1.55 var(--body);color:#5b2f8f;white-space:nowrap;overflow:hidden}
+.rpanel .job .rows>div>span{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.rpanel .job .rows .sub{color:#6b5236}
+.rpanel .job .rows .crow{color:#2f5f6f}
+.rpanel .job .rows .failed{color:#a8352b}
+.rpanel .job .rows canvas.jpill{flex:none}
 .rpanel .job .act .an{font:600 12.5px/1.6 var(--body);color:#3a2a18;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rpanel .job .act .ag{font:600 12px/1.5 var(--body);color:#5b2f8f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rpanel .ob{display:flex;align-items:center;gap:9px;font:600 12.5px/1.85 var(--body);color:#8f7458}
