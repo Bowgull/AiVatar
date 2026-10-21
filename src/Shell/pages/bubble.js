@@ -11,7 +11,7 @@ import { find as findEntities } from './entities.js';
 import { Scrollback, atTop } from './scrollback.js';
 import { buildPaper, openMenu, previewLines, tickCount, paintNote } from './notepaper.js';
 import { pixIcon, SKIES } from './pixicons.js';
-import { paintLookback, linkifyWords, videoShot, linkEl, kindOf } from './lookback.js';
+import { paintLookback, linkifyWords, videoShot, linkEl, kindOf, restKinds } from './lookback.js';
 import { startTyping } from './cocktype.js';
 import { startClaude } from './claudejobs.js';
 
@@ -2314,6 +2314,9 @@ function fitCockpit() {
   // Wider for a video or a card (the brief, research, the notes board), opened in the conversation or live under it.
   bubble.classList.toggle('ckwide', Boolean(document.querySelector('#lblist .lt-item.open .vshot, #aboutbox:not([hidden]) .vshot')) || !card.hidden);
   if (!list) return;
+  // A row's label open under the mouse is not part of the conversation's size: measured at rest, opened again after
+  // (2026-10-21, lookback.js restKinds), so the cockpit is never left a label taller than its rows.
+  const reopen = restKinds(list);
   const atBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 8;
   list.style.maxHeight = 'none';
   const n = natural();
@@ -2322,6 +2325,7 @@ function fitCockpit() {
   list.style.maxHeight = over > 0 ? Math.max(140, list.scrollHeight - over) + 'px' : 'none';
   if (atBottom) list.scrollTop = list.scrollHeight;
   squeezeClaude();
+  reopen();
 }
 
 /**
