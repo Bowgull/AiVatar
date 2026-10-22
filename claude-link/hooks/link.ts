@@ -369,3 +369,46 @@ export function toDecision(kind: 'permission' | 'question' | 'plan', body: unkno
 
 /** A model name the /model command takes, and nothing that could be anything else. */
 export const MODEL_OK = /^[A-Za-z0-9.\-_[\]]{1,60}$/
+
+// ------------------------------------------------------------------ C6 (2026-10-22): starting jobs from Aang
+
+/** An effort level the /effort command takes. */
+export const EFFORT_OK = /^(low|medium|high|xhigh|max)$/
+
+/** SHA-256 of a text's UTF-8, as hex: the brain's createHash('sha256') over the same bytes. */
+export async function sha256Hex(s: string): Promise<string> {
+  return hex(await sha256(enc.encode(s)))
+}
+
+/** How a folder is compared on both sides of the link (the brain's jobstart.ts normFolder is the same). */
+export const normFolder = (p: string): string => String(p ?? '').replace(/\//g, '\\').replace(/\\+$/, '').toLowerCase()
+
+/** Only a session this young may take a waiting start (a mod reload fires session.start again in old sessions). */
+export const FRESH_MS = 3 * 60_000
+
+export interface StartBody { text: string; hash: string; model?: string; effort?: string }
+
+/**
+ * A start the brain handed over, checked: the text, its hash, and that the hash really is the text's. Anything else
+ * (a missing field, an odd model name, a text that is not what Joshua approved on the card) is null: nothing is sent.
+ */
+export async function startOf(body: string): Promise<StartBody | null> {
+  let b: Record<string, unknown>
+  try { b = JSON.parse(body) ?? {} } catch { return null }
+  const text = b.text, hash = b.hash
+  if (typeof text !== 'string' || !text.trim() || text.length > 12_000 || typeof hash !== 'string' || !/^[0-9a-f]{64}$/.test(hash)) return null
+  if (!sameMac(await sha256Hex(text), hash)) return null
+  const out: StartBody = { text, hash }
+  if (typeof b.model === 'string' && MODEL_OK.test(b.model)) out.model = b.model
+  if (typeof b.effort === 'string' && EFFORT_OK.test(b.effort)) out.effort = b.effort
+  return out
+}
+
+/** The text of an MCP result's blocks, joined and cut. */
+export function mcpText(r: { content?: unknown } | undefined | null, n = 600): string {
+  const blocks = Array.isArray(r?.content) ? r!.content as { type?: string; text?: unknown }[] : []
+  return blocks.filter(c => c?.type === 'text' && typeof c.text === 'string').map(c => String(c.text)).join('\n').slice(0, n)
+}
+
+/** The Claude app's own session tools: the ONLY ones Door 2 ever calls, and only for a signed item. */
+export const CCD_SERVER = 'ccd_session_mgmt'

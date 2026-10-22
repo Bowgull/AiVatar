@@ -10,7 +10,10 @@
 //     dialog (checked in the 2.1.299 binary, both the terminal and the desktop app's path), and whichever he answers
 //     first wins;
 //   - takes what Aang hands back: a message (slips in at Claude's next step, or starts a turn when idle), Pause
-//     (ends the running turn), Play (a short "carry on"), and a model switch (/model).
+//     (ends the running turn), Play (a short "carry on"), and a model switch (/model);
+//   - C6 (2026-10-22): starts a job Joshua said Go to in Aang's bubble. A brand-new session asks once for a start
+//     waiting on its folder (Door 1, claimStart); a running one takes a resume ('start'); an open one can start another
+//     through the Claude app's own session tools (Door 2). Each only for a signed item whose text hashes to his card.
 // Fail safe: if Aang is down, slow or not who it says it is, every hook here passes straight through, so the session
 // behaves exactly as it would without the mod. Nothing is ever written into the transcript by the mod itself; only
 // Joshua's own messages and answers reach Claude. The one exception to "nothing in the prompt" (his decision,
@@ -23,6 +26,7 @@
 // HMAC(key, nonce + session + item id + kind + body) for the nonce of that very poll, or it is ignored.
 import type { EngineInterface, Register } from 'claude-code'
 import { MOCKUP_SECTION, MOCKUP_SECTION_ID, MOCKUP_TOOL, MOCKUP_TOOL_DESC, MOCKUP_TOOL_FULL, MOCKUP_TOOL_SCHEMA, MODEL_OK, OWN_TOOL, OWN_TOOL_DESC, OWN_TOOL_FULL, OWN_TOOL_PLAN_DESC, OWN_TOOL_PLAN_SCHEMA, OWN_TOOL_SCHEMA, OWN_TOOL_SECTION, PLAN_SENTENCE, TODO_SECTION, TODO_SECTION_ID, TODO_TOOLS, activityOf, agentListOf, hmacHex, mockupArgs, nonce, planOf, safeLine, sameMac, stableJson, summarize, tasksAtEnd, tasksAtStart, toDecision } from './link.ts'
+import { CCD_SERVER, EFFORT_OK, FRESH_MS, mcpText, normFolder, startOf } from './link.ts'
 import type { Task } from './link.ts'
 
 type $T = EngineInterface
@@ -304,11 +308,95 @@ async function act($: $T, L: Link, item: Item): Promise<void> {
     // v3: the brain saw a gap in the numbers: the whole picture again, at once.
     L.needSnap = true
     if (!L.sending) void flush($, L)
+  } else if (item.kind === 'start') {
+    // C6: a resume into this session (or a start queued for it before it opened). Only the text Joshua approved on his
+    // card: startOf checks the hash against the text, byte for byte. His own words, so asUser; mid-turn it slips in.
+    const s = await startOf(item.body)
+    if (!s) return
+    if (L.mainTurn) await $.session.append({ message: { type: 'user', content: [{ type: 'text', text: s.text }] } })
+    else await $.prompt.submit({ text: s.text, asUser: true })
+    post($, L, 'started', { id: item.id })
+  } else if (item.kind === 'caps') {
+    await capsCheck($, L)
+  } else if (item.kind === 'door2') {
+    await door2($, L, item)
   } else if (item.kind === 'model' && typeof b.model === 'string' && MODEL_OK.test(b.model)) {
     await $.command.run({ command: 'model', args: b.model })
     L.model = (await within($, $.session.model(), 500)) ?? L.model
     post($, L, 'model')
   }
+}
+
+/**
+ * C6 Door 1 (2026-10-22): a brand-new session asks the brain, once, whether Joshua pressed Go on a job for this folder.
+ * The answer is signed over this request's nonce and the folder, single use (the brain hands it out once), and its text
+ * must hash to what his card showed. Then the model and effort the card suggested (set once, here, at the start: a
+ * model he picks later inside the job is never touched again), then the text, as his own words.
+ */
+async function claimStart($: $T, L: Link): Promise<void> {
+  if (L.inert || !L.cwd || L.mainTurn) return
+  const now = (await within($, $.clock.now(), 500)) ?? Date.now()
+  const u = await within($, $.session.usage(), 1000)
+  if (!u || !(now - u.startedAt < FRESH_MS)) return
+  // The brain may be slow to prove itself at the very moment a session opens: try a few times, a little apart, before
+  // giving up (a missed start is the job not starting at all; the brain hands it out once either way).
+  let pv = false
+  for (let i = 0; i < 4 && !pv && !L.mainTurn; i++) {
+    pv = await proven($, L)
+    if (!pv) await new Promise<void>(res => { try { $.clock.after(DOWN_MS + 100, () => res()) } catch { res() } })
+  }
+  if (!pv || L.mainTurn) return
+  const n = nonce()
+  const f = normFolder(L.cwd)
+  const r = await call($, L, 'GET', `/link/start?f=${encodeURIComponent(f)}&n=${n}`, '', 3000)
+  const items = r?.ok ? await checked(L, r.text, n, f) : null
+  const item = items?.find(i => i.kind === 'start')
+  if (!item) return
+  const s = await startOf(item.body)
+  if (!s || L.mainTurn) return
+  if (s.model) { try { await $.command.run({ command: 'model', args: s.model }); L.model = (await within($, $.session.model(), 500)) ?? L.model } catch { /* the job still starts */ } }
+  if (s.effort) { try { await $.command.run({ command: 'effort', args: s.effort }) } catch { /* the job still starts */ } }
+  await $.prompt.submit({ text: s.text, asUser: true })
+  post($, L, 'started', { id: item.id })
+}
+
+/** C6 probe T2: can this session reach the Claude app's own session tools? Names and a yes/no only. */
+async function capsCheck($: $T, L: Link): Promise<void> {
+  const tools = (await within($, $.tool.list(), 2000)) ?? []
+  const ccd = tools.filter(t => t.name.startsWith(`mcp__${CCD_SERVER}__`)).map(t => t.name.slice(CCD_SERVER.length + 7)).slice(0, 30)
+  let listOk = false, error = ''
+  try {
+    const r = await within($, $.mcp.call(CCD_SERVER, 'list_sessions', { limit: 1 }), 8000)
+    listOk = !!r && !r.isError
+    if (!listOk) error = r ? mcpText(r, 300) : 'no answer'
+  } catch (e) { error = String((e as Error)?.message ?? e).slice(0, 300) }
+  post($, L, 'caps', { ccd, listOk, ...(error ? { error } : {}) })
+}
+
+/**
+ * C6 Door 2: this (already open) session starts the new one through the Claude app's own start_session tool. Only for
+ * a signed item whose text hashes to his card; only start_session and set_session_model/effort are ever called.
+ */
+async function door2($: $T, L: Link, item: Item): Promise<void> {
+  const s = await startOf(item.body)
+  let b: Record<string, unknown> = {}
+  try { b = JSON.parse(item.body) ?? {} } catch { return }
+  const keys = b.args as { folder?: unknown; prompt?: unknown } | undefined
+  const kf = typeof keys?.folder === 'string' && /^\w{1,40}$/.test(keys.folder) ? keys.folder : ''
+  const kp = typeof keys?.prompt === 'string' && /^\w{1,40}$/.test(keys.prompt) ? keys.prompt : ''
+  if (!s || typeof b.folder !== 'string' || !kf || !kp) { post($, L, 'door2.result', { id: item.id, ok: false, text: 'refused: not a checked start' }); return }
+  let ok = false, text = '', sid = ''
+  try {
+    const r = await within($, $.mcp.call(CCD_SERVER, 'start_session', { [kf]: b.folder, [kp]: s.text }), 20_000)
+    ok = !!r && !r.isError
+    text = r ? mcpText(r) : 'no answer'
+    sid = text.match(/local_[0-9a-f-]{36}/)?.[0] ?? ''
+  } catch (e) { text = String((e as Error)?.message ?? e).slice(0, 600) }
+  if (ok && sid) {
+    if (s.model) { try { await within($, $.mcp.call(CCD_SERVER, 'set_session_model', { session_id: sid, model: s.model }), 8000) } catch { /* he can pick it */ } }
+    if (s.effort && EFFORT_OK.test(s.effort)) { try { await within($, $.mcp.call(CCD_SERVER, 'set_session_effort', { session_id: sid, effort: s.effort }), 8000) } catch { /* he can pick it */ } }
+  }
+  post($, L, 'door2.result', { id: item.id, ok, text, ...(sid ? { sid } : {}) })
 }
 
 /** One turn of the session's own long poll for messages, Pause, Play and the model; it schedules the next. */
@@ -389,6 +477,8 @@ async function showMockup($: $T, L: Link, input: Record<string, unknown>): Promi
 async function begin($: $T, L: Link): Promise<void> {
   L.sessionId = (await within($, $.session.id(), 1000)) ?? ''
   L.model = (await within($, $.session.model(), 1000)) ?? ''
+  // C6: a brand-new session asks for its start first (one proof at a time), then says hello and starts its poll.
+  await claimStart($, L).catch(() => {})
   post($, L, 'start')
   pump($, L)
 }
