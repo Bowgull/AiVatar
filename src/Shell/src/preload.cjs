@@ -93,6 +93,8 @@ contextBridge.exposeInMainWorld('aang', {
   onMenu(fn) { const h = (_e, m) => fn(m); ipcRenderer.on('menu', h); return () => ipcRenderer.removeListener('menu', h); },
   menuPick: id => ipcRenderer.send('menu:pick', id),
   menuShape: rects => ipcRenderer.send('menu:shape', rects),
+  /** Sheet 61 v2 (2026-10-22): the Hotkeys submenu: listen for new keys, change one, or put them all back. */
+  menuHotkey: m => ipcRenderer.send('menu:hotkey', m),
   /** Sheet 17: Start on the timer dial in the bubble. */
   timerStart: a => ipcRenderer.send('bubble:timerstart', a),
   /** Sheet 17, the timer window: its timer, its pin, and the few things it can ask for. */

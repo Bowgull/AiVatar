@@ -25,3 +25,42 @@ body{display:block !important;padding:0 !important}
    and keeps the words lined up. */
 .ic{width:23px;height:23px;flex:0 0 23px;margin:0;image-rendering:pixelated;display:block}
 .ic.tk{margin-left:18px}
+
+/* Sheet 61 v2 (2026-10-22): the Hotkeys submenu, lifted from the sheet's stage.css. A row is the action on the left, its
+   keys on the right as small dark-wood keycaps. Changing one is press and HOLD (his note: "just a click might happen by
+   accident, have it on hold click"): a gold fill sweeps the row (--k, 0 to 100% in 0.6 s) and the pixel ring fills; then
+   it listens; keys another program has turn it red. Ctrl+C and Esc are greyed: fixed. */
+.tabmenu.keys{min-width:470px;display:block;box-sizing:border-box}
+.tabmenu.keys .sep{width:auto}
+.tabmenu.keys button{box-sizing:border-box;gap:22px}
+.tabmenu.keys button .lab small{font:400 10px var(--label);letter-spacing:1px;color:#9fd8ff;margin-left:4px}
+.tabmenu.keys .kr{display:inline-flex;align-items:center;margin-left:auto}
+.tabmenu.keys button i.kk{display:inline-flex;align-items:center;gap:5px;margin-left:auto;font:400 12px var(--body);color:#bfae8a;letter-spacing:0}
+.kc{display:inline-block;min-width:14px;text-align:center;font:400 11px var(--label);letter-spacing:.5px;color:#f1e3c4;padding:5px 7px 4px;border-radius:6px;
+  background:linear-gradient(180deg,#3a2516,#24160d);box-shadow:0 0 0 2px #120a05,0 3px 0 #0d0703,inset 0 2px 0 rgba(255,224,150,.16)}
+.kp{font:700 13px var(--body);color:#8f7d60}
+/* "hold to change" shows on the row he points at */
+.tabmenu.keys button .hint{display:none;white-space:nowrap;font:400 9px var(--label);letter-spacing:1px;color:#bfae8a;margin-right:6px}
+.tabmenu.keys button:hover .hint{display:inline}
+.tabmenu.keys button.fixed{cursor:default}
+.tabmenu.keys button.fixed .kc{opacity:.7}
+.tabmenu.keys button.fixed .lab,.tabmenu.keys button.fixed:hover{color:#bfae8a}
+.tabmenu.keys button.fixed:hover{padding-left:12px}
+.tabmenu.keys button.fixed:hover::before{display:none}
+.tabmenu.keys .note{font:500 13px var(--body);color:#bfae8a;padding:2px 12px 8px 12px;max-width:440px;line-height:1.4}
+.tabmenu.keys .note.gold{color:#ffe28c;padding-top:0}
+.tabmenu.keys .ring{flex:none;margin-right:14px;image-rendering:pixelated}
+/* holding: the gold fill sweeps across the row; let go early = nothing */
+.tabmenu.keys button.holding{color:#ffe28c;border-radius:7px;box-shadow:inset 0 0 0 2px rgba(255,196,60,.45);
+  background:linear-gradient(90deg,rgba(255,196,60,.26) 0 var(--k),rgba(255,196,60,.05) var(--k)) !important}
+.tabmenu.keys button.holding .hint{color:#ffe28c}
+/* listening: the row waits for the new keys */
+.tabmenu.keys button.listen{color:#ffe28c;background:rgba(255,196,60,.08) !important;box-shadow:inset 0 0 0 2px rgba(255,196,60,.55);border-radius:7px}
+.listen .wait{font:400 10px var(--label);letter-spacing:1px;color:#2a1c00;background:#ffc43c;padding:6px 9px 5px;border-radius:6px;box-shadow:0 0 0 2px #120a05,0 0 12px rgba(255,196,60,.55)}
+.listen .wait b{display:inline-block;width:7px;height:11px;background:#2a1c00;margin-left:6px;vertical-align:-1px}
+/* taken: the keys he pressed belong to someone else */
+.tabmenu.keys button.taken{color:#ffb4a6;box-shadow:inset 0 0 0 2px rgba(255,120,100,.55);border-radius:7px;background:rgba(255,90,74,.07) !important}
+.taken .kc{color:#ffd8d0;background:linear-gradient(180deg,#5a2418,#3a160e);box-shadow:0 0 0 2px #120a05,0 3px 0 #0d0703,0 0 10px rgba(255,90,74,.45)}
+.tabmenu.keys .warn{display:flex;gap:10px;align-items:flex-start;font:600 13.5px/1.45 var(--body);color:#ffd8d0;padding:4px 12px 10px 12px;max-width:450px}
+.tabmenu.keys .warn .ic{flex:none;margin-top:1px}
+.tabmenu.keys .warn u{text-decoration:none;color:#ffe28c;border-bottom:2px solid rgba(255,226,140,.45);cursor:pointer}
