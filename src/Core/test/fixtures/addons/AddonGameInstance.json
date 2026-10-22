@@ -1,0 +1,446 @@
+[
+ {
+  "name": "Forever Beta",
+  "installPath": "__WOW__/_classic_beta_/",
+  "gameVersion": "1.60.1.70450",
+  "gameVersionTypeId": 88568,
+  "installedAddons": [
+   {
+    "addonID": 709520,
+    "name": "Better Fishing",
+    "thumbnailUrl": "https://media.forgecdn.net/avatars/thumbnails/879/836/256/256/638308097619779914.jpeg",
+    "installedFile": {
+     "id": 9164051,
+     "fileName": "BetterFishing-64.zip",
+     "fileDate": "2026-10-13T17:35:37.05Z",
+     "gameVersion": [
+      "5.5.4",
+      "12.1.0",
+      "2.5.6",
+      "1.15.9",
+      "3.80.2",
+      "12.1.5",
+      "1.60.1"
+     ],
+     "modules": [
+      {
+       "foldername": "BetterFishing"
+      }
+     ]
+    },
+    "latestFile": {
+     "id": 9164051,
+     "fileName": "BetterFishing-64.zip",
+     "fileDate": "2026-10-13T17:35:37.05Z",
+     "gameVersion": [
+      "5.5.4",
+      "12.1.0",
+      "2.5.6",
+      "1.15.9",
+      "3.80.2",
+      "12.1.5",
+      "1.60.1"
+     ],
+     "modules": [
+      {
+       "foldername": "BetterFishing"
+      }
+     ]
+    },
+    "preferenceIsIgnored": false,
+    "isEnabled": true
+   },
+   {
+    "addonID": 6124,
+    "name": "Auctionator",
+    "thumbnailUrl": "https://media.forgecdn.net/avatars/thumbnails/1403/232/256/256/638909541952729618.png",
+    "installedFile": {
+     "id": 9162359,
+     "fileName": "Auctionator-341.zip",
+     "fileDate": "2026-10-13T16:05:12.567Z",
+     "gameVersion": [
+      "1.15.8",
+      "3.80.0",
+      "5.5.4",
+      "12.1.0",
+      "2.5.6",
+      "1.15.9",
+      "12.1.5",
+      "1.60.1"
+     ],
+     "modules": [
+      {
+       "foldername": "Auctionator"
+      }
+     ]
+    },
+    "latestFile": {
+     "id": 9262359,
+     "fileName": "Auctionator-344.zip",
+     "fileDate": "2026-10-13T16:05:12.567Z",
+     "gameVersion": [
+      "1.15.8",
+      "3.80.0",
+      "5.5.4",
+      "12.1.0",
+      "2.5.6",
+      "1.15.9",
+      "12.1.5",
+      "1.60.1"
+     ],
+     "modules": [
+      {
+       "foldername": "Auctionator"
+      }
+     ]
+    },
+    "preferenceIsIgnored": false,
+    "isEnabled": true
+   },
+   {
+    "addonID": 324944,
+    "name": "What's Training?",
+    "thumbnailUrl": "https://media.forgecdn.net/avatars/thumbnails/2111/909/256/256/639273738232522114.png",
+    "installedFile": {
+     "id": 9233703,
+     "fileName": "WhatsTraining-11.0.0-beta21.zip",
+     "fileDate": "2026-10-17T22:52:15.603Z",
+     "gameVersion": [
+      "2.5.6",
+      "1.15.9",
+      "1.60.1"
+     ],
+     "modules": [
+      {
+       "foldername": "WhatsTraining"
+      }
+     ]
+    },
+    "latestFile": {
+     "id": 9333703,
+     "fileName": "WhatsTraining-12.0.0.zip",
+     "fileDate": "2026-10-17T22:52:15.603Z",
+     "gameVersion": [
+      "2.5.6",
+      "1.15.9",
+      "1.60.1"
+     ],
+     "modules": [
+      {
+       "foldername": "WhatsTraining"
+      }
+     ]
+    },
+    "preferenceIsIgnored": false,
+    "isEnabled": true
+   },
+   {
+    "addonID": 486246,
+    "name": "RestedXP Guide",
+    "thumbnailUrl": "https://media.forgecdn.net/avatars/thumbnails/2066/254/256/256/639257936596340972.png",
+    "installedFile": {
+     "id": 9233297,
+     "fileName": "RXPGuides-v4.11.26.zip",
+     "fileDate": "2026-10-17T22:12:13.623Z",
+     "gameVersion": [
+      "12.0.5",
+      "5.5.4",
+      "12.0.7",
+      "12.1.0",
+      "2.5.6",
+      "1.15.9",
+      "3.80.2",
+      "1.60.1"
+     ],
+     "modules": [
+      {
+       "foldername": "RXPGuides"
+      }
+     ]
+    },
+    "latestFile": {
+     "id": 9333297,
+     "fileName": "RXPGuides-v4.11.31.zip",
+     "fileDate": "2026-10-17T22:12:13.623Z",
+     "gameVersion": [
+      "12.0.5",
+      "5.5.4",
+      "12.0.7",
+      "12.1.0",
+      "2.5.6",
+      "1.15.9",
+      "3.80.2",
+      "1.60.1"
+     ],
+     "modules": [
+      {
+       "foldername": "RXPGuides"
+      }
+     ]
+    },
+    "preferenceIsIgnored": false,
+    "isEnabled": true
+   },
+   {
+    "addonID": 1698950,
+    "name": "GearQuest Forever",
+    "thumbnailUrl": "https://media.forgecdn.net/avatars/thumbnails/2051/657/256/256/639251946520387830.png",
+    "installedFile": {
+     "id": 9237979,
+     "fileName": "GearQuestForever-v0.5.8-beta.zip",
+     "fileDate": "2026-10-18T09:41:03.477Z",
+     "gameVersion": [
+      "1.60.1"
+     ],
+     "modules": [
+      {
+       "foldername": "GearQuestForever"
+      },
+      {
+       "foldername": "GearQuestForever_DRUID"
+      },
+      {
+       "foldername": "GearQuestForever_HUNTER"
+      },
+      {
+       "foldername": "GearQuestForever_MAGE"
+      },
+      {
+       "foldername": "GearQuestForever_PALADIN"
+      },
+      {
+       "foldername": "GearQuestForever_PRIEST"
+      },
+      {
+       "foldername": "GearQuestForever_ROGUE"
+      },
+      {
+       "foldername": "GearQuestForever_SHAMAN"
+      },
+      {
+       "foldername": "GearQuestForever_WARLOCK"
+      },
+      {
+       "foldername": "GearQuestForever_WARRIOR"
+      }
+     ]
+    },
+    "latestFile": {
+     "id": 9337979,
+     "fileName": "GearQuestForever-v0.5.9-beta.zip",
+     "fileDate": "2026-10-18T09:41:03.477Z",
+     "gameVersion": [
+      "1.60.0"
+     ],
+     "modules": [
+      {
+       "foldername": "GearQuestForever"
+      },
+      {
+       "foldername": "GearQuestForever_DRUID"
+      },
+      {
+       "foldername": "GearQuestForever_HUNTER"
+      },
+      {
+       "foldername": "GearQuestForever_MAGE"
+      },
+      {
+       "foldername": "GearQuestForever_PALADIN"
+      },
+      {
+       "foldername": "GearQuestForever_PRIEST"
+      },
+      {
+       "foldername": "GearQuestForever_ROGUE"
+      },
+      {
+       "foldername": "GearQuestForever_SHAMAN"
+      },
+      {
+       "foldername": "GearQuestForever_WARLOCK"
+      },
+      {
+       "foldername": "GearQuestForever_WARRIOR"
+      }
+     ]
+    },
+    "preferenceIsIgnored": false,
+    "isEnabled": true
+   },
+   {
+    "addonID": 17809,
+    "name": "BlizzMove",
+    "thumbnailUrl": "https://media.forgecdn.net/avatars/thumbnails/62/300/256/256/636142137694139375.jpg",
+    "installedFile": {
+     "id": 9171073,
+     "fileName": "BlizzMove-v3.8.5.zip",
+     "fileDate": "2026-10-14T09:13:12.667Z",
+     "gameVersion": [
+      "4.4.2",
+      "3.4.3",
+      "5.5.4",
+      "2.5.6",
+      "1.15.9",
+      "12.1.5",
+      "1.60.1"
+     ],
+     "modules": [
+      {
+       "foldername": "BlizzMove"
+      },
+      {
+       "foldername": "BlizzMove_Debug"
+      }
+     ]
+    },
+    "latestFile": {
+     "id": 9171073,
+     "fileName": "BlizzMove-v3.8.5.zip",
+     "fileDate": "2026-10-14T09:13:12.667Z",
+     "gameVersion": [
+      "4.4.2",
+      "3.4.3",
+      "5.5.4",
+      "2.5.6",
+      "1.15.9",
+      "12.1.5",
+      "1.60.1"
+     ],
+     "modules": [
+      {
+       "foldername": "BlizzMove"
+      },
+      {
+       "foldername": "BlizzMove_Debug"
+      }
+     ]
+    },
+    "preferenceIsIgnored": false,
+    "isEnabled": true
+   },
+   {
+    "addonID": 94855,
+    "name": "Leatrix Plus",
+    "thumbnailUrl": "https://media.forgecdn.net/avatars/thumbnails/483/32/256/256/637782408501667202.png",
+    "installedFile": {
+     "id": 9189028,
+     "fileName": "Leatrix_Plus-1.60.20-forever.zip",
+     "fileDate": "2026-10-15T08:47:51.217Z",
+     "gameVersion": [
+      "1.60.1"
+     ],
+     "modules": [
+      {
+       "foldername": "Leatrix_Plus"
+      }
+     ]
+    },
+    "latestFile": {
+     "id": 9289028,
+     "fileName": "Leatrix_Plus-1.60.22-forever.zip",
+     "fileDate": "2026-10-15T08:47:51.217Z",
+     "gameVersion": [
+      "1.60.1"
+     ],
+     "modules": [
+      {
+       "foldername": "Leatrix_Plus"
+      }
+     ]
+    },
+    "preferenceIsIgnored": false,
+    "isEnabled": true
+   },
+   {
+    "addonID": 61284,
+    "name": "Details! Damage Meter",
+    "thumbnailUrl": "https://media.forgecdn.net/avatars/thumbnails/109/996/256/256/636383851490858804.png",
+    "installedFile": {
+     "id": 9202791,
+     "fileName": "Details-Details.20261015.15339.172.zip",
+     "fileDate": "2026-10-16T01:41:29.867Z",
+     "gameVersion": [
+      "4.4.2",
+      "3.4.5",
+      "5.5.4",
+      "2.5.6",
+      "1.15.9",
+      "3.80.2",
+      "12.1.5",
+      "1.60.1"
+     ],
+     "modules": [
+      {
+       "foldername": "Details"
+      },
+      {
+       "foldername": "Details_EncounterDetails"
+      },
+      {
+       "foldername": "Details_TinyThreat"
+      },
+      {
+       "foldername": "Details_Vanguard"
+      },
+      {
+       "foldername": "Details_DataStorage"
+      },
+      {
+       "foldername": "Details_RaidCheck"
+      },
+      {
+       "foldername": "Details_Streamer"
+      },
+      {
+       "foldername": "Details_Compare2"
+      }
+     ]
+    },
+    "latestFile": {
+     "id": 9202791,
+     "fileName": "Details-Details.20261015.15339.172.zip",
+     "fileDate": "2026-10-16T01:41:29.867Z",
+     "gameVersion": [
+      "4.4.2",
+      "3.4.5",
+      "5.5.4",
+      "2.5.6",
+      "1.15.9",
+      "3.80.2",
+      "12.1.5",
+      "1.60.1"
+     ],
+     "modules": [
+      {
+       "foldername": "Details"
+      },
+      {
+       "foldername": "Details_EncounterDetails"
+      },
+      {
+       "foldername": "Details_TinyThreat"
+      },
+      {
+       "foldername": "Details_Vanguard"
+      },
+      {
+       "foldername": "Details_DataStorage"
+      },
+      {
+       "foldername": "Details_RaidCheck"
+      },
+      {
+       "foldername": "Details_Streamer"
+      },
+      {
+       "foldername": "Details_Compare2"
+      }
+     ]
+    },
+    "preferenceIsIgnored": false,
+    "isEnabled": true
+   }
+  ]
+ }
+]

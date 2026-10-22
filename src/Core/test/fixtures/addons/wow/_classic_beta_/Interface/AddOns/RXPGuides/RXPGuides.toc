@@ -1,0 +1,3 @@
+## Interface: 11509, 38002, 50504, 120100, 120005, 120007, 16001
+## Title: RestedXP Guides
+## Version: v4.11.26
