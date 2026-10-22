@@ -7,6 +7,7 @@
 // through. It takes the keyboard while it is up (Esc closes it) and closes when he clicks away (it loses focus).
 import { BrowserWindow, screen } from 'electron';
 import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown } from './safety.ts';
+import { chips, validAccelerator, words, type HotkeyKeeper } from './hotkeys.ts';
 
 /** What the menu shows ticked. The pet's, plus the brain's hush end and the Shell's count of running Claude jobs. */
 export type MenuState = Record<string, unknown>;
@@ -34,8 +35,9 @@ export class AangMenu {
   private win: BrowserWindow | null = null;
   private pending = false;
   private shownAt = 0;
-  private readonly o: { origin: string; preloadPath: string; iconPath?: string; pick: (id: string) => void };
-  constructor(o: { origin: string; preloadPath: string; iconPath?: string; pick: (id: string) => void }) { this.o = o; }
+  // Sheet 61 v2 (2026-10-22): `keys`, his hotkeys: listed in the menu's Hotkeys submenu and changed from there.
+  private readonly o: { origin: string; preloadPath: string; iconPath?: string; pick: (id: string) => void; keys?: HotkeyKeeper };
+  constructor(o: { origin: string; preloadPath: string; iconPath?: string; pick: (id: string) => void; keys?: HotkeyKeeper }) { this.o = o; }
 
   private window(): BrowserWindow {
     if (this.win && !this.win.isDestroyed()) return this.win;
@@ -77,7 +79,8 @@ export class AangMenu {
     w.setBounds({ x: b.x, y: b.y, width: b.width, height: b.height });
     this.pending = true;
     const keep = avoid ? { x: avoid.x - b.x, y: avoid.y - b.y, width: avoid.width, height: avoid.height } : null;
-    const send = () => w.webContents.send('menu', { kind: 'show', x: at.x - b.x, y: at.y - b.y, state, avoid: keep });
+    const all = this.o.keys ? { ...state, hotkeys: this.o.keys.list() } : state;
+    const send = () => w.webContents.send('menu', { kind: 'show', x: at.x - b.x, y: at.y - b.y, state: all, avoid: keep });
     if (w.webContents.isLoading()) w.webContents.once('did-finish-load', send); else send();
   }
 
@@ -109,9 +112,29 @@ export class AangMenu {
     if (typeof id === 'string' && MENU_IDS.has(id)) this.o.pick(id);
   }
 
+  /**
+   * Sheet 61 v2 (2026-10-22): the Hotkeys submenu. `listen` lets go of all our keys while a row waits for new ones (so
+   * what he presses reaches the menu instead of firing); `change` and `reset` are checked and held in hotkeys.ts. The
+   * page hears back with the whole list and how it went: kept, taken by another program, another of ours, or not allowed.
+   */
+  hotkey(sender: Electron.WebContents, m: unknown): void {
+    const w = this.win, keys = this.o.keys;
+    if (!keys || !w || w.isDestroyed() || w.webContents !== sender || !m || typeof m !== 'object') return;
+    const a = m as { kind?: unknown; id?: unknown; acc?: unknown; on?: unknown };
+    if (a.kind === 'listen') { keys.pause(a.on === true); return; }
+    let result: unknown;
+    if (a.kind === 'reset') result = { ok: true, missed: keys.reset() };
+    else if (a.kind === 'change') result = keys.change(a.id, a.acc);
+    else return;
+    const v = a.kind === 'change' ? validAccelerator(a.acc) : null;
+    const tried = v?.ok ? { chips: chips(v.acc), words: words(v.acc) } : null;
+    w.webContents.send('menu', { kind: 'hotkeys', list: keys.list(), id: typeof a.id === 'string' ? a.id.slice(0, 12) : '', tried, result });
+  }
+
   close(): void {
     const w = this.win;
     this.pending = false;
+    this.o.keys?.pause(false);   // never left without his keys because the menu went mid-listen
     if (!w || w.isDestroyed()) return;
     if (w.isVisible()) w.hide();
     w.webContents.send('menu', { kind: 'hide' });

@@ -2010,7 +2010,7 @@ function onBrain(m) {
     if (editingNote && !notesAll.some((n) => n.id === editingNote)) showBoard();
     return;
   }
-  if (m.t === 'notes.board') { openBoard(); return; }
+  if (m.t === 'notes.board') { openBoard(); if (m.fresh === true) newNote(); return; }
   // Sheet 17: "set a timer" with no time, or the wheel's Timer: the dial.
   if (m.t === 'timer.setup') {
     if (cockpit) { cockCommit(); live = { skip: true }; }
@@ -2327,6 +2327,16 @@ function typeHere(e) {
   }, 60);
 }
 card.addEventListener('pointerdown', typeHere);
+/**
+ * Blank, with "Title" and "Write here" hints. Nothing is kept until he writes something: an empty note that he walks
+ * away from simply is not there (his test: a "New note" appearing straight away made no sense). The board's + NEW, and
+ * since sheet 61 v2 (2026-10-22) his Quick note key, Ctrl + number pad *.
+ */
+function newNote() {
+  const n = { id: newNoteId(), title: '', html: '', col: 'parchment', font: 'figtree', size: 'm', updated: Date.now(), fresh: true };
+  notesAll = [n, ...notesAll];
+  openNote(n.id, true);
+}
 function newNoteId() { return 'n' + Date.now().toString(36) + Math.floor(Math.random() * 1296).toString(36); }
 function showBoard() {
   editingNote = null;
@@ -2339,13 +2349,7 @@ function showBoard() {
   const head = T('div', 'ctitle', 'NOTES');
   if (pages > 1) { const d = T('span', 'bdots'); for (let i = 0; i < pages; i++) d.append(T('i', i === boardPage ? 'on' : '')); head.append(d); }
   const add = T('button', 'newk', '+ NEW'); add.type = 'button';
-  add.addEventListener('click', () => {
-    // Blank, with "Title" and "Write here" hints. Nothing is kept until he writes something: an empty note that
-    // he walks away from simply is not there (his test: a "New note" appearing straight away made no sense).
-    const n = { id: newNoteId(), title: '', html: '', col: 'parchment', font: 'figtree', size: 'm', updated: Date.now(), fresh: true };
-    notesAll = [n, ...notesAll];
-    openNote(n.id, true);
-  });
+  add.addEventListener('click', newNote);
   head.append(add);
   const wrap = T('div', 'boardwrap');
   if (pages > 1) {
