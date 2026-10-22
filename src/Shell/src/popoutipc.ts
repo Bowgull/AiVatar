@@ -67,6 +67,13 @@ export function wirePopout(o: PopoutWiring): { popTab: (id: number) => void } {
   ipcMain.on('popout:stage', (e, r) => { if (from(e) && r && typeof r === 'object') o.popout()?.setStage(r); });
   ipcMain.on('popout:tabcmd', (e, c) => { if (from(e) && c && typeof c === 'object') o.popout()?.tabCommand(c); });
   ipcMain.on('popout:pin', (e) => { if (from(e)) o.popout()?.togglePin(); });
+  // The wooden bar dragged by hand (the window family, F2): the page says how far since the press.
+  ipcMain.on('popout:drag', (e, a) => {
+    if (!from(e) || !a || typeof a !== 'object') return;
+    const v = a as { phase?: unknown; dx?: unknown; dy?: unknown };
+    if (v.phase !== 'start' && v.phase !== 'move' && v.phase !== 'end') return;
+    o.popout()?.drag(v.phase, Number(v.dx ?? 0), Number(v.dy ?? 0));
+  });
   ipcMain.on('popout:playback', (e, s) => {
     if (!from(e) || !s || typeof s !== 'object') return;
     o.playback?.({ playing: s.playing === true, at: Number(s.at) || 0, length: Number(s.length) || 0, ended: s.ended === true });

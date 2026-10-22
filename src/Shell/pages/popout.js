@@ -131,6 +131,34 @@ window.aang.onPopoutPinned?.((on) => {
   frame.classList.remove('faded');
   pinSay = setTimeout(() => { what.textContent = what.dataset.was ?? ''; delete what.dataset.was; if (pinned || player.state.playing) frame.classList.add('faded'); }, 2000);
 });
+// The family's see-through is shared (his rule, 2026-10-22): moved on another pop-out or the family menu, this slider follows.
+window.aang?.onFamilyShared?.((s) => {
+  if (typeof s?.opacity === 'number' && Number.isFinite(s.opacity)) { seeThrough = Math.max(0.2, Math.min(1, s.opacity)); paintSeeThrough(); }
+});
+
+// The wooden bar is dragged by hand (the window family, F2, 2026-10-22). It used to be Windows' own drag
+// (-webkit-app-region), which holds every move Aang makes until the mouse comes up, so nothing could snap to it while
+// he dragged. Now the page says how far since the press and the main process moves the window (and its whole group).
+{
+  const bar = document.querySelector('.bar');
+  bar.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0 || e.target.closest('.keys, button')) return;
+    const sx = e.screenX, sy = e.screenY;
+    let started = false;
+    try { bar.setPointerCapture(e.pointerId); } catch { /* fine */ }
+    bar.onpointermove = (ev) => {
+      const dx = ev.screenX - sx, dy = ev.screenY - sy;
+      if (!started) { if (Math.abs(dx) + Math.abs(dy) < 3) return; started = true; window.aang.popoutDrag?.({ phase: 'start' }); }
+      window.aang.popoutDrag?.({ phase: 'move', dx, dy });
+    };
+    const done = () => {
+      bar.onpointermove = bar.onpointerup = bar.onpointercancel = null;
+      if (started) window.aang.popoutDrag?.({ phase: 'end' });
+    };
+    bar.onpointerup = done;
+    bar.onpointercancel = done;
+  });
+}
 // The half-moon in front of the see-through slider is a flat label, not a key (his report, 2026-10-14).
 
 // ---------------------------------------------------------------- painting the state
@@ -241,10 +269,10 @@ const stageEl = document.querySelector('.stage');
 // Only when it really changed (measured 2026-10-20: every mouse move over the pop-out resized the video for nothing).
 let stageWas = '';
 const sayStage = () => {
-  const r = stageEl.getBoundingClientRect(), k = [r.left, r.top, r.width, r.height].map(Math.round).join(',');
+  const r = stageEl.getBoundingClientRect(), k = [r.left, r.top, r.width, r.height, getComputedStyle(stageEl).borderTopLeftRadius].map((v) => typeof v === 'number' ? Math.round(v) : v).join(',');
   if (k === stageWas) return;
   stageWas = k;
-  window.aang?.popoutStage?.({ x: r.left, y: r.top, width: r.width, height: r.height });
+  window.aang?.popoutStage?.({ x: r.left, y: r.top, width: r.width, height: r.height, radius: parseFloat(getComputedStyle(stageEl).borderTopLeftRadius) || 0 });
 };
 new ResizeObserver(sayStage).observe(stageEl);
 frame.addEventListener('transitionend', sayStage);

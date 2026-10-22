@@ -21,6 +21,10 @@ export interface ShellBridge {
   onPopoutPinned(fn: (on: boolean) => void): () => void;
   /** How many pixels of the window are Aang's own chrome, measured by the page. */
   popoutChrome(px: number): void;
+  /** The wooden bar dragged by hand (window family F2): how far since the press, in screen px. */
+  popoutDrag(a: { phase: 'start' | 'move' | 'end'; dx?: number; dy?: number }): void;
+  /** The family's shared see-through and pin changed elsewhere. */
+  onFamilyShared(fn: (s: { opacity?: number; pinned?: boolean }) => void): () => void;
   /** Where the openings, endings and sponsor bits are in what is playing. */
   onPopoutSegments(fn: (list: { from: number; to: number; says: string }[]) => void): () => void;
   /** His switches, so the page knows whether it may fade. */

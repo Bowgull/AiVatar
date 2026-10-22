@@ -6,6 +6,7 @@
 // a note appearing never steals his game's keys. Clicking into it is him choosing to type.
 import { BrowserWindow, screen } from 'electron';
 import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown } from './safety.ts';
+import type { FamilyHooks } from './familywin.ts';
 
 export interface NoteOut { x: number; y: number; w: number; h: number; opacity: number; pinned: boolean }
 export interface NoteData { id: string; title: string; html: string; col: string; font: string; size: string; out?: NoteOut; updated: number }
@@ -30,7 +31,7 @@ export class NoteWindows {
   show(n: NoteData): BrowserWindow | null {
     if (!n.out) return null;
     let v = this.wins.get(n.id);
-    if (!v || v.w.isDestroyed()) { v = { w: this.make(n.out), note: n, menu: false }; this.wins.set(n.id, v); }
+    if (!v || v.w.isDestroyed()) { v = { w: this.make(n.out), note: n, menu: false }; this.wins.set(n.id, v); this.joinFamily(n.id, v.w); }
     else v.note = n;
     const w = v.w;
     if (!v.menu && this.drag?.id !== n.id) {
@@ -67,10 +68,43 @@ export class NoteWindows {
     return null;
   }
 
+  // ---------------------------------------------------------------- the window family (F2, 2026-10-22)
+  /** Set by familywire.ts: notes snap to the video, jobs, timers and each other, and share see-through and pin. */
+  family: FamilyHooks | null = null;
+  private joinFamily(id: string, w: BrowserWindow): void {
+    this.family?.add({
+      id: 'note:' + id, kind: 'note', win: () => (w.isDestroyed() ? null : w), card: '.sticky',
+      setOpacity: (n) => this.applyOpacity(id, n),
+      setPinned: (on) => this.applyPinned(id, on),
+      resize: (width, height) => { if (!w.isDestroyed()) { const b = w.getBounds(); w.setBounds({ ...b, width: width + PAD * 2, height: height + PAD * 2 }); this.savePlace(id); } },
+      moved: () => this.savePlace(id),
+    });
+  }
+  /** Where the family put it, written down so the brain's next list does not put it back. */
+  private savePlace(id: string): void {
+    const v = this.wins.get(id);
+    if (!v || v.w.isDestroyed() || !v.note.out || v.menu) return;
+    const nb = v.w.getBounds();
+    const note = { ...v.note, out: { ...v.note.out, x: nb.x + PAD, y: nb.y + PAD, w: nb.width - PAD * 2, h: nb.height - PAD * 2 } };
+    v.note = note;
+    this.o.save(note);
+  }
+
   /** Drag by the top, or resize from the corner: the page says how far, the window follows. */
   move(sender: Electron.WebContents, kind: 'drag' | 'resize', phase: string, dx: number, dy: number): void {
     const v = this.of(sender);
     if (!v || !v.note.out || v.note.out.pinned) return;
+    // Dragged by the top: the family moves it (and whatever it is joined to), and snaps it.
+    const fid = 'note:' + v.id;
+    if (kind === 'drag' && this.family && phase !== 'end' && this.family.drag(fid, phase, dx, dy)) { if (phase === 'start') this.drag = { id: v.id, x: 0, y: 0, w: 0, h: 0 }; return; }
+    if (kind === 'drag' && this.family && phase === 'end' && this.drag?.id === v.id) {
+      this.drag = null;
+      // Dropped on Aang or his bubble, on its own: back on the board. Joined to others, it stays with them.
+      if (!this.family.joined(fid) && this.o.overAang(screen.getCursorScreenPoint())) { this.family.drag(fid, 'cancel'); this.back(v.id); return; }
+      this.family.drag(fid, 'end', dx, dy);
+      this.savePlace(v.id);
+      return;
+    }
     const b = v.w.getBounds();
     if (phase === 'start') { this.drag = { id: v.id, x: b.x, y: b.y, w: b.width, h: b.height }; return; }
     const d = this.drag;
@@ -107,13 +141,23 @@ export class NoteWindows {
   setOpacity(sender: Electron.WebContents, n: number): void {
     const v = this.of(sender);
     if (!v || !v.note.out || !Number.isFinite(n)) return;
+    this.applyOpacity(v.id, n);
+    this.family?.shared('note:' + v.id, { opacity: n });
+  }
+  private applyOpacity(id: string, n: number): void {
+    const v = this.wins.get(id);
+    if (!v || v.w.isDestroyed() || !v.note.out || !Number.isFinite(n)) return;
     const op = Math.max(0.25, Math.min(1, n));
     v.w.setOpacity(op);
     const note = { ...v.note, out: { ...v.note.out, opacity: op } };
-    this.wins.get(v.id)!.note = note;
+    v.note = note;
     this.o.save(note);
   }
   setPinned(id: string, on: boolean): void {
+    this.applyPinned(id, on);
+    if (this.wins.has(id)) this.family?.shared('note:' + id, { pinned: on });
+  }
+  private applyPinned(id: string, on: boolean): void {
     const v = this.wins.get(id);
     if (!v || v.w.isDestroyed() || !v.note.out) return;
     const note = { ...v.note, out: { ...v.note.out, pinned: on } };

@@ -25,6 +25,7 @@
 import { BrowserWindow, ipcMain, screen } from 'electron';
 import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown } from './safety.ts';
 import { claudeMessage, claudeLink } from './claudewire.ts';
+import type { FamilyHooks } from './familywin.ts';
 
 export interface Rect { x: number; y: number; width: number; height: number }
 interface Spot { x: number; y: number }
@@ -137,6 +138,7 @@ export class JobPops {
     const p: Pop = { w, jobId, pinned: m?.pinned ?? false, opacity: m?.opacity ?? 1, wasActive: false, done: null, near: false, drag: null, leaving: false };
     this.pops.set(jobId, p);
     this.applyPin(p);
+    this.joinFamily(p);
     w.on('closed', () => { if (this.pops.get(jobId)?.w === w) this.pops.delete(jobId); });
     void w.loadURL(`${this.o.origin}/jobpop.html`);
     w.once('ready-to-show', () => { if (!w.isDestroyed()) w.showInactive(); });
@@ -162,6 +164,20 @@ export class JobPops {
     this.jobs = (Array.isArray(jobs) ? jobs : []).filter((j): j is Record<string, unknown> => !!j && typeof j === 'object').slice(0, 50);
     this.waits = (Array.isArray(waits) ? waits : []).filter((x): x is Record<string, unknown> => !!x && typeof x === 'object').slice(0, 50);
     for (const p of this.pops.values()) this.push(p);
+  }
+
+  // ---------------------------------------------------------------- the window family (F2, 2026-10-22)
+  /** Set by familywire.ts: a job snaps to the video, notes, timers and other jobs, and shares see-through and pin. */
+  family: FamilyHooks | null = null;
+  private joinFamily(p: Pop): void {
+    const w = p.w;
+    this.family?.add({
+      id: 'job:' + p.jobId, kind: 'job', win: () => (w.isDestroyed() ? null : w), card: '.pj',
+      // The fade lives in the page (the card fades, the slider beside it never does).
+      setOpacity: (n) => { p.opacity = Math.round(Math.max(MIN_OPACITY, Math.min(1, n)) * 100) / 100; this.remember(p); this.push(p); },
+      setPinned: (on) => { if (p.pinned !== on) { p.pinned = on; this.applyPin(p); this.remember(p); this.push(p); } },
+      moved: () => this.remember(p),
+    });
   }
 
   /** Destroy the windows and stop answering their doors (the Shell quitting, or a test ending). */
@@ -253,10 +269,13 @@ export class JobPops {
   hearDrag(p: Pop, phase: unknown, dx: number, dy: number): void {
     if (p.w.isDestroyed()) return;
     const [x, y] = p.w.getPosition();
-    if (phase === 'start') { p.drag = { x: x!, y: y! }; p.w.setIgnoreMouseEvents(false); return; }
+    const fid = 'job:' + p.jobId;
+    if (phase === 'start') { p.drag = { x: x!, y: y! }; p.w.setIgnoreMouseEvents(false); this.family?.drag(fid, 'start'); return; }
     if (!p.drag || !Number.isFinite(dx) || !Number.isFinite(dy)) return;
     if (phase === 'move') {
-      p.w.setPosition(Math.round(p.drag.x + dx), Math.round(p.drag.y + dy));
+      // The family moves it (and whatever it is joined to), and snaps it; on its own it just follows the mouse.
+      if (!this.family?.drag(fid, 'move', dx, dy)) p.w.setPosition(Math.round(p.drag.x + dx), Math.round(p.drag.y + dy));
+      if (this.family?.joined(fid)) return;     // a joined group never goes back into the bubble by a drag
       const near = this.overAang(screen.getCursorScreenPoint(), NEAR_PX);
       if (near !== p.near) { p.near = near; this.onNear?.(p.jobId, near); }
       return;
@@ -266,8 +285,9 @@ export class JobPops {
     p.drag = null;
     if (p.near) { p.near = false; this.onNear?.(p.jobId, false); }
     // Dropped on Aang or his bubble: back into the bubble. It remembers where it was before this drag, so pulling it
-    // out again without a spot brings it back there rather than on top of Aang.
-    if (this.overAang(screen.getCursorScreenPoint())) {
+    // out again without a spot brings it back there rather than on top of Aang. Only on its own: joined, it stays with them.
+    if (!this.family?.joined(fid) && this.overAang(screen.getCursorScreenPoint())) {
+      this.family?.drag(fid, 'cancel');
       p.leaving = true;
       this.mem.set(p.jobId, { x: from.x, y: from.y, opacity: p.opacity, pinned: p.pinned });
       this.pops.delete(p.jobId);
@@ -276,6 +296,7 @@ export class JobPops {
       this.onPutBack?.(p.jobId);
       return;
     }
+    if (this.family?.drag(fid, 'end', dx, dy)) { this.remember(p); return; }
     const [w, h] = p.w.getSize();
     const at = this.clamp({ x: x!, y: y! }, w!, h!);
     if (at.x !== x || at.y !== y) p.w.setPosition(at.x, at.y);
@@ -286,12 +307,14 @@ export class JobPops {
     this.applyPin(p);
     this.remember(p);
     this.push(p);
+    this.family?.shared('job:' + p.jobId, { pinned: p.pinned });
   }
   hearOpacity(p: Pop, n: number): void {
     if (!Number.isFinite(n)) return;
     // The fade lives in the page (the card fades, the slider beside it never does); here it is only remembered.
     p.opacity = Math.round(Math.max(MIN_OPACITY, Math.min(1, n)) * 100) / 100;
     this.remember(p);
+    this.family?.shared('job:' + p.jobId, { opacity: p.opacity });
   }
   hearAct(p: Pop, what: unknown): void {
     const j = this.jobOf(p.jobId);
