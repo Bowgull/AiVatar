@@ -67,6 +67,7 @@ import { serviceFor } from './services.ts';
 import { failureWords, isRisky, upgrade } from './secure.ts';
 import { blockAds, guardRequests, type AdBlock } from './skip/ads.ts';
 import { createRequire } from 'node:module';
+import { pageMenuItems, sendKindFor } from './sendtoaang.ts';
 
 /**
  * Dark mode for web pages (X, his "Dark Reader is a must", 2026-10-14): Dark Reader's own engine (darkreader 4.9.133,
@@ -509,8 +510,9 @@ export class AangBrowser {
   onPlanStep: ((card: string, at: number | null) => void) | null = null;
   /** Sheet 41: a Claude job's plan finished, card or not, so its row in the scroll-back can say done. */
   onPlanDone: ((jobId: number) => void) | null = null;
-  /** Right-click "Send to Aang": highlighted words go to his typing box. Null while Aang is not running (then hidden). */
-  onSendToAang: ((text: string, from: string) => void) | null = null;
+  /** Right-click "Send to Aang" (sheet 62): the words, a picture, a link or the page go to his typing box. Null while Aang
+   *  is not running (then the item is not in the menu). What it carries is checked again by sendtoaang.ts cleanSent. */
+  onSendToAang: ((s: Record<string, unknown>, picture?: Electron.NativeImage) => void) | null = null;
   /** Told when Samara's last window has closed (the pop-out holding one of its tabs goes with it, 2026-10-21). */
   onLastClosed: (() => void) | null = null;
   /** Right-click "Play in the pop-out" on a link. */
@@ -2141,38 +2143,11 @@ export class AangBrowser {
     const w = this.win;
     const wc = tab.view?.webContents;
     if (!w || w.isDestroyed() || !wc || tab.lent) return;
-    type Item = { id: string; label: string; key?: string; off?: boolean } | { sep: true };
-    const items: Item[] = [];
-    const sep = () => { if (items.length && !('sep' in items[items.length - 1]!)) items.push({ sep: true }); };
-    // His picks (2026-10-20): save the link, save the picture, send highlighted words to Aang, play in the pop-out.
-    if (p.linkURL && isWeb(p.linkURL)) {
-      items.push({ id: 'linktab', label: 'Open link in new tab' }, ...(this.onOpenOther ? [{ id: 'linkother', label: `${OTHER_OPEN.replace('Open', 'Open link')}` }] : []),
-        ...(this.onPlayInPopout ? [{ id: 'linkpop', label: 'Play in the pop-out' }] : []), { id: 'linksave', label: 'Save link' }, { id: 'linkcopy', label: 'Copy link' });
-      sep();
-    }
-    if (p.mediaType === 'image' && p.srcURL && /^(https?:|data:image\/)/.test(p.srcURL)) { items.push({ id: 'imgsave', label: 'Save image' }, { id: 'imgcopy', label: 'Copy image' }); sep(); }
-    if (p.mediaType === 'video' && this.popTab && !tab.internal) { items.push({ id: 'vidpop', label: 'Pop out this video' }); sep(); }
-    const words = p.selectionText.replace(/\s+/g, ' ').trim();
-    // A misspelled word: Chrome's suggestions first, then teach it the word.
-    if (p.isEditable && p.misspelledWord) {
-      const sug = p.dictionarySuggestions.slice(0, 5);
-      sug.forEach((s, i) => items.push({ id: 'spell' + i, label: s }));
-      if (!sug.length) items.push({ id: 'nospell', label: 'No suggestions', off: true });
-      items.push({ id: 'learn', label: `Add "${p.misspelledWord.length > 20 ? p.misspelledWord.slice(0, 19) + '…' : p.misspelledWord}" to dictionary` });
-      sep();
-    }
-    if (p.isEditable) {
-      const f = p.editFlags;
-      items.push({ id: 'cut', label: 'Cut', key: 'CTRL X', off: !f.canCut }, { id: 'copy', label: 'Copy', key: 'CTRL C', off: !f.canCopy },
-        { id: 'paste', label: 'Paste', key: 'CTRL V', off: !f.canPaste }, { id: 'selectall', label: 'Select all', key: 'CTRL A', off: !f.canSelectAll });
-      sep();
-    } else if (words) {
-      items.push({ id: 'copy', label: 'Copy', key: 'CTRL C' }, ...(this.onSendToAang ? [{ id: 'toaang', label: 'Send to Aang' }] : []), { id: 'search', label: `Search for "${words.length > 28 ? words.slice(0, 27) + '…' : words}"` });
-      sep();
-    }
-    items.push({ id: 'back', label: 'Back', key: 'ALT ←', off: !wc.navigationHistory.canGoBack() }, { id: 'reload', label: 'Reload', key: 'CTRL R' });
-    // His ask (2026-10-13): this page (or the link) as a full tab in Aang's browser on the other machine.
-    if (this.onOpenOther && isWeb(tab.url)) { sep(); items.push({ id: 'openother', label: OTHER_OPEN }); }
+    // Sheet 62 (his pick, 2026-10-22): the items are built in sendtoaang.ts, with "Send to Aang" first in every menu.
+    const items = pageMenuItems(p, {
+      send: Boolean(this.onSendToAang) && !tab.internal, other: this.onOpenOther ? OTHER_OPEN : null, popout: Boolean(this.onPlayInPopout),
+      popVideo: Boolean(this.popTab) && !tab.internal, canBack: wc.navigationHistory.canGoBack(), pageIsWeb: isWeb(tab.url),
+    });
     this.menuFor = { tab: tab.id, p };
     this.menuItems = items;
     const m = this.ensureMenu();
@@ -2230,7 +2205,7 @@ export class AangBrowser {
       case 'linksave': if (isWeb(p.linkURL)) wc.downloadURL(p.linkURL); break;
       case 'linkpop': if (isWeb(p.linkURL)) this.onPlayInPopout?.(p.linkURL); break;
       case 'vidpop': this.popTab?.(t.id); break;
-      case 'toaang': { const q = p.selectionText.trim().slice(0, 4000); if (q) this.onSendToAang?.(q, `Samara, ${hostOf(t.url) || 'a page'}`); break; }
+      case 'toaang': void this.sendToAang(t, p); break;
       case 'linkother': if (isWeb(p.linkURL)) this.onOpenOther?.(p.linkURL); break;
       case 'openother': if (isWeb(t.url)) { this.onOpenOther?.(t.url); this.pauseMedia(t.id); } break;
       case 'imgsave': if (p.srcURL) wc.downloadURL(p.srcURL); break;
@@ -2244,6 +2219,40 @@ export class AangBrowser {
       case 'reload': wc.reload(); break;
       case 'learn': if (p.misspelledWord) wc.session.addWordToSpellCheckerDictionary(p.misspelledWord); break;
     }
+  }
+
+  /**
+   * Sheet 62: "Send to Aang" on whatever he right-clicked: the words, the picture, the link, or the page (empty space).
+   * The page is someone else's: its title, words and picture are data for Aang, quoted and never obeyed (sendtoaang.ts).
+   * A picture is fetched by the tab's own session (his sign-ins, the same rules), 8 MB at most, and handed over as an
+   * image, never as anything to run; the page's text is read with a deadline and cut short.
+   */
+  private async sendToAang(t: Tab, p: Electron.ContextMenuParams): Promise<void> {
+    const wc = t.view?.webContents;
+    const kind = sendKindFor(p, isWeb(t.url));
+    if (!kind || !wc || wc.isDestroyed()) return;
+    const site = hostOf(t.url) || 'a page';
+    const base = { kind, site, url: isWeb(t.url) ? t.url : '', samara: true };
+    if (kind === 'words') { this.onSendToAang?.({ ...base, text: p.selectionText, title: t.title }); return; }
+    if (kind === 'link') { this.onSendToAang?.({ ...base, url: p.linkURL, title: p.linkText || '', site: hostOf(p.linkURL) || site }); return; }
+    if (kind === 'page') {
+      const text = await within(wc.executeJavaScript('String(document.body ? document.body.innerText : "").slice(0, 6000)', true) as Promise<string>, 1500, '');
+      this.onSendToAang?.({ ...base, title: wc.getTitle() || t.title, text: typeof text === 'string' ? text : '' });
+      return;
+    }
+    // A picture: fetched with the tab's own session, 8 MB at most, and only if it really is a picture.
+    let img: Electron.NativeImage | undefined;
+    try {
+      if (/^data:image\//.test(p.srcURL)) img = nativeImage.createFromDataURL(p.srcURL.slice(0, 12_000_000));
+      else if (isWeb(p.srcURL)) {
+        const r = await within<Response | null>(wc.session.fetch(p.srcURL), 8000, null);
+        if (r && r.ok && /^image\//.test(r.headers.get('content-type') ?? '') && Number(r.headers.get('content-length') ?? 0) <= 8_000_000) {
+          const buf = Buffer.from(await r.arrayBuffer());
+          if (buf.length <= 8_000_000) img = nativeImage.createFromBuffer(buf);
+        }
+      }
+    } catch { img = undefined; }
+    this.onSendToAang?.({ ...base, title: p.altText || p.titleText || '' }, img && !img.isEmpty() ? img : undefined);
   }
 
   // ------------------------------------------------------------------ 6.23 the vault (Bitwarden)

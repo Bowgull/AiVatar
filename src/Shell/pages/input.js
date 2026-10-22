@@ -260,7 +260,7 @@ function send() {
  * here is the cross that takes one off.
  */
 const pinnedRow = document.getElementById('pinned');
-function paintChips({ replyTo, pinned, snips, highlights, files, mockups } = {}) {
+function paintChips({ replyTo, pinned, snips, highlights, files, mockups, sent } = {}) {
   if (!pinnedRow) return;
   pinnedRow.textContent = '';
   const chip = (kind, label, text, onDrop) => {
@@ -306,6 +306,18 @@ function paintChips({ replyTo, pinned, snips, highlights, files, mockups } = {})
     if (typeof m.thumb === 'string' && m.thumb.startsWith('data:image/png;base64,')) {
       const img = Object.assign(document.createElement('img'), { src: m.thumb, alt: '' });
       img.style.cssText = 'height:16px;width:auto;border-radius:3px;vertical-align:middle;margin-right:4px';
+      c.prepend(img);
+    }
+    pinnedRow.append(c);
+  }
+  // Sheet 62 (2026-10-22): anything sent to Aang (words, a picture, a link, a page, a snip): what it is and the site it
+  // came from, with the snip's own small picture. The same pale blue as the snips and highlights before it.
+  for (const s of sent || []) {
+    const c = chip('sent', String(s.label || 'SENT').slice(0, 10), s.title, () => window.aang?.dropChip?.({ kind: 'sent', i: s.i }));
+    c.classList.add('snip');
+    if (typeof s.thumb === 'string' && s.thumb.startsWith('data:image/png;base64,')) {
+      const img = Object.assign(document.createElement('img'), { src: s.thumb, alt: '' });
+      img.style.cssText = 'height:16px;width:auto;border-radius:3px;vertical-align:middle;margin-right:4px;image-rendering:pixelated';
       c.prepend(img);
     }
     pinnedRow.append(c);

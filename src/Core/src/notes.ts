@@ -20,7 +20,21 @@ export interface Note {
   tfont?: string | undefined; tsize?: string | undefined;
   /** On his screen: where, how big, how see-through, pinned. Absent: on the board only. */
   out?: { x: number; y: number; w: number; h: number; opacity: number; pinned: boolean } | undefined;
+  /** Sheet 62 (2026-10-22): where a kept note came from ("Keep as a note" after a Send to Aang): the page and its site. */
+  src?: { url: string; site: string } | undefined;
   updated: number;
+}
+
+/** A note's source link: http(s) only, not absurdly long, and its site (short). Anything else is no source. */
+export function cleanSrc(raw: unknown): { url: string; site: string } | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const r = raw as Record<string, unknown>;
+  const u = String(r.url ?? '').trim();
+  if (!u || u.length > 2048) return undefined;
+  let host = '';
+  try { const x = new URL(u); if (x.protocol !== 'http:' && x.protocol !== 'https:') return undefined; host = x.hostname.replace(/^www\./, ''); } catch { return undefined; }
+  const site = String(r.site ?? '').replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 80) || host;
+  return { url: u, site };
 }
 
 export const MAX_NOTES = 60;
@@ -168,6 +182,24 @@ export class Notes {
     const n: Note = { id: `n${now.toString(36)}${++this.seq}`, title: title.slice(0, 60) || 'Note', html: cleanHtml(html), col, font: 'figtree', size: 'm', updated: now };
     this.all.push(n); this.save(); return { ...n };
   }
+  /**
+   * Sheet 62 (his pick, 2026-10-22): "Keep as a note" on something he sent to Aang. "A plain note in the default colour
+   * with the link it came from": titled with the site, the words (or the page's name) as plain lines, then the link as a
+   * line of its own, and the link kept on the note (src) for Samara's notes key (sheet 60). The words are a web page's:
+   * escaped like everything else on a note, never markup.
+   */
+  keep(text: string, url: string, site: string, now = Date.now()): Note | null {
+    const src = cleanSrc({ url, site });
+    const lines = String(text ?? '').replace(/\r\n?/g, '\n').split('\n').map(l => l.replace(/\s+/g, ' ').trim()).filter(Boolean).slice(0, 40).map(l => l.slice(0, 400));
+    if (!lines.length && !src) return null;
+    const title = (src?.site || String(site ?? '').replace(/[<>]/g, '').trim() || 'Sent to Aang').slice(0, 60);
+    const html = lines.map(l => `<div>${esc(l)}</div>`).join('') + (src ? `<div>${esc(src.url)}</div>` : '');
+    const n = this.make(title, html, 'parchment', now);
+    if (!n || !src) return n;
+    const at = this.all.findIndex(x => x.id === n.id);
+    if (at >= 0) { this.all[at] = { ...this.all[at]!, src }; this.save(); }
+    return { ...n, src };
+  }
   /** Find a note by the name he says: "my raid note" finds "Raid night". */
   find(name: string): Note | null {
     const k = name.toLowerCase().replace(/\s+note$/, '').trim();
@@ -189,6 +221,8 @@ export class Notes {
     const r = this.tidy({ ...(raw as object), updated: now } as Note);
     if (!r) return null;
     const at = this.all.findIndex(x => x.id === r.id);
+    // A note's source link is the Shell's to set (Keep as a note), never lost because an editor did not send it back.
+    if (at >= 0 && !r.src && this.all[at]!.src) r.src = this.all[at]!.src;
     if (at < 0) { if (this.all.length >= MAX_NOTES) return null; this.all.push(r); } else this.all[at] = r;
     this.save(); return { ...r };
   }
@@ -219,6 +253,7 @@ export class Notes {
       ...((FONTS as readonly string[]).includes(String(n.tfont)) ? { tfont: String(n.tfont) } : {}),
       ...(Number.isInteger(Number(n.tsize)) && Number(n.tsize) >= 10 && Number(n.tsize) <= 28 ? { tsize: String(Number(n.tsize)) } : {}),
       ...(o ? { out: { x: num(o.x, -20000, 20000, 100), y: num(o.y, -20000, 20000, 100), w: num(o.w, 170, 900, 220), h: num(o.h, 120, 900, 170), opacity: Math.max(0.25, Math.min(1, Number(o.opacity) || 1)), pinned: o.pinned === true } } : {}),
+      ...(cleanSrc(n.src) ? { src: cleanSrc(n.src) } : {}),
       updated: Number.isFinite(n.updated) ? n.updated : Date.now(),
     };
   }

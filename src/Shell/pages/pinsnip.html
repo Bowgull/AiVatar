@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- Sheet 62 (2026-10-22): a snip pinned on his desktop. The video pop-out's own window (popout.css: the wooden bar,
+     the grip, the SNIP plaque, the plum keys; 12 px corners as sheet 59 asked) with the job pop-out's pin as its first
+     key and the see-through slider beside it while the mouse is on it. Just a picture: nothing in it can be followed. -->
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' data:;
+               font-src 'self'; style-src-attr 'unsafe-inline'; form-action 'none'; base-uri 'none'">
+<title>Pinned snip</title>
+<link rel="stylesheet" href="popout.css">
+<link rel="stylesheet" href="pinsnip.css">
+</head>
+<body>
+  <div class="ps" id="ps">
+    <div class="frame" id="frame">
+      <div class="bar" id="bar">
+        <i class="grip"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></i>
+        <span class="what" id="what">Snip</span>
+        <span class="src">SNIP</span>
+        <span class="keys">
+          <button class="key" id="pin" aria-label="Pin on top"></button>
+          <button class="key close" id="close" title="Close" aria-label="Close"><svg viewBox="0 0 7 7" width="10" height="10" shape-rendering="crispEdges" aria-hidden="true"><path d="M0 0h1v1h-1zM6 0h1v1h-1zM1 1h1v1h-1zM5 1h1v1h-1zM2 2h1v1h-1zM4 2h1v1h-1zM3 3h1v1h-1zM2 4h1v1h-1zM4 4h1v1h-1zM1 5h1v1h-1zM5 5h1v1h-1zM0 6h1v1h-1zM6 6h1v1h-1z" fill="#e8e0f5"/></svg></button>
+        </span>
+      </div>
+      <div class="stage"><img id="pic" alt=""></div>
+    </div>
+    <div class="vs" id="vs"></div>
+    <span class="ro" id="ro">100%</span>
+  </div>
+<script src="pinsnip.js" type="module"></script>
+</body>
+</html>
