@@ -332,7 +332,13 @@ api?.onData((d) => {
   if (done) open = false;
   const newPin = d.pinned === true;
   // The fade he set is remembered by the main process for this run (put back and pulled out again, it keeps it).
-  if (Number.isFinite(d.opacity) && !sliding) opacity = Math.max(MIN_OP, Math.min(1, Number(d.opacity)));
+  if (Number.isFinite(d.opacity) && !sliding) {
+    const op = Math.max(MIN_OP, Math.min(1, Number(d.opacity)));
+    // The family's See-through (or another member's slider) changed it: the card fades now, without a redraw. Before
+    // (QA 2026-10-22) only a redraw applied it, so a joined job card stayed solid while the rest of the group faded.
+    if (op !== opacity && pj) setOpacity(op, false);
+    opacity = op;
+  }
   const s = signature();
   if (s !== sig) { sig = s; pinned = newPin; render(); return; }
   // Same layout: the bar, the % and the live line move now, not at the next breath (2026-10-21).

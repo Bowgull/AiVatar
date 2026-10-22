@@ -2211,8 +2211,8 @@ function overBubble(x, y) {
   const el = document.elementFromPoint(x, y);
   return Boolean(el && el.closest('#bubble, #tools, #turnmenu'));
 }
-window.addEventListener('mousemove', e => {
-  const over = overBubble(e.clientX, e.clientY);
+function pointerAt(clientX, clientY) {
+  const over = overBubble(clientX, clientY);
   if (over === overNow) return;
   overNow = over;
   document.getElementById('wrap')?.classList.toggle('over', over);
@@ -2236,7 +2236,11 @@ window.addEventListener('mousemove', e => {
   }, 400);
   window.aang?.bubbleClickable?.(over);
   if (over) clearTimeout(hideTimer); else scheduleHide();
-}, { passive: true });
+}
+window.addEventListener('mousemove', (e) => pointerAt(e.clientX, e.clientY), { passive: true });
+// The Shell's own look at the cursor (bubble.ts watchPointer, 2026-10-22): a reloaded page stopped hearing forwarded
+// moves, so the pointer on the board was never "over", the window kept letting clicks through, and "+ New note" closed it.
+window.aang?.onPointer?.((p) => { if (p && Number.isFinite(p.x) && Number.isFinite(p.y)) pointerAt(p.x, p.y); });
 // Whenever the bubble goes away, let go of the mouse at once rather than waiting for a move that may
 // never come: a window that is hidden must never still be holding clicks.
 function releaseMouse() {

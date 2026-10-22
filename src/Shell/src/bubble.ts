@@ -16,7 +16,7 @@
 //
 // The old GDI bubble keeps working the whole time. Nothing is retired until he has used this one for a
 // few days and said it is better (the plan's own rule), which is why `AANG_NEW_BUBBLE` exists.
-import { BrowserWindow } from 'electron';
+import { BrowserWindow, screen } from 'electron';
 import path from 'node:path';
 import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown } from './safety.ts';
 
@@ -24,6 +24,8 @@ export interface BubbleOptions {
   /** Where the page is served from, e.g. http://127.0.0.1:51234 */
   origin: string;
   preloadPath: string;
+  /** Where the mouse is, in screen DIPs (tests pass their own; the Shell uses the real cursor). */
+  cursor?: () => { x: number; y: number };
 }
 
 /**
@@ -86,6 +88,8 @@ export class Bubble {
       void w.loadURL(`${this.o.origin}/bubble.html`);
       // Whatever arrived while the page was loading, now that it can hear it.
       w.webContents.on('did-finish-load', () => {
+        // A (re)loaded page starts with the mouse let through, and the forwarding is armed again (rearmMouse).
+        this.rearmMouse();
         const held = this.waiting.splice(0);
         for (const [channel, payload] of held) w.webContents.send(channel, payload);
       });
@@ -115,10 +119,45 @@ export class Bubble {
     const w = this.window();
     if (!w || w.isDestroyed()) return;
     if (!w.isVisible()) w.showInactive();
+    this.watchPointer();
   }
 
   hide(): void {
+    this.stopPointer();
     if (this.win && !this.win.isDestroyed() && this.win.isVisible()) this.win.hide();
+  }
+
+  /**
+   * The second half of the 2026-10-22 fix (rearmMouse is the first): the page hears the pointer from the Shell too, not
+   * only through Electron's forwarding. While the bubble shows and lets the mouse through, the cursor is looked at every
+   * 60 ms; when it moves inside the window, the page is told where (bubble:pointer) and decides, as for a real move,
+   * whether it is on the drawn bubble and should take the mouse. Nothing is sent while the cursor is elsewhere or still,
+   * or once the window has the mouse (then the page gets real events).
+   */
+  private pointerTimer: NodeJS.Timeout | null = null;
+  private lastPointer = '';
+  private watchPointer(): void {
+    if (this.pointerTimer) return;
+    this.pointerTimer = setInterval(() => {
+      const w = this.win;
+      if (!w || w.isDestroyed() || !w.isVisible()) { this.stopPointer(); return; }
+      if (this.clickable || w.webContents.isLoading()) { this.lastPointer = ''; return; }
+      let p: { x: number; y: number };
+      try { p = this.o.cursor ? this.o.cursor() : screen.getCursorScreenPoint(); } catch { return; }
+      const b = w.getBounds();
+      const x = p.x - b.x, y = p.y - b.y;
+      if (x < 0 || y < 0 || x >= b.width || y >= b.height) { this.lastPointer = ''; return; }
+      const key = `${x},${y}`;
+      if (key === this.lastPointer) return;
+      this.lastPointer = key;
+      w.webContents.send('bubble:pointer', { x, y });
+    }, 60);
+    this.pointerTimer.unref?.();
+  }
+  private stopPointer(): void {
+    if (this.pointerTimer) clearInterval(this.pointerTimer);
+    this.pointerTimer = null;
+    this.lastPointer = '';
   }
 
   /**
@@ -141,6 +180,22 @@ export class Bubble {
     this.win.setIgnoreMouseEvents(!on, { forward: true });
   }
   private clickable = false;
+
+  /**
+   * His report (2026-10-22): "+ New note" closed the bubble and no note opened. The Shell had reloaded the bubble's page
+   * (Aang came back with new pages, `freshen` in main.ts), and a reload gives the window a NEW Chrome_RenderWidgetHostHWND
+   * (test/electron/qa-hwnd-probe.ts shows the handle change). Electron's `forward: true` keeps posting the mouse moves to
+   * the handle it saw when forwarding was switched on, the old one, so the page never heard the pointer arrive, never
+   * asked for the mouse, and his click went THROUGH the bubble to whatever was under it: a click away, and it closed.
+   * Forwarding is only set up when it is switched on, so it is switched off and on again for the new page, and the
+   * window goes back to letting the mouse through (the fresh page starts with the pointer "off").
+   */
+  rearmMouse(): void {
+    if (!this.win || this.win.isDestroyed()) return;
+    this.clickable = false;
+    this.win.setIgnoreMouseEvents(false);
+    this.win.setIgnoreMouseEvents(true, { forward: true });
+  }
 
   /**
    * Let it take focus, for the one case that needs it: something in the bubble he has to type into.
@@ -171,6 +226,7 @@ export class Bubble {
   private readonly waiting: Array<[string, unknown]> = [];
 
   close(): void {
+    this.stopPointer();
     if (this.win && !this.win.isDestroyed()) this.win.close();
     this.win = null;
     this.clickable = false;

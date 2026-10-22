@@ -210,6 +210,8 @@ contextBridge.exposeInMainWorld('aang', {
     ipcRenderer.on('bubble:dismiss', h);
     return () => ipcRenderer.removeListener('bubble:dismiss', h);
   },
+  /** Where the mouse is in the window, from the Shell (bubble.ts watchPointer), while the window lets the mouse through. */
+  onPointer(fn) { const h = (_e, p) => fn(p); ipcRenderer.on('bubble:pointer', h); return () => ipcRenderer.removeListener('bubble:pointer', h); },
   onAim(fn) {
     const h = (_e, aim) => fn(aim);
     ipcRenderer.on('bubble:aim', h);
