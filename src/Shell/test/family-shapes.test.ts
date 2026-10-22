@@ -11,7 +11,7 @@ const fam = (...ms: Member[]): Fam => new Map(ms.map((m) => [m.id, m]));
 const L: Record<string, Layouts> = {
   job: { tall: { width: 152, minHeight: 200 }, wide: { height: 'auto' } },
   note: { tall: { maxWidth: 200, minHeight: 160 }, wide: {} },
-  timer: { tall: { width: 140, minHeight: 120 }, wide: { height: 'auto' } },
+  timer: { tall: { width: 140, minHeight: 200, fitHeight: true } },
   snip: { aspect: true, max: { width: 720, height: 560 } },
   player: { tall: { width: 200 }, wide: { height: 120 } },
 };
@@ -55,7 +55,7 @@ test('shape: per kind, a note gets narrower, a timer stacks, a pinned snip keeps
   };
   assert.deepEqual(beside('note:n', { width: 260, height: 220 }), { shape: 'tall', width: 200, height: 394 });
   assert.deepEqual(beside('note:small', { width: 180, height: 140 }), { shape: 'tall', width: 180, height: 394 }, 'a narrow note stays as narrow');
-  assert.deepEqual(beside('timer:t', { width: 190, height: 52 }), { shape: 'tall', width: 140, height: 394 });
+  assert.deepEqual(beside('timer:t', { width: 190, height: 52 }), { shape: 'tall', width: 140 }, 'a compact column: its height is the page');
   assert.deepEqual(beside('snip:1', { width: 300, height: 200 }), { shape: 'tall', width: 591, height: 394 }, 'aspect 3:2 kept');
   assert.deepEqual(beside('player', { width: 360, height: 120 }), { shape: 'tall', width: 200, height: 394 });
   const below = fam(mem('video', VIDEO), mem('player', { x: 400, y: 594, width: 360, height: 60 }, { anchor: { to: 'video', side: 'below', align: 'start' } }));
@@ -159,4 +159,20 @@ test('restore: the video reopens and the job that waited goes back to its side; 
   assert.equal(later.get('job:a')!.anchor?.to, 'video');
   // Its parent is not open (a monitor unplugged took nothing, but the video is closed): nothing to restore.
   assert.equal(restoreInto(fam(mem('job:a', { x: 50, y: 50, ...JOB })), 'job:a', saved, new Set(['job:a'])), null);
+});
+
+test('shape: timers pack tight (2026-10-22, "a ton of empty space"): a compact column at the top, a second one stacks under it, a plate under the video keeps its size', () => {
+  const T = { width: 250, height: 92 };
+  const f = fam(
+    mem('video', VIDEO),
+    mem('timer:a', { x: 1040, y: 200, ...T }, { anchor: { to: 'video', side: 'right', align: 'start' } }),
+    mem('timer:b', { x: 1040, y: 400, ...T }, { anchor: { to: 'timer:a', side: 'below', align: 'start' } }),
+    mem('timer:c', { x: 400, y: 594, ...T }, { anchor: { to: 'video', side: 'below', align: 'start' } }),
+  );
+  const fits = fitShapes(f, layoutsOf);
+  assert.deepEqual(fits.get('timer:a'), { shape: 'tall', width: 140 });
+  assert.deepEqual(fits.get('timer:b'), { shape: 'tall', width: 140 }, 'under a 140 column: a column too');
+  assert.deepEqual(fits.get('timer:c'), { shape: 'free', width: 250, height: 92 }, 'under the video: its own compact plate, no long bar');
+  const n = applyFits(f, fits);
+  assert.equal(n.get('timer:a')!.box.y, 200, 'lined up with the top of the video');
 });

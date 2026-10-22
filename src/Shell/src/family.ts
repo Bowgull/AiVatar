@@ -432,13 +432,16 @@ export const ownSize = (m: Member) => ({ width: m.own.width, height: m.own.heigh
  * none (the video) never reshapes. Text never turns: the page re-flows (familywin sends it data-fam-shape + the size).
  *   tall: beside a TALLER window it becomes a column as tall as that window. Width: `width`, else its own width capped by
  *         `maxWidth` (a note just gets narrower). Only when that window is at least `minHeight` tall.
+ *         `fitHeight` (the timer, 2026-10-22, his note: "a ton of empty space"): the column is only as tall as its page's
+ *         content (height left to the page), lined up with the top of that side, a flush join along part of the edge;
+ *         and a member under or over a column exactly its column width becomes a column too, so several stack tightly.
  *   wide: above or below a WIDER window it becomes a strip as wide as that window. Height: a number, 'auto' (its page
  *         decides, e.g. a job strip that unfolds), or absent = its own height.
  *   aspect: keeps its own shape (a pinned snip): beside, as tall as the window and as wide as that makes it; above or
  *         below, as wide and as tall as that makes it; never past `max`.
  */
 export interface Layouts {
-  tall?: { width?: number; maxWidth?: number; minHeight?: number };
+  tall?: { width?: number; maxWidth?: number; minHeight?: number; fitHeight?: boolean };
   wide?: { height?: number | 'auto'; minWidth?: number };
   aspect?: boolean;
   max?: { width: number; height: number };
@@ -464,8 +467,11 @@ export function shapeFor(own: { width: number; height: number }, side: Side, n: 
     if (L.aspect) return { shape: 'tall', ...cap(n.height * ratio, n.height) };
     if (!L.tall || n.height < (L.tall.minHeight ?? 0)) return free;
     const width = L.tall.width ?? Math.min(own.width, L.tall.maxWidth ?? own.width);
+    if (L.tall.fitHeight) return { shape: 'tall', width: r(width) };
     return { shape: 'tall', width: r(width), height: r(L.max ? Math.min(L.max.height, n.height) : n.height) };
   }
+  // a column under (or over) a column of its own width: a column too, packed tight
+  if (L.tall?.fitHeight && L.tall.width !== undefined && Math.abs(n.width - L.tall.width) <= 1) return { shape: 'tall', width: r(L.tall.width) };
   if (n.width <= own.width) return free;
   if (L.aspect) return { shape: 'wide', ...cap(n.width, n.width / ratio) };
   if (!L.wide || n.width < (L.wide.minWidth ?? 0)) return free;
