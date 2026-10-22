@@ -289,9 +289,10 @@ test('a session he started himself gets the same two tiers, even while the game 
   assert.equal(waiting.jobCwd, undefined, 'no Panel tab for a session Aang did not launch');
 
   await post({ hook_event_name: 'Stop', session_id: 'h2', cwd: 'C:\\code\\AangApp' });
-  await new Promise(r => setTimeout(r, 200));
-  const finished = bubbles().find(b => /finished in/.test(b.text));
-  assert.ok(finished, 'a Stop worth mentioning (it was waiting) also reaches him live');
+  // 2026-10-21: every turn end is now the "<title> replied" line (claudereplies.ts), said after a short settle.
+  await new Promise(r => setTimeout(r, 2000));
+  const finished = bubbles().find(b => /AangApp replied/.test(b.text));
+  assert.ok(finished, 'a Stop also reaches him live');
   assert.equal(finished.done, true);
   assert.equal(finished.blocking, undefined, 'done and blocking are never both set');
 

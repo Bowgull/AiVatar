@@ -94,6 +94,7 @@ test('the file: survives a restart, skips torn lines, stays small, keeps nothing
     await a.flush();
     writeFileSync(f, readFileSync(f, 'utf8') + '{"at":3,"s":"task","key":"half a li', 'utf8');
     const b = new ProgressHistory(f);
+    await b.ready;   // read back in the background since 2026-10-21
     assert.ok(b.stat('t|P|*test'), 'learned again from the file');
     assert.deepEqual(b.phaseRatios('P'), [1.5]);
     const text = readFileSync(f, 'utf8');

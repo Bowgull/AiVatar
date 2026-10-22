@@ -14,7 +14,7 @@
 // ("when I say open Claude Code I mean THIS APP") - and the desktop app's own claude.exe is not even visible
 // outside the app, which is a packaged Windows app with its own private view of AppData.
 import { spawn } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { closeSync, fstatSync, openSync, readSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -112,14 +112,27 @@ export function isFrom(l: Launched, ev: any): boolean {
 
 /** The last thing Claude wrote in a session, from its transcript: its summary, or its question. */
 export function lastAssistantText(transcriptPath: string): string {
+  // 2026-10-21: only the end of the file, read in place (256 KB, then 1 MB, then 4 MB if no words of Claude's are in
+  // it yet). It read the WHOLE transcript on every Stop hook: his sessions run to 25-57 MB, which held the brain for
+  // 116-252 ms each time any session ended a turn.
+  let fd: number | null = null;
   try {
-    const lines = readFileSync(transcriptPath, 'utf8').trim().split(/\r?\n/);
-    for (let i = lines.length - 1; i >= 0; i--) {
-      let e: any; try { e = JSON.parse(lines[i]!); } catch { continue; }
-      if (e?.type !== 'assistant') continue;
-      const parts = Array.isArray(e.message?.content) ? e.message.content : [];
-      const text = parts.filter((p: any) => p?.type === 'text').map((p: any) => String(p.text)).join('\n').trim();
-      if (text) return text;
+    fd = openSync(transcriptPath, 'r');
+    const size = fstatSync(fd).size;
+    for (const want of [256 * 1024, 1024 * 1024, 4 * 1024 * 1024]) {
+      const start = Math.max(0, size - want);
+      const buf = Buffer.alloc(size - start);
+      readSync(fd, buf, 0, buf.length, start);
+      const lines = buf.toString('utf8').trim().split(/\r?\n/);
+      if (start > 0) lines.shift();                  // cut mid-line
+      for (let i = lines.length - 1; i >= 0; i--) {
+        let e: any; try { e = JSON.parse(lines[i]!); } catch { continue; }
+        if (e?.type !== 'assistant') continue;
+        const parts = Array.isArray(e.message?.content) ? e.message.content : [];
+        const text = parts.filter((p: any) => p?.type === 'text').map((p: any) => String(p.text)).join('\n').trim();
+        if (text) return text;
+      }
+      if (start === 0) break;
     }
   } catch (e) {
     // 5.5: returning "" here means Aang has nothing to say about a Claude session that may well be
@@ -129,7 +142,7 @@ export function lastAssistantText(transcriptPath: string): string {
       moanedAbout.add(transcriptPath);
       console.error(`claude: cannot read a session transcript, so I cannot tell you what it is doing: ${(e as Error).message}`);
     }
-  }
+  } finally { if (fd !== null) try { closeSync(fd); } catch { /* already gone */ } }
   return '';
 }
 

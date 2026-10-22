@@ -219,6 +219,9 @@ export class TranscriptScan {
             this.known.set(file, { mtime, session: s.session, working: s.working, relooked: was?.mtime === mtime });
             this.sink.fromTranscript(s, now);
           } catch { /* mid-write or gone: next pass */ }
+          // 2026-10-21: a turn of the event loop between files, so a pass over several busy transcripts is never one
+          // long stretch of the brain's time (each file is a positioned read of its tail, ~1-2 ms to parse).
+          await new Promise(r => setImmediate(r));
         }
       }
       for (const [file, k] of this.known) {

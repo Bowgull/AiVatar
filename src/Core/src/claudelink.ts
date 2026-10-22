@@ -205,11 +205,16 @@ export class JobTracker {
     this.ci = opts.ci === false ? null : new CiTracker(this.hist, { ...(opts.run ? { run: opts.run } : {}), onChange: () => this.onChange('jobs') });
     for (const j of this.jobs.values()) this.ci?.watch(j.cwd);
     try {
-      this.loopMon = monitorEventLoopDelay({ resolution: 20 }); this.loopMon.enable();
+      // 2026-10-21: what the histogram holds is the whole gap between two 20 ms ticks, timer included, and on his cloud
+      // PC an idle Node process measured p99 106 ms, worst 151 ms over 20 s (Windows timer coarseness and the VM's
+      // scheduling), so "p99 over 20 ms" fired every 30 s and hid the one real freeze (the 6.8 s and 12.6 s memory
+      // backup). Now the tick is taken off, and only a real stall is logged: worst over 250 ms or p99 over 100 ms.
+      const RES = 20;
+      this.loopMon = monitorEventLoopDelay({ resolution: RES }); this.loopMon.enable();
       this.loopTimer = setInterval(() => {
         const m = this.loopMon; if (!m) return;
-        const p99 = m.percentile(99) / 1e6;
-        if (p99 > 20) console.error(`progress: the brain's event loop lagged (p99 ${Math.round(p99)} ms, worst ${Math.round(m.max / 1e6)} ms)`);
+        const p99 = Math.max(0, m.percentile(99) / 1e6 - RES), worst = Math.max(0, m.max / 1e6 - RES);
+        if (worst > 250 || p99 > 100) console.error(`progress: the brain's event loop stalled (p99 ${Math.round(p99)} ms, worst ${Math.round(worst)} ms beyond its ${RES} ms tick)`);
         m.reset();
       }, 30_000);
       this.loopTimer.unref?.();
@@ -236,6 +241,8 @@ export class JobTracker {
   trace: LinkTrace | null = null;
   /** Told once per new waiting item, so the Core can have it rewritten in plain words (C2, 2026-10-21). */
   onAsk: (item: WaitItem) => void = () => {};
+  /** A turn started or ended in a linked session (2026-10-21): the Core's "<title> replied" line (claudereplies.ts). */
+  onTurn: (session: string, what: 'start' | 'end', info: { project: string; aborted: boolean }) => void = () => {};
   private seq = 0;
 
   private id(): string { return `${Date.now().toString(36)}-${(++this.seq).toString(36)}-${randomBytes(4).toString('hex')}`; }
@@ -338,6 +345,7 @@ export class JobTracker {
         this.act(session, t).turnStart(t);
         this.turnW.set(session, this.clock(session).w(t));
         if (typeof ev?.prompt === 'string' && ev.prompt.trim()) j.prompt = cut(ev.prompt.trim(), 200);
+        this.onTurn(session, 'start', { project: j.project, aborted: false });
         break;
       case 'turn.end': {
         urgent = true;
@@ -369,6 +377,7 @@ export class JobTracker {
         // "After this task" with no to-do list to wait on means after this turn.
         this.release(session, (h) => h.afterTask === null || !j.tasks.some(t => t.status === 'in_progress' && t.text === h.afterTask));
         this.onChange('wait');
+        this.onTurn(session, 'end', { project: j.project, aborted: ev?.aborted === true });
         break;
       }
       case 'todos': urgent = true; j.finished = false; this.act(session, t).alive(t); this.setTasks(j, ev?.todos, t); break;

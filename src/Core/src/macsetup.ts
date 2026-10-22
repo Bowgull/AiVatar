@@ -13,6 +13,7 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync, statSync, unlinkSync } from 'node:fs';
+import { readdir as readdirAsync, readFile as readFileAsync, stat as statAsync } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -235,6 +236,27 @@ export function macSourceVersion(shellDir: string, coreSrcDir: string, deskFiles
   for (const d of ['src', 'pages', 'drm']) walk(shellDir, d);
   for (const f of ['package.json', 'package-lock.json']) { try { add('mac-pkg/' + f, path.join(shellDir, 'mac-pkg', f)); } catch { /* none */ } }
   for (const f of [...deskFiles, 'macsetup.ts'].sort()) { try { add('core/' + f, path.join(coreSrcDir, f)); } catch { /* none */ } }
+  return h.digest('hex').slice(0, 16);
+}
+/**
+ * The same version as macSourceVersion, read without holding the brain (2026-10-21): the synchronous walk took 0.8-1.5 s
+ * of a frozen brain on his PC each time the Mac connected and every five minutes after. Same files, same order, same
+ * hash, so the two always agree (the test checks it).
+ */
+export async function macSourceVersionAsync(shellDir: string, coreSrcDir: string, deskFiles: string[]): Promise<string> {
+  const h = createHash('sha256');
+  const add = async (rel: string, full: string) => { h.update(rel + '\0'); h.update(await readFileAsync(full)); h.update('\0'); };
+  const walk = async (base: string, dir: string): Promise<void> => {
+    let names: string[] = [];
+    try { names = (await readdirAsync(path.join(base, dir))).sort(); } catch { return; }
+    for (const n of names) {
+      const rel = dir ? `${dir}/${n}` : n, full = path.join(base, rel);
+      if ((await statAsync(full)).isDirectory()) { if (n !== 'node_modules') await walk(base, rel); } else await add('shell/' + rel, full);
+    }
+  };
+  for (const d of ['src', 'pages', 'drm']) await walk(shellDir, d);
+  for (const f of ['package.json', 'package-lock.json']) { try { await add('mac-pkg/' + f, path.join(shellDir, 'mac-pkg', f)); } catch { /* none */ } }
+  for (const f of [...deskFiles, 'macsetup.ts'].sort()) { try { await add('core/' + f, path.join(coreSrcDir, f)); } catch { /* none */ } }
   return h.digest('hex').slice(0, 16);
 }
 export interface MacRelease { version: string; commit: string }

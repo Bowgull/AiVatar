@@ -618,7 +618,10 @@ function holdFor(text) {
   if (livePlan) return 600000;                      // a job is running: the checklist stays until the reply
   if (holdOverride) return holdOverride;           // a line the pet says carries its own time, as before
   if (expanded) return 300000;                     // opened up to read: five minutes, as the old bubble did
-  const base = Math.min(20000, Math.max(3000, 2500 + 45 * text.length));
+  // 2026-10-21 (his report: a one-word answer was gone in 2-3 s): a short reply stays at least 4 s. The old 3 s floor
+  // came off the pet's own one-liners; an answer is read after the eyes find the bubble. The mouse on it still pauses
+  // the clock, and leaving starts this whole hold again (releaseMouse -> scheduleHide).
+  const base = Math.min(20000, Math.max(4000, 2500 + 45 * text.length));
   return lineCount() > 6 || shortOf() ? Math.max(base, 60000) : base;
 }
 function scheduleHide() {
