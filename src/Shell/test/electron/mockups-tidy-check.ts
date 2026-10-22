@@ -98,13 +98,13 @@ app.whenReady().then(async () => {
   console.log('BEFORE ' + JSON.stringify(before));
   check('before: one row per sheet, numbers and names consistent', before.rows.length === SHEETS.length && before.rows.some((t: string) => t.startsWith('59Spotify mini player')), JSON.stringify(before.rows));
   check('before: grouped under the project (the repo)', before.proj.length === 1, JSON.stringify(before.proj));
-  check('before: the TIDY key is on the trail head', before.tidy === 'TIDY', String(before.tidy));
+  check('before: no second broom on the trail head (one broom, his catch 2026-10-22)', before.tidy === null, String(before.tidy));
   check('before: nothing archived yet', before.arch === null);
   await shot('before');
 
   const n0 = b.mockStore.list.length;
   notes.length = 0;
-  await wc.executeJavaScript(`document.querySelector('#tabs .th.mock .mtidy').click(); true`);
+  await b.mockTidy(true);   // what the one broom at the foot of the drawer does for the mockups
   await until(() => notes.length > 0, 10000); await wait(700);
   const after = await look();
   console.log('AFTER ' + JSON.stringify(after) + ' NOTE ' + JSON.stringify(notes));

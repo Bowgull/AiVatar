@@ -1276,14 +1276,8 @@ function mockNodes(g, rowFor) {
   const more = Object.assign(document.createElement('button'), { type: 'button', className: 'thm', textContent: '···', title: 'Mockups options' });
   more.addEventListener('click', (e) => { e.stopPropagation(); trailMenu(tr, e.clientX, e.clientY); });
   const n = g.tabs.length;
-  // Tidy now (2026-10-22): Samara's own broom, plain code in the Shell (no quota); it says what it did in one line.
-  const tidy = mockEls.tidy ?? (mockEls.tidy = Object.assign(document.createElement('button'), { type: 'button', className: 'mtidy', title: 'Tidy now: fold old versions, merge duplicates, archive what is replaced (nothing is deleted)' }));
-  if (!tidy.dataset.wired) {
-    tidy.dataset.wired = '1';
-    tidy.append(Object.assign(document.createElement('img'), { src: 'art/browser/tidy_broom2.png', alt: '' }), 'TIDY');
-    tidy.addEventListener('click', (e) => { e.stopPropagation(); tidy.classList.remove('sweep'); void tidy.offsetWidth; tidy.classList.add('sweep'); window.aang?.browserMockup?.({ act: 'tidy' }); });
-  }
-  h.replaceChildren(ic, Object.assign(document.createElement('span'), { className: 'nm', textContent: 'MOCKUPS' }), Object.assign(document.createElement('span'), { className: 'n', textContent: `${n} TAB${n === 1 ? '' : 'S'}` }), tidy, more);
+  // No TIDY key of its own here (2026-10-22, his catch): the one broom at the foot of the drawer tidies the mockups too.
+  h.replaceChildren(ic, Object.assign(document.createElement('span'), { className: 'nm', textContent: 'MOCKUPS' }), Object.assign(document.createElement('span'), { className: 'n', textContent: `${n} TAB${n === 1 ? '' : 'S'}` }), more);
   out.push(h);
   out.push(mockEls.from ?? (mockEls.from = Object.assign(document.createElement('div'), { className: 'mfrom', textContent: 'FROM CLAUDE' })));
   if (tr.collapsed) return out;
