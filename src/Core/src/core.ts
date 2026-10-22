@@ -2259,9 +2259,20 @@ export class Core {
   private readonly frontGate = new FrontGate(() => this.inClaude());
   /** He left the Claude window: the mark comes back quietly, then what was held, a few seconds apart (as hush does). */
   private frontMoved(): void {
-    const { mark, lines } = this.frontGate.moved();
+    const { mark, lines } = this.frontGate.moved(m => this.askOver(m));
     if (mark) this.sendTo('desktop', mark);
-    lines.forEach((m, i) => setTimeout(() => this.sendTo('desktop', m), 1500 + i * 6000).unref?.());
+    // Looked at again as each one goes: one answered in Claude in the seconds between is not said either.
+    lines.forEach((m, i) => setTimeout(() => { if (!this.askOver(m)) this.sendTo('desktop', m); }, 1500 + i * 6000).unref?.());
+  }
+  /**
+   * 2026-10-22: a line saying a Claude session waits on him (a blocking line with its session) that is no longer true:
+   * nothing of that session waits in the link, and the old hooks do not have it waiting either. He answered it in Claude.
+   */
+  private askOver(m: ToBody): boolean {
+    if (m.t !== 'bubble' || m.blocking !== true || typeof m.session !== 'string' || !m.session) return false;
+    const s = m.session;
+    if (this.claudeJobs.waiting().some(w => w.session === s)) return false;
+    return this.hooks.sessions.get(s)?.phase !== 'waiting' || this.claudeJobs.linked(s);
   }
   /**
    * A directory only Aang's own chat lanes ever use as their session cwd - never a real folder he opens in
@@ -2646,7 +2657,9 @@ export class Core {
       // A MacBook session (it came over Tailscale) says so, and a click brings Claude forward on the Mac, not here.
       // Not while he is in the Claude app on this PC: he can already see it there. A MacBook session still says so.
       // 2026-10-21: a finished turn is now the "<title> replied" line above, for every turn, so only waiting is said here.
-      if (said && said.kind === 'waiting' && !(this.inClaude() && !remote)) {
+      // 2026-10-22: not for a session the aang-link mod speaks for: its own card says exactly what waits, and goes the
+      // moment he answers it anywhere; this line could not, and stayed up after he had answered in Claude.
+      if (said && said.kind === 'waiting' && !(this.inClaude() && !remote) && !this.claudeJobs.linked(said.session.id)) {
         const text = remote ? said.text.replace(/^Claude Code/, 'Claude Code on the MacBook') : said.text;
         const where = remote ? { host: 'mac' as const } : { focus: CLAUDE_WINDOW };
         const claude = said.session.project, session = said.session.id;
