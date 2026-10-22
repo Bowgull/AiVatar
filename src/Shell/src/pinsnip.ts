@@ -7,10 +7,12 @@
 // shown with showInactive), so pinning a snip over WoW never pulls the game out of focus. The page can only speak for its
 // own window; it never names a file: the picture is read here, from a snip the Shell itself saved, and sent as an image.
 //
-// It joins the snapping window family later (the pop-out family builder). Until then every window it makes comes from
-// ONE function, makePinWindow, so that work has one place to change.
+// Every window it makes comes from ONE function, makePinWindow. Since the window family's part 2 (2026-10-22) each pinned
+// snip is a family member ('snip:N'): it snaps, moves with its group, shares see-through and pin, and keeps its picture's
+// shape when it joins a side (familywin.ts KIND_LAYOUTS.snip).
 import { BrowserWindow, ipcMain, nativeImage, screen } from 'electron';
 import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown } from './safety.ts';
+import type { FamilyHooks } from './familywin.ts';
 
 export interface PinSnipOptions {
   origin: string;
@@ -26,7 +28,7 @@ export interface PinSnipOptions {
 export const BAR = 34, ROOM_R = 44, MAX_W = 360, MAX_H = 300, MIN_W = 180;
 export const MIN_OPACITY = 0.3;
 
-interface Pin { w: BrowserWindow; title: string; pic: string; pinned: boolean; opacity: number; drag: { x: number; y: number } | null }
+interface Pin { w: BrowserWindow; title: string; pic: string; pinned: boolean; opacity: number; drag: { x: number; y: number } | null; fid: string }
 
 const all = new Set<PinSnips>();
 let wired = false;
@@ -66,6 +68,9 @@ export function makePinWindow(o: PinSnipOptions, b: { x: number; y: number; widt
 export class PinSnips {
   private readonly pins = new Set<Pin>();
   private readonly o: PinSnipOptions;
+  private n = 0;
+  /** Set by familywire.ts (main.ts when the snips come later): a pinned snip is a window family member. */
+  family: FamilyHooks | null = null;
   constructor(o: PinSnipOptions) { this.o = o; all.add(this); wireIpc(); }
 
   /** Pin one snip. `file` must be a PNG the Shell saved; the window shows it with its title. Null when it cannot be read. */
@@ -78,9 +83,14 @@ export class PinSnips {
     const spot = this.spot(sz.width, sz.height);
     const w = makePinWindow(this.o, { ...spot, width: sz.width, height: sz.height });
     const pic = (iw > sz.picW * 2 ? img.resize({ width: sz.picW * 2, quality: 'good' }) : img).toDataURL();
-    const p: Pin = { w, title: String(title).replace(/\s+/g, ' ').slice(0, 60) || 'Snip', pic, pinned: true, opacity: 1, drag: null };
+    const p: Pin = { w, title: String(title).replace(/\s+/g, ' ').slice(0, 60) || 'Snip', pic, pinned: true, opacity: 1, drag: null, fid: 'snip:' + ++this.n };
     this.pins.add(p);
     this.applyPin(p);
+    this.family?.add({
+      id: p.fid, kind: 'snip', win: () => (w.isDestroyed() ? null : w), card: '.frame',
+      setOpacity: (n) => { p.opacity = Math.round(Math.max(MIN_OPACITY, Math.min(1, n)) * 100) / 100; this.push(p); },
+      setPinned: (on) => { if (p.pinned !== on) { p.pinned = on; this.applyPin(p); this.push(p); } },
+    });
     w.on('closed', () => this.pins.delete(p));
     this.push(p);
     return w;
@@ -118,13 +128,14 @@ export class PinSnips {
   hearDrag(p: Pin, phase: unknown, dx: number, dy: number): void {
     if (p.w.isDestroyed()) return;
     const [x, y] = p.w.getPosition();
-    if (phase === 'start') { p.drag = { x: x!, y: y! }; p.w.setIgnoreMouseEvents(false); return; }
+    if (phase === 'start') { p.drag = { x: x!, y: y! }; p.w.setIgnoreMouseEvents(false); this.family?.drag(p.fid, 'start'); return; }
     if (!p.drag || !Number.isFinite(dx) || !Number.isFinite(dy)) return;
-    if (phase === 'move') { p.w.setPosition(Math.round(p.drag.x + dx), Math.round(p.drag.y + dy)); return; }
-    if (phase === 'end') p.drag = null;
+    // The family moves it (and whatever it is joined to), and snaps it; on its own it just follows the mouse.
+    if (phase === 'move') { if (!this.family?.drag(p.fid, 'move', dx, dy)) p.w.setPosition(Math.round(p.drag.x + dx), Math.round(p.drag.y + dy)); return; }
+    if (phase === 'end') { p.drag = null; this.family?.drag(p.fid, 'end', dx, dy); }
   }
-  hearPin(p: Pin): void { p.pinned = !p.pinned; this.applyPin(p); this.push(p); }
-  hearOpacity(p: Pin, n: number): void { if (Number.isFinite(n)) p.opacity = Math.round(Math.max(MIN_OPACITY, Math.min(1, n)) * 100) / 100; }
+  hearPin(p: Pin): void { p.pinned = !p.pinned; this.applyPin(p); this.push(p); this.family?.shared(p.fid, { pinned: p.pinned }); }
+  hearOpacity(p: Pin, n: number): void { if (Number.isFinite(n)) { p.opacity = Math.round(Math.max(MIN_OPACITY, Math.min(1, n)) * 100) / 100; this.family?.shared(p.fid, { opacity: p.opacity }); } }
   hearClose(p: Pin): void { this.pins.delete(p); if (!p.w.isDestroyed()) p.w.destroy(); }
 }
 
