@@ -85,3 +85,17 @@ export function briefCardData(b: BriefInput): { data: Record<string, unknown>; t
   if (lines.length === 1 || (lines.length === 2 && weather)) lines.push('Nothing new this morning.');
   return { data, text: lines.join('\n').slice(0, 1900), waiting: waiting.length };
 }
+
+/**
+ * Is this his ask for the brief, however he puts it (2026-10-22: "when I ask him for my morning brief in any way")?
+ * "brief", "my brief", "brief me", "can I get my morning brief?", "what's in today's briefing", "pull up the brief pls".
+ * Short asks only, and never one about MAKING a brief ("write a brief for the designer").
+ */
+export function wantsBrief(text: string): boolean {
+  const t = (text ?? '').trim();
+  if (!t || t.length > 90) return false;
+  if (/\b(write|draft|make|create|prepare|edit|rewrite|send)\b[^.?!]*\bbrief|\bbrief\b[^.?!]*\b(shorter|longer)\b/i.test(t)) return false;
+  if (/^(the\s+|my\s+)?(morning\s+)?brief(ing)?[\s.!?]*$/i.test(t)) return true;
+  if (/\bbrief\s+me\b/i.test(t)) return true;
+  return /\b(my|the|today'?s|this\s+morning'?s|morning|daily)\s+(morning\s+|daily\s+)?brief(ing)?\b/i.test(t);
+}
