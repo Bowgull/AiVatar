@@ -27,3 +27,9 @@ src/Shell/engines/
 
 # E8: speech-to-text program and voice model (downloaded, pinned by fingerprint), not kept in git
 tools/whisper/
+
+# Real names behind the off-limits fingerprints in src/Core/src/files.ts (local only)
+src/Core/test/offlimits.local.json
+
+# Joshua's Drive notes: job tracker, profile, job search (private; kept on disk)
+docs/drive/

@@ -8,7 +8,7 @@ Five jobs: sweep (14 boards x 52 lane keywords, LinkedIn as 13 OR-groups x 2 pag
 ## What it uses from Claude in Chrome, and where Aang's browser stands
 | Need | Chrome extension | Aang browser today | Gap |
 |---|---|---|---|
-| Pick his browser, never [friend]'s ([id]) | list/select browser | Only his machines | Better |
+| Pick his browser, never Person B's  | list/select browser | Only his machines | Better |
 | Read pages | get_page_text/read_page/find | read (states, values), find, changes | Better |
 | LinkedIn search cards | li_extract.js parses main.innerText (new UI has NO job-id links) | jobs/collect look for job links and card ids | **Gap: add a text parser like li_extract** |
 | Bulk board sweeps | board_loop.js: same-origin GET fetch loops in one tab per board, paced, 429 backoff | None (no page scripts) | **Gap: a built-in paced sweep tool (GET only, board presets from boards.md, block detection)** |

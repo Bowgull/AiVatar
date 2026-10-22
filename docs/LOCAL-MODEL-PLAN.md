@@ -153,4 +153,4 @@ no local model loads.** The GPU belongs to WoW. Queued reading resumes on quit.
 
 This is the last step, not the first. It needs the documents, which need Drive, which
 needs the two security fixes (file reads must mark a turn tainted, and the exclusion
-list must cover `[folder]` and the key stores). See `HANDOFF-2-REVIEW.md`.
+list must cover `Person B's Job Hunt` and the key stores). See `HANDOFF-2-REVIEW.md`.

@@ -508,7 +508,7 @@ sealed class PetWindow : Form
         {
             Wake();
             var m = System.Text.Json.JsonDocument.Parse(
-                "{\"id\":42,\"text\":\"Joshua's current role is Account Manager at [employer] since January 2026.\","
+                "{\"id\":42,\"text\":\"Joshua's current role is Account Manager at Contoso since January 2026.\","
                 + "\"fromDoc\":\"profile.md\",\"left\":7}").RootElement;
             OnFactAsk(m);
             dirty = true;

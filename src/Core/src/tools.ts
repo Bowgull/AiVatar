@@ -591,7 +591,7 @@ export function makeTools(
         }),
       tool('correct', 'Fix something you know about Joshua that is WRONG. Use this, not forget-then-remember, whenever he corrects you ("no, I\'m at X now", "that\'s not right, it\'s Y"). Then say the corrected version back to him in your reply, in full, so he can see you got it right.',
         {
-          wrong: z.string().describe('a few words of the fact that is wrong, e.g. "Account Manager at [employer]"'),
+          wrong: z.string().describe('a few words of the fact that is wrong, e.g. "Account Manager at Fabrikam"'),
           right: z.string().describe('the corrected fact, as a short plain sentence about him'),
           relation: z.string().optional().describe('one lowercase word for WHAT this is about, e.g. "employer", "location". Same rule as remember: leave it out if unsure.'),
         },

@@ -19,8 +19,8 @@ These are refused in code, not by convention. `src/Core/src/files.ts`, `offLimit
 
 | | why |
 |---|---|
-| `[folder]/` | someone else's data. Joshua's instruction, explicit and permanent |
-| `[friend] - CV.pdf`, `[friend] - CV.gdoc` | hers, and they sit at the top level rather than in her folder |
+| `Person B's Job Hunt/` | someone else's data. Joshua's instruction, explicit and permanent |
+| `Person B - CV.pdf`, `Person B - CV.gdoc` | hers, and they sit at the top level rather than in her folder |
 | any `.env` | two exist in `cerebro-machine-backup-2026-07-25/Repos/`, and they hold keys |
 
 Anything else of hers that appears later will be caught by her full name or her email address.

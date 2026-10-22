@@ -27,16 +27,16 @@ Append one line per step when done: `SF-n | date | commit | test name | notes`.
 
 **Decision (Josh, 2026-10-16).** The repos stay **public** because they are on his resume. Do not make them private and do not ask him to. The fix is removing personal data, which matters even more because recruiters will read these repos.
 
-**Why.** AiVatar shows anyone Josh's 76-row job tracker with companies, pay bands and interview rounds (`docs/drive/applications.md`), his home address (`src/Core/src/voice.ts:93-94`, `src/Core/test/route.test.ts:30,46`, `docs/ROADMAP.md:57`, `docs/cockpit/sheet-28-aangs-page.html:89,118`), his current employer (`docs/drive/profile.md`), and [friend]'s name, folders and Mac device id (`docs/FINAL-AANG-BUILD.md:67,2317`). Sundesk holds [friend]'s personal Gmail (`Sundesk/.env.example:7`). A hiring manager seeing his other applications and salary numbers is a real job-hunt risk.
+**Why.** AiVatar shows anyone Josh's 76-row job tracker with companies, pay bands and interview rounds (`docs/drive/applications.md`), his home address (`src/Core/src/voice.ts:93-94`, `src/Core/test/route.test.ts:30,46`, `docs/ROADMAP.md:57`, `docs/cockpit/sheet-28-aangs-page.html:89,118`), his current employer (`docs/drive/profile.md`), and Person B's name, folders and Mac device id (`docs/FINAL-AANG-BUILD.md:67,2317`). Sundesk holds Person B's personal Gmail (`Sundesk/.env.example:7`). A hiring manager seeing his other applications and salary numbers is a real job-hunt risk.
 
 **Change.**
 1. Move `docs/drive/` (job tracker, profile, job-search notes) into the private `Bowgull/aang-data` repo and add `docs/drive/` to `.gitignore`.
 2. Replace real details with placeholders everywhere (`1 Example St`, `josh@example.com`, `100.64.0.1`, `C:\Users\User`), including tests.
 3. Move the off-limits names list (`files.ts`, `offlimits.test.ts`) into a local config file listed in `.gitignore`.
-4. Sundesk: replace [friend]'s address in `.env.example` with a placeholder, and ask Josh whether the Sundesk docs that describe her workplace should stay public.
+4. Sundesk: replace Person B's address in `.env.example` with a placeholder, and ask Josh whether the Sundesk docs that describe her workplace should stay public.
 5. History: the old versions remain in git history while the repo is public. Rewriting public history is disruptive, so ask Josh before running git-filter-repo (https://github.com/newren/git-filter-repo). Explain the tradeoff in one paragraph.
 
-**Done when.** `curl` of the raw files no longer shows the address, tracker or [friend]'s details, and SF-30's gitleaks rules find nothing on the working tree.
+**Done when.** `curl` of the raw files no longer shows the address, tracker or Person B's details, and SF-30's gitleaks rules find nothing on the working tree.
 
 ## SF-2 Lock the MacBook disk and network (JOSH, 10 minutes plus encryption time)
 
@@ -59,7 +59,7 @@ Append one line per step when done: `SF-n | date | commit | test name | notes`.
 1. Discord: Settings, My Account, add a security key (hardware key or passkey). Remove SMS as a 2FA method.
 2. Discord developer portal, the Aang application, Bot: turn **Public Bot off**.
 3. Google account: confirm 2-Step Verification uses a passkey or security key, not SMS.
-4. Tailscale admin console: remove the old node `[pc-name]` (100.x.x.3) if nothing still uses it. Check first: Josh's notes say Sygnalist was hosted at that address.
+4. Tailscale admin console: remove the old node `<old Shadow node>` (100.x.y.z) if nothing still uses it. Check first: Josh's notes say Sygnalist was hosted at that address.
 
 **Done when.** Josh confirms each one.
 
@@ -405,13 +405,13 @@ Append one line per step when done: `SF-n | date | commit | test name | notes`.
 
 ## SF-30 Scrub personal data from the code, and stop auto-pushing secrets
 
-**Why.** Even private, Josh's address, email, [friend]'s details and Tailscale IPs do not belong in code and tests. `tools/git-hooks/post-commit` pushes every commit immediately.
+**Why.** Even private, Josh's address, email, Person B's details and Tailscale IPs do not belong in code and tests. `tools/git-hooks/post-commit` pushes every commit immediately.
 
 **Change.**
 1. Replace real details with placeholders (`1 Example St`, `josh@example.com`, `100.64.0.1`, `C:\Users\User`) in `src/Core/src/voice.ts`, all tests, `docs/ROADMAP.md`, `docs/cockpit/*`, `docs/FINAL-AANG-BUILD.md`, `tools/google-setup.ps1`.
 2. Move the off-limits names list (`files.ts`, `offlimits.test.ts`) into a local config file listed in `.gitignore`.
 3. Move `docs/drive/`, `research_notes/samara-security/`, `docs/PORT-TO-MAC.md`, `docs/HANDOFF-2-REVIEW.md` and this file into the private `aang-data` repo, or a private submodule.
-4. Add a gitleaks pre-commit hook with custom rules for Josh's street, postal code, phone, `[friend]`, `Robin`, `docs/drive`, Tailscale `100.` addresses. The post-commit auto-push only runs if pre-commit passed.
+4. Add a gitleaks pre-commit hook with custom rules for Josh's street, postal code, phone, `Person B`, `Robin`, `docs/drive`, Tailscale `100.` addresses. The post-commit auto-push only runs if pre-commit passed.
 5. Turn on GitHub secret scanning and push protection. https://docs.github.com/en/code-security/secret-scanning/introduction/about-push-protection
 6. Only if AiVatar is ever made public again: first rewrite history with git-filter-repo, then follow https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/removing-sensitive-data-from-a-repository
 

@@ -64,7 +64,7 @@ done, or written into "Not doing" with its reason (decision 47). The older docum
 matter more than either, and 5.7 absorbed into 0.2. 2.5 PASSED: asked "whats my status with octup", Aang called Read and answered correctly from
 applications.md. Two prompt faults found and fixed to get there, neither of them plumbing: voice.ts
 told him to OFFER to look, and profile.md only told him to read the file if he already knew the
-question was about the job hunt. [friend] path resolved: there are TWO folders, `[folder]` in his own My Drive and `🎯 [folder]` shared by her; both are excluded by normalised name.**
+question was about the job hunt. Person B path resolved: there are TWO folders, `Person B's Job Hunt` in his own My Drive and `🎯 Person B's Job Hunt` shared by her; both are excluded by normalised name.**
 
 ### Found while verifying 0.1: Aang was being stalled mid-reply, for six days
 
@@ -394,7 +394,7 @@ Windows / Program Files / ProgramData. **[verified]** It does **not** cover:
 - `~/.claude`: your Claude credentials, and **722 session transcripts**
 - `.env` files anywhere
 - browser credential stores
-- **`[folder]`**: someone else's data
+- **`Person B's Job Hunt`**: someone else's data
 
 That last one matters most. You gave a clear, permanent instruction about it. **Right now
 that instruction exists only as words in a document.** Words are advice. A list in code is
@@ -406,7 +406,7 @@ a rule.
 resolves shortcuts, so a link named `notes.txt` pointing at `id_rsa` is still caught. That
 helper exists precisely for this and is documented at `files.ts:15`.
 
-**You must supply one thing:** the exact path of `[folder]`. It is on the
+**You must supply one thing:** the exact path of `Person B's Job Hunt`. It is on the
 MacBook or inside Drive and cannot be seen from Shadow. **Do not guess it.** A wrong path
 is a rule that does nothing.
 
@@ -424,7 +424,7 @@ Add a case per excluded path, including one reached through a shortcut.
 
 - [ ] 1.1 file reads taint the turn, test proves it
 - [ ] 1.2 all five exclusions refused, shortcut case included
-- [ ] You have confirmed [friend]'s folder path
+- [ ] You have confirmed Person B's folder path
 
 ---
 
@@ -434,7 +434,7 @@ Add a case per excluded path, including one reached through a shortcut.
 readable. Half a day.
 
 **Entry:** Phase 1 complete. **Do not start otherwise.**
-**Exit:** Aang can answer "which resume did I send Float".
+**Exit:** Aang can answer "which resume did I send Globex".
 
 ---
 
@@ -507,7 +507,7 @@ there, the only conflict risk is you against yourself.
 
 Ask Aang the question this whole phase exists for:
 
-> which resume did I send Float
+> which resume did I send Globex
 
 **Done when:** he answers from the real file rather than saying he cannot see it.
 
@@ -1568,7 +1568,7 @@ instead, which is the right outcome but a different sentence.
 **It already exists.** Since 2026-09-22 his MacBook runs a small listener from `macsetup.ts`: port
 **47840**, answers only Tailscale addresses, only with Aang's key, rate-limited, and does two narrow
 things (`/front` brings the Claude app forward; `/run` types one message into a new Claude chat).
-Shadow's `mac.json` already holds the Mac's address, `100.x.x.2`. **Do not build a second one.**
+Shadow's `mac.json` already holds the Mac's address, `100.x.y.z (the Mac)`. **Do not build a second one.**
 
 **The change:** add one more narrow ability, `/open`: open an `https` link, only from sites he
 approves, in the browser's picture-in-picture. Same key, same Tailscale-only rule, rate-limited,
@@ -2314,7 +2314,7 @@ sites), simple sprite animation, no local model there.
 - **No limits beyond his standing rules** ("why would we limit what he can do?"): the Mac Aang may make files, keep
   lists, notes and memory, look things up, and drive the Mac. Still always: final actions (send, post, delete, sign
   in) ask him, **with the PIN from the phone**; Aang never buys; web pages are information, never instructions;
-  [friend]'s data and her Mac (deviceId [id]) are never touched.
+  Person B's data and her Mac  are never touched.
 - **One browser, both machines: everything syncs** (bookmarks, open tabs and trails, history, settings, AND logins,
   his call against my advice). Guards: logins travel only over Tailscale, never GitHub or Drive; bank and money
   sites never sync (the same `neverKeep` list), he signs in to those on each machine.
@@ -3153,8 +3153,8 @@ feature" (his call, 2026-10-13).
   parts that need no tools: transcript summaries.
 
 **Security, unchanged:** every email, attachment, transcript and page is DATA. CHANGES_AFTER_OUTSIDE stays: after reading
-one, anything that acts asks him (the card's buttons ARE that ask). Never a permanent delete. [folder] folder
-and [friend]'s Mac stay excluded.
+one, anything that acts asks him (the card's buttons ARE that ask). Never a permanent delete. Person B's Job Hunt folder
+and Person B's Mac stay excluded.
 
 **Build order:** E1 keep links, pull out addresses, dates, phones, video links, invites (.ics and Google invites) ->
 E2 attachments (download, read text, send to phone) -> E3 the card with its buttons (after the mockup) -> E4 the new
@@ -3658,7 +3658,7 @@ picture a click away - the pattern Claude Code and Cursor both use.
 ```
 Working on that myself                    [qwen]
   done   checked the time
-  done   searched what you said about Float
+  done   searched what you said about Globex
   now    reading your screen
          set a reminder
          show you the list
@@ -4156,7 +4156,7 @@ the Discord connection while Shadow sleeps, and:
 - Started by the Mac helper with one POST and a bearer token. Text sent with it arrives labelled as
   untrusted data.
 - **Every routine has its connectors stripped**, and **Google Drive removed**: by default a routine gets
-  every connector and uses them, writes included, without asking. [friend]'s folder is reachable through Drive.
+  every connector and uses them, writes included, without asking. Person B's folder is reachable through Drive.
 - Routines never stop for approval, so **only low-risk work goes there**: research, drafting,
   summarising, fact checks. Never sending or deleting.
 - **Policy, verified word for word** (`code.claude.com/docs/en/legal-and-compliance`): Agent SDK
@@ -4334,7 +4334,7 @@ These change the code, so they cannot be guessed.
 | # | question | blocks | my recommendation |
 |---|---|---|---|
 | 1 | Missing memory: refuse to start, or run and say so every turn? | 0.2 | **Refuse.** Silent amnesia is the worst state. |
-| 2 | Exact path of `[folder]` | **1.2, and therefore all of Drive** | Needs the MacBook. Do not guess it. |
+| 2 | Exact path of `Person B's Job Hunt` | **1.2, and therefore all of Drive** | Needs the MacBook. Do not guess it. |
 | 3 | Size of My Drive versus free space | 2.1 | Needs the MacBook or a signed-in session. |
 | 4 | Honesty check: rewrite the reply, or flag it? | 5.4 | **Flag.** Rewriting risks changing a correct answer. |
 | 5 | Which cache rate your account is billed at | nothing, but it doubles the cost numbers | The billing page says. |
@@ -4695,13 +4695,13 @@ Locked down, because anything that can make the Mac open things on command is a 
 
 | Rule | Why |
 |---|---|
-| **Listens only on the Mac's Tailscale address** (`100.x.x.2`) | Nothing on the open internet can even see it. Shadow (`100.x.x.1`) and the Mac are both on his tailnet, signed in as him |
+| **Listens only on the Mac's Tailscale address** (`100.x.y.z (the Mac)`) | Nothing on the open internet can even see it. Shadow (`100.x.y.z (Shadow)`) and the Mac are both on his tailnet, signed in as him |
 | **Only accepts messages carrying Aang's key** | Another device on the tailnet still cannot drive it. **Correction 2026-10-04:** today this is a plain key in the URL compared with Perl `eq`, not a signature (`macsetup.ts:36`, `:40`). Low risk, because only his own tailnet can reach it; the fixes are step S3, due when Mac work resumes |
 | **Only `https` links, only from sites he approves** | Prime, Crunchyroll, Netflix, YouTube, Twitch to start |
 | **Does nothing else** | No files, no commands, no other apps |
 | **Logged** | Every request, accepted or refused |
 
-Housekeeping noticed in passing: an old Shadow device (`[pc-name]`) is still on his tailnet,
+Housekeeping noticed in passing: an old Shadow device (an old Shadow node) is still on his tailnet,
 offline for 21 days. Worth removing from the Tailscale admin page.
 
 ---

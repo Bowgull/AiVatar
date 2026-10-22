@@ -47,9 +47,9 @@ if (process.argv.includes('--list') || !models.length) {
 const DOC = `From: Joshua Bocas
 Re: where things stand, September 2026
 
-I've been at [employer] as an Account Manager since January. Before that I was at IPEX
-and Skytale Digital. I live in Toronto. I'm job hunting hard right now because I want to
-move into systems and automation work, and I have an interview with Float next week.
+I've been at Contoso as an Account Manager since January. Before that I was at Fabrikam
+and Litware. I live in Toronto. I'm job hunting hard right now because I want to
+move into systems and automation work, and I have an interview with Globex next week.
 
 I play World of Warcraft most nights, mostly raiding on Tuesdays and Thursdays. I'm on
 level 15 in the beta with my first character. Haha, I was so tired last night I just
@@ -61,7 +61,7 @@ Sheet. Oh and I asked someone today what the tallest mountain in the world was, 
 I never want an application sent until I have seen the draft.`;
 
 const EXPECT = [
-  ['[employer]', /[employer]/i],
+  ['Contoso', /contoso/i],
   ['Account Manager', /account manager/i],
   ['Toronto', /toronto/i],
   ['job hunting', /job.?(hunt|search)|looking for (a )?job/i],
@@ -97,7 +97,7 @@ const TOOLS = [{
     },
   },
 }];
-const TOOL_ASK = 'Remind me to send the Float follow-up email tomorrow at 9am.';
+const TOOL_ASK = 'Remind me to send the Globex follow-up email tomorrow at 9am.';
 
 const vram = () => {
   try { return Number(execSync('nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits', { encoding: 'utf8' }).trim().split('\n')[0]); }

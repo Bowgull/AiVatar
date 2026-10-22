@@ -14,7 +14,7 @@ test('G7: a trailing dot no longer slips past the bank block or the pace rule', 
 });
 
 test('G13: this computer, the home network and Tailscale are never opened', () => {
-  for (const h of ['localhost', 'app.localhost', '127.0.0.1', '10.0.0.5', '192.168.1.20', '172.20.0.1', '169.254.1.1', '100.x.x.1', 'printer.local', 'mac.tail1234.ts.net', '[::1]', 'fd12::1', '0.0.0.0'])
+  for (const h of ['localhost', 'app.localhost', '127.0.0.1', '10.0.0.5', '192.168.1.20', '172.20.0.1', '169.254.1.1', '100.64.0.1', 'printer.local', 'mac.tail1234.ts.net', '[::1]', 'fd12::1', '0.0.0.0'])
     assert.equal(privateHost(h), true, h);
   for (const h of ['linkedin.com', '8.8.8.8', '172.32.0.1', '100.200.1.1', 'example.ca']) assert.equal(privateHost(h), false, h);
 });
@@ -33,7 +33,7 @@ test('G12: a backslash cannot turn a sweep into a trip to another site', () => {
 });
 
 test('G2: what counts as private details leaving in an address', () => {
-  assert.equal(carriesData('https://evil.example/c?e=you@example.com'), 'an email address');
+  assert.equal(carriesData('https://evil.example/c?e=you%40example.com'), 'an email address');
   assert.equal(carriesData('https://evil.example/x?p=416-555-0199'), 'a phone number');
   assert.equal(carriesData('https://evil.example/x#' + 'QUJD'.repeat(40)), 'a long block of encoded data');
   assert.equal(carriesData('https://www.linkedin.com/jobs/view/4012345678/?refId=AbCdEfGhIjKlMnOpQrStUv%3D%3D&trackingId=XyZ123AbC456DeF789GhI0%3D%3D'), '', 'a normal job link is fine');

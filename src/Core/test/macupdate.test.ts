@@ -28,8 +28,8 @@ test('the version changes when a file the Mac runs changes, and only then', () =
   assert.notEqual(macSourceVersion(shell, core, ['frontdesk.ts']), v1, 'a browser change does');
 });
 
-const update = macSetupScript('100.x.x.1', 47832, 'h'.repeat(24), 'm'.repeat(24), desk, { release, update: true });
-const byHand = macSetupScript('100.x.x.1', 47832, 'h'.repeat(24), 'm'.repeat(24), desk, { release });
+const update = macSetupScript('100.64.0.1', 47832, 'h'.repeat(24), 'm'.repeat(24), desk, { release, update: true });
+const byHand = macSetupScript('100.64.0.1', 47832, 'h'.repeat(24), 'm'.repeat(24), desk, { release });
 
 test('the update keeps the old Aang, says which version is installed, and puts the old one back if the new one fails', () => {
   assert.match(update, /mv "\$APP\/Contents" "\$RB\/Samara\.app\/Contents"/, 'the old Samara is kept, outside Applications');

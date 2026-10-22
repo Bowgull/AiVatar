@@ -548,7 +548,7 @@ export class Memory {
    * happen or neither does, and the caller gets back exactly what went and exactly what arrived, so Aang
    * can say it back to him rather than claiming success.
    *
-   * Nothing is matched by id, because Joshua is talking, not clicking: he says "no, I'm at [employer]
+   * Nothing is matched by id, because Joshua is talking, not clicking: he says "no, I'm at Contoso
    * now", and the words are what identify the fact.
    */
   correct(which: string, right: string, now = new Date(), relation?: string):

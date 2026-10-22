@@ -62,7 +62,7 @@ $q = @{
 $url = 'https://accounts.google.com/o/oauth2/v2/auth?' + (($q.GetEnumerator() | ForEach-Object { "$($_.Key)=$([Uri]::EscapeDataString($_.Value))" }) -join '&')
 
 $http = New-Object Net.HttpListener; $http.Prefixes.Add($redirect); $http.Start()
-Write-Host '  Opening Google sign-in. Pick you@example.com.'
+Write-Host '  Opening Google sign-in. Pick your own Gmail account.'
 Write-Host '  Google will say the app is not verified: click Advanced, then "Go to Aang (unsafe)". It is your own app.'
 Start-Process $url
 $ctx = $null
@@ -81,10 +81,14 @@ $tok = Invoke-RestMethod -Method Post -Uri 'https://oauth2.googleapis.com/token'
 }
 if (-not $tok.refresh_token) { Write-Host '  Google gave no refresh token. Remove Aang at myaccount.google.com/permissions and run this again.' -ForegroundColor Red; Read-Host '  Press Enter to close'; exit 1 }
 
+# Which account was picked, asked of Gmail itself so no address is written into this script.
+$account = try { (Invoke-RestMethod -Uri 'https://gmail.googleapis.com/gmail/v1/users/me/profile' -Headers @{ Authorization = "Bearer $($tok.access_token)" }).emailAddress } catch { $null }
+if (-not $account) { $account = Read-Host '  Which Gmail address did you just sign in with' }
+
 @{
     clientId = $c.client_id; clientSecret = $c.client_secret; refreshToken = $tok.refresh_token
     accessToken = $tok.access_token; expiresAt = [DateTimeOffset]::UtcNow.AddSeconds([int]$tok.expires_in - 60).ToUnixTimeMilliseconds()
-    scope = $tok.scope; account = 'you@example.com'
+    scope = $tok.scope; account = $account
     # When this sign-in happened, so that if Google cuts it off again Aang can say whether it lasted
     # exactly seven days - which means the project is still in Testing - or something else went wrong.
     # Without this the answer takes an afternoon of detective work, which it did on 2026-10-02.

@@ -7,6 +7,7 @@
 //  - Some files are never his to write, whatever was agreed: his own trust list (writing it would let him
 //    grant himself permissions), his memory database and state, and Windows itself.
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, statSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
 import { writeFileAtomic } from './atomic.ts';
@@ -77,57 +78,48 @@ export const VAULT_WORKING = path.join(VAULT_DIR, '07_Knowledge', 'obsidian-vaul
 export const VAULT_WRITABLE = path.join(VAULT_WORKING, '10_Projects', 'Aang');
 
 /**
- * Folder names that are somebody else's, matched by name wherever they appear.
+ * Other people's data in Joshua's Drive, refused by name wherever it appears.
  *
- * Joshua's instruction, given twice and without qualification: "My Drive contains a folder called
- * `[folder]`. That is someone else's data. Exclude it explicitly and permanently."
+ * Joshua's instruction, given twice and without qualification: a named person's job-hunt folder in
+ * My Drive "is someone else's data. Exclude it explicitly and permanently." A sentence in a document
+ * is advice; this is the rule. Sweeping the real Drive on 2026-10-01 found:
+ *   - TWO copies of that folder (one his, one shared with him with an emoji in front of the name),
+ *     which is why the match normalises names rather than testing paths;
+ *   - two of her files at the top level of My Drive, outside the folder, so her full name on a file
+ *     is refused too, and a handle she uses in file names;
+ *   - a second person's resume, named in his profile as "other people's files - ignore".
  *
- * Until now that instruction existed only as a sentence in a document. A sentence in a document is
- * advice; this is the rule. Found on 2026-10-01 that there are TWO such folders, which is why this
- * matches by name rather than by path:
- *   - `[folder]`, owned by Joshua, sitting in his own My Drive. This is the one that
- *     actually lands on this disk when Drive mirrors.
- *   - `🎯 [folder]`, owned by her and shared with him. The emoji is why the comparison
- *     normalises rather than testing equality: a rule written for the plain name would miss it.
- * Matching by name also covers the folder being moved, renamed around, or shared again later, which
- * a fixed path would not.
+ * Only FINGERPRINTS of the names live here (sha256 of 'aang-offlimits:' + the normalised name). The
+ * repo is public and the people this protects should not be named in it. The real names and paths
+ * are checked by test/offlimits-real.test.ts against a local, untracked list.
+ *
+ * Full names only, never a first name: a first-name rule blocked Joshua's own project notes that
+ * merely mention her, which is how a rule stops being trusted.
  */
-const SOMEONE_ELSES = ["[friend]'s job hunt"];
+const fingerprint = (plain: string) => createHash('sha256').update('aang-offlimits:' + plain).digest('hex').slice(0, 32);
+/** Whole folder names (after plainName), e.g. "<first name>'s job hunt". */
+const SOMEONE_ELSES = new Set(['fa7a0c3d810a61ead8bf7d373abc768b']);
+/** Full names, two words, e.g. "first last". Underscores and hyphens fold to spaces. */
+const OTHER_PEOPLE = new Set(['8e6b383830a40ea724146a8607ada6e1', '28fef172af47bc153673781069f637f7']);
+/** Single-word handles that appear inside file names. */
+const THEIR_HANDLES = new Set(['dad97b15db2c80c66397e3947ecb36f1']);
 
-/**
- * Her name on a file, as opposed to a mention of her in Joshua's own work.
- *
- * Sweeping the real mounted Drive on 2026-10-01 found two files of hers sitting at the TOP level of
- * My Drive, outside her folder, which the folder rule above does not reach:
- *     [friend] - CV.pdf
- *     [friend] - CV.gdoc
- *
- * The same sweep found why a bare "[friend]" match would be wrong:
- *     CereBro-Vault/.../Sundesk Session Handoff - [friend] Launch Checklist.md
- * That one is Joshua's own project note about a launch, and blocking it would hide his work from him
- * with no explanation, which is how a rule stops being trusted.
- *
- * So the test is her full name or her address, not her first name. It catches anything she sends or
- * shares later under the same naming ("[friend] - Resume.docx"), and leaves his notes alone.
- */
-const HER_NAME = /(^|[^a-z])[friend]([^a-z]|$)|[friend-site]/;
+/** Add more off-limits names at run time (tests use made-up ones). Names are stored as fingerprints. */
+export function alsoOffLimits(names: { folders?: string[]; people?: string[]; handles?: string[] }): void {
+  for (const f of names.folders ?? []) SOMEONE_ELSES.add(fingerprint(plainName(f)));
+  for (const n of names.people ?? []) OTHER_PEOPLE.add(fingerprint(plainName(n).split(/[^a-z]+/).filter(Boolean).join(' ')));
+  for (const h of names.handles ?? []) THEIR_HANDLES.add(fingerprint(plainName(h)));
+}
 
-/**
- * Other people whose documents are in Joshua's Drive, by full name.
- *
- * Joshua's own profile.md already said this, as a sentence addressed to Aang: "resumes named
- * [friend] / [friend] are other people's files - ignore." A sentence in a file Aang reads is
- * an instruction he may or may not follow; this is the version that holds whatever he is told by a
- * document he reads later.
- *
- * `[friend]_Resume.pdf` is in My Drive today and was readable until 2026-10-01, found while
- * checking whether profile.md named anyone else. It did, and nobody had acted on it.
- *
- * Add a full name here, never a first name: the first-name version blocked Joshua's own
- * "[friend] Launch" project notes, which is how a rule stops being trusted. Underscores and hyphens
- * are handled by plainName(), so [friend]_Resume.pdf matches "[friend]".
- */
-const OTHER_PEOPLE = [/(^|[^a-z])[friend]([^a-z]|$)/, /(^|[^a-z])[friend]([^a-z]|$)/];
+/** True when a normalised segment carries someone else's full name or handle as whole words. */
+function namesSomeoneElse(name: string): boolean {
+  const words = name.split(/[^a-z]+/).filter(Boolean);
+  for (let i = 0; i < words.length; i++) {
+    if (THEIR_HANDLES.has(fingerprint(words[i]))) return true;
+    if (i + 1 < words.length && OTHER_PEOPLE.has(fingerprint(words[i] + ' ' + words[i + 1]))) return true;
+  }
+  return false;
+}
 
 /**
  * Fold a path segment down to just its words, so a name still matches after someone has decorated
@@ -159,8 +151,8 @@ export function offLimits(file: string): string | null {
 
   for (const seg of segments) {
     const name = plainName(seg);
-    if (SOMEONE_ELSES.includes(name)) return 'that folder is someone else\'s, and it is not mine to open';
-    if (HER_NAME.test(name) || OTHER_PEOPLE.some(re => re.test(name))) return 'that is someone else\'s file, and it is not mine to open';
+    if (SOMEONE_ELSES.has(fingerprint(name))) return 'that folder is someone else\'s, and it is not mine to open';
+    if (namesSomeoneElse(name)) return 'that is someone else\'s file, and it is not mine to open';
   }
 
   const home = os.homedir().toLowerCase();

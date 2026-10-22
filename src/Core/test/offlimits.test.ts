@@ -1,31 +1,36 @@
 import './_env.ts';
 // Places that are nobody's to open, however the request is phrased.
 //
-// WHY THIS EXISTS: Joshua gave one instruction twice and without qualification - "My Drive contains
-// a folder called `[folder]`. That is someone else's data. Exclude it explicitly and
-// permanently." Until 2026-10-01 that instruction existed only as a sentence in a document, which is
-// advice. refusal() protected Aang's own state, his database and Windows, and reads were not
-// path-checked at all, so nothing in code honoured it.
+// WHY THIS EXISTS: Joshua gave one instruction twice and without qualification: a named person's
+// job-hunt folder in his Drive "is someone else's data. Exclude it explicitly and permanently."
+// Until 2026-10-01 that instruction existed only as a sentence in a document, which is advice.
+// refusal() protected Aang's own state, his database and Windows, and reads were not path-checked at
+// all, so nothing in code honoured it.
 //
 // Checking Drive on 2026-10-01 found TWO such folders, which is why the matching normalises names
-// instead of comparing paths: `[folder]` owned by Joshua in his own My Drive (the one that
-// actually mirrors onto this disk), and `🎯 [folder]` owned by her and shared with him. A
-// rule written for the plain name would have missed the second one entirely.
+// instead of comparing paths: one owned by Joshua in his own My Drive, and one owned by her and
+// shared with him with an emoji in front. A rule written for the plain name would have missed it.
+//
+// The repo is public, so the real people are not named here: these tests register made-up ones
+// (Jane Doe, Sam Roe) through the same fingerprint path. offlimits-real.test.ts checks the real
+// names against a local list that is never committed.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import os from 'node:os';
 import path from 'node:path';
-import { offLimits, refusal } from '../src/files.ts';
+import { alsoOffLimits, offLimits, refusal } from '../src/files.ts';
+
+alsoOffLimits({ folders: ["Jane's Job Hunt"], people: ['Jane Doe', 'Sam Roe'], handles: ['janedoedesign'] });
 
 const home = os.homedir();
 const P = { stateDir: 'C:/Users/Shadow/AppData/Roaming/Aang', dataDir: 'C:/Users/Shadow/Documents/Aang' };
 
-test('both of the real [friend] folders are refused, emoji included', () => {
+test('both of the real Jane folders are refused, emoji included', () => {
   // The two that actually exist, as Drive reports them.
   for (const dir of [
-    'G:/My Drive/[friend]\'s Job Hunt',
-    'G:/My Drive/🎯 [friend]\'s Job Hunt',
-    'G:/Shared with me/🎯 [friend]\'s Job Hunt/Job Lanes/Resume/resume.docx',
+    'G:/My Drive/Jane\'s Job Hunt',
+    'G:/My Drive/🎯 Jane\'s Job Hunt',
+    'G:/Shared with me/🎯 Jane\'s Job Hunt/Job Lanes/Resume/resume.docx',
   ]) {
     const why = offLimits(dir);
     assert.ok(why, `${dir} must be refused`);
@@ -36,7 +41,7 @@ test('both of the real [friend] folders are refused, emoji included', () => {
 test('the apostrophe Google and Windows actually produce is handled', () => {
   // A curly apostrophe is what a Google Doc title and a Windows rename both give you, and it is a
   // different character from the one in the source. Comparing raw strings would miss it.
-  for (const name of ['[friend]\u2019s Job Hunt', '[friend]\u2018s Job Hunt', '[friend]\'S JOB HUNT']) {
+  for (const name of ['Jane\u2019s Job Hunt', 'Jane\u2018s Job Hunt', 'JANE\'S JOB HUNT']) {
     assert.ok(offLimits(`G:/My Drive/${name}/notes.md`), `${name} must still match`);
   }
 });
@@ -45,9 +50,9 @@ test('it matches the folder wherever it sits, not one fixed path', () => {
   // Matching by name rather than path is deliberate: the folder can be moved, re-shared, or synced
   // to a different drive letter, and the instruction was about the data, not the location.
   for (const p of [
-    'D:/Backups/[friend]\'s Job Hunt/tracker.xlsx',
-    'C:/Users/Shadow/Downloads/[friend]\'s job hunt/resume.pdf',
-    'G:/My Drive/Archive/2026/[friend]\'s Job Hunt/cover letter.docx',
+    'D:/Backups/Jane\'s Job Hunt/tracker.xlsx',
+    'C:/Users/Shadow/Downloads/jane\'s job hunt/resume.pdf',
+    'G:/My Drive/Archive/2026/Jane\'s Job Hunt/cover letter.docx',
   ]) assert.ok(offLimits(p), `${p} must be refused`);
 });
 
@@ -55,9 +60,9 @@ test('a folder that merely mentions her is NOT refused', () => {
   // The rule has to be narrow enough to stay honest. Over-matching would quietly block Joshua's own
   // files and he would not know why.
   for (const p of [
-    'G:/My Drive/[friend] birthday ideas/list.md',
+    'G:/My Drive/Jane birthday ideas/list.md',
     'G:/My Drive/Job Hunt/resume.docx',
-    'C:/Users/Shadow/Documents/[friend].txt',
+    'C:/Users/Shadow/Documents/jane.txt',
   ]) assert.equal(offLimits(p), null, `${p} should be allowed`);
 });
 
@@ -106,7 +111,7 @@ test('writing to an off-limits path is refused too, with the same reason', () =>
   // refusal() guards writes and now defers to offLimits first, so there is one list rather than two
   // that drift apart.
   assert.match(refusal(path.join(home, '.ssh', 'authorized_keys'), P) ?? '', /SSH/i);
-  assert.match(refusal('G:/My Drive/[friend]\'s Job Hunt/notes.md', P) ?? '', /someone else/i);
+  assert.match(refusal('G:/My Drive/Jane\'s Job Hunt/notes.md', P) ?? '', /someone else/i);
 });
 
 test('the paths refusal() already protected still are', () => {
@@ -132,33 +137,32 @@ test('the paths refusal() already protected still are', () => {
 
 test('her files outside her folder are refused too', () => {
   for (const p of [
-    'G:/My Drive/[friend] - CV.pdf',
-    'G:/My Drive/[friend] - CV.gdoc',
-    'G:/My Drive/[friend] - Resume (Fairmont Royal York).docx',   // the one Drive shows her owning
-    'C:/Users/Shadow/Downloads/[friend] cv.pdf',
+    'G:/My Drive/Jane Doe - CV.pdf',
+    'G:/My Drive/Jane Doe - CV.gdoc',
+    'G:/My Drive/Jane Doe - Resume (Example Hotel).docx',   // the one Drive shows her owning
+    'C:/Users/Shadow/Downloads/jane doe cv.pdf',
   ]) assert.match(offLimits(p) ?? '', /someone else/i, `${p} must be refused`);
 });
 
 test('a file named after her email is refused', () => {
-  assert.match(offLimits('G:/My Drive/exports/[friend-site]-export.zip') ?? '', /someone else/i);
+  assert.match(offLimits('G:/My Drive/exports/janedoedesign-export.zip') ?? '', /someone else/i);
 });
 
 test('Joshua\'s own notes that merely mention her are NOT refused', () => {
   // The reason the test is her full name rather than her first name. This file is real, and it is
-  // his: a CereBro project note about a "[friend] Launch". Blocking it would hide his own work from
+  // his: a CereBro project note about a "Jane Launch". Blocking it would hide his own work from
   // him with no explanation, which is how a rule stops being trusted.
-  assert.equal(offLimits('G:/My Drive/CereBro-Vault/07_Knowledge/obsidian-vault-archive-90/Sundesk Build History/snapshots/2026-05-10 0804 Sundesk Session Handoff - [friend] Launch Checklist.md'), null);
-  assert.equal(offLimits('G:/My Drive/[friend] birthday ideas/list.md'), null);
-  assert.equal(offLimits('C:/Users/Shadow/Documents/call with [friend].txt'), null);
+  assert.equal(offLimits('G:/My Drive/CereBro-Vault/07_Knowledge/obsidian-vault-archive-90/Sundesk Build History/snapshots/2026-05-10 0804 Sundesk Session Handoff - Jane Launch Checklist.md'), null);
+  assert.equal(offLimits('G:/My Drive/Jane birthday ideas/list.md'), null);
+  assert.equal(offLimits('C:/Users/Shadow/Documents/call with jane.txt'), null);
 });
 
-test('the real Drive paths, exactly as they are mounted right now', () => {
-  // Not synthetic. These are the paths as they exist on G: today, so this test fails the moment the
-  // rule and the disk disagree.
+test('the Drive layout: hers refused, his readable', () => {
+  // Shaped like the real paths on G:. The real names are checked in offlimits-real.test.ts.
   const refused = [
-    'G:/My Drive/[friend]\'s Job Hunt',
-    'G:/My Drive/[friend] - CV.pdf',
-    'G:/My Drive/[friend] - CV.gdoc',
+    'G:/My Drive/Jane\'s Job Hunt',
+    'G:/My Drive/Jane Doe - CV.pdf',
+    'G:/My Drive/Jane Doe - CV.gdoc',
   ];
   const allowed = [
     'G:/My Drive/Aang Brain/profile.md',
@@ -171,24 +175,24 @@ test('the real Drive paths, exactly as they are mounted right now', () => {
 });
 
 // Found 2026-10-01 while checking what profile.md actually tells Aang. It already said, as a
-// sentence addressed to him: "resumes named [friend] / [friend] are other people's files -
-// ignore." Nobody had acted on the second name, and [friend]_Resume.pdf was sitting in My Drive,
+// sentence addressed to him: "resumes named Jane Doe / Sam Roe are other people's files -
+// ignore." Nobody had acted on the second name, and Sam_Roe_Resume.pdf was sitting in My Drive,
 // readable. An instruction inside a file Aang reads is advice he may or may not follow, and it does
 // not survive him being told something else by a document later in the same turn.
 
-test('[friend]\'s files are refused, including the real one on disk', () => {
+test('Sam Roe\'s files are refused, including the real one on disk', () => {
   for (const p of [
-    'G:/My Drive/[friend]_Resume.pdf',          // the one that is actually there
-    'G:/My Drive/[friend] - Resume.pdf',
-    'C:/Users/Shadow/Downloads/[friend] cv.docx',
+    'G:/My Drive/Sam_Roe_Resume.pdf',          // the one that is actually there
+    'G:/My Drive/Sam Roe - Resume.pdf',
+    'C:/Users/Shadow/Downloads/sam roe cv.docx',
   ]) assert.match(offLimits(p) ?? '', /someone else/i, `${p} must be refused`);
 });
 
 test('a first name on its own is still not enough to block', () => {
-  // Same rule as for her: full names only. "Robin" or "[friend]" alone would block Joshua's own work.
+  // Same rule as for her: full names only. "Sam" or "Jane" alone would block Joshua's own work.
   for (const p of [
-    'G:/My Drive/Robin Hood notes.md',
-    'G:/My Drive/robins and other birds.md',
-    'G:/My Drive/Scott Pilgrim.md',
+    'G:/My Drive/Sam Houston notes.md',
+    'G:/My Drive/samples and other things.md',
+    'G:/My Drive/Roe deer.md',
   ]) assert.equal(offLimits(p), null, `${p} should be allowed`);
 });

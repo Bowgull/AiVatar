@@ -17,16 +17,16 @@ const tmp = () => mkdtempSync(path.join(os.tmpdir(), 'aang-correct-'));
 test('the wrong version goes and the right one stays', () => {
   const m = new Memory(tmp());
   try {
-    m.remember('Joshua is an Account Manager at [employer].', 'joshua', new Date(), 'employer');
-    const r = m.correct('Account Manager at [employer]', 'Joshua is an Account Manager at [employer].', new Date(), 'employer');
+    m.remember('Joshua is an Account Manager at Fabrikam.', 'joshua', new Date(), 'employer');
+    const r = m.correct('Account Manager at Fabrikam', 'Joshua is an Account Manager at Contoso.', new Date(), 'employer');
 
     assert.ok(r.saved, 'the corrected version saved');
     assert.equal(r.removed.length, 1, 'the wrong one was removed');
     assert.match(r.detail, /Replaced/, 'and it says what it did');
 
     const texts = m.list(50).map(f => f.text);
-    assert.ok(texts.some(t => t.includes('[employer]')), 'he now holds the right one');
-    assert.ok(!texts.some(t => t.includes('[employer]')), 'and not the wrong one');
+    assert.ok(texts.some(t => t.includes('Contoso')), 'he now holds the right one');
+    assert.ok(!texts.some(t => t.includes('Fabrikam')), 'and not the wrong one');
   } finally { m.close(); }
 });
 

@@ -12,7 +12,9 @@ import './_env.ts';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
-import { refusal, offLimits, VAULT_DIR, VAULT_WRITABLE } from '../src/files.ts';
+import { alsoOffLimits, refusal, offLimits, VAULT_DIR, VAULT_WRITABLE } from '../src/files.ts';
+
+alsoOffLimits({ folders: ["Jane's Job Hunt"], people: ['Jane Doe', 'Sam Roe'], handles: ['janedoedesign'] });
 
 const p = { stateDir: path.join('C:', 'Aang', 'state'), dataDir: path.join('C:', 'Aang', 'data') };
 const inVault = (...bits: string[]) => path.join(VAULT_DIR, ...bits);
@@ -57,7 +59,7 @@ test('reading the vault is not blocked', () => {
 
 test('the vault rule did not weaken the rules that were already there', () => {
   // Someone else's data, and his own machinery, must still be refused exactly as before.
-  assert.ok(offLimits(path.join('G:', 'My Drive', "[folder]", 'cv.md')), 'her folder is still off limits');
+  assert.ok(offLimits(path.join('G:', 'My Drive', "Jane's Job Hunt", 'cv.md')), 'her folder is still off limits');
   assert.ok(refusal(path.join(p.stateDir, 'trust.json'), p), 'his own settings folder is still protected');
   assert.ok(refusal(path.join(p.dataDir, 'aang.db'), p), 'his memory database is still protected');
 });

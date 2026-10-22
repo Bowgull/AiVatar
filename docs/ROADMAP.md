@@ -54,7 +54,7 @@ the result. (3) Handing work off meant a pre-filled Claude app session he had to
 
 **Next, in order.**
 1. One real test of the new doing: rerun on the real model the requests Aang actually fumbled (directions
-   from [address] to Burlington, "make a note of this in logs", "open that email in a browser tab",
+   from home to Burlington, "make a note of this in logs", "open that email in a browser tab",
    "open claude on my pc") and one real `do_task`. Costs quota, so on his word.
 2. The real Mac test: a Mac session finishes or needs him while he is in WoW; the icon shows; clicking it
    brings Claude forward on the Mac.

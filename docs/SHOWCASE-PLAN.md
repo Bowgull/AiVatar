@@ -183,7 +183,7 @@ Also: a GitHub About line with a homepage link, 5 to 10 topics, and a custom soc
 - tests (`booking`, `emailfacts`, `g15`, `mail-e6`, `lockdown`);
 - `tabclose-shots.ts`.
 
-It is already in git history, so editing the files only stops new copies. Decide whether that is fine.
+**Hidden 2026-10-22 (current files only):** email, home address, employer, Tailscale IPs and the other people in his Drive are placeholders or fingerprints now; `docs/drive/` is untracked. Still left: the address in `src/Core/src/voice.ts` (another session had it open). All of it is still in git history until a rewrite.
 
 ### Waymark (public): https://github.com/Bowgull/Waymark
 
@@ -202,9 +202,9 @@ It is already in git history, so editing the files only stops new copies. Decide
 **Privacy risks (public now):**
 - tracked `🐉🥊 MUAY THAI CONDITIONING JOURNAL 🐉🥊.xlsx` (his personal journal);
 - `Waymark Style Guide.docx`, `SESSION_PROMPT.md`, `WAYMARK_SESSION_HANDOFF.md`;
-- `DEMO_SCRIPT.md` and the README name the live Worker URL `waymark.example.workers.dev`.
+- `DEMO_SCRIPT.md` and the README name the live Worker URL `<worker>.workers.dev`.
 
-Check these before sending people to the repo.
+**Hidden 2026-10-22 on `main`:** the journal is untracked (copy kept at `Documents/Waymark-private/`), the Worker URL is gone from code and docs. The style guide and `SESSION_PROMPT.md` are generic, so they stay. `WAYMARK_SESSION_HANDOFF.md` and the journal are still on the work branches and in history.
 
 ## 6. Effort and quota
 

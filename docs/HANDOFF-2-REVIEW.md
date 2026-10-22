@@ -10,7 +10,7 @@ the evidence.
    backup restores fine.** The real problem is that a missing database makes Aang boot
    with silent amnesia and never mention it.
 2. **Two security gaps not in your brief block section 9.0**: reading a file does not mark
-   a turn as tainted, and nothing in code excludes `[folder]`.
+   a turn as tainted, and nothing in code excludes `Person B's Job Hunt`.
 3. **Eight numbers in the brief are wrong**, including three percentages that do not exist
    in their cited papers. Everything else, including all your statistics, checked out.
 4. **Do not install `jev-audit`** (1 star, 1 commit, reads your API keys, defaults to
@@ -39,7 +39,7 @@ the evidence.
 
 5. **The total size of My Drive.** You asked for this number before mirror mode goes on
    and I cannot see it from Shadow. Shadow has 74 GB free.
-6. **The exact path of `[folder]`.** I have to exclude it in code and I have
+6. **The exact path of `Person B's Job Hunt`.** I have to exclude it in code and I have
    never seen it.
 7. **Whether `Aang Brain/memory.txt` in Drive holds anything you want.** Nothing reads it
    here.
@@ -784,7 +784,7 @@ goes.
 - `~/.claude` (your Claude credentials, and **722 session transcripts** on this machine)
 - `.env` files anywhere
 - browser credential stores
-- **`[folder]`**, which you asked to be excluded explicitly and permanently
+- **`Person B's Job Hunt`**, which you asked to be excluded explicitly and permanently
 
 The last one matters most for 9.0. You gave a clear instruction about someone else's data
 and there is currently no code that honours it. A folder exclusion list is the right
@@ -830,7 +830,7 @@ would be the only writer, the conflict risk is between your MacBook and Shadow, 
 between you and Aang. Keeping the vault open on one machine at a time is enough.
 
 **On 9.2, "is the job-hunt answer reachable from Shadow?"** Once Drive is mirrored, yes.
-"Which resume did I send Float" becomes answerable because the tracker, the cover letters
+"Which resume did I send Globex" becomes answerable because the tracker, the cover letters
 and the resume versions all land on this disk. Before mirroring, no. So 9.2's worry that
 4.1 is "blocked until the files and the brain are on the same machine" is correct, and
 9.0 is precisely what unblocks it.
@@ -884,7 +884,7 @@ queue and I flag them as such, because you asked me to say if anything did.
 |---|---|---|---|
 | 0.1 | **Refuse to run with no memory**, or say so loudly on the sprite | Silent amnesia is the worst failure mode and it is live today | 1 hour |
 | 0.2 | **File reads must mark the turn tainted** (`core.ts`, one line per read path) | **BLOCKS 9.0.** Without it, a hostile document is a hole the web already has a door on | 1 hour |
-| 0.3 | **Extend the refusal list**: `~/.ssh`, `~/.claude`, `.env`, browser stores, and **`[folder]`** | **BLOCKS 9.0.** You gave an explicit instruction about someone else's data and no code honours it | 2 hours |
+| 0.3 | **Extend the refusal list**: `~/.ssh`, `~/.claude`, `.env`, browser stores, and **`Person B's Job Hunt`** | **BLOCKS 9.0.** You gave an explicit instruction about someone else's data and no code honours it | 2 hours |
 | 0.4 | **Stop writing shell commands and clipboard text into `actions.jsonl`** (1.6) | Security, and it must land before 1.4 makes the log more valuable to steal | 2 hours |
 | 0.5 | **Crash-loop burst limit** (4.8) | A Core dying at 61 seconds loops forever, quietly | 1 hour |
 
@@ -967,5 +967,5 @@ the list. Everything else here can wait a week. That cannot, if 9.0 is going ahe
   on the quick lane first, where the blast radius is smallest.
 - **I did not probe the worker lane or the web lane** for their prefix cost. They may need
   a different tool list.
-- **The `[folder]` exclusion cannot be verified from here.** I have never seen
+- **The `Person B's Job Hunt` exclusion cannot be verified from here.** I have never seen
   that folder. The path must come from you or the MacBook.
