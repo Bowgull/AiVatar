@@ -214,11 +214,12 @@ app.whenReady().then(async () => {
     const p = await open(pages);
     await p.js(`window.__deliver({ t: 'permission', id: 'p-1', question: 'Can I delete the 3 old build folders?', means: 'They take 2.1 GB. Nothing else uses them.' })`);
     await wait(900);
+    // Sheet 64: the keys come after 1.5 s of the mouse resting on the bubble (asks-look-check.ts checks the wait itself).
     const at = await centre(p.js, '#bubble'); if (at) hover(p.w, at.x, at.y);
-    await wait(1200);
-    const ask = await p.js(`(() => { const a = document.getElementById('asks'); return { keys: a.querySelectorAll('.key, .lever').length, shown: getComputedStyle(a).display !== 'none', q: getComputedStyle(document.getElementById('said')).fontWeight, kick: getComputedStyle(document.querySelector('.who')).fontFamily }; })()`);
+    await wait(1900);
+    const ask = await p.js(`(() => { const a = document.getElementById('asks'), kt = document.querySelector('#kindtag .kt'); return { keys: a.querySelectorAll('.key, .lever').length, shown: getComputedStyle(a).display !== 'none', q: getComputedStyle(document.getElementById('said')).fontWeight, kick: kt ? getComputedStyle(kt).fontFamily : '', tag: kt?.textContent }; })()`);
     check('the question shows its keys while the mouse is on it', ask.shown && ask.keys >= 2, JSON.stringify(ask));
-    check('sheet 51 Styled type: the question 800, the kicker in Silkscreen', ask.q === '800' && /Silkscreen/.test(ask.kick), JSON.stringify(ask));
+    check('sheet 64 type: the question 800, the kind tag "Needs your OK" in Figtree', ask.q === '800' && /Figtree/.test(ask.kick) && ask.tag === 'Needs your OK', JSON.stringify(ask));
     await picture(p, 'b-ask');
     check('no page errors (b)', !p.errors.length, p.errors.join(' | '));
     p.w.destroy();
@@ -233,12 +234,12 @@ app.whenReady().then(async () => {
       const cs = on ? getComputedStyle(on) : null, lab = on ? getComputedStyle(on.querySelector('.lab')) : null, fin = on ? getComputedStyle(on, '::before') : null;
       return { shown: !document.getElementById('bubble').hidden && !document.getElementById('ckpins').hidden, rows: rows.length, onBg: cs?.backgroundColor, onText: lab?.color,
         finger: /data:image/.test(fin?.backgroundImage ?? ''), best: document.querySelector('#ckpins .rec')?.textContent, bestBg: getComputedStyle(document.querySelector('#ckpins .rec')).backgroundColor,
-        boxed: rows.every((r) => getComputedStyle(r).borderRadius === '7px'), kicker: getComputedStyle(document.querySelector('#ckpins .ctag'), '::before').content }; })()`);
+        boxed: rows.every((r) => getComputedStyle(r).borderRadius === '7px'), kicker: document.querySelector('#ckpins .ktag .kwho')?.textContent }; })()`);
     check('Claude\'s question shows in the speech bubble', c.shown);
     check('each answer its own box, plus Something else', c.rows === 4 && c.boxed, JSON.stringify(c));
     check('the pointed-at row is plum with white text and the slim G1 finger', c.onBg === 'rgb(74, 44, 110)' && c.onText === 'rgb(255, 250, 240)' && c.finger, JSON.stringify(c));
     check('teal BEST tag', c.best === 'BEST' && c.bestBg === 'rgb(29, 107, 96)', JSON.stringify(c));
-    check('the kicker says CLAUDE · (the project follows)', /CLAUDE/.test(String(c.kicker)), String(c.kicker));
+    check('sheet 64: who is asking says Claude · the project', c.kicker === 'Claude · Waymark', String(c.kicker));
     await picture(p, 'c-choice');
     check('no page errors (c)', !p.errors.length, p.errors.join(' | '));
     p.w.destroy();
