@@ -129,3 +129,18 @@ partner's corners too (the video's region is cut from the same count). Not fixed
 
 ## DECIDED (2026-10-22)
 Option A. A snapped group shows as ONE thumbnail of the whole group (named like "Video + Job + Player"); clicking it brings the whole group forward; the player's buttons if the player is in it. Loose pop-outs get their own thumbnails. Likely via DWM iconic thumbnails (DwmSetIconicThumbnail / DWMWA_FORCE_ICONIC_REPRESENTATION) from the native helper, with the group's other members kept off the taskbar while joined.
+
+## BUILT (2026-10-22, branch build/taskbar-popouts)
+- src/Shell/src/taskbar.ts (+ taskbarplan.ts pure logic, taskbaricons.ts pixel icons, taskbarwire.ts main.ts's part). The family is
+  untouched: FamilyHost.add/remove are wrapped, groups read with groupOf/boxOf.
+- Every member wears `Aang.Samara` + the lantern (the video keeps its turquoise lantern as its window icon); `Aang.Samara.Popout`
+  is retired. The edge helper gives every member WS_EX_APPWINDOW (WS_EX_NOACTIVATE kept), then Electron's AddTab.
+- **Measured:** DwmSetIconicThumbnail on an Electron window from the helper process = E_INVALIDARG (cross-process); on the
+  helper's own window = S_OK. So a snapped group's ONE picture is a stand-in window owned by the helper (minimized, iconic,
+  app id `Aang.Samara` via SHGetPropertyStoreForWindow, WM_QUERYOPEN refused so it never opens): DWM asks it, the Shell
+  composes the members' capturePage panels, the helper sets it. Unasked, DWM takes up to about 160x100 (185x140 refused).
+- Group buttons = the player's if it is in the group, else the lead's. Bar = Samara's window (else a loose pop-out).
+- Right-click Pop-outs section: icons made into userData/taskbar-icons/*.ico; New note/Timer/Music only while Aang runs.
+- Checks: test/taskbarplan.test.ts, test/jumplist.test.ts, test/electron/taskbar-check.ts (offscreen, ALL PASS).
+- To check on his real taskbar: hover thumbnails appear and click brings things forward for the no-keyboard pop-outs
+  (job, timer, player, snip); the group's live preview (peek) sits where the group is; WoW keeps the keyboard.

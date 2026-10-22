@@ -16,6 +16,7 @@ import type { FamilyHooks } from './familywin.ts';
 import path from 'node:path';
 
 const POPOUT_ICON = path.join(import.meta.dirname, '..', 'pages', 'art', 'samara', 'samara-popout.ico');
+const SAMARA_LANTERN = path.join(import.meta.dirname, '..', 'pages', 'art', 'samara', 'samara-open.ico');
 import { embedFor, titleFor, type Embed } from './embed.ts';
 import { CHROME, MIN, firstTime, hold169, ontoScreen, preset, snapToEdges, type Box } from './geometry.ts';
 import { SAFE_WEB_PREFERENCES, lockDown, wrongSettings } from './safety.ts';
@@ -218,6 +219,12 @@ export class Popout {
   }
 
   get window(): BrowserWindow | null { return this.win?.isDestroyed() ? null : this.win; }
+  /** What it is playing, by name (its picture's name on Samara's taskbar, taskbar.ts): the video's title, else the tab's. */
+  get nowTitle(): string {
+    if (this.showing?.title) return this.showing.title;
+    const wc = this.lent?.view.webContents;
+    try { return wc && !wc.isDestroyed() ? wc.getTitle() : ''; } catch { return ''; }
+  }
   get isOpen(): boolean { return Boolean(this.window); }
 
   /** The screen the pop-out is on, or the main one before it exists. */
@@ -287,11 +294,11 @@ export class Popout {
 
     softEdge(this.win);
     this.joinFamily();
-    // Sheet 42 (his pick, 2026-10-20): its own taskbar button, Samara's lantern lit turquoise with the same orange leaf,
-    // so it reads as Samara's video and never as Samara itself. Its own app id keeps Windows from folding it into Aang's
-    // or Samara's group (main.ts gives every window Aang's face first; this replaces it for the pop-out only).
+    // Sheet 42 (his pick, 2026-10-20): Samara's lantern lit turquoise with the same orange leaf, so it reads as Samara's
+    // video and never as Samara itself. Sheet 66 A (2026-10-22): its own button is retired; it rides on Samara's lantern
+    // with every other pop-out (taskbar.ts), keeping the turquoise lantern as its picture's icon.
     if (process.platform === 'win32') {
-      try { this.win.setIcon(POPOUT_ICON); this.win.setAppDetails({ appId: 'Aang.Samara.Popout', appIconPath: POPOUT_ICON, appIconIndex: 0, relaunchDisplayName: 'Samara pop-out' }); }
+      try { this.win.setIcon(POPOUT_ICON); this.win.setAppDetails({ appId: 'Aang.Samara', appIconPath: SAMARA_LANTERN, appIconIndex: 0, relaunchDisplayName: 'Samara' }); }
       catch { /* Aang's face stays */ }
     }
     // His report (2026-10-13): resizing was glitchy. Aang let the drag happen, then snapped the window back to 16 by 9
