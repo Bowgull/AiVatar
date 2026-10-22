@@ -7,7 +7,9 @@
 import { startClaudeDoor } from './claudedoor.ts';
 import { app, globalShortcut, ipcMain, Menu, nativeImage, powerMonitor, session } from 'electron';
 import { denyPermissions } from './safety.ts';
-import { appendFileSync, chmodSync, existsSync, openSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+import { appendFileSync, chmodSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, statSync, unlinkSync, watch, writeFileSync } from 'node:fs';
+import { startMockupDoor } from './mockupdoor.ts';
+import { takeMockupFile } from './mockups.ts';
 import { spawn } from 'node:child_process';
 import { createHash, verify as verifySig } from 'node:crypto';
 import os from 'node:os';
@@ -87,12 +89,33 @@ app.whenReady().then(async () => {
   }
   const stateDir = app.getPath('userData');
   const pages = await servePages(path.join(HERE, '..', 'pages'));
+  // The MOCKUPS trail on the Mac (2026-10-22): there is no AangApp repo here, but pages from the Mac's own Claude
+  // sessions (their repos, or live local pages) land in it. It reads versions with git, so it is on only when Apple's
+  // git is really installed: the /usr/bin/git stand-in would otherwise pop macOS's "install developer tools" window.
+  const gitHere = ['/Library/Developer/CommandLineTools/usr/bin/git', '/Applications/Xcode.app/Contents/Developer/usr/bin/git'].some((f) => existsSync(f));
   browser = new AangBrowser({
     origin: pages.origin, stateDir, preloadPath: path.join(HERE, 'preload.cjs'), tabPreloadPath: path.join(HERE, 'tabpreload.cjs'),
     settingsPreloadPath: path.join(HERE, 'settingspreload.cjs'), thingsPreloadPath: path.join(HERE, 'thingspreload.cjs'),
+    mockupsAnywhere: gitHere,
   });
   // 6.25a: Claude sessions on this Mac drive the browser through its own door (claudedoor.ts).
   startClaudeDoor(() => browser, stateDir);
+  // show_mockup from this Mac's Claude sessions (the aang-link mod): a signed loopback door (mockupdoor.ts).
+  const closeMockDoor = startMockupDoor(stateDir, (d) => browser?.openMockupDrop(d) ?? Promise.resolve(null),
+    () => (browser?.mockupsOn ? null : "Samara's Mockups trail on this Mac needs Apple's command line tools (git). Tell the user where the file is; they can install them with: xcode-select --install"));
+  app.on('before-quit', () => closeMockDoor());
+  // A .mockup file left in Samara's open-urls folder (the same small JSON tools/open-mockup.mjs leaves on the PC). Only
+  // .mockup files; takeMockupFile checks each one and deletes it whatever it says.
+  {
+    const dir = path.join(stateDir, 'open-urls');
+    const take = () => {
+      let names: string[] = [];
+      try { names = readdirSync(dir).sort(); } catch { return; }
+      for (const n of names) if (n.endsWith('.mockup')) { const m = takeMockupFile(path.join(dir, n)); if (m && browser?.mockupsOn) void browser.openMockupDrop(m); }
+    };
+    try { mkdirSync(dir, { recursive: true }); watch(dir, () => setTimeout(take, 60)); } catch (e) { console.error('aang: cannot watch for mockups: ' + (e as Error).message); }
+    take();
+  }
   // Sheet 21 (his pick, 2026-10-13): while Shadow is off, the Mac's front desk posts the morning brief and the like as
   // the same drawn cards. It cannot draw (it has no browser engine), so it asks here. Only from this Mac (loopback),
   // only with the hook key the setup wrote, never from a web page (no Origin), small bodies, one card at a time.
