@@ -6,6 +6,7 @@ import type { Popout } from './popout.ts';
 import type { NoteWindows } from './notewin.ts';
 import type { TimerWindows } from './timerwin.ts';
 import type { JobPops } from './jobpop.ts';
+import type { MiniPlayer } from './miniplayer.ts';
 
 export function wireFamily(o: {
   origin: string;
@@ -14,11 +15,14 @@ export function wireFamily(o: {
   notes?: NoteWindows | null;
   timers?: TimerWindows | null;
   jobs?: JobPops | null;
+  /** Sheet 59's mini player (2026-10-22): joins whenever it is open. */
+  player?: MiniPlayer | null;
 }): FamilyHost {
   const host = new FamilyHost({ origin: o.origin, iconPath: o.iconPath });
   if (o.notes) o.notes.family = host;
   if (o.timers) o.timers.family = host;
   if (o.jobs) o.jobs.family = host;
+  if (o.player) o.player.family = host;
   if (o.popout) { o.popout.family = host; o.popout.joinFamily(); }
   // Made now, hidden, so the first right-click on a joined window opens the menu at once.
   host.overlay.warm();

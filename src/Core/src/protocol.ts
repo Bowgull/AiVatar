@@ -110,6 +110,8 @@ export type ToBody =
   /** What is playing (media.ts): from the pet to the Shell as it came. `media.cmd` goes the other way, checked, to the pet only. */
   | MediaNow
   | MediaCmd
+  /** The mini player (2026-10-22): open it ("show the music player"). */
+  | { t: 'player.open' }
   /**
    * The Shell owns the hotkey when the new front end is on (6.12b), opens its own typing box at once,
    * and tells the pet only to come out from the edge (`summon`) or go back (`dismiss`).

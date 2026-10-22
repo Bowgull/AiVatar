@@ -106,7 +106,7 @@ import { MailService, MailStore, fitsCard, renderMailCard } from './mail.ts';
 import type { DraftInput, MailDraft } from './mail.ts';
 import { exactOf, meansOf } from './plain.ts';
 import { checkAddons, saveDigest, weeklySweep } from './watch.ts';
-import { MediaState, checkMediaCmd, checkMediaNow } from './media.ts';
+import { MediaState, checkMediaCmd, checkMediaNow, wantsPlayer } from './media.ts';
 
 export interface CoreConfig {
   port: number;
@@ -3662,6 +3662,13 @@ export class Core {
             if (card) this.send(ws, { t: 'bubble', text: 'Your brief', stream: false, id, who: 'Aang', brief: card });
             else this.send(ws, { t: 'bubble', text: Core.NO_GOOGLE, stream: false, id, who: 'Aang' });
           }).catch(e => this.send(ws, { t: 'bubble', text: 'The brief could not be put together: ' + (e as Error).message, stream: false, id, who: 'Aang' }));
+          break;
+        }
+        // The mini player (2026-10-22): "show the music player" opens it on the PC, in plain code.
+        if (m.ephemeral !== true && wantsPlayer(text)) {
+          this.send(ws, { t: 'ack', id });
+          this.sendTo('desktop', { t: 'player.open' });
+          this.send(ws, { t: 'bubble', text: this.kindOfSocket(ws) === 'desktop' ? 'Here is your music.' : 'The music player is open on the PC.', stream: false, id, who: 'Aang' });
           break;
         }
         // Sheet 17: notes are plain code too. "hey make a note for raid: flasks, food", "add potions to my raid note".

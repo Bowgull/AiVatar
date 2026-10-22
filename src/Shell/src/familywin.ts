@@ -22,7 +22,7 @@ import * as F from './family.ts';
 import { setCorners } from './winedge.ts';
 import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown } from './safety.ts';
 
-export type Kind = 'video' | 'job' | 'note' | 'timer';
+export type Kind = 'video' | 'job' | 'note' | 'timer' | 'player';
 export interface Shared { opacity: number; pinned: boolean }
 
 /** What a member module tells the family about one of its windows. */
