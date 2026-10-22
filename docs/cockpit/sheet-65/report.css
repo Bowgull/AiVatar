@@ -1,0 +1,105 @@
+/* Sheet 65: the coach report in Samara's page well. Dark pixel wood (Samara's tray.png), parchment panels with the S2
+   rim (drawn by report.js), gold for what is chosen, Figtree for every number. */
+html,body{margin:0;width:100%;height:100%;overflow:hidden}
+.pg3.coach{background:linear-gradient(rgba(0,0,0,.28),rgba(0,0,0,.38)),url(art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated}
+.report{position:absolute;inset:0;padding:22px 26px;box-sizing:border-box;image-rendering:auto;color:#2a1c0c}
+.pan{position:relative;box-sizing:border-box;padding:18px 22px 16px}
+.pan>.rim{position:absolute;left:0;top:0;z-index:0}
+.pan>:not(.rim){position:relative;z-index:1}
+.sec{font:400 9px/12px Silkscreen,monospace;letter-spacing:2px;color:#8a3e1c;margin:0 0 10px}
+
+/* the head: what this is, and whose */
+.rhead{display:flex;align-items:flex-end;gap:20px;margin:0 0 16px}
+.rtitle{flex:1;min-width:0}
+.rtitle small{display:block;font:400 10px Silkscreen,monospace;letter-spacing:2px;color:var(--gold)}
+.rtitle>b{display:block;font:700 30px/1.1 Cinzel,Georgia,serif;color:#fbe7bf;text-shadow:2px 2px 0 #000;margin:4px 0 4px}
+.rtitle span{font:500 14px Figtree,sans-serif;color:#cdb98f}
+.rtitle span b{color:#fbe7bf;font-weight:700}
+.toons{display:flex;align-items:center;gap:8px}
+.toons>small{font:400 9px Silkscreen,monospace;letter-spacing:2px;color:#a88a5a;margin-right:4px}
+.toon{all:unset;display:flex;flex-direction:column;gap:2px;padding:8px 14px 9px;border-radius:9px;background:rgba(18,10,5,.62);
+  box-shadow:inset 0 0 0 2px #4a2e18,0 3px 0 #0d0703;cursor:pointer}
+.toon b{font:800 15px Figtree,sans-serif;color:#f1e3c4}
+.toon i{font:500 12px Figtree,sans-serif;font-style:normal;color:#bfae8a}
+.toon.on{background:linear-gradient(180deg,#ffd76a,#e9a92c);box-shadow:inset 0 0 0 2px #7a4a12,0 3px 0 #120a05}
+.toon.on b{color:#2a1c00} .toon.on i{color:#5a3a10}
+
+/* the fights */
+.fights.h{display:flex;gap:8px;margin:0 0 14px}
+.fight{all:unset;cursor:pointer;display:flex;align-items:center;gap:9px;padding:8px 13px;border-radius:9px;background:rgba(18,10,5,.62);box-shadow:inset 0 0 0 2px #4a2e18}
+.fight b{font:700 14.5px Figtree,sans-serif;color:#f1e3c4}
+.fight span{white-space:nowrap;font:700 13px Figtree,sans-serif;color:#bfae8a;margin-left:auto}
+.fight.on{background:#e9d3a6;box-shadow:inset 0 0 0 2px #b38a52,0 0 0 2px #120a05,0 0 12px rgba(255,196,60,.45)}
+.fight.on b{color:#2a1c0c} .fight.on span{color:#7a5a30}
+.fight.none b,.fight.none span{opacity:.6}
+.fmk{width:10px;height:10px;flex:none;border-radius:2px;box-shadow:0 0 0 2px #120a05}
+.fmk.good{background:#78c88a} .fmk.ok{background:#ffc43c} .fmk.none{background:#6d6579}
+.fights.v{display:flex;flex-direction:column;gap:7px}
+.fights.v .sec{color:var(--gold);margin:4px 0 4px}
+.fights.v .fight{padding:10px 12px}
+
+.cols{display:flex;gap:18px;align-items:flex-start}
+.colF{width:186px;flex:none}
+.colL{display:flex;flex-direction:column;gap:16px;width:780px;flex:none}
+.colR{display:flex;flex-direction:column;gap:16px;flex:1;min-width:0}
+.lookA .colL{width:800px}
+
+/* the findings */
+.ftop{display:flex;align-items:baseline;gap:14px;margin:0 0 8px;padding-bottom:10px;border-bottom:3px solid rgba(90,60,25,.2)}
+.fname b{font:800 22px Figtree,sans-serif;color:#1c1208;margin-right:10px}
+.fname span{font:700 14px Figtree,sans-serif;color:#7a5a30}
+.said{margin-left:auto;font:italic 600 14px Figtree,sans-serif;color:#5a3a10}
+.find{display:flex;align-items:center;gap:16px;padding:9px 0}
+.find+.find{border-top:2px dashed rgba(90,60,25,.22)}
+.fm{flex:1;min-width:0}
+.fm b{font:700 15.5px/1.3 Figtree,sans-serif;color:#1c1208}
+.fm p{margin:3px 0 0;font:500 13px/1.4 Figtree,sans-serif;color:#5a4834}
+.ftag{display:inline-block;vertical-align:2px;margin-right:9px;font:400 9px/1 Silkscreen,monospace;letter-spacing:1px;padding:5px 7px 4px;border-radius:4px;color:#fff6ea;box-shadow:0 0 0 1.5px #2a1606}
+.ftag.fix{background:#C8602A} .ftag.small{background:#6a3d8f} .ftag.good{background:#2f8a4e}
+.fnum{flex:none;width:150px;text-align:right}
+.fnum b{display:block;font:800 24px/1 Figtree,sans-serif;color:#1c1208}
+.find.fix .fnum b{color:#a8461a} .find.good .fnum b{color:#2f7a3e} .find.small .fnum b{color:#5a2d9c}
+.fnum small{display:block;margin-top:4px;font:600 12px Figtree,sans-serif;color:#7a5a30}
+
+/* the timeline */
+.tgrid{display:flex;flex-direction:column;gap:9px}
+.lane{display:flex;align-items:center;gap:12px}
+.ll{width:118px;flex:none;font:700 13px Figtree,sans-serif;color:#2a1c0c;text-align:right}
+.track{position:relative;height:22px;flex:none;background:#d9c08e;border-radius:3px;box-shadow:inset 0 0 0 2px #7a5a30,inset 0 4px 0 rgba(90,55,20,.18)}
+.track i{position:absolute;top:4px;height:14px;box-shadow:inset 0 0 0 2px #2a1606}
+.track i.up{border-radius:2px}
+.track i.tick{width:4px;top:3px;height:16px;box-shadow:0 0 0 1px #2a1606}
+.track i.tick.late{width:6px;top:1px;height:20px}
+.track i.cd{top:2px;height:18px;font:800 11px/18px Figtree,sans-serif;color:#fff;text-align:center;font-style:normal;border-radius:3px}
+.track i.cd.miss{background:repeating-linear-gradient(90deg,#fff3d8 0 4px,#e6cf9c 4px 8px);color:#8a3e1c;box-shadow:inset 0 0 0 2px #c8402e}
+.lv{width:74px;white-space:nowrap;flex:none;font:800 14px Figtree,sans-serif;color:#1c1208}
+.axisrow{margin-top:-2px}
+.axis{position:relative;height:16px}
+.axis span{position:absolute;top:0;transform:translateX(-50%);font:700 12px Figtree,sans-serif;color:#7a5a30}
+.axis span:first-child{transform:none}
+.axis span.end{transform:translateX(-100%)}
+.tkey{display:flex;gap:18px;margin:10px 0 0 130px;font:600 12.5px Figtree,sans-serif;color:#5a4834}
+.tkey span{display:flex;align-items:center;gap:7px}
+.tkey i{display:inline-block;width:14px;height:12px;box-shadow:inset 0 0 0 2px #2a1606}
+.tkey .k-late{width:6px;height:16px;background:#ff8040}
+.tkey .k-miss{background:repeating-linear-gradient(90deg,#fff3d8 0 3px,#e6cf9c 3px 6px);box-shadow:inset 0 0 0 2px #c8402e}
+
+/* the trend */
+.tr{display:flex;align-items:center;gap:12px;padding:8px 0}
+.tr+.tr{border-top:2px dashed rgba(90,60,25,.22)}
+.bars{display:flex;align-items:flex-end;gap:3px;height:36px;flex:none}
+.bars i{width:10px;background:#c9ad78;box-shadow:inset 0 0 0 2px #7a5a30}
+.bars i.now{background:#e9b23a;box-shadow:inset 0 0 0 2px #7a4a12}
+.tt{flex:1;min-width:0}
+.tt b{display:block;font:700 14px Figtree,sans-serif;color:#1c1208}
+.tt span{display:block;font:500 12.5px Figtree,sans-serif;color:#6a5236}
+.tv{font:800 20px Figtree,sans-serif;color:#1c1208;white-space:nowrap}
+.tv.better{color:#2f7a3e}
+
+/* the follow-up */
+.askrow{display:flex;gap:10px;align-items:center}
+.askbox{flex:1;min-width:0;display:flex;align-items:center;padding:10px 12px;border-radius:7px;background:#fbf3df;box-shadow:inset 0 2px 0 rgba(90,55,20,.22),0 0 0 1.5px #9a7a48;
+  font:500 14px Figtree,sans-serif;color:#9a8466;white-space:nowrap;overflow:hidden}
+.askbox span{overflow:hidden;text-overflow:ellipsis}
+.askbox i{width:2px;height:18px;background:#2a1c0c;margin-left:2px;flex:none}
+.src{margin:10px 0 0;font:500 12px/1.4 Figtree,sans-serif;color:#7a5a30}
