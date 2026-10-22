@@ -46,6 +46,25 @@ export function stableJson(v: unknown): string {
     x && typeof x === 'object' && !Array.isArray(x) ? Object.fromEntries(Object.entries(x as Record<string, unknown>).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) : x) ?? 'null'
 }
 
+/** One tool call running now, as the mod keeps it (register.ts L.running). */
+export interface RunningCall { tool: string; input: string; reqId?: string; answered?: boolean; agentId?: string }
+
+/**
+ * Which running tool call a permission request (or a question, or a plan) is for, by its tool_use_id (2026-10-22, his
+ * "if I answer it in Claude it should disappear from Aang"). The request does not carry the id, so it is found: the
+ * newest call of that tool with the very same input and no request yet; failing that (the input as the dialog reads it
+ * can differ from the call's), the only open call of that tool in the same loop, or the only one at all. Null when it
+ * cannot be told apart: then the ask is still cleared when the request itself ends, or by the brain's safety nets.
+ */
+export function callFor(running: Iterable<[string, RunningCall]>, tool: string, input: string, agentId?: string): string | null {
+  const open = [...running].filter(([, x]) => x.tool === tool && !x.reqId)
+  const exact = open.filter(([, x]) => x.input === input)
+  if (exact.length) return exact[exact.length - 1]![0]
+  const loop = open.filter(([, x]) => (x.agentId ?? '') === (agentId ?? ''))
+  if (loop.length === 1) return loop[0]![0]
+  return open.length === 1 ? open[0]![0] : null
+}
+
 const str = (v: unknown, n: number): string => (typeof v === 'string' ? v : '').replace(/\s+/g, ' ').trim().slice(0, n)
 
 /** One plain line about what a tool call wants, for the card. Aang words it for him; this is the raw fact. */

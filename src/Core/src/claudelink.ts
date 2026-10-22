@@ -155,6 +155,14 @@ export interface WaitItem {
   /** Claude offered "don't ask again" for this one. */
   canAlways: boolean;
   at: number;
+  /**
+   * 2026-10-22 (his "answered in Claude, it should disappear from Aang"): the tool call it is for, the helper agent
+   * that asked (none for the main loop), and when it was asked on the session's own clock, so the brain can tell that
+   * the session has moved on past it (claudelink.ts movedOn) even if the mod's 'resolved' never arrives.
+   */
+  toolUseId?: string;
+  agentId?: string;
+  askedAt?: number;
 }
 
 export type Decision = 'allow' | 'always' | 'deny' | 'deny-message';
@@ -423,6 +431,8 @@ export class JobTracker {
       case 'start': break;
       case 'turn.start':
         urgent = true;
+        // A new message to the session (typed in Claude, or sent from Aang): nothing asked before it is still open.
+        this.movedOn(session, t, () => true);
         j.phase = 'working';
         j.finished = false;
         j.failed = false;
@@ -470,7 +480,7 @@ export class JobTracker {
           ...(Number.isFinite(u.costUsd) ? { costUsd: Number(u.costUsd) } : {}),
         };
         // The turn is over, so no permission or question of it can still be open.
-        for (const [id, w] of this.waits) if (w.session === session) this.drop(id);
+        this.movedOn(session, t, () => true);
         // "After this task" with no to-do list to wait on means after this turn.
         this.release(session, (h) => h.afterTask === null || !j.tasks.some(t => t.status === 'in_progress' && t.text === h.afterTask));
         this.onChange('wait');
@@ -492,12 +502,18 @@ export class JobTracker {
         act.clearTools(t); act.clearAgents();
         for (const x of Array.isArray(ev?.tools) ? ev.tools.slice(0, 20) : []) act.toolStart(cut(x?.id, 100), cut(x?.tool, 120), readDetail(x?.detail), t);
         for (const g of Array.isArray(ev?.agents) ? ev.agents.slice(0, 20) : []) act.agentStart(cut(g?.id, 100), cut(g?.kind, 60), cut(g?.what, 200), t, g?.bg !== true);
+        // The snapshot is the whole truth about what still waits: anything else of this session's was answered meanwhile.
+        { const open = new Set((Array.isArray(ev?.asks) ? ev.asks : []).map((k: any) => cut(k?.id, 100)));
+          this.movedOn(session, Infinity, (w) => !open.has(w.id)); }
         for (const k of Array.isArray(ev?.asks) ? ev.asks.slice(0, 10) : []) this.ask(j, { ...k, readonly: true }, t);
         if (Array.isArray(ev?.plan)) this.setPlan(j, ev.plan, t);
         break;
       }
       // Claude began writing its reply, thinking, or a tool call's arguments (2026-10-21): the live line says so.
       case 'step':
+        // The main loop writing again means every tool call of its last step has its result: whatever the main loop
+        // asked him (a permission, a question, a plan) was answered, in Claude or in Aang. A helper's ask is its own.
+        this.movedOn(session, t, (w) => !w.agentId);
         this.act(session, t).turnOn = true;        // only the main loop's steps are sent: a turn is running
         if (j.phase === 'idle') j.phase = 'working';
         this.clock(session).go(t);
@@ -517,6 +533,8 @@ export class JobTracker {
         this.act(session, t).toolStart(cut(ev?.id, 100), cut(ev?.tool, 120), readDetail(ev?.detail), t);
         break;
       case 'tool.end': {
+        // The very tool call the ask was for ended (it ran, was refused, or was stopped): it is not waiting any more.
+        { const tid = cut(ev?.id, 100); if (tid) this.movedOn(session, t, (w) => w.toolUseId === tid); }
         const fam = this.act(session, t).toolEnd(cut(ev?.id, 100), t, ev?.ok !== false);
         // A push: look for the CI run it starts (claudeci.ts).
         if (fam === 'Pushing to GitHub' && ev?.ok !== false) this.ci?.pushed(j.cwd);
@@ -537,7 +555,14 @@ export class JobTracker {
       case 'compact': this.clock(session).compact(ev?.on === true, t); this.act(session, t).alive(t); break;
       // OVERALL: Claude's phase plan for the project, from the progress tool.
       case 'plan': urgent = true; this.setPlan(j, ev?.phases, t); break;
-      case 'resolved': if (this.waits.get(cut(ev?.id, 100))?.session === session) { this.drop(cut(ev?.id, 100)); this.onChange('wait'); } break;
+      case 'resolved': {
+        const id = cut(ev?.id, 100);
+        const w = this.waits.get(id);
+        if (w?.session === session) { this.drop(id); this.onChange('wait'); }
+        // Resolved before its ask got here (the ask is posted on its own, the end rides the queue): it never shows.
+        else if (id && !w) this.over(id, now);
+        break;
+      }
       default: break;
     }
     this.onChange('jobs', urgent);
@@ -678,11 +703,14 @@ export class JobTracker {
 
   private ask(j: Job, ev: any, now: number): void {
     const id = cut(ev?.id, 100);
-    if (!id || this.waits.has(id)) return;
+    if (!id || this.waits.has(id) || this.gone.has(id)) return;
     const kind: WaitKind = ev?.kind === 'question' ? 'question' : ev?.kind === 'plan' ? 'plan' : 'permission';
     const item: WaitItem = {
       id, session: j.id, project: j.project, kind, tool: cut(ev?.tool, 120), summary: cut(ev?.summary, 300), input: cut(ev?.input, 2000),
       canAlways: ev?.canAlways === true, at: now, ...(ev?.readonly === true ? { readonly: true as const } : {}),
+      ...(typeof ev?.toolUseId === 'string' && ev.toolUseId ? { toolUseId: cut(ev.toolUseId, 100) } : {}),
+      ...(typeof ev?.agentId === 'string' && ev.agentId ? { agentId: cut(ev.agentId, 100) } : {}),
+      askedAt: now,
     };
     if (kind === 'question' && Array.isArray(ev?.questions)) item.questions = ev.questions.slice(0, 4).map((q: any) => ({
       question: cut(q?.question, 500), ...(q?.header ? { header: cut(q.header, 40) } : {}), ...(q?.multiSelect === true ? { multiSelect: true } : {}),
@@ -716,9 +744,28 @@ export class JobTracker {
     return j ? [j.project, j.current ?? '', j.prompt].filter(Boolean).join(' - ') : '';
   }
 
+  /** Asks that are over (answered anywhere, or their session moved on), the newest 200: a late ask for one never shows. */
+  private readonly gone = new Map<string, number>();
+  private over(id: string, now = Date.now()): void {
+    this.gone.delete(id); this.gone.set(id, now);
+    while (this.gone.size > 200) this.gone.delete(this.gone.keys().next().value as string);
+  }
+
+  /**
+   * The safety net (2026-10-22): the session showed it has moved on at `t` (its clock), so every ask of it that `past`
+   * picks and that was asked before `t` is over, whether or not the mod's own 'resolved' got here. Asked after
+   * `t` is left alone: an older event that arrives late must not take a fresh question down.
+   */
+  private movedOn(session: string, t: number, past: (w: WaitItem) => boolean): void {
+    let any = false;
+    for (const [id, w] of [...this.waits]) if (w.session === session && (w.askedAt ?? 0) < t && past(w)) { this.drop(id); any = true; }
+    if (any) this.onChange('wait');
+  }
+
   private drop(id: string): void {
     const session = this.waits.get(id)?.session;
     if (!this.waits.delete(id)) return;
+    this.over(id);
     this.answers.delete(id);
     const w = this.answerWaiters.get(id);
     if (w) { clearTimeout(w.timer); this.answerWaiters.delete(id); w.resolve({ id, kind: 'gone', body: '{}' }); }
@@ -796,6 +843,7 @@ export class JobTracker {
       body = { decision: a.decision, ...(a.decision === 'deny-message' ? { message: a.message!.slice(0, 2000) } : {}) };
     }
     this.waits.delete(id);
+    this.over(id);
     this.syncBlock(w.session, Date.now());
     const out: Outgoing = { id, kind: 'answer', body: JSON.stringify(body) };
     const waiter = this.answerWaiters.get(id);

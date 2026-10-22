@@ -3,6 +3,7 @@
 import { describe, expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import { sha256Hex } from '../hooks/link.ts'
+import { callFor } from '../hooks/link.ts'
 import { MOCKUP_SECTION, MOCKUP_SECTION_ID, MOCKUP_TOOL, MOCKUP_TOOL_FULL, mockupArgs, OWN_TOOL, OWN_TOOL_FULL, OWN_TOOL_PLAN_DESC, OWN_TOOL_SECTION, PLAN_SENTENCE, TODO_SECTION, TODO_SECTION_ID, activityOf, agentListOf, hmacHex, nextTasks, planOf, stripSecrets, toDecision } from '../hooks/link.ts'
 import type { Task } from '../hooks/link.ts'
 
@@ -38,12 +39,13 @@ describe('plain parts', () => {
 })
 
 /** A pretend brain: proves the key, takes events, and answers one waiting item with `answer` (or a forged MAC). */
-function brain(on: On, opts: { answer?: string; forge?: boolean; squatter?: boolean; down?: boolean; inbox?: string; v1?: boolean; hold?: () => Promise<void>; key?: string; tools?: string[]; resync?: boolean; failPosts?: number; start?: string; forgeStart?: boolean; startedAt?: number; startInbox?: string; mcp?: (server: string, tool: string, args: unknown) => unknown }) {
+function brain(on: On, opts: { answer?: string; forge?: boolean; squatter?: boolean; down?: boolean; inbox?: string; v1?: boolean; hold?: () => Promise<void>; key?: string; tools?: string[]; resync?: boolean; failPosts?: number; start?: string; forgeStart?: boolean; startedAt?: number; startInbox?: string; mcp?: (server: string, tool: string, args: unknown) => unknown; goneOnResolved?: boolean }) {
   const seen: string[] = []
   const events: Record<string, unknown>[] = []
   const posts: Record<string, unknown>[] = []
   const mockups: { body: Record<string, unknown>; signed: boolean }[] = []
   let inbox = opts.inbox
+  const resolvedWait = new Map<string, () => void>()
   mock.env(on, { USERPROFILE: 'C:\\Users\\T' })
   const clock = mock.clock(on)
   on('session.start', ($, e) => ({ cwd: e.cwd }))
@@ -94,6 +96,7 @@ function brain(on: On, opts: { answer?: string; forge?: boolean; squatter?: bool
       posts.push(b)
       if (Array.isArray(b.events)) for (const ev of b.events) events.push({ session: b.session, cwd: b.cwd, ...ev })
       else events.push(b)
+      for (const ev of events) if (ev.type === 'resolved') resolvedWait.get(String(ev.id))?.()
       if (opts.hold) await opts.hold()
       return { value: { status: 204, ok: true, headers: {}, text: '' } }
     }
@@ -123,6 +126,12 @@ function brain(on: On, opts: { answer?: string; forge?: boolean; squatter?: bool
     if (u.pathname === '/link/wait' && inbox) {
       const body = JSON.stringify({ text: inbox }); inbox = undefined
       return reply({ items: [{ id: 'm1', kind: 'inbox', body, mac: await hmacHex(KEY, n, SESSION, 'm1', 'inbox', body) }] })
+    }
+    // 2026-10-22: as the brain does, the held poll for an answer ends 'gone' once the session says the ask is over.
+    if (u.pathname === '/link/answer' && opts.goneOnResolved) {
+      const id = u.searchParams.get('r') ?? ''
+      if (!events.some(ev => ev.type === 'resolved' && ev.id === id)) await new Promise<void>(res => resolvedWait.set(id, res))
+      return reply({ items: [{ id, kind: 'gone', body: '{}', mac: await hmacHex(KEY, n, SESSION, id, 'gone', '{}') }] })
     }
     if (u.pathname === '/link/answer' && opts.answer) {
       const id = u.searchParams.get('r') ?? ''
@@ -734,3 +743,71 @@ test('C6 resume: a signed start in the poll goes in as his own words, no model o
   expect(submitted).toEqual([{ text: JOB, asUser: true }])
   expect(commands).toHaveLength(0)
 })
+
+// 2026-10-22, his words: "If I act on something Aang is surfacing, like a question, in Claude without clicking on Aang,
+// it should disappear." The engine raises the request inside the tool call; he answers it in Claude's own dialog, the
+// tool runs and ends: Aang is told once, with the ask's id, and the ask names the call it was for.
+test('answered in Claude, not in Aang: the ask is resolved once, and carries its tool call', async ($, on) => {
+  const questions = [{ question: 'Which colour?', header: 'Colour', options: [{ label: 'Plum', description: '' }, { label: 'Sage', description: '' }], multiSelect: false }]
+  let asked: Promise<unknown> | null = null
+  const { clock, events, quiet, until, count } = brain(on, { goneOnResolved: true })
+  const test$ = $
+  on('tool.call', async () => {
+    // The dialog's input need not match the call's byte for byte: the one open call of that tool is still found.
+    asked = test$.classic.PermissionRequest({ tool_name: 'AskUserQuestion', tool_input: { questions, metadata: { source: 'dialog' } }, permission_suggestions: [] })
+    for (let i = 0; i < 3000 && !events.some(ev => ev.type === 'ask'); i++) await clock.settle()
+    return { result: { questions, answers: { 'Which colour?': 'Plum' } } }
+  })
+  await $.session.start(start)
+  await quiet()
+  await $.tool.call({ tool: 'AskUserQuestion', questions })
+  await until(() => count('resolved') > 0 && asked !== null)
+  const r = await asked as { decision?: unknown }
+  await quiet()
+  expect(r.decision).toBeUndefined()
+  const ask = events.find(ev => ev.type === 'ask') as { id: string; toolUseId?: string; t?: number }
+  expect(typeof ask.toolUseId).toBe('string')
+  expect(typeof ask.t).toBe('number')
+  const resolved = events.filter(ev => ev.type === 'resolved')
+  expect(resolved).toHaveLength(1)
+  expect(resolved[0]).toMatchObject({ id: ask.id })
+})
+
+test('Esc or a new message in Claude ends the turn: what its main loop asked is resolved, and the request lets go', async ($, on) => {
+  on('turn.start', ($, e) => ({ turnId: e.turnId }))
+  on('turn.complete', () => ({ text: '' }))
+  const { events, quiet, until, count } = brain(on, { goneOnResolved: true })
+  await $.session.start(start)
+  await quiet()
+  await $.turn.start({ text: 'go', turnId: 't1' })
+  // No tool call around it here: only the turn's end can say it is over (the brain's poll is held until then).
+  const p = $.classic.PermissionRequest({ tool_name: 'Bash', tool_input: { command: 'npm test' }, permission_suggestions: [] })
+  await until(() => count('ask') > 0)
+  const ask = events.find(ev => ev.type === 'ask') as { id: string; toolUseId?: string }
+  expect(ask.toolUseId).toBeUndefined()
+  await $.turn.complete({ answer: '', durationMs: 5, isAborted: true, turnId: 't1', reason: 'aborted' } as never)
+  await until(() => count('resolved') > 0)
+  expect((await p as { decision?: unknown }).decision).toBeUndefined()
+  await quiet()
+  const resolved = events.filter(ev => ev.type === 'resolved')
+  expect(resolved).toHaveLength(1)
+  expect(resolved[0]).toMatchObject({ id: ask.id })
+})
+
+test('the pure match: a request finds the tool call it is for', () => {
+  const running: [string, { tool: string; input: string; reqId?: string; agentId?: string }][] = [
+    ['tu1', { tool: 'Bash', input: '{"command":"ls"}' }],
+    ['tu2', { tool: 'Bash', input: '{"command":"npm test"}' }],
+    ['tu3', { tool: 'AskUserQuestion', input: '{"questions":[]}' }],
+    ['tu4', { tool: 'Read', input: '{"file_path":"a"}', agentId: 'ag1' }],
+    ['tu5', { tool: 'Read', input: '{"file_path":"b"}' }],
+  ]
+  expect(callFor(running, 'Bash', '{"command":"npm test"}')).toBe('tu2')
+  expect(callFor(running, 'AskUserQuestion', '{"questions":[],"x":1}')).toBe('tu3')
+  expect(callFor(running, 'Bash', '{"command":"pwd"}')).toBeNull()
+  expect(callFor(running, 'Read', '{"file_path":"c"}', 'ag1')).toBe('tu4')
+  expect(callFor(running, 'Read', '{"file_path":"c"}')).toBe('tu5')
+  running[2]![1].reqId = 'already'
+  expect(callFor(running, 'AskUserQuestion', '{"questions":[]}')).toBeNull()
+})
+
