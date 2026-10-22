@@ -123,12 +123,63 @@ const OPT_C = SHARED + `
 .kstrip .kwho{margin-left:auto}
 `;
 
-type Variant = { name: string; css: string; style: 'A' | 'B' | 'C' | null };
+// ---------------------------------------------------------------- v2 (his notes on v1: "I like the tag carrying the
+// colour but it needs a bit of refinement, the tag above is hard to read"; and "questions that require buttons should
+// have the buttons surface after a second or two of a hover over the comic bubble"). A is kept; the tag is rebuilt to
+// be read: Figtree 800 at 13.5 px in sentence case (no letter-spaced pixel caps), a 9 x 9 icon at 2x, and two ways to
+// colour it. The who and the "Exactly this" label leave Silkscreen for Figtree too.
+const DEEP = { question: '#6b3fb8', ok: '#1f6fb0', plan: '#8a5c0e' }; // white on these: 6.9, 5.3 and 5.8 to 1
+const WORD2 = { question: 'Question', ok: 'Needs your OK', plan: 'Plan to OK' };
+const ICON9: Record<string, string[]> = {
+  question: ['..#####..', '.##...##.', '.##...##.', '.....##..', '....##...', '....##...', '.........', '....##...', '....##...'],
+  ok: ['.........', '.........', '.###.....', '##.##....', '#...#####', '##.##.#.#', '.###..#.#', '.........', '.........'],
+  plan: ['#########', '#.......#', '#.#.###.#', '#.......#', '#.#.###.#', '#.......#', '#.#.###.#', '#.......#', '#########'],
+};
+const icon9 = (kind: string, fill: string) => {
+  let d = ''; ICON9[kind].forEach((r, y) => [...r].forEach((c, x) => { if (c === '#') d += `M${x} ${y}h1v1h-1z`; }));
+  return `<svg class="kic" viewBox="0 0 9 9" width="18" height="18" shape-rendering="crispEdges"><path d="${d}" fill="${fill}"/></svg>`;
+};
+const READABLE = `
+.kq small{font:700 11.5px/1 Figtree,sans-serif;letter-spacing:0;color:#7a5a30;margin-bottom:4px}
+#bubble .kwho{font:700 12.5px/1 Figtree,sans-serif;letter-spacing:0;color:#6a4a22}
+#bubble .kwho img{width:16px;height:16px;vertical-align:-3px}
+.ktag{gap:10px;margin:-4px 0 10px}
+.ktag .kt{gap:7px;padding:5px 12px 5px 7px;border-radius:7px;font:800 13.5px/18px Figtree,sans-serif;letter-spacing:.1px}
+.ktag .kic{width:18px;height:18px;flex:none}
+#bubble .ckpins .cw{font:700 12px/1 Figtree,sans-serif;letter-spacing:0;color:#7a5a30}
+`;
+/** Tag 1: the kind's colour, deepened, with white words and a white icon. */
+const TAG_1 = OPT_A + READABLE + `.ktag .kt{background:var(--kdeep);color:#fff;box-shadow:0 0 0 1.5px #2a1606,0 2px 0 rgba(42,22,6,.35),inset 0 1.5px 0 rgba(255,255,255,.22)}`;
+/** Tag 2: the kind's own light colour, dark ink words and icon, a firmer outline. */
+const TAG_2 = OPT_A + READABLE + `.ktag .kt{background:var(--kmark);color:#1a0f05;box-shadow:0 0 0 2px #2a1606,0 2px 0 rgba(42,22,6,.35),inset 0 1.5px 0 rgba(255,255,255,.45)}`;
+/** The hover rule, drawn with tag 1. rest: the answers are not in the page yet (the bubble is fitted without them).
+ * mid: 90 ms into the spring, each row or key a little lower and fainter than the one before it (40 ms stagger). */
+const HOVER = TAG_1 + `
+#bubble.krest #opts,#bubble.krest #asks,#bubble.krest .ckpins .ckeys,#bubble.krest .ckpins .glove{display:none!important}
+#bubble.kmid :is(#opts .opt,#asks .key,.ckpins .ckeys .key){transition:none}
+#bubble.kmid :is(#opts .opt,#asks .key,.ckpins .ckeys .key):nth-child(1){transform:translateY(2px);opacity:.92}
+#bubble.kmid :is(#opts .opt,#asks .key,.ckpins .ckeys .key):nth-child(2){transform:translateY(4px);opacity:.62}
+#bubble.kmid :is(#opts .opt,#asks .key,.ckpins .ckeys .key):nth-child(3){transform:translateY(6px);opacity:.34}
+#bubble.kmid :is(#opts .opt,#asks .key,.ckpins .ckeys .key):nth-child(n+4){transform:translateY(8px);opacity:.16}
+#bubble.kmid #opts .opt.on::before{opacity:0}
+.kcur{position:fixed;z-index:50;pointer-events:none;image-rendering:pixelated}
+`;
+/** The Windows arrow, at its real size: 'o' outline, '#' white. */
+const CURSOR = ['o', 'oo', 'o#o', 'o##o', 'o###o', 'o####o', 'o#####o', 'o######o', 'o#######o', 'o########o', 'o#####ooooo', 'o##o##o', 'o#o.o##o', 'oo..o##o', 'o....o##o', '.....o##o', '......oo'];
+const cursorSvg = (() => { let a = '', b = ''; CURSOR.forEach((r, y) => [...r].forEach((c, x) => { if (c === 'o') a += `M${x} ${y}h1v1h-1z`; if (c === '#') b += `M${x} ${y}h1v1h-1z`; }));
+  return `<svg viewBox="0 0 11 17" width="11" height="17" shape-rendering="crispEdges"><path d="${a}" fill="#000"/><path d="${b}" fill="#fff"/></svg>`; })();
+
+type Phase = 'rest' | 'hover' | 'mid' | 'in';
+type Variant = { name: string; css: string; style: 'A' | 'B' | 'C' | 'T1' | 'T2' | null; phase?: Phase; keys?: string[] };
+const V2_KEYS = ['b-aangq', 'e-claudeok', 'f-plan'];
 const VARIANTS: Variant[] = [
   { name: 'today', css: '', style: null },
   { name: 'A', css: OPT_A, style: 'A' },
   { name: 'B', css: OPT_B, style: 'B' },
   { name: 'C', css: OPT_C, style: 'C' },
+  { name: 'T1', css: TAG_1, style: 'T1', keys: V2_KEYS },
+  { name: 'T2', css: TAG_2, style: 'T2', keys: V2_KEYS },
+  ...(['rest', 'hover', 'mid', 'in'] as Phase[]).map((p) => ({ name: 'H' + p, css: HOVER, style: 'T1' as const, phase: p, keys: V2_KEYS })),
 ];
 
 /** The decorator: the kind on #bubble, its tag or strip, the quoted line, the new key words. Run again after a re-fit. */
@@ -138,17 +189,19 @@ function decorate(m: Moment, v: Variant) {
   return `(() => {
     const b = document.getElementById('bubble'), wrap = document.getElementById('wrap');
     b.dataset.kind = ${JSON.stringify(m.kind)};
-    for (const [k, val] of [['--kline', ${JSON.stringify(m.kind === 'plan' ? 'rgba(201,140,20,.55)' : c.mark + 'aa')}], ['--kmark', ${JSON.stringify(c.mark)}], ['--kink', ${JSON.stringify(c.ink)}], ['--ksoft', ${JSON.stringify(c.soft)}]]) wrap.style.setProperty(k, val);
+    for (const [k, val] of [['--kline', ${JSON.stringify(m.kind === 'plan' ? 'rgba(201,140,20,.55)' : c.mark + 'aa')}], ['--kmark', ${JSON.stringify(c.mark)}], ['--kink', ${JSON.stringify(c.ink)}], ['--ksoft', ${JSON.stringify(c.soft)}], ['--kdeep', ${JSON.stringify(DEEP[m.kind])}]]) wrap.style.setProperty(k, val);
     const who = ${JSON.stringify(m.who)}, claude = who.startsWith('Claude');
-    const whoEl = () => { const s = document.createElement('span'); s.className = 'kwho'; if (claude) { const i = document.createElement('img'); i.src = 'art/claude-icon.png'; s.append(i); } s.append(who.toUpperCase()); return s; };
+    const whoEl = () => { const s = document.createElement('span'); s.className = 'kwho'; if (claude) { const i = document.createElement('img'); i.src = 'art/claude-icon.png'; s.append(i); } s.append(${JSON.stringify(v.style === 'T1' || v.style === 'T2')} ? who : who.toUpperCase()); return s; };
     if (!b.querySelector('.ktag, .kstrip')) {
       const style = ${JSON.stringify(v.style)};
       const t = document.createElement('div');
       if (style === 'C') { t.className = 'kstrip'; const cs = getComputedStyle(b); t.style.margin = '-' + cs.paddingTop + ' 0 12px -' + cs.paddingLeft; t.style.width = 'calc(100% + ' + (parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight)) + 'px)'; t.style.boxSizing = 'border-box'; t.innerHTML = ${JSON.stringify(ICONS[m.kind])}; t.append(${JSON.stringify(c.word)}, whoEl()); }
-      else { t.className = 'ktag'; const k = document.createElement('span'); k.className = 'kt'; k.innerHTML = ${JSON.stringify(ICONS[m.kind])}; k.append(${JSON.stringify(c.word)}); t.append(k, whoEl()); }
+      else { t.className = 'ktag'; const k = document.createElement('span'); k.className = 'kt';
+        k.innerHTML = ${JSON.stringify(v.style === 'T1' ? icon9(m.kind, '#fff') : v.style === 'T2' ? icon9(m.kind, '#1a0f05') : ICONS[m.kind])};
+        k.append(${JSON.stringify(v.style === 'T1' || v.style === 'T2' ? WORD2[m.kind] : c.word)}); t.append(k, whoEl()); }
       b.prepend(t);
       const q = ${JSON.stringify(m.quote ?? '')};
-      if (q) { const d = document.createElement('div'); d.className = 'kq'; const sm = document.createElement('small'); sm.textContent = claude ? 'EXACTLY THIS' : 'EXACTLY THIS';
+      if (q) { const d = document.createElement('div'); d.className = 'kq'; const sm = document.createElement('small'); sm.textContent = ${JSON.stringify(v.style === 'T1' || v.style === 'T2' ? 'Exactly this:' : 'EXACTLY THIS')};
         d.append(sm, '\\u201c' + q + '\\u201d');
         const after = b.querySelector('#means:not([hidden])') ?? b.querySelector('.ckpins .q') ?? document.getElementById('scroller'); after.after(d); }
       const keys = ${JSON.stringify(m.keys ?? null)};
@@ -160,6 +213,7 @@ function decorate(m: Moment, v: Variant) {
         bs.slice(keys.length).forEach((x) => x.remove());
       }
       document.querySelector('#exact')?.setAttribute('hidden', '');
+      if (${JSON.stringify(v.style === 'T1' || v.style === 'T2')}) b.querySelectorAll('.ckpins .cw').forEach((x) => { x.lastChild.textContent = "Claude's words"; });
     }
     return true; })()`;
 }
@@ -179,7 +233,7 @@ function tintSkin(m: Moment, v: Variant) {
 app.whenReady().then(async () => {
   const pages = await servePages(path.join(SHELL, 'pages'));
   for (const v of VARIANTS) for (const m of M) {
-    if (v.style && !OPTION_KEYS.includes(m.key)) continue;
+    if (v.keys ? !v.keys.includes(m.key) : v.style && !OPTION_KEYS.includes(m.key)) continue;
     const file = `${v.name}-${m.key}`;
     if (!wanted(file)) continue;
     const w = new BrowserWindow({ width: W, height: H, show: false, frame: false, useContentSize: true,
@@ -205,12 +259,17 @@ body{background:radial-gradient(900px 500px at 15% 5%, rgba(80,96,140,.30), tran
       await wait(1200);
     }
     await js(decorate(m, v));
+    if (v.phase === 'rest' || v.phase === 'hover') await js(`(() => { const b = document.getElementById('bubble'); b.classList.add('krest');
+      for (const e of [b, ...b.querySelectorAll('*')]) { if (e.style.height) e.style.height = ''; } b.style.maxHeight = ''; return true; })()`);
     // the page re-measures itself only on its own events: a double toggle of a fold it already has (Claude's words, or
     // the exact command) runs its fit() and reportSize(), so the bubble grows to the added tag exactly as it would
     await js(`(() => { const k = document.querySelector('#ckpins .cw') ?? document.querySelector('#exact .exact-key'); if (k) { k.click(); k.click(); } return !!k; })()`);
     await js(`window.dispatchEvent(new Event('resize')); window.__fire('onAim', { x: ${head.x}, y: ${head.y} + 0.5, flip: false }); true`);
     await wait(1400);
     await js(tintSkin(m, v));
+    if (v.phase === 'mid') await js(`document.getElementById('bubble').classList.add('kmid'); true`);
+    if (v.phase === 'hover') await js(`(() => { const r = document.getElementById('bubble').getBoundingClientRect(); const c = document.createElement('div'); c.className = 'kcur';
+      c.innerHTML = ${JSON.stringify(cursorSvg)}; c.style.left = Math.round(r.left + r.width * 0.80) + 'px'; c.style.top = Math.round(r.top + r.height * 0.70) + 'px'; document.body.append(c); return true; })()`);
     await wait(200);
     const tinted = await js(`document.querySelectorAll('#skin .ktint').length`);
     if (v.style === 'B' && m.kind && !tinted) console.log('  no tint on ' + file);

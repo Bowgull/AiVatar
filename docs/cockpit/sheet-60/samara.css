@@ -5,21 +5,21 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden}
 .art p{margin:0 0 14px}
 .art mark{background:rgba(120,170,255,.38);color:inherit;padding:1px 0}
 .clipchip{position:absolute;z-index:6;display:inline-flex;align-items:center;gap:8px;font:800 13px Figtree,sans-serif;color:#fff;background:#4A2C6E;padding:7px 12px 7px 9px;border-radius:9px;box-shadow:0 0 0 2px #120a05,0 4px 0 #120a05,0 8px 16px rgba(0,0,0,.35)}
-.clipchip small{font:400 9px Silkscreen,monospace;letter-spacing:1px;color:#d9c2ff}
+.clipchip small{font:700 11px Figtree,sans-serif;letter-spacing:.4px;color:#d9c2ff}
 .panel{position:absolute;z-index:5}
 .panel .ph{display:flex;align-items:center;gap:10px}
 .panel .pt{font:800 17px Figtree,sans-serif;color:#2E2216}
 .panel .pt.w{color:#f1e3c4;text-shadow:0 2px 0 rgba(0,0,0,.6)}
 .panel .pt.c{font:700 16px Cinzel,Georgia,serif;letter-spacing:1px}
 .quote{font:500 13.5px/1.45 Figtree,sans-serif;color:#2E2216;border-left:4px solid rgba(74,44,110,.45);padding:2px 0 2px 10px;margin:4px 0 8px}
-.from{font:400 8px Silkscreen,monospace;letter-spacing:1px;color:#8a6a3e}
+.from{font:700 11px Figtree,sans-serif;letter-spacing:.3px;color:#8a6a3e}
 .from b{color:#4A2C6E;font-weight:400}
-.sec6{font:400 9px Silkscreen,monospace;letter-spacing:1.5px;color:#8a6a3e}
+.sec6{font:800 11.5px Figtree,sans-serif;letter-spacing:1px;color:#8a6a3e}
 .sec6.d{color:#bfae8a}
 .srow{position:absolute;display:flex;gap:12px;align-items:stretch;box-sizing:border-box;height:56px;padding:8px 12px;border-radius:9px;background:rgba(20,12,6,.55);box-shadow:0 0 0 2px #4a2e18}
 .srow i{flex:none;width:6px;border-radius:2px;box-shadow:0 0 0 2px rgba(18,10,5,.6)}
 .srow b{display:block;font:700 15px Figtree,sans-serif;color:#f1e3c4}
-.srow small{display:block;margin-top:5px;font:400 8px Silkscreen,monospace;letter-spacing:1px;color:#bfae8a}
+.srow small{display:block;margin-top:5px;font:700 11px Figtree,sans-serif;letter-spacing:.3px;color:#bfae8a}
 .srow small b{display:inline;font:inherit;color:#ffd36a}
 .newkey{position:absolute;font:800 13px Figtree,sans-serif;color:#2a1c00;background:linear-gradient(180deg,#ffd76a,#e9a92c);padding:7px 12px;border-radius:8px;box-shadow:0 0 0 2px #120a05,0 3px 0 #120a05}
 
@@ -27,4 +27,4 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden}
 .menu button.mrow.hov{color:#ffe28c;padding-left:34px}
 .menu button.mrow.hov::before{content:"";position:absolute;left:4px;top:50%;width:24px;height:18px;margin-top:-9px;background:url(../../../src/Shell/pages/art/browser/hand.png) 0 0/24px 18px;image-rendering:pixelated}
 .rail .from{margin-top:4px}
-.railtag{position:absolute;font:400 10px Silkscreen,monospace;letter-spacing:1.5px;color:#ffd36a;background:#120a05;padding:6px 9px;border-radius:6px;box-shadow:0 0 0 2px #4a2e18}
+.railtag{position:absolute;font:800 12.5px Figtree,sans-serif;letter-spacing:.5px;color:#ffd36a;background:#120a05;padding:6px 9px;border-radius:6px;box-shadow:0 0 0 2px #4a2e18}

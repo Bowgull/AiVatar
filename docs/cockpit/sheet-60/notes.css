@@ -19,7 +19,7 @@
 .nb b{font-weight:800}
 .snipbox{margin:2px 0 7px}
 .snipcrop{overflow:hidden;outline:2px dashed rgba(90,60,25,.55);outline-offset:2px;border-radius:2px}
-.sniptag{font:400 7.5px Silkscreen,monospace;letter-spacing:1px;color:#8a6a3e;margin-top:7px}
+.sniptag{font:700 10.5px Figtree,sans-serif;letter-spacing:.3px;color:#8a6a3e;margin-top:7px}
 .nfoot{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-top:8px;border-top:2px solid rgba(120,80,30,.18)}
 .bring{display:inline-flex;align-items:center;gap:7px;font:600 12px Figtree,sans-serif;color:#6b5236;white-space:nowrap}
 .ask{display:inline-flex;align-items:center;gap:6px;font:700 12.5px Figtree,sans-serif;color:#4A2C6E;white-space:nowrap;padding:2px 8px 2px 3px;border-radius:7px}

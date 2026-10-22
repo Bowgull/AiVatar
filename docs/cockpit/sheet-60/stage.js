@@ -83,7 +83,7 @@ function boardC() {
     if (i === 2) { const s = el('div', 'sec', 'EVERYTHING &middot; 14'); s.style.marginTop = '12px'; idx.append(s); }
     const row = el('div', ''); row.style.cssText = `display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;margin:2px 0;border-radius:7px;font:${open ? 800 : 600} 15px Figtree,sans-serif;color:${open ? '#fff' : '#2E2216'};background:${open ? '#4A2C6E' : 'transparent'}`;
     const tab = el('i'); tab.style.cssText = `width:6px;height:22px;border-radius:2px;background:${dotOf(k)};box-shadow:0 0 0 2px rgba(42,26,16,.5)`;
-    const rt = el('span', '', r); rt.style.cssText = `margin-left:auto;font:400 9px Silkscreen,monospace;letter-spacing:1px;color:${open ? '#d9c2ff' : '#8a6a3e'}`;
+    const rt = el('span', '', r); rt.style.cssText = `margin-left:auto;font:700 11.5px Figtree,sans-serif;color:${open ? '#d9c2ff' : '#8a6a3e'}`;
     row.append(tab, el('span', '', t), rt); idx.append(row);
   });
   // the open note on the right page

@@ -26,6 +26,12 @@ const ONLY = process.argv.slice(2).filter((a) => !a.endsWith('.ts'));
 const wanted = (f: string) => !ONLY.length || ONLY.some((o) => f.startsWith(o));
 const SPRITE = 'data:image/png;base64,' + readFileSync(path.join(ROOT, 'assets', 'aang', 'frames', 'idle_0.png')).toString('base64');
 const W = 980, H = 1100;
+// v2: "if we are using a name for software it should carry its icon". The addon icons are CurseForge's own thumbnails
+// (64 px, from its local cache, read only, copied into sheet-65/icons); CurseForge and WoW are their programs' own icons.
+const ICON = (n: string) => 'data:image/png;base64,' + readFileSync(path.join(HERE, 'icons', n + '.png')).toString('base64');
+const ICONS: Record<string, string> = { 'Auctionator': ICON('auctionator'), 'RestedXP Guide': ICON('restedxp-guide'), 'Leatrix Plus': ICON('leatrix-plus'),
+  "What's Training?": ICON('what-s-training'), 'GearQuest Forever': ICON('gearquest-forever'), 'BlizzMove': ICON('blizzmove'), 'Details': ICON('details-damage-meter'),
+  'CurseForge': ICON('app-curseforge'), 'WoW Forever': ICON('app-wow'), 'WoW': ICON('app-wow') };
 const fx = W - 300, fy = H - 240, head = { x: fx + 112, y: fy + 96 };
 
 const day = new Date();
@@ -56,13 +62,18 @@ const CSS = `
 .addons .lt-txt b em{font:700 12.5px Figtree,sans-serif;font-style:normal;color:#7a5a30;white-space:nowrap}
 .addons .lt-txt b em i{font-style:normal;color:#2f7a3e}
 .addons .atags{display:flex;gap:5px;flex:none}
-.atag{display:inline-block;font:400 9px/1 Silkscreen,monospace;letter-spacing:1px;padding:5px 7px 4px;border-radius:4px;color:#fff6ea;
+.atag{display:inline-block;font:800 12px/1 Figtree,sans-serif;letter-spacing:0;padding:5px 9px 5px;border-radius:6px;color:#fff;
   box-shadow:0 0 0 1.5px #2a1606,0 2px 0 rgba(42,22,6,.35);white-space:nowrap}
 .atag.err{background:#b8402c} .atag.jump{background:#C8602A} .atag.patch{background:#6a3d8f}
 .addons .anote{margin:6px 0 2px;font:500 12.5px/1.4 Figtree,sans-serif;color:#6a5236}
 .addons .anote b{font-weight:700;color:#4e3d28}
 .addons .lt-keys{margin:9px 0 2px}
-.addons h3 small{float:right;font:400 8px/12px Silkscreen,monospace;letter-spacing:1px;color:#9a7a4a}
+.addons h3 small{float:right;display:flex;align-items:center;gap:6px;margin-top:-3px;font:700 12.5px/16px Figtree,sans-serif;letter-spacing:0;color:#7a5a30}
+.addons h3 small img,.sw{width:16px;height:16px;border-radius:3px;flex:none}
+.sw{display:inline-block;vertical-align:top;position:relative;top:3px;margin:0 4px 0 1px}
+.aico{width:24px;height:24px;flex:none;border-radius:5px;box-shadow:0 0 0 1.5px #2a1606;align-self:flex-start;margin-top:1px}
+.addons .anote img{width:16px;height:16px;border-radius:3px;vertical-align:-3px;margin-right:4px}
+.aprog li img{width:20px;height:20px;border-radius:4px;box-shadow:0 0 0 1px #2a1606}
 /* the flow: a progress row under Aang's line */
 .aprog{margin:10px 0 2px;width:222px}
 .aprog .bar{position:static;opacity:1;display:flex;align-items:center;gap:10px}
@@ -81,7 +92,7 @@ const CSS = `
 .door{white-space:nowrap;display:flex;align-items:center;gap:8px;margin:9px 0 1px;font:700 13px Figtree,sans-serif;color:#4A2C6E}
 .door img{width:20px;height:20px;image-rendering:pixelated}
 .door span{text-decoration:underline;text-decoration-color:rgba(74,44,110,.4);text-underline-offset:3px}
-.door small{margin-left:auto;font:400 8px Silkscreen,monospace;letter-spacing:1px;color:#9a7a4a}
+.door small{margin-left:auto;font:600 12px Figtree,sans-serif;color:#9a7a4a}
 `;
 
 /** The Addons slip, from the brief's own pieces. tickAll: every row ticked; otherwise only the safe ones. */
@@ -92,8 +103,10 @@ function slip(tickAll: boolean) {
     const body = document.querySelector('.briefcard .lt-body'); if (!body) return false;
     const T = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
     const s = T('div', 'lt-slip addons samaraplan');
-    const h = T('h3', '', 'ADDONS'); h.append(T('small', '', 'WOW FOREVER')); s.append(h);
+    const h = T('h3', '', 'ADDONS'); const hs = T('small', '', ''); const hi = document.createElement('img'); hi.src = ${JSON.stringify(ICONS['WoW Forever'])}; hs.append(hi, 'WoW Forever'); h.append(hs); s.append(h);
+    const IC = ${JSON.stringify(ICONS)};
     const cls = { 'ERRORS': 'err', 'BIG JUMP': 'jump', 'NOT FOR THIS PATCH': 'patch' };
+    const word = { 'ERRORS': 'Errors', 'BIG JUMP': 'Big jump', 'NOT FOR THIS PATCH': 'Not for this patch' };
     for (const r of ${JSON.stringify(rows)}) {
       const it = T('div', 'lt-item' + (r.on ? '' : ' off'));
       const hd = T('div', 'lt-head');
@@ -101,11 +114,13 @@ function slip(tickAll: boolean) {
       const tx = T('div', 'lt-txt');
       const b = T('b', '', r.name); const em = T('em', '', r.from + ' \\u2192 '); em.append(T('i', '', r.to)); b.append(em);
       tx.append(b, T('span', '', r.what));
-      hd.append(tq, tx);
-      if (r.tags.length) { const tg = T('div', 'atags'); for (const t of r.tags) tg.append(T('span', 'atag ' + cls[t], t)); hd.append(tg); }
+      const ai = document.createElement('img'); ai.className = 'aico'; ai.src = IC[r.name]; ai.alt = '';
+      hd.append(tq, ai, tx);
+      if (r.tags.length) { const tg = T('div', 'atags'); for (const t of r.tags) tg.append(T('span', 'atag ' + cls[t], word[t])); hd.append(tg); }
       it.append(hd); s.append(it);
     }
-    const note = T('p', 'anote'); note.append(T('b', '', 'BlizzMove and Details'), ' also threw errors. No fix out yet.'); s.append(note);
+    const im = (n) => { const i = document.createElement('img'); i.src = IC[n]; i.alt = ''; return i; };
+    const note = T('p', 'anote'); note.append(im('BlizzMove'), T('b', '', 'BlizzMove'), ' and ', im('Details'), T('b', '', 'Details'), ' also threw errors. No fix out yet.'); s.append(note);
     const keys = T('div', 'lt-keys');
     const k1 = T('button', 'key sm primary', 'Update ticked (${n})'); k1.append(T('span', 'k', 'A'));
     const k2 = T('button', 'key sm', 'Not now'); k2.append(T('span', 'k', 'Z'));
@@ -115,14 +130,15 @@ function slip(tickAll: boolean) {
 }
 
 /** Aang working: the bar, the percent in big readable numbers, and the three he is doing. */
-const PROGRESS = `(() => {
+const PROGRESS = () => `(() => {
   const T = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
   const p = T('div', 'aprog');
   const bar = T('div', 'bar'); const segs = T('div', 'segs'); for (let i = 0; i < 10; i++) segs.append(T('u', i < 6 ? 'on' : ''));
   bar.append(segs, T('span', 'pct', '64%')); p.append(bar);
   const ul = T('ul');
+  const IC = ${JSON.stringify(ICONS)};
   for (const [st, name, note] of [['done', 'Auctionator', 'now 344'], ['now', 'RestedXP Guide', 'updating'], ['wait', 'Leatrix Plus', 'next']]) {
-    const li = T('li', st); li.append(T('i', 'dot'), name, T('small', '', note)); ul.append(li);
+    const li = T('li', st); const i = document.createElement('img'); i.src = IC[name]; i.alt = ''; li.append(T('i', 'dot'), i, name, T('small', '', note)); ul.append(li);
   }
   p.append(ul);
   document.getElementById('scroller').after(p);
@@ -135,15 +151,28 @@ const DOOR = (label: string, hint: string) => `(() => {
   document.getElementById('scroller').after(d);
   return true; })()`;
 
+/** Each software name in Aang's line gets its icon just before it (the first time it appears). */
+const ICONIZE = (names: string[]) => `(() => {
+  const IC = ${JSON.stringify(ICONS)}, names = ${JSON.stringify(names)};
+  const said = document.getElementById('said'); if (!said) return false;
+  for (const n of names) {
+    const w = document.createTreeWalker(said, NodeFilter.SHOW_TEXT); let t;
+    while ((t = w.nextNode())) { const i = t.data.indexOf(n.split(' ')[0]); if (i < 0) continue;
+      const word = n.split(' ')[0], rest = t.splitText(i); rest.splitText(word.length);
+      const im = document.createElement('img'); im.className = 'sw'; im.src = IC[n]; im.alt = '';
+      const keep = document.createElement('span'); keep.style.whiteSpace = 'nowrap'; rest.before(keep); keep.append(im, rest); break; }
+  }
+  return true; })()`;
+const both = (...xs: string[]) => `(() => { let ok = true; ${xs.map((x) => `ok = (${x}) && ok;`).join(' ')} return ok; })()`;
 interface Moment { key: string; msg: object; after?: string; wide?: boolean }
 const line = (text: string) => ({ t: 'bubble', text, stream: false, turn: 21, proactive: true });
 const M: Moment[] = [
   { key: 'a-brief-all', msg: { t: 'bubble', text: '', stream: false, turn: 20, proactive: true, brief: BRIEF }, after: slip(true) },
   { key: 'a-brief-safe', msg: { t: 'bubble', text: '', stream: false, turn: 20, proactive: true, brief: BRIEF }, after: slip(false) },
-  { key: 'b-working', msg: line('Updating 3 addons in CurseForge…'), after: PROGRESS },
-  { key: 'c-done', msg: line('3 updated. Auctionator: faster search.') },
-  { key: 'd-wow', msg: line('WoW is open. I’ll do it when you close WoW.') },
-  { key: 'e-coach', msg: line('Bujuju, Arms: solid, two things to tighten.'), after: DOOR('Open the report', 'IN SAMARA') },
+  { key: 'b-working', msg: line('Updating 3 addons in CurseForge…'), after: both(ICONIZE(['CurseForge']), PROGRESS()) },
+  { key: 'c-done', msg: line('Done: Auctionator, RestedXP Guide and Leatrix Plus are up to date.'), after: ICONIZE(['Auctionator', 'RestedXP Guide', 'Leatrix Plus']) },
+  { key: 'd-wow', msg: line('WoW is open. I’ll update them when you close it.'), after: ICONIZE(['WoW']) },
+  { key: 'e-coach', msg: line('Garr went well. Two easy wins for next time.'), after: DOOR('See the two tips', 'opens in Samara') },
 ];
 
 app.whenReady().then(async () => {

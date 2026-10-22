@@ -1,3 +1,4 @@
+// Sheet 60 v5 (2026-10-22): B picked ("Aang holds it up"); its line ends in "!" where it fits (a due date does).
 // Sheet 60 v4 (2026-10-22, night): "Aang notices things in your notes - shouldn't this surface a bit more?" Three livelier
 // ways (peek.js), each in three moments (in, settle, out), on the REAL bubble page (bubble.html, look B, S2 rim) driven
 // through the test preload exactly as notice-shots.ts does, on the same stage. The note parts come from this sheet's own
@@ -86,7 +87,7 @@ app.whenReady().then(async () => {
     const ok = await js(`(async () => { const m = await import('${DOCS}/docs/cockpit/sheet-60/peek.js'); await m.ready(); m.style(); window.__peek = m; return true; })()`).catch((e: Error) => { errors.push('import: ' + e.message); return false; });
     if (!ok) { console.log(`${opt}-${moment}: FAILED ${errors.join(' | ')}`); bad++; w.destroy(); continue; }
     const relabel = opt === 'C' ? "const ks = [...document.querySelectorAll('#asks .key')]; ['Tick it', 'Open', 'Later'].forEach((t, i) => { if (!ks[i]) return; const k = ks[i].querySelector('.k'); ks[i].textContent = t; if (k) ks[i].append(k); });" : "document.getElementById('asks').style.setProperty('display', 'none', 'important');";
-    await js(`(() => { document.getElementById('said').innerHTML = '<span class="link">Renew the passport</span> is due tomorrow.'; document.getElementById('who').textContent = '';
+    await js(`(() => { document.getElementById('said').innerHTML = '<span class="link">Renew the passport</span> is due tomorrow${opt === 'B' ? '!' : '.'}'; document.getElementById('who').textContent = '';
       const mn = document.getElementById('means'); if (mn) mn.hidden = true; ${relabel}
       ${opt === 'C' ? "document.getElementById('bubble').classList.add('wide'); window.__q = window.__peek.quote(document.getElementById('said'), null);" : ''}
       return true; })()`);

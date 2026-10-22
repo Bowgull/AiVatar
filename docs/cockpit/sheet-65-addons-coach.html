@@ -4,11 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sheet 65 - Addons + coach</title>
-<!-- Sheet 65 (2026-10-22): docs/CURSEFORGE-AND-COACH.md "Needs a mockup" 1 and 2, with his answers. The brief and the
-     bubble lines are the REAL bubble page (look B, S2 rim) fed a brief as the main process does; the Addons slip is built
-     from the brief's own pieces (sheet-65/brief.ts). The report is inside Samara's real frame (browser.html + browser.css,
-     sheet-65/report.html). Addon names and installed versions are his (CurseForge's list, read only); the new versions,
-     notes and every fight are examples. Mockup only. -->
+<!-- Sheet 65 v2 (2026-10-22, late). His notes on v1: software names carry their icon, sites their bookmark icon; the coach
+     report was unreadable ("I genuinely don't know what I'm reading, this needs to be simpler") and must not have its own
+     ask box ("I'll just ask Aang, less entry points for chat"). Addon icons are CurseForge's own thumbnails from its local
+     cache (read only, sheet-65/icons); CurseForge's and WoW's are their programs' own icons. The report is rebuilt: one
+     headline, two tips, one nice line, one "better" line (sheet-65/report.js). The brief and the bubble lines are the REAL
+     bubble page (look B, S2 rim) fed as the main process does (sheet-65/brief.ts); the report sits in Samara's real frame.
+     v1: the Addons slip (A all ticked / B safe ones ticked) and a dashboard report (A / B). Mockup only. -->
 <link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
 <link rel="stylesheet" href="sheet-55/sheet55.css">
 <style>
@@ -16,76 +18,85 @@
   .flow{display:flex;flex-wrap:wrap;gap:18px 26px;align-items:flex-end}
   .you{font:600 15px Figtree,sans-serif;color:#e8dcc4;background:#4A2C6E;border-radius:10px;padding:8px 12px;margin:0 0 6px;align-self:flex-start}
   .you small{display:block;font:800 11px Figtree,sans-serif;letter-spacing:1.2px;color:#cdb8ef;margin-bottom:3px}
+  .ico{width:18px;height:18px;border-radius:4px;vertical-align:-4px;margin-right:4px}
+  .rules{display:grid;grid-template-columns:200px 1fr;gap:6px 18px;max-width:1150px;margin:6px 0 0}
+  .rules b{font:800 15.5px Figtree,sans-serif;color:#fffaf0}
+  .rules span{font:500 15px/1.5 Figtree,sans-serif;color:#d8cab0}
+  @media (max-width:900px){.rules{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 <h1>SHEET 65 &middot; ADDONS + COACH</h1>
-<p class="real">22 Oct &middot; real bubble and real Samara frame &middot; your addon names, example updates (all 17 are up to date today) &middot; example fights (no combat log yet)</p>
-<p class="lead">Two things: your addon updates in the <b>morning brief</b>, and a <b>rotation coach</b> you ask after a fight.</p>
-<p class="topick"><span>WHAT TO PICK</span> <em>Row 1: <b>A</b> or <b>B</b> &nbsp;&middot;&nbsp; Row 2: <b>A</b> or <b>B</b> &nbsp;&middot;&nbsp; or tell me what to change</em></p>
+<p class="real">v2 &middot; 22 Oct, late &middot; icons on every name, and a coach report you can read in five seconds</p>
+<p class="lead">Two things: your addon updates in the <b>morning brief</b>, now with each addon's own icon, and the <b>rotation coach</b>, rebuilt from scratch to be simple. You ask Aang; Aang answers in one line; the line opens a short page of tips in Samara. There is no ask box on that page: you keep asking Aang.</p>
+<div class="decided"><span>Every software name carries its icon</span><span>Every site carries its bookmark icon</span><span>One place to chat: Aang</span><span>Reports open in Samara</span></div>
+<p class="topick"><span>WHAT TO PICK</span> <em>Addons: <b>A</b> all ticked, or <b>B</b> safe ones ticked (my pick)? &nbsp;&middot;&nbsp; Coach: is this simple enough?</em></p>
 
 <h2><span class="n">1</span>ADDONS IN THE MORNING BRIEF</h2>
-<p>A new <b>Addons</b> slip under Today. Each row: tick, name, old &rarr; new, one short line, and a warning tag when there is one. Aang only does this with WoW closed.</p>
+<p>A new <b>Addons</b> slip under Today. Each row: tick, <b>the addon's own icon</b>, name, old &rarr; new, one short line, and a warning tag when there is one (now in plain readable words). Aang only does this with <img class="ico" src="sheet-65/icons/app-wow.png" alt="">WoW closed.</p>
 
 <div class="take">
   <div class="lhead"><span class="L">1</span><span class="nm">What starts ticked</span></div>
-  <p class="cap1">A: every update ticked. B: risky ones start unticked (BIG JUMP, NOT FOR THIS PATCH). ERRORS stay ticked: the update is often the fix.</p>
+  <p class="cap1">A: every update ticked. B: risky ones start unticked (Big jump, Not for this patch). Errors stay ticked: the update is often the fix.</p>
   <div class="row">
     <div class="cell"><div class="lbl"><i>A</i>ALL TICKED</div>
-      <div class="shot"><img src="sheet-65/a-brief-all.png" width="616" height="801" alt="Brief with every addon ticked"></div></div>
+      <div class="shot"><img src="sheet-65/a-brief-all.png" width="616" height="801" alt="Brief with every addon ticked, each with its icon"></div></div>
     <div class="cell"><div class="lbl"><i>B</i>SAFE ONES TICKED <span class="pick">I'D PICK THIS</span></div>
-      <div class="shot"><img src="sheet-65/a-brief-safe.png" width="616" height="801" alt="Brief with only the safe addons ticked"></div></div>
+      <div class="shot"><img src="sheet-65/a-brief-safe.png" width="616" height="801" alt="Brief with only the safe addons ticked, each with its icon"></div></div>
   </div>
 </div>
 
 <div class="take today">
   <div class="lhead"><span class="L">&rarr;</span><span class="nm">After "Update ticked"</span></div>
-  <p class="cap1">Aang drives the CurseForge app (minimized), checks each one really changed, then says one line.</p>
+  <p class="cap1">Aang drives <img class="ico" src="sheet-65/icons/app-curseforge.png" alt="">CurseForge (minimized), checks each one really changed, then says one line. Every name in it carries its icon.</p>
   <div class="flow">
     <div class="cell"><div class="lbl"><i>1</i>WORKING</div>
-      <div class="shot"><img src="sheet-65/b-working.png" width="316" height="409" alt="Updating 3 addons, 64 percent"></div></div>
+      <div class="shot"><img src="sheet-65/b-working.png" width="316" height="409" alt="Updating 3 addons in CurseForge, 64 percent, with each addon's icon"></div></div>
     <div class="cell"><div class="lbl"><i>2</i>DONE</div>
-      <div class="shot"><img src="sheet-65/c-done.png" width="274" height="296" alt="3 updated"></div></div>
+      <div class="shot"><img src="sheet-65/c-done.png" width="316" height="318" alt="Done: Auctionator, RestedXP Guide and Leatrix Plus, each with its icon"></div></div>
     <div class="cell"><div class="lbl"><i>3</i>IF WOW IS OPEN</div>
-      <div class="shot"><img src="sheet-65/d-wow.png" width="262" height="296" alt="WoW is open, I'll do it when you close WoW"></div></div>
+      <div class="shot"><img src="sheet-65/d-wow.png" width="316" height="296" alt="WoW is open, I'll update them when you close it"></div></div>
   </div>
 </div>
 
-<h2><span class="n">2</span>ROTATION COACH</h2>
-<p>Only when you ask. Aang finds the toon and spec in the combat log by himself, answers in one line, and the line opens the full report in Samara.</p>
+<h2><span class="n">2</span>ROTATION COACH, SIMPLE</h2>
+<p>Your note: "I genuinely don't know what I'm reading." Fair: v1 was a dashboard. Now it reads like a friend's text. <b>One headline</b> for the fight. <b>Two tips</b>, each a plain sentence with the ability's icon and <b>one number at most</b>. One <b>nice</b> line. One line saying if you did <b>better than last time</b>. No chart, no table, no game jargon.</p>
 
 <div class="take today">
-  <div class="lhead"><span class="L">&rarr;</span><span class="nm">You ask, Aang answers in one line</span></div>
+  <div class="lhead"><span class="L">&rarr;</span><span class="nm">You ask Aang, he answers in one line</span></div>
   <div class="flow">
     <div class="you"><small>YOU, IN THE TYPING BOX</small>how was my rotation on that last boss?</div>
-    <div class="cell"><div class="lbl"><i>1</i>AANG &middot; CLICK OPENS THE REPORT</div>
-      <div class="shot"><img src="sheet-65/e-coach.png" width="316" height="326" alt="Bujuju, Arms: solid, two things to tighten"></div></div>
+    <div class="cell"><div class="lbl"><i>1</i>AANG &middot; THE LINK OPENS THE TIPS IN SAMARA</div>
+      <div class="shot"><img src="sheet-65/e-coach.png" width="316" height="326" alt="Garr went well. Two easy wins for next time. See the two tips"></div></div>
   </div>
 </div>
 
 <div class="take">
-  <div class="lhead"><span class="L">2</span><span class="nm">The report: where the fights go</span></div>
-  <p class="cap1">Same report both ways: 3 to 5 findings with numbers, what you pressed over the fight, your last runs, and a follow-up box. Toon switcher top right.</p>
-  <div class="cell"><div class="lbl"><i>A</i>FIGHTS ACROSS THE TOP</div>
-    <div class="shot"><img src="sheet-65/report-A.png" width="1480" height="900" alt="Coach report with fights across the top"></div></div>
+  <div class="lhead"><span class="L">2</span><span class="nm">The tips, in Samara</span><span class="cap2">Fights from that night down the left (click one to see its tips). Your toons top right, each with its class crest. Nothing else on the page.</span></div>
+  <div class="cell"><div class="lbl"><i>&#10022;</i>BUJUJU &middot; ARMS WARRIOR &middot; GARR</div>
+    <div class="shot"><img src="sheet-65/report.png" width="1480" height="780" alt="Coach: Garr, good kill, two easy wins next time, two tips with ability icons"></div></div>
 </div>
-<div class="take">
-  <div class="cell"><div class="lbl"><i>B</i>FIGHTS DOWN THE LEFT <span class="pick">I'D PICK THIS</span></div>
-    <div class="shot"><img src="sheet-65/report-B.png" width="1480" height="900" alt="Coach report with fights down the left"></div></div>
+<div class="take today">
+  <div class="lhead"><span class="L">&rarr;</span><span class="nm">Your other toon</span><span class="cap2">Click Derek Sheppard: his own fights and tips. Nothing is shared between toons.</span></div>
+  <div class="cell"><div class="lbl"><i>&#10022;</i>DEREK SHEPPARD &middot; EXAMPLE SPEC</div>
+    <div class="shot"><img src="sheet-65/report-derek.png" width="1480" height="780" alt="Coach for Derek Sheppard: Magmadar, clean kill, one easy win"></div></div>
 </div>
 
-<div class="take today">
-  <div class="lhead"><span class="L">&rarr;</span><span class="nm">Your other toon</span></div>
-  <p class="cap1">Click Derek Sheppard: his own fights, spec and history. Nothing is shared between toons.</p>
-  <div class="cell"><div class="lbl"><i>B</i>DEREK SHEPPARD &middot; EXAMPLE SPEC</div>
-    <div class="shot"><img src="sheet-65/report-B-derek.png" width="1480" height="900" alt="Coach report for Derek Sheppard"></div></div>
+<h2><span class="n">?</span>THE RULES IT FOLLOWS</h2>
+<div class="rules">
+  <b>Headline</b><span>The boss and one word on how it went, then how many easy wins there are. That's the whole verdict.</span>
+  <b>Tips</b><span>Two, three at most. One plain sentence each, said the way you'd say it to a friend, with the ability's icon and at most one number.</span>
+  <b>Words it never uses</b><span>Uptime, debuff, proc, window, DPS, rotation priority, or any table of numbers.</span>
+  <b>Better than last time</b><span>One line, green with an up arrow, only when it's true. Worse is never shouted; it just stays off.</span>
+  <b>Questions</b><span>Ask Aang, anywhere you already talk to him. The page has no chat of its own.</span>
+  <b>Where the tips come from</b><span>The guide named at the bottom, with its site's bookmark icon.</span>
 </div>
 
 <div class="note">
   <ul>
-    <li>Real today: your 17 addon names and versions, and BugGrabber errors from RestedXP Guide, BlizzMove, Auctionator and Details.</li>
-    <li>Made up for the picture: the new versions, the "what changed" lines, every fight and number.</li>
-    <li>Derek's spec is a guess; the real one comes from the log.</li>
+    <li>Real today: your 17 addon names and versions, and BugGrabber errors from RestedXP Guide, BlizzMove, Auctionator and Details. The addon icons are CurseForge's own (read from its local cache, nothing downloaded); CurseForge's and WoW's are from their programs on this PC.</li>
+    <li>Stand-ins: the ability icons and class crests are hand-drawn pixel art (the real page would use the game's own icons). Warcraft Tavern's bookmark icon is a placeholder <b>WT</b> monogram: Samara has not saved it yet; it fills in after one visit.</li>
+    <li>Made up for the picture: the new versions, the "what changed" lines, every fight and tip. Derek's spec is a guess; the real one comes from the log.</li>
   </ul>
 </div>
 </body>

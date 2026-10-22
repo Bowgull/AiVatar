@@ -32,8 +32,12 @@ export const TAGS = [['To-do', 'B'], ['Idea', 'C'], ['Reference', 'D'], ['For Cl
 
 // ---------------------------------------------------------------- per look: the colours
 // A parchment, B colour papers, C journal pages. Colour keys: A gold, B butter, C mint, D peach/sky, E lilac.
-const STICKY = { A: '#f3e2a6', B: '#f2df9a', C: '#cfe3c0', D: '#f2cfb4', E: '#dccff0', F: '#c9dcee', G: '#f2c9cf' };
-const DOT = { A: '#d9a83a', B: '#d9a83a', C: '#58a070', D: '#d07a4a', E: '#8a5cc4', F: '#4a8ac4', G: '#c4586a' };
+// v5 (2026-10-22): "To-do and For Claude are just slightly similar." The v4 papers were all pale pastels of one lightness
+// (To-do sky vs For Claude lilac: 14 apart by eye, 3 apart with red-green colour blindness). Now each paper differs in hue
+// AND lightness, worst pair 30 apart by eye and 15 with any colour blindness (CIELAB, Machado 2009 simulation):
+// plain butter, To-do sky blue, Idea green, Reference stone, For Claude Claude's own coral, his own (Recipes) mauve.
+const STICKY = { A: '#f3e2a6', B: '#f8dc8e', C: '#a8dba5', D: '#dbd3cb', E: '#e79c7b', F: '#84c9f8', G: '#d49dbb' };
+const DOT = { A: '#d9a83a', B: '#d9a83a', C: '#3f8a4e', D: '#7a6e60', E: '#c4572f', F: '#2f78b8', G: '#9a4478' };
 export const dotOf = (k) => DOT[k];
 // v4 (2026-10-22, night): his note "shouldn't notes be different colours by their CATEGORY rather than giving me another thing
 // to pick?" The colour picker is gone. A plain note is butter paper; each category owns one paper colour; a category he makes

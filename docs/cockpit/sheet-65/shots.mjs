@@ -15,9 +15,9 @@ app.on('window-all-closed', () => { /* the script decides */ });
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(HERE, '..', '..', '..');
 const TYPES = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.mjs': 'text/javascript', '.png': 'image/png', '.woff2': 'font/woff2', '.svg': 'image/svg+xml' };
-const W = 1480, H = 900;
+const W = 1480, H = 780;
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-const SCENES = [['report-A', 'look=A&toon=bujuju'], ['report-B', 'look=B&toon=bujuju'], ['report-B-derek', 'look=B&toon=derek']];
+const SCENES = [['report', 'toon=bujuju'], ['report-derek', 'toon=derek']];
 const only = process.argv.slice(2).filter((a) => !a.endsWith('shots.mjs'));
 
 function serve() {

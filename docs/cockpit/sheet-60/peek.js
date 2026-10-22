@@ -25,7 +25,7 @@ const CSS = `
 .nq .nql{display:flex;align-items:center;gap:8px;font:600 14px/1.3 var(--body);color:var(--ink-text)}
 .nq .nql span{background:linear-gradient(transparent 10%,rgba(255,196,60,.62) 10%,rgba(255,196,60,.62) 90%,transparent 90%);padding:0 3px;border-radius:3px}
 .nq .nql .nqbx{width:12px;height:12px;border-radius:2px;border:2px solid #6b5236;background:rgba(255,255,255,.6);flex:none}
-.stagetag{position:fixed;z-index:9;font:400 10px Silkscreen,monospace;letter-spacing:1.5px;color:#c9cee0}
+.stagetag{position:fixed;z-index:9;font:700 12.5px Figtree,sans-serif;letter-spacing:.4px;color:#c9cee0}
 .stagetag b{color:#ffd36a;font-weight:400}
 `;
 export function style() { const s = document.createElement('style'); s.textContent = CSS; document.head.append(s); }
@@ -68,7 +68,7 @@ export function held(x, y) {
 /** C: the line quoted on its note's own paper inside the bubble; the keys go in the bubble's own asks row. */
 export function quote(said, asks) {
   const q = el('div', 'nq'); q.style.background = paperOf(keyOf(TODO));
-  const h = el('div', 'nqh'); const sw = el('i'); sw.style.background = '#4a8ac4'; h.append(sw, el('span', '', 'BEFORE FRIDAY &middot; TO-DO'));
+  const h = el('div', 'nqh'); const sw = el('i'); sw.style.background = '#2f78b8'; h.append(sw, el('span', '', 'BEFORE FRIDAY &middot; TO-DO'));
   const l = el('div', 'nql'); l.append(el('i', 'nqbx'), el('span', '', 'Renew the passport <b>(Fri)</b>'));
   q.append(h, l); said.after(q);
   if (asks) asks.hidden = false;

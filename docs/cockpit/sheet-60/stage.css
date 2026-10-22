@@ -14,13 +14,13 @@
 .chip2.on{background:#4A2C6E;color:#fff;box-shadow:0 0 0 2px #2C1848}
 .chip2.dark{background:rgba(20,12,6,.6);color:#e8dcc4;box-shadow:0 0 0 2px #4a2e18}
 .chip2.dark.on{background:#4A2C6E;color:#fff;box-shadow:0 0 0 2px #966EC8}
-.sec{font:400 9px Silkscreen,monospace;letter-spacing:1.5px;color:#8a6a3e}
+.sec{font:800 11.5px Figtree,sans-serif;letter-spacing:1px;color:#8a6a3e}
 .sec.d{color:#bfae8a}
 .newkey{font:800 13px Figtree,sans-serif;color:#2a1c00;background:linear-gradient(180deg,#ffd76a,#e9a92c);padding:7px 12px;border-radius:8px;box-shadow:0 0 0 2px #120a05,0 3px 0 #120a05}
 .cap{font:600 16px/1.4 Figtree,sans-serif;color:#2E2216;white-space:nowrap}
 .cap .caret{display:inline-block;width:2px;height:18px;background:#4A2C6E;vertical-align:-3px;margin-left:1px}
-.hintline{font:400 8px Silkscreen,monospace;letter-spacing:1px;color:#8a6a3e;white-space:nowrap}
-.hintline b{color:#4A2C6E;font-weight:400}
+.hintline{font:600 11.5px Figtree,sans-serif;color:#8a6a3e;white-space:nowrap}
+.hintline b{color:#4A2C6E;font-weight:800}
 .game{position:absolute;left:0;top:0;z-index:0}
 .gamehud{position:absolute;z-index:1}
 .seam6{position:absolute;z-index:6;height:3px;border-radius:2px;background:#ffd36a;box-shadow:0 0 6px rgba(255,180,80,.7)}
@@ -33,3 +33,7 @@
 .catrow.ghost{color:#4A2C6E}
 .catrow small{font:600 11px Figtree,sans-serif;color:#7a6448;margin-left:4px}
 .catrow .plus{width:14px;text-align:center;font:800 15px Figtree,sans-serif}
+
+/* v5: the sheet's own captions in Figtree too (the tiny spaced pixel capitals were hard to read) */
+.dtag{font:700 12px Figtree,sans-serif;letter-spacing:.4px}
+.dtag b{font-weight:800}
