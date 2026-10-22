@@ -802,7 +802,7 @@ app.whenReady().then(async () => {
       jobPops.update(lastJobs, lastWaits);
       // The window family (2026-10-22): the video, notes, timers and job pop-outs snap together and move as one.
       ({ player: miniPlayer, fromBrain: playerHears } = wireMiniPlayer({ origin: pages.origin, preloadPath: path.join(HERE, 'playerpreload.cjs'), iconPath: AANG_ICON, prefsFile: path.join(STATE_DIR, 'player.json'), send: (m) => link?.send(m as never) }));
-      family = wireFamily({ origin: pages.origin, iconPath: AANG_ICON, popout, notes: noteWins, timers: timerWins, jobs: jobPops, player: miniPlayer });
+      family = wireFamily({ origin: pages.origin, iconPath: AANG_ICON, popout, notes: noteWins, timers: timerWins, jobs: jobPops, snips: pinSnips, player: miniPlayer });
       input.window();
       const body = readJson(path.join(STATE_DIR, 'body.json')) as Record<string, unknown> | null;
       if (typeof body?.Mode === 'string') inputMode = body.Mode;
@@ -910,6 +910,7 @@ app.whenReady().then(async () => {
         onSend: (file, thumb) => landSend({ kind: 'snip', file, thumb, site: 'your screen', title: 'snip ' + new Date().toTimeString().slice(0, 5) }),
       });
       pinSnips = new PinSnips({ origin: pages.origin, preloadPath: path.join(HERE, 'pinsnippreload.cjs'), iconPath: AANG_ICON });
+      if (family) pinSnips.family = family;
       // Snipit lands in Aang's typing box, so its key is taken with his, only while he runs (Samara on its own does not
       // take his keys).
       if (bodyAlive()) takeAangKeys();
@@ -1095,6 +1096,13 @@ app.whenReady().then(async () => {
     const item = Number(a.item), act = String(a.act ?? '');
     if (!Number.isInteger(item) || item < 0 || item > 200 || !['through', 'reply', 'prep', 'drive', 'matches'].includes(act)) return;
     link?.send({ t: 'brief.act', item, act });
+  });
+  // Sheet 65: "Update ticked" under the brief's Addons slip. Only whole numbers (CurseForge project ids) pass; the brain
+  // uses only ids from the list it sent, and does nothing with WoW open.
+  ipcMain.on('bubble:addons', (e, ids) => {
+    if (!fromBubble(e) || !Array.isArray(ids)) return;
+    const clean = ids.map(Number).filter(n => Number.isInteger(n) && n > 0 && n < 1e9).slice(0, 60);
+    if (clean.length) link?.send({ t: 'addons.update', ids: clean });
   });
   ipcMain.on('bubble:open', (e, t) => {
     // Window 2's search results (6.18) open a vault note the same way, through the same checks.
@@ -1889,7 +1897,7 @@ function clickedAway(): void {
 }
 
 app.on('will-quit', () => globalShortcut.unregisterAll());
-app.on('before-quit', () => { samaraShortcutsLit(false, { quitting: true }); aangBrowser?.closeAll(); snipper?.close(); pinSnips?.dispose(); input?.destroy(); link.stop(); hotkey?.release(); ads?.stop(); popout?.close(); jobPops?.dispose(); bubble?.close(); drm?.close(); pages?.close(); });
+app.on('before-quit', () => { family?.saveNow(); samaraShortcutsLit(false, { quitting: true }); aangBrowser?.closeAll(); snipper?.close(); pinSnips?.dispose(); input?.destroy(); link.stop(); hotkey?.release(); ads?.stop(); popout?.close(); jobPops?.dispose(); bubble?.close(); drm?.close(); pages?.close(); });
 
 // Nothing a page does may take the Shell down silently.
 process.on('uncaughtException', e => console.error('shell: uncaught: ' + (e as Error).message));

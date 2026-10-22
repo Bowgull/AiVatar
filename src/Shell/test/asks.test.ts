@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { HOLD_MS, askFrom, holdLabel, verbOf } from '../pages/asks.js';
 
 test('a routine permission is the sheet\'s three keycaps, A / Z / X', () => {
-  // Sheet 5: "Can I open Chrome?" with "Open Chrome A", "Not now Z", "Always open apps X".
+  // Sheet 5's three keycaps, in sheet 64's words (2026-10-22): "Allow A", "Not this time Z", "Always open apps X".
   const a = askFrom({ t: 'permission', id: '1', tool: 'mcp__aang__open',
     question: 'Can I open Chrome?', remembers: 'open apps',
     means: 'It opens the Chrome browser, the same as double-clicking its icon.' });
@@ -16,7 +16,7 @@ test('a routine permission is the sheet\'s three keycaps, A / Z / X', () => {
   assert.equal(a?.question, 'Can I open Chrome?');
   assert.match(a!.means!, /double-clicking/);
   assert.deepEqual(a?.keys.map(k => `${k.label}${k.key}`),
-    ['Open ChromeA', 'Not nowZ', 'Always open appsX']);
+    ['AllowA', 'Not this timeZ', 'Always open appsX']);
 });
 
 test('no "Always" when the Core did not say it could be remembered', () => {

@@ -86,6 +86,8 @@ export interface BriefCard {
   waiting?: string[];
   /** Samara's engine, when a newer castLabs one is out (2026-10-14): the brief shows a row with an Update button. */
   engine?: { title: string };
+  /** Sheet 65: the Addons slip (addonbrief.ts), from CurseForge's own list. Absent when nothing has an update or errors. */
+  addons?: import('./addonbrief.ts').AddonsSection;
   error?: string;
 }
 
@@ -226,6 +228,8 @@ export type ToBody =
       reminder?: string;
       /** The morning brief as a card (6.15): the cockpit draws this instead of the text. */
       brief?: BriefCard;
+      /** Sheet 65: Aang updating addons in CurseForge: icons for the names in the line, and the progress rows. */
+      addons?: import('./addondesk.ts').AddonsLine;
       /** E7: links that go with it as buttons in Discord (Join, Open in Waze); at the desk they show as chips. */
       links?: { label: string; url: string }[];
       /** kind 'note.notice' (2026-10-22, notenotice.ts): Qwen noticed this line in that note. A click opens the note;
@@ -537,6 +541,8 @@ export type FromBody =
   /** `ephemeral`: a job Aang set himself (vetting a link). Not kept in memory, since Joshua did not say it. */
   /** Sheet 24: a button under an opened brief row. `item` is its place in the brief Aang last sent; Aang writes the request. */
   | { t: 'brief.act'; item: number; act: 'through' | 'reply' | 'prep' | 'drive' | 'matches' }
+  /** Sheet 65: "Update ticked" under the brief's Addons slip: the CurseForge project ids he left ticked. */
+  | { t: 'addons.update'; ids: number[] }
   | { t: 'submit'; id: string; text: string; mode?: Mode; once?: boolean; ephemeral?: boolean;
       /**
        * The turn this message answers, chosen by Joshua from the scrollback. A real binding, not a guess:

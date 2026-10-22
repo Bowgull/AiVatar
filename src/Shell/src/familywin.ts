@@ -15,15 +15,46 @@
 //   - a member that changes size (a job unfolding, a note growing, the video resized) re-places what hangs on it (F3).
 // Never animated while his mouse is down; springs are stepped from here at 60 Hz in whole pixels.
 //
-// F4 (reshape on snap: a job beside the video becomes a column) is NOT here; Member.shape is the hook for it.
-import { BrowserWindow, ipcMain, screen } from 'electron';
+//
+// F4, reshape on snap (part 2, section 7): beside a taller window a member becomes a column, above or below a wider one a
+// strip; free again it goes back to the shape and size it had before it joined. Text never turns: the page re-flows. The
+// window is resized ONCE (grown before, or shrunk after, the change; never per frame) and the page animates its own
+// content on the settle spring with a view transition (the family block in the preloads), no placeholder anywhere.
+// F5, save + restore (familysave.ts): the group's anchors are kept per screen arrangement and put back when members
+// reopen, across restarts.
+//
+// THE SHAPE API (for every member, the mini player included). A member declares, when it registers:
+//   layouts: { tall: { width | maxWidth, minHeight }, wide: { height: number | 'auto' }, aspect, max }   (family.ts Layouts)
+// or, for the kinds here, gets KIND_LAYOUTS. Its page then sees, on <html>:
+//   data-fam-shape="tall" | "wide"   (absent when free),   data-fam-sized + --fam-w / --fam-h   (the panel's size, px)
+// and a plain `famshape` event on window (fired inside the view transition, so a page that re-renders on it is morphed).
+// The panel (its `card` selector) is held at --fam-w x --fam-h by the family's own CSS; everything else is the page's
+// own CSS under html[data-fam-shape=...]. view-transition-name on its parts makes them glide; the rest crossfades.
+import { BrowserWindow, app, ipcMain, screen } from 'electron';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import * as F from './family.ts';
+import * as FS from './familysave.ts';
+import { writeFileAtomic } from './atomic.ts';
 import { setCorners } from './winedge.ts';
 import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown } from './safety.ts';
 
-export type Kind = 'video' | 'job' | 'note' | 'timer' | 'player';
+export type Kind = 'video' | 'job' | 'note' | 'timer' | 'snip' | 'player' | (string & {});
 export interface Shared { opacity: number; pinned: boolean }
+
+/**
+ * The shapes of the members built here (section 7's table, sheet 59/63 sizes). The video never reshapes. A job column is
+ * sheet 59's (152 wide); a note just gets narrower; a timer stacks its dial over its time; a pinned snip keeps its shape.
+ * The mini player declares its own (MemberWin.layouts).
+ */
+export const KIND_LAYOUTS: Record<string, F.Layouts> = {
+  job: { tall: { width: 152, minHeight: 200 }, wide: { height: 'auto' } },
+  note: { tall: { maxWidth: 200, minHeight: 160 }, wide: {} },
+  timer: { tall: { width: 140, minHeight: 120 }, wide: { height: 'auto' } },
+  snip: { aspect: true, max: { width: 720, height: 560 } },
+};
+/** How long the page's re-flow takes (the settle spring, 0.32 s): the window shrinks only after it. */
+export const REFLOW_MS = 320;
 
 /** What a member module tells the family about one of its windows. */
 export interface MemberWin {
@@ -49,7 +80,9 @@ export interface MemberWin {
   setThrough?: (on: boolean) => void;
   /** Click-through by its own rule, whatever the family says (the video pinned, or his pop-out switch). */
   lockedThrough?: () => boolean;
-  /** Back to its own size on leaving (F4 changes sizes; part 1 never does, so this is usually a no-op). */
+  /** Its wide / tall shapes (F4). Absent: KIND_LAYOUTS for its kind; a kind with none there never reshapes. */
+  layouts?: F.Layouts;
+  /** Not used by the family any more (F4 sizes the window itself, once, around the panel); kept for older members. */
   resize?: (width: number, height: number) => void;
   /** The family moved it: remember where (its own save). */
   moved?: () => void;
@@ -69,7 +102,17 @@ export interface FamilyHooks {
 }
 
 interface Pad { t: number; r: number; b: number; l: number }
-interface Live { m: MemberWin; w: BrowserWindow; card: F.Box | null; sides: F.Side[]; square: F.Corner[]; mask: number; regioned: boolean; pad: Pad | null; seed: number; last: { x: number; y: number } | null; aot: boolean | null; through: boolean }
+interface Live {
+  m: MemberWin; w: BrowserWindow; card: F.Box | null; sides: F.Side[]; square: F.Corner[]; mask: number; regioned: boolean; pad: Pad | null; seed: number; last: { x: number; y: number } | null; aot: boolean | null; through: boolean;
+  /** F4: the shape it is in, the fit last asked of it, and the panel size its page is held at (null: its own sizing). */
+  shape: F.Shape; applied: F.Fit | null; sized: { width: number; height?: number } | null;
+  /** The shape its page is showing (changes at the re-flow, step 3, not when the window grows). */
+  view: F.Shape;
+  /** A reshape under way (the window's second, shrinking resize is still to come). */
+  pending: NodeJS.Timeout[];
+  /** F5: opened and not yet put back into its old slot (done on the page's first measurement). */
+  fresh: boolean;
+}
 interface Anim { x: F.Spring; y: F.Spring; tx: number; ty: number; motion: { response: number; damping: number } }
 
 export const MIN_OPACITY = 0.3;
@@ -88,7 +131,21 @@ export function familyCss(card?: string): string {
 html.fam-wiggle .fam-rim{opacity:1 !important;animation:famglow 1.2s ease-in-out infinite alternate}
 html.fam-held .fam-rim{animation:none;opacity:0 !important}
 @keyframes famglow{from{box-shadow:inset 0 0 0 2px rgba(255,226,140,.45),inset 0 0 6px rgba(255,186,70,.2)}to{box-shadow:inset 0 0 0 2px rgba(255,226,140,.95),inset 0 0 12px rgba(255,186,70,.5)}}
-@media (prefers-reduced-motion: reduce){html.fam-wiggle .fam-rim{animation:none}}`;
+@media (prefers-reduced-motion: reduce){html.fam-wiggle .fam-rim{animation:none}}
+html[data-fam-sized] ${s}{box-sizing:border-box !important;width:var(--fam-w) !important;height:var(--fam-h,auto) !important;max-width:none !important}
+::view-transition-group(*){animation-duration:${REFLOW_MS}ms;animation-timing-function:${springEasing()}}
+::view-transition-old(*),::view-transition-new(*){animation-duration:${Math.round(REFLOW_MS * 0.6)}ms;mix-blend-mode:normal}`;
+}
+
+/** The settle spring (0.32 s, damping 0.85) as a CSS linear() easing, so the page's re-flow moves like the windows do. */
+export function springEasing(motion: { response: number; damping: number } = F.MOTION.settle, steps = 24): string {
+  const out: string[] = [];
+  let s: F.Spring = { x: 0, v: 0 };
+  const dt = REFLOW_MS / 1000 / steps;
+  out.push('0');
+  for (let i = 1; i < steps; i++) { s = F.springStep(s, 1, dt, motion.response, motion.damping); out.push(s.x.toFixed(3)); }
+  out.push('1');
+  return `linear(${out.join(',')})`;
 }
 
 export class FamilyHost implements FamilyHooks {
@@ -103,11 +160,28 @@ export class FamilyHost implements FamilyHooks {
   private wiggle: { ids: string[]; fam: F.Fam; t0: number } | null = null;
   readonly overlay: FamilyOverlay;
   private seeds = 0;
+  /** F5: where the layouts are kept (null: nowhere, the tests), what is in it, and the debounced write. */
+  private readonly saveFile: string | null;
+  private saved: FS.Saved = { ...FS.EMPTY, layouts: {} };
+  private saveTimer: NodeJS.Timeout | null = null;
+  /**
+   * F5: members whose place right now is not his doing: just opened, or only moved because a group-mate closed. Their
+   * saved slot is kept (not overwritten) until he moves them, and a member reopening pulls them back to its side.
+   */
+  private readonly waiting = new Set<string>();
+  /** For tests: the screens as the family sees them (default: Electron's). */
+  displays: () => FS.Display[] = () => screen.getAllDisplays().map((d) => ({ id: d.id, scaleFactor: d.scaleFactor, bounds: d.bounds }));
+  /** For tests: the work areas a group is kept on (default: every screen's, never the taskbar). */
+  areas: () => F.Box[] = () => screen.getAllDisplays().map((d) => d.workArea);
 
-  constructor(o: { origin: string; iconPath?: string; overlay?: FamilyOverlay }) {
+  constructor(o: { origin: string; iconPath?: string; overlay?: FamilyOverlay; saveFile?: string | null }) {
     this.overlay = o.overlay ?? new FamilyOverlay({ origin: o.origin, iconPath: o.iconPath, host: this });
+    this.saveFile = o.saveFile ?? null;
+    if (this.saveFile) { try { this.saved = FS.readSaved(JSON.parse(readFileSync(this.saveFile, 'utf8'))); } catch { /* first run, or a broken file: start empty */ } }
     wireIpc(this);
   }
+  /** The default place for the layouts file (familywire.ts). */
+  static defaultSaveFile(): string { return path.join(app.getPath('userData'), 'family-layout.json'); }
 
   // ---------------------------------------------------------------- members
 
@@ -116,13 +190,18 @@ export class FamilyHost implements FamilyHooks {
     if (!w || w.isDestroyed()) return;
     const had = this.live.get(m.id);
     if (had && had.w === w) { had.m = m; return; }
-    const l: Live = { m, w, card: null, sides: [], square: [], mask: F.ALL_ROUND, regioned: false, pad: null, seed: ++this.seeds, last: null, aot: null, through: false };
+    const l: Live = { m, w, card: null, sides: [], square: [], mask: F.ALL_ROUND, regioned: false, pad: null, seed: ++this.seeds, last: null, aot: null, through: false, shape: 'free', applied: null, sized: null, view: 'free', pending: [], fresh: true };
     this.live.set(m.id, l);
     const box = this.boxOf(m.id)!;
     this.fam.set(m.id, { id: m.id, kind: m.kind, box, own: { width: box.width, height: box.height } });
+    this.waiting.add(m.id);
     w.once('closed', () => { if (this.live.get(m.id)?.w === w) this.remove(m.id); });
-    // Hidden (the video put away, a note going back): it leaves its group; the rest close up.
-    w.on('hide', () => { if (this.live.get(m.id)?.w === w) this.leave(m.id); });
+    // Hidden (the video put away, a note going back): it leaves its group; the rest close up. Not his doing, so every
+    // slot is kept, and shown again it goes back into it (F5).
+    w.on('hide', () => { if (this.live.get(m.id)?.w === w) this.leave(m.id, true, false); });
+    w.on('show', () => { const x = this.live.get(m.id); if (x?.w === w && !x.fresh) setTimeout(() => this.restore(m.id), 60); });
+    // F5: put back into its old slot once its page has measured its panel (or soon anyway).
+    setTimeout(() => { const x = this.live.get(m.id); if (x?.w === w && x.fresh) { x.fresh = false; this.restore(m.id); } }, 1500);
     // Clicked (a member that takes the keyboard): the rest of its group comes up with it, so the notes beside the video
     // are not left buried under the game. It goes on top again last, so it keeps the front.
     w.on('focus', () => {
@@ -140,12 +219,18 @@ export class FamilyHost implements FamilyHooks {
   }
 
   remove(id: string): void {
-    if (!this.live.has(id)) return;
-    this.leave(id, false);
+    const l = this.live.get(id);
+    if (!l) return;
+    const group = F.groupOf(this.fam, id).filter((x) => x !== id);
+    this.leave(id, false, false);
+    for (const t of l.pending) clearTimeout(t);
     this.live.delete(id);
     this.fam.delete(id);
     this.anims.delete(id);
+    this.waiting.delete(id);
     if (this.dragNow?.ids.includes(id)) this.dragNow = null;
+    // The rest close up (and anyone left alone goes back to its own shape).
+    if (group.length) this.relayout(group, F.MOTION.settle);
   }
 
   joined(id: string): boolean { return this.fam.has(id) && F.isJoined(this.fam, id); }
@@ -180,18 +265,22 @@ export class FamilyHost implements FamilyHooks {
     if (m) m.box = { ...m.box, x, y };
   }
 
-  /** It leaves its group (its own size comes back); the rest close up on the settle spring. */
-  private leave(id: string, relayout = true): void {
+  /**
+   * It leaves its group: its own shape and size come back (F4), the rest close up on the settle spring. `byHim` false
+   * (a window hidden or closed): nobody's saved slot changes, and the ones it leaves behind wait for it to come back.
+   */
+  private leave(id: string, relayout = true, byHim = true): void {
     const m = this.fam.get(id);
     if (!m) return;
     const group = F.groupOf(this.fam, id).filter((x) => x !== id);
+    if (!byHim && group.length) { this.waiting.add(id); for (const x of group) this.waiting.add(x); }
     if (this.wiggle?.ids.includes(id)) this.wiggle.ids = this.wiggle.ids.filter((x) => x !== id);
     if (this.wiggle) this.wiggle.fam = F.remove(this.wiggle.fam, id);
     this.fam = F.remove(this.fam, id);
-    const own = F.ownSize(m);
-    if (own.width !== m.box.width || own.height !== m.box.height) this.live.get(id)?.m.resize?.(own.width, own.height);
-    if (relayout && group.length > 1 && !this.wiggle) this.animateTo(F.arrange(this.fam, group[0]!, 0), group, F.MOTION.settle);
+    if (group.length > 1 && !this.wiggle) this.fam = F.rerootBiggest(this.fam, group[0]!);
+    if (relayout) this.relayout([id, ...group], F.MOTION.settle);
     this.refreshSides();
+    if (byHim) this.scheduleSave();
   }
 
   // ---------------------------------------------------------------- his drag
@@ -202,7 +291,7 @@ export class FamilyHost implements FamilyHooks {
       this.syncBoxes();
       const inWiggle = !!this.wiggle && this.wiggle.ids.includes(id);
       const ids = inWiggle ? [id] : F.groupOf(this.fam, id);
-      for (const x of ids) this.anims.delete(x);          // grabbed mid-spring: it stays where it is
+      for (const x of ids) { this.anims.delete(x); this.waiting.delete(x); }   // grabbed mid-spring: it stays where it is
       this.dragNow = { id, ids, start: new Map(ids.map((x) => [x, { ...this.fam.get(x)!.box }])), wiggle: inWiggle, t: Date.now(), p: { x: 0, y: 0 }, fast: false };
       if (inWiggle) this.sendState(id); else this.raise(ids);
       return true;
@@ -228,8 +317,15 @@ export class FamilyHost implements FamilyHooks {
       this.dragNow = null;
       if (d.wiggle) { this.wiggleDrop(id); return true; }
       const j = F.joinOnDrop(this.fam, id);
-      if (j) { this.fam = j; this.refreshSides(); }
+      if (j) {
+        this.fam = j;
+        for (const x of F.groupOf(j, id)) this.waiting.delete(x);
+        this.refreshSides();
+        // F4: joined on a side, each member takes the shape that side gives it; the group settles round the head.
+        this.relayout(F.groupOf(j, id), F.MOTION.settle);
+      }
       for (const x of d.ids) this.live.get(x)?.m.moved?.();
+      this.scheduleSave();
       return true;
     }
     return true;
@@ -345,7 +441,7 @@ export class FamilyHost implements FamilyHooks {
     this.overlay.close();
     this.syncBoxes();
     // Where each one stands without its 1 px shimmy, so the join lands on whole, exact places.
-    for (const x of wg.ids) { const b = wg.fam.get(x)?.box, m = this.fam.get(x); if (b && m && !this.anims.has(x)) m.box = { ...m.box, x: b.x, y: b.y }; }
+    for (const x of wg.ids) { const b = wg.fam.get(x)?.box, m = this.fam.get(x); if (b && m && !this.anims.has(x)) { m.box = { ...m.box, x: b.x, y: b.y }; this.setPos(x, b.x, b.y); } }
     this.anims.clear();
     // The anchors as he left them (minus whatever he took out), the boxes where they are now; then flush.
     const n = F.clone(this.fam);
@@ -353,8 +449,11 @@ export class FamilyHost implements FamilyHooks {
     this.fam = n;
     for (const x of wg.ids) { const l = this.live.get(x), w = l?.m.win(); if (l && w && !w.isDestroyed() && l.aot !== null) { if (!l.aot) w.setAlwaysOnTop(false); l.aot = null; } }
     for (const x of wg.ids) this.sendState(x);
-    if (wg.ids.length > 1) this.animateTo(F.arrange(this.fam, wg.ids[0]!, 0), wg.ids, F.MOTION.join, () => { this.refreshSides(); for (const x of wg.ids) this.live.get(x)?.m.moved?.(); });
-    else this.refreshSides();
+    for (const x of wg.ids) this.waiting.delete(x);
+    // Flush again, each member in the shape its (maybe new) side gives it (F4).
+    if (wg.ids.length > 1) { this.fam = F.rerootBiggest(this.fam, wg.ids[0]!); this.relayout(wg.ids, F.MOTION.join, true); }
+    else this.relayout(wg.ids, F.MOTION.settle);
+    this.scheduleSave();
   }
 
   private hintAt(f: F.Fam, ids: string[]): { x: number; y: number } {
@@ -393,8 +492,9 @@ export class FamilyHost implements FamilyHooks {
       this.fam = F.remove(this.fam, id);
       const l = this.live.get(id), w = l?.m.win();
       if (l && w && !w.isDestroyed() && l.aot !== null) { if (!l.aot) w.setAlwaysOnTop(false); l.aot = null; }
-      const m = this.fam.get(id)!, own = F.ownSize(m);
-      if (own.width !== m.box.width || own.height !== m.box.height) l?.m.resize?.(own.width, own.height);
+      // Its own shape and size come back (F4), where he let go of it.
+      this.relayout([id], F.MOTION.settle);
+      this.scheduleSave();
       l?.m.moved?.();
       if (others.length > 0) this.animateTo(wg.fam, others, F.MOTION.spread);
       if (others.length < 2) { this.endWiggle(); return; }
@@ -420,7 +520,12 @@ export class FamilyHost implements FamilyHooks {
     const m = this.fam.get(id);
     if (!m || !now) return;
     m.box = now;
-    if (!F.isJoined(this.fam, id)) { m.own = { width: now.width, height: now.height }; return; }
+    // Its own size: what it is when free and in its own shape, never a size the family gave it (F4). A member that never
+    // reshapes (the video) is always its own size.
+    const reshapes = !!this.layoutsOf(id);
+    if (!reshapes || (l.shape === 'free' && !l.sized && !l.pending.length && !F.isJoined(this.fam, id))) m.own = { width: now.width, height: now.height };
+    if (l.fresh) { l.fresh = false; this.restore(id); return; }
+    if (!F.isJoined(this.fam, id)) return;
     if (!was || (was.width === now.width && was.height === now.height) || this.dragNow) return;
     if (this.wiggle?.ids.includes(id)) {
       const wm = this.wiggle.fam.get(id);
@@ -429,11 +534,135 @@ export class FamilyHost implements FamilyHooks {
       this.animateTo(this.wiggle.fam, this.wiggle.ids.filter((x) => x !== id), F.MOTION.settle);
       return;
     }
-    const root = F.rootOf(this.fam, id);
-    const next = F.layoutFrom(this.fam, root, 0);
-    const moving = F.groupOf(this.fam, id).filter((x) => x !== root);
-    this.animateTo(next, moving, F.MOTION.settle, () => { for (const x of moving) this.live.get(x)?.m.moved?.(); });
+    // F3 + F4: whatever hangs on it is re-placed, and re-fitted (a column beside a video he made taller grows with it).
+    this.relayout([id], F.MOTION.settle);
   }
+
+  // ---------------------------------------------------------------- F4: shapes
+
+  layoutsOf(id: string): F.Layouts | undefined {
+    const l = this.live.get(id);
+    return l ? l.m.layouts ?? KIND_LAYOUTS[l.m.kind] : undefined;
+  }
+  /** For tests and the pages: the shape a member is in. */
+  shapeOf(id: string): F.Shape { return this.live.get(id)?.shape ?? 'free'; }
+
+  /**
+   * Fit every member of the groups these ids are in (and any of them now alone) to its side, and settle the groups round
+   * their heads on the spring. Groups are kept on a screen as a whole.
+   */
+  private relayout(ids: string[], motion: { response: number; damping: number }, sidesAfter = false): void {
+    this.syncBoxes();
+    const touched = new Set<string>();
+    for (const id of ids) if (this.fam.has(id)) for (const x of F.groupOf(this.fam, id)) touched.add(x);
+    if (!touched.size) return;
+    const fits = new Map([...F.fitShapes(this.fam, (m) => this.layoutsOf(m.id))].filter(([id]) => touched.has(id)));
+    const target = F.applyFits(this.fam, fits, 0);
+    for (const id of touched) { const t = target.get(id)!, m = this.fam.get(id)!; m.shape = t.shape; if (t.anchor) m.anchor = { ...t.anchor }; }
+    for (const id of touched) this.applyShape(id, fits.get(id)!);
+    const areas = this.areas();
+    for (const g of F.groups(target)) {
+      if (g.length < 2 || !touched.has(g[0]!)) continue;
+      const s = F.onScreen(g.map((x) => target.get(x)!.box), areas, target.get(g[0]!)!.box);
+      if (s.dx || s.dy) for (const x of g) { const t = target.get(x)!; t.box = { ...t.box, x: t.box.x + s.dx, y: t.box.y + s.dy }; }
+    }
+    const moving = [...touched].filter((x) => !this.wiggle?.ids.includes(x)).filter((x) => {
+      const a = target.get(x)!.box, b = this.fam.get(x)!.box;
+      return a.x !== b.x || a.y !== b.y;
+    });
+    if (!sidesAfter) this.refreshSides();
+    this.animateTo(target, moving, motion, () => {
+      if (sidesAfter) this.refreshSides();
+      for (const x of touched) this.live.get(x)?.m.moved?.();
+    });
+  }
+
+  /**
+   * One member into its shape: its page is held at its present size, the window grows (only what grows) in one call, the
+   * page re-flows into the new size with a view transition, and only then does the window shrink, in one call. Free
+   * again, it takes its own size and its page goes back to sizing itself. Never a resize per frame.
+   */
+  private applyShape(id: string, fit: F.Fit): void {
+    const l = this.live.get(id), w = l?.m.win(), m = this.fam.get(id);
+    if (!l || !w || w.isDestroyed() || !m || !l.card) return;
+    const free = fit.shape === 'free';
+    if (free && !this.layoutsOf(id)) return;
+    const want = free ? { width: m.own.width, height: m.own.height } : { width: fit.width, height: fit.height };
+    const same = free ? l.shape === 'free' && !l.sized && !l.pending.length
+      : l.shape === fit.shape && l.sized?.width === want.width && l.sized?.height === want.height;
+    l.applied = fit;
+    if (same) return;
+    for (const t of l.pending) clearTimeout(t);
+    l.pending = [];
+    const cur = { width: Math.round(l.card.width), height: Math.round(l.card.height) };
+    if (free && l.shape === 'free' && !l.sized && cur.width === want.width && cur.height === want.height) return;
+    const tw = Math.round(want.width ?? cur.width), th = Math.round(want.height ?? cur.height);
+    const b = w.getBounds();
+    const finalW = Math.max(1, b.width + tw - cur.width), finalH = Math.max(1, b.height + th - cur.height);
+    // 1. Held where it is, so growing the window shows nothing new.
+    l.sized = { ...cur };
+    this.sendState(id);
+    // 2. The window grows first (only what grows), once.
+    const gw = Math.max(b.width, finalW), gh = Math.max(b.height, finalH);
+    if (gw !== b.width || gh !== b.height) w.setBounds({ x: b.x, y: b.y, width: gw, height: gh });
+    l.shape = fit.shape;
+    m.shape = fit.shape;
+    // 3. The page re-flows into its new shape (its view transition, on the spring).
+    const forced = free || want.height !== undefined;
+    l.pending.push(setTimeout(() => {
+      if (w.isDestroyed()) return;
+      l.sized = forced ? { width: tw, height: th } : { width: tw };
+      l.view = fit.shape;
+      this.sendState(id);
+    }, 30));
+    // 4. Then the window shrinks to fit, once; free again, the page sizes itself.
+    l.pending.push(setTimeout(() => {
+      l.pending = [];
+      if (w.isDestroyed()) return;
+      const nb = w.getBounds();
+      if (nb.width !== finalW || (forced && nb.height !== finalH)) w.setBounds({ x: nb.x, y: nb.y, width: finalW, height: forced ? finalH : nb.height });
+      if (free) { l.sized = null; this.sendState(id, true); }
+    }, 30 + REFLOW_MS + 40));
+  }
+
+  // ---------------------------------------------------------------- F5: save and restore
+
+  private key(): string { try { return FS.screenKey(this.displays()); } catch { return ''; } }
+  private visible(id: string): boolean { const w = this.live.get(id)?.m.win(); return !!w && !w.isDestroyed() && w.isVisible(); }
+
+  /** Back into its old slot (F5), if the window it sat against is open; and whoever sat against it, back to its side. */
+  restore(id: string): void {
+    const m = this.fam.get(id);
+    if (!m || !this.visible(id) || this.wiggle || this.dragNow) return;
+    const lay = FS.layoutFor(this.saved, this.key());
+    const sm = lay?.members[id];
+    // It closed while fitted to a side: its real own size is the saved one, not the one it opened at.
+    if (sm?.shape && F.groupOf(this.fam, id).length === 1) m.own = { ...sm.own };
+    const open: F.Fam = new Map([...this.fam].filter(([x]) => this.visible(x)));
+    const n = lay ? FS.restoreInto(F.clone(open), id, lay.members, this.waiting) : null;
+    if (!n) { if (sm?.shape) this.relayout([id], F.MOTION.settle); return; }
+    for (const [x, nm] of n) { const cur = this.fam.get(x); if (!cur) continue; if (nm.anchor) cur.anchor = { ...nm.anchor }; else delete cur.anchor; }
+    this.fam = F.rerootBiggest(this.fam, id);
+    for (const x of F.groupOf(this.fam, id)) this.waiting.delete(x);
+    this.relayout(F.groupOf(this.fam, id), F.MOTION.join);
+    this.scheduleSave();
+  }
+
+  private scheduleSave(): void {
+    if (!this.saveFile) return;
+    if (this.saveTimer) clearTimeout(this.saveTimer);
+    this.saveTimer = setTimeout(() => { this.saveTimer = null; this.saveNow(); }, 500);
+  }
+  /** Write the layout now (the debounce skipped): on quit, and in the tests. */
+  saveNow(): void {
+    if (this.saveTimer) { clearTimeout(this.saveTimer); this.saveTimer = null; }
+    const open: F.Fam = new Map([...this.fam].filter(([x]) => this.visible(x)));
+    this.saved = FS.mergeSave(this.saved, this.key(), open, this.waiting, Date.now());
+    if (!this.saveFile) return;
+    try { writeFileAtomic(this.saveFile, JSON.stringify(this.saved)); } catch (e) { console.error('shell: family layout not saved: ' + (e as Error).message); }
+  }
+  /** For tests: what is kept. */
+  get savedLayouts(): FS.Saved { return this.saved; }
 
   // ---------------------------------------------------------------- springs, from here, 60 Hz
 
@@ -534,6 +763,8 @@ export class FamilyHost implements FamilyHooks {
     w.webContents.send('family:state', {
       joined: F.isJoined(this.fam, id), wiggle: !!this.wiggle?.ids.includes(id), held: this.dragNow?.id === id && !!this.dragNow?.wiggle,
       sides: l.sides, square: l.square, through: l.through, pad: l.pad, card: l.m.card ?? null, remeasure,
+      // F4: the page's shape and the panel size it is held at (null: it sizes itself).
+      shape: l.view, sized: l.sized,
     });
   }
 
@@ -546,7 +777,12 @@ export class FamilyHost implements FamilyHooks {
   ownsOverlay(sender: Electron.WebContents): boolean { return this.overlay.owns(sender); }
   overlayShape(sender: Electron.WebContents, rects: unknown): void { this.overlay.shape(sender, rects); }
 
-  dispose(): void { if (this.ticker) clearInterval(this.ticker); this.ticker = null; this.overlay.destroy(); hosts.delete(this); }
+  dispose(): void {
+    if (this.saveTimer) this.saveNow();
+    for (const l of this.live.values()) for (const t of l.pending) clearTimeout(t);
+    if (this.ticker) clearInterval(this.ticker);
+    this.ticker = null; this.overlay.destroy(); hosts.delete(this);
+  }
 }
 
 // ------------------------------------------------------------------------------------------------ the menu + catcher

@@ -3,7 +3,8 @@
 // member; the song, the cover and a time that moves on its own between updates; the keys go out as checked media.cmd only;
 // the VIS key cycles BARS -> SCENE -> OFF with its label, SCENE cross-fades the scene into the picture spot, a click gives
 // the next scene and the four dots follow; the seek bead sends a seek; a double-click folds it to the shade strip on the
-// spring and back; it remembers its mode and scene. Pictures (at most four): full, scene, shade, the skater at 4x.
+// spring and back; it remembers its mode and scene. Family shapes (part 2): as a wide strip the player stretches to its neighbour's width; as a column the picture sits on top,
+// then the screen, then the keys. Pictures (at most four): full, scene, shade, column.
 //
 // Run: npx electron test/electron/player-check.ts [folder for the pictures]
 import { app, BrowserWindow, nativeImage } from 'electron';
@@ -50,6 +51,8 @@ app.whenReady().then(async () => {
   mp.family = host;
   const w = mp.open();
   const js = (s: string) => w.webContents.executeJavaScript(s, true);
+  const pageErrors: string[] = [];
+  w.webContents.on('console-message', (e: any) => { const m = String(e.message ?? ''); if (/Uncaught|Error/.test(m)) pageErrors.push(m); });
   check('page loads and draws', await until(async () => (await js(`window.__ready ? window.__ready.then(() => !!document.querySelector('.full .time')) : false`).catch(() => false)) === true, 12000));
   await wait(300);
   const prefs = (w.webContents as any).getLastWebPreferences?.() ?? {};
@@ -114,12 +117,6 @@ app.whenReady().then(async () => {
   const v2 = await vis();
   check('a click on the picture: the next scene (the skater)', v2.on === 'Skating the boulevard' && /Skating/.test(v2.picTitle), v2);
   check('it remembers the mode and scene', (() => { try { const p = JSON.parse(readFileSync(prefsFile, 'utf8')); return p.vis === 'scene' && p.scene === 'skate'; } catch { return false; } })(), readFileSync(prefsFile, 'utf8'));
-  // the skater at 4x, so his outfit and the rim on his legs can be looked at
-  await js(`(() => { const s = document.querySelector('.pic .scn'); const big = document.createElement('canvas'); big.id = 'big'; big.width = 34; big.height = 34; big.style.cssText = 'position:fixed;left:0;top:0;width:136px;height:136px;z-index:99;image-rendering:pixelated';
-    big.getContext('2d').drawImage(s, 0, 0); document.body.append(big); return 1; })()`);
-  await wait(100);
-  { const img = (await w.webContents.capturePage({ x: 0, y: 0, width: 136, height: 136 })); const f = path.join(OUT, 'player-skater.png'); writeFileSync(f, img.toPNG()); console.log('PICTURE ' + f); }
-  await js(`document.getElementById('big').remove(); 1`);
   await press('.key.vis'); await wait(450);
   const v3 = await vis();
   check('OFF: the cover is back, no dots', v3.lab === 'OFF' && !v3.scene && Number(v3.op) < 0.05 && !v3.pager, v3);
@@ -138,11 +135,32 @@ app.whenReady().then(async () => {
   await until(() => w.getContentSize()[1] === FULL_H && !mp.folding, 2000);
   check('and back to full', w.getContentSize()[1] === FULL_H && await js(`!document.querySelector('.full').hidden`) === true);
 
-  // 5. Hidden: the clock stops (nothing ticks while he cannot see it).
+  // 5. The family's shapes (familywin.ts SHAPE API), as the family sets them on the page: wide, then tall, then free.
+  check('it registers its wide and tall layouts', JSON.stringify(host.layoutsOf('player')) === JSON.stringify({ tall: { width: 200, minHeight: 300 }, wide: { height: 'auto' } }), host.layoutsOf('player'));
+  const shapeTo = async (shape: string | null, wpx: number, hpx: number | null) => {
+    const b = w.getBounds(); w.setBounds({ x: b.x, y: b.y, width: wpx, height: hpx ?? b.height });
+    await js(`(() => { const h = document.documentElement; if (${JSON.stringify(shape)}) { h.dataset.famShape = ${JSON.stringify(shape)}; h.dataset.famSized = ''; h.style.setProperty('--fam-w', '${wpx}px'); ${hpx ? `h.style.setProperty('--fam-h', '${hpx}px');` : `h.style.removeProperty('--fam-h');`} }
+      else { delete h.dataset.famShape; delete h.dataset.famSized; h.style.removeProperty('--fam-w'); h.style.removeProperty('--fam-h'); } dispatchEvent(new Event('famshape')); return 1; })()`);
+    await wait(250);
+  };
+  await shapeTo('wide', 640, null);
+  const wide = await js(`(() => { const r = (s) => document.querySelector(s).getBoundingClientRect(); return { mp: [r('.mp').width, r('.mp').height], close: r('.full [title=Close]').right, vis: r('.key.vis').right, lcd: r('.full .lcd').right }; })()`);
+  check('wide: a strip as wide as its neighbour, its own height, the right side follows', wide.mp[0] === 640 && wide.mp[1] === FULL_H && wide.close > 600 && wide.vis > 600 && wide.lcd > 600, wide);
+  await shapeTo('tall', 200, 400);
+  const tall = await js(`(() => { const r = (s) => document.querySelector(s).getBoundingClientRect(); const q = (s) => { const b = r(s); return [Math.round(b.left), Math.round(b.top), Math.round(b.right), Math.round(b.bottom)]; };
+    return { mp: [r('.mp').width, r('.mp').height], pic: q('.pic'), lcd: q('.full .lcd'), play: q('[title="Play / pause"]'), vis: q('.key.vis'), fold: !!document.querySelector('.full [title^="Fold"]'), time: document.querySelector('.full .time').textContent }; })()`);
+  const inside = (b: number[]) => b[0]! >= 0 && b[2]! <= 200 && b[3]! <= 400;
+  check('tall: a column, the picture on top, then the screen, then the keys, all inside', tall.mp[0] === 200 && tall.mp[1] === 400 && tall.pic[3] <= tall.lcd[1] && tall.lcd[3] <= tall.play[1] && [tall.pic, tall.lcd, tall.play, tall.vis].every(inside) && !tall.fold && /^\d+:\d\d$/.test(tall.time), tall);
+  await pic('player-column.png');
+  await shapeTo(null, 424, FULL_H);
+  check('free again: its own size and layout', await js(`document.querySelector('.mp').getBoundingClientRect().width === 424 && !!document.querySelector('.full [title^="Fold"]')`) === true);
+
+  // 6. Hidden: the clock stops (nothing ticks while he cannot see it).
   w.hide(); await wait(200);
   check('hidden: it leaves the family and stops', !host.joined('player'));
   mp.close();
   check('closed', !mp.window);
+  check('no errors on the page', pageErrors.length === 0, pageErrors);
   console.log(bad ? `${bad} FAILED` : 'ALL PASS');
   host.dispose();
   app.exit(bad ? 1 : 0);

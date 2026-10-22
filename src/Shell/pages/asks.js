@@ -52,8 +52,9 @@ export function askFrom(m) {
       keys.push({ label: 'Show me first', key: 'X', choice: 'show' });
       keys.push({ label: 'No', key: 'Z', choice: 'no', tone: 'warn' });
     } else {
-      keys.push({ label: verbOf(m.question), key: 'A', choice: 'yes', tone: 'primary' });
-      keys.push({ label: 'Not now', key: 'Z', choice: 'no' });
+      // Sheet 64 (2026-10-22): "Allow" and "Not this time", the same words as a Claude OK.
+      keys.push({ label: 'Allow', key: 'A', choice: 'yes', tone: 'primary' });
+      keys.push({ label: 'Not this time', key: 'Z', choice: 'no' });
       // Only when the Core says this kind of thing CAN be remembered. Its own row, never the default.
       if (m.remembers) keys.push({ label: 'Always ' + m.remembers, key: 'X', choice: 'always' });
     }

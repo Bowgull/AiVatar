@@ -1,0 +1,72 @@
+/* Sheet 64 v3 (APPROVED 2026-10-22, "64 IS AMAZING"): the kind of ask, lifted rule for rule from the sheet's render
+   script (docs/cockpit/sheet-64/asks.ts: SHARED, OPT_A, READABLE, TAG_1, V3, HOVER), only re-scoped to the real page.
+   bubble.js sets #bubble[data-kind] (question / ok / plan) on an ask in the speech bubble (never in the open cockpit);
+   askkind.js draws the tag, the who and "Exactly this". Colours: src/Body/ClaudeMarks.cs ColorOf. */
+
+/* ---- the tag (tag 1): deep ground, white words, the 9 x 9 icon in the mark's own colour ---- */
+#kindtag[hidden]{display:none}
+.ktag{display:flex;align-items:center;gap:10px;margin:-4px 0 10px}
+.ktag[data-kind=question]{--kdeep:#6b3fb8}
+.ktag[data-kind=ok]{--kdeep:#1f6fb0}
+.ktag[data-kind=plan]{--kdeep:#76602a}
+.ktag .kt{display:inline-flex;align-items:center;gap:7px;padding:5px 12px 5px 7px;border-radius:7px;background:var(--kdeep);color:#fff;
+  font:800 13.5px/18px Figtree,sans-serif;letter-spacing:.1px;white-space:nowrap;
+  box-shadow:0 0 0 1.5px #2a1606,0 2px 0 rgba(42,22,6,.35),inset 0 1.5px 0 rgba(255,255,255,.22)}
+.ktag .kic{width:18px;height:18px;flex:none;image-rendering:pixelated}
+/* who is asking: "Aang", or the Claude mark and "Claude · <project>", which is the door to that session */
+.ktag .kwho{font:700 12.5px/1 Figtree,sans-serif;letter-spacing:0;color:#6a4a22;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.ktag .kwho img{width:16px;height:16px;vertical-align:-3px;margin-right:5px;border-radius:3px}
+.ktag .kwho.door{cursor:pointer;border-radius:5px;padding:3px 5px;margin:-3px -5px;transition:transform .12s,background .12s}
+.ktag .kwho.door:hover,.ktag .kwho.door:focus-visible{color:#3a2410;background:rgba(120,80,30,.10);transform:translateY(-1px);
+  text-decoration:underline;text-decoration-thickness:1.5px;text-underline-offset:3px;outline:none}
+/* on the Claude card the tag replaces the old CLAUDE · kicker; "N MORE" keeps its corner */
+.ckpins .pin:has(.pmore) .ktag{margin-right:64px}
+
+/* ---- "Exactly this" (OKs only): the thing quoted word for word, shown from the start ---- */
+.kq{margin:8px 0 2px;padding:7px 10px 7px 12px;border-radius:6px;background:rgba(255,250,236,.7);
+  box-shadow:inset 3px 0 0 var(--kmark,#7cc4ff),inset 0 0 0 1.5px rgba(120,80,30,.25);
+  font:600 12.5px/1.4 Consolas,ui-monospace,monospace;color:#2a1a0c;word-break:break-word;white-space:pre-wrap;max-height:160px;overflow-y:auto}
+.kq small{display:block;font:700 11.5px/1 Figtree,sans-serif;letter-spacing:0;color:#7a5a30;margin-bottom:4px;white-space:normal}
+.exact.kq[hidden]{display:none}
+
+/* ---- the frame: rim and tail tinted in bubble.js (askkind.js tintRim), the paper's faint glow here ---- */
+#bubble[data-kind=question]{--kmark:#b07cff;box-shadow:inset 0 0 14px #b07cff2e}
+#bubble[data-kind=ok]{--kmark:#7cc4ff;box-shadow:inset 0 0 14px #7cc4ff2e}
+#bubble[data-kind=plan]{--kmark:#f3e2b8;box-shadow:inset 0 0 14px #f3e2b82e}
+/* the tag says the kind now: the old small plaque word steps aside */
+#bubble[data-kind] > .who{display:none!important}
+#bubble[data-kind] #said{font:800 17px/1.3 Figtree,sans-serif;color:#1c1208}
+/* Allow is the OK's blue, never the answer yellow */
+#bubble[data-kind=ok] #asks .key.primary,#bubble[data-kind=ok] #ckpins .key.primary{background:linear-gradient(180deg,#9ad2ff,#5aa6e0)!important;color:#0b2238!important}
+
+/* Aang's own question gets the same answer boxes as a Claude question (sheet 51 B, as .ckpins already has them) */
+#bubble[data-kind] #opts{display:flex;flex-direction:column;margin:10px 0 2px}
+#bubble[data-kind] #opts[hidden]{display:none}
+#bubble[data-kind] #opts .opt{display:flex;align-items:flex-start;gap:9px;margin:0 0 7px 30px;padding:8px 11px;border-radius:7px;background:#e6cf9c;box-shadow:inset 0 2px 0 rgba(90,55,20,.22),0 0 0 1.5px #9a7a48;color:#21160a}
+#bubble[data-kind] #opts .opt .lab{font:700 14.5px/1.3 Figtree,sans-serif;color:#21160a}
+#bubble[data-kind] #opts .opt .kc{display:none}
+#bubble[data-kind] #opts .opt.on{background:#4A2C6E;box-shadow:0 0 0 2px #120A05,0 0 0 3.5px #966EC8}
+#bubble[data-kind] #opts .opt.on .lab{color:#fffaf0}
+#bubble[data-kind] #opts .opt.on::before{left:-32px;top:9px;width:28px;height:18px;margin:0;background:var(--glove) 0 0/28px 18px;image-rendering:pixelated;filter:drop-shadow(1px 1px 0 rgba(0,0,0,.45))}
+#bubble[data-kind] #opts .opt.other{background:transparent;box-shadow:inset 0 0 0 1.5px #9a7a48;padding:6px 10px}
+#bubble[data-kind] #opts .opt.other .lab{color:#55307a}
+
+/* ---- the keys wait for his hover (sheet 64 section 4) ----
+   Until 1.5 s of the mouse resting on the bubble (bubble.js .kshow) the ask lands with its question and tag only. Once
+   out they stay, even when the mouse leaves. */
+#bubble[data-kind]:not(.kshow) :is(#asks,#count,#opts,#ckpins .ckeys,#ckpins .opts,#ckpins .sendrow){display:none!important}
+.wrap:not(.over) #bubble[data-kind].kshow #asks:not([hidden]){display:flex}
+.wrap:not(.over) #bubble[data-kind].kshow #count:not([hidden]){display:inline-flex}
+#bubble.kguard :is(#asks,#opts,#ckpins .ckeys,#ckpins .opts,#ckpins .sendrow){pointer-events:none}
+/* each row or key rises 8 px and fades in, 40 ms after the one before, settling in about 260 ms with a soft overshoot */
+@keyframes kup{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+#bubble.kin :is(#asks > *,#opts > .opt,#ckpins .ckeys > *,#ckpins .opts > .opt,#ckpins .sendrow){animation:kup .26s cubic-bezier(.34,1.32,.64,1) both}
+#bubble.kin :is(#asks > *,#opts > .opt,#ckpins .ckeys > *,#ckpins .opts > .opt):nth-child(2){animation-delay:40ms}
+#bubble.kin :is(#asks > *,#opts > .opt,#ckpins .ckeys > *,#ckpins .opts > .opt):nth-child(3){animation-delay:80ms}
+#bubble.kin :is(#asks > *,#opts > .opt,#ckpins .ckeys > *,#ckpins .opts > .opt):nth-child(4){animation-delay:120ms}
+#bubble.kin :is(#asks > *,#opts > .opt,#ckpins .ckeys > *,#ckpins .opts > .opt):nth-child(n+5){animation-delay:160ms}
+#bubble.kin #ckpins .sendrow{animation-delay:160ms}
+@media (prefers-reduced-motion:reduce){
+  #bubble.kin :is(#asks > *,#opts > .opt,#ckpins .ckeys > *,#ckpins .opts > .opt,#ckpins .sendrow){animation:none}
+  .ktag .kwho.door{transition:none}
+}

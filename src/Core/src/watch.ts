@@ -9,7 +9,6 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import type { DatabaseSync } from 'node:sqlite';
 import type { Fetch } from './google.ts';
-import { behind, addonDirs, installed, sayBehind } from './addons.ts';
 import { Mentions, namesInWith, weekOf } from './mentions.ts';
 import { sweep } from './research.ts';
 import type { Finding } from './research.ts';
@@ -24,60 +23,6 @@ export interface WatchDeps {
   /** The local model, for reading titles. Absent means fall back to the regex. */
   askLocal?: (prompt: string, opts?: { system?: string; maxTokens?: number }) => Promise<{ ok: boolean; text: string }>;
   now?: () => Date;
-}
-
-const WOW_DEFAULT = 'C:\\Program Files (x86)\\World of Warcraft';
-
-/** The CurseForge key, or null. Absent is normal and silent: everything else still works without it. */
-export function curseforgeKey(stateDir: string): string | null {
-  try {
-    const p = path.join(stateDir, 'curseforge.json');
-    if (!existsSync(p)) return null;
-    // utf-8 with a BOM is what PowerShell writes if anyone edits the setup script carelessly, and
-    // JSON.parse refuses it outright. Strip it rather than fail over a byte nobody can see.
-    const raw = readFileSync(p, 'utf8').replace(/^\uFEFF/, '');
-    const key = String(JSON.parse(raw).apiKey ?? '').trim();
-    return key || null;
-  } catch (e) {
-    console.error('addons: curseforge.json could not be read: ' + (e as Error).message);
-    return null;
-  }
-}
-
-/**
- * The addon check, once per day at most.
- *
- * Joshua, asked directly, 2026-10-03: when AANG starts, not when WoW starts. So this runs on startup
- * and the once-a-day guard is what stops a day of restarts turning into a day of nagging.
- *
- * Returns what to say, or '' for nothing. It never writes to his game folder, and there is no code here
- * that could.
- */
-export async function checkAddons(deps: WatchDeps): Promise<string> {
-  const now = (deps.now ?? (() => new Date()))();
-  const today = now.toISOString().slice(0, 10);
-  const done = deps.db ? readMeta(deps.db, 'addonsCheckedOn') : null;
-  if (done === today) return '';
-
-  const root = deps.wowRoot ?? WOW_DEFAULT;
-  const dirs = addonDirs(root);
-  if (dirs.length === 0) return '';                 // no WoW: not a fault, just nothing to do
-
-  const key = curseforgeKey(deps.stateDir);
-  if (!key) return '';                              // no key: say nothing rather than nag about setup
-
-  let said = '';
-  try {
-    const all = dirs.flatMap(d => installed(d));
-    const old = await behind(deps.fetch, key, all);
-    said = sayBehind(old);
-    if (said) said += ' Ask me about any of them and I will tell you what it does and what changed.';
-  } catch (e) {
-    console.error('addons: the check failed: ' + (e as Error).message);
-    return '';
-  }
-  if (deps.db) writeMeta(deps.db, 'addonsCheckedOn', today);
-  return said;
 }
 
 /**
