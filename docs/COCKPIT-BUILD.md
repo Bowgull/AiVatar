@@ -138,61 +138,117 @@ In the brain: `core.claudeJobs.list()`, `.waiting()`, `.answer(id, a)`, `.send(s
 - His words to a session (`claude.send`, `deny-message`, a question answer that is not one of Claude's labels) are made precise first, with his own words kept under them. Picked labels (several joined with ", ") go untouched.
 - Qwen on this PC first (free, steps aside in a game), Claude's quick model only as the fallback.
 
-## The progress engine (built 2026-10-21)
+## The progress engine (v3, built 2026-10-21 from docs/PROGRESS-RESEARCH.md)
 
-His asks: every progress bar in Aang "airtight and real time", and the working drop-down saying in plain (slightly
-technical) words what the session is doing right now, then the to-do list. Code: `src/Core/src/claudeprogress.ts`
-(the numbers and the live line), `src/Shell/pages/claudejobs.js` (the one renderer), `claude-link/hooks/` (the reports).
+His asks: every progress bar in Aang "airtight and real time", accurate bars and an accurate time left, the working
+drop-down saying in plain (slightly technical) words what the session is doing right now; then (v3, "yes build it, go
+big") everything in the research's build list. Code: `src/Core/src/progressmath.ts` (the arithmetic),
+`src/Core/src/progresshistory.ts` (how long things take here), `src/Core/src/claudeprogress.ts` (the keepers and the
+live line), `src/Core/src/claudeci.ts` (CI), `src/Core/src/claudelink.ts` (the tracker), `src/Shell/pages/progressmath.js`
+(the Shell's line-for-line copy of the arithmetic, checked against the brain's in `progressmath.test.ts`),
+`src/Shell/pages/claudejobs.js` (the one renderer), `claude-link/hooks/` (the reports).
 
 **The rules** (the same list heads claudeprogress.ts):
-1. Only real events move a bar: a task ticked, the to-do list rewritten, a tool starting or ending, a turn starting or
-   ending. Never a guess from wording.
-2. Never backwards, except when Claude rewrites its to-do list (fewer or different tasks, or a task un-ticked): then the
-   bar may drop, `rev` goes up, and the job says "Claude rewrote its list" for a few seconds. A viewer holds the
-   furthest it has drawn and only lets go when `rev` changed.
-3. Smooth between ticks: inside the task in hand the bar creeps by the pace so far (median working time per finished
-   task; 2 minutes before any has finished), straight up to 60% of a pace, then easing, never past 90% of that task's
-   slot. Computed by the viewer every frame from the brain's numbers, so it moves without the brain sending anything.
-   Working time stops while the session is idle between turns or paused.
-4. Real time (supercharged 2026-10-21): the mod tells a to-do tick at the to-do tool's START (its input already holds
-   the new list), tool start/end, and Claude starting to write, think or stream a tool call (`turn.step`). It never
-   waits: an event goes on the wire at once, and whatever is said while a post is out rides the next post together.
-   The brain pushes on the next turn of its event loop (`LinkPusher`); only tool chatter is spaced 16 ms apart, ticks
-   and turns never wait. The pages move every bar the moment the news lands (`kick()`), not at the next 90 ms breath;
-   the rune fills on the message and creeps on a 100 ms step drawn on an animation frame. No polling for state.
-   Measured: event -> Shell socket 2-14 ms (was 87-115 ms, plus 2.4-3.2 s freezes from the session-name lookup walking
-   all of Claude-Data). `AANG_PROGRESS_TRACE=1` logs every hop (brain, Shell, page).
-5. Honest: no to-do list = no percent: an empty, STILL bar and ring with "Working" (nothing spins or sweeps); a
-   one-step turn with no list fills to complete when it ends (`Job.finished`); time left only once there is a real
-   pace; every estimate says "about".
-7. Every session keeps a list (his decision, 2026-10-21): the mod adds one short paragraph at the end of every
-   session's system prompt asking for a to-do list on any job with more than one step, ticked as it goes. Sessions
-   with no built-in to-do tool (the Claude desktop app's) get the mod's own `progress` tool, answered by the mod and
-   told to Aang like TodoWrite.
-8. Survives restarts (2026-10-21): a mod meeting a brain it has not told anything (new key) sends a `snapshot` at once
-   (list, turn, tools and helpers running, waits, those read-only). The brain also reads Claude Code's transcripts
-   (claudescan.ts: touched in the last 30 min, last 200 KB, a few facts only, helpers and Aang's own lanes skipped) on
-   start and every 10 s, so sessions from before the mod show too, `source: 'transcript'`, read-only until their mod
-   talks.
-6. One engine, one look: the Core computes the numbers; the Shell has one model and one live renderer
-   (`progressModel`, `liveProgress`, `livePill`, `liveText`, `describeNow`, exported from claudejobs.js) for the jobs
-   strip, the job cards, Samara's rune panel and the pop-out. The pet's marks read the same tracker.
+1. Only real events move a bar: a task ticked, the list changed, a tool starting or ending, a turn starting or ending.
+   Between events the bar creeps by working time, against how long that kind of item usually takes HERE.
+2. Weighted by time, not by count (the Gradle mistake): every item's slice is its expected duration, a lognormal
+   `(mu, sigma)` in log-ms from his history (below). `fraction = (doneW + e) / (doneW + e + curRem + pendW)`, time left
+   `= curRem + pendW`, the same numbers, so they never disagree. `doneW` = the finished items' real working time; `e` =
+   working time on the item in hand; `curRem` = the median of its lognormal given it has already run `e`, less `e` (the
+   honest overrun curve: a late item keeps inching, never "about 0 min"); `pendW` = the pending items' means times the
+   session's speed factor `r = exp(sum ln(actual/median) / (n + 2))`. Before the first tick the bar can't pass a third.
+   A foreground helper agent puts a floor under `curRem`. 100% only with every item ticked.
+3. Never backwards: a rewritten list keeps the bar where it was drawn (`a`) and fills the rest at a pace that ends at
+   100% with the work: `shown = a + (1 - a) * max(0, m - m0) / (1 - m0)` (`sq` on the wire). The time left may rise; when
+   it jumps over 25% on a list already under way the line says why once: "Claude added 3 steps", "Tidying its memory",
+   "Taking longer than usual". The 90% slot cap and the "Claude rewrote its list" drop are gone.
+4. Stillness means stillness: a job is alive while tools start or end, the model streams (the mod's `alive` heartbeat,
+   at most every 2 s), a helper agent calls a tool or streams, an ask comes, or the list changes. Silence past the limit
+   (60 s between steps, 90 s while streaming, twice a running command's p90, at least a minute, 3 min with no history)
+   freezes the bar where the stall began, turns it amber and says "No sign of life for N min"; the live line says
+   "Last: Running the tests (6 min)". The first heartbeat unfreezes it. Waiting for his OK is his "needs you" blue and
+   not working time (the clock stops while any ask is open); compaction is a known pause, also off the clock. A turn
+   that ends in an error is red until the next turn; a failed helper agent shows red for 30 s. Done is teal.
+5. Honest: no list (or one item) = no percent: the still track with a lit pip per finished tool call, and "Working";
+   never a spinner. A time left only when EARNED: real data (a key on its chain with 3+ samples covering most of what is
+   left, or an item of this job finished), 20 s of working time, not stalled. Words from a seeded Monte Carlo (500 draws:
+   the item in hand truncated at `e`, the pending ones with `r`): p80/p50 under 1.6 "about 4 min left", up to 3x a range
+   "4-7 min left", wider "a while yet". Rounded: under 45 s "under a minute", under 10 min whole minutes, under an hour
+   the nearest 5, then "1 h 15 min". Steady: the words change only past 15%, or after 3 s on the other side of a
+   rounding step (at least every 5 s).
+6. Real time: the mod tells a to-do tick at the to-do tool's START, tool start/end, streaming (`turn.step`) and
+   heartbeats; it never waits (what is said while a post is out rides the next post). The brain pushes on the next turn
+   of its event loop (`LinkPusher`; tool chatter spaced 16 ms); every viewer draws from the numbers every frame
+   (`kick()` on news). Measured: event -> Shell socket 2-14 ms; event -> page paint p99 23 ms in progress-check.ts.
+7. Every session keeps a list (his decision): the mod's prompt paragraph asks for a to-do list on any job with more
+   than one step. The mod's `progress` tool is now offered in EVERY session: where there is no built-in to-do tool it
+   carries the list (and the plan); where TodoWrite exists it is offered for the phase plan only (shorter description).
+   One more sentence asks for the plan on multi-phase projects.
+8. Survives restarts: a mod meeting a new brain sends a `snapshot` (list, turn, tools, helpers, waits read-only, plan);
+   the brain reads Claude Code's transcripts (claudescan.ts) so older sessions show read-only; the history and the
+   plans live on disk.
+9. One engine, one look: the bubble's job card, Samara's rune (ring and panel) and the pop-out all draw from
+   `liveProgress`, `livePill`, `liveText`, `describeNow`, `liveOverall` and `liveRows` (claudejobs.js). The rune ring
+   turns a dimmed amber on a stall (working is already his amber there).
 
-**Wire additions.** Mod -> brain: `tool.start { id, tool, detail }` (detail: the safe bits only, `cmd` = a command's
-first 60 characters after masking anything key- or token-like, `desc`, `file` = a file's name only, `pattern`, `where`,
-`site` = a host name, `query`, `agent`, `kind`, `server`, `name`, `skill`; never file contents; the to-do tools are not
-reported), `tool.end { id }` (main loop only), `agent.start { id, kind, what }` (from `agent.spawn`), `agent.end { id }`
-(the agent's own `turn.complete`). The brain masks secrets again. Added 2026-10-21: every event carries `t` (when it
-happened in the session); `step { what: text|thinking|tool, tool? }`; `snapshot { phase, todos, tools, agents, asks }`;
-a post may hold `{ session, cwd, events: [...] }` once the brain's hello says `v: 2`. Brain -> Shell: `claude.jobs`
-carries `lat { ev, rx, tx, type }` (the Shell adds `sh`); a Job carries `finished` and `source`; a wait may be
-`readonly`. Brain -> Shell, on every Job:
-- `progress: { done, total, cur, elapsedMs, at, paceMs|null, rev, rewroteAt|null } | null` (null = no to-do list).
-  `percent` and `etaMs` stay, worked out from the same numbers (ticked tasks only).
-- `activity: { now, since, agents: [{ kind, what, since }] }`. `now` comes from a small table (no model call):
-  "Running the tests · npm test -- --run", "Editing bubble.js", "Searching the code for "pill(" in pages",
-  "Reading a web page · github.com", "Using Samara · browser read", "Thinking" between tools, "Waiting for your OK"
-  while a permission is up, "Paused". The card adds "(12 s)" and "1 helper agent: reviewing the diff".
+**History** (`progress-history.jsonl` in his Aang folder, git-ignored there, local only). One line per finished thing,
+about 100 bytes: `{ at, s: task|cmd|agent|ci-run|ci-step|turn|phase, p, k, key, ms, m?, ok, x?, est?, id? }`. Working
+time only, event times (the mod's `t`), never arrival times. Only `ok` samples teach (a failed CI run is kept apart so a
+hung build can't poison the median; a command he was asked about mid-run teaches nothing). Nothing secret: a to-do label
+lower-cased, masked, first 5 words, at most 60 characters; a command its first 40 masked characters; no contents,
+prompts or paths. Bounded: past 6,000 lines it is cut to the newest 5,000. Stats are rebuilt from the file on start
+(the last 30 values per key). Keys, narrow to broad, each shrunk towards the broader one (k = 3, sigma kept 0.35-1.5):
+to-do item = label in project -> project + kind -> kind everywhere -> seed prior (implement 4 min, test 90 s, build
+60 s, research 3 min, review 2 min, commit 30 s, mockup 5 min, other 2.5 min; sigma 0.9; the kind from a small keyword
+table, which only picks the prior); command = its start in project -> its family (`commandLabel`) in project -> the
+family everywhere (no history = no sub-bar); agent = type + task kind -> type -> every agent -> 3 min; CI run = repo +
+workflow + event -> repo + workflow; CI step = repo + workflow + job + step. A lone tick teaches its label (several
+ticked at once do not: a shared time is a guess). A per-model-family multiplier (shrunk k = 5) nudges fresh estimates.
+
+**OVERALL** (the two levels from his Waymark mod). Claude passes `plan: { phases: [{ label, hours, status }] }` to the
+progress tool and keeps it current; the brain keeps each project's plan in `progress-plans.json` with the working time
+each phase has had (summed across the project's sessions at every turn end, so a phase can span sessions and days).
+A phase that finishes with time behind it becomes a `phase` history line; `R` = geometric mean of actual/estimate,
+shrunk to 1 (k = 2). `overall = (done estimates + running estimate x its live fraction) / all estimates`, time left
+`= (running x (1 - fraction) + todo) x R`; the running phase's fraction is time-based (its working time against its
+calibrated estimate, the same overrun curve; one session's to-do list is one turn, not a phase). p50/p80 from a
+bootstrap of his past ratios (3+) or a spread round R: "phase 2 of 5 · about 6 h of build left, maybe 9". Build hours,
+never calendar time: it does not tick while nobody works on the project.
+
+**CI** (claudeci.ts). Only where `gh` is installed and the session's folder has a GitHub remote. Once per repo: the last
+20 runs (history) and the steps of up to 10 good ones. After a session pushes: a look 3 s later, then every 5 s for up to
+2 minutes until the new run shows. While a run is queued or in progress: every 5 s. Otherwise nothing. One `gh` at a
+time, 15 s limit each, never on the event path. A run's bar is step-weighted from each step's own history (the slowest
+job is the run's), or the run as one item once its workflow has 3 runs; a queued run has no bar ("waiting for a runner").
+A finished run is learned once (by id) and stays on the card for 2 minutes.
+
+**Plumbing.** The mod: every event carries `gen` (its load) and `sq` (a number); a post that fails or takes over 300 ms
+(was 900) is tried once more before anything is dropped; the hello proof is renewed in the background every 25 s so an
+event never waits on it. The brain: a number seen before is dropped (a retry that got through twice); a gap pushes a
+MAC'd `resync` item, and the mod answers with a snapshot. Every clock runs on the event's `t` (bounded to the last 10
+minutes). The brain's event loop is watched (`monitorEventLoopDelay`): a p99 over 20 ms in a 30 s window is logged.
+With `AANG_PROGRESS_TRACE=1`, session -> brain and event -> paint p50/p95/p99 are logged every 200 events.
+progress-check.ts fails if event -> paint p99 is over 150 ms.
+
+**Wire (v3).** Mod -> brain, added: `alive { outTok? | agent }`; `agent.tool { id }` (a helper agent's tool call);
+`agent.start { ..., bg? }`; `agent.end { id, ok }`; `tool.end { id, ok }`; `turn.end { ..., reason }`;
+`compact { on }`; `plan { phases }`; `snapshot { ..., plan? }`; every event `gen`, `sq`. Brain -> mod: `resync {}`.
+Brain -> Shell, on every Job:
+- `progress` (null = no list): `{ v: 3, done, total, cur, at, e, jobW, doneW, curEst: { mu, sigma } | null, pend: [{ mu,
+  sigma }], r, earned, sq: { a, m0 } | null, note: { text, at } | null, aliveAt, stallMs, running, rev, rewroteAt,
+  elapsedMs, paceMs: null }`. `percent` = the bar when sent; `etaMs` = the time left when earned, else null.
+- `activity: { now, since, agents: [{ id, kind, what, since, calls, aliveAt, est, n, fg, failed?, endedAt? }], tool:
+  { since, est, n, usual } | null, pips, aliveAt, stallMs }`.
+- `failed`, `plan: { phases, runE, at, running, R, ratios } | null`, `ci: [{ id, repo, workflow, title, url, status,
+  conclusion, createdAt, startedAt, step, stepNo, steps, progress }]`.
+
+**Where v3 differs from the research, and why.** OVERALL comes from the plan Claude passes to the progress tool (his build
+list), not a `.aang/roadmap.json` file. Stats are rebuilt in memory from the history file on start, not kept in a second
+`progress-stats.json` (one file to keep bounded). The headline time left is the deterministic `curRem + pendW` (so it
+matches the bar exactly); the Monte Carlo decides only "about" / range / "a while yet" and the range's top. Waiting on
+him is his blue, not yellow, and the rune shows a stall as dimmed amber, because those colours were his own picks. The
+expected-compaction add-on (context over 80%) and the plan-to-roadmap offer from ExitPlanMode are not built; the
+backwards shimmer is cosmetic and waits for his yes.
 
 **Other bars in Aang** (checked 2026-10-21): Samara's page-loading bar (browser.js) already follows the same idea (real
 load milestones, a creep capped at 90%, never back) and is another builder's file; the downloads ring fills from real
