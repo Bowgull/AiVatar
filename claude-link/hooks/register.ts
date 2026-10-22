@@ -27,7 +27,8 @@
 import type { EngineInterface, Register } from 'claude-code'
 import { MOCKUP_SECTION, MOCKUP_SECTION_ID, MOCKUP_TOOL, MOCKUP_TOOL_DESC, MOCKUP_TOOL_FULL, MOCKUP_TOOL_SCHEMA, MODEL_OK, OWN_TOOL, OWN_TOOL_DESC, OWN_TOOL_FULL, OWN_TOOL_PLAN_DESC, OWN_TOOL_PLAN_SCHEMA, OWN_TOOL_SCHEMA, OWN_TOOL_SECTION, PLAN_SENTENCE, TODO_SECTION, TODO_SECTION_ID, TODO_TOOLS, activityOf, agentListOf, hmacHex, mockupArgs, nonce, planOf, safeLine, sameMac, stableJson, summarize, tasksAtEnd, tasksAtStart, toDecision } from './link.ts'
 import { CCD_SERVER, EFFORT_OK, FRESH_MS, mcpText, normFolder, startOf } from './link.ts'
-import type { Task } from './link.ts'
+import { callFor } from './link.ts'
+import type { RunningCall, Task } from './link.ts'
 
 type $T = EngineInterface
 type Item = { id: string; kind: string; body: string; mac: string }
@@ -72,7 +73,9 @@ interface Link {
   /** The list last told, so the same list is not sent twice (at a to-do tool's start and again at its end). */
   lastList: string
   /** Tool calls running now, so an answer in Claude's own dialog can take Aang's card down. */
-  running: Map<string, { tool: string; input: string; reqId?: string; answered?: boolean }>
+  running: Map<string, RunningCall>
+  /** Asks already told as resolved (the newest 100), so one is said once however many paths see it end. */
+  settled: Set<string>
   tasks: Map<string, Task>
   /** Helper agents this module saw start (so only their own turn.complete reports an end), with what they are doing. */
   agents: Map<string, { kind: string; what: string; bg?: true }>
@@ -535,24 +538,48 @@ async function turnEnded($: $T, L: Link, aborted: boolean, reason: string): Prom
 }
 
 /**
- * Claude is waiting on Joshua: tell Aang, then wait for his answer from Aang. Claude's own dialog is up the whole
- * time; if he answers there first, tool.call tells the brain and this poll comes back "gone". Undefined = no answer.
+ * The ask is over, however it ended (2026-10-22, his "if I act on it in Claude it should disappear from Aang"): Aang
+ * takes its card, its pinned question and its mark down. Said once per ask, by whichever path sees the end first: the
+ * request's own end (Claude's dialog answered, the turn interrupted), or the tool call it was for ending.
  */
-async function askAang($: $T, L: Link, signal: AbortSignal, tool: string, input: Record<string, unknown>, suggestions: unknown[] | undefined) {
+function settle($: $T, L: Link, id: string): void {
+  L.asks.delete(id)
+  if (L.settled.has(id)) return
+  L.settled.add(id)
+  if (L.settled.size > 100) L.settled.delete(L.settled.values().next().value as string)
+  post($, L, 'resolved', { id })
+}
+
+/** A helper agent's turn ended: nothing it asked can still be waiting. Always true (it reads as a step in a condition). */
+function settleAgent($: $T, L: Link, agentId: string): true {
+  for (const [id, a] of [...L.asks]) if (a.agentId === agentId) settle($, L, id)
+  return true
+}
+
+/**
+ * Claude is waiting on Joshua: tell Aang, then wait for his answer from Aang. Claude's own dialog is up the whole
+ * time; if he answers there first, the request's end (or its tool call's) says so (settle), the brain drops the ask,
+ * and this poll comes back "gone". Undefined = no answer from Aang.
+ */
+async function askAang($: $T, L: Link, signal: AbortSignal, tool: string, input: Record<string, unknown>, suggestions: unknown[] | undefined, agentId: string | undefined, id: string) {
   const kind = tool === 'AskUserQuestion' ? 'question' : tool === 'ExitPlanMode' ? 'plan' : 'permission'
-  const id = nonce()
   const json = stableJson(input)
-  const rec = [...L.running.values()].reverse().find(x => x.tool === tool && x.input === json && !x.reqId)
+  // The tool call this is for (2026-10-22): its id goes with the ask, so the brain can drop it the moment that very
+  // call ends even if this session's 'resolved' were lost on the way.
+  const callId = callFor(L.running.entries(), tool, json, agentId)
+  const rec = callId ? L.running.get(callId) : undefined
   if (rec) rec.reqId = id
   const ask = {
     id, kind, tool, summary: summarize(tool, input), input: json.slice(0, 2000),
     canAlways: Array.isArray(suggestions) && suggestions.length > 0,
     ...(kind === 'question' ? { questions: input.questions } : {}),
     ...(kind === 'plan' ? { plan: String(input.plan ?? '').slice(0, 8000) } : {}),
+    ...(callId ? { toolUseId: callId } : {}),
+    ...(agentId ? { agentId } : {}),
   }
-  // Kept until the tool call ends (tool.call's finally), so a brain that restarts meanwhile still hears of it.
-  if (rec) L.asks.set(id, ask)
-  const asked = await call($, L, 'POST', '/link/event', JSON.stringify({ session: L.sessionId, cwd: L.cwd, type: 'ask', ...ask }), POST_MS)
+  // Kept until the ask ends (settle), so a brain that restarts meanwhile still hears of it, and a snapshot is the truth.
+  L.asks.set(id, ask)
+  const asked = await call($, L, 'POST', '/link/event', JSON.stringify({ session: L.sessionId, cwd: L.cwd, type: 'ask', t: Date.now(), ...ask }), POST_MS)
   if (!asked?.ok) { forget(L); return undefined }
   while (!signal.aborted) {
     const n = nonce()
@@ -577,7 +604,7 @@ export const register: Register = on => {
   const L: Link = {
     base: '', keyPath: '', key: null, provenUntil: 0, downUntil: 0, inert: false, sessionId: '', cwd: '', model: '',
     mainTurn: null, pumping: false, outq: [], sending: false, batch: false, lastList: '', running: new Map(), tasks: new Map(), agents: new Map(),
-    told: new Map(), asks: new Map(), snapFor: '', needSnap: false, downPending: false, ownTool: false,
+    told: new Map(), asks: new Map(), settled: new Set(), snapFor: '', needSnap: false, downPending: false, ownTool: false,
     gen: nonce().slice(0, 12), seq: 0, beats: new Map(), renewing: null, plan: null,
   }
 
@@ -659,6 +686,7 @@ export const register: Register = on => {
   on('session.end', async ($, e, next) => {
     post($, L, 'end', { reason: e.reason })
     // A /clear goes on as a new session: its id is read again at the next turn.
+    L.asks.clear()
     if (e.reason === 'clear') { L.sessionId = ''; L.tasks.clear(); L.agents.clear(); L.lastList = '' }
     return next(e)
   })
@@ -674,9 +702,11 @@ export const register: Register = on => {
   on('turn.complete', async ($, e, next) => {
     if (e.agentId === undefined && !L.inert) {
       L.mainTurn = null
+      // The turn is over, so nothing of its own main loop can still be asking (Esc, a new message, an error).
+      for (const [id, a] of [...L.asks]) if (!a.agentId) settle($, L, id)
       void turnEnded($, L, e.isAborted, String(e.reason ?? '')).catch(() => {})
       L.told.clear()
-    } else if (e.agentId !== undefined && L.agents.delete(e.agentId)) {
+    } else if (e.agentId !== undefined && !L.inert && settleAgent($, L, e.agentId) && L.agents.delete(e.agentId)) {
       // v3: whether it ended well, so a failed helper shows red and teaches no history.
       post($, L, 'agent.end', { id: e.agentId, ok: !e.isAborted && e.reason !== 'error' })
       L.beats.get(e.agentId)?.cancel(); L.beats.delete(e.agentId)
@@ -720,7 +750,7 @@ export const register: Register = on => {
     }
     // v3: a helper agent's own tool call is its heartbeat, and one more in "14 tool calls".
     if (agentId !== undefined && L.agents.has(agentId)) post($, L, 'agent.tool', { id: agentId })
-    const rec: { tool: string; input: string; reqId?: string; answered?: boolean } = { tool, input: stableJson(input) }
+    const rec: RunningCall = { tool, input: stableJson(input), ...(agentId !== undefined ? { agentId } : {}) }
     L.running.set(id, rec)
     // The live line: the main loop's tools only (a helper agent's own tools would be noise; its start and end are told).
     let told = false
@@ -744,11 +774,11 @@ export const register: Register = on => {
     finally {
       L.running.delete(id)
       L.told.delete(id)
-      if (rec.reqId) L.asks.delete(rec.reqId)
+      // Answered in Claude's own dialog, refused, interrupted, or simply done: Aang takes its card down. Before tool.end,
+      // so the card goes in the same push as the live line.
+      if (rec.reqId) settle($, L, rec.reqId)
       // v3: whether it worked, so only good runs teach the command history.
       if (told) post($, L, 'tool.end', { id, ok: !!r && r.deny === undefined && !r.isError })
-      // Answered in Claude's own dialog (or the call ended): Aang takes its card down.
-      if (rec.reqId && !rec.answered) post($, L, 'resolved', { id: rec.reqId })
     }
     if (agentId === undefined) {
       try {
@@ -764,7 +794,19 @@ export const register: Register = on => {
     // Someone beneath (a settings hook) already decided, or this session is not linked: Claude's dialog decides.
     if (L.inert || below.decision || !L.sessionId || !(await proven($, L))) return below
     const input = (e.tool_input && typeof e.tool_input === 'object' ? e.tool_input : {}) as Record<string, unknown>
-    const decision = await askAang($, L, next.signal, e.tool_name, input, e.permission_suggestions)
-    return decision ? { ...below, decision } as typeof below : below
+    const agentId = typeof e.agent_id === 'string' && e.agent_id ? e.agent_id : undefined
+    const id = nonce()
+    // Claude's own dialog answered first (or the turn interrupted): the engine abandons this request, and its signal
+    // says so at once, while the poll for Aang's answer may still be held for up to 25 s. Aang hears it then.
+    const onAbort = () => settle($, L, id)
+    try { next.signal.addEventListener('abort', onAbort, { once: true }) } catch { /* the request's end below still says it */ }
+    try {
+      const decision = await askAang($, L, next.signal, e.tool_name, input, e.permission_suggestions, agentId, id)
+      return decision ? { ...below, decision } as typeof below : below
+    } finally {
+      try { next.signal.removeEventListener('abort', onAbort) } catch { /* nothing to undo */ }
+      // However it ended (his answer from Aang, Claude's dialog, a lost link), it is not waiting any more.
+      settle($, L, id)
+    }
   }).catch(($, e, next) => next(e))
 }

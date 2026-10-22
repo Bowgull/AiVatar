@@ -76,3 +76,17 @@ test('the hold is capped, oldest first out', () => {
   const out = go('explorer');
   assert.equal((out.lines[0] as { text: string }).text, 'n3');
 });
+
+test('a held "waiting on you" line he answered in Claude meanwhile is dropped, never replayed (2026-10-22)', () => {
+  let fg = 'Claude';
+  const g = new FrontGate(() => fg === 'Claude');
+  g.moved();
+  const asked: ToBody = { t: 'bubble', text: 'Claude Code on the MacBook is waiting on you in Waymark.', stream: false, proactive: true, blocking: true, session: 'sess-answered' };
+  const still: ToBody = { t: 'bubble', text: 'Claude Code on the MacBook is waiting on you in Aang.', stream: false, proactive: true, blocking: true, session: 'sess-open' };
+  const news = line('HisWattson posted a video');
+  for (const m of [asked, still, news]) assert.equal(g.pass(m), null);
+  fg = 'explorer';
+  const out = g.moved(m => m.t === 'bubble' && m.session === 'sess-answered');
+  assert.deepEqual(out.lines, [still, news]);
+  assert.equal(g.holding, 0);
+});
