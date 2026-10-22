@@ -13,7 +13,9 @@ import path from 'node:path';
 import { VAULT_WRITABLE } from './files.ts';
 
 /** Where a day's notes live. One file per day, so a long day does not make one enormous note. */
-export function captureFile(now = new Date(), root = VAULT_WRITABLE): string {
+// AANG_CAPTURE_DIR (2026-10-22): tests point it at a temp folder. A Discord test had been appending its
+// "raid moved to 7 on saturdays" line to his real vault on every run.
+export function captureFile(now = new Date(), root = process.env.AANG_CAPTURE_DIR || VAULT_WRITABLE): string {
   const day = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   return path.join(root, 'Captured', `${day}.md`);
 }
@@ -30,7 +32,7 @@ export interface Captured {
  * Append one note to today's file. Returns null if it could not be written, so the caller can fall
  * back to Aang rather than silently swallow something he wanted kept.
  */
-export function capture(text: string, now = new Date(), root = VAULT_WRITABLE): Captured | null {
+export function capture(text: string, now = new Date(), root = process.env.AANG_CAPTURE_DIR || VAULT_WRITABLE): Captured | null {
   const body = text.trim();
   if (!body) return null;
   const file = captureFile(now, root);
