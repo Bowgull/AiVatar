@@ -121,6 +121,17 @@
         <button class="key sm" id="shareno" type="button">Cancel<span class="k">Z</span></button>
       </div>
     </div>
+    <!-- Sheet 69 (his picks, 2026-10-22): a site asks for a keyboard or mouse. Only the devices it asked for are listed; he
+         picks one and Connect. Remembered for that site; Forget in the shield takes it back. -->
+    <div class="bandchip devchip" id="devchip" hidden>
+      <div class="q"><span data-pix="keyboard"></span><span id="devq">Connect a keyboard?</span></div>
+      <p class="m" id="devm"></p>
+      <div id="devlist"></div>
+      <div class="keys">
+        <button class="key primary sm" id="devyes" type="button" disabled>Connect<span class="k">A</span></button>
+        <button class="key sm" id="devno" type="button">Cancel<span class="k">Z</span></button>
+      </div>
+    </div>
     <!-- The star's own panel (his ask, 2026-10-14): name the bookmark as it is saved, or take it off. -->
     <div class="bandchip markpanel" id="markpanel" hidden>
       <div class="q" id="markhead">Bookmark saved</div>
@@ -146,6 +157,7 @@
       <div class="ssec">THIS SITE CAN USE</div>
       <div class="srow"><span class="sic" data-pix="camera"></span><b>Camera</b><button class="key sm tri" id="camk" type="button">Ask</button></div>
       <div class="srow"><span class="sic" data-pix="mic"></span><b>Microphone</b><button class="key sm tri" id="mick" type="button">Ask</button></div>
+      <div id="devrows"></div>
     </div>
     <!-- The downloads tray: this run's newest 5. Drag a file out to use it anywhere. -->
     <!-- The update tray (sheet 35, his picks 2026-10-14): lantern header, the update itself as ticks on parchment (the

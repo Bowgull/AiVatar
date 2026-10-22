@@ -31,6 +31,7 @@ import { TIDY_SYSTEM, bySite, doubles, readTidy, staleTrails, tidyPrompt, type T
 import { writeFileAtomic } from './atomic.ts';
 import { carriesData, personal, reachesIn, siteOf, JOB_SITES, jobTask } from './driverrules.ts';
 import { SiteRules, siteKey, type Tri } from './siterules.ts';
+import { DeviceOk, deviceName, type KnownDevice } from './devices.ts';
 import { lookalike } from './lookalike.ts';
 import { softEdge } from './winedge.ts';
 import { isBar, parseBookmarks, parseChromeBookmarks, parseSafariBookmarks, type Mark } from './bookmarks.ts';
@@ -465,6 +466,9 @@ export class AangBrowser {
   /** Sites he is sharing his screen with right now (with or without camera). */
   private readonly shareHosts = new Set<string>();
   private share: { id: number; host: string; sources: Map<string, DesktopCapturerSource>; audio: boolean; done: (s: Electron.Streams | null) => void; timer: NodeJS.Timeout } | null = null;
+  /** Sheet 69: the keyboards and mice each site may use, and the one device ask waiting for his pick. */
+  private devices!: DeviceOk;
+  private devAsk: { id: number; host: string; list: Electron.HIDDevice[]; done: (id?: string) => void; timer: NodeJS.Timeout } | null = null;
   /** The little wood sounds (new tab, close, download done). Off until he turns them on in Settings. */
   sounds = false;
   /** The ⋯ menu's switches (sheet 3 section 10), kept between runs. Block ads and Block popups start on. */
@@ -590,6 +594,7 @@ export class AangBrowser {
     }
     this.file = path.join(o.stateDir, 'browser-tabs.json');
     this.pausedFile = path.join(o.stateDir, 'adblock-paused.json');
+    this.devices = new DeviceOk(path.join(o.stateDir, 'device-ok.json'));
     this.prefsFile = path.join(o.stateDir, 'browser-prefs.json');
     this.placeFile = path.join(o.stateDir, 'browser-window.json');
     this.marksFile = path.join(o.stateDir, 'browser-bookmarks.json');
@@ -654,6 +659,7 @@ export class AangBrowser {
     denyPermissions(this.ses);
     this.permissions();
     this.screenShare();
+    this.hid();
     this.spelling();
     this.colorScheme();
     this.downloads();
@@ -718,6 +724,8 @@ export class AangBrowser {
     // Calls ask "may I?" before they ask for real (Teams, Zoom). Yes only where he already said yes, on this site.
     this.ses.setPermissionCheckHandler((wc, permission, origin, details) => {
       if (permission === 'fullscreen') return true;
+      // Sheet 69: a site may ask for a keyboard or mouse (the ask below is the real gate); never Claude's tabs, never http.
+      if (permission === 'hid') return Boolean(wc && !this.driver?.owns(wc) && /^https:\/\//.test(origin));
       if ((permission !== 'media' && permission !== 'speaker-selection') || (wc && this.driver?.owns(wc))) return false;
       const t0 = (details as { mediaType?: string }).mediaType;
       if (permission === 'media' && (t0 === 'audio' || t0 === 'video')) { const r = this.rules.media(hostOf(origin), t0 === 'video' ? 'camera' : 'mic'); if (r === 'block') return false; if (r === 'allow') return true; }
@@ -728,6 +736,60 @@ export class AangBrowser {
       const t = (details as { mediaType?: string }).mediaType;
       return t === 'audio' || t === 'video' ? ok.has(t) : ok.size > 0;
     });
+  }
+
+  /**
+   * Sheet 69 (his picks, 2026-10-22): a site that asks for a keyboard or mouse (WebHID: Epomaker's lighting page) gets a
+   * parchment ask hanging from the band, listing only the devices the site asked for; he picks one and it is remembered
+   * for that site, so next time it connects with no ask. Forget in the shield takes it back. Claude's tabs never get one.
+   */
+  private hid(): void {
+    this.ses.setDevicePermissionHandler((d) => d.deviceType === 'hid' && this.devices.allowed(hostOf(d.origin), d.device as Electron.HIDDevice));
+    this.ses.on('select-hid-device', (event, details, done) => {
+      event.preventDefault();
+      const frame = details.frame;
+      const wc = frame ? allWebContents.fromFrame(frame) : undefined;
+      const origin = frame?.origin ?? '';
+      const host = hostOf(origin);
+      if (!wc || this.driver?.owns(wc) || !/^https:\/\//.test(origin) || !host || !this.win || this.win.isDestroyed()) { done(); return; }
+      const known = details.deviceList.find((d) => this.devices.allowed(host, d));
+      if (known) { done(known.deviceId); return; }
+      if (this.devAsk) { done(); return; }                       // one ask at a time
+      this.inWc(wc);
+      const id = ++this.askSeq;
+      const timer = setTimeout(() => this.devAnswer(id, null), 120_000);
+      this.devAsk = { id, host, list: [...details.deviceList], done, timer };
+      this.sendDevAsk();
+    });
+    // Plugged in or out while the ask is up: the list follows.
+    this.ses.on('hid-device-added', (_e, d) => { if (this.devAsk && !this.devAsk.list.some((x) => x.deviceId === d.device.deviceId)) { this.devAsk.list.push(d.device); this.sendDevAsk(); } });
+    this.ses.on('hid-device-removed', (_e, d) => { if (this.devAsk) { this.devAsk.list = this.devAsk.list.filter((x) => x.deviceId !== d.device.deviceId); this.sendDevAsk(); } });
+  }
+  private sendDevAsk(): void {
+    const a = this.devAsk;
+    if (!a || !this.win || this.win.isDestroyed()) return;
+    // How it is connected, from its own name (a wireless one calls itself a receiver or dongle); a cable otherwise.
+    const how = (d: Electron.HIDDevice) => (/2\.4g|dongle|receiver|wireless/i.test(d.name) ? 'Wireless dongle' : 'Plugged in by cable');
+    this.win.webContents.send('browser:devask', { id: a.id, host: a.host, devices: a.list.map((d) => ({ id: d.deviceId, name: deviceName(d), how: how(d) })) });
+  }
+  /** His pick from the device ask: one of the devices it listed, or none. */
+  devAnswer(id: number, deviceId: string | null): void {
+    const a = this.devAsk;
+    if (!a || a.id !== id) return;
+    this.devAsk = null;
+    clearTimeout(a.timer);
+    this.win?.webContents.send('browser:devask', { id, gone: true });
+    const d = deviceId ? a.list.find((x) => x.deviceId === deviceId) : undefined;
+    if (d) { this.devices.add(a.host, d); this.sendTabs(); }
+    a.done(d?.deviceId);
+  }
+  /** Forget in the shield: this site asks again next time. */
+  forgetDevice(key: string): void {
+    const t = this.tabs.find((x) => x.id === this.active);
+    const host = hostOf(t?.url ?? '');
+    if (!host || !this.devices.list(host).some((x) => x.key === key)) return;
+    this.devices.forget(host, key);
+    this.sendTabs();
   }
 
   /**
@@ -955,12 +1017,12 @@ export class AangBrowser {
 
   /** 6.22: "Block ads on this site" off or on, for the site he is on. Kept between runs. */
   /** Sheet 37: one site's rules as the shield shows them. Login shows on for the job sites unless he turned it off. */
-  siteState(u: string): { host: string; ai: boolean; login: boolean; camera: Tri; mic: Tri; popupBlock: boolean } | null {
+  siteState(u: string): { host: string; ai: boolean; login: boolean; camera: Tri; mic: Tri; popupBlock: boolean; devices: KnownDevice[] } | null {
     const host = siteKey(u);
     if (!host || !isWeb(u)) return null;
     const lr = this.rules.login(host);
     return { host, ai: this.rules.ai(host), login: lr ?? JOB_SITES.includes(siteOf(host)), camera: this.rules.media(host, 'camera'), mic: this.rules.media(host, 'mic'),
-      popupBlock: this.prefs.popups && !this.popupOk.has(host) };
+      popupBlock: this.prefs.popups && !this.popupOk.has(host), devices: this.devices.list(hostOf(u)) };
   }
   /** A rule changed from the shield (the site he is on) or from Settings (any site in the list). */
   setSiteRule(key: string, value: unknown, site?: string): void {
