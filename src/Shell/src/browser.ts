@@ -97,7 +97,10 @@ function darkSource(): string | null {
 }
 
 export interface BrowserOptions { origin: string; preloadPath: string; stateDir: string; tabPreloadPath: string; settingsPreloadPath: string; thingsPreloadPath: string; /** tests only */ testLocal?: boolean;
-  /** Where the mockups' git repo is (sheet 47). Found from the Shell's own folder; a test gives its own. */ repoDir?: string }
+  /** Where the mockups' git repo is (sheet 47). Found from the Shell's own folder; a test gives its own. */ repoDir?: string;
+  /** 2026-10-22, the Mac: no AangApp repo beside Samara, but the MOCKUPS trail is on for other repos' pages and live
+   *  pages (the Mac's Claude sessions, through mockupdoor.ts). Only when git is really there (macmain checks). */
+  mockupsAnywhere?: boolean }
 
 interface Tab {
   id: number;
@@ -558,10 +561,10 @@ export class AangBrowser {
     this.o = o;
     {
       const repo = findRepo(o.repoDir ?? path.join(import.meta.dirname, '..', '..', '..'));
-      if (repo) {
-        this.mockRepo = repo;
+      if (repo || o.mockupsAnywhere) {
+        this.mockRepo = repo ?? '';
         // 2026-10-22: pages from another session's repo are served too, found by the name kept in mockups.json.
-        this.mockServer = new MockServer(repo, (n) => this.mockStore?.repoPath(n) ?? null);
+        this.mockServer = new MockServer(repo ?? '', (n) =>this.mockStore?.repoPath(n) ?? null);
         this.mockStore = new MockStore(path.join(o.stateDir, 'mockups.json'));
         this.mockReady = this.mockServer.start();
         // The tidy (2026-10-22): at most once a day, a while after start, plain code only (no quota, no Qwen).
@@ -3212,7 +3215,7 @@ export class AangBrowser {
   /** Where a sheet's file is: its repo's folder and its path inside it. Null for a live page or an unknown repo. */
   private mockWhere(sheet: string): { repo: string; rel: string } | null {
     const k = sheetKind(sheet);
-    if (k === 'home') return { repo: this.mockRepo, rel: sheet };
+    if (k === 'home') return this.mockRepo ? { repo: this.mockRepo, rel: sheet } : null;
     if (k !== 'repo') return null;
     const r = splitRepoSheet(sheet), dir = r ? this.mockStore?.repoPath(r.name) : null;
     return r && dir ? { repo: dir, rel: r.rel } : null;
@@ -3865,6 +3868,8 @@ export class AangBrowser {
       tabs: mine.map((x) => ({ id: x.id, opener: x.opener, title: x.title, url: x.url, favicon: x.favicon || this.iconOf(x.url), loading: x.loading, phase: x.phase ?? (x.loading ? 'loading' : 'idle'), prog: x.prog ?? 0, pending: x.pending ?? null, audible: x.audible, muted: x.muted, crashed: x.crashed, asleep: !x.view, blocked: x.blocked, failed: x.failed, trail: x.trail, done: x.done, lent: x.lent, popup: x.blockedPopup?.url ?? null, mock: x.mock ? this.mockTab(x) : null })),
       // Sheet 47: the MOCKUPS trail's history (the whole list only while it is open), or null where mockups are off.
       mockups: this.mockView(),
+      // 2026-10-22: the notes rail needs Aang (its notes live in his brain). Samara alone or on the Mac: the row is hidden.
+      notes: Boolean(this.onNoteSave),
       // 2026-10-22: the newest mockup to arrive ({ n, sheet, at }), so the drawer's arrow can breathe for it.
       mockNew: this.mockNew,
       // The trails with a tab in this window (or the one about to start here).

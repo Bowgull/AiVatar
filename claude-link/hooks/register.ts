@@ -465,11 +465,49 @@ async function showMockup($: $T, L: Link, input: Record<string, unknown>): Promi
   const a = mockupArgs(input)
   if (!a.ok) return { result: a.error, isError: true }
   if (!L.sessionId) L.sessionId = (await within($, $.session.id(), 1000)) ?? ''
+  // On his MacBook (2026-10-22): no brain there; Samara on the Mac takes it itself, at its own signed door.
+  const mac = await macHome($)
+  if (mac) return macMockup($, L, mac, a.body)
   if (!L.sessionId || !(await proven($, L))) return { result: "Aang is not running, so the mockup cannot reach Samara. Tell the user where the file is instead.", isError: true }
   const r = await call($, L, 'POST', '/link/mockup', JSON.stringify({ session: L.sessionId, cwd: L.cwd, ...a.body }), 8000)
   let j: { ok?: unknown; message?: unknown } = {}
   try { j = r?.ok ? JSON.parse(r.text) : {} } catch { j = {} }
   const msg = typeof j.message === 'string' && j.message ? j.message.slice(0, 600) : 'Aang did not answer, so the mockup was not shown.'
+  return j.ok === true ? { result: msg } : { result: msg, isError: true }
+}
+
+/** His Mac's home folder when this session runs on a Mac (a /Users/ home and no Windows profile), else null. */
+async function macHome($: $T): Promise<string | null> {
+  const profile = (await within($, $.env.get('USERPROFILE'), 500)) || ''
+  const home = (await within($, $.env.get('HOME'), 500)) || ''
+  return !profile && /^\/Users\/[^/]+$/.test(home) ? home : null
+}
+
+/**
+ * show_mockup on the Mac (2026-10-22): Samara's mockup door on this Mac's loopback (src/Shell/src/mockupdoor.ts). The
+ * same lock as the brain's link: Samara's fresh key per run in its own folder; every request signed; Samara proves it
+ * holds the key (HMAC over a fresh nonce) before it is told any folder or file name.
+ */
+async function macMockup($: $T, L: Link, home: string, body: Record<string, string>): Promise<{ result: string; isError?: true }> {
+  const down = { result: "Samara is not running on this Mac, so the mockup cannot reach it. Tell the user where the file is instead.", isError: true as const }
+  const key = (await within($, $.fs.read(`${home}/Library/Application Support/Aang/mockup-door.key`), 500))?.trim() || ''
+  if (key.length < 32) return down
+  const base = 'http://127.0.0.1:47844'
+  const signed = async (method: 'GET' | 'POST', pathQ: string, b: string, ms: number) => {
+    const ts = String(Date.now())
+    const headers: Record<string, string> = { 'x-aang-link-ts': ts, 'x-aang-link-sig': await hmacHex(key, 'req', ts, method, pathQ, b) }
+    if (b) headers['content-type'] = 'application/json'
+    return within($, $.http.fetch(base + pathQ, { method, headers, ...(b ? { body: b } : {}) }), ms)
+  }
+  const n = nonce()
+  const hello = await signed('GET', `/hello?n=${n}`, '', 1000)
+  let ok = false
+  try { ok = !!hello?.ok && sameMac(String(JSON.parse(hello.text)?.proof ?? ''), await hmacHex(key, 'hello', n)) } catch { ok = false }
+  if (!ok) return down
+  const r = await signed('POST', '/mockup', JSON.stringify({ cwd: L.cwd, ...body }), 8000)
+  let j: { ok?: unknown; message?: unknown } = {}
+  try { j = r?.ok ? JSON.parse(r.text) : {} } catch { j = {} }
+  const msg = typeof j.message === 'string' && j.message ? j.message.slice(0, 600) : 'Samara did not answer, so the mockup was not shown.'
   return j.ok === true ? { result: msg } : { result: msg, isError: true }
 }
 
