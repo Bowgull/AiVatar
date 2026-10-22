@@ -169,39 +169,64 @@ const CURSOR = ['o', 'oo', 'o#o', 'o##o', 'o###o', 'o####o', 'o#####o', 'o######
 const cursorSvg = (() => { let a = '', b = ''; CURSOR.forEach((r, y) => [...r].forEach((c, x) => { if (c === 'o') a += `M${x} ${y}h1v1h-1z`; if (c === '#') b += `M${x} ${y}h1v1h-1z`; }));
   return `<svg viewBox="0 0 11 17" width="11" height="17" shape-rendering="crispEdges"><path d="${a}" fill="#000"/><path d="${b}" fill="#fff"/></svg>`; })();
 
-type Phase = 'rest' | 'hover' | 'mid' | 'in';
-type Variant = { name: string; css: string; style: 'A' | 'B' | 'C' | 'T1' | 'T2' | null; phase?: Phase; keys?: string[] };
+// ---------------------------------------------------------------- v3 (his notes on v2, 2026-10-22: "64 is great" for
+// tag 1, but "what happened to the frames? I liked how it was before with each bubble frame holding the same colour";
+// "do these colours match the icons we created?"; "Claude's words and Exactly this - is this overkill?"; and a way to
+// get TO Claude per ask, then: the who-is-asking label itself is the door, no separate link). V3 = tag 1 + the B rim
+// tint, every colour lifted from src/Body/ClaudeMarks.cs ColorOf: the rim, the paper wash and the tag's icon are the
+// mark's own face colour exactly; the tag's ground is that same hue, deepened so white words read (the plan's cream
+// can't carry white, so it is the cream's own hue taken dark: #76602a, white 6.0 : 1). "Claude's words" is gone;
+// "Exactly this" stays on OKs only. On a Claude ask the who (icon + "Claude · Waymark") is a link to that session.
+const DEEP3 = { question: '#6b3fb8', ok: '#1f6fb0', plan: '#76602a' };
+const V3 = TAG_1 + `
+#bubble[data-kind]{box-shadow:inset 0 0 14px var(--ksoft)}
+#bubble[data-kind] .ckpins .cw,#bubble[data-kind] .ckpins .cwbox{display:none!important}
+#bubble .kwho.door{cursor:pointer;border-radius:5px;padding:3px 5px;margin:-3px -5px;transition:transform .12s,background .12s}
+#bubble .kwho.door:hover,#bubble .kwho.door.khov{color:#3a2410;background:rgba(120,80,30,.10);transform:translateY(-1px);text-decoration:underline;text-decoration-thickness:1.5px;text-underline-offset:3px}
+`;
+/** The Windows link hand, at its real size: 'o' outline, '#' white. The hot spot is the fingertip (top of column 4). */
+const HAND = ['....oo..........', '...o##o.........', '...o##o.........', '...o##o.........', '...o##o.........', '...o##ooo.......', '...o##o##ooo....',
+  '...o##o##o##oo..', 'oo.o##o##o##o#o.', 'o#oo##########o.', 'o##o##########o.', '.o############o.', '..o###########o.', '..o###########o.',
+  '...o#########o..', '...o#########o..', '....o#######o...', '....o#######o...', '....ooooooooo...'];
+const handSvg = (() => { let a = '', b = ''; HAND.forEach((r, y) => [...r].forEach((c, x) => { if (c === 'o') a += `M${x} ${y}h1v1h-1z`; if (c === '#') b += `M${x} ${y}h1v1h-1z`; }));
+  return `<svg viewBox="0 0 16 19" width="16" height="19" style="margin-left:-4px" shape-rendering="crispEdges"><path d="${a}" fill="#000"/><path d="${b}" fill="#fff"/></svg>`; })();
+type Phase = 'rest' | 'hover' | 'mid' | 'in' | 'door';
+type Variant = { name: string; css: string; style: 'A' | 'B' | 'C' | 'T1' | 'T2' | 'V3' | null; phase?: Phase; keys?: string[] };
 const V2_KEYS = ['b-aangq', 'e-claudeok', 'f-plan'];
+const V3_KEYS = ['b-aangq', 'c-claudeq', 'd-aangok', 'e-claudeok', 'f-plan'];
 const VARIANTS: Variant[] = [
   { name: 'today', css: '', style: null },
   { name: 'A', css: OPT_A, style: 'A' },
   { name: 'B', css: OPT_B, style: 'B' },
   { name: 'C', css: OPT_C, style: 'C' },
   { name: 'T1', css: TAG_1, style: 'T1', keys: V2_KEYS },
-  { name: 'T2', css: TAG_2, style: 'T2', keys: V2_KEYS },
-  ...(['rest', 'hover', 'mid', 'in'] as Phase[]).map((p) => ({ name: 'H' + p, css: HOVER, style: 'T1' as const, phase: p, keys: V2_KEYS })),
+  { name: 'V3', css: V3, style: 'V3', keys: V3_KEYS },
+  { name: 'Door', css: V3 + HOVER.slice(TAG_1.length), style: 'V3', phase: 'door', keys: ['e-claudeok'] },
+  ...(['rest', 'hover', 'mid', 'in'] as Phase[]).map((p) => ({ name: 'H' + p, css: V3 + HOVER.slice(TAG_1.length), style: 'V3' as const, phase: p, keys: V2_KEYS })),
 ];
 
 /** The decorator: the kind on #bubble, its tag or strip, the quoted line, the new key words. Run again after a re-fit. */
 function decorate(m: Moment, v: Variant) {
   if (!v.style || !m.kind) return 'true';
   const c = C[m.kind];
+  const v3 = v.style === 'V3', rd = v.style === 'T1' || v.style === 'T2' || v3;
   return `(() => {
     const b = document.getElementById('bubble'), wrap = document.getElementById('wrap');
     b.dataset.kind = ${JSON.stringify(m.kind)};
-    for (const [k, val] of [['--kline', ${JSON.stringify(m.kind === 'plan' ? 'rgba(201,140,20,.55)' : c.mark + 'aa')}], ['--kmark', ${JSON.stringify(c.mark)}], ['--kink', ${JSON.stringify(c.ink)}], ['--ksoft', ${JSON.stringify(c.soft)}], ['--kdeep', ${JSON.stringify(DEEP[m.kind])}]]) wrap.style.setProperty(k, val);
+    for (const [k, val] of [['--kline', ${JSON.stringify(m.kind === 'plan' ? 'rgba(201,140,20,.55)' : c.mark + 'aa')}], ['--kmark', ${JSON.stringify(c.mark)}], ['--kink', ${JSON.stringify(c.ink)}], ['--ksoft', ${JSON.stringify(c.soft)}], ['--kdeep', ${JSON.stringify((v3 ? DEEP3 : DEEP)[m.kind])}]]) wrap.style.setProperty(k, val);
+    if (${JSON.stringify(v3)}) wrap.style.setProperty('--ksoft', ${JSON.stringify(c.mark + '2e')});
     const who = ${JSON.stringify(m.who)}, claude = who.startsWith('Claude');
-    const whoEl = () => { const s = document.createElement('span'); s.className = 'kwho'; if (claude) { const i = document.createElement('img'); i.src = 'art/claude-icon.png'; s.append(i); } s.append(${JSON.stringify(v.style === 'T1' || v.style === 'T2')} ? who : who.toUpperCase()); return s; };
+    const whoEl = () => { const s = document.createElement(claude && ${JSON.stringify(v3)} ? 'a' : 'span'); s.className = 'kwho' + (claude && ${JSON.stringify(v3)} ? ' door' : ''); if (claude) { s.title = 'Open this session in Claude'; const i = document.createElement('img'); i.src = 'art/claude-icon.png'; s.append(i); } s.append(${JSON.stringify(rd)} ? who : who.toUpperCase()); return s; };
     if (!b.querySelector('.ktag, .kstrip')) {
       const style = ${JSON.stringify(v.style)};
       const t = document.createElement('div');
       if (style === 'C') { t.className = 'kstrip'; const cs = getComputedStyle(b); t.style.margin = '-' + cs.paddingTop + ' 0 12px -' + cs.paddingLeft; t.style.width = 'calc(100% + ' + (parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight)) + 'px)'; t.style.boxSizing = 'border-box'; t.innerHTML = ${JSON.stringify(ICONS[m.kind])}; t.append(${JSON.stringify(c.word)}, whoEl()); }
       else { t.className = 'ktag'; const k = document.createElement('span'); k.className = 'kt';
-        k.innerHTML = ${JSON.stringify(v.style === 'T1' ? icon9(m.kind, '#fff') : v.style === 'T2' ? icon9(m.kind, '#1a0f05') : ICONS[m.kind])};
-        k.append(${JSON.stringify(v.style === 'T1' || v.style === 'T2' ? WORD2[m.kind] : c.word)}); t.append(k, whoEl()); }
+        k.innerHTML = ${JSON.stringify(v3 ? icon9(m.kind, c.mark) : v.style === 'T1' ? icon9(m.kind, '#fff') : v.style === 'T2' ? icon9(m.kind, '#1a0f05') : ICONS[m.kind])};
+        k.append(${JSON.stringify(rd ? WORD2[m.kind] : c.word)}); t.append(k, whoEl()); }
       b.prepend(t);
       const q = ${JSON.stringify(m.quote ?? '')};
-      if (q) { const d = document.createElement('div'); d.className = 'kq'; const sm = document.createElement('small'); sm.textContent = ${JSON.stringify(v.style === 'T1' || v.style === 'T2' ? 'Exactly this:' : 'EXACTLY THIS')};
+      if (q) { const d = document.createElement('div'); d.className = 'kq'; const sm = document.createElement('small'); sm.textContent = ${JSON.stringify(rd ? 'Exactly this:' : 'EXACTLY THIS')};
         d.append(sm, '\\u201c' + q + '\\u201d');
         const after = b.querySelector('#means:not([hidden])') ?? b.querySelector('.ckpins .q') ?? document.getElementById('scroller'); after.after(d); }
       const keys = ${JSON.stringify(m.keys ?? null)};
@@ -220,7 +245,7 @@ function decorate(m: Moment, v: Variant) {
 /** B only: the wood rim (and so the tail's wood) washed in the kind's colour. The skin is redrawn on every re-fit, so
  * this goes in last, right before the picture. A filter on balloon.js's own g.rim: the wood's grain stays, tinted. */
 function tintSkin(m: Moment, v: Variant) {
-  if (v.style !== 'B' || !m.kind) return 'true';
+  if ((v.style !== 'B' && v.style !== 'V3') || !m.kind) return 'true';
   return `(() => { const sk = document.getElementById('skin'), rim = sk.querySelector('g.rim'); if (!rim) return false;
     const ns = 'http://www.w3.org/2000/svg';
     sk.querySelector('#ktf')?.remove();
@@ -270,6 +295,8 @@ body{background:radial-gradient(900px 500px at 15% 5%, rgba(80,96,140,.30), tran
     if (v.phase === 'mid') await js(`document.getElementById('bubble').classList.add('kmid'); true`);
     if (v.phase === 'hover') await js(`(() => { const r = document.getElementById('bubble').getBoundingClientRect(); const c = document.createElement('div'); c.className = 'kcur';
       c.innerHTML = ${JSON.stringify(cursorSvg)}; c.style.left = Math.round(r.left + r.width * 0.80) + 'px'; c.style.top = Math.round(r.top + r.height * 0.70) + 'px'; document.body.append(c); return true; })()`);
+    if (v.phase === 'door') await js(`(() => { const d = document.querySelector('#bubble .kwho.door'); d.classList.add('khov'); const r = d.getBoundingClientRect(); const c = document.createElement('div'); c.className = 'kcur';
+      c.innerHTML = ${JSON.stringify(handSvg)}; c.style.left = Math.round(r.left + r.width * 0.55) + 'px'; c.style.top = Math.round(r.top + r.height * 0.45) + 'px'; document.body.append(c); return true; })()`);
     await wait(200);
     const tinted = await js(`document.querySelectorAll('#skin .ktint').length`);
     if (v.style === 'B' && m.kind && !tinted) console.log('  no tint on ' + file);

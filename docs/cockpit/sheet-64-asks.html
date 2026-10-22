@@ -4,6 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sheet 64 - Questions and OKs</title>
+<!-- Sheet 64 v3 (2026-10-22, night). His notes on v2: tag 1 "is great"; "what happened to the frames? I liked how it was
+     before with each bubble frame holding the same colour"; "do these colours match the icons we created?"; "Claude's
+     words and Exactly this - overkill?"; "a way to get TO Claude per each action?" (then: no separate link, the who label
+     itself is the door). V3 = tag 1 + the v1 B rim tint, every colour lifted from src/Body/ClaudeMarks.cs; "Claude's
+     words" dropped; "Exactly this" on OKs only; the who on a Claude ask is a link to that session (Door picture). The
+     hover pictures (H*) were redrawn in V3. T2 and the unused v1 pictures were deleted.
+     v2 (below) kept for the record: -->
 <!-- Sheet 64 v2 (2026-10-22, late). His notes on v1: "I like the tag carrying the colour but it needs a bit of refinement,
      the tag above is hard to read" (A kept), and a new rule: "questions that require buttons should have the buttons
      surface after a second or two of a hover over the comic bubble". The tag is rebuilt to be read (Figtree 800 13.5 px,
@@ -20,7 +27,7 @@
   .kind{background:#1c1a18;border:2px solid #342d27;border-radius:12px;padding:12px 14px}
   .kind h3{display:flex;align-items:center;gap:8px;margin:0 0 8px}
   .kind h3 span{font:800 14px/18px Figtree,sans-serif;color:#fff;padding:4px 11px;border-radius:7px;box-shadow:0 0 0 1.5px #000}
-  .kind.q h3 span{background:#6b3fb8}.kind.o h3 span{background:#1f6fb0}.kind.p h3 span{background:#8a5c0e}.kind.n h3 span{background:#3a332c;color:#e8dcc4}
+  .kind.q h3 span{background:#6b3fb8}.kind.o h3 span{background:#1f6fb0}.kind.p h3 span{background:#76602a}.kind.n h3 span{background:#3a332c;color:#e8dcc4}
   .kind ul{margin:0;padding-left:18px;color:#d8cab0;font-size:14.5px;line-height:1.6}
   .kind ul i{color:#8f8372;font-style:normal}
   .meaning{display:grid;grid-template-columns:220px 1fr;gap:8px 18px;max-width:1150px;margin:6px 0 0}
@@ -32,38 +39,52 @@
   .kindrow{margin:18px 0 6px;font:800 17px Figtree,sans-serif;color:#fffaf0;display:flex;align-items:center;gap:10px}
   .kindrow em{font:800 13px/18px Figtree,sans-serif;font-style:normal;color:#fff;padding:3px 10px;border-radius:7px}
   .notpicked .shot img{width:220px}
+  .mk{display:flex;align-items:center;gap:10px;margin:0 0 8px;font:600 13px/1.35 Figtree,sans-serif;color:#d8cab0}
+  .mk img{image-rendering:pixelated;flex:none}
+  .mk code{font:600 12.5px Consolas,monospace;color:#fffaf0}
+  .sw{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;margin-right:4px;box-shadow:0 0 0 1px #000}
   @media (max-width:900px){.kinds,.meaning,.motion{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 <h1>SHEET 64 &middot; QUESTIONS AND OKS</h1>
-<p class="real">v2 &middot; 22 Oct, late &middot; your A, with a tag you can read, and answers that wait for your hover</p>
-<p class="lead">You picked <b>A</b>: the tag in the corner carries the colour, the paper is washed faintly in it. Two changes. The tag is now <b>big, bold, plain words</b> with a clear icon, in two colourings to choose from. And your new rule: an ask shows <b>only the question</b> at first; the <b>answer keys slide in</b> after you rest the mouse on the bubble for a moment.</p>
-<div class="decided"><span>A: tag in the corner + faint paper tint</span><span>Question lavender</span><span>Needs-you blue</span><span>Plan cream</span><span>Answer keys wait for a hover</span></div>
-<p class="topick"><span>WHAT TO PICK</span> <em>Tag <b>1</b> (my pick) or <b>2</b>? &nbsp;And is <b>1.5 seconds</b> the right wait before the keys come?</em></p>
+<p class="real">v3 &middot; 22 Oct, night &middot; tag 1, the coloured frame back, colours taken from his marks, the who is a door to Claude</p>
+<p class="lead">Your tag <b>1</b> stays. The <b>wood frame and its tail</b> take the kind's colour again, like before. Every colour is now <b>the exact colour of the mark over Aang's head</b>, shown beside each bubble. <b>"Claude's words" is gone</b>; <b>"Exactly this"</b> stays on OKs only. And on a Claude ask, <b>the "Claude &middot; Waymark" label is the door</b>: click it and you are in that session.</p>
+<div class="decided"><span>Tag 1: deep colour, white words</span><span>Frame + tail tinted again</span><span>Colours = the marks</span><span>No "Claude's words"</span><span>"Exactly this" on OKs only</span><span>Who = door to Claude</span><span>Keys wait for a hover</span></div>
+<p class="topick"><span>WHAT TO PICK</span> <em>Nothing to choose. Just say <b>yes</b> (or what to change) and it gets built. One check: is the frame tint <b>calm enough</b>?</em></p>
 
-<h2><span class="n">1</span>THE TAG, READABLE</h2>
-<p>Same place, same colours. The old tag was tiny spaced-out pixel capitals on a pale colour. Now: <b>Figtree bold at 13.5 px</b>, normal case, a <b>bigger icon</b> (? for a question, a key for an OK, a list for a plan), and who is asking in plain words beside it.</p>
+<h2><span class="n">1</span>TAG 1 + THE COLOURED FRAME, MATCHED TO THE MARKS</h2>
+<p>Each kind's colour is copied straight from the code that draws the marks over Aang's head (<code>ClaudeMarks.cs</code>). The <b>frame, the tail, the faint paper glow and the tag's icon</b> are that exact colour. The tag's <b>background</b> is the same colour made deep so white words read on it. The plan's cream can't hold white words, so its tag is the cream taken dark (a scroll in shadow), and its frame is the cream itself.</p>
 
 <div class="take">
-  <div class="lhead"><span class="L">1</span><span class="nm">Deep colour, white words</span><span class="pick">MY PICK</span><span class="cap2">The kind's colour, made deeper, so white words sit on it clearly (6.9 : 1 lavender, 5.3 : 1 blue, 5.8 : 1 amber; 4.5 is the bar). It stands out from the cream paper, even the plan's.</span></div>
   <div class="row">
-    <div class="cell"><div class="lbl">QUESTION</div><div class="shot"><img src="sheet-64/T1-b-aangq.png" width="316" height="442" alt="Tag 1: deep lavender Question tag with white words"></div></div>
-    <div class="cell"><div class="lbl">NEEDS YOUR OK</div><div class="shot"><img src="sheet-64/T1-e-claudeok.png" width="476" height="420" alt="Tag 1: deep blue Needs your OK tag"></div></div>
-    <div class="cell"><div class="lbl">PLAN TO OK</div><div class="shot"><img src="sheet-64/T1-f-plan.png" width="476" height="422" alt="Tag 1: deep amber Plan to OK tag"></div></div>
+    <div class="cell"><div class="mk"><img src="sheet-64/mark-question.png" width="36" height="51" alt="The question mark over Aang's head"><span>Over his head<br><span class="sw" style="background:#b07cff"></span><code>#b07cff</code><br>tag <code>#6b3fb8</code></span></div><div class="lbl">AANG &middot; QUESTION</div><div class="shot"><img src="sheet-64/V3-b-aangq.png" width="316" height="442" alt="Aang's question: deep lavender tag, lavender frame and tail"></div></div>
+    <div class="cell"><div class="mk"><img src="sheet-64/mark-question.png" width="36" height="51" alt="The question mark"><span>Over his head<br><span class="sw" style="background:#b07cff"></span><code>#b07cff</code></span></div><div class="lbl">CLAUDE &middot; QUESTION</div><div class="shot"><img src="sheet-64/V3-c-claudeq.png" width="476" height="457" alt="Claude's question, lavender frame, no Claude's words fold"></div></div>
+    <div class="cell"><div class="mk"><img src="sheet-64/mark-permission.png" width="51" height="27" alt="The needs-you key mark"><span>Over his head<br><span class="sw" style="background:#7cc4ff"></span><code>#7cc4ff</code><br>tag <code>#1f6fb0</code></span></div><div class="lbl">AANG &middot; NEEDS YOUR OK</div><div class="shot"><img src="sheet-64/V3-d-aangok.png" width="316" height="480" alt="Aang asking first: blue frame, Exactly this kept"></div></div>
+  </div>
+  <div class="row">
+    <div class="cell"><div class="mk"><img src="sheet-64/mark-permission.png" width="51" height="27" alt="The needs-you key mark"><span>Over his head<br><span class="sw" style="background:#7cc4ff"></span><code>#7cc4ff</code></span></div><div class="lbl">CLAUDE &middot; NEEDS YOUR OK</div><div class="shot"><img src="sheet-64/V3-e-claudeok.png" width="476" height="396" alt="Claude wants to run a command: blue frame and tail"></div></div>
+    <div class="cell"><div class="mk"><img src="sheet-64/mark-plan.png" width="39" height="36" alt="The plan scroll mark"><span>Over his head<br><span class="sw" style="background:#f3e2b8"></span><code>#f3e2b8</code><br>tag <code>#76602a</code></span></div><div class="lbl">CLAUDE &middot; PLAN TO OK</div><div class="shot"><img src="sheet-64/V3-f-plan.png" width="476" height="422" alt="Claude's plan: cream frame, dark cream tag"></div></div>
+  </div>
+</div>
+<p>Honest note: v2's plan tag was <b>amber</b> (#8a5c0e), not the scroll's cream, so it did <i>not</i> quite match. Now it does. The blue and lavender tags were already the marks' own hues, just deeper; white on them reads at 6.9 : 1 (lavender), 5.3 : 1 (blue), 6.0 : 1 (plan).</p>
+
+<h2><span class="n">2</span>THE WHO IS THE DOOR TO CLAUDE</h2>
+<p>No extra button. On any Claude ask, the <b>Claude mark and "Claude &middot; Waymark"</b> beside the tag are one link. Point at it: the hand cursor, the words <b>lift a pixel and underline</b>. Click: <b>that exact session</b> comes to the front in the Claude app and the bubble closes (the same "Open in Claude" the job panel already uses). Aang's own asks say "Aang" and are not a link.</p>
+<div class="take">
+  <div class="row">
+    <div class="cell"><div class="lbl"><i>1</i>AT REST</div><div class="shot"><img src="sheet-64/V3-e-claudeok.png" width="476" height="396" alt="The who label at rest"></div></div>
+    <div class="cell"><div class="lbl"><i>2</i>POINTING AT &quot;CLAUDE &middot; WAYMARK&quot;</div><div class="shot"><img src="sheet-64/Door-e-claudeok.png" width="476" height="396" alt="Hovering the who label: hand cursor, underline, lifted"></div></div>
   </div>
 </div>
 
-<div class="take">
-  <div class="lhead"><span class="L">2</span><span class="nm">Light colour, dark words</span><span class="cap2">The exact colours you picked, dark ink on them and a firmer outline. Easy to read too, but the cream plan tag nearly melts into the cream paper.</span></div>
-  <div class="row">
-    <div class="cell"><div class="lbl">QUESTION</div><div class="shot"><img src="sheet-64/T2-b-aangq.png" width="316" height="442" alt="Tag 2: lavender Question tag with dark words"></div></div>
-    <div class="cell"><div class="lbl">NEEDS YOUR OK</div><div class="shot"><img src="sheet-64/T2-e-claudeok.png" width="476" height="420" alt="Tag 2: light blue Needs your OK tag"></div></div>
-    <div class="cell"><div class="lbl">PLAN TO OK</div><div class="shot"><img src="sheet-64/T2-f-plan.png" width="476" height="422" alt="Tag 2: cream Plan to OK tag"></div></div>
-  </div>
+<h2><span class="n">3</span>LESS TO READ</h2>
+<div class="motion">
+  <b>"Claude's words"</b><span><b>Gone.</b> It was Claude's raw message folded away. The bubble already says it in plain words, and the door above takes you to the whole thing in Claude.</span>
+  <b>"Exactly this"</b><span><b>Kept, on OKs only</b> (Aang asking first, a Claude command). It is the one thing you must see before you say yes: the command, the files, the site, word for word. Questions and plans don't have it.</span>
 </div>
 
-<h2><span class="n">2</span>THE KEYS WAIT FOR YOUR HOVER</h2>
+<h2><span class="n">4</span>THE KEYS WAIT FOR YOUR HOVER</h2>
 <p>An ask lands with the <b>question and its tag only</b> (and, on an OK, the exact thing you would allow, so you can read it first). Rest the mouse on the bubble for <b>1.5 seconds</b> and the keys <b>slide up into it</b> on a soft spring. Moving off before then does nothing. Once they are out they stay.</p>
 
 <div class="kindrow"><em style="background:#6b3fb8">Question</em>Aang's own question</div>
@@ -76,13 +97,13 @@
 
 <div class="kindrow"><em style="background:#1f6fb0">Needs your OK</em>A Claude session wants to run a command</div>
 <div class="row">
-  <div class="cell"><div class="lbl"><i>1</i>LANDS &middot; WHAT, AND EXACTLY WHAT</div><div class="shot"><img src="sheet-64/Hrest-e-claudeok.png" width="476" height="382" alt="The OK at rest: the ask and the exact command, no keys"></div></div>
-  <div class="cell"><div class="lbl"><i>2</i>MOUSE RESTING &middot; 1.5 S</div><div class="shot"><img src="sheet-64/Hhover-e-claudeok.png" width="476" height="382" alt="The mouse resting on the OK"></div></div>
-  <div class="cell"><div class="lbl"><i>3</i>SLIDING IN &middot; 90 MS</div><div class="shot"><img src="sheet-64/Hmid-e-claudeok.png" width="476" height="420" alt="Allow, Always, Not this time rising in"></div></div>
-  <div class="cell"><div class="lbl"><i>4</i>SETTLED</div><div class="shot"><img src="sheet-64/Hin-e-claudeok.png" width="476" height="420" alt="The OK keys in place"></div></div>
+  <div class="cell"><div class="lbl"><i>1</i>LANDS &middot; WHAT, AND EXACTLY WHAT</div><div class="shot"><img src="sheet-64/Hrest-e-claudeok.png" width="476" height="358" alt="The OK at rest: the ask and the exact command, no keys"></div></div>
+  <div class="cell"><div class="lbl"><i>2</i>MOUSE RESTING &middot; 1.5 S</div><div class="shot"><img src="sheet-64/Hhover-e-claudeok.png" width="476" height="358" alt="The mouse resting on the OK"></div></div>
+  <div class="cell"><div class="lbl"><i>3</i>SLIDING IN &middot; 90 MS</div><div class="shot"><img src="sheet-64/Hmid-e-claudeok.png" width="476" height="396" alt="Allow, Always, Not this time rising in"></div></div>
+  <div class="cell"><div class="lbl"><i>4</i>SETTLED</div><div class="shot"><img src="sheet-64/Hin-e-claudeok.png" width="476" height="396" alt="The OK keys in place"></div></div>
 </div>
 
-<div class="kindrow"><em style="background:#8a5c0e">Plan to OK</em>A Claude session's plan</div>
+<div class="kindrow"><em style="background:#76602a">Plan to OK</em>A Claude session's plan</div>
 <div class="row">
   <div class="cell"><div class="lbl"><i>1</i>LANDS &middot; THE PLAN TO READ</div><div class="shot"><img src="sheet-64/Hrest-f-plan.png" width="476" height="365" alt="The plan at rest, no keys"></div></div>
   <div class="cell"><div class="lbl"><i>2</i>MOUSE RESTING &middot; 1.5 S</div><div class="shot"><img src="sheet-64/Hhover-f-plan.png" width="476" height="365" alt="The mouse resting on the plan"></div></div>
@@ -98,7 +119,7 @@
   <b>No mouse</b><span>The keyboard letters (A, Z...) still answer straight away, before the keys show.</span>
 </div>
 
-<h2><span class="n">3</span>EVERY KIND OF ASK, SORTED</h2>
+<h2><span class="n">5</span>EVERY KIND OF ASK, SORTED</h2>
 <p>Everything that stops and waits for you, from Aang's own code and from Claude's sessions. Each follows its kind: the same tag, and the same wait for your hover.</p>
 <div class="kinds">
   <div class="kind q"><h3><span>Question</span></h3><ul>
@@ -123,7 +144,7 @@
     <li>Aang's brain restarting</li></ul></div>
 </div>
 
-<h2><span class="n">4</span>TODAY, FOR COMPARISON</h2>
+<h2><span class="n">6</span>TODAY, FOR COMPARISON</h2>
 <p>The real bubble as it is now: the only hint of the kind is a tiny brown word at the top, and a question and an OK look the same.</p>
 <div class="take today">
   <div class="row">
@@ -149,8 +170,9 @@
 </div>
 
 <div class="take today notpicked">
-  <div class="lhead"><span class="L">&ndash;</span><span class="nm">Not picked (v1)</span><span class="cap2">The v1 tag that was hard to read, and the other two ways.</span></div>
+  <div class="lhead"><span class="L">&ndash;</span><span class="nm">Before (v1, v2)</span><span class="cap2">v2's tag 1 on plain wood (the frame lost its colour), the v1 tag that was hard to read, and v1's other two ways. v3 is tag 1 on the B frame.</span></div>
   <div class="row">
+    <div class="cell"><div class="lbl was">V2 &middot; TAG 1, PLAIN FRAME</div><div class="shot"><img src="sheet-64/T1-e-claudeok.png" width="476" height="420" alt="v2: tag 1 with an untinted wood frame"></div></div>
     <div class="cell"><div class="lbl was">A &middot; V1 TAG (TOO SMALL)</div><div class="shot"><img src="sheet-64/A-e-claudeok.png" width="476" height="412" alt="v1 tag, small pixel capitals"></div></div>
     <div class="cell"><div class="lbl was">B &middot; THE RIM CARRIES THE COLOUR</div><div class="shot"><img src="sheet-64/B-e-claudeok.png" width="476" height="412" alt="B, not picked"></div></div>
     <div class="cell"><div class="lbl was">C &middot; A STRIP ACROSS THE TOP</div><div class="shot"><img src="sheet-64/C-e-claudeok.png" width="476" height="403" alt="C, not picked"></div></div>
@@ -159,8 +181,8 @@
 
 <h2><span class="n">?</span>WHAT EACH PART DOES</h2>
 <div class="meaning">
-  <b>The kind tag</b><span>Question (lavender, ?): Aang or Claude wants an answer. Needs your OK (blue, key): nothing happens until you allow it. Plan to OK (amber, list): steps waiting for Go.</span>
-  <b>Who is asking</b><span>Aang, or Claude &middot; the project's name with Claude's mark, in plain words beside the tag.</span>
+  <b>The kind tag</b><span>Question (lavender, ?): Aang or Claude wants an answer. Needs your OK (blue, key): nothing happens until you allow it. Plan to OK (cream scroll, list): steps waiting for Go. The frame, tail and icon are the mark's exact colour.</span>
+  <b>Who is asking</b><span>Aang, or Claude &middot; the project's name with Claude's mark. On a Claude ask it is a link: click it and that session opens in Claude, the bubble closes.</span>
   <b>Exactly this</b><span>On an OK only: the command, the files or the site, word for word. Shown from the start, so you read it before the keys come.</span>
   <b>The keys</b><span>Slide in after 1.5 s of your mouse on the bubble. Allow is the OK's blue, never the answer yellow.</span>
   <b>No tag</b><span>Plain news, a timer, a reminder: they never wait on a decision, so no tag and no wait.</span>
@@ -170,6 +192,7 @@
 <ul>
 <li>Every picture is Aang's real bubble page (bubble.html, look B, the slim wood rim), fed each ask the way the app feeds it, off screen. Aang is his own idle frame at real size.</li>
 <li>New in v2: the tag, the who, "Exactly this" and "Claude's words" are set in Figtree instead of tiny pixel capitals; the icons are 9 &times; 9 pixels at exactly 2&times;. The arrow in picture 2 is drawn in (an off-screen page has no mouse).</li>
+<li>New in v3: the frame tint is v1 B's (the slim rim's own wood, washed in the mark colour: half strength, the cream 70%); the marks beside each bubble are drawn from ClaudeMarks.cs at their real 3 pixels per art pixel; the hand in the door picture is drawn in. All pictures 256 colours.</li>
 <li>Picture 3 freezes the spring 90 ms in. The projects, files and commands are made up.</li>
 </ul></div>
 </body>

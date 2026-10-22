@@ -48,20 +48,32 @@ const POSES = [
   { dx: 0, dy: 0, far: [[6, 6], [6, 8], [5, 9]], near: [[8, 6], [9, 8], [10, 9]], back: [[6, 10], [5, 12], [4, 13]], knee: [10, 12], on: false },  // swing in
   { dx: 0, dy: 0, far: [[6, 6], [5, 8], [4, 9]], near: [[8, 6], [10, 8], [11, 9]], back: [[6, 10], [5, 12], [4, 14]], knee: [10, 12], on: true },  // step on
 ];
-function drawSkater(put, ox, oy, pose) {
-  const P = POSES[pose], q = (x, y, c) => put(ox + x, oy + y, SKC[c]);
+// v6 (his question: "is there another colour shirt or pants he can have... push back if these are the best combos to
+// make him pop"): four outfits over the same body. Each swaps the hoodie (h base, H lit, k shade, K far side), the
+// sleeves (a near arm, A far arm) and the trousers (j, J lit, n far leg). His torso sits on the orange-gold sky, his legs
+// on the dark plum road, so the top wants a COOL colour (orange's complement) and the bottom wants a LIGHT one.
+export const OUTFITS = {
+  cream: { label: 'Cream hoodie + jeans (now)' },
+  jade: { label: 'Jade hoodie + cream trousers', h: '#2f9a8a', H: '#62cdb6', k: '#1f7068', K: '#17524e', j: '#e6d2aa', J: '#fff0d0', n: '#b39a78' },
+  mustard: { label: 'Mustard hoodie + dark jeans', h: '#d89a22', H: '#ffc850', k: '#a8701a', K: '#7a5214', j: '#1f2644', J: '#343e6a', n: '#141a32' },
+  tee: { label: 'White tee + plum trousers', h: '#f2eee8', H: '#ffffff', k: '#c4bcb4', K: '#968c84', a: 's', A: 'd', j: '#5a2a5e', J: '#7c4280', n: '#3e1c42' },
+};
+function drawSkater(put, ox, oy, pose, outfit = 'cream') {
+  const O = OUTFITS[outfit] ?? {}, PAL = { ...SKC, ...Object.fromEntries(Object.entries(O).filter(([k]) => k.length === 1 && !'aA'.includes(k))) };
+  const arm = O.a ? SKC[O.a] : PAL.k, armF = O.A ? SKC[O.A] : PAL.K;
+  const P = POSES[pose], q = (x, y, c) => put(ox + x, oy + y, c === '@' ? arm : c === '%' ? armF : PAL[c]);
   const sh = ([x, y]) => [x + P.dx, y + P.dy];
   for (let x = 2; x <= 12; x++) q(x, 15, x > 8 ? 'E' : 'D');
   q(1, 14, 'D'); q(13, 14, 'E'); q(3, 16, 'w'); q(4, 16, 'g'); q(10, 16, 'w'); q(11, 16, 'g');
-  const fa = P.far.map(sh); poly(fa, (x, y) => q(x, y, 'K')); q(...fa[2], 'd');
+  const fa = P.far.map(sh); poly(fa, (x, y) => q(x, y, '%')); q(...fa[2], 'd');
   const bk = P.back.map((p, i) => (i === 0 ? sh(p) : p));
   poly(bk, (x, y) => { q(x, y, 'n'); q(x + 1, y, 'n'); });
   const [fx, fy] = bk[2]; q(fx, fy, 'o'); q(fx + 1, fy, 'O'); if (fy >= 15 || !P.on) q(fx - 1, fy, 'o');
   poly([sh([8, 10]), P.knee, [10, 14]], (x, y) => { q(x, y, 'j'); q(x + 1, y, 'J'); });
   q(10, 14, 'o'); q(11, 14, 'o'); q(12, 14, 'O');
-  stamp(put, TORSO, ox + 5 + P.dx, oy + 5 + P.dy, SKC);
-  stamp(put, HEAD, ox + 5 + P.dx, oy + P.dy, SKC);
-  const na = P.near.map(sh); poly(na, (x, y) => q(x, y, 'k')); q(...na[2], 'S');
+  stamp(put, TORSO, ox + 5 + P.dx, oy + 5 + P.dy, PAL);
+  stamp(put, HEAD, ox + 5 + P.dx, oy + P.dy, PAL);
+  const na = P.near.map(sh); poly(na, (x, y) => q(x, y, '@')); q(...na[2], 'S');
 }
 function skyBands(put, top, hy) {
   for (let y = top; y < hy; y++) for (let x = 0; x < SW; x++) {
@@ -79,7 +91,7 @@ function lampPost(put, bx, by) {
   for (let i = 1; i <= 3; i++) put(bx + i, by - 17, SIL);
   put(bx + 3, by - 16, '#fff3d8'); put(bx + 2, by - 16, '#ffc46a'); put(bx + 4, by - 16, '#ffc46a');
 }
-export function skate(f, t = f) {
+export function skate(f, t = f, outfit = 'cream') {
   return (put) => {
     const HY = 21;
     skyBands(put, 0, HY);
@@ -112,7 +124,7 @@ export function skate(f, t = f) {
     }
     const pose = mod(t, 16) < 8 ? mod(t, 8) : 0, ox = 6, oy = 14;
     for (let x = ox - 4; x < ox + 13; x++) put(x, oy + 17, '#2a1228');
-    drawSkater(put, ox, oy, pose);
+    drawSkater(put, ox, oy, pose, outfit);
     const sway = mod(Math.floor(t / 4), 4) === 1 ? 1 : 0;
     for (let k = -1; k < 2; k++) { bigPalm(put, mod(k * 102 + 70 - 3 * t, 102) - 14, SH - 4, sway); lampPost(put, mod(k * 102 + 20 - 3 * t, 102) - 14, SH - 4); }
   };
@@ -192,7 +204,9 @@ const CF = {
   rune: ['#1d6050', '#2f9a80', '#4fd0b0', '#9af4dc'], vine: '#25451f',
   gnd: '#06100b', gnd2: '#0a1810', grass: '#12301c', path: ['#1c0e0a', '#28120c', '#34170e', '#401c10'],
   lit: ['#141a0d', '#2a2611', '#463614', '#6a4a1a'], pathLit: ['#2e150c', '#46200f', '#7a3414', '#b04e1c'],
-  mist: '#1e3d33', mist2: '#2c5044',
+  mist: '#4f7a66', mist2: '#6a927c',
+  sky: ['#1a3028', '#213b31', '#2a483b', '#335646', '#3d6552', '#47735e'], fir: '#16302a', trunk: '#08120e', trunkTex: '#0c1914',
+  rimW: ['#24170e', '#4a2612', '#82411a'],
   stone: '#2a221d', stoneLit: '#8a5a38', stoneHi: '#c4844c',
   log: '#26160c', logLit: '#7a4418', logEnd: '#b46c2c',
   cloak: '#18261f', cloak2: '#2c3428', cool: '#2a4a3e', hood: '#040706', rim: '#ee8a3a', rim2: '#9a4a1e', face: '#e8a066', staff: '#2e1c10',
@@ -210,14 +224,45 @@ const FLAME8 = [
   ['...R...', '..RO...', '..OOR..', '..OYO..', '.OYYOR.', 'ROYWYO.', 'OYWWWYO', 'OYWWWYO', 'OYWWWYO'],
 ];
 const FLICK = [1, 0.85, 1, 0.8, 0.95, 1, 0.82, 0.92];
+/** The fire's warm rim on a trunk pixel: three flat bands by distance from the flame, a touch wider when it flares. */
+function rimAt(x, y, I, base) {
+  if (y < 11) return base;
+  const d = Math.hypot(x - 16, (y - 26) * 0.8) / (0.9 + 0.1 * I);
+  return d < 9 ? CF.rimW[2] : d < 13 ? CF.rimW[1] : d < 18 ? CF.rimW[0] : base;
+}
+/** A far fir: a flat cold silhouette in tiers (each tier steps out), a short trunk at the foot. */
+function fir(put, cx, top, base) {
+  for (let y = top; y < base - 2; y++) {
+    const rel = y - top, half = Math.min(3, Math.floor(rel / 5) + Math.floor((rel % 5) / 2));
+    for (let x = cx - half; x <= cx + half; x++) put(x, y, CF.fir);
+  }
+  for (let y = base - 2; y < base; y++) put(cx, y, CF.fir);
+}
+/** A mid trunk: w wide, rimmed by the fire on the side it faces (side 1 = right), branches as 1 px lines, a flared foot. */
+function trunk(put, x0, w, side, I, branches) {
+  for (const b of branches) poly(b, (x, y) => put(x, y, CF.trunk));
+  for (let y = 0; y < 23; y++) for (let x = x0; x < x0 + w; x++) {
+    const edge = side > 0 ? x === x0 + w - 1 : x === x0;
+    put(x, y, edge ? rimAt(x, y, I, CF.trunk) : (y * 3 + x) % 7 === 0 ? CF.trunkTex : CF.trunk);
+  }
+  put(x0 - 1, 21, CF.trunk); put(x0 + w, 21, CF.trunk); put(x0 - 1, 22, CF.trunk); put(x0 + w, 22, CF.trunk);
+}
 export function campfire(f, t = f) {
   return (put) => {
     const FX = 15, FY = 30, I = FLICK[f % 8], hot = I > 0.9, GY = 22;
-    const FOGROW = [0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 6, 6, 6, 5];
-    for (let y = 0; y < GY; y++) for (let x = 0; x < SW; x++) put(x, y, CF.fog[FOGROW[y]]);
-    for (let y = 6; y < GY; y++) for (let x = 14; x < SW; x++) { const d = Math.hypot((x - 26) / 1.8, y - 17); if (d < 5.5) put(x, y, d < 3.5 ? CF.fog[6] : CF.fog[5]); }
-    for (const [x0, w] of [[7, 2], [12, 3], [19, 2], [30, 2]]) for (let y = 0; y < GY; y++) for (let x = x0; x < x0 + w; x++)
-      put(x, y, x === x0 ? CF.farLit : (y + x) % 4 === 0 ? CF.farTex : CF.far);
+    // v6 (his note: "it's a bit hard to tell that it's trees I'm looking at"): the trees are now DARK shapes against a
+    // lighter misty sky band, not pale stripes in dark fog. Three depths, few and bold: far firs (the clearest "tree"
+    // shape there is) in a soft cold green, two mid trunks with branches and a canopy, rimmed on the side facing the
+    // fire, and near-black trunks framing the edges. The fire is still the only warm light.
+    const SKYROW = [0, 0, 1, 1, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5, 5, 5, 4, 4, 4, 3, 3];
+    for (let y = 0; y < GY; y++) for (let x = 0; x < SW; x++) put(x, y, CF.sky[SKYROW[y]]);
+    for (const [cx, top] of [[5, 9], [14, 5], [26, 7]]) fir(put, cx, top, GY);
+    // the mid trees' crowns: two dark rounded clumps hanging into the top of the picture
+    for (const [cx, cy, rx, ry] of [[9, 0, 6, 3.2], [21, -1, 7, 3.6]]) for (let y = 0; y < 6; y++) for (let x = cx - rx; x <= cx + rx; x++) {
+      const d = ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2; if (d <= 1) put(x, y, CF.trunk);
+    }
+    trunk(put, 9, 2, 1, I, [[[9, 9], [6, 6], [5, 6]], [[10, 13], [13, 10]]]);
+    trunk(put, 19, 2, -1, I, [[[20, 8], [23, 5], [24, 5]], [[19, 12], [17, 10]]]);
     const AX = 21, AY = 11;
     const ARCH = ['....aaa....', '..aAAAAaa..', '.aA.....aa.', 'aA.......aa', 'AA.......aa', 'rA.......ar', 'AA.......aa', 'Ar.......aa', 'AA.......ra', 'AA.......aa', 'AAA.....aaa'];
     ARCH.forEach((r, y) => [...r].forEach((c, x) => {
@@ -227,8 +272,6 @@ export function campfire(f, t = f) {
       put(px, py, c === 'A' ? CF.archLit : CF.arch);
     }));
     for (const [x, y] of [[2, 1], [1, 2], [0, 3], [0, 4], [9, 6], [10, 7], [8, 1], [9, 2]]) put(AX + x, AY + y, CF.vine);
-    for (let y = 0; y < GY + 1; y++) { const fl = y >= GY - 1 ? 1 : 0;
-      for (let x = 0; x <= 2 + fl; x++) { let c = x === 0 ? CF.midLit : (x * 3 + y) % 7 === 0 && y > 3 ? CF.midMoss : CF.mid; put(x, y, c); } }
     for (let y = GY; y < SH; y++) for (let x = 0; x < SW; x++) put(x, y, (x * 5 + y * 3) % 11 === 0 ? CF.gnd2 : CF.gnd);
     const pathC = (y) => 26.5 + (y - GY) * 0.35 - Math.sin((y - GY) / 12 * Math.PI) * 2.5, pathW = (y) => 0.8 + (y - GY) * 0.27;
     const onPath = (x, y) => y >= GY && Math.abs(x + 0.5 - pathC(y)) <= pathW(y);
@@ -263,14 +306,17 @@ export function campfire(f, t = f) {
       const sx = FX + 1 + Math.round(Math.sin((t + k * 5 - age) * 1.7 + age * 0.45) * (age / 4)) + (k % 2 ? 1 : -1) * Math.floor(age / 5);
       put(sx, FY - 9 - age, age < 4 ? CF.fY : age < 8 ? CF.fO : CF.fR);
     }
-    for (let y = 0; y < SH; y++) for (let x = 32; x < SW; x++) put(x, y, x === 32 && y > 18 ? CF.nearRim : CF.near);
-    const CANOPY = [4, 3, 3, 2, 2, 3, 2, 1, 1, 1, 2, 2, 1, 0, 1, 1, 2, 1, 1, 0, 0, 1, 1, 2, 2, 1, 1, 0, 1, 2, 3, 4, 5, 5];
+    // the near trunks, framing: near-black, a warm rim only on the side that faces the fire, roots flaring at the foot
+    for (let y = 0; y < SH; y++) { for (let x = 0; x <= 2; x++) put(x, y, x === 2 ? rimAt(2, y, I, CF.near) : CF.near); }
+    for (let y = 0; y < SH; y++) { for (let x = 31; x < SW; x++) put(x, y, x === 31 ? rimAt(31, y, I, CF.near) : CF.near); }
+    for (const [x, y0] of [[3, 30], [4, 32], [30, 30], [29, 32]]) for (let y = y0; y < SH; y++) put(x, y, CF.near);
+    // the canopy overhead: big dark leaf clumps (round lobes, not a ragged line), a few moss strands swaying under them
+    const CANOPY = [4, 4, 3, 2, 1, 1, 0, -1, -1, -1, 0, 0, -1, -1, -1, -1, -1, -1, -1, -1, 0, 1, 1, 0, -1, -1, -1, 0, 1, 2, 3, 4, 5, 5];
     CANOPY.forEach((d, x) => { for (let y = 0; y <= d; y++) put(x, y, CF.near); });
-    for (const [x, len, ph] of [[2, 5, 0], [9, 4, 2], [16, 6, 4], [24, 3, 6], [29, 5, 3]]) {
+    for (const [x, len, ph] of [[4, 4, 0], [22, 3, 6], [28, 4, 3]]) {
       const sway = [0, 0, 1, 1, 1, 0, 0, -1][mod(Math.floor(t / 3) + ph, 8)];
       for (let y = 1; y <= len; y++) put(x + (y > len - 2 ? sway : 0), CANOPY[x] + y, y === len ? CF.mossHi : CF.moss);
     }
-    for (const [x0, col] of [[0, [32, 31, 32, 33]], [29, [33, 32, 31, 30, 31]]]) col.forEach((y0, i) => { for (let y = y0; y < SH; y++) put(x0 + i, y, CF.near); });
     for (let k = 0; k < 6; k++) {
       const bx = [10, 18, 27, 5, 29, 21][k], by = [9, 6, 8, 14, 20, 24][k], p = [64, 48, 56, 40, 72, 52][k];
       const a = (t + k * 11) / p * TAU, x = Math.round(bx + Math.sin(a) * 2.5), y = Math.round(by + Math.sin(a * 2 + k) * 1.4);
