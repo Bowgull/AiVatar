@@ -21,6 +21,9 @@ const ICONS = {
   quota: ['OOOOOOOOOOO', '.O.......O.', '..OAAAAAO..', '...OAAAO...', '....OAO....', '.....O.....', '....O.O....', '...O.A.O...', '..O.AAA.O..', '.OAAAAAAAO.', 'OOOOOOOOOOO'],
   quit: ['OO.......OO', 'OOO.....OOO', '.OOO...OOO.', '..OOO.OOO..', '...OOOOO...', '....OOO....', '...OOOOO...', '..OOO.OOO..', '.OOO...OOO.', 'OOO.....OOO', 'OO.......OO'],
   claude: ['.....O.....', '.O...O...O.', '..O..O..O..', '...O.O.O...', '....OOO....', 'OOOOOOOOOOO', '....OOO....', '...O.O.O...', '..O..O..O..', '.O...O...O.', '.....O.....'],
+  // Sheet 61 v2 (2026-10-22): the Hotkeys row's keyboard, and the "taken" warning (the sheet's own pixels)
+  keys: ['...........', 'OOOOOOOOOOO', 'O.........O', 'O.O.O.O.O.O', 'O.........O', 'O.OO.O.O.OO', 'O.........O', 'O..OOOOO..O', 'O.........O', 'OOOOOOOOOOO', '...........'],
+  warn: ['....OO....', '...OOOO...', '...O..O...', '..OO..OO..', '..O....O..', '.OO.OO.OO.', '.O..OO..O.', 'OO......OO', 'O...OO...O', 'OOOOOOOOOO', '..........'],
   tick: ['...........', '...........', '..........O', '.........OO', 'O.......OO.', 'OO.....OO..', '.OO...OO...', '..OO.OO....', '...OOO.....', '....O......', '...........'],
 };
 const N = 11;
@@ -66,6 +69,8 @@ function mainRows(s) {
     '-',
     { sub: 'model', ic: 'model', t: 'Model', tag: MODEL_TAG[s.model] ?? 'AUTO' },
     { id: 'saving', ic: 'quota', t: 'Save quota', tick: !!s.saving },
+    // Sheet 61 v2 (2026-10-22): every key he can press, to see and change (the count is all of them, fixed ones too)
+    ...(Array.isArray(s.hotkeys) ? [{ sub: 'hotkeys', ic: 'keys', t: 'Hotkeys', tag: `${s.hotkeys.length} KEYS` }] : []),
     '-',
     { id: 'quit', ic: 'quit', t: 'Quit Aang', danger: true },
   ];
@@ -190,19 +195,223 @@ function openSub(which, parent) {
   clearTimeout(subTimer);
   if (subOf === which && sub && !sub.hidden) return;
   closeSub(false);
-  sub = menu(subRows(which, state), true);
+  sub = which === 'hotkeys' ? keysMenu() : menu(subRows(which, state), true);
   sub.id = 'sub'; sub.dataset.of = which;
   document.body.append(sub);
   subOf = which;
   parent.classList.add('on');
   placeSub(parent);
+  if (which === 'hotkeys') keysRoom();
   reportShape();
 }
 function closeSub(report = true) {
   clearTimeout(subTimer);
+  keysIdle();
   sub?.remove(); sub = null; subOf = '';
   main?.querySelectorAll('button.on').forEach((b) => b.classList.remove('on'));
   if (report && main) reportShape();
+}
+
+// ---------------------------------------------------------------- Hotkeys (sheet 61 v2, 2026-10-22)
+// His note: "just a click might happen by accident, have it on hold click". A row changes only when he presses and
+// HOLDS it for 0.6 s (a gold fill sweeps the row, a pixel ring fills); letting go early changes nothing, and a plain
+// click never does anything. Then the row listens: the new keys pressed together and let go, or Esc to keep the old
+// ones. The main process says whether they are kept, or refused (another program has them, another of Aang's keys
+// does, or they are not allowed), and then the old key stays.
+const HOLD_MS = 600;
+/** What the Hotkeys submenu is doing: rest, a row being held, a row listening, or a row refused. */
+let kState = { mode: 'rest', id: '', t0: 0, raf: 0, combo: '' };
+/** The hold's end, on a timer of its own: the fill is drawn per frame, but frames can stall; the 0.6 s must not. */
+let holdTimer = 0;
+const T = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
+
+/** The hold ring: 11 x 11 art pixels, gold filling clockwise from the top up to `k` (the sheet's own ring). */
+function ring(k) {
+  const dpr = window.devicePixelRatio || 1, px = Math.max(1, Math.round(P * dpr));
+  const c = document.createElement('canvas'); c.width = 11 * px; c.height = 11 * px;
+  const g = c.getContext('2d');
+  for (let y = 0; y < 11; y++) for (let x = 0; x < 11; x++) {
+    const dx = x + 0.5 - 5.5, dy = y + 0.5 - 5.5, d = Math.hypot(dx, dy);
+    if (d > 5.4) continue;
+    let col;
+    if (d > 4.4) col = '#120a05';
+    else if (d < 2.4) col = d > 1.4 ? '#120a05' : '#3a2516';
+    else { const a = (Math.atan2(dx, -dy) + Math.PI * 2) % (Math.PI * 2) / (Math.PI * 2); col = a <= k ? (y < 5 ? '#ffe096' : '#ffc43c') : '#4a3420'; }
+    g.fillStyle = col; g.fillRect(x * px, y * px, px, px);
+  }
+  c.className = 'ring'; c.style.width = (c.width / dpr) + 'px'; c.style.height = (c.height / dpr) + 'px';
+  c.setAttribute('aria-hidden', 'true');
+  return c;
+}
+function keycaps(list) {
+  const i = T('i', 'kk');
+  (Array.isArray(list) ? list : []).forEach((k, n) => { if (n) i.append(T('span', 'kp', '+')); i.append(T('span', 'kc', String(k))); });
+  return i;
+}
+function keyRow(r) {
+  const b = T('button'); b.type = 'button'; b.setAttribute('role', 'menuitem');
+  if (r.fixed) b.classList.add('fixed'); else b.dataset.hk = String(r.id);
+  const lab = T('span', 'lab', String(r.label)); if (r.fresh) lab.append(T('small', '', 'NEW'));
+  const right = T('span', 'kr');
+  if (!r.fixed) right.append(T('span', 'hint', 'HOLD TO CHANGE'));
+  right.append(keycaps(r.chips));
+  b.append(lab, right);
+  return b;
+}
+function keysMenu() {
+  const m = document.createElement('div'); m.setAttribute('role', 'menu'); m.className = 'tabmenu submenu keys';
+  const rows = Array.isArray(state.hotkeys) ? state.hotkeys.filter((x) => x && typeof x === 'object') : [];
+  m.append(T('div', 'mhead', 'ANY TIME'));
+  for (const r of rows.filter((x) => x.group === 'any')) m.append(keyRow(r));
+  m.append(T('div', 'sep'), T('div', 'mhead', 'ONLY WHILE SOMETHING IS UP'));
+  for (const r of rows.filter((x) => x.group !== 'any')) m.append(keyRow(r));
+  m.append(T('div', 'sep'));
+  // putting them all back changes things too, so it is held as well
+  const reset = T('button'); reset.type = 'button'; reset.dataset.hk = 'reset'; reset.setAttribute('role', 'menuitem');
+  const rr = T('span', 'kr'); rr.append(T('span', 'hint', 'HOLD'));
+  reset.append(T('span', 'lab', 'Put them all back to the defaults'), rr);
+  m.append(reset);
+  m.append(T('div', 'note', 'Press and hold a row to change it, so a stray click never does. The + keys work on the number pad too. Ctrl+C and Esc only listen while his bubble is up, so they are fixed.'));
+  // it grows and shrinks (the hold's line, the warning, the glove's nudge): kept on the screen, and the window's shape with it
+  const ro = new ResizeObserver(() => { if (sub === m) relayout(); else ro.disconnect(); });
+  ro.observe(m);
+  return m;
+}
+const rowOf = (id) => sub?.querySelector(`[data-hk="${id}"]`);
+const keyOf = (id) => (Array.isArray(state.hotkeys) ? state.hotkeys : []).find((r) => r && r.id === id);
+/** The line under a row (the hold's, the listen's, or the warning), one at a time. */
+function sayUnder(b, el) { sub?.querySelectorAll('.say').forEach((x) => x.remove()); if (b && el) { el.classList.add('say'); b.after(el); } }
+/**
+ * The Hotkeys list grows a line under a row (the hold's, the listen's, the warning). It is placed once with room for
+ * that line (keysRoom) and then never moves while he holds a row: a list jumping under his finger would slide the row
+ * out from under it and cancel the hold. Only if it would still run off the screen is it lifted, never dropped.
+ */
+const KEYS_ROOM = 80;
+function keysRoom() {
+  if (!sub) return;
+  const r = sub.getBoundingClientRect(), over = r.bottom - (innerHeight - EDGE - KEYS_ROOM);
+  if (over > 0) sub.style.top = Math.max(EDGE, Math.floor((r.top - over) / P) * P) + 'px';
+}
+function relayout() {
+  if (sub && subOf === 'hotkeys') {
+    const r = sub.getBoundingClientRect(), over = r.bottom - (innerHeight - EDGE);
+    if (over > 0) sub.style.top = Math.max(EDGE, Math.floor((r.top - over) / P) * P) + 'px';
+  }
+  reportShape();
+}
+
+/** Back to rest: no fill, nothing listening, our keys held again. */
+function keysIdle() {
+  cancelAnimationFrame(kState.raf); clearTimeout(holdTimer);
+  if (kState.mode === 'listen') window.aang?.menuHotkey?.({ kind: 'listen', on: false });
+  kState = { mode: 'rest', id: '', t0: 0, raf: 0, combo: '' };
+}
+function redrawKeys() {
+  if (!sub || subOf !== 'hotkeys') return;
+  const fresh = keysMenu(); fresh.id = 'sub'; fresh.dataset.of = 'hotkeys';
+  fresh.style.left = sub.style.left; fresh.style.top = sub.style.top; fresh.style.width = sub.style.width;
+  sub.replaceWith(fresh); sub = fresh;
+  relayout();
+}
+
+function holdStart(b) {
+  const id = b.dataset.hk;
+  // from rest the row is used as it is (the glove stays on it); after a listen or a warning, the list is drawn afresh
+  const dirty = kState.mode !== 'rest';
+  keysIdle(); if (dirty) redrawKeys();
+  const row = rowOf(id); if (!row) return;
+  kState = { mode: 'hold', id, t0: performance.now(), raf: 0, combo: '' };
+  row.classList.add('holding');
+  row.style.setProperty('--k', '0%');
+  const right = row.querySelector('.kr'); right.querySelector('.hint')?.remove();
+  let rg = ring(0); right.prepend(rg);
+  sayUnder(row, T('div', 'note gold', id === 'reset'
+    ? 'Keep holding: the gold fills the row in 0.6 s, then every key goes back to how it came.'
+    : 'Keep holding: the gold fills the row in 0.6 s, then it listens. Let go early and nothing changes.'));
+  relayout();
+  const step = () => {
+    if (kState.mode !== 'hold' || kState.id !== id) return;
+    const k = Math.min(1, (performance.now() - kState.t0) / HOLD_MS);
+    row.style.setProperty('--k', (k * 100).toFixed(1) + '%');
+    const n = ring(k); rg.replaceWith(n); rg = n;
+    if (k < 1) kState.raf = requestAnimationFrame(step);
+  };
+  kState.raf = requestAnimationFrame(step);
+  holdTimer = setTimeout(() => held(id), HOLD_MS);
+}
+/** Let go (or slid off) before the fill reached the end: nothing changes. */
+function holdCancel() {
+  if (kState.mode !== 'hold') return;
+  keysIdle(); redrawKeys();
+}
+function held(id) {
+  if (kState.mode !== 'hold' || kState.id !== id) return;
+  if (id === 'reset') { keysIdle(); window.aang?.menuHotkey?.({ kind: 'reset' }); return; }
+  listen(id);
+}
+function listen(id) {
+  keysIdle();
+  const was = keyOf(id); if (!was) return;
+  redrawKeys();
+  const row = rowOf(id); if (!row) return;
+  kState = { mode: 'listen', id, t0: 0, raf: 0, combo: '' };
+  // our keys are let go while he presses, so his new keys reach this menu instead of firing
+  window.aang?.menuHotkey?.({ kind: 'listen', on: true });
+  row.classList.add('listen');
+  const right = row.querySelector('.kr'); right.replaceChildren();
+  const w = T('span', 'wait', 'PRESS THE NEW KEYS'); w.append(T('b')); right.append(w);
+  sayUnder(row, T('div', 'note gold', `Now press the new keys together, then let go. Esc keeps ${was.words}.`));
+  relayout();
+}
+/** What the keyboard pressed, as an Electron accelerator; the main process checks it again (hotkeys.ts). */
+const CODE = { Equal: '=', Minus: '-', BracketLeft: '[', BracketRight: ']', Semicolon: ';', Quote: "'", Comma: ',', Period: '.', Slash: '/', Backslash: '\\',
+  Backquote: '`', Space: 'Space', Insert: 'Insert', Delete: 'Delete', Home: 'Home', End: 'End', PageUp: 'PageUp', PageDown: 'PageDown',
+  ArrowUp: 'Up', ArrowDown: 'Down', ArrowLeft: 'Left', ArrowRight: 'Right', NumpadAdd: 'numadd', NumpadSubtract: 'numsub', NumpadMultiply: 'nummult',
+  NumpadDivide: 'numdiv', NumpadDecimal: 'numdec', Escape: 'Escape', Tab: 'Tab', Enter: 'Enter', Backspace: 'Backspace' };
+function accel(e) {
+  const c = e.code;
+  const key = /^Key[A-Z]$/.test(c) ? c.slice(3) : /^Digit\d$/.test(c) ? c.slice(5) : /^Numpad\d$/.test(c) ? 'num' + c.slice(6) : /^F\d{1,2}$/.test(c) ? c : CODE[c];
+  if (!key) return '';
+  return [e.ctrlKey && 'Control', e.altKey && 'Alt', e.shiftKey && 'Shift', e.metaKey && 'Super', key].filter(Boolean).join('+');
+}
+const MOD_CODES = /^(Control|Shift|Alt|Meta|OS)(Left|Right)?$/;
+function listenKey(e) {
+  e.preventDefault(); e.stopImmediatePropagation();   // never the menu's own Esc, which would close it
+  if (e.type === 'keydown') {
+    if (e.code === 'Escape' && !e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey) { keysIdle(); redrawKeys(); return; }
+    if (MOD_CODES.test(e.code) || e.repeat) return;
+    kState.combo = accel(e) || '?';
+    return;
+  }
+  // keyup: the first let-go after a real key is his choice
+  if (!kState.combo) return;
+  const id = kState.id, acc = kState.combo;
+  kState.combo = '';
+  window.aang?.menuHotkey?.({ kind: 'change', id, acc: acc === '?' ? '' : acc });
+}
+/** The main process said how it went. Kept: the row shows the new keys. Refused: the old key stays, and why is said. */
+function keysResult(m) {
+  if (Array.isArray(m.list)) state = { ...state, hotkeys: m.list };
+  const r = m.result && typeof m.result === 'object' ? m.result : { ok: false, why: 'bad', say: 'That is not a key.' };
+  const id = typeof m.id === 'string' ? m.id : '';
+  keysIdle(); redrawKeys();
+  if (r.ok) return;
+  const row = rowOf(id), was = keyOf(id); if (!row || !was) return;
+  kState = { mode: 'taken', id, t0: 0, raf: 0, combo: '' };
+  row.classList.add('taken');
+  if (m.tried?.chips) row.querySelector('.kr').replaceChildren(keycaps(m.tried.chips));
+  const wn = T('div', 'warn'); wn.append(icon('warn', { O: '#ff9a8a' }));
+  const tx = T('span');
+  const b = (t) => T('b', '', String(t));
+  if (r.why === 'taken') tx.append('Another program already has ', b(m.tried?.words ?? 'those keys'), ', so it would never reach Aang. ');
+  else if (r.why === 'ours') tx.append(b(m.tried?.words ?? 'Those keys'), ' already belong to ', b(r.by ?? 'another key'), '. ');
+  else tx.append(String(r.say ?? 'That is not a key Aang can hold.'), ' ');
+  const again = T('u', '', 'Try other keys'); again.dataset.do = 'again';
+  const keep = T('u', '', `keep ${was.words}`); keep.dataset.do = 'keep';
+  tx.append(again, ' or ', keep, '.');
+  wn.append(tx);
+  sayUnder(row, wn);
+  relayout();
 }
 
 function pick(id) {
@@ -237,20 +446,42 @@ document.addEventListener('mouseover', (e) => {
     else if (sub) subTimer = setTimeout(() => closeSub(), 260);
   } else if (sub?.contains(b)) clearTimeout(subTimer);
 });
+// Sheet 61 v2 (2026-10-22): a Hotkeys row is pressed and HELD to change it; let go early, or slide off it, and nothing does.
+document.addEventListener('pointerdown', (e) => {
+  if (e.button !== 0) return;
+  const b = e.target.closest?.('#sub button[data-hk]');
+  if (b && kState.mode !== 'listen') holdStart(b);
+});
+document.addEventListener('pointerup', () => holdCancel());
+document.addEventListener('pointercancel', () => holdCancel());
+document.addEventListener('pointerout', (e) => {
+  if (kState.mode !== 'hold') return;
+  const sel = `[data-hk="${kState.id}"]`;
+  if (e.target.closest?.(sel) && !e.relatedTarget?.closest?.(sel)) holdCancel();
+});
+window.addEventListener('blur', () => holdCancel());
+document.addEventListener('keydown', (e) => { if (kState.mode === 'listen') listenKey(e); }, true);
+document.addEventListener('keyup', (e) => { if (kState.mode === 'listen') listenKey(e); }, true);
 document.addEventListener('click', (e) => {
+  const u = e.target.closest?.('.warn u[data-do]');
+  if (u) { const id = kState.id; if (u.dataset.do === 'again') listen(id); else { keysIdle(); redrawKeys(); } return; }
   const b = e.target.closest?.('button');
-  if (!b || b.disabled) return;
+  // a Hotkeys row never acts on a click: only a hold changes it
+  if (!b || b.disabled || b.dataset.hk || b.classList.contains('fixed')) return;
   if (b.dataset.sub) { openSub(b.dataset.sub, b); return; }
   if (b.dataset.id) pick(b.dataset.id);
 });
 // A press anywhere that is not a menu (the shadow's edge) is a click away.
-document.addEventListener('mousedown', (e) => { if (!e.target.closest?.('.tabmenu')) pick(''); });
+// Sheet 61 v2 (2026-10-22): not when a hold has just begun: starting it can redraw the list under his finger, and the
+// browser then hands this press to the page itself, which is not "away".
+document.addEventListener('mousedown', (e) => { if (!e.target.closest?.('.tabmenu') && kState.mode !== 'hold') pick(''); });
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') { e.preventDefault(); if (sub) closeSub(); else pick(''); }
 });
 document.addEventListener('contextmenu', (e) => e.preventDefault());
 
 window.aang?.onMenu?.((m) => {
-  if (m?.kind === 'show') show(m);
-  else if (m?.kind === 'hide') { open = false; clearTimeout(subTimer); }
+  if (m?.kind === 'show') { keysIdle(); show(m); }
+  else if (m?.kind === 'hide') { keysIdle(); open = false; clearTimeout(subTimer); }
+  else if (m?.kind === 'hotkeys') keysResult(m);
 });

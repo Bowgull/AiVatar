@@ -47,7 +47,8 @@ import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown, wrongSettings } from '
 import { snapshotOnce } from './snapshot.ts';
 import { servePages, type PageServer } from './pageserver.ts';
 import { Popout, popoutFile } from './popout.ts';
-import { holdHotkey, type Hotkey } from './hotkey.ts';
+import type { Hotkey } from './hotkey.ts';
+import { HotkeyKeeper } from './hotkeys.ts';
 import { DrmRuntime } from './drmrunner.ts';
 import { notReadyBecause, serviceFor } from './services.ts';
 import { readSettings, writeSettings, type PopoutSettings } from './settings.ts';
@@ -178,8 +179,21 @@ let gameQuiet = false;
 let escHeld = false;
 /** Ctrl+C is held only while the mouse is on a showing bubble: it copies the reply (his call, 2026-10-12). */
 let copyHeld = false;
-/** Ctrl+Alt+P pins (was Ctrl+Shift+P: another program on this PC catches that one before Aang sees it, 2026-10-12) and unpins the popout; held only while the popout is up, so other programs keep it otherwise. */
-let pinHeld = false;
+/**
+ * Ctrl+Alt+P pins (was Ctrl+Shift+P: another program on this PC catches that one before Aang sees it, 2026-10-12) and
+ * unpins the popout; held only while the popout is up, so other programs keep it otherwise.
+ * Sheet 61 v2 (2026-10-22): every key he can change from Aang's right-click menu (Hotkeys), held here, live: a change
+ * there is held at once, no restart. Talk, Snip and Quick note only while Aang runs; the pop-out's always; the pin only
+ * while something is up.
+ */
+const hotkeys = new HotkeyKeeper(STATE_DIR, globalShortcut, {
+  talk: () => onHotkey(),
+  snip: () => { void snipper?.start(); },
+  popout: () => popout?.toggleHidden(),
+  // His interview (2026-10-22): Ctrl + number pad *, a new blank note, ready to type (the board's own + NEW).
+  note: () => bubble?.send('brain:message', { t: 'notes.board', fresh: true }),
+  pin: () => { const p = screen.getCursorScreenPoint(); if (timerWins?.togglePinAt(p) || noteWins?.togglePinAt(p)) return; popout?.togglePin(); },
+});
 
 let busySent = '';
 /**
@@ -209,10 +223,7 @@ function watchBusyOnce(): void {
   else if (!overBubble && copyHeld) { globalShortcut.unregister('Control+C'); copyHeld = false; }
   // Ctrl+Alt+P pins or unpins whatever is under the mouse: a timer if one is there, otherwise the pop-out (sheet 17).
   const popUp = Boolean(popout?.window?.isVisible()) || Boolean(timerWins?.any) || Boolean(noteWins?.any);
-  if (popUp && !pinHeld) {
-    pinHeld = globalShortcut.register('Control+Alt+P', () => { const p = screen.getCursorScreenPoint(); if (timerWins?.togglePinAt(p) || noteWins?.togglePinAt(p)) return; popout?.togglePin(); });
-  }
-  else if (!popUp && pinHeld) { globalShortcut.unregister('Control+Alt+P'); pinHeld = false; }
+  hotkeys.want('pin', popUp);
   if (snipper?.open) { escHeld = false; return; }
   // Not while the typing box is up: a global Esc would beat the box to it, and the box's own Esc closes the
   // cockpit (or stops Aang) itself.
@@ -741,6 +752,7 @@ app.whenReady().then(async () => {
       aangMenu = new AangMenu({
         origin: pages.origin, preloadPath: path.join(HERE, 'preload.cjs'), iconPath: AANG_ICON,
         pick: (id) => { if (id === 'back') bubble?.send('bubble:recall', 'back'); else link?.send({ t: 'menu.pick', id }); },
+        keys: hotkeys,
       });
       aangMenu.warm();
       // Sheet 17: each note he pulled out onto his screen is its own window.
@@ -912,8 +924,9 @@ app.whenReady().then(async () => {
       });
     }
 
-    hotkey = holdHotkey(STATE_DIR, () => popout?.toggleHidden());
-    if (hotkey.active) console.log(`shell: ${hotkey.active} hides and shows the pop-out`);
+    hotkeys.want('popout', true);
+    hotkey = { active: hotkeys.keys.popout, release: () => hotkeys.want('popout', false) };
+    console.log(`shell: ${hotkey.active} hides and shows the pop-out`);
   } catch (e) {
     console.error('shell: the page server would not start, so the pop-out is unavailable: ' + (e as Error).message);
   }
@@ -1171,6 +1184,7 @@ app.whenReady().then(async () => {
   ipcMain.on('note:delete', (e) => { const v = noteWins?.of(e.sender); if (v) link?.send({ t: 'notes.delete', id: v.id }); });
   ipcMain.on('menu:pick', (e, id) => { if (aangMenu?.owns(e.sender)) aangMenu.picked(e.sender, id); });
   ipcMain.on('menu:shape', (e, rects) => { if (aangMenu?.owns(e.sender)) aangMenu.shape(e.sender, rects); });
+  ipcMain.on('menu:hotkey', (e, m) => { if (aangMenu?.owns(e.sender)) aangMenu.hotkey(e.sender, m); });
   ipcMain.on('wheel:pick', (e, slot) => { if (wheel?.owns(e.sender)) wheel.picked(e.sender, typeof slot === 'string' ? slot.slice(0, 12) : ''); });
   ipcMain.on('timer:clickable', (e, on) => { if (timerWins?.owns(e.sender)) timerWins.clickable(e.sender, on === true); });
   ipcMain.on('timer:opacity', (e, n) => { if (timerWins?.owns(e.sender)) timerWins.opacity(e.sender, Number(n)); });
@@ -1525,16 +1539,12 @@ app.on('window-all-closed', () => { /* deliberately nothing */ });
 
 /** Ctrl+Plus, the typing box: Aang's, so only while he is running. */
 function takeAangKeys(): void {
-  // '=' is the key with + on it (VK_OEM_PLUS), which is what the pet registered; numadd is the keypad.
-  for (const key of ['Control+=', 'Control+numadd']) {
-    if (globalShortcut.isRegistered(key)) continue;
-    if (!globalShortcut.register(key, onHotkey)) console.error(`shell: could not take ${key}; another program has it`);
-  }
-  // 6.17: Snipit, on Ctrl+Shift+Plus (his key).
-  if (snipper) for (const key of ['Control+Shift+=', 'Control+Shift+numadd']) {
-    if (globalShortcut.isRegistered(key)) continue;
-    if (!globalShortcut.register(key, () => { void snipper?.start(); })) console.error(`shell: could not take ${key} for Snipit; another program has it`);
-  }
+  // '=' is the key with + on it (VK_OEM_PLUS), which is what the pet registered; numadd is the keypad (hotkeys.ts twins).
+  // 6.17: Snipit, on Ctrl+Shift+Plus (his key). Sheet 61 v2 (2026-10-22): Quick note, Ctrl + number pad *. All three
+  // are his to change from Aang's menu.
+  hotkeys.want('talk', true);
+  hotkeys.want('note', true);
+  if (snipper) hotkeys.want('snip', true);
   console.log('shell: the new typing box is on; Ctrl+Plus belongs to the Shell');
 }
 /** Samara or the pop-out is open: what keeps this process going when Aang is off. */
@@ -1587,7 +1597,7 @@ setInterval(() => {
     if (up) { if (!first) { console.log('shell: Aang is back'); freshen(); if (input) takeAangKeys(); } }
     else if (!first) {
       console.log('shell: Aang closed; Samara stays');
-      for (const key of ['Control+=', 'Control+numadd', 'Control+Shift+=', 'Control+Shift+numadd']) globalShortcut.unregister(key);
+      for (const k of ['talk', 'snip', 'note'] as const) hotkeys.want(k, false);
       // The brain went down a moment before the pet did: cancel the bubble's "waiting for my brain", silently.
       try { bubble?.send('brain:connected', true); bubble?.hide(); input?.close(false); noteWins?.sync([]); timerWins?.sync([]); jobPops?.closeAll(); } catch { /* gone */ }
       for (const [kind, w] of windows) if (kind !== 'popout' && !w.isDestroyed() && w.isVisible()) w.hide();
