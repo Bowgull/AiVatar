@@ -321,9 +321,9 @@ const GROUPS = [
     ['autostart', 'Start with Windows', 'He is there when Shadow starts']]],
   ['The browser', [
     ['browserSounds', 'Little wood sounds', 'A soft tap when a tab opens or closes, and when a download finishes']]],
-  // C5 (2026-10-21): the wooden chimes he picked (sounds-45b), a mute and a volume, both kept by the pet.
+  // C5 (2026-10-21): the wooden chimes, a mute and a volume, both kept by the pet. Four sounds since 2026-10-22.
   ['Sounds', [
-    ['chimes', 'Wooden chimes', 'A soft chime when Claude needs you, asks something, has a plan ready, finishes a step or the whole job']]],
+    ['chimes', 'Wooden chimes', 'A soft chime when Claude needs you, when a job is done or has failed. The timer always knocks']]],
 ];
 function settings() {
   body.append(h('h3', 't-display', 'Settings'));

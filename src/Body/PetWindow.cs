@@ -82,7 +82,7 @@ sealed class PetWindow : Form
     string? claudeFlash;
     DateTime claudeFlashUntil = DateTime.MinValue;
     DateTime chimeAt = DateTime.MinValue;       // the last chime, so the old needs-you sound does not ring on top of it
-    DateTime sfxAt = DateTime.MinValue;         // the last needs-you / done sound, for the same reason the other way
+    DateTime sfxAt = DateTime.MinValue;         // the last glow's sound (needs-you / done / timer), for the same reason the other way
     /// <summary>What is over his head right now from Claude's work, or null: a moment first, then the steady mark,
     /// then the older working signal (sessions Aang launched, the MacBook) when an older brain sends no mark.</summary>
     string? ClaudeMarkNow =>
@@ -739,7 +739,7 @@ sealed class PetWindow : Form
                 // C5 (2026-10-21): the chimes' volume. One chime at the new level, so he hears what he picked.
                 case "settings.volume":
                     cfg.ChimeVolume = Math.Clamp((int)Math.Round(Num(m, "volume")), 0, 100); cfg.Save();
-                    if (cfg.ChimesOn) Chimes.Play("plan-ready", cfg.ChimeVolume);
+                    if (cfg.ChimesOn) Chimes.Play("needs-you", cfg.ChimeVolume);
                     SendSettings();
                     break;
                 case "claude.mark":
@@ -1033,13 +1033,13 @@ sealed class PetWindow : Form
             anim.Play("look");
             return true;
         }
-        // Sheet 17: a timer he set has run out. His needs-you sound, the Avatar State glow and the quest mark
+        // Sheet 17: a timer he set has run out. The timer's wood knocks, the Avatar State glow and the quest mark
         // over his head, at the desk AND in a game: a timer that goes off silently is not a timer, and the
         // sound is the whole point of setting one. The card with Got it / 5 more waits while he is in a game
         // (the Shell holds it), so nothing covers his screen mid-fight. Muting still silences it (TriggerGlow).
         if (kind == "timer.done")
         {
-            TriggerUrgent();
+            TriggerGlow(Theme.AvatarGlow, "timer");   // the three wood knocks (sheet 67), not needs-you
             return true;
         }
         if (kind == "bubble.dots" && peeking && working) Reveal(greet: false);
@@ -2175,28 +2175,17 @@ sealed class PetWindow : Form
     // Working is a state to SHOW, not an interruption: the glow and the icon say it without him moving.
     Point PeekPos() => Docking.PeekWindow(dock, dockFrac, DockArea(), art, Extra, scale, urgent || ambientGlow ? Docking.PeekMorePx : Docking.PeekPx);
 
-    /// <summary>Real SFX he picked live, 2026-09-22 (see assets/aang/sfx/CREDITS.txt for source and licence),
-    /// auditioned through a proper picker after System sound and a hand-synthesised square wave both turned out
-    /// to be exactly the "boring, generic" he was trying to get away from.</summary>
-    static readonly System.Media.SoundPlayer SfxNeedsYou = LoadSfx("needs-you.wav");
-    static readonly System.Media.SoundPlayer SfxDone = LoadSfx("done.wav");
-    static System.Media.SoundPlayer LoadSfx(string file)
-    {
-        var p = new System.Media.SoundPlayer();
-        try { p.SoundLocation = Path.Combine(AppContext.BaseDirectory, "assets", "aang", "sfx", file); p.LoadAsync(); }
-        catch (Exception e) { Log.Write("sfx load failed: " + e.Message); }
-        return p;
-    }
-
+    /// <summary>2026-10-22 (his yes): Aang has four sounds, all in Chimes (ClaudeMarks.cs) at his volume. The old loud
+    /// needs-you.wav / done.wav (OpenGameArt, 2026-09-22) are retired: the glow below plays the wooden ones.</summary>
     /// <summary>Avatar State: something truly blocking. Docked, he peeks a little further out and glows; standing,
     /// a brief wave is all - never a full pop-out, that is what "hidden" and "asked" already cover.</summary>
-    void TriggerUrgent() => TriggerGlow(Theme.AvatarGlow, SfxNeedsYou);
+    void TriggerUrgent() => TriggerGlow(Theme.AvatarGlow, "needs-you");
 
     /// <summary>A job he started finished on its own - its own quieter tier (2026-09-22, "aang needs to tell me
     /// its done", after ChatGPT's pet on a finished background task): the same motion as urgent, Claude's
     /// terracotta instead of Avatar State's white-blue, and its own quieter sound - he chose a distinct one
     /// (2026-09-22) rather than leaving it silent, precisely so it never gets mistaken for needs-you by ear.</summary>
-    void TriggerDone() => TriggerGlow(ClaudeMarks.ColorOf("complete"), SfxDone);   // the job-complete colour (his teal, sheet 50), same as the mark (2026-10-21)
+    void TriggerDone() => TriggerGlow(ClaudeMarks.ColorOf("complete"), "done");   // the job-complete colour (his teal, sheet 50), same as the mark (2026-10-21)
 
     /// <summary>Keep what he has not seen yet, unless something more pressing is already waiting: a finished job
     /// never covers up one that is stuck on him. False when it was not kept.</summary>
@@ -2295,7 +2284,7 @@ sealed class PetWindow : Form
     /// <summary>
     /// C5 (2026-10-21): the brain's `claude.mark`. Draws the new mark (the same pop-in as every other) and plays its
     /// wooden chime. The chime follows his existing rules: master mute silences it, the Settings switch and slider
-    /// set it, and in a game only what matters gets one (blocking, the whole job, failed), never a step's tick.
+    /// set it. Only his four sounds exist (2026-10-22): a step's tick is silent everywhere.
     /// </summary>
     void OnClaudeMark(JsonElement m)
     {
@@ -2319,7 +2308,7 @@ sealed class PetWindow : Form
             if (ClaudeMarkNow is string glowing && ClaudeMarks.Glows(glowing) && !badge) AuraBurst(ClaudeMarks.ColorOf(glowing));
         }
         var sound = Str(m, "sound");
-        if (sound != null && cfg.ChimesOn && !cfg.Muted && !hiddenByUser && !(quiet && sound == "step")
+        if (sound != null && Chimes.Resolve(sound) != null && cfg.ChimesOn && !cfg.Muted && !hiddenByUser
             && (DateTime.UtcNow - sfxAt).TotalMilliseconds > 2500)
         {
             Chimes.Play(sound, cfg.ChimeVolume);
@@ -2346,15 +2335,17 @@ sealed class PetWindow : Form
     int claudeBursts;
     DateTime nextClaudeBurstAt = DateTime.MaxValue;
 
-    void TriggerGlow(Color color, System.Media.SoundPlayer sound)
+    /// <summary>The flare, wave and held badge, with one of his four sounds. Mute silences it; the sounds switch too,
+    /// except for the timer, which is the whole point of setting one (sheet 17).</summary>
+    void TriggerGlow(Color color, string sound)
     {
         urgent = true; ambientGlow = false; urgentColor = color; burstStart = DateTime.UtcNow;
         urgentUntil = burstStart.AddSeconds(UrgentGlowFor.TotalSeconds); badge = true;
         burstsFired++;
         nextBurstAt = burstsFired < BurstBackoff.Length ? DateTime.UtcNow.Add(BurstBackoff[burstsFired]) : DateTime.MaxValue;
         // C5 (2026-10-21): the older hook news for the same Claude moment can land a second after its chime; one sound is enough.
-        if (!cfg.Muted && (DateTime.UtcNow - chimeAt).TotalMilliseconds > 2500)
-        { try { sound.Play(); sfxAt = DateTime.UtcNow; } catch (Exception e) { Log.Write("sfx play failed: " + e.Message); } }
+        if (!cfg.Muted && (cfg.ChimesOn || sound == "timer") && (DateTime.UtcNow - chimeAt).TotalMilliseconds > 2500)
+        { Chimes.Play(sound, cfg.ChimeVolume); sfxAt = DateTime.UtcNow; }
         if (dock != DockEdge.None && peeking) { if (slideStart == DateTime.MinValue) SlideTo(PeekPos()); }
         else if (anim.State is "idle" or "think") { anim.Play("hello"); Wake(); }
         dirty = true;
@@ -2661,7 +2652,7 @@ sealed class PetWindow : Form
         }
         // A few real, abrupt bursts beat one that never stops (research, 2026-09-22): continuous motion is the one
         // pattern proven not to capture attention and to habituate fastest. Re-fire on a backoff until he acts.
-        if (badge && heldRank >= 2 && !urgent && now >= nextBurstAt) TriggerGlow(badgeColor, heldRank == 3 ? SfxNeedsYou : SfxDone);
+        if (badge && heldRank >= 2 && !urgent && now >= nextBurstAt) TriggerGlow(badgeColor, heldRank == 3 ? "needs-you" : "done");
         // A Claude mark still blocked on him re-flares on the same backoff (needs you, a question, a plan); done and failed flare once.
         else if (!badge && !urgent && now >= nextClaudeBurstAt && ClaudeMarkNow is "permission" or "question" or "plan") AuraBurst(ClaudeMarks.ColorOf(ClaudeMarkNow!));
         SetClickAwayHook((dock != DockEdge.None && !peeking) || (tray.ContextMenuStrip?.Visible ?? false) || (NewFrontEnd && shellBusy));

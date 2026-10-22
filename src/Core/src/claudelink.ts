@@ -127,7 +127,8 @@ export interface Job {
 export interface DoneNote { id: string; project: string; title: string; open: string | null; task: string; doneAt: number }
 /** Where the unread finished jobs are kept, so a brain restart keeps them. */
 export const unreadFile = (dataDir: string) => path.join(dataDir, 'claude-unread.json');
-const MAX_UNREAD = 30;
+/** 2026-10-22 (his yes): at most three finished jobs in the list; a fourth reads the oldest by itself. */
+export const MAX_UNREAD = 3;
 
 /** When the newest event happened in the session (`ev`, the mod's clock) and reached the brain (`rx`): the trace. */
 export interface LinkTrace { ev: number; rx: number; type: string }
@@ -331,7 +332,7 @@ export class JobTracker {
   // ---------------------------------------------- finished and unread (2026-10-22)
   // His words: "do done jobs disappear? i dont want them to ... I want to be able to either X out of done jobs or click
   // them to go to session where it finished." The brain owns it, so the tick over his head, the bubble's done cards and
-  // a page reload all agree. Kept 12 hours at most, 30 at most, on disk so a brain restart keeps them.
+  // a page reload all agree. Kept 12 hours at most, 3 at most (the oldest goes when a 4th finishes), on disk so a brain restart keeps them.
   private readonly unread = new Map<string, DoneNote>();
   private unreadPath: string | null = null;
 
@@ -360,7 +361,7 @@ export class JobTracker {
     if (!this.unreadPath) return;
     let raw: unknown;
     try { raw = JSON.parse(readFileSync(this.unreadPath, 'utf8')); } catch { return; }   // none yet
-    for (const x of Array.isArray(raw) ? raw.slice(0, MAX_UNREAD) : []) {
+    for (const x of Array.isArray(raw) ? raw.slice(-50) : []) {   // trimmed to the newest MAX_UNREAD below
       if (!x || typeof x !== 'object' || typeof x.id !== 'string' || !x.id || !Number.isFinite(x.doneAt)) continue;
       this.unread.set(cut(x.id, 100), { id: cut(x.id, 100), project: cut(x.project, 80), title: cut(x.title, 80), open: typeof x.open === 'string' ? cut(x.open, 200) : null,
         task: cut(x.task, 200), doneAt: Number(x.doneAt) });
