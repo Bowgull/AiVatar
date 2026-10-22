@@ -397,7 +397,9 @@ const owed = new Map<number, { done: (s: string) => void; timer: NodeJS.Timeout 
 let seq = 0;
 
 function send(line: string): void {
-  if (broken) return;
+  // Windows only (2026-10-22, Mac audit): the helper is PowerShell + user32/dwmapi; this module also ships in the Mac's
+  // Samara (browser.ts imports softEdge), where nothing may ever start it.
+  if (broken || process.platform !== 'win32') return;
   if (!helper || helper.exitCode !== null || helper.killed) {
     try {
       const h = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', SCRIPT],

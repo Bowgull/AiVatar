@@ -1033,6 +1033,7 @@ window.aang?.onBrowserTabs?.((s) => {
   railTabs(s);
   paintMarks(s.marks);
   el('m-mockups').hidden = !s.mockups;
+  el('m-sitenotes').hidden = s.notes === false;
   paintTidy();
   paintStash();
   // The key: only where Bitwarden has a login here; gold with one soft pulse when it first shows.
