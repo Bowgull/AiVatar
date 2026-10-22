@@ -12,14 +12,31 @@ export class CardRenderer {
   private chain: Promise<unknown> = Promise.resolve();
   private seq = 0;
   private readonly origin: string;
-  constructor(origin: string) { this.origin = origin; }
+  /**
+   * Perf sweep (2026-10-22): the window used to stay for the life of the Shell after the first card (a few a day: the
+   * brief, a job, the week), a hidden 1400x2400 off-screen page at 2x in its own process. Now it goes once no card has
+   * been asked for in `idleMs`; the next card builds it again (one page load, well inside the 8 s a card may take).
+   */
+  private readonly idleMs: number;
+  private idle: NodeJS.Timeout | null = null;
+  private pending = 0;
+  constructor(origin: string, opts: { idleMs?: number } = {}) { this.origin = origin; this.idleMs = opts.idleMs ?? 60_000; }
 
   /** The card as a PNG (base64), or why not. */
   render(kind: string, data: unknown): Promise<{ ok: boolean; png?: string; error?: string }> {
+    if (this.idle) { clearTimeout(this.idle); this.idle = null; }
+    this.pending++;
     const run = this.chain.then(() => this.one(kind, data), () => this.one(kind, data));
-    this.chain = run.catch(() => {});
+    this.chain = run.catch(() => {}).finally(() => { if (--this.pending === 0) this.restSoon(); });
     return run;
   }
+  private restSoon(): void {
+    if (this.idle) clearTimeout(this.idle);
+    this.idle = setTimeout(() => { this.idle = null; if (this.pending === 0) this.close(); }, this.idleMs);
+    this.idle.unref?.();
+  }
+  /** True while the off-screen window exists (tests). */
+  get open(): boolean { return Boolean(this.win && !this.win.isDestroyed()); }
 
   private async one(kind: string, data: unknown): Promise<{ ok: boolean; png?: string; error?: string }> {
     if (!CARD_KINDS.has(kind)) return { ok: false, error: 'no such card' };
@@ -58,5 +75,9 @@ export class CardRenderer {
     return w;
   }
 
-  close(): void { if (this.win && !this.win.isDestroyed()) this.win.destroy(); this.win = null; }
+  close(): void {
+    if (this.idle) { clearTimeout(this.idle); this.idle = null; }
+    if (this.win && !this.win.isDestroyed()) this.win.destroy();
+    this.win = null;
+  }
 }
