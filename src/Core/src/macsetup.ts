@@ -233,9 +233,11 @@ console.log('written');`;
 export const MOCKUP_RULES = `## Mockups always go to Samara
 - Every mockup, design sheet or visual you make for Joshua opens in **Samara** (his browser inside Aang), never Firefox, Chrome or a bare file path.
 - Use the \`show_mockup\` tool (from the aang-link mod) for every mockup page: a committed \`.html\` file in the repo, or a live local page (127.0.0.1 / localhost). Commit the file first; the tool says so if you forgot.
-- Samara files every mockup in its Mockups trail, grouped by project and branch, one row per sheet with its versions. Give each a clear title ("NN · Name") and a branch (the topic), so it lands in the right place.
+- Samara files every mockup in its Mockups trail, grouped by project and branch, one row per sheet with its versions. Give each a clear title ("NN · Name") and a branch (the topic), so it lands in the right place. That's how Joshua keeps track, and it feeds Claude's memory of what was designed.
+- This applies to EVERY Claude session on EVERY machine (PC and MacBook), any project. On the Mac, mockups open in Mac Samara's Mockups trail the same way.
+- Never open a mockup as a plain link or loose tab; it must go through \`show_mockup\` (or a .mockup drop with title + branch) so it's filed.
 - If \`show_mockup\` is missing or says Aang is not running, tell Joshua where the file is in one line. Do not open another browser.
-- Never ask permission to open a local mockup page in Samara; just open it.`;
+- Never ask permission to open a local mockup page in Samara; just open it. Look at every picture yourself before showing him.`;
 
 /** M3: the MacBook front desk, when this setup should install it. Files are the exact source that runs there. */
 export interface DeskPayload {
