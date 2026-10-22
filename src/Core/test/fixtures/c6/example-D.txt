@@ -1,0 +1,14 @@
+Speed check in AangApp: why is Samara slow on YouTube
+Opus 5.5 · high
+---
+Goal: Find out why YouTube feels slow in Samara and fix the cause, not the symptom.
+
+Where to look: C:\Users\J\Documents\AangApp; start with docs/samara-perf-baseline.md.
+
+Rules: Before designing anything, read what already exists (grep the code and docs) and say 'kept exactly' where something is already built or decided. Measure before changing anything, and fix the cause, not the symptom: give a before and after number on the same case. Test only what you built, once: run that feature's own test file, not the whole suite. Keep your to-do list ticked as you go (my progress bars are built from it). Commit with a clear message and push when done (pull --rebase if rejected; never stash). Never enter passwords, card numbers or keys. Never touch Cemu or the Desktop 'Dont touch' folder.
+
+Done means: a before and after number on the same case, and the fix committed.
+
+Report: Replies to me: short, plain, no walls of text, no em dashes. Long detail goes in a file; tell me where. Say what changed, how you checked it, and anything I must decide.
+
+Joshua's words: "why is Samara slow on YouTube"
