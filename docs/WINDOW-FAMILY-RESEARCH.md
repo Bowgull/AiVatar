@@ -735,3 +735,11 @@ synthetic keys into WoW, and off-screen harnesses that catch their own errors.
 - Snipaste: https://snipaste.com
 - LRCLIB: https://lrclib.net
 
+
+## DECIDED 2026-10-22 (his answers)
+- Snap FLUSH (Winamp style). Solid, Windows-rounded panels. Any member drags the whole group. All members reshape.
+- NO hard pull to detach. Instead: right-click any joined window -> one family menu (see-through slider, pin, Pull apart).
+  "Pull apart" spreads the group with gaps and the windows wiggle (iOS jiggle mode). He drags out the ones he wants
+  free; Esc (or right-click any window) snaps the rest back together, minus what he took. Replaces section 2's 28 px pop-free.
+- No auto pop-out video. Tab peek: no. Pinned snip: yes. Site notes on demand in Samara (never pop up by themselves).
+- Next meeting strip: opt-in only. Timer: first-class member.
