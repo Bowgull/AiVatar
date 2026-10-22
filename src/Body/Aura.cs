@@ -153,12 +153,13 @@ static class Aura
         return ((float)gain, (float)(gain * atEdge));
     }
 
-    /// <summary>The calm breath at this moment: the sheet's A, R = 8..12 px and edge alpha 0.55..0.90, on a 4 s
-    /// ease-in-out (1 - cos). Never off: at its lowest it is still 8 px and 0.55.</summary>
+    /// <summary>The calm breath at this moment: the sheet's A brightened, R = 9..13 px and edge alpha 0.68..1.0, on a 4 s
+    /// ease-in-out (1 - cos). Never off: at its lowest it is still 9 px and 0.68.</summary>
     public static (float Radius, float Intensity) Breath(double seconds, float soften = 1f)
     {
         float ph = (float)((1 - Math.Cos(2 * Math.PI * seconds / 4.0)) / 2);
-        return (8f + 4f * ph, (0.55f + 0.35f * ph) * soften);
+        // A touch brighter and wider than the sheet (his ask, 2026-10-22: "I like the feeling, just need a bit more").
+        return (9f + 4f * ph, (0.68f + 0.32f * ph) * soften);
     }
 
     /// <summary>The burst (his research-based attention rule, kept 2026-10-21, only softened): in ~150 ms the haze

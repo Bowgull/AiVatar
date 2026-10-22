@@ -77,8 +77,8 @@ public class AuraTests
             var (r, i) = Aura.Breath(t);
             minR = Math.Min(minR, r); minI = Math.Min(minI, i); maxR = Math.Max(maxR, r); maxI = Math.Max(maxI, i);
         }
-        Assert.InRange(minR, 7.9f, 8.1f); Assert.InRange(maxR, 11.9f, 12.1f);
-        Assert.InRange(minI, 0.54f, 0.56f); Assert.InRange(maxI, 0.89f, 0.91f);
+        Assert.InRange(minR, 8.9f, 9.1f); Assert.InRange(maxR, 12.9f, 13.1f);   // brightened 2026-10-22
+        Assert.InRange(minI, 0.67f, 0.69f); Assert.InRange(maxI, 0.99f, 1.01f);
         // At its lowest, it is still clearly there next to him.
         var (lr, li) = Aura.Breath(0);
         using var low = Render(s, Color.FromArgb(0x7c, 0xc4, 0xff), lr, li);
