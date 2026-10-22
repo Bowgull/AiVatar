@@ -160,7 +160,10 @@ export class Lane {
         // ENABLE_TOOL_SEARCH=false: load his ~20 small tools up front. By default the engine hides them behind a
         // ToolSearch step, so every turn began with a lookup round trip, and on 2026-09-21 one session looked five
         // times and never reached a tool: it could not remember, search or forget anything.
-        env: { ...process.env, ENABLE_CLAUDEAI_MCP_SERVERS: 'false', ENABLE_TOOL_SEARCH: 'false' },
+        // AANG_LINK_OFF=1 (2026-10-22): the aang-link mod loads in every Claude Code session, this one too. A lane is
+        // Aang's own or a test's, never one of Joshua's jobs, so the mod stays inert here (a bench's question once
+        // landed in his jobs list as a finished card).
+        env: { ...process.env, ENABLE_CLAUDEAI_MCP_SERVERS: 'false', ENABLE_TOOL_SEARCH: 'false', AANG_LINK_OFF: '1' },
         ...(this.opts.thinking ? { thinking: this.opts.thinking as never } : {}),
         ...(this.opts.claudeExecutable ? { pathToClaudeCodeExecutable: this.opts.claudeExecutable } : {}),
     };

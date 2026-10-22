@@ -402,6 +402,22 @@ export async function sha256Hex(s: string): Promise<string> {
 /** How a folder is compared on both sides of the link (the brain's jobstart.ts normFolder is the same). */
 export const normFolder = (p: string): string => String(p ?? '').replace(/\//g, '\\').replace(/\\+$/, '').toLowerCase()
 
+/**
+ * Sessions that are never Joshua's jobs (2026-10-22): a bench ran real sessions in src/Core and its question landed
+ * in his jobs list. The mod goes inert when the session was started with AANG_LINK_OFF=1 or AANG_TEST=1 (every Aang
+ * lane sets the first), or when its folder is Aang's or a test's own (.aang-self, .aang-test), AangApp's test folder
+ * (src\Core\test) or a temp folder. AangApp itself stays his. Mirrored in src/Core/src/notjobs.ts.
+ */
+export function notHisCwd(cwd: string, tmp = ''): boolean {
+  const c = String(cwd ?? '').trim()
+  if (!c) return false
+  if (/[\\/]\.aang-(self|test)([\\/]|$)/i.test(c) || /[\\/]src[\\/]Core[\\/]test([\\/]|$)/i.test(c)) return true
+  if (/[\\/]AppData[\\/]Local[\\/]Temp([\\/]|$)/i.test(c) || /^\/tmp(\/|$)/.test(c)) return true
+  const t = tmp ? normFolder(tmp) : ''
+  return !!t && (normFolder(c) === t || normFolder(c).startsWith(t + '\\'))
+}
+export const linkOff = (v: string | null | undefined): boolean => /^(1|true|yes|on)$/i.test(String(v ?? '').trim())
+
 /** Only a session this young may take a waiting start (a mod reload fires session.start again in old sessions). */
 export const FRESH_MS = 3 * 60_000
 

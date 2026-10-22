@@ -50,3 +50,11 @@ test('a RESUMED lane sends the prompt the same way - this is the case that actua
     'on resume this is the ONLY thing that makes the SDK render the new text instead of replaying the old one');
   lane.close();
 });
+
+test('every lane runs with AANG_LINK_OFF=1, so the aang-link mod never reports it as one of his jobs (2026-10-22)', () => {
+  calls.length = 0;
+  const lane = new Lane({ name: 'bench', model: 'sonnet', systemPrompt: 'x', allowedTools: [] });
+  lane.start();
+  assert.equal((calls[0].options.env as Record<string, string>).AANG_LINK_OFF, '1');
+  lane.close();
+});

@@ -27,6 +27,7 @@ import { projectName } from './hooks.ts';
 import { ActivityKeeper, ProgressKeeper, etaOf, percentOf, stripSecrets } from './claudeprogress.ts';
 import type { Activity, KeeperCtx, Progress, ToolDetail } from './claudeprogress.ts';
 import type { TranscriptSession } from './claudescan.ts';
+import { notHisCwd } from './notjobs.ts';
 import { CiTracker } from './claudeci.ts';
 import type { CiRow, Runner } from './claudeci.ts';
 import { PlanStore, ProgressHistory, historyFile, plansFile } from './progresshistory.ts';
@@ -1074,7 +1075,8 @@ export class LinkDoor {
         if (req.method === 'POST' && q.pathname === '/link/event') {
           const ev = JSON.parse(body);
           // Aang's own chat lanes load his settings, so the mod loads in them too: they are not his sessions.
-          if (this.ignoreCwd() && String(ev?.cwd ?? '') === this.ignoreCwd()) { res.writeHead(204).end(); return; }
+          // ...and tests, benches and temp folders (notjobs.ts, 2026-10-22): a bench's question was shown as his job.
+          if (notHisCwd(ev?.cwd, this.ignoreCwd())) { res.writeHead(204).end(); return; }
           // Answered first: the mod's next post can leave while the brain is still telling the Shell.
           res.writeHead(204).end();
           const rx = Date.now();
@@ -1093,7 +1095,7 @@ export class LinkDoor {
         // this session told the brain when it started, when the brain knows it (else the one in the request).
         if (req.method === 'POST' && q.pathname === '/link/mockup') {
           const ev = JSON.parse(body) as Record<string, unknown>;
-          if (this.ignoreCwd() && String(ev?.cwd ?? '') === this.ignoreCwd()) { json(403, { ok: false, message: 'not for this session' }); return; }
+          if (notHisCwd(ev?.cwd, this.ignoreCwd())) { json(403, { ok: false, message: 'not for this session' }); return; }
           if (!this.onMockup) { json(200, { ok: false, message: "Samara's Mockups trail is not on here." }); return; }
           const sid = String(ev?.session ?? '').slice(0, 100);
           const cwd = this.tracker.cwdOf(sid) || String(ev?.cwd ?? '');

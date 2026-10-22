@@ -39,14 +39,14 @@ describe('plain parts', () => {
 })
 
 /** A pretend brain: proves the key, takes events, and answers one waiting item with `answer` (or a forged MAC). */
-function brain(on: On, opts: { answer?: string; forge?: boolean; squatter?: boolean; down?: boolean; inbox?: string; v1?: boolean; hold?: () => Promise<void>; key?: string; tools?: string[]; resync?: boolean; failPosts?: number; start?: string; forgeStart?: boolean; startedAt?: number; startInbox?: string; mcp?: (server: string, tool: string, args: unknown) => unknown; goneOnResolved?: boolean }) {
+function brain(on: On, opts: { answer?: string; forge?: boolean; squatter?: boolean; down?: boolean; inbox?: string; v1?: boolean; hold?: () => Promise<void>; key?: string; tools?: string[]; resync?: boolean; failPosts?: number; start?: string; forgeStart?: boolean; startedAt?: number; startInbox?: string; mcp?: (server: string, tool: string, args: unknown) => unknown; goneOnResolved?: boolean; env?: Record<string, string> }) {
   const seen: string[] = []
   const events: Record<string, unknown>[] = []
   const posts: Record<string, unknown>[] = []
   const mockups: { body: Record<string, unknown>; signed: boolean }[] = []
   let inbox = opts.inbox
   const resolvedWait = new Map<string, () => void>()
-  mock.env(on, { USERPROFILE: 'C:\\Users\\T' })
+  mock.env(on, { USERPROFILE: 'C:\\Users\\T', ...(opts.env ?? {}) })
   const clock = mock.clock(on)
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('classic.PermissionRequest', () => ({}))
@@ -196,6 +196,31 @@ test("Aang's own chat lanes are left alone", async ($, on) => {
   const r = await $.classic.PermissionRequest({ tool_name: 'Bash', tool_input: { command: 'ls' }, permission_suggestions: [] })
   expect(r.decision).toBeUndefined()
   expect(seen).toHaveLength(0)
+})
+
+// 2026-10-22: a bench's question ran in src/Core and landed in his jobs list. Tests, benches, temp folders and any
+// session started with AANG_LINK_OFF=1 (every Aang lane) or AANG_TEST=1 are left alone; AangApp itself is not.
+for (const [label, cwd, env] of [
+  ['a session in the test folder', 'C:/Users/T/Documents/AangApp/src/Core/test', {}],
+  ['a session in a temp folder', 'C:/Users/T/AppData/Local/Temp/aang-run', {}],
+  ['a lane started with AANG_LINK_OFF=1', 'C:/Users/T/Documents/AangApp/src/Core', { AANG_LINK_OFF: '1' }],
+  ['a bench started with AANG_TEST=1', 'C:/Users/T/Documents/AangApp/src/Core', { AANG_TEST: '1' }],
+] as const) {
+  test(`${label} is never his job`, async ($, on) => {
+    const { seen, quiet } = brain(on, { answer: JSON.stringify({ decision: 'allow' }), env })
+    await $.session.start({ ...start, cwd })
+    await quiet()
+    const r = await $.classic.PermissionRequest({ tool_name: 'Bash', tool_input: { command: 'ls' }, permission_suggestions: [] })
+    expect(r.decision).toBeUndefined()
+    expect(seen).toHaveLength(0)
+  })
+}
+
+test('his own AangApp session is still linked', async ($, on) => {
+  const { seen, quiet } = brain(on, {})
+  await $.session.start({ ...start, cwd: 'C:/Users/T/Documents/AangApp' })
+  await quiet()
+  expect(seen.length).toBeGreaterThan(0)
 })
 
 test('a message from Aang starts a turn when the session is idle', async ($, on) => {

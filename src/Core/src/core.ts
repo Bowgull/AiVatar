@@ -63,6 +63,7 @@ import { APEX_STEAM, Feeds, apexMap, channelOf, parseSteamFeed, parseYouTubeFeed
 import { clock as videoClock, diagnose, readVideo, siteOf as siteOfVideo, videoUrl, type Diagnosis, type VideoRead } from './watchvideo.ts';
 import { HookServer, HookTracker, isLoopback, projectName } from './hooks.ts';
 import { JobTracker, LinkDoor, LinkPusher, clearLinkKey, newLinkKey } from './claudelink.ts';
+import { notHisCwd } from './notjobs.ts';
 import { dropMockup } from './mockupdrop.ts';
 /** 2026-10-21: one line per Claude jobs push with the time each hop took (session -> brain -> Shell), for measuring. */
 const PROGRESS_TRACE = process.env.AANG_PROGRESS_TRACE === '1';
@@ -2619,7 +2620,8 @@ export class Core {
       // Aang's own chat lanes now load his user settings (for Agent Skills), so his own settings.json hooks
       // fire for their turns too. Any hook event whose cwd is Aang's own dedicated session directory is Aang
       // talking to himself, not a Claude Code session Joshua is in - drop it before it reaches HookTracker.
-      if (String(ev?.cwd ?? '') === this.selfCwd()) return;
+      // 2026-10-22: tests, benches and temp folders too (notjobs.ts), so a bench's question never becomes his job.
+      if (notHisCwd(ev?.cwd, this.selfCwd())) return;
       const remote = !!from && !isLoopback(from);
       if (remote) this.macAddr = from;
       const said = this.hooks.handle(ev);
