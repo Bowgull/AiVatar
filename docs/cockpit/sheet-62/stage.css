@@ -1,0 +1,21 @@
+/* Sheet 62 stages: a dark desktop; a made-up page; the real menu placed where the pointer was. */
+html,body{margin:0;width:1600px;height:1000px;overflow:hidden;background:#191b24 !important}
+body{background:radial-gradient(900px 500px at 85% 5%, rgba(80,96,140,.30), transparent 60%),linear-gradient(180deg,#1c1f2b,#151720) !important}
+.pg{position:absolute;left:20px;top:20px;width:520px;height:330px;box-sizing:border-box;padding:26px 30px;border-radius:14px;background:#f4f1ea;
+  box-shadow:0 0 0 3px #120a05,0 8px 24px rgba(0,0,0,.45);font:500 15px/1.6 Georgia,serif;color:#2a2622;overflow:hidden}
+.pg .site{font:700 11px Figtree,sans-serif;letter-spacing:1.5px;color:#8a7a62;text-transform:uppercase;margin-bottom:6px}
+.pg h1{font:800 23px/1.2 Figtree,sans-serif;margin:0 0 10px;color:#1d1a17}
+.pg p{margin:0 0 10px}
+.pg mark{background:rgba(120,170,255,.38);color:inherit}
+.pg a{color:#2a5ab0;text-decoration:underline}
+.pg .pic{float:right;margin:0 0 6px 14px;border-radius:6px;box-shadow:0 0 0 2px rgba(0,0,0,.15);image-rendering:pixelated}
+.pm{position:absolute;z-index:5;box-shadow:0 10px 22px rgba(0,0,0,.5)}
+.ptr{position:absolute;z-index:6;image-rendering:pixelated}
+/* the snip: Snipit's own overlay rules (snip.css) on a page-sized frame instead of the whole screen */
+.snipzone{position:absolute;left:20px;top:20px;width:520px;height:330px;border-radius:14px;overflow:hidden}
+.snipzone .box{position:absolute}
+.snipzone .hint{position:absolute;top:12px;font-size:9px;white-space:nowrap}
+.kc{position:absolute;display:flex;gap:6px;align-items:center;font:400 9px Silkscreen,monospace;letter-spacing:1px;color:#a9aec2}
+.kc kbd{font:700 12px Figtree,sans-serif;color:#2a1c00;background:linear-gradient(180deg,#ffd76a,#e9a92c);padding:5px 9px;border-radius:7px;box-shadow:0 0 0 2px #120a05,0 3px 0 #120a05}
+.dtag{position:absolute;font:400 9px Silkscreen,monospace;letter-spacing:1.5px;color:#8d93a8;white-space:nowrap}
+.dtag b{color:#ffd36a;font-weight:400}

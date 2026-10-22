@@ -140,13 +140,14 @@ export function note(look, n, w, h, { foot = true, small = false, pinned = false
   const d = el('div', `note lk${look}${small ? ' small' : ''}`); d.style.width = w + 'px'; d.style.height = h + 'px';
   const body = paper(look, w / P, h / P, n.col, { small }); body.classList.add('paper'); d.append(body);
   const inX = look === 'A' ? (small ? 14 : 18) : look === 'B' ? 14 : 28, inY = look === 'A' ? (small ? 12 : 16) : look === 'B' ? 20 : 12;
-  const inner = at(d, el('div', 'inner'), inX, inY, { width: (w - inX - (look === 'A' ? 18 : 16)) + 'px', height: (h - inY - (foot ? 46 : 14)) + 'px' });
+  const inner = at(d, el('div', 'inner'), inX, inY, { width: (w - inX - (look === 'A' ? 18 : 16)) + 'px', height: (h - inY - (foot ? (look === 'B' ? 72 : 46) : 14)) + 'px' });
   const head = el('div', 'nhead');
   head.append(el('span', 'ndot'), el('span', 'nt', n.title));
   head.querySelector('.ndot').style.background = DOT[n.col];
   if (n.title) inner.append(head); else inner.classList.add('plain');
-  if (look === 'B' && n.cat) inner.append(el('div', 'cats', `<span class="cat">${n.cat}</span>`));
-  const later = look === 'B' && !n.cat && foot && !small;
+  // v3: in B the category lives in the control row (the # chip), the same row on every note, quick or not
+  if (look === 'B' && n.cat && !foot) inner.append(el('div', 'cats', `<span class="hcat"><i>#</i>${n.cat}</span>`));
+  const later = false;
   const nb = el('div', 'nb', n.html); inner.append(nb);
   nb.querySelectorAll('ul.chk li').forEach((li) => { li.prepend(box(li.classList.contains('done'), look)); });
   if (later) inner.append(el('div', 'cats', '<span class="cat ghost">+ category</span>'));
@@ -157,10 +158,43 @@ export function note(look, n, w, h, { foot = true, small = false, pinned = false
   // "Ask Aang about this note": his face, by the pin (a tip says it in full when pointed at)
   if (foot) { const ask = at(d, el('span', 'askf' + (hover ? ' hot' : '')), w - (look === 'A' ? 70 : 44), look === 'B' ? 22 : (small ? 8 : 14), { zIndex: '3' }); ask.append(face()); }
   if (hover) at(d, el('span', 'tip', 'Ask Aang about this note'), w - 196, look === 'B' ? -22 : -30, { zIndex: '4' });
-  if (foot) {
+  if (foot && look === 'B') {
+    const f = at(d, controls(n, { bringUp, open: hover === 'cat' }), inX, h - 66, { width: (w - inX - 16) + 'px' });
+  } else if (foot) {
     const f = at(d, el('div', 'nfoot'), inX, h - 40, { width: (w - inX - (look === 'A' ? 18 : 16)) + 'px' });
     const tg = el('span', 'bring'); tg.append(toggle(bringUp), el('span', '', bringUp ? 'Aang can bring this up' : 'Aang keeps this one to himself'));
     f.append(tg);
   }
   return d;
+}
+
+// ---------------------------------------------------------------- v3 (2026-10-22, evening): ONE control row for every note
+// His note: "why would regular notes have a different function and interaction set than the quick note". The quick note
+// IS a note, so every note (quick, sticky, opened from the board) carries the same two-line foot:
+//   line 1: the # category chip, the colour dots, the checklist key
+//   line 2: "Aang can bring this up"
+const COLS = ['B', 'C', 'D', 'E', 'F'];
+/** The checklist key: a tiny ticked box over two lines, sunk in plum when the note is a checklist. */
+export function checkKey(on) {
+  const k = el('span', 'ck' + (on ? ' on' : ''));
+  k.append(art(9, 7, (put) => {
+    const ink = on ? '#ffffff' : '#4a3a28';
+    for (let y = 0; y < 3; y++) for (let x = 0; x < 3; x++) if (x === 0 || y === 0 || x === 2 || y === 2) put(x, y, ink);
+    for (let x = 4; x < 9; x++) put(x, 1, ink);
+    for (let y = 4; y < 7; y++) for (let x = 0; x < 3; x++) if (x === 0 || y === 4 || x === 2 || y === 6) put(x, y, ink);
+    for (let x = 4; x < 9; x++) put(x, 5, ink);
+    put(1, 5, ink);
+  }));
+  return k;
+}
+export function controls(n, { bringUp = true } = {}) {
+  const f = el('div', 'nctl');
+  const r1 = el('div', 'r1');
+  const cat = el('span', 'hcat' + (n.cat ? '' : ' ghost'), n.cat ? `<i>#</i>${n.cat}` : '<i>#</i>category');
+  const dots = el('span', 'cdots');
+  COLS.forEach((k) => { const s = el('i'); s.style.background = DOT[k]; if (k === n.col) s.className = 'on'; dots.append(s); });
+  r1.append(cat, dots, checkKey(/chk/.test(n.html)));
+  const r2 = el('div', 'r2'); r2.append(toggle(bringUp), el('span', '', bringUp ? 'Aang can bring this up' : 'Aang keeps this one to himself'));
+  f.append(r1, r2);
+  return f;
 }

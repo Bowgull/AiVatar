@@ -23,3 +23,4 @@
 .hintline b{color:#4A2C6E;font-weight:400}
 .game{position:absolute;left:0;top:0;z-index:0}
 .gamehud{position:absolute;z-index:1}
+.seam6{position:absolute;z-index:6;height:3px;border-radius:2px;background:#ffd36a;box-shadow:0 0 6px rgba(255,180,80,.7)}

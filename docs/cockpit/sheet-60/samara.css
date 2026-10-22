@@ -16,3 +16,9 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden}
 .from b{color:#4A2C6E;font-weight:400}
 .sec6{font:400 9px Silkscreen,monospace;letter-spacing:1.5px;color:#8a6a3e}
 .sec6.d{color:#bfae8a}
+.srow{position:absolute;display:flex;gap:12px;align-items:stretch;box-sizing:border-box;height:56px;padding:8px 12px;border-radius:9px;background:rgba(20,12,6,.55);box-shadow:0 0 0 2px #4a2e18}
+.srow i{flex:none;width:6px;border-radius:2px;box-shadow:0 0 0 2px rgba(18,10,5,.6)}
+.srow b{display:block;font:700 15px Figtree,sans-serif;color:#f1e3c4}
+.srow small{display:block;margin-top:5px;font:400 8px Silkscreen,monospace;letter-spacing:1px;color:#bfae8a}
+.srow small b{display:inline;font:inherit;color:#ffd36a}
+.newkey{position:absolute;font:800 13px Figtree,sans-serif;color:#2a1c00;background:linear-gradient(180deg,#ffd76a,#e9a92c);padding:7px 12px;border-radius:8px;box-shadow:0 0 0 2px #120a05,0 3px 0 #120a05}

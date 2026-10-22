@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>pinned snip</title>
+<!-- Sheet 62: a snip pinned on the desktop, as a member of the pop-out family: the video pop-out's own window
+     (src/Shell/pages/popout.css and popout.html's markup, 12 px corners as sheet 59 asked), the job pop-out's pin as its
+     first key. Only the picture inside is painted here (it stands in for the snip). -->
+<link rel="stylesheet" href="../../../src/Shell/pages/popout.css">
+<style>.frame{border-radius:12px}.stage{overflow:hidden}.stage canvas{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)}
+.key canvas{display:block}</style>
+</head>
+<body>
+  <div class="frame" id="frame">
+    <div class="bar">
+      <i class="grip"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></i>
+      <span class="what">Lava fields map</span>
+      <span class="src">SNIP</span>
+      <span class="keys">
+        <button class="key" id="pin" aria-label="Pin on top"></button>
+        <button class="key close" id="close" aria-label="Close"><svg viewBox="0 0 7 7" width="10" height="10" shape-rendering="crispEdges" aria-hidden="true"><path d="M0 0h1v1h-1zM6 0h1v1h-1zM1 1h1v1h-1zM5 1h1v1h-1zM2 2h1v1h-1zM4 2h1v1h-1zM3 3h1v1h-1zM2 4h1v1h-1zM4 4h1v1h-1zM1 5h1v1h-1zM5 5h1v1h-1zM0 6h1v1h-1zM6 6h1v1h-1z" fill="#e8e0f5"/></svg></button>
+      </span>
+    </div>
+    <div class="stage" id="vstage"></div>
+  </div>
+<script type="module">
+  import { cover, pin } from '../sheet-59/pix.js';
+  const c = cover(164, 2, 'sea'); document.getElementById('vstage').append(c);
+  const p = pin(true, 1); document.getElementById('pin').append(p);
+</script>
+</body>
+</html>

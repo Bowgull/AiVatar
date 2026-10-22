@@ -52,6 +52,7 @@ app.whenReady().then(async () => {
     let info;
     try { info = await Promise.race([w.webContents.executeJavaScript('window.__ready', true), wait(30000).then(() => { throw new Error('stage not ready'); })]); }
     catch (e) { console.log(`${scene}: FAILED ${e.message}  ${errs.join(' | ')}`); bad++; w.destroy(); continue; }
+    if (!info) { await wait(500); console.log(scene + ': NO STAGE ' + errs.join(' | ')); bad++; w.destroy(); continue; }
     await wait(250);
     if (info.hover) { w.webContents.sendInputEvent({ type: 'mouseMove', x: Math.round(info.hover.x * Z), y: Math.round(info.hover.y * Z) }); await wait(450); }
     // a row held in :hover the way the browser's own inspector does it, so the product's hover look (the glove) stays put

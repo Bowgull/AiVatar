@@ -3,6 +3,7 @@
 // job pop-out's pin, the product's own pill bar for the seek bar. Coordinates are CSS pixels, always even.
 import { P, loadTex, rr, rrMask, shape, drawMask, close, fills, spr, art, GLYPH, pin, cover, spectrum, mix, hex, paperAt, trayAt } from './pix.js';
 import { pill, SEA } from '../../../src/Shell/pages/claudejobs.js';
+import { drive as driveScene, skate as skateScene } from './scenes.js';
 
 const SCENE = new URLSearchParams(location.search).get('scene') || 'A-full';
 const GOLD = ['#fff3d8', '#ffe7b0', '#ffd88a', '#ffc96a', '#f0b04a', '#d9952f', '#b97a22', '#8f5a16'];
@@ -164,28 +165,6 @@ function shadeA(vis = true, { off = 0 } = {}) {
 const SCW = 56, SCH = 30;
 function rng(seed) { let r = seed; return () => ((r = (r * 9301 + 49297) % 233280) / 233280); }
 const SCENES = {
-  /** Dusk over the water: the air temple on its cliff, lanterns drifting up, glints on the water. */
-  temple: (f) => (put) => {
-    const sky = ['#2b1d3f', '#3d2556', '#5a2e64', '#8a3e6a', '#b8504e', '#e07a4a', '#f0a64a'];
-    for (let y = 0; y < SCH; y++) for (let x = 0; x < SCW; x++) {
-      let col;
-      if (y < 20) { const t = y / 20 * sky.length, i = Math.floor(t); col = sky[i]; if (t - i > 0.7 && (x + y) % 2 === 0 && i < sky.length - 1) col = sky[i + 1]; }
-      else { col = y < 23 ? '#4a2c5a' : y < 26 ? '#3a2250' : '#2a1a3e'; if ((x * 5 + y * 3 + f * 2) % 13 === 0 && x > 10 && x < 30) col = '#f0a64a'; }
-      put(x, y, col);
-    }
-    for (let y = -4; y <= 0; y++) for (let x = -4; x <= 4; x++) if (x * x + y * y <= 17) put(20 + x, 19 + y, y > -2 ? '#ffd38a' : '#fff0c8');
-    // the cliff and the temple: towers with pointed roofs, one tall
-    const sil = '#1e1230';
-    for (let x = 36; x < SCW; x++) { const top = 14 + Math.round(Math.abs(x - 46) / 4); for (let y = top; y < 22; y++) put(x, y, sil); }
-    for (const [tx, h] of [[40, 5], [45, 9], [50, 6]]) { for (let y = 14 - h; y < 15; y++) for (let x = tx - 1; x <= tx + 1; x++) put(x, y, sil); put(tx, 14 - h - 1, sil); put(tx, 14 - h - 2, sil); for (let x = tx - 2; x <= tx + 2; x++) put(x, 14 - h + 1, sil); }
-    put(45, 8, '#ffc46a'); put(40, 12, '#ffc46a');
-    // lanterns: rise one pixel every frame, sway a pixel, glow
-    const L = [[8, 17], [14, 11], [27, 15], [32, 7], [5, 5]];
-    L.forEach(([lx, ly], k) => { const y = ly - f - (k % 2 ? 0 : Math.floor(f / 2)), x = lx + ((f + k) % 4 === 3 ? 1 : 0); if (y < 1) return;
-      put(x - 1, y, '#ff9a3c', 0.35); put(x + 2, y, '#ff9a3c', 0.35); put(x, y - 1, '#ff9a3c', 0.35); put(x + 1, y + 2, '#ff9a3c', 0.3);
-      put(x, y, '#ffe096'); put(x + 1, y, '#ffc43c'); put(x, y + 1, '#ff8040'); put(x + 1, y + 1, '#e0602a');
-      put(x, 26 + (k % 3) - 0, '#f0a64a', 0.55); });
-  },
   /** Rain on a window: a warm room, the lamp, a night street outside, drops running down the glass. */
   rain: (f) => (put) => {
     const R = rng(4);
@@ -225,17 +204,8 @@ const SCENES = {
     // sparks
     for (const [sx, sy] of [[27, 12], [30, 8], [24, 4], [33, 14]]) { const y = sy - f * 2, x = sx + ((f + sx) % 3) - 1; if (y > 0) put(x, y, '#ffc43c'); }
   },
-  /** Appa in the clouds: the sky bison drifting, clouds sliding past, a slow bob. */
-  appa: (f) => (put) => {
-    for (let y = 0; y < SCH; y++) for (let x = 0; x < SCW; x++) { const t = y / SCH; let col = t < 0.35 ? '#5a8ac4' : t < 0.6 ? '#7aa6d4' : t < 0.8 ? '#b8cce0' : '#f2d6b4'; if ((x + y) % 2 === 0 && [10, 18, 24].includes(y)) col = t < 0.6 ? '#7aa6d4' : '#b8cce0'; put(x, y, col); }
-    const cloud = (cx, cy, w, back) => { for (let y = -4; y <= 2; y++) for (let x = -w; x <= w; x++) { const r = (x / w) ** 2 + ((y + 1) / 3.6) ** 2 + 0.25 * Math.sin(x * 0.9); if (r < 1) put(cx + x, cy + y, y > 0 ? (back ? '#c8d4e6' : '#dce4f0') : (back ? '#e6ecf4' : '#ffffff')); } };
-    cloud(((14 - f) % 70 + 70) % 70 - 6, 9, 9, true); cloud(((46 - f) % 70 + 70) % 70 - 6, 6, 7, true);
-    // Appa, 18 x 9, bobbing a pixel
-    const A = ['.Y................', 'YY..OOOOOOOOOO....', '..OOWWWWBBBWWWWOO.', '.OWWWWWWWBWWWWWWWO', 'OWOWWWWWWWWWWWWWWO', 'OWWWWWWWWWWWWWWWWO', '.OSWWWWWWWWWWWWWO.', '..OOWWO.OWWO.OWO..', '....OO...OO...OO..'];
-    const ay = 11 + (f === 1 || f === 2 ? -1 : 0), ax = 18;
-    A.forEach((r, y) => [...r].forEach((c, x) => { const col = { O: '#4a3a30', W: '#f6f0e4', B: '#8a5a30', S: '#d8ccb8', Y: '#c8a070' }[c]; if (col) put(ax + x, ay + y, col); }));
-    cloud(((30 - f * 2) % 76 + 76) % 76 - 8, 27, 12, false); cloud(((66 - f * 2) % 76 + 76) % 76 - 8, 26, 10, false);
-  },
+  drive: (f) => driveScene(f),
+  skate: (f) => skateScene(f),
 };
 const scene = (name, f, s = P) => art(SCW, SCH, SCENES[name](f), s);
 
@@ -464,12 +434,17 @@ window.__ready = (async () => {
     crop = { x: 0, y: 0, w: 220 + a2(AW) + 36, h: H };
   } else if (SCENE === 'A-scene') {
     const H = 290;
-    at(stage, playerA('scene', { scene: scene('temple', 1) }), 30, 44); tag(stage, 32, 20, 'SCENE <b>DUSK AT THE TEMPLE</b>');
-    at(stage, playerA('scene', { scene: scene('campfire', 2) }), 30 + a2(AW) + 40, 44); tag(stage, 32 + a2(AW) + 40, 20, 'CLICK THE SCREEN &rarr; <b>CAMPFIRE</b>');
+    at(stage, playerA('scene', { scene: scene('drive', 1) }), 30, 44); tag(stage, 32, 20, 'SCENE <b>DRIVING DOWN THE BOULEVARD</b>');
+    at(stage, playerA('scene', { scene: scene('skate', 2) }), 30 + a2(AW) + 40, 44); tag(stage, 32 + a2(AW) + 40, 20, 'CLICK THE SCREEN &rarr; <b>SKATING THE BOULEVARD</b>');
     big(stage, 32, 44 + a2(AH) + 26, 'THE VIS KEY GOES <b>BARS &rarr; SCENE &rarr; OFF</b>. IN SCENE, A CLICK ON THE SCREEN GOES TO THE NEXT SCENE. IT REMEMBERS.');
     crop = { x: 0, y: 0, w: 30 + a2(AW) * 2 + 40 + 30, h: H };
+  } else if (SCENE.startsWith('z-')) {
+    // a work view while drawing: one scene, all four frames at 8x
+    const n = SCENE.slice(2), S = 8;
+    for (let f = 0; f < 4; f++) at(stage, scene(n, f, S), 10 + (f % 2) * (SCW * S + 10), 10 + Math.floor(f / 2) * (SCH * S + 10));
+    crop = { x: 0, y: 0, w: 30 + 2 * SCW * S, h: 30 + 2 * SCH * S };
   } else if (SCENE === 'scenes') {
-    const NAMES = [['temple', 'DUSK AT THE TEMPLE', 'LANTERNS RISE 1 PX A FRAME, WATER GLINTS'], ['rain', 'RAIN ON THE WINDOW', 'STREAKS FALL, DROPS SLIDE, A LIGHT GOES OUT'], ['campfire', 'CAMPFIRE', 'FLAMES FLICKER, SPARKS FLOAT UP, STARS TWINKLE'], ['appa', 'APPA IN THE CLOUDS', 'CLOUDS DRIFT PAST, APPA BOBS A PIXEL']];
+    const NAMES = [['drive', 'DRIVING DOWN THE BOULEVARD', 'DASHES RUSH AT YOU, PALMS AND LAMPS SLIDE PAST, THE CAR BUMPS A PIXEL'], ['skate', 'SKATING THE BOULEVARD', 'FOUR LAYERS SLIDE AT 1-2-3-4 PX, HE PUSHES ONCE'], ['rain', 'RAIN ON THE WINDOW', 'STREAKS FALL, DROPS SLIDE, A LIGHT GOES OUT'], ['campfire', 'CAMPFIRE', 'FLAMES FLICKER, SPARKS FLOAT UP, STARS TWINKLE']];
     const S = 4, fw = SCW * S, fh = SCH * S, x0 = 24;
     NAMES.forEach(([n, title, how], row) => {
       const y = 22 + row * (fh + 64);

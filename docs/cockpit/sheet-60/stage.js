@@ -7,6 +7,7 @@ import { ready, el, at, NOTES, TAGS, note, paper, woodPin, ribbon, pinFor, dotOf
 
 const SCENE = new URLSearchParams(location.search).get('scene') || 'A-sticky';
 const [L, KIND] = SCENE.split('-');
+function tag(parent, x, y, html) { return at(parent, el('div', 'dtag', html), x, y); }
 function aang(parent, x, y) { const i = new Image(); i.src = '../../../assets/aang/frames/idle_0.png'; i.className = 'stg aang'; at(parent, i, x, y, { zIndex: '1' }); return i; }
 function win(w, h, look) {
   const d = el('div', 'win'); d.style.width = w + 'px'; d.style.height = h + 'px';
@@ -49,13 +50,13 @@ function boardB() {
   [['All &middot; 14', 'on'], ['Just notes &middot; 6', ''], ['To-do', ''], ['Idea', ''], ['Reference', ''], ['For Claude', ''], ['Recipes', ''], ['+ Category', 'ghost']].forEach(([t, k]) => {
     const e = el('span', 'chip2 dark' + (k === 'on' ? ' on' : ''), t); if (k === 'ghost') { e.style.background = 'transparent'; e.style.color = '#bfae8a'; e.style.boxShadow = '0 0 0 2px rgba(191,174,138,.35)'; } c.append(e); });
   at(d, el('div', 'sec d', 'PINNED'), 28, 118);
-  at(d, note('B', NOTES.plain, 250, 236, { small: true }), 26, 146);
-  at(d, note('B', NOTES.todo, 250, 236, { small: true }), 298, 146);
+  at(d, note('B', NOTES.plain, 250, 262, { small: true }), 26, 146);
+  at(d, note('B', NOTES.todo, 250, 262, { small: true }), 298, 146);
   at(d, el('div', 'sec d', 'EVERYTHING &middot; 14'), 572, 118);
   at(d, note('B', NOTES.thought, 286, 150, { small: true, foot: false }), 572, 146);
   at(d, note('B', NOTES.claude, 286, 170, { small: true, foot: false }), 572, 330);
-  at(d, note('B', NOTES.plain2, 250, 106, { small: true, foot: false }), 26, 414);
-  at(d, note('B', NOTES.wifi, 250, 106, { small: true, foot: false }), 298, 414);
+  at(d, note('B', NOTES.plain2, 250, 112, { small: true, foot: false }), 26, 430);
+  at(d, note('B', NOTES.wifi, 250, 112, { small: true, foot: false }), 298, 430);
   return d;
 }
 function boardC() {
@@ -124,7 +125,10 @@ function gameScene(wA, hA) {
     }
   });
 }
+/** v3: the quick note IS a note: the same paper, pin, face and control row, opened small with an empty body. */
+export const QUICK = { title: '', col: 'B', html: '<p class="cap"><span class="caret"></span><span class="ph">A thought, a to-do, anything&hellip;</span></p>' };
 function capture(look) {
+  if (look === 'B') return note('B', QUICK, 280, 196);
   const w = 440, h = 132;
   const d = el('div', 'note lk' + look); d.style.width = w + 'px'; d.style.height = h + 'px';
   const body = look === 'A' ? rr(w / P, h / P, 8, { band: 's2', E: 4, fill: fills.paper(h / P) }) : paper(look, w / P, h / P, 'B');
@@ -151,9 +155,9 @@ window.__ready = (async () => {
   if (KIND === 'sticky') {
     const H = 470; aang(stage, 0, H - 214);
     if (L === 'B') {   // v2: the plain note first (the default), then two with a category
-      at(stage, note('B', NOTES.plain, 256, 226), 200, 40);
-      at(stage, note('B', NOTES.todo, 264, 276, { pinned: true }), 484, 40);
-      at(stage, note('B', NOTES.thought, 256, 226, { hover: true }), 776, 40);
+      at(stage, note('B', NOTES.plain, 264, 262), 200, 40);
+      at(stage, note('B', NOTES.todo, 264, 300, { pinned: true }), 488, 40);
+      at(stage, note('B', NOTES.thought, 264, 262, { hover: true }), 776, 40);
     } else {
       const hs = L === 'C' ? [254, 196, 318] : [252, 196, 318];
       at(stage, note(L, NOTES.todo, 264, hs[0] - 20, { pinned: true }), 200, 40);
@@ -164,6 +168,11 @@ window.__ready = (async () => {
   } else if (KIND === 'board') {
     const b = L === 'A' ? boardA() : L === 'B' ? boardB() : boardC();
     at(stage, b, 24, 24); crop = { x: 0, y: 0, w: 948, h: 612 };
+  } else if (SCENE === 'B-samnone' || SCENE === 'B-samdot') {
+    // the band's notes key on its own: no notes for the site (no mark at all), some notes (a tiny gold dot)
+    const f = el('iframe'); f.src = 'samara.html?look=B&state=' + (SCENE === 'B-samnone' ? 'none' : 'dot'); Object.assign(f.style, { position: 'absolute', left: '0px', top: '0px', width: '1040px', height: '620px', border: '0' });
+    stage.append(f); await new Promise((r) => { f.onload = r; }); await f.contentWindow.__done;
+    crop = { x: 560, y: 0, w: 480, h: 70 };
   } else if (KIND === 'samara') {
     const f = el('iframe'); f.src = 'samara.html?look=' + L; Object.assign(f.style, { position: 'absolute', left: '0px', top: '0px', width: '1040px', height: '620px', border: '0' });
     stage.append(f);
@@ -182,21 +191,34 @@ window.__ready = (async () => {
   } else if (SCENE === 'B-cats') {
     // a plain note, later: "+ category" opens a small paper list; pick one, or make your own
     const H = 470; aang(stage, 0, H - 214);
-    const n = note('B', NOTES.plain2, 300, 170); at(stage, n, 200, 40);
-    const ghost = n.querySelector('.cat.ghost'); ghost.classList.remove('ghost'); ghost.classList.add('on');
+    const n = note('B', NOTES.plain2, 300, 196); at(stage, n, 200, 40);
+    const ghost = n.querySelector('.hcat.ghost'); ghost.classList.remove('ghost'); ghost.classList.add('on');
     const pop = el('div', 'note lkB'); pop.style.width = '220px'; pop.style.height = '224px';
     const pb = rr(110, 112, 8, { band: 's2', E: 4, fill: fills.paper(112) }); pb.classList.add('paper'); pop.append(pb);
     at(pop, el('div', 'sec', 'ADD A CATEGORY'), 20, 18);
     const list = at(pop, el('div', ''), 16, 40, { display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-start' });
     ['To-do', 'Idea', 'Reference', 'For Claude', 'Recipes'].forEach((t, i) => list.append(el('span', 'cat' + (i === 4 ? '' : ''), t)));
     const mk = el('span', 'cat ghost', '+ New category&hellip;'); mk.style.color = '#4A2C6E'; list.append(mk);
-    at(stage, pop, 224, 168, { zIndex: '5' });
+    at(stage, pop, 212, 210, { zIndex: '5' });
     at(stage, el('div', 'dtag', 'A PLAIN NOTE STAYS PLAIN UNTIL YOU WANT A CATEGORY.'), 470, 260);
     at(stage, el('div', 'dtag', 'PICK ONE, OR MAKE YOUR OWN: <b>RECIPES</b> IS ONE YOU MADE.'), 470, 282);
-    crop = { x: 0, y: 0, w: 860, h: H };
+    crop = { x: 0, y: 0, w: 880, h: H + 20 };
+  } else if (SCENE === 'B-same') {
+    // v3: the quick note and a note opened from the board, side by side: the same paper, the same row of controls
+    const H = 470;
+    tag(stage, 40, 18, '<b>QUICK NOTE</b> &middot; CTRL + * &middot; SMALL, EMPTY, READY');
+    at(stage, note('B', QUICK, 280, 214), 40, 56);
+    tag(stage, 420, 18, '<b>A NOTE FROM THE BOARD</b> &middot; SAME NOTE, WORDS IN IT');
+    at(stage, note('B', NOTES.todo, 300, 300, { pinned: true }), 420, 56);
+    // gold marks under both control rows: one row, two places
+    for (const [x, y, w] of [[54, 56 + 214 - 70, 252], [434, 56 + 300 - 70, 270]]) at(stage, el('div', 'seam6'), x, y, { width: w + 'px' });
+    tag(stage, 40, 56 + 300 + 30, '<b>THE SAME ROW ON BOTH</b>: # CATEGORY &middot; COLOUR &middot; CHECKLIST &middot; AANG CAN BRING THIS UP');
+    tag(stage, 40, 56 + 300 + 52, 'PIN AND AANG&rsquo;S FACE ON TOP OF BOTH &middot; ENTER SAVES THE QUICK ONE, THEN IT IS A NOTE LIKE ANY OTHER');
+    crop = { x: 0, y: 0, w: 780, h: 440 };
   } else if (KIND === 'capture') {
     const g = gameScene(470, 230); g.classList.add('game'); stage.append(g);
-    at(stage, capture(L), 250, 120);
+    if (L === 'B') { at(stage, capture(L), 330, 92); const t = at(stage, el('div', 'dtag', '<b>ENTER</b> SAVES &middot; <b>ESC</b> CLOSES &middot; THE GAME KEEPS RUNNING'), 330, 312); t.style.color = '#f1e3c4'; t.style.textShadow = '0 1px 0 #000'; }
+    else at(stage, capture(L), 250, 120);
     crop = { x: 0, y: 0, w: 940, h: 460 };
   }
   await Promise.all([...document.images].map((i) => i.decode().catch(() => {})));

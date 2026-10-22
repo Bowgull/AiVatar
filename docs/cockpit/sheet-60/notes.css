@@ -54,3 +54,19 @@
 .cat.ghost{background:transparent;color:#7a6448;box-shadow:0 0 0 2px rgba(74,52,30,.18);border:0}
 .cat.on{background:#4A2C6E;color:#fff;box-shadow:0 0 0 2px #2C1848}
 .lkB .inner.plain{box-sizing:border-box;padding-right:40px}
+
+/* v3 (2026-10-22, evening): the one control row every note carries (quick, sticky, opened from the board) */
+.nctl{display:flex;flex-direction:column;gap:7px;padding-top:8px;border-top:2px solid rgba(60,40,20,.16)}
+.nctl .r1{display:flex;align-items:center;gap:9px}
+.nctl .r2{display:flex;align-items:center;gap:7px;font:600 12px Figtree,sans-serif;color:#4a3a28;white-space:nowrap}
+.hcat{display:inline-flex;align-items:center;gap:3px;font:700 11.5px Figtree,sans-serif;color:#4a3a28;padding:3px 8px;border-radius:7px;background:rgba(255,255,255,.5);box-shadow:0 0 0 2px rgba(74,52,30,.28);white-space:nowrap}
+.hcat i{font-style:normal;font-weight:800;color:#8a3e1c}
+.hcat.ghost{background:transparent;color:#7a6448;box-shadow:0 0 0 2px rgba(74,52,30,.18)}
+.hcat.on{background:#4A2C6E;color:#fff;box-shadow:0 0 0 2px #2C1848}.hcat.on i{color:#d9c2ff}
+.cdots{display:inline-flex;gap:5px;margin-left:auto}
+.cdots i{display:block;width:11px;height:11px;border-radius:3px;box-shadow:0 0 0 2px rgba(42,26,16,.35)}
+.cdots i.on{box-shadow:0 0 0 2px #2E2216,0 0 0 4px rgba(255,255,255,.55)}
+.ck{display:inline-grid;place-items:center;width:24px;height:22px;border-radius:6px;box-shadow:0 0 0 2px rgba(74,52,30,.28);background:rgba(255,255,255,.35)}
+.ck.on{background:#4A2C6E;box-shadow:0 0 0 2px #2C1848}
+.lkB .inner.empty .cap{font:500 15px/1.5 Figtree,sans-serif;color:#2E2216}
+.ph{color:#9a8a6a}

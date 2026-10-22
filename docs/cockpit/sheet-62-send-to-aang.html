@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sheet 62 - One Send to Aang</title>
+<!-- Sheet 62 v1 (2026-10-22). His ask: clipping to notes was drawn as its own thing (sheet 60 v2); he wants ONE uniform
+     action. Today Samara's right-click on highlighted words shows Copy, Send to Aang, Search for (browser.ts pageMenu,
+     pages/pagemenu.*), and a snip lands as a corner card (snipcard.html, Send / Bin it). Proposal: "Send to Aang" in
+     every page menu (words, a picture, a link, the page itself), always first, and the snip key landing the same way:
+     a chip in his typing box and ONE line from Aang with two keys (Ask about it / Keep as a note), a third (Pin it) for
+     a snip. Later the same day: pinned snip = YES (a small solid window, flush family member, same pin and see-through);
+     tab peek = NO. Real renders: the page menu (pagemenu.css + pagemenu.js, sheet-62/menu.html), Snipit's overlay
+     (snip.css), the bubble (bubble.html, look B, S2 rim) and the typing box with its own chip row (input.html; land.ts),
+     the note (sheet 60's notes.js), the pinned snip's window (popout.css; pinsnip.html). Pages and pictures inside them
+     are made up. Mockup only. -->
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<link rel="stylesheet" href="sheet-55/sheet55.css">
+<style>
+  .shot img{max-width:100%;height:auto}
+  .five{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;max-width:1500px}
+  .five .lbl{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .funnel{display:block;width:100%;max-width:1500px;height:70px;margin:4px 0 2px;image-rendering:pixelated}
+  .landing{display:flex;justify-content:center;max-width:1500px}
+  .row3{display:flex;flex-wrap:wrap;gap:20px 26px;align-items:flex-start}
+  .meaning{display:grid;grid-template-columns:220px 1fr;gap:8px 18px;max-width:1150px;margin:6px 0 0}
+  .meaning b{font:800 16px Figtree,sans-serif;color:#fffaf0}
+  .meaning span{font:500 15.5px/1.5 Figtree,sans-serif;color:#d8cab0}
+  @media (max-width:900px){.five{grid-template-columns:repeat(2,minmax(0,1fr))}.funnel{display:none}}
+</style>
+</head>
+<body>
+<h1>SHEET 62 &middot; ONE SEND TO AANG</h1>
+<p class="real">v1 &middot; 22 Oct &middot; one action instead of clip-to-notes, Send to Aang and the snip card</p>
+<p class="lead">Whatever you right-click in Samara (highlighted words, a picture, a link, or the page itself) has the same first item: <b>Send to Aang</b>. The snip key lands the same way. Everything goes to one place: a chip in Aang's typing box, and one line from him with two keys.</p>
+<div class="decided"><span>One item, the same in every menu, always at the top</span><span>Snip lands the same way</span><span>Pin a snip: yes</span><span>No pop-ups</span></div>
+<p class="topick"><span>WHAT TO PICK</span> <em>Does this <b>one flow</b> feel right? And is there <b>anything to add to the menu</b> (or take out)?</em></p>
+
+<h2><span class="n">1</span>FIVE WAYS IN</h2>
+<p>Samara's real right-click menu. <b>Send to Aang</b> sits at the top of every one of them, with the menu's own line under it, so your hand learns one spot. Today it only shows for highlighted words, in the middle.</p>
+<div class="five">
+  <div class="cell"><div class="lbl"><i>1</i>HIGHLIGHTED WORDS</div><div class="shot"><img src="sheet-62/m-words.png" width="560" height="370" alt="Right-click on highlighted words: Send to Aang first"></div></div>
+  <div class="cell"><div class="lbl"><i>2</i>A PICTURE</div><div class="shot"><img src="sheet-62/m-image.png" width="560" height="370" alt="Right-click on a picture: Send to Aang first"></div></div>
+  <div class="cell"><div class="lbl"><i>3</i>A LINK</div><div class="shot"><img src="sheet-62/m-link.png" width="560" height="370" alt="Right-click on a link: Send to Aang first"></div></div>
+  <div class="cell"><div class="lbl"><i>4</i>THE PAGE (EMPTY SPACE)</div><div class="shot"><img src="sheet-62/m-page.png" width="560" height="370" alt="Right-click on empty space: Send to Aang first, sends the whole page"></div></div>
+  <div class="cell"><div class="lbl"><i>5</i>THE SNIP KEY</div><div class="shot"><img src="sheet-62/m-snip.png" width="560" height="408" alt="Snipit's overlay with a box round the map, Ctrl Shift Plus"></div></div>
+</div>
+<svg class="funnel" viewBox="0 0 300 14" preserveAspectRatio="none" shape-rendering="crispEdges" aria-hidden="true">
+  <g fill="#c98c14"><rect x="29" y="0" width="2" height="5"/><rect x="89" y="0" width="2" height="5"/><rect x="149" y="0" width="2" height="5"/><rect x="209" y="0" width="2" height="5"/><rect x="269" y="0" width="2" height="5"/>
+  <rect x="29" y="5" width="242" height="2"/><rect x="149" y="7" width="2" height="4"/></g>
+  <g fill="#ffd36a"><rect x="146" y="10" width="8" height="1"/><rect x="147" y="11" width="6" height="1"/><rect x="148" y="12" width="4" height="1"/><rect x="149" y="13" width="2" height="1"/></g>
+</svg>
+<p style="text-align:center;max-width:1500px;margin:0 0 10px"><b>All five land in one place</b></p>
+
+<h2><span class="n">2</span>WHERE IT LANDS</h2>
+<p>A chip appears in his typing box (what you sent, with the site it came from), and Aang asks <b>one line</b>. Two keys: <b>Ask about it</b> puts your cursor in the box to type a question, <b>Keep as a note</b> makes a plain note with the link. A snip gets a third key, <b>Pin it</b>. These are his real bubble and his real typing box.</p>
+<div class="row3">
+  <div class="cell"><div class="lbl"><i>&#10022;</i>WORDS, A PICTURE, A LINK OR A PAGE &middot; REAL SIZE</div><div class="shot"><img src="sheet-62/land-words.png" width="396" height="430" alt="Aang: Got it. Ask about it, or keep it as a note? The typing box has a WORDS chip from forever.warcraft.com"></div></div>
+  <div class="cell"><div class="lbl"><i>&#10022;</i>A SNIP &middot; ONE MORE KEY</div><div class="shot"><img src="sheet-62/land-snip.png" width="396" height="430" alt="Aang: Got your snip. Ask about it, keep it, or pin it?"></div></div>
+</div>
+
+<h2><span class="n">3</span>WHAT EACH KEY DOES</h2>
+<div class="row3">
+  <div class="cell"><div class="lbl"><i>A</i>ASK ABOUT IT &middot; YOU TYPE, THE CHIP GOES WITH IT</div><div class="shot"><img src="sheet-62/land-ask.png" width="396" height="238" alt="The typing box with the chip and a typed question"></div></div>
+  <div class="cell"><div class="lbl"><i>S</i>KEEP AS A NOTE &middot; SHOWN 2&times;</div><div class="shot"><img src="sheet-62/keep-note.png" width="380" height="330" alt="A plain note with the quote and the link it came from"></div></div>
+  <div class="cell"><div class="lbl"><i>D</i>PIN IT (SNIPS) &middot; SHOWN 2&times;</div><div class="shot"><img src="sheet-62/pin-snip.png" width="480" height="310" alt="The snip as a small pinned window with the pop-outs' pin and see-through slider"></div></div>
+</div>
+
+<h2><span class="n">?</span>WHAT EACH PART DOES</h2>
+<div class="meaning">
+  <b>Send to Aang</b><span>The first item in every Samara right-click menu. It sends what you clicked: the words, the picture, the link, or the whole page if you clicked empty space.</span>
+  <b>The snip key</b><span>Ctrl + Shift + Plus, anywhere, a game too. Draw a box; it lands the same way. The old corner card (Send / Bin it) goes.</span>
+  <b>The chip</b><span>What you sent and the site, above the typing box. The &times; takes it off.</span>
+  <b>Ask about it</b><span>The cursor goes in the box; type your question and the chip goes with it.</span>
+  <b>Keep as a note</b><span>A plain note in the default colour with the link it came from. Add a # category if you want one. Samara's notes key then shows it on that site (sheet 60).</span>
+  <b>Pin it</b><span>Snips only. A small solid window that stays on top, part of the pop-out family: the same pin, the same see-through, snaps flush.</span>
+  <b>Not drawn</b><span>Tab peek: you said no.</span>
+</div>
+
+<div class="note"><b>How these were made</b>
+<ul>
+<li>The menus are Samara's real page menu (its own styles and script), given the items in the new order. The pages behind them are made up.</li>
+<li>The snip is Snipit's real overlay styles. The bubble and the typing box are the app's real pages; only the key words and the chip's words are new.</li>
+<li>The note is sheet 60's note. The pinned snip is the video pop-out's own window with the job pop-out's pin; the picture in it is made up.</li>
+</ul></div>
+</body>
+</html>

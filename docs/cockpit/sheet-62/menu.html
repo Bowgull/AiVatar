@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 62 menu stage</title>
+<!-- Sheet 62 (2026-10-22): the stage shots.mjs photographs (?scene=m-words, m-image, m-link, m-page, m-snip). The page
+     is made up; the menu over it is Samara's REAL page menu: pagemenu.css and pagemenu.js themselves, fed the items the
+     way browser.ts pageMenu() sends them (window.aang stubbed). The snip is Snipit's real overlay styles (snip.css).
+     A picture maker. -->
+<link rel="stylesheet" href="../../../src/Shell/pages/cockpit.css">
+<link rel="stylesheet" href="../../../src/Shell/pages/pagemenu.css">
+<link rel="stylesheet" href="stage.css">
+<script>
+  window.aang = { onPageMenu: (cb) => { window.__menu = cb; }, pageMenuSize: () => {}, pageMenuPick: () => {} };
+</script>
+</head>
+<body>
+<div class="pg" id="pg"></div>
+<div class="pm" id="pm" role="menu"></div>
+<script src="../../../src/Shell/pages/pagemenu.js"></script>
+<script type="module" src="menu.js"></script>
+</body>
+</html>
