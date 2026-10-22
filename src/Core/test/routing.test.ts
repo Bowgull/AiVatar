@@ -198,7 +198,7 @@ test('"job scan" is job-hunt-shaped too, and the local fallback is Claude, not t
   const core: any = new Core({ testDoor: true, port, dataDir: tmp(), stateDir: tmp(), warm: false, consolidate: false });
   core.runOnMac = async () => false;                        // Mac unreachable: force the local fallback
   const started: any[] = [];
-  core.startClaude = async (...args: any[]) => { started.push(args); return 'opened'; };
+  core.startClaudeTyped = async (...args: any[]) => { started.push(args); return 'opened'; };
   await core.start();
   try {
     const desk = await client(port);

@@ -32,6 +32,8 @@ import type { CiRow, Runner } from './claudeci.ts';
 import { PlanStore, ProgressHistory, historyFile, plansFile } from './progresshistory.ts';
 import type { StoredPhase } from './progresshistory.ts';
 import { calibration } from './progressmath.ts';
+import { normFolder, startBody } from './jobstart.ts';
+import type { Start, StartBook } from './jobstart.ts';
 import type { PlanV3 } from './progressmath.ts';
 
 // ------------------------------------------------------------------ the key and the MAC
@@ -158,7 +160,7 @@ export type Decision = 'allow' | 'always' | 'deny' | 'deny-message';
 export type Answer = { decision: Decision; message?: string } | { answers: Record<string, string> };
 
 /** What the mod is handed: a kind and a JSON body, the MAC added at the door with the poll's own nonce. */
-export interface Outgoing { id: string; kind: 'answer' | 'gone' | 'inbox' | 'pause' | 'play' | 'model' | 'resync'; body: string }
+export interface Outgoing { id: string; kind: 'answer' | 'gone' | 'inbox' | 'pause' | 'play' | 'model' | 'resync' | 'start' | 'caps' | 'door2'; body: string }
 
 /**
  * A rolling record of one hop's latency (research section 5, 2026-10-21): the last 200 samples; every 200 events it
@@ -819,6 +821,27 @@ export class JobTracker {
     return null;
   }
 
+  /**
+   * C6: a signed start for a session (a resume), the probe's capability check, or a Door 2 start through a host
+   * session. Only core.ts calls this, after his Go on a card (jobstart.ts), or the probe.
+   */
+  queue(session: string, kind: 'start' | 'caps' | 'door2', body: string): void {
+    const list = this.outbox.get(session) ?? [];
+    list.push({ id: this.id(), kind, body });
+    this.outbox.set(session, list.slice(-50));
+    const w = this.outboxWaiters.get(session);
+    if (w) { clearTimeout(w.timer); this.outboxWaiters.delete(session); w.resolve(this.take(session)); }
+  }
+
+  /** C6: is this session's mod on the link right now (not ended, not just seen in a transcript)? */
+  linked(session: string): boolean { const j = this.jobs.get(session); return !!j && j.source === 'link' && j.phase !== 'ended'; }
+
+  /** C6 Door 2: the linked session to start another from: an idle one first, the most recently active. */
+  host(): string | null {
+    const live = [...this.jobs.values()].filter(j => j.source === 'link' && j.phase !== 'ended').sort((a, b) => b.lastActivity - a.lastActivity);
+    return (live.find(j => j.phase === 'idle') ?? live[0])?.id ?? null;
+  }
+
   pause(session: string): string | null {
     const j = this.jobs.get(session); if (!j) return 'That session is not running.';
     if (j.source === 'transcript') return 'Aang can only watch that session for now. Open it in Claude.';
@@ -937,6 +960,9 @@ export class LinkPusher {
 
 // ------------------------------------------------------------------ the door
 
+/** C6: the events about starts that the brain's start book listens to. */
+const C6_EVENTS = new Set(['started', 'caps', 'door2.result', 'turn.start']);
+
 /** How long a poll is held open. Short enough that a dead connection is noticed, long enough to cost nothing. */
 export const POLL_MS = 25_000;
 /** A signed request older or newer than this is refused (clock skew on one machine is nil; this only bounds replay). */
@@ -956,7 +982,19 @@ export class LinkDoor {
    * (mockupdrop.ts dropMockup); its answer goes straight back to the tool call. Null: the door says no.
    */
   onMockup: ((ask: { cwd: string; path?: unknown; url?: unknown; title?: unknown; branch?: unknown }) => Promise<{ ok: boolean; message: string }>) | null = null;
+  /** C6 (2026-10-22): the jobs he said Go to (jobstart.ts). Null: no starts are handed out. */
+  starts: StartBook | null = null;
+  /** C6: what the mods say about starts (started, caps, door2.result, and turn.start for the probe). */
+  onStart: ((session: string, ev: Record<string, unknown>) => void) | null = null;
+  /** C6 probe (npm run c6-probe): signed like everything here; answered by core.ts. */
+  onProbe: ((ask: Record<string, unknown>) => Promise<unknown>) | null = null;
   constructor(key: string, tracker: JobTracker, ignoreCwd: () => string = () => '') { this.key = key; this.tracker = tracker; this.ignoreCwd = ignoreCwd; }
+
+  /** C6: items signed over a folder instead of a session (Door 1: the new session has no id the brain knows yet). */
+  private startItems(nonce: string, folder: string, s: Start): { id: string; kind: string; body: string; mac: string }[] {
+    const body = startBody(s);
+    return [{ id: s.id, kind: 'start', body, mac: linkMac(this.key, nonce, folder, s.id, 'start', body) }];
+  }
 
   private signed(req: http.IncomingMessage, url: string, body: string, now: number): boolean {
     const ts = String(req.headers['x-aang-link-ts'] ?? ''), sig = String(req.headers['x-aang-link-sig'] ?? '');
@@ -983,7 +1021,7 @@ export class LinkDoor {
       try {
         // v 2 (2026-10-21): this brain takes several events in one post ({ session, cwd, events: [...] }), so a mod
         // whose last post is still on the wire sends what came meanwhile together instead of queueing requests.
-        if (req.method === 'GET' && q.pathname === '/link/hello' && nonceOk) { json(200, { proof: linkMac(this.key, 'hello', nonce), v: 2 }); return; }
+        if (req.method === 'GET' && q.pathname === '/link/hello' && nonceOk) { json(200, { proof: linkMac(this.key, 'hello', nonce), v: 2, ...(this.starts ? { c6: 1 } : {}) }); return; }
         if (req.method === 'POST' && q.pathname === '/link/event') {
           const ev = JSON.parse(body);
           // Aang's own chat lanes load his settings, so the mod loads in them too: they are not his sessions.
@@ -992,6 +1030,10 @@ export class LinkDoor {
           res.writeHead(204).end();
           const rx = Date.now();
           try {
+            if (this.onStart) {
+              const list = Array.isArray(ev?.events) ? ev.events.slice(0, 200) : [ev];
+              for (const one of list) if (one && typeof one === 'object' && C6_EVENTS.has(String(one.type))) this.onStart(String(ev?.session ?? '').slice(0, 100), one);
+            }
             if (Array.isArray(ev?.events)) {
               for (const one of ev.events.slice(0, 200)) if (one && typeof one === 'object') this.tracker.event({ ...one, session: ev.session, cwd: ev.cwd }, rx);
             } else this.tracker.event(ev, rx);
@@ -1010,7 +1052,24 @@ export class LinkDoor {
             .then((r) => json(200, { ok: r.ok === true, message: String(r.message ?? '').slice(0, 600) }), () => json(200, { ok: false, message: 'The brain could not hand it over.' }));
           return;
         }
+        // C6 Door 1: a brand-new session asks, once, for a start waiting on its folder. Handed out once, first come.
+        if (req.method === 'GET' && q.pathname === '/link/start' && nonceOk) {
+          const folder = normFolder((q.searchParams.get('f') ?? '').slice(0, 500));
+          const s = folder && this.starts ? this.starts.claim(folder) : null;
+          json(200, { items: s ? this.startItems(nonce, folder, s) : [] });
+          return;
+        }
+        // C6 probe: only from someone holding this run's key (the request is signed); the probe's text is fixed in the brain.
+        if (req.method === 'POST' && q.pathname === '/link/probe') {
+          if (!this.onProbe) { json(200, { ok: false, message: 'No probe here.' }); return; }
+          const ask = JSON.parse(body || '{}') as Record<string, unknown>;
+          void this.onProbe(ask).then(r => json(200, r), () => json(200, { ok: false, message: 'The probe failed in the brain.' }));
+          return;
+        }
         if (req.method === 'GET' && q.pathname === '/link/wait' && nonceOk && session) {
+          // C6: a resume waiting for this session to open goes out with its first poll.
+          const r = this.starts?.takeFor(session);
+          if (r) this.tracker.queue(session, 'start', startBody(r));
           void this.tracker.waitOutbox(session, POLL_MS).then(list => json(200, { items: this.items(nonce, session, list) }));
           return;
         }

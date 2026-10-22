@@ -1,0 +1,14 @@
+Pick it back up in Waymark-grass: pick Waymark back up and finish the grass thing
+Opus 5.5 · high (might be high quota)
+---
+Goal: Finish the grass work in Waymark.
+
+Where to look: C:\Users\J\Waymark-grass; start with WAYMARK_SESSION_HANDOFF.md.
+
+Rules: This is a big job: start with ONE line saying what a top expert would also do, what raw material they would start from, the methods they would use, and what (other than you or me) shows it is right. Then do it that way. If it will cost a lot of quota, say so in one line first; never quietly do less. Plan first: explore, then show me the plan and wait for my OK before changing files. Test only what you built, once: run that feature's own test file, not the whole suite. Keep your to-do list ticked as you go (my progress bars are built from it). Commit with a clear message and push when done (pull --rebase if rejected; never stash). Never enter passwords, card numbers or keys. Never touch Cemu or the Desktop 'Dont touch' folder.
+
+Done means: the work finished in the real build, with a picture. Start by reading where it stands (the last commits and its handoff notes) and tell him in 3 lines what is done and what is left.
+
+Report: Replies to me: short, plain, no walls of text, no em dashes. Long detail goes in a file; tell me where. Say what changed, how you checked it, and anything I must decide.
+
+Joshua's words: "pick Waymark back up and finish the grass thing"

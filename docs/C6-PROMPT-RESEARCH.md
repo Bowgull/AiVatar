@@ -348,3 +348,14 @@ only T2 passes, Door 2. If neither, fall back to today's prefill + one Enter, ho
 
 ## His answers (2026-10-22)
 1. One click on the folder box is fine. 2. Card shows the request folded under "What I'll send". 3. Opus all the way; he changes the model inside the job himself and Aang never overrides it. 4. Commit and push by default in every repo.
+
+## Built (2026-10-22, branch build/c6-start-jobs)
+- Brain: `jobprompt.ts` (kind, size, folder guess, rule blocks, skills, model/effort, tidy guard), `jobstart.ts` (cards,
+  hash, single use, the door file `c6-door.json`), `jobstarter.ts` (card -> door; resume), `/link/start` + `/link/probe`
+  in `claudelink.ts`. The bubble's card is the `claude.start` ask (asks.js); right-click Aang -> "Start a Claude job".
+- Mod: `claimStart` (Door 1, fresh sessions only), `start` items (resume), `caps` and `door2` (Door 2, only
+  start_session / set_session_model / set_session_effort).
+- Until the probe has run, Aang uses the old prefilled link and the card says "You press Enter in Claude".
+- **The probe** (needs Aang restarted on this build): `cd src/Core && npm run c6-probe`. It opens one Claude window on
+  the Aang folder: click the folder box once, type nothing. Then it checks Door 2 and asks before trying it. The verdict
+  is saved; write it here.

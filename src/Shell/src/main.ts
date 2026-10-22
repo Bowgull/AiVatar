@@ -275,6 +275,12 @@ function onHotkey(): void {
  * a `typebox` message. Before this, a click opened the pet's OWN box instead, so which box he got
  * depended on how he asked for it.
  */
+/** C6: open the typing box with words already in it (the cursor at the end). Reuses the box's keep-the-text path. */
+function prefillBox(text: string): void {
+  openTypeBox();
+  setTimeout(() => input?.send('input:failed', { text, reason: 'prefill' }), 60);
+}
+
 function openTypeBox(dock: { x: number; y: number } | null = null): void {
   if (!input) return;
   const body = readJson(path.join(STATE_DIR, 'body.json')) as Record<string, unknown> | null;
@@ -773,6 +779,8 @@ app.whenReady().then(async () => {
           if (id === 'back') { bubble?.send('bubble:recall', 'back'); return; }
           // Sheet 60: "Let Aang bring up my notes" in Hush is the brain's switch (notenotice.ts), not the pet's.
           if (id === 'notes.notice') { link?.send({ t: 'notice.set', on: !menuNotesNotice }); menuNotesNotice = !menuNotesNotice; return; }
+          // C6: "Start a Claude job" opens his box with the words that tell Aang what it is for.
+          if (id === 'claudejob') { prefillBox('Start a Claude job: '); return; }
           link?.send({ t: 'menu.pick', id });
         },
         keys: hotkeys,
@@ -1061,6 +1069,14 @@ app.whenReady().then(async () => {
       return;
     }
     if (a.t === 'plan') { link?.send({ t: 'plan.reply', id: String(a.id ?? ''), go: choice === 'go' }); return; }
+    // C6 (2026-10-22): a Claude job's card. Go carries the hash the brain checks; Change drops the card and puts his
+    // words back in the typing box, so he edits them and says it again.
+    if (a.t === 'claude.start') {
+      const pick = choice === 'go' ? 'go' : choice === 'change' ? 'change' : 'no';
+      link?.send({ t: 'claude.start.reply', id: String(a.id ?? '').slice(0, 64), hash: String(a.hash ?? '').slice(0, 64), choice: pick });
+      if (pick === 'change') prefillBox(`Start a Claude job: ${String(a.words ?? '').slice(0, 2000)}`);
+      return;
+    }
     // Sheet 62: his key on "Got it. Ask about it, or keep it as a note?" Answered here, never by the brain.
     if (a.t === 'send.ask') { answerSend(a.id, choice); return; }
     // Sheet 17: "5 more" when a timer goes off is just a new five-minute timer with the same name.

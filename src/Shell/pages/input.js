@@ -161,6 +161,8 @@ const failRow = document.getElementById('failrow');
 window.aang?.onFailed?.((f) => {
   if (!f || typeof f.text !== 'string') return;
   setText(f.text);
+  // C6: words put in the box for him (Start a Claude job), not a failure.
+  if (f.reason === 'prefill') { if (failRow) failRow.hidden = true; return; }
   if (!failRow) return;
   failRow.textContent = '';
   const m = document.createElement('b');

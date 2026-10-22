@@ -59,6 +59,7 @@ function mainRows(s) {
   return [
     { id: 'back', ic: 'back', t: 'Look back' },
     { id: 'jobs', ic: 'claude', t: 'Claude jobs', tag: jobs > 0 ? `${jobs} RUNNING` : '' },
+    { id: 'claudejob', ic: 'claude', t: 'Start a Claude job' },
     { id: 'hunt', ic: 'hunt', t: 'Job hunt now' },
     '-',
     { sub: 'hush', ic: 'hush', t: 'Hush', tag: hushed ? `UNTIL ${clock(Number(s.hushedUntil))}` : '' },

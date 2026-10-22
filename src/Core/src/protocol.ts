@@ -335,6 +335,8 @@ export type ToBody =
   | { t: 'highlight.got'; text: string; app: string }
   /** 6.13: the plan before he acts. `gate` per step: none, ask (asks him first) or lever (hold to confirm). */
   | { t: 'plan'; id: string; steps: { text: string; tool?: string; gate: 'none' | 'ask' | 'lever' }[] }
+  /** C6 (2026-10-22): a Claude job before it is sent (asks.js draws it). `hash` is SHA-256 of `text`, echoed back on Go. */
+  | { t: 'claude.start'; id: string; hash: string; words: string; line: string; folder: string; text: string; door: 'link' | 'door2' | 'prefill'; model?: string; quota?: boolean; resume?: { title: string; running: boolean } }
   /** Sheet 17: every running timer, after any change and when a Shell connects. Times are epoch ms. */
   | { t: 'timer.state'; timers: { id: string; label: string; total: number; end: number; paused: number }[] }
   /** Sheet 17: every note, newest first, after any change and when a Shell connects. */
@@ -586,6 +588,7 @@ export type FromBody =
   | { t: 'job.act'; id: string; action: 'open' | 'apply' | 'skip' | 'undo' }
   /** 6.13: his answer to a plan. */
   | { t: 'plan.reply'; id: string; go: boolean }
+  | { t: 'claude.start.reply'; id: string; hash: string; choice: 'go' | 'change' | 'no' }
   /** Sheet 17: a timer set on the dial, the keys on the hourglass, and "5 more" when one goes off. */
   | { t: 'timer.start'; ms: number; label: string }
   | { t: 'timer.act'; id: string; action: 'add' | 'pause' | 'stop' }
