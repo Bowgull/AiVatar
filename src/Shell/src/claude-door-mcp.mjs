@@ -15,8 +15,16 @@ const doorFile = process.env.AANG_DOOR_FILE || (process.platform === 'win32'
   ? path.join(process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming'), 'Aang', 'claude-door.json')
   : path.join(os.homedir(), 'Library', 'Application Support', 'Aang', 'claude-door.json'));
 
+// 2026-10-22 (the Waymark session's "The door refused this connector"): a process started by the Claude desktop app
+// sees a private copy of %APPDATA%, and a stale claude-door.json written there (by a test run) shadowed the real one, so
+// the key never matched again. On Windows the real file is read first through the local admin share, which that copy
+// cannot shadow; the usual path is the fallback.
+const realDoorFile = !process.env.AANG_DOOR_FILE && process.platform === 'win32' && /^[A-Za-z]:\\/.test(doorFile)
+  ? '\\\\localhost\\' + doorFile[0].toLowerCase() + '$' + doorFile.slice(2) : null;
 function door() {
-  try { const d = JSON.parse(readFileSync(doorFile, 'utf8')); if (Number.isInteger(d.port) && typeof d.key === 'string') return d; } catch { /* below */ }
+  for (const f of realDoorFile ? [realDoorFile, doorFile] : [doorFile]) {
+    try { const d = JSON.parse(readFileSync(f, 'utf8')); if (Number.isInteger(d.port) && typeof d.key === 'string') return d; } catch { /* the next */ }
+  }
   return null;
 }
 async function knock(d, op, a) {
