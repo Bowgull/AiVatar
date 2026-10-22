@@ -1,18 +1,24 @@
-/* Sheet 17: a sticky note on his screen. The window is the paper plus 14 px of room for the pin and shadow. */
+/* Sheet 17: a sticky note on his screen. The window is the paper plus 14 px of room for the ribbon and shadow.
+   Sheet 60 (2026-10-22): look B (notecats.css draws the paper, its ribbon and its control row). */
 html,body{margin:0;background:transparent;overflow:hidden;height:100%}
-.sticky{position:absolute;left:14px;top:14px;width:calc(100vw - 28px);height:calc(100vh - 28px);padding:18px 14px 12px;display:flex;flex-direction:column;
-  box-shadow:5px 6px 0 rgba(0,0,0,.5);overflow:visible}
+.sticky{position:absolute;left:14px;top:14px;width:calc(100vw - 28px);height:calc(100vh - 28px);overflow:visible}
 body.menu .sticky{width:var(--w);height:var(--h)}
-.sticky .pin{cursor:grab}
-.sticky .ntitle{font-size:var(--ts,16px);margin-bottom:5px}
-.sticky .nbody{flex:1;overflow:hidden;min-height:0}
-/* drag by the top strip, resize from the corner; both sit over the paper */
+/* drag by the top strip, resize from the corner; both sit over the paper (the ribbon stays visible through the strip) */
 .grab{position:absolute;left:14px;right:14px;top:3px;height:20px;cursor:grab;z-index:3}
 body.menu .grab{right:auto;width:var(--w)}
-.grip{position:absolute;right:16px;bottom:16px;width:12px;height:12px;cursor:nwse-resize;z-index:3;opacity:.6;
-  background:linear-gradient(135deg,transparent 50%,var(--sub2,#7a6440) 50%,var(--sub2,#7a6440) 60%,transparent 60%,transparent 70%,var(--sub2,#7a6440) 70%,var(--sub2,#7a6440) 80%,transparent 80%)}
+.grip{position:absolute;right:18px;bottom:18px;width:12px;height:12px;cursor:nwse-resize;z-index:3;opacity:.55;
+  background:linear-gradient(135deg,transparent 50%,#6b5236 50%,#6b5236 60%,transparent 60%,transparent 70%,#6b5236 70%,#6b5236 80%,transparent 80%)}
 body.menu .grip{display:none}
-.pintag{position:absolute;right:24px;top:20px;font:400 7px var(--label);letter-spacing:1px;color:var(--sub2,#7a6440);display:none;z-index:3}
+.pintag{position:absolute;right:26px;top:22px;font:700 11px 'Figtree',sans-serif;letter-spacing:.6px;color:#6b5236;display:none;z-index:3}
 body.pinned .pintag{display:block}
-body.pinned .paper .pin{box-shadow:0 0 0 3px rgba(255,224,150,.7),0 0 12px var(--gold)}
 body.pinned .grab,body.pinned .grip{display:none}
+/* the quick note (Ctrl + *): the same note, small, empty, ready. Enter keeps it, Esc closes. */
+body.quick .grip{display:none}
+body.quick .grab{cursor:default}
+body.quick .sticky .nbody{font-size:16px}
+/* it arrives with a small spring, like the bubble */
+body.quick .sticky{animation:qn-in .32s cubic-bezier(.34,1.45,.64,1)}
+body.quick.going .sticky{animation:qn-out .16s ease-in forwards}
+@keyframes qn-in{from{opacity:0;transform:translateY(10px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes qn-out{to{opacity:0;transform:translateY(6px) scale(.97)}}
+@media (prefers-reduced-motion: reduce){body.quick .sticky,body.quick.going .sticky{animation:none}}

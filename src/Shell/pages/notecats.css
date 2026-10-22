@@ -1,0 +1,58 @@
+/* Sheet 60 (v5, his picks 2026-10-22): the note, look B. The colour comes from the category (--paper / --deep, set by
+   notecats.js paintCat) and cross-fades in 0.25 s when the category changes. Soft corners drawn as a pixel staircase,
+   a dark-wood edge (never a black line), a soft stepped shadow (whole pixels, never blurred), and the ribbon tab in the
+   category's colour where the brown pushpin was. Words are Figtree, titles Patrick Hand: readable, no squashed pixel caps. */
+.npaper{--paper:#f8dc8e;--deep:#d9a83a;--edge:#4a2e1a;--ink:#2a1c10;position:relative;box-sizing:border-box;color:var(--ink);
+  filter:drop-shadow(0 2px 0 rgba(18,10,6,.30)) drop-shadow(0 2px 0 rgba(18,10,6,.18)) drop-shadow(2px 1px 0 rgba(18,10,6,.08))}
+.np-edge,.np-fill{position:absolute;inset:0;
+  clip-path:polygon(0 10px,2px 10px,2px 6px,4px 6px,4px 4px,6px 4px,6px 2px,10px 2px,10px 0,
+    calc(100% - 10px) 0,calc(100% - 10px) 2px,calc(100% - 6px) 2px,calc(100% - 6px) 4px,calc(100% - 4px) 4px,calc(100% - 4px) 6px,calc(100% - 2px) 6px,calc(100% - 2px) 10px,100% 10px,
+    100% calc(100% - 10px),calc(100% - 2px) calc(100% - 10px),calc(100% - 2px) calc(100% - 6px),calc(100% - 4px) calc(100% - 6px),calc(100% - 4px) calc(100% - 4px),calc(100% - 6px) calc(100% - 4px),calc(100% - 6px) calc(100% - 2px),calc(100% - 10px) calc(100% - 2px),calc(100% - 10px) 100%,
+    10px 100%,10px calc(100% - 2px),6px calc(100% - 2px),6px calc(100% - 4px),4px calc(100% - 4px),4px calc(100% - 6px),2px calc(100% - 6px),2px calc(100% - 10px),0 calc(100% - 10px))}
+.np-edge{background:var(--edge)}
+.np-fill{inset:2px;background-color:var(--paper);background-image:linear-gradient(180deg,rgba(255,255,255,.18),rgba(255,255,255,0) 70%),linear-gradient(180deg,rgba(0,0,0,.035) 0 6px,transparent 6px);
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.42),inset 0 -2px 0 color-mix(in srgb,var(--paper) 72%,#7a5532);transition:background-color .25s ease}
+.np-in{position:relative;z-index:1;height:100%;box-sizing:border-box;display:flex;flex-direction:column;padding:30px 16px 12px}
+.npaper .np-ribbon{position:absolute;left:22px;top:-6px;z-index:3;filter:drop-shadow(1px 1px 0 rgba(0,0,0,.35));pointer-events:none}
+
+/* the words */
+.npaper .ntitle{font:400 var(--ts,22px)/1.15 var(--tf,'Patrick Hand'),'Figtree',sans-serif;color:var(--ink);border:0;margin:0 0 4px;padding:0;outline:none;white-space:nowrap;overflow:hidden}
+.npaper .nbody{font:500 var(--ns,15px)/1.45 var(--nf,'Figtree');color:var(--ink);flex:1;min-height:0;overflow:auto;scrollbar-width:none;outline:none}
+.npaper .ntitle:empty::before,.npaper .nbody:empty::before{content:attr(data-ph);color:color-mix(in srgb,var(--ink) 45%,var(--paper));font-weight:500;pointer-events:none}
+.npaper .nbody .cl{position:relative;padding-left:26px;min-height:1.45em}
+.npaper .nbody .cl::before{content:"";position:absolute;left:0;top:.22em;width:10px;height:10px;border:2px solid #6b5236;border-radius:2px;background:rgba(255,255,255,.55);cursor:pointer}
+.npaper .nbody .cl.done{text-decoration:line-through;color:color-mix(in srgb,var(--ink) 50%,var(--paper));opacity:1}
+.npaper .nbody .cl.done::before{background:#58b0a3;border-color:#2f6f66}
+.npaper .nbody .cl.done::after{content:"";position:absolute;left:5px;top:.32em;width:3px;height:7px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+
+/* the control row: the same on every note */
+.np-ctl{flex:none;margin-top:8px;padding-top:9px;border-top:3px solid color-mix(in srgb,var(--deep) 30%,#ffd36a);display:flex;flex-direction:column;gap:6px;position:relative}
+.np-ctl::before{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:color-mix(in srgb,var(--paper) 70%,#7a5532)}
+.np-r1{display:flex;align-items:center;gap:8px}
+.np-chip{font:700 13.5px/1 'Figtree',sans-serif;color:var(--ink);background:color-mix(in srgb,var(--paper) 55%,#fff);border:2px solid color-mix(in srgb,var(--deep) 55%,var(--paper));
+  border-radius:999px;padding:5px 11px 6px;cursor:pointer;box-shadow:0 2px 0 color-mix(in srgb,var(--deep) 40%,transparent);transition:transform .12s,background-color .25s,border-color .25s}
+.np-chip i{font-style:normal;color:#9c3a26;margin-right:4px}
+.np-chip.ghost{color:color-mix(in srgb,var(--ink) 62%,var(--paper));background:transparent}
+.np-chip:hover{transform:translateY(-1px)}
+.np-ck{margin-left:auto;display:grid;place-items:center;width:34px;height:30px;padding:0;border-radius:8px;cursor:pointer;
+  border:2px solid color-mix(in srgb,var(--deep) 50%,var(--paper));background:color-mix(in srgb,var(--paper) 60%,#fff);box-shadow:0 2px 0 color-mix(in srgb,var(--deep) 35%,transparent)}
+.np-ck.on{background:linear-gradient(180deg,#5b3a8a,#3a2160);border-color:#2a1446}
+.np-r2{display:flex;align-items:center;gap:9px;padding:0;border:0;background:none;cursor:pointer;font:600 13.5px 'Figtree',sans-serif;color:var(--ink);text-align:left}
+.np-r2 canvas{flex:none}
+
+/* the category list (sheet 60 B-cats): Samara's wood, each name with its colour */
+.np-pick{position:absolute;z-index:40;width:236px;box-sizing:border-box;padding:12px 10px 10px;border-radius:12px;border:3px solid #2c1c10;
+  background:linear-gradient(rgba(0,0,0,.10),rgba(0,0,0,.22)),url(art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated;
+  box-shadow:0 4px 0 rgba(0,0,0,.55),0 14px 26px rgba(0,0,0,.5);display:flex;flex-direction:column;gap:2px;animation:np-pop .22s cubic-bezier(.34,1.4,.64,1)}
+@keyframes np-pop{from{opacity:0;transform:translateY(-6px) scale(.97)}to{opacity:1;transform:none}}
+.np-ph{font:800 11.5px 'Figtree',sans-serif;letter-spacing:1.6px;text-transform:uppercase;color:#ffd36a;margin:0 6px 6px}
+.np-prow{display:flex;align-items:center;gap:10px;width:100%;padding:7px 8px;border:2px solid transparent;border-radius:9px;background:none;cursor:pointer;text-align:left;
+  font:600 15px 'Figtree',sans-serif;color:#f3e7d0;text-shadow:1px 1px 0 rgba(0,0,0,.6);image-rendering:auto}
+.np-prow i{flex:none;width:16px;height:16px;border-radius:4px;background:var(--paper);border:2px solid #2c1c10;box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--deep) 60%,transparent)}
+.np-prow:hover{background:rgba(255,224,150,.12)}
+.np-prow.on{background:rgba(255,224,150,.18);border-color:rgba(255,211,106,.55)}
+.np-prow.new span{color:#ffd36a}
+.np-prow.new em{font:500 12px 'Figtree',sans-serif;color:#c9b48c;font-style:normal;margin-left:auto}
+.np-pin{width:100%;box-sizing:border-box;margin-top:2px;padding:7px 9px;border-radius:8px;border:2px solid rgba(255,211,106,.55);background:rgba(0,0,0,.35);color:#fff5de;font:600 14.5px 'Figtree',sans-serif;outline:none}
+
+@media (prefers-reduced-motion: reduce){.np-fill,.np-chip{transition:none}.np-pick{animation:none}}

@@ -7,15 +7,29 @@
 // A note's text is HTML from his own editor (bold, lists, ticks, fonts). It is rebuilt here from scratch on
 // every save, keeping only the handful of tags and styles the editor can make, so nothing else can ride in.
 import { existsSync, readFileSync } from 'node:fs';
+import path from 'node:path';
 import { writeFileAtomic } from './atomic.ts';
 
-export const COLOURS = ['parchment', 'sage', 'rose', 'sky', 'plum', 'stone'] as const;
+/** The colours notes had before sheet 60 v4 (2026-10-22). Read only to drop them: colour now comes from the category. */
+export const OLD_COLOURS = ['parchment', 'sage', 'rose', 'sky', 'plum', 'stone'] as const;
+/**
+ * Sheet 60 v4/v5 (his note, 2026-10-22: "shouldn't notes be different colours by their category rather than giving me
+ * another thing to pick?"). A note has no colour of its own any more: no category = a plain note (butter paper); each
+ * of these owns one paper; a category he makes takes the next free colour (pages/notecats.js draws them).
+ */
+export const BUILTIN_CATS = ['To-do', 'Idea', 'Reference', 'For Claude'] as const;
+export const MAX_OWN_CATS = 12;
+/** A category name as kept: plain words, no markup, at most 24 characters. Empty = a plain note. */
+export function cleanCat(raw: unknown): string {
+  return String(raw ?? '').replace(/[<>#\u0000-\u001f]/g, '').replace(/\s+/g, ' ').trim().slice(0, 24);
+}
 export const FONTS = ['figtree', 'caveat', 'patrick', 'cinzel', 'fell', 'elite', 'silk', 'vt', 'arcade'] as const;
 export const SIZES = ['s', 'm', 'l'] as const;
-export type Colour = typeof COLOURS[number];
 
 export interface Note {
-  id: string; title: string; html: string; col: Colour; font: string; size: string;
+  id: string; title: string; html: string; font: string; size: string;
+  /** Sheet 60: its category ('' or absent = a plain note). The colour follows from it; nothing else to pick. */
+  cat?: string | undefined;
   /** The title's own font and size, when he changed them. */
   tfont?: string | undefined; tsize?: string | undefined;
   /** On his screen: where, how big, how see-through, pinned. Absent: on the board only. */
@@ -173,16 +187,49 @@ export class Notes {
   private all: Note[] = [];
   private seq = 0;
   private readonly file: string;
+  /** His own categories, in the order he made them: that order is which colour each one gets. Kept beside the notes. */
+  private own: string[] = [];
+  private readonly catsFile: string;
   constructor(file: string) {
     this.file = file;
+    this.catsFile = path.join(path.dirname(file), 'note-cats.json');
+    try { if (existsSync(this.catsFile)) { const raw = JSON.parse(readFileSync(this.catsFile, 'utf8')) as unknown; if (Array.isArray(raw)) this.own = this.cleanOwn(raw); } }
+    catch { this.own = []; }
     try { if (existsSync(file)) { const raw = JSON.parse(readFileSync(file, 'utf8')) as Note[]; if (Array.isArray(raw)) this.all = raw.map(n => this.tidy(n)).filter((n): n is Note => n !== null).slice(0, MAX_NOTES); } }
     catch { this.all = []; }
+    // A category a note carries that is in neither list (an older file, a hand edit) joins his own, in note order.
+    const before = this.own.length;
+    for (const n of [...this.all].sort((a, b) => a.updated - b.updated)) if (n.cat) n.cat = this.canonCat(n.cat, false);
+    if (this.own.length !== before) this.saveCats();
   }
+  /** Built-in categories first, then his own in the order he made them. */
+  cats(): { builtin: string[]; own: string[] } { return { builtin: [...BUILTIN_CATS], own: [...this.own] }; }
+  /** "+ Category" on the board: a new one of his own, with no note in it yet. Its name as kept, or '' when refused. */
+  addCat(name: unknown): string { return this.canonCat(cleanCat(name)); }
+  /** The spelling already known (any case), else a new one of his own (up to MAX_OWN_CATS); '' = plain. */
+  private canonCat(raw: unknown, save = true): string {
+    const c = cleanCat(raw);
+    if (!c) return '';
+    const k = c.toLowerCase();
+    const known = [...BUILTIN_CATS, ...this.own].find(x => x.toLowerCase() === k);
+    if (known) return known;
+    if (this.own.length >= MAX_OWN_CATS) return '';
+    this.own.push(c);
+    if (save) this.saveCats();
+    return c;
+  }
+  private cleanOwn(raw: unknown[]): string[] {
+    const out: string[] = [];
+    for (const r of raw) { const c = cleanCat(r); if (c && ![...BUILTIN_CATS, ...out].some(x => x.toLowerCase() === c.toLowerCase())) out.push(c); }
+    return out.slice(0, MAX_OWN_CATS);
+  }
+  private saveCats(): void { try { writeFileAtomic(this.catsFile, JSON.stringify(this.own)); } catch { /* best effort */ } }
   /** Newest first, as the board shows them. */
   list(): Note[] { return [...this.all].sort((a, b) => b.updated - a.updated).map(n => ({ ...n, ...(n.out ? { out: { ...n.out } } : {}) })); }
-  make(title: string, html: string, col: Colour = 'parchment', now = Date.now()): Note | null {
+  make(title: string, html: string, cat = '', now = Date.now()): Note | null {
     if (this.all.length >= MAX_NOTES) return null;
-    const n: Note = { id: `n${now.toString(36)}${++this.seq}`, title: title.slice(0, 60) || 'Note', html: cleanHtml(html), col, font: 'figtree', size: 'm', updated: now };
+    const c = this.canonCat(cat);
+    const n: Note = { id: `n${now.toString(36)}${++this.seq}`, title: title.slice(0, 60) || 'Note', html: cleanHtml(html), font: 'figtree', size: 'm', ...(c ? { cat: c } : {}), updated: now };
     this.all.push(n); this.save(); return { ...n };
   }
   /**
@@ -197,7 +244,7 @@ export class Notes {
     if (!lines.length && !src) return null;
     const title = (src?.site || String(site ?? '').replace(/[<>]/g, '').trim() || 'Sent to Aang').slice(0, 60);
     const html = lines.map(l => `<div>${esc(l)}</div>`).join('') + (src ? `<div>${esc(src.url)}</div>` : '');
-    const n = this.make(title, html, 'parchment', now);
+    const n = this.make(title, html, '', now);
     if (!n || !src) return n;
     const at = this.all.findIndex(x => x.id === n.id);
     if (at >= 0) { this.all[at] = { ...this.all[at]!, src }; this.save(); }
@@ -223,6 +270,8 @@ export class Notes {
   save1(raw: unknown, now = Date.now()): Note | null {
     const r = this.tidy({ ...(raw as object), updated: now } as Note);
     if (!r) return null;
+    if (r.cat) r.cat = this.canonCat(r.cat);
+    if (!r.cat) delete r.cat;
     const at = this.all.findIndex(x => x.id === r.id);
     // A note's source link is the Shell's to set (Keep as a note), never lost because an editor did not send it back.
     if (at >= 0 && !r.src && this.all[at]!.src) r.src = this.all[at]!.src;
@@ -244,7 +293,9 @@ export class Notes {
 
   private tidy(n: Note): Note | null {
     if (!n || typeof n.id !== 'string' || !/^n[a-z0-9]{1,20}$/.test(n.id)) return null;
-    const col = (COLOURS as readonly string[]).includes(n.col) ? n.col : 'parchment';
+    // Sheet 60 migration: an old note's own colour (`col`) is dropped, not mapped: a sky note was never a to-do, so it
+    // becomes a plain note (butter) until he gives it a category. Its words, font, size and place are all kept.
+    const cat = cleanCat(n.cat);
     const font = (FONTS as readonly string[]).includes(n.font) ? n.font : 'figtree';
     // S/M/L from before, or any size from 10 to 28 px (his ask, 2026-10-12: finer than three sizes).
     const px = Number(n.size);
@@ -252,7 +303,8 @@ export class Notes {
     const num = (v: unknown, lo: number, hi: number, d: number) => { const x = Number(v); return Number.isFinite(x) ? Math.max(lo, Math.min(hi, Math.round(x))) : d; };
     const o = n.out && typeof n.out === 'object' ? n.out : undefined;
     return {
-      id: n.id, title: String(n.title ?? '').replace(/[<>]/g, '').slice(0, 60) || 'Note', html: cleanHtml(n.html), col, font, size,
+      id: n.id, title: String(n.title ?? '').replace(/[<>]/g, '').slice(0, 60) || 'Note', html: cleanHtml(n.html), font, size,
+      ...(cat ? { cat } : {}),
       ...((FONTS as readonly string[]).includes(String(n.tfont)) ? { tfont: String(n.tfont) } : {}),
       ...(Number.isInteger(Number(n.tsize)) && Number(n.tsize) >= 10 && Number(n.tsize) <= 28 ? { tsize: String(Number(n.tsize)) } : {}),
       ...(o ? { out: { x: num(o.x, -20000, 20000, 100), y: num(o.y, -20000, 20000, 100), w: num(o.w, 170, 900, 220), h: num(o.h, 120, 900, 170), opacity: Math.max(0.25, Math.min(1, Number(o.opacity) || 1)), pinned: o.pinned === true } } : {}),

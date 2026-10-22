@@ -14,6 +14,9 @@ export function wireBrowser(get: () => AangBrowser | null): void {
   // ---- 6.19/6.20 the browser frame. Only the frame page may drive it, never a tab.
   // The tab list floating over the page: open (where the frame says) or closed.
   ipcMain.on('browser:tray', (e, a) => { if ((top(e) && b()?.isFrame(e.sender)) && a && typeof a === 'object') b().tray(a.open === true, a); });
+  // Sheet 60 section 4: the notes rail. A new note for this site (where it came from is the browser's to say), or one to open.
+  ipcMain.on('browser:notesave', (e, n) => { if (top(e) && b()?.isFrame(e.sender)) b().noteSave(n); });
+  ipcMain.on('browser:noteopen', (e, id) => { if (top(e) && b()?.isFrame(e.sender)) b().noteOpen(id); });
   ipcMain.on('browser:insets', (e, r) => { if (b()?.isMainFrame(e.sender) && r) b().setInsets(Number(r.left), Number(r.top), Number(r.right) || 0, Number(r.bottom) || 0); });
   // A tab's page has drawn (tabpreload.cjs): the only thing a website's tab ever sends, and it carries nothing.
   ipcMain.on('tab:painted', (e) => b()?.painted(e.sender));
