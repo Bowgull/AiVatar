@@ -42,3 +42,9 @@ test('Open in Claude takes only the exact session link', () => {
   for (const bad of [`https://claude.ai/epitaxy/${S}`, `claude://claude.ai/epitaxy/${S}?x=1`, `claude://evil.ai/epitaxy/${S}`, `claude://claude.ai/epitaxy/../../x`, 'file:///C:/Windows/system32/calc.exe', 42])
     assert.equal(claudeLink(bad), null, String(bad));
 });
+
+test('a finished job is read only by its own id (2026-10-22)', () => {
+  assert.deepEqual(claudeMessage({ t: 'claude.ackdone', id: S, extra: 'x' }), { t: 'claude.ackdone', id: S });
+  for (const bad of [{ t: 'claude.ackdone' }, { t: 'claude.ackdone', id: 'a b' }, { t: 'claude.ackdone', id: 'x'.repeat(101) }, { t: 'claude.ackdone', id: 7 }])
+    assert.equal(claudeMessage(bad), null, JSON.stringify(bad));
+});

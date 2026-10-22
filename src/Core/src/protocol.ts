@@ -640,6 +640,8 @@ export type FromBody =
   /** A message to a session: `now` slips in at Claude's next step; `after` waits for the task in progress to be ticked. */
   | { t: 'claude.send'; session: string; text: string; when: 'now' | 'after' }
   | { t: 'claude.pause'; session: string }
+  /** 2026-10-22: he X'd a finished job's card, opened it in Claude, or said Nice on its pop-out: it is read (the teal tick goes with the last). */
+  | { t: 'claude.ackdone'; id: string }
   /** Play: the session picks up again, with his words or a short "carry on". */
   | { t: 'claude.play'; session: string; text?: string }
   | { t: 'claude.model'; session: string; model: string }

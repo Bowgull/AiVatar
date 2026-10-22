@@ -567,6 +567,8 @@ function readJob(x) {
     percent: Number.isFinite(x.percent) ? x.percent : null, etaMs: Number.isFinite(x.etaMs) ? x.etaMs : null,
     usage: x.usage && typeof x.usage === 'object' ? x.usage : null, open: str(x.open, 200), held: Math.max(0, Math.min(99, Number(x.held) || 0)),
     failed: x.failed === true, progress: readProgress(x.progress), activity: readActivity(x.activity), finished: x.finished === true,
+    // 2026-10-22: finished and not yet seen (the brain's unread book, claudelink.ts): its done card stays until he X's or opens it.
+    unread: x.unread === true, doneAt: Number(x.doneAt) || 0,
     plan: readPlan(x.plan), ci: (Array.isArray(x.ci) ? x.ci : []).slice(0, 4).map(readCi).filter(Boolean),
   };
 }
@@ -660,15 +662,17 @@ export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWa
   const jobOf = (id) => jobs.find((j) => j.id === id);
   const live = () => waits.filter((w) => !answered.has(w.id));
   /**
-   * His decision (2026-10-21): the strip shows a job ONLY while it is working, or waiting on him (a question for him,
-   * or paused). Idle and ended jobs never show. A job that finishes shows JOB COMPLETE (teal) for about four
-   * seconds, then folds away by itself (his correction, 2026-10-21: "Nice" belongs only to the popped-out job window). With none of those, the strip takes no room at all.
+   * His decision (2026-10-21): the strip shows a job while it is working, or waiting on him (a question for him, or
+   * paused). Idle and ended jobs never show, except a finished one he has not seen yet: 2026-10-22 (his words: "do done
+   * jobs disappear? i dont want them to ... I want to be able to either X out of done jobs or click them to go to session
+   * where it finished"), JOB COMPLETE stays until he X's it or opens it. The brain keeps which are unread (claudelink.ts),
+   * so a reload or a restart keeps them. With none of those, the strip takes no room at all.
    */
   const running = (j) => active(j) || waits.some((w) => w.session === j.id && !answered.has(w.id));
-  /** Jobs seen at work in this page's life, so finishing can be told from never having started. */
-  const wasActive = new Set();
-  /** Finished and not yet folded away: id -> the job as it was when it finished. */
-  const complete = new Map();
+  /** X'd or opened here, still unread in the brain's last list until its next one. */
+  const acked = new Set();
+  /** Being X'd now (the bounce, then the fold): id -> the job as it was drawn, so it can finish folding after the brain lets it go. */
+  const closing = new Map();
   /** Folding away now. */
   const leaving = new Set();
   /**
@@ -678,14 +682,14 @@ export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWa
   const popped = new Set(), arriving = new Set();
   /** Sheet 52: how long he holds a bar before it comes away, and how far the pointer may wander meanwhile. */
   const HOLD_MS = 500, HOLD_SLOP = 6;
-  function noteFinished() {
-    for (const j of jobs) {
-      if (active(j)) { wasActive.add(j.id); complete.delete(j.id); continue; }
-      if (wasActive.has(j.id) && !j.failed) { wasActive.delete(j.id); complete.set(j.id, j); }
-    }
-    // A job that vanished from the brain's list mid-work is simply forgotten: there is no finish to tell him about.
-    for (const id of [...wasActive]) if (!jobOf(id)) wasActive.delete(id);
+  /** The finished jobs he has not seen, newest first (and the one folding away now, till it is gone). */
+  function doneJobs(run) {
+    const out = jobs.filter((j) => j.unread && !acked.has(j.id) && !closing.has(j.id) && !run.some((r) => r.id === j.id));
+    for (const [id, j] of closing) out.push(jobOf(id) ?? j);
+    return out.filter((j) => isOpen() || !popped.has(j.id)).sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0));
   }
+  /** He has seen it: the brain is told, so the teal tick over Aang goes with the last one. */
+  function ackDone(id) { acked.add(id); send({ t: 'claude.ackdone', id }); }
   /** Put the waiting card away (a click outside, Esc, or it came while he was in Claude): no closed-bubble card until something new. */
   let parked = false;
   let jobsSig = '', pinsSig = '';
@@ -826,10 +830,10 @@ export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWa
     if (below) setTimeout(() => { if (below.isConnected) below.animate([{ transform: 'none' }, { transform: 'translateY(-4px)' }, { transform: 'none' }], { duration: 220, easing: 'ease-out' }); }, 320);
     setTimeout(finish, 380);
   }
-  /** Per finished job, the timer that folds its card away about four seconds after he could first see it. */
-  const doneTimers = new Map();
-  const DONE_SHOW_MS = 4000;
-  /** JOB COMPLETE (teal, 2026-10-21): the finished job shows a moment, then folds away by itself and the rest close up. */
+  /**
+   * JOB COMPLETE (teal, 2026-10-21): the finished job's card. 2026-10-22: it stays until he opens it (a click on the card)
+   * or X's it (the small x on the right, on hover); either one tells the brain he has seen it.
+   */
   function doneOf(j) {
     const d = h('div', 'jdone' + (leaving.has(j.id) ? ' ck-leaving going' : '')); d.dataset.id = j.id;
     if (leaving.has(j.id)) d.style.height = '0px';     // redrawn mid-fold: it stays folded
@@ -837,26 +841,24 @@ export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWa
     const on = h('span', 'on'); on.append(h('i', 'jc', 'JOB COMPLETE'), h('b', '', j.project));
     const last = [...j.tasks].reverse().find((t) => t.status === 'completed');
     on.append(h('small', '', last?.text || j.prompt || 'All done'));
-    d.append(img, on);
+    const x = btn('jx', undefined, 'Done with it'); x.setAttribute('aria-label', 'Done with it');
+    // The x is not the door: it only folds the card away.
+    x.addEventListener('click', (e) => { e.stopPropagation(); if (closing.has(j.id)) return; ackDone(j.id); acknowledge(j.id, d); });
+    d.append(img, on, x);
     // 2026-10-21 (his ask): the finished job is a door: a click takes him to that session in Claude (and Aang's bubble goes).
     d.classList.add('go'); d.title = 'Open in Claude';
-    d.addEventListener('click', (e) => { e.stopPropagation(); openIn(jobOf(j.id) ?? j); });
-    // The clock starts when it is first drawn in the open cockpit, so a job finishing while he is away is still seen.
-    if (!doneTimers.has(j.id)) doneTimers.set(j.id, setTimeout(() => {
-      const now = [...strip.querySelectorAll('.jdone')].find((x) => x.dataset.id === j.id);
-      if (now && stripOn() && !strip.hidden) acknowledge(j.id, now);
-      else { doneTimers.delete(j.id); complete.delete(j.id); paintJobs(); }
-    }, DONE_SHOW_MS));
+    d.addEventListener('click', (e) => { e.stopPropagation(); if (closing.has(j.id)) return; ackDone(j.id); openIn(jobOf(j.id) ?? j); });
     return d;
   }
   /**
-   * Its time is up: a tiny bounce, then it folds shut (340 ms, Samara's ease) while the jobs under it close the gap, and the
-   * cockpit shrinks in the same breath (bubble.js measures without anything marked ck-leaving). Reduced motion: at once.
+   * He X'd it: a tiny bounce, then it folds shut (340 ms, Samara's ease) while the jobs under it close the gap, and the
+   * bubble shrinks in the same breath (bubble.js measures without anything marked ck-leaving). Reduced motion: at once.
    */
   function acknowledge(id, d) {
-    if (leaving.has(id)) return;
+    if (leaving.has(id) || closing.has(id)) return;
+    closing.set(id, jobOf(id) ?? { id, project: '', tasks: [] });
     const instant = matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const finish = () => { leaving.delete(id); complete.delete(id); doneTimers.delete(id); paintJobs(true); onChange(); };
+    const finish = () => { leaving.delete(id); closing.delete(id); paintJobs(true); onChange(); };
     if (instant) { finish(); return; }
     d.classList.add('bounce');
     setTimeout(() => {
@@ -882,7 +884,7 @@ export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWa
     retrack();
     // Sheet 52: a job out on his desktop is not in the speech bubble's list (the wooden cockpit tracks its own).
     const run = jobs.filter(running).filter((j) => isOpen() || !popped.has(j.id)).sort((a, b) => b.startedAt - a.startedAt);
-    const done = [...complete.values()].filter((j) => !run.some((r) => r.id === j.id) && (isOpen() || !popped.has(j.id)));
+    const done = doneJobs(run);
     const sig = JSON.stringify([isOpen(), stripOn(), tracked, listOpen, [...unfolded], targetId, [...leaving], [...popped],
       // Not the percent, the time left or the live line: those update in place every frame (the progress engine), and
       // redrawing for them would re-measure the cockpit many times a second. Whether helper agents show is layout.
@@ -1099,7 +1101,8 @@ export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWa
   window.aang?.onMessage?.((m) => {
     if (m?.t === 'claude.jobs' && Array.isArray(m.jobs)) {
       jobs = m.jobs.slice(0, 50).map(readJob).filter(Boolean);
-      noteFinished();
+      // What the brain no longer calls unread is not waiting on its ack any more.
+      for (const id of [...acked]) if (!jobs.some((j) => j.id === id && j.unread)) acked.delete(id);
       // Only when something he would see changed (2026-10-21): the same list again must not re-measure the cockpit.
       if (paintJobs()) onChange();
       // The bars, percents and live lines that were not redrawn move now, not at the next breath (2026-10-21).
@@ -1146,15 +1149,17 @@ export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWa
      * forward, the caller's choice).
      */
     openFor({ session, project } = {}) {
-      const byId = typeof session === 'string' ? jobs.find((j) => j.id === session) ?? complete.get(session) : null;
+      const byId = typeof session === 'string' ? jobs.find((j) => j.id === session) ?? null : null;
       const p = typeof project === 'string' ? project.trim().toLowerCase() : '';
-      const byProject = !byId && p ? [...jobs, ...complete.values()].filter((j) => String(j.project).toLowerCase() === p || String(j.cwd ?? '').toLowerCase().endsWith(p)).sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0))[0] : null;
+      const byProject = !byId && p ? jobs.filter((j) => String(j.project).toLowerCase() === p || String(j.cwd ?? '').toLowerCase().endsWith(p)).sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0))[0] : null;
       const j = byId ?? byProject;
       return j ? openTarget(j) : null;
     },
     /** Sheet 53: how many jobs are at work or waiting on him (what a click on the working mark would show). */
     // Not counting the ones out on his desktop (sheet 52): they are not in the bubble's list.
     running: () => jobs.filter((j) => running(j) && !popped.has(j.id)).length,
+    /** 2026-10-22: how many finished jobs he has not seen (the done cards a click on the teal tick shows). */
+    unread: () => doneJobs(jobs.filter(running)).filter((j) => !closing.has(j.id)).length,
     /** Sheet 52: the pop-out was dropped on Aang. The bar slides back into the list (the bubble grows to take it). */
     putBack(id) {
       if (!popped.delete(id)) return;

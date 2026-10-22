@@ -1443,7 +1443,8 @@ function recall(what) {
   if (what === 'jobs') {
     if (cockpit || !claude) return false;
     if (claude.anyWaiting()) { endSessions(); if (reading) leaveReading(false); claude.unpark(); claudeWaiting(true, true, true); return true; }
-    if (claude.running() > 0) { endSessions(); showJobs(); return true; }
+    // 2026-10-22: finished jobs he has not seen count too (the teal tick): their done cards show.
+    if (claude.running() > 0 || claude.unread() > 0) { endSessions(); showJobs(); return true; }
     return false;
   }
   if (bubble.hidden) endSessions();
@@ -1486,11 +1487,12 @@ function showRecent(m) {
  * its own folded 45f bar on the bubble's paper. A bar unfolds its tasks on a click; a click anywhere else shrinks it away.
  */
 const COUNT = ['no', 'one', 'two', 'three', 'four', 'five', 'six'];
-const jobsLine = (n) => `Claude is on ${COUNT[n] ?? n} job${n === 1 ? '' : 's'}.`;
+// 2026-10-22: with nothing running and only done cards left, the line says what finished instead.
+const jobsLine = (n, done = 0) => n > 0 || !done ? `Claude is on ${COUNT[n] ?? n} job${n === 1 ? '' : 's'}.` : `Claude finished ${COUNT[done] ?? done} job${done === 1 ? '' : 's'}.`;
+const jobsLineNow = () => jobsLine(claude?.running() ?? 0, claude?.unread() ?? 0);
 function showJobs() {
-  const n = claude?.running() ?? 0;
   if (reading) leaveReading(false);
-  onBrain({ t: 'bubble', text: jobsLine(n), stream: false, recalled: true, fromPet: true, jobsView: true });
+  onBrain({ t: 'bubble', text: jobsLineNow(), stream: false, recalled: true, fromPet: true, jobsView: true });
   bubble.classList.add('wide');
   fit(); reportSize();
 }
@@ -1525,7 +1527,7 @@ const SESSION_ENDERS = new Set(['bubble', 'whisper', 'pet.say', 'permission', 'c
 function markClick(sessions) {
   if (cockpit) return false;
   // The link jobs first: what one waits on, else every running job (the existing jobs view).
-  if (claude && (claude.anyWaiting() || claude.running() > 0)) return recall('jobs');
+  if (claude && (claude.anyWaiting() || claude.running() > 0 || claude.unread() > 0)) return recall('jobs');
   endSessions();
   if (reading) leaveReading(false);
   // 2026-10-21: else exactly the sessions the brain lit the mark for (every source, one list), so a lit mark never
@@ -1550,7 +1552,7 @@ function showSessions(list) {
   // 2026-10-21: the brain's one list (claudemark.ts claudeBusy), so a job can be here too (paused, failed, or popped out).
   const lines = list.map((s) => [s.project, s.phase === 'waiting'
     ? (s.what ? `is waiting on you: ${cut(s.what)}` : 'is waiting on you.')
-    : s.phase === 'paused' ? 'is paused.' : s.phase === 'failed' ? 'stopped with an error.'
+    : s.phase === 'paused' ? 'is paused.' : s.phase === 'failed' ? 'stopped with an error.' : s.phase === 'done' ? 'is done.'
     : (s.what ? `is working on “${cut(s.what)}”` : 'is working.')]);
   if (list.some((s) => s.source === 'hook' || s.source === 'launched' || !s.source)) lines.push(['', 'Live progress shows for Claude sessions started from now on.']);
   // One key per machine rather than a row of identical ones. With exactly one session here that the app knows, its own
@@ -2699,10 +2701,11 @@ claude = startClaude({
     if (reading) { paintBack('bottom'); const list = el('lblist'); if (list) list.scrollTop = list.scrollHeight; }
   },
   onChange: () => {
-    // Sheet 53: the last job finished (its JOB COMPLETE folded away) with the jobs open from the mark: the bubble goes.
+    // Sheet 53: nothing left in the strip with the jobs open from the mark: the bubble goes. 2026-10-22: a job finishing
+    // no longer empties it (its done card stays, his ask), so this is the last done card X'd or opened, or a job stopped.
     if (jobsOpen && el('ckjobs').hidden && !bubble.hidden && !bubble.classList.contains('leaving')) { goAway(); return; }
     // Sheet 52 (2026-10-21): a job pulled out or put back changes how many there are; the line over the bars says so.
-    if (jobsOpen && !bubble.hidden) { const line = jobsLine(claude?.running() ?? 0); if (said.textContent !== line) { reveal.start(line, false); reveal.skip(); paint(); } }
+    if (jobsOpen && !bubble.hidden) { const line = jobsLineNow(); if (said.textContent !== line) { reveal.start(line, false); reveal.skip(); paint(); } }
     if (!bubble.hidden) { fit(); reportSize(); }
   },
   onWaiting: (has, fresh) => claudeWaiting(has, fresh),

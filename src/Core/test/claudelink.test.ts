@@ -167,3 +167,64 @@ test('tracker: a turn that ends with background helpers still running stays work
   t2.event({ session: 'b2', type: 'agent.end', id: 'x' }, now + 5000);
   assert.equal(t2.list(now + 5000)[0]!.phase, 'idle');
 });
+
+// 2026-10-22, his words: "do done jobs disappear? i dont want them to". Finished and unread until he X's or opens it.
+test('unread: a turn that ends on its own is done and unread until acked or a new turn; stopped and failed are not', async () => {
+  const { mkdtempSync, readFileSync, rmSync } = await import('node:fs');
+  const os = await import('node:os'), path = await import('node:path');
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'aang-unread-'));
+  try {
+    const t = new JobTracker();
+    t.useData(dir, { ci: false });
+    const B = Date.now() - 600_000;
+    const of = (id: string, now = B + 10_000) => t.list(now).find(j => j.id === id);
+    t.event({ session: 'a', type: 'turn.start', cwd: 'C:\code\Waymark', prompt: 'fix the map' }, B + 1000);
+    t.event({ session: 'a', type: 'turn.end' }, B + 2000);
+    assert.equal(of('a')!.unread, true);
+    assert.equal(of('a')!.doneAt, B + 2000);
+    // Stopped by him, or an error: not done.
+    t.event({ session: 'b', type: 'turn.start', cwd: 'C:\code\Coach' }, B + 1000);
+    t.event({ session: 'b', type: 'turn.end', aborted: true }, B + 2000);
+    t.event({ session: 'c', type: 'turn.start', cwd: 'C:\code\Notes' }, B + 1000);
+    t.event({ session: 'c', type: 'turn.end', reason: 'error' }, B + 2000);
+    assert.equal(of('b')!.unread, undefined);
+    assert.equal(of('c')!.unread, undefined);
+    // Helpers still at work: not done until the last one ends.
+    t.event({ session: 'd', type: 'turn.start', cwd: 'C:\code\Rune' }, B + 1000);
+    t.event({ session: 'd', type: 'agent.start', id: 'g1', kind: 'Explore', bg: true }, B + 1500);
+    t.event({ session: 'd', type: 'turn.end' }, B + 2000);
+    assert.equal(of('d')!.phase, 'working');
+    assert.equal(of('d')!.unread, undefined);
+    t.event({ session: 'd', type: 'agent.end', id: 'g1' }, B + 3000);
+    assert.equal(of('d')!.phase, 'idle');
+    assert.equal(of('d')!.unread, true);
+    // A new turn clears it; so does his ack.
+    t.event({ session: 'd', type: 'turn.start' }, B + 4000);
+    assert.equal(of('d')!.unread, undefined);
+    // The session ends: a light record stays on the list until acked.
+    t.event({ session: 'a', type: 'end' }, B + 5000);
+    const gone = of('a')!;
+    assert.equal(gone.phase, 'ended');
+    assert.equal(gone.unread, true);
+    assert.equal(gone.prompt, 'fix the map');
+    // On disk, so a fresh brain keeps it.
+    assert.deepEqual(JSON.parse(readFileSync(path.join(dir, 'claude-unread.json'), 'utf8')).map((u: { id: string }) => u.id), ['a']);
+    const t2 = new JobTracker();
+    t2.useData(dir, { ci: false });
+    assert.equal(t2.list(B + 10_000).find(j => j.id === 'a')?.unread, true);
+    let changed = 0;
+    t2.onChange = () => { changed++; };
+    assert.equal(t2.ack('a'), true);
+    assert.equal(t2.ack('a'), false);
+    assert.equal(changed, 1);
+    assert.equal(t2.list(B + 10_000).find(j => j.id === 'a'), undefined);
+    assert.deepEqual(JSON.parse(readFileSync(path.join(dir, 'claude-unread.json'), 'utf8')), []);
+    // Twelve hours on, an unread one goes by itself.
+    t.event({ session: 'e', type: 'turn.start', cwd: 'C:\code\Old' }, B + 1000);
+    t.event({ session: 'e', type: 'turn.end' }, B + 2000);
+    t.event({ session: 'e', type: 'end' }, B + 2500);
+    assert.equal(t.list(B + 2000 + 12 * 3600_000 + 1).some(j => j.id === 'e'), false);
+    t.close(); t2.close();
+    await Promise.all([t.hist.flush(), t2.hist.flush()]);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});

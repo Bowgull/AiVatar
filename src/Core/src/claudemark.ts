@@ -10,7 +10,8 @@
 import type { Job, WaitItem } from './claudelink.ts';
 
 /** What sits over his head for as long as it is true. */
-export type MarkKind = 'none' | 'permission' | 'question' | 'plan' | 'working' | 'failed' | 'paused';
+// 'done' (2026-10-22, his pick): the teal tick stays while any finished job is unread; no glow, just the tick.
+export type MarkKind = 'none' | 'permission' | 'question' | 'plan' | 'working' | 'failed' | 'done' | 'paused';
 /** A moment, shown for a couple of seconds over whatever the steady mark is. */
 export type MarkFlash = 'step' | 'complete';
 /** The wooden chimes he picked (docs/cockpit/sounds-45b), by file name. */
@@ -104,7 +105,7 @@ export class MarkDeriver {
   }
 }
 
-/** The steady mark, by his order: blocking (permission, question, plan), then working, failed, paused. */
+/** The steady mark, by his order: blocking (permission, question, plan), then working, failed, done (unread), paused. */
 export function steadyMark(jobs: readonly Job[], waits: readonly WaitItem[], alsoWorking = false): { mark: MarkKind; what?: string } {
   for (const kind of ['permission', 'question', 'plan'] as const) {
     const w = waits.find(x => x.kind === kind);
@@ -115,6 +116,9 @@ export function steadyMark(jobs: readonly Job[], waits: readonly WaitItem[], als
   if (alsoWorking) return { mark: 'working' };
   const failed = jobs.find(j => failedJob(j) && j.phase !== 'ended');
   if (failed) return { mark: 'failed', what: failed.project };
+  // 2026-10-22: a finished job he has not X'd or opened yet. A click on the tick shows them (claudeBusy lists them).
+  const done = jobs.find(j => j.unread === true && j.phase !== 'working');
+  if (done) return { mark: 'done', what: done.title || done.project };
   const paused = jobs.find(j => j.phase === 'paused');
   if (paused) return { mark: 'paused', what: paused.project };
   return { mark: 'none' };
@@ -144,7 +148,7 @@ export interface LaunchedLike { name: string; state?: string; sessionId: string 
 export interface BusySession {
   id: string;
   project: string;
-  phase: 'working' | 'waiting' | 'paused' | 'failed';
+  phase: 'working' | 'waiting' | 'paused' | 'failed' | 'done';
   /** What it is on (its prompt or task), or what it waits on him for. */
   what: string;
   source: 'link' | 'transcript' | 'hook' | 'launched';
@@ -185,7 +189,7 @@ export function claudeBusy(i: BusyInput): BusySession[] {
   for (const j of i.jobs) {
     const w = waitOf(j.id);
     const phase = w ? 'waiting' : j.phase === 'working' ? 'working' : j.phase === 'paused' ? 'paused'
-      : failedJob(j) && j.phase !== 'ended' ? 'failed' : null;
+      : failedJob(j) && j.phase !== 'ended' ? 'failed' : j.unread === true ? 'done' : null;
     seen.add(j.id);
     if (!phase) continue;
     out.push({ id: j.id, project: j.title || j.project, phase, what: (w ? w.plain || w.summary : j.current || j.prompt || '').slice(0, 140),
@@ -217,7 +221,7 @@ export function claudeBusy(i: BusyInput): BusySession[] {
     seen.add(l.sessionId);
     out.push({ id: l.sessionId, project: l.name, phase: 'working', what: '', source: 'launched' });
   }
-  const rank = { waiting: 0, working: 1, failed: 2, paused: 3 } as const;
+  const rank = { waiting: 0, working: 1, failed: 2, done: 3, paused: 4 } as const;
   return out.sort((a, b) => rank[a.phase] - rank[b.phase]);
 }
 

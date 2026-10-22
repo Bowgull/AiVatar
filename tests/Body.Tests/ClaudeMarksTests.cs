@@ -13,7 +13,7 @@ namespace Aang.Body.Tests;
 /// </summary>
 public class ClaudeMarksTests
 {
-    static readonly string[] Kinds = { "working", "permission", "question", "plan", "step", "complete", "paused", "failed" };
+    static readonly string[] Kinds = { "working", "permission", "question", "plan", "step", "complete", "done", "paused", "failed" };
 
     [Fact]
     public void Every_mark_is_a_whole_grid_of_palette_pixels()
@@ -29,6 +29,16 @@ public class ClaudeMarksTests
         Assert.True(ClaudeMarks.Map("step").Length < ClaudeMarks.Map("complete").Length);
         Assert.True(ClaudeMarks.Map("complete").Length <= 16);
         Assert.False(ClaudeMarks.Known("none"));
+    }
+
+    // 2026-10-22 (his pick): the unread tick is the job-complete tick, teal, steady, and never glows.
+    [Fact]
+    public void Done_is_the_teal_tick_with_no_glow()
+    {
+        Assert.Equal(ClaudeMarks.Map("complete"), ClaudeMarks.Map("done"));
+        Assert.Equal(Color.FromArgb(0x3f, 0xc4, 0xb4).ToArgb(), ClaudeMarks.ColorOf("done").ToArgb());
+        Assert.False(ClaudeMarks.Glows("done"));
+        Assert.True(ClaudeMarks.Glows("complete"));
     }
 
     [Fact]

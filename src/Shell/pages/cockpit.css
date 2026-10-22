@@ -558,7 +558,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{
 .agc .agr .wh{flex:1;min-width:0;font:500 12px Figtree,sans-serif;color:#6b5236;overflow:hidden;text-overflow:ellipsis}
 .agc .agr .tm{flex:none;width:40px;font:600 12px Figtree,sans-serif;color:#7a5c3a;text-align:right}
 /* its own list's %: the pixel face, as on the sheet's Build row */
-.agc .agr .tm.pc{font:400 9.5px Silkscreen,monospace;color:#8a5a10}
+.agc .agr .tm.pc{font:700 12px Figtree,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:normal;color:#8a5a10}   /* a helper's %: readable, not pixel (2026-10-22) */
 .agc .agr.failed .tm{color:#a8352b}
 /* more than three helpers: the rest in one quiet line */
 .agc .agmore{height:20px;display:flex;align-items:center;padding-left:27px;font:400 9.5px Silkscreen,monospace;color:#8f7458}

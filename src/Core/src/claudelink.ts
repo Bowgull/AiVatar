@@ -18,7 +18,7 @@
 // Nothing here approves on its own: an answer exists only because Joshua gave it (answer() below), and the mod's own
 // dialog keeps working beside it, whichever he answers first wins.
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
-import { unlinkSync } from 'node:fs';
+import { readFileSync, unlinkSync } from 'node:fs';
 import type http from 'node:http';
 import path from 'node:path';
 import { monitorEventLoopDelay } from 'node:perf_hooks';
@@ -111,7 +111,21 @@ export interface Job {
    * mod has not reached this brain yet). Progress and the live line yes; answering, messages, pause no.
    */
   source: 'link' | 'transcript';
+  /**
+   * Finished and not yet seen (2026-10-22, his words: "do done jobs disappear? i dont want them to"): the turn ended on
+   * its own (not stopped, no error, no helper still at work). The teal tick stays over Aang's head and the done card
+   * stays in the bubble until he X's it or opens it (`ack`), or a new turn starts in that session.
+   */
+  unread?: boolean;
+  /** When it finished, for an unread one. */
+  doneAt?: number;
 }
+
+/** What is kept of a finished, unread job (2026-10-22): enough to draw its done card after the session itself is gone. */
+export interface DoneNote { id: string; project: string; title: string; open: string | null; task: string; doneAt: number }
+/** Where the unread finished jobs are kept, so a brain restart keeps them. */
+export const unreadFile = (dataDir: string) => path.join(dataDir, 'claude-unread.json');
+const MAX_UNREAD = 30;
 
 /** When the newest event happened in the session (`ev`, the mod's clock) and reached the brain (`rx`): the trace. */
 export interface LinkTrace { ev: number; rx: number; type: string }
@@ -204,6 +218,8 @@ export class JobTracker {
     this.ci?.close();
     this.ci = opts.ci === false ? null : new CiTracker(this.hist, { ...(opts.run ? { run: opts.run } : {}), onChange: () => this.onChange('jobs') });
     for (const j of this.jobs.values()) this.ci?.watch(j.cwd);
+    this.unreadPath = unreadFile(dataDir);
+    this.loadUnread();
     try {
       // 2026-10-21: what the histogram holds is the whole gap between two 20 ms ticks, timer included, and on his cloud
       // PC an idle Node process measured p99 106 ms, worst 151 ms over 20 s (Windows timer coarseness and the VM's
@@ -307,6 +323,65 @@ export class JobTracker {
     this.clocks.delete(session); this.acts.delete(session); this.planW.delete(session); this.turnW.delete(session); this.seqs.delete(session);
     for (const [id, w] of this.waits) if (w.session === session) this.drop(id);
     const ow = this.outboxWaiters.get(session); if (ow) { clearTimeout(ow.timer); this.outboxWaiters.delete(session); ow.resolve([]); }
+    // Not the unread book: a finished job he has not seen outlives its session (2026-10-22), as a light record.
+  }
+
+  // ---------------------------------------------- finished and unread (2026-10-22)
+  // His words: "do done jobs disappear? i dont want them to ... I want to be able to either X out of done jobs or click
+  // them to go to session where it finished." The brain owns it, so the tick over his head, the bubble's done cards and
+  // a page reload all agree. Kept 12 hours at most, 30 at most, on disk so a brain restart keeps them.
+  private readonly unread = new Map<string, DoneNote>();
+  private unreadPath: string | null = null;
+
+  /** The job just went from working to idle by itself: it is done, and he has not seen it yet. */
+  private markDone(j: Job, t: number): void {
+    const n = this.names?.of(j.id);
+    const last = [...j.tasks].reverse().find(x => x.status === 'completed');
+    this.unread.delete(j.id);
+    this.unread.set(j.id, { id: j.id, project: j.project, title: cut(n?.title || j.project, 80), open: n?.open ?? null, task: cut(last?.text || j.prompt, 200), doneAt: t });
+    this.trimUnread(t);
+    this.saveUnread();
+  }
+  /** A new turn in that session: what finished before is not news any more. */
+  private clearDone(session: string): void { if (this.unread.delete(session)) this.saveUnread(); }
+  private trimUnread(now: number): boolean {
+    let changed = false;
+    for (const [id, u] of this.unread) if (now - u.doneAt > STALE_MS) { this.unread.delete(id); changed = true; }
+    while (this.unread.size > MAX_UNREAD) { this.unread.delete([...this.unread.values()].sort((a, b) => a.doneAt - b.doneAt)[0]!.id); changed = true; }
+    return changed;
+  }
+  private saveUnread(): void {
+    if (!this.unreadPath) return;
+    try { writeFileAtomic(this.unreadPath, JSON.stringify([...this.unread.values()])); } catch (e) { reportWriteFailure(this.unreadPath, e); }
+  }
+  private loadUnread(): void {
+    if (!this.unreadPath) return;
+    let raw: unknown;
+    try { raw = JSON.parse(readFileSync(this.unreadPath, 'utf8')); } catch { return; }   // none yet
+    for (const x of Array.isArray(raw) ? raw.slice(0, MAX_UNREAD) : []) {
+      if (!x || typeof x !== 'object' || typeof x.id !== 'string' || !x.id || !Number.isFinite(x.doneAt)) continue;
+      this.unread.set(cut(x.id, 100), { id: cut(x.id, 100), project: cut(x.project, 80), title: cut(x.title, 80), open: typeof x.open === 'string' ? cut(x.open, 200) : null,
+        task: cut(x.task, 200), doneAt: Number(x.doneAt) });
+    }
+    if (this.trimUnread(Date.now())) this.saveUnread();
+  }
+  /**
+   * He X'd a done card, opened it in Claude, or said Nice on its pop-out (2026-10-22): it is read. False when it was not
+   * unread (already acked, or a new turn started).
+   */
+  ack(session: string): boolean {
+    if (!this.unread.delete(session)) return false;
+    this.saveUnread();
+    this.onChange('jobs', true);
+    return true;
+  }
+  /** A finished, unread job whose session is gone: just enough of a job for its done card. */
+  private lightJob(u: DoneNote): Job {
+    const n = this.names?.of(u.id);
+    return { id: u.id, machine: 'pc', cwd: '', project: u.project, model: '', phase: 'ended', startedAt: u.doneAt, lastActivity: u.doneAt,
+      prompt: u.task, tasks: [], current: null, percent: null, etaMs: null, progress: null, failed: false, plan: null, ci: [],
+      activity: { now: '', since: u.doneAt, agents: [], tool: null, pips: 0, aliveAt: u.doneAt, stallMs: 60_000 },
+      usage: null, title: n?.title || u.title || u.project, open: n?.open ?? u.open, held: 0, finished: true, source: 'link', unread: true, doneAt: u.doneAt };
   }
 
   /** One event from a session's mod. Anything malformed is ignored, never thrown. */
@@ -348,6 +423,7 @@ export class JobTracker {
         j.phase = 'working';
         j.finished = false;
         j.failed = false;
+        this.clearDone(session);
         // A new turn after a list that was all ticked is a new job: the bar starts empty and still ("Working") until
         // Claude writes its next list, instead of sitting at the old 100% (2026-10-21).
         if (j.tasks.length && j.tasks.every(x => x.status === 'completed')) { this.checkpoint(j.project, t, true); j.tasks = []; this.clocks.delete(session); this.planW.delete(session); this.measure(j, now); }
@@ -380,6 +456,9 @@ export class JobTracker {
           this.turnW.delete(session);
         }
         if (!helpers) clock.stop(t);
+        // 2026-10-22: it went from working to idle on its own: done, and unread until he X's or opens it. With helpers
+        // still at work it is not done yet (agent.end, below, marks it when the last one ends).
+        if (!helpers && ev?.aborted !== true && ev?.reason !== 'error') this.markDone(j, t);
         this.act(session, t).clearTools(t);
         const u = ev?.usage;
         if (u && typeof u === 'object') j.usage = {
@@ -446,7 +525,7 @@ export class JobTracker {
         const act = this.act(session, t);
         act.agentEnd(cut(ev?.id, 100), t, ev?.ok !== false);
         // The last background helper of a finished turn just ended: now the job is really idle.
-        if (j.phase === 'working' && !act.turnOn && act.liveAgents(t) === 0) { j.phase = 'idle'; this.clock(session).stop(t); }
+        if (j.phase === 'working' && !act.turnOn && act.liveAgents(t) === 0) { j.phase = 'idle'; this.clock(session).stop(t); if (!j.failed) this.markDone(j, t); }
         break;
       }
       // A helper agent's own to-do list, as counts only (2026-10-21, sheet 58 C): its row's bar under the job.
@@ -536,6 +615,7 @@ export class JobTracker {
   fromTranscript(s: TranscriptSession, now = Date.now()): void {
     const had = this.jobs.get(s.session);
     if (had?.source === 'link') return;
+    const wasWorking = had?.phase === 'working';
     const j = this.job(s.session, now, s.cwd);
     const before = JSON.stringify([had ? j.phase : '', j.tasks, j.activity.now, j.finished, j.model, j.prompt]);
     j.source = 'transcript';
@@ -548,6 +628,9 @@ export class JobTracker {
     act.clearTools(now);
     if (s.tool) act.toolStart('transcript', s.tool.name, s.tool.detail, now);
     j.finished = !s.working && s.answered && !j.tasks.length;
+    // 2026-10-22: seen working and now answered: done and unread, the same as a linked session's turn ending.
+    if (s.working) this.clearDone(s.session);
+    else if (wasWorking && s.answered) this.markDone(j, now);
     if (JSON.stringify([j.phase, j.tasks, this.act(s.session).snapshot(j.phase, null, now).now, j.finished, j.model, j.prompt]) !== before) this.onChange('jobs', true);
   }
 
@@ -665,7 +748,12 @@ export class JobTracker {
    */
   list(now = Date.now()): Job[] {
     const waits = this.waiting();
-    return [...this.jobs.values()].sort((a, b) => b.lastActivity - a.lastActivity).map(j => {
+    if (this.trimUnread(now)) this.saveUnread();
+    // 2026-10-22: a finished job he has not seen stays on the list even after its session went (light record).
+    const gone = [...this.unread.values()].filter(u => !this.jobs.has(u.id)).map(u => this.lightJob(u));
+    return [...this.jobs.values(), ...gone].sort((a, b) => b.lastActivity - a.lastActivity).map(j => {
+      if (!this.jobs.has(j.id)) return j;
+      const u = this.unread.get(j.id);
       const n = this.names?.of(j.id);
       if (this.clocks.has(j.id)) this.measure(j, now);
       const waiting = waits.find(w => w.session === j.id)?.kind ?? null;
@@ -673,7 +761,8 @@ export class JobTracker {
       // v3: OVERALL from the project's plan, and the repo's CI runs (rows under the job).
       const plan = j.project ? this.planOf(j.project, now) : null;
       const ci = this.ci && j.cwd ? this.ci.rows(j.cwd, now) : [];
-      return { ...j, title: n?.title || j.project, open: n?.open ?? null, tasks: j.tasks.map(t => ({ ...t })), activity, plan, ci };
+      return { ...j, title: n?.title || j.project, open: n?.open ?? null, tasks: j.tasks.map(t => ({ ...t })), activity, plan, ci,
+        ...(u ? { unread: true, doneAt: u.doneAt } : {}) };
     });
   }
 

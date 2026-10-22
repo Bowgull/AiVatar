@@ -627,12 +627,14 @@ app.whenReady().then(async () => {
     // The teal JOB COMPLETE row in the jobs card.
     await p.js(`window.__deliver({ t: 'claude.jobs', jobs: [${JSON.stringify(JOB)}, ${JSON.stringify(JOB2)}] })`); await wait(200);
     await p.js(`window.__fire('onRecall', 'jobs')`); await wait(1400);
-    await p.js(`window.__deliver({ t: 'claude.jobs', jobs: [${JSON.stringify({ ...JOB, phase: 'idle', tasks: JOB.tasks.map((t) => ({ ...t, status: 'completed' })) })}, ${JSON.stringify(JOB2)}] })`); await wait(500);
+    await p.js(`window.__deliver({ t: 'claude.jobs', jobs: [${JSON.stringify({ ...JOB, phase: 'idle', tasks: JOB.tasks.map((t) => ({ ...t, status: 'completed' })), unread: true, doneAt: Date.now() })}, ${JSON.stringify(JOB2)}] })`); await wait(500);
     const row = await p.js(`(() => { const d = document.querySelector('#ckjobs .jdone'); return d ? { go: d.classList.contains('go'), cur: getComputedStyle(d).cursor } : null; })()`);
     check('done: the JOB COMPLETE row is a door (pointer)', !!row && row.go && row.cur === 'pointer', JSON.stringify(row));
     await clearSent(p.js);
     await p.js(`document.querySelector('#ckjobs .jdone')?.click(); true`); await wait(60);
     check('done: clicking JOB COMPLETE opens that session and the bubble goes', JSON.stringify(await sent(p.js, 'openClaude')) === JSON.stringify([JOB.open]) && !(await visible(p.js)), JSON.stringify(await sent(p.js, 'openClaude')));
+    // 2026-10-22: opening it is reading it: the brain is told.
+    check('done: opening it acks it', JSON.stringify(await sent(p.js, 'claude')) === JSON.stringify([{ t: 'claude.ackdone', id: JOB.id }]), JSON.stringify(await sent(p.js, 'claude')));
 
     // The scroll-back row of a finished Claude job (lookback.js), with and without its session.
     const lb = await p.js(`(async () => {

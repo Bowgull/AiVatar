@@ -773,6 +773,8 @@ app.whenReady().then(async () => {
           // Pause and Play: already checked by claudeMessage inside jobpop.ts, straight to the brain.
           link?.send(m);
         },
+        // 2026-10-22: "Nice" on a finished job's pop-out means he has seen it: read, so the teal tick can go.
+        onNice: (id) => { const m = claudeMessage({ t: 'claude.ackdone', id }); if (m) link?.send(m); },
         onPutBack: (id) => bubble?.send('jobpop:back', { id }),
         onNear: (id, near) => bubble?.send('jobpop:near', { id, near }),
       });

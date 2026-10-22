@@ -3458,6 +3458,14 @@ export class Core {
         break;
       }
       case 'claude.front': void this.frontOnMac(); break;
+      // 2026-10-22 (his ask: "X out of done jobs or click them to go to session where it finished"): a finished job is
+      // read. Only the Shell may say so; the id is checked again here.
+      case 'claude.ackdone': {
+        if (!this.shells.has(ws)) break;
+        const id = String(m.id ?? '');
+        if (/^[A-Za-z0-9._:-]{1,100}$/.test(id)) this.claudeJobs.ack(id);   // its onChange sends the list and the mark
+        break;
+      }
       // C2 (2026-10-21): his answers and his messages to Claude sessions. Only the Shell (his own bubble on this PC)
       // may send these: an approval must be his press, never Discord's or anything else's. A refusal comes back as
       // claude.said with the plain reason, so a button that did nothing says why.

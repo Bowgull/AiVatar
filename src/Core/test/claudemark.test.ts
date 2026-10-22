@@ -152,3 +152,20 @@ test('mark and card agree: launched sessions, and a brain restart mid-turn', () 
   // A fresh brain knows no hooks and no link jobs: nothing is left up from before it.
   agree('fresh brain', { jobs: [], waits: [], hooks: [], launched: [] }, { mark: 'none', ids: [] });
 });
+
+// 2026-10-22 (his pick): the teal tick stays while a finished job is unread; under failed, over paused; the card lists it.
+test('done: the unread tick sits under working and failed, over paused, and the card names it', () => {
+  const done = job('Waymark', 'idle', [], { unread: true, doneAt: 5, title: 'Waymark refresh' });
+  assert.deepEqual(steadyMark([done], []), { mark: 'done', what: 'Waymark refresh' });
+  assert.equal(steadyMark([done, job('Coach', 'paused')], []).mark, 'done');
+  assert.equal(steadyMark([done, job('Coach', 'working')], []).mark, 'working');
+  assert.equal(steadyMark([done, job('x', 'idle', [], { failed: true })], []).mark, 'failed');
+  assert.equal(steadyMark([done], [wait('a', 'question')]).mark, 'question');
+  // A gone session's light record (phase ended) still counts.
+  assert.equal(steadyMark([job('Gone', 'ended', [], { unread: true })], []).mark, 'done');
+  const now = claudeNow({ jobs: [done], waits: [] });
+  assert.equal(now.mark.mark, 'done');
+  assert.deepEqual(now.sessions.map(s => [s.id, s.phase]), [['Waymark', 'done']]);
+  assert.equal(now.working.working, false);   // done is not working: the old signal stays off
+  assert.equal(claudeNow({ jobs: [job('Waymark', 'idle')], waits: [] }).mark.mark, 'none');
+});
