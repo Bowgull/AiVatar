@@ -1091,6 +1091,13 @@ app.whenReady().then(async () => {
     if (!Number.isInteger(item) || item < 0 || item > 200 || !['through', 'reply', 'prep', 'drive', 'matches'].includes(act)) return;
     link?.send({ t: 'brief.act', item, act });
   });
+  // Sheet 65: "Update ticked" under the brief's Addons slip. Only whole numbers (CurseForge project ids) pass; the brain
+  // uses only ids from the list it sent, and does nothing with WoW open.
+  ipcMain.on('bubble:addons', (e, ids) => {
+    if (!fromBubble(e) || !Array.isArray(ids)) return;
+    const clean = ids.map(Number).filter(n => Number.isInteger(n) && n > 0 && n < 1e9).slice(0, 60);
+    if (clean.length) link?.send({ t: 'addons.update', ids: clean });
+  });
   ipcMain.on('bubble:open', (e, t) => {
     // Window 2's search results (6.18) open a vault note the same way, through the same checks.
     if ((!fromBubble(e) && !fromDesk(e)) || !t || typeof t !== 'object') return;
