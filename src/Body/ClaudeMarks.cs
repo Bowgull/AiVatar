@@ -166,12 +166,22 @@ static class ClaudeMarks
 }
 
 /// <summary>
-/// The wooden chime set he picked (docs/cockpit/sounds-45b, copied to assets/aang/sfx/chimes), played at his volume.
+/// Aang's four sounds (assets/aang/sfx/chimes), played at his volume. Cut to four 2026-10-22 (his yes): needs-you
+/// (permission, question and plan alike), done (the whole job), failed, and timer (three soft wood knocks on F, sheet 67).
+/// The step chime and the old loud needs-you/done files are gone; EVERY sound Aang makes goes through here.
 /// System.Media.SoundPlayer has no volume of its own, so the 16-bit samples are scaled once per volume and kept.
 /// </summary>
 static class Chimes
 {
-    public static readonly string[] Names = { "permission", "question", "plan-ready", "step", "job-complete", "failed" };
+    public static readonly string[] Names = { "needs-you", "done", "failed", "timer" };
+
+    /// <summary>The old chime names an older brain may still send, mapped to the four; a step's tick has no sound now.</summary>
+    internal static string? Resolve(string name) => name switch
+    {
+        "permission" or "question" or "plan-ready" => "needs-you",
+        "job-complete" => "done",
+        _ => Array.IndexOf(Names, name) >= 0 ? name : null,
+    };
     static readonly Dictionary<string, byte[]> raw = new();
     static readonly Dictionary<string, (int vol, System.Media.SoundPlayer player)> made = new();
     static System.Media.SoundPlayer? playing;
@@ -215,7 +225,8 @@ static class Chimes
 
     public static void Play(string name, int volume)
     {
-        if (volume <= 0 || Array.IndexOf(Names, name) < 0) return;
+        if (volume <= 0 || Resolve(name) is not string known) return;
+        name = known;
         try
         {
             if (!made.TryGetValue(name, out var m) || m.vol != volume)

@@ -1004,8 +1004,10 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
    Mark colours, his final picks: working #f0a64a, needs you #7cc4ff, question #b07cff, plan ready #f3e2b8 (cream
    scroll), step done #ffc8a8, job complete #3fc4b4, paused #6f7787, failed #e8443a. The rings above use them; on the
    closed bubble's cream paper the plan ring is the same cream one shade deeper (#d9c48f), or it would not show at all. */
-/* Measuring leaves out anything already on its way out, so the balloon shrinks in the same breath as it (bubble.js natural). */
-#bubble.measuring .ck-leaving{display:none!important}
+/* Measuring leaves out anything already on its way out, so the balloon shrinks in the same breath as it (bubble.js natural).
+   Out of the flow, not display:none: display:none for that instant cancelled the fold's height/opacity transition, so a
+   card being X'd (or the oldest of four done jobs, 2026-10-22) jumped shut instead of folding. */
+#bubble.measuring .ck-leaving{position:absolute!important;visibility:hidden!important}
 /* In the open cockpit a question's keys always show: the mouse coming and going must never change its size. */
 .wrap:not(.over) #bubble.cockpit #asks:not([hidden]){display:flex}
 .wrap:not(.over) #bubble.cockpit #count:not([hidden]){display:inline-flex}
@@ -1138,6 +1140,12 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
    session in the Claude app. The whole card takes the click (inner keys keep theirs), with a pointer and a small lift. */
 .ckjobs .jdone.go{cursor:pointer;transition:transform .12s ease,filter .12s ease}
 .ckjobs .jdone.go:hover{transform:translateY(-1px);filter:brightness(1.04)}
+/* Folding away it keeps the fold's own transition: the door's line above replaced it, so an X'd card (and the oldest of
+   four done jobs, 2026-10-22) snapped shut instead of folding. */
+.ckjobs .jdone.go.going{transition:height .34s cubic-bezier(.32,.72,0,1),padding .34s cubic-bezier(.32,.72,0,1),margin .34s cubic-bezier(.32,.72,0,1),opacity .2s ease-out,box-shadow .2s;transform:none;filter:none}
+/* The fourth-one rule's fold is slower and softer than his X: nobody clicked, so it should barely draw the eye. */
+.ckjobs .jdone.go.going.gentle{transition:height .52s cubic-bezier(.32,.72,0,1),padding .52s cubic-bezier(.32,.72,0,1),margin .52s cubic-bezier(.32,.72,0,1),opacity .42s ease-out,box-shadow .42s}
+@media (prefers-reduced-motion:reduce){.ckjobs .jdone.go.going,.ckjobs .jdone.go.going.gentle{transition:none}}
 /* Its X (2026-10-22): Samara's close-tab x (sheet 57 A, browser.css), the hand-placed 5x5 pixel x at 2x, in the paper's
    wood ink. Only on the card under the pointer; gold when the pointer is on the x itself. The button is 24 px to hit. */
 .ckjobs .jdone .jx{flex:none;align-self:center;width:24px;height:24px;margin:0 -6px 0 -2px;border:none;padding:0;border-radius:7px;background:none;cursor:pointer;
