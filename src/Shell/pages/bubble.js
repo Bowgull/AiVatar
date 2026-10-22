@@ -744,14 +744,16 @@ function holdFor(text) {
 }
 function scheduleHide() {
   clearTimeout(hideTimer);
+  if (closeIfEmpty()) return;
   if (bubble.hidden || asking || overNow || docked || cockpit || claudeHolds()) return;
   // Scrolled back into his history and walked away: it closes after five quiet minutes, as before.
   if (reading) { hideTimer = setTimeout(goAway, 300000); return; }
   if (card.hidden && (!reveal.done || !reveal.whole)) return;
   hideTimer = setTimeout(goAway, holdFor(reveal.whole));
 }
-function goAway() {
-  if (asking || overNow || docked || cockpit || claudeHolds()) return;
+function goAway(empty = false) {
+  // An empty frame (closeIfEmpty) goes even under the mouse: there is nothing on it to read or to click.
+  if (asking || cockpit || (empty !== true && (overNow || docked || claudeHolds()))) return;
   closeBoard();
   // Content out over 160 ms, then the balloon shrinks away in 340 ms. Anything new arriving meanwhile
   // takes `leaving` off (show), and growTo cancels the shrink, so a reply is never hidden under him.
@@ -774,6 +776,21 @@ function goAway() {
       window.aang?.bubbleHidden?.();
     });
   }, reduceMotion ? 0 : 160);
+}
+
+/**
+ * The closed bubble with nothing left in it (his report, 2026-10-22: "once I hit Allow I saw this", a long empty
+ * parchment frame with only its tail). Answering the Claude card in the closed bubble took the card away and left the
+ * frame cardOnly() had emptied for it: the hover kept goAway out, and scheduleHide waited on words that never come.
+ * A shown bubble with no words, keys or pictures in it is never left on screen: it shrinks away at once.
+ */
+function closeIfEmpty() {
+  if (bubble.hidden || cockpit || reading || asking || bubble.classList.contains('leaving')) return false;
+  if (bubble.innerText.trim()) return false;
+  if ([...bubble.querySelectorAll('img, canvas, video')].some((e) => e.getClientRects().length > 0)) return false;
+  clearTimeout(hideTimer);
+  goAway(true);
+  return true;
 }
 
 function show() {
@@ -2938,6 +2955,8 @@ claude = startClaude({
     if (jobsOpen && el('ckjobs').hidden && !bubble.hidden && !bubble.classList.contains('leaving')) { goAway(); return; }
     // Sheet 52 (2026-10-21): a job pulled out or put back changes how many there are; the line over the bars says so.
     if (jobsOpen && !bubble.hidden) { const line = jobsLineNow(); if (said.textContent !== line) { reveal.start(line, false); reveal.skip(); paint(); } }
+    // The card he just answered was all the closed bubble held: it goes now, not as an empty frame (2026-10-22).
+    if (closeIfEmpty()) return;
     if (!bubble.hidden) { fit(); reportSize(); }
   },
   onWaiting: (has, fresh) => claudeWaiting(has, fresh),
@@ -3086,6 +3105,7 @@ window.aang?.onJobPop?.((kind, m) => {
 function claudeWaiting(has, fresh, asked = false) {
   if (cockpit) return;
   if (!has) {
+    if (closeIfEmpty()) return;
     if (!bubble.hidden && scroller.hidden && !asking && card.hidden && working.hidden) goAway();
     return;
   }
