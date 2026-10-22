@@ -521,7 +521,7 @@ const link = new CoreLink({
     }
     if (m.t === 'ack' && ackWait && m.id === ackWait.id) { clearTimeout(ackWait.timer); ackWait = null; }
     // Parity with the old pet (2026-10-11). The pet's gate: in a game, Esc belongs to the game.
-    if (m.t === 'bubble.state') { gameQuiet = m.quiet === true; bubbleMuted = m.muted === true; bubbleHidden = m.hidden === true; }
+    if (m.t === 'bubble.state') { gameQuiet = m.quiet === true; bubbleMuted = m.muted === true; bubbleHidden = m.hidden === true; timerWins?.calm(gameQuiet); }
     // He clicked away from everything of ours (the pet's mouse hook saw it): the bubble lets go, as the old one did.
     // A click away from everything of Aang's (the pet watches the mouse). His ask, 2026-10-13: an accidentally opened
     // typing box closes on it too, keeping the draft, even when it never got the keyboard and so never lost it.
@@ -819,8 +819,11 @@ app.whenReady().then(async () => {
       // Sheet 17: each running timer is its own small window, put wherever he last left one.
       timerWins = new TimerWindows({
         origin: pages.origin, preloadPath: path.join(HERE, 'preload.cjs'), spotFile: path.join(STATE_DIR, 'timer-spot.json'),
-        near: () => petAt ? { x: petAt.sprite.x - 240, y: petAt.sprite.y + 10 } : null,
+        near: () => petAt ? { x: petAt.sprite.x - 320, y: petAt.sprite.y + 10 } : null,
+        // sheet 67 v2: its menu's New timer / Colour / Stop, and the keyboard back after a rename
+        toBrain: (m) => link?.send(m as never), refocus: () => link?.send({ t: 'refocus' }), iconPath: AANG_ICON,
       });
+      timerWins.calm(gameQuiet);
       // Sheet 52 (2026-10-21): a Claude job he held down in the bubble floats on his desktop as just its bar. Dropped
       // back on Aang or the bubble it goes home; the bubble is told so it can take the bar back (and glow while it is near).
       jobPops = new JobPops({
@@ -1108,7 +1111,13 @@ app.whenReady().then(async () => {
     // Sheet 62: his key on "Got it. Ask about it, or keep it as a note?" Answered here, never by the brain.
     if (a.t === 'send.ask') { answerSend(a.id, choice); return; }
     // Sheet 17: "5 more" when a timer goes off is just a new five-minute timer with the same name.
-    if (a.t === 'timer.done') { if (choice === 'more') link?.send({ t: 'timer.start', ms: 5 * 60_000, label: String(a.label ?? '').slice(0, 40) }); return; }
+    // Sheet 67 v2: the finished timer is still on screen; Got it closes it, 5 more turns it over for five minutes.
+    if (a.t === 'timer.done') {
+      const id = String(a.id ?? '').slice(0, 40), label = String(a.label ?? '').slice(0, 40);
+      if (choice === 'more') link?.send({ t: 'timer.act', id, action: 'again', ms: 5 * 60_000, label });
+      else if (id) link?.send({ t: 'timer.act', id, action: 'stop' });
+      return;
+    }
     // Sheet 16's glove list: the option's number, or -1 for "Something else".
     if (a.t === 'choice') { const n = Number(choice); link?.send({ t: 'choice.reply', id: String(a.id ?? ''), pick: Number.isInteger(n) && n >= 0 && n < 4 ? n : -1 }); return; }
     if (typeof a.reminder === 'string' && a.reminder) {
@@ -1281,9 +1290,21 @@ app.whenReady().then(async () => {
   ipcMain.on('timer:act', (e, a) => {
     const id = timerWins?.idOf(e.sender);
     if (!id || !a || typeof a !== 'object') return;
-    const action = a.action === 'add' || a.action === 'pause' || a.action === 'stop' ? a.action : null;
-    if (action) link?.send({ t: 'timer.act', id, action });
+    // Sheet 67 v2: +/- time (scroll, +1, +5), pause, stop, again (turned over, ms = its length), rename. Checked again in the brain.
+    const action = ['add', 'pause', 'stop', 'again', 'rename'].includes(String(a.action)) ? String(a.action) : null;
+    if (!action) return;
+    const ms = Number(a.ms);
+    link?.send({ t: 'timer.act', id, action: action as 'add', ...(Number.isFinite(ms) && Math.abs(ms) <= 24 * 3_600_000 ? { ms: Math.round(ms) } : {}),
+      ...(action === 'rename' ? { label: String(a.label ?? '').slice(0, 40) } : {}) });
   });
+  ipcMain.on('timer:menu', (e, at) => {
+    if (!timerWins?.owns(e.sender)) return;
+    const x = Number(at?.x), y = Number(at?.y);
+    timerWins.openMenu(e.sender, Number.isFinite(x) && Number.isFinite(y) ? { x: Math.round(x), y: Math.round(y) } : null);
+  });
+  ipcMain.on('timer:typing', (e, on) => { if (timerWins?.owns(e.sender)) timerWins.typing(e.sender, on === true); });
+  ipcMain.on('timer:menushape', (e, rects) => { timerWins?.menu.shape(e.sender, rects); });
+  ipcMain.on('timer:menupick', (e, m) => { timerWins?.menu.pick(e.sender, m); });
   ipcMain.on('bubble:choiceforget', (e, key) => {
     if (!fromBubble(e) || typeof key !== 'string' || !key) return;
     link?.send({ t: 'choice.forget', key: key.slice(0, 60) });

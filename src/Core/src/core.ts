@@ -11,7 +11,7 @@ import { sttReady, transcribe } from './stt.ts';
 import { inboxCardData, nowNote, weekCardData, wantsBrief } from './briefcard.ts';
 import { Faces, domainOfEmail, hostOf } from './faces.ts';
 import { Choices, choiceKey } from './choices.ts';
-import { Timers, parseTimerCommand, sayDuration, MAX_MS } from './timers.ts';
+import { Timers, parseTimerCommand, sayDuration, MAX_MS, MAX_TIMERS, TIMER_ACTIONS, type TimerAction } from './timers.ts';
 import { Notes, parseNoteCommand, linesHtml } from './notes.ts';
 import { NoteNotice, NOTICE_EVERY_MS, shapeLine, type Notice } from './notenotice.ts';
 import { WebSocketServer } from 'ws';
@@ -2748,6 +2748,7 @@ export class Core {
     // more than the same question later.
     // Sheet 17 timers: checked every second, because a timer that goes off late is a broken timer.
     this.timerTick = setInterval(() => this.fireTimers(), 1000);
+    this.armTimers();
     // E7: leave-by and Join reminders, every five minutes (only when he has a TomTom key or a call is near).
     this.feedTimers.push(setInterval(() => { void this.tripTick().catch(() => {}); }, 5 * 60_000));
     this.timerTick.unref?.();
@@ -3369,7 +3370,7 @@ export class Core {
       case 'timer.start': {
         const ms = Number(m.ms);
         if (!Number.isFinite(ms) || ms < 1000 || ms > MAX_MS) break;
-        this.startTimer(ms, String(m.label ?? '').slice(0, 40));
+        this.startTimer(ms, String(m.label ?? '').slice(0, 40), m.colour);
         break;
       }
       case 'notes.save': { if (this.notes.save1(m.note)) { this.sendTo('desktop', { t: 'notes.state', notes: this.notes.list(), cats: this.notes.cats() }); this.noteNotice.noteChanged(); } break; }
@@ -3380,10 +3381,18 @@ export class Core {
       // Sheet 62 (2026-10-22): "Keep as a note" on Aang's line after a Send to Aang. A plain note with the link; Notes.keep checks it.
       case 'notes.keep': { if (this.notes.keep(String(m.text ?? ''), String(m.url ?? ''), String(m.site ?? ''))) this.sendTo('desktop', { t: 'notes.state', notes: this.notes.list(), cats: this.notes.cats() }); break; }
       case 'timer.act': {
-        const action = m.action === 'add' || m.action === 'pause' || m.action === 'stop' ? m.action : null;
+        // Sheet 67 v2: the hourglass's keys, scroll, hold, menu, and Aang's Got it / 5 more on a finished one.
+        const action = (TIMER_ACTIONS as readonly string[]).includes(String(m.action)) ? m.action as TimerAction : null;
         if (!action) break;
-        this.timers.act(String(m.id ?? ''), action);
+        const id = String(m.id ?? '');
+        const was = this.timers.list().find(t => t.id === id);
+        const t = this.timers.act(id, action, Date.now(), { ms: m.ms, label: m.label, colour: m.colour });
+        // "5 more" on a card whose timer is already gone: a new five-minute timer with the same name, as before
+        if (!was && action === 'again') { this.startTimer(Number(m.ms) > 0 ? Number(m.ms) : 5 * 60_000, String(m.label ?? '').slice(0, 40)); break; }
+        // answered on the hourglass: Aang's card for it goes too (either one closes both, sheet 67 v2)
+        if (was?.done && !t?.done) this.sendTo('desktop', { t: 'ask.expired', id });
         this.sendTo('desktop', { t: 'timer.state', timers: this.timers.list() });
+        this.armTimers();
         break;
       }
       case 'desk': { const was = this.atDesk; this.atDesk = m.active !== false; if (!was && this.atDesk) setTimeout(() => this.briefIfDue(), 20_000).unref?.(); break; }
@@ -3690,7 +3699,7 @@ export class Core {
           this.send(ws, { t: 'ack', id });
           let say = '';
           if (timerCmd.op === 'setup') { this.sendTo('desktop', { t: 'timer.setup' }); break; }
-          if (timerCmd.op === 'stop') { const n = this.timers.stopAll(); this.sendTo('desktop', { t: 'timer.state', timers: [] }); say = n ? `Stopped ${n === 1 ? 'the timer' : `all ${n} timers`}.` : 'There was no timer running.'; }
+          if (timerCmd.op === 'stop') { const n = this.timers.stopAll(); this.armTimers(); this.sendTo('desktop', { t: 'timer.state', timers: [] }); say = n ? `Stopped ${n === 1 ? 'the timer' : `all ${n} timers`}.` : 'There was no timer running.'; }
           else say = this.startTimer(timerCmd.ms, timerCmd.label);
           this.send(ws, { t: 'bubble', text: say, stream: false, id, who: 'Aang' });
           break;
@@ -4350,16 +4359,31 @@ export class Core {
   }
   private timersStore: Timers | null = null;
   private get timers(): Timers { return this.timersStore ??= new Timers(path.join(this.cfg.stateDir, 'timers.json')); }
-  private startTimer(ms: number, label: string): string {
-    const t = this.timers.start(ms, label);
-    if (!t) return 'You already have three timers going. Stop one first.';
+  private startTimer(ms: number, label: string, colour?: unknown): string {
+    const t = this.timers.start(ms, label, Date.now(), colour);
+    if (!t) return `You already have ${MAX_TIMERS} timers going. Stop one first.`;
     this.sendTo('desktop', { t: 'timer.state', timers: this.timers.list() });
+    this.armTimers();
     return `Timer set${label ? `: ${label},` : ' for'} ${sayDuration(ms)}.`;
   }
   /** Any that ran out (including while the brain was down) go off now: an ask in the bubble, or a line on Discord. */
+  /**
+   * Sheet 67 v2: ring exactly on time. One timeout armed for the earliest end (or a finished timer's going); the 1 s tick
+   * stays as a backstop (a sleeping PC, a clock change). Re-armed on every change.
+   */
+  private timerArm: NodeJS.Timeout | null = null;
+  private armTimers(): void {
+    if (this.timerArm) { clearTimeout(this.timerArm); this.timerArm = null; }
+    const at = this.timers.nextAt();
+    if (at === null) return;
+    this.timerArm = setTimeout(() => { this.timerArm = null; this.fireTimers(); }, Math.min(0x7fffffff, Math.max(0, at - Date.now())));
+    this.timerArm.unref?.();
+  }
   private fireTimers(): void {
     const due = this.timers.due();
-    if (!due.length) return;
+    const gone = this.timers.expire();
+    if (due.length || gone) this.armTimers();
+    if (!due.length) { if (gone) this.sendTo('desktop', { t: 'timer.state', timers: this.timers.list() }); return; }
     this.sendTo('desktop', { t: 'timer.state', timers: this.timers.list() });
     for (const t of due) {
       this.sendTo('desktop', { t: 'timer.done', id: t.id, label: t.label, total: t.total });

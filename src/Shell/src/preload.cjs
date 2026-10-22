@@ -127,6 +127,16 @@ contextBridge.exposeInMainWorld('aang', {
   timerOpacity: n => ipcRenderer.send('timer:opacity', n),
   timerPin: on => ipcRenderer.send('timer:pin', on),
   timerThrough: () => ipcRenderer.send('timer:through'),
+  /** Sheet 67 v2: a game in front (calm sand), and the menu's Rename / Restart, done on the plate itself. */
+  onTimerCalm(fn) { const h = (_e, on) => fn(on); ipcRenderer.on('timer:calm', h); return () => ipcRenderer.removeListener('timer:calm', h); },
+  onTimerDo(fn) { const h = (_e, w) => fn(w); ipcRenderer.on('timer:do', h); return () => ipcRenderer.removeListener('timer:do', h); },
+  /** Right-click: open its menu at the mouse (screen DIP). Rename done: give the keyboard back. */
+  timerMenu: (at) => ipcRenderer.send('timer:menu', at && typeof at === 'object' ? { x: Number(at.x) || 0, y: Number(at.y) || 0 } : null),
+  timerTyping: (on) => ipcRenderer.send('timer:typing', on === true),
+  /** The timer menu window (timermenu.html): what to show, its shape, his pick. */
+  onTimerMenu(fn) { const h = (_e, m) => fn(m); ipcRenderer.on('timer:menushow', h); return () => ipcRenderer.removeListener('timer:menushow', h); },
+  timerMenuShape: (rects) => ipcRenderer.send('timer:menushape', Array.isArray(rects) ? rects.slice(0, 2).map((r) => ({ x: Number(r?.x) || 0, y: Number(r?.y) || 0, width: Number(r?.width) || 0, height: Number(r?.height) || 0 })) : []),
+  timerMenuPick: (m) => ipcRenderer.send('timer:menupick', m && typeof m === 'object' ? { what: String(m.what ?? ''), ms: Number(m.ms) || 0, value: Number(m.value) || 0, colour: String(m.colour ?? '') } : null),
   /** The gold "change" link under a remembered choice: Aang forgets it and asks next time. */
   forgetChoice: key => ipcRenderer.send('bubble:choiceforget', key),
   /** The docked box closed: 'sent' when he answered (the bubble stays), anything else lets it go. */
@@ -472,13 +482,14 @@ contextBridge.exposeInMainWorld('aang', {
   };
   ipcRenderer.on('family:state', (_e, s) => {
     if (!s || typeof s !== 'object') return;
-    st = { on: true, joined: s.joined === true, wiggle: s.wiggle === true, held: s.held === true, sides: Array.isArray(s.sides) ? s.sides.filter((x) => ['left', 'right', 'above', 'below'].includes(x)) : [], square: Array.isArray(s.square) ? s.square.filter((x) => ['tl', 'tr', 'br', 'bl'].includes(x)) : [], through: s.through === true, pad: s.pad && typeof s.pad === 'object' && ['t', 'r', 'b', 'l'].every((k) => Number.isFinite(s.pad[k]) && s.pad[k] >= 0 && s.pad[k] <= 40) ? { t: s.pad.t, r: s.pad.r, b: s.pad.b, l: s.pad.l } : null, card: typeof s.card === 'string' ? s.card : null, shape: s.shape === 'tall' || s.shape === 'wide' ? s.shape : 'free', sized: s.sized && typeof s.sized === 'object' && Number.isFinite(s.sized.width) && s.sized.width > 0 && s.sized.width < 10000 ? { width: Math.round(s.sized.width), ...(Number.isFinite(s.sized.height) && s.sized.height > 0 && s.sized.height < 10000 ? { height: Math.round(s.sized.height) } : {}) } : null };
+    st = { on: true, ownMenu: s.ownMenu === true, joined: s.joined === true, wiggle: s.wiggle === true, held: s.held === true, sides: Array.isArray(s.sides) ? s.sides.filter((x) => ['left', 'right', 'above', 'below'].includes(x)) : [], square: Array.isArray(s.square) ? s.square.filter((x) => ['tl', 'tr', 'br', 'bl'].includes(x)) : [], through: s.through === true, pad: s.pad && typeof s.pad === 'object' && ['t', 'r', 'b', 'l'].every((k) => Number.isFinite(s.pad[k]) && s.pad[k] >= 0 && s.pad[k] <= 40) ? { t: s.pad.t, r: s.pad.r, b: s.pad.b, l: s.pad.l } : null, card: typeof s.card === 'string' ? s.card : null, shape: s.shape === 'tall' || s.shape === 'wide' ? s.shape : 'free', sized: s.sized && typeof s.sized === 'object' && Number.isFinite(s.sized.width) && s.sized.width > 0 && s.sized.width < 10000 ? { width: Math.round(s.sized.width), ...(Number.isFinite(s.sized.height) && s.sized.height > 0 && s.sized.height < 10000 ? { height: Math.round(s.sized.height) } : {}) } : null };
     if (s.remeasure) sent = '';
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', paint, { once: true }); else paint();
   });
   window.addEventListener('resize', () => measure());
   window.addEventListener('contextmenu', (e) => {
-    if (!st.joined && !st.wiggle) return;
+    // a member that draws its own menu (the timer: its rows plus the family's) keeps the right-click while joined
+    if (!st.wiggle && (!st.joined || st.ownMenu)) return;
     e.preventDefault(); e.stopImmediatePropagation();
     ipcRenderer.send('family:context', { x: e.screenX, y: e.screenY });
   }, true);

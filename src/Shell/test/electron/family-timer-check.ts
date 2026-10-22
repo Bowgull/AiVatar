@@ -104,10 +104,11 @@ app.whenReady().then(async () => {
   await until(() => host.shapeOf(TID) === 'tall', 3000);
   await wait(1200);
   const tb1 = B().get(TID)!, p1 = await pageNow();
-  check('beside the video: FLUSH, tops lined up, 140 wide, as tall as the video', host.joined(TID) && tb1.x === vb.x + vb.width && tb1.y === vb.y && tb1.width === 140 && tb1.height === vb.height, { tb1, vb });
-  check('its page is STACKED (column, hourglass over time), held at the family size', p1.shape === 'tall' && p1.dir === 'column' && p1.sized && p1.w === 140 && p1.h === vb.height && p1.joined, p1);
+  // 2026-10-22 (his note: "a ton of empty space"): a compact column, only as tall as its content, at the top of that side
+  check('beside the video: FLUSH, tops lined up, 140 wide, a compact column', host.joined(TID) && tb1.x === vb.x + vb.width && tb1.y === vb.y && tb1.width === 140 && tb1.height < vb.height, { tb1, vb });
+  check('its page is STACKED (column, hourglass over time), 140 wide', p1.shape === 'tall' && p1.dir === 'column' && p1.sized && p1.w === 140 && p1.joined, p1);
   check('the side against the video is square, outer corners round', /tl/.test(p1.sq) && /bl/.test(p1.sq) && !/tr|br/.test(p1.sq), p1.sq);
-  // Diagnosis: are the square corners only stale (worked out before the reshape)? Recount them now and look again.
+  // Diagnosis (older): are the square corners only stale (worked out before the reshape)? Recount them now and look again.
   (host as unknown as { refreshSides(): void }).refreshSides();
   await wait(300);
   console.log('DIAG square corners after a fresh recount: ' + (await pageNow()).sq);
@@ -129,13 +130,13 @@ app.whenReady().then(async () => {
   check('taken out: free again, back to its OWN plate size and row shape', host.shapeOf(TID) === 'free' && !host.joined(TID) && Math.abs(tb2.width - tb0.width) <= 1 && tb2.height === tb0.height && p3.shape === 'free' && !p3.sized && p3.dir === 'row', { tb2, tb0, p3 });
   await picture([video, tw], 'timer-left.png');
 
-  // 4. Dropped under the video: a strip as wide as the video, its own height.
+  // 4. Dropped under the video: its own compact plate, flush (no long empty bar).
   const tb3 = B().get(TID)!, vb3 = B().get('video')!;
   await drop(TID, vb3.x + 40 - tb3.x, vb3.y + vb3.height + 5 - tb3.y);
-  await until(() => host.shapeOf(TID) === 'wide', 3000);
+  await until(() => host.joined(TID), 3000);
   await wait(1200);
   const tb4 = B().get(TID)!, p4 = await pageNow();
-  check('below the video: a STRIP as wide as the video, flush, its own height', host.joined(TID) && tb4.x === vb3.x && tb4.y === vb3.y + vb3.height && tb4.width === vb3.width && tb4.height === tb0.height && p4.shape === 'wide', { tb4, vb3, p4 });
+  check('below the video: its own compact plate, flush', host.joined(TID) && tb4.y === vb3.y + vb3.height && Math.abs(tb4.width - tb0.width) <= 1 && tb4.height === tb0.height && p4.shape === 'free', { tb4, vb3, p4 });
   await picture([video, tw], 'timer-below.png');
 
   // 5. Weigh each pop-out's renderer (a note, a job and the player opened only for this; off his screen).
