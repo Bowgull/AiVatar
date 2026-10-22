@@ -483,6 +483,9 @@ const link = new CoreLink({
     // what one waits on), else the older hook-tracked sessions the brain sent along, else "not working on anything".
     if (m.t === 'mark.click') {
       if (cockpitOn) { if (!input?.visible) openTypeBox(); return; }
+      // 2026-10-22: tucked, the click also slides him out, and coming out re-says the held reply (pet.at cameOut), which
+      // then sat above Claude's card in the same bubble. The mark's click takes the bubble; the old reply is not re-said.
+      heldBubble = null;
       bubble?.send('brain:message', m);
       return;
     }
