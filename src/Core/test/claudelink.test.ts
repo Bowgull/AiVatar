@@ -80,6 +80,67 @@ test('long poll: a waiting poll is handed the item the moment it exists', async 
   assert.equal(await t.waitAnswer('s1', 'b3', 10).then(o => o?.kind), 'gone', 'an id it never had');
 });
 
+// 2026-10-22, his words: "If I act on something Aang is surfacing, like a question, in Claude without clicking on Aang,
+// it should disappear." Every way an ask can end outside Aang takes it off the waiting list (and so off the card, the
+// pinned question and the mark), and a held poll for its answer is told it is gone.
+test('answered outside Aang: every path takes the ask down, and a late or older event never does it wrongly', async () => {
+  const t = new JobTracker();
+  const ask = (id: string, at: number, more: Record<string, unknown> = {}) => t.event({ session: 's1', type: 'ask', id, kind: 'question', tool: 'AskUserQuestion', t: at, ...more }, at);
+  const ids = () => t.waiting().map(w => w.id);
+  let waitPushes = 0;
+  t.onChange = (what) => { if (what === 'wait') waitPushes++; };
+  t.event({ session: 's1', type: 'turn.start', t: 1 }, 1);
+  // 1. The mod's own 'resolved' (Claude's dialog answered, the request abandoned, or the tool call ended).
+  ask('a1', 10);
+  const gone = t.waitAnswer('s1', 'a1', 5000);
+  waitPushes = 0;
+  t.event({ session: 's1', type: 'resolved', id: 'a1', t: 11 }, 11);
+  assert.deepEqual(ids(), []);
+  assert.equal((await gone)!.kind, 'gone', "the mod's held poll ends at once");
+  assert.ok(waitPushes > 0, 'the Shell is told at once');
+  // 2. Safety net: the very tool call it was for ended, even though 'resolved' never came.
+  ask('a2', 20, { toolUseId: 'tu2' });
+  t.event({ session: 's1', type: 'tool.end', id: 'tu-other', t: 21 }, 21);
+  assert.deepEqual(ids(), ['a2'], 'another call ending says nothing about it');
+  t.event({ session: 's1', type: 'tool.end', id: 'tu2', t: 22 }, 22);
+  assert.deepEqual(ids(), []);
+  // 3. Safety net: the main loop is writing again, so every tool of its last step has its result.
+  ask('a3', 30);
+  ask('h3', 30, { agentId: 'agent-1' });
+  t.event({ session: 's1', type: 'step', what: 'text', t: 29 }, 31);
+  assert.deepEqual(ids().sort(), ['a3', 'h3'], 'a step from before the ask, arriving late, takes nothing down');
+  t.event({ session: 's1', type: 'step', what: 'text', t: 32 }, 32);
+  assert.deepEqual(ids(), ['h3'], "a helper agent's ask is its own: the main loop moving on does not answer it");
+  // 4. Safety net: a new message (typed in Claude) starts a new turn.
+  t.event({ session: 's1', type: 'turn.start', prompt: 'never mind, do B', t: 40 }, 40);
+  assert.deepEqual(ids(), []);
+  // 5. Esc / an error: the turn ends.
+  ask('a5', 50);
+  t.event({ session: 's1', type: 'turn.end', aborted: true, t: 51 }, 51);
+  assert.deepEqual(ids(), []);
+  // 6. 'resolved' overtook its own ask on the way (the ask is posted alone, the end rides the queue): it never shows.
+  t.event({ session: 's1', type: 'resolved', id: 'a6', t: 61 }, 61);
+  ask('a6', 60);
+  assert.deepEqual(ids(), []);
+  // 7. A snapshot (a brain restart, a lost event) is the whole truth: what it no longer lists was answered.
+  ask('a7', 70); ask('b7', 70);
+  t.event({ session: 's1', type: 'snapshot', phase: 'working', asks: [{ id: 'b7', kind: 'permission', tool: 'Bash' }], t: 71 }, 71);
+  assert.deepEqual(ids(), ['b7']);
+  // 8. The session ended (closed, /clear).
+  t.event({ session: 's1', type: 'end', t: 80 }, 80);
+  assert.deepEqual(ids(), []);
+  // Another session's 'resolved' never takes this one's ask.
+  t.event({ session: 's2', type: 'turn.start', t: 90 }, 90);
+  t.event({ session: 's2', type: 'ask', id: 'x9', kind: 'permission', tool: 'Bash', t: 91 }, 91);
+  t.event({ session: 's3', type: 'resolved', id: 'x9', t: 92 }, 92);
+  assert.deepEqual(ids(), ['x9']);
+  // And the way back still works: answered in Aang, the mod's poll gets his answer.
+  const ans = t.waitAnswer('s2', 'x9', 5000);
+  assert.equal(t.answer('x9', { decision: 'allow' }), null);
+  assert.equal((await ans)!.kind, 'answer');
+  t.close();
+});
+
 // ---------------------------------------------- the door, over a real socket
 
 const PORT = 48419;

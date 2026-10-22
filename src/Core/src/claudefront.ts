@@ -67,12 +67,14 @@ export class FrontGate {
    * The foreground changed (a presence report). Returns what to send now that he has left Claude: the quiet mark
    * first, then the held lines in the order they came (the caller spaces them out). Empty while he stays in Claude.
    */
-  moved(): { mark: MarkMsg | null; lines: ToBody[] } {
+  moved(over: (msg: ToBody) => boolean = () => false): { mark: MarkMsg | null; lines: ToBody[] } {
     const nowIn = this.inClaude(), was = this.wasIn;
     this.wasIn = nowIn;
     if (nowIn || !was) return { mark: null, lines: [] };
     const mark = this.mark; this.mark = null;
-    const lines = this.held; this.held = [];
+    // 2026-10-22 (his "if I act on it in Claude it should disappear"): a held line about something a session waited on
+    // him for, that he has since answered in Claude, is not news any more: it is dropped, never replayed.
+    const lines = this.held.filter(m => !over(m)); this.held = [];
     return { mark, lines };
   }
 
