@@ -64,3 +64,4 @@ body{display:block !important;padding:0 !important}
 .tabmenu.keys .warn{display:flex;gap:10px;align-items:flex-start;font:600 13.5px/1.45 var(--body);color:#ffd8d0;padding:4px 12px 10px 12px;max-width:450px}
 .tabmenu.keys .warn .ic{flex:none;margin-top:1px}
 .tabmenu.keys .warn u{text-decoration:none;color:#ffe28c;border-bottom:2px solid rgba(255,226,140,.45);cursor:pointer}
+.tabmenu .mcap{font:500 13px/1.35 var(--body);color:#c9b48c;padding:0 12px 8px 12px;max-width:260px}

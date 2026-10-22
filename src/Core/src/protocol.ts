@@ -334,7 +334,7 @@ export type ToBody =
   /** Sheet 17: every running timer, after any change and when a Shell connects. Times are epoch ms. */
   | { t: 'timer.state'; timers: { id: string; label: string; total: number; end: number; paused: number }[] }
   /** Sheet 17: every note, newest first, after any change and when a Shell connects. */
-  | { t: 'notes.state'; notes: import('./notes.ts').Note[] }
+  | { t: 'notes.state'; notes: import('./notes.ts').Note[]; cats?: { builtin: string[]; own: string[] } }
   /** Sheet 17: "show my notes": the bubble opens the board. */
   | { t: 'notes.board' }
   /** Sheet 17: "set a timer" with no time: the bubble shows the dial. */
@@ -590,6 +590,8 @@ export type FromBody =
   | { t: 'notes.keep'; text: string; url: string; site: string }
   /** The one switch for "Aang notices things in your notes" (notenotice.ts); its place in Settings comes with sheet 60. */
   | { t: 'notice.set'; on: boolean }
+  /** Sheet 60: "+ Category" on the board, a category of his own (it takes the next colour). */
+  | { t: 'notes.cat'; name: string }
   /** His pick from a choice list: the option's index, or -1 for "Something else". */
   | { t: 'choice.reply'; id: string; pick: number }
   | { t: 'action.list' }
@@ -678,6 +680,8 @@ let dropped = 0;
 export interface MenuState {
   muted?: boolean; quiet?: 'auto' | 'always' | 'never'; dock?: string; docked?: boolean; model?: string; saving?: boolean;
   models?: { id: string; label: string }[]; hushedUntil?: number; jobsRunning?: number;
+  /** Sheet 60: "Let Aang bring up my notes" (notenotice.ts), shown ticked in Hush. */
+  notesNotice?: boolean;
 }
 export function parseFromBody(raw: string): FromBody | null {
   try {

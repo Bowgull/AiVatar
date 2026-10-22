@@ -1,10 +1,15 @@
 // Sheet 17's sticky notes (approved 2026-10-12): one paper, used both in the bubble's board and on his screen.
-// Free text with a title. Right-click for everything else: colour (the pin always matches the paper), bold,
-// italic, underline, strike, header, ticks, bullets, numbers, size, font, and on the screen see-through and pin.
+// Free text with a title. Right-click for the rest: bold, italic, underline, strike, header, ticks, bullets,
+// numbers, size, font, and on the screen see-through and pin.
+// Sheet 60 (2026-10-22): look B. The colour comes from the CATEGORY (notecats.js), never picked on its own, so the
+// colour row is gone from the menu; the ribbon tab replaced the pin; and every note carries the same control row
+// (# category, checklist, "Aang can bring this up"), quick or not.
 //
 // A note's HTML is only ever what this editor makes. It is cleaned here before it is shown (and again by the
 // brain on every save), and a paste goes in as plain text, so nothing from a web page can ride in on one.
+import { paintCat, catColour, ribbon, controls, openPicker, closePicker, toggleChecklist } from './notecats.js';
 
+/** Sheet 17's colours, kept only so an old page or test still finds the names. A note's colour is its category now. */
 export const SCHEMES = {
   parchment: { name: 'Parchment', a: '#F6E6C6', b: '#E6CFA2', pin: '#C98C14', pinL: '#FFE096', ink: '#2a1c10', sub: '#7a6440' },
   sage: { name: 'Sage', a: '#E3ECCF', b: '#C9D8AE', pin: '#3E7A4E', pinL: '#8CCB8F', ink: '#1f2a14', sub: '#55663f' },
@@ -23,11 +28,12 @@ export const SIZES = { s: 13, m: 15, l: 18 };
 export const sizePx = (s) => SIZES[s] ?? Math.max(10, Math.min(28, Number(s) || 15));
 const FAMILIES = new Set(Object.values(FONTS).map((f) => f[1].toLowerCase()));
 
-/** Paint a note's colours, font and size onto an element as CSS variables. */
+/** Paint a note's colours (from its category), font and size onto an element as CSS variables. */
 export function paintNote(el, n) {
-  const c = SCHEMES[n.col] ?? SCHEMES.parchment;
+  const c = paintCat(el, n.cat);
   const set = (k, v) => el.style.setProperty(k, v);
-  set('--pa', c.a); set('--pb', c.b); set('--pin', c.pin); set('--pinl', c.pinL); set('--ink2', c.ink); set('--sub2', c.sub);
+  // The older names too, for anything still drawn with them: the same category colour.
+  set('--pa', c.paper); set('--pb', c.paper); set('--pin', c.deep); set('--pinl', c.paper); set('--ink2', '#2a1c10'); set('--sub2', '#6b5236');
   set('--nf', `'${(FONTS[n.font] ?? FONTS.figtree)[1]}'`);
   set('--ns', sizePx(n.size) + 'px');
   // The title's own font and size (his ask: the title should change like the rest). Unset: the Cinzel heading.
@@ -73,18 +79,61 @@ export function previewLines(html) {
 export function tickCount(html) { return { all: (html.match(/class="cl/g) ?? []).length, done: (html.match(/class="cl done"/g) ?? []).length }; }
 
 /**
- * Make `root` hold an editable note: the pin, the title, the free body. `onChange(note)` is called, a little
- * after he stops typing, with the note as it now is.
+ * Make `root` hold an editable note (sheet 60 look B): the ribbon, the title, the free body and the control row.
+ * `onChange(note)` is called, a little after he stops typing (at once for a control), with the note as it now is.
+ * opts: `quick` (the quick note: no title line, "A thought, a to-do, anything..."), `controls` (default true),
+ * `pickHost` (where the category list opens), `onPicker(open, at)` (a note window grows while the list is open; it
+ * may return a promise for when there is room).
  */
-export function buildPaper(root, n, onChange) {
+export function buildPaper(root, n, onChange, opts = {}) {
   root.replaceChildren();
-  const pin = document.createElement('span'); pin.className = 'pin';
-  const title = document.createElement('div'); title.className = 'ntitle'; title.contentEditable = 'true'; title.spellcheck = false; title.textContent = n.title; title.dataset.ph = 'Title';
-  const body = document.createElement('div'); body.className = 'nbody'; body.contentEditable = 'true'; body.spellcheck = false; body.innerHTML = cleanHtml(n.html); body.dataset.ph = 'Write here...';
-  root.append(pin, title, body);
+  root.classList.add('npaper');
+  const edge = document.createElement('div'); edge.className = 'np-edge';
+  const fill = document.createElement('div'); fill.className = 'np-fill';
+  const inner = document.createElement('div'); inner.className = 'np-in';
+  // "Note" is what the brain calls a note with no title: shown as no title, with the hint.
+  const title = document.createElement('div'); title.className = 'ntitle'; title.contentEditable = 'true'; title.spellcheck = false; title.textContent = n.title === 'Note' ? '' : (n.title ?? ''); title.dataset.ph = 'Title';
+  const body = document.createElement('div'); body.className = 'nbody'; body.contentEditable = 'true'; body.spellcheck = false; body.innerHTML = cleanHtml(n.html); body.dataset.ph = opts.quick ? 'A thought, a to-do, anything...' : 'Write here...';
+  if (opts.quick) title.hidden = true;
+  inner.append(title, body);
+  let rib = ribbon(catColour(n.cat).deep);
+  root.append(edge, fill, rib, inner);
   paintNote(root, n);
   let timer = 0;
-  const changed = () => { clearTimeout(timer); timer = window.setTimeout(() => { n.title = (title.textContent ?? '').trim().slice(0, 60); n.html = cleanHtml(body.innerHTML); onChange(n); }, 600); };
+  const read = () => { n.title = (title.textContent ?? '').trim().slice(0, 60); n.html = cleanHtml(body.innerHTML); };
+  const changed = () => { clearTimeout(timer); timer = window.setTimeout(() => { read(); onChange(n); }, 600); };
+  const now = () => { clearTimeout(timer); read(); onChange(n); };
+  /** The control row, drawn again after any change to what it shows. */
+  let ctl = null;
+  const drawControls = () => {
+    if (opts.controls === false) return;
+    const next = controls(n, (what, v) => {
+      if (what === 'cat') {
+        const host = opts.pickHost ?? root.parentElement ?? document.body;
+        if (closePicker(host)) return;
+        const cr = /** @type {HTMLElement} */ (v).getBoundingClientRect();
+        const open = () => {
+          const hr = host.getBoundingClientRect(), c2 = /** @type {HTMLElement} */ (v).getBoundingClientRect();
+          const p = openPicker(host, { x: c2.left - hr.left, y: c2.bottom - hr.top + 6 }, n.cat ?? '', (cat) => setCat(cat));
+          const watch = new MutationObserver(() => { if (!host.contains(p)) { watch.disconnect(); opts.onPicker?.(false); } });
+          watch.observe(host, { childList: true });
+        };
+        const room = opts.onPicker?.(true, { x: cr.left, y: cr.bottom + 6 });
+        if (room && typeof room.then === 'function') room.then(open); else open();
+      } else if (what === 'check') { toggleChecklist(body); now(); drawControls(); }
+      else if (what === 'notice') { if (v) delete n.notice; else n.notice = false; now(); drawControls(); }
+    });
+    if (ctl) ctl.replaceWith(next); else inner.append(next);
+    ctl = next;
+  };
+  /** A category picked: the paper cross-fades to its colour (notecats.css), the ribbon follows, saved at once. */
+  const setCat = (cat) => {
+    if (cat) n.cat = cat; else delete n.cat;
+    paintNote(root, n);
+    const r2 = ribbon(catColour(n.cat).deep); rib.replaceWith(r2); rib = r2;
+    now(); drawControls();
+  };
+  drawControls();
   title.addEventListener('input', changed);
   body.addEventListener('input', changed);
   title.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); body.focus(); } });
@@ -97,7 +146,7 @@ export function buildPaper(root, n, onChange) {
     const r = line.getBoundingClientRect();
     if (e.clientX - r.left < 22) { e.preventDefault(); line.classList.toggle('done'); changed(); }
   });
-  return { root, title, body, flush: () => { clearTimeout(timer); n.title = (title.textContent ?? '').trim().slice(0, 60); n.html = cleanHtml(body.innerHTML); onChange(n); } };
+  return { root, title, body, flush: now, setCat, redraw: drawControls };
 }
 
 /**
@@ -115,12 +164,7 @@ export function openMenu(host, at, paper, n, where, act, part = 'body') {
   const btn = (to, cls, html, fn) => { const b = document.createElement('button'); b.type = 'button'; b.className = cls; b.innerHTML = html; b.addEventListener('mousedown', (e) => e.preventDefault()); b.addEventListener('click', () => { fn(); }); to.append(b); return b; };
   const lab = (t) => { const d = document.createElement('div'); d.className = 'nm-lab'; d.textContent = t; menu.append(d); };
 
-  const sw = row('nm-sw');
-  for (const [k, c] of Object.entries(SCHEMES)) {
-    const s = btn(sw, 'sw' + (k === n.col ? ' on' : ''), '<i></i>', () => { n.col = k; paintNote(paper.root, n); done(s); });
-    s.title = c.name;
-    s.style.setProperty('--pa', c.a); s.style.setProperty('--pb', c.b); s.style.setProperty('--pin', c.pin); s.style.setProperty('--pinl', c.pinL);
-  }
+  // Sheet 60: no colour row. The colour is the category's (the # chip on the note).
   const fmt = row();
   for (const [cmd, html] of [['bold', '<b>B</b>'], ['italic', '<i>I</i>'], ['underline', '<u>U</u>'], ['strikeThrough', '<s>S</s>']]) btn(fmt, 'nb', html, () => { restore(); document.execCommand(cmd); done(); });
   const lists = row();

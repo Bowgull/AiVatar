@@ -184,7 +184,11 @@ interface Pane {
   fullTab: number | null;
   watching: number | null;
   watchTimer: NodeJS.Timeout | null;
+  /** Sheet 60: this window's "Notes for this site" rail is open (Esc in the page closes it). */
+  railOpen?: boolean;
 }
+/** Sheet 60 section 4: a note as Samara's notes rail needs it (only notes that came from a page carry `src`). */
+export interface RailNote { id: string; title: string; html: string; cat?: string; src?: { url: string; site: string }; updated: number }
 const newPane = (id: number): Pane => ({ id, win: null, active: null, inset: { left: 30, top: 66, right: 8, bottom: 8 }, drawerOpen: false, peekShot: null, peeking: false,
   hideTimer: null, trayV: null, trayOn: false, trayAt: { x: 42, y: 62 }, curtain: null, curtainReady: Promise.resolve(), veil: null, fullTab: null, watching: null, watchTimer: null });
 
@@ -2687,6 +2691,40 @@ export class AangBrowser {
   /** Set by main: open a session in the Claude app (the exact claude:// link, or 'front' / 'mac', claudeOpenTarget). */
   onClaudeOpen: ((target: ClaudeOpen) => void) | null = null;
   /** The brain's news (null: the brain went away, so the rune goes too). Sent to every Samara window's band. */
+  // ------------------------------------------------------------------ sheet 60: the notes rail ("Notes for this site")
+  private railNotes: RailNote[] = [];
+  private railCats: string[] = [];
+  /** A new note for this site, from the rail (main.ts sends it to the brain). */
+  onNoteSave: ((n: RailNote) => void) | null = null;
+  /** A note in the rail clicked: it opens where notes open (Aang's bubble). */
+  onNoteOpen: ((id: string) => void) | null = null;
+  /** The brain's notes changed: the ones that came from a page (src) go to every window with its rail open. */
+  notesNews(notes: unknown, cats: unknown): void {
+    this.railNotes = (Array.isArray(notes) ? notes : []).filter((n): n is RailNote => !!n && typeof n === 'object' && typeof (n as RailNote).id === 'string' && !!(n as RailNote).src)
+      .slice(0, 60).map((n) => ({ id: n.id, title: String(n.title ?? ''), html: String(n.html ?? ''), cat: typeof n.cat === 'string' ? n.cat : undefined, src: n.src, updated: Number(n.updated) || 0 }));
+    this.railCats = Array.isArray(cats) ? cats.map(String).slice(0, 12) : [];
+    for (const p of this.panes) if (p.railOpen) this.sendNotes(p);
+  }
+  private sendNotes(p: Pane): void {
+    if (!this.alive(p)) return;
+    p.win!.webContents.send('browser:notes', { notes: this.railNotes, cats: this.railCats });
+  }
+  /** "+ note for this site": his words, kept as a note with this page as where it came from. */
+  noteSave(raw: unknown): void {
+    if (!raw || typeof raw !== 'object') return;
+    const r = raw as Record<string, unknown>;
+    const id = String(r.id ?? '');
+    if (!/^n[a-z0-9]{1,20}$/.test(id)) return;
+    // Where it came from is the page in front of THIS window, never what the frame says.
+    const url = this.cur()?.url ?? '';
+    let site = '';
+    try { const u = new URL(url); if (u.protocol !== 'http:' && u.protocol !== 'https:') return; site = u.hostname.replace(/^www\./, ''); } catch { return; }
+    const was = this.railNotes.find((n) => n.id === id);
+    this.onNoteSave?.({ id, title: String(r.title ?? '').slice(0, 60) || 'Note', html: String(r.html ?? '').slice(0, 20_000), cat: typeof r.cat === 'string' ? r.cat.slice(0, 24) : undefined,
+      src: was?.src ?? { url, site }, updated: Date.now() });
+  }
+  noteOpen(id: unknown): void { if (typeof id === 'string' && /^n[a-z0-9]{1,20}$/.test(id)) this.onNoteOpen?.(id); }
+
   claudeNews(m: { t?: unknown; jobs?: unknown; items?: unknown } | null): void {
     if (!m) this.claudeLast = null;
     else {
@@ -3572,6 +3610,9 @@ export class AangBrowser {
       // Sheet 40 B: the pop-out's own keys, from the page left behind.
       case 'poppause': case 'poppin': case 'popclose': this.onPopoutAct?.(what); break;
       case 'drawer-open': void this.drawer(true); break;
+      // Sheet 60 section 4: "Notes for this site" (the ... menu) opens the rail; the frame says when it opens and goes.
+      case 'siterail-on': this.pane.railOpen = true; this.sendNotes(this.pane); break;
+      case 'siterail-off': this.pane.railOpen = false; break;
       case 'peek': void this.peek(); break;
       case 'frozen-ready': this.frozenReady(); break;
       case 'importmarks': void this.importMarks(); break;
@@ -3659,6 +3700,8 @@ export class AangBrowser {
       if (n) this.activate(n.id);
       return true;
     }
+    // Sheet 60: Esc closes the notes rail even while the page has the keyboard.
+    if (k === 'escape' && this.pane.railOpen) { this.pane.railOpen = false; this.win?.webContents.send('browser:railclose'); return true; }
     if (k === 'escape' && this.cur()?.loading) { this.act('stop'); return false; }
     if (c && k === 'tab') {
       const mine = this.paneTabs();

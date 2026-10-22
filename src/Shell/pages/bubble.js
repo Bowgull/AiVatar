@@ -9,7 +9,8 @@ import { HOLD_MS, askFrom } from './asks.js';
 import { blocks, shownWords } from './rich.js';
 import { find as findEntities } from './entities.js';
 import { Scrollback, atTop } from './scrollback.js';
-import { buildPaper, openMenu, previewLines, tickCount, paintNote } from './notepaper.js';
+import { buildPaper, openMenu, previewLines, tickCount, paintNote, cleanHtml as cleanNoteHtml } from './notepaper.js';
+import { setOwnCats, ownCats, allCats, catColour, ribbon } from './notecats.js';
 import { pixIcon, SKIES } from './pixicons.js';
 import { paintLookback, linkifyWords, videoShot, linkEl, kindOf, restKinds } from './lookback.js';
 import { startTyping } from './cocktype.js';
@@ -678,6 +679,14 @@ function markLink() {
     const s = document.createElement('span'); s.className = 'link'; s.textContent = linkWord;
     after.replaceWith(s);
     return;
+  }
+  // Sheet 60 B: a note's name is often several words, and the reveal lights each word as its own element.
+  const want = linkWord.split(/\s+/).filter(Boolean);
+  if (want.length < 2) return;
+  const words = [...said.querySelectorAll('*')].filter((e) => !e.children.length && (e.textContent ?? '').trim());
+  const bare = (t) => t.trim().replace(/^["'(]+|["'.,?!:;)]+$/g, '').toLowerCase();
+  for (let i = 0; i + want.length <= words.length; i++) {
+    if (want.every((w, k) => bare(words[i + k].textContent ?? '') === bare(w))) { words.slice(i, i + want.length).forEach((e) => e.classList.add('link')); return; }
   }
 }
 
@@ -1735,6 +1744,8 @@ function thinking(label, lane, retry = false) {
 
 function onBrain(m) {
   if (!m || typeof m !== 'object') return;
+  // Sheet 60 B: the pointer is on the note Aang holds up (its own little window): the same as being on the bubble.
+  if (m.t === 'held.hover') { heldOver = m.on === true; return; }
   if (provisional && (TURN_NEWS.has(m.t) || askFrom(m))) { clearTimeout(provisional); provisional = 0; }
   // A hello is not "something he said" (2026-10-21): only real messages come back over the chat box.
   if (!m.recalled && !m.greet && (m.t === 'bubble' || m.t === 'whisper' || m.t === 'pet.say') && (m.text || m.brief || m.research || m.card)) { lastShown = m; lastShownAt = Date.now(); }
@@ -1931,8 +1942,11 @@ function onBrain(m) {
       bubble.classList.toggle('cdone', Boolean(claudeDone));
       // 2026-10-22: a line Aang noticed in a note: a click opens that note (sheet 60 gives it its own look later).
       noticeNote = m.kind === 'note.notice' && m.notice && typeof m.notice.noteId === 'string' ? m.notice.noteId : null;
+      noticeLine = noticeNote && typeof m.notice.line === 'string' ? m.notice.line : '';
     }
     if (!m.stream) linkWord = (focusWindow || macSession) ? (typeof m.link === 'string' && m.link ? m.link : 'Claude') : '';
+    // Sheet 60 B: the note's name in his line is the link that opens it.
+    if (!m.stream && noticeNote && typeof m.link === 'string' && m.link) linkWord = m.link;
     if (!m.stream) holdOverride = Number.isFinite(m.hold) && m.hold > 0 ? m.hold : 0;
     // HIS QUESTION, not the model's name. The old bubble puts what he asked here, dimmed and cut at 50
     // characters (BubbleView:953), so a reply always carries its question. Showing "QUICK" instead was
@@ -2007,12 +2021,20 @@ function onBrain(m) {
   if (m.t === 'choice.used' && typeof m.key === 'string') { chgKey = m.key; return; }
   // Sheet 17: the notes. The list keeps the board current; "show my notes" opens it.
   if (m.t === 'notes.state' && Array.isArray(m.notes)) {
+    if (m.cats && typeof m.cats === 'object') setOwnCats(m.cats.own);
     notesAll = m.notes;
     if (boardOpen && !editingNote && !card.hidden) showBoard();
     if (editingNote && !notesAll.some((n) => n.id === editingNote)) showBoard();
     return;
   }
-  if (m.t === 'notes.board') { openBoard(); if (m.fresh === true) newNote(); return; }
+  if (m.t === 'notes.board') {
+    // Sheet 60: the held paper clicked opens the note Aang is holding up; Samara's rail opens one by its id.
+    const want = m.openNotice === true ? heldId : typeof m.open === 'string' ? m.open : null;
+    if (m.openNotice === true && !want) return;
+    if (want) noticeNote = null;
+    openBoard(); if (m.fresh === true) newNote(); else if (want) openNote(want);
+    return;
+  }
   // Sheet 17: "set a timer" with no time, or the wheel's Timer: the dial.
   if (m.t === 'timer.setup') {
     if (cockpit) { cockCommit(); live = { skip: true }; }
@@ -2209,7 +2231,7 @@ bubble.addEventListener('click', e => {
   if (e.target.closest('#ckjobs, #ckpins')) return;
   // Sheet 17: the notes board, a note being edited, its menu and the timer dial are things he works IN.
   // A click there was docking the typing box over them and taking the keyboard away (his test, 2026-10-12).
-  if (e.target.closest('.boardwrap, .nmini, .bignote, .inline, .ctitle, .tset, .newk, .bcap')) return;
+  if (e.target.closest('.boardwrap, .nmini, .bignote, .inline, .ctitle, .tset, .newk, .bcap, .bchips, .nkeys')) return;
   // 2026-10-21 (his ask): a finished Claude job's news takes him to that session, not to the cockpit (sheet 16's rule
   // stays for every other Claude message).
   if (claudeDone && !cockpit && !asking) { goDone(claudeDone); return; }
@@ -2336,7 +2358,8 @@ card.addEventListener('pointerdown', typeHere);
  * since sheet 61 v2 (2026-10-22) his Quick note key, Ctrl + number pad *.
  */
 function newNote() {
-  const n = { id: newNoteId(), title: '', html: '', col: 'parchment', font: 'figtree', size: 'm', updated: Date.now(), fresh: true };
+  // Sheet 60: a new note is a plain note; with the board filtered to a category, it starts in that one.
+  const n = { id: newNoteId(), title: '', html: '', font: 'figtree', size: 'm', updated: Date.now(), fresh: true, ...(boardCat ? { cat: boardCat } : {}) };
   notesAll = [n, ...notesAll];
   openNote(n.id, true);
 }
@@ -2346,14 +2369,41 @@ function showBoard() {
   typing(false);
   notesAll = notesAll.filter((n) => !n.fresh);          // a new note he never wrote in is dropped
   card.replaceChildren();
-  const pages = Math.max(1, Math.ceil(notesAll.length / PER_PAGE));
+  // Sheet 60 B-board: the chips filter by category ("Just notes" = the plain ones); each carries its category's paper.
+  const known = new Set(allCats().map((c) => c.cat.toLowerCase()));
+  if (boardCat !== null && boardCat !== '' && !known.has(boardCat.toLowerCase())) boardCat = null;
+  const inCat = (n) => boardCat === null ? true : boardCat === '' ? !n.cat : String(n.cat ?? '').toLowerCase() === boardCat.toLowerCase();
+  const list = notesAll.filter(inCat);
+  const pages = Math.max(1, Math.ceil(list.length / PER_PAGE));
   boardPage = Math.min(boardPage, pages - 1);
-  const shown = notesAll.slice(boardPage * PER_PAGE, boardPage * PER_PAGE + PER_PAGE);
-  const head = T('div', 'ctitle', 'NOTES');
+  const shown = list.slice(boardPage * PER_PAGE, boardPage * PER_PAGE + PER_PAGE);
+  const head = T('div', 'ctitle nb60', 'Notes');
   if (pages > 1) { const d = T('span', 'bdots'); for (let i = 0; i < pages; i++) d.append(T('i', i === boardPage ? 'on' : '')); head.append(d); }
-  const add = T('button', 'newk', '+ NEW'); add.type = 'button';
+  const add = T('button', 'newk', '+ New note'); add.type = 'button';
   add.addEventListener('click', newNote);
   head.append(add);
+  const chips = T('div', 'bchips');
+  const chip = (label, cat, count, colours) => {
+    const b = T('button', 'bchip' + (boardCat === cat ? ' on' : '')); b.type = 'button';
+    if (colours) { const sw = T('i'); sw.style.setProperty('--paper', colours.paper); sw.style.setProperty('--deep', colours.deep); b.append(sw); }
+    b.append(T('span', '', count === null ? label : `${label} · ${count}`));
+    b.addEventListener('click', () => { boardCat = cat; boardPage = 0; showBoard(); });
+    chips.append(b);
+  };
+  chip('All', null, notesAll.length, null);
+  for (const c of allCats()) chip(c.cat ? c.cat : 'Just notes', c.cat, c.cat ? null : notesAll.filter((n) => !n.cat).length, c);
+  const plus = T('button', 'bchip add', '+ Category'); plus.type = 'button';
+  plus.addEventListener('click', () => {
+    const box = T('input', 'bcatin'); box.type = 'text'; box.maxLength = 24; box.placeholder = 'Name it, then Enter'; box.spellcheck = false;
+    plus.replaceWith(box); typing(true);
+    setTimeout(() => box.focus(), 60);
+    box.addEventListener('keydown', (e) => {
+      e.stopPropagation();
+      if (e.key === 'Escape') { e.preventDefault(); showBoard(); }
+      if (e.key === 'Enter') { e.preventDefault(); const v = box.value.replace(/[<>#]/g, '').replace(/\s+/g, ' ').trim().slice(0, 24); if (v) { window.aang?.notesCat?.(v); setOwnCats([...ownCats(), v]); boardCat = v; } showBoard(); }
+    });
+  });
+  chips.append(plus);
   const wrap = T('div', 'boardwrap');
   if (pages > 1) {
     const l = T('button', 'bcap l' + (boardPage === 0 ? ' off' : ''), '◀'); l.type = 'button';
@@ -2363,29 +2413,31 @@ function showBoard() {
     wrap.append(l, r);
   }
   const grid = T('div', 'board');
-  if (!notesAll.length) grid.append(T('div', 'bempty', 'No notes yet. Say "make a note for raid: flasks, food" or press + NEW.'));
+  if (!notesAll.length) grid.append(T('div', 'bempty', 'No notes yet. Say "make a note for raid: flasks, food" or press + New note.'));
+  else if (!list.length) grid.append(T('div', 'bempty', boardCat === '' ? 'No plain notes.' : `Nothing in ${boardCat} yet. + New note starts one there.`));
   for (const n of shown) grid.append(miniNote(n));
-  if (notesAll.length) for (let i = shown.length; i < PER_PAGE; i++) grid.append(T('div', 'nmini slot'));
   wrap.append(grid);
-  card.append(head, wrap);
+  card.append(head, chips, wrap);
   card.hidden = false;
   fit(); reportSize();
 }
+/** Sheet 60 B: a small note on the board, on its category's paper, held by its ribbon. No pin, no tilt, no ghost slots. */
 function miniNote(n) {
-  const el = T('div', 'nmini' + (n.out ? ' gone' : ''));
+  const el = T('div', 'nmini npaper' + (n.out ? ' gone' : ''));
   paintNote(el, n);
-  el.style.setProperty('--r', [-3, 2, -1.5, 3, -2.5, 1][n.id.charCodeAt(n.id.length - 1) % 6] + 'deg');
-  el.append(T('span', 'pin'));
-  const inner = T('div', 'nmi');
-  inner.append(T('b', '', n.title));
+  const inner = T('div', 'np-in nmi');
+  if (n.title && n.title !== 'Note') inner.append(T('b', 'mt', n.title));
+  if (n.cat) { const c = T('span', 'np-chip'); c.append(T('i', '', '#'), document.createTextNode(n.cat)); inner.append(c); }
   for (const l of previewLines(n.html).slice(0, 3)) inner.append(T('span', 'ml' + (l.done ? ' done' : ''), l.t));
-  el.append(inner);
+  el.append(T('div', 'np-edge'), T('div', 'np-fill'), ribbon(catColour(n.cat).deep), inner);
   const tc = tickCount(n.html);
   if (tc.all > 1) el.append(T('span', 'tickc', `${tc.done}/${tc.all}`));
-  if (n.out) el.append(T('span', 'onscreen', 'ON SCREEN'));
+  if (n.out) el.append(T('span', 'onscreen', 'On screen'));
   pullable(el, n);
   return el;
 }
+/** Sheet 60: the board's filter: null = All, '' = Just notes (plain), else a category's name. */
+let boardCat = null;
 /** Drag a note off the board: inside the bubble it lifts and follows; out of the bubble it becomes a note on the screen. */
 function pullable(el, n) {
   let down = null, out = false;
@@ -2417,8 +2469,8 @@ function openNote(id, focusTitle = false) {
   const head = T('div', 'ctitle');
   const back = T('button', 'back', '◀ BOARD'); back.type = 'button';
   back.addEventListener('click', () => { paper.flush(); showBoard(); });
-  head.append(back, T('span', 'hint2', 'Type anywhere. Right-click for colour, text and more.'));
-  const sheet = T('div', 'bignote paper');
+  head.append(back, T('span', 'hint2', 'Type anywhere. Right-click for text, size and font.'));
+  const sheet = T('div', 'bignote');
   const menuHost = T('div', 'inline');
   card.append(head, sheet, menuHost);
   const paper = buildPaper(sheet, n, (changed) => {
@@ -2427,7 +2479,7 @@ function openNote(id, focusTitle = false) {
     delete changed.fresh;
     if (!changed.title) changed.title = 'Note';
     window.aang?.notesSave?.(changed); fit(); reportSize();
-  });
+  }, { pickHost: menuHost, onPicker: () => { setTimeout(() => { fit(); reportSize(); }, 0); } });
   sheet.addEventListener('input', () => { fit(); reportSize(); });
   sheet.addEventListener('contextmenu', (e) => {
     e.preventDefault();
@@ -2718,7 +2770,7 @@ function leaveReading(restore = true, force = false) {
 // own words first; only at the top of them does looking back begin.
 bubble.addEventListener('wheel', (e) => {
   if (reading || e.deltaY >= 0 || bubble.hidden) return;
-  if (e.target.closest('.boardwrap, .nmini, .bignote, .tset, .research, .opts, .asks')) return;
+  if (e.target.closest('.boardwrap, .nmini, .bignote, .bchips, .inline, .tset, .research, .opts, .asks')) return;
   if (!scroller.hidden && scroller.scrollTop > 4) return;
   enterReading();
 }, { passive: true });
@@ -2827,6 +2879,76 @@ claude = startClaude({
 let claudeDone = null;
 /** The note a noticed line came from (kind 'note.notice'), while that line is on show: a click opens it. */
 let noticeNote = null;
+/** The note line Qwen noticed (for "Tick it"). */
+let noticeLine = '';
+
+// ---------------------------------------------------------------- sheet 60 B (his pick, 2026-10-22): Aang holds it up
+// While a noticed line is on show, Aang holds a little paper in the note's category colour (its own small window over his
+// hands, noteheld.ts) and the note's name in his line is the link. Its keys, Tick it / Open / Later, wait for intent: they
+// come only after the pointer has rested on the bubble (or the paper) for about 1.5 s (his hover-keys rule). The paper
+// goes down the moment the line does. Never in a game and held while Claude is in front: the brain already sees to that.
+let heldOver = false, heldId = null, overSince = 0;
+/** @type {HTMLElement|null} */ let nkeys = null;
+const HOVER_KEYS_MS = 1500;
+function noticeTick() {
+  const showing = !!noticeNote && !bubble.hidden && !bubble.classList.contains('leaving') && !cockpit && !boardOpen && !reading;
+  const id = showing ? noticeNote : null;
+  if (id !== heldId) {
+    heldId = id;
+    if (id) { const n = notesAll.find((x) => x.id === id); const c = catColour(n?.cat); window.aang?.noticeHeld?.({ on: true, paper: c.paper, deep: c.deep }); }
+    else { window.aang?.noticeHeld?.({ on: false }); heldOver = false; overSince = 0; if (nkeys) { nkeys.remove(); nkeys = null; } }
+  }
+  if (!id) return;
+  const pointing = overNow || heldOver;
+  if (!pointing) { overSince = 0; if (nkeys && !nkeys.hidden) { nkeys.hidden = true; fit(); reportSize(); } return; }
+  if (!overSince) overSince = Date.now();
+  if (Date.now() - overSince >= HOVER_KEYS_MS && (!nkeys || nkeys.hidden)) noticeKeys(id);
+}
+setInterval(noticeTick, 120);
+/** The noticed line's own unticked tick box in the note, if it has one. */
+function noticeTickLine(n) {
+  if (!n || !noticeLine) return null;
+  const box = document.createElement('div'); box.innerHTML = cleanNoteHtml(n.html);
+  const want = noticeLine.replace(/\s+/g, ' ').trim().toLowerCase();
+  return [...box.querySelectorAll('div.cl:not(.done)')].find((d) => (d.textContent ?? '').replace(/\s+/g, ' ').trim().toLowerCase() === want) ? box : null;
+}
+function noticeKeys(id) {
+  const n = notesAll.find((x) => x.id === id);
+  if (!nkeys || nkeys.dataset.for !== id) {
+    nkeys?.remove();
+    nkeys = T('div', 'keys nkeys'); nkeys.dataset.for = id;
+    const k = (label, cls, fn) => { const b = T('button', 'key sm' + (cls ? ' ' + cls : ''), label); b.type = 'button'; b.addEventListener('click', (e) => { e.stopPropagation(); fn(); }); nkeys.append(b); };
+    if (noticeTickLine(n)) k('Tick it', 'primary', () => {
+      const cur = notesAll.find((x) => x.id === id), box = noticeTickLine(cur);
+      if (cur && box) {
+        const want = noticeLine.replace(/\s+/g, ' ').trim().toLowerCase();
+        const line = [...box.querySelectorAll('div.cl:not(.done)')].find((d) => (d.textContent ?? '').replace(/\s+/g, ' ').trim().toLowerCase() === want);
+        line?.classList.add('done');
+        const next = { ...cur, html: box.innerHTML };
+        notesAll = notesAll.map((x) => (x.id === id ? next : x));
+        window.aang?.notesSave?.(next);
+      }
+      noticeDone();
+    });
+    k('Open', n && !noticeTickLine(n) ? 'primary' : '', () => { noticeNote = null; openBoard(); openNote(id); });
+    k('Later', '', () => noticeDone());
+    scroller.after(nkeys);
+  }
+  nkeys.hidden = false;
+  // Three keys sit on one row: the balloon takes its wider size while they show.
+  bubble.classList.add('wide');
+  // The same 600 ms guard as the asks: keys that just appeared under the pointer cannot be hit by accident.
+  nkeys.classList.add('guard'); setTimeout(() => nkeys?.classList.remove('guard'), 600);
+  fit(); reportSize();
+}
+/** Tick it or Later: he lowers the paper and the line goes. */
+function noticeDone() {
+  noticeNote = null;
+  noticeTick();
+  overNow = false; document.getElementById('wrap')?.classList.remove('over'); window.aang?.bubbleClickable?.(false);
+  clearTimeout(hideTimer);
+  goAway();
+}
 /**
  * 2026-10-21 (his ask: "click into a done Claude task ... and be taken to that job"): THAT session to the front in the
  * Claude app: its own link from the brain, else the job with that id or project the bubble knows, else the Claude app
