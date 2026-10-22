@@ -7,6 +7,7 @@ import { BrowserWindow, screen } from 'electron';
 import { readFileSync } from 'node:fs';
 import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown } from './safety.ts';
 import { writeFileAtomic } from './atomic.ts';
+import type { FamilyHooks } from './familywin.ts';
 
 export interface TimerData { id: string; label: string; total: number; end: number; paused: number }
 interface Spot { x: number; y: number }
@@ -26,7 +27,7 @@ export class TimerWindows {
     for (const [id, v] of this.wins) if (!keep.has(id)) { if (!v.w.isDestroyed()) v.w.destroy(); this.wins.delete(id); }
     list.forEach((t, i) => {
       let v = this.wins.get(t.id);
-      if (!v || v.w.isDestroyed()) { v = { w: this.make(i), pinned: false }; this.wins.set(t.id, v); }
+      if (!v || v.w.isDestroyed()) { v = { w: this.make(i), pinned: false }; this.wins.set(t.id, v); this.joinFamily(t.id, v.w); }
       const w = v.w;
       if (w.webContents.isLoading()) w.webContents.once('did-finish-load', () => w.webContents.send('timer:data', t));
       else w.webContents.send('timer:data', t);
@@ -78,11 +79,29 @@ export class TimerWindows {
   }
   opacity(sender: Electron.WebContents, n: number): void {
     const id = this.idOf(sender); const v = id ? this.wins.get(id) : null;
-    if (v && Number.isFinite(n)) v.w.setOpacity(Math.max(0.25, Math.min(1, n)));
+    if (v && Number.isFinite(n)) { v.w.setOpacity(Math.max(0.25, Math.min(1, n))); this.family?.shared('timer:' + id, { opacity: n }); }
   }
+
+  // ---------------------------------------------------------------- the window family (F2, 2026-10-22)
+  /** Set by familywire.ts: timers snap to the video, jobs, notes and each other, and share see-through and pin. */
+  family: FamilyHooks | null = null;
+  private joinFamily(id: string, w: BrowserWindow): void {
+    this.family?.add({
+      id: 'timer:' + id, kind: 'timer', win: () => (w.isDestroyed() ? null : w), card: '.tw',
+      setOpacity: (n) => { if (!w.isDestroyed()) w.setOpacity(Math.max(0.25, Math.min(1, n))); },
+      setPinned: (on) => this.applyPinned(id, on),
+      moved: () => { if (!w.isDestroyed()) { const [x, y] = w.getPosition(); try { writeFileAtomic(this.o.spotFile, JSON.stringify({ x, y })); } catch { /* not worth failing over */ } } },
+    });
+  }
+
   drag(sender: Electron.WebContents, phase: string, dx = 0, dy = 0): void {
     const id = this.idOf(sender); const v = id ? this.wins.get(id) : null;
     if (!v || v.pinned) return;
+    // The family moves it (and whatever it is joined to), and snaps it.
+    if (this.family?.drag('timer:' + id, phase, dx, dy)) {
+      if (phase === 'end') { const [x, y] = v.w.getPosition(); try { writeFileAtomic(this.o.spotFile, JSON.stringify({ x, y })); } catch { /* not worth failing over */ } }
+      return;
+    }
     const [x, y] = v.w.getPosition();
     if (phase === 'start') { this.dragFrom = { id: id!, x, y }; return; }
     if (!this.dragFrom || this.dragFrom.id !== id) return;
@@ -92,6 +111,10 @@ export class TimerWindows {
 
   /** Pinned, the mouse goes straight through it to the game. */
   setPinned(id: string, on: boolean): void {
+    this.applyPinned(id, on);
+    if (this.wins.has(id)) this.family?.shared('timer:' + id, { pinned: on });
+  }
+  private applyPinned(id: string, on: boolean): void {
     const v = this.wins.get(id);
     if (!v || v.w.isDestroyed()) return;
     v.pinned = on;

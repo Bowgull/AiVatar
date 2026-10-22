@@ -38,6 +38,7 @@ import { NoteWindows } from './notewin.ts';
 import type { NoteData } from './notewin.ts';
 import { TimerWindows } from './timerwin.ts';
 import { JobPops } from './jobpop.ts';
+import { wireFamily } from './familywire.ts';
 import type { TimerData } from './timerwin.ts';
 import { INPUT_FRAME_INSET, bubbleAt, headOf, inputAt, moved, readPetAt } from './anchor.ts';
 import type { PetAt } from './anchor.ts';
@@ -779,6 +780,8 @@ app.whenReady().then(async () => {
         onNear: (id, near) => bubble?.send('jobpop:near', { id, near }),
       });
       jobPops.update(lastJobs, lastWaits);
+      // The window family (2026-10-22): the video, notes, timers and job pop-outs snap together and move as one.
+      wireFamily({ origin: pages.origin, iconPath: AANG_ICON, popout, notes: noteWins, timers: timerWins, jobs: jobPops });
       input.window();
       const body = readJson(path.join(STATE_DIR, 'body.json')) as Record<string, unknown> | null;
       if (typeof body?.Mode === 'string') inputMode = body.Mode;

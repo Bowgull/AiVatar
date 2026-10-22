@@ -1,0 +1,24 @@
+/* The window family's menu (sheet 63, step 2) and hint (step 3). Lifted from docs/cockpit/sheet-63/menu.html, which lifted
+   the groove from popout.css (.track, .fill, .knob, .tnum) with its colours. Everything else is Aang's menu (look A). */
+:root{--gold-lit:#FFE096;--gold-deep:#C98C14;--outline:#120A05}
+.track{flex:1;min-width:0;height:10px;border-radius:5px;position:relative;cursor:pointer;
+  background:linear-gradient(180deg,rgba(0,0,0,.72) 0 4px,rgba(255,224,150,.2) 4px 7px,transparent 7px);box-shadow:inset 0 2px 3px rgba(0,0,0,.6)}
+.track .fill{position:absolute;left:0;top:0;height:7px;border-radius:4px;pointer-events:none;background:linear-gradient(180deg,var(--gold-lit) 0 3px,var(--gold-deep) 3px 7px)}
+.track .knob{position:absolute;top:-5px;width:15px;height:19px;border-radius:4px;margin-left:-7px;pointer-events:none;
+  background:linear-gradient(180deg,var(--gold-lit),var(--gold-deep));border:2.5px solid var(--outline);box-shadow:inset 0 2px 0 rgba(255,255,255,.6),0 2px 0 rgba(0,0,0,.5)}
+/* a bigger target than it looks (his rule: big, easy hit targets) */
+.track::before{content:"";position:absolute;left:-8px;right:-8px;top:-12px;bottom:-12px}
+.tnum{font:500 11.5px var(--body);color:#c9bfa8;font-variant-numeric:tabular-nums;flex:0 0 auto;min-width:34px;text-align:right}
+/* the slider row sits in the menu like a row, but it is not a button: no glove, nothing to press */
+.seerow{display:flex;align-items:center;gap:12px;padding:10px 12px;min-height:44px;box-sizing:border-box;font:600 16px var(--body);color:#E6DCC8;text-shadow:1px 1px 0 rgba(0,0,0,.7)}
+.seerow .track{flex:0 0 96px;margin-left:6px}
+.tabmenu{position:absolute;opacity:0;transition:opacity .12s ease}
+.tabmenu.on{opacity:1}
+.plate.hint{position:absolute;margin:0;max-width:none;padding:9px 16px 8px;border-radius:10px;white-space:nowrap;font:600 15px var(--body);color:#E6DCC8;text-shadow:1px 1px 0 rgba(0,0,0,.7);
+  opacity:0;transition:opacity .2s ease;pointer-events:none}
+.plate.hint.on{opacity:1}
+.plate.hint b{font:400 10px var(--label);letter-spacing:1px;color:#2a1c00;background:linear-gradient(180deg,#ffd76a,#e9a92c);padding:4px 6px 2px;border-radius:5px;box-shadow:0 0 0 2px #120a05;margin:0 3px;text-shadow:none}
+.plate.hint i{font-style:normal;color:#bfae8a;margin:0 8px}
+/* While a group is pulled apart this window lies over the desktop under the windows, to hear a click on the empty desktop.
+   A whisper of colour (1%), so Windows counts the click as landing here. */
+body.catch{background:rgba(0,0,0,.01) !important}

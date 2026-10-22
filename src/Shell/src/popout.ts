@@ -12,6 +12,7 @@
 //   - Hidden outright when not in use rather than made invisible, so it costs nothing while away.
 import { BrowserWindow, screen as electronScreen, type WebContentsView } from 'electron';
 import { softEdge } from './winedge.ts';
+import type { FamilyHooks } from './familywin.ts';
 import path from 'node:path';
 
 const POPOUT_ICON = path.join(import.meta.dirname, '..', 'pages', 'art', 'samara', 'samara-popout.ico');
@@ -70,10 +71,15 @@ export class Popout {
   // exactly the space it has here. If a page refuses, the whole page shows instead: still the right video.
   private lent: { view: WebContentsView; back: (view: WebContentsView) => void; poll: NodeJS.Timeout; cursor: NodeJS.Timeout; css: string | null } | null = null;
   private stage = { x: 0, y: 34, width: 0, height: 0 };
+  /** The picture's corner radius, as the page draws it (0 while the controls show, rounded when it is just the picture). */
+  private radius = 0;
 
   /** The page says where its picture area is, in its own pixels; the lent page is laid exactly over it. */
-  setStage(r: { x: number; y: number; width: number; height: number }): void {
+  setStage(r: { x: number; y: number; width: number; height: number; radius?: number }): void {
     if (![r.x, r.y, r.width, r.height].every(Number.isFinite)) return;
+    // F0 (window family): the picture's own rounded corners, so a lent page is cut to the same curve as the page's picture.
+    const rad = Number(r.radius);
+    if (Number.isFinite(rad) && rad >= 0 && rad <= 24 && Math.round(rad) !== this.radius) { this.radius = Math.round(rad); try { this.lent?.view.setBorderRadius(this.radius); } catch { /* older Electron */ } }
     const next = { x: Math.round(r.x), y: Math.round(r.y), width: Math.max(0, Math.round(r.width)), height: Math.max(0, Math.round(r.height)) };
     // Only a real change moves the picture (measured 2026-10-20: every mouse move over the pop-out resized it).
     const s = this.stage;
@@ -111,6 +117,7 @@ export class Popout {
     // and measured itself): the window's own size, less its bar and controls. The page corrects it once it measures.
     if (!this.stage.width || !this.stage.height) { const [cw, ch] = w.getContentSize(); this.stage = { x: 0, y: this.stage.y || 34, width: cw, height: Math.max(0, ch - (this.chrome || 78)) }; }
     view.setBounds(this.stage);
+    try { view.setBorderRadius(this.radius); } catch { /* older Electron */ }
     view.setVisible(true);
     w.contentView.addChildView(view);
     const wc = view.webContents;
@@ -203,6 +210,7 @@ export class Popout {
       l.css ? wc.removeInsertedCSS(l.css).catch(() => {}) : Promise.resolve(),
     ]);
     try { this.window?.contentView.removeChildView(l.view); } catch { /* not here */ }
+    try { l.view.setBorderRadius(0); } catch { /* older Electron */ }
     try { this.window?.setFullScreenable(true); } catch { /* gone */ }
     void undone.then(() => l.back(l.view), () => l.back(l.view));
   }
@@ -276,6 +284,7 @@ export class Popout {
     });
 
     softEdge(this.win);
+    this.joinFamily();
     // Sheet 42 (his pick, 2026-10-20): its own taskbar button, Samara's lantern lit turquoise with the same orange leaf,
     // so it reads as Samara's video and never as Samara itself. Its own app id keeps Windows from folding it into Aang's
     // or Samara's group (main.ts gives every window Aang's face first; this replaces it for the pop-out only).
@@ -422,6 +431,38 @@ export class Popout {
    */
   setOpacity(v: number): void {
     this.window?.setOpacity(Math.max(0.2, Math.min(1, v)));
+    // The family's see-through is shared: every other pop-out follows (his rule, 2026-10-22).
+    if (Number.isFinite(v)) this.family?.shared('video', { opacity: v });
+  }
+
+  // ------------------------------------------------------------------ the window family (F2, 2026-10-22)
+  /** Set by familywire.ts. Without it (the Mac) the bar still drags the window by hand, just never snaps to anything. */
+  family: FamilyHooks | null = null;
+  private dragFrom: { x: number; y: number } | null = null;
+  /** The video is a member of the family: its drag, its corners (Windows' own), its shared see-through and pin. */
+  joinFamily(): void {
+    if (!this.family || !this.window) return;
+    this.family.add({
+      id: 'video', kind: 'video', win: () => this.window, card: '.frame', osCorners: true,
+      setOpacity: (n) => { this.window?.setOpacity(Math.max(0.2, Math.min(1, n))); },
+      setPinned: (on) => { if (this.pinned !== on) this.togglePin(); },
+      resize: (width, height) => { const w = this.window; if (w) { const b = w.getBounds(); w.setBounds({ ...b, width, height }); } },
+      moved: () => { const w = this.window; if (w) this.deps.remember(w.getBounds()); },
+    });
+  }
+  /**
+   * The wooden bar, dragged by hand (the page says how far since the press). Moved off Windows' own drag (F2): during an OS
+   * drag every setBounds is held until he lets go, so nothing could snap to it mid-drag (Electron PR #33288).
+   */
+  drag(phase: string, dx = 0, dy = 0): void {
+    const w = this.window;
+    if (!w || this.pinned || w.isFullScreen()) return;
+    if (this.family?.drag('video', phase, dx, dy)) { if (phase === 'end') this.deps.remember(w.getBounds()); return; }
+    if (phase === 'start') { const [x, y] = w.getPosition(); this.dragFrom = { x: x!, y: y! }; return; }
+    const d = this.dragFrom;
+    if (!d || !Number.isFinite(dx) || !Number.isFinite(dy)) return;
+    if (phase === 'move') { w.setPosition(Math.round(d.x + dx), Math.round(d.y + dy)); return; }
+    if (phase === 'end') { this.dragFrom = null; this.afterDrag(); }
   }
 
   toggleFullscreen(): void {
@@ -448,6 +489,7 @@ export class Popout {
     // on the pin button itself is over, so it holds.
     if (process.platform === 'darwin') setTimeout(() => { if (!w.isDestroyed()) w.setIgnoreMouseEvents(this.pinned || this.deps.settings().clickThrough); }, 150);
     w.webContents.send('popout:pinned', this.pinned);
+    this.family?.shared('video', { pinned: this.pinned });
     // Pinned means clicks go through to his game: the site's own controls stay away too (his ask, 2026-10-13).
     const wc = this.lent?.view.webContents;
     if (wc && !wc.isDestroyed()) void within(wc.executeJavaScript(`document.documentElement.classList.toggle('aang-pinned', ${this.pinned}); true`, true), 800, null);
