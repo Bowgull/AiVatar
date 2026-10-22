@@ -105,6 +105,7 @@ import { MailService, MailStore, fitsCard, renderMailCard } from './mail.ts';
 import type { DraftInput, MailDraft } from './mail.ts';
 import { exactOf, meansOf } from './plain.ts';
 import { checkAddons, saveDigest, weeklySweep } from './watch.ts';
+import { MediaState, checkMediaCmd, checkMediaNow } from './media.ts';
 
 export interface CoreConfig {
   port: number;
@@ -3222,6 +3223,8 @@ export class Core {
    *  position from a previous run is worse than none, since the pet is placed afresh at startup. */
   private lastPetAt: PetAt | null = null;
   private lastBubbleState: { t: 'bubble.state'; quiet: boolean; hidden: boolean; muted: boolean } | null = null;
+  /** What is playing (media.ts), kept for a Shell that starts after the song did. */
+  private readonly media = new MediaState();
   private shellConnected(): boolean {
     return this.wss ? [...this.wss.clients].some(c => c.readyState === c.OPEN && this.shells.has(c)) : false;
   }
@@ -3229,6 +3232,10 @@ export class Core {
   private sendToShells(msg: ToBody): void {
     if (!this.wss) return;
     for (const c of this.wss.clients) if (c.readyState === c.OPEN && this.shells.has(c)) this.send(c, msg);
+  }
+  /** To the C# pet only: desktop clients that are not the Shell. */
+  private sendToPets(msg: ToBody): void {
+    for (const c of this.clientsOf('desktop')) if (!this.shells.has(c)) this.send(c, msg);
   }
   private clientsOf(kind: 'desktop' | 'discord'): WebSocket[] {
     return this.wss ? [...this.wss.clients].filter(c => c.readyState === c.OPEN && (this.clientKind.get(c) ?? 'desktop') === kind) : [];
@@ -3308,6 +3315,7 @@ export class Core {
           if (m.bubble === true) this.drawingShells.add(ws);
           if (this.lastPetAt) this.send(ws, this.lastPetAt);
           if (this.lastBubbleState) this.send(ws, this.lastBubbleState);
+          const playing = this.media.now(); if (playing) this.send(ws, playing);
         }
         const q = this.quotaMessage(); if (q) this.send(ws, q);
         if (this.kindOfSocket(ws) === 'desktop') { const st = this.claudeState(); this.send(ws, { t: 'claude.working', ...st.working }); this.send(ws, this.claudeMarks.now(st.jobs, st.waits, st.alsoWorking)); }
@@ -3344,6 +3352,17 @@ export class Core {
       // restarts on its own and the Body only sends this when the pet MOVES - without the last known
       // position a fresh Shell would know nothing until Joshua next dragged him.
       case 'pet.at': this.lastPetAt = m as PetAt; this.sendToShells(this.lastPetAt); break;
+      // The Spotify mini player's feed (media.ts). Only the pet reads Windows' now-playing, so only the pet may send it;
+      // it is kept and passed to the Shell as it came. The player's buttons come only from the Shell and go only to the pet.
+      case 'media.now': {
+        if (this.shells.has(ws) || this.kindOfSocket(ws) !== 'desktop') break;
+        const now = checkMediaNow(m); if (!now) break;
+        this.media.take(now); this.sendToShells(now); break;
+      }
+      case 'media.cmd': {
+        if (!this.shells.has(ws)) break;
+        const cmd = checkMediaCmd(m); if (cmd) this.sendToPets(cmd); break;
+      }
       // 6.12b: the Shell caught the hotkey and has its box open already; the pet only moves.
       // `typebox` is the pet asking the Shell to open the new typing box. It goes through here for the
       // same reason `summon` does: the two programs do not talk to each other, only to the brain.

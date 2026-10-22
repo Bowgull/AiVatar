@@ -1,6 +1,7 @@
 // Wire protocol between Core and Body (docs/PROTOCOL.md). Unknown `t` values are ignored by both sides.
 
 import type { BusySession } from './claudemark.ts';
+import type { MediaCmd, MediaNow } from './media.ts';
 
 export type Mode = 'auto' | 'quick' | 'smart' | 'deep';
 export type QuotaLevel = 'ok' | 'warn' | 'offer' | 'saving';
@@ -106,6 +107,9 @@ export type ToBody =
   | { t: 'browser.open'; url: string }
   /** Passed straight through from the Body, to the Shell only (step 6.10b). The C# pet ignores it. */
   | PetAt
+  /** What is playing (media.ts): from the pet to the Shell as it came. `media.cmd` goes the other way, checked, to the pet only. */
+  | MediaNow
+  | MediaCmd
   /**
    * The Shell owns the hotkey when the new front end is on (6.12b), opens its own typing box at once,
    * and tells the pet only to come out from the edge (`summon`) or go back (`dismiss`).
@@ -412,6 +416,9 @@ export type ToBody =
   | { t: 'error'; id?: string; message: string; next: string };
 
 export type FromBody =
+  /** media.ts: the pet's now-playing feed, and the player window's buttons. */
+  | MediaNow
+  | MediaCmd
   /** `client` says who is on the other end; the desktop Body leaves it out. */
   | { t: 'hello'; v: number; pid?: number; client?: 'desktop' | 'discord';
       /** Set by the Electron Shell, which is a desktop client like the pet but is the only one that can
