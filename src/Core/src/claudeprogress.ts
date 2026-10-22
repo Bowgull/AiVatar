@@ -217,6 +217,9 @@ export interface ActivityAgent {
   fg: boolean;
   failed?: boolean;
   endedAt?: number;
+  /** Its own to-do list, when it keeps one (2026-10-21, sheet 58 C): items done of all, for its own bar. */
+  done?: number;
+  total?: number;
 }
 /** The running command's own sub-bar (research step 5): "40 s, usually 1 min 30 s". */
 export interface ActivityTool { since: number; est: Est; n: number; usual: number }
@@ -421,6 +424,17 @@ export class ActivityKeeper {
     } else { a.failed = true; a.endedAt = now; }
   }
   clearAgents(): void { this.agents.clear(); }
+  /**
+   * A helper agent wrote its own to-do list (2026-10-21, sheet 58 C): its row's bar is then its own items done of all.
+   * A sign of life for it and the job. Nonsense counts are ignored rather than drawn.
+   */
+  agentTodos(id: string, done: number, total: number, now: number): void {
+    const a = this.agents.get(id);
+    this.alive(now);
+    if (!a || !Number.isFinite(done) || !Number.isFinite(total) || total < 1 || total > 200) return;
+    a.total = Math.round(total); a.done = Math.max(0, Math.min(a.total, Math.round(done)));
+    a.aliveAt = Math.max(a.aliveAt, now);
+  }
 
   /** How long a silence may last now (rule 4): a tool's own history, the model streaming, or between steps. */
   stallMs(): number {

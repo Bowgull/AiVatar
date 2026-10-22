@@ -11,7 +11,7 @@
 // The brain's claude.jobs / claude.wait arrive through the Shell (browser.ts claudeNews); no brain, no rune. What this
 // page sends back is pause / play / a message / open, which the Shell checks again (claudewire.ts). Every word here is
 // Claude's or a session's, so everything is built with textContent, never markup from the wire.
-import { animate, anims, SEA, SLATE, MSG, CL, readJob, curIndex, leftOf, onOf, h, btn, liveProgress, livePill, liveText, describeNow, runeHeadLine, openTarget, liveOverall, liveRows } from './claudejobs.js';
+import { animate, anims, SEA, SLATE, MSG, CL, readJob, curIndex, leftOf, onOf, h, btn, liveProgress, livePill, liveText, describeNow, runeHeadLine, openTarget, liveOverall, liveRows, liveAgents } from './claudejobs.js';
 
 // His final colours (sheets 49/50, the same as the marks over Aang's head, src/Body/ClaudeMarks.cs).
 /** How long a finished job stays teal on the rune before it goes (the cockpit's strip uses the same ~4 s). */
@@ -106,8 +106,11 @@ function doneTick(col, px = 3) {
   return cv;
 }
 
-/** The rune button for one state. p is the progress 0..1 the ring is lit to; pip the small gold number. */
-function chip(state, p, pip, on) {
+/**
+ * The rune button for one state. p is the progress 0..1 the ring is lit to. No number on it (2026-10-21, his words on
+ * sheet 58: "I don't care about the numbers at all ... in the Samara button"): the gold job-count pip is gone.
+ */
+function chip(state, p, on) {
   const col = COL[state];
   const el = document.createElement('button'); el.type = 'button';
   el.className = `rune tB st-${state}` + (on ? ' on' : '');
@@ -118,7 +121,6 @@ function chip(state, p, pip, on) {
   el.setAttribute('aria-label', el.title); el.setAttribute('aria-haspopup', 'dialog'); el.setAttribute('aria-expanded', on ? 'true' : 'false');
   const st = h('span', 'stone');
   st.append(ring(col, p, 2), rune(col, 2, state === 'complete' ? 'tick' : 'sun', state === 'paused'));
-  if (pip) st.append(h('i', 'pip', pip));
   el.append(st);
   return el;
 }
@@ -180,14 +182,13 @@ export function startRune({ slot, band, closeOthers, layer = false }) {
     const m = state === 'complete' ? null : liveProgress(top);
     const still = state !== 'complete' && m.p === null;
     const p = state === 'complete' ? 1 : still ? 0 : m.p;
-    const pip = list.length > 1 ? String(Math.min(9, list.length)) : '';
-    const key = `${state}|${pip}|${still}`;
+    const key = `${state}|${still}`;
     slot.hidden = false;
     if (key !== chipKey) {            // unchanged: leave it, so its slow breathing is not restarted every message
       chipKey = key;
       // A redraw starts the ring where it was shown, then eases on to the new value (same job; a new one starts fresh).
       const from = top.id === ringJob && !still ? shownP : p;
-      const c = chip(state, from, pip, open);
+      const c = chip(state, from, open);
       c.classList.toggle('still', still);
       c.addEventListener('click', (e) => { e.stopPropagation(); if (open) close(); else openPanel(); });
       slot.replaceChildren(c);
@@ -198,8 +199,7 @@ export function startRune({ slot, band, closeOthers, layer = false }) {
     fillRing(p);
     ringTop = state === 'complete' || still ? null : top.id;
     if (ringTop && !ringNext) ringNext = setTimeout(ringStep, RING_MS);
-    // His ask (2026-10-21): while the panel is open the gold number hides ("it's obvious"), and comes back when it
-    // closes. Opening only flips a class on the same rune, so the number can fade (rune.css) instead of being redrawn.
+    // Opening only flips a class on the same rune (pressed in while the panel is open), never a redraw.
     const r = slot.firstElementChild;
     if (r) { r.classList.toggle('on', open); r.setAttribute('aria-expanded', open ? 'true' : 'false'); }
   }
@@ -281,6 +281,9 @@ export function startRune({ slot, band, closeOthers, layer = false }) {
     // v3: OVERALL (the project's phases) over CURRENT (this job), as in the bubble's card.
     const ovr = liveOverall(latest, 96);
     if (ovr) { row2.prepend(h('b', 'tag', 'CURRENT')); d.append(hd, ovr, row2); } else d.append(hd, row2);
+    // Sheet 58 C (his pick, 2026-10-21): its helper agents, a small row each, tucked under the bar (the bubble's rows).
+    const ags = liveAgents(latest);
+    if (ags) d.append(ags);
     const w = waitOf(j);
     if (w) { const a = h('div', 'ask'); a.append(h('b', '', 'NEEDS YOU'), document.createTextNode(`${j.project} ${WAIT_WORD[w.kind] ?? 'is waiting on you'}: answer it in Aang's bubble or in Claude.`)); d.append(a); }
     if (isOpen) {

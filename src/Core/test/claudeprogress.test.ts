@@ -127,6 +127,11 @@ test('stalls: silence past the limit freezes the bar; a heartbeat wakes it; wait
   t.event({ session: 's', type: 'agent.tool', id: 'g' }, 12 * MIN);
   assert.equal(at(12 * MIN + 30_000).stalled, false);
   assert.equal(t.list(12 * MIN)[0]!.activity.agents[0]!.calls, 1);
+  // 2026-10-21 (sheet 58 C): its own to-do list, as counts, for its own bar; nonsense is ignored.
+  t.event({ session: 's', type: 'agent.todos', id: 'g', done: 2, total: 5 }, 12 * MIN);
+  assert.deepEqual([t.list(12 * MIN)[0]!.activity.agents[0]!.done, t.list(12 * MIN)[0]!.activity.agents[0]!.total], [2, 5]);
+  t.event({ session: 's', type: 'agent.todos', id: 'g', done: 'x', total: -1 }, 12 * MIN);
+  assert.equal(t.list(12 * MIN)[0]!.activity.agents[0]!.total, 5);
   // An ask: the clock stops, and silence while he decides is not a stall.
   t.event({ session: 's', type: 'ask', id: 'q1', kind: 'permission', tool: 'Bash', summary: 'rm', input: '{}' }, 13 * MIN);
   const j = t.list(30 * MIN)[0]!;

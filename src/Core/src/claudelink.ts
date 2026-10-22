@@ -423,6 +423,8 @@ export class JobTracker {
       }
       case 'agent.start': this.act(session, t).agentStart(cut(ev?.id, 100), cut(ev?.kind, 60), cut(ev?.what, 200), t, ev?.bg !== true); break;
       case 'agent.end': this.act(session, t).agentEnd(cut(ev?.id, 100), t, ev?.ok !== false); break;
+      // A helper agent's own to-do list, as counts only (2026-10-21, sheet 58 C): its row's bar under the job.
+      case 'agent.todos': this.act(session, t).agentTodos(cut(ev?.id, 100), Number(ev?.done), Number(ev?.total), t); break;
       // Compaction: a known pause, "Tidying its memory", left out of working time.
       case 'compact': this.clock(session).compact(ev?.on === true, t); this.act(session, t).alive(t); break;
       // OVERALL: Claude's phase plan for the project, from the progress tool.

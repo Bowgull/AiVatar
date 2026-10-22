@@ -395,20 +395,8 @@ function liveRows(getJob, w = 60) {
       liveText(h('span'), (now) => { const x = getJob()?.activity?.tool; return x && x.since === t0.since ? `${since(now - x.since)} of usually ${usual(x.usual)}` : ''; }));
     box.append(r);
   }
-  for (const g of a?.agents ?? []) {
-    const id = g.id, r = h('div', 'arow' + (g.failed ? ' failed' : ''));
-    const cur = () => getJob()?.activity?.agents?.find((x) => x.id === id) ?? g;
-    const sure = g.est && g.n >= 3;
-    if (sure || g.failed) r.append(miniPill(Math.round(w * 0.7), (now) => { const x = cur(); return x.failed ? 1 : fracOf(x.est, now - x.since); }, () => (cur().failed ? RED : SEA)));
-    r.append(liveText(h('span'), (now) => {
-      const x = cur(), what = x.what ? x.what.charAt(0).toLowerCase() + x.what.slice(1) : 'working';
-      const calls = x.calls ? ` · ${x.calls} tool call${x.calls > 1 ? 's' : ''}` : '';
-      if (x.failed) return `${x.kind} · ${what}${calls} · failed`;
-      const left = sure && x.est ? remaining(x.est, now - x.since) : null;
-      return `${x.kind} · ${what}${calls}${left !== null ? ` · ${aboutShort(left)}` : ` · ${since(now - x.since)}`}`;
-    }));
-    box.append(r);
-  }
+  // 2026-10-21 (sheet 58, his pick C): the helper agents left these rows; they now sit right under the job's own bar,
+  // always in view (liveAgents below), so they are not drawn twice.
   for (const c0 of j?.ci ?? []) {
     const id = c0.id, r = h('div', 'crow ' + c0.status + (c0.conclusion && c0.conclusion !== 'success' ? ' failed' : ''));
     const cur = () => getJob()?.ci?.find((x) => x.id === id) ?? c0;
@@ -426,8 +414,132 @@ function liveRows(getJob, w = 60) {
   return box.childElementCount ? box : null;
 }
 /** What changes the rows' layout (not their numbers): for the redraw signatures. */
+// The helpers' ids only (2026-10-21, sheet 58 C): their bars, words and red-for-failed all update in place.
 const rowsKey = (j) => JSON.stringify([!!j.plan, j.plan?.phases?.length ?? 0, !!j.activity?.tool, j.activity?.tool?.since ?? 0,
-  (j.activity?.agents ?? []).map((a) => a.id + (a.failed ? '!' : '') + (a.est && a.n >= 3 ? '+' : '')), (j.ci ?? []).map((c) => c.id + c.status + c.conclusion + (c.progress ? '+' : ''))]);
+  (j.activity?.agents ?? []).map((a) => a.id), (j.ci ?? []).map((c) => c.id + c.status + c.conclusion + (c.progress ? '+' : ''))]);
+
+/* ---- Sheet 58, option C (his pick, 2026-10-21): each helper agent as a small row tucked under its job ----
+   Its type icon, a short label (the type, then what it is doing) and its own thin bar. One builder for the bubble's job
+   card, Samara's rune panel and the pop-out, so all three look the same. Helpers are never jobs: they only ever appear
+   as these rows inside the job that started them. No count anywhere (his words: "I don't care about the numbers at all"). */
+/** The six types, each with its colour (the mockup's tints, verbatim). */
+const AGENT_TINT = { research: '#966EC8', explore: '#58b0a3', build: '#f0a64a', check: '#8fbf4a', design: '#d9774f', plan: '#c9a46a' };
+const AGENT_WORD = { research: 'Research', explore: 'Explore', build: 'Build', check: 'Check', design: 'Design', plan: 'Plan' };
+// The icons, hand-placed 10 x 10 art pixels lifted verbatim from sheet 58 (agents-shots.ts): O dark wood outline, H the
+// colour mixed 55% to white, F the colour, S mixed 35% to dark, and a few fixed colours (W handle wood, P parchment,
+// K ink, R rust, G white, L/M/N the hammer's steel). Drawn whole at 2x: 20 screen px.
+const AGENT_MAPS = {
+  research: ['..OOOO....', '.OFFFFO...', 'OFHGHHFO..', 'OFGHHHFO..', 'OFHHHHFO..', 'OFHHHHSO..', '.OSSSSOO..', '..OOOOOWO.', '......OWWO', '.......OO.'],
+  explore: ['..OOOOOO..', '.OFFFFFFO.', 'OFPPPPPRFO', 'OFPPPPRRFO', 'OFPPPRRPFO', 'OFPPKKPPFO', 'OFPKKPPPFO', 'OFPKPPPPSO', '.OSFFFFSO.', '..OOOOOO..'],
+  build: ['.OOOOOOO..', 'OLLLLLLLO.', 'OMMMMMMMOO', 'ONNNNNNNO.', '.OOOFFOOO.', '....OFSO..', '....OFSO..', '....OFSO..', '....OFSO..', '.....OO...'],
+  check: ['........OO', '.......OHO', '......OHFO', 'OO...OHFO.', 'OHO.OHFO..', 'OFHOHFO...', '.OFFFSO...', '..OFSO....', '...OO.....', '..........'],
+  design: ['.......OO.', '......ORRO', '.....OOROO', '....OHFO..', '...OHFSO..', '..OHFSO...', '.OPPSO....', '.OKPO.....', 'OOOO......', '..........'],
+  plan: ['...OOOO...', '.OOFHHFOO.', 'OPPOFFOPPO', 'OPPPPPPPPO', 'OPKKKKKPPO', 'OPPPPPPPPO', 'OPKKKKKKPO', 'OPPPPPPPPO', 'OPKKKPPPPO', '.OOOOOOOO.'],
+};
+const mixRgb = (hex, t, k) => { const a = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)); return 'rgb(' + a.map((v, i) => Math.round(v + (t[i] - v) * k)).join(',') + ')'; };
+/**
+ * Which of the six a helper is, from its subagent type and the few words Claude gave it. The ONE place this is decided
+ * (the bubble, the rune and the pop-out all ask here). The named types win (Explore, Plan, a guide that looks things up);
+ * a general helper is read from its words, checks first so "write the tests" is a Check, not a Build. Build when
+ * nothing fits: most helpers are sent to make something.
+ */
+function agentType(kind, what) {
+  const k = String(kind ?? '').toLowerCase(), w = String(what ?? '').toLowerCase();
+  if (/^explore$/.test(k)) return 'explore';
+  if (/^plan$/.test(k)) return 'plan';
+  if (/guide|research/.test(k)) return 'research';
+  if (/design|ui|ux/.test(k)) return 'design';
+  if (/review|test|check|verif|audit|lint/.test(k)) return 'check';
+  if (/\b(design|mock-?ups?|pictures?|draw|sketch|icons?|styl\w*|layouts?|palette|sheet)\b/.test(w)) return 'design';
+  if (/\b(tests?|testing|checks?|checking|verif\w*|review\w*|audit\w*|lint\w*|type-?check\w*|confirm\w*|prove)\b/.test(w)) return 'check';
+  if (/\b(plan\w*|outline|architect\w*|strategy|approach|roadmap)\b/.test(w)) return 'plan';
+  // Looking things up before mapping the code: "Look up the map tiles docs" is research, not a map of the code.
+  if (/\b(research\w*|look(ing)? up|docs|documentation|investigat\w*|compare|search(ing)?|read(ing)? up|find out|learn)\b/.test(w)) return 'research';
+  if (/\b(explore|exploring|map(ping)?|survey|locate|where|find (the|all|every)|scan)\b/.test(w)) return 'explore';
+  return 'build';
+}
+/** A type's icon, whole pixels at `px` per art pixel. */
+function agentIcon(type, px = 2) {
+  const map = AGENT_MAPS[type] ?? AGENT_MAPS.build, F = AGENT_TINT[type] ?? AGENT_TINT.build;
+  const pal = { O: '#2a1a10', H: mixRgb(F, [255, 255, 255], 0.55), F, S: mixRgb(F, [40, 20, 10], 0.35), W: '#8a5a28', P: '#f6e7c4', K: '#5c4426', R: '#c4453a', G: '#ffffff', L: '#e6e8ee', M: '#a7adba', N: '#6c7282' };
+  const c = document.createElement('canvas'); c.className = 'agi'; c.width = map[0].length * px; c.height = map.length * px;
+  const g = c.getContext('2d');
+  map.forEach((r, y) => [...r].forEach((ch, x) => { if (pal[ch]) { g.fillStyle = pal[ch]; g.fillRect(x * px, y * px, px, px); } }));
+  return c;
+}
+/**
+ * Where one helper stands, honestly (the v3 rules, docs/PROGRESS-RESEARCH.md): its OWN to-do list when it keeps one
+ * (two items or more: "62%", the solid bar); else its time so far against how long its type usually takes here, once
+ * the history has 3 runs of it (the paler bar, "4 min"); else no guess at all: the still track with a lit pip per tool
+ * call it made, and its time so far. Failed: red, full, "failed".
+ */
+function agentNow(a, now = Date.now()) {
+  const e = Math.max(0, now - (a.since || now));
+  if (a.failed) return { mode: 'failed', p: 1, text: 'failed' };
+  if (a.total >= 2) { const p = Math.max(0, Math.min(1, (a.done ?? 0) / a.total)); return { mode: 'list', p, text: Math.round(p * 100) + '%' }; }
+  if (a.est && a.n >= 3) return { mode: 'time', p: fracOf(a.est, e), text: since(e) };
+  return { mode: 'still', p: null, pips: a.calls || 0, text: since(e) };
+}
+/**
+ * A helper's thin bar (sheet 58's, lifted): the 45f pill's shape, rounded ends, whole art pixels at 2x, in the helper's
+ * colour on the paper's own track. A bar that is only time is the same but paler, so a real % reads stronger; with no
+ * guess it stays still and lights a pip per tool call (stillness means stillness). Redrawn only when an art pixel changes.
+ */
+function agentBar(w, ht, col) {
+  const s = 2, c = document.createElement('canvas'); c.className = 'agb'; c.width = w; c.height = ht; c.style.width = w * s + 'px'; c.style.height = ht * s + 'px';
+  const g = c.getContext('2d'), r = (ht - 1) / 2;
+  const inside = (x, y) => { const cx = x < r ? r : x > w - 1 - r ? w - 1 - r : x; return Math.hypot(x - cx, y - r) <= r + 0.3; };
+  let key = '';
+  c.set = (st) => {
+    const red = st.mode === 'failed', soft = st.mode === 'time', lit = st.p === null ? 0 : Math.round(st.p * w);
+    const pips = st.mode === 'still' ? Math.min(st.pips || 0, Math.floor((w - 4) / 3)) : 0;
+    const k = `${st.mode}|${lit}|${pips}`;
+    if (k === key) return;
+    key = k;
+    const C = red ? '#c4453a' : col;
+    g.clearRect(0, 0, w, ht);
+    for (let y = 0; y < ht; y++) for (let x = 0; x < w; x++) {
+      if (!inside(x, y)) continue;
+      const edge = !inside(x - 1, y) || !inside(x + 1, y) || !inside(x, y - 1) || !inside(x, y + 1);
+      g.fillStyle = edge ? 'rgba(90,60,25,.55)' : x < lit ? (y <= 1 ? mixRgb(C, [255, 255, 255], soft ? 0.62 : 0.35) : soft ? mixRgb(C, [255, 255, 255], 0.4) : C) : '#ead8b0';
+      g.fillRect(x, y, 1, 1);
+    }
+    for (let i = 0; i < pips; i++) { g.fillStyle = col; g.fillRect(2 + i * 3, Math.floor(ht / 2), 2, 1); }
+  };
+  return c;
+}
+/** Most helpers shown under one job; the rest are one quiet "+N more" line (sheet 58: three fit without crowding). */
+const AGENT_ROWS = 3;
+/**
+ * The helper rows for a job, or null with none. Built from the job as it is now; each row's bar, % or time moves in
+ * place every frame (the caller redraws only when the set of helpers changes, rowsKey).
+ */
+function liveAgents(getJob) {
+  const list = getJob()?.activity?.agents ?? [];
+  if (!list.length) return null;
+  const box = h('div', 'agc');
+  for (const g of list.slice(0, AGENT_ROWS)) {
+    const id = g.id, type = agentType(g.kind, g.what), r = h('div', 'agr t-' + type);
+    r.dataset.type = type;
+    const cur = () => getJob()?.activity?.agents?.find((x) => x.id === id) ?? g;
+    const what = g.what ? g.what.charAt(0).toUpperCase() + g.what.slice(1) : 'Working';
+    r.title = `${AGENT_WORD[type]} helper${g.kind && !/^(general-purpose|helper)$/i.test(g.kind) ? ` (${g.kind})` : ''}: ${what}`;
+    const bar = agentBar(30, 5, AGENT_TINT[type]);
+    const tm = h('span', 'tm');
+    const tick = () => {
+      const x = cur(), st = agentNow(x);
+      bar.set(st);
+      r.classList.toggle('failed', st.mode === 'failed');
+      tm.classList.toggle('pc', st.mode === 'list');
+      if (tm.textContent !== st.text) tm.textContent = st.text;
+    };
+    tick(); anims.add(tick);
+    r.append(agentIcon(type), h('b', '', AGENT_WORD[type]), h('span', 'wh', what), bar, tm);
+    box.append(r);
+  }
+  if (list.length > AGENT_ROWS) box.append(h('div', 'agmore', `+${list.length - AGENT_ROWS} more`));
+  return box;
+}
 
 /**
  * What an Open in Claude press asks main.ts for (2026-10-21, claudewire.ts claudeOpenTarget): the session's own app link,
@@ -498,7 +610,9 @@ function readProgress(p) {
 function readActivity(a) {
   if (!a || typeof a !== 'object') return null;
   const agents = (Array.isArray(a.agents) ? a.agents : []).slice(0, 20).map((x, i) => ({ id: str(x?.id, 100) || String(i), kind: str(x?.kind, 40), what: str(x?.what, 80), since: num(x?.since) ?? Date.now(),
-    calls: Math.max(0, Math.round(num(x?.calls) ?? 0)), est: est(x?.est), n: Math.max(0, Math.round(num(x?.n) ?? 0)), fg: x?.fg !== false, failed: x?.failed === true, endedAt: num(x?.endedAt) ?? undefined }));
+    calls: Math.max(0, Math.round(num(x?.calls) ?? 0)), est: est(x?.est), n: Math.max(0, Math.round(num(x?.n) ?? 0)), fg: x?.fg !== false, failed: x?.failed === true, endedAt: num(x?.endedAt) ?? undefined,
+    // Its own to-do list, when it keeps one (2026-10-21, sheet 58 C): items done of all.
+    ...(num(x?.total) >= 2 ? { total: Math.min(200, Math.round(num(x.total))), done: Math.max(0, Math.min(Math.round(num(x.total)), Math.round(num(x?.done) ?? 0))) } : {}) }));
   const t = a.tool && typeof a.tool === 'object' && est(a.tool.est) ? { since: num(a.tool.since) ?? Date.now(), est: est(a.tool.est), n: Math.round(num(a.tool.n) ?? 0), usual: Math.max(0, num(a.tool.usual) ?? 0) } : null;
   return { now: str(a.now, 140), since: num(a.since) ?? Date.now(), agents, tool: t, pips: Math.max(0, Math.min(200, Math.round(num(a.pips) ?? 0))),
     aliveAt: num(a.aliveAt) ?? undefined, stallMs: num(a.stallMs) ?? undefined };
@@ -617,6 +731,9 @@ export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWa
     // v3: with a phase plan, OVERALL (the whole project) sits above this job's bar, which is then CURRENT (Waymark's two levels).
     const ovr = liveOverall(latest, 84);
     if (ovr) { row2.prepend(h('b', 'tag', 'CURRENT')); d.append(hd, ovr, row2); } else d.append(hd, row2);
+    // Sheet 58 C (his pick, 2026-10-21): its helper agents, a small row each, tucked right under the bar.
+    const ags = liveAgents(latest);
+    if (ags) d.append(ags);
     if (j.held) { const q = h('div', 'queued'); q.append(h('i', '', 'QUEUED'), h('span', '', `${j.held} message${j.held > 1 ? 's' : ''}, after this task`)); d.append(q); }
     // The tracker, inside the bar (45f): ticked, the one in progress, the rest.
     const det = h('div', 'det'), inner = h('div'), list = h('div', 'list'), cur = curIndex(j);
@@ -1080,3 +1197,5 @@ export { progressModel, liveProgress, livePill, liveText, describeNow, agentsLin
 export { palFor, liveOverall, liveRows, rowsKey, BLUE, AMBER, RED, TEAL };
 // 2026-10-21: move every live bar now (the brain's news just landed), and time the paint against the event.
 export { kick, notePaint, openTarget };
+// Sheet 58 C (2026-10-21): the helper agents' rows, and the one classifier of their six types.
+export { liveAgents, agentType, agentIcon, agentNow, AGENT_TINT, AGENT_WORD, AGENT_ROWS };

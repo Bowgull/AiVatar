@@ -187,6 +187,18 @@ export function tasksAtEnd(tasks: Map<string, Task>, tool: string, input: Record
 }
 
 /**
+ * A helper agent's own to-do list, as counts only (2026-10-21, sheet 58 C: each helper's row under its job has its own
+ * bar). Only the two tools that carry the WHOLE list in their input (TodoWrite, the mod's own progress tool) are read,
+ * so there is nothing to keep per helper; no item's words leave the mod. Null for anything else.
+ */
+export function agentListOf(tool: string, input: Record<string, unknown>): { done: number; total: number } | null {
+  const rows = tool === 'TodoWrite' ? input.todos : tool === 'mcp__aang-link__progress' ? input.tasks : null
+  if (!Array.isArray(rows) || !rows.length) return null
+  const list = rows.slice(0, 200) as Record<string, unknown>[]
+  return { done: list.filter(t => t?.status === 'completed').length, total: list.length }
+}
+
+/**
  * Claude's to-do list after one whole call (start and result together). Two tool families keep one: TodoWrite (the
  * whole list each time) and the Task tools (TaskCreate / TaskUpdate / TaskList, one task at a time). Null when the
  * call did not change it.

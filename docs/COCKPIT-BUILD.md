@@ -237,8 +237,18 @@ Brain -> Shell, on every Job:
 - `progress` (null = no list): `{ v: 3, done, total, cur, at, e, jobW, doneW, curEst: { mu, sigma } | null, pend: [{ mu,
   sigma }], r, earned, sq: { a, m0 } | null, note: { text, at } | null, aliveAt, stallMs, running, rev, rewroteAt,
   elapsedMs, paceMs: null }`. `percent` = the bar when sent; `etaMs` = the time left when earned, else null.
-- `activity: { now, since, agents: [{ id, kind, what, since, calls, aliveAt, est, n, fg, failed?, endedAt? }], tool:
-  { since, est, n, usual } | null, pips, aliveAt, stallMs }`.
+- `activity: { now, since, agents: [{ id, kind, what, since, calls, aliveAt, est, n, fg, failed?, endedAt?, done?,
+  total? }], tool: { since, est, n, usual } | null, pips, aliveAt, stallMs }`.
+
+**Helper agents (sheet 58, his pick C, 2026-10-21).** Each helper is a small row tucked under its job's bar, always in
+view, the same in the bubble's card, Samara's rune panel and the pop-out (claudejobs.js `liveAgents`, styled once in
+cockpit.css `.agc`): its type icon (six hand-pixelled 10x10 icons: Research, Explore, Build, Check, Design, Plan), the
+type and what it is doing, its own thin bar, and its % or time. The type comes from ONE classifier (`agentType`:
+subagent type first, then its words). The bar is honest: its own to-do list when it keeps one (the mod sends
+`agent.todos { id, done, total }`, counts only, from TodoWrite or the progress tool), else its time against its type's
+usual once the history has 3 runs (paler), else the still track with a pip per tool call; failed is red. Three rows at
+most, then "+N more". Helpers are never jobs. No count anywhere: no number on Aang's mark, and the rune's gold job-count
+pip is gone (his words: "I don't care about the numbers at all").
 - `failed`, `plan: { phases, runE, at, running, R, ratios } | null`, `ci: [{ id, repo, workflow, title, url, status,
   conclusion, createdAt, startedAt, step, stepNo, steps, progress }]`.
 
