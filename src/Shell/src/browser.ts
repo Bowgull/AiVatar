@@ -3580,7 +3580,8 @@ export class AangBrowser {
       case 'history': this.openThings('history'); break;
       case 'downloads': this.openThings('downloads'); break;
       case 'print': if (wc && t && !t.internal) wc.print({}); break;
-      case 'tidy': this.tidyStart(); break;
+      // ONE broom (his catch, 2026-10-22: "isn't there already a broom somewhere?"): it tidies the tabs AND the mockups.
+      case 'tidy': this.tidyStart(); void this.mockTidy(true); break;
       case 'tidykeep': this.tidyKeep(); break;
       case 'tidyundo': this.tidyUndo(); break;
       case 'trailundo': this.undoTrailClose(); break;
