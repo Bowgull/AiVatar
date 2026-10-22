@@ -376,7 +376,9 @@ export class ActivityKeeper {
   taint(): void { for (const t of this.tools.values()) t.tainted = true; }
   /** The turn ended (or the brain lost track): nothing of it can still be running. */
   clearTools(now: number): void { this.tools.clear(); this.stream = null; this.streaming = false; this.quietSince = now; }
-  turnStart(now: number): void { this.tools.clear(); this.stream = null; this.streaming = false; this.quietSince = now; this.pips = 0; this.alive(now); }
+  /** A turn is running (its start seen, its end not yet): the job is working whatever its helpers do. */
+  turnOn = false;
+  turnStart(now: number): void { this.turnOn = true; this.tools.clear(); this.stream = null; this.streaming = false; this.quietSince = now; this.pips = 0; this.alive(now); }
 
   /**
    * A model step began streaming something (2026-10-21, "as fast as when Claude gets a reply"): its answer ("Writing
@@ -425,6 +427,15 @@ export class ActivityKeeper {
   }
   clearAgents(): void { this.agents.clear(); }
   /**
+   * Helper agents still running (2026-10-22, his report: the mark said nothing was working while Claude's background
+   * helpers were busy). A failed one shown in red is not running; one older than AGENT_MAX_MS lost its end.
+   */
+  liveAgents(now = Date.now()): number {
+    let n = 0;
+    for (const a of this.agents.values()) if (!a.failed && !a.endedAt && now - a.since <= AGENT_MAX_MS) n++;
+    return n;
+  }
+  /**
    * A helper agent wrote its own to-do list (2026-10-21, sheet 58 C): its row's bar is then its own items done of all.
    * A sign of life for it and the job. Nonsense counts are ignored rather than drawn.
    */
@@ -472,6 +483,8 @@ export class ActivityKeeper {
     if (waiting && WAITING[waiting]) return { now: WAITING[waiting]!, since: now, ...extra };
     if (last) return { now: last.line, since: last.since, ...extra };
     if (this.stream && phase === 'working') return { now: this.stream.line, since: this.stream.since, ...extra };
+    // The turn is over but its background helpers are not: say so instead of "Thinking".
+    if (phase === 'working' && !this.turnOn && agents.some(a => !a.failed && !a.endedAt)) return { now: 'Helpers still at work', since: this.quietSince ?? now, ...extra };
     if (phase === 'working') return { now: 'Thinking', since: this.quietSince ?? now, ...extra };
     return { now: '', since: this.quietSince ?? now, ...extra };
   }

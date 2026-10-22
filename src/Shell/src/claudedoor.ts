@@ -22,6 +22,8 @@ import { neverKeep } from './visits.ts';
 import { alertLine, sweepCompanies, type Company } from './atswatch.ts';
 import type { AangBrowser } from './browser.ts';
 import { PlanMemory, cleanPlan, runPlan } from './claudeplan.ts';
+import { cleanLive } from './mockups.ts';
+import { fileURLToPath } from 'node:url';
 
 export const CLAUDE_DOOR_PORT = 47851;
 const OPS = new Set(['start', 'finish', 'open', 'read', 'find', 'jobs', 'collect', 'sweep', 'sweep_status', 'form', 'upload', 'click', 'type', 'key', 'select', 'back', 'forward', 'scroll', 'picture', 'close', 'history', 'note', 'rename', 'companies', 'tabs', 'look', 'drivetab', 'extract', 'hover', 'drag', 'resize', 'console', 'network', 'record', 'planstep', 'waitfor', 'forget']);
@@ -103,6 +105,36 @@ async function askOrShow(b: AangBrowser, what: string): Promise<boolean | null> 
   return yes;
 }
 
+/** Local page addresses written in a plan's steps (http://127.0.0.1:5173/rec, file:///C:/.../x.html), at most four. */
+export function localUrlsIn(steps: string[]): string[] {
+  const out: string[] = [];
+  for (const s of steps) for (const m of s.matchAll(/\b(?:https?:\/\/(?:127\.0\.0\.1|localhost|\[::1\])(?::\d+)?(?:\/[^\s"'<>)]*)?|file:\/\/\/[^\s"'<>)]+)/gi)) out.push(m[0].replace(/[.,;:]+$/, ''));
+  return [...new Set(out)].slice(0, 4);
+}
+
+/**
+ * A page a show-only plan opens (2026-10-22, his "it should be opening in Samara"): shown to him in Samara's Mockups
+ * trail. A live page on this computer as it is; a file page only when it is an .html file inside a git repo (the trail
+ * shows it as last committed, like every mockup). False when it could not be shown there.
+ */
+export async function showToHim(b: AangBrowser, url: string, title: string): Promise<boolean> {
+  if (!b.mockupsOn) return false;
+  const live = cleanLive(url);
+  if (live) return Boolean(await b.openMockup(live, title.slice(0, 80)));
+  if (!/^file:\/\/\//i.test(url)) return false;
+  let file = '';
+  try { file = fileURLToPath(url); } catch { return false; }
+  if (!/\.html?$/i.test(file)) return false;
+  for (let dir = path.dirname(file), i = 0; i < 40; i++, dir = path.dirname(dir)) {
+    if (existsSync(path.join(dir, '.git'))) {
+      const rel = path.relative(dir, file).split(path.sep).join('/');
+      return Boolean(await b.openMockupDrop({ path: rel, repo: dir, url: null, title: title.slice(0, 80), branch: null }));
+    }
+    if (path.dirname(dir) === dir) break;
+  }
+  return false;
+}
+
 /** Sheet 41: a plan that started, for the scroll-back. `remembered`: he allowed it, so the same plan will not ask again. */
 export interface PlanStarted { job: number; task: string; sites: string[]; steps: string[]; remembered: boolean }
 
@@ -116,6 +148,19 @@ export function startClaudeDoor(getBrowser: () => AangBrowser | null, stateDir: 
   const mine = new Set<number>();
   // Sheet 37: plans he allowed, and plans just shown in Claude's own form, waiting for his answer from it.
   const plans = hooks.plans ?? new PlanMemory(stateDir), shownInClaude = new Map<string, number>();
+  // 2026-10-22: the jobs of show-only plans (pages on this computer, only looked at), by job: the plan's task. What they
+  // open is shown to him in Samara's Mockups trail too.
+  const showJobs = new Map<number, { task: string; seen: Set<string> }>();
+  // Once per page per job: opened again, it is already in front of him.
+  const showFor = async (b: AangBrowser, job: number, url: string): Promise<boolean> => {
+    const s = showJobs.get(job);
+    if (!s) return false;
+    const k = cleanLive(url) ?? url;
+    if (s.seen.has(k)) return true;
+    const ok = await showToHim(b, url, s.task);
+    if (ok) s.seen.add(k);
+    return ok;
+  };
   const srv = http.createServer((req, res) => {
     const peer = String(req.socket.remoteAddress ?? '');
     if (!doorAllows({ method: req.method, url: req.url, headers: req.headers, peer }, key, port)) { res.writeHead(403).end(); return; }
@@ -139,6 +184,13 @@ export function startClaudeDoor(getBrowser: () => AangBrowser | null, stateDir: 
                 decided: d ? { keep: Array.isArray(d.keep) ? d.keep.map(String) : [], note: String(d.note ?? ''), go: d.go === true } : null });
               if (out.ok === true && Number.isInteger(out.job)) {
                 mine.add(out.job as number);
+                // A show-only plan: no card was shown; any local page its steps name opens in his Mockups trail now.
+                if (out.local === true) {
+                  showJobs.set(out.job as number, { task: p.task, seen: new Set() });
+                  let shown = 0;
+                  for (const u of localUrlsIn(p.steps)) if (await showFor(b, out.job as number, u)) shown++;
+                  if (shown) out.shown = shown;
+                }
                 try { hooks.onPlan?.({ job: out.job as number, task: p.task, sites: Array.isArray(out.sites) ? (out.sites as unknown[]).map(String) : p.sites, steps: p.steps, remembered: plans.known(p) }); }
                 catch { /* the history is a record, never a reason to fail the plan */ }
               }
@@ -162,6 +214,11 @@ export function startClaudeDoor(getBrowser: () => AangBrowser | null, stateDir: 
             const yes = await b.askForClaude(`clear everything ${site} keeps in Samara on this computer (you'll be signed out of it)`);
             out = yes === true ? { ok: true, ...(await b.forgetSite(site)) } : { ok: false, error: yes === null ? 'That needs his OK in Samara, and Samara is not open.' : 'He said no.' };
           }
+          // A show-only plan opening a file page (2026-10-22): it goes to his Mockups trail; a hidden tab cannot open files.
+          else if (op === 'open' && showJobs.has(Number(a.job)) && /^file:/i.test(String(a.url ?? ''))) {
+            out = (await showFor(b, Number(a.job), String(a.url))) ? { ok: true, shown: true, note: "Shown to Joshua in Samara's Mockups trail (as last committed)." }
+              : { ok: false, error: 'Only an .html file inside a git repo, committed, can be shown. Commit it, or serve it on 127.0.0.1.' };
+          }
           else {
             const step = op === 'start' ? { kind: 'claude', name: String(a.name ?? 'Claude').slice(0, 40) } : { ...a, allowed: false };
             out = await b.drive(op, step);
@@ -173,6 +230,10 @@ export function startClaudeDoor(getBrowser: () => AangBrowser | null, stateDir: 
             }
           }
           if (op === 'start' && out.ok === true && Number.isInteger(out.job)) mine.add(out.job as number);
+          // A show-only plan's local page: he sees it too, in Samara's Mockups trail, not only Claude's hidden tab.
+          if (op === 'open' && out.ok === true && !out.shown && showJobs.has(Number(a.job)) && cleanLive(String(a.url ?? ''))) {
+            if (await showFor(b!, Number(a.job), String(a.url))) out.shown = true;
+          }
           // Job lists come back as a digest; the full list is in a file (unless he asked for everything: raw: true).
           if (out.ok === true && (op === 'jobs' || op === 'collect' || (op === 'sweep_status' && out.done === true)) && (m.a as Record<string, unknown> | undefined)?.raw !== true) {
             const list = (op === 'sweep_status' ? (out.cards as Posting[] | undefined) : (out.jobs as Posting[] | undefined)) ?? [];

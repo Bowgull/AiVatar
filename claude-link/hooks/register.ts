@@ -22,7 +22,7 @@
 // it holds the key (HMAC over a fresh nonce); and every answer or message handed back must carry
 // HMAC(key, nonce + session + item id + kind + body) for the nonce of that very poll, or it is ignored.
 import type { EngineInterface, Register } from 'claude-code'
-import { MODEL_OK, OWN_TOOL, OWN_TOOL_DESC, OWN_TOOL_FULL, OWN_TOOL_PLAN_DESC, OWN_TOOL_PLAN_SCHEMA, OWN_TOOL_SCHEMA, OWN_TOOL_SECTION, PLAN_SENTENCE, TODO_SECTION, TODO_SECTION_ID, TODO_TOOLS, activityOf, agentListOf, hmacHex, nonce, planOf, safeLine, sameMac, stableJson, summarize, tasksAtEnd, tasksAtStart, toDecision } from './link.ts'
+import { MOCKUP_SECTION, MOCKUP_SECTION_ID, MOCKUP_TOOL, MOCKUP_TOOL_DESC, MOCKUP_TOOL_FULL, MOCKUP_TOOL_SCHEMA, MODEL_OK, OWN_TOOL, OWN_TOOL_DESC, OWN_TOOL_FULL, OWN_TOOL_PLAN_DESC, OWN_TOOL_PLAN_SCHEMA, OWN_TOOL_SCHEMA, OWN_TOOL_SECTION, PLAN_SENTENCE, TODO_SECTION, TODO_SECTION_ID, TODO_TOOLS, activityOf, agentListOf, hmacHex, mockupArgs, nonce, planOf, safeLine, sameMac, stableJson, summarize, tasksAtEnd, tasksAtStart, toDecision } from './link.ts'
 import type { Task } from './link.ts'
 
 type $T = EngineInterface
@@ -355,6 +355,10 @@ async function ensureTool($: $T, L: Link): Promise<void> {
   const tools = await within($, $.tool.list(), 1000)
   if (!tools) return
   L.ownTool = true
+  // show_mockup (2026-10-22): in every session, so any of them can put a mockup in front of him in Samara.
+  if (!tools.some(t => t.name === MOCKUP_TOOL_FULL)) {
+    try { await $.tool.register({ name: MOCKUP_TOOL, description: MOCKUP_TOOL_DESC, inputSchema: MOCKUP_TOOL_SCHEMA, isDeferred: false }) } catch { L.ownTool = false }
+  }
   if (tools.some(t => t.name === OWN_TOOL_FULL)) return
   // v3: a session with its own to-do tool still gets the progress tool, for the phase plan only (OVERALL).
   const hasTodo = tools.some(t => TODO_TOOLS.includes(t.name))
@@ -363,6 +367,22 @@ async function ensureTool($: $T, L: Link): Promise<void> {
       ? { name: OWN_TOOL, description: OWN_TOOL_PLAN_DESC, inputSchema: OWN_TOOL_PLAN_SCHEMA, isDeferred: false }
       : { name: OWN_TOOL, description: OWN_TOOL_DESC, inputSchema: OWN_TOOL_SCHEMA, isDeferred: false })
   } catch { L.ownTool = false }
+}
+
+/**
+ * show_mockup (2026-10-22): the page goes to the brain over the signed link, and the brain's answer is the result. If
+ * Aang is not running (or not proven), the call says so; nothing is written anywhere by the mod itself.
+ */
+async function showMockup($: $T, L: Link, input: Record<string, unknown>): Promise<{ result: string; isError?: true }> {
+  const a = mockupArgs(input)
+  if (!a.ok) return { result: a.error, isError: true }
+  if (!L.sessionId) L.sessionId = (await within($, $.session.id(), 1000)) ?? ''
+  if (!L.sessionId || !(await proven($, L))) return { result: "Aang is not running, so the mockup cannot reach Samara. Tell the user where the file is instead.", isError: true }
+  const r = await call($, L, 'POST', '/link/mockup', JSON.stringify({ session: L.sessionId, cwd: L.cwd, ...a.body }), 8000)
+  let j: { ok?: unknown; message?: unknown } = {}
+  try { j = r?.ok ? JSON.parse(r.text) : {} } catch { j = {} }
+  const msg = typeof j.message === 'string' && j.message ? j.message.slice(0, 600) : 'Aang did not answer, so the mockup was not shown.'
+  return j.ok === true ? { result: msg } : { result: msg, isError: true }
 }
 
 /** Learns the session (and starts its poll) once the session is ready; never holds the session up. */
@@ -437,13 +457,20 @@ export const register: Register = on => {
   // goes, because his progress bars are built from it. Added last, on the session side of the cache line. Where the
   // session has a to-do tool of its own (TodoWrite, the Task tools) the section points at it; where it has none (the
   // Claude desktop app's sessions) it points at the mod's own `progress` tool. Aang's own chat lanes are left alone.
+  // show_mockup (2026-10-22): one more short paragraph, wherever that tool is offered, so mockups go to Samara and no
+  // session asks him for leave to open a local page. It goes just before the to-do paragraph, which stays last.
   on('prompt.compose', async ($, e, next) => {
     const r = await next(e)
-    if (L.inert || r.sections.some(s => s.id === TODO_SECTION_ID)) return r
-    // v3: where the progress tool is offered, one more sentence asks for the phase plan on multi-phase projects.
-    const plan = e.tools.includes(OWN_TOOL_FULL) ? ' ' + PLAN_SENTENCE : ''
-    const text = e.tools.some(t => TODO_TOOLS.includes(t)) ? TODO_SECTION + plan : e.tools.includes(OWN_TOOL_FULL) ? OWN_TOOL_SECTION + plan : ''
-    return text ? { sections: [...r.sections, { id: TODO_SECTION_ID, text, scope: 'session' as const }] } : r
+    if (L.inert) return r
+    let sections = r.sections
+    if (e.tools.includes(MOCKUP_TOOL_FULL) && !sections.some(s => s.id === MOCKUP_SECTION_ID)) sections = [...sections, { id: MOCKUP_SECTION_ID, text: MOCKUP_SECTION, scope: 'session' as const }]
+    if (!sections.some(s => s.id === TODO_SECTION_ID)) {
+      // v3: where the progress tool is offered, one more sentence asks for the phase plan on multi-phase projects.
+      const plan = e.tools.includes(OWN_TOOL_FULL) ? ' ' + PLAN_SENTENCE : ''
+      const text = e.tools.some(t => TODO_TOOLS.includes(t)) ? TODO_SECTION + plan : e.tools.includes(OWN_TOOL_FULL) ? OWN_TOOL_SECTION + plan : ''
+      if (text) sections = [...sections, { id: TODO_SECTION_ID, text, scope: 'session' as const }]
+    }
+    return sections === r.sections ? r : { sections }
   }).catch(($, e, next) => next(e))
 
   // "Something happens" includes Claude writing (2026-10-21): the moment a main-loop step starts streaming its reply,
@@ -558,6 +585,10 @@ export const register: Register = on => {
         if (plan) { L.plan = plan; post($, L, 'plan', { phases: plan }) }
       }
       return Array.isArray(input.tasks) || plan ? { result: 'Progress shown.' } : { result: 'Pass tasks (the full list, each { text, status }) or plan ({ phases: [{ label, hours, status }] }).', isError: true as const }
+    }
+    // show_mockup (2026-10-22): answered here, by the brain's answer; nothing else runs.
+    if (tool === MOCKUP_TOOL_FULL) {
+      try { return await showMockup($, L, input) } catch { return { result: 'The mockup could not be sent to Aang.', isError: true as const } }
     }
     // v3: a helper agent's own tool call is its heartbeat, and one more in "14 tool calls".
     if (agentId !== undefined && L.agents.has(agentId)) post($, L, 'agent.tool', { id: agentId })

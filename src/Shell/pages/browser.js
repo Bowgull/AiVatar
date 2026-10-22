@@ -75,6 +75,7 @@ function trayRect() {
 function openDrawer() {
   if (drawerOpen || SOLO) return;
   closeMenu(); closeDl();
+  breathe(false);
   drawerOpen = true;
   el('drawerkey').setAttribute('aria-expanded', 'true');
   document.body.classList.add('tray-open');
@@ -287,6 +288,36 @@ window.aang?.onBrowserFrozen?.((src) => {
   if (over.size === 0) { frozen.hidden = true; }
 });
 el('drawerkey').addEventListener('click', () => (drawerOpen ? closeDrawer() : openDrawer()));
+
+// ---- A mockup arrived (his ask, 2026-10-22: "when a mockup arrives the tab has a little very small breathing
+// notification letting me know, maybe just the arrow breathes a bit"). With the drawer shut, only the handle's arrow
+// breathes, four soft breaths of 1.6 s (browser.css .breathe), then rests; opening the drawer stops it at once. With
+// reduced motion it is a still gold dot on the handle until he opens the drawer. In the drawer (the tray layer) the new
+// mockup's row glows gold twice when he opens it. Each arrival is told once (mockNew.n); one from before this page
+// opened only counts while it is fresh.
+let mockSeen = null;
+function mockArrived(m) {
+  if (!m || !Number.isFinite(m.n) || m.n === mockSeen) return;
+  const first = mockSeen === null;
+  mockSeen = m.n;
+  if (SOLO) { if (Date.now() - Number(m.at) < 10 * 60_000) glowRow(String(m.sheet ?? '')); return; }
+  if ((first && Date.now() - Number(m.at) > 15_000) || drawerOpen) return;
+  breathe(true);
+}
+function breathe(on) {
+  const k = el('drawerkey');
+  if (!on) { k.classList.remove('breathe'); return; }
+  k.classList.remove('breathe'); void k.offsetWidth; k.classList.add('breathe');
+}
+// The breaths end by themselves (the reduced-motion dot stays until the drawer opens).
+el('drawerkey').addEventListener('animationend', (e) => { if (e.animationName === 'hbreathe') breathe(false); });
+// (Timers, not animation frames: the list may be drawn while its layer is still out of sight.)
+function glowRow(sheet, tries = 0) {
+  const r = sheet && document.querySelector(`#tabs .tp[data-mock="${CSS.escape(sheet)}"]`);
+  if (!r) { if (sheet && tries < 10) setTimeout(() => glowRow(sheet, tries + 1), 80); return; }
+  r.classList.remove('mfresh'); void r.offsetWidth; r.classList.add('mfresh');
+  setTimeout(() => r.classList.remove('mfresh'), 3400);
+}
 // His ask (2026-10-12): resting the mouse on the handle opens the drawer, as other apps do. A short wait, so
 // passing over it on the way somewhere does nothing; dragging a tab onto it opens it too.
 let hoverOpen = 0;
@@ -1009,6 +1040,7 @@ window.aang?.onBrowserTabs?.((s) => {
   if (menuOpen) paintMenu();
   const t = s.tabs.find((x) => x.id === s.active);
   paintTabs();
+  mockArrived(s.mockNew);
   // Where he asked to go shows at once, dimmed, until the page arrives (only for his own typed or opened addresses).
   // Watching one of Aang's pages: the slot shows his page's address, and who is driving.
   if (edit.hidden && !finding) paintUrl(s.watching ? s.watching.url : (t?.pending || t?.url || ''));

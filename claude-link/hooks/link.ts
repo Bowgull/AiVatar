@@ -286,6 +286,46 @@ export const OWN_TOOL_SECTION = 'For any task with more than one step, call the 
 export const PLAN_SENTENCE = 'On a project with several phases (hours or days of work), also pass plan to the progress tool (mcp__aang-link__progress): ' +
   'every phase with a short label, your estimate in hours and its status (todo, running or done), and call it again whenever a phase starts or finishes.'
 
+/**
+ * show_mockup (2026-10-22, his ask: "All Claude sessions should be sending mockups to Samara"). Registered in every
+ * session; a call goes to the brain over the signed link (/link/mockup), and the brain, not the mod, leaves the file for
+ * Samara: a session the Claude desktop app started runs sandboxed, and its own writes to %APPDATA% never reach Samara.
+ */
+export const MOCKUP_TOOL = 'show_mockup'
+export const MOCKUP_TOOL_FULL = 'mcp__aang-link__show_mockup'
+export const MOCKUP_TOOL_DESC = "Show the user a mockup, design sheet or visual page: it opens in his browser Samara, in its Mockups trail, where every version is kept. " +
+  'path: an .html file in your repo, already committed (he sees it as committed; commit again and call again for a new version). ' +
+  'Or url: a page you serve on this computer (http://127.0.0.1:<port>/... or localhost). title: a short name. branch: optional group name in the trail.'
+export const MOCKUP_TOOL_SCHEMA = {
+  type: 'object',
+  properties: {
+    path: { type: 'string', description: 'An .html file in your repo (relative to your folder, or absolute), committed.' },
+    url: { type: 'string', description: 'Instead of path: a page on this computer, http://127.0.0.1:<port>/... or http://localhost:<port>/...' },
+    title: { type: 'string', description: 'A short name for it in the trail ("Waymark motion").' },
+    branch: { type: 'string', description: 'Optional: the branch (group) in the trail to file it in, 1-40 characters.' },
+  },
+}
+export const MOCKUP_SECTION_ID = 'aang-link:mockups'
+export const MOCKUP_SECTION = `To show the user a mockup, design sheet or visual page, call show_mockup (${MOCKUP_TOOL_FULL}): it opens in his browser Samara's Mockups trail. ` +
+  'Never ask permission to open local mockup pages.'
+/**
+ * A show_mockup call's input, cut to sane sizes; or why not. Exactly one of path and url; a url must be on this
+ * computer. The brain checks everything again (src/Core/src/mockupdrop.ts), with the files in front of it.
+ */
+export function mockupArgs(input: Record<string, unknown>): { ok: true; body: Record<string, string> } | { ok: false; error: string } {
+  const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '')
+  const p = str(input.path), u = str(input.url)
+  if (!p === !u) return { ok: false, error: 'Pass either path (an .html file in your repo) or url (a page on http://127.0.0.1 or localhost).' }
+  if (p.length > 1000) return { ok: false, error: 'That path is too long.' }
+  if (u) {
+    let ok = false
+    try { const x = new URL(u); ok = (x.protocol === 'http:' || x.protocol === 'https:') && ['127.0.0.1', 'localhost', '[::1]'].includes(x.hostname) && !x.username && !x.password && u.length <= 2000 } catch { ok = false }
+    if (!ok) return { ok: false, error: 'url must be a page on this computer: http://127.0.0.1:<port>/... or http://localhost:<port>/...' }
+  }
+  const title = safeLine(input.title, 80), branch = safeLine(input.branch, 40)
+  return { ok: true, body: { ...(p ? { path: p } : { url: u }), ...(title ? { title } : {}), ...(branch ? { branch } : {}) } }
+}
+
 /** A phase plan from the progress tool's input, cut to sane sizes and masked; null when there is none. */
 export function planOf(input: Record<string, unknown>): { label: string; hours: number; status: 'todo' | 'running' | 'done' }[] | null {
   const p = input.plan as { phases?: unknown } | undefined

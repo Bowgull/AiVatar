@@ -827,7 +827,8 @@ app.whenReady().then(async () => {
             if (n === 'browser.flag') { try { unlinkSync(f); } catch { /* taken */ } aangBrowser?.open(); continue; }
             // Sheet 47 (his picks, 2026-10-21): a mockup Claude opened (tools/open-mockup.mjs). Checked in takeMockupFile:
             // a repo path the versioned page server may show, a short title, an optional branch, small and fresh. Off where there is no repo.
-            if (n.endsWith('.mockup')) { const m = takeMockupFile(f); if (m && aangBrowser?.mockupsOn) void aangBrowser.openMockup(m.path, m.title, m.branch); continue; }
+            // 2026-10-22: from any Claude session (the brain writes them for show_mockup): another repo's page or a live local page too.
+            if (n.endsWith('.mockup')) { const m = takeMockupFile(f); if (m && aangBrowser?.mockupsOn) void aangBrowser.openMockupDrop(m); continue; }
             if (!n.endsWith('.url')) continue;
             let u = '', old = false;
             try { old = Date.now() - statSync(f).mtimeMs > 10 * 60_000; u = readFileSync(f, 'utf8').trim(); unlinkSync(f); } catch { continue; }

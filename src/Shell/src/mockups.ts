@@ -32,6 +32,51 @@ export function cleanPath(p: unknown): string | null {
   return MOCK_DIRS.some((d) => p.startsWith(d)) ? p : null;
 }
 
+// ------------------------------------------------------------------ every Claude session's mockups (2026-10-22)
+// His ask: "All Claude sessions should be sending mockups to Samara". A sheet is no longer only an AangApp path. Three
+// kinds share the trail, each named by one string (the "sheet" everywhere below):
+//   - an AangApp sheet: docs/cockpit/sheet-47-x.html (cleanPath, as before);
+//   - a page in another git repo (Waymark...): @<name>/<path>, where <name> is that repo's folder name, kept with its
+//     full folder in mockups.json (MockStore.repos), and the page served from its commits like an AangApp sheet;
+//   - a live page on this computer (a dev server's recording page): its own http://127.0.0.1 address, shown as it is.
+
+/** The name a repo goes by inside a sheet (@Waymark/...): its folder's name, plain. */
+export const REPO_NAME_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$/;
+/** A path inside another repo: plain, relative, no folder or file starting with a dot (.git, .env stay out). */
+export function cleanRel(p: unknown): string | null {
+  if (typeof p !== 'string' || !p || p.length > 400) return null;
+  // eslint-disable-next-line no-control-regex
+  if (/[\x00-\x1f\\:]/.test(p) || p.startsWith('/')) return null;
+  const parts = p.split('/');
+  if (parts.some((s) => s === '' || s.startsWith('.'))) return null;
+  return path.posix.normalize(p) === p ? p : null;
+}
+/** A live page Claude may show: http(s) on this computer only (127.0.0.1, localhost, ::1), no user name, short. */
+export function cleanLive(u: unknown): string | null {
+  if (typeof u !== 'string' || !u || u.length > 2000) return null;
+  try {
+    const x = new URL(u);
+    if ((x.protocol !== 'http:' && x.protocol !== 'https:') || x.username || x.password) return null;
+    return ['127.0.0.1', 'localhost', '[::1]'].includes(x.hostname) ? x.href : null;
+  } catch { return null; }
+}
+/** Which kind of sheet a string is, or null when it is none of them. */
+export function sheetKind(s: unknown): 'home' | 'repo' | 'live' | null {
+  if (typeof s !== 'string') return null;
+  if (/^https?:/i.test(s)) return cleanLive(s) === s ? 'live' : null;
+  if (s.startsWith('@')) return splitRepoSheet(s) ? 'repo' : null;
+  return cleanPath(s) ? 'home' : null;
+}
+/** @<name>/<path> taken apart, or null. */
+export function splitRepoSheet(s: string): { name: string; rel: string } | null {
+  const m = /^@([^/]+)\/(.+)$/.exec(s);
+  return m && REPO_NAME_RE.test(m[1]!) && cleanRel(m[2]) === m[2] ? { name: m[1]!, rel: m[2]! } : null;
+}
+/** Any of the three kinds, unchanged, or null. */
+export const cleanSheet = (s: unknown): string | null => (sheetKind(s) ? s as string : null);
+/** A live page's name in the trail when Claude gave none: its address without http://, cut to 80. */
+export const liveTitle = (u: string): string => u.replace(/^https?:\/\//i, '').replace(/\/$/, '').slice(0, 80);
+
 const TYPES: Record<string, string> = {
   html: 'text/html; charset=utf-8', htm: 'text/html; charset=utf-8', css: 'text/css; charset=utf-8',
   js: 'text/javascript; charset=utf-8', mjs: 'text/javascript; charset=utf-8', json: 'application/json; charset=utf-8',
@@ -62,7 +107,9 @@ export class MockServer {
   private server: Server | null = null;
   port = 0;
   private readonly repo: string;
-  constructor(repo: string) { this.repo = repo; }
+  /** Another repo's folder by its name (2026-10-22: every session's mockups); null when it is not one we know. */
+  private readonly other: (name: string) => string | null;
+  constructor(repo: string, other: (name: string) => string | null = () => null) { this.repo = repo; this.other = other; }
   get origin(): string { return `http://127.0.0.1:${this.port}`; }
   start(): Promise<number> {
     return new Promise((done) => {
@@ -73,10 +120,16 @@ export class MockServer {
   }
   close(): void { try { this.server?.close(); } catch { /* gone */ } this.server = null; }
   /** Where one version of one sheet is, while this run lasts. */
-  url(commit: string, sheet: string): string { return `${this.origin}/v/${commit}/${sheet.split('/').map(encodeURIComponent).join('/')}`; }
+  url(commit: string, sheet: string): string {
+    const enc = (p: string) => p.split('/').map(encodeURIComponent).join('/');
+    // 2026-10-22: a live page is its own address; another repo's page is under /r/<name>/.
+    if (sheetKind(sheet) === 'live') return sheet;
+    const r = sheet.startsWith('@') ? splitRepoSheet(sheet) : null;
+    return r ? `${this.origin}/r/${r.name}/${commit}/${enc(r.rel)}` : `${this.origin}/v/${commit}/${enc(sheet)}`;
+  }
   /** A mockup address from an earlier run (another port): the same page on this run's port. */
   rebase(u: string): string {
-    try { const x = new URL(u); if (x.hostname === '127.0.0.1' && x.pathname.startsWith('/v/') && this.port) return this.origin + x.pathname + x.search + x.hash; } catch { /* not one */ }
+    try { const x = new URL(u); if (x.hostname === '127.0.0.1' && /^\/[vr]\//.test(x.pathname) && this.port) return this.origin + x.pathname + x.search + x.hash; } catch { /* not one */ }
     return u;
   }
   private async answer(req: import('node:http').IncomingMessage, res: import('node:http').ServerResponse): Promise<void> {
@@ -85,25 +138,31 @@ export class MockServer {
     const from = req.headers.origin;
     if (from && from !== this.origin) { res.writeHead(403).end(); return; }
     const want = parseVersioned(String(req.url ?? ''));
-    if (!want) { res.writeHead(404).end(); return; }
+    const repo = !want ? null : want.repo === null ? this.repo : this.other(want.repo);
+    if (!want || !repo) { res.writeHead(404).end(); return; }
     // A blob only (cat-file blob is git show for a file, without ever listing a folder or converting it).
-    const body = await git(this.repo, ['cat-file', 'blob', `${want.commit}:${want.path}`], true);
+    const body = await git(repo, ['cat-file', 'blob', `${want.commit}:${want.path}`], true);
     if (!Buffer.isBuffer(body)) { res.writeHead(404).end(); return; }
     res.writeHead(200, { 'Content-Type': typeOf(want.path), 'Content-Length': body.length, 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'private, max-age=86400' });
     res.end(req.method === 'HEAD' ? undefined : body);
   }
 }
 
-/** /v/<commit>/<path> taken apart and checked, or null. Exported for the test. */
-export function parseVersioned(url: string): { commit: string; path: string } | null {
+/**
+ * /v/<commit>/<path> (AangApp, repo null) or /r/<name>/<commit>/<path> (another repo, 2026-10-22) taken apart and
+ * checked, or null. Another repo's path may be anywhere in it except a dot folder or file. Exported for the test.
+ */
+export function parseVersioned(url: string): { repo: string | null; commit: string; path: string } | null {
   const raw = url.split(/[?#]/)[0] ?? '';
-  const m = /^\/v\/([^/]+)\/(.+)$/.exec(raw);
+  const m = /^\/v\/([^/]+)\/(.+)$/.exec(raw) ?? /^\/r\/([^/]+)\/([^/]+)\/(.+)$/.exec(raw);
   if (!m) return null;
+  const other = raw.startsWith('/r/');
+  const [name, commit, enc] = other ? [m[1]!, m[2]!, m[3]!] : [null, m[1]!, m[2]!];
+  if (name !== null && !REPO_NAME_RE.test(name)) return null;
   let p = '';
-  try { p = m[2]!.split('/').map((s) => decodeURIComponent(s)).join('/'); } catch { return null; }
-  const commit = m[1]!;
-  const clean = cleanPath(p);
-  return COMMIT_RE.test(commit) && clean ? { commit, path: clean } : null;
+  try { p = enc.split('/').map((s) => decodeURIComponent(s)).join('/'); } catch { return null; }
+  const clean = other ? cleanRel(p) : cleanPath(p);
+  return COMMIT_RE.test(commit) && clean ? { repo: name, commit, path: clean } : null;
 }
 
 // ------------------------------------------------------------------ a version, and the history file
@@ -174,6 +233,8 @@ export class MockStore {
   branches: MockBranch[] = [];
   /** Where each sheet sits: its branch (top-level mockups only) and its parent (children only). */
   places = new Map<string, MockPlace>();
+  /** 2026-10-22: the other repos a sheet can come from (@<name>/...), by name: their full folder. */
+  repos = new Map<string, string>();
   private seq = 0;
   private branchSeq = 0;
   private readonly file: string;
@@ -183,16 +244,19 @@ export class MockStore {
       if (existsSync(file)) {
         const s = JSON.parse(readFileSync(file, 'utf8'));
         const a = Array.isArray(s?.versions) ? s.versions : [];
-        this.list = a.filter((x: Partial<MockVersion>) => Number.isInteger(x?.id) && typeof x?.sheet === 'string' && cleanPath(x.sheet) && typeof x?.commit === 'string' && COMMIT_RE.test(x.commit)
+        const rp = s?.repos && typeof s.repos === 'object' ? s.repos as Record<string, unknown> : {};
+        for (const [k, v] of Object.entries(rp)) if (REPO_NAME_RE.test(k) && typeof v === 'string' && path.isAbsolute(v) && !v.startsWith('\\\\') && v.length <= 400) this.repos.set(k, v);
+        // A live page has no commit (2026-10-22); every other version has one.
+        this.list = a.filter((x: Partial<MockVersion>) => Number.isInteger(x?.id) && typeof x?.sheet === 'string' && cleanSheet(x.sheet) && typeof x?.commit === 'string' && (COMMIT_RE.test(x.commit) || (x.commit === '' && sheetKind(x.sheet) === 'live'))
           && typeof x?.key === 'string' && Number.isFinite(x?.at) && Number.isInteger(x?.v))
           .map((x: MockVersion) => ({ id: x.id, sheet: x.sheet, title: String(x.title ?? '').slice(0, 80), commit: x.commit, at: Number(x.at), key: x.key.slice(0, 100), v: x.v })).slice(-2000);
         this.branches = (Array.isArray(s?.branches) ? s.branches : []).filter((b: Partial<MockBranch>) => Number.isInteger(b?.id) && typeof b?.name === 'string')
           .map((b: MockBranch) => ({ id: b.id, name: b.name.slice(0, BRANCH_MAX), folded: b.folded === true })).slice(0, 100);
         const pl = s?.places && typeof s.places === 'object' ? s.places as Record<string, Partial<MockPlace>> : {};
         for (const [k, v] of Object.entries(pl)) {
-          if (!cleanPath(k) || !v || typeof v !== 'object') continue;
+          if (!cleanSheet(k) || !v || typeof v !== 'object') continue;
           const branch = typeof v.branch === 'number' && this.branches.some((b) => b.id === v.branch) ? v.branch : null;
-          const parent = typeof v.parent === 'string' && cleanPath(v.parent) && v.parent !== k ? v.parent : null;
+          const parent = typeof v.parent === 'string' && cleanSheet(v.parent) && v.parent !== k ? v.parent : null;
           this.places.set(k, { branch, parent });
         }
         // Three levels only, whatever the file says: a parent that is itself a child is cut loose.
@@ -203,8 +267,24 @@ export class MockStore {
     this.branchSeq = this.branches.reduce((m, x) => Math.max(m, x.id), 0);
   }
   private save(): void {
-    try { writeFileAtomic(this.file, JSON.stringify({ v: 1, versions: this.list, branches: this.branches, places: Object.fromEntries(this.places) })); }
+    try { writeFileAtomic(this.file, JSON.stringify({ v: 1, versions: this.list, branches: this.branches, places: Object.fromEntries(this.places), repos: Object.fromEntries(this.repos) })); }
     catch (e) { console.error('shell: mockups: the history could not be saved: ' + (e as Error).message); }
+  }
+  /** Another repo's folder by its name, or null. */
+  repoPath(name: string): string | null { return this.repos.get(name) ?? null; }
+  /**
+   * The name a repo's sheets go by (@<name>/...): the one it already has, else its folder's name made plain, with -2, -3
+   * after it when another repo has that name. Kept, so an old version still finds its repo after a restart.
+   */
+  repoName(dir: string): string {
+    const same = (a: string, b: string) => (process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b);
+    for (const [k, v] of this.repos) if (same(v, dir)) return k;
+    const base = (path.basename(dir).replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^[^A-Za-z0-9]+/, '').slice(0, 36)) || 'repo';
+    let name = base;
+    for (let i = 2; this.repos.has(name); i++) name = `${base}-${i}`;
+    this.repos.set(name, dir);
+    this.save();
+    return name;
   }
   /**
    * Where a new sheet files itself (his rule): a lettered sheet (45g) is a child of its parent sheet (45), in whatever
@@ -212,8 +292,10 @@ export class MockStore {
    */
   private fileNew(sheet: string): MockPlace {
     const me = sheetNum(sheet);
-    if (!me?.letter) return { branch: null, parent: null };
-    const known = [...new Set(this.list.map((x) => x.sheet))].filter((s) => { const o = sheetNum(s); return s !== sheet && o && o.n === me.n && !o.letter && !this.places.get(s)?.parent; });
+    if (!me?.letter || sheetKind(sheet) === 'live') return { branch: null, parent: null };
+    // 2026-10-22: a parent from the same repo only (Waymark's sheet 3b is never under AangApp's sheet 3).
+    const space = (s: string) => (s.startsWith('@') ? s.slice(0, s.indexOf('/')) : sheetKind(s) === 'live' ? 'live' : '');
+    const known = [...new Set(this.list.map((x) => x.sheet))].filter((s) => { const o = sheetNum(s); return s !== sheet && space(s) === space(sheet) && o && o.n === me.n && !o.letter && !this.places.get(s)?.parent; });
     const parent = known.sort((a, b) => this.newestAt(b) - this.newestAt(a))[0];
     return { branch: null, parent: parent ?? null };
   }
@@ -313,17 +395,40 @@ export class MockStore {
  * 4 KB, at most ten minutes old (like a .url), a path the server may show, a title of at most 80 characters. The file
  * is taken (deleted) whatever it says. Null when it is not one to open.
  */
-export function takeMockupFile(file: string): { path: string; title: string; branch: string | null } | null {
+export interface MockupDrop {
+  /** The page's path: in AangApp (repo null), or inside `repo`. Empty for a live page. */
+  path: string;
+  /** 2026-10-22: another repo's full folder (a session outside AangApp), or null. */
+  repo: string | null;
+  /** 2026-10-22: a live page on this computer (http://127.0.0.1...), or null. */
+  url: string | null;
+  title: string; branch: string | null;
+}
+/**
+ * 2026-10-22, every Claude session (the brain writes these for the aang-link mod's show_mockup): also
+ * {"repo": "C:\\...\\Waymark", "path": "docs/x.html"} for a page in another repo, or {"url": "http://127.0.0.1:5173/rec"}
+ * for a live page on this computer. A repo must be an absolute local folder (no \\server share); its path plain, no dot
+ * folders, an .html page.
+ */
+export function takeMockupFile(file: string): MockupDrop | null {
   let raw = '', old = false, size = 0;
   try { const st = statSync(file); size = st.size; old = Date.now() - st.mtimeMs > 10 * 60_000; if (size <= 4096) raw = readFileSync(file, 'utf8'); } catch { return null; }
   try { unlinkSync(file); } catch { /* taken */ }
   if (old || size > 4096) return null;
-  let j: { path?: unknown; title?: unknown; branch?: unknown };
+  let j: { path?: unknown; title?: unknown; branch?: unknown; repo?: unknown; url?: unknown };
   try { j = JSON.parse(raw.replace(/^﻿/, '')); } catch { return null; }
+  if (j.title !== undefined && (typeof j.title !== 'string' || j.title.length > 80)) return null;
+  // eslint-disable-next-line no-control-regex
+  const title = typeof j.title === 'string' ? j.title.replace(/[\x00-\x1f]/g, ' ').trim() : '', branch = cleanBranch(j.branch);
+  if (j.url !== undefined) { const u = cleanLive(j.url); return u ? { path: '', repo: null, url: u, title, branch } : null; }
+  if (j.repo !== undefined) {
+    const r = j.repo, p = cleanRel(j.path);
+    if (typeof r !== 'string' || r.length > 400 || !path.isAbsolute(r) || r.startsWith('\\\\') || r.startsWith('//') || !p || !/\.html?$/i.test(p)) return null;
+    return { path: p, repo: path.resolve(r), url: null, title, branch };
+  }
   const p = cleanPath(j?.path);
   if (!p || !/\.html?$/i.test(p)) return null;
-  if (j.title !== undefined && (typeof j.title !== 'string' || j.title.length > 80)) return null;
-  return { path: p, title: typeof j.title === 'string' ? j.title.replace(/[\x00-\x1f]/g, ' ').trim() : '', branch: cleanBranch(j.branch) };
+  return { path: p, repo: null, url: null, title, branch };
 }
 
 // ------------------------------------------------------------------ Send to Aang (his pick, 2026-10-21)

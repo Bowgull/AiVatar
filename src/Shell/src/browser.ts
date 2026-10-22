@@ -41,7 +41,7 @@ import { Visits, search as searchVisits, forAang, neverKeep, bankSite, type Visi
 import { BrowserSync, urlKept, type SyncCookie, type SyncMsg, type TabSnap } from './bsync.ts';
 import { Driver, type Job } from './driver.ts';
 import { Downloads, kindOf, trayOf, type Dl } from './dlist.ts';
-import { MockServer, MockStore, SHOT_MAX_BYTES, SHOT_MAX_W, cleanPath, findRepo, git, notesFrom, resolveVersion, type MockSend, type MockSendItem, type MockVersion } from './mockups.ts';
+import { MockServer, MockStore, SHOT_MAX_BYTES, SHOT_MAX_W, cleanPath, cleanSheet, findRepo, git, liveTitle, notesFrom, resolveVersion, sheetKind, splitRepoSheet, type MockSend, type MockSendItem, type MockVersion, type MockupDrop } from './mockups.ts';
 
 /** A site name scrambled with this PC's own key: the file alone says nothing about where he has accounts. */
 /** What the update tray shows (sheet 35): the title ("Version 1.1.0: Gojo"), what the update does as groups of lines (a
@@ -298,7 +298,13 @@ export function fitShot(img: Electron.NativeImage | null, maxW = SHOT_MAX_W, max
 }
 
 /** Sheet 37: a Claude session's plan, as shown to him. */
-export interface PlanCard { id: string; task: string; sites: { site: string; login: boolean; favicon: string }[]; steps: string[]; wont: string }
+export interface PlanCard {
+  id: string; task: string; steps: string[]; wont: string;
+  /** local (2026-10-22): a page on this computer; the card does not list it. */
+  sites: { site: string; login: boolean; favicon: string; local?: boolean }[];
+  /** 2026-10-22: the session's folder name, for the card's kicker (CLAUDE · WAYMARK); '' when unknown. */
+  from?: string;
+}
 /** His answer: go (with the sites he kept), change (with his note, Claude redoes the plan), or neither (not now). */
 export interface PlanAnswer { go: boolean; change: boolean; keep: string[]; note: string; /** which card was answered */ card?: string }
 
@@ -547,7 +553,8 @@ export class AangBrowser {
       const repo = findRepo(o.repoDir ?? path.join(import.meta.dirname, '..', '..', '..'));
       if (repo) {
         this.mockRepo = repo;
-        this.mockServer = new MockServer(repo);
+        // 2026-10-22: pages from another session's repo are served too, found by the name kept in mockups.json.
+        this.mockServer = new MockServer(repo, (n) => this.mockStore?.repoPath(n) ?? null);
         this.mockStore = new MockStore(path.join(o.stateDir, 'mockups.json'));
         this.mockReady = this.mockServer.start();
       }
@@ -1721,7 +1728,8 @@ export class AangBrowser {
     const back = tab.scrollY;
     if (back > 0) wc.once('did-finish-load', () => { void within(wc.executeJavaScript(`window.scrollTo(0, ${Math.round(back)})`, true), 1500, null); });
     // A mockup from an earlier run: the page server has a new port each run, the commit and path stay the same.
-    if (tab.mock && this.mockServer) tab.url = this.mockServer.rebase(tab.url);
+    // (A live page, 2026-10-22, has no commit and keeps its own address.)
+    if (tab.mock?.commit && this.mockServer) tab.url = this.mockServer.rebase(tab.url);
     const l = this.stopFor(tab.url);
     if (l.length) { this.block(tab, tab.url, l); return; }
     tab.blocked = null;
@@ -3112,16 +3120,44 @@ export class AangBrowser {
    * branch: the branch Claude was told to file it in (mockups.ts fileInto has the rules).
    */
   async openMockup(sheet: string, title = '', branch: string | null = null): Promise<MockVersion | null> {
-    if (!this.mockServer || !this.mockStore || cleanPath(sheet) !== sheet) return null;
+    if (!this.mockServer || !this.mockStore || cleanSheet(sheet) !== sheet) return null;
     if (!(await this.mockReady)) return null;
-    const r = await resolveVersion(this.mockRepo, sheet);
+    // 2026-10-22: a live page has no versions to look up: it is shown as it is, always V1.
+    const where = this.mockWhere(sheet);
+    const r = sheetKind(sheet) === 'live' ? { commit: '', key: 'live', title: liveTitle(sheet) } : where ? await resolveVersion(where.repo, where.rel) : null;
     if (!r) { console.log(`shell: mockups: ${sheet} is not in the repo's last commit, not opened`); return null; }
     const ver = this.mockStore.add(sheet, title || r.title, r.commit, r.key);
     // A branch Claude named (checked in cleanBranch): the same move as his Move to branch, children following.
     if (branch) this.mockStore.fileInto(sheet, branch);
     this.showMockup(ver);
+    // The arrival notice (his ask, 2026-10-22): the drawer's arrow breathes, and this row glows once when he opens it.
+    this.mockNew = { n: (this.mockNew?.n ?? 0) + 1, sheet, at: Date.now() };
     this.sendTabs();
     return ver;
+  }
+  /** The newest mockup to arrive, for the drawer's breathing arrow and the row's one glow (browser.js). */
+  private mockNew: { n: number; sheet: string; at: number } | null = null;
+  /**
+   * A .mockup file (main.ts), any of its three kinds (2026-10-22): an AangApp sheet, a page in another session's repo
+   * (registered by name in mockups.json, then @<name>/<path>), or a live page on this computer.
+   */
+  async openMockupDrop(m: MockupDrop): Promise<MockVersion | null> {
+    if (!this.mockStore) return null;
+    if (m.url) return this.openMockup(m.url, m.title, m.branch);
+    if (!m.repo) return this.openMockup(m.path, m.title, m.branch);
+    const same = (a: string, b: string) => (process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b);
+    // AangApp itself, named by its folder: its own rules (only the mockup folders are served).
+    if (this.mockRepo && same(path.resolve(m.repo), path.resolve(this.mockRepo))) return cleanPath(m.path) ? this.openMockup(m.path, m.title, m.branch) : null;
+    if (!findRepo(m.repo)) { console.log('shell: mockups: not a git repo, not opened: ' + m.repo); return null; }
+    return this.openMockup(`@${this.mockStore.repoName(path.resolve(m.repo))}/${m.path}`, m.title, m.branch);
+  }
+  /** Where a sheet's file is: its repo's folder and its path inside it. Null for a live page or an unknown repo. */
+  private mockWhere(sheet: string): { repo: string; rel: string } | null {
+    const k = sheetKind(sheet);
+    if (k === 'home') return { repo: this.mockRepo, rel: sheet };
+    if (k !== 'repo') return null;
+    const r = splitRepoSheet(sheet), dir = r ? this.mockStore?.repoPath(r.name) : null;
+    return r && dir ? { repo: dir, rel: r.rel } : null;
   }
   /** One version, exactly as it was, in its sheet's tab (made in the MOCKUPS trail if none is open). Opens Samara if it is closed. */
   private showMockup(ver: MockVersion): void {
@@ -3172,7 +3208,9 @@ export class AangBrowser {
   private async mockItem(ver: MockVersion, picture: boolean): Promise<MockSendItem> {
     const st = this.mockStore!;
     const branchId = st.placeOf(ver.sheet).branch;
-    const html = await git(this.mockRepo, ['cat-file', 'blob', `${ver.commit}:${ver.sheet}`]);
+    // A live page (2026-10-22) has no file to read notes from; another repo's sheet is read from its own repo.
+    const where = ver.commit ? this.mockWhere(ver.sheet) : null;
+    const html = where ? await git(where.repo, ['cat-file', 'blob', `${ver.commit}:${where.rel}`]) : null;
     return {
       kind: 'mockup', title: ver.title, version: 'V' + ver.v, branch: st.branches.find((b) => b.id === branchId)?.name ?? null,
       sheet: ver.sheet, commit: ver.commit, url: this.mockServer!.url(ver.commit, ver.sheet),
@@ -3684,6 +3722,8 @@ export class AangBrowser {
       tabs: mine.map((x) => ({ id: x.id, opener: x.opener, title: x.title, url: x.url, favicon: x.favicon || this.iconOf(x.url), loading: x.loading, phase: x.phase ?? (x.loading ? 'loading' : 'idle'), prog: x.prog ?? 0, pending: x.pending ?? null, audible: x.audible, muted: x.muted, crashed: x.crashed, asleep: !x.view, blocked: x.blocked, failed: x.failed, trail: x.trail, done: x.done, lent: x.lent, popup: x.blockedPopup?.url ?? null, mock: x.mock ? this.mockTab(x) : null })),
       // Sheet 47: the MOCKUPS trail's history (the whole list only while it is open), or null where mockups are off.
       mockups: this.mockView(),
+      // 2026-10-22: the newest mockup to arrive ({ n, sheet, at }), so the drawer's arrow can breathe for it.
+      mockNew: this.mockNew,
       // The trails with a tab in this window (or the one about to start here).
       trails: this.trails.filter((tr) => tr.id === this.pendingTrail || mine.some((x) => x.trail === tr.id)),
       drivers: this.driver.view(),
