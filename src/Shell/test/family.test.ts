@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   SNAP, EDGE, arrange, biggest, childrenOf, contact, groupOf, insert, isFree, isJoined, joinOnDrop, joinedSides, layoutFrom,
-  makesLoop, ownSize, place, rearranged, remove, reroot, rootOf, shimmy, slotFor, snapMove, springStep, settled, MOTION,
+  makesLoop, ownSize, place, rearranged, squareCorners, roundMask, cornerSteps, regionRuns, groupThrough, allThrough, CORNER_BIT, ALL_ROUND, remove, reroot, rootOf, shimmy, slotFor, snapMove, springStep, settled, MOTION,
   type Box, type Fam, type Member,
 } from '../src/family.ts';
 
@@ -192,4 +192,78 @@ test('springs settle where they were sent with no more than a whisker of oversho
     assert.ok(peak < 14 * 1.1, `overshoot ${peak}`);
   }
   for (let t = 0; t < 2; t += 0.05) { const d = shimmy(t, 3); assert.equal(Math.abs(d.dx) + Math.abs(d.dy), 1); }
+});
+
+// ------------------------------------------------------------------ 1b: corners and click-through (his calls, 2026-10-22)
+
+test('1b corners: only the corners a neighbour sits against go square; every outer corner stays round (sheet 59)', () => {
+  const sq = squareCorners(sheet59());
+  // The video: the job against the top of its right side, the strip under its whole width. Only top-left stays round.
+  assert.deepEqual(sq.get('video'), ['tr', 'br', 'bl']);
+  // The job: its whole left side is against the video. Its right corners stay round.
+  assert.deepEqual(sq.get('job:a'), ['tl', 'bl']);
+  // The strip: the video above its whole width. Its bottom corners stay round.
+  assert.deepEqual(sq.get('player'), ['tl', 'tr']);
+  assert.equal(roundMask(sq.get('video')!), CORNER_BIT.tl);
+  assert.equal(roundMask(sq.get('job:a')!), CORNER_BIT.tr | CORNER_BIT.br);
+  assert.equal(roundMask([]), ALL_ROUND);
+});
+
+test('1b corners: a short note on the lower half of the video leaves the video top-right round; free windows are round all round', () => {
+  const f = fam(
+    mem('video', { x: 0, y: 0, width: 640, height: 394 }),
+    mem('note:a', { x: 640, y: 194, width: 200, height: 200 }, { anchor: { to: 'video', side: 'right', align: 'end' } }),
+    mem('timer:t', { x: 2000, y: 0, width: 180, height: 60 }),
+  );
+  const sq = squareCorners(f);
+  assert.deepEqual(sq.get('video'), ['br']);            // bottoms lined up: only the shared bottom-right corner
+  assert.deepEqual(sq.get('note:a'), ['tl', 'bl']);     // the video runs past both of the note's left corners
+  assert.deepEqual(sq.get('timer:t'), []);
+  // Taller neighbour on the left, spanning past both corners: both left corners square.
+  const g = fam(mem('a', { x: 0, y: 0, width: 100, height: 400 }), mem('b', { x: 100, y: 100, width: 50, height: 50 }, { anchor: { to: 'a', side: 'right', align: 100 } }));
+  assert.deepEqual(squareCorners(g).get('b'), ['tl', 'bl']);
+  assert.deepEqual(squareCorners(g).get('a'), []);       // b sits mid-side: a keeps all four round
+  // Pulled 14 px apart the anchors stay, but nothing touches: everything round.
+  assert.ok([...squareCorners(arrange(sheet59(), 'video', 14)).values()].every((c) => c.length === 0));
+});
+
+test('1b corners: whole-pixel stepped corner, symmetric like a hand-drawn circle; the region rows match it', () => {
+  assert.deepEqual(cornerSteps(10), [7, 5, 3, 2, 2, 1, 1]);
+  for (const r of [8, 10, 12, 15, 20]) {
+    const s = cornerSteps(r);
+    // Symmetric: reading the steps down a column gives the same steps (no lopsided corner).
+    const col = Array.from({ length: s.length }, (_, j) => s.filter((x) => x > j).length);
+    assert.deepEqual(col, s, `radius ${r}`);
+    assert.ok(s.every((x, i) => i === 0 || x <= s[i - 1]!), 'never steps back out');
+  }
+  // A 100x60 window, only the top-left and bottom-right round (bits 1 + 4).
+  const runs = regionRuns(100, 60, 1 | 4, cornerSteps(10));
+  const at = (y: number) => runs.find((u) => y >= u.y0 && y < u.y1)!;
+  assert.deepEqual([at(0).l, at(0).r], [7, 0]);
+  assert.deepEqual([at(6).l, at(6).r], [1, 0]);
+  assert.deepEqual([at(30).l, at(30).r], [0, 0]);
+  assert.deepEqual([at(59).l, at(59).r], [0, 7]);
+  assert.equal(runs[0]!.y0, 0); assert.equal(runs.at(-1)!.y1, 60);
+  assert.ok(runs.every((u, i) => i === 0 || u.y0 === runs[i - 1]!.y1), 'rows cover the window without gaps');
+  // Too small for the full corner: the steps are cut to half its height.
+  assert.equal(regionRuns(40, 6, 15, cornerSteps(10)).reduce((n, u) => n + u.y1 - u.y0, 0), 6);
+});
+
+test('1b click-through: the group toggle, locked members untouched, and the menu tick', () => {
+  const g = ['video', 'job:a', 'note:n'];
+  const none = new Map<string, boolean>();
+  // The video pinned (click-through by its own rule): the family turns the others on and never touches the video.
+  const on = groupThrough(none, g, new Set(['video']));
+  assert.deepEqual([on.get('video'), on.get('job:a'), on.get('note:n')], [undefined, true, true]);
+  assert.equal(allThrough(on, g, new Set(['video'])), true);
+  // Again: all of them come back; the locked video stays click-through by its own rule.
+  const off = groupThrough(on, g, new Set(['video']));
+  assert.deepEqual([off.get('video'), off.get('job:a'), off.get('note:n')], [undefined, false, false]);
+  // One already through from its own menu: the group toggle turns the rest ON (not the one off).
+  const one = new Map([['note:n', true]]);
+  const all = groupThrough(one, g);
+  assert.ok(g.every((id) => all.get(id) === true));
+  assert.equal(allThrough(one, g), false);
+  // Another group is never touched.
+  assert.equal(groupThrough(new Map([['timer:x', true]]), g).get('timer:x'), true);
 });

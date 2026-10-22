@@ -40,7 +40,7 @@ export class NoteWindows {
       if (now.x !== b.x || now.y !== b.y || now.width !== b.width || now.height !== b.height) w.setBounds(b);
     }
     w.setOpacity(n.out.opacity);
-    w.setIgnoreMouseEvents(n.out.pinned);
+    this.applyMouse(n.id);
     const send = () => w.webContents.send('note:data', n);
     if (w.webContents.isLoading()) w.webContents.once('did-finish-load', send); else send();
     return w;
@@ -71,11 +71,25 @@ export class NoteWindows {
   // ---------------------------------------------------------------- the window family (F2, 2026-10-22)
   /** Set by familywire.ts: notes snap to the video, jobs, timers and each other, and share see-through and pin. */
   family: FamilyHooks | null = null;
+  /** Notes letting clicks through by the family's say (its menu or the note's own "Click through"), 1b. */
+  private readonly through = new Set<string>();
+  /** Pinned: clicks go straight through (as before). Click-through (1b): the same, with the mouse still seen moving. */
+  private applyMouse(id: string): void {
+    const v = this.wins.get(id);
+    if (!v || v.w.isDestroyed()) return;
+    const pinned = !!v.note.out?.pinned, thr = this.through.has(id);
+    if (thr && !pinned) v.w.setIgnoreMouseEvents(true, { forward: true }); else v.w.setIgnoreMouseEvents(pinned);
+  }
+  /** The note's own menu: "Click through" (1b). */
+  toggleThrough(sender: Electron.WebContents): void { const v = this.of(sender); if (v) this.family?.setThrough('note:' + v.id); }
   private joinFamily(id: string, w: BrowserWindow): void {
     this.family?.add({
       id: 'note:' + id, kind: 'note', win: () => (w.isDestroyed() ? null : w), card: '.sticky',
       setOpacity: (n) => this.applyOpacity(id, n),
       setPinned: (on) => this.applyPinned(id, on),
+      // 1b: the family's "Pin on top" is only on top, and a note always is; its own Pin (click-through too) is separate.
+      setOnTop: () => {},
+      setThrough: (on) => { if (on) this.through.add(id); else this.through.delete(id); this.applyMouse(id); },
       resize: (width, height) => { if (!w.isDestroyed()) { const b = w.getBounds(); w.setBounds({ ...b, width: width + PAD * 2, height: height + PAD * 2 }); this.savePlace(id); } },
       moved: () => this.savePlace(id),
     });
@@ -162,7 +176,7 @@ export class NoteWindows {
     if (!v || v.w.isDestroyed() || !v.note.out) return;
     const note = { ...v.note, out: { ...v.note.out, pinned: on } };
     v.note = note;
-    v.w.setIgnoreMouseEvents(on);
+    this.applyMouse(id);
     v.w.webContents.send('note:data', note);
     this.o.save(note);
   }

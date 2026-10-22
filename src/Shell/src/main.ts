@@ -41,6 +41,7 @@ import type { NoteData } from './notewin.ts';
 import { TimerWindows } from './timerwin.ts';
 import { JobPops } from './jobpop.ts';
 import { wireFamily } from './familywire.ts';
+import type { FamilyHost } from './familywin.ts';
 import type { TimerData } from './timerwin.ts';
 import { INPUT_FRAME_INSET, bubbleAt, headOf, inputAt, moved, readPetAt } from './anchor.ts';
 import type { PetAt } from './anchor.ts';
@@ -149,6 +150,8 @@ let noteWins: NoteWindows | null = null;
  * the brain's last job and wait lists so a freshly torn-off job draws at once instead of waiting for the next update.
  */
 let jobPops: JobPops | null = null, lastJobs: unknown = [], lastWaits: unknown = [];
+/** The window family (familywire.ts): the way back from click-through goes through it (1b). */
+let family: FamilyHost | null = null;
 let wheel: Wheel | null = null;
 /** Sheet 56 (2026-10-21): Aang's right-click menu, in Samara's wood. */
 let aangMenu: AangMenu | null = null;
@@ -193,7 +196,8 @@ const hotkeys = new HotkeyKeeper(STATE_DIR, globalShortcut, {
   popout: () => popout?.toggleHidden(),
   // His interview (2026-10-22): Ctrl + number pad *, a new blank note, ready to type (the board's own + NEW).
   note: () => bubble?.send('brain:message', { t: 'notes.board', fresh: true }),
-  pin: () => { const p = screen.getCursorScreenPoint(); if (timerWins?.togglePinAt(p) || noteWins?.togglePinAt(p)) return; popout?.togglePin(); },
+  // 1b: the same key is the ONE way back from click-through for every family member (the group under the mouse).
+  pin: () => { const p = screen.getCursorScreenPoint(); if (family?.reachAt(p) || timerWins?.togglePinAt(p) || noteWins?.togglePinAt(p)) return; popout?.togglePin(); },
 });
 
 let busySent = '';
@@ -223,7 +227,7 @@ function watchBusyOnce(): void {
   if (overBubble && !copyHeld) copyHeld = globalShortcut.register('Control+C', () => bubble?.send('bubble:copy', null));
   else if (!overBubble && copyHeld) { globalShortcut.unregister('Control+C'); copyHeld = false; }
   // Ctrl+Alt+P pins or unpins whatever is under the mouse: a timer if one is there, otherwise the pop-out (sheet 17).
-  const popUp = Boolean(popout?.window?.isVisible()) || Boolean(timerWins?.any) || Boolean(noteWins?.any);
+  const popUp = Boolean(popout?.window?.isVisible()) || Boolean(timerWins?.any) || Boolean(noteWins?.any) || Boolean(family?.anyThrough);
   hotkeys.want('pin', popUp);
   if (snipper?.open) { escHeld = false; return; }
   // Not while the typing box is up: a global Esc would beat the box to it, and the box's own Esc closes the
@@ -793,7 +797,7 @@ app.whenReady().then(async () => {
       });
       jobPops.update(lastJobs, lastWaits);
       // The window family (2026-10-22): the video, notes, timers and job pop-outs snap together and move as one.
-      wireFamily({ origin: pages.origin, iconPath: AANG_ICON, popout, notes: noteWins, timers: timerWins, jobs: jobPops });
+      family = wireFamily({ origin: pages.origin, iconPath: AANG_ICON, popout, notes: noteWins, timers: timerWins, jobs: jobPops });
       input.window();
       const body = readJson(path.join(STATE_DIR, 'body.json')) as Record<string, unknown> | null;
       if (typeof body?.Mode === 'string') inputMode = body.Mode;
@@ -1183,6 +1187,7 @@ app.whenReady().then(async () => {
   });
   ipcMain.on('note:opacity', (e, n) => { noteWins?.setOpacity(e.sender, Number(n)); });
   ipcMain.on('note:pin', (e) => { const v = noteWins?.of(e.sender); if (v) noteWins!.setPinned(v.id, true); });
+  ipcMain.on('note:through', (e) => { noteWins?.toggleThrough(e.sender); });
   ipcMain.on('note:back', (e) => { const v = noteWins?.of(e.sender); if (v) noteWins!.back(v.id); });
   ipcMain.on('note:delete', (e) => { const v = noteWins?.of(e.sender); if (v) link?.send({ t: 'notes.delete', id: v.id }); });
   ipcMain.on('menu:pick', (e, id) => { if (aangMenu?.owns(e.sender)) aangMenu.picked(e.sender, id); });
@@ -1192,6 +1197,7 @@ app.whenReady().then(async () => {
   ipcMain.on('timer:clickable', (e, on) => { if (timerWins?.owns(e.sender)) timerWins.clickable(e.sender, on === true); });
   ipcMain.on('timer:opacity', (e, n) => { if (timerWins?.owns(e.sender)) timerWins.opacity(e.sender, Number(n)); });
   ipcMain.on('timer:pin', (e) => { if (timerWins?.owns(e.sender)) timerWins.pin(e.sender); });
+  ipcMain.on('timer:through', (e) => { if (timerWins?.owns(e.sender)) timerWins.toggleThrough(e.sender); });
   ipcMain.on('timer:drag', (e, a) => {
     if (!timerWins?.owns(e.sender) || !a || typeof a !== 'object') return;
     timerWins.drag(e.sender, String(a.phase ?? ''), Number(a.dx) || 0, Number(a.dy) || 0);

@@ -24,7 +24,7 @@ contextBridge.exposeInMainWorld('jobpop', {
 // joined sides, draws the gold rim while the group is pulled apart, and, while the window is joined or wiggling, turns a
 // right-click into the ONE family menu (his rule).
 (() => {
-  let st = { on: false, joined: false, wiggle: false, held: false, sides: [], card: null };
+  let st = { on: false, joined: false, wiggle: false, held: false, sides: [], square: [], through: false, pad: null, card: null };
   let cardEl = null, ro = null, mo = null, sent = '';
   // Its look (square joined sides, the gold rim) is put in by the main process (insertCSS: the pages' own rules forbid
   // a <style> from here).
@@ -54,6 +54,11 @@ contextBridge.exposeInMainWorld('jobpop', {
     const h = document.documentElement;
     if (!h) return;
     h.dataset.famJoin = (st.sides || []).join(' ');
+    h.dataset.famSq = (st.square || []).join(' ');
+    h.classList.toggle('fam-through', !!st.through);
+    // A window cut by a region (the video joined) grew by its resize borders: padded back to what shows.
+    const pd = st.pad;
+    h.style.padding = pd ? `${pd.t}px ${pd.r}px ${pd.b}px ${pd.l}px` : '';
     h.classList.toggle('fam-joined', !!st.joined);
     h.classList.toggle('fam-wiggle', !!st.wiggle);
     h.classList.toggle('fam-held', !!st.held);
@@ -61,7 +66,7 @@ contextBridge.exposeInMainWorld('jobpop', {
   };
   ipcRenderer.on('family:state', (_e, s) => {
     if (!s || typeof s !== 'object') return;
-    st = { on: true, joined: s.joined === true, wiggle: s.wiggle === true, held: s.held === true, sides: Array.isArray(s.sides) ? s.sides.filter((x) => ['left', 'right', 'above', 'below'].includes(x)) : [], card: typeof s.card === 'string' ? s.card : null };
+    st = { on: true, joined: s.joined === true, wiggle: s.wiggle === true, held: s.held === true, sides: Array.isArray(s.sides) ? s.sides.filter((x) => ['left', 'right', 'above', 'below'].includes(x)) : [], square: Array.isArray(s.square) ? s.square.filter((x) => ['tl', 'tr', 'br', 'bl'].includes(x)) : [], through: s.through === true, pad: s.pad && typeof s.pad === 'object' && ['t', 'r', 'b', 'l'].every((k) => Number.isFinite(s.pad[k]) && s.pad[k] >= 0 && s.pad[k] <= 40) ? { t: s.pad.t, r: s.pad.r, b: s.pad.b, l: s.pad.l } : null, card: typeof s.card === 'string' ? s.card : null };
     if (s.remeasure) sent = '';
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', paint, { once: true }); else paint();
   });
