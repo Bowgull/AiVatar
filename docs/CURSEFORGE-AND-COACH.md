@@ -255,3 +255,7 @@ Sources (web): [warcraft.wiki.gg LoggingCombat](https://warcraft.wiki.gg/wiki/AP
 [SeeMeta tier list](https://seemeta.com/en/wow-forever/tier-list),
 [wowarenalogs](https://github.com/wowarenalogs/wowarenalogs), [WoWAnalyzer](https://github.com/WoWAnalyzer/WoWAnalyzer),
 [forever-ref](https://github.com/alcaras/forever-ref).
+
+## His answers (2026-10-22)
+1. Yes: open CurseForge minimized each morning, WoW closed. 2. Delete raw logs after 7 days (Recycle Bin), keep summaries.
+3. Detect toons/specs from the log. 4. Aang copies the AangLog addon in himself, WoW closed, after his yes.
