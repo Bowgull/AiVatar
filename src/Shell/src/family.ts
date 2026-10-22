@@ -14,8 +14,11 @@ export type Side = 'right' | 'left' | 'below' | 'above';
 export type Align = 'start' | 'center' | 'end' | number;
 export interface Box { x: number; y: number; width: number; height: number }
 export interface Anchor { to: string; side: Side; align: Align }
-/** F4 hook (not built yet): the side it snaps to will pick a shape. Part 1 keeps every member in its own shape. */
-export type Shape = 'wide' | 'tall' | 'small';
+/**
+ * F4 (section 7): the side it snaps to picks its shape. 'free' = its own shape and size (alone, or nothing to fit to);
+ * 'tall' = a column beside a taller window; 'wide' = a strip above or below a wider one. 'small' is kept for later.
+ */
+export type Shape = 'free' | 'wide' | 'tall' | 'small';
 export interface Member {
   id: string;
   kind: string;
@@ -129,9 +132,10 @@ export function reroot(f: Fam, newRoot: string): Fam {
   return n;
 }
 
+/** By its OWN size (F4): a job reshaped into a long column never out-ranks the video it was fitted to. */
 export function biggest(f: Fam, ids: string[]): string {
   return [...ids].sort((a, b) => {
-    const A = f.get(a)!.box, B = f.get(b)!.box;
+    const A = f.get(a)!.own, B = f.get(b)!.own;
     return B.width * B.height - A.width * A.height || (a < b ? -1 : 1);
   })[0]!;
 }
@@ -418,8 +422,118 @@ export function rearranged(f: Fam, id: string, target: string, side: Side, gap =
   return arrange(insert(out, id, target, side, typeof al === 'number' ? 'start' : al), target, gap);
 }
 
-/** The size a member goes back to when it leaves (part 1 never changes it; F4's reshape will). */
+/** The size a member goes back to when it leaves: the one it had before it joined (his rule). */
 export const ownSize = (m: Member) => ({ width: m.own.width, height: m.own.height });
+
+// ------------------------------------------------------------------------------------------------ F4: reshape on snap
+
+/**
+ * What a member says about its shapes (section 7; Android widgets' "a few layouts that each cover a range"). A member with
+ * none (the video) never reshapes. Text never turns: the page re-flows (familywin sends it data-fam-shape + the size).
+ *   tall: beside a TALLER window it becomes a column as tall as that window. Width: `width`, else its own width capped by
+ *         `maxWidth` (a note just gets narrower). Only when that window is at least `minHeight` tall.
+ *   wide: above or below a WIDER window it becomes a strip as wide as that window. Height: a number, 'auto' (its page
+ *         decides, e.g. a job strip that unfolds), or absent = its own height.
+ *   aspect: keeps its own shape (a pinned snip): beside, as tall as the window and as wide as that makes it; above or
+ *         below, as wide and as tall as that makes it; never past `max`.
+ */
+export interface Layouts {
+  tall?: { width?: number; maxWidth?: number; minHeight?: number };
+  wide?: { height?: number | 'auto'; minWidth?: number };
+  aspect?: boolean;
+  max?: { width: number; height: number };
+}
+/** A shape and the panel size it asks for. Absent width/height: that side is the page's own business. */
+export interface Fit { shape: Shape; width?: number; height?: number }
+
+/**
+ * The shape for a member of own size `own`, sitting on `side` of a neighbour whose panel is `n`. Beside a taller window:
+ * tall; above or below a wider one: wide; anything else: its own shape and size.
+ */
+export function shapeFor(own: { width: number; height: number }, side: Side, n: Box, L?: Layouts): Fit {
+  const free: Fit = { shape: 'free', width: own.width, height: own.height };
+  if (!L) return free;
+  const cap = (w: number, h: number) => {
+    if (!L.max) return { width: r(w), height: r(h) };
+    const k = Math.min(1, L.max.width / Math.max(1, w), L.max.height / Math.max(1, h));
+    return { width: r(w * k), height: r(h * k) };
+  };
+  const ratio = own.width / Math.max(1, own.height);
+  if (horizontal(side)) {
+    if (n.height <= own.height) return free;
+    if (L.aspect) return { shape: 'tall', ...cap(n.height * ratio, n.height) };
+    if (!L.tall || n.height < (L.tall.minHeight ?? 0)) return free;
+    const width = L.tall.width ?? Math.min(own.width, L.tall.maxWidth ?? own.width);
+    return { shape: 'tall', width: r(width), height: r(L.max ? Math.min(L.max.height, n.height) : n.height) };
+  }
+  if (n.width <= own.width) return free;
+  if (L.aspect) return { shape: 'wide', ...cap(n.width, n.width / ratio) };
+  if (!L.wide || n.width < (L.wide.minWidth ?? 0)) return free;
+  const h = L.wide.height;
+  return { shape: 'wide', width: r(L.max ? Math.min(L.max.width, n.width) : n.width), ...(h === 'auto' ? {} : { height: r(typeof h === 'number' ? h : own.height) }) };
+}
+
+/**
+ * Every member's shape, worked out from the head of each group down (a child fits to its parent's NEW size, so a note
+ * beside a job column beside the video comes out as tall as both). The head keeps its own shape, unless the only thing it
+ * could fit to is a child that never reshapes (the video hanging under a job). A free-standing member: its own shape.
+ */
+export function fitShapes(f: Fam, layoutsOf: (m: Member) => Layouts | undefined): Map<string, Fit> {
+  const out = new Map<string, Fit>();
+  const sizeOf = (id: string) => { const m = f.get(id)!, t = out.get(id); return { ...m.box, width: t?.width ?? m.box.width, height: t?.height ?? m.box.height }; };
+  for (const g of groups(f)) {
+    const root = f.get(g[0]!)!;
+    const own: Fit = { shape: 'free', width: root.own.width, height: root.own.height };
+    let fit = own;
+    if (g.length > 1) {
+      const fixed = childrenOf(f, root.id).filter((c) => !layoutsOf(c));
+      if (fixed.length) fit = shapeFor(root.own, opposite(fixed[0]!.anchor!.side), fixed[0]!.box, layoutsOf(root));
+    }
+    out.set(root.id, layoutsOf(root) ? fit : { shape: 'free' });
+    for (const id of g.slice(1)) {
+      const m = f.get(id)!, L = layoutsOf(m);
+      if (!L) { out.set(id, { shape: 'free' }); continue; }
+      out.set(id, shapeFor(m.own, m.anchor!.side, sizeOf(m.anchor!.to), L));
+    }
+  }
+  return out;
+}
+
+/** The family with each member at the size its fit asks for (unasked sides as they are), re-placed from the heads. */
+export function applyFits(f: Fam, fits: Map<string, Fit>, gap = 0): Fam {
+  let n = clone(f);
+  for (const [id, t] of fits) {
+    const m = n.get(id);
+    if (!m) continue;
+    m.shape = t.shape;
+    m.box = { ...m.box, width: t.width ?? m.box.width, height: t.height ?? m.box.height };
+    // A column runs the full side of what it is fitted to, a strip the full width: lined up from the start.
+    if (t.shape !== 'free' && m.anchor) m.anchor = { ...m.anchor, align: 'start' };
+  }
+  // A head fitted to a child that never reshapes (the video hanging under a job): that child lines up from the start.
+  for (const g of groups(n)) {
+    const root = n.get(g[0]!)!;
+    if (g.length < 2 || !root.shape || root.shape === 'free') continue;
+    for (const c of childrenOf(n, root.id)) if (fits.get(c.id)?.width === undefined && fits.get(c.id)?.height === undefined) c.anchor = { ...c.anchor!, align: 'start' };
+  }
+  for (const g of groups(n)) if (g.length > 1) n = layoutFrom(n, g[0]!, gap);
+  return n;
+}
+
+/**
+ * The window has to move by this much so the whole group is on a screen: on the work area that holds most of the head,
+ * or the nearest one when the head is on a screen that is not there any more (a missing monitor). Never squashed.
+ */
+export function onScreen(boxes: Box[], areas: Box[], head?: Box): { dx: number; dy: number } {
+  if (!boxes.length || !areas.length) return { dx: 0, dy: 0 };
+  const L = Math.min(...boxes.map((b) => b.x)), T = Math.min(...boxes.map((b) => b.y));
+  const R = Math.max(...boxes.map((b) => b.x + b.width)), B = Math.max(...boxes.map((b) => b.y + b.height));
+  const h = head ?? boxes[0]!;
+  const share = (a: Box) => Math.max(0, overlap(h.x, h.x + h.width, a.x, a.x + a.width)) * Math.max(0, overlap(h.y, h.y + h.height, a.y, a.y + a.height));
+  const a = [...areas].sort((p, q) => share(q) - share(p) || distance(h, p) - distance(h, q))[0]!;
+  const fit = (lo: number, hi: number, alo: number, ahi: number) => (hi - lo > ahi - alo ? alo - lo : lo < alo ? alo - lo : hi > ahi ? ahi - hi : 0);
+  return { dx: r(fit(L, R, a.x, a.x + a.width)), dy: r(fit(T, B, a.y, a.y + a.height)) };
+}
 
 // ------------------------------------------------------------------------------------------------ motion
 

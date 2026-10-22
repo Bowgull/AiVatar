@@ -392,8 +392,8 @@ contextBridge.exposeInMainWorld('aang', {
 // panels, not the see-through room round them), squares the panel's joined sides, draws the gold rim while the group is
 // pulled apart, and, while the window is joined or wiggling, turns a right-click into the ONE family menu (his rule).
 (() => {
-  let st = { on: false, joined: false, wiggle: false, held: false, sides: [], square: [], through: false, pad: null, card: null };
-  let cardEl = null, ro = null, mo = null, sent = '';
+  let st = { on: false, joined: false, wiggle: false, held: false, sides: [], square: [], through: false, pad: null, card: null, shape: 'free', sized: null };
+  let cardEl = null, ro = null, mo = null, sent = '', shown = null;
   // Its look (square joined sides, the gold rim) is put in by the main process (insertCSS: the pages' own rules forbid
   // a <style> from here).
   const measure = () => {
@@ -430,11 +430,32 @@ contextBridge.exposeInMainWorld('aang', {
     h.classList.toggle('fam-joined', !!st.joined);
     h.classList.toggle('fam-wiggle', !!st.wiggle);
     h.classList.toggle('fam-held', !!st.held);
+    // F4 (part 2): its shape (tall beside a taller window, wide above or below a wider one) and the size its panel is held
+    // at. The page re-flows (never rotates) inside a view transition, so its named parts glide on the family's spring and
+    // the rest crossfades; a page that redraws listens for the plain 'famshape' event, fired inside the transition.
+    const key = st.shape + '|' + (st.sized ? st.sized.width + 'x' + (st.sized.height ?? '') : '');
+    if (key !== shown) {
+      const first = shown === null;
+      shown = key;
+      const set = () => {
+        if (st.shape !== 'free') h.dataset.famShape = st.shape; else delete h.dataset.famShape;
+        if (st.sized) {
+          h.dataset.famSized = '';
+          h.style.setProperty('--fam-w', st.sized.width + 'px');
+          if (st.sized.height !== undefined) h.style.setProperty('--fam-h', st.sized.height + 'px'); else h.style.removeProperty('--fam-h');
+        } else { delete h.dataset.famSized; h.style.removeProperty('--fam-w'); h.style.removeProperty('--fam-h'); }
+        try { window.dispatchEvent(new Event('famshape')); } catch { /* the page's own listener failed: its problem */ }
+      };
+      const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (!first && !still && typeof document.startViewTransition === 'function' && document.visibilityState === 'visible') {
+        try { document.startViewTransition(set); } catch { set(); }
+      } else set();
+    }
     measure();
   };
   ipcRenderer.on('family:state', (_e, s) => {
     if (!s || typeof s !== 'object') return;
-    st = { on: true, joined: s.joined === true, wiggle: s.wiggle === true, held: s.held === true, sides: Array.isArray(s.sides) ? s.sides.filter((x) => ['left', 'right', 'above', 'below'].includes(x)) : [], square: Array.isArray(s.square) ? s.square.filter((x) => ['tl', 'tr', 'br', 'bl'].includes(x)) : [], through: s.through === true, pad: s.pad && typeof s.pad === 'object' && ['t', 'r', 'b', 'l'].every((k) => Number.isFinite(s.pad[k]) && s.pad[k] >= 0 && s.pad[k] <= 40) ? { t: s.pad.t, r: s.pad.r, b: s.pad.b, l: s.pad.l } : null, card: typeof s.card === 'string' ? s.card : null };
+    st = { on: true, joined: s.joined === true, wiggle: s.wiggle === true, held: s.held === true, sides: Array.isArray(s.sides) ? s.sides.filter((x) => ['left', 'right', 'above', 'below'].includes(x)) : [], square: Array.isArray(s.square) ? s.square.filter((x) => ['tl', 'tr', 'br', 'bl'].includes(x)) : [], through: s.through === true, pad: s.pad && typeof s.pad === 'object' && ['t', 'r', 'b', 'l'].every((k) => Number.isFinite(s.pad[k]) && s.pad[k] >= 0 && s.pad[k] <= 40) ? { t: s.pad.t, r: s.pad.r, b: s.pad.b, l: s.pad.l } : null, card: typeof s.card === 'string' ? s.card : null, shape: s.shape === 'tall' || s.shape === 'wide' ? s.shape : 'free', sized: s.sized && typeof s.sized === 'object' && Number.isFinite(s.sized.width) && s.sized.width > 0 && s.sized.width < 10000 ? { width: Math.round(s.sized.width), ...(Number.isFinite(s.sized.height) && s.sized.height > 0 && s.sized.height < 10000 ? { height: Math.round(s.sized.height) } : {}) } : null };
     if (s.remeasure) sent = '';
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', paint, { once: true }); else paint();
   });
