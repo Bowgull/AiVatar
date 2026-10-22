@@ -83,6 +83,15 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
 #bubble.widest{width:556px}
 #bubble.scrollback{width:556px}
 #bubble[hidden]{display:none}
+/* Comic lettering (2026-10-22, docs/POPOUTS-NOTES-RESEARCH.md section 1; bubble.js letterWhole). A whole message's
+   balloon hugs its balanced lines (--tightw, measured once before anything shows); a short plain one is centred on
+   22 px lines, the way a letterer sets a balloon. A stressed word is bold italic, never just heavier. */
+#bubble.tight:not(.cockpit):not(.whisper):not(.scrollback):not(.lantern){width:var(--tightw)}
+#bubble.comic:not(.cockpit) .said{text-align:center;line-height:22px}
+#bubble.comic:not(.cockpit) .who{text-align:center}
+#bubble.comic:not(.cockpit) .speaker{justify-content:center}
+.said.bal{text-wrap-style:balance}
+.said.pretty{text-wrap-style:pretty}
 
 /* Sheet 2's `.who`, value for value. Was 10px with .5px tracking and a forced uppercase until a diff
    against the sheet found it; the sheet uses 9.5px, 1px tracking and opacity rather than a colour, and
@@ -163,7 +172,7 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
 .said .r-row:first-child .cell,.said :not(.r-row)+.r-row .cell{font-weight:700}
 .said .r-hr{height:6px;margin:10px 0;border-radius:3px;border-top:2px solid var(--outline);border-bottom:2px solid var(--outline);
   background:linear-gradient(180deg,var(--gold-deep) 0 3px,var(--gold-lit) 3px 6px)}
-.said b{font-weight:700;color:#1d140a}
+.said b{font-weight:700;font-style:italic;color:#1d140a}
 .said code{font:600 13px ui-monospace,Consolas,monospace;background:rgba(0,0,0,.08);padding:1px 5px;border-radius:4px}
 /* present_list rows */
 .rlist{margin:10px 0 0}

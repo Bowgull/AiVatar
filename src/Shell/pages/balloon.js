@@ -182,6 +182,12 @@ export const PAD_R = 70, PAD_B = 46;
 /** Where to aim when the Shell has not said yet: just past the corner, which is where he usually is. */
 /** Where to aim before the Shell has said: just off the right edge, level with the middle. */
 export const DEFAULT_AIM = { x: 40, y: 0, flip: false };
+/**
+ * 2026-10-22, comic lettering (docs/POPOUTS-NOTES-RESEARCH.md section 1): the tail aims at his MOUTH, not his head's
+ * centre. The Shell sends the head (frame 112, 96); his mouth is 26 px below it on every idle frame (idle_0.png: the
+ * mouth line runs x 109..117 at y 122), times the pet's scale. The reach stays REACH (0.75, his 2026-10-12 call).
+ */
+export const MOUTH_FROM_HEAD = { x: 0, y: 26 };
 
 /**
  * The third width.

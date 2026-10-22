@@ -4,7 +4,7 @@
 // is tested. This file is the part that needs a screen: measuring real lines of real text, and the
 // clicks.
 import { Reveal, WORD_MS, hasMore, linesShown, scrolls, summaryOf, streamSummaryOf } from './reveal.js';
-import { balloonPath, paintBalloon, PAD_R, PAD_B, DEFAULT_AIM, WIDEST_AFTER_LINES, RIM_G, rimReady } from './balloon.js';
+import { balloonPath, paintBalloon, PAD_R, PAD_B, DEFAULT_AIM, WIDEST_AFTER_LINES, RIM_G, rimReady, MOUTH_FROM_HEAD } from './balloon.js';
 import { HOLD_MS, askFrom } from './asks.js';
 import { blocks, shownWords } from './rich.js';
 import { find as findEntities } from './entities.js';
@@ -81,12 +81,18 @@ const claudeHolds = () => Boolean(claude?.waiting() && !quiet && !petHidden);
 /** How many lines the text actually takes, measured rather than estimated. */
 function lineCount() {
   if (!said.textContent) return 0;
+  // 2026-10-22: the comic look sets 22 px lines on short centred bubbles, so the real line height is read each time.
+  const lh = parseFloat(getComputedStyle(said).lineHeight);
+  if (Number.isFinite(lh) && lh > 0) lineHeight = lh;
   // scrollHeight is the full height whatever the box is clipped to, so this is right even collapsed.
   return Math.max(1, Math.round(said.scrollHeight / lineHeight));
 }
 
 /** Clip the text to the right number of lines and decide whether the arrow belongs. */
 function fit() {
+  // Comic lettering belongs to the message it was worked out for: anything else shown here (a question, a card, the
+  // brief) starts plain.
+  if (letterGen !== reveal.gen) clearLettering();
   const total = lineCount();
   // A summarised answer shows all of whatever is laid out (the short version, or everything), and its
   // key is always there: Show more, then Show less.
@@ -124,8 +130,8 @@ let lastShape = '', shapeId = 0;
 let aim = { ...DEFAULT_AIM };
 window.aang?.onAim?.((a) => {
   if (!a || typeof a.x !== 'number' || typeof a.y !== 'number') return;
-  const next = { x: a.x, y: a.y, flip: a.flip === true };
-  if (next.x === aim.x && next.y === aim.y && next.flip === aim.flip) return;
+  const next = { x: a.x, y: a.y, flip: a.flip === true, s: Number(a.s) > 0 ? Number(a.s) : 1 };
+  if (next.x === aim.x && next.y === aim.y && next.flip === aim.flip && next.s === aim.s) return;
   aim = next;
   lastShape = '';                                   // he moved, so the shape has to be redrawn
   const r = bubble.getBoundingClientRect();
@@ -139,8 +145,9 @@ function paintSkin(w, h) {
   if (bubble.hidden || w < 20 || h < 20) { skin.innerHTML = ''; lastShape = ''; return; }
   // His head in the balloon's own coordinates. `aim` is in page coordinates, so the balloon's own
   // top-left is subtracted. balloonPath does the rest: which edge, where on it, and how long.
-  const box = bubble.getBoundingClientRect();
-  const head = { x: aim.x - box.left, y: aim.y - box.top };
+  // 2026-10-22: aimed at his mouth (balloon.js MOUTH_FROM_HEAD), the comic rule; the Shell sends his head and its scale.
+  const box = bubble.getBoundingClientRect(), s = aim.s || 1;
+  const head = { x: aim.x + MOUTH_FROM_HEAD.x * s - box.left, y: aim.y + MOUTH_FROM_HEAD.y * s - box.top };
   const wood = bubble.classList.contains('lantern');
   const key = `${Math.round(w)}x${Math.round(h)}:${Math.round(head.x)},${Math.round(head.y)}:${aim.flip}:${wood}`;
   if (key === lastShape) return;
@@ -224,7 +231,10 @@ function growTo(w, h, done) {
   // small change (a few dozen pixels, the bubble already up) glides 300 ms on Samara's ease with no overshoot.
   // 2026-10-21: and a change of WIDTH while the bubble is up (a new exchange at another width) glides the same way, so
   // it never reads as a snap; the window keeps the wider of the two until it lands.
-  const small = from.w > 0 && from.h > 0 && w > 0 && ((Math.abs(w - from.w) <= 48 && Math.abs(h - from.h) <= 48) || w !== from.w);
+  // 2026-10-22 (comic lettering, the research's motion rule): a reply growing by whole lines as its words arrive grows
+  // on the 520 ms spring, height only, the width already fixed; it no longer glides like the small changes do.
+  const lineStep = !cockpit && w === from.w && h > from.h && from.h > 0 && (reveal.streaming || reveal.revealing);
+  const small = !lineStep && from.w > 0 && from.h > 0 && w > 0 && ((Math.abs(w - from.w) <= 48 && Math.abs(h - from.h) <= 48) || w !== from.w);
   const ms = reduceMotion ? 0 : small ? 300 : (bigger ? 520 : 340), fn = small ? samaraEase : bigger ? ease.open : ease.close;
   const cs = getComputedStyle(bubble);
   if (w > 0) bubble.style.setProperty('--cw', Math.max(0, w - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)) + 'px');
@@ -351,6 +361,8 @@ let laidOut = '', words = [];
  * where it was (a negative animation delay) instead of starting over or popping.
  */
 let laid = [], wordAt = [], wordsGen = -1, lit = 0;
+/** Word indexes a line he has read ends on, kept as hard breaks for this reply (widenAtThird). */
+const hardBreaks = new Set();
 const FADE_MS = 280;
 function fadeFrom(s, age) {
   if (age >= FADE_MS) return;
@@ -368,6 +380,9 @@ function layOut(visible) {
   for (const b of laid.splice(keep)) b.el.remove();
   words = laid.flatMap((b) => b.words);
   const now = performance.now();
+  // 2026-10-22: a line he has already read keeps its words when the bubble widens at the third line (widenAtThird):
+  // its end becomes a hard break, and the space after it goes.
+  let broke = false;
   // 6.11: the reply's own light formatting, as blocks (rich.js). Every element is built here with
   // textContent; the reply's text never becomes markup.
   for (let k = keep; k < bl.length; k++) {
@@ -375,14 +390,16 @@ function layOut(visible) {
     const wordsInto = (host, text) => {
       for (const part of text.split(/(\s+)/)) {
         if (!part) continue;
-        if (/^\s+$/.test(part)) { host.append(' '); continue; }
+        if (/^\s+$/.test(part)) { if (broke) broke = false; else host.append(' '); continue; }
+        broke = false;
         const sp = document.createElement('span');
-        const at = wordAt[words.length + ws.length];
+        const idx = words.length + ws.length, at = wordAt[idx];
         sp.className = at === undefined ? 'w o' : 'w';
         if (at !== undefined) fadeFrom(sp, now - at);
         sp.textContent = part;
         host.append(sp);
         ws.push(sp);
+        if (hardBreaks.has(idx)) { host.append(document.createElement('br')); broke = true; }
       }
     };
     const runsInto = (host, rs) => {
@@ -409,9 +426,13 @@ function paintWords() {
   const short = expanded ? null : shortOf();
   const visible = short ?? reveal.whole;
   // A new message (or the same one started over) is laid out from scratch: nothing of the last one stays lit.
-  if (wordsGen !== reveal.gen) { wordsGen = reveal.gen; wordAt = []; laid = []; laidOut = null; }
+  if (wordsGen !== reveal.gen) { wordsGen = reveal.gen; wordAt = []; laid = []; laidOut = null; hardBreaks.clear(); }
   let relaid = false;
   if (laidOut !== visible) { laidOut = visible; layOut(visible); relaid = true; }
+  // 2026-10-22: a narrow streamed reply widens only when its THIRD line arrives, before a word of that line lights, and
+  // the two lines above keep exactly the words they had.
+  if (relaid && reveal.streaming && lockGen === reveal.gen && !expanded && !cockpit && !bubble.classList.contains('wide')
+      && !bubble.classList.contains('whisper') && lineCount() > 2) widenAtThird(visible);
   const n = reveal.done ? words.length : Math.min(words.length, shownWords(reveal.text));
   const now = performance.now();
   for (; lit < n; lit++) {
@@ -512,13 +533,16 @@ function lockWidth() {
   if (holdGen === reveal.gen) {
     lockGen = reveal.gen;
     const cl = bubble.classList;
-    if (!cl.contains('wide') && linesIf(false, false) > 1) cl.add('wide');
+    // 2026-10-22 (comic lettering): two lines stay narrow and balanced; only a third line widens it.
+    if (!cl.contains('wide') && linesIf(false, false) > 2) cl.add('wide');
     if (!reveal.streaming && cl.contains('wide') && !cl.contains('widest') && linesIf(true, false) > WIDEST_AFTER_LINES) cl.add('widest');
+    // A whole answer (every word known before the first lights) is balanced inside the width it was asked in.
+    if (!reveal.streaming) { letterGen = reveal.gen; clearLettering(); said.classList.add(linesIf(cl.contains('wide'), cl.contains('widest')) <= 6 ? 'bal' : 'pretty'); }
     return true;
   }
   if (!reveal.streaming) return false;
   lockGen = reveal.gen;
-  const wide = liveWho !== 'Quick' || linesIf(false, false) > 1;
+  const wide = liveWho !== 'Quick' || linesIf(false, false) > 2;
   bubble.classList.toggle('wide', wide);
   bubble.classList.toggle('widest', wide && linesIf(true, false) > WIDEST_AFTER_LINES);
   return true;
@@ -533,7 +557,7 @@ function settleWidth() {
 
 function paint() {
   paintWords();
-  if (!lockWidth()) widen();
+  if (!lockWidth()) letterWhole();
   // No Copy key on the bubble any more: it came up on every reply and was too big (his call, 2026-10-12).
   // Copying is the right-click menu's Copy text, or Ctrl+C with the mouse on the bubble.
   tools.hidden = true;
@@ -557,6 +581,86 @@ function widen() {
   // makes it flip between two sizes and settle on the wrong one.
   if (bubble.classList.contains('wide') && !bubble.classList.contains('widest')
       && lineCount() > WIDEST_AFTER_LINES) bubble.classList.add('widest');
+}
+
+// ---------------------------------------------------------------- comic lettering (2026-10-22)
+// docs/POPOUTS-NOTES-RESEARCH.md section 1, "Rules to adopt". The words come first and the balloon is drawn round them:
+//   - a WHOLE message (every word known before the first lights) picks its width by length before anything shows
+//     (up to 90 characters 256, up to 300 416, past that 556), breaks its lines balanced (6 lines or fewer; past that
+//     `pretty`, no lone last word), and the balloon then hugs its longest real line, never under 96;
+//   - a short plain one (3 lines or fewer, no list, rows or cards) is centred, on 22 px lines, the comic look;
+//   - a STREAMED reply keeps plain greedy wrapping (new words only ever change the last line) and its width from the
+//     lane, widening only when its third line arrives (widenAtThird), so a line he has read never rewraps.
+let letterGen = -1;
+function clearLettering() {
+  bubble.classList.remove('comic', 'tight');
+  bubble.style.removeProperty('--tightw');
+  said.classList.remove('bal', 'pretty');
+}
+/** The text's real lines as laid out now: which words each holds and how wide it is. */
+function lineBoxes() {
+  const out = [];
+  words.forEach((sp, i) => {
+    const q = sp.getClientRects()[0];
+    if (!q) return;
+    const l = out.at(-1);
+    if (l && Math.abs(q.top - l.top) < 3) { l.left = Math.min(l.left, q.left); l.right = Math.max(l.right, q.right); l.last = i; }
+    else out.push({ top: q.top, left: q.left, right: q.right, first: i, last: i });
+  });
+  return out;
+}
+/** How wide the bubble has to be for everything in it except the words (his question, Claude's name, a face). */
+function othersWidth() {
+  const hide = [scroller, more, el('chips'), el('rlist'), tools].filter(Boolean);
+  const keep = hide.map((e) => e.style.display);
+  hide.forEach((e) => { e.style.display = 'none'; });
+  const w = atWidth(bubble.classList.contains('wide'), bubble.classList.contains('widest'), () => {
+    const sw = bubble.style.width; bubble.style.width = 'max-content';
+    const r = bubble.getBoundingClientRect().width; bubble.style.width = sw; return r;
+  });
+  hide.forEach((e, i) => { e.style.display = keep[i]; });
+  return w;
+}
+function letterWhole() {
+  if (letterGen === reveal.gen) return;
+  letterGen = reveal.gen;
+  clearLettering();
+  const cl = bubble.classList;
+  // Not a spoken line: the whisper keeps its own size, and the jobs, a plan or a question keep theirs.
+  if (cockpit || cl.contains('whisper') || jobsOpen || livePlan || asking || !said.textContent.trim()) { widen(); return; }
+  const chars = said.textContent.replace(/\s+/g, ' ').trim().length;
+  cl.remove('wide', 'widest');
+  if (chars > 300) cl.add('wide', 'widest'); else if (chars > 90) cl.add('wide');
+  if (cl.contains('wide') && !cl.contains('widest') && linesIf(true, false) > WIDEST_AFTER_LINES) cl.add('widest');
+  const W = cl.contains('wide'), WW = cl.contains('widest');
+  const lines = linesIf(W, WW);
+  said.classList.add(lines <= 6 ? 'bal' : 'pretty');
+  const plain = [...said.children].every((c) => c.classList.contains('r-p'));
+  const rich = !plain || replyList || shortOf() !== null || findEntities(reveal.whole).some((c) => c.kind !== 'link');
+  if (rich || lines > 6) return;
+  if (lines <= 3) cl.add('comic');
+  // The balloon hugs the balanced lines: balance makes them shorter, the box does not follow by itself.
+  const longest = atWidth(W, WW, () => Math.max(0, ...lineBoxes().map((l) => l.right - l.left)));
+  const cs = getComputedStyle(bubble);
+  const pad = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) + parseFloat(cs.borderLeftWidth) + parseFloat(cs.borderRightWidth);
+  const band = atWidth(W, WW, () => bubble.getBoundingClientRect().width);
+  const want = Math.ceil(Math.max(96, longest + pad + 2, othersWidth()));
+  if (want >= band - 1) return;
+  bubble.style.setProperty('--tightw', want + 'px');
+  cl.add('tight');
+  // Rounding must never cost a line: if it would, the band's width stays.
+  if (linesIf(W, WW) !== lines) { cl.remove('tight'); bubble.style.removeProperty('--tightw'); }
+}
+/** A narrow streamed reply reached its third line: the lines above it keep their words, and the bubble widens. */
+function widenAtThird(visible) {
+  const ls = lineBoxes();
+  const blockOf = (sp) => sp?.closest('#said > *');
+  for (const l of ls.slice(0, 2)) {
+    const end = words[l.last], next = words[l.last + 1];
+    if (next && blockOf(end) === blockOf(next)) hardBreaks.add(l.last);
+  }
+  laid = []; layOut(visible);
+  bubble.classList.add('wide');
 }
 
 /**
