@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>job pop-out</title>
+<!-- Sheet 59 family picture: one Claude job popped out, folded, as the product draws it: cockpit.css + jobpop.css, the
+     markup jobpop.js card() builds, the product's own pill bar (claudejobs.js pill) and the job pop-out's pin. -->
+<link rel="stylesheet" href="../../../src/Shell/pages/cockpit.css">
+<link rel="stylesheet" href="../../../src/Shell/pages/jobpop.css">
+</head>
+<body>
+<div class="pw" id="pw"></div>
+<script type="module">
+  import { pill, SEA } from '../../../src/Shell/pages/claudejobs.js';
+  import { pin } from './pix.js';
+  const h = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x !== undefined) e.textContent = x; return e; };
+  const pj = h('div', 'pj'), top = h('div', 'top');
+  const img = document.createElement('img'); img.className = 'ci'; img.src = '../../../src/Shell/pages/art/claude-icon.png';
+  const pbw = h('span', 'pbw'); pbw.append(pill(60, 9, 2, [0.2, 0.4, 0.6, 0.8, 1], 0.48, -1, SEA, false));
+  const pb = h('button', 'pin'); pb.append(pin(false));
+  top.append(img, h('b', 'pr', 'Waymark'), pbw, h('span', 'pct', '48%'), h('span', 'lt', '7 min'), pb);
+  pj.append(top); document.getElementById('pw').append(pj);
+</script>
+</body>
+</html>

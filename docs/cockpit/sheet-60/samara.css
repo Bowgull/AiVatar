@@ -1,0 +1,18 @@
+html,body{margin:0;width:100%;height:100%;overflow:hidden}
+.art{padding:34px 48px 0 56px;font:500 16px/1.65 Georgia,serif;color:#2a2622;max-width:560px}
+.art .site{font:700 12px Figtree,sans-serif;letter-spacing:1.5px;color:#8a7a62;text-transform:uppercase;margin-bottom:8px}
+.art h1{font:800 30px/1.2 Figtree,sans-serif;margin:0 0 14px;color:#1d1a17}
+.art p{margin:0 0 14px}
+.art mark{background:rgba(120,170,255,.38);color:inherit;padding:1px 0}
+.clipchip{position:absolute;z-index:6;display:inline-flex;align-items:center;gap:8px;font:800 13px Figtree,sans-serif;color:#fff;background:#4A2C6E;padding:7px 12px 7px 9px;border-radius:9px;box-shadow:0 0 0 2px #120a05,0 4px 0 #120a05,0 8px 16px rgba(0,0,0,.35)}
+.clipchip small{font:400 9px Silkscreen,monospace;letter-spacing:1px;color:#d9c2ff}
+.panel{position:absolute;z-index:5}
+.panel .ph{display:flex;align-items:center;gap:10px}
+.panel .pt{font:800 17px Figtree,sans-serif;color:#2E2216}
+.panel .pt.w{color:#f1e3c4;text-shadow:0 2px 0 rgba(0,0,0,.6)}
+.panel .pt.c{font:700 16px Cinzel,Georgia,serif;letter-spacing:1px}
+.quote{font:500 13.5px/1.45 Figtree,sans-serif;color:#2E2216;border-left:4px solid rgba(74,44,110,.45);padding:2px 0 2px 10px;margin:4px 0 8px}
+.from{font:400 8px Silkscreen,monospace;letter-spacing:1px;color:#8a6a3e}
+.from b{color:#4A2C6E;font-weight:400}
+.sec6{font:400 9px Silkscreen,monospace;letter-spacing:1.5px;color:#8a6a3e}
+.sec6.d{color:#bfae8a}

@@ -1,0 +1,38 @@
+/* Sheet 59 stage: a dark desktop, Aang, and the three player looks. Placing and words only; every surface is pixels. */
+@font-face{font-family:"VT323";src:url("../../../src/Shell/pages/fonts/notes/VT323.ttf") format("truetype");font-display:block}
+html,body{margin:0;width:1600px;height:1000px;overflow:hidden;background:#191b24 !important}
+body{display:block !important;padding:0 !important;height:1000px !important}
+.desk{position:fixed;inset:0;background:radial-gradient(900px 500px at 85% 5%, rgba(80,96,140,.30), transparent 60%),
+  radial-gradient(700px 500px at 5% 100%, rgba(120,70,110,.22), transparent 60%),linear-gradient(180deg,#1c1f2b,#151720)}
+.stg{position:absolute;image-rendering:pixelated}
+.aang{width:224px;height:224px}
+.dtag{position:absolute;font:400 9px Silkscreen,monospace;letter-spacing:1.5px;color:#8d93a8;white-space:nowrap}
+.dtag b{color:#c9cee0;font-weight:400}
+
+/* ---- a player: a box the size of its pixel body; the body canvas under, the parts over it ---- */
+.pl{position:absolute;isolation:isolate}
+.pl > canvas.body{position:absolute;left:0;top:0;z-index:0}
+.pl .at{position:absolute;z-index:2}
+.pl canvas{image-rendering:pixelated}
+
+/* the LCD's words (look A): amber phosphor on dark wood glass */
+.lcd{position:absolute;z-index:2;overflow:hidden;font-family:VT323,monospace;color:#ffc43c;text-shadow:0 0 6px rgba(255,170,50,.45)}
+.lcd .time{position:absolute;font-size:36px;line-height:1;letter-spacing:1px;color:#ffd36a}
+.lcd .scroll{position:absolute;white-space:nowrap;font-size:22px;line-height:1}
+.lcd .sub{position:absolute;white-space:nowrap;font-size:18px;line-height:1;color:#c98a2e;text-shadow:0 0 5px rgba(201,138,46,.35)}
+.lcd .tags{position:absolute;white-space:nowrap;font:400 8px Silkscreen,monospace;letter-spacing:1.5px;color:#9a6a26;text-shadow:none}
+.lcd .tags i{font-style:normal;color:#ffc43c}
+.lcd .scan{position:absolute;inset:0;background:repeating-linear-gradient(180deg,rgba(0,0,0,0) 0 2px,rgba(0,0,0,.18) 2px 4px);pointer-events:none}
+
+/* parchment words (looks B and C): the bubble's own type */
+.ttl{position:absolute;z-index:2;font:800 16px Figtree,sans-serif;color:#2E2216;white-space:nowrap;overflow:hidden;letter-spacing:.1px}
+.art2{position:absolute;z-index:2;font:600 13px Figtree,sans-serif;color:#5A4834;white-space:nowrap;overflow:hidden}
+.tm{position:absolute;z-index:2;font:400 9px Silkscreen,monospace;letter-spacing:.5px;color:#5A4834}
+.tm.d{color:#c9a46a}
+.lab{position:absolute;z-index:2;font:400 8px Silkscreen,monospace;letter-spacing:1.5px;color:#8a6a3e}
+.lab.d{color:#bfae8a}
+.fade{-webkit-mask-image:linear-gradient(90deg,#000 85%,transparent)}
+
+/* the family picture: the product's own pop-outs, each in its own frame */
+iframe.prod{position:absolute;border:0;background:transparent;overflow:hidden}
+.seam{position:absolute;z-index:5;background:rgba(255,206,120,.55);box-shadow:0 0 6px rgba(255,180,80,.6);border-radius:2px}

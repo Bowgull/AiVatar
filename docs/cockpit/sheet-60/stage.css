@@ -1,0 +1,25 @@
+/* Sheet 60 stage: the board, the quick-capture box, the game behind it. */
+.win{position:absolute;isolation:isolate}
+.win > canvas.body{position:absolute;left:0;top:0;z-index:0}
+.bt{font:800 20px Figtree,sans-serif;color:#2E2216}
+.bt.c{font:700 19px Cinzel,Georgia,serif;letter-spacing:1px;color:#ffc43c;text-shadow:0 2px 0 #120a05}
+.bt.w{color:#f1e3c4;text-shadow:0 2px 0 rgba(0,0,0,.6)}
+.search{display:flex;align-items:center;gap:8px;box-sizing:border-box;height:34px;padding:0 12px;border-radius:9px;font:500 14px Figtree,sans-serif;color:#7a6448;
+  background:rgba(255,255,255,.45);box-shadow:inset 0 2px 0 rgba(90,60,25,.25),0 0 0 2px rgba(90,60,25,.35)}
+.search.dark{background:#1a0f09;color:#bfae8a;box-shadow:inset 0 2px 0 rgba(0,0,0,.6),0 0 0 2px #4a2e18}
+.search b{font-weight:700;color:#2E2216}.search.dark b{color:#f1e3c4}
+.chips{display:flex;gap:7px;flex-wrap:wrap}
+.chip2{display:inline-flex;align-items:center;gap:6px;font:700 12.5px Figtree,sans-serif;color:#4a3a28;padding:5px 10px;border-radius:8px;background:rgba(255,255,255,.4);box-shadow:0 0 0 2px rgba(90,60,25,.3)}
+.chip2 i{width:8px;height:8px;border-radius:2px;box-shadow:0 0 0 2px rgba(42,26,16,.5)}
+.chip2.on{background:#4A2C6E;color:#fff;box-shadow:0 0 0 2px #2C1848}
+.chip2.dark{background:rgba(20,12,6,.6);color:#e8dcc4;box-shadow:0 0 0 2px #4a2e18}
+.chip2.dark.on{background:#4A2C6E;color:#fff;box-shadow:0 0 0 2px #966EC8}
+.sec{font:400 9px Silkscreen,monospace;letter-spacing:1.5px;color:#8a6a3e}
+.sec.d{color:#bfae8a}
+.newkey{font:800 13px Figtree,sans-serif;color:#2a1c00;background:linear-gradient(180deg,#ffd76a,#e9a92c);padding:7px 12px;border-radius:8px;box-shadow:0 0 0 2px #120a05,0 3px 0 #120a05}
+.cap{font:600 16px/1.4 Figtree,sans-serif;color:#2E2216;white-space:nowrap}
+.cap .caret{display:inline-block;width:2px;height:18px;background:#4A2C6E;vertical-align:-3px;margin-left:1px}
+.hintline{font:400 8px Silkscreen,monospace;letter-spacing:1px;color:#8a6a3e;white-space:nowrap}
+.hintline b{color:#4A2C6E;font-weight:400}
+.game{position:absolute;left:0;top:0;z-index:0}
+.gamehud{position:absolute;z-index:1}

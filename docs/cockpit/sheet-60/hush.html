@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheet 60 hush stage</title>
+<!-- Sheet 60 (2026-10-22): Aang's real right-click menu (cockpit.css + browser.css + aangmenu.css and aangmenu.js itself, fed a
+     "show" the way main.ts does, window.aang stubbed), its real Hush submenu opened by a click, and one "Your notes"
+     group added in the menu's own markup (hush.js). A picture maker. -->
+<link rel="stylesheet" href="../../../src/Shell/pages/cockpit.css">
+<link rel="stylesheet" href="../../../src/Shell/pages/browser.css">
+<link rel="stylesheet" href="../../../src/Shell/pages/aangmenu.css">
+<link rel="stylesheet" href="../sheet-61/stage.css">
+<script>
+  // what main.ts's preload gives the real menu; here it only remembers the page's "show me" handler
+  window.aang = { onMenu: (cb) => { window.__menu = cb; }, menuShape: () => {}, menuPick: () => {} };
+</script>
+</head>
+<body>
+<script type="module" src="../../../src/Shell/pages/aangmenu.js"></script>
+<script type="module" src="../sheet-60/hush.js"></script>
+</body>
+</html>

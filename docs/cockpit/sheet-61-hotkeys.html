@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sheet 61 - Hotkeys in Aang's menu</title>
+<!-- Sheet 61 (2026-10-22). His interview: a Hotkeys section in Aang's right-click menu listing every shortcut, to see
+     and change them. The menu is the REAL page (aangmenu.css + aangmenu.js, fed a show as main.ts does); the Hotkeys row
+     and its submenu are added in the menu's own markup (sheet-61/stage.js). Shortcuts found in src/Shell/src/main.ts,
+     hotkey.ts and src/Body/PetWindow.cs. Mockup only. -->
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<link rel="stylesheet" href="sheet-55/sheet55.css">
+<style>
+  .take .shot img{max-width:100%;height:auto}
+  .meaning{display:grid;grid-template-columns:220px 1fr;gap:8px 18px;max-width:1150px;margin:6px 0 0}
+  .meaning b{font:800 16px Figtree,sans-serif;color:#fffaf0}
+  .meaning span{font:500 15.5px/1.5 Figtree,sans-serif;color:#d8cab0}
+</style>
+</head>
+<body>
+<h1>SHEET 61 &middot; HOTKEYS IN AANG'S MENU</h1>
+<p class="lead">Right-click Aang, point at <b>Hotkeys</b>: every key he listens for, in one list. Click one to change it.</p>
+<p class="topick"><span>WHAT TO PICK</span> <em><b>Yes</b> as shown, or tell me what to move, rename or drop.</em></p>
+
+<div class="take">
+  <div class="lhead"><span class="L">1</span><span class="nm">The list</span></div>
+  <p class="cap1">Same wood menu you picked on sheet 56. Pointing at a row shows "click to change". Ctrl+C and Esc are greyed: they only work while his bubble is up.</p>
+  <div class="cell"><div class="lbl"><i>1</i>RIGHT-CLICKED, HOTKEYS OPEN, POINTING AT SNIP &middot; SHOWN 2&times;</div>
+    <div class="shot"><img src="sheet-61/open.png" width="1030" height="814" alt="Aang's menu with the Hotkeys submenu open"></div></div>
+</div>
+
+<div class="take">
+  <div class="lhead"><span class="L">2</span><span class="nm">Changing one</span></div>
+  <p class="cap1">Click the row, hold the new keys together, let go. Esc keeps the old ones.</p>
+  <div class="cell"><div class="lbl"><i>2</i>WAITING FOR NEW KEYS &middot; SHOWN 2&times;</div>
+    <div class="shot"><img src="sheet-61/change.png" width="1030" height="814" alt="A hotkey row waiting for new keys"></div></div>
+</div>
+
+<div class="take">
+  <div class="lhead"><span class="L">3</span><span class="nm">When the keys are taken</span></div>
+  <p class="cap1">If another program already holds them, the row goes red and says so, instead of quietly never working.</p>
+  <div class="cell"><div class="lbl"><i>3</i>CTRL + SHIFT + S IS TAKEN &middot; SHOWN 2&times;</div>
+    <div class="shot"><img src="sheet-61/taken.png" width="1030" height="814" alt="A hotkey row warning that the keys are taken"></div></div>
+</div>
+
+<h2><span class="n">?</span>EVERY KEY</h2>
+<div class="meaning">
+  <b>Ctrl + Plus</b><span>Talk to Aang (the typing box). The number pad + works too.</span>
+  <b>Ctrl + Shift + Plus</b><span>Snip.</span>
+  <b>Ctrl + Shift + V</b><span>Hide or show the video pop-out; the video keeps playing.</span>
+  <b>Ctrl + * <small style="color:#9fd8ff">NEW</small></b><span>Quick note (the number pad *, if nothing else has it).</span>
+  <b>Ctrl + Alt + P</b><span>Pin or unpin whatever pop-out is under the mouse. Only while one is up.</span>
+  <b>Ctrl + C</b><span>Copy his line, with the mouse on his bubble. Fixed.</span>
+  <b>Esc</b><span>Close his bubble while it is open. Never in a game. Fixed.</span>
+</div>
+
+<div class="note"><b>How these were made</b>
+<ul>
+<li>The menu is the app's real right-click menu page, its own styles and code. The Hotkeys row and list are added in the same building blocks, so they are exactly that size.</li>
+<li>The glove is the menu's own "pointed at" look, held on one row.</li>
+</ul></div>
+</body>
+</html>

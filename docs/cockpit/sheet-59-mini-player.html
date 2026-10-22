@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sheet 59 - Spotify mini player</title>
+<!-- Sheet 59 (2026-10-22). His interview (popouts-notes-spotify-interview): basics + seek + volume + an optional 90s
+     visualizer, two sizes (full and a thin Winamp shade, double-click to swap), looks mixing Winamp classic, Windows Media
+     Player 7-9 skins and a Walkman, inside his design language. The player is new, so it is drawn (sheet-59/stage.js,
+     hand-placed pixels at exactly 2x, Samara's wood art, the bubble's paper, the job pop-out's pin, the product's own
+     pill bar). The video pop-out and the job pop-out in section 4 are the product's own stylesheets. Mockup only. -->
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<link rel="stylesheet" href="sheet-55/sheet55.css">
+<style>
+  .take .shot img{max-width:100%;height:auto}
+  .two{display:flex;flex-wrap:wrap;gap:18px 26px;align-items:flex-start}
+  .meaning{display:grid;grid-template-columns:200px 1fr;gap:8px 18px;max-width:1150px;margin:6px 0 0}
+  .meaning b{font:800 16px Figtree,sans-serif;color:#fffaf0}
+  .meaning span{font:500 15.5px/1.5 Figtree,sans-serif;color:#d8cab0}
+</style>
+</head>
+<body>
+<h1>SHEET 59 &middot; SPOTIFY MINI PLAYER</h1>
+<p class="lead">A small 90s player on your desktop. Song, artist, cover, seek, play keys, volume, and a visualizer you can switch off. Double-click it to shrink it to a thin strip, like Winamp.</p>
+<div class="decided"><span>Opens from the wheel's Music slot, asking Aang, or his right-click menu</span><span>You sign in to Spotify yourself</span><span>Snaps to the other pop-outs</span><span>Shares their pin and see-through</span></div>
+<p class="topick"><span>WHAT TO PICK</span> <em><b>A</b> Winamp in wood (my pick), <b>B</b> Walkman on parchment, or <b>C</b> the curvy one.</em></p>
+
+<div class="take">
+  <div class="lhead"><span class="L">A</span><span class="nm">Winamp in wood</span><span class="pick">MY PICK</span></div>
+  <p class="cap1">Samara's dark wood with a glowing amber screen: big time, scrolling title, spectrum bars. Small, dense, easy to read over a game.</p>
+  <div class="two">
+    <div class="cell"><div class="lbl"><i>A</i>FULL &middot; SHOWN 2&times;</div><div class="shot"><img src="sheet-59/A-full.png" width="648" height="454" alt="Look A full size, visualizer on and off"></div></div>
+    <div class="cell"><div class="lbl"><i>A</i>SHADE &middot; SHOWN 2&times;</div><div class="shot"><img src="sheet-59/A-shade.png" width="608" height="200" alt="Look A shade strip"></div></div>
+  </div>
+</div>
+
+<div class="take">
+  <div class="lhead"><span class="L">B</span><span class="nm">Walkman on parchment</span></div>
+  <p class="cap1">His speech bubble's paper and slim wood rim. A cassette window with turning reels, two needle VU meters, chunky wood keys, a volume thumbwheel.</p>
+  <div class="two">
+    <div class="cell"><div class="lbl"><i>B</i>FULL &middot; SHOWN 2&times;</div><div class="shot"><img src="sheet-59/B-full.png" width="656" height="558" alt="Look B full size, visualizer on and off"></div></div>
+    <div class="cell"><div class="lbl"><i>B</i>SHADE &middot; SHOWN 2&times;</div><div class="shot"><img src="sheet-59/B-shade.png" width="608" height="200" alt="Look B shade strip"></div></div>
+  </div>
+</div>
+
+<div class="take">
+  <div class="lhead"><span class="L">C</span><span class="nm">The curvy one (Media Player skin)</span></div>
+  <p class="cap1">A rounded wood shape: the cover in a round porthole, the visualizer as bars around it, pebble keys and a turning volume knob.</p>
+  <div class="two">
+    <div class="cell"><div class="lbl"><i>C</i>FULL &middot; SHOWN 2&times;</div><div class="shot"><img src="sheet-59/C-full.png" width="664" height="474" alt="Look C full size, visualizer on and off"></div></div>
+    <div class="cell"><div class="lbl"><i>C</i>SHADE &middot; SHOWN 2&times;</div><div class="shot"><img src="sheet-59/C-shade.png" width="608" height="200" alt="Look C shade strip"></div></div>
+  </div>
+</div>
+
+<h2><span class="n">4</span>THE POP-OUT FAMILY</h2>
+<p>Look A snapped under the video pop-out, with a Claude job snapped to its side. They drag as one; pull one hard to unsnap it.</p>
+<div class="cell"><div class="lbl"><i>&#10022;</i>SNAPPED TOGETHER &middot; VIDEO AND JOB ARE THE REAL POP-OUTS &middot; SHOWN 2&times;</div>
+  <div class="shot"><img src="sheet-59/family.png" width="1000" height="470" alt="Player snapped below the video pop-out with a job pop-out beside it"></div></div>
+
+<h2><span class="n">?</span>WHAT EACH PART DOES</h2>
+<div class="meaning">
+  <b>Pin</b><span>The same pin as the job pop-out. Pin one pop-out and they all stay on top. Hover by it for the see-through slider; every pop-out follows.</span>
+  <b>Shade</b><span>Double-click anywhere (or the small bar key) for the thin strip: scrolling title, play/pause, a progress line. Double-click again to come back.</span>
+  <b>Visualizer</b><span>The VIS / VU key. Off by default if you prefer it calm; it remembers.</span>
+  <b>Seek and volume</b><span>Drag the gold bar to jump; the volume is Spotify's own.</span>
+  <b>Where the song comes from</b><span>Spotify's official sign-in, plus Windows' "now playing" so it shows the song even before you sign in.</span>
+</div>
+
+<div class="note"><b>How these were made</b>
+<ul>
+<li>The player is new, so it is drawn: every wood, paper, key and icon pixel placed by hand at exactly 2&times;, using Samara's own wood pictures and the bubble's paper colours.</li>
+<li>The seek bar is the app's own progress bar in gold. The pin is the job pop-out's pin.</li>
+<li>In section 4 the video pop-out and the Claude job are drawn by the app's own styles. The cover art is a made-up pixel painting.</li>
+</ul></div>
+</body>
+</html>

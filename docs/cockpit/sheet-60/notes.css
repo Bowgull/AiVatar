@@ -1,0 +1,46 @@
+/* Sheet 60: the notes' words and small parts, per look. Surfaces are pixels (notes.js); this is type and placing. */
+@font-face{font-family:"Patrick Hand";src:url("../../../src/Shell/pages/fonts/notes/PatrickHand.ttf") format("truetype");font-display:block}
+.note{position:absolute;isolation:isolate}
+.note > canvas.paper{position:absolute;left:0;top:0;z-index:0}
+.note canvas{image-rendering:pixelated}
+.note .inner{overflow:hidden;color:#2E2216;font:500 14px/1.45 Figtree,sans-serif}
+.nhead{display:flex;align-items:center;gap:8px;margin:0 0 6px}
+.ndot{width:8px;height:8px;flex:none;border-radius:2px;box-shadow:0 0 0 2px rgba(42,26,16,.55)}
+.nt{font:800 16px Figtree,sans-serif;color:#2E2216;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nb p{margin:0 0 6px}
+.nb .dim{color:#7a6448;font-size:13px}
+.nb h4{margin:0 0 4px;font:800 13px Figtree,sans-serif;letter-spacing:.2px;color:#8a3e1c;text-transform:uppercase}
+.nb a{color:#4A2C6E;font-weight:700;text-decoration:none;border-bottom:2px solid rgba(74,44,110,.35)}
+.nb ul{margin:0;padding:0 0 0 18px}
+.nb ul.chk{list-style:none;padding:0}
+.nb ul.chk li{display:flex;align-items:center;gap:9px;margin:0 0 5px}
+.nb ul.chk li canvas{flex:none}
+.nb ul.chk li.done{color:#7a6a58;text-decoration:line-through;text-decoration-color:rgba(90,72,52,.55)}
+.nb b{font-weight:800}
+.snipbox{margin:2px 0 7px}
+.snipcrop{overflow:hidden;outline:2px dashed rgba(90,60,25,.55);outline-offset:2px;border-radius:2px}
+.sniptag{font:400 7.5px Silkscreen,monospace;letter-spacing:1px;color:#8a6a3e;margin-top:7px}
+.nfoot{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-top:8px;border-top:2px solid rgba(120,80,30,.18)}
+.bring{display:inline-flex;align-items:center;gap:7px;font:600 12px Figtree,sans-serif;color:#6b5236;white-space:nowrap}
+.ask{display:inline-flex;align-items:center;gap:6px;font:700 12.5px Figtree,sans-serif;color:#4A2C6E;white-space:nowrap;padding:2px 8px 2px 3px;border-radius:7px}
+.ask.hot{background:rgba(74,44,110,.12);box-shadow:0 0 0 2px rgba(74,44,110,.35)}
+.note.small .inner{font-size:13px}
+.note.small .nt{font-size:14.5px}
+
+/* B: colour papers, a hand for the titles (Patrick Hand, his sheet 17 note font), the foot on the paper */
+.lkB .nt{font:400 21px "Patrick Hand",Figtree,sans-serif;color:#2a1c10}
+.lkB.small .nt{font-size:19px}
+.lkB .nhead{margin-bottom:4px}
+.lkB .ndot{display:none}
+.lkB .nfoot{border-top-color:rgba(60,40,20,.16)}
+.lkB .bring{color:#4a3a28}
+/* C: the journal, Cinzel headings like a quest log, words on the ruled lines */
+.lkC .nt{font:700 15px Cinzel,Georgia,serif;letter-spacing:.6px;color:#3a2410}
+.lkC .inner{line-height:24px}
+.lkC .nb ul.chk li{margin:0;height:24px}
+.lkC .nb p{margin:0}
+.lkC .nhead{height:26px;margin:0}
+.askf{display:grid;place-items:center;width:30px;height:30px;border-radius:8px}
+.askf.hot{background:rgba(74,44,110,.14);box-shadow:0 0 0 2px rgba(74,44,110,.45)}
+.tip{font:700 12.5px Figtree,sans-serif;color:#fff;background:#2C1848;padding:6px 10px;border-radius:7px;white-space:nowrap;box-shadow:0 0 0 2px #120a05,0 4px 10px rgba(0,0,0,.45)}
+.nhead{padding-right:56px}
