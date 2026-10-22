@@ -137,6 +137,8 @@ contextBridge.exposeInMainWorld('aang', {
   openThing: t => ipcRenderer.send('bubble:open', t),
   // Sheet 24: a button under an opened brief row. Only which row and which button; the brain writes the words.
   briefAct: a => ipcRenderer.send('bubble:briefact', a),
+  // Sheet 65: "Update ticked" under the brief's Addons slip: the CurseForge project ids still ticked, nothing else.
+  addonsUpdate: ids => ipcRenderer.send('bubble:addons', ids),
   /** Forget one stored message, by the row the brain gave it. */
   forgetTurn: id => ipcRenderer.send('bubble:forget', id),
   /**

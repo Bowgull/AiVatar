@@ -1,0 +1,46 @@
+BugGrabberDB = {
+["lastSanitation"] = 3,
+["session"] = 57,
+["errors"] = {
+{
+["message"] = "[ADDON_ACTION_BLOCKED] AddOn 'RXPGuides' tried to call the protected function 'RXPTargetFrame:SetScale()'.",
+["time"] = 1792000000,
+["locals"] = "x=1",
+["stack"] = "[Interface/AddOns/!BugGrabber/BugGrabber.lua]:554: in function '?'\n[Interface/AddOns/RXPGuides/SettingsPanel.lua]:1728: in function <x>",
+["session"] = 50,
+["counter"] = 2,
+},
+{
+["message"] = "Interface/AddOns/Auctionator/Source/Config/Main.lua:163: attempt to index a nil value",
+["time"] = 1792000100,
+["locals"] = "x=1",
+["stack"] = "[Interface/AddOns/Auctionator/Source/Config/Main.lua]:163: in function <x>",
+["session"] = 51,
+["counter"] = 3,
+},
+{
+["message"] = "[ADDON_ACTION_BLOCKED] AddOn 'BlizzMove' tried to call the protected function 'Frame:ClearAllPoints()'.",
+["time"] = 1792000200,
+["locals"] = "x=1",
+["stack"] = "[Interface/AddOns/!BugGrabber/BugGrabber.lua]:554",
+["session"] = 52,
+["counter"] = 1,
+},
+{
+["message"] = "Interface/AddOns/Details/frames/window_main.lua:5040: bad argument",
+["time"] = 1792000300,
+["locals"] = "x=1",
+["stack"] = "[Interface/AddOns/Details/frames/window_main.lua]:5040",
+["session"] = 53,
+["counter"] = 1,
+},
+{
+["message"] = "Interface/AddOns/Leatrix_Plus/Leatrix_Plus.lua:10: old error",
+["time"] = 1780000000,
+["locals"] = "x=1",
+["stack"] = "[Interface/AddOns/Leatrix_Plus/Leatrix_Plus.lua]:10",
+["session"] = 3,
+["counter"] = 1,
+},
+},
+}

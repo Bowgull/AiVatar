@@ -14,6 +14,7 @@ import { pixIcon, SKIES } from './pixicons.js';
 import { paintLookback, linkifyWords, videoShot, linkEl, kindOf, restKinds } from './lookback.js';
 import { startTyping } from './cocktype.js';
 import { startClaude } from './claudejobs.js';
+import { addonsSlip, addonsLine } from './addonslip.js';
 
 const el = id => document.getElementById(id);
 const bubble = el('bubble'), said = el('said'), scroller = el('scroller'), more = el('more');
@@ -1263,6 +1264,9 @@ function showBrief(b) {
   if (b.engine && typeof b.engine.title === 'string') row(today, { art: 'art/samara/samara-lantern-32.png', item: 0, title: 'Samara has an update', sub: b.engine.title, when: 'UPDATE',
     more: ["Chrome's newest security fixes. Samara restarts in a few seconds and your tabs come back."], acts: [['Update', 'engine']] });
   for (const s of [job, wait, today]) if (s.children.length > 1) body.append(s);
+  // Sheet 65: the Addons slip under Today (addonslip.js). Update ticked sends the ids still ticked; Not now folds it away.
+  const addons = addonsSlip(b.addons, { update: (ids) => window.aang?.addonsUpdate?.(ids), later: () => { fit(); reportSize(); } });
+  if (addons) body.append(addons);
   if (!body.children.length) { const s = slip('ALL CLEAR'); s.append(T('p', 'lt-clear', 'Nothing needs you this morning.')); body.append(s); }
   card.append(body);
 
@@ -1952,6 +1956,8 @@ function onBrain(m) {
     show();
     paint();
     startTicking();
+    // Sheet 65: Aang updating addons: the progress row and the names' icons (addonslip.js); any other line clears them.
+    if (!m.stream) addonsLine(m, { scroller, said, fit: () => { fit(); reportSize(); } });
     // The cockpit is already the open state, so a message about a video opens straight into it (and widens).
     if (cockpit && curAbout && !m.stream) paintAbout(true);
     return;
