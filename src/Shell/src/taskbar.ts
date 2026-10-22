@@ -63,6 +63,9 @@ interface Tracked {
 }
 interface Proxy { pid: number; lead: string; ids: string[]; owner: string; label: string; btns: string; place: string; sig: string; asked: number; inval: number; made: Promise<string> }
 
+/** The job bar under Samara's lantern: off by his call (2026-10-22). */
+const TASKBAR_BAR = false;
+
 export class TaskbarPops {
   readonly members = new Map<string, Tracked>();
   /** One stand-in per snapped group, by the group's lead. */
@@ -287,6 +290,9 @@ export class TaskbarPops {
   // ---------------------------------------------------------------- the bar under the lantern
 
   private updateBar(plan: P.Plan): void {
+    // OFF (his call, 2026-10-22: "I'm still seeing a green pulse... I don't want that"): no progress bar on the lantern at
+    // all; any bar left from before is cleared. The code below stays for if he ever wants it back.
+    if (!TASKBAR_BAR) { const t = this.bar.target ?? this.d.samara(); if (t && !t.isDestroyed()) { try { t.setProgressBar(-1); } catch { /* gone */ } } this.bar = { target: null, key: 'off' }; return; }
     const now = Date.now();
     const jobs = (Array.isArray(this.d.jobs()) ? (this.d.jobs() as unknown[]) : []).filter((j): j is Record<string, unknown> => !!j && typeof j === 'object').map((j) => P.jobNow(j, now));
     const b = P.barFor(jobs);
