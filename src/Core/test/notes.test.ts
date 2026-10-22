@@ -51,3 +51,23 @@ test('the store: make, find by name, add, edit, out on the screen, remove, and i
   assert.equal(s.remove(n.id), true);
   assert.equal(new Notes(file).list().length, 0);
 });
+
+test('sheet 62: Keep as a note makes a plain note with the link, and the link survives an edit', () => {
+  const file = path.join(mkdtempSync(path.join(os.tmpdir(), 'aang-notes-keep-')), 'notes.json');
+  const s = new Notes(file);
+  const n = s.keep('Ragnaros knocks back everyone <b>in melee</b>\nat each submerge.', 'https://forever.warcraft.com/guides/molten-core', 'forever.warcraft.com')!;
+  assert.ok(n);
+  assert.equal(n.title, 'forever.warcraft.com');
+  assert.equal(n.col, 'parchment');
+  assert.deepEqual(n.src, { url: 'https://forever.warcraft.com/guides/molten-core', site: 'forever.warcraft.com' });
+  // The page's words are escaped, never markup; the link is its own line.
+  assert.match(n.html, /&lt;b&gt;in melee&lt;\/b&gt;/);
+  assert.deepEqual(plainOf(n.html).slice(-1), ['https://forever.warcraft.com/guides/molten-core']);
+  // An edit from the note window (which does not send src back) keeps the link; a reload keeps it too.
+  s.save1({ ...n, src: undefined, html: '<div>changed</div>' });
+  assert.deepEqual(new Notes(file).list()[0]!.src, n.src);
+  // No javascript: links, and nothing at all is no note.
+  const bad = s.keep('words', 'javascript:alert(1)', 'x')!;
+  assert.equal(bad.src, undefined);
+  assert.equal(s.keep('', 'file:///C:/x', ''), null);
+});

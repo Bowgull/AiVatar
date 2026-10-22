@@ -3324,6 +3324,8 @@ export class Core {
       }
       case 'notes.save': { if (this.notes.save1(m.note)) this.sendTo('desktop', { t: 'notes.state', notes: this.notes.list() }); break; }
       case 'notes.delete': { if (this.notes.remove(String(m.id ?? ''))) this.sendTo('desktop', { t: 'notes.state', notes: this.notes.list() }); break; }
+      // Sheet 62 (2026-10-22): "Keep as a note" on Aang's line after a Send to Aang. A plain note with the link; Notes.keep checks it.
+      case 'notes.keep': { if (this.notes.keep(String(m.text ?? ''), String(m.url ?? ''), String(m.site ?? ''))) this.sendTo('desktop', { t: 'notes.state', notes: this.notes.list() }); break; }
       case 'timer.act': {
         const action = m.action === 'add' || m.action === 'pause' || m.action === 'stop' ? m.action : null;
         if (!action) break;

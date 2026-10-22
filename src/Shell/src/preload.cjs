@@ -262,13 +262,9 @@ contextBridge.exposeInMainWorld('aang', {
   onBrowserFrozen(fn) { const h = (_e, s) => fn(s); ipcRenderer.on('browser:frozen', h); return () => ipcRenderer.removeListener('browser:frozen', h); },
   onBrowserFocusSlot(fn) { const h = () => fn(); ipcRenderer.on('browser:focusslot', h); return () => ipcRenderer.removeListener('browser:focusslot', h); },
 
-  // --- Snipit (6.17): the overlay and the corner card. Named doors only.
+  // --- Snipit (6.17): the overlay. Named doors only. (The corner card went with sheet 62, 2026-10-22.)
   onSnipShot(fn) { const h = (_e, url) => fn(url); ipcRenderer.on('snip:shot', h); return () => ipcRenderer.removeListener('snip:shot', h); },
   snipDone: r => ipcRenderer.send('snip:done', r),
-  onSnipCard(fn) { const h = (_e, s) => fn(s); ipcRenderer.on('snip:card', h); return () => ipcRenderer.removeListener('snip:card', h); },
-  snipSend: () => ipcRenderer.send('snip:send'),
-  snipBin: () => ipcRenderer.send('snip:bin'),
-  snipCardSize: s => ipcRenderer.send('snip:cardsize', s),
   /** 6.17 the drop: the bubble's two choices on a dropped file. Only the file the brain accepted counts. */
   dropAsk: p => ipcRenderer.send('bubble:dropask', p),
   dropKeep: p => ipcRenderer.send('bubble:dropkeep', p),

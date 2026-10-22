@@ -136,3 +136,14 @@ test('an email waiting to be sent shows the letter, and sending is still the hel
   assert.equal(send?.hold, true, 'a sent email cannot be taken back: hold, never a click');
   assert.ok(!a?.keys.some((k: { choice: string }) => k.choice === 'always'), 'never an Always on sending email');
 });
+
+test('sheet 62: Aang\'s one line after a Send to Aang: two keys, a third (Pin it) for a snip', () => {
+  const w = askFrom({ t: 'send.ask', id: 'send-1', snip: false, fromSamara: true });
+  assert.equal(w?.plaque, 'SENT FROM SAMARA');
+  assert.equal(w?.question, 'Got it. Ask about it, or keep it as a note?');
+  assert.deepEqual(w?.keys.map((k: { label: string; key: string }) => [k.label, k.key]), [['Ask about it', 'A'], ['Keep as a note', 'S']]);
+  const s = askFrom({ t: 'send.ask', id: 'send-2', snip: true });
+  assert.equal(s?.plaque, 'YOUR SNIP');
+  assert.deepEqual(s?.keys.map((k: { choice: string }) => k.choice), ['ask', 'note', 'pin']);
+  assert.equal(askFrom({ t: 'send.ask', id: 'send-3' })?.plaque, 'SENT TO AANG');
+});
