@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sheet 67 - Timer</title>
+<!-- Sheet 67 v1 (2026-10-22). His ask: "Look at the timer and make it have more smooth motion; get a more accurate engine
+     that's lightweight for the sands; I don't want to be sucking up GPU and CPU; and sounds and interactions of the timer
+     as well. Go big." Research + measurements: docs/TIMER-RESEARCH.md. Every hourglass on this sheet is the proposed
+     engine (sheet-67/sand.js) running live; sounds made by sheet-67/make-sounds.mjs. Mockup only, no product code. -->
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<link rel="stylesheet" href="sheet-55/sheet55.css">
+<link rel="stylesheet" href="sheet-67/sheet67.css">
+</head>
+<body>
+<h1>SHEET 67 &middot; TIMER</h1>
+<p class="real">v1 &middot; 22 Oct: smoother sand, exact time, lighter on your PC, softer sounds, more ways to touch it</p>
+<p class="lead"><b>What I found:</b> today's hourglass is redrawn from scratch 5 times a second as 364 tiny boxes, and the old boxes pile up until they're cleaned. That's why the timer uses about <b>twice the memory</b> of the other pop-outs. The new sand is one tiny picture that only changes when a grain moves. Every hourglass on this page is the new engine, running for real. Try them: hover, click the glass, scroll on it.</p>
+<p class="topick"><span>WHAT TO PICK</span> <em><b>1</b> pause: A or B &nbsp;&middot;&nbsp; <b>2</b> sound: A or B. I'd pick <b>A</b> and <b>A</b>.</em></p>
+
+<h2><span class="n">1</span>THE SAND, LIVE, IN ITS THREE SHAPES</h2>
+<p>Grains tumble like real sand, the stream shimmers down the middle, and the pile builds into a little hill. The clock is exact to the second, and the last grain lands on 0:00. A timer on its own is the plate. Joined beside a window it stands as a column; joined under one it lies as a strip. Two timers get two sand colours.</p>
+<div class="desk">
+  <div class="slot"><div class="cap"><i>a</i>ON ITS OWN</div><div id="s-plate" style="padding-bottom:44px"></div></div>
+  <div class="slot"><div class="cap"><i>b</i>BESIDE THE VIDEO (COLUMN)</div><div class="fam fam-row"><img src="sheet-63/s-video-free.png" width="424" height="236" alt="The video pop-out"><div class="stack" id="s-col"></div></div></div>
+  <div class="slot"><div class="cap"><i>c</i>UNDER THE VIDEO (STRIP)</div><div class="fam fam-col"><img src="sheet-63/s-video-free.png" width="424" height="236" alt="The video pop-out"><div id="s-strip"></div></div></div>
+</div>
+<div class="ctrl"><button id="fast1" type="button">&times;20 speed, to watch a whole run</button></div>
+
+<h2><span class="n">2</span>TIME'S UP</h2>
+<p>The last few grains drip one by one, the stream stops, a little glint runs over the pile, and the plate gives one soft hop with the chime. The keys come up on their own: <b>Again</b> turns the hourglass over (same time again), <b>+5</b> turns it over for five minutes, <b>&#x2715;</b> closes it. Aang's card still shows <b>Got it / 5 more</b> as today; either one works.</p>
+<div class="desk">
+  <div class="slot"><div class="cap"><i>a</i>PRESS PLAY (WITH SOUND)</div><div id="e-plate" style="padding-bottom:44px"></div><div class="ctrl"><button id="e-play" type="button">Play the last 11 seconds</button></div></div>
+  <div class="slot" style="flex:1 1 520px"><div class="cap"><i>b</i>FRAME BY FRAME</div><div class="film" id="film"><figure><img src="sheet-67/f1.png" width="100" height="100" alt="Last grains"><figcaption>1 &middot; Last grains</figcaption></figure><figure><img src="sheet-67/f2.png" width="100" height="100" alt="Stream stops, one drips"><figcaption>2 &middot; Stream stops, one drips</figcaption></figure><figure><img src="sheet-67/f3.png" width="100" height="100" alt="Last grain lands: 0:00"><figcaption>3 &middot; Last grain lands: 0:00</figcaption></figure><figure><img src="sheet-67/f4.png" width="100" height="100" alt="A glint crosses the pile"><figcaption>4 &middot; A glint crosses the pile</figcaption></figure><figure><img src="sheet-67/f5.png" width="100" height="100" alt="Still, waiting for you"><figcaption>5 &middot; Still, waiting for you</figcaption></figure><figure><img src="sheet-67/f6.png" width="100" height="100" alt="Again: onto its side…"><figcaption>6 &middot; Again: onto its side…</figcaption></figure><figure><img src="sheet-67/f7.png" width="100" height="100" alt="…turned over, running"><figcaption>7 &middot; …turned over, running</figcaption></figure></div></div>
+</div>
+<p style="margin-top:14px"><b>If you don't answer:</b></p>
+<div class="line">
+  <div class="st"><b>0:00</b>Chime once, soft hop, keys up, Aang's mark.</div>
+  <div class="st"><b>1 minute later</b>One more chime, a touch louder, one hop.</div>
+  <div class="st"><b>After that</b>Silent. The plate waits with the mark until you answer.</div>
+  <div class="st"><b>In a game</b>One chime only (you set it, so it rings). Aang's card waits until you're out, as today.</div>
+  <div class="st"><b>Muted</b>No sound at all, as today.</div>
+</div>
+
+<h2><span class="n">3</span>PAUSED</h2>
+<p>These two pause and go every few seconds (click one to stop that). Clicking the hourglass pauses it.</p>
+<div class="take">
+  <div class="lhead"><div class="L">A</div><div class="nm">Laid on its side <span class="pick">RECOMMENDED</span></div>
+    <p class="cap2">What you'd do with a real hourglass. The sand slides over in each bulb and stops. You can tell it's paused from across the room, without reading anything.</p></div>
+  <div class="desk" style="padding:18px 26px"><div id="p-a"></div></div>
+</div>
+<div class="take">
+  <div class="lhead"><div class="L">B</div><div class="nm">Stays standing</div>
+    <p class="cap2">The stream stops, the time greys, and a small PAUSED shows under it. Quieter, but easier to miss.</p></div>
+  <div class="desk" style="padding:18px 26px"><div id="p-b"></div></div>
+</div>
+
+<h2><span class="n">4</span>THE SOUND WHEN TIME'S UP</h2>
+<p>Made in the same wooden family as your chimes, at the same gentle level (today a timer plays the old, loud needs-you sound). The chimes' volume slider controls it too. Pressing one also makes it the sound in section 2.</p>
+<div class="sounds">
+  <div class="snd rec"><h3>A &middot; Wooden timer <span class="pick">RECOMMENDED</span></h3><p>A breath of sand settling, then three soft wooden notes climbing to C. Short.</p><button type="button" data-snd="times-up-wood">PLAY A</button></div>
+  <div class="snd"><h3>B &middot; Air temple bowl</h3><p>One struck bowl, long and soft, slowly breathing. Calmer, but longer.</p><button type="button" data-snd="times-up-bowl">PLAY B</button></div>
+  <div class="snd"><h3>A, a minute later</h3><p>Only if you didn't answer: the same climb plus one step up, a touch louder. Then it stops.</p><button type="button" data-snd="times-up-wood-again">PLAY</button></div>
+  <div class="snd"><h3>Turning it over</h3><p>Again, +5, or a new timer: a small knock and a short pour.</p><button type="button" data-snd="flip">PLAY</button></div>
+  <div class="snd"><h3>Scroll notch</h3><p>One minute added or taken off with the wheel. The quietest sound in the set.</p><button type="button" data-snd="notch">PLAY</button></div>
+</div>
+
+<h2><span class="n">5</span>HOW YOU TOUCH IT</h2>
+<table class="t">
+<tr><th>DO THIS</th><th>IT DOES</th></tr>
+<tr><td><b>Hover</b></td><td>The keys come up under it: <b>+1</b>, <b>II</b> pause, <b>&#x2715;</b> stop. Same rhythm as today.</td></tr>
+<tr><td><b>Click the hourglass</b></td><td>Pause / go on. At time's up: turn it over (Again).</td></tr>
+<tr><td><b>Scroll on it</b></td><td>Up = one more minute, down = one less (Shift = five). A small "+1:00" shows, and grains flow back up or drop through. Never below 10 seconds.</td></tr>
+<tr><td><b>Hold &#x2715;</b></td><td>Stop. Held for half a second (a bar fills), so a stray click never kills a timer.</td></tr>
+<tr><td><b>Drag it</b></td><td>Moves it; it snaps to the other pop-outs, as today.</td></tr>
+<tr><td><b>Right-click</b></td><td>The menu: see-through, pin, click through, stop. Plus <b>Sound</b>: the chime / bowl / none for this timer.</td></tr>
+<tr><td><b>New timer, a name, a preset</b></td><td>Tell Aang ("25 min pizza", "call it raid pull"). One place to talk: no typing box on the timer.</td></tr>
+<tr><td><b>Esc</b></td><td>Closes its menu. (The timer never takes your keyboard, so WoW keeps it.)</td></tr>
+</table>
+
+<h2><span class="n">6</span>IN A GAME, AND WHAT IT COSTS</h2>
+<p>When a game is in front, the stream stands still and only the grains drop, once per grain. Same time, same picture, almost no work. Left: at the desk. Right: in a game.</p>
+<div class="desk">
+  <div class="slot"><div class="cap"><i>a</i>AT THE DESK</div><div id="g-normal"></div></div>
+  <div class="slot"><div class="cap"><i>b</i>IN A GAME (CALM)</div><div id="g-calm"></div></div>
+</div>
+<table class="t" style="margin-top:16px">
+<tr><th>MEASURED ON YOUR PC (one timer window, 10-12 s each)</th><th>MEMORY</th><th>CPU</th><th>REDRAWS</th></tr>
+<tr><td>Today's timer</td><td>63-75 MB</td><td>0.31-0.35%</td><td>5 a second, the whole hourglass</td></tr>
+<tr><td>New sand, at the desk</td><td class="good">31 MB</td><td class="good">0.16-0.18%</td><td>about 9 a second, only the changed picture</td></tr>
+<tr><td>New sand, in a game</td><td class="good">31-33 MB</td><td class="good">0.02%</td><td>one short burst per grain</td></tr>
+<tr><td>An empty window, for scale</td><td>24 MB</td><td>0%</td><td>none</td></tr>
+</table>
+<div class="note"><ul>
+<li><b>Exact time:</b> Aang's brain keeps the end time; the hourglass only shows it. The clock ticks on the second (not every 0.2 s), and Aang rings on the moment instead of up to a second late.</li>
+<li><b>Hidden = nothing:</b> minimised, covered or locked, it does no work at all, and jumps straight to the right picture when you look again.</li>
+<li><b>Ending today closes the timer instantly,</b> so you never see it run out. In the new one the plate stays and waits for you.</li>
+<li>The time moves from the squashed pixel font to the clear one you picked for progress numbers.</li>
+</ul></div>
+
+<link rel="modulepreload" href="sheet-67/sand.js">
+<script type="module" src="sheet-67/sheet67.js"></script>
+</body>
+</html>

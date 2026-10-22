@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Timer engine (measurement)</title>
+<!-- Sheet 67: the proposed timer page, stripped to what the product would run: the plate, the canvas hourglass, the
+     clock once a second. Opened off screen by the measurement harness next to today's timer.html. ?calm=1 for game mode. -->
+<link rel="stylesheet" href="../../../src/Shell/pages/cockpit.css">
+<style>
+html,body{margin:0;background:transparent;overflow:hidden;font:500 14px var(--body);user-select:none}
+.tw{position:absolute;left:6px;top:6px;display:flex;align-items:center;gap:7px;padding:4px 9px 4px 6px;border:2px solid #3a2414;border-radius:12px;
+  background:linear-gradient(180deg,rgba(0,0,0,.15),rgba(0,0,0,.35)),url(../../../src/Shell/pages/art/browser/band.png) 0 0/128px 58px;image-rendering:pixelated}
+canvas{display:block;image-rendering:pixelated}
+.twr{display:flex;flex-direction:column;line-height:1.1}
+.twl{font:600 11px var(--display);color:#F1E4CC}
+.tmv{font:700 16px var(--body);font-variant-numeric:tabular-nums;color:var(--gold)}
+</style>
+</head>
+<body>
+<div class="tw"><canvas id="c"></canvas><div class="twr"><span class="twl">Pizza</span><span class="tmv" id="left">0:00</span></div></div>
+<script type="module">
+import { SandGlass, secondly, fmt } from './sand.js';
+const q = new URLSearchParams(location.search);
+const g = new SandGlass(document.getElementById('c'), { scale: 2 });
+const now = Date.now(), total = Number(q.get('total') || 25 * 60000), left = Number(q.get('left') || 13 * 60000);
+g.set({ total, end: now + left, paused: 0 });
+if (q.get('calm')) g.calm(true);
+const el = document.getElementById('left');
+secondly(() => { el.textContent = fmt(g.left()); }, undefined, () => g.t?.end ?? 0);
+window.__g = g;
+</script>
+</body>
+</html>
