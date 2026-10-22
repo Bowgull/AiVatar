@@ -34,9 +34,12 @@ export interface PopoutWiring {
  */
 export function tuckFor(p: Popout, front: BrowserWindow | null): void {
   const pw = p.window;
-  if (!front || front.isDestroyed() || front === pw || front.isMinimized()) return;
+  if (!front || front.isDestroyed() || front === pw || front.isMinimized() || !front.isVisible()) return;
+  // On the Mac it fades away and back (2026-10-22, measured on his MacBook): minimizing played the Dock's genie, and
+  // the video in the pop-out dropped about half its frames for 1.5 s while it ran. Windows keeps its own minimize.
+  const mac = process.platform === 'darwin';
   setTimeout(() => {
-    if (!front.isDestroyed()) front.minimize();
+    if (!front.isDestroyed()) { if (mac) fade(front, false); else front.minimize(); }
     // Minimizing Samara hands the front to whatever window Windows picks next, which was often not the pop-out (his
     // catch, 2026-10-21: "opening pop-out is pushing Samara closed and not surfacing the pop-out forward"). So the
     // pop-out is brought forward on purpose, after Samara has gone.
@@ -45,9 +48,30 @@ export function tuckFor(p: Popout, front: BrowserWindow | null): void {
   }, 150);
   p.afterClose = (wasInFront) => {
     if (!wasInFront || front.isDestroyed()) return;
+    if (mac) { if (!front.isVisible()) fade(front, true); front.focus(); return; }
     if (front.isMinimized()) front.restore();
     front.focus();
   };
+}
+
+/** A window fading out of sight (then hidden) or back in, in 150 ms: what macOS does for its own quick swaps. */
+const fading = new WeakMap<BrowserWindow, NodeJS.Timeout>();
+function fade(w: BrowserWindow, show: boolean): void {
+  const was = fading.get(w);
+  if (was) clearInterval(was);
+  const steps = 6;
+  let i = 0;
+  if (show) { w.setOpacity(0); w.show(); }
+  const t = setInterval(() => {
+    if (w.isDestroyed()) { clearInterval(t); return; }
+    i++;
+    w.setOpacity(show ? i / steps : 1 - i / steps);
+    if (i >= steps) {
+      clearInterval(t); fading.delete(w);
+      if (!show) { w.hide(); w.setOpacity(1); }
+    }
+  }, 25);
+  fading.set(w, t);
 }
 
 /** Returns the pop-out key's work, for the right-click menu's "Pop out this video" (his pick, 2026-10-20). */
@@ -56,7 +80,8 @@ export function wirePopout(o: PopoutWiring): { popTab: (id: number) => void } {
   // EVERY pop-out closes with Samara, Aang's "put X on" ones too (his yes, 2026-10-21). The browser is made a moment after
   // this is wired, so it is hooked when it exists and checked again now and then (cheap: one property).
   const closeWithSamara = () => { o.popout()?.close(); o.stopPaid(); };
-  const hook = () => { const b = o.browser(); if (b && b.onLastClosed !== closeWithSamara) b.onLastClosed = closeWithSamara; };
+  const warm = () => o.popout()?.prewarm();
+  const hook = () => { const b = o.browser(); if (b && b.onLastClosed !== closeWithSamara) b.onLastClosed = closeWithSamara; if (b && b.onPlaying !== warm) b.onPlaying = warm; };
   hook();
   setInterval(hook, 5000).unref();
   ipcMain.on('popout:hide', (e) => { if (from(e)) o.popout()?.toggleHidden(); });
