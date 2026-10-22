@@ -3771,6 +3771,12 @@ export class Core {
         this.fgProcess = String(m.foreground ?? '');
         this.fgTitle = String(m.title ?? '');
         this.frontMoved();
+        // Perf sweep (2026-10-22): the game just came to the front. Ollama keeps Qwen (13 GB of his 15 GB card) resident
+        // for five minutes after its last job, and until now only the NEXT local job gave the card back, so a job finished
+        // a minute before he tabbed into WoW held the card through the start of his session. Now it goes at once. A model
+        // that is not loaded is untouched (Ollama answers keep_alive 0 with an empty prompt by unloading, never loading),
+        // and a job mid-answer finishes first.
+        if (m.quiet === true && !this.bodyQuiet) void import('./local.ts').then(({ unloadLocal }) => unloadLocal()).catch(() => {});
         this.setSilent(m.quiet === true, this.muted);
         const watching = m.watching !== false;
         if (watching !== this.activity.watching) { this.activity.watching = watching; if (!watching) this.activity.clear(); }
