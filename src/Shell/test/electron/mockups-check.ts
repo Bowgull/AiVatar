@@ -108,6 +108,9 @@ app.whenReady().then(async () => {
   const v3 = await b.openMockup(S45, '45 · Both ways'); await wait(300);
   check('the same picture keeps its number (V2)', v3?.v === 2);
   check('the older line with that picture is a duplicate, by its key', b.mockStore.dups().size === 1 && b.mockStore.dups().get(v2.id) === 2);
+  // 2026-10-22: opening the list runs the daily tidy (which merges duplicates too); this part is about the broom, so the
+  // tidy has just run (mockups-tidy-check.ts covers the tidy).
+  b.mockStore.tidiedAt = Date.now();
   b.mockAct('list', { open: true }); await wait(500);
   const frame = b.win.webContents;
   const look = JSON.parse(await frame.executeJavaScript(`JSON.stringify({
