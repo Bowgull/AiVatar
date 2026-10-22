@@ -106,7 +106,7 @@ export class Backup {
 
       await this.git(['add', BACKUP_REL]);
       try {
-        await this.git(['-c', 'user.name=Aang', '-c', 'user.email=aang@example.invalid', 'commit', '-m', `Backup: ${detail}`]);
+        await this.git(['-c', 'user.name=Aang', '-c', 'user.email=aang@localhost', 'commit', '-m', `Backup: ${detail}`]);
       } catch { /* the database has not changed since the last backup - nothing to commit, not a failure */ }
       try { await this.git(['push']); }
       catch (e) { return { ok: true, detail: `committed but push failed: ${(e as Error).message}`, turns, facts, sizeMB }; }

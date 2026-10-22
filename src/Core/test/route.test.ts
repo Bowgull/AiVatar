@@ -27,7 +27,7 @@ test('the refusals Quick really gave are caught', () => {
 test('only plain small talk stays on Quick', () => {
   for (const t of ['hey bud', 'hi', 'thanks man', 'good night', 'how are you', 'lol nice', 'morning!', 'checking in bud', 'yo aang'])
     assert.deepEqual(pickLane(t, 'auto', false, false), { lane: 'quick', needsConsent: false }, t);
-  for (const t of ['whats the time', 'i had a rough week', 'yup', 'yes', 'my home address is [address] avenue toronto', 'tell me a one line fun fact', 'are you there?', 'hey bud, whats on my calendar'])
+  for (const t of ['whats the time', 'i had a rough week', 'yup', 'yes', 'my home address is 1 example street toronto', 'tell me a one line fun fact', 'are you there?', 'hey bud, whats on my calendar'])
     assert.equal(pickLane(t, 'auto', false, false).lane, 'smart', t);
 });
 
@@ -43,7 +43,7 @@ test('hard or long work escalates to Smart in Auto', () => {
 });
 
 test('a request to DO something goes to Smart - his real ones that Quick fumbled', () => {
-  for (const t of ['Get me directions from [address] avenue to [address] commons Burlington', 'make a not of this in logs',
+  for (const t of ['Get me directions from 1 example street to 2 sample road Burlington', 'make a not of this in logs',
     'opne claude on my pc', 'open that email in a browser tab', 'send me a screenshot of my screen', 'play something chill'])
     assert.equal(pickLane(t, 'auto', false, false).lane, 'smart', t);
 });

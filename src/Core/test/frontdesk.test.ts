@@ -162,7 +162,7 @@ const files = {
   'discord-client.ts': readFileSync(path.join(import.meta.dirname, '..', 'src', 'discord-client.ts'), 'utf8'),
   'package.json': readFileSync(path.join(import.meta.dirname, '..', 'frontdesk-pkg', 'package.json'), 'utf8'),
 };
-const setup = macSetupScript('100.x.x.1', 47832, 'h'.repeat(24), 'm'.repeat(24), { token: 'TOKEN.abc.def', key: 'K'.repeat(24), port: FRONT_DESK_PORT, files });
+const setup = macSetupScript('100.64.0.1', 47832, 'h'.repeat(24), 'm'.repeat(24), { token: 'TOKEN.abc.def', key: 'K'.repeat(24), port: FRONT_DESK_PORT, files });
 
 test('M3 setup: each front desk file arrives on the Mac byte for byte', () => {
   for (const [name, text] of Object.entries(files)) {
@@ -206,7 +206,7 @@ test('9.D: the plain channel operations work through the Mac front desk', async 
 
 test('9.D D4: the speakers\' pictures reach the Mac byte for byte', () => {
   const png = readFileSync(path.join(import.meta.dirname, '..', 'assets', 'speakers', 'claude.png'));
-  const s2 = macSetupScript('100.x.x.1', 47832, 'h'.repeat(24), 'm'.repeat(24), { token: 'T', key: 'K'.repeat(24), port: FRONT_DESK_PORT, files: { 'avatar-claude.png': png } });
+  const s2 = macSetupScript('100.64.0.1', 47832, 'h'.repeat(24), 'm'.repeat(24), { token: 'T', key: 'K'.repeat(24), port: FRONT_DESK_PORT, files: { 'avatar-claude.png': png } });
   const line = s2.split('\n').find(l => l.endsWith('> "$FD/avatar-claude.png"'))!;
   const b64 = /printf '%s' '([A-Za-z0-9+/=]+)'/.exec(line)![1]!;
   assert.ok(Buffer.from(b64, 'base64').equals(png));

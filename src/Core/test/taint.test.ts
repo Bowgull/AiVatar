@@ -7,6 +7,10 @@ import { mkdtempSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { Core } from '../src/core.ts';
+import { alsoOffLimits } from '../src/files.ts';
+
+// Made-up names: the real ones are fingerprints in files.ts and are checked in offlimits-real.test.ts.
+alsoOffLimits({ folders: ["Jane's Job Hunt"], people: ['Jane Doe', 'Sam Roe'], handles: ['janedoedesign'] });
 
 const tmp = () => mkdtempSync(path.join(os.tmpdir(), 'aang-taint-'));
 
@@ -135,11 +139,11 @@ test('tools that are not file reads still do not mark the turn', async () => {
 // this way; file reads did not, and reads were not path-checked at all. A question he might wave
 // through mid-raid is not a control, so these never become a question.
 
-test('[friend]\'s folder is refused even with read files trusted', async () => {
+test('Jane\'s folder is refused even with read files trusted', async () => {
   const core = coreWithTrust('read files');
-  assert.equal(await core.askPermission('Read', { file_path: 'G:/My Drive/[friend]\'s Job Hunt/tracker.xlsx' }), false,
+  assert.equal(await core.askPermission('Read', { file_path: 'G:/My Drive/Jane\'s Job Hunt/tracker.xlsx' }), false,
     'his instruction was explicit and permanent; trust must not override it');
-  assert.equal(await core.askPermission('Read', { file_path: 'G:/My Drive/\u{1F3AF} [friend]\'s Job Hunt/resume.docx' }), false,
+  assert.equal(await core.askPermission('Read', { file_path: 'G:/My Drive/\u{1F3AF} Jane\'s Job Hunt/resume.docx' }), false,
     'the shared copy has an emoji in the name and must be caught too');
   core.memory.close();
 });

@@ -177,7 +177,7 @@ test('the mockup rule is merged into CLAUDE.md, never overwriting', () => {
 
 test('the Mac setup runs both merges after Samara is in place', () => {
   const desk = { token: 'T.a.b', key: 'K'.repeat(24), port: 47841, files: { 'frontdesk.ts': 'x' }, browser: { bundle: Buffer.from('tgz'), bsyncKey: 'b'.repeat(24), castlabsSig: Buffer.from('sig') } };
-  const s = macSetupScript('100.x.x.1', 47832, 'h'.repeat(24), 'm'.repeat(24), desk, { release: { version: '0123456789abcdef', commit: 'abc' }, update: true });
+  const s = macSetupScript('100.64.0.1', 47832, 'h'.repeat(24), 'm'.repeat(24), desk, { release: { version: '0123456789abcdef', commit: 'abc' }, update: true });
   assert.match(s, /PLUG="\$APP\/Contents\/Resources\/app\/claude-link"/);
   assert.ok(s.includes(Buffer.from(PLUGIN_MERGE_JS).toString('base64')) && s.includes(Buffer.from(RULES_MERGE_JS).toString('base64')) && s.includes(Buffer.from(MOCKUP_RULES).toString('base64')));
   assert.ok(s.indexOf('PLUG=') > s.indexOf('mv "$NEWAPP/Contents" "$APP/Contents"'), 'after the new Samara is in place');
