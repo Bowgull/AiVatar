@@ -9,7 +9,7 @@
 // the mouse is on it, floor 30%; E, the fade stays with the mouse over it; the pin is the only chrome and looks pressed
 // in and lit when pinned; JOB COMPLETE is teal with "Nice", which shrinks it away; "needs you" is a small blue chip.
 // The window decides nothing: the main process (jobpop.ts) knows which job this is and builds every request.
-import { animate, anims, SEA, SLATE, MSG, CL, readJob, curIndex, h, btn, liveProgress, livePill, liveText, leftOf, describeNow, kick, liveOverall, liveRows, rowsKey } from './claudejobs.js';
+import { animate, anims, SEA, SLATE, MSG, CL, readJob, curIndex, h, btn, liveProgress, livePill, liveText, leftOf, describeNow, kick, liveOverall, liveRows, rowsKey, liveAgents } from './claudejobs.js';
 
 const api = window.jobpop;
 const pw = document.getElementById('pw');
@@ -157,7 +157,9 @@ function card() {
   keys.append(msg);
   inner.append(keys);
   det.append(inner);
-  if (ovr) c.append(top, ovr, det); else c.append(top, det);
+  // Sheet 58 C (his pick, 2026-10-21): its helper agents, a small row each, tucked under the folded bar, always in view.
+  const ags = liveAgents(latest);
+  c.append(top, ...(ags ? [ags] : []), ...(ovr ? [ovr] : []), det);
   return c;
 }
 

@@ -548,6 +548,21 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{
 /* The smaller keycap the asks use beside a lever. Sheet 5. */
 .key.sm{font-size:12.5px;padding:8px 13px 9px;--lip:4px}
 
+/* ---- sheet 58, option C (his pick, 2026-10-21): a job's helper agents, a small row each tucked under its bar. Here
+   because the bubble's job card, Samara's rune panel and the pop-out all load this file and all three put the job on the
+   same parchment: one look, one place. Lifted from sheet 58's picture maker (agents-shots.ts, .ag58.C), verbatim. ---- */
+.agc{margin:7px 0 0 9px;padding:1px 0 0 10px;border-left:2px solid rgba(120,80,30,.28);border-bottom-left-radius:6px}
+.agc canvas{image-rendering:pixelated;display:block;flex:none}
+.agc .agr{display:flex;align-items:center;gap:7px;height:26px;white-space:nowrap;min-width:0}
+.agc .agr b{flex:none;font:700 12.5px Figtree,sans-serif;color:#2a1a10;width:60px}
+.agc .agr .wh{flex:1;min-width:0;font:500 12px Figtree,sans-serif;color:#6b5236;overflow:hidden;text-overflow:ellipsis}
+.agc .agr .tm{flex:none;width:40px;font:600 12px Figtree,sans-serif;color:#7a5c3a;text-align:right}
+/* its own list's %: the pixel face, as on the sheet's Build row */
+.agc .agr .tm.pc{font:400 9.5px Silkscreen,monospace;color:#8a5a10}
+.agc .agr.failed .tm{color:#a8352b}
+/* more than three helpers: the rest in one quiet line */
+.agc .agmore{height:20px;display:flex;align-items:center;padding-left:27px;font:400 9.5px Silkscreen,monospace;color:#8f7458}
+
 /* ---- sheet 27, the wood swap (his rule, 2026-10-14): no flat browns. Light wood for bars and frames, dark wood behind
    content, "carved" (very dark wood) for the small name tags. ---- */
 .plaque{background:linear-gradient(rgba(0,0,0,.55),rgba(0,0,0,.55)),url(art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated}

@@ -22,7 +22,7 @@
 // it holds the key (HMAC over a fresh nonce); and every answer or message handed back must carry
 // HMAC(key, nonce + session + item id + kind + body) for the nonce of that very poll, or it is ignored.
 import type { EngineInterface, Register } from 'claude-code'
-import { MODEL_OK, OWN_TOOL, OWN_TOOL_DESC, OWN_TOOL_FULL, OWN_TOOL_PLAN_DESC, OWN_TOOL_PLAN_SCHEMA, OWN_TOOL_SCHEMA, OWN_TOOL_SECTION, PLAN_SENTENCE, TODO_SECTION, TODO_SECTION_ID, TODO_TOOLS, activityOf, hmacHex, nonce, planOf, safeLine, sameMac, stableJson, summarize, tasksAtEnd, tasksAtStart, toDecision } from './link.ts'
+import { MODEL_OK, OWN_TOOL, OWN_TOOL_DESC, OWN_TOOL_FULL, OWN_TOOL_PLAN_DESC, OWN_TOOL_PLAN_SCHEMA, OWN_TOOL_SCHEMA, OWN_TOOL_SECTION, PLAN_SENTENCE, TODO_SECTION, TODO_SECTION_ID, TODO_TOOLS, activityOf, agentListOf, hmacHex, nonce, planOf, safeLine, sameMac, stableJson, summarize, tasksAtEnd, tasksAtStart, toDecision } from './link.ts'
 import type { Task } from './link.ts'
 
 type $T = EngineInterface
@@ -544,6 +544,10 @@ export const register: Register = on => {
   on('tool.call', async ($, e, next) => {
     if (L.inert) return next(e)
     const { tool, tool_use_id: id, agentId, requestMeta: _meta, ...input } = e as unknown as Record<string, unknown> & { tool: string; tool_use_id: string; agentId?: string }
+    // 2026-10-21 (sheet 58 C): a helper agent writing its own to-do list: its counts, for its own bar under the job.
+    if (agentId !== undefined && L.agents.has(agentId)) {
+      try { const n = agentListOf(tool, input); if (n) post($, L, 'agent.todos', { id: agentId, ...n }) } catch { /* a nicety */ }
+    }
     // The mod's own progress tool (2026-10-21): answered here, nothing else runs; the main loop's list is told to Aang.
     if (tool === OWN_TOOL_FULL) {
       let plan: ReturnType<typeof planOf> = null

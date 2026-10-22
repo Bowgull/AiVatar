@@ -2,7 +2,7 @@
 // behaves exactly as without the mod). The brain is played by the test's own http.fetch hook.
 import { describe, expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
-import { OWN_TOOL, OWN_TOOL_FULL, OWN_TOOL_PLAN_DESC, OWN_TOOL_SECTION, PLAN_SENTENCE, TODO_SECTION, TODO_SECTION_ID, activityOf, hmacHex, nextTasks, planOf, stripSecrets, toDecision } from '../hooks/link.ts'
+import { OWN_TOOL, OWN_TOOL_FULL, OWN_TOOL_PLAN_DESC, OWN_TOOL_SECTION, PLAN_SENTENCE, TODO_SECTION, TODO_SECTION_ID, activityOf, agentListOf, hmacHex, nextTasks, planOf, stripSecrets, toDecision } from '../hooks/link.ts'
 import type { Task } from '../hooks/link.ts'
 
 const KEY = 'test-key-for-aang-link-0123456789abcdefghij'
@@ -556,6 +556,23 @@ test("v3: a helper agent's tool calls are its heartbeats; background helpers are
   expect(events.find(ev => ev.type === 'agent.start' && ev.id === 'agent-bg')).toMatchObject({ bg: true })
   expect(events.find(ev => ev.type === 'agent.start' && ev.id === 'agent-1')?.bg).toBeUndefined()
   expect(events.find(ev => ev.type === 'agent.end')).toMatchObject({ id: 'agent-1', ok: false })
+})
+
+test("2026-10-21 (sheet 58 C): a helper agent's own to-do list reaches the brain as counts only, and never as the session's list", async ($, on) => {
+  on('agent.spawn', () => ({ model: 'haiku', agentId: 'agent-3' }))
+  on('tool.call', () => ({ result: 'ok' }))
+  const { events, quiet, until } = brain(on, {})
+  await $.session.start(start)
+  await quiet()
+  await $.agent.spawn({ prompt: 'x', description: 'Write the route list', subagentType: 'general-purpose' } as never)
+  await $.tool.call({ tool: 'TodoWrite', todos: [{ content: 'secret step one', status: 'completed', activeForm: 'a' }, { content: 'b', status: 'in_progress', activeForm: 'b' }, { content: 'c', status: 'pending', activeForm: 'c' }], agentId: 'agent-3' } as never)
+  await until(() => events.some(ev => ev.type === 'agent.todos'))
+  expect(events.find(ev => ev.type === 'agent.todos')).toMatchObject({ id: 'agent-3', done: 1, total: 3 })
+  expect(JSON.stringify(events.find(ev => ev.type === 'agent.todos'))).not.toContain('secret')
+  expect(events.filter(ev => ev.type === 'todos')).toHaveLength(0)
+  expect(agentListOf('TodoWrite', { todos: [] })).toBeNull()
+  expect(agentListOf('Bash', { command: 'ls' })).toBeNull()
+  expect(agentListOf(OWN_TOOL_FULL, { tasks: [{ text: 'a', status: 'completed' }, { text: 'b', status: 'completed' }] })).toEqual({ done: 2, total: 2 })
 })
 
 test('v3: the phase plan goes through the progress tool, masked and cut, and rides in a snapshot', async ($, on) => {

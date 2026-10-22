@@ -1,5 +1,6 @@
 // C7 Claude's rune in Samara's band (2026-10-21, sheet 50, his picks B + Q): no rune with no jobs (or no brain); the
-// rune appears only with a running job, its ring lit to the job's %; one rune with a gold 2 for two jobs; a click drops a
+// rune appears only with a running job, its ring lit to the job's %; one rune for two jobs, with NO number on it (sheet 58,
+// 2026-10-21, his words: "I don't care about the numbers at all"); helper agents as small rows under their job; a click drops a
 // ROUNDED panel with both jobs folded; each unfolds on its own; needs you turns it blue; a finished job turns teal and
 // it goes by itself after a few seconds (Nice is only the pop-out's); Pause, Play, a message (now / after) and Open in Claude go out as the checked messages only, and
 // anything else from the band is refused. Clicks are made inside the page (element.click()), never real mouse or keys;
@@ -153,14 +154,15 @@ app.whenReady().then(async () => {
   // Back on the original 12-pixel stone (2026-10-21): 8 thin rays round a small centre, 22 art pixels of terracotta.
   check("the glyph is Claude's terracotta starburst on cream", sun === 88 && cream >= 150, `${sun} terracotta, ${cream} cream screen px`);
 
-  // 3. Two jobs: ONE rune with a gold 2.
+  // 3. Two jobs: ONE rune, and no number on it (sheet 58, 2026-10-21: the gold count pip is gone).
   const two = () => [job(S1, 'Waymark', 'working', tasks(3, W1), 62, 38 * 60_000), job(S2, 'Samara', 'working', tasks(1, W2), 15, 50 * 60_000)];
   b.claudeNews({ t: 'claude.jobs', jobs: two() });
-  check('two jobs: one rune with a 2', await until(async () => (await js(`[document.querySelectorAll('#runeslot .rune').length, document.querySelector('#runeslot .pip')?.textContent]`)).join() === '1,2'));
+  const noNumber = () => js(`(() => { const s = document.getElementById('runeslot'); return !s.querySelector('.pip') && !/\\d/.test(s.textContent); })()`);
+  check('two jobs: one rune, no number on it', await until(async () => (await js(`document.querySelectorAll('#runeslot .rune').length`)) === 1) && (await noNumber()) === true);
   const pic = async (name: string, rect?: Electron.Rectangle) => { const img = await w.webContents.capturePage(rect); const f = path.join(OUT, name); writeFileSync(f, img.toPNG()); console.log('PICTURE ' + f); };
-  await wait(400);                    // a frame for the gold number to be painted before the picture
+  await wait(400);
   await pic('rune-bar.png', { x: 0, y: 0, width: 1180, height: 70 });
-  // The rune closed with its 2, cropped the same way as the sheet's (rune-sheet50-closed.png), to lay side by side.
+  // The rune closed, cropped the same way as the sheet's (rune-sheet50-closed.png), to lay side by side.
   const rx = await js(`Math.round(document.querySelector('#runeslot .stone').getBoundingClientRect().left)`);
   await pic('rune-real-closed.png', { x: Math.max(0, rx - 60), y: 0, width: 156, height: 70 });
 
@@ -171,13 +173,10 @@ app.whenReady().then(async () => {
   check('the panel has round, soft corners (no square pixel frame)', look.r >= 12 && look.img === 'none', JSON.stringify(look));
   check('both jobs are listed, folded', look.jobs === 2 && look.open === 0 && look.gh === 'CLAUDE · 2 JOBS', JSON.stringify(look));
   check('the rune shows it is pressed', await js(`document.querySelector('#runeslot .rune').classList.contains('on')`) === true);
-  // His ask (2026-10-21): the gold number fades while the panel is open, and comes back when it closes.
-  const pipOp = () => js(`(() => { const p = document.querySelector('#runeslot .pip'); return p ? getComputedStyle(p).opacity : 'none'; })()`);
-  check('the gold number fades away while the panel is open', await until(async () => (await pipOp()) === '0', 1500), await pipOp());
+  check('open: still no number on the rune', (await noNumber()) === true);
   await pic('rune-bar-open.png', { x: 560, y: 0, width: 620, height: 420 });
   await js(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`);
-  check('closed: the number comes back', await until(async () => (await pipOp()) === '1', 1500), await pipOp());
-  check('the same rune, not redrawn, so it fades', await js(`document.querySelectorAll('#runeslot .rune').length === 1 && !document.querySelector('#runeslot .rune').classList.contains('on')`) === true);
+  check('closed: the same rune, not redrawn, and no number', await until(async () => (await js(`document.querySelectorAll('#runeslot .rune').length === 1 && !document.querySelector('#runeslot .rune').classList.contains('on')`)) === true, 1500) && (await noNumber()) === true);
   await js(`document.querySelector('#runeslot .rune').click()`);
   await until(async () => (await rjs(`!document.getElementById('rpanel').hidden`)) === true);
   const card = (id: string) => `#rpanel .job[data-id="${id}"]`;
@@ -235,10 +234,10 @@ app.whenReady().then(async () => {
   await wait(350);
   await js(`document.querySelector('#runeslot .rune').click()`);
   await until(async () => (await rjs(`!document.getElementById('rpanel').hidden`)) === true);
-  check('the rune still counts it (2)', await js(`document.querySelector('#runeslot .pip')?.textContent`) === '2');
+  check('the panel still lists it, and the rune has no number', await rjs(`document.querySelectorAll('#rpanel .job').length`) === 2 && (await noNumber()) === true);
   await wait(300);
   await pic('rune-panel-done.png', { x: 560, y: 0, width: 620, height: 640 });
-  check('the finished one goes by itself', await until(async () => (await rjs(`[!!document.querySelector('${card(S1)}'), !!document.querySelector('#runeslot .pip')].join()`)) === 'false,false', 7000));
+  check('the finished one goes by itself', await until(async () => (await rjs(`!!document.querySelector('${card(S1)}')`)) === false, 7000));
   b.claudeNews({ t: 'claude.jobs', jobs: [job(S2, 'Samara', 'idle', tasks(4, W2), 100, 0)] });
   check('the last job finishing: the rune becomes the teal tick', await until(async () => (await js(`document.querySelector('#runeslot .rune')?.dataset.state`)) === 'complete'));
   await wait(400);
@@ -267,8 +266,9 @@ app.whenReady().then(async () => {
   await js(`document.querySelector('#runeslot .rune').click()`);
   await until(async () => (await rjs(`!!document.querySelector('${card(S3)}')`)) === true);
   await rjs(`document.querySelector('${card(S3)}').click()`);
-  const actLine = await rjs(`[document.querySelector('${card(S3)} .act .an')?.textContent, document.querySelector('${card(S3)} .act .rows .arow')?.textContent].join(' | ')`);
-  check('the live description shows above the tasks', /^Running the tests · npm test \(1\d s\) \| Explore · mapping the code · \d+ s$/.test(actLine), actLine);
+  const actLine = await rjs(`(() => { const r = document.querySelector('${card(S3)} .agc .agr'); return [document.querySelector('${card(S3)} .act .an')?.textContent, r?.dataset.type, r?.querySelector('b')?.textContent, r?.querySelector('.wh')?.textContent, r?.querySelector('.tm')?.textContent, !!document.querySelector('${card(S3)} .act .agr')].join(' | '); })()`);
+  // Sheet 58 C (2026-10-21): the helper is its own row under the job's bar (type icon, label, its bar), not in the drop-down.
+  check('the live description above the tasks; the helper as a row under the bar', /^Running the tests · npm test \(1\d s\) \| explore \| Explore \| Mapping the code \| \d+ s \| false$/.test(actLine), actLine);
   const pctNow = async () => parseInt(await rjs(`document.querySelector('${card(S3)} .pct').textContent`), 10);
   const p1 = await pctNow(); await wait(1500); const p2 = await pctNow();
   check('the % creeps between messages', p1 >= 50 && p2 > p1, `${p1} -> ${p2}`);
@@ -279,6 +279,28 @@ app.whenReady().then(async () => {
   await wait(300);
   const p3 = await pctNow();
   check('and never goes back when the next message lands', p3 >= p2, `${p2} -> ${p3}`);
+  // Sheet 58 C: five helpers on one job: three rows (icon, label, own bar), "+2 more", the panel still one job, no number.
+  {
+    const n0 = Date.now();
+    const five = [
+      { id: 'a1', kind: 'general-purpose', what: 'Map tiles docs research', since: n0 - 4 * 60_000, calls: 9, est: { mu: Math.log(6 * 60_000), sigma: 0.5 }, n: 5, fg: false },
+      { id: 'a2', kind: 'general-purpose', what: 'Write the route list', since: n0 - 3 * 60_000, calls: 14, done: 5, total: 8, fg: false },
+      { id: 'a3', kind: 'general-purpose', what: 'Running the tests', since: n0 - 60_000, calls: 2, fg: false },
+      { id: 'a4', kind: 'Explore', what: 'Mapping the code', since: n0 - 30_000, fg: false },
+      { id: 'a5', kind: 'Plan', what: 'Plan the sync', since: n0 - 20_000, fg: false },
+    ];
+    await rjs(`document.querySelector('${card(S3)}').click()`);     // folded: the helper rows stay in view
+    b.claudeNews({ t: 'claude.jobs', jobs: [{ ...liveJob(), activity: { now: 'Wiring the route list', since: n0 - 40_000, agents: five } }] });
+    await until(async () => (await rjs(`document.querySelectorAll('${card(S3)} .agc .agr').length`)) === 3, 3000);
+    const A = await rjs(`(() => { const c = document.querySelector('${card(S3)}'); return { open: c.classList.contains('open'), rows: [...c.querySelectorAll('.agc .agr')].map(r => [r.dataset.type, r.querySelector('b').textContent, !!r.querySelector('canvas.agi'), !!r.querySelector('canvas.agb'), r.querySelector('.tm').textContent].join('/')),
+      more: c.querySelector('.agmore')?.textContent, jobs: document.querySelectorAll('#rpanel .job').length }; })()`);
+    check('helpers in the rune panel: 3 rows with icon + bar, "+2 more", folded card, still one job', A.open === false && A.jobs === 1 && A.more === '+2 more'
+      && /^research\/Research\/true\/true\/4 min,build\/Build\/true\/true\/63%,check\/Check\/true\/true\/1 min$/.test(A.rows.join()), JSON.stringify(A));
+    check('helpers: no number on the rune', (await noNumber()) === true);
+    await wait(300);
+    // Laid beside sheet 58's rune-C.png: the panel with its job and helpers.
+    { const f = path.join(OUT, 'rune-agents.png'); writeFileSync(f, (await layerOf().webContents.capturePage()).toPNG()); console.log('PICTURE ' + f); }
+  }
   await js(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`);
 
   // 8c. 2026-10-21 (his report: opening the rune "bugs out the browser completely, especially when I'm watching a

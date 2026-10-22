@@ -151,11 +151,14 @@ app.whenReady().then(async () => {
   await wait(400);
   const live = () => js(`(() => { const j = document.querySelector('${S1B}'); const c = j.querySelector('canvas.jpill'), g = c.getContext('2d');
     let edge = -1; for (let x = 0; x < c.width; x++) { const d = g.getImageData(x, 4, 1, 1).data; if (d[0] === 255 && d[1] === 250 && d[2] === 240) edge = x; }
-    return { pct: j.querySelector('.ff').textContent, left: j.querySelector('.lt').textContent, an: j.querySelector('.act .an')?.textContent ?? null, ag: j.querySelector('.act .rows .arow')?.textContent ?? null, edge }; })()`) as Promise<{ pct: string; left: string; an: string | null; ag: string | null; edge: number }>;
+    const r = j.querySelector('.agc .agr');
+    return { pct: j.querySelector('.ff').textContent, left: j.querySelector('.lt').textContent, an: j.querySelector('.act .an')?.textContent ?? null,
+      ag: r ? [r.dataset.type, r.querySelector('b').textContent, r.querySelector('.wh').textContent, r.querySelector('.tm').textContent].join(' | ') : null, inDrop: !!j.querySelector('.det .agr'), edge }; })()`) as Promise<{ pct: string; left: string; an: string | null; ag: string | null; inDrop: boolean; edge: number }>;
   let L = await live();
   check('drop-down: what it is doing now, with how long', /^Running the tests · npm test -- --run \(1[234] s\)$/.test(L.an ?? ''), JSON.stringify(L.an));
-  // v3 (2026-10-21): a row per helper agent (its type, its task, how long; a bar once its type has history).
-  check('drop-down: the helper agents', /^general-purpose · reviewing the diff · \d+ s$/.test(L.ag ?? ''), JSON.stringify(L.ag));
+  // Sheet 58 C (his pick, 2026-10-21): the helper is a row under the bar (its type icon, "Check", what it does, its time),
+  // not a line inside the drop-down.
+  check('helper row under the bar: type, label, what, time', /^check \| Check \| Reviewing the diff \| \d+ s$/.test(L.ag ?? '') && !L.inDrop, JSON.stringify(L));
   check('engine: ticked tasks only at first, time left from the pace ("about")', L.pct === '33%' && L.left === 'about 4 min left', JSON.stringify(L));
   const edges = [L.edge], pcts = [parseInt(L.pct)];
   await advance(30_000);
@@ -184,8 +187,49 @@ app.whenReady().then(async () => {
   check('engine: no list = no percent, "Working" (never a fake 0%)', L.pct === '' && L.left === 'Working', JSON.stringify(L));
   await js(`Date.now = window.__realNow; 0`);
   await click(`${S1B} .row2`);
+
+  // ---- sheet 58 C (his pick, 2026-10-21): helper agents as small rows under their job, each with its type icon, a short
+  // label and its own thin bar: its own list's % (solid), its time against its type's usual (paler, with 3+ runs of
+  // history), or no guess (still, a pip per tool call). Three rows at most, then "+N more". Never a job of their own.
+  const nowA = Date.now(), MIN6 = Math.log(6 * 60_000);
+  const AGENTS = [
+    { id: 'a1', kind: 'general-purpose', what: 'Look up the map tiles docs', since: nowA - 4 * 60_000, calls: 9, est: { mu: MIN6, sigma: 0.5 }, n: 5, fg: false },
+    { id: 'a2', kind: 'general-purpose', what: 'Write the route list', since: nowA - 3 * 60_000, calls: 14, done: 3, total: 5, fg: false },
+    { id: 'a3', kind: 'general-purpose', what: 'Run the tests', since: nowA - 60_000, calls: 4, fg: false },
+    { id: 'a4', kind: 'Explore', what: 'Mapping the code', since: nowA - 30_000, fg: false },
+    { id: 'a5', kind: 'Plan', what: 'Plan the sync', since: nowA - 20_000, failed: true, endedAt: nowA, fg: false },
+  ];
+  const jobsBefore = await bars();
+  await deliver({ t: 'claude.jobs', jobs: [{ ...WM, activity: { now: 'Thinking', since: nowA, agents: AGENTS } }, SND] });
+  await wait(300);
+  const AG = await js(`(() => { const j = document.querySelector('${S1B}'); const box = j.querySelector('.agc');
+    const px = (c, x, y) => '#' + [...c.getContext('2d').getImageData(x, y, 1, 1).data].slice(0, 3).map(v => v.toString(16).padStart(2, '0')).join('');
+    const rows = [...box.querySelectorAll('.agr')].map(r => { const ic = r.querySelector('canvas.agi'), b = r.querySelector('canvas.agb');
+      return { type: r.dataset.type, label: r.querySelector('b').textContent, what: r.querySelector('.wh').textContent, tm: r.querySelector('.tm').textContent,
+        icon: [ic.width, ic.height, px(ic, 4, 0), ic.getContext('2d').getImageData(0, 0, 1, 1).data[3]], bar: [b.width, b.height, b.style.width, b.style.height], fill: px(b, 4, 2), end: px(b, 27, 2) }; });
+    return { rows, more: box.querySelector('.agmore')?.textContent ?? null, under: box.previousElementSibling?.classList.contains('row2') || box.previousElementSibling?.classList.contains('queued') }; })()`) as { rows: { type: string; label: string; what: string; tm: string; icon: unknown[]; bar: unknown[]; fill: string; end: string }[]; more: string | null; under: boolean };
+  check('helpers: three rows at most, then "+2 more"', AG.rows.length === 3 && AG.more === '+2 more', JSON.stringify(AG));
+  check('helpers: typed from subagent type + words (Research, Build, Check)', AG.rows.map((r) => `${r.type}/${r.label}/${r.what}`).join() === 'research/Research/Look up the map tiles docs,build/Build/Write the route list,check/Check/Run the tests', JSON.stringify(AG.rows));
+  check('helpers: crisp 10x10 icons at 2x (dark wood outline, see-through corner)', AG.rows.every((r) => r.icon[0] === 20 && r.icon[1] === 20 && r.icon[3] === 0) && AG.rows[0]!.icon[2] === '#2a1a10', JSON.stringify(AG.rows.map((r) => r.icon)));
+  check('helpers: each its own thin bar, 30x5 art pixels at 2x', AG.rows.every((r) => JSON.stringify(r.bar) === '[30,5,"60px","10px"]'), JSON.stringify(AG.rows.map((r) => r.bar)));
+  check('helpers: own list = solid % ("60%"); history = paler bar + time; none = still track + time', AG.rows[1]!.tm === '60%' && AG.rows[1]!.fill === '#f0a64a'
+    && /^4 min$/.test(AG.rows[0]!.tm) && AG.rows[0]!.fill !== '#966ec8' && AG.rows[0]!.fill !== '#ead8b0' && AG.rows[0]!.end === '#ead8b0'
+    && /^1 min$/.test(AG.rows[2]!.tm) && AG.rows[2]!.end === '#ead8b0', JSON.stringify(AG.rows.map((r) => [r.tm, r.fill, r.end])));
+  check('helpers: tucked right under the job bar', AG.under === true);
+  const asJobs = await js(`[...document.querySelectorAll('#ckjobs .job .hd b, #ckjobs .orow .on b')].filter(b => /map tiles|route list|Run the tests|Mapping|sync/.test(b.textContent)).length`);
+  check('helpers: never shown as jobs', JSON.stringify(await bars()) === JSON.stringify(jobsBefore) && asJobs === 0, JSON.stringify([jobsBefore, await bars(), asJobs]));
+  // A failed helper turns red and says so (here the failed one is the fourth: shown once the others have finished).
+  await deliver({ t: 'claude.jobs', jobs: [{ ...WM, activity: { now: 'Thinking', since: nowA, agents: AGENTS.slice(3) } }, SND] });
+  await wait(300);
+  const F = await js(`(() => { const rs = [...document.querySelectorAll('${S1B} .agc .agr')]; return rs.map(r => [r.dataset.type, r.classList.contains('failed'), r.querySelector('.tm').textContent]); })()`);
+  check('helpers: Explore and Plan by their type; a failed one is red, "failed"', /^\[\["explore",false,"3\d s"\],\["plan",true,"failed"\]\]$/.test(JSON.stringify(F)), JSON.stringify(F));
+  // The one classifier (the bubble, the rune and the pop-out all use it).
+  const kinds = await js(`import('./claudejobs.js').then(m => [['claude-code-guide', 'How do hooks work'], ['general-purpose', 'Draw the route screen mockup'], ['general-purpose', 'Verify the build passes'],
+    ['general-purpose', 'Find where the pill is drawn'], ['general-purpose', 'Outline the approach'], ['general-purpose', 'Research map tile providers'], ['general-purpose', 'Fix the login bug'], ['', '']].map(([k, w]) => m.agentType(k, w)).join())`);
+  check('helpers: the classifier names all six', kinds === 'research,design,check,explore,plan,research,build,build', String(kinds));
   await deliver({ t: 'claude.jobs', jobs: [{ ...WM, held: 2 }, SND] });
   await wait(150);
+  check('helpers: gone with their job\'s helpers', (await js(`!document.querySelector('${S1B} .agc')`)) === true);
 
   // ---- pinned: a permission on top, 2 MORE
   await deliver({ t: 'claude.wait', items: [PERM, MULTI, THREE] });

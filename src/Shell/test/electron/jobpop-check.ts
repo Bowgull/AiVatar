@@ -86,9 +86,13 @@ app.whenReady().then(async () => {
   const folded = await js(`(() => { const pj = document.querySelector('.pj');
     return { open: pj.classList.contains('open'), det: pj.querySelector('.det').getBoundingClientRect().height, icon: !!pj.querySelector('.top img.ci'),
       pr: pj.querySelector('.pr').textContent, pct: pj.querySelector('.pct').textContent, lt: pj.querySelector('.lt')?.textContent,
-      pill: !!pj.querySelector('.pbw canvas.jpill'), buttons: [...pj.querySelectorAll('.top button')].map((b) => b.className), h: pj.getBoundingClientRect().height }; })()`);
+      pill: !!pj.querySelector('.pbw canvas.jpill'), buttons: [...pj.querySelectorAll('.top button')].map((b) => b.className), h: pj.getBoundingClientRect().height,
+      ag: (() => { const r = pj.querySelector('.agc .agr'); return r && r.getBoundingClientRect().height > 20 ? [r.dataset.type, r.querySelector('b').textContent, r.querySelector('.wh').textContent, !!r.querySelector('canvas.agi'), !!r.querySelector('canvas.agb'), r.querySelector('.tm').textContent].join('/') : null; })(),
+      under: pj.querySelector('.agc')?.previousElementSibling?.classList.contains('top') }; })()`);
   check('arrives folded', folded.open === false && folded.det === 0, folded);
   check('icon, project, %, time left, pill', folded.icon && folded.pr === 'Waymark' && /^\d+%$/.test(folded.pct) && !!folded.lt && folded.pill, folded);
+  // Sheet 58 C (his pick, 2026-10-21): its helper agent is a small row right under the folded bar, always in view.
+  check('folded: the helper row under the bar (icon, Explore, what, its bar, time)', folded.under === true && /^explore\/Explore\/Mapping the code\/true\/true\/\d+ s$/.test(folded.ag ?? ''), folded);
   check('one pin is the only chrome', folded.buttons.length === 1 && folded.buttons[0] === 'pin', folded.buttons);
   check('no border: the window has no frame and a see-through page', await js(`getComputedStyle(document.body).backgroundColor === 'rgba(0, 0, 0, 0)'`) === true);
   const hFold = w.getSize()[1]!;
@@ -109,10 +113,10 @@ app.whenReady().then(async () => {
   await wait(650);
   const opened = await js(`(() => { const pj = document.querySelector('.pj');
     return { open: pj.classList.contains('open'), det: pj.querySelector('.det').getBoundingClientRect().height, line: pj.querySelector('.nowl').textContent,
-      ag: pj.querySelector('.rows .arow')?.textContent, rows: pj.querySelectorAll('.list .ob').length, done: pj.querySelectorAll('.list .ob.done').length, now: pj.querySelector('.ob.now .tx')?.textContent,
+      ag: !!pj.querySelector('.det .agr'), rows: pj.querySelectorAll('.list .ob').length, done: pj.querySelectorAll('.list .ob.done').length, now: pj.querySelector('.ob.now .tx')?.textContent,
       keys: [...pj.querySelectorAll('.ckeys button')].map((b) => b.textContent || b.className) }; })()`);
   check('unfolds on a click', opened.open && opened.det > 120, opened);
-  check('live line with the computer, helper agents', /PC/.test(opened.line) && /Running the tests/.test(opened.line) && /\(\d+ s\)/.test(opened.line) && /^Explore · mapping the code · \d+ s$/.test(opened.ag ?? ''), opened);
+  check('live line with the computer; the helper is not repeated in the drop-down', /PC/.test(opened.line) && /Running the tests/.test(opened.line) && /\(\d+ s\)/.test(opened.line) && opened.ag === false, opened);
   check('the to-do list', opened.rows === 6 && opened.done === 3 && opened.now === 'AI joins in', opened);
   check('the task in hand shows how far into it the bar is, live', /^\d{1,2}%$/.test(await js(`document.querySelector('.ob.now .r').textContent`)), await js(`document.querySelector('.ob.now .r').textContent`));
   check('Pause, Open in Claude, the purple key', JSON.stringify(opened.keys) === JSON.stringify(['Pause', 'Open in Claude', 'msg']), opened.keys);
@@ -135,6 +139,28 @@ app.whenReady().then(async () => {
   await wait(500);
   check('folds on a second click', await js(`(() => { const pj = document.querySelector('.pj'); return !pj.classList.contains('open') && pj.querySelector('.det').getBoundingClientRect().height === 0; })()`) === true);
   check('the window shrank back', await until(() => w.getSize()[1] === hFold, 1500), w.getSize());
+
+  // Sheet 58 C: five helpers: three rows (Research / Build with its own list's % / Check), "+2 more", the window grows to
+  // fit, and back to the one helper after. Pictured beside sheet 58's pop-C.png.
+  {
+    const n0 = Date.now();
+    const five = [
+      { id: 'a1', kind: 'general-purpose', what: 'Map tiles docs research', since: n0 - 4 * 60_000, calls: 9, est: { mu: Math.log(6 * 60_000), sigma: 0.5 }, n: 5, fg: false },
+      { id: 'a2', kind: 'general-purpose', what: 'Route list', since: n0 - 3 * 60_000, calls: 14, done: 5, total: 8, fg: false },
+      { id: 'a3', kind: 'general-purpose', what: 'Running the tests', since: n0 - 60_000, calls: 2, fg: false },
+      { id: 'a4', kind: 'Explore', what: 'Mapping the code', since: n0 - 30_000, fg: false },
+      { id: 'a5', kind: 'Plan', what: 'Plan the sync', since: n0 - 20_000, fg: false },
+    ];
+    jp.update([job(S1, 'Waymark', 'working', W1, 3, { activity: { now: 'Wiring the route list', since: n0 - 40_000, agents: five } }), job(S2, 'Samara', 'working', W2, 1)], []);
+    await until(async () => (await js(`document.querySelectorAll('.pj .agc .agr').length`)) === 3, 3000);
+    const A = await js(`(() => { const pj = document.querySelector('.pj'); return { rows: [...pj.querySelectorAll('.agc .agr')].map(r => r.dataset.type + '/' + r.querySelector('.tm').textContent), more: pj.querySelector('.agmore')?.textContent }; })()`);
+    check('pop-out: 3 helper rows, its own list as a %, "+2 more"', /^research\/4 min,build\/63%,check\/1 min$/.test(A.rows.join()) && A.more === '+2 more', A);
+    check('pop-out: the window grew to fit the helpers', await until(() => w.getSize()[1]! > hFold + 50, 1500), w.getSize());
+    await wait(250);
+    await pic(w, 'jobpop-agents.png');
+    jp.update([job(S1, 'Waymark', 'working', W1, 3), job(S2, 'Samara', 'working', W2, 1)], []);
+    check('pop-out: back to one helper, and the window with it', await until(async () => (await js(`document.querySelectorAll('.pj .agc .agr').length`)) === 1 && w.getSize()[1] === hFold, 2000), w.getSize());
+  }
 
   // 4. Hover: the slider appears (B), the window takes the mouse, and the fade stays (E).
   const card = await js(`(() => { const r = document.querySelector('.pj .pbw').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
