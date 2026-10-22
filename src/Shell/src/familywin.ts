@@ -50,7 +50,9 @@ export interface Shared { opacity: number; pinned: boolean }
 export const KIND_LAYOUTS: Record<string, F.Layouts> = {
   job: { tall: { width: 152, minHeight: 200 }, wide: { height: 'auto' } },
   note: { tall: { maxWidth: 200, minHeight: 160 }, wide: {} },
-  timer: { tall: { width: 140, minHeight: 120 }, wide: { height: 'auto' } },
+  // 2026-10-22 (his note: "a ton of empty space"): a compact column beside a taller window, only as tall as the hourglass,
+  // its name and its time, at the top; several stack tight. Under or over a wider window it keeps its own compact plate.
+  timer: { tall: { width: 140, minHeight: 200, fitHeight: true } },
   snip: { aspect: true, max: { width: 720, height: 560 } },
 };
 /** How long the page's re-flow takes (the settle spring, 0.32 s): the window shrinks only after it. */
@@ -86,6 +88,11 @@ export interface MemberWin {
   resize?: (width: number, height: number) => void;
   /** The family moved it: remember where (its own save). */
   moved?: () => void;
+  /**
+   * It draws its own right-click menu and puts the family's rows in it (the timer, sheet 67 v2: "plus the family items
+   * when joined"), so a joined right-click is not taken for the family menu. It reads them with menuState, picks with pick.
+   */
+  ownMenu?: boolean;
 }
 
 /** What member modules call. */
@@ -99,6 +106,10 @@ export interface FamilyHooks {
   shared(from: string, s: Partial<Shared>): void;
   /** Click-through for one member, from its own menu (1b): on, off, or flipped when absent. */
   setThrough(id: string, on?: boolean): void;
+  /** For a member with its own menu: the family rows' state, or null when it is not joined. */
+  menuState?(id: string): { n: number; opacity: number; pinned: boolean; through: boolean } | null;
+  /** A family row picked in a member's own menu: opacity (value), pin, through, apart. */
+  pick?(id: string, what: string, value?: number): void;
 }
 
 interface Pad { t: number; r: number; b: number; l: number }
@@ -365,6 +376,12 @@ export class FamilyHost implements FamilyHooks {
     if (!this.joined(id)) return;
     const g = F.groupOf(this.fam, id);
     this.overlay.openMenu(at, { id, n: g.length, total: this.live.size, ...this.sharedNow, through: F.allThrough(this.throughNow(), g, this.locked()) });
+  }
+  /** For a member that draws its own menu (the timer): the family rows' state, or null when it is not joined. */
+  menuState(id: string): { n: number; opacity: number; pinned: boolean; through: boolean } | null {
+    if (!this.joined(id)) return null;
+    const g = F.groupOf(this.fam, id);
+    return { n: g.length, opacity: this.sharedNow.opacity, pinned: this.sharedNow.pinned, through: F.allThrough(this.throughNow(), g, this.locked()) };
   }
   /** From the menu. */
   pick(id: string, what: string, value?: number): void {
@@ -796,7 +813,7 @@ export class FamilyHost implements FamilyHooks {
       joined: F.isJoined(this.fam, id), wiggle: !!this.wiggle?.ids.includes(id), held: this.dragNow?.id === id && !!this.dragNow?.wiggle,
       sides: l.sides, square: l.square, through: l.through, pad: l.pad, card: l.m.card ?? null, remeasure,
       // F4: the page's shape and the panel size it is held at (null: it sizes itself).
-      shape: l.view, sized: l.sized,
+      shape: l.view, sized: l.sized, ownMenu: l.m.ownMenu === true,
     });
   }
 

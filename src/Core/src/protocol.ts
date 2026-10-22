@@ -340,7 +340,7 @@ export type ToBody =
   /** C6 (2026-10-22): a Claude job before it is sent (asks.js draws it). `hash` is SHA-256 of `text`, echoed back on Go. */
   | { t: 'claude.start'; id: string; hash: string; words: string; line: string; folder: string; text: string; door: 'link' | 'door2' | 'prefill'; model?: string; quota?: boolean; resume?: { title: string; running: boolean } }
   /** Sheet 17: every running timer, after any change and when a Shell connects. Times are epoch ms. */
-  | { t: 'timer.state'; timers: { id: string; label: string; total: number; end: number; paused: number }[] }
+  | { t: 'timer.state'; timers: { id: string; label: string; total: number; end: number; paused: number; colour?: string; done?: number }[] }
   /** Sheet 17: every note, newest first, after any change and when a Shell connects. */
   | { t: 'notes.state'; notes: import('./notes.ts').Note[]; cats?: { builtin: string[]; own: string[] } }
   /** Sheet 17: "show my notes": the bubble opens the board. */
@@ -592,8 +592,9 @@ export type FromBody =
   | { t: 'plan.reply'; id: string; go: boolean }
   | { t: 'claude.start.reply'; id: string; hash: string; choice: 'go' | 'change' | 'no' }
   /** Sheet 17: a timer set on the dial, the keys on the hourglass, and "5 more" when one goes off. */
-  | { t: 'timer.start'; ms: number; label: string }
-  | { t: 'timer.act'; id: string; action: 'add' | 'pause' | 'stop' }
+  | { t: 'timer.start'; ms: number; label: string; colour?: string }
+  /** Sheet 67 v2: add (ms, default +1 min, minus too), pause, stop, again (ms = a new length), rename (label), colour. */
+  | { t: 'timer.act'; id: string; action: 'add' | 'pause' | 'stop' | 'again' | 'rename' | 'colour'; ms?: number; label?: string; colour?: string }
   /** Sheet 17: a note saved from the editor, the screen, or a new one; and a note deleted. */
   | { t: 'notes.save'; note: unknown }
   | { t: 'notes.delete'; id: string }
