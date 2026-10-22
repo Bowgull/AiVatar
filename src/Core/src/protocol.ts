@@ -20,7 +20,7 @@ export type ListIcon = 'job' | 'email' | 'meeting' | 'file' | 'deadline' | 'remi
  * Aang really changed something for him (a tool that did more than look, or an email that went). Set by the brain
  * where it KNOWS, never guessed from the words. Ordinary chat and rows saved before 2026-10-21 have none.
  */
-export type RowKind = 'claude' | 'action';
+export type RowKind = 'claude' | 'action' | 'note.notice';
 /** good/normal/careful/stop/inactive, the same five-way vocabulary Theme.cs already uses everywhere else. */
 export type ChipTone = 'good' | 'normal' | 'careful' | 'stop' | 'inactive';
 export interface StructuredItem {
@@ -222,6 +222,9 @@ export type ToBody =
       brief?: BriefCard;
       /** E7: links that go with it as buttons in Discord (Join, Open in Waze); at the desk they show as chips. */
       links?: { label: string; url: string }[];
+      /** kind 'note.notice' (2026-10-22, notenotice.ts): Qwen noticed this line in that note. A click opens the note;
+       *  sheet 60 will give it its own livelier look. */
+      notice?: { noteId: string; line: string };
       /** The weekly sweep as a card (6.15b), with where its note was written. */
       research?: import('./watch.ts').ResearchCard & { file?: string };
       /** Something he asked to be told about: shown even in quiet mode. */
@@ -576,6 +579,8 @@ export type FromBody =
   /** Sheet 17: a note saved from the editor, the screen, or a new one; and a note deleted. */
   | { t: 'notes.save'; note: unknown }
   | { t: 'notes.delete'; id: string }
+  /** The one switch for "Aang notices things in your notes" (notenotice.ts); its place in Settings comes with sheet 60. */
+  | { t: 'notice.set'; on: boolean }
   /** His pick from a choice list: the option's index, or -1 for "Something else". */
   | { t: 'choice.reply'; id: string; pick: number }
   | { t: 'action.list' }

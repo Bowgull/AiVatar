@@ -20,6 +20,9 @@ export interface Note {
   tfont?: string | undefined; tsize?: string | undefined;
   /** On his screen: where, how big, how see-through, pinned. Absent: on the board only. */
   out?: { x: number; y: number; w: number; h: number; opacity: number; pinned: boolean } | undefined;
+  /** "Aang can bring this up" (2026-10-22, notenotice.ts). On by default: stored only as `false` when he turns it off,
+   *  so every note saved before this existed is on, with no migration step beyond tidy(). */
+  notice?: false | undefined;
   updated: number;
 }
 
@@ -219,6 +222,7 @@ export class Notes {
       ...((FONTS as readonly string[]).includes(String(n.tfont)) ? { tfont: String(n.tfont) } : {}),
       ...(Number.isInteger(Number(n.tsize)) && Number(n.tsize) >= 10 && Number(n.tsize) <= 28 ? { tsize: String(Number(n.tsize)) } : {}),
       ...(o ? { out: { x: num(o.x, -20000, 20000, 100), y: num(o.y, -20000, 20000, 100), w: num(o.w, 170, 900, 220), h: num(o.h, 120, 900, 170), opacity: Math.max(0.25, Math.min(1, Number(o.opacity) || 1)), pinned: o.pinned === true } } : {}),
+      ...(n.notice === false ? { notice: false as const } : {}),
       updated: Number.isFinite(n.updated) ? n.updated : Date.now(),
     };
   }
