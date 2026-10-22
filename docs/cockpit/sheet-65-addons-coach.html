@@ -4,7 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sheet 65 - Addons + coach</title>
-<!-- Sheet 65 v2 (2026-10-22, late). His notes on v1: software names carry their icon, sites their bookmark icon; the coach
+<!-- Sheet 65 v3 (2026-10-22, night): coach part rebuilt around his question "did I miss something, could I have done better,
+     what do other addons do?" (research: docs/COACH-RESEARCH.md); A four answers / B report card (sheet-65/report.js ?look=b|a);
+     an "Answers to your question" box. The addons part is unchanged.
+     Sheet 65 v2 (2026-10-22, late). His notes on v1: software names carry their icon, sites their bookmark icon; the coach
      report was unreadable ("I genuinely don't know what I'm reading, this needs to be simpler") and must not have its own
      ask box ("I'll just ask Aang, less entry points for chat"). Addon icons are CurseForge's own thumbnails from its local
      cache (read only, sheet-65/icons); CurseForge's and WoW's are their programs' own icons. The report is rebuilt: one
@@ -23,14 +26,24 @@
   .rules b{font:800 15.5px Figtree,sans-serif;color:#fffaf0}
   .rules span{font:500 15px/1.5 Figtree,sans-serif;color:#d8cab0}
   @media (max-width:900px){.rules{grid-template-columns:1fr}}
+  .answers{margin:22px 0 0;background:#221d18;border:2px solid #6a5434;border-radius:14px;padding:16px 20px 14px;max-width:1240px}
+  .answers h3{margin:0 0 12px;font:800 20px Figtree,sans-serif;color:#FFC43C}
+  .agrid{display:grid;grid-template-columns:1fr 1fr;gap:12px 28px}
+  .agrid>div>b{display:flex;align-items:center;gap:6px;font:800 16px Figtree,sans-serif;color:#fffaf0;margin-bottom:3px}
+  .agrid span{display:block;font:500 15px/1.5 Figtree,sans-serif;color:#d8cab0}
+  .agrid span b{color:#FFC43C}
+  .mono{font:800 9px/18px Figtree,sans-serif;font-style:normal;width:18px;height:18px;text-align:center;border-radius:4px;color:#fff3d8;box-shadow:0 0 0 1.5px #000;flex:none}
+  .agrid .ico{margin-right:0}
+  .honest{margin:14px 0 0;padding-top:12px;border-top:2px dashed #4a4038;font-size:15.5px}
+  @media (max-width:900px){.agrid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 <h1>SHEET 65 &middot; ADDONS + COACH</h1>
-<p class="real">v2 &middot; 22 Oct, late &middot; icons on every name, and a coach report you can read in five seconds</p>
-<p class="lead">Two things: your addon updates in the <b>morning brief</b>, now with each addon's own icon, and the <b>rotation coach</b>, rebuilt from scratch to be simple. You ask Aang; Aang answers in one line; the line opens a short page of tips in Samara. There is no ask box on that page: you keep asking Aang.</p>
+<p class="real">v3 &middot; 22 Oct, night &middot; the coach now answers your four questions, plus what other tools do; the addons part is unchanged</p>
+<p class="lead">Two things: your addon updates in the <b>morning brief</b>, now with each addon's own icon, and the <b>rotation coach</b>, now built around the four things you want to know. You ask Aang; Aang answers in one line; the line opens the report in Samara. There is no ask box on that page: you keep asking Aang.</p>
 <div class="decided"><span>Every software name carries its icon</span><span>Every site carries its bookmark icon</span><span>One place to chat: Aang</span><span>Reports open in Samara</span></div>
-<p class="topick"><span>WHAT TO PICK</span> <em>Addons: <b>A</b> all ticked, or <b>B</b> safe ones ticked (my pick)? &nbsp;&middot;&nbsp; Coach: is this simple enough?</em></p>
+<p class="topick"><span>WHAT TO PICK</span> <em>Addons: <b>A</b> all ticked, or <b>B</b> safe ones ticked (my pick)? &nbsp;&middot;&nbsp; Coach: <b>A</b> four answers (my pick) or <b>B</b> report card?</em></p>
 
 <h2><span class="n">1</span>ADDONS IN THE MORNING BRIEF</h2>
 <p>A new <b>Addons</b> slip under Today. Each row: tick, <b>the addon's own icon</b>, name, old &rarr; new, one short line, and a warning tag when there is one (now in plain readable words). Aang only does this with <img class="ico" src="sheet-65/icons/app-wow.png" alt="">WoW closed.</p>
@@ -59,44 +72,63 @@
   </div>
 </div>
 
-<h2><span class="n">2</span>ROTATION COACH, SIMPLE</h2>
-<p>Your note: "I genuinely don't know what I'm reading." Fair: v1 was a dashboard. Now it reads like a friend's text. <b>One headline</b> for the fight. <b>Two tips</b>, each a plain sentence with the ability's icon and <b>one number at most</b>. One <b>nice</b> line. One line saying if you did <b>better than last time</b>. No chart, no table, no game jargon.</p>
+<h2><span class="n">2</span>ROTATION COACH: ANSWERS YOUR QUESTIONS</h2>
+<p>Your note on v2: "Did I miss something, could I have done better? What do other addons like this do?" Fair: v2 gave two tips but never said <b>what you missed</b>, <b>how you compare</b>, <b>why you died</b> or <b>if you're improving</b>. v3 answers exactly those, the way the big tools do (see the box below), still in plain words with icons and no ask box.</p>
+
+<div class="answers">
+  <h3>Answers to your question: what do other tools do?</h3>
+  <div class="agrid">
+    <div><b><i class="mono" style="background:#2b5a8a">WA</i>WoWAnalyzer</b><span>A <b>checklist</b> for your spec (did you use your big cooldowns, keep things up, waste nothing), then a list of fixes marked major / average / minor. Players like it because it says exactly what to fix.</span></div>
+    <div><b><i class="mono" style="background:#6a3a9a">WL</i>Warcraft Logs</b><span>One <b>coloured number</b>: how you rank against everyone of your spec on that boss (grey, green, blue, purple, orange, pink). No fixes; people compare their log with a slightly better player's. Players warn it can get toxic.</span></div>
+    <div><b><img class="ico" src="sheet-65/icons/details-damage-meter.png" alt="">Details!</b><span>Damage meter plus a <b>death log</b>: the last few hits before you died. On Forever's engine addons can't read combat numbers any more, which is why Aang reads the game's own combat log.</span></div>
+    <div><b><i class="mono" style="background:#3a7a5a">WF</i>Wipefest</b><span>Scores the <b>raid's mechanics</b>: who stood in what, who died early.</span></div>
+    <div><b><i class="mono" style="background:#9a6a1a">R</i>Raider.IO, Hekili, Archon</b><span>One score for dungeons; a "press this next" icon during the fight; what top players pick. Not "how did I do".</span></div>
+    <div><b><img class="ico" src="sheet-65/icons/site-reddit.png" alt="">What players want</b><span>Concrete fixes, credit for staying alive, compare with someone a bit better (not the #1 player), and no public shaming.</span></div>
+  </div>
+  <p class="honest"><b>What Aang can and can't do.</b> From your combat log alone: what you pressed and when, what you missed, how you died, and how you compare to <b>other players of your class in the same raid</b> (everyone is in the log). Not possible yet: ranking you against Arms warriors <b>everywhere</b>. Warcraft Logs doesn't cover WoW: Forever; a new site, foreverlogs.gg, has started, and Aang could read your rank there later if it gets one. Full notes: docs/COACH-RESEARCH.md.</p>
+</div>
 
 <div class="take today">
   <div class="lhead"><span class="L">&rarr;</span><span class="nm">You ask Aang, he answers in one line</span></div>
   <div class="flow">
     <div class="you"><small>YOU, IN THE TYPING BOX</small>how was my rotation on that last boss?</div>
-    <div class="cell"><div class="lbl"><i>1</i>AANG &middot; THE LINK OPENS THE TIPS IN SAMARA</div>
-      <div class="shot"><img src="sheet-65/e-coach.png" width="316" height="326" alt="Garr went well. Two easy wins for next time. See the two tips"></div></div>
+    <div class="cell"><div class="lbl"><i>1</i>AANG &middot; THE LINK OPENS THE REPORT IN SAMARA</div>
+      <div class="shot"><img src="sheet-65/e-coach.png" width="316" height="326" alt="Garr: good kill, you stayed alive. One big miss: Avatar. See your report"></div></div>
   </div>
 </div>
 
 <div class="take">
-  <div class="lhead"><span class="L">2</span><span class="nm">The tips, in Samara</span><span class="cap2">Fights from that night down the left (click one to see its tips). Your toons top right, each with its class crest. Nothing else on the page.</span></div>
-  <div class="cell"><div class="lbl"><i>&#10022;</i>BUJUJU &middot; ARMS WARRIOR &middot; GARR</div>
-    <div class="shot"><img src="sheet-65/report.png" width="1480" height="780" alt="Coach: Garr, good kill, two easy wins next time, two tips with ability icons"></div></div>
+  <div class="lhead"><span class="L">A</span><span class="nm">Four answers <span class="pick">I'D PICK THIS</span></span><span class="cap2">Your four questions are the four headings, each with a one-word answer and a line or two under it. The one thing to fix first sits at the bottom. Easiest to read.</span></div>
+  <div class="cell"><div class="lbl"><i>A</i>BUJUJU &middot; ARMS WARRIOR &middot; GARR</div>
+    <div class="shot"><img src="sheet-65/coach-four.png" width="1480" height="780" alt="Coach, four tiles: right buttons? Mostly. Compare? 2nd of 3. Why did I die? You didn't. Getting better? Yes. Fix first: Avatar"></div></div>
+</div>
+
+<div class="take">
+  <div class="lhead"><span class="L">B</span><span class="nm">Report card</span><span class="cap2">The WoWAnalyzer way, made plain: a grade, your rotation as five rules from worst to best (red, amber, green, each with its fix), and on the right your deaths, the other warriors in your raid, and your last five weeks. More to look at, more detail.</span></div>
+  <div class="cell"><div class="lbl"><i>B</i>A GOOD KILL &middot; GARR</div>
+    <div class="shot"><img src="sheet-65/coach-card.png" width="1480" height="780" alt="Report card: grade B, five rules worst first, no deaths, 2nd of 3 warriors, getting better"></div></div>
 </div>
 <div class="take today">
-  <div class="lhead"><span class="L">&rarr;</span><span class="nm">Your other toon</span><span class="cap2">Click Derek Sheppard: his own fights and tips. Nothing is shared between toons.</span></div>
-  <div class="cell"><div class="lbl"><i>&#10022;</i>DEREK SHEPPARD &middot; EXAMPLE SPEC</div>
-    <div class="shot"><img src="sheet-65/report-derek.png" width="1480" height="780" alt="Coach for Derek Sheppard: Magmadar, clean kill, one easy win"></div></div>
+  <div class="lhead"><span class="L">&rarr;</span><span class="nm">B after a wipe: why you died</span><span class="cap2">Click Baron Geddon: when you died, what hit you last, and what to do next time. (A shows the same in its "Why did I die?" tile.)</span></div>
+  <div class="cell"><div class="lbl"><i>B</i>A WIPE &middot; BARON GEDDON</div>
+    <div class="shot"><img src="sheet-65/coach-card-wipe.png" width="1480" height="780" alt="Report card for a wipe: you died at 1:48, you were the Living Bomb, run away from the group"></div></div>
 </div>
 
 <h2><span class="n">?</span>THE RULES IT FOLLOWS</h2>
 <div class="rules">
-  <b>Headline</b><span>The boss and one word on how it went, then how many easy wins there are. That's the whole verdict.</span>
-  <b>Tips</b><span>Two, three at most. One plain sentence each, said the way you'd say it to a friend, with the ability's icon and at most one number.</span>
-  <b>Words it never uses</b><span>Uptime, debuff, proc, window, DPS, rotation priority, or any table of numbers.</span>
-  <b>Better than last time</b><span>One line, green with an up arrow, only when it's true. Worse is never shouted; it just stays off.</span>
+  <b>Four questions</b><span>Did I press the right buttons? How do I compare? Why did I die? Am I getting better? Every report answers all four.</span>
+  <b>Worst first</b><span>Misses are red, small slips amber, good things green, and the biggest miss is always on top, with its fix in one sentence.</span>
+  <b>Compare fairly</b><span>Only with players of your class in the same fight. Never a world ranking it can't back up.</span>
+  <b>Deaths</b><span>When you die: when, what hit you last, and what to do next time.</span>
+  <b>Words it never uses</b><span>Uptime, debuff, proc, DPS, parse, or a table of numbers.</span>
   <b>Questions</b><span>Ask Aang, anywhere you already talk to him. The page has no chat of its own.</span>
-  <b>Where the tips come from</b><span>The guide named at the bottom, with its site's bookmark icon.</span>
 </div>
 
 <div class="note">
   <ul>
     <li>Real today: your 17 addon names and versions, and BugGrabber errors from RestedXP Guide, BlizzMove, Auctionator and Details. The addon icons are CurseForge's own (read from its local cache, nothing downloaded); CurseForge's and WoW's are from their programs on this PC.</li>
-    <li>Stand-ins: the ability icons and class crests are hand-drawn pixel art (the real page would use the game's own icons). Warcraft Tavern's bookmark icon is a placeholder <b>WT</b> monogram: Samara has not saved it yet; it fills in after one visit.</li>
-    <li>Made up for the picture: the new versions, the "what changed" lines, every fight and tip. Derek's spec is a guess; the real one comes from the log.</li>
+    <li>Stand-ins: the ability icons, class crests and status marks are hand-drawn pixel art (the real page would use the game's own icons). WoWAnalyzer, Warcraft Logs, Wipefest and Raider.IO show placeholder monograms: Samara has not saved their bookmark icons yet; they fill in after one visit. Reddit's is Samara's own saved icon.</li>
+    <li>Made up for the picture: the new versions, the "what changed" lines, every fight, rule, grade, raid-mate and week. Derek's spec is a guess; the real one comes from the log. The real rules per spec come from the spec guide.</li>
   </ul>
 </div>
 </body>

@@ -1,15 +1,15 @@
-/* Sheet 65 v2: the coach report, simple. Dark pixel wood (Samara's tray.png), one parchment panel with the S2 rim
+/* Sheet 65 v3: the coach report answers his four questions (A report card, B four tiles). v2 was: Dark pixel wood (Samara's tray.png), one parchment panel with the S2 rim
    (drawn by report.js), big plain words, Figtree everywhere, no pixel capitals. */
 html,body{margin:0;width:100%;height:100%;overflow:hidden}
 .pg3.coach{background:linear-gradient(rgba(0,0,0,.28),rgba(0,0,0,.38)),url(art/browser/tray.png) 0 0/128px 256px;image-rendering:pixelated}
-.report{position:absolute;inset:0;padding:28px 40px;box-sizing:border-box;image-rendering:auto;color:#2a1c0c}
+.report{position:absolute;inset:0;padding:20px 40px;box-sizing:border-box;image-rendering:auto;color:#2a1c0c}
 .pan{position:relative;box-sizing:border-box}
 .pan>.rim{position:absolute;left:0;top:0;z-index:0}
 .pan>:not(.rim){position:relative;z-index:1}
 .pxi{flex:none}
 
 /* the head: what this is, and the toon switcher */
-.rhead{display:flex;align-items:center;gap:20px;margin:0 0 22px}
+.rhead{display:flex;align-items:center;gap:20px;margin:0 0 16px}
 .rtitle{flex:1;min-width:0;display:flex;align-items:baseline;gap:16px}
 .rtitle>b{font:800 30px/1.1 Figtree,sans-serif;color:#fbe7bf;text-shadow:2px 2px 0 #000}
 .rtitle span{font:600 16px Figtree,sans-serif;color:#cdb98f}
@@ -23,8 +23,8 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden}
 .toon.on b{color:#2a1c00} .toon.on i{color:#5a3a10}
 
 /* the fights */
-.cols{display:flex;gap:26px;align-items:flex-start}
-.fights{width:200px;flex:none;display:flex;flex-direction:column;gap:8px}
+.cols{display:flex;gap:22px;align-items:flex-start}
+.fights{width:214px;flex:none;display:flex;flex-direction:column;gap:8px}
 .fight{all:unset;cursor:pointer;display:flex;align-items:center;gap:9px;padding:11px 14px;border-radius:10px;background:rgba(18,10,5,.62);box-shadow:inset 0 0 0 2px #4a2e18}
 .fight b{font:700 16px Figtree,sans-serif;color:#f1e3c4}
 .fight span{white-space:nowrap;font:700 14px Figtree,sans-serif;color:#bfae8a;margin-left:auto}
@@ -32,20 +32,67 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden}
 .fight.on b{color:#2a1c0c} .fight.on span{color:#7a5a30}
 .fight.none b,.fight.none span{opacity:.6}
 
-/* the one panel: headline, tips, one line */
-.tips{width:860px;flex:none;padding:30px 40px 26px}
-.headline{margin:0 0 22px;font:800 38px/1.15 Figtree,sans-serif;color:#1c1208}
-.headline span{font-weight:700;font-size:30px;color:#5a3a10}
-.tiplist{display:flex;flex-direction:column;gap:16px}
-.tip{display:flex;align-items:center;gap:20px;padding:14px 18px;border-radius:12px;background:rgba(255,250,236,.62);box-shadow:inset 0 0 0 2px rgba(122,90,48,.28)}
-.tip p{margin:0;font:500 20px/1.45 Figtree,sans-serif;color:#2a1c0c}
-.tip p b{font-weight:800;color:#1c1208}
-.tip p em{font-style:normal;font-weight:800;color:#a8461a}
-.tip.nice{background:none;box-shadow:none;padding:4px 18px 0 30px;gap:18px}
-.tip.nice p{font-size:17px;color:#3c5a2a}
-.foot{display:flex;align-items:center;gap:20px;margin:24px 0 0;padding-top:14px;border-top:2px dashed rgba(90,60,25,.25)}
-.better{font:800 16px Figtree,sans-serif;color:#2f7a3e;display:flex;align-items:center;gap:7px}
-.better i{font-style:normal;font-size:20px}
-.src{margin-left:auto;display:flex;align-items:center;gap:8px;font:500 13.5px Figtree,sans-serif;color:#7a5a30}
-/* a placeholder monogram until Samara has seen the site's own icon */
-.mono{font:800 9px/18px Figtree,sans-serif;font-style:normal;width:18px;height:18px;text-align:center;border-radius:4px;background:#8a2a18;color:#fff3d8;box-shadow:0 0 0 1.5px #2a1606}
+/* both looks */
+.headline{margin:0;font:800 34px/1.1 Figtree,sans-serif;color:#1c1208}
+.sec{font:800 13px Figtree,sans-serif;letter-spacing:1.4px;text-transform:uppercase;color:#7a5a30;margin:0 0 8px}
+.line{display:flex;align-items:center;gap:12px;margin:0 0 8px}
+.line p{margin:0;font:500 16.5px/1.4 Figtree,sans-serif;color:#2a1c0c}
+.line p b{font-weight:800;color:#1c1208}
+.dim{color:#7a6448}
+
+/* A: report card */
+.card{width:1090px;flex:none;padding:22px 30px 22px}
+.verdict{display:flex;align-items:center;gap:20px;margin:0 0 16px}
+.grade{width:66px;height:66px;flex:none;border-radius:50%;display:grid;place-items:center;font:800 40px/1 Figtree,sans-serif;color:#2a1c00;
+  background:radial-gradient(circle at 35% 30%,#ffe9a0,#e9a92c 70%);box-shadow:inset 0 0 0 3px #7a4a12,0 0 0 3px #1a0d06,0 4px 0 3px #0d0703}
+.grade.gC{background:radial-gradient(circle at 35% 30%,#f0e0c8,#b8a284 70%);box-shadow:inset 0 0 0 3px #6a5638,0 0 0 3px #1a0d06,0 4px 0 3px #0d0703}
+.vsub{margin:4px 0 0;font:600 19px Figtree,sans-serif;color:#5a3a10}
+.vsub b{font-weight:800;color:#1c1208}
+.cbody{display:flex;gap:26px;align-items:flex-start}
+.checks{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
+.chk{display:flex;align-items:center;gap:12px;padding:9px 16px 9px 12px;border-radius:12px;background:rgba(255,250,236,.62);box-shadow:inset 0 0 0 2px rgba(122,90,48,.25)}
+.chk.bad{background:rgba(255,226,214,.8);box-shadow:inset 0 0 0 2px rgba(200,64,46,.45)}
+.chk.warn{background:rgba(255,240,200,.8);box-shadow:inset 0 0 0 2px rgba(224,160,32,.5)}
+.chk.ok{background:rgba(255,250,236,.45);box-shadow:inset 0 0 0 2px rgba(63,154,74,.3)}
+.ct{flex:1;min-width:0}
+.rule{margin:0;font:600 17.5px/1.3 Figtree,sans-serif;color:#2a1c0c}
+.rule b{font-weight:800;color:#1c1208}
+.fix{margin:3px 0 0;font:500 15.5px/1.35 Figtree,sans-serif;color:#6a3a14}
+.fix b{font-weight:800}
+.got{flex:none;font:800 17px Figtree,sans-serif;color:#5a3a10;min-width:74px;text-align:right}
+.chk.bad .got{color:#a8301e} .chk.warn .got{color:#9a6400} .chk.ok .got{color:#2f7a3e}
+.side{width:340px;flex:none;display:flex;flex-direction:column;gap:12px}
+.box{padding:12px 16px 10px;border-radius:12px;background:rgba(255,250,236,.55);box-shadow:inset 0 0 0 2px rgba(122,90,48,.25)}
+.box .line:last-child{margin-bottom:2px}
+.fixg{color:#a8461a!important;font-weight:700!important}
+.hits{margin:2px 0 0;font:600 14px Figtree,sans-serif;color:#7a5a30}
+.peer{display:flex;align-items:center;gap:10px;margin:0 0 6px}
+.peer b{width:86px;font:700 15.5px Figtree,sans-serif;color:#5a4428}
+.peer .bar{height:14px;border-radius:3px;background:#b8a284;box-shadow:inset 0 -3px 0 rgba(0,0,0,.15)}
+.peer.me b{color:#1c1208;font-weight:800} .peer.me .bar{background:#e9a92c}
+.small{margin:6px 0 0;font:500 14px/1.4 Figtree,sans-serif;color:#7a5a30}
+.trend{display:flex;gap:12px;margin:2px 0 8px}
+.tday{display:flex;flex-direction:column;align-items:center;gap:5px}
+.tday span{font:600 12.5px Figtree,sans-serif;color:#7a5a30}
+.tday.now span{font-weight:800;color:#1c1208}
+.pips{display:flex;flex-direction:column-reverse;gap:3px}
+.pips i{width:30px;height:7px;border-radius:2px;background:rgba(122,90,48,.2)}
+.pips i.on{background:#3f9a4a}
+.tday.now .pips i.on{background:#2f7a3e;box-shadow:0 0 0 1px #1a4a20}
+.up{margin:0;font:800 15.5px Figtree,sans-serif;color:#2f7a3e}
+.up i{font-style:normal;font-size:18px}
+
+/* B: four answers */
+.four{width:1090px;flex:none;padding:20px 30px 20px}
+.four .headline{margin:0 0 12px}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.tile{padding:12px 20px 4px;border-radius:12px;background:rgba(255,250,236,.6);box-shadow:inset 0 0 0 2px rgba(122,90,48,.25);box-sizing:border-box}
+.q{font:700 17px Figtree,sans-serif;color:#7a5a30;margin:0 0 2px}
+.ans{font:800 29px/1.15 Figtree,sans-serif;margin:0 0 8px}
+.ans.amber{color:#9a6400} .ans.green{color:#2f7a3e} .ans.plain{color:#1c1208}
+.firstfix{display:flex;align-items:center;gap:16px;margin:12px 0 0;padding:10px 18px;border-radius:12px;background:#3a2410;box-shadow:inset 0 0 0 2px #7a4a12}
+.firstfix p{margin:0;font:600 19px Figtree,sans-serif;color:#fbe7bf}
+.firstfix p b{color:#ffd76a;font-weight:800}
+
+/* the fight list carries a status mark */
+.fight{gap:10px}

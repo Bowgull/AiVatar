@@ -1,13 +1,16 @@
+// Sheet 65 v3 (2026-10-22, night): his question on v2 - "did I miss something, could I have done better? what do other
+// addons like this do?" So the report now answers his four questions the way WoWAnalyzer / Warcraft Logs / death
+// recaps do: ?look=a a report card (grade + checklist worst-first + deaths, raid-mates, trend), ?look=b four answer
+// tiles. ?fight=garr|geddon. Research: docs/COACH-RESEARCH.md.
 // Sheet 65 v2: the coach report, made simple. His note on v1: "I don't fucking understand even slightly, I genuinely
 // don't know what I'm reading, this needs to be simpler." And: no ask box here, he asks Aang (one place to chat).
 // So: one big plain headline for the fight, two or three tips as plain sentences with ONE number at most and the
 // ability's icon, one "better than last time" line. No chart, no table, no 'uptime' / 'debuff' / 'windows'.
 // Inside Samara's real frame (browser.html markup, scripts not run). Example fights: no combat log exists yet.
 // The ability and class icons are hand-placed pixel stand-ins (the real report would show the game's own icons).
-// ?toon=bujuju|derek
 import { rr, fills, loadTex, P, spr } from '../sheet-59/pix.js';
 
-const Q = new URLSearchParams(location.search), TOON = Q.get('toon') || 'bujuju';
+const Q = new URLSearchParams(location.search);
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html !== undefined) e.innerHTML = html; return e; };
 
 // ---------------------------------------------------------------- pixel icons, 16 x 16, hand-placed
@@ -47,37 +50,71 @@ const ICONS = {
     'oooooooooooooooo', 'oaaaaaaaaaaaaaao', 'oabbbbbbbbbbbbao', 'oabbbbbpbbbbbbao', 'oabpbbbpbbbpbbao', 'oabbpbbpbbpbbbao',
     'oabbbpppppbbbbao', 'oabbbppwwppbbbao', 'oappppwwwwppppao', 'oabbbppwwppbbbao', 'oabbbpppppbbbbao', 'oabbpbbpbbpbbbao',
     'oabpbbbpbbbpbbao', 'oabbbbbpbbbbbbao', 'oaaaaaaaaaaaaaao', 'oooooooooooooooo'] },
+  avatar: { pal: { o: O, a: '#5a1a0a', b: '#8a2a10', f: '#ff9a3a', y: '#ffe08a' }, map: [
+    'oooooooooooooooo', 'oaaaaaaaaaaaaaao', 'oabbbbbbbbbbbbao', 'oabbbbbffbbbbbao', 'oabfbbfyyfbbfbao', 'oabbfbfyyfbfbbao',
+    'oabbbfffffffbbao', 'oabbbbfyyfbbbbao', 'oabbbbffffbbbbao', 'oabbbbffffbbbbao', 'oabbbffbbffbbbao', 'oabbffbbbbffbbao',
+    'oabyyyyyyyyyybao', 'oabffffffffffbao', 'oaaaaaaaaaaaaaao', 'oooooooooooooooo'] },
+  pause: { pal: { o: O, a: '#2a2414', b: '#4a3e22', w: '#e8dcc4', s: '#a89a7a' }, map: [
+    'oooooooooooooooo', 'oaaaaaaaaaaaaaao', 'oabbbbbbbbbbbbao', 'oabbbbbbbbbbbbao', 'oabbwwsbbwwsbbao', 'oabbwwsbbwwsbbao',
+    'oabbwwsbbwwsbbao', 'oabbwwsbbwwsbbao', 'oabbwwsbbwwsbbao', 'oabbwwsbbwwsbbao', 'oabbwwsbbwwsbbao', 'oabbwwsbbwwsbbao',
+    'oabbbbbbbbbbbbao', 'oabbbbbbbbbbbbao', 'oaaaaaaaaaaaaaao', 'oooooooooooooooo'] },
+  bomb: { pal: { o: O, a: '#3a1a08', b: '#5a2a10', k: '#3a3a44', h: '#8a8a98', f: '#ff8a2a', y: '#ffe08a' }, map: [
+    'oooooooooooooooo', 'oaaaaaaaaaaaaaao', 'oabbbbbbbbbybbao', 'oabbbbbbbbyfybao', 'oabbbbbbbfbybbao', 'oabbbbbkkfbbbbao',
+    'oabbbkkkkkkbbbao', 'oabbkhhkkkkkbbao', 'oabkkhkkkkkkkbao', 'oabkkkkkkkkkkbao', 'oabkkkkkkkkkkbao', 'oabkkkkkkkkkkbao',
+    'oabbkkkkkkkkbbao', 'oabbbkkkkkkbbbao', 'oaaaaaaaaaaaaaao', 'oooooooooooooooo'] },
+  // status marks: green tick, amber !, red x
+  ok: { pal: { o: '#0e2a10', g: '#3f9a4a', w: '#fff8e8' }, map: [
+    '..oooooo..', '.oggggggo.', 'oggggggwgo', 'ogggggwwgo', 'ogwggwwggo', 'ogwwwwgggo', 'oggwwggggo', 'oggggggggo', '.oggggggo.', '..oooooo..'] },
+  warn: { pal: { o: '#3a2400', y: '#e0a020', w: '#fff8e8' }, map: [
+    '..oooooo..', '.oyyyyyyo.', 'oyyywwyyyo', 'oyyywwyyyo', 'oyyywwyyyo', 'oyyywwyyyo', 'oyyyyyyyyo', 'oyyywwyyyo', '.oyyyyyyo.', '..oooooo..'] },
+  bad: { pal: { o: '#3a0e08', r: '#c8402e', w: '#fff8e8' }, map: [
+    '..oooooo..', '.orrrrrro.', 'orwrrrrwro', 'orrwrrwrro', 'orrrwwrrro', 'orrrwwrrro', 'orrwrrwrro', 'orwrrrrwro', '.orrrrrro.', '..oooooo..'] },
+  skull: { pal: { o: O, w: '#efe6d2', s: '#b8ac94' }, map: [
+    '...oooooo...', '..owwwwwwo..', '.owwwwwwwwo.', '.owoowwoowo.', '.owoowwoowo.', '.owwwwwwwwo.', '..owwoowwo..', '...owwwwo...',
+    '...oswswo...', '....oooo....'] },
 };
 const icon = (k, s) => { const i = ICONS[k]; const c = spr(i.map, i.pal, { s }); c.className = 'pxi'; return c; };
 
-// ---------------------------------------------------------------- the toons (examples)
-const TOONS = {
-  bujuju: {
-    name: 'Bujuju', cls: 'warrior', spec: 'Arms Warrior', night: 'Thursday',
-    fights: [['Lucifron', '2:41'], ['Magmadar', '3:12'], ['Gehennas', '2:20'], ['Garr', '4:05'], ['Baron Geddon', 'wipe']], pick: 3,
-    head: ['Garr: good kill.', 'Two easy wins next time.'],
-    tips: [
-      ['smash', 'Press <b>Colossus Smash</b> as soon as it’s ready — you waited about <em>1 second</em> too often.'],
-      ['mortal', 'When <b>Mortal Strike</b> and Slam are both ready, press Mortal Strike first. You pressed Slam first <em>6 times</em>.'],
+// ---------------------------------------------------------------- the example night (made up: no combat log exists yet)
+// Every status here is something the combat log alone can tell: what he pressed, when it was ready, how long he
+// stood idle, who else in the raid played his class, how he died. Nothing needs an outside site.
+const T = {
+  name: 'Bujuju', cls: 'warrior', spec: 'Arms Warrior', night: 'Thursday',
+  fights: [['Lucifron', '2:41', 'ok'], ['Magmadar', '3:12', 'warn'], ['Gehennas', '2:20', 'ok'], ['Garr', '4:05', 'warn'], ['Baron Geddon', 'wipe', 'bad']],
+};
+const OTHER = { name: 'Derek Sheppard', cls: 'priest', spec: 'Shadow Priest' };
+const FIGHTS = {
+  garr: {
+    pick: 3, boss: 'Garr', how: 'good kill', grade: 'B', good: 3,
+    // worst first: red, then amber, then green
+    rules: [
+      ['bad', 'avatar', 'Use <b>Avatar</b> every time it’s ready', 'once', 'You could have used it <b>3 times</b>. Press it at the pull and again whenever it’s back.'],
+      ['warn', 'smash', 'Press <b>Colossus Smash</b> the moment it lights up', '9 of 13', 'You waited about 1 second the other 4 times.'],
+      ['ok', 'mortal', '<b>Mortal Strike</b> before Slam', 'yes', ''],
+      ['ok', 'overpower', 'Hit <b>Overpower</b> when it lights up', '14 of 14', ''],
+      ['ok', 'pause', 'Keep pressing buttons, no long pauses', '2 short', ''],
     ],
-    nice: ['overpower', 'Nice: you hit <b>Overpower</b> every time it lit up.'],
-    better: 'Better than last Thursday',
-    guide: 'Tips follow the Warcraft Tavern Arms guide',
+    died: null,
+    peers: [['Bujuju', 100, true], ['Gromnak', 112, false], ['Tessa', 91, false]],
+    trend: [['Sep 24', 1], ['Oct 1', 2], ['Oct 8', 2], ['Oct 15', 2], ['Tonight', 3]],
+    first: ['avatar', 'Fix first: press <b>Avatar</b> at the pull and whenever it’s back.'],
   },
-  derek: {
-    name: 'Derek Sheppard', cls: 'priest', spec: 'Shadow Priest', night: 'Tuesday',
-    fights: [['Lucifron', '2:44'], ['Magmadar', '3:05'], ['Gehennas', '2:18']], pick: 1,
-    head: ['Magmadar: clean kill.', 'One easy win next time.'],
-    tips: [
-      ['vtouch', 'Put <b>Vampiric Touch</b> back on before it runs out — it dropped off <em>3 times</em>.'],
-      ['fiend', 'When your mana gets low, press <b>Shadowfiend</b>. You still had it ready at the end.'],
+  geddon: {
+    pick: 4, boss: 'Baron Geddon', how: 'wipe', grade: 'C', good: 2,
+    rules: [
+      ['bad', 'avatar', 'Use <b>Avatar</b> every time it’s ready', 'never', 'You died before using it. Press it at the pull.'],
+      ['warn', 'smash', 'Press <b>Colossus Smash</b> the moment it lights up', '3 of 5', 'You waited about 1 second the other 2 times.'],
+      ['warn', 'mortal', '<b>Mortal Strike</b> before Slam', '2 slips', 'When both are ready, Mortal Strike first.'],
+      ['ok', 'overpower', 'Hit <b>Overpower</b> when it lights up', '6 of 6', ''],
+      ['ok', 'pause', 'Keep pressing buttons, no long pauses', 'none', ''],
     ],
-    nice: ['blast', 'Nice: you pressed <b>Mind Blast</b> the moment it was ready.'],
-    better: 'Better than last Tuesday',
-    guide: 'Tips follow the Warcraft Tavern Shadow guide',
+    died: { at: '1:48', what: 'You were the <b>Living Bomb</b> and stayed next to 4 people.', fix: 'When the bomb is on you, run away from the group.', hits: ['Living Bomb', 'Inferno', 'Inferno'] },
+    peers: null,
+    trend: null,
+    first: ['bomb', 'Fix first: when you’re the <b>Living Bomb</b>, run out of the group.'],
   },
 };
-const T = TOONS[TOON];
+const LOOK = Q.get('look') || 'a', F = FIGHTS[Q.get('fight') || 'garr'];
 
 /** A panel: a pixel rim and fill drawn to the element's exact (even) size once it is laid out. */
 const panels = [];
@@ -97,8 +134,8 @@ function header() {
   const t = el('div', 'rtitle');
   t.append(el('b', '', 'Coach'), el('span', '', `${T.night}'s raid, Molten Core`));
   const sw = el('div', 'toons');
-  for (const [k, v] of Object.entries(TOONS)) {
-    const b = el('button', 'toon' + (k === TOON ? ' on' : ''));
+  for (const v of [T, OTHER]) {
+    const b = el('button', 'toon' + (v === T ? ' on' : ''));
     b.append(icon(v.cls, 2), el('span', '', `<b>${v.name}</b><i>${v.spec}</i>`));
     sw.append(b);
   }
@@ -107,30 +144,94 @@ function header() {
 }
 function fightList() {
   const box = el('div', 'fights');
-  T.fights.forEach(([boss, time], i) => {
-    const f = el('button', 'fight' + (i === T.pick ? ' on' : '') + (time === 'wipe' ? ' none' : ''));
-    f.append(el('b', '', boss), el('span', '', time === 'wipe' ? 'wipe' : time));
+  T.fights.forEach(([boss, time, st], i) => {
+    const f = el('button', 'fight' + (i === F.pick ? ' on' : ''));
+    f.append(icon(time === 'wipe' ? 'skull' : st, 2), el('b', '', boss), el('span', '', time));
     box.append(f);
   });
   return box;
 }
-function tips() {
-  const p = pan('tips');
-  p.append(el('h1', 'headline', `${T.head[0]}<br><span>${T.head[1]}</span>`));
-  const list = el('div', 'tiplist');
-  for (const [k, words] of T.tips) {
-    const r = el('div', 'tip');
-    r.append(icon(k, 3), el('p', '', words));
+const pips = (n, of = 5) => { const p = el('span', 'pips'); for (let i = 0; i < of; i++) p.append(el('i', i < n ? 'on' : '')); return p; };
+
+// ---------------------------------------------------------------- A: report card (checklist + three small answers)
+function lookA() {
+  const p = pan('card');
+  const top = el('div', 'verdict');
+  const g = el('div', 'grade g' + F.grade, F.grade);
+  const words = el('div', 'vwords');
+  words.append(el('h1', 'headline', `${F.boss}: ${F.how}.`),
+    el('p', 'vsub', `You got <b>${F.good} of 5</b> rotation rules right. ${F.died ? 'One thing killed you.' : 'One big miss.'}`));
+  top.append(g, words);
+  p.append(top);
+  const body = el('div', 'cbody');
+  const list = el('div', 'checks');
+  list.append(el('div', 'sec', 'Your rotation, worst first'));
+  for (const [st, ab, rule, got, fix] of F.rules) {
+    const r = el('div', 'chk ' + st);
+    r.append(icon(st, 2), icon(ab, 2));
+    const t = el('div', 'ct');
+    t.append(el('p', 'rule', rule));
+    if (fix) t.append(el('p', 'fix', fix));
+    r.append(t, el('span', 'got', got));
     list.append(r);
   }
-  const n = el('div', 'tip nice'); n.append(icon(T.nice[0], 2), el('p', '', T.nice[1]));
-  list.append(n);
-  p.append(list);
-  const foot = el('div', 'foot');
-  foot.append(el('span', 'better', `<i>↑</i>${T.better}`));
-  const src = el('span', 'src'); src.append(el('i', 'mono', 'WT'), T.guide);
-  foot.append(src);
-  p.append(foot);
+  const side = el('div', 'side');
+  // deaths
+  const d = el('div', 'box');
+  d.append(el('div', 'sec', 'Deaths'));
+  if (!F.died) { const r = el('div', 'line'); r.append(icon('ok', 2), el('p', '', 'None. You stayed alive.')); d.append(r); }
+  else {
+    const r = el('div', 'line'); r.append(icon('skull', 3), el('p', '', `You died at <b>${F.died.at}</b>. ${F.died.what}`)); d.append(r);
+    const r2 = el('div', 'line'); r2.append(icon('bomb', 2), el('p', 'fixg', F.died.fix)); d.append(r2);
+    d.append(el('p', 'hits', 'Last hits: ' + F.died.hits.join(' · ')));
+  }
+  side.append(d);
+  if (F.peers) {
+    const b = el('div', 'box');
+    b.append(el('div', 'sec', 'Next to the other warriors'));
+    const max = Math.max(...F.peers.map((x) => x[1]));
+    for (const [n, v, me] of [...F.peers].sort((a, c) => c[1] - a[1])) {
+      const r = el('div', 'peer' + (me ? ' me' : ''));
+      const bar = el('span', 'bar'); bar.style.width = Math.round((v / max) * 130) + 'px';
+      r.append(el('b', '', n), bar);
+      b.append(r);
+    }
+    b.append(el('p', 'small', 'Damage on Garr: 2nd of 3. Warriors everywhere: no rankings for Forever yet.'));
+    side.append(b);
+  }
+  if (F.trend) {
+    const b = el('div', 'box');
+    b.append(el('div', 'sec', 'Getting better?'));
+    const row = el('div', 'trend');
+    for (const [day, n] of F.trend) { const c = el('div', 'tday' + (day === 'Tonight' ? ' now' : '')); c.append(pips(n), el('span', '', day)); row.append(c); }
+    b.append(row, el('p', 'up', '<i>↑</i> Yes: 3 rules right tonight, up from 2.'));
+    side.append(b);
+  }
+  body.append(list, side);
+  p.append(body);
+  return p;
+}
+
+// ---------------------------------------------------------------- B: four answers (your four questions, one tile each)
+function lookB() {
+  const p = pan('four');
+  p.append(el('h1', 'headline', `${F.boss}: ${F.how}.`));
+  const grid = el('div', 'tiles');
+  const tile = (q, ans, cls, lines) => {
+    const t = el('div', 'tile');
+    t.append(el('div', 'q', q), el('div', 'ans ' + cls, ans));
+    for (const [ic, words] of lines) { const r = el('div', 'line'); if (ic) r.append(icon(ic, 2)); r.append(el('p', '', words)); t.append(r); }
+    return t;
+  };
+  grid.append(
+    tile('Did I press the right buttons?', 'Mostly', 'amber', [['bad', 'Biggest miss: <b>Avatar</b>, used once when you could have used it 3 times.'], ['warn', '<b>Colossus Smash</b>: about 1 second late, 4 times.'], ['ok', 'Mortal Strike, Overpower and no long pauses: all good.']]),
+    tile('How do I compare?', '2nd of 3', 'plain', [[null, 'warriors in your raid, by damage on Garr.'], [null, '<span class="dim">Arms warriors everywhere: Warcraft Logs doesn’t rank Forever yet.</span>']]),
+    tile('Why did I die?', 'You didn’t', 'green', [['ok', 'You stayed alive the whole fight.']]),
+    tile('Am I getting better?', 'Yes', 'green', [[null, '3 rules right tonight, up from 2 last week. Mortal Strike is fixed since Oct 8.']]),
+  );
+  p.append(grid);
+  const f = el('div', 'firstfix'); f.append(icon(F.first[0], 3), el('p', '', F.first[1]));
+  p.append(f);
   return p;
 }
 
@@ -148,7 +249,7 @@ window.__ready = (async () => {
   const R = el('div', 'report');
   R.append(header());
   const cols = el('div', 'cols');
-  cols.append(fightList(), tips());
+  cols.append(fightList(), LOOK === 'b' ? lookB() : lookA());
   R.append(cols);
   page.append(R);
   await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));

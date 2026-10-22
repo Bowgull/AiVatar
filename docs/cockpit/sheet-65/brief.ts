@@ -172,7 +172,7 @@ const M: Moment[] = [
   { key: 'b-working', msg: line('Updating 3 addons in CurseForge…'), after: both(ICONIZE(['CurseForge']), PROGRESS()) },
   { key: 'c-done', msg: line('Done: Auctionator, RestedXP Guide and Leatrix Plus are up to date.'), after: ICONIZE(['Auctionator', 'RestedXP Guide', 'Leatrix Plus']) },
   { key: 'd-wow', msg: line('WoW is open. I’ll update them when you close it.'), after: ICONIZE(['WoW']) },
-  { key: 'e-coach', msg: line('Garr went well. Two easy wins for next time.'), after: DOOR('See the two tips', 'opens in Samara') },
+  { key: 'e-coach', msg: line('Garr: good kill, you stayed alive. One big miss: Avatar.'), after: DOOR('See your report', 'opens in Samara') },
 ];
 
 app.whenReady().then(async () => {
