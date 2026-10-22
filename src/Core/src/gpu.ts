@@ -17,7 +17,7 @@ import { execFile } from 'node:child_process';
  * window a picture rather than text"). They are kept in step by a test that compares them, because two
  * copies of a list like this drift the first time a game is added to one of them.
  */
-export const GAME_PROCESS = /^(wow|wowb|wow-64|overwatch|diablo|hearthstone|valorant|league of legends|steam_app|.*-win64-shipping)$/i;
+export const GAME_PROCESS = /^(wow|wowb|wow-64|cemu|overwatch|diablo|hearthstone|valorant|league of legends|steam_app|.*-win64-shipping)$/i;
 
 interface Seen { at: number; which: string | null }
 let last: Seen = { at: 0, which: null };

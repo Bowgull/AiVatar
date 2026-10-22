@@ -2265,6 +2265,11 @@ export class AangBrowser {
   // ------------------------------------------------------------------ 6.23 the vault (Bitwarden)
   /** A password box on the page he is looking at? Read-only, with a deadline. Secure pages only. */
   private async lookForLogin(): Promise<void> {
+    // Perf sweep (2026-10-22, item 10 of samara-perf-baseline.md): this asked the tab in front for a password box every
+    // 1.5 s all day, behind WoW and minimised too, waking that page's process each time. The key is only for a page he is
+    // looking at, so only while one of Samara's windows has the focus; back in Samara, the next look (within 1.5 s) runs.
+    const focused = BrowserWindow.getFocusedWindow();
+    if (!focused || !this.panes.some((p) => p.win === focused)) return;
     const lp = this.lastPane();
     if (lp) this.pane = lp;
     const t = this.cur();

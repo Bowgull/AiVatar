@@ -155,3 +155,36 @@ test('snapshot: a restarted brain learns the whole session at once; a wait from 
   assert.equal(w!.readonly, true);
   assert.match(t.answer('q1', { decision: 'allow' }) ?? '', /Open it in Claude/);
 });
+
+test('scan with the directory watch: only known and changed files between full walks; a new session is still found', async () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'scanw-'));
+  const dir = path.join(root, 'C--code-Waymark');
+  mkdirSync(dir);
+  // An old transcript, there before the watch: the first (full) walk sees it and leaves it out as stale.
+  const old = path.join(dir, '99999999-2222-3333-4444-555555555555.jsonl');
+  writeFileSync(old, prompt('old').replace(S, '99999999-2222-3333-4444-555555555555') + '\n');
+  const hourAgo = (Date.now() - 3600_000) / 1000; utimesSync(old, hourAgo, hourAgo);
+  const t = new JobTracker();
+  const scan = new TranscriptScan(t, { root });
+  scan.start(3600_000);                     // one pass now; the test drives the rest
+  try {
+    await new Promise(r => setTimeout(r, 150));
+    assert.equal(scan.watching, true, 'Windows watches the folder');
+    assert.equal(t.list().length, 0);
+    // A session starts after the walk: the watch names its file, so the very next (partial) pass reads it.
+    writeFileSync(path.join(dir, `${S}.jsonl`), [prompt('build it'), use('t1', 'Edit', { file_path: 'C:\\code\\Waymark\\app.ts' })].join('\n') + '\n');
+    // A helper's transcript one folder deeper is not a session.
+    mkdirSync(path.join(dir, S));
+    writeFileSync(path.join(dir, S, 'agent-1.jsonl'), prompt('helper') + '\n');
+    await new Promise(r => setTimeout(r, 300));
+    await scan.scan();
+    assert.equal(t.list().length, 1);
+    assert.equal(t.list()[0]!.activity.now, 'Editing app.ts');
+    // Written to again: picked up again.
+    writeFileSync(path.join(dir, `${S}.jsonl`), [answer('Done.')].join('\n') + '\n', { flag: 'a' });
+    await new Promise(r => setTimeout(r, 300));
+    await scan.scan();
+    assert.equal(t.list()[0]!.phase, 'idle');
+  } finally { scan.stop(); }
+  assert.equal(scan.watching, false);
+});
