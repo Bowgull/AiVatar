@@ -8,7 +8,7 @@ import { approvalText, pickSource, planFromInvite, planFromWords, readBack, resp
 import { emailCardData } from './emailcard.ts';
 import { kindOfFile, readAttachment, safeFileName } from './attachments.ts';
 import { sttReady, transcribe } from './stt.ts';
-import { inboxCardData, nowNote, weekCardData } from './briefcard.ts';
+import { inboxCardData, nowNote, weekCardData, wantsBrief } from './briefcard.ts';
 import { Faces, domainOfEmail, hostOf } from './faces.ts';
 import { Choices, choiceKey } from './choices.ts';
 import { Timers, parseTimerCommand, sayDuration, MAX_MS } from './timers.ts';
@@ -3630,7 +3630,8 @@ export class Core {
           break;
         }
         // Sheet 24: "brief", "show me my brief", "morning brief": the brief card now, in plain code (only its mail sort asks Haiku).
-        if (m.ephemeral !== true && /^(show\s+(me\s+)?)?((my|the|today'?s)\s+)?(morning\s+)?brief[.!?]?$/i.test(text) && this.kindOfSocket(ws) === 'desktop') {
+        // 2026-10-22 (his ask: "when I ask him for my morning brief in any way ... I get that brief"): any short ask for it.
+        if (m.ephemeral !== true && wantsBrief(text) && this.kindOfSocket(ws) === 'desktop') {
           this.send(ws, { t: 'ack', id });
           void this.briefCard().then(card => {
             if (card) this.send(ws, { t: 'bubble', text: 'Your brief', stream: false, id, who: 'Aang', brief: card });
