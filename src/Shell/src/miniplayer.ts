@@ -1,7 +1,9 @@
 // Sheet 59, the Spotify mini player (2026-10-22, docs/cockpit/sheet-59-mini-player.html; his picks in the interview).
 //
-// Look A: Winamp in pixel wood, an amber screen (time, bars, the scrolling title), ONE picture (the album cover; in
-// SCENE the looping scene cross-fades into the same spot, a click on it gives the next scene). Two sizes, the same
+// Look A: Winamp in pixel wood, an amber screen (time, bars, the scrolling title), ONE picture (the album cover, or a
+// looping scene cross-faded into the same spot). What the picture is and whether the bars show are chosen in the
+// player's own small menu, behind the ··· key (2026-10-22, his report: the old BARS / SCENE / OFF key was confusing;
+// PlayerMenu below). Two sizes, the same
 // width: full and the thin shade strip, swapped by a double-click (or the fold key) on a spring (0.5 s, damping 0.825),
 // the window's height stepped from here at 60 Hz in whole pixels. Big hit targets: keys 38 px, seek bead 18 px, volume
 // 14 px with a round knob, pin / fold / close 28 px.
@@ -24,7 +26,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown } from './safety.ts';
 import { softEdge } from './winedge.ts';
 import type { FamilyHooks } from './familywin.ts';
-import { checkPlayerCmd, readPrefs, springAt, VIS, SCENES, type PlayerCmd, type PlayerPrefs } from './playercmd.ts';
+import { checkPlayerCmd, readPrefs, springAt, PICTURES, type PlayerCmd, type PlayerPrefs } from './playercmd.ts';
 
 /** CSS pixels: the art is 212 x 104 art pixels at exactly 2x; the shade is 26 art pixels tall, the same width. */
 export const FULL_W = 424, FULL_H = 208, SHADE_H = 52;
@@ -58,16 +60,21 @@ export class MiniPlayer {
   private pinned = false;
   private through = false;
   private opacity = 1;
+  private menuOpen = false;
   private drag: { x: number; y: number } | null = null;
   private fold: { from: number; to: number; t0: number; timer: NodeJS.Timeout } | null = null;
   /** Set by familywire.ts. */
   family: FamilyHooks | null = null;
+  /** Its own menu (the ··· key): what the picture is, the bars on or off. */
+  readonly menu: PlayerMenu;
 
   constructor(o: MiniPlayerOptions) {
     this.o = o;
     let raw: unknown = null;
     try { if (o.prefsFile) raw = JSON.parse(readFileSync(o.prefsFile, 'utf8')); } catch { /* first run */ }
     this.prefs = readPrefs(raw);
+    this.menu = new PlayerMenu(o, () => ({ picture: this.prefs.picture, bars: this.prefs.bars, cover: typeof this.now?.thumb === 'string' ? this.now.thumb : null }),
+      (kind, v) => this.choose(kind, v), (open) => { this.menuOpen = open; this.send('player:ui', this.ui()); });
     players.add(this);
     wireIpc();
   }
@@ -101,11 +108,12 @@ export class MiniPlayer {
     denyPermissions(w.webContents.session);
     softEdge(w);
     this.w = w;
-    w.on('closed', () => { if (this.w === w) { this.w = null; this.stopFold(); } });
+    w.on('closed', () => { if (this.w === w) { this.w = null; this.stopFold(); this.menu.close(); } });
     // Hidden, minimised or covered: the page stops its scenes and bars (it also hears the page's own visibility).
     const awake = () => this.send('player:awake', !w.isDestroyed() && w.isVisible() && !w.isMinimized());
     for (const ev of ['show', 'hide', 'minimize', 'restore'] as const) w.on(ev as 'show', awake);
-    w.on('moved', () => this.savePlace());
+    w.on('moved', () => { this.savePlace(); this.menu.close(); });
+    w.on('hide', () => this.menu.close());
     void w.loadURL(`${this.o.origin}/miniplayer.html`);
     w.once('ready-to-show', () => { if (!w.isDestroyed()) { w.showInactive(); this.applyMouse(); } });
     this.family?.add(this.member());
@@ -117,6 +125,7 @@ export class MiniPlayer {
     if (!w) return;
     this.savePlace();
     this.stopFold();
+    this.menu.close();
     w.destroy();
     this.w = null;
   }
@@ -137,9 +146,23 @@ export class MiniPlayer {
 
   hearReady(): void { this.push(); }
   hearCmd(m: unknown): void { const c = checkPlayerCmd(m); if (c) this.o.onCmd?.(c); }
-  hearVis(v: unknown): void { if (typeof v === 'string' && VIS.has(v)) { this.prefs.vis = v as PlayerPrefs['vis']; this.savePrefs(); } }
-  hearScene(s: unknown): void { if (typeof s === 'string' && SCENES.has(s)) { this.prefs.scene = s; this.savePrefs(); } }
-  hearShade(): void { this.setShade(!this.prefs.shade); }
+  /** The ··· key: its box in page pixels. Opens the menu under it, or closes it when it is up. */
+  hearMenu(r: unknown): void {
+    const w = this.window;
+    if (!w || !r || typeof r !== 'object') return;
+    const v = r as Record<string, unknown>, n = (k: string) => (Number.isFinite(v[k]) ? Number(v[k]) : 0);
+    const c = w.getContentBounds();
+    this.menu.toggle({ x: c.x + Math.round(n('x')), y: c.y + Math.round(n('y')), width: Math.round(n('width')), height: Math.round(n('height')) }, c);
+  }
+  /** A choice from the menu, checked: a picture by name, or the bars on / off. Kept, and the page repainted. */
+  choose(kind: string, v: unknown): void {
+    if (kind === 'picture' && typeof v === 'string' && PICTURES.has(v)) this.prefs.picture = v;
+    else if (kind === 'bars' && typeof v === 'boolean') this.prefs.bars = v;
+    else return;
+    this.savePrefs();
+    this.send('player:ui', this.ui());
+  }
+  hearShade(): void { this.menu.close(); this.setShade(!this.prefs.shade); }
   hearPin(): void { this.applyOnTop(!this.pinned); this.family?.shared('player', { pinned: this.pinned }); }
   hearOpacity(n: unknown): void {
     const v = Number(n);
@@ -228,7 +251,7 @@ export class MiniPlayer {
 
   // ---------------------------------------------------------------- what the page is told
 
-  private ui() { return { vis: this.prefs.vis, scene: this.prefs.scene, shade: this.prefs.shade, pinned: this.pinned, opacity: this.opacity, through: this.through }; }
+  private ui() { return { picture: this.prefs.picture, bars: this.prefs.bars, menu: this.menuOpen, shade: this.prefs.shade, pinned: this.pinned, opacity: this.opacity, through: this.through }; }
   private push(): void {
     this.send('player:ui', this.ui());
     if (this.now) this.send('player:media', this.now);
@@ -264,7 +287,121 @@ export class MiniPlayer {
     try { writeFileSync(this.o.prefsFile, JSON.stringify(this.prefs)); } catch { /* kept for this run */ }
   }
 
-  dispose(): void { this.close(); players.delete(this); }
+  dispose(): void { this.close(); this.menu.dispose(); players.delete(this); }
+}
+
+// ------------------------------------------------------------------------------------------------ its own menu
+
+/** What the menu shows: the picture now, the bars on or off, and the album cover (a data: picture) for its thumbnail. */
+export interface PlayerMenuState { picture: string; bars: boolean; cover: string | null }
+
+/**
+ * The player's own menu (2026-10-22, his report: "shouldn't this just be hidden behind a click somewhere?"). The ··· key
+ * opens it: "Picture" (Album cover and his four named scenes, each with a tiny moving thumbnail and a tick on the one
+ * showing) and "Bars on the screen" (a tick). Aang's menu look (aangmenu.css: Samara's tab menu, 16 px words, 44 px rows).
+ *
+ * The player is only 208 px tall, so the menu is its own small see-through window, sized to the menu, under the ··· key
+ * (above the player when the screen's bottom is near, beside it when neither fits). Like every menu here it takes the
+ * keyboard while it is up (Esc closes it, the arrows move) and goes when he clicks away (it loses focus) or picks one.
+ * The player itself still never takes the keyboard.
+ */
+export class PlayerMenu {
+  private win: BrowserWindow | null = null;
+  private pending = false;
+  private shownAt = 0;
+  private closedAt = 0;
+  private key: Electron.Rectangle | null = null;
+  private player: Electron.Rectangle | null = null;
+  private readonly o: MiniPlayerOptions;
+  private readonly state: () => PlayerMenuState;
+  private readonly choose: (kind: string, v: unknown) => void;
+  private readonly openChanged: (open: boolean) => void;
+  constructor(o: MiniPlayerOptions, state: () => PlayerMenuState, choose: (kind: string, v: unknown) => void, openChanged: (open: boolean) => void) {
+    this.o = o; this.state = state; this.choose = choose; this.openChanged = openChanged;
+  }
+
+  get visible(): boolean { return !!this.win && !this.win.isDestroyed() && this.win.isVisible(); }
+  get window(): BrowserWindow | null { return this.win && !this.win.isDestroyed() ? this.win : null; }
+  owns(sender: Electron.WebContents): boolean { const w = this.window; return !!w && w.webContents === sender; }
+
+  private ensure(): BrowserWindow {
+    const had = this.window;
+    if (had) return had;
+    const w = new BrowserWindow({
+      width: 320, height: 360, frame: false, transparent: true, backgroundColor: '#00000000', hasShadow: false,
+      resizable: false, movable: false, minimizable: false, maximizable: false, fullscreenable: false,
+      skipTaskbar: true, alwaysOnTop: true, show: false, title: 'Music',
+      webPreferences: { ...SAFE_WEB_PREFERENCES, preload: this.o.preloadPath },
+    });
+    if (this.o.iconPath) { try { w.setIcon(this.o.iconPath); } catch { /* the default icon */ } }
+    w.setAlwaysOnTop(true, 'screen-saver');
+    lockDown(w.webContents);
+    denyPermissions(w.webContents.session);
+    w.on('blur', () => { if (Date.now() - this.shownAt > 120) this.close(); });
+    w.on('closed', () => { if (this.win === w) this.win = null; });
+    void w.loadURL(`${this.o.origin}/playermenu.html`);
+    this.win = w;
+    return w;
+  }
+
+  /** The ··· key (screen DIP) and the player's box: open under the key, or close it if it is up. */
+  toggle(key: Electron.Rectangle, player: Electron.Rectangle): void {
+    // A click on ··· while the menu is up first takes its focus away (it closes on that); that click must not reopen it.
+    if (this.visible || this.pending || Date.now() - this.closedAt < 300) { this.close(); return; }
+    this.key = key; this.player = player;
+    const w = this.ensure();
+    this.pending = true;
+    const send = () => { if (!w.isDestroyed()) w.webContents.send('player:menushow', this.state()); };
+    if (w.webContents.isLoading()) w.webContents.once('did-finish-load', send); else send();
+  }
+
+  /** The page measured its menu (shadow room included): placed and shown. */
+  sized(r: unknown): void {
+    const w = this.window, k = this.key, pl = this.player;
+    if (!w || !k || !pl || !r || typeof r !== 'object' || !this.pending && !w.isVisible()) return;
+    const v = r as Record<string, unknown>;
+    const mw = Math.min(480, Math.max(120, Math.round(Number(v.w) || 0))), mh = Math.min(640, Math.max(60, Math.round(Number(v.h) || 0)));
+    const a = this.o.clampToScreen === false ? { x: -100000, y: -100000, width: 200000, height: 200000 } : screen.getDisplayNearestPoint({ x: k.x, y: k.y }).workArea;
+    const GAP = 2;
+    // its right edge under the key's right edge; below the player, else above it, else beside it
+    const x = Math.max(a.x, Math.min(a.x + a.width - mw, k.x + k.width - mw + 6));
+    let at = { x, y: pl.y + pl.height + GAP };
+    if (at.y + mh > a.y + a.height) {
+      at = { x, y: pl.y - GAP - mh };
+      if (at.y < a.y) {
+        const left = pl.x - GAP - mw, right = pl.x + pl.width + GAP;
+        const sx = left >= a.x ? left : right + mw <= a.x + a.width ? right : x;
+        at = { x: sx, y: Math.max(a.y, Math.min(a.y + a.height - mh, k.y)) };
+      }
+    }
+    w.setBounds({ x: Math.round(at.x), y: Math.round(at.y), width: mw, height: mh });
+    if (this.pending) {
+      this.pending = false;
+      this.shownAt = Date.now();
+      w.show();
+      w.focus();
+      this.openChanged(true);
+    }
+  }
+
+  /** His choice ({ kind: 'close' } for Esc). Checked again by the player. The menu goes either way. */
+  picked(m: unknown): void {
+    if (!m || typeof m !== 'object') return;
+    const { kind, value } = m as { kind?: unknown; value?: unknown };
+    this.close();
+    if (kind === 'picture' || kind === 'bars') this.choose(kind, value);
+  }
+
+  close(): void {
+    const was = this.visible || this.pending;
+    this.pending = false;
+    const w = this.window;
+    if (w?.isVisible()) { w.hide(); this.closedAt = Date.now(); }
+    if (w && was) w.webContents.send('player:menushow', null);
+    if (was) this.openChanged(false);
+  }
+
+  dispose(): void { this.close(); const w = this.window; if (w) w.destroy(); this.win = null; }
 }
 
 // ------------------------------------------------------------------------------------------------ ipc
@@ -281,8 +418,15 @@ function wireIpc(): void {
   };
   ipcMain.on('player:ready', (e) => find(e)?.hearReady());
   ipcMain.on('player:cmd', (e, m) => find(e)?.hearCmd(m));
-  ipcMain.on('player:vis', (e, v) => find(e)?.hearVis(v));
-  ipcMain.on('player:scene', (e, s) => find(e)?.hearScene(s));
+  ipcMain.on('player:menu', (e, r) => find(e)?.hearMenu(r));
+  // the menu window's own doors: only a player's own menu window may use them
+  const menuOf = (e: Electron.IpcMainEvent) => {
+    if (e.senderFrame && e.senderFrame.parent !== null) return null;
+    for (const p of players) if (p.menu.owns(e.sender)) return p.menu;
+    return null;
+  };
+  ipcMain.on('player:menusize', (e, r) => menuOf(e)?.sized(r));
+  ipcMain.on('player:menupick', (e, m) => menuOf(e)?.picked(m));
   ipcMain.on('player:shade', (e) => find(e)?.hearShade());
   ipcMain.on('player:pin', (e) => find(e)?.hearPin());
   ipcMain.on('player:opacity', (e, n) => find(e)?.hearOpacity(n));

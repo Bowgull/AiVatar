@@ -1,0 +1,9 @@
+/* 2026-10-22: the music player's own menu. Everything else is Aang's menu (browser.css .tabmenu + aangmenu.css: 16 px
+   words, 44 px rows, the glove on the row he points at, the gold tick). The window is see-through and sized to the menu
+   plus room for its shadow; the menu sits 6 px in. */
+.tabmenu{left:6px;top:6px;min-width:268px}
+/* a picture row: the tiny moving thumbnail (34 art pixels, whole-number scaled) where the icon goes */
+.tabmenu button.pic{padding-top:5px;padding-bottom:5px}
+.tabmenu button .th{flex:0 0 auto;display:block;image-rendering:pixelated;border-radius:3px;box-shadow:0 0 0 2px #120a05,0 2px 0 2px rgba(0,0,0,.45)}
+.tabmenu button .th.cov{image-rendering:auto}
+
