@@ -56,7 +56,9 @@ const POSES = [
 export const OUTFITS = {
   cream: { label: 'Cream hoodie + jeans (now)' },
   jade: { label: 'Jade hoodie + cream trousers', h: '#2f9a8a', H: '#62cdb6', k: '#1f7068', K: '#17524e', j: '#e6d2aa', J: '#fff0d0', n: '#b39a78' },
-  mustard: { label: 'Mustard hoodie + dark jeans', h: '#d89a22', H: '#ffc850', k: '#a8701a', K: '#7a5214', j: '#1f2644', J: '#343e6a', n: '#141a32' },
+  // His pick since 2026-10-22 (option 3): the mustard hoodie gets a burnt-umber edge on its sun side and top so it never melts into the gold sky;
+  // the dark jeans keep the thin light rim (cool, lit by the sun) so his legs read on the plum road.
+  mustard: { label: 'Mustard hoodie + dark jeans', h: '#d89a22', H: '#f0b43c', k: '#a8701a', K: '#7a5214', j: '#1f2644', J: '#343e6a', n: '#141a32', edge: '#5a2e0e', rim: '#b8c0e8', rimFar: '#6c74a8' },
   tee: { label: 'White tee + plum trousers', h: '#f2eee8', H: '#ffffff', k: '#c4bcb4', K: '#968c84', a: 's', A: 'd', j: '#5a2a5e', J: '#7c4280', n: '#3e1c42', rim: '#f0b4a8', rimFar: '#b0708c' },
 };
 function drawSkater(put, ox, oy, pose, outfit = 'cream') {
@@ -74,6 +76,12 @@ function drawSkater(put, ox, oy, pose, outfit = 'cream') {
   poly([sh([8, 10]), P.knee, [10, 14]], (x, y) => { q(x, y, 'j'); if (O.rim) put(ox + x + 1, oy + y, O.rim); else q(x + 1, y, 'J'); });
   q(10, 14, 'o'); q(11, 14, 'o'); q(12, 14, 'O');
   stamp(put, TORSO, ox + 5 + P.dx, oy + 5 + P.dy, PAL);
+  // A hoodie close to the sky's colour: its sun-facing edge and its top row are shaded dark so the shape holds.
+  if (O.edge) TORSO.slice(0, 4).forEach((r, y) => {
+    const tx = ox + 5 + P.dx, ty = oy + 5 + P.dy, last = r.replace(/\.+$/, '').length - 1;
+    if (last >= 0) put(tx + last, ty + y, O.edge);
+    if (y === 0) for (let i = 0; i <= last; i++) if (r[i] !== '.') put(tx + i, ty, O.edge);
+  });
   stamp(put, HEAD, ox + 5 + P.dx, oy + P.dy, PAL);
   const na = P.near.map(sh); poly(na, (x, y) => q(x, y, '@')); q(...na[2], 'S');
 }

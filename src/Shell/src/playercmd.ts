@@ -49,3 +49,21 @@ export function springAt(t: number, response: number, zeta: number): number {
   return 1 - Math.exp(-zeta * w * t) * (Math.cos(wd * t) + zeta / Math.sqrt(1 - zeta * zeta) * Math.sin(wd * t));
 }
 
+
+/** A Spotify device in the player's menu (Spotify Connect, 2026-10-22: the brain's media.devices, checked again here). */
+export interface PlayerDevice { id: string; name: string; kind: string; active: boolean }
+const KINDS = new Set(['phone', 'computer', 'speaker', 'tv', 'car', 'other']);
+export const DEVICE_ID = /^[A-Za-z0-9_-]{1,128}$/;
+/** The brain's device list, kept only as plain short fields; odd ids dropped. */
+export function readDevices(m: unknown): { devices: PlayerDevice[]; error: string | null } {
+  const o = m && typeof m === 'object' ? m as Record<string, unknown> : {};
+  const list = Array.isArray(o.devices) ? o.devices : [];
+  const devices = list.slice(0, 12).flatMap((d): PlayerDevice[] => {
+    if (!d || typeof d !== 'object') return [];
+    const x = d as Record<string, unknown>;
+    if (typeof x.id !== 'string' || !DEVICE_ID.test(x.id)) return [];
+    const name = typeof x.name === 'string' ? x.name.trim().slice(0, 40) : '';
+    return [{ id: x.id, name: name || 'Spotify', kind: typeof x.kind === 'string' && KINDS.has(x.kind) ? x.kind : 'other', active: x.active === true }];
+  });
+  return { devices, error: typeof o.error === 'string' ? o.error.slice(0, 80) : null };
+}
