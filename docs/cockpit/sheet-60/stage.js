@@ -3,7 +3,9 @@
 //   {L}-board    the notes board: search, tags, pinned, everything
 //   {L}-capture  the quick-capture box (Ctrl+*), small, over a game
 import { P, rr, shape, drawMask, fills, spr, art, mix, hex, paperAt, trayAt, cover } from '../sheet-59/pix.js';
-import { ready, el, at, NOTES, TAGS, note, paper, woodPin, ribbon, pinFor, dotOf, toggle, askChip, box } from './notes.js';
+import { ready, el, at, NOTES, TAGS, note, paper, woodPin, ribbon, pinFor, dotOf, toggle, askChip, box, CATS, CATKEY, paperOf } from './notes.js';
+/** A category's paper swatch: a little square of its paper with a dark-wood edge (the colour IS the category). */
+function swatch(k, size = 12) { const s = el('i', 'sw6'); s.style.background = paperOf(k); s.style.width = s.style.height = size + 'px'; return s; }
 
 const SCENE = new URLSearchParams(location.search).get('scene') || 'A-sticky';
 const [L, KIND] = SCENE.split('-');
@@ -47,8 +49,10 @@ function boardB() {
   at(d, el('div', 'search dark', '&#9906;&nbsp; Search your notes'), 120, 20, { width: '440px' });
   at(d, el('span', 'newkey', '+ New note'), 760, 20);
   const c = at(d, el('div', 'chips'), 26, 70);
-  [['All &middot; 14', 'on'], ['Just notes &middot; 6', ''], ['To-do', ''], ['Idea', ''], ['Reference', ''], ['For Claude', ''], ['Recipes', ''], ['+ Category', 'ghost']].forEach(([t, k]) => {
-    const e = el('span', 'chip2 dark' + (k === 'on' ? ' on' : ''), t); if (k === 'ghost') { e.style.background = 'transparent'; e.style.color = '#bfae8a'; e.style.boxShadow = '0 0 0 2px rgba(191,174,138,.35)'; } c.append(e); });
+  // v4: every chip carries its category's paper colour (the colour IS the category)
+  [['All &middot; 14', 'on', null], ['Just notes &middot; 6', '', 'B'], ['To-do', '', 'F'], ['Idea', '', 'C'], ['Reference', '', 'D'], ['For Claude', '', 'E'], ['Recipes', '', 'G'], ['+ Category', 'ghost', null]].forEach(([t, k, key]) => {
+    const e = el('span', 'chip2 dark' + (k === 'on' ? ' on' : ''), t); if (key) e.prepend(swatch(key, 11));
+    if (k === 'ghost') { e.style.background = 'transparent'; e.style.color = '#bfae8a'; e.style.boxShadow = '0 0 0 2px rgba(191,174,138,.35)'; } c.append(e); });
   at(d, el('div', 'sec d', 'PINNED'), 28, 118);
   at(d, note('B', NOTES.plain, 250, 262, { small: true }), 26, 146);
   at(d, note('B', NOTES.todo, 250, 262, { small: true }), 298, 146);
@@ -168,41 +172,76 @@ window.__ready = (async () => {
   } else if (KIND === 'board') {
     const b = L === 'A' ? boardA() : L === 'B' ? boardB() : boardC();
     at(stage, b, 24, 24); crop = { x: 0, y: 0, w: 948, h: 612 };
-  } else if (SCENE === 'B-samnone' || SCENE === 'B-samdot') {
-    // the band's notes key on its own: no notes for the site (no mark at all), some notes (a tiny gold dot)
-    const f = el('iframe'); f.src = 'samara.html?look=B&state=' + (SCENE === 'B-samnone' ? 'none' : 'dot'); Object.assign(f.style, { position: 'absolute', left: '0px', top: '0px', width: '1040px', height: '620px', border: '0' });
+  } else if (SCENE === 'B-menu' || SCENE === 'B-rail') {
+    // v4: Samara's real ... menu with the new row, and the right rail it opens (samara.js siteNotes)
+    const f = el('iframe'); f.src = 'samara.html?look=B&state=' + (SCENE === 'B-menu' ? 'menu' : 'rail'); Object.assign(f.style, { position: 'absolute', left: '0px', top: '0px', width: '1040px', height: '620px', border: '0' });
     stage.append(f); await new Promise((r) => { f.onload = r; }); await f.contentWindow.__done;
-    crop = { x: 560, y: 0, w: 480, h: 70 };
+    crop = SCENE === 'B-menu' ? { x: 520, y: 0, w: 520, h: 470 } : { x: 0, y: 0, w: 1040, h: 620 };
+  } else if (SCENE === 'B-railmotion') {
+    // the rail coming in on a spring (response 0.42 s, damping 0.82): four moments, the page narrowing with it
+    const spring = (t, response = 0.42, zeta = 0.82) => { const w = 2 * Math.PI / response, wd = w * Math.sqrt(1 - zeta * zeta); return 1 - Math.exp(-zeta * w * t) * (Math.cos(wd * t) + zeta / Math.sqrt(1 - zeta * zeta) * Math.sin(wd * t)); };
+    const T = [0.06, 0.14, 0.24, 0.6], S = 0.4, fw = Math.round(1040 * S), fh = Math.round(620 * S);
+    for (let i = 0; i < 4; i++) {
+      const p = Math.min(1, spring(T[i])).toFixed(3);
+      const f = el('iframe'); f.src = 'samara.html?look=B&state=' + p;
+      const gx = 20 + (i % 2) * (fw + 24), gy = 20 + Math.floor(i / 2) * (fh + 44);
+      Object.assign(f.style, { position: 'absolute', left: gx / S + 'px', top: gy / S + 'px', width: '1040px', height: '620px', border: '0' });
+      const holder = el('div'); holder.style.cssText = 'position:absolute;left:0;top:0;transform:scale(' + S + ');transform-origin:0 0';
+      holder.append(f); stage.append(holder);
+      await new Promise((r) => { f.onload = r; }); await f.contentWindow.__done;
+      tag(stage, gx + 2, gy + fh + 10, '<b>' + Math.round(T[i] * 1000) + ' MS</b>' + (i === 3 ? ' &middot; SETTLED' : ''));
+    }
+    crop = { x: 0, y: 0, w: 20 + 2 * (fw + 24), h: 20 + 2 * (fh + 44) };
   } else if (KIND === 'samara') {
     const f = el('iframe'); f.src = 'samara.html?look=' + L; Object.assign(f.style, { position: 'absolute', left: '0px', top: '0px', width: '1040px', height: '620px', border: '0' });
     stage.append(f);
     await new Promise((r) => { f.onload = r; });
     await f.contentWindow.__done;
     crop = { x: 0, y: 0, w: 1040, h: 620 };
-  } else if (SCENE === 'game') {
-    // WoW in front: no line, only a soft mark over his head; the line waits until he is out of the game
-    const g = gameScene(470, 230); g.classList.add('game'); stage.append(g);
-    aang(stage, 640, 460 - 214);
-    const Q = ['...OOOOO...', '..OHHHFFO..', '.OHFFFFFSO.', '.OHFOOOFSO.', '.OOO..OFSO.', '......OFSO.', '.....OFFSO.', '....OFFSO..', '....OFSO...', '....OFSO...', '....OOOO...', '...........', '....OOOO...', '....OHSO...', '....OSSO...', '....OOOO...'];
-    const F = '#3fc4b4', m = spr(Q, { O: '#2a1a10', H: mix(F, '#ffffff', 0.55), F, S: mix(F, '#28140a', 0.35) }, { s: 3, drop: 'rgba(0,0,0,.4)' });
-    const halo = el('div'); halo.style.cssText = 'position:absolute;left:715px;top:248px;width:90px;height:90px;border-radius:50%;background:radial-gradient(circle,rgba(63,196,180,.38),rgba(63,196,180,0) 65%);z-index:1';
-    stage.append(halo); at(stage, m, 744, 268, { zIndex: '2' });
-    crop = { x: 0, y: 0, w: 940, h: 460 };
+  // v4: the in-game mark is gone (his call: while a game runs, noticing is off entirely, nothing shown)
   } else if (SCENE === 'B-cats') {
-    // a plain note, later: "+ category" opens a small paper list; pick one, or make your own
-    const H = 470; aang(stage, 0, H - 214);
-    const n = note('B', NOTES.plain2, 300, 196); at(stage, n, 200, 40);
+    // v4: no colour picker. The # chip opens the category list, each with its paper colour beside its name; picking one
+    // recolours the note on a soft cross-fade. Left: the list open on a plain note. Right: the same note, three moments.
+    const H = 470;
+    const n = note('B', NOTES.plain2, 300, 196); at(stage, n, 24, 40);
     const ghost = n.querySelector('.hcat.ghost'); ghost.classList.remove('ghost'); ghost.classList.add('on');
-    const pop = el('div', 'note lkB'); pop.style.width = '220px'; pop.style.height = '224px';
-    const pb = rr(110, 112, 8, { band: 's2', E: 4, fill: fills.paper(112) }); pb.classList.add('paper'); pop.append(pb);
-    at(pop, el('div', 'sec', 'ADD A CATEGORY'), 20, 18);
-    const list = at(pop, el('div', ''), 16, 40, { display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-start' });
-    ['To-do', 'Idea', 'Reference', 'For Claude', 'Recipes'].forEach((t, i) => list.append(el('span', 'cat' + (i === 4 ? '' : ''), t)));
-    const mk = el('span', 'cat ghost', '+ New category&hellip;'); mk.style.color = '#4A2C6E'; list.append(mk);
-    at(stage, pop, 212, 210, { zIndex: '5' });
-    at(stage, el('div', 'dtag', 'A PLAIN NOTE STAYS PLAIN UNTIL YOU WANT A CATEGORY.'), 470, 260);
-    at(stage, el('div', 'dtag', 'PICK ONE, OR MAKE YOUR OWN: <b>RECIPES</b> IS ONE YOU MADE.'), 470, 282);
-    crop = { x: 0, y: 0, w: 880, h: H + 20 };
+    const pop = el('div', 'note lkB'); pop.style.width = '236px'; pop.style.height = '262px';
+    const pb = rr(118, 131, 8, { band: 's2', E: 4, fill: fills.paper(131) }); pb.classList.add('paper'); pop.append(pb);
+    at(pop, el('div', 'sec', 'CATEGORY = ITS COLOUR'), 20, 18);
+    const list = at(pop, el('div', ''), 16, 40, { display: 'flex', flexDirection: 'column', gap: '4px', width: '204px' });
+    CATS.forEach(([c, k, label], i) => { const row = el('span', 'catrow' + (i === 1 ? ' hov' : '')); row.append(swatch(k, 14), el('span', '', label ?? c)); list.append(row); });
+    const mk = el('span', 'catrow ghost'); mk.append(el('span', 'plus', '+'), el('span', '', 'New category <small>gets the next colour</small>')); list.append(mk);
+    at(stage, pop, 36, 200, { zIndex: '5' });
+    // the cross-fade: butter (plain) -> half-way -> sky (To-do)
+    const hx = (a) => '#' + a.slice(0, 3).map((v) => v.toString(16).padStart(2, '0')).join('');
+    const T = [['0 MS &middot; PLAIN', null, ''], ['120 MS', 'mid', 'To-do'], ['250 MS &middot; TO-DO', null, 'To-do']];
+    T.forEach(([t, k, cat], i) => {
+      const nn = { ...NOTES.plain2, cat: cat || undefined };
+      if (k === 'mid') nn.mix = hx(mix(paperOf('B'), paperOf('F'), 0.5));
+      const x = 340 + i * 214; at(stage, note('B', nn, 196, 160, { foot: false, small: true }), x, 56);
+      tag(stage, x + 2, 232, '<b>' + t + '</b>');
+      if (i < 2) at(stage, el('div', 'dtag', '&rarr;'), x + 202, 130);
+    });
+    tag(stage, 340, 270, 'PICK <b>TO-DO</b>: THE PAPER CROSS-FADES TO TO-DO&rsquo;S COLOUR (0.25 S).');
+    tag(stage, 340, 292, 'NOTHING ELSE TO CHOOSE. TAKE THE CATEGORY OFF AND IT FADES BACK TO PLAIN.');
+    crop = { x: 0, y: 0, w: 1000, h: H };
+  } else if (SCENE === 'B-fasten') {
+    // v4: the pushpin is gone. Three ways to hold a note up, each on the same note, with the top corner blown up 2x more
+    const rows = [['A', 'tab', 'RIBBON TAB', 'A SLIM RIBBON OVER THE TOP EDGE, CATEGORY COLOUR, GOLD FOLD', 'RECOMMENDED'],
+      ['B', 'tape', 'WASHI TAPE', 'PIXEL TAPE ACROSS THE CORNER, TINTED BY THE CATEGORY', ''],
+      ['C', 'stud', 'NO FASTENER, A GOLD STUD', 'NOTHING HOLDING IT, THE PAPER LIFTED, ONE TINY GOLD STUD', '']];
+    rows.forEach(([L2, kind, name, words, rec], i) => {
+      const y = 30 + i * 250;
+      tag(stage, 24, y - 4, '<b>' + L2 + ' &middot; ' + name + '</b>' + (rec ? ' &middot; <b style="color:#ffd36a">' + rec + '</b>' : ''));
+      tag(stage, 24, y + 14, words);
+      const n = note('B', NOTES.todo, 250, 186, { fast: kind, foot: false }); at(stage, n, 40, y + 54);
+      const zoomBox = el('div'); zoomBox.style.cssText = 'position:absolute;overflow:hidden;width:320px;height:176px;border-radius:10px;box-shadow:0 0 0 2px #4a2e18;background:#1a1c25';
+      const clone = note('B', NOTES.todo, 250, 186, { fast: kind, foot: false }); clone.style.transform = 'scale(2)'; clone.style.transformOrigin = '0 0';
+      at(zoomBox, clone, kind === 'stud' ? -200 : 50, 40);
+      at(stage, zoomBox, 340, y + 40);
+      tag(stage, 344, y + 224, 'THE CORNER, 2&times; MORE');
+    });
+    crop = { x: 0, y: 0, w: 690, h: 30 + 3 * 250 - 10 };
   } else if (SCENE === 'B-same') {
     // v3: the quick note and a note opened from the board, side by side: the same paper, the same row of controls
     const H = 470;

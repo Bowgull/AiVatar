@@ -32,9 +32,16 @@ export const TAGS = [['To-do', 'B'], ['Idea', 'C'], ['Reference', 'D'], ['For Cl
 
 // ---------------------------------------------------------------- per look: the colours
 // A parchment, B colour papers, C journal pages. Colour keys: A gold, B butter, C mint, D peach/sky, E lilac.
-const STICKY = { A: '#f3e2a6', B: '#f2df9a', C: '#cfe3c0', D: '#f2cfb4', E: '#dccff0', F: '#c9dcee' };
-const DOT = { A: '#d9a83a', B: '#d9a83a', C: '#58a070', D: '#d07a4a', E: '#8a5cc4', F: '#4a8ac4' };
+const STICKY = { A: '#f3e2a6', B: '#f2df9a', C: '#cfe3c0', D: '#f2cfb4', E: '#dccff0', F: '#c9dcee', G: '#f2c9cf' };
+const DOT = { A: '#d9a83a', B: '#d9a83a', C: '#58a070', D: '#d07a4a', E: '#8a5cc4', F: '#4a8ac4', G: '#c4586a' };
 export const dotOf = (k) => DOT[k];
+// v4 (2026-10-22, night): his note "shouldn't notes be different colours by their CATEGORY rather than giving me another thing
+// to pick?" The colour picker is gone. A plain note is butter paper; each category owns one paper colour; a category he makes
+// takes the next free colour. Choosing a # category recolours the note (a soft cross-fade, 0.25 s).
+export const CATS = [['', 'B', 'Just a note'], ['To-do', 'F'], ['Idea', 'C'], ['Reference', 'D'], ['For Claude', 'E'], ['Recipes', 'G']];
+export const CATKEY = Object.fromEntries(CATS.map(([c, k]) => [c, k]));
+export const keyOf = (n) => n.mix ? n.mix : CATKEY[n.cat ?? ''] ?? 'B';
+export const paperOf = (k) => STICKY[k] ?? k;
 
 /** The paper of one note, w x h art pixels, in a look. */
 export function paper(look, w, h, colKey = 'B', { lifted = true, small = false } = {}) {
@@ -43,7 +50,7 @@ export function paper(look, w, h, colKey = 'B', { lifted = true, small = false }
   if (look === 'B') {
     // v2 (his note "no harsh edges"): soft corners drawn as a pixel staircase (r 9, 7 on the board), a dark-wood edge not a black
     // line, no folded corner, and a soft shadow made of four stepped layers (whole pixels, never blurred)
-    const base = hex(STICKY[colKey] ?? STICKY.B), r = small ? 7 : 9, m = rrMask(w, h, r);
+    const base = hex(STICKY[colKey] ?? colKey ?? STICKY.B), r = small ? 7 : 9, m = rrMask(w, h, r);
     const paperC = shape(m, w, h, { band: 'edge', shadow: 0, fill: (x, y, c) => {
       let p = mix(base, '#ffffff', 0.16 * (1 - y / h));
       if (y < 6) p = mix(p, '#000000', 0.035);
@@ -51,9 +58,9 @@ export function paper(look, w, h, colKey = 'B', { lifted = true, small = false }
       if (c.d === 0 && c.lit < -0.3) p = mix(base, '#7a5532', 0.22);
       return p;
     } });
-    const W = w + 4, H = h + 5, c = document.createElement('canvas'); c.width = W; c.height = H;
+    const W = w + 6, H = h + 8, c = document.createElement('canvas'); c.width = W; c.height = H;
     const g = c.getContext('2d'), img = g.createImageData(W, H);
-    const layers = [[1, 0, 0.30], [2, 0, 0.20], [3, 1, 0.12], [4, 1, 0.06]];
+    const layers = lifted === 'high' ? [[1, 0, 0.30], [2, 0, 0.22], [3, 1, 0.15], [5, 1, 0.09], [7, 2, 0.05]] : [[1, 0, 0.30], [2, 0, 0.20], [3, 1, 0.12], [4, 1, 0.06]];
     for (const [dy, grow, al] of layers) {
       const lm = grow ? dilate(m, w, h, grow) : m;
       for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { if (!lm[y * w + x]) continue; const X = x + 2, Y = y + dy; if (Y >= H) continue;
@@ -73,7 +80,42 @@ export function paper(look, w, h, colKey = 'B', { lifted = true, small = false }
   } });
 }
 
-/** B's wood push-pin: a round wood head (Samara's tray colours), a gold glint, a short brass point. */
+// ---------------------------------------------------------------- v4: what holds a note up (the brown pushpin is gone)
+// His note: "that brown note pin is hideous, is there nothing else in the design language?" Three options, all small:
+//   tab   a slim bookmark ribbon over the top edge in the category's colour, a gold fold line (his gold, quest-log ribbons)
+//   tape  a strip of pixel washi tape across the top-left corner, tinted by the category, torn ends
+//   stud  nothing holding it: the paper sits a little higher (a deeper stepped shadow) with one tiny gold stud in a corner
+const shade = (c, k) => mix(c, '#1a0e06', k), lift = (c, k) => mix(c, '#ffffff', k);
+export function fastTab(colKey = 'B') {
+  const c = colKey === 'B' ? '#d9a83a' : DOT[colKey] ?? colKey;
+  const R = ['OOOOOOOOO', 'OGLLLLLGO', 'OGGGGGGGO', 'OHFFFFFSO', 'OHFFFFFSO', 'OHFFFFFSO', 'OHFFFFFSO', 'OHFFFFFSO', 'OHFFFFFSO', 'OHFFFFFSO', 'OHFFFFFSO', 'OHFFOFFSO', 'OHFO.OFSO', 'OHO...OSO', 'OO.....OO'];
+  return spr(R, { O: '#2c1c10', G: '#c98c14', L: '#ffe096', H: lift(c, 0.35), F: c, S: shade(c, 0.3) }, { drop: 'rgba(0,0,0,.35)' });
+}
+export function fastTape(colKey = 'B') {
+  const c = colKey === 'B' ? '#e9c860' : DOT[colKey] ?? colKey, base = lift(c, 0.5), stripe = lift(c, 0.3), edge = lift(c, 0.7);
+  const W = 30, H = 17;
+  return art(W, H, (put) => {
+    // a band 7 tall running down-right one pixel in three; each end torn in a simple one-pixel zig-zag; soft stripes
+    for (let x = 0; x < W; x++) {
+      const top = 1 + Math.floor(x / 3);
+      for (let k = 0; k < 7; k++) {
+        if ((x === 0 && k % 2 === 0) || (x === W - 1 && k % 2 === 1)) continue;
+        put(x, top + k, k === 0 ? edge : k === 6 ? stripe : base, 0.9);
+      }
+    }
+  });
+}
+export function fastStud() {
+  return spr(['.OOO.', 'OLGGO', 'OGGSO', 'OGSSO', '.OOO.'], { O: '#2c1c10', L: '#fff3d8', G: '#ffc43c', S: '#b97a22' }, { drop: 'rgba(0,0,0,.4)' });
+}
+export function fastener(kind, colKey, w) {
+  if (kind === 'tape') { const t = fastTape(colKey); return [t, -14, -10]; }
+  if (kind === 'stud') return [fastStud(), w - 26, 10];
+  if (kind === 'none') return null;
+  return [fastTab(colKey), 24, -6];
+}
+
+/** B's wood push-pin (v1-v3, removed in v4): a round wood head (Samara's tray colours), a gold glint, a short brass point. */
 export function woodPin() {
   return spr(['...OOOOO...', '..OHHWWWO..', '.OHWWWWWSO.', 'OHWWWWWWWSO', 'OWWWWWWWWSO', 'OWWWWWWWSSO', '.OSWWWWSSO.', '..OOSSSOO..', '....OOO....', '.....Y.....', '.....Y.....', '.....Y.....'],
     { O: '#2c1c10', H: '#ffe096', W: '#7a5532', S: '#4a2e1a', Y: '#c98c14' }, { drop: 'rgba(0,0,0,.45)' });
@@ -136,9 +178,10 @@ export function snipPic(wA = 60, hA = 24) {
  * One note on the desktop: its paper, the pin, the words, and its foot (the switch and "Ask Aang").
  * size in CSS px (even numbers). opts: foot (default true), small (board card), pinned.
  */
-export function note(look, n, w, h, { foot = true, small = false, pinned = false, bringUp = true, hover = false } = {}) {
+export function note(look, n, w, h, { foot = true, small = false, pinned = false, bringUp = true, hover = false, fast = 'tab', lifted = true } = {}) {
+  const key = look === 'B' ? keyOf(n) : n.col;
   const d = el('div', `note lk${look}${small ? ' small' : ''}`); d.style.width = w + 'px'; d.style.height = h + 'px';
-  const body = paper(look, w / P, h / P, n.col, { small }); body.classList.add('paper'); d.append(body);
+  const body = paper(look, w / P, h / P, key, { small, lifted: fast === 'stud' ? 'high' : lifted }); body.classList.add('paper'); d.append(body);
   const inX = look === 'A' ? (small ? 14 : 18) : look === 'B' ? 14 : 28, inY = look === 'A' ? (small ? 12 : 16) : look === 'B' ? 20 : 12;
   const inner = at(d, el('div', 'inner'), inX, inY, { width: (w - inX - (look === 'A' ? 18 : 16)) + 'px', height: (h - inY - (foot ? (look === 'B' ? 72 : 46) : 14)) + 'px' });
   const head = el('div', 'nhead');
@@ -153,7 +196,7 @@ export function note(look, n, w, h, { foot = true, small = false, pinned = false
   if (later) inner.append(el('div', 'cats', '<span class="cat ghost">+ category</span>'));
   const sn = nb.querySelector('.snip'); if (sn) sn.replaceWith(snipPic(small ? 44 : 68, small ? 16 : 24));
   if (look === 'A' && (pinned || !small)) at(d, pinFor('A', pinned), w - 34, small ? 8 : 14, { zIndex: '3' });
-  if (look === 'B') at(d, woodPin(), w / 2 - 12, -10, { zIndex: '3' });
+  if (look === 'B') { const fz = fastener(fast, key, w); if (fz) at(d, fz[0], fz[1], fz[2], { zIndex: '3' }); }
   if (look === 'C' && pinned) at(d, ribbon(small ? 16 : 22), w - 84, -4, { zIndex: '3' });
   // "Ask Aang about this note": his face, by the pin (a tip says it in full when pointed at)
   if (foot) { const ask = at(d, el('span', 'askf' + (hover ? ' hot' : '')), w - (look === 'A' ? 70 : 44), look === 'B' ? 22 : (small ? 8 : 14), { zIndex: '3' }); ask.append(face()); }
@@ -191,9 +234,8 @@ export function controls(n, { bringUp = true } = {}) {
   const f = el('div', 'nctl');
   const r1 = el('div', 'r1');
   const cat = el('span', 'hcat' + (n.cat ? '' : ' ghost'), n.cat ? `<i>#</i>${n.cat}` : '<i>#</i>category');
-  const dots = el('span', 'cdots');
-  COLS.forEach((k) => { const s = el('i'); s.style.background = DOT[k]; if (k === n.col) s.className = 'on'; dots.append(s); });
-  r1.append(cat, dots, checkKey(/chk/.test(n.html)));
+  const ck = checkKey(/chk/.test(n.html)); ck.style.marginLeft = 'auto';
+  r1.append(cat, ck);
   const r2 = el('div', 'r2'); r2.append(toggle(bringUp), el('span', '', bringUp ? 'Aang can bring this up' : 'Aang keeps this one to himself'));
   f.append(r1, r2);
   return f;

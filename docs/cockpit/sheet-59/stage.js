@@ -3,7 +3,7 @@
 // job pop-out's pin, the product's own pill bar for the seek bar. Coordinates are CSS pixels, always even.
 import { P, loadTex, rr, rrMask, shape, drawMask, close, fills, spr, art, GLYPH, pin, cover, spectrum, mix, hex, paperAt, trayAt } from './pix.js';
 import { pill, SEA } from '../../../src/Shell/pages/claudejobs.js';
-import { drive as driveScene, skate as skateScene } from './scenes.js';
+import { skate as skateScene, rain as rainScene, campfire as campScene, pier as pierScene } from './scenes.js';
 
 const SCENE = new URLSearchParams(location.search).get('scene') || 'A-full';
 const GOLD = ['#fff3d8', '#ffe7b0', '#ffd88a', '#ffc96a', '#f0b04a', '#d9952f', '#b97a22', '#8f5a16'];
@@ -161,53 +161,12 @@ function shadeA(vis = true, { off = 0 } = {}) {
 }
 
 // ---------------------------------------------------------------- SCENES: little looping pictures for the screen
-// 56 x 30 art pixels each, 4 frames, hand-placed palettes, meant to loop at 8-12 fps (and stop when the player is hidden).
+// 56 x 30 art pixels each, 6 frames, hand-placed palettes, meant to loop at 8-10 fps (and stop when the player is hidden).
 const SCW = 56, SCH = 30;
-function rng(seed) { let r = seed; return () => ((r = (r * 9301 + 49297) % 233280) / 233280); }
-const SCENES = {
-  /** Rain on a window: a warm room, the lamp, a night street outside, drops running down the glass. */
-  rain: (f) => (put) => {
-    const R = rng(4);
-    for (let y = 0; y < SCH; y++) for (let x = 0; x < SCW; x++) put(x, y, '#24160e');
-    // the window: two panes in a wood frame
-    for (let y = 2; y < 27; y++) for (let x = 6; x < 50; x++) {
-      const frame = y < 4 || y > 24 || x < 8 || x > 47 || (x >= 27 && x <= 28);
-      put(x, y, frame ? (y < 4 || x < 8 ? '#6a4628' : '#4a2e1a') : y < 17 ? mix('#1a2440', '#2c3a5a', y / 17) : '#1a1e30');
-    }
-    // the street outside: rooftops, warm windows
-    for (const [x0, w, h] of [[8, 7, 6], [16, 6, 9], [29, 8, 7], [38, 9, 5]]) for (let y = 24 - h; y < 25; y++) for (let x = x0; x < x0 + w; x++) if (x < 27 || x > 28) put(x, y, '#131624');
-    for (const [x, y] of [[10, 20], [18, 17], [20, 21], [31, 19], [34, 21], [41, 21]]) put(x, y, (x + f) % 7 === 0 ? '#8a6a3a' : '#ffc46a');
-    // rain: short slanted streaks, moved 2 down 1 left per frame
-    for (let k = 0; k < 26; k++) { const x0 = Math.floor(R() * 44) + 8, y0 = Math.floor(R() * 24); const y = 4 + ((y0 + f * 3) % 20), x = x0 - Math.floor(((y0 + f * 3) % 20) / 3);
-      if (x > 8 && x < 47 && (x < 27 || x > 28)) { put(x, y, '#7a8ab8', 0.8); if (y + 1 < 24) put(x - 1, y + 1, '#5a6a98', 0.6); } }
-    // drops on the glass, sliding a pixel a frame and leaving a faint trail
-    for (const [x, y0] of [[13, 6], [22, 10], [34, 5], [43, 12]]) { const y = y0 + f; for (let t = 1; t < 4; t++) put(x, y - t, '#9aaad0', 0.25); put(x, y, '#d8e4ff'); put(x, y + 1, '#8a9ac8'); }
-    // the lamp glow in the room, bottom left, and the sill
-    for (let y = 22; y < SCH; y++) for (let x = 0; x < 14; x++) { const d = Math.hypot(x - 3, y - 27); if (d < 9) put(x, y, '#ffc46a', (9 - d) / 9 * 0.35); }
-    for (let x = 4; x < 52; x++) { put(x, 27, '#8a6038'); put(x, 28, '#5a3a20'); }
-    for (let y = 22; y < 27; y++) { put(2, y, '#ffe096'); put(3, y, '#ffc43c'); } put(1, 21, '#c98c14'); put(2, 21, '#c98c14'); put(3, 21, '#c98c14'); put(4, 21, '#c98c14');
-  },
-  /** A campfire at night: flames that flicker, sparks floating up, the trees lit underneath. */
-  campfire: (f) => (put) => {
-    const R = rng(7);
-    for (let y = 0; y < SCH; y++) for (let x = 0; x < SCW; x++) put(x, y, y < 18 ? mix('#0f0c1e', '#1e1430', y / 18) : '#140e0a');
-    for (let k = 0; k < 18; k++) { const x = Math.floor(R() * SCW), y = Math.floor(R() * 12); put(x, y, (k + f) % 5 === 0 ? '#6a6488' : '#d8d0f0'); }
-    // pines
-    for (const [px, h] of [[4, 11], [11, 8], [44, 10], [51, 13], [38, 6]]) for (let y = 0; y < h; y++) { const w = Math.floor(y / 2); for (let x = -w; x <= w; x++) put(px + x, 19 - h + y, '#0a0814'); }
-    // the light on the ground, dithered
-    for (let y = 18; y < SCH; y++) for (let x = 0; x < SCW; x++) { const d = Math.hypot((x - 28) / 1.8, y - 25); if (d < 10 && (x + y) % 2 === 0) put(x, y, '#5a2e14', (10 - d) / 10); if (d < 6) put(x, y, '#7a3e18', (6 - d) / 6 * 0.7); }
-    // logs
-    for (let k = -6; k <= 6; k++) { put(28 + k, 26 + Math.round(k / 4), '#4a2e1a'); put(28 + k, 27 + Math.round(k / 4), '#2c1c10'); put(28 + k, 26 - Math.round(k / 4), '#6a4628'); }
-    // the flame: column heights jitter per frame
-    const H = [[3, 6, 9, 11, 8, 5, 3], [4, 7, 10, 9, 10, 6, 2], [2, 6, 8, 12, 9, 6, 4], [3, 5, 11, 10, 7, 7, 3]][f % 4];
-    H.forEach((h, i) => { const x = 25 + i; for (let y = 0; y < h; y++) { const q = y / h; put(x, 25 - y, q > 0.75 ? '#ff6a2a' : q > 0.45 ? '#ff9a3c' : q > 0.2 ? '#ffc43c' : '#fff0c8'); } });
-    // sparks
-    for (const [sx, sy] of [[27, 12], [30, 8], [24, 4], [33, 14]]) { const y = sy - f * 2, x = sx + ((f + sx) % 3) - 1; if (y > 0) put(x, y, '#ffc43c'); }
-  },
-  drive: (f) => driveScene(f),
-  skate: (f) => skateScene(f),
-};
+// v4: all four scenes live in scenes.js (skate redrawn, rain and campfire redone, the pier new; the drive is gone).
+const SCENES = { skate: skateScene, rain: rainScene, campfire: campScene, pier: pierScene };
 const scene = (name, f, s = P) => art(SCW, SCH, SCENES[name](f), s);
+const HERO = { skate: 3, rain: 1, campfire: 1, pier: 3 };   // the frame each hero shows (the push, a lit flame, the dip)
 
 // ---------------------------------------------------------------- B: a Walkman on parchment
 function reelsWindow(wA, hA, spin = 0) {
@@ -434,8 +393,8 @@ window.__ready = (async () => {
     crop = { x: 0, y: 0, w: 220 + a2(AW) + 36, h: H };
   } else if (SCENE === 'A-scene') {
     const H = 290;
-    at(stage, playerA('scene', { scene: scene('drive', 1) }), 30, 44); tag(stage, 32, 20, 'SCENE <b>DRIVING DOWN THE BOULEVARD</b>');
-    at(stage, playerA('scene', { scene: scene('skate', 2) }), 30 + a2(AW) + 40, 44); tag(stage, 32 + a2(AW) + 40, 20, 'CLICK THE SCREEN &rarr; <b>SKATING THE BOULEVARD</b>');
+    at(stage, playerA('scene', { scene: scene('skate', 0) }), 30, 44); tag(stage, 32, 20, 'SCENE <b>SKATING THE BOULEVARD</b>');
+    at(stage, playerA('scene', { scene: scene('pier', 2) }), 30 + a2(AW) + 40, 44); tag(stage, 32 + a2(AW) + 40, 20, 'CLICK THE SCREEN &rarr; <b>THE PIER AT DUSK</b>');
     big(stage, 32, 44 + a2(AH) + 26, 'THE VIS KEY GOES <b>BARS &rarr; SCENE &rarr; OFF</b>. IN SCENE, A CLICK ON THE SCREEN GOES TO THE NEXT SCENE. IT REMEMBERS.');
     crop = { x: 0, y: 0, w: 30 + a2(AW) * 2 + 40 + 30, h: H };
   } else if (SCENE.startsWith('z-')) {
@@ -443,19 +402,18 @@ window.__ready = (async () => {
     const n = SCENE.slice(2), S = 8;
     for (let f = 0; f < 4; f++) at(stage, scene(n, f, S), 10 + (f % 2) * (SCW * S + 10), 10 + Math.floor(f / 2) * (SCH * S + 10));
     crop = { x: 0, y: 0, w: 30 + 2 * SCW * S, h: 30 + 2 * SCH * S };
-  } else if (SCENE === 'scenes') {
-    const NAMES = [['drive', 'DRIVING DOWN THE BOULEVARD', 'DASHES RUSH AT YOU, PALMS AND LAMPS SLIDE PAST, THE CAR BUMPS A PIXEL'], ['skate', 'SKATING THE BOULEVARD', 'FOUR LAYERS SLIDE AT 1-2-3-4 PX, HE PUSHES ONCE'], ['rain', 'RAIN ON THE WINDOW', 'STREAKS FALL, DROPS SLIDE, A LIGHT GOES OUT'], ['campfire', 'CAMPFIRE', 'FLAMES FLICKER, SPARKS FLOAT UP, STARS TWINKLE']];
-    const S = 4, fw = SCW * S, fh = SCH * S, x0 = 24;
-    NAMES.forEach(([n, title, how], row) => {
-      const y = 22 + row * (fh + 64);
-      big(stage, x0, y, `<b>${title}</b> &middot; ${how}`);
-      for (let f = 0; f < 4; f++) {
-        const c = roundCut(scene(n, f, S), 3); c.style.boxShadow = '0 0 0 4px #120a05, 0 0 0 6px #4a2e18'; c.style.borderRadius = '10px';
-        at(stage, c, x0 + f * (fw + 26), y + 24);
-        tag(stage, x0 + f * (fw + 26) + 4, y + 24 + fh + 8, `FRAME ${f + 1} &middot; ${f * 100} MS`);
-      }
-    });
-    crop = { x: 0, y: 0, w: x0 + 4 * (fw + 26) + 4, h: 22 + 4 * (fh + 64) - 10 };
+  } else if (SCENE.startsWith('scene-')) {
+    // one scene: a big hero frame (6x) and the whole loop beside it, frame by frame (2x, the size it plays at)
+    const n = SCENE.slice(6), HS = 6, fw = SCW * P, fh = SCH * P, x0 = 20, y0 = 16;
+    const hero = roundCut(scene(n, HERO[n], HS), 4); hero.style.boxShadow = '0 0 0 4px #120a05, 0 0 0 6px #4a2e18'; hero.style.borderRadius = '12px';
+    at(stage, hero, x0, y0);
+    const gx = x0 + SCW * HS + 34;
+    for (let f = 0; f < 6; f++) {
+      const c = roundCut(scene(n, f, P), 3); c.style.boxShadow = '0 0 0 3px #120a05, 0 0 0 4px #4a2e18'; c.style.borderRadius = '6px';
+      const cx = gx + (f % 3) * (fw + 18), cy = y0 + 4 + Math.floor(f / 3) * (fh + 32);
+      at(stage, c, cx, cy); tag(stage, cx + 2, cy + fh + 8, `${f + 1} &middot; ${f * 110} MS`);
+    }
+    crop = { x: 0, y: 0, w: gx + 3 * (fw + 18) + 6, h: y0 + SCH * HS + 12 };
   } else if (SCENE === 'motion') {
     const x0 = 24, gap = 30; let y = 20;
     // 1 the marquee

@@ -4,7 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sheet 59 - Spotify mini player</title>
-<!-- Sheet 59 v3 (2026-10-22, evening): his notes on v2: the cloud scene removed everywhere; the
+<!-- Sheet 59 v4 (2026-10-22, night): his notes on v3's scenes: the drive gone; the skater redrawn (a readable side-view
+     figure with a real push cycle); rain and campfire redone from scratch; a new fourth scene, the pier at dusk. Six frames
+     each, one hero frame per scene (sheet-59/scenes.js, shot as scene-*.png).
+     Sheet 59 v3 (2026-10-22, evening): his notes on v2: the cloud scene removed everywhere; the
      temple scene replaced by two boulevard scenes (drive, skate; sheet-59/scenes.js); snap = FLUSH (his pick); the video
      pop-out only opens on his click.
      Sheet 59 v2 (2026-10-22, later): his notes on v1: A picked, but "everything sharp cornered" and "hard to click";
@@ -29,10 +32,10 @@
 </head>
 <body>
 <h1>SHEET 59 &middot; SPOTIFY MINI PLAYER</h1>
-<p class="real">v3 &middot; 22 Oct, evening: the cloud scene gone, two boulevard scenes, flush snapping</p>
+<p class="real">v4 &middot; 22 Oct, night: the four scenes redrawn (skater fixed, drive gone, rain and campfire redone, the pier is new)</p>
 <p class="lead">A small 90s player on your desktop. Song, artist, cover, seek, play keys, volume, and a visualizer you can switch off. Double-click it to shrink it to a thin strip, like Winamp.</p>
 <div class="decided"><span>Opens from the wheel's Music slot, asking Aang, or his right-click menu</span><span>You sign in to Spotify yourself</span><span>Snaps to the other pop-outs</span><span>Shares their pin and see-through</span><span>Snaps FLUSH (your pick)</span><span>Video pops out only when you click</span></div>
-<p class="topick"><span>WHAT TO PICK</span> <em><b>Yes</b> to A as reworked, or point at a corner, a key or a scene to change. Then say if the four <b>scenes</b> are right: Boulevard drive, Boulevard skate, Rain, Campfire.</em></p>
+<p class="topick"><span>WHAT TO PICK</span> <em><b>Yes</b> to A as reworked, or point at a corner, a key or a scene to change. Then say <b>yes</b> or point at a scene to change: <b>Skate</b>, <b>Rain</b>, <b>Campfire</b>, <b>the Pier</b> (new).</em></p>
 
 <div class="take">
   <div class="lhead"><span class="L">A</span><span class="nm">Winamp in wood &middot; soft and easy to hit</span><span class="pick">YOUR PICK</span></div>
@@ -44,9 +47,15 @@
 </div>
 
 <h2><span class="n">2</span>SCENES IN THE SCREEN</h2>
-<p>Instead of the bars, a tiny looping picture plays in the screen. Four of them: <b>driving down a sunset boulevard</b> (from behind the car, palms and streetlights rushing past), <b>skating the same boulevard</b> (from the side, four layers sliding at different speeds), <b>rain on a window</b> and a <b>campfire</b>. The <b>VIS key</b> goes BARS &rarr; SCENE &rarr; OFF. In SCENE, <b>click the screen</b> for the next one. Cheap: 4-8 hand-drawn frames looping at about 10 fps, and they stop when the player is hidden or a game is full screen.</p>
-<div class="cell"><div class="lbl"><i>2</i>A SCENE PLAYING IN THE PLAYER &middot; SHOWN 2&times;</div><div class="shot"><img src="sheet-59/A-scene.png" width="948" height="290" alt="Player with the boulevard drive scene and the boulevard skate scene in its screen"></div></div>
-<div class="cell" style="margin-top:18px"><div class="lbl"><i>2</i>THE FOUR SCENES, FRAME BY FRAME &middot; SHOWN 4&times; SO YOU CAN SEE THE PIXELS</div><div class="shot"><img src="sheet-59/scenes.png" width="1028" height="748" alt="Four scenes, four frames each: boulevard drive, boulevard skate, rain on a window, campfire"></div></div>
+<p>Instead of the bars, a tiny looping picture plays in the screen. Four of them now. The <b>VIS key</b> goes BARS &rarr; SCENE &rarr; OFF; in SCENE, <b>click the screen</b> for the next one. Six hand-drawn frames each, about 9 frames a second, and they stop when the player is hidden or a game is full screen.</p>
+<p class="topick"><span>WHAT CHANGED</span> <em>The <b>drive is gone</b>. The <b>skater is redrawn</b>: cap, face, a cream hoodie, denim legs, white shoes, a board with wheels, and a real push (ride, lift, plant, push, recover, step back on). <b>Rain</b> and <b>campfire</b> are new pictures, not touch-ups. The fourth is <b>new: the pier at dusk</b>.</em></p>
+<div class="cell"><div class="lbl"><i>2</i>A SCENE PLAYING IN THE PLAYER &middot; SHOWN 2&times;</div><div class="shot"><img src="sheet-59/A-scene.png" width="948" height="290" alt="Player with the skate scene and the pier scene in its screen"></div></div>
+<p style="margin-top:18px">Each scene below: one big frame on the left (6&times;, so you can see every pixel), the whole loop on the right at the size it plays.</p>
+<div class="cell" style="margin-top:10px"><div class="lbl"><i>1</i>SKATING THE BOULEVARD &middot; THE STREET SLIDES IN FOUR LAYERS, HE PUSHES ONCE PER LOOP, A TALL PALM CROSSES THE SUN</div><div class="shot"><img src="sheet-59/scene-skate.png" width="786" height="208" alt="Skate scene, hero frame and six frames"></div></div>
+<div class="cell" style="margin-top:14px"><div class="lbl"><i>2</i>RAIN ON THE WINDOW &middot; THE CAT WATCHES THE LIT FLATS ACROSS THE STREET, ITS TAIL SWINGS, DROPS SLIDE, A WINDOW GOES DARK, THE TV FLICKERS, THE CANDLE AND THE MUG BREATHE</div><div class="shot"><img src="sheet-59/scene-rain.png" width="786" height="208" alt="Rain scene, hero frame and six frames"></div></div>
+<div class="cell" style="margin-top:14px"><div class="lbl"><i>3</i>CAMPFIRE &middot; THE FIRE IS THE ONLY LIGHT: IT RIMS THE TENT AND THE TRAVELLER, THE POOL OF LIGHT BREATHES, EMBERS CLIMB</div><div class="shot"><img src="sheet-59/scene-campfire.png" width="786" height="208" alt="Campfire scene, hero frame and six frames"></div></div>
+<div class="cell" style="margin-top:14px"><div class="lbl"><i>4</i>NEW &middot; THE PIER AT DUSK &middot; SOMEONE FISHING BY A LANTERN, THE SEA SHIMMERS, THE BOBBER DIPS AND SENDS A RING OUT, TWO BIRDS HEAD HOME</div><div class="shot"><img src="sheet-59/scene-pier.png" width="786" height="208" alt="Pier scene, hero frame and six frames"></div></div>
+<p style="margin-top:14px"><b>Why the pier for the fourth:</b> the other three are a street, a room and a forest; this is open water, and it is the only <i>still</i> one (the skate moves, the pier sits). Blue hour with one warm lantern is the same cold-world-warm-light feel as the rain and the fire, and water is where pixel colour-cycling looks best. It is also the fishing spot from every cosy game. (Also tried in my head: a night-train window, too close to the rain window; a lantern market, too busy to read at this size; snow at a cabin, too close to the campfire.)</p>
 
 <h2><span class="n">3</span>MOTION</h2>
 <p>Small, calm movement that makes it feel like a real little machine. Nothing bounces more than a pixel or two.</p>
@@ -86,7 +95,7 @@
 <ul>
 <li>The player is new, so it is drawn: every wood, paper, key and icon pixel placed by hand at exactly 2&times;, using Samara's own wood pictures and the bubble's paper colours.</li>
 <li>The seek and volume bars are the app's own round progress bar (gold, cream). The pin is the job pop-out's pin. Round corners are drawn pixel by pixel, never smoothed.</li>
-<li>The four scenes (sheet-59/scenes.js for the two boulevards) are made-up pixel paintings: one sunset palette, Bayer steps only where two colours meet,, drawn frame by frame here; they would ship as small sprite sheets.</li>
+<li>The four scenes (sheet-59/scenes.js) are made-up pixel paintings built the way the pixel-loop artists build theirs (Waneella, Kirokaze, Mark Ferrari's colour cycling), not copied from them: a small palette per scene, ONE light source and everything else in shadow, people and the cat lit on the side facing the light so they read, light as two or three flat bands (no noisy dither), cycling colours for water, rain and fire, and small 2-4 frame motions (steam, a tail, a bobber). They would ship as small sprite sheets; the skate's street layers would scroll as endless strips.</li>
 <li>In section 4 the video pop-out (with 12 px corners, the one change asked for) and the Claude job are drawn by the app's own styles. The cover art is a made-up pixel painting.</li>
 </ul></div>
 </body>

@@ -2,7 +2,7 @@
 import { P, rr, fills, art } from '../sheet-59/pix.js';
 import { ready, el, at, NOTES, note, paper, woodPin, ribbon, dotOf, toggle, face, box } from './notes.js';
 
-const Q = new URLSearchParams(location.search), LOOK = Q.get('look') || 'A', STATE = Q.get('state') || 'open';
+const Q = new URLSearchParams(location.search), LOOK = Q.get('look') || 'A', STATE = Q.get('state') || 'rail';
 window.__done = (async () => {
   const html = await (await fetch('browser.html')).text();
   const doc = new DOMParser().parseFromString(html, 'text/html');
@@ -46,43 +46,51 @@ window.__done = (async () => {
   return true;
 })();
 
-// ---------------------------------------------------------------- v3 (2026-10-22, evening): notes for this site, on demand
-// His call: NO automatic pop-up. A small notes key in Samara's own band (a real .rnd key, before the menu key) opens a
-// little panel: this site's notes (a note kept with "Keep as a note" from a page carries its address) and "+ note for this
-// site". Quiet when there are none: no count, at most a tiny dot when there are some.
+// ---------------------------------------------------------------- v4 (2026-10-22, night): notes for this site, from the ... menu
+// His note: "how does this surface, is it always going to be there? I might prefer it as a right rail, opened when we activate
+// it, probably in the ... menu." So: no key in the band any more. Samara's own menu (browser.html's #menu, browser.css) gets
+// one row, "Notes for this site", in THIS PAGE. It opens a RIGHT RAIL: it slides in from Samara's right edge on a spring and
+// the page narrows beside it (nothing is covered). x or Esc closes it. STATE: menu | rail | a number 0..1 (the rail part-way in).
+const RAILW = 300;
+function spring(t, response = 0.42, zeta = 0.82) {
+  const w = 2 * Math.PI / response, wd = w * Math.sqrt(1 - zeta * zeta);
+  return 1 - Math.exp(-zeta * w * t) * (Math.cos(wd * t) + zeta / Math.sqrt(1 - zeta * zeta) * Math.sin(wd * t));
+}
 async function siteNotes(page, art2) {
   art2.querySelector('mark')?.replaceWith(...art2.querySelector('mark').childNodes);
-  const menu = document.getElementById('menukey');
-  const key = document.createElement('button'); key.className = 'rnd dlkey'; key.type = 'button'; key.id = 'notekey';
-  key.setAttribute('aria-label', 'Notes for this site'); key.setAttribute('aria-expanded', STATE === 'open' ? 'true' : 'false');
-  // a pixel note: a page with two lines and a folded pin head, the band's own glyph colour
-  key.innerHTML = '<svg viewBox="0 0 7 8" width="14" height="16" shape-rendering="crispEdges" aria-hidden="true"><path d="M3 0h1v1H3zM0 1h7v1H0zM0 2h1v6H0zM6 2h1v6H6zM1 7h5v1H1zM2 3h3v1H2zM2 5h3v1H2z" fill="#e8e0f5"/></svg>';
-  key.style.position = 'relative';
-  if (STATE !== 'none') { const dot = document.createElement('i'); dot.style.cssText = 'position:absolute;right:3px;top:3px;width:4px;height:4px;border-radius:1px;background:#ffd36a;box-shadow:0 0 0 1px #120a05'; key.append(dot); }
-  menu.before(key);
-  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-  if (STATE !== 'open') return;
-  const kr = key.getBoundingClientRect();
-  const W = 340, H = 270, x = Math.round(kr.right - W + 30), y = Math.round(kr.bottom + 10);
-  const p = at(document.body, el('div', 'panel'), x, y, { width: W + 'px', height: H + 'px' });
-  const body = rr(W / P, H / P, 8, { band: 's2', E: 4, fill: fills.wood(1) }); body.style.position = 'absolute'; p.append(body);
-  // a little tail up to the key
-  const tail = art(8, 5, (put) => { for (let y2 = 0; y2 < 5; y2++) for (let x2 = 4 - y2; x2 <= 3 + y2; x2++) put(x2, y2, y2 === 4 ? '#4a2e18' : '#2c1c10'); });
-  at(p, tail, Math.round(kr.left + kr.width / 2 - x - 8), -10, { zIndex: '3' });
-  const head = at(p, el('div', 'ph'), 20, 18, { width: (W - 40) + 'px' });
-  head.append(el('span', 'pt w', 'Notes for this site'));
-  at(p, el('div', 'sec6 d', 'FOREVER.WARCRAFT.COM &middot; 2'), 20, 46);
-  const rows = [
-    { t: 'Ragnaros knockback', col: 'D', sub: 'KEPT FROM <b>/GUIDES/MOLTEN-CORE</b> &middot; TODAY' },
-    { t: 'Arms rotation', col: 'B', sub: 'KEPT FROM <b>/PATCH-NOTES</b> &middot; 3 OCT' },
-  ];
-  let yy = 72;
-  for (const r of rows) {
-    const row = at(p, el('div', 'srow'), 16, yy, { width: (W - 32) + 'px' });
-    const bar = el('i'); bar.style.background = dotOf(r.col);
-    const tx = el('div', ''); tx.append(el('b', '', r.t), el('small', '', r.sub));
-    row.append(bar, tx); yy += 64;
+  const menu = document.getElementById('menu');
+  // the new row, in the real menu's THIS PAGE group, under Find
+  const row = document.createElement('button'); row.type = 'button'; row.className = 'mrow'; row.id = 'm-sitenotes';
+  row.innerHTML = '<span>Notes for this site</span>';
+  document.getElementById('m-find').after(row);
+  if (STATE === 'menu') {
+    menu.hidden = false; document.getElementById('menukey').setAttribute('aria-expanded', 'true');
+    row.classList.add('hov');
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    return;
   }
-  at(p, el('span', 'newkey', '+ note for this site'), 20, yy + 4);
-  at(p, el('div', 'sec6 d', 'OPENS ONLY WHEN YOU CLICK THE KEY'), 20, H - 30);
+  const p = STATE === 'rail' ? 1 : Number(STATE);
+  // the page narrows as the rail comes in; the rail rides in from the right edge on the same spring
+  const well = page.parentElement;
+  const pr0 = page.getBoundingClientRect();
+  page.style.marginRight = (30 + Math.round((RAILW + 14) * p)) + 'px';
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const pr = page.getBoundingClientRect();
+  const H = Math.round(pr0.height / 2) * 2, x = Math.round(pr0.right - RAILW + (1 - p) * (RAILW + 44)), y = Math.round(pr0.top);
+  const rail = at(document.body, el('div', 'panel rail'), x, y, { width: RAILW + 'px', height: H + 'px' });
+  const body = rr(RAILW / P, H / P, 8, { band: 's2', E: 4, fill: fills.wood(1) }); body.style.position = 'absolute'; rail.append(body);
+  const head = at(rail, el('div', 'ph'), 20, 18, { width: (RAILW - 40) + 'px' });
+  head.append(el('span', 'pt w', 'Notes for this site'));
+  const x2 = document.createElement('button'); x2.className = 'rnd'; x2.type = 'button'; x2.setAttribute('aria-label', 'Close');
+  x2.innerHTML = '<svg viewBox="0 0 7 7" width="12" height="12" shape-rendering="crispEdges" aria-hidden="true"><path d="M0 0h1v1H0zM6 0h1v1H6zM1 1h1v1H1zM5 1h1v1H5zM2 2h1v1H2zM4 2h1v1H4zM3 3h1v1H3zM2 4h1v1H2zM4 4h1v1H4zM1 5h1v1H1zM5 5h1v1H5zM0 6h1v1H0zM6 6h1v1H6z" fill="#e8e0f5"/></svg>';
+  at(rail, x2, RAILW - 54, 12, { width: '34px', height: '34px' });
+  at(rail, el('div', 'sec6 d', 'FOREVER.WARCRAFT.COM &middot; 2'), 20, 52);
+  // this site's notes, each on its own category paper (the colour is the category)
+  const n1 = { title: 'Ragnaros knockback', cat: 'Reference', html: '<p>Tanks back to the wall at each submerge.</p><div class="from">KEPT FROM <b>/GUIDES/MOLTEN-CORE</b> &middot; TODAY</div>' };
+  const n2 = { title: '', html: '<p>Ask the guild about fire resist before Friday.</p><div class="from">WRITTEN HERE &middot; 3 OCT</div>' };
+  at(rail, note('B', n1, RAILW - 40, 128, { small: true, foot: false }), 20, 80);
+  at(rail, note('B', n2, RAILW - 40, 104, { small: true, foot: false }), 20, 224);
+  at(rail, el('span', 'newkey', '+ note for this site'), 20, 346);
+  at(rail, el('div', 'sec6 d', '<b style="color:#ffd36a;font-weight:400">ESC</b> OR <b style="color:#ffd36a;font-weight:400">X</b> CLOSES IT'), 20, H - 30);
+  if (STATE !== 'rail') { const t = el('div', 'railtag', Math.round(p * 100) + '% IN'); at(document.body, t, 20, 580, { zIndex: '9' }); }
 }

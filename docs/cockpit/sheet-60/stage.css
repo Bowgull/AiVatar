@@ -24,3 +24,12 @@
 .game{position:absolute;left:0;top:0;z-index:0}
 .gamehud{position:absolute;z-index:1}
 .seam6{position:absolute;z-index:6;height:3px;border-radius:2px;background:#ffd36a;box-shadow:0 0 6px rgba(255,180,80,.7)}
+
+/* v4: category swatches (a square of the category's paper, dark-wood edge) and the category list */
+.sw6{display:inline-block;flex:none;border-radius:3px;box-shadow:0 0 0 2px #4a2e18,inset 0 2px 0 rgba(255,255,255,.45)}
+.chip2 .sw6{margin-right:2px}
+.catrow{display:flex;align-items:center;gap:10px;font:700 13.5px Figtree,sans-serif;color:#2E2216;padding:4px 8px;border-radius:7px}
+.catrow.hov{background:rgba(74,44,110,.12);box-shadow:0 0 0 2px rgba(74,44,110,.35)}
+.catrow.ghost{color:#4A2C6E}
+.catrow small{font:600 11px Figtree,sans-serif;color:#7a6448;margin-left:4px}
+.catrow .plus{width:14px;text-align:center;font:800 15px Figtree,sans-serif}

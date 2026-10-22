@@ -4,26 +4,25 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sheet 60 - Notes</title>
-<!-- Sheet 60 v3 (2026-10-22, evening): his note "why would regular notes have a different function and interaction set than
-     the quick note": the quick note IS a note (same paper, pin, face and one control row: # category, colour, checklist, Aang
-     can bring this up), opened small with an empty body (B-same.png). Clip-to-notes removed (it is sheet 62's one "Send to
-     Aang" now). Samara: no automatic pop-up; a notes key in the real band opens this site's notes on demand (B-samara,
-     B-samnone, B-samdot).
-     Sheet 60 v2 (2026-10-22, later): his notes on v1: B picked, "ensure no harsh edges"; a plain note (no type, just
-     text and a colour) is the default, categories (To-do, Idea, Reference, For Claude, his own) are optional chips added
-     later, the board filters by them, quick capture makes a plain note. B papers now pixel-stepped round corners and a
-     stepped soft shadow, no dog-ear. A and C shrunk to a not-picked strip. v1 (2026-10-22). His interview: notes go big (quick thoughts, to-dos, reference, for Aang/Claude; checklists,
-     formatting, pictures; search, tags, pins; sticky windows, a board, inside Samara; quick capture on Ctrl+*). His
-     decision the same day: Aang DOES read his notes ("Aang notices things in your notes": Qwen reads them now and then,
-     one line in his bubble only when it matters, the note's name is the door). Notes are new, so they are drawn
-     (sheet-60/notes.js, pixels at exactly 2x). Real renders: Aang's speech bubble (notice-shots.ts, bubble.html), his
-     right-click menu with Hush (hush.html, aangmenu.js) and Samara's frame (samara.html, browser.html + browser.css).
-     Mockup only. -->
+<!-- Sheet 60 v4 (2026-10-22, night): his notes on v3. (1) Notes for this site: no key in the band; a row in Samara's real
+     ... menu opens a RIGHT RAIL that slides in on a spring and narrows the page (B-menu, B-rail, B-railmotion; samara.js).
+     (2) Colour comes FROM the category: the colour dots are gone; plain = butter, each category its own paper, his own take
+     the next colour; picking one cross-fades the paper (B-cats, B-board). (3) The brown pushpin is gone: three options
+     from his design language, recommended first (B-fasten; notes.js fastTab / fastTape / fastStud). (4) "Aang notices
+     things" made livelier: three ways, each in three moments, on the REAL bubble (notice-peek.ts + peek.js -> peek-*.png).
+     (5) His call: while a game runs, note noticing is OFF entirely; the in-game mark and its picture are gone.
+     v3 (2026-10-22, evening): the quick note is the same note (one control row); clip-to-notes moved to sheet 62's
+     "Send to Aang"; Samara notes on demand. v2: B picked, soft edges, plain note default, categories optional.
+     v1: his interview (notes go big). Notes are new, so they are drawn (sheet-60/notes.js, pixels at exactly 2x). Real
+     renders: Aang's speech bubble (bubble.html), his right-click menu with Hush (hush.html, aangmenu.js) and Samara's frame
+     and menu (samara.html, browser.html + browser.css). Mockup only. -->
 <link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
 <link rel="stylesheet" href="sheet-55/sheet55.css">
 <style>
   .take .shot img{max-width:100%;height:auto}
   .grid2{display:flex;flex-wrap:wrap;gap:20px 26px;align-items:flex-start}
+  .frames{display:flex;flex-wrap:wrap;gap:14px 18px;align-items:flex-end}
+  .frames .cell .lbl{white-space:nowrap}
   .meaning{display:grid;grid-template-columns:220px 1fr;gap:8px 18px;max-width:1150px;margin:6px 0 0}
   .meaning b{font:800 16px Figtree,sans-serif;color:#fffaf0}
   .meaning span{font:500 15.5px/1.5 Figtree,sans-serif;color:#d8cab0}
@@ -31,35 +30,40 @@
 </head>
 <body>
 <h1>SHEET 60 &middot; NOTES</h1>
-<p class="real">v3 &middot; 22 Oct, evening: the quick note is the same note; Samara notes open only when you ask</p>
-<p class="lead">Notes as sticky windows on your desktop, one board with all of them, the same note opened small on <b>Ctrl&nbsp;+&nbsp;*</b> (works over a game), and a notes key in Samara for the site you are on. Aang reads them and speaks up when one matters.</p>
-<div class="decided"><span>Checklists, headings, bold, links, pictures and snips</span><span>Search, tags, colours, pins</span><span>On the Mac and your phone too</span><span>Aang reads your notes (Qwen, free)</span></div>
-<p class="topick"><span>WHAT TO PICK</span> <em>Does <b>one control row on every note</b> feel right? And the <b>notes key</b> in Samara's band: yes or no? Then: is <b>Aang noticing things</b> (section 4) right, on by default?</em></p>
+<p class="real">v4 &middot; 22 Oct, night: colour comes from the category, the pin is gone, site notes in a right rail, Aang's notices livelier</p>
+<p class="lead">Notes as sticky windows on your desktop, one board with all of them, the same note opened small on <b>Ctrl&nbsp;+&nbsp;*</b> (works over a game), and this site's notes in a rail in Samara when you ask. Aang reads them and speaks up when one matters.</p>
+<div class="decided"><span>Checklists, headings, bold, links, pictures and snips</span><span>Search, tags, pins</span><span>On the Mac and your phone too</span><span>Aang reads your notes (Qwen, free)</span><span>One control row on every note</span><span>Colour = category, nothing to pick</span><span>Never while a game runs</span></div>
+<p class="topick"><span>WHAT TO PICK</span> <em>(1) What holds a note up: <b>A ribbon tab</b> (my pick), B washi tape, or C nothing but a gold stud. (2) How Aang brings a note up: <b>A the note peeks</b> (my pick), B he holds it up, or C the quote in his bubble. (3) <b>Yes or no</b> to the right rail from the ... menu, and to the category colours.</em></p>
 
 <div class="take">
-  <div class="lhead"><span class="L">B</span><span class="nm">Colour sticky notes, soft edges</span><span class="pick">YOUR PICK</span></div>
-  <p class="cap1">Your notes: "no harsh edges", and "what about just random stuff I want to write down?" Now the corners are rounded in pixel steps, the shadow is soft (four stepped layers, never blurry), and the folded corner is gone. A new note is a <b>plain note</b>: no title needed, no category, just words and a colour. Categories are optional chips you add later.</p>
+  <div class="lhead"><span class="L">B</span><span class="nm">Colour sticky notes, coloured by category</span><span class="pick">YOUR PICK</span></div>
+  <p class="cap1">Your note: "shouldn't notes be different colours by their category rather than giving me another thing to pick?" Yes. The colour dots are gone. A plain note is <b>butter</b>. Each category owns one paper: <b>To-do</b> sky, <b>Idea</b> mint, <b>Reference</b> peach, <b>For Claude</b> lilac, and one you make (<b>Recipes</b>) gets the next free colour, rose. The pushpin is gone too; these show the ribbon tab (section 2).</p>
   <div class="grid2">
-    <div class="cell"><div class="lbl"><i>B</i>ON THE DESKTOP &middot; A PLAIN NOTE FIRST, THEN A TO-DO AND AN IDEA &middot; SHOWN 2&times;</div><div class="shot"><img src="sheet-60/B-sticky.png" width="1070" height="470" alt="A plain note, a to-do and an idea as colour sticky notes"></div></div>
-        <div class="cell"><div class="lbl"><i>B</i>THE BOARD &middot; FILTER BY CATEGORY, "JUST NOTES" ARE THE PLAIN ONES</div><div class="shot"><img src="sheet-60/B-board.png" width="948" height="612" alt="Notes board with category filter chips"></div></div>
+    <div class="cell"><div class="lbl"><i>B</i>ON THE DESKTOP &middot; PLAIN, TO-DO, IDEA &middot; SHOWN 2&times;</div><div class="shot"><img src="sheet-60/B-sticky.png" width="1070" height="470" alt="A plain butter note, a sky to-do and a mint idea"></div></div>
+    <div class="cell"><div class="lbl"><i>B</i>THE BOARD &middot; EACH FILTER CHIP CARRIES ITS CATEGORY'S PAPER</div><div class="shot"><img src="sheet-60/B-board.png" width="948" height="612" alt="Notes board with category chips and notes coloured by category"></div></div>
   </div>
+  <div class="cell" style="margin-top:18px"><div class="lbl"><i>&#10022;</i># CATEGORY: EACH WITH ITS COLOUR BESIDE ITS NAME &middot; PICKING ONE CROSS-FADES THE PAPER</div><div class="shot"><img src="sheet-60/B-cats.png" width="1000" height="470" alt="The category list with colour swatches, and a plain note fading to the to-do colour"></div></div>
 </div>
 
-<h2><span class="n">2</span>THE QUICK NOTE IS THE SAME NOTE</h2>
-<p>Your note: "why would regular notes have a different function and interaction set than the quick note?" They don't now. <b>Ctrl&nbsp;+&nbsp;*</b> opens a normal note, just small, empty and ready to type. Every note has the same row at the bottom: <b># category</b>, the <b>colour</b> dots, the <b>checklist</b> key, and <b>Aang can bring this up</b>. The pin and Aang's face sit on top of every note. Nothing exists on only one of them.</p>
+<h2><span class="n">2</span>WHAT HOLDS A NOTE UP (THE PIN IS GONE)</h2>
+<p>Your note: "that brown note pin is hideous, is there nothing else in the design language?" Three small options from it, never over the top. Each is shown on the same note, with its corner blown up so you can see the pixels.</p>
+<div class="cell"><div class="lbl"><i>&#10022;</i>A RIBBON TAB (MY PICK) &middot; B WASHI TAPE &middot; C NO FASTENER, A GOLD STUD &middot; SHOWN 2&times;</div><div class="shot"><img src="sheet-60/B-fasten.png" width="690" height="770" alt="Three ways to hold a note: ribbon tab, washi tape, gold stud"></div></div>
+<p><b>Why A:</b> it is a quest-log bookmark (your journal ribbons, his gold), it carries the category colour so it says something, and it is the smallest of the three. B is cute but busier; C is the calmest but the note looks loose.</p>
+
+<h2><span class="n">3</span>THE QUICK NOTE IS THE SAME NOTE</h2>
+<p><b>Ctrl&nbsp;+&nbsp;*</b> opens a normal note, just small, empty and ready to type. Every note has the same row at the bottom: <b># category</b>, the <b>checklist</b> key, and <b>Aang can bring this up</b>. No colour dots any more: the category is the colour.</p>
 <div class="grid2">
-  <div class="cell"><div class="lbl"><i>&#10022;</i>QUICK NOTE AND A BOARD NOTE, SIDE BY SIDE &middot; THE GOLD LINES MARK THE SAME ROW &middot; SHOWN 2&times;</div><div class="shot"><img src="sheet-60/B-same.png" width="780" height="440" alt="An empty quick note and a to-do note with the same control row"></div></div>
+  <div class="cell"><div class="lbl"><i>&#10022;</i>QUICK NOTE AND A BOARD NOTE &middot; THE GOLD LINES MARK THE SAME ROW &middot; SHOWN 2&times;</div><div class="shot"><img src="sheet-60/B-same.png" width="780" height="440" alt="An empty quick note and a to-do note with the same control row"></div></div>
   <div class="cell"><div class="lbl"><i>&#10022;</i>QUICK NOTE (CTRL + *) OVER A GAME</div><div class="shot"><img src="sheet-60/B-capture.png" width="940" height="460" alt="The quick note, small and empty, over a game"></div></div>
-  <div class="cell"><div class="lbl"><i>&#10022;</i># CATEGORY, LATER &middot; PICK ONE OR MAKE YOUR OWN</div><div class="shot"><img src="sheet-60/B-cats.png" width="880" height="490" alt="The # category chip open on a plain note"></div></div>
 </div>
 
-<h2><span class="n">3</span>NOTES FOR THE SITE YOU'RE ON (SAMARA)</h2>
-<p>No pop-up, ever. A small <b>notes key</b> in Samara's top band opens this site's notes when you click it: notes you kept with <b>"Keep as a note"</b> from this site (sheet 62) remember where they came from. <b>+ note for this site</b> starts a new one. With no notes for the site the key is just a key; with some, a tiny gold dot. No counts.</p>
+<h2><span class="n">4</span>NOTES FOR THIS SITE: A RIGHT RAIL FROM THE ... MENU</h2>
+<p>Your note: "is it always going to be there? I might prefer it as a right rail, opened when we activate it, probably in the ... menu." Done. Nothing in the band any more. Samara's own <b>...</b> menu gets one row, <b>Notes for this site</b>, under Find. It opens a <b>rail</b> on Samara's right edge: it slides in on a spring and the page <b>narrows beside it</b>, so nothing is covered. It lists this site's notes on their category paper and <b>+ note for this site</b>. Close it with its <b>x</b> or <b>Esc</b>.</p>
 <div class="grid2">
-  <div class="cell"><div class="lbl"><i>&#10022;</i>CLICKED &middot; THIS SITE'S NOTES &middot; SAMARA'S BAND IS THE REAL ONE</div><div class="shot"><img src="sheet-60/B-samara.png" width="1040" height="620" alt="Samara with the notes key pressed and the site's notes panel open"></div></div>
-  <div class="cell"><div class="lbl"><i>&#10022;</i>NO NOTES FOR THIS SITE &middot; QUIET</div><div class="shot"><img src="sheet-60/B-samnone.png" width="480" height="70" alt="The notes key with no mark"></div>
-    <div class="lbl" style="margin-top:14px"><i>&#10022;</i>SOME NOTES &middot; A TINY DOT, NO NUMBER</div><div class="shot"><img src="sheet-60/B-samdot.png" width="480" height="70" alt="The notes key with a tiny gold dot"></div></div>
+  <div class="cell"><div class="lbl"><i>1</i>SAMARA'S REAL ... MENU WITH THE NEW ROW (POINTED AT)</div><div class="shot"><img src="sheet-60/B-menu.png" width="520" height="470" alt="Samara's menu with Notes for this site under Find on this page"></div></div>
+  <div class="cell"><div class="lbl"><i>2</i>THE RAIL OPEN &middot; THE PAGE NARROWED, NOTHING COVERED</div><div class="shot"><img src="sheet-60/B-rail.png" width="1040" height="620" alt="Samara with the notes rail open on the right and the page narrower"></div></div>
 </div>
+<div class="cell" style="margin-top:18px"><div class="lbl"><i>3</i>COMING IN ON A SPRING (0.42 S, DAMPING 0.82) &middot; THE PAGE NARROWS WITH IT</div><div class="shot"><img src="sheet-60/B-railmotion.png" width="900" height="604" alt="Four moments of the rail sliding in"></div></div>
 
 <div class="take today" style="margin-top:22px">
   <div class="lhead"><span class="L">&ndash;</span><span class="nm">Not picked (v1)</span></div>
@@ -69,35 +73,52 @@
   </div>
 </div>
 
-<h2><span class="n">4</span>AANG NOTICES THINGS IN YOUR NOTES</h2>
-<p>Qwen (on your PC, free) reads your notes now and then. Only when something matters does Aang say <b>one line</b> in his bubble. The note's name is underlined: click the line and that note opens. These are his real bubble.</p>
-<div class="grid2">
-  <div class="cell"><div class="lbl"><i>1</i>A DATE COMING UP &middot; REAL SIZE</div><div class="shot"><img src="sheet-60/notice-1.png" width="534" height="260" alt="Aang: You noted to renew the passport Friday. That's tomorrow."></div></div>
-  <div class="cell"><div class="lbl"><i>2</i>A TO-DO LEFT OPEN</div><div class="shot"><img src="sheet-60/notice-2.png" width="534" height="260" alt="Aang: Call the bank has been open a week."></div></div>
-  <div class="cell"><div class="lbl"><i>3</i>A NOTE ABOUT WHAT YOU'RE DOING NOW</div><div class="shot"><img src="sheet-60/notice-3.png" width="534" height="260" alt="Aang: Your Route list idea note is about this."></div></div>
+<h2><span class="n">5</span>AANG NOTICES THINGS IN YOUR NOTES</h2>
+<p>Your note: "shouldn't this surface a bit more, this is boring." Three livelier ways, still calm. In all three his one line is in his bubble and the note's name in it is the door: <b>click it and the note opens</b>. These are his real bubble (look B, the S2 rim), shown at real size, each in three moments.</p>
+<p class="topick"><span>THE RULE</span> <em>While a <b>game</b> runs, noticing is <b>off entirely</b>: Qwen does not read, nothing is shown, no mark, nothing queued (unless it still matters after the game). Same while <b>Claude is in front</b>. No new icon for notices, ever.</em></p>
+
+<h3 style="font:800 18px Figtree,sans-serif;color:#fffaf0;margin:22px 0 6px">A &middot; The note peeks <span style="color:#ffd36a;font:400 10px Silkscreen,monospace;letter-spacing:1.5px;margin-left:8px">MY PICK</span></h3>
+<p>The real note rises from behind him on a spring, the line that matters marked in gold, with three keys right on it: <b>Tick it</b> (for a to-do), <b>Open</b>, <b>Later</b> (snoozes it). Tick or Later and it sinks back down. (Not tilted: pixel art can't turn a few degrees and stay crisp.)</p>
+<div class="frames">
+  <div class="cell"><div class="lbl"><i>1</i>IN &middot; 100 MS &middot; RISING</div><div class="shot"><img src="sheet-60/peek-A-in.png" width="358" height="305" alt="The note rising from behind Aang"></div></div>
+  <div class="cell"><div class="lbl"><i>2</i>SETTLED &middot; 350 MS</div><div class="shot"><img src="sheet-60/peek-A-settle.png" width="358" height="305" alt="The note settled beside Aang with Tick it, Open and Later"></div></div>
+  <div class="cell"><div class="lbl"><i>3</i>OUT &middot; TICKED, IT SINKS BACK</div><div class="shot"><img src="sheet-60/peek-A-out.png" width="358" height="305" alt="The ticked note sinking back"></div></div>
 </div>
-<div class="grid2" style="margin-top:20px">
-  <div class="cell"><div class="lbl"><i>4</i>IN A GAME: NO WORDS, ONLY A SOFT MARK. THE LINE WAITS TILL YOU'RE OUT &middot; SHOWN 2&times;</div><div class="shot"><img src="sheet-60/game.png" width="940" height="460" alt="Aang with only a teal mark over his head while a game is up"></div></div>
-  <div class="cell"><div class="lbl"><i>5</i>THE SWITCH FOR ALL OF IT, IN HUSH &middot; HIS REAL MENU &middot; SHOWN 2&times;</div><div class="shot"><img src="sheet-60/hush.png" width="850" height="814" alt="Hush submenu with Let Aang bring up my notes ticked"></div></div>
+
+<h3 style="font:800 18px Figtree,sans-serif;color:#fffaf0;margin:22px 0 6px">B &middot; Aang holds it up</h3>
+<p>A little paper in his hands, the gold line on it, the words in his bubble. Click the paper or the line to open the note. The smallest of the three; no keys.</p>
+<div class="frames">
+  <div class="cell"><div class="lbl"><i>1</i>IN &middot; HE LIFTS IT</div><div class="shot"><img src="sheet-60/peek-B-in.png" width="358" height="305" alt="Aang lifting a little note"></div></div>
+  <div class="cell"><div class="lbl"><i>2</i>SETTLED &middot; HELD UP</div><div class="shot"><img src="sheet-60/peek-B-settle.png" width="358" height="305" alt="Aang holding the note up"></div></div>
+  <div class="cell"><div class="lbl"><i>3</i>OUT &middot; HE LOWERS IT</div><div class="shot"><img src="sheet-60/peek-B-out.png" width="358" height="305" alt="Aang lowering the note"></div></div>
 </div>
+
+<h3 style="font:800 18px Figtree,sans-serif;color:#fffaf0;margin:22px 0 6px">C &middot; The quote in his bubble</h3>
+<p>The note's line quoted on its own paper colour inside the bubble, with the bubble's own keys: <b>Tick it</b>, <b>Open</b>, <b>Later</b>. Everything in one place, but it is still a bubble.</p>
+<div class="frames">
+  <div class="cell"><div class="lbl"><i>1</i>IN &middot; THE QUOTE OPENS</div><div class="shot"><img src="sheet-60/peek-C-in.png" width="518" height="403" alt="The bubble opening with the quote"></div></div>
+  <div class="cell"><div class="lbl"><i>2</i>SETTLED</div><div class="shot"><img src="sheet-60/peek-C-settle.png" width="518" height="403" alt="The bubble with the note's line and three keys"></div></div>
+  <div class="cell"><div class="lbl"><i>3</i>OUT &middot; TICKED, THE BUBBLE GOES</div><div class="shot"><img src="sheet-60/peek-C-out.png" width="518" height="403" alt="The ticked line as the bubble fades"></div></div>
+</div>
+<div class="cell" style="margin-top:20px"><div class="lbl"><i>&#10022;</i>THE SWITCH FOR ALL OF IT, IN HUSH &middot; HIS REAL MENU &middot; SHOWN 2&times;</div><div class="shot"><img src="sheet-60/hush.png" width="850" height="814" alt="Hush submenu with Let Aang bring up my notes ticked"></div></div>
 
 <h2><span class="n">?</span>WHAT EACH PART DOES</h2>
 <div class="meaning">
-  <b>The control row</b><span>The same on every note, quick or not: # category, colour, checklist on/off, and the switch below it.</span>
+  <b>The control row</b><span>The same on every note, quick or not: # category, checklist on/off, and the switch below it.</span>
+  <b>Category = colour</b><span>Plain notes are butter. Pick a category and the paper takes its colour. Make your own and it gets the next free colour.</span>
+  <b>Ribbon tab</b><span>Holds the note up, in the category's colour. (If you pick A.)</span>
   <b>Aang can bring this up</b><span>The small switch on every note. On by default. Off = Aang still reads it when you ask, but never brings it up himself.</span>
-  <b>Aang's face on a note</b><span>"Ask Aang about this note": opens your chat box with the note attached, so you can ask anything about it.</span>
+  <b>Aang's face on a note</b><span>"Ask Aang about this note": opens your chat box with the note attached.</span>
   <b>Let Aang bring up my notes</b><span>In Hush. One switch for all of it.</span>
   <b>Quick note (Ctrl + *)</b><span>The same note, opened small and empty. Type, press Enter, gone. Esc closes. The game keeps running underneath.</span>
-  <b>Categories</b><span>Optional. To-do, Idea, Reference and For Claude to start; make your own (Recipes). The # chip on a note, or the chips on the board to filter.</span>
-  <b>Keep as a note</b><span>From anywhere: right-click, Send to Aang, Keep as a note (sheet 62). The note keeps the link it came from.</span>
-  <b>Samara's notes key</b><span>This site's notes, only when you click it.</span>
-  <b>Pin</b><span>The wood pin keeps a sticky on top and puts the note in PINNED on the board.</span>
+  <b>Notes for this site</b><span>In Samara's ... menu. Opens the rail on the right; x or Esc closes it.</span>
+  <b>Tick it / Open / Later</b><span>On a note Aang brings up: tick the to-do, open the note, or snooze it.</span>
 </div>
 
 <div class="note"><b>How these were made</b>
 <ul>
-<li>The notes are new, so they are drawn: every paper, rim, pin, tick box and switch pixel placed by hand at exactly 2&times;, with Samara's own wood pictures.</li>
-<li>Aang's bubble lines, his right-click menu and Samara's frame are the app's real pages and styles. The page inside Samara and the game behind the quick note are made up.</li>
+<li>The notes are new, so they are drawn: every paper, ribbon, tape, stud, tick box and switch pixel placed by hand at exactly 2&times;.</li>
+<li>Aang's bubble (and its keys), his right-click menu, and Samara's frame and ... menu are the app's real pages and styles. The page inside Samara and the game behind the quick note are made up. The rail is new, drawn with Samara's own wood.</li>
 </ul></div>
 </body>
 </html>

@@ -22,3 +22,9 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden}
 .srow small{display:block;margin-top:5px;font:400 8px Silkscreen,monospace;letter-spacing:1px;color:#bfae8a}
 .srow small b{display:inline;font:inherit;color:#ffd36a}
 .newkey{position:absolute;font:800 13px Figtree,sans-serif;color:#2a1c00;background:linear-gradient(180deg,#ffd76a,#e9a92c);padding:7px 12px;border-radius:8px;box-shadow:0 0 0 2px #120a05,0 3px 0 #120a05}
+
+/* v4: the menu row held in the menu's own hover look (browser.css: gold words, the glove), and the right rail */
+.menu button.mrow.hov{color:#ffe28c;padding-left:34px}
+.menu button.mrow.hov::before{content:"";position:absolute;left:4px;top:50%;width:24px;height:18px;margin-top:-9px;background:url(../../../src/Shell/pages/art/browser/hand.png) 0 0/24px 18px;image-rendering:pixelated}
+.rail .from{margin-top:4px}
+.railtag{position:absolute;font:400 10px Silkscreen,monospace;letter-spacing:1.5px;color:#ffd36a;background:#120a05;padding:6px 9px;border-radius:6px;box-shadow:0 0 0 2px #4a2e18}
