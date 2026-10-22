@@ -1715,7 +1715,7 @@ function thinking(label, lane, retry = false) {
   if (ticking) { clearInterval(ticking); ticking = null; }
   reveal.start('', false); reveal.skip();
   thinkGen = reveal.gen;
-  expanded = false; replyList = null; claudeDone = null; holdOverride = 0; linkWord = ''; focusWindow = null; macSession = false;
+  expanded = false; replyList = null; claudeDone = null; noticeNote = null; holdOverride = 0; linkWord = ''; focusWindow = null; macSession = false;
   bubble.classList.remove('wide', 'widest', 'whisper', 'lantern', 'cdone');
   mediaRow.hidden = true; scroller.hidden = false;
   for (const id of ['means', 'exact', 'mailcard']) { const e = document.getElementById(id); if (e) e.hidden = true; }
@@ -1929,6 +1929,8 @@ function onBrain(m) {
     if (!m.stream) {
       claudeDone = m.kind === 'claude' && m.done === true ? { session: m.session, open: m.open, project: m.project, host: m.host } : null;
       bubble.classList.toggle('cdone', Boolean(claudeDone));
+      // 2026-10-22: a line Aang noticed in a note: a click opens that note (sheet 60 gives it its own look later).
+      noticeNote = m.kind === 'note.notice' && m.notice && typeof m.notice.noteId === 'string' ? m.notice.noteId : null;
     }
     if (!m.stream) linkWord = (focusWindow || macSession) ? (typeof m.link === 'string' && m.link ? m.link : 'Claude') : '';
     if (!m.stream) holdOverride = Number.isFinite(m.hold) && m.hold > 0 ? m.hold : 0;
@@ -2211,6 +2213,7 @@ bubble.addEventListener('click', e => {
   // 2026-10-21 (his ask): a finished Claude job's news takes him to that session, not to the cockpit (sheet 16's rule
   // stays for every other Claude message).
   if (claudeDone && !cockpit && !asking) { goDone(claudeDone); return; }
+  if (noticeNote && !cockpit && !asking) { const id = noticeNote; noticeNote = null; openBoard(); openNote(id); return; }
   // "Need input in Claude": take him straight to that session's window, and let the reply go. This
   // sits ABOVE skip-reveal for the same reason the C# puts it there - it is a decision, not
   // impatience with the typing.
@@ -2822,6 +2825,8 @@ claude = startClaude({
 });
 /** The finished Claude news on show now ({ session, open, project, host }), or null. */
 let claudeDone = null;
+/** The note a noticed line came from (kind 'note.notice'), while that line is on show: a click opens it. */
+let noticeNote = null;
 /**
  * 2026-10-21 (his ask: "click into a done Claude task ... and be taken to that job"): THAT session to the front in the
  * Claude app: its own link from the brain, else the job with that id or project the bubble knows, else the Claude app
