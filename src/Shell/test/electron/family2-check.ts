@@ -2,14 +2,14 @@
 // with the video's click-through kept; Click through for the group and per member, with ONE way back (Ctrl+Alt+P over it,
 // FamilyHost.reachAt). Two real windows, the video pop-out's page made the way popout.ts makes it and a real sticky note,
 // off his screen (x around -5000), never focused or raised, no real mouse or keys.
-// Checks: a note joined on the video's right, bottoms lined up -> only the video's bottom-right and the note's left corners
+// Checks: a note joined on the video's right (a full-height column since part 2's reshape) -> only the video's right and the note's left corners
 // go square; the video's Windows rounding goes off and its REGION (read back from Windows) is exactly the stepped shape,
 // round on the other three corners; resizing the video re-cuts it; the note leaving puts Windows' rounding back and the
 // region away; the menu's Click through, the locked video, reachAt; the family pin leaves the note clickable.
 // Pictures (2): the joined pair as Windows will draw it (the video cut by its real region), and its corners blown up 6x.
 //
 // Run: npx electron test/electron/family2-check.ts [folder for the pictures]
-import { app, BrowserWindow, nativeImage } from 'electron';
+import { dialog, app, BrowserWindow, nativeImage } from 'electron';
 import { execFile } from 'node:child_process';
 import { mkdtempSync, statSync, writeFileSync } from 'node:fs';
 import os from 'node:os'; import path from 'node:path'; import { fileURLToPath } from 'node:url';
@@ -19,6 +19,7 @@ import { FamilyHost } from '../../src/familywin.ts';
 import { EDGE_HELPER_CS, softEdge, stopEdgeHelper } from '../../src/winedge.ts';
 import * as F from '../../src/family.ts';
 
+dialog.showErrorBox = () => {};   // never a dialog on his screen, whatever breaks
 process.on('uncaughtException', (e) => { console.log('HARNESS ERROR ' + String((e as Error)?.stack ?? e).split('\n').slice(0, 4).join(' | ')); app.exit(2); });
 process.on('unhandledRejection', (e) => { console.log('HARNESS REJECTION ' + String((e as Error)?.stack ?? e)); app.exit(2); });
 setTimeout(() => { console.log('HARNESS TIMEOUT'); app.exit(3); }, 120_000).unref();
@@ -94,6 +95,9 @@ function rowsOf(p: Probe, vis: Electron.Rectangle): [number, number][] {
 app.whenReady().then(async () => {
   const pages = await servePages(path.join(HERE, '..', '..', 'pages'));
   const host = new FamilyHost({ origin: pages.origin });
+  // Part 2 keeps every group on a work area (F.onScreen in relayout): without this the join pulled the pair from x -5200
+  // onto his real screen. One made-up work area round the test.
+  host.areas = () => [{ x: -6000, y: 0, width: 3000, height: 2000 }];
 
   // The video pop-out's page, in a window made the way popout.ts makes it. Its click-through: pinned or the family's.
   const video = new BrowserWindow({ x: -5200, y: 200, width: 640, height: 394, titleBarStyle: 'hidden', thickFrame: true, transparent: false, backgroundColor: '#24160D', show: false,
@@ -131,13 +135,19 @@ app.whenReady().then(async () => {
   const dx = vb0.x + vb0.width + 7 - nb0.x, dy = vb0.y + vb0.height - nb0.height - 4 - nb0.y;
   nmove('start'); nmove('move', dx / 2, dy / 2); await wait(80); nmove('move', dx - 2, dy); await wait(60); nmove('move', dx, dy);
   const t0 = performance.now(); nmove('end'); const joinMs = performance.now() - t0;
-  await wait(200);
+  // Part 2 (F4) changed what this join looks like: beside the taller video the note becomes a column as tall as it, lined
+  // up from the top, so it slides up and covers the video's whole right side. Wait for the settle spring, then both of
+  // the video's right corners are square (1b's partial-side rule is still covered in test/family.test.ts squareCorners).
+  await until(() => !host.busy && B().get('note:n1')!.height === vb0.height, 3000);
+  await wait(150);
   const nb1 = B().get('note:n1')!;
-  check('joined on the right, bottoms lined up', host.joined('video') && nb1.x === vb0.x + vb0.width && nb1.y + nb1.height === vb0.y + vb0.height, { nb1, vb0 });
-  check('only the corners a neighbour sits against go square', host.squareOf('video').join() === 'br' && host.squareOf('note:n1').join() === 'tl,bl', { v: host.squareOf('video'), n: host.squareOf('note:n1') });
-  const nsq = await nw.webContents.executeJavaScript(`document.documentElement.dataset.famSq + '|' + ['TopLeft','TopRight','BottomRight','BottomLeft'].map((c) => getComputedStyle(document.querySelector('.sticky'))['border' + c + 'Radius']).join(',')`, true);
-  check('the note page squares its left corners only', /^tl bl\|0px,[1-9][^,]*,[1-9][^,]*,0px$/.test(nsq), nsq);
-  check('the video page is told: bottom-right square', (await video.webContents.executeJavaScript(`document.documentElement.dataset.famSq`, true)) === 'br');
+  check('joined on the right as a full-height column (F4), flush', host.joined('video') && nb1.x === vb0.x + vb0.width && nb1.y === vb0.y && nb1.height === vb0.height, { nb1, vb0 });
+  check('only the corners a neighbour sits against go square', host.squareOf('video').join() === 'tr,br' && host.squareOf('note:n1').join() === 'tl,bl', { v: host.squareOf('video'), n: host.squareOf('note:n1') });
+  // Since the notes rebuild (sheet 60 v5) the paper's corners are pixel steps cut by a clip-path on .npaper's layers, not a
+  // border-radius: each corner's steps are scaled by --ctl/--ctr/--cbr/--cbl (1 round, 0 square; note.css).
+  const nsq = await nw.webContents.executeJavaScript(`document.documentElement.dataset.famSq + '|' + ['ctl','ctr','cbr','cbl'].map((c) => getComputedStyle(document.querySelector('.npaper')).getPropertyValue('--' + c).trim() || '1').join(',')`, true);
+  check('the note page squares its left corners only', nsq === 'tl bl|0,1,1,0', nsq);
+  check('the video page is told: both right corners square', (await video.webContents.executeJavaScript(`document.documentElement.dataset.famSq`, true)) === 'tr br');
 
   const steps = F.cornerSteps(F.CORNER_RADIUS * scale);
   const match = async (what: string, mask: number) => {
@@ -149,8 +159,8 @@ app.whenReady().then(async () => {
     check(what, !!p.rects && diff === -1, diff === -1 ? { vis: v, top: got.slice(0, 8) } : { y: diff, got: got[diff], want: want[diff], vis: v, p: { ...p, rects: (p.rects ?? []).slice(0, 4) } });
     return p;
   };
-  const joinedMask = F.CORNER_BIT.tl | F.CORNER_BIT.tr | F.CORNER_BIT.bl;
-  await match('the video region is the stepped shape on the visible window: round top-left, top-right, bottom-left; square bottom-right', joinedMask);
+  const joinedMask = F.CORNER_BIT.tl | F.CORNER_BIT.bl;   // the note column covers the whole right side (F4)
+  await match('the video region is the stepped shape on the visible window: round top-left, bottom-left; square on the right', joinedMask);
   check('the steps are whole pixels, 7,5,3,2,2,1,1 at 10 px', scale !== 1 || steps.join() === '7,5,3,2,2,1,1', steps);
   // The page grew by the window's resize borders; it is padded back, so the panel is exactly the visible window.
   await wait(1600);

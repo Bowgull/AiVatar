@@ -8,7 +8,7 @@
 // Pictures (<= 4): joined, the menu, pulled apart, joined back.
 //
 // Run: npx electron test/electron/family-check.ts [folder for the pictures]
-import { app, BrowserWindow, screen, nativeImage } from 'electron';
+import { dialog, app, BrowserWindow, screen, nativeImage } from 'electron';
 import { mkdtempSync, statSync, writeFileSync } from 'node:fs';
 import os from 'node:os'; import path from 'node:path'; import { fileURLToPath } from 'node:url';
 import { servePages } from '../../src/pageserver.ts';
@@ -17,6 +17,7 @@ import { NoteWindows } from '../../src/notewin.ts';
 import { FamilyHost } from '../../src/familywin.ts';
 import * as F from '../../src/family.ts';
 
+dialog.showErrorBox = () => {};   // never a dialog on his screen, whatever breaks
 process.on('uncaughtException', (e) => { console.log('HARNESS ERROR ' + String((e as Error)?.stack ?? e).split('\n').slice(0, 4).join(' | ')); app.exit(2); });
 process.on('unhandledRejection', (e) => { console.log('HARNESS REJECTION ' + String((e as Error)?.stack ?? e)); app.exit(2); });
 setTimeout(() => { console.log('HARNESS TIMEOUT'); app.exit(3); }, 90_000).unref();
@@ -42,6 +43,9 @@ const job = { id: S1, machine: 'pc', cwd: 'C:\\x', project: 'waymark', title: 'W
 app.whenReady().then(async () => {
   const pages = await servePages(path.join(HERE, '..', '..', 'pages'));
   const host = new FamilyHost({ origin: pages.origin });
+  // Part 2 keeps every group on a work area (F.onScreen in relayout). Without this the first join pulled the whole group
+  // from x -5200 onto his real screen (and every later check read stale places). One made-up work area round the test.
+  host.areas = () => [{ x: -6000, y: 0, width: 3000, height: 2000 }];
 
   // 1. The video pop-out's own page in a window made the way popout.ts makes it (hidden title bar, opaque wood).
   const video = new BrowserWindow({ x: -5200, y: 200, width: 640, height: 394, titleBarStyle: 'hidden', thickFrame: true, transparent: false, backgroundColor: '#24160D', show: false,
@@ -162,7 +166,9 @@ app.whenReady().then(async () => {
   await jjs(`window.jobpop.drag({ phase: 'start' }); window.jobpop.drag({ phase: 'move', dx: 60, dy: 0 }); window.jobpop.drag({ phase: 'move', dx: 120, dy: 10 }); window.jobpop.drag({ phase: 'end' }); 1`);
   await wait(500);
   const jb3 = B().get('job:' + S1)!;
-  check('dragged 40+ px out: free, its own size', !host.joined('job:' + S1) && host.groupOf('video').length === 2 && jb3.width === jb2.width && jb3.height === jb2.height, { group: host.groupOf('video'), jb3 });
+  // Part 2 (F4): joined beside the taller video the job was a 152 px column, and it still is while wiggling (jb2). Its own
+  // size is the one from before it ever joined (jb0), so that is what it must come back to.
+  check('dragged 40+ px out: free, its own size (from before it joined)', !host.joined('job:' + S1) && host.groupOf('video').length === 2 && jb3.width === jb0.width && jb3.height === jb0.height, { group: host.groupOf('video'), jb2, jb3 });
   check('it stops wiggling', (await jjs(`document.documentElement.classList.contains('fam-wiggle')`)) === false);
 
   // 10. Drag the note to the video's right side: it goes there; no slot is ever drawn.

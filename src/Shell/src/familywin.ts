@@ -570,9 +570,12 @@ export class FamilyHost implements FamilyHooks {
       const a = target.get(x)!.box, b = this.fam.get(x)!.box;
       return a.x !== b.x || a.y !== b.y;
     });
-    if (!sidesAfter) this.refreshSides();
+    // Corners from where everyone is GOING, not from mid-flight (a member reshaping slides while its page re-measures, and
+    // a fresh region briefly grows the video by its resize borders): read off live boxes the joined corners could all
+    // come out round. Checked once more when everything has settled.
+    if (!sidesAfter) this.refreshSides(target);
     this.animateTo(target, moving, motion, () => {
-      if (sidesAfter) this.refreshSides();
+      this.refreshSides();
       for (const x of touched) this.live.get(x)?.m.moved?.();
     });
   }
@@ -719,8 +722,8 @@ export class FamilyHost implements FamilyHooks {
 
   // ---------------------------------------------------------------- what each page is told
 
-  private refreshSides(): void {
-    const sides = F.joinedSides(this.fam), square = F.squareCorners(this.fam);
+  private refreshSides(f: F.Fam = this.fam): void {
+    const sides = F.joinedSides(f), square = F.squareCorners(f);
     for (const [id, l] of this.live) {
       const wig = !!this.wiggle?.ids.includes(id);
       l.sides = wig ? [] : (sides.get(id) ?? []);
