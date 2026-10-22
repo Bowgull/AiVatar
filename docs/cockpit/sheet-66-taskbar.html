@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sheet 66 - Pop-outs on Samara's taskbar</title>
+<!-- Sheet 66 v1 (2026-10-22). His question: "Does each window open a new Electron? If so we need some way to group all
+     this together inside the Samara taskbar: hover, right-click or something." Research: docs/TASKBAR-POPOUTS-RESEARCH.md.
+     Pictures: sheet-66/stage.html photographed by sheet-63/shots.mjs (2x), 256 colours. Windows 11's taskbar, hover row
+     and right-click list are drawn at Windows' own sizes in Segoe UI; the windows inside the hover row are the product's
+     real pop-outs rendered off screen (test/electron/family-timer-check.ts) and Samara's real window. Mockup only. -->
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<link rel="stylesheet" href="sheet-55/sheet55.css">
+<style>
+  .take img{max-width:100%;height:auto}
+  .say{font:500 15px/1.5 Figtree,sans-serif;color:#d8cab0;margin:10px 2px 0;max-width:1150px}
+  .two{display:flex;flex-wrap:wrap;gap:18px 22px;align-items:flex-start}
+  .two .cell{flex:1 1 520px;min-width:0}
+  .two .shot img{width:100%;height:auto}
+  @media (max-width:700px){body{padding:16px}}
+</style>
+</head>
+<body>
+<h1>SHEET 66 &middot; POP-OUTS ON SAMARA'S TASKBAR</h1>
+<p class="real">v1 &middot; 22 Oct: one place on the taskbar for the music player, Claude jobs, notes, timers and the video</p>
+<p class="lead"><b>Your question:</b> does each pop-out start a new Electron? <b>No.</b> They all live inside the one Samara/Aang program. But each one does get its own small helper behind the scenes, about <b>30 to 40 MB</b> each (measured; the timer was 86). Five pop-outs open is roughly 150 to 250 MB of your 16 GB. Today only the video shows on the taskbar, so the others can't be reached from there. Here are two ways to put them all under Samara's lantern.</p>
+<p class="topick"><span>WHAT TO PICK</span> <em><b>A</b> or <b>B</b>. I'd pick <b>A</b>.</em></p>
+
+<div class="take">
+  <div class="lhead"><div class="L">A</div><div class="nm">They all ride on Samara's button <span class="pick">RECOMMENDED</span></div>
+    <p class="cap2">Every pop-out joins Samara's button. Hover the lantern and you see each one as a little live picture, with its own buttons underneath: the music player's previous / pause / next, a Claude job's pause and open, a timer's pause / +1 min / stop. A running Claude job draws its green progress under the lantern. Right-click for a <b>Pop-outs</b> section.</p></div>
+  <div class="two">
+    <div class="cell"><div class="lbl"><i>1</i>HOVER THE LANTERN</div><div class="shot"><img src="sheet-66/a-hover.png" width="2400" height="1320" alt="Windows 11 hover row over Samara's lantern: Samara's window, the video, the music player with previous, pause and next, the Waymark job at 50 percent with pause and open, the Raid night note, and the Flask timer with pause, plus one minute and stop. A green bar under the lantern."></div>
+      <p class="say">Click a picture to bring that window up. The buttons work without opening anything. The green bar under the lantern is the Claude job (50%).</p></div>
+    <div class="cell"><div class="lbl"><i>2</i>RIGHT-CLICK THE LANTERN</div><div class="shot"><img src="sheet-66/a-jump.png" width="1720" height="1320" alt="Samara's right-click list: a Pop-outs section with Show all pop-outs, Hide all pop-outs, Gather them by Aang, New note, Timer, Music player; then Samara's existing Tasks."></div>
+      <p class="say"><b>Show all / Hide all</b> pop-outs at once. <b>Gather them by Aang</b> snaps them all together next to him. <b>New note, Timer, Music player</b> open one. Samara's five tasks stay below.</p></div>
+  </div>
+</div>
+
+<div class="take">
+  <div class="lhead"><div class="L">B</div><div class="nm">Right-click list only, pop-outs stay off the taskbar</div>
+    <p class="cap2">Pop-outs stay how they are now: not on the taskbar, not in Alt+Tab. Samara's own picture gets the music buttons, the lantern gets the job's green bar and Claude's little mark when a job needs you, and the right-click list names every open pop-out.</p></div>
+  <div class="two">
+    <div class="cell"><div class="lbl"><i>1</i>HOVER THE LANTERN</div><div class="shot"><img src="sheet-66/b-hover.png" width="1800" height="612" alt="Hover row with only Samara's window, carrying previous, pause and next. The lantern has a green bar and a small Claude mark."></div>
+      <p class="say">Only Samara's own window shows, carrying the music buttons. The small Claude mark on the lantern means a job wants you.</p></div>
+    <div class="cell"><div class="lbl"><i>2</i>RIGHT-CLICK THE LANTERN</div><div class="shot"><img src="sheet-66/b-jump.png" width="1720" height="1718" alt="Right-click list naming each open pop-out (the video, the song, Waymark 50 percent, Raid night, Flask), then Show all, Hide all, Gather them by Aang, a New section and Samara's Tasks."></div>
+      <p class="say">Each open pop-out by name; click one to bring it up. The names refresh when something changes, but they don't tick live (the timer shows no time here).</p></div>
+  </div>
+</div>
+
+<h2><span class="n">?</span>WHY A, AND WHAT IT COSTS</h2>
+<div class="note"><ul>
+<li><b>A gives you what you asked for:</b> hover to see them, buttons right there, one place for all of it.</li>
+<li><b>Alt+Tab gets longer in A.</b> Windows has no "on the taskbar but not in Alt+Tab", so every open pop-out also shows in Alt+Tab. B keeps Alt+Tab as it is today.</li>
+<li><b>WoW keeps the keyboard either way.</b> The player, timers and job cards never take your typing. Windows normally keeps windows like that off the taskbar. A needs a small fix to show them anyway; I'd test that first. If it fails, those three fall back to B's way.</li>
+<li><b>"Close all windows"</b> on the lantern would close the pop-outs too in A. That matches "they belong to Samara".</li>
+<li><b>Closing Samara:</b> the video still closes with it (it's Samara's tab). Notes, timers, the player and jobs belong to Aang and stay. The lantern stays on the taskbar while any of them are open.</li>
+<li><b>Two jobs running:</b> Windows shows one bar per button, the one that's furthest behind.</li>
+<li>Pictures: Windows' own pieces are drawn at Windows' sizes. The windows inside the hover row are the real pop-outs, rendered. The video's picture is the skate scene standing in for whatever's playing.</li>
+</ul></div>
+</body>
+</html>
