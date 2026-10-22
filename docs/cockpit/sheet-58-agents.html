@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sheet 58 - Background helpers</title>
+<!-- Sheet 58 (2026-10-21). His ask: "Does my progress bar include background agents? This is also important but shouldn't
+     surface as a job but as a background agent right? ... nothing too overcomplicated either. This is also important
+     information to see at a glance." Three simple ways to show Claude's helper agents under their job. Every picture is
+     a REAL render (src/Shell/test/electron/agents-shots.ts): the speech bubble's job list (bubble.html), Samara's rune and
+     its panel (an AangBrowser off screen) and the job pop-out (JobPops), each option laid on as a constructed stylesheet
+     plus a small DOM injection. The six icons are hand-placed palette pixels at 2x. Mockup only, no product code. -->
+<link rel="stylesheet" href="../../src/Shell/pages/cockpit.css">
+<link rel="stylesheet" href="sheet-55/sheet55.css">
+<link rel="stylesheet" href="sheet-58/sheet58.css">
+<script src="sheet-58/shots.js"></script>
+<script src="sheet-58/sheet58.js"></script>
+</head>
+<body>
+<h1>SHEET 58 &middot; BACKGROUND HELPERS</h1>
+<p class="lead">When Claude sends out helpers (its background agents), you see them <b>under their job</b>, never as a job of their own. Three simple ways to show them. The example: your <b>Waymark</b> job with three helpers running.</p>
+<p class="topick"><span>WHAT TO PICK</span> <em><b>A</b> (my pick), <b>B</b> or <b>C</b>.</em></p>
+
+<div class="answer">
+  <h3>Your questions, answered</h3>
+  <p><b>Does my progress bar include them?</b> Partly. When Claude stops and <b>waits</b> for a helper, the job's bar already waits for it too (its time left won't run out before the helper's). Helpers that run in the <b>background</b> while Claude keeps going don't move the bar. That's right: they're side work, so they get their own little line under the job instead.</p>
+  <p><b>Job or helper?</b> A helper. It belongs to its job, sits under it, and goes away when it's done. The job's own bar stays exactly as it is today.</p>
+  <p><b>What kinds are there?</b> Research is the most common. Aang sorts every helper into one of six, from what Claude called it:</p>
+  <div class="kinds">
+    <div><b>Research</b>: looking things up on the web or in docs</div>
+    <div><b>Explore</b>: searching and mapping the code</div>
+    <div><b>Build</b>: making or changing code</div>
+    <div><b>Check</b>: tests, reviews, making sure it works</div>
+    <div><b>Design</b>: mockups and pictures, like this sheet</div>
+    <div><b>Plan</b>: working out the approach first</div>
+  </div>
+  <p style="margin-top:10px"><b>How far along?</b> If the helper keeps its own to-do list, you see its <b>%</b> (Build 62%). If not, how long it has run, and how long that kind usually takes here (Research 4 min of about 6).</p>
+</div>
+
+<h2><span class="n">0</span>Today</h2>
+<p>Helpers are only inside the job's drop-down, as purple lines of small print, under their raw names ("general-purpose"). Nothing on the folded bar, the mark or the rune tells you they're there.</p>
+<div class="surfaces"><div class="cell"><div class="lbl was">TODAY, THE JOB UNFOLDED</div><div class="shot" data-s="bubble-today"></div></div></div>
+
+<h2><span class="n">1</span>At a glance (the same for A, B and C)</h2>
+<p>A small <b>plum</b> number on Claude's mark over Aang and on Samara's rune: how many helpers are running right now. Plum, because the gold number on the rune already counts <b>jobs</b>, and blue means <b>needs you</b>.</p>
+<div class="glancebox">
+  <div class="cell"><div class="lbl"><i>3&times;</i>THE MARK OVER AANG</div><div class="shot" data-s="glance-mark"></div><div class="cap">3 helpers running.</div></div>
+  <div class="cell"><div class="lbl"><i>2&times;</i>SAMARA'S RUNE</div><div class="shot" data-s="glance-rune"></div><div class="cap">Top corner: helpers. The gold one (bottom corner) stays for 2+ jobs.</div></div>
+</div>
+<div class="glancebox" style="margin-top:22px">
+  <div class="cell"><div class="lbl"><i>3&times;</i>THE SIX HELPER ICONS</div>
+    <div class="ikey"><img src="sheet-58/icons.png" width="666" height="132" alt="">
+      <div class="names"><span style="left:78px">Research</span><span style="left:180px">Explore</span><span style="left:282px">Build</span><span style="left:384px">Check</span><span style="left:486px">Design</span><span style="left:588px">Plan</span></div></div>
+  </div>
+</div>
+
+<h2><span class="n">2</span>The three options</h2>
+
+<div class="take">
+  <div class="lhead"><span class="L">A</span><span class="nm">A row of small chips under the job</span><span class="pick">MY PICK</span></div>
+  <p class="cap1">One slim row under the job's bar: each helper's icon, its kind, and its % or time. Three at most, then "+2". The job bar itself doesn't change.</p>
+  <div class="how"><b>AT A GLANCE</b><span>Everything is visible without a click: what kind, and how far.</span><b>CLICK A CHIP</b><span>Unfolds the job, with that helper's line in the drop-down.</span><b>WHEN ONE ENDS</b><span>Its chip fades out; the row goes when the last one does.</span></div>
+  <div class="surfaces">
+    <div class="cell"><div class="lbl"><i>A</i>AANG'S SPEECH BUBBLE</div><div class="shot" data-s="bubble-A"></div></div>
+    <div class="cell"><div class="lbl"><i>A</i>SAMARA'S RUNE, OPEN</div><div class="shot" data-s="rune-A"></div></div>
+    <div class="cell"><div class="lbl"><i>A</i>THE JOB POPPED OUT</div><div class="shot" data-s="pop-A"></div></div>
+  </div>
+  <div class="surfaces extra">
+    <div class="cell"><div class="lbl"><i>A</i>WITH 5 HELPERS: THREE CHIPS, THEN +2</div><div class="shot" data-s="bubble-A-five"></div></div>
+  </div>
+</div>
+
+<div class="take">
+  <div class="lhead"><span class="L">B</span><span class="nm">One "Helpers" line, click to open</span></div>
+  <p class="cap1">A single line under the job: "3 helpers · research, build, check" and one tiny bar for all of them. Click it to see a row each.</p>
+  <div class="how"><b>AT A GLANCE</b><span>How many and what kinds. Not how far each one is.</span><b>CLICK</b><span>Opens a row per helper with its % or time.</span></div>
+  <div class="surfaces">
+    <div class="cell"><div class="lbl"><i>B</i>AANG'S SPEECH BUBBLE</div><div class="shot" data-s="bubble-B"></div></div>
+    <div class="cell"><div class="lbl"><i>B</i>SAMARA'S RUNE, OPEN</div><div class="shot" data-s="rune-B"></div></div>
+    <div class="cell"><div class="lbl"><i>B</i>THE JOB POPPED OUT</div><div class="shot" data-s="pop-B"></div></div>
+  </div>
+  <div class="surfaces extra">
+    <div class="cell"><div class="lbl"><i>B</i>CLICKED OPEN, IN THE BUBBLE</div><div class="shot" data-s="bubble-B-open"></div></div>
+    <div class="cell"><div class="lbl"><i>B</i>CLICKED OPEN, IN THE RUNE</div><div class="shot" data-s="rune-B-open"></div></div>
+  </div>
+</div>
+
+<div class="take">
+  <div class="lhead"><span class="L">C</span><span class="nm">Each helper its own small bar, tucked under the job</span></div>
+  <p class="cap1">Like little child rows of the job, joined by a thin line: icon, kind, what it's on, its own thin bar, and its % or time.</p>
+  <div class="how"><b>AT A GLANCE</b><span>The most detail, always showing.</span><b>THE COST</b><span>The tallest: three helpers add three rows to every job.</span></div>
+  <div class="surfaces">
+    <div class="cell"><div class="lbl"><i>C</i>AANG'S SPEECH BUBBLE</div><div class="shot" data-s="bubble-C"></div></div>
+    <div class="cell"><div class="lbl"><i>C</i>SAMARA'S RUNE, OPEN</div><div class="shot" data-s="rune-C"></div></div>
+    <div class="cell"><div class="lbl"><i>C</i>THE JOB POPPED OUT</div><div class="shot" data-s="pop-C"></div></div>
+  </div>
+</div>
+
+<div class="note"><b>How these were made</b>
+<ul>
+<li>Every picture is the real thing drawn by the app itself: Aang's speech bubble with the jobs from Claude's mark, Samara's rune and its panel, and the popped-out job. Only the helper row is laid on.</li>
+<li>The icons are 10 by 10 pixel-art pixels, each 2 screen pixels, with the same dark-wood outline as Claude's mark.</li>
+<li>A bar drawn paler is a guess from time (that kind of helper usually takes about this long); a solid one is a real % from the helper's own to-do list.</li>
+</ul></div>
+</body>
+</html>

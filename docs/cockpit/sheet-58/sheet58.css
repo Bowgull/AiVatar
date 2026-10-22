@@ -1,0 +1,22 @@
+/* Sheet 58 (2026-10-21): Claude's background helpers at a glance. Sheet 55's sheet styling (sheet55.css), plus one row per
+   option: the speech bubble, Samara's rune panel and the pop-out side by side, each a real render (agents-shots.ts). */
+body{max-width:1700px}
+.answer{background:#1c1a18;border:2px solid #342d27;border-radius:14px;padding:14px 20px 16px;max-width:1240px;margin:8px 0 6px}
+.answer h3{font:800 18px Figtree,sans-serif;color:#fffaf0;margin:0 0 8px}
+.answer p{margin:0 0 8px}
+.answer .kinds{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px 22px;margin:4px 0 2px}
+.answer .kinds div{font:500 15px/1.45 Figtree,sans-serif;color:#d8cab0}
+.answer .kinds b{color:#fffaf0}
+.surfaces{display:flex;flex-wrap:wrap;gap:20px 26px;align-items:flex-start}
+.surfaces .cell{flex:0 0 auto}
+.glancebox{display:flex;flex-wrap:wrap;gap:22px 34px;align-items:flex-end;margin-top:6px}
+.glancebox .cap{font:500 14px/1.45 Figtree,sans-serif;color:#cbbda6;max-width:330px;margin-top:4px}
+.ikey{position:relative;display:inline-block;line-height:0}
+.ikey img{display:block;border-radius:12px;image-rendering:pixelated;box-shadow:0 0 0 2px #2e2924}
+.ikey .names{position:relative;height:30px;line-height:normal}
+.ikey .names span{position:absolute;top:8px;transform:translateX(-50%);font:800 13px Figtree,sans-serif;letter-spacing:.5px;color:#e8dcc4;white-space:nowrap}
+.how{display:grid;grid-template-columns:150px 1fr;gap:5px 14px;max-width:1150px;margin:0 0 14px 50px}
+.how b{font:800 13px Figtree,sans-serif;letter-spacing:1px;color:#a99b86;padding-top:2px}
+.how span{font:500 15px/1.5 Figtree,sans-serif;color:#d8cab0}
+.take{margin-top:30px}
+.extra{margin-top:16px}
