@@ -87,3 +87,17 @@ export class MediaState {
     return { ...this.latest, thumb: this.thumb };
   }
 }
+
+// ------------------------------------------------------------------------------------------------ the mini player (2026-10-22)
+
+/**
+ * "show the music player", "open the spotify player", "bring up my music controls", "mini player": he wants the player window.
+ * Short asks only, and never a "play X" (that is the music tool's job) or a question about it.
+ */
+export function wantsPlayer(text: string): boolean {
+  const t = text.trim().toLowerCase().replace(/[.!?]+$/, '').replace(/^(hey |ok |okay )?(aang[, ]+)?(can you |could you |please )?/, '').replace(/ please$/, '');
+  if (t.length > 60 || /^(what|why|how|when|who|is|does|do)\b/.test(t)) return false;
+  if (/^(mini ?player|music player|spotify player)$/.test(t)) return true;
+  // "open spotify" alone stays the app: music or Spotify needs "player", "controls" or "window" after it.
+  return /^(show|open|bring up|pull up|pop up|give me|put up|get)( me)? (the |my |a |your )?(little |mini |small )?((music|spotify)( mini)? ?(player|controls|window)|mini ?player)$/.test(t);
+}

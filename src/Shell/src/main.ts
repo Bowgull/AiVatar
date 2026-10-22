@@ -41,6 +41,7 @@ import type { NoteData } from './notewin.ts';
 import { TimerWindows } from './timerwin.ts';
 import { JobPops } from './jobpop.ts';
 import { wireFamily } from './familywire.ts';
+import { wireMiniPlayer, type MiniPlayer } from './miniplayer.ts';
 import type { FamilyHost } from './familywin.ts';
 import type { TimerData } from './timerwin.ts';
 import { INPUT_FRAME_INSET, bubbleAt, headOf, inputAt, moved, readPetAt } from './anchor.ts';
@@ -155,6 +156,8 @@ let family: FamilyHost | null = null;
 let wheel: Wheel | null = null;
 /** Sheet 56 (2026-10-21): Aang's right-click menu, in Samara's wood. */
 let aangMenu: AangMenu | null = null;
+// Sheet 59 (2026-10-22): the Spotify mini player, and its share of the brain's messages (miniplayer.ts).
+let miniPlayer: MiniPlayer | null = null, playerHears: ((m: Record<string, unknown>) => boolean) | null = null;
 /** The brain's notes as last sent: the board, and the notes stuck on his screen, both draw from this. */
 let notesLatest: NoteData[] = [];
 /** The new bubble (step 6.12). Null unless he has switched it on: see wantsNewBubble. */
@@ -397,6 +400,7 @@ const link = new CoreLink({
     }
     // C7 (2026-10-21): Claude's jobs also go to Samara's band, for the rune. Not instead of the bubble: it carries on below.
     if (m.t === 'claude.jobs' || m.t === 'claude.wait') aangBrowser?.claudeNews(m);
+    if (playerHears?.(m as Record<string, unknown>)) return;
     // Sheet 52 (2026-10-21): the torn-off job windows follow the same lists, so a job on his desktop stays live.
     if (m.t === 'claude.jobs' || m.t === 'claude.wait') {
       if (m.t === 'claude.jobs') lastJobs = m.jobs; else lastWaits = m.items;
@@ -745,7 +749,7 @@ app.whenReady().then(async () => {
           if (slot === 'TIMER') bubble?.send('brain:message', { t: 'timer.setup' });
           else if (slot === 'NOTES') bubble?.send('brain:message', { t: 'notes.board' });
           else if (slot === 'BROWSER') aangBrowser?.open();
-          else if (slot === 'MUSIC') bubble?.send('brain:message', { t: 'whisper', text: 'Music', controls: 'media' });
+          else if (slot === 'MUSIC') miniPlayer?.open();
           else if (slot === 'SNIP') void snipper?.start();
           // 9.D D9 (his ask, 2026-10-13): the wheel's last disc is Away. Talking moves to Discord until he is back.
           else if (slot === 'AWAY') link?.send({ t: 'away' });
@@ -756,7 +760,7 @@ app.whenReady().then(async () => {
       // to the pet, which runs the same handler its old menu item ran.
       aangMenu = new AangMenu({
         origin: pages.origin, preloadPath: path.join(HERE, 'preload.cjs'), iconPath: AANG_ICON,
-        pick: (id) => { if (id === 'back') bubble?.send('bubble:recall', 'back'); else link?.send({ t: 'menu.pick', id }); },
+        pick: (id) => { if (id === 'back') bubble?.send('bubble:recall', 'back'); else if (id === 'player') miniPlayer?.open(); else link?.send({ t: 'menu.pick', id }); },
         keys: hotkeys,
       });
       aangMenu.warm();
@@ -797,7 +801,8 @@ app.whenReady().then(async () => {
       });
       jobPops.update(lastJobs, lastWaits);
       // The window family (2026-10-22): the video, notes, timers and job pop-outs snap together and move as one.
-      family = wireFamily({ origin: pages.origin, iconPath: AANG_ICON, popout, notes: noteWins, timers: timerWins, jobs: jobPops });
+      ({ player: miniPlayer, fromBrain: playerHears } = wireMiniPlayer({ origin: pages.origin, preloadPath: path.join(HERE, 'playerpreload.cjs'), iconPath: AANG_ICON, prefsFile: path.join(STATE_DIR, 'player.json'), send: (m) => link?.send(m as never) }));
+      family = wireFamily({ origin: pages.origin, iconPath: AANG_ICON, popout, notes: noteWins, timers: timerWins, jobs: jobPops, player: miniPlayer });
       input.window();
       const body = readJson(path.join(STATE_DIR, 'body.json')) as Record<string, unknown> | null;
       if (typeof body?.Mode === 'string') inputMode = body.Mode;
