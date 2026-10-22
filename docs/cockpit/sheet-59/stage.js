@@ -1,7 +1,7 @@
 // Sheet 59 (2026-10-22): the Spotify mini player, three looks, each FULL (visualizer on and off) and SHADE. Every
 // surface is hand-placed pixels at exactly 2x: Samara's wood (band.png rim, tray.png surface), the bubble's paper, the
 // job pop-out's pin, the product's own pill bar for the seek bar. Coordinates are CSS pixels, always even.
-import { P, loadTex, rr, shape, drawMask, close, fills, spr, art, GLYPH, pin, cover, spectrum, mix, hex, paperAt, trayAt } from './pix.js';
+import { P, loadTex, rr, rrMask, shape, drawMask, close, fills, spr, art, GLYPH, pin, cover, spectrum, mix, hex, paperAt, trayAt } from './pix.js';
 import { pill } from '../../../src/Shell/pages/claudejobs.js';
 
 const SCENE = new URLSearchParams(location.search).get('scene') || 'A-full';
@@ -62,53 +62,182 @@ function circleCut(c, r) {
 }
 const circle = (n, r) => drawMask(n, n, (g) => { g.beginPath(); g.arc(n / 2, n / 2, r, 0, Math.PI * 2); g.fill(); });
 
-// ---------------------------------------------------------------- A: Winamp in wood
-function playerA(vis) {
-  const W = 196, H = 80, pl = box(W * P, H * P);
-  bodyOf(pl, rr(W, H, 9, { band: 's2', E: 4, fill: fills.wood(1.05) }));
-  // the cover in a little sunken frame
-  at(pl, rr(36, 36, 3, { band: 'recess', fill: fills.flat('#1a100a'), shadow: 0 }), 12, 12);
-  at(pl, cover(32), 16, 16);
-  // the LCD: a sunken window of warm dark glass
-  const lw = 126, lh = 34;
-  at(pl, rr(lw, lh, 4, { band: 'recess', shadow: 0, fill: (x, y) => (y % 2 ? mix('#1c110a', '#120a05', y / lh) : mix('#20140b', '#150c06', y / lh)) }), 92, 12);
-  const lcd = at(pl, el('div', 'lcd'), 96, 16, { width: (lw - 4) * P + 'px', height: (lh - 4) * P + 'px' });
-  const time = at(lcd, el('span', 'time', SONG.at), 8, vis ? 3 : 14);
-  if (!vis) time.style.fontSize = '42px';
-  if (vis) at(lcd, spectrum(13, 2, 10, { seed: 7 }), 8, 38);
-  at(lcd, el('span', 'scroll', `${SONG.t.toUpperCase()}  ·  ${SONG.a.toUpperCase()}  ·`), 98, 6);
-  at(lcd, el('span', 'sub', SONG.al), 98, 29);
-  const tg = at(lcd, el('span', 'tags'), 98, 48); tg.innerHTML = '<i>SPOTIFY</i>&nbsp;&nbsp;LIKED&nbsp;&nbsp;3 / 11';
-  // the pop-out family's pin, then shade and close
-  at(pl, pinBtn(false), 358, 14);
-  at(at(pl, keycap(14, 10, null), 354, 46), spr(GLYPH.shade, { O: '#3a2a18' }), 8, 6);
-  at(at(pl, keycap(14, 10, null), 354, 70), spr(GLYPH.close, { O: '#3a2a18' }), 8, 6);
-  // the seek bar with its times
-  at(pl, el('span', 'tm d', SONG.at), 14, 94);
-  at(pl, seek(147), 50, 90);
-  at(pl, el('span', 'tm d', SONG.len), 352, 94);
-  // the keys: prev, play (down: it is playing), next; the volume; the visualizer switch
-  at(pl, keycap(22, 15, 'prev'), 12, 114);
-  at(pl, keycap(28, 15, 'pause', { pressed: true, ink: '#8a3e1c' }), 60, 114);
-  at(pl, keycap(22, 15, 'next'), 120, 114);
-  at(pl, spr(GLYPH.vol, { O: '#d8c8a8' }, { drop: 'rgba(0,0,0,.6)' }), 178, 122);
-  at(pl, hslider(60, 0.7), 202, 120);
-  at(pl, keycap(26, 15, null, { label: 'VIS', led: vis ? 'on' : 'off', pressed: vis }), 332, 114);
+// ---------------------------------------------------------------- A: Winamp in wood (v2, 2026-10-22: soft corners, big targets)
+// His notes on v1: "everything sharp cornered", "hard to click". Every part is now a rounded pixel shape (rrMask: a
+// hand-even staircase on all four corners, whole art pixels, shown at exactly 2x): frame r 12, screen r 7, cover r 6,
+// keys r 6, title keys r 5, the seek and volume grooves are the product's own round pill. Hit targets at 1x: transport
+// keys 38 px tall, the seek bead 18 px, the volume groove 14 px with an 18 px knob, pin / fold / close 28 px.
+const AW = 212, AH = 104, SH = 26;            // the full player and the shade are the same width, so the fold is height only
+const a2 = (n) => n * P;                       // art pixels to CSS pixels
+const KNOB = ['..OOOOO..', '.OHHHFFO.', 'OHHFFFFSO', 'OHFFFFFSO', 'OHFFFFFSO', 'OFFFFFSSO', 'OFFFFSSSO', '.OFSSSSO.', '..OOOOO..'];
+const GOLDK = { O: '#2a1a10', H: '#fff3d8', F: '#ffc43c', S: '#b97a22' };
+const PLUMK = { O: '#120a05', H: '#d9c2ff', F: '#8a5cc4', S: '#4A2C6E' };
+const CREAM = ['#fffaf0', '#fff3d8', '#f6e6c4', '#ecd5a8', '#e2c592', '#d6b47c', '#c9a46a', '#b8955e'];
+/** Cut a canvas to a rounded rectangle (same staircase as rrMask), so the cover has soft corners too. */
+function roundCut(c, r) {
+  const g = c.getContext('2d'), d = g.getImageData(0, 0, c.width, c.height), m = rrMask(c.width, c.height, r);
+  for (let i = 0; i < m.length; i++) if (!m[i]) d.data[i * 4 + 3] = 0;
+  g.putImageData(d, 0, 0); return c;
+}
+/** A title key (pin, fold, close): dark wood like the video pop-out's keys, rounded, a cream glyph in the middle. */
+function tkey(glyph, { hot = false, size = 14 } = {}) {
+  const k = el('div'); k.style.cssText = `position:absolute;width:${a2(size)}px;height:${a2(size + 1)}px`;
+  const body = rr(size, size, 5, { band: 'edge', shadow: 1, shadowCol: [8, 4, 2, 230], fill: (x, y, c) => {
+    // the video pop-out's own key colours (popout.css .key): plum, a lit top row, a darker foot
+    let t = hex(y < 2 ? '#6a4a9a' : y > size - 3 ? '#3a2258' : hot ? '#5a3a86' : '#4A2C6E'); if (c.d === 0 && c.lit > 0.3) t = hex('#7a5aaa'); return t; } });
+  body.style.position = 'absolute'; k.append(body);
+  const g = glyph === 'pin' ? pin(false) : spr(GLYPH[glyph], { O: '#f1e3c4' }, { drop: 'rgba(0,0,0,.55)' });
+  const gw = glyph === 'pin' ? 9 : GLYPH[glyph][0].length, gh = glyph === 'pin' ? 12 : GLYPH[glyph].length;
+  g.style.position = 'absolute'; g.style.left = a2(Math.floor((size - gw) / 2)) + 'px'; g.style.top = a2(Math.floor((size - gh) / 2)) + 'px'; k.append(g);
+  return k;
+}
+const bead = (pal) => spr(KNOB, pal, { drop: 'rgba(0,0,0,.45)' });
+/** Winamp's bars at an exact moment: heights 0..1 per bar, a peak cap per bar (that falls slower than the bar). */
+function bars(levels, peaks, { bw = 2, h = 10, gap = 1 } = {}) {
+  const n = levels.length, W = n * (bw + gap) - gap, cols = ['#f0a64a', '#ffc43c', '#ffe096', '#ff8040'];
+  return art(W, h, (put) => levels.forEach((lv, i) => {
+    const top = Math.round(h - lv * h);
+    for (let y = h - 1; y >= top; y--) { if ((h - 1 - y) % 2 === 1) continue; const q = 1 - y / h; const col = q > 0.82 ? cols[3] : q > 0.6 ? cols[2] : q > 0.3 ? cols[1] : cols[0]; for (let x = 0; x < bw; x++) put(i * (bw + gap) + x, y, col); }
+    const pk = Math.min(top - 1, Math.round(h - peaks[i] * h) - 1); if (pk >= 0) for (let x = 0; x < bw; x++) put(i * (bw + gap) + x, pk, '#fff3d8', 0.95);
+  }));
+}
+const LV = [0.9, 0.8, 0.95, 0.7, 0.62, 0.75, 0.5, 0.58, 0.44, 0.36, 0.48, 0.3, 0.22, 0.28];
+/**
+ * The full player. mode: 'bars' (visualizer), 'scene' (a little looping picture in the screen), 'off'.
+ * opts: scene (a canvas 56 x 30 art pixels), p (song position), off (title marquee offset in CSS px), pressPlay.
+ */
+function playerA(mode = 'bars', { scene = null, p = SONG.p, off = 0, pressed = 'none', grab = false } = {}) {
+  if (mode === true) mode = 'bars'; if (mode === false) mode = 'off';
+  const W = AW, H = AH, pl = box(a2(W), a2(H + 1));
+  bodyOf(pl, rr(W, H, 12, { band: 's2', E: 4, fill: fills.wood(1.05) }));
+  // the title strip: where it comes from on the left, pin / fold to the strip / close on the right (28 px each)
+  const lab = at(pl, el('span', 'lab d'), a2(10), a2(10)); lab.innerHTML = 'SPOTIFY &nbsp;&middot;&nbsp; LIKED SONGS';
+  at(pl, tkey('pin'), a2(W - 59), a2(5)); at(pl, tkey('shade'), a2(W - 43), a2(5)); at(pl, tkey('close'), a2(W - 27), a2(5));
+  // the cover in a soft sunken frame, its own corners cut round
+  at(pl, rr(38, 38, 6, { band: 'recess', fill: fills.flat('#1a100a'), shadow: 0 }), a2(8), a2(21));
+  at(pl, roundCut(cover(34), 4), a2(10), a2(23));
+  // the screen: warm dark glass, rounded, two panes (time + visualizer or scene | the song)
+  const LX = 50, LY = 21, lw = W - LX - 8, lh = 38;
+  at(pl, rr(lw, lh, 7, { band: 'recess', shadow: 0, fill: (x, y) => (x === 61 && y > 4 && y < lh - 5 ? '#2c1a0e' : y % 2 ? mix('#1c110a', '#120a05', y / lh) : mix('#20140b', '#150c06', y / lh)) }), a2(LX), a2(LY));
+  const lcd = at(pl, el('div', 'lcd'), a2(LX + 2), a2(LY + 2), { width: a2(lw - 4) + 'px', height: a2(lh - 4) + 'px', borderRadius: '10px' });
+  if (mode === 'bars') { at(lcd, el('span', 'time', SONG.at), 12, 4); at(lcd, bars(LV, LV.map((v, i) => Math.min(1, v + 0.12 + (i % 3) * 0.05))), 12, 44); }
+  if (mode === 'off') { const t = at(lcd, el('span', 'time', SONG.at), 10, 14); t.style.fontSize = '42px'; }
+  if (mode === 'scene' && scene) { roundCut(scene, 3); at(lcd, scene, 2, 2); }
+  at(lcd, el('span', 'scroll', `${SONG.t.toUpperCase()}  ·  ${SONG.a.toUpperCase()}  ·  ${SONG.t.toUpperCase()}`), 128 - off, 6);
+  at(lcd, el('span', 'sub', SONG.al), 128, 30);
+  const tg = at(lcd, el('span', 'tags'), 128, 52); tg.innerHTML = mode === 'scene' ? `<i>${SONG.at}</i> / ${SONG.len}&nbsp;&nbsp;&middot;&nbsp;&nbsp;3 / 11` : '<i>LIKED</i>&nbsp;&nbsp;3 / 11';
+  // the seek: the product's round pill in gold, an 18 px bead to grab, the times either side
+  const sx = 30, sw = W - sx - 30;
+  at(pl, el('span', 'tm d', mode === 'x' ? '' : SONG.at), a2(9), a2(66));
+  at(pl, seek(sw, p, 6), a2(sx), a2(66));
+  const kb = at(pl, bead(GOLDK), a2(sx + Math.round(sw * p) - 4), a2(64), { zIndex: '3' });
+  if (grab) kb.style.filter = 'drop-shadow(0 0 5px rgba(255,196,60,.9))';
+  at(pl, el('span', 'tm d', SONG.len), a2(W - 25), a2(66));
+  // the keys, 38 px tall: prev, play/pause (down while playing), next; volume; the VIS key (BARS / SCENE / OFF)
+  at(pl, keycap(26, 19, 'prev', { r: 6, pressed: pressed === 'prev' }), a2(8), a2(78));
+  at(pl, keycap(32, 19, 'pause', { r: 6, pressed: pressed !== 'up', ink: '#8a3e1c' }), a2(38), a2(78));
+  at(pl, keycap(26, 19, 'next', { r: 6, pressed: pressed === 'next' }), a2(74), a2(78));
+  at(pl, spr(GLYPH.vol, { O: '#d8c8a8' }, { drop: 'rgba(0,0,0,.6)' }), a2(106), a2(84));
+  const vx = 119, vw = 48;
+  at(pl, pill(vw, 7, P, [1], 0.7, -1, CREAM, false), a2(vx), a2(84));
+  at(pl, bead(PLUMK), a2(vx + Math.round(vw * 0.7) - 4), a2(83), { zIndex: '3' });
+  at(pl, keycap(32, 19, null, { r: 6, label: mode === 'bars' ? 'BARS' : mode === 'scene' ? 'SCENE' : 'OFF', pressed: mode !== 'off' }), a2(W - 40), a2(78));
   return pl;
 }
-function shadeA(vis) {
-  const W = 176, H = 20, pl = box(W * P, H * P);
-  bodyOf(pl, rr(W, H, 8, { band: 's2', E: 3, fill: fills.wood(1.05) }));
-  at(pl, keycap(15, 12, 'pause7', { pressed: true, ink: '#8a3e1c' }), 8, 6);
-  const lw = vis ? 112 : 132, lh = 12;
-  at(pl, rr(lw, lh, 3, { band: 'recess', shadow: 0, fill: (x, y) => (y === lh - 3 ? (x < Math.round(lw * SONG.p) ? '#ffc43c' : '#3a2414') : y % 2 ? '#1a100a' : '#20140b') }), 42, 8);
-  const lcd = at(pl, el('div', 'lcd'), 46, 10, { width: (lw - 4) * P + 'px', height: (lh - 5) * P + 'px' });
-  const s = at(lcd, el('span', 'scroll', `${SONG.t.toUpperCase()}  ·  ${SONG.a.toUpperCase()}  ·  ${SONG.t.toUpperCase()}`), 4, -3); s.style.fontSize = '19px';
-  const t = at(lcd, el('span', 'scroll', SONG.at), 0, -3); t.style.left = 'auto'; t.style.right = '0'; t.style.fontSize = '19px'; t.style.background = '#1d120a'; t.style.padding = '0 4px 0 6px'; t.style.boxShadow = '-8px 0 6px #1d120a';
-  if (vis) at(pl, spectrum(6, 2, 10, { seed: 11, gap: 1 }), 42 + lw * 2 + 8, 10);
-  at(pl, pinBtn(false), 322, 8);
+/** The shade: same width, 52 px tall. Play, the scrolling title over a thin progress line, small bars, back to full, pin. */
+function shadeA(vis = true, { off = 0 } = {}) {
+  const W = AW, H = SH, pl = box(a2(W), a2(H + 1));
+  bodyOf(pl, rr(W, H, 10, { band: 's2', E: 3, fill: fills.wood(1.05) }));
+  at(pl, keycap(20, 17, 'pause7', { r: 6, pressed: true, ink: '#8a3e1c' }), a2(5), a2(4));
+  const lw = vis ? 112 : 132, lh = 16, LX = 29;
+  at(pl, rr(lw, lh, 5, { band: 'recess', shadow: 0, fill: (x, y) => (y === lh - 4 ? (x < Math.round(lw * SONG.p) ? '#ffc43c' : '#3a2414') : y % 2 ? '#1a100a' : '#20140b') }), a2(LX), a2(5));
+  const lcd = at(pl, el('div', 'lcd'), a2(LX + 2), a2(7), { width: a2(lw - 4) + 'px', height: a2(lh - 7) + 'px', borderRadius: '6px' });
+  const s = at(lcd, el('span', 'scroll', `${SONG.t.toUpperCase()}  ·  ${SONG.a.toUpperCase()}  ·  ${SONG.t.toUpperCase()}`), 6 - off, -2); s.style.fontSize = '21px';
+  const t = at(lcd, el('span', 'scroll', SONG.at), 0, -2); t.style.left = 'auto'; t.style.right = '0'; t.style.fontSize = '21px'; t.style.background = '#1d120a'; t.style.padding = '0 6px 0 6px'; t.style.boxShadow = '-8px 0 6px #1d120a';
+  if (vis) at(pl, bars([0.9, 0.7, 0.8, 0.5, 0.6, 0.35], [1, 0.85, 0.9, 0.7, 0.7, 0.5], { h: 12 }), a2(LX + lw + 3), a2(7));
+  at(pl, tkey('full', { size: 14 }), a2(W - 40), a2(5)); at(pl, tkey('pin', { size: 14 }), a2(W - 24), a2(5));
   return pl;
 }
+
+// ---------------------------------------------------------------- SCENES: little looping pictures for the screen
+// 56 x 30 art pixels each, 4 frames, hand-placed palettes, meant to loop at 8-12 fps (and stop when the player is hidden).
+const SCW = 56, SCH = 30;
+function rng(seed) { let r = seed; return () => ((r = (r * 9301 + 49297) % 233280) / 233280); }
+const SCENES = {
+  /** Dusk over the water: the air temple on its cliff, lanterns drifting up, glints on the water. */
+  temple: (f) => (put) => {
+    const sky = ['#2b1d3f', '#3d2556', '#5a2e64', '#8a3e6a', '#b8504e', '#e07a4a', '#f0a64a'];
+    for (let y = 0; y < SCH; y++) for (let x = 0; x < SCW; x++) {
+      let col;
+      if (y < 20) { const t = y / 20 * sky.length, i = Math.floor(t); col = sky[i]; if (t - i > 0.7 && (x + y) % 2 === 0 && i < sky.length - 1) col = sky[i + 1]; }
+      else { col = y < 23 ? '#4a2c5a' : y < 26 ? '#3a2250' : '#2a1a3e'; if ((x * 5 + y * 3 + f * 2) % 13 === 0 && x > 10 && x < 30) col = '#f0a64a'; }
+      put(x, y, col);
+    }
+    for (let y = -4; y <= 0; y++) for (let x = -4; x <= 4; x++) if (x * x + y * y <= 17) put(20 + x, 19 + y, y > -2 ? '#ffd38a' : '#fff0c8');
+    // the cliff and the temple: towers with pointed roofs, one tall
+    const sil = '#1e1230';
+    for (let x = 36; x < SCW; x++) { const top = 14 + Math.round(Math.abs(x - 46) / 4); for (let y = top; y < 22; y++) put(x, y, sil); }
+    for (const [tx, h] of [[40, 5], [45, 9], [50, 6]]) { for (let y = 14 - h; y < 15; y++) for (let x = tx - 1; x <= tx + 1; x++) put(x, y, sil); put(tx, 14 - h - 1, sil); put(tx, 14 - h - 2, sil); for (let x = tx - 2; x <= tx + 2; x++) put(x, 14 - h + 1, sil); }
+    put(45, 8, '#ffc46a'); put(40, 12, '#ffc46a');
+    // lanterns: rise one pixel every frame, sway a pixel, glow
+    const L = [[8, 17], [14, 11], [27, 15], [32, 7], [5, 5]];
+    L.forEach(([lx, ly], k) => { const y = ly - f - (k % 2 ? 0 : Math.floor(f / 2)), x = lx + ((f + k) % 4 === 3 ? 1 : 0); if (y < 1) return;
+      put(x - 1, y, '#ff9a3c', 0.35); put(x + 2, y, '#ff9a3c', 0.35); put(x, y - 1, '#ff9a3c', 0.35); put(x + 1, y + 2, '#ff9a3c', 0.3);
+      put(x, y, '#ffe096'); put(x + 1, y, '#ffc43c'); put(x, y + 1, '#ff8040'); put(x + 1, y + 1, '#e0602a');
+      put(x, 26 + (k % 3) - 0, '#f0a64a', 0.55); });
+  },
+  /** Rain on a window: a warm room, the lamp, a night street outside, drops running down the glass. */
+  rain: (f) => (put) => {
+    const R = rng(4);
+    for (let y = 0; y < SCH; y++) for (let x = 0; x < SCW; x++) put(x, y, '#24160e');
+    // the window: two panes in a wood frame
+    for (let y = 2; y < 27; y++) for (let x = 6; x < 50; x++) {
+      const frame = y < 4 || y > 24 || x < 8 || x > 47 || (x >= 27 && x <= 28);
+      put(x, y, frame ? (y < 4 || x < 8 ? '#6a4628' : '#4a2e1a') : y < 17 ? mix('#1a2440', '#2c3a5a', y / 17) : '#1a1e30');
+    }
+    // the street outside: rooftops, warm windows
+    for (const [x0, w, h] of [[8, 7, 6], [16, 6, 9], [29, 8, 7], [38, 9, 5]]) for (let y = 24 - h; y < 25; y++) for (let x = x0; x < x0 + w; x++) if (x < 27 || x > 28) put(x, y, '#131624');
+    for (const [x, y] of [[10, 20], [18, 17], [20, 21], [31, 19], [34, 21], [41, 21]]) put(x, y, (x + f) % 7 === 0 ? '#8a6a3a' : '#ffc46a');
+    // rain: short slanted streaks, moved 2 down 1 left per frame
+    for (let k = 0; k < 26; k++) { const x0 = Math.floor(R() * 44) + 8, y0 = Math.floor(R() * 24); const y = 4 + ((y0 + f * 3) % 20), x = x0 - Math.floor(((y0 + f * 3) % 20) / 3);
+      if (x > 8 && x < 47 && (x < 27 || x > 28)) { put(x, y, '#7a8ab8', 0.8); if (y + 1 < 24) put(x - 1, y + 1, '#5a6a98', 0.6); } }
+    // drops on the glass, sliding a pixel a frame and leaving a faint trail
+    for (const [x, y0] of [[13, 6], [22, 10], [34, 5], [43, 12]]) { const y = y0 + f; for (let t = 1; t < 4; t++) put(x, y - t, '#9aaad0', 0.25); put(x, y, '#d8e4ff'); put(x, y + 1, '#8a9ac8'); }
+    // the lamp glow in the room, bottom left, and the sill
+    for (let y = 22; y < SCH; y++) for (let x = 0; x < 14; x++) { const d = Math.hypot(x - 3, y - 27); if (d < 9) put(x, y, '#ffc46a', (9 - d) / 9 * 0.35); }
+    for (let x = 4; x < 52; x++) { put(x, 27, '#8a6038'); put(x, 28, '#5a3a20'); }
+    for (let y = 22; y < 27; y++) { put(2, y, '#ffe096'); put(3, y, '#ffc43c'); } put(1, 21, '#c98c14'); put(2, 21, '#c98c14'); put(3, 21, '#c98c14'); put(4, 21, '#c98c14');
+  },
+  /** A campfire at night: flames that flicker, sparks floating up, the trees lit underneath. */
+  campfire: (f) => (put) => {
+    const R = rng(7);
+    for (let y = 0; y < SCH; y++) for (let x = 0; x < SCW; x++) put(x, y, y < 18 ? mix('#0f0c1e', '#1e1430', y / 18) : '#140e0a');
+    for (let k = 0; k < 18; k++) { const x = Math.floor(R() * SCW), y = Math.floor(R() * 12); put(x, y, (k + f) % 5 === 0 ? '#6a6488' : '#d8d0f0'); }
+    // pines
+    for (const [px, h] of [[4, 11], [11, 8], [44, 10], [51, 13], [38, 6]]) for (let y = 0; y < h; y++) { const w = Math.floor(y / 2); for (let x = -w; x <= w; x++) put(px + x, 19 - h + y, '#0a0814'); }
+    // the light on the ground, dithered
+    for (let y = 18; y < SCH; y++) for (let x = 0; x < SCW; x++) { const d = Math.hypot((x - 28) / 1.8, y - 25); if (d < 10 && (x + y) % 2 === 0) put(x, y, '#5a2e14', (10 - d) / 10); if (d < 6) put(x, y, '#7a3e18', (6 - d) / 6 * 0.7); }
+    // logs
+    for (let k = -6; k <= 6; k++) { put(28 + k, 26 + Math.round(k / 4), '#4a2e1a'); put(28 + k, 27 + Math.round(k / 4), '#2c1c10'); put(28 + k, 26 - Math.round(k / 4), '#6a4628'); }
+    // the flame: column heights jitter per frame
+    const H = [[3, 6, 9, 11, 8, 5, 3], [4, 7, 10, 9, 10, 6, 2], [2, 6, 8, 12, 9, 6, 4], [3, 5, 11, 10, 7, 7, 3]][f % 4];
+    H.forEach((h, i) => { const x = 25 + i; for (let y = 0; y < h; y++) { const q = y / h; put(x, 25 - y, q > 0.75 ? '#ff6a2a' : q > 0.45 ? '#ff9a3c' : q > 0.2 ? '#ffc43c' : '#fff0c8'); } });
+    // sparks
+    for (const [sx, sy] of [[27, 12], [30, 8], [24, 4], [33, 14]]) { const y = sy - f * 2, x = sx + ((f + sx) % 3) - 1; if (y > 0) put(x, y, '#ffc43c'); }
+  },
+  /** Appa in the clouds: the sky bison drifting, clouds sliding past, a slow bob. */
+  appa: (f) => (put) => {
+    for (let y = 0; y < SCH; y++) for (let x = 0; x < SCW; x++) { const t = y / SCH; let col = t < 0.35 ? '#5a8ac4' : t < 0.6 ? '#7aa6d4' : t < 0.8 ? '#b8cce0' : '#f2d6b4'; if ((x + y) % 2 === 0 && [10, 18, 24].includes(y)) col = t < 0.6 ? '#7aa6d4' : '#b8cce0'; put(x, y, col); }
+    const cloud = (cx, cy, w, back) => { for (let y = -4; y <= 2; y++) for (let x = -w; x <= w; x++) { const r = (x / w) ** 2 + ((y + 1) / 3.6) ** 2 + 0.25 * Math.sin(x * 0.9); if (r < 1) put(cx + x, cy + y, y > 0 ? (back ? '#c8d4e6' : '#dce4f0') : (back ? '#e6ecf4' : '#ffffff')); } };
+    cloud(((14 - f) % 70 + 70) % 70 - 6, 9, 9, true); cloud(((46 - f) % 70 + 70) % 70 - 6, 6, 7, true);
+    // Appa, 18 x 9, bobbing a pixel
+    const A = ['.Y................', 'YY..OOOOOOOOOO....', '..OOWWWWBBBWWWWOO.', '.OWWWWWWWBWWWWWWWO', 'OWOWWWWWWWWWWWWWWO', 'OWWWWWWWWWWWWWWWWO', '.OSWWWWWWWWWWWWWO.', '..OOWWO.OWWO.OWO..', '....OO...OO...OO..'];
+    const ay = 11 + (f === 1 || f === 2 ? -1 : 0), ax = 18;
+    A.forEach((r, y) => [...r].forEach((c, x) => { const col = { O: '#4a3a30', W: '#f6f0e4', B: '#8a5a30', S: '#d8ccb8', Y: '#c8a070' }[c]; if (col) put(ax + x, ay + y, col); }));
+    cloud(((30 - f * 2) % 76 + 76) % 76 - 8, 27, 12, false); cloud(((66 - f * 2) % 76 + 76) % 76 - 8, 26, 10, false);
+  },
+};
+const scene = (name, f, s = P) => art(SCW, SCH, SCENES[name](f), s);
 
 // ---------------------------------------------------------------- B: a Walkman on parchment
 function reelsWindow(wA, hA, spin = 0) {
@@ -259,39 +388,116 @@ function shadeC(vis) {
 const BUILD = { A: [playerA, shadeA], B: [playerB, shadeB], C: [playerC, shadeC] };
 
 // ---------------------------------------------------------------- scenes
+const big = (parent, x, y, text) => { const t = el('div', 'ftag'); t.innerHTML = text; return at(parent, t, x, y); };
+/** A spring (Apple's response / dampingFraction form): where it is, 0..1, at t seconds. */
+function spring(t, response = 0.5, zeta = 0.825) {
+  const w = 2 * Math.PI / response, wd = w * Math.sqrt(1 - zeta * zeta);
+  return 1 - Math.exp(-zeta * w * t) * (Math.cos(wd * t) + zeta / Math.sqrt(1 - zeta * zeta) * Math.sin(wd * t));
+}
+/** The player caught part-way through folding: the same body at an in-between height, what does not fit tucked away. */
+function foldAt(hArt) {
+  if (hArt <= SH + 1) return shadeA(true);
+  const pl = playerA('bars'); pl.style.height = a2(hArt + 1) + 'px'; pl.style.overflow = 'hidden';
+  pl.querySelector('canvas.body').replaceWith(Object.assign(rr(AW, hArt, Math.min(12, Math.floor(hArt / 2) - 1), { band: 's2', E: 4, fill: fills.wood(1.05) }), { className: 'body' }));
+  for (const c of [...pl.children]) { if (c.classList.contains('body')) continue; const top = parseInt(c.style.top) || 0, h = parseInt(c.style.height) || 40; if (top + h > a2(hArt - 4)) c.remove(); }
+  return pl;
+}
 window.__ready = (async () => {
   await loadTex('band.png', 'tray.png');
   await document.fonts.load('22px VT323'); await document.fonts.ready;
-  const stage = el('div'); stage.style.cssText = 'position:absolute;left:0;top:0;width:1600px;height:1000px'; document.body.append(stage);
+  const stage = el('div'); stage.style.cssText = 'position:absolute;left:0;top:0;width:2000px;height:1400px'; document.body.append(stage);
   const [L, kind] = SCENE.split('-');
   let crop;
-  if (kind === 'full') {
-    const on = BUILD[L][0](true), off = BUILD[L][0](false);
-    const w = parseInt(on.style.width), h = parseInt(on.style.height), H = 40 + 2 * h + 64 + 30;
+  if (SCENE === 'A-full') {
+    const on = playerA('bars'), off = playerA('off');
+    const h = a2(AH + 1), H = 40 + 2 * h + 64 + 30;
     aang(stage, 6, H - 214);
-    at(stage, on, 220, 40); tag(stage, 222, 16, 'VISUALIZER <b>ON</b>');
-    at(stage, off, 220, 40 + h + 64); tag(stage, 222, 40 + h + 40, 'VISUALIZER <b>OFF</b>');
-    crop = { x: 0, y: 0, w: 220 + w + 36, h: H };
-  } else if (kind === 'shade') {
-    const H = 200; aang(stage, 6, H - 214);
-    const on = BUILD[L][1](true), off = BUILD[L][1](false);
-    const w = parseInt(on.style.width);
-    at(stage, on, 220, 40); tag(stage, 222, 16, 'SHADE &middot; VISUALIZER <b>ON</b>');
-    at(stage, off, 220, 124); tag(stage, 222, 100, 'SHADE &middot; VISUALIZER <b>OFF</b>');
-    crop = { x: 0, y: 0, w: 220 + w + 36, h: H };
+    at(stage, on, 220, 40); tag(stage, 222, 16, 'VISUALIZER <b>BARS</b>');
+    at(stage, off, 220, 40 + h + 64); tag(stage, 222, 40 + h + 40, 'VISUALIZER <b>OFF</b> &middot; THE BIG TIME INSTEAD');
+    crop = { x: 0, y: 0, w: 220 + a2(AW) + 36, h: H };
+  } else if (SCENE === 'A-shade') {
+    const H = 210; aang(stage, 6, H - 214);
+    at(stage, shadeA(true), 220, 40); tag(stage, 222, 16, 'SHADE &middot; BARS <b>ON</b>');
+    at(stage, shadeA(false), 220, 128); tag(stage, 222, 104, 'SHADE &middot; BARS <b>OFF</b>');
+    crop = { x: 0, y: 0, w: 220 + a2(AW) + 36, h: H };
+  } else if (SCENE === 'A-scene') {
+    const H = 290;
+    at(stage, playerA('scene', { scene: scene('temple', 1) }), 30, 44); tag(stage, 32, 20, 'SCENE <b>DUSK AT THE TEMPLE</b>');
+    at(stage, playerA('scene', { scene: scene('campfire', 2) }), 30 + a2(AW) + 40, 44); tag(stage, 32 + a2(AW) + 40, 20, 'CLICK THE SCREEN &rarr; <b>CAMPFIRE</b>');
+    big(stage, 32, 44 + a2(AH) + 26, 'THE VIS KEY GOES <b>BARS &rarr; SCENE &rarr; OFF</b>. IN SCENE, A CLICK ON THE SCREEN GOES TO THE NEXT SCENE. IT REMEMBERS.');
+    crop = { x: 0, y: 0, w: 30 + a2(AW) * 2 + 40 + 30, h: H };
+  } else if (SCENE === 'scenes') {
+    const NAMES = [['temple', 'DUSK AT THE TEMPLE', 'LANTERNS RISE 1 PX A FRAME, WATER GLINTS'], ['rain', 'RAIN ON THE WINDOW', 'STREAKS FALL, DROPS SLIDE, A LIGHT GOES OUT'], ['campfire', 'CAMPFIRE', 'FLAMES FLICKER, SPARKS FLOAT UP, STARS TWINKLE'], ['appa', 'APPA IN THE CLOUDS', 'CLOUDS DRIFT PAST, APPA BOBS A PIXEL']];
+    const S = 4, fw = SCW * S, fh = SCH * S, x0 = 24;
+    NAMES.forEach(([n, title, how], row) => {
+      const y = 22 + row * (fh + 64);
+      big(stage, x0, y, `<b>${title}</b> &middot; ${how}`);
+      for (let f = 0; f < 4; f++) {
+        const c = roundCut(scene(n, f, S), 3); c.style.boxShadow = '0 0 0 4px #120a05, 0 0 0 6px #4a2e18'; c.style.borderRadius = '10px';
+        at(stage, c, x0 + f * (fw + 26), y + 24);
+        tag(stage, x0 + f * (fw + 26) + 4, y + 24 + fh + 8, `FRAME ${f + 1} &middot; ${f * 100} MS`);
+      }
+    });
+    crop = { x: 0, y: 0, w: x0 + 4 * (fw + 26) + 4, h: 22 + 4 * (fh + 64) - 10 };
+  } else if (SCENE === 'motion') {
+    const x0 = 24, gap = 30; let y = 20;
+    // 1 the marquee
+    big(stage, x0, y, '<b>1 &middot; TITLE MARQUEE</b> &middot; 1 PIXEL EVERY 60 MS, A 1.5 S REST AT THE START, ONLY WHEN THE TITLE IS TOO LONG');
+    [0, 60, 120].forEach((o, i) => { const s = shadeA(false, { off: o }); const w = el('div'); w.style.cssText = `position:absolute;width:${a2(AW)}px;height:${a2(SH + 1)}px`; w.append(s); s.style.left = '0'; s.style.top = '0';
+      if (i < 3) at(stage, w, x0 + i * (a2(AW) + gap), y + 26); else at(stage, w, x0 + i * (a2(AW) + gap), y + 26);
+      tag(stage, x0 + i * (a2(AW) + gap) + 4, y + 26 + a2(SH) + 10, ['0 S', '+3.6 S', '+7.2 S'][i]); });
+    y += 26 + a2(SH) + 46;
+    // 2 the bars with falling peaks
+    big(stage, x0, y, '<b>2 &middot; BARS WITH FALLING PEAKS</b> &middot; 16 BARS AT 30 FPS; A BAR DROPS FAST, ITS PEAK CAP HANGS 300 MS THEN FALLS SLOWLY');
+    let lv = [0.95, 0.85, 1, 0.8, 0.7, 0.85, 0.55, 0.6, 0.5, 0.4, 0.5, 0.35, 0.3, 0.3, 0.2, 0.15], pk = lv.slice();
+    for (let f = 0; f < 4; f++) {
+      const holder = rr(80, 22, 6, { band: 'recess', shadow: 0, fill: (x, yy) => (yy % 2 ? '#1a100a' : '#20140b') });
+      at(stage, holder, x0 + f * (a2(80) + gap), y + 26);
+      at(stage, bars(lv, pk, { h: 16, bw: 3 }), x0 + f * (a2(80) + gap) + a2(9), y + 26 + a2(3));
+      tag(stage, x0 + f * (a2(80) + gap) + 4, y + 26 + a2(22) + 10, `${f * 100} MS`);
+      pk = pk.map((p, i) => Math.max(lv[i] * 0.45, p - (f === 0 ? 0 : 0.12))); lv = lv.map((v, i) => Math.max(0.08, v * (0.45 + ((i * 7 + f * 3) % 5) * 0.06)));
+    }
+    y += 26 + a2(22) + 46;
+    // 3 the key press
+    big(stage, x0, y, '<b>3 &middot; A SOFT PRESS</b> &middot; THE KEY SINKS 2 PX AND ITS LIP HIDES (60 MS); LET GO AND IT SPRINGS BACK (0.25 S, A LITTLE BOUNCE)');
+    [['REST', false], ['PRESSED &middot; DOWN 2 PX', true], ['LET GO &middot; 120 MS', false]].forEach(([t, down], i) => {
+      const k = keycap(32, 19, i === 1 ? 'play' : 'play', { r: 6, pressed: down, ink: down ? '#8a3e1c' : '#3a2a18' });
+      if (i === 2) k.style.filter = 'drop-shadow(0 0 5px rgba(255,196,60,.55))';
+      at(stage, k, x0 + i * 190, y + 30); tag(stage, x0 + i * 190, y + 30 + a2(20) + 10, t);
+    });
+    y += 30 + a2(20) + 46;
+    big(stage, x0, y, '<b>4 &middot; SCRUB</b> &middot; POINT AT THE BAR: THE BEAD LIGHTS. DRAG: THE BIG TIME FOLLOWS IN THE SCREEN. LET GO: THE BEAD SETTLES WITH ONE SMALL BOUNCE');
+    [['REST', 0.42, false], ['GRABBED &middot; 2:30 IN THE SCREEN', 0.62, true], ['LET GO &middot; SETTLES', 0.62, false]].forEach(([t, p, g], i) => {
+      const w = a2(140), holder = el('div'); holder.style.cssText = `position:absolute;width:${w}px;height:${a2(12)}px`;
+      at(holder, seek(140, p, 6), 0, a2(2)); const kb = at(holder, bead(GOLDK), a2(Math.round(140 * p) - 4), 0, { zIndex: '3' });
+      if (g) kb.style.filter = 'drop-shadow(0 0 5px rgba(255,196,60,.9))';
+      at(stage, holder, x0 + i * (w + gap + 10), y + 32); tag(stage, x0 + i * (w + gap + 10), y + 32 + a2(12) + 10, t);
+    });
+    y += 32 + a2(12) + 40;
+    crop = { x: 0, y: 0, w: x0 + 3 * (a2(AW) + gap), h: y };
+  } else if (SCENE === 'fold') {
+    // double-click: the player folds to the shade on a spring (response 0.5 s, damping 0.825), height only
+    const T = [0, 0.1, 0.2, 0.5], x0 = 24, colW = a2(AW) + 60;
+    T.forEach((t, i) => {
+      const hArt = Math.round(AH - (AH - SH) * spring(t));
+      const cx = x0 + (i % 2) * colW, cy = 44 + Math.floor(i / 2) * (a2(AH) + 66);
+      at(stage, foldAt(hArt), cx, cy);
+      tag(stage, cx + 2, cy - 22, `<b>${Math.round(t * 1000)} MS</b> &middot; ${hArt === SH ? 'THE SHADE, SETTLED' : i === 0 ? 'FULL, DOUBLE-CLICKED' : a2(hArt) + ' PX TALL'}`);
+    });
+    big(stage, x0, 44 + a2(AH) + 66 + 110, 'SPRING: RESPONSE 0.5 S, DAMPING 0.825 &middot; UNDER 1% OVERSHOOT &middot; DOUBLE-CLICK AGAIN AND IT OPENS THE SAME WAY');
+    crop = { x: 0, y: 0, w: x0 + 2 * colW, h: 44 + a2(AH) + 66 + 140 };
   } else if (SCENE === 'family') {
-    const H = 470, X = 40, Y = 30;
-    const vid = el('iframe', 'prod'); vid.src = 'video.html'; Object.assign(vid.style, { left: X + 'px', top: Y + 'px', width: '392px', height: '230px', zIndex: '1' }); stage.append(vid);
-    const pl = playerA(true); at(stage, pl, X, Y + 230);
-    const job = el('iframe', 'prod'); job.src = 'job.html'; Object.assign(job.style, { left: (X + 392 - 16) + 'px', top: (Y + 230 - 36) + 'px', width: '420px', height: '120px', zIndex: '3' }); stage.append(job);
-    // where they touch: the snap, a soft warm line
-    at(stage, el('div', 'seam'), X + 14, Y + 229, { width: '364px', height: '2px' });
-    at(stage, el('div', 'seam'), X + 391, Y + 240, { width: '2px', height: '30px' });
-    aang(stage, 800, H - 214);
-    tag(stage, X, Y + 404, 'SNAPPED: VIDEO ON TOP, THE PLAYER UNDER IT, A CLAUDE JOB ON ITS RIGHT &middot; THEY DRAG AS ONE');
+    const H = 470, X = 40, Y = 30, VW = a2(AW);
+    const vid = el('iframe', 'prod'); vid.src = 'video.html'; Object.assign(vid.style, { left: X + 'px', top: Y + 'px', width: VW + 'px', height: '236px', zIndex: '1' }); stage.append(vid);
+    const pl = playerA('bars'); at(stage, pl, X, Y + 236);
+    const job = el('iframe', 'prod'); job.src = 'job.html'; Object.assign(job.style, { left: (X + VW - 16) + 'px', top: (Y + 236 - 36) + 'px', width: '420px', height: '120px', zIndex: '3' }); stage.append(job);
+    at(stage, el('div', 'seam'), X + 18, Y + 235, { width: (VW - 36) + 'px', height: '2px' });
+    at(stage, el('div', 'seam'), X + VW - 1, Y + 252, { width: '2px', height: '30px' });
+    aang(stage, 840, H - 214);
+    tag(stage, X, Y + 470, 'SNAPPED: VIDEO ON TOP, THE PLAYER UNDER IT, A CLAUDE JOB ON ITS RIGHT &middot; THEY DRAG AS ONE');
     await Promise.all([vid, job].map((f) => new Promise((r) => { f.onload = r; setTimeout(r, 4000); })));
     await new Promise((r) => setTimeout(r, 600));
-    crop = { x: 0, y: 0, w: 1000, h: H };
+    crop = { x: 0, y: 0, w: 1060, h: H + 50 };
   }
   await Promise.all([...document.images].map((i) => i.decode().catch(() => {})));
   return { crop };

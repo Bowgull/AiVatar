@@ -6,7 +6,7 @@
 <!-- Sheet 59 family picture: the video pop-out as the product draws it (src/Shell/pages/popout.css and popout.html's own
      markup); only the picture inside is painted here, where the real one shows the video. -->
 <link rel="stylesheet" href="../../../src/Shell/pages/popout.css">
-<style>.stage{overflow:hidden}.stage canvas{position:absolute;left:0;top:50%;transform:translateY(-50%)}</style>
+<style>.frame{border-radius:12px}.stage{overflow:hidden}.stage canvas{position:absolute;left:0;top:50%;transform:translateY(-50%)}</style>
 </head>
 <body>
   <div class="frame" id="frame">
@@ -23,7 +23,7 @@
   </div>
 <script type="module">
   import { cover } from './pix.js';
-  const c = cover(196, 2, "sea"); document.getElementById('vstage').append(c);
+  const c = cover(212, 2, "sea"); document.getElementById('vstage').append(c);
 </script>
 </body>
 </html>

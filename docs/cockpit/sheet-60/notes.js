@@ -2,7 +2,7 @@
 // (samara.html). A picture maker. Every paper, rim, pin, box and switch is hand-placed pixels at exactly 2x (pix.js),
 // the wood is Samara's own art, the words are Aang's three faces (Figtree, Cinzel, Silkscreen) plus the note fonts he
 // already has (Patrick Hand, from sheet 17).
-import { P, loadTex, rr, shape, drawMask, fills, spr, art, pin as popPin, cover, mix, hex, paperAt, trayAt } from '../sheet-59/pix.js';
+import { P, loadTex, rr, rrMask, dilate, show, shape, drawMask, fills, spr, art, pin as popPin, cover, mix, hex, paperAt, trayAt } from '../sheet-59/pix.js';
 
 export const ROOT = new URL('../../../', import.meta.url).href;
 export async function ready() {
@@ -15,22 +15,25 @@ export function at(parent, e, x, y, extra = {}) { e.style.position = 'absolute';
 
 // ---------------------------------------------------------------- the notes (his four uses: to-do, thought, reference, for Claude)
 export const NOTES = {
-  todo: { title: 'Before Friday', tag: 'To-do', col: 'B', html:
+  // v2: the DEFAULT note is a plain note: no category, no title needed, just words and a colour
+  plain: { title: '', col: 'B', html: '<p>Dentist moved to <b>Thu 3pm</b>.</p><p>Oat milk, bin bags, the good coffee.</p><p>That song from the café — Khruangbin?</p>' },
+  plain2: { title: '', col: 'E', html: '<p>Momo hates the new food. Go back to the blue bag.</p>' },
+  todo: { title: 'Before Friday', tag: 'To-do', cat: 'To-do', col: 'F', html:
     '<ul class="chk"><li class="done">Book the vet for Momo</li><li class="done">Passport photos</li><li>Call the bank</li><li>Renew the passport <b>(Fri)</b></li><li>Order Mom\'s gift</li></ul>' },
-  thought: { title: 'Route list idea', tag: 'Idea', col: 'C', html:
+  thought: { title: 'Route list idea', tag: 'Idea', cat: 'Idea', col: 'C', html:
     '<p>Waymark: let the route list fold to <b>one line</b> while driving. Big next-turn only.</p><p class="dim">Thought of it on the 401.</p>' },
-  ref: { title: 'Arms rotation', tag: 'Reference', col: 'D', html:
+  ref: { title: 'Arms rotation', tag: 'Reference', cat: 'Reference', col: 'D', html:
     '<h4>Single target</h4><p><b>Colossus Smash</b> first, then Mortal Strike on cooldown.</p><div class="snip"></div><p><a>forever.warcraft.com/patch-notes</a></p>' },
-  claude: { title: 'For Claude: Samara', tag: 'For Claude', col: 'E', html: '<p>Bookmarks shelf should open on hover, not click.</p>' },
-  gift: { title: 'Gift ideas', tag: 'Idea', col: 'A', html: '<ul><li>Pottery class</li><li>The blue teapot</li></ul>' },
-  wifi: { title: 'Guest Wi-Fi', tag: 'Reference', col: 'D', html: '<p>Network: <b>Burrow-5G</b></p><p class="dim">Password in Bitwarden</p>' },
+  claude: { title: 'Samara bookmarks', tag: 'For Claude', cat: 'For Claude', col: 'E', html: '<p>Bookmarks shelf should open on hover, not click.</p>' },
+  gift: { title: 'Gift ideas', tag: 'Idea', cat: 'Idea', col: 'A', html: '<ul><li>Pottery class</li><li>The blue teapot</li></ul>' },
+  wifi: { title: '', col: 'C', html: '<p>Network: <b>Burrow-5G</b></p><p class="dim">Password in Bitwarden</p>' },
 };
 export const TAGS = [['To-do', 'B'], ['Idea', 'C'], ['Reference', 'D'], ['For Claude', 'E']];
 
 // ---------------------------------------------------------------- per look: the colours
 // A parchment, B colour papers, C journal pages. Colour keys: A gold, B butter, C mint, D peach/sky, E lilac.
-const STICKY = { A: '#f3e2a6', B: '#f2df9a', C: '#cfe3c0', D: '#f2cfb4', E: '#dccff0' };
-const DOT = { A: '#d9a83a', B: '#d9a83a', C: '#58a070', D: '#d07a4a', E: '#8a5cc4' };
+const STICKY = { A: '#f3e2a6', B: '#f2df9a', C: '#cfe3c0', D: '#f2cfb4', E: '#dccff0', F: '#c9dcee' };
+const DOT = { A: '#d9a83a', B: '#d9a83a', C: '#58a070', D: '#d07a4a', E: '#8a5cc4', F: '#4a8ac4' };
 export const dotOf = (k) => DOT[k];
 
 /** The paper of one note, w x h art pixels, in a look. */
@@ -38,18 +41,26 @@ export function paper(look, w, h, colKey = 'B', { lifted = true, small = false }
   if (look === 'A' && small) return rr(w, h, 6, { band: 'edge', shadow: 1, shadowCol: [90, 60, 25, 110], fill: (x, y, c) => { const p = paperAt(y / h, [[0, '#fffaf0'], [1, '#f6e8c8']]); return c.d === 0 && c.lit > 0.3 ? mix(p, '#ffffff', 0.5) : p; } });
   if (look === 'A') return rr(w, h, 7, { band: 's2', E: 4, fill: fills.paper(h), shadow: 1 });
   if (look === 'B') {
-    const base = hex(STICKY[colKey] ?? STICKY.B), dark = mix(base, '#7a5532', 0.28);
-    const fold = 7;
-    const m = drawMask(w, h, (g) => { g.beginPath(); g.moveTo(0, 0); g.lineTo(w, 0); g.lineTo(w, h - fold); g.lineTo(w - fold, h); g.lineTo(0, h); g.closePath(); g.fill(); });
-    return shape(m, w, h, { band: 'edge', shadow: lifted ? 2 : 1, shadowCol: [10, 6, 3, 110], fill: (x, y, c) => {
-      // the turned-up corner: the paper's back, a shade darker, with a crease
-      if (x + y > w + h - fold - 1 - 1 && x > w - fold - 1 && y > h - fold - 1) return x + y === w + h - fold - 1 ? mix(base, '#5a3a20', 0.45) : mix(base, '#ffffff', 0.25);
-      let p = mix(base, '#ffffff', 0.18 * (1 - y / h));
-      if (y < 7) p = mix(p, '#000000', 0.05);           // the sticky strip at the top, a touch darker
-      if (c.d === 0 && c.lit > 0.3) p = mix(p, '#ffffff', 0.35);
-      if (c.d === 0 && c.lit < -0.3) p = dark;
+    // v2 (his note "no harsh edges"): soft corners drawn as a pixel staircase (r 9, 7 on the board), a dark-wood edge not a black
+    // line, no folded corner, and a soft shadow made of four stepped layers (whole pixels, never blurred)
+    const base = hex(STICKY[colKey] ?? STICKY.B), r = small ? 7 : 9, m = rrMask(w, h, r);
+    const paperC = shape(m, w, h, { band: 'edge', shadow: 0, fill: (x, y, c) => {
+      let p = mix(base, '#ffffff', 0.16 * (1 - y / h));
+      if (y < 6) p = mix(p, '#000000', 0.035);
+      if (c.d === 0 && c.lit > 0.3) p = mix(p, '#ffffff', 0.4);
+      if (c.d === 0 && c.lit < -0.3) p = mix(base, '#7a5532', 0.22);
       return p;
     } });
+    const W = w + 4, H = h + 5, c = document.createElement('canvas'); c.width = W; c.height = H;
+    const g = c.getContext('2d'), img = g.createImageData(W, H);
+    const layers = [[1, 0, 0.30], [2, 0, 0.20], [3, 1, 0.12], [4, 1, 0.06]];
+    for (const [dy, grow, al] of layers) {
+      const lm = grow ? dilate(m, w, h, grow) : m;
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { if (!lm[y * w + x]) continue; const X = x + 2, Y = y + dy; if (Y >= H) continue;
+        const i = (Y * W + X) * 4; if (img.data[i + 3] < al * 255) { img.data[i] = 18; img.data[i + 1] = 10; img.data[i + 2] = 6; img.data[i + 3] = Math.round(al * 255); } }
+    }
+    g.putImageData(img, 0, 0); g.drawImage(paperC, 2, 0);
+    const out = show(c); out.style.marginLeft = -2 * P + 'px'; return out;
   }
   // C: a journal page: cream, ruled, a dark-wood spine down the left with gold stitches
   return rr(w, h, 4, { band: 'edge', shadow: 1, shadowCol: [10, 6, 3, 120], fill: (x, y, c) => {
@@ -133,9 +144,12 @@ export function note(look, n, w, h, { foot = true, small = false, pinned = false
   const head = el('div', 'nhead');
   head.append(el('span', 'ndot'), el('span', 'nt', n.title));
   head.querySelector('.ndot').style.background = DOT[n.col];
-  inner.append(head);
+  if (n.title) inner.append(head); else inner.classList.add('plain');
+  if (look === 'B' && n.cat) inner.append(el('div', 'cats', `<span class="cat">${n.cat}</span>`));
+  const later = look === 'B' && !n.cat && foot && !small;
   const nb = el('div', 'nb', n.html); inner.append(nb);
   nb.querySelectorAll('ul.chk li').forEach((li) => { li.prepend(box(li.classList.contains('done'), look)); });
+  if (later) inner.append(el('div', 'cats', '<span class="cat ghost">+ category</span>'));
   const sn = nb.querySelector('.snip'); if (sn) sn.replaceWith(snipPic(small ? 44 : 68, small ? 16 : 24));
   if (look === 'A' && (pinned || !small)) at(d, pinFor('A', pinned), w - 34, small ? 8 : 14, { zIndex: '3' });
   if (look === 'B') at(d, woodPin(), w / 2 - 12, -10, { zIndex: '3' });

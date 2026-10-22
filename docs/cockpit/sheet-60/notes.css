@@ -44,3 +44,13 @@
 .askf.hot{background:rgba(74,44,110,.14);box-shadow:0 0 0 2px rgba(74,44,110,.45)}
 .tip{font:700 12.5px Figtree,sans-serif;color:#fff;background:#2C1848;padding:6px 10px;border-radius:7px;white-space:nowrap;box-shadow:0 0 0 2px #120a05,0 4px 10px rgba(0,0,0,.45)}
 .nhead{padding-right:56px}
+
+/* v2 (2026-10-22, later): B is the look. A plain note (no title, no category) is the default; categories are optional
+   chips added later. The paper's corners are a pixel staircase, the shadow four stepped layers. */
+.lkB .inner.plain{font:500 15px/1.5 Figtree,sans-serif;padding-top:4px}
+.lkB .inner.plain .nb p{margin:0 0 7px}
+.cats{display:flex;gap:6px;margin:-1px 0 7px}
+.cat{display:inline-flex;align-items:center;font:700 11.5px Figtree,sans-serif;color:#4a3a28;padding:3px 9px;border-radius:7px;background:rgba(255,255,255,.5);box-shadow:0 0 0 2px rgba(74,52,30,.28);white-space:nowrap}
+.cat.ghost{background:transparent;color:#7a6448;box-shadow:0 0 0 2px rgba(74,52,30,.18);border:0}
+.cat.on{background:#4A2C6E;color:#fff;box-shadow:0 0 0 2px #2C1848}
+.lkB .inner.plain{box-sizing:border-box;padding-right:40px}

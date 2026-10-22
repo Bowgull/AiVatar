@@ -4,7 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sheet 61 - Hotkeys in Aang's menu</title>
-<!-- Sheet 61 (2026-10-22). His interview: a Hotkeys section in Aang's right-click menu listing every shortcut, to see
+<!-- Sheet 61 v2 (2026-10-22, later): his note "just a click might happen by accident, have it on hold click": change
+     = press and hold the row ~600 ms (a gold fill sweeps it, a pixel ring fills), then it listens. Four states: rest,
+     holding, listening, taken. v1 (2026-10-22). His interview: a Hotkeys section in Aang's right-click menu listing every shortcut, to see
      and change them. The menu is the REAL page (aangmenu.css + aangmenu.js, fed a show as main.ts does); the Hotkeys row
      and its submenu are added in the menu's own markup (sheet-61/stage.js). Shortcuts found in src/Shell/src/main.ts,
      hotkey.ts and src/Body/PetWindow.cs. Mockup only. -->
@@ -19,27 +21,35 @@
 </head>
 <body>
 <h1>SHEET 61 &middot; HOTKEYS IN AANG'S MENU</h1>
-<p class="lead">Right-click Aang, point at <b>Hotkeys</b>: every key he listens for, in one list. Click one to change it.</p>
-<p class="topick"><span>WHAT TO PICK</span> <em><b>Yes</b> as shown, or tell me what to move, rename or drop.</em></p>
+<p class="real">v2 &middot; 22 Oct, after your note: changing a key is now press and HOLD, never a plain click</p>
+<p class="lead">Right-click Aang, point at <b>Hotkeys</b>: every key he listens for, in one list. <b>Press and hold</b> a row to change it, so a stray click never does.</p>
+<p class="topick"><span>WHAT TO PICK</span> <em><b>Yes</b> to hold-to-change (about 0.6 s, a gold fill and a ring), or say <b>shorter / longer</b>, or tell me what to move, rename or drop.</em></p>
 
 <div class="take">
-  <div class="lhead"><span class="L">1</span><span class="nm">The list</span></div>
-  <p class="cap1">Same wood menu you picked on sheet 56. Pointing at a row shows "click to change". Ctrl+C and Esc are greyed: they only work while his bubble is up.</p>
+  <div class="lhead"><span class="L">1</span><span class="nm">Rest</span></div>
+  <p class="cap1">Same wood menu you picked on sheet 56. Pointing at a row says "hold to change". Ctrl+C and Esc are greyed: they only work while his bubble is up.</p>
   <div class="cell"><div class="lbl"><i>1</i>RIGHT-CLICKED, HOTKEYS OPEN, POINTING AT SNIP &middot; SHOWN 2&times;</div>
-    <div class="shot"><img src="sheet-61/open.png" width="1030" height="814" alt="Aang's menu with the Hotkeys submenu open"></div></div>
+    <div class="shot"><img src="sheet-61/rest.png" width="1030" height="814" alt="Aang's menu with the Hotkeys submenu open"></div></div>
 </div>
 
 <div class="take">
-  <div class="lhead"><span class="L">2</span><span class="nm">Changing one</span></div>
-  <p class="cap1">Click the row, hold the new keys together, let go. Esc keeps the old ones.</p>
-  <div class="cell"><div class="lbl"><i>2</i>WAITING FOR NEW KEYS &middot; SHOWN 2&times;</div>
-    <div class="shot"><img src="sheet-61/change.png" width="1030" height="814" alt="A hotkey row waiting for new keys"></div></div>
+  <div class="lhead"><span class="L">2</span><span class="nm">Holding</span></div>
+  <p class="cap1">Press and keep holding: a gold fill sweeps across the row and the little ring fills. It takes about 0.6 s. Let go early and nothing changes.</p>
+  <div class="cell"><div class="lbl"><i>2</i>HELD FOR ABOUT 0.4 S, THE FILL PART-WAY &middot; SHOWN 2&times;</div>
+    <div class="shot"><img src="sheet-61/hold.png" width="1030" height="814" alt="A hotkey row part-way through being held"></div></div>
 </div>
 
 <div class="take">
-  <div class="lhead"><span class="L">3</span><span class="nm">When the keys are taken</span></div>
+  <div class="lhead"><span class="L">3</span><span class="nm">Listening</span></div>
+  <p class="cap1">The fill reaches the end: the row now waits. Press the new keys together and let go. Esc keeps the old ones.</p>
+  <div class="cell"><div class="lbl"><i>3</i>WAITING FOR NEW KEYS &middot; SHOWN 2&times;</div>
+    <div class="shot"><img src="sheet-61/listen.png" width="1030" height="814" alt="A hotkey row waiting for new keys"></div></div>
+</div>
+
+<div class="take">
+  <div class="lhead"><span class="L">4</span><span class="nm">When the keys are taken</span></div>
   <p class="cap1">If another program already holds them, the row goes red and says so, instead of quietly never working.</p>
-  <div class="cell"><div class="lbl"><i>3</i>CTRL + SHIFT + S IS TAKEN &middot; SHOWN 2&times;</div>
+  <div class="cell"><div class="lbl"><i>4</i>CTRL + SHIFT + S IS TAKEN &middot; SHOWN 2&times;</div>
     <div class="shot"><img src="sheet-61/taken.png" width="1030" height="814" alt="A hotkey row warning that the keys are taken"></div></div>
 </div>
 
@@ -57,7 +67,7 @@
 <div class="note"><b>How these were made</b>
 <ul>
 <li>The menu is the app's real right-click menu page, its own styles and code. The Hotkeys row and list are added in the same building blocks, so they are exactly that size.</li>
-<li>The glove is the menu's own "pointed at" look, held on one row.</li>
+<li>The glove is the menu's own "pointed at" look, held on one row. The hold fill and ring are new, drawn in the same style (the ring hand-placed pixels).</li>
 </ul></div>
 </body>
 </html>

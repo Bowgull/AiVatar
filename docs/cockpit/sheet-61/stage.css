@@ -14,7 +14,7 @@ html,body{width:1600px !important;height:1000px !important;background:radial-gra
   background:linear-gradient(180deg,#3a2516,#24160d);box-shadow:0 0 0 2px #120a05,0 3px 0 #0d0703,inset 0 2px 0 rgba(255,224,150,.16)}
 .kp{font:700 13px var(--body);color:#8f7d60}
 /* "click to change" shows on the row he points at, in place of nothing */
-.tabmenu.keys button .hint{display:none;font:400 9px var(--label);letter-spacing:1px;color:#bfae8a;margin-right:6px}
+.tabmenu.keys button .hint{display:none;white-space:nowrap;font:400 9px var(--label);letter-spacing:1px;color:#bfae8a;margin-right:6px}
 .tabmenu.keys button:hover .hint{display:inline}
 .tabmenu.keys button.fixed .kc{opacity:.7}
 .tabmenu.keys button.fixed .lab{color:#bfae8a}
@@ -29,3 +29,7 @@ html,body{width:1600px !important;height:1000px !important;background:radial-gra
 .tabmenu.keys .warn{display:flex;gap:10px;align-items:flex-start;font:600 13.5px/1.45 var(--body);color:#ffd8d0;padding:4px 12px 10px 12px;max-width:450px}
 .tabmenu.keys .warn canvas{flex:none;margin-top:1px}
 .tabmenu.keys .warn u{text-decoration:none;color:#ffe28c;border-bottom:2px solid rgba(255,226,140,.45);cursor:pointer}
+/* v2: holding a row to change it: a gold fill sweeps across the row (600 ms) and the ring fills; let go early = nothing */
+.tabmenu.keys button.holding{color:#ffe28c;border-radius:7px;box-shadow:inset 0 0 0 2px rgba(255,196,60,.45);
+  background:linear-gradient(90deg,rgba(255,196,60,.26) 0 var(--k),rgba(255,196,60,.05) var(--k)) !important}
+.tabmenu.keys button.holding .hint{color:#ffe28c}

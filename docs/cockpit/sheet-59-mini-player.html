@@ -4,7 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sheet 59 - Spotify mini player</title>
-<!-- Sheet 59 (2026-10-22). His interview (popouts-notes-spotify-interview): basics + seek + volume + an optional 90s
+<!-- Sheet 59 v2 (2026-10-22, later): his notes on v1: A picked, but "everything sharp cornered" and "hard to click";
+     asked for motion and scenes. A reworked (pixel-stepped round corners everywhere, 38 px keys, 18 px seek bead, 14 px
+     volume with a round knob, 28 px pin/fold/close), B and C shrunk to a not-picked strip, sections 2 (scenes) and 3
+     (motion) added, the video pop-out given 12 px corners in the family picture.
+     v1 (2026-10-22). His interview (popouts-notes-spotify-interview): basics + seek + volume + an optional 90s
      visualizer, two sizes (full and a thin Winamp shade, double-click to swap), looks mixing Winamp classic, Windows Media
      Player 7-9 skins and a Walkman, inside his design language. The player is new, so it is drawn (sheet-59/stage.js,
      hand-placed pixels at exactly 2x, Samara's wood art, the bubble's paper, the job pop-out's pin, the product's own
@@ -21,56 +25,58 @@
 </head>
 <body>
 <h1>SHEET 59 &middot; SPOTIFY MINI PLAYER</h1>
+<p class="real">v2 &middot; 22 Oct, after your notes: A only, soft corners, bigger keys, scenes and motion</p>
 <p class="lead">A small 90s player on your desktop. Song, artist, cover, seek, play keys, volume, and a visualizer you can switch off. Double-click it to shrink it to a thin strip, like Winamp.</p>
 <div class="decided"><span>Opens from the wheel's Music slot, asking Aang, or his right-click menu</span><span>You sign in to Spotify yourself</span><span>Snaps to the other pop-outs</span><span>Shares their pin and see-through</span></div>
-<p class="topick"><span>WHAT TO PICK</span> <em><b>A</b> Winamp in wood (my pick), <b>B</b> Walkman on parchment, or <b>C</b> the curvy one.</em></p>
+<p class="topick"><span>WHAT TO PICK</span> <em><b>Yes</b> to A as reworked, or point at a corner, a key or a scene to change. Then pick the <b>scenes</b> you want (all four, some, or other ideas).</em></p>
 
 <div class="take">
-  <div class="lhead"><span class="L">A</span><span class="nm">Winamp in wood</span><span class="pick">MY PICK</span></div>
-  <p class="cap1">Samara's dark wood with a glowing amber screen: big time, scrolling title, spectrum bars. Small, dense, easy to read over a game.</p>
+  <div class="lhead"><span class="L">A</span><span class="nm">Winamp in wood &middot; soft and easy to hit</span><span class="pick">YOUR PICK</span></div>
+  <p class="cap1">Your notes: "everything sharp cornered", "hard to click". Now every part is rounded in pixel steps (the frame, the screen, the cover, every key, the seek and volume bars). The play keys are 38 px tall, the seek bead 18 px, the volume bar 14 px with a round knob, and pin / fold / close are 28 px plum keys like the video pop-out's.</p>
   <div class="two">
-    <div class="cell"><div class="lbl"><i>A</i>FULL &middot; SHOWN 2&times;</div><div class="shot"><img src="sheet-59/A-full.png" width="648" height="454" alt="Look A full size, visualizer on and off"></div></div>
-    <div class="cell"><div class="lbl"><i>A</i>SHADE &middot; SHOWN 2&times;</div><div class="shot"><img src="sheet-59/A-shade.png" width="608" height="200" alt="Look A shade strip"></div></div>
+    <div class="cell"><div class="lbl"><i>A</i>FULL &middot; BARS AND OFF &middot; SHOWN 2&times;</div><div class="shot"><img src="sheet-59/A-full.png" width="680" height="554" alt="Look A full size, bars on and off"></div></div>
+    <div class="cell"><div class="lbl"><i>A</i>SHADE (DOUBLE-CLICK) &middot; SAME WIDTH &middot; SHOWN 2&times;</div><div class="shot"><img src="sheet-59/A-shade.png" width="680" height="210" alt="Look A shade strip"></div></div>
   </div>
 </div>
 
-<div class="take">
-  <div class="lhead"><span class="L">B</span><span class="nm">Walkman on parchment</span></div>
-  <p class="cap1">His speech bubble's paper and slim wood rim. A cassette window with turning reels, two needle VU meters, chunky wood keys, a volume thumbwheel.</p>
-  <div class="two">
-    <div class="cell"><div class="lbl"><i>B</i>FULL &middot; SHOWN 2&times;</div><div class="shot"><img src="sheet-59/B-full.png" width="656" height="558" alt="Look B full size, visualizer on and off"></div></div>
-    <div class="cell"><div class="lbl"><i>B</i>SHADE &middot; SHOWN 2&times;</div><div class="shot"><img src="sheet-59/B-shade.png" width="608" height="200" alt="Look B shade strip"></div></div>
-  </div>
-</div>
+<h2><span class="n">2</span>SCENES IN THE SCREEN</h2>
+<p>Instead of the bars, a tiny looping picture plays in the screen. The <b>VIS key</b> goes BARS &rarr; SCENE &rarr; OFF. In SCENE, <b>click the screen</b> for the next one. Cheap: 4-8 hand-drawn frames looping at about 10 fps, and they stop when the player is hidden or a game is full screen.</p>
+<div class="cell"><div class="lbl"><i>2</i>A SCENE PLAYING IN THE PLAYER &middot; SHOWN 2&times;</div><div class="shot"><img src="sheet-59/A-scene.png" width="948" height="290" alt="Player with the temple scene and the campfire scene in its screen"></div></div>
+<div class="cell" style="margin-top:18px"><div class="lbl"><i>2</i>THE FOUR SCENES, FRAME BY FRAME &middot; SHOWN 4&times; SO YOU CAN SEE THE PIXELS</div><div class="shot"><img src="sheet-59/scenes.png" width="1028" height="748" alt="Four scenes, four frames each: temple at dusk, rain on a window, campfire, Appa in the clouds"></div></div>
 
-<div class="take">
-  <div class="lhead"><span class="L">C</span><span class="nm">The curvy one (Media Player skin)</span></div>
-  <p class="cap1">A rounded wood shape: the cover in a round porthole, the visualizer as bars around it, pebble keys and a turning volume knob.</p>
-  <div class="two">
-    <div class="cell"><div class="lbl"><i>C</i>FULL &middot; SHOWN 2&times;</div><div class="shot"><img src="sheet-59/C-full.png" width="664" height="474" alt="Look C full size, visualizer on and off"></div></div>
-    <div class="cell"><div class="lbl"><i>C</i>SHADE &middot; SHOWN 2&times;</div><div class="shot"><img src="sheet-59/C-shade.png" width="608" height="200" alt="Look C shade strip"></div></div>
-  </div>
-</div>
+<h2><span class="n">3</span>MOTION</h2>
+<p>Small, calm movement that makes it feel like a real little machine. Nothing bounces more than a pixel or two.</p>
+<div class="cell"><div class="lbl"><i>3</i>MARQUEE &middot; BARS &middot; KEY PRESS &middot; SCRUB</div><div class="shot"><img src="sheet-59/motion.png" width="1386" height="472" alt="Frame strips: title marquee, bars with falling peaks, a key press, scrubbing the seek bar"></div></div>
+<div class="cell" style="margin-top:18px"><div class="lbl"><i>3</i>FULL &harr; SHADE FOLDS ON A SPRING (0.5 S, DAMPING 0.825)</div><div class="shot"><img src="sheet-59/fold.png" width="992" height="458" alt="The player folding to the shade in four frames"></div></div>
 
 <h2><span class="n">4</span>THE POP-OUT FAMILY</h2>
-<p>Look A snapped under the video pop-out, with a Claude job snapped to its side. They drag as one; pull one hard to unsnap it.</p>
+<p>A snapped under the video pop-out (now with 12 px round corners), a Claude job snapped to its side. They drag as one; pull one hard to unsnap it.</p>
 <div class="cell"><div class="lbl"><i>&#10022;</i>SNAPPED TOGETHER &middot; VIDEO AND JOB ARE THE REAL POP-OUTS &middot; SHOWN 2&times;</div>
-  <div class="shot"><img src="sheet-59/family.png" width="1000" height="470" alt="Player snapped below the video pop-out with a job pop-out beside it"></div></div>
+  <div class="shot"><img src="sheet-59/family.png" width="1060" height="520" alt="Player snapped below the video pop-out with a job pop-out beside it"></div></div>
+
+<div class="take today" style="margin-top:28px">
+  <div class="lhead"><span class="L">&ndash;</span><span class="nm">Not picked (v1)</span></div>
+  <div class="two">
+    <div class="cell"><div class="lbl was">B &middot; WALKMAN ON PARCHMENT</div><div class="shot"><img src="sheet-59/B-full.png" width="262" height="223" alt="Look B, not picked"></div></div>
+    <div class="cell"><div class="lbl was">C &middot; THE CURVY ONE</div><div class="shot"><img src="sheet-59/C-full.png" width="266" height="190" alt="Look C, not picked"></div></div>
+  </div>
+</div>
 
 <h2><span class="n">?</span>WHAT EACH PART DOES</h2>
 <div class="meaning">
   <b>Pin</b><span>The same pin as the job pop-out. Pin one pop-out and they all stay on top. Hover by it for the see-through slider; every pop-out follows.</span>
-  <b>Shade</b><span>Double-click anywhere (or the small bar key) for the thin strip: scrolling title, play/pause, a progress line. Double-click again to come back.</span>
-  <b>Visualizer</b><span>The VIS / VU key. Off by default if you prefer it calm; it remembers.</span>
-  <b>Seek and volume</b><span>Drag the gold bar to jump; the volume is Spotify's own.</span>
+  <b>Fold</b><span>Double-click anywhere (or the minus key) for the thin strip: scrolling title, play/pause, a progress line. Double-click again to come back.</span>
+  <b>VIS key</b><span>BARS, SCENE or OFF. Off by default if you prefer it calm; it remembers. In SCENE, click the screen for the next scene.</span>
+  <b>Seek and volume</b><span>Grab the gold bead and drag; the big time follows in the screen. The volume knob is Spotify's own volume.</span>
   <b>Where the song comes from</b><span>Spotify's official sign-in, plus Windows' "now playing" so it shows the song even before you sign in.</span>
 </div>
 
 <div class="note"><b>How these were made</b>
 <ul>
 <li>The player is new, so it is drawn: every wood, paper, key and icon pixel placed by hand at exactly 2&times;, using Samara's own wood pictures and the bubble's paper colours.</li>
-<li>The seek bar is the app's own progress bar in gold. The pin is the job pop-out's pin.</li>
-<li>In section 4 the video pop-out and the Claude job are drawn by the app's own styles. The cover art is a made-up pixel painting.</li>
+<li>The seek and volume bars are the app's own round progress bar (gold, cream). The pin is the job pop-out's pin. Round corners are drawn pixel by pixel, never smoothed.</li>
+<li>The four scenes are made-up pixel paintings, drawn frame by frame here; they would ship as small sprite sheets.</li>
+<li>In section 4 the video pop-out (with 12 px corners, the one change asked for) and the Claude job are drawn by the app's own styles. The cover art is a made-up pixel painting.</li>
 </ul></div>
 </body>
 </html>

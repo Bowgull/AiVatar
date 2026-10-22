@@ -36,3 +36,7 @@ body{display:block !important;padding:0 !important;height:1000px !important}
 /* the family picture: the product's own pop-outs, each in its own frame */
 iframe.prod{position:absolute;border:0;background:transparent;overflow:hidden}
 .seam{position:absolute;z-index:5;background:rgba(255,206,120,.55);box-shadow:0 0 6px rgba(255,180,80,.6);border-radius:2px}
+
+/* v2 (2026-10-22): the motion and scene sheets' captions, a size up from the desk tags */
+.ftag{position:absolute;font:400 10px Silkscreen,monospace;letter-spacing:1.5px;color:#a9aec2;white-space:nowrap}
+.ftag b{color:#ffd36a;font-weight:400}
