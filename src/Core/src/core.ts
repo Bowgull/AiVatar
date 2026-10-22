@@ -13,6 +13,7 @@ import { Faces, domainOfEmail, hostOf } from './faces.ts';
 import { Choices, choiceKey } from './choices.ts';
 import { Timers, parseTimerCommand, sayDuration, MAX_MS } from './timers.ts';
 import { Notes, parseNoteCommand, linesHtml } from './notes.ts';
+import { NoteNotice, NOTICE_EVERY_MS, type Notice } from './notenotice.ts';
 import { WebSocketServer } from 'ws';
 import type { WebSocket } from 'ws';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync, unlinkSync, writeFileSync, mkdtempSync, rmSync, watchFile } from 'node:fs';
@@ -2712,6 +2713,8 @@ export class Core {
     this.feedTimers.push(setInterval(() => { void this.tripTick().catch(() => {}); }, 5 * 60_000));
     this.timerTick.unref?.();
     this.factTimer = setInterval(() => this.offerFact(), 5 * 60_000);
+    // 2026-10-22: Qwen looks over his notes on a slow timer (notenotice.ts); first look ten minutes after start.
+    this.feedTimers.push(setTimeout(() => void this.noteNotice.check(), 10 * 60_000), setInterval(() => void this.noteNotice.check(), NOTICE_EVERY_MS));
     // 9.D D8: 🎮 gaming. Creators every 20 minutes, Apex news every 2 hours (each sixth look).
     this.feedTimers.push(setTimeout(() => void this.checkFeeds(true), 2 * 60_000), setInterval(() => void this.checkFeeds(++this.feedTick % 6 === 0), 20 * 60_000));
     for (const t of this.feedTimers) t.unref?.();
@@ -3322,7 +3325,8 @@ export class Core {
         this.startTimer(ms, String(m.label ?? '').slice(0, 40));
         break;
       }
-      case 'notes.save': { if (this.notes.save1(m.note)) this.sendTo('desktop', { t: 'notes.state', notes: this.notes.list() }); break; }
+      case 'notes.save': { if (this.notes.save1(m.note)) { this.sendTo('desktop', { t: 'notes.state', notes: this.notes.list() }); this.noteNotice.noteChanged(); } break; }
+      case 'notice.set': this.noteNotice.setOn(m.on === true); break;
       case 'notes.delete': { if (this.notes.remove(String(m.id ?? ''))) this.sendTo('desktop', { t: 'notes.state', notes: this.notes.list() }); break; }
       case 'timer.act': {
         const action = m.action === 'add' || m.action === 'pause' || m.action === 'stop' ? m.action : null;
@@ -3654,6 +3658,7 @@ export class Core {
             say = n ? `Noted: ${n.title}${noteCmd.lines.length > 1 ? `, ${noteCmd.lines.length} things` : ''}. It is on your board.` : 'Your board is full (60 notes). Delete one first.';
           }
           this.sendTo('desktop', { t: 'notes.state', notes: this.notes.list() });
+          if (noteCmd.op !== 'show') this.noteNotice.noteChanged();
           this.send(ws, { t: 'bubble', text: say, stream: false, id, who: 'Aang' });
           break;
         }
@@ -3693,6 +3698,7 @@ export class Core {
       case 'rate': this.rate(m.id, m.value); break;
       case 'presence': {
         this.fgProcess = String(m.foreground ?? '');
+        this.fgTitle = String(m.title ?? '');
         this.frontMoved();
         this.setSilent(m.quiet === true, this.muted);
         const watching = m.watching !== false;
@@ -4227,6 +4233,36 @@ export class Core {
   /** Sheet 17: kept on disk, so a restart never loses one. */
   private notesStore: Notes | null = null;
   private get notes(): Notes { return this.notesStore ??= new Notes(path.join(this.cfg.stateDir, 'notes.json')); }
+  /** The window title the pet last reported (with fgProcess): what Qwen may see of what he is doing, nothing more. */
+  private fgTitle = '';
+  /** 2026-10-22: "Aang notices things in your notes" (notenotice.ts). Qwen only; Claude only if he replies. */
+  private noticeStore: NoteNotice | null = null;
+  private get noteNotice(): NoteNotice {
+    return this.noticeStore ??= new NoteNotice(path.join(this.cfg.stateDir, 'note-notice.json'), {
+      notes: () => this.notes.list(),
+      ask: (prompt, opts) => import('./local.ts').then(({ askLocal }) => askLocal(prompt, opts)),
+      gameRunning: async () => this.bodyQuiet || (await gameRunning()).running,
+      // Hush silences it (not held: a stale notice is worth nothing); muted, away from the PC or mid-answer: not now.
+      quiet: () => this.muted || this.hushUntil > Date.now() || this.whereHeIs() !== 'desktop' || this.active !== null,
+      // Only what "see my window" already lets Aang see.
+      foreground: () => this.activity.watching ? { app: this.fgProcess, title: this.fgTitle } : { app: '', title: '' },
+      say: n => this.sendNotice(n),
+    });
+  }
+  /**
+   * A noticed line, through the same door as every proactive line (sendTo, so the FrontGate holds it while Claude is in
+   * front), stored as a 'say' row so a reply to it works like a reply to anything Aang said. kind 'note.notice' and the
+   * note's id ride along: the bubble opens that note on a click, and sheet 60 gives it its own look later.
+   */
+  private sendNotice(n: Notice): void {
+    this.lastAnnounced = { text: n.say, at: Date.now() };
+    const notice = { noteId: n.noteId, line: n.line };
+    const msg: Extract<ToBody, { t: 'bubble' }> = { t: 'bubble', text: n.say, stream: false, proactive: true, kind: 'note.notice', notice };
+    const row = this.memory.saveSaid(n.say, 'say', { kind: 'note.notice', notice, noticeKind: n.kind });
+    if (row !== null) msg.turn = row;
+    this.actions.add({ tool: 'notice', did: `noticed in a note: "${n.line.slice(0, 70)}"`, ok: true, note: '' });
+    this.sendTo('desktop', msg);
+  }
   private timersStore: Timers | null = null;
   private get timers(): Timers { return this.timersStore ??= new Timers(path.join(this.cfg.stateDir, 'timers.json')); }
   private startTimer(ms: number, label: string): string {
