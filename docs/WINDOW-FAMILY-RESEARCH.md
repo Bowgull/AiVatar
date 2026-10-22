@@ -744,3 +744,6 @@ synthetic keys into WoW, and off-screen harnesses that catch their own errors.
   While wiggling he can also drag a window to a new spot in the group to rearrange it. Replaces the 28 px pop-free.
 - No auto pop-out video. Tab peek: no. Pinned snip: yes. Site notes on demand in Samara (never pop up by themselves).
 - Next meeting strip: opt-in only. Timer: first-class member.
+- NO placeholders anywhere (no drop slot, no ghost box) when a window pops in, out, or is rearranged: neighbours slide
+  aside live on the spring. A member that leaves the family returns to its own normal shape and size (the shape it had
+  before it joined). Every member (player, job, notes, timer, snip) can join on any side: beside -> column, above/below -> strip.
