@@ -15,6 +15,7 @@ import { open, readdir, stat } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import type { ToolDetail } from './claudeprogress.ts';
+import { notHisCwd } from './notjobs.ts';
 
 export interface TranscriptTask { text: string; status: 'pending' | 'in_progress' | 'completed'; active?: string }
 /** What one transcript says about its session, now. */
@@ -138,7 +139,7 @@ export function readTranscript(text: string, fromStart: boolean, mtime: number, 
       }
     }
   }
-  if (!session || sdk || (selfCwd && cwd === selfCwd) || SELF.test(cwd)) return null;
+  if (!session || sdk || (selfCwd && cwd === selfCwd) || SELF.test(cwd) || notHisCwd(cwd)) return null;
   // Ending on a tool's result and then silent for minutes: Claude would have written its next step long since, so
   // the turn ended some way the transcript does not record (an app-side stop).
   if (state === 'working' && lastWasResult && !pending.size && now - mtime > QUIET_RESULT_MS) { state = 'idle'; answered = true; }

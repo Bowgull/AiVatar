@@ -27,7 +27,7 @@
 import type { EngineInterface, Register } from 'claude-code'
 import { MOCKUP_SECTION, MOCKUP_SECTION_ID, MOCKUP_TOOL, MOCKUP_TOOL_DESC, MOCKUP_TOOL_FULL, MOCKUP_TOOL_SCHEMA, MODEL_OK, OWN_TOOL, OWN_TOOL_DESC, OWN_TOOL_FULL, OWN_TOOL_PLAN_DESC, OWN_TOOL_PLAN_SCHEMA, OWN_TOOL_SCHEMA, OWN_TOOL_SECTION, PLAN_SENTENCE, TODO_SECTION, TODO_SECTION_ID, TODO_TOOLS, activityOf, agentListOf, hmacHex, mockupArgs, nonce, planOf, safeLine, sameMac, stableJson, summarize, tasksAtEnd, tasksAtStart, toDecision } from './link.ts'
 import { CCD_SERVER, EFFORT_OK, FRESH_MS, mcpText, normFolder, startOf } from './link.ts'
-import { callFor } from './link.ts'
+import { callFor, linkOff, notHisCwd } from './link.ts'
 import type { RunningCall, Task } from './link.ts'
 
 type $T = EngineInterface
@@ -674,7 +674,9 @@ export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     const started = await next(e)
     L.cwd = e.cwd
-    L.inert = SELF_CWD.test(L.cwd)
+    L.inert = SELF_CWD.test(L.cwd) || notHisCwd(L.cwd, (await within($, $.env.get('TEMP'), 500)) || '')
+    // 2026-10-22: a session started with AANG_LINK_OFF=1 (every Aang lane) or AANG_TEST=1 (tests, benches) is never his job.
+    if (!L.inert) L.inert = linkOff(await within($, $.env.get('AANG_LINK_OFF'), 500)) || linkOff(await within($, $.env.get('AANG_TEST'), 500))
     if (!L.inert) {
       // Awaited (briefly), so the progress tool is listed from the session's first prompt.
       await ensureTool($, L).catch(() => {})

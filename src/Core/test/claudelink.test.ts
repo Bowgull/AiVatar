@@ -173,6 +173,9 @@ test('door: unsigned, wrongly signed, stale or web-page requests are refused; th
     const ev = JSON.stringify({ session: 's1', type: 'ask', id: 'b1', kind: 'permission', tool: 'Bash', cwd: 'C:\\code\\x' });
     assert.equal((await call('POST', '/link/event', ev)).code, 204);
     assert.equal((await call('POST', '/link/event', JSON.stringify({ session: 's9', type: 'start', cwd: 'C:\\aang-self' }))).code, 204);
+    // 2026-10-22: a bench ran in src/Core/test (or a temp folder): not his job either.
+    assert.equal((await call('POST', '/link/event', JSON.stringify({ session: 's8', type: 'start', cwd: 'C:\\Users\\Shadow\\Documents\\AangApp\\src\\Core\\test' }))).code, 204);
+    assert.equal((await call('POST', '/link/event', JSON.stringify({ session: 's7', type: 'start', cwd: 'C:\\Users\\Shadow\\AppData\\Local\\Temp\\aang-x' }))).code, 204);
     assert.deepEqual(tracker.list().map(j => j.id), ['s1'], "Aang's own lanes are not his sessions");
     // A signature covers the body: the same headers with another body are refused.
     const ts = String(Date.now());
