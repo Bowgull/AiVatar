@@ -31,6 +31,8 @@ export interface TurnEnd {
 }
 
 export interface ReplyLine { session: string; project: string; text: string; host?: 'mac' }
+/** A turn end's words, offered to the plain-question check (plainquestion.ts) before the "replied" line is said. */
+export interface ReplyWords { session: string; project: string; words: string; host?: 'mac' }
 
 /** Claude's first sentence, about 90 characters, markdown and code left out. */
 export function firstSentence(text: string, max = 90): string {
@@ -57,14 +59,22 @@ export class ReplyNotifier {
   private readonly say: (line: ReplyLine) => boolean;
   private readonly words: (session: string) => string;
   private readonly now: () => number;
+  /**
+   * 2026-10-22: the plain-question card. Given Claude's words at a turn end; true when it put a QUESTION card up, and
+   * then the "replied" line is not said (one notice, never two).
+   */
+  private readonly question: ((r: ReplyWords) => boolean | Promise<boolean>) | null;
+  /** Per session: how many turns have started, so a slow question check can tell he already typed again. */
+  private readonly turns = new Map<string, number>();
 
   /**
    * `title` names the session (his title from the Claude app, else the project). `say` delivers a line and returns
    * false when it was not shown (he is in Claude); either way the turn counts as told. `words` finds Claude's last
    * words for a turn end that came without them (the link's turn.end), from the session's transcript tail.
    */
-  constructor(opts: { title: (session: string, project: string) => string; say: (line: ReplyLine) => boolean; words?: (session: string) => string; now?: () => number }) {
-    this.title = opts.title; this.say = opts.say; this.words = opts.words ?? (() => ''); this.now = opts.now ?? Date.now;
+  constructor(opts: { title: (session: string, project: string) => string; say: (line: ReplyLine) => boolean; words?: (session: string) => string; now?: () => number;
+    question?: (r: ReplyWords) => boolean | Promise<boolean> }) {
+    this.title = opts.title; this.say = opts.say; this.words = opts.words ?? (() => ''); this.now = opts.now ?? Date.now; this.question = opts.question ?? null;
   }
 
   /** A turn started (the link's turn.start, the hook's UserPromptSubmit): the next end is a new reply. */
@@ -72,6 +82,8 @@ export class ReplyNotifier {
     if (!session) return;
     this.fresh.set(session, true);
     this.handled.delete(session);
+    this.turns.set(session, (this.turns.get(session) ?? 0) + 1);
+    while (this.turns.size > 100) this.turns.delete(this.turns.keys().next().value as string);
   }
 
   /** A turn ended, from either source. */
@@ -112,14 +124,23 @@ export class ReplyNotifier {
     let said = p.end.words ?? '';
     if (!said) { try { said = this.words(session); } catch { said = ''; } }
     const words = said ? firstSentence(said) : '';
-    this.say({ session, project: p.end.project, text: words ? `${name} replied: ${words}` : `${name} replied.`, ...(p.end.host ? { host: p.end.host } : {}) });
+    const line = () => { this.say({ session, project: p.end.project, text: words ? `${name} replied: ${words}` : `${name} replied.`, ...(p.end.host ? { host: p.end.host } : {}) }); };
+    if (!this.question || !said) { line(); return; }
+    // A question to him becomes its card instead of the line. The check may take Qwen a few seconds: if he typed in
+    // that session meanwhile, neither is said (he is already at it).
+    const turn = this.turns.get(session) ?? 0;
+    let asked: boolean | Promise<boolean>;
+    try { asked = this.question({ session, project: p.end.project, words: said, ...(p.end.host ? { host: p.end.host } : {}) }); } catch { asked = false; }
+    if (asked === false) { line(); return; }
+    if (asked === true) return;
+    void asked.then(yes => { if (!yes && (this.turns.get(session) ?? 0) === turn) line(); }, () => { if ((this.turns.get(session) ?? 0) === turn) line(); });
   }
 
   /** The session is gone: anything waiting for it goes too. */
   forget(session: string): void {
     const p = this.pending.get(session);
     if (p?.timer) clearTimeout(p.timer);
-    this.pending.delete(session); this.lastAt.delete(session); this.fresh.delete(session); this.handled.delete(session);
+    this.pending.delete(session); this.lastAt.delete(session); this.fresh.delete(session); this.handled.delete(session); this.turns.delete(session);
   }
 
   close(): void { for (const s of [...this.pending.keys()]) this.forget(s); }

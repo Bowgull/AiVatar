@@ -533,8 +533,11 @@ async function turnBegan($: $T, L: Link, prompt: string): Promise<void> {
   pump($, L)
 }
 
-async function turnEnded($: $T, L: Link, aborted: boolean, reason: string): Promise<void> {
-  post($, L, 'turn.end', { aborted, reason, usage: await usage($) })
+async function turnEnded($: $T, L: Link, aborted: boolean, reason: string, answer = ''): Promise<void> {
+  // 2026-10-22: the end of Claude's answer (at most 2000 characters), so Aang can put a plain question it ends on up as
+  // a card (src/Core/src/plainquestion.ts). The brain could already read it in the transcript; this is the same words.
+  const said = !aborted && typeof answer === 'string' ? answer.slice(-2000) : ''
+  post($, L, 'turn.end', { aborted, reason, usage: await usage($), ...(said ? { said } : {}) })
 }
 
 /**
@@ -706,7 +709,7 @@ export const register: Register = on => {
       L.mainTurn = null
       // The turn is over, so nothing of its own main loop can still be asking (Esc, a new message, an error).
       for (const [id, a] of [...L.asks]) if (!a.agentId) settle($, L, id)
-      void turnEnded($, L, e.isAborted, String(e.reason ?? '')).catch(() => {})
+      void turnEnded($, L, e.isAborted, String(e.reason ?? ''), e.answer).catch(() => {})
       L.told.clear()
     } else if (e.agentId !== undefined && !L.inert && settleAgent($, L, e.agentId) && L.agents.delete(e.agentId)) {
       // v3: whether it ended well, so a failed helper shows red and teaches no history.

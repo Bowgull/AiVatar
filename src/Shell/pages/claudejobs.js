@@ -631,7 +631,7 @@ function readWait(x) {
   if (kind === 'question' && !questions.length && x.readonly !== true) return null;
   return { id: x.id.slice(0, 100), session: x.session.slice(0, 100), project: str(x.project, 60) || 'Claude', kind, tool: str(x.tool, 120),
     summary: str(x.summary, 300), plain: str(x.plain, 400), input: str(x.input, 2000), questions, plan: str(x.plan, 8000), canAlways: x.canAlways === true,
-    readonly: x.readonly === true };
+    readonly: x.readonly === true, reply: x.reply === true };
 }
 
 /**
@@ -991,7 +991,60 @@ export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWa
     send({ t: 'claude.answer', id: w.id, answers: { ...s.answers } });
     done(w, Object.values(s.answers).join(' / '));
   }
-  function questionCard(card, w) {
+  /**
+   * 2026-10-22 (his "surface questions that drive the session"): a plain question Claude ended its reply on (the brain's
+   * plainquestion.ts). The choices it offered are the keys, then "Reply…", which opens a small box right here in the
+   * card: Enter sends his words to that session as his next message, Esc puts the box away. Same hover-keys rule.
+   */
+  /** The reply box holds the keyboard only while it is open (the bubble is never focusable otherwise, bubble.ts). */
+  let rTyping = false;
+  function rType(on) { if (on === rTyping) return; rTyping = on; window.aang?.bubbleTyping?.(on); }
+  function replyCard(card, w, typed = null) {
+    const q = w.questions[0];
+    card.append(h('p', 'q', w.plain || q.question));
+    const list = h('div', 'opts glove'), rows = [];
+    const pick = (text) => { send({ t: 'claude.answer', id: w.id, answers: { [q.question]: text } }); done(w, text); };
+    q.options.forEach((o, i) => {
+      const row = h('div', 'opt');
+      const lab = h('span', 'lab', o.label);
+      if (o.plain && o.plain !== o.label) lab.append(h('small', 'hint', o.plain));
+      row.append(lab, h('span', 'kc', String(i + 1)));
+      row.addEventListener('mouseenter', () => rows.forEach((x) => x.classList.toggle('on', x === row)));
+      row.addEventListener('click', (e) => { e.stopPropagation(); if (list.classList.contains('guard')) return; pick(o.label); });
+      rows.push(row); list.append(row);
+    });
+    const other = h('div', 'opt other rpl');
+    other.append(h('span', 'lab', 'Reply…'), h('span', 'kc', String(q.options.length + 1)));
+    other.addEventListener('mouseenter', () => rows.forEach((x) => x.classList.toggle('on', x === other)));
+    const openBox = (value) => {
+      const box = document.createElement('input');
+      box.className = 'rbox'; box.type = 'text'; box.maxLength = 2000; box.spellcheck = true;
+      box.placeholder = `Answer ${w.project}, Enter sends`;
+      box.setAttribute('aria-label', `Your answer to ${w.project}`);
+      const close = () => { rType(false); if (box.isConnected) box.replaceWith(other); onChange(); };
+      box.addEventListener('click', (ev) => ev.stopPropagation());
+      box.addEventListener('keydown', (ev) => {
+        ev.stopPropagation();
+        if (ev.key === 'Enter' && !ev.shiftKey && !ev.isComposing) { ev.preventDefault(); const t = box.value.trim(); if (!t) return; rType(false); pick(t); }
+        else if (ev.key === 'Escape') { ev.preventDefault(); close(); }
+      });
+      other.replaceWith(box);
+      onChange();
+      // The bubble only takes the keyboard while something in it needs typing (bubble.ts): ask, then the caret.
+      rType(true);
+      box.value = value;
+      setTimeout(() => { box.focus(); box.selectionStart = box.selectionEnd = box.value.length; }, 60);
+    };
+    other.addEventListener('click', (e) => { e.stopPropagation(); if (!list.classList.contains('guard')) openBox(''); });
+    rows.push(other); list.append(other);
+    rows[0].classList.add('on');
+    list.classList.add('guard'); setTimeout(() => list.classList.remove('guard'), 600);
+    card.append(list);
+    // Redrawn while he was typing (the plain words came in): the box and what he typed stay.
+    if (typed !== null) openBox(typed);
+  }
+  function questionCard(card, w, typed = null) {
+    if (w.reply) { replyCard(card, w, typed); return; }
     const s = stateOf(w), q = w.questions[Math.min(s.at, w.questions.length - 1)], n = w.questions.length;
     if (n > 1) {
       const st = h('div', 'stepper'), dots = h('span', 'dots');
@@ -1051,12 +1104,18 @@ export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWa
     }
   }
   function paintPins() {
+    // A reply box open on the card shown now survives the redraw, with what he typed; any other goes, and the keyboard
+    // is handed back (answered, put away, or the brain cleared it).
+    const openBox = /** @type {HTMLInputElement|null} */ (pins.querySelector('.rbox'));
+    const typing = openBox ? { id: openBox.closest('.pin')?.dataset.id ?? '', value: openBox.value } : null;
     pins.replaceChildren();
     // Put away with the cockpit closed: nothing in the closed bubble until something new comes (it stays in the brain).
     const list = parked && !isOpen() ? [] : live();
     // Items arrive in priority order; "N MORE" steps through them, and the one he stepped to stays while it waits.
     if (!list.some((w) => w.id === shownId)) shownId = list[0]?.id ?? null;
     const w = list.find((x) => x.id === shownId);
+    const keep = !!(typing && w?.reply && typing.id === w.id);
+    if (!keep) rType(false);
     if (toast) pins.append(toast);
     pins.hidden = !w && !toast;
     if (!w) return;
@@ -1084,7 +1143,7 @@ export function startClaude({ typing, isOpen, withTyping, onMine, onChange, onWa
       pins.append(card);
       return;
     }
-    if (w.kind === 'question') questionCard(card, w);
+    if (w.kind === 'question') questionCard(card, w, keep ? typing.value : null);
     else if (w.kind === 'plan') {
       card.append(h('p', 'q', w.plain || w.summary || `${w.project} has a plan ready.`));
       // The whole plan (it scrolls past 220 px): "Claude's words" used to hold the rest of a long one.

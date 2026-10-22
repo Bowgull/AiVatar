@@ -900,6 +900,9 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
 .ckpins .glove{margin:0 -4px}
 .ckpins .opt{padding:5px 10px 5px 38px;font-size:14px}
 .ckpins .opt:hover .kc{opacity:1}
+.ckpins .rbox{display:block;width:100%;box-sizing:border-box;margin:2px 0;padding:6px 10px;border:2px solid #6b4318;border-radius:8px;background:#f7ead0;color:#2a1c10;font:600 14px var(--body);outline:none;box-shadow:inset 0 1px 0 rgba(0,0,0,.08)}
+.ckpins .rbox:focus{border-color:#b07cff;box-shadow:0 0 0 2px rgba(176,124,255,.35)}
+.ckpins .rbox::placeholder{color:#9a8460}
 .ckpins .ckeys{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 2px}
 /* several picks (45g): square boxes, the picked rows lit */
 .ckpins .opt .mk{flex:none;align-self:flex-start;width:14px;height:14px;margin-top:3px;box-sizing:border-box;border:2.5px solid #6b4318;background:#f7ead0;border-radius:4px}
