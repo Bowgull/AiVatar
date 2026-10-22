@@ -296,8 +296,10 @@ them**", which **clashes** with your new "Aang works with notes only when asked"
 
 ### Rules for Aang and notes
 
-- **Only when asked.** Notes stay **out of the prompt** by default, which saves quota too. When he asks ("what's on
-  my raid note", "tick flasks", "add eggs to shopping"), Aang uses note tools: search, read, append, tick, make.
+- **DECIDED 2026-10-22: Aang reads them, and notices things.** Joshua: "i dont mind if he reads them". Notes stay
+  with Aang (forAang), and Qwen (local, free) reads them now and then so Aang can bring ONE thing up when it matters
+  (see "Aang notices things in your notes" below). Asking still works too ("what's on my raid note", "tick flasks",
+  "add eggs to shopping"): note tools search, read, append, tick, make.
 - **Aang never rewrites a note silently.** Appends and ticks just happen and Aang confirms them in one line. Anything
   that deletes or rewrites shows the change and asks first (your "ask once, remember, confirm" rule).
 - **Capture paths:**
@@ -344,7 +346,7 @@ them**", which **clashes** with your new "Aang works with notes only when asked"
    optional loopback visualiser (test it on the Shadow first).
 
 **Notes**
-10. Notes out of the prompt by default, with note tools on ask.
+10. Notes stay with Aang (his call, 2026-10-22) + Qwen noticing + note tools on ask.
 11. Hotkey `Control+nummult` + `Control+Shift+8`, opening blank and focused.
 12. Inbox note for captures from Samara, snips and Discord. Pictures saved as files, with OCR for search.
 
@@ -356,8 +358,7 @@ them**", which **clashes** with your new "Aang works with notes only when asked"
 3. **Splitting:** when Aang says two short things, two small joined balloons stacked, or always one?
 4. **One-liners shrink:** should "Hey!" get a small bubble, even though the exchange-width rule says a reply never
    narrows below the question's bubble?
-5. **Notes in Aang's head:** notes.ts says Aang always knows your notes. Your new rule says only when asked. Switch
-   to "only when asked"? (It saves quota.)
+5. ~~Notes in Aang's head~~ ANSWERED 2026-10-22: he reads them, and Qwen notices things (below).
 6. **Ctrl+Shift+8 for the MacBook keyboard:** fine, or another key?
 7. **Visualiser:** a real one from the system sound (it hears WoW too), or a decorative one?
 8. **Spotify volume:** Windows mixer volume (no network, works without Premium) or Spotify's own volume (shows on
@@ -395,3 +396,16 @@ them**", which **clashes** with your new "Aang works with notes only when asked"
 - Spotify, November 2024 Web API changes: https://developer.spotify.com/blog/2024-11-27-changes-to-the-web-api
 - Spotify, rate limits: https://developer.spotify.com/documentation/web-api/guides/rate-limits/
 - Microsoft, GlobalSystemMediaTransportControlsSessionManager: https://learn.microsoft.com/en-us/uwp/api/windows.media.control.globalsystemmediatransportcontrolssessionmanager
+
+## Aang notices things in your notes (DECIDED 2026-10-22, add to sheet 60 + build)
+
+Joshua: Aang may read his notes, and should surface things. How:
+- **Qwen does the reading, for free.** On a slow timer (and when a note changes), Qwen reads the notes plus today's
+  date and what he's doing (the foreground app/title only), and answers one of: nothing, or ONE line worth saying.
+  Kinds: a date coming up ("You noted to renew the thing Friday. That's tomorrow."), a to-do left open a long time
+  ("'Call the bank' has been open a week."), a link to what he's doing now. Claude is only used if he replies.
+- **Aang's usual rules:** one line in the speech bubble, click opens that note; silent while Claude is in front; mark
+  only in a game; Hush silences it. Never the same thing twice in a day; at most a few a day; nothing at all when
+  Qwen is unsure (empty answer = say nothing).
+- **Control:** each note has "Aang can bring this up" (on by default); one switch to turn noticing off.
+- **Safety:** note text is data to Qwen, never instructions (local.ts rule 1: no tools). Qwen waits while a game runs.

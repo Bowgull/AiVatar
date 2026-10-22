@@ -313,3 +313,7 @@ What he has always meant by "one dynamic bubble / bubble engine":
   being over the mark's spot above his head (ClaudeMarks.cs geometry) and sends `bubble:recall 'jobs'`: a waiting
   Claude question card first, else every running job as a folded bar ("Claude is on two jobs."). Click out shrinks it.
 - Check: test/electron/speech-bubble-check.ts (pictures in test/electron/perf-out/speech/).
+
+### Notes: Aang notices things (DECIDED 2026-10-22)
+- He does NOT want notes hidden from Aang. Keep forAang, and add Qwen-run noticing: one line, click opens the note,
+  per-note "Aang can bring this up" toggle. Full rules: docs/POPOUTS-NOTES-RESEARCH.md, last section. Mockup: sheet 60.
