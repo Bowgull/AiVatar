@@ -160,6 +160,8 @@ export class JobPops {
   has(jobId: string): boolean { const p = this.pops.get(jobId); return !!p && !p.w.isDestroyed(); }
   ids(): string[] { return [...this.pops.keys()]; }
   window(jobId: string): BrowserWindow | null { const p = this.pops.get(jobId); return p && !p.w.isDestroyed() ? p.w : null; }
+  /** Its taskbar picture's buttons (taskbar.ts, sheet 66): the same Pause / Play / Open as its own page, the same checks. */
+  act(jobId: string, what: 'pause' | 'play' | 'open'): void { const p = this.pops.get(jobId); if (p && !p.w.isDestroyed()) this.hearAct(p, what); }
 
   /** The brain's claude.jobs and claude.wait lists, as they came (the page reads them again with readJob). */
   update(jobs: unknown, waits: unknown): void {

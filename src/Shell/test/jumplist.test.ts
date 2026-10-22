@@ -34,3 +34,21 @@ test('the list: one Tasks group, each item this Shell with one task', () => {
     assert.equal(taskFromArgv(i.args!.split(' ')), i.args!.split('=')[1]);
   }
 });
+
+test('sheet 66 A: a Pop-outs section above the Tasks; New note, Timer, Music only while Aang runs; removed items left out', () => {
+  const base = { exe: 'C:\\e\\electron.exe', main: 'C:\\s\\src\\main.ts', dir: 'C:\\s', icon: 'C:\\s\\samara-open.ico' };
+  const on = jumpList({ ...base, popouts: { aang: true, icons: { 'popouts-gather': 'C:\\a\\aang.ico' } } });
+  assert.equal(on.length, 2);
+  assert.equal(on[0]!.type, 'custom');
+  assert.equal(on[0]!.name, 'Pop-outs');
+  const items = on[0]!.items as Electron.JumpListItem[];
+  assert.deepEqual(items.map((i) => i.title), ['Show all pop-outs', 'Hide all pop-outs', 'Gather them by Aang', 'New note', 'Timer', 'Music player']);
+  assert.deepEqual(items.map((i) => i.iconPath), [base.icon, base.icon, 'C:\\a\\aang.ico', base.icon, base.icon, base.icon]);
+  for (const i of items) assert.ok(taskFromArgv(i.args!.split(' ')), i.args);
+  assert.equal(on[1]!.type, 'tasks');
+  const off = jumpList({ ...base, popouts: { aang: false, icons: {} } });
+  assert.deepEqual((off[0]!.items as Electron.JumpListItem[]).map((i) => i.title), ['Show all pop-outs', 'Hide all pop-outs', 'Gather them by Aang']);
+  const gone = jumpList({ ...base, popouts: { aang: true, icons: {}, removed: (a) => a.endsWith('=timer') } });
+  assert.ok(!(gone[0]!.items as Electron.JumpListItem[]).some((i) => i.title === 'Timer'));
+  for (const t of ['popouts-show', 'popouts-hide', 'popouts-gather', 'new-note', 'timer', 'player']) assert.equal(taskFromLockData({ samaraTask: t }), t);
+});
