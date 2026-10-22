@@ -12,7 +12,7 @@ import { askLocal } from '../src/local.ts';
 test('the game list here agrees with the one in screen.ts', () => {
   // Two copies of a list like this drift the moment a game is added to one of them. screen.ts answers a
   // different question (is this window a picture) from the same set of names, so they must stay in step.
-  const games = ['wow', 'wowb', 'wow-64', 'overwatch', 'diablo', 'hearthstone', 'valorant', 'league of legends'];
+  const games = ['wow', 'wowb', 'wow-64', 'cemu', 'Cemu', 'overwatch', 'diablo', 'hearthstone', 'valorant', 'league of legends'];
   for (const g of games) {
     assert.ok(GAME_PROCESS.test(g), `${g} should be a game here`);
     assert.equal(looksVisual(g, ''), 'game', `${g} should be a game in screen.ts too`);

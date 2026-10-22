@@ -10,6 +10,7 @@
 // is kept or sent anywhere else. Helper agents' entries (isSidechain) and Aang's own chat lanes (.aang-self) are
 // skipped. A job made this way is `source: 'transcript'`: progress and the live line, never answering; the session's
 // mod takes it over the moment it talks (same session id). The Mac's sessions are out of scope.
+import { watch, type FSWatcher } from 'node:fs';
 import { open, readdir, stat } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -167,6 +168,8 @@ export interface TranscriptSink {
 
 /** Fresh: touched within this. Older and not mid-turn, a session drops off. */
 export const FRESH_MS = 30 * 60_000;
+/** With the directory watch on, the full walk of every transcript runs this often, as a safety net. */
+export const FULL_SWEEP_MS = 3 * 60_000;
 /** A session that looks mid-turn but has been silent this long has died with its turn: it drops off too. */
 export const STUCK_MS = 2 * 3600_000;
 
@@ -179,50 +182,100 @@ export class TranscriptScan {
   private readonly known = new Map<string, { mtime: number; session: string; working: boolean; relooked?: boolean }>();
   private timer: NodeJS.Timeout | null = null;
   private busy = false;
+  /**
+   * Perf sweep (2026-10-22): the walk itself was the brain's biggest idle cost. ~/.claude/projects held 658 transcripts,
+   * and stat-ing every one of them every 10 s measured 150-190 ms of CPU a pass (1.5 % of a core, all day), to find the
+   * 3 that were fresh. Now Windows tells the brain which files changed (one recursive directory watch, no polling): a
+   * pass looks only at the files it already knows plus the ones that changed, and the full walk runs every few minutes
+   * as a safety net. With no watch (tests, or the watch failing), every pass is a full walk, exactly as before.
+   */
+  private watcher: FSWatcher | null = null;
+  private readonly dirty = new Set<string>();
+  private fullAt = 0;
   constructor(sink: TranscriptSink, opts: { root?: string; selfCwd?: () => string; tailBytes?: number } = {}) {
     this.sink = sink; this.root = opts.root ?? projectsDir(); this.selfCwd = opts.selfCwd ?? (() => ''); this.tailBytes = opts.tailBytes ?? 200_000;
   }
 
   start(everyMs = 10_000): void {
     if (this.timer) return;
+    this.watchRoot();
     void this.scan();
     this.timer = setInterval(() => { void this.scan(); }, everyMs);
     this.timer.unref?.();
   }
-  stop(): void { if (this.timer) clearInterval(this.timer); this.timer = null; }
+  stop(): void {
+    if (this.timer) clearInterval(this.timer);
+    this.timer = null;
+    try { this.watcher?.close(); } catch { /* already gone */ }
+    this.watcher = null;
+  }
+  /** True while the directory watch is feeding the passes (tests and diagnostics). */
+  get watching(): boolean { return this.watcher !== null; }
+
+  private watchRoot(): void {
+    try {
+      const w = watch(this.root, { recursive: true, persistent: false }, (_ev, name) => {
+        // No name means Windows dropped events (its buffer overflowed): the next pass walks everything.
+        if (!name) { this.fullAt = 0; return; }
+        const rel = String(name);
+        if (!rel.endsWith('.jsonl')) return;
+        // Only <folder>/<session>.jsonl, the same depth the walk reads; helpers' own transcripts sit deeper.
+        if (rel.split(/[\\/]/).length !== 2) return;
+        this.dirty.add(path.join(this.root, rel));
+      });
+      w.on('error', () => { try { w.close(); } catch { /* gone */ } if (this.watcher === w) { this.watcher = null; this.fullAt = 0; } });
+      this.watcher = w;
+    } catch { this.watcher = null; }
+  }
+
+  /** The files one pass looks at: every transcript (a full walk), or the known ones plus the ones that changed. */
+  private async candidates(): Promise<string[] | null> {
+    if (this.watcher && Date.now() - this.fullAt < FULL_SWEEP_MS) {
+      const list = new Set([...this.known.keys(), ...this.dirty]);
+      this.dirty.clear();
+      return [...list];
+    }
+    // Cleared before the walk: anything that changes while it runs is looked at again next pass.
+    this.dirty.clear();
+    let dirs: string[] = [];
+    try { dirs = await readdir(this.root); } catch { return null; }
+    this.fullAt = Date.now();
+    const out: string[] = [];
+    for (const d of dirs) {
+      let files: string[] = [];
+      try { files = (await readdir(path.join(this.root, d))).filter(f => f.endsWith('.jsonl')); } catch { continue; }
+      for (const f of files) out.push(path.join(this.root, d, f));
+    }
+    return out;
+  }
 
   /** One pass: new or changed fresh transcripts are read; stale ones are let go. Never throws. */
   async scan(now = Date.now()): Promise<void> {
     if (this.busy) return;
     this.busy = true;
     try {
-      let dirs: string[] = [];
-      try { dirs = await readdir(this.root); } catch { return; }
+      const files = await this.candidates();
+      if (!files) return;
       const seen = new Set<string>();
-      for (const d of dirs) {
-        let files: string[] = [];
-        try { files = (await readdir(path.join(this.root, d))).filter(f => f.endsWith('.jsonl')); } catch { continue; }
-        for (const f of files) {
-          const file = path.join(this.root, d, f);
-          let mtime = 0;
-          try { mtime = (await stat(file)).mtimeMs; } catch { continue; }
-          const was = this.known.get(file);
-          const age = now - mtime;
-          if (age > (was?.working ? STUCK_MS : FRESH_MS)) continue;     // stale: left out (and let go below)
-          seen.add(file);
-          // Unchanged since it was read; one more look once a mid-turn one has gone quiet (it may have ended unrecorded).
-          if (was && was.mtime === mtime && !(was.working && !was.relooked && age > QUIET_RESULT_MS)) continue;
-          try {
-            const { text, whole } = await tail(file, this.tailBytes);
-            const s = readTranscript(text, whole, mtime, this.selfCwd(), now);
-            if (!s) { this.known.set(file, { mtime, session: '', working: false }); continue; }
-            this.known.set(file, { mtime, session: s.session, working: s.working, relooked: was?.mtime === mtime });
-            this.sink.fromTranscript(s, now);
-          } catch { /* mid-write or gone: next pass */ }
-          // 2026-10-21: a turn of the event loop between files, so a pass over several busy transcripts is never one
-          // long stretch of the brain's time (each file is a positioned read of its tail, ~1-2 ms to parse).
-          await new Promise(r => setImmediate(r));
-        }
+      for (const file of files) {
+        let mtime = 0;
+        try { mtime = (await stat(file)).mtimeMs; } catch { continue; }
+        const was = this.known.get(file);
+        const age = now - mtime;
+        if (age > (was?.working ? STUCK_MS : FRESH_MS)) continue;     // stale: left out (and let go below)
+        seen.add(file);
+        // Unchanged since it was read; one more look once a mid-turn one has gone quiet (it may have ended unrecorded).
+        if (was && was.mtime === mtime && !(was.working && !was.relooked && age > QUIET_RESULT_MS)) continue;
+        try {
+          const { text, whole } = await tail(file, this.tailBytes);
+          const s = readTranscript(text, whole, mtime, this.selfCwd(), now);
+          if (!s) { this.known.set(file, { mtime, session: '', working: false }); continue; }
+          this.known.set(file, { mtime, session: s.session, working: s.working, relooked: was?.mtime === mtime });
+          this.sink.fromTranscript(s, now);
+        } catch { /* mid-write or gone: next pass */ }
+        // 2026-10-21: a turn of the event loop between files, so a pass over several busy transcripts is never one
+        // long stretch of the brain's time (each file is a positioned read of its tail, ~1-2 ms to parse).
+        await new Promise(r => setImmediate(r));
       }
       for (const [file, k] of this.known) {
         if (seen.has(file)) continue;

@@ -435,7 +435,10 @@ sealed class PetWindow : Form
         base.OnShown(e);
         Render();
         timer.Start(); fgTimer.Start(); PollForeground(); ApplyQuiet();
-        wowTimer.Tick += (_, _) => _ = Task.Run(() => { try { wowRunning = System.Diagnostics.Process.GetProcesses().Any(p => { using (p) return p.ProcessName.StartsWith("Wow", StringComparison.OrdinalIgnoreCase); }); } catch { } });
+        // Perf sweep (2026-10-22): the only reader of wowRunning is the docked hover-reveal, so the whole process list (290
+        // processes, a few ms and ~290 objects to collect each time) is only walked while he is tucked at an edge, and every
+        // 3 s rather than 1.5 s. Undocked, nothing reads it.
+        wowTimer.Tick += (_, _) => { if (dock == DockEdge.None) return; _ = Task.Run(() => { try { wowRunning = System.Diagnostics.Process.GetProcesses().Any(p => { using (p) return p.ProcessName.StartsWith("Wow", StringComparison.OrdinalIgnoreCase); }); } catch { } }); };
         wowTimer.Start();
         link.Start();
         if (!noCore)
@@ -2150,7 +2153,7 @@ sealed class PetWindow : Form
     const int RevealMs = 600, TuckMs = 700, TuckAfterMs = 45_000, IdleEveryMs = 6_000;
     bool hoverArmed = true;                                // after a tuck the mouse has to leave the edge before hovering wakes him again
     volatile bool wowRunning;
-    readonly System.Windows.Forms.Timer wowTimer = new() { Interval = 1500 };
+    readonly System.Windows.Forms.Timer wowTimer = new() { Interval = 3000 };
     DateTime nextIdleAt = DateTime.MaxValue, behaviourUntil = DateTime.MaxValue, travelPauseUntil;
     bool flipX;
     int travelStep;                                        // 0 none, 1 going, 2 looking around, 3 coming back
