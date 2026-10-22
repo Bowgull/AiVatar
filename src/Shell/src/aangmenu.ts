@@ -29,7 +29,7 @@ export function avoidRect(sprite: { x: number; y: number; width: number; height:
 /** The ids a pick may be; anything else is dropped. */
 export const MENU_IDS = new Set(['back', 'jobs', 'hunt', 'hush.15', 'hush.60', 'hush.240', 'hush.tomorrow', 'hush.off', 'mute',
   'quiet.auto', 'quiet.always', 'quiet.never', 'dock.bottom', 'dock.left', 'dock.right', 'dock.top', 'comeback', 'hide',
-  'model.auto', 'model.quick', 'model.smart', 'model.deep', 'saving', 'quit']);
+  'model.auto', 'model.quick', 'model.smart', 'model.deep', 'saving', 'quit', 'notes.notice']);
 
 export class AangMenu {
   private win: BrowserWindow | null = null;

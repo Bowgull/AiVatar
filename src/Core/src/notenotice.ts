@@ -64,6 +64,7 @@ export const NOTICE_SYSTEM = [
   '- "now": a note line plainly about what he is doing right now (the app and window in front).',
   'If you are not sure, or nothing fits, say nothing. Saying nothing is the usual, correct answer.',
   'Never pick a line marked (done), or a line listed under "already said today".',
+  'Name the note (its title) or quote the line in your sentence, so he knows which note it is.',
   'Answer with JSON only, no other text. Nothing: {"say":""}',
   'Something: {"say":"<one friendly sentence, under 20 words>","note":"<the note id>","line":"<the note line, copied exactly>","kind":"date"|"todo"|"now"}',
 ].join('\n');
@@ -100,6 +101,32 @@ export function readAnswer(text: string, notes: Note[], alreadySaid: Set<string>
 }
 
 const keyOf = (noteId: string, line: string) => `${noteId}|${norm(line)}`;
+
+/**
+ * Sheet 60 B (his pick, 2026-10-22): the note's NAME in Aang's line is the link that opens it, and the line ends in "!"
+ * only where it fits naturally (a due date: "Renew the passport is due tomorrow!"; a plain pointer: "Your Network note
+ * has the Wi-Fi name."). Qwen is asked to name the note; when it did not, the name is put in front so there is always
+ * a link. `link` is the words exactly as they stand in `say`.
+ */
+export function shapeLine(n: Notice, title: string): { say: string; link: string } {
+  let say = n.say.trim().replace(/[.!?\s]+$/, '');
+  const ask = /\?$/.test(n.say.trim());
+  const t = title.trim();
+  const named = t && t.toLowerCase() !== 'note' ? t : '';
+  const line = n.line.replace(/\s*\([^)]*\)\s*$/, '').trim();
+  const words = line.split(' ').slice(0, 5);
+  while (words.length > 2 && /^(?:the|a|an|to|of|for|about|and|my|on|at|in|with)$/i.test(words[words.length - 1]!)) words.pop();
+  const shortLine = words.join(' ');
+  const find = (w: string) => { if (!w || w.length < 3) return ''; const i = say.toLowerCase().indexOf(w.toLowerCase()); return i >= 0 ? say.slice(i, i + w.length) : ''; };
+  let link = find(named) || find(line) || find(shortLine);
+  if (!link) {
+    const lead = named ? `Your ${named} note` : shortLine;
+    say = `${lead}: ${say[0] ? say[0].toLowerCase() + say.slice(1) : say}`;
+    link = named ? named : shortLine;
+  }
+  say += ask ? '?' : n.kind === 'date' ? '!' : '.';
+  return { say, link };
+}
 
 export class NoteNotice {
   private st: State;

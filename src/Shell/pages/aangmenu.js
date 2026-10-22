@@ -91,6 +91,11 @@ function subRows(which, s) {
       { id: 'quiet.auto', t: 'Auto: while WoW is in front', tick: q === 'auto' },
       { id: 'quiet.always', t: 'Always', tick: q === 'always' },
       { id: 'quiet.never', t: 'Never', tick: q === 'never' },
+      // Sheet 60 (2026-10-22): the one switch for all of "Aang notices things in your notes".
+      '-',
+      { head: 'YOUR NOTES' },
+      { id: 'notes.notice', t: 'Let Aang bring up my notes', tick: s.notesNotice !== false },
+      { cap: 'Each note also has its own switch.' },
     ];
   }
   if (which === 'dock') {
@@ -125,6 +130,7 @@ function menu(rows, inSub) {
   for (const r of rows) {
     if (r === '-') m.append(Object.assign(document.createElement('div'), { className: 'sep' }));
     else if (r.head) m.append(Object.assign(document.createElement('div'), { className: 'mhead', textContent: r.head }));
+    else if (r.cap) m.append(Object.assign(document.createElement('div'), { className: 'mcap', textContent: r.cap }));
     else m.append(row(r, inSub));
   }
   return m;

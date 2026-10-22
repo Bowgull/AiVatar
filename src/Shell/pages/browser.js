@@ -1,5 +1,6 @@
 import { pixIcon } from './pixicons.js';
 import { startRune } from './rune.js';
+import { openRail, railTabs } from './sitenotes.js';
 // 6.20: the browser's frame. Draws the rail and the address slot from the tab list the Shell sends, and
 // tells the Shell where the page area is (6.19). Everything is built with textContent: titles and
 // addresses are the websites' own words.
@@ -158,6 +159,8 @@ el('zreset').addEventListener('click', () => window.aang?.browserAct?.('zoomrese
 el('m-newtab').addEventListener('click', () => { closeMenu(); tap(); window.aang?.browserAct?.('newtab'); });
 el('m-reopen').addEventListener('click', () => { closeMenu(); window.aang?.browserAct?.('reopen'); });
 el('m-find').addEventListener('click', () => { closeMenu(); setTimeout(openFind, 0); });
+// Sheet 60 section 4: this site's notes, in the rail on the right (sitenotes.js).
+el('m-sitenotes').addEventListener('click', () => { closeMenu(); openRail(); });
 el('m-print').addEventListener('click', () => { closeMenu(); window.aang?.browserAct?.('print'); });
 el('m-tidy').addEventListener('click', () => { closeMenu(); openDrawer(); window.aang?.browserAct?.('tidy'); });
 el('m-marks').addEventListener('click', () => { closeMenu(); window.aang?.browserAct?.('bookmarks'); });
@@ -1021,6 +1024,7 @@ el('failback').addEventListener('click', () => window.aang?.browserAct?.('failba
 window.aang?.onBrowserTabs?.((s) => {
   if (!s || !Array.isArray(s.tabs)) return;
   state = s;
+  railTabs(s);
   paintMarks(s.marks);
   el('m-mockups').hidden = !s.mockups;
   paintTidy();

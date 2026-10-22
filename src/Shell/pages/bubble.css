@@ -1152,3 +1152,37 @@ body{display:flex;flex-direction:column;justify-content:flex-end;height:100vh}
 #bubble.cdone:hover #said{transform:translateY(-1px)}
 .lt-item.goclaude .lt-head{cursor:pointer;transition:transform .12s ease}
 .lt-item.goclaude .lt-head:hover{background:rgba(120,80,30,.13);transform:translateY(-1px)}
+
+/* ---- sheet 60 (his picks, 2026-10-22): the notes board in look B. Colour from the category, the ribbon tab (no pin, no
+   tilt), filter chips that carry their category's paper, readable Figtree labels (no squashed pixel caps). ---- */
+.ctitle.nb60{font:800 19px 'Figtree',sans-serif;color:#4a2a10;letter-spacing:0;margin:0 0 8px}
+.ctitle.nb60 .newk{font:800 13.5px 'Figtree',sans-serif;letter-spacing:0;padding:6px 12px 7px;border-radius:9px;border-width:2.5px}
+.ctitle .back{font:800 12px 'Figtree',sans-serif;letter-spacing:.3px;padding:4px 9px 5px;border-radius:8px}
+.hint2{font:500 12.5px 'Figtree',sans-serif}
+.bchips{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+.bchip{display:inline-flex;align-items:center;gap:7px;padding:5px 11px 6px;border-radius:10px;border:2.5px solid rgba(74,46,26,.55);background:rgba(255,248,232,.6);
+  font:700 13px 'Figtree',sans-serif;color:#3a2412;cursor:pointer;transition:background-color .15s,transform .12s}
+.bchip:hover{transform:translateY(-1px);background:rgba(255,248,232,.9)}
+.bchip i{width:12px;height:12px;border-radius:3px;background:var(--paper);border:2px solid #2c1c10;flex:none}
+.bchip.on{background:linear-gradient(180deg,#6a44a0,#4A2C6E);border-color:#2a1446;color:#fff}
+.bchip.add{border-style:dashed;color:#6b5236;background:none}
+.bcatin{padding:5px 10px 6px;border-radius:10px;border:2.5px solid #c98c14;background:#fffaf0;font:600 13px 'Figtree',sans-serif;color:#2a1c10;outline:none;width:150px}
+.board{grid-auto-rows:132px;gap:20px 16px;padding:22px 18px 16px}
+.nmini.npaper{padding:0;background:none;border:0;box-shadow:none;transform:none;color:#2a1c10;font:500 13px/18px 'Figtree',sans-serif;transition:transform .16s cubic-bezier(.34,1.5,.64,1)}
+.nmini.npaper:hover{transform:translateY(-3px);box-shadow:none}
+.nmini.npaper .np-ribbon{left:16px;top:-8px}
+.nmini.npaper .np-in{padding:25px 11px 8px;overflow:hidden}
+.nmini.npaper .mt{display:block;font:400 17px/1.15 'Patrick Hand','Figtree',sans-serif;margin:0 0 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nmini.npaper .np-chip{align-self:flex-start;font-size:11.5px;padding:3px 8px 4px;margin:0 0 5px;cursor:inherit}
+.nmini.npaper .ml{display:block;font:500 13px/18px 'Figtree',sans-serif;color:#2a1c10;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nmini.npaper .ml.done{text-decoration:line-through;opacity:.55}
+.nmini.npaper .tickc{font:700 11px 'Figtree',sans-serif;letter-spacing:.3px;color:#5a4630;right:10px;bottom:7px;z-index:2}
+.nmini.npaper .onscreen{font:700 10.5px 'Figtree',sans-serif;letter-spacing:.4px;color:#5a4630;left:11px;bottom:7px;z-index:2}
+.bignote.npaper{min-height:260px;padding:0;box-shadow:none;border:0;background:none;margin-top:4px}
+.inline .np-pick{position:static;width:auto;margin-top:12px}
+/* sheet 60 B: the noticed note's keys, only after he has rested the pointer on the bubble a moment */
+.nkeys{margin-top:10px}
+.nkeys.guard{pointer-events:none}
+.nkeys[hidden]{display:none}
+.bignote.npaper .np-in{min-height:260px}
+.nkeys{flex-wrap:nowrap;gap:8px}.nkeys .key{font-size:12.5px;padding:8px 12px 9px;white-space:nowrap}

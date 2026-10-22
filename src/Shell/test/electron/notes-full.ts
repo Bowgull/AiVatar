@@ -38,10 +38,10 @@ app.whenReady().then(async () => {
   const pages = await servePages(path.join(SHELL, 'pages'));
   const store = new Notes(path.join(mkdtempSync(path.join(os.tmpdir(), 'notes-full-')), 'notes.json'));
   const seed = [
-    ['Raid night', ['Flasks', 'Food buff', 'Repair', 'Clear bags'], 'rose'], ['Octup interview', ['Ask about the team size'], 'sky'],
-    ['Mac logins', ['Move the old ones to Bitwarden'], 'plum'], ['Shows', ['Naruto S3 E13', 'Frieren'], 'sage'],
-    ['Groceries', ['Eggs', 'Coffee', 'Rice'], 'parchment'], ['Mythic route', ['Pull 1-3, skip the bridge'], 'stone'],
-    ['Birthday', ['Mom, Oct 30'], 'rose'], ['Aang ideas', ['Wheel icons', 'Hourglass'], 'plum'],
+    ['Raid night', ['Flasks', 'Food buff', 'Repair', 'Clear bags'], 'To-do'], ['Octup interview', ['Ask about the team size'], 'Reference'],
+    ['Mac logins', ['Move the old ones to Bitwarden'], 'For Claude'], ['Shows', ['Naruto S3 E13', 'Frieren'], 'Idea'],
+    ['Groceries', ['Eggs', 'Coffee', 'Rice'], ''], ['Mythic route', ['Pull 1-3, skip the bridge'], 'Reference'],
+    ['Birthday', ['Mom, Oct 30'], ''], ['Aang ideas', ['Wheel icons', 'Hourglass'], 'Idea'],
   ] as const;
   seed.forEach(([t, l, c], i) => store.make(t, linesHtml([...l]), c, 1000 + i));
 
@@ -83,7 +83,7 @@ app.whenReady().then(async () => {
 
   await clickSel(bub, '.bcap.r');
   await wait(200);
-  check('the right arrow turns to page two (two notes, four empty)', (await js(bub, `document.querySelectorAll('.board .nmini:not(.slot)').length + '/' + document.querySelectorAll('.board .nmini.slot').length`)) === '2/4');
+  check('the right arrow turns to page two (two notes, no empty ghost slots)', (await js(bub, `document.querySelectorAll('.board .nmini:not(.slot)').length + '/' + document.querySelectorAll('.board .nmini.slot').length`)) === '2/0');
   await clickSel(bub, '.bcap.l');
   await wait(200);
 
@@ -120,10 +120,12 @@ app.whenReady().then(async () => {
   check('right-click opens the menu', (await js(bub, `!!document.querySelector('.nmenu')`)) === true, pageErrors.join(' | '));
   check('the menu is inside the bubble, not cut off', (await js(bub, `(() => { const b = document.getElementById('bubble').getBoundingClientRect(), m = document.querySelector('.nmenu').getBoundingClientRect(); return m.bottom <= b.bottom + 1 && m.top >= b.top - 1; })()`)) === true);
   check('font buttons show only the name', (await js(bub, `[...document.querySelectorAll('.fnt b')].map(b => b.textContent).join(',')`)) === 'Plain,Handwritten,Marker,Fancy,Storybook,Typewriter,Pixel,Terminal,Arcade');
-  // colour
-  await clickSel(bub, '.nmenu .sw:nth-child(4)');
+  // Sheet 60: no colour row any more; the colour is the category's (the # chip, then To-do in the list).
+  await clickSel(bub, '.bignote .np-chip');
+  await wait(300);
+  await clickSel(bub, '.np-pick .np-prow:nth-of-type(2)');
   await wait(900);
-  check('a colour changes the note and is saved', lastSaid('bubble:notesave')?.col === 'sky', lastSaid('bubble:notesave')?.col);
+  check('a category changes the note and is saved', lastSaid('bubble:notesave')?.cat === 'To-do', lastSaid('bubble:notesave')?.cat);
   // bold on highlighted words
   await clickSel(bub, '.bignote .nbody', 'left', 0.5, 0.1);
   await js(bub, `(() => { const l = document.querySelector('.bignote .nbody .cl'); const r = document.createRange(); r.selectNodeContents(l); const s = getSelection(); s.removeAllRanges(); s.addRange(r); })()`);

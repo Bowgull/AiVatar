@@ -39,7 +39,7 @@ test('Aang reads notes as plain lines, ticks included', () => {
 test('the store: make, find by name, add, edit, out on the screen, remove, and it survives a restart', () => {
   const file = path.join(mkdtempSync(path.join(os.tmpdir(), 'notes-')), 'n.json');
   const s = new Notes(file);
-  const n = s.make('Raid night', linesHtml(['Flasks', 'Food']), 'rose', 1000)!;
+  const n = s.make('Raid night', linesHtml(['Flasks', 'Food']), 'To-do', 1000)!;
   assert.equal(s.find('raid')?.id, n.id);
   assert.match(s.append(n.id, ['Potions'], 2000)!.html, /<div class="cl">Potions<\/div>$/);
   const e = s.save1({ ...n, title: 'Raid', html: '<b>x</b><img src=y>', out: { x: 5, y: 6, w: 9999, h: 50, opacity: 3, pinned: true } }, 3000)!;
@@ -58,7 +58,7 @@ test('sheet 62: Keep as a note makes a plain note with the link, and the link su
   const n = s.keep('Ragnaros knocks back everyone <b>in melee</b>\nat each submerge.', 'https://forever.warcraft.com/guides/molten-core', 'forever.warcraft.com')!;
   assert.ok(n);
   assert.equal(n.title, 'forever.warcraft.com');
-  assert.equal(n.col, 'parchment');
+  assert.equal(n.cat, undefined);
   assert.deepEqual(n.src, { url: 'https://forever.warcraft.com/guides/molten-core', site: 'forever.warcraft.com' });
   // The page's words are escaped, never markup; the link is its own line.
   assert.match(n.html, /&lt;b&gt;in melee&lt;\/b&gt;/);

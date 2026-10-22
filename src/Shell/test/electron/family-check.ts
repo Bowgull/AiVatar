@@ -59,7 +59,7 @@ app.whenReady().then(async () => {
   const saved: unknown[] = [];
   const notes = new NoteWindows({ origin: pages.origin, preloadPath: path.join(HERE, '..', '..', 'src', 'preload.cjs'), save: (n) => saved.push(n), overAang: () => false });
   notes.family = host;
-  const nw = notes.show({ id: 'n1', title: 'Raid night', html: 'Bring flasks<br>Repair first', col: 'gold', font: 'hand', size: 'm', out: { x: -5150, y: 700, w: 220, h: 170, opacity: 1, pinned: false }, updated: 1 })!;
+  const nw = notes.show({ id: 'n1', title: 'Raid night', html: 'Bring flasks<br>Repair first', font: 'hand', size: 'm', out: { x: -5150, y: 700, w: 220, h: 170, opacity: 1, pinned: false }, updated: 1 })!;
 
   const ok = await until(() => host.members().length === 3 && [video, jw, nw].every((w) => !w.webContents.isLoading()), 10000);
   check('three members registered and loaded', ok, host.members());

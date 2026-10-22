@@ -13,7 +13,7 @@ import { Faces, domainOfEmail, hostOf } from './faces.ts';
 import { Choices, choiceKey } from './choices.ts';
 import { Timers, parseTimerCommand, sayDuration, MAX_MS } from './timers.ts';
 import { Notes, parseNoteCommand, linesHtml } from './notes.ts';
-import { NoteNotice, NOTICE_EVERY_MS, type Notice } from './notenotice.ts';
+import { NoteNotice, NOTICE_EVERY_MS, shapeLine, type Notice } from './notenotice.ts';
 import { WebSocketServer } from 'ws';
 import type { WebSocket } from 'ws';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync, unlinkSync, writeFileSync, mkdtempSync, rmSync, watchFile } from 'node:fs';
@@ -3355,7 +3355,7 @@ export class Core {
         const q = this.quotaMessage(); if (q) this.send(ws, q);
         if (this.kindOfSocket(ws) === 'desktop') { const st = this.claudeState(); this.send(ws, { t: 'claude.working', ...st.working }); this.send(ws, this.claudeMarks.now(st.jobs, st.waits, st.alsoWorking)); }
         if (m.shell === true) this.send(ws, { t: 'timer.state', timers: this.timers.list() });
-        if (m.shell === true) this.send(ws, { t: 'notes.state', notes: this.notes.list() });
+        if (m.shell === true) this.send(ws, { t: 'notes.state', notes: this.notes.list(), cats: this.notes.cats() });
         if (m.shell === true) { this.send(ws, { t: 'claude.jobs', jobs: this.claudeJobs.list() }); this.send(ws, { t: 'claude.wait', items: this.claudeJobs.waiting(), ...(this.inClaude() ? { quiet: true } : {}) }); }
         break;
       }
@@ -3365,11 +3365,13 @@ export class Core {
         this.startTimer(ms, String(m.label ?? '').slice(0, 40));
         break;
       }
-      case 'notes.save': { if (this.notes.save1(m.note)) { this.sendTo('desktop', { t: 'notes.state', notes: this.notes.list() }); this.noteNotice.noteChanged(); } break; }
+      case 'notes.save': { if (this.notes.save1(m.note)) { this.sendTo('desktop', { t: 'notes.state', notes: this.notes.list(), cats: this.notes.cats() }); this.noteNotice.noteChanged(); } break; }
       case 'notice.set': this.noteNotice.setOn(m.on === true); break;
-      case 'notes.delete': { if (this.notes.remove(String(m.id ?? ''))) this.sendTo('desktop', { t: 'notes.state', notes: this.notes.list() }); break; }
+      // Sheet 60 (2026-10-22): "+ Category" on the board: one of his own before any note has it (it takes the next colour).
+      case 'notes.cat': { if (this.notes.addCat(m.name)) this.sendTo('desktop', { t: 'notes.state', notes: this.notes.list(), cats: this.notes.cats() }); break; }
+      case 'notes.delete': { if (this.notes.remove(String(m.id ?? ''))) this.sendTo('desktop', { t: 'notes.state', notes: this.notes.list(), cats: this.notes.cats() }); break; }
       // Sheet 62 (2026-10-22): "Keep as a note" on Aang's line after a Send to Aang. A plain note with the link; Notes.keep checks it.
-      case 'notes.keep': { if (this.notes.keep(String(m.text ?? ''), String(m.url ?? ''), String(m.site ?? ''))) this.sendTo('desktop', { t: 'notes.state', notes: this.notes.list() }); break; }
+      case 'notes.keep': { if (this.notes.keep(String(m.text ?? ''), String(m.url ?? ''), String(m.site ?? ''))) this.sendTo('desktop', { t: 'notes.state', notes: this.notes.list(), cats: this.notes.cats() }); break; }
       case 'timer.act': {
         const action = m.action === 'add' || m.action === 'pause' || m.action === 'stop' ? m.action : null;
         if (!action) break;
@@ -3424,7 +3426,7 @@ export class Core {
       // Sheet 56 (2026-10-21): the right-click menu. The pet says where and what is ticked; only the brain knows when a
       // hush ends, so it adds that. His pick goes back to the pet, which runs the handler.
       case 'menu.open': this.sendToShells({ t: 'menu.open', x: Number(m.x) || 0, y: Number(m.y) || 0,
-        state: { ...(m.state && typeof m.state === 'object' ? m.state : {}), hushedUntil: this.hushUntil > Date.now() ? this.hushUntil : 0 } }); break;
+        state: { ...(m.state && typeof m.state === 'object' ? m.state : {}), hushedUntil: this.hushUntil > Date.now() ? this.hushUntil : 0, notesNotice: this.noteNotice.on } }); break;
       case 'menu.pick': if (typeof m.id === 'string') this.sendTo('desktop', { t: 'menu.pick', id: m.id.slice(0, 24) }); break;
       // The mode he picked in the new box. Relayed so the PET can write it to body.json: the pet is
       // the only writer of that file, and two writers of one file is how it gets truncated.
@@ -3710,7 +3712,7 @@ export class Core {
             const n = this.notes.make(noteCmd.title, linesHtml(noteCmd.lines));
             say = n ? `Noted: ${n.title}${noteCmd.lines.length > 1 ? `, ${noteCmd.lines.length} things` : ''}. It is on your board.` : 'Your board is full (60 notes). Delete one first.';
           }
-          this.sendTo('desktop', { t: 'notes.state', notes: this.notes.list() });
+          this.sendTo('desktop', { t: 'notes.state', notes: this.notes.list(), cats: this.notes.cats() });
           if (noteCmd.op !== 'show') this.noteNotice.noteChanged();
           this.send(ws, { t: 'bubble', text: say, stream: false, id, who: 'Aang' });
           break;
@@ -4309,10 +4311,13 @@ export class Core {
    * front), stored as a 'say' row so a reply to it works like a reply to anything Aang said. kind 'note.notice' and the
    * note's id ride along: the bubble opens that note on a click, and sheet 60 gives it its own look later.
    */
-  private sendNotice(n: Notice): void {
+  private sendNotice(raw: Notice): void {
+    // Sheet 60 B: the note's name in his line is the link (shapeLine makes sure it is there); "!" only on a due date.
+    const shaped = shapeLine(raw, this.notes.list().find(x => x.id === raw.noteId)?.title ?? '');
+    const n = { ...raw, say: shaped.say };
     this.lastAnnounced = { text: n.say, at: Date.now() };
     const notice = { noteId: n.noteId, line: n.line };
-    const msg: Extract<ToBody, { t: 'bubble' }> = { t: 'bubble', text: n.say, stream: false, proactive: true, kind: 'note.notice', notice };
+    const msg: Extract<ToBody, { t: 'bubble' }> = { t: 'bubble', text: n.say, stream: false, proactive: true, kind: 'note.notice', notice, link: shaped.link };
     const row = this.memory.saveSaid(n.say, 'say', { kind: 'note.notice', notice, noticeKind: n.kind });
     if (row !== null) msg.turn = row;
     this.actions.add({ tool: 'notice', did: `noticed in a note: "${n.line.slice(0, 70)}"`, ok: true, note: '' });
