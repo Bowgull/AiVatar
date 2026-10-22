@@ -313,6 +313,11 @@ What he has always meant by "one dynamic bubble / bubble engine":
   being over the mark's spot above his head (ClaudeMarks.cs geometry) and sends `bubble:recall 'jobs'`: a waiting
   Claude question card first, else every running job as a folded bar ("Claude is on two jobs."). Click out shrinks it.
 - Check: test/electron/speech-bubble-check.ts (pictures in test/electron/perf-out/speech/).
+- Comic lettering (built 2026-10-22, POPOUTS-NOTES-RESEARCH.md section 1's table): bubble.js `letterWhole` (whole
+  messages: width by length band, balanced/pretty breaks, balloon hugs the longest line, short plain ones centred on
+  22 px), `widenAtThird` (a narrow streamed reply widens only at line 3; lines 1-2 frozen as hard breaks), line-step
+  growth on the 520 ms spring, bold italic emphasis, tail aimed at his mouth (balloon.js MOUTH_FROM_HEAD, reach still
+  0.75). Check: test/electron/lettering-check.ts.
 
 ### Notes: Aang notices things (DECIDED 2026-10-22)
 - He does NOT want notes hidden from Aang. Keep forAang, and add Qwen-run noticing: one line, click opens the note,

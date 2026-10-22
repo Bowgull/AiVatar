@@ -949,7 +949,8 @@ app.whenReady().then(async () => {
     const h = headOf(petAt);
     const head = { x: h.x - box.x, y: h.y - box.y };
     // He is to the LEFT of the bubble only when docked left, and then the tail leaves the other side.
-    w.webContents.send('bubble:aim', { x: head.x, y: head.y, flip: head.x < 0 });
+    // `s`: the pet's scale, so the page can put the tail's aim on his mouth (balloon.js MOUTH_FROM_HEAD, 2026-10-22).
+    w.webContents.send('bubble:aim', { x: head.x, y: head.y, flip: head.x < 0, s: petAt.scale || 1 });
   }
 
   ipcMain.on('bubble:size', (e, size) => {
