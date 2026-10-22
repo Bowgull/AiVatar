@@ -39,9 +39,6 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#
 .key.release > .up{transform:translateY(2px);transition:none}
 .key.off{cursor:default;filter:saturate(.4) brightness(.7)}
 .key .klab{position:absolute;left:0;right:0;text-align:center;font:400 8px Silkscreen,monospace;letter-spacing:1px;color:#3a2a18;pointer-events:none}
-/* the VIS key and the picture say "click me" on hover: a pointer and a one-art-pixel lift with a warm glow */
-.key.vis:hover > div,.pic.click:hover{transform:translateY(-2px);filter:drop-shadow(0 2px 3px rgba(255,190,90,.45))}
-.key.vis:hover > div{transition:transform .12s ease-out}
 .tkey{position:absolute;z-index:2;cursor:pointer;width:28px;height:30px}
 .tkey > canvas{position:absolute;left:0;top:0}
 .tkey:hover{filter:brightness(1.18)}
@@ -49,16 +46,11 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#
 .tkey.on{filter:drop-shadow(0 0 4px rgba(255,180,90,.7))}
 
 /* the one picture: the cover, the scene cross-fading over it in the same spot (0.4 s) */
-.pic{position:absolute;z-index:2;width:68px;height:68px;transition:transform .12s ease-out}
+.pic{position:absolute;z-index:2;width:68px;height:68px}
 .pic canvas{position:absolute;left:0;top:0;width:68px;height:68px}
 .pic .cov{image-rendering:auto}
 .pic .scn{opacity:0;transition:opacity .4s ease}
 .pic.scene .scn{opacity:1}
-.pic.click{cursor:pointer}
-.pager{position:absolute;z-index:2;display:flex;gap:4px;height:6px;align-items:center}
-.pager[hidden]{display:none}
-.pager i{width:4px;height:4px;background:#5a3c22;box-shadow:0 1px 0 rgba(0,0,0,.5);cursor:pointer}
-.pager i.on{background:#ffc43c;box-shadow:0 0 4px rgba(255,180,60,.8)}
 
 /* seek and volume: grab anywhere on the row, the bead follows */
 .grab{position:absolute;z-index:3;cursor:pointer}

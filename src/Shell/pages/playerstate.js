@@ -7,14 +7,20 @@
 // lags by up to a second) is eased in over 400 ms instead of making the time jump back and forth; a real jump (a seek,
 // a new song) is taken at once.
 
-export const VIS = ['bars', 'scene', 'off'];
-/** The VIS key: BARS -> SCENE -> OFF -> BARS. Anything unknown starts again at BARS. */
-/** @param {string} v */
-export function nextVis(v) { const i = VIS.indexOf(v); return VIS[(i + 1) % VIS.length]; }
-
 export const SCENES = ['campfire', 'skate', 'rain', 'fishing'];
-/** @param {string} s */
-export function nextScene(s) { const i = SCENES.indexOf(s); return SCENES[(i + 1) % SCENES.length]; }
+/**
+ * What can sit in the picture spot, in the menu's order, with the names he gave them (2026-10-22). Chosen in the player's
+ * own menu (the ··· key); the old VIS key and click-the-picture are gone (his report: confusing).
+ */
+export const PICTURES = [
+  { id: 'cover', name: 'Album cover' },
+  { id: 'campfire', name: 'Algonquin' },
+  { id: 'skate', name: 'Dem Streez' },
+  { id: 'rain', name: 'Main Character' },
+  { id: 'fishing', name: 'Pigeon Point' },
+];
+/** @param {string} id */
+export const pictureName = (id) => PICTURES.find((p) => p.id === id)?.name ?? 'Album cover';
 
 /** "1:42", "61:05", never negative, never NaN. */
 /** @param {number} sec */

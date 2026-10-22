@@ -1,16 +1,18 @@
 // Sheet 59, the Spotify mini player (2026-10-22): the page. Look A, drawn by the sheet's own pixel kit (player/pix.js)
 // at exactly 2x: Samara's wood body with soft pixel-stepped corners, the amber screen (big time in Figtree bold, the
-// bars, the scrolling title clipped on whole pixels with a soft fade), ONE picture (the cover; in SCENE a looping
-// scene cross-fades into the same spot, a click gives the next one, four dots under it say which), the gold seek bead,
-// the cream keys that sink 2 px and spring back, the volume groove with its round plum knob, the VIS key (BARS ->
-// SCENE -> OFF, its label the current mode). Double-click (or the fold key) folds it to the thin shade strip.
+// bars, the scrolling title clipped on whole pixels with a soft fade), ONE picture (the album cover, or a looping scene
+// cross-faded into the same spot), the gold seek bead, the cream keys that sink 2 px and spring back, the volume groove
+// with its round plum knob. Double-click (or the fold key) folds it to the thin shade strip.
+// 2026-10-22 (his report, using it: "the bars / scene thing is so confusing"): the VIS key, click-the-picture and the
+// four dots are gone. The face stays simple; the picture and the bars are chosen in its own menu, the ··· key by the
+// pin (playermenu.html, its own small window). Joined in a family a right-click is the family's menu, so ··· stays.
 //
-// Cheap on purpose: nothing ticks unless something moves (bars only while playing in BARS, scenes at 10 fps only in
-// SCENE, the marquee only when the title is too long), and everything stops while the window is hidden, minimised or
+// Cheap on purpose: nothing ticks unless something moves (bars only while playing and on, a scene at 10 fps only while
+// it is the picture, the marquee only when the title is too long), and everything stops while the window is hidden, minimised or
 // covered (WoW in front): the page's own visibility plus the main process's word.
 import { P, loadTex, rr, rrMask, fills, spr, art, GLYPH, pin, cover, mix, hex, paperAt } from './player/pix.js';
 import * as S from './player/scenes.js';
-import { Timeline, nextVis, nextScene, SCENES, fmtTime, marqueeOffset, barLevels, Peaks } from './playerstate.js';
+import { Timeline, fmtTime, marqueeOffset, barLevels, Peaks, pictureName } from './playerstate.js';
 
 const api = window.player;
 const H = 104, SH = 26;                          // art pixels; the window is twice that
@@ -19,7 +21,6 @@ const H = 104, SH = 26;                          // art pixels; the window is tw
 let W = 212, HT = H, TALL = false;
 const a2 = (n) => n * P;
 const SHADE_PX = a2(SH);
-const SCENE_NAME = { campfire: 'Campfire in Waymark’s forest', skate: 'Skating the boulevard', rain: 'Rain on the window', fishing: 'Caribbean sunset, fishing' };
 const SKATER = 'tee';                            // his pick: white tee + plum trousers (legs rimmed)
 
 const KNOB = ['..OOOOO..', '.OHHHFFO.', 'OHHFFFFSO', 'OHFFFFFSO', 'OHFFFFFSO', 'OFFFFFSSO', 'OFFFFSSSO', '.OFSSSSO.', '..OOOOO..'];
@@ -146,7 +147,8 @@ function drawCover(c, img) {
 
 // ---------------------------------------------------------------- state
 const tl = new Timeline();
-let ui = { vis: 'bars', scene: 'campfire', shade: false, pinned: false, opacity: 1, through: false };
+let ui = { picture: 'cover', bars: true, menu: false, shade: false, pinned: false, opacity: 1, through: false };
+const isScene = () => ui.picture !== 'cover';
 let awake = true;
 let coverImg = null;
 const peaks = new Peaks(14), peaks6 = new Peaks(6);
@@ -173,6 +175,9 @@ function buildFull() {
   F.lab = put(el('span', 'lab at'), a2(21), a2(10), 22);
   F.lab.hidden = TALL;
   F.fade = put(fadeSlider(), a2(9), a2(7), 24);
+  // his own menu: what the picture is, the bars on or off (the one door to them)
+  F.more = put(tkey('more', () => { const r = F.more.getBoundingClientRect(); api.menu({ x: r.left, y: r.top, width: r.width, height: r.height }); }), a2(W - (TALL ? 59 : 75)), a2(5), 30);
+  F.more.title = 'Picture and bars';
   F.pin = put(tkey('pin', () => api.pin(), {}), a2(W - (TALL ? 43 : 59)), a2(5), 30);
   F.pin.title = 'Pin on top (every pop-out follows)';
   F.pin.addEventListener('pointerenter', () => showFade(true));
@@ -189,16 +194,6 @@ function buildFull() {
   for (const c of [F.cov, F.scn]) { c.style.width = c.style.height = px + 'px'; }
   pic.append(F.cov, F.scn);
   drawCover(F.cov, coverImg);
-  pic.addEventListener('pointerdown', (e) => { if (ui.vis === 'scene') e.stopPropagation(); });
-  pic.addEventListener('dblclick', (e) => { if (ui.vis === 'scene') e.stopPropagation(); });
-  pic.addEventListener('click', (e) => { if (ui.vis !== 'scene') return; e.stopPropagation(); setScene(nextScene(ui.scene)); });
-  F.pager = put(el('div', 'pager'), a2(rx + R / 2) - 14, a2(21 + R + 1), 8);
-  for (const sn of SCENES) {
-    const d = el('i'); d.title = SCENE_NAME[sn]; d.dataset.s = sn;
-    d.addEventListener('pointerdown', (e) => e.stopPropagation());
-    d.addEventListener('click', (e) => { e.stopPropagation(); setScene(sn); });
-    F.pager.append(d);
-  }
   // the amber screen. Free or wide: time + bars | the song. A column: time + bars over the scrolling song.
   const LX = TALL ? 8 : 50, LY = TALL ? 21 + R + 5 : 21, lw = W - LX - 8, lh = TALL ? 30 : 38, div = TALL ? -1 : 61;
   put(rr(lw, lh, 7, { band: 'recess', shadow: 0, fill: (x, y) => (x === div && y > 4 && y < lh - 5 ? '#2c1a0e' : y % 2 ? mix('#1c110a', '#120a05', y / lh) : mix('#20140b', '#150c06', y / lh)) }), a2(LX), a2(LY), a2(lh)).classList.add('at');
@@ -234,14 +229,13 @@ function buildFull() {
   F.prev = put(makeKey(26, 19, () => api.cmd('prev')), a2(kx[0]), a2(ky), a2(20)); F.prev.draw('prev'); F.prev.title = 'Previous';
   F.play = put(makeKey(32, 19, () => api.cmd('toggle')), a2(kx[1]), a2(ky), a2(20)); F.play.title = 'Play / pause';
   F.next = put(makeKey(26, 19, () => api.cmd('next')), a2(kx[2]), a2(ky), a2(20)); F.next.draw('next'); F.next.title = 'Next';
-  const vy = TALL ? yb + 44 : 84, gx = TALL ? 8 : 106, vx = TALL ? 21 : 119, vw = TALL ? W - 21 - 46 : 48;
+  const vy = TALL ? yb + 44 : 84, gx = TALL ? 8 : 106, vx = TALL ? 21 : 119, vw = W - vx - 12;
   F.volIcon = put(spr(GLYPH.vol, { O: '#d8c8a8' }, { drop: 'rgba(0,0,0,.6)' }), a2(gx), a2(vy), 20); F.volIcon.classList.add('at');
   F.vx = vx; F.vw = vw;
   F.vol = put(pillCanvas(vw, 7, 0.7, CREAM), a2(vx), a2(vy), 14); F.vol.classList.add('at');
   F.volGrab = put(el('div', 'grab'), a2(vx) - 8, a2(vy - 4), 26);
   F.volGrab.style.width = a2(vw) + 16 + 'px'; F.volGrab.style.height = '26px'; F.volGrab.title = 'Spotify’s volume';
   F.volBead = put(bead(PLUMK), a2(vx - 4), a2(vy - 1), 20); F.volBead.classList.add('bead');
-  F.vis = put(makeKey(32, 19, () => setVis(nextVis(ui.vis)), 'vis'), a2(W - 40), a2(TALL ? yb + 39 : 78), a2(20));
   slider(F.seekGrab, (f, phase) => scrub(f, phase));
   slider(F.volGrab, (f, phase) => volume(f, phase));
   root.append(L);
@@ -266,7 +260,7 @@ function buildShade() {
 let shadeKey = '';
 function layShade() {
   // as wide as the strip allows: the screen takes whatever the player's width adds
-  const bars = ui.vis === 'bars', lw = (bars ? 112 : 132) + Math.max(0, W - 212), lh = 16, LX = 29, key = `${lw}`;
+  const bars = ui.bars, lw = (bars ? 112 : 132) + Math.max(0, W - 212), lh = 16, LX = 29, key = `${lw}`;
   if (key !== shadeKey) {
     shadeKey = key;
     Sh.recess.replaceChildren(rr(lw, lh, 5, { band: 'recess', shadow: 0, fill: (x, y) => (y % 2 ? '#1a100a' : '#20140b') }));
@@ -334,24 +328,18 @@ function volume(f, phase) {
 }
 
 // ---------------------------------------------------------------- painting what changed
-function setVis(v) { ui.vis = v; api.vis(v); paintMode(); }
-function setScene(s) { ui.scene = s; api.scene(s); drawScene(F.scn, s, frame % 8, frame); paintMode(); }
-
+/** The picture and the bars, as chosen in the menu: a scene cross-fades in over the cover (and back out to it). */
 function paintMode() {
-  const v = ui.vis;
-  F.vis.draw(null, { label: v === 'bars' ? 'BARS' : v === 'scene' ? 'SCENE' : 'OFF' });
-  F.vis.classList.toggle('held', v !== 'off');
-  F.vis.title = 'Visualizer: ' + (v === 'bars' ? 'bars' : v === 'scene' ? 'scene' : 'off') + ' (click for the next)';
-  F.pic.classList.toggle('scene', v === 'scene');
-  F.pic.classList.toggle('click', v === 'scene');
-  F.pic.title = v === 'scene' ? SCENE_NAME[ui.scene] + ' (click for the next scene)' : '';
-  F.pager.hidden = v !== 'scene';
-  for (const d of F.pager.children) d.classList.toggle('on', d.dataset.s === ui.scene);
-  if (v === 'scene') drawScene(F.scn, ui.scene, frame % 8, frame);
-  F.bars.style.display = v === 'off' ? 'none' : '';
-  F.time.classList.toggle('big', v === 'off');
-  F.time.style.top = v === 'off' ? '14px' : '6px';
-  if (v !== 'off') drawBars(F.bars, new Array(F.nb).fill(0.08), new Array(F.nb).fill(0.12));
+  const sc = isScene();
+  F.pic.classList.toggle('scene', sc);
+  F.pic.title = sc ? pictureName(ui.picture) : '';
+  F.pic.dataset.picture = ui.picture;
+  if (sc) drawScene(F.scn, ui.picture, frame % 8, frame);
+  F.bars.style.display = ui.bars ? '' : 'none';
+  F.time.classList.toggle('big', !ui.bars);
+  F.time.style.top = ui.bars ? '6px' : '14px';
+  if (ui.bars) drawBars(F.bars, new Array(F.nb).fill(0.08), new Array(F.nb).fill(0.12));
+  F.more.draw('more', !!ui.menu);
   layShade();
   wake();
 }
@@ -419,8 +407,8 @@ function needs() {
   let ms = 0;
   const want = (n) => { ms = ms ? Math.min(ms, n) : n; };
   if (tl.playing || scrubbing !== null) want(100);
-  if (ui.vis === 'scene' && !shadeShown()) want(100);
-  if (ui.vis !== 'off' && tl.playing) want(33);
+  if (isScene() && !shadeShown()) want(100);
+  if (ui.bars && tl.playing) want(33);
   if (marqueeLive()) want(60);
   return ms;
 }
@@ -447,15 +435,15 @@ function tick() {
     if (!sc.nextSibling || !sc.nextSibling.classList?.contains('again')) { const c2 = el('span', 'scroll again'); c2.style.cssText = sc.style.cssText; pane.append(c2); }
     const again = sc.nextSibling; again.textContent = sc.textContent; again.style.transform = `translateX(${lap - off}px)`; again.style.top = sc.style.top; again.style.fontSize = sc.style.fontSize;
   } else { sc.style.transform = ''; if (sc.nextSibling?.classList?.contains('again')) sc.nextSibling.remove(); }
-  // the bars, 30 fps, only while playing (SCENE keeps them in the screen too; the shade shows them in BARS only)
-  if (ui.vis !== 'off' && tl.playing && now - lastBars >= 30) {
+  // the bars, 30 fps, only while playing and on (the screen and the shade alike)
+  if (ui.bars && tl.playing && now - lastBars >= 30) {
     const dt = lastBars ? Math.min(0.1, (now - lastBars) / 1000) : 0.03; lastBars = now; barT += dt;
     const lv = barLevels(barT);
     if (!shadeShown()) { const l = lv.slice(0, F.nb); drawBars(F.bars, l, peaks.step(l, dt)); }
-    else if (ui.vis === 'bars') { const l6 = [lv[0], lv[2], lv[4], lv[6], lv[9], lv[12]]; drawBars(Sh.bars, l6, peaks6.step(l6, dt), { h: 12 }); }
+    else { const l6 = [lv[0], lv[2], lv[4], lv[6], lv[9], lv[12]]; drawBars(Sh.bars, l6, peaks6.step(l6, dt), { h: 12 }); }
   }
   // the scene, 10 fps
-  if (ui.vis === 'scene' && !shadeShown() && now - lastScene >= 100) { lastScene = now; frame++; drawScene(F.scn, ui.scene, frame % 8, frame); }
+  if (isScene() && !shadeShown() && now - lastScene >= 100) { lastScene = now; frame++; drawScene(F.scn, ui.picture, frame % 8, frame); }
   const ms = needs();
   if (ms) timer = setTimeout(tick, Math.max(16, ms - ((performance.now() - now) | 0)));
 }
@@ -537,7 +525,7 @@ api.onMedia((m) => {
 });
 api.onUi((u) => {
   if (!u || typeof u !== 'object') return;
-  const modeChanged = u.vis !== ui.vis || u.scene !== ui.scene, shadeChanged = u.shade !== ui.shade;
+  const modeChanged = u.picture !== ui.picture || u.bars !== ui.bars || u.menu !== ui.menu, shadeChanged = u.shade !== ui.shade;
   ui = { ...ui, ...u };
   F.pin.draw('pin', ui.pinned); Sh.pin.draw('pin', ui.pinned);
   F.fade.set(ui.opacity);

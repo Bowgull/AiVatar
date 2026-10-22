@@ -23,13 +23,21 @@ export function checkPlayerCmd(m: unknown): PlayerCmd | null {
   return null;
 }
 
-/** What the player remembers between runs (his VIS pick, the scene, folded or not, where he left it). */
-export interface PlayerPrefs { vis: 'bars' | 'scene' | 'off'; scene: string; shade: boolean; x?: number; y?: number }
-export const VIS = new Set(['bars', 'scene', 'off']);
+/**
+ * What the player remembers between runs. 2026-10-22 (his report: "the bars / scene thing is so confusing"): the old VIS
+ * key (BARS -> SCENE -> OFF) is gone; two plain choices in the player's own menu instead. `picture` is what sits in the
+ * picture spot (the album cover, or one of the four looping scenes); `bars` is the dancing bars on the screen, on or off.
+ * Folded or not, and where he left it. An old file (vis + scene) is read into the new two.
+ */
+export interface PlayerPrefs { picture: string; bars: boolean; shade: boolean; x?: number; y?: number }
 export const SCENES = new Set(['campfire', 'skate', 'rain', 'fishing']);
+export const PICTURES = new Set(['cover', ...SCENES]);
 export function readPrefs(raw: unknown): PlayerPrefs {
   const o = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {};
-  const p: PlayerPrefs = { vis: VIS.has(o.vis as string) ? o.vis as PlayerPrefs['vis'] : 'bars', scene: SCENES.has(o.scene as string) ? String(o.scene) : 'campfire', shade: o.shade === true };
+  const pic = typeof o.picture === 'string' && PICTURES.has(o.picture) ? o.picture
+    : o.vis === 'scene' && typeof o.scene === 'string' && SCENES.has(o.scene) ? o.scene : 'cover';
+  const bars = typeof o.bars === 'boolean' ? o.bars : o.vis !== 'off';
+  const p: PlayerPrefs = { picture: pic, bars, shade: o.shade === true };
   if (Number.isFinite(o.x) && Number.isFinite(o.y)) { p.x = Math.round(o.x as number); p.y = Math.round(o.y as number); }
   return p;
 }

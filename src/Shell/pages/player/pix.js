@@ -169,6 +169,8 @@ export const GLYPH = {
   shade: ['.......', '.......', '.......', 'OOOOOOO', 'OOOOOOO', '.......', '.......'],
   full: ['OOOOOOO', 'O.....O', 'O.....O', 'O.....O', 'O.....O', 'O.....O', 'OOOOOOO'],
   close: ['O.....O', '.O...O.', '..O.O..', '...O...', '..O.O..', '.O...O.', 'O.....O'],
+  // the player's own menu key (2026-10-22): three round-ish dots
+  more: ['OO.OO.OO', 'OO.OO.OO'],
   vol: ['....O....', '...OO..O.', 'OOOOO...O', 'OOOOO.O.O', 'OOOOO.O.O', 'OOOOO.O.O', 'OOOOO...O', '...OO..O.', '....O....'],
   bars: ['......O..', '......O..', '...O..O..', '...O..O.O', '.O.O..O.O', '.O.O.OO.O', '.O.OOOO.O', 'OOOOOOOOO', '.........'],
   shuffle: ['......O..', 'OO...OOO.', '..O.O.O..', '...O.....', '..O.O.O..', 'OO...OOO.', '......O..'],

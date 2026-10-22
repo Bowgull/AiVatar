@@ -2,13 +2,13 @@
 //   - the time between the brain's updates: moves while playing, holds while paused, eases small corrections in
 //     instead of jumping, takes real jumps (a seek, a new song) at once, keeps a seek he just made;
 //   - the keys: only the seven ops become `media.cmd`, numbers in range, anything else refused, never fixed;
-//   - the VIS key cycles BARS -> SCENE -> OFF, the picture's scenes cycle, what it remembers is read back safely;
+//   - the picture choices carry his names, what it remembers (picture, bars) is read back safely, old files too;
 //   - the marquee rests, then steps whole pixels, only when the title is too long; the fold's spring settles.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { Timeline, nextVis, nextScene, fmtTime, marqueeOffset, spring, Peaks, barLevels } from '../pages/playerstate.js';
+import { Timeline, PICTURES, pictureName, fmtTime, marqueeOffset, spring, Peaks, barLevels } from '../pages/playerstate.js';
 import { checkPlayerCmd, readPrefs, springAt } from '../src/playercmd.ts';
 
 const now0 = 1_000_000;
@@ -83,12 +83,15 @@ test('the keys: only the seven ops, numbers in range, rebuilt clean', () => {
   for (const b of bad) assert.equal(checkPlayerCmd(b), null, JSON.stringify(b));
 });
 
-test('VIS cycles BARS -> SCENE -> OFF; scenes cycle; what it remembers is read back safely', () => {
-  assert.equal(nextVis('bars'), 'scene'); assert.equal(nextVis('scene'), 'off'); assert.equal(nextVis('off'), 'bars'); assert.equal(nextVis('junk'), 'bars');
-  assert.deepEqual(['campfire', 'skate', 'rain', 'fishing'].map(nextScene), ['skate', 'rain', 'fishing', 'campfire']);
-  assert.deepEqual(readPrefs({ vis: 'scene', scene: 'rain', shade: true, x: 10.4, y: 20 }), { vis: 'scene', scene: 'rain', shade: true, x: 10, y: 20 });
-  assert.deepEqual(readPrefs({ vis: 'disco', scene: '../evil', shade: 'yes', x: 'a' }), { vis: 'bars', scene: 'campfire', shade: false });
-  assert.deepEqual(readPrefs(null), { vis: 'bars', scene: 'campfire', shade: false });
+test('the picture and the bars: his names; what it remembers is read back safely, old VIS files too', () => {
+  assert.deepEqual(PICTURES.map((p) => p.name), ['Album cover', 'Algonquin', 'Dem Streez', 'Main Character', 'Pigeon Point']);
+  assert.equal(pictureName('skate'), 'Dem Streez'); assert.equal(pictureName('junk'), 'Album cover');
+  assert.deepEqual(readPrefs({ picture: 'rain', bars: false, shade: true, x: 10.4, y: 20 }), { picture: 'rain', bars: false, shade: true, x: 10, y: 20 });
+  assert.deepEqual(readPrefs({ picture: '../evil', bars: 'yes', shade: 'yes', x: 'a' }), { picture: 'cover', bars: true, shade: false });
+  assert.deepEqual(readPrefs(null), { picture: 'cover', bars: true, shade: false });
+  // an old file: SCENE kept its scene, OFF meant no bars
+  assert.deepEqual(readPrefs({ vis: 'scene', scene: 'fishing' }), { picture: 'fishing', bars: true, shade: false });
+  assert.deepEqual(readPrefs({ vis: 'off', scene: 'rain' }), { picture: 'cover', bars: false, shade: false });
 });
 
 test('marquee: rests 1.5 s, then 1 px every 60 ms, only when too long; springs settle; peaks hang then fall', () => {
