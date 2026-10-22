@@ -154,7 +154,7 @@ app.whenReady().then(async () => {
   const wig = await jjs(`document.documentElement.classList.contains('fam-wiggle') && getComputedStyle(document.querySelector('.fam-rim')).opacity`);
   check('the gold rim shows on the wiggling job; sides round again', wig === '1' && (await jjs(`document.documentElement.dataset.famJoin`)) === '', wig);
   const hint = ov.w?.isVisible() && await ojs(`document.querySelector('.plate.hint')?.textContent`);
-  check('the hint line shows over the desktop catcher', /Drag one out.*ESC.*to join back/.test(String(hint)), hint);
+  check('no hint line over the desktop catcher (his call, 2026-10-22)', !hint, String(hint));
   await composite('family-apart.png', hint ? [] : []);
 
   // 9. Drag the job 100 px out: free, its own size, no longer wiggling.

@@ -100,16 +100,7 @@ function showCatch(m) {
   clear();
   mode = 'catch';
   document.body.classList.add('catch');
-  const p = h('div', 'plate hint');
-  p.append('Drag one out', h('i', '', '·'), h('b', 'kc', 'ESC'), ' to join back');
-  document.body.append(p);
-  hintEl = p;
-  const r = p.getBoundingClientRect();
-  const x = Math.max(8, Math.min(innerWidth - r.width - 8, (Number(m.x) || 0) - r.width / 2));
-  let y = (Number(m.y) || 0) - r.height - 12;
-  if (y < 8) y = 8;
-  p.style.left = Math.round(x) + 'px'; p.style.top = Math.round(y) + 'px';
-  requestAnimationFrame(() => p.classList.add('on'));
+  // No hint line (his call, 2026-10-22: "I don't need it at all, get rid of it"): the catcher only takes the click and Esc.
 }
 
 api?.on((m) => {
