@@ -67,3 +67,10 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#
 
 /* the family's click-through: nothing reacts */
 html.fam-through .key,html.fam-through .tkey,html.fam-through .grab,html.fam-through .pic{cursor:default}
+
+/* Spotify Connect (2026-10-22): the device it plays on, after the status ("PLAYING  [phone] IPHONE"), and one plain line
+   in the album's place when Spotify cannot be reached */
+.tags .dev{display:inline-flex;align-items:center;gap:4px;margin-left:8px;vertical-align:top}
+.tags .dev canvas{display:inline-block;image-rendering:pixelated}
+.tags .dev b{font-weight:400;color:#ffc43c}
+.sub.note{color:#f0a070}

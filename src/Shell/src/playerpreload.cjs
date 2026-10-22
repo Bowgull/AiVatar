@@ -9,6 +9,8 @@ contextBridge.exposeInMainWorld('player', {
   onMedia: on('player:media'),
   onUi: on('player:ui'),
   onAwake: on('player:awake'),
+  // Spotify Connect (2026-10-22): one plain line when Spotify cannot be reached (null when all is well again).
+  onNote: on('player:note'),
   ready: () => ipcRenderer.send('player:ready'),
   cmd: (op, value) => ipcRenderer.send('player:cmd', typeof value === 'number' ? { op: String(op), value } : { op: String(op) }),
   // 2026-10-22: the player's own menu (the ··· key). `menu` opens it under the key (its box in page pixels); the menu

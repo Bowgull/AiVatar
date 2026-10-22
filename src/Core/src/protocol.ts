@@ -114,6 +114,9 @@ export type ToBody =
   | MediaCmd
   /** The mini player (2026-10-22): open it ("show the music player"). */
   | { t: 'player.open' }
+  /** Spotify Connect (connect.ts): the devices for the player's menu, and one plain line when Spotify can't be reached (null: gone). */
+  | { t: 'media.devices'; devices: { id: string; name: string; kind: string; active: boolean }[]; error?: string }
+  | { t: 'media.note'; text: string | null }
   /**
    * The Shell owns the hotkey when the new front end is on (6.12b), opens its own typing box at once,
    * and tells the pet only to come out from the edge (`summon`) or go back (`dismiss`).
@@ -430,6 +433,10 @@ export type FromBody =
   /** media.ts: the pet's now-playing feed, and the player window's buttons. */
   | MediaNow
   | MediaCmd
+  /** The player window showing or not (Spotify Connect is asked only while it shows), its device menu, a move. Shell only. */
+  | { t: 'player.watch'; visible: boolean }
+  | { t: 'media.devices.get' }
+  | { t: 'media.transfer'; id: string }
   /** `client` says who is on the other end; the desktop Body leaves it out. */
   | { t: 'hello'; v: number; pid?: number; client?: 'desktop' | 'discord';
       /** Set by the Electron Shell, which is a desktop client like the pet but is the only one that can

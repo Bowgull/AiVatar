@@ -26,7 +26,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { SAFE_WEB_PREFERENCES, denyPermissions, lockDown } from './safety.ts';
 import { softEdge } from './winedge.ts';
 import type { FamilyHooks } from './familywin.ts';
-import { checkPlayerCmd, readPrefs, springAt, PICTURES, type PlayerCmd, type PlayerPrefs } from './playercmd.ts';
+import { checkPlayerCmd, readPrefs, springAt, readDevices, DEVICE_ID, PICTURES, type PlayerCmd, type PlayerPrefs, type PlayerDevice } from './playercmd.ts';
 
 /** CSS pixels: the art is 212 x 104 art pixels at exactly 2x; the shade is 26 art pixels tall, the same width. */
 export const FULL_W = 424, FULL_H = 208, SHADE_H = 52;
@@ -36,8 +36,8 @@ export const PLAYER_LAYOUTS = { tall: { width: 200, minHeight: 300 }, wide: { he
 export const FOLD = { response: 0.5, damping: 0.825 };
 const MIN_OPACITY = 0.3;
 
-export { checkPlayerCmd, readPrefs, springAt } from './playercmd.ts';
-export type { PlayerCmd, PlayerPrefs } from './playercmd.ts';
+export { checkPlayerCmd, readPrefs, springAt, readDevices } from './playercmd.ts';
+export type { PlayerCmd, PlayerPrefs, PlayerDevice } from './playercmd.ts';
 
 export interface MiniPlayerOptions {
   origin: string;
@@ -49,7 +49,15 @@ export interface MiniPlayerOptions {
   onCmd?: (c: PlayerCmd) => void;
   /** Off only in the offscreen test, where the window lives far off any display on purpose. */
   clampToScreen?: boolean;
+  /**
+   * Spotify Connect (2026-10-22): the window showing or not (the brain asks Spotify about his other devices only while
+   * it shows), the menu wanting the device list, and his pick of a device to move the music to (already checked).
+   */
+  onWatch?: (visible: boolean) => void;
+  onDevices?: () => void;
+  onTransfer?: (id: string) => void;
 }
+
 
 export class MiniPlayer {
   private w: BrowserWindow | null = null;
@@ -63,6 +71,11 @@ export class MiniPlayer {
   private menuOpen = false;
   private drag: { x: number; y: number } | null = null;
   private fold: { from: number; to: number; t0: number; timer: NodeJS.Timeout } | null = null;
+  /** Spotify Connect: the last word sent to the brain about being seen, the plain line, the device list (null: asking). */
+  private watched: boolean | null = null;
+  private note: string | null = null;
+  private devs: PlayerDevice[] | null = null;
+  private devErr: string | null = null;
   /** Set by familywire.ts. */
   family: FamilyHooks | null = null;
   /** Its own menu (the ··· key): what the picture is, the bars on or off. */
@@ -73,8 +86,9 @@ export class MiniPlayer {
     let raw: unknown = null;
     try { if (o.prefsFile) raw = JSON.parse(readFileSync(o.prefsFile, 'utf8')); } catch { /* first run */ }
     this.prefs = readPrefs(raw);
-    this.menu = new PlayerMenu(o, () => ({ picture: this.prefs.picture, bars: this.prefs.bars, cover: typeof this.now?.thumb === 'string' ? this.now.thumb : null }),
-      (kind, v) => this.choose(kind, v), (open) => { this.menuOpen = open; this.send('player:ui', this.ui()); });
+    this.menu = new PlayerMenu(o, () => ({ picture: this.prefs.picture, bars: this.prefs.bars, cover: typeof this.now?.thumb === 'string' ? this.now.thumb : null, devices: this.devs, devicesError: this.devErr }),
+      (kind, v) => this.choose(kind, v), (open) => { this.menuOpen = open; this.send('player:ui', this.ui()); },
+      () => { this.devs = null; this.devErr = null; this.o.onDevices?.(); });
     players.add(this);
     wireIpc();
   }
@@ -86,7 +100,7 @@ export class MiniPlayer {
   /** Open it (or bring it back where it was). */
   open(): BrowserWindow {
     const had = this.window;
-    if (had) { if (!had.isVisible()) had.showInactive(); this.family?.add(this.member()); this.push(); return had; }
+    if (had) { if (!had.isVisible()) had.showInactive(); this.family?.add(this.member()); this.push(); this.watch(); return had; }
     const h = this.prefs.shade ? SHADE_H : FULL_H;
     const at = this.spot(h);
     const w = new BrowserWindow({
@@ -108,14 +122,15 @@ export class MiniPlayer {
     denyPermissions(w.webContents.session);
     softEdge(w);
     this.w = w;
-    w.on('closed', () => { if (this.w === w) { this.w = null; this.stopFold(); this.menu.close(); } });
-    // Hidden, minimised or covered: the page stops its scenes and bars (it also hears the page's own visibility).
-    const awake = () => this.send('player:awake', !w.isDestroyed() && w.isVisible() && !w.isMinimized());
+    w.on('closed', () => { if (this.w === w) { this.w = null; this.stopFold(); this.menu.close(); this.watch(); } });
+    // Hidden, minimised or covered: the page stops its scenes and bars (it also hears the page's own visibility), and
+    // the brain stops asking Spotify about his other devices.
+    const awake = () => { this.send('player:awake', !w.isDestroyed() && w.isVisible() && !w.isMinimized()); this.watch(); };
     for (const ev of ['show', 'hide', 'minimize', 'restore'] as const) w.on(ev as 'show', awake);
     w.on('moved', () => { this.savePlace(); this.menu.close(); });
     w.on('hide', () => this.menu.close());
     void w.loadURL(`${this.o.origin}/miniplayer.html`);
-    w.once('ready-to-show', () => { if (!w.isDestroyed()) { w.showInactive(); this.applyMouse(); } });
+    w.once('ready-to-show', () => { if (!w.isDestroyed()) { w.showInactive(); this.applyMouse(); this.watch(); } });
     this.family?.add(this.member());
     return w;
   }
@@ -128,6 +143,7 @@ export class MiniPlayer {
     this.menu.close();
     w.destroy();
     this.w = null;
+    this.watch();
   }
   toggle(): void { if (this.visible) this.close(); else this.open(); }
 
@@ -139,6 +155,31 @@ export class MiniPlayer {
     else this.now = { ...(prev ?? {}), ...m, thumb: m.thumb !== undefined ? m.thumb : prev?.thumb ?? null };
     this.send('player:media', m.thumb === undefined && prev ? { ...m } : this.now);
   }
+
+  /** Tell the brain whether the player can be seen, only when that changes. */
+  private watch(): void {
+    const w = this.window;
+    const on = !!w && w.isVisible() && !w.isMinimized();
+    if (on === this.watched) return;
+    if (!on && this.watched === null) { this.watched = false; return; }
+    this.watched = on;
+    this.o.onWatch?.(on);
+  }
+  get watching(): boolean { return this.watched === true; }
+  /** Say it again (a brain that just started knows nothing): only when it is showing. */
+  rewatch(): void { if (this.watched) this.o.onWatch?.(true); }
+  /** The brain's one plain line (Spotify cannot be reached), or null when all is well. */
+  setNote(t: unknown): void {
+    this.note = typeof t === 'string' && t ? t.slice(0, 80) : null;
+    this.send('player:note', this.note);
+  }
+  /** The brain's device list, for the menu (shown at once if the menu is up). */
+  setDevices(m: unknown): void {
+    const r = readDevices(m);
+    this.devs = r.devices; this.devErr = r.error;
+    this.menu.refresh();
+  }
+  get devices(): PlayerDevice[] | null { return this.devs; }
 
   // ---------------------------------------------------------------- the page's doors (matched to this window)
 
@@ -255,6 +296,7 @@ export class MiniPlayer {
   private push(): void {
     this.send('player:ui', this.ui());
     if (this.now) this.send('player:media', this.now);
+    if (this.note) this.send('player:note', this.note);
   }
   private send(ch: string, v: unknown): void {
     const w = this.window;
@@ -292,8 +334,11 @@ export class MiniPlayer {
 
 // ------------------------------------------------------------------------------------------------ its own menu
 
-/** What the menu shows: the picture now, the bars on or off, and the album cover (a data: picture) for its thumbnail. */
-export interface PlayerMenuState { picture: string; bars: boolean; cover: string | null }
+/**
+ * What the menu shows: the picture now, the bars on or off, the album cover (a data: picture) for its thumbnail, and
+ * Spotify's devices to move the music to (null while asking; an error line when Spotify cannot be reached).
+ */
+export interface PlayerMenuState { picture: string; bars: boolean; cover: string | null; devices?: PlayerDevice[] | null; devicesError?: string | null }
 
 /**
  * The player's own menu (2026-10-22, his report: "shouldn't this just be hidden behind a click somewhere?"). The ··· key
@@ -316,8 +361,16 @@ export class PlayerMenu {
   private readonly state: () => PlayerMenuState;
   private readonly choose: (kind: string, v: unknown) => void;
   private readonly openChanged: (open: boolean) => void;
-  constructor(o: MiniPlayerOptions, state: () => PlayerMenuState, choose: (kind: string, v: unknown) => void, openChanged: (open: boolean) => void) {
-    this.o = o; this.state = state; this.choose = choose; this.openChanged = openChanged;
+  private readonly opening: () => void;
+  constructor(o: MiniPlayerOptions, state: () => PlayerMenuState, choose: (kind: string, v: unknown) => void, openChanged: (open: boolean) => void, opening: () => void = () => {}) {
+    this.o = o; this.state = state; this.choose = choose; this.openChanged = openChanged; this.opening = opening;
+  }
+  /** What it shows changed (the device list came): drawn again where it is. */
+  refresh(): void {
+    const w = this.window;
+    if (!w || !(this.visible || this.pending)) return;
+    const send = () => { if (!w.isDestroyed()) w.webContents.send('player:menushow', this.state()); };
+    if (w.webContents.isLoading()) w.webContents.once('did-finish-load', send); else send();
   }
 
   get visible(): boolean { return !!this.win && !this.win.isDestroyed() && this.win.isVisible(); }
@@ -349,6 +402,7 @@ export class PlayerMenu {
     // A click on ··· while the menu is up first takes its focus away (it closes on that); that click must not reopen it.
     if (this.visible || this.pending || Date.now() - this.closedAt < 300) { this.close(); return; }
     this.key = key; this.player = player;
+    this.opening();
     const w = this.ensure();
     this.pending = true;
     const send = () => { if (!w.isDestroyed()) w.webContents.send('player:menushow', this.state()); };
@@ -390,6 +444,8 @@ export class PlayerMenu {
     const { kind, value } = m as { kind?: unknown; value?: unknown };
     this.close();
     if (kind === 'picture' || kind === 'bars') this.choose(kind, value);
+    // Spotify Connect: move the music to that device
+    else if (kind === 'device' && typeof value === 'string' && DEVICE_ID.test(value)) this.o.onTransfer?.(value);
   }
 
   close(): void {
@@ -442,10 +498,15 @@ export function wireMiniPlayer(o: { origin: string; preloadPath: string; iconPat
   const player = new MiniPlayer({
     origin: o.origin, preloadPath: o.preloadPath, iconPath: o.iconPath, prefsFile: o.prefsFile,
     onCmd: (c) => o.send(c as unknown as Record<string, unknown>),
+    onWatch: (visible) => o.send({ t: 'player.watch', visible }),
+    onDevices: () => o.send({ t: 'media.devices.get' }),
+    onTransfer: (id) => o.send({ t: 'media.transfer', id }),
   });
   const fromBrain = (m: Record<string, unknown>): boolean => {
     if (m.t === 'media.now') { player.media(m); return false; }      // others may want it too (the bubble's whisper)
     if (m.t === 'player.open') { player.open(); return true; }
+    if (m.t === 'media.note') { player.setNote(m.text); return true; }
+    if (m.t === 'media.devices') { player.setDevices(m); return true; }
     return false;
   };
   return { player, fromBrain };

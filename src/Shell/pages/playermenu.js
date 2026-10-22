@@ -10,13 +10,24 @@ import { PICTURES } from './playerstate.js';
 
 const api = window.player;
 const P = 2;
-const SKATER = 'tee';
+const SKATER = 'mustard';
 
 // ---------------------------------------------------------------- hand-placed 11x11 icons (aangmenu.js's tick, at 2x)
 const ICONS = {
   tick: ['...........', '...........', '..........O', '.........OO', 'O.......OO.', 'OO.....OO..', '.OO...OO...', '..OO.OO....', '...OOO.....', '....O......', '...........'],
   bars: ['...........', '........O..', '........O..', '....O...O..', '....O...O.O', '.O..O.O.O.O', '.O..O.O.O.O', '.O.OO.O.OOO', '.OOOOOOOOOO', '...........', 'OOOOOOOOOOO'],
 };
+// Spotify Connect's devices (2026-10-22), the same six little pictures as the player's screen, centred in 11 x 11
+const DEV = {
+  phone: ['OOOO', 'O..O', 'O..O', 'O..O', 'OOOO', 'OOOO'],
+  computer: ['.OOOOO.', '.O...O.', '.O...O.', '.OOOOO.', 'OOOOOOO'],
+  speaker: ['OOOOO', 'OO.OO', 'O...O', 'O.O.O', 'O...O', 'OOOOO'],
+  tv: ['OOOOOOO', 'O.....O', 'O.....O', 'OOOOOOO', '..O.O..', '.OOOOO.'],
+  car: ['..OOO..', '.O...O.', 'OOOOOOO', 'OOOOOOO', '.O...O.'],
+  other: ['..OOO', '..O.O', '..O..', 'OOO..', 'OOO..', '.O...'],
+};
+const in11 = (m) => { const w = m[0].length, l = Math.floor((11 - w) / 2), t = Math.floor((11 - m.length) / 2); return Array.from({ length: 11 }, (_, y) => (y >= t && y < t + m.length ? '.'.repeat(l) + m[y - t] + '.'.repeat(11 - l - w) : '.'.repeat(11))); };
+for (const [k, m] of Object.entries(DEV)) ICONS['dev-' + k] = in11(m);
 const TONE = { O: '#d8c8a8', sh: 'rgba(0,0,0,.65)', tick: '#ffe28c' };
 const dprPx = (n) => Math.max(1, Math.round(n * (window.devicePixelRatio || 1)));
 function icon(name, col = TONE.O) {
@@ -98,6 +109,17 @@ function build(st) {
   const bars = button(st.bars ? 'on' : '', { icon: icon('bars'), text: 'Bars on the screen', tick: !!st.bars }, () => api.menuPick('bars', !st.bars));
   bars.dataset.bars = st.bars ? 'on' : 'off'; bars.setAttribute('role', 'menuitemcheckbox'); bars.setAttribute('aria-checked', String(!!st.bars));
   m.append(bars);
+  // Spotify Connect: where the music plays. A tick on the device playing now; another one moves it there.
+  m.append(Object.assign(document.createElement('div'), { className: 'sep' }));
+  m.append(Object.assign(document.createElement('div'), { className: 'mhead', textContent: 'PLAY ON' }));
+  const quiet = (text) => { const b = button('dev quiet', { text }, () => {}); b.disabled = true; b.dataset.devices = 'none'; return b; };
+  if (st.devices === null || st.devices === undefined) m.append(quiet(st.devicesError || 'Looking for devices…'));
+  else if (!st.devices.length) m.append(quiet(st.devicesError || 'No Spotify open anywhere'));
+  else for (const d of st.devices) {
+    const b = button('dev' + (d.active ? ' on' : ''), { icon: icon('dev-' + (DEV[d.kind] ? d.kind : 'other')), text: d.name, tick: d.active }, () => api.menuPick(d.active ? 'close' : 'device', d.id));
+    b.dataset.device = d.id; b.setAttribute('aria-checked', String(!!d.active));
+    m.append(b);
+  }
   return m;
 }
 
